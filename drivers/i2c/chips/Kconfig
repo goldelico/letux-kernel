@@ -174,4 +174,14 @@ config MENELAUS
 	  and other features that are often used in portable devices like
 	  cell phones and PDAs.
 
+config SENSORS_TSL256X
+	tristate "Texas TSL256X Ambient Light Sensor"
+	depends on I2C
+	help
+	  If you say yes here you get support for the Texas TSL256X
+	  ambient light sensor chip.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called tsl256x.
+
 endmenu
