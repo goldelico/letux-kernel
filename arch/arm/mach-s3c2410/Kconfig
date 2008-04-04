@@ -9,6 +9,7 @@ config CPU_S3C2410
 	depends on ARCH_S3C2410
 	select S3C2410_CLOCK
 	select S3C2410_GPIO
+	select S3C2410_PWM
 	select CPU_LLSERIAL_S3C2410
 	select S3C2410_PM if PM
 	help
@@ -36,6 +37,11 @@ config S3C2410_CLOCK
 	bool
 	help
 	  Clock code for the S3C2410, and similar processors
+
+config S3C2410_PWM
+	bool
+	help
+	  PWM timer code for the S3C2410, and similar processors
 
 
 menu "S3C2410 Machines"
