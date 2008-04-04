@@ -1536,6 +1536,14 @@ P:	Akinobu Mita
 M:	akinobu.mita@gmail.com
 S:	Supported
 
+FIC/OPENMOKO NEO1973 GSM PHONE
+P:	Harald Welte
+M:	laforge@openmoko.org
+L:	openmoko-kernel@lists.openmoko.org
+W:	http://wiki.openmoko.org/wiki/Kernel
+W:	http://wiki.openmoko.org/wiki/Neo1973
+S:	Maintained
+
 FRAMEBUFFER LAYER
 P:	Antonino Daplas
 M:	adaplas@gmail.com

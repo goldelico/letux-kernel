@@ -46,4 +46,9 @@ config MACH_SMDK
 	help
 	  Common machine code for SMDK2410 and SMDK2440
 
+config MACH_NEO1973
+	bool
+	help
+	  Common machine code for Neo1973 hardware
+
 endif
