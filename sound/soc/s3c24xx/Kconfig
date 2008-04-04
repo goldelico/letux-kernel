@@ -25,6 +25,15 @@ config SND_S3C24XX_SOC_NEO1973_WM8753
 	  Say Y if you want to add support for SoC audio on smdk2440
 	  with the WM8753.
 
+config SND_S3C24XX_SOC_NEO1973_GTA02_WM8753
+	tristate "SoC I2S Audio support for NEO1973 GTA02 - WM8753"
+	depends on SND_S3C24XX_SOC && MACH_NEO1973_GTA02
+	select SND_S3C24XX_SOC_I2S
+	select SND_SOC_WM8753
+	help
+	  Say Y if you want to add support for SoC audio on neo1973 gta02
+	  with the WM8753 codec
+
 config SND_S3C24XX_SOC_SMDK2443_WM9710
 	tristate "SoC AC97 Audio support for SMDK2443 - WM9710"
 	depends on SND_S3C24XX_SOC && MACH_SMDK2443
