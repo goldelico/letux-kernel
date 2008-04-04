@@ -155,9 +155,37 @@
 #define IRQ_S3C2443_AC97	S3C2410_IRQSUB(28)
 
 #ifdef CONFIG_CPU_S3C2443
-#define NR_IRQS (IRQ_S3C2443_AC97+1)
+#define _NR_IRQS (IRQ_S3C2443_AC97+1)
 #else
-#define NR_IRQS (IRQ_S3C2440_AC97+1)
+#define _NR_IRQS (IRQ_S3C2440_AC97+1)
 #endif
+
+/*
+ * The next 16 interrupts are for board specific purposes.  Since
+ * the kernel can only run on one machine at a time, we can re-use
+ * these.  If you need more, increase IRQ_BOARD_END, but keep it
+ * within sensible limits.
+ */
+#define IRQ_BOARD_START		_NR_IRQS
+#define IRQ_BOARD_END		(_NR_IRQS + 10)
+
+#if defined(CONFIG_MACH_NEO1973_GTA02)
+#define NR_IRQS			(IRQ_BOARD_END)
+#else
+#define NR_IRQS			(IRQ_BOARD_START)
+#endif
+
+/* Neo1973 GTA02 interrupts */
+#define NEO1973_GTA02_IRQ(x)	(IRQ_BOARD_START + (x))
+#define IRQ_GLAMO(x)		NEO1973_GTA02_IRQ(x)
+#define IRQ_GLAMO_HOSTBUS	IRQ_GLAMO(0)
+#define IRQ_GLAMO_JPEG		IRQ_GLAMO(1)
+#define IRQ_GLAMO_MPEG		IRQ_GLAMO(2)
+#define IRQ_GLAMO_MPROC1	IRQ_GLAMO(3)
+#define IRQ_GLAMO_MPROC0	IRQ_GLAMO(4)
+#define IRQ_GLAMO_CMDQUEUE	IRQ_GLAMO(5)
+#define IRQ_GLAMO_2D		IRQ_GLAMO(6)
+#define IRQ_GLAMO_MMC		IRQ_GLAMO(7)
+#define IRQ_GLAMO_RISC		IRQ_GLAMO(8)
 
 #endif /* __ASM_ARCH_IRQ_H */
