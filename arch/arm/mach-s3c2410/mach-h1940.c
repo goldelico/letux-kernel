@@ -38,6 +38,7 @@
 #include <asm/arch/h1940.h>
 #include <asm/arch/h1940-latch.h>
 #include <asm/arch/fb.h>
+#include <asm/arch/tc.h>
 #include <asm/plat-s3c24xx/udc.h>
 
 #include <asm/plat-s3c24xx/clock.h>
@@ -129,6 +130,11 @@ static struct s3c2410_udc_mach_info h1940_udc_cfg __initdata = {
 	.vbus_pin_inverted	= 1,
 };
 
+static struct s3c2410_ts_mach_info h1940_ts_cfg __initdata = {
+		.delay = 10000,
+		.presc = 49,
+		.oversampling_shift = 2,
+};
 
 /**
  * Set lcd on or off
@@ -186,6 +192,7 @@ static struct platform_device *h1940_devices[] __initdata = {
 	&s3c_device_i2c,
 	&s3c_device_iis,
 	&s3c_device_usbgadget,
+	&s3c_device_ts,
 	&s3c_device_leds,
 	&s3c_device_bluetooth,
 };
@@ -214,6 +221,7 @@ static void __init h1940_init(void)
 	u32 tmp;
 
 	s3c24xx_fb_set_platdata(&h1940_fb_info);
+	set_s3c2410ts_info(&h1940_ts_cfg);
  	s3c24xx_udc_set_platdata(&h1940_udc_cfg);
 
 	/* Turn off suspend on both USB ports, and switch the
