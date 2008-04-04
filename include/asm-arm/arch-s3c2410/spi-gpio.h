@@ -22,11 +22,12 @@ struct s3c2410_spigpio_info {
 	unsigned long		 pin_miso;
 
 	int			 bus_num;
+	int			 num_chipselect;
 
 	unsigned long		 board_size;
 	struct spi_board_info	*board_info;
 
-	void (*chip_select)(struct s3c2410_spigpio_info *spi, int cs);
+	void (*chip_select)(struct s3c2410_spigpio_info *spi, int csid, int cs);
 };
 
 

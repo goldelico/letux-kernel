@@ -78,6 +78,9 @@
 
 #include <linux/glamofb.h>
 
+/* arbitrates which sensor IRQ owns the shared SPI bus */
+static spinlock_t motion_irq_lock;
+
 static struct map_desc gta02_iodesc[] __initdata = {
 	{
 		.virtual	= 0xe0000000,
@@ -377,8 +380,6 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&s3c_device_usbgadget,
 	&s3c_device_nand,
 	&s3c_device_ts,
-	&s3c_device_spi0,
-	&s3c_device_spi1,
 	&gta02_nor_flash,
 };
 
@@ -478,10 +479,12 @@ static struct spi_board_info gta02_spi_board_info[] = {
 	},
 };
 
+#if 0 /* currently this is not used and we use gpio spi */
 static struct glamo_spi_info glamo_spi_cfg = {
 	.board_size	= ARRAY_SIZE(gta02_spi_board_info),
 	.board_info	= gta02_spi_board_info,
 };
+#endif /* 0 */
 
 static struct glamo_spigpio_info glamo_spigpio_cfg = {
 	.pin_clk	= GLAMO_GPIO10_OUTPUT,
@@ -507,16 +510,99 @@ static struct platform_device gta01_led_dev = {
 
 /* SPI: Accelerometers attached to SPI of s3c244x */
 
-static void gta02_spi_acc_set_cs(struct s3c2410_spi_info *spi, int cs, int pol)
+/*
+ * Situation is that Linux SPI can't work in an interrupt context, so we
+ * implement our own bitbang here.  Arbitration is needed because not only
+ * can this interrupt happen at any time even if foreground wants to use
+ * the bitbang API from Linux, but multiple motion sensors can be on the
+ * same SPI bus, and multiple interrupts can happen.
+ *
+ * Foreground / interrupt arbitration is okay because the interrupts are
+ * disabled around all the foreground SPI code.
+ *
+ * Interrupt / Interrupt arbitration is evidently needed, otherwise we
+ * lose edge-triggered service after a while due to the two sensors sharing
+ * the SPI bus having irqs at the same time eventually.
+ *
+ * Servicing is typ 75 - 100us at 400MHz.
+ */
+
+/* #define DEBUG_SPEW_MS */
+#define MG_PER_SAMPLE 18
+
+void gat02_lis302dl_bitbang_read(struct lis302dl_info *lis)
 {
-	s3c2410_gpio_setpin(cs, pol);
+	struct lis302dl_platform_data *pdata = lis->pdata;
+	u8 shifter = 0xc0 | LIS302DL_REG_OUT_X; /* read, autoincrement */
+	int n, n1;
+	unsigned long flags;
+#ifdef DEBUG_SPEW_MS
+	s8 x, y, z;
+#endif
+
+	spin_lock_irqsave(&motion_irq_lock, flags);
+	s3c2410_gpio_setpin(pdata->pin_chip_select, 0);
+	for (n = 0; n < 8; n++) { /* write the r/w, inc and address */
+		s3c2410_gpio_setpin(pdata->pin_clk, 0);
+		s3c2410_gpio_setpin(pdata->pin_mosi, (shifter >> 7) & 1);
+		s3c2410_gpio_setpin(pdata->pin_clk, 1);
+		shifter <<= 1;
+	}
+	for (n = 0; n < 5; n++) { /* 5 consequetive registers */
+		for (n1 = 0; n1 < 8; n1++) { /* 8 bits each */
+			s3c2410_gpio_setpin(pdata->pin_clk, 0);
+			s3c2410_gpio_setpin(pdata->pin_clk, 1);
+			shifter <<= 1;
+			if (s3c2410_gpio_getpin(pdata->pin_miso))
+				shifter |= 1;
+		}
+		switch (n) {
+		case 0:
+#ifdef DEBUG_SPEW_MS
+			x = shifter;
+#endif
+			input_report_rel(lis->input_dev, REL_X, MG_PER_SAMPLE * (s8)shifter);
+			break;
+		case 2:
+#ifdef DEBUG_SPEW_MS
+			y = shifter;
+#endif
+			input_report_rel(lis->input_dev, REL_Y, MG_PER_SAMPLE * (s8)shifter);
+			break;
+		case 4:
+#ifdef DEBUG_SPEW_MS
+			z = shifter;
+#endif
+			input_report_rel(lis->input_dev, REL_Z, MG_PER_SAMPLE * (s8)shifter);
+			break;
+		}
+	}
+	s3c2410_gpio_setpin(pdata->pin_chip_select, 1);
+	spin_unlock_irqrestore(&motion_irq_lock, flags);
+	input_sync(lis->input_dev);
+#ifdef DEBUG_SPEW_MS
+	printk("%s: %d %d %d\n", pdata->name, x, y, z);
+#endif
 }
 
-static const struct lis302dl_platform_data lis302_pdata[] = {
+
+struct lis302dl_platform_data lis302_pdata[] = {
 	{
-		.name		= "lis302-1 (top)"
+		.name		= "lis302-1 (top)",
+		.pin_chip_select= S3C2410_GPD12,
+		.pin_clk	= S3C2410_GPG7,
+		.pin_mosi	= S3C2410_GPG6,
+		.pin_miso	= S3C2410_GPG5,
+		.open_drain	= 1, /* altered at runtime by PCB rev */
+		.lis302dl_bitbang_read = gat02_lis302dl_bitbang_read,
 	}, {
-		.name		= "lis302-2 (bottom)"
+		.name		= "lis302-2 (bottom)",
+		.pin_chip_select= S3C2410_GPD13,
+		.pin_clk	= S3C2410_GPG7,
+		.pin_mosi	= S3C2410_GPG6,
+		.pin_miso	= S3C2410_GPG5,
+		.open_drain	= 1, /* altered at runtime by PCB rev */
+		.lis302dl_bitbang_read = gat02_lis302dl_bitbang_read,
 	},
 };
 
@@ -525,26 +611,75 @@ static struct spi_board_info gta02_spi_acc_bdinfo[] = {
 		.modalias	= "lis302dl",
 		.platform_data	= &lis302_pdata[0],
 		.irq		= GTA02_IRQ_GSENSOR_1,
-		.max_speed_hz	= 400 * 1000,
+		.max_speed_hz	= 10 * 1000 * 1000,
 		.bus_num	= 1,
-		.chip_select	= S3C2410_GPD12,
+		.chip_select	= 0,
 		.mode		= SPI_MODE_3,
 	},
 	{
 		.modalias	= "lis302dl",
 		.platform_data	= &lis302_pdata[1],
 		.irq		= GTA02_IRQ_GSENSOR_2,
-		.max_speed_hz	= 400 * 1000,
+		.max_speed_hz	= 10 * 1000 * 1000,
 		.bus_num	= 1,
-		.chip_select	= S3C2410_GPD13,
+		.chip_select	= 1,
 		.mode		= SPI_MODE_3,
 	},
 };
 
-static struct s3c2410_spi_info gta02_spi_acc_cfg = {
-	.set_cs		= gta02_spi_acc_set_cs,
+static void spi_acc_cs(struct s3c2410_spigpio_info *spigpio_info,
+		       int csid, int cs)
+{
+	struct lis302dl_platform_data * plat_data =
+				(struct lis302dl_platform_data *)spigpio_info->
+						     board_info->platform_data;
+	switch (cs) {
+	case BITBANG_CS_ACTIVE:
+		s3c2410_gpio_setpin(plat_data[csid].pin_chip_select, 0);
+		break;
+	case BITBANG_CS_INACTIVE:
+		s3c2410_gpio_setpin(plat_data[csid].pin_chip_select, 1);
+		break;
+	}
+}
+
+static struct s3c2410_spigpio_info spi_gpio_cfg = {
+	.pin_clk	= S3C2410_GPG7,
+	.pin_mosi	= S3C2410_GPG6,
+	.pin_miso	= S3C2410_GPG5,
 	.board_size	= ARRAY_SIZE(gta02_spi_acc_bdinfo),
 	.board_info	= gta02_spi_acc_bdinfo,
+	.chip_select	= &spi_acc_cs,
+	.num_chipselect = 2,
+};
+
+static struct resource s3c_spi_acc_resource[] = {
+	[0] = {
+		.start = S3C2410_GPG3,
+		.end   = S3C2410_GPG3,
+	},
+	[1] = {
+		.start = S3C2410_GPG5,
+		.end   = S3C2410_GPG5,
+	},
+	[2] = {
+		.start = S3C2410_GPG6,
+		.end   = S3C2410_GPG6,
+	},
+	[3] = {
+		.start = S3C2410_GPG7,
+		.end   = S3C2410_GPG7,
+	},
+};
+
+static struct platform_device s3c_device_spi_acc = {
+	.name		  = "spi_s3c24xx_gpio",
+	.id		  = 1,
+	.num_resources	  = ARRAY_SIZE(s3c_spi_acc_resource),
+	.resource	  = s3c_spi_acc_resource,
+	.dev = {
+		.platform_data = &spi_gpio_cfg,
+	},
 };
 
 static struct resource gta02_led_resources[] = {
@@ -786,10 +921,21 @@ static void __init gta02_machine_init(void)
 {
 	int rc;
 
+	switch (system_rev) {
+	case GTA02v6_SYSTEM_REV:
+		/* we need push-pull interrupt from motion sensors */
+		lis302_pdata[0].open_drain = 0;
+		lis302_pdata[1].open_drain = 0;
+		break;
+	default:
+		break;
+	}
+
+	spin_lock_init(&motion_irq_lock);
+
 	s3c_device_usb.dev.platform_data = &gta02_usb_info;
 	s3c_device_nand.dev.platform_data = &gta02_nand_info;
 	s3c_device_sdi.dev.platform_data = &gta02_mmc_cfg;
-	s3c_device_spi1.dev.platform_data = &gta02_spi_acc_cfg;
 
 	/* Only GTA02v1 has a SD_DETECT GPIO.  Since the slot is not
 	 * hot-pluggable, this is not required anyway */
@@ -800,6 +946,12 @@ static void __init gta02_machine_init(void)
 		gta02_mmc_cfg.gpio_detect = 0;
 		break;
 	}
+
+	/* acc sensor chip selects */
+	s3c2410_gpio_setpin(S3C2410_GPD12, 1);
+	s3c2410_gpio_cfgpin(S3C2410_GPD12, S3C2410_GPIO_OUTPUT);
+	s3c2410_gpio_setpin(S3C2410_GPD13, 1);
+	s3c2410_gpio_cfgpin(S3C2410_GPD13, S3C2410_GPIO_OUTPUT);
 
 	INIT_WORK(&gta02_udc_vbus_drawer.work, __gta02_udc_vbus_draw);
 	s3c24xx_udc_set_platdata(&gta02_udc_cfg);
@@ -829,6 +981,7 @@ static void __init gta02_machine_init(void)
 		break;
 	}
 
+	platform_device_register(&s3c_device_spi_acc);
 	platform_device_register(&gta01_button_dev);
 	platform_device_register(&gta01_pm_gsm_dev);
 
