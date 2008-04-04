@@ -113,7 +113,7 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 	struct resource *r;
 	int rc;
 
-	if (!machine_is_neo1973_gta01())
+	if (!machine_is_neo1973_gta01() && !machine_is_neo1973_gta02())
 		return -EIO;
 
 	r = platform_get_resource(pdev, 0, 0);

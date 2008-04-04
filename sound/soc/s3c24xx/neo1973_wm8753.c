@@ -672,6 +672,12 @@ static int __init neo1973_init(void)
 {
 	int ret;
 
+	if (!machine_is_neo1973_gta01()) {
+		printk(KERN_INFO
+		       "Only GTA01 hardware supported by ASoc driver\n");
+		return -ENODEV;
+	}
+
 	neo1973_snd_device = platform_device_alloc("soc-audio", -1);
 	if (!neo1973_snd_device)
 		return -ENOMEM;
@@ -700,5 +706,5 @@ module_exit(neo1973_exit);
 
 /* Module information */
 MODULE_AUTHOR("Graeme Gregory, graeme.gregory@wolfsonmicro.com, www.wolfsonmicro.com");
-MODULE_DESCRIPTION("ALSA SoC WM8753 Neo1973");
+MODULE_DESCRIPTION("ALSA SoC WM8753 Neo1973 GTA01");
 MODULE_LICENSE("GPL");

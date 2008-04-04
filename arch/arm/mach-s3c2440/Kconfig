@@ -74,5 +74,20 @@ config MACH_HXD8
 	help
 	   Say Y here if you are using the FIC Neo1973 GSM Phone
 
+config MACH_NEO1973_GTA02
+	bool "FIC Neo1973 GSM Phone (GTA02 Hardware)"
+	select CPU_S3C2442
+	select SENSORS_PCF50633
+	help
+	   Say Y here if you are using the FIC Neo1973 GSM Phone
+
+config NEO1973_GTA02_2440
+	bool "Old FIC Neo1973 GTA02 hardware using S3C2440 CPU"
+	depends on MACH_NEO1973_GTA02
+	select CPU_S3C2440
+	help
+	   Say Y here if you are using an early hardware revision
+	   of the FIC/OpenMoko Neo1973 GTA02 GSM Phone.
+
 endmenu
 
