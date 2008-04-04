@@ -17,10 +17,18 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 
-#include <linux/pcf50606.h>
-
 #include <asm/hardware.h>
+
+#include <asm/mach-types.h>
+#ifdef CONFIG_MACH_NEO1973_GTA01
 #include <asm/arch/gta01.h>
+#include <linux/pcf50606.h>
+#endif
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
+#include <asm/arch/gta02.h>
+#include <linux/pcf50633.h>
+#endif
 
 /* This is the 2.8V supply for the RTC crystal, the mail clock crystal and
  * the input to VDD_RF */
@@ -248,15 +256,42 @@ static int gps_power_1v5_get(void)
 /* This is the POWERON pin */
 static void gps_pwron_set(int on)
 {
-	s3c2410_gpio_setpin(GTA01_GPIO_GPS_PWRON, on);
+#ifdef CONFIG_MACH_NEO1973_GTA01
+	if (machine_is_neo1973_gta01())
+		s3c2410_gpio_setpin(GTA01_GPIO_GPS_PWRON, on);
+#endif /* CONFIG_MACH_NEO1973_GTA01 */
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
+	if (machine_is_neo1973_gta02()) {
+		if (on)
+			pcf50633_voltage_set(pcf50633_global,
+				PCF50633_REGULATOR_LDO5, 3000);
+			pcf50633_onoff_set(pcf50633_global,
+				PCF50633_REGULATOR_LDO5, on);
+	}
+#endif /* CONFIG_MACH_NEO1973_GTA02 */
 }
 
 static int gps_pwron_get(void)
 {
-	if (s3c2410_gpio_getpin(GTA01_GPIO_GPS_PWRON))
-		return 1;
-	else
-		return 0;
+#ifdef CONFIG_MACH_NEO1973_GTA01
+	if (machine_is_neo1973_gta01()) {
+		if (s3c2410_gpio_getpin(GTA01_GPIO_GPS_PWRON))
+			return 1;
+		else
+			return 0;
+	}
+#endif /* CONFIG_MACH_NEO1973_GTA01 */
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
+	if (machine_is_neo1973_gta02()) {
+		if (pcf50633_onoff_get(pcf50633_global, PCF50633_REGULATOR_LDO5))
+			return 1;
+		else
+			return 0;
+	}
+#endif /* CONFIG_MACH_NEO1973_GTA02 */
+	return -1;
 }
 
 /* This is the nRESET pin */
@@ -441,17 +476,40 @@ static DEVICE_ATTR(power_sequence, 0644, power_sequence_read,
 static int gta01_pm_gps_suspend(struct platform_device *pdev,
 				pm_message_t state)
 {
-	/* FIXME */
-	gps_power_sequence_down();
+#ifdef CONFIG_MACH_NEO1973_GTA01
+	if (machine_is_neo1973_gta01()) {
+		/* FIXME */
+		gps_power_sequence_down();
+	}
+#endif /* CONFIG_MACH_NEO1973_GTA01 */
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
+	if (machine_is_neo1973_gta02()) {
+		/* FIXME */
+		pcf50633_onoff_set(pcf50633_global,
+			PCF50633_REGULATOR_LDO5, 0);
+	}
+#endif /* CONFIG_MACH_NEO1973_GTA02 */
 
 	return 0;
 }
 
 static int gta01_pm_gps_resume(struct platform_device *pdev)
 {
-	/* FIXME */
-	gps_power_sequence_up();
+#ifdef CONFIG_MACH_NEO1973_GTA01
+	if (machine_is_neo1973_gta01()) {
+		/* FIXME */
+		gps_power_sequence_up();
+	}
+#endif /* CONFIG_MACH_NEO1973_GTA01 */
 
+#ifdef CONFIG_MACH_NEO1973_GTA02
+	if (machine_is_neo1973_gta02()) {
+		/* FIXME */
+		pcf50633_onoff_set(pcf50633_global,
+			PCF50633_REGULATOR_LDO5, 1);
+#endif /* CONFIG_MACH_NEO1973_GTA02 */
+	}
 	return 0;
 }
 #else
@@ -476,59 +534,110 @@ static struct attribute_group gta01_gps_attr_group = {
 	.attrs	= gta01_gps_sysfs_entries,
 };
 
+static struct attribute *gta02_gps_sysfs_entries[] = {
+	&dev_attr_pwron.attr,
+	NULL
+};
+
+static struct attribute_group gta02_gps_attr_group = {
+	.name	= NULL,
+	.attrs	= gta02_gps_sysfs_entries,
+};
+
 static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 {
-	s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_PWRON, S3C2410_GPIO_OUTPUT);
+#ifdef CONFIG_MACH_NEO1973_GTA01
+	if (machine_is_neo1973_gta01()) {
+		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_PWRON, S3C2410_GPIO_OUTPUT);
 
-	switch (system_rev) {
-	case GTA01v3_SYSTEM_REV:
-		break;
-	case GTA01v4_SYSTEM_REV:
-		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_RESET, S3C2410_GPIO_OUTPUT);
-		break;
-	case GTA01Bv3_SYSTEM_REV:
-	case GTA01Bv4_SYSTEM_REV:
-		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_3V3, S3C2410_GPIO_OUTPUT);
-		/* fallthrough */
-	case GTA01Bv2_SYSTEM_REV:
-		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_2V8, S3C2410_GPIO_OUTPUT);
-		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_3V, S3C2410_GPIO_OUTPUT);
-		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_RESET, S3C2410_GPIO_OUTPUT);
-		break;
-	default:
-		dev_warn(&pdev->dev, "Unknown GTA01 Revision 0x%x, "
-			 "AGPS PM features not available!!!\n",
-			 system_rev);
-		return -1;
-		break;
+		switch (system_rev) {
+		case GTA01v3_SYSTEM_REV:
+			break;
+		case GTA01v4_SYSTEM_REV:
+			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_RESET, S3C2410_GPIO_OUTPUT);
+			break;
+		case GTA01Bv3_SYSTEM_REV:
+		case GTA01Bv4_SYSTEM_REV:
+			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_3V3, S3C2410_GPIO_OUTPUT);
+			/* fallthrough */
+		case GTA01Bv2_SYSTEM_REV:
+			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_2V8, S3C2410_GPIO_OUTPUT);
+			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_3V, S3C2410_GPIO_OUTPUT);
+			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_RESET, S3C2410_GPIO_OUTPUT);
+			break;
+		default:
+			dev_warn(&pdev->dev, "Unknown GTA01 Revision 0x%x, "
+				"AGPS PM features not available!!!\n",
+				system_rev);
+			return -1;
+			break;
+		}
+
+		gps_power_sequence_down();
+
+		switch (system_rev) {
+		case GTA01v3_SYSTEM_REV:
+		case GTA01v4_SYSTEM_REV:
+		case GTA01Bv2_SYSTEM_REV:
+			gta01_gps_sysfs_entries[ARRAY_SIZE(gta01_gps_sysfs_entries)-3] =
+						&dev_attr_power_tcxo_2v8.attr;
+			break;
+		case GTA01Bv3_SYSTEM_REV:
+		case GTA01Bv4_SYSTEM_REV:
+			gta01_gps_sysfs_entries[ARRAY_SIZE(gta01_gps_sysfs_entries)-3] =
+						&dev_attr_power_core_1v5.attr;
+			gta01_gps_sysfs_entries[ARRAY_SIZE(gta01_gps_sysfs_entries)-2] =
+						&dev_attr_power_vdd_core_1v5.attr;
+			break;
+		}
+
+		return sysfs_create_group(&pdev->dev.kobj, &gta01_gps_attr_group);
 	}
+#endif /* CONFIG_MACH_NEO1973_GTA01 */
 
-	gps_power_sequence_down();
-
-	switch (system_rev) {
-	case GTA01v3_SYSTEM_REV:
-	case GTA01v4_SYSTEM_REV:
-	case GTA01Bv2_SYSTEM_REV:
-		gta01_gps_sysfs_entries[ARRAY_SIZE(gta01_gps_sysfs_entries)-3] =
-					&dev_attr_power_tcxo_2v8.attr;
-		break;
-	case GTA01Bv3_SYSTEM_REV:
-	case GTA01Bv4_SYSTEM_REV:
-		gta01_gps_sysfs_entries[ARRAY_SIZE(gta01_gps_sysfs_entries)-3] =
-					&dev_attr_power_core_1v5.attr;
-		gta01_gps_sysfs_entries[ARRAY_SIZE(gta01_gps_sysfs_entries)-2] =
-					&dev_attr_power_vdd_core_1v5.attr;
-		break;
+#ifdef CONFIG_MACH_NEO1973_GTA02
+	if (machine_is_neo1973_gta02()) {
+		switch (system_rev) {
+		case GTA02v2_SYSTEM_REV:
+		case GTA02v3_SYSTEM_REV:
+		case GTA02v4_SYSTEM_REV:
+		case GTA02v5_SYSTEM_REV:
+		case GTA02v6_SYSTEM_REV:
+			pcf50633_voltage_set(pcf50633_global,
+				PCF50633_REGULATOR_LDO5, 3000);
+			pcf50633_onoff_set(pcf50633_global,
+				PCF50633_REGULATOR_LDO5, 0);
+			dev_info(&pdev->dev, "FIC Neo1973 GPS Power Managerment:"
+				 "starting\n");
+			break;
+		default:
+			dev_warn(&pdev->dev, "Unknown GTA02 Revision 0x%x, "
+				"AGPS PM features not available!!!\n",
+				system_rev);
+			return -1;
+			break;
+		}
+		return sysfs_create_group(&pdev->dev.kobj, &gta02_gps_attr_group);
 	}
-
-	return sysfs_create_group(&pdev->dev.kobj, &gta01_gps_attr_group);
+#endif /* CONFIG_MACH_NEO1973_GTA02 */
+	return -1;
 }
 
 static int gta01_pm_gps_remove(struct platform_device *pdev)
 {
-	gps_power_sequence_down();
-	sysfs_remove_group(&pdev->dev.kobj, &gta01_gps_attr_group);
+#ifdef CONFIG_MACH_NEO1973_GTA01
+	if (machine_is_neo1973_gta01()) {
+		gps_power_sequence_down();
+		sysfs_remove_group(&pdev->dev.kobj, &gta01_gps_attr_group);
+	}
+#endif /* CONFIG_MACH_NEO1973_GTA01 */
 
+#ifdef CONFIG_MACH_NEO1973_GTA02
+	if (machine_is_neo1973_gta02()) {
+		pcf50633_onoff_set(pcf50633_global, PCF50633_REGULATOR_LDO5, 0);
+		sysfs_remove_group(&pdev->dev.kobj, &gta02_gps_attr_group);
+	}
+#endif /* CONFIG_MACH_NEO1973_GTA02 */
 	return 0;
 }
 
