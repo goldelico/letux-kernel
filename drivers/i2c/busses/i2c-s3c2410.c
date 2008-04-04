@@ -71,6 +71,8 @@ struct s3c24xx_i2c {
 	struct resource		*irq;
 	struct resource		*ioarea;
 	struct i2c_adapter	adap;
+
+	int			suspended;
 };
 
 /* default platform data to use if not supplied in the platform_device
@@ -156,6 +158,14 @@ static inline void s3c24xx_i2c_disable_irq(struct s3c24xx_i2c *i2c)
 	unsigned long tmp;
 	
 	tmp = readl(i2c->regs + S3C2410_IICCON);
+
+/* S3c2442 datasheet
+ *
+ * If the IICCON[5]=0, IICCON[4] does not operate correctly.
+ * So, It is recommended that you should set IICCON[5]=1,
+ * although you does not use the IIC interrupt.
+ */
+
 	writel(tmp & ~S3C2410_IICCON_IRQEN, i2c->regs + S3C2410_IICCON);
 }
 
@@ -282,7 +292,7 @@ static int i2s_s3c_irq_nextbyte(struct s3c24xx_i2c *i2c, unsigned long iicstat)
 
 	case STATE_STOP:
 		dev_err(i2c->dev, "%s: called in STATE_STOP\n", __FUNCTION__);
-		s3c24xx_i2c_disable_irq(i2c);		
+		s3c24xx_i2c_disable_irq(i2c);
 		goto out_ack;
 
 	case STATE_START:
@@ -501,6 +511,14 @@ static int s3c24xx_i2c_doxfer(struct s3c24xx_i2c *i2c, struct i2c_msg *msgs, int
 {
 	unsigned long timeout;
 	int ret;
+
+	if (i2c->suspended) {
+		dev_err(i2c->dev,
+		    "Hey I am still asleep (suspended: %d), retry later\n",
+		    i2c->suspended);
+		ret = -EAGAIN;
+		goto out;
+	}
 
 	ret = s3c24xx_i2c_set_master(i2c);
 	if (ret != 0) {
@@ -886,12 +904,25 @@ static int s3c24xx_i2c_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
+
+static int s3c24xx_i2c_suspend(struct platform_device *dev, pm_message_t state)
+{
+	struct s3c24xx_i2c *i2c = platform_get_drvdata(dev);
+
+	if (i2c != NULL)
+		i2c->suspended++;
+
+	return 0;
+}
+
 static int s3c24xx_i2c_resume(struct platform_device *dev)
 {
 	struct s3c24xx_i2c *i2c = platform_get_drvdata(dev);
 
 	if (i2c != NULL)
 		s3c24xx_i2c_init(i2c);
+
+	i2c->suspended--;
 
 	return 0;
 }
@@ -905,6 +936,7 @@ static int s3c24xx_i2c_resume(struct platform_device *dev)
 static struct platform_driver s3c2410_i2c_driver = {
 	.probe		= s3c24xx_i2c_probe,
 	.remove		= s3c24xx_i2c_remove,
+	.suspend	= s3c24xx_i2c_suspend,
 	.resume		= s3c24xx_i2c_resume,
 	.driver		= {
 		.owner	= THIS_MODULE,
@@ -915,6 +947,7 @@ static struct platform_driver s3c2410_i2c_driver = {
 static struct platform_driver s3c2440_i2c_driver = {
 	.probe		= s3c24xx_i2c_probe,
 	.remove		= s3c24xx_i2c_remove,
+	.suspend	= s3c24xx_i2c_suspend,
 	.resume		= s3c24xx_i2c_resume,
 	.driver		= {
 		.owner	= THIS_MODULE,
