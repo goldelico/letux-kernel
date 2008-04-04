@@ -1,6 +1,9 @@
 #ifndef _LINUX_PCF50633_H
 #define _LINUX_PCF50633_H
 
+#include <linux/pcf506xx.h>
+
+
 /* public in-kernel pcf50633 api */
 enum pcf50633_regulator_id {
 	PCF50633_REGULATOR_AUTO,
@@ -56,30 +59,6 @@ pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma);
 
 extern void
 pcf50633_charge_enable(struct pcf50633_data *pcf, int on);
-
-/* FIXME: sharded with pcf50606 */
-#define PMU_VRAIL_F_SUSPEND_ON	0x00000001	/* Remains on during suspend */
-#define PMU_VRAIL_F_UNUSED	0x00000002	/* This rail is not used */
-struct pmu_voltage_rail {
-	char *name;
-	unsigned int flags;
-	struct {
-		unsigned int init;
-		unsigned int max;
-	} voltage;
-};
-
-enum pmu_event {
-	PMU_EVT_NONE,
-	PMU_EVT_INSERT,
-	PMU_EVT_REMOVE,
-	PMU_EVT_USB_INSERT,
-	PMU_EVT_USB_REMOVE,
-	__NUM_PMU_EVTS
-};
-
-typedef int pmu_cb(struct device *dev, unsigned int feature,
-		   enum pmu_event event);
 
 #define PCF50633_FEAT_EXTON	0x00000001	/* not yet supported */
 #define PCF50633_FEAT_MBC	0x00000002
