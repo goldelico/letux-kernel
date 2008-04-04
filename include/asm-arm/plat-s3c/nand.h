@@ -21,9 +21,12 @@
  * partitions	 = mtd partition list
 */
 
+#define S3C2410_NAND_BBT	0x0001
+
 struct s3c2410_nand_set {
 	int			nr_chips;
 	int			nr_partitions;
+	unsigned int		flags;
 	char			*name;
 	int			*nr_map;
 	struct mtd_partition	*partitions;
