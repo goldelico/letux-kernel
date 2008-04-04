@@ -21,6 +21,7 @@
 
 #include <asm/plat-s3c24xx/s3c2442.h>
 #include <asm/plat-s3c24xx/cpu.h>
+#include <asm/plat-s3c24xx/devs.h>
 
 static struct sys_device s3c2442_sysdev = {
 	.cls		= &s3c2442_sysclass,
@@ -29,6 +30,9 @@ static struct sys_device s3c2442_sysdev = {
 int __init s3c2442_init(void)
 {
 	printk("S3C2442: Initialising architecture\n");
+
+	/* make sure SD/MMC driver can distinguish 2440 from 2410 */
+	s3c_device_sdi.name = "s3c2440-sdi";
 
 	return sysdev_register(&s3c2442_sysdev);
 }
