@@ -107,6 +107,7 @@ config MACH_VR1000
 config MACH_QT2410
 	bool "QT2410"
 	select CPU_S3C2410
+	select DISPLAY_JBT6K74
 	help
 	   Say Y here if you are using the Armzone QT2410
 
