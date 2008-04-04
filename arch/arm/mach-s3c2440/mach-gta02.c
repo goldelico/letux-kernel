@@ -46,6 +46,7 @@
 #include <linux/mtd/physmap.h>
 
 #include <linux/pcf50633.h>
+#include <linux/lis302dl.h>
 
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -463,7 +464,7 @@ static struct s3c2410_ts_mach_info gta02_ts_cfg = {
 	.oversampling_shift = 5,
 };
 
-/* SPI */
+/* SPI: LCM control interface attached to Glamo3362 */
 
 static struct spi_board_info gta02_spi_board_info[] = {
 	{
@@ -502,6 +503,48 @@ static struct platform_device gta01_led_dev = {
 	.name		= "neo1973-vibrator",
 	.num_resources	= ARRAY_SIZE(gta01_led_resources),
 	.resource	= gta01_led_resources,
+};
+
+/* SPI: Accelerometers attached to SPI of s3c244x */
+
+static void gta02_spi_acc_set_cs(struct s3c2410_spi_info *spi, int cs, int pol)
+{
+	s3c2410_gpio_setpin(cs, pol);
+}
+
+static const struct lis302dl_platform_data lis302_pdata[] = {
+	{
+		.name		= "lis302-1 (top)"
+	}, {
+		.name		= "lis302-2 (bottom)"
+	},
+};
+
+static struct spi_board_info gta02_spi_acc_bdinfo[] = {
+	{
+		.modalias	= "lis302dl",
+		.platform_data	= &lis302_pdata[0],
+		.irq		= GTA02_IRQ_GSENSOR_1,
+		.max_speed_hz	= 400 * 1000,
+		.bus_num	= 1,
+		.chip_select	= S3C2410_GPD12,
+		.mode		= SPI_MODE_3,
+	},
+	{
+		.modalias	= "lis302dl",
+		.platform_data	= &lis302_pdata[1],
+		.irq		= GTA02_IRQ_GSENSOR_2,
+		.max_speed_hz	= 400 * 1000,
+		.bus_num	= 1,
+		.chip_select	= S3C2410_GPD13,
+		.mode		= SPI_MODE_3,
+	},
+};
+
+static struct s3c2410_spi_info gta02_spi_acc_cfg = {
+	.set_cs		= gta02_spi_acc_set_cs,
+	.board_size	= ARRAY_SIZE(gta02_spi_acc_bdinfo),
+	.board_info	= gta02_spi_acc_bdinfo,
 };
 
 static struct resource gta02_led_resources[] = {
@@ -746,6 +789,7 @@ static void __init gta02_machine_init(void)
 	s3c_device_usb.dev.platform_data = &gta02_usb_info;
 	s3c_device_nand.dev.platform_data = &gta02_nand_info;
 	s3c_device_sdi.dev.platform_data = &gta02_mmc_cfg;
+	s3c_device_spi1.dev.platform_data = &gta02_spi_acc_cfg;
 
 	/* Only GTA02v1 has a SD_DETECT GPIO.  Since the slot is not
 	 * hot-pluggable, this is not required anyway */

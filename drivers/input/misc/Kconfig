@@ -183,4 +183,13 @@ config HP_SDC_RTC
 	  Say Y here if you want to support the built-in real time clock
 	  of the HP SDC controller.
 
+config INPUT_LIS302DL
+	tristate "STmicro LIS302DL 3-axis accelerometer"
+	depends on SPI_MASTER
+	help
+	  SPI driver for the STmicro LIS302DL 3-axis accelerometer.
+
+	  The userspece interface is a 3-axis (X/Y/Z) relative movement
+	  Linux input device, reporting REL_[XYZ] events.
+
 endif
