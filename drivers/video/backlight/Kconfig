@@ -67,6 +67,14 @@ config BACKLIGHT_LOCOMO
 	  If you have a Sharp Zaurus SL-5500 (Collie) or SL-5600 (Poodle) say y to
 	  enable the LCD/backlight driver.
 
+config BACKLIGHT_GTA01
+	tristate "FIC Neo1973 GTA01 Backlight Driver"
+	depends on BACKLIGHT_CLASS_DEVICE && MACH_NEO1973_GTA01
+	default y
+	help
+	  If you have a FIC Neo1973 GTA01, say y to enable the backlight driver.
+
+
 config BACKLIGHT_HP680
 	tristate "HP Jornada 680 Backlight Driver"
 	depends on BACKLIGHT_CLASS_DEVICE && SH_HP6XX
