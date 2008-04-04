@@ -46,6 +46,7 @@ pcf50633_voltage_set(struct pcf50633_data *pcf,
 extern unsigned int
 pcf50633_voltage_get(struct pcf50633_data *pcf,
 		     enum pcf50633_regulator_id reg);
+
 extern int
 pcf50633_onoff_get(struct pcf50633_data *pcf,
 		   enum pcf50633_regulator_id reg);

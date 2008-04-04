@@ -16,12 +16,19 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 
-#include <linux/pcf50606.h>
-
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
+
+#ifdef CONFIG_MACH_NEO1973_GTA01
 #include <asm/arch/gta01.h>
+#include <linux/pcf50606.h>
+#endif
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
 #include <asm/arch/gta02.h>
+#include <linux/pcf50633.h>
+#endif
+
 
 #define DRVMSG "FIC Neo1973 Bluetooth Power Management"
 
@@ -30,6 +37,8 @@ static ssize_t bt_read(struct device *dev, struct device_attribute *attr,
 {
 	if (!strcmp(attr->attr.name, "power_on")) {
 		switch (machine_arch_type) {
+
+#ifdef CONFIG_MACH_NEO1973_GTA01
 		case MACH_TYPE_NEO1973_GTA01:
 			if (pcf50606_onoff_get(pcf50606_global,
 						PCF50606_REGULATOR_D1REG) &&
@@ -37,21 +46,33 @@ static ssize_t bt_read(struct device *dev, struct device_attribute *attr,
 						 PCF50606_REGULATOR_D1REG) == 3100)
 				goto out_1;
 			break;
+#endif /* CONFIG_MACH_NEO1973_GTA01 */
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
 		case MACH_TYPE_NEO1973_GTA02:
 			if (s3c2410_gpio_getpin(GTA02_GPIO_BT_EN))
 				goto out_1;
 			break;
+#endif /* CONFIG_MACH_NEO1973_GTA02 */
+
 		}
 	} else if (!strcmp(attr->attr.name, "reset")) {
 		switch (machine_arch_type) {
+
+#ifdef CONFIG_MACH_NEO1973_GTA01
 		case MACH_TYPE_NEO1973_GTA01:
 			if (s3c2410_gpio_getpin(GTA01_GPIO_BT_EN) == 0)
 				goto out_1;
 			break;
+#endif /* CONFIG_MACH_NEO1973_GTA01 */
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
 		case MACH_TYPE_NEO1973_GTA02:
 			if (s3c2410_gpio_getpin(GTA02_GPIO_BT_EN) == 0)
 				goto out_1;
 			break;
+#endif /* CONFIG_MACH_NEO1973_GTA02 */
+
 		}
 	}
 
@@ -64,9 +85,12 @@ static ssize_t bt_write(struct device *dev, struct device_attribute *attr,
 			const char *buf, size_t count)
 {
 	unsigned long on = simple_strtoul(buf, NULL, 10);
+	unsigned int vol;
 
 	if (!strcmp(attr->attr.name, "power_on")) {
 		switch (machine_arch_type) {
+
+#ifdef CONFIG_MACH_NEO1973_GTA01
 		case MACH_TYPE_NEO1973_GTA01:
 			/* if we are powering up, assert reset, then power,
 			 * then release reset */
@@ -80,22 +104,39 @@ static ssize_t bt_write(struct device *dev, struct device_attribute *attr,
 					   PCF50606_REGULATOR_D1REG, on);
 			s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, on);
 			break;
+#endif /* CONFIG_MACH_NEO1973_GTA01 */
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
 		case MACH_TYPE_NEO1973_GTA02:
+			s3c2410_gpio_setpin(GTA02_GPIO_BT_EN, on ? 0 : 1);
 			if (on)
-				s3c2410_gpio_setpin(GTA02_GPIO_BT_EN, 0);
-			else
-				s3c2410_gpio_setpin(GTA02_GPIO_BT_EN, 1);
+				pcf50633_voltage_set(pcf50633_global,
+					PCF50633_REGULATOR_LDO4, 3200);
+			pcf50633_onoff_set(pcf50633_global,
+				PCF50633_REGULATOR_LDO4, on);
+			vol = pcf50633_voltage_get(pcf50633_global,
+				PCF50633_REGULATOR_LDO4);
+			dev_info(dev, "GTA02 Set PCF50633 LDO4 = %d\n", vol);
 			break;
+#endif /* CONFIG_MACH_NEO1973_GTA02 */
+
 		}
 	} else if (!strcmp(attr->attr.name, "reset")) {
 		/* reset is low-active, so we need to invert */
 		switch (machine_arch_type) {
+
+#ifdef CONFIG_MACH_NEO1973_GTA01
 		case MACH_TYPE_NEO1973_GTA01:
 			s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, on ? 0 : 1);
 			break;
+#endif /* CONFIG_MACH_NEO1973_GTA01 */
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
 		case MACH_TYPE_NEO1973_GTA02:
 			s3c2410_gpio_setpin(GTA02_GPIO_BT_EN, on ? 0 : 1);
 			break;
+#endif /* CONFIG_MACH_NEO1973_GTA02 */
+
 		}
 	}
 
@@ -143,18 +184,30 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, DRVMSG ": starting\n");
 
 	switch (machine_arch_type) {
+
+#ifdef CONFIG_MACH_NEO1973_GTA01
 	case MACH_TYPE_NEO1973_GTA01:
 		/* we make sure that the voltage is off */
 		pcf50606_onoff_set(pcf50606_global,
 				   PCF50606_REGULATOR_D1REG, 0);
+		/* we pull reset to low to make sure that the chip doesn't
+	 	 * drain power through the reset line */
+		s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, 0);
 		break;
+#endif /* CONFIG_MACH_NEO1973_GTA01 */
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
 	case MACH_TYPE_NEO1973_GTA02:
-		/* FIXME: implementation */
+		/* we make sure that the voltage is off */
+		pcf50633_onoff_set(pcf50633_global,
+				     PCF50633_REGULATOR_LDO4, 0);
+		/* we pull reset to low to make sure that the chip doesn't
+	 	 * drain power through the reset line */
+		s3c2410_gpio_setpin(GTA02_GPIO_BT_EN, 0);
 		break;
+#endif /* CONFIG_MACH_NEO1973_GTA02 */
+
 	}
-	/* we pull reset to low to make sure that the chip doesn't
-	 * drain power through the reset line */
-	s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, 0);
 
 	return sysfs_create_group(&pdev->dev.kobj, &gta01_bt_attr_group);
 }
