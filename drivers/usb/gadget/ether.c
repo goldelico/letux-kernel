@@ -464,7 +464,7 @@ eth_config = {
 	.bConfigurationValue =	DEV_CONFIG_VALUE,
 	.iConfiguration =	STRING_CDC,
 	.bmAttributes =		USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER,
-	.bMaxPower =		50,
+	.bMaxPower =		250,
 };
 
 #ifdef	CONFIG_USB_ETH_RNDIS
@@ -478,7 +478,7 @@ rndis_config = {
 	.bConfigurationValue =  DEV_RNDIS_CONFIG_VALUE,
 	.iConfiguration =       STRING_RNDIS,
 	.bmAttributes =		USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER,
-	.bMaxPower =            50,
+	.bMaxPower =            250,
 };
 #endif
 
