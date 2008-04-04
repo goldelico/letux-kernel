@@ -105,6 +105,8 @@ SECTIONS
 		*(.got)			/* Global offset table		*/
 	}
 
+	NOTES
+
 	RODATA
 
 	_etext = .;			/* End of text and rodata section */
