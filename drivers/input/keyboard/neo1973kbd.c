@@ -29,7 +29,6 @@
 struct neo1973kbd {
 	struct input_dev *input;
 	unsigned int suspended;
-	unsigned long suspend_jiffies;
 };
 
 static irqreturn_t neo1973kbd_aux_irq(int irq, void *dev_id)
