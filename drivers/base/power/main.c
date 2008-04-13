@@ -40,9 +40,9 @@ int (*platform_enable_wakeup)(struct device *dev, int is_on);
 
 void device_pm_add(struct device *dev)
 {
-	pr_debug("PM: Adding info for %s:%s\n",
+	/* pr_debug("PM: Adding info for %s:%s\n",
 		 dev->bus ? dev->bus->name : "No Bus",
-		 kobject_name(&dev->kobj));
+		 kobject_name(&dev->kobj)); */
 	mutex_lock(&dpm_list_mtx);
 	list_add_tail(&dev->power.entry, &dpm_active);
 	mutex_unlock(&dpm_list_mtx);
