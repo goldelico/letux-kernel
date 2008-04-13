@@ -42,6 +42,7 @@
 
 static unsigned long timer_startval;
 static unsigned long timer_usec_ticks;
+static struct work_struct resume_work;
 
 #define TIMER_USEC_SHIFT 16
 
@@ -201,9 +202,12 @@ static void s3c2410_timer_setup (void)
 
 		pclk = clk_get_rate(clk);
 
+		printk("pclk = %d\n", pclk);
+
 		/* configure clock tick */
 
 		timer_usec_ticks = timer_mask_usec_ticks(6, pclk);
+		printk("timer_usec_ticks = %d\n", timer_usec_ticks);
 
 		tcfg1 &= ~S3C2410_TCFG1_MUX4_MASK;
 		tcfg1 |= S3C2410_TCFG1_MUX4_DIV2;
@@ -212,6 +216,11 @@ static void s3c2410_timer_setup (void)
 		tcfg0 |= ((6 - 1) / 2) << S3C2410_TCFG_PRESCALER1_SHIFT;
 
 		tcnt = (pclk / 6) / HZ;
+
+		/* start the timer running */
+		tcon |= S3C2410_TCON_T4START | S3C2410_TCON_T4RELOAD;
+		tcon &= ~S3C2410_TCON_T4MANUALUPD;
+		__raw_writel(tcon, S3C2410_TCON);
 	}
 
 	/* timers reload after counting zero, so reduce the count by 1 */
@@ -247,10 +256,34 @@ static void s3c2410_timer_setup (void)
 	tcon |= S3C2410_TCON_T4START;
 	tcon &= ~S3C2410_TCON_T4MANUALUPD;
 	__raw_writel(tcon, S3C2410_TCON);
+
+	__raw_writel(__raw_readl(S3C2410_INTMSK) & (~(1UL << 14)),
+		     S3C2410_INTMSK);
+
+}
+
+static void timer_resume_work(struct work_struct *work)
+{
+	s3c2410_timer_setup();
+}
+
+/* ooh a nasty situation arises if we try to call s3c2410_timer_setup() from
+ * the resume handler.  It is called in atomic context but the clock APIs
+ * try to lock a mutex which may sleep.  We are in a bit of an unusual
+ * situation because we don't have a tick source right now, but it should be
+ * okay to try to schedule a work item... hopefully
+ */
+
+static void s3c2410_timer_resume_atomic(void)
+{
+	int ret = schedule_work(&resume_work);
+	if (!ret)
+		printk(KERN_INFO"Failed to schedule_work tick ctr (%d)\n", ret);
 }
 
 static void __init s3c2410_timer_init (void)
 {
+	INIT_WORK(&resume_work, timer_resume_work);
 	s3c2410_timer_setup();
 	setup_irq(IRQ_TIMER4, &s3c2410_timer_irq);
 }
