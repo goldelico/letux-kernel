@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -x
+
+export CROSS_COMPILE=../../cross/bin/arm-angstrom-linux-gnueabi-
+make ARCH=arm silentoldconfig
+if make -j5 ARCH=arm; then
+	${CROSS_COMPILE}objcopy -O binary -R .note -R .comment -S arch/arm/boot/compressed/vmlinux linux.bin
+	mkimage -A arm -O linux -T kernel -C none -a 30008000 -e 30008000 -n "OpenMoko Kernel Image Neo1973(GTA02)" -d linux.bin uImage.bin
+	exit 0
+else
+	exit 1
+fi
+
