@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.24
-# Fri Feb 22 22:38:48 2008
+# Sat Mar  1 11:36:29 2008
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -285,6 +285,7 @@ CONFIG_ZBOOT_ROM_BSS=0x0
 CONFIG_CMDLINE="unused -- bootloader passes ATAG list"
 # CONFIG_XIP_KERNEL is not set
 CONFIG_KEXEC=y
+CONFIG_ATAGS_PROC=y
 
 #
 # Floating point emulation
@@ -1273,7 +1274,7 @@ CONFIG_SND_S3C24XX_SOC_NEO1973_GTA02_WM8753=y
 #
 # SoC Audio support for SuperH
 #
-CONFIG_SND_SOC_WM8753=m
+CONFIG_SND_SOC_WM8753=y
 
 #
 # Open Sound System
