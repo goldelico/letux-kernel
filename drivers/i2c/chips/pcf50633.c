@@ -523,6 +523,15 @@ static void configure_pmu_for_charger(struct pcf50633_data *pcf,
 		break;
 	case CHARGER_TYPE_1A:
 		__reg_write(pcf, PCF50633_REG_MBCC7, PCF50633_MBCC7_USB_1000mA);
+		/*
+		 * stop GPO / EN_HOSTUSB power driving out on the same
+		 * USB power pins we have a 1A charger on right now!
+		 */
+		dev_info(&pcf->client.dev, "Charger -> CHARGER_TYPE_1A\n");
+		__reg_write(pcf, PCF50633_GPO - PCF50633_GPIO1 +
+				 PCF50633_REG_GPIO1CFG,
+				 __reg_read(pcf, PCF50633_GPO - PCF50633_GPIO1 +
+						 PCF50633_REG_GPIO1CFG) & 0xf0);
 		break;
 	}
 }
