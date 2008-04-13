@@ -1125,11 +1125,13 @@ static int glamo_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int glamo_suspend(struct platform_device *pdev, pm_message_t state)
 {
+	glamo_power(glamo_handle, GLAMO_POWER_SUSPEND);
 	return 0;
 }
 
 static int glamo_resume(struct platform_device *pdev)
 {
+	glamo_power(glamo_handle, GLAMO_POWER_ON);
 	return 0;
 }
 #else

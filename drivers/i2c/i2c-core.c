@@ -1,4 +1,3 @@
-/* i2c-core.c - a device driver for the iic-bus interface		     */
 /* ------------------------------------------------------------------------- */
 /*   Copyright (C) 1995-99 Simon G. Vogl
 
@@ -136,10 +135,16 @@ static int i2c_device_suspend(struct device * dev, pm_message_t mesg)
 
 	if (!dev->driver)
 		return 0;
+#if 0
 	driver = to_i2c_driver(dev->driver);
 	if (!driver->suspend)
 		return 0;
 	return driver->suspend(to_i2c_client(dev), mesg);
+#else
+	if (!dev->driver->suspend)
+		return 0;
+	return dev->driver->suspend(dev, mesg);
+#endif
 }
 
 static int i2c_device_resume(struct device * dev)
@@ -148,10 +153,16 @@ static int i2c_device_resume(struct device * dev)
 
 	if (!dev->driver)
 		return 0;
+#if 0
 	driver = to_i2c_driver(dev->driver);
 	if (!driver->resume)
 		return 0;
 	return driver->resume(to_i2c_client(dev));
+#else
+	if (!dev->driver->resume)
+		return 0;
+	return dev->driver->resume(dev);
+#endif
 }
 
 static void i2c_client_release(struct device *dev)

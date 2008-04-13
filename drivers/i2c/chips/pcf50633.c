@@ -1901,6 +1901,9 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 		}
 	}
 
+	/* turn off the backlight */
+	__reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
+
 	pcf->standby_regs.int1m = __reg_read(pcf, PCF50633_REG_INT1M);
 	pcf->standby_regs.int2m = __reg_read(pcf, PCF50633_REG_INT2M);
 	pcf->standby_regs.int3m = __reg_read(pcf, PCF50633_REG_INT3M);
@@ -1924,6 +1927,8 @@ static int pcf50633_resume(struct device *dev)
 	int i;
 
 	mutex_lock(&pcf->lock);
+
+	__reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
 
 	/* Resume all saved registers that don't "survive" standby state */
 	__reg_write(pcf, PCF50633_REG_INT1M, pcf->standby_regs.int1m);
