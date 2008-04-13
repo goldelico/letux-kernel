@@ -30,6 +30,12 @@
 #include <linux/pcf50633.h>
 #endif
 
+struct neo1973_pm_gps_data {
+	int power_was_on;
+};
+
+static struct neo1973_pm_gps_data neo1973_gps;
+
 /* This is the 2.8V supply for the RTC crystal, the mail clock crystal and
  * the input to VDD_RF */
 static void gps_power_2v8_set(int on)
@@ -266,8 +272,8 @@ static void gps_pwron_set(int on)
 		if (on)
 			pcf50633_voltage_set(pcf50633_global,
 				PCF50633_REGULATOR_LDO5, 3000);
-			pcf50633_onoff_set(pcf50633_global,
-				PCF50633_REGULATOR_LDO5, on);
+		pcf50633_onoff_set(pcf50633_global,
+			PCF50633_REGULATOR_LDO5, on);
 	}
 #endif /* CONFIG_MACH_NEO1973_GTA02 */
 }
@@ -476,6 +482,9 @@ static DEVICE_ATTR(power_sequence, 0644, power_sequence_read,
 static int gta01_pm_gps_suspend(struct platform_device *pdev,
 				pm_message_t state)
 {
+
+	neo1973_gps.power_was_on = gps_pwron_get();
+
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01()) {
 		/* FIXME */
@@ -491,9 +500,7 @@ static int gta01_pm_gps_suspend(struct platform_device *pdev,
 		/* don't let RX from unpowered GPS float */
 		s3c2410_gpio_pullup(S3C2410_GPH5, 1);
 
-		/* FIXME */
-		pcf50633_onoff_set(pcf50633_global,
-			PCF50633_REGULATOR_LDO5, 0);
+		gps_pwron_set(0);
 	}
 #endif /* CONFIG_MACH_NEO1973_GTA02 */
 
@@ -519,9 +526,8 @@ static int gta01_pm_gps_resume(struct platform_device *pdev)
 		/* remove pulldown now it won't be floating any more */
 		s3c2410_gpio_pullup(S3C2410_GPH5, 0);
 
-		/* FIXME */
-		pcf50633_onoff_set(pcf50633_global,
-			PCF50633_REGULATOR_LDO5, 1);
+		if (neo1973_gps.power_was_on)
+		    gps_pwron_set(1);
 #endif /* CONFIG_MACH_NEO1973_GTA02 */
 	}
 	return 0;
