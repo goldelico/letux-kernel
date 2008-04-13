@@ -1585,6 +1585,9 @@ static int wm8753_init(struct snd_soc_device *socdev)
 	schedule_delayed_work(&codec->delayed_work,
 		msecs_to_jiffies(caps_charge));
 
+	/* Fix reg WM8753_ADCTL2 */
+	wm8753_write(codec, WM8753_ADCTL2, 0x0000);
+
 	/* set the update bits */
 	reg = wm8753_read_reg_cache(codec, WM8753_LDAC);
 	wm8753_write(codec, WM8753_LDAC, reg | 0x0100);
