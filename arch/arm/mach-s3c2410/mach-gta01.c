@@ -529,6 +529,7 @@ static struct s3c2410_spigpio_info spi_gpio_cfg = {
 	.board_size	= ARRAY_SIZE(gta01_spi_board_info),
 	.board_info	= gta01_spi_board_info,
 	.chip_select	= &spi_gpio_cs,
+	.num_chipselect = 2,   /*** Should be 1 or 2 for gta01? ***/
 };
 
 static struct resource s3c_spi_lcm_resource[] = {
@@ -551,7 +552,7 @@ static struct resource s3c_spi_lcm_resource[] = {
 };
 
 struct platform_device s3c_device_spi_lcm = {
-	.name		  = "s3c24xx-spi-gpio",
+	.name		  = "spi_s3c24xx_gpio",
 	.id		  = 1,
 	.num_resources	  = ARRAY_SIZE(s3c_spi_lcm_resource),
 	.resource	  = s3c_spi_lcm_resource,
