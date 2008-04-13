@@ -20,6 +20,7 @@
 #include <asm/arch/pwm.h>
 #include <asm/arch/gta02.h>
 #include <asm/plat-s3c/regs-timer.h>
+#include <asm/plat-s3c24xx/neo1973.h>
 
 #define MAX_LEDS 3
 #define COUNTER 256
@@ -60,14 +61,13 @@ static void gta02led_set(struct led_classdev *led_cdev,
  	 * value == 0 -> 0% duty cycle (zero power)
  	 */
  	mutex_lock(&lp->mutex);
+
 	if (lp->has_pwm) {
-			s3c2410_pwm_duty_cycle(value, &lp->pwm);
+		s3c2410_pwm_duty_cycle(value, &lp->pwm);
 	} else {
-		if (value)
-			s3c2410_gpio_setpin(lp->gpio, 1);
-		else
-			s3c2410_gpio_setpin(lp->gpio, 0);
+		neo1973_gpb_setpin(lp->gpio, value ? 1 : 0);
 	}
+
 	mutex_unlock(&lp->mutex);
 }
 
@@ -164,7 +164,7 @@ static int __init gta02led_probe(struct platform_device *pdev)
 		case S3C2410_GPB3:
 			lp->has_pwm = 0;
 			s3c2410_gpio_cfgpin(lp->gpio, S3C2410_GPIO_OUTPUT);
-			s3c2410_gpio_setpin(lp->gpio, 0);
+			neo1973_gpb_add_shadow_gpio(lp->gpio);
 			break;
 		default:
 			break;

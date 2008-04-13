@@ -40,6 +40,7 @@
 #include <asm/arch/pwm.h>
 
 #include <asm/plat-s3c/regs-timer.h>
+#include <asm/plat-s3c24xx/neo1973.h>
 
 static struct backlight_properties gta01bl_prop;
 static struct backlight_device *gta01_backlight_device;
@@ -83,12 +84,12 @@ static int gta01bl_send_intensity(struct backlight_device *bd)
 	mutex_lock(&gta01bl.mutex);
 #ifdef GTA01_BACKLIGHT_ONOFF_ONLY
 	if (intensity)
-		s3c2410_gpio_setpin(GTA01_GPIO_BACKLIGHT, 1);
+		neo1973_gpb_setpin(GTA01_GPIO_BACKLIGHT, 1);
 	else
-		s3c2410_gpio_setpin(GTA01_GPIO_BACKLIGHT, 0);
+		neo1973_gpb_setpin(GTA01_GPIO_BACKLIGHT, 0);
 #else
 	if (intensity == bd->props.max_brightness) {
-		s3c2410_gpio_setpin(GTA01_GPIO_BACKLIGHT, 1);
+		neo1973_gpb_setpin(GTA01_GPIO_BACKLIGHT, 1);
 		s3c2410_gpio_cfgpin(GTA01_GPIO_BACKLIGHT, S3C2410_GPIO_OUTPUT);
 	} else  {
 		s3c2410_pwm_duty_cycle(intensity & 0xffff, &gta01bl.pwm);
@@ -222,7 +223,7 @@ static int gta01bl_remove(struct platform_device *dev)
 	mutex_destroy(&gta01bl.mutex);
 
 	s3c2410_gpio_cfgpin(GTA01_GPIO_BACKLIGHT, S3C2410_GPIO_OUTPUT);
-	s3c2410_gpio_setpin(GTA01_GPIO_BACKLIGHT, 1);
+	neo1973_gpb_setpin(GTA01_GPIO_BACKLIGHT, 1);
 
 	return 0;
 }

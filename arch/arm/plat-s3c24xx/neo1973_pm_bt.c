@@ -18,6 +18,7 @@
 
 #include <asm/hardware.h>
 #include <asm/mach-types.h>
+#include <asm/plat-s3c24xx/neo1973.h>
 
 #ifdef CONFIG_MACH_NEO1973_GTA01
 #include <asm/arch/gta01.h>
@@ -95,20 +96,20 @@ static ssize_t bt_write(struct device *dev, struct device_attribute *attr,
 			/* if we are powering up, assert reset, then power,
 			 * then release reset */
 			if (on) {
-				s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, 0);
+				neo1973_gpb_setpin(GTA01_GPIO_BT_EN, 0);
 				pcf50606_voltage_set(pcf50606_global,
 						     PCF50606_REGULATOR_D1REG,
 						     3100);
 			}
 			pcf50606_onoff_set(pcf50606_global,
 					   PCF50606_REGULATOR_D1REG, on);
-			s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, on);
+			neo1973_gpb_setpin(GTA01_GPIO_BT_EN, on);
 			break;
 #endif /* CONFIG_MACH_NEO1973_GTA01 */
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 		case MACH_TYPE_NEO1973_GTA02:
-			s3c2410_gpio_setpin(GTA02_GPIO_BT_EN, on ? 0 : 1);
+			neo1973_gpb_setpin(GTA02_GPIO_BT_EN, on ? 0 : 1);
 			if (on)
 				pcf50633_voltage_set(pcf50633_global,
 					PCF50633_REGULATOR_LDO4, 3200);
@@ -127,13 +128,13 @@ static ssize_t bt_write(struct device *dev, struct device_attribute *attr,
 
 #ifdef CONFIG_MACH_NEO1973_GTA01
 		case MACH_TYPE_NEO1973_GTA01:
-			s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, on ? 0 : 1);
+			neo1973_gpb_setpin(GTA01_GPIO_BT_EN, on ? 0 : 1);
 			break;
 #endif /* CONFIG_MACH_NEO1973_GTA01 */
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 		case MACH_TYPE_NEO1973_GTA02:
-			s3c2410_gpio_setpin(GTA02_GPIO_BT_EN, on ? 0 : 1);
+			neo1973_gpb_setpin(GTA02_GPIO_BT_EN, on ? 0 : 1);
 			break;
 #endif /* CONFIG_MACH_NEO1973_GTA02 */
 
@@ -192,7 +193,7 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 				   PCF50606_REGULATOR_D1REG, 0);
 		/* we pull reset to low to make sure that the chip doesn't
 	 	 * drain power through the reset line */
-		s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, 0);
+		neo1973_gpb_setpin(GTA01_GPIO_BT_EN, 0);
 		break;
 #endif /* CONFIG_MACH_NEO1973_GTA01 */
 
@@ -203,7 +204,7 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 				     PCF50633_REGULATOR_LDO4, 0);
 		/* we pull reset to low to make sure that the chip doesn't
 	 	 * drain power through the reset line */
-		s3c2410_gpio_setpin(GTA02_GPIO_BT_EN, 0);
+		neo1973_gpb_setpin(GTA02_GPIO_BT_EN, 0);
 		break;
 #endif /* CONFIG_MACH_NEO1973_GTA02 */
 

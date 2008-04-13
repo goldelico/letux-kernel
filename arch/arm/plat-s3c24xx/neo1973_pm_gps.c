@@ -20,6 +20,9 @@
 #include <asm/hardware.h>
 
 #include <asm/mach-types.h>
+
+#include <asm/plat-s3c24xx/neo1973.h>
+
 #ifdef CONFIG_MACH_NEO1973_GTA01
 #include <asm/arch/gta01.h>
 #include <linux/pcf50606.h>
@@ -264,7 +267,7 @@ static void gps_pwron_set(int on)
 {
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01())
-		s3c2410_gpio_setpin(GTA01_GPIO_GPS_PWRON, on);
+		neo1973_gpb_setpin(GTA01_GPIO_GPS_PWRON, on);
 #endif /* CONFIG_MACH_NEO1973_GTA01 */
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
