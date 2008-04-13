@@ -99,6 +99,19 @@ EXPORT_SYMBOL(fiq_ipc);
 
 #define FIQ_DIVISOR_VIBRATOR DIVISOR_FROM_US(100)
 
+#ifdef CONFIG_GTA02_HDQ
+/* HDQ specific */
+#define HDQ_SAMPLE_PERIOD_US 20
+/* private HDQ FSM state -- all other info interesting for caller in fiq_ipc */
+static enum hdq_bitbang_states hdq_state;
+static u8 hdq_ctr;
+static u8 hdq_ctr2;
+static u8 hdq_bit;
+static u8 hdq_shifter;
+static u8 hdq_tx_data_done;
+
+#define FIQ_DIVISOR_HDQ DIVISOR_FROM_US(HDQ_SAMPLE_PERIOD_US)
+#endif
 /* define FIQ ISR */
 
 FIQ_HANDLER_START()
@@ -121,9 +134,171 @@ FIQ_HANDLER_ENTRY(256, 512)
 		divisor = FIQ_DIVISOR_VIBRATOR;
 	}
 
-	/* TODO: HDQ servicing */
+#ifdef CONFIG_GTA02_HDQ
+	/* HDQ servicing */
 
+	switch (hdq_state) {
+	case HDQB_IDLE:
+		if (fiq_ipc.hdq_request_ctr == fiq_ipc.hdq_transaction_ctr)
+			break;
+		hdq_ctr = 210 / HDQ_SAMPLE_PERIOD_US;
+		s3c2410_gpio_setpin(fiq_ipc.hdq_gpio_pin, 0);
+		s3c2410_gpio_cfgpin(fiq_ipc.hdq_gpio_pin, S3C2410_GPIO_OUTPUT);
+		hdq_tx_data_done = 0;
+		hdq_state = HDQB_TX_BREAK;
+		break;
 
+	case HDQB_TX_BREAK: /* issue low for > 190us */
+		if (--hdq_ctr == 0) {
+			hdq_ctr = 60 / HDQ_SAMPLE_PERIOD_US;
+			hdq_state = HDQB_TX_BREAK_RECOVERY;
+			s3c2410_gpio_setpin(fiq_ipc.hdq_gpio_pin, 1);
+		}
+		break;
+
+	case HDQB_TX_BREAK_RECOVERY: /* issue low for > 40us */
+		if (--hdq_ctr)
+			break;
+		hdq_shifter = fiq_ipc.hdq_ads;
+		hdq_bit = 8; /* 8 bits of ads / rw */
+		hdq_tx_data_done = 0; /* doing ads */
+		/* fallthru on last one */
+	case HDQB_ADS_CALC:
+		if (hdq_shifter & 1)
+			hdq_ctr = 50 / HDQ_SAMPLE_PERIOD_US;
+		else
+			hdq_ctr = 120 / HDQ_SAMPLE_PERIOD_US;
+		/* carefully precompute the other phase length */
+		hdq_ctr2 = (210 - (hdq_ctr * HDQ_SAMPLE_PERIOD_US)) /
+				HDQ_SAMPLE_PERIOD_US;
+		hdq_state = HDQB_ADS_LOW;
+		hdq_shifter >>= 1;
+		hdq_bit--;
+		s3c2410_gpio_setpin(fiq_ipc.hdq_gpio_pin, 0);
+		break;
+
+	case HDQB_ADS_LOW:
+		if (--hdq_ctr)
+			break;
+		s3c2410_gpio_setpin(fiq_ipc.hdq_gpio_pin, 1);
+		hdq_state = HDQB_ADS_HIGH;
+		break;
+
+	case HDQB_ADS_HIGH:
+		if (--hdq_ctr2 > 1) /* account for HDQB_ADS_CALC */
+			break;
+		if (hdq_bit) { /* more bits to do */
+			hdq_state = HDQB_ADS_CALC;
+			break;
+		}
+		/* no more bits, wait it out until hdq_ctr2 exhausted */
+		if (hdq_ctr2)
+			break;
+		/* ok no more bits and very last state */
+		hdq_ctr = 60 / HDQ_SAMPLE_PERIOD_US;
+		/* FIXME 0 = read */
+		if (fiq_ipc.hdq_ads & 0x80) { /* write the byte out */
+			 /* set delay before payload */
+			hdq_ctr = 300 / HDQ_SAMPLE_PERIOD_US;
+ 			/* already high, no need to write */
+			hdq_state = HDQB_WAIT_TX;
+			break;
+		}
+		/* read the next byte */
+		hdq_bit = 8; /* 8 bits of data */
+		hdq_ctr = 3000 / HDQ_SAMPLE_PERIOD_US;
+		hdq_state = HDQB_WAIT_RX;
+		s3c2410_gpio_cfgpin(fiq_ipc.hdq_gpio_pin, S3C2410_GPIO_INPUT);
+		break;
+
+	case HDQB_WAIT_TX: /* issue low for > 40us */
+		if (--hdq_ctr)
+			break;
+		if (!hdq_tx_data_done) { /* was that the data sent? */
+			hdq_tx_data_done++;
+			hdq_shifter = fiq_ipc.hdq_tx_data;
+			hdq_bit = 8; /* 8 bits of data */
+			hdq_state = HDQB_ADS_CALC; /* start sending */
+			break;
+		}
+		fiq_ipc.hdq_error = 0;
+		fiq_ipc.hdq_transaction_ctr++;
+		hdq_state = HDQB_IDLE; /* all tx is done */
+		/* idle in input mode, it's pulled up by 10K */
+		s3c2410_gpio_cfgpin(fiq_ipc.hdq_gpio_pin, S3C2410_GPIO_INPUT);
+		break;
+
+	case HDQB_WAIT_RX: /* wait for battery to talk to us */
+		if (s3c2410_gpio_getpin(fiq_ipc.hdq_gpio_pin) == 0) {
+			/* it talks to us! */
+			hdq_ctr2 = 1;
+			hdq_bit = 8; /* 8 bits of data */
+			/* timeout */
+			hdq_ctr = 300 / HDQ_SAMPLE_PERIOD_US;
+			hdq_state = HDQB_DATA_RX_LOW;
+			break;
+		}
+		if (--hdq_ctr == 0) { /* timed out, error */
+			fiq_ipc.hdq_error = 1;
+			fiq_ipc.hdq_transaction_ctr++;
+			hdq_state = HDQB_IDLE; /* abort */
+		}
+		break;
+
+	/*
+	 * HDQ basically works by measuring the low time of the bit cell
+	 * 32-50us --> '1', 80 - 145us --> '0'
+	 */
+
+	case HDQB_DATA_RX_LOW:
+		if (s3c2410_gpio_getpin(fiq_ipc.hdq_gpio_pin)) {
+			fiq_ipc.hdq_rx_data >>= 1;
+			if (hdq_ctr2 <= (65 / HDQ_SAMPLE_PERIOD_US))
+				fiq_ipc.hdq_rx_data |= 0x80;
+
+			if (--hdq_bit == 0) {
+				fiq_ipc.hdq_error = 0;
+				fiq_ipc.hdq_transaction_ctr++; /* done */
+				hdq_state = HDQB_IDLE;
+			} else
+				hdq_state = HDQB_DATA_RX_HIGH;
+			/* timeout */
+			hdq_ctr = 1000 / HDQ_SAMPLE_PERIOD_US;
+			hdq_ctr2 = 1;
+			break;
+		}
+		hdq_ctr2++;
+		if (--hdq_ctr)
+			break;
+		 /* timed out, error */
+		fiq_ipc.hdq_error = 2;
+		fiq_ipc.hdq_transaction_ctr++;
+		hdq_state = HDQB_IDLE; /* abort */
+		break;
+
+	case HDQB_DATA_RX_HIGH:
+		if (!s3c2410_gpio_getpin(fiq_ipc.hdq_gpio_pin)) {
+			/* it talks to us! */
+			hdq_ctr2 = 1;
+			/* timeout */
+			hdq_ctr = 400 / HDQ_SAMPLE_PERIOD_US;
+			hdq_state = HDQB_DATA_RX_LOW;
+			break;
+		}
+		if (--hdq_ctr)
+			break;
+		/* timed out, error */
+		fiq_ipc.hdq_error = 3;
+		fiq_ipc.hdq_transaction_ctr++;
+		/* we're in input mode already */
+		hdq_state = HDQB_IDLE; /* abort */
+		break;
+	}
+
+	if (hdq_state != HDQB_IDLE) /* ie, not idle */
+		if (divisor > FIQ_DIVISOR_HDQ)
+			divisor = FIQ_DIVISOR_HDQ; /* keep us going */
+#endif
 
 	/* disable further timer interrupts if nobody has any work
 	 * or adjust rate according to who still has work
@@ -390,6 +565,23 @@ struct platform_device sc32440_fiq_device = {
 	.num_resources	= 1,
 	.resource	= sc32440_fiq_resources,
 };
+
+#ifdef CONFIG_GTA02_HDQ
+/* HDQ */
+
+static struct resource gta02_hdq_resources[] = {
+	[0] = {
+		.start	= GTA02v5_GPIO_HDQ,
+		.end	= GTA02v5_GPIO_HDQ,
+	},
+};
+
+struct platform_device gta02_hdq_device = {
+	.name 		= "gta02-hdq",
+	.num_resources	= 1,
+	.resource	= gta02_hdq_resources,
+};
+#endif
 
 /* NOR Flash */
 
@@ -1074,6 +1266,16 @@ static void __init gta02_machine_init(void)
 
 	platform_add_devices(gta02_devices, ARRAY_SIZE(gta02_devices));
 
+#ifdef CONFIG_GTA02_HDQ
+	switch (system_rev) {
+	case GTA02v5_SYSTEM_REV:
+	case GTA02v6_SYSTEM_REV:
+		platform_device_register(&gta02_hdq_device);
+		break;
+	default:
+		break;
+	}
+#endif
 	s3c2410_pm_init();
 
 	/* Set LCD_RESET / XRES to high */

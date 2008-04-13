@@ -37,6 +37,7 @@
 
 #define GTA02v3_GPIO_nG1_CS	S3C2410_GPD12	/* v3 + v4 only */
 #define GTA02v3_GPIO_nG2_CS	S3C2410_GPD13	/* v3 + v4 only */
+#define GTA02v5_GPIO_HDQ	S3C2410_GPD14   /* v5 + */
 
 #define GTA02_GPIO_nG1_INT	S3C2410_GPF0
 #define GTA02_GPIO_IO1		S3C2410_GPF1
