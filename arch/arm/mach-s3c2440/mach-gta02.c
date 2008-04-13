@@ -1258,9 +1258,9 @@ static void __init gta02_machine_init(void)
 		s3c2410_gpio_setpin(GTA02_CHIP_PWD, 0);
 		break;
 	default:
-		s3c2410_gpio_cfgpin(GTA02_GPIO_nWLAN_RESET, S3C2410_GPIO_OUTPUT);
 		/* Chip is in reset state */
 		s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 0);
+		s3c2410_gpio_cfgpin(GTA02_GPIO_nWLAN_RESET, S3C2410_GPIO_OUTPUT);
 		mdelay(100);
 		/* Power is up */
 		s3c2410_gpio_setpin(GTA02_CHIP_PWD, 0);
@@ -1300,8 +1300,14 @@ static void __init gta02_machine_init(void)
 	s3c2410_pm_init();
 
 	/* Set LCD_RESET / XRES to high */
-	s3c2410_gpio_cfgpin(GTA01_GPIO_LCD_RESET, S3C2410_GPIO_OUTPUT);
 	s3c2410_gpio_setpin(GTA01_GPIO_LCD_RESET, 1);
+	s3c2410_gpio_cfgpin(GTA01_GPIO_LCD_RESET, S3C2410_GPIO_OUTPUT);
+
+	s3c2410_gpio_setpin(S3C2410_GPD12, 1);
+	s3c2410_gpio_cfgpin(S3C2410_GPD12, S3C2410_GPIO_OUTPUT);
+
+	s3c2410_gpio_setpin(S3C2410_GPD13, 1);
+	s3c2410_gpio_cfgpin(S3C2410_GPD13, S3C2410_GPIO_OUTPUT);
 
 	/* Make sure the modem can wake us up */
 	set_irq_type(GTA02_IRQ_MODEM, IRQT_RISING);
