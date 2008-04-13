@@ -57,6 +57,7 @@
 #include <asm/irq.h>
 #include <asm/mach-types.h>
 
+#include <asm/arch-s3c2410/regs-irq.h>
 #include <asm/arch/regs-gpio.h>
 #include <asm/arch/regs-gpioj.h>
 #include <asm/arch/fb.h>
@@ -336,6 +337,21 @@ struct platform_device gta02_pmu_dev = {
 	},
 };
 
+/* FIQ */
+
+static struct resource sc32440_fiq_resources[] = {
+	[0] = {
+		.flags	= IORESOURCE_IRQ,
+		.start	= IRQ_TIMER3,
+		.end	= IRQ_TIMER3,
+	},
+};
+
+struct platform_device sc32440_fiq_device = {
+	.name 		= "sc32440_fiq",
+	.num_resources	= 1,
+	.resource	= sc32440_fiq_resources,
+};
 
 /* NOR Flash */
 
@@ -403,6 +419,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&s3c_device_nand,
 	&s3c_device_ts,
 	&gta02_nor_flash,
+	&sc32440_fiq_device,
 };
 
 static struct s3c2410_nand_set gta02_nand_sets[] = {

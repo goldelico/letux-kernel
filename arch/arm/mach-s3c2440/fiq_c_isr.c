@@ -18,6 +18,9 @@
 #include <asm/plat-s3c24xx/cpu.h>
 #include <asm/plat-s3c24xx/irq.h>
 
+#include <asm/arch/pwm.h>
+#include <asm/plat-s3c/regs-timer.h>
+
 /*
  * Major Caveats for using FIQ
  * ---------------------------
@@ -66,6 +69,10 @@ static u8 u8aFiqStack[4096];
 u32 _fiq_ack_mask; /* used by isr exit define */
 unsigned long _fiq_count_fiqs; /* used by isr exit define */
 static int _fiq_irq; /* private ; irq index we were started with, or 0 */
+struct s3c2410_pwm pwm_timer_fiq;
+int _fiq_timer_index;
+u16 _fiq_timer_divisor;
+
 
 /* this function must live in the monolithic kernel somewhere!  A module is
  * NOT good enough!
@@ -110,23 +117,45 @@ static struct attribute_group s3c2440_fiq_attr_group = {
  * you still need to clear the source interrupt in S3C2410_INTMSK to get
  * anything good happening
  */
-static void fiq_init_irq_source(int irq_index_fiq)
+static int fiq_init_irq_source(int irq_index_fiq)
 {
-	if (!irq_index_fiq) /* no interrupt */
-		return;
+	int rc = 0;
 
-	printk(KERN_INFO"Enabling FIQ using int idx %d\n",
-	       irq_index_fiq - S3C2410_CPUIRQ_OFFSET);
+	if (!irq_index_fiq) /* no interrupt */
+		goto bail;
+
 	local_fiq_disable();
 
 	_fiq_irq = irq_index_fiq;
 	_fiq_ack_mask = 1 << (irq_index_fiq - S3C2410_CPUIRQ_OFFSET);
+	timer_index = (irq_index_fiq - IRQ_TIMER0);
+
+	/* set up the timer to operate as a pwm device */
+
+	rc = s3c2410_pwm_init(&pwm_timer_fiq);
+	if (rc)
+		goto bail;
+
+	pwm_timer_fiq.timerid = PWM0 + timer_index;
+	pwm_timer_fiq.prescaler = (6 - 1) / 2;
+	pwm_timer_fiq.divider = S3C2410_TCFG1_MUX3_DIV2;
+	/* default rate == ~32us */
+	pwm_timer_fiq.counter = pwm_timer_fiq.comparer =
+					timer_divisor = 64;
+
+	rc = s3c2410_pwm_enable(&pwm_timer_fiq);
+	if (rc)
+		goto bail;
+
+	s3c2410_pwm_start(&pwm_timer_fiq);
 
 	/* let our selected interrupt be a magic FIQ interrupt */
 	__raw_writel(_fiq_ack_mask, S3C2410_INTMOD);
 
 	/* it's ready to go as soon as we unmask the source in S3C2410_INTMSK */
 	local_fiq_enable();
+bail:
+	return rc;
 }
 
 
@@ -139,15 +168,13 @@ static void fiq_disable_irq_source(void)
 	_fiq_irq = 0; /* no active source interrupt now either */
 }
 
-/* this starts FIQ timer events... they continue until the FIQ ISR sees that
- * its work is done and it turns off the timer.  After setting up the fiq_ipc
- * struct with new work, you call this to start FIQ timer actions up again.
- * Only the FIQ ISR decides when it is done and controls turning off the
- * timer events.
+/*
+ * fiq_kick() forces a FIQ event to happen shortly after leaving the routine
  */
 void fiq_kick(void)
 {
 	unsigned long flags;
+	u32 tcon;
 
 	/* we have to take care about FIQ because this modification is
 	 * non-atomic, FIQ could come in after the read and before the
@@ -156,12 +183,21 @@ void fiq_kick(void)
 	 */
 	local_save_flags(flags);
 	local_fiq_disable();
+	/* allow FIQs to resume */
 	__raw_writel(__raw_readl(S3C2410_INTMSK) &
 		     ~(1 << (_fiq_irq - S3C2410_CPUIRQ_OFFSET)),
 		     S3C2410_INTMSK);
+	tcon = __raw_readl(S3C2410_TCON) & ~S3C2410_TCON_T3START;
+	/* fake the timer to a count of 1 */
+	__raw_writel(1, S3C2410_TCNTB(timer_index));
+	__raw_writel(tcon | S3C2410_TCON_T3MANUALUPD, S3C2410_TCON);
+	__raw_writel(tcon | S3C2410_TCON_T3MANUALUPD | S3C2410_TCON_T3START,
+		     S3C2410_TCON);
+	__raw_writel(tcon | S3C2410_TCON_T3START, S3C2410_TCON);
 	local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(fiq_kick);
+
 
 
 
@@ -172,6 +208,8 @@ static int __init sc32440_fiq_probe(struct platform_device *pdev)
 	if (!r)
 		return -EIO;
 	/* configure for the interrupt we are meant to use */
+	printk(KERN_INFO"Enabling FIQ using irq %d\n", r->start);
+
 	fiq_init_irq_source(r->start);
 
 	return sysfs_create_group(&pdev->dev.kobj, &s3c2440_fiq_attr_group);

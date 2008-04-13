@@ -22,7 +22,7 @@ struct fiq_ipc {
 
 /* actual definition lives in arch/arm/mach-s3c2440/fiq_c_isr.c */
 extern struct fiq_ipc fiq_ipc;
-
+extern unsigned long _fiq_count_fiqs;
 extern void fiq_kick(void);  /* provoke a FIQ "immediately" */
 
 #endif /* _LINUX_FIQ_IPC_H */
