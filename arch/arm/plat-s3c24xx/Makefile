@@ -28,4 +28,8 @@ obj-$(CONFIG_PM)		+= pm.o
 obj-$(CONFIG_PM)		+= sleep.o
 obj-$(CONFIG_S3C2410_DMA)	+= dma.o
 obj-$(CONFIG_MACH_SMDK)		+= common-smdk.o
-obj-$(CONFIG_MACH_NEO1973)	+= neo1973_pm_host.o neo1973_pm_gsm.o neo1973_pm_gps.o neo1973_pm_bt.o
+obj-$(CONFIG_MACH_NEO1973)	+= neo1973_version.o \
+				   neo1973_pm_host.o \
+				   neo1973_pm_gsm.o \
+				   neo1973_pm_gps.o \
+				   neo1973_pm_bt.o

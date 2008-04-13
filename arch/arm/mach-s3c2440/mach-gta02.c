@@ -372,6 +372,11 @@ int gta02_get_pcb_revision(void)
 	return u;
 }
 
+struct platform_device gta02_version_device = {
+	.name 		= "neo1973-version",
+	.num_resources	= 0,
+};
+
 
 static struct map_desc gta02_iodesc[] __initdata = {
 	{
@@ -724,6 +729,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&s3c_device_ts,
 	&gta02_nor_flash,
 	&sc32440_fiq_device,
+	&gta02_version_device,
 };
 
 static struct s3c2410_nand_set gta02_nand_sets[] = {
