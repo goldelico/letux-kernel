@@ -1,0 +1,1 @@
+obj-$(CONFIG_SDIO)      += busdriver/ lib/
