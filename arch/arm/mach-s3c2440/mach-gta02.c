@@ -81,6 +81,8 @@
 
 #include <asm/arch/fiq_ipc_gta02.h>
 #include "fiq_c_isr.h"
+#include <linux/gta02_hdq.h>
+#include <linux/bq27000_battery.h>
 
 /* arbitrates which sensor IRQ owns the shared SPI bus */
 static spinlock_t motion_irq_lock;
@@ -582,6 +584,24 @@ struct platform_device gta02_hdq_device = {
 	.resource	= gta02_hdq_resources,
 };
 #endif
+
+/* BQ27000 Battery */
+
+struct bq27000_platform_data bq27000_pdata = {
+	.name = "bat",
+	.rsense_mohms = 20,
+	.hdq_read = gta02hdq_read,
+	.hdq_write = gta02hdq_write,
+	.hdq_initialized = gta02hdq_initialized,
+};
+
+struct platform_device bq27000_battery_device = {
+	.name 		= "bq27000-battery",
+	.dev = {
+		.platform_data = &bq27000_pdata,
+	},
+};
+
 
 /* NOR Flash */
 
@@ -1271,6 +1291,7 @@ static void __init gta02_machine_init(void)
 	case GTA02v5_SYSTEM_REV:
 	case GTA02v6_SYSTEM_REV:
 		platform_device_register(&gta02_hdq_device);
+		platform_device_register(&bq27000_battery_device);
 		break;
 	default:
 		break;

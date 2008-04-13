@@ -85,6 +85,8 @@ config MACH_NEO1973_GTA02
 	bool "FIC Neo1973 GSM Phone (GTA02 Hardware)"
 	select CPU_S3C2442
 	select SENSORS_PCF50633
+	select POWER_SUPPLY
+	select GTA02_HDQ
 	help
 	   Say Y here if you are using the FIC Neo1973 GSM Phone
 
