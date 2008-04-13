@@ -64,10 +64,3 @@ config GTA02_HDQ
 
 endif # POWER_SUPPLY
 
-config GTA02_HDQ
-	tristate "Neo Freerunner HDQ"
-	depends on MACH_NEO1973_GTA02 && FIQ && S3C2440_C_FIQ
-	help
-	  Say Y to enable support for communicating with an HDQ battery
-	  on the Neo Freerunner.  You probably want to select
-	  at least BATTERY_BQ27000_HDQ as well
