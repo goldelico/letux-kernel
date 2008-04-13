@@ -485,6 +485,12 @@ static int gta01_pm_gps_suspend(struct platform_device *pdev,
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) {
+		/* take care not to power unpowered GPS from GPIO */
+		s3c2410_gpio_cfgpin(S3C2410_GPH4, S3C2410_GPH4_OUTP);
+		s3c2410_gpio_setpin(S3C2410_GPH4, 0);
+		/* don't let RX from unpowered GPS float */
+		s3c2410_gpio_pullup(S3C2410_GPH5, 1);
+
 		/* FIXME */
 		pcf50633_onoff_set(pcf50633_global,
 			PCF50633_REGULATOR_LDO5, 0);
@@ -505,6 +511,14 @@ static int gta01_pm_gps_resume(struct platform_device *pdev)
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) {
+		/*
+		 * resume TXD1 function since we power GPS now... er..
+		 * WTF?  FIXME We always power GPS on resume ??
+		 */
+		s3c2410_gpio_cfgpin(S3C2410_GPH4, S3C2410_GPH4_TXD1);
+		/* remove pulldown now it won't be floating any more */
+		s3c2410_gpio_pullup(S3C2410_GPH5, 0);
+
 		/* FIXME */
 		pcf50633_onoff_set(pcf50633_global,
 			PCF50633_REGULATOR_LDO5, 1);
