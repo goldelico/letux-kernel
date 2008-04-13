@@ -18,8 +18,19 @@ extern int unregister_vt_notifier(struct notifier_block *nb);
  * resizing).
  */
 #define MIN_NR_CONSOLES 1       /* must be at least 1 */
+#if (CONFIG_NR_TTY_DEVICES < 4)
+/* Lower Limit */
+#define MAX_NR_CONSOLES	4	/* serial lines start at 64 */
+#define MAX_NR_USER_CONSOLES 4	/* must be root to allocate above this */
+#elif (CONFIG_NR_TTY_DEVICES > 63)
+/* Upper Limit */
 #define MAX_NR_CONSOLES	63	/* serial lines start at 64 */
 #define MAX_NR_USER_CONSOLES 63	/* must be root to allocate above this */
+#else
+/* They chose a sensible number */
+#define MAX_NR_CONSOLES CONFIG_NR_TTY_DEVICES
+#define MAX_NR_USER_CONSOLES CONFIG_NR_TTY_DEVICES
+#endif
 		/* Note: the ioctl VT_GETSTATE does not work for
 		   consoles 16 and higher (since it returns a short) */
 
