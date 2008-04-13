@@ -23,6 +23,8 @@
 #include <asm/arch/gta01.h>
 #include <asm/plat-s3c/regs-timer.h>
 
+#include <asm/arch-s3c2410/fiq_ipc_gta02.h>
+
 #define COUNTER 64
 
 struct neo1973_vib_priv {
@@ -39,6 +41,11 @@ static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
 	struct neo1973_vib_priv *vp =
 		container_of(led_cdev, struct neo1973_vib_priv, cdev);
 
+	if (machine_is_neo1973_gta02()) { /* use FIQ to control GPIO */
+		fiq_ipc.vib_pwm = value; /* set it for FIQ */
+		fiq_kick(); /* start up FIQs if not already going */
+		return;
+	}
 	/*
 	 * value == 255 -> 99% duty cycle (full power)
 	 * value == 128 -> 50% duty cycle (medium power)
@@ -46,7 +53,7 @@ static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
 	 */
 	mutex_lock(&vp->mutex);
 	if (vp->has_pwm)
-		s3c2410_pwm_duty_cycle(value/4, &vp->pwm);
+		s3c2410_pwm_duty_cycle(value / 4, &vp->pwm);
 	else {
 		if (value)
 			s3c2410_gpio_setpin(vp->gpio, 1);
@@ -123,6 +130,15 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 	neo1973_vib_led.gpio = r->start;
 	platform_set_drvdata(pdev, &neo1973_vib_led);
 
+	if (machine_is_neo1973_gta02()) { /* use FIQ to control GPIO */
+		s3c2410_gpio_setpin(neo1973_vib_led.gpio, 0); /* off */
+		s3c2410_gpio_cfgpin(neo1973_vib_led.gpio, S3C2410_GPIO_OUTPUT);
+		/* safe, kmalloc'd copy needed for FIQ ISR */
+		fiq_ipc.vib_gpio_pin = neo1973_vib_led.gpio;
+		fiq_ipc.vib_pwm = 0; /* off */
+		goto configured;
+	}
+
 	/* TOUT3 */
 	if (neo1973_vib_led.gpio == S3C2410_GPB3) {
 		rc = neo1973_vib_init_hw(&neo1973_vib_led);
@@ -133,7 +149,7 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 		s3c2410_gpio_cfgpin(neo1973_vib_led.gpio, S3C2410_GPB3_TOUT3);
 		neo1973_vib_led.has_pwm = 1;
 	}
-
+configured:
 	mutex_init(&neo1973_vib_led.mutex);
 
 	return led_classdev_register(&pdev->dev, &neo1973_vib_led.cdev);
@@ -141,6 +157,10 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 
 static int neo1973_vib_remove(struct platform_device *pdev)
 {
+	if (machine_is_neo1973_gta02()) /* use FIQ to control GPIO */
+		fiq_ipc.vib_pwm = 0; /* off */
+	/* would only need kick if already off so no kick needed */
+
 	if (neo1973_vib_led.has_pwm)
 		s3c2410_pwm_disable(&neo1973_vib_led.pwm);
 

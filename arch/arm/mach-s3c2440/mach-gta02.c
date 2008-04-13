@@ -95,12 +95,50 @@ static spinlock_t motion_irq_lock;
 struct fiq_ipc fiq_ipc;
 EXPORT_SYMBOL(fiq_ipc);
 
+#define DIVISOR_FROM_US(x) ((x) << 1)
+
+#define FIQ_DIVISOR_VIBRATOR DIVISOR_FROM_US(100)
+
 /* define FIQ ISR */
 
 FIQ_HANDLER_START()
 /* define your locals here -- no initializers though */
+	u16 divisor;
 FIQ_HANDLER_ENTRY(256, 512)
 /* Your ISR here :-) */
+	divisor = 0xffff;
+
+	/* Vibrator servicing */
+
+	if (fiq_ipc.vib_pwm_latched || fiq_ipc.vib_pwm) { /* not idle */
+		if (((u8)_fiq_count_fiqs) == fiq_ipc.vib_pwm_latched)
+			s3c2410_gpio_setpin(fiq_ipc.vib_gpio_pin, 0);
+		if (((u8)_fiq_count_fiqs) == 0) {
+			fiq_ipc.vib_pwm_latched = fiq_ipc.vib_pwm;
+			if (fiq_ipc.vib_pwm_latched)
+				s3c2410_gpio_setpin(fiq_ipc.vib_gpio_pin, 1);
+		}
+		divisor = FIQ_DIVISOR_VIBRATOR;
+	}
+
+	/* TODO: HDQ servicing */
+
+
+
+	/* disable further timer interrupts if nobody has any work
+	 * or adjust rate according to who still has work
+	 *
+	 * CAUTION: it means forground code must disable FIQ around
+	 * its own non-atomic S3C2410_INTMSK changes... not common
+	 * thankfully and taken care of by the fiq-basis patch
+	 */
+	if (divisor == 0xffff) /* mask the fiq irq source */
+		__raw_writel(__raw_readl(S3C2410_INTMSK) | _fiq_ack_mask,
+			     S3C2410_INTMSK);
+	else /* still working, maybe at a different rate */
+		__raw_writel(divisor, S3C2410_TCNTB(_fiq_timer_index));
+	_fiq_timer_divisor = divisor;
+
 FIQ_HANDLER_END()
 
 

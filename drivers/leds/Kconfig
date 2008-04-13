@@ -117,6 +117,7 @@ config LEDS_CM_X270
 config LEDS_NEO1973_VIBRATOR
 	tristate "Vibrator Support for the FIC Neo1973 GSM phone"
 	depends on LEDS_CLASS && MACH_NEO1973
+	select S3C2440_C_FIQ
 	help
 	  This option enables support for the vibrator on the FIC Neo1973.
 

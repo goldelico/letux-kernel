@@ -16,8 +16,15 @@
  * for testing
  */
 
+#include <asm/arch/pwm.h>
+#include <asm/plat-s3c/regs-timer.h>
+
+
 struct fiq_ipc {
-	u8 u8a[0]; /* placeholder */
+	/* vibrator */
+	unsigned long vib_gpio_pin; /* which pin to meddle with */
+	u8 vib_pwm; /* 0 = OFF -- will ensure GPIO deasserted and stop FIQ */
+	u8 vib_pwm_latched;
 };
 
 /* actual definition lives in arch/arm/mach-s3c2440/fiq_c_isr.c */
