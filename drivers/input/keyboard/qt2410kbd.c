@@ -1,7 +1,7 @@
 /*
  * Keyboard driver for Armzone QT2410
  *
- * (C) 2006 by OpenMoko, Inc.
+ * (C) 2006 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  * All rights reserved.
  *

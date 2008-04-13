@@ -96,7 +96,7 @@ config NEO1973_GTA02_2440
 	select CPU_S3C2440
 	help
 	   Say Y here if you are using an early hardware revision
-	   of the FIC/OpenMoko Neo1973 GTA02 GSM Phone.
+	   of the FIC/Openmoko Neo1973 GTA02 GSM Phone.
 
 endmenu
 

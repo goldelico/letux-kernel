@@ -107,7 +107,7 @@ const struct linux_logo * __init_refok fb_find_logo(int depth)
 		logo = &logo_m32r_clut224;
 #endif
 #ifdef CONFIG_LOGO_OPENMOKO_CLUT224
-		/* OpenMoko Linux logo */
+		/* Openmoko Linux logo */
 		logo = &logo_openmoko_clut224;
 #endif
 	}

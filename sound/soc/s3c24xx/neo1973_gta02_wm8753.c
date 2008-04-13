@@ -1,7 +1,7 @@
 /*
  * neo1973_gta02_wm8753.c  --  SoC audio for Neo1973
  *
- * Copyright 2007 OpenMoko Inc
+ * Copyright 2007 Openmoko Inc
  * Author: Graeme Gregory <graeme@openmoko.org>
  * Copyright 2007 Wolfson Microelectronics PLC.
  * Author: Graeme Gregory <linux@wolfsonmicro.com>

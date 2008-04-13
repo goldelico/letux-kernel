@@ -1,6 +1,6 @@
 /* Linux kernel driver for the ST LIS302D 3-axis accelerometer
  *
- * Copyright (C) 2007 by OpenMoko, Inc.
+ * Copyright (C) 2007 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  * All rights reserved.
  *

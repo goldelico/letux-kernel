@@ -27,7 +27,7 @@ config DISPLAY_JBT6K74
 	help
 	  SPI driver for the control interface of TFT panels containing
 	  the TPO JBT6K74-AS controller ASIC, such as the TPO TD028TTEC1
-	  TFT diplay module used in the FIC/OpenMoko Neo1973 GSM phones.
+	  TFT diplay module used in the FIC/Openmoko Neo1973 GSM phones.
 
 	  The control interface is required for display operation, as it
 	  controls power management, display timing and gamma calibration.

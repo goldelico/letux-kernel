@@ -1,7 +1,7 @@
 /*
  *  linux/drivers/mmc/host/glamo-mmc.h - GLAMO MCI driver
  *
- *  Copyright (C) 2007-2008 OpenMoko, Inc, Andy Green <andy@openmoko.com>
+ *  Copyright (C) 2007-2008 Openmoko, Inc, Andy Green <andy@openmoko.com>
  *   based on S3C MMC driver -->
  *  Copyright (C) 2004-2006 Thomas Kleffel, All Rights Reserved.
  *

@@ -2,7 +2,7 @@
  *
  * S3C2440 Machine Support for the FIC HXD8
  *
- * Copyright (c) 2007 OpenMoko, Inc.
+ * Copyright (c) 2007 Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  * All rights reserved.
  *

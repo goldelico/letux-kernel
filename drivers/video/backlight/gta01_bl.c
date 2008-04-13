@@ -1,7 +1,7 @@
 /*
  *  Backlight Driver for FIC GTA01 (Neo1973) GSM Phone
  *
- * Copyright (C) 2006-2007 by OpenMoko, Inc.
+ * Copyright (C) 2006-2007 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  * All rights reserved.
  *

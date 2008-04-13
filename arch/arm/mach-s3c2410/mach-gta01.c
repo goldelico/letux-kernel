@@ -3,7 +3,7 @@
  *
  * S3C2410 Machine Support for the FIC Neo1973 GTA01
  *
- * Copyright (C) 2006-2007 by OpenMoko, Inc.
+ * Copyright (C) 2006-2007 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  * All rights reserved.
  *

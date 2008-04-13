@@ -1,6 +1,6 @@
 /* Linux kernel driver for the tpo JBT6K74-AS LCM ASIC
  *
- * Copyright (C) 2006-2007 by OpenMoko, Inc.
+ * Copyright (C) 2006-2007 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>,
  * 	   Stefan Schmidt <stefan@openmoko.org>
  * All rights reserved.

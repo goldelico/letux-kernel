@@ -68,7 +68,7 @@ config LOGO_SUPERH_CLUT224
 	default y
 
 config LOGO_OPENMOKO_CLUT224
-	bool "224-color OpenMoko Linux logo"
+	bool "224-color Openmoko Linux logo"
 	depends on MACH_NEO1973_GTA01 || MACH_NEO1973_GTA02
 	default y
 
