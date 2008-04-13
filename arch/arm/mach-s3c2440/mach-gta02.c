@@ -1030,6 +1030,11 @@ static struct platform_device gta01_pm_gsm_dev = {
 	.name		= "neo1973-pm-gsm",
 };
 
+static struct platform_device gta02_pm_usbhost_dev = {
+	.name		= "neo1973-pm-host",
+};
+
+
 /* USB */
 static struct s3c2410_hcd_info gta02_usb_info = {
 	.port[0]	= {
@@ -1287,6 +1292,7 @@ static void __init gta02_machine_init(void)
 	platform_device_register(&s3c_device_spi_acc);
 	platform_device_register(&gta01_button_dev);
 	platform_device_register(&gta01_pm_gsm_dev);
+	platform_device_register(&gta02_pm_usbhost_dev);
 
 	mangle_pmu_pdata_by_system_rev();
 	platform_device_register(&gta02_pmu_dev);
