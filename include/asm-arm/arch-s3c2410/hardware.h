@@ -50,6 +50,8 @@ extern unsigned int s3c2410_gpio_getcfg(unsigned int pin);
 
 extern int s3c2410_gpio_getirq(unsigned int pin);
 
+extern int s3c2410_irq_to_gpio(unsigned int irq);
+
 #ifdef CONFIG_CPU_S3C2400
 
 extern int s3c2400_gpio_getirq(unsigned int pin);

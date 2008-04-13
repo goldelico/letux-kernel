@@ -61,6 +61,7 @@ static inline int gpio_direction_output(unsigned gpio, int value)
 #define gpio_to_irq(gpio)		s3c2400_gpio_getirq(gpio)
 #else
 #define gpio_to_irq(gpio)		s3c2410_gpio_getirq(gpio)
+#define irq_to_gpio(irq)		s3c2410_irq_to_gpio(irq)
 #endif
 
 /* FIXME implement irq_to_gpio() */

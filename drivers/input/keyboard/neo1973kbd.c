@@ -28,16 +28,13 @@
 struct neo1973kbd {
 	struct input_dev *input;
 	unsigned int suspended;
-	int gpio_aux;
-	int gpio_hold;
-	int gpio_jack;    
 };
 
 static irqreturn_t neo1973kbd_aux_irq(int irq, void *dev_id)
 {
 	struct neo1973kbd *neo1973kbd_data = dev_id;
 
-	int key_pressed = !gpio_get_value(neo1973kbd_data->gpio_aux);
+	int key_pressed = !gpio_get_value(irq_to_gpio(irq));
 	input_report_key(neo1973kbd_data->input, KEY_PHONE, key_pressed);
 	input_sync(neo1973kbd_data->input);
 
@@ -48,7 +45,7 @@ static irqreturn_t neo1973kbd_hold_irq(int irq, void *dev_id)
 {
 	struct neo1973kbd *neo1973kbd_data = dev_id;
 
-	int key_pressed = gpio_get_value(neo1973kbd_data->gpio_hold);
+	int key_pressed = gpio_get_value(irq_to_gpio(irq));
 	input_report_key(neo1973kbd_data->input, KEY_PAUSE, key_pressed);
 	input_sync(neo1973kbd_data->input);
 
@@ -59,7 +56,7 @@ static irqreturn_t neo1973kbd_headphone_irq(int irq, void *dev_id)
 {
 	struct neo1973kbd *neo1973kbd_data = dev_id;
 
-	int key_pressed = gpio_get_value(neo1973kbd_data->gpio_jack);
+	int key_pressed = gpio_get_value(irq_to_gpio(irq));
 	input_report_switch(neo1973kbd_data->input,
 			    SW_HEADPHONE_INSERT, key_pressed);
 	input_sync(neo1973kbd_data->input);
@@ -107,19 +104,15 @@ static int neo1973kbd_probe(struct platform_device *pdev)
 	if (pdev->resource[0].flags != 0)
 		return -EINVAL;
 
-	neo1973kbd->gpio_aux = pdev->resource[0].start;
-	neo1973kbd->gpio_hold = pdev->resource[1].start;
-	neo1973kbd->gpio_jack = pdev->resource[2].start;
-
-	irq_aux = gpio_to_irq(neo1973kbd->gpio_aux);
+	irq_aux = gpio_to_irq(pdev->resource[0].start);
 	if (irq_aux < 0)
 		return -EINVAL;
 
-	irq_hold = gpio_to_irq(neo1973kbd->gpio_hold);
+	irq_hold = gpio_to_irq(pdev->resource[1].start);
 	if (irq_hold < 0)
 		return -EINVAL;
 
-	irq_jack = gpio_to_irq(neo1973kbd->gpio_jack);
+	irq_jack = gpio_to_irq(pdev->resource[2].start);
 	if (irq_jack < 0)
 		return -EINVAL;
 

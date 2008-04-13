@@ -188,6 +188,23 @@ int s3c2410_gpio_getirq(unsigned int pin)
 
 EXPORT_SYMBOL(s3c2410_gpio_getirq);
 
+int s3c2410_irq_to_gpio(unsigned int irq)
+{
+	/* not valid interrupts */
+	if (irq > 15 + IRQ_EINT8)
+		return -1;
+
+	if (irq < IRQ_EINT4)
+		return (irq - IRQ_EINT0) + S3C2410_GPF0;
+
+	if (irq < IRQ_EINT8)
+		return (irq - IRQ_EINT4) + S3C2410_GPF4;
+
+	return (irq - IRQ_EINT8) + S3C2410_GPG0;
+}
+
+EXPORT_SYMBOL(s3c2410_irq_to_gpio);
+
 static void pretty_dump(u32 cfg, u32 state, u32 pull,
 			const char ** function_names_2,
 			const char ** function_names_3,
