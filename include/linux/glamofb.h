@@ -35,5 +35,6 @@ struct glamofb_platform_data {
 
 void glamofb_cmd_mode(struct glamofb_handle *gfb, int on);
 int glamofb_cmd_write(struct glamofb_handle *gfb, u_int16_t val);
+void glamo_lcm_reset(int level);
 
 #endif

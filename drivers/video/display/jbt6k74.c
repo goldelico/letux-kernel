@@ -27,6 +27,8 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
+#include <linux/workqueue.h>
+#include <linux/jbt6k74.h>
 
 #include <linux/spi/spi.h>
 
@@ -114,10 +116,14 @@ struct jbt_info {
 	struct mutex lock;		/* protects tx_buf and reg_cache */
 	u16 tx_buf[8];
 	u16 reg_cache[0xEE];
+	struct work_struct work;
 };
 
 #define JBT_COMMAND	0x000
 #define JBT_DATA	0x100
+
+static void jbt_resume_work(struct work_struct *work);
+
 
 static int jbt_reg_write_nodata(struct jbt_info *jbt, u8 reg)
 {
@@ -130,6 +136,9 @@ static int jbt_reg_write_nodata(struct jbt_info *jbt, u8 reg)
 		       1*sizeof(u16));
 	if (rc == 0)
 		jbt->reg_cache[reg] = 0;
+	else
+		printk(KERN_ERR"jbt_reg_write_nodata spi_write ret %d\n",
+		       rc);
 
 	mutex_unlock(&jbt->lock);
 
@@ -149,6 +158,8 @@ static int jbt_reg_write(struct jbt_info *jbt, u8 reg, u8 data)
 		       2*sizeof(u16));
 	if (rc == 0)
 		jbt->reg_cache[reg] = data;
+	else
+		printk(KERN_ERR"jbt_reg_write spi_write ret %d\n", rc);
 
 	mutex_unlock(&jbt->lock);
 
@@ -169,6 +180,8 @@ static int jbt_reg_write16(struct jbt_info *jbt, u8 reg, u16 data)
 		       3*sizeof(u16));
 	if (rc == 0)
 		jbt->reg_cache[reg] = data;
+	else
+		printk(KERN_ERR"jbt_reg_write16 spi_write ret %d\n", rc);
 
 	mutex_unlock(&jbt->lock);
 
@@ -563,6 +576,8 @@ static int __devinit jbt_probe(struct spi_device *spi)
 	if (!jbt)
 		return -ENOMEM;
 
+	INIT_WORK(&jbt->work, jbt_resume_work);
+
 	jbt->spi_dev = spi;
 	jbt->state = JBT_STATE_DEEP_STANDBY;
 	mutex_init(&jbt->lock);
@@ -618,28 +633,50 @@ static int __devexit jbt_remove(struct spi_device *spi)
 static int jbt_suspend(struct spi_device *spi, pm_message_t state)
 {
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
+	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
 
 	/* Save mode for resume */
 	jbt->last_state = jbt->state;
 	jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);
 
+	(jbt6k74_pdata->reset)(0, 0);
+
 	return 0;
+}
+
+static void jbt_resume_work(struct work_struct *work)
+{
+	struct jbt_info *jbt = container_of(work, struct jbt_info, work);
+
+	printk(KERN_INFO"jbt_resume_work waiting...\n");
+	msleep(2000);
+	printk(KERN_INFO"jbt_resume_work GO...\n");
+
+	jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);
+	msleep(100);
+
+	switch (jbt->last_state) {
+	case JBT_STATE_QVGA_NORMAL:
+		jbt6k74_enter_state(jbt, JBT_STATE_QVGA_NORMAL);
+		break;
+	default:
+		jbt6k74_enter_state(jbt, JBT_STATE_NORMAL);
+		break;
+	}
+	jbt6k74_display_onoff(jbt, 1);
+
+	printk(KERN_INFO"jbt_resume_work done...\n");
 }
 
 static int jbt_resume(struct spi_device *spi)
 {
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
+	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
 
-	jbt6k74_enter_state(jbt, jbt->last_state);
+	(jbt6k74_pdata->reset)(0, 1);
 
-	switch (jbt->last_state) {
-	case JBT_STATE_NORMAL:
-	case JBT_STATE_QVGA_NORMAL:
-		jbt6k74_display_onoff(jbt, 1);
-		break;
-	default:
-		break;
-	}
+	if (!schedule_work(&jbt->work))
+		dev_err(&spi->dev, "Unable to schedule LCM wakeup work\n");
 
 	return 0;
 }

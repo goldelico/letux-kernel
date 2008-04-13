@@ -76,6 +76,7 @@
 #include <asm/plat-s3c24xx/cpu.h>
 #include <asm/plat-s3c24xx/pm.h>
 #include <asm/plat-s3c24xx/udc.h>
+#include <linux/jbt6k74.h>
 
 #include <linux/glamofb.h>
 
@@ -756,10 +757,21 @@ static struct s3c2410_ts_mach_info gta02_ts_cfg = {
 
 /* SPI: LCM control interface attached to Glamo3362 */
 
+void gta02_jbt6k74_reset(int devidx, int level)
+{
+	glamo_lcm_reset(level);
+}
+
+
+const struct jbt6k74_platform_data jbt6k74_pdata = {
+	.reset		= gta02_jbt6k74_reset,
+};
+
 static struct spi_board_info gta02_spi_board_info[] = {
 	{
 		.modalias	= "jbt6k74",
 		/* platform_data */
+		.platform_data	= &jbt6k74_pdata,
 		/* controller_data */
 		/* irq */
 		.max_speed_hz	= 10 * 1000 * 1000,
