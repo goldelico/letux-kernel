@@ -21,6 +21,7 @@
 #include <linux/jiffies.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/workqueue.h>
 
 #include <asm/gpio.h>
 #include <asm/mach-types.h>
@@ -28,6 +29,11 @@
 struct neo1973kbd {
 	struct input_dev *input;
 	unsigned int suspended;
+	struct work_struct work;
+	int work_in_progress;
+	int hp_irq_count_in_work;
+	int hp_irq_count;
+	int jack_irq;
 };
 
 static irqreturn_t neo1973kbd_aux_irq(int irq, void *dev_id)
@@ -52,14 +58,61 @@ static irqreturn_t neo1973kbd_hold_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+
+static void neo1973kbd_debounce_jack(struct work_struct *work)
+{
+	struct neo1973kbd *kbd = container_of(work, struct neo1973kbd, work);
+
+	/* we wait out any multiple interrupt stuttering in 100ms lumps */
+
+	do {
+		kbd->hp_irq_count_in_work = kbd->hp_irq_count;
+		msleep(100);
+	} while (kbd->hp_irq_count != kbd->hp_irq_count_in_work);
+
+	/* no new interrupts on jack for 100ms... ok we will report it */
+
+	input_report_switch(kbd->input,
+			    SW_HEADPHONE_INSERT,
+			    gpio_get_value(irq_to_gpio(kbd->jack_irq)));
+	input_sync(kbd->input);
+
+	/* next time we get an interrupt on jack we need new work action */
+	kbd->work_in_progress = 0;
+}
+
+
+
 static irqreturn_t neo1973kbd_headphone_irq(int irq, void *dev_id)
 {
 	struct neo1973kbd *neo1973kbd_data = dev_id;
 
-	int key_pressed = gpio_get_value(irq_to_gpio(irq));
-	input_report_switch(neo1973kbd_data->input,
-			    SW_HEADPHONE_INSERT, key_pressed);
-	input_sync(neo1973kbd_data->input);
+	/*
+	 * this interrupt is prone to bouncing and userspace doesn't like
+	 * to have to deal with that kind of thing.  So we do not accept
+	 * that a jack interrupt is equal to a jack event.  Instead we fire
+	 * some work on the first interrupt, and it hangs about in 100ms units
+	 * until no more interrupts come.  Then it accepts the state it finds
+	 * for jack insert and reports it once
+	 */
+
+	neo1973kbd_data->hp_irq_count++;
+	/*
+	 * the first interrupt we see for a while, we fire the work item
+	 * and record the interrupt count when we did that.  If more interrupts
+	 * come in the meanwhile, we can tell by the difference in that
+	 * stored count and hp_irq_count which increments every interrupt
+	 */
+	if (!neo1973kbd_data->work_in_progress) {
+		neo1973kbd_data->jack_irq = irq;
+		neo1973kbd_data->hp_irq_count_in_work =
+						neo1973kbd_data->hp_irq_count;
+		if (!schedule_work(&neo1973kbd_data->work))
+			printk(KERN_ERR
+				"Unable to schedule headphone debounce\n");
+		else
+			neo1973kbd_data->work_in_progress = 1;
+	}
 
 	return IRQ_HANDLED;
 }
@@ -119,6 +172,8 @@ static int neo1973kbd_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, neo1973kbd);
 
 	neo1973kbd->input = input_dev;
+
+	INIT_WORK(&neo1973kbd->work, neo1973kbd_debounce_jack);
 
 	input_dev->name = "Neo1973 Buttons";
 	input_dev->phys = "neo1973kbd/input0";
