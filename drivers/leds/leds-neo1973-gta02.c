@@ -46,7 +46,7 @@ static inline struct gta02_led_priv *to_priv(struct led_classdev *led_cdev)
 
 static inline struct gta02_led_bundle *to_bundle(struct led_classdev *led_cdev)
 {
-	return dev_get_drvdata(led_cdev->dev);
+	return dev_get_drvdata(led_cdev->dev->parent);
 }
 
 static void gta02led_set(struct led_classdev *led_cdev,
@@ -174,6 +174,8 @@ static int __init gta02led_probe(struct platform_device *pdev)
 		rc = led_classdev_register(&pdev->dev, &lp->cdev);
 	}
 
+	bundle->num_leds = i;
+
 	return 0;
 }
 
@@ -186,6 +188,8 @@ static int gta02led_remove(struct platform_device *pdev)
 		struct gta02_led_priv *lp = &bundle->led[i];
 		if (lp->has_pwm)
 			s3c2410_pwm_disable(&lp->pwm);
+		else
+			gta02led_set(&lp->cdev, 0);
 
 		led_classdev_unregister(&lp->cdev);
 		mutex_destroy(&lp->mutex);
