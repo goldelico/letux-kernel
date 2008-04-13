@@ -708,10 +708,6 @@ static unsigned int s3c24xx_serial_getclk(struct uart_port *port,
 		int calc_deviation;
 
 		for (sptr = res; sptr < resptr; sptr++) {
-			printk(KERN_DEBUG
-			       "found clk %p (%s) quot %d, calc %d\n",
-			       sptr->clksrc, sptr->clksrc->name,
-			       sptr->quot, sptr->calc);
 
 			calc_deviation = baud - sptr->calc;
 			if (calc_deviation < 0)
@@ -723,11 +719,7 @@ static unsigned int s3c24xx_serial_getclk(struct uart_port *port,
 			}
 		}
 
-		printk(KERN_DEBUG "best %p (deviation %d)\n", best, deviation);
 	}
-
-	printk(KERN_DEBUG "selected clock %p (%s) quot %d, calc %d\n",
-	       best->clksrc, best->clksrc->name, best->quot, best->calc);
 
 	/* store results to pass back */
 
