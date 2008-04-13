@@ -78,8 +78,30 @@
 
 #include <linux/glamofb.h>
 
+#include <asm/arch/fiq_ipc_gta02.h>
+#include "fiq_c_isr.h"
+
 /* arbitrates which sensor IRQ owns the shared SPI bus */
 static spinlock_t motion_irq_lock;
+
+/* define FIQ IPC struct */
+/*
+ * contains stuff FIQ ISR modifies and normal kernel code can see and use
+ * this is defined in <asm/arch/fiq_ipc_gta02.h>, you should customize
+ * the definition in there and include the same definition in your kernel
+ * module that wants to interoperate with your FIQ code.
+ */
+struct fiq_ipc fiq_ipc;
+EXPORT_SYMBOL(fiq_ipc);
+
+/* define FIQ ISR */
+
+FIQ_HANDLER_START()
+/* define your locals here -- no initializers though */
+FIQ_HANDLER_ENTRY(256, 512)
+/* Your ISR here :-) */
+FIQ_HANDLER_END()
+
 
 static struct map_desc gta02_iodesc[] __initdata = {
 	{

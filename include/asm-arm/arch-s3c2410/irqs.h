@@ -188,4 +188,8 @@
 #define IRQ_GLAMO_MMC		IRQ_GLAMO(7)
 #define IRQ_GLAMO_RISC		IRQ_GLAMO(8)
 
+/* offset for FIQ IRQ numbers - used by arm fiq.c */
+
+#define FIQ_START 0
+
 #endif /* __ASM_ARCH_IRQ_H */

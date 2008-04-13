@@ -133,12 +133,20 @@ static void
 s3c_irq_mask(unsigned int irqno)
 {
 	unsigned long mask;
-
+#ifdef CONFIG_S3C2440_C_FIQ
+	unsigned long flags;
+#endif
 	irqno -= IRQ_EINT0;
-
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_save_flags(flags);
+	local_fiq_disable();
+#endif
 	mask = __raw_readl(S3C2410_INTMSK);
 	mask |= 1UL << irqno;
 	__raw_writel(mask, S3C2410_INTMSK);
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_irq_restore(flags);
+#endif
 }
 
 static inline void
@@ -155,9 +163,19 @@ s3c_irq_maskack(unsigned int irqno)
 {
 	unsigned long bitval = 1UL << (irqno - IRQ_EINT0);
 	unsigned long mask;
+#ifdef CONFIG_S3C2440_C_FIQ
+	unsigned long flags;
+#endif
 
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_save_flags(flags);
+	local_fiq_disable();
+#endif
 	mask = __raw_readl(S3C2410_INTMSK);
 	__raw_writel(mask|bitval, S3C2410_INTMSK);
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_irq_restore(flags);
+#endif
 
 	__raw_writel(bitval, S3C2410_SRCPND);
 	__raw_writel(bitval, S3C2410_INTPND);
@@ -168,15 +186,25 @@ static void
 s3c_irq_unmask(unsigned int irqno)
 {
 	unsigned long mask;
+#ifdef CONFIG_S3C2440_C_FIQ
+	unsigned long flags;
+#endif
 
 	if (irqno != IRQ_TIMER4 && irqno != IRQ_EINT8t23)
 		irqdbf2("s3c_irq_unmask %d\n", irqno);
 
 	irqno -= IRQ_EINT0;
 
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_save_flags(flags);
+	local_fiq_disable();
+#endif
 	mask = __raw_readl(S3C2410_INTMSK);
 	mask &= ~(1UL << irqno);
 	__raw_writel(mask, S3C2410_INTMSK);
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_irq_restore(flags);
+#endif
 }
 
 struct irq_chip s3c_irq_level_chip = {

@@ -22,6 +22,13 @@ config S3C2440_DMA
 	help
 	  Support for S3C2440 specific DMA code5A
 
+config S3C2440_C_FIQ
+	bool "FIQ ISR support in C"
+	depends on ARCH_S3C2410
+	select FIQ
+	help
+	  Support for S3C2440 FIQ support in C -- see
+	  ./arch/arm/macs3c2440/fiq_c_isr.c
 
 menu "S3C2440 Machines"
 
