@@ -1,8 +1,8 @@
 #!/bin/bash
-../../dfu-util/src/dfu-util -a 3 -d 0x1457:0x5119 -D uImage.bin
+../../dfu-util/src/dfu-util -a 3 -d 0x1d50:0x5119 -D uImage.bin
 if [ $? -eq 1 ] ; then
-../../dfu-util/src/dfu-util -a 3 -d 0x1457:0x5120 -D uImage.bin
-../../dfu-util/src/dfu-util -a 3 -d 0x1457:0x5119 -D uImage.bin
+../../dfu-util/src/dfu-util -a 3 -d 0x1d50:0x5120 -D uImage.bin
+../../dfu-util/src/dfu-util -a 3 -d 0x1d50:0x5119 -D uImage.bin
 
 fi
 
