@@ -1281,6 +1281,8 @@ static void __init gta02_machine_init(void)
 		s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 1);
 		break;
 	}
+	mangle_glamo_res_by_system_rev();
+	platform_device_register(&gta02_glamo_dev);
 
 	platform_device_register(&s3c_device_spi_acc);
 	platform_device_register(&gta01_button_dev);
@@ -1291,8 +1293,6 @@ static void __init gta02_machine_init(void)
 	platform_device_register(&gta01_led_dev);
 	platform_device_register(&gta02_led_dev);
 
-	mangle_glamo_res_by_system_rev();
-	platform_device_register(&gta02_glamo_dev);
 
 	platform_device_register(&gta02_sdio_dev);
 

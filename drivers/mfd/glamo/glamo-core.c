@@ -822,6 +822,8 @@ static void glamo_power(struct glamo_core *glamo,
 {
 	spin_lock(&glamo->lock);
 
+	dev_dbg(&glamo->pdev->dev, "***** glamo_power -> %d\n", new_state);
+
 	switch (new_state) {
 	case GLAMO_POWER_ON:
 		/* power up PLL1 and PLL2 */
@@ -1026,13 +1028,6 @@ static int __init glamo_probe(struct platform_device *pdev)
 	glamo_mci_def_pdata.glamo_irq_is_wired =
 					glamo->pdata->glamo_irq_is_wired;
 
-	glamo_mmc_dev.dev.parent = &pdev->dev;
-	/* we need it later to give to the engine enable and disable */
-	glamo_mci_def_pdata.pglamo = glamo;
-	mangle_mem_resources(glamo_mmc_dev.resource,
-			     glamo_mmc_dev.num_resources, glamo->mem);
-	platform_device_register(&glamo_mmc_dev);
-
 	glamo_2d_dev.dev.parent = &pdev->dev;
 	mangle_mem_resources(glamo_2d_dev.resource,
 			     glamo_2d_dev.num_resources, glamo->mem);
@@ -1064,6 +1059,13 @@ static int __init glamo_probe(struct platform_device *pdev)
 	glamo_spigpio_dev.dev.parent = &pdev->dev;
 	glamo_spigpio_dev.dev.platform_data = glamo->pdata->spigpio_info;
 	platform_device_register(&glamo_spigpio_dev);
+
+	glamo_mmc_dev.dev.parent = &pdev->dev;
+	/* we need it later to give to the engine enable and disable */
+	glamo_mci_def_pdata.pglamo = glamo;
+	mangle_mem_resources(glamo_mmc_dev.resource,
+			     glamo_mmc_dev.num_resources, glamo->mem);
+	platform_device_register(&glamo_mmc_dev);
 
 	/* only request the generic, hostbus and memory controller MMIO */
 	glamo->mem = request_mem_region(glamo->mem->start,
