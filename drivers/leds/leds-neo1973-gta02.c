@@ -161,6 +161,7 @@ static int __init gta02led_probe(struct platform_device *pdev)
 		case S3C2410_GPB0:
 		case S3C2410_GPB1:
 		case S3C2410_GPB2:
+		case S3C2410_GPB3:
 			lp->has_pwm = 0;
 			s3c2410_gpio_cfgpin(lp->gpio, S3C2410_GPIO_OUTPUT);
 			s3c2410_gpio_setpin(lp->gpio, 0);
