@@ -428,6 +428,15 @@ static int lis302dl_suspend(struct spi_device *spi, pm_message_t state)
 	disable_irq(lis->spi_dev->irq);
 	local_save_flags(flags);
 
+	/*
+	 * When we share SPI over multiple sensors, there is a race here
+	 * that one or more sensors will lose.  In that case, the shared
+	 * SPI bus GPIO will be in sleep mode and partially pulled down.  So
+	 * we explicitly put our IO into "wake" mode here before the final
+	 * traffic to the sensor.
+	 */
+	(lis->pdata->lis302dl_suspend_io)(lis, 1);
+
 	/* save registers */
 	lis->regs[LIS302DL_REG_CTRL1] = reg_read(lis, LIS302DL_REG_CTRL1);
 	lis->regs[LIS302DL_REG_CTRL2] = reg_read(lis, LIS302DL_REG_CTRL2);
@@ -467,6 +476,9 @@ static int lis302dl_suspend(struct spi_device *spi, pm_message_t state)
 		reg_write(lis, LIS302DL_REG_CTRL1, tmp);
 	}
 
+	/* place our IO to the device in sleep-compatible states */
+	(lis->pdata->lis302dl_suspend_io)(lis, 0);
+
 	local_irq_restore(flags);
 
 	return 0;
@@ -478,6 +490,9 @@ static int lis302dl_resume(struct spi_device *spi)
 	unsigned long flags;
 
 	local_save_flags(flags);
+
+	/* get our IO to the device back in operational states */
+	(lis->pdata->lis302dl_suspend_io)(lis, 1);
 
 	/* restore registers after resume */
 	reg_write(lis, LIS302DL_REG_CTRL1, lis->regs[LIS302DL_REG_CTRL1]);

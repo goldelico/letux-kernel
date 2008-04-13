@@ -887,7 +887,31 @@ void gat02_lis302dl_bitbang_read(struct lis302dl_info *lis)
 }
 
 
-struct lis302dl_platform_data lis302_pdata[] = {
+void gat02_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
+{
+	struct lis302dl_platform_data *pdata = lis->pdata;
+
+	if (!resume) {
+		 /*
+		 * we don't want to power them with a high level
+		 * because GSENSOR_3V3 is not up during suspend
+		 */
+		s3c2410_gpio_setpin(pdata->pin_chip_select, 0);
+		s3c2410_gpio_setpin(pdata->pin_clk, 0);
+		s3c2410_gpio_setpin(pdata->pin_mosi, 0);
+		/* misnomer: it is a pullDOWN in 2442 */
+		s3c2410_gpio_pullup(pdata->pin_miso, 1);
+		return;
+	}
+
+	/* back to normal */
+	s3c2410_gpio_setpin(pdata->pin_chip_select, 1);
+	s3c2410_gpio_setpin(pdata->pin_clk, 1);
+	/* misnomer: it is a pullDOWN in 2442 */
+	s3c2410_gpio_pullup(pdata->pin_miso, 0);
+}
+
+const struct lis302dl_platform_data lis302_pdata[] = {
 	{
 		.name		= "lis302-1 (top)",
 		.pin_chip_select= S3C2410_GPD12,
@@ -896,6 +920,7 @@ struct lis302dl_platform_data lis302_pdata[] = {
 		.pin_miso	= S3C2410_GPG5,
 		.open_drain	= 1, /* altered at runtime by PCB rev */
 		.lis302dl_bitbang_read = gat02_lis302dl_bitbang_read,
+		.lis302dl_suspend_io = gat02_lis302dl_suspend_io,
 	}, {
 		.name		= "lis302-2 (bottom)",
 		.pin_chip_select= S3C2410_GPD13,
@@ -904,6 +929,7 @@ struct lis302dl_platform_data lis302_pdata[] = {
 		.pin_miso	= S3C2410_GPG5,
 		.open_drain	= 1, /* altered at runtime by PCB rev */
 		.lis302dl_bitbang_read = gat02_lis302dl_bitbang_read,
+		.lis302dl_suspend_io = gat02_lis302dl_suspend_io,
 	},
 };
 

@@ -16,6 +16,7 @@ struct lis302dl_platform_data {
 	unsigned long pin_miso;
 	int open_drain;
 	void (*lis302dl_bitbang_read)(struct lis302dl_info *);
+	void (*lis302dl_suspend_io)(struct lis302dl_info *, int resuming);
 };
 
 struct lis302dl_info {
