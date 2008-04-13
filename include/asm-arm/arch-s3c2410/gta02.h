@@ -97,4 +97,13 @@
 #define GTA02v3_IRQ_nUSB_FLT	IRQ_EINT18	/* v3 + v4 only */
 #define GTA02v3_IRQ_nGSM_OC	IRQ_EINT19	/* v3 + v4 only */
 
+/* returns 00 000 on GTA02 A5 and earlier, A6 returns 01 001 */
+#define GTA02_PCB_ID1_0		S3C2410_GPC13
+#define GTA02_PCB_ID1_1		S3C2410_GPC15
+#define GTA02_PCB_ID1_2		S3C2410_GPD0
+#define GTA02_PCB_ID2_0		S3C2410_GPD3
+#define GTA02_PCB_ID2_1		S3C2410_GPD4
+
+int gta02_get_pcb_revision(void);
+
 #endif /* _GTA02_H */

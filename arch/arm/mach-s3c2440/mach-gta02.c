@@ -320,6 +320,59 @@ FIQ_HANDLER_ENTRY(256, 512)
 FIQ_HANDLER_END()
 
 
+/**
+ * returns PCB revision information in b9,b8 and b2,b1,b0
+ * Pre-GTA02 A6 returns 0x000
+ *     GTA02 A6 returns 0x101
+ *     ...
+ */
+
+int gta02_get_pcb_revision(void)
+{
+	int n;
+	int u = 0;
+	static unsigned long pinlist[] = {
+		GTA02_PCB_ID1_0,
+		GTA02_PCB_ID1_1,
+		GTA02_PCB_ID1_2,
+		GTA02_PCB_ID2_0,
+		GTA02_PCB_ID2_1,
+	};
+	static int pin_offset[] = {
+		0, 1, 2, 8, 9
+	};
+
+	for (n = 0 ; n < ARRAY_SIZE(pinlist); n++) {
+		/*
+		 * set the PCB version GPIO to be pulled-down input
+		 * force low briefly first
+		 */
+		s3c2410_gpio_cfgpin(pinlist[n], S3C2410_GPIO_OUTPUT);
+		s3c2410_gpio_setpin(pinlist[n], 0);
+		/* misnomer: it is a pullDOWN in 2442 */
+		s3c2410_gpio_pullup(pinlist[n], 1);
+		s3c2410_gpio_cfgpin(pinlist[n], S3C2410_GPIO_INPUT);
+
+		udelay(10);
+
+		if (s3c2410_gpio_getpin(pinlist[n]))
+			u |= 1 << pin_offset[n];
+
+		/*
+		* when not being interrogated, all of the revision GPIO
+		* are set to output HIGH without pulldown so no current flows
+		* if they are NC or pulled up.
+		*/
+		s3c2410_gpio_setpin(pinlist[n], 1);
+		s3c2410_gpio_cfgpin(pinlist[n], S3C2410_GPIO_OUTPUT);
+		/* misnomer: it is a pullDOWN in 2442 */
+		s3c2410_gpio_pullup(pinlist[n], 0);
+	}
+
+	return u;
+}
+
+
 static struct map_desc gta02_iodesc[] __initdata = {
 	{
 		.virtual	= 0xe0000000,
@@ -911,7 +964,7 @@ void gat02_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
 	s3c2410_gpio_pullup(pdata->pin_miso, 0);
 }
 
-const struct lis302dl_platform_data lis302_pdata[] = {
+struct lis302dl_platform_data lis302_pdata[] = {
 	{
 		.name		= "lis302-1 (top)",
 		.pin_chip_select= S3C2410_GPD12,
