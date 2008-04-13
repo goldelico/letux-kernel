@@ -1717,9 +1717,18 @@ static void
 s3c24xx_serial_console_putchar(struct uart_port *port, int ch)
 {
 	unsigned int ufcon = rd_regl(cons_uart, S3C2410_UFCON);
+	unsigned int umcon = rd_regl(cons_uart, S3C2410_UMCON);
+
+	/* If auto HW flow control enabled, temporarily turn it off */
+	if (umcon & S3C2410_UMCOM_AFC)
+		wr_regl(port, S3C2410_UMCON, (umcon & !S3C2410_UMCOM_AFC));
+
 	while (!s3c24xx_serial_console_txrdy(port, ufcon))
 		barrier();
 	wr_regb(cons_uart, S3C2410_UTXH, ch);
+
+	if (umcon & S3C2410_UMCOM_AFC)
+		wr_regl(port, S3C2410_UMCON, umcon);
 }
 
 static void
