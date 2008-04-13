@@ -704,6 +704,7 @@ ar6000_avail_ev(HTC_HANDLE HTCHandle)
     ar->arHtcTarget          = HTCHandle;
     ar->arHifDevice          = HTCGetHifDevice(HTCHandle);
     ar->arWlanState          = WLAN_ENABLED;
+    ar->arRadioSwitch        = WLAN_ENABLED;
     ar->arDeviceIndex        = device_index;
 
     A_INIT_TIMER(&ar->arHBChallengeResp.timer, ar6000_detect_error, dev);

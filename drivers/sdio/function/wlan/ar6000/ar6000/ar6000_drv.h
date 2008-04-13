@@ -201,6 +201,7 @@ typedef struct ar6_softc {
     A_BOOL                  arWmiEnabled;
     A_BOOL                  arWmiReady;
     A_BOOL                  arConnected;
+    A_BOOL                  arRadioSwitch;
     HTC_HANDLE              arHtcTarget;
     void                    *arHifDevice;
     spinlock_t              arLock;
