@@ -67,6 +67,11 @@ config LOGO_SUPERH_CLUT224
 	depends on SUPERH
 	default y
 
+config LOGO_OPENMOKO_CLUT224
+	bool "224-color OpenMoko Linux logo"
+	depends on MACH_NEO1973_GTA01 || MACH_NEO1973_GTA02
+	default y
+
 config LOGO_M32R_CLUT224
 	bool "224-color M32R Linux logo"
 	depends on M32R
