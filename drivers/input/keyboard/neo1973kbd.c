@@ -22,7 +22,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
-#include <asm/hardware.h>
+#include <asm/gpio.h>
 #include <asm/mach-types.h>
 
 struct neo1973kbd {
@@ -37,7 +37,7 @@ static irqreturn_t neo1973kbd_aux_irq(int irq, void *dev_id)
 {
 	struct neo1973kbd *neo1973kbd_data = dev_id;
 
-	int key_pressed = !s3c2410_gpio_getpin(neo1973kbd_data->gpio_aux);
+	int key_pressed = !gpio_get_value(neo1973kbd_data->gpio_aux);
 	input_report_key(neo1973kbd_data->input, KEY_PHONE, key_pressed);
 	input_sync(neo1973kbd_data->input);
 
@@ -48,7 +48,7 @@ static irqreturn_t neo1973kbd_hold_irq(int irq, void *dev_id)
 {
 	struct neo1973kbd *neo1973kbd_data = dev_id;
 
-	int key_pressed = s3c2410_gpio_getpin(neo1973kbd_data->gpio_hold);
+	int key_pressed = gpio_get_value(neo1973kbd_data->gpio_hold);
 	input_report_key(neo1973kbd_data->input, KEY_PAUSE, key_pressed);
 	input_sync(neo1973kbd_data->input);
 
@@ -59,7 +59,7 @@ static irqreturn_t neo1973kbd_headphone_irq(int irq, void *dev_id)
 {
 	struct neo1973kbd *neo1973kbd_data = dev_id;
 
-	int key_pressed = s3c2410_gpio_getpin(neo1973kbd_data->gpio_jack);
+	int key_pressed = gpio_get_value(neo1973kbd_data->gpio_jack);
 	input_report_switch(neo1973kbd_data->input,
 			    SW_HEADPHONE_INSERT, key_pressed);
 	input_sync(neo1973kbd_data->input);
@@ -111,15 +111,15 @@ static int neo1973kbd_probe(struct platform_device *pdev)
 	neo1973kbd->gpio_hold = pdev->resource[1].start;
 	neo1973kbd->gpio_jack = pdev->resource[2].start;
 
-	irq_aux = s3c2410_gpio_getirq(neo1973kbd->gpio_aux);
+	irq_aux = gpio_to_irq(neo1973kbd->gpio_aux);
 	if (irq_aux < 0)
 		return -EINVAL;
 
-	irq_hold = s3c2410_gpio_getirq(neo1973kbd->gpio_hold);
+	irq_hold = gpio_to_irq(neo1973kbd->gpio_hold);
 	if (irq_hold < 0)
 		return -EINVAL;
 
-	irq_jack = s3c2410_gpio_getirq(neo1973kbd->gpio_jack);
+	irq_jack = gpio_to_irq(neo1973kbd->gpio_jack);
 	if (irq_jack < 0)
 		return -EINVAL;
 
@@ -194,9 +194,9 @@ static int neo1973kbd_remove(struct platform_device *pdev)
 {
 	struct neo1973kbd *neo1973kbd = platform_get_drvdata(pdev);
 
-	free_irq(s3c2410_gpio_getirq(pdev->resource[2].start), neo1973kbd);
-	free_irq(s3c2410_gpio_getirq(pdev->resource[1].start), neo1973kbd);
-	free_irq(s3c2410_gpio_getirq(pdev->resource[0].start), neo1973kbd);
+	free_irq(gpio_to_irq(pdev->resource[2].start), neo1973kbd);
+	free_irq(gpio_to_irq(pdev->resource[1].start), neo1973kbd);
+	free_irq(gpio_to_irq(pdev->resource[0].start), neo1973kbd);
 
 	input_unregister_device(neo1973kbd->input);
 	input_free_device(neo1973kbd->input);
