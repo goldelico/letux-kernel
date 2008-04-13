@@ -406,6 +406,14 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 	u16 status;
 	int n;
 
+	if (host->suspending) {
+		cmd->error = -EIO;
+		if (cmd->data)
+			cmd->data->error = -EIO;
+		mmc_request_done(mmc, mrq);
+		return;
+	}
+
 	host->ccnt++;
 	/*
 	 * somehow 2.6.24 MCI manages to issue MMC_WRITE_BLOCK *without* the
@@ -792,6 +800,9 @@ static int glamo_mci_remove(struct platform_device *pdev)
 static int glamo_mci_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct mmc_host *mmc = platform_get_drvdata(dev);
+	struct glamo_mci_host 	*host = mmc_priv(mmc);
+
+	host->suspending++;
 
 	return  mmc_suspend_host(mmc, state);
 }
@@ -799,6 +810,9 @@ static int glamo_mci_suspend(struct platform_device *dev, pm_message_t state)
 static int glamo_mci_resume(struct platform_device *dev)
 {
 	struct mmc_host *mmc = platform_get_drvdata(dev);
+	struct glamo_mci_host 	*host = mmc_priv(mmc);
+
+	host->suspending--;
 
 	return mmc_resume_host(mmc);
 }
