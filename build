@@ -3,6 +3,7 @@
 set -x
 
 export CROSS_COMPILE=../../cross/bin/arm-angstrom-linux-gnueabi-
+make -f synthesize-gta-module-configs.mak
 make ARCH=arm silentoldconfig
 if make -j5 ARCH=arm; then
 	${CROSS_COMPILE}objcopy -O binary -R .note -R .comment -S arch/arm/boot/compressed/vmlinux linux.bin
