@@ -63,16 +63,13 @@ static ssize_t gsm_read(struct device *dev, struct device_attribute *attr,
 		if (s3c2410_gpio_getpin(GTA01_GPIO_MODEM_RST))
 			goto out_1;
 	} else if (!strcmp(attr->attr.name, "download")) {
-#ifdef CONFIG_MACH_NEO1973_GTA01
-		if (machine_is_neo1973_gta01())
+		if (machine_is_neo1973_gta01()) {
 			if (s3c2410_gpio_getpin(GTA01_GPIO_MODEM_DNLOAD))
 				goto out_1;
-#endif
-#ifdef CONFIG_MACH_NEO1973_GTA02
-		if (machine_is_neo1973_gta02())
+		} else if (machine_is_neo1973_gta02()) {
 			if (!s3c2410_gpio_getpin(GTA02_GPIO_nDL_GSM))
 				goto out_1;
-#endif
+		}
 	}
 
 	return strlcpy(buf, "0\n", 3);
@@ -140,11 +137,9 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 	} else if (!strcmp(attr->attr.name, "reset")) {
 		s3c2410_gpio_setpin(GTA01_GPIO_MODEM_RST, on);
 	} else if (!strcmp(attr->attr.name, "download")) {
-#ifdef CONFIG_MACH_NEO1973_GTA01
 		if (machine_is_neo1973_gta01())
 			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_DNLOAD, on);
-#endif
-#ifdef CONFIG_MACH_NEO1973_GTA02
+
 		if (machine_is_neo1973_gta02()) {
 			/*
 			 * the keyboard / buttons driver requests and enables
@@ -168,7 +163,6 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 			gta01_gsm.gpio_ndl_gsm = !on;
 			s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, !on);
 		}
-#endif
 	}
 
 	return count;
