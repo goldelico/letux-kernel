@@ -588,7 +588,7 @@ int glamo_engine_reclock(struct glamo_core *glamo,
 	if (val) {
 		val--;
 		reg_set_bit_mask(glamo, reg, mask, val);
-		msleep(5); /* wait some time to stabilize */
+		mdelay(5); /* wait some time to stabilize */
 
 		return 0;
 	} else {
