@@ -1209,7 +1209,7 @@ source "drivers/net/ibm_newemac/Kconfig"
 
 config NET_PCI
 	bool "EISA, VLB, PCI and on board controllers"
-	depends on ISA || EISA || PCI
+	depends on ISA || EISA || PCI || MACH_QT2410
 	help
 	  This is another class of network cards which attach directly to the
 	  bus. If you have one of those, say Y and read the Ethernet-HOWTO,
@@ -1385,7 +1385,7 @@ config FORCEDETH_NAPI
 
 config CS89x0
 	tristate "CS89x0 support"
-	depends on NET_PCI && (ISA || MACH_IXDP2351 || ARCH_IXDP2X01 || ARCH_PNX010X)
+	depends on NET_PCI && (ISA || MACH_IXDP2351 || ARCH_IXDP2X01 || ARCH_PNX010X || MACH_QT2410)
 	---help---
 	  Support for CS89x0 chipset based Ethernet cards. If you have a
 	  network (Ethernet) card of this type, say Y and read the
