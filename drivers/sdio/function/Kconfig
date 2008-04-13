@@ -1,0 +1,11 @@
+#menu "SDIO function drivers"
+
+config SDIO_AR6000_WLAN
+        tristate "ar6000 wireless networking over sdio"
+	depends on SDIO
+        select WIRELESS_EXT
+        default m
+        help
+          good luck.
+
+#endmenu

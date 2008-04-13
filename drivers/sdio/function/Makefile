@@ -1,0 +1,1 @@
+obj-$(CONFIG_SDIO_AR6000_WLAN)          += wlan/
