@@ -514,8 +514,8 @@ static int gta01_pm_gps_resume(struct platform_device *pdev)
 {
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01()) {
-		/* FIXME */
-		gps_power_sequence_up();
+		if (neo1973_gps.power_was_on)
+			gps_power_sequence_up();
 	}
 #endif /* CONFIG_MACH_NEO1973_GTA01 */
 
