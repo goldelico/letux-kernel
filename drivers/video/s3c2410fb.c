@@ -1028,6 +1028,8 @@ static int s3c2410fb_resume(struct platform_device *dev)
 
 	s3c2410fb_init_registers(fbinfo);
 
+	s3c2410fb_set_par(fbinfo);
+
 	return 0;
 }
 
