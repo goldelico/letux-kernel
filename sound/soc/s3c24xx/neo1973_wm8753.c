@@ -44,6 +44,15 @@
 #include "s3c24xx-pcm.h"
 #include "s3c24xx-i2s.h"
 
+/* Debugging stuff */
+#ifdef SND_S3C24XX_SOC_NEO1973_WM8753_DEBUG
+static int debug        = 1;
+#else
+static int debug        = 0;
+#endif
+
+#define dprintk(msg...) if (debug) { printk(KERN_DEBUG "wm8753: " msg); }
+
 /* define the scenarios */
 #define NEO_AUDIO_OFF			0
 #define NEO_GSM_CALL_AUDIO_HANDSET	1
@@ -67,6 +76,8 @@ static int neo1973_hifi_hw_params(struct snd_pcm_substream *substream,
 	unsigned int pll_out = 0, bclk = 0;
 	int ret = 0;
 	unsigned long iis_clkrate;
+
+	dprintk("Entered %s\n", __FUNCTION__);
 
 	iis_clkrate = s3c24xx_i2s_get_clockrate();
 
@@ -152,6 +163,8 @@ static int neo1973_hifi_hw_free(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_codec_dai *codec_dai = rtd->dai->codec_dai;
 
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	/* disable the PLL */
 	return codec_dai->dai_ops.set_pll(codec_dai, WM8753_PLL1, 0, 0);
 }
@@ -172,6 +185,8 @@ static int neo1973_voice_hw_params(struct snd_pcm_substream *substream,
 	unsigned int pcmdiv = 0;
 	int ret = 0;
 	unsigned long iis_clkrate;
+
+	dprintk("Entered %s\n", __FUNCTION__);
 
 	iis_clkrate = s3c24xx_i2s_get_clockrate();
 
@@ -214,6 +229,8 @@ static int neo1973_voice_hw_free(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_codec_dai *codec_dai = rtd->dai->codec_dai;
 
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	/* disable the PLL */
 	return codec_dai->dai_ops.set_pll(codec_dai, WM8753_PLL2, 0, 0);
 }
@@ -228,12 +245,16 @@ static int neo1973_scenario = 0;
 static int neo1973_get_scenario(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	ucontrol->value.integer.value[0] = neo1973_scenario;
 	return 0;
 }
 
 static int set_scenario_endpoints(struct snd_soc_codec *codec, int scenario)
 {
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	switch(neo1973_scenario) {
 	case NEO_AUDIO_OFF:
 		snd_soc_dapm_set_endpoint(codec, "Audio Out",    0);
@@ -316,6 +337,8 @@ static int neo1973_set_scenario(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	if (neo1973_scenario == ucontrol->value.integer.value[0])
 		return 0;
 
@@ -328,6 +351,8 @@ static u8 lm4857_regs[4] = {0x00, 0x40, 0x80, 0xC0};
 
 static void lm4857_write_regs(void)
 {
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	if (i2c_master_send(i2c, lm4857_regs, 4) != 4)
 		printk(KERN_ERR "lm4857: i2c write failed\n");
 }
@@ -339,6 +364,8 @@ static int lm4857_get_reg(struct snd_kcontrol *kcontrol,
 	int shift = (kcontrol->private_value >> 8) & 0x0F;
 	int mask = (kcontrol->private_value >> 16) & 0xFF;
 
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	ucontrol->value.integer.value[0] = (lm4857_regs[reg] >> shift) & mask;
 	return 0;
 }
@@ -349,6 +376,8 @@ static int lm4857_set_reg(struct snd_kcontrol *kcontrol,
 	int reg = kcontrol->private_value & 0xFF;
 	int shift = (kcontrol->private_value >> 8) & 0x0F;
 	int mask = (kcontrol->private_value >> 16) & 0xFF;
+
+	dprintk("Entered %s\n", __FUNCTION__);
 
 	if (((lm4857_regs[reg] >> shift ) & mask) ==
 		ucontrol->value.integer.value[0])
@@ -365,6 +394,8 @@ static int lm4857_get_mode(struct snd_kcontrol *kcontrol,
 {
 	u8 value = lm4857_regs[LM4857_CTRL] & 0x0F;
 
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	if (value)
 		value -= 5;
 
@@ -376,6 +407,8 @@ static int lm4857_set_mode(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	u8 value = ucontrol->value.integer.value[0];
+
+	dprintk("Entered %s\n", __FUNCTION__);
 
 	if (value)
 		value += 5;
@@ -484,6 +517,8 @@ static int neo1973_wm8753_init(struct snd_soc_codec *codec)
 {
 	int i, err;
 
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	/* set up NC codec pins */
 	snd_soc_dapm_set_endpoint(codec, "LOUT2", 0);
 	snd_soc_dapm_set_endpoint(codec, "ROUT2", 0);
@@ -584,6 +619,8 @@ static int lm4857_amp_probe(struct i2c_adapter *adap, int addr, int kind)
 {
 	int ret;
 
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	client_template.adapter = adap;
 	client_template.addr = addr;
 
@@ -607,6 +644,8 @@ exit_err:
 
 static int lm4857_i2c_detach(struct i2c_client *client)
 {
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	i2c_detach_client(client);
 	kfree(client);
 	return 0;
@@ -614,6 +653,8 @@ static int lm4857_i2c_detach(struct i2c_client *client)
 
 static int lm4857_i2c_attach(struct i2c_adapter *adap)
 {
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	return i2c_probe(adap, &addr_data, lm4857_amp_probe);
 }
 
@@ -621,6 +662,8 @@ static u8 lm4857_state;
 
 static int lm4857_suspend(struct i2c_client *dev, pm_message_t state)
 {
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	dev_dbg(&dev->dev, "lm4857_suspend\n");
 	lm4857_state = lm4857_regs[LM4857_CTRL] & 0xf;
 	if (lm4857_state) {
@@ -632,6 +675,8 @@ static int lm4857_suspend(struct i2c_client *dev, pm_message_t state)
 
 static int lm4857_resume(struct i2c_client *dev)
 {
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	if (lm4857_state) {
 		lm4857_regs[LM4857_CTRL] |= (lm4857_state & 0x0f);
 		lm4857_write_regs();
@@ -641,6 +686,8 @@ static int lm4857_resume(struct i2c_client *dev)
 
 static void lm4857_shutdown(struct i2c_client *dev)
 {
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	dev_dbg(&dev->dev, "lm4857_shutdown\n");
 	lm4857_regs[LM4857_CTRL] &= 0xf0;
 	lm4857_write_regs();
@@ -672,6 +719,8 @@ static int __init neo1973_init(void)
 {
 	int ret;
 
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	if (!machine_is_neo1973_gta01()) {
 		printk(KERN_INFO
 		       "Only GTA01 hardware supported by ASoc driver\n");
@@ -698,6 +747,8 @@ static int __init neo1973_init(void)
 
 static void __exit neo1973_exit(void)
 {
+	dprintk("Entered %s\n", __FUNCTION__);
+
 	i2c_del_driver(&lm4857_i2c_driver);
 	platform_device_unregister(neo1973_snd_device);
 }
