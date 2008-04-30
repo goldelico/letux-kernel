@@ -57,6 +57,20 @@ struct s3c24xx_hcd_context {
 
 	struct work_struct        io_work;
 	struct work_struct        irq_work;
+
+#ifdef CONFIG_PM
+	struct {
+		UINT32 		con;
+		UINT32 		pre;
+		UINT32 		cmdarg, cmdcon, cmdsta;
+		UINT32 		r0, r1, r2, r3;
+		UINT32 		timer;
+		UINT32 		bsize;
+		UINT32 		datcon, datcnt, datsta;
+		UINT32 		fsta;
+		UINT32 		imask;	
+	} suspend_regs;
+#endif
 };
 
 SDIO_STATUS s3c24xx_hcd_config(PSDHCD hcd, PSDCONFIG config);
