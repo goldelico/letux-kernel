@@ -49,7 +49,6 @@ static inline struct glamo_spi *to_gs(struct spi_device *spi)
 
 static int glamo_spi_setupxfer(struct spi_device *spi, struct spi_transfer *t)
 {
-	struct glamo_spi *gs = to_gs(spi);
 	unsigned int bpw;
 
 	bpw = t ? t->bits_per_word : spi->bits_per_word;

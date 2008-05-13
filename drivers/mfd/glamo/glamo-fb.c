@@ -239,7 +239,7 @@ static void rotate_lcd(struct glamofb_handle *glamo,
                        __u32 rotation)
 {
 	int glamo_rot;
-	unsigned long flags;
+/*	unsigned long flags; */
 
 	switch (rotation) {
 		case FB_ROTATE_UR:
@@ -495,6 +495,7 @@ static int glamofb_setcolreg(unsigned regno,
 	return 0;
 }
 
+#ifdef NOT_CURRENTLY_USED
 static int glamofb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 {
 	struct glamofb_handle *glamo = info->par;
@@ -566,6 +567,7 @@ static int glamofb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 		}
 	}
 }
+#endif
 
 static inline int glamofb_cmdq_empty(struct glamofb_handle *gfb)
 {
