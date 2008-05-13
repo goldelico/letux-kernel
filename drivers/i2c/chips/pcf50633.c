@@ -1952,8 +1952,9 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 
 void pcf50633_backlight_resume(struct pcf50633_data *pcf)
 {
-	__reg_write(pcf, PCF50633_REG_LEDOUT, pcf->standby_regs.ledout);
-	__reg_write(pcf, PCF50633_REG_LEDENA, pcf->standby_regs.ledena);
+	/* we force the backlight on in fact */
+	__reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
+	__reg_write(pcf, PCF50633_REG_LEDENA, 0x21);
 	__reg_write(pcf, PCF50633_REG_LEDDIM, pcf->standby_regs.leddim);
 }
 EXPORT_SYMBOL_GPL(pcf50633_backlight_resume);
