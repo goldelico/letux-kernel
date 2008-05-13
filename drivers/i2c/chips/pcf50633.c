@@ -1459,7 +1459,7 @@ static int pcf50633bl_get_intensity(struct backlight_device *bd)
 	struct pcf50633_data *pcf = bl_get_data(bd);
 	int intensity = reg_read(pcf, PCF50633_REG_LEDOUT);
 
-	if (!(reg_read(pcf, PCF50633_REG_LEDOUT) & 1))
+	if (!(reg_read(pcf, PCF50633_REG_LEDENA) & 1))
 		intensity = 0;
 
 	return intensity & 0x3f;
@@ -1472,7 +1472,7 @@ static int pcf50633bl_set_intensity(struct backlight_device *bd)
 	int old_intensity = reg_read(pcf, PCF50633_REG_LEDOUT);
 	int ret;
 
-	if (!(reg_read(pcf, PCF50633_REG_LEDOUT) & 1))
+	if (!(reg_read(pcf, PCF50633_REG_LEDENA) & 1))
 		old_intensity = 0;
 
 	if ((bd->props.power != FB_BLANK_UNBLANK) ||
