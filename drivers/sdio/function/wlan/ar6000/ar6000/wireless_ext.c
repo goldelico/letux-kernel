@@ -424,10 +424,6 @@ ar6000_ioctl_giwessid(struct net_device *dev,
         return -EIO;
     }
 
-    if (!ar->arSsidLen) {
-        return -EINVAL;
-    }
-
     data->flags = 1;
     data->length = ar->arSsidLen;
     A_MEMCPY(essid, ar->arSsid, ar->arSsidLen);
@@ -818,12 +814,6 @@ ar6000_ioctl_siwencode(struct net_device *dev,
     AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
     int index;
     A_INT32 auth = ar->arDot11AuthMode;
-    /*
-     *  Static WEP Keys should be configured before setting the SSID
-     */
-    if (ar->arSsidLen) {
-        return -EIO;
-    }
 
     if (ar->arWlanState == WLAN_DISABLED) {
         return -EIO;
@@ -894,6 +884,7 @@ ar6000_ioctl_siwencode(struct net_device *dev,
      * profile has changed.  Erase ssid to signal change
      */
     A_MEMZERO(ar->arSsid, sizeof(ar->arSsid));
+    ar->arSsidLen = 0;
 
     return 0;
 }
@@ -1096,8 +1087,10 @@ static int ar6000_ioctl_siwauth(struct net_device *dev,
 		return -EOPNOTSUPP;
 	}
 
-	if (reset)
-		memset(ar->arSsid, 0, sizeof(ar->arSsid));
+	if (reset) {
+		A_MEMZERO(ar->arSsid, sizeof(ar->arSsid));
+		ar->arSsidLen = 0;
+	}
 
 	return 0;
 }
@@ -1335,7 +1328,8 @@ ar6000_ioctl_setparam(struct net_device *dev,
         /*
          * profile has changed.  Erase ssid to signal change
          */
-        A_MEMZERO(ar->arSsid, sizeof(ar->arSsid));
+	A_MEMZERO(ar->arSsid, sizeof(ar->arSsid));
+	ar->arSsidLen = 0;
     }
 
     return ret;
