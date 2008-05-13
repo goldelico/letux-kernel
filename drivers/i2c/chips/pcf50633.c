@@ -1466,7 +1466,7 @@ static int pcf50633bl_set_intensity(struct backlight_device *bd)
 	struct pcf50633_data *pcf = bl_get_data(bd);
 	int intensity = bd->props.brightness;
 	int old_intensity = reg_read(pcf, PCF50633_REG_LEDOUT);
-	u_int8_t ledena;
+	u_int8_t ledena = 2;
 	int ret;
 
 	if (bd->props.power != FB_BLANK_UNBLANK)
@@ -1474,16 +1474,19 @@ static int pcf50633bl_set_intensity(struct backlight_device *bd)
 	if (bd->props.fb_blank != FB_BLANK_UNBLANK)
 		intensity = 0;
 
-	/* The PCF50633 seems to have some kind of oddity (bug?) when
-	 * the intensity was 0, you need to completely switch it off
-	 * and re-enable it, before it produces any output voltage again */
+	/* The PCF50633 cannot handle LEDOUT = 0 (datasheet p60)
+	 * if seen, you have to re-enable the LED unit
+	 */
 
 	if (intensity != 0 && old_intensity == 0) {
 		ledena = reg_read(pcf, PCF50633_REG_LEDENA);
 		reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
 	}
 
-	ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f,
+	if (!intensity) /* illegal to set LEDOUT to 0 */
+		ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f, 2);
+	else
+		ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f,
 			       intensity);
 
 	if (intensity != 0 && old_intensity == 0)
@@ -1921,6 +1924,8 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 	}
 
 	/* turn off the backlight */
+	__reg_write(pcf, PCF50633_REG_LEDDIM, 0);
+	__reg_write(pcf, PCF50633_REG_LEDOUT, 2);
 	__reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
 
 	pcf->standby_regs.int1m = __reg_read(pcf, PCF50633_REG_INT1M);
@@ -1939,17 +1944,30 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 	return 0;
 }
 
+/*
+ * if backlight resume is selected to be deferred by platform, then it
+ * can call this to finally reset backlight status (after LCM is resumed
+ * for example
+ */
+
+void pcf50633_backlight_resume(struct pcf50633_data *pcf)
+{
+	__reg_write(pcf, PCF50633_REG_LEDOUT, pcf->standby_regs.ledout);
+	__reg_write(pcf, PCF50633_REG_LEDENA, pcf->standby_regs.ledena);
+	__reg_write(pcf, PCF50633_REG_LEDDIM, pcf->standby_regs.leddim);
+}
+EXPORT_SYMBOL_GPL(pcf50633_backlight_resume);
+
+
 static int pcf50633_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
 	int i;
 
-	printk(KERN_INFO"a\n");
 	/* mutex_lock(&pcf->lock); */  /* resume in atomic context */
 
 	__reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
-	printk(KERN_INFO"b\n");
 
 	/* Resume all saved registers that don't "survive" standby state */
 	__reg_write(pcf, PCF50633_REG_INT1M, pcf->standby_regs.int1m);
@@ -1957,7 +1975,6 @@ static int pcf50633_resume(struct device *dev)
 	__reg_write(pcf, PCF50633_REG_INT3M, pcf->standby_regs.int3m);
 	__reg_write(pcf, PCF50633_REG_INT4M, pcf->standby_regs.int4m);
 	__reg_write(pcf, PCF50633_REG_INT5M, pcf->standby_regs.int5m);
-	printk(KERN_INFO"c\n");
 
 	__reg_write(pcf, PCF50633_REG_OOCTIM2, pcf->standby_regs.ooctim2);
 	__reg_write(pcf, PCF50633_REG_AUTOOUT, pcf->standby_regs.autoout);
@@ -1968,17 +1985,24 @@ static int pcf50633_resume(struct device *dev)
 	__reg_write(pcf, PCF50633_REG_DOWN2ENA, pcf->standby_regs.down2ena);
 	__reg_write(pcf, PCF50633_REG_MEMLDOOUT, pcf->standby_regs.memldoout);
 	__reg_write(pcf, PCF50633_REG_MEMLDOENA, pcf->standby_regs.memldoena);
-	__reg_write(pcf, PCF50633_REG_LEDOUT, pcf->standby_regs.ledout);
-	__reg_write(pcf, PCF50633_REG_LEDENA, pcf->standby_regs.ledena);
-	__reg_write(pcf, PCF50633_REG_LEDDIM, pcf->standby_regs.leddim);
-	printk(KERN_INFO"d\n");
+
+	/* platform can choose to defer backlight bringup */
+	if (!pcf->pdata->defer_resume_backlight) {
+		__reg_write(pcf, PCF50633_REG_LEDOUT, pcf->standby_regs.ledout);
+		__reg_write(pcf, PCF50633_REG_LEDENA, pcf->standby_regs.ledena);
+		__reg_write(pcf, PCF50633_REG_LEDDIM, pcf->standby_regs.leddim);
+	} else { /* force backlight down, platform will restore later */
+		__reg_write(pcf, PCF50633_REG_LEDOUT, 2);
+		__reg_write(pcf, PCF50633_REG_LEDENA, 0x20);
+		__reg_write(pcf, PCF50633_REG_LEDDIM, 1);
+	}
+
 	/* FIXME: one big read? */
 	for (i = 0; i < 7; i++) {
 		u_int8_t reg_out = PCF50633_REG_LDO1OUT + 2*i;
 		__reg_write(pcf, reg_out, pcf->standby_regs.ldo[i].out);
 		__reg_write(pcf, reg_out+1, pcf->standby_regs.ldo[i].ena);
 	}
-	printk(KERN_INFO"e\n");
 
 	/* mutex_unlock(&pcf->lock); */ /* resume in atomic context */
 

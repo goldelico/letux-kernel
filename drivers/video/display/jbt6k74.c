@@ -647,9 +647,14 @@ static int jbt_suspend(struct spi_device *spi, pm_message_t state)
 static void jbt_resume_work(struct work_struct *work)
 {
 	struct jbt_info *jbt = container_of(work, struct jbt_info, work);
+	struct jbt6k74_platform_data *jbt6k74_pdata =
+						jbt->spi_dev->dev.platform_data;
 
 	printk(KERN_INFO"jbt_resume_work waiting...\n");
-	msleep(2000);
+	/* 100ms is not enough here 2008-05-08 andy@openmoko.com
+	 * if CONFIG_PM_DEBUG is enabled 2000ms is required
+	 */
+	msleep(400);
 	printk(KERN_INFO"jbt_resume_work GO...\n");
 
 	jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);
@@ -664,6 +669,11 @@ static void jbt_resume_work(struct work_struct *work)
 		break;
 	}
 	jbt6k74_display_onoff(jbt, 1);
+
+	/* this gives the platform a chance to bring up backlight now */
+
+	if (jbt6k74_pdata->resuming)
+		(jbt6k74_pdata->resuming)(0);
 
 	printk(KERN_INFO"jbt_resume_work done...\n");
 }
