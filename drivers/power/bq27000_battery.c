@@ -299,6 +299,7 @@ static int bq27000_battery_probe(struct platform_device *pdev)
 	di->bat.get_property   = bq27000_battery_get_property;
 	di->bat.external_power_changed =
 				  bq27000_battery_external_power_changed;
+	di->bat.use_for_apm = 1;
 	di->hdq_read = pdata->hdq_read;
 	di->hdq_write = pdata->hdq_write;
 	di->rsense_mohms = pdata->rsense_mohms;
