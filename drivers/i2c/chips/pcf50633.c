@@ -686,9 +686,10 @@ static void pcf50633_work(struct work_struct *work)
 			rtc_update_irq(pcf->rtc, 1, RTC_AF | RTC_IRQF);
 	}
 	if (pcfirq[0] & PCF50633_INT1_SECOND) {
-		DEBUGPC("SECOND ");
-		if (pcf->flags & PCF50633_F_RTC_SECOND)
+		if (pcf->flags & PCF50633_F_RTC_SECOND) {
+			DEBUGPC("SECOND ");
 			rtc_update_irq(pcf->rtc, 1, RTC_PF | RTC_IRQF);
+		}
 
 		if (pcf->onkey_seconds >= 0 &&
 		    pcf->flags & PCF50633_F_PWR_PRESSED) {
