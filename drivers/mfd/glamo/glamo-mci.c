@@ -195,7 +195,7 @@ static void glamo_mci_irq(unsigned int irq, struct irq_desc *desc)
 		      GLAMO_STAT1_MMC_BRERR))
 		cmd->error = -EILSEQ;
 	if (cmd->error) {
-		dev_err(&host->pdev->dev, "Error after cmd: 0x%x\n", status);
+		dev_info(&host->pdev->dev, "Error after cmd: 0x%x\n", status);
 		goto done;
 	}
 
@@ -467,7 +467,7 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 		return;
 
 	if (cmd->error) {
-		dev_err(&host->pdev->dev, "Error after cmd: 0x%x\n", status);
+		dev_info(&host->pdev->dev, "Error after cmd: 0x%x\n", status);
 		goto done;
 	}
 	/*
