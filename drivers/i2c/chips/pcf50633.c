@@ -1458,6 +1458,9 @@ static int pcf50633bl_get_intensity(struct backlight_device *bd)
 	struct pcf50633_data *pcf = bl_get_data(bd);
 	int intensity = reg_read(pcf, PCF50633_REG_LEDOUT);
 
+	if (!(reg_read(pcf, PCF50633_REG_LEDOUT) & 1))
+		intensity = 0;
+
 	return intensity & 0x3f;
 }
 
@@ -1466,31 +1469,36 @@ static int pcf50633bl_set_intensity(struct backlight_device *bd)
 	struct pcf50633_data *pcf = bl_get_data(bd);
 	int intensity = bd->props.brightness;
 	int old_intensity = reg_read(pcf, PCF50633_REG_LEDOUT);
-	u_int8_t ledena = 2;
 	int ret;
 
-	if (bd->props.power != FB_BLANK_UNBLANK)
-		intensity = 0;
-	if (bd->props.fb_blank != FB_BLANK_UNBLANK)
+	if (!(reg_read(pcf, PCF50633_REG_LEDOUT) & 1))
+		old_intensity = 0;
+
+	if ((bd->props.power != FB_BLANK_UNBLANK) ||
+	    (bd->props.fb_blank != FB_BLANK_UNBLANK))
 		intensity = 0;
 
-	/* The PCF50633 cannot handle LEDOUT = 0 (datasheet p60)
+	/*
+	 * The PCF50633 cannot handle LEDOUT = 0 (datasheet p60)
 	 * if seen, you have to re-enable the LED unit
+	 * we treat intensity 0 as disable
 	 */
 
-	if (intensity != 0 && old_intensity == 0) {
-		ledena = reg_read(pcf, PCF50633_REG_LEDENA);
-		reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
+	if (intensity && !old_intensity) {
+		ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDENA, 0x01, 0x00);
+		if (ret)
+			return ret;
 	}
 
 	if (!intensity) /* illegal to set LEDOUT to 0 */
-		ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f, 2);
-	else
+		ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDENA, 0x01, 0x00);
+	else {
 		ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f,
 			       intensity);
-
-	if (intensity != 0 && old_intensity == 0)
-		reg_write(pcf, PCF50633_REG_LEDENA, ledena);
+		if (ret)
+			return ret;
+		ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDENA, 0x01, 0x01);
+	}
 
 	return ret;
 }
