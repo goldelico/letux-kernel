@@ -169,8 +169,15 @@ static void s3c2410_pm_debug_init(void)
 }
 
 #define DBG(fmt...) pm_dbg(fmt)
+#define RESTORE_DBG(fmt...) printk(KERN_DEBUG fmt)
 #else
+#if 0
 #define DBG(fmt...) printk(KERN_DEBUG fmt)
+#define RESTORE_DBG(fmt...) printk(KERN_DEBUG fmt)
+#else
+#define DBG(fmt...) do { } while (0)
+#define RESTORE_DBG(fmt...) do { } while (0)
+#endif
 
 #define s3c2410_pm_debug_init() do { } while(0)
 
@@ -392,7 +399,7 @@ void s3c2410_pm_do_save(struct sleep_save *ptr, int count)
 void s3c2410_pm_do_restore(struct sleep_save *ptr, int count)
 {
 	for (; count > 0; count--, ptr++) {
-		printk(KERN_DEBUG "restore %p (restore %08lx, was %08x)\n",
+		RESTORE_DBG("restore %p (restore %08lx, was %08x)\n",
 		       ptr->reg, ptr->val, __raw_readl(ptr->reg));
 
 		__raw_writel(ptr->val, ptr->reg);
