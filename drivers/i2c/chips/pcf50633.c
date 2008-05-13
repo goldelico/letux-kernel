@@ -1797,16 +1797,15 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 		backlight_update_status(data->backlight);
 	}
 
-	apm_get_power_status = pcf50633_get_power_status;
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) {
 		gta01_pm_gps_dev.dev.parent = &new_client->dev;
 		gta01_pm_bt_dev.dev.parent = &new_client->dev;
 		platform_device_register(&gta01_pm_bt_dev);
 		platform_device_register(&gta01_pm_gps_dev);
+	} else {
+		apm_get_power_status = pcf50633_get_power_status;
 	}
-#endif
 
 	return 0;
 exit_rtc:
