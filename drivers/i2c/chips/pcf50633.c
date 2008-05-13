@@ -1755,7 +1755,8 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 		goto exit_sysfs;
 
 	/* configure interrupt mask */
-	reg_write(data, PCF50633_REG_INT1M, 0x00); /* we want SECOND to kick */
+	/* we want SECOND to kick for the coldplug initialisation */
+	reg_write(data, PCF50633_REG_INT1M, 0x00);
 	reg_write(data, PCF50633_REG_INT2M, 0x00);
 	reg_write(data, PCF50633_REG_INT3M, 0x00);
 	reg_write(data, PCF50633_REG_INT4M, 0x00);
