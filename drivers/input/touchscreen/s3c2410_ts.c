@@ -356,7 +356,7 @@ static int s3c2410ts_resume(struct platform_device *pdev)
 		( struct s3c2410_ts_mach_info *)pdev->dev.platform_data;
 
 	clk_enable(adc_clock);
-	msleep(1);
+	mdelay(1);
 
 	enable_irq(IRQ_ADC);
 	enable_irq(IRQ_TC);
