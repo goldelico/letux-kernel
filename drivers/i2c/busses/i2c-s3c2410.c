@@ -919,10 +919,10 @@ static int s3c24xx_i2c_resume(struct platform_device *dev)
 {
 	struct s3c24xx_i2c *i2c = platform_get_drvdata(dev);
 
-	if (i2c != NULL)
+	if (i2c != NULL) {
 		s3c24xx_i2c_init(i2c);
-
-	i2c->suspended--;
+		i2c->suspended--;
+	}
 
 	return 0;
 }
