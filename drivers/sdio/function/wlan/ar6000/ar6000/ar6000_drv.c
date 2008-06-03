@@ -2422,7 +2422,7 @@ ar6000_targetStats_event(AR_SOFTC_T *ar,  WMI_TARGET_STATS *pTarget)
     TARGET_STATS *pStats = &ar->arTargetStats;
     A_UINT8 ac;
 
-    A_PRINTF("AR6000 updating target stats\n");
+    /*A_PRINTF("AR6000 updating target stats\n");*/
     pStats->tx_packets          += pTarget->txrxStats.tx_stats.tx_packets;
     pStats->tx_bytes            += pTarget->txrxStats.tx_stats.tx_bytes;
     pStats->tx_unicast_pkts     += pTarget->txrxStats.tx_stats.tx_unicast_pkts;
