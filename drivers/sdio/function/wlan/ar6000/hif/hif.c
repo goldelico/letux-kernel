@@ -779,6 +779,12 @@ delHifDevice(SDDEVICE *handle)
     hifDevice[0].handle = NULL;
 }
 
+struct device*
+HIFGetOSDevice(HIF_DEVICE *device)
+{
+    return &device->handle->Device.dev;
+}
+
 static void ResetAllCards(void)
 {
     UINT8       data;

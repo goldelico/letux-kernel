@@ -284,6 +284,11 @@ HIFConfigureDevice(HIF_DEVICE *device, HIF_DEVICE_CONFIG_OPCODE opcode,
                    void *config, A_UINT32 configLen);
 
 
+struct device;
+struct device*
+HIFGetOSDevice(HIF_DEVICE *device);
+
+
 #ifdef __cplusplus
 }
 #endif
