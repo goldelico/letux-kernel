@@ -888,8 +888,6 @@ static void pcf50633_work(struct work_struct *work)
 		if (pcf->pdata->cb)
 			pcf->pdata->cb(&pcf->client.dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_INSERT);
-		/* FIXME: signal this to userspace */
-		//kobject_uevent( ,KOBJ_ADD);
 	}
 	if (pcfirq[0] & PCF50633_INT1_ADPREM) {
 		/* Charger removed */
@@ -900,8 +898,6 @@ static void pcf50633_work(struct work_struct *work)
 		if (pcf->pdata->cb)
 			pcf->pdata->cb(&pcf->client.dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_REMOVE);
-		/* FIXME: signal this to userspace */
-		//kobject_uevent( ,KOBJ_ADD);
 	}
 	if (pcfirq[0] & PCF50633_INT1_USBINS) {
 		DEBUGPC("USBINS ");

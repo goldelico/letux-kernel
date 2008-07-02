@@ -330,6 +330,17 @@ static int bq27000_battery_remove(struct platform_device *pdev)
 	return 0;
 }
 
+void bq27000_charging_state_change(struct platform_device *pdev)
+{
+	struct bq27000_device_info *di = platform_get_drvdata(pdev);
+
+	if (!di)
+	    return;
+
+	power_supply_changed(&di->bat);
+}
+EXPORT_SYMBOL_GPL(bq27000_charging_state_change);
+
 #ifdef CONFIG_PM
 
 static int bq27000_battery_suspend(struct platform_device *pdev,

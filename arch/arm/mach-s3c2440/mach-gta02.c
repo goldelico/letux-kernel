@@ -450,6 +450,24 @@ static struct s3c2410_uartcfg gta02_uartcfgs[] = {
 
 };
 
+/* BQ27000 Battery */
+
+struct bq27000_platform_data bq27000_pdata = {
+	.name = "bat",
+	.rsense_mohms = 20,
+	.hdq_read = gta02hdq_read,
+	.hdq_write = gta02hdq_write,
+	.hdq_initialized = gta02hdq_initialized,
+};
+
+struct platform_device bq27000_battery_device = {
+	.name 		= "bq27000-battery",
+	.dev = {
+		.platform_data = &bq27000_pdata,
+	},
+};
+
+
 /* PMU driver info */
 
 static int pmu_callback(struct device *dev, unsigned int feature,
@@ -482,6 +500,7 @@ static int pmu_callback(struct device *dev, unsigned int feature,
 		break;
 	}
 
+	bq27000_charging_state_change(&bq27000_battery_device);
 	return 0;
 }
 
@@ -739,23 +758,6 @@ struct platform_device gta02_hdq_device = {
 	.resource	= gta02_hdq_resources,
 };
 #endif
-
-/* BQ27000 Battery */
-
-struct bq27000_platform_data bq27000_pdata = {
-	.name = "bat",
-	.rsense_mohms = 20,
-	.hdq_read = gta02hdq_read,
-	.hdq_write = gta02hdq_write,
-	.hdq_initialized = gta02hdq_initialized,
-};
-
-struct platform_device bq27000_battery_device = {
-	.name 		= "bq27000-battery",
-	.dev = {
-		.platform_data = &bq27000_pdata,
-	},
-};
 
 
 /* NOR Flash */
