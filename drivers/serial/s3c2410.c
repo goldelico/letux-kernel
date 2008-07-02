@@ -385,7 +385,8 @@ s3c24xx_serial_rx_chars(int irq, void *dev_id)
 		if (uart_handle_sysrq_char(port, ch))
 			goto ignore_char;
 
-		uart_insert_char(port, uerstat, S3C2410_UERSTAT_OVERRUN, ch, flag);
+		uart_insert_char(port, uerstat, S3C2410_UERSTAT_OVERRUN, ch,
+									  flag);
 
 	ignore_char:
 		continue;
