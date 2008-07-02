@@ -1265,6 +1265,7 @@ static void
 gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 {
 	int mv = 1650;
+	int timeout = 100;
 
 	printk(KERN_DEBUG "mmc_set_power(power_mode=%u, vdd=%u\n",
 	       power_mode, vdd);
@@ -1281,8 +1282,14 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 		case MMC_POWER_ON:
 		case MMC_POWER_UP:
 			/* depend on pcf50633 driver init + not suspended */
-			while (pcf50633_ready(pcf50633_global))
-				msleep(1);
+			while (pcf50633_ready(pcf50633_global) && (timeout--))
+				msleep(5);
+
+			if (!timeout) {
+				printk(KERN_ERR"gta02_glamo_mmc_set_power "
+					     "BAILING on timeout\n");
+				return;
+			}
 			/* select and set the voltage */
 			if (vdd > 7) {
 				mv += 300 + 100 * (vdd - 8);
