@@ -72,6 +72,7 @@
 #include <linux/serial.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <linux/resume-dependency.h>
 
 #include <asm/io.h>
 #include <asm/irq.h>
@@ -112,6 +113,8 @@ struct s3c24xx_uart_port {
 	struct clk			*clk;
 	struct clk			*baudclk;
 	struct uart_port		port;
+
+	struct resume_dependency	resume_dependency;
 };
 
 
@@ -1085,6 +1088,8 @@ static int s3c24xx_serial_probe(struct platform_device *dev,
 	ourport = &s3c24xx_serial_ports[probe_index];
 	probe_index++;
 
+	init_resume_dependency_list(&ourport->resume_dependency);
+
 	dbg("%s: initialising port %p...\n", __FUNCTION__, ourport);
 
 	ret = s3c24xx_serial_init_port(ourport, info, dev);
@@ -1125,6 +1130,16 @@ static int s3c24xx_serial_suspend(struct platform_device *dev, pm_message_t stat
 	return 0;
 }
 
+void s3c24xx_serial_register_resume_dependency(struct resume_dependency *
+					      resume_dependency, int uart_index)
+{
+	struct s3c24xx_uart_port *ourport = &s3c24xx_serial_ports[uart_index];
+
+	register_resume_dependency(&ourport->resume_dependency,
+							     resume_dependency);
+}
+EXPORT_SYMBOL(s3c24xx_serial_register_resume_dependency);
+
 static int s3c24xx_serial_resume(struct platform_device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(&dev->dev);
@@ -1137,6 +1152,8 @@ static int s3c24xx_serial_resume(struct platform_device *dev)
 
 		uart_resume_port(&s3c24xx_uart_drv, port);
 	}
+
+	callback_all_resume_dependencies(&ourport->resume_dependency);
 
 	return 0;
 }
