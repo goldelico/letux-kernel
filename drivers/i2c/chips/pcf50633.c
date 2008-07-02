@@ -632,6 +632,11 @@ static void pcf50633_work_usbcurlim(struct work_struct *work)
 
 	mutex_lock(&pcf->working_lock_usb_curlimit);
 
+	/* just can't cope with it if we are suspending, don't reschedule */
+	if ((pcf->suspend_state == PCF50633_SS_STARTING_SUSPEND) ||
+	    (pcf->suspend_state == PCF50633_SS_COMPLETED_SUSPEND))
+		goto bail;
+
 	dev_info(&pcf->client.dev, "pcf50633_work_usbcurlim\n");
 
 	if (!pcf->probe_completed)
@@ -663,7 +668,8 @@ bail:
 reschedule:
 	dev_info(&pcf->client.dev, "pcf50633_work_usbcurlim rescheduling\n");
 	if (!schedule_work(&pcf->work_usb_curlimit))
-		dev_err(&pcf->client.dev, "work item may be lost\n");
+		dev_err(&pcf->client.dev, "curlim reschedule work "
+							    "already queued\n");
 
 	mutex_unlock(&pcf->working_lock_usb_curlimit);
 	/* don't spew, delaying whatever else is happening */
@@ -700,7 +706,7 @@ int pcf50633_notify_usb_current_limit_change(struct pcf50633_data *pcf,
 	pcf->pending_curlimit = ma;
 
 	if (!schedule_work(&pcf->work_usb_curlimit))
-		dev_err(&pcf->client.dev, "work item may be lost\n");
+		dev_err(&pcf->client.dev, "curlim work item already queued\n");
 
 	return 0;
 }
@@ -726,6 +732,9 @@ static void pcf50633_work_nobat(struct work_struct *work)
 
 	while (1) {
 		msleep(1000);
+
+		if (pcf->suspend_state != PCF50633_SS_RUNNING)
+			continue;
 
 		/* there's a battery in there now? */
 		if (reg_read(pcf, PCF50633_REG_MBCS3) & 0x40) {
@@ -761,6 +770,10 @@ static void pcf50633_work(struct work_struct *work)
 	mutex_lock(&pcf->working_lock);
 	pcf->working = 1;
 
+	/* sanity */
+	if (!&pcf->client.dev)
+		goto bail;
+
 	/*
 	 * if we are presently suspending, we are not in a position to deal
 	 * with pcf50633 interrupts at all.
@@ -784,42 +797,55 @@ static void pcf50633_work(struct work_struct *work)
 	 * reloaded with their pre-suspend states yet.  Therefore we will
 	 * defer our service if we are called like that until our resume has
 	 * completed.
+	 *
+	 * This shouldn't happen any more because we disable servicing this
+	 * interrupt in suspend and don't re-enable it until resume is
+	 * completed.
 	 */
 
-	if (pcf->have_been_suspended && (pcf->have_been_suspended < 3))
+	if (pcf->suspend_state &&
+		(pcf->suspend_state != PCF50633_SS_COMPLETED_RESUME))
+		goto reschedule;
+
+	/* this is the case early in resume! Sanity check! */
+	if (i2c_get_clientdata(&pcf->client) == NULL)
 		goto reschedule;
 
 	/*
-	 * datasheet says we have to read the five IRQ
-	 * status regs in one transaction
-	 */
-	ret = i2c_smbus_read_i2c_block_data(&pcf->client, PCF50633_REG_INT1, 5,
-					    pcfirq);
-	if (ret != 5) {
+	* datasheet says we have to read the five IRQ
+	* status regs in one transaction
+	*/
+	ret = i2c_smbus_read_i2c_block_data(&pcf->client,
+						PCF50633_REG_INT1,
+						sizeof(pcfirq),
+						pcfirq);
+	if (ret != sizeof(pcfirq)) {
 		dev_info(&pcf->client.dev,
-			 "Oh crap PMU IRQ register read failed -- "
-			 "retrying later %d\n", ret);
+			"Oh crap PMU IRQ register read failed -- "
+			"retrying later %d\n", ret);
 		/*
-		 * it shouldn't fail, we no longer attempt to use I2C while
-		 * it can be suspended.  But we don't have much option but to
-		 * retry if if it ever did fail, because if we don't service
-		 * the interrupt to clear it, we will never see another PMU
-		 * interrupt edge.
+		 * it shouldn't fail, we no longer attempt to use
+		 * I2C while it can be suspended.  But we don't have
+		 * much option but to retry if if it ever did fail,
+		 * because if we don't service the interrupt to clear
+		 * it, we will never see another PMU interrupt edge.
 		 */
 		goto reschedule;
 	}
 
-	/* hey did we just resume? */
+	/* hey did we just resume? (because we don't get here unless we are
+	 * running normally or the first call after resumption)
+	 */
 
-	if (pcf->have_been_suspended) {
-		/* resume is officially over now then */
-		pcf->have_been_suspended = 0;
-
+	if (pcf->suspend_state != PCF50633_SS_RUNNING) {
 		/*
-		 * grab a copy of resume interrupt reasons
-		 * from pcf50633 POV
-		 */
+		* grab a copy of resume interrupt reasons
+		* from pcf50633 POV
+		*/
 		memcpy(pcf->pcfirq_resume, pcfirq, sizeof(pcf->pcfirq_resume));
+
+		/* pcf50633 resume is really really over now then */
+		pcf->suspend_state = PCF50633_SS_RUNNING;
 	}
 
 	if (!pcf->coldplug_done) {
@@ -1169,6 +1195,7 @@ static void pcf50633_work(struct work_struct *work)
 
 	DEBUGPC("\n");
 
+bail:
 	pcf->working = 0;
 	input_sync(pcf->input_dev);
 	put_device(&pcf->client.dev);
@@ -1202,7 +1229,7 @@ static irqreturn_t pcf50633_irq(int irq, void *_pcf)
 
 	get_device(&pcf->client.dev);
 	if (!schedule_work(&pcf->work) && !pcf->working)
-		dev_err(&pcf->client.dev, "work item may be lost\n");
+		dev_err(&pcf->client.dev, "pcf irq work already queued\n");
 
 	return IRQ_HANDLED;
 }
@@ -2310,7 +2337,7 @@ int pcf50633_report_resumers(struct pcf50633_data *pcf, char *buf)
 	char *end = buf;
 	int n;
 
-	for (n = 0; n < 40; n++)
+	for (n = 0; n < ARRAY_SIZE(int_names); n++)
 		if (int_names[n]) {
 			if (pcf->pcfirq_resume[n >> 3] & (1 >> (n & 7)))
 				end += sprintf(end, "  * %s\n", int_names[n]);
@@ -2358,6 +2385,15 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 	 * and ALARM */
 
 	mutex_lock(&pcf->lock);
+
+	pcf->suspend_state = PCF50633_SS_STARTING_SUSPEND;
+
+	/* we are not going to service any further interrupts until we
+	 * resume.  If the IRQ workqueue is still pending in the background,
+	 * it will bail when it sees we set suspend state above
+	 */
+
+	disable_irq(pcf->irq);
 
 	/* Save all registers that don't "survive" standby state */
 	pcf->standby_regs.ooctim2 = __reg_read(pcf, PCF50633_REG_OOCTIM2);
@@ -2502,6 +2538,8 @@ static int pcf50633_resume(struct device *dev)
 
 	pcf->suspend_state = PCF50633_SS_COMPLETED_RESUME;
 
+	enable_irq(pcf->irq);
+
 	mutex_unlock(&pcf->lock);
 
 	/* gratuitous call to PCF work function, in the case that the PCF
@@ -2511,8 +2549,7 @@ static int pcf50633_resume(struct device *dev)
 	 */
 
 	get_device(&pcf->client.dev);
-	if (!schedule_work(&pcf->work) && !pcf->working)
-		dev_err(&pcf->client.dev, "resume work item may be lost\n");
+	pcf50633_work(&pcf->work);
 
 	callback_all_resume_dependencies(&pcf->resume_dependency);
 
