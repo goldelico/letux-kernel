@@ -31,6 +31,10 @@ DEFINE_MUTEX(pm_mutex);
 unsigned int pm_flags;
 EXPORT_SYMBOL(pm_flags);
 
+int global_inside_suspend;
+EXPORT_SYMBOL(global_inside_suspend);
+
+
 #ifdef CONFIG_SUSPEND
 
 /* This is just an arbitrary number */
@@ -156,10 +160,12 @@ int suspend_devices_and_enter(suspend_state_t state)
 	if (!suspend_ops)
 		return -ENOSYS;
 
+	global_inside_suspend = 1;
+
 	if (suspend_ops->set_target) {
 		error = suspend_ops->set_target(state);
 		if (error)
-			return error;
+			goto bail;
 	}
 	suspend_console();
 	error = device_suspend(PMSG_SUSPEND);
@@ -183,6 +189,8 @@ int suspend_devices_and_enter(suspend_state_t state)
 	device_resume();
  Resume_console:
 	resume_console();
+bail:
+	global_inside_suspend = 0;
 	return error;
 }
 

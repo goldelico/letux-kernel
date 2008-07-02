@@ -182,6 +182,8 @@ asmlinkage int printk(const char * fmt, ...)
 extern int log_buf_get_len(void);
 extern int log_buf_read(int idx);
 extern int log_buf_copy(char *dest, int idx, int len);
+extern void (*printk_emergency_debug_spew_init)(void);
+extern void (*printk_emergency_debug_spew_send_string)(const char *);
 #else
 static inline int vprintk(const char *s, va_list args)
 	__attribute__ ((format (printf, 1, 0)));

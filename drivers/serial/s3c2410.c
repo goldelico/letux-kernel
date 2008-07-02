@@ -81,6 +81,7 @@
 
 #include <asm/plat-s3c/regs-serial.h>
 #include <asm/arch/regs-gpio.h>
+#include <asm/arch/regs-clock.h>
 
 /* structures */
 
@@ -992,6 +993,69 @@ static struct s3c24xx_uart_port s3c24xx_serial_ports[NR_PORTS] = {
 #endif
 };
 
+static void s3c24xx_serial_force_debug_port_up(void)
+{
+	struct s3c24xx_uart_port *ourport = &s3c24xx_serial_ports[
+							 CONFIG_DEBUG_S3C_UART];
+	struct s3c24xx_uart_clksrc *clksrc = NULL;
+	struct clk *clk = NULL;
+	unsigned long tmp;
+
+	s3c24xx_serial_getclk(&ourport->port, &clksrc, &clk, 115200);
+
+	tmp = __raw_readl(S3C2410_CLKCON);
+
+	/* re-start uart clocks */
+	tmp |= S3C2410_CLKCON_UART0;
+	tmp |= S3C2410_CLKCON_UART1;
+	tmp |= S3C2410_CLKCON_UART2;
+
+	__raw_writel(tmp, S3C2410_CLKCON);
+	udelay(10);
+
+	s3c24xx_serial_setsource(&ourport->port, clksrc);
+
+	if (ourport->baudclk != NULL && !IS_ERR(ourport->baudclk)) {
+		clk_disable(ourport->baudclk);
+		ourport->baudclk  = NULL;
+	}
+
+	clk_enable(clk);
+
+	ourport->clksrc = clksrc;
+	ourport->baudclk = clk;
+}
+
+static void s3c2410_printascii(const char *sz)
+{
+	struct s3c24xx_uart_port *ourport = &s3c24xx_serial_ports[
+							 CONFIG_DEBUG_S3C_UART];
+	struct uart_port *port = &ourport->port;
+
+	/* 8 N 1 */
+	wr_regl(port, S3C2410_ULCON, (rd_regl(port, S3C2410_ULCON)) | 3);
+	/* polling mode */
+	wr_regl(port, S3C2410_UCON, (rd_regl(port, S3C2410_UCON) & ~0xc0f) | 5);
+	/* disable FIFO */
+	wr_regl(port, S3C2410_UFCON, (rd_regl(port, S3C2410_UFCON) & ~0x01));
+	/* fix baud rate */
+	wr_regl(port, S3C2410_UBRDIV, 26);
+
+	while (*sz) {
+		int timeout = 10000000;
+
+		/* spin on it being busy */
+		while ((!(rd_regl(port, S3C2410_UTRSTAT) & 2)) && timeout--)
+			;
+
+		/* transmit register */
+		wr_regl(port, S3C2410_UTXH, *sz);
+
+		sz++;
+	}
+}
+
+
 /* s3c24xx_serial_resetport
  *
  * wrapper to call the specific reset for this port (reset the fifos
@@ -1167,6 +1231,11 @@ static int s3c24xx_serial_resume(struct platform_device *dev)
 static int s3c24xx_serial_init(struct platform_driver *drv,
 			       struct s3c24xx_uart_info *info)
 {
+	/* set up the emergency debug UART functions */
+
+	printk_emergency_debug_spew_init = s3c24xx_serial_force_debug_port_up;
+	printk_emergency_debug_spew_send_string = s3c2410_printascii;
+
 	dbg("s3c24xx_serial_init(%p,%p)\n", drv, info);
 	return platform_driver_register(drv);
 }

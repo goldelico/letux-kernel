@@ -33,8 +33,11 @@
 #include <linux/bootmem.h>
 #include <linux/syscalls.h>
 #include <linux/jiffies.h>
+#include <linux/suspend.h>
 
 #include <asm/uaccess.h>
+#include <asm/plat-s3c24xx/neo1973.h>
+#include <asm/arch/gta02.h>
 
 #define __LOG_BUF_LEN	(1 << CONFIG_LOG_BUF_SHIFT)
 
@@ -60,6 +63,12 @@ int console_printk[4] = {
  */
 int oops_in_progress;
 EXPORT_SYMBOL(oops_in_progress);
+
+void (*printk_emergency_debug_spew_init)(void) = NULL;
+EXPORT_SYMBOL(printk_emergency_debug_spew_init);
+
+void (*printk_emergency_debug_spew_send_string)(const char *) = NULL;
+EXPORT_SYMBOL(printk_emergency_debug_spew_send_string);
 
 /*
  * console_sem protects the console_drivers list, and also
@@ -652,6 +661,38 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 
 	/* Emit the output into the temporary buffer */
 	printed_len = vscnprintf(printk_buf, sizeof(printk_buf), fmt, args);
+
+	/* if you're debugging resume, the normal methods can change resume
+	 * ordering behaviours because their debugging output is synchronous
+	 * (ie, CONFIG_DEBUG_LL).  If your problem is an OOPS, this code
+	 * will not affect the speed and duration and ordering of resume
+	 * actions, but will give you a chance to read the full undumped
+	 * syslog AND the OOPS data when it happens
+	 *
+	 * if you support it, your debug device init can override the exported
+	 * emergency_debug_spew_init and emergency_debug_spew_send_string to
+	 * usually force polling or bitbanging on your debug console device
+	 */
+	if (oops_in_progress && global_inside_suspend &&
+	    printk_emergency_debug_spew_init &&
+	    printk_emergency_debug_spew_send_string) {
+		unsigned long cur_index;
+		char ch[2];
+
+		if (global_inside_suspend == 1) {
+			(printk_emergency_debug_spew_init)();
+
+			ch[1] = '\0';
+			cur_index = con_start;
+			while (cur_index != log_end) {
+				ch[0] = LOG_BUF(cur_index);
+				(printk_emergency_debug_spew_send_string)(ch);
+				cur_index++;
+			}
+			global_inside_suspend++; /* only once */
+		}
+		(printk_emergency_debug_spew_send_string)(printk_buf);
+	}
 
 	/*
 	 * Copy the output into log_buf.  If the caller didn't provide
