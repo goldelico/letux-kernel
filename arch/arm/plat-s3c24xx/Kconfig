@@ -16,7 +16,7 @@ if PLAT_S3C24XX
 
 config CPU_S3C244X
 	bool
-	depends on ARCH_S3C2410 && (CPU_S3C2440 || CPU_S3C2442)
+	default y if CPU_S3C2440 || CPU_S3C2442
 	help
 	  Support for S3C2440 and S3C2442 Samsung Mobile CPU based systems.
 

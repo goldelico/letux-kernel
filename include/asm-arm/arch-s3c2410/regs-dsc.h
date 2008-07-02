@@ -19,7 +19,7 @@
 #define S3C2412_DSC1	   S3C2410_GPIOREG(0xe0)
 #endif
 
-#if defined(CONFIG_CPU_S3C2440)
+#if defined(CONFIG_CPU_S3C244X)
 
 #define S3C2440_DSC0	   S3C2410_GPIOREG(0xc4)
 #define S3C2440_DSC1	   S3C2410_GPIOREG(0xc8)
@@ -178,7 +178,7 @@
 #define S3C2440_DSC1_CS0_4mA    (3<<0)
 #define S3C2440_DSC1_CS0_MASK   (3<<0)
 
-#endif /* CONFIG_CPU_S3C2440 */
+#endif /* CONFIG_CPU_S3C244X */
 
 #endif	/* __ASM_ARCH_REGS_DSC_H */
 

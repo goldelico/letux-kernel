@@ -202,12 +202,12 @@ static void s3c2410_timer_setup (void)
 
 		pclk = clk_get_rate(clk);
 
-		printk("pclk = %d\n", pclk);
+		printk("pclk = %lu\n", pclk);
 
 		/* configure clock tick */
 
 		timer_usec_ticks = timer_mask_usec_ticks(6, pclk);
-		printk("timer_usec_ticks = %d\n", timer_usec_ticks);
+		printk("timer_usec_ticks = %lu\n", timer_usec_ticks);
 
 		tcfg1 &= ~S3C2410_TCFG1_MUX4_MASK;
 		tcfg1 |= S3C2410_TCFG1_MUX4_DIV2;
