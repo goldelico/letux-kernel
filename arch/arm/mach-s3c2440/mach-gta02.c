@@ -504,7 +504,6 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 			 * is an i2c device) we are running out of the 22uF cap
 			 * on core_1v3 rail !!!!
 			 */
-			.flags		= PMU_VRAIL_F_SUSPEND_ON,
 			.voltage	= {
 				.init	= 1300,
 				.max	= 1600,
