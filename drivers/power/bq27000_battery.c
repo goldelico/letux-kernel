@@ -179,7 +179,9 @@ static int bq27000_battery_get_property(struct power_supply *psy,
 		v = hdq_read16(di, BQ27000_AI_L);
 		if (v < 0)
 			return v;
-		if (v < 2) { /* no real activity on the battery */
+
+		/* no real activity on the battery */
+		if (v < 2) {
 			if (!hdq_read16(di, BQ27000_TTF_L))
 				val->intval = POWER_SUPPLY_STATUS_FULL;
 			else
@@ -199,7 +201,8 @@ static int bq27000_battery_get_property(struct power_supply *psy,
 		v = hdq_read16(di, BQ27000_VOLT_L);
 		if (v < 0)
 			return v;
-		val->intval = v * 1000; /* mV -> uV */
+		/* mV -> uV */
+		val->intval = v * 1000;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		v = (di->hdq_read)(BQ27000_FLAGS);
