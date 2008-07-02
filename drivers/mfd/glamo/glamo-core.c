@@ -1087,6 +1087,8 @@ static int __init glamo_probe(struct platform_device *pdev)
 		goto out_free;
 	}
 
+	init_resume_dependency_list(&glamo->resume_dependency);
+
 	/* register a number of sibling devices whoise IOMEM resources
 	 * are siblings of pdev's IOMEM resource */
 #if 0
@@ -1225,6 +1227,18 @@ static int glamo_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
+
+/* have to export this because struct glamo_core is opaque */
+
+void glamo_register_resume_dependency(struct resume_dependency *
+							      resume_dependency)
+{
+	register_resume_dependency(&glamo_handle->resume_dependency,
+							     resume_dependency);
+}
+EXPORT_SYMBOL_GPL(glamo_register_resume_dependency);
+
+
 static int glamo_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	glamo_power(glamo_handle, GLAMO_POWER_SUSPEND);
@@ -1234,6 +1248,8 @@ static int glamo_suspend(struct platform_device *pdev, pm_message_t state)
 static int glamo_resume(struct platform_device *pdev)
 {
 	glamo_power(glamo_handle, GLAMO_POWER_ON);
+	callback_all_resume_dependencies(&glamo_handle->resume_dependency);
+
 	return 0;
 }
 #else

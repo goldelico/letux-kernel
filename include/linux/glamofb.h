@@ -2,6 +2,7 @@
 #define _LINUX_GLAMOFB_H
 
 #include <linux/spi/glamo.h>
+#include <linux/resume-dependency.h>
 
 struct glamofb_val {
 	unsigned int defval;
@@ -36,5 +37,7 @@ struct glamofb_platform_data {
 int glamofb_cmd_mode(struct glamofb_handle *gfb, int on);
 int glamofb_cmd_write(struct glamofb_handle *gfb, u_int16_t val);
 void glamo_lcm_reset(int level);
+extern void
+glamo_register_resume_dependency(struct resume_dependency * resume_dependency);
 
 #endif

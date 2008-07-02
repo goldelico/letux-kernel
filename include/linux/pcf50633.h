@@ -127,7 +127,7 @@ pcf50633_report_resumers(struct pcf50633_data *pcf, char *buf);
 
 extern void
 pcf50633_register_resume_dependency(struct pcf50633_data *pcf,
-					struct pcf50633_resume_dependency *dep);
+					struct resume_dependency *dep);
 
 
 #define PCF50633_FEAT_EXTON	0x00000001	/* not yet supported */

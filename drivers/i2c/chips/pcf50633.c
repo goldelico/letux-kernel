@@ -1937,7 +1937,7 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 
 	pcf50633_global = data;
 
-	init_resume_dependency_list(data->resume_dependency);
+	init_resume_dependency_list(&data->resume_dependency);
 
 	populate_sysfs_group(data);
 
@@ -2153,11 +2153,11 @@ int pcf50633_report_resumers(struct pcf50633_data *pcf, char *buf)
  */
 
 void pcf50633_register_resume_dependency(struct pcf50633_data *pcf,
-					struct pcf50633_resume_dependency *dep)
+					struct resume_dependency *dep)
 {
-	register_resume_dependency(pcf->resume_dependency, dep);
+	register_resume_dependency(&pcf->resume_dependency, dep);
 }
-EXPORT_SYMBOL_GPL(pcf50633_register_resume_dep);
+EXPORT_SYMBOL_GPL(pcf50633_register_resume_dependency);
 
 
 static int pcf50633_suspend(struct device *dev, pm_message_t state)
@@ -2251,9 +2251,6 @@ static int pcf50633_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
 	int i;
-	struct list_head *pos, *q;
-	struct pcf50633_resume_dependency *dep;
-
 
 	mutex_lock(&pcf->lock);
 
@@ -2281,10 +2278,6 @@ static int pcf50633_resume(struct device *dev)
 		__reg_write(pcf, PCF50633_REG_LEDOUT, pcf->standby_regs.ledout);
 		__reg_write(pcf, PCF50633_REG_LEDENA, pcf->standby_regs.ledena);
 		__reg_write(pcf, PCF50633_REG_LEDDIM, pcf->standby_regs.leddim);
-	} else { /* force backlight down, platform will restore later */
-		__reg_write(pcf, PCF50633_REG_LEDOUT, 2);
-		__reg_write(pcf, PCF50633_REG_LEDENA, 0x20);
-		__reg_write(pcf, PCF50633_REG_LEDDIM, 1);
 	}
 
 	/* FIXME: one big read? */
@@ -2298,7 +2291,7 @@ static int pcf50633_resume(struct device *dev)
 
 	pcf50633_irq(pcf->irq, pcf);
 
-	callback_all_resume_dependencies(pcf->resume_dependency);
+	callback_all_resume_dependencies(&pcf->resume_dependency);
 
 	return 0;
 }

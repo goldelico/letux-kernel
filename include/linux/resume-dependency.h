@@ -38,7 +38,7 @@ struct resume_dependency {
  */
 
 #define init_resume_dependency_list(_head) \
-	INIT_LIST_HEAD(&_head.list);
+	INIT_LIST_HEAD(&(_head)->list);
 
 
 /* if your resume function depends on something else being resumed first, you
@@ -48,8 +48,8 @@ struct resume_dependency {
  */
 
 #define register_resume_dependency(_head, _dep) { \
-	_dep->called_flag = 0; \
-	list_add(&_dep->list, &_head->list); \
+	(_dep)->called_flag = 0; \
+	list_add(&(_dep)->list, &(_head)->list); \
 }
 
 /* In the resume function that things can be dependent on, at the end you
@@ -61,10 +61,10 @@ struct resume_dependency {
 	struct list_head *_pos, *_q; \
 	struct resume_dependency *_dep; \
 \
-	list_for_each_safe(pos, _q, &_head.list) { \
+	list_for_each_safe(_pos, _q, &((_head)->list)) { \
 		_dep = list_entry(_pos, struct resume_dependency, list); \
 		_dep->called_flag = 1; \
-		(_dep->callback)(dep->context); \
+		(_dep->callback)(_dep->context); \
 		list_del(_pos); \
 	} \
 }
