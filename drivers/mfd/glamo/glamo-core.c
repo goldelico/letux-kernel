@@ -270,6 +270,8 @@ struct glamo_mci_pdata glamo_mci_def_pdata = {
 	.glamo_set_mci_power	= NULL, /* filled in from MFD platform data */
 	.ocr_avail		= MMC_VDD_32_33,
 	.glamo_irq_is_wired	= NULL, /* filled in from MFD platform data */
+	.mci_suspending = NULL, /* filled in from MFD platform data */
+	.mci_all_dependencies_resumed = NULL, /* filled in from MFD platform data */
 };
 EXPORT_SYMBOL_GPL(glamo_mci_def_pdata);
 
@@ -1111,6 +1113,10 @@ static int __init glamo_probe(struct platform_device *pdev)
 					glamo->pdata->glamo_set_mci_power;
 	glamo_mci_def_pdata.glamo_irq_is_wired =
 					glamo->pdata->glamo_irq_is_wired;
+	glamo_mci_def_pdata.mci_suspending =
+					glamo->pdata->mci_suspending;
+	glamo_mci_def_pdata.mci_all_dependencies_resumed =
+				glamo->pdata->mci_all_dependencies_resumed;
 
 	glamo_2d_dev.dev.parent = &pdev->dev;
 	mangle_mem_resources(glamo_2d_dev.resource,
@@ -1179,6 +1185,8 @@ static int __init glamo_probe(struct platform_device *pdev)
 	dev_info(&glamo->pdev->dev, "Glamo core now %uHz CPU / %uHz Memory)\n",
 		 glamo_pll_rate(glamo, GLAMO_PLL1),
 		 glamo_pll_rate(glamo, GLAMO_PLL2));
+
+	glamo_lcm_reset(1);
 
 	for (irq = IRQ_GLAMO(0); irq <= IRQ_GLAMO(8); irq++) {
 		set_irq_chip(irq, &glamo_irq_chip);

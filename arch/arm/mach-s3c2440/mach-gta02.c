@@ -92,6 +92,8 @@ static spinlock_t motion_irq_lock;
 struct resume_dependency resume_dep_jbt_pcf;
 /* the dependency of jbt / LCM on glamo resume */
 struct resume_dependency resume_dep_jbt_glamo;
+/* the dependency of Glamo MCI on pcf50633 resume (has to power SD slot) */
+struct resume_dependency resume_dep_glamo_mci_pcf;
 
 
 /* define FIQ IPC struct */
@@ -1317,6 +1319,26 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 	}
 }
 
+
+static int gta02_glamo_mci_all_dependencies_resumed(struct platform_device *dev)
+{
+	return resume_dep_glamo_mci_pcf.called_flag;
+}
+
+/* register jbt resume action to be dependent on pcf50633 and glamo resume */
+
+static void gta02_glamo_mci_suspending(struct platform_device *dev)
+{
+	void glamo_mci_resume(void *dev); /* little white lies about types */
+
+	resume_dep_glamo_mci_pcf.callback = glamo_mci_resume;
+	resume_dep_glamo_mci_pcf.context = (void *)dev;
+	pcf50633_register_resume_dependency(pcf50633_global,
+						     &resume_dep_glamo_mci_pcf);
+}
+
+
+
 /* Smedia Glamo 3362 */
 
 static struct glamofb_platform_data gta02_glamo_pdata = {
@@ -1352,6 +1374,9 @@ static struct glamofb_platform_data gta02_glamo_pdata = {
 	/* glamo MMC function platform data */
 	.glamo_set_mci_power = gta02_glamo_mmc_set_power,
 	.glamo_irq_is_wired = glamo_irq_is_wired,
+	.mci_suspending = gta02_glamo_mci_suspending,
+	.mci_all_dependencies_resumed =
+				      gta02_glamo_mci_all_dependencies_resumed,
 };
 
 static struct resource gta02_glamo_resources[] = {
