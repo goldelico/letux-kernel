@@ -221,9 +221,37 @@ static ssize_t set_scale(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR(full_scale, S_IRUGO | S_IWUSR, show_scale, set_scale);
 
+static ssize_t lis302dl_dump(struct device *dev, struct device_attribute *attr,
+			  char *buf)
+{
+	struct lis302dl_info *lis = dev_get_drvdata(dev);
+	int n = 0;
+	u8 reg[0x40];
+	char *end = buf;
+	unsigned long flags;
+
+	local_save_flags(flags);
+
+	for (n = 0; n < sizeof(reg); n++)
+		reg[n] = reg_read(lis, n);
+
+	local_irq_restore(flags);
+
+	for (n = 0; n < sizeof(reg); n += 16) {
+		hex_dump_to_buffer(reg + n, 16, 16, 1, end, 128, 0);
+		end += strlen(end);
+		*end++ = '\n';
+		*end++ = '\0';
+	}
+
+	return end - buf;
+}
+static DEVICE_ATTR(dump, S_IRUGO, lis302dl_dump, NULL);
+
 static struct attribute *lis302dl_sysfs_entries[] = {
 	&dev_attr_sample_rate.attr,
 	&dev_attr_full_scale.attr,
+	&dev_attr_dump.attr,
 	NULL
 };
 
@@ -274,6 +302,24 @@ static void lis302dl_input_close(struct input_dev *inp)
 				 0x00);
 	}
 	local_irq_restore(flags);
+}
+
+/* get the device to reload its coefficients from EEPROM and wait for it
+ * to complete
+ */
+
+static int __lis302dl_reset_device(struct lis302dl_info *lis)
+{
+	int timeout = 10;
+
+	reg_write(lis, LIS302DL_REG_CTRL2, LIS302DL_CTRL2_BOOT |
+							    LIS302DL_CTRL2_FDS);
+
+	while ((reg_read(lis, LIS302DL_REG_CTRL2) & LIS302DL_CTRL2_BOOT) &&
+								    (timeout--))
+		mdelay(1);
+
+	return !!(timeout < 0);
 }
 
 static int __devinit lis302dl_probe(struct spi_device *spi)
@@ -347,12 +393,24 @@ static int __devinit lis302dl_probe(struct spi_device *spi)
 		goto bail_inp_dev;
 	}
 
-	reg_write(lis, LIS302DL_REG_CTRL1, 0x47);
-	reg_write(lis, LIS302DL_REG_CTRL3, 0xc0);
+	if (__lis302dl_reset_device(lis))
+		dev_err(&spi->dev, "device BOOT reload failed\n");
+
+	/* force us powered */
+	reg_write(lis, LIS302DL_REG_CTRL1, LIS302DL_CTRL1_PD |
+					   LIS302DL_CTRL1_Xen |
+					   LIS302DL_CTRL1_Yen |
+					   LIS302DL_CTRL1_Zen);
+	mdelay(1);
+
+	reg_write(lis, LIS302DL_REG_CTRL2, 0);
+	reg_write(lis, LIS302DL_REG_CTRL3, LIS302DL_CTRL3_PP_OD |
+							    LIS302DL_CTRL3_IHL);
 	reg_write(lis, LIS302DL_REG_FF_WU_THS_1, 0x14);
 	reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1, 0x00);
 	reg_write(lis, LIS302DL_REG_FF_WU_CFG_1, 0x95);
 
+	/* start off in powered down mode; we power up when someone opens us */
 	reg_write(lis, LIS302DL_REG_CTRL1, LIS302DL_CTRL1_Xen |
 					   LIS302DL_CTRL1_Yen |
 			 		   LIS302DL_CTRL1_Zen);
@@ -494,8 +552,22 @@ static int lis302dl_resume(struct spi_device *spi)
 	/* get our IO to the device back in operational states */
 	(lis->pdata->lis302dl_suspend_io)(lis, 1);
 
+	/* resume from powerdown first! */
+	reg_write(lis, LIS302DL_REG_CTRL1, LIS302DL_CTRL1_PD |
+					   LIS302DL_CTRL1_Xen |
+					   LIS302DL_CTRL1_Yen |
+					   LIS302DL_CTRL1_Zen);
+	mdelay(1);
+
+	if (__lis302dl_reset_device(lis))
+		dev_err(&spi->dev, "device BOOT reload failed\n");
+
 	/* restore registers after resume */
-	reg_write(lis, LIS302DL_REG_CTRL1, lis->regs[LIS302DL_REG_CTRL1]);
+	reg_write(lis, LIS302DL_REG_CTRL1, lis->regs[LIS302DL_REG_CTRL1] |
+						LIS302DL_CTRL1_PD |
+						LIS302DL_CTRL1_Xen |
+						LIS302DL_CTRL1_Yen |
+						LIS302DL_CTRL1_Zen);
 	reg_write(lis, LIS302DL_REG_CTRL2, lis->regs[LIS302DL_REG_CTRL2]);
 	reg_write(lis, LIS302DL_REG_CTRL3, lis->regs[LIS302DL_REG_CTRL3]);
 	reg_write(lis, LIS302DL_REG_FF_WU_CFG_1,
