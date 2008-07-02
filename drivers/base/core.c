@@ -42,6 +42,11 @@ int (*platform_notify_remove)(struct device * dev) = NULL;
  */
 const char *dev_driver_string(struct device *dev)
 {
+	if (!dev) {
+		printk(KERN_ERR"Null dev to dev_driver_string\n");
+		dump_stack();
+		return "*NULL*";
+	}
 	return dev->driver ? dev->driver->name :
 			(dev->bus ? dev->bus->name :
 			(dev->class ? dev->class->name : ""));
