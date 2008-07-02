@@ -485,6 +485,9 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 		[1] = PCF50633_INT2_ONKEYF,
 		[2] = PCF50633_INT3_ONKEY1S
 	},
+	/* warning: these get rewritten during machine init below
+	 * depending on pcb variant
+	 */
 	.rails	= {
 		[PCF50633_REGULATOR_AUTO] = {
 			.name		= "io_3v3",
@@ -496,6 +499,12 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_DOWN1] = {
 			.name		= "core_1v3",
+			/* Wow, when we are going into suspend, after pcf50633
+			 * runs its suspend (which happens real early since it
+			 * is an i2c device) we are running out of the 22uF cap
+			 * on core_1v3 rail !!!!
+			 */
+			.flags		= PMU_VRAIL_F_SUSPEND_ON,
 			.voltage	= {
 				.init	= 1300,
 				.max	= 1600,
@@ -503,6 +512,7 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_DOWN2] = {
 			.name		= "core_1v8",
+			.flags		= PMU_VRAIL_F_SUSPEND_ON,
 			.voltage	= {
 				.init	= 1800,
 				.max	= 1800,
@@ -516,8 +526,7 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 			},
 		},
 		[PCF50633_REGULATOR_LDO1] = {
-			.name		= "stby_1v3",
-			.flags		= PMU_VRAIL_F_SUSPEND_ON,
+			.name		= "gsensor_3v3",
 			.voltage	= {
 				.init	= 1300,
 				.max	= 1330,
@@ -531,7 +540,7 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 			},
 		},
 		[PCF50633_REGULATOR_LDO3] = {
-			.name		= "lcm_3v",
+			.name		= "unused3",
 			.voltage	= {
 				.init	= 3000,
 				.max	= 3000,
@@ -545,18 +554,26 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 			},
 		},
 		[PCF50633_REGULATOR_LDO5] = {
-			.name		= "gl_1v5",
+			.name		= "rf3v",
 			.voltage	= {
 				.init	= 1500,
 				.max	= 1500,
 			},
 		},
 		[PCF50633_REGULATOR_LDO6] = {
-			.name		= "user1",
+			.name		= "lcm_3v",
 			.flags = PMU_VRAIL_F_SUSPEND_ON,
 			.voltage	= {
 				.init	= 0,
 				.max	= 3300,
+			},
+		},
+		[PCF50633_REGULATOR_MEMLDO] = {
+			.name		= "memldo",
+			.flags = PMU_VRAIL_F_SUSPEND_ON,
+			.voltage	= {
+				.init	= 1800,
+				.max	= 1800,
 			},
 		},
 	},
@@ -611,13 +628,15 @@ static void mangle_pmu_pdata_by_system_rev(void)
 								.max = 3000,
 							}
 						});
-		gta02_pcf_pdata.rails[PCF50633_REGULATOR_LDO6] = ((struct pmu_voltage_rail) {
-							.name = "lcm_3v",
-							.voltage = {
-								.init = 3000,
-								.max = 3000,
-							}
-						});
+		gta02_pcf_pdata.rails[PCF50633_REGULATOR_LDO6] =
+					((struct pmu_voltage_rail) {
+						.name = "lcm_3v",
+						.flags = PMU_VRAIL_F_SUSPEND_ON,
+						.voltage = {
+							.init = 3000,
+							.max = 3000,
+						}
+					});
 		break;
 	default:
 		break;

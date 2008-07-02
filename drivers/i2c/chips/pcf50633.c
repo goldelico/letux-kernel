@@ -750,9 +750,6 @@ static void pcf50633_work(struct work_struct *work)
 	mutex_lock(&pcf->working_lock);
 	pcf->working = 1;
 
-	dev_info(&pcf->client.dev, "pcf50633_work called with suspended = %d\n",
-				   pcf->have_been_suspended);
-
 	/*
 	 * If we are inside suspend -> resume completion time we don't attempt
 	 * service until we have fully resumed.  Although we could talk to the
@@ -763,11 +760,8 @@ static void pcf50633_work(struct work_struct *work)
 	 * completed.
 	 */
 
-	if (pcf->have_been_suspended && (pcf->have_been_suspended < 3)) {
-		dev_info(&pcf->client.dev, "rescheduling,  suspended = %d\n",
-					   pcf->have_been_suspended);
+	if (pcf->have_been_suspended && (pcf->have_been_suspended < 3))
 		goto reschedule;
-	}
 
 	/*
 	 * datasheet says we have to read the five IRQ
@@ -1158,9 +1152,13 @@ static void pcf50633_work(struct work_struct *work)
 
 reschedule:
 	/* don't spew, delaying whatever else is happening */
-	msleep(100);
-
-	dev_info(&pcf->client.dev, "rescheduling interrupt service\n");
+	/* EXCEPTION: if we are in the middle of suspending, we don't have
+	 * time to hang around since we may be turned off core 1V3 already
+	 */
+	if (pcf->have_been_suspended != 1) {
+		msleep(50);
+		dev_info(&pcf->client.dev, "rescheduling interrupt service\n");
+	}
 	if (!schedule_work(&pcf->work))
 		dev_err(&pcf->client.dev, "int service reschedule failed\n");
 
@@ -2340,7 +2338,7 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 					    PCF50633_REG_AUTOOUT,
 					    sizeof(pcf->standby_regs.misc),
 					    &pcf->standby_regs.misc[0]);
-	if (ret != 18)
+	if (ret != sizeof(pcf->standby_regs.misc))
 		dev_err(dev, "Failed to save misc levels and enables :-(\n");
 
 	/* regulator voltages and enable states */
@@ -2348,15 +2346,13 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 					    PCF50633_REG_LDO1OUT,
 					    sizeof(pcf->standby_regs.ldo),
 					    &pcf->standby_regs.ldo[0]);
-	if (ret != 14)
+	if (ret != sizeof(pcf->standby_regs.ldo))
 		dev_err(dev, "Failed to save LDO levels and enables :-(\n");
 
 	/* switch off power supplies that are not needed during suspend */
 	for (i = 0; i < __NUM_PCF50633_REGULATORS; i++) {
 		if ((pcf->pdata->rails[i].flags & PMU_VRAIL_F_SUSPEND_ON))
 			continue;
-
-		dev_dbg(dev, "disabling regulator %u\n", i);
 
 		/* we can save ourselves the read part of a read-modify-write
 		 * here because we captured all these already
@@ -2366,6 +2362,11 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 		else
 			tmp = pcf->standby_regs.ldo[(i - 4) * 2 + 1];
 
+		dev_info(dev, "disabling reg %s by setting ENA %d to 0x%02X\n",
+			      pcf->pdata->rails[i].name,
+			      regulator_registers[i] + 1, tmp & 0xfe);
+
+		/* associated enable is always +1 from OUT reg */
 		__reg_write(pcf, regulator_registers[i] + 1, tmp & 0xfe);
 	}
 
