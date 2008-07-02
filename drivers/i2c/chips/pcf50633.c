@@ -763,7 +763,7 @@ static void pcf50633_work(struct work_struct *work)
 	 * completed.
 	 */
 
-	if (pcf->have_been_suspended && (pcf->have_been_suspended < 2)) {
+	if (pcf->have_been_suspended && (pcf->have_been_suspended < 3)) {
 		dev_info(&pcf->client.dev, "rescheduling,  suspended = %d\n",
 					   pcf->have_been_suspended);
 		goto reschedule;
