@@ -125,6 +125,7 @@ struct pcf50633_data {
 	int have_been_suspended;
 	int usb_removal_count;
 	unsigned char pcfirq_resume[5];
+	int probe_completed;
 
 	/* if he pulls battery while charging, we notice that and correctly
 	 * report that the charger is idle.  But there is no interrupt that
@@ -137,6 +138,12 @@ struct pcf50633_data {
 	int working_nobat;
 	int usb_removal_count_nobat;
 	int jiffies_last_bat_ins;
+
+	/* current limit notification handler stuff */
+	struct mutex working_lock_usb_curlimit;
+	struct work_struct work_usb_curlimit;
+	int pending_curlimit;
+	int usb_removal_count_usb_curlimit;
 
 	int last_curlim_set;
 
@@ -602,6 +609,92 @@ static void add_request_to_adc_queue(struct pcf50633_data *pcf,
 	if (old_head == pcf->adc_queue_tail)
 		trigger_next_adc_job_if_any(pcf);
 }
+
+/*
+ * we get run to handle servicing the async notification from USB stack that
+ * we got enumerated and allowed to draw a particular amount of current
+ */
+
+static void pcf50633_work_usbcurlim(struct work_struct *work)
+{
+	struct pcf50633_data *pcf =
+		    container_of(work, struct pcf50633_data, work_usb_curlimit);
+
+	mutex_lock(&pcf->working_lock_usb_curlimit);
+
+	dev_info(&pcf->client.dev, "pcf50633_work_usbcurlim\n");
+
+	if (!pcf->probe_completed)
+		goto reschedule;
+
+	/* we got a notification from USB stack before we completed resume...
+	 * that can only make trouble, reschedule for a retry
+	 */
+	if (pcf->have_been_suspended && (pcf->have_been_suspended < 3))
+		goto reschedule;
+
+	/*
+	 * did he pull USB before we managed to set the limit?
+	 */
+	if (pcf->usb_removal_count_usb_curlimit != pcf->usb_removal_count)
+		goto bail;
+
+	/* OK let's set the requested limit and finish */
+
+	dev_info(&pcf->client.dev, "pcf50633_work_usbcurlim setting %dmA\n",
+							 pcf->pending_curlimit);
+	pcf50633_usb_curlim_set(pcf, pcf->pending_curlimit);
+
+bail:
+	mutex_unlock(&pcf->working_lock_usb_curlimit);
+	return;
+
+reschedule:
+	dev_info(&pcf->client.dev, "pcf50633_work_usbcurlim rescheduling\n");
+	if (!schedule_work(&pcf->work_usb_curlimit))
+		dev_err(&pcf->client.dev, "work item may be lost\n");
+
+	mutex_unlock(&pcf->working_lock_usb_curlimit);
+	/* don't spew, delaying whatever else is happening */
+	msleep(1);
+}
+
+
+/* this is an export to allow machine to set USB current limit according to
+ * notifications of USB stack about enumeration state.  We spawn a work
+ * function to handle the actual setting, because suspend / resume and such
+ * can be in a bad state since this gets called externally asychronous to
+ * anything else going on in pcf50633.
+ */
+
+int pcf50633_notify_usb_current_limit_change(struct pcf50633_data *pcf,
+								unsigned int ma)
+{
+	/* can happen if he calls with pcf50633_global before probe
+	 * have to bail with error since we can't even schedule the work
+	 */
+	if (!pcf) {
+		dev_err(&pcf->client.dev,
+			"pcf50633_notify_usb_current_limit_change "
+			"called with NULL pcf\n");
+		return -EBUSY;
+	}
+
+	dev_info(&pcf->client.dev,
+		 "pcf50633_notify_usb_current_limit_change %dmA\n", ma);
+
+	/* prepare to detect USB power removal before we complete */
+	pcf->usb_removal_count_usb_curlimit = pcf->usb_removal_count;
+
+	pcf->pending_curlimit = ma;
+
+	if (!schedule_work(&pcf->work_usb_curlimit))
+		dev_err(&pcf->client.dev, "work item may be lost\n");
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pcf50633_notify_usb_current_limit_change);
+
 
 /* we are run when we see a NOBAT situation, because there is no interrupt
  * source in pcf50633 that triggers on resuming charging.  It watches to see
@@ -1967,8 +2060,10 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 	mutex_init(&data->lock);
 	mutex_init(&data->working_lock);
 	mutex_init(&data->working_lock_nobat);
+	mutex_init(&data->working_lock_usb_curlimit);
 	INIT_WORK(&data->work, pcf50633_work);
 	INIT_WORK(&data->work_nobat, pcf50633_work_nobat);
+	INIT_WORK(&data->work_usb_curlimit, pcf50633_work_usbcurlim);
 	data->irq = irq;
 	data->working = 0;
 	data->onkey_seconds = -1;
@@ -2068,15 +2163,15 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 		backlight_update_status(data->backlight);
 	}
 
+	data->probe_completed = 1;
 
 	if (machine_is_neo1973_gta02()) {
 		gta01_pm_gps_dev.dev.parent = &new_client->dev;
 		gta01_pm_bt_dev.dev.parent = &new_client->dev;
 		platform_device_register(&gta01_pm_bt_dev);
 		platform_device_register(&gta01_pm_gps_dev);
-	} else {
+	} else
 		apm_get_power_status = pcf50633_get_power_status;
-	}
 
 	return 0;
 exit_rtc:

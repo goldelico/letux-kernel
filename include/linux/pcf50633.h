@@ -129,6 +129,11 @@ extern void
 pcf50633_register_resume_dependency(struct pcf50633_data *pcf,
 					struct resume_dependency *dep);
 
+extern int
+pcf50633_notify_usb_current_limit_change(struct pcf50633_data *pcf,
+							       unsigned int ma);
+
+
 /* 0 = initialized and resumed and ready to roll, !=0 = either not
  * initialized or not resumed yet
  */

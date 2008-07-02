@@ -813,29 +813,11 @@ static void gta02_udc_command(enum s3c2410_udc_cmd_e cmd)
 	}
 }
 
-/* use a work queue, since I2C API inherently schedules
- * and we get called in hardirq context from UDC driver */
-
-struct vbus_draw {
-	struct work_struct work;
-	int ma;
-};
-static struct vbus_draw gta02_udc_vbus_drawer;
-
-static void __gta02_udc_vbus_draw(struct work_struct *work)
-{
-	if (!pcf50633_global) {
-		printk(KERN_ERR  "pcf50633 not initialized yet, can't change "
-		       "vbus_draw\n");
-		return;
-	}
-	pcf50633_usb_curlim_set(pcf50633_global, gta02_udc_vbus_drawer.ma);
-}
+/* get PMU to set USB current limit accordingly */
 
 static void gta02_udc_vbus_draw(unsigned int ma)
 {
-	gta02_udc_vbus_drawer.ma = ma;
-	schedule_work(&gta02_udc_vbus_drawer.work);
+	pcf50633_notify_usb_current_limit_change(pcf50633_global, ma);
 }
 
 static struct s3c2410_udc_mach_info gta02_udc_cfg = {
@@ -1478,7 +1460,6 @@ static void __init gta02_machine_init(void)
 	s3c2410_gpio_setpin(S3C2410_GPD13, 1);
 	s3c2410_gpio_cfgpin(S3C2410_GPD13, S3C2410_GPIO_OUTPUT);
 
-	INIT_WORK(&gta02_udc_vbus_drawer.work, __gta02_udc_vbus_draw);
 	s3c24xx_udc_set_platdata(&gta02_udc_cfg);
 	set_s3c2410ts_info(&gta02_ts_cfg);
 
