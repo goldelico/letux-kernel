@@ -30,6 +30,9 @@ config S3C2440_C_FIQ
 	  Support for S3C2440 FIQ support in C -- see
 	  ./arch/arm/macs3c2440/fiq_c_isr.c
 
+source "arch/arm/mach-s3c2440/camera/Kconfig"
+
+
 menu "S3C2440 Machines"
 
 config MACH_ANUBIS
@@ -99,4 +102,3 @@ config NEO1973_GTA02_2440
 	   of the FIC/Openmoko Neo1973 GTA02 GSM Phone.
 
 endmenu
-

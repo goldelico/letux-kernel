@@ -1,0 +1,7 @@
+
+config S3C2440_CAMERA
+	bool "S3C24xx Camera interface"
+	depends on ARCH_S3C2410
+	help
+	  Camera driver for S3C2440 camera unit
+
