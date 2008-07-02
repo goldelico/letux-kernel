@@ -553,6 +553,7 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_LDO6] = {
 			.name		= "user1",
+			.flags = PMU_VRAIL_F_SUSPEND_ON,
 			.voltage	= {
 				.init	= 0,
 				.max	= 3300,
