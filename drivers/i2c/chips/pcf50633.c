@@ -2240,6 +2240,20 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 	return 0;
 }
 
+
+int pcf50633_ready(struct pcf50633_data *pcf)
+{
+	if (!pcf)
+		return -EBUSY;
+
+	if (pcf->have_been_suspended)
+		return -EBUSY;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pcf50633_ready);
+
+
 /*
  * if backlight resume is selected to be deferred by platform, then it
  * can call this to finally reset backlight status (after LCM is resumed

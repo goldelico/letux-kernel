@@ -1277,13 +1277,12 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 	case GTA02v4_SYSTEM_REV:
 	case GTA02v5_SYSTEM_REV:
 	case GTA02v6_SYSTEM_REV:
-		/* depend on pcf50633 driver init */
-		if (!pcf50633_global)
-			while (!pcf50633_global)
-				msleep(10);
 		switch (power_mode) {
 		case MMC_POWER_ON:
 		case MMC_POWER_UP:
+			/* depend on pcf50633 driver init + not suspended */
+			while (pcf50633_ready(pcf50633_global))
+				msleep(1);
 			/* select and set the voltage */
 			if (vdd > 7) {
 				mv += 300 + 100 * (vdd - 8);
@@ -1292,15 +1291,19 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 			}
 			pcf50633_voltage_set(pcf50633_global,
 					     PCF50633_REGULATOR_HCLDO, mv);
-			msleep(10);
 			pcf50633_onoff_set(pcf50633_global,
 					   PCF50633_REGULATOR_HCLDO, 1);
-			msleep(1);
 			break;
 		case MMC_POWER_OFF:
+			/* power off happens during suspend, when pcf50633 can
+			 * be already gone and not coming back... just forget
+			 * the action then because pcf50633 suspend already
+			 * dealt with it, otherwise we spin forever
+			 */
+			if (pcf50633_ready(pcf50633_global))
+				return;
 			pcf50633_onoff_set(pcf50633_global,
 					   PCF50633_REGULATOR_HCLDO, 0);
-			msleep(1);
 			break;
 		}
 		break;
