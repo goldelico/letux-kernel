@@ -17,9 +17,11 @@
 #define __ASM_ARM_TS_H
 
 struct s3c2410_ts_mach_info {
-       int             delay;
-       int             presc;
-       int             oversampling_shift;
+	int             delay;
+	int             presc;
+	int             oversampling_shift;
+	int		excursion_filter_len_bits;
+	int		reject_threshold_vs_avg;
 };
 
 void set_s3c2410ts_info(struct s3c2410_ts_mach_info *hard_s3c2410ts_info);
