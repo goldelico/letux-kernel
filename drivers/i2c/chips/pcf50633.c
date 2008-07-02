@@ -163,10 +163,7 @@ struct pcf50633_data {
 		u_int8_t down2out, down2ena;
 		u_int8_t memldoout, memldoena;
 		u_int8_t ledout, ledena, leddim;
-		struct {
-			u_int8_t out;
-			u_int8_t ena;
-		} ldo[__NUM_PCF50633_REGS];
+		u_int8_t ldo[__NUM_PCF50633_REGS][2];
 	} standby_regs;
 
 	struct resume_dependency resume_dependency;
@@ -187,6 +184,10 @@ static struct platform_device *pcf50633_pdev;
 
 static int __reg_write(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
 {
+	if (pcf->have_been_suspended == 1) {
+		dev_err(&pcf->client.dev, "__reg_write while suspended\n");
+		dump_stack();
+	}
 	return i2c_smbus_write_byte_data(&pcf->client, reg, val);
 }
 
@@ -205,6 +206,10 @@ static int32_t __reg_read(struct pcf50633_data *pcf, u_int8_t reg)
 {
 	int32_t ret;
 
+	if (pcf->have_been_suspended == 1) {
+		dev_err(&pcf->client.dev, "__reg_read while suspended\n");
+		dump_stack();
+	}
 	ret = i2c_smbus_read_byte_data(&pcf->client, reg);
 
 	return ret;
@@ -2165,6 +2170,13 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
 	int i;
+	int ret;
+	u_int8_t tmp;
+
+	/* we suspend once (!) as late as possible in the suspend sequencing */
+
+	if ((state.event != PM_EVENT_SUSPEND) || (pcf->have_been_suspended))
+		return 0;
 
 	/* The general idea is to power down all unused power supplies,
 	 * and then mask all PCF50606 interrup sources but EXTONR, ONKEYF
@@ -2186,25 +2198,25 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 	pcf->standby_regs.ledout = __reg_read(pcf, PCF50633_REG_LEDOUT);
 	pcf->standby_regs.ledena = __reg_read(pcf, PCF50633_REG_LEDENA);
 	pcf->standby_regs.leddim = __reg_read(pcf, PCF50633_REG_LEDDIM);
-	/* FIXME: one big read? */
-	for (i = 0; i < 7; i++) {
-		u_int8_t reg_out = PCF50633_REG_LDO1OUT + 2*i;
-		pcf->standby_regs.ldo[i].out = __reg_read(pcf, reg_out);
-		pcf->standby_regs.ldo[i].ena = __reg_read(pcf, reg_out+1);
-	}
+
+	/* regulator voltages and enable states */
+	ret = i2c_smbus_read_i2c_block_data(&pcf->client,
+					    PCF50633_REG_LDO1OUT, 14,
+					    &pcf->standby_regs.ldo[0][0]);
+	if (ret != 14)
+		dev_err(dev, "Failed to save LDO levels and enables :-(\n");
 
 	/* switch off power supplies that are not needed during suspend */
 	for (i = 0; i < __NUM_PCF50633_REGULATORS; i++) {
-		if (!(pcf->pdata->rails[i].flags & PMU_VRAIL_F_SUSPEND_ON)) {
-			u_int8_t tmp;
+		if ((pcf->pdata->rails[i].flags & PMU_VRAIL_F_SUSPEND_ON))
+			continue;
 
-			DEBUGP("disabling pcf50633 regulator %u\n", i);
-			/* we cannot use pcf50633_onoff_set() because we're
-			 * already under the mutex */
-			tmp = __reg_read(pcf, regulator_registers[i]+1);
-			tmp &= 0xfe;
-			__reg_write(pcf, regulator_registers[i]+1, tmp);
-		}
+		dev_dbg(dev, "disabling regulator %u\n", i);
+		/* we cannot use pcf50633_onoff_set() because we're
+		 * already under the mutex */
+		tmp = __reg_read(pcf, regulator_registers[i]+1);
+		tmp &= 0xfe;
+		__reg_write(pcf, regulator_registers[i]+1, tmp);
 	}
 
 	/* turn off the backlight */
@@ -2212,11 +2224,9 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 	__reg_write(pcf, PCF50633_REG_LEDOUT, 2);
 	__reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
 
-	pcf->standby_regs.int1m = __reg_read(pcf, PCF50633_REG_INT1M);
-	pcf->standby_regs.int2m = __reg_read(pcf, PCF50633_REG_INT2M);
-	pcf->standby_regs.int3m = __reg_read(pcf, PCF50633_REG_INT3M);
-	pcf->standby_regs.int4m = __reg_read(pcf, PCF50633_REG_INT4M);
-	pcf->standby_regs.int5m = __reg_read(pcf, PCF50633_REG_INT5M);
+	/* set interrupt masks so only those sources we want to wake
+	 * us are able to
+	 */
 	__reg_write(pcf, PCF50633_REG_INT1M, ~pcf->pdata->resumers[0]);
 	__reg_write(pcf, PCF50633_REG_INT2M, ~pcf->pdata->resumers[1]);
 	__reg_write(pcf, PCF50633_REG_INT3M, ~pcf->pdata->resumers[2]);
@@ -2250,16 +2260,13 @@ static int pcf50633_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	int i;
+	int ret;
 
 	mutex_lock(&pcf->lock);
 
-	/* Resume all saved registers that don't "survive" standby state */
-	__reg_write(pcf, PCF50633_REG_INT1M, pcf->standby_regs.int1m);
-	__reg_write(pcf, PCF50633_REG_INT2M, pcf->standby_regs.int2m);
-	__reg_write(pcf, PCF50633_REG_INT3M, pcf->standby_regs.int3m);
-	__reg_write(pcf, PCF50633_REG_INT4M, pcf->standby_regs.int4m);
-	__reg_write(pcf, PCF50633_REG_INT5M, pcf->standby_regs.int5m);
+	pcf->have_been_suspended = 2; /* resuming */
+
+	/* these guys get reset while pcf50633 is suspend state, refresh */
 
 	__reg_write(pcf, PCF50633_REG_OOCTIM2, pcf->standby_regs.ooctim2);
 	__reg_write(pcf, PCF50633_REG_AUTOOUT, pcf->standby_regs.autoout);
@@ -2275,12 +2282,12 @@ static int pcf50633_resume(struct device *dev)
 	if (!pcf->pdata->defer_resume_backlight)
 		pcf50633_backlight_resume(pcf);
 
-	/* FIXME: one big read? */
-	for (i = 0; i < 7; i++) {
-		u_int8_t reg_out = PCF50633_REG_LDO1OUT + 2*i;
-		__reg_write(pcf, reg_out, pcf->standby_regs.ldo[i].out);
-		__reg_write(pcf, reg_out+1, pcf->standby_regs.ldo[i].ena);
-	}
+	/* regulator voltages and enable states */
+	ret = i2c_smbus_write_i2c_block_data(&pcf->client,
+					    PCF50633_REG_LDO1OUT, 14,
+					    &pcf->standby_regs.ldo[0][0]);
+	if (ret)
+		dev_err(dev, "Failed to restore LDOs :-( %d\n", ret);
 
 	mutex_unlock(&pcf->lock);
 
