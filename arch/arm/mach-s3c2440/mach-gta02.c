@@ -1498,6 +1498,12 @@ static irqreturn_t gta02_modem_irq(int irq, void *param)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t ar6000_wow_irq(int irq, void *param)
+{
+	printk(KERN_DEBUG "ar6000_wow interrupt\n");
+	return IRQ_HANDLED;
+}
+
 static void __init gta02_machine_init(void)
 {
 	int rc;
@@ -1601,6 +1607,15 @@ static void __init gta02_machine_init(void)
 	if (rc < 0)
 		printk(KERN_ERR "GTA02: can't request GSM modem wakeup IRQ\n");
 	enable_irq_wake(GTA02_IRQ_MODEM);
+
+	/* Make sure the wifi module can wake us up*/
+	set_irq_type(GTA02_IRQ_WLAN_GPIO1, IRQT_RISING);
+	rc = request_irq(GTA02_IRQ_WLAN_GPIO1, ar6000_wow_irq, IRQF_DISABLED,
+			"ar6000", NULL);
+
+	if (rc < 0)
+		printk(KERN_ERR "GTA02: can't request ar6k wakeup IRQ\n");
+	enable_irq_wake(GTA02_IRQ_WLAN_GPIO1);
 }
 
 MACHINE_START(NEO1973_GTA02, "GTA02")
