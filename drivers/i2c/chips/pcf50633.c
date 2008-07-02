@@ -2474,6 +2474,16 @@ static int pcf50633_resume(struct device *dev)
 
 	mutex_unlock(&pcf->lock);
 
+	/* gratuitous call to PCF work function, in the case that the PCF
+	 * interrupt edge was missed during resume, this forces the pending
+	 * register clear and lifts the interrupt back high again.  In the
+	 * case nothing is waiting for service, no harm done.
+	 */
+
+	get_device(&pcf->client.dev);
+	if (!schedule_work(&pcf->work) && !pcf->working)
+		dev_err(&pcf->client.dev, "resume work item may be lost\n");
+
 	callback_all_resume_dependencies(&pcf->resume_dependency);
 
 	return 0;
