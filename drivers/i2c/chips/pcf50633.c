@@ -53,6 +53,7 @@
 #include <asm/arch/gta02.h>
 
 #include "pcf50633.h"
+#include <linux/resume-dependency.h>
 
 #if 0
 #define DEBUGP(x, args ...) printk("%s: " x, __FUNCTION__, ## args)
@@ -167,6 +168,9 @@ struct pcf50633_data {
 			u_int8_t ena;
 		} ldo[__NUM_PCF50633_REGS];
 	} standby_regs;
+
+	struct resume_dependency resume_dependency;
+
 #endif
 };
 
@@ -1933,6 +1937,8 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 
 	pcf50633_global = data;
 
+	init_resume_dependency_list(data->resume_dependency);
+
 	populate_sysfs_group(data);
 
 	err = sysfs_create_group(&new_client->dev.kobj, &pcf_attr_group);
@@ -2142,6 +2148,17 @@ int pcf50633_report_resumers(struct pcf50633_data *pcf, char *buf)
 
 #ifdef CONFIG_PM
 
+/*
+ * we need to export this because pcf50633_data is kept opaque
+ */
+
+void pcf50633_register_resume_dependency(struct pcf50633_data *pcf,
+					struct pcf50633_resume_dependency *dep)
+{
+	register_resume_dependency(pcf->resume_dependency, dep);
+}
+EXPORT_SYMBOL_GPL(pcf50633_register_resume_dep);
+
 
 static int pcf50633_suspend(struct device *dev, pm_message_t state)
 {
@@ -2234,8 +2251,11 @@ static int pcf50633_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
 	int i;
+	struct list_head *pos, *q;
+	struct pcf50633_resume_dependency *dep;
 
-	/* mutex_lock(&pcf->lock); */  /* resume in atomic context */
+
+	mutex_lock(&pcf->lock);
 
 	__reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
 
@@ -2274,9 +2294,11 @@ static int pcf50633_resume(struct device *dev)
 		__reg_write(pcf, reg_out+1, pcf->standby_regs.ldo[i].ena);
 	}
 
-	/* mutex_unlock(&pcf->lock); */ /* resume in atomic context */
+	mutex_unlock(&pcf->lock);
 
 	pcf50633_irq(pcf->irq, pcf);
+
+	callback_all_resume_dependencies(pcf->resume_dependency);
 
 	return 0;
 }

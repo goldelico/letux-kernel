@@ -2,6 +2,7 @@
 #define _LINUX_PCF50633_H
 
 #include <linux/pcf506xx.h>
+#include <linux/resume-dependency.h>
 
 
 /* public in-kernel pcf50633 api */
@@ -123,6 +124,10 @@ pcf50633_battvolt(struct pcf50633_data *pcf);
 
 extern int
 pcf50633_report_resumers(struct pcf50633_data *pcf, char *buf);
+
+extern void
+pcf50633_register_resume_dependency(struct pcf50633_data *pcf,
+					struct pcf50633_resume_dependency *dep);
 
 
 #define PCF50633_FEAT_EXTON	0x00000001	/* not yet supported */
