@@ -1037,25 +1037,35 @@ static void pcf50633_work(struct work_struct *work)
 		 * this is really "battery not pulling current" -- it can
 		 * appear with no battery attached
 		 */
-		/* FIXME: signal this to userspace */
+		if (pcf->pdata->cb)
+			pcf->pdata->cb(&pcf->client.dev,
+				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_CHANGE);
 	}
 	if (pcfirq[2] & PCF50633_INT3_THLIMON) {
 		DEBUGPC("THLIMON ");
 		pcf->flags |= PCF50633_F_CHG_PROT;
-		/* FIXME: signal this to userspace */
+		if (pcf->pdata->cb)
+			pcf->pdata->cb(&pcf->client.dev,
+				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_CHANGE);
 	}
 	if (pcfirq[2] & PCF50633_INT3_THLIMOFF) {
 		DEBUGPC("THLIMOFF ");
 		pcf->flags &= ~PCF50633_F_CHG_PROT;
-		/* FIXME: signal this to userspace */
+		if (pcf->pdata->cb)
+			pcf->pdata->cb(&pcf->client.dev,
+				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_CHANGE);
 	}
 	if (pcfirq[2] & PCF50633_INT3_USBLIMON) {
 		DEBUGPC("USBLIMON ");
-		/* FIXME: signal this to userspace */
+		if (pcf->pdata->cb)
+			pcf->pdata->cb(&pcf->client.dev,
+				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_CHANGE);
 	}
 	if (pcfirq[2] & PCF50633_INT3_USBLIMOFF) {
 		DEBUGPC("USBLIMOFF ");
-		/* FIXME: signal this to userspace */
+		if (pcf->pdata->cb)
+			pcf->pdata->cb(&pcf->client.dev,
+				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_CHANGE);
 	}
 	if (pcfirq[2] & PCF50633_INT3_ADCRDY) {
 		/* ADC result ready */
