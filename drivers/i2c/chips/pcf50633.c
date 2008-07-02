@@ -2239,8 +2239,8 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 void pcf50633_backlight_resume(struct pcf50633_data *pcf)
 {
 	/* we force the backlight on in fact */
-	__reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
-	__reg_write(pcf, PCF50633_REG_LEDENA, 0x21);
+	__reg_write(pcf, PCF50633_REG_LEDOUT, pcf->standby_regs.ledout);
+	__reg_write(pcf, PCF50633_REG_LEDENA, pcf->standby_regs.ledena | 0x01);
 	__reg_write(pcf, PCF50633_REG_LEDDIM, pcf->standby_regs.leddim);
 }
 EXPORT_SYMBOL_GPL(pcf50633_backlight_resume);
@@ -2253,8 +2253,6 @@ static int pcf50633_resume(struct device *dev)
 	int i;
 
 	mutex_lock(&pcf->lock);
-
-	__reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
 
 	/* Resume all saved registers that don't "survive" standby state */
 	__reg_write(pcf, PCF50633_REG_INT1M, pcf->standby_regs.int1m);
@@ -2274,11 +2272,8 @@ static int pcf50633_resume(struct device *dev)
 	__reg_write(pcf, PCF50633_REG_MEMLDOENA, pcf->standby_regs.memldoena);
 
 	/* platform can choose to defer backlight bringup */
-	if (!pcf->pdata->defer_resume_backlight) {
-		__reg_write(pcf, PCF50633_REG_LEDOUT, pcf->standby_regs.ledout);
-		__reg_write(pcf, PCF50633_REG_LEDENA, pcf->standby_regs.ledena);
-		__reg_write(pcf, PCF50633_REG_LEDDIM, pcf->standby_regs.leddim);
-	}
+	if (!pcf->pdata->defer_resume_backlight)
+		pcf50633_backlight_resume(pcf);
 
 	/* FIXME: one big read? */
 	for (i = 0; i < 7; i++) {
