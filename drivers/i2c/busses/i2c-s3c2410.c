@@ -516,6 +516,7 @@ static int s3c24xx_i2c_doxfer(struct s3c24xx_i2c *i2c, struct i2c_msg *msgs, int
 		dev_err(i2c->dev,
 		    "Hey I am still asleep (suspended: %d), retry later\n",
 		    i2c->suspended);
+		dump_stack();
 		ret = -EAGAIN;
 		goto out;
 	}
