@@ -26,7 +26,7 @@ enum pmu_event {
 	__NUM_PMU_EVTS
 };
 
-typedef int pmu_cb(struct device *dev, unsigned int feature,
+typedef int (*pmu_cb)(struct device *dev, unsigned int feature,
 		   enum pmu_event event);
 
 
