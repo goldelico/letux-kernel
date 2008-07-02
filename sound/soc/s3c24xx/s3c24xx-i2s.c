@@ -180,7 +180,7 @@ static void s3c24xx_snd_rxctrl(int on)
 static int s3c24xx_snd_lrsync(void)
 {
 	u32 iiscon;
-	int timeout = 50; /* 5ms */
+	int timeout = 5; /* 500us, 125 should be enough at 8kHz */
 
 	DBG("Entered %s\n", __FUNCTION__);
 
@@ -285,11 +285,14 @@ static int s3c24xx_i2s_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		if (!s3c24xx_snd_is_clkmaster()) {
-			ret = s3c24xx_snd_lrsync();
-			if (ret)
-				goto exit_err;
-		}
+		if (!s3c24xx_snd_is_clkmaster())
+			/* we ignore the return code, if it sync'd then fine,
+			 * if it didn't sync, which happens after resume the
+			 * first time when there was a live stream at suspend,
+			 * just let it timeout, the stream picks up OK after
+			 * that and LRCK is evidently working again.
+			 */
+			s3c24xx_snd_lrsync();
 
 		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 			s3c24xx_snd_rxctrl(1);
