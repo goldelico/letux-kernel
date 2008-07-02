@@ -271,7 +271,7 @@ struct glamo_mci_pdata glamo_mci_def_pdata = {
 	.ocr_avail		= MMC_VDD_32_33,
 	.glamo_irq_is_wired	= NULL, /* filled in from MFD platform data */
 	.mci_suspending = NULL, /* filled in from MFD platform data */
-	.mci_all_dependencies_resumed = NULL, /* filled in from MFD platform data */
+	.mci_all_dependencies_resumed = NULL, /* filled in from MFD plat data */
 };
 EXPORT_SYMBOL_GPL(glamo_mci_def_pdata);
 

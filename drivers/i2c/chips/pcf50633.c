@@ -778,7 +778,7 @@ static void pcf50633_work(struct work_struct *work)
 	if (ret != 5) {
 		dev_info(&pcf->client.dev,
 			 "Oh crap PMU IRQ register read failed -- "
-		         "retrying later %d\n", ret);
+			 "retrying later %d\n", ret);
 		/*
 		 * it shouldn't fail, we no longer attempt to use I2C while
 		 * it can be suspended.  But we don't have much option but to

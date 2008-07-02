@@ -33,7 +33,8 @@ struct glamofb_platform_data {
 				     unsigned short vdd);
 	int		(*glamo_irq_is_wired)(void);
 	void		(*mci_suspending)(struct platform_device *dev);
-	int		(*mci_all_dependencies_resumed)(struct platform_device *dev);
+	int		(*mci_all_dependencies_resumed)(struct platform_device
+									  *dev);
 };
 
 int glamofb_cmd_mode(struct glamofb_handle *gfb, int on);
