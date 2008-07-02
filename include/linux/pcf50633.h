@@ -173,6 +173,7 @@ struct pcf50633_platform_data {
 
 	/* post-resume backlight bringup */
 	int defer_resume_backlight;
+	u8 resume_backlight_ramp_speed;
 };
 
 #endif /* _PCF50633_H */

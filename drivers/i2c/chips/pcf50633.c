@@ -2483,10 +2483,12 @@ void pcf50633_backlight_resume(struct pcf50633_data *pcf)
 {
 	dev_info(&pcf->client.dev, "pcf50633_backlight_resume\n");
 
-	/* we force the backlight on in fact */
-	reg_write(pcf, PCF50633_REG_LEDDIM, 1);
+	/* platform defines resume ramp speed */
+	reg_write(pcf, PCF50633_REG_LEDDIM,
+				       pcf->pdata->resume_backlight_ramp_speed);
 	reg_write(pcf, PCF50633_REG_LEDOUT, pcf->standby_regs.misc[
 				   PCF50633_REG_LEDOUT - PCF50633_REG_AUTOOUT]);
+	/* we force the backlight on in fact */
 	reg_write(pcf, PCF50633_REG_LEDENA, pcf->standby_regs.misc[
 			       PCF50633_REG_LEDENA - PCF50633_REG_AUTOOUT] | 1);
 }
