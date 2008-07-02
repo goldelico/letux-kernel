@@ -7,14 +7,11 @@
  * for more details.
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/irq.h>
-#include <linux/tqueue.h>
-#include <linux/locks.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
@@ -26,28 +23,29 @@
 #include <asm/semaphore.h>
 #include <asm/hardware.h>
 #include <asm/uaccess.h>
+#include <linux/device.h>
+#include <linux/dma-mapping.h>
+#include <linux/clk.h>
 
 #ifdef CONFIG_ARCH_S3C24A0A
 #include <asm/arch/S3C24A0.h>
 #include <asm/arch/clocks.h>
 #else
-#include <asm/arch/S3C2440.h>
-#include <asm/arch/clocks.h>
+#include <asm/arch/regs-gpio.h>
+#include <asm/arch/regs-gpioj.h>
+#include <asm/arch/regs-irq.h>
 #endif
 
 #include "cam_reg.h"
 //#define SW_DEBUG
+#define CONFIG_VIDEO_V4L1_COMPAT
+#include <linux/videodev.h>
 #include "camif.h"
-#include "videodev.h"
 #include "miscdevice.h"
-
 
 static int camif_dma_burst(camif_cfg_t *);
 static int camif_scaler(camif_cfg_t *);
 
-static const char *camif_version =
-        "$Id: camif.c,v 1.10 2004/06/04 04:24:14 swlee Exp $";
-	
 /* For SXGA Image */
 #define RESERVE_MEM  15*1024*1024
 #define YUV_MEM      10*1024*1024
@@ -66,11 +64,13 @@ static int camif_malloc(camif_cfg_t *cfg)
 		t_size = t_size *cfg->pp_num;
 
 #ifndef SAMSUNG_SXGA_CAM
-		cfg->pp_virt_buf = consistent_alloc(GFP_KERNEL, t_size, &cfg->pp_phys_buf);
+		cfg->pp_virt_buf = dma_alloc_coherent(cfg->v->dev,
+						      t_size, &cfg->pp_phys_buf,
+						      GFP_KERNEL);
 #else
 		printk(KERN_INFO "Reserving High RAM Addresses \n");
 		cfg->pp_phys_buf = PHYS_OFFSET + (MEM_SIZE - RESERVE_MEM);
-		cfg->pp_virt_buf = ioremap_nocache(cfg->pp_phys_buf,YUV_MEM);
+		cfg->pp_virt_buf = ioremap_nocache(cfg->pp_phys_buf, YUV_MEM);
 #endif
 
 		if ( !cfg->pp_virt_buf ) {
@@ -90,7 +90,9 @@ static int camif_malloc(camif_cfg_t *cfg)
 		}
 		t_size = t_size * cfg->pp_num;
 #ifndef SAMSUNG_SXGA_CAM
-		cfg->pp_virt_buf = consistent_alloc(GFP_KERNEL, t_size, &cfg->pp_phys_buf);
+		cfg->pp_virt_buf = dma_alloc_coherent(cfg->v->dev,
+						      t_size, &cfg->pp_phys_buf,
+						      GFP_KERNEL);
 #else
 		printk(KERN_INFO "Reserving High RAM Addresses \n");
 		cfg->pp_phys_buf = PHYS_OFFSET + (MEM_SIZE - RESERVE_MEM ) + YUV_MEM;
@@ -112,7 +114,8 @@ static int camif_demalloc(camif_cfg_t *cfg)
 {
 #ifndef SAMSUNG_SXGA_CAM
 	if ( cfg->pp_virt_buf ) {
-		consistent_free(cfg->pp_virt_buf,cfg->pp_totalsize,cfg->pp_phys_buf);
+		dma_free_coherent(cfg->v->dev, cfg->pp_totalsize,
+				  cfg->pp_virt_buf, cfg->pp_phys_buf);
 		cfg->pp_virt_buf = 0;
 	}
 #else
@@ -131,13 +134,14 @@ int camif_g_frame_num(camif_cfg_t *cfg)
 	int index = 0;
 
 	if (cfg->dma_type & CAMIF_CODEC ) {
-		index = FRAME_CNT(CICOSTATUS);
+		index = FRAME_CNT(readl(camregs + S3C2440_CAM_REG_CICOSTATUS));
 		DPRINTK("CAMIF_CODEC frame %d \n", index);
 	}
 	else {
 		assert(cfg->dma_type & CAMIF_PREVIEW );
-		index = FRAME_CNT(CIPRSTATUS);
-		DPRINTK("CAMIF_PREVIEW frame %d  0x%08X \n", index, CIPRSTATUS);
+		index = FRAME_CNT(readl(camregs + S3C2440_CAM_REG_CIPRSTATUS));
+		DPRINTK("CAMIF_PREVIEW frame %d  0x%08X \n", index,
+			readl(camregs + S3C2440_CAM_REG_CIPRSTATUS));
 	}
 	cfg->now_frame_num = (index + 2) % 4; /* When 4 PingPong */
 	return index; /* meaningless */
@@ -148,60 +152,59 @@ static int camif_pp_codec(camif_cfg_t *cfg)
 	u32 i, c_size; /* Cb,Cr size */
 	u32 one_p_size;
 	u32 daon = cfg->target_x * cfg->target_y;
-	if (cfg->fmt & CAMIF_OUT_YCBCR420) {
-		c_size = daon /4;
-	}
+	if (cfg->fmt & CAMIF_OUT_YCBCR420)
+		c_size = daon / 4;
 	else {
 		assert(cfg->fmt & CAMIF_OUT_YCBCR422);
-		c_size = daon /2;
+		c_size = daon / 2;
 	}
 	switch ( cfg->pp_num ) {
-		case 1 :
-			for ( i =0 ; i < 4; i=i+1) {
-				cfg->img_buf[i].virt_y = cfg->pp_virt_buf;
-				cfg->img_buf[i].phys_y = cfg->pp_phys_buf;
-				cfg->img_buf[i].virt_cb = cfg->pp_virt_buf + daon; 
-				cfg->img_buf[i].phys_cb = cfg->pp_phys_buf + daon;
-				cfg->img_buf[i].virt_cr = cfg->pp_virt_buf + daon + c_size;
-				cfg->img_buf[i].phys_cr = cfg->pp_phys_buf + daon + c_size;
-				CICOYSA(i)  =  cfg->img_buf[i].phys_y;
-				CICOCBSA(i) =  cfg->img_buf[i].phys_cb;
-				CICOCRSA(i) =  cfg->img_buf[i].phys_cr;
-			}
-			break;
-		case 2:
+	case 1 :
+		for (i =0 ; i < 4; i++) {
+			cfg->img_buf[i].virt_y = cfg->pp_virt_buf;
+			cfg->img_buf[i].phys_y = cfg->pp_phys_buf;
+			cfg->img_buf[i].virt_cb = cfg->pp_virt_buf + daon;
+			cfg->img_buf[i].phys_cb = cfg->pp_phys_buf + daon;
+			cfg->img_buf[i].virt_cr = cfg->pp_virt_buf + daon + c_size;
+			cfg->img_buf[i].phys_cr = cfg->pp_phys_buf + daon + c_size;
+			writel(cfg->img_buf[i].phys_y, camregs + S3C2440_CAM_REG_CICOYSA(i));
+			writel(cfg->img_buf[i].phys_cb, camregs + S3C2440_CAM_REG_CICOCBSA(i));
+			writel(cfg->img_buf[i].phys_cr, camregs + S3C2440_CAM_REG_CICOCRSA(i));
+		}
+		break;
+	case 2:
 #define  TRY   (( i%2 ) ? 1 :0)
-			one_p_size = daon + 2*c_size;
-			for (i = 0; i < 4  ; i++) {
-				cfg->img_buf[i].virt_y = cfg->pp_virt_buf + TRY * one_p_size;
-				cfg->img_buf[i].phys_y = cfg->pp_phys_buf + TRY * one_p_size;
-				cfg->img_buf[i].virt_cb = cfg->pp_virt_buf + daon + TRY * one_p_size;
-				cfg->img_buf[i].phys_cb = cfg->pp_phys_buf + daon + TRY * one_p_size;
-				cfg->img_buf[i].virt_cr = cfg->pp_virt_buf + daon + c_size + TRY * one_p_size;
-				cfg->img_buf[i].phys_cr = cfg->pp_phys_buf + daon + c_size + TRY * one_p_size;
-				CICOYSA(i)  = cfg->img_buf[i].phys_y;
-				CICOCBSA(i) = cfg->img_buf[i].phys_cb;
-				CICOCRSA(i) = cfg->img_buf[i].phys_cr;
-			}
-			break;
-		case 4: 
-			one_p_size = daon + 2*c_size;
-			for (i = 0; i < 4 ; i++) {
-				cfg->img_buf[i].virt_y = cfg->pp_virt_buf + i * one_p_size;
-				cfg->img_buf[i].phys_y = cfg->pp_phys_buf + i * one_p_size;
-				cfg->img_buf[i].virt_cb = cfg->pp_virt_buf + daon + i * one_p_size;
-				cfg->img_buf[i].phys_cb = cfg->pp_phys_buf + daon + i * one_p_size;
-				cfg->img_buf[i].virt_cr = cfg->pp_virt_buf + daon + c_size + i * one_p_size;
-				cfg->img_buf[i].phys_cr = cfg->pp_phys_buf + daon + c_size + i * one_p_size;
-				CICOYSA(i)  =  cfg->img_buf[i].phys_y;
-				CICOCBSA(i) =  cfg->img_buf[i].phys_cb;
-				CICOCRSA(i) =  cfg->img_buf[i].phys_cr;
-			}
-			break;
-		default:
-			printk("Invalid PingPong Number %d \n",cfg->pp_num);
-			panic("halt\n");
-	}
+		one_p_size = daon + 2*c_size;
+		for (i = 0; i < 4  ; i++) {
+			cfg->img_buf[i].virt_y = cfg->pp_virt_buf + TRY * one_p_size;
+			cfg->img_buf[i].phys_y = cfg->pp_phys_buf + TRY * one_p_size;
+			cfg->img_buf[i].virt_cb = cfg->pp_virt_buf + daon + TRY * one_p_size;
+			cfg->img_buf[i].phys_cb = cfg->pp_phys_buf + daon + TRY * one_p_size;
+			cfg->img_buf[i].virt_cr = cfg->pp_virt_buf + daon + c_size + TRY * one_p_size;
+			cfg->img_buf[i].phys_cr = cfg->pp_phys_buf + daon + c_size + TRY * one_p_size;
+			writel(cfg->img_buf[i].phys_y, camregs + S3C2440_CAM_REG_CICOYSA(i));
+			writel(cfg->img_buf[i].phys_cb, camregs + S3C2440_CAM_REG_CICOCBSA(i));
+			writel(cfg->img_buf[i].phys_cr, camregs + S3C2440_CAM_REG_CICOCRSA(i));
+		}
+		break;
+	case 4:
+		one_p_size = daon + 2*c_size;
+		for (i = 0; i < 4 ; i++) {
+			cfg->img_buf[i].virt_y = cfg->pp_virt_buf + i * one_p_size;
+			cfg->img_buf[i].phys_y = cfg->pp_phys_buf + i * one_p_size;
+			cfg->img_buf[i].virt_cb = cfg->pp_virt_buf + daon + i * one_p_size;
+			cfg->img_buf[i].phys_cb = cfg->pp_phys_buf + daon + i * one_p_size;
+			cfg->img_buf[i].virt_cr = cfg->pp_virt_buf + daon + c_size + i * one_p_size;
+			cfg->img_buf[i].phys_cr = cfg->pp_phys_buf + daon + c_size + i * one_p_size;
+			writel(cfg->img_buf[i].phys_y, camregs + S3C2440_CAM_REG_CICOYSA(i));
+			writel(cfg->img_buf[i].phys_cb, camregs + S3C2440_CAM_REG_CICOCBSA(i));
+			writel(cfg->img_buf[i].phys_cr, camregs + S3C2440_CAM_REG_CICOCRSA(i));
+		}
+		break;
+	default:
+		printk("Invalid PingPong Number %d \n",cfg->pp_num);
+		panic("halt\n");
+}
 	return 0;
 }
 
@@ -222,21 +225,21 @@ static int camif_pp_preview(camif_cfg_t *cfg)
 			for ( i = 0; i < 4 ; i++ ) {
 				cfg->img_buf[i].virt_rgb = cfg->pp_virt_buf ;
 				cfg->img_buf[i].phys_rgb = cfg->pp_phys_buf ;
-				CIPRCLRSA(i) = cfg->img_buf[i].phys_rgb;
+				writel(cfg->img_buf[i].phys_rgb, camregs + S3C2440_CAM_REG_CICOCRSA(i));
 			}
 			break;
 		case 2:
 			for ( i = 0; i < 4 ; i++) {
 				cfg->img_buf[i].virt_rgb = cfg->pp_virt_buf + TRY * daon;
 				cfg->img_buf[i].phys_rgb = cfg->pp_phys_buf + TRY * daon;
-				CIPRCLRSA(i) = cfg->img_buf[i].phys_rgb;
+				writel(cfg->img_buf[i].phys_rgb, camregs + S3C2440_CAM_REG_CICOCRSA(i));
 			}
 			break;
 		case 4:
 			for ( i = 0; i < 4 ; i++) {
 				cfg->img_buf[i].virt_rgb = cfg->pp_virt_buf + i * daon;
 				cfg->img_buf[i].phys_rgb = cfg->pp_phys_buf + i * daon;
-				CIPRCLRSA(i) = cfg->img_buf[i].phys_rgb;
+				writel(cfg->img_buf[i].phys_rgb, camregs + S3C2440_CAM_REG_CICOCRSA(i));
 			}
 			break;
 		default:
@@ -308,7 +311,7 @@ static int camif_source_fmt(camif_gc_t *gc)
 	cmd  |= SOURCE_HSIZE(gc->source_x)| SOURCE_VSIZE(gc->source_y);
 	/* Order422 */
 	cmd |=  gc->order422;
-	CISRCFMT = cmd;
+	writel(cmd, camregs + S3C2440_CAM_REG_CISRCFMT);
 
 	return 0 ;
 }
@@ -331,33 +334,24 @@ static int camif_target_fmt(camif_cfg_t *cfg)
 			assert(cfg->fmt & CAMIF_OUT_YCBCR422);
 			cmd |= OUT_YCBCR422|IN_YCBCR422;
 		}
-		CICOTRGFMT = cmd | cfg->flip;
-	} 
-	else {
+		writel(cmd | cfg->flip, camregs + S3C2440_CAM_REG_CICOTRGFMT);
+
+	} else {
 		assert(cfg->dma_type & CAMIF_PREVIEW);
-		CIPRTRGFMT = 
-			TARGET_HSIZE(cfg->target_x)|TARGET_VSIZE(cfg->target_y)|cfg->flip;
+		writel(TARGET_HSIZE(cfg->target_x)|TARGET_VSIZE(cfg->target_y)|cfg->flip,
+			camregs + S3C2440_CAM_REG_CIPRTRGFMT); 
 	}
 	return 0;
 }
 
 void camif_change_flip(camif_cfg_t *cfg)
 {
-	u32 cmd = 0;
+	u32 cmd = readl(camregs + S3C2440_CAM_REG_CICOTRGFMT);
 
-	if (cfg->dma_type & CAMIF_CODEC ) {
-		/* YCBCR setting */  
-		cmd  = CICOTRGFMT;
-		cmd &= ~(BIT14|BIT15); /* Clear FLIP Mode */
-		cmd |= cfg->flip; 
-		CICOTRGFMT = cmd;
-	} 
-	else {
-		cmd  = CIPRTRGFMT;
-		cmd &= ~(BIT14|BIT15);
-		cmd |= cfg->flip;
-		CICOTRGFMT = cmd; 
-	}
+	cmd &= ~(BIT14|BIT15);
+	cmd |= cfg->flip;
+
+	writel(cmd, camregs + S3C2440_CAM_REG_CICOTRGFMT);
 }
 
 
@@ -373,70 +367,81 @@ int camif_capture_start(camif_cfg_t *cfg)
 	u32 n_cmd = 0;		/* Next Command */
 
 	switch(cfg->exec) {
-		case CAMIF_BOTH_DMA_ON:
-			camif_reset(CAMIF_RESET,0); /* Flush Camera Core Buffer */		
-			CIPRSCCTRL |= SCALERSTART;
-			CICOSCCTRL |= SCALERSTART;
-			n_cmd = CAMIF_CAP_PREVIEW_ON|CAMIF_CAP_CODEC_ON;
-			break;
-		case CAMIF_DMA_ON:
-			camif_reset(CAMIF_RESET,0); /* Flush Camera Core Buffer */		
-			if (cfg->dma_type&CAMIF_CODEC) {
-				CICOSCCTRL |= SCALERSTART;
-				n_cmd = CAMIF_CAP_CODEC_ON;
-			}else {
-				CIPRSCCTRL |= SCALERSTART;
-				n_cmd = CAMIF_CAP_PREVIEW_ON;
-			}
+	case CAMIF_BOTH_DMA_ON:
+		camif_reset(CAMIF_RESET, 0); /* Flush Camera Core Buffer */
+		writel(readl(camregs + S3C2440_CAM_REG_CIPRSCCTRL) |
+			     SCALERSTART, camregs + S3C2440_CAM_REG_CIPRSCCTRL);
+		writel(readl(camregs + S3C2440_CAM_REG_CICOSCCTRL) |
+			     SCALERSTART, camregs + S3C2440_CAM_REG_CICOSCCTRL);
+		n_cmd = CAMIF_CAP_PREVIEW_ON | CAMIF_CAP_CODEC_ON;
+		break;
+	case CAMIF_DMA_ON:
+		camif_reset(CAMIF_RESET, 0); /* Flush Camera Core Buffer */
+		if (cfg->dma_type&CAMIF_CODEC) {
+			writel(readl(camregs + S3C2440_CAM_REG_CICOSCCTRL) |
+			     SCALERSTART, camregs + S3C2440_CAM_REG_CICOSCCTRL);
+			n_cmd = CAMIF_CAP_CODEC_ON;
+		} else {
+			writel(readl(camregs + S3C2440_CAM_REG_CIPRSCCTRL) |
+			     SCALERSTART, camregs + S3C2440_CAM_REG_CIPRSCCTRL);
+			n_cmd = CAMIF_CAP_PREVIEW_ON;
+		}
 
-			/* wait until Sync Time expires */
-			/* First settting, to wait VSYNC fall  */
-			/* By VESA spec,in 640x480 @60Hz 
-			   MAX Delay Time is around 64us which "while" has.*/ 
-			while(VSYNC & CICOSTATUS);
-			break;
-		default:
-			break;
-	}
-	CIIMGCPT = n_cmd|CAMIF_CAP_ON;
+		/* wait until Sync Time expires */
+		/* First settting, to wait VSYNC fall  */
+		/* By VESA spec,in 640x480 @60Hz
+			MAX Delay Time is around 64us which "while" has.*/
+		while(VSYNC & readl(camregs + S3C2440_CAM_REG_CICOSTATUS));
+		break;
+	default:
+		break;
+}
+	writel(n_cmd | CAMIF_CAP_ON, camregs + S3C2440_CAM_REG_CIIMGCPT); 
 	return 0;
 }
 
 
 int camif_capture_stop(camif_cfg_t *cfg)
 {
-	u32 n_cmd = CIIMGCPT;	/* Next Command */
+	u32 n_cmd = readl(camregs + S3C2440_CAM_REG_CIIMGCPT);	/* Next Command */
 
 	switch(cfg->exec) {
-		case CAMIF_BOTH_DMA_OFF:
-			CIPRSCCTRL &= ~SCALERSTART;
-			CICOSCCTRL &= ~SCALERSTART;
-			n_cmd = 0;
-			break;
-		case CAMIF_DMA_OFF_L_IRQ: /* fall thru */
-		case CAMIF_DMA_OFF:
-			if (cfg->dma_type&CAMIF_CODEC) {
-				CICOSCCTRL &= ~SCALERSTART;
-				n_cmd &= ~CAMIF_CAP_CODEC_ON;
-				if (!(n_cmd & CAMIF_CAP_PREVIEW_ON))
-					n_cmd = 0;
-			}else {
-				CIPRSCCTRL &= ~SCALERSTART;
-				n_cmd &= ~CAMIF_CAP_PREVIEW_ON;
-				if (!(n_cmd & CAMIF_CAP_CODEC_ON))
-					n_cmd = 0;
-			}
-			break;
-		default:
-			panic("Unexpected \n");
+	case CAMIF_BOTH_DMA_OFF:
+		writel(readl(camregs + S3C2440_CAM_REG_CIPRSCCTRL) &
+			~SCALERSTART, camregs + S3C2440_CAM_REG_CIPRSCCTRL);
+		writel(readl(camregs + S3C2440_CAM_REG_CICOSCCTRL) &
+			~SCALERSTART, camregs + S3C2440_CAM_REG_CICOSCCTRL);
+		n_cmd = 0;
+		break;
+	case CAMIF_DMA_OFF_L_IRQ: /* fall thru */
+	case CAMIF_DMA_OFF:
+		if (cfg->dma_type&CAMIF_CODEC) {
+			writel(readl(camregs + S3C2440_CAM_REG_CICOSCCTRL) &
+			    ~SCALERSTART, camregs + S3C2440_CAM_REG_CICOSCCTRL);
+			n_cmd &= ~CAMIF_CAP_CODEC_ON;
+			if (!(n_cmd & CAMIF_CAP_PREVIEW_ON))
+				n_cmd = 0;
+		} else {
+			writel(readl(camregs + S3C2440_CAM_REG_CIPRSCCTRL) &
+			    ~SCALERSTART, camregs + S3C2440_CAM_REG_CIPRSCCTRL);
+			n_cmd &= ~CAMIF_CAP_PREVIEW_ON;
+			if (!(n_cmd & CAMIF_CAP_CODEC_ON))
+				n_cmd = 0;
+		}
+		break;
+	default:
+		panic("Unexpected \n");
 	}
-	CIIMGCPT = n_cmd;
-	if(cfg->exec == CAMIF_DMA_OFF_L_IRQ) { /* Last IRQ  */
-		if (cfg->dma_type & CAMIF_CODEC) 
-			CICOCTRL |= LAST_IRQ_EN;
-		else 
-			CIPRCTRL |= LAST_IRQ_EN;
-	} 
+	writel(n_cmd, camregs + S3C2440_CAM_REG_CIIMGCPT);
+
+	if (cfg->exec == CAMIF_DMA_OFF_L_IRQ) { /* Last IRQ  */
+		if (cfg->dma_type & CAMIF_CODEC)
+			writel(readl(camregs + S3C2440_CAM_REG_CICOCTRL) |
+			     LAST_IRQ_EN, camregs + S3C2440_CAM_REG_CICOCTRL);
+		else
+			writel(readl(camregs + S3C2440_CAM_REG_CIPRCTRL) |
+			     LAST_IRQ_EN, camregs + S3C2440_CAM_REG_CIPRCTRL);
+	}
 #if 0
 	else {				/* to make internal state machine of CAMERA stop */
 		camif_reset(CAMIF_RESET, 0);
@@ -449,16 +454,13 @@ int camif_capture_stop(camif_cfg_t *cfg)
 /* LastIRQEn is autoclear */
 void camif_last_irq_en(camif_cfg_t *cfg)
 {
-	if(cfg->exec == CAMIF_BOTH_DMA_ON) {
-		CIPRCTRL |= LAST_IRQ_EN;
-		CICOCTRL |= LAST_IRQ_EN;
-	}
-	else {
-		if (cfg->dma_type & CAMIF_CODEC) 
-			CICOCTRL |= LAST_IRQ_EN;
-		else 
-			CIPRCTRL |= LAST_IRQ_EN;
-	}
+	if ((cfg->exec == CAMIF_BOTH_DMA_ON) || (cfg->dma_type & CAMIF_CODEC))
+		writel(readl(camregs + S3C2440_CAM_REG_CICOCTRL) |
+			LAST_IRQ_EN, camregs + S3C2440_CAM_REG_CICOCTRL);
+
+	if ((cfg->exec == CAMIF_BOTH_DMA_ON) || !(cfg->dma_type & CAMIF_CODEC))
+		writel(readl(camregs + S3C2440_CAM_REG_CIPRCTRL) |
+			LAST_IRQ_EN, camregs + S3C2440_CAM_REG_CIPRCTRL);
 }
 
 static int  
@@ -502,23 +504,33 @@ int camif_g_fifo_status(camif_cfg_t *cfg)
 	u32 reg;
 
 	if (cfg->dma_type & CAMIF_CODEC) {
-		u32 flag = CO_OVERFLOW_Y|CO_OVERFLOW_CB|CO_OVERFLOW_CR;
-		reg = CICOSTATUS;
+		u32 flag = CO_OVERFLOW_Y | CO_OVERFLOW_CB | CO_OVERFLOW_CR;
+		reg = readl(camregs + S3C2440_CAM_REG_CICOSTATUS);
 		if (reg & flag) {
 			printk("CODEC: FIFO error(0x%08x) and corrected\n",reg);
 			/* FIFO Error Count ++  */
-			CIWDOFST |= CO_FIFO_Y|CO_FIFO_CB|CO_FIFO_CR;
-			CIWDOFST &= ~(CO_FIFO_Y|CO_FIFO_CB|CO_FIFO_CR);
+			writel(readl(camregs + S3C2440_CAM_REG_CIWDOFST) |
+				CO_FIFO_Y | CO_FIFO_CB | CO_FIFO_CR,
+				camregs + S3C2440_CAM_REG_CIWDOFST);
+
+			writel(readl(camregs + S3C2440_CAM_REG_CIWDOFST) &
+				~(CO_FIFO_Y | CO_FIFO_CB | CO_FIFO_CR),
+				camregs + S3C2440_CAM_REG_CIWDOFST);
 			return 1; /* Error */
 		}
 	}
 	if (cfg->dma_type & CAMIF_PREVIEW) {
-		u32 flag = PR_OVERFLOW_CB|PR_OVERFLOW_CR;
-		reg = CIPRSTATUS;
+		u32 flag = PR_OVERFLOW_CB | PR_OVERFLOW_CR;
+		reg = readl(camregs + S3C2440_CAM_REG_CIPRSTATUS);
 		if (reg & flag) {
 			printk("PREVIEW:FIFO error(0x%08x) and corrected\n",reg);
-			CIWDOFST |= PR_FIFO_CB|PR_FIFO_CR;
-			CIWDOFST &= ~(CO_FIFO_Y|CO_FIFO_CB|CO_FIFO_CR);
+			writel(readl(camregs + S3C2440_CAM_REG_CIWDOFST) |
+				CO_FIFO_CB | CO_FIFO_CR,
+				camregs + S3C2440_CAM_REG_CIWDOFST);
+
+			writel(readl(camregs + S3C2440_CAM_REG_CIWDOFST) &
+				~(CO_FIFO_Y | CO_FIFO_CB | CO_FIFO_CR),
+				camregs + S3C2440_CAM_REG_CIWDOFST);
 			/* FIFO Error Count ++  */
 			return 1; /* Error */
 		}
@@ -537,13 +549,16 @@ int camif_win_offset(camif_gc_t *gc )
 	u32 v = gc->win_ver_ofst;
 
 	/*Clear Overflow */
-	CIWDOFST = CO_FIFO_Y|CO_FIFO_CB|CO_FIFO_CR|PR_FIFO_CB|PR_FIFO_CB;
-	CIWDOFST = 0;		/* ? Dummy */
+	writel(CO_FIFO_Y | CO_FIFO_CB | CO_FIFO_CR | PR_FIFO_CB | PR_FIFO_CB,
+		camregs + S3C2440_CAM_REG_CIWDOFST);
+	writel(0, camregs + S3C2440_CAM_REG_CIWDOFST);
+
 	if (!h && !v)	{
-		CIWDOFST = 0;
+		writel(0, camregs + S3C2440_CAM_REG_CIWDOFST);
 		return 0;
 	}
-	CIWDOFST = WINOFEN | WINHOROFST(h) | WINVEROFST(v);
+
+	writel(WINOFEN | WINHOROFST(h) | WINVEROFST(v), camregs + S3C2440_CAM_REG_CIWDOFST);
 	return 0;
 }
 
@@ -554,7 +569,7 @@ int camif_win_offset(camif_gc_t *gc )
  */
 static void camif_polarity(camif_gc_t *gc)
 {
-	u32 cmd = CIGCTRL;
+	u32 cmd = readl(camregs + S3C2440_CAM_REG_CIGCTRL);;
 	
 	cmd = cmd & ~(BIT26|BIT25|BIT24); /* clear polarity */
 	if (gc->polarity_pclk)
@@ -563,7 +578,8 @@ static void camif_polarity(camif_gc_t *gc)
 		cmd |= GC_INVPOLVSYNC;
 	if (gc->polarity_href)
 		cmd |= GC_INVPOLHREF;
-	CIGCTRL |= cmd;
+	writel(readl(camregs + S3C2440_CAM_REG_CIGCTRL) |
+	       cmd, camregs + S3C2440_CAM_REG_CIGCTRL);
 }
 
 
@@ -599,12 +615,13 @@ int camif_dynamic_close(camif_cfg_t *cfg)
 static int camif_target_area(camif_cfg_t *cfg) 
 {
 	u32 rect = cfg->target_x * cfg->target_y;
-	if (cfg->dma_type & CAMIF_CODEC ) {
-		CICOTAREA = rect;
-	}
-	if (cfg->dma_type & CAMIF_PREVIEW) {
-		CIPRTAREA = rect;
-	}
+
+	if (cfg->dma_type & CAMIF_CODEC)
+		writel(rect, camregs + S3C2440_CAM_REG_CICOTAREA);
+
+	if (cfg->dma_type & CAMIF_PREVIEW)
+		writel(rect, camregs + S3C2440_CAM_REG_CIPRTAREA);
+
 	return 0;
 }
 
@@ -613,40 +630,44 @@ static int inline camif_hw_reg(camif_cfg_t *cfg)
 	u32 cmd = 0;
 
 	if (cfg->dma_type & CAMIF_CODEC) {
-		CICOSCPRERATIO = PRE_SHIFT(cfg->sc.shfactor)
-			|PRE_HRATIO(cfg->sc.prehratio)|PRE_VRATIO(cfg->sc.prevratio);
-		CICOSCPREDST = 
-			PRE_DST_WIDTH(cfg->sc.predst_x)|PRE_DST_HEIGHT(cfg->sc.predst_y);
+		writel(PRE_SHIFT(cfg->sc.shfactor) |
+		       PRE_HRATIO(cfg->sc.prehratio) |
+		       PRE_VRATIO(cfg->sc.prevratio),
+		       camregs + S3C2440_CAM_REG_CICOSCPRERATIO);
+		writel(PRE_DST_WIDTH(cfg->sc.predst_x) |
+		       PRE_DST_HEIGHT(cfg->sc.predst_y),
+		       camregs + S3C2440_CAM_REG_CICOSCPREDST);
 
 		/* Differ from Preview */
 		if (cfg->sc.scalerbypass)
 			cmd |= SCALERBYPASS;
 		if (cfg->sc.scaleup_h & cfg->sc.scaleup_v)
 			cmd |= BIT30|BIT29;
-		CICOSCCTRL = cmd | MAIN_HRATIO(cfg->sc.mainhratio)
-			|MAIN_VRATIO(cfg->sc.mainvratio);
+		writel(cmd | MAIN_HRATIO(cfg->sc.mainhratio) |
+		       MAIN_VRATIO(cfg->sc.mainvratio),
+		       camregs + S3C2440_CAM_REG_CICOSCCTRL);
 		return 0;
 	}
-	else if (cfg->dma_type & CAMIF_PREVIEW) {
-		CIPRSCPRERATIO = PRE_SHIFT(cfg->sc.shfactor)
-			|PRE_HRATIO(cfg->sc.prehratio)|PRE_VRATIO(cfg->sc.prevratio);
-		CIPRSCPREDST = 
-			PRE_DST_WIDTH(cfg->sc.predst_x)|PRE_DST_HEIGHT(cfg->sc.predst_y);
+	if (cfg->dma_type & CAMIF_PREVIEW) {
+		writel(PRE_SHIFT(cfg->sc.shfactor) |
+		       PRE_HRATIO(cfg->sc.prehratio) |
+		       PRE_VRATIO(cfg->sc.prevratio),
+		       camregs + S3C2440_CAM_REG_CIPRSCPRERATIO);
+		writel(PRE_DST_WIDTH(cfg->sc.predst_x) |
+		       PRE_DST_HEIGHT(cfg->sc.predst_y),
+		       camregs + S3C2440_CAM_REG_CIPRSCPREDST);
 		/* Differ from Codec */
-		if (cfg->fmt & CAMIF_RGB24) {
+		if (cfg->fmt & CAMIF_RGB24)
 			cmd |= RGB_FMT24;  
-		}
-		else {
-			/* RGB16 */;
-		}		
 		if (cfg->sc.scaleup_h & cfg->sc.scaleup_v)
-			cmd |= BIT29|BIT28;
-		CIPRSCCTRL = cmd |MAIN_HRATIO(cfg->sc.mainhratio)|S_METHOD
-			|MAIN_VRATIO(cfg->sc.mainvratio);
-	}else {
-		panic("CAMERA:DMA_TYPE Wrong \n");
+			cmd |= BIT29 | BIT28;
+		writel(cmd | MAIN_HRATIO(cfg->sc.mainhratio) | S_METHOD |
+		       MAIN_VRATIO(cfg->sc.mainvratio),
+		       camregs + S3C2440_CAM_REG_CIPRSCCTRL);
+		return 0;
 	}
 
+	panic("CAMERA:DMA_TYPE Wrong \n");
 	return 0;
 }
 
@@ -654,46 +675,50 @@ static int inline camif_hw_reg(camif_cfg_t *cfg)
 /* Configure Pre-scaler control  & main scaler control register */
 static int camif_scaler(camif_cfg_t *cfg)
 {
-	int tx = cfg->target_x,ty=cfg->target_y;
+	int tx = cfg->target_x, ty = cfg->target_y;
 	int sx, sy;
 
-	if (tx <= 0 || ty<= 0) 	panic("CAMERA: Invalid target size \n");
+	if (tx <= 0 || ty <= 0)
+		panic("CAMERA: Invalid target size \n");
 
-	sx = cfg->gc->source_x - 2*cfg->gc->win_hor_ofst;
-	sy = cfg->gc->source_y - 2*cfg->gc->win_ver_ofst;	
-	if (sx <= 0 || sy<= 0) 	panic("CAMERA: Invalid source size \n");
+	sx = cfg->gc->source_x - 2 * cfg->gc->win_hor_ofst;
+	sy = cfg->gc->source_y - 2 * cfg->gc->win_ver_ofst;	
+	if (sx <= 0 || sy <= 0)
+		panic("CAMERA: Invalid source size \n");
+
 	cfg->sc.modified_src_x = sx;
 	cfg->sc.modified_src_y = sy;
 
 	/* Pre-scaler control register 1 */
-	camif_scaler_internal(sx,tx,&cfg->sc.prehratio,&cfg->sc.hfactor);
-	camif_scaler_internal(sy,ty,&cfg->sc.prevratio,&cfg->sc.vfactor);
+	camif_scaler_internal(sx, tx, &cfg->sc.prehratio, &cfg->sc.hfactor);
+	camif_scaler_internal(sy, ty, &cfg->sc.prevratio, &cfg->sc.vfactor);
 
-	if (cfg->dma_type & CAMIF_PREVIEW) {
-		if ( (sx /cfg->sc.prehratio) <= 640 ) {}
-		else {
-			printk(KERN_INFO "CAMERA: Internal Preview line buffer is 640 pixels\n");
+	if (cfg->dma_type & CAMIF_PREVIEW)
+		if ((sx / cfg->sc.prehratio) > 640) {
+			printk(KERN_INFO "CAMERA: Internal Preview line "
+					 "buffer is 640 pixels\n");
 			return 1; /* Error */
 		}
-	}
 
-	cfg->sc.shfactor = 10-(cfg->sc.hfactor+cfg->sc.vfactor);
+	cfg->sc.shfactor = 10 - (cfg->sc.hfactor + cfg->sc.vfactor);
 	/* Pre-scaler control register 2 */
 	cfg->sc.predst_x = sx / cfg->sc.prehratio;
 	cfg->sc.predst_y = sy / cfg->sc.prevratio;
 
 	/* Main-scaler control register */
-	cfg->sc.mainhratio = (sx << 8)/(tx << cfg->sc.hfactor);
-	cfg->sc.mainvratio = (sy << 8)/(ty << cfg->sc.vfactor);
-	DPRINTK(" sx %d, sy %d tx %d ty %d  \n",sx,sy,tx,ty);
-	DPRINTK(" hfactor %d  vfactor %d \n",cfg->sc.hfactor,cfg->sc.vfactor);
+	cfg->sc.mainhratio = (sx << 8) / (tx << cfg->sc.hfactor);
+	cfg->sc.mainvratio = (sy << 8) / (ty << cfg->sc.vfactor);
+	DPRINTK(" sx %d, sy %d tx %d ty %d  \n", sx, sy, tx, ty);
+	DPRINTK(" hfactor %d  vfactor %d \n",cfg->sc.hfactor, cfg->sc.vfactor);
 
 	cfg->sc.scaleup_h  = (sx <= tx) ? 1: 0;
 	cfg->sc.scaleup_v  = (sy <= ty) ? 1: 0;
-	if ( cfg->sc.scaleup_h != cfg->sc.scaleup_v) 
+	if (cfg->sc.scaleup_h != cfg->sc.scaleup_v)
 		printk(KERN_ERR "scaleup_h must be same to scaleup_v \n");
+
 	camif_hw_reg(cfg);
 	camif_target_area(cfg);
+
 	return 0;
 }
 
@@ -706,37 +731,37 @@ static void camif_g_bsize(u32 hsize, u32 *mburst, u32 *rburst)
 {
 	u32 tmp;
 
-	tmp = (hsize/4) % 16;
+	tmp = (hsize / 4) % 16;
 	switch(tmp) {
+	case 0:
+		*mburst=16;
+		*rburst=16;
+		break;
+	case 4:
+		*mburst=16;
+		*rburst=4;
+		break;
+	case 8:
+		*mburst=16;
+		*rburst=8;
+		break;
+	default:
+		tmp=(hsize / 4) % 8;
+		switch(tmp) {
 		case 0:
-			*mburst=16;
-			*rburst=16;
+			*mburst = 8;
+			*rburst = 8;
 			break;
 		case 4:
-			*mburst=16;
-			*rburst=4;
-			break;
-		case 8:
-			*mburst=16;
-			*rburst=8;
-			break;
+			*mburst = 8;
+			*rburst = 4;
 		default:
-			tmp=(hsize/4)%8;
-			switch(tmp) {
-				case 0:
-					*mburst=8;
-					*rburst=8;
-					break;
-				case 4:
-					*mburst=8;
-					*rburst=4;
-				default:
-					*mburst=4;
-					tmp=(hsize/4)%4;
-					*rburst= (tmp) ? tmp: 4;
-					break;
-			}
+			*mburst = 4;
+			tmp = (hsize / 4) % 4;
+			*rburst= (tmp) ? tmp: 4;
 			break;
+	}
+		break;
 	}
 }
 
@@ -759,24 +784,30 @@ static int camif_dma_burst(camif_cfg_t *cfg)
 		u32 yburst_m, yburst_r;
 		u32 cburst_m, cburst_r;
 		/* CODEC DMA WIDHT is multiple of 16 */
-		if (width %16 != 0 )  return BURST_ERR;   /* DMA Burst Length Error */
-		camif_g_bsize(width,&yburst_m,&yburst_r);
-		camif_g_bsize(width/2,&cburst_m,&cburst_r);
-		CICOCTRL =YBURST_M(yburst_m)|CBURST_M(cburst_m)
-			|YBURST_R(yburst_r)|CBURST_R(cburst_r);
+		if (width % 16)
+			return BURST_ERR;   /* DMA Burst Length Error */
+		camif_g_bsize(width, &yburst_m, &yburst_r);
+		camif_g_bsize(width / 2, &cburst_m, &cburst_r);
+
+		writel(YBURST_M(yburst_m) | CBURST_M(cburst_m) |
+		       YBURST_R(yburst_r) | CBURST_R(cburst_r),
+		       camregs + S3C2440_CAM_REG_CICOCTRL);
 	}
 
 	if (cfg->dma_type & CAMIF_PREVIEW) {
 		u32 rgburst_m, rgburst_r;
 		if(cfg->fmt == CAMIF_RGB24) {
-			if (width %2 != 0 )  return BURST_ERR;   /* DMA Burst Length Error */
+			if (width % 2)
+				return BURST_ERR;   /* DMA Burst Length Error */
 			camif_g_bsize(width*4,&rgburst_m,&rgburst_r);
-		}
-		else {		/* CAMIF_RGB16 */
-			if ((width/2) %2 != 0 )  return BURST_ERR; /* DMA Burst Length Error */
+		} else {		/* CAMIF_RGB16 */
+			if ((width / 2) %2)
+				return BURST_ERR; /* DMA Burst Length Error */
 			camif_g_bsize(width*2,&rgburst_m,&rgburst_r);  
 		}
-			CIPRCTRL = RGBURST_M(rgburst_m) | RGBURST_R(rgburst_r);
+
+		writel(RGBURST_M(rgburst_m) | RGBURST_R(rgburst_r),
+		       camregs + S3C2440_CAM_REG_CIPRCTRL);
 	}
 	return 0;
 }
@@ -786,19 +817,20 @@ static int camif_gpio_init(void)
 #ifdef CONFIG_ARCH_S3C24A0A
 	/* S3C24A0A has the dedicated signal pins for Camera */
 #else
-	set_gpio_ctrl(GPIO_CAMDATA0);
-	set_gpio_ctrl(GPIO_CAMDATA1);
-	set_gpio_ctrl(GPIO_CAMDATA2);
-	set_gpio_ctrl(GPIO_CAMDATA3);
-	set_gpio_ctrl(GPIO_CAMDATA4);
-	set_gpio_ctrl(GPIO_CAMDATA5);
-	set_gpio_ctrl(GPIO_CAMDATA6);
-	set_gpio_ctrl(GPIO_CAMDATA7);
-	set_gpio_ctrl(GPIO_CAMPCLKIN);
-	set_gpio_ctrl(GPIO_CAMVSYNC);
-	set_gpio_ctrl(GPIO_CAMHREF);
-	set_gpio_ctrl(GPIO_CAMPCLKOUT);
-	set_gpio_ctrl(GPIO_CAMRESET);
+	s3c2410_gpio_cfgpin(S3C2440_GPJ0, S3C2440_GPJ0_CAMDATA0);
+	s3c2410_gpio_cfgpin(S3C2440_GPJ1, S3C2440_GPJ1_CAMDATA1);
+	s3c2410_gpio_cfgpin(S3C2440_GPJ2, S3C2440_GPJ2_CAMDATA2);
+	s3c2410_gpio_cfgpin(S3C2440_GPJ3, S3C2440_GPJ3_CAMDATA3);
+	s3c2410_gpio_cfgpin(S3C2440_GPJ4, S3C2440_GPJ4_CAMDATA4);
+	s3c2410_gpio_cfgpin(S3C2440_GPJ5, S3C2440_GPJ5_CAMDATA5);
+	s3c2410_gpio_cfgpin(S3C2440_GPJ6, S3C2440_GPJ6_CAMDATA6);
+	s3c2410_gpio_cfgpin(S3C2440_GPJ7, S3C2440_GPJ7_CAMDATA7);
+
+	s3c2410_gpio_cfgpin(S3C2440_GPJ8, S3C2440_GPJ8_CAMPCLK);
+	s3c2410_gpio_cfgpin(S3C2440_GPJ9, S3C2440_GPJ9_CAMVSYNC);
+	s3c2410_gpio_cfgpin(S3C2440_GPJ10, S3C2440_GPJ10_CAMHREF);
+	s3c2410_gpio_cfgpin(S3C2440_GPJ11, S3C2440_GPJ11_CAMCLKOUT);
+	s3c2410_gpio_cfgpin(S3C2440_GPJ12, S3C2440_GPJ12_CAMRESET);
 #endif
         return 0;
 }
@@ -827,21 +859,33 @@ int camif_clock_init(camif_gc_t *gc)
 	camclk_div = (upll+ROUND_ADD) / camclk - 1;
 	CLKDIVN = (CLKDIVN & 0xFF) | CLKDIVN_CAM(camclk_div);
 	printk(KERN_INFO"CAMERA:upll %d MACRO 0x%08X CLKDIVN 0x%08X \n",
-				upll, CLKDIVN_CAM(camclk_div),CLKDIVN);
-	CIIMGCPT = 0;		/* Dummy ? */
+				upll, CLKDIVN_CAM(camclk_div), CLKDIVN);
+	writel(0, camregs + S3C2440_CAM_REG_CIIMGCPT);	/* Dummy ? */
+
 	return 0;
 }
 #else
 int camif_clock_init(camif_gc_t *gc)
 {
-	unsigned int upll, camclk_div, camclk;
-	if (!gc) camclk = 24000000;
-	else  {
+	unsigned int camclk;
+	struct clk *clk_camif = clk_get(NULL, "camif");
+	struct clk *clk_camif_upll = clk_get(NULL, "camif-upll");
+
+	if (!gc)
+		camclk = 24000000;
+	else {
 		camclk = gc->camclk;
 		if (camclk > 48000000)
 			printk(KERN_ERR "Wrong Camera Clock\n");
 	}
 
+	clk_set_rate(clk_camif, camclk);
+
+	clk_enable(clk_camif);
+	clk_enable(clk_camif_upll);
+	
+
+#if 0
 	CLKCON |= CLKCON_CAMIF;
 	upll = elfin_get_bus_clk(GET_UPLL);
 	printk(KERN_INFO "CAMERA:Default UPLL %08d and Assing 96Mhz to UPLL\n",upll);	
@@ -854,7 +898,9 @@ int camif_clock_init(camif_gc_t *gc)
 	camclk_div = (upll+ROUND_ADD) /(camclk * 2) -1;
 	CAMDIVN = CAMCLK_SET_DIV|(camclk_div&0xf);
 	printk(KERN_INFO "CAMERA:upll %08d  cam_clk %08d CAMDIVN 0x%08x \n",upll,camclk, CAMDIVN);
-	CIIMGCPT = 0;		/* Dummy ? */
+#endif
+	writel(0, camregs + S3C2440_CAM_REG_CIIMGCPT);	/* Dummy ? */
+
 	return 0;
 }
 #endif
@@ -867,23 +913,39 @@ void camif_reset(int is, int delay)
 {
 	switch (is) {
 		case CAMIF_RESET:
-			CIGCTRL |= GC_SWRST;
+			writel(readl(camregs + S3C2440_CAM_REG_CIGCTRL) |
+			       GC_SWRST,
+			       camregs + S3C2440_CAM_REG_CIGCTRL);
 			mdelay(1);
-			CIGCTRL &= ~GC_SWRST;
+			writel(readl(camregs + S3C2440_CAM_REG_CIGCTRL) &
+			       ~GC_SWRST,
+			       camregs + S3C2440_CAM_REG_CIGCTRL);
 			break;
 		case CAMIF_EX_RESET_AH: /*Active High */
-			CIGCTRL &= ~GC_CAMRST; 
+			writel(readl(camregs + S3C2440_CAM_REG_CIGCTRL) &
+			       ~GC_CAMRST,
+			       camregs + S3C2440_CAM_REG_CIGCTRL);
 			udelay(200);
-			CIGCTRL |= GC_CAMRST;
+			writel(readl(camregs + S3C2440_CAM_REG_CIGCTRL) |
+			       GC_CAMRST,
+			       camregs + S3C2440_CAM_REG_CIGCTRL);
 			udelay(delay);
-			CIGCTRL &= ~GC_CAMRST;
+			writel(readl(camregs + S3C2440_CAM_REG_CIGCTRL) &
+			       ~GC_CAMRST,
+			       camregs + S3C2440_CAM_REG_CIGCTRL);
 			break;
 		case CAMIF_EX_RESET_AL:	/*Active Low */
-			CIGCTRL |=  GC_CAMRST;
+			writel(readl(camregs + S3C2440_CAM_REG_CIGCTRL) |
+			       GC_CAMRST,
+			       camregs + S3C2440_CAM_REG_CIGCTRL);
 			udelay(200);
-			CIGCTRL &= ~GC_CAMRST;
+			writel(readl(camregs + S3C2440_CAM_REG_CIGCTRL) &
+			       ~GC_CAMRST,
+			       camregs + S3C2440_CAM_REG_CIGCTRL);
 			udelay(delay);
-			CIGCTRL |= GC_CAMRST;
+			writel(readl(camregs + S3C2440_CAM_REG_CIGCTRL) |
+			       GC_CAMRST,
+			       camregs + S3C2440_CAM_REG_CIGCTRL);
 			break;
 		default:
 			break;
@@ -908,10 +970,10 @@ static void camif_bus_priority(int flag)
 		PRIORITY1 = PRIORITY_I_FIX;
 
 #else
-		old_priority = PRIORITY;	
-		PRIORITY &= ~(3<<7);
-		PRIORITY |=  (1<<7); /* Arbiter 1, REQ2 first */
-		PRIORITY &= ~(1<<1); /* Disable Priority Rotate */
+		old_priority = readl(S3C2410_PRIORITY);
+		writel(readl(S3C2410_PRIORITY) & ~(3<<7), S3C2410_PRIORITY);
+		writel(readl(S3C2410_PRIORITY) |  (1<<7), S3C2410_PRIORITY); /* Arbiter 1, REQ2 first */
+		writel(readl(S3C2410_PRIORITY) & ~(1<<1), S3C2410_PRIORITY); /* Disable Priority Rotate */
 #endif
 	} 
 	else {
@@ -919,19 +981,26 @@ static void camif_bus_priority(int flag)
 		PRIORITY0 = old_priority;
 		PRIORITY1 = old_priority;
 #else
-		PRIORITY = old_priority;
+		writel(old_priority, S3C2410_PRIORITY);
 #endif
 	}
 }
 
 static void inline camif_clock_off(void)
 {
-	CIIMGCPT = 0;
 #if defined (CONFIG_ARCH_S3C24A0A)
+	writel(0, camregs + S3C2440_CAM_REG_CIIMGCPT);
+
 	CLKCON &= ~CLKCON_CAM_UPLL;
 	CLKCON &= ~CLKCON_CAM_HCLK;
 #else
-	CLKCON &= ~CLKCON_CAMIF;
+	struct clk *clk_camif = clk_get(NULL, "camif");
+	struct clk *clk_camif_upll = clk_get(NULL, "camif-upll");
+
+	writel(0, camregs + S3C2440_CAM_REG_CIIMGCPT);
+
+	clk_disable(clk_camif);
+	clk_disable(clk_camif_upll);
 #endif
 }
 

@@ -1,11 +1,11 @@
-#ifndef __LINUX_S3C_VIDEODEV_H
-#define __LINUX_S3C_VIDEODEV_H
+//#ifndef __LINUX_S3C_VIDEODEV_H
+//#define __LINUX_S3C_VIDEODEV_H
 
 #include <linux/types.h>
 #include <linux/version.h>
-#include "videodev2.h"
+#include <media/v4l2-dev.h>
 
-
+#if 0
 struct video_device
 {
 	/* device info */
@@ -96,12 +96,10 @@ extern int video_usercopy(struct inode *inode, struct file *file,
 
 
 
-#define VID_HARDWARE_SAMSUNG_FIMC  255    
+#endif
+//#endif 
 
-
-
-#endif 
-
+#define VID_HARDWARE_SAMSUNG_FIMC  255
 
 /*
  * Local variables:

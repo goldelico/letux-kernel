@@ -1,2 +1,26 @@
-obj-y                           += camera/
+# arch/arm/mach-s3c2440/Makefile
+#
+# Copyright 2007 Simtec Electronics
+#
+# Licensed under GPLv2
 
+obj-y				:=
+obj-m				:=
+obj-n				:=
+obj-				:=
+
+obj-$(CONFIG_CPU_S3C2440)	+= s3c2440.o dsc.o
+obj-$(CONFIG_CPU_S3C2440)	+= irq.o
+obj-$(CONFIG_CPU_S3C2440)	+= clock.o
+obj-$(CONFIG_S3C2440_DMA)	+= dma.o
+obj-$(CONFIG_S3C2440_C_FIQ)	+= fiq_c_isr.o
+
+# Machine support
+
+obj-$(CONFIG_MACH_ANUBIS)	+= mach-anubis.o
+obj-$(CONFIG_MACH_OSIRIS)	+= mach-osiris.o
+obj-$(CONFIG_MACH_RX3715)	+= mach-rx3715.o
+obj-$(CONFIG_ARCH_S3C2440)	+= mach-smdk2440.o
+obj-$(CONFIG_MACH_NEXCODER_2440) += mach-nexcoder.o
+obj-$(CONFIG_MACH_HXD8)		+= mach-hxd8.o
+obj-$(CONFIG_MACH_NEO1973_GTA02) += mach-gta02.o
