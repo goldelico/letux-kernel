@@ -464,6 +464,29 @@ static int pmu_callback(struct device *dev, unsigned int feature,
 	return 0;
 }
 
+static struct platform_device gta01_pm_gps_dev = {
+	.name		= "neo1973-pm-gps",
+};
+
+static struct platform_device gta01_pm_bt_dev = {
+	.name		= "neo1973-pm-bt",
+};
+
+/* this is called when pc50633 is probed, unfortunately quite late in the
+ * day since it is an I2C bus device.  Here we can belatedly define some
+ * platform devices with the advantage that we can mark the pcf50633 as the
+ * parent.  This makes them get suspended and resumed with their parent
+ * the pcf50633 still around.
+ */
+
+static void gta02_pcf50633_attach_child_devices(struct device *parent_device)
+{
+	gta01_pm_gps_dev.dev.parent = parent_device;
+	gta01_pm_bt_dev.dev.parent = parent_device;
+	platform_device_register(&gta01_pm_bt_dev);
+	platform_device_register(&gta01_pm_gps_dev);
+}
+
 static struct pcf50633_platform_data gta02_pcf_pdata = {
 	.used_features	= PCF50633_FEAT_MBC |
 			  PCF50633_FEAT_BBC |
@@ -478,6 +501,7 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 	.r_fix_batt	= 10000,
 	.r_fix_batt_par	= 10000,
 	.r_sense_milli	= 220,
+	.flag_use_apm_emulation = 0,
 	.resumers = {
 		[0] = PCF50633_INT1_USBINS |
 		      PCF50633_INT1_USBREM |
@@ -577,7 +601,9 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 	},
 	.defer_resume_backlight = 1,
-	.resume_backlight_ramp_speed = 5
+	.resume_backlight_ramp_speed = 5,
+	.attach_child_devices = gta02_pcf50633_attach_child_devices
+
 };
 
 #if 0 /* currently unused */
@@ -772,6 +798,7 @@ struct platform_device s3c24xx_pwm_device = {
 	.num_resources	= 0,
 };
 
+
 static struct platform_device *gta02_devices[] __initdata = {
 	&s3c_device_usb,
 	&s3c_device_wdt,
@@ -786,6 +813,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&gta02_version_device,
 	&gta02_resume_reason_device,
 	&s3c24xx_pwm_device,
+
 };
 
 static struct s3c2410_nand_set gta02_nand_sets[] = {

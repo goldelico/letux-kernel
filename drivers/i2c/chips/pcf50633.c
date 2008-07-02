@@ -50,7 +50,6 @@
 #include <linux/jiffies.h>
 
 #include <asm/mach-types.h>
-#include <asm/arch/gta02.h>
 
 #include "pcf50633.h"
 #include <linux/resume-dependency.h>
@@ -2011,18 +2010,6 @@ static DEVICE_ATTR(dump_regs, 0400, show_dump_regs, NULL);
  * Driver initialization
  ***********************************************************************/
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
-/* We currently place those platform devices here to make sure the device
- * suspend/resume order is correct */
-static struct platform_device gta01_pm_gps_dev = {
-	.name		= "neo1973-pm-gps",
-};
-
-static struct platform_device gta01_pm_bt_dev = {
-	.name		= "neo1973-pm-bt",
-};
-#endif
-
 /*
  * CARE!  This table is modified at runtime!
  */
@@ -2217,13 +2204,15 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 
 	data->probe_completed = 1;
 
-	if (machine_is_neo1973_gta02()) {
-		gta01_pm_gps_dev.dev.parent = &new_client->dev;
-		gta01_pm_bt_dev.dev.parent = &new_client->dev;
-		platform_device_register(&gta01_pm_bt_dev);
-		platform_device_register(&gta01_pm_gps_dev);
-	} else
+	if (data->pdata->flag_use_apm_emulation)
 		apm_get_power_status = pcf50633_get_power_status;
+
+	/* if platform was interested, give him a chance to register
+	 * platform devices that switch power with us as the parent
+	 * at registration time -- ensures suspend / resume ordering
+	 */
+	if (data->pdata->attach_child_devices)
+		(data->pdata->attach_child_devices)(&new_client->dev);
 
 	return 0;
 exit_rtc:
@@ -2267,13 +2256,6 @@ static int pcf50633_detach_client(struct i2c_client *client)
 
 	if (pcf->pdata->used_features & PCF50633_FEAT_RTC)
 		rtc_device_unregister(pcf->rtc);
-
-#ifdef CONFIG_MACH_NEO1973_GTA02
-	if (machine_is_neo1973_gta02()) {
-		platform_device_unregister(&gta01_pm_bt_dev);
-		platform_device_unregister(&gta01_pm_gps_dev);
-	}
-#endif
 
 	sysfs_remove_group(&client->dev.kobj, &pcf_attr_group);
 
@@ -2472,6 +2454,26 @@ int pcf50633_ready(struct pcf50633_data *pcf)
 }
 EXPORT_SYMBOL_GPL(pcf50633_ready);
 
+int pcf50633_wait_for_ready(struct pcf50633_data *pcf, int timeout_ms,
+								char *name)
+{
+	/* so we always go once */
+	timeout_ms += 5;
+
+	while ((timeout_ms >= 5) && (pcf50633_ready(pcf))) {
+		timeout_ms -= 5; /* well, it isn't very accurate, but OK */
+		msleep(5);
+	}
+
+	if (timeout_ms < 5) {
+		printk(KERN_ERR"pcf50633_wait_for_ready: "
+					"%s BAILING on timeout\n", name);
+		return -EBUSY;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pcf50633_wait_for_ready);
 
 /*
  * if backlight resume is selected to be deferred by platform, then it
