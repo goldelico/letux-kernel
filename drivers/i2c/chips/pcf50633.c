@@ -2481,13 +2481,14 @@ EXPORT_SYMBOL_GPL(pcf50633_ready);
 
 void pcf50633_backlight_resume(struct pcf50633_data *pcf)
 {
+	dev_info(&pcf->client.dev, "pcf50633_backlight_resume\n");
+
 	/* we force the backlight on in fact */
-	__reg_write(pcf, PCF50633_REG_LEDOUT, pcf->standby_regs.misc[
+	reg_write(pcf, PCF50633_REG_LEDDIM, 1);
+	reg_write(pcf, PCF50633_REG_LEDOUT, pcf->standby_regs.misc[
 				   PCF50633_REG_LEDOUT - PCF50633_REG_AUTOOUT]);
-	__reg_write(pcf, PCF50633_REG_LEDENA, pcf->standby_regs.misc[
+	reg_write(pcf, PCF50633_REG_LEDENA, pcf->standby_regs.misc[
 			       PCF50633_REG_LEDENA - PCF50633_REG_AUTOOUT] | 1);
-	__reg_write(pcf, PCF50633_REG_LEDDIM, pcf->standby_regs.misc[
-				   PCF50633_REG_LEDDIM - PCF50633_REG_AUTOOUT]);
 }
 EXPORT_SYMBOL_GPL(pcf50633_backlight_resume);
 
@@ -2498,6 +2499,7 @@ static int pcf50633_resume(struct device *dev)
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
 	int ret;
 	u8 res[5];
+	u8 misc[PCF50633_REG_LEDDIM - PCF50633_REG_AUTOOUT + 1];
 
 	dev_info(dev, "pcf50633_resume suspended on entry = %d\n",
 						 (int)pcf->suspend_state);
@@ -2509,11 +2511,20 @@ static int pcf50633_resume(struct device *dev)
 
 	__reg_write(pcf, PCF50633_REG_OOCTIM2, pcf->standby_regs.ooctim2);
 
+	memcpy(misc, pcf->standby_regs.misc, sizeof(pcf->standby_regs.misc));
+
+	if (pcf->pdata->defer_resume_backlight) {
+		misc[PCF50633_REG_LEDOUT - PCF50633_REG_AUTOOUT] = 1;
+		misc[PCF50633_REG_LEDENA - PCF50633_REG_AUTOOUT] = 0x20;
+		misc[PCF50633_REG_LEDCTL - PCF50633_REG_AUTOOUT] = 1;
+		misc[PCF50633_REG_LEDDIM - PCF50633_REG_AUTOOUT] = 1;
+	}
+
 	/* regulator voltages and enable states */
 	ret = i2c_smbus_write_i2c_block_data(&pcf->client,
 					     PCF50633_REG_AUTOOUT,
-					     sizeof(pcf->standby_regs.misc) - 4,
-					     &pcf->standby_regs.misc[0]);
+					     sizeof(misc),
+					     &misc[0]);
 	if (ret)
 		dev_err(dev, "Failed to restore misc :-( %d\n", ret);
 
