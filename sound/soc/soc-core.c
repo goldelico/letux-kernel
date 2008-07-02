@@ -928,6 +928,38 @@ static ssize_t codec_reg_show(struct device *dev,
 }
 static DEVICE_ATTR(codec_reg, 0444, codec_reg_show, NULL);
 
+
+static ssize_t codec_reg_write(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	u32 address;
+	u32 data;
+	char * end;
+	size_t left = count;
+	struct snd_soc_device *devdata = dev_get_drvdata(dev);
+	struct snd_soc_codec *codec = devdata->codec;
+
+	address = simple_strtoul(buf, &end, 16);
+	left -= (int)(end - buf);
+	while ((*end == ' ') && (left)) {
+		end++;
+		left--;
+	}
+	if (!left)
+		return count;
+	data = simple_strtoul(end, &end, 16);
+
+	printk(KERN_INFO"user writes Codec reg 0x%02X with Data 0x%04X\n",
+								address, data);
+
+	codec->write(codec, address, data);
+
+	return count;
+}
+
+static DEVICE_ATTR(codec_reg_write, 0644, NULL, codec_reg_write);
+
 /**
  * snd_soc_new_ac97_codec - initailise AC97 device
  * @codec: audio codec
@@ -1137,6 +1169,9 @@ int snd_soc_register_card(struct snd_soc_device *socdev)
 		printk(KERN_WARNING "asoc: failed to add dapm sysfs entries\n");
 
 	err = device_create_file(socdev->dev, &dev_attr_codec_reg);
+	if (err < 0)
+		printk(KERN_WARNING "asoc: failed to add codec sysfs entries\n");
+	err = device_create_file(socdev->dev, &dev_attr_codec_reg_write);
 	if (err < 0)
 		printk(KERN_WARNING "asoc: failed to add codec sysfs entries\n");
 out:
