@@ -34,15 +34,6 @@
 extern void s3c24xx_serial_register_resume_dependency(struct resume_dependency *
 					     resume_dependency, int uart_index);
 
-/* flag set if we flow-controlled the GSM in our suspend routine */
-int gsm_auto_flowcontrolled;
-
-int gta01_gsm_enabled;
-EXPORT_SYMBOL(gta01_gsm_enabled);
-
-int gta_gsm_interrupts;
-EXPORT_SYMBOL(gta_gsm_interrupts);
-
 struct gta01pm_priv {
 	int gpio_ngsm_en;
         int gpio_ndl_gsm;
@@ -232,12 +223,6 @@ static int gta01_gsm_resume(struct platform_device *pdev)
 
 	if (machine_is_neo1973_gta02())
 		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, gta01_gsm.gpio_ndl_gsm);
-
-	/* If we forced flow-control on the GSM, we should also release it */
-	if (gsm_auto_flowcontrolled) {
-		s3c2410_gpio_cfgpin(S3C2410_GPH1, S3C2410_GPH1_nRTS0);
-		gsm_auto_flowcontrolled = 0;
-	}
 
 	return 0;
 }
