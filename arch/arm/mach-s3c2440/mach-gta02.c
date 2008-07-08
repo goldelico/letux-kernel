@@ -883,6 +883,9 @@ static void gta02_udc_command(enum s3c2410_udc_cmd_e cmd)
 
 static void gta02_udc_vbus_draw(unsigned int ma)
 {
+        if (!pcf50633_global)
+		return;
+
 	pcf50633_notify_usb_current_limit_change(pcf50633_global, ma);
 }
 
