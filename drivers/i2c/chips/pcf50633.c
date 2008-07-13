@@ -1953,6 +1953,20 @@ static ssize_t show_charger_type(struct device *dev,
 
 static DEVICE_ATTR(charger_type, 0444, show_charger_type, NULL);
 
+static ssize_t force_usb_limit_dangerous(struct device *dev,
+		   struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct pcf50633_data *pcf = i2c_get_clientdata(client);
+	int ma = simple_strtoul(buf, NULL, 10);
+
+	pcf50633_usb_curlim_set(pcf, ma);
+	return count;
+}
+
+static DEVICE_ATTR(force_usb_limit_dangerous, 0600,
+					       NULL, force_usb_limit_dangerous);
+
 /*
  * Charger adc
  */
@@ -2030,6 +2044,7 @@ static struct attribute *pcf_sysfs_entries[] = {
 	&dev_attr_voltage_ldo6.attr,
 	&dev_attr_voltage_hcldo.attr,
 	&dev_attr_charger_type.attr,
+	&dev_attr_force_usb_limit_dangerous.attr,
 	&dev_attr_charger_adc.attr,
 	&dev_attr_dump_regs.attr,
 	NULL, /* going to add things at this point! */
