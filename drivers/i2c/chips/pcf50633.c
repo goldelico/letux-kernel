@@ -2550,6 +2550,8 @@ static int pcf50633_resume(struct device *dev)
 		dev_err(dev, "Failed to restore LDOs :-( %d\n", ret);
 
 	memset(res, 0, sizeof(res));
+	/* not interested in second on resume */
+	res[0] = PCF50633_INT1_SECOND;
 	ret = i2c_smbus_write_i2c_block_data(&pcf->client,
 					     PCF50633_REG_INT1M,
 					     5, &res[0]);
