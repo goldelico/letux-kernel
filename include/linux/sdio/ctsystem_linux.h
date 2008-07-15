@@ -968,7 +968,7 @@ typedef struct _OSKERNEL_HELPER {
         }
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
-#define SD_WAIT_FOR_WAKEUP(p)   SignalWait(&(p)->WakeSignal);
+#define SD_WAIT_FOR_WAKEUP(p)   SignalWaitInterruptible(&(p)->WakeSignal);
 
 #define CT_LE16_TO_CPU_ENDIAN(x) __le16_to_cpu(x)
 #define CT_LE32_TO_CPU_ENDIAN(x) __le32_to_cpu(x)
