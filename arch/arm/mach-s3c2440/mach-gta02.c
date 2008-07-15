@@ -412,6 +412,11 @@ struct platform_device gta02_resume_reason_device = {
 	.num_resources	= 0,
 };
 
+struct platform_device gta02_memconfig_device = {
+	.name 		= "neo1973-memconfig",
+	.num_resources	= 0,
+};
+
 static struct map_desc gta02_iodesc[] __initdata = {
 	{
 		.virtual	= 0xe0000000,
@@ -829,6 +834,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&gta02_nor_flash,
 	&sc32440_fiq_device,
 	&gta02_version_device,
+	&gta02_memconfig_device,
 	&gta02_resume_reason_device,
 	&s3c24xx_pwm_device,
 
