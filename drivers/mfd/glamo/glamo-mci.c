@@ -40,6 +40,24 @@ static spinlock_t clock_lock;
 
 static void glamo_mci_send_request(struct mmc_host *mmc);
 
+/*
+ * Max SD clock rate
+ *
+ * held at /(3 + 1) due to concerns of 100R recommended series resistor
+ * allows 16MHz @ 4-bit --> 8MBytes/sec raw
+ *
+ * you can override this on kernel commandline using
+ *
+ *   glamo_mci.sd_max_clk=10000000
+ *
+ * for example
+ */
+
+static int sd_max_clk = 50000000 / 3;
+module_param(sd_max_clk, int, 0644);
+
+
+
 unsigned char CRC7(u8 * pu8, int cnt)
 {
 	u8 crc = 0;
@@ -676,9 +694,9 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	    (ios->power_mode == MMC_POWER_UP)) {
 		dev_info(&host->pdev->dev,
 			"powered (vdd = %d) clk: %lukHz div=%d (req: %ukHz). "
-			"Bus width=%d\n",ios->vdd,
-			host->real_rate / 1000, host->real_rate,
-			ios->clock / 1000, ios->bus_width);
+			"Bus width=%d\n",(int)ios->vdd,
+			host->real_rate / 1000, (int)host->clk_div,
+			ios->clock / 1000, (int)ios->bus_width);
 	} else
 		dev_info(&host->pdev->dev, "glamo_mci_set_ios: power down.\n");
 
@@ -800,11 +818,7 @@ static int glamo_mci_probe(struct platform_device *pdev)
 			  MMC_CAP_MMC_HIGHSPEED |
 			  MMC_CAP_SD_HIGHSPEED;
 	mmc->f_min 	= host->clk_rate / 256;
-	/*
-	 * held at /4 due to concerns of 100R recommended series resistor
-	 * allows 16MHz @ 4-bit --> 8MBytes/sec raw
-	 */
-	mmc->f_max 	= host->clk_rate / 3;
+	mmc->f_max 	= sd_max_clk;
 
 	mmc->max_blk_count	= (1 << 16) - 1; /* GLAMO_REG_MMC_RB_BLKCNT */
 	mmc->max_blk_size	= (1 << 12) - 1; /* GLAMO_REG_MMC_RB_BLKLEN */
@@ -866,12 +880,18 @@ static int glamo_mci_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct mmc_host *mmc = platform_get_drvdata(dev);
 	struct glamo_mci_host 	*host = mmc_priv(mmc);
+	int ret;
 
 	host->suspending++;
 	if (host->pdata->mci_all_dependencies_resumed)
 		(host->pdata->mci_suspending)(dev);
 
-	return mmc_suspend_host(mmc, state);
+	ret = mmc_suspend_host(mmc, state);
+
+	/* so that when we resume, we use any modified max rate */
+	mmc->f_max = sd_max_clk;
+
+	return ret;
 }
 
 int glamo_mci_resume(struct platform_device *dev)
