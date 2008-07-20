@@ -95,7 +95,7 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 	if (!strcmp(attr->attr.name, "power_on")) {
 		if (on) {
 			if (gta01_gsm.con) {
-				dev_info(dev, "powering up GSM, thus "
+				dev_dbg(dev, "powering up GSM, thus "
 					 "disconnecting serial console\n");
 
 				console_stop(gta01_gsm.con);
@@ -140,7 +140,7 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 			if (gta01_gsm.con) {
 				console_start(gta01_gsm.con);
 
-				dev_info(dev, "powered down GSM, thus enabling "
+				dev_dbg(dev, "powered down GSM, thus enabling "
 					 "serial console\n");
 			}
 		}
