@@ -9,6 +9,8 @@ struct bq27000_platform_data {
 	int (*hdq_read)(int);
 	int (*hdq_write)(int, u8);
 	int (*hdq_initialized)(void);
+	int (*get_charger_online_status)(void);
+	int (*get_charger_active_status)(void);
 };
 
 #endif

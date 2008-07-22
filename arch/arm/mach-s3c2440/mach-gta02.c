@@ -96,6 +96,9 @@ struct resume_dependency resume_dep_jbt_glamo;
 struct resume_dependency resume_dep_glamo_mci_pcf;
 
 
+static int gta02_charger_online_status;
+static int gta02_charger_active_status;
+
 /* define FIQ IPC struct */
 /*
  * contains stuff FIQ ISR modifies and normal kernel code can see and use
@@ -457,12 +460,25 @@ static struct s3c2410_uartcfg gta02_uartcfgs[] = {
 
 /* BQ27000 Battery */
 
+static int gta02_get_charger_online_status(void)
+{
+	return gta02_charger_online_status;
+}
+
+static int gta02_get_charger_active_status(void)
+{
+	return gta02_charger_active_status;
+}
+
+
 struct bq27000_platform_data bq27000_pdata = {
 	.name = "bat",
 	.rsense_mohms = 20,
 	.hdq_read = gta02hdq_read,
 	.hdq_write = gta02hdq_write,
 	.hdq_initialized = gta02hdq_initialized,
+	.get_charger_online_status = gta02_get_charger_online_status,
+	.get_charger_active_status = gta02_get_charger_active_status
 };
 
 struct platform_device bq27000_battery_device = {
@@ -481,12 +497,20 @@ static int pmu_callback(struct device *dev, unsigned int feature,
 	switch (feature) {
 	case PCF50633_FEAT_MBC:
 		switch (event) {
-		case PMU_EVT_USB_INSERT:
-		case PMU_EVT_USB_REMOVE:
 		case PMU_EVT_CHARGER_IDLE:
+			gta02_charger_active_status = 0;
+			break;
 		case PMU_EVT_CHARGER_ACTIVE:
-		case PMU_EVT_INSERT: /* adapter */
-		case PMU_EVT_REMOVE: /* adapter */
+			gta02_charger_active_status = 1;
+			break;
+		case PMU_EVT_USB_INSERT:
+			gta02_charger_online_status = 1;
+			break;
+		case PMU_EVT_USB_REMOVE:
+			gta02_charger_online_status = 0;
+			break;
+		case PMU_EVT_INSERT: /* adapter is unsused */
+		case PMU_EVT_REMOVE: /* adapter is unused */
 			break;
 		default:
 			break;

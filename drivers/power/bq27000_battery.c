@@ -113,12 +113,7 @@ enum bq27000_status_flags {
 struct bq27000_device_info {
 	struct device *dev;
 	struct power_supply bat;
-
-	int rsense_mohms;		/* from platform */
-
-	int (*hdq_initialized)(void); /* from platform */
-	int (*hdq_read)(int); /* from platform */
-	int (*hdq_write)(int, u8); /* from platform */
+	struct bq27000_platform_data *pdata;
 };
 
 /*
@@ -136,16 +131,16 @@ static int hdq_read16(struct bq27000_device_info *di, int address)
 
 	while (retries--) {
 
-		high = (di->hdq_read)(address + 1); /* high part */
+		high = (di->pdata->hdq_read)(address + 1); /* high part */
 
 		if (high < 0)
 			return high;
-		acc = (di->hdq_read)(address);
+		acc = (di->pdata->hdq_read)(address);
 		if (acc < 0)
 			return acc;
 
 		/* confirm high didn't change between reading it and low */
-		if (high == (di->hdq_read)(address + 1))
+		if (high == (di->pdata->hdq_read)(address + 1))
 			return (high << 8) | acc;
 	}
 
@@ -170,12 +165,36 @@ static int bq27000_battery_get_property(struct power_supply *psy,
 	int v, n;
 	struct bq27000_device_info *di = to_bq27000_device_info(psy);
 
-	if (!(di->hdq_initialized)())
+	if (!(di->pdata->hdq_initialized)())
 		return -EINVAL;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
+
+		if (!di->pdata->get_charger_online_status)
+			goto use_bat;
+		if ((di->pdata->get_charger_online_status)()) {
+			/*
+			 * charger is definitively present
+			 * we report our state in terms of what it says it
+			 * is doing
+			 */
+			if (!di->pdata->get_charger_active_status)
+				goto use_bat;
+			if ((di->pdata->get_charger_active_status)())
+				val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			else
+				val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+			break;
+		}
+use_bat:
+		/*
+		 * either the charger is not connected, or the
+		 * platform doesn't give info about charger, use battery state
+		 * but... battery state can be out of date by 4 seconds or
+		 * so... use the platform callbacks if possible.
+		 */
 		v = hdq_read16(di, BQ27000_AI_L);
 		if (v < 0)
 			return v;
@@ -189,7 +208,7 @@ static int bq27000_battery_get_property(struct power_supply *psy,
 			break;
 		}
 		/* power is actually going in or out... */
-		v = (di->hdq_read)(BQ27000_FLAGS);
+		v = (di->pdata->hdq_read)(BQ27000_FLAGS);
 		if (v < 0)
 			return v;
 		if (v & BQ27000_STATUS_CHGS)
@@ -205,7 +224,7 @@ static int bq27000_battery_get_property(struct power_supply *psy,
 		val->intval = v * 1000;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		v = (di->hdq_read)(BQ27000_FLAGS);
+		v = (di->pdata->hdq_read)(BQ27000_FLAGS);
 		if (v < 0)
 			return v;
 		if (v & BQ27000_STATUS_CHGS)
@@ -215,13 +234,13 @@ static int bq27000_battery_get_property(struct power_supply *psy,
 		v = hdq_read16(di, BQ27000_AI_L);
 		if (v < 0)
 			return v;
-		val->intval = (v * n) / di->rsense_mohms;
+		val->intval = (v * n) / di->pdata->rsense_mohms;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		v = hdq_read16(di, BQ27000_LMD_L);
 		if (v < 0)
 			return v;
-		val->intval = (v * 3570) / di->rsense_mohms;
+		val->intval = (v * 3570) / di->pdata->rsense_mohms;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		v = hdq_read16(di, BQ27000_TEMP_L);
@@ -235,12 +254,12 @@ static int bq27000_battery_get_property(struct power_supply *psy,
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		val->intval = (di->hdq_read)(BQ27000_RSOC);
+		val->intval = (di->pdata->hdq_read)(BQ27000_RSOC);
 		if (val->intval < 0)
 			return val->intval;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-		v = (di->hdq_read)(BQ27000_RSOC);
+		v = (di->pdata->hdq_read)(BQ27000_RSOC);
 		val->intval = !(v < 0);
 		break;
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW:
@@ -254,6 +273,12 @@ static int bq27000_battery_get_property(struct power_supply *psy,
 		if (v < 0)
 			return v;
 		val->intval = 60 * v;
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+		if (di->pdata->get_charger_online_status)
+			val->intval = (di->pdata->get_charger_online_status)();
+		else
+			return -EINVAL;
 		break;
 	default:
 		return -EINVAL;
@@ -272,7 +297,8 @@ static enum power_supply_property bq27000_battery_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
-	POWER_SUPPLY_PROP_CAPACITY
+	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_ONLINE
 };
 
 static int bq27000_battery_probe(struct platform_device *pdev)
@@ -302,10 +328,7 @@ static int bq27000_battery_probe(struct platform_device *pdev)
 	di->bat.external_power_changed =
 				  bq27000_battery_external_power_changed;
 	di->bat.use_for_apm = 1;
-	di->hdq_read = pdata->hdq_read;
-	di->hdq_write = pdata->hdq_write;
-	di->rsense_mohms = pdata->rsense_mohms;
-	di->hdq_initialized = pdata->hdq_initialized;
+	di->pdata = pdata;
 
 	retval = power_supply_register(&pdev->dev, &di->bat);
 	if (retval) {
