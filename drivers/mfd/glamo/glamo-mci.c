@@ -66,7 +66,7 @@ module_param(sd_max_clk, int, 0644);
  * for example
  */
 
-static int sd_drive = 2;
+static int sd_drive;
 module_param(sd_drive, int, 0644);
 
 /*
