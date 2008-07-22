@@ -481,16 +481,12 @@ static int pmu_callback(struct device *dev, unsigned int feature,
 	switch (feature) {
 	case PCF50633_FEAT_MBC:
 		switch (event) {
-		case PMU_EVT_INSERT:
 		case PMU_EVT_USB_INSERT:
-			pcf50633_charge_enable(pcf50633_global, 1);
-			break;
-		case PMU_EVT_REMOVE:
 		case PMU_EVT_USB_REMOVE:
-			pcf50633_charge_enable(pcf50633_global, 0);
-			break;
 		case PMU_EVT_CHARGER_IDLE:
 		case PMU_EVT_CHARGER_ACTIVE:
+		case PMU_EVT_INSERT: /* adapter */
+		case PMU_EVT_REMOVE: /* adapter */
 			break;
 		default:
 			break;

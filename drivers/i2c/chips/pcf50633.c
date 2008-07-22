@@ -1414,11 +1414,13 @@ void pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma)
 		 /* no charging is gonna be happening */
 		pcf->pdata->cb(&pcf->client.dev,
 			       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_IDLE);
+		pcf50633_charge_enable(pcf50633_global, 0);
 		break;
 	default: /* right charging context that if there is power, we charge */
 		if (pcf->flags & PCF50633_F_USB_PRESENT)
 			pcf->pdata->cb(&pcf->client.dev,
 			       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_ACTIVE);
+		pcf50633_charge_enable(pcf50633_global, 1);
 		break;
 	}
 
