@@ -1392,6 +1392,7 @@ static DEVICE_ATTR(voltage_hcldo, S_IRUGO | S_IWUSR, show_vreg, set_vreg);
 static void pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma)
 {
 	u_int8_t bits;
+	int active = 0;
 
 	pcf->last_curlim_set = ma;
 
@@ -1407,30 +1408,26 @@ static void pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma)
 	else
 		bits = PCF50633_MBCC7_USB_SUSPEND;
 
-	DEBUGPC("pcf50633_usb_curlim_set -> %dmA\n", ma);
-
-	if (!pcf->pdata->cb)
-		goto set_it;
-
-	switch (bits) {
-	case PCF50633_MBCC7_USB_100mA:
-	case PCF50633_MBCC7_USB_SUSPEND:
-		 /* no charging is gonna be happening */
-		pcf->pdata->cb(&pcf->client.dev,
-			       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_IDLE);
-		pcf50633_charge_enable(pcf50633_global, 0);
-		break;
-	default: /* right charging context that if there is power, we charge */
-		if (pcf->flags & PCF50633_F_USB_PRESENT)
-			pcf->pdata->cb(&pcf->client.dev,
-			       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_ACTIVE);
-		pcf50633_charge_enable(pcf50633_global, 1);
-		break;
-	}
-
-set_it:
+	/* set the nearest charging limit */
 	reg_set_bit_mask(pcf, PCF50633_REG_MBCC7, PCF56033_MBCC7_USB_MASK,
 			 bits);
+
+	/* with this charging limit, is charging actually meaningful? */
+	switch (bits) {
+	case PCF50633_MBCC7_USB_500mA:
+	case PCF50633_MBCC7_USB_1000mA:
+		/* yes with this charging limit, we can do real charging */
+		active = 1;
+		break;
+	default:
+		/* no charging is gonna be happening */
+		break;
+	}
+	/*
+	 * enable or disable charging according to current limit -- this will
+	 * also throw a platform notification callback about it
+	 */
+	pcf50633_charge_enable(pcf50633_global, active);
 
 	/* clear batfull */
 	reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
