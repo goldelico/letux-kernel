@@ -111,12 +111,6 @@ pcf50633_onoff_set(struct pcf50633_data *pcf,
 		   enum pcf50633_regulator_id reg, int on);
 
 extern void
-pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma);
-
-extern void
-pcf50633_charge_enable(struct pcf50633_data *pcf, int on);
-
-extern void
 pcf50633_backlight_resume(struct pcf50633_data *pcf);
 
 extern u_int16_t
