@@ -338,6 +338,7 @@ static int glamo_mci_send_command(struct glamo_mci_host *host,
 {
 	u8 u8a[6];
 	u16 fire = 0;
+	u16 timeout = 0xfff; /* max glamo MMC timeout, in units of 16 clocks */
 
 	/* if we can't do it, reject as busy */
 	if (!readw_dly(host->base + GLAMO_REG_MMC_RB_STAT1) &
@@ -447,15 +448,15 @@ static int glamo_mci_send_command(struct glamo_mci_host *host,
 		fire |= GLAMO_FIRE_MMC_CC_BASIC; /* "basic command" */
 		break;
 	}
-	/* enforce timeout */
-	if (cmd->data) {
-		if (cmd->data->timeout_clks)
-			writew_dly(cmd->data->timeout_clks >> 4, /* / 16 clks */
-					host->base + GLAMO_REG_MMC_TIMEOUT);
-		else
-			writew_dly(0xfff, host->base + GLAMO_REG_MMC_TIMEOUT);
-	} else
-		writew(0xfff, host->base + GLAMO_REG_MMC_TIMEOUT);
+	/* enforce timeout, clipping at default 65520 clocks if larger */
+	if (cmd->data)
+		/* so long as there is one... */
+		if (cmd->data->timeout_clks &&
+		    /* ... and it is not longer than we can handle */
+		    (cmd->data->timeout_clks <= 0xffff))
+			timeout = cmd->data->timeout_clks >> 4; /* / 16 clks */
+
+	writew(timeout, host->base + GLAMO_REG_MMC_TIMEOUT);
 
 	/* Generate interrupt on txfer */
 	writew_dly((readw_dly(host->base + GLAMO_REG_MMC_BASIC) & 0x3e) |
