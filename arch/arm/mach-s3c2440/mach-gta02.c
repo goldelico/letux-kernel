@@ -85,6 +85,8 @@
 #include <linux/gta02_hdq.h>
 #include <linux/bq27000_battery.h>
 
+#include "../plat-s3c24xx/neo1973_pm_gps.h"
+
 /* arbitrates which sensor IRQ owns the shared SPI bus */
 static spinlock_t motion_irq_lock;
 
@@ -1424,6 +1426,15 @@ static void gta02_glamo_mci_suspending(struct platform_device *dev)
 
 /* Smedia Glamo 3362 */
 
+/*
+ * we crank down SD Card clock dynamically when GPS is powered
+ */
+
+static int gta02_glamo_mci_use_slow(void)
+{
+	return neo1973_pm_gps_is_on();
+}
+
 static struct glamofb_platform_data gta02_glamo_pdata = {
 	.width		= 43,
 	.height		= 58,
@@ -1456,6 +1467,7 @@ static struct glamofb_platform_data gta02_glamo_pdata = {
 
 	/* glamo MMC function platform data */
 	.glamo_set_mci_power = gta02_glamo_mmc_set_power,
+	.glamo_mci_use_slow = gta02_glamo_mci_use_slow,
 	.glamo_irq_is_wired = glamo_irq_is_wired,
 	.mci_suspending = gta02_glamo_mci_suspending,
 	.mci_all_dependencies_resumed =

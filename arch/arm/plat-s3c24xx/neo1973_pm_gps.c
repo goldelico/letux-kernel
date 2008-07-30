@@ -39,6 +39,12 @@ struct neo1973_pm_gps_data {
 
 static struct neo1973_pm_gps_data neo1973_gps;
 
+int neo1973_pm_gps_is_on(void)
+{
+	return neo1973_gps.power_was_on;
+}
+EXPORT_SYMBOL_GPL(neo1973_pm_gps_is_on);
+
 /* This is the 2.8V supply for the RTC crystal, the mail clock crystal and
  * the input to VDD_RF */
 static void gps_power_2v8_set(int on)
@@ -265,6 +271,9 @@ static int gps_power_1v5_get(void)
 /* This is the POWERON pin */
 static void gps_pwron_set(int on)
 {
+
+	neo1973_gps.power_was_on = !!on;
+
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01())
 		neo1973_gpb_setpin(GTA01_GPIO_GPS_PWRON, on);
@@ -492,9 +501,6 @@ static DEVICE_ATTR(power_sequence, 0644, power_sequence_read,
 static int gta01_pm_gps_suspend(struct platform_device *pdev,
 				pm_message_t state)
 {
-
-	neo1973_gps.power_was_on = gps_pwron_get();
-
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01()) {
 		/* FIXME */
