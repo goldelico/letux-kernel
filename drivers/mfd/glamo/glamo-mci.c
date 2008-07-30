@@ -690,17 +690,16 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	switch(ios->power_mode) {
 	case MMC_POWER_ON:
 	case MMC_POWER_UP:
-		if (host->power_mode_current != MMC_POWER_OFF)
-			break;
 		if (host->vdd_current != ios->vdd) {
 			host->pdata->glamo_set_mci_power(ios->power_mode,
 							 ios->vdd);
 			host->vdd_current = ios->vdd;
 		}
-		glamo_engine_enable(glamo_mci_def_pdata.pglamo,
-							GLAMO_ENGINE_MMC);
-		glamo_mci_reset(host);
-		powering = 1;
+		if (host->power_mode_current == MMC_POWER_OFF) {
+			glamo_engine_enable(glamo_mci_def_pdata.pglamo,
+							      GLAMO_ENGINE_MMC);
+			powering = 1;
+		}
 		break;
 
 	case MMC_POWER_OFF:
