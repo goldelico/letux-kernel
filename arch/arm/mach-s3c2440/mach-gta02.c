@@ -604,7 +604,7 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 		[PCF50633_REGULATOR_HCLDO] = {
 			.name		= "sd_3v3",
 			.voltage	= {
-				.init	= 3300,
+				.init	= 2000,
 				.max	= 3300,
 			},
 		},
@@ -1378,11 +1378,9 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 				return;
 			}
 			/* select and set the voltage */
-			if (vdd > 7) {
-				mv += 300 + 100 * (vdd - 8);
-				if (mv > 3500)
-					mv = 3500;
-			}
+			if (vdd > 7)
+				mv += 350 + 100 * (vdd - 8);
+			printk(KERN_INFO "SD power -> %dmV\n", mv);
 			pcf50633_voltage_set(pcf50633_global,
 					     PCF50633_REGULATOR_HCLDO, mv);
 			pcf50633_onoff_set(pcf50633_global,

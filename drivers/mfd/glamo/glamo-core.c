@@ -270,7 +270,18 @@ static struct platform_device glamo_mmc_dev = {
 struct glamo_mci_pdata glamo_mci_def_pdata = {
 	.gpio_detect		= 0,
 	.glamo_set_mci_power	= NULL, /* filled in from MFD platform data */
-	.ocr_avail		= MMC_VDD_32_33,
+	.ocr_avail	= MMC_VDD_20_21 |
+			  MMC_VDD_21_22 |
+			  MMC_VDD_22_23 |
+			  MMC_VDD_23_24 |
+			  MMC_VDD_24_25 |
+			  MMC_VDD_25_26 |
+			  MMC_VDD_26_27 |
+			  MMC_VDD_27_28 |
+			  MMC_VDD_28_29 |
+			  MMC_VDD_29_30 |
+			  MMC_VDD_30_31 |
+			  MMC_VDD_32_33,
 	.glamo_irq_is_wired	= NULL, /* filled in from MFD platform data */
 	.mci_suspending = NULL, /* filled in from MFD platform data */
 	.mci_all_dependencies_resumed = NULL, /* filled in from MFD plat data */
