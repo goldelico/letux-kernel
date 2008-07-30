@@ -1114,6 +1114,8 @@ static int __init glamo_probe(struct platform_device *pdev)
 	/* bring MCI specific stuff over from our MFD platform data */
 	glamo_mci_def_pdata.glamo_set_mci_power =
 					glamo->pdata->glamo_set_mci_power;
+	glamo_mci_def_pdata.glamo_mci_use_slow =
+					glamo->pdata->glamo_mci_use_slow;
 	glamo_mci_def_pdata.glamo_irq_is_wired =
 					glamo->pdata->glamo_irq_is_wired;
 	glamo_mci_def_pdata.mci_suspending =

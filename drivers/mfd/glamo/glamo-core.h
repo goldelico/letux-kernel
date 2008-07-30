@@ -72,6 +72,8 @@ struct glamo_mci_pdata {
 	unsigned long	ocr_avail;
 	void		(*glamo_set_mci_power)(unsigned char power_mode,
 				     unsigned short vdd);
+	/* glamo-mci asking if it should use the slow clock to card */
+	int		(*glamo_mci_use_slow)(void);
 	int		(*glamo_irq_is_wired)(void);
 	void		(*mci_suspending)(struct platform_device *dev);
 	int		(*mci_all_dependencies_resumed)(struct platform_device
