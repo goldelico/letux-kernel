@@ -15,7 +15,15 @@ fi
 
 if make -j5 ARCH=arm EXTRAVERSION=$VERSION; then
 	${CROSS_COMPILE}objcopy -O binary -R .note -R .comment -S arch/arm/boot/compressed/vmlinux linux.bin
-	mkimage -A arm -O linux -T kernel -C none -a 30008000 -e 30008000 -n "Openmoko Kernel Image Neo1973(GTA02)" -d linux.bin uImage.bin
+	mkimage -A arm -O linux -T kernel -C none -a 30008000 -e 30008000 -n "Openmoko Freerunner Kernel" -d linux.bin uImage.bin
+
+	# we can see if it is an "moredrivers" build by looking for USB Eth gadget
+	# if it is then keep a stamped copy of last build
+
+	if [ ! -z "`grep CONFIG_USB_ETH=y .config`" ] ; then
+		rm -f uImage-moredrivers*
+		cp uImage.bin uImage-moredrivers$VERSION.bin
+	fi
 	exit 0
 else
 	exit 1
