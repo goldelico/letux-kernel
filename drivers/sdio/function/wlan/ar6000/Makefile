@@ -4,8 +4,8 @@ PWD := $(shell pwd)
 
 EXTRA_CFLAGS += -I$(src)/include
 
-EXTRA_CFLAGS += -DLINUX -DDEBUG -D__KERNEL__ -DHTC_RAW_INTERFACE\
-                -DTCMD -DSEND_EVENT_TO_APP -DUSER_KEYS \
+EXTRA_CFLAGS += -DLINUX -D__KERNEL__ -DHTC_RAW_INTERFACE\
+                -DTCMD -DUSER_KEYS \
                 -DNO_SYNC_FLUSH #\
                 -DMULTIPLE_FRAMES_PER_INTERRUPT -DAR6000REV$(REV) \
                 -DBLOCK_TX_PATH_FLAG \

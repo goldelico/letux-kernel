@@ -202,8 +202,6 @@ typedef struct scatterlist SDDMA_DESCRIPTOR, *PSDDMA_DESCRIPTOR;
 
 #define DBG_SDIO_MASK (DBG_MASK_NONE | DBG_LEVEL_DEBUG)
 
-#define DEBUG 1
-
 #ifdef DEBUG
 
 #define DBG_ASSERT(test) \

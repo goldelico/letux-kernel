@@ -301,7 +301,7 @@ static INLINE SDIO_STATUS CallHcdRequest(PSDHCD pHcd) {
             pHcd->pCurrentRequest->Flags |= SDREQ_FLAGS_FORCE_DEFERRED_COMPLETE;
         }
     }
- #if DEBUG
+ #ifdef DEBUG
     {
         SDIO_STATUS status;
         BOOL forceDeferred;

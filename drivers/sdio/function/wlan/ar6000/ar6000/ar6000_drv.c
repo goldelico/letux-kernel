@@ -155,6 +155,9 @@ MODULE_PARM(txcreditintrenable, "0-3i");
 MODULE_PARM(txcreditintrenableaggregate, "0-3i");
 #endif
 
+#else
+unsigned int resetok = 1;
+
 #endif /* DEBUG */
 
 unsigned int tx_attempt[HTC_MAILBOX_NUM_MAX] = {0};
@@ -265,7 +268,9 @@ static struct ar_cookie s_ar_cookie_mem[MAX_COOKIE_NUM];
  * Flag to govern whether the debug logs should be parsed in the kernel
  * or reported to the application.
  */
+#ifdef DEBUG
 #define REPORT_DEBUG_LOGS_TO_APP
+#endif
 
 A_STATUS
 ar6000_set_host_app_area(AR_SOFTC_T *ar)
@@ -874,9 +879,11 @@ static void ar6000_target_failure(void *Instance, A_STATUS Status)
             sip = TRUE;
             errEvent.errorVal = WMI_TARGET_COM_ERR |
                                 WMI_TARGET_FATAL_ERR;
+#ifdef SEND_EVENT_TO_APP
             ar6000_send_event_to_app(ar, WMI_ERROR_REPORT_EVENTID,
                                      (A_UINT8 *)&errEvent,
                                      sizeof(WMI_TARGET_ERROR_REPORT_EVENT));
+#endif
         }
     }
 }
@@ -1026,9 +1033,11 @@ static void ar6000_detect_error(unsigned long ptr)
         ar->arHBChallengeResp.seqNum = 0;
         errEvent.errorVal = WMI_TARGET_COM_ERR | WMI_TARGET_FATAL_ERR;
         AR6000_SPIN_UNLOCK(&ar->arLock, 0);
+#ifdef SEND_EVENT_TO_APP
         ar6000_send_event_to_app(ar, WMI_ERROR_REPORT_EVENTID,
                                  (A_UINT8 *)&errEvent,
                                  sizeof(WMI_TARGET_ERROR_REPORT_EVENT));
+#endif
         return;
     }
 
@@ -2500,7 +2509,9 @@ ar6000_rssiThreshold_event(AR_SOFTC_T *ar,  WMI_RSSI_THRESHOLD_VAL newThreshold,
     userRssiThold.tag = rssi_map[newThreshold].tag;
     userRssiThold.rssi = rssi;
     AR_DEBUG2_PRINTF("rssi Threshold range = %d tag = %d  rssi = %d\n", newThreshold, userRssiThold.tag, rssi);
+#ifdef SEND_EVENT_TO_APP
     ar6000_send_event_to_app(ar, WMI_RSSI_THRESHOLD_EVENTID,(A_UINT8 *)&userRssiThold, sizeof(USER_RSSI_THOLD));
+#endif
 }
 
 
@@ -2509,8 +2520,10 @@ ar6000_hbChallengeResp_event(AR_SOFTC_T *ar, A_UINT32 cookie, A_UINT32 source)
 {
     if (source == APP_HB_CHALLENGE) {
         /* Report it to the app in case it wants a positive acknowledgement */
+#ifdef SEND_EVENT_TO_APP
         ar6000_send_event_to_app(ar, WMIX_HB_CHALLENGE_RESP_EVENTID,
                                  (A_UINT8 *)&cookie, sizeof(cookie));
+#endif
     } else {
         /* This would ignore the replys that come in after their due time */
         if (cookie == ar->arHBChallengeResp.seqNum) {

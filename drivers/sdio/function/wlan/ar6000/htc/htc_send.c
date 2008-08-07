@@ -425,7 +425,9 @@ static void HTCFlushEndpointTX(HTC_TARGET *target, HTC_ENDPOINT *pEndpoint, HTC_
 
 void DumpCreditDist(HTC_ENDPOINT_CREDIT_DIST *pEPDist)
 {
+#ifdef DEBUG
     HTC_ENDPOINT *pEndpoint = (HTC_ENDPOINT *)pEPDist->pHTCReserved;
+#endif
 
     AR_DEBUG_PRINTF(ATH_DEBUG_ANY, ("--- EP : %d  ServiceID: 0x%X    --------------\n",
                         pEPDist->Endpoint, pEPDist->ServiceID));

@@ -86,9 +86,9 @@ static BUS_REQUEST *s_busRequestFreeQueue = NULL;
 OS_CRITICALSECTION lock;
 extern A_UINT32 onebitmode;
 extern A_UINT32 busspeedlow;
-extern A_UINT32 debughif;
 
 #ifdef DEBUG
+extern A_UINT32 debughif;
 #define ATH_DEBUG_ERROR 1
 #define ATH_DEBUG_WARN  2
 #define ATH_DEBUG_TRACE 3
