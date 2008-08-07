@@ -1,0 +1,17 @@
+#!/bin/sh
+#
+# make 6MB recovery image from two moredrivers type kernels
+# placed at start and at +4MBytes
+
+if [ -z "$1" ] ; then
+ echo "Usage: $0 uImage-moredrivers-..."
+ exit 1
+fi
+cat $1 > recovery-$1
+SIZE=`ls -l $1 | tr -s ' ' ' ' | cut -d' ' -f5`
+SPACE=$(( 4 * 1024 * 1024 - $SIZE ))
+dd if=/dev/zero of=_spacer bs=1 count=$SPACE
+cat _spacer >> recovery-$1
+rm -f _spacer
+cat $1 >> recovery-$1
+
