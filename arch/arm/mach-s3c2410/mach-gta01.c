@@ -507,14 +507,20 @@ static struct s3c2410_ts_mach_info gta01_ts_cfg = {
 
 /* SPI */
 
-void gta01_jbt6k74_reset(int devidx, int level)
+static void gta01_jbt6k74_reset(int devidx, int level)
 {
 	/* empty place holder; gta01 does not yet use this */
 	printk(KERN_DEBUG "gta01_jbt6k74_reset\n");
 }
 
+static void gta01_jbt6k74_resuming(int devidx)
+{
+	gta01bl_deferred_resume();
+}
+
 const struct jbt6k74_platform_data gta01_jbt6k74_pdata = {
 	.reset		= gta01_jbt6k74_reset,
+	.resuming	= gta01_jbt6k74_resuming,
 };
 
 static struct spi_board_info gta01_spi_board_info[] = {
@@ -584,6 +590,7 @@ static struct gta01bl_machinfo backlight_machinfo = {
 	.default_intensity	= 1,
 	.max_intensity		= 1,
 	.limit_mask		= 1,
+	.defer_resume_backlight	= 1,
 };
 
 static struct resource gta01_bl_resources[] = {

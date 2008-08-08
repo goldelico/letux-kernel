@@ -12,10 +12,14 @@
 #define GTA01Bv4_SYSTEM_REV	0x00000240
 
 /* Backlight */
+
+extern void gta01bl_deferred_resume(void);
+
 struct gta01bl_machinfo {
 	unsigned int default_intensity;
 	unsigned int max_intensity;
 	unsigned int limit_mask;
+	unsigned int defer_resume_backlight;
 };
 
 /* Definitions common to all revisions */
