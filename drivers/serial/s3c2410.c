@@ -1780,6 +1780,13 @@ module_exit(s3c24xx_serial_modexit);
 #ifdef CONFIG_SERIAL_S3C2410_CONSOLE
 
 static struct uart_port *cons_uart;
+static int cons_silenced;
+
+void s3c24xx_serial_console_set_silence(int silenced)
+{
+	cons_silenced = silenced;
+}
+EXPORT_SYMBOL(s3c24xx_serial_console_set_silence);
 
 static int
 s3c24xx_serial_console_txrdy(struct uart_port *port, unsigned int ufcon)
@@ -1805,6 +1812,9 @@ s3c24xx_serial_console_putchar(struct uart_port *port, int ch)
 {
 	unsigned int ufcon = rd_regl(cons_uart, S3C2410_UFCON);
 	unsigned int umcon = rd_regl(cons_uart, S3C2410_UMCON);
+
+	if (cons_silenced)
+		return;
 
 	/* If auto HW flow control enabled, temporarily turn it off */
 	if (umcon & S3C2410_UMCOM_AFC)
