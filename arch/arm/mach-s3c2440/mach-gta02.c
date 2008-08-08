@@ -76,6 +76,8 @@
 #include <asm/plat-s3c24xx/pm.h>
 #include <asm/plat-s3c24xx/udc.h>
 #include <asm/plat-s3c24xx/neo1973.h>
+#include <asm/arch-s3c2410/neo1973-pm-gsm.h>
+
 #include <linux/jbt6k74.h>
 
 #include <linux/glamofb.h>
@@ -1530,8 +1532,6 @@ static void __init gta02_map_io(void)
 	s3c24xx_init_clocks(12000000);
 	s3c24xx_init_uarts(gta02_uartcfgs, ARRAY_SIZE(gta02_uartcfgs));
 }
-
-extern int gta_gsm_interrupts;
 
 static irqreturn_t gta02_modem_irq(int irq, void *param)
 {

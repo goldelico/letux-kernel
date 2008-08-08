@@ -18,22 +18,18 @@
 #include <linux/console.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
-#include <linux/resume-dependency.h>
 
 #include <asm/gpio.h>
 #include <asm/mach-types.h>
 #include <asm/arch/gta01.h>
 #include <asm/plat-s3c24xx/neo1973.h>
+#include <asm/arch/s3c24xx-serial.h>
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 #include <asm/arch/gta02.h>
 #include <linux/pcf50633.h>
 #include <asm/arch/regs-gpioj.h>
 #endif
-
-extern void s3c24xx_serial_console_set_silence(int silence);
-extern void s3c24xx_serial_register_resume_dependency(struct resume_dependency *
-					     resume_dependency, int uart_index);
 
 int gta_gsm_interrupts;
 EXPORT_SYMBOL(gta_gsm_interrupts);
