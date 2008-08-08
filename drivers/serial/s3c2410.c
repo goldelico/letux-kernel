@@ -357,7 +357,7 @@ s3c24xx_serial_rx_chars(int irq, void *dev_id)
 		port->icount.rx++;
 
 		if (unlikely(uerstat & S3C2410_UERSTAT_ANY)) {
-			dbg("rxerr: port ch=0x%02x, rxs=0x%08x\n",
+			printk(KERN_DEBUG "rxerr: port ch=0x%02x, rxs=0x%08x\n",
 			    ch, uerstat);
 
 			/* check for break */
