@@ -1531,9 +1531,12 @@ static void __init gta02_map_io(void)
 	s3c24xx_init_uarts(gta02_uartcfgs, ARRAY_SIZE(gta02_uartcfgs));
 }
 
+extern int gta_gsm_interrupts;
+
 static irqreturn_t gta02_modem_irq(int irq, void *param)
 {
 	printk(KERN_DEBUG "modem wakeup interrupt\n");
+	gta_gsm_interrupts++;
 	return IRQ_HANDLED;
 }
 

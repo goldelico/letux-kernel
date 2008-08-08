@@ -34,6 +34,9 @@
 extern void s3c24xx_serial_register_resume_dependency(struct resume_dependency *
 					     resume_dependency, int uart_index);
 
+int gta_gsm_interrupts;
+EXPORT_SYMBOL(gta_gsm_interrupts);
+
 struct gta01pm_priv {
 	int gpio_ngsm_en;
         int gpio_ndl_gsm;
@@ -80,6 +83,9 @@ static ssize_t gsm_read(struct device *dev, struct device_attribute *attr,
 			if (!s3c2410_gpio_getpin(GTA02_GPIO_nDL_GSM))
 				goto out_1;
 		}
+	} else if (!strcmp(attr->attr.name, "flowcontrolled")) {
+		if (s3c2410_gpio_getcfg(S3C2410_GPH1) == S3C2410_GPIO_OUTPUT)
+			goto out_1;
 	}
 
 	return strlcpy(buf, "0\n", 3);
@@ -176,6 +182,13 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 			gta01_gsm.gpio_ndl_gsm = !on;
 			s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, !on);
 		}
+	} else if (!strcmp(attr->attr.name, "flowcontrolled")) {
+		if (on) {
+			gta_gsm_interrupts = 0;
+			s3c2410_gpio_setpin(S3C2410_GPH1, 1);
+			s3c2410_gpio_cfgpin(S3C2410_GPH1, S3C2410_GPH1_OUTP);
+		} else
+			s3c2410_gpio_cfgpin(S3C2410_GPH1, S3C2410_GPH1_nRTS0);
 	}
 
 	return count;
@@ -184,6 +197,7 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 static DEVICE_ATTR(power_on, 0644, gsm_read, gsm_write);
 static DEVICE_ATTR(reset, 0644, gsm_read, gsm_write);
 static DEVICE_ATTR(download, 0644, gsm_read, gsm_write);
+static DEVICE_ATTR(flowcontrolled, 0644, gsm_read, gsm_write);
 
 #ifdef CONFIG_PM
 static int gta01_gsm_resume(struct platform_device *pdev);
@@ -192,6 +206,11 @@ static int gta01_gsm_suspend(struct platform_device *pdev, pm_message_t state)
 	/* GPIO state is saved/restored by S3C2410 core GPIO driver, so we
 	 * don't need to do much here. */
 
+	/* If flowcontrol asserted, abort if GSM already interrupted */
+	if (s3c2410_gpio_getcfg(S3C2410_GPH1) == S3C2410_GPIO_OUTPUT) {
+		if (gta_gsm_interrupts)
+			goto busy;
+	}
 
 	/* disable DL GSM to prevent jack_insert becoming 'floating' */
 	if (machine_is_neo1973_gta02())
@@ -203,6 +222,20 @@ static int gta01_gsm_suspend(struct platform_device *pdev, pm_message_t state)
 
 	s3c24xx_serial_register_resume_dependency(&resume_dep_gsm_uart, 0);
 
+	return 0;
+
+busy:
+	return -EBUSY;
+}
+
+static int
+gta01_gsm_suspend_late(struct platform_device *pdev, pm_message_t state)
+{
+	/* Last chance: abort if GSM already interrupted */
+	if (s3c2410_gpio_getcfg(S3C2410_GPH1) == S3C2410_GPIO_OUTPUT) {
+		if (gta_gsm_interrupts)
+			return -EBUSY;
+	}
 	return 0;
 }
 
@@ -228,6 +261,7 @@ static int gta01_gsm_resume(struct platform_device *pdev)
 }
 #else
 #define gta01_gsm_suspend	NULL
+#define gta01_gsm_suspend_late	NULL
 #define gta01_gsm_resume	NULL
 #endif
 
@@ -235,6 +269,7 @@ static struct attribute *gta01_gsm_sysfs_entries[] = {
 	&dev_attr_power_on.attr,
 	&dev_attr_reset.attr,
 	&dev_attr_download.attr,
+	&dev_attr_flowcontrolled.attr,
 	NULL
 };
 
@@ -314,6 +349,7 @@ static struct platform_driver gta01_gsm_driver = {
 	.probe		= gta01_gsm_probe,
 	.remove		= gta01_gsm_remove,
 	.suspend	= gta01_gsm_suspend,
+	.suspend_late	= gta01_gsm_suspend_late,
 	.resume		= gta01_gsm_resume,
 	.driver		= {
 		.name		= "neo1973-pm-gsm",
