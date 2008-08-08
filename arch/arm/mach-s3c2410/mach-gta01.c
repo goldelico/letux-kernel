@@ -87,6 +87,8 @@ static struct map_desc gta01_iodesc[] __initdata = {
 #define UCON S3C2410_UCON_DEFAULT
 #define ULCON S3C2410_LCON_CS8 | S3C2410_LCON_PNONE | S3C2410_LCON_STOPB
 #define UFCON S3C2410_UFCON_RXTRIG8 | S3C2410_UFCON_FIFOMODE
+/* UFCON for the gta01 sets the FIFO trigger level at 4, not 8 */
+#define UFCON_GTA01_PORT0 S3C2410_UFCON_FIFOMODE
 
 static struct s3c2410_uartcfg gta01_uartcfgs[] = {
 	[0] = {
@@ -94,7 +96,7 @@ static struct s3c2410_uartcfg gta01_uartcfgs[] = {
 		.flags	     = 0,
 		.ucon	     = UCON,
 		.ulcon	     = ULCON,
-		.ufcon	     = UFCON,
+		.ufcon	     = UFCON_GTA01_PORT0,
 	},
 	[1] = {
 		.hwport	     = 1,
