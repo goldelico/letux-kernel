@@ -116,6 +116,7 @@ struct s3c24xx_uart_port {
 	struct uart_port		port;
 
 	struct resume_dependency	resume_dependency;
+	int				is_suspended;
 };
 
 
@@ -1188,10 +1189,13 @@ static int s3c24xx_serial_remove(struct platform_device *dev)
 static int s3c24xx_serial_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(&dev->dev);
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
 
 	if (port)
 		uart_suspend_port(&s3c24xx_uart_drv, port);
 
+	activate_all_resume_dependencies(&ourport->resume_dependency);
+	ourport->is_suspended = 1;
 	return 0;
 }
 
@@ -1202,6 +1206,8 @@ void s3c24xx_serial_register_resume_dependency(struct resume_dependency *
 
 	register_resume_dependency(&ourport->resume_dependency,
 							     resume_dependency);
+	if (ourport->is_suspended)
+		activate_all_resume_dependencies(&ourport->resume_dependency);
 }
 EXPORT_SYMBOL(s3c24xx_serial_register_resume_dependency);
 
@@ -1218,6 +1224,7 @@ static int s3c24xx_serial_resume(struct platform_device *dev)
 		uart_resume_port(&s3c24xx_uart_drv, port);
 	}
 
+	ourport->is_suspended = 0;
 	callback_all_resume_dependencies(&ourport->resume_dependency);
 
 	return 0;

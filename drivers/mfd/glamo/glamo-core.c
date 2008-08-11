@@ -1248,6 +1248,8 @@ void glamo_register_resume_dependency(struct resume_dependency *
 {
 	register_resume_dependency(&glamo_handle->resume_dependency,
 							     resume_dependency);
+	if (glamo_handle->is_suspended)
+		activate_all_resume_dependencies(&glamo_handle->resume_dependency);
 }
 EXPORT_SYMBOL_GPL(glamo_register_resume_dependency);
 
@@ -1255,12 +1257,15 @@ EXPORT_SYMBOL_GPL(glamo_register_resume_dependency);
 static int glamo_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	glamo_power(glamo_handle, GLAMO_POWER_SUSPEND);
+	glamo_handle->is_suspended = 1;
+	activate_all_resume_dependencies(&glamo_handle->resume_dependency);
 	return 0;
 }
 
 static int glamo_resume(struct platform_device *pdev)
 {
 	glamo_power(glamo_handle, GLAMO_POWER_ON);
+	glamo_handle->is_suspended = 0;
 	callback_all_resume_dependencies(&glamo_handle->resume_dependency);
 
 	return 0;
