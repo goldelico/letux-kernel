@@ -1249,7 +1249,8 @@ void glamo_register_resume_dependency(struct resume_dependency *
 	register_resume_dependency(&glamo_handle->resume_dependency,
 							     resume_dependency);
 	if (glamo_handle->is_suspended)
-		activate_all_resume_dependencies(&glamo_handle->resume_dependency);
+		activate_all_resume_dependencies(
+					      &glamo_handle->resume_dependency);
 }
 EXPORT_SYMBOL_GPL(glamo_register_resume_dependency);
 
