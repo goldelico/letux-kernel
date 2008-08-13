@@ -1053,7 +1053,7 @@ static struct platform_device gta02_vibrator_dev = {
 
 struct lis302dl_platform_data lis302_pdata[];
 
-void gat02_lis302dl_bitbang_read(struct lis302dl_info *lis)
+void gta02_lis302dl_bitbang_read(struct lis302dl_info *lis)
 {
 	struct lis302dl_platform_data *pdata = lis->pdata;
 	u8 shifter = 0xc0 | LIS302DL_REG_OUT_X; /* read, autoincrement */
@@ -1136,7 +1136,7 @@ void gat02_lis302dl_bitbang_read(struct lis302dl_info *lis)
 }
 
 
-void gat02_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
+void gta02_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
 {
 	struct lis302dl_platform_data *pdata = lis->pdata;
 
@@ -1168,8 +1168,8 @@ struct lis302dl_platform_data lis302_pdata[] = {
 		.pin_mosi	= S3C2410_GPG6,
 		.pin_miso	= S3C2410_GPG5,
 		.open_drain	= 1, /* altered at runtime by PCB rev */
-		.lis302dl_bitbang_read = gat02_lis302dl_bitbang_read,
-		.lis302dl_suspend_io = gat02_lis302dl_suspend_io,
+		.lis302dl_bitbang_read = gta02_lis302dl_bitbang_read,
+		.lis302dl_suspend_io = gta02_lis302dl_suspend_io,
 	}, {
 		.name		= "lis302-2 (bottom)",
 		.pin_chip_select= S3C2410_GPD13,
@@ -1177,8 +1177,8 @@ struct lis302dl_platform_data lis302_pdata[] = {
 		.pin_mosi	= S3C2410_GPG6,
 		.pin_miso	= S3C2410_GPG5,
 		.open_drain	= 1, /* altered at runtime by PCB rev */
-		.lis302dl_bitbang_read = gat02_lis302dl_bitbang_read,
-		.lis302dl_suspend_io = gat02_lis302dl_suspend_io,
+		.lis302dl_bitbang_read = gta02_lis302dl_bitbang_read,
+		.lis302dl_suspend_io = gta02_lis302dl_suspend_io,
 	},
 };
 
