@@ -882,6 +882,7 @@ static struct s3c2410_platform_nand gta02_nand_info = {
 	.twrph1		= 20,
 	.nr_sets	= ARRAY_SIZE(gta02_nand_sets),
 	.sets		= gta02_nand_sets,
+	.software_ecc	= 1,
 };
 
 static struct s3c24xx_mci_pdata gta02_mmc_cfg = {
@@ -1546,6 +1547,20 @@ static irqreturn_t ar6000_wow_irq(int irq, void *param)
 	return IRQ_HANDLED;
 }
 
+/*
+ * hardware_ecc=1|0
+ */
+static char hardware_ecc_str[4] __initdata = "";
+
+static int __init hardware_ecc_setup(char *str)
+{
+	if (str)
+		strlcpy(hardware_ecc_str, str, sizeof(hardware_ecc_str));
+	return 1;
+}
+
+__setup("hardware_ecc=", hardware_ecc_setup);
+
 static void __init gta02_machine_init(void)
 {
 	int rc;
@@ -1564,6 +1579,10 @@ static void __init gta02_machine_init(void)
 	}
 
 	spin_lock_init(&motion_irq_lock);
+
+	/* do not force soft ecc if we are asked to use hardware_ecc */
+	if (hardware_ecc_str[0] == '1')
+		gta02_nand_info.software_ecc = 0;
 
 	s3c_device_usb.dev.platform_data = &gta02_usb_info;
 	s3c_device_nand.dev.platform_data = &gta02_nand_info;

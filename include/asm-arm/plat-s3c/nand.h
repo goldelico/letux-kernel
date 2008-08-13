@@ -42,6 +42,9 @@ struct s3c2410_platform_nand {
 	int			nr_sets;
 	struct s3c2410_nand_set *sets;
 
+	/* force software_ecc at runtime */
+	int	software_ecc;
+
 	void			(*select_chip)(struct s3c2410_nand_set *,
 					       int chip);
 };
