@@ -1065,7 +1065,7 @@ void gta02_lis302dl_bitbang_read(struct lis302dl_info *lis)
 	s8 x, y, z;
 #endif
 
-	local_save_flags(flags);
+	local_irq_save(flags);
 
 	/*
 	 * Huh.. "quirk"... CS on this device is not really "CS" like you can
