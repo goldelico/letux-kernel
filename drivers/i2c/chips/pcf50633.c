@@ -2151,8 +2151,6 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 		goto exit_free;
 	}
 
-	pcf50633_global = pcf;
-
 	init_resume_dependency_list(&pcf->resume_dependency);
 
 	populate_sysfs_group(pcf);
@@ -2228,10 +2226,12 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 		backlight_update_status(pcf->backlight);
 	}
 
-	pcf->probe_completed = 1;
-
 	if (pcf->pdata->flag_use_apm_emulation)
 		apm_get_power_status = pcf50633_get_power_status;
+
+	pcf->probe_completed = 1;
+	pcf50633_global = pcf;
+	dev_info(&new_client->dev, "probe completed\n");
 
 	/* if platform was interested, give him a chance to register
 	 * platform devices that switch power with us as the parent
@@ -2474,6 +2474,10 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 int pcf50633_ready(struct pcf50633_data *pcf)
 {
 	if (!pcf)
+		return -EACCES;
+
+	/* this was seen during boot with Qi, mmc_rescan racing us */
+	if (!pcf->probe_completed)
 		return -EACCES;
 
 	if ((pcf->suspend_state != PCF50633_SS_RUNNING) &&

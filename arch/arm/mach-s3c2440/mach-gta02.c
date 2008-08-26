@@ -1357,7 +1357,7 @@ static void
 gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 {
 	int mv = 1650;
-	int timeout = 100;
+	int timeout = 500;
 
 	printk(KERN_DEBUG "mmc_set_power(power_mode=%u, vdd=%u\n",
 	       power_mode, vdd);
@@ -1377,7 +1377,7 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 			while (pcf50633_ready(pcf50633_global) && (timeout--))
 				msleep(5);
 
-			if (!timeout) {
+			if (timeout < 0) {
 				printk(KERN_ERR"gta02_glamo_mmc_set_power "
 					     "BAILING on timeout\n");
 				return;
