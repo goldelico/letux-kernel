@@ -99,6 +99,8 @@ module_param(sd_drive, int, 0644);
 static int sd_idleclk = 0; /* disallow idle clock by default */
 module_param(sd_idleclk, int, 0644);
 
+/* used to stash real idleclk state in suspend: we force it to run in there */
+static int suspend_sd_idleclk;
 
 
 unsigned char CRC7(u8 * pu8, int cnt)
@@ -947,6 +949,27 @@ static int glamo_mci_suspend(struct platform_device *dev, pm_message_t state)
 	struct glamo_mci_host 	*host = mmc_priv(mmc);
 	int ret;
 
+	/*
+	 * possible workaround for SD corruption during suspend - resume
+	 * make sure the clock was running during suspend and consequently
+	 * resume
+	 */
+	if (host->pdata->glamo_mci_use_slow)
+		if ((host->pdata->glamo_mci_use_slow)())
+			__glamo_mci_fix_card_div(host, host->clk_div *
+								 sd_slow_ratio);
+		else
+			__glamo_mci_fix_card_div(host, host->clk_div);
+	else
+		__glamo_mci_fix_card_div(host, host->clk_div);
+
+	/* we are going to do more commands to override this in
+	 * mmc_suspend_host(), so we need to change sd_idleclk for the
+	 * duration as well
+	 */
+	suspend_sd_idleclk = sd_idleclk;
+	sd_idleclk = 1;
+
 	host->suspending++;
 	if (host->pdata->mci_all_dependencies_resumed)
 		(host->pdata->mci_suspending)(dev);
@@ -963,6 +986,7 @@ int glamo_mci_resume(struct platform_device *dev)
 {
 	struct mmc_host *mmc = platform_get_drvdata(dev);
 	struct glamo_mci_host 	*host = mmc_priv(mmc);
+	int ret;
 
 	if (host->pdata->mci_all_dependencies_resumed)
 		if (!(host->pdata->mci_all_dependencies_resumed)(dev))
@@ -970,7 +994,12 @@ int glamo_mci_resume(struct platform_device *dev)
 
 	host->suspending--;
 
-	return mmc_resume_host(mmc);
+	ret = mmc_resume_host(mmc);
+
+	/* put sd_idleclk back to pre-suspend state */
+	sd_idleclk = suspend_sd_idleclk;
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(glamo_mci_resume);
 
