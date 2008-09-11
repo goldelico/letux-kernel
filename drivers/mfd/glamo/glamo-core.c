@@ -729,8 +729,8 @@ static struct glamo_script glamo_init_script[] = {
 	{ GLAMO_REG_CLOCK_MPEG,		0x0000 },
 #endif
 	{ GLAMO_REG_PLL_GEN1,		0x05db },	/* 48MHz */
-	{ GLAMO_REG_PLL_GEN3,		0x09c3 },	/* 80MHz */
-		{ 0xfffd, 0 },
+	{ GLAMO_REG_PLL_GEN3,		0x0aba },	/* 90MHz */
+	{ 0xfffd, 0 },
 	/*
 	 * b9 of this register MUST be zero to get any interrupts on INT#
 	 * the other set bits enable all the engine interrupt sources
@@ -745,7 +745,10 @@ static struct glamo_script glamo_init_script[] = {
 	{ 0x212,	0x0000 },
 	{ 0x214,	0x4000 },
 	{ 0x216,	0xf00e },
-	{ GLAMO_REG_MEM_TYPE,		0x0874 }, /* 8MB, 16 word pg wr+rd */
+
+	/* S-Media recommended "set tiling mode to 512 mode for memory access
+	 * more efficiency when 640x480" */
+	{ GLAMO_REG_MEM_TYPE,		0x0c74 }, /* 8MB, 16 word pg wr+rd */
 	{ GLAMO_REG_MEM_GEN,		0xafaf }, /* 63 grants min + max */
 	/*
 	 * the register below originally 0x0108 makes unreliable Glamo MMC
