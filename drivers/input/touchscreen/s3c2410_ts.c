@@ -118,6 +118,7 @@ struct s3c2410ts {
 	struct s3c2410ts_sample raw_running_avg;
 	int reject_threshold_vs_avg;
 	int flag_previous_exceeded_threshold;
+	int flag_first_touch_sent;
 };
 
 static struct s3c2410ts ts;
@@ -130,6 +131,7 @@ static void clear_raw_fifo(void)
 	ts.raw_running_avg.x = 0;
 	ts.raw_running_avg.y = 0;
 	ts.flag_previous_exceeded_threshold = 0;
+	ts.flag_first_touch_sent = 0;
 }
 
 
@@ -153,6 +155,19 @@ static void touch_timer_fire(unsigned long data)
 	updown = (!(data0 & S3C2410_ADCDAT0_UPDOWN)) &&
 					    (!(data1 & S3C2410_ADCDAT0_UPDOWN));
 
+	// if we need to send an untouch event, but we haven't yet sent the
+	// touch event (this happens if the touchscreen was tapped lightly),
+	// send the touch event first
+	if (!updown && !ts.flag_first_touch_sent && ts.count != 0) {
+		input_report_abs(ts.dev, ABS_X, ts.xp >> ts.shift);
+		input_report_abs(ts.dev, ABS_Y, ts.yp >> ts.shift);
+
+		input_report_key(ts.dev, BTN_TOUCH, 1);
+		input_report_abs(ts.dev, ABS_PRESSURE, 1);
+		input_sync(ts.dev);
+		ts.flag_first_touch_sent = 1;
+	}
+
 	if (updown) {
 		if (ts.count != 0) {
 			ts.xp >>= ts.shift;
@@ -174,6 +189,7 @@ static void touch_timer_fire(unsigned long data)
 			input_report_key(ts.dev, BTN_TOUCH, 1);
 			input_report_abs(ts.dev, ABS_PRESSURE, 1);
 			input_sync(ts.dev);
+			ts.flag_first_touch_sent = 1;
 		}
 
 		ts.xp = 0;
@@ -190,6 +206,7 @@ static void touch_timer_fire(unsigned long data)
 		input_report_key(ts.dev, BTN_TOUCH, 0);
 		input_report_abs(ts.dev, ABS_PRESSURE, 0);
 		input_sync(ts.dev);
+		ts.flag_first_touch_sent = 0;
 
 		writel(WAIT4INT(0), base_addr+S3C2410_ADCTSC);
 	}
