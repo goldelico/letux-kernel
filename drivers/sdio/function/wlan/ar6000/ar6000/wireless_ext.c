@@ -264,12 +264,11 @@ ar6000_ioctl_siwessid(struct net_device *dev,
     }
 
     /*
-     * iwconfig passes a null terminated string with length including this
-     * so we need to account for this
+     * iwconfig passes a string with length excluding any trailing NUL.
+     * FIXME: we should be able to set an ESSID of 32 bytes, yet things fall
+     * over badly if we do. So we limit the ESSID to 31 bytes.
      */
-    if (data->flags && (!data->length || (data->length == 1) ||
-        ((data->length - 1) > sizeof(ar->arSsid))))
-    {
+    if (data->flags && (!data->length || data->length >= sizeof(ar->arSsid))) {
         /*
          * ssid is invalid
          */
