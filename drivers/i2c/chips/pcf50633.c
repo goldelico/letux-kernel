@@ -915,7 +915,11 @@ static void pcf50633_work(struct work_struct *work)
 		add_request_to_adc_queue(pcf, PCF50633_ADCC1_MUX_ADCIN1,
 				     PCF50633_ADCC1_AVERAGE_16);
 	}
-	if (pcfirq[0] & PCF50633_INT1_USBREM) {
+	if (pcfirq[0] & PCF50633_INT1_USBREM &&
+				!(pcfirq[0] & PCF50633_INT1_USBINS)) {
+		/* the occurrence of USBINS and USBREM
+		 * should be exclusive in one schedule work
+		 */
 		DEBUGPC("USBREM ");
 
 		pcf->usb_removal_count++;
