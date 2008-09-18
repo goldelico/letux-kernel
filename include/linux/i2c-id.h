@@ -170,6 +170,7 @@
 #define I2C_DRIVERID_PCF50606 1049
 #define I2C_DRIVERID_TSL256X 1050
 #define I2C_DRIVERID_PCF50633 1051
+#define I2C_DRIVERID_PCA9632  1052
 
 /*
  * ---- Adapter types ----------------------------------------------------

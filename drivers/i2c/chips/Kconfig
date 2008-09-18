@@ -193,4 +193,13 @@ config SENSORS_TSL256X
 	  This driver can also be built as a module.  If so, the module
 	  will be called tsl256x.
 
+config PCA9632
+	tristate "Philips/NXP PCA9632 low power LED driver"
+	depends on I2C
+	help
+	  If you say yes here you get support for the Philips/NXP PCA9632
+	  LED driver.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called pca9632.
 endmenu
