@@ -1006,7 +1006,7 @@ static int glamo_mci_suspend(struct platform_device *dev, pm_message_t state)
 	return ret;
 }
 
-int glamo_mci_resume(struct platform_device *dev)
+static int glamo_mci_resume(struct platform_device *dev)
 {
 	struct mmc_host *mmc = platform_get_drvdata(dev);
 	struct glamo_mci_host 	*host = mmc_priv(mmc);
@@ -1025,8 +1025,6 @@ int glamo_mci_resume(struct platform_device *dev)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(glamo_mci_resume);
-
 
 #else /* CONFIG_PM */
 #define glamo_mci_suspend NULL
