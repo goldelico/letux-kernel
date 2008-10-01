@@ -1,0 +1,18 @@
+Source: linux-2.6-openmoko
+Section: devel
+Priority: extra
+Maintainer: freesmartphone.org packaging team <pkg-fso-maint@lists.alioth.debian.org>
+Uploaders: Philipp Kern <pkern@debian.org>, Joachim Breitner <nomeata@debian.org>, Jan Lübbe <jluebbe@debian.org>
+Standards-Version: 3.8.0
+Build-Depends: debhelper (>= 7), gcc-4.1, uboot-mkimage
+
+Package: linux-image-2.6.24-openmoko-gta02
+Architecture: armel
+Section: admin
+Depends: module-init-tools
+Description: Linux 2.6.24 kernel image for the Openmoko Neo Freerunner
+ This package provides the binary image and pre-built loadable modules for
+ Linux kernel 2.6.24 on the Neo Freerunner as shipped by Openmoko.  The
+ kernel is based upon Openmoko's patch set and thus supports all
+ hardware components in the device.
+

@@ -1,0 +1,7 @@
+linux-2.6-openmoko (20080808.git43620428-1) experimental; urgency=low
+
+  * Initial release of a kernel package building uboot images suitable
+    for use on the Neo Freerunner and corresponding modules.
+
+ -- Philipp Kern <pkern@debian.org>  Fri, 08 Aug 2008 02:14:25 -0300
+

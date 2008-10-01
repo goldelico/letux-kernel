@@ -1,0 +1,73 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE=1
+
+VERSION=$(shell dpkg-parsechangelog | sed -n 's/^Version: //p' | sed -e 's/-[^-]*//')
+
+build: build-stamp
+build-stamp:
+	dh_testdir
+
+	# Configure the kernel for the Freerunner.
+	cp defconfig-gta02 .config
+	yes "" | $(MAKE) ARCH=arm oldconfig
+
+	$(MAKE) CC="gcc-4.1" ARM=arm EXTRAVERSION=-$(VERSION)
+
+	touch build-stamp
+
+clean:
+	dh_testdir
+	dh_testroot
+	rm -f build-stamp
+
+	rm -f .config
+
+	# Add here commands to clean up after the build process.
+	#$(MAKE) clean
+	#$(MAKE) distclean
+
+	dh_clean
+
+install: install-stamp
+install-stamp: build
+	dh_testdir
+	dh_testroot
+	dh_prep
+	dh_installdirs
+
+	# Generate the uImage.
+	objcopy -O binary -R .note -R .comment \
+		-S arch/arm/boot/compressed/vmlinux linux.bin
+	mkimage -A arm -O linux -T kernel -C none -a 30008000 \
+		-e 30008000 -n "Openmoko Freerunner Kernel" -d linux.bin \
+		vmlinuz-$(VERSION)
+
+	# Install the modules.
+	$(MAKE) INSTALL_MOD_STRIP=1 \
+		INSTALL_MOD_PATH=`pwd`/debian/`dh_listpackages`/
+		modules_install
+
+	touch install-stamp
+
+# Build architecture-independent files here.
+binary-indep: build install
+# We have nothing to do by default.
+
+# Build architecture-dependent files here.
+binary-arch: build install
+	dh_testdir
+	dh_testroot
+	dh_installchangelogs
+	dh_install
+	dh_link
+	dh_strip
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install
