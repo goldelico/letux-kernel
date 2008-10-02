@@ -1417,8 +1417,10 @@ static int gta02_glamo_mci_all_dependencies_resumed(struct platform_device *dev)
 
 static void gta02_glamo_mci_suspending(struct platform_device *dev)
 {
+	int glamo_mci_resume(struct platform_device *dev);
+	
 #if defined(CONFIG_MFD_GLAMO_MCI) && defined(CONFIG_PM)
-	resume_dep_glamo_mci_pcf.callback = (void *)dev->dev.driver->resume;
+	resume_dep_glamo_mci_pcf.callback = (void (*)(void *))glamo_mci_resume;
 	resume_dep_glamo_mci_pcf.context = (void *)dev;
 	pcf50633_register_resume_dependency(pcf50633_global,
 						     &resume_dep_glamo_mci_pcf);
