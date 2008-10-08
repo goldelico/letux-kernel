@@ -98,4 +98,10 @@ void glamo_engine_reset(struct glamo_core *glamo, enum glamo_engine engine);
 int glamo_engine_reclock(struct glamo_core *glamo,
 			 enum glamo_engine engine, int ps);
 
+void glamo_engine_clkreg_set(struct glamo_core *glamo,
+			     enum glamo_engine engine,
+			     u_int16_t mask, u_int16_t val);
+
+u_int16_t glamo_engine_clkreg_get(struct glamo_core *glamo,
+				  enum glamo_engine engine);
 #endif /* __GLAMO_CORE_H */

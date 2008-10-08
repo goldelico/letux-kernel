@@ -420,7 +420,34 @@ static int glamofb_set_par(struct fb_info *info)
 
 static int glamofb_blank(int blank_mode, struct fb_info *info)
 {
-	/* FIXME */
+	struct glamofb_handle *gfb = info->par;
+	struct glamo_core *gcore = gfb->mach_info->glamo;
+
+	dev_dbg(gfb->dev, "glamofb_blank(%u)\n", blank_mode);
+
+	switch (blank_mode) {
+	case FB_BLANK_VSYNC_SUSPEND:
+	case FB_BLANK_HSYNC_SUSPEND:
+		/* FIXME: add pdata hook/flag to indicate whether
+		 * we should already switch off pixel clock here */
+		break;
+	case FB_BLANK_POWERDOWN:
+		/* disable the pixel clock */
+		glamo_engine_clkreg_set(gcore, GLAMO_ENGINE_LCD,
+					GLAMO_CLOCK_LCD_EN_DCLK, 0);
+		break;
+	case FB_BLANK_UNBLANK:
+	case FB_BLANK_NORMAL:
+		/* enable the pixel clock */
+		glamo_engine_clkreg_set(gcore, GLAMO_ENGINE_LCD,
+					GLAMO_CLOCK_LCD_EN_DCLK,
+					GLAMO_CLOCK_LCD_EN_DCLK);
+		break;
+	}
+
+	/* FIXME: once we have proper clock management in glamo-core,
+	 * we can determine if other units need MCLK1 or the PLL, and
+	 * disable it if not used. */
 	return 0;
 }
 
