@@ -2,7 +2,7 @@ Source: linux-2.6-openmoko
 Section: devel
 Priority: extra
 Maintainer: freesmartphone.org packaging team <pkg-fso-maint@lists.alioth.debian.org>
-Uploaders: Philipp Kern <pkern@debian.org>, Joachim Breitner <nomeata@debian.org>, Jan Lübbe <jluebbe@debian.org>
+Uploaders: Philipp Kern <pkern@debian.org>, Joachim Breitner <nomeata@debian.org>, Jan Lübbe <jluebbe@debian.org>, Luca Capello <luca@pca.it>
 Standards-Version: 3.8.0
 Build-Depends: debhelper (>= 7), gcc-4.1, uboot-mkimage
 
