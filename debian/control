@@ -5,6 +5,8 @@ Maintainer: freesmartphone.org packaging team <pkg-fso-maint@lists.alioth.debian
 Uploaders: Philipp Kern <pkern@debian.org>, Joachim Breitner <nomeata@debian.org>, Jan Lübbe <jluebbe@debian.org>, Luca Capello <luca@pca.it>
 Standards-Version: 3.8.0
 Build-Depends: debhelper (>= 7), gcc-4.1, uboot-mkimage
+Vcs-Git: http://git.debian.org/git/pkg-fso/linux-2.6-openmoko.git
+Vcs-Browser: http://git.debian.org/?p=pkg-fso/linux-2.6-openmoko.git;a=summary
 
 Package: linux-image-2.6.24-openmoko-gta02
 Architecture: armel

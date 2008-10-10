@@ -2,6 +2,7 @@ linux-2.6-openmoko (20080808.git43620428-2) UNRELEASED; urgency=low
 
   * debian/control:
     + add myself to Uploaders:.
+    + add Vcs-* fields.
 
  --
 
