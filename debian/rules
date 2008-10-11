@@ -12,7 +12,7 @@ build-stamp:
 	cp defconfig-gta02 .config
 	yes "" | $(MAKE) ARCH=arm oldconfig
 
-	$(MAKE) CC="gcc-4.1" ARM=arm EXTRAVERSION=-$(VERSION)
+	$(MAKE) CC="gcc-4.1" ARCH=arm EXTRAVERSION=-$(VERSION)
 
 	touch build-stamp
 

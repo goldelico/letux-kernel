@@ -5,6 +5,9 @@ linux-2.6-openmoko (20080808.git43620428-2) UNRELEASED; urgency=low
     + add myself to Uploaders:.
     + add Vcs-* fields.
 
+  * debian/rules:
+    + correct typo s/ARM/ARCH/.
+
  --
 
 linux-2.6-openmoko (20080808.git43620428-1) experimental; urgency=low
