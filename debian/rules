@@ -1,11 +1,14 @@
 #!/usr/bin/make -f
 
+include /usr/share/quilt/quilt.make
+
+
 export DH_VERBOSE=1
 
 VERSION=$(shell dpkg-parsechangelog | sed -n 's/^Version: //p' | sed -e 's/-[^-]*//')
 
 build: build-stamp
-build-stamp:
+build-stamp: $(QUILT_STAMPFN)
 	dh_testdir
 
 	# Configure the kernel for the Freerunner.
@@ -16,7 +19,7 @@ build-stamp:
 
 	touch build-stamp
 
-clean:
+clean: unpatch
 	dh_testdir
 	dh_testroot
 	rm -f build-stamp

@@ -1,0 +1,29 @@
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Date: Tue, 4 Mar 2008 22:59:54 +0000 (-0800)
+Subject: time: prevent the loop in timespec_add_ns() from being optimised away
+X-Git-Url: http://git.openmoko.org/?p=kernel.git;a=commitdiff_plain;h=38332cb98772f5ea757e6486bed7ed0381cb5f98
+
+time: prevent the loop in timespec_add_ns() from being optimised away
+
+Since some architectures don't support __udivdi3().
+
+Signed-off-by: Segher Boessenkool <segher@kernel.crashing.org>
+Cc: john stultz <johnstul@us.ibm.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+---
+
+--- linux-2.6-openmoko.orig/include/linux/time.h
++++ linux-2.6-openmoko/include/linux/time.h
+@@ -173,6 +173,10 @@
+ {
+ 	ns += a->tv_nsec;
+ 	while(unlikely(ns >= NSEC_PER_SEC)) {
++		/* The following asm() prevents the compiler from
++		 * optimising this loop into a modulo operation.  */
++		asm("" : "+r"(ns));
++
+ 		ns -= NSEC_PER_SEC;
+ 		a->tv_sec++;
+ 	}

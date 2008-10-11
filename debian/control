@@ -4,7 +4,7 @@ Priority: extra
 Maintainer: Debian FreeSmartphone.Org Team <pkg-fso-maint@lists.alioth.debian.org>
 Uploaders: Philipp Kern <pkern@debian.org>, Joachim Breitner <nomeata@debian.org>, Jan Lübbe <jluebbe@debian.org>, Luca Capello <luca@pca.it>
 Standards-Version: 3.8.0
-Build-Depends: debhelper (>= 7), gcc-4.1, uboot-mkimage
+Build-Depends: debhelper (>= 7), quilt (>= 0.40), gcc-4.1, uboot-mkimage
 Vcs-Git: http://git.debian.org/git/pkg-fso/linux-2.6-openmoko.git
 Vcs-Browser: http://git.debian.org/?p=pkg-fso/linux-2.6-openmoko.git;a=summary
 

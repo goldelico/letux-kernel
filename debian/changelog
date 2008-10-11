@@ -4,9 +4,16 @@ linux-2.6-openmoko (20080808.git43620428-2) UNRELEASED; urgency=low
     + reword the team name.
     + add myself to Uploaders:.
     + add Vcs-* fields.
+    + Build-Depends: on quilt.
+
+  * debian/patches/series: new file.
+  * debian/patches/01_fix-timespec_add_ns-in-time.h.patch:
+    + backport upstream fix for missing __udivdi3, Openmoko kernel
+      commit 38332cb98772f5ea757e6486bed7ed0381cb5f98.
 
   * debian/rules:
     + correct typo s/ARM/ARCH/.
+    + adapt to quilt.
 
  --
 
