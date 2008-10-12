@@ -48,7 +48,7 @@ install-stamp: build
 
 	# Install the modules.
 	$(MAKE) INSTALL_MOD_STRIP=1 \
-		INSTALL_MOD_PATH=`pwd`/debian/`dh_listpackages`/
+		INSTALL_MOD_PATH=`pwd`/debian/`dh_listpackages`/ \
 		modules_install
 
 	touch install-stamp
