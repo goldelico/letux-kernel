@@ -5,6 +5,7 @@ linux-2.6-openmoko (20080808.git43620428-2) UNRELEASED; urgency=low
     + add myself to Uploaders:.
     + add Vcs-* fields.
     + Build-Depends: on quilt.
+    - remove gcc-4.1 from Build-Depends:.
 
   * debian/patches/series: new file.
   * debian/patches/01_fix-timespec_add_ns-in-time.h.patch:
@@ -15,6 +16,7 @@ linux-2.6-openmoko (20080808.git43620428-2) UNRELEASED; urgency=low
     + correct typo s/ARM/ARCH/.
     + add missing \ for modules_install.
     + adapt to quilt.
+    - don't build with gcc-4.1.
 
  --
 
