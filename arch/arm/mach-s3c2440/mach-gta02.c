@@ -1050,7 +1050,6 @@ static struct platform_device gta02_vibrator_dev = {
  */
 
 /* #define DEBUG_SPEW_MS */
-#define MG_PER_SAMPLE 18
 
 struct lis302dl_platform_data lis302_pdata_top;
 struct lis302dl_platform_data lis302_pdata_bottom;
@@ -1060,7 +1059,7 @@ struct lis302dl_platform_data lis302_pdata_bottom;
  * only call with interrupts off!
  */
 
-static void __gta02_lis302dl_bitbang(struct lis302dl_info *lis, u8 *tx,
+static void gta02_lis302dl_bitbang(struct lis302dl_info *lis, u8 *tx,
 					     int tx_bytes, u8 *rx, int rx_bytes)
 {
 	struct lis302dl_platform_data *pdata = lis->pdata;
@@ -1124,7 +1123,7 @@ static int gta02_lis302dl_bitbang_read_reg(struct lis302dl_info *lis, u8 reg)
 
 	local_irq_save(flags);
 
-	__gta02_lis302dl_bitbang(lis, &data, 1, &data, 1);
+	gta02_lis302dl_bitbang(lis, &data, 1, &data, 1);
 
 	local_irq_restore(flags);
 
@@ -1139,34 +1138,10 @@ static void gta02_lis302dl_bitbang_write_reg(struct lis302dl_info *lis, u8 reg,
 
 	local_irq_save(flags);
 
-	__gta02_lis302dl_bitbang(lis, &data[0], 2, NULL, 0);
+	gta02_lis302dl_bitbang(lis, &data[0], 2, NULL, 0);
 
 	local_irq_restore(flags);
 
-}
-
-
-static void gta02_lis302dl_bitbang_sample(struct lis302dl_info *lis)
-{
-	u8 data = 0xc0 | LIS302DL_REG_OUT_X; /* read, autoincrement */
-	u8 read[5];
-	unsigned long flags;
-
-	local_irq_save(flags);
-
-	__gta02_lis302dl_bitbang(lis, &data, 1, &read[0], 5);
-
-	local_irq_restore(flags);
-
-	input_report_rel(lis->input_dev, REL_X, MG_PER_SAMPLE * (s8)read[0]);
-	input_report_rel(lis->input_dev, REL_Y, MG_PER_SAMPLE * (s8)read[2]);
-	input_report_rel(lis->input_dev, REL_Z, MG_PER_SAMPLE * (s8)read[4]);
-
-	input_sync(lis->input_dev);
-#ifdef DEBUG_SPEW_MS
-	printk(KERN_INFO "%s: %d %d %d\n", pdata->name, read[0], read[2],
-								       read[4]);
-#endif
 }
 
 
@@ -1210,7 +1185,7 @@ struct lis302dl_platform_data lis302_pdata_top = {
 		.pin_miso	= S3C2410_GPG5,
 		.interrupt	= GTA02_IRQ_GSENSOR_1,
 		.open_drain	= 1, /* altered at runtime by PCB rev */
-		.lis302dl_bitbang_read_sample = gta02_lis302dl_bitbang_sample,
+		.lis302dl_bitbang = gta02_lis302dl_bitbang,
 		.lis302dl_bitbang_reg_read = gta02_lis302dl_bitbang_read_reg,
 		.lis302dl_bitbang_reg_write = gta02_lis302dl_bitbang_write_reg,
 		.lis302dl_suspend_io = gta02_lis302dl_suspend_io,
@@ -1224,7 +1199,7 @@ struct lis302dl_platform_data lis302_pdata_bottom = {
 		.pin_miso	= S3C2410_GPG5,
 		.interrupt	= GTA02_IRQ_GSENSOR_2,
 		.open_drain	= 1, /* altered at runtime by PCB rev */
-		.lis302dl_bitbang_read_sample = gta02_lis302dl_bitbang_sample,
+		.lis302dl_bitbang = gta02_lis302dl_bitbang,
 		.lis302dl_bitbang_reg_read = gta02_lis302dl_bitbang_read_reg,
 		.lis302dl_bitbang_reg_write = gta02_lis302dl_bitbang_write_reg,
 		.lis302dl_suspend_io = gta02_lis302dl_suspend_io,

@@ -16,6 +16,8 @@ struct lis302dl_platform_data {
 	unsigned long pin_miso;
 	int open_drain;
 	int interrupt;
+	void (*lis302dl_bitbang)(struct lis302dl_info *lis, u8 *tx,
+			int tx_bytes, u8 *rx, int rx_bytes);
 	void (*lis302dl_bitbang_read_sample)(struct lis302dl_info *);
 	void (*lis302dl_suspend_io)(struct lis302dl_info *, int resuming);
 	int (*lis302dl_bitbang_reg_read)(struct lis302dl_info *, u8 reg);
@@ -28,6 +30,7 @@ struct lis302dl_info {
 	struct device *dev;
 	struct input_dev *input_dev;
 	unsigned int flags;
+	unsigned int threshold;
 	u_int8_t regs[0x40];
 };
 

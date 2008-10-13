@@ -4,6 +4,8 @@
  * Author: Harald Welte <laforge@openmoko.org>
  *         converted to private bitbang by:
  *         Andy Green <andy@openmoko.com>
+ *         ability to set acceleration threshold added by:
+ *         Simon Kagstrom <simon.kagstrom@gmail.com>
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -67,6 +69,31 @@ enum lis302dl_intmode {
 	LIS302DL_INTMODE_CLICK		= 0x07,
 };
 
+#define MG_PER_SAMPLE 18
+
+static void lis302dl_bitbang_read_sample(struct lis302dl_info *lis)
+{
+	u8 data = 0xc0 | LIS302DL_REG_OUT_X; /* read, autoincrement */
+	u8 read[5];
+	unsigned long flags;
+
+	local_irq_save(flags);
+
+	(lis->pdata->lis302dl_bitbang)(lis, &data, 1, &read[0], 5);
+
+	local_irq_restore(flags);
+
+	input_report_rel(lis->input_dev, REL_X, MG_PER_SAMPLE * (s8)read[0]);
+	input_report_rel(lis->input_dev, REL_Y, MG_PER_SAMPLE * (s8)read[2]);
+	input_report_rel(lis->input_dev, REL_Z, MG_PER_SAMPLE * (s8)read[4]);
+
+	input_sync(lis->input_dev);
+
+	/* Reset the HP filter */
+	(lis->pdata->lis302dl_bitbang_reg_read)(lis,
+			LIS302DL_REG_HP_FILTER_RESET);
+}
+
 static void __lis302dl_int_mode(struct device *dev, int int_pin,
 			      enum lis302dl_intmode mode)
 {
@@ -108,7 +135,7 @@ static irqreturn_t lis302dl_interrupt(int irq, void *_lis)
 {
 	struct lis302dl_info *lis = _lis;
 
-	(lis->pdata->lis302dl_bitbang_read_sample)(lis);
+	lis302dl_bitbang_read_sample(lis);
 	return IRQ_HANDLED;
 }
 
@@ -186,6 +213,36 @@ static ssize_t set_scale(struct device *dev, struct device_attribute *attr,
 }
 
 static DEVICE_ATTR(full_scale, S_IRUGO | S_IWUSR, show_scale, set_scale);
+
+static ssize_t show_threshold(struct device *dev, struct device_attribute *attr,
+		 char *buf)
+{
+	struct lis302dl_info *lis = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", lis->threshold);
+}
+
+static ssize_t set_threshold(struct device *dev, struct device_attribute *attr,
+		 const char *buf, size_t count)
+{
+	struct lis302dl_info *lis = dev_get_drvdata(dev);
+	u32 val;
+
+	if (sscanf(buf, "%d\n", &val) != 1)
+		return -EINVAL;
+	if (val < 0 || val > 255)
+		return -ERANGE;
+
+	/* Set the threshold and write it out if the device is used */
+	lis->threshold = val;
+	if (lis->flags & LIS302DL_F_INPUT_OPEN)
+		(lis->pdata->lis302dl_bitbang_reg_write)(lis,
+				LIS302DL_REG_FF_WU_THS_1, lis->threshold);
+
+	return count;
+}
+
+static DEVICE_ATTR(threshold, S_IRUGO | S_IWUSR, show_threshold, set_threshold);
 
 static ssize_t lis302dl_dump(struct device *dev, struct device_attribute *attr,
 								      char *buf)
@@ -436,6 +493,7 @@ static DEVICE_ATTR(freefall_wakeup_2, S_IRUGO | S_IWUSR, show_freefall_2,
 static struct attribute *lis302dl_sysfs_entries[] = {
 	&dev_attr_sample_rate.attr,
 	&dev_attr_full_scale.attr,
+	&dev_attr_threshold.attr,
 	&dev_attr_dump.attr,
 	&dev_attr_freefall_wakeup_1.attr,
 	&dev_attr_freefall_wakeup_2.attr,
@@ -454,17 +512,32 @@ static int lis302dl_input_open(struct input_dev *inp)
 	struct lis302dl_info *lis = inp->private;
 	u_int8_t ctrl1 = LIS302DL_CTRL1_PD | LIS302DL_CTRL1_Xen |
 			 LIS302DL_CTRL1_Yen | LIS302DL_CTRL1_Zen;
+	u_int8_t ctrl2 = LIS302DL_CTRL2_HPFF1;
 	unsigned long flags;
 
 	local_irq_save(flags);
 	/* make sure we're powered up and generate data ready */
 	__reg_set_bit_mask(lis, LIS302DL_REG_CTRL1, ctrl1, ctrl1);
 
+	(lis->pdata->lis302dl_bitbang_reg_write)(lis, LIS302DL_REG_CTRL2,
+			ctrl2);
+	(lis->pdata->lis302dl_bitbang_reg_write)(lis,
+			LIS302DL_REG_FF_WU_THS_1, lis->threshold);
+	(lis->pdata->lis302dl_bitbang_reg_write)(lis,
+			LIS302DL_REG_FF_WU_DURATION_1, 0);
+
+	/* Clear the HP filter "starting point" */
+	(lis->pdata->lis302dl_bitbang_reg_read)(lis,
+			LIS302DL_REG_HP_FILTER_RESET);
+	(lis->pdata->lis302dl_bitbang_reg_write)(lis,
+			LIS302DL_REG_FF_WU_CFG_1, LIS302DL_FFWUCFG_XHIE |
+			LIS302DL_FFWUCFG_YHIE |	LIS302DL_FFWUCFG_ZHIE);
+
 	lis->flags |= LIS302DL_F_INPUT_OPEN;
 
 	/* kick it off -- since we are edge triggered, if we missed the edge
 	 * permanent low interrupt is death for us */
-	(lis->pdata->lis302dl_bitbang_read_sample)(lis);
+	lis302dl_bitbang_read_sample(lis);
 
 	local_irq_restore(flags);
 
@@ -567,6 +640,8 @@ static int __devinit lis302dl_probe(struct platform_device *pdev)
 	set_bit(BTN_Y, lis->input_dev->keybit);
 	set_bit(BTN_Z, lis->input_dev->keybit);
 */
+	lis->threshold = 1;
+
 	lis->input_dev->private = lis;
 	lis->input_dev->name = pdata->name;
 	 /* SPI Bus not defined as a valid bus for input subsystem*/
@@ -617,8 +692,8 @@ static int __devinit lis302dl_probe(struct platform_device *pdev)
 		(lis->pdata->lis302dl_bitbang_reg_write)(lis,
 					LIS302DL_REG_CTRL3, LIS302DL_CTRL3_IHL);
 
-	__lis302dl_int_mode(lis->dev, 1, LIS302DL_INTMODE_DATA_READY);
-	__lis302dl_int_mode(lis->dev, 2, LIS302DL_INTMODE_DATA_READY);
+	__lis302dl_int_mode(lis->dev, 1, LIS302DL_INTMODE_FF_WU_12);
+	__lis302dl_int_mode(lis->dev, 2, LIS302DL_INTMODE_FF_WU_12);
 
 	(lis->pdata->lis302dl_bitbang_reg_read)(lis, LIS302DL_REG_STATUS);
 	(lis->pdata->lis302dl_bitbang_reg_read)(lis, LIS302DL_REG_FF_WU_SRC_1);
