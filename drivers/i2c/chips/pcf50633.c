@@ -135,6 +135,7 @@ struct pcf50633_data {
 	int usb_removal_count;
 	u8 pcfirq_resume[5];
 	int probe_completed;
+	int suppress_onkey_events;
 
 	/* if he pulls battery while charging, we notice that and correctly
 	 * report that the charger is idle.  But there is no interrupt that
@@ -848,6 +849,16 @@ static void pcf50633_work(struct work_struct *work)
 
 		/* pcf50633 resume is really really over now then */
 		pcf->suspend_state = PCF50633_SS_RUNNING;
+
+		/* peek at the IRQ reason, if power button then set a flag
+		 * so that we do not signal the event to userspace
+		 */
+		if (pcfirq[1] & (PCF50633_INT2_ONKEYF | PCF50633_INT2_ONKEYR)) {
+			pcf->suppress_onkey_events = 1;
+			DEBUGP("Wake by ONKEY, suppressing ONKEY event");
+		} else {
+			pcf->suppress_onkey_events = 0;
+		}
 	}
 
 	if (!pcf->coldplug_done) {
@@ -988,16 +999,26 @@ static void pcf50633_work(struct work_struct *work)
 
 	if (pcfirq[1] & PCF50633_INT2_ONKEYF) {
 		/* ONKEY falling edge (start of button press) */
-		DEBUGPC("ONKEYF ");
 		pcf->flags |= PCF50633_F_PWR_PRESSED;
-		input_report_key(pcf->input_dev, KEY_POWER, 1);
+		if (!pcf->suppress_onkey_events) {
+			DEBUGPC("ONKEYF ");
+			input_report_key(pcf->input_dev, KEY_POWER, 1);
+		} else {
+			DEBUGPC("ONKEYF(unreported) ");
+		}
 	}
 	if (pcfirq[1] & PCF50633_INT2_ONKEYR) {
 		/* ONKEY rising edge (end of button press) */
-		DEBUGPC("ONKEYR ");
 		pcf->flags &= ~PCF50633_F_PWR_PRESSED;
 		pcf->onkey_seconds = -1;
-		input_report_key(pcf->input_dev, KEY_POWER, 0);
+		if (!pcf->suppress_onkey_events) {
+			DEBUGPC("ONKEYR ");
+			input_report_key(pcf->input_dev, KEY_POWER, 0);
+		} else {
+			DEBUGPC("ONKEYR(unreported) ");
+			/* don't suppress any more power button events */
+			pcf->suppress_onkey_events = 0;
+		}
 		/* disable SECOND interrupt in case RTC didn't
 		 * request it */
 		if (!(pcf->flags & PCF50633_F_RTC_SECOND))
@@ -2135,6 +2156,7 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 	INIT_WORK(&pcf->work_usb_curlimit, pcf50633_work_usbcurlim);
 	pcf->irq = irq;
 	pcf->working = 0;
+	pcf->suppress_onkey_events = 0;
 	pcf->onkey_seconds = -1;
 	pcf->pdata = pcf50633_pdev->dev.platform_data;
 
