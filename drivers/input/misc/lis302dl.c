@@ -44,6 +44,7 @@
 #include <linux/lis302dl.h>
 
 /* Utility functions */
+
 static u8 __reg_read(struct lis302dl_info *lis, u8 reg)
 {
 	return (lis->pdata->lis302dl_bitbang_reg_read)(lis, reg);
@@ -129,6 +130,36 @@ static void __lis302dl_int_mode(struct device *dev, int int_pin,
 		break;
 	default:
 		BUG();
+	}
+}
+
+static void __enable_data_collection(struct lis302dl_info *lis)
+{
+	u_int8_t ctrl1 = LIS302DL_CTRL1_PD | LIS302DL_CTRL1_Xen |
+			 LIS302DL_CTRL1_Yen | LIS302DL_CTRL1_Zen;
+
+	/* make sure we're powered up and generate data ready */
+	__reg_set_bit_mask(lis, LIS302DL_REG_CTRL1, ctrl1, ctrl1);
+
+	/* If the threshold is zero, let the device generated an interrupt
+	 * on each datum */
+	if (lis->threshold == 0) {
+		__reg_write(lis, LIS302DL_REG_CTRL2, 0);
+		__lis302dl_int_mode(lis->dev, 1, LIS302DL_INTMODE_DATA_READY);
+		__lis302dl_int_mode(lis->dev, 2, LIS302DL_INTMODE_DATA_READY);
+	} else {
+		__reg_write(lis, LIS302DL_REG_CTRL2,
+				LIS302DL_CTRL2_HPFF1);
+		__reg_write(lis, LIS302DL_REG_FF_WU_THS_1, lis->threshold);
+		__reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1, lis->duration);
+
+		/* Clear the HP filter "starting point" */
+		__reg_read(lis, LIS302DL_REG_HP_FILTER_RESET);
+		__reg_write(lis, LIS302DL_REG_FF_WU_CFG_1,
+				LIS302DL_FFWUCFG_XHIE | LIS302DL_FFWUCFG_YHIE |
+				LIS302DL_FFWUCFG_ZHIE);
+		__lis302dl_int_mode(lis->dev, 1, LIS302DL_INTMODE_FF_WU_12);
+		__lis302dl_int_mode(lis->dev, 2, LIS302DL_INTMODE_FF_WU_12);
 	}
 }
 
@@ -263,7 +294,7 @@ static ssize_t set_scale(struct device *dev, struct device_attribute *attr,
 	/* Adjust the threshold */
 	lis->threshold = __mg_to_threshold(lis, threshold_mg);
 	if (lis->flags & LIS302DL_F_INPUT_OPEN)
-		__reg_write(lis, LIS302DL_REG_FF_WU_THS_1, lis->threshold);
+		__enable_data_collection(lis);
 
 	local_irq_restore(flags);
 
@@ -294,8 +325,14 @@ static ssize_t set_threshold(struct device *dev, struct device_attribute *attr,
 
 	/* Set the threshold and write it out if the device is used */
 	lis->threshold = __mg_to_threshold(lis, val);
-	if (lis->flags & LIS302DL_F_INPUT_OPEN)
-		__reg_write(lis, LIS302DL_REG_FF_WU_THS_1, lis->threshold);
+
+	if (lis->flags & LIS302DL_F_INPUT_OPEN) {
+		unsigned long flags;
+
+		local_irq_save(flags);
+		__enable_data_collection(lis);
+		local_irq_restore(flags);
+	}
 
 	return count;
 }
@@ -562,29 +599,14 @@ static struct attribute_group lis302dl_attr_group = {
 };
 
 /* input device handling and driver core interaction */
-
 static int lis302dl_input_open(struct input_dev *inp)
 {
 	struct lis302dl_info *lis = inp->private;
-	u_int8_t ctrl1 = LIS302DL_CTRL1_PD | LIS302DL_CTRL1_Xen |
-			 LIS302DL_CTRL1_Yen | LIS302DL_CTRL1_Zen;
-	u_int8_t ctrl2 = LIS302DL_CTRL2_HPFF1;
 	unsigned long flags;
 
 	local_irq_save(flags);
-	/* make sure we're powered up and generate data ready */
-	__reg_set_bit_mask(lis, LIS302DL_REG_CTRL1, ctrl1, ctrl1);
 
-	__reg_write(lis, LIS302DL_REG_CTRL2,
-			ctrl2);
-	__reg_write(lis, LIS302DL_REG_FF_WU_THS_1, lis->threshold);
-	__reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1, lis->duration);
-
-	/* Clear the HP filter "starting point" */
-	__reg_read(lis, LIS302DL_REG_HP_FILTER_RESET);
-	__reg_write(lis, LIS302DL_REG_FF_WU_CFG_1, LIS302DL_FFWUCFG_XHIE |
-			LIS302DL_FFWUCFG_YHIE |	LIS302DL_FFWUCFG_ZHIE);
-
+	__enable_data_collection(lis);
 	lis->flags |= LIS302DL_F_INPUT_OPEN;
 
 	/* kick it off -- since we are edge triggered, if we missed the edge
@@ -736,8 +758,8 @@ static int __devinit lis302dl_probe(struct platform_device *pdev)
 		/* push-pull, active-low */
 		__reg_write(lis, LIS302DL_REG_CTRL3, LIS302DL_CTRL3_IHL);
 
-	__lis302dl_int_mode(lis->dev, 1, LIS302DL_INTMODE_FF_WU_12);
-	__lis302dl_int_mode(lis->dev, 2, LIS302DL_INTMODE_FF_WU_12);
+	__lis302dl_int_mode(lis->dev, 1, LIS302DL_INTMODE_GND);
+	__lis302dl_int_mode(lis->dev, 2, LIS302DL_INTMODE_GND);
 
 	__reg_read(lis, LIS302DL_REG_STATUS);
 	__reg_read(lis, LIS302DL_REG_FF_WU_SRC_1);
