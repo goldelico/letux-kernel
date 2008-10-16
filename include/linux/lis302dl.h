@@ -30,6 +30,7 @@ struct lis302dl_info {
 	struct input_dev *input_dev;
 	unsigned int flags;
 	unsigned int threshold;
+	unsigned int duration;
 	u_int8_t regs[0x40];
 };
 
@@ -142,6 +143,7 @@ enum lis302dl_reg_cloik_src {
 #define LIS302DL_F_FS			0x0020 	/* ADC full scale */
 #define LIS302DL_F_INPUT_OPEN 	0x0040  /* Set if input device is opened */
 #define LIS302DL_F_IRQ_WAKE 	0x0080  /* IRQ is setup in wake mode */
+#define LIS302DL_F_DR			0x0100 	/* Data rate, 400Hz/100Hz */
 
 
 #endif /* _LINUX_LIS302DL_H */

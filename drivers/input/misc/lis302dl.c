@@ -69,29 +69,17 @@ static void __reg_set_bit_mask(struct lis302dl_info *lis, u8 reg, u8 mask,
 
 static int __ms_to_duration(struct lis302dl_info *lis, int ms)
 {
-	u8 r = __reg_read(lis, LIS302DL_REG_CTRL1);
-
 	/* If we have 400 ms sampling rate, the stepping is 2.5 ms,
 	 * on 100 ms the stepping is 10ms */
-	if (r & LIS302DL_CTRL1_DR) {
-		/* Too large */
-		if (ms > 637)
-			return -1;
+	if (lis->flags & LIS302DL_F_DR)
+		return min((ms * 10) / 25, 637);
 
-		return (ms * 10) / 25;
-	}
-
-	/* Too large value */
-	if (ms > 2550)
-			return -1;
-	return ms / 10;
+	return min(ms / 10, 2550);
 }
 
 static int __duration_to_ms(struct lis302dl_info *lis, int duration)
 {
-	u8 r = __reg_read(lis, LIS302DL_REG_CTRL1);
-
-	if (r & LIS302DL_CTRL1_DR)
+	if (lis->flags & LIS302DL_F_DR)
 		return (duration * 25) / 10;
 
 	return duration * 10;
@@ -218,15 +206,20 @@ static ssize_t set_rate(struct device *dev, struct device_attribute *attr,
 {
 	struct lis302dl_info *lis = dev_get_drvdata(dev);
 	unsigned long flags;
+	int duration_ms = __duration_to_ms(lis, lis->duration);
 
 	local_irq_save(flags);
 
-	if (!strcmp(buf, "400\n"))
+	if (!strcmp(buf, "400\n")) {
 		__reg_set_bit_mask(lis, LIS302DL_REG_CTRL1, LIS302DL_CTRL1_DR,
 				 LIS302DL_CTRL1_DR);
-	else
+		lis->flags |= LIS302DL_F_DR;
+	} else {
 		__reg_set_bit_mask(lis, LIS302DL_REG_CTRL1, LIS302DL_CTRL1_DR,
-									     0);
+				0);
+		lis->flags &= ~LIS302DL_F_DR;
+	}
+	lis->duration = __ms_to_duration(lis, duration_ms);
 	local_irq_restore(flags);
 
 	return count;
@@ -308,6 +301,34 @@ static ssize_t set_threshold(struct device *dev, struct device_attribute *attr,
 }
 
 static DEVICE_ATTR(threshold, S_IRUGO | S_IWUSR, show_threshold, set_threshold);
+
+static ssize_t show_duration(struct device *dev, struct device_attribute *attr,
+		 char *buf)
+{
+	struct lis302dl_info *lis = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", __duration_to_ms(lis, lis->duration));
+}
+
+static ssize_t set_duration(struct device *dev, struct device_attribute *attr,
+		 const char *buf, size_t count)
+{
+	struct lis302dl_info *lis = dev_get_drvdata(dev);
+	u32 val;
+
+	if (sscanf(buf, "%d\n", &val) != 1)
+		return -EINVAL;
+	if (val < 0 || val > 2550)
+		return -ERANGE;
+
+	lis->duration = __ms_to_duration(lis, val);
+	if (lis->flags & LIS302DL_F_INPUT_OPEN)
+		__reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1, lis->duration);
+
+	return count;
+}
+
+static DEVICE_ATTR(duration, S_IRUGO | S_IWUSR, show_duration, set_duration);
 
 static ssize_t lis302dl_dump(struct device *dev, struct device_attribute *attr,
 								      char *buf)
@@ -528,6 +549,7 @@ static struct attribute *lis302dl_sysfs_entries[] = {
 	&dev_attr_sample_rate.attr,
 	&dev_attr_full_scale.attr,
 	&dev_attr_threshold.attr,
+	&dev_attr_duration.attr,
 	&dev_attr_dump.attr,
 	&dev_attr_freefall_wakeup_1.attr,
 	&dev_attr_freefall_wakeup_2.attr,
@@ -556,7 +578,7 @@ static int lis302dl_input_open(struct input_dev *inp)
 	__reg_write(lis, LIS302DL_REG_CTRL2,
 			ctrl2);
 	__reg_write(lis, LIS302DL_REG_FF_WU_THS_1, lis->threshold);
-	__reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1, 0);
+	__reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1, lis->duration);
 
 	/* Clear the HP filter "starting point" */
 	__reg_read(lis, LIS302DL_REG_HP_FILTER_RESET);
@@ -670,6 +692,7 @@ static int __devinit lis302dl_probe(struct platform_device *pdev)
 	set_bit(BTN_Z, lis->input_dev->keybit);
 */
 	lis->threshold = 1;
+	lis->duration = 0;
 
 	lis->input_dev->private = lis;
 	lis->input_dev->name = pdata->name;
