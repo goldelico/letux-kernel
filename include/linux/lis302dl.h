@@ -18,7 +18,6 @@ struct lis302dl_platform_data {
 	int interrupt;
 	void (*lis302dl_bitbang)(struct lis302dl_info *lis, u8 *tx,
 			int tx_bytes, u8 *rx, int rx_bytes);
-	void (*lis302dl_bitbang_read_sample)(struct lis302dl_info *);
 	void (*lis302dl_suspend_io)(struct lis302dl_info *, int resuming);
 	int (*lis302dl_bitbang_reg_read)(struct lis302dl_info *, u8 reg);
 	void (*lis302dl_bitbang_reg_write)(struct lis302dl_info *, u8 reg,
