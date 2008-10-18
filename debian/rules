@@ -24,7 +24,7 @@ clean: unpatch
 	dh_testroot
 	rm -f build-stamp
 
-	rm -f .config
+	rm -f .config* linux.bin vmlinuz-$(VERSION)
 
 	# Add here commands to clean up after the build process.
 	$(MAKE) clean

@@ -6,6 +6,7 @@ linux-2.6-openmoko (20080808.git43620428-2) UNRELEASED; urgency=low
     + add Vcs-* fields.
     + Build-Depends: on quilt.
     + use upstream clean target.
+    + clean uImage files.
     - remove gcc-4.1 from Build-Depends:.
 
   * debian/patches/series: new file.
