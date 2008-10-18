@@ -27,7 +27,7 @@ clean: unpatch
 	rm -f .config
 
 	# Add here commands to clean up after the build process.
-	#$(MAKE) clean
+	$(MAKE) clean
 	#$(MAKE) distclean
 
 	dh_clean
