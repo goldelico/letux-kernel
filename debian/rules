@@ -46,6 +46,11 @@ install-stamp: build
 		-e 30008000 -n "Openmoko Freerunner Kernel" -d linux.bin \
 		vmlinuz-$(VERSION)
 
+	# Install the uImage (this is an ugly hack, I know)
+	mkdir `pwd`/debian/`dh_listpackages`/boot/
+	cp vmlinuz-$(VERSION) `pwd`/debian/`dh_listpackages`/boot/
+	dh_link boot/vmlinuz-$(VERSION) boot/uImage.bin
+
 	# Install the modules.
 	$(MAKE) INSTALL_MOD_STRIP=1 \
 		INSTALL_MOD_PATH=`pwd`/debian/`dh_listpackages`/ \

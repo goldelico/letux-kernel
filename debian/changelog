@@ -17,6 +17,7 @@ linux-2.6-openmoko (20080808.git43620428-2) UNRELEASED; urgency=low
     + correct typo s/ARM/ARCH/.
     + add missing \ for modules_install.
     + adapt to quilt.
+    + install uImage.
     - don't build with gcc-4.1.
 
  --
