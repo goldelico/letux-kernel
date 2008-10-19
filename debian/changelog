@@ -11,6 +11,7 @@ linux-2.6-openmoko (20080808.git43620428-2) UNRELEASED; urgency=low
 
   * debian/copyright:
     + link to the GPL-2 file.
+    + add Debian packaging section.
 
   * debian/patches/series: new file.
   * debian/patches/01_fix-timespec_add_ns-in-time.h.patch:
