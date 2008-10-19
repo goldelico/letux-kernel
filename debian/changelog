@@ -9,6 +9,9 @@ linux-2.6-openmoko (20080808.git43620428-2) UNRELEASED; urgency=low
     + clean uImage files.
     - remove gcc-4.1 from Build-Depends:.
 
+  * debian/copyright:
+    + link to the GPL-2 file.
+
   * debian/patches/series: new file.
   * debian/patches/01_fix-timespec_add_ns-in-time.h.patch:
     + backport upstream fix for missing __udivdi3, Openmoko kernel
