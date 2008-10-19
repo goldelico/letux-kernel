@@ -1,4 +1,4 @@
-linux-2.6-openmoko (20080808.git43620428-2) UNRELEASED; urgency=low
+linux-2.6-openmoko (20080808.git43620428-2) pkg-fso; urgency=low
 
   * debian/control:
     + reword the team name.
@@ -26,7 +26,7 @@ linux-2.6-openmoko (20080808.git43620428-2) UNRELEASED; urgency=low
     + install uImage.
     - don't build with gcc-4.1.
 
- --
+ -- Luca Capello <luca@pca.it>  Sun, 19 Oct 2008 15:01:13 +0200
 
 linux-2.6-openmoko (20080808.git43620428-1) experimental; urgency=low
 
