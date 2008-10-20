@@ -49,7 +49,7 @@ install-stamp: build
 	# Install the uImage (this is an ugly hack, I know)
 	mkdir `pwd`/debian/`dh_listpackages`/boot/
 	cp vmlinuz-$(VERSION) `pwd`/debian/`dh_listpackages`/boot/
-	dh_link boot/vmlinuz-$(VERSION) boot/uImage.bin
+	cp vmlinuz-$(VERSION) `pwd`/debian/`dh_listpackages`/boot/uImage.bin
 
 	# Install the modules.
 	$(MAKE) INSTALL_MOD_STRIP=1 \
