@@ -1,3 +1,11 @@
+linux-2.6-openmoko (20080903.git2ea34171-1) UNRELEASED; urgency=low
+
+  * New Git Checkout:
+    + milestone3.
+    + use the last 8 digits to identify the Git commit.
+
+ --
+
 linux-2.6-openmoko (20080808.git43620428-2) pkg-fso; urgency=low
 
   * debian/control:
