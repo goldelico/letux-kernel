@@ -91,14 +91,30 @@ enum lis302dl_reg_status {
 	LIS302DL_STATUS_XYZOR		= 0x80,
 };
 
-enum lis302dl_reg_ffwusrc1 {
-	LIS302DL_FFWUSRC1_XL		= 0x01,
-	LIS302DL_FFWUSRC1_XH		= 0x02,
-	LIS302DL_FFWUSRC1_YL		= 0x04,
-	LIS302DL_FFWUSRC1_YH		= 0x08,
-	LIS302DL_FFWUSRC1_ZL		= 0x10,
-	LIS302DL_FFWUSRC1_ZH		= 0x20,
-	LIS302DL_FFWUSRC1_IA		= 0x40,
+/* Wakeup/freefall interrupt defs */
+enum lis302dl_reg_ffwucfg {
+	LIS302DL_FFWUCFG_XLIE		= 0x01,
+	LIS302DL_FFWUCFG_XHIE		= 0x02,
+	LIS302DL_FFWUCFG_YLIE		= 0x04,
+	LIS302DL_FFWUCFG_YHIE		= 0x08,
+	LIS302DL_FFWUCFG_ZLIE		= 0x10,
+	LIS302DL_FFWUCFG_ZHIE		= 0x20,
+	LIS302DL_FFWUCFG_LIR		= 0x40,
+	LIS302DL_FFWUCFG_AOI		= 0x80,
+};
+
+enum lis302dl_reg_ffwuths {
+	LIS302DL_FFWUTHS_DCRM		= 0x80,
+};
+
+enum lis302dl_reg_ffwusrc {
+	LIS302DL_FFWUSRC_XL		= 0x01,
+	LIS302DL_FFWUSRC_XH		= 0x02,
+	LIS302DL_FFWUSRC_YL		= 0x04,
+	LIS302DL_FFWUSRC_YH		= 0x08,
+	LIS302DL_FFWUSRC_ZL		= 0x10,
+	LIS302DL_FFWUSRC_ZH		= 0x20,
+	LIS302DL_FFWUSRC_IA		= 0x40,
 };
 
 enum lis302dl_reg_cloik_src {
@@ -113,10 +129,14 @@ enum lis302dl_reg_cloik_src {
 
 #define LIS302DL_WHO_AM_I_MAGIC		0x3b
 
-#define LIS302DL_F_WUP_FF		0x0001	/* wake up from free fall */
-#define LIS302DL_F_WUP_CLICK		0x0002
+#define LIS302DL_F_WUP_FF_1		0x0001	/* wake up from free fall */
+#define LIS302DL_F_WUP_FF_2		0x0002
+#define LIS302DL_F_WUP_FF		0x0003
+#define LIS302DL_F_WUP_CLICK	0x0004
 #define LIS302DL_F_POWER		0x0010
 #define LIS302DL_F_FS			0x0020 	/* ADC full scale */
+#define LIS302DL_F_INPUT_OPEN 	0x0040  /* Set if input device is opened */
+#define LIS302DL_F_IRQ_WAKE 	0x0080  /* IRQ is setup in wake mode */
 
 
 #endif /* _LINUX_LIS302DL_H */

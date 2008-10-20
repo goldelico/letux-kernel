@@ -32,6 +32,7 @@ struct glamo_core {
 	struct resume_dependency resume_dependency;
 	u32 engine_enabled_bitfield;
 	u32 engine_enabled_bitfield_suspend;
+	int is_suspended;
 };
 
 struct glamo_script {

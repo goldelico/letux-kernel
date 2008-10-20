@@ -183,6 +183,7 @@ struct pcf50633_data {
 	} standby_regs;
 
 	struct resume_dependency resume_dependency;
+	int is_suspended;
 
 #endif
 };
@@ -2150,8 +2151,6 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 		goto exit_free;
 	}
 
-	pcf50633_global = pcf;
-
 	init_resume_dependency_list(&pcf->resume_dependency);
 
 	populate_sysfs_group(pcf);
@@ -2227,10 +2226,12 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 		backlight_update_status(pcf->backlight);
 	}
 
-	pcf->probe_completed = 1;
-
 	if (pcf->pdata->flag_use_apm_emulation)
 		apm_get_power_status = pcf50633_get_power_status;
+
+	pcf->probe_completed = 1;
+	pcf50633_global = pcf;
+	dev_info(&new_client->dev, "probe completed\n");
 
 	/* if platform was interested, give him a chance to register
 	 * platform devices that switch power with us as the parent
@@ -2366,6 +2367,8 @@ void pcf50633_register_resume_dependency(struct pcf50633_data *pcf,
 					struct resume_dependency *dep)
 {
 	register_resume_dependency(&pcf->resume_dependency, dep);
+	if (pcf->is_suspended)
+		activate_all_resume_dependencies(&pcf->resume_dependency);
 }
 EXPORT_SYMBOL_GPL(pcf50633_register_resume_dependency);
 
@@ -2462,6 +2465,8 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 
 	mutex_unlock(&pcf->lock);
 
+	pcf->is_suspended = 1;
+	activate_all_resume_dependencies(&pcf->resume_dependency);
 	return 0;
 }
 
@@ -2469,6 +2474,10 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 int pcf50633_ready(struct pcf50633_data *pcf)
 {
 	if (!pcf)
+		return -EACCES;
+
+	/* this was seen during boot with Qi, mmc_rescan racing us */
+	if (!pcf->probe_completed)
 		return -EACCES;
 
 	if ((pcf->suspend_state != PCF50633_SS_RUNNING) &&
@@ -2590,6 +2599,7 @@ static int pcf50633_resume(struct device *dev)
 	get_device(&pcf->client.dev);
 	pcf50633_work(&pcf->work);
 
+	pcf->is_suspended = 0;
 	callback_all_resume_dependencies(&pcf->resume_dependency);
 
 	return 0;

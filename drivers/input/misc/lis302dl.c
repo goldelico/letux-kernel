@@ -230,7 +230,7 @@ static ssize_t lis302dl_dump(struct device *dev, struct device_attribute *attr,
 	char *end = buf;
 	unsigned long flags;
 
-	local_save_flags(flags);
+	local_irq_save(flags);
 
 	for (n = 0; n < sizeof(reg); n++)
 		reg[n] = reg_read(lis, n);
@@ -248,10 +248,219 @@ static ssize_t lis302dl_dump(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR(dump, S_IRUGO, lis302dl_dump, NULL);
 
+static int freefall_ms_to_duration(struct lis302dl_info *lis, int ms)
+{
+	u_int8_t r = reg_read(lis, LIS302DL_REG_CTRL1);
+
+	/* If we have 400 ms sampling rate, the stepping is 2.5 ms,
+	 * on 100 ms the stepping is 10ms */
+	if (r & LIS302DL_CTRL1_DR) {
+		/* Too large */
+		if (ms > 637)
+			return -1;
+
+		return (ms * 10) / 25;
+	}
+
+	/* Too large value */
+	if (ms > 2550)
+			return -1;
+	return ms / 10;
+}
+
+static int freefall_duration_to_ms(struct lis302dl_info *lis, int duration)
+{
+	u_int8_t r = reg_read(lis, LIS302DL_REG_CTRL1);
+
+	if (r & LIS302DL_CTRL1_DR)
+		return (duration * 25) / 10;
+
+	return duration * 10;
+}
+
+/* Configure freefall/wakeup interrupts */
+static ssize_t set_freefall_common(int which, struct device *dev,
+		   struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct lis302dl_info *lis = dev_get_drvdata(dev);
+	u_int8_t x_lo, y_lo, z_lo;
+	u_int8_t x_hi, y_hi, z_hi;
+	int duration;
+	int threshold;
+	int and_events;
+	int r_ths = LIS302DL_REG_FF_WU_THS_1; /* registers, assume first pin */
+	int r_duration = LIS302DL_REG_FF_WU_DURATION_1;
+	int r_cfg = LIS302DL_REG_FF_WU_CFG_1;
+	int flag_mask = LIS302DL_F_WUP_FF_1;
+	int intmode = LIS302DL_INTMODE_FF_WU_1;
+	int x, y, z;
+	int ms;
+	unsigned long flags;
+
+	/* Configure for second freefall/wakeup pin */
+	if (which == 2) {
+		r_ths = LIS302DL_REG_FF_WU_THS_2;
+		r_duration = LIS302DL_REG_FF_WU_DURATION_2;
+		r_cfg = LIS302DL_REG_FF_WU_CFG_2;
+		flag_mask = LIS302DL_F_WUP_FF_2;
+		intmode = LIS302DL_INTMODE_FF_WU_2;
+
+		printk(KERN_WARNING
+			    "Configuring second freefall / wakeup interrupt\n");
+	}
+
+	/* Parse the input */
+	if (strcmp(buf, "0\n") == 0) {
+		/* Turn off the interrupt */
+		local_irq_save(flags);
+		if (lis->flags & LIS302DL_F_IRQ_WAKE)
+			disable_irq_wake(lis->spi_dev->irq);
+		lis302dl_int_mode(lis->spi_dev, which,
+						   LIS302DL_INTMODE_DATA_READY);
+		lis->flags &= ~(flag_mask | LIS302DL_F_IRQ_WAKE);
+
+		reg_write(lis, r_cfg, 0);
+		reg_write(lis, r_ths, 0);
+		reg_write(lis, r_duration, 0);
+
+		/* Power off unless the input subsystem is using the device */
+		if (!(lis->flags & LIS302DL_F_INPUT_OPEN))
+			reg_set_bit_mask(lis, LIS302DL_REG_CTRL1,
+							  LIS302DL_CTRL1_PD, 0);
+
+		local_irq_restore(flags);
+
+		return count;
+	}
+
+	if (sscanf(buf, "%d %d %d %d %d %d", &x, &y, &z, &threshold, &ms,
+							      &and_events) != 6)
+		return -EINVAL;
+
+	duration = freefall_ms_to_duration(lis, ms);
+	if (duration < 0)
+		return -ERANGE;
+
+	/* 7 bits */
+	if (threshold < 0 || threshold > 127)
+		return -ERANGE;
+
+	/* Interrupt flags */
+	x_lo = x < 0 ? LIS302DL_FFWUCFG_XLIE : 0;
+	y_lo = y < 0 ? LIS302DL_FFWUCFG_YLIE : 0;
+	z_lo = z < 0 ? LIS302DL_FFWUCFG_ZLIE : 0;
+	x_hi = x > 0 ? LIS302DL_FFWUCFG_XHIE : 0;
+	y_hi = y > 0 ? LIS302DL_FFWUCFG_YHIE : 0;
+	z_hi = z > 0 ? LIS302DL_FFWUCFG_ZHIE : 0;
+
+	/* Setup the configuration registers */
+	local_irq_save(flags);
+	reg_write(lis, r_cfg, 0); /* First zero to get to a known state */
+	reg_write(lis, r_cfg,
+		(and_events ? LIS302DL_FFWUCFG_AOI : 0) |
+		x_lo | x_hi | y_lo | y_hi | z_lo | z_hi);
+	reg_write(lis, r_ths, threshold & ~LIS302DL_FFWUTHS_DCRM);
+	reg_write(lis, r_duration, duration);
+
+	/* Route the interrupt for wakeup */
+	lis302dl_int_mode(lis->spi_dev, which, intmode);
+
+	/* Power up the device and note that we want to wake up from
+	 * this interrupt */
+	if (!(lis->flags & LIS302DL_F_IRQ_WAKE))
+		enable_irq_wake(lis->spi_dev->irq);
+
+	lis->flags |= flag_mask | LIS302DL_F_IRQ_WAKE;
+	reg_set_bit_mask(lis, LIS302DL_REG_CTRL1, LIS302DL_CTRL1_PD,
+			LIS302DL_CTRL1_PD);
+	local_irq_restore(flags);
+
+	return count;
+}
+
+static ssize_t set_freefall_1(struct device *dev, struct device_attribute *attr,
+			 const char *buf, size_t count)
+{
+	return set_freefall_common(1, dev, attr, buf, count);
+}
+static ssize_t set_freefall_2(struct device *dev, struct device_attribute *attr,
+			 const char *buf, size_t count)
+{
+	return set_freefall_common(2, dev, attr, buf, count);
+}
+
+
+static ssize_t show_freefall_common(int which, struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct lis302dl_info *lis = dev_get_drvdata(dev);
+	u_int8_t duration;
+	u_int8_t threshold;
+	u_int8_t config;
+	u_int8_t r4;
+	u_int8_t r5;
+	int r_ths = LIS302DL_REG_FF_WU_THS_1; /* registers, assume first pin */
+	int r_duration = LIS302DL_REG_FF_WU_DURATION_1;
+	int r_cfg = LIS302DL_REG_FF_WU_CFG_1;
+	int r_src = LIS302DL_REG_FF_WU_SRC_1;
+
+	/* Configure second freefall/wakeup pin */
+	if (which == 2) {
+		r_ths = LIS302DL_REG_FF_WU_THS_2;
+		r_duration = LIS302DL_REG_FF_WU_DURATION_2;
+		r_cfg = LIS302DL_REG_FF_WU_CFG_2;
+		r_src = LIS302DL_REG_FF_WU_SRC_2;
+	}
+	config = reg_read(lis, r_cfg);
+	threshold = reg_read(lis, r_ths);
+	duration = reg_read(lis, r_duration);
+	r4 = reg_read(lis, r_src);
+	r5 = reg_read(lis, LIS302DL_REG_CTRL3);
+
+	/* All events off? */
+	if ((config & (LIS302DL_FFWUCFG_XLIE | LIS302DL_FFWUCFG_XHIE |
+			LIS302DL_FFWUCFG_YLIE | LIS302DL_FFWUCFG_YHIE |
+			LIS302DL_FFWUCFG_ZLIE | LIS302DL_FFWUCFG_ZHIE)) == 0)
+		return sprintf(buf, "off\n");
+
+	return sprintf(buf,
+			"%s events, %s interrupt, duration %d, threshold %d, "
+			"enabled: %s %s %s %s %s %s\n",
+			(config & LIS302DL_FFWUCFG_AOI) == 0 ? "or" : "and",
+			(config & LIS302DL_FFWUCFG_LIR) == 0 ?
+							"don't latch" : "latch",
+			freefall_duration_to_ms(lis, duration), threshold,
+			(config & LIS302DL_FFWUCFG_XLIE) == 0 ? "---" : "xlo",
+			(config & LIS302DL_FFWUCFG_XHIE) == 0 ? "---" : "xhi",
+			(config & LIS302DL_FFWUCFG_YLIE) == 0 ? "---" : "ylo",
+			(config & LIS302DL_FFWUCFG_YHIE) == 0 ? "---" : "yhi",
+			(config & LIS302DL_FFWUCFG_ZLIE) == 0 ? "---" : "zlo",
+			(config & LIS302DL_FFWUCFG_ZHIE) == 0 ? "---" : "zhi");
+}
+
+static ssize_t show_freefall_1(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return show_freefall_common(1, dev, attr, buf);
+}
+
+static ssize_t show_freefall_2(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return show_freefall_common(2, dev, attr, buf);
+}
+
+static DEVICE_ATTR(freefall_wakeup_1, S_IRUGO | S_IWUSR, show_freefall_1,
+								set_freefall_1);
+static DEVICE_ATTR(freefall_wakeup_2, S_IRUGO | S_IWUSR, show_freefall_2,
+								set_freefall_2);
+
 static struct attribute *lis302dl_sysfs_entries[] = {
 	&dev_attr_sample_rate.attr,
 	&dev_attr_full_scale.attr,
 	&dev_attr_dump.attr,
+	&dev_attr_freefall_wakeup_1.attr,
+	&dev_attr_freefall_wakeup_2.attr,
 	NULL
 };
 
@@ -269,10 +478,12 @@ static int lis302dl_input_open(struct input_dev *inp)
 			 LIS302DL_CTRL1_Yen | LIS302DL_CTRL1_Zen;
 	unsigned long flags;
 
-	local_save_flags(flags);
+	local_irq_save(flags);
 	/* make sure we're powered up and generate data ready */
 	reg_set_bit_mask(lis, LIS302DL_REG_CTRL1, ctrl1, ctrl1);
 	local_irq_restore(flags);
+
+	lis->flags |= LIS302DL_F_INPUT_OPEN;
 
 	/* kick it off -- since we are edge triggered, if we missed the edge
 	 * permanent low interrupt is death for us */
@@ -288,12 +499,13 @@ static void lis302dl_input_close(struct input_dev *inp)
 			 LIS302DL_CTRL1_Zen;
 	unsigned long flags;
 
-	local_save_flags(flags);
+	local_irq_save(flags);
 
 	/* since the input core already serializes access and makes sure we
 	 * only see close() for the close of the last user, we can safely
 	 * disable the data ready events */
 	reg_set_bit_mask(lis, LIS302DL_REG_CTRL1, ctrl1, 0x00);
+	lis->flags &= ~LIS302DL_F_INPUT_OPEN;
 
 	/* however, don't power down the whole device if still needed */
 	if (!(lis->flags & LIS302DL_F_WUP_FF ||
@@ -334,7 +546,7 @@ static int __devinit lis302dl_probe(struct spi_device *spi)
 	if (!lis)
 		return -ENOMEM;
 
-	local_save_flags(flags);
+	local_irq_save(flags);
 
 	mutex_init(&lis->lock);
 	lis->spi_dev = spi;
@@ -406,14 +618,14 @@ static int __devinit lis302dl_probe(struct spi_device *spi)
 	reg_write(lis, LIS302DL_REG_CTRL2, 0);
 	reg_write(lis, LIS302DL_REG_CTRL3, LIS302DL_CTRL3_PP_OD |
 							    LIS302DL_CTRL3_IHL);
-	reg_write(lis, LIS302DL_REG_FF_WU_THS_1, 0x14);
+	reg_write(lis, LIS302DL_REG_FF_WU_THS_1, 0x0);
 	reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1, 0x00);
-	reg_write(lis, LIS302DL_REG_FF_WU_CFG_1, 0x95);
+	reg_write(lis, LIS302DL_REG_FF_WU_CFG_1, 0x0);
 
 	/* start off in powered down mode; we power up when someone opens us */
 	reg_write(lis, LIS302DL_REG_CTRL1, LIS302DL_CTRL1_Xen |
 					   LIS302DL_CTRL1_Yen |
-			 		   LIS302DL_CTRL1_Zen);
+					   LIS302DL_CTRL1_Zen);
 
 	if (pdata->open_drain)
 		/* switch interrupt to open collector, active-low */
@@ -462,11 +674,15 @@ static int __devexit lis302dl_remove(struct spi_device *spi)
 	struct lis302dl_info *lis = dev_get_drvdata(&spi->dev);
 	unsigned long flags;
 
-	/* power down the device */
-	local_save_flags(flags);
+	/* Reset and power down the device */
+	local_irq_save(flags);
+	reg_write(lis, LIS302DL_REG_CTRL3, 0x00);
+	reg_write(lis, LIS302DL_REG_CTRL2, 0x00);
 	reg_write(lis, LIS302DL_REG_CTRL1, 0x00);
 	local_irq_restore(flags);
 
+	/* Cleanup resources */
+	free_irq(lis->spi_dev->irq, lis);
 	sysfs_remove_group(&spi->dev.kobj, &lis302dl_attr_group);
 	input_unregister_device(lis->input_dev);
 	if (lis->input_dev)
@@ -482,9 +698,15 @@ static int lis302dl_suspend(struct spi_device *spi, pm_message_t state)
 {
 	struct lis302dl_info *lis = dev_get_drvdata(&spi->dev);
 	unsigned long flags;
+	u_int8_t tmp;
+
+	/* determine if we want to wake up from the accel. */
+	if (lis->flags & LIS302DL_F_WUP_FF ||
+		lis->flags & LIS302DL_F_WUP_CLICK)
+		return 0;
 
 	disable_irq(lis->spi_dev->irq);
-	local_save_flags(flags);
+	local_irq_save(flags);
 
 	/*
 	 * When we share SPI over multiple sensors, there is a race here
@@ -524,15 +746,10 @@ static int lis302dl_suspend(struct spi_device *spi, pm_message_t state)
 	lis->regs[LIS302DL_REG_CLICK_WINDOW] =
 				reg_read(lis, LIS302DL_REG_CLICK_WINDOW);
 
-	/* determine if we want to wake up from the accel. */
-	if (!(lis->flags & LIS302DL_F_WUP_FF ||
-	      lis->flags & LIS302DL_F_WUP_CLICK)) {
-		/* power down */
-		u_int8_t tmp;
-		tmp = reg_read(lis, LIS302DL_REG_CTRL1);
-		tmp &= ~LIS302DL_CTRL1_PD;
-		reg_write(lis, LIS302DL_REG_CTRL1, tmp);
-	}
+	/* power down */
+	tmp = reg_read(lis, LIS302DL_REG_CTRL1);
+	tmp &= ~LIS302DL_CTRL1_PD;
+	reg_write(lis, LIS302DL_REG_CTRL1, tmp);
 
 	/* place our IO to the device in sleep-compatible states */
 	(lis->pdata->lis302dl_suspend_io)(lis, 0);
@@ -547,7 +764,11 @@ static int lis302dl_resume(struct spi_device *spi)
 	struct lis302dl_info *lis = dev_get_drvdata(&spi->dev);
 	unsigned long flags;
 
-	local_save_flags(flags);
+	if (lis->flags & LIS302DL_F_WUP_FF ||
+		lis->flags & LIS302DL_F_WUP_CLICK)
+		return 0;
+
+	local_irq_save(flags);
 
 	/* get our IO to the device back in operational states */
 	(lis->pdata->lis302dl_suspend_io)(lis, 1);

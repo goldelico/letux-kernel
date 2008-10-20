@@ -73,6 +73,8 @@
 #include <asm/plat-s3c24xx/pm.h>
 #include <asm/plat-s3c24xx/udc.h>
 #include <asm/plat-s3c24xx/neo1973.h>
+#include <asm/arch-s3c2410/neo1973-pm-gsm.h>
+
 #include <linux/jbt6k74.h>
 
 static struct map_desc gta01_iodesc[] __initdata = {
@@ -87,6 +89,8 @@ static struct map_desc gta01_iodesc[] __initdata = {
 #define UCON S3C2410_UCON_DEFAULT
 #define ULCON S3C2410_LCON_CS8 | S3C2410_LCON_PNONE | S3C2410_LCON_STOPB
 #define UFCON S3C2410_UFCON_RXTRIG8 | S3C2410_UFCON_FIFOMODE
+/* UFCON for the gta01 sets the FIFO trigger level at 4, not 8 */
+#define UFCON_GTA01_PORT0 S3C2410_UFCON_FIFOMODE
 
 static struct s3c2410_uartcfg gta01_uartcfgs[] = {
 	[0] = {
@@ -94,7 +98,7 @@ static struct s3c2410_uartcfg gta01_uartcfgs[] = {
 		.flags	     = 0,
 		.ucon	     = UCON,
 		.ulcon	     = ULCON,
-		.ufcon	     = UFCON,
+		.ufcon	     = UFCON_GTA01_PORT0,
 	},
 	[1] = {
 		.hwport	     = 1,
@@ -507,14 +511,20 @@ static struct s3c2410_ts_mach_info gta01_ts_cfg = {
 
 /* SPI */
 
-void gta01_jbt6k74_reset(int devidx, int level)
+static void gta01_jbt6k74_reset(int devidx, int level)
 {
 	/* empty place holder; gta01 does not yet use this */
 	printk(KERN_DEBUG "gta01_jbt6k74_reset\n");
 }
 
+static void gta01_jbt6k74_resuming(int devidx)
+{
+	gta01bl_deferred_resume();
+}
+
 const struct jbt6k74_platform_data gta01_jbt6k74_pdata = {
 	.reset		= gta01_jbt6k74_reset,
+	.resuming	= gta01_jbt6k74_resuming,
 };
 
 static struct spi_board_info gta01_spi_board_info[] = {
@@ -584,6 +594,7 @@ static struct gta01bl_machinfo backlight_machinfo = {
 	.default_intensity	= 1,
 	.max_intensity		= 1,
 	.limit_mask		= 1,
+	.defer_resume_backlight	= 1,
 };
 
 static struct resource gta01_bl_resources[] = {
@@ -660,6 +671,7 @@ static void __init gta01_map_io(void)
 static irqreturn_t gta01_modem_irq(int irq, void *param)
 {
 	printk(KERN_DEBUG "GSM wakeup interrupt (IRQ %d)\n", irq);
+	gta_gsm_interrupts++;
 	return IRQ_HANDLED;
 }
 

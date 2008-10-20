@@ -116,6 +116,7 @@ struct s3c24xx_uart_port {
 	struct uart_port		port;
 
 	struct resume_dependency	resume_dependency;
+	int				is_suspended;
 };
 
 
@@ -357,7 +358,7 @@ s3c24xx_serial_rx_chars(int irq, void *dev_id)
 		port->icount.rx++;
 
 		if (unlikely(uerstat & S3C2410_UERSTAT_ANY)) {
-			dbg("rxerr: port ch=0x%02x, rxs=0x%08x\n",
+			printk(KERN_DEBUG "rxerr: port ch=0x%02x, rxs=0x%08x\n",
 			    ch, uerstat);
 
 			/* check for break */
@@ -1188,10 +1189,13 @@ static int s3c24xx_serial_remove(struct platform_device *dev)
 static int s3c24xx_serial_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(&dev->dev);
+	struct s3c24xx_uart_port *ourport = to_ourport(port);
 
 	if (port)
 		uart_suspend_port(&s3c24xx_uart_drv, port);
 
+	activate_all_resume_dependencies(&ourport->resume_dependency);
+	ourport->is_suspended = 1;
 	return 0;
 }
 
@@ -1202,6 +1206,8 @@ void s3c24xx_serial_register_resume_dependency(struct resume_dependency *
 
 	register_resume_dependency(&ourport->resume_dependency,
 							     resume_dependency);
+	if (ourport->is_suspended)
+		activate_all_resume_dependencies(&ourport->resume_dependency);
 }
 EXPORT_SYMBOL(s3c24xx_serial_register_resume_dependency);
 
@@ -1218,6 +1224,7 @@ static int s3c24xx_serial_resume(struct platform_device *dev)
 		uart_resume_port(&s3c24xx_uart_drv, port);
 	}
 
+	ourport->is_suspended = 0;
 	callback_all_resume_dependencies(&ourport->resume_dependency);
 
 	return 0;
@@ -1780,6 +1787,13 @@ module_exit(s3c24xx_serial_modexit);
 #ifdef CONFIG_SERIAL_S3C2410_CONSOLE
 
 static struct uart_port *cons_uart;
+static int cons_silenced;
+
+void s3c24xx_serial_console_set_silence(int silenced)
+{
+	cons_silenced = silenced;
+}
+EXPORT_SYMBOL(s3c24xx_serial_console_set_silence);
 
 static int
 s3c24xx_serial_console_txrdy(struct uart_port *port, unsigned int ufcon)
@@ -1805,6 +1819,9 @@ s3c24xx_serial_console_putchar(struct uart_port *port, int ch)
 {
 	unsigned int ufcon = rd_regl(cons_uart, S3C2410_UFCON);
 	unsigned int umcon = rd_regl(cons_uart, S3C2410_UMCON);
+
+	if (cons_silenced)
+		return;
 
 	/* If auto HW flow control enabled, temporarily turn it off */
 	if (umcon & S3C2410_UMCOM_AFC)

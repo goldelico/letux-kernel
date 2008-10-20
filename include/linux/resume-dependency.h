@@ -48,7 +48,15 @@ struct resume_dependency {
  */
 
 #define register_resume_dependency(_head, _dep) { \
-	(_dep)->called_flag = 0; \
+	struct list_head *_pos, *_q; \
+	struct resume_dependency *_d; \
+\
+	(_dep)->called_flag = 1; \
+	list_for_each_safe(_pos, _q, &((_head)->list)) { \
+		_d = list_entry(_pos, struct resume_dependency, list); \
+		if (_d == (_dep)) \
+			list_del(_pos); \
+	} \
 	list_add(&(_dep)->list, &(_head)->list); \
 }
 
@@ -66,6 +74,25 @@ struct resume_dependency {
 		_dep->called_flag = 1; \
 		(_dep->callback)(_dep->context); \
 		list_del(_pos); \
+	} \
+}
+
+/* When a dependency is added, it is not actually active; the dependent resume
+ * handler will function as normal.  The dependency is activated by the suspend
+ * handler for the driver that will be doing the callbacks.  This ensures that
+ * if the suspend is aborted for any reason (error, driver busy, etc), that all
+ * suspended drivers will resume, even if the driver upon which they are
+ * dependent did not suspend, and hence will not resume, and thus would be
+ * unable to perform the callbacks.
+ */
+
+#define activate_all_resume_dependencies(_head) { \
+	struct list_head *_pos, *_q; \
+	struct resume_dependency *_dep; \
+\
+	list_for_each_safe(_pos, _q, &((_head)->list)) { \
+		_dep = list_entry(_pos, struct resume_dependency, list); \
+		_dep->called_flag = 0; \
 	} \
 }
 

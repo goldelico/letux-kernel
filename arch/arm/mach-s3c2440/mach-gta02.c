@@ -76,6 +76,8 @@
 #include <asm/plat-s3c24xx/pm.h>
 #include <asm/plat-s3c24xx/udc.h>
 #include <asm/plat-s3c24xx/neo1973.h>
+#include <asm/arch-s3c2410/neo1973-pm-gsm.h>
+
 #include <linux/jbt6k74.h>
 
 #include <linux/glamofb.h>
@@ -880,6 +882,7 @@ static struct s3c2410_platform_nand gta02_nand_info = {
 	.twrph1		= 20,
 	.nr_sets	= ARRAY_SIZE(gta02_nand_sets),
 	.sets		= gta02_nand_sets,
+	.software_ecc	= 1,
 };
 
 static struct s3c24xx_mci_pdata gta02_mmc_cfg = {
@@ -1051,7 +1054,7 @@ static struct platform_device gta02_vibrator_dev = {
 
 struct lis302dl_platform_data lis302_pdata[];
 
-void gat02_lis302dl_bitbang_read(struct lis302dl_info *lis)
+void gta02_lis302dl_bitbang_read(struct lis302dl_info *lis)
 {
 	struct lis302dl_platform_data *pdata = lis->pdata;
 	u8 shifter = 0xc0 | LIS302DL_REG_OUT_X; /* read, autoincrement */
@@ -1062,7 +1065,7 @@ void gat02_lis302dl_bitbang_read(struct lis302dl_info *lis)
 	s8 x, y, z;
 #endif
 
-	local_save_flags(flags);
+	local_irq_save(flags);
 
 	/*
 	 * Huh.. "quirk"... CS on this device is not really "CS" like you can
@@ -1134,7 +1137,7 @@ void gat02_lis302dl_bitbang_read(struct lis302dl_info *lis)
 }
 
 
-void gat02_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
+void gta02_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
 {
 	struct lis302dl_platform_data *pdata = lis->pdata;
 
@@ -1166,8 +1169,8 @@ struct lis302dl_platform_data lis302_pdata[] = {
 		.pin_mosi	= S3C2410_GPG6,
 		.pin_miso	= S3C2410_GPG5,
 		.open_drain	= 1, /* altered at runtime by PCB rev */
-		.lis302dl_bitbang_read = gat02_lis302dl_bitbang_read,
-		.lis302dl_suspend_io = gat02_lis302dl_suspend_io,
+		.lis302dl_bitbang_read = gta02_lis302dl_bitbang_read,
+		.lis302dl_suspend_io = gta02_lis302dl_suspend_io,
 	}, {
 		.name		= "lis302-2 (bottom)",
 		.pin_chip_select= S3C2410_GPD13,
@@ -1175,8 +1178,8 @@ struct lis302dl_platform_data lis302_pdata[] = {
 		.pin_mosi	= S3C2410_GPG6,
 		.pin_miso	= S3C2410_GPG5,
 		.open_drain	= 1, /* altered at runtime by PCB rev */
-		.lis302dl_bitbang_read = gat02_lis302dl_bitbang_read,
-		.lis302dl_suspend_io = gat02_lis302dl_suspend_io,
+		.lis302dl_bitbang_read = gta02_lis302dl_bitbang_read,
+		.lis302dl_suspend_io = gta02_lis302dl_suspend_io,
 	},
 };
 
@@ -1354,7 +1357,7 @@ static void
 gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 {
 	int mv = 1650;
-	int timeout = 100;
+	int timeout = 500;
 
 	printk(KERN_DEBUG "mmc_set_power(power_mode=%u, vdd=%u\n",
 	       power_mode, vdd);
@@ -1374,7 +1377,7 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 			while (pcf50633_ready(pcf50633_global) && (timeout--))
 				msleep(5);
 
-			if (!timeout) {
+			if (timeout < 0) {
 				printk(KERN_ERR"gta02_glamo_mmc_set_power "
 					     "BAILING on timeout\n");
 				return;
@@ -1534,6 +1537,7 @@ static void __init gta02_map_io(void)
 static irqreturn_t gta02_modem_irq(int irq, void *param)
 {
 	printk(KERN_DEBUG "modem wakeup interrupt\n");
+	gta_gsm_interrupts++;
 	return IRQ_HANDLED;
 }
 
@@ -1542,6 +1546,20 @@ static irqreturn_t ar6000_wow_irq(int irq, void *param)
 	printk(KERN_DEBUG "ar6000_wow interrupt\n");
 	return IRQ_HANDLED;
 }
+
+/*
+ * hardware_ecc=1|0
+ */
+static char hardware_ecc_str[4] __initdata = "";
+
+static int __init hardware_ecc_setup(char *str)
+{
+	if (str)
+		strlcpy(hardware_ecc_str, str, sizeof(hardware_ecc_str));
+	return 1;
+}
+
+__setup("hardware_ecc=", hardware_ecc_setup);
 
 static void __init gta02_machine_init(void)
 {
@@ -1561,6 +1579,10 @@ static void __init gta02_machine_init(void)
 	}
 
 	spin_lock_init(&motion_irq_lock);
+
+	/* do not force soft ecc if we are asked to use hardware_ecc */
+	if (hardware_ecc_str[0] == '1')
+		gta02_nand_info.software_ecc = 0;
 
 	s3c_device_usb.dev.platform_data = &gta02_usb_info;
 	s3c_device_nand.dev.platform_data = &gta02_nand_info;
