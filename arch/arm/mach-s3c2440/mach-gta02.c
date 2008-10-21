@@ -872,14 +872,14 @@ static struct s3c2410_nand_set gta02_nand_sets[] = {
 	},
 };
 
-/* choose a set of timings which should suit most 512Mbit
- * chips and beyond.
+/* choose a set of timings derived from S3C@2442B MCP54 
+ * data sheet (K5D2G13ACM-D075 MCP Memory)
  */
 
 static struct s3c2410_platform_nand gta02_nand_info = {
-	.tacls		= 20,
-	.twrph0		= 60,
-	.twrph1		= 20,
+	.tacls		= 0,
+	.twrph0		= 25,
+	.twrph1		= 15,
 	.nr_sets	= ARRAY_SIZE(gta02_nand_sets),
 	.sets		= gta02_nand_sets,
 	.software_ecc	= 1,
