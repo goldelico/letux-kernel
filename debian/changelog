@@ -5,7 +5,7 @@ linux-2.6-openmoko (20080903.git2ea34171-1) UNRELEASED; urgency=low
     + use the last 8 digits to identify the Git commit.
 
   * debian/rules:
-    + uImage.bin must be a real file, vfat partitions doesn't support
+    + uImage.bin must be a real file, vfat partitions don't support
       symlinks, thanks to Michele Renda <michele.renda@gmail.com>.
 
  --
