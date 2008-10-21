@@ -1,4 +1,4 @@
-linux-2.6-openmoko (20080903.git2ea34171-1) UNRELEASED; urgency=low
+linux-2.6-openmoko (20080903.git2ea34171-1) pkg-fso; urgency=low
 
   * New Git Checkout:
     + milestone3.
@@ -8,7 +8,7 @@ linux-2.6-openmoko (20080903.git2ea34171-1) UNRELEASED; urgency=low
     + uImage.bin must be a real file, vfat partitions don't support
       symlinks, thanks to Michele Renda <michele.renda@gmail.com>.
 
- --
+ -- Luca Capello <luca@pca.it>  Tue, 21 Oct 2008 15:43:20 +0200
 
 linux-2.6-openmoko (20080808.git43620428-2) pkg-fso; urgency=low
 
