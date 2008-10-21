@@ -16,6 +16,7 @@
 #include <linux/log2.h>
 #include <linux/typecheck.h>
 #include <linux/ratelimit.h>
+#include <linux/dynamic_printk.h>
 #include <asm/byteorder.h>
 #include <asm/bug.h>
 
@@ -213,6 +214,9 @@ static inline bool printk_timed_ratelimit(unsigned long *caller_jiffies, \
 		{ return false; }
 #endif
 
+extern int printk_needs_cpu(int cpu);
+extern void printk_tick(void);
+
 extern void asmlinkage __attribute__((format(printf, 1, 2)))
 	early_printk(const char *fmt, ...);
 
@@ -261,6 +265,7 @@ extern enum system_states {
 #define TAINT_DIE			7
 #define TAINT_OVERRIDDEN_ACPI_TABLE	8
 #define TAINT_WARN			9
+#define TAINT_CRAP			10
 
 extern void dump_stack(void) __cold;
 
@@ -304,8 +309,12 @@ static inline char *pack_hex_byte(char *buf, u8 byte)
 #define pr_info(fmt, arg...) \
 	printk(KERN_INFO fmt, ##arg)
 
-#ifdef DEBUG
 /* If you are writing a driver, please use dev_dbg instead */
+#if defined(CONFIG_DYNAMIC_PRINTK_DEBUG)
+#define pr_debug(fmt, ...) do { \
+	dynamic_pr_debug(fmt, ##__VA_ARGS__); \
+	} while (0)
+#elif defined(DEBUG)
 #define pr_debug(fmt, arg...) \
 	printk(KERN_DEBUG fmt, ##arg)
 #else
@@ -485,6 +494,11 @@ struct sysinfo {
 #define NUMA_BUILD 1
 #else
 #define NUMA_BUILD 0
+#endif
+
+/* Rebuild everything on CONFIG_FTRACE_MCOUNT_RECORD */
+#ifdef CONFIG_FTRACE_MCOUNT_RECORD
+# define REBUILD_DUE_TO_FTRACE_MCOUNT_RECORD
 #endif
 
 #endif
