@@ -43,7 +43,7 @@ install-stamp: build
 	objcopy -O binary -R .note -R .comment \
 		-S arch/arm/boot/compressed/vmlinux linux.bin
 	mkimage -A arm -O linux -T kernel -C none -a 30008000 \
-		-e 30008000 -n "Openmoko Freerunner Kernel" -d linux.bin \
+		-e 30008000 -n "Openmoko FreeRunner Kernel" -d linux.bin \
 		vmlinuz-$(VERSION)
 
 	# Install the uImage (this is an ugly hack, I know)
