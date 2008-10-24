@@ -6,6 +6,7 @@ include /usr/share/quilt/quilt.make
 export DH_VERBOSE=1
 
 VERSION_EXTRA=$(shell dpkg-parsechangelog | sed -n 's/^Version: //p' | sed -e 's/-[^-]*//')
+VERSION_FULL=2.6.24-$(VERSION_EXTRA)
 
 
 build: build-stamp
@@ -25,7 +26,7 @@ clean: unpatch
 	dh_testroot
 	rm -f build-stamp
 
-	rm -f .config* linux.bin vmlinuz-$(VERSION_EXTRA)
+	rm -f .config* linux.bin vmlinuz-$(VERSION_FULL)
 
 	# Add here commands to clean up after the build process.
 	$(MAKE) clean
@@ -45,12 +46,12 @@ install-stamp: build
 		-S arch/arm/boot/compressed/vmlinux linux.bin
 	mkimage -A arm -O linux -T kernel -C none -a 30008000 \
 		-e 30008000 -n "Debian FreeRunner Kernel" -d linux.bin \
-		vmlinuz-$(VERSION_EXTRA)
+		vmlinuz-$(VERSION_FULL)
 
 	# Install the uImage (this is an ugly hack, I know)
 	mkdir `pwd`/debian/`dh_listpackages`/boot/
-	cp vmlinuz-$(VERSION_EXTRA) `pwd`/debian/`dh_listpackages`/boot/
-	cp vmlinuz-$(VERSION_EXTRA) `pwd`/debian/`dh_listpackages`/boot/uImage.bin
+	cp vmlinuz-$(VERSION_FULL) `pwd`/debian/`dh_listpackages`/boot/
+	cp vmlinuz-$(VERSION_FULL) `pwd`/debian/`dh_listpackages`/boot/uImage.bin
 
 	# Install the modules.
 	$(MAKE) INSTALL_MOD_STRIP=1 \
