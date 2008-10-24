@@ -1,4 +1,4 @@
-linux-2.6-openmoko (20080903.git2ea34171-2) UNRELEASED; urgency=low
+linux-2.6-openmoko (20080903.git2ea34171-2) pkg-fso; urgency=low
 
   * debian/rules:
     + correctly capitalize FreeRunner in uImage name.
@@ -10,7 +10,7 @@ linux-2.6-openmoko (20080903.git2ea34171-2) UNRELEASED; urgency=low
       use the same version.
     + install .config in /boot.
 
- --
+ -- Luca Capello <luca@pca.it>  Fri, 24 Oct 2008 20:39:43 +0200
 
 linux-2.6-openmoko (20080903.git2ea34171-1) pkg-fso; urgency=low
 
