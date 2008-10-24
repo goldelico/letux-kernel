@@ -5,7 +5,8 @@ include /usr/share/quilt/quilt.make
 
 export DH_VERBOSE=1
 
-VERSION=$(shell dpkg-parsechangelog | sed -n 's/^Version: //p' | sed -e 's/-[^-]*//')
+VERSION_EXTRA=$(shell dpkg-parsechangelog | sed -n 's/^Version: //p' | sed -e 's/-[^-]*//')
+
 
 build: build-stamp
 build-stamp: $(QUILT_STAMPFN)
@@ -15,7 +16,7 @@ build-stamp: $(QUILT_STAMPFN)
 	cp defconfig-gta02 .config
 	yes "" | $(MAKE) ARCH=arm oldconfig
 
-	$(MAKE) ARCH=arm EXTRAVERSION=-$(VERSION)
+	$(MAKE) ARCH=arm EXTRAVERSION=-$(VERSION_EXTRA)
 
 	touch build-stamp
 
@@ -24,7 +25,7 @@ clean: unpatch
 	dh_testroot
 	rm -f build-stamp
 
-	rm -f .config* linux.bin vmlinuz-$(VERSION)
+	rm -f .config* linux.bin vmlinuz-$(VERSION_EXTRA)
 
 	# Add here commands to clean up after the build process.
 	$(MAKE) clean
@@ -44,12 +45,12 @@ install-stamp: build
 		-S arch/arm/boot/compressed/vmlinux linux.bin
 	mkimage -A arm -O linux -T kernel -C none -a 30008000 \
 		-e 30008000 -n "Debian FreeRunner Kernel" -d linux.bin \
-		vmlinuz-$(VERSION)
+		vmlinuz-$(VERSION_EXTRA)
 
 	# Install the uImage (this is an ugly hack, I know)
 	mkdir `pwd`/debian/`dh_listpackages`/boot/
-	cp vmlinuz-$(VERSION) `pwd`/debian/`dh_listpackages`/boot/
-	cp vmlinuz-$(VERSION) `pwd`/debian/`dh_listpackages`/boot/uImage.bin
+	cp vmlinuz-$(VERSION_EXTRA) `pwd`/debian/`dh_listpackages`/boot/
+	cp vmlinuz-$(VERSION_EXTRA) `pwd`/debian/`dh_listpackages`/boot/uImage.bin
 
 	# Install the modules.
 	$(MAKE) INSTALL_MOD_STRIP=1 \
