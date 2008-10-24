@@ -58,6 +58,9 @@ install-stamp: build
 		INSTALL_MOD_PATH=`pwd`/debian/`dh_listpackages`/ \
 		modules_install
 
+	# Install the config file
+	cp .config `pwd`/debian/`dh_listpackages`/boot/config-$(VERSION_FULL)
+
 	touch install-stamp
 
 # Build architecture-independent files here.

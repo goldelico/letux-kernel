@@ -8,6 +8,7 @@ linux-2.6-openmoko (20080903.git2ea34171-2) UNRELEASED; urgency=low
       version (VERSION-PATCHLEVEL-SUBLEVEL) and it's used to identify
       the vmlinuz image, thus the latter and the modules directory
       use the same version.
+    + install .config in /boot.
 
  --
 
