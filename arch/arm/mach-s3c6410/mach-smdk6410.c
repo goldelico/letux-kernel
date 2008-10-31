@@ -79,8 +79,6 @@ static struct i2c_board_info i2c_devs1[] __initdata = {
 	{ I2C_BOARD_INFO("24c128", 0x57), },	/* Samsung S524AD0XD1 */
 };
 
-extern void s3c64xx_init_io(struct map_desc *, int);
-
 static void __init smdk6410_map_io(void)
 {
 	s3c64xx_init_io(smdk6410_iodesc, ARRAY_SIZE(smdk6410_iodesc));
