@@ -34,10 +34,10 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/cpufreq.h>
+#include <linux/io.h>
 
 #include <mach/hardware.h>
 #include <asm/irq.h>
-#include <asm/io.h>
 
 #include <mach/regs-gpio.h>
 #include <plat/regs-iic.h>
