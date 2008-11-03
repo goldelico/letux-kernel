@@ -59,14 +59,6 @@
 #define S3C24XX_SERIAL_MAJOR	204
 #define S3C24XX_SERIAL_MINOR	64
 
-/* we can support 3 uarts, but not always use them */
-
-#if defined(CONFIG_CPU_S3C2400) || defined(CONFIG_CPU_S3C24A0)
-#define NR_PORTS (2)
-#else
-#define NR_PORTS (3)
-#endif
-
 /* macros to change one thing to another */
 
 #define tx_enabled(port) ((port)->unused[0])
@@ -832,14 +824,14 @@ static struct uart_ops s3c24xx_serial_ops = {
 static struct uart_driver s3c24xx_uart_drv = {
 	.owner		= THIS_MODULE,
 	.dev_name	= "s3c2410_serial",
-	.nr		= 3,
+	.nr		= CONFIG_SERIAL_SAMSUNG_UARTS,
 	.cons		= S3C24XX_SERIAL_CONSOLE,
 	.driver_name	= S3C24XX_SERIAL_NAME,
 	.major		= S3C24XX_SERIAL_MAJOR,
 	.minor		= S3C24XX_SERIAL_MINOR,
 };
 
-static struct s3c24xx_uart_port s3c24xx_serial_ports[NR_PORTS] = {
+static struct s3c24xx_uart_port s3c24xx_serial_ports[CONFIG_SERIAL_SAMSUNG_UARTS] = {
 	[0] = {
 		.port = {
 			.lock		= __SPIN_LOCK_UNLOCKED(s3c24xx_serial_ports[0].port.lock),
@@ -864,7 +856,7 @@ static struct s3c24xx_uart_port s3c24xx_serial_ports[NR_PORTS] = {
 			.line		= 1,
 		}
 	},
-#if NR_PORTS > 2
+#if CONFIG_SERIAL_SAMSUNG_UARTS > 2
 
 	[2] = {
 		.port = {
@@ -876,6 +868,20 @@ static struct s3c24xx_uart_port s3c24xx_serial_ports[NR_PORTS] = {
 			.ops		= &s3c24xx_serial_ops,
 			.flags		= UPF_BOOT_AUTOCONF,
 			.line		= 2,
+		}
+	},
+#endif
+#if CONFIG_SERIAL_SAMSUNG_UARTS > 3
+	[3] = {
+		.port = {
+			.lock		= __SPIN_LOCK_UNLOCKED(s3c24xx_serial_ports[3].port.lock),
+			.iotype		= UPIO_MEM,
+			.irq		= IRQ_S3CUART_RX3,
+			.uartclk	= 0,
+			.fifosize	= 16,
+			.ops		= &s3c24xx_serial_ops,
+			.flags		= UPF_BOOT_AUTOCONF,
+			.line		= 3,
 		}
 	}
 #endif
@@ -1006,8 +1012,11 @@ static int s3c24xx_serial_init_port(struct s3c24xx_uart_port *ourport,
 	if (port->mapbase != 0)
 		return 0;
 
-	if (cfg->hwport > 3)
-		return -EINVAL;
+	if (cfg->hwport > CONFIG_SERIAL_SAMSUNG_UARTS) {
+		printk(KERN_ERR "%s: port %d bigger than %d\n", __func__,
+		       cfg->hwport, CONFIG_SERIAL_SAMSUNG_UARTS);
+		return -ERANGE;
+	}
 
 	/* setup info for port */
 	port->dev	= &platdev->dev;
@@ -1324,7 +1333,7 @@ static int s3c24xx_serial_init_ports(struct s3c24xx_uart_info *info)
 
 	platdev_ptr = s3c24xx_uart_devs;
 
-	for (i = 0; i < NR_PORTS; i++, ptr++, platdev_ptr++) {
+	for (i = 0; i < CONFIG_SERIAL_SAMSUNG_UARTS; i++, ptr++, platdev_ptr++) {
 		s3c24xx_serial_init_port(ptr, info, *platdev_ptr);
 	}
 
@@ -1345,7 +1354,7 @@ s3c24xx_serial_console_setup(struct console *co, char *options)
 
 	/* is this a valid port */
 
-	if (co->index == -1 || co->index >= NR_PORTS)
+	if (co->index == -1 || co->index >= CONFIG_SERIAL_SAMSUNG_UARTS)
 		co->index = 0;
 
 	port = &s3c24xx_serial_ports[co->index].port;
