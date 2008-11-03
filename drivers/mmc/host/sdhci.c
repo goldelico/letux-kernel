@@ -907,12 +907,17 @@ static void sdhci_finish_command(struct sdhci_host *host)
 
 static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 {
+	if (clock == host->clock)
+		return;
+
+	host->ops->change_clock(host, clock);
+}
+
+void sdhci_change_clock(struct sdhci_host *host, unsigned int clock)
+{
 	int div;
 	u16 clk;
 	unsigned long timeout;
-
-	if (clock == host->clock)
-		return;
 
 	writew(0, host->ioaddr + SDHCI_CLOCK_CONTROL);
 
@@ -949,6 +954,8 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 out:
 	host->clock = clock;
 }
+
+EXPORT_SYMBOL_GPL(sdhci_set_clock);
 
 static void sdhci_set_power(struct sdhci_host *host, unsigned short power)
 {

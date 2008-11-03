@@ -273,6 +273,9 @@ struct sdhci_ops {
 	unsigned int	(*get_max_clock)(struct sdhci_host *host);
 	unsigned int	(*get_timeout_clock)(struct sdhci_host *host);
 
+	void		(*change_clock)(struct sdhci_host *host,
+					unsigned int clock);
+
 	void		(*set_ios)(struct sdhci_host *host,
 				   struct mmc_ios *ios);
 };
@@ -281,6 +284,8 @@ struct sdhci_ops {
 extern struct sdhci_host *sdhci_alloc_host(struct device *dev,
 	size_t priv_size);
 extern void sdhci_free_host(struct sdhci_host *host);
+
+extern void sdhci_change_clock(struct sdhci_host *host, unsigned int clock);
 
 static inline void *sdhci_priv(struct sdhci_host *host)
 {
