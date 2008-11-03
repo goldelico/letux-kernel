@@ -1604,17 +1604,23 @@ int sdhci_add_host(struct sdhci_host *host)
 		mmc_dev(host->mmc)->dma_mask = &host->dma_mask;
 	}
 
-	host->max_clk =
-		(caps & SDHCI_CLOCK_BASE_MASK) >> SDHCI_CLOCK_BASE_SHIFT;
+	if (host->ops->get_max_clock)
+		host->max_clk = host->ops->get_max_clock(host);
+	else {
+		host->max_clk =	(caps & SDHCI_CLOCK_BASE_MASK) >> SDHCI_CLOCK_BASE_SHIFT;
+		host->max_clk *= 1000000;
+	}
 	if (host->max_clk == 0) {
 		printk(KERN_ERR "%s: Hardware doesn't specify base clock "
 			"frequency.\n", mmc_hostname(mmc));
 		return -ENODEV;
 	}
-	host->max_clk *= 1000000;
 
-	host->timeout_clk =
-		(caps & SDHCI_TIMEOUT_CLK_MASK) >> SDHCI_TIMEOUT_CLK_SHIFT;
+	if (host->ops->get_timeout_clock)
+		host->timeout_clk = host->ops->get_timeout_clock(host);
+	else
+		host->timeout_clk =
+			(caps & SDHCI_TIMEOUT_CLK_MASK) >> SDHCI_TIMEOUT_CLK_SHIFT;
 	if (host->timeout_clk == 0) {
 		printk(KERN_ERR "%s: Hardware doesn't specify timeout clock "
 			"frequency.\n", mmc_hostname(mmc));

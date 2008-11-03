@@ -267,6 +267,8 @@ struct sdhci_host {
 
 struct sdhci_ops {
 	int		(*enable_dma)(struct sdhci_host *host);
+	unsigned int	(*get_max_clock)(struct sdhci_host *host);
+	unsigned int	(*get_timeout_clock)(struct sdhci_host *host);
 };
 
 
