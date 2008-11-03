@@ -1291,11 +1291,24 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 	 *       controllers.
 	 */
 	if (host->cmd->flags & MMC_RSP_BUSY) {
+		u32 present;
+
 		if (host->cmd->data)
 			DBG("Cannot wait for busy signal when also "
 				"doing a data transfer");
-		else
+		else if (!(host->quirks & SDHCI_QUIRK_NO_TCIRQ_ON_NOT_BUSY))
 			return;
+
+		/* The Samsung SDHCI does not seem to provide an INT_DATA_END
+		 * when the system goes non-busy, so check the state of the
+		 * transfer by reading SDHCI_PRESENT_STATE to see if the
+		 * controller is ready
+		 */
+
+		present = readl(host->ioaddr + SDHCI_PRESENT_STATE);
+		DBG("busy? present %08x, intstat %08x\n", present, intmask);
+
+		/* fall through and take the SDHCI_INT_RESPONSE */
 	}
 
 	if (intmask & SDHCI_INT_RESPONSE)
