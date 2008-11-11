@@ -1,3 +1,10 @@
+linux-2.6-openmoko (20081103.git7172ec57-1) UNRELEASED; urgency=low
+
+  * New Git Checkout:
+    + milestone4.
+
+ --
+
 linux-2.6-openmoko (20080903.git2ea34171-2) pkg-fso; urgency=low
 
   * debian/rules:
