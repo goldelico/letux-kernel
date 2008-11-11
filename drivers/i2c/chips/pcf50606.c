@@ -120,6 +120,7 @@ struct pcf50606_data {
 	int onkey_seconds;
 	int irq;
 	int coldplug_done;
+	int suppress_onkey_events;
 	enum pcf50606_suspend_states suspend_state;
 #ifdef CONFIG_PM
 	struct {
@@ -656,8 +657,20 @@ static void pcf50606_work(struct work_struct *work)
 	 *
 	 * pcf50606 resume is really really over now then.
 	 */
-	if (pcf->suspend_state != PCF50606_SS_RUNNING)
+	if (pcf->suspend_state != PCF50606_SS_RUNNING) {
 		pcf->suspend_state = PCF50606_SS_RUNNING;
+
+		/* peek at the IRQ reason, if power button then set a flag
+		 * so that we do not signal the event to userspace
+		 */
+		if (pcfirq[0] & (PCF50606_INT1_ONKEYF | PCF50606_INT1_ONKEYR)) {
+			pcf->suppress_onkey_events = 1;
+			dev_dbg(&pcf->client.dev,
+				"Wake by ONKEY, suppressing ONKEY events");
+		} else {
+			pcf->suppress_onkey_events = 0;
+		}
+	}
 
 	if (!pcf->coldplug_done) {
 		DEBUGPC("PMU Coldplug init\n");
@@ -689,9 +702,13 @@ static void pcf50606_work(struct work_struct *work)
 
 	if (pcfirq[0] & PCF50606_INT1_ONKEYF) {
 		/* ONKEY falling edge (start of button press) */
-		DEBUGPC("ONKEYF ");
 		pcf->flags |= PCF50606_F_PWR_PRESSED;
-		input_report_key(pcf->input_dev, KEY_POWER, 1);
+		if (!pcf->suppress_onkey_events) {
+			DEBUGPC("ONKEYF ");
+			input_report_key(pcf->input_dev, KEY_POWER, 1);
+		} else {
+			DEBUGPC("ONKEYF(unreported) ");
+		}
 	}
 	if (pcfirq[0] & PCF50606_INT1_ONKEY1S) {
 		/* ONKEY pressed for more than 1 second */
@@ -706,10 +723,16 @@ static void pcf50606_work(struct work_struct *work)
 	}
 	if (pcfirq[0] & PCF50606_INT1_ONKEYR) {
 		/* ONKEY rising edge (end of button press) */
-		DEBUGPC("ONKEYR ");
 		pcf->flags &= ~PCF50606_F_PWR_PRESSED;
 		pcf->onkey_seconds = -1;
-		input_report_key(pcf->input_dev, KEY_POWER, 0);
+		if (!pcf->suppress_onkey_events) {
+			DEBUGPC("ONKEYR ");
+			input_report_key(pcf->input_dev, KEY_POWER, 0);
+		} else {
+			DEBUGPC("ONKEYR(suppressed) ");
+			/* don't suppress any more power button events */
+			pcf->suppress_onkey_events = 0;
+		}
 		/* disable SECOND interrupt in case RTC didn't
 		 * request it */
 		if (!(pcf->flags & PCF50606_F_RTC_SECOND))
@@ -1766,6 +1789,7 @@ static int pcf50606_detect(struct i2c_adapter *adapter, int address, int kind)
 	INIT_WORK(&data->work, pcf50606_work);
 	data->irq = irq;
 	data->working = 0;
+	data->suppress_onkey_events = 0;
 	data->onkey_seconds = -1;
 	data->pdata = pcf50606_pdev->dev.platform_data;
 

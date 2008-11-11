@@ -2311,6 +2311,7 @@ ar6000_disconnect_event(AR_SOFTC_T *ar, A_UINT8 reason, A_UINT8 *bssid,
         A_PRINTF(" from %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x ",
                  bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
     }
+    A_PRINTF("\n");
 
     AR_DEBUG_PRINTF("\nDisconnect Reason is %d", reason);
     AR_DEBUG_PRINTF("\nProtocol Reason/Status Code is %d", protocolReasonStatus);

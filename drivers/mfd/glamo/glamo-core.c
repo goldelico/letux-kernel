@@ -524,6 +524,38 @@ int glamo_engine_disable(struct glamo_core *glamo, enum glamo_engine engine)
 }
 EXPORT_SYMBOL_GPL(glamo_engine_disable);
 
+static const u_int16_t engine_clock_regs[__NUM_GLAMO_ENGINES] = {
+	[GLAMO_ENGINE_LCD]	= GLAMO_REG_CLOCK_LCD,
+	[GLAMO_ENGINE_MMC]	= GLAMO_REG_CLOCK_MMC,
+	[GLAMO_ENGINE_ISP]	= GLAMO_REG_CLOCK_ISP,
+	[GLAMO_ENGINE_JPEG]	= GLAMO_REG_CLOCK_JPEG,
+	[GLAMO_ENGINE_3D]	= GLAMO_REG_CLOCK_3D,
+	[GLAMO_ENGINE_2D]	= GLAMO_REG_CLOCK_2D,
+	[GLAMO_ENGINE_MPEG_ENC] = GLAMO_REG_CLOCK_MPEG,
+	[GLAMO_ENGINE_MPEG_DEC] = GLAMO_REG_CLOCK_MPEG,
+};
+
+void glamo_engine_clkreg_set(struct glamo_core *glamo,
+			     enum glamo_engine engine,
+			     u_int16_t mask, u_int16_t val)
+{
+	reg_set_bit_mask(glamo, engine_clock_regs[engine], mask, val);
+}
+EXPORT_SYMBOL_GPL(glamo_engine_clkreg_set);
+
+u_int16_t glamo_engine_clkreg_get(struct glamo_core *glamo,
+				  enum glamo_engine engine)
+{
+	u_int16_t val;
+
+	spin_lock(&glamo->lock);
+	val = __reg_read(glamo, engine_clock_regs[engine]);
+	spin_unlock(&glamo->lock);
+
+	return val;
+}
+EXPORT_SYMBOL_GPL(glamo_engine_clkreg_get);
+
 struct glamo_script reset_regs[] = {
 	[GLAMO_ENGINE_LCD] = {
 		GLAMO_REG_CLOCK_LCD, GLAMO_CLOCK_LCD_RESET
@@ -729,8 +761,8 @@ static struct glamo_script glamo_init_script[] = {
 	{ GLAMO_REG_CLOCK_MPEG,		0x0000 },
 #endif
 	{ GLAMO_REG_PLL_GEN1,		0x05db },	/* 48MHz */
-	{ GLAMO_REG_PLL_GEN3,		0x09c3 },	/* 80MHz */
-		{ 0xfffd, 0 },
+	{ GLAMO_REG_PLL_GEN3,		0x0aba },	/* 90MHz */
+	{ 0xfffd, 0 },
 	/*
 	 * b9 of this register MUST be zero to get any interrupts on INT#
 	 * the other set bits enable all the engine interrupt sources
@@ -745,7 +777,10 @@ static struct glamo_script glamo_init_script[] = {
 	{ 0x212,	0x0000 },
 	{ 0x214,	0x4000 },
 	{ 0x216,	0xf00e },
-	{ GLAMO_REG_MEM_TYPE,		0x0874 }, /* 8MB, 16 word pg wr+rd */
+
+	/* S-Media recommended "set tiling mode to 512 mode for memory access
+	 * more efficiency when 640x480" */
+	{ GLAMO_REG_MEM_TYPE,		0x0c74 }, /* 8MB, 16 word pg wr+rd */
 	{ GLAMO_REG_MEM_GEN,		0xafaf }, /* 63 grants min + max */
 	/*
 	 * the register below originally 0x0108 makes unreliable Glamo MMC

@@ -78,6 +78,12 @@
 
 #define DEBUG_LVL    KERN_DEBUG
 
+#define TOUCH_STANDBY_FLAG 0
+#define TOUCH_PRESSED_FLAG 1
+#define TOUCH_RELEASE_FLAG 2
+
+#define TOUCH_RELEASE_TIMEOUT (HZ >> 4)
+
 MODULE_AUTHOR("Arnaud Patard <arnaud.patard@rtp-net.org>");
 MODULE_DESCRIPTION("s3c2410 touchscreen driver");
 MODULE_LICENSE("GPL");
@@ -118,6 +124,7 @@ struct s3c2410ts {
 	struct s3c2410ts_sample raw_running_avg;
 	int reject_threshold_vs_avg;
 	int flag_previous_exceeded_threshold;
+	int flag_first_touch_sent;
 };
 
 static struct s3c2410ts ts;
@@ -130,6 +137,7 @@ static void clear_raw_fifo(void)
 	ts.raw_running_avg.x = 0;
 	ts.raw_running_avg.y = 0;
 	ts.flag_previous_exceeded_threshold = 0;
+	ts.flag_first_touch_sent = TOUCH_STANDBY_FLAG;
 }
 
 
@@ -140,6 +148,10 @@ static inline void s3c2410_ts_connect(void)
 	s3c2410_gpio_cfgpin(S3C2410_GPG14, S3C2410_GPG14_YMON);
 	s3c2410_gpio_cfgpin(S3C2410_GPG15, S3C2410_GPG15_nYPON);
 }
+
+static void touch_timer_fire(unsigned long data);
+static struct timer_list touch_timer =
+		TIMER_INITIALIZER(touch_timer_fire, 0, 0);
 
 static void touch_timer_fire(unsigned long data)
 {
@@ -152,6 +164,10 @@ static void touch_timer_fire(unsigned long data)
 
 	updown = (!(data0 & S3C2410_ADCDAT0_UPDOWN)) &&
 					    (!(data1 & S3C2410_ADCDAT0_UPDOWN));
+
+        if ( updown && ts.flag_first_touch_sent == TOUCH_RELEASE_FLAG ) {
+        	ts.flag_first_touch_sent = TOUCH_PRESSED_FLAG;
+        }
 
 	if (updown) {
 		if (ts.count != 0) {
@@ -174,6 +190,7 @@ static void touch_timer_fire(unsigned long data)
 			input_report_key(ts.dev, BTN_TOUCH, 1);
 			input_report_abs(ts.dev, ABS_PRESSURE, 1);
 			input_sync(ts.dev);
+			ts.flag_first_touch_sent = TOUCH_PRESSED_FLAG;
 		}
 
 		ts.xp = 0;
@@ -186,17 +203,20 @@ static void touch_timer_fire(unsigned long data)
 			 S3C2410_ADCCON_ENABLE_START, base_addr+S3C2410_ADCCON);
 	} else {
 		ts.count = 0;
-
-		input_report_key(ts.dev, BTN_TOUCH, 0);
-		input_report_abs(ts.dev, ABS_PRESSURE, 0);
-		input_sync(ts.dev);
+                
+                if ( ts.flag_first_touch_sent == TOUCH_RELEASE_FLAG ) {
+			input_report_key(ts.dev, BTN_TOUCH, 0);
+			input_report_abs(ts.dev, ABS_PRESSURE, 0);
+			input_sync(ts.dev);
+			ts.flag_first_touch_sent = TOUCH_STANDBY_FLAG;
+                } if ( ts.flag_first_touch_sent == TOUCH_PRESSED_FLAG ) {
+                	ts.flag_first_touch_sent = TOUCH_RELEASE_FLAG;
+                	mod_timer(&touch_timer, jiffies + TOUCH_RELEASE_TIMEOUT);
+                }
 
 		writel(WAIT4INT(0), base_addr+S3C2410_ADCTSC);
 	}
 }
-
-static struct timer_list touch_timer =
-		TIMER_INITIALIZER(touch_timer_fire, 0, 0);
 
 static irqreturn_t stylus_updown(int irq, void *dev_id)
 {

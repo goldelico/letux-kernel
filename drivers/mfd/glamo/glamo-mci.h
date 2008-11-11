@@ -44,6 +44,8 @@ struct glamo_mci_host {
 	unsigned long		real_rate;
 	u8			prescaler;
 
+	int			force_slow_during_powerup;
+
 	unsigned		sdiimsk;
 	int			dodma;
 
