@@ -2,6 +2,9 @@ linux-2.6-openmoko (20081103.git7172ec57-1) UNRELEASED; urgency=low
 
   * New Git Checkout:
     + milestone4.
+  * debian/patches/series: update.
+  * debian/patches/01_fix-timespec_add_ns-in-time.h.patch:
+    - remove, applied uptream.
 
  --
 
