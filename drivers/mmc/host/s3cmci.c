@@ -59,6 +59,23 @@ module_param(sd_max_clk, int, 0644);
 static int sd_idleclk;	 /* disallow idle clock by default */
 module_param(sd_idleclk, int, 0644);
 
+/*
+ * Slow SD clock rate
+ *
+ * you can override this on kernel commandline using
+ *
+ *  s3cmci.sd_slow_ratio=8
+ *
+ * for example.
+ *
+ * A platform callback is used to decide effective clock rate.  If not
+ * defined, then the max is used, if defined and the callback returns
+ * nonzero, the rate is divided by this factor.
+ */
+
+static int sd_slow_ratio = 8;
+module_param(sd_slow_ratio, int, 0644);
+
 /* used to stash real idleclk state in suspend: we force it to run in there */
 static int suspend_sd_idleclk;
 
@@ -252,7 +269,7 @@ static inline void do_pio_read(struct s3cmci_host *host)
 	void __iomem *from_ptr;
 
 	/* write real prescaler to host, it might be set slow to fix */
-	writel(host->prescaler, host->base + S3C2410_SDIPRE);
+	writel(host->sdipre, host->base + S3C2410_SDIPRE);
 
 	from_ptr = host->base + host->sdidata;
 
@@ -755,7 +772,7 @@ static void finalize_request(struct s3cmci_host *host)
 	cmd->resp[3] = readl(host->base + S3C2410_SDIRSP3);
 
 	/* reset clock speed, as it could still be set low for */
-	writel(host->prescaler, host->base + S3C2410_SDIPRE);
+	writel(host->sdipre, host->base + S3C2410_SDIPRE);
 
 	if (cmd->error)
 		debug_as_failure = 1;
@@ -1032,6 +1049,7 @@ static void s3cmci_send_request(struct mmc_host *mmc)
 	struct s3cmci_host *host = mmc_priv(mmc);
 	struct mmc_request *mrq = host->mrq;
 	struct mmc_command *cmd = host->cmd_is_stop?mrq->stop:mrq->cmd;
+	int pre;
 
 	host->ccnt++;
 #ifdef CONFIG_MMC_DEBUG
@@ -1071,6 +1089,26 @@ static void s3cmci_send_request(struct mmc_host *mmc)
 			return;
 		}
 
+	}
+
+	/* establish the correct prescaler depending on the sd_slow_ratio */
+
+	if ((sd_slow_ratio > 1) &&
+	    host->pdata->use_slow && (host->pdata->use_slow)()) {
+		/* compute the slower speed */
+		pre = host->prescaler * sd_slow_ratio;
+		if (pre > 255)
+			pre = 255;
+	} else {
+		/* use the normal speed */
+		pre = host->prescaler;
+	}
+
+	if (host->sdipre != pre) {
+		dbg(host, dbg_conf, "prescaler changed: %d -> %d\n",
+		    (int)host->sdipre, pre);
+		host->sdipre = pre;
+		writel(host->sdipre, host->base + S3C2410_SDIPRE);
 	}
 
 	__s3cmci_enable_clock(host);
@@ -1138,6 +1176,7 @@ static void s3cmci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (mci_psc > 255)
 		mci_psc = 255;
 	host->prescaler = mci_psc;
+	host->sdipre = mci_psc;
 
 	writel(host->prescaler, host->base + S3C2410_SDIPRE);
 

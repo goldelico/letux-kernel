@@ -75,6 +75,8 @@
 #include <asm/plat-s3c24xx/neo1973.h>
 #include <asm/arch-s3c2410/neo1973-pm-gsm.h>
 
+#include "../plat-s3c24xx/neo1973_pm_gps.h"
+
 #include <linux/jbt6k74.h>
 
 static struct map_desc gta01_iodesc[] __initdata = {
@@ -432,9 +434,15 @@ static void gta01_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 	}
 }
 
+static int gta01_mmc_use_slow(void)
+{
+	return neo1973_pm_gps_is_on();
+}
+
 static struct s3c24xx_mci_pdata gta01_mmc_cfg = {
 	.gpio_detect	= GTA01_GPIO_nSD_DETECT,
 	.set_power	= &gta01_mmc_set_power,
+	.use_slow	= &gta01_mmc_use_slow,
 	.ocr_avail	= MMC_VDD_165_195|MMC_VDD_20_21|
 			  MMC_VDD_21_22|MMC_VDD_22_23|MMC_VDD_23_24|
 			  MMC_VDD_24_25|MMC_VDD_25_26|MMC_VDD_26_27|

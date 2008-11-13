@@ -8,6 +8,7 @@ struct s3c24xx_mci_pdata {
 	unsigned int	do_dma;
 	void		(*set_power)(unsigned char power_mode,
 				     unsigned short vdd);
+	int		(*use_slow)(void);
 };
 
 #endif /* _ARCH_NCI_H */

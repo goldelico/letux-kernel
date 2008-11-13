@@ -32,6 +32,7 @@ struct s3cmci_host {
 	unsigned long		clk_div;
 	unsigned long		real_rate;
 	u8			prescaler;
+	u8			sdipre;
 
 	int			is2440;
 	unsigned		sdiimsk;
