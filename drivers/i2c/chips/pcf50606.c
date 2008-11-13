@@ -50,6 +50,7 @@
 #include <linux/platform_device.h>
 #include <linux/pcf50606.h>
 #include <linux/apm-emulation.h>
+#include <linux/power_supply.h>
 
 #include <asm/mach-types.h>
 #include <asm/arch/gta01.h>
@@ -140,6 +141,12 @@ struct pcf50606_data {
 };
 
 static struct i2c_driver pcf50606_driver;
+
+/* This global is set by the pcf50606 driver to the correct callback
+ * for the gta01 battery driver. */
+int (*pmu_bat_get_property)(struct power_supply *, enum power_supply_property,
+			    union power_supply_propval *);
+EXPORT_SYMBOL(pmu_bat_get_property);
 
 /* This is an ugly construct on how to access the (currently single/global)
  * pcf50606 handle from other code in the kernel.  I didn't really come up with
@@ -1270,6 +1277,92 @@ static void pcf50606_get_power_status(struct apm_power_info *info)
 }
 
 /***********************************************************************
+ * Battery driver interface
+ ***********************************************************************/
+static int pcf50606_bat_get_property(struct power_supply *psy,
+				     enum power_supply_property psp,
+				     union power_supply_propval *val)
+{
+	u_int16_t adc, adc_adcin1;
+	u_int8_t mbcc1, chgmod;
+	struct pcf50606_data *pcf = pcf50606_global;
+	int ret = 0;
+
+	switch (psp) {
+
+	case POWER_SUPPLY_PROP_STATUS:
+		if (!(reg_read(pcf, PCF50606_REG_OOCS) & PCF50606_OOCS_EXTON)) {
+			/* No charger, clearly we're discharging then */
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		} else {
+
+			/* We have a charger present, get charge mode */
+			mbcc1 = reg_read(pcf, PCF50606_REG_MBCC1);
+			chgmod = (mbcc1 & PCF50606_MBCC1_CHGMOD_MASK);
+			switch (chgmod) {
+
+			/* TODO: How to determine POWER_SUPPLY_STATUS_FULL? */
+
+			case PCF50606_MBCC1_CHGMOD_QUAL:
+			case PCF50606_MBCC1_CHGMOD_PRE:
+			case PCF50606_MBCC1_CHGMOD_IDLE:
+				val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+				break;
+
+			case PCF50606_MBCC1_CHGMOD_TRICKLE:
+			case PCF50606_MBCC1_CHGMOD_FAST_CCCV:
+			case PCF50606_MBCC1_CHGMOD_FAST_NOCC:
+			case PCF50606_MBCC1_CHGMOD_FAST_NOCV:
+			case PCF50606_MBCC1_CHGMOD_FAST_SW:
+				val->intval = POWER_SUPPLY_STATUS_CHARGING;
+				break;
+
+			default:
+				val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
+				break;
+
+			}
+		}
+
+	case POWER_SUPPLY_PROP_PRESENT:
+		val->intval = 1;   /* Must be, or the magic smoke comes out */
+		break;
+
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = !!(reg_read(pcf, PCF50606_REG_OOCS) &
+				 PCF50606_OOCS_EXTON);
+		break;
+
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		adc = adc_read(pcf, PCF50606_ADCMUX_BATVOLT_RES, NULL);
+		/* (adc * 6000000) / 1024 ==  (adc * 46875) / 8 */
+		val->intval = (adc * 46875) / 8;
+		break;
+
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		adc = adc_read(pcf, PCF50606_ADCMUX_BATVOLT_ADCIN1,
+			       &adc_adcin1);
+		val->intval = adc_to_chg_milliamps(pcf, adc_adcin1, adc) * 1000;
+		break;
+
+	case POWER_SUPPLY_PROP_TEMP:
+		adc = adc_read(pcf, PCF50606_ADCMUX_BATTEMP, NULL);
+		val->intval = rntc_to_temp(adc_to_rntc(pcf, adc)) * 10;
+		break;
+
+	case POWER_SUPPLY_PROP_CAPACITY:
+		val->intval = battvolt_scale(pcf50606_battvolt(pcf));
+		break;
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+
+/***********************************************************************
  * RTC
  ***********************************************************************/
 
@@ -1900,6 +1993,7 @@ static int pcf50606_detect(struct i2c_adapter *adapter, int address, int kind)
 	}
 
 	apm_get_power_status = pcf50606_get_power_status;
+	pmu_bat_get_property = pcf50606_bat_get_property;
 
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01()) {
@@ -1962,6 +2056,8 @@ static int pcf50606_detach_client(struct i2c_client *client)
 	struct pcf50606_data *pcf = i2c_get_clientdata(client);
 
 	apm_get_power_status = NULL;
+	pmu_bat_get_property = NULL;
+
 	input_unregister_device(pcf->input_dev);
 
 	if (pcf->pdata->used_features & PCF50606_FEAT_PWM_BL)

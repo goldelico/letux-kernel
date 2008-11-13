@@ -62,5 +62,11 @@ config GTA02_HDQ
 	  on the Neo Freerunner.  You probably want to select
 	  at least BATTERY_BQ27000_HDQ as well
 
+config BATTERY_GTA01
+	tristate "Neo GTA01 battery"
+	depends on MACH_NEO1973_GTA01
+	help
+	  Say Y to enable support for the battery on the Neo GTA01
+
 endif # POWER_SUPPLY
 
