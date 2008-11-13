@@ -98,6 +98,13 @@ config NEO1973_GTA02_2440
 	   Say Y here if you are using an early hardware revision
 	   of the FIC/Openmoko Neo1973 GTA02 GSM Phone.
 
+config MACH_M800
+	bool "E-TEN glofiish M800/X800"
+	select CPU_S3C2442
+	help
+	   Say Y here if you are using the E-TEN glofiish M800/X800.
+
+
 endmenu
 
 #source "arch/arm/mach-s3c2440/camera/Kconfig"

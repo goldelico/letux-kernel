@@ -430,8 +430,10 @@ static int create_bbt(struct mtd_info *mtd, uint8_t *buf,
 
 		if (ret) {
 			this->bbt[i >> 3] |= 0x03 << (i & 0x6);
+#if 0
 			printk(KERN_WARNING "Bad eraseblock %d at 0x%08x\n",
 			       i >> 1, (unsigned int)from);
+#endif
 			mtd->ecc_stats.badblocks++;
 		}
 

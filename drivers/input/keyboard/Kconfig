@@ -304,6 +304,17 @@ config KEYBOARD_NEO1973
 	  To compile this driver as a module, choose M here: the
 	  module will be called neo1973kbd.
 
+config KEYBOARD_M800
+	tristate "E-TEN glofiish M800 buttons"
+	depends on MACH_M800
+	default y
+	help
+	  Say Y here to enable the buttons on the E-TEN glofiish
+	  M800 GSM phone.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called m800kbd.
+
 config KEYBOARD_QT2410
 	tristate "QT2410 buttons"
 	depends on MACH_QT2410
