@@ -15,6 +15,8 @@
 #include <linux/mmc/host.h>
 #include <linux/platform_device.h>
 #include <linux/irq.h>
+#include <linux/delay.h>
+#include <linux/spinlock.h>
 
 #include <asm/dma.h>
 #include <asm/dma-mapping.h>
@@ -28,6 +30,37 @@
 #include "s3cmci.h"
 
 #define DRIVER_NAME "s3c-mci"
+
+static spinlock_t clock_lock;
+
+/*
+ * Max SD clock rate (in Hz)
+ *
+ * you can override this on the kernel command line using
+ *
+ * s3cmci.sd_max_clk=10000000
+ *
+ * for example.
+ */
+
+static int sd_max_clk = 25000000;
+module_param(sd_max_clk, int, 0644);
+
+/*
+ * SD allow SD clock to run while idle
+ *
+ * you can override this on kernel commandline using
+ *
+ *  s3cmci.sd_idleclk=0
+ *
+ * for example.
+ */
+
+static int sd_idleclk;	 /* disallow idle clock by default */
+module_param(sd_idleclk, int, 0644);
+
+/* used to stash real idleclk state in suspend: we force it to run in there */
+static int suspend_sd_idleclk;
 
 enum dbg_channels {
 	dbg_err   = (1 << 0),
@@ -367,6 +400,40 @@ static void pio_tasklet(unsigned long data)
 	} else
 		enable_irq(host->irq);
 }
+
+static void __s3cmci_enable_clock(struct s3cmci_host *host)
+{
+	u32 mci_con;
+	unsigned long flags;
+
+	/* enable the clock if clock rate is > 0 */
+	if (host->real_rate) {
+		spin_lock_irqsave(&clock_lock, flags);
+
+		mci_con = readl(host->base + S3C2410_SDICON);
+		mci_con |= S3C2410_SDICON_CLOCKTYPE;
+		writel(mci_con, host->base + S3C2410_SDICON);
+
+		spin_unlock_irqrestore(&clock_lock, flags);
+	}
+}
+
+static void __s3cmci_disable_clock(struct s3cmci_host *host)
+{
+	u32 mci_con;
+	unsigned long flags;
+
+	if (!sd_idleclk) {
+		spin_lock_irqsave(&clock_lock, flags);
+
+		mci_con = readl(host->base + S3C2410_SDICON);
+		mci_con &= ~S3C2410_SDICON_CLOCKTYPE;
+		writel(mci_con, host->base + S3C2410_SDICON);
+
+		spin_unlock_irqrestore(&clock_lock, flags);
+	}
+}
+
 
 /*
  * ISR for SDI Interface IRQ
@@ -749,6 +816,7 @@ static void finalize_request(struct s3cmci_host *host)
 	}
 
 request_done:
+	__s3cmci_disable_clock(host);
 	host->complete_what = COMPLETION_NONE;
 	host->mrq = NULL;
 	mmc_request_done(host->mmc, mrq);
@@ -1005,6 +1073,7 @@ static void s3cmci_send_request(struct mmc_host *mmc)
 
 	}
 
+	__s3cmci_enable_clock(host);
 	s3cmci_send_command(host, cmd);
 	enable_irq(host->irq);
 }
@@ -1087,14 +1156,30 @@ static void s3cmci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if ((ios->power_mode == MMC_POWER_ON)
 		|| (ios->power_mode == MMC_POWER_UP)) {
 
-		dbg(host, dbg_conf, "running at %lukHz (requested: %ukHz).\n",
-		    host->real_rate/1000, ios->clock/1000);
+		dbg(host, dbg_conf,
+		    "powered (vdd: %d), clk: %lukHz div=%lu (req: %ukHz),"
+		    " bus width: %d\n", ios->vdd, host->real_rate / 1000,
+		    host->clk_div * (host->prescaler + 1),
+		    ios->clock / 1000, ios->bus_width);
+
+		/* After power-up, we need to give the card 74 clocks to
+		 * initialize, so sleep just a moment before we disable
+		 * the clock again.
+		 */
+		if (ios->clock)
+			msleep(1);
+
 	} else {
 		dbg(host, dbg_conf, "powered down.\n");
 	}
 
 	host->bus_width = ios->bus_width;
 
+	/* No need to run the clock until we have data to move */
+	if (!sd_idleclk) {
+		__s3cmci_disable_clock(host);
+		dbg(host, dbg_conf, "SD clock disabled when idle.\n");
+	}
 }
 
 static void s3cmci_reset(struct s3cmci_host *host)
@@ -1267,7 +1352,7 @@ static int s3cmci_probe(struct platform_device *pdev, int is2440)
 	mmc->ocr_avail	= host->pdata->ocr_avail;
 	mmc->caps	= MMC_CAP_4_BIT_DATA | MMC_CAP_SDIO_IRQ;
 	mmc->f_min 	= host->clk_rate / (host->clk_div * 256);
-	mmc->f_max 	= host->clk_rate / host->clk_div;
+	mmc->f_max 	= sd_max_clk;
 
 	mmc->max_blk_count	= 4095;
 	mmc->max_blk_size	= 4095;
@@ -1354,13 +1439,32 @@ static int s3cmci_probe_2440(struct platform_device *dev)
 static int s3cmci_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct mmc_host *mmc = platform_get_drvdata(dev);
+	struct s3cmci_host *host = mmc_priv(mmc);
+	int ret;
 
-	return  mmc_suspend_host(mmc, state);
+	/* Ensure clock is running so it will be running on resume */
+	__s3cmci_enable_clock(host);
+
+	/* We will do more commands, make sure the clock stays running,
+	 * and save our state so that we can restore it on resume.
+	 */
+	suspend_sd_idleclk = sd_idleclk;
+	sd_idleclk = 1;
+
+	ret = mmc_suspend_host(mmc, state);
+
+	/* so that when we resume, we use any modified max rate */
+	mmc->f_max = sd_max_clk;
+
+	return ret;
 }
 
 static int s3cmci_resume(struct platform_device *dev)
 {
 	struct mmc_host *mmc = platform_get_drvdata(dev);
+
+	/* Put the sd_idleclk state back to what it was */
+	sd_idleclk = suspend_sd_idleclk;
 
 	return mmc_resume_host(mmc);
 }
@@ -1398,6 +1502,7 @@ static struct platform_driver s3cmci_driver_2440 = {
 
 static int __init s3cmci_init(void)
 {
+	spin_lock_init(&clock_lock);
 	platform_driver_register(&s3cmci_driver_2410);
 	platform_driver_register(&s3cmci_driver_2412);
 	platform_driver_register(&s3cmci_driver_2440);
