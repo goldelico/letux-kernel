@@ -34,7 +34,7 @@
 #include <net/iw_handler.h>
 #include <linux/if_arp.h>
 #include <linux/ip.h>
-#include <asm/semaphore.h>
+#include <linux/semaphore.h>
 #include <linux/wireless.h>
 #include <linux/module.h>
 #include <asm/io.h>

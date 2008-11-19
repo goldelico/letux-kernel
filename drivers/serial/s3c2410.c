@@ -263,7 +263,7 @@ s3c24xx_serial_rx_chars(int irq, void *dev_id)
 {
 	struct s3c24xx_uart_port *ourport = dev_id;
 	struct uart_port *port = &ourport->port;
-	struct tty_struct *tty = port->info->tty;
+	struct tty_struct *tty = port->info->port.tty;
 	unsigned int ufcon, ch, flag, ufstat, uerstat;
 	int max_count = 64;
 
@@ -1186,6 +1186,14 @@ static int s3c24xx_serial_init(struct platform_driver *drv,
 	return platform_driver_register(drv);
 }
 
+static inline int s3c2400_serial_init(void)
+{
+         return s3c24xx_serial_init(&s3c2400_serial_drv, &s3c2400_uart_inf);
+}
+static inline void s3c2400_serial_exit(void)
+{
+         platform_driver_unregister(&s3c2400_serial_drv);
+}
 
 /* now comes the code to initialise either the s3c2410 or s3c2440 serial
  * port information
