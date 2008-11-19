@@ -720,38 +720,38 @@ static int lis302dl_suspend(struct spi_device *spi, pm_message_t state)
 	(lis->pdata->lis302dl_suspend_io)(lis, 1);
 
 	/* save registers */
-	lis->regs[LIS302DL_REG_CTRL1] = reg_read(lis, LIS302DL_REG_CTRL1);
-	lis->regs[LIS302DL_REG_CTRL2] = reg_read(lis, LIS302DL_REG_CTRL2);
-	lis->regs[LIS302DL_REG_CTRL3] = reg_read(lis, LIS302DL_REG_CTRL3);
+	lis->regs[LIS302DL_REG_CTRL1] = __reg_read(lis, LIS302DL_REG_CTRL1);
+	lis->regs[LIS302DL_REG_CTRL2] = __reg_read(lis, LIS302DL_REG_CTRL2);
+	lis->regs[LIS302DL_REG_CTRL3] = __reg_read(lis, LIS302DL_REG_CTRL3);
 	lis->regs[LIS302DL_REG_FF_WU_CFG_1] =
-				reg_read(lis, LIS302DL_REG_FF_WU_CFG_1);
+				__reg_read(lis, LIS302DL_REG_FF_WU_CFG_1);
 	lis->regs[LIS302DL_REG_FF_WU_THS_1] =
-				reg_read(lis, LIS302DL_REG_FF_WU_THS_1);
+				__reg_read(lis, LIS302DL_REG_FF_WU_THS_1);
 	lis->regs[LIS302DL_REG_FF_WU_DURATION_1] =
-				reg_read(lis, LIS302DL_REG_FF_WU_DURATION_1);
+				__reg_read(lis, LIS302DL_REG_FF_WU_DURATION_1);
 	lis->regs[LIS302DL_REG_FF_WU_CFG_2] =
-				reg_read(lis, LIS302DL_REG_FF_WU_CFG_2);
+				__reg_read(lis, LIS302DL_REG_FF_WU_CFG_2);
 	lis->regs[LIS302DL_REG_FF_WU_THS_2] =
-				reg_read(lis, LIS302DL_REG_FF_WU_THS_2);
+				__reg_read(lis, LIS302DL_REG_FF_WU_THS_2);
 	lis->regs[LIS302DL_REG_FF_WU_DURATION_2] =
-				reg_read(lis, LIS302DL_REG_FF_WU_DURATION_2);
+				__reg_read(lis, LIS302DL_REG_FF_WU_DURATION_2);
 	lis->regs[LIS302DL_REG_CLICK_CFG] =
-				reg_read(lis, LIS302DL_REG_CLICK_CFG);
+				__reg_read(lis, LIS302DL_REG_CLICK_CFG);
 	lis->regs[LIS302DL_REG_CLICK_THSY_X] =
-				reg_read(lis, LIS302DL_REG_CLICK_THSY_X);
+				__reg_read(lis, LIS302DL_REG_CLICK_THSY_X);
 	lis->regs[LIS302DL_REG_CLICK_THSZ] =
-				reg_read(lis, LIS302DL_REG_CLICK_THSZ);
+				__reg_read(lis, LIS302DL_REG_CLICK_THSZ);
 	lis->regs[LIS302DL_REG_CLICK_TIME_LIMIT] =
-				reg_read(lis, LIS302DL_REG_CLICK_TIME_LIMIT);
+				__reg_read(lis, LIS302DL_REG_CLICK_TIME_LIMIT);
 	lis->regs[LIS302DL_REG_CLICK_LATENCY] =
-				reg_read(lis, LIS302DL_REG_CLICK_LATENCY);
+				__reg_read(lis, LIS302DL_REG_CLICK_LATENCY);
 	lis->regs[LIS302DL_REG_CLICK_WINDOW] =
-				reg_read(lis, LIS302DL_REG_CLICK_WINDOW);
+				__reg_read(lis, LIS302DL_REG_CLICK_WINDOW);
 
 	/* power down */
-	tmp = reg_read(lis, LIS302DL_REG_CTRL1);
+	tmp = __reg_read(lis, LIS302DL_REG_CTRL1);
 	tmp &= ~LIS302DL_CTRL1_PD;
-	reg_write(lis, LIS302DL_REG_CTRL1, tmp);
+	__reg_write(lis, LIS302DL_REG_CTRL1, tmp);
 
 	/* place our IO to the device in sleep-compatible states */
 	(lis->pdata->lis302dl_suspend_io)(lis, 0);
@@ -776,7 +776,7 @@ static int lis302dl_resume(struct spi_device *spi)
 	(lis->pdata->lis302dl_suspend_io)(lis, 1);
 
 	/* resume from powerdown first! */
-	reg_write(lis, LIS302DL_REG_CTRL1, LIS302DL_CTRL1_PD |
+	__reg_write(lis, LIS302DL_REG_CTRL1, LIS302DL_CTRL1_PD |
 					   LIS302DL_CTRL1_Xen |
 					   LIS302DL_CTRL1_Yen |
 					   LIS302DL_CTRL1_Zen);
@@ -786,36 +786,36 @@ static int lis302dl_resume(struct spi_device *spi)
 		dev_err(&spi->dev, "device BOOT reload failed\n");
 
 	/* restore registers after resume */
-	reg_write(lis, LIS302DL_REG_CTRL1, lis->regs[LIS302DL_REG_CTRL1] |
+	__reg_write(lis, LIS302DL_REG_CTRL1, lis->regs[LIS302DL_REG_CTRL1] |
 						LIS302DL_CTRL1_PD |
 						LIS302DL_CTRL1_Xen |
 						LIS302DL_CTRL1_Yen |
 						LIS302DL_CTRL1_Zen);
-	reg_write(lis, LIS302DL_REG_CTRL2, lis->regs[LIS302DL_REG_CTRL2]);
-	reg_write(lis, LIS302DL_REG_CTRL3, lis->regs[LIS302DL_REG_CTRL3]);
-	reg_write(lis, LIS302DL_REG_FF_WU_CFG_1,
+	__reg_write(lis, LIS302DL_REG_CTRL2, lis->regs[LIS302DL_REG_CTRL2]);
+	__reg_write(lis, LIS302DL_REG_CTRL3, lis->regs[LIS302DL_REG_CTRL3]);
+	__reg_write(lis, LIS302DL_REG_FF_WU_CFG_1,
 		  lis->regs[LIS302DL_REG_FF_WU_CFG_1]);
-	reg_write(lis, LIS302DL_REG_FF_WU_THS_1,
+	__reg_write(lis, LIS302DL_REG_FF_WU_THS_1,
 		  lis->regs[LIS302DL_REG_FF_WU_THS_1]);
-	reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1,
+	__reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1,
 		  lis->regs[LIS302DL_REG_FF_WU_DURATION_1]);
-	reg_write(lis, LIS302DL_REG_FF_WU_CFG_2,
+	__reg_write(lis, LIS302DL_REG_FF_WU_CFG_2,
 		  lis->regs[LIS302DL_REG_FF_WU_CFG_2]);
-	reg_write(lis, LIS302DL_REG_FF_WU_THS_2,
+	__reg_write(lis, LIS302DL_REG_FF_WU_THS_2,
 		  lis->regs[LIS302DL_REG_FF_WU_THS_2]);
-	reg_write(lis, LIS302DL_REG_FF_WU_DURATION_2,
+	__reg_write(lis, LIS302DL_REG_FF_WU_DURATION_2,
 		  lis->regs[LIS302DL_REG_FF_WU_DURATION_2]);
-	reg_write(lis, LIS302DL_REG_CLICK_CFG,
+	__reg_write(lis, LIS302DL_REG_CLICK_CFG,
 		  lis->regs[LIS302DL_REG_CLICK_CFG]);
-	reg_write(lis, LIS302DL_REG_CLICK_THSY_X,
+	__reg_write(lis, LIS302DL_REG_CLICK_THSY_X,
 		  lis->regs[LIS302DL_REG_CLICK_THSY_X]);
-	reg_write(lis, LIS302DL_REG_CLICK_THSZ,
+	__reg_write(lis, LIS302DL_REG_CLICK_THSZ,
 		  lis->regs[LIS302DL_REG_CLICK_THSZ]);
-	reg_write(lis, LIS302DL_REG_CLICK_TIME_LIMIT,
+	__reg_write(lis, LIS302DL_REG_CLICK_TIME_LIMIT,
 		  lis->regs[LIS302DL_REG_CLICK_TIME_LIMIT]);
-	reg_write(lis, LIS302DL_REG_CLICK_LATENCY,
+	__reg_write(lis, LIS302DL_REG_CLICK_LATENCY,
 		  lis->regs[LIS302DL_REG_CLICK_LATENCY]);
-	reg_write(lis, LIS302DL_REG_CLICK_WINDOW,
+	__reg_write(lis, LIS302DL_REG_CLICK_WINDOW,
 		  lis->regs[LIS302DL_REG_CLICK_WINDOW]);
 
 	local_irq_restore(flags);
