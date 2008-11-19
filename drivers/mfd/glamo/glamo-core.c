@@ -58,6 +58,33 @@
 
 #define GLAMO_MEM_REFRESH_COUNT 0x100
 
+struct reg_range {
+	int start;
+	int count;
+	char *name;
+	char dump;
+};
+struct reg_range reg_range[] = {
+	{ 0x0000, 0x76,		"General",	1 },
+	{ 0x0200, 0x16,		"Host Bus",	1 },
+	{ 0x0300, 0x38,		"Memory",	1 },
+/*	{ 0x0400, 0x100,	"Sensor",	0 }, */
+/*		{ 0x0500, 0x300,	"ISP",		0 }, */
+/*		{ 0x0800, 0x400,	"JPEG",		0 }, */
+/*		{ 0x0c00, 0xcc,		"MPEG",		0 }, */
+	{ 0x1100, 0xb2,		"LCD 1",	1 },
+	{ 0x1200, 0x64,		"LCD 2",	1 },
+	{ 0x1400, 0x40,		"MMC",		1 },
+/*		{ 0x1500, 0x080,	"MPU 0",	0 },
+	{ 0x1580, 0x080,	"MPU 1",	0 },
+	{ 0x1600, 0x080,	"Cmd Queue",	0 },
+	{ 0x1680, 0x080,	"RISC CPU",	0 },
+	{ 0x1700, 0x400,	"2D Unit",	0 },
+	{ 0x1b00, 0x900,	"3D Unit",	0 }, */
+};
+
+static u16 suspend_regs[0x2400 / sizeof(u16)];
+static char debug_buffer[65536];
 static struct glamo_core *glamo_handle;
 
 static inline void __reg_write(struct glamo_core *glamo,
@@ -386,6 +413,73 @@ static void glamo_irq_demux_handler(unsigned int irq, struct irq_desc *desc)
 
 	desc->status &= ~IRQ_INPROGRESS;
 }
+
+
+static ssize_t regs_write(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	unsigned long reg = simple_strtoul(buf, NULL, 10);
+	struct glamo_core *glamo = dev_get_drvdata(dev);
+
+	while (*buf && (*buf != ' '))
+		buf++;
+	if (*buf != ' ')
+		return -EINVAL;
+	while (*buf && (*buf == ' '))
+		buf++;
+	if (!*buf)
+		return -EINVAL;
+
+	printk(KERN_INFO"reg 0x%02lX <-- 0x%04lX\n",
+	       reg, simple_strtoul(buf, NULL, 10));
+
+	__reg_write(glamo, reg, simple_strtoul(buf, NULL, 10));
+
+	return count;
+}
+
+static ssize_t regs_read(struct device *dev, struct device_attribute *attr,
+			char *buf)
+{
+	struct glamo_core *glamo = dev_get_drvdata(dev);
+	int n, n1 = 0, r;
+	char * end = buf;
+
+	spin_lock(&glamo->lock);
+
+	for (r = 0; r < ARRAY_SIZE(reg_range); r++) {
+		if (!reg_range[r].dump)
+			continue;
+		n1 = 0;
+		end += sprintf(end, "\n%s\n", reg_range[r].name);
+		for (n = reg_range[r].start;
+		     n < reg_range[r].start + reg_range[r].count; n += 2) {
+			if (((n1++) & 7) == 0)
+				end += sprintf(end, "\n%04X:  ", n);
+			end += sprintf(end, "%04x ", __reg_read(glamo, n));
+		}
+		end += sprintf(end, "\n");
+		if (!attr) {
+			printk("%s", buf);
+			end = buf;
+		}
+	}
+	spin_unlock(&glamo->lock);
+
+	return end - buf;
+}
+
+static DEVICE_ATTR(regs, 0644, regs_read, regs_write);
+static struct attribute *glamo_sysfs_entries[] = {
+	&dev_attr_regs.attr,
+	NULL
+};
+static struct attribute_group glamo_attr_group = {
+	.name	= NULL,
+	.attrs	= glamo_sysfs_entries,
+};
+
+
 
 /***********************************************************************
  * 'engine' support
@@ -773,6 +867,8 @@ static struct glamo_script glamo_init_script[] = {
 	{ GLAMO_REG_MEM_TYPE,		0x0c74 }, /* 8MB, 16 word pg wr+rd */
 	{ GLAMO_REG_MEM_GEN,		0xafaf }, /* 63 grants min + max */
 
+	{ GLAMO_REGOFS_HOSTBUS + 2,	0xffff }, /* enable  on MMIO*/
+
 	{ GLAMO_REG_MEM_TIMING1,	0x0108 },
 	{ GLAMO_REG_MEM_TIMING2,	0x0010 }, /* Taa = 3 MCLK */
 	{ GLAMO_REG_MEM_TIMING3,	0x0000 },
@@ -799,14 +895,18 @@ static struct glamo_script glamo_resume_script[] = {
 
 	{ GLAMO_REG_PLL_GEN1,		0x05db },	/* 48MHz */
 	{ GLAMO_REG_PLL_GEN3,		0x0aba },	/* 90MHz */
-	{ 0xfffd, 0 },
+	{ GLAMO_REG_DFT_GEN6, 1 },
+		{ 0xfffe, 100 },
+		{ 0xfffd, 0 },
+	{ 0x200,	0x0e03 },
+
 	/*
 	 * b9 of this register MUST be zero to get any interrupts on INT#
 	 * the other set bits enable all the engine interrupt sources
 	 */
 	{ GLAMO_REG_IRQ_ENABLE,		0x01ff },
 	{ GLAMO_REG_CLOCK_HOST,		0x0018 },
-		{ GLAMO_REG_CLOCK_GEN5_1, 0x1801 },
+	{ GLAMO_REG_CLOCK_GEN5_1, 0x18b1 },
 
 	{ GLAMO_REG_MEM_DRAM1,		0x0000 },
 		{ 0xfffe, 1 },
@@ -827,6 +927,7 @@ static void glamo_power(struct glamo_core *glamo,
 			enum glamo_power new_state)
 {
 	int n;
+	int ads;
 	unsigned long flags;
 	
 	spin_lock_irqsave(&glamo->lock, flags);
@@ -864,69 +965,30 @@ static const REG_VALUE_MASK_TYPE reg_powerSuspend[] =
 	switch (new_state) {
 	case GLAMO_POWER_ON:
 
+		mdelay(100);
+
 		glamo_run_script(glamo, glamo_resume_script,
 			 ARRAY_SIZE(glamo_resume_script), 0);
-#if 0
-		__reg_write(glamo, GLAMO_REG_MEM_TYPE, 0x0c74);
-		__reg_write(glamo, GLAMO_REG_MEM_GEN, 0xafaf);
 
-		/* re-enable clocks to memory */
-		__reg_write(glamo, GLAMO_REG_CLOCK_MEMORY,
-			GLAMO_CLOCK_MEM_EN_MOCACLK | GLAMO_CLOCK_MEM_EN_M1CLK |
-			GLAMO_CLOCK_MEM_DG_M1CLK | GLAMO_CLOCK_MEM_RESET);
+		for (n = 0; n < 3 /*ARRAY_SIZE(reg_range)*/; n++)
+			for (ads = reg_range[n].start; ads <
+			    (reg_range[n].start + reg_range[n].count); ads += 2)
+				 __reg_write(glamo, ads, suspend_regs[ads >> 1]);
 
-		/* re-enable clocks to memory */
-		__reg_write(glamo, GLAMO_REG_CLOCK_MEMORY,
-			GLAMO_CLOCK_MEM_EN_MOCACLK | GLAMO_CLOCK_MEM_EN_M1CLK |
-			GLAMO_CLOCK_MEM_DG_M1CLK);
+		spin_unlock_irqrestore(&glamo->lock, flags);
 
-		/* Get memory out of deep powerdown */
+		/* dump down printk */
+		regs_read(&glamo->pdev->dev, NULL, debug_buffer);
 
-		__reg_write(glamo, GLAMO_REG_MEM_DRAM2,
-					(7 << 6) | /* tRC */
-					(1 << 4) | /* tRP */
-					(1 << 2) | /* tRCD */
-					2); /* CAS latency */
-
-		/* Stop self-refresh */
-
-		__reg_write(glamo, GLAMO_REG_MEM_DRAM1,
-					GLAMO_MEM_DRAM1_EN_DRAM_REFRESH |
-					GLAMO_MEM_DRAM1_EN_GATE_CKE |
-					GLAMO_MEM_REFRESH_COUNT);
-		__reg_write(glamo, GLAMO_REG_MEM_DRAM1,
-					GLAMO_MEM_DRAM1_EN_MODEREG_SET |
-					GLAMO_MEM_DRAM1_EN_DRAM_REFRESH |
-					GLAMO_MEM_DRAM1_EN_GATE_CKE |
-					GLAMO_MEM_REFRESH_COUNT);
-
-		/* power up PLL2 and PLL1 */
-		__reg_write(glamo, GLAMO_REG_PLL_GEN3, (1 << 12) | 0xaba);
-		__reg_write(glamo, GLAMO_REG_DFT_GEN6, 1);
-
-		mdelay(50);
-
-		/* spin until PLL1 and PLL2 lock */
-		while ((__reg_read(glamo, GLAMO_REG_PLL_GEN5) & 3) != 3)
-			;
-
-		/* PLL2 out of bypass */
-		__reg_set_bit_mask(glamo, GLAMO_REG_PLL_GEN3, 1 << 12, 0);
-#endif
-		/* all dividers from PLLs */
-		__reg_set_bit_mask(glamo, GLAMO_REG_CLOCK_GEN5_1, 0x400, 0);
-
-		/* restore each engine that was up before suspend */
-		for (n = 0; n < __NUM_GLAMO_ENGINES; n++)
-			if (glamo->engine_enabled_bitfield_suspend & (1 << n))
-				__glamo_engine_enable(glamo, n);
-
-		/* allow interrupts */
-		__reg_write(glamo, GLAMO_REG_IRQ_ENABLE, 0x1ff);
-
-		break;
+		return;
 
 	case GLAMO_POWER_SUSPEND:
+
+		for (n = 0; n < 3 /*ARRAY_SIZE(reg_range) */; n++)
+			for (ads = reg_range[n].start; ads <
+			    (reg_range[n].start + reg_range[n].count); ads += 2)
+				suspend_regs[ads >> 1] = __reg_read(glamo, ads);
+
 
 		/* nuke interrupts */
 		__reg_write(glamo, GLAMO_REG_IRQ_ENABLE, 0x200);
@@ -971,6 +1033,9 @@ static const REG_VALUE_MASK_TYPE reg_powerSuspend[] =
 
 		/* PLL2 into bypass */
 		__reg_set_bit_mask(glamo, GLAMO_REG_PLL_GEN3, 1 << 12, 1 << 12);
+
+		__reg_write(glamo, 0x200, 0x0e00);
+
 
 		/* kill PLLS 1 then 2 */
 		__reg_write(glamo, GLAMO_REG_DFT_GEN5, 0x0001);
@@ -1086,90 +1151,6 @@ static int glamo_supported(struct glamo_core *glamo)
 
 	return 1;
 }
-
-static ssize_t regs_write(struct device *dev, struct device_attribute *attr,
-			   const char *buf, size_t count)
-{
-	unsigned long reg = simple_strtoul(buf, NULL, 10);
-	struct glamo_core *glamo = dev_get_drvdata(dev);
-
-	while (*buf && (*buf != ' '))
-		buf++;
-	if (*buf != ' ')
-		return -EINVAL;
-	while (*buf && (*buf == ' '))
-		buf++;
-	if (!*buf)
-		return -EINVAL;
-
-	printk(KERN_INFO"reg 0x%02lX <-- 0x%04lX\n",
-	       reg, simple_strtoul(buf, NULL, 10));
-
-	__reg_write(glamo, reg, simple_strtoul(buf, NULL, 10));
-
-	return count;
-}
-
-static ssize_t regs_read(struct device *dev, struct device_attribute *attr,
-			char *buf)
-{
-	struct glamo_core *glamo = dev_get_drvdata(dev);
-	int n, n1 = 0, r;
-	char * end = buf;
-	struct reg_range {
-		int start;
-		int count;
-		char * name;
-	};
-	struct reg_range reg_range[] = {
-		{ 0x0000, 0x76, "General" },
-/*		{ 0x0200, 0x100, "Host Bus" },
-*/		{ 0x0300, 0x38, "Memory" },
-/*		{ 0x0400, 0x100, "Sensor" },
-		{ 0x0500, 0x300, "ISP" },
-		{ 0x0800, 0x400, "JPEG" },
-		{ 0x0c00, 0x500, "MPEG" },
-*/
-		{ 0x1100, 0x88, "LCD" },
-/*
-		{ 0x1500, 0x080, "MPU 0" },
-		{ 0x1580, 0x080, "MPU 1" },
-		{ 0x1600, 0x080, "Command Queue" },
-		{ 0x1680, 0x080, "RISC CPU" },
-		{ 0x1700, 0x400, "2D Unit" },
-		{ 0x1b00, 0x900, "3D Unit" },
-*/
-	};
-
-	spin_lock(&glamo->lock);
-
-	for (r = 0; r < ARRAY_SIZE(reg_range); r++) {
-		n1 = 0;
-		end += sprintf(end, "\n%s\n", reg_range[r].name);
-		for (n = reg_range[r].start;
-		     n < reg_range[r].start + reg_range[r].count; n += 2) {
-			if (((n1++) & 7) == 0)
-				end += sprintf(end, "\n%04X:  ", n);
-			end += sprintf(end, "%04x ", __reg_read(glamo, n));
-		}
-		end += sprintf(end, "\n");
-	}
-	spin_unlock(&glamo->lock);
-
-	return end - buf;
-}
-
-static DEVICE_ATTR(regs, 0644, regs_read, regs_write);
-static struct attribute *glamo_sysfs_entries[] = {
-	&dev_attr_regs.attr,
-	NULL
-};
-static struct attribute_group glamo_attr_group = {
-	.name	= NULL,
-	.attrs	= glamo_sysfs_entries,
-};
-
-
 
 static int __init glamo_probe(struct platform_device *pdev)
 {
