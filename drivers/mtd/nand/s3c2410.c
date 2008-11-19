@@ -530,7 +530,12 @@ static void s3c2410_nand_read_buf(struct mtd_info *mtd, u_char *buf, int len)
 static void s3c2440_nand_read_buf(struct mtd_info *mtd, u_char *buf, int len)
 {
 	struct s3c2410_nand_info *info = s3c2410_nand_mtd_toinfo(mtd);
+	u8 *ptr = buf + (len & ~3);
+	int i;
+
 	readsl(info->regs + S3C2440_NFDATA, buf, len / 4);
+	for (i = 0; i != (len & 3); i++)
+		ptr[i] = readb(info->regs + S3C2440_NFDATA);
 }
 
 static void s3c2410_nand_write_buf(struct mtd_info *mtd, const u_char *buf, int len)
