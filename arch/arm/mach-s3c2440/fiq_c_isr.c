@@ -220,7 +220,7 @@ static int __init sc32440_fiq_probe(struct platform_device *pdev)
 		return -EIO;
 
 	/* configure for the interrupt we are meant to use */
-	printk(KERN_INFO"Enabling FIQ using irq %d\n", r->start);
+	printk(KERN_INFO "Enabling FIQ using irq %d\n", r->start);
 
 	fiq_set_vector_and_regs();
 	fiq_init_irq_source(r->start);
@@ -238,6 +238,7 @@ static int sc32440_fiq_remove(struct platform_device *pdev)
 {
 	fiq_disable_irq_source();
 	sysfs_remove_group(&pdev->dev.kobj, &s3c2440_fiq_attr_group);
+
 	return 0;
 }
 

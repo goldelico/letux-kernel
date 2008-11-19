@@ -37,6 +37,9 @@ int gta02hdq_read(int address)
 	int count_sleeps = 5;
 	int ret = -ETIME;
 
+	if (!fiq_ipc.hdq_probed)
+		return -EINVAL;
+
 	mutex_lock(&fiq_ipc.hdq_lock);
 
 	fiq_ipc.hdq_ads = address | HDQ_READ;
@@ -71,6 +74,9 @@ int gta02hdq_write(int address, u8 data)
 {
 	int count_sleeps = 5;
 	int ret = -ETIME;
+
+	if (!fiq_ipc.hdq_probed)
+		return -EINVAL;
 
 	mutex_lock(&fiq_ipc.hdq_lock);
 
@@ -110,6 +116,9 @@ static ssize_t hdq_sysfs_dump(struct device *dev, struct device_attribute *attr,
 	u8 u8a[128]; /* whole address space for HDQ */
 	char *end = buf;
 
+	if (!fiq_ipc.hdq_probed)
+		return -EINVAL;
+
 	/* the dump does not take care about 16 bit regs, because at this
 	 * bus level we don't know about the chip details
 	 */
@@ -142,6 +151,9 @@ static ssize_t hdq_sysfs_write(struct device *dev,
 {
 	const char *end = buf + count;
 	int address = atoi(buf);
+
+	if (!fiq_ipc.hdq_probed)
+		return -EINVAL;
 
 	while ((buf != end) && (*buf != ' '))
 		buf++;
@@ -192,8 +204,9 @@ static int gta02hdq_resume(struct platform_device *pdev)
 static int __init gta02hdq_probe(struct platform_device *pdev)
 {
 	struct resource *r = platform_get_resource(pdev, 0, 0);
-
-	if (!machine_is_neo1973_gta02())
+	int ret;
+	
+	if (!machine_is_neo1973_gta02()) 
 		return -EIO;
 
 	if (!r)
@@ -214,9 +227,13 @@ static int __init gta02hdq_probe(struct platform_device *pdev)
 	s3c2410_gpio_setpin(fiq_ipc.hdq_gpio_pin, 1);
 	s3c2410_gpio_cfgpin(fiq_ipc.hdq_gpio_pin, S3C2410_GPIO_OUTPUT);
 
+	ret = sysfs_create_group(&pdev->dev.kobj, &gta02hdq_attr_group);
+	if (ret)
+		return ret;
+
 	fiq_ipc.hdq_probed = 1; /* we are ready to do stuff now */
 
-	return sysfs_create_group(&pdev->dev.kobj, &gta02hdq_attr_group);
+	return 0;
 }
 
 static int gta02hdq_remove(struct platform_device *pdev)
