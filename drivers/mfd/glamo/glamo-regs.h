@@ -142,8 +142,12 @@ enum glamo_register_mem {
 #define GLAMO_MEM_TYPE_MASK	0x03
 
 enum glamo_reg_mem_dram1 {
-	GLAMO_MEM_DRAM1_EN_SDRAM_CLK	= (1 << 11),
+	/* b0 - b10 == refresh period, 1 -> 2048 clocks */
+	GLAMO_MEM_DRAM1_EN_GATE_CLK	= (1 << 11),
 	GLAMO_MEM_DRAM1_SELF_REFRESH	= (1 << 12),
+	GLAMO_MEM_DRAM1_EN_GATE_CKE	= (1 << 13),
+	GLAMO_MEM_DRAM1_EN_DRAM_REFRESH	= (1 << 14),
+	GLAMO_MEM_DRAM1_EN_MODEREG_SET	= (1 << 15),
 };
 
 enum glamo_reg_mem_dram2 {
