@@ -84,6 +84,7 @@
 
 #define I2C_DRIVERID_OV7670 1048	/* Omnivision 7670 camera */
 #define I2C_DRIVERID_PCF50606 1049
+#define I2C_DRIVERID_PCF50633 1051
 
 /*
  * ---- Adapter types ----------------------------------------------------
