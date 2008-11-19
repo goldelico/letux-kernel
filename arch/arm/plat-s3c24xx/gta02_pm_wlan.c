@@ -92,16 +92,19 @@ static struct attribute_group gta02_wlan_attr_group = {
 
 static int __init gta02_wlan_probe(struct platform_device *pdev)
 {
+	/* default-on for now */
+	const int default_state = 1;
+
 	if (!machine_is_neo1973_gta02())
 		return -EINVAL;
 
 	dev_info(&pdev->dev, "starting\n");
 
 	/* Power is down */
-	s3c2410_gpio_setpin(GTA02_CHIP_PWD, 1);
+	s3c2410_gpio_setpin(GTA02_CHIP_PWD, !default_state);
 	s3c2410_gpio_cfgpin(GTA02_CHIP_PWD, S3C2410_GPIO_OUTPUT);
 	/* reset is asserted */
-	s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 0);
+	s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, default_state);
 	s3c2410_gpio_cfgpin(GTA02_GPIO_nWLAN_RESET, S3C2410_GPIO_OUTPUT);
 
 	return sysfs_create_group(&pdev->dev.kobj, &gta02_wlan_attr_group);
