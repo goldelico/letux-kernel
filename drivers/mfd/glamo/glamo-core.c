@@ -1123,7 +1123,7 @@ static int __init glamo_probe(struct platform_device *pdev)
 	if (!glamo->mem || !glamo->pdata) {
 		dev_err(&pdev->dev, "platform device with no MEM/PDATA ?\n");
 		rc = -ENOENT;
-		goto out_free;
+		goto bail_free;
 	}
 
 	init_resume_dependency_list(&glamo->resume_dependency);
@@ -1142,7 +1142,7 @@ static int __init glamo_probe(struct platform_device *pdev)
 	glamo->base = ioremap(glamo->mem->start, 0x4000 /*GLAMO_REGOFS_VIDCAP*/);
 	if (!glamo->base) {
 		dev_err(&pdev->dev, "failed to ioremap() memory region\n");
-		goto out_free;
+		goto bail_free;
 	}
 
 	for (irq = IRQ_GLAMO(0); irq <= IRQ_GLAMO(8); irq++) {
@@ -1151,16 +1151,6 @@ static int __init glamo_probe(struct platform_device *pdev)
 		set_irq_flags(irq, IRQF_VALID);
 	}
 
-	if (glamo->pdata->glamo_irq_is_wired &&
-	    !glamo->pdata->glamo_irq_is_wired()) {
-		set_irq_chained_handler(glamo->irq, glamo_irq_demux_handler);
-		set_irq_type(glamo->irq, IRQT_FALLING);
-		dev_info(&pdev->dev, "Glamo interrupt registered\n");
-		glamo->irq_works = 1;
-	} else {
-		dev_err(&pdev->dev, "Glamo interrupt not used\n");
-		glamo->irq_works = 0;
-	}
 	/* bring MCI specific stuff over from our MFD platform data */
 	glamo_mci_def_pdata.glamo_set_mci_power =
 					glamo->pdata->glamo_set_mci_power;
@@ -1217,21 +1207,32 @@ static int __init glamo_probe(struct platform_device *pdev)
 					GLAMO_REGOFS_VIDCAP, "glamo-core");
 	if (!glamo->mem) {
 		dev_err(&pdev->dev, "failed to request memory region\n");
-		goto out_free;
+		goto bail_iounmap;
 	}
 
 	if (!glamo_supported(glamo)) {
 		dev_err(&pdev->dev, "This Glamo is not supported\n");
-		goto out_free;
+		goto bail_release_mem;
 	}
 
 	rc = sysfs_create_group(&pdev->dev.kobj, &glamo_attr_group);
 	if (rc < 0) {
 		dev_err(&pdev->dev, "cannot create sysfs group\n");
-		goto out_free;
+		goto bail_release_mem;
 	}
 
 	platform_set_drvdata(pdev, glamo);
+
+	if (glamo->pdata->glamo_irq_is_wired &&
+	    !glamo->pdata->glamo_irq_is_wired()) {
+		set_irq_chained_handler(glamo->irq, glamo_irq_demux_handler);
+		set_irq_type(glamo->irq, IRQT_FALLING);
+		dev_info(&pdev->dev, "Glamo interrupt registered\n");
+		glamo->irq_works = 1;
+	} else {
+		dev_err(&pdev->dev, "Glamo interrupt not used\n");
+		glamo->irq_works = 0;
+	}
 
 	dev_dbg(&glamo->pdev->dev, "running init script\n");
 	glamo_run_script(glamo, glamo_init_script,
@@ -1243,9 +1244,15 @@ static int __init glamo_probe(struct platform_device *pdev)
 
 	return 0;
 
-out_free:
+bail_release_mem:
+	release_mem_region(glamo->mem->start, GLAMO_REGOFS_VIDCAP);
+bail_iounmap:
+	iounmap(glamo->base);
+bail_free:
+	platform_set_drvdata(pdev, NULL);
 	glamo_handle = NULL;
 	kfree(glamo);
+
 	return rc;
 }
 
