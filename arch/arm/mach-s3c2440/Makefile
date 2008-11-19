@@ -13,6 +13,7 @@ obj-$(CONFIG_CPU_S3C2440)	+= s3c2440.o dsc.o
 obj-$(CONFIG_CPU_S3C2440)	+= irq.o
 obj-$(CONFIG_CPU_S3C2440)	+= clock.o
 obj-$(CONFIG_S3C2440_DMA)	+= dma.o
+obj-$(CONFIG_S3C2440_C_FIQ)	+= fiq_c_isr.o
 
 # Machine support
 
