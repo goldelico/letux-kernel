@@ -68,11 +68,11 @@
 #include <mach/gta01.h>
 
 #include <plat/regs-serial.h>
-#include <asm/plat-s3c/nand.h>
-#include <asm/plat-s3c24xx/devs.h>
+#include <plat/nand.h>
+#include <plat/devs.h>
 #include <plat/cpu.h>
 #include <plat/pm.h>
-#include <asm/plat-s3c24xx/udc.h>
+#include <plat/udc.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 #include <mach/neo1973-pm-gsm.h>
 
@@ -378,7 +378,7 @@ static struct platform_device *gta01_devices[] __initdata = {
 	&s3c_device_usb,
 	&s3c_device_lcd,
 	&s3c_device_wdt,
-	&s3c_device_i2c,
+	&s3c_device_i2c0,
 	&s3c_device_iis,
 	&s3c_device_sdi,
 	&s3c_device_usbgadget,
