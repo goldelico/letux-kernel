@@ -28,6 +28,7 @@
 
 struct neo1973kbd {
 	struct input_dev *input;
+	struct device *cdev;
 	unsigned int suspended;
 	struct work_struct work;
 	int work_in_progress;
@@ -35,6 +36,10 @@ struct neo1973kbd {
 	int hp_irq_count;
 	int jack_irq;
 };
+
+static struct class *neo1973kbd_switch_class;
+
+#define HEADSET_SWITCH "headset"
 
 static irqreturn_t neo1973kbd_aux_irq(int irq, void *dev_id)
 {
@@ -61,6 +66,25 @@ static irqreturn_t neo1973kbd_hold_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void neo1973kbd_jack_event(struct device *dev, int num)
+{
+	char name_string[] = "SWITCH_NAME=" HEADSET_SWITCH;
+	char event_string[32];
+	char state_string[32];
+	char *envp[] = { name_string, state_string, event_string, NULL };
+
+	if (num) {
+		sprintf(state_string, "SWITCH_STATE=1");
+		sprintf(event_string, "EVENT=insert");
+	}
+	else {
+		sprintf(state_string, "SWITCH_STATE=0");
+		sprintf(event_string, "EVENT=remove");
+	}
+
+	kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, envp);
+}
+
 
 static void neo1973kbd_debounce_jack(struct work_struct *work)
 {
@@ -84,6 +108,8 @@ static void neo1973kbd_debounce_jack(struct work_struct *work)
 		input_report_switch(kbd->input, SW_HEADPHONE_INSERT,
 				    gpio_get_value(irq_to_gpio(kbd->jack_irq)));
 		input_sync(kbd->input);
+		neo1973kbd_jack_event(kbd->cdev,
+				      gpio_get_value(irq_to_gpio(kbd->jack_irq)));
 		/*
 		 * we go around the outer loop again if we detect that more
 		 * interrupts came while we are servicing here.  But we have
@@ -161,6 +187,23 @@ static int neo1973kbd_resume(struct platform_device *dev)
 #define neo1973kbd_resume	NULL
 #endif
 
+static ssize_t neo1973kbd_switch_name_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%s\n", "neo1973 Headset Jack");
+}
+
+static ssize_t neo1973kbd_switch_state_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct neo1973kbd *kbd = dev_get_drvdata(dev);
+	return sprintf(buf, "%d\n",
+			gpio_get_value(irq_to_gpio(kbd->jack_irq)) ? 1 : 0);
+}
+
+static DEVICE_ATTR(name, S_IRUGO , neo1973kbd_switch_name_show, NULL);
+static DEVICE_ATTR(state, S_IRUGO , neo1973kbd_switch_state_show, NULL);
+
 static int neo1973kbd_probe(struct platform_device *pdev)
 {
 	struct neo1973kbd *neo1973kbd;
@@ -202,6 +245,7 @@ static int neo1973kbd_probe(struct platform_device *pdev)
 	input_dev->id.vendor = 0x0001;
 	input_dev->id.product = 0x0001;
 	input_dev->id.version = 0x0100;
+	input_dev->dev.parent = &pdev->dev;
 
 	input_dev->evbit[0] = BIT(EV_KEY) | BIT(EV_SW);
 	set_bit(SW_HEADPHONE_INSERT, input_dev->swbit);
@@ -211,6 +255,21 @@ static int neo1973kbd_probe(struct platform_device *pdev)
 	rc = input_register_device(neo1973kbd->input);
 	if (rc)
 		goto out_register;
+
+	neo1973kbd->cdev = device_create_drvdata(neo1973kbd_switch_class,
+					&pdev->dev, 0, neo1973kbd, HEADSET_SWITCH);
+	if(unlikely(IS_ERR(neo1973kbd->cdev))) {
+		rc = PTR_ERR(neo1973kbd->cdev);
+		goto out_device_create;
+	}
+
+	rc = device_create_file(neo1973kbd->cdev, &dev_attr_name);
+	if(rc)
+		goto out_device_create_file;
+
+	rc = device_create_file(neo1973kbd->cdev, &dev_attr_state);
+	if(rc)
+		goto out_device_create_file;
 
 	if (request_irq(irq_aux, neo1973kbd_aux_irq, IRQF_DISABLED |
 			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
@@ -248,6 +307,9 @@ out_jack:
 out_hold:
 	free_irq(irq_aux, neo1973kbd);
 out_aux:
+out_device_create_file:
+	device_unregister(neo1973kbd->cdev);
+out_device_create:
 	input_unregister_device(neo1973kbd->input);
 out_register:
 	input_free_device(neo1973kbd->input);
@@ -265,6 +327,7 @@ static int neo1973kbd_remove(struct platform_device *pdev)
 	free_irq(gpio_to_irq(pdev->resource[1].start), neo1973kbd);
 	free_irq(gpio_to_irq(pdev->resource[0].start), neo1973kbd);
 
+	device_unregister(neo1973kbd->cdev);
 	input_unregister_device(neo1973kbd->input);
 	input_free_device(neo1973kbd->input);
 	platform_set_drvdata(pdev, NULL);
@@ -285,12 +348,16 @@ static struct platform_driver neo1973kbd_driver = {
 
 static int __devinit neo1973kbd_init(void)
 {
+	neo1973kbd_switch_class = class_create(THIS_MODULE, "switch");
+	if (IS_ERR(neo1973kbd_switch_class))
+		return PTR_ERR(neo1973kbd_switch_class);
 	return platform_driver_register(&neo1973kbd_driver);
 }
 
 static void __exit neo1973kbd_exit(void)
 {
 	platform_driver_unregister(&neo1973kbd_driver);
+	class_destroy(neo1973kbd_switch_class);
 }
 
 module_init(neo1973kbd_init);
