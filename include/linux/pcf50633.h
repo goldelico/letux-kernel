@@ -129,6 +129,11 @@ extern void
 pcf50633_register_resume_dependency(struct pcf50633_data *pcf,
 					struct resume_dependency *dep);
 
+/* 0 = initialized and resumed and ready to roll, !=0 = either not
+ * initialized or not resumed yet
+ */
+extern int
+pcf50633_ready(struct pcf50633_data *pcf);
 
 #define PCF50633_FEAT_EXTON	0x00000001	/* not yet supported */
 #define PCF50633_FEAT_MBC	0x00000002
