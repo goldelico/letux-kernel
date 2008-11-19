@@ -1080,9 +1080,9 @@ static void __gta02_lis302dl_bitbang(struct lis302dl_info *lis, u8 *tx,
 	/* send the register index, r/w and autoinc bits */
 	for (n = 0; n < (tx_bytes << 3); n++) {
 		if (!(n & 7))
-			shifter = tx[n >> 3];
+			shifter = ~tx[n >> 3];
 		s3c2410_gpio_setpin(pdata->pin_clk, 0);
-		s3c2410_gpio_setpin(pdata->pin_mosi, (shifter >> (7 - n)) & 1);
+		s3c2410_gpio_setpin(pdata->pin_mosi, !(shifter & 0x80));
 		s3c2410_gpio_setpin(pdata->pin_clk, 1);
 		shifter <<= 1;
 	}
