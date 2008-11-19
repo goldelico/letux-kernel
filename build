@@ -18,7 +18,7 @@ if make -j5 ARCH=arm CONFIG_DEBUG_SECTION_MISMATCH=y EXTRAVERSION=$VERSION; then
 	# we can see if it is an "moredrivers" build by looking for USB Eth gadget
 	# if it is then keep a stamped copy of last build
 
-	if [ ! -z "`grep CONFIG_USB_ETH=y .config`" ] ; then
+	if [ ! -z "`grep CONFIG_USB_USBNET=y .config`" ] ; then
 		rm -f uImage-moredrivers*
 		cp uImage.bin uImage-moredrivers$VERSION.bin
 	fi
