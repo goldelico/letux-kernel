@@ -876,36 +876,6 @@ static struct platform_device gta02_nor_flash = {
 };
 
 
-
-static struct resource gta02_sdio_resources[] = {
-	[0] = {
-		.flags	= IORESOURCE_IRQ,
-		.start	= IRQ_SDI,
-		.end	= IRQ_SDI,
-	},
-	[1] = {
-		.flags = IORESOURCE_MEM,
-		.start = S3C2410_PA_SDI,
-		.end   = S3C2410_PA_SDI + S3C24XX_SZ_SDI - 1,
-	},
-	[2] = {
-		.flags = IORESOURCE_DMA,
-		.start = 0, /* Channel 0 for SDI */
-		.end = 0,
-	},
-};
-
-
-static struct platform_device gta02_sdio_dev = {
-        .name           = "s3c24xx-sdio",
-        .id             = -1,
-        .dev            = {
-                                .coherent_dma_mask      = 0xffffffff,
-        },
-        .resource       = gta02_sdio_resources,
-        .num_resources  = ARRAY_SIZE(gta02_sdio_resources),
-};
-
 struct platform_device s3c24xx_pwm_device = {
 	.name 		= "s3c24xx_pwm",
 	.num_resources	= 0,
@@ -1582,7 +1552,6 @@ static struct platform_device *gta02_devices_pmu_children[] = {
 	&gta01_pm_gps_dev,
 	&gta01_pm_bt_dev,
 	&gta02_pm_gsm_dev,
-	&gta02_sdio_dev,
 	&gta02_pm_usbhost_dev,
 	&s3c_device_spi_acc1, /* input 2 */
 	&s3c_device_spi_acc2, /* input 3 */
