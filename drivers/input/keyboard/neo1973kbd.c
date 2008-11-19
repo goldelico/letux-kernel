@@ -26,6 +26,8 @@
 #include <mach/gpio.h>
 #include <asm/mach-types.h>
 
+extern int global_inside_suspend;
+
 struct neo1973kbd {
 	struct input_dev *input;
 	struct device *cdev;
@@ -45,6 +47,10 @@ static irqreturn_t neo1973kbd_aux_irq(int irq, void *dev_id)
 {
 	struct neo1973kbd *neo1973kbd_data = dev_id;
 	int key_pressed = !gpio_get_value(irq_to_gpio(irq));
+	int *p = NULL;
+
+	if (global_inside_suspend)
+		printk("death %d\n", *p);
 
 	/* GTA02 has inverted sense level compared to GTA01 */
 	if (machine_is_neo1973_gta02())
