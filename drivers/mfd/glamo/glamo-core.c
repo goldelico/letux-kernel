@@ -980,11 +980,14 @@ static const REG_VALUE_MASK_TYPE reg_powerSuspend[] =
 
 		glamo_run_script(glamo, glamo_init_script,
 			 ARRAY_SIZE(glamo_init_script), 0);
-
+/*
 		for (n = 0; n < ARRAY_SIZE(reg_range); n++)
 			for (ads = reg_range[n].start; ads <
 			    (reg_range[n].start + reg_range[n].count); ads += 2)
 				 __reg_write(glamo, ads, suspend_regs[ads >> 1]);
+*/
+		/* do not bypass LCD controller */
+		__reg_write(glamo, 0x2f0, 0x1);
 
 		spin_unlock_irqrestore(&glamo->lock, flags);
 

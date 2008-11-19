@@ -959,13 +959,24 @@ static int glamofb_suspend(struct platform_device *pdev, pm_message_t state)
 
 static int glamofb_resume(struct platform_device *pdev)
 {
-	struct glamofb_handle *gfb = platform_get_drvdata(pdev);
+	struct glamofb_handle *glamofb = platform_get_drvdata(pdev);
+	struct glamofb_platform_data *mach_info = pdev->dev.platform_data;
 
 	/* OK let's allow framebuffer ops again */
 //	gfb->fb->screen_base = ioremap(gfb->fb_res->start,
 //				       RESSIZE(gfb->fb_res));
+	glamo_engine_enable(mach_info->glamo, GLAMO_ENGINE_LCD);
+	glamo_engine_reset(mach_info->glamo, GLAMO_ENGINE_LCD);
 
-	fb_set_suspend(gfb->fb, 0);
+	printk(KERN_ERR"spin_lock_init\n");
+	spin_lock_init(&glamofb->lock_cmd);
+	glamofb_init_regs(glamofb);
+#ifdef CONFIG_MFD_GLAMO_HWACCEL
+	glamofb_cursor_onoff(glamofb, 1);
+#endif
+
+
+	fb_set_suspend(glamofb->fb, 0);
 //	fb_blank(gfb->fb, FB_BLANK_UNBLANK);
 
 	return 0;
