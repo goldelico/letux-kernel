@@ -638,7 +638,7 @@ static int jbt_suspend(struct spi_device *spi, pm_message_t state)
 
 	jbt->have_resumed = 0;
 
-//	(jbt6k74_pdata->reset)(0, 0);
+	(jbt6k74_pdata->reset)(0, 0);
 
 	return 0;
 }
