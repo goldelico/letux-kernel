@@ -1701,24 +1701,24 @@ struct pcf50633_time {
 
 static void pcf2rtc_time(struct rtc_time *rtc, struct pcf50633_time *pcf)
 {
-	rtc->tm_sec = BCD2BIN(pcf->time[PCF50633_TI_SEC]);
-	rtc->tm_min = BCD2BIN(pcf->time[PCF50633_TI_MIN]);
-	rtc->tm_hour = BCD2BIN(pcf->time[PCF50633_TI_HOUR]);
-	rtc->tm_wday = BCD2BIN(pcf->time[PCF50633_TI_WKDAY]);
-	rtc->tm_mday = BCD2BIN(pcf->time[PCF50633_TI_DAY]);
-	rtc->tm_mon = BCD2BIN(pcf->time[PCF50633_TI_MONTH]);
-	rtc->tm_year = BCD2BIN(pcf->time[PCF50633_TI_YEAR]) + 100;
+	rtc->tm_sec = bcd2bin(pcf->time[PCF50633_TI_SEC]);
+	rtc->tm_min = bcd2bin(pcf->time[PCF50633_TI_MIN]);
+	rtc->tm_hour = bcd2bin(pcf->time[PCF50633_TI_HOUR]);
+	rtc->tm_wday = bcd2bin(pcf->time[PCF50633_TI_WKDAY]);
+	rtc->tm_mday = bcd2bin(pcf->time[PCF50633_TI_DAY]);
+	rtc->tm_mon = bcd2bin(pcf->time[PCF50633_TI_MONTH]);
+	rtc->tm_year = bcd2bin(pcf->time[PCF50633_TI_YEAR]) + 100;
 }
 
 static void rtc2pcf_time(struct pcf50633_time *pcf, struct rtc_time *rtc)
 {
-	pcf->time[PCF50633_TI_SEC] = BIN2BCD(rtc->tm_sec);
-	pcf->time[PCF50633_TI_MIN] = BIN2BCD(rtc->tm_min);
-	pcf->time[PCF50633_TI_HOUR] = BIN2BCD(rtc->tm_hour);
-	pcf->time[PCF50633_TI_WKDAY] = BIN2BCD(rtc->tm_wday);
-	pcf->time[PCF50633_TI_DAY] = BIN2BCD(rtc->tm_mday);
-	pcf->time[PCF50633_TI_MONTH] = BIN2BCD(rtc->tm_mon);
-	pcf->time[PCF50633_TI_YEAR] = BIN2BCD(rtc->tm_year - 100);
+	pcf->time[PCF50633_TI_SEC] = bin2bcd(rtc->tm_sec);
+	pcf->time[PCF50633_TI_MIN] = bin2bcd(rtc->tm_min);
+	pcf->time[PCF50633_TI_HOUR] = bin2bcd(rtc->tm_hour);
+	pcf->time[PCF50633_TI_WKDAY] = bin2bcd(rtc->tm_wday);
+	pcf->time[PCF50633_TI_DAY] = bin2bcd(rtc->tm_mday);
+	pcf->time[PCF50633_TI_MONTH] = bin2bcd(rtc->tm_mon);
+	pcf->time[PCF50633_TI_YEAR] = bin2bcd(rtc->tm_year - 100);
 }
 
 static int pcf50633_rtc_ioctl(struct device *dev, unsigned int cmd,

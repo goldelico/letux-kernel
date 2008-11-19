@@ -1773,7 +1773,7 @@ static int wm8753_probe(struct platform_device *pdev)
 #if defined(CONFIG_I2C) || defined(CONFIG_I2C_MODULE)
 	if (setup->i2c_address) {
 		codec->hw_write = (hw_write_t)i2c_master_send;
-		ret = wm8753_add_i2c_device(pdev, setup);
+		ret = add_i2c_device(pdev, setup);
 	}
 #endif
 #if defined(CONFIG_SPI_MASTER)
