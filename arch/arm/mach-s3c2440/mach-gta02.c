@@ -64,7 +64,7 @@
 #include <mach/mci.h>
 #include <mach/ts.h>
 #include <mach/spi.h>
-#include <asm/arch-s3c2410/spi-gpio.h>
+#include <mach/spi-gpio.h>
 #include <mach/usb-control.h>
 #include <mach/regs-mem.h>
 

@@ -62,7 +62,7 @@
 #include <mach/fb.h>
 #include <mach/mci.h>
 #include <mach/spi.h>
-#include <asm/arch/spi-gpio.h>
+#include <mach/spi-gpio.h>
 #include <mach/usb-control.h>
 
 #include <mach/gta01.h>
