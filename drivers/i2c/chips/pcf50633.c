@@ -690,9 +690,7 @@ int pcf50633_notify_usb_current_limit_change(struct pcf50633_data *pcf,
 	 * have to bail with error since we can't even schedule the work
 	 */
 	if (!pcf) {
-		dev_err(&pcf->client.dev,
-			"pcf50633_notify_usb_current_limit_change "
-			"called with NULL pcf\n");
+		printk(KERN_ERR "pcf50633_notify_usb_current_limit called with NULL pcf\n");
 		return -EBUSY;
 	}
 
