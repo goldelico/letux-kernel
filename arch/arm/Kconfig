@@ -1269,7 +1269,7 @@ source "drivers/usb/Kconfig"
 
 source "drivers/uwb/Kconfig"
 
-source "drivers/sdio/Kconfig"
+source "drivers/ar6000/Kconfig"
 
 source "drivers/mmc/Kconfig"
 

@@ -13,7 +13,7 @@ EXTRA_CFLAGS += -DLINUX -D__KERNEL__ -DHTC_RAW_INTERFACE\
 
 EXTRA_CFLAGS += -DKERNEL_2_6
 
-obj-$(CONFIG_SDIO_AR6000_WLAN) += ar6000.o
+obj-$(CONFIG_AR6000_WLAN) += ar6000.o
 
 ar6000-objs += htc/ar6k.o      		   \
 	       htc/ar6k_events.o 	   \
