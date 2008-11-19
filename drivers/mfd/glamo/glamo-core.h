@@ -17,7 +17,6 @@
 #define GLAMO_MMC_BUFFER_SIZE (64 * 1024)
 #define GLAMO_FB_SIZE	(GLAMO_INTERNAL_RAM_SIZE - GLAMO_MMC_BUFFER_SIZE)
 
-
 struct glamo_core {
 	int irq;
 	int irq_works; /* 0 means PCB does not support Glamo IRQ */

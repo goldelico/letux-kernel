@@ -12,9 +12,9 @@
 #ifndef __ASM_ARCH_IRQS_H
 #define __ASM_ARCH_IRQS_H __FILE__
 
-#ifndef __ASM_ARM_IRQ_H
-#error "Do not include this directly, instead #include <asm/irq.h>"
-#endif
+//#ifndef __ASM_ARM_IRQ_H
+//#error "Do not include this directly, instead #include <asm/irq.h>"
+//#endif
 
 /* we keep the first set of CPU IRQs out of the range of
  * the ISA space, so that the PC104 has them to itself
@@ -178,6 +178,7 @@
 #define NR_IRQS			(IRQ_BOARD_START)
 #endif
 
+#if 0
 /* Neo1973 GTA02 interrupts */
 #define NEO1973_GTA02_IRQ(x)	(IRQ_BOARD_START + (x))
 #define IRQ_GLAMO(x)		NEO1973_GTA02_IRQ(x)
@@ -190,5 +191,5 @@
 #define IRQ_GLAMO_2D		IRQ_GLAMO(6)
 #define IRQ_GLAMO_MMC		IRQ_GLAMO(7)
 #define IRQ_GLAMO_RISC		IRQ_GLAMO(8)
-
+#endif
 #endif /* __ASM_ARCH_IRQ_H */

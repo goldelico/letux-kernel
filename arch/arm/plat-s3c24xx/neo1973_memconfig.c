@@ -16,9 +16,9 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
-#include <asm/arch/regs-mem.h>
+#include <mach/regs-mem.h>
 
 static ssize_t neo1973_memconfig_read(struct device *dev,
 				       struct device_attribute *attr, char *buf)

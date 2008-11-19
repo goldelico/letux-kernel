@@ -17,7 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 
 #ifdef CONFIG_MACH_NEO1973_GTA02

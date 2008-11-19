@@ -22,7 +22,7 @@
 #include <linux/spi/spi_bitbang.h>
 
 #include <mach/regs-gpio.h>
-#include <mach/spi-gpio.h>
+#include <asm/arch/spi-gpio.h>
 #include <mach/hardware.h>
 
 struct s3c2410_spigpio {

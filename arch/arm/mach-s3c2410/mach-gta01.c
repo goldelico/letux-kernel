@@ -52,17 +52,17 @@
 #include <asm/mach/map.h>
 #include <asm/mach/irq.h>
 
-#include <asm/hardware.h>
-#include <asm/io.h>
+#include <mach/hardware.h>
+#include <mach/io.h>
 #include <asm/irq.h>
 #include <asm/mach-types.h>
 
-#include <asm/arch/regs-gpio.h>
-#include <asm/arch/fb.h>
+#include <mach/regs-gpio.h>
+#include <mach/fb.h>
 #include <asm/arch/mci.h>
-#include <asm/arch/spi.h>
+#include <mach/spi.h>
 #include <asm/arch/spi-gpio.h>
-#include <asm/arch/usb-control.h>
+#include <mach/usb-control.h>
 
 #include <asm/arch/gta01.h>
 

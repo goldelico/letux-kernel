@@ -21,8 +21,8 @@
 #define __ASM_ARCH_S3C2410_GPIO_H
 
 #include <asm/irq.h>
-#include <asm/hardware.h>
-#include <asm/arch/regs-gpio.h>
+#include <mach/hardware.h>
+#include <mach/regs-gpio.h>
 
 int gpio_request(unsigned gpio, const char *label);
 void gpio_free(unsigned gpio);

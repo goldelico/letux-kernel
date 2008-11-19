@@ -8,6 +8,8 @@
  * published by the Free Software Foundation.
 */
 
+#include <linux/sysdev.h>
+
 /* s3c2410_pm_init
  *
  * called from board at initialisation time to setup the power

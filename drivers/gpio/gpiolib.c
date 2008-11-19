@@ -6,8 +6,7 @@
 #include <linux/err.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
-#include <linux/gpio.h>
-
+#include <asm/arch/gpio.h>
 
 /* Optional implementation infrastructure for GPIO interfaces.
  *

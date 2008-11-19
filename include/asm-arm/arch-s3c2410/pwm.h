@@ -5,8 +5,8 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 
-#include <asm-arm/io.h>
-#include <asm/arch/hardware.h>
+#include <mach/io.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/plat-s3c/regs-timer.h>
 #include <asm/arch/gta01.h>

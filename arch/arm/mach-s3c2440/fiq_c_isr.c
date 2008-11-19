@@ -6,7 +6,7 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/fiq.h>
 #include "fiq_c_isr.h"
 #include <linux/sysfs.h>

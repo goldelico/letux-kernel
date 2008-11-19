@@ -19,20 +19,25 @@
 #include <linux/errno.h>
 #include <linux/interrupt.h>
 
-#include <asm/gpio.h>
+#include <asm/arch/gpio.h>
 #include <asm/mach-types.h>
 #include <asm/arch/gta01.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 #include <asm/arch/s3c24xx-serial.h>
 
+#include <mach/hardware.h>
+
 #ifdef CONFIG_MACH_NEO1973_GTA02
 #include <asm/arch/gta02.h>
 #include <linux/pcf50633.h>
-#include <asm/arch/regs-gpioj.h>
+#include <mach/regs-gpio.h>
+#include <mach/regs-gpioj.h>
 #endif
 
 int gta_gsm_interrupts;
 EXPORT_SYMBOL(gta_gsm_interrupts);
+
+extern void s3c24xx_serial_console_set_silence(int);
 
 struct gta01pm_priv {
 	int gpio_ngsm_en;

@@ -1,7 +1,7 @@
 #ifndef _LINUX_FIQ_C_ISR_H
 #define _LINUX_FIQ_C_ISR_H
 
-#include <asm/arch-s3c2410/regs-irq.h>
+#include <mach/regs-irq.h>
 
 extern unsigned long _fiq_count_fiqs;
 extern u32 _fiq_ack_mask;

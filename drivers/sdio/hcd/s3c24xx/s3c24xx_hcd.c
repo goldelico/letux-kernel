@@ -47,7 +47,7 @@
 #include <asm/dma-mapping.h>
 
 #include <asm/arch/regs-sdi.h>
-#include <asm/arch/regs-gpio.h>
+#include <mach/regs-gpio.h>
 #include <asm/arch/mci.h>
 #include <asm/arch/gta02.h>
 

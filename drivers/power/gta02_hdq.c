@@ -15,7 +15,7 @@
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/arch/gta02.h>
 #include <asm/arch/fiq_ipc_gta02.h>

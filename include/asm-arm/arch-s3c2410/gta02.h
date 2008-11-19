@@ -1,7 +1,7 @@
 #ifndef _GTA02_H
 #define _GTA02_H
 
-#include <asm/arch/regs-gpio.h>
+#include <mach/regs-gpio.h>
 #include <asm/arch/irqs.h>
 
 /* Different hardware revisions, passed in ATAG_REVISION by u-boot */

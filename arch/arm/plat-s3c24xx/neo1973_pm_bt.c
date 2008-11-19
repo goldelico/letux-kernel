@@ -16,7 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 

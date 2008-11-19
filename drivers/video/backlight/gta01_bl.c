@@ -35,7 +35,7 @@
 #include <linux/backlight.h>
 #include <linux/clk.h>
 
-#include <asm/arch/hardware.h>
+#include <mach/hardware.h>
 #include <asm/arch/gta01.h>
 #include <asm/arch/pwm.h>
 

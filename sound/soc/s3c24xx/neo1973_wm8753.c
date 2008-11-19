@@ -32,7 +32,7 @@
 #include <mach/audio.h>
 #include <linux/io.h>
 #include <mach/spi-gpio.h>
-
+#include <asm/mach-types.h>
 #include <asm/plat-s3c24xx/regs-iis.h>
 
 #include "../codecs/wm8753.h"

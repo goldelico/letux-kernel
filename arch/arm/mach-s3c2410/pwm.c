@@ -21,9 +21,10 @@
 #include <linux/init.h>
 #include <linux/clk.h>
 #include <linux/device.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/plat-s3c/regs-timer.h>
 #include <asm/arch/pwm.h>
+#include <asm/io.h>
 
 #ifdef CONFIG_PM
 	static unsigned long standby_reg_tcon;

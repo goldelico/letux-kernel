@@ -31,8 +31,8 @@
 #include <mach/hardware.h>
 #include <asm/irq.h>
 
-#include <asm/arch/regs-gpio.h>
-#include <asm/arch/regs-gpioj.h>
+#include <mach/regs-gpio.h>
+#include <mach/regs-gpioj.h>
 
 void s3c2410_gpio_cfgpin(unsigned int pin, unsigned int function)
 {

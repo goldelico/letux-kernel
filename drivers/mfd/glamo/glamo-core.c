@@ -45,6 +45,8 @@
 #include <asm/uaccess.h>
 #include <asm/div64.h>
 
+//#include <mach/regs-irq.h>
+
 #ifdef CONFIG_PM
 #include <linux/pm.h>
 #endif

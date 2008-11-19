@@ -20,7 +20,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/arch/gta01.h>
 
 struct gta01kbd {

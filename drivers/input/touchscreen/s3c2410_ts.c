@@ -54,7 +54,7 @@
 #include <asm/io.h>
 #include <asm/irq.h>
 
-#include <asm/arch/regs-gpio.h>
+#include <mach/regs-gpio.h>
 #include <asm/arch/ts.h>
 
 #include <asm/plat-s3c/regs-adc.h>
