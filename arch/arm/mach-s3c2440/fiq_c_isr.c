@@ -60,11 +60,12 @@
  */
 
 /* more than enough to cover our jump instruction to the isr */
-#define SIZEOF_FIQ_JUMP 8
-/* more than enough to cover s3c2440_fiq_isr() in 4K blocks */
-#define SIZEOF_FIQ_ISR 0x2000
-/* increase the size of the stack that is active during FIQ as needed */
-static u8 u8aFiqStack[4096];
+#define SIZEOF_FIQ_JUMP 4
+
+#define FIQ_VECTOR 0xffff001c
+
+/* we put the stack at the area after the FIQ vector */
+#define FIQ_STACK_SIZE 256
 
 /* only one FIQ ISR possible, okay to do these here */
 u32 _fiq_ack_mask; /* used by isr exit define */
@@ -249,13 +250,14 @@ static void fiq_set_vector_and_regs(void)
 	/* prep the special FIQ mode regs */
 	memset(&regs, 0, sizeof(regs));
 	regs.ARM_r8 = (unsigned long)s3c2440_fiq_isr;
-	regs.ARM_sp = (unsigned long)u8aFiqStack + sizeof(u8aFiqStack) - 4;
-
-	/* set up the special FIQ-mode-only registers from our regs */
-	set_fiq_regs(&regs);
+	regs.ARM_r10 = FIQ_VECTOR + SIZEOF_FIQ_JUMP;
+	regs.ARM_sp = FIQ_VECTOR + SIZEOF_FIQ_JUMP + FIQ_STACK_SIZE - 4;
 	
 	/* copy our jump to the real ISR into the hard vector address */
 	set_fiq_handler(s3c2440_FIQ_Branch, SIZEOF_FIQ_JUMP);
+
+	/* set up the special FIQ-mode-only registers from our regs */
+	set_fiq_regs(&regs);
 }
 
 #ifdef CONFIG_PM

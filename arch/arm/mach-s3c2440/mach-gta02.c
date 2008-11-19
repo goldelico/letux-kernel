@@ -138,7 +138,7 @@ static u8 hdq_tx_data_done;
 FIQ_HANDLER_START()
 /* define your locals here -- no initializers though */
 	u16 divisor;
-FIQ_HANDLER_ENTRY(256, 512)
+FIQ_HANDLER_ENTRY(64, 64)
 /* Your ISR here :-) */
 	divisor = 0xffff;
 

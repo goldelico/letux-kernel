@@ -29,7 +29,6 @@ void __attribute__ ((naked)) s3c2440_fiq_isr(void) \
 	const int _FIQ_FRAME_SIZE = FRAME; \
 	/* entry takes care to store registers we will be treading on here */\
 	asm __volatile__ (\
-		"mov     ip, sp ;"\
 		/* stash FIQ and r0-r8 normal regs */\
 		"stmdb	sp!, {r0-r12, lr};"\
 		/* allow SP to get some space */\
