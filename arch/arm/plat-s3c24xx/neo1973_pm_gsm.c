@@ -30,6 +30,9 @@
 #include <asm/arch/regs-gpioj.h>
 #endif
 
+extern void s3c24xx_serial_console_set_silence(int silence);
+extern void s3c24xx_serial_register_resume_dependency(struct resume_dependency *
+					     resume_dependency, int uart_index);
 
 int gta_gsm_interrupts;
 EXPORT_SYMBOL(gta_gsm_interrupts);
@@ -100,6 +103,7 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 					 "disconnecting serial console\n");
 
 				console_stop(gta01_gsm.con);
+				s3c24xx_serial_console_set_silence(1);
 			}
 
 			if (gta01_gsm.gpio_ngsm_en)
@@ -139,6 +143,7 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 				s3c2410_gpio_setpin(gta01_gsm.gpio_ngsm_en, 1);
 
 			if (gta01_gsm.con) {
+				s3c24xx_serial_console_set_silence(0);
 				console_start(gta01_gsm.con);
 
 				dev_dbg(dev, "powered down GSM, thus enabling "
