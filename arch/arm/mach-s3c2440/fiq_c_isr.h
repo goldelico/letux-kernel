@@ -5,6 +5,8 @@
 
 extern unsigned long _fiq_count_fiqs;
 extern u32 _fiq_ack_mask;
+extern int _fiq_timer_index;
+extern u16 _fiq_timer_divisor;
 
 /* This CANNOT be implemented in a module -- it has to be used in code
  * included in the monolithic kernel
