@@ -1454,7 +1454,7 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 	int mv = 1650;
 	int timeout = 500;
 
-	printk(KERN_DEBUG "mmc_set_power(power_mode=%u, vdd=%u\n",
+	printk(KERN_DEBUG "mmc_set_power(power_mode=%u, vdd=%u)\n",
 	       power_mode, vdd);
 
 	switch (system_rev) {
@@ -1485,7 +1485,6 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 					     PCF50633_REGULATOR_HCLDO, mv);
 			pcf50633_onoff_set(pcf50633_global,
 					   PCF50633_REGULATOR_HCLDO, 1);
-			msleep(200);
 			break;
 		case MMC_POWER_OFF:
 			/* power off happens during suspend, when pcf50633 can
