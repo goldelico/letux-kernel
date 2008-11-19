@@ -888,7 +888,7 @@ static struct glamo_script glamo_init_script[] = {
 	{ GLAMO_REG_MEM_DRAM2,		0x01d6 },
 	{ GLAMO_REG_CLOCK_MEMORY,	0x000b },
 };
-
+#if 0
 static struct glamo_script glamo_resume_script[] = {
 
 	{ GLAMO_REG_PLL_GEN1,		0x05db },	/* 48MHz */
@@ -914,7 +914,7 @@ static struct glamo_script glamo_resume_script[] = {
 	{ GLAMO_REG_MEM_DRAM2,		0x01d6 },
 	{ GLAMO_REG_CLOCK_MEMORY,	0x000b },
 };
-
+#endif
 
 enum glamo_power {
 	GLAMO_POWER_ON,
@@ -925,7 +925,6 @@ static void glamo_power(struct glamo_core *glamo,
 			enum glamo_power new_state)
 {
 	int n;
-	int ads;
 	unsigned long flags;
 	
 	spin_lock_irqsave(&glamo->lock, flags);

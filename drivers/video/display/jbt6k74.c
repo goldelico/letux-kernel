@@ -533,10 +533,51 @@ static ssize_t gamma_write(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+static ssize_t reset_write(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct jbt_info *jbt = dev_get_drvdata(dev);
+	struct jbt6k74_platform_data *jbt6k74_pdata = jbt->spi_dev->dev.platform_data;
+	int rc;
+
+	dev_info(dev, "**** jbt6k74 reset\n");
+
+	/* hard reset the jbt6k74 */
+
+	(jbt6k74_pdata->reset)(0, 0);
+	mdelay(1);
+	(jbt6k74_pdata->reset)(0, 1);
+	mdelay(120);
+
+	rc = jbt_reg_write_nodata(jbt, 0x01);
+	if (rc < 0)
+		dev_err(dev, "cannot soft reset\n");
+
+	mdelay(120);
+
+	jbt->state = JBT_STATE_DEEP_STANDBY;
+
+	switch (jbt->last_state) {
+	case JBT_STATE_QVGA_NORMAL:
+		jbt6k74_enter_state(jbt, JBT_STATE_QVGA_NORMAL);
+		break;
+	default:
+		jbt6k74_enter_state(jbt, JBT_STATE_NORMAL);
+		break;
+	}
+
+	rc = jbt6k74_display_onoff(jbt, 1);
+	if (rc < 0)
+		dev_err(dev, "cannot switch display on\n");
+
+	return count;
+}
+
 static DEVICE_ATTR(gamma_fine1, 0644, gamma_read, gamma_write);
 static DEVICE_ATTR(gamma_fine2, 0644, gamma_read, gamma_write);
 static DEVICE_ATTR(gamma_inclination, 0644, gamma_read, gamma_write);
 static DEVICE_ATTR(gamma_blue_offset, 0644, gamma_read, gamma_write);
+static DEVICE_ATTR(reset, 0600, NULL, reset_write);
 
 static struct attribute *jbt_sysfs_entries[] = {
 	&dev_attr_state.attr,
@@ -544,6 +585,7 @@ static struct attribute *jbt_sysfs_entries[] = {
 	&dev_attr_gamma_fine2.attr,
 	&dev_attr_gamma_inclination.attr,
 	&dev_attr_gamma_blue_offset.attr,
+	&dev_attr_reset.attr,
 	NULL,
 };
 
@@ -592,6 +634,7 @@ static int __devinit jbt_probe(struct spi_device *spi)
 {
 	int rc;
 	struct jbt_info *jbt;
+	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
 
 	/* the controller doesn't have a MISO pin; we can't do detection */
 
@@ -614,6 +657,20 @@ static int __devinit jbt_probe(struct spi_device *spi)
 	mutex_init(&jbt->lock);
 
 	dev_set_drvdata(&spi->dev, jbt);
+
+	/* hard reset the jbt6k74 */
+
+	(jbt6k74_pdata->reset)(0, 0);
+	mdelay(1);
+	(jbt6k74_pdata->reset)(0, 1);
+	mdelay(120);
+
+	rc = jbt_reg_write_nodata(jbt, 0x01);
+	if (rc < 0)
+		dev_err(&spi->dev, "cannot soft reset\n");
+
+	mdelay(120);
+
 
 	rc = jbt6k74_enter_state(jbt, JBT_STATE_NORMAL);
 	if (rc < 0) {
@@ -691,7 +748,25 @@ int jbt6k74_resume(struct spi_device *spi)
 {
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
 	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
+	int rc;
 
+	dev_info(&spi->dev, "**** jbt6k74 resume start\n");
+
+	/* hard reset the jbt6k74 */
+
+	(jbt6k74_pdata->reset)(0, 0);
+	mdelay(1);
+	(jbt6k74_pdata->reset)(0, 1);
+	mdelay(120);
+
+	rc = jbt_reg_write_nodata(jbt, 0x01);
+	if (rc < 0)
+		dev_err(&spi->dev, "cannot soft reset\n");
+
+	mdelay(120);
+
+	jbt->state = JBT_STATE_DEEP_STANDBY;
+	
 	switch (jbt->last_state) {
 	case JBT_STATE_QVGA_NORMAL:
 		jbt6k74_enter_state(jbt, JBT_STATE_QVGA_NORMAL);
@@ -700,10 +775,15 @@ int jbt6k74_resume(struct spi_device *spi)
 		jbt6k74_enter_state(jbt, JBT_STATE_NORMAL);
 		break;
 	}
-	jbt6k74_display_onoff(jbt, 1);
+
+	rc = jbt6k74_display_onoff(jbt, 1);
+	if (rc < 0)
+		dev_err(&spi->dev, "cannot switch display on\n");
 
 	if (jbt6k74_pdata->resuming)
 		(jbt6k74_pdata->resuming)(0);
+
+	dev_info(&spi->dev, "**** jbt6k74 resume end\n");
 
 	return 0;
 }

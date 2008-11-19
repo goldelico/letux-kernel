@@ -37,6 +37,8 @@ void glamo_gpio_cfgpin(struct glamo_core *glamo, unsigned int pinfunc)
 	unsigned int reg = REG_OF_GPIO(pinfunc);
 	u_int16_t tmp;
 
+	printk(KERN_INFO "glamo_gpio_cfgpin 0x%x %p\n", pinfunc, glamo->base + reg);
+
 	spin_lock(&glamo->lock);
 	tmp = readw(glamo->base + reg);
 

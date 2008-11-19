@@ -2,7 +2,6 @@
 #define __GLAMO_CORE_H
 
 #include <asm/system.h>
-#include <linux/resume-dependency.h>
 
 /* for the time being, we put the on-screen framebuffer into the lowest
  * VRAM space.  This should make the code easily compatible with the various
