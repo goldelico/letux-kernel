@@ -674,7 +674,6 @@ static int __devexit jbt_remove(struct spi_device *spi)
 static int jbt_suspend(struct spi_device *spi, pm_message_t state)
 {
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
-//	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
 
 	/* Save mode for resume */
 	jbt->last_state = jbt->state;
@@ -683,7 +682,7 @@ static int jbt_suspend(struct spi_device *spi, pm_message_t state)
 
 	jbt->have_resumed = 0;
 
-//	(jbt6k74_pdata->reset)(0, 0);
+/*	(jbt6k74_pdata->reset)(0, 0); */
 
 	return 0;
 }
@@ -692,19 +691,6 @@ int jbt6k74_resume(struct spi_device *spi)
 {
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
 	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
-
-	printk(KERN_ERR "****** jbt6k74_resume\n");
-
-	/* software reset */
-	jbt_reg_write_nodata(jbt, 1);
-
-	msleep(120);
-
-	sleep_to_normal(jbt);
-	sleep_to_normal(jbt);
-
-/*
-	jbt6k74_display_onoff(jbt, 1);
 
 	switch (jbt->last_state) {
 	case JBT_STATE_QVGA_NORMAL:
@@ -715,7 +701,7 @@ int jbt6k74_resume(struct spi_device *spi)
 		break;
 	}
 	jbt6k74_display_onoff(jbt, 1);
-*/
+
 	if (jbt6k74_pdata->resuming)
 		(jbt6k74_pdata->resuming)(0);
 
