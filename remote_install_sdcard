@@ -1,0 +1,20 @@
+#!/bin/sh
+
+# automatic kernel updater and reboot - Andy Green <andy@openmoko.com>
+
+GTA_DEVICE_IP=192.168.0.202
+GTA_MOUNTPOINT=/mnt
+
+# you should set up key-based auth on dropbear if you want
+# to play this game.
+#
+# 1) mkdir /home/root/.ssh
+# 2) chown root:root / /home /home/root
+# 3) chmod 700 /home/root /home/root/.ssh
+# 4) copy your id_*.pub into /home/root/.ssh/authorized_keys
+# 5) chmod 600 /home/root/.ssh/*
+
+ssh root@$GTA_DEVICE_IP "mount /dev/mmcblk0p1 $GTA_MOUNTPOINT"
+scp uImage.bin root@$GTA_DEVICE_IP:$GTA_MOUNTPOINT
+ssh root@$GTA_DEVICE_IP "umount $GTA_MOUNTPOINT ; mount /dev/mmcblk0p2 / -oremount,ro ; reboot -if &"
+
