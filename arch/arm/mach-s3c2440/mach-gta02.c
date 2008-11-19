@@ -1659,6 +1659,30 @@ static int __init hardware_ecc_setup(char *str)
 
 __setup("hardware_ecc=", hardware_ecc_setup);
 
+static struct platform_device *gta02_devices[] __initdata = {
+	&s3c_device_spi_acc,
+	&gta02_button_dev,
+	&gta02_pm_usbhost_dev,
+	&gta02_pmu_dev,
+	&gta02_sdio_dev,
+	&s3c_device_usb,
+	&s3c_device_wdt,
+	&s3c_device_i2c,
+	&s3c_device_iis,
+	// &s3c_device_sdi, /* FIXME: temporary disable to avoid s3cmci bind */
+	&s3c_device_usbgadget,
+	&s3c_device_nand,
+	&s3c_device_ts,
+	&gta02_nor_flash,
+	&sc32440_fiq_device,
+	&gta02_version_device,
+	&gta02_memconfig_device,
+	&gta02_resume_reason_device,
+	&s3c24xx_pwm_device,
+	&gta02_pm_wlan_dev,
+};
+
+
 static void __init gta02_machine_init(void)
 {
 	int rc;
