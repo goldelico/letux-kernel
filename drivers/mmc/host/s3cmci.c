@@ -1280,10 +1280,8 @@ static int __devinit s3cmci_probe(struct platform_device *pdev, int is2440)
 	host->is2440	= is2440;
 
 	host->pdata = pdev->dev.platform_data;
-	if (!host->pdata) {
-		pdev->dev.platform_data = &s3cmci_def_pdata;
+	if (!host->pdata)
 		host->pdata = &s3cmci_def_pdata;
-	}
 
 	spin_lock_init(&host->complete_lock);
 	tasklet_init(&host->pio_tasklet, pio_tasklet, (unsigned long) host);
