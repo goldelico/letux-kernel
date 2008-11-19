@@ -884,7 +884,10 @@ static int __init glamofb_probe(struct platform_device *pdev)
 	fbinfo->var.hsync_len = mach_info->hsync_len;
 	fbinfo->var.vsync_len = mach_info->vsync_len;
 
-	memset(fbinfo->screen_base, 0, fbinfo->fix.smem_len);
+	memset(fbinfo->screen_base, 0,
+			mach_info->xres.max *
+			mach_info->yres.max *
+			mach_info->bpp.max / 8);
 
 	glamo_engine_enable(mach_info->glamo, GLAMO_ENGINE_LCD);
 	glamo_engine_reset(mach_info->glamo, GLAMO_ENGINE_LCD);
