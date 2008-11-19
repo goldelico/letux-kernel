@@ -55,6 +55,11 @@ static inline int device_is_not_partition(struct device *dev)
  */
 const char *dev_driver_string(const struct device *dev)
 {
+	if (!dev) {
+		printk(KERN_ERR"Null dev to dev_driver_string\n");
+		dump_stack();
+		return "*NULL*";
+	}
 	return dev->driver ? dev->driver->name :
 			(dev->bus ? dev->bus->name :
 			(dev->class ? dev->class->name : ""));
