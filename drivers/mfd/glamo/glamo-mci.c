@@ -1,7 +1,7 @@
 /*
  *  linux/drivers/mmc/host/glamo-mmc.c - Glamo MMC driver
  *
- *  Copyright (C) 2007 OpenMoko, Inc,  Andy Green <andy@openmoko.com>
+ *  Copyright (C) 2007 Openmoko, Inc,  Andy Green <andy@openmoko.com>
  *  Based on S3C MMC driver that was:
  *  Copyright (C) 2004-2006 maintech GmbH, Thomas Kleffel <tk@maintech.de>
  *
@@ -661,7 +661,7 @@ static int glamo_mci_probe(struct platform_device *pdev)
 	struct glamo_mci_host 	*host;
 	int ret;
 
-	dev_info(&pdev->dev, "glamo_mci driver (C)2007 OpenMoko, Inc\n");
+	dev_info(&pdev->dev, "glamo_mci driver (C)2007 Openmoko, Inc\n");
 
 	mmc = mmc_alloc_host(sizeof(struct glamo_mci_host), &pdev->dev);
 	if (!mmc) {

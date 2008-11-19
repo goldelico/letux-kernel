@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 OpenMoko, Inc.
+ * Copyright (C) 2007 Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  *
  * Smedia Glamo GPIO based SPI driver

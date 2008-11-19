@@ -1,7 +1,7 @@
 /*
  * s3c24xx_hcd.c - Samsung S3C MCI driver, Atheros SDIO API compatible.
  *
- * Copyright (C) 2007 by OpenMoko, Inc.
+ * Copyright (C) 2007 by Openmoko, Inc.
  * Written by Samuel Ortiz <sameo@openedhand.com>
  * All Rights Reserved
  *

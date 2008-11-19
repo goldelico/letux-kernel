@@ -38,7 +38,7 @@ config MFD_GLAMO_MCI
 	depends on MFD_GLAMO && MMC
 	help
 	  This selects a driver for the MCI interface found in
-	  the S-Media GLAMO chip, as used in OpenMoko
+	  the S-Media GLAMO chip, as used in Openmoko
 	  neo1973 GTA-02.
 
 	  If unsure, say N.

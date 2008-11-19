@@ -1,7 +1,7 @@
 /*
  * HDQ driver for the FIC Neo1973 GTA02 GSM phone
  *
- * (C) 2006-2007 by OpenMoko, Inc.
+ * (C) 2006-2007 by Openmoko, Inc.
  * Author: Andy Green <andy@openmoko.com>
  * All rights reserved.
  *

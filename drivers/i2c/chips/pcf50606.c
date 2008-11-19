@@ -1,6 +1,6 @@
 /* Philips/NXP PCF50606 Power Management Unit (PMU) driver
  *
- * (C) 2006-2007 by OpenMoko, Inc.
+ * (C) 2006-2007 by Openmoko, Inc.
  * Authors: Harald Welte <laforge@openmoko.org>,
  *	    Matt Hsu <matt@openmoko.org>
  * All rights reserved.

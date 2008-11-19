@@ -1,6 +1,6 @@
 /* linux/arch/arm/mach-s3c2410/mach-qt2410.c
  *
- * Copyright (C) 2006 by OpenMoko, Inc.
+ * Copyright (C) 2006 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  * All rights reserved.
  *

@@ -1,6 +1,6 @@
 /* Smedia Glamo 336x/337x driver
  *
- * (C) 2007 by OpenMoko, Inc.
+ * (C) 2007 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  * All rights reserved.
  *
@@ -684,7 +684,7 @@ static int __init glamofb_probe(struct platform_device *pdev)
 	struct glamofb_platform_data *mach_info = pdev->dev.platform_data;
 
 	printk(KERN_INFO "SMEDIA Glamo frame buffer driver (C) 2007 "
-		"OpenMoko, Inc.\n");
+		"Openmoko, Inc.\n");
 
 	fbinfo = framebuffer_alloc(sizeof(struct glamofb_handle), &pdev->dev);
 	if (!fbinfo)

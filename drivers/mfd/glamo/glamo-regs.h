@@ -3,7 +3,7 @@
 
 /* Smedia Glamo 336x/337x driver
  *
- * (C) 2007 by OpenMoko, Inc.
+ * (C) 2007 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  * All rights reserved.
  *

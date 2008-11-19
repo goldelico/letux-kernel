@@ -2,7 +2,7 @@
 #define _PCF50633_H
 
 /* Philips PCF50633 Power Managemnt Unit (PMU) driver
- * (C) 2006-2007 by OpenMoko, Inc.
+ * (C) 2006-2007 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  *
  */

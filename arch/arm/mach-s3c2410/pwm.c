@@ -2,7 +2,7 @@
  * arch/arm/mach-s3c2410/3c2410-pwm.c
  *
  * Copyright (c) by Javi Roman <javiroman@kernel-labs.org>
- * 		 for the OpenMoko Project.
+ * 		 for the Openmoko Project.
  *
  *     S3C2410A SoC PWM support
  *
