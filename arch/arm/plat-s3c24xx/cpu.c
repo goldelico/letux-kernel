@@ -170,6 +170,24 @@ static struct map_desc s3c_iodesc[] __initdata = {
 };
 
 /* read cpu identificaiton code */
+static struct cpu_table * __init
+s3c_lookup_cpu(unsigned long idcode)
+{
+	struct cpu_table *tab;
+	int count;
+
+	tab = cpu_ids;
+	for (count = 0; count < ARRAY_SIZE(cpu_ids); count++, tab++) {
+		if ((idcode & tab->idmask) == tab->idcode)
+			return tab;
+	}
+
+	return NULL;
+}
+
+/* cpu information */
+
+static struct cpu_table *cpu;
 
 static unsigned long s3c24xx_read_idcode_v5(void)
 {
