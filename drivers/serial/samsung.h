@@ -10,6 +10,8 @@
  * published by the Free Software Foundation.
 */
 
+#include <linux/resume-dependency.h>
+
 struct s3c24xx_uart_info {
 	char			*name;
 	unsigned int		type;
@@ -48,6 +50,8 @@ struct s3c24xx_uart_port {
 #ifdef CONFIG_CPU_FREQ
 	struct notifier_block		freq_transition;
 #endif
+
+	struct resume_dependency	resume_dependency;
 };
 
 /* conversion functions */

@@ -50,6 +50,8 @@
 #include <mach/map.h>
 
 #include <plat/regs-serial.h>
+#include <mach/regs-gpio.h>
+#include <mach/regs-clock.h>
 
 #include "samsung.h"
 
@@ -235,7 +237,7 @@ s3c24xx_serial_rx_chars(int irq, void *dev_id)
 		port->icount.rx++;
 
 		if (unlikely(uerstat & S3C2410_UERSTAT_ANY)) {
-			dbg("rxerr: port ch=0x%02x, rxs=0x%08x\n",
+			printk(KERN_DEBUG "rxerr: port ch=0x%02x, rxs=0x%08x\n",
 			    ch, uerstat);
 
 			/* check for break */
@@ -887,6 +889,69 @@ static struct s3c24xx_uart_port s3c24xx_serial_ports[CONFIG_SERIAL_SAMSUNG_UARTS
 #endif
 };
 
+static void s3c24xx_serial_force_debug_port_up(void)
+{
+	struct s3c24xx_uart_port *ourport = &s3c24xx_serial_ports[
+							 CONFIG_DEBUG_S3C_UART];
+	struct s3c24xx_uart_clksrc *clksrc = NULL;
+	struct clk *clk = NULL;
+	unsigned long tmp;
+
+	s3c24xx_serial_getclk(&ourport->port, &clksrc, &clk, 115200);
+
+	tmp = __raw_readl(S3C2410_CLKCON);
+
+	/* re-start uart clocks */
+	tmp |= S3C2410_CLKCON_UART0;
+	tmp |= S3C2410_CLKCON_UART1;
+	tmp |= S3C2410_CLKCON_UART2;
+
+	__raw_writel(tmp, S3C2410_CLKCON);
+	udelay(10);
+
+	s3c24xx_serial_setsource(&ourport->port, clksrc);
+
+	if (ourport->baudclk != NULL && !IS_ERR(ourport->baudclk)) {
+		clk_disable(ourport->baudclk);
+		ourport->baudclk  = NULL;
+	}
+
+	clk_enable(clk);
+
+	ourport->clksrc = clksrc;
+	ourport->baudclk = clk;
+}
+
+static void s3c2410_printascii(const char *sz)
+{
+	struct s3c24xx_uart_port *ourport = &s3c24xx_serial_ports[
+							 CONFIG_DEBUG_S3C_UART];
+	struct uart_port *port = &ourport->port;
+
+	/* 8 N 1 */
+	wr_regl(port, S3C2410_ULCON, (rd_regl(port, S3C2410_ULCON)) | 3);
+	/* polling mode */
+	wr_regl(port, S3C2410_UCON, (rd_regl(port, S3C2410_UCON) & ~0xc0f) | 5);
+	/* disable FIFO */
+	wr_regl(port, S3C2410_UFCON, (rd_regl(port, S3C2410_UFCON) & ~0x01));
+	/* fix baud rate */
+	wr_regl(port, S3C2410_UBRDIV, 26);
+
+	while (*sz) {
+		int timeout = 10000000;
+
+		/* spin on it being busy */
+		while ((!(rd_regl(port, S3C2410_UTRSTAT) & 2)) && timeout--)
+			;
+
+		/* transmit register */
+		wr_regl(port, S3C2410_UTXH, *sz);
+
+		sz++;
+	}
+}
+
+
 /* s3c24xx_serial_resetport
  *
  * wrapper to call the specific reset for this port (reset the fifos
@@ -1096,6 +1161,7 @@ int s3c24xx_serial_probe(struct platform_device *dev,
 
 	ourport = &s3c24xx_serial_ports[probe_index];
 	probe_index++;
+	init_resume_dependency_list(&ourport->resume_dependency);
 
 	dbg("%s: initialising port %p...\n", __func__, ourport);
 
@@ -1152,6 +1218,16 @@ static int s3c24xx_serial_suspend(struct platform_device *dev, pm_message_t stat
 	return 0;
 }
 
+void s3c24xx_serial_register_resume_dependency(struct resume_dependency *
+					      resume_dependency, int uart_index)
+{
+	struct s3c24xx_uart_port *ourport = &s3c24xx_serial_ports[uart_index];
+
+	register_resume_dependency(&ourport->resume_dependency,
+							     resume_dependency);
+}
+EXPORT_SYMBOL(s3c24xx_serial_register_resume_dependency);
+
 static int s3c24xx_serial_resume(struct platform_device *dev)
 {
 	struct uart_port *port = s3c24xx_dev_to_port(&dev->dev);
@@ -1163,6 +1239,9 @@ static int s3c24xx_serial_resume(struct platform_device *dev)
 		clk_disable(ourport->clk);
 
 		uart_resume_port(&s3c24xx_uart_drv, port);
+
+		callback_all_resume_dependencies(&ourport->resume_dependency);
+
 	}
 
 	return 0;
@@ -1173,6 +1252,11 @@ int s3c24xx_serial_init(struct platform_driver *drv,
 			struct s3c24xx_uart_info *info)
 {
 	dbg("s3c24xx_serial_init(%p,%p)\n", drv, info);
+
+	/* set up the emergency debug UART functions */
+
+	printk_emergency_debug_spew_init = s3c24xx_serial_force_debug_port_up;
+	printk_emergency_debug_spew_send_string = s3c2410_printascii;
 
 #ifdef CONFIG_PM
 	drv->suspend = s3c24xx_serial_suspend;
@@ -1212,6 +1296,13 @@ module_exit(s3c24xx_serial_modexit);
 #ifdef CONFIG_SERIAL_SAMSUNG_CONSOLE
 
 static struct uart_port *cons_uart;
+static int cons_silenced;
+
+void s3c24xx_serial_console_set_silence(int silenced)
+{
+	cons_silenced = silenced;
+}
+EXPORT_SYMBOL(s3c24xx_serial_console_set_silence);
 
 static int
 s3c24xx_serial_console_txrdy(struct uart_port *port, unsigned int ufcon)
@@ -1236,9 +1327,21 @@ static void
 s3c24xx_serial_console_putchar(struct uart_port *port, int ch)
 {
 	unsigned int ufcon = rd_regl(cons_uart, S3C2410_UFCON);
+	unsigned int umcon = rd_regl(cons_uart, S3C2410_UMCON);
+
+	if (cons_silenced)
+		return;
+
+	/* If auto HW flow control enabled, temporarily turn it off */
+	if (umcon & S3C2410_UMCOM_AFC)
+		wr_regl(port, S3C2410_UMCON, (umcon & !S3C2410_UMCOM_AFC));
+
 	while (!s3c24xx_serial_console_txrdy(port, ufcon))
 		barrier();
 	wr_regb(cons_uart, S3C2410_UTXH, ch);
+
+	if (umcon & S3C2410_UMCOM_AFC)
+		wr_regl(port, S3C2410_UMCON, umcon);
 }
 
 static void
