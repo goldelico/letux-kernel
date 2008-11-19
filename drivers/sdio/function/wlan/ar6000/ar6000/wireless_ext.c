@@ -59,6 +59,10 @@ ar6000_scan_node(void *arg, bss_t *ni)
     A_CHAR *current_ev;
     A_CHAR *end_buf;
     struct ieee80211_common_ie  *cie;
+	struct iw_request_info info;
+
+	info.cmd = 0;
+	info.flags = 0;
 
     param = (struct ar_giwscan_param *)arg;
 
@@ -90,14 +94,14 @@ ar6000_scan_node(void *arg, bss_t *ni)
     iwe.cmd = SIOCGIWAP;
     iwe.u.ap_addr.sa_family = ARPHRD_ETHER;
     A_MEMCPY(iwe.u.ap_addr.sa_data, ni->ni_macaddr, 6);
-    current_ev = iwe_stream_add_event(current_ev, end_buf, &iwe,
+    current_ev = iwe_stream_add_event(&info, current_ev, end_buf, &iwe,
                                       IW_EV_ADDR_LEN);
 
     A_MEMZERO(&iwe, sizeof(iwe));
     iwe.cmd = SIOCGIWESSID;
     iwe.u.data.flags = 1;
     iwe.u.data.length = cie->ie_ssid[1];
-    current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe,
+    current_ev = iwe_stream_add_point(&info, current_ev, end_buf, &iwe,
                                       &cie->ie_ssid[2]);
 
     if (cie->ie_capInfo & (IEEE80211_CAPINFO_ESS|IEEE80211_CAPINFO_IBSS)) {
@@ -105,7 +109,7 @@ ar6000_scan_node(void *arg, bss_t *ni)
         iwe.cmd = SIOCGIWMODE;
         iwe.u.mode = cie->ie_capInfo & IEEE80211_CAPINFO_ESS ?
                 IW_MODE_MASTER : IW_MODE_ADHOC;
-        current_ev = iwe_stream_add_event(current_ev, end_buf, &iwe,
+        current_ev = iwe_stream_add_event(&info, current_ev, end_buf, &iwe,
                                           IW_EV_UINT_LEN);
     }
 
@@ -113,13 +117,13 @@ ar6000_scan_node(void *arg, bss_t *ni)
     iwe.cmd = SIOCGIWFREQ;
     iwe.u.freq.m = cie->ie_chan * 100000;
     iwe.u.freq.e = 1;
-    current_ev = iwe_stream_add_event(current_ev, end_buf, &iwe,
+    current_ev = iwe_stream_add_event(&info, current_ev, end_buf, &iwe,
                                       IW_EV_FREQ_LEN);
 
     A_MEMZERO(&iwe, sizeof(iwe));
     iwe.cmd = IWEVQUAL;
     ar6000_set_quality(&iwe.u.qual, ni->ni_snr);
-    current_ev = iwe_stream_add_event(current_ev, end_buf, &iwe,
+    current_ev = iwe_stream_add_event(&info, current_ev, end_buf, &iwe,
                                       IW_EV_QUAL_LEN);
 
     A_MEMZERO(&iwe, sizeof(iwe));
@@ -130,13 +134,13 @@ ar6000_scan_node(void *arg, bss_t *ni)
         iwe.u.data.flags = IW_ENCODE_DISABLED;
     }
     iwe.u.data.length = 0;
-    current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe, "");
+    current_ev = iwe_stream_add_point(&info, current_ev, end_buf, &iwe, "");
 
     A_MEMZERO(&iwe, sizeof(iwe));
     iwe.cmd = IWEVCUSTOM;
     snprintf(buf, sizeof(buf), "bcn_int=%d", cie->ie_beaconInt);
     iwe.u.data.length = strlen(buf);
-    current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe, buf);
+    current_ev = iwe_stream_add_point(&info, current_ev, end_buf, &iwe, buf);
 
     if (cie->ie_wpa != NULL) {
         static const char wpa_leader[] = "wpa_ie=";
@@ -148,7 +152,8 @@ ar6000_scan_node(void *arg, bss_t *ni)
                                       wpa_leader, sizeof(wpa_leader)-1);
 
         if (iwe.u.data.length != 0) {
-            current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe, buf);
+            current_ev = iwe_stream_add_point(&info, current_ev, end_buf, &iwe,
+									   buf);
         }
     }
 
@@ -162,7 +167,8 @@ ar6000_scan_node(void *arg, bss_t *ni)
                                       rsn_leader, sizeof(rsn_leader)-1);
 
         if (iwe.u.data.length != 0) {
-            current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe, buf);
+            current_ev = iwe_stream_add_point(&info, current_ev, end_buf, &iwe,
+									   buf);
         }
     }
 
@@ -175,7 +181,8 @@ ar6000_scan_node(void *arg, bss_t *ni)
                                       cie->ie_wmm[1]+2,
                                       wmm_leader, sizeof(wmm_leader)-1);
         if (iwe.u.data.length != 0) {
-            current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe, buf);
+            current_ev = iwe_stream_add_point(&info, current_ev, end_buf, &iwe,
+									   buf);
         }
     }
 
@@ -188,7 +195,8 @@ ar6000_scan_node(void *arg, bss_t *ni)
                                       cie->ie_ath[1]+2,
                                       ath_leader, sizeof(ath_leader)-1);
         if (iwe.u.data.length != 0) {
-            current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe, buf);
+            current_ev = iwe_stream_add_point(&info, current_ev, end_buf, &iwe,
+									   buf);
         }
     }
 
