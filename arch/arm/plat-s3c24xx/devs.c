@@ -26,6 +26,8 @@
 #include <asm/mach/irq.h>
 #include <mach/fb.h>
 #include <mach/hardware.h>
+#include <asm/arch-s3c2410/ts.h>
+#include <asm/io.h>
 #include <asm/irq.h>
 
 #include <plat/regs-serial.h>
@@ -228,6 +230,23 @@ struct platform_device s3c_device_nand = {
 };
 
 EXPORT_SYMBOL(s3c_device_nand);
+
+/* Touchscreen */
+struct platform_device s3c_device_ts = {
+	.name		  = "s3c2410-ts",
+	.id		  = -1,
+};
+
+EXPORT_SYMBOL(s3c_device_ts);
+
+static struct s3c2410_ts_mach_info s3c2410ts_info;
+
+void set_s3c2410ts_info(struct s3c2410_ts_mach_info *hard_s3c2410ts_info)
+{
+	memcpy(&s3c2410ts_info,hard_s3c2410ts_info,sizeof(struct s3c2410_ts_mach_info));
+	s3c_device_ts.dev.platform_data = &s3c2410ts_info;
+}
+EXPORT_SYMBOL(set_s3c2410ts_info);
 
 /* USB Device (Gadget)*/
 
