@@ -1977,7 +1977,7 @@ SDIO_STATUS SDQuerySDMMCInfo(PSDDEVICE pDevice)
         } else {
             pDevice->pId[0].SDMMC_ManfacturerID = GET_SD_CID_MANFID(CID);
             pDevice->pId[0].SDMMC_OEMApplicationID = GET_SD_CID_OEMID(CID);
-#if DEBUG
+#ifdef DEBUG
             {
                 char pBuf[7];
 

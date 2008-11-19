@@ -77,7 +77,7 @@ enum {
 extern int debughtc;
 #else
 #define AR_DEBUG_PRINTF(flags, args)
-#define AR_DEBUG_PRINTBUF(buffer, length)
+#define AR_DEBUG_PRINTBUF(buffer, length, desc)
 #define AR_DEBUG_ASSERT(test)
 #define AR_DEBUG_LVL_CHECK(lvl) 0
 #define A_DPRINTF(f, a)
