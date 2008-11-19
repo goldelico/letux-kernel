@@ -1365,11 +1365,76 @@ static int s3c24xx_hcd_remove(struct platform_device * pdev) {
 	return 0;
 }
 
+#ifdef CONFIG_PM 
+
+static int s3c24xx_hcd_suspend(struct platform_device * pdev)
+{
+	struct s3c24xx_hcd_context * context = &hcd_context;	
+	unsigned long flags;
+
+	spin_lock_irqsave(&context->lock, flags);
+
+	context->suspend_regs.con 	= readl(context->base + S3C2410_SDICON);
+	context->suspend_regs.pre 	= readl(context->base + S3C2410_SDIPRE);
+	context->suspend_regs.cmdarg 	= readl(context->base + S3C2410_SDICMDARG);
+	context->suspend_regs.cmdcon 	= readl(context->base + S3C2410_SDICMDCON);
+	context->suspend_regs.cmdsta 	= readl(context->base + S3C2410_SDICMDSTAT);
+	context->suspend_regs.r0 	= readl(context->base + S3C2410_SDIRSP0);
+	context->suspend_regs.r1 	= readl(context->base + S3C2410_SDIRSP1);
+	context->suspend_regs.r2 	= readl(context->base + S3C2410_SDIRSP2);
+	context->suspend_regs.r3 	= readl(context->base + S3C2410_SDIRSP3);
+	context->suspend_regs.timer 	= readl(context->base + S3C2410_SDITIMER);
+	context->suspend_regs.bsize 	= readl(context->base + S3C2410_SDIBSIZE);
+	context->suspend_regs.datcon 	= readl(context->base + S3C2410_SDIDCON);
+	context->suspend_regs.datcnt 	= readl(context->base + S3C2410_SDIDCNT);
+	context->suspend_regs.datsta 	= readl(context->base + S3C2410_SDIDSTA);
+	context->suspend_regs.fsta 	= readl(context->base + S3C2410_SDIFSTA);
+	context->suspend_regs.imask   = readl(context->base + S3C2440_SDIIMSK);
+	
+	spin_unlock_irqrestore(&context->lock, flags);
+	return 0;
+}
+
+static int s3c24xx_hcd_resume(struct platform_device * pdev)
+{	
+	struct s3c24xx_hcd_context * context = &hcd_context;
+	unsigned long flags;
+
+	spin_lock_irqsave(&context->lock, flags);
+	
+	writel(context->suspend_regs.con, context->base + S3C2410_SDICON);
+	writel(context->suspend_regs.pre, context->base + S3C2410_SDIPRE);
+	writel(context->suspend_regs.cmdarg, context->base + S3C2410_SDICMDARG);
+	writel(context->suspend_regs.cmdcon, context->base + S3C2410_SDICMDCON);
+	writel(context->suspend_regs.cmdsta, context->base + S3C2410_SDICMDSTAT);
+	writel(context->suspend_regs.r0, context->base + S3C2410_SDIRSP0);
+	writel(context->suspend_regs.r1, context->base + S3C2410_SDIRSP1);
+	writel(context->suspend_regs.r2, context->base + S3C2410_SDIRSP2);
+	writel(context->suspend_regs.r3, context->base + S3C2410_SDIRSP3);
+	writel(context->suspend_regs.timer, context->base + S3C2410_SDITIMER);
+	writel(context->suspend_regs.bsize, context->base + S3C2410_SDIBSIZE);
+	writel(context->suspend_regs.datcon, context->base + S3C2410_SDIDCON);
+	writel(context->suspend_regs.datcnt, context->base + S3C2410_SDIDCNT);
+	writel(context->suspend_regs.datsta, context->base + S3C2410_SDIDSTA);
+	writel(context->suspend_regs.fsta, context->base + S3C2410_SDIFSTA);
+	writel(context->suspend_regs.imask, context->base + S3C2440_SDIIMSK);
+
+	spin_unlock_irqrestore(&context->lock, flags);
+	return 0;
+}
+
+#else
+#define s3c24xx_hcd_suspend = NULL
+#define s3c24xx_hcd_resume  = NULL
+#endif
+
 static struct platform_driver s3c24xx_hcd_sdio =
 {
 	.driver.name	= "s3c24xx-sdio",
 	.probe		= s3c24xx_hcd_probe,
 	.remove		= s3c24xx_hcd_remove,
+	.suspend    = s3c24xx_hcd_suspend,
+	.resume 	= s3c24xx_hcd_resume,
 };
 
 #ifdef CONFIG_DEBUG_FS
