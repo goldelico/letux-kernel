@@ -616,9 +616,11 @@ static int __devinit lis302dl_probe(struct spi_device *spi)
 	mdelay(1);
 
 	reg_write(lis, LIS302DL_REG_CTRL2, 0);
+
 	reg_write(lis, LIS302DL_REG_CTRL3, LIS302DL_CTRL3_PP_OD |
 							    LIS302DL_CTRL3_IHL);
-	reg_write(lis, LIS302DL_REG_FF_WU_THS_1, 0x0);
+	reg_write(lis, LIS302DL_REG_FF_WU_THS_1, 0x14);
+
 	reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1, 0x00);
 	reg_write(lis, LIS302DL_REG_FF_WU_CFG_1, 0x0);
 
@@ -648,7 +650,7 @@ static int __devinit lis302dl_probe(struct spi_device *spi)
 	lis->pdata = pdata;
 
 	rc = request_irq(lis->spi_dev->irq, lis302dl_interrupt,
-			 IRQF_TRIGGER_FALLING, "lis302dl", lis);
+			 IRQF_TRIGGER_LOW, "lis302dl", lis);
 	if (rc < 0) {
 		dev_err(&spi->dev, "error requesting IRQ %d\n",
 			lis->spi_dev->irq);

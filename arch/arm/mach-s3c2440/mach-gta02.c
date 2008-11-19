@@ -1067,7 +1067,6 @@ void gta02_lis302dl_bitbang_read(struct lis302dl_info *lis)
 	struct lis302dl_platform_data *pdata = lis->pdata;
 	u8 shifter = 0xc0 | LIS302DL_REG_OUT_X; /* read, autoincrement */
 	int n, n1;
-	unsigned long other_cs;
 	unsigned long flags;
 #ifdef DEBUG_SPEW_MS
 	s8 x, y, z;
@@ -1085,32 +1084,20 @@ void gta02_lis302dl_bitbang_read(struct lis302dl_info *lis)
 	 * ensure this is never issued.
 	 */
 
-	if (&lis302_pdata[0] == pdata)
-		other_cs = lis302_pdata[1].pin_chip_select;
-	else
-		other_cs = lis302_pdata[0].pin_chip_select;
-
-	s3c2410_gpio_setpin(other_cs, 1);
-	s3c2410_gpio_setpin(pdata->pin_chip_select, 1);
 	s3c2410_gpio_setpin(pdata->pin_clk, 1);
 	s3c2410_gpio_setpin(pdata->pin_chip_select, 0);
 	for (n = 0; n < 8; n++) { /* write the r/w, inc and address */
 		s3c2410_gpio_setpin(pdata->pin_clk, 0);
-		s3c2410_gpio_setpin(pdata->pin_mosi, (shifter >> 7) & 1);
-		s3c2410_gpio_setpin(pdata->pin_clk, 0);
+		s3c2410_gpio_setpin(pdata->pin_mosi, (shifter >> (7 - n)) & 1);
 		s3c2410_gpio_setpin(pdata->pin_clk, 1);
-		s3c2410_gpio_setpin(pdata->pin_clk, 1);
-		shifter <<= 1;
 	}
 
 	for (n = 0; n < 5; n++) { /* 5 consequetive registers */
 		for (n1 = 0; n1 < 8; n1++) { /* 8 bits each */
 			s3c2410_gpio_setpin(pdata->pin_clk, 0);
-			s3c2410_gpio_setpin(pdata->pin_clk, 0);
 			shifter <<= 1;
 			if (s3c2410_gpio_getpin(pdata->pin_miso))
 				shifter |= 1;
-			s3c2410_gpio_setpin(pdata->pin_clk, 1);
 			s3c2410_gpio_setpin(pdata->pin_clk, 1);
 		}
 		switch (n) {
@@ -1135,7 +1122,6 @@ void gta02_lis302dl_bitbang_read(struct lis302dl_info *lis)
 		}
 	}
 	s3c2410_gpio_setpin(pdata->pin_chip_select, 1);
-	s3c2410_gpio_setpin(other_cs, 1);
 	local_irq_restore(flags);
 
 	input_sync(lis->input_dev);
