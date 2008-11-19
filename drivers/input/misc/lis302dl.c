@@ -230,7 +230,7 @@ static ssize_t lis302dl_dump(struct device *dev, struct device_attribute *attr,
 	char *end = buf;
 	unsigned long flags;
 
-	local_save_flags(flags);
+	local_irq_save(flags);
 
 	for (n = 0; n < sizeof(reg); n++)
 		reg[n] = reg_read(lis, n);
@@ -312,7 +312,7 @@ static ssize_t set_freefall_common(int which, struct device *dev,
 	/* Parse the input */
 	if (strcmp(buf, "0\n") == 0) {
 		/* Turn off the interrupt */
-		local_save_flags(flags);
+		local_irq_save(flags);
 		if (lis->flags & LIS302DL_F_IRQ_WAKE)
 			disable_irq_wake(lis->spi_dev->irq);
 		lis302dl_int_mode(lis->spi_dev, which,
@@ -354,7 +354,7 @@ static ssize_t set_freefall_common(int which, struct device *dev,
 	z_hi = z > 0 ? LIS302DL_FFWUCFG_ZHIE : 0;
 
 	/* Setup the configuration registers */
-	local_save_flags(flags);
+	local_irq_save(flags);
 	reg_write(lis, r_cfg, 0); /* First zero to get to a known state */
 	reg_write(lis, r_cfg,
 		(and_events ? LIS302DL_FFWUCFG_AOI : 0) |
@@ -478,7 +478,7 @@ static int lis302dl_input_open(struct input_dev *inp)
 			 LIS302DL_CTRL1_Yen | LIS302DL_CTRL1_Zen;
 	unsigned long flags;
 
-	local_save_flags(flags);
+	local_irq_save(flags);
 	/* make sure we're powered up and generate data ready */
 	reg_set_bit_mask(lis, LIS302DL_REG_CTRL1, ctrl1, ctrl1);
 	local_irq_restore(flags);
@@ -499,7 +499,7 @@ static void lis302dl_input_close(struct input_dev *inp)
 			 LIS302DL_CTRL1_Zen;
 	unsigned long flags;
 
-	local_save_flags(flags);
+	local_irq_save(flags);
 
 	/* since the input core already serializes access and makes sure we
 	 * only see close() for the close of the last user, we can safely
@@ -546,7 +546,7 @@ static int __devinit lis302dl_probe(struct spi_device *spi)
 	if (!lis)
 		return -ENOMEM;
 
-	local_save_flags(flags);
+	local_irq_save(flags);
 
 	mutex_init(&lis->lock);
 	lis->spi_dev = spi;
@@ -675,7 +675,7 @@ static int __devexit lis302dl_remove(struct spi_device *spi)
 	unsigned long flags;
 
 	/* Reset and power down the device */
-	local_save_flags(flags);
+	local_irq_save(flags);
 	reg_write(lis, LIS302DL_REG_CTRL3, 0x00);
 	reg_write(lis, LIS302DL_REG_CTRL2, 0x00);
 	reg_write(lis, LIS302DL_REG_CTRL1, 0x00);
@@ -706,7 +706,7 @@ static int lis302dl_suspend(struct spi_device *spi, pm_message_t state)
 		return 0;
 
 	disable_irq(lis->spi_dev->irq);
-	local_save_flags(flags);
+	local_irq_save(flags);
 
 	/*
 	 * When we share SPI over multiple sensors, there is a race here
@@ -768,7 +768,7 @@ static int lis302dl_resume(struct spi_device *spi)
 		lis->flags & LIS302DL_F_WUP_CLICK)
 		return 0;
 
-	local_save_flags(flags);
+	local_irq_save(flags);
 
 	/* get our IO to the device back in operational states */
 	(lis->pdata->lis302dl_suspend_io)(lis, 1);
