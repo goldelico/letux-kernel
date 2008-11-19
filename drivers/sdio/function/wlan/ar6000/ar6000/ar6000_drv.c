@@ -830,6 +830,7 @@ ar6000_avail_ev(HTC_HANDLE HTCHandle)
         sizeof(WMI_DATA_HDR) + HTC_HEADER_LEN;
 
     /* This runs the init function */
+    SET_NETDEV_DEV(dev, HIFGetOSDevice(ar->arHifDevice));
     if (register_netdev(dev)) {
         AR_DEBUG_PRINTF("ar6000_avail: register_netdev failed\n");
         ar6000_destroy(dev, 0);
