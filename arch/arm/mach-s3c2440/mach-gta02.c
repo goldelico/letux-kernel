@@ -76,6 +76,7 @@
 #include <plat/cpu.h>
 #include <plat/pm.h>
 #include <plat/udc.h>
+#include <plat/iic.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 #include <mach/neo1973-pm-gsm.h>
 
@@ -1609,6 +1610,7 @@ static void __init gta02_machine_init(void)
 	s3c2410_gpio_cfgpin(S3C2410_GPD13, S3C2410_GPIO_OUTPUT);
 
 	s3c24xx_udc_set_platdata(&gta02_udc_cfg);
+	s3c_i2c0_set_platdata(NULL);
 	set_s3c2410ts_info(&gta02_ts_cfg);
 	
 	mangle_glamo_res_by_system_rev();
