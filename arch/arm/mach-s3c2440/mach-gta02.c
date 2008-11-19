@@ -98,6 +98,16 @@
 /* arbitrates which sensor IRQ owns the shared SPI bus */
 static spinlock_t motion_irq_lock;
 
+static struct pcf50633_platform_data gta02_pcf_pdata;
+
+static struct i2c_board_info gta02_i2c_devs[] __initdata = {
+		{
+ 			I2C_BOARD_INFO("pcf50633", 0x73),
+ 			.irq = GTA02_IRQ_PCF50633,
+ 			.platform_data = &gta02_pcf_pdata,
+ 		},
+};
+
 static int gta02_charger_online_status;
 static int gta02_charger_active_status;
 
@@ -756,21 +766,6 @@ struct platform_device gta02_pmu_dev = {
 	},
 };
 
-/* FIQ */
-
-static struct resource sc32440_fiq_resources[] = {
-	[0] = {
-		.flags	= IORESOURCE_IRQ,
-		.start	= IRQ_TIMER3,
-		.end	= IRQ_TIMER3,
-	},
-};
-
-struct platform_device sc32440_fiq_device = {
-	.name 		= "sc32440_fiq",
-	.num_resources	= 1,
-	.resource	= sc32440_fiq_resources,
-};
 
 #ifdef CONFIG_GTA02_HDQ
 /* HDQ */
@@ -924,12 +919,6 @@ static struct platform_device gta02_sdio_dev = {
 struct platform_device s3c24xx_pwm_device = {
 	.name 		= "s3c24xx_pwm",
 	.num_resources	= 0,
-};
-
-static struct i2c_board_info gta02_i2c_devs[] __initdata = {
-        {
-                I2C_BOARD_INFO("wm8753", 0x1a),
-        },
 };
 
 static struct s3c2410_nand_set gta02_nand_sets[] = {
@@ -1582,6 +1571,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&s3c24xx_pwm_device,
 	&gta02_led_dev,
 	&gta02_pm_wlan_dev, /* not dependent on PMU */
+	&gta02_pmu_dev,
 
 	&s3c_device_iis,
 	&s3c_device_i2c,
@@ -1677,9 +1667,8 @@ static void __init gta02_machine_init(void)
 	mangle_pmu_pdata_by_system_rev();
 
 	platform_add_devices(gta02_devices, ARRAY_SIZE(gta02_devices));
-
-        i2c_register_board_info(0, gta02_i2c_devs,
-                ARRAY_SIZE(gta02_i2c_devs));
+//	i2c_register_board_info(0, gta02_i2c_devs,
+//						ARRAY_SIZE(gta02_i2c_devs));
 
 	s3c2410_pm_init();
 

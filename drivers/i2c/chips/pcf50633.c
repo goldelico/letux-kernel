@@ -2123,6 +2123,8 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 	int err = 0;
 	int irq;
 
+	printk(KERN_INFO "************ pcf50633_detect\n");
+
 	DEBUGP("entering\n");
 	if (!pcf50633_pdev) {
 		printk(KERN_ERR "pcf50633: driver needs a platform_device!\n");
@@ -2224,10 +2226,10 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 	 * LEDOUT register can be reset by disabling and enabling the
 	 * LED converter via control bit led_on in the LEDENA register"
 	 */
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
+	reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
+	reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
+	reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
+	reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
 
 	err = request_irq(irq, pcf50633_irq, IRQF_TRIGGER_FALLING,
 			  "pcf50633", pcf);
@@ -2298,7 +2300,7 @@ exit_free:
 
 static int pcf50633_attach_adapter(struct i2c_adapter *adapter)
 {
-	DEBUGP("entering, calling i2c_probe\n");
+	printk(KERN_ERR "**** entering pcf50633_attach_adapter, calling i2c_probe\n");
 	return i2c_probe(adapter, &addr_data, &pcf50633_detect);
 }
 

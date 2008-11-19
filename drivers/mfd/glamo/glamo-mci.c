@@ -735,7 +735,7 @@ static void glamo_mci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	glamo_mci_send_request(mmc);
 }
 
-#if 0
+#if 1
 static void glamo_mci_reset(struct glamo_mci_host *host)
 {
 	if (host->suspending) {
