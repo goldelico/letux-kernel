@@ -391,6 +391,11 @@ config THINKPAD_ACPI_HOTKEY_POLL
 	  If you are not sure, say Y here.  The driver enables polling only if
 	  it is strictly necessary to do so.
 
+config LOW_MEMORY_KILLER
+    tristate "Low Memory Killer"
+	  ---help---
+	  Register processes to be killed when memory is low.
+
 config ATMEL_SSC
 	tristate "Device driver for Atmel SSC peripheral"
 	depends on AVR32 || ARCH_AT91
