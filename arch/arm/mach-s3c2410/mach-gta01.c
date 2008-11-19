@@ -60,7 +60,7 @@
 
 #include <mach/regs-gpio.h>
 #include <mach/fb.h>
-#include <asm/arch/mci.h>
+#include <mach/mci.h>
 #include <mach/spi.h>
 #include <asm/arch/spi-gpio.h>
 #include <mach/usb-control.h>

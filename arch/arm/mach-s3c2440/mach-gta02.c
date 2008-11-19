@@ -61,7 +61,7 @@
 #include <mach/regs-gpio.h>
 #include <mach/regs-gpioj.h>
 #include <mach/fb.h>
-#include <asm/arch-s3c2410/mci.h>
+#include <mach/mci.h>
 #include <asm/arch-s3c2410/ts.h>
 #include <mach/spi.h>
 #include <asm/arch-s3c2410/spi-gpio.h>

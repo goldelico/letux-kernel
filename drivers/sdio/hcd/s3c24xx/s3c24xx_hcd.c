@@ -48,7 +48,7 @@
 
 #include <asm/arch-s3c2410/regs-sdi.h>
 #include <mach/regs-gpio.h>
-#include <asm/arch-s3c2410/mci.h>
+#include <mach/mci.h>
 #include <asm/arch-s3c2410/gta02.h>
 
 #include "s3c24xx_hcd.h"

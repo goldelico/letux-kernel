@@ -34,7 +34,7 @@
 #include <asm/io.h>
 #include <asm/arch/regs-sdi.h>
 #include <mach/regs-gpio.h>
-#include <asm/arch/mci.h>
+#include <mach/mci.h>
 #include <mach/dma.h>
 
 #include "s3cmci.h"
