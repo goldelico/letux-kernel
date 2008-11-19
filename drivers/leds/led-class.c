@@ -56,8 +56,10 @@ static ssize_t led_brightness_store(struct device *dev,
 	if (count == size) {
 		ret = count;
 
+#if 0 /* This is really bad. Don't do it!!!! */
 		if (state == LED_OFF)
 			led_trigger_remove(led_cdev);
+#endif
 		led_set_brightness(led_cdev, state);
 	}
 
