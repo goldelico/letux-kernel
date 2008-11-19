@@ -466,6 +466,17 @@ static int glamofb_set_par(struct fb_info *info)
 	return 0;
 }
 
+
+static void notify_blank(struct fb_info *info, int blank_mode)
+{
+	struct fb_event event;
+
+	event.info = info;
+	event.data = &blank_mode;
+	fb_notifier_call_chain(FB_EVENT_CONBLANK, &event);
+}
+
+
 static int glamofb_blank(int blank_mode, struct fb_info *info)
 {
 	struct glamofb_handle *gfb = info->par;
@@ -490,6 +501,7 @@ static int glamofb_blank(int blank_mode, struct fb_info *info)
 		glamo_engine_clkreg_set(gcore, GLAMO_ENGINE_LCD,
 					GLAMO_CLOCK_LCD_EN_DCLK,
 					GLAMO_CLOCK_LCD_EN_DCLK);
+		notify_blank(info, blank_mode);
 		break;
 	}
 
