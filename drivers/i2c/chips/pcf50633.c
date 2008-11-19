@@ -194,6 +194,10 @@ EXPORT_SYMBOL_GPL(pcf50633_global);
 
 static struct platform_device *pcf50633_pdev;
 
+static void pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma);
+static void pcf50633_charge_enable(struct pcf50633_data *pcf, int on);
+
+
 /***********************************************************************
  * Low-Level routines
  ***********************************************************************/
@@ -1384,7 +1388,7 @@ static DEVICE_ATTR(voltage_hcldo, S_IRUGO | S_IWUSR, show_vreg, set_vreg);
  ***********************************************************************/
 
 /* Set maximum USB current limit */
-void pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma)
+static void pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma)
 {
 	u_int8_t bits;
 
@@ -1437,7 +1441,6 @@ set_it:
 				PCF50633_MBCC1_AUTORES);
 
 }
-EXPORT_SYMBOL_GPL(pcf50633_usb_curlim_set);
 
 static ssize_t show_usblim(struct device *dev, struct device_attribute *attr,
 			   char *buf)
@@ -1462,7 +1465,7 @@ static ssize_t show_usblim(struct device *dev, struct device_attribute *attr,
 static DEVICE_ATTR(usb_curlim, S_IRUGO | S_IWUSR, show_usblim, NULL);
 
 /* Enable/disable charging */
-void pcf50633_charge_enable(struct pcf50633_data *pcf, int on)
+static void pcf50633_charge_enable(struct pcf50633_data *pcf, int on)
 {
 	u_int8_t bits;
 	u_int8_t usblim;
@@ -1499,7 +1502,6 @@ void pcf50633_charge_enable(struct pcf50633_data *pcf, int on)
 	reg_set_bit_mask(pcf, PCF50633_REG_MBCC1, PCF50633_MBCC1_CHGENA,
 			 bits);
 }
-EXPORT_SYMBOL_GPL(pcf50633_charge_enable);
 
 #if 0
 #define ONE			1000000
