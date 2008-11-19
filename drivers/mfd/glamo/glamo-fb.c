@@ -104,7 +104,7 @@ static struct glamo_script glamo_regs[] = {
 	 * no TVCLK, no partial display, hw dest color from fb,
 	 * no partial display mode, LCD1, software flip,  */
 	{ GLAMO_REG_LCD_MODE2, 0x1020 },
-	  /* no video flip, no ptr, no ptr, dhclk,
+	  /* no video flip, no ptr, no ptr, dhclk off,
 	   * normal mode,  no cpuif,
 	   * res, serial msb first, single fb, no fr ctrl,
 	   * cpu if bits all zero, no crc
