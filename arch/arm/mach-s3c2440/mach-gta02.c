@@ -897,9 +897,17 @@ static struct s3c2410_udc_mach_info gta02_udc_cfg = {
 
 static struct s3c2410_ts_mach_info gta02_ts_cfg = {
 	.delay = 10000,
-	.presc = 65,
+	.presc = 50000000 / 1000000, /* 50 MHz PCLK / 1MHz */
+	/* simple averaging, 2^n samples */
 	.oversampling_shift = 5,
+	 /* averaging filter length, 2^n */
+	.excursion_filter_len_bits = 5,
+	/* flagged for beauty contest on next sample if differs from
+	 * average more than this
+	 */
+	.reject_threshold_vs_avg = 2,
 };
+
 
 /* SPI: LCM control interface attached to Glamo3362 */
 
