@@ -577,6 +577,7 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 	},
 	.defer_resume_backlight = 1,
+	.resume_backlight_ramp_speed = 5
 };
 
 #if 0 /* currently unused */
