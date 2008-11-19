@@ -86,7 +86,9 @@ static ssize_t bt_write(struct device *dev, struct device_attribute *attr,
 			const char *buf, size_t count)
 {
 	unsigned long on = simple_strtoul(buf, NULL, 10);
+#ifdef CONFIG_MACH_NEO1973_GTA02
 	unsigned int vol;
+#endif
 
 	if (!strcmp(attr->attr.name, "power_on")) {
 		switch (machine_arch_type) {

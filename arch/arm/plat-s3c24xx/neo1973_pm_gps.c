@@ -537,6 +537,7 @@ static int gta01_pm_gps_resume(struct platform_device *pdev)
 #define gta01_pm_gps_resume	NULL
 #endif
 
+#ifdef CONFIG_MACH_NEO1973_GTA01
 static struct attribute *gta01_gps_sysfs_entries[] = {
 	&dev_attr_power_avdd_3v.attr,
 	&dev_attr_pwron.attr,
@@ -553,7 +554,9 @@ static struct attribute_group gta01_gps_attr_group = {
 	.name	= NULL,
 	.attrs	= gta01_gps_sysfs_entries,
 };
+#endif
 
+#ifdef CONFIG_MACH_NEO1973_GTA02
 static struct attribute *gta02_gps_sysfs_entries[] = {
 	&dev_attr_pwron.attr,
 	NULL
@@ -563,6 +566,7 @@ static struct attribute_group gta02_gps_attr_group = {
 	.name	= NULL,
 	.attrs	= gta02_gps_sysfs_entries,
 };
+#endif
 
 static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 {
