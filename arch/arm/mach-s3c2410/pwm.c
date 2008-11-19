@@ -20,9 +20,16 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/clk.h>
+#include <linux/device.h>
 #include <asm/hardware.h>
 #include <asm/plat-s3c/regs-timer.h>
 #include <asm/arch/pwm.h>
+
+#ifdef CONFIG_PM
+	static unsigned long standby_reg_tcon;
+	static unsigned long standby_reg_tcfg0;
+	static unsigned long standby_reg_tcfg1;
+#endif
 
 int s3c2410_pwm_disable(struct s3c2410_pwm *pwm)
 {
@@ -212,3 +219,59 @@ int s3c2410_pwm_dumpregs(void)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(s3c2410_pwm_dumpregs);
+
+static int __init s3c24xx_pwm_probe(struct platform_device *pdev)
+{
+	dev_info(&pdev->dev, "s3c24xx_pwm is registered \n");
+
+	return 0;
+}
+
+#ifdef CONFIG_PM
+static int s3c24xx_pwm_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	/* PWM config should be kept in suspending */
+	standby_reg_tcon = __raw_readl(S3C2410_TCON);
+	standby_reg_tcfg0 = __raw_readl(S3C2410_TCFG0);
+	standby_reg_tcfg1 = __raw_readl(S3C2410_TCFG1);
+
+	return 0;
+}
+
+static int s3c24xx_pwm_resume(struct platform_device *pdev)
+{
+	__raw_writel(standby_reg_tcon, S3C2410_TCON);
+	__raw_writel(standby_reg_tcfg0, S3C2410_TCFG0);
+	__raw_writel(standby_reg_tcfg1, S3C2410_TCFG1);
+
+	return 0;
+}
+#else
+#define sc32440_pwm_suspend	NULL
+#define sc32440_pwm_resume	NULL
+#endif
+
+static struct platform_driver s3c24xx_pwm_driver = {
+	.driver = {
+		.name	= "s3c24xx_pwm",
+		.owner	= THIS_MODULE,
+	},
+	.probe	 = s3c24xx_pwm_probe,
+	.suspend = s3c24xx_pwm_suspend,
+	.resume	 = s3c24xx_pwm_resume,
+};
+
+static int __init s3c24xx_pwm_init(void)
+{
+	return platform_driver_register(&s3c24xx_pwm_driver);
+}
+
+static void __exit s3c24xx_pwm_exit(void)
+{
+}
+
+MODULE_AUTHOR("Javi Roman <javiroman@kernel-labs.org>");
+MODULE_LICENSE("GPL");
+
+module_init(s3c24xx_pwm_init);
+module_exit(s3c24xx_pwm_exit);

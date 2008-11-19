@@ -719,6 +719,11 @@ static struct platform_device gta02_sdio_dev = {
         .num_resources  = ARRAY_SIZE(gta02_sdio_resources),
 };
 
+struct platform_device s3c24xx_pwm_device = {
+	.name 		= "s3c24xx_pwm",
+	.num_resources	= 0,
+};
+
 static struct platform_device *gta02_devices[] __initdata = {
 	&s3c_device_usb,
 	&s3c_device_wdt,
@@ -731,6 +736,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&gta02_nor_flash,
 	&sc32440_fiq_device,
 	&gta02_version_device,
+	&s3c24xx_pwm_device,
 };
 
 static struct s3c2410_nand_set gta02_nand_sets[] = {
