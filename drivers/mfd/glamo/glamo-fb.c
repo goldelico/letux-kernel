@@ -101,8 +101,8 @@ static struct glamo_script glamo_regs[] = {
 	 * no retrace flip, vsync low-active, hsync low active,
 	 * no TVCLK, no partial display, hw dest color from fb,
 	 * no partial display mode, LCD1, software flip,  */
-	{ GLAMO_REG_LCD_MODE2, 0x1020 },
-	  /* no video flip, no ptr, no ptr, dhclk off,
+	{ GLAMO_REG_LCD_MODE2, 0x9020 },
+	  /* video flip, no ptr, no ptr, dhclk off,
 	   * normal mode,  no cpuif,
 	   * res, serial msb first, single fb, no fr ctrl,
 	   * cpu if bits all zero, no crc
@@ -114,10 +114,14 @@ static struct glamo_script glamo_regs[] = {
 	  /* DE high active, no cpu/lcd if, cs0 force low, a0 low active,
 	   * np cpu if, 9bit serial data, sclk rising edge latch data
 	   * 01 00 0 100 0 000 01 0 0 */
+	/* The following values assume 640*480@16bpp */
 	{ GLAMO_REG_LCD_A_BASE1, 0x0000 }, /* display A base address 15:0 */
 	{ GLAMO_REG_LCD_A_BASE2, 0x0000 }, /* display A base address 22:16 */
-	{ GLAMO_REG_LCD_CURSOR_BASE1, 0x0000 }, /* cursor base address 15:0 */
-	{ GLAMO_REG_LCD_CURSOR_BASE2, 0x000f }, /* cursor base address 22:16 */
+	{ GLAMO_REG_LCD_B_BASE1, 0x6000 }, /* display B base address 15:0 */
+	{ GLAMO_REG_LCD_B_BASE2, 0x0009 }, /* display B base address 22:16 */
+	{ GLAMO_REG_LCD_CURSOR_BASE1, 0xC000 }, /* cursor base address 15:0 */
+	{ GLAMO_REG_LCD_CURSOR_BASE2, 0x0012 }, /* cursor base address 22:16 */
+	{ GLAMO_REG_LCD_COMMAND2, 0x0000 }, /* display page A */
 };
 
 static int glamofb_run_script(struct glamofb_handle *glamo,
@@ -376,10 +380,12 @@ static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
 	/* update the reported geometry of the framebuffer. */
 	if (orientation_changing) {
 		var->xres_virtual = var->xres = yres;
+		var->xres_virtual *= 2;
 		var->yres_virtual = var->yres = xres;
 	} else {
 		var->xres_virtual = var->xres = xres;
 		var->yres_virtual = var->yres = yres;
+		var->yres_virtual *= 2;
 	}
 
 	/* update scannout timings */
@@ -422,6 +428,15 @@ static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
 out_unlock:
 	printk(KERN_ERR"glamofb_update_lcd_controller spin_unlock_irqrestore\n");
 	spin_unlock_irqrestore(&glamo->lock_cmd, flags);
+}
+
+static int glamofb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
+{
+	struct glamofb_handle *glamo = info->par;
+	u_int16_t page = var->yoffset / glamo->mach_info->yres.defval;
+	reg_write(glamo, GLAMO_REG_LCD_COMMAND2, page);
+
+	return 0;
 }
 
 static int glamofb_set_par(struct fb_info *info)
@@ -756,6 +771,7 @@ EXPORT_SYMBOL_GPL(glamofb_cmd_write);
 static struct fb_ops glamofb_ops = {
 	.owner		= THIS_MODULE,
 	.fb_check_var	= glamofb_check_var,
+	.fb_pan_display	= glamofb_pan_display,
 	.fb_set_par	= glamofb_set_par,
 	.fb_blank	= glamofb_blank,
 	.fb_setcolreg	= glamofb_setcolreg,
@@ -845,7 +861,7 @@ static int __init glamofb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to ioremap() vram memory\n");
 		goto out_release_fb;
 	}
-	glamofb->cursor_addr = fbinfo->screen_base + 0xf0000;
+	glamofb->cursor_addr = fbinfo->screen_base + 0x12C000;
 
 	platform_set_drvdata(pdev, glamofb);
 
@@ -855,7 +871,7 @@ static int __init glamofb_probe(struct platform_device *pdev)
 	fbinfo->fix.type = FB_TYPE_PACKED_PIXELS;
 	fbinfo->fix.type_aux = 0;
 	fbinfo->fix.xpanstep = 0;
-	fbinfo->fix.ypanstep = 0;
+	fbinfo->fix.ypanstep = mach_info->yres.defval;
 	fbinfo->fix.ywrapstep = 0;
 	fbinfo->fix.accel = FB_ACCEL_GLAMO;
 
@@ -873,7 +889,7 @@ static int __init glamofb_probe(struct platform_device *pdev)
 	fbinfo->var.xres = mach_info->xres.defval;
 	fbinfo->var.xres_virtual = mach_info->xres.defval;
 	fbinfo->var.yres = mach_info->yres.defval;
-	fbinfo->var.yres_virtual = mach_info->yres.defval;
+	fbinfo->var.yres_virtual = mach_info->yres.defval * 2;
 	fbinfo->var.bits_per_pixel = mach_info->bpp.defval;
 
 	fbinfo->var.pixclock = mach_info->pixclock;
