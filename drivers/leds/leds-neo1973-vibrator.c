@@ -1,7 +1,7 @@
 /*
- * LED driver for the vibrator of the FIC Neo1973 GSM Phone
+ * LED driver for the vibrator of the Openmoko GTA01/GTA02 GSM Phones
  *
- * (C) 2006-2007 by Openmoko, Inc.
+ * (C) 2006-2008 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  * All rights reserved.
  *
@@ -10,7 +10,7 @@
  * published by the Free Software Foundation.
  *
  * Javi Roman <javiroman@kernel-labs.org>:
- * 	Implement PWM support for GTA01Bv4 and later
+ *	Implement PWM support for GTA01Bv4 and later
  */
 
 #include <linux/kernel.h>
@@ -39,11 +39,12 @@ struct neo1973_vib_priv {
 };
 
 static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
-		enum led_brightness value)
+				enum led_brightness value)
 {
 	unsigned long flags;
-	struct neo1973_vib_priv *vp =
-		container_of(led_cdev, struct neo1973_vib_priv, cdev);
+	struct neo1973_vib_priv *vp = container_of(led_cdev,
+						   struct neo1973_vib_priv,
+						   cdev);
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) { /* use FIQ to control GPIO */
@@ -58,13 +59,11 @@ static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
 	 * value == 0 -> 0% duty cycle (zero power)
 	 */
 	spin_lock_irqsave(&vp->lock, flags);
-	if (vp->has_pwm)
+	if (vp->has_pwm) {
 		s3c2410_pwm_duty_cycle(value / 4, &vp->pwm);
+	}
 	else {
-		if (value)
-			neo1973_gpb_setpin(vp->gpio, 1);
-		else
-			neo1973_gpb_setpin(vp->gpio, 0);
+		neo1973_gpb_setpin(vp->gpio, value ? 1 : 0);
 	}
 	spin_unlock_irqrestore(&vp->lock, flags);
 }
@@ -206,5 +205,5 @@ module_init(neo1973_vib_init);
 module_exit(neo1973_vib_exit);
 
 MODULE_AUTHOR("Harald Welte <laforge@openmoko.org>");
-MODULE_DESCRIPTION("FIC Neo1973 vibrator driver");
+MODULE_DESCRIPTION("Openmoko GTA01/GTA02 vibrator driver");
 MODULE_LICENSE("GPL");

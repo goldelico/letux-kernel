@@ -1,7 +1,7 @@
 /*
- * LED driver for the FIC Neo1973 GTA02 GSM phone
+ * LED driver for the Openmoko GTA02 GSM phone
  *
- * (C) 2006-2007 by Openmoko, Inc.
+ * (C) 2006-2008 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  * All rights reserved.
  *
@@ -48,7 +48,7 @@ static inline struct gta02_led_bundle *to_bundle(struct led_classdev *led_cdev)
 }
 
 static void gta02led_set(struct led_classdev *led_cdev,
-		enum led_brightness value)
+			 enum led_brightness value)
 {
 	unsigned long flags;
 	struct gta02_led_priv *lp = to_priv(led_cdev);
@@ -168,12 +168,12 @@ static int __init gta02led_init(void)
 
 static void __exit gta02led_exit(void)
 {
- 	platform_driver_unregister(&gta02led_driver);
+	platform_driver_unregister(&gta02led_driver);
 }
 
 module_init(gta02led_init);
 module_exit(gta02led_exit);
 
 MODULE_AUTHOR("Harald Welte <laforge@openmoko.org>");
-MODULE_DESCRIPTION("FIC Neo1973 GTA02 LED driver");
+MODULE_DESCRIPTION("Openmoko GTA02 LED driver");
 MODULE_LICENSE("GPL");
