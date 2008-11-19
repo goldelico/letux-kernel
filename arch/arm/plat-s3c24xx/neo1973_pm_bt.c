@@ -111,15 +111,17 @@ static ssize_t bt_write(struct device *dev, struct device_attribute *attr,
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 		case MACH_TYPE_NEO1973_GTA02:
-			neo1973_gpb_setpin(GTA02_GPIO_BT_EN, on ? 0 : 1);
-			if (on)
-				pcf50633_voltage_set(pcf50633_global,
-					PCF50633_REGULATOR_LDO4, 3200);
+			if (s3c2410_gpio_getpin(GTA02_GPIO_BT_EN) == on)
+				break;
+			neo1973_gpb_setpin(GTA02_GPIO_BT_EN, !on);
+			pcf50633_voltage_set(pcf50633_global,
+				PCF50633_REGULATOR_LDO4, on ? 3200 : 0);
 			pcf50633_onoff_set(pcf50633_global,
 				PCF50633_REGULATOR_LDO4, on);
 			vol = pcf50633_voltage_get(pcf50633_global,
 				PCF50633_REGULATOR_LDO4);
 			dev_info(dev, "GTA02 Set PCF50633 LDO4 = %d\n", vol);
+			neo1973_gpb_setpin(GTA02_GPIO_BT_EN, on);
 			break;
 #endif /* CONFIG_MACH_NEO1973_GTA02 */
 
