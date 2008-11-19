@@ -122,11 +122,16 @@ static inline bool has_rndis(void)
  * Instead:  allocate your own, using normal USB-IF procedures.
  */
 
+#if 0
 /* Thanks to NetChip Technologies for donating this product ID.
  * It's for devices with only CDC Ethernet configurations.
  */
 #define CDC_VENDOR_NUM		0x0525	/* NetChip */
 #define CDC_PRODUCT_NUM		0xa4a1	/* Linux-USB Ethernet Gadget */
+#else
+#define CDC_VENDOR_NUM	0x1457		/* First International Computer */
+#define CDC_PRODUCT_NUM	0x5117		/* Linux-USB Ethernet Gadget */
+#endif
 
 /* For hardware that can't talk CDC, we use the same vendor ID that
  * ARM Linux has used for ethernet-over-usb, both with sa1100 and
@@ -147,8 +152,8 @@ static inline bool has_rndis(void)
  * used with CDC Ethernet, Linux 2.4 hosts will need updates to choose
  * the non-RNDIS configuration.
  */
-#define RNDIS_VENDOR_NUM	0x0525	/* NetChip */
-#define RNDIS_PRODUCT_NUM	0xa4a2	/* Ethernet/RNDIS Gadget */
+#define RNDIS_VENDOR_NUM	0x1457	/* NetChip */
+#define RNDIS_PRODUCT_NUM	0x5122	/* Ethernet/RNDIS Gadget */
 
 /*-------------------------------------------------------------------------*/
 
