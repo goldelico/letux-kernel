@@ -256,7 +256,7 @@ static int neo1973kbd_probe(struct platform_device *pdev)
 	if (rc)
 		goto out_register;
 
-	neo1973kbd->cdev = device_create_drvdata(neo1973kbd_switch_class,
+	neo1973kbd->cdev = device_create(neo1973kbd_switch_class,
 					&pdev->dev, 0, neo1973kbd, HEADSET_SWITCH);
 	if(unlikely(IS_ERR(neo1973kbd->cdev))) {
 		rc = PTR_ERR(neo1973kbd->cdev);
