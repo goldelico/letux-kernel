@@ -21,7 +21,7 @@ ar6000-objs += htc/ar6k.o      		   \
                htc/htc_recv.o       	   \
                htc/htc_services.o          \
                htc/htc.o     		   \
-               hif/hif.o     		   \
+               hif/hif2.o     		   \
                bmi/bmi.o                   \
                ar6000/ar6000_drv.o         \
                ar6000/ar6000_raw_if.o	   \
