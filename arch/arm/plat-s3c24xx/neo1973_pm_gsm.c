@@ -19,7 +19,14 @@
 #include <linux/errno.h>
 
 #include <asm/hardware.h>
+#include <asm/mach-types.h>
 #include <asm/arch/gta01.h>
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
+#include <asm/arch/gta02.h>
+#include <linux/pcf50633.h>
+#include <asm/arch/regs-gpioj.h>
+#endif
 
 struct gta01pm_priv {
 	int gpio_ngsm_en;
@@ -54,8 +61,16 @@ static ssize_t gsm_read(struct device *dev, struct device_attribute *attr,
 		if (s3c2410_gpio_getpin(GTA01_GPIO_MODEM_RST))
 			goto out_1;
 	} else if (!strcmp(attr->attr.name, "download")) {
-		if (s3c2410_gpio_getpin(GTA01_GPIO_MODEM_DNLOAD))
-			goto out_1;
+#ifdef CONFIG_MACH_NEO1973_GTA01
+		if (machine_is_neo1973_gta01())
+			if (s3c2410_gpio_getpin(GTA01_GPIO_MODEM_DNLOAD))
+				goto out_1;
+#endif
+#ifdef CONFIG_MACH_NEO1973_GTA02
+		if (machine_is_neo1973_gta02())
+			if (s3c2410_gpio_getpin(GTA02_GPIO_nDL_GSM))
+				goto out_1;
+#endif
 	}
 
 	return strlcpy(buf, "0\n", 3);
@@ -70,32 +85,67 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 
 	if (!strcmp(attr->attr.name, "power_on")) {
 		if (on) {
-			dev_info(dev, "powering up GSM, thus disconnecting "
-				 "serial console\n");
+			if (gta01_gsm.con) {
+				dev_info(dev, "powering up GSM, thus "
+					 "disconnecting serial console\n");
 
-			if (gta01_gsm.con)
 				console_stop(gta01_gsm.con);
+			}
 
 			if (gta01_gsm.gpio_ngsm_en)
 				s3c2410_gpio_setpin(gta01_gsm.gpio_ngsm_en, 0);
+
+			switch (system_rev) {
+#ifdef CONFIG_MACH_NEO1973_GTA02
+			case GTA02v2_SYSTEM_REV:
+			case GTA02v3_SYSTEM_REV:
+			case GTA02v4_SYSTEM_REV:
+			case GTA02v5_SYSTEM_REV:
+			case GTA02v6_SYSTEM_REV:
+				pcf50633_gpio_set(pcf50633_global,
+						  PCF50633_GPIO2, 1);
+				break;
+#endif
+			}
 
 			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_ON, 1);
 		} else {
 			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_ON, 0);
 
+			switch (system_rev) {
+#ifdef CONFIG_MACH_NEO1973_GTA02
+			case GTA02v2_SYSTEM_REV:
+			case GTA02v3_SYSTEM_REV:
+			case GTA02v4_SYSTEM_REV:
+			case GTA02v5_SYSTEM_REV:
+			case GTA02v6_SYSTEM_REV:
+				pcf50633_gpio_set(pcf50633_global,
+						  PCF50633_GPIO2, 0);
+				break;
+#endif
+			}
+
 			if (gta01_gsm.gpio_ngsm_en)
 				s3c2410_gpio_setpin(gta01_gsm.gpio_ngsm_en, 1);
 
-			if (gta01_gsm.con)
+			if (gta01_gsm.con) {
 				console_start(gta01_gsm.con);
 
-			dev_info(dev, "powered down GSM, thus enabling "
-				 "serial console\n");
+				dev_info(dev, "powered down GSM, thus enabling "
+					 "serial console\n");
+			}
 		}
 	} else if (!strcmp(attr->attr.name, "reset")) {
 		s3c2410_gpio_setpin(GTA01_GPIO_MODEM_RST, on);
 	} else if (!strcmp(attr->attr.name, "download")) {
-		s3c2410_gpio_setpin(GTA01_GPIO_MODEM_DNLOAD, on);
+#ifdef CONFIG_MACH_NEO1973_GTA01
+		if (machine_is_neo1973_gta01())
+			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_DNLOAD, on);
+#endif
+#ifdef CONFIG_MACH_NEO1973_GTA02
+		if (machine_is_neo1973_gta02())
+			s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, on);
+#endif
 	}
 
 	return count;
@@ -111,6 +161,9 @@ static int gta01_gsm_suspend(struct platform_device *pdev, pm_message_t state)
 	/* GPIO state is saved/restored by S3C2410 core GPIO driver, so we
 	 * don't need to do anything here */
 
+	/* disable DL GSM to prevent jack_insert becoming flaoting */
+	if (machine_is_neo1973_gta02())
+		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, 1);
 	return 0;
 }
 
@@ -124,6 +177,8 @@ static int gta01_gsm_resume(struct platform_device *pdev)
 	if (s3c2410_gpio_getpin(GTA01_GPIO_MODEM_ON) && gta01_gsm.con)
 		console_stop(gta01_gsm.con);
 
+	if (machine_is_neo1973_gta02())
+		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, 0);
 	return 0;
 }
 #else
@@ -134,7 +189,7 @@ static int gta01_gsm_resume(struct platform_device *pdev)
 static struct attribute *gta01_gsm_sysfs_entries[] = {
 	&dev_attr_power_on.attr,
 	&dev_attr_reset.attr,
-	NULL,
+	&dev_attr_download.attr,
 	NULL
 };
 
@@ -158,8 +213,18 @@ static int __init gta01_gsm_probe(struct platform_device *pdev)
 		gta01_gsm.gpio_ngsm_en = GTA01Bv2_GPIO_nGSM_EN;
 		s3c2410_gpio_setpin(GTA01v3_GPIO_nGSM_EN, 0);
 		break;
+#ifdef CONFIG_MACH_NEO1973_GTA02
+	case GTA02v1_SYSTEM_REV:
+	case GTA02v2_SYSTEM_REV:
+	case GTA02v3_SYSTEM_REV:
+	case GTA02v4_SYSTEM_REV:
+	case GTA02v5_SYSTEM_REV:
+	case GTA02v6_SYSTEM_REV:
+		gta01_gsm.gpio_ngsm_en = 0;
+		break;
+#endif
 	default:
-		dev_warn(&pdev->dev, "Unknown GTA01 Revision 0x%x, "
+		dev_warn(&pdev->dev, "Unknown Neo1973 Revision 0x%x, "
 			 "some PM features not available!!!\n",
 			 system_rev);
 		break;
@@ -175,9 +240,13 @@ static int __init gta01_gsm_probe(struct platform_device *pdev)
 		break;
 	}
 
-	gta01_gsm.con = find_s3c24xx_console();
-	if (!gta01_gsm.con)
-		dev_warn(&pdev->dev, "cannot find S3C24xx console driver\n");
+	if (machine_is_neo1973_gta01()) {
+		gta01_gsm.con = find_s3c24xx_console();
+		if (!gta01_gsm.con)
+			dev_warn(&pdev->dev,
+				 "cannot find S3C24xx console driver\n");
+	} else
+		gta01_gsm.con = NULL;
 
 	return sysfs_create_group(&pdev->dev.kobj, &gta01_gsm_attr_group);
 }

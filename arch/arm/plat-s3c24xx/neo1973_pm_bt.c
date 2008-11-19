@@ -19,7 +19,9 @@
 #include <linux/pcf50606.h>
 
 #include <asm/hardware.h>
+#include <asm/mach-types.h>
 #include <asm/arch/gta01.h>
+#include <asm/arch/gta02.h>
 
 #define DRVMSG "FIC Neo1973 Bluetooth Power Management"
 
@@ -27,14 +29,30 @@ static ssize_t bt_read(struct device *dev, struct device_attribute *attr,
 		       char *buf)
 {
 	if (!strcmp(attr->attr.name, "power_on")) {
-		if (pcf50606_onoff_get(pcf50606_global,
-					PCF50606_REGULATOR_D1REG) &&
-		    pcf50606_voltage_get(pcf50606_global,
-					 PCF50606_REGULATOR_D1REG) == 3100)
-			goto out_1;
+		switch (machine_arch_type) {
+		case MACH_TYPE_NEO1973_GTA01:
+			if (pcf50606_onoff_get(pcf50606_global,
+						PCF50606_REGULATOR_D1REG) &&
+			    pcf50606_voltage_get(pcf50606_global,
+						 PCF50606_REGULATOR_D1REG) == 3100)
+				goto out_1;
+			break;
+		case MACH_TYPE_NEO1973_GTA02:
+			if (s3c2410_gpio_getpin(GTA02_GPIO_BT_EN))
+				goto out_1;
+			break;
+		}
 	} else if (!strcmp(attr->attr.name, "reset")) {
-		if (s3c2410_gpio_getpin(GTA01_GPIO_BT_EN) == 0)
-			goto out_1;
+		switch (machine_arch_type) {
+		case MACH_TYPE_NEO1973_GTA01:
+			if (s3c2410_gpio_getpin(GTA01_GPIO_BT_EN) == 0)
+				goto out_1;
+			break;
+		case MACH_TYPE_NEO1973_GTA02:
+			if (s3c2410_gpio_getpin(GTA02_GPIO_BT_EN) == 0)
+				goto out_1;
+			break;
+		}
 	}
 
 	return strlcpy(buf, "0\n", 3);
@@ -48,20 +66,37 @@ static ssize_t bt_write(struct device *dev, struct device_attribute *attr,
 	unsigned long on = simple_strtoul(buf, NULL, 10);
 
 	if (!strcmp(attr->attr.name, "power_on")) {
-		/* if we are powering up, assert reset, then power, then
-		 * release reset */
-		if (on) {
-			s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, 0);
-			pcf50606_voltage_set(pcf50606_global,
-					     PCF50606_REGULATOR_D1REG,
-					     3100);
+		switch (machine_arch_type) {
+		case MACH_TYPE_NEO1973_GTA01:
+			/* if we are powering up, assert reset, then power,
+			 * then release reset */
+			if (on) {
+				s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, 0);
+				pcf50606_voltage_set(pcf50606_global,
+						     PCF50606_REGULATOR_D1REG,
+						     3100);
+			}
+			pcf50606_onoff_set(pcf50606_global,
+					   PCF50606_REGULATOR_D1REG, on);
+			s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, on);
+			break;
+		case MACH_TYPE_NEO1973_GTA02:
+			if (on)
+				s3c2410_gpio_setpin(GTA02_GPIO_BT_EN, 0);
+			else
+				s3c2410_gpio_setpin(GTA02_GPIO_BT_EN, 1);
+			break;
 		}
-		pcf50606_onoff_set(pcf50606_global,
-				   PCF50606_REGULATOR_D1REG, on);
-		s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, on);
 	} else if (!strcmp(attr->attr.name, "reset")) {
 		/* reset is low-active, so we need to invert */
-		s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, on ? 0 : 1);
+		switch (machine_arch_type) {
+		case MACH_TYPE_NEO1973_GTA01:
+			s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, on ? 0 : 1);
+			break;
+		case MACH_TYPE_NEO1973_GTA02:
+			s3c2410_gpio_setpin(GTA02_GPIO_BT_EN, on ? 0 : 1);
+			break;
+		}
 	}
 
 	return count;
@@ -107,9 +142,16 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 {
 	dev_info(&pdev->dev, DRVMSG ": starting\n");
 
-	/* we make sure that the voltage is off */
-	pcf50606_onoff_set(pcf50606_global,
-			   PCF50606_REGULATOR_D1REG, 0);
+	switch (machine_arch_type) {
+	case MACH_TYPE_NEO1973_GTA01:
+		/* we make sure that the voltage is off */
+		pcf50606_onoff_set(pcf50606_global,
+				   PCF50606_REGULATOR_D1REG, 0);
+		break;
+	case MACH_TYPE_NEO1973_GTA02:
+		/* FIXME: implementation */
+		break;
+	}
 	/* we pull reset to low to make sure that the chip doesn't
 	 * drain power through the reset line */
 	s3c2410_gpio_setpin(GTA01_GPIO_BT_EN, 0);
