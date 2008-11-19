@@ -2,7 +2,7 @@
 #define __GLAMO_CORE_H
 
 #include <asm/system.h>
-
+#include <linux/resume-dependency.h>
 
 /* for the time being, we put the on-screen framebuffer into the lowest
  * VRAM space.  This should make the code easily compatible with the various
@@ -29,6 +29,7 @@ struct glamo_core {
 	u_int16_t type;
 	u_int16_t revision;
 	spinlock_t lock;
+	struct resume_dependency resume_dependency;
 };
 
 struct glamo_script {

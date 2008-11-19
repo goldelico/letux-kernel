@@ -27,10 +27,7 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
-#include <linux/workqueue.h>
 #include <linux/jbt6k74.h>
-
-#include <linux/spi/spi.h>
 
 enum jbt_register {
 	JBT_REG_SLEEP_IN		= 0x10,
@@ -116,13 +113,11 @@ struct jbt_info {
 	struct mutex lock;		/* protects tx_buf and reg_cache */
 	u16 tx_buf[8];
 	u16 reg_cache[0xEE];
-	struct work_struct work;
+	int have_resumed;
 };
 
 #define JBT_COMMAND	0x000
 #define JBT_DATA	0x100
-
-static void jbt_resume_work(struct work_struct *work);
 
 
 static int jbt_reg_write_nodata(struct jbt_info *jbt, u8 reg)
@@ -576,8 +571,6 @@ static int __devinit jbt_probe(struct spi_device *spi)
 	if (!jbt)
 		return -ENOMEM;
 
-	INIT_WORK(&jbt->work, jbt_resume_work);
-
 	jbt->spi_dev = spi;
 	jbt->state = JBT_STATE_DEEP_STANDBY;
 	mutex_init(&jbt->lock);
@@ -635,27 +628,48 @@ static int jbt_suspend(struct spi_device *spi, pm_message_t state)
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
 	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
 
+	/* platform needs to register resume dependencies here */
+	if (jbt6k74_pdata->suspending)
+		(jbt6k74_pdata->suspending)(0, spi);
+
 	/* Save mode for resume */
 	jbt->last_state = jbt->state;
 	jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);
 
-	(jbt6k74_pdata->reset)(0, 0);
+	jbt->have_resumed = 0;
+
+//	(jbt6k74_pdata->reset)(0, 0);
 
 	return 0;
 }
 
-static void jbt_resume_work(struct work_struct *work)
+int jbt6k74_resume(struct spi_device *spi)
 {
-	struct jbt_info *jbt = container_of(work, struct jbt_info, work);
-	struct jbt6k74_platform_data *jbt6k74_pdata =
-						jbt->spi_dev->dev.platform_data;
+	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
+	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
 
-	printk(KERN_INFO"jbt_resume_work waiting...\n");
-	/* 100ms is not enough here 2008-05-08 andy@openmoko.com
-	 * if CONFIG_PM_DEBUG is enabled 2000ms is required
+	/* if we still wait on dependencies, exit because we will get called
+	 * again.  This guy will get called once by core resume action, and
+	 * should be set as resume_dependency callback for any dependencies
+	 * set by platform code.
 	 */
-	msleep(400);
-	printk(KERN_INFO"jbt_resume_work GO...\n");
+
+	if (jbt6k74_pdata->all_dependencies_resumed)
+		if (!(jbt6k74_pdata->all_dependencies_resumed)(0))
+			return 0;
+
+	/* we can get called twice with all dependencies resumed if our core
+	 * resume callback is last of all.  Protect against going twice
+	 */
+	if (jbt->have_resumed)
+		return 0;
+
+	jbt->have_resumed = 1;
+
+	/* OK we are sure all devices we depend on for operation are up now */
+
+	/* even this needs glamo up on GTA02 :-/ */
+	(jbt6k74_pdata->reset)(0, 1);
 
 	jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);
 	msleep(100);
@@ -675,21 +689,10 @@ static void jbt_resume_work(struct work_struct *work)
 	if (jbt6k74_pdata->resuming)
 		(jbt6k74_pdata->resuming)(0);
 
-	printk(KERN_INFO"jbt_resume_work done...\n");
-}
-
-static int jbt_resume(struct spi_device *spi)
-{
-	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
-	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
-
-	(jbt6k74_pdata->reset)(0, 1);
-
-	if (!schedule_work(&jbt->work))
-		dev_err(&spi->dev, "Unable to schedule LCM wakeup work\n");
-
 	return 0;
 }
+EXPORT_SYMBOL_GPL(jbt6k74_resume);
+
 #else
 #define jbt_suspend	NULL
 #define jbt_resume	NULL
@@ -704,7 +707,7 @@ static struct spi_driver jbt6k74_driver = {
 	.probe	 = jbt_probe,
 	.remove	 = __devexit_p(jbt_remove),
 	.suspend = jbt_suspend,
-	.resume	 = jbt_resume,
+	.resume	 = jbt6k74_resume,
 };
 
 static int __init jbt_init(void)
