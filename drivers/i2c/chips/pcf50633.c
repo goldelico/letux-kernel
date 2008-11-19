@@ -1874,15 +1874,11 @@ static int pcf50633bl_get_intensity(struct backlight_device *bd)
 	return intensity & 0x3f;
 }
 
-static int pcf50633bl_set_intensity(struct backlight_device *bd)
+static int __pcf50633bl_set_intensity(struct pcf50633_data *pcf, int intensity)
 {
-	struct pcf50633_data *pcf = bl_get_data(bd);
-	int intensity = bd->props.brightness;
 	int old_intensity = reg_read(pcf, PCF50633_REG_LEDOUT);
 	u_int8_t ledena = 2;
 	int ret;
-
-	dev_info(&pcf->client.dev, "pcf50633bl_set_intensity\n");
 
 	if (!(reg_read(pcf, PCF50633_REG_LEDENA) & 1))
 		old_intensity = 0;
@@ -1891,7 +1887,8 @@ static int pcf50633bl_set_intensity(struct backlight_device *bd)
 	    (bd->props.fb_blank != FB_BLANK_UNBLANK))
 		intensity = 0;
 
-	/* The PCF50633 cannot handle LEDOUT = 0 (datasheet p60)
+	/*
+	 * The PCF50633 cannot handle LEDOUT = 0 (datasheet p60)
 	 * if seen, you have to re-enable the LED unit
 	 */
 
@@ -1910,6 +1907,18 @@ static int pcf50633bl_set_intensity(struct backlight_device *bd)
 		reg_write(pcf, PCF50633_REG_LEDENA, ledena);
 
 	return ret;
+}
+
+static int pcf50633bl_set_intensity(struct backlight_device *bd)
+{
+	struct pcf50633_data *pcf = bl_get_data(bd);
+	int intensity = bd->props.brightness;
+
+	if ((bd->props.power != FB_BLANK_UNBLANK) ||
+	    (bd->props.fb_blank != FB_BLANK_UNBLANK))
+		intensity = 0;
+
+	return __pcf50633bl_set_intensity(pcf, intensity);
 }
 
 static struct backlight_ops pcf50633bl_ops = {
@@ -2501,11 +2510,8 @@ void pcf50633_backlight_resume(struct pcf50633_data *pcf)
 	/* platform defines resume ramp speed */
 	reg_write(pcf, PCF50633_REG_LEDDIM,
 				       pcf->pdata->resume_backlight_ramp_speed);
-	reg_write(pcf, PCF50633_REG_LEDOUT, pcf->standby_regs.misc[
-				   PCF50633_REG_LEDOUT - PCF50633_REG_AUTOOUT]);
-	/* we force the backlight on in fact */
-	reg_write(pcf, PCF50633_REG_LEDENA, pcf->standby_regs.misc[
-			       PCF50633_REG_LEDENA - PCF50633_REG_AUTOOUT] | 1);
+
+	__pcf50633bl_set_intensity(pcf, pcf->backlight->props.brightness);
 }
 EXPORT_SYMBOL_GPL(pcf50633_backlight_resume);
 
