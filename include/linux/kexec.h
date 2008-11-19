@@ -1,7 +1,6 @@
 #ifndef LINUX_KEXEC_H
 #define LINUX_KEXEC_H
 
-#ifdef CONFIG_KEXEC
 #include <linux/types.h>
 #include <linux/list.h>
 #include <linux/linkage.h>
@@ -10,6 +9,8 @@
 #include <linux/elfcore.h>
 #include <linux/elf.h>
 #include <asm/kexec.h>
+
+#ifdef CONFIG_KEXEC
 
 /* Verify architecture specific macros are defined */
 
