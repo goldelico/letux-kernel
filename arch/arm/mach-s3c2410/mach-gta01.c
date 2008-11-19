@@ -32,6 +32,7 @@
 #include <linux/init.h>
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
+#include <linux/i2c.h>
 #include <linux/serial_core.h>
 #include <asm/arch/ts.h>
 #include <linux/spi/spi.h>
@@ -359,6 +360,14 @@ static struct s3c2410fb_mach_info gta01_lcd_cfg __initdata = {
 	.default_display = 0,
 
 	.lpcsel		= ((0xCE6) & ~7) | 1<<4,
+};
+
+static struct i2c_board_info gta01_i2c_devs[] __initdata = {
+	{
+		I2C_BOARD_INFO("wm8753", 0x1a)
+	}, {
+		I2C_BOARD_INFO("neo1973_lm4857", 0x7c) 
+	}
 };
 
 static struct platform_device *gta01_devices[] __initdata = {
@@ -733,6 +742,9 @@ static void __init gta01_machine_init(void)
 	platform_device_register(&gta01_led_dev);
 
 	platform_add_devices(gta01_devices, ARRAY_SIZE(gta01_devices));
+
+	i2c_register_board_info(0, gta01_i2c_devs, 
+		ARRAY_SIZE(gta01_i2c_devs));
 
 	s3c2410_pm_init();
 
