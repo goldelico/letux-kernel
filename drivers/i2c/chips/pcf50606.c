@@ -672,8 +672,9 @@ static void pcf50606_work(struct work_struct *work)
 				 * which is very bad.  Therefore we confirm
 				 * PID #1 exists before issuing the signal
 				 */
-				if (find_task_by_pid(1)) {
-					kill_proc(1, SIGINT, 1);
+				if (find_task_by_pid_ns(1, &init_pid_ns)) {
+					kill_pid(task_pid(find_task_by_pid_ns(1, 
+							&init_pid_ns)), SIGINT, 1);
 					DEBUGPC("SIGINT(init) ");
 				}
 				/* FIXME: what to do if userspace doesn't
@@ -787,10 +788,10 @@ static void pcf50606_work(struct work_struct *work)
 			 * very bad.  Therefore we confirm PID #1 exists
 			 * before issuing SPIGPWR
 			 */
-			if (find_task_by_pid(1)) {
+			if (find_task_by_pid_ns(1, &init_pid_ns)) {
 				apm_queue_event(APM_LOW_BATTERY);
 				DEBUGPC("SIGPWR(init) ");
-				kill_proc(1, SIGPWR, 1);
+				kill_pid(task_pid(find_task_by_pid_ns(1, &init_pid_ns)), SIGPWR, 1);
 			} else
 				/*
 				 * well, our situation is like this:  we do not
