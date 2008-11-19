@@ -79,6 +79,7 @@ u16 _fiq_timer_divisor;
  */
 extern void __attribute__ ((naked)) s3c2440_fiq_isr(void);
 
+
 /* this is copied into the hard FIQ vector during init */
 
 static void __attribute__ ((naked)) s3c2440_FIQ_Branch(void)
@@ -128,7 +129,7 @@ static int fiq_init_irq_source(int irq_index_fiq)
 
 	_fiq_irq = irq_index_fiq;
 	_fiq_ack_mask = 1 << (irq_index_fiq - S3C2410_CPUIRQ_OFFSET);
-	timer_index = (irq_index_fiq - IRQ_TIMER0);
+	_fiq_timer_index = (irq_index_fiq - IRQ_TIMER0);
 
 	/* set up the timer to operate as a pwm device */
 
@@ -136,18 +137,19 @@ static int fiq_init_irq_source(int irq_index_fiq)
 	if (rc)
 		goto bail;
 
-	pwm_timer_fiq.timerid = PWM0 + timer_index;
+	pwm_timer_fiq.timerid = PWM0 + _fiq_timer_index;
 	pwm_timer_fiq.prescaler = (6 - 1) / 2;
 	pwm_timer_fiq.divider = S3C2410_TCFG1_MUX3_DIV2;
 	/* default rate == ~32us */
-	pwm_timer_fiq.counter = pwm_timer_fiq.comparer =
-					timer_divisor = 64;
+	pwm_timer_fiq.counter = pwm_timer_fiq.comparer = 3000;
 
 	rc = s3c2410_pwm_enable(&pwm_timer_fiq);
 	if (rc)
 		goto bail;
 
 	s3c2410_pwm_start(&pwm_timer_fiq);
+
+	_fiq_timer_divisor = 0xffff; /* so kick will work initially */
 
 	/* let our selected interrupt be a magic FIQ interrupt */
 	__raw_writel(_fiq_ack_mask, S3C2410_INTMOD);
@@ -189,7 +191,7 @@ void fiq_kick(void)
 		     S3C2410_INTMSK);
 	tcon = __raw_readl(S3C2410_TCON) & ~S3C2410_TCON_T3START;
 	/* fake the timer to a count of 1 */
-	__raw_writel(1, S3C2410_TCNTB(timer_index));
+	__raw_writel(1, S3C2410_TCNTB(_fiq_timer_index));
 	__raw_writel(tcon | S3C2410_TCON_T3MANUALUPD, S3C2410_TCON);
 	__raw_writel(tcon | S3C2410_TCON_T3MANUALUPD | S3C2410_TCON_T3START,
 		     S3C2410_TCON);
@@ -207,6 +209,7 @@ static int __init sc32440_fiq_probe(struct platform_device *pdev)
 
 	if (!r)
 		return -EIO;
+
 	/* configure for the interrupt we are meant to use */
 	printk(KERN_INFO"Enabling FIQ using irq %d\n", r->start);
 
