@@ -182,12 +182,16 @@ static int bq27000_battery_get_property(struct power_supply *psy,
 			 */
 			if (!di->pdata->get_charger_active_status)
 				goto use_bat;
-			if ((di->pdata->get_charger_active_status)())
+
+			if ((di->pdata->get_charger_active_status)()) {
 				val->intval = POWER_SUPPLY_STATUS_CHARGING;
-			else
-				val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
-			break;
+				break;
+			}
 		}
+
+		val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		break;
+
 use_bat:
 		/*
 		 * either the charger is not connected, or the
