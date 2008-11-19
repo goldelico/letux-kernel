@@ -1888,8 +1888,8 @@ static int __pcf50633bl_set_intensity(struct pcf50633_data *pcf, int intensity)
 	if (!(reg_read(pcf, PCF50633_REG_LEDENA) & 1))
 		old_intensity = 0;
 
-	if ((bd->props.power != FB_BLANK_UNBLANK) ||
-	    (bd->props.fb_blank != FB_BLANK_UNBLANK))
+	if ((pcf->backlight->props.power != FB_BLANK_UNBLANK) ||
+	    (pcf->backlight->props.fb_blank != FB_BLANK_UNBLANK))
 		intensity = 0;
 
 	/*
