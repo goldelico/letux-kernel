@@ -879,7 +879,6 @@ static int glamo_mci_probe(struct platform_device *pdev)
 	mmc->ops 	= &glamo_mci_ops;
 	mmc->ocr_avail	= host->pdata->ocr_avail;
 	mmc->caps	= MMC_CAP_4_BIT_DATA |
-			  MMC_CAP_MULTIWRITE |
 			  MMC_CAP_MMC_HIGHSPEED |
 			  MMC_CAP_SD_HIGHSPEED;
 	mmc->f_min 	= host->clk_rate / 256;
