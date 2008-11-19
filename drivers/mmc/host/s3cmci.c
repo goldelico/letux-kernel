@@ -289,8 +289,11 @@ static void do_pio_read(struct s3cmci_host *host)
 		 * an even multiple of 4. */
 		if (fifo >= host->pio_bytes)
 			fifo = host->pio_bytes;
-		else
+		else {
 			fifo -= fifo & 3;
+			if (!fifo)
+				break;
+		}
 
 		host->pio_bytes -= fifo;
 		host->pio_count += fifo;
@@ -362,8 +365,11 @@ static void do_pio_write(struct s3cmci_host *host)
 		 * words, so round down to an even multiple of 4. */
 		if (fifo >= host->pio_bytes)
 			fifo = host->pio_bytes;
-		else
+		else {
 			fifo -= fifo & 3;
+			if (!fifo)
+				break;
+		}
 
 		host->pio_bytes -= fifo;
 		host->pio_count += fifo;
