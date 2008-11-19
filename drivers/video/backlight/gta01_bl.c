@@ -36,7 +36,7 @@
 #include <linux/clk.h>
 
 #include <mach/hardware.h>
-#include <asm/arch/gta01.h>
+#include <mach/gta01.h>
 #include <asm/arch/pwm.h>
 
 #include <asm/plat-s3c/regs-timer.h>

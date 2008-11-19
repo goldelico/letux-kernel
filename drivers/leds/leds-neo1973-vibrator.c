@@ -20,7 +20,7 @@
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/arch/pwm.h>
-#include <asm/arch/gta01.h>
+#include <mach/gta01.h>
 #include <asm/plat-s3c/regs-timer.h>
 
 #ifdef CONFIG_MACH_NEO1973_GTA02

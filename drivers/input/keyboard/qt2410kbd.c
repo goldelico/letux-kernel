@@ -21,7 +21,7 @@
 #include <linux/slab.h>
 
 #include <mach/hardware.h>
-#include <asm/arch/gta01.h>
+#include <mach/gta01.h>
 
 struct gta01kbd {
 	struct input_dev *input;

@@ -65,7 +65,7 @@
 #include <asm/arch/spi-gpio.h>
 #include <mach/usb-control.h>
 
-#include <asm/arch/gta01.h>
+#include <mach/gta01.h>
 
 #include <asm/plat-s3c/regs-serial.h>
 #include <asm/plat-s3c/nand.h>

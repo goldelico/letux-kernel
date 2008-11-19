@@ -52,7 +52,7 @@
 #include <linux/apm-emulation.h>
 
 #include <asm/mach-types.h>
-#include <asm/arch/gta01.h>
+#include <mach/gta01.h>
 
 #include "pcf50606.h"
 

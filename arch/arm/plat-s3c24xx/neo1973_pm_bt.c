@@ -21,7 +21,7 @@
 #include <asm/plat-s3c24xx/neo1973.h>
 
 /* For GTA01 */
-#include <asm/arch/gta01.h>
+#include <mach/gta01.h>
 #include <linux/pcf50606.h>
 
 /* For GTA02 */

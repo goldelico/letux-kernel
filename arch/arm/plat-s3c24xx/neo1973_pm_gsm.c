@@ -21,7 +21,7 @@
 
 #include <asm/arch/gpio.h>
 #include <asm/mach-types.h>
-#include <asm/arch/gta01.h>
+#include <mach/gta01.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 #include <asm/arch/s3c24xx-serial.h>
 
