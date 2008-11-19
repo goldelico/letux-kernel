@@ -833,7 +833,22 @@ struct platform_device gta02_hdq_device = {
 };
 #endif
 
-/* FIQ */
+/* vibrator (child of FIQ) */
+
+static struct resource gta02_vibrator_resources[] = {
+	[0] = {
+		.start	= GTA02_GPIO_VIBRATOR_ON,
+		.end	= GTA02_GPIO_VIBRATOR_ON,
+	},
+};
+
+static struct platform_device gta02_vibrator_dev = {
+	.name		= "neo1973-vibrator",
+	.num_resources	= ARRAY_SIZE(gta02_vibrator_resources),
+	.resource	= gta02_vibrator_resources,
+};
+
+/* FIQ, used PWM regs, so not child of PWM */
 
 static void gta02_fiq_attach_child_devices(struct device *parent_device)
 {
@@ -843,6 +858,8 @@ static void gta02_fiq_attach_child_devices(struct device *parent_device)
 	case GTA02v6_SYSTEM_REV:
 		gta02_hdq_device.dev.parent = parent_device;
 		platform_device_register(&gta02_hdq_device);
+		gta02_vibrator_dev.dev.parent = parent_device;
+		platform_device_register(&gta02_vibrator_dev);
 		break;
 	default:
 		break;
@@ -1123,19 +1140,6 @@ static struct glamo_spigpio_info glamo_spigpio_cfg = {
 	.pin_miso	= 0,
 	.board_size	= ARRAY_SIZE(gta02_spi_board_info),
 	.board_info	= gta02_spi_board_info,
-};
-
-static struct resource gta02_vibrator_resources[] = {
-	[0] = {
-		.start	= GTA02_GPIO_VIBRATOR_ON,
-		.end	= GTA02_GPIO_VIBRATOR_ON,
-	},
-};
-
-static struct platform_device gta02_vibrator_dev = {
-	.name		= "neo1973-vibrator",
-	.num_resources	= ARRAY_SIZE(gta02_vibrator_resources),
-	.resource	= gta02_vibrator_resources,
 };
 
 /* SPI: Accelerometers attached to SPI of s3c244x */
