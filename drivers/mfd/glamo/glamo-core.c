@@ -831,6 +831,14 @@ static void glamo_power(struct glamo_core *glamo,
 		while ((__reg_read(glamo, GLAMO_REG_PLL_GEN5) & 3) != 3)
 			;
 
+		/* allow to use the PLLS */
+		__reg_set_bit_mask(glamo, GLAMO_REG_DFT_GEN5, 0x400, 0);
+
+		/*
+		 * we can go back to using fast PLL as host bus clock source
+		 */
+		__reg_write(glamo, 0x200, 0x0e03);
+
 		/* Get memory out of deep powerdown */
 
 		__reg_write(glamo, GLAMO_REG_MEM_DRAM2,
@@ -865,6 +873,15 @@ static void glamo_power(struct glamo_core *glamo,
 		break;
 
 	case GLAMO_POWER_SUSPEND:
+
+		/* we like to use fast PLL as host bus clock now normally.
+		 * but since we close down the PLLs, this is not going to fly
+		 * during suspend - resume
+		 */
+		__reg_write(glamo, 0x200, 0x0e00);
+		/* disallow PLLS (use CLKI) */
+		__reg_set_bit_mask(glamo, GLAMO_REG_DFT_GEN5, 0x400, 0x400);
+
 		/* stash a copy of which engines were running */
 		glamo->engine_enabled_bitfield_suspend =
 						 glamo->engine_enabled_bitfield;
@@ -1337,8 +1354,8 @@ static int glamo_resume(struct platform_device *pdev)
 static struct platform_driver glamo_driver = {
 	.probe		= glamo_probe,
 	.remove		= glamo_remove,
-	.suspend_late	= glamo_suspend,
-	.resume_early	= glamo_resume,
+	.suspend	= glamo_suspend,
+	.resume	= glamo_resume,
 	.driver		= {
 		.name	= "glamo3362",
 		.owner	= THIS_MODULE,
