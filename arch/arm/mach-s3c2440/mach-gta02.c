@@ -111,7 +111,7 @@ static int gta02_charger_active_status;
 struct fiq_ipc fiq_ipc;
 EXPORT_SYMBOL(fiq_ipc);
 
-#define DIVISOR_FROM_US(x) ((x) << 1)
+#define DIVISOR_FROM_US(x) ((x) << 3)
 
 #define FIQ_DIVISOR_VIBRATOR DIVISOR_FROM_US(100)
 
