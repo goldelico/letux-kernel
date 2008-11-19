@@ -32,7 +32,6 @@
 #include <asm/dma-mapping.h>
 
 #include <asm/io.h>
-#include <asm/arch/regs-sdi.h>
 #include <mach/regs-gpio.h>
 #include <mach/mci.h>
 #include <mach/dma.h>

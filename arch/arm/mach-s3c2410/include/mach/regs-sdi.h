@@ -30,6 +30,7 @@
 #define S3C2410_SDIFSTA               (0x38)
 
 #define S3C2410_SDIDATA               (0x3C)
+#define S3C2410_SDIDATA_BYTE          (0x3C)
 #define S3C2410_SDIIMSK               (0x40)
 
 #define S3C2440_SDIDATA               (0x40)
@@ -37,6 +38,8 @@
 
 #define S3C2440_SDICON_SDRESET        (1<<8)
 #define S3C2440_SDICON_MMCCLOCK       (1<<5)
+#define S3C2440_SDIDATA_BYTE          (0x48)
+
 #define S3C2410_SDICON_BYTEORDER      (1<<4)
 #define S3C2410_SDICON_SDIOIRQ        (1<<3)
 #define S3C2410_SDICON_RWAITEN        (1<<2)
