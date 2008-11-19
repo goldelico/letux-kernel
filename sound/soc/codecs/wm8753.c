@@ -1829,7 +1829,7 @@ static int wm8753_probe(struct platform_device *pdev)
 #endif
 
 	if (ret != 0) {
-		printk(KERN_ERR "can't add coded bus driver");
+		printk(KERN_ERR "can't add codec bus driver\n");
 		kfree(codec->private_data);
 		kfree(codec);
 	}
