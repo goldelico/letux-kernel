@@ -405,11 +405,11 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 	u16 * reg_resp = (u16 *)(host->base + GLAMO_REG_MMC_CMD_RSP1);
 	u16 status;
 	int n;
+	int timeout = 100000000;
 
 	if (host->suspending) {
-		cmd->error = -EIO;
-		if (cmd->data)
-			cmd->data->error = -EIO;
+		dev_err(&host->pdev->dev, "faking cmd %d "
+			"during suspend\n", cmd->opcode);
 		mmc_request_done(mmc, mrq);
 		return;
 	}
@@ -502,10 +502,23 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 	 * our own INT# line"
 	 */
 	if (!glamo_mci_def_pdata.pglamo->irq_works) {
-		/* we have faith we will get an "interrupt"... */
-		while (!(readw_dly(glamo_mci_def_pdata.pglamo->base +
-			 GLAMO_REG_IRQ_STATUS) & GLAMO_IRQ_MMC))
+		/*
+		 * we have faith we will get an "interrupt"...
+		 * but something insane like suspend problems can mean
+		 * we spin here forever, so we timeout after a LONG time
+		 */
+		while ((!(readw_dly(glamo_mci_def_pdata.pglamo->base +
+			 GLAMO_REG_IRQ_STATUS) & GLAMO_IRQ_MMC)) &&
+		       (timeout--))
 			;
+
+		if (timeout < 0) {
+			if (cmd->data->error)
+				cmd->data->error = -ETIMEDOUT;
+			dev_err(&host->pdev->dev, "Payload timeout\n");
+			return;
+		}
+
 		/* yay we are an interrupt controller! -- call the ISR */
 		glamo_mci_irq(IRQ_GLAMO(GLAMO_IRQIDX_MMC),
 			      irq_desc + IRQ_GLAMO(GLAMO_IRQIDX_MMC));
@@ -529,6 +542,7 @@ static void glamo_mci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 static void glamo_mci_reset(struct glamo_mci_host *host)
 {
+	dev_dbg(&host->pdev->dev, "******* glamo_mci_reset\n");
 	/* reset MMC controller */
 	writew_dly(GLAMO_CLOCK_MMC_RESET | GLAMO_CLOCK_MMC_DG_TCLK |
 		   GLAMO_CLOCK_MMC_EN_TCLK | GLAMO_CLOCK_MMC_DG_M9CLK |
@@ -803,8 +817,7 @@ static int glamo_mci_suspend(struct platform_device *dev, pm_message_t state)
 	struct glamo_mci_host 	*host = mmc_priv(mmc);
 
 	host->suspending++;
-
-	return  mmc_suspend_host(mmc, state);
+	return mmc_suspend_host(mmc, state);
 }
 
 static int glamo_mci_resume(struct platform_device *dev)
