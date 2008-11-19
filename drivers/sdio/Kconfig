@@ -1,0 +1,17 @@
+#
+# SDIO driver and host controller support
+#
+
+menu "SDIO support"
+
+config SDIO
+        tristate "SDIO support"
+        default m
+        ---help---
+          good luck.
+
+source "drivers/sdio/hcd/Kconfig"
+
+source "drivers/sdio/function/Kconfig"
+
+endmenu
