@@ -806,34 +806,6 @@ static void s3c2410_nand_update_chip(struct s3c2410_nand_info *info,
 	}
 }
 
-/* s3c2410_nand_update_chip
- *
- * post-probe chip update, to change any items, such as the
- * layout for large page nand
- */
-
-static void s3c2410_nand_update_chip(struct s3c2410_nand_info *info,
-				     struct s3c2410_nand_mtd *nmtd)
-{
-	struct nand_chip *chip = &nmtd->chip;
-
-	printk("%s: chip %p: %d\n", __func__, chip, chip->page_shift);
-
-	if (hardware_ecc) {
-		/* change the behaviour depending on wether we are using
-		 * the large or small page nand device */
-
-		if (chip->page_shift > 10) {
-			chip->ecc.size	    = 256;
-			chip->ecc.bytes	    = 3;
-		} else {
-			chip->ecc.size	    = 512;
-			chip->ecc.bytes	    = 3;
-			chip->ecc.layout    = &nand_hw_eccoob;
-		}
-	}
-}
-
 /* s3c2410_nand_probe
  *
  * called by device layer when it finds a device matching
