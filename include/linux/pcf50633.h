@@ -61,6 +61,9 @@ pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma);
 extern void
 pcf50633_charge_enable(struct pcf50633_data *pcf, int on);
 
+extern void
+pcf50633_backlight_resume(struct pcf50633_data *pcf);
+
 #define PCF50633_FEAT_EXTON	0x00000001	/* not yet supported */
 #define PCF50633_FEAT_MBC	0x00000002
 #define PCF50633_FEAT_BBC	0x00000004	/* not yet supported */
@@ -89,6 +92,9 @@ struct pcf50633_platform_data {
 		u_int8_t mbcc3; /* charger voltage / current */
 	} charger;
 	pmu_cb *cb;
+
+	/* post-resume backlight bringup */
+	int defer_resume_backlight;
 };
 
 #endif /* _PCF50633_H */

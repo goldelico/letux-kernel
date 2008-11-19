@@ -532,6 +532,7 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 			},
 		},
 	},
+	.defer_resume_backlight = 1,
 };
 
 #if 0 /* currently unused */
@@ -828,9 +829,16 @@ void gta02_jbt6k74_reset(int devidx, int level)
 	glamo_lcm_reset(level);
 }
 
+/* finally bring up deferred backlight resume now LCM is resumed itself */
+
+void gta02_jbt6k74_resuming(int devidx)
+{
+	pcf50633_backlight_resume(pcf50633_global);
+}
 
 const struct jbt6k74_platform_data jbt6k74_pdata = {
 	.reset		= gta02_jbt6k74_reset,
+	.resuming	= gta02_jbt6k74_resuming,
 };
 
 static struct spi_board_info gta02_spi_board_info[] = {
