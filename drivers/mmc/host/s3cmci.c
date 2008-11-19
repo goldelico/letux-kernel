@@ -2,6 +2,7 @@
  *  linux/drivers/mmc/s3cmci.h - Samsung S3C MCI driver
  *
  *  Copyright (C) 2004-2006 maintech GmbH, Thomas Kleffel <tk@maintech.de>
+ *  Copyright (C) 2007 Harald Welte <laforge@gnumonks.org>
  *
  * Current driver maintained by Ben Dooks and Simtec Electronics
  *  Copyright (C) 2008 Simtec Electronics <ben-linux@fluff.org>
@@ -26,6 +27,15 @@
 #include <mach/regs-gpio.h>
 
 #include <plat/mci.h>
+
+#include <asm/dma.h>
+#include <asm/dma-mapping.h>
+
+#include <asm/io.h>
+#include <asm/arch/regs-sdi.h>
+#include <asm/arch/regs-gpio.h>
+#include <asm/arch/mci.h>
+#include <asm/arch/dma.h>
 
 #include "s3cmci.h"
 
@@ -373,7 +383,6 @@ static void pio_tasklet(unsigned long data)
 {
 	struct s3cmci_host *host = (struct s3cmci_host *) data;
 
-
 	disable_irq(host->irq);
 
 	if (host->pio_active == XFER_WRITE)
@@ -614,7 +623,6 @@ irq_out:
 
 	spin_unlock_irqrestore(&host->complete_lock, iflags);
 	return IRQ_HANDLED;
-
 }
 
 /*
@@ -1027,6 +1035,7 @@ static void s3cmci_send_request(struct mmc_host *mmc)
 			dbg(host, dbg_err, "data prepare error %d\n", res);
 			cmd->error = res;
 			cmd->data->error = res;
+			cmd->data->error = -EIO;
 
 			mmc_request_done(mmc, mrq);
 			return;
@@ -1567,3 +1576,4 @@ MODULE_AUTHOR("Thomas Kleffel <tk@maintech.de>, Ben Dooks <ben-linux@fluff.org>"
 MODULE_ALIAS("platform:s3c2410-sdi");
 MODULE_ALIAS("platform:s3c2412-sdi");
 MODULE_ALIAS("platform:s3c2440-sdi");
+
