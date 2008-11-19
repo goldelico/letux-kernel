@@ -23,7 +23,7 @@
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
 
-#include <asm/arch/gpio.h>
+#include <mach/gpio.h>
 
 struct gpio_button_data {
 	struct gpio_keys_button *button;

@@ -23,7 +23,7 @@
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 
-#include <asm/arch/gpio.h>
+#include <mach/gpio.h>
 #include <asm/mach-types.h>
 
 struct neo1973kbd {
