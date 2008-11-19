@@ -80,16 +80,6 @@ struct glamo_mci_pdata {
 
 };
 
-
-static inline void glamo_reg_access_delay(void)
-{
-	int n;
-
-	for (n = 0; n != 2; n++)
-		nop();
-}
-
-
 int glamo_engine_enable(struct glamo_core *glamo, enum glamo_engine engine);
 int glamo_engine_disable(struct glamo_core *glamo, enum glamo_engine engine);
 void glamo_engine_reset(struct glamo_core *glamo, enum glamo_engine engine);

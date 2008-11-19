@@ -137,19 +137,6 @@ unsigned char CRC7(u8 * pu8, int cnt)
 	return (crc << 1) | 1;
 }
 
-/* these _dly versions account for the dead time rules for reg access */
-static u16 readw_dly(u16 __iomem * pu16)
-{
-	glamo_reg_access_delay();
-	return readw(pu16);
-}
-
-static void writew_dly(u16 val, u16 __iomem * pu16)
-{
-	glamo_reg_access_delay();
-	writew(val, pu16);
-}
-
 static int get_data_buffer(struct glamo_mci_host *host,
 			   volatile u32 *words, volatile u16 **pointer)
 {
@@ -259,6 +246,19 @@ static void __glamo_mci_fix_card_div(struct glamo_mci_host *host, int div)
 		     glamo_mci_def_pdata.pglamo->base + GLAMO_REG_CLOCK_GEN5_1);
 
 		goto done;
+	} else {
+		/* set the nearest prescaler factor
+		*
+		* register shared with SCLK divisor -- no chance of race because
+		* we don't use sensor interface
+		*/
+		writew((readw(glamo_mci_def_pdata.pglamo->base +
+				GLAMO_REG_CLOCK_GEN8) & 0xff00) | div,
+		       glamo_mci_def_pdata.pglamo->base + GLAMO_REG_CLOCK_GEN8);
+		/* enable clock to divider input */
+		writew(readw(glamo_mci_def_pdata.pglamo->base +
+			GLAMO_REG_CLOCK_GEN5_1) | GLAMO_CLOCK_GEN51_EN_DIV_TCLK,
+		     glamo_mci_def_pdata.pglamo->base + GLAMO_REG_CLOCK_GEN5_1);
 	}
 
 	if (host->force_slow_during_powerup)
@@ -341,7 +341,7 @@ static void glamo_mci_irq(unsigned int irq, struct irq_desc *desc)
 
 	spin_lock_irqsave(&host->complete_lock, iflags);
 
-	status = readw_dly(host->base + GLAMO_REG_MMC_RB_STAT1);
+	status = readw(host->base + GLAMO_REG_MMC_RB_STAT1);
 
 	/* ack this interrupt source */
 	writew(GLAMO_IRQ_MMC,
@@ -394,7 +394,7 @@ static int glamo_mci_send_command(struct glamo_mci_host *host,
 	u16 fire = 0;
 
 	/* if we can't do it, reject as busy */
-	if (!readw_dly(host->base + GLAMO_REG_MMC_RB_STAT1) &
+	if (!readw(host->base + GLAMO_REG_MMC_RB_STAT1) &
 	     GLAMO_STAT1_MMC_IDLE) {
 		host->mrq = NULL;
 		cmd->error = -EBUSY;
@@ -411,9 +411,9 @@ static int glamo_mci_send_command(struct glamo_mci_host *host,
 	u8a[5] = CRC7(&u8a[0], 5); /* CRC7 on first 5 bytes of packet */
 
 	/* issue the wire-order array including CRC in register order */
-	writew_dly((u8a[4] << 8) | u8a[5], host->base + GLAMO_REG_MMC_CMD_REG1);
-	writew_dly((u8a[2] << 8) | u8a[3], host->base + GLAMO_REG_MMC_CMD_REG2);
-	writew_dly((u8a[0] << 8) | u8a[1], host->base + GLAMO_REG_MMC_CMD_REG3);
+	writew((u8a[4] << 8) | u8a[5], host->base + GLAMO_REG_MMC_CMD_REG1);
+	writew((u8a[2] << 8) | u8a[3], host->base + GLAMO_REG_MMC_CMD_REG2);
+	writew((u8a[0] << 8) | u8a[1], host->base + GLAMO_REG_MMC_CMD_REG3);
 
 	/* command index toggle */
 	fire |= (host->ccnt & 1) << 12;
@@ -506,14 +506,14 @@ static int glamo_mci_send_command(struct glamo_mci_host *host,
 	writew(0xfff, host->base + GLAMO_REG_MMC_TIMEOUT);
 
 	/* Generate interrupt on txfer */
-	writew_dly((readw_dly(host->base + GLAMO_REG_MMC_BASIC) & 0x3e) |
+	writew((readw(host->base + GLAMO_REG_MMC_BASIC) & 0x3e) |
 		   0x0800 | GLAMO_BASIC_MMC_NO_CLK_RD_WAIT |
 		   GLAMO_BASIC_MMC_EN_COMPL_INT | (sd_drive << 6),
 		   host->base + GLAMO_REG_MMC_BASIC);
 
 	/* send the command out on the wire */
 	/* dev_info(&host->pdev->dev, "Using FIRE %04X\n", fire); */
-	writew_dly(fire, host->base + GLAMO_REG_MMC_CMD_FIRE);
+	writew(fire, host->base + GLAMO_REG_MMC_CMD_FIRE);
 	cmd->error = 0;
 	return 0;
 }
@@ -526,21 +526,21 @@ static int glamo_mci_prepare_pio(struct glamo_mci_host *host,
 	 * Read is halfway up the buffer and write is at the start
 	 */
 	if (data->flags & MMC_DATA_READ) {
-		writew_dly((u16)(GLAMO_FB_SIZE + (RESSIZE(host->mem_data) / 2)),
+		writew((u16)(GLAMO_FB_SIZE + (RESSIZE(host->mem_data) / 2)),
 			   host->base + GLAMO_REG_MMC_WDATADS1);
-		writew_dly((u16)((GLAMO_FB_SIZE +
+		writew((u16)((GLAMO_FB_SIZE +
 					(RESSIZE(host->mem_data) / 2)) >> 16),
 			   host->base + GLAMO_REG_MMC_WDATADS2);
 	} else {
-		writew_dly((u16)GLAMO_FB_SIZE, host->base +
+		writew((u16)GLAMO_FB_SIZE, host->base +
 					       GLAMO_REG_MMC_RDATADS1);
-		writew_dly((u16)(GLAMO_FB_SIZE >> 16), host->base +
+		writew((u16)(GLAMO_FB_SIZE >> 16), host->base +
 						       GLAMO_REG_MMC_RDATADS2);
 	}
 
 	/* set up the block info */
-	writew_dly(data->blksz, host->base + GLAMO_REG_MMC_DATBLKLEN);
-	writew_dly(data->blocks, host->base + GLAMO_REG_MMC_DATBLKCNT);
+	writew(data->blksz, host->base + GLAMO_REG_MMC_DATBLKLEN);
+	writew(data->blocks, host->base + GLAMO_REG_MMC_DATBLKCNT);
 	dev_dbg(&host->pdev->dev, "(blksz=%d, count=%d)\n",
 				   data->blksz, data->blocks);
 	host->pio_sgptr = 0;
@@ -613,7 +613,7 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 	 * -- we don't get interrupts unless there is a bulk rx
 	 */
 	do
-		status = readw_dly(host->base + GLAMO_REG_MMC_RB_STAT1);
+		status = readw(host->base + GLAMO_REG_MMC_RB_STAT1);
 	while ((((status >> 15) & 1) != (host->ccnt & 1)) ||
 		(!(status & (GLAMO_STAT1_MMC_RB_RRDY |
 			     GLAMO_STAT1_MMC_RTOUT |
@@ -642,11 +642,11 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 	if (mmc_resp_type(cmd) == MMC_RSP_R2)
 		/* grab the response */
 		for (n = 0; n < 8; n++) /* super mangle power 1 */
-			pu16[n ^ 6] = readw_dly(&reg_resp[n]);
+			pu16[n ^ 6] = readw(&reg_resp[n]);
 	else
 		for (n = 0; n < 3; n++) /* super mangle power 2 */
-			pu16[n] = (readw_dly(&reg_resp[n]) >> 8) |
-				  (readw_dly(&reg_resp[n + 1]) << 8);
+			pu16[n] = (readw(&reg_resp[n]) >> 8) |
+				  (readw(&reg_resp[n + 1]) << 8);
 	/*
 	 * if we don't have bulk data to take care of, we're done
 	 */
@@ -673,7 +673,7 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 		 * but something insane like suspend problems can mean
 		 * we spin here forever, so we timeout after a LONG time
 		 */
-		while ((!(readw_dly(glamo_mci_def_pdata.pglamo->base +
+		while ((!(readw(glamo_mci_def_pdata.pglamo->base +
 			 GLAMO_REG_IRQ_STATUS) & GLAMO_IRQ_MMC)) &&
 		       (timeout--))
 			;
@@ -717,13 +717,13 @@ static void glamo_mci_reset(struct glamo_mci_host *host)
 {
 	dev_dbg(&host->pdev->dev, "******* glamo_mci_reset\n");
 	/* reset MMC controller */
-	writew_dly(GLAMO_CLOCK_MMC_RESET | GLAMO_CLOCK_MMC_DG_TCLK |
+	writew(GLAMO_CLOCK_MMC_RESET | GLAMO_CLOCK_MMC_DG_TCLK |
 		   GLAMO_CLOCK_MMC_EN_TCLK | GLAMO_CLOCK_MMC_DG_M9CLK |
 		   GLAMO_CLOCK_MMC_EN_M9CLK,
 		   glamo_mci_def_pdata.pglamo->base + GLAMO_REG_CLOCK_MMC);
 	msleep(1);
 	/* and disable reset */
-	writew_dly(GLAMO_CLOCK_MMC_DG_TCLK |
+	writew(GLAMO_CLOCK_MMC_DG_TCLK |
 		   GLAMO_CLOCK_MMC_EN_TCLK | GLAMO_CLOCK_MMC_DG_M9CLK |
 		   GLAMO_CLOCK_MMC_EN_M9CLK,
 		   glamo_mci_def_pdata.pglamo->base + GLAMO_REG_CLOCK_MMC);
@@ -801,7 +801,7 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	host->bus_width = ios->bus_width;
 	if (host->bus_width == MMC_BUS_WIDTH_4)
 		n = GLAMO_BASIC_MMC_EN_4BIT_DATA;
-	writew_dly((readw_dly(host->base + GLAMO_REG_MMC_BASIC) &
+	writew((readw(host->base + GLAMO_REG_MMC_BASIC) &
 					  (~(GLAMO_BASIC_MMC_EN_4BIT_DATA |
 					     GLAMO_BASIC_MMC_EN_DR_STR0 |
 					     GLAMO_BASIC_MMC_EN_DR_STR1))) | n |
