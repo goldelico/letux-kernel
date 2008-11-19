@@ -2692,7 +2692,7 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 	proc->buffer = area->addr;
 	proc->user_buffer_offset = vma->vm_start - (size_t)proc->buffer;
 
-#ifdef CONFIG_CPU_CACHE_VIPT
+#if defined(CONFIG_CPU_CACHE_VIPT) && !defined(CONFIG_CPU_S3C6410)
 	if (cache_is_vipt_aliasing()) {
 		while (CACHE_COLOUR((vma->vm_start ^ (uint32_t)proc->buffer))) {
 			printk(KERN_INFO "binder_mmap: %d %lx-%lx maps %p bad alignment\n", proc->pid, vma->vm_start, vma->vm_end, proc->buffer);
