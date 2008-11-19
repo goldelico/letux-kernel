@@ -125,6 +125,12 @@ static int glamofb_run_script(struct glamofb_handle *glamo,
 {
 	int i;
 
+	if (glamo->mach_info->glamo->suspending) {
+		dev_err(&glamo->mach_info->glamo->pdev->dev, "IGNORING glamofb_run_script while "
+								 "suspended\n");
+		return -EBUSY;
+	}
+
 	for (i = 0; i < len; i++) {
 		struct glamo_script *line = &script[i];
 
@@ -143,6 +149,12 @@ static int glamofb_check_var(struct fb_var_screeninfo *var,
 			     struct fb_info *info)
 {
 	struct glamofb_handle *glamo = info->par;
+
+	if (glamo->mach_info->glamo->suspending) {
+		dev_err(&glamo->mach_info->glamo->pdev->dev, "IGNORING glamofb_check_var while "
+								 "suspended\n");
+		return -EBUSY;
+	}
 
 	if (var->yres > glamo->mach_info->yres.max)
 		var->yres = glamo->mach_info->yres.max;
@@ -240,6 +252,12 @@ static void __rotate_lcd(struct glamofb_handle *glamo, __u32 rotation)
 {
 	int glamo_rot;
 
+	if (glamo->mach_info->glamo->suspending) {
+		dev_err(&glamo->mach_info->glamo->pdev->dev, "IGNORING rotate_lcd while "
+								 "suspended\n");
+		return;
+	}
+
 	switch (rotation) {
 		case FB_ROTATE_UR:
 			glamo_rot = GLAMO_LCD_ROT_MODE_0;
@@ -304,6 +322,12 @@ static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
 
 	if (!glamo || !var)
 		return;
+
+	if (glamo->mach_info->glamo->suspending) {
+		dev_err(&glamo->mach_info->glamo->pdev->dev, "IGNORING glamofb_update_lcd_controller while "
+								 "suspended\n");
+		return;
+	}
 
 	printk(KERN_ERR"glamofb_update_lcd_controller spin_lock_irqsave\n");
 	spin_lock_irqsave(&glamo->lock_cmd, flags);
@@ -405,6 +429,12 @@ static int glamofb_set_par(struct fb_info *info)
 	struct glamofb_handle *glamo = info->par;
 	struct fb_var_screeninfo *var = &info->var;
 
+	if (glamo->mach_info->glamo->suspending) {
+		dev_err(&glamo->mach_info->glamo->pdev->dev, "IGNORING glamofb_set_par while "
+								 "suspended\n");
+		return -EBUSY;
+	}
+
 	switch (var->bits_per_pixel) {
 	case 16:
 		info->fix.visual = FB_VISUAL_TRUECOLOR;
@@ -468,6 +498,12 @@ static int glamofb_setcolreg(unsigned regno,
 {
 	struct glamofb_handle *glamo = info->par;
 	unsigned int val;
+
+	if (glamo->mach_info->glamo->suspending) {
+		dev_err(&glamo->mach_info->glamo->pdev->dev, "IGNORING glamofb_set_par while "
+								 "suspended\n");
+		return -EBUSY;
+	}
 
 	switch (glamo->fb->fix.visual) {
 	case FB_VISUAL_TRUECOLOR:
@@ -631,6 +667,12 @@ int glamofb_cmd_mode(struct glamofb_handle *gfb, int on)
 {
 	int timeout = 2000000;
 
+	if (gfb->mach_info->glamo->suspending) {
+		dev_err(&gfb->mach_info->glamo->pdev->dev, "IGNORING glamofb_cmd_mode while "
+								 "suspended\n");
+		return -EBUSY;
+	}
+
 	dev_dbg(gfb->dev, "glamofb_cmd_mode(gfb=%p, on=%d)\n", gfb, on);
 	if (on) {
 		dev_dbg(gfb->dev, "%s: waiting for cmdq empty: ",
@@ -687,6 +729,12 @@ EXPORT_SYMBOL_GPL(glamofb_cmd_mode);
 int glamofb_cmd_write(struct glamofb_handle *gfb, u_int16_t val)
 {
 	int timeout = 200000;
+
+	if (gfb->mach_info->glamo->suspending) {
+		dev_err(&gfb->mach_info->glamo->pdev->dev, "IGNORING glamofb_cmd_write while "
+								 "suspended\n");
+		return -EBUSY;
+	}
 
 	dev_dbg(gfb->dev, "%s: waiting for cmdq empty\n", __FUNCTION__);
 	while ((!glamofb_cmdq_empty(gfb)) && (timeout--))
@@ -799,7 +847,7 @@ static int __init glamofb_probe(struct platform_device *pdev)
 	}
 	glamofb->cursor_addr = fbinfo->screen_base + 0xf0000;
 
-	platform_set_drvdata(pdev, fbinfo);
+	platform_set_drvdata(pdev, glamofb);
 
 	glamofb->mach_info = pdev->dev.platform_data;
 
@@ -891,9 +939,36 @@ static int glamofb_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+
+static int glamofb_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct glamofb_handle *gfb = platform_get_drvdata(pdev);
+
+	if (state.event & PM_EVENT_SLEEP)
+		fb_set_suspend(gfb->fb, 1);
+
+	return 0;
+}
+
+static int glamofb_resume(struct platform_device *pdev)
+{
+	struct glamofb_handle *gfb = platform_get_drvdata(pdev);
+
+	fb_set_suspend(gfb->fb, 0);
+
+	return 0;
+}
+#else
+#define glamo_suspend NULL
+#define glamo_resume  NULL
+#endif
+
 static struct platform_driver glamofb_driver = {
 	.probe		= glamofb_probe,
 	.remove		= glamofb_remove,
+	.suspend	= glamofb_suspend,
+	.resume	= glamofb_resume,
 	.driver		= {
 		.name	= "glamo-fb",
 		.owner	= THIS_MODULE,
