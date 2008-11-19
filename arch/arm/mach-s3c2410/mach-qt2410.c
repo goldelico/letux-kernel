@@ -321,6 +321,24 @@ static int __init qt2410_tft_setup(char *str)
 
 __setup("tft=", qt2410_tft_setup);
 
+static struct resource qt2410_button_resources[] = {
+	[0] = {
+		.start = S3C2410_GPF0,
+		.end   = S3C2410_GPF0,
+	},
+	[1] = {
+		.start = S3C2410_GPF2,
+		.end   = S3C2410_GPF2,
+	},
+};
+
+struct platform_device qt2410_button_dev = {
+	.name		="qt2410-button",
+	.num_resources	= ARRAY_SIZE(qt2410_button_resources),
+	.resource	= qt2410_button_resources,
+};
+
+
 static void __init qt2410_map_io(void)
 {
 	s3c24xx_init_io(qt2410_iodesc, ARRAY_SIZE(qt2410_iodesc));
