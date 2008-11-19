@@ -1007,7 +1007,7 @@ static int glamo_supported(struct glamo_core *glamo)
 		return 0;
 	}
 
-	dev_info(&glamo->pdev->dev, "Detected Glamo core %04x Revision %04x "
+	dev_dbg(&glamo->pdev->dev, "Detected Glamo core %04x Revision %04x "
 		 "(%uHz CPU / %uHz Memory)\n", dev_id, rev_id,
 		 glamo_pll_rate(glamo, GLAMO_PLL1),
 		 glamo_pll_rate(glamo, GLAMO_PLL2));
@@ -1145,11 +1145,53 @@ static int __init glamo_probe(struct platform_device *pdev)
 		goto bail_free;
 	}
 
+	platform_set_drvdata(pdev, glamo);
+
+/*
+	 * finally set the mfd interrupts up
+	 * can't do them earlier or sibling probes blow up
+	 */
+
 	for (irq = IRQ_GLAMO(0); irq <= IRQ_GLAMO(8); irq++) {
 		set_irq_chip(irq, &glamo_irq_chip);
 		set_irq_handler(irq, handle_level_irq);
 		set_irq_flags(irq, IRQF_VALID);
 	}
+
+	if (glamo->pdata->glamo_irq_is_wired &&
+	    !glamo->pdata->glamo_irq_is_wired()) {
+		set_irq_chained_handler(glamo->irq, glamo_irq_demux_handler);
+		set_irq_type(glamo->irq, IRQT_FALLING);
+		dev_info(&pdev->dev, "Glamo interrupt registered\n");
+		glamo->irq_works = 1;
+	} else {
+		dev_err(&pdev->dev, "Glamo interrupt not used\n");
+		glamo->irq_works = 0;
+	}
+
+
+	/* confirm it isn't insane version */
+	if (!glamo_supported(glamo)) {
+		dev_err(&pdev->dev, "This Glamo is not supported\n");
+		goto bail_irq;
+	}
+
+	/* sysfs */
+	rc = sysfs_create_group(&pdev->dev.kobj, &glamo_attr_group);
+	if (rc < 0) {
+		dev_err(&pdev->dev, "cannot create sysfs group\n");
+		goto bail_irq;
+	}
+
+	/* init the chip with canned register set */
+
+	dev_dbg(&glamo->pdev->dev, "running init script\n");
+	glamo_run_script(glamo, glamo_init_script,
+			 ARRAY_SIZE(glamo_init_script), 1);
+
+	dev_info(&glamo->pdev->dev, "Glamo core PLL1: %uHz, PLL2: %uHz\n",
+		 glamo_pll_rate(glamo, GLAMO_PLL1),
+		 glamo_pll_rate(glamo, GLAMO_PLL2));
 
 	/* bring MCI specific stuff over from our MFD platform data */
 	glamo_mci_def_pdata.glamo_set_mci_power =
@@ -1162,6 +1204,8 @@ static int __init glamo_probe(struct platform_device *pdev)
 					glamo->pdata->mci_suspending;
 	glamo_mci_def_pdata.mci_all_dependencies_resumed =
 				glamo->pdata->mci_all_dependencies_resumed;
+
+	/* start creating the siblings */
 
 	glamo_2d_dev.dev.parent = &pdev->dev;
 	mangle_mem_resources(glamo_2d_dev.resource,
@@ -1207,46 +1251,20 @@ static int __init glamo_probe(struct platform_device *pdev)
 					GLAMO_REGOFS_VIDCAP, "glamo-core");
 	if (!glamo->mem) {
 		dev_err(&pdev->dev, "failed to request memory region\n");
-		goto bail_iounmap;
+		goto bail_irq;
 	}
-
-	if (!glamo_supported(glamo)) {
-		dev_err(&pdev->dev, "This Glamo is not supported\n");
-		goto bail_release_mem;
-	}
-
-	rc = sysfs_create_group(&pdev->dev.kobj, &glamo_attr_group);
-	if (rc < 0) {
-		dev_err(&pdev->dev, "cannot create sysfs group\n");
-		goto bail_release_mem;
-	}
-
-	platform_set_drvdata(pdev, glamo);
-
-	if (glamo->pdata->glamo_irq_is_wired &&
-	    !glamo->pdata->glamo_irq_is_wired()) {
-		set_irq_chained_handler(glamo->irq, glamo_irq_demux_handler);
-		set_irq_type(glamo->irq, IRQT_FALLING);
-		dev_info(&pdev->dev, "Glamo interrupt registered\n");
-		glamo->irq_works = 1;
-	} else {
-		dev_err(&pdev->dev, "Glamo interrupt not used\n");
-		glamo->irq_works = 0;
-	}
-
-	dev_dbg(&glamo->pdev->dev, "running init script\n");
-	glamo_run_script(glamo, glamo_init_script,
-			 ARRAY_SIZE(glamo_init_script), 1);
-
-	dev_info(&glamo->pdev->dev, "Glamo core now %uHz CPU / %uHz Memory)\n",
-		 glamo_pll_rate(glamo, GLAMO_PLL1),
-		 glamo_pll_rate(glamo, GLAMO_PLL2));
 
 	return 0;
 
-bail_release_mem:
-	release_mem_region(glamo->mem->start, GLAMO_REGOFS_VIDCAP);
-bail_iounmap:
+bail_irq:
+	disable_irq(glamo->irq);
+	set_irq_chained_handler(glamo->irq, NULL);
+
+	for (irq = IRQ_GLAMO(0); irq <= IRQ_GLAMO(8); irq++) {
+		set_irq_flags(irq, 0);
+		set_irq_chip(irq, NULL);
+	}
+
 	iounmap(glamo->base);
 bail_free:
 	platform_set_drvdata(pdev, NULL);
