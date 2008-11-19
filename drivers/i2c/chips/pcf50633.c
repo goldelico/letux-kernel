@@ -1926,9 +1926,11 @@ static int pcf50633_resume(struct device *dev)
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
 	int i;
 
-	mutex_lock(&pcf->lock);
+	printk(KERN_INFO"a\n");
+	/* mutex_lock(&pcf->lock); */  /* resume in atomic context */
 
 	__reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
+	printk(KERN_INFO"b\n");
 
 	/* Resume all saved registers that don't "survive" standby state */
 	__reg_write(pcf, PCF50633_REG_INT1M, pcf->standby_regs.int1m);
@@ -1936,6 +1938,7 @@ static int pcf50633_resume(struct device *dev)
 	__reg_write(pcf, PCF50633_REG_INT3M, pcf->standby_regs.int3m);
 	__reg_write(pcf, PCF50633_REG_INT4M, pcf->standby_regs.int4m);
 	__reg_write(pcf, PCF50633_REG_INT5M, pcf->standby_regs.int5m);
+	printk(KERN_INFO"c\n");
 
 	__reg_write(pcf, PCF50633_REG_OOCTIM2, pcf->standby_regs.ooctim2);
 	__reg_write(pcf, PCF50633_REG_AUTOOUT, pcf->standby_regs.autoout);
@@ -1949,14 +1952,16 @@ static int pcf50633_resume(struct device *dev)
 	__reg_write(pcf, PCF50633_REG_LEDOUT, pcf->standby_regs.ledout);
 	__reg_write(pcf, PCF50633_REG_LEDENA, pcf->standby_regs.ledena);
 	__reg_write(pcf, PCF50633_REG_LEDDIM, pcf->standby_regs.leddim);
+	printk(KERN_INFO"d\n");
 	/* FIXME: one big read? */
 	for (i = 0; i < 7; i++) {
 		u_int8_t reg_out = PCF50633_REG_LDO1OUT + 2*i;
 		__reg_write(pcf, reg_out, pcf->standby_regs.ldo[i].out);
 		__reg_write(pcf, reg_out+1, pcf->standby_regs.ldo[i].ena);
 	}
+	printk(KERN_INFO"e\n");
 
-	mutex_unlock(&pcf->lock);
+	/* mutex_unlock(&pcf->lock); */ /* resume in atomic context */
 
 	pcf50633_irq(pcf->irq, pcf);
 
