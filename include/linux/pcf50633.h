@@ -176,7 +176,7 @@ struct pcf50633_platform_data {
 	struct {
 		u_int8_t mbcc3; /* charger voltage / current */
 	} charger;
-	pmu_cb *cb;
+	pmu_cb cb;
 
 	/* post-resume backlight bringup */
 	int defer_resume_backlight;

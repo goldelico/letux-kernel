@@ -85,7 +85,7 @@ struct pcf50606_platform_data {
 	struct {
 		u_int8_t mbcc3; /* charger voltage / current */
 	} charger;
-	pmu_cb *cb;
+	pmu_cb cb;
 };
 
 #endif
