@@ -991,8 +991,6 @@ static int s3c24xx_i2c_resume(struct platform_device *dev)
 	i2c->suspended = 0;
 	s3c24xx_i2c_init(i2c);
 
-	i2c->suspended--;
-
 	return 0;
 }
 
