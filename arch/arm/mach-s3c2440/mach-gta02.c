@@ -1057,14 +1057,21 @@ static void __gta02_lis302dl_bitbang(struct lis302dl_info *lis, u8 *tx,
 	local_irq_save(flags);
 
 	/*
-	 * Huh.. "quirk"... CS on this device is not really "CS" like you can
-	 * expect.  Instead when 1 it selects I2C interface mode.  Because we
-	 * have 2 devices on one interface, the "disabled" device when we talk
-	 * to an "enabled" device sees the clocks as I2C clocks, creating
-	 * havoc.
+	 * Huh... "quirk"... CS on this device is not really "CS" like you can
+	 * expect.
 	 *
-	 * I2C sees MOSI going LOW while CLK HIGH as a START action, we must
-	 * ensure this is never issued.
+	 * When it is 0 it selects SPI interface mode.
+	 * When it is 1 it selects I2C interface mode.
+	 *
+	 * Because we have 2 devices on one interface we have to make sure
+	 * that the "disabled" device (actually in I2C mode) don't think we're
+	 * talking to it.
+	 *
+	 * When we talk to the "enabled" device, the "disabled" device sees
+	 * the clocks as I2C clocks, creating havoc.
+	 *
+	 * I2C sees MOSI going LOW while CLK HIGH as a START action, thus we
+	 * must ensure this is never issued.
 	 */
 
 	if (&lis302_pdata_top == pdata)
