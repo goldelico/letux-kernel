@@ -22,6 +22,7 @@
 #include <asm/gpio.h>
 #include <asm/mach-types.h>
 #include <asm/arch/gta01.h>
+#include <asm/plat-s3c24xx/neo1973.h>
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 #include <asm/arch/gta02.h>
@@ -109,9 +110,9 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 #endif
 			}
 
-			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_ON, 1);
+			neo1973_gpb_setpin(GTA01_GPIO_MODEM_ON, 1);
 		} else {
-			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_ON, 0);
+			neo1973_gpb_setpin(GTA01_GPIO_MODEM_ON, 0);
 
 			switch (system_rev) {
 #ifdef CONFIG_MACH_NEO1973_GTA02
@@ -138,9 +139,9 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 		}
 	} else if (!strcmp(attr->attr.name, "reset")) {
 		if (machine_is_neo1973_gta01())
-			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_RST, on);
+			neo1973_gpb_setpin(GTA01_GPIO_MODEM_RST, on);
 		else if (machine_is_neo1973_gta02())
-			s3c2410_gpio_setpin(GTA02_GPIO_MODEM_RST, on);
+			neo1973_gpb_setpin(GTA02_GPIO_MODEM_RST, on);
 	} else if (!strcmp(attr->attr.name, "download")) {
 		if (machine_is_neo1973_gta01())
 			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_DNLOAD, on);

@@ -75,6 +75,7 @@
 #include <asm/plat-s3c24xx/cpu.h>
 #include <asm/plat-s3c24xx/pm.h>
 #include <asm/plat-s3c24xx/udc.h>
+#include <asm/plat-s3c24xx/neo1973.h>
 #include <linux/jbt6k74.h>
 
 #include <linux/glamofb.h>
@@ -127,11 +128,11 @@ FIQ_HANDLER_ENTRY(256, 512)
 
 	if (fiq_ipc.vib_pwm_latched || fiq_ipc.vib_pwm) { /* not idle */
 		if (((u8)_fiq_count_fiqs) == fiq_ipc.vib_pwm_latched)
-			s3c2410_gpio_setpin(fiq_ipc.vib_gpio_pin, 0);
+			neo1973_gpb_setpin(fiq_ipc.vib_gpio_pin, 0);
 		if (((u8)_fiq_count_fiqs) == 0) {
 			fiq_ipc.vib_pwm_latched = fiq_ipc.vib_pwm;
 			if (fiq_ipc.vib_pwm_latched)
-				s3c2410_gpio_setpin(fiq_ipc.vib_gpio_pin, 1);
+				neo1973_gpb_setpin(fiq_ipc.vib_gpio_pin, 1);
 		}
 		divisor = FIQ_DIVISOR_VIBRATOR;
 	}
@@ -317,6 +318,7 @@ FIQ_HANDLER_ENTRY(256, 512)
 	_fiq_timer_divisor = divisor;
 
 FIQ_HANDLER_END()
+
 
 
 /**
@@ -763,10 +765,10 @@ static void gta02_udc_command(enum s3c2410_udc_cmd_e cmd)
 
 	switch (cmd) {
 	case S3C2410_UDC_P_ENABLE:
-		s3c2410_gpio_setpin(GTA02_GPIO_USB_PULLUP, 1);
+		neo1973_gpb_setpin(GTA02_GPIO_USB_PULLUP, 1);
 		break;
 	case S3C2410_UDC_P_DISABLE:
-		s3c2410_gpio_setpin(GTA02_GPIO_USB_PULLUP, 0);
+		neo1973_gpb_setpin(GTA02_GPIO_USB_PULLUP, 0);
 		break;
 	case S3C2410_UDC_P_RESET:
 		/* FIXME! */

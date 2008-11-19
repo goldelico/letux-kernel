@@ -72,6 +72,7 @@
 #include <asm/plat-s3c24xx/cpu.h>
 #include <asm/plat-s3c24xx/pm.h>
 #include <asm/plat-s3c24xx/udc.h>
+#include <asm/plat-s3c24xx/neo1973.h>
 
 static struct map_desc gta01_iodesc[] __initdata = {
 	{
@@ -416,10 +417,10 @@ static void gta01_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 	case GTA01Bv4_SYSTEM_REV:
 		switch (power_mode) {
 		case MMC_POWER_OFF:
-			s3c2410_gpio_setpin(GTA01_GPIO_SDMMC_ON, 1);
+			neo1973_gpb_setpin(GTA01_GPIO_SDMMC_ON, 1);
 			break;
 		case MMC_POWER_ON:
-			s3c2410_gpio_setpin(GTA01_GPIO_SDMMC_ON, 0);
+			neo1973_gpb_setpin(GTA01_GPIO_SDMMC_ON, 0);
 			break;
 		}
 		break;
@@ -442,10 +443,10 @@ static void gta01_udc_command(enum s3c2410_udc_cmd_e cmd)
 
 	switch (cmd) {
 	case S3C2410_UDC_P_ENABLE:
-		s3c2410_gpio_setpin(GTA01_GPIO_USB_PULLUP, 1);
+		neo1973_gpb_setpin(GTA01_GPIO_USB_PULLUP, 1);
 		break;
 	case S3C2410_UDC_P_DISABLE:
-		s3c2410_gpio_setpin(GTA01_GPIO_USB_PULLUP, 0);
+		neo1973_gpb_setpin(GTA01_GPIO_USB_PULLUP, 0);
 		break;
 	default:
 		break;

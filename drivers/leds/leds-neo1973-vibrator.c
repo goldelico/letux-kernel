@@ -24,6 +24,7 @@
 #include <asm/plat-s3c/regs-timer.h>
 
 #include <asm/arch-s3c2410/fiq_ipc_gta02.h>
+#include <asm/plat-s3c24xx/neo1973.h>
 
 #define COUNTER 64
 
@@ -56,9 +57,9 @@ static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
 		s3c2410_pwm_duty_cycle(value / 4, &vp->pwm);
 	else {
 		if (value)
-			s3c2410_gpio_setpin(vp->gpio, 1);
+			neo1973_gpb_setpin(vp->gpio, 1);
 		else
-			s3c2410_gpio_setpin(vp->gpio, 0);
+			neo1973_gpb_setpin(vp->gpio, 0);
 	}
 
 	mutex_unlock(&vp->mutex);
@@ -131,7 +132,7 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, &neo1973_vib_led);
 
 	if (machine_is_neo1973_gta02()) { /* use FIQ to control GPIO */
-		s3c2410_gpio_setpin(neo1973_vib_led.gpio, 0); /* off */
+		neo1973_gpb_setpin(neo1973_vib_led.gpio, 0); /* off */
 		s3c2410_gpio_cfgpin(neo1973_vib_led.gpio, S3C2410_GPIO_OUTPUT);
 		/* safe, kmalloc'd copy needed for FIQ ISR */
 		fiq_ipc.vib_gpio_pin = neo1973_vib_led.gpio;
