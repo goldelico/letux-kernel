@@ -37,11 +37,8 @@ static irqreturn_t neo1973kbd_aux_irq(int irq, void *dev_id)
 	struct neo1973kbd *neo1973kbd_data = dev_id;
 
 	/* FIXME: use GPIO from platform_dev resources */
-	if (s3c2410_gpio_getpin(GTA01_GPIO_AUX_KEY))
-		input_report_key(neo1973kbd_data->input, KEY_PHONE, 0);
-	else
-		input_report_key(neo1973kbd_data->input, KEY_PHONE, 1);
-
+	int key_pressed = !s3c2410_gpio_getpin(GTA01_GPIO_AUX_KEY);
+	input_report_key(neo1973kbd_data->input, KEY_PHONE, key_pressed);
 	input_sync(neo1973kbd_data->input);
 
 	return IRQ_HANDLED;
@@ -52,11 +49,8 @@ static irqreturn_t neo1973kbd_hold_irq(int irq, void *dev_id)
 	struct neo1973kbd *neo1973kbd_data = dev_id;
 
 	/* FIXME: use GPIO from platform_dev resources */
-	if (s3c2410_gpio_getpin(GTA01_GPIO_HOLD_KEY))
-		input_report_key(neo1973kbd_data->input, KEY_PAUSE, 1);
-	else
-		input_report_key(neo1973kbd_data->input, KEY_PAUSE, 0);
-
+	int key_pressed = 3c2410_gpio_getpin(GTA01_GPIO_HOLD_KEY);
+	input_report_key(neo1973kbd_data->input, KEY_PAUSE, key_pressed);
 	input_sync(neo1973kbd_data->input);
 
 	return IRQ_HANDLED;
@@ -67,13 +61,9 @@ static irqreturn_t neo1973kbd_headphone_irq(int irq, void *dev_id)
 	struct neo1973kbd *neo1973kbd_data = dev_id;
 
 	/* FIXME: use GPIO from platform_dev resources */
-	if (s3c2410_gpio_getpin(GTA01_GPIO_JACK_INSERT))
-		input_report_switch(neo1973kbd_data->input,
-				    SW_HEADPHONE_INSERT, 1);
-	else
-		input_report_switch(neo1973kbd_data->input,
-				    SW_HEADPHONE_INSERT, 0);
-
+	int key_pressed = s3c2410_gpio_getpin(GTA01_GPIO_JACK_INSERT);
+	input_report_switch(neo1973kbd_data->input,
+			    SW_HEADPHONE_INSERT, key_pressed);
 	input_sync(neo1973kbd_data->input);
 
 	return IRQ_HANDLED;
