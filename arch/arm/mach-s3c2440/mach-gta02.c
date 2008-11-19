@@ -556,26 +556,7 @@ static struct platform_device gta02_pm_gsm_dev = {
 static struct platform_device gta02_glamo_dev;
 static void mangle_glamo_res_by_system_rev(void);
 
-static void gta02_pcf50633_attach_child_devices(struct device *parent_device)
-{
-	gta01_pm_gps_dev.dev.parent = parent_device;
-	gta01_pm_bt_dev.dev.parent = parent_device;
-	gta02_pm_gsm_dev.dev.parent = parent_device;
-
-	/*
-	 * Glamo is a child of PMU because SD Card needs power up until it can
-	 * logically suspend the card... without this power is taken first
-	 * before logical suspend action
-	 */
-	gta02_glamo_dev.dev.parent = parent_device;
-
-	platform_device_register(&gta01_pm_bt_dev);
-	platform_device_register(&gta01_pm_gps_dev);
-	platform_device_register(&gta02_pm_gsm_dev);
-
-	mangle_glamo_res_by_system_rev();
-	platform_device_register(&gta02_glamo_dev);
-}
+static void gta02_pcf50633_attach_child_devices(struct device *parent_device);
 
 static struct platform_device gta02_pm_wlan_dev = {
 	.name		= "gta02-pm-wlan",
@@ -1658,12 +1639,10 @@ static int __init hardware_ecc_setup(char *str)
 
 __setup("hardware_ecc=", hardware_ecc_setup);
 
+/* these are the guys that don't need to be children of PMU */
+
 static struct platform_device *gta02_devices[] __initdata = {
-	&s3c_device_spi_acc,
-	&gta02_button_dev,
-	&gta02_pm_usbhost_dev,
 	&gta02_pmu_dev,
-	&gta02_sdio_dev,
 	&s3c_device_usb,
 	&s3c_device_wdt,
 	&s3c_device_i2c,
@@ -1676,10 +1655,43 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&sc32440_fiq_device,
 	&gta02_version_device,
 	&gta02_memconfig_device,
-	&gta02_resume_reason_device,
 	&s3c24xx_pwm_device,
 	&gta02_pm_wlan_dev,
 };
+
+
+/* these guys DO need to be children of PMU */
+
+static struct platform_device *gta02_devices_pmu_children[] = {
+	&gta02_glamo_dev, /* glamo-mci power handling depends on PMU */
+	&gta01_pm_gps_dev,
+	&gta01_pm_bt_dev,
+	&gta02_pm_gsm_dev,
+	&gta02_sdio_dev,
+	&gta02_pm_usbhost_dev,
+	&s3c_device_spi_acc,
+	&gta02_button_dev,
+	&gta02_resume_reason_device,
+};
+
+/* this is called when pc50633 is probed, unfortunately quite late in the
+ * day since it is an I2C bus device.  Here we can belatedly define some
+ * platform devices with the advantage that we can mark the pcf50633 as the
+ * parent.  This makes them get suspended and resumed with their parent
+ * the pcf50633 still around.
+ */
+
+static void gta02_pcf50633_attach_child_devices(struct device *parent_device)
+{
+	int n;
+
+	for (n = 0; n < ARRAY_SIZE(gta02_devices_pmu_children); n++)
+		gta02_devices_pmu_children[n]->dev.parent = parent_device;
+
+	mangle_glamo_res_by_system_rev();
+	platform_add_devices(gta02_devices_pmu_children,
+					ARRAY_SIZE(gta02_devices_pmu_children));
+}
 
 
 static void __init gta02_machine_init(void)
