@@ -628,7 +628,7 @@ static int jbt_suspend(struct spi_device *spi, pm_message_t state)
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
 	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
 
-	/* platform needs to register resume dependencies here */
+	/* platform can register resume dependencies here, if any */
 	if (jbt6k74_pdata->suspending)
 		(jbt6k74_pdata->suspending)(0, spi);
 
@@ -638,7 +638,7 @@ static int jbt_suspend(struct spi_device *spi, pm_message_t state)
 
 	jbt->have_resumed = 0;
 
-	(jbt6k74_pdata->reset)(0, 0);
+/*	(jbt6k74_pdata->reset)(0, 0); */
 
 	return 0;
 }
@@ -648,31 +648,17 @@ int jbt6k74_resume(struct spi_device *spi)
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
 	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
 
-	/* if we still wait on dependencies, exit because we will get called
-	 * again.  This guy will get called once by core resume action, and
-	 * should be set as resume_dependency callback for any dependencies
-	 * set by platform code.
-	 */
-
 	if (jbt6k74_pdata->all_dependencies_resumed)
 		if (!(jbt6k74_pdata->all_dependencies_resumed)(0))
 			return 0;
 
 	/* we can get called twice with all dependencies resumed if our core
-	 * resume callback is last of all.  Protect against going twice
+	 * resume callback is last of all.  Protect against doing anything twice
 	 */
 	if (jbt->have_resumed)
 		return 0;
 
-	jbt->have_resumed = 1;
-
-	/* OK we are sure all devices we depend on for operation are up now */
-
-	/* even this needs glamo up on GTA02 :-/ */
-	(jbt6k74_pdata->reset)(0, 1);
-
-	jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);
-	msleep(100);
+	jbt->have_resumed |= 1;
 
 	switch (jbt->last_state) {
 	case JBT_STATE_QVGA_NORMAL:
@@ -683,8 +669,6 @@ int jbt6k74_resume(struct spi_device *spi)
 		break;
 	}
 	jbt6k74_display_onoff(jbt, 1);
-
-	/* this gives the platform a chance to bring up backlight now */
 
 	if (jbt6k74_pdata->resuming)
 		(jbt6k74_pdata->resuming)(0);
