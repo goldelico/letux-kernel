@@ -1045,7 +1045,11 @@ composite_resume(struct usb_gadget *gadget)
 /*-------------------------------------------------------------------------*/
 
 static struct usb_gadget_driver composite_driver = {
+#ifdef	CONFIG_USB_GADGET_DUALSPEED
 	.speed		= USB_SPEED_HIGH,
+#else
+	.speed		= USB_SPEED_FULL,
+#endif
 
 	.bind		= composite_bind,
 	.unbind		= __exit_p(composite_unbind),
