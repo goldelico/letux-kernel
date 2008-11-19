@@ -199,8 +199,16 @@ static void do_pio_read(struct glamo_mci_host *host)
 		block = (u16 *)host->pio_ptr;
 		res = host->pio_words << 1;
 #endif
+#if 0
+		/* u16-centric memcpy */
 		while (host->pio_words--)
 			*host->pio_ptr++ = *from_ptr++;
+#else
+		/* memcpy can be faster? */
+		memcpy((void *)host->pio_ptr, from_ptr, host->pio_words << 1);
+		host->pio_ptr += host->pio_words;
+#endif
+
 #ifdef DEBUG
 		print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 16, 1,
 			       (void *)block, res, 1);
