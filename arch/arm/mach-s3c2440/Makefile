@@ -1,10 +1,4 @@
-# arch/arm/mach-s3c2440/Makefile
-#
-# Copyright 2007 Simtec Electronics
-#
-# Licensed under GPLv2
-
-obj-y				:=
+obj-y                           += camera/
 obj-m				:=
 obj-n				:=
 obj-				:=
