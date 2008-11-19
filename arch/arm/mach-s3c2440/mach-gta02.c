@@ -1640,7 +1640,7 @@ static void __init gta02_machine_init(void)
 	s3c2410_pm_init();
 
 	/* Make sure the modem can wake us up */
-	set_irq_type(GTA02_IRQ_MODEM, IRQT_RISING);
+	set_irq_type(GTA02_IRQ_MODEM, IRQ_TYPE_EDGE_RISING);
 	rc = request_irq(GTA02_IRQ_MODEM, gta02_modem_irq, IRQF_DISABLED,
 			 "modem", NULL);
 	if (rc < 0)
@@ -1648,7 +1648,7 @@ static void __init gta02_machine_init(void)
 	enable_irq_wake(GTA02_IRQ_MODEM);
 
 	/* Make sure the wifi module can wake us up*/
-	set_irq_type(GTA02_IRQ_WLAN_GPIO1, IRQT_RISING);
+	set_irq_type(GTA02_IRQ_WLAN_GPIO1, IRQ_TYPE_EDGE_RISING);
 	rc = request_irq(GTA02_IRQ_WLAN_GPIO1, ar6000_wow_irq, IRQF_DISABLED,
 			"ar6000", NULL);
 

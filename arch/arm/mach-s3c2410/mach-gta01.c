@@ -724,7 +724,7 @@ static void __init gta01_machine_init(void)
 
 	s3c2410_pm_init();
 
-	set_irq_type(GTA01_IRQ_MODEM, IRQT_RISING);
+	set_irq_type(GTA01_IRQ_MODEM, IRQ_TYPE_EDGE_RISING);
 	rc = request_irq(GTA01_IRQ_MODEM, gta01_modem_irq, IRQF_DISABLED,
 			 "modem", NULL);
 	enable_irq_wake(GTA01_IRQ_MODEM);
