@@ -7,6 +7,7 @@
 #ifndef __FIMC20_CAMERA_H__
 #define __FIMC20_CAMERA_H__
 
+extern u32 * camregs;
 
 #ifdef CONFIG_ARCH_S3C24A0
 #define CAM_BASE_ADD             0x48000000
@@ -14,10 +15,23 @@
 #define CAM_BASE_ADD             0x4F000000
 #endif
 
+#if ! defined(FExtr)
+#define UData(Data)     ((unsigned long) (Data))
+#define FExtr(Data, Field) \
+                        ((UData (Data) >> FShft (Field)) & FAlnMsk (Field))
+#define FInsrt(Value, Field) \
+                        (UData (Value) << FShft (Field))
+#define FSize(Field)    ((Field) >> 16)
+#define FShft(Field)    ((Field) & 0x0000FFFF)
+#define FMsk(Field)     (((UData (1) << FSize (Field)) - 1) << FShft (Field))
+#define FAlnMsk(Field)  ((UData (1) << FSize (Field)) - 1)
+#define F1stBit(Field)  (UData (1) << FShft (Field))
+#define Fld(Size, Shft) (((Size) << 16) + (Shft))
+#endif
 
 /*
  * CAMERA IP
- * P-port is used as RGB Capturing device which including scale and crop 
+ * P-port is used as RGB Capturing device which including scale and crop
  *  those who want to see(preview ) the image on display needs RGB image.
  *
  * C-port is used as YCbCr(4:2:0, 4:2:2) Capturing device which including the scale and crop
@@ -25,45 +39,45 @@
      YCBCB format not RGB 
  */ 
 
-#define CISRCFMT            __REG(CAM_BASE_ADD+0x00) // RW Input Source Format
-#define CIWDOFST            __REG(CAM_BASE_ADD+0x04) // Window offset register
-#define CIGCTRL             __REG(CAM_BASE_ADD+0x08) // Global control register
-#define CICOYSA0            __REG(CAM_BASE_ADD+0x18) // Y 1 st frame start address 
-#define CICOYSA1            __REG(CAM_BASE_ADD+0x1C) // Y 2 nd frame start address 
-#define CICOYSA2            __REG(CAM_BASE_ADD+0x20) // Y 3 rd frame start address 
-#define CICOYSA3            __REG(CAM_BASE_ADD+0x24) // Y 4 th frame start address 
-#define CICOCBSA0           __REG(CAM_BASE_ADD+0x28) // Cb 1 st frame start address 
-#define CICOCBSA1           __REG(CAM_BASE_ADD+0x2C) // Cb 2 nd frame start address 
-#define CICOCBSA2           __REG(CAM_BASE_ADD+0x30) // Cb 3 rd frame start address 
-#define CICOCBSA3           __REG(CAM_BASE_ADD+0x34) // Cb 4 th frame start address 
-#define CICOCRSA0           __REG(CAM_BASE_ADD+0x38) // Cr 1 st frame start address 
-#define CICOCRSA1           __REG(CAM_BASE_ADD+0x3C) // Cr 2 nd frame start address 
-#define CICOCRSA2           __REG(CAM_BASE_ADD+0x40) // Cr 3 rd frame start address 
-#define CICOCRSA3           __REG(CAM_BASE_ADD+0x44) // Cr 4 th frame start address 
-#define CICOTRGFMT          __REG(CAM_BASE_ADD+0x48) // Target image format of codec
-#define CICOCTRL            __REG(CAM_BASE_ADD+0x4C) // Codec DMA control related
-#define CICOSCPRERATIO      __REG(CAM_BASE_ADD+0x50) // Codec pre-scaler ratio control
-#define CICOSCPREDST        __REG(CAM_BASE_ADD+0x54) // Codec pre-scaler destination
-#define CICOSCCTRL          __REG(CAM_BASE_ADD+0x58) // Codec main-scaler control
-#define CICOTAREA           __REG(CAM_BASE_ADD+0x5C) // Codec pre-scaler destination
-#define CICOSTATUS          __REG(CAM_BASE_ADD+0x64) // Codec path status
-#define CIPRCLRSA0          __REG(CAM_BASE_ADD+0x6C) // RGB 1 st frame start address 
-#define CIPRCLRSA1          __REG(CAM_BASE_ADD+0x70) // RGB 2 nd frame start address 
-#define CIPRCLRSA2          __REG(CAM_BASE_ADD+0x74) // RGB 3 rd frame start address 
-#define CIPRCLRSA3          __REG(CAM_BASE_ADD+0x78) // RGB 4 th frame start address 
-#define CIPRTRGFMT          __REG(CAM_BASE_ADD+0x7C) // Target image format of preview
-#define CIPRCTRL            __REG(CAM_BASE_ADD+0x80) // Preview DMA control related
-#define CIPRSCPRERATIO      __REG(CAM_BASE_ADD+0x84) // Preview pre-scaler ratio control
-#define CIPRSCPREDST        __REG(CAM_BASE_ADD+0x88) // Preview pre-scaler destination
-#define CIPRSCCTRL          __REG(CAM_BASE_ADD+0x8C) // Preview main-scaler control
-#define CIPRTAREA           __REG(CAM_BASE_ADD+0x90) // Preview pre-scaler destination
-#define CIPRSTATUS          __REG(CAM_BASE_ADD+0x98) // Preview path status
-#define CIIMGCPT            __REG(CAM_BASE_ADD+0xA0) // Image capture enable command
+#define S3C2440_CAM_REG_CISRCFMT            (0x00) // RW Input Source Format
+#define S3C2440_CAM_REG_CIWDOFST            (0x04) // Window offset register
+#define S3C2440_CAM_REG_CIGCTRL             (0x08) // Global control register
+#define S3C2440_CAM_REG_CICOYSA0            (0x18) // Y 1 st frame start ads
+#define S3C2440_CAM_REG_CICOYSA1            (0x1C) // Y 2 nd frame start ads
+#define S3C2440_CAM_REG_CICOYSA2            (0x20) // Y 3 rd frame start ads
+#define S3C2440_CAM_REG_CICOYSA3            (0x24) // Y 4 th frame start ads
+#define S3C2440_CAM_REG_CICOCBSA0           (0x28) // Cb 1 st frame start ads
+#define S3C2440_CAM_REG_CICOCBSA1           (0x2C) // Cb 2 nd frame start ads
+#define S3C2440_CAM_REG_CICOCBSA2           (0x30) // Cb 3 rd frame start ads
+#define S3C2440_CAM_REG_CICOCBSA3           (0x34) // Cb 4 th frame start ads
+#define S3C2440_CAM_REG_CICOCRSA0           (0x38) // Cr 1 st frame start ads
+#define S3C2440_CAM_REG_CICOCRSA1           (0x3C) // Cr 2 nd frame start ads
+#define S3C2440_CAM_REG_CICOCRSA2           (0x40) // Cr 3 rd frame start ads
+#define S3C2440_CAM_REG_CICOCRSA3           (0x44) // Cr 4 th frame start ads
+#define S3C2440_CAM_REG_CICOTRGFMT          (0x48) // Target img format of codec
+#define S3C2440_CAM_REG_CICOCTRL            (0x4C) // Codec DMA control related
+#define S3C2440_CAM_REG_CICOSCPRERATIO      (0x50) // Codec pre-scaler ratio
+#define S3C2440_CAM_REG_CICOSCPREDST        (0x54) // Codec pre-scaler dest
+#define S3C2440_CAM_REG_CICOSCCTRL          (0x58) // Codec main-scaler control
+#define S3C2440_CAM_REG_CICOTAREA           (0x5C) // Codec pre-scaler dest
+#define S3C2440_CAM_REG_CICOSTATUS          (0x64) // Codec path status
+#define S3C2440_CAM_REG_CIPRCLRSA0          (0x6C) // RGB 1 st frame start ads
+#define S3C2440_CAM_REG_CIPRCLRSA1          (0x70) // RGB 2 nd frame start ads
+#define S3C2440_CAM_REG_CIPRCLRSA2          (0x74) // RGB 3 rd frame start ads
+#define S3C2440_CAM_REG_CIPRCLRSA3          (0x78) // RGB 4 th frame start ads
+#define S3C2440_CAM_REG_CIPRTRGFMT          (0x7C) // Target img fmt of preview
+#define S3C2440_CAM_REG_CIPRCTRL            (0x80) // Preview DMA ctl related
+#define S3C2440_CAM_REG_CIPRSCPRERATIO      (0x84) // Preview pre-scaler ratio
+#define S3C2440_CAM_REG_CIPRSCPREDST        (0x88) // Preview pre-scaler dest
+#define S3C2440_CAM_REG_CIPRSCCTRL          (0x8C) // Preview main-scaler ctl
+#define S3C2440_CAM_REG_CIPRTAREA           (0x90) // Preview pre-scaler dest
+#define S3C2440_CAM_REG_CIPRSTATUS          (0x98) // Preview path status
+#define S3C2440_CAM_REG_CIIMGCPT            (0xA0) // Image capture enable cmd
 
-#define CICOYSA(__x)        __REG(CAM_BASE_ADD+0x18 + (__x)*4 ) 
-#define CICOCBSA(__x)       __REG(CAM_BASE_ADD+0x28 + (__x)*4 )
-#define CICOCRSA(__x)       __REG(CAM_BASE_ADD+0x38 + (__x)*4 ) 
-#define CIPRCLRSA(__x)      __REG(CAM_BASE_ADD+0x6C + (__x)*4 )
+#define S3C2440_CAM_REG_CICOYSA(__x)        (0x18 + (__x)*4 )
+#define S3C2440_CAM_REG_CICOCBSA(__x)       (0x28 + (__x)*4 )
+#define S3C2440_CAM_REG_CICOCRSA(__x)       (0x38 + (__x)*4 )
+#define S3C2440_CAM_REG_CIPRCLRSA(__x)      (0x6C + (__x)*4 )
 
 /* CISRCFMT BitField */
 #define SRCFMT_ITU601       BIT31

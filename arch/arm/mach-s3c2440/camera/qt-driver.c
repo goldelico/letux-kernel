@@ -31,12 +31,15 @@
                                                                                                            
 //#define SW_DEBUG
                                                                                                            
+#define CONFIG_VIDEO_V4L1_COMPAT
+#include <linux/videodev.h>
 #include "camif.h"
-#include "videodev.h"
 #include "miscdevice.h"
 #include "cam_reg.h"
 #include "sensor.h"
 #include "userapp.h"
+
+extern camif_cfg_t * get_camif(int nr);
                                                                                                            
 
 /************************* Sharp Zarus API **************************

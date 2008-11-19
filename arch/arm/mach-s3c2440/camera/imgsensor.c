@@ -11,7 +11,7 @@
  *  Driver for FIMC20 Camera Decoder 
  */
 
-#include <linux/config.h>
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -24,10 +24,12 @@
 
 #ifdef CONFIG_ARCH_S3C24A0A
 #else
-#include <asm/arch/S3C2440.h>
+//#include <asm/arch/S3C2440.h>
 #endif
 
 #define SW_DEBUG
+#define CONFIG_VIDEO_V4L1_COMPAT
+#include <linux/videodev.h>
 #include "camif.h"
 #include "sensor.h"
 
@@ -36,10 +38,6 @@
 #else
 #include "sxga.h"
 #endif
-
-static const char *sensor_version =
-        "$Id: imgsensor.c,v 1.11 2004/06/10 12:45:40 swlee Exp $";
-
 
 static struct i2c_driver s5x532_driver;
 static camif_gc_t data = {
@@ -69,22 +67,18 @@ static camif_gc_t data = {
 
 #define CAM_ID 0x5a
 
-static unsigned short ignore[] = { I2C_CLIENT_END };
+static unsigned short ignore = I2C_CLIENT_END;
 static unsigned short normal_addr[] = { (CAM_ID>>1), I2C_CLIENT_END };
 static struct i2c_client_address_data addr_data = {
 	normal_i2c:		normal_addr,
-	normal_i2c_range:	ignore,
-	probe:			ignore,
-	probe_range:		ignore,
-	ignore:			ignore,
-	ignore_range:		ignore,
-	force:			ignore,
+	probe:			&ignore,
+	ignore:			&ignore,
 };
 
 s5x532_t s5x532_regs_mirror[S5X532_REGS];
 
 unsigned char 
-s5x532_read(struct i2c_client *client,unsigned char subaddr)
+s5x532_read(struct i2c_client *client, unsigned char subaddr)
 {
 	int ret;
 	unsigned char buf[1];
@@ -151,7 +145,7 @@ void inline s5x532_init(struct i2c_client *sam_client)
 }
 
 static int
-s5x532_attach(struct i2c_adapter *adap, int addr, unsigned short flags,int kind)
+s5x532_attach(struct i2c_adapter *adap, int addr, int kind)
 {
 	struct i2c_client *c;
 
@@ -159,13 +153,13 @@ s5x532_attach(struct i2c_adapter *adap, int addr, unsigned short flags,int kind)
 	if (!c)	return -ENOMEM;
 
 	strcpy(c->name, "S5X532");
-	c->id		= s5x532_driver.id;
-	c->flags	= I2C_CLIENT_ALLOW_USE;
+//	c->id		= s5x532_driver.id;
+	c->flags	= 0 /* I2C_CLIENT_ALLOW_USE */;
 	c->addr		= addr;
 	c->adapter	= adap;
 	c->driver	= &s5x532_driver;
-	c->data		= &data;
-	data.sensor     = c; 
+	data.sensor     = c;
+	i2c_set_clientdata(c, &data);
 
 	camif_register_decoder(c);
 	return i2c_attach_client(c);
@@ -192,10 +186,10 @@ s5x532_command(struct i2c_client *client, unsigned int cmd, void *arg)
 		 printk(KERN_INFO "CAMERA: S5X532 Sensor initialized\n");
 		 break;
 	case USER_ADD:
-		MOD_INC_USE_COUNT;
+		/* MOD_INC_USE_COUNT; uh.. 2.6 deals with this, old-timer */
 		break;
 	case USER_EXIT:
-		MOD_DEC_USE_COUNT;
+		/* MOD_DEC_USE_COUNT; */
 		break;
 /* Todo
 	case SENSOR_BRIGHTNESS:
@@ -210,9 +204,8 @@ s5x532_command(struct i2c_client *client, unsigned int cmd, void *arg)
 }
 
 static struct i2c_driver s5x532_driver = {
-	name:		"S5X532",
-	id:		I2C_ALGO_S3C,
-	flags:		I2C_DF_NOTIFY,
+	driver:		{ name:		"S5X532" },
+	id:		0, /* optional in i2c-id.h I2C_ALGO_S3C, */
 	attach_adapter:	s5x532_probe,
 	detach_client:	s5x532_detach,
 	command:	s5x532_command
@@ -220,11 +213,13 @@ static struct i2c_driver s5x532_driver = {
 
 static void iic_gpio_port(void) 
 {
+/*    FIXME: no gpio config for i2c !!!
 #ifdef CONFIG_ARCH_S3C24A0A
 #else
 	GPECON &=  ~(0xf <<28);
 	GPECON |=    0xa <<28;
 #endif
+*/
 }
 
 static __init int camif_sensor_init(void)

@@ -29,11 +29,12 @@
 #include <asm/irq.h>
 #include <asm/semaphore.h>
 #include <linux/miscdevice.h>
+#include <asm/arch/irqs.h>
 
 //#define SW_DEBUG 
-
+#define CONFIG_VIDEO_V4L1_COMPAT
+#include <linux/videodev.h>
 #include "camif.h"
-#include "videodev.h"
 #include "miscdevice.h"
 #include "cam_reg.h"
 #include "sensor.h"
@@ -46,12 +47,14 @@
 /* Codec and Preview */
 #define CAMIF_NUM  2
 static camif_cfg_t  fimc[CAMIF_NUM];
+u32 *camregs;
 
 static const char *driver_version = 
 	"$Id: video-driver.c,v 1.9 2004/06/02 03:10:36 swlee Exp $";
 extern const char *fimc_version;
 extern const char *fsm_version;
 
+extern void camif_start_c_with_p (camif_cfg_t *cfg, camif_cfg_t *other);
 
 camif_cfg_t * get_camif(int nr)
 {
@@ -177,28 +180,34 @@ camif_c_read(struct file *file, char *buf, size_t count, loff_t *pos)
 }
 
 
-static void camif_c_irq(int irq, void *dev_id, struct pt_regs *regs)
+static irqreturn_t camif_c_irq(int irq, void *dev_id)
 {
         camif_cfg_t *cfg = (camif_cfg_t *)dev_id;
+
 	DPRINTK("\n");
 	camif_g_fifo_status(cfg);
 	camif_g_frame_num(cfg);
-	if(camif_enter_c_4fsm(cfg) == INSTANT_SKIP) return;
-	wake_up_interruptible(&cfg->waitq);
+	if(camif_enter_c_4fsm(cfg) != INSTANT_SKIP)
+		wake_up_interruptible(&cfg->waitq);
+
+	return IRQ_HANDLED;
 }
 
-static void camif_p_irq(int irq, void *dev_id, struct pt_regs * regs)
+static irqreturn_t camif_p_irq(int irq, void *dev_id)
 {
         camif_cfg_t *cfg = (camif_cfg_t *)dev_id;
+
 	DPRINTK("\n");
 	camif_g_fifo_status(cfg);
 	camif_g_frame_num(cfg);
-	if(camif_enter_p_4fsm(cfg) == INSTANT_SKIP) return;
-	wake_up_interruptible(&cfg->waitq);
+	if(camif_enter_p_4fsm(cfg) != INSTANT_SKIP)
+		wake_up_interruptible(&cfg->waitq);
 #if 0
 	if( (cfg->perf.frames % 5) == 0)
 		DPRINTK("5\n");
 #endif
+
+	return IRQ_HANDLED;
 }
 
 static void camif_release_irq(camif_cfg_t *cfg)
@@ -213,13 +222,13 @@ static int camif_irq_request(camif_cfg_t *cfg)
 
 	if (cfg->dma_type & CAMIF_CODEC) {
 		if ((ret = request_irq(cfg->irq, camif_c_irq, 
-			       SA_INTERRUPT,cfg->shortname, cfg))) {
+			       0, cfg->shortname, cfg))) {
 			printk("request_irq(CAM_C) failed.\n");
 		}
 	}
 	if (cfg->dma_type & CAMIF_PREVIEW) {
 		if ((ret = request_irq(cfg->irq, camif_p_irq,
-			       SA_INTERRUPT,cfg->shortname, cfg))) {
+			       0, cfg->shortname, cfg))) {
 			printk("request_irq(CAM_P) failed.\n");
 		}
 	}
@@ -438,7 +447,7 @@ static struct video_device codec_template =
 {
 	.name     = "CODEC_IF",
 	.type     = VID_TYPE_CAPTURE|VID_TYPE_CLIPPING|VID_TYPE_SCALES,
-	.hardware = VID_HARDWARE_SAMSUNG_FIMC20,
+/*	.hardware = VID_HARDWARE_SAMSUNG_FIMC20, */
 	.fops     = &camif_c_fops,
 //	.release  = camif_release
 	.minor    = -1,
@@ -448,7 +457,7 @@ static struct video_device preview_template =
 {
 	.name     = "PREVIEW_IF",
 	.type     = VID_TYPE_CAPTURE|VID_TYPE_CLIPPING|VID_TYPE_SCALES,
-	.hardware = VID_HARDWARE_SAMSUNG_FIMC20,
+/*	.hardware = VID_HARDWARE_SAMSUNG_FIMC20, */
 	.fops     = &camif_p_fops,
 	.minor    = -1,
 };
@@ -465,8 +474,8 @@ static int preview_init(camif_cfg_t *cfg)
 	cfg->fmt      = CAMIF_RGB16;
 	cfg->flip     = CAMIF_FLIP_Y;
 	cfg->v        = &preview_template;
-	init_MUTEX(&cfg->v->lock);
-	cfg->irq       = IRQ_CAM_P;
+	mutex_init(&cfg->v->lock);
+	cfg->irq       = IRQ_S3C2440_CAM_P;
 	
 	strcpy(cfg->shortname,name);
         init_waitqueue_head(&cfg->waitq);
@@ -486,8 +495,8 @@ static int codec_init(camif_cfg_t *cfg)
 	cfg->fmt      = CAMIF_IN_YCBCR422|CAMIF_OUT_YCBCR420;
 	cfg->flip     = CAMIF_FLIP_X;
 	cfg->v         = &codec_template;
-	init_MUTEX(&cfg->v->lock);
-	cfg->irq       = IRQ_CAM_C;
+	mutex_init(&cfg->v->lock);
+	cfg->irq       = IRQ_S3C2440_CAM_C;
 	strcpy(cfg->shortname,name);
 	init_waitqueue_head(&cfg->waitq);
 	cfg->status = CAMIF_STOPPED;
@@ -510,25 +519,44 @@ static void print_version(void)
 
 static int camif_m_in(void)
 {
-	int ret = 0;
+	int ret = -EINVAL;
  	camif_cfg_t * cfg;
+
+	printk(KERN_INFO"Starting S3C2440 Camera Driver\n");
+
+	camregs = ioremap(CAM_BASE_ADD, 0x100);
+	if (!camregs) {
+		printk(KERN_ERR"Unable to map camera regs\n");
+		ret = -ENOMEM;
+		goto bail1;
+	}
 
 	camif_init();		
 	cfg = get_camif(CODEC_MINOR);
 	codec_init(cfg);
 
-	if (video_register_device(cfg->v,0,CODEC_MINOR)!=0) {
-			DPRINTK("Couldn't register codec driver.\n");
-			return 0;
+	ret = video_register_device(cfg->v,0,CODEC_MINOR);
+	if (ret) {
+			printk(KERN_ERR"Couldn't register codec driver.\n");
+			goto bail2;
 	}
 	cfg = get_camif(PREVIEW_MINOR);
 	preview_init(cfg);
-	if (video_register_device(cfg->v,0,PREVIEW_MINOR)!=0) {
-			DPRINTK("Couldn't register preview driver.\n");
-			return 0;
+	ret = video_register_device(cfg->v,0,PREVIEW_MINOR);
+	if (ret) {
+			printk(KERN_ERR"Couldn't register preview driver.\n");
+			goto bail3; /* hm seems it us unregistered the once */
 	}
 	
 	print_version();
+	return 0;
+
+bail3:
+	video_unregister_device(cfg->v);
+bail2:
+	iounmap(camregs);
+	camregs = NULL;
+bail1:
 	return ret;
 }
 
@@ -536,7 +564,9 @@ static void unconfig_device(camif_cfg_t *cfg)
 {
 	video_unregister_device(cfg->v);
 	camif_hw_close(cfg);
+	iounmap(camregs);
 	//memset(cfg, 0, sizeof(camif_cfg_t));
+	camregs = NULL;
 }
 
 static void camif_m_out(void)	/* module out */
@@ -547,20 +577,22 @@ static void camif_m_out(void)	/* module out */
 	unconfig_device(cfg);
 	cfg = get_camif(PREVIEW_MINOR);
 	unconfig_device(cfg);
+
 	return;
 }
 
 void camif_register_decoder(struct i2c_client *ptr)
 {
 	camif_cfg_t *cfg;
+	void * data = i2c_get_clientdata(ptr);
 
 	cfg =get_camif(CODEC_MINOR);
-	cfg->gc = (camif_gc_t *)(ptr->data);
+	cfg->gc = (camif_gc_t *)(data);
 
 	cfg =get_camif(PREVIEW_MINOR);
-	cfg->gc = (camif_gc_t *)(ptr->data);
+	cfg->gc = (camif_gc_t *)(data);
 
-	sema_init(&cfg->gc->lock,1); /* global lock for both Codec and Preview */
+	sema_init(&cfg->gc->lock, 1); /* global lock for both Codec and Preview */
 	cfg->gc->status |= PNOTWORKING; /* Default Value */
 	camif_hw_open(cfg->gc);
 }
@@ -568,8 +600,9 @@ void camif_register_decoder(struct i2c_client *ptr)
 void camif_unregister_decoder(struct i2c_client *ptr)
 {
 	camif_gc_t *gc;
+	void * data = i2c_get_clientdata(ptr);
 		
-	gc = (camif_gc_t *)(ptr->data);	
+	gc = (camif_gc_t *)(data);
 	gc->init_sensor = 0; /* need to modify */
 }
 

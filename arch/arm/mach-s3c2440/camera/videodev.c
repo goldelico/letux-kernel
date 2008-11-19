@@ -22,7 +22,7 @@
 #include <linux/init.h>
 #include <linux/kmod.h>
 #include <linux/slab.h>
-#include <linux/devfs_fs_kernel.h>
+/* #include <linux/devfs_fs_kernel.h> */
 #include <linux/miscdevice.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
@@ -30,8 +30,9 @@
 
 
 
+#define CONFIG_VIDEO_V4L1_COMPAT
+#include <linux/videodev.h>
 #include "camif.h"
-#include "videodev.h"
 #include "miscdevice.h"
 
 
@@ -42,18 +43,7 @@ const char *fimc_version = "$Id: videodev.c,v 1.1.1.1 2004/04/27 03:52:50 swlee 
 #define VIDEO_NAME              "video4linux"
 
 
-static inline unsigned iminor(struct inode *inode)
-{
-        return MINOR(inode->i_rdev);
-}
-
-static inline unsigned imajor(struct inode *inode)
-{
-        return MAJOR(inode->i_rdev);
-}
-
-
-#define VIDEO_NUM_DEVICES	2 
+#define VIDEO_NUM_DEVICES	2
 static struct video_device *video_device[VIDEO_NUM_DEVICES];
 
 static inline struct video_device * get_vd(int nr)
@@ -104,7 +94,7 @@ static int video_open(struct inode *inode, struct file *file)
 	int minor = MINOR(inode->i_rdev);
 	int err = 0;
 	struct video_device *vfl;
-	struct file_operations *old_fops;
+	struct file_operations const *old_fops;
 	
 	down(&videodev_lock);
 
@@ -131,13 +121,13 @@ extern int video_exclusive_open(struct inode *inode, struct file *file)
 	struct  video_device *vfl = get_vd(MINOR(inode->i_rdev));
 	int retval = 0;
 
-	down(&vfl->lock);
+	mutex_lock(&vfl->lock);
 	if (vfl->users) {
 		retval = -EBUSY;
 	} else {
 		vfl->users++;
 	}
-	up(&vfl->lock);
+	mutex_unlock(&vfl->lock);
 	return retval;
 }
 

@@ -31,7 +31,12 @@
 #include <asm/semaphore.h>
 #include <linux/miscdevice.h>
 
+#define CONFIG_VIDEO_V4L1_COMPAT
+#include <linux/videodev.h>
+#include "camif.h"
+
 //#define SW_DEBUG 
+static void camif_start_p_with_c(camif_cfg_t *cfg);
 
 #include "camif.h"
 const char *fsm_version =
