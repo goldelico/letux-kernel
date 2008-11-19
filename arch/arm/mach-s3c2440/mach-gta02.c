@@ -478,7 +478,7 @@ static int gta02_get_charger_active_status(void)
 
 
 struct bq27000_platform_data bq27000_pdata = {
-	.name = "bat",
+	.name = "battery",
 	.rsense_mohms = 20,
 	.hdq_read = gta02hdq_read,
 	.hdq_write = gta02hdq_write,
