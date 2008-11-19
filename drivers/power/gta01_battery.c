@@ -70,7 +70,7 @@ static int __init gta01_bat_init(void)
 {
 	int ret;
 
-	bat_pdev = platform_device_register_simple("gta01-battery", 0, NULL, 0);
+	bat_pdev = platform_device_register_simple("bat", 0, NULL, 0);
 	if (IS_ERR(bat_pdev))
 		return PTR_ERR(bat_pdev);
 
