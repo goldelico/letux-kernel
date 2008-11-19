@@ -149,10 +149,6 @@ static int s3c_nand_calc_rate(int wanted, unsigned long clk, int max)
 {
 	int result;
 
-	/* Tacls can be 0ns in some cases */
-	if (wanted == 0)
-		return 0;
-
 	result = (wanted * clk) / NS_IN_KHZ;
 	result++;
 
@@ -162,6 +158,9 @@ static int s3c_nand_calc_rate(int wanted, unsigned long clk, int max)
 		printk("%d ns is too big for current clock rate %ld\n", wanted, clk);
 		return -1;
 	}
+
+	if (result < 1)
+		result = 1;
 
 	return result;
 }
@@ -195,7 +194,7 @@ static int s3c2410_nand_setrate(struct s3c2410_nand_info *info)
 		twrph1 = 8;
 	}
 
-	if (tacls < 0 || twrph0 < 1 || twrph1 < 1) {
+	if (tacls < 0 || twrph0 < 0 || twrph1 < 0) {
 		dev_err(info->device, "cannot get suitable timings\n");
 		return -EINVAL;
 	}
@@ -256,18 +255,11 @@ static int s3c2410_nand_inithw(struct s3c2410_nand_info *info)
 
  	switch (info->cpu_type) {
  	case TYPE_S3C2410:
-		cfg = S3C2410_NFCONF_EN;
-		cfg |= S3C2410_NFCONF_TACLS(tacls);
-		cfg |= S3C2410_NFCONF_TWRPH0(twrph0 - 1);
-		cfg |= S3C2410_NFCONF_TWRPH1(twrph1 - 1);
+	default:
 		break;
 
  	case TYPE_S3C2440:
  	case TYPE_S3C2412:
-		cfg = S3C2440_NFCONF_TACLS(tacls);
-		cfg |= S3C2440_NFCONF_TWRPH0(twrph0 - 1);
-		cfg |= S3C2440_NFCONF_TWRPH1(twrph1 - 1);
-
 		/* enable the controller and de-assert nFCE */
 
 		writel(S3C2440_NFCONT_ENABLE, info->regs + S3C2440_NFCONT);
