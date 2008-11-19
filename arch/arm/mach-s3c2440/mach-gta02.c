@@ -902,12 +902,6 @@ static struct s3c2410_platform_nand gta02_nand_info = {
 	.software_ecc	= 1,
 };
 
-static struct s3c24xx_mci_pdata gta02_mmc_cfg = {
-	.gpio_detect	= GTA02v1_GPIO_nSD_DETECT,
-	.set_power	= NULL,
-	.ocr_avail	= MMC_VDD_32_33,
-};
-
 static void gta02_udc_command(enum s3c2410_udc_cmd_e cmd)
 {
 	printk(KERN_DEBUG "%s(%d)\n", __func__, cmd);
@@ -1529,7 +1523,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&s3c_device_usb,
 	&s3c_device_wdt,
 	&gta02_memconfig_device,
-	// &s3c_device_sdi, /* FIXME: temporary disable to avoid s3cmci bind */
+	&s3c_device_sdi,
 	&s3c_device_usbgadget,
 	&s3c_device_nand,
 	&gta02_nor_flash,
@@ -1607,17 +1601,6 @@ static void __init gta02_machine_init(void)
 
 	s3c_device_usb.dev.platform_data = &gta02_usb_info;
 	s3c_device_nand.dev.platform_data = &gta02_nand_info;
-	s3c_device_sdi.dev.platform_data = &gta02_mmc_cfg;
-
-	/* Only GTA02v1 has a SD_DETECT GPIO.  Since the slot is not
-	 * hot-pluggable, this is not required anyway */
-	switch (system_rev) {
-	case GTA02v1_SYSTEM_REV:
-		break;
-	default:
-		gta02_mmc_cfg.gpio_detect = 0;
-		break;
-	}
 
 	/* acc sensor chip selects */
 	s3c2410_gpio_setpin(S3C2410_GPD12, 1);
