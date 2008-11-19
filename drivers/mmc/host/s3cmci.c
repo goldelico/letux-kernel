@@ -56,6 +56,8 @@ static const int dbgmap_err   = dbg_fail;
 static const int dbgmap_info  = dbg_info | dbg_conf;
 static const int dbgmap_debug = dbg_err | dbg_debug;
 
+static int f_max = -1; /* override maximum frequency limit */
+
 #define dbg(host, channels, args...)		  \
 	do {					  \
 	if (dbgmap_err & channels) 		  \
@@ -1394,6 +1396,18 @@ static int __devinit s3cmci_probe(struct platform_device *pdev, int is2440)
 	mmc->f_min 	= host->clk_rate / (host->clk_div * 256);
 	mmc->f_max 	= host->clk_rate / host->clk_div;
 
+	if (f_max >= 0) {
+		unsigned f = f_max;
+
+		if (f < mmc->f_min)
+			f = mmc->f_min;
+		if (mmc->f_max > f) {
+			dev_info(&pdev->dev, "f_max lowered from %u to %u Hz\n",
+			    mmc->f_max, f);
+			mmc->f_max = f;
+		}
+	}
+
 	if (host->pdata->ocr_avail)
 		mmc->ocr_avail = host->pdata->ocr_avail;
 
@@ -1574,6 +1588,8 @@ static void __exit s3cmci_exit(void)
 
 module_init(s3cmci_init);
 module_exit(s3cmci_exit);
+
+module_param(f_max, int, 0644)
 
 MODULE_DESCRIPTION("Samsung S3C MMC/SD Card Interface driver");
 MODULE_LICENSE("GPL v2");
