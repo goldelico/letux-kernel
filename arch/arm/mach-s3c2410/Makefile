@@ -37,3 +37,5 @@ obj-$(CONFIG_SIMTEC_NOR)	+= nor-simtec.o
 # machine additions
 
 obj-$(CONFIG_MACH_BAST_IDE)	+= bast-ide.o
+obj-$(CONFIG_MACH_NEO1973_GTA01)+= mach-gta01.o
+
