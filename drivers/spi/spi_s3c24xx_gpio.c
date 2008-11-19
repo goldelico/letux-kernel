@@ -91,7 +91,7 @@ static void s3c2410_spigpio_chipselect(struct spi_device *dev, int value)
 	struct s3c2410_spigpio *sg = spidev_to_sg(dev);
 
 	if (sg->info && sg->info->chip_select)
-		(sg->info->chip_select)(sg->info, value);
+		(sg->info->chip_select)(sg->info, dev->chip_select, value);
 }
 
 static int s3c2410_spigpio_probe(struct platform_device *dev)
@@ -100,6 +100,7 @@ static int s3c2410_spigpio_probe(struct platform_device *dev)
 	struct spi_master	*master;
 	struct s3c2410_spigpio  *sp;
 	int ret;
+	int i;
 
 	master = spi_alloc_master(&dev->dev, sizeof(struct s3c2410_spigpio));
 	if (master == NULL) {
@@ -112,8 +113,10 @@ static int s3c2410_spigpio_probe(struct platform_device *dev)
 
 	platform_set_drvdata(dev, sp);
 
-	/* copy in the plkatform data */
+	/* copy in the platform data */
 	info = sp->info = dev->dev.platform_data;
+
+	master->num_chipselect = info->num_chipselect;
 
 	/* setup spi bitbang adaptor */
 	sp->bitbang.master = spi_master_get(master);
@@ -141,6 +144,22 @@ static int s3c2410_spigpio_probe(struct platform_device *dev)
 	ret = spi_bitbang_start(&sp->bitbang);
 	if (ret)
 		goto err_no_bitbang;
+
+	/* register the chips to go with the board */
+
+	for (i = 0; i < sp->info->board_size; i++) {
+		struct spi_device *spidev;
+
+		dev_info(&dev->dev, "registering %p: %s\n",
+			 &sp->info->board_info[i],
+			 sp->info->board_info[i].modalias);
+
+		sp->info->board_info[i].controller_data = sp;
+		spidev = spi_new_device(master, sp->info->board_info + i);
+		if (spidev)
+			spidev->max_speed_hz =
+					  sp->info->board_info[i].max_speed_hz;
+	}
 
 	return 0;
 

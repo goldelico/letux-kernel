@@ -510,7 +510,7 @@ static struct spi_board_info gta01_spi_board_info[] = {
 	},
 };
 
-static void spi_gpio_cs(struct s3c2410_spigpio_info *spi, int cs)
+static void spi_gpio_cs(struct s3c2410_spigpio_info *spi, int csidx, int cs)
 {
 	switch (cs) {
 	case BITBANG_CS_ACTIVE:

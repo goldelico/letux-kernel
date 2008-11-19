@@ -214,7 +214,7 @@ static struct platform_device qt2410_led = {
 
 /* SPI */
 
-static void spi_gpio_cs(struct s3c2410_spigpio_info *spi, int cs)
+static void spi_gpio_cs(struct s3c2410_spigpio_info *spi, int csidx, int cs)
 {
 	switch (cs) {
 	case BITBANG_CS_ACTIVE:
