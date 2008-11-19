@@ -76,6 +76,8 @@ struct s3c24xx_i2c {
 #ifdef CONFIG_CPU_FREQ
 	struct notifier_block	freq_transition;
 #endif
+
+	int			suspended;
 };
 
 /* default platform data removed, dev should always carry data. */
@@ -135,6 +137,14 @@ static inline void s3c24xx_i2c_disable_irq(struct s3c24xx_i2c *i2c)
 	unsigned long tmp;
 
 	tmp = readl(i2c->regs + S3C2410_IICCON);
+
+/* S3c2442 datasheet
+ *
+ * If the IICCON[5]=0, IICCON[4] does not operate correctly.
+ * So, It is recommended that you should set IICCON[5]=1,
+ * although you does not use the IIC interrupt.
+ */
+
 	writel(tmp & ~S3C2410_IICCON_IRQEN, i2c->regs + S3C2410_IICCON);
 }
 
@@ -479,6 +489,14 @@ static int s3c24xx_i2c_doxfer(struct s3c24xx_i2c *i2c,
 
 	if (i2c->suspended)
 		return -EIO;
+
+	if (i2c->suspended) {
+		dev_err(i2c->dev,
+		    "Hey I am still asleep (suspended: %d), retry later\n",
+		    i2c->suspended);
+		ret = -EAGAIN;
+		goto out;
+	}
 
 	ret = s3c24xx_i2c_set_master(i2c);
 	if (ret != 0) {
@@ -972,6 +990,8 @@ static int s3c24xx_i2c_resume(struct platform_device *dev)
 
 	i2c->suspended = 0;
 	s3c24xx_i2c_init(i2c);
+
+	i2c->suspended--;
 
 	return 0;
 }
