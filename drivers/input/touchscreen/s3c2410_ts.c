@@ -226,11 +226,17 @@ static irqreturn_t stylus_action(int irq, void *dev_id)
 	unsigned long x;
 	unsigned long y;
 	int length = (ts.head_raw_fifo - ts.tail_raw_fifo) & (ts.extent - 1);
-	int scaled_avg_x = ts.raw_running_avg.x / length;
-	int scaled_avg_y = ts.raw_running_avg.y / length;
+	int scaled_avg_x;
+	int scaled_avg_y;
 
 	x = readl(base_addr + S3C2410_ADCDAT0) & S3C2410_ADCDAT0_XPDATA_MASK;
 	y = readl(base_addr + S3C2410_ADCDAT1) & S3C2410_ADCDAT1_YPDATA_MASK;
+
+	if (!length)
+		goto store_sample;
+
+	scaled_avg_x = ts.raw_running_avg.x / length;
+	scaled_avg_y = ts.raw_running_avg.y / length;
 
 	/* we appear to accept every sample into both the running average FIFO
 	 * and the summing average.  BUT, if the last sample crossed a
@@ -280,7 +286,7 @@ static irqreturn_t stylus_action(int irq, void *dev_id)
 	else
 		ts.flag_previous_exceeded_threshold = 1;
 
-	/* accepted */
+store_sample:
 	ts.xp += x;
 	ts.yp += y;
 	ts.count++;
