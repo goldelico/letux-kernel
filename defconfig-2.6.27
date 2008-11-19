@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.27-stable-tracking_833aa0f0a1234485
-# Thu Sep 18 14:52:15 2008
+# Linux kernel version: 2.6.27-rc8
+# Wed Oct  1 12:18:52 2008
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1175,6 +1175,7 @@ CONFIG_SSB_POSSIBLE=y
 #
 # CONFIG_MFD_CORE is not set
 # CONFIG_MFD_SM501 is not set
+# CONFIG_MFD_ASIC3 is not set
 # CONFIG_HTC_EGPIO is not set
 # CONFIG_HTC_PASIC3 is not set
 # CONFIG_MFD_TMIO is not set
@@ -1384,7 +1385,6 @@ CONFIG_USB_STORAGE_JUMPSHOT=y
 CONFIG_USB_STORAGE_ALAUDA=y
 # CONFIG_USB_STORAGE_ONETOUCH is not set
 CONFIG_USB_STORAGE_KARMA=y
-# CONFIG_USB_STORAGE_SIERRA is not set
 # CONFIG_USB_STORAGE_CYPRESS_ATACB is not set
 CONFIG_USB_LIBUSUAL=y
 
