@@ -817,18 +817,27 @@ static int glamo_mci_suspend(struct platform_device *dev, pm_message_t state)
 	struct glamo_mci_host 	*host = mmc_priv(mmc);
 
 	host->suspending++;
+	if (host->pdata->mci_all_dependencies_resumed)
+		(host->pdata->mci_suspending)(dev);
+
 	return mmc_suspend_host(mmc, state);
 }
 
-static int glamo_mci_resume(struct platform_device *dev)
+int glamo_mci_resume(struct platform_device *dev)
 {
 	struct mmc_host *mmc = platform_get_drvdata(dev);
 	struct glamo_mci_host 	*host = mmc_priv(mmc);
+
+	if (host->pdata->mci_all_dependencies_resumed)
+		if (!(host->pdata->mci_all_dependencies_resumed)(dev))
+			return 0;
 
 	host->suspending--;
 
 	return mmc_resume_host(mmc);
 }
+EXPORT_SYMBOL_GPL(glamo_mci_resume);
+
 
 #else /* CONFIG_PM */
 #define glamo_mci_suspend NULL
