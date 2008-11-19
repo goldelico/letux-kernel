@@ -629,14 +629,14 @@ static inline int glamofb_cmdq_empty(struct glamofb_handle *gfb)
 /* call holding gfb->lock_cmd  when locking, until you unlock */
 int glamofb_cmd_mode(struct glamofb_handle *gfb, int on)
 {
-	int timeout = 200000;
+	int timeout = 2000000;
 
 	dev_dbg(gfb->dev, "glamofb_cmd_mode(gfb=%p, on=%d)\n", gfb, on);
 	if (on) {
 		dev_dbg(gfb->dev, "%s: waiting for cmdq empty: ",
 			__FUNCTION__);
 		while ((!glamofb_cmdq_empty(gfb)) && (timeout--))
-			yield();
+			/* yield() */;
 		if (timeout < 0) {
 			printk(KERN_ERR"*************"
 				       "glamofb cmd_queue never got empty"
@@ -650,21 +650,23 @@ int glamofb_cmd_mode(struct glamofb_handle *gfb, int on)
 			  GLAMO_LCD_CMD_TYPE_DISP |
 			  GLAMO_LCD_CMD_DATA_FIRE_VSYNC);
 
-		/* wait until LCD is idle */
-		dev_dbg(gfb->dev, "waiting for LCD idle: ");
-		timeout = 200000;
+		/* wait until lcd idle */
+		dev_dbg(gfb->dev, "waiting for lcd idle: ");
+		timeout = 2000000;
 		while ((!reg_read(gfb, GLAMO_REG_LCD_STATUS2) & (1 << 12)) &&
 		      (timeout--))
-			yield();
+			/* yield() */;
 		if (timeout < 0) {
 			printk(KERN_ERR"*************"
 				       "glamofb lcd never idle"
 				       "*************\n");
 			return -EIO;
 		}
-		dev_dbg(gfb->dev, "idle!\n");
 
 		mdelay(100);
+
+		dev_dbg(gfb->dev, "cmd mode entered\n");
+
 	} else {
 		/* RGB interface needs vsync/hsync */
 		if (reg_read(gfb, GLAMO_REG_LCD_MODE3) & GLAMO_LCD_MODE3_RGB)
@@ -680,6 +682,7 @@ int glamofb_cmd_mode(struct glamofb_handle *gfb, int on)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(glamofb_cmd_mode);
+
 
 int glamofb_cmd_write(struct glamofb_handle *gfb, u_int16_t val)
 {
