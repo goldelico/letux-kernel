@@ -62,25 +62,43 @@ static irqreturn_t neo1973kbd_hold_irq(int irq, void *dev_id)
 static void neo1973kbd_debounce_jack(struct work_struct *work)
 {
 	struct neo1973kbd *kbd = container_of(work, struct neo1973kbd, work);
-
-	/* we wait out any multiple interrupt stuttering in 100ms lumps */
+	unsigned long flags;
+	int loop = 0;
 
 	do {
-		kbd->hp_irq_count_in_work = kbd->hp_irq_count;
-		msleep(100);
-	} while (kbd->hp_irq_count != kbd->hp_irq_count_in_work);
-
-	/* no new interrupts on jack for 100ms... ok we will report it */
-
-	input_report_switch(kbd->input,
-			    SW_HEADPHONE_INSERT,
-			    gpio_get_value(irq_to_gpio(kbd->jack_irq)));
-	input_sync(kbd->input);
-
-	/* next time we get an interrupt on jack we need new work action */
-	kbd->work_in_progress = 0;
+		/*
+		 * we wait out any multiple interrupt
+		 * stuttering in 100ms lumps
+		 */
+		do {
+			kbd->hp_irq_count_in_work = kbd->hp_irq_count;
+			msleep(100);
+		} while (kbd->hp_irq_count != kbd->hp_irq_count_in_work);
+		/*
+		 * no new interrupts on jack for 100ms...
+		 * ok we will report it
+		 */
+		input_report_switch(kbd->input, SW_HEADPHONE_INSERT,
+				    gpio_get_value(irq_to_gpio(kbd->jack_irq)));
+		input_sync(kbd->input);
+		/*
+		 * we go around the outer loop again if we detect that more
+		 * interrupts came while we are servicing here.  But we have
+		 * to sequence it carefully with interrupts off
+		 */
+		local_save_flags(flags);
+		/* no interrupts during this work means we can exit the work */
+		loop = !!(kbd->hp_irq_count != kbd->hp_irq_count_in_work);
+		if (!loop)
+			kbd->work_in_progress = 0;
+		local_irq_restore(flags);
+		/*
+		 * interrupt that comes here will either queue a new work action
+		 * since work_in_progress is cleared now, or be dealt with
+		 * when we loop.
+		 */
+	} while (loop);
 }
-
 
 
 static irqreturn_t neo1973kbd_headphone_irq(int irq, void *dev_id)
