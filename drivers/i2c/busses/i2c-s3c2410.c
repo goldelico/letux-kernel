@@ -76,8 +76,6 @@ struct s3c24xx_i2c {
 #ifdef CONFIG_CPU_FREQ
 	struct notifier_block	freq_transition;
 #endif
-
-	int			suspended;
 };
 
 /* default platform data removed, dev should always carry data. */
