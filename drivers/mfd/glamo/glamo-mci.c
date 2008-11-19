@@ -684,6 +684,7 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	struct glamo_mci_host *host = mmc_priv(mmc);
 	int n = 0;
 	int div;
+	int powering = 0;
 
 	/* Set power */
 	switch(ios->power_mode) {
@@ -699,6 +700,7 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		glamo_engine_enable(glamo_mci_def_pdata.pglamo,
 							GLAMO_ENGINE_MMC);
 		glamo_mci_reset(host);
+		powering = 1;
 		break;
 
 	case MMC_POWER_OFF:
@@ -715,6 +717,12 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	host->real_rate = __glamo_mci_set_card_clock(host, ios->clock, &div);
 	host->clk_div = div;
+
+	/* after power-up, we are meant to give it >= 74 clocks so it can
+	 * initialize itself.  Doubt any modern cards need it but anyway...
+	 */
+	if (powering)
+		msleep(1);
 
 	if (!sd_idleclk)
 		/* stop the clock to card, because we are idle until transfer */
