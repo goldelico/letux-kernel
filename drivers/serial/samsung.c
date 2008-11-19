@@ -50,8 +50,10 @@
 #include <mach/map.h>
 
 #include <plat/regs-serial.h>
+#ifdef CONFIG_MACH_NEO1973
 #include <mach/regs-gpio.h>
 #include <mach/regs-clock.h>
+#endif
 
 #include "samsung.h"
 
@@ -889,6 +891,7 @@ static struct s3c24xx_uart_port s3c24xx_serial_ports[CONFIG_SERIAL_SAMSUNG_UARTS
 #endif
 };
 
+#ifdef CONFIG_MACH_NEO1973_GTA02
 static void s3c24xx_serial_force_debug_port_up(void)
 {
 	struct s3c24xx_uart_port *ourport = &s3c24xx_serial_ports[
@@ -950,7 +953,7 @@ static void s3c2410_printascii(const char *sz)
 		sz++;
 	}
 }
-
+#endif
 
 /* s3c24xx_serial_resetport
  *
@@ -1252,11 +1255,12 @@ int s3c24xx_serial_init(struct platform_driver *drv,
 			struct s3c24xx_uart_info *info)
 {
 	dbg("s3c24xx_serial_init(%p,%p)\n", drv, info);
-
+#ifdef CONFIG_MACH_NEO1973_GTA02
 	/* set up the emergency debug UART functions */
 
 	printk_emergency_debug_spew_init = s3c24xx_serial_force_debug_port_up;
 	printk_emergency_debug_spew_send_string = s3c2410_printascii;
+#endif
 
 #ifdef CONFIG_PM
 	drv->suspend = s3c24xx_serial_suspend;
