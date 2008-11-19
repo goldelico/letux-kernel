@@ -842,6 +842,7 @@ static void s3c2410_udc_handle_ep(struct s3c2410_ep *ep)
 	u32			ep_csr1;
 	u32			idx;
 
+handle_ep_again:
 	if (likely (!list_empty(&ep->queue)))
 		req = list_entry(ep->queue.next,
 				struct s3c2410_request, queue);
@@ -881,6 +882,8 @@ static void s3c2410_udc_handle_ep(struct s3c2410_ep *ep)
 
 		if ((ep_csr1 & S3C2410_UDC_OCSR1_PKTRDY) && req) {
 			s3c2410_udc_read_fifo(ep,req);
+			if (s3c2410_udc_fifo_count_out())
+				goto handle_ep_again;
 		}
 	}
 }
