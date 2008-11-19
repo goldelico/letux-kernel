@@ -187,9 +187,17 @@ static int bq27000_battery_get_property(struct power_supply *psy,
 				val->intval = POWER_SUPPLY_STATUS_CHARGING;
 				break;
 			}
+			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+			break;
 		}
 
-		val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		/*
+		 * platform provided definite indication of charger presence,
+		 * and it is telling us it isn't there... but we are on so we
+		 * must be running from battery --->
+		 */
+
+		val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
 		break;
 
 use_bat:
