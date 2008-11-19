@@ -22,29 +22,10 @@
 #include <asm/hardware.h>
 #include <asm/arch/regs-gpio.h>
 
-static inline int gpio_request(unsigned gpio, const char *label)
-{
-	return 0;
-}
-
-static inline void gpio_free(unsigned gpio)
-{
-	return;
-}
-
-static inline int gpio_direction_input(unsigned gpio)
-{
-	s3c2410_gpio_cfgpin(gpio, S3C2410_GPIO_INPUT);
-	return 0;
-}
-
-static inline int gpio_direction_output(unsigned gpio, int value)
-{
-	s3c2410_gpio_cfgpin(gpio, S3C2410_GPIO_OUTPUT);
-	/* REVISIT can we write the value first, to avoid glitching? */
-	s3c2410_gpio_setpin(gpio, value);
-	return 0;
-}
+int gpio_request(unsigned gpio, const char *label);
+void gpio_free(unsigned gpio);
+int gpio_direction_input(unsigned gpio);
+int gpio_direction_output(unsigned gpio, int value);
 
 #define gpio_get_value(gpio)		s3c2410_gpio_getpin(gpio)
 #define gpio_set_value(gpio,value)	s3c2410_gpio_setpin(gpio, value)
