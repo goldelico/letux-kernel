@@ -348,15 +348,13 @@ static void glamo_irq_demux_handler(unsigned int irq, struct irq_desc *desc)
 {
 	const unsigned int cpu = smp_processor_id();
 
-	spin_lock(&desc->lock);
-
 	desc->status &= ~(IRQ_REPLAY | IRQ_WAITING);
 
 	if (unlikely(desc->status & IRQ_INPROGRESS)) {
 		desc->status |= (IRQ_PENDING | IRQ_MASKED);
 		desc->chip->mask(irq);
 		desc->chip->ack(irq);
-		goto out_unlock;
+		return;
 	}
 
 	kstat_cpu(cpu).irqs[irq]++;
@@ -387,9 +385,6 @@ static void glamo_irq_demux_handler(unsigned int irq, struct irq_desc *desc)
 	} while ((desc->status & (IRQ_PENDING | IRQ_DISABLED)) == IRQ_PENDING);
 
 	desc->status &= ~IRQ_INPROGRESS;
-
-out_unlock:
-	spin_unlock(&desc->lock);
 }
 
 /***********************************************************************
