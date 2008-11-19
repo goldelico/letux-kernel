@@ -324,14 +324,17 @@ static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
 	/* figure out if orientation is going to change */
 	orientation_changing = will_orientation_change(var);
 
-        /* adjust the pitch according to new orientation to come */
-        if (orientation_changing) {
+	/* adjust the pitch according to new orientation to come */
+
+	if (orientation_changing) {
 		pitch = var->yres * var->bits_per_pixel / 8;
         } else {
 		pitch = var->xres * var->bits_per_pixel / 8;
         }
 
-	/* set the awaiten LCD geometry */
+	/*
+	 * set the desired LCD geometry
+	 */
 	reg_set_bit_mask(glamo,
 			 GLAMO_REG_LCD_WIDTH,
 			 GLAMO_LCD_WIDTH_MASK,
