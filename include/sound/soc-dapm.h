@@ -244,6 +244,13 @@ int snd_soc_dapm_nc_pin(struct snd_soc_codec *codec, char *pin);
 int snd_soc_dapm_get_pin_status(struct snd_soc_codec *codec, char *pin);
 int snd_soc_dapm_sync(struct snd_soc_codec *codec);
 
+/* dapm audio endpoint control */
+int snd_soc_dapm_set_endpoint(struct snd_soc_codec *codec,
+	char *pin, int status);
+int snd_soc_dapm_get_endpoint(struct snd_soc_codec *codec,
+	char *pin);
+int snd_soc_dapm_sync_endpoints(struct snd_soc_codec *codec);
+
 /* dapm widget types */
 enum snd_soc_dapm_type {
 	snd_soc_dapm_input = 0,		/* input pin */
