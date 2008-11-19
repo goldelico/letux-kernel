@@ -29,6 +29,7 @@
 #include <linux/jiffies.h>
 #include <linux/delay.h>
 #include <linux/pm.h>
+#include <linux/workqueue.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/bq27000_battery.h>
@@ -110,11 +111,31 @@ enum bq27000_status_flags {
 
 #define NANOVOLTS_UNIT 3750
 
+struct bq27000_bat_regs {
+	int		ai;
+	int		flags;
+	int		lmd;
+	int		rsoc;
+	int		temp;
+	int		tte;
+	int		ttf;
+	int		volt;
+};
+
 struct bq27000_device_info {
 	struct device *dev;
 	struct power_supply bat;
+	struct power_supply ac;
+	struct power_supply usb;
+	struct delayed_work work;
 	struct bq27000_platform_data *pdata;
+
+	struct bq27000_bat_regs regs;
 };
+
+static unsigned int cache_time = 10000;
+module_param(cache_time, uint, 0644);
+MODULE_PARM_DESC(cache_time, "cache time in milliseconds");
 
 /*
  * reading 16 bit values over HDQ has a special hazard where the
@@ -147,13 +168,9 @@ static int hdq_read16(struct bq27000_device_info *di, int address)
 	return -ETIME;
 }
 
-#define to_bq27000_device_info(x) container_of((x), \
-					       struct bq27000_device_info, \
-					       bat);
-
 static void bq27000_battery_external_power_changed(struct power_supply *psy)
 {
-	struct bq27000_device_info *di = to_bq27000_device_info(psy);
+	struct bq27000_device_info *di = container_of(psy, struct bq27000_device_info, bat);
 
 	dev_dbg(di->dev, "%s\n", __FUNCTION__);
 }
@@ -162,11 +179,8 @@ static int bq27000_battery_get_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val)
 {
-	int v, n;
-	struct bq27000_device_info *di = to_bq27000_device_info(psy);
-
-	if (!(di->pdata->hdq_initialized)())
-		return -EINVAL;
+	int n;
+	struct bq27000_device_info *di = container_of(psy, struct bq27000_device_info, bat);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -207,84 +221,80 @@ use_bat:
 		 * but... battery state can be out of date by 4 seconds or
 		 * so... use the platform callbacks if possible.
 		 */
-		v = hdq_read16(di, BQ27000_AI_L);
-		if (v < 0)
-			return v;
 
 		/* no real activity on the battery */
-		if (v < 2) {
-			if (!hdq_read16(di, BQ27000_TTF_L))
+		if (di->regs.ai < 2) {
+			if (!di->regs.ttf)
 				val->intval = POWER_SUPPLY_STATUS_FULL;
 			else
 				val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 			break;
 		}
 		/* power is actually going in or out... */
-		v = (di->pdata->hdq_read)(BQ27000_FLAGS);
-		if (v < 0)
-			return v;
-		if (v & BQ27000_STATUS_CHGS)
+		if (di->regs.flags < 0)
+			return di->regs.flags;
+		if (di->regs.flags & BQ27000_STATUS_CHGS)
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;
 		else
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
 		break;
+	case POWER_SUPPLY_PROP_HEALTH:
+		val->intval = POWER_SUPPLY_HEALTH_UNKNOWN;
+		/* Do we have accurate readings... */
+		if (di->regs.flags < 0)
+			return di->regs.flags;
+		if (di->regs.flags & BQ27000_STATUS_VDQ)
+			val->intval = POWER_SUPPLY_HEALTH_GOOD;
+		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		v = hdq_read16(di, BQ27000_VOLT_L);
-		if (v < 0)
-			return v;
+		if (di->regs.volt < 0)
+			return di->regs.volt;
 		/* mV -> uV */
-		val->intval = v * 1000;
+		val->intval = di->regs.volt * 1000;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		v = (di->pdata->hdq_read)(BQ27000_FLAGS);
-		if (v < 0)
-			return v;
-		if (v & BQ27000_STATUS_CHGS)
+		if (di->regs.flags < 0)
+			return di->regs.flags;
+		if (di->regs.flags & BQ27000_STATUS_CHGS)
 			n = -NANOVOLTS_UNIT;
 		else
 			n = NANOVOLTS_UNIT;
-		v = hdq_read16(di, BQ27000_AI_L);
-		if (v < 0)
-			return v;
-		val->intval = (v * n) / di->pdata->rsense_mohms;
+		if (di->regs.ai < 0)
+			return di->regs.ai;
+		val->intval = (di->regs.ai * n) / di->pdata->rsense_mohms;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		v = hdq_read16(di, BQ27000_LMD_L);
-		if (v < 0)
-			return v;
-		val->intval = (v * 3570) / di->pdata->rsense_mohms;
+		if (di->regs.lmd < 0)
+			return di->regs.lmd;
+		val->intval = (di->regs.lmd * 3570) / di->pdata->rsense_mohms;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		v = hdq_read16(di, BQ27000_TEMP_L);
-		if (v < 0)
-			return v;
+		if (di->regs.temp < 0)
+			return di->regs.temp;
 		/* K (in 0.25K units) is 273.15 up from C (in 0.1C)*/
 		/* 10926 = 27315 * 4 / 10 */
-		val->intval = (((long)v * 10l) - 10926) / 4;
+		val->intval = (((long)di->regs.temp * 10l) - 10926) / 4;
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		val->intval = (di->pdata->hdq_read)(BQ27000_RSOC);
+		val->intval = di->regs.rsoc;
 		if (val->intval < 0)
 			return val->intval;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-		v = (di->pdata->hdq_read)(BQ27000_RSOC);
-		val->intval = !(v < 0);
+		val->intval = !(di->regs.rsoc < 0);
 		break;
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW:
-		v = hdq_read16(di, BQ27000_TTE_L);
-		if (v < 0)
-			return v;
-		val->intval = 60 * v;
+		if (di->regs.tte < 0)
+			return di->regs.tte;
+		val->intval = 60 * di->regs.tte;
 		break;
 	case POWER_SUPPLY_PROP_TIME_TO_FULL_NOW:
-		v = hdq_read16(di, BQ27000_TTF_L);
-		if (v < 0)
-			return v;
-		val->intval = 60 * v;
+		if (di->regs.ttf < 0)
+			return di->regs.ttf;
+		val->intval = 60 * di->regs.ttf;
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		if (di->pdata->get_charger_online_status)
@@ -299,8 +309,84 @@ use_bat:
 	return 0;
 }
 
+static void bq27000_battery_work(struct work_struct *work)
+{
+	struct bq27000_device_info *di =
+		container_of(work, struct bq27000_device_info, work.work);
+
+	if ((di->pdata->hdq_initialized)()) {
+		struct bq27000_bat_regs regs;
+
+		regs.ai    = hdq_read16(di, BQ27000_AI_L);
+		regs.flags = (di->pdata->hdq_read)(BQ27000_FLAGS);
+		regs.lmd   = hdq_read16(di, BQ27000_LMD_L);
+		regs.rsoc  = (di->pdata->hdq_read)(BQ27000_RSOC);
+		regs.temp  = hdq_read16(di, BQ27000_TEMP_L);
+		regs.tte   = hdq_read16(di, BQ27000_TTE_L);
+		regs.ttf   = hdq_read16(di, BQ27000_TTF_L);
+		regs.volt  = hdq_read16(di, BQ27000_VOLT_L);
+
+		if (memcmp (&regs, &di->regs, sizeof(regs)) != 0) {
+			di->regs = regs;
+			power_supply_changed(&di->bat);
+		}
+	}
+
+	if (!schedule_delayed_work(&di->work, cache_time))
+		dev_err(di->dev, "battery service reschedule failed\n");
+}
+
+static int ac_get_property(struct power_supply *psy,
+			enum power_supply_property psp,
+			union power_supply_propval *val)
+{
+	int ret = 0;
+	struct bq27000_device_info *di = container_of(psy, struct bq27000_device_info, ac);
+
+	if (!(di->pdata->hdq_initialized)())
+		return -EINVAL;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_ONLINE:
+		if (di->pdata->get_charger_online_status)
+			val->intval = (di->pdata->get_charger_online_status)();
+		else
+			return -EINVAL;
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
+static int usb_get_property(struct power_supply *psy,
+			enum power_supply_property psp,
+			union power_supply_propval *val)
+{
+	int ret = 0;
+	struct bq27000_device_info *di = container_of(psy, struct bq27000_device_info, usb);
+
+	if (!(di->pdata->hdq_initialized)())
+		return -EINVAL;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_ONLINE:
+		if (di->pdata->get_charger_online_status)
+			val->intval = (di->pdata->get_charger_online_status)();
+		else
+			return -EINVAL;
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
 static enum power_supply_property bq27000_battery_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
+	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
@@ -311,6 +397,10 @@ static enum power_supply_property bq27000_battery_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_ONLINE
+};
+
+static enum power_supply_property power_props[] = {
+	POWER_SUPPLY_PROP_ONLINE,
 };
 
 static int bq27000_battery_probe(struct platform_device *pdev)
@@ -342,14 +432,47 @@ static int bq27000_battery_probe(struct platform_device *pdev)
 	di->bat.use_for_apm = 1;
 	di->pdata = pdata;
 
+	di->ac.name            = "ac";
+	di->ac.type            = POWER_SUPPLY_TYPE_MAINS;
+	di->ac.properties      = power_props;
+	di->ac.num_properties  = ARRAY_SIZE(power_props);
+	di->ac.get_property    = ac_get_property;
+
+	di->usb.name           = "usb";
+	di->usb.type           = POWER_SUPPLY_TYPE_USB;
+	di->usb.properties     = power_props;
+	di->usb.num_properties = ARRAY_SIZE(power_props);
+	di->usb.get_property   = usb_get_property;
+
 	retval = power_supply_register(&pdev->dev, &di->bat);
 	if (retval) {
 		dev_err(di->dev, "failed to register battery\n");
 		goto batt_failed;
 	}
 
+	retval = power_supply_register(&pdev->dev, &di->ac);
+	if (retval) {
+		dev_err(di->dev, "failed to register ac\n");
+		goto ac_failed;
+	}
+
+	retval = power_supply_register(&pdev->dev, &di->usb);
+	if (retval) {
+		dev_err(di->dev, "failed to register usb\n");
+		goto usb_failed;
+	}
+
+	INIT_DELAYED_WORK(&di->work, bq27000_battery_work);
+
+	if (!schedule_delayed_work(&di->work, 0))
+		dev_err(di->dev, "failed to schedule bq27000_battery_work\n");
+
 	return 0;
 
+usb_failed:
+	power_supply_unregister(&di->ac);
+ac_failed:
+	power_supply_unregister(&di->bat);
 batt_failed:
 	kfree(di);
 di_alloc_failed:
@@ -360,7 +483,11 @@ static int bq27000_battery_remove(struct platform_device *pdev)
 {
 	struct bq27000_device_info *di = platform_get_drvdata(pdev);
 
+	cancel_delayed_work(&di->work);
+
 	power_supply_unregister(&di->bat);
+	power_supply_unregister(&di->ac);
+	power_supply_unregister(&di->usb);
 
 	return 0;
 }
@@ -372,7 +499,8 @@ void bq27000_charging_state_change(struct platform_device *pdev)
 	if (!di)
 	    return;
 
-	power_supply_changed(&di->bat);
+	power_supply_changed(&di->ac);
+	power_supply_changed(&di->usb);
 }
 EXPORT_SYMBOL_GPL(bq27000_charging_state_change);
 
@@ -381,11 +509,17 @@ EXPORT_SYMBOL_GPL(bq27000_charging_state_change);
 static int bq27000_battery_suspend(struct platform_device *pdev,
 				  pm_message_t state)
 {
+	struct bq27000_device_info *di = platform_get_drvdata(pdev);
+
+	cancel_delayed_work(&di->work);
 	return 0;
 }
 
 static int bq27000_battery_resume(struct platform_device *pdev)
 {
+	struct bq27000_device_info *di = platform_get_drvdata(pdev);
+
+	schedule_delayed_work(&di->work, 0);
 	return 0;
 }
 
