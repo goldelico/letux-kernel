@@ -146,6 +146,12 @@ struct pbe {
 	struct pbe *next;
 };
 
+/**
+ * global indication we are somewhere between start of suspend and end of
+ * resume, nonzero is true
+ */
+extern int global_inside_suspend;
+
 /* mm/page_alloc.c */
 extern void mark_free_pages(struct zone *zone);
 

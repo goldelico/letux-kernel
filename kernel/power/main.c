@@ -132,6 +132,9 @@ static inline int suspend_test(int level) { return 0; }
 
 #endif /* CONFIG_PM_SLEEP */
 
+int global_inside_suspend;
+EXPORT_SYMBOL(global_inside_suspend);
+
 #ifdef CONFIG_SUSPEND
 
 #ifdef CONFIG_PM_TEST_SUSPEND
@@ -322,6 +325,8 @@ int suspend_devices_and_enter(suspend_state_t state)
 	if (!suspend_ops)
 		return -ENOSYS;
 
+	global_inside_suspend = 1;
+
 	if (suspend_ops->begin) {
 		error = suspend_ops->begin(state);
 		if (error)
@@ -365,6 +370,8 @@ int suspend_devices_and_enter(suspend_state_t state)
  Close:
 	if (suspend_ops->end)
 		suspend_ops->end();
+	global_inside_suspend = 0;
+
 	return error;
 
  Recover_platform:
