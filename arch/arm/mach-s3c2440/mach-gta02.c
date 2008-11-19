@@ -929,25 +929,6 @@ static struct i2c_board_info gta02_i2c_devs[] __initdata = {
         },
 };
 
-static struct platform_device *gta02_devices[] __initdata = {
-	&s3c_device_usb,
-	&s3c_device_wdt,
-	&s3c_device_i2c,
-	&s3c_device_iis,
-	// &s3c_device_sdi, /* FIXME: temporary disable to avoid s3cmci bind */
-	&s3c_device_usbgadget,
-	&s3c_device_nand,
-	&s3c_device_ts,
-	&gta02_nor_flash,
-	&sc32440_fiq_device,
-	&gta02_version_device,
-	&gta02_memconfig_device,
-	&gta02_resume_reason_device,
-	&s3c24xx_pwm_device,
-	&gta02_pm_wlan_dev, /* not dependent on PMU */
-
-};
-
 static struct s3c2410_nand_set gta02_nand_sets[] = {
 	[0] = {
 		.name		= "neo1973-nand",
@@ -1589,31 +1570,30 @@ static struct platform_device *gta02_devices[] __initdata = {
 	// &s3c_device_sdi, /* FIXME: temporary disable to avoid s3cmci bind */
 	&s3c_device_usbgadget,
 	&s3c_device_nand,
-	&s3c_device_ts,
 	&gta02_nor_flash,
 
 	&sc32440_fiq_device,
 	&s3c24xx_pwm_device,
-	&gta02_pm_wlan_dev,
+	&gta02_led_dev,
+	&gta02_pm_wlan_dev, /* not dependent on PMU */
 
 	&s3c_device_iis,
-	&gta02_pmu_dev,
 	&s3c_device_i2c,
 };
-
 
 /* these guys DO need to be children of PMU */
 
 static struct platform_device *gta02_devices_pmu_children[] = {
+	&gta02_glamo_dev, /* glamo-mci power handling depends on PMU */
+	&s3c_device_ts, /* input 1 */
 	&gta01_pm_gps_dev,
 	&gta01_pm_bt_dev,
 	&gta02_pm_gsm_dev,
 	&gta02_sdio_dev,
 	&gta02_pm_usbhost_dev,
-	&s3c_device_spi_acc,
-	&gta02_button_dev,
+	&s3c_device_spi_acc, /* input 2 and 3 */
+	&gta02_button_dev, /* input 4 */
 	&gta02_resume_reason_device,
-	&gta02_glamo_dev, /* glamo-mci power handling depends on PMU */
 };
 
 /* this is called when pc50633 is probed, unfortunately quite late in the
@@ -1686,31 +1666,10 @@ static void __init gta02_machine_init(void)
 	set_s3c2410ts_info(&gta02_ts_cfg);
 	
 	mangle_glamo_res_by_system_rev();
-	platform_device_register(&gta02_glamo_dev);
-
-	platform_device_register(&s3c_device_spi_acc);
-	platform_device_register(&gta02_button_dev);
-	platform_device_register(&gta02_pm_usbhost_dev);
 
 	mangle_pmu_pdata_by_system_rev();
-	platform_device_register(&gta02_pmu_dev);
-	platform_device_register(&gta02_vibrator_dev);
-	platform_device_register(&gta02_led_dev);
-	platform_device_register(&gta02_sdio_dev);
 
 	platform_add_devices(gta02_devices, ARRAY_SIZE(gta02_devices));
-
-#ifdef CONFIG_GTA02_HDQ
-	switch (system_rev) {
-	case GTA02v5_SYSTEM_REV:
-	case GTA02v6_SYSTEM_REV:
-		platform_device_register(&gta02_hdq_device);
-		platform_device_register(&bq27000_battery_device);
-		break;
-	default:
-		break;
-	}
-#endif
 
         i2c_register_board_info(0, gta02_i2c_devs,
                 ARRAY_SIZE(gta02_i2c_devs));

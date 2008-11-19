@@ -215,6 +215,7 @@ EXPORT_SYMBOL_GPL(fiq_kick);
 static int __init sc32440_fiq_probe(struct platform_device *pdev)
 {
 	struct resource *r = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	struct sc32440_fiq_platform_data *pdata = pdev->dev.platform_data;
 	int ret;
 
 	if (!r)

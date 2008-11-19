@@ -285,11 +285,11 @@ static void __glamo_mci_fix_card_div(struct glamo_mci_host *host, int div)
 	 * register shared with SCLK divisor -- no chance of race because
 	 * we don't use sensor interface
 	 */
-	writew_dly((readw(glamo_mci_def_pdata.pglamo->base +
+	writew((readw(glamo_mci_def_pdata.pglamo->base +
 			GLAMO_REG_CLOCK_GEN8) & 0xff00) | div,
 		glamo_mci_def_pdata.pglamo->base + GLAMO_REG_CLOCK_GEN8);
 	/* enable clock to divider input */
-	writew_dly(readw(glamo_mci_def_pdata.pglamo->base +
+	writew(readw(glamo_mci_def_pdata.pglamo->base +
 		GLAMO_REG_CLOCK_GEN5_1) | GLAMO_CLOCK_GEN51_EN_DIV_TCLK,
 		glamo_mci_def_pdata.pglamo->base + GLAMO_REG_CLOCK_GEN5_1);
 
@@ -628,12 +628,12 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 	 */
 	do
 		status = readw(host->base + GLAMO_REG_MMC_RB_STAT1);
-	while ((((status >> 15) & 1) != (host->ccnt & 1)) ||
+	while (((((status >> 15) & 1) != (host->ccnt & 1)) ||
 		(!(status & (GLAMO_STAT1_MMC_RB_RRDY |
 			     GLAMO_STAT1_MMC_RTOUT |
 			     GLAMO_STAT1_MMC_DTOUT |
 			     GLAMO_STAT1_MMC_BWERR |
-			     GLAMO_STAT1_MMC_BRERR))) && (insanity_timeout--));
+			     GLAMO_STAT1_MMC_BRERR)))) && (insanity_timeout--));
 
 	if (insanity_timeout < 0) {
 		cmd->error = -ETIMEDOUT;

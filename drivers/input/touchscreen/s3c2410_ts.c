@@ -131,9 +131,11 @@ static void touch_timer_fire(unsigned long data)
 	// if we need to send an untouch event, but we haven't yet sent the
 	// touch event (this happens if the touchscreen was tapped lightly),
 	// send the touch event first
-	if (!updown && !ts.flag_first_touch_sent && ts.count != 0) {
-		input_report_abs(ts.dev, ABS_X, ts.xp >> ts.shift);
-		input_report_abs(ts.dev, ABS_Y, ts.yp >> ts.shift);
+	if (!updown && !ts.flag_first_touch_sent) {
+		if (ts.tsf[0])
+			(ts.tsf[0]->api->scale)(ts.tsf[0], &ts.coords[0]);
+		input_report_abs(ts.dev, ABS_X, ts.coords[0]);
+		input_report_abs(ts.dev, ABS_Y, ts.coords[1]);
 
 		input_report_key(ts.dev, BTN_TOUCH, 1);
 		input_report_abs(ts.dev, ABS_PRESSURE, 1);

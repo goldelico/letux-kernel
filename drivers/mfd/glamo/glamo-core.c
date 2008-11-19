@@ -1212,7 +1212,7 @@ static int __init glamo_probe(struct platform_device *pdev)
 	if (glamo->pdata->glamo_irq_is_wired &&
 	    !glamo->pdata->glamo_irq_is_wired()) {
 		set_irq_chained_handler(glamo->irq, glamo_irq_demux_handler);
-		set_irq_type(glamo->irq, IRQT_FALLING);
+		set_irq_type(glamo->irq, IRQ_TYPE_EDGE_FALLING);
 		dev_info(&pdev->dev, "Glamo interrupt registered\n");
 		glamo->irq_works = 1;
 	} else {

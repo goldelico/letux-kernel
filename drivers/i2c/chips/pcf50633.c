@@ -689,7 +689,7 @@ reschedule:
 int pcf50633_notify_usb_current_limit_change(struct pcf50633_data *pcf,
 								unsigned int ma)
 {
-	/* can happen if he calls with pcf50633_global before probe
+	/* can happen if he calls before probe
 	 * have to bail with error since we can't even schedule the work
 	 */
 	if (!pcf) {
@@ -2176,8 +2176,6 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 		goto exit_free;
 	}
 
-	pcf50633_global = pcf;
-
 	populate_sysfs_group(pcf);
 
 	err = sysfs_create_group(&new_client->dev.kobj, &pcf_attr_group);
@@ -2226,10 +2224,10 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 	 * LEDOUT register can be reset by disabling and enabling the
 	 * LED converter via control bit led_on in the LEDENA register"
 	 */
-	reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
-	reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
-	reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
-	reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
 
 	err = request_irq(irq, pcf50633_irq, IRQF_TRIGGER_FALLING,
 			  "pcf50633", pcf);
@@ -2490,8 +2488,6 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 
 	mutex_unlock(&pcf->lock);
 
-	pcf->is_suspended = 1;
-	activate_all_resume_dependencies(&pcf->resume_dependency);
 	return 0;
 }
 
