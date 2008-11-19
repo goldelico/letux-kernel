@@ -2540,7 +2540,12 @@ EXPORT_SYMBOL_GPL(pcf50633_wait_for_ready);
 
 void pcf50633_backlight_resume(struct pcf50633_data *pcf)
 {
-	dev_dbg(&pcf->client.dev, "pcf50633_backlight_resume\n");
+	dev_err(&pcf->client.dev, "pcf50633_backlight_resume\n");
+
+	reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
+	reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
+	reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
+	reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
 
 	/* platform defines resume ramp speed */
 	reg_write(pcf, PCF50633_REG_LEDDIM,
