@@ -168,6 +168,7 @@ A_STATUS wmi_set_pmkid_list_cmd(struct wmi_t *wmip,
                                 WMI_SET_PMKID_LIST_CMD *pmkInfo);
 A_STATUS wmi_set_txPwr_cmd(struct wmi_t *wmip, A_UINT8 dbM);
 A_STATUS wmi_get_txPwr_cmd(struct wmi_t *wmip);
+A_STATUS wmi_switch_radio(struct wmi_t *wmip, A_UINT8 on);
 A_STATUS wmi_addBadAp_cmd(struct wmi_t *wmip, A_UINT8 apIndex, A_UINT8 *bssid);
 A_STATUS wmi_deleteBadAp_cmd(struct wmi_t *wmip, A_UINT8 apIndex);
 A_STATUS wmi_set_tkip_countermeasures_cmd(struct wmi_t *wmip, A_BOOL en);

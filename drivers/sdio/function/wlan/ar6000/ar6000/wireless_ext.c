@@ -649,8 +649,16 @@ ar6000_ioctl_siwtxpow(struct net_device *dev,
         return -EIO;
     }
 
-    if (rrq->disabled) {
-        return -EOPNOTSUPP;
+    if (ar->arRadioSwitch == WLAN_ENABLED
+	&& rrq->disabled) {
+	    if (wmi_switch_radio(ar->arWmi, WLAN_DISABLED) < 0)
+		    return -EIO;
+	    ar->arRadioSwitch = WLAN_DISABLED;
+    } else if (ar->arRadioSwitch == WLAN_DISABLED
+	       && !rrq->disabled) {
+	    if (wmi_switch_radio(ar->arWmi, WLAN_ENABLED) < 0)
+		    return -EIO;
+	    ar->arRadioSwitch = WLAN_ENABLED;
     }
 
     if (rrq->fixed) {
@@ -684,6 +692,11 @@ ar6000_ioctl_giwtxpow(struct net_device *dev,
 
     if (ar->arWlanState == WLAN_DISABLED) {
         return -EIO;
+    }
+
+    if (ar->arRadioSwitch == WLAN_DISABLED) {
+	    rrq->disabled = 1;
+	    return 0;
     }
 
     if (down_interruptible(&ar->arSem)) {
@@ -1610,7 +1623,7 @@ ar6000_ioctl_giwrange(struct net_device *dev,
     data->length = sizeof(struct iw_range);
     A_MEMZERO(range, sizeof(struct iw_range));
 
-    range->txpower_capa = 0;
+    range->txpower_capa = IW_TXPOW_DBM;
 
     range->min_pmp = 1 * 1024;
     range->max_pmp = 65535 * 1024;

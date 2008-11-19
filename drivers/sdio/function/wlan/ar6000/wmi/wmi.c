@@ -2990,6 +2990,39 @@ wmi_get_txPwr_cmd(struct wmi_t *wmip)
     return (wmi_cmd_send(wmip, osbuf, WMI_GET_TX_PWR_CMDID, NO_SYNC_WMIFLAG));
 }
 
+A_STATUS
+wmi_switch_radio(struct wmi_t *wmip, A_UINT8 on)
+{
+	WMI_SCAN_PARAMS_CMD scParams = {0, 0, 0, 0, 0,
+					WMI_SHORTSCANRATIO_DEFAULT,
+					DEFAULT_SCAN_CTRL_FLAGS,
+					0};
+
+	if (on) {
+		/* Enable foreground scanning */
+                if (wmi_scanparams_cmd(wmip, scParams.fg_start_period,
+                                       scParams.fg_end_period,
+                                       scParams.bg_period,
+                                       scParams.minact_chdwell_time,
+                                       scParams.maxact_chdwell_time,
+                                       scParams.pas_chdwell_time,
+                                       scParams.shortScanRatio,
+                                       scParams.scanCtrlFlags,
+                                       scParams.max_dfsch_act_time) != A_OK) {
+			return -EIO;
+		}
+	} else {
+		wmi_disconnect_cmd(wmip);
+		if (wmi_scanparams_cmd(wmip, 0xFFFF, 0, 0, 0,
+				       0, 0, 0, 0xFF, 0) != A_OK) {
+			return -EIO;
+		}
+	}
+
+	return A_OK;
+}
+
+
 A_UINT16
 wmi_get_mapped_qos_queue(struct wmi_t *wmip, A_UINT8 trafficClass)
 {
