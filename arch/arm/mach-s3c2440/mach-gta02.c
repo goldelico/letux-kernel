@@ -1518,10 +1518,6 @@ static void __init gta02_machine_init(void)
 #endif
 	s3c2410_pm_init();
 
-	/* Set LCD_RESET / XRES to high */
-	s3c2410_gpio_setpin(GTA01_GPIO_LCD_RESET, 1);
-	s3c2410_gpio_cfgpin(GTA01_GPIO_LCD_RESET, S3C2410_GPIO_OUTPUT);
-
 	/* Make sure the modem can wake us up */
 	set_irq_type(GTA02_IRQ_MODEM, IRQT_RISING);
 	rc = request_irq(GTA02_IRQ_MODEM, gta02_modem_irq, IRQF_DISABLED,
