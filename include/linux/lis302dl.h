@@ -16,7 +16,8 @@ struct lis302dl_platform_data {
 	unsigned long pin_miso;
 	int open_drain;
 	int interrupt;
-	void (*lis302dl_bitbang_read_sample)(struct lis302dl_info *);
+	void (*lis302dl_bitbang)(struct lis302dl_info *lis, u8 *tx,
+			int tx_bytes, u8 *rx, int rx_bytes);
 	void (*lis302dl_suspend_io)(struct lis302dl_info *, int resuming);
 	int (*lis302dl_bitbang_reg_read)(struct lis302dl_info *, u8 reg);
 	void (*lis302dl_bitbang_reg_write)(struct lis302dl_info *, u8 reg,
@@ -28,6 +29,12 @@ struct lis302dl_info {
 	struct device *dev;
 	struct input_dev *input_dev;
 	unsigned int flags;
+	unsigned int threshold;
+	unsigned int duration;
+	struct {
+		unsigned int threshold; /* mg */
+		unsigned int duration;  /* ms */
+	} wakeup;
 	u_int8_t regs[0x40];
 };
 
@@ -140,6 +147,7 @@ enum lis302dl_reg_cloik_src {
 #define LIS302DL_F_FS			0x0020 	/* ADC full scale */
 #define LIS302DL_F_INPUT_OPEN 	0x0040  /* Set if input device is opened */
 #define LIS302DL_F_IRQ_WAKE 	0x0080  /* IRQ is setup in wake mode */
+#define LIS302DL_F_DR			0x0100 	/* Data rate, 400Hz/100Hz */
 
 
 #endif /* _LINUX_LIS302DL_H */
