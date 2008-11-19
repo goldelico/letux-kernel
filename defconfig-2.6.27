@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.27-rc1
-# Fri Aug  1 11:21:42 2008
+# Sun Aug  3 20:43:27 2008
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -985,12 +985,7 @@ CONFIG_VT_HW_CONSOLE_BINDING=y
 #
 # Non-8250 serial port support
 #
-CONFIG_SERIAL_SAMSUNG=y
-# CONFIG_SERIAL_SAMSUNG_DEBUG is not set
-CONFIG_SERIAL_SAMSUNG_CONSOLE=y
-CONFIG_SERIAL_S3C2410=y
-CONFIG_SERIAL_S3C2440=y
-CONFIG_SERIAL_CORE_CONSOLE=y
+# CONFIG_SERIAL_SAMSUNG is not set
 CONFIG_UNIX98_PTYS=y
 # CONFIG_LEGACY_PTYS is not set
 # CONFIG_IPMI_HANDLER is not set
@@ -1592,6 +1587,14 @@ CONFIG_DMADEVICES=y
 #
 # DMA Devices
 #
+
+#
+# Voltage and Current regulators
+#
+# CONFIG_REGULATOR is not set
+# CONFIG_REGULATOR_FIXED_VOLTAGE is not set
+# CONFIG_REGULATOR_VIRTUAL_CONSUMER is not set
+# CONFIG_REGULATOR_BQ24022 is not set
 CONFIG_UIO=y
 CONFIG_UIO_PDRV=y
 # CONFIG_UIO_SMX is not set
