@@ -437,6 +437,14 @@ static int pmu_callback(struct device *dev, unsigned int feature,
 		case PMU_EVT_USB_REMOVE:
 			pcf50633_charge_enable(pcf50633_global, 0);
 			break;
+		case PMU_EVT_CHARGER_IDLE:
+			/* printk(KERN_ERR"PMU_EVT_CHARGER_IDLE\n"); */
+			neo1973_gpb_setpin(GTA02_GPIO_AUX_LED, 0);
+			break;
+		case PMU_EVT_CHARGER_ACTIVE:
+			/* printk(KERN_ERR"PMU_EVT_CHARGER_ACTIVE\n"); */
+			neo1973_gpb_setpin(GTA02_GPIO_AUX_LED, 1);
+			break;
 		default:
 			break;
 		}
