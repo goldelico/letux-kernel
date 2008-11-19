@@ -513,6 +513,17 @@ void glamo_engine_reset(struct glamo_core *glamo, enum glamo_engine engine)
 }
 EXPORT_SYMBOL_GPL(glamo_engine_reset);
 
+void glamo_lcm_reset(int level)
+{
+	if (!glamo_handle)
+		return;
+
+	glamo_gpio_setpin(glamo_handle, GLAMO_GPIO4, level);
+	glamo_gpio_cfgpin(glamo_handle, GLAMO_GPIO4_OUTPUT);
+
+}
+EXPORT_SYMBOL_GPL(glamo_lcm_reset);
+
 enum glamo_pll {
 	GLAMO_PLL1,
 	GLAMO_PLL2,
@@ -1142,8 +1153,8 @@ static int glamo_resume(struct platform_device *pdev)
 static struct platform_driver glamo_driver = {
 	.probe		= glamo_probe,
 	.remove		= glamo_remove,
-	.suspend	= glamo_suspend,
-	.resume		= glamo_resume,
+	.suspend_late	= glamo_suspend,
+	.resume_early	= glamo_resume,
 	.driver		= {
 		.name	= "glamo3362",
 		.owner	= THIS_MODULE,
