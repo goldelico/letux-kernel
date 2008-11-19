@@ -2198,6 +2198,20 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 	reg_write(pcf, PCF50633_REG_INT4M, 0x00);
 	reg_write(pcf, PCF50633_REG_INT5M, 0x00);
 
+	/* force the backlight up, Qi does not do this for us */
+
+	/* pcf50633 manual p60
+	 * "led_out should never be set to 000000, as this would result
+	 * in a deadlock making it impossible to program another value.
+	 * If led_out should be inadvertently set to 000000, the
+	 * LEDOUT register can be reset by disabling and enabling the
+	 * LED converter via control bit led_on in the LEDENA register"
+	 */
+	reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
+	reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
+	reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
+	reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
+
 	err = request_irq(irq, pcf50633_irq, IRQF_TRIGGER_FALLING,
 			  "pcf50633", pcf);
 	if (err < 0)
@@ -2223,7 +2237,7 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 							    &pcf50633bl_ops);
 		if (!pcf->backlight)
 			goto exit_rtc;
-		/* FIXME: are we sure we want default == off? */
+
 		pcf->backlight->props.max_brightness = 0x3f;
 		pcf->backlight->props.power = FB_BLANK_UNBLANK;
 		pcf->backlight->props.fb_blank = FB_BLANK_UNBLANK;
