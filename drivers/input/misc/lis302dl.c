@@ -462,11 +462,15 @@ static int __devexit lis302dl_remove(struct spi_device *spi)
 	struct lis302dl_info *lis = dev_get_drvdata(&spi->dev);
 	unsigned long flags;
 
-	/* power down the device */
+	/* Reset and power down the device */
 	local_save_flags(flags);
+	reg_write(lis, LIS302DL_REG_CTRL3, 0x00);
+	reg_write(lis, LIS302DL_REG_CTRL2, 0x00);
 	reg_write(lis, LIS302DL_REG_CTRL1, 0x00);
 	local_irq_restore(flags);
 
+	/* Cleanup resources */
+	free_irq(lis->spi_dev->irq, lis);
 	sysfs_remove_group(&spi->dev.kobj, &lis302dl_attr_group);
 	input_unregister_device(lis->input_dev);
 	if (lis->input_dev)
