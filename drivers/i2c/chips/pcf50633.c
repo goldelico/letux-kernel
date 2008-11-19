@@ -120,6 +120,8 @@ struct pcf50633_data {
 	int allow_close;
 	int onkey_seconds;
 	int irq;
+	int have_been_suspended;
+	unsigned char pcfirq_resume[5];
 
 	int coldplug_done; /* cleared by probe, set by first work service */
 	int flag_bat_voltage_read; /* ipc to /sys batt voltage read func */
@@ -595,6 +597,17 @@ static void pcf50633_work(struct work_struct *work)
 		/* don't spew, delaying whatever else is happening */
 		msleep(1);
 		return;
+	}
+
+	/* hey did we just resume? */
+
+	if (pcf->have_been_suspended) {
+		pcf->have_been_suspended = 0;
+		/*
+		 * grab a copy of resume interrupt reasons
+		 * from pcf50633 POV
+		 */
+		memcpy(pcf->pcfirq_resume, pcfirq, sizeof(pcf->pcfirq_resume));
 	}
 
 	if (!pcf->coldplug_done) {
@@ -1856,6 +1869,71 @@ static int pcf50633_detach_client(struct i2c_client *client)
 	return 0;
 }
 
+/* you're going to need >300 bytes in buf */
+
+int pcf50633_report_resumers(struct pcf50633_data *pcf, char *buf)
+{
+	static char *int_names[] = {
+		"adpins",
+		"adprem",
+		"usbins",
+		"usbrem",
+		NULL,
+		NULL,
+		"rtcalarm",
+		"second",
+
+		"onkeyr",
+		"onkeyf",
+		"exton1r",
+		"exton1f",
+		"exton2r",
+		"exton2f",
+		"exton3r",
+		"exton3f",
+
+		"batfull",
+		"chghalt",
+		"thlimon",
+		"thlimoff",
+		"usblimon",
+		"usblimoff",
+		"adcrdy",
+		"onkey1s",
+
+		"lowsys",
+		"lowbat",
+		"hightmp",
+		"autopwrfail",
+		"dwn1pwrfail",
+		"dwn2pwrfail",
+		"ledpwrfail",
+		"ledovp",
+
+		"ldo1pwrfail",
+		"ldo2pwrfail",
+		"ldo3pwrfail",
+		"ldo4pwrfail",
+		"ldo5pwrfail",
+		"ldo6pwrfail",
+		"hcidopwrfail",
+		"hcidoovl"
+	};
+	char *end = buf;
+	int n;
+
+	for (n = 0; n < 40; n++)
+		if (int_names[n]) {
+			if (pcf->pcfirq_resume[n >> 3] & (1 >> (n & 7)))
+				end += sprintf(end, "  * %s\n", int_names[n]);
+			else
+				end += sprintf(end, "    %s\n", int_names[n]);
+		}
+	
+	return end - buf;
+}
+
+
 #ifdef CONFIG_PM
 #define INT1M_RESUMERS	(PCF50633_INT1_ADPINS		| \
 			 PCF50633_INT1_ADPREM		| \
@@ -1937,6 +2015,8 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 	__reg_write(pcf, PCF50633_REG_INT3M, ~INT3M_RESUMERS & 0xff);
 	__reg_write(pcf, PCF50633_REG_INT4M, ~INT4M_RESUMERS & 0xff);
 	__reg_write(pcf, PCF50633_REG_INT5M, ~INT5M_RESUMERS & 0xff);
+
+	pcf->have_been_suspended = 1;
 
 	mutex_unlock(&pcf->lock);
 

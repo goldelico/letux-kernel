@@ -64,6 +64,12 @@ pcf50633_charge_enable(struct pcf50633_data *pcf, int on);
 extern void
 pcf50633_backlight_resume(struct pcf50633_data *pcf);
 
+extern u_int16_t
+pcf50633_battvolt(struct pcf50633_data *pcf);
+
+extern int
+pcf50633_report_resumers(struct pcf50633_data *pcf, char *buf);
+
 #define PCF50633_FEAT_EXTON	0x00000001	/* not yet supported */
 #define PCF50633_FEAT_MBC	0x00000002
 #define PCF50633_FEAT_BBC	0x00000004	/* not yet supported */
