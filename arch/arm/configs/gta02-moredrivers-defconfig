@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.28-rc2
-# Mon Nov  3 06:00:31 2008
+# Linux kernel version: 2.6.28-rc3
+# Thu Nov 13 08:59:41 2008
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -990,6 +990,7 @@ CONFIG_VT_HW_CONSOLE_BINDING=y
 # Non-8250 serial port support
 #
 CONFIG_SERIAL_SAMSUNG=y
+CONFIG_SERIAL_SAMSUNG_UARTS=3
 CONFIG_SERIAL_SAMSUNG_CONSOLE=y
 CONFIG_SERIAL_S3C2410=y
 CONFIG_SERIAL_S3C2440=y
@@ -1560,6 +1561,7 @@ CONFIG_MMC_BLOCK=y
 # MMC/SD/SDIO Host Controller Drivers
 #
 CONFIG_MMC_SDHCI=y
+CONFIG_MMC_SDHCI_S3C=y
 # CONFIG_MMC_SPI is not set
 # CONFIG_MMC_S3C is not set
 # CONFIG_MEMSTICK is not set
