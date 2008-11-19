@@ -1192,7 +1192,8 @@ static int s3c24xx_hcd_hw_init(struct s3c24xx_hcd_context * context)
 
 	}
 
-	if (s3c2410_dma_request(context->dma_channel, &s3c24xx_hcd_dma_client, NULL)) {
+	if (s3c2410_dma_request(context->dma_channel, &s3c24xx_hcd_dma_client,
+								    NULL) < 0) {
 		DBG_PRINT(SDDBG_ERROR, ("unable to get DMA channel.\n"));
 		status = -ENOENT;
 		goto out_free_dma;
