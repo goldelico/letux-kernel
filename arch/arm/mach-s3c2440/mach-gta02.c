@@ -554,6 +554,10 @@ static void gta02_pcf50633_attach_child_devices(struct device *parent_device)
 	platform_device_register(&gta01_pm_gps_dev);
 }
 
+static struct platform_device gta02_pm_wlan_dev = {
+	.name		= "gta02-pm-wlan",
+};
+
 static struct pcf50633_platform_data gta02_pcf_pdata = {
 	.used_features	= PCF50633_FEAT_MBC |
 			  PCF50633_FEAT_BBC |
@@ -869,6 +873,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&gta02_memconfig_device,
 	&gta02_resume_reason_device,
 	&s3c24xx_pwm_device,
+	&gta02_pm_wlan_dev, /* not dependent on PMU */
 
 };
 
@@ -1605,30 +1610,7 @@ static void __init gta02_machine_init(void)
 
 	s3c24xx_udc_set_platdata(&gta02_udc_cfg);
 	set_s3c2410ts_info(&gta02_ts_cfg);
-
-	/* FIXME: hardcoded WLAN module power-up */
-	s3c2410_gpio_cfgpin(GTA02_CHIP_PWD, S3C2410_GPIO_OUTPUT);
-
-	/* Power is down */
-	s3c2410_gpio_setpin(GTA02_CHIP_PWD, 1);
-	mdelay(100);
-
-	switch (system_rev) {
-	case GTA02v1_SYSTEM_REV:
-		s3c2410_gpio_setpin(GTA02_CHIP_PWD, 0);
-		break;
-	default:
-		/* Chip is in reset state */
-		s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 0);
-		s3c2410_gpio_cfgpin(GTA02_GPIO_nWLAN_RESET, S3C2410_GPIO_OUTPUT);
-		mdelay(100);
-		/* Power is up */
-		s3c2410_gpio_setpin(GTA02_CHIP_PWD, 0);
-		mdelay(100);
-		/* Chip is out of reset */
-		s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 1);
-		break;
-	}
+	
 	mangle_glamo_res_by_system_rev();
 	platform_device_register(&gta02_glamo_dev);
 

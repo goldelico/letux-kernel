@@ -242,7 +242,8 @@ static void CardDetect_TimerFunc(unsigned long Context)
 SDIO_STATUS InitializeTimers(void)
 {
     init_timer(&CardDetectTimer);
-    CardDetectTimer.function = CardDetect_TimerFunc;
+  	printk(KERN_INFO "init_timer(&CardDetectTimer) = %p\n", &CardDetectTimer);
+	CardDetectTimer.function = CardDetect_TimerFunc;
     CardDetectTimer.data = 0;
     return SDIO_STATUS_SUCCESS;
 }

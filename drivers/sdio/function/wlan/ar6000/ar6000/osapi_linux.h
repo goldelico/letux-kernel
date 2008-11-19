@@ -105,6 +105,8 @@ typedef struct timer_list               A_TIMER;
 
 #define A_INIT_TIMER(pTimer, pFunction, pArg) do {              \
     init_timer(pTimer);                                         \
+	printk(KERN_ERR "A_INIT_TIMER %p\n", pTimer); \
+	WARN_ON(1); \
     (pTimer)->function = (pFunction);                           \
     (pTimer)->data   = (unsigned long)(pArg);                   \
 } while (0)

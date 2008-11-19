@@ -48,6 +48,7 @@ obj-$(CONFIG_MACH_NEO1973)	+= neo1973_version.o \
 				   neo1973_pm_gsm.o \
 				   neo1973_pm_gps.o \
 				   neo1973_pm_bt.o  \
+				   gta02_pm_wlan.o  \
 				   neo1973_shadow.o \
 				   neo1973_pm_resume_reason.o \
 				   neo1973_memconfig.o
