@@ -39,7 +39,7 @@
 #include <mach/gta01.h>
 #include <mach/pwm.h>
 
-#include <asm/plat-s3c/regs-timer.h>
+#include <plat/regs-timer.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 
 static struct backlight_properties gta01bl_prop;
