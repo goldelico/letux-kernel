@@ -48,6 +48,11 @@ extern int __must_check bus_create_file(struct bus_type *,
 					struct bus_attribute *);
 extern void bus_remove_file(struct bus_type *, struct bus_attribute *);
 
+extern int __must_check bus_create_device_link(struct bus_type *bus,
+					       struct kobject *target,
+					       const char *name);
+extern void bus_remove_device_link(struct bus_type *bus, const char *name);
+
 struct bus_type {
 	const char		*name;
 	struct bus_attribute	*bus_attrs;

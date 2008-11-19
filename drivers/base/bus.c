@@ -141,6 +141,29 @@ void bus_remove_file(struct bus_type *bus, struct bus_attribute *attr)
 }
 EXPORT_SYMBOL_GPL(bus_remove_file);
 
+int bus_create_device_link(struct bus_type *bus, struct kobject *target,
+			   const char *name)
+{
+	int error;
+	if (bus_get(bus)) {
+		error = sysfs_create_link(&bus->p->devices_kset->kobj, target,
+					  name);
+		bus_put(bus);
+	} else
+		error = -EINVAL;
+	return error;
+}
+EXPORT_SYMBOL_GPL(bus_create_device_link);
+
+void bus_remove_device_link(struct bus_type *bus, const char *name)
+{
+	if (bus_get(bus)) {
+		sysfs_remove_link(&bus->p->devices_kset->kobj, name);
+		bus_put(bus);
+	}
+}
+EXPORT_SYMBOL_GPL(bus_remove_device_link);
+
 static struct kobj_type bus_ktype = {
 	.sysfs_ops	= &bus_sysfs_ops,
 };
