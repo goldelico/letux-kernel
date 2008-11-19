@@ -127,22 +127,22 @@ static int __init gta02led_probe(struct platform_device *pdev)
 
 		switch (lp->gpio) {
 		case S3C2410_GPB0:
-			lp->has_pwm = 0;
+			lp->has_pwm = 1;
 			lp->pwm.timerid = PWM0;
 			s3c2410_gpio_cfgpin(lp->gpio, S3C2410_GPB0_TOUT0);
 			break;
 		case S3C2410_GPB1:
-			lp->has_pwm = 0;
+			lp->has_pwm = 1;
 			lp->pwm.timerid = PWM1;
 			s3c2410_gpio_cfgpin(lp->gpio, S3C2410_GPB1_TOUT1);
 			break;
 		case S3C2410_GPB2:
-			lp->has_pwm = 0;
+			lp->has_pwm = 1;
 			lp->pwm.timerid = PWM2;
 			s3c2410_gpio_cfgpin(lp->gpio, S3C2410_GPB2_TOUT2);
 			break;
 		case S3C2410_GPB3:
-			lp->has_pwm = 0;
+			lp->has_pwm = 1;
 			lp->pwm.timerid = PWM3;
 			s3c2410_gpio_cfgpin(lp->gpio, S3C2410_GPB3_TOUT3);
 			break;
@@ -167,6 +167,7 @@ static int __init gta02led_probe(struct platform_device *pdev)
 			break;
 		default:
 			break;
+		}
 
 		mutex_init(&lp->mutex);
 		rc = led_classdev_register(&pdev->dev, &lp->cdev);
