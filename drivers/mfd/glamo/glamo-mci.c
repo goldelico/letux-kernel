@@ -57,6 +57,23 @@ static int sd_max_clk = 50000000 / 3;
 module_param(sd_max_clk, int, 0644);
 
 /*
+ * Slow SD clock rate
+ *
+ * you can override this on kernel commandline using
+ *
+ *   glamo_mci.sd_slow_ratio=8
+ *
+ * for example
+ *
+ * platform callback is used to decide effective clock rate, if not
+ * defined then max is used, if defined and returns nonzero, rate is
+ * divided by this factor
+ */
+
+static int sd_slow_ratio = 8;
+module_param(sd_slow_ratio, int, 0644);
+
+/*
  * SD Signal drive strength
  *
  * you can override this on kernel commandline using
@@ -554,8 +571,17 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 		 cmd->opcode, cmd->arg, cmd->data, cmd->mrq->stop,
 		 cmd->flags);
 
-	/* resume requested clock rate */
-	__glamo_mci_fix_card_div(host, host->clk_div);
+	/* resume requested clock rate
+	 * scale it down by sd_slow_ratio if platform requests it
+	 */
+	if (host->pdata->glamo_mci_use_slow)
+		if ((host->pdata->glamo_mci_use_slow)())
+			__glamo_mci_fix_card_div(host, host->clk_div *
+								 sd_slow_ratio);
+		else
+			__glamo_mci_fix_card_div(host, host->clk_div);
+	else
+		__glamo_mci_fix_card_div(host, host->clk_div);
 
 	if (glamo_mci_send_command(host, cmd))
 		goto bail;
