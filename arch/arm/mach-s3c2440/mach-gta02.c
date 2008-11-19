@@ -477,24 +477,11 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 	.r_fix_batt_par	= 10000,
 	.r_sense_milli	= 220,
 	.resumers = {
-		[0] = /* PCF50633_INT1_ADPINS 	| */
-		  /* PCF50633_INT1_ADPREM	| */
-		  PCF50633_INT1_USBINS		|
-		  PCF50633_INT1_USBREM		|
-		  PCF50633_INT1_ALARM,
+		[0] = PCF50633_INT1_USBINS |
+		      PCF50633_INT1_USBREM |
+		      PCF50633_INT1_ALARM,
 		[1] = PCF50633_INT2_ONKEYF,
-		[2] =  /* PCF50633_INT3_BATFULL	| */
-		  /* PCF50633_INT3_CHGHALT	| */
-		  /* PCF50633_INT3_THLIMON	| */
-		  /* PCF50633_INT3_THLIMOFF	| */
-		  /* PCF50633_INT3_USBLIMON	| */
-		  /* PCF50633_INT3_USBLIMOFF	| */
-		  PCF50633_INT3_ONKEY1S ,
-		[3] = 0				/* |
-		     PCF50633_INT4_LOWSYS	| */
-		  /* PCF50633_INT4_LOWBAT	| */
-		  /* PCF50633_INT4_HIGHTMP */,
-		[4] = 0
+		[2] = PCF50633_INT3_ONKEY1S
 	},
 	.rails	= {
 		[PCF50633_REGULATOR_AUTO] = {
