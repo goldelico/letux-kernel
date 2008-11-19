@@ -542,6 +542,10 @@ static struct platform_device gta01_pm_bt_dev = {
 	.name		= "neo1973-pm-bt",
 };
 
+static struct platform_device gta02_pm_gsm_dev = {
+	.name		= "neo1973-pm-gsm",
+};
+
 /* this is called when pc50633 is probed, unfortunately quite late in the
  * day since it is an I2C bus device.  Here we can belatedly define some
  * platform devices with the advantage that we can mark the pcf50633 as the
@@ -556,6 +560,8 @@ static void gta02_pcf50633_attach_child_devices(struct device *parent_device)
 {
 	gta01_pm_gps_dev.dev.parent = parent_device;
 	gta01_pm_bt_dev.dev.parent = parent_device;
+	gta02_pm_gsm_dev.dev.parent = parent_device;
+
 	/*
 	 * Glamo is a child of PMU because SD Card needs power up until it can
 	 * logically suspend the card... without this power is taken first
@@ -565,6 +571,7 @@ static void gta02_pcf50633_attach_child_devices(struct device *parent_device)
 
 	platform_device_register(&gta01_pm_bt_dev);
 	platform_device_register(&gta01_pm_gps_dev);
+	platform_device_register(&gta02_pm_gsm_dev);
 
 	mangle_glamo_res_by_system_rev();
 	platform_device_register(&gta02_glamo_dev);
@@ -1389,9 +1396,6 @@ static struct platform_device gta02_button_dev = {
 	.resource	= gta02_button_resources,
 };
 
-static struct platform_device gta02_pm_gsm_dev = {
-	.name		= "neo1973-pm-gsm",
-};
 
 static struct platform_device gta02_pm_usbhost_dev = {
 	.name		= "neo1973-pm-host",
@@ -1705,15 +1709,12 @@ static void __init gta02_machine_init(void)
 
 	platform_device_register(&s3c_device_spi_acc);
 	platform_device_register(&gta02_button_dev);
-	platform_device_register(&gta02_pm_gsm_dev);
 	platform_device_register(&gta02_pm_usbhost_dev);
 
 	mangle_pmu_pdata_by_system_rev();
 	platform_device_register(&gta02_pmu_dev);
 	platform_device_register(&gta02_vibrator_dev);
 	platform_device_register(&gta02_led_dev);
-
-
 	platform_device_register(&gta02_sdio_dev);
 
 	platform_add_devices(gta02_devices, ARRAY_SIZE(gta02_devices));
