@@ -31,6 +31,9 @@
 #include <asm/arch/regs-gpioj.h>
 #endif
 
+extern void s3c24xx_serial_register_resume_dependency(struct resume_dependency *
+					     resume_dependency, int uart_index);
+
 struct gta01pm_priv {
 	int gpio_ngsm_en;
         int gpio_ndl_gsm;
