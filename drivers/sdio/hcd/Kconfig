@@ -1,0 +1,14 @@
+config SDIO_S3C24XX
+	tristate "Samsung s3c24xx host controller"
+	depends on PLAT_S3C24XX && SDIO
+	default m
+	help
+	  good luck.
+
+config SDIO_S3C24XX_DMA
+	bool "Samsung s3c24xx host controller DMA I/O"
+	depends on SDIO_S3C24XX
+	default n
+	help
+	  good luck.
+
