@@ -585,16 +585,10 @@ static struct snd_soc_machine neo1973 = {
 	.num_links = ARRAY_SIZE(neo1973_dai),
 };
 
-static struct wm8753_setup_data neo1973_wm8753_setup = {
-	.i2c_bus = 0,
-	.i2c_address = 0x1a,
-};
-
 static struct snd_soc_device neo1973_snd_devdata = {
 	.machine = &neo1973,
 	.platform = &s3c24xx_soc_platform,
 	.codec_dev = &soc_codec_dev_wm8753,
-	.codec_data = &neo1973_wm8753_setup,
 };
 
 static int lm4857_i2c_probe(struct i2c_client *client,
