@@ -191,6 +191,33 @@ static const struct usb_descriptor_header *otg_desc[] = {
 	NULL,
 };
 
+static struct usb_config_descriptor
+eth_config = {
+	.bLength =		sizeof eth_config,
+	.bDescriptorType =	USB_DT_CONFIG,
+
+	/* compute wTotalLength on the fly */
+	.bNumInterfaces =	2,
+	.bConfigurationValue =	DEV_CONFIG_VALUE,
+	.iConfiguration =	STRING_CDC,
+	.bmAttributes =		USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER,
+	.bMaxPower =		250,
+};
+
+#ifdef	CONFIG_USB_ETH_RNDIS
+static struct usb_config_descriptor
+rndis_config = {
+	.bLength =              sizeof rndis_config,
+	.bDescriptorType =      USB_DT_CONFIG,
+
+	/* compute wTotalLength on the fly */
+	.bNumInterfaces =       2,
+	.bConfigurationValue =  DEV_RNDIS_CONFIG_VALUE,
+	.iConfiguration =       STRING_RNDIS,
+	.bmAttributes =		USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER,
+	.bMaxPower =            250,
+};
+
 
 /* string IDs are assigned dynamically */
 
