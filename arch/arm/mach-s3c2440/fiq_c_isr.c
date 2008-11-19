@@ -19,7 +19,7 @@
 #include <asm/plat-s3c24xx/cpu.h>
 #include <asm/plat-s3c24xx/irq.h>
 
-#include <asm/arch-s3c2410/pwm.h>
+#include <mach/pwm.h>
 #include <asm/plat-s3c/regs-timer.h>
 
 /*

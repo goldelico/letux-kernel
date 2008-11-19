@@ -19,7 +19,7 @@
 #include <linux/leds.h>
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
-#include <asm/arch-s3c2410/pwm.h>
+#include <mach/pwm.h>
 #include <mach/gta01.h>
 #include <asm/plat-s3c/regs-timer.h>
 
