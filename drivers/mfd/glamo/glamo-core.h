@@ -28,7 +28,6 @@ struct glamo_core {
 	u_int16_t type;
 	u_int16_t revision;
 	spinlock_t lock;
-	struct resume_dependency resume_dependency;
 	u32 engine_enabled_bitfield;
 	u32 engine_enabled_bitfield_suspend;
 	int suspending;

@@ -932,7 +932,7 @@ static void glamo_power(struct glamo_core *glamo,
 	
 	spin_lock_irqsave(&glamo->lock, flags);
 
-	dev_dbg(&glamo->pdev->dev, "***** glamo_power -> %d\n", new_state);
+	dev_info(&glamo->pdev->dev, "***** glamo_power -> %d\n", new_state);
 
 	/*
 Power management
@@ -965,12 +965,23 @@ static const REG_VALUE_MASK_TYPE reg_powerSuspend[] =
 	switch (new_state) {
 	case GLAMO_POWER_ON:
 
-		mdelay(100);
+		/*
+		 * glamo state on resume is nondeterministic in some
+		 * fundamental way, it has also been observed that the
+		 * Glamo reset pin can get asserted by, eg, touching it with
+		 * a scope probe.  So the only answer is to roll with it and
+		 * force an external reset on the Glamo during resume.
+		 */
 
-		glamo_run_script(glamo, glamo_resume_script,
-			 ARRAY_SIZE(glamo_resume_script), 0);
+		(glamo->pdata->glamo_external_reset)(0);
+		udelay(10);
+		(glamo->pdata->glamo_external_reset)(1);
+		mdelay(10);
 
-		for (n = 0; n < 3 /*ARRAY_SIZE(reg_range)*/; n++)
+		glamo_run_script(glamo, glamo_init_script,
+			 ARRAY_SIZE(glamo_init_script), 0);
+
+		for (n = 0; n < ARRAY_SIZE(reg_range); n++)
 			for (ads = reg_range[n].start; ads <
 			    (reg_range[n].start + reg_range[n].count); ads += 2)
 				 __reg_write(glamo, ads, suspend_regs[ads >> 1]);
@@ -978,13 +989,13 @@ static const REG_VALUE_MASK_TYPE reg_powerSuspend[] =
 		spin_unlock_irqrestore(&glamo->lock, flags);
 
 		/* dump down printk */
-		regs_read(&glamo->pdev->dev, NULL, debug_buffer);
+//		regs_read(&glamo->pdev->dev, NULL, debug_buffer);
 
 		return;
 
 	case GLAMO_POWER_SUSPEND:
 
-		for (n = 0; n < 3 /*ARRAY_SIZE(reg_range) */; n++)
+		for (n = 0; n < ARRAY_SIZE(reg_range); n++)
 			for (ads = reg_range[n].start; ads <
 			    (reg_range[n].start + reg_range[n].count); ads += 2)
 				suspend_regs[ads >> 1] = __reg_read(glamo, ads);
@@ -1198,7 +1209,12 @@ static int __init glamo_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, glamo);
 
-/*
+	(glamo->pdata->glamo_external_reset)(0);
+	udelay(10);
+	(glamo->pdata->glamo_external_reset)(1);
+	mdelay(10);
+
+	/*
 	 * finally set the mfd interrupts up
 	 * can't do them earlier or sibling probes blow up
 	 */

@@ -33,6 +33,7 @@ struct glamofb_platform_data {
 	/* glamo-mci asking if it should use the slow clock to card */
 	int		(*glamo_mci_use_slow)(void);
 	int		(*glamo_irq_is_wired)(void);
+	void		(*glamo_external_reset)(int);
 };
 
 int glamofb_cmd_mode(struct glamofb_handle *gfb, int on);
