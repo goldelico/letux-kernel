@@ -73,6 +73,8 @@
 #include <asm/plat-s3c24xx/pm.h>
 #include <asm/plat-s3c24xx/udc.h>
 #include <asm/plat-s3c24xx/neo1973.h>
+#include <asm/arch-s3c2410/neo1973-pm-gsm.h>
+
 #include <linux/jbt6k74.h>
 
 static struct map_desc gta01_iodesc[] __initdata = {
@@ -665,8 +667,6 @@ static void __init gta01_map_io(void)
 	s3c24xx_init_clocks(12*1000*1000);
 	s3c24xx_init_uarts(gta01_uartcfgs, ARRAY_SIZE(gta01_uartcfgs));
 }
-
-extern int gta_gsm_interrupts;
 
 static irqreturn_t gta01_modem_irq(int irq, void *param)
 {

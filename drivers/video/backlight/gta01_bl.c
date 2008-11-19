@@ -152,7 +152,7 @@ EXPORT_SYMBOL_GPL(gta01bl_deferred_resume);
 
 static int gta01bl_resume(struct platform_device *dev)
 {
-	if (! gta01bl_defer_resume_backlight)
+	if (!gta01bl_defer_resume_backlight)
 		gta01bl_deferred_resume();
 	return 0;
 }
