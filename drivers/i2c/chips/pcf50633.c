@@ -2143,7 +2143,6 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 	pcf->input_dev->name = "GTA02 PMU events";
 	pcf->input_dev->phys = "FIXME";
 	pcf->input_dev->id.bustype = BUS_I2C;
-	pcf->input_dev->cdev.dev = &new_client->dev;
 
 	pcf->input_dev->evbit[0] = BIT(EV_KEY) | BIT(EV_PWR);
 	set_bit(KEY_POWER, pcf->input_dev->keybit);
