@@ -335,9 +335,11 @@ static ssize_t set_usb_mode(struct device *dev, struct device_attribute *attr,
 		printk("s3c2410: changing usb to device\n");
 		s3c2410_modify_misccr(S3C2410_MISCCR_USBHOST, 0);
 		s3c2410_gpio_setpin(S3C2410_GPB9, 1);
-	} else
+	} else {
 		printk("s3c2410: unknown mode\n");
 		return -EINVAL;
+	}
+
 	return count;
 }
 
