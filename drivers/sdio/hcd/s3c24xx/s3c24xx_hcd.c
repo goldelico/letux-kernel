@@ -1296,7 +1296,6 @@ struct s3c24xx_hcd_context hcd_context = {
 	.hcd.pContext = &hcd_context,
 	.hcd.pRequest = s3c24xx_hcd_request,
 	.hcd.pConfigure = s3c24xx_hcd_config,
-	.device.pnp_device.name = "sdio_s3c24xx_hcd",
 	.device.pnp_driver.name = "sdio_s3c24xx_hcd",
 	.device.pnp_driver.probe  = s3c24xx_hcd_pnp_probe,
 	.device.pnp_driver.remove = s3c24xx_hcd_pnp_remove,
@@ -1348,7 +1347,7 @@ static int s3c24xx_hcd_probe(struct platform_device * pdev)
 
 	status = SDIO_BusAddOSDevice(&hcd_context.device.dma,
 				     &hcd_context.device.pnp_driver,
-				     &hcd_context.device.pnp_device);
+				     &hcd_context.device.pnp_device, "sdio_s3c24xx_hcd");
 
  out:
 
@@ -1360,7 +1359,8 @@ static int s3c24xx_hcd_probe(struct platform_device * pdev)
  */
 static int s3c24xx_hcd_remove(struct platform_device * pdev) {
 	printk("S3C2440 SDIO host controller unloaded\n");
-	SDIO_BusRemoveOSDevice(&hcd_context.device.pnp_driver, &hcd_context.device.pnp_device);
+	SDIO_BusRemoveOSDevice(&hcd_context.device.pnp_driver, hcd_context.device.pnp_device);
+	kfree(hcd_context.device.pnp_device);
 
 	return 0;
 }

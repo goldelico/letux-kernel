@@ -782,7 +782,7 @@ delHifDevice(SDDEVICE *handle)
 struct device*
 HIFGetOSDevice(HIF_DEVICE *device)
 {
-    return &device->handle->Device.dev;
+    return &device->handle->Device->dev;
 }
 
 static void ResetAllCards(void)

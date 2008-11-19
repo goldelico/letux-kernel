@@ -8,8 +8,8 @@
 #define S3C24XX_HCD_DATA_WRITE      5
 
 struct s3c24xx_hcd_device {
-	OS_PNPDEVICE   pnp_device;     /* the OS device for this HCD */
-	OS_PNPDRIVER   pnp_driver;     /* the OS driver for this HCD */
+	OS_PNPDEVICE *pnp_device;     /* the OS device for this HCD */
+	OS_PNPDRIVER  pnp_driver;     /* the OS driver for this HCD */
 	SDDMA_DESCRIPTION dma;
 	struct clk * clock;
 	unsigned long max_clock_rate;

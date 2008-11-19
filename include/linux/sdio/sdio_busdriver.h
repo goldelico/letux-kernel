@@ -477,7 +477,7 @@ typedef struct _SDDEVICE {
     struct _SDHCD  *pHcd;           /* host controller this device is on (internal use) */
     SDDEVICE_INFO   DeviceInfo;     /* device info */
     SD_PNP_INFO pId[1];             /* id of this device  */
-    OS_PNPDEVICE Device;            /* device registration with base system */
+    OS_PNPDEVICE *Device;           /* device registration with base system */
     SD_SLOT_CURRENT  SlotCurrentAlloc; /* allocated slot current for this device/function (internal use) */
     SD_DEVICE_FLAGS Flags;          /* internal use flags */
     CT_VERSION_CODE Version;        /* version code of the bus driver */

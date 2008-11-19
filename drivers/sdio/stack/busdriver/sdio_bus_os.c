@@ -415,8 +415,8 @@ struct pnp_protocol sdio_protocol = {
 */
 static int driver_probe(struct pnp_dev* pOSDevice, const struct pnp_device_id *pId)
 {
-    PSDDEVICE pDevice = SDDEVICE_FROM_OSDEVICE(pOSDevice);
-    PSDFUNCTION pFunction = pDevice->Device.dev.driver_data;
+    PSDDEVICE pDevice = SDDEVICE_FROM_OSDEVICE(&pOSDevice);
+    PSDFUNCTION pFunction = pDevice->Device->dev.driver_data;
 
     if (pFunction == NULL) {
         return -1;
@@ -496,34 +496,32 @@ static int UnregisterDriver(PSDFUNCTION pFunction)
 */
 SDIO_STATUS OS_InitializeDevice(PSDDEVICE pDevice, PSDFUNCTION pFunction)
 {
-	char id_name[20];
+    char id_name[20];
 
-    memset(&pDevice->Device, 0, sizeof(pDevice->Device));
-    pDevice->Device.dev.driver_data = (PVOID)pFunction;
+    /* set the id as slot number/function number */
+    snprintf(id_name, sizeof(id_name) - 1, "SD_%02X%02X",
+             pDevice->pHcd->SlotNumber, (UINT)SDDEVICE_GET_SDIO_FUNCNO(pDevice));
+
+    pDevice->Device = pnp_alloc_dev(&sdio_protocol, pDevice->pHcd->SlotNumber + 1, id_name);
+    pDevice->Device->dev.driver_data = (PVOID)pFunction;
 //??    pDevice->Device.data = (PVOID)pFunction;
 //??    pDevice->Device.dev.driver = &pFunction->Driver.driver;
 //??    pDevice->Device.driver = &pFunction->Driver;
 //??    pDevice->Device.dev.release = release;
     /* get a unique device number, must be done with locks held */
     spin_lock(&InUseDevicesLock);
-    pDevice->Device.number = FirstClearBit(&InUseDevices);
-    SetBit(&InUseDevices, pDevice->Device.number);
+    pDevice->Device->number = FirstClearBit(&InUseDevices);
+    SetBit(&InUseDevices, pDevice->Device->number);
     spin_unlock(&InUseDevicesLock);
-    pDevice->Device.capabilities = PNP_REMOVABLE | PNP_DISABLE;
-    pDevice->Device.protocol = &sdio_protocol;
-    pDevice->Device.active = 1;
+    pDevice->Device->capabilities = PNP_REMOVABLE | PNP_DISABLE;
+    pDevice->Device->active = 1;
 
-    /* set the id as slot number/function number */
-    snprintf(id_name, sizeof(id_name) - 1, "SD_%02X%02X",
-             pDevice->pHcd->SlotNumber, (UINT)SDDEVICE_GET_SDIO_FUNCNO(pDevice));
     DBG_PRINT(SDDBG_TRACE, ("SDIO BusDriver - OS_InitializeDevice adding id: %s\n",
                              id_name));
-    pnp_add_id(&pDevice->Device, id_name);
-
-        /* deal with DMA settings */
+    /* deal with DMA settings */
     if (pDevice->pHcd->pDmaDescription != NULL) {
-        pDevice->Device.dev.dma_mask = &pDevice->pHcd->pDmaDescription->Mask;
-        pDevice->Device.dev.coherent_dma_mask = pDevice->pHcd->pDmaDescription->Mask;
+        pDevice->Device->dev.dma_mask = &pDevice->pHcd->pDmaDescription->Mask;
+        pDevice->Device->dev.coherent_dma_mask = pDevice->pHcd->pDmaDescription->Mask;
     }
 
     return SDIO_STATUS_SUCCESS;
@@ -537,13 +535,13 @@ SDIO_STATUS OS_AddDevice(PSDDEVICE pDevice, PSDFUNCTION pFunction)
     int error;
     DBG_PRINT(SDDBG_TRACE, ("SDIO BusDriver - OS_AddDevice adding function: %s\n",
                                pFunction->pName));
-    error = pnp_add_device(&pDevice->Device);
+    error = pnp_add_device(pDevice->Device);
     if (error < 0) {
         DBG_PRINT(SDDBG_ERROR, ("SDIO BusDriver - OS_AddDevice failed pnp_add_device: %d\n",
                                error));
     }
         /* replace the buggy pnp's release */
-    pDevice->Device.dev.release = release;
+    pDevice->Device->dev.release = release;
 
     return OSErrorToSDIOError(error);
 }
@@ -554,15 +552,17 @@ SDIO_STATUS OS_AddDevice(PSDDEVICE pDevice, PSDFUNCTION pFunction)
 void OS_RemoveDevice(PSDDEVICE pDevice)
 {
     DBG_PRINT(SDDBG_TRACE, ("SDIO BusDriver - OS_RemoveDevice \n"));
-    pnp_remove_card_device(&pDevice->Device);
+    pnp_remove_card_device(pDevice->Device);
     spin_lock(&InUseDevicesLock);
-    ClearBit(&InUseDevices, pDevice->Device.number);
+    ClearBit(&InUseDevices, pDevice->Device->number);
     spin_unlock(&InUseDevicesLock);
 
-    if (pDevice->Device.id != NULL) {
-        KernelFree(pDevice->Device.id);
-        pDevice->Device.id = NULL;
+    if (pDevice->Device->id != NULL) {
+        KernelFree(pDevice->Device->id);
+        pDevice->Device->id = NULL;
     }
+
+    KernelFree(pDevice->Device);
 }
 
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -612,20 +612,13 @@ void OS_RemoveDevice(PSDDEVICE pDevice)
   @see also: SDIO_BusRemoveOSDevice
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
-SDIO_STATUS SDIO_BusAddOSDevice(PSDDMA_DESCRIPTION pDma, POS_PNPDRIVER pDriver, POS_PNPDEVICE pDevice)
+SDIO_STATUS SDIO_BusAddOSDevice(PSDDMA_DESCRIPTION pDma, POS_PNPDRIVER pDriver, POS_PNPDEVICE *outDevice, const char* name)
 {
     int err;
     struct pnp_device_id *pFdid;
     static int slotNumber = 0; /* we just use an increasing count for the slots number */
-	char id_name[20];
+    struct pnp_dev* pDevice;
 
-    if (pDma != NULL) {
-        pDevice->dev.dma_mask = &pDma->Mask;
-        pDevice->dev.coherent_dma_mask = pDma->Mask;
-    }
-    DBG_PRINT(SDDBG_ERROR,
-            ("SDIO BusDriver - SDIO_GetBusOSDevice, registering driver: %s DMAmask: 0x%x\n",
-            pDriver->name, (UINT)*pDevice->dev.dma_mask));
     pFdid = KernelAlloc(sizeof(struct pnp_device_id)*2);
     /* set the id as slot number/function number */
     snprintf(pFdid[0].id, sizeof(pFdid[0].id), "SD_%02X08",
@@ -644,14 +637,22 @@ SDIO_STATUS SDIO_BusAddOSDevice(PSDDMA_DESCRIPTION pDma, POS_PNPDRIVER pDriver, 
         return OSErrorToSDIOError(err);
     }
 
+    pDevice = pnp_alloc_dev(&sdio_protocol, slotNumber - 1, pFdid[0].id);
+    if (!pDevice)
+        return -EINVAL;
+
+    if (pDma != NULL) {
+        pDevice->dev.dma_mask = &pDma->Mask;
+        pDevice->dev.coherent_dma_mask = pDma->Mask;
+    }
+    DBG_PRINT(SDDBG_ERROR,
+            ("SDIO BusDriver - SDIO_GetBusOSDevice, registering driver: %s DMAmask: 0x%x\n",
+            pDriver->name, (UINT)*pDevice->dev.dma_mask));
+
     pDevice->protocol = &sdio_protocol;
     pDevice->capabilities = PNP_REMOVABLE | PNP_DISABLE;
     pDevice->active = 1;
 
-    /* set the id as slot number/function number */
-    snprintf(id_name, sizeof(id_name) - 1, "SD_%02X08",
-             0); //??pDevice->pHcd->SlotNumber);//?????fix this, slotnumber isn't vaialble yet
-    pnp_add_id(pDevice, id_name);
 
     /* get a unique device number */
     spin_lock(&InUseDevicesLock);
@@ -667,6 +668,7 @@ SDIO_STATUS SDIO_BusAddOSDevice(PSDDMA_DESCRIPTION pDma, POS_PNPDRIVER pDriver, 
     }
     /* replace the buggy pnp's release */
     pDevice->dev.release = release;
+    *outDevice = pDevice;
     return OSErrorToSDIOError(err);
 }
 
