@@ -129,10 +129,14 @@ enum lis302dl_reg_cloik_src {
 
 #define LIS302DL_WHO_AM_I_MAGIC		0x3b
 
-#define LIS302DL_F_WUP_FF		0x0001	/* wake up from free fall */
-#define LIS302DL_F_WUP_CLICK		0x0002
+#define LIS302DL_F_WUP_FF_1		0x0001	/* wake up from free fall */
+#define LIS302DL_F_WUP_FF_2		0x0002
+#define LIS302DL_F_WUP_FF		0x0003
+#define LIS302DL_F_WUP_CLICK	0x0004
 #define LIS302DL_F_POWER		0x0010
 #define LIS302DL_F_FS			0x0020 	/* ADC full scale */
+#define LIS302DL_F_INPUT_OPEN 	0x0040  /* Set if input device is opened */
+#define LIS302DL_F_IRQ_WAKE 	0x0080  /* IRQ is setup in wake mode */
 
 
 #endif /* _LINUX_LIS302DL_H */
