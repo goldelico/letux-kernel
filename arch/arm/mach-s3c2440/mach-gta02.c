@@ -779,6 +779,19 @@ struct platform_device sc32440_fiq_device = {
 #ifdef CONFIG_GTA02_HDQ
 /* HDQ */
 
+static void gta02_hdq_attach_child_devices(struct device *parent_device)
+{
+	switch (system_rev) {
+	case GTA02v5_SYSTEM_REV:
+	case GTA02v6_SYSTEM_REV:
+		bq27000_battery_device.dev.parent = parent_device;
+		platform_device_register(&bq27000_battery_device);
+		break;
+	default:
+		break;
+	}
+}
+
 static struct resource gta02_hdq_resources[] = {
 	[0] = {
 		.start	= GTA02v5_GPIO_HDQ,
@@ -786,13 +799,58 @@ static struct resource gta02_hdq_resources[] = {
 	},
 };
 
+struct gta02_hdq_platform_data gta02_hdq_platform_data = {
+	.attach_child_devices = gta02_hdq_attach_child_devices
+};
+
 struct platform_device gta02_hdq_device = {
 	.name 		= "gta02-hdq",
 	.num_resources	= 1,
 	.resource	= gta02_hdq_resources,
+	.dev		= {
+		.platform_data = &gta02_hdq_platform_data,
+	},
 };
 #endif
 
+/* FIQ */
+
+static void gta02_fiq_attach_child_devices(struct device *parent_device)
+{
+#ifdef CONFIG_GTA02_HDQ
+	switch (system_rev) {
+	case GTA02v5_SYSTEM_REV:
+	case GTA02v6_SYSTEM_REV:
+		gta02_hdq_device.dev.parent = parent_device;
+		platform_device_register(&gta02_hdq_device);
+		break;
+	default:
+		break;
+	}
+#endif
+}
+
+
+static struct resource sc32440_fiq_resources[] = {
+	[0] = {
+		.flags	= IORESOURCE_IRQ,
+		.start	= IRQ_TIMER3,
+		.end	= IRQ_TIMER3,
+	},
+};
+
+struct sc32440_fiq_platform_data gta02_sc32440_fiq_platform_data = {
+	.attach_child_devices = gta02_fiq_attach_child_devices
+};
+
+struct platform_device sc32440_fiq_device = {
+	.name 		= "sc32440_fiq",
+	.num_resources	= 1,
+	.resource	= sc32440_fiq_resources,
+	.dev		= {
+		.platform_data = &gta02_sc32440_fiq_platform_data,
+	},
+};
 
 /* NOR Flash */
 
