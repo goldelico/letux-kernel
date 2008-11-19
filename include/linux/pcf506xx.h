@@ -23,6 +23,7 @@ enum pmu_event {
 #endif
 	PMU_EVT_CHARGER_ACTIVE,
 	PMU_EVT_CHARGER_IDLE,
+	PMU_EVT_CHARGER_CHANGE,
 	__NUM_PMU_EVTS
 };
 
