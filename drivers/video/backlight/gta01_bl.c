@@ -57,6 +57,8 @@ struct gta01bl_data {
 
 static struct gta01bl_data gta01bl;
 
+static int gta01bl_defer_resume_backlight;
+
 #define GTA01BL_SUSPENDED     0x01
 #define GTA01BL_BATTLOW       0x02
 
@@ -132,10 +134,12 @@ static int gta01bl_suspend(struct platform_device *dev, pm_message_t state)
 {
 	gta01bl_flags |= GTA01BL_SUSPENDED;
 	gta01bl_send_intensity(gta01_backlight_device);
+	neo1973_gpb_setpin(GTA01_GPIO_BACKLIGHT, 0);
+	s3c2410_gpio_cfgpin(GTA01_GPIO_BACKLIGHT, S3C2410_GPIO_OUTPUT);
 	return 0;
 }
 
-static int gta01bl_resume(struct platform_device *dev)
+void gta01bl_deferred_resume(void)
 {
 	mutex_lock(&gta01bl.mutex);
 	gta01bl_init_hw();
@@ -143,6 +147,13 @@ static int gta01bl_resume(struct platform_device *dev)
 
 	gta01bl_flags &= ~GTA01BL_SUSPENDED;
 	gta01bl_send_intensity(gta01_backlight_device);
+}
+EXPORT_SYMBOL_GPL(gta01bl_deferred_resume);
+
+static int gta01bl_resume(struct platform_device *dev)
+{
+	if (! gta01bl_defer_resume_backlight)
+		gta01bl_deferred_resume();
 	return 0;
 }
 #else
@@ -198,6 +209,8 @@ static int __init gta01bl_probe(struct platform_device *pdev)
 
 	if (!machinfo->limit_mask)
 		machinfo->limit_mask = -1;
+
+	gta01bl_defer_resume_backlight = machinfo->defer_resume_backlight;
 
 	gta01_backlight_device = backlight_device_register("gta01-bl",
 							   &pdev->dev, NULL,
