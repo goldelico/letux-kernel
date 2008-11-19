@@ -1241,8 +1241,6 @@ static int __init glamo_probe(struct platform_device *pdev)
 		 glamo_pll_rate(glamo, GLAMO_PLL1),
 		 glamo_pll_rate(glamo, GLAMO_PLL2));
 
-	glamo_lcm_reset(1);
-
 	return 0;
 
 out_free:
