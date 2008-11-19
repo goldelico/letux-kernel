@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.28-rc1
-# Mon Oct 27 01:53:44 2008
+# Linux kernel version: 2.6.28-rc2
+# Thu Oct 30 00:22:25 2008
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1195,6 +1195,7 @@ CONFIG_SSB_POSSIBLE=y
 # CONFIG_MFD_T7L66XB is not set
 # CONFIG_MFD_TC6387XB is not set
 # CONFIG_MFD_TC6393XB is not set
+# CONFIG_PMIC_DA903X is not set
 # CONFIG_MFD_WM8400 is not set
 # CONFIG_MFD_WM8350_I2C is not set
 CONFIG_MFD_GLAMO=y
