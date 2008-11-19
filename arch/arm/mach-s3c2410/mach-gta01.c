@@ -73,6 +73,7 @@
 #include <plat/cpu.h>
 #include <plat/pm.h>
 #include <plat/udc.h>
+#include <plat/iic.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 #include <mach/neo1973-pm-gsm.h>
 
@@ -364,14 +365,6 @@ static struct s3c2410fb_mach_info gta01_lcd_cfg __initdata = {
 	.default_display = 0,
 
 	.lpcsel		= ((0xCE6) & ~7) | 1<<4,
-};
-
-static struct i2c_board_info gta01_i2c_devs[] __initdata = {
-	{
-		I2C_BOARD_INFO("wm8753", 0x1a)
-	}, {
-		I2C_BOARD_INFO("neo1973_lm4857", 0x7c) 
-	}
 };
 
 static struct platform_device *gta01_devices[] __initdata = {
@@ -724,6 +717,7 @@ static void __init gta01_machine_init(void)
 
 	INIT_WORK(&gta01_udc_vbus_drawer.work, __gta01_udc_vbus_draw);
 	s3c24xx_udc_set_platdata(&gta01_udc_cfg);
+	s3c_i2c0_set_platdata(NULL);
 	set_s3c2410ts_info(&gta01_ts_cfg);
 
 	/* Set LCD_RESET / XRES to high */
@@ -762,9 +756,6 @@ static void __init gta01_machine_init(void)
 	platform_device_register(&gta01_led_dev);
 
 	platform_add_devices(gta01_devices, ARRAY_SIZE(gta01_devices));
-
-	i2c_register_board_info(0, gta01_i2c_devs, 
-		ARRAY_SIZE(gta01_i2c_devs));
 
 	s3c2410_pm_init();
 
