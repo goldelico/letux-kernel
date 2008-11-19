@@ -848,6 +848,7 @@ static void glamo_power(struct glamo_core *glamo,
 				 ARRAY_SIZE(glamo_resume_script), 0);
 
 		break;
+
 	case GLAMO_POWER_STANDBY:
 		/* enable memory self-refresh */
 		__reg_set_bit_mask(glamo, GLAMO_REG_MEM_DRAM1,
@@ -859,6 +860,7 @@ static void glamo_power(struct glamo_core *glamo,
 		__reg_set_bit_mask(glamo, GLAMO_REG_PLL_GEN3, 0x2000, 0xffff);
 		__reg_set_bit_mask(glamo, GLAMO_REG_DFT_GEN5, 0x0001, 0xffff);
 		break;
+
 	case GLAMO_POWER_SUSPEND:
 		__reg_set_bit_mask(glamo, GLAMO_REG_MEM_DRAM2,
 				   GLAMO_MEM_DRAM2_DEEP_PWRDOWN, 0xffff);

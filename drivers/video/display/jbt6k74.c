@@ -634,6 +634,7 @@ static int jbt_suspend(struct spi_device *spi, pm_message_t state)
 
 	/* Save mode for resume */
 	jbt->last_state = jbt->state;
+
 	jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);
 
 	jbt->have_resumed = 0;
