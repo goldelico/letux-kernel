@@ -1582,28 +1582,29 @@ __setup("hardware_ecc=", hardware_ecc_setup);
 /* these are the guys that don't need to be children of PMU */
 
 static struct platform_device *gta02_devices[] __initdata = {
-	&gta02_pmu_dev,
+	&gta02_version_device,
 	&s3c_device_usb,
 	&s3c_device_wdt,
-	&s3c_device_i2c,
-	&s3c_device_iis,
+	&gta02_memconfig_device,
 	// &s3c_device_sdi, /* FIXME: temporary disable to avoid s3cmci bind */
 	&s3c_device_usbgadget,
 	&s3c_device_nand,
 	&s3c_device_ts,
 	&gta02_nor_flash,
+
 	&sc32440_fiq_device,
-	&gta02_version_device,
-	&gta02_memconfig_device,
 	&s3c24xx_pwm_device,
 	&gta02_pm_wlan_dev,
+
+	&s3c_device_iis,
+	&gta02_pmu_dev,
+	&s3c_device_i2c,
 };
 
 
 /* these guys DO need to be children of PMU */
 
 static struct platform_device *gta02_devices_pmu_children[] = {
-	&gta02_glamo_dev, /* glamo-mci power handling depends on PMU */
 	&gta01_pm_gps_dev,
 	&gta01_pm_bt_dev,
 	&gta02_pm_gsm_dev,
@@ -1612,6 +1613,7 @@ static struct platform_device *gta02_devices_pmu_children[] = {
 	&s3c_device_spi_acc,
 	&gta02_button_dev,
 	&gta02_resume_reason_device,
+	&gta02_glamo_dev, /* glamo-mci power handling depends on PMU */
 };
 
 /* this is called when pc50633 is probed, unfortunately quite late in the
@@ -1733,10 +1735,20 @@ static void __init gta02_machine_init(void)
 	enable_irq_wake(GTA02_IRQ_WLAN_GPIO1);
 }
 
-void DEBUG_LED(void)
+void DEBUG_LED(int n)
 {
 //	int *p = NULL;
-	neo1973_gpb_setpin(GTA02_GPIO_AUX_LED, 1);
+	switch (n) {
+	case 0:
+		neo1973_gpb_setpin(GTA02_GPIO_PWR_LED1, 1);
+		break;
+	case 1:
+		neo1973_gpb_setpin(GTA02_GPIO_PWR_LED2, 1);
+		break;
+	default:
+		neo1973_gpb_setpin(GTA02_GPIO_AUX_LED, 1);
+		break;
+	}
 //	printk(KERN_ERR"die %d\n", *p);
 }
 EXPORT_SYMBOL_GPL(DEBUG_LED);

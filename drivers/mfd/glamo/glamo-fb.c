@@ -945,8 +945,14 @@ static int glamofb_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct glamofb_handle *gfb = platform_get_drvdata(pdev);
 
-	if (state.event & PM_EVENT_SLEEP)
-		fb_set_suspend(gfb->fb, 1);
+	/* we need to stop anything touching our framebuffer */
+//	fb_blank(gfb->fb, FB_BLANK_NORMAL);
+	fb_set_suspend(gfb->fb, 1);
+
+	/* seriously -- nobody is allowed to touch glamo memory when we
+	 * are suspended or we lock on nWAIT
+	 */
+//	iounmap(gfb->fb->screen_base);
 
 	return 0;
 }
@@ -955,7 +961,12 @@ static int glamofb_resume(struct platform_device *pdev)
 {
 	struct glamofb_handle *gfb = platform_get_drvdata(pdev);
 
+	/* OK let's allow framebuffer ops again */
+//	gfb->fb->screen_base = ioremap(gfb->fb_res->start,
+//				       RESSIZE(gfb->fb_res));
+
 	fb_set_suspend(gfb->fb, 0);
+//	fb_blank(gfb->fb, FB_BLANK_UNBLANK);
 
 	return 0;
 }

@@ -393,26 +393,24 @@ static void glamo_irq_demux_handler(unsigned int irq, struct irq_desc *desc)
 
 int __glamo_engine_enable(struct glamo_core *glamo, enum glamo_engine engine)
 {
-	printk(KERN_ERR" __glamo_engine_enable %d\n", engine);
 	switch (engine) {
 	case GLAMO_ENGINE_LCD:
-		__reg_set_bit_mask(glamo, GLAMO_REG_CLOCK_LCD,
+		__reg_set_bit_mask(glamo, GLAMO_REG_HOSTBUS(2),
+				   GLAMO_HOSTBUS2_MMIO_EN_LCD,
+				   GLAMO_HOSTBUS2_MMIO_EN_LCD);
+		__reg_write(glamo, GLAMO_REG_CLOCK_LCD,
 			    GLAMO_CLOCK_LCD_EN_M5CLK |
 			    GLAMO_CLOCK_LCD_EN_DHCLK |
 			    GLAMO_CLOCK_LCD_EN_DMCLK |
 			    GLAMO_CLOCK_LCD_EN_DCLK |
 			    GLAMO_CLOCK_LCD_DG_M5CLK |
-			    GLAMO_CLOCK_LCD_DG_DMCLK, 0xffff);
+			    GLAMO_CLOCK_LCD_DG_DMCLK);
 		__reg_set_bit_mask(glamo, GLAMO_REG_CLOCK_GEN5_1,
 			    GLAMO_CLOCK_GEN51_EN_DIV_DHCLK |
 			    GLAMO_CLOCK_GEN51_EN_DIV_DMCLK |
 			    GLAMO_CLOCK_GEN51_EN_DIV_DCLK, 0xffff);
-		__reg_set_bit_mask(glamo, GLAMO_REG_HOSTBUS(2),
-			    GLAMO_HOSTBUS2_MMIO_EN_LCD,
-			    0xffff);
 		break;
 	case GLAMO_ENGINE_MMC:
-		/* enable access to MMC unit */
 		__reg_set_bit_mask(glamo, GLAMO_REG_HOSTBUS(2),
 				   GLAMO_HOSTBUS2_MMIO_EN_MMC,
 				   GLAMO_HOSTBUS2_MMIO_EN_MMC);
@@ -469,7 +467,6 @@ EXPORT_SYMBOL_GPL(glamo_engine_enable);
 
 int __glamo_engine_disable(struct glamo_core *glamo, enum glamo_engine engine)
 {
-	printk(KERN_ERR" __glamo_engine_disable %d\n", engine);
 	switch (engine) {
 	case GLAMO_ENGINE_LCD:
 		/* remove pixel clock to LCM */
@@ -486,23 +483,18 @@ int __glamo_engine_disable(struct glamo_core *glamo, enum glamo_engine engine)
 			    GLAMO_CLOCK_GEN51_EN_DIV_DHCLK |
 			    GLAMO_CLOCK_GEN51_EN_DIV_DMCLK |
 			    GLAMO_CLOCK_GEN51_EN_DIV_DCLK, 0);
-//		__reg_set_bit_mask(glamo, GLAMO_REG_HOSTBUS(2),
-//			    GLAMO_HOSTBUS2_MMIO_EN_LCD, 0);
 		break;
 
 	case GLAMO_ENGINE_MMC:
-		__reg_set_bit_mask(glamo, GLAMO_REG_CLOCK_MMC,
-						   GLAMO_CLOCK_MMC_EN_M9CLK |
-						   GLAMO_CLOCK_MMC_EN_TCLK |
-						   GLAMO_CLOCK_MMC_DG_M9CLK |
-						   GLAMO_CLOCK_MMC_DG_TCLK, 0);
+//		__reg_set_bit_mask(glamo, GLAMO_REG_CLOCK_MMC,
+//						   GLAMO_CLOCK_MMC_EN_M9CLK |
+//						   GLAMO_CLOCK_MMC_EN_TCLK |
+//						   GLAMO_CLOCK_MMC_DG_M9CLK |
+//						   GLAMO_CLOCK_MMC_DG_TCLK, 0);
 		/* disable the TCLK divider clk input */
-		__reg_set_bit_mask(glamo, GLAMO_REG_CLOCK_GEN5_1,
-					GLAMO_CLOCK_GEN51_EN_DIV_TCLK, 0);
-		/* kill access to MMC unit */
-//		__reg_set_bit_mask(glamo, GLAMO_REG_HOSTBUS(2),
-//						GLAMO_HOSTBUS2_MMIO_EN_MMC, 0);
-		break;
+//		__reg_set_bit_mask(glamo, GLAMO_REG_CLOCK_GEN5_1,
+//					GLAMO_CLOCK_GEN51_EN_DIV_TCLK, 0);
+
 	default:
 		break;
 	}
@@ -803,6 +795,28 @@ static struct glamo_script glamo_init_script[] = {
 	{ GLAMO_REG_CLOCK_MEMORY,	0x000b },
 };
 
+static struct glamo_script glamo_resume_script[] = {
+
+	{ GLAMO_REG_PLL_GEN1,		0x05db },	/* 48MHz */
+	{ GLAMO_REG_PLL_GEN3,		0x0aba },	/* 90MHz */
+	{ 0xfffd, 0 },
+	/*
+	 * b9 of this register MUST be zero to get any interrupts on INT#
+	 * the other set bits enable all the engine interrupt sources
+	 */
+	{ GLAMO_REG_IRQ_ENABLE,		0x01ff },
+	{ GLAMO_REG_CLOCK_HOST,		0x0018 },
+		{ GLAMO_REG_CLOCK_GEN5_1, 0x1801 },
+
+	{ GLAMO_REG_MEM_DRAM1,		0x0000 },
+		{ 0xfffe, 1 },
+	{ GLAMO_REG_MEM_DRAM1,		0xc100 },
+		{ 0xfffe, 1 },
+	{ GLAMO_REG_MEM_DRAM1,		0xe100 },
+	{ GLAMO_REG_MEM_DRAM2,		0x01d6 },
+	{ GLAMO_REG_CLOCK_MEMORY,	0x000b },
+};
+
 
 enum glamo_power {
 	GLAMO_POWER_ON,
@@ -813,8 +827,9 @@ static void glamo_power(struct glamo_core *glamo,
 			enum glamo_power new_state)
 {
 	int n;
+	unsigned long flags;
 	
-	spin_lock(&glamo->lock);
+	spin_lock_irqsave(&glamo->lock, flags);
 
 	dev_dbg(&glamo->pdev->dev, "***** glamo_power -> %d\n", new_state);
 
@@ -849,24 +864,57 @@ static const REG_VALUE_MASK_TYPE reg_powerSuspend[] =
 	switch (new_state) {
 	case GLAMO_POWER_ON:
 
-		/* power up PLL1 and PLL2 */
-		__reg_set_bit_mask(glamo, GLAMO_REG_DFT_GEN6, 1, 1);
-		__reg_set_bit_mask(glamo, GLAMO_REG_PLL_GEN3, 1 << 13, 0);
+		glamo_run_script(glamo, glamo_resume_script,
+			 ARRAY_SIZE(glamo_resume_script), 0);
+#if 0
+		__reg_write(glamo, GLAMO_REG_MEM_TYPE, 0x0c74);
+		__reg_write(glamo, GLAMO_REG_MEM_GEN, 0xafaf);
+
+		/* re-enable clocks to memory */
+		__reg_write(glamo, GLAMO_REG_CLOCK_MEMORY,
+			GLAMO_CLOCK_MEM_EN_MOCACLK | GLAMO_CLOCK_MEM_EN_M1CLK |
+			GLAMO_CLOCK_MEM_DG_M1CLK | GLAMO_CLOCK_MEM_RESET);
+
+		/* re-enable clocks to memory */
+		__reg_write(glamo, GLAMO_REG_CLOCK_MEMORY,
+			GLAMO_CLOCK_MEM_EN_MOCACLK | GLAMO_CLOCK_MEM_EN_M1CLK |
+			GLAMO_CLOCK_MEM_DG_M1CLK);
+
+		/* Get memory out of deep powerdown */
+
+		__reg_write(glamo, GLAMO_REG_MEM_DRAM2,
+					(7 << 6) | /* tRC */
+					(1 << 4) | /* tRP */
+					(1 << 2) | /* tRCD */
+					2); /* CAS latency */
+
+		/* Stop self-refresh */
+
+		__reg_write(glamo, GLAMO_REG_MEM_DRAM1,
+					GLAMO_MEM_DRAM1_EN_DRAM_REFRESH |
+					GLAMO_MEM_DRAM1_EN_GATE_CKE |
+					GLAMO_MEM_REFRESH_COUNT);
+		__reg_write(glamo, GLAMO_REG_MEM_DRAM1,
+					GLAMO_MEM_DRAM1_EN_MODEREG_SET |
+					GLAMO_MEM_DRAM1_EN_DRAM_REFRESH |
+					GLAMO_MEM_DRAM1_EN_GATE_CKE |
+					GLAMO_MEM_REFRESH_COUNT);
+
+		/* power up PLL2 and PLL1 */
+		__reg_write(glamo, GLAMO_REG_PLL_GEN3, (1 << 12) | 0xaba);
+		__reg_write(glamo, GLAMO_REG_DFT_GEN6, 1);
+
+		mdelay(50);
 
 		/* spin until PLL1 and PLL2 lock */
 		while ((__reg_read(glamo, GLAMO_REG_PLL_GEN5) & 3) != 3)
 			;
 
-		/* re-enable clocks to memory */
-		__reg_set_bit_mask(glamo, GLAMO_REG_CLOCK_MEMORY,
-			GLAMO_CLOCK_MEM_EN_MOCACLK, GLAMO_CLOCK_MEM_EN_MOCACLK);
-		/* Get memory out of deep powerdown */
-
-		__reg_set_bit_mask(glamo, GLAMO_REG_MEM_DRAM2,
-					       GLAMO_MEM_DRAM2_DEEP_PWRDOWN, 0);
-		/* clear selfrefresh */
-
-		__reg_set_bit_mask(glamo, GLAMO_REG_MEM_DRAM1, 1 << 12, 0);
+		/* PLL2 out of bypass */
+		__reg_set_bit_mask(glamo, GLAMO_REG_PLL_GEN3, 1 << 12, 0);
+#endif
+		/* all dividers from PLLs */
+		__reg_set_bit_mask(glamo, GLAMO_REG_CLOCK_GEN5_1, 0x400, 0);
 
 		/* restore each engine that was up before suspend */
 		for (n = 0; n < __NUM_GLAMO_ENGINES; n++)
@@ -891,20 +939,47 @@ static const REG_VALUE_MASK_TYPE reg_powerSuspend[] =
 		for (n = 0; n < __NUM_GLAMO_ENGINES; n++)
 			if (glamo->engine_enabled_bitfield & (1 << n))
 				__glamo_engine_disable(glamo, n);
-				
 
-		__reg_set_bit_mask(glamo, GLAMO_REG_MEM_DRAM2,
-		    GLAMO_MEM_DRAM2_DEEP_PWRDOWN, GLAMO_MEM_DRAM2_DEEP_PWRDOWN);
+		/* enable self-refresh */
+
+		__reg_write(glamo, GLAMO_REG_MEM_DRAM1,
+					GLAMO_MEM_DRAM1_EN_DRAM_REFRESH |
+					GLAMO_MEM_DRAM1_EN_GATE_CKE |
+					GLAMO_MEM_DRAM1_SELF_REFRESH |
+					GLAMO_MEM_REFRESH_COUNT);
+		__reg_write(glamo, GLAMO_REG_MEM_DRAM1,
+					GLAMO_MEM_DRAM1_EN_MODEREG_SET |
+					GLAMO_MEM_DRAM1_EN_DRAM_REFRESH |
+					GLAMO_MEM_DRAM1_EN_GATE_CKE |
+					GLAMO_MEM_DRAM1_SELF_REFRESH |
+					GLAMO_MEM_REFRESH_COUNT);
+
+		/* force RAM into deep powerdown */
+
+		__reg_write(glamo, GLAMO_REG_MEM_DRAM2,
+					GLAMO_MEM_DRAM2_DEEP_PWRDOWN |
+					(7 << 6) | /* tRC */
+					(1 << 4) | /* tRP */
+					(1 << 2) | /* tRCD */
+					2); /* CAS latency */
+
 		/* disable clocks to memory */
-		__reg_set_bit_mask(glamo, GLAMO_REG_CLOCK_MEMORY,
-						 GLAMO_CLOCK_MEM_EN_MOCACLK, 0);
-		__reg_set_bit_mask(glamo, GLAMO_REG_PLL_GEN3, 1 << 13, 1 << 13);
+		__reg_write(glamo, GLAMO_REG_CLOCK_MEMORY, 0);
+
+		/* all dividers from OSCI */
+		__reg_set_bit_mask(glamo, GLAMO_REG_CLOCK_GEN5_1, 0x400, 0x400);
+
+		/* PLL2 into bypass */
+		__reg_set_bit_mask(glamo, GLAMO_REG_PLL_GEN3, 1 << 12, 1 << 12);
+
+		/* kill PLLS 1 then 2 */
 		__reg_write(glamo, GLAMO_REG_DFT_GEN5, 0x0001);
+		__reg_set_bit_mask(glamo, GLAMO_REG_PLL_GEN3, 1 << 13, 1 << 13);
 
 		break;
 	}
 
-	spin_unlock(&glamo->lock);
+	spin_unlock_irqrestore(&glamo->lock, flags);
 }
 
 #if 0
@@ -1306,6 +1381,7 @@ static int glamo_resume(struct platform_device *pdev)
 
 	return 0;
 }
+
 #else
 #define glamo_suspend NULL
 #define glamo_resume  NULL

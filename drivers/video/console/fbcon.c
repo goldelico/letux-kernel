@@ -401,6 +401,9 @@ static void fb_flashcursor(struct work_struct *work)
 	int c;
 	int mode;
 
+	if (info->state != FBINFO_STATE_RUNNING)
+		return;
+
 	acquire_console_sem();
 	if (ops && ops->currcon != -1)
 		vc = vc_cons[ops->currcon].d;

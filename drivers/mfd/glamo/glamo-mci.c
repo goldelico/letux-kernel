@@ -341,6 +341,12 @@ static void glamo_mci_irq(unsigned int irq, struct irq_desc *desc)
 
 	if (!host)
 		return;
+
+	if (host->suspending) { /* bad news, dangerous time */
+		dev_err(&host->pdev->dev, "****glamo_mci_irq before resumed\n");
+		return;
+	}
+
 	if (!host->mrq)
 		return;
 	cmd = host->mrq->cmd;
@@ -499,7 +505,7 @@ static int glamo_mci_send_command(struct glamo_mci_host *host,
 			 /* multiblock with stop */
 			fire |= GLAMO_FIRE_MMC_CC_MBWS;
 		else
-			 /* multiblock NO stop-- 'RESERVED'? */
+// 			 /* multiblock NO stop-- 'RESERVED'? */
 			fire |= GLAMO_FIRE_MMC_CC_MBWNS;
 		break;
 	case MMC_STOP_TRANSMISSION:
@@ -573,7 +579,14 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 	u16 * reg_resp = (u16 *)(host->base + GLAMO_REG_MMC_CMD_RSP1);
 	u16 status;
 	int n;
-	int timeout = 100000000;
+	int timeout = 10000000;
+	int insanity_timeout = 10000000;
+
+	if (host->suspending) {
+		dev_err(&host->pdev->dev, "IGNORING glamo_mci_send_request while "
+								 "suspended\n");
+		return;
+	}
 
 	host->ccnt++;
 	/*
@@ -620,7 +633,12 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 			     GLAMO_STAT1_MMC_RTOUT |
 			     GLAMO_STAT1_MMC_DTOUT |
 			     GLAMO_STAT1_MMC_BWERR |
-			     GLAMO_STAT1_MMC_BRERR))));
+			     GLAMO_STAT1_MMC_BRERR))) && (insanity_timeout--));
+
+	if (insanity_timeout < 0) {
+		cmd->error = -ETIMEDOUT;
+		dev_err(&host->pdev->dev, "****** insanity timeout\n");
+	}
 
 	if (status & (GLAMO_STAT1_MMC_RTOUT |
 		      GLAMO_STAT1_MMC_DTOUT))
@@ -716,13 +734,18 @@ static void glamo_mci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 #if 0
 static void glamo_mci_reset(struct glamo_mci_host *host)
 {
+	if (host->suspending) {
+		dev_err(&host->pdev->dev, "IGNORING glamo_mci_reset while "
+								 "suspended\n");
+		return;
+	}
 	dev_err(&host->pdev->dev, "******* glamo_mci_reset\n");
 	/* reset MMC controller */
 	writew(GLAMO_CLOCK_MMC_RESET | GLAMO_CLOCK_MMC_DG_TCLK |
 		   GLAMO_CLOCK_MMC_EN_TCLK | GLAMO_CLOCK_MMC_DG_M9CLK |
 		   GLAMO_CLOCK_MMC_EN_M9CLK,
 		   glamo_mci_def_pdata.pglamo->base + GLAMO_REG_CLOCK_MMC);
-	msleep(1);
+	udelay(10);
 	/* and disable reset */
 	writew(GLAMO_CLOCK_MMC_DG_TCLK |
 		   GLAMO_CLOCK_MMC_EN_TCLK | GLAMO_CLOCK_MMC_DG_M9CLK |
@@ -737,6 +760,12 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	int n = 0;
 	int div;
 	int powering = 0;
+
+	if (host->suspending) {
+		dev_err(&host->pdev->dev, "IGNORING glamo_mci_set_ios while "
+								 "suspended\n");
+		return;
+	}
 
 	/* Set power */
 	switch(ios->power_mode) {
@@ -1002,6 +1031,7 @@ static int glamo_mci_suspend(struct platform_device *dev, pm_message_t state)
 
 	ret = mmc_suspend_host(mmc, state);
 
+	host->suspending++;
 	/* so that when we resume, we use any modified max rate */
 	mmc->f_max = sd_max_clk;
 
@@ -1013,6 +1043,11 @@ int glamo_mci_resume(struct platform_device *dev)
 	struct mmc_host *mmc = platform_get_drvdata(dev);
 	struct glamo_mci_host 	*host = mmc_priv(mmc);
 	int ret;
+
+	sd_idleclk = 1;
+
+	glamo_engine_enable(host->pdata->pglamo, GLAMO_ENGINE_MMC);
+	glamo_mci_reset(host);
 
 	host->suspending--;
 

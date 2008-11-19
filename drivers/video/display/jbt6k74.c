@@ -692,14 +692,6 @@ int jbt6k74_resume(struct spi_device *spi)
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
 	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
 
-	/* we can get called twice with all dependencies resumed if our core
-	 * resume callback is last of all.  Protect against doing anything twice
-	 */
-	if (jbt->have_resumed)
-		return 0;
-
-	jbt->have_resumed |= 1;
-
 	switch (jbt->last_state) {
 	case JBT_STATE_QVGA_NORMAL:
 		jbt6k74_enter_state(jbt, JBT_STATE_QVGA_NORMAL);
