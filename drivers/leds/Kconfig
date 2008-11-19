@@ -33,7 +33,7 @@ config LEDS_LOCOMO
 
 config LEDS_S3C24XX
 	tristate "LED Support for Samsung S3C24XX GPIO LEDs"
-	depends on LEDS_CLASS && ARCH_S3C2410
+	depends on LEDS_CLASS && ARCH_S3C2410 && S3C2410_PWM
 	help
 	  This option enables support for LEDs connected to GPIO lines
 	  on Samsung S3C24XX series CPUs, such as the S3C2410 and S3C2440.
@@ -164,6 +164,12 @@ config LEDS_DA903X
 	help
 	  This option enables support for on-chip LED drivers found
 	  on Dialog Semiconductor DA9030/DA9034 PMICs.
+
+config LEDS_NEO1973_VIBRATOR
+	tristate "Vibrator Support for the FIC Neo1973 GSM phone"
+	depends on LEDS_CLASS && MACH_NEO1973
+	help
+	  This option enables support for the vibrator on the FIC Neo1973.
 
 comment "LED Triggers"
 
