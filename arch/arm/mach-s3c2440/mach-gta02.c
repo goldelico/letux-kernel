@@ -77,7 +77,7 @@
 #include <asm/plat-s3c24xx/pm.h>
 #include <asm/plat-s3c24xx/udc.h>
 #include <asm/plat-s3c24xx/neo1973.h>
-#include <asm/arch-s3c2410/neo1973-pm-gsm.h>
+#include <mach/neo1973-pm-gsm.h>
 
 #include <linux/jbt6k74.h>
 
