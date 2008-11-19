@@ -712,6 +712,7 @@ static void glamo_mci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	glamo_mci_send_request(mmc);
 }
 
+#if 0
 static void glamo_mci_reset(struct glamo_mci_host *host)
 {
 	dev_dbg(&host->pdev->dev, "******* glamo_mci_reset\n");
@@ -727,7 +728,7 @@ static void glamo_mci_reset(struct glamo_mci_host *host)
 		   GLAMO_CLOCK_MMC_EN_M9CLK,
 		   glamo_mci_def_pdata.pglamo->base + GLAMO_REG_CLOCK_MMC);
 }
-
+#endif
 
 static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
