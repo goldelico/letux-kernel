@@ -436,6 +436,7 @@ int pnp_check_dma(struct pnp_dev *dev, struct resource *res)
 		}
 	}
 
+#if 0
 	/* check if the resource is already in use, skip if the
 	 * device is active because it itself may be in use */
 	if (!dev->active) {
@@ -443,6 +444,7 @@ int pnp_check_dma(struct pnp_dev *dev, struct resource *res)
 			return 0;
 		free_dma(*dma);
 	}
+#endif
 
 	/* check for conflicts with other pnp devices */
 	pnp_for_each_dev(tdev) {
