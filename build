@@ -50,8 +50,16 @@ if make -j5 ARCH=arm CONFIG_DEBUG_SECTION_MISMATCH=y EXTRAVERSION=$VERSION; then
 	# if it is then keep a stamped copy of last build
 
 	if [ ! -z "`grep CONFIG_USB_USBNET=y .config`" ] ; then
-		rm -f uImage-moredrivers*-$PRODUCT.bin
-		cp uImage-$PRODUCT.bin uImage-moredrivers$VERSION-$PRODUCT.bin
+		rm -f uImage-moredrivers*-$PRODUCT.bin modules-*$PRODUCT.tar.gz
+		cp uImage-$PRODUCT.bin uImage-moredrivers$VERSION.bin
+		rm -rf staging
+		mkdir -p staging
+		if [ ! -z "$1" ] ; then
+			make modules_install INSTALL_MOD_PATH=staging
+			cd staging
+			tar czf ../modules$VERSION.tar.gz .
+			cd ..
+		fi
 	fi
 	exit 0
 else
