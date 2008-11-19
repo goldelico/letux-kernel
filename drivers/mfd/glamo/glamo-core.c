@@ -887,6 +887,11 @@ static struct glamo_script glamo_init_script[] = {
 	{ GLAMO_REG_MEM_DRAM1,		0xe100 },
 	{ GLAMO_REG_MEM_DRAM2,		0x01d6 },
 	{ GLAMO_REG_CLOCK_MEMORY,	0x000b },
+	{ GLAMO_REG_GPIO_GEN1,		0x000f },
+	{ GLAMO_REG_GPIO_GEN2,		0x111e },
+	{ GLAMO_REG_GPIO_GEN3,		0xccc3 },
+	{ GLAMO_REG_GPIO_GEN4,		0x111e },
+	{ GLAMO_REG_GPIO_GEN5,		0x000f },
 };
 #if 0
 static struct glamo_script glamo_resume_script[] = {
