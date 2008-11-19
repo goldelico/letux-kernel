@@ -323,4 +323,16 @@ config KEYBOARD_SH_KEYSC
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called sh_keysc.
+config KEYBOARD_NEO1973
+	tristate "FIC Neo1973 buttons"
+	depends on MACH_NEO1973
+	default y
+	help
+	  Say Y here to enable the buttons on the FIC Neo1973
+	  GSM phone.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called neo1973kbd.
+
+
 endif
