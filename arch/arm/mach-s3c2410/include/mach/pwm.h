@@ -29,6 +29,12 @@ struct s3c2410_pwm {
 	unsigned long comparer;
 };
 
+struct s3c24xx_pwm_platform_data{
+        /* callback to attach platform children (to enforce suspend / resume
+         * ordering */
+        void (*attach_child_devices)(struct device *parent_device);
+};
+
 int s3c2410_pwm_init(struct s3c2410_pwm *s3c2410_pwm);
 int s3c2410_pwm_enable(struct s3c2410_pwm *s3c2410_pwm);
 int s3c2410_pwm_disable(struct s3c2410_pwm *s3c2410_pwm);

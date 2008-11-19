@@ -223,7 +223,17 @@ EXPORT_SYMBOL_GPL(s3c2410_pwm_dumpregs);
 
 static int __init s3c24xx_pwm_probe(struct platform_device *pdev)
 {
+	struct s3c24xx_pwm_platform_data *pdata = pdev->dev.platform_data;
+
 	dev_info(&pdev->dev, "s3c24xx_pwm is registered \n");
+
+	/* if platform was interested, give him a chance to register
+	 * platform devices that switch power with us as the parent
+	 * at registration time -- ensures suspend / resume ordering
+	 */
+	if (pdata)
+		if (pdata->attach_child_devices)
+			(pdata->attach_child_devices)(&pdev->dev);
 
 	return 0;
 }
