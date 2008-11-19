@@ -23,7 +23,9 @@
 #include <asm/arch/gta01.h>
 #include <asm/plat-s3c/regs-timer.h>
 
+#ifdef CONFIG_MACH_NEO1973_GTA02
 #include <asm/arch-s3c2410/fiq_ipc_gta02.h>
+#endif
 #include <asm/plat-s3c24xx/neo1973.h>
 
 #define COUNTER 64
@@ -42,11 +44,13 @@ static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
 	struct neo1973_vib_priv *vp =
 		container_of(led_cdev, struct neo1973_vib_priv, cdev);
 
+#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) { /* use FIQ to control GPIO */
 		fiq_ipc.vib_pwm = value; /* set it for FIQ */
 		fiq_kick(); /* start up FIQs if not already going */
 		return;
 	}
+#endif
 	/*
 	 * value == 255 -> 99% duty cycle (full power)
 	 * value == 128 -> 50% duty cycle (medium power)
@@ -131,6 +135,7 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 	neo1973_vib_led.gpio = r->start;
 	platform_set_drvdata(pdev, &neo1973_vib_led);
 
+#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) { /* use FIQ to control GPIO */
 		neo1973_gpb_setpin(neo1973_vib_led.gpio, 0); /* off */
 		s3c2410_gpio_cfgpin(neo1973_vib_led.gpio, S3C2410_GPIO_OUTPUT);
@@ -139,6 +144,7 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 		fiq_ipc.vib_pwm = 0; /* off */
 		goto configured;
 	}
+#endif
 
 	/* TOUT3 */
 	if (neo1973_vib_led.gpio == S3C2410_GPB3) {
@@ -150,7 +156,9 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 		s3c2410_gpio_cfgpin(neo1973_vib_led.gpio, S3C2410_GPB3_TOUT3);
 		neo1973_vib_led.has_pwm = 1;
 	}
+#ifdef CONFIG_MACH_NEO1973_GTA02
 configured:
+#endif
 	mutex_init(&neo1973_vib_led.mutex);
 
 	return led_classdev_register(&pdev->dev, &neo1973_vib_led.cdev);
@@ -158,9 +166,11 @@ configured:
 
 static int neo1973_vib_remove(struct platform_device *pdev)
 {
+#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) /* use FIQ to control GPIO */
 		fiq_ipc.vib_pwm = 0; /* off */
 	/* would only need kick if already off so no kick needed */
+#endif
 
 	if (neo1973_vib_led.has_pwm)
 		s3c2410_pwm_disable(&neo1973_vib_led.pwm);
