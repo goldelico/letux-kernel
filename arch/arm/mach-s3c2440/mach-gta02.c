@@ -83,7 +83,7 @@
 
 #include <linux/glamofb.h>
 
-#include <asm/arch-s3c2410/fiq_ipc_gta02.h>
+#include <mach/fiq_ipc_gta02.h>
 #include "fiq_c_isr.h"
 #include <linux/gta02_hdq.h>
 #include <linux/bq27000_battery.h>
@@ -109,7 +109,7 @@ static int gta02_charger_active_status;
 /* define FIQ IPC struct */
 /*
  * contains stuff FIQ ISR modifies and normal kernel code can see and use
- * this is defined in <asm/arch/fiq_ipc_gta02.h>, you should customize
+ * this is defined in <arch/arm/mach-s3c2410/include/mach/fiq_ipc_gta02.h>, you should customize
  * the definition in there and include the same definition in your kernel
  * module that wants to interoperate with your FIQ code.
  */

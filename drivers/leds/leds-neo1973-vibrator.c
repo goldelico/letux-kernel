@@ -24,7 +24,7 @@
 #include <asm/plat-s3c/regs-timer.h>
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
-#include <asm/arch-s3c2410/fiq_ipc_gta02.h>
+#include <mach/fiq_ipc_gta02.h>
 #endif
 #include <asm/plat-s3c24xx/neo1973.h>
 
