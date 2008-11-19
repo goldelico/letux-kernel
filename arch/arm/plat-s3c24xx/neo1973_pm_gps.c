@@ -313,6 +313,11 @@ static int gps_pwron_get(void)
 }
 
 
+#ifdef CONFIG_MACH_NEO1973_GTA01
+static void gps_rst_set(int on);
+static int gps_rst_get(void);
+#endif
+
 static ssize_t power_gps_read(struct device *dev,
 			      struct device_attribute *attr, char *buf)
 {
