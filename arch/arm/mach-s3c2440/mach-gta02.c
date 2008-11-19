@@ -846,6 +846,11 @@ struct platform_device s3c24xx_pwm_device = {
 	.num_resources	= 0,
 };
 
+static struct i2c_board_info gta02_i2c_devs[] __initdata = {
+        {
+                I2C_BOARD_INFO("wm8753", 0x1a),
+        },
+};
 
 static struct platform_device *gta02_devices[] __initdata = {
 	&s3c_device_usb,
@@ -1663,6 +1668,10 @@ static void __init gta02_machine_init(void)
 		break;
 	}
 #endif
+
+        i2c_register_board_info(0, gta02_i2c_devs,
+                ARRAY_SIZE(gta02_i2c_devs));
+
 	s3c2410_pm_init();
 
 	/* Make sure the modem can wake us up */

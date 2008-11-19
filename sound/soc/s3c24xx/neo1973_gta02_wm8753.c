@@ -604,15 +604,10 @@ static struct snd_soc_machine neo1973_gta02 = {
 	.num_links = ARRAY_SIZE(neo1973_gta02_dai),
 };
 
-static struct wm8753_setup_data neo1973_gta02_wm8753_setup = {
-	.i2c_address = 0x1a,
-};
-
 static struct snd_soc_device neo1973_gta02_snd_devdata = {
 	.machine = &neo1973_gta02,
 	.platform = &s3c24xx_soc_platform,
 	.codec_dev = &soc_codec_dev_wm8753,
-	.codec_data = &neo1973_gta02_wm8753_setup,
 };
 
 static struct platform_device *neo1973_gta02_snd_device;
