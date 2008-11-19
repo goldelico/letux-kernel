@@ -13,6 +13,6 @@ GTA_DEVICE_IP=192.168.0.202
 # 4) copy your id_*.pub into /home/root/.ssh/authorized_keys
 # 5) chmod 600 /home/root/.ssh/*
 
-scp uImage.bin root@$GTA_DEVICE_IP:/
+scp uImage.bin root@$GTA_DEVICE_IP:/boot
 ssh root@$GTA_DEVICE_IP "mount /dev/mmcblk0p1 / -oremount,ro ; reboot -if &"
 
