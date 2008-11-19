@@ -26,6 +26,13 @@
 #define HDQ_READ 0
 #define HDQ_WRITE 0x80
 
+static int fiq_busy(void)
+{
+	int request = (volatile u8)fiq_ipc.hdq_request_ctr;
+	int transact = (volatile u8)fiq_ipc.hdq_transaction_ctr;
+
+	return (request != transact);
+}
 
 int gta02hdq_initialized(void)
 {
@@ -43,6 +50,7 @@ int gta02hdq_read(int address)
 
 	mutex_lock(&fiq_ipc.hdq_lock);
 
+	fiq_ipc.hdq_error = 0;
 	fiq_ipc.hdq_ads = address | HDQ_READ;
 	fiq_ipc.hdq_request_ctr++;
 	fiq_kick();
@@ -54,7 +62,7 @@ int gta02hdq_read(int address)
 	while (count_sleeps--) {
 		msleep(10); /* valid transaction always completes in < 10ms */
 
-		if (fiq_ipc.hdq_request_ctr != fiq_ipc.hdq_transaction_ctr)
+		if (fiq_busy())
 			continue;
 
 		if (fiq_ipc.hdq_error)
@@ -63,7 +71,6 @@ int gta02hdq_read(int address)
 		ret = fiq_ipc.hdq_rx_data;
 		goto done;
 	}
-	ret = -EINVAL;
 
 done:
 	mutex_unlock(&fiq_ipc.hdq_lock);
@@ -81,6 +88,7 @@ int gta02hdq_write(int address, u8 data)
 
 	mutex_lock(&fiq_ipc.hdq_lock);
 
+	fiq_ipc.hdq_error = 0;
 	fiq_ipc.hdq_ads = address | HDQ_WRITE;
 	fiq_ipc.hdq_tx_data = data;
 	fiq_ipc.hdq_request_ctr++;
@@ -93,13 +101,15 @@ int gta02hdq_write(int address, u8 data)
 	while (count_sleeps--) {
 		msleep(10); /* valid transaction always completes in < 10ms */
 
-		if (fiq_ipc.hdq_request_ctr != fiq_ipc.hdq_transaction_ctr)
+		if (fiq_busy())
 			continue; /* something bad with FIQ */
 
 		if (fiq_ipc.hdq_error)
 			goto done; /* didn't see a response in good time */
+
+		ret = 0;
+		goto done;
 	}
-	ret = -EINVAL;
 
 done:
 	mutex_unlock(&fiq_ipc.hdq_lock);

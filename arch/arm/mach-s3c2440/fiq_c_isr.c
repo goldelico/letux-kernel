@@ -230,6 +230,8 @@ static int __init sc32440_fiq_probe(struct platform_device *pdev)
 	ret = sysfs_create_group(&pdev->dev.kobj, &s3c2440_fiq_attr_group);
 	if (ret)
 		return ret;
+	
+	fiq_ready = 1;
 
 	/*
 	 * if wanted, users can defer registration of devices
@@ -238,8 +240,6 @@ static int __init sc32440_fiq_probe(struct platform_device *pdev)
 	 */
 	if (pdata->attach_child_devices)
 		(pdata->attach_child_devices)(&pdev->dev);
-
-	fiq_ready = 1;
 
 	return 0;
 }

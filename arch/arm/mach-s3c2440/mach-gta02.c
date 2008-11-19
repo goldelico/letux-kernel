@@ -847,8 +847,8 @@ static void gta02_fiq_attach_child_devices(struct device *parent_device)
 static struct resource sc32440_fiq_resources[] = {
 	[0] = {
 		.flags	= IORESOURCE_IRQ,
-		.start	= IRQ_TIMER1,
-		.end	= IRQ_TIMER1,
+		.start	= IRQ_TIMER3,
+		.end	= IRQ_TIMER3,
 	},
 };
 
