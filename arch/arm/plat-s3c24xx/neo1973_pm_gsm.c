@@ -73,15 +73,19 @@ static ssize_t gsm_read(struct device *dev, struct device_attribute *attr,
 	} else if (!strcmp(attr->attr.name, "reset")) {
 		if (machine_is_neo1973_gta01() && s3c2410_gpio_getpin(GTA01_GPIO_MODEM_RST))
 			goto out_1;
+#ifdef CONFIG_MACH_NEO1973_GTA02
 		else if (machine_is_neo1973_gta02() && s3c2410_gpio_getpin(GTA02_GPIO_MODEM_RST))
 			goto out_1;
+#endif
 	} else if (!strcmp(attr->attr.name, "download")) {
 		if (machine_is_neo1973_gta01()) {
 			if (s3c2410_gpio_getpin(GTA01_GPIO_MODEM_DNLOAD))
 				goto out_1;
+#ifdef CONFIG_MACH_NEO1973_GTA02
 		} else if (machine_is_neo1973_gta02()) {
 			if (!s3c2410_gpio_getpin(GTA02_GPIO_nDL_GSM))
 				goto out_1;
+#endif
 		}
 	} else if (!strcmp(attr->attr.name, "flowcontrolled")) {
 		if (s3c2410_gpio_getcfg(S3C2410_GPH1) == S3C2410_GPIO_OUTPUT)
@@ -155,12 +159,15 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 	} else if (!strcmp(attr->attr.name, "reset")) {
 		if (machine_is_neo1973_gta01())
 			neo1973_gpb_setpin(GTA01_GPIO_MODEM_RST, on);
+#ifdef CONFIG_MACH_NEO1973_GTA02
 		else if (machine_is_neo1973_gta02())
 			neo1973_gpb_setpin(GTA02_GPIO_MODEM_RST, on);
+#endif
 	} else if (!strcmp(attr->attr.name, "download")) {
 		if (machine_is_neo1973_gta01())
 			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_DNLOAD, on);
 
+#ifdef CONFIG_MACH_NEO1973_GTA02
 		if (machine_is_neo1973_gta02()) {
 			/*
 			 * the keyboard / buttons driver requests and enables
@@ -184,6 +191,7 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 			gta01_gsm.gpio_ndl_gsm = !on;
 			s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, !on);
 		}
+#endif
 	} else if (!strcmp(attr->attr.name, "flowcontrolled")) {
 		if (on) {
 			gta_gsm_interrupts = 0;
@@ -216,9 +224,10 @@ static int gta01_gsm_suspend(struct platform_device *pdev, pm_message_t state)
 	}
 
 	/* disable DL GSM to prevent jack_insert becoming 'floating' */
+#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02())
 		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, 1);
-
+#endif
 	return 0;
 
 busy:
@@ -246,8 +255,10 @@ static int gta01_gsm_resume(struct platform_device *pdev)
 	if (gta01_gsm.con && s3c2410_gpio_getpin(GTA01_GPIO_MODEM_ON))
 		console_stop(gta01_gsm.con);
 
+#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02())
 		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, gta01_gsm.gpio_ndl_gsm);
+#endif
 
 	return 0;
 }
@@ -322,8 +333,10 @@ static int __init gta01_gsm_probe(struct platform_device *pdev)
 
 	/* note that download initially disabled, and enforce that */
 	gta01_gsm.gpio_ndl_gsm = 1;
+#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02())
 		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, 1);
+#endif
 
 	return sysfs_create_group(&pdev->dev.kobj, &gta01_gsm_attr_group);
 }
