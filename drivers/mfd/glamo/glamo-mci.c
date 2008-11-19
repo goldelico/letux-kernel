@@ -575,13 +575,6 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 	int n;
 	int timeout = 100000000;
 
-	if (host->suspending) {
-		dev_err(&host->pdev->dev, "faking cmd %d "
-			"during suspend\n", cmd->opcode);
-		mmc_request_done(mmc, mrq);
-		return;
-	}
-
 	host->ccnt++;
 	/*
 	 * somehow 2.6.24 MCI manages to issue MMC_WRITE_BLOCK *without* the
