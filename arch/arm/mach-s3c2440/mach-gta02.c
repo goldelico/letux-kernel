@@ -213,10 +213,10 @@ static struct pcf50633_platform_data gta02_pcf_pdata = {
 			},
 		},
 		[PCF50633_REGULATOR_LDO4] = {
-			.name		= "gl_2v5",
+			.name		= "bt_3v2",
 			.voltage	= {
 				.init	= 2500,
-				.max	= 2500,
+				.max	= 3300,
 			},
 		},
 		[PCF50633_REGULATOR_LDO5] = {
