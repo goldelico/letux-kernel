@@ -16,6 +16,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <mach/hardware.h>
+#include <linux/gta02_hdq.h>
 #include <asm/mach-types.h>
 #include <mach/gta02.h>
 #include <mach/fiq_ipc_gta02.h>
@@ -205,8 +206,9 @@ static int __init gta02hdq_probe(struct platform_device *pdev)
 {
 	struct resource *r = platform_get_resource(pdev, 0, 0);
 	int ret;
-	
-	if (!machine_is_neo1973_gta02()) 
+	struct gta02_hdq_platform_data *pdata = pdev->dev.platform_data;
+
+	if (!machine_is_neo1973_gta02())
 		return -EIO;
 
 	if (!r)
@@ -232,6 +234,14 @@ static int __init gta02hdq_probe(struct platform_device *pdev)
 		return ret;
 
 	fiq_ipc.hdq_probed = 1; /* we are ready to do stuff now */
+
+	/*
+	 * if wanted, users can defer registration of devices
+	 * that depend on HDQ until after we register, and can use our
+	 * device as parent so suspend-resume ordering is correct
+	 */
+	if (pdata->attach_child_devices)
+		(pdata->attach_child_devices)(&pdev->dev);
 
 	return 0;
 }
