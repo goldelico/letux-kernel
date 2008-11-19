@@ -4,35 +4,54 @@
 
 export CROSS_COMPILE=../../cross/bin/arm-angstrom-linux-gnueabi-
 make ARCH=arm silentoldconfig
+
+PRODUCT=
+
+if [ ! -z "`grep CONFIG_MACH_NEO1973_GTA01=y .config`" ] ; then
+	START=30008000
+	PRODUCT=GTA01
+fi
+
+if [ ! -z "`grep CONFIG_MACH_NEO1973_GTA02=y .config`" ] ; then
+	START=30008000
+	PRODUCT=GTA02
+fi
+
+if [ ! -z "`grep CONFIG_MACH_OPENMOKO_GTA03=y .config`" ] ; then
+        START=50008000
+        PRODUCT=GTA03
+fi
+
+if [ ! -z "`grep CONFIG_MACH_M800=y .config`" ] ; then
+	START=30008000
+	PRODUCT=M800
+fi
+
+if [ -z "$PRODUCT" ] ; then
+	echo "Unable to figure out what we are building from the config"
+	exit 1
+fi
+
 VERSION=
 if [ -d .git ] ; then
  HEAD=`git show --pretty=oneline | head -n1 | cut -d' ' -f1 | cut -b1-16`
  BRANCH=`git branch | grep ^\* | cut -d' ' -f2`
- VERSION=-$BRANCH\_$HEAD
+ VERSION=-$PRODUCT\_$BRANCH\_$HEAD
 fi
 
-if [ ! -z "`grep CONFIG_ARCH_S3C64XX=y .config`" ] ; then
-	START=50008000
-	PRODUCT=GTA03
-fi
-
-if [ ! -z "`grep CONFIG_ARCH_S3C2410=y .config`" ] ; then
-	START=30008000
-	PRODUCT=FR
-fi
 
 echo $MKIMAGECMD
 
 if make -j5 ARCH=arm CONFIG_DEBUG_SECTION_MISMATCH=y EXTRAVERSION=$VERSION; then
 	${CROSS_COMPILE}objcopy -O binary -R .note -R .comment -S arch/arm/boot/compressed/vmlinux linux.bin
-	mkimage -A arm -O linux -T kernel -C none -a $START -e $START -n "OM $PRODUCT $BRANCH""_$HEAD" -d linux.bin uImage.bin
+	mkimage -A arm -O linux -T kernel -C none -a $START -e $START -n "OM $PRODUCT $BRANCH""_$HEAD" -d linux.bin uImage-$PRODUCT.bin
 
 	# we can see if it is an "moredrivers" build by looking for USB Eth gadget
 	# if it is then keep a stamped copy of last build
 
 	if [ ! -z "`grep CONFIG_USB_USBNET=y .config`" ] ; then
-		rm -f uImage-moredrivers*
-		cp uImage.bin uImage-moredrivers$VERSION.bin
+		rm -f uImage-moredrivers*-$PRODUCT.bin
+		cp uImage-$PRODUCT.bin uImage-moredrivers$VERSION-$PRODUCT.bin
 	fi
 	exit 0
 else
