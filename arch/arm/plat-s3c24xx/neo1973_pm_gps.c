@@ -23,15 +23,13 @@
 
 #include <asm/plat-s3c24xx/neo1973.h>
 
-#ifdef CONFIG_MACH_NEO1973_GTA01
+/* For GTA01 */
 #include <asm/arch/gta01.h>
 #include <linux/pcf50606.h>
-#endif
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
+/* For GTA02 */
 #include <asm/arch/gta02.h>
 #include <linux/pcf50633.h>
-#endif
 
 struct neo1973_pm_gps_data {
 	int power_was_on;
@@ -277,12 +275,9 @@ static void gps_pwron_set(int on)
 
 	neo1973_gps.power_was_on = !!on;
 
-#ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01())
 		neo1973_gpb_setpin(GTA01_GPIO_GPS_PWRON, on);
-#endif /* CONFIG_MACH_NEO1973_GTA01 */
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) {
 		if (on) {
 			pcf50633_voltage_set(pcf50633_global,
@@ -304,21 +299,16 @@ static void gps_pwron_set(int on)
 		pcf50633_onoff_set(pcf50633_global,
 			PCF50633_REGULATOR_LDO5, on);
 	}
-#endif /* CONFIG_MACH_NEO1973_GTA02 */
 }
 
 static int gps_pwron_get(void)
 {
-#ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01())
 		return !!s3c2410_gpio_getpin(GTA01_GPIO_GPS_PWRON);
-#endif /* CONFIG_MACH_NEO1973_GTA01 */
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02())
 		return !!pcf50633_onoff_get(pcf50633_global,
 						       PCF50633_REGULATOR_LDO5);
-#endif /* CONFIG_MACH_NEO1973_GTA02 */
 	return -1;
 }
 
@@ -517,34 +507,26 @@ static DEVICE_ATTR(power_sequence, 0644, power_sequence_read,
 static int gta01_pm_gps_suspend(struct platform_device *pdev,
 				pm_message_t state)
 {
-#ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01()) {
 		/* FIXME */
 		gps_power_sequence_down();
 	}
-#endif /* CONFIG_MACH_NEO1973_GTA01 */
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02())
 		gps_pwron_set(0);
-#endif /* CONFIG_MACH_NEO1973_GTA02 */
 
 	return 0;
 }
 
 static int gta01_pm_gps_resume(struct platform_device *pdev)
 {
-#ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01())
 		if (neo1973_gps.power_was_on)
 			gps_power_sequence_up();
-#endif /* CONFIG_MACH_NEO1973_GTA01 */
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02())
 		if (neo1973_gps.power_was_on)
 		    gps_pwron_set(1);
-#endif /* CONFIG_MACH_NEO1973_GTA02 */
 
 	return 0;
 }
@@ -556,7 +538,6 @@ static int gta01_pm_gps_resume(struct platform_device *pdev)
 static DEVICE_ATTR(pwron, 0644, power_gps_read, power_gps_write);
 
 
-#ifdef CONFIG_MACH_NEO1973_GTA01
 static struct attribute *gta01_gps_sysfs_entries[] = {
 	&dev_attr_power_avdd_3v.attr,
 	&dev_attr_pwron.attr,
@@ -573,9 +554,7 @@ static struct attribute_group gta01_gps_attr_group = {
 	.name	= NULL,
 	.attrs	= gta01_gps_sysfs_entries,
 };
-#endif
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
 static struct attribute *gta02_gps_sysfs_entries[] = {
 	&dev_attr_pwron.attr,
 	NULL
@@ -585,11 +564,9 @@ static struct attribute_group gta02_gps_attr_group = {
 	.name	= NULL,
 	.attrs	= gta02_gps_sysfs_entries,
 };
-#endif
 
 static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 {
-#ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01()) {
 		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_PWRON, S3C2410_GPIO_OUTPUT);
 
@@ -636,9 +613,7 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 
 		return sysfs_create_group(&pdev->dev.kobj, &gta01_gps_attr_group);
 	}
-#endif /* CONFIG_MACH_NEO1973_GTA01 */
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) {
 		switch (system_rev) {
 		case GTA02v2_SYSTEM_REV:
@@ -662,25 +637,20 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 		}
 		return sysfs_create_group(&pdev->dev.kobj, &gta02_gps_attr_group);
 	}
-#endif /* CONFIG_MACH_NEO1973_GTA02 */
 	return -1;
 }
 
 static int gta01_pm_gps_remove(struct platform_device *pdev)
 {
-#ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01()) {
 		gps_power_sequence_down();
 		sysfs_remove_group(&pdev->dev.kobj, &gta01_gps_attr_group);
 	}
-#endif /* CONFIG_MACH_NEO1973_GTA01 */
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) {
 		pcf50633_onoff_set(pcf50633_global, PCF50633_REGULATOR_LDO5, 0);
 		sysfs_remove_group(&pdev->dev.kobj, &gta02_gps_attr_group);
 	}
-#endif /* CONFIG_MACH_NEO1973_GTA02 */
 	return 0;
 }
 

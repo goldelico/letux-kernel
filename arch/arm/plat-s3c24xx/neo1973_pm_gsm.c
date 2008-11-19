@@ -27,12 +27,11 @@
 
 #include <mach/hardware.h>
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
+/* For GTA02 */
 #include <asm/arch/gta02.h>
 #include <linux/pcf50633.h>
 #include <mach/regs-gpio.h>
 #include <mach/regs-gpioj.h>
-#endif
 
 int gta_gsm_interrupts;
 EXPORT_SYMBOL(gta_gsm_interrupts);
@@ -73,19 +72,15 @@ static ssize_t gsm_read(struct device *dev, struct device_attribute *attr,
 	} else if (!strcmp(attr->attr.name, "reset")) {
 		if (machine_is_neo1973_gta01() && s3c2410_gpio_getpin(GTA01_GPIO_MODEM_RST))
 			goto out_1;
-#ifdef CONFIG_MACH_NEO1973_GTA02
 		else if (machine_is_neo1973_gta02() && s3c2410_gpio_getpin(GTA02_GPIO_MODEM_RST))
 			goto out_1;
-#endif
 	} else if (!strcmp(attr->attr.name, "download")) {
 		if (machine_is_neo1973_gta01()) {
 			if (s3c2410_gpio_getpin(GTA01_GPIO_MODEM_DNLOAD))
 				goto out_1;
-#ifdef CONFIG_MACH_NEO1973_GTA02
 		} else if (machine_is_neo1973_gta02()) {
 			if (!s3c2410_gpio_getpin(GTA02_GPIO_nDL_GSM))
 				goto out_1;
-#endif
 		}
 	} else if (!strcmp(attr->attr.name, "flowcontrolled")) {
 		if (s3c2410_gpio_getcfg(S3C2410_GPH1) == S3C2410_GPIO_OUTPUT)
@@ -115,34 +110,34 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 			if (gta01_gsm.gpio_ngsm_en)
 				s3c2410_gpio_setpin(gta01_gsm.gpio_ngsm_en, 0);
 
-			switch (system_rev) {
-#ifdef CONFIG_MACH_NEO1973_GTA02
-			case GTA02v2_SYSTEM_REV:
-			case GTA02v3_SYSTEM_REV:
-			case GTA02v4_SYSTEM_REV:
-			case GTA02v5_SYSTEM_REV:
-			case GTA02v6_SYSTEM_REV:
-				pcf50633_gpio_set(pcf50633_global,
-						  PCF50633_GPIO2, 1);
-				break;
-#endif
+			if (machine_is_neo1973_gta02()) {
+				switch (system_rev) {
+				case GTA02v2_SYSTEM_REV:
+				case GTA02v3_SYSTEM_REV:
+				case GTA02v4_SYSTEM_REV:
+				case GTA02v5_SYSTEM_REV:
+				case GTA02v6_SYSTEM_REV:
+					pcf50633_gpio_set(pcf50633_global,
+							  PCF50633_GPIO2, 1);
+					break;
+				}
 			}
 
 			neo1973_gpb_setpin(GTA01_GPIO_MODEM_ON, 1);
 		} else {
 			neo1973_gpb_setpin(GTA01_GPIO_MODEM_ON, 0);
 
-			switch (system_rev) {
-#ifdef CONFIG_MACH_NEO1973_GTA02
-			case GTA02v2_SYSTEM_REV:
-			case GTA02v3_SYSTEM_REV:
-			case GTA02v4_SYSTEM_REV:
-			case GTA02v5_SYSTEM_REV:
-			case GTA02v6_SYSTEM_REV:
-				pcf50633_gpio_set(pcf50633_global,
-						  PCF50633_GPIO2, 0);
-				break;
-#endif
+			if (machine_is_neo1973_gta02()) {
+				switch (system_rev) {
+				case GTA02v2_SYSTEM_REV:
+				case GTA02v3_SYSTEM_REV:
+				case GTA02v4_SYSTEM_REV:
+				case GTA02v5_SYSTEM_REV:
+				case GTA02v6_SYSTEM_REV:
+					pcf50633_gpio_set(pcf50633_global,
+							  PCF50633_GPIO2, 0);
+					break;
+				}
 			}
 
 			if (gta01_gsm.gpio_ngsm_en)
@@ -159,15 +154,12 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 	} else if (!strcmp(attr->attr.name, "reset")) {
 		if (machine_is_neo1973_gta01())
 			neo1973_gpb_setpin(GTA01_GPIO_MODEM_RST, on);
-#ifdef CONFIG_MACH_NEO1973_GTA02
 		else if (machine_is_neo1973_gta02())
 			neo1973_gpb_setpin(GTA02_GPIO_MODEM_RST, on);
-#endif
 	} else if (!strcmp(attr->attr.name, "download")) {
 		if (machine_is_neo1973_gta01())
 			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_DNLOAD, on);
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
 		if (machine_is_neo1973_gta02()) {
 			/*
 			 * the keyboard / buttons driver requests and enables
@@ -191,7 +183,6 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 			gta01_gsm.gpio_ndl_gsm = !on;
 			s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, !on);
 		}
-#endif
 	} else if (!strcmp(attr->attr.name, "flowcontrolled")) {
 		if (on) {
 			gta_gsm_interrupts = 0;
@@ -224,10 +215,8 @@ static int gta01_gsm_suspend(struct platform_device *pdev, pm_message_t state)
 	}
 
 	/* disable DL GSM to prevent jack_insert becoming 'floating' */
-#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02())
 		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, 1);
-#endif
 	return 0;
 
 busy:
@@ -255,10 +244,8 @@ static int gta01_gsm_resume(struct platform_device *pdev)
 	if (gta01_gsm.con && s3c2410_gpio_getpin(GTA01_GPIO_MODEM_ON))
 		console_stop(gta01_gsm.con);
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02())
 		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, gta01_gsm.gpio_ndl_gsm);
-#endif
 
 	return 0;
 }
@@ -266,7 +253,7 @@ static int gta01_gsm_resume(struct platform_device *pdev)
 #define gta01_gsm_suspend	NULL
 #define gta01_gsm_suspend_late	NULL
 #define gta01_gsm_resume	NULL
-#endif
+#endif /* CONFIG_PM */
 
 static struct attribute *gta01_gsm_sysfs_entries[] = {
 	&dev_attr_power_on.attr,
@@ -296,7 +283,6 @@ static int __init gta01_gsm_probe(struct platform_device *pdev)
 		gta01_gsm.gpio_ngsm_en = GTA01Bv2_GPIO_nGSM_EN;
 		s3c2410_gpio_setpin(GTA01v3_GPIO_nGSM_EN, 0);
 		break;
-#ifdef CONFIG_MACH_NEO1973_GTA02
 	case GTA02v1_SYSTEM_REV:
 	case GTA02v2_SYSTEM_REV:
 	case GTA02v3_SYSTEM_REV:
@@ -305,7 +291,6 @@ static int __init gta01_gsm_probe(struct platform_device *pdev)
 	case GTA02v6_SYSTEM_REV:
 		gta01_gsm.gpio_ngsm_en = 0;
 		break;
-#endif
 	default:
 		dev_warn(&pdev->dev, "Unknown Neo1973 Revision 0x%x, "
 			 "some PM features not available!!!\n",
@@ -333,10 +318,8 @@ static int __init gta01_gsm_probe(struct platform_device *pdev)
 
 	/* note that download initially disabled, and enforce that */
 	gta01_gsm.gpio_ndl_gsm = 1;
-#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02())
 		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, 1);
-#endif
 
 	return sysfs_create_group(&pdev->dev.kobj, &gta01_gsm_attr_group);
 }

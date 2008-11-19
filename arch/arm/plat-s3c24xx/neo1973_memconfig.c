@@ -140,13 +140,8 @@ static int __init neo1973_memconfig_probe(struct platform_device *pdev)
 {
 	dev_info(&pdev->dev, "starting\n");
 
-	switch (machine_arch_type) {
-#ifdef CONFIG_MACH_NEO1973_GTA01
-	case MACH_TYPE_NEO1973_GTA01:
+	if (machine_is_neo1973_gta01()) {
 		return -EINVAL;
-#endif /* CONFIG_MACH_NEO1973_GTA01 */
-	default:
-		break;
 	}
 
 	return sysfs_create_group(&pdev->dev.kobj,
