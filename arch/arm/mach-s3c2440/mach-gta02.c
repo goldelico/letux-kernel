@@ -66,6 +66,7 @@
 #include <asm/arch/spi.h>
 #include <asm/arch/spi-gpio.h>
 #include <asm/arch/usb-control.h>
+#include <asm/arch/regs-mem.h>
 
 #include <asm/arch/gta02.h>
 
@@ -1561,6 +1562,9 @@ static void __init gta02_machine_init(void)
 	}
 
 	spin_lock_init(&motion_irq_lock);
+
+	/* Glamo chip select optimization */
+/*	 *((u32 *)(S3C2410_MEMREG(((1 + 1) << 2)))) = 0x1280; */
 
 	s3c_device_usb.dev.platform_data = &gta02_usb_info;
 	s3c_device_nand.dev.platform_data = &gta02_nand_info;

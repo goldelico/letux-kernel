@@ -740,18 +740,18 @@ static struct glamo_script glamo_init_script[] = {
 	{ GLAMO_REG_CLOCK_GEN7,		0x0101 },
 	{ GLAMO_REG_CLOCK_GEN8,		0x0100 },
 	{ GLAMO_REG_CLOCK_HOST,		0x000d },
-	{ 0x200,	0x0ef0 },
+	/*
+	 * b7..b4 = 0 = no wait states on read or write
+	 * b0 = 1 select PLL2 for Host interface, b1 = enable it
+	 */
+	{ 0x200,	0x0e03 },
 	{ 0x202, 	0x07ff },
 	{ 0x212,	0x0000 },
 	{ 0x214,	0x4000 },
 	{ 0x216,	0xf00e },
 	{ GLAMO_REG_MEM_TYPE,		0x0874 }, /* 8MB, 16 word pg wr+rd */
 	{ GLAMO_REG_MEM_GEN,		0xafaf }, /* 63 grants min + max */
-	/*
-	 * the register below originally 0x0108 makes unreliable Glamo MMC
-	 * write operations.  Cranked to 0x05ad to add a wait state, the
-	 * unreliability is not seen after 4GB of write / read testing
-	 */
+
 	{ GLAMO_REG_MEM_TIMING1,	0x0108 },
 	{ GLAMO_REG_MEM_TIMING2,	0x0010 }, /* Taa = 3 MCLK */
 	{ GLAMO_REG_MEM_TIMING3,	0x0000 },
