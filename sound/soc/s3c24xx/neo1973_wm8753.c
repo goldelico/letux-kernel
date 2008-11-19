@@ -602,6 +602,8 @@ static int lm4857_i2c_probe(struct i2c_client *client,
 {
 	DBG("Entered %s\n", __func__);
 
+	i2c = client;
+
 	lm4857_write_regs();
 	return 0;
 }
@@ -609,6 +611,8 @@ static int lm4857_i2c_probe(struct i2c_client *client,
 static int lm4857_i2c_remove(struct i2c_client *client)
 {
 	DBG("Entered %s\n", __func__);
+
+	i2c = NULL;
 
 	return 0;
 }
