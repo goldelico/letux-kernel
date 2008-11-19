@@ -309,7 +309,6 @@ static int s3c24xx_i2s_trigger(struct snd_pcm_substream *substream, int cmd)
 		break;
 	}
 
-exit_err:
 	return ret;
 }
 
