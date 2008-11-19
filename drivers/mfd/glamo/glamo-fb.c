@@ -548,12 +548,13 @@ static int glamofb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 
 static inline int glamofb_cmdq_empty(struct glamofb_handle *gfb)
 {
+	/* DGCMdQempty -- 1 == command queue is empty */
 	return reg_read(gfb, GLAMO_REG_LCD_STATUS1) & (1 << 15);
 }
 
 void glamofb_cmd_mode(struct glamofb_handle *gfb, int on)
 {
-	int timeout = 2000;
+	int timeout = 20000;
 
 	dev_dbg(gfb->dev, "glamofb_cmd_mode(gfb=%p, on=%d)\n", gfb, on);
 	if (on) {
@@ -605,7 +606,7 @@ EXPORT_SYMBOL_GPL(glamofb_cmd_mode);
 
 int glamofb_cmd_write(struct glamofb_handle *gfb, u_int16_t val)
 {
-	int timeout = 2000;
+	int timeout = 20000;
 
 	dev_dbg(gfb->dev, "%s: waiting for cmdq empty\n",
 		__FUNCTION__);
