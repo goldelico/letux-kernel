@@ -60,7 +60,9 @@ static ssize_t gsm_read(struct device *dev, struct device_attribute *attr,
 		if (s3c2410_gpio_getpin(GTA01_GPIO_MODEM_ON))
 			goto out_1;
 	} else if (!strcmp(attr->attr.name, "reset")) {
-		if (s3c2410_gpio_getpin(GTA01_GPIO_MODEM_RST))
+		if (machine_is_neo1973_gta01() && s3c2410_gpio_getpin(GTA01_GPIO_MODEM_RST))
+			goto out_1;
+		else if (machine_is_neo1973_gta02() && s3c2410_gpio_getpin(GTA02_GPIO_MODEM_RST))
 			goto out_1;
 	} else if (!strcmp(attr->attr.name, "download")) {
 		if (machine_is_neo1973_gta01()) {
@@ -135,7 +137,10 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 			}
 		}
 	} else if (!strcmp(attr->attr.name, "reset")) {
-		s3c2410_gpio_setpin(GTA01_GPIO_MODEM_RST, on);
+		if (machine_is_neo1973_gta01())
+			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_RST, on);
+		else if (machine_is_neo1973_gta02())
+			s3c2410_gpio_setpin(GTA02_GPIO_MODEM_RST, on);
 	} else if (!strcmp(attr->attr.name, "download")) {
 		if (machine_is_neo1973_gta01())
 			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_DNLOAD, on);
