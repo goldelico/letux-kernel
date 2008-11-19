@@ -1785,12 +1785,6 @@ static int pcf50606_detect(struct i2c_adapter *adapter, int address, int kind)
 
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01()) {
-		/* FIXME: what is the device name we are symlinking to?
-		 * symlink won't get created until this is fixed.
-		 */
-		struct device * busdev = bus_find_device_by_name(
-							&platform_bus_type,
-							NULL, "FIXME");
 		gta01_pm_gps_dev.dev.parent = &new_client->dev;
 		switch (system_rev) {
 		case GTA01Bv2_SYSTEM_REV:
@@ -1802,16 +1796,11 @@ static int pcf50606_detect(struct i2c_adapter *adapter, int address, int kind)
 		}
 		platform_device_register(&gta01_pm_gps_dev);
 		/* a link for gllin compatibility */
-		/* 2.6.25 tracking: platform_bus_type.devices that was here
-		 * has gone away in mainline
-		 */
-		if (busdev) {
-			err = sysfs_create_link(&busdev->kobj,
+		err = bus_create_device_link(&platform_bus_type,
 			&gta01_pm_gps_dev.dev.kobj, "gta01-pm-gps.0");
-			if (err)
-				printk(KERN_ERR
+		if (err)
+			printk(KERN_ERR
 			    "sysfs_create_link (gta01-pm-gps.0): %d\n", err);
-		}
 	}
 #endif
 
