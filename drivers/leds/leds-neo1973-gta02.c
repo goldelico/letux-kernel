@@ -17,7 +17,7 @@
 #include <linux/leds.h>
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
-#include <asm/arch/gta02.h>
+#include <asm/arch-s3c2410/gta02.h>
 #include <asm/plat-s3c/regs-timer.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 

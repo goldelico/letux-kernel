@@ -46,10 +46,10 @@
 #include <asm/dma.h>
 #include <asm/dma-mapping.h>
 
-#include <asm/arch/regs-sdi.h>
+#include <asm/arch-s3c2410/regs-sdi.h>
 #include <mach/regs-gpio.h>
-#include <asm/arch/mci.h>
-#include <asm/arch/gta02.h>
+#include <asm/arch-s3c2410/mci.h>
+#include <asm/arch-s3c2410/gta02.h>
 
 #include "s3c24xx_hcd.h"
 

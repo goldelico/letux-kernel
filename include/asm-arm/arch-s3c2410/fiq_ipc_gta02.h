@@ -16,7 +16,7 @@
  * for testing
  */
 
-#include <asm/arch/pwm.h>
+#include <asm/arch-s3c2410/pwm.h>
 #include <asm/plat-s3c/regs-timer.h>
 
 extern u8 fiq_ready;

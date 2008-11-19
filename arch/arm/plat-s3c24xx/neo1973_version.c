@@ -20,7 +20,7 @@
 #include <asm/mach-types.h>
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
-#include <asm/arch/gta02.h>
+#include <asm/arch-s3c2410/gta02.h>
 
 static ssize_t version_read(struct device *dev, struct device_attribute *attr,
 			    char *buf)

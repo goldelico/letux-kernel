@@ -21,7 +21,7 @@
 #include <asm/mach-types.h>
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
-#include <asm/arch/gta02.h>
+#include <asm/arch-s3c2410/gta02.h>
 #include <linux/pcf50633.h>
 #endif
 

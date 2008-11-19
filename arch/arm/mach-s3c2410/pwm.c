@@ -23,7 +23,7 @@
 #include <linux/device.h>
 #include <mach/hardware.h>
 #include <asm/plat-s3c/regs-timer.h>
-#include <asm/arch/pwm.h>
+#include <asm/arch-s3c2410/pwm.h>
 #include <asm/io.h>
 
 #ifdef CONFIG_PM

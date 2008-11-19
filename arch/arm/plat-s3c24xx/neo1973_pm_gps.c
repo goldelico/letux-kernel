@@ -28,7 +28,7 @@
 #include <linux/pcf50606.h>
 
 /* For GTA02 */
-#include <asm/arch/gta02.h>
+#include <asm/arch-s3c2410/gta02.h>
 #include <linux/pcf50633.h>
 
 struct neo1973_pm_gps_data {
@@ -507,11 +507,11 @@ static DEVICE_ATTR(power_sequence, 0644, power_sequence_read,
 static int gta01_pm_gps_suspend(struct platform_device *pdev,
 				pm_message_t state)
 {
-	if (machine_is_neo1973_gta01()) {
+#ifdef CONFIG_MACH_NEO1973_GTA01
+	if (machine_is_neo1973_gta01())
 		/* FIXME */
 		gps_power_sequence_down();
-	}
-
+#endif
 	if (machine_is_neo1973_gta02())
 		gps_pwron_set(0);
 
@@ -520,10 +520,11 @@ static int gta01_pm_gps_suspend(struct platform_device *pdev,
 
 static int gta01_pm_gps_resume(struct platform_device *pdev)
 {
+#ifdef CONFIG_MACH_NEO1973_GTA01
 	if (machine_is_neo1973_gta01())
 		if (neo1973_gps.power_was_on)
 			gps_power_sequence_up();
-
+#endif
 	if (machine_is_neo1973_gta02())
 		if (neo1973_gps.power_was_on)
 		    gps_pwron_set(1);
@@ -539,15 +540,17 @@ static DEVICE_ATTR(pwron, 0644, power_gps_read, power_gps_write);
 
 
 static struct attribute *gta01_gps_sysfs_entries[] = {
-	&dev_attr_power_avdd_3v.attr,
 	&dev_attr_pwron.attr,
+#ifdef CONFIG_MACH_NEO1973_GTA01
+	&dev_attr_power_avdd_3v.attr,
 	&dev_attr_reset.attr,
 	&dev_attr_power_lp_io_3v3.attr,
 	&dev_attr_power_pll_core_2v5.attr,
 	&dev_attr_power_sequence.attr,
 	NULL,	/* power_core_1v5 */
 	NULL,	/* power_vdd_core_1v5 */
-	NULL	/* terminating entry */
+#endif
+	NULL    /* terminating entry */
 };
 
 static struct attribute_group gta01_gps_attr_group = {
@@ -593,6 +596,7 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 			break;
 		}
 
+#ifdef CONFIG_MACH_NEO1973_GTA01
 		gps_power_sequence_down();
 
 		switch (system_rev) {
@@ -610,7 +614,7 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 						&dev_attr_power_vdd_core_1v5.attr;
 			break;
 		}
-
+#endif
 		return sysfs_create_group(&pdev->dev.kobj, &gta01_gps_attr_group);
 	}
 
@@ -643,7 +647,9 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 static int gta01_pm_gps_remove(struct platform_device *pdev)
 {
 	if (machine_is_neo1973_gta01()) {
+#ifdef CONFIG_MACH_NEO1973_GTA01
 		gps_power_sequence_down();
+#endif
 		sysfs_remove_group(&pdev->dev.kobj, &gta01_gps_attr_group);
 	}
 

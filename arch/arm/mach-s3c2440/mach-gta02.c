@@ -61,14 +61,14 @@
 #include <mach/regs-gpio.h>
 #include <mach/regs-gpioj.h>
 #include <mach/fb.h>
-#include <asm/arch/mci.h>
-#include <asm/arch/ts.h>
+#include <asm/arch-s3c2410/mci.h>
+#include <asm/arch-s3c2410/ts.h>
 #include <mach/spi.h>
-#include <asm/arch/spi-gpio.h>
+#include <asm/arch-s3c2410/spi-gpio.h>
 #include <mach/usb-control.h>
 #include <mach/regs-mem.h>
 
-#include <asm/arch/gta02.h>
+#include <asm/arch-s3c2410/gta02.h>
 
 #include <asm/plat-s3c/regs-serial.h>
 #include <asm/plat-s3c/nand.h>
@@ -83,7 +83,7 @@
 
 #include <linux/glamofb.h>
 
-#include <asm/arch/fiq_ipc_gta02.h>
+#include <asm/arch-s3c2410/fiq_ipc_gta02.h>
 #include "fiq_c_isr.h"
 #include <linux/gta02_hdq.h>
 #include <linux/bq27000_battery.h>
