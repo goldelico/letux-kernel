@@ -2,7 +2,7 @@
 #define _GTA02_H
 
 #include <mach/regs-gpio.h>
-#include <asm/arch-s3c2410/irqs.h>
+#include <mach/irqs.h>
 
 /* Different hardware revisions, passed in ATAG_REVISION by u-boot */
 #define GTA02v1_SYSTEM_REV	0x00000310
