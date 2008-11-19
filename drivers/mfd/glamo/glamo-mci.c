@@ -619,12 +619,9 @@ done:
 	host->complete_what = COMPLETION_NONE;
 	host->mrq = NULL;
 	mmc_request_done(host->mmc, cmd->mrq);
-	return;
-
 bail:
 	/* stop the clock to card */
 	__glamo_mci_fix_card_div(host, -1);
-	return;
 }
 
 static void glamo_mci_request(struct mmc_host *mmc, struct mmc_request *mrq)
@@ -689,6 +686,9 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	host->real_rate = __glamo_mci_set_card_clock(host, ios->clock, &div);
 	host->clk_div = div;
+
+	/* stop the clock to card, because we are idle until transfer */
+	__glamo_mci_fix_card_div(host, -1);
 
 	if ((ios->power_mode == MMC_POWER_ON) ||
 	    (ios->power_mode == MMC_POWER_UP)) {
