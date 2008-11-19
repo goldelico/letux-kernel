@@ -45,6 +45,8 @@ int neo1973_pm_gps_is_on(void)
 }
 EXPORT_SYMBOL_GPL(neo1973_pm_gps_is_on);
 
+#ifdef CONFIG_MACH_NEO1973_GTA01
+
 /* This is the 2.8V supply for the RTC crystal, the mail clock crystal and
  * the input to VDD_RF */
 static void gps_power_2v8_set(int on)
@@ -267,6 +269,7 @@ static int gps_power_1v5_get(void)
 
 	return ret;
 }
+#endif
 
 /* This is the POWERON pin */
 static void gps_pwron_set(int on)
@@ -319,6 +322,72 @@ static int gps_pwron_get(void)
 	return -1;
 }
 
+
+static ssize_t power_gps_read(struct device *dev,
+			      struct device_attribute *attr, char *buf)
+{
+	int ret = 0;
+
+	if (!strcmp(attr->attr.name, "pwron"))
+#ifdef CONFIG_MACH_NEO1973_GTA01
+	{
+#endif
+		ret = gps_pwron_get();
+#ifdef CONFIG_MACH_NEO1973_GTA01
+	} else if (!strcmp(attr->attr.name, "power_avdd_3v")) {
+		ret = gps_power_3v_get();
+	} else if (!strcmp(attr->attr.name, "power_tcxo_2v8")) {
+		ret = gps_power_2v8_get();
+	} else if (!strcmp(attr->attr.name, "reset")) {
+		ret = gps_rst_get();
+	} else if (!strcmp(attr->attr.name, "power_lp_io_3v3")) {
+		ret = gps_power_3v3_get();
+	} else if (!strcmp(attr->attr.name, "power_pll_core_2v5")) {
+		ret = gps_power_2v5_get();
+	} else if (!strcmp(attr->attr.name, "power_core_1v5") ||
+		   !strcmp(attr->attr.name, "power_vdd_core_1v5")) {
+		ret = gps_power_1v5_get();
+	}
+#endif
+	if (ret)
+		return strlcpy(buf, "1\n", 3);
+	else
+		return strlcpy(buf, "0\n", 3);
+}
+
+static ssize_t power_gps_write(struct device *dev,
+			       struct device_attribute *attr, const char *buf,
+			       size_t count)
+{
+	unsigned long on = simple_strtoul(buf, NULL, 10);
+
+	if (!strcmp(attr->attr.name, "pwron"))
+#ifdef CONFIG_MACH_NEO1973_GTA01
+{
+#endif
+		gps_pwron_set(on);
+#ifdef CONFIG_MACH_NEO1973_GTA01
+	} else if (!strcmp(attr->attr.name, "power_avdd_3v")) {
+		gps_power_3v_set(on);
+	} else if (!strcmp(attr->attr.name, "power_tcxo_2v8")) {
+		gps_power_2v8_set(on);
+	} else if (!strcmp(attr->attr.name, "reset")) {
+		gps_rst_set(on);
+	} else if (!strcmp(attr->attr.name, "power_lp_io_3v3")) {
+		gps_power_3v3_set(on);
+	} else if (!strcmp(attr->attr.name, "power_pll_core_2v5")) {
+		gps_power_2v5_set(on);
+	} else if (!strcmp(attr->attr.name, "power_core_1v5") ||
+		   !strcmp(attr->attr.name, "power_vdd_core_1v5")) {
+		gps_power_1v5_set(on);
+	}
+#endif
+	return count;
+}
+
+
+#ifdef CONFIG_MACH_NEO1973_GTA01
+
 /* This is the nRESET pin */
 static void gps_rst_set(int on)
 {
@@ -354,59 +423,6 @@ static int gps_rst_get(void)
 	return 0;
 }
 
-static ssize_t power_gps_read(struct device *dev,
-			      struct device_attribute *attr, char *buf)
-{
-	int ret = 0;
-
-	if (!strcmp(attr->attr.name, "power_tcxo_2v8")) {
-		ret = gps_power_2v8_get();
-	} else if (!strcmp(attr->attr.name, "power_avdd_3v")) {
-		ret = gps_power_3v_get();
-	} else if (!strcmp(attr->attr.name, "pwron")) {
-		ret = gps_pwron_get();
-	} else if (!strcmp(attr->attr.name, "reset")) {
-		ret = gps_rst_get();
-	} else if (!strcmp(attr->attr.name, "power_lp_io_3v3")) {
-		ret = gps_power_3v3_get();
-	} else if (!strcmp(attr->attr.name, "power_pll_core_2v5")) {
-		ret = gps_power_2v5_get();
-	} else if (!strcmp(attr->attr.name, "power_core_1v5") ||
-		   !strcmp(attr->attr.name, "power_vdd_core_1v5")) {
-		ret = gps_power_1v5_get();
-	}
-
-	if (ret)
-		return strlcpy(buf, "1\n", 3);
-	else
-		return strlcpy(buf, "0\n", 3);
-}
-
-static ssize_t power_gps_write(struct device *dev,
-			       struct device_attribute *attr, const char *buf,
-			       size_t count)
-{
-	unsigned long on = simple_strtoul(buf, NULL, 10);
-
-	if (!strcmp(attr->attr.name, "power_tcxo_2v8")) {
-		gps_power_2v8_set(on);
-	} else if (!strcmp(attr->attr.name, "power_avdd_3v")) {
-		gps_power_3v_set(on);
-	} else if (!strcmp(attr->attr.name, "pwron")) {
-		gps_pwron_set(on);
-	} else if (!strcmp(attr->attr.name, "reset")) {
-		gps_rst_set(on);
-	} else if (!strcmp(attr->attr.name, "power_lp_io_3v3")) {
-		gps_power_3v3_set(on);
-	} else if (!strcmp(attr->attr.name, "power_pll_core_2v5")) {
-		gps_power_2v5_set(on);
-	} else if (!strcmp(attr->attr.name, "power_core_1v5") ||
-		   !strcmp(attr->attr.name, "power_vdd_core_1v5")) {
-		gps_power_1v5_set(on);
-	}
-
-	return count;
-}
 
 static void gps_power_sequence_up(void)
 {
@@ -488,7 +504,6 @@ static ssize_t power_sequence_write(struct device *dev,
 
 static DEVICE_ATTR(power_tcxo_2v8, 0644, power_gps_read, power_gps_write);
 static DEVICE_ATTR(power_avdd_3v, 0644, power_gps_read, power_gps_write);
-static DEVICE_ATTR(pwron, 0644, power_gps_read, power_gps_write);
 static DEVICE_ATTR(reset, 0644, power_gps_read, power_gps_write);
 static DEVICE_ATTR(power_lp_io_3v3, 0644, power_gps_read, power_gps_write);
 static DEVICE_ATTR(power_pll_core_2v5, 0644, power_gps_read, power_gps_write);
@@ -496,6 +511,7 @@ static DEVICE_ATTR(power_core_1v5, 0644, power_gps_read, power_gps_write);
 static DEVICE_ATTR(power_vdd_core_1v5, 0644, power_gps_read, power_gps_write);
 static DEVICE_ATTR(power_sequence, 0644, power_sequence_read,
 		   power_sequence_write);
+#endif
 
 #ifdef CONFIG_PM
 static int gta01_pm_gps_suspend(struct platform_device *pdev,
@@ -536,6 +552,9 @@ static int gta01_pm_gps_resume(struct platform_device *pdev)
 #define gta01_pm_gps_suspend	NULL
 #define gta01_pm_gps_resume	NULL
 #endif
+
+static DEVICE_ATTR(pwron, 0644, power_gps_read, power_gps_write);
+
 
 #ifdef CONFIG_MACH_NEO1973_GTA01
 static struct attribute *gta01_gps_sysfs_entries[] = {
