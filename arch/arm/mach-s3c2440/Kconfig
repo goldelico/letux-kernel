@@ -28,7 +28,7 @@ config S3C2440_C_FIQ
 	select FIQ
 	help
 	  Support for S3C2440 FIQ support in C -- see
-	  ./arch/arm/macs3c2440/fiq_c_isr.c
+	  ./arch/arm/mach-s3c2440/fiq_c_isr.c
 
 menu "S3C2440 Machines"
 
