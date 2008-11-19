@@ -1191,7 +1191,17 @@ static int pcf50606_rtc_ioctl(struct device *dev, unsigned int cmd,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50606_data *pcf = i2c_get_clientdata(client);
+
 	switch (cmd) {
+	case RTC_AIE_OFF:
+		/* disable the alarm interrupt */
+		reg_set_bit_mask(pcf, PCF50606_REG_INT1M,
+				 PCF50606_INT1_ALARM, PCF50606_INT1_ALARM);
+		return 0;
+	case RTC_AIE_ON:
+		/* enable the alarm interrupt */
+		reg_clear_bits(pcf, PCF50606_REG_INT1M, PCF50606_INT1_ALARM);
+		return 0;
 	case RTC_PIE_OFF:
 		/* disable periodic interrupt (hz tick) */
 		pcf->flags &= ~PCF50606_F_RTC_SECOND;
