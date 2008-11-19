@@ -1957,6 +1957,9 @@ static int pcf50606_resume(struct device *dev)
 
 	mutex_unlock(&pcf->lock);
 
+	/* Hack to fix the gta01 power button problem on resume */
+	pcf50606_irq(0, pcf);
+
 	return 0;
 }
 #else
