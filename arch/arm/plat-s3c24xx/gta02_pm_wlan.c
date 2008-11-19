@@ -26,6 +26,26 @@
 
 #include <linux/delay.h>
 
+
+static void gta02_wlan_power(int on)
+{
+	if (!on) {
+		s3c2410_gpio_setpin(GTA02_CHIP_PWD, 1);
+		s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 0);
+		return;
+	}
+
+	/* power up sequencing */
+
+	s3c2410_gpio_setpin(GTA02_CHIP_PWD, 1);
+	s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 0);
+	msleep(100);
+	s3c2410_gpio_setpin(GTA02_CHIP_PWD, 0);
+	msleep(100);
+	s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 1);
+
+}
+
 static ssize_t gta02_wlan_read(struct device *dev,
 				       struct device_attribute *attr, char *buf)
 {
@@ -40,22 +60,7 @@ static ssize_t gta02_wlan_write(struct device *dev,
 {
 	unsigned long on = simple_strtoul(buf, NULL, 10) & 1;
 
-	if (!on) {
-		s3c2410_gpio_setpin(GTA02_CHIP_PWD, 1);
-		s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 0);
-
-		return count;
-	}
-
-	/* power up sequencing */
-
-	s3c2410_gpio_setpin(GTA02_CHIP_PWD, 1);
-	s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 0);
-	msleep(100);
-	s3c2410_gpio_setpin(GTA02_CHIP_PWD, 0);
-	msleep(100);
-	s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 1);
-
+	gta02_wlan_power(on);
 	return count;
 }
 
@@ -100,12 +105,9 @@ static int __init gta02_wlan_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "starting\n");
 
-	/* Power is down */
-	s3c2410_gpio_setpin(GTA02_CHIP_PWD, !default_state);
 	s3c2410_gpio_cfgpin(GTA02_CHIP_PWD, S3C2410_GPIO_OUTPUT);
-	/* reset is asserted */
-	s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, default_state);
 	s3c2410_gpio_cfgpin(GTA02_GPIO_nWLAN_RESET, S3C2410_GPIO_OUTPUT);
+	gta02_wlan_power(default_state);
 
 	return sysfs_create_group(&pdev->dev.kobj, &gta02_wlan_attr_group);
 }
