@@ -287,7 +287,7 @@ static int neo1973_gta02_set_stereo_out(struct snd_kcontrol *kcontrol,
 
 	snd_soc_dapm_set_endpoint(codec, "Stereo Out", val);
 
-	snd_soc_dapm_sync_endpoints(codec);
+	snd_soc_dapm_sync(codec);
 
 	return 0;
 }
@@ -312,7 +312,7 @@ static int neo1973_gta02_set_gsm_out(struct snd_kcontrol *kcontrol,
 
 	snd_soc_dapm_set_endpoint(codec, "GSM Line Out", val);
 
-	snd_soc_dapm_sync_endpoints(codec);
+	snd_soc_dapm_sync(codec);
 
 	return 0;
 }
@@ -336,7 +336,7 @@ static int neo1973_gta02_set_gsm_in(struct snd_kcontrol *kcontrol,
 
 	snd_soc_dapm_set_endpoint(codec, "GSM Line In", val);
 
-	snd_soc_dapm_sync_endpoints(codec);
+	snd_soc_dapm_sync(codec);
 
 	return 0;
 }
@@ -360,7 +360,7 @@ static int neo1973_gta02_set_headset_mic(struct snd_kcontrol *kcontrol,
 
 	snd_soc_dapm_set_endpoint(codec, "Headset Mic", val);
 
-	snd_soc_dapm_sync_endpoints(codec);
+	snd_soc_dapm_sync(codec);
 
 	return 0;
 }
@@ -384,7 +384,7 @@ static int neo1973_gta02_set_handset_mic(struct snd_kcontrol *kcontrol,
 
 	snd_soc_dapm_set_endpoint(codec, "Handset Mic", val);
 
-	snd_soc_dapm_sync_endpoints(codec);
+	snd_soc_dapm_sync(codec);
 
 	return 0;
 }
@@ -408,7 +408,7 @@ static int neo1973_gta02_set_handset_spk(struct snd_kcontrol *kcontrol,
 
 	snd_soc_dapm_set_endpoint(codec, "Handset Spk", val);
 
-	snd_soc_dapm_sync_endpoints(codec);
+	snd_soc_dapm_sync(codec);
 
 	return 0;
 }
@@ -534,7 +534,8 @@ static int neo1973_gta02_wm8753_init(struct snd_soc_codec *codec)
 	snd_soc_dapm_set_endpoint(codec, "Handset Mic", 0);
 	snd_soc_dapm_set_endpoint(codec, "Handset Spk", 0);
 
-	snd_soc_dapm_sync_endpoints(codec);
+	snd_soc_dapm_sync(codec);
+
 	return 0;
 }
 
