@@ -18,7 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/hrtimer.h>
 #include <linux/err.h>
-#include <asm/arch/gpio.h>
+#include <mach/gpio.h>
 
 #include <linux/android_timed_gpio.h>
 
