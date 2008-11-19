@@ -1145,6 +1145,22 @@ static int __init glamo_probe(struct platform_device *pdev)
 		goto out_free;
 	}
 
+	for (irq = IRQ_GLAMO(0); irq <= IRQ_GLAMO(8); irq++) {
+		set_irq_chip(irq, &glamo_irq_chip);
+		set_irq_handler(irq, handle_level_irq);
+		set_irq_flags(irq, IRQF_VALID);
+	}
+
+	if (glamo->pdata->glamo_irq_is_wired &&
+	    !glamo->pdata->glamo_irq_is_wired()) {
+		set_irq_chained_handler(glamo->irq, glamo_irq_demux_handler);
+		set_irq_type(glamo->irq, IRQT_FALLING);
+		dev_info(&pdev->dev, "Glamo interrupt registered\n");
+		glamo->irq_works = 1;
+	} else {
+		dev_err(&pdev->dev, "Glamo interrupt not used\n");
+		glamo->irq_works = 0;
+	}
 	/* bring MCI specific stuff over from our MFD platform data */
 	glamo_mci_def_pdata.glamo_set_mci_power =
 					glamo->pdata->glamo_set_mci_power;
@@ -1226,20 +1242,6 @@ static int __init glamo_probe(struct platform_device *pdev)
 		 glamo_pll_rate(glamo, GLAMO_PLL2));
 
 	glamo_lcm_reset(1);
-
-	for (irq = IRQ_GLAMO(0); irq <= IRQ_GLAMO(8); irq++) {
-		set_irq_chip(irq, &glamo_irq_chip);
-		set_irq_handler(irq, handle_level_irq);
-		set_irq_flags(irq, IRQF_VALID);
-	}
-
-	if (glamo->pdata->glamo_irq_is_wired &&
-	    !glamo->pdata->glamo_irq_is_wired()) {
-		set_irq_chained_handler(glamo->irq, glamo_irq_demux_handler);
-		set_irq_type(glamo->irq, IRQ_TYPE_EDGE_FALLING);
-		glamo->irq_works = 1;
-	} else
-		glamo->irq_works = 0;
 
 	return 0;
 
