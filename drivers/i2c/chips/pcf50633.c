@@ -54,7 +54,7 @@
 #include "pcf50633.h"
 #include <linux/pcf50633.h>
 
-#if 1
+#if 0
 #define DEBUGP(x, args ...) printk("%s: " x, __FUNCTION__, ## args)
 #define DEBUGPC(x, args ...) printk(x, ## args)
 #else
