@@ -161,7 +161,7 @@ static int gta01_gsm_suspend(struct platform_device *pdev, pm_message_t state)
 	/* GPIO state is saved/restored by S3C2410 core GPIO driver, so we
 	 * don't need to do anything here */
 
-	/* disable DL GSM to prevent jack_insert becoming flaoting */
+	/* disable DL GSM to prevent jack_insert becoming floating */
 	if (machine_is_neo1973_gta02())
 		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, 1);
 	return 0;
