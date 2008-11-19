@@ -1589,7 +1589,7 @@ static void __exit s3cmci_exit(void)
 module_init(s3cmci_init);
 module_exit(s3cmci_exit);
 
-module_param(f_max, int, 0644)
+module_param(f_max, int, 0644);
 
 MODULE_DESCRIPTION("Samsung S3C MMC/SD Card Interface driver");
 MODULE_LICENSE("GPL v2");
