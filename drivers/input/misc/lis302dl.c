@@ -137,7 +137,8 @@ static void __enable_wakeup(struct lis302dl_info *lis)
 
 	/* First zero to get to a known state */
 	__reg_write(lis, LIS302DL_REG_FF_WU_CFG_1, LIS302DL_FFWUCFG_XHIE |
-			LIS302DL_FFWUCFG_YHIE | LIS302DL_FFWUCFG_ZHIE);
+			LIS302DL_FFWUCFG_YHIE | LIS302DL_FFWUCFG_ZHIE |
+			LIS302DL_FFWUCFG_LIR);
 	__reg_write(lis, LIS302DL_REG_FF_WU_THS_1,
 			__mg_to_threshold(lis, lis->wakeup.threshold));
 	__reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1,
@@ -183,7 +184,7 @@ static void __enable_data_collection(struct lis302dl_info *lis)
 		__reg_read(lis, LIS302DL_REG_HP_FILTER_RESET);
 		__reg_write(lis, LIS302DL_REG_FF_WU_CFG_1,
 				LIS302DL_FFWUCFG_XHIE | LIS302DL_FFWUCFG_YHIE |
-				LIS302DL_FFWUCFG_ZHIE);
+				LIS302DL_FFWUCFG_ZHIE | LIS302DL_FFWUCFG_LIR);
 		__lis302dl_int_mode(lis->dev, 1, LIS302DL_INTMODE_FF_WU_12);
 		__lis302dl_int_mode(lis->dev, 2, LIS302DL_INTMODE_FF_WU_12);
 	}
@@ -216,7 +217,6 @@ static void lis302dl_bitbang_read_sample(struct lis302dl_info *lis)
 	u8 read[5];
 	unsigned long flags;
 	int mg_per_sample;
-	int n;
 
 	local_irq_save(flags);
 	mg_per_sample = __threshold_to_mg(lis, 1);
@@ -233,6 +233,7 @@ static void lis302dl_bitbang_read_sample(struct lis302dl_info *lis)
 
 	/* Reset the HP filter */
 	__reg_read(lis,	LIS302DL_REG_HP_FILTER_RESET);
+	__reg_read(lis,	LIS302DL_REG_FF_WU_SRC_1);
 }
 
 static irqreturn_t lis302dl_interrupt(int irq, void *_lis)
@@ -346,9 +347,6 @@ static ssize_t set_threshold(struct device *dev, struct device_attribute *attr,
 	/* 8g is the maximum if FS is 1 */
 	if (val > 8000)
 		return -ERANGE;
-	/* Lower than 36 overloads the system with interrupts */
-	if (val < 36)
-		val = 36;
 
 	/* Set the threshold and write it out if the device is used */
 	lis->threshold = val;
@@ -435,8 +433,6 @@ static ssize_t set_wakeup_threshold(struct device *dev,
 
 	if (threshold > 8000)
 		return -ERANGE;
-	if (threshold < 36)
-		threshold = 36;
 
 	/* Zero turns the feature off */
 	if (threshold == 0) {
@@ -629,6 +625,7 @@ static int __devinit lis302dl_probe(struct platform_device *pdev)
 		dev_err(lis->dev, "unknown who_am_i signature 0x%02x\n", wai);
 		dev_set_drvdata(lis->dev, NULL);
 		rc = -ENODEV;
+		local_irq_restore(flags);
 		goto bail_sysfs;
 	}
 
@@ -707,7 +704,6 @@ bail_sysfs:
 	sysfs_remove_group(&lis->dev->kobj, &lis302dl_attr_group);
 bail_free_lis:
 	kfree(lis);
-	local_irq_restore(flags);
 	return rc;
 }
 
