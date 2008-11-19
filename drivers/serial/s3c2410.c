@@ -63,6 +63,8 @@ struct s3c24xx_uart_port {
 	struct resume_dependency	resume_dependency;
 };
 
+static int s3c24xx_serial_init(struct platform_driver *drv,
+			       struct s3c24xx_uart_info *info);
 
 /* configuration defines */
 
@@ -1186,15 +1188,6 @@ static int s3c24xx_serial_init(struct platform_driver *drv,
 	return platform_driver_register(drv);
 }
 
-static inline int s3c2400_serial_init(void)
-{
-         return s3c24xx_serial_init(&s3c2400_serial_drv, &s3c2400_uart_inf);
-}
-static inline void s3c2400_serial_exit(void)
-{
-         platform_driver_unregister(&s3c2400_serial_drv);
-}
-
 /* now comes the code to initialise either the s3c2410 or s3c2440 serial
  * port information
 */
@@ -1253,6 +1246,15 @@ static struct s3c24xx_uart_info s3c2400_uart_inf = {
 static int s3c2400_serial_probe(struct platform_device *dev)
 {
 	return s3c24xx_serial_probe(dev, &s3c2400_uart_inf);
+}
+
+static inline int s3c2400_serial_init(void)
+{
+         return s3c24xx_serial_init(&s3c2400_serial_drv, &s3c2400_uart_inf);
+}
+static inline void s3c2400_serial_exit(void)
+{
+         platform_driver_unregister(&s3c2400_serial_drv);
 }
 
 static struct platform_driver s3c2400_serial_drv = {
@@ -1683,7 +1685,9 @@ static int __init s3c24xx_serial_modinit(void)
 		return -1;
 	}
 
+#ifdef CONFIG_CPU_S3C2400
 	s3c2400_serial_init();
+#endif
 	s3c2410_serial_init();
 	s3c2412_serial_init();
 	s3c2440_serial_init();
@@ -1693,7 +1697,9 @@ static int __init s3c24xx_serial_modinit(void)
 
 static void __exit s3c24xx_serial_modexit(void)
 {
+#ifdef CONFIG_CPU_S3C2400
 	s3c2400_serial_exit();
+#endif
 	s3c2410_serial_exit();
 	s3c2412_serial_exit();
 	s3c2440_serial_exit();
