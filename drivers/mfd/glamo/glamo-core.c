@@ -83,8 +83,6 @@ struct reg_range reg_range[] = {
 	{ 0x1b00, 0x900,	"3D Unit",	0 }, */
 };
 
-static u16 suspend_regs[0x2400 / sizeof(u16)];
-static char debug_buffer[65536];
 static struct glamo_core *glamo_handle;
 
 static inline void __reg_write(struct glamo_core *glamo,
@@ -976,33 +974,14 @@ static const REG_VALUE_MASK_TYPE reg_powerSuspend[] =
 		(glamo->pdata->glamo_external_reset)(0);
 		udelay(10);
 		(glamo->pdata->glamo_external_reset)(1);
-		mdelay(10);
+		mdelay(5);
 
 		glamo_run_script(glamo, glamo_init_script,
 			 ARRAY_SIZE(glamo_init_script), 0);
-/*
-		for (n = 0; n < ARRAY_SIZE(reg_range); n++)
-			for (ads = reg_range[n].start; ads <
-			    (reg_range[n].start + reg_range[n].count); ads += 2)
-				 __reg_write(glamo, ads, suspend_regs[ads >> 1]);
-*/
-		/* do not bypass LCD controller */
-		__reg_write(glamo, 0x2f0, 0x1);
 
-		spin_unlock_irqrestore(&glamo->lock, flags);
-
-		/* dump down printk */
-//		regs_read(&glamo->pdev->dev, NULL, debug_buffer);
-
-		return;
+		break;
 
 	case GLAMO_POWER_SUSPEND:
-
-		for (n = 0; n < ARRAY_SIZE(reg_range); n++)
-			for (ads = reg_range[n].start; ads <
-			    (reg_range[n].start + reg_range[n].count); ads += 2)
-				suspend_regs[ads >> 1] = __reg_read(glamo, ads);
-
 
 		/* nuke interrupts */
 		__reg_write(glamo, GLAMO_REG_IRQ_ENABLE, 0x200);
