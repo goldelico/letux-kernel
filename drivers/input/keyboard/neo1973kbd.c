@@ -40,7 +40,7 @@ static irqreturn_t neo1973kbd_aux_irq(int irq, void *dev_id)
 {
 	struct neo1973kbd *neo1973kbd_data = dev_id;
 
-	int key_pressed = !gpio_get_value(irq_to_gpio(irq));
+	int key_pressed = !!gpio_get_value(irq_to_gpio(irq));
 	input_report_key(neo1973kbd_data->input, KEY_PHONE, key_pressed);
 	input_sync(neo1973kbd_data->input);
 
