@@ -11,8 +11,10 @@
  * published by the Free Software Foundation.
 */
 
+#if 0
 #define gpio_get_value	__gpio_get_value
 #define gpio_set_value	__gpio_set_value
+#endif
 #define gpio_cansleep	__gpio_cansleep
 
 #ifndef __ASM_ARCH_S3C2410_GPIO_H
