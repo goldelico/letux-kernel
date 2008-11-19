@@ -88,6 +88,8 @@
 #include <linux/gta02_hdq.h>
 #include <linux/bq27000_battery.h>
 
+#include <linux/i2c.h>
+
 #include "../plat-s3c24xx/neo1973_pm_gps.h"
 
 /* arbitrates which sensor IRQ owns the shared SPI bus */
