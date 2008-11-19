@@ -18,6 +18,7 @@
 #include <linux/console.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
+#include <linux/resume-dependency.h>
 
 #include <asm/gpio.h>
 #include <asm/mach-types.h>
@@ -33,8 +34,11 @@
 struct gta01pm_priv {
 	int gpio_ngsm_en;
         int gpio_ndl_gsm;
+
 	struct console *con;
 };
+
+struct resume_dependency resume_dep_gsm_uart;
 
 static struct gta01pm_priv gta01_gsm;
 
@@ -179,6 +183,8 @@ static DEVICE_ATTR(reset, 0644, gsm_read, gsm_write);
 static DEVICE_ATTR(download, 0644, gsm_read, gsm_write);
 
 #ifdef CONFIG_PM
+
+static int gta01_gsm_resume(struct platform_device *pdev);
 static int gta01_gsm_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	/* GPIO state is saved/restored by S3C2410 core GPIO driver, so we
@@ -189,11 +195,22 @@ static int gta01_gsm_suspend(struct platform_device *pdev, pm_message_t state)
 	if (machine_is_neo1973_gta02())
 		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, 1);
 
+	/* register our resume dependency on the appropriate UART being up */
+	resume_dep_gsm_uart.callback = gta01_gsm_resume;
+	resume_dep_gsm_uart.context = (void *)pdev;
+
+	s3c24xx_serial_register_resume_dependency(&resume_dep_gsm_uart, 0);
+
 	return 0;
 }
 
 static int gta01_gsm_resume(struct platform_device *pdev)
 {
+	if (resume_dep_gsm_uart.called_flag != 1)
+		return 0;
+
+	resume_dep_gsm_uart.called_flag++; /* only run once */
+
 	/* GPIO state is saved/restored by S3C2410 core GPIO driver, so we
 	 * don't need to do much here. */
 
@@ -278,6 +295,8 @@ static int __init gta01_gsm_probe(struct platform_device *pdev)
 	gta01_gsm.gpio_ndl_gsm = 1;
 	if (machine_is_neo1973_gta02())
 		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, 1);
+
+	init_resume_dependency_list(&resume_dep_gsm_uart);
 
 	return sysfs_create_group(&pdev->dev.kobj, &gta01_gsm_attr_group);
 }
