@@ -455,6 +455,7 @@ static struct s3c2410_platform_nand __initdata gta02_nand_info = {
 	.twrph1		= 15,
 	.nr_sets	= ARRAY_SIZE(gta02_nand_sets),
 	.sets		= gta02_nand_sets,
+	.software_ecc	= 1,
 };
 
 
@@ -807,6 +808,18 @@ static void gta02_hijack_gpb(void)
 	s3c24xx_gpios[1].chip.set = gta02_gpb_set;
 	s3c24xx_gpios[1].chip.get = gta02_gpb_get;
 }
+
+/*
+ * Allow the bootloader to enable hw ecc
+ * hardware_ecc=1|0
+ */
+static int __init hardware_ecc_setup(char *str)
+{
+	if (str && str[0] == '1')
+		gta02_nand_info.software_ecc = 0;
+	return 1;
+}
+__setup("hardware_ecc=", hardware_ecc_setup);
 
 static void gta02_request_gpios(void)
 {
