@@ -529,6 +529,14 @@ static pm_message_t resume_event(pm_message_t sleep_state)
 	return PMSG_ON;
 }
 
+static void
+suspend_device_dbg(struct device *dev, pm_message_t state, char *info)
+{
+	dev_err(dev, "%s%s%s\n", info, suspend_verb(state.event),
+		((state.event == PM_EVENT_SUSPEND) && device_may_wakeup(dev)) ?
+		", may wakeup" : "");
+}
+
 /**
  *	suspend_device_noirq - Shut down one device (late suspend).
  *	@dev:	Device.

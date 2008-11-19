@@ -1733,6 +1733,14 @@ static void __init gta02_machine_init(void)
 	enable_irq_wake(GTA02_IRQ_WLAN_GPIO1);
 }
 
+void DEBUG_LED(void)
+{
+//	int *p = NULL;
+	neo1973_gpb_setpin(GTA02_GPIO_AUX_LED, 1);
+//	printk(KERN_ERR"die %d\n", *p);
+}
+EXPORT_SYMBOL_GPL(DEBUG_LED);
+
 MACHINE_START(NEO1973_GTA02, "GTA02")
 	.phys_io	= S3C2410_PA_UART,
 	.io_pg_offst	= (((u32)S3C24XX_VA_UART) >> 18) & 0xfffc,
