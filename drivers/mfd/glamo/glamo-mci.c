@@ -56,6 +56,32 @@ static void glamo_mci_send_request(struct mmc_host *mmc);
 static int sd_max_clk = 50000000 / 3;
 module_param(sd_max_clk, int, 0644);
 
+/*
+ * SD Signal drive strength
+ *
+ * you can override this on kernel commandline using
+ *
+ *   glamo_mci.sd_drive=0
+ *
+ * for example
+ */
+
+static int sd_drive = 2;
+module_param(sd_drive, int, 0644);
+
+/*
+ * SD allow SD clock to run while idle
+ *
+ * you can override this on kernel commandline using
+ *
+ *   glamo_mci.sd_idleclk=0
+ *
+ * for example
+ */
+
+static int sd_idleclk = 0; /* disallow idle clock by default */
+module_param(sd_idleclk, int, 0644);
+
 
 
 unsigned char CRC7(u8 * pu8, int cnt)
@@ -239,7 +265,9 @@ static int __glamo_mci_set_card_clock(struct glamo_mci_host *host, int freq,
 		if (division)
 			*division = 0xff;
 
-		__glamo_mci_fix_card_div(host, -1); /* clock off */
+		if (!sd_idleclk)
+			/* clock off */
+			__glamo_mci_fix_card_div(host, -1);
 	}
 
 	return real_rate;
@@ -294,8 +322,9 @@ static void glamo_mci_irq(unsigned int irq, struct irq_desc *desc)
 		host->cmd_is_stop = 0;
 	}
 
-	/* clock off */
-	__glamo_mci_fix_card_div(host, -1);
+	if (!sd_idleclk)
+		/* clock off */
+		__glamo_mci_fix_card_div(host, -1);
 
 done:
 	host->complete_what = COMPLETION_NONE;
@@ -428,12 +457,10 @@ static int glamo_mci_send_command(struct glamo_mci_host *host,
 	} else
 		writew(0xfff, host->base + GLAMO_REG_MMC_TIMEOUT);
 
-	/* Generate interrupt on txfer; drive strength max */
-	writew_dly((readw_dly(host->base + GLAMO_REG_MMC_BASIC) & 0xfe) |
+	/* Generate interrupt on txfer */
+	writew_dly((readw_dly(host->base + GLAMO_REG_MMC_BASIC) & 0x3e) |
 		   0x0800 | GLAMO_BASIC_MMC_NO_CLK_RD_WAIT |
-		   GLAMO_BASIC_MMC_EN_COMPL_INT |
-		   GLAMO_BASIC_MMC_EN_DR_STR0 |
-		   GLAMO_BASIC_MMC_EN_DR_STR1,
+		   GLAMO_BASIC_MMC_EN_COMPL_INT | (sd_drive << 6),
 		   host->base + GLAMO_REG_MMC_BASIC);
 
 	/* send the command out on the wire */
@@ -620,8 +647,9 @@ done:
 	host->mrq = NULL;
 	mmc_request_done(host->mmc, cmd->mrq);
 bail:
-	/* stop the clock to card */
-	__glamo_mci_fix_card_div(host, -1);
+	if (!sd_idleclk)
+		/* stop the clock to card */
+		__glamo_mci_fix_card_div(host, -1);
 }
 
 static void glamo_mci_request(struct mmc_host *mmc, struct mmc_request *mrq)
@@ -687,8 +715,9 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	host->real_rate = __glamo_mci_set_card_clock(host, ios->clock, &div);
 	host->clk_div = div;
 
-	/* stop the clock to card, because we are idle until transfer */
-	__glamo_mci_fix_card_div(host, -1);
+	if (!sd_idleclk)
+		/* stop the clock to card, because we are idle until transfer */
+		__glamo_mci_fix_card_div(host, -1);
 
 	if ((ios->power_mode == MMC_POWER_ON) ||
 	    (ios->power_mode == MMC_POWER_UP)) {
@@ -705,8 +734,10 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (host->bus_width == MMC_BUS_WIDTH_4)
 		n = GLAMO_BASIC_MMC_EN_4BIT_DATA;
 	writew_dly((readw_dly(host->base + GLAMO_REG_MMC_BASIC) &
-					  (~GLAMO_BASIC_MMC_EN_4BIT_DATA)) | n,
-					      host->base + GLAMO_REG_MMC_BASIC);
+					  (~(GLAMO_BASIC_MMC_EN_4BIT_DATA |
+					     GLAMO_BASIC_MMC_EN_DR_STR0 |
+					     GLAMO_BASIC_MMC_EN_DR_STR1))) | n |
+			       sd_drive << 6, host->base + GLAMO_REG_MMC_BASIC);
 }
 
 
