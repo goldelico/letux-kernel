@@ -39,7 +39,7 @@
 #include <asm/io.h>
 #include <mach/spi-gpio.h>
 #include <mach/regs-gpioj.h>
-#include <asm/arch-s3c2410/gta02.h>
+#include <mach/gta02.h>
 #include "../codecs/wm8753.h"
 #include "s3c24xx-pcm.h"
 #include "s3c24xx-i2s.h"

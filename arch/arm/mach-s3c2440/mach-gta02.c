@@ -68,7 +68,7 @@
 #include <mach/usb-control.h>
 #include <mach/regs-mem.h>
 
-#include <asm/arch-s3c2410/gta02.h>
+#include <mach/gta02.h>
 
 #include <asm/plat-s3c/regs-serial.h>
 #include <asm/plat-s3c/nand.h>

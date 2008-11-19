@@ -28,7 +28,7 @@
 #include <linux/pcf50606.h>
 
 /* For GTA02 */
-#include <asm/arch-s3c2410/gta02.h>
+#include <mach/gta02.h>
 #include <linux/pcf50633.h>
 
 struct neo1973_pm_gps_data {

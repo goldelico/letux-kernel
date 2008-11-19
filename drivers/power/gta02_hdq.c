@@ -17,7 +17,7 @@
 #include <linux/platform_device.h>
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
-#include <asm/arch-s3c2410/gta02.h>
+#include <mach/gta02.h>
 #include <asm/arch-s3c2410/fiq_ipc_gta02.h>
 
 

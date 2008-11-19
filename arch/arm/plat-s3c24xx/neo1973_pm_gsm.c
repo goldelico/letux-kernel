@@ -28,7 +28,7 @@
 #include <mach/hardware.h>
 
 /* For GTA02 */
-#include <asm/arch-s3c2410/gta02.h>
+#include <mach/gta02.h>
 #include <linux/pcf50633.h>
 #include <mach/regs-gpio.h>
 #include <mach/regs-gpioj.h>

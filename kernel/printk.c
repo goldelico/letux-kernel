@@ -37,7 +37,7 @@
 
 #include <asm/uaccess.h>
 #include <asm/plat-s3c24xx/neo1973.h>
-#include <asm/arch-s3c2410/gta02.h>
+#include <mach/gta02.h>
 
 /*
  * Architectures can override it:
