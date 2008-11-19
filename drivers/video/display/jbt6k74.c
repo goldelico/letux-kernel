@@ -674,11 +674,6 @@ static int __devexit jbt_remove(struct spi_device *spi)
 static int jbt_suspend(struct spi_device *spi, pm_message_t state)
 {
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
-	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
-
-	/* platform can register resume dependencies here, if any */
-	if (jbt6k74_pdata->suspending)
-		(jbt6k74_pdata->suspending)(0, spi);
 
 	/* Save mode for resume */
 	jbt->last_state = jbt->state;
@@ -696,10 +691,6 @@ int jbt6k74_resume(struct spi_device *spi)
 {
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
 	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
-
-	if (jbt6k74_pdata->all_dependencies_resumed)
-		if (!(jbt6k74_pdata->all_dependencies_resumed)(0))
-			return 0;
 
 	/* we can get called twice with all dependencies resumed if our core
 	 * resume callback is last of all.  Protect against doing anything twice

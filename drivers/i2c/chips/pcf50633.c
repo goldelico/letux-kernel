@@ -52,7 +52,7 @@
 #include <asm/mach-types.h>
 
 #include "pcf50633.h"
-#include <linux/resume-dependency.h>
+#include <linux/pcf50633.h>
 
 #if 1
 #define DEBUGP(x, args ...) printk("%s: " x, __FUNCTION__, ## args)
@@ -182,9 +182,6 @@ struct pcf50633_data {
 		/*  skip 1 reserved reg here */
 		u_int8_t ldo[PCF50633_REG_HCLDOENA - PCF50633_REG_LDO1OUT + 1];
 	} standby_regs;
-
-	struct resume_dependency resume_dependency;
-	int is_suspended;
 
 #endif
 };
@@ -2179,7 +2176,7 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 		goto exit_free;
 	}
 
-	init_resume_dependency_list(&pcf->resume_dependency);
+	pcf50633_global = pcf;
 
 	populate_sysfs_group(pcf);
 
@@ -2400,20 +2397,6 @@ int pcf50633_report_resumers(struct pcf50633_data *pcf, char *buf)
 
 
 #ifdef CONFIG_PM
-
-/*
- * we need to export this because pcf50633_data is kept opaque
- */
-
-void pcf50633_register_resume_dependency(struct pcf50633_data *pcf,
-					struct resume_dependency *dep)
-{
-	register_resume_dependency(&pcf->resume_dependency, dep);
-	if (pcf->is_suspended)
-		activate_all_resume_dependencies(&pcf->resume_dependency);
-}
-EXPORT_SYMBOL_GPL(pcf50633_register_resume_dependency);
-
 
 static int pcf50633_suspend(struct device *dev, pm_message_t state)
 {
@@ -2640,9 +2623,6 @@ static int pcf50633_resume(struct device *dev)
 
 	get_device(&pcf->client.dev);
 	pcf50633_work(&pcf->work);
-
-	pcf->is_suspended = 0;
-	callback_all_resume_dependencies(&pcf->resume_dependency);
 
 	return 0;
 }

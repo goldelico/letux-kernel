@@ -434,6 +434,8 @@ static int enter_state(suspend_state_t state)
 		return -EBUSY;
 
 	printk(KERN_INFO "PM: Syncing filesystems ... ");
+	global_inside_suspend = 1;
+
 	sys_sync();
 	printk("done.\n");
 

@@ -98,14 +98,6 @@
 /* arbitrates which sensor IRQ owns the shared SPI bus */
 static spinlock_t motion_irq_lock;
 
-/* the dependency of jbt / LCM on pcf50633 resume */
-struct resume_dependency resume_dep_jbt_pcf;
-/* the dependency of jbt / LCM on glamo resume */
-struct resume_dependency resume_dep_jbt_glamo;
-/* the dependency of Glamo MCI on pcf50633 resume (has to power SD slot) */
-struct resume_dependency resume_dep_glamo_mci_pcf;
-
-
 static int gta02_charger_online_status;
 static int gta02_charger_active_status;
 
@@ -1060,38 +1052,10 @@ static void gta02_jbt6k74_resuming(int devidx)
 	pcf50633_backlight_resume(pcf50633_global);
 }
 
-static int gta02_jbt6k74_all_dependencies_resumed(int devidx)
-{
-	if (!resume_dep_jbt_pcf.called_flag)
-		return 0;
-
-	if (!resume_dep_jbt_glamo.called_flag)
-		return 0;
-
-	return 1;
-}
-
-/* register jbt resume action to be dependent on pcf50633 and glamo resume */
-
-static void gta02_jbt6k74_suspending(int devindex, struct spi_device *spi)
-{
-	void jbt6k74_resume(void *spi); /* little white lies about types */
-
-	resume_dep_jbt_pcf.callback = jbt6k74_resume;
-	resume_dep_jbt_pcf.context = (void *)spi;
-	pcf50633_register_resume_dependency(pcf50633_global,
-							   &resume_dep_jbt_pcf);
-	resume_dep_jbt_glamo.callback = jbt6k74_resume;
-	resume_dep_jbt_glamo.context = (void *)spi;
-	glamo_register_resume_dependency(&resume_dep_jbt_glamo);
-}
-
 
 const struct jbt6k74_platform_data jbt6k74_pdata = {
 	.reset		= gta02_jbt6k74_reset,
 	.resuming	= gta02_jbt6k74_resuming,
-	.suspending	= gta02_jbt6k74_suspending,
-	.all_dependencies_resumed = gta02_jbt6k74_all_dependencies_resumed,
 };
 
 static struct spi_board_info gta02_spi_board_info[] = {
@@ -1484,27 +1448,6 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 }
 
 
-static int gta02_glamo_mci_all_dependencies_resumed(struct platform_device *dev)
-{
-	return resume_dep_glamo_mci_pcf.called_flag;
-}
-
-/* register jbt resume action to be dependent on pcf50633 and glamo resume */
-
-static void gta02_glamo_mci_suspending(struct platform_device *dev)
-{
-	int glamo_mci_resume(struct platform_device *dev);
-	
-#if defined(CONFIG_MFD_GLAMO_MCI) && defined(CONFIG_PM)
-	resume_dep_glamo_mci_pcf.callback = (void (*)(void *))glamo_mci_resume;
-	resume_dep_glamo_mci_pcf.context = (void *)dev;
-	pcf50633_register_resume_dependency(pcf50633_global,
-						     &resume_dep_glamo_mci_pcf);
-#endif
-}
-
-
-
 /* Smedia Glamo 3362 */
 
 /*
@@ -1550,9 +1493,6 @@ static struct glamofb_platform_data gta02_glamo_pdata = {
 	.glamo_set_mci_power = gta02_glamo_mmc_set_power,
 	.glamo_mci_use_slow = gta02_glamo_mci_use_slow,
 	.glamo_irq_is_wired = glamo_irq_is_wired,
-	.mci_suspending = gta02_glamo_mci_suspending,
-	.mci_all_dependencies_resumed =
-				      gta02_glamo_mci_all_dependencies_resumed,
 };
 
 static struct resource gta02_glamo_resources[] = {

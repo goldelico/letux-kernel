@@ -716,7 +716,7 @@ static void glamo_mci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 #if 0
 static void glamo_mci_reset(struct glamo_mci_host *host)
 {
-	dev_dbg(&host->pdev->dev, "******* glamo_mci_reset\n");
+	dev_err(&host->pdev->dev, "******* glamo_mci_reset\n");
 	/* reset MMC controller */
 	writew(GLAMO_CLOCK_MMC_RESET | GLAMO_CLOCK_MMC_DG_TCLK |
 		   GLAMO_CLOCK_MMC_EN_TCLK | GLAMO_CLOCK_MMC_DG_M9CLK |
@@ -782,7 +782,7 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	 * initialize itself.  Doubt any modern cards need it but anyway...
 	 */
 	if (powering)
-		msleep(1);
+		mdelay(1);
 
 	if (!sd_idleclk && !host->force_slow_during_powerup)
 		/* stop the clock to card, because we are idle until transfer */
@@ -929,12 +929,15 @@ static int glamo_mci_probe(struct platform_device *pdev)
 	dev_info(&host->pdev->dev, "probe: mapped mci_base:%p irq:%u.\n",
 		host->base, host->irq);
 
+	platform_set_drvdata(pdev, mmc);
+
+	glamo_engine_enable(glamo_mci_def_pdata.pglamo, GLAMO_ENGINE_MMC);
+	glamo_mci_reset(host);
+
 	if ((ret = mmc_add_host(mmc))) {
 		dev_err(&pdev->dev, "failed to add mmc host.\n");
 		goto probe_free_mem_region_data;
 	}
-
-	platform_set_drvdata(pdev, mmc);
 
 	dev_info(&pdev->dev,"initialisation done.\n");
 	return 0;
@@ -996,8 +999,6 @@ static int glamo_mci_suspend(struct platform_device *dev, pm_message_t state)
 	sd_idleclk = 1;
 
 	host->suspending++;
-	if (host->pdata->mci_all_dependencies_resumed)
-		(host->pdata->mci_suspending)(dev);
 
 	ret = mmc_suspend_host(mmc, state);
 
@@ -1012,10 +1013,6 @@ int glamo_mci_resume(struct platform_device *dev)
 	struct mmc_host *mmc = platform_get_drvdata(dev);
 	struct glamo_mci_host 	*host = mmc_priv(mmc);
 	int ret;
-
-	if (host->pdata->mci_all_dependencies_resumed)
-		if (!(host->pdata->mci_all_dependencies_resumed)(dev))
-			return 0;
 
 	host->suspending--;
 
