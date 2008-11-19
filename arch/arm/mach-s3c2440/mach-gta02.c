@@ -62,7 +62,7 @@
 #include <mach/regs-gpioj.h>
 #include <mach/fb.h>
 #include <mach/mci.h>
-#include <asm/arch-s3c2410/ts.h>
+#include <mach/ts.h>
 #include <mach/spi.h>
 #include <asm/arch-s3c2410/spi-gpio.h>
 #include <mach/usb-control.h>

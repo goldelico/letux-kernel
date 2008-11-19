@@ -34,7 +34,7 @@
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
 #include <linux/serial_core.h>
-#include <asm/arch/ts.h>
+#include <mach/ts.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
 #include <linux/mmc/mmc.h>
