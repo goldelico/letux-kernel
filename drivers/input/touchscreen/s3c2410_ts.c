@@ -277,7 +277,6 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 	input_set_abs_params(ts.dev, ABS_Y, 0, 0x3FF, 0, 0);
 	input_set_abs_params(ts.dev, ABS_PRESSURE, 0, 1, 0, 0);
 
-	ts.dev->private = &ts;
 	ts.dev->name = s3c2410ts_name;
 	ts.dev->id.bustype = BUS_RS232;
 	ts.dev->id.vendor = 0xDEAD;

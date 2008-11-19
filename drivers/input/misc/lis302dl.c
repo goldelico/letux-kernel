@@ -236,7 +236,7 @@ static struct attribute_group lis302dl_attr_group = {
 
 static int lis302dl_input_open(struct input_dev *inp)
 {
-	struct lis302dl_info *lis = inp->private;
+	struct lis302dl_info *lis = input_get_drvdata(inp);
 	u_int8_t ctrl1 = LIS302DL_CTRL1_PD | LIS302DL_CTRL1_Xen |
 			 LIS302DL_CTRL1_Yen | LIS302DL_CTRL1_Zen;
 	unsigned long flags;
@@ -255,7 +255,7 @@ static int lis302dl_input_open(struct input_dev *inp)
 
 static void lis302dl_input_close(struct input_dev *inp)
 {
-	struct lis302dl_info *lis = inp->private;
+	struct lis302dl_info *lis = input_get_drvdata(inp);
 	u_int8_t ctrl1 = LIS302DL_CTRL1_Xen | LIS302DL_CTRL1_Yen |
 			 LIS302DL_CTRL1_Zen;
 	unsigned long flags;
@@ -334,7 +334,7 @@ static int __devinit lis302dl_probe(struct spi_device *spi)
 	set_bit(BTN_Y, lis->input_dev->keybit);
 	set_bit(BTN_Z, lis->input_dev->keybit);
 */
-	lis->input_dev->private = lis;
+	input_set_drvdata(lis->input_dev, lis);
 	lis->input_dev->name = pdata->name;
 	 /* SPI Bus not defined as a valid bus for input subsystem*/
 	lis->input_dev->id.bustype = BUS_I2C; /* lie about it */
