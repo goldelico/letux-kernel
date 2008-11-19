@@ -1935,23 +1935,7 @@ int pcf50633_report_resumers(struct pcf50633_data *pcf, char *buf)
 
 
 #ifdef CONFIG_PM
-#define INT1M_RESUMERS	(PCF50633_INT1_ADPINS		| \
-			 PCF50633_INT1_ADPREM		| \
-			 PCF50633_INT1_USBINS		| \
-			 PCF50633_INT1_USBREM		| \
-			 PCF50633_INT1_ALARM)
-#define INT2M_RESUMERS	(PCF50633_INT2_ONKEYF)
-#define INT3M_RESUMERS	(PCF50633_INT3_BATFULL		| \
-			 PCF50633_INT3_CHGHALT		| \
-			 PCF50633_INT3_THLIMON		| \
-			 PCF50633_INT3_THLIMOFF		| \
-			 PCF50633_INT3_USBLIMON		| \
-			 PCF50633_INT3_USBLIMOFF	| \
-			 PCF50633_INT3_ONKEY1S)
-#define INT4M_RESUMERS	(PCF50633_INT4_LOWSYS		| \
-			 PCF50633_INT4_LOWBAT		| \
-			 PCF50633_INT4_HIGHTMP)
-#define INT5M_RESUMERS	(0)
+
 
 static int pcf50633_suspend(struct device *dev, pm_message_t state)
 {
@@ -2010,11 +1994,11 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 	pcf->standby_regs.int3m = __reg_read(pcf, PCF50633_REG_INT3M);
 	pcf->standby_regs.int4m = __reg_read(pcf, PCF50633_REG_INT4M);
 	pcf->standby_regs.int5m = __reg_read(pcf, PCF50633_REG_INT5M);
-	__reg_write(pcf, PCF50633_REG_INT1M, ~INT1M_RESUMERS & 0xff);
-	__reg_write(pcf, PCF50633_REG_INT2M, ~INT2M_RESUMERS & 0xff);
-	__reg_write(pcf, PCF50633_REG_INT3M, ~INT3M_RESUMERS & 0xff);
-	__reg_write(pcf, PCF50633_REG_INT4M, ~INT4M_RESUMERS & 0xff);
-	__reg_write(pcf, PCF50633_REG_INT5M, ~INT5M_RESUMERS & 0xff);
+	__reg_write(pcf, PCF50633_REG_INT1M, ~pcf->pdata->resumers[0]);
+	__reg_write(pcf, PCF50633_REG_INT2M, ~pcf->pdata->resumers[1]);
+	__reg_write(pcf, PCF50633_REG_INT3M, ~pcf->pdata->resumers[2]);
+	__reg_write(pcf, PCF50633_REG_INT4M, ~pcf->pdata->resumers[3]);
+	__reg_write(pcf, PCF50633_REG_INT5M, ~pcf->pdata->resumers[4]);
 
 	pcf->have_been_suspended = 1;
 
