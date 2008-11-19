@@ -23,7 +23,7 @@
 #include <asm/mach-types.h>
 #include <mach/gta01.h>
 #include <asm/plat-s3c24xx/neo1973.h>
-#include <asm/arch-s3c2410/s3c24xx-serial.h>
+#include <mach/s3c24xx-serial.h>
 
 #include <mach/hardware.h>
 
