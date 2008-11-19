@@ -1,0 +1,35 @@
+config MFD_GLAMO
+	bool "Smedia Glamo 336x/337x support"
+	help
+	  This enables the core driver for the Smedia Glamo 336x/337x
+	  multi-function device.  It includes irq_chip demultiplex as
+	  well as clock / power management and GPIO support.
+
+config MFD_GLAMO_FB
+	tristate "Smedia Glamo 336x/337x framebuffer support"
+	depends on FB && MFD_GLAMO
+	help
+	  Frame buffer driver for the LCD controller in the Smedia Glamo
+	  336x/337x.
+
+	  This driver is also available as a module ( = code which can be
+	  inserted and removed from the running kernel whenever you want). The
+	  module will be called glamofb. If you want to compile it as a module,
+	  say M here and read <file:Documentation/modules.txt>.
+
+	  If unsure, say N.
+
+config MFD_GLAMO_SPI_GPIO
+       tristate "Glamo GPIO SPI bitbang support"
+       depends on MFD_GLAMO
+       help
+         Enable a bitbanging SPI adapter driver for the Smedia Glamo.
+
+config MFD_GLAMO_SPI_FB
+       tristate "Glamo LCM control channel SPI support"
+       depends on MFD_GLAMO_FB
+       help
+         Enable a bitbanging SPI adapter driver for the Smedia Glamo LCM
+	 control channel.  This SPI interface is frequently used to
+	 interconnect the LCM control interface.
+

@@ -153,6 +153,8 @@ config MFD_WM8350_I2C
 	  I2C as the control interface.  Additional options must be
 	  selected to enable support for the functionality of the chip.
 
+source "drivers/mfd/glamo/Kconfig"
+
 endmenu
 
 menu "Multimedia Capabilities Port drivers"
