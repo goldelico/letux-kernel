@@ -98,16 +98,6 @@
 /* arbitrates which sensor IRQ owns the shared SPI bus */
 static spinlock_t motion_irq_lock;
 
-static struct pcf50633_platform_data gta02_pcf_pdata;
-
-static struct i2c_board_info gta02_i2c_devs[] __initdata = {
-		{
- 			I2C_BOARD_INFO("pcf50633", 0x73),
- 			.irq = GTA02_IRQ_PCF50633,
- 			.platform_data = &gta02_pcf_pdata,
- 		},
-};
-
 static int gta02_charger_online_status;
 static int gta02_charger_active_status;
 
@@ -1674,8 +1664,6 @@ static void __init gta02_machine_init(void)
 	mangle_pmu_pdata_by_system_rev();
 
 	platform_add_devices(gta02_devices, ARRAY_SIZE(gta02_devices));
-//	i2c_register_board_info(0, gta02_i2c_devs,
-//						ARRAY_SIZE(gta02_i2c_devs));
 
 	s3c2410_pm_init();
 
