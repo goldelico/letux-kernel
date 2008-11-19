@@ -585,6 +585,10 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 	if (host->suspending) {
 		dev_err(&host->pdev->dev, "IGNORING glamo_mci_send_request while "
 								 "suspended\n");
+		cmd->error = -EIO;
+		if (cmd->data)
+			cmd->data->error = -EIO;
+		mmc_request_done(mmc, mrq);
 		return;
 	}
 
@@ -1026,8 +1030,6 @@ static int glamo_mci_suspend(struct platform_device *dev, pm_message_t state)
 	 */
 	suspend_sd_idleclk = sd_idleclk;
 	sd_idleclk = 1;
-
-	host->suspending++;
 
 	ret = mmc_suspend_host(mmc, state);
 
