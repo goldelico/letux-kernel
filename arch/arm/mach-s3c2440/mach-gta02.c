@@ -328,6 +328,27 @@ FIQ_HANDLER_ENTRY(256, 512)
 FIQ_HANDLER_END()
 
 
+/*
+ * this gets called every 1ms when we paniced.
+ */
+
+static long gta02_panic_blink(long count)
+{
+	long delay = 0;
+	static long last_blink;
+	static char led;
+
+	if (count - last_blink < 100) /* 200ms period, fast blink */
+		return 0;
+
+	led ^= 1;
+	s3c2410_gpio_cfgpin(GTA02_GPIO_AUX_LED, S3C2410_GPIO_OUTPUT);
+	neo1973_gpb_setpin(GTA02_GPIO_AUX_LED, led);
+
+	last_blink = count;
+	return delay;
+}
+
 
 /**
  * returns PCB revision information in b9,b8 and b2,b1,b0
@@ -1475,6 +1496,9 @@ static irqreturn_t gta02_modem_irq(int irq, void *param)
 static void __init gta02_machine_init(void)
 {
 	int rc;
+
+	/* set the panic callback to make AUX blink fast */
+	panic_blink = gta02_panic_blink;
 
 	switch (system_rev) {
 	case GTA02v6_SYSTEM_REV:
