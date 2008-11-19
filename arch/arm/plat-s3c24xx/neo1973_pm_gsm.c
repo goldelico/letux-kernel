@@ -17,8 +17,9 @@
 #include <linux/platform_device.h>
 #include <linux/console.h>
 #include <linux/errno.h>
+#include <linux/interrupt.h>
 
-#include <asm/hardware.h>
+#include <asm/gpio.h>
 #include <asm/mach-types.h>
 #include <asm/arch/gta01.h>
 
@@ -30,6 +31,7 @@
 
 struct gta01pm_priv {
 	int gpio_ngsm_en;
+        int gpio_ndl_gsm;
 	struct console *con;
 };
 
@@ -68,7 +70,7 @@ static ssize_t gsm_read(struct device *dev, struct device_attribute *attr,
 #endif
 #ifdef CONFIG_MACH_NEO1973_GTA02
 		if (machine_is_neo1973_gta02())
-			if (s3c2410_gpio_getpin(GTA02_GPIO_nDL_GSM))
+			if (!s3c2410_gpio_getpin(GTA02_GPIO_nDL_GSM))
 				goto out_1;
 #endif
 	}
@@ -143,8 +145,18 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_DNLOAD, on);
 #endif
 #ifdef CONFIG_MACH_NEO1973_GTA02
-		if (machine_is_neo1973_gta02())
-			s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, on);
+		if (machine_is_neo1973_gta02()) {
+			/* FIXME: Layering violation, we know how this relates to
+			 * the Jack-IRQ. And we assume the keyboard driver to be
+			 * around. */
+			if (on)
+			    disable_irq(gpio_to_irq(GTA02_GPIO_JACK_INSERT));
+			else
+			    enable_irq(gpio_to_irq(GTA02_GPIO_JACK_INSERT));
+
+			gta01_gsm.gpio_ndl_gsm = !on;
+			s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, !on);
+		}
 #endif
 	}
 
@@ -159,26 +171,29 @@ static DEVICE_ATTR(download, 0644, gsm_read, gsm_write);
 static int gta01_gsm_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	/* GPIO state is saved/restored by S3C2410 core GPIO driver, so we
-	 * don't need to do anything here */
+	 * don't need to do much here. */
 
-	/* disable DL GSM to prevent jack_insert becoming floating */
+
+	/* disable DL GSM to prevent jack_insert becoming 'floating' */
 	if (machine_is_neo1973_gta02())
 		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, 1);
+
 	return 0;
 }
 
 static int gta01_gsm_resume(struct platform_device *pdev)
 {
 	/* GPIO state is saved/restored by S3C2410 core GPIO driver, so we
-	 * don't need to do anything here */
+	 * don't need to do much here. */
 
 	/* Make sure that the kernel console on the serial port is still
 	 * disabled. FIXME: resume ordering race with serial driver! */
-	if (s3c2410_gpio_getpin(GTA01_GPIO_MODEM_ON) && gta01_gsm.con)
+	if (gta01_gsm.con && s3c2410_gpio_getpin(GTA01_GPIO_MODEM_ON))
 		console_stop(gta01_gsm.con);
 
 	if (machine_is_neo1973_gta02())
-		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, 0);
+		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, gta01_gsm.gpio_ndl_gsm);
+
 	return 0;
 }
 #else
@@ -247,6 +262,8 @@ static int __init gta01_gsm_probe(struct platform_device *pdev)
 				 "cannot find S3C24xx console driver\n");
 	} else
 		gta01_gsm.con = NULL;
+
+	gta01_gsm.gpio_ndl_gsm = 1;
 
 	return sysfs_create_group(&pdev->dev.kobj, &gta01_gsm_attr_group);
 }
