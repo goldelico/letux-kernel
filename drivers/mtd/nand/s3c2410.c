@@ -231,14 +231,14 @@ static int s3c2410_nand_setrate(struct s3c2410_nand_info *info)
 		BUG();
 	}
 
-	dev_dbg(info->device, "NF_CONF is 0x%lx\n", cfg);
-
 	local_irq_save(flags);
 
 	cfg = readl(info->regs + S3C2410_NFCONF);
 	cfg &= ~mask;
 	cfg |= set;
 	writel(cfg, info->regs + S3C2410_NFCONF);
+
+	dev_dbg(info->device, "NF_CONF is 0x%lx\n", cfg);
 
 	local_irq_restore(flags);
 
