@@ -1365,11 +1365,11 @@ static int s3c24xx_hcd_remove(struct platform_device * pdev) {
 	return 0;
 }
 
-#ifdef CONFIG_PM 
+#ifdef CONFIG_PM
 
-static int s3c24xx_hcd_suspend(struct platform_device * pdev)
+static int s3c24xx_hcd_suspend(struct platform_device * pdev, pm_message_t state)
 {
-	struct s3c24xx_hcd_context * context = &hcd_context;	
+	struct s3c24xx_hcd_context * context = &hcd_context;
 	unsigned long flags;
 
 	spin_lock_irqsave(&context->lock, flags);
@@ -1390,18 +1390,18 @@ static int s3c24xx_hcd_suspend(struct platform_device * pdev)
 	context->suspend_regs.datsta 	= readl(context->base + S3C2410_SDIDSTA);
 	context->suspend_regs.fsta 	= readl(context->base + S3C2410_SDIFSTA);
 	context->suspend_regs.imask   = readl(context->base + S3C2440_SDIIMSK);
-	
+
 	spin_unlock_irqrestore(&context->lock, flags);
 	return 0;
 }
 
 static int s3c24xx_hcd_resume(struct platform_device * pdev)
-{	
+{
 	struct s3c24xx_hcd_context * context = &hcd_context;
 	unsigned long flags;
 
 	spin_lock_irqsave(&context->lock, flags);
-	
+
 	writel(context->suspend_regs.con, context->base + S3C2410_SDICON);
 	writel(context->suspend_regs.pre, context->base + S3C2410_SDIPRE);
 	writel(context->suspend_regs.cmdarg, context->base + S3C2410_SDICMDARG);
