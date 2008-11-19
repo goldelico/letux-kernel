@@ -549,12 +549,25 @@ static struct platform_device gta01_pm_bt_dev = {
  * the pcf50633 still around.
  */
 
+static struct platform_device gta02_glamo_dev;
+static void mangle_glamo_res_by_system_rev(void);
+
 static void gta02_pcf50633_attach_child_devices(struct device *parent_device)
 {
 	gta01_pm_gps_dev.dev.parent = parent_device;
 	gta01_pm_bt_dev.dev.parent = parent_device;
+	/*
+	 * Glamo is a child of PMU because SD Card needs power up until it can
+	 * logically suspend the card... without this power is taken first
+	 * before logical suspend action
+	 */
+	gta02_glamo_dev.dev.parent = parent_device;
+
 	platform_device_register(&gta01_pm_bt_dev);
 	platform_device_register(&gta01_pm_gps_dev);
+
+	mangle_glamo_res_by_system_rev();
+	platform_device_register(&gta02_glamo_dev);
 }
 
 static struct platform_device gta02_pm_wlan_dev = {
@@ -1464,6 +1477,7 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 					     PCF50633_REGULATOR_HCLDO, mv);
 			pcf50633_onoff_set(pcf50633_global,
 					   PCF50633_REGULATOR_HCLDO, 1);
+			msleep(200);
 			break;
 		case MMC_POWER_OFF:
 			/* power off happens during suspend, when pcf50633 can
