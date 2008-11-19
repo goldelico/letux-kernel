@@ -676,7 +676,7 @@ static int __init neo1973_init(void)
 {
 	int ret;
 
-	DBG("Entered %s\n", __func__);
+	printk(KERN_DEBUG "Entered %s\n", __func__);
 
 	if (!machine_is_neo1973_gta01()) {
 		printk(KERN_INFO
