@@ -80,6 +80,8 @@ u8 fiq_ready;
  */
 extern void __attribute__ ((naked)) s3c2440_fiq_isr(void);
 
+static void fiq_set_vector_and_regs(void);
+
 
 /* this is copied into the hard FIQ vector during init */
 
@@ -220,13 +222,16 @@ static int __init sc32440_fiq_probe(struct platform_device *pdev)
 	/* configure for the interrupt we are meant to use */
 	printk(KERN_INFO"Enabling FIQ using irq %d\n", r->start);
 
+	fiq_set_vector_and_regs();
 	fiq_init_irq_source(r->start);
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &s3c2440_fiq_attr_group);
+	if (ret)
+		return ret;
 
 	fiq_ready = 1;
 
-	return ret;
+	return 0;
 }
 
 static int sc32440_fiq_remove(struct platform_device *pdev)
@@ -246,7 +251,6 @@ static void fiq_set_vector_and_regs(void)
 	regs.ARM_sp = (unsigned long)u8aFiqStack + sizeof(u8aFiqStack) - 4;
 
 	/* set up the special FIQ-mode-only registers from our regs */
-
 	set_fiq_regs(&regs);
 	
 	/* copy our jump to the real ISR into the hard vector address */
