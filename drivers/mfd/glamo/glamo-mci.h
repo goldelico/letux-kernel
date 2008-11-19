@@ -34,6 +34,8 @@ struct glamo_mci_host {
 	int			dma;
 	int 			data_max_size;
 
+	int 			suspending;
+
 	int			power_mode_current;
 	unsigned int		vdd_current;
 
