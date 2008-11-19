@@ -2,11 +2,22 @@
 #define _LINUX_FIQ_C_ISR_H
 
 #include <mach/regs-irq.h>
+#include <linux/platform_device.h>
 
 extern unsigned long _fiq_count_fiqs;
 extern u32 _fiq_ack_mask;
 extern int _fiq_timer_index;
 extern u16 _fiq_timer_divisor;
+
+/* platform data */
+
+struct sc32440_fiq_platform_data {
+	/*
+	 * give an opportunity to use us as parent for
+	 * devices that depend on us
+	 */
+	void (*attach_child_devices)(struct device *parent_device);
+};
 
 /* This CANNOT be implemented in a module -- it has to be used in code
  * included in the monolithic kernel

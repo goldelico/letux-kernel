@@ -230,6 +230,14 @@ static int __init sc32440_fiq_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	/*
+	 * if wanted, users can defer registration of devices
+	 * that depend on FIQ until after we register, and can use our
+	 * device as parent so suspend-resume ordering is correct
+	 */
+	if (pdata->attach_child_devices)
+		(pdata->attach_child_devices)(&pdev->dev);
+
 	fiq_ready = 1;
 
 	return 0;
