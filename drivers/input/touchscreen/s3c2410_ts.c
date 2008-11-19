@@ -37,8 +37,9 @@
  * 2007-05-23: Harald Welte <laforge@openmoko.org>
  * 	- Add proper support for S32440
  *
- * 2008-06-18: Andy Green <andy@openmoko.com>
- *      - Outlier removal
+ * 2008-06-23: Andy Green <andy@openmoko.com>
+ *      - removed averaging system
+ *      - added generic Touchscreen filter stuff
  */
 
 #include <linux/errno.h>
@@ -58,6 +59,8 @@
 #include <mach/ts.h>
 
 #include <plat/regs-adc.h>
+
+#include <linux/ts_filter.h>
 
 /* For ts.dev.id.version */
 #define S3C2410TSVERSION	0x0101
@@ -93,46 +96,16 @@ static char *s3c2410ts_name = "s3c2410 TouchScreen";
  * Per-touchscreen data.
  */
 
-struct s3c2410ts_sample {
-	int x;
-	int y;
-};
-
 struct s3c2410ts {
 	struct input_dev *dev;
-	long xp;
-	long yp;
-	int count;
-	int shift;
-	int extent;  /* 1 << shift */
-
-	/* the raw sample fifo is a lightweight way to track a running average
-	 * of all taken samples.  "running average" here means that it gives
-	 * correct average for each sample, not only at the end of block of
-	 * samples
-	 */
-	int excursion_filter_len;
-	struct s3c2410ts_sample *raw_sample_fifo;
-	int head_raw_fifo;
-	int tail_raw_fifo;
-	struct s3c2410ts_sample raw_running_avg;
-	int reject_threshold_vs_avg;
-	int flag_previous_exceeded_threshold;
 	int flag_first_touch_sent;
+	struct ts_filter *tsf[MAX_TS_FILTER_CHAIN];
+	int coords[2]; /* just X and Y for us */
 };
 
 static struct s3c2410ts ts;
-static void __iomem *base_addr;
 
-static void clear_raw_fifo(void)
-{
-	ts.head_raw_fifo = 0;
-	ts.tail_raw_fifo = 0;
-	ts.raw_running_avg.x = 0;
-	ts.raw_running_avg.y = 0;
-	ts.flag_previous_exceeded_threshold = 0;
-	ts.flag_first_touch_sent = 0;
-}
+static void __iomem *base_addr;
 
 
 static inline void s3c2410_ts_connect(void)
@@ -169,39 +142,35 @@ static void touch_timer_fire(unsigned long data)
 	}
 
 	if (updown) {
-		if (ts.count != 0) {
-			ts.xp >>= ts.shift;
-			ts.yp >>= ts.shift;
+
+		if (ts.tsf[0])
+			(ts.tsf[0]->api->scale)(ts.tsf[0], &ts.coords[0]);
 
 #ifdef CONFIG_TOUCHSCREEN_S3C2410_DEBUG
-			{
-				struct timeval tv;
+		{
+			struct timeval tv;
 
-				do_gettimeofday(&tv);
-				printk(DEBUG_LVL "T:%06d, X:%03ld, Y:%03ld\n",
-						 (int)tv.tv_usec, ts.xp, ts.yp);
-			}
+			do_gettimeofday(&tv);
+			printk(DEBUG_LVL "T:%06d, X:%03ld, Y:%03ld\n",
+				   (int)tv.tv_usec, ts.coords[0], ts.coords[1]);
+		}
 #endif
 
-			input_report_abs(ts.dev, ABS_X, ts.xp);
-			input_report_abs(ts.dev, ABS_Y, ts.yp);
+		input_report_abs(ts.dev, ABS_X, ts.coords[0]);
+		input_report_abs(ts.dev, ABS_Y, ts.coords[1]);
 
-			input_report_key(ts.dev, BTN_TOUCH, 1);
-			input_report_abs(ts.dev, ABS_PRESSURE, 1);
-			input_sync(ts.dev);
-			ts.flag_first_touch_sent = 1;
-		}
-
-		ts.xp = 0;
-		ts.yp = 0;
-		ts.count = 0;
+		input_report_key(ts.dev, BTN_TOUCH, 1);
+		input_report_abs(ts.dev, ABS_PRESSURE, 1);
+		input_sync(ts.dev);
 
 		writel(S3C2410_ADCTSC_PULL_UP_DISABLE | AUTOPST,
 						      base_addr+S3C2410_ADCTSC);
 		writel(readl(base_addr+S3C2410_ADCCON) |
 			 S3C2410_ADCCON_ENABLE_START, base_addr+S3C2410_ADCCON);
 	} else {
-		ts.count = 0;
+
+		if (ts.tsf[0])
+			(ts.tsf[0]->api->clear)(ts.tsf[0]);
 
 		input_report_key(ts.dev, BTN_TOUCH, 0);
 		input_report_abs(ts.dev, ABS_PRESSURE, 0);
@@ -237,103 +206,35 @@ static irqreturn_t stylus_updown(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-
 static irqreturn_t stylus_action(int irq, void *dev_id)
 {
-	unsigned long x;
-	unsigned long y;
-	int length = (ts.head_raw_fifo - ts.tail_raw_fifo) & (ts.extent - 1);
-	int scaled_avg_x;
-	int scaled_avg_y;
+	/* grab the ADC results */
+	ts.coords[0] = readl(base_addr + S3C2410_ADCDAT0) &
+						    S3C2410_ADCDAT0_XPDATA_MASK;
+	ts.coords[1] = readl(base_addr + S3C2410_ADCDAT1) &
+						    S3C2410_ADCDAT1_YPDATA_MASK;
 
-	x = readl(base_addr + S3C2410_ADCDAT0) & S3C2410_ADCDAT0_XPDATA_MASK;
-	y = readl(base_addr + S3C2410_ADCDAT1) & S3C2410_ADCDAT1_YPDATA_MASK;
+	if (!ts.tsf[0]) /* filtering is disabled then use raw directly */
+		goto real_sample;
 
-	if (!length)
-		goto store_sample;
+	/* send it to the chain of filters */
+	if ((ts.tsf[0]->api->process)(ts.tsf[0], &ts.coords[0]))
+		goto real_sample;
 
-	scaled_avg_x = ts.raw_running_avg.x / length;
-	scaled_avg_y = ts.raw_running_avg.y / length;
-
-	/* we appear to accept every sample into both the running average FIFO
-	 * and the summing average.  BUT, if the last sample crossed a
-	 * machine-set threshold, each time we do a beauty contest
-	 * on the new sample comparing if it is closer to the running
-	 * average and the previous sample.  If it is closer to the previous
-	 * suspicious sample, we assume the change is real and accept both
-	 * if the new sample has returned to being closer to the average than
-	 * the previous sample, we take the previous sample as an excursion
-	 * and overwrite it in both the running average and summing average.
+	/*
+	 * no real sample came out of processing yet,
+	 * get another raw result to feed it
 	 */
-
-	if (ts.flag_previous_exceeded_threshold)
-		/* new one closer to "nonconformist" previous, or average?
-		 * Pythagoras?  Who?  Don't need it because large excursion
-		 * will be accounted for correctly this way
-		 */
-		if ((abs(x - scaled_avg_x) + abs(y - scaled_avg_y)) <
-		    (abs(x - ts.raw_sample_fifo[(ts.head_raw_fifo - 1) &
-							  (ts.extent - 1)].x) +
-		     abs(y - ts.raw_sample_fifo[(ts.head_raw_fifo - 1) &
-							 (ts.extent - 1)].y))) {
-			/* it's closer to average, reject previous as a one-
-			 * shot excursion, by overwriting it
-			 */
-			ts.xp += x - ts.raw_sample_fifo[(ts.head_raw_fifo - 1) &
-							     (ts.extent - 1)].x;
-			ts.yp += y - ts.raw_sample_fifo[(ts.head_raw_fifo - 1) &
-							     (ts.extent - 1)].y;
-			ts.raw_sample_fifo[(ts.head_raw_fifo - 1) &
-							 (ts.extent - 1)].x = x;
-			ts.raw_sample_fifo[(ts.head_raw_fifo - 1) &
-							 (ts.extent - 1)].y = y;
-			/* no new sample: replaced previous, so we are done */
-			goto completed;
-		}
-		/* else it was closer to nonconformist previous: it's likely
-		 * a genuine consistent move then.
-		 * Keep previous and add new guy.
-		 */
-
-	if ((x >= scaled_avg_x - ts.reject_threshold_vs_avg) &&
-	    (x <= scaled_avg_x + ts.reject_threshold_vs_avg) &&
-	    (y >= scaled_avg_y - ts.reject_threshold_vs_avg) &&
-	    (y <= scaled_avg_y + ts.reject_threshold_vs_avg))
-		ts.flag_previous_exceeded_threshold = 0;
-	else
-		ts.flag_previous_exceeded_threshold = 1;
-
-store_sample:
-	ts.xp += x;
-	ts.yp += y;
-	ts.count++;
-
-	/* remove oldest sample from avg when we have full pipeline */
-	if (((ts.head_raw_fifo + 1) & (ts.extent - 1)) == ts.tail_raw_fifo) {
-		ts.raw_running_avg.x -= ts.raw_sample_fifo[ts.tail_raw_fifo].x;
-		ts.raw_running_avg.y -= ts.raw_sample_fifo[ts.tail_raw_fifo].y;
-		ts.tail_raw_fifo = (ts.tail_raw_fifo + 1) & (ts.extent - 1);
-	}
-	/* always add current sample to fifo and average */
-	ts.raw_sample_fifo[ts.head_raw_fifo].x = x;
-	ts.raw_sample_fifo[ts.head_raw_fifo].y = y;
-	ts.raw_running_avg.x += x;
-	ts.raw_running_avg.y += y;
-	ts.head_raw_fifo = (ts.head_raw_fifo + 1) & (ts.extent - 1);
-
-completed:
-	if (ts.count >= (1 << ts.shift)) {
-		mod_timer(&touch_timer, jiffies + 1);
-		writel(WAIT4INT(1), base_addr+S3C2410_ADCTSC);
-		goto bail;
-	}
-
 	writel(S3C2410_ADCTSC_PULL_UP_DISABLE | AUTOPST,
-						      base_addr+S3C2410_ADCTSC);
-	writel(readl(base_addr+S3C2410_ADCCON) |
-			 S3C2410_ADCCON_ENABLE_START, base_addr+S3C2410_ADCCON);
+						    base_addr + S3C2410_ADCTSC);
+	writel(readl(base_addr + S3C2410_ADCCON) | S3C2410_ADCCON_ENABLE_START,
+						    base_addr + S3C2410_ADCCON);
+	return IRQ_HANDLED;
 
-bail:
+real_sample:
+	mod_timer(&touch_timer, jiffies + 1);
+	writel(WAIT4INT(1), base_addr + S3C2410_ADCTSC);
+
 	return IRQ_HANDLED;
 }
 
@@ -348,6 +249,9 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 	int rc;
 	struct s3c2410_ts_mach_info *info;
 	struct input_dev *input_dev;
+	int ret = 0;
+
+	dev_info(&pdev->dev, "Starting\n");
 
 	info = (struct s3c2410_ts_mach_info *)pdev->dev.platform_data;
 
@@ -375,7 +279,8 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 	base_addr = ioremap(S3C2410_PA_ADC,0x20);
 	if (base_addr == NULL) {
 		dev_err(&pdev->dev, "Failed to remap register block\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto bail0;
 	}
 
 
@@ -390,7 +295,6 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 	else
 		writel(0, base_addr+S3C2410_ADCCON);
 
-
 	/* Initialise registers */
 	if ((info->delay & 0xffff) > 0)
 		writel(info->delay & 0xffff,  base_addr + S3C2410_ADCDLY);
@@ -403,7 +307,8 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 
 	if (!input_dev) {
 		dev_err(&pdev->dev, "Unable to allocate the input device\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto bail1;
 	}
 
 	ts.dev = input_dev;
@@ -420,28 +325,33 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 	ts.dev->id.product = 0xBEEF;
 	ts.dev->id.version = S3C2410TSVERSION;
 
-	ts.shift = info->oversampling_shift;
-	ts.extent = 1 << info->oversampling_shift;
-	ts.reject_threshold_vs_avg = info->reject_threshold_vs_avg;
-	ts.excursion_filter_len = 1 << info->excursion_filter_len_bits;
+	/* create the filter chain set up for the 2 coordinates we produce */
+	ret = ts_filter_create_chain(
+		(struct ts_filter_api **)&info->filter_sequence,
+			   &info->filter_config, ts.tsf, ARRAY_SIZE(ts.coords));
+	if (ret)
+		dev_info(&pdev->dev, "%d filter(s) initialized\n", ret);
+	else /* this is OK, just means there won't be any filtering */
+		dev_info(&pdev->dev, "Unfiltered output selected\n");
 
-	ts.raw_sample_fifo = kmalloc(sizeof(struct s3c2410ts_sample) *
-					   ts.excursion_filter_len, GFP_KERNEL);
-	clear_raw_fifo();
+	if (!ts.tsf[0])
+		dev_info(&pdev->dev, "No filtering\n");
 
 	/* Get irqs */
 	if (request_irq(IRQ_ADC, stylus_action, IRQF_SAMPLE_RANDOM,
 						    "s3c2410_action", ts.dev)) {
 		dev_err(&pdev->dev, "Could not allocate ts IRQ_ADC !\n");
 		iounmap(base_addr);
-		return -EIO;
+		ret = -EIO;
+		goto bail3;
 	}
 	if (request_irq(IRQ_TC, stylus_updown, IRQF_SAMPLE_RANDOM,
 			"s3c2410_action", ts.dev)) {
 		dev_err(&pdev->dev, "Could not allocate ts IRQ_TC !\n");
 		free_irq(IRQ_ADC, ts.dev);
 		iounmap(base_addr);
-		return -EIO;
+		ret = -EIO;
+		goto bail4;
 	}
 
 	dev_info(&pdev->dev, "successfully loaded\n");
@@ -453,10 +363,25 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 		free_irq(IRQ_ADC, ts.dev);
 		clk_disable(adc_clock);
 		iounmap(base_addr);
-		return -EIO;
+		ret = -EIO;
+		goto bail5;
 	}
 
 	return 0;
+
+bail5:
+	disable_irq(IRQ_TC);
+bail4:
+	disable_irq(IRQ_ADC);
+bail3:
+	ts_filter_destroy_chain(ts.tsf);
+
+	input_unregister_device(ts.dev);
+bail1:
+	iounmap(base_addr);
+bail0:
+
+	return ret;
 }
 
 static int s3c2410ts_remove(struct platform_device *pdev)
@@ -472,10 +397,10 @@ static int s3c2410ts_remove(struct platform_device *pdev)
 		adc_clock = NULL;
 	}
 
-	kfree(ts.raw_sample_fifo);
-
 	input_unregister_device(ts.dev);
 	iounmap(base_addr);
+
+	ts_filter_destroy_chain(ts.tsf);
 
 	return 0;
 }
@@ -503,7 +428,8 @@ static int s3c2410ts_resume(struct platform_device *pdev)
 	clk_enable(adc_clock);
 	mdelay(1);
 
-	clear_raw_fifo();
+	if (ts.tsf[0])
+		(ts.tsf[0]->api->clear)(ts.tsf[0]);
 
 	enable_irq(IRQ_ADC);
 	enable_irq(IRQ_TC);
