@@ -17,7 +17,7 @@ if [ ! -z "`grep CONFIG_ARCH_S3C64XX=y .config`" ] ; then
 fi
 
 if [ ! -z "`grep CONFIG_ARCH_S3C2410=y .config`" ] ; then
-	START=50008000
+	START=30008000
 	PRODUCT=FR
 fi
 
