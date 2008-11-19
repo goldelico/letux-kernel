@@ -1,0 +1,560 @@
+/*
+ * GPS Power Management code for the FIC Neo1973 GSM Phone
+ *
+ * (C) 2007 by OpenMoko Inc.
+ * Author: Harald Welte <laforge@openmoko.org>
+ * All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation
+ *
+ */
+
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/delay.h>
+#include <linux/platform_device.h>
+
+#include <linux/pcf50606.h>
+
+#include <asm/hardware.h>
+#include <asm/arch/gta01.h>
+
+/* This is the 2.8V supply for the RTC crystal, the mail clock crystal and
+ * the input to VDD_RF */
+static void gps_power_2v8_set(int on)
+{
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+	case GTA01v4_SYSTEM_REV:
+		if (on)
+			pcf50606_voltage_set(pcf50606_global,
+					     PCF50606_REGULATOR_IOREG, 2800);
+		pcf50606_onoff_set(pcf50606_global,
+				   PCF50606_REGULATOR_IOREG, on);
+		break;
+	case GTA01Bv2_SYSTEM_REV:
+		s3c2410_gpio_setpin(GTA01_GPIO_GPS_EN_2V8, on);
+			break;
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		break;
+	}
+}
+
+static int gps_power_2v8_get(void)
+{
+	int ret = 0;
+
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+	case GTA01v4_SYSTEM_REV:
+		if (pcf50606_onoff_get(pcf50606_global,
+					PCF50606_REGULATOR_IOREG) &&
+		    pcf50606_voltage_get(pcf50606_global,
+					 PCF50606_REGULATOR_IOREG) == 2800)
+			ret = 1;
+		break;
+	case GTA01Bv2_SYSTEM_REV:
+		if (s3c2410_gpio_getpin(GTA01_GPIO_GPS_EN_2V8))
+			ret = 1;
+		break;
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		break;
+	}
+
+	return ret;
+}
+
+/* This is the 3V supply (AVDD) for the external RF frontend (LNA bias) */
+static void gps_power_3v_set(int on)
+{
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+	case GTA01v4_SYSTEM_REV:
+		if (on)
+			pcf50606_voltage_set(pcf50606_global,
+					     PCF50606_REGULATOR_D1REG, 3000);
+		pcf50606_onoff_set(pcf50606_global,
+				   PCF50606_REGULATOR_D1REG, on);
+		break;
+	case GTA01Bv2_SYSTEM_REV:
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		s3c2410_gpio_setpin(GTA01_GPIO_GPS_EN_3V, on);
+		break;
+	}
+}
+
+static int gps_power_3v_get(void)
+{
+	int ret = 0;
+
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+	case GTA01v4_SYSTEM_REV:
+		if (pcf50606_onoff_get(pcf50606_global,
+				       PCF50606_REGULATOR_D1REG) &&
+		    pcf50606_voltage_get(pcf50606_global,
+					 PCF50606_REGULATOR_D1REG) == 3000)
+			ret = 1;
+		break;
+	case GTA01Bv2_SYSTEM_REV:
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		if (s3c2410_gpio_getpin(GTA01_GPIO_GPS_EN_3V))
+			ret = 1;
+		break;
+	}
+
+	return ret;
+}
+
+/* This is the 3.3V supply for VDD_IO and VDD_LPREG input */
+static void gps_power_3v3_set(int on)
+{
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+	case GTA01v4_SYSTEM_REV:
+	case GTA01Bv2_SYSTEM_REV:
+		if (on)
+			pcf50606_voltage_set(pcf50606_global,
+					     PCF50606_REGULATOR_DCD, 3300);
+		pcf50606_onoff_set(pcf50606_global,
+				   PCF50606_REGULATOR_DCD, on);
+		break;
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		s3c2410_gpio_setpin(GTA01_GPIO_GPS_EN_3V3, on);
+		break;
+	}
+}
+
+static int gps_power_3v3_get(void)
+{
+	int ret = 0;
+
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+	case GTA01v4_SYSTEM_REV:
+	case GTA01Bv2_SYSTEM_REV:
+		if (pcf50606_onoff_get(pcf50606_global,
+				       PCF50606_REGULATOR_DCD) &&
+		    pcf50606_voltage_get(pcf50606_global,
+					 PCF50606_REGULATOR_DCD) == 3300)
+			ret = 1;
+		break;
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		if (s3c2410_gpio_getpin(GTA01_GPIO_GPS_EN_3V3))
+			ret = 1;
+		break;
+	}
+
+	return ret;
+}
+
+/* This is the 2.5V supply for VDD_PLLREG and VDD_COREREG input */
+static void gps_power_2v5_set(int on)
+{
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+		/* This is CORE_1V8 and cannot be disabled */
+		break;
+	case GTA01v4_SYSTEM_REV:
+	case GTA01Bv2_SYSTEM_REV:
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		if (on)
+			pcf50606_voltage_set(pcf50606_global,
+					     PCF50606_REGULATOR_D2REG, 2500);
+		pcf50606_onoff_set(pcf50606_global,
+				   PCF50606_REGULATOR_D2REG, on);
+		break;
+	}
+}
+
+static int gps_power_2v5_get(void)
+{
+	int ret = 0;
+
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+		/* This is CORE_1V8 and cannot be disabled */
+		ret = 1;
+		break;
+	case GTA01v4_SYSTEM_REV:
+	case GTA01Bv2_SYSTEM_REV:
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		if (pcf50606_onoff_get(pcf50606_global,
+				       PCF50606_REGULATOR_D2REG) &&
+		    pcf50606_voltage_get(pcf50606_global,
+					 PCF50606_REGULATOR_D2REG) == 2500)
+			ret = 1;
+		break;
+	}
+
+	return ret;
+}
+
+/* This is the 1.5V supply for VDD_CORE */
+static void gps_power_1v5_set(int on)
+{
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+	case GTA01v4_SYSTEM_REV:
+	case GTA01Bv2_SYSTEM_REV:
+		/* This is switched via 2v5 */
+		break;
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		if (on)
+			pcf50606_voltage_set(pcf50606_global,
+					     PCF50606_REGULATOR_DCD, 1500);
+		pcf50606_onoff_set(pcf50606_global,
+				   PCF50606_REGULATOR_DCD, on);
+		break;
+	}
+}
+
+static int gps_power_1v5_get(void)
+{
+	int ret = 0;
+
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+	case GTA01v4_SYSTEM_REV:
+	case GTA01Bv2_SYSTEM_REV:
+		/* This is switched via 2v5 */
+		ret = 1;
+		break;
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		if (pcf50606_onoff_get(pcf50606_global,
+				       PCF50606_REGULATOR_DCD) &&
+		    pcf50606_voltage_get(pcf50606_global,
+					 PCF50606_REGULATOR_DCD) == 1500)
+			ret = 1;
+		break;
+	}
+
+	return ret;
+}
+
+/* This is the POWERON pin */
+static void gps_pwron_set(int on)
+{
+	s3c2410_gpio_setpin(GTA01_GPIO_GPS_PWRON, on);
+}
+
+static int gps_pwron_get(void)
+{
+	if (s3c2410_gpio_getpin(GTA01_GPIO_GPS_PWRON))
+		return 1;
+	else
+		return 0;
+}
+
+/* This is the nRESET pin */
+static void gps_rst_set(int on)
+{
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+		pcf50606_gpo0_set(pcf50606_global, on);
+		break;
+	case GTA01v4_SYSTEM_REV:
+	case GTA01Bv2_SYSTEM_REV:
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		s3c2410_gpio_setpin(GTA01_GPIO_GPS_RESET, on);
+		break;
+	}
+}
+
+static int gps_rst_get(void)
+{
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+		if (pcf50606_gpo0_get(pcf50606_global))
+			return 1;
+		break;
+	case GTA01v4_SYSTEM_REV:
+	case GTA01Bv2_SYSTEM_REV:
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		if (s3c2410_gpio_getpin(GTA01_GPIO_GPS_RESET))
+			return 1;
+		break;
+	}
+
+	return 0;
+}
+
+static ssize_t power_gps_read(struct device *dev,
+			      struct device_attribute *attr, char *buf)
+{
+	int ret = 0;
+
+	if (!strcmp(attr->attr.name, "power_tcxo_2v8")) {
+		ret = gps_power_2v8_get();
+	} else if (!strcmp(attr->attr.name, "power_avdd_3v")) {
+		ret = gps_power_3v_get();
+	} else if (!strcmp(attr->attr.name, "pwron")) {
+		ret = gps_pwron_get();
+	} else if (!strcmp(attr->attr.name, "reset")) {
+		ret = gps_rst_get();
+	} else if (!strcmp(attr->attr.name, "power_lp_io_3v3")) {
+		ret = gps_power_3v3_get();
+	} else if (!strcmp(attr->attr.name, "power_pll_core_2v5")) {
+		ret = gps_power_2v5_get();
+	} else if (!strcmp(attr->attr.name, "power_core_1v5") ||
+		   !strcmp(attr->attr.name, "power_vdd_core_1v5")) {
+		ret = gps_power_1v5_get();
+	}
+
+	if (ret)
+		return strlcpy(buf, "1\n", 3);
+	else
+		return strlcpy(buf, "0\n", 3);
+}
+
+static ssize_t power_gps_write(struct device *dev,
+			       struct device_attribute *attr, const char *buf,
+			       size_t count)
+{
+	unsigned long on = simple_strtoul(buf, NULL, 10);
+
+	if (!strcmp(attr->attr.name, "power_tcxo_2v8")) {
+		gps_power_2v8_set(on);
+	} else if (!strcmp(attr->attr.name, "power_avdd_3v")) {
+		gps_power_3v_set(on);
+	} else if (!strcmp(attr->attr.name, "pwron")) {
+		gps_pwron_set(on);
+	} else if (!strcmp(attr->attr.name, "reset")) {
+		gps_rst_set(on);
+	} else if (!strcmp(attr->attr.name, "power_lp_io_3v3")) {
+		gps_power_3v3_set(on);
+	} else if (!strcmp(attr->attr.name, "power_pll_core_2v5")) {
+		gps_power_2v5_set(on);
+	} else if (!strcmp(attr->attr.name, "power_core_1v5") ||
+		   !strcmp(attr->attr.name, "power_vdd_core_1v5")) {
+		gps_power_1v5_set(on);
+	}
+
+	return count;
+}
+
+static void gps_power_sequence_up(void)
+{
+	/* According to PMB2520 Data Sheet, Rev. 2006-06-05,
+	 * Chapter 4.2.2 */
+
+	/* nRESET must be asserted low */
+	gps_rst_set(0);
+
+	/* POWERON must be de-asserted (low) */
+	gps_pwron_set(0);
+
+	/* Apply VDD_IO and VDD_LPREG_IN */
+	gps_power_3v3_set(1);
+
+	/* VDD_COREREG_IN, VDD_PLLREG_IN */
+	gps_power_1v5_set(1);
+	gps_power_2v5_set(1);
+
+	/* and VDD_RF may be applied */
+	gps_power_2v8_set(1);
+
+	/* We need to enable AVDD, since in GTA01Bv3 it is
+	 * shared with RFREG_IN */
+	gps_power_3v_set(1);
+
+	msleep(3); 	/* Is 3ms enough? */
+
+	/* De-asert nRESET */
+	gps_rst_set(1);
+
+	/* Switch power on */
+	gps_pwron_set(1);
+
+}
+
+static void gps_power_sequence_down(void)
+{
+	/* According to PMB2520 Data Sheet, Rev. 2006-06-05,
+	 * Chapter 4.2.3.1 */
+	gps_pwron_set(0);
+
+	/* Don't disable AVDD before PWRON is cleared, since
+	 * in GTA01Bv3, AVDD and RFREG_IN are shared */
+	gps_power_3v_set(0);
+
+	/* Remove VDD_COREREG_IN, VDD_PLLREG_IN and VDD_REFREG_IN */
+	gps_power_1v5_set(0);
+	gps_power_2v5_set(0);
+	gps_power_2v8_set(0);
+
+	/* Remove VDD_LPREG_IN and VDD_IO */
+	gps_power_3v3_set(0);
+}
+
+
+static ssize_t power_sequence_read(struct device *dev,
+				   struct device_attribute *attr,
+				   char *buf)
+{
+	return strlcpy(buf, "power_up power_down\n", PAGE_SIZE);
+}
+
+static ssize_t power_sequence_write(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	dev_dbg(dev, "wrote: '%s'\n", buf);
+
+	if (!strncmp(buf, "power_up", 8))
+		gps_power_sequence_up();
+	else if (!strncmp(buf, "power_down", 10))
+		gps_power_sequence_down();
+	else
+		return -EINVAL;
+
+	return count;
+}
+
+static DEVICE_ATTR(power_tcxo_2v8, 0644, power_gps_read, power_gps_write);
+static DEVICE_ATTR(power_avdd_3v, 0644, power_gps_read, power_gps_write);
+static DEVICE_ATTR(pwron, 0644, power_gps_read, power_gps_write);
+static DEVICE_ATTR(reset, 0644, power_gps_read, power_gps_write);
+static DEVICE_ATTR(power_lp_io_3v3, 0644, power_gps_read, power_gps_write);
+static DEVICE_ATTR(power_pll_core_2v5, 0644, power_gps_read, power_gps_write);
+static DEVICE_ATTR(power_core_1v5, 0644, power_gps_read, power_gps_write);
+static DEVICE_ATTR(power_vdd_core_1v5, 0644, power_gps_read, power_gps_write);
+static DEVICE_ATTR(power_sequence, 0644, power_sequence_read,
+		   power_sequence_write);
+
+#ifdef CONFIG_PM
+static int gta01_pm_gps_suspend(struct platform_device *pdev,
+				pm_message_t state)
+{
+	/* FIXME */
+	gps_power_sequence_down();
+
+	return 0;
+}
+
+static int gta01_pm_gps_resume(struct platform_device *pdev)
+{
+	/* FIXME */
+	gps_power_sequence_up();
+
+	return 0;
+}
+#else
+#define gta01_pm_gps_suspend	NULL
+#define gta01_pm_gps_resume	NULL
+#endif
+
+static struct attribute *gta01_gps_sysfs_entries[] = {
+	&dev_attr_power_avdd_3v.attr,
+	&dev_attr_pwron.attr,
+	&dev_attr_reset.attr,
+	&dev_attr_power_lp_io_3v3.attr,
+	&dev_attr_power_pll_core_2v5.attr,
+	&dev_attr_power_sequence.attr,
+	NULL,	/* power_core_1v5 */
+	NULL,	/* power_vdd_core_1v5 */
+	NULL	/* terminating entry */
+};
+
+static struct attribute_group gta01_gps_attr_group = {
+	.name	= NULL,
+	.attrs	= gta01_gps_sysfs_entries,
+};
+
+static int __init gta01_pm_gps_probe(struct platform_device *pdev)
+{
+	s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_PWRON, S3C2410_GPIO_OUTPUT);
+
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+		break;
+	case GTA01v4_SYSTEM_REV:
+		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_RESET, S3C2410_GPIO_OUTPUT);
+		break;
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_3V3, S3C2410_GPIO_OUTPUT);
+		/* fallthrough */
+	case GTA01Bv2_SYSTEM_REV:
+		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_2V8, S3C2410_GPIO_OUTPUT);
+		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_3V, S3C2410_GPIO_OUTPUT);
+		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_RESET, S3C2410_GPIO_OUTPUT);
+		break;
+	default:
+		dev_warn(&pdev->dev, "Unknown GTA01 Revision 0x%x, "
+			 "AGPS PM features not available!!!\n",
+			 system_rev);
+		return -1;
+		break;
+	}
+
+	gps_power_sequence_down();
+
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+	case GTA01v4_SYSTEM_REV:
+	case GTA01Bv2_SYSTEM_REV:
+		gta01_gps_sysfs_entries[ARRAY_SIZE(gta01_gps_sysfs_entries)-3] =
+					&dev_attr_power_tcxo_2v8.attr;
+		break;
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		gta01_gps_sysfs_entries[ARRAY_SIZE(gta01_gps_sysfs_entries)-3] =
+					&dev_attr_power_core_1v5.attr;
+		gta01_gps_sysfs_entries[ARRAY_SIZE(gta01_gps_sysfs_entries)-2] =
+					&dev_attr_power_vdd_core_1v5.attr;
+		break;
+	}
+
+	return sysfs_create_group(&pdev->dev.kobj, &gta01_gps_attr_group);
+}
+
+static int gta01_pm_gps_remove(struct platform_device *pdev)
+{
+	gps_power_sequence_down();
+	sysfs_remove_group(&pdev->dev.kobj, &gta01_gps_attr_group);
+
+	return 0;
+}
+
+static struct platform_driver gta01_pm_gps_driver = {
+	.probe		= gta01_pm_gps_probe,
+	.remove		= gta01_pm_gps_remove,
+	.suspend	= gta01_pm_gps_suspend,
+	.resume		= gta01_pm_gps_resume,
+	.driver		= {
+		.name		= "neo1973-pm-gps",
+	},
+};
+
+static int __devinit gta01_pm_gps_init(void)
+{
+	return platform_driver_register(&gta01_pm_gps_driver);
+}
+
+static void gta01_pm_gps_exit(void)
+{
+	platform_driver_unregister(&gta01_pm_gps_driver);
+}
+
+module_init(gta01_pm_gps_init);
+module_exit(gta01_pm_gps_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Harald Welte <laforge@openmoko.org>");
+MODULE_DESCRIPTION("FIC Neo1973 GPS Power Management");
