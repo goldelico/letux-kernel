@@ -33,7 +33,7 @@
 struct neo1973_vib_priv {
 	struct led_classdev cdev;
 	unsigned int gpio;
-	struct mutex mutex;
+	spinlock_t lock;
 	unsigned int has_pwm;
 	struct s3c2410_pwm pwm;
 };
@@ -41,6 +41,7 @@ struct neo1973_vib_priv {
 static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
 		enum led_brightness value)
 {
+	unsigned long flags;
 	struct neo1973_vib_priv *vp =
 		container_of(led_cdev, struct neo1973_vib_priv, cdev);
 
@@ -56,7 +57,7 @@ static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
 	 * value == 128 -> 50% duty cycle (medium power)
 	 * value == 0 -> 0% duty cycle (zero power)
 	 */
-	mutex_lock(&vp->mutex);
+	spin_lock_irqsave(&vp->lock, flags);
 	if (vp->has_pwm)
 		s3c2410_pwm_duty_cycle(value / 4, &vp->pwm);
 	else {
@@ -65,8 +66,7 @@ static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
 		else
 			neo1973_gpb_setpin(vp->gpio, 0);
 	}
-
-	mutex_unlock(&vp->mutex);
+	spin_unlock_irqrestore(&vp->lock, flags);
 }
 
 static struct neo1973_vib_priv neo1973_vib_led = {
@@ -159,7 +159,7 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 #ifdef CONFIG_MACH_NEO1973_GTA02
 configured:
 #endif
-	mutex_init(&neo1973_vib_led.mutex);
+	spin_lock_init(&neo1973_vib_led.lock);
 
 	return led_classdev_register(&pdev->dev, &neo1973_vib_led.cdev);
 }
@@ -176,8 +176,6 @@ static int neo1973_vib_remove(struct platform_device *pdev)
 		s3c2410_pwm_disable(&neo1973_vib_led.pwm);
 
 	led_classdev_unregister(&neo1973_vib_led.cdev);
-
-	mutex_destroy(&neo1973_vib_led.mutex);
 
 	return 0;
 }
