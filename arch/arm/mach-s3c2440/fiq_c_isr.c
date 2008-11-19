@@ -11,6 +11,7 @@
 #include "fiq_c_isr.h"
 #include <linux/sysfs.h>
 #include <linux/device.h>
+#include <linux/delay.h>
 #include <linux/platform_device.h>
 
 #include <asm/io.h>
@@ -72,7 +73,7 @@ static int _fiq_irq; /* private ; irq index we were started with, or 0 */
 struct s3c2410_pwm pwm_timer_fiq;
 int _fiq_timer_index;
 u16 _fiq_timer_divisor;
-
+u8 fiq_ready;
 
 /* this function must live in the monolithic kernel somewhere!  A module is
  * NOT good enough!
@@ -178,6 +179,11 @@ void fiq_kick(void)
 	unsigned long flags;
 	u32 tcon;
 
+	if (!fiq_ready) {
+		printk(KERN_ERR "fiq_kick called before fiq probed\n");
+		return;
+	}
+	
 	/* we have to take care about FIQ because this modification is
 	 * non-atomic, FIQ could come in after the read and before the
 	 * writeback and its changes to the register would be lost
@@ -206,6 +212,7 @@ EXPORT_SYMBOL_GPL(fiq_kick);
 static int __init sc32440_fiq_probe(struct platform_device *pdev)
 {
 	struct resource *r = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	int ret;
 
 	if (!r)
 		return -EIO;
@@ -215,7 +222,11 @@ static int __init sc32440_fiq_probe(struct platform_device *pdev)
 
 	fiq_init_irq_source(r->start);
 
-	return sysfs_create_group(&pdev->dev.kobj, &s3c2440_fiq_attr_group);
+	ret = sysfs_create_group(&pdev->dev.kobj, &s3c2440_fiq_attr_group);
+
+	fiq_ready = 1;
+
+	return ret;
 }
 
 static int sc32440_fiq_remove(struct platform_device *pdev)
@@ -233,8 +244,11 @@ static void fiq_set_vector_and_regs(void)
 	memset(&regs, 0, sizeof(regs));
 	regs.ARM_r8 = (unsigned long)s3c2440_fiq_isr;
 	regs.ARM_sp = (unsigned long)u8aFiqStack + sizeof(u8aFiqStack) - 4;
+
 	/* set up the special FIQ-mode-only registers from our regs */
+
 	set_fiq_regs(&regs);
+	
 	/* copy our jump to the real ISR into the hard vector address */
 	set_fiq_handler(s3c2440_FIQ_Branch, SIZEOF_FIQ_JUMP);
 }

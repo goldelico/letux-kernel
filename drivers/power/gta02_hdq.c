@@ -199,6 +199,11 @@ static int __init gta02hdq_probe(struct platform_device *pdev)
 	if (!r)
 		return -EINVAL;
 
+	if (!fiq_ready) {
+		printk(KERN_ERR "hdq probe fails on fiq not ready\n");
+		return -EINVAL;
+	}
+
 	platform_set_drvdata(pdev, NULL);
 
 	mutex_init(&fiq_ipc.hdq_lock);

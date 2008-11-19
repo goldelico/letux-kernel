@@ -19,6 +19,8 @@
 #include <asm/arch/pwm.h>
 #include <asm/plat-s3c/regs-timer.h>
 
+extern u8 fiq_ready;
+
 enum hdq_bitbang_states {
 	HDQB_IDLE = 0,
 	HDQB_TX_BREAK,
