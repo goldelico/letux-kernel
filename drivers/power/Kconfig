@@ -68,7 +68,10 @@ config BATTERY_BQ27x00
 	help
 	  Say Y here to enable support for batteries with BQ27200(I2C) chip.
 
-endif # POWER_SUPPLY
+config BATTERY_BQ27000_HDQ
+	tristate "BQ27000 HDQ battery monitor driver"
+	help
+	  Say Y to enable support for the battery on the Neo Freerunner
 
 config GTA02_HDQ
 	tristate "Neo Freerunner HDQ"
@@ -77,3 +80,5 @@ config GTA02_HDQ
 	  Say Y to enable support for communicating with an HDQ battery
 	  on the Neo Freerunner.  You probably want to select
 	  at least BATTERY_BQ27000_HDQ as well
+
+endif # POWER_SUPPLY
