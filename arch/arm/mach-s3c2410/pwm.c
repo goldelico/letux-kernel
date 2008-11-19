@@ -22,7 +22,7 @@
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <mach/hardware.h>
-#include <asm/plat-s3c/regs-timer.h>
+#include <plat/regs-timer.h>
 #include <mach/pwm.h>
 #include <asm/io.h>
 

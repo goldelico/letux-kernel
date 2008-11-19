@@ -26,7 +26,7 @@
 #include <asm/mach/irq.h>
 #include <mach/fb.h>
 #include <mach/hardware.h>
-#include <asm/arch-s3c2410/ts.h>
+#include <mach/ts.h>
 #include <asm/io.h>
 #include <asm/irq.h>
 

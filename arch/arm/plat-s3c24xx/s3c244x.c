@@ -59,6 +59,8 @@ void __init s3c244x_init_uarts(struct s3c2410_uartcfg *cfg, int no)
 	s3c24xx_init_uartdevs("s3c2440-uart", s3c2410_uart_resources, cfg, no);
 }
 
+extern struct platform_device s3c_device_ts;
+
 void __init s3c244x_map_io(void)
 {
 	/* register our io-tables */

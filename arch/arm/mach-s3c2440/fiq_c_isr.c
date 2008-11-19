@@ -16,11 +16,11 @@
 
 #include <asm/io.h>
 
-#include <asm/plat-s3c24xx/cpu.h>
-#include <asm/plat-s3c24xx/irq.h>
+#include <plat/cpu.h>
+#include <plat/irq.h>
 
 #include <mach/pwm.h>
-#include <asm/plat-s3c/regs-timer.h>
+#include <plat/regs-timer.h>
 
 /*
  * Major Caveats for using FIQ

@@ -21,7 +21,7 @@
 #include <asm/mach-types.h>
 #include <mach/pwm.h>
 #include <mach/gta01.h>
-#include <asm/plat-s3c/regs-timer.h>
+#include <plat/regs-timer.h>
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 #include <mach/fiq_ipc_gta02.h>

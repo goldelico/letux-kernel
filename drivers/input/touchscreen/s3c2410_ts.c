@@ -57,7 +57,7 @@
 #include <mach/regs-gpio.h>
 #include <mach/ts.h>
 
-#include <asm/plat-s3c/regs-adc.h>
+#include <plat/regs-adc.h>
 
 /* For ts.dev.id.version */
 #define S3C2410TSVERSION	0x0101

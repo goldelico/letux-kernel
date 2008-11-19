@@ -17,7 +17,7 @@
  */
 
 #include <mach/pwm.h>
-#include <asm/plat-s3c/regs-timer.h>
+#include <plat/regs-timer.h>
 
 extern u8 fiq_ready;
 

@@ -1684,6 +1684,47 @@ static struct i2c_driver wm8753_i2c_driver = {
 	.class =    I2C_CLASS_SOUND
 };
 
+static int wm8753_add_i2c_device(struct platform_device *pdev,
+				 const struct wm8753_setup_data *setup)
+{
+	struct i2c_board_info info;
+	struct i2c_adapter *adapter;
+	struct i2c_client *client;
+	int ret;
+
+	ret = i2c_add_driver(&wm8753_i2c_driver);
+	if (ret != 0) {
+		dev_err(&pdev->dev, "can't add i2c driver\n");
+		return ret;
+	}
+
+	memset(&info, 0, sizeof(struct i2c_board_info));
+	info.addr = setup->i2c_address;
+	strlcpy(info.type, "wm8753", I2C_NAME_SIZE);
+
+	adapter = i2c_get_adapter(setup->i2c_bus);
+	if (!adapter) {
+		dev_err(&pdev->dev, "can't get i2c adapter %d\n",
+			setup->i2c_bus);
+		goto err_driver;
+	}
+
+	client = i2c_new_device(adapter, &info);
+	i2c_put_adapter(adapter);
+	if (!client) {
+		dev_err(&pdev->dev, "can't add i2c device at 0x%x\n",
+			(unsigned int)info.addr);
+		goto err_driver;
+	}
+
+	return 0;
+
+err_driver:
+	i2c_del_driver(&wm8753_i2c_driver);
+	return -ENODEV;
+}
+
+
 #endif
 
 #if defined(CONFIG_SPI_MASTER)
@@ -1746,12 +1787,14 @@ static int wm8753_spi_write(struct spi_device *spi, const char *data, int len)
 static int wm8753_probe(struct platform_device *pdev)
 {
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
+	struct wm8753_setup_data *setup;
 	struct snd_soc_codec *codec;
 	struct wm8753_priv *wm8753;
 	int ret = 0;
 
 	pr_info("WM8753 Audio Codec %s\n", WM8753_VERSION);
 
+	setup = socdev->codec_data;
 	codec = kzalloc(sizeof(struct snd_soc_codec), GFP_KERNEL);
 	if (codec == NULL)
 		return -ENOMEM;
@@ -1773,7 +1816,7 @@ static int wm8753_probe(struct platform_device *pdev)
 #if defined(CONFIG_I2C) || defined(CONFIG_I2C_MODULE)
 	if (setup->i2c_address) {
 		codec->hw_write = (hw_write_t)i2c_master_send;
-		ret = add_i2c_device(pdev, setup);
+		ret = wm8753_add_i2c_device(pdev, setup);
 	}
 #endif
 #if defined(CONFIG_SPI_MASTER)

@@ -18,7 +18,7 @@
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <mach/gta02.h>
-#include <asm/plat-s3c/regs-timer.h>
+#include <plat/regs-timer.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 
 #define MAX_LEDS 3
