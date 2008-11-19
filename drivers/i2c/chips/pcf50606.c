@@ -102,6 +102,7 @@ struct pcf50606_data {
 	int allow_close;
 	int onkey_seconds;
 	int irq;
+	int coldplug_done;
 #ifdef CONFIG_PM
 	struct {
 		u_int8_t dcdc1, dcdc2;
@@ -572,6 +573,30 @@ static void pcf50606_work(struct work_struct *work)
 					    pcfirq);
 	if (ret != 3)
 		DEBUGPC("Oh crap PMU IRQ register read failed %d\n", ret);
+
+	if (!pcf->coldplug_done) {
+		DEBUGPC("PMU Coldplug init\n");
+
+		/* we used SECOND to kick ourselves started -- turn it off */
+		pcfirq[0] &= ~PCF50606_INT1_SECOND;
+		reg_set_bit_mask(pcf, PCF50606_REG_INT1M, PCF50606_INT1_SECOND,
+				 PCF50606_INT1_SECOND);
+
+		/* coldplug the USB if present */
+		if (__reg_read(pcf, PCF50606_REG_OOCS) & PCF50606_OOCS_EXTON) {
+			/* Charger inserted */
+			DEBUGPC("COLD CHGINS ");
+			input_report_key(pcf->input_dev, KEY_BATTERY, 1);
+			apm_queue_event(APM_POWER_STATUS_CHANGE);
+			pcf->flags |= PCF50606_F_CHG_PRESENT;
+			if (pcf->pdata->cb)
+				pcf->pdata->cb(&pcf->client.dev,
+					PCF50606_FEAT_MBC, PMU_EVT_INSERT);
+		}
+
+		pcf->coldplug_done = 1;
+	}
+
 
 	dev_dbg(&pcf->client.dev, "INT1=0x%02x INT2=0x%02x INT3=0x%02x:",
 		pcfirq[0], pcfirq[1], pcfirq[2]);
@@ -1642,7 +1667,8 @@ static int pcf50606_detect(struct i2c_adapter *adapter, int address, int kind)
 	pm_power_off = &pcf50606_go_standby;
 
 	/* configure interrupt mask */
-	reg_write(data, PCF50606_REG_INT1M, PCF50606_INT1_SECOND);
+	/* we don't mask SECOND here, because we want one to do coldplug with */
+	reg_write(data, PCF50606_REG_INT1M, 0x00);
 	reg_write(data, PCF50606_REG_INT2M, 0x00);
 	reg_write(data, PCF50606_REG_INT3M, PCF50606_INT3_TSCPRES);
 

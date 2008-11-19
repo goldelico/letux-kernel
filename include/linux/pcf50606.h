@@ -1,6 +1,9 @@
 #ifndef _LINUX_PCF50606_H
 #define _LINUX_PCF50606_H
 
+#include <linux/pcf506xx.h>
+
+
 /* public in-kernel pcf50606 api */
 enum pcf50606_regulator_id {
 	PCF50606_REGULATOR_DCD,
@@ -48,26 +51,6 @@ pcf50606_onoff_set(struct pcf50606_data *pcf,
 extern void
 pcf50606_charge_fast(struct pcf50606_data *pcf, int on);
 
-#define PMU_VRAIL_F_SUSPEND_ON	0x00000001	/* Remains on during suspend */
-#define PMU_VRAIL_F_UNUSED	0x00000002	/* This rail is not used */
-struct pmu_voltage_rail {
-	char *name;
-	unsigned int flags;
-	struct {
-		unsigned int init;
-		unsigned int max;
-	} voltage;
-};
-
-enum pmu_event {
-	PMU_EVT_NONE,
-	PMU_EVT_INSERT,
-	PMU_EVT_REMOVE,
-	__NUM_PMU_EVTS
-};
-
-typedef int pmu_cb(struct device *dev, unsigned int feature,
-		   enum pmu_event event);
 
 #define PCF50606_FEAT_EXTON	0x00000001	/* not yet supported */
 #define PCF50606_FEAT_MBC	0x00000002
