@@ -24,6 +24,7 @@
  *
  */
 
+#include <linux/module.h>
 #include <linux/io.h>
 #include <linux/irq.h>
 
