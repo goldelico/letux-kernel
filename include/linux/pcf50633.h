@@ -132,7 +132,9 @@ pcf50633_register_resume_dependency(struct pcf50633_data *pcf,
 extern int
 pcf50633_notify_usb_current_limit_change(struct pcf50633_data *pcf,
 							       unsigned int ma);
-
+extern int
+pcf50633_wait_for_ready(struct pcf50633_data *pcf, int timeout_ms,
+								char *name);
 
 /* 0 = initialized and resumed and ready to roll, !=0 = either not
  * initialized or not resumed yet
@@ -155,6 +157,10 @@ struct pcf50633_platform_data {
 	unsigned int onkey_seconds_sig_init;
 	unsigned int onkey_seconds_shutdown;
 
+	/* callback to attach platform children (to enforce suspend / resume
+	 * ordering */
+	void (*attach_child_devices)(struct device *parent_device);
+
 	/* voltage regulator related */
 	struct pmu_voltage_rail rails[__NUM_PCF50633_REGULATORS];
 	unsigned int used_regulators;
@@ -163,6 +169,7 @@ struct pcf50633_platform_data {
 	unsigned int r_fix_batt;
 	unsigned int r_fix_batt_par;
 	unsigned int r_sense_milli;
+	int flag_use_apm_emulation;
 
 	unsigned char resumers[5];
 
