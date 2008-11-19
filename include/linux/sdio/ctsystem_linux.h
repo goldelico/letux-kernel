@@ -69,7 +69,7 @@
 #include <linux/interrupt.h>
 #include <linux/pnp.h>
 #include <asm/hardirq.h>
-#include <asm/semaphore.h>
+#include <linux/semaphore.h>
 #include <asm/io.h>
 #include <asm/scatterlist.h>
 #ifdef DBG_TIMESTAMP
