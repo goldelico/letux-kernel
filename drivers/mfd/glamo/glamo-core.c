@@ -440,7 +440,22 @@ int glamo_engine_disable(struct glamo_core *glamo, enum glamo_engine engine)
 {
 	spin_lock(&glamo->lock);
 	switch (engine) {
-	/* FIXME: Implementation */
+	case GLAMO_ENGINE_MMC:
+		__reg_set_bit_mask(glamo, GLAMO_REG_CLOCK_MMC, 0,
+						   GLAMO_CLOCK_MMC_EN_M9CLK |
+						   GLAMO_CLOCK_MMC_EN_TCLK |
+						   GLAMO_CLOCK_MMC_DG_M9CLK |
+						   GLAMO_CLOCK_MMC_DG_TCLK);
+		__reg_set_bit_mask(glamo, GLAMO_REG_HOSTBUS(2), 0,
+						   GLAMO_HOSTBUS2_MMIO_EN_MMC);
+		/* disable the TCLK divider clk input */
+		__reg_set_bit_mask(glamo, GLAMO_REG_CLOCK_GEN5_1, 0,
+						GLAMO_CLOCK_GEN51_EN_DIV_TCLK);
+		/* good idea to hold the thing in reset when we power it off? */
+/*		writew(readw(glamo->base + GLAMO_REG_CLOCK_MMC) |
+		      GLAMO_CLOCK_MMC_RESET, glamo->base + GLAMO_REG_CLOCK_MMC);
+*/
+		break;
 	default:
 		break;
 	}

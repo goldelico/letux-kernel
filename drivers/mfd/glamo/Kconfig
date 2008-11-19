@@ -33,3 +33,12 @@ config MFD_GLAMO_SPI_FB
 	 control channel.  This SPI interface is frequently used to
 	 interconnect the LCM control interface.
 
+config MFD_GLAMO_MCI
+	tristate "Glamo S3C SD/MMC Card Interface support"
+	depends on MFD_GLAMO && MMC
+	help
+	  This selects a driver for the MCI interface found in
+	  the S-Media GLAMO chip, as used in OpenMoko
+	  neo1973 GTA-02.
+
+	  If unsure, say N.

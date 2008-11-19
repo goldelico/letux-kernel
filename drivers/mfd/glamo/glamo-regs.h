@@ -150,16 +150,28 @@ enum glamo_reg_mem_dram2 {
 	GLAMO_MEM_DRAM2_DEEP_PWRDOWN	= (1 << 12),
 };
 
+enum glamo_irq_index {
+	GLAMO_IRQIDX_HOSTBUS	= 0,
+	GLAMO_IRQIDX_JPEG	= 1,
+	GLAMO_IRQIDX_MPEG	= 2,
+	GLAMO_IRQIDX_MPROC1	= 3,
+	GLAMO_IRQIDX_MPROC0	= 4,
+	GLAMO_IRQIDX_CMDQUEUE	= 5,
+	GLAMO_IRQIDX_2D		= 6,
+	GLAMO_IRQIDX_MMC	= 7,
+	GLAMO_IRQIDX_RISC	= 8,
+};
+
 enum glamo_irq {
-	GLAMO_IRQ_HOSTBUS	= 0x0001,
-	GLAMO_IRQ_JPEG		= 0x0002,
-	GLAMO_IRQ_MPEG		= 0x0004,
-	GLAMO_IRQ_MPROC1	= 0x0008,
-	GLAMO_IRQ_MPROC0	= 0x0010,
-	GLAMO_IRQ_CMDQUEUE	= 0x0020,
-	GLAMO_IRQ_2D		= 0x0040,
-	GLAMO_IRQ_MMC		= 0x0080,
-	GLAMO_IRQ_RISC		= 0x0100,
+	GLAMO_IRQ_HOSTBUS	= (1 << GLAMO_IRQIDX_HOSTBUS),
+	GLAMO_IRQ_JPEG		= (1 << GLAMO_IRQIDX_JPEG),
+	GLAMO_IRQ_MPEG		= (1 << GLAMO_IRQIDX_MPEG),
+	GLAMO_IRQ_MPROC1	= (1 << GLAMO_IRQIDX_MPROC1),
+	GLAMO_IRQ_MPROC0	= (1 << GLAMO_IRQIDX_MPROC0),
+	GLAMO_IRQ_CMDQUEUE	= (1 << GLAMO_IRQIDX_CMDQUEUE),
+	GLAMO_IRQ_2D		= (1 << GLAMO_IRQIDX_2D),
+	GLAMO_IRQ_MMC		= (1 << GLAMO_IRQIDX_MMC),
+	GLAMO_IRQ_RISC		= (1 << GLAMO_IRQIDX_RISC),
 };
 
 enum glamo_reg_clock_host {
@@ -195,6 +207,145 @@ enum glamo_reg_clock_mmc {
 	GLAMO_CLOCK_MMC_DG_M9CLK	= 0x0004,
 	GLAMO_CLOCK_MMC_EN_M9CLK	= 0x0008,
 	GLAMO_CLOCK_MMC_RESET		= 0x1000,
+};
+
+enum glamo_reg_basic_mmc {
+	/* set to disable CRC error rejection */
+	GLAMO_BASIC_MMC_DISABLE_CRC	= 0x0001,
+	/* enable completion interrupt */
+	GLAMO_BASIC_MMC_EN_COMPL_INT	= 0x0002,
+	/* stop MMC clock while enforced idle waiting for data from card */
+	GLAMO_BASIC_MMC_NO_CLK_RD_WAIT	= 0x0004,
+	/* 0 = 1-bit bus to card, 1 = use 4-bit bus (has to be negotiated) */
+	GLAMO_BASIC_MMC_EN_4BIT_DATA	= 0x0008,
+	/* enable 75K pullups on D3..D0 */
+	GLAMO_BASIC_MMC_EN_DATA_PUPS	= 0x0010,
+	/* enable 75K pullup on CMD */
+	GLAMO_BASIC_MMC_EN_CMD_PUP	= 0x0020,
+	/* IO drive strength 00=weak -> 11=strongest */
+	GLAMO_BASIC_MMC_EN_DR_STR0	= 0x0040,
+	GLAMO_BASIC_MMC_EN_DR_STR1	= 0x0080,
+	/* TCLK delay stage A, 0000 = 500ps --> 1111 = 8ns */
+	GLAMO_BASIC_MMC_EN_TCLK_DLYA0	= 0x0100,
+	GLAMO_BASIC_MMC_EN_TCLK_DLYA1	= 0x0200,
+	GLAMO_BASIC_MMC_EN_TCLK_DLYA2	= 0x0400,
+	GLAMO_BASIC_MMC_EN_TCLK_DLYA3	= 0x0800,
+	/* TCLK delay stage B (cumulative), 0000 = 500ps --> 1111 = 8ns */
+	GLAMO_BASIC_MMC_EN_TCLK_DLYB0	= 0x1000,
+	GLAMO_BASIC_MMC_EN_TCLK_DLYB1	= 0x2000,
+	GLAMO_BASIC_MMC_EN_TCLK_DLYB2	= 0x4000,
+	GLAMO_BASIC_MMC_EN_TCLK_DLYB3	= 0x8000,
+};
+
+enum glamo_reg_stat1_mmc {
+	/* command "counter" (really: toggle) */
+	GLAMO_STAT1_MMC_CMD_CTR	= 0x8000,
+	/* engine is idle */
+	GLAMO_STAT1_MMC_IDLE	= 0x4000,
+	/* readback response is ready */
+	GLAMO_STAT1_MMC_RB_RRDY	= 0x0200,
+	/* readback data is ready */
+	GLAMO_STAT1_MMC_RB_DRDY	= 0x0100,
+	/* no response timeout */
+	GLAMO_STAT1_MMC_RTOUT	= 0x0020,
+	/* no data timeout */
+	GLAMO_STAT1_MMC_DTOUT	= 0x0010,
+	/* CRC error on block write */
+	GLAMO_STAT1_MMC_BWERR	= 0x0004,
+	/* CRC error on block read */
+	GLAMO_STAT1_MMC_BRERR	= 0x0002
+};
+
+enum glamo_reg_fire_mmc {
+	/* command "counter" (really: toggle)
+	 * the STAT1 register reflects this so you can ensure you don't look
+	 * at status for previous command
+	 */
+	GLAMO_FIRE_MMC_CMD_CTR	= 0x8000,
+	/* sets kind of response expected */
+	GLAMO_FIRE_MMC_RES_MASK	= 0x0700,
+	/* sets command type */
+	GLAMO_FIRE_MMC_TYP_MASK	= 0x00C0,
+	/* sets command class */
+	GLAMO_FIRE_MMC_CLS_MASK	= 0x000F,
+};
+
+enum glamo_fire_mmc_response_types {
+	GLAMO_FIRE_MMC_RSPT_R1	= 0x0000,
+	GLAMO_FIRE_MMC_RSPT_R1b	= 0x0100,
+	GLAMO_FIRE_MMC_RSPT_R2	= 0x0200,
+	GLAMO_FIRE_MMC_RSPT_R3	= 0x0300,
+	GLAMO_FIRE_MMC_RSPT_R4	= 0x0400,
+	GLAMO_FIRE_MMC_RSPT_R5	= 0x0500,
+};
+
+enum glamo_fire_mmc_command_types {
+	/* broadcast, no response */
+	GLAMO_FIRE_MMC_CMDT_BNR	= 0x0000,
+	/* broadcast, with response */
+	GLAMO_FIRE_MMC_CMDT_BR	= 0x0040,
+	/* addressed, no data */
+	GLAMO_FIRE_MMC_CMDT_AND	= 0x0080,
+	/* addressed, with data */
+	GLAMO_FIRE_MMC_CMDT_AD	= 0x00C0,
+};
+
+enum glamo_fire_mmc_command_class {
+	/* "Stream Read" */
+	GLAMO_FIRE_MMC_CC_STRR	= 0x0000,
+	/* Single Block Read */
+	GLAMO_FIRE_MMC_CC_SBR	= 0x0001,
+	/* Multiple Block Read With Stop */
+	GLAMO_FIRE_MMC_CC_MBRS	= 0x0002,
+	/* Multiple Block Read No Stop */
+	GLAMO_FIRE_MMC_CC_MBRNS	= 0x0003,
+	/* RESERVED for "Stream Write" */
+	GLAMO_FIRE_MMC_CC_STRW	= 0x0004,
+	/* "Stream Write" */
+	GLAMO_FIRE_MMC_CC_SBW	= 0x0005,
+	/* RESERVED for Multiple Block Write With Stop */
+	GLAMO_FIRE_MMC_CC_MBWS	= 0x0006,
+	/* Multiple Block Write No Stop */
+	GLAMO_FIRE_MMC_CC_MBWNS	= 0x0007,
+	/* STOP command */
+	GLAMO_FIRE_MMC_CC_STOP	= 0x0008,
+	/* Cancel on Running Command */
+	GLAMO_FIRE_MMC_CC_CANCL	= 0x0009,
+	/* "Basic Command" */
+	GLAMO_FIRE_MMC_CC_BASIC	= 0x000a,
+};
+
+/* these are offsets from the start of the MMC register region */
+enum glamo_register_mmc {
+	/* MMC command, b15..8 = cmd arg b7..0; b7..1 = CRC; b0 = end bit */
+	GLAMO_REG_MMC_CMD_REG1	= 0x00,
+	/* MMC command, b15..0 = cmd arg b23 .. 8 */
+	GLAMO_REG_MMC_CMD_REG2	= 0x02,
+	/* MMC command, b15=start, b14=transmission,
+	 * b13..8=cmd idx, b7..0=cmd arg b31..24
+	 */
+	GLAMO_REG_MMC_CMD_REG3	= 0x04,
+	GLAMO_REG_MMC_CMD_FIRE	= 0x06,
+	GLAMO_REG_MMC_CMD_RSP1	= 0x10,
+	GLAMO_REG_MMC_CMD_RSP2	= 0x12,
+	GLAMO_REG_MMC_CMD_RSP3	= 0x14,
+	GLAMO_REG_MMC_CMD_RSP4	= 0x16,
+	GLAMO_REG_MMC_CMD_RSP5	= 0x18,
+	GLAMO_REG_MMC_CMD_RSP6	= 0x1a,
+	GLAMO_REG_MMC_CMD_RSP7	= 0x1c,
+	GLAMO_REG_MMC_CMD_RSP8	= 0x1e,
+	GLAMO_REG_MMC_RB_STAT1	= 0x20,
+	GLAMO_REG_MMC_RB_BLKCNT	= 0x22,
+	GLAMO_REG_MMC_RB_BLKLEN	= 0x24,
+	GLAMO_REG_MMC_BASIC	= 0x30,
+	GLAMO_REG_MMC_RDATADS1	= 0x34,
+	GLAMO_REG_MMC_RDATADS2	= 0x36,
+	GLAMO_REG_MMC_WDATADS1	= 0x38,
+	GLAMO_REG_MMC_WDATADS2	= 0x3a,
+	GLAMO_REG_MMC_DATBLKCNT	= 0x3c,
+	GLAMO_REG_MMC_DATBLKLEN	= 0x3e,
+	GLAMO_REG_MMC_TIMEOUT	= 0x40,
+
 };
 
 enum glamo_reg_clock_isp {
