@@ -73,4 +73,8 @@ config REGULATOR_DA903X
 	  Say y here to support the BUCKs and LDOs regulators found on
 	  Dialog Semiconductor DA9030/DA9034 PMIC.
 
+config REGULATOR_PCF50633
+	bool "PCF50633 regulator driver"
+        depends on SENSORS_PCF50633
+
 endif

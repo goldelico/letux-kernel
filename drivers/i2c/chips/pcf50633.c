@@ -51,8 +51,8 @@
 
 #include <asm/mach-types.h>
 
-#include "pcf50633.h"
 #include <linux/pcf50633.h>
+#include <linux/regulator/pcf50633.h>
 
 #if 0
 #define DEBUGP(x, args ...) printk("%s: " x, __FUNCTION__, ## args)
@@ -96,96 +96,6 @@ enum close_state {
 	CLOSE_STATE_ALLOW = 0x2342,
 };
 
-enum charger_type {
-	CHARGER_TYPE_NONE = 0,
-	CHARGER_TYPE_HOSTUSB,
-	CHARGER_TYPE_1A
-};
-
-#define ADC_NOM_CHG_DETECT_1A 6
-#define ADC_NOM_CHG_DETECT_NONE 43
-
-#define MAX_ADC_FIFO_DEPTH 8
-
-enum pcf50633_suspend_states {
-	PCF50633_SS_RUNNING,
-	PCF50633_SS_STARTING_SUSPEND,
-	PCF50633_SS_COMPLETED_SUSPEND,
-	PCF50633_SS_RESUMING_BUT_NOT_US_YET,
-	PCF50633_SS_STARTING_RESUME,
-	PCF50633_SS_COMPLETED_RESUME,
-};
-
-
-struct pcf50633_data {
-	struct i2c_client *client;
-	struct pcf50633_platform_data *pdata;
-	struct backlight_device *backlight;
-	struct mutex lock;
-	unsigned int flags;
-	unsigned int working;
-	struct mutex working_lock;
-	struct work_struct work;
-	struct rtc_device *rtc;
-	struct input_dev *input_dev;
-	int allow_close;
-	int onkey_seconds;
-	int irq;
-	enum pcf50633_suspend_states suspend_state;
-	int usb_removal_count;
-	u8 pcfirq_resume[5];
-	int probe_completed;
-	int suppress_onkey_events;
-
-	/* if he pulls battery while charging, we notice that and correctly
-	 * report that the charger is idle.  But there is no interrupt that
-	 * fires if he puts a battery back in and charging resumes.  So when
-	 * the battery is pulled, we run this work function looking for
-	 * either charger resumption or USB cable pull
-	 */
-	struct mutex working_lock_nobat;
-	struct work_struct work_nobat;
-	int working_nobat;
-	int usb_removal_count_nobat;
-	int jiffies_last_bat_ins;
-
-	/* current limit notification handler stuff */
-	struct mutex working_lock_usb_curlimit;
-	struct work_struct work_usb_curlimit;
-	int pending_curlimit;
-	int usb_removal_count_usb_curlimit;
-
-	int last_curlim_set;
-
-	int coldplug_done; /* cleared by probe, set by first work service */
-	int flag_bat_voltage_read; /* ipc to /sys batt voltage read func */
-
-	int charger_adc_result_raw;
-	enum charger_type charger_type;
-
-	/* we have a FIFO of ADC measurement requests that are used only by
-	 * the workqueue service code after the ADC completion interrupt
-	 */
-	int adc_queue_mux[MAX_ADC_FIFO_DEPTH]; /* which ADC input to use */
-	int adc_queue_avg[MAX_ADC_FIFO_DEPTH]; /* amount of averaging */
-	int adc_queue_head; /* head owned by foreground code */
-	int adc_queue_tail; /* tail owned by service code */
-
-#ifdef CONFIG_PM
-	struct {
-		u_int8_t ooctim2;
-		/* enables are always [1] below
-		 * I2C has limit of 32 sequential regs, so done in two lumps
-		 * because it covers 33 register extent otherwise
-		 */
-		u_int8_t misc[PCF50633_REG_LEDDIM - PCF50633_REG_AUTOOUT + 1];
-		/*  skip 1 reserved reg here */
-		u_int8_t ldo[PCF50633_REG_HCLDOENA - PCF50633_REG_LDO1OUT + 1];
-	} standby_regs;
-
-#endif
-};
-
 static struct i2c_driver pcf50633_driver;
 
 static void pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma);
@@ -205,7 +115,7 @@ static int __reg_write(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
 	return i2c_smbus_write_byte_data(pcf->client, reg, val);
 }
 
-static int reg_write(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
+int pcf50633_reg_write(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
 {
 	int ret;
 
@@ -215,6 +125,7 @@ static int reg_write(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
 
 	return ret;
 }
+EXPORT_SYMBOL(pcf50633_reg_write);
 
 static int32_t __reg_read(struct pcf50633_data *pcf, u_int8_t reg)
 {
@@ -229,7 +140,7 @@ static int32_t __reg_read(struct pcf50633_data *pcf, u_int8_t reg)
 	return ret;
 }
 
-static u_int8_t reg_read(struct pcf50633_data *pcf, u_int8_t reg)
+u_int8_t pcf50633_reg_read(struct pcf50633_data *pcf, u_int8_t reg)
 {
 	int32_t ret;
 
@@ -239,8 +150,9 @@ static u_int8_t reg_read(struct pcf50633_data *pcf, u_int8_t reg)
 
 	return ret & 0xff;
 }
+EXPORT_SYMBOL(pcf50633_reg_read);
 
-static int reg_set_bit_mask(struct pcf50633_data *pcf,
+int pcf50633_reg_set_bit_mask(struct pcf50633_data *pcf,
 			    u_int8_t reg, u_int8_t mask, u_int8_t val)
 {
 	int ret;
@@ -259,8 +171,9 @@ static int reg_set_bit_mask(struct pcf50633_data *pcf,
 
 	return ret;
 }
+EXPORT_SYMBOL(pcf50633_reg_set_bit_mask);
 
-static int reg_clear_bits(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
+int pcf50633_reg_clear_bits(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
 {
 	int ret;
 	u_int8_t tmp;
@@ -275,6 +188,7 @@ static int reg_clear_bits(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
 
 	return ret;
 }
+EXPORT_SYMBOL(pcf50633_reg_clear_bits);
 
 /* asynchronously setup reading one ADC channel */
 static void async_adc_read_setup(struct pcf50633_data *pcf,
@@ -387,9 +301,9 @@ int pcf50633_onoff_set(struct pcf50633_data *pcf,
 	addr = regulator_registers[reg] + 1;
 
 	if (on == 0)
-		reg_set_bit_mask(pcf, addr, PCF50633_REGULATOR_ON, 0);
+		pcf50633_reg_set_bit_mask(pcf, addr, PCF50633_REGULATOR_ON, 0);
 	else
-		reg_set_bit_mask(pcf, addr, PCF50633_REGULATOR_ON,
+		pcf50633_reg_set_bit_mask(pcf, addr, PCF50633_REGULATOR_ON,
 				 PCF50633_REGULATOR_ON);
 
 	return 0;
@@ -406,7 +320,7 @@ int pcf50633_onoff_get(struct pcf50633_data *pcf,
 
 	/* the *ENA register is always one after the *OUT register */
 	addr = regulator_registers[reg] + 1;
-	val = reg_read(pcf, addr) & PCF50633_REGULATOR_ON;
+	val = pcf50633_reg_read(pcf, addr) & PCF50633_REGULATOR_ON;
 
 	return val;
 }
@@ -453,7 +367,7 @@ int pcf50633_voltage_set(struct pcf50633_data *pcf,
 		return -EINVAL;
 	}
 
-	return reg_write(pcf, regnr, volt_bits);
+	return pcf50633_reg_write(pcf, regnr, volt_bits);
 }
 EXPORT_SYMBOL_GPL(pcf50633_voltage_set);
 
@@ -468,7 +382,7 @@ unsigned int pcf50633_voltage_get(struct pcf50633_data *pcf,
 		return -EINVAL;
 
 	regnr = regulator_registers[reg];
-	volt_bits = reg_read(pcf, regnr);
+	volt_bits = pcf50633_reg_read(pcf, regnr);
 
 	switch (reg) {
 	case PCF50633_REGULATOR_AUTO:
@@ -500,7 +414,7 @@ EXPORT_SYMBOL_GPL(pcf50633_voltage_get);
 /* go into 'STANDBY' mode, i.e. power off the main CPU and peripherals */
 void pcf50633_go_standby(struct pcf50633_data *pcf)
 {
-	reg_set_bit_mask(pcf, PCF50633_REG_OOCSHDWN,
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_OOCSHDWN,
 		  PCF50633_OOCSHDWN_GOSTDBY, PCF50633_OOCSHDWN_GOSTDBY);
 }
 EXPORT_SYMBOL_GPL(pcf50633_go_standby);
@@ -511,16 +425,16 @@ void pcf50633_gpio_set(struct pcf50633_data *pcf, enum pcf50633_gpio gpio,
 	u_int8_t reg = gpio - PCF50633_GPIO1 + PCF50633_REG_GPIO1CFG;
 
 	if (on)
-		reg_set_bit_mask(pcf, reg, 0x0f, 0x07);
+		pcf50633_reg_set_bit_mask(pcf, reg, 0x0f, 0x07);
 	else
-		reg_set_bit_mask(pcf, reg, 0x0f, 0x00);
+		pcf50633_reg_set_bit_mask(pcf, reg, 0x0f, 0x00);
 }
 EXPORT_SYMBOL_GPL(pcf50633_gpio_set);
 
 int pcf50633_gpio_get(struct pcf50633_data *pcf, enum pcf50633_gpio gpio)
 {
 	u_int8_t reg = gpio - PCF50633_GPIO1 + PCF50633_REG_GPIO1CFG;
-	u_int8_t val = reg_read(pcf, reg) & 0x0f;
+	u_int8_t val = pcf50633_reg_read(pcf, reg) & 0x0f;
 
 	if (val == PCF50633_GPOCFG_GPOSEL_1 ||
 	    val == (PCF50633_GPOCFG_GPOSEL_0|PCF50633_GPOCFG_GPOSEL_INVERSE))
@@ -732,7 +646,7 @@ static void pcf50633_work_nobat(struct work_struct *work)
 			continue;
 
 		/* there's a battery in there now? */
-		if (reg_read(pcf, PCF50633_REG_MBCS3) & 0x40) {
+		if (pcf50633_reg_read(pcf, PCF50633_REG_MBCS3) & 0x40) {
 
 			pcf->jiffies_last_bat_ins = jiffies;
 
@@ -858,7 +772,7 @@ static void pcf50633_work(struct work_struct *work)
 
 		/* we used SECOND to kick ourselves started -- turn it off */
 		pcfirq[0] &= ~PCF50633_INT1_SECOND;
-		reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
+		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
 					PCF50633_INT1_SECOND,
 					PCF50633_INT1_SECOND);
 
@@ -959,7 +873,7 @@ static void pcf50633_work(struct work_struct *work)
 		    pcf->flags & PCF50633_F_PWR_PRESSED) {
 			DEBUGP("ONKEY_SECONDS(%u, OOCSTAT=0x%02x) ",
 				pcf->onkey_seconds,
-				reg_read(pcf, PCF50633_REG_OOCSTAT));
+				pcf50633_reg_read(pcf, PCF50633_REG_OOCSTAT));
 			pcf->onkey_seconds++;
 			if (pcf->onkey_seconds >=
 			    pcf->pdata->onkey_seconds_sig_init) {
@@ -1014,7 +928,7 @@ static void pcf50633_work(struct work_struct *work)
 		/* disable SECOND interrupt in case RTC didn't
 		 * request it */
 		if (!(pcf->flags & PCF50633_F_RTC_SECOND))
-			reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
+			pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
 					 PCF50633_INT1_SECOND,
 					 PCF50633_INT1_SECOND);
 	}
@@ -1032,15 +946,15 @@ static void pcf50633_work(struct work_struct *work)
 
 			DEBUGPC("*** Ignoring BATFULL ***\n");
 
-			ret = reg_read(pcf, PCF50633_REG_MBCC7) &
+			ret = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) &
 					PCF56033_MBCC7_USB_MASK;
 
 
-			reg_set_bit_mask(pcf, PCF50633_REG_MBCC7,
+			pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC7,
 					 PCF56033_MBCC7_USB_MASK,
 					 PCF50633_MBCC7_USB_SUSPEND);
 
-			reg_set_bit_mask(pcf, PCF50633_REG_MBCC7,
+			pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC7,
 					 PCF56033_MBCC7_USB_MASK,
 					 ret);
 		} else {
@@ -1115,11 +1029,11 @@ static void pcf50633_work(struct work_struct *work)
 		pcf->onkey_seconds = 0;
 		DEBUGPC("ONKEY1S ");
 		/* Tell PMU we are taking care of this */
-		reg_set_bit_mask(pcf, PCF50633_REG_OOCSHDWN,
+		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_OOCSHDWN,
 				 PCF50633_OOCSHDWN_TOTRST,
 				 PCF50633_OOCSHDWN_TOTRST);
 		/* enable SECOND interrupt (hz tick) */
-		reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_SECOND);
+		pcf50633_reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_SECOND);
 	}
 
 	if (pcfirq[3] & (PCF50633_INT4_LOWBAT|PCF50633_INT4_LOWSYS)) {
@@ -1135,7 +1049,7 @@ static void pcf50633_work(struct work_struct *work)
 				pcf->pdata->cb(&pcf->client->dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_IDLE);
 
-			reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
+			pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
 					PCF50633_MBCC1_RESUME,
 					PCF50633_MBCC1_RESUME);
 	
@@ -1189,7 +1103,7 @@ static void pcf50633_work(struct work_struct *work)
 		}
 
 		/* Tell PMU we are taking care of this */
-		reg_set_bit_mask(pcf, PCF50633_REG_OOCSHDWN,
+		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_OOCSHDWN,
 				 PCF50633_OOCSHDWN_TOTRST,
 				 PCF50633_OOCSHDWN_TOTRST);
 	}
@@ -1428,7 +1342,7 @@ static void pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma)
 		bits = PCF50633_MBCC7_USB_SUSPEND;
 
 	/* set the nearest charging limit */
-	reg_set_bit_mask(pcf, PCF50633_REG_MBCC7, PCF56033_MBCC7_USB_MASK,
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC7, PCF56033_MBCC7_USB_MASK,
 			 bits);
 
 	/* with this charging limit, is charging actually meaningful? */
@@ -1451,13 +1365,13 @@ static void pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma)
 	pcf50633_charge_enable(pcf, active);
 
 	/* clear batfull */
-	reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
 				PCF50633_MBCC1_AUTORES,
 				0);
-	reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
 				PCF50633_MBCC1_RESUME,
 				PCF50633_MBCC1_RESUME);
-	reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
 				PCF50633_MBCC1_AUTORES,
 				PCF50633_MBCC1_AUTORES);
 
@@ -1468,7 +1382,7 @@ static ssize_t show_usblim(struct device *dev, struct device_attribute *attr,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	u_int8_t usblim = reg_read(pcf, PCF50633_REG_MBCC7) &
+	u_int8_t usblim = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) &
 						PCF56033_MBCC7_USB_MASK;
 	unsigned int ma;
 
@@ -1499,7 +1413,7 @@ static void pcf50633_charge_enable(struct pcf50633_data *pcf, int on)
 	if (on) {
 		pcf->flags |= PCF50633_F_CHG_ENABLED;
 		bits = PCF50633_MBCC1_CHGENA;
-		usblim = reg_read(pcf, PCF50633_REG_MBCC7) &
+		usblim = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) &
 							PCF56033_MBCC7_USB_MASK;
 		switch (usblim) {
 		case PCF50633_MBCC7_USB_1000mA:
@@ -1520,7 +1434,7 @@ static void pcf50633_charge_enable(struct pcf50633_data *pcf, int on)
 			pcf->pdata->cb(&pcf->client->dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_IDLE);
 	}
-	reg_set_bit_mask(pcf, PCF50633_REG_MBCC1, PCF50633_MBCC1_CHGENA,
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1, PCF50633_MBCC1_CHGENA,
 			 bits);
 }
 
@@ -1577,7 +1491,7 @@ static ssize_t show_chgmode(struct device *dev, struct device_attribute *attr,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	u_int8_t mbcs2 = reg_read(pcf, PCF50633_REG_MBCS2);
+	u_int8_t mbcs2 = pcf50633_reg_read(pcf, PCF50633_REG_MBCS2);
 	u_int8_t chgmod = (mbcs2 & PCF50633_MBCS2_MBC_MASK);
 
 	return sprintf(buf, "%s\n", chgmode_names[chgmod]);
@@ -1681,23 +1595,23 @@ static int pcf50633_rtc_ioctl(struct device *dev, unsigned int cmd,
 	switch (cmd) {
 	case RTC_AIE_OFF:
 		/* disable the alarm interrupt */
-		reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
+		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
 				 PCF50633_INT1_ALARM, PCF50633_INT1_ALARM);
 		return 0;
 	case RTC_AIE_ON:
 		/* enable the alarm interrupt */
-		reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_ALARM);
+		pcf50633_reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_ALARM);
 		return 0;
 	case RTC_PIE_OFF:
 		/* disable periodic interrupt (hz tick) */
 		pcf->flags &= ~PCF50633_F_RTC_SECOND;
-		reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
+		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
 				 PCF50633_INT1_SECOND, PCF50633_INT1_SECOND);
 		return 0;
 	case RTC_PIE_ON:
 		/* ensable periodic interrupt (hz tick) */
 		pcf->flags |= PCF50633_F_RTC_SECOND;
-		reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_SECOND);
+		pcf50633_reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_SECOND);
 		return 0;
 	}
 	return -ENOIOCTLCMD;
@@ -1851,17 +1765,18 @@ static struct rtc_class_ops pcf50633_rtc_ops = {
 static int pcf50633bl_get_intensity(struct backlight_device *bd)
 {
 	struct pcf50633_data *pcf = bl_get_data(bd);
-	int intensity = reg_read(pcf, PCF50633_REG_LEDOUT);
+	int intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
 
 	return intensity & 0x3f;
 }
 
 static int __pcf50633bl_set_intensity(struct pcf50633_data *pcf, int intensity)
 {
-	int old_intensity = reg_read(pcf, PCF50633_REG_LEDOUT);
+	int old_intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
+	u_int8_t ledena = 2;
 	int ret;
 
-	if (!(reg_read(pcf, PCF50633_REG_LEDENA) & 3))
+	if (!(pcf50633_reg_read(pcf, PCF50633_REG_LEDENA) & 1))
 		old_intensity = 0;
 
 	if ((pcf->backlight->props.power != FB_BLANK_UNBLANK) ||
@@ -1877,9 +1792,9 @@ static int __pcf50633bl_set_intensity(struct pcf50633_data *pcf, int intensity)
 		reg_write(pcf, PCF50633_REG_LEDENA, 0);
 
 	if (!intensity) /* illegal to set LEDOUT to 0 */
-		ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f, 2);
+		ret = pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f, 2);
 	else
-		ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f,
+		ret = pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f,
 			       intensity);
 
 	if (intensity)
@@ -1925,7 +1840,7 @@ static ssize_t show_charger_type(struct device *dev,
 		[PCF50633_MBCC7_USB_100mA] 	= "100mA",
 		[PCF50633_MBCC7_USB_SUSPEND] 	= "suspend",
 	};
-	int mode = reg_read(pcf, PCF50633_REG_MBCC7) & PCF56033_MBCC7_USB_MASK;
+	int mode = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) & PCF56033_MBCC7_USB_MASK;
 
 	return sprintf(buf, "%s mode %s\n",
 			    names_charger_type[pcf->charger_type],
@@ -1991,7 +1906,7 @@ static ssize_t show_dump_regs(struct device *dev, struct device_attribute *attr,
 				idx++;
 				dump[n1] = 0x00;
 			} else
-				dump[n1] = reg_read(pcf, n + n1);
+				dump[n1] = pcf50633_reg_read(pcf, n + n1);
 
 		hex_dump_to_buffer(dump, sizeof(dump), 16, 1, buf1, 128, 0);
 		buf1 += strlen(buf1);
@@ -2073,6 +1988,7 @@ static int pcf50633_probe(struct i2c_client *client, const struct i2c_device_id 
 	struct pcf50633_platform_data *pdata;
 	int err = 0;
 	int irq;
+	int i;
 
 	DEBUGP("entering probe\n");
 
@@ -2134,11 +2050,11 @@ static int pcf50633_probe(struct i2c_client *client, const struct i2c_device_id 
 	/* configure interrupt mask */
 
 	/* we want SECOND to kick for the coldplug initialisation */
-	reg_write(pcf, PCF50633_REG_INT1M, 0x00);
-	reg_write(pcf, PCF50633_REG_INT2M, 0x00);
-	reg_write(pcf, PCF50633_REG_INT3M, 0x00);
-	reg_write(pcf, PCF50633_REG_INT4M, 0x00);
-	reg_write(pcf, PCF50633_REG_INT5M, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_INT1M, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_INT2M, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_INT3M, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_INT4M, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_INT5M, 0x00);
 
 	/* force the backlight up, Qi does not do this for us */
 
@@ -2149,10 +2065,10 @@ static int pcf50633_probe(struct i2c_client *client, const struct i2c_device_id 
 	 * LEDOUT register can be reset by disabling and enabling the
 	 * LED converter via control bit led_on in the LEDENA register"
 	 */
-	reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
-	reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
-	reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
-	reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
 
 	err = request_irq(irq, pcf50633_irq, IRQF_TRIGGER_FALLING,
 			  "pcf50633", pcf);
@@ -2192,8 +2108,29 @@ static int pcf50633_probe(struct i2c_client *client, const struct i2c_device_id 
 		apm_get_power_status = NULL;
 
 	pdata->pcf = pcf;
+
+	/* Create platform regulator devices from the platform data */
+	for (i = 0; i < __NUM_PCF50633_REGULATORS; i++) {
+		struct platform_device *pdev;
+
+		/* Reject regulators not used by anyone */
+		if (pdata->reg_init_data[i].num_consumer_supplies == 0)
+ 			continue;
+
+		pdev = kzalloc(sizeof(*pdev), GFP_KERNEL);
+		/* FIXME : Handle failure */
+
+		pdev->name = "pcf50633-regltr";
+		pdev->id = i;
+		pdev->dev.parent = &client->dev;
+		pdev->dev.platform_data = &pdata->reg_init_data[i];
+		pdev->dev.driver_data = pcf;
+		pcf->regulator_pdev[i] = pdev;
+		
+		platform_device_register(pdev);
+	}
+	
 	pcf->probe_completed = 1;
-	dev_info(&client->dev, "probe completed\n");
 
 	/* if platform was interested, give him a chance to register
 	 * platform devices that switch power with us as the parent
@@ -2201,6 +2138,8 @@ static int pcf50633_probe(struct i2c_client *client, const struct i2c_device_id 
 	 */
 	if (pcf->pdata->attach_child_devices)
 		(pcf->pdata->attach_child_devices)(&client->dev);
+
+	dev_info(&client->dev, "probe completed\n");
 
 	return 0;
 exit_rtc:
@@ -2455,13 +2394,13 @@ EXPORT_SYMBOL_GPL(pcf50633_wait_for_ready);
 void pcf50633_backlight_resume(struct pcf50633_data *pcf)
 {
 	dev_err(&pcf->client->dev, "pcf50633_backlight_resume\n");
-	reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
-	reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
-	reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
-	reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
 
 	/* platform defines resume ramp speed */
-	reg_write(pcf, PCF50633_REG_LEDDIM,
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM,
 				       pcf->pdata->resume_backlight_ramp_speed);
 
 	__pcf50633bl_set_intensity(pcf, pcf->backlight->props.brightness);
