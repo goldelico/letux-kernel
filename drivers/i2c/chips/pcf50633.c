@@ -24,7 +24,6 @@
  * - charging control for main and backup battery
  * - rtc / alarm
  * - adc driver (hw_sensors like)
- * - backlight
  *
  */
 
@@ -42,7 +41,6 @@
 #include <linux/miscdevice.h>
 #include <linux/input.h>
 #include <linux/fb.h>
-#include <linux/backlight.h>
 #include <linux/sched.h>
 #include <linux/platform_device.h>
 #include <linux/pcf50633.h>
@@ -1812,68 +1810,6 @@ static struct rtc_class_ops pcf50633_rtc_ops = {
 	.set_alarm	= pcf50633_rtc_set_alarm,
 };
 
-/***********************************************************************
- * Backlight device
- ***********************************************************************/
-
-static int pcf50633bl_get_intensity(struct backlight_device *bd)
-{
-	struct pcf50633_data *pcf = bl_get_data(bd);
-	int intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
-
-	return intensity & 0x3f;
-}
-
-static int __pcf50633bl_set_intensity(struct pcf50633_data *pcf, int intensity)
-{
-	int old_intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
-	u_int8_t ledena = 2;
-	int ret;
-
-	if (!(pcf50633_reg_read(pcf, PCF50633_REG_LEDENA) & 1))
-		old_intensity = 0;
-
-	if ((pcf->backlight->props.power != FB_BLANK_UNBLANK) ||
-	    (pcf->backlight->props.fb_blank != FB_BLANK_UNBLANK))
-		intensity = 0;
-
-	/*
-	 * The PCF50633 cannot handle LEDOUT = 0 (datasheet p60)
-	 * if seen, you have to re-enable the LED unit
-	 */
-
-	if (!intensity || !old_intensity)
-		reg_write(pcf, PCF50633_REG_LEDENA, 0);
-
-	if (!intensity) /* illegal to set LEDOUT to 0 */
-		ret = pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f, 2);
-	else
-		ret = pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f,
-			       intensity);
-
-	if (intensity)
-		reg_write(pcf, PCF50633_REG_LEDENA, 2);
-
-	return ret;
-}
-
-static int pcf50633bl_set_intensity(struct backlight_device *bd)
-{
-	struct pcf50633_data *pcf = bl_get_data(bd);
-	int intensity = bd->props.brightness;
-
-	if ((bd->props.power != FB_BLANK_UNBLANK) ||
-	    (bd->props.fb_blank != FB_BLANK_UNBLANK))
-		intensity = 0;
-
-	return __pcf50633bl_set_intensity(pcf, intensity);
-}
-
-static struct backlight_ops pcf50633bl_ops = {
-	.get_brightness	= pcf50633bl_get_intensity,
-	.update_status	= pcf50633bl_set_intensity,
-};
-
 /*
  * Charger type
  */
@@ -2116,6 +2052,7 @@ static int pcf50633_probe(struct i2c_client *client, const struct i2c_device_id 
 
 	/* we want SECOND to kick for the coldplug initialisation */
 	pcf50633_reg_write(pcf, PCF50633_REG_INT1M, 0x00);
+
 	pcf50633_reg_write(pcf, PCF50633_REG_INT2M, 0x00);
 	pcf50633_reg_write(pcf, PCF50633_REG_INT3M, 0x00);
 	pcf50633_reg_write(pcf, PCF50633_REG_INT4M, 0x00);
@@ -2151,22 +2088,6 @@ static int pcf50633_probe(struct i2c_client *client, const struct i2c_device_id 
 			err = PTR_ERR(pcf->rtc);
 			goto exit_irq;
 		}
-	}
-
-	if (pcf->pdata->used_features & PCF50633_FEAT_PWM_BL) {
-		pcf->backlight = backlight_device_register("pcf50633-bl",
-							    &client->dev,
-							    pcf,
-							    &pcf50633bl_ops);
-		if (!pcf->backlight)
-			goto exit_rtc;
-
-		pcf->backlight->props.max_brightness = 0x3f;
-		pcf->backlight->props.power = FB_BLANK_UNBLANK;
-		pcf->backlight->props.fb_blank = FB_BLANK_UNBLANK;
-		pcf->backlight->props.brightness =
-					pcf->backlight->props.max_brightness;
-		backlight_update_status(pcf->backlight);
 	}
 
 	if (pcf->pdata->flag_use_apm_emulation)
@@ -2233,9 +2154,6 @@ static int pcf50633_remove(struct i2c_client *client)
 	free_irq(pcf->irq, pcf);
 
 	input_unregister_device(pcf->input_dev);
-
-	if (pcf->pdata->used_features & PCF50633_FEAT_PWM_BL)
-		backlight_device_unregister(pcf->backlight);
 
 	if (pcf->pdata->used_features & PCF50633_FEAT_RTC)
 		rtc_device_unregister(pcf->rtc);
@@ -2387,11 +2305,6 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 		__reg_write(pcf, regulator_registers[i] + 1, tmp & 0xfe);
 	}
 
-	/* turn off the backlight */
-	__reg_write(pcf, PCF50633_REG_LEDDIM, 0);
-	__reg_write(pcf, PCF50633_REG_LEDOUT, 2);
-	__reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
-
 	/* set interrupt masks so only those sources we want to wake
 	 * us are able to
 	 */
@@ -2450,29 +2363,6 @@ int pcf50633_wait_for_ready(struct pcf50633_data *pcf, int timeout_ms,
 }
 EXPORT_SYMBOL_GPL(pcf50633_wait_for_ready);
 
-/*
- * if backlight resume is selected to be deferred by platform, then it
- * can call this to finally reset backlight status (after LCM is resumed
- * for example
- */
-
-void pcf50633_backlight_resume(struct pcf50633_data *pcf)
-{
-	dev_err(&pcf->client->dev, "pcf50633_backlight_resume\n");
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
-
-	/* platform defines resume ramp speed */
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM,
-				       pcf->pdata->resume_backlight_ramp_speed);
-
-	__pcf50633bl_set_intensity(pcf, pcf->backlight->props.brightness);
-}
-EXPORT_SYMBOL_GPL(pcf50633_backlight_resume);
-
-
 static int pcf50633_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
@@ -2493,13 +2383,6 @@ static int pcf50633_resume(struct device *dev)
 
 	memcpy(misc, pcf->standby_regs.misc, sizeof(pcf->standby_regs.misc));
 
-	if (pcf->pdata->defer_resume_backlight) {
-		misc[PCF50633_REG_LEDOUT - PCF50633_REG_AUTOOUT] = 1;
-		misc[PCF50633_REG_LEDENA - PCF50633_REG_AUTOOUT] = 0x20;
-		misc[PCF50633_REG_LEDCTL - PCF50633_REG_AUTOOUT] = 1;
-		misc[PCF50633_REG_LEDDIM - PCF50633_REG_AUTOOUT] = 1;
-	}
-
 	/* regulator voltages and enable states */
 	ret = i2c_smbus_write_i2c_block_data(pcf->client,
 					     PCF50633_REG_AUTOOUT,
@@ -2507,10 +2390,6 @@ static int pcf50633_resume(struct device *dev)
 					     &misc[0]);
 	if (ret)
 		dev_err(dev, "Failed to restore misc :-( %d\n", ret);
-
-	/* platform can choose to defer backlight bringup */
-	if (!pcf->pdata->defer_resume_backlight)
-		pcf50633_backlight_resume(pcf);
 
 	/* regulator voltages and enable states */
 	ret = i2c_smbus_write_i2c_block_data(pcf->client,

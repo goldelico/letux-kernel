@@ -201,10 +201,6 @@ struct pcf50633_platform_data {
 	} charger;
 	pmu_cb cb;
 
-	/* post-resume backlight bringup */
-	int defer_resume_backlight;
-	u8 resume_backlight_ramp_speed;
-
 	struct regulator_init_data reg_init_data[__NUM_PCF50633_REGULATORS];
 
 	/* Called when a regulator has been registered */
