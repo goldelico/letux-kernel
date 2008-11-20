@@ -570,6 +570,20 @@ static struct regulator_consumer_supply ldo4_consumers[] = {
 	},
 };
 
+/*
+ * We need this dummy thing to fill the regulator consumers
+ */
+static struct platform_device gta02_mmc_dev = {
+	/* details filled in by glamo core */
+};
+
+static struct regulator_consumer_supply hcldo_consumers[] = {
+	{
+		.dev = &gta02_mmc_dev.dev,
+		.supply = "SD_3V3",
+	},
+};
+
 struct pcf50633_platform_data gta02_pcf_pdata = {
 	.used_features	= PCF50633_FEAT_MBC |
 			  PCF50633_FEAT_BBC |
@@ -696,6 +710,15 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 			},
 			.num_consumer_supplies = 1,
 			.consumer_supplies = ldo4_consumers,
+		},
+		[PCF50633_REGULATOR_HCLDO] = {
+			.constraints = {
+				.min_uV = 2000000,
+				.max_uV = 3300000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+			},
+			.num_consumer_supplies = 1,
+			.consumer_supplies = hcldo_consumers,
 		},
 
 	},
@@ -1359,61 +1382,18 @@ static int glamo_irq_is_wired(void)
 	return -ENODEV;
 }
 
-
-static void
-gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
+static int gta02_glamo_can_set_mmc_power(void)
 {
-	int mv = 1650;
-	int timeout = 500;
-
-	printk(KERN_DEBUG "mmc_set_power(power_mode=%u, vdd=%u)\n",
-	       power_mode, vdd);
-
 	switch (system_rev) {
-	case GTA02v1_SYSTEM_REV:
-	case GTA02v2_SYSTEM_REV:
-		break;
-	case GTA02v3_SYSTEM_REV:
-	case GTA02v4_SYSTEM_REV:
-	case GTA02v5_SYSTEM_REV:
-	case GTA02v6_SYSTEM_REV:
-		switch (power_mode) {
-		case MMC_POWER_ON:
-		case MMC_POWER_UP:
-			/* depend on pcf50633 driver init + not suspended */
-			while (pcf50633_ready(gta02_pcf_pdata.pcf) && (timeout--))
-				msleep(5);
-
-			if (timeout < 0) {
-				printk(KERN_ERR"gta02_glamo_mmc_set_power "
-					     "BAILING on timeout\n");
-				return;
-			}
-			/* select and set the voltage */
-			if (vdd > 7)
-				mv += 350 + 100 * (vdd - 8);
-			printk(KERN_INFO "SD power -> %dmV\n", mv);
-			pcf50633_voltage_set(gta02_pcf_pdata.pcf,
-					     PCF50633_REGULATOR_HCLDO, mv);
-			pcf50633_onoff_set(gta02_pcf_pdata.pcf,
-					   PCF50633_REGULATOR_HCLDO, 1);
-			break;
-		case MMC_POWER_OFF:
-			/* power off happens during suspend, when pcf50633 can
-			 * be already gone and not coming back... just forget
-			 * the action then because pcf50633 suspend already
-			 * dealt with it, otherwise we spin forever
-			 */
-			if (pcf50633_ready(gta02_pcf_pdata.pcf))
-				return;
-			pcf50633_onoff_set(gta02_pcf_pdata.pcf,
-					   PCF50633_REGULATOR_HCLDO, 0);
-			break;
-		}
-		break;
+		case GTA02v3_SYSTEM_REV:
+		case GTA02v4_SYSTEM_REV:
+		case GTA02v5_SYSTEM_REV:
+		case GTA02v6_SYSTEM_REV:
+			return 1;
 	}
-}
 
+	return 0;
+}
 
 /* Smedia Glamo 3362 */
 
@@ -1463,7 +1443,8 @@ static struct glamofb_platform_data gta02_glamo_pdata = {
 	.spigpio_info	= &glamo_spigpio_cfg,
 
 	/* glamo MMC function platform data */
-	.glamo_set_mci_power = gta02_glamo_mmc_set_power,
+	.mmc_dev = &gta02_mmc_dev,
+	.glamo_can_set_mci_power = gta02_glamo_can_set_mmc_power,
 	.glamo_mci_use_slow = gta02_glamo_mci_use_slow,
 	.glamo_irq_is_wired = glamo_irq_is_wired,
 	.glamo_external_reset = gta02_glamo_external_reset
@@ -1577,7 +1558,6 @@ static struct platform_device *gta02_devices[] __initdata = {
 /* these guys DO need to be children of PMU */
 
 static struct platform_device *gta02_devices_pmu_children[] = {
-	&gta02_glamo_dev,
 	&s3c_device_ts, /* input 1 */
 	&gta02_pm_gsm_dev,
 	&gta01_pm_gps_dev,
@@ -1597,6 +1577,9 @@ static void gta02_pcf50633_regulator_registered(struct pcf50633_data *pcf, int i
 	switch(id) {
 		case PCF50633_REGULATOR_LDO4:
 			pdev = &gta01_pm_bt_dev;
+			break;
+		case PCF50633_REGULATOR_HCLDO:
+			pdev = &gta02_glamo_dev;
 			break;
 		default:
 			return;	
