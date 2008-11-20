@@ -117,7 +117,7 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 				case GTA02v4_SYSTEM_REV:
 				case GTA02v5_SYSTEM_REV:
 				case GTA02v6_SYSTEM_REV:
-					pcf50633_gpio_set(pcf50633_global,
+					pcf50633_gpio_set(gta02_pcf_pdata.pcf,
 							  PCF50633_GPIO2, 1);
 					break;
 				}
@@ -134,7 +134,7 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 				case GTA02v4_SYSTEM_REV:
 				case GTA02v5_SYSTEM_REV:
 				case GTA02v6_SYSTEM_REV:
-					pcf50633_gpio_set(pcf50633_global,
+					pcf50633_gpio_set(gta02_pcf_pdata.pcf,
 							  PCF50633_GPIO2, 0);
 					break;
 				}

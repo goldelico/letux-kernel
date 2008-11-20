@@ -45,6 +45,8 @@
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/physmap.h>
 
+#include <linux/i2c.h>
+
 #include <linux/pcf50633.h>
 #include <linux/lis302dl.h>
 
@@ -558,7 +560,7 @@ static struct platform_device gta02_pm_wlan_dev = {
 	.name		= "gta02-pm-wlan",
 };
 
-static struct pcf50633_platform_data gta02_pcf_pdata = {
+struct pcf50633_platform_data gta02_pcf_pdata = {
 	.used_features	= PCF50633_FEAT_MBC |
 			  PCF50633_FEAT_BBC |
 			  PCF50633_FEAT_RTC |
@@ -740,23 +742,6 @@ static void mangle_pmu_pdata_by_system_rev(void)
 	}
 }
 
-static struct resource gta02_pmu_resources[] = {
-	[0] = {
-		.flags	= IORESOURCE_IRQ,
-		.start	= GTA02_IRQ_PCF50633,
-		.end	= GTA02_IRQ_PCF50633,
-	},
-};
-
-struct platform_device gta02_pmu_dev = {
-	.name 		= "pcf50633",
-	.num_resources	= ARRAY_SIZE(gta02_pmu_resources),
-	.resource	= gta02_pmu_resources,
-	.dev		= {
-		.platform_data = &gta02_pcf_pdata,
-	},
-};
-
 
 #ifdef CONFIG_GTA02_HDQ
 /* HDQ */
@@ -882,6 +867,14 @@ struct platform_device s3c24xx_pwm_device = {
 	.num_resources	= 0,
 };
 
+static struct i2c_board_info gta02_i2c_devs[] __initdata = {
+	{
+		I2C_BOARD_INFO("pcf50633", 0x73),
+		.irq = GTA02_IRQ_PCF50633,
+		.platform_data = &gta02_pcf_pdata,
+	},
+};
+
 static struct s3c2410_nand_set gta02_nand_sets[] = {
 	[0] = {
 		.name		= "neo1973-nand",
@@ -926,10 +919,10 @@ static void gta02_udc_command(enum s3c2410_udc_cmd_e cmd)
 
 static void gta02_udc_vbus_draw(unsigned int ma)
 {
-        if (!pcf50633_global)
+        if (!gta02_pcf_pdata.pcf)
 		return;
 
-	pcf50633_notify_usb_current_limit_change(pcf50633_global, ma);
+	pcf50633_notify_usb_current_limit_change(gta02_pcf_pdata.pcf, ma);
 }
 
 static struct s3c2410_udc_mach_info gta02_udc_cfg = {
@@ -977,7 +970,7 @@ static void gta02_jbt6k74_reset(int devidx, int level)
 
 static void gta02_jbt6k74_resuming(int devidx)
 {
-	pcf50633_backlight_resume(pcf50633_global);
+	pcf50633_backlight_resume(gta02_pcf_pdata.pcf);
 }
 
 
@@ -1323,7 +1316,7 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 		case MMC_POWER_ON:
 		case MMC_POWER_UP:
 			/* depend on pcf50633 driver init + not suspended */
-			while (pcf50633_ready(pcf50633_global) && (timeout--))
+			while (pcf50633_ready(gta02_pcf_pdata.pcf) && (timeout--))
 				msleep(5);
 
 			if (timeout < 0) {
@@ -1335,9 +1328,9 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 			if (vdd > 7)
 				mv += 350 + 100 * (vdd - 8);
 			printk(KERN_INFO "SD power -> %dmV\n", mv);
-			pcf50633_voltage_set(pcf50633_global,
+			pcf50633_voltage_set(gta02_pcf_pdata.pcf,
 					     PCF50633_REGULATOR_HCLDO, mv);
-			pcf50633_onoff_set(pcf50633_global,
+			pcf50633_onoff_set(gta02_pcf_pdata.pcf,
 					   PCF50633_REGULATOR_HCLDO, 1);
 			break;
 		case MMC_POWER_OFF:
@@ -1346,9 +1339,9 @@ gta02_glamo_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 			 * the action then because pcf50633 suspend already
 			 * dealt with it, otherwise we spin forever
 			 */
-			if (pcf50633_ready(pcf50633_global))
+			if (pcf50633_ready(gta02_pcf_pdata.pcf))
 				return;
-			pcf50633_onoff_set(pcf50633_global,
+			pcf50633_onoff_set(gta02_pcf_pdata.pcf,
 					   PCF50633_REGULATOR_HCLDO, 0);
 			break;
 		}
@@ -1511,7 +1504,6 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&s3c24xx_pwm_device,
 	&gta02_led_dev,
 	&gta02_pm_wlan_dev, /* not dependent on PMU */
-	&gta02_pmu_dev,
 
 	&s3c_device_iis,
 	&s3c_device_i2c0,
@@ -1592,6 +1584,8 @@ static void __init gta02_machine_init(void)
 	set_s3c2410ts_info(&gta02_ts_cfg);
 	
 	mangle_glamo_res_by_system_rev();
+
+	i2c_register_board_info(0, gta02_i2c_devs, ARRAY_SIZE(gta02_i2c_devs));
 
 	mangle_pmu_pdata_by_system_rev();
 

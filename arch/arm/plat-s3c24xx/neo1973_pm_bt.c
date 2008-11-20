@@ -88,11 +88,11 @@ static ssize_t bt_write(struct device *dev, struct device_attribute *attr,
 			if (s3c2410_gpio_getpin(GTA02_GPIO_BT_EN) == on)
 				return count;
 			neo1973_gpb_setpin(GTA02_GPIO_BT_EN, !on);
-			pcf50633_voltage_set(pcf50633_global,
+			pcf50633_voltage_set(gta02_pcf_pdata.pcf,
 				PCF50633_REGULATOR_LDO4, on ? 3200 : 0);
-			pcf50633_onoff_set(pcf50633_global,
+			pcf50633_onoff_set(gta02_pcf_pdata.pcf,
 				PCF50633_REGULATOR_LDO4, on);
-			vol = pcf50633_voltage_get(pcf50633_global,
+			vol = pcf50633_voltage_get(gta02_pcf_pdata.pcf,
 				PCF50633_REGULATOR_LDO4);
 			dev_info(dev, "GTA02 Set PCF50633 LDO4 = %d\n", vol);
 			neo1973_gpb_setpin(GTA02_GPIO_BT_EN, on);
@@ -158,7 +158,7 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 		neo1973_gpb_setpin(GTA01_GPIO_BT_EN, 0);
 	} else if (machine_is_neo1973_gta02()) {
 		/* we make sure that the voltage is off */
-		pcf50633_onoff_set(pcf50633_global,
+		pcf50633_onoff_set(gta02_pcf_pdata.pcf,
 				     PCF50633_REGULATOR_LDO4, 0);
 		/* we pull reset to low to make sure that the chip doesn't
 	 	 * drain power through the reset line */

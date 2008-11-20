@@ -280,7 +280,7 @@ static void gps_pwron_set(int on)
 
 	if (machine_is_neo1973_gta02()) {
 		if (on) {
-			pcf50633_voltage_set(pcf50633_global,
+			pcf50633_voltage_set(gta02_pcf_pdata.pcf,
 				PCF50633_REGULATOR_LDO5, 3000);
 			/* return UART pins to being UART pins */
 			s3c2410_gpio_cfgpin(S3C2410_GPH4, S3C2410_GPH4_TXD1);
@@ -296,7 +296,7 @@ static void gps_pwron_set(int on)
 			/* don't let RX from unpowered GPS float */
 			s3c2410_gpio_pullup(S3C2410_GPH5, 1);
 		}
-		pcf50633_onoff_set(pcf50633_global,
+		pcf50633_onoff_set(gta02_pcf_pdata.pcf,
 			PCF50633_REGULATOR_LDO5, on);
 	}
 }
@@ -307,7 +307,7 @@ static int gps_pwron_get(void)
 		return !!s3c2410_gpio_getpin(GTA01_GPIO_GPS_PWRON);
 
 	if (machine_is_neo1973_gta02())
-		return !!pcf50633_onoff_get(pcf50633_global,
+		return !!pcf50633_onoff_get(gta02_pcf_pdata.pcf,
 						       PCF50633_REGULATOR_LDO5);
 	return -1;
 }
@@ -630,9 +630,9 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 		case GTA02v4_SYSTEM_REV:
 		case GTA02v5_SYSTEM_REV:
 		case GTA02v6_SYSTEM_REV:
-			pcf50633_voltage_set(pcf50633_global,
+			pcf50633_voltage_set(gta02_pcf_pdata.pcf,
 				PCF50633_REGULATOR_LDO5, 3000);
-			pcf50633_onoff_set(pcf50633_global,
+			pcf50633_onoff_set(gta02_pcf_pdata.pcf,
 				PCF50633_REGULATOR_LDO5, 0);
 			dev_info(&pdev->dev, "FIC Neo1973 GPS Power Managerment:"
 				 "starting\n");
@@ -659,7 +659,7 @@ static int gta01_pm_gps_remove(struct platform_device *pdev)
 	}
 
 	if (machine_is_neo1973_gta02()) {
-		pcf50633_onoff_set(pcf50633_global, PCF50633_REGULATOR_LDO5, 0);
+		pcf50633_onoff_set(gta02_pcf_pdata.pcf, PCF50633_REGULATOR_LDO5, 0);
 		sysfs_remove_group(&pdev->dev.kobj, &gta02_gps_attr_group);
 	}
 	return 0;

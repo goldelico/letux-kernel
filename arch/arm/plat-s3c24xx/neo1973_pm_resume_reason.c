@@ -80,7 +80,7 @@ static ssize_t resume_reason_read(struct device *dev,
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 		if ((gta) && (bit == 9)) /* PMU */
-			end += pcf50633_report_resumers(pcf50633_global, end);
+			end += pcf50633_report_resumers(gta02_pcf_pdata.pcf, end);
 #endif
 	}
 

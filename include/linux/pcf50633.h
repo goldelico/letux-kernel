@@ -76,10 +76,9 @@ enum pcf50633_reg_int5 {
 };
 
 struct pcf50633_data;
-extern struct pcf50633_data *pcf50633_global;
 
 extern void
-pcf50633_go_standby(void);
+pcf50633_go_standby(struct pcf50633_data *pcf);
 
 enum pcf50633_gpio {
 	PCF50633_GPIO1 = 1,
@@ -175,6 +174,9 @@ struct pcf50633_platform_data {
 	/* post-resume backlight bringup */
 	int defer_resume_backlight;
 	u8 resume_backlight_ramp_speed;
+
+	/* Runtime data */
+	struct pcf50633_data *pcf;
 };
 
 #endif /* _PCF50633_H */

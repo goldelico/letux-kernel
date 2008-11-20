@@ -27,7 +27,7 @@ static ssize_t pm_host_read(struct device *dev, struct device_attribute *attr,
 			    char *buf)
 {
 	return sprintf(buf, "%d\n",
-		       pcf50633_gpio_get(pcf50633_global, PCF50633_GPO));
+		       pcf50633_gpio_get(gta02_pcf_pdata.pcf, PCF50633_GPO));
 }
 
 static ssize_t pm_host_write(struct device *dev, struct device_attribute *attr,
@@ -35,7 +35,7 @@ static ssize_t pm_host_write(struct device *dev, struct device_attribute *attr,
 {
 	unsigned long on = simple_strtoul(buf, NULL, 10);
 
-	pcf50633_gpio_set(pcf50633_global, PCF50633_GPO, on);
+	pcf50633_gpio_set(gta02_pcf_pdata.pcf, PCF50633_GPO, on);
 
 	return count;
 }
