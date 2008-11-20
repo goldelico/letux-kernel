@@ -570,6 +570,13 @@ static struct regulator_consumer_supply ldo4_consumers[] = {
 	},
 };
 
+static struct regulator_consumer_supply ldo5_consumers[] = {
+	{
+		.dev = &gta01_pm_bt_dev.dev,
+		.supply = "RF_3V",
+	},
+};
+
 /*
  * We need this dummy thing to fill the regulator consumers
  */
@@ -710,6 +717,16 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 			},
 			.num_consumer_supplies = 1,
 			.consumer_supplies = ldo4_consumers,
+		},
+		[PCF50633_REGULATOR_LDO5] = {
+			.constraints = {
+				.min_uV = 3000000,
+				.max_uV = 3000000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
+			},
+			.num_consumer_supplies = 1,
+			.consumer_supplies = ldo5_consumers,
 		},
 		[PCF50633_REGULATOR_HCLDO] = {
 			.constraints = {
@@ -1560,7 +1577,6 @@ static struct platform_device *gta02_devices[] __initdata = {
 static struct platform_device *gta02_devices_pmu_children[] = {
 	&s3c_device_ts, /* input 1 */
 	&gta02_pm_gsm_dev,
-	&gta01_pm_gps_dev,
 	&gta02_pm_usbhost_dev,
 	&s3c_device_spi_acc1, /* input 2 */
 	&s3c_device_spi_acc2, /* input 3 */
@@ -1577,6 +1593,9 @@ static void gta02_pcf50633_regulator_registered(struct pcf50633_data *pcf, int i
 	switch(id) {
 		case PCF50633_REGULATOR_LDO4:
 			pdev = &gta01_pm_bt_dev;
+			break;
+		case PCF50633_REGULATOR_LDO5:
+			pdev = &gta01_pm_gps_dev;
 			break;
 		case PCF50633_REGULATOR_HCLDO:
 			pdev = &gta02_glamo_dev;
