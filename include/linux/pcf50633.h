@@ -583,6 +583,12 @@ struct pcf50633_data {
 /* this is to be provided by the board implementation */
 extern const u_int8_t pcf50633_initial_regs[__NUM_PCF50633_REGS];
 
+int pcf50633_read(struct pcf50633_data *pcf, u_int8_t reg,
+						int nr_regs, u_int8_t *data);
+
+int pcf50633_write(struct pcf50633_data *pcf, u_int8_t reg,
+						int nr_regs, u_int8_t *data);
+
 int pcf50633_reg_write(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val);
 
 u_int8_t pcf50633_reg_read(struct pcf50633_data *pcf, u_int8_t reg);

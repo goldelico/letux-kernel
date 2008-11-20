@@ -104,6 +104,26 @@ static void pcf50633_charge_enable(struct pcf50633_data *pcf, int on);
  * Low-Level routines
  ***********************************************************************/
 
+/* Read a block of upto 32 regs 
+ *
+ * Locks assumed to be held by caller
+ */
+int pcf50633_read(struct pcf50633_data *pcf, u_int8_t reg, int nr_regs, u_int8_t *data)
+{
+	return i2c_smbus_read_i2c_block_data(pcf->client, reg, nr_regs, data);
+}
+EXPORT_SYMBOL(pcf50633_read);
+
+/* Read a block of upto 32 regs 
+ *
+ * Locks assumed to be held by caller
+ */
+int pcf50633_write(struct pcf50633_data *pcf, u_int8_t reg, int nr_regs, u_int8_t *data)
+{
+	return i2c_smbus_write_i2c_block_data(pcf->client, reg, nr_regs, data);
+}
+EXPORT_SYMBOL(pcf50633_write);
+
 static int __reg_write(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
 {
 	if (pcf->suspend_state == PCF50633_SS_COMPLETED_SUSPEND) {
@@ -594,10 +614,8 @@ static void pcf50633_work(struct work_struct *work)
 	* datasheet says we have to read the five IRQ
 	* status regs in one transaction
 	*/
-	ret = i2c_smbus_read_i2c_block_data(pcf->client,
-						PCF50633_REG_INT1,
-						sizeof(pcfirq),
-						pcfirq);
+	ret = pcf50633_read(pcf, PCF50633_REG_INT1,
+						sizeof(pcfirq), pcfirq);
 	if (ret != sizeof(pcfirq)) {
 		dev_info(&pcf->client->dev,
 			 "Oh crap PMU IRQ register read failed -- "
@@ -1972,9 +1990,7 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 	for (i = 0; i < 5; i++)
 		res[i] = ~pcf->pdata->resumers[i];
 
-	ret = i2c_smbus_write_i2c_block_data(pcf->client,
-					     PCF50633_REG_INT1M,
-					     5, &res[0]);
+	ret = pcf50633_write(pcf, PCF50633_REG_INT1M, 5, &res[0]);
 	if (ret)
 		dev_err(dev, "Failed to set wake masks :-( %d\n", ret);
 
@@ -2041,9 +2057,7 @@ static int pcf50633_resume(struct device *dev)
 	memset(res, 0, sizeof(res));
 	/* not interested in second on resume */
 	res[0] = PCF50633_INT1_SECOND;
-	ret = i2c_smbus_write_i2c_block_data(pcf->client,
-					     PCF50633_REG_INT1M,
-					     5, &res[0]);
+	ret = pcf50633_write(pcf, PCF50633_REG_INT1M, 5, &res[0]);
 	if (ret)
 		dev_err(dev, "Failed to set int masks :-( %d\n", ret);
 
