@@ -15,6 +15,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/err.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -28,8 +29,13 @@
 #include <mach/gta02.h>
 #include <linux/pcf50633.h>
 
+#include <linux/regulator/consumer.h>
 
 #define DRVMSG "FIC Neo1973 Bluetooth Power Management"
+
+struct gta01_pm_bt_data {
+	struct regulator *regulator;
+};
 
 static ssize_t bt_read(struct device *dev, struct device_attribute *attr,
 		       char *buf)
@@ -70,6 +76,8 @@ static ssize_t bt_write(struct device *dev, struct device_attribute *attr,
 {
 	unsigned long on = simple_strtoul(buf, NULL, 10);
 	unsigned int vol;
+	struct gta01_pm_bt_data *bt_data;
+	struct regulator *regulator;
 
 	if (!strcmp(attr->attr.name, "power_on")) {
 		if (machine_is_neo1973_gta01()) {
@@ -87,13 +95,23 @@ static ssize_t bt_write(struct device *dev, struct device_attribute *attr,
 		} else if (machine_is_neo1973_gta02()) {
 			if (s3c2410_gpio_getpin(GTA02_GPIO_BT_EN) == on)
 				return count;
+			
+			bt_data = dev_get_drvdata(dev);
+			BUG_ON(!bt_data || !bt_data->regulator);
+			regulator = bt_data->regulator;
+
 			neo1973_gpb_setpin(GTA02_GPIO_BT_EN, !on);
-			pcf50633_voltage_set(gta02_pcf_pdata.pcf,
-				PCF50633_REGULATOR_LDO4, on ? 3200 : 0);
-			pcf50633_onoff_set(gta02_pcf_pdata.pcf,
-				PCF50633_REGULATOR_LDO4, on);
-			vol = pcf50633_voltage_get(gta02_pcf_pdata.pcf,
-				PCF50633_REGULATOR_LDO4);
+			
+			if (on) {
+				if (!regulator_is_enabled(regulator))
+					regulator_enable(regulator);
+			} else {
+				if (regulator_is_enabled(regulator))
+						regulator_disable(regulator);
+			}
+
+			vol = regulator_get_voltage(regulator);
+
 			dev_info(dev, "GTA02 Set PCF50633 LDO4 = %d\n", vol);
 			neo1973_gpb_setpin(GTA02_GPIO_BT_EN, on);
 		}
@@ -147,6 +165,9 @@ static struct attribute_group gta01_bt_attr_group = {
 
 static int __init gta01_bt_probe(struct platform_device *pdev)
 {
+	struct regulator *regulator;
+	struct gta01_pm_bt_data *bt_data;
+
 	dev_info(&pdev->dev, DRVMSG ": starting\n");
 
 	if (machine_is_neo1973_gta01()) {
@@ -157,9 +178,18 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 	 	 * drain power through the reset line */
 		neo1973_gpb_setpin(GTA01_GPIO_BT_EN, 0);
 	} else if (machine_is_neo1973_gta02()) {
+		regulator = regulator_get(&pdev->dev, "BT_3V2");
+		if (IS_ERR(regulator))
+			return -ENODEV;
+
+		bt_data = kmalloc(sizeof(*bt_data), GFP_KERNEL);
+		bt_data->regulator = regulator;
+		dev_set_drvdata(&pdev->dev, bt_data);
+
 		/* we make sure that the voltage is off */
-		pcf50633_onoff_set(gta02_pcf_pdata.pcf,
-				     PCF50633_REGULATOR_LDO4, 0);
+		if (regulator_is_enabled(regulator))
+			regulator_disable(regulator);
+
 		/* we pull reset to low to make sure that the chip doesn't
 	 	 * drain power through the reset line */
 		neo1973_gpb_setpin(GTA02_GPIO_BT_EN, 0);
@@ -170,8 +200,23 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 
 static int gta01_bt_remove(struct platform_device *pdev)
 {
+	struct gta01_pm_bt_data *bt_data;
+	struct regulator *regulator;
+
 	sysfs_remove_group(&pdev->dev.kobj, &gta01_bt_attr_group);
 
+	bt_data = dev_get_drvdata(&pdev->dev);
+	if (!bt_data || !bt_data->regulator)
+		return 0;
+
+	regulator = bt_data->regulator;
+
+	/* Make sure regulator is disabled before calling regulator_put */
+	if (regulator_is_enabled(regulator))
+		regulator_disable(regulator);
+
+	regulator_put(regulator);
+	
 	return 0;
 }
 
