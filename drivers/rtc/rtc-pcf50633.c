@@ -1,9 +1,9 @@
 #include <linux/rtc.h>
 #include <linux/platform_device.h>
 #include <linux/bcd.h>
-#include <linux/pcf50633.h>
-#include <linux/rtc/pcf50633.h>
-#include <linux/i2c.h>
+
+#include <linux/mfd/pcf50633/core.h>
+#include <linux/mfd/pcf50633/rtc.h>
 
 enum pcf50633_time_indexes {
 	PCF50633_TI_SEC = 0,
@@ -46,69 +46,48 @@ static void rtc2pcf_time(struct pcf50633_time *pcf, struct rtc_time *rtc)
 static int pcf50633_rtc_ioctl(struct device *dev, unsigned int cmd,
 			      unsigned long arg)
 {
-	struct pcf50633_data *pcf = dev->platform_data;
+	struct pcf50633 *pcf;
+
+	pcf = dev_get_drvdata(dev);
 
 	switch (cmd) {
 	case RTC_AIE_OFF:
 		/* disable the alarm interrupt */
-		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
-				 PCF50633_INT1_ALARM, PCF50633_INT1_ALARM);
+		pcf->rtc.alarm_enabled = 0;
+		pcf50633_irq_mask(pcf, PCF50633_IRQ_ALARM);
 		return 0;
 	case RTC_AIE_ON:
 		/* enable the alarm interrupt */
-		pcf50633_reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_ALARM);
+		pcf->rtc.alarm_enabled = 1;
+		pcf50633_irq_unmask(pcf, PCF50633_IRQ_ALARM);
 		return 0;
 	case RTC_PIE_OFF:
 		/* disable periodic interrupt (hz tick) */
-		pcf->flags &= ~PCF50633_F_RTC_SECOND;
-		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
-				 PCF50633_INT1_SECOND, PCF50633_INT1_SECOND);
+		pcf->rtc.second_enabled = 0;
+		pcf50633_irq_mask(pcf, PCF50633_IRQ_SECOND);
 		return 0;
 	case RTC_PIE_ON:
 		/* ensable periodic interrupt (hz tick) */
-		pcf->flags |= PCF50633_F_RTC_SECOND;
-		pcf50633_reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_SECOND);
+		pcf->rtc.second_enabled = 1;
+		pcf50633_irq_unmask(pcf, PCF50633_IRQ_SECOND);
 		return 0;
 	}
 	return -ENOIOCTLCMD;
 }
 
-#ifdef PCF50633_RTC
-void pcf50633_rtc_handle_event(struct pcf50633_data *pcf,
-					enum pcf50633_rtc_event evt)
-{
-	switch(evt) {
-		case PCF50633_RTC_EVENT_ALARM:
-			rtc_update_irq(pcf->rtc, 1, RTC_AF | RTC_IRQF);
-			break;
-		case PCF50633_RTC_EVENT_SECOND:
-			rtc_update_irq(pcf->rtc, 1, RTC_PF | RTC_IRQF);
-	}
-}
-#else
-void pcf50633_rtc_handle_event(struct pcf50633_data *pcf,
-					enum pcf50633_rtc_event evt)
-{
-
-}
-#endif
-
 static int pcf50633_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
-	struct pcf50633_data *pcf = dev->platform_data;
+	struct pcf50633 *pcf;
 	struct pcf50633_time pcf_tm;
 	int ret;
 
-	mutex_lock(&pcf->lock);
+	pcf = dev_get_drvdata(dev);
 
-	ret = i2c_smbus_read_i2c_block_data(pcf->client,
-					    PCF50633_REG_RTCSC,
+	ret = pcf50633_read_block(pcf, PCF50633_REG_RTCSC,
 					    PCF50633_TI_EXTENT,
 					    &pcf_tm.time[0]);
 	if (ret != PCF50633_TI_EXTENT)
-		dev_err(dev, "Failed to read time :-(\n");
-
-	mutex_unlock(&pcf->lock);
+		dev_err(dev, "Failed to read time\n");
 
 	dev_dbg(dev, "PCF_TIME: %02x.%02x.%02x %02x:%02x:%02x\n",
 		pcf_tm.time[PCF50633_TI_DAY],
@@ -129,9 +108,12 @@ static int pcf50633_rtc_read_time(struct device *dev, struct rtc_time *tm)
 
 static int pcf50633_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
-	struct pcf50633_data *pcf = dev->platform_data;
+	struct pcf50633 *pcf;
 	struct pcf50633_time pcf_tm;
 	int ret;
+	int second_masked, alarm_masked;
+
+	pcf = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "RTC_TIME: %u.%u.%u %u:%u:%u\n",
 		tm->tm_mday, tm->tm_mon, tm->tm_year,
@@ -145,41 +127,45 @@ static int pcf50633_rtc_set_time(struct device *dev, struct rtc_time *tm)
 		pcf_tm.time[PCF50633_TI_MIN],
 		pcf_tm.time[PCF50633_TI_SEC]);
 
-	mutex_lock(&pcf->lock);
-	/* FIXME: disable second interrupt */
 
-	ret = i2c_smbus_write_i2c_block_data(pcf->client,
-					     PCF50633_REG_RTCSC,
+	second_masked = pcf50633_irq_mask_get(pcf, PCF50633_IRQ_SECOND);
+	alarm_masked = pcf50633_irq_mask_get(pcf, PCF50633_IRQ_ALARM);
+
+	if (!second_masked)
+		pcf50633_irq_mask(pcf, PCF50633_IRQ_SECOND);
+	if (!alarm_masked)
+		pcf50633_irq_mask(pcf, PCF50633_IRQ_ALARM);
+
+	ret = pcf50633_write_block(pcf, PCF50633_REG_RTCSC,
 					     PCF50633_TI_EXTENT,
 					     &pcf_tm.time[0]);
 	if (ret)
 		dev_err(dev, "Failed to set time %d\n", ret);
 
-	/* FIXME: re-enable second interrupt */
-	mutex_unlock(&pcf->lock);
+	if (!second_masked)
+		pcf50633_irq_unmask(pcf, PCF50633_IRQ_SECOND);
+	if (!alarm_masked)
+		pcf50633_irq_unmask(pcf, PCF50633_IRQ_ALARM);
+
 
 	return 0;
 }
 
 static int pcf50633_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 {
-	struct pcf50633_data *pcf = dev->platform_data;
+	struct pcf50633 *pcf;
 	struct pcf50633_time pcf_tm;
 	int ret;
-	u_int8_t reg;
 
-	mutex_lock(&pcf->lock);
-	
-	pcf50633_read(pcf, PCF50633_REG_INT1M, 1, &reg);     
-	alrm->enabled = reg & PCF50633_INT1_ALARM ? 0 : 1;
+	pcf = dev_get_drvdata(dev);
 
-	ret = pcf50633_read(pcf, PCF50633_REG_RTCSCA,
+	alrm->enabled = pcf->rtc.alarm_enabled;
+
+	ret = pcf50633_read_block(pcf, PCF50633_REG_RTCSCA,
 				PCF50633_TI_EXTENT, &pcf_tm.time[0]);
 
 	if (ret != PCF50633_TI_EXTENT)
 		dev_err(dev, "Failed to read Alarm time :-(\n");
-
-	mutex_unlock(&pcf->lock);
 
 	pcf2rtc_time(&alrm->time, &pcf_tm);
 
@@ -188,35 +174,31 @@ static int pcf50633_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 
 static int pcf50633_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 {
-	struct pcf50633_data *pcf = dev->platform_data;
+	struct pcf50633 *pcf;
 	struct pcf50633_time pcf_tm;
-	u_int8_t irqmask;
-	int ret;
+	int ret, alarm_masked;
+
+	pcf = dev_get_drvdata(dev);
 
 	rtc2pcf_time(&pcf_tm, &alrm->time);
 
-	mutex_lock(&pcf->lock);
+	printk("wkday is %x\n", alrm->time.tm_wday);
+	printk("wkday is %x\n", pcf_tm.time[PCF50633_TI_WKDAY]);
+
+	alarm_masked = pcf50633_irq_mask_get(pcf, PCF50633_IRQ_ALARM);
 
 	/* disable alarm interrupt */
-	pcf50633_read(pcf, PCF50633_REG_INT1M, 1, &irqmask);
-	irqmask |= PCF50633_INT1_ALARM;
-	pcf50633_write(pcf, PCF50633_REG_INT1M, 1, &irqmask);
+	if (!alarm_masked)
+		pcf50633_irq_mask(pcf, PCF50633_IRQ_ALARM);
 
-	ret = pcf50633_write(pcf, PCF50633_REG_RTCSCA,
+	ret = pcf50633_write_block(pcf, PCF50633_REG_RTCSCA,
 					PCF50633_TI_EXTENT, &pcf_tm.time[0]);
 	if (ret)
-		dev_err(dev, "Failed to write alarm time :-( %d\n", ret);
+		dev_err(dev, "Failed to write alarm time  %d\n", ret);
 
-	if (alrm->enabled) {
-		/* (re-)enaable alarm interrupt */
-		pcf50633_read(pcf, PCF50633_REG_INT1M, 1, &irqmask);
-		irqmask &= ~PCF50633_INT1_ALARM;
-		pcf50633_write(pcf, PCF50633_REG_INT1M, 1, &irqmask);
-	}
+	if (!alarm_masked)
+		pcf50633_irq_unmask(pcf, PCF50633_IRQ_ALARM);
 
-	mutex_unlock(&pcf->lock);
-
-	/* FIXME */
 	return 0;
 }
 static struct rtc_class_ops pcf50633_rtc_ops = {
@@ -227,15 +209,32 @@ static struct rtc_class_ops pcf50633_rtc_ops = {
 	.set_alarm	= pcf50633_rtc_set_alarm,
 };
 
+static void pcf50633_rtc_irq(struct pcf50633 *pcf, int irq, void *unused)
+{
+	switch(irq) {
+		case PCF50633_IRQ_ALARM:
+			rtc_update_irq(pcf->rtc.rtc_dev, 1, RTC_AF | RTC_IRQF);
+			break;
+	}
+}
+
 static int pcf50633_rtc_probe(struct platform_device *pdev)
 {
 	struct rtc_device *rtc;
-
+	struct pcf50633 *pcf;
+	
 	rtc = rtc_device_register("pcf50633", &pdev->dev,
 					&pcf50633_rtc_ops, THIS_MODULE);
 	if (IS_ERR(rtc))
 		return -ENODEV;
 	
+	pcf = platform_get_drvdata(pdev);
+
+	/* Set up IRQ handlers */
+	pcf->irq_handler[PCF50633_IRQ_ALARM].handler = pcf50633_rtc_irq;
+	pcf->irq_handler[PCF50633_IRQ_SECOND].handler = pcf50633_rtc_irq;
+
+	pcf->rtc.rtc_dev = rtc;
 	return 0;
 }
 

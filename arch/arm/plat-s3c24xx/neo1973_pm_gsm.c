@@ -29,7 +29,7 @@
 
 /* For GTA02 */
 #include <mach/gta02.h>
-#include <linux/pcf50633.h>
+#include <linux/mfd/pcf50633/gpio.h>
 #include <mach/regs-gpio.h>
 #include <mach/regs-gpioj.h>
 

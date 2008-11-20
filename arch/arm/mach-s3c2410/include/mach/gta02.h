@@ -3,7 +3,8 @@
 
 #include <mach/regs-gpio.h>
 #include <mach/irqs.h>
-#include <linux/pcf50633.h>
+
+#include <linux/mfd/pcf50633/core.h>
 
 /* Different hardware revisions, passed in ATAG_REVISION by u-boot */
 #define GTA02v1_SYSTEM_REV	0x00000310

@@ -29,7 +29,6 @@
 
 /* For GTA02 */
 #include <mach/gta02.h>
-#include <linux/pcf50633.h>
 
 #include <linux/regulator/consumer.h>
 

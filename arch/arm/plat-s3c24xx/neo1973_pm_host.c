@@ -21,7 +21,7 @@
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 #include <mach/gta02.h>
-#include <linux/pcf50633.h>
+#include <linux/mfd/pcf50633/core.h>
 
 static ssize_t pm_host_read(struct device *dev, struct device_attribute *attr,
 			    char *buf)

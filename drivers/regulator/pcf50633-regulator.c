@@ -4,8 +4,10 @@
 
 #include <linux/regulator/driver.h>
 #include <linux/platform_device.h>
-#include <linux/pcf50633.h>
 #include <linux/err.h>
+
+#include <linux/mfd/pcf50633/core.h>
+#include <linux/mfd/pcf50633/pmic.h>
 
 #define PCF50633_REGULATOR(_name, _id) 		\
 	{					\
@@ -16,7 +18,7 @@
 		.owner = THIS_MODULE, 		\
 	}
 
-static const u_int8_t regulator_registers[__NUM_PCF50633_REGULATORS] = {
+static const u_int8_t regulator_registers[PCF50633_NUM_REGULATORS] = {
 	[PCF50633_REGULATOR_AUTO]	= PCF50633_REG_AUTOOUT,
 	[PCF50633_REGULATOR_DOWN1]	= PCF50633_REG_DOWN1OUT,
 	[PCF50633_REGULATOR_DOWN2]	= PCF50633_REG_DOWN2OUT,
@@ -93,11 +95,11 @@ static int pcf50633_regulator_set_voltage(struct regulator_dev *rdev,
 	uint8_t regnr;
 	int regulator_id;
 	int millivolts;
-	struct pcf50633_data *pcf = rdev_get_drvdata(rdev);;
+	struct pcf50633 *pcf = rdev_get_drvdata(rdev);;
 
 	regulator_id = rdev_get_id(rdev);
 
-	if (regulator_id >= __NUM_PCF50633_REGULATORS)
+	if (regulator_id >= PCF50633_NUM_REGULATORS)
 		return -EINVAL;
 
 	millivolts = min_uV / 1000;
@@ -136,9 +138,9 @@ static int pcf50633_regulator_get_voltage(struct regulator_dev *rdev)
 	uint8_t regnr;
 	unsigned int rc = 0;
 	int regulator_id = rdev_get_id(rdev);
-	struct pcf50633_data *pcf = rdev_get_drvdata(rdev);
+	struct pcf50633 *pcf = rdev_get_drvdata(rdev);
 
-	if (regulator_id >= __NUM_PCF50633_REGULATORS)
+	if (regulator_id >= PCF50633_NUM_REGULATORS)
 		return -EINVAL;
 
 	regnr = regulator_registers[regulator_id];
@@ -174,9 +176,9 @@ static int pcf50633_regulator_enable(struct regulator_dev *rdev)
 {
 	uint8_t regnr;
 	int regulator_id = rdev_get_id(rdev);
-	struct pcf50633_data *pcf = rdev_get_drvdata(rdev);
+	struct pcf50633 *pcf = rdev_get_drvdata(rdev);
 
-	if (regulator_id >= __NUM_PCF50633_REGULATORS)
+	if (regulator_id >= PCF50633_NUM_REGULATORS)
 		return -EINVAL;
 
 	/* the *ENA register is always one after the *OUT register */
@@ -192,9 +194,9 @@ static int pcf50633_regulator_disable(struct regulator_dev *rdev)
 {
 	uint8_t regnr;
 	int regulator_id = rdev_get_id(rdev);
-	struct pcf50633_data *pcf = rdev_get_drvdata(rdev);
+	struct pcf50633 *pcf = rdev_get_drvdata(rdev);
 
-	if (regulator_id >= __NUM_PCF50633_REGULATORS)
+	if (regulator_id >= PCF50633_NUM_REGULATORS)
 		return -EINVAL;
 
 	/* the *ENA register is always one after the *OUT register */
@@ -209,9 +211,9 @@ static int pcf50633_regulator_is_enabled(struct regulator_dev *rdev)
 {
 	uint8_t val, regnr;
 	int regulator_id = rdev_get_id(rdev);
-	struct pcf50633_data *pcf = rdev_get_drvdata(rdev);
+	struct pcf50633 *pcf = rdev_get_drvdata(rdev);
 
-	if (regulator_id >= __NUM_PCF50633_REGULATORS)
+	if (regulator_id >= PCF50633_NUM_REGULATORS)
 		return -EINVAL;
 
 	/* the *ENA register is always one after the *OUT register */
@@ -259,7 +261,7 @@ struct regulator_desc regulators[] = {
 int __init pcf50633_regulator_probe(struct platform_device *pdev)
 {
 	struct regulator_dev *rdev;
-	struct pcf50633_data *pcf;
+	struct pcf50633 *pcf;
 
 	pcf = pdev->dev.driver_data; 
 

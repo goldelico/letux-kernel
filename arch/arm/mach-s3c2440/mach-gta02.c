@@ -49,7 +49,12 @@
 #include <linux/backlight.h>
 #include <linux/regulator/machine.h>
 
-#include <linux/pcf50633.h>
+#include <linux/mfd/pcf50633/core.h>
+#include <linux/mfd/pcf50633/mbc.h>
+#include <linux/mfd/pcf50633/adc.h>
+#include <linux/mfd/pcf50633/gpio.h>
+#include <linux/mfd/pcf50633/led.h>
+
 #include <linux/lis302dl.h>
 
 #include <asm/mach/arch.h>
@@ -102,9 +107,6 @@
 
 /* arbitrates which sensor IRQ owns the shared SPI bus */
 static spinlock_t motion_irq_lock;
-
-static int gta02_charger_online_status;
-static int gta02_charger_active_status;
 
 /* define FIQ IPC struct */
 /*
@@ -472,12 +474,16 @@ static struct s3c2410_uartcfg gta02_uartcfgs[] = {
 
 static int gta02_get_charger_online_status(void)
 {
-	return gta02_charger_online_status;
+	struct pcf50633 *pcf = gta02_pcf_pdata.pcf;
+
+	return pcf->mbc.usb_online;
 }
 
 static int gta02_get_charger_active_status(void)
 {
-	return gta02_charger_active_status;
+	struct pcf50633 *pcf = gta02_pcf_pdata.pcf;
+
+	return pcf->mbc.usb_active;
 }
 
 
@@ -498,40 +504,65 @@ struct platform_device bq27000_battery_device = {
 	},
 };
 
+#define ADC_NOM_CHG_DETECT_1A 6
+#define ADC_NOM_CHG_DETECT_USB 43
 
-/* PMU driver info */
-
-static int pmu_callback(struct device *dev, unsigned int feature,
-			enum pmu_event event)
+static void
+gta02_configure_pmu_for_charger(struct pcf50633 *pcf, void *unused, int res)
 {
-	switch (feature) {
-	case PCF50633_FEAT_MBC:
-		switch (event) {
-		case PMU_EVT_CHARGER_IDLE:
-			gta02_charger_active_status = 0;
-			break;
-		case PMU_EVT_CHARGER_ACTIVE:
-			gta02_charger_active_status = 1;
-			break;
-		case PMU_EVT_USB_INSERT:
-			gta02_charger_online_status = 1;
-			break;
-		case PMU_EVT_USB_REMOVE:
-			gta02_charger_online_status = 0;
-			break;
-		case PMU_EVT_INSERT: /* adapter is unsused */
-		case PMU_EVT_REMOVE: /* adapter is unused */
-			break;
-		default:
-			break;
-		}
-		break;
-	default:
-		break;
+	int  ma;
+	       
+	/* Interpret charger type */
+	if (res < ((ADC_NOM_CHG_DETECT_USB + ADC_NOM_CHG_DETECT_1A) / 2)) {
+
+		/* Stop GPO driving out now that we have a IA charger */
+		pcf50633_gpio_set(pcf, PCF50633_GPO, 0);
+	
+		ma = 1000;	
+		pcf->mbc.usb_active = 1;
+	} else {
+		ma = 100;
+
+		/* We know that we can't charge now */
+		pcf->mbc.usb_active = 0;
 	}
 
-	bq27000_charging_state_change(&bq27000_battery_device);
-	return 0;
+	pcf50633_mbc_usb_curlim_set(pcf, ma);
+}
+
+static struct delayed_work gta02_charger_work;
+static int gta02_usb_vbus_draw;
+
+static void gta02_charger_worker(struct work_struct *work)
+{
+	struct pcf50633 *pcf = gta02_pcf_pdata.pcf;
+
+	if (gta02_usb_vbus_draw) {
+		/* We can charge now */
+		pcf->mbc.usb_active = 1;
+
+		pcf50633_mbc_usb_curlim_set(pcf, gta02_usb_vbus_draw);
+		return;
+	} else {
+		pcf50633_adc_async_read(pcf,
+			PCF50633_ADCC1_MUX_ADCIN1,
+			PCF50633_ADCC1_AVERAGE_16,
+			gta02_configure_pmu_for_charger, NULL);
+		return;
+	}
+}
+
+#define GTA02_CHARGER_CONFIGURE_TIMEOUT ((3000 * HZ) / 1000)
+static void gta02_pmu_event_callback(struct pcf50633 *pcf, int irq)
+{
+	if (irq == PCF50633_IRQ_USBINS) {
+		schedule_delayed_work(&gta02_charger_work,
+				GTA02_CHARGER_CONFIGURE_TIMEOUT);
+		return;
+	} else if (irq == PCF50633_IRQ_USBREM) {
+		cancel_delayed_work_sync(&gta02_charger_work);
+		gta02_usb_vbus_draw = 0;
+	}
 }
 
 static struct platform_device gta01_pm_gps_dev = {
@@ -556,8 +587,8 @@ static struct platform_device gta02_pm_gsm_dev = {
 static struct platform_device gta02_glamo_dev;
 static void mangle_glamo_res_by_system_rev(void);
 
-static void gta02_pcf50633_attach_child_devices(struct device *parent_device);
-static void gta02_pcf50633_regulator_registered(struct pcf50633_data *pcf, int id);
+static void gta02_pmu_attach_child_devices(struct pcf50633 *pcf);
+static void gta02_pmu_regulator_registered(struct pcf50633 *pcf, int id);
 
 static struct platform_device gta02_pm_wlan_dev = {
 	.name		= "gta02-pm-wlan",
@@ -591,31 +622,25 @@ static struct regulator_consumer_supply hcldo_consumers[] = {
 	},
 };
 
+static char *gta02_batteries[] = {
+	"battery",
+};
+
 struct pcf50633_platform_data gta02_pcf_pdata = {
-	.used_features	= PCF50633_FEAT_MBC |
-			  PCF50633_FEAT_BBC |
-			  PCF50633_FEAT_RTC |
-			  PCF50633_FEAT_CHGCUR |
-			  PCF50633_FEAT_BATVOLT |
-			  PCF50633_FEAT_BATTEMP |
-			  PCF50633_FEAT_PWM_BL,
-	.onkey_seconds_sig_init = 4,
-	.onkey_seconds_shutdown = 8,
-	.cb		= &pmu_callback,
-	.r_fix_batt	= 10000,
-	.r_fix_batt_par	= 10000,
-	.r_sense_milli	= 220,
-	.flag_use_apm_emulation = 0,
 	.resumers = {
-		[0] = PCF50633_INT1_USBINS |
-		      PCF50633_INT1_USBREM |
-		      PCF50633_INT1_ALARM,
-		[1] = PCF50633_INT2_ONKEYF,
-		[2] = PCF50633_INT3_ONKEY1S
+		[0] = 	PCF50633_INT1_USBINS |
+			PCF50633_INT1_USBREM |
+			PCF50633_INT1_ALARM,
+		[1] = 	PCF50633_INT2_ONKEYF,
+		[2] = 	PCF50633_INT3_ONKEY1S,
+		[3] = 	PCF50633_INT4_LOWSYS |
+			PCF50633_INT4_LOWBAT |
+			PCF50633_INT4_HIGHTMP,
 	},
-	/* warning: these get rewritten during machine init below
-	 * depending on pcb variant
-	 */
+
+	.batteries = gta02_batteries,
+	.num_batteries = ARRAY_SIZE(gta02_batteries),
+
 	.reg_init_data = {
 		[PCF50633_REGULATOR_AUTO] = {
 			.constraints = {
@@ -655,6 +680,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 				.min_uV = 2000000,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.valid_modes_mask = REGULATOR_CHANGE_VOLTAGE,
 			},
 			.num_consumer_supplies = 1,
 			.consumer_supplies = hcldo_consumers,
@@ -730,8 +756,9 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 
 	},
-	.attach_child_devices = gta02_pcf50633_attach_child_devices,
-	.regulator_registered = gta02_pcf50633_regulator_registered,
+	.probe_done = gta02_pmu_attach_child_devices,
+	.regulator_registered = gta02_pmu_regulator_registered,
+	.mbc_event_callback = gta02_pmu_event_callback,
 };
 
 static void mangle_pmu_pdata_by_system_rev(void)
@@ -954,7 +981,7 @@ static void gta02_udc_vbus_draw(unsigned int ma)
         if (!gta02_pcf_pdata.pcf)
 		return;
 
-	pcf50633_notify_usb_current_limit_change(gta02_pcf_pdata.pcf, ma);
+	gta02_usb_vbus_draw = ma;
 }
 
 static struct s3c2410_udc_mach_info gta02_udc_cfg = {
@@ -995,7 +1022,7 @@ static struct s3c2410_ts_mach_info gta02_ts_cfg = {
 
 static void gta02_bl_set_intensity(int intensity)
 {
-	struct pcf50633_data *pcf = gta02_pcf_pdata.pcf;
+	struct pcf50633 *pcf = gta02_pcf_pdata.pcf;
 
 	int old_intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
 	int ret;
@@ -1553,11 +1580,11 @@ static struct platform_device *gta02_devices_pmu_children[] = {
 	&gta02_resume_reason_device,
 };
 
-static void gta02_pcf50633_regulator_registered(struct pcf50633_data *pcf, int id)
+static void gta02_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 {
 	struct platform_device *regulator, *pdev;
 
-	regulator = pcf->regulator_pdev[id];
+	regulator = pcf->pmic.pdev[id];
 
 	switch(id) {
 		case PCF50633_REGULATOR_LDO4:
@@ -1584,16 +1611,22 @@ static void gta02_pcf50633_regulator_registered(struct pcf50633_data *pcf, int i
  * the pcf50633 still around.
  */
 
-static void gta02_pcf50633_attach_child_devices(struct device *parent_device)
+static void gta02_pmu_attach_child_devices(struct pcf50633 *pcf)
 {
 	int n;
 
 	for (n = 0; n < ARRAY_SIZE(gta02_devices_pmu_children); n++)
-		gta02_devices_pmu_children[n]->dev.parent = parent_device;
+		gta02_devices_pmu_children[n]->dev.parent = pcf->dev;
 
 	mangle_glamo_res_by_system_rev();
 	platform_add_devices(gta02_devices_pmu_children,
 					ARRAY_SIZE(gta02_devices_pmu_children));
+
+	/* Switch on backlight. Qi does not do it for us */
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
 }
 
 
@@ -1662,6 +1695,8 @@ static void __init gta02_machine_init(void)
 	if (rc < 0)
 		printk(KERN_ERR "GTA02: can't request ar6k wakeup IRQ\n");
 	enable_irq_wake(GTA02_IRQ_WLAN_GPIO1);
+
+	INIT_DELAYED_WORK(&gta02_charger_work, gta02_charger_worker);
 }
 
 void DEBUG_LED(int n)
