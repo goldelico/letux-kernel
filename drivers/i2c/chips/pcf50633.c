@@ -206,7 +206,7 @@ static void async_adc_read_setup(struct pcf50633_data *pcf,
 
 }
 
-static u_int16_t async_adc_complete(struct pcf50633_data *pcf)
+static u_int16_t adc_read_result(struct pcf50633_data *pcf)
 {
 	u_int16_t ret = (__reg_read(pcf, PCF50633_REG_ADCS1) << 2) |
 			(__reg_read(pcf, PCF50633_REG_ADCS3) &
@@ -462,9 +462,14 @@ static int interpret_charger_type_from_adc(struct pcf50633_data *pcf,
 
 
 
-static void configure_pmu_for_charger(struct pcf50633_data *pcf,
-				      enum charger_type type)
+static void
+configure_pmu_for_charger(struct pcf50633_data *pcf,
+					void *unused, int adc_result_raw)
 {
+	int type;
+
+	type = interpret_charger_type_from_adc(
+					     pcf, adc_result_raw);
 	switch (type) {
 	case CHARGER_TYPE_NONE:
 		pcf50633_usb_curlim_set(pcf, 0);
@@ -512,16 +517,16 @@ static void trigger_next_adc_job_if_any(struct pcf50633_data *pcf)
 	if (pcf->adc_queue_head == pcf->adc_queue_tail)
 		return;
 	async_adc_read_setup(pcf,
-			     pcf->adc_queue_mux[pcf->adc_queue_tail],
-			     pcf->adc_queue_avg[pcf->adc_queue_tail]);
+			     pcf->adc_queue[pcf->adc_queue_tail]->mux,
+			     pcf->adc_queue[pcf->adc_queue_tail]->avg);
 }
 
-static void add_request_to_adc_queue(struct pcf50633_data *pcf,
-				     int mux, int avg)
+
+static void
+adc_add_request_to_queue(struct pcf50633_data *pcf, struct adc_request *req)
 {
 	int old_head = pcf->adc_queue_head;
-	pcf->adc_queue_mux[pcf->adc_queue_head] = mux;
-	pcf->adc_queue_avg[pcf->adc_queue_head] = avg;
+	pcf->adc_queue[pcf->adc_queue_head] = req;
 
 	pcf->adc_queue_head = (pcf->adc_queue_head + 1) &
 			      (MAX_ADC_FIFO_DEPTH - 1);
@@ -529,6 +534,64 @@ static void add_request_to_adc_queue(struct pcf50633_data *pcf,
 	/* it was idle before we just added this?  we need to kick it then */
 	if (old_head == pcf->adc_queue_tail)
 		trigger_next_adc_job_if_any(pcf);
+}
+
+static void 
+__pcf50633_adc_sync_read_callback(struct pcf50633_data *pcf, void *param, int result)
+{
+	struct adc_request *req;
+
+	/*We know here that the passed param is an adc_request object */
+	req = (struct adc_request *)param;
+
+	req->result = result;
+	complete(&req->completion);
+}
+
+int pcf50633_adc_sync_read(struct pcf50633_data *pcf, int mux, int avg)
+{
+
+	struct adc_request *req;
+	int result;
+
+	/* req is freed when the result is ready, in pcf50633_work*/
+	req = kmalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	req->mux = mux;
+	req->avg = avg;
+	req->callback =  __pcf50633_adc_sync_read_callback;
+	req->callback_param = req;
+	init_completion(&req->completion);
+
+	adc_add_request_to_queue(pcf, req);
+
+	wait_for_completion(&req->completion);
+	result = req->result;
+
+	return result;
+}
+
+int pcf50633_adc_async_read(struct pcf50633_data *pcf, int mux, int avg,
+			     void (*callback)(struct pcf50633_data *, void *,int),
+			     void *callback_param)
+{
+	struct adc_request *req;
+
+	/* req is freed when the result is ready, in pcf50633_work*/
+	req = kmalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	req->mux = mux;
+	req->avg = avg;
+	req->callback = callback;
+	req->callback_param = callback_param;
+
+	adc_add_request_to_queue(pcf, req);
+
+	return 0;
 }
 
 /*
@@ -651,8 +714,10 @@ static void pcf50633_work_nobat(struct work_struct *work)
 			pcf->jiffies_last_bat_ins = jiffies;
 
 			/* figure out our charging stance */
-			add_request_to_adc_queue(pcf, PCF50633_ADCC1_MUX_ADCIN1,
-						     PCF50633_ADCC1_AVERAGE_16);
+			(void)pcf50633_adc_async_read(pcf, PCF50633_ADCC1_MUX_ADCIN1,
+						     PCF50633_ADCC1_AVERAGE_16,
+						     configure_pmu_for_charger,
+						     NULL);
 			goto bail;
 		}
 
@@ -675,6 +740,7 @@ static void pcf50633_work(struct work_struct *work)
 	u_int8_t pcfirq[5];
 	int ret;
 	int tail;
+	struct adc_request *req;
 
 	mutex_lock(&pcf->working_lock);
 	pcf->working = 1;
@@ -790,8 +856,9 @@ static void pcf50633_work(struct work_struct *work)
 		}
 
 		/* figure out our initial charging stance */
-		add_request_to_adc_queue(pcf, PCF50633_ADCC1_MUX_ADCIN1,
-					      PCF50633_ADCC1_AVERAGE_16);
+		(void)pcf50633_adc_async_read(pcf, PCF50633_ADCC1_MUX_ADCIN1,
+					      PCF50633_ADCC1_AVERAGE_16,
+					     configure_pmu_for_charger, NULL);
 
 		pcf->coldplug_done = 1;
 	}
@@ -829,8 +896,9 @@ static void pcf50633_work(struct work_struct *work)
 				       PCF50633_FEAT_MBC, PMU_EVT_USB_INSERT);
 		msleep(500); /* debounce, allow to see any ID resistor */
 		/* completion irq will figure out our charging stance */
-		add_request_to_adc_queue(pcf, PCF50633_ADCC1_MUX_ADCIN1,
-				     PCF50633_ADCC1_AVERAGE_16);
+		(void)pcf50633_adc_async_read(pcf, PCF50633_ADCC1_MUX_ADCIN1,
+				     PCF50633_ADCC1_AVERAGE_16,
+				     configure_pmu_for_charger, NULL);
 	}
 	if (pcfirq[0] & PCF50633_INT1_USBREM &&
 				!(pcfirq[0] & PCF50633_INT1_USBINS)) {
@@ -855,8 +923,9 @@ static void pcf50633_work(struct work_struct *work)
 			pcf->last_curlim_set = 0;
 
 			/* completion irq will figure out our charging stance */
-			add_request_to_adc_queue(pcf, PCF50633_ADCC1_MUX_ADCIN1,
-					PCF50633_ADCC1_AVERAGE_16);
+			(void)pcf50633_adc_async_read(pcf, PCF50633_ADCC1_MUX_ADCIN1,
+					PCF50633_ADCC1_AVERAGE_16,
+					configure_pmu_for_charger, NULL);
 		}
 	}
 	if (pcfirq[0] & PCF50633_INT1_ALARM) {
@@ -1007,21 +1076,11 @@ static void pcf50633_work(struct work_struct *work)
 		tail = pcf->adc_queue_tail;
 		pcf->adc_queue_tail = (pcf->adc_queue_tail + 1) &
 				      (MAX_ADC_FIFO_DEPTH - 1);
+		req = pcf->adc_queue[tail];
+		req->callback(pcf, req->callback_param,
+					adc_read_result(pcf));
+		kfree(req);
 
-		switch (pcf->adc_queue_mux[tail]) {
-		case PCF50633_ADCC1_MUX_BATSNS_RES: /* battery voltage */
-			pcf->flag_bat_voltage_read = async_adc_complete(pcf);
-			break;
-		case PCF50633_ADCC1_MUX_ADCIN1: /* charger type */
-			pcf->charger_adc_result_raw = async_adc_complete(pcf);
-			pcf->charger_type = interpret_charger_type_from_adc(
-					     pcf, pcf->charger_adc_result_raw);
-			configure_pmu_for_charger(pcf, pcf->charger_type);
-			break;
-		default:
-			async_adc_complete(pcf);
-			break;
-		}
 		trigger_next_adc_job_if_any(pcf);
 	}
 	if (pcfirq[2] & PCF50633_INT3_ONKEY1S) {
@@ -1198,22 +1257,17 @@ static u_int8_t battvolt_scale(u_int16_t battvolt)
 
 u_int16_t pcf50633_battvolt(struct pcf50633_data *pcf)
 {
-	int count = 10;
+	int ret;
 
-	pcf->flag_bat_voltage_read = -1;
-	add_request_to_adc_queue(pcf, PCF50633_ADCC1_MUX_BATSNS_RES,
+	ret = pcf50633_adc_sync_read(pcf, PCF50633_ADCC1_MUX_BATSNS_RES,
 				      PCF50633_ADCC1_AVERAGE_16);
 
-	while ((count--) && (pcf->flag_bat_voltage_read < 0))
-		msleep(1);
+	if (ret < 0)
+		return ret;
 
-	if (count < 0) { /* timeout somehow */
-		DEBUGPC("pcf50633_battvolt timeout :-(\n");
-		return -1;
-	}
-
-	return adc_to_batt_millivolts(pcf->flag_bat_voltage_read);
+	return adc_to_batt_millivolts(ret);
 }
+
 EXPORT_SYMBOL_GPL(pcf50633_battvolt);
 
 static ssize_t show_battvolt(struct device *dev, struct device_attribute *attr,
@@ -1829,6 +1883,8 @@ static ssize_t show_charger_type(struct device *dev,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
+	int adc_raw_result, charger_type;
+
 	static const char *names_charger_type[] = {
 		[CHARGER_TYPE_NONE] 	= "none",
 		[CHARGER_TYPE_HOSTUSB] 	= "host/500mA usb",
@@ -1842,8 +1898,11 @@ static ssize_t show_charger_type(struct device *dev,
 	};
 	int mode = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) & PCF56033_MBCC7_USB_MASK;
 
+	adc_raw_result = pcf50633_adc_sync_read(pcf, PCF50633_ADCC1_MUX_ADCIN1,
+						     PCF50633_ADCC1_AVERAGE_16);
+	charger_type = interpret_charger_type_from_adc(pcf, adc_raw_result);
 	return sprintf(buf, "%s mode %s\n",
-			    names_charger_type[pcf->charger_type],
+			    names_charger_type[charger_type],
 			    names_charger_modes[mode]);
 }
 
@@ -1872,8 +1931,14 @@ static ssize_t show_charger_adc(struct device *dev,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
+	int result;
 
-	return sprintf(buf, "%d\n", pcf->charger_adc_result_raw);
+	result = pcf50633_adc_sync_read(pcf, PCF50633_ADCC1_MUX_ADCIN1,
+					     PCF50633_ADCC1_AVERAGE_16);
+	if (result < 0)
+		return result;
+
+	return sprintf(buf, "%d\n", result);
 }
 
 static DEVICE_ATTR(charger_adc, 0444, show_charger_adc, NULL);

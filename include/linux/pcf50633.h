@@ -109,6 +109,14 @@ extern int
 pcf50633_onoff_set(struct pcf50633_data *pcf,
 		   enum pcf50633_regulator_id reg, int on);
 
+extern int
+pcf50633_adc_async_read(struct pcf50633_data *pcf, int mux, int avg,
+		void (*callback)(struct pcf50633_data *, void *, int),
+		void *callback_param);
+		
+extern int
+pcf50633_adc_sync_read(struct pcf50633_data *pcf, int mux, int avg);
+
 extern void
 pcf50633_backlight_resume(struct pcf50633_data *pcf);
 
@@ -532,6 +540,17 @@ enum pcf50633_reg_mbcs3 {
 	PCF50633_MBCS3_VRES		= 0x80, /* 1: Vbat > Vth(RES) */
 };
 
+struct adc_request {
+	int mux;
+	int avg;
+	int result;
+	void (*callback)(struct pcf50633_data *, void *, int);
+	void *callback_param;
+
+	/* Used in case of sync requests */
+	struct completion completion;
+};
+
 struct pcf50633_data {
 	struct i2c_client *client;
 	struct pcf50633_platform_data *pdata;
@@ -575,14 +594,10 @@ struct pcf50633_data {
 	int coldplug_done; /* cleared by probe, set by first work service */
 	int flag_bat_voltage_read; /* ipc to /sys batt voltage read func */
 
-	int charger_adc_result_raw;
-	enum charger_type charger_type;
-
 	/* we have a FIFO of ADC measurement requests that are used only by
 	 * the workqueue service code after the ADC completion interrupt
 	 */
-	int adc_queue_mux[MAX_ADC_FIFO_DEPTH]; /* which ADC input to use */
-	int adc_queue_avg[MAX_ADC_FIFO_DEPTH]; /* amount of averaging */
+	struct adc_request *adc_queue[MAX_ADC_FIFO_DEPTH]; /* amount of averaging */
 	int adc_queue_head; /* head owned by foreground code */
 	int adc_queue_tail; /* tail owned by service code */
 
