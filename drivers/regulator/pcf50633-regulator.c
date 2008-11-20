@@ -209,7 +209,7 @@ static int pcf50633_regulator_is_enabled(struct regulator_dev *rdev)
 {
 	uint8_t val, regnr;
 	int regulator_id = rdev_get_id(rdev);
-	struct pcf50633_data *pcf = rdev_get_drvdata(rdev);;
+	struct pcf50633_data *pcf = rdev_get_drvdata(rdev);
 
 	if (regulator_id >= __NUM_PCF50633_REGULATORS)
 		return -EINVAL;
@@ -227,6 +227,8 @@ struct regulator_ops pcf50633_regulator_ops = {
 	.enable = pcf50633_regulator_enable,
 	.disable = pcf50633_regulator_disable,
 	.is_enabled = pcf50633_regulator_is_enabled,
+	.set_suspend_enable = pcf50633_regulator_enable,
+	.set_suspend_disable = pcf50633_regulator_disable,
 };
 
 struct regulator_desc regulators[] = { 

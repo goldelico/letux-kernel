@@ -94,22 +94,6 @@ extern int
 pcf50633_gpio_get(struct pcf50633_data *pcf, enum pcf50633_gpio gpio);
 
 extern int
-pcf50633_voltage_set(struct pcf50633_data *pcf,
-		     enum pcf50633_regulator_id reg,
-		     unsigned int millivolts);
-extern unsigned int
-pcf50633_voltage_get(struct pcf50633_data *pcf,
-		     enum pcf50633_regulator_id reg);
-
-extern int
-pcf50633_onoff_get(struct pcf50633_data *pcf,
-		   enum pcf50633_regulator_id reg);
-
-extern int
-pcf50633_onoff_set(struct pcf50633_data *pcf,
-		   enum pcf50633_regulator_id reg, int on);
-
-extern int
 pcf50633_adc_async_read(struct pcf50633_data *pcf, int mux, int avg,
 		void (*callback)(struct pcf50633_data *, void *, int),
 		void *callback_param);
@@ -183,10 +167,6 @@ struct pcf50633_platform_data {
 	/* callback to attach platform children (to enforce suspend / resume
 	 * ordering */
 	void (*attach_child_devices)(struct device *parent_device);
-
-	/* voltage regulator related */
-	struct pmu_voltage_rail rails[__NUM_PCF50633_REGULATORS];
-	unsigned int used_regulators;
 
 	/* charger related */
 	unsigned int r_fix_batt;

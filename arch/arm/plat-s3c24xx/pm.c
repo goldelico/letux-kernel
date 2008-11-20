@@ -36,6 +36,7 @@
 #include <linux/delay.h>
 #include <linux/serial_core.h>
 #include <linux/io.h>
+#include <linux/regulator/machine.h>
 
 #include <asm/cacheflush.h>
 #include <mach/hardware.h>
@@ -795,9 +796,20 @@ static int s3c2410_pm_enter(suspend_state_t state)
 	return 0;
 }
 
+static int s3c2410_pm_begin(suspend_state_t state)
+{
+	int ret = 0;
+
+#ifdef CONFIG_REGULATOR
+	ret = regulator_suspend_prepare(state);
+#endif
+	return ret;
+}
+
 static struct platform_suspend_ops s3c2410_pm_ops = {
 	.enter		= s3c2410_pm_enter,
 	.valid		= suspend_valid_only_mem,
+	.begin		= s3c2410_pm_begin,
 };
 
 /* s3c2410_pm_init

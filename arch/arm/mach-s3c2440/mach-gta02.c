@@ -616,98 +616,76 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 	/* warning: these get rewritten during machine init below
 	 * depending on pcb variant
 	 */
-	.rails	= {
+	.reg_init_data = {
 		[PCF50633_REGULATOR_AUTO] = {
-			.name		= "io_3v3",
-			.flags		= PMU_VRAIL_F_SUSPEND_ON,
-			.voltage	= {
-				.init	= 3300,
-				.max	= 3300,
+			.constraints = {
+				.min_uV = 3300000,
+				.max_uV = 3300000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
+				.state_mem = {
+					.enabled = 1,
+				},
 			},
+			.num_consumer_supplies = 0,
 		},
 		[PCF50633_REGULATOR_DOWN1] = {
-			.name		= "core_1v3",
-			/* Wow, when we are going into suspend, after pcf50633
-			 * runs its suspend (which happens real early since it
-			 * is an i2c device) we are running out of the 22uF cap
-			 * on core_1v3 rail !!!!
-			 */
-			.voltage	= {
-				.init	= 1300,
-				.max	= 1600,
+			.constraints = {
+				.min_uV = 1300000,
+				.max_uV = 1600000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
 			},
+			.num_consumer_supplies = 0,
 		},
 		[PCF50633_REGULATOR_DOWN2] = {
-			.name		= "core_1v8",
-			.flags		= PMU_VRAIL_F_SUSPEND_ON,
-			.voltage	= {
-				.init	= 1800,
-				.max	= 1800,
+			.constraints = {
+				.min_uV = 1800000,
+				.max_uV = 1800000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
+				.state_mem = {
+					.enabled = 1,
+				},
 			},
+			.num_consumer_supplies = 0,
 		},
 		[PCF50633_REGULATOR_HCLDO] = {
-			.name		= "sd_3v3",
-			.voltage	= {
-				.init	= 2000,
-				.max	= 3300,
+			.constraints = {
+				.min_uV = 2000000,
+				.max_uV = 3300000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
 			},
+			.num_consumer_supplies = 1,
+			.consumer_supplies = hcldo_consumers,
 		},
 		[PCF50633_REGULATOR_LDO1] = {
-			.name		= "gsensor_3v3",
-			.voltage	= {
-				.init	= 1300,
-				.max	= 1330,
+			.constraints = {
+				.min_uV = 1300000,
+				.max_uV = 1300000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
 			},
+			.num_consumer_supplies = 0,
 		},
 		[PCF50633_REGULATOR_LDO2] = {
-			.name		= "codec_3v3",
-			.voltage	= {
-				.init	= 3300,
-				.max	= 3300,
+			.constraints = {
+				.min_uV = 3300000,
+				.max_uV = 3300000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
 			},
+			.num_consumer_supplies = 0,
 		},
 		[PCF50633_REGULATOR_LDO3] = {
-			.name		= "unused3",
-			.voltage	= {
-				.init	= 3000,
-				.max	= 3000,
+			.constraints = {
+				.min_uV = 3000000,
+				.max_uV = 3000000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
 			},
+			.num_consumer_supplies = 0,
 		},
-		[PCF50633_REGULATOR_LDO4] = {
-			.name		= "bt_3v2",
-			.voltage	= {
-				.init	= 2500,
-				.max	= 3300,
-			},
-		},
-		[PCF50633_REGULATOR_LDO5] = {
-			.name		= "rf3v",
-			.voltage	= {
-				.init	= 1500,
-				.max	= 1500,
-			},
-		},
-		[PCF50633_REGULATOR_LDO6] = {
-			.name		= "lcm_3v",
-			.flags = PMU_VRAIL_F_SUSPEND_ON,
-			.voltage	= {
-				.init	= 0,
-				.max	= 3300,
-			},
-		},
-		[PCF50633_REGULATOR_MEMLDO] = {
-			.name		= "memldo",
-			.flags = PMU_VRAIL_F_SUSPEND_ON,
-			.voltage	= {
-				.init	= 1800,
-				.max	= 1800,
-			},
-		},
-	},
-	.attach_child_devices = gta02_pcf50633_attach_child_devices,
-	.regulator_registered = gta02_pcf50633_regulator_registered,
-
-	.reg_init_data = {
 		[PCF50633_REGULATOR_LDO4] = {
 			.constraints = {
 				.min_uV = 3200000,
@@ -720,91 +698,82 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_LDO5] = {
 			.constraints = {
-				.min_uV = 3000000,
-				.max_uV = 3000000,
+				.min_uV = 1500000,
+				.max_uV = 1500000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
 				.apply_uV = 1,
 			},
 			.num_consumer_supplies = 1,
 			.consumer_supplies = ldo5_consumers,
 		},
-		[PCF50633_REGULATOR_HCLDO] = {
+		[PCF50633_REGULATOR_LDO6] = {
 			.constraints = {
-				.min_uV = 2000000,
+				.min_uV = 0,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.state_mem = {
+					.enabled = 1,
+				},
 			},
-			.num_consumer_supplies = 1,
-			.consumer_supplies = hcldo_consumers,
+			.num_consumer_supplies = 0,
+		},
+		[PCF50633_REGULATOR_MEMLDO] = {
+			.constraints = {
+				.min_uV = 1800000,
+				.max_uV = 1800000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.state_mem = {
+					.enabled = 1,
+				},
+			},
+			.num_consumer_supplies = 0,
 		},
 
 	},
-
+	.attach_child_devices = gta02_pcf50633_attach_child_devices,
+	.regulator_registered = gta02_pcf50633_regulator_registered,
 };
-
-#if 0 /* currently unused */
-static void cfg_pmu_vrail(struct pmu_voltage_rail *vrail, char *name,
-			  unsigned int flags, unsigned int init,
-			  unsigned int max)
-{
-	vrail->name = name;
-	vrail->flags = flags;
-	vrail->voltage.init = init;
-	vrail->voltage.max = max;
-}
-#endif
 
 static void mangle_pmu_pdata_by_system_rev(void)
 {
+	struct regulator_init_data *reg_init_data;
+
+	reg_init_data = gta02_pcf_pdata.reg_init_data;
+
 	switch (system_rev) {
 	case GTA02v1_SYSTEM_REV:
 		/* FIXME: this is only in v1 due to wrong PMU variant */
-		gta02_pcf_pdata.rails[PCF50633_REGULATOR_DOWN2].flags =
-							PMU_VRAIL_F_SUSPEND_ON;
+		reg_init_data[PCF50633_REGULATOR_DOWN2]
+					.constraints.state_mem.enabled = 1;
 		break;
 	case GTA02v2_SYSTEM_REV:
 	case GTA02v3_SYSTEM_REV:
 	case GTA02v4_SYSTEM_REV:
 	case GTA02v5_SYSTEM_REV:
 	case GTA02v6_SYSTEM_REV:
-		/* we need to keep the 1.8V going since this is the SDRAM
-		 * self-refresh voltage */
-		gta02_pcf_pdata.rails[PCF50633_REGULATOR_DOWN2].flags =
-							PMU_VRAIL_F_SUSPEND_ON;
-		gta02_pcf_pdata.rails[PCF50633_REGULATOR_DOWN2].name =
-							"io_1v8",
-		gta02_pcf_pdata.rails[PCF50633_REGULATOR_LDO1].name =
-							"gsensor_3v3",
-		gta02_pcf_pdata.rails[PCF50633_REGULATOR_LDO1].voltage.init =
-							3300;
-		gta02_pcf_pdata.rails[PCF50633_REGULATOR_LDO1].voltage.max =
-							3300;
-		gta02_pcf_pdata.rails[PCF50633_REGULATOR_LDO1].flags &=
-							~PMU_VRAIL_F_SUSPEND_ON;
-		gta02_pcf_pdata.rails[PCF50633_REGULATOR_LDO3].flags =
-							PMU_VRAIL_F_UNUSED;
-		gta02_pcf_pdata.rails[PCF50633_REGULATOR_LDO5] = ((struct pmu_voltage_rail) {
-							.name = "rf_3v",
-							.voltage = {
-								.init = 0,
-								.max = 3000,
-							}
-						});
-		gta02_pcf_pdata.rails[PCF50633_REGULATOR_LDO6] =
-					((struct pmu_voltage_rail) {
-						.name = "lcm_3v",
-						.flags = PMU_VRAIL_F_SUSPEND_ON,
-						.voltage = {
-							.init = 3000,
-							.max = 3000,
-						}
-					});
+		reg_init_data[PCF50633_REGULATOR_LDO1]
+					.constraints.min_uV = 3300000;
+		reg_init_data[PCF50633_REGULATOR_LDO1]
+					.constraints.min_uV = 3300000;
+		reg_init_data[PCF50633_REGULATOR_LDO1]
+					.constraints.state_mem.enabled = 0;
+
+		reg_init_data[PCF50633_REGULATOR_LDO5]
+					.constraints.min_uV = 3000000;
+		reg_init_data[PCF50633_REGULATOR_LDO5]
+					.constraints.max_uV = 3000000;
+		
+		reg_init_data[PCF50633_REGULATOR_LDO6]
+					.constraints.min_uV = 3000000;
+		reg_init_data[PCF50633_REGULATOR_LDO6]
+					.constraints.max_uV = 3000000;
+		reg_init_data[PCF50633_REGULATOR_LDO6]
+					.constraints.apply_uV = 1;
 		break;
 	default:
 		break;
 	}
 }
-
 
 #ifdef CONFIG_GTA02_HDQ
 /* HDQ */
