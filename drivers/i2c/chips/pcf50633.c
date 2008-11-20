@@ -22,7 +22,6 @@
  * This driver is a monster ;) It provides the following features
  * - voltage control for a dozen different voltage domains
  * - charging control for main and backup battery
- * - rtc / alarm
  * - adc driver (hw_sensors like)
  *
  */
@@ -51,6 +50,7 @@
 
 #include <linux/pcf50633.h>
 #include <linux/regulator/pcf50633.h>
+#include <linux/rtc/pcf50633.h>
 
 #if 0
 #define DEBUGP(x, args ...) printk("%s: " x, __FUNCTION__, ## args)
@@ -67,27 +67,6 @@
 static unsigned short normal_i2c[] = { 0x73, I2C_CLIENT_END };
 
 I2C_CLIENT_INSMOD_1(pcf50633);
-
-#define PCF50633_FIDX_CHG_ENABLED	0	/* Charger enabled */
-#define PCF50633_FIDX_CHG_PRESENT	1	/* Charger present */
-#define PCF50633_FIDX_CHG_ERR		3	/* Charger Error */
-#define PCF50633_FIDX_CHG_PROT		4	/* Charger Protection */
-#define PCF50633_FIDX_CHG_READY		5	/* Charging completed */
-#define PCF50633_FIDX_PWR_PRESSED	8
-#define PCF50633_FIDX_RTC_SECOND	9
-#define PCF50633_FIDX_USB_PRESENT	10
-
-#define PCF50633_F_CHG_ENABLED	(1 << PCF50633_FIDX_CHG_ENABLED)
-#define PCF50633_F_CHG_PRESENT	(1 << PCF50633_FIDX_CHG_PRESENT)
-#define PCF50633_F_CHG_ERR	(1 << PCF50633_FIDX_CHG_ERR)
-#define PCF50633_F_CHG_PROT	(1 << PCF50633_FIDX_CHG_PROT)
-#define PCF50633_F_CHG_READY	(1 << PCF50633_FIDX_CHG_READY)
-
-#define PCF50633_F_CHG_MASK	0x000000fc
-
-#define PCF50633_F_PWR_PRESSED	(1 << PCF50633_FIDX_PWR_PRESSED)
-#define PCF50633_F_RTC_SECOND	(1 << PCF50633_FIDX_RTC_SECOND)
-#define PCF50633_F_USB_PRESENT	(1 << PCF50633_FIDX_USB_PRESENT)
 
 enum close_state {
 	CLOSE_STATE_NOT,
@@ -753,12 +732,14 @@ static void pcf50633_work(struct work_struct *work)
 	if (pcfirq[0] & PCF50633_INT1_ALARM) {
 		DEBUGPC("ALARM ");
 		if (pcf->pdata->used_features & PCF50633_FEAT_RTC)
-			rtc_update_irq(pcf->rtc, 1, RTC_AF | RTC_IRQF);
+			pcf50633_rtc_handle_event(pcf,
+					PCF50633_RTC_EVENT_ALARM);
 	}
 	if (pcfirq[0] & PCF50633_INT1_SECOND) {
 		DEBUGPC("SECOND ");
 		if (pcf->flags & PCF50633_F_RTC_SECOND)
-			rtc_update_irq(pcf->rtc, 1, RTC_PF | RTC_IRQF);
+			pcf50633_rtc_handle_event(pcf,
+					PCF50633_RTC_EVENT_SECOND);
 
 		if (pcf->onkey_seconds >= 0 &&
 		    pcf->flags & PCF50633_F_PWR_PRESSED) {
@@ -1330,219 +1311,6 @@ static ssize_t show_chgstate(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR(chgstate, S_IRUGO | S_IWUSR, show_chgstate, NULL);
 
-/***********************************************************************
- * RTC
- ***********************************************************************/
-enum pcf50633_time_indexes {
-	PCF50633_TI_SEC = 0,
-	PCF50633_TI_MIN,
-	PCF50633_TI_HOUR,
-	PCF50633_TI_WKDAY,
-	PCF50633_TI_DAY,
-	PCF50633_TI_MONTH,
-	PCF50633_TI_YEAR,
-	PCF50633_TI_EXTENT /* always last */
-};
-
-
-struct pcf50633_time {
-	u_int8_t time[PCF50633_TI_EXTENT];
-};
-
-static void pcf2rtc_time(struct rtc_time *rtc, struct pcf50633_time *pcf)
-{
-	rtc->tm_sec = bcd2bin(pcf->time[PCF50633_TI_SEC]);
-	rtc->tm_min = bcd2bin(pcf->time[PCF50633_TI_MIN]);
-	rtc->tm_hour = bcd2bin(pcf->time[PCF50633_TI_HOUR]);
-	rtc->tm_wday = bcd2bin(pcf->time[PCF50633_TI_WKDAY]);
-	rtc->tm_mday = bcd2bin(pcf->time[PCF50633_TI_DAY]);
-	rtc->tm_mon = bcd2bin(pcf->time[PCF50633_TI_MONTH]);
-	rtc->tm_year = bcd2bin(pcf->time[PCF50633_TI_YEAR]) + 100;
-}
-
-static void rtc2pcf_time(struct pcf50633_time *pcf, struct rtc_time *rtc)
-{
-	pcf->time[PCF50633_TI_SEC] = bin2bcd(rtc->tm_sec);
-	pcf->time[PCF50633_TI_MIN] = bin2bcd(rtc->tm_min);
-	pcf->time[PCF50633_TI_HOUR] = bin2bcd(rtc->tm_hour);
-	pcf->time[PCF50633_TI_WKDAY] = bin2bcd(rtc->tm_wday);
-	pcf->time[PCF50633_TI_DAY] = bin2bcd(rtc->tm_mday);
-	pcf->time[PCF50633_TI_MONTH] = bin2bcd(rtc->tm_mon);
-	pcf->time[PCF50633_TI_YEAR] = bin2bcd(rtc->tm_year - 100);
-}
-
-static int pcf50633_rtc_ioctl(struct device *dev, unsigned int cmd,
-			      unsigned long arg)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-
-	switch (cmd) {
-	case RTC_AIE_OFF:
-		/* disable the alarm interrupt */
-		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
-				 PCF50633_INT1_ALARM, PCF50633_INT1_ALARM);
-		return 0;
-	case RTC_AIE_ON:
-		/* enable the alarm interrupt */
-		pcf50633_reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_ALARM);
-		return 0;
-	case RTC_PIE_OFF:
-		/* disable periodic interrupt (hz tick) */
-		pcf->flags &= ~PCF50633_F_RTC_SECOND;
-		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
-				 PCF50633_INT1_SECOND, PCF50633_INT1_SECOND);
-		return 0;
-	case RTC_PIE_ON:
-		/* ensable periodic interrupt (hz tick) */
-		pcf->flags |= PCF50633_F_RTC_SECOND;
-		pcf50633_reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_SECOND);
-		return 0;
-	}
-	return -ENOIOCTLCMD;
-}
-
-static int pcf50633_rtc_read_time(struct device *dev, struct rtc_time *tm)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	struct pcf50633_time pcf_tm;
-	int ret;
-
-	mutex_lock(&pcf->lock);
-
-	ret = i2c_smbus_read_i2c_block_data(pcf->client,
-					    PCF50633_REG_RTCSC,
-					    PCF50633_TI_EXTENT,
-					    &pcf_tm.time[0]);
-	if (ret != PCF50633_TI_EXTENT)
-		dev_err(dev, "Failed to read time :-(\n");
-
-	mutex_unlock(&pcf->lock);
-
-	dev_dbg(dev, "PCF_TIME: %02x.%02x.%02x %02x:%02x:%02x\n",
-		pcf_tm.time[PCF50633_TI_DAY],
-		pcf_tm.time[PCF50633_TI_MONTH],
-		pcf_tm.time[PCF50633_TI_YEAR],
-		pcf_tm.time[PCF50633_TI_HOUR],
-		pcf_tm.time[PCF50633_TI_MIN],
-		pcf_tm.time[PCF50633_TI_SEC]);
-
-	pcf2rtc_time(tm, &pcf_tm);
-
-	dev_dbg(dev, "RTC_TIME: %u.%u.%u %u:%u:%u\n",
-		tm->tm_mday, tm->tm_mon, tm->tm_year,
-		tm->tm_hour, tm->tm_min, tm->tm_sec);
-
-	return 0;
-}
-
-static int pcf50633_rtc_set_time(struct device *dev, struct rtc_time *tm)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	struct pcf50633_time pcf_tm;
-	int ret;
-
-	dev_dbg(dev, "RTC_TIME: %u.%u.%u %u:%u:%u\n",
-		tm->tm_mday, tm->tm_mon, tm->tm_year,
-		tm->tm_hour, tm->tm_min, tm->tm_sec);
-	rtc2pcf_time(&pcf_tm, tm);
-	dev_dbg(dev, "PCF_TIME: %02x.%02x.%02x %02x:%02x:%02x\n",
-		pcf_tm.time[PCF50633_TI_DAY],
-		pcf_tm.time[PCF50633_TI_MONTH],
-		pcf_tm.time[PCF50633_TI_YEAR],
-		pcf_tm.time[PCF50633_TI_HOUR],
-		pcf_tm.time[PCF50633_TI_MIN],
-		pcf_tm.time[PCF50633_TI_SEC]);
-
-	mutex_lock(&pcf->lock);
-	/* FIXME: disable second interrupt */
-
-	ret = i2c_smbus_write_i2c_block_data(pcf->client,
-					     PCF50633_REG_RTCSC,
-					     PCF50633_TI_EXTENT,
-					     &pcf_tm.time[0]);
-	if (ret)
-		dev_err(dev, "Failed to set time %d\n", ret);
-
-	/* FIXME: re-enable second interrupt */
-	mutex_unlock(&pcf->lock);
-
-	return 0;
-}
-
-static int pcf50633_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	struct pcf50633_time pcf_tm;
-	int ret;
-
-	mutex_lock(&pcf->lock);
-
-	alrm->enabled =
-	     __reg_read(pcf, PCF50633_REG_INT1M) & PCF50633_INT1_ALARM ? 0 : 1;
-
-	ret = i2c_smbus_read_i2c_block_data(pcf->client,
-					    PCF50633_REG_RTCSCA,
-					    PCF50633_TI_EXTENT,
-					    &pcf_tm.time[0]);
-	if (ret != PCF50633_TI_EXTENT)
-		dev_err(dev, "Failed to read Alarm time :-(\n");
-
-	mutex_unlock(&pcf->lock);
-
-	pcf2rtc_time(&alrm->time, &pcf_tm);
-
-	return 0;
-}
-
-static int pcf50633_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	struct pcf50633_time pcf_tm;
-	u_int8_t irqmask;
-	int ret;
-
-	rtc2pcf_time(&pcf_tm, &alrm->time);
-
-	mutex_lock(&pcf->lock);
-
-	/* disable alarm interrupt */
-	irqmask = __reg_read(pcf, PCF50633_REG_INT1M);
-	irqmask |= PCF50633_INT1_ALARM;
-	__reg_write(pcf, PCF50633_REG_INT1M, irqmask);
-
-	ret = i2c_smbus_write_i2c_block_data(pcf->client,
-					     PCF50633_REG_RTCSCA,
-					     PCF50633_TI_EXTENT,
-					     &pcf_tm.time[0]);
-	if (ret)
-		dev_err(dev, "Failed to write alarm time :-( %d\n", ret);
-
-	if (alrm->enabled) {
-		/* (re-)enaable alarm interrupt */
-		irqmask = __reg_read(pcf, PCF50633_REG_INT1M);
-		irqmask &= ~PCF50633_INT1_ALARM;
-		__reg_write(pcf, PCF50633_REG_INT1M, irqmask);
-	}
-
-	mutex_unlock(&pcf->lock);
-
-	/* FIXME */
-	return 0;
-}
-
-static struct rtc_class_ops pcf50633_rtc_ops = {
-	.ioctl		= pcf50633_rtc_ioctl,
-	.read_time	= pcf50633_rtc_read_time,
-	.set_time	= pcf50633_rtc_set_time,
-	.read_alarm	= pcf50633_rtc_read_alarm,
-	.set_alarm	= pcf50633_rtc_set_alarm,
-};
-
 /*
  * Charger type
  */
@@ -1705,6 +1473,11 @@ static void populate_sysfs_group(struct pcf50633_data *pcf)
 
 }
 
+static struct platform_device pcf50633_rtc_pdev = {
+	.name	= "pcf50633-rtc",
+	.id	= -1,
+};
+
 static int pcf50633_probe(struct i2c_client *client, const struct i2c_device_id *ids)
 {
 	struct pcf50633_data *pcf;
@@ -1804,12 +1577,11 @@ static int pcf50633_probe(struct i2c_client *client, const struct i2c_device_id 
 		        "source in this hardware revision!", irq);
 
 	if (pcf->pdata->used_features & PCF50633_FEAT_RTC) {
-		pcf->rtc = rtc_device_register("pcf50633", &client->dev,
-						&pcf50633_rtc_ops, THIS_MODULE);
-		if (IS_ERR(pcf->rtc)) {
-			err = PTR_ERR(pcf->rtc);
+		pcf50633_rtc_pdev.dev.platform_data = pcf;
+		
+		err = platform_device_register(&pcf50633_rtc_pdev);
+		if (err)
 			goto exit_irq;
-		}
 	}
 
 	if (pcf->pdata->flag_use_apm_emulation)

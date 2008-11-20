@@ -5,6 +5,28 @@
 #include <linux/resume-dependency.h>
 #include <linux/regulator/machine.h>
 
+#define PCF50633_FIDX_CHG_ENABLED	0	/* Charger enabled */
+#define PCF50633_FIDX_CHG_PRESENT	1	/* Charger present */
+#define PCF50633_FIDX_CHG_ERR		3	/* Charger Error */
+#define PCF50633_FIDX_CHG_PROT		4	/* Charger Protection */
+#define PCF50633_FIDX_CHG_READY		5	/* Charging completed */
+#define PCF50633_FIDX_PWR_PRESSED	8
+#define PCF50633_FIDX_RTC_SECOND	9
+#define PCF50633_FIDX_USB_PRESENT	10
+
+#define PCF50633_F_CHG_ENABLED	(1 << PCF50633_FIDX_CHG_ENABLED)
+#define PCF50633_F_CHG_PRESENT	(1 << PCF50633_FIDX_CHG_PRESENT)
+#define PCF50633_F_CHG_ERR	(1 << PCF50633_FIDX_CHG_ERR)
+#define PCF50633_F_CHG_PROT	(1 << PCF50633_FIDX_CHG_PROT)
+#define PCF50633_F_CHG_READY	(1 << PCF50633_FIDX_CHG_READY)
+
+#define PCF50633_F_CHG_MASK	0x000000fc
+
+#define PCF50633_F_PWR_PRESSED	(1 << PCF50633_FIDX_PWR_PRESSED)
+
+#define PCF50633_F_RTC_SECOND	(1 << PCF50633_FIDX_RTC_SECOND)
+#define PCF50633_F_USB_PRESENT	(1 << PCF50633_FIDX_USB_PRESENT)
+
 /* public in-kernel pcf50633 api */
 enum pcf50633_regulator_id {
 	PCF50633_REGULATOR_AUTO,
