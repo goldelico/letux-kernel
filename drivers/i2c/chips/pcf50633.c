@@ -1966,23 +1966,6 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 
 	disable_irq(pcf->irq);
 
-	/* Save all registers that don't "survive" standby state */
-	pcf->standby_regs.ooctim2 = __reg_read(pcf, PCF50633_REG_OOCTIM2);
-
-	ret = i2c_smbus_read_i2c_block_data(pcf->client,
-					    PCF50633_REG_AUTOOUT,
-					    sizeof(pcf->standby_regs.misc),
-					    &pcf->standby_regs.misc[0]);
-	if (ret != sizeof(pcf->standby_regs.misc))
-		dev_err(dev, "Failed to save misc levels and enables :-(\n");
-
-	/* regulator voltages and enable states */
-	ret = i2c_smbus_read_i2c_block_data(pcf->client,
-					    PCF50633_REG_LDO1OUT,
-					    sizeof(pcf->standby_regs.ldo),
-					    &pcf->standby_regs.ldo[0]);
-	if (ret != sizeof(pcf->standby_regs.ldo))
-		dev_err(dev, "Failed to save LDO levels and enables :-(\n");
 	/* set interrupt masks so only those sources we want to wake
 	 * us are able to
 	 */
@@ -2054,28 +2037,6 @@ static int pcf50633_resume(struct device *dev)
 	mutex_lock(&pcf->lock);
 
 	pcf->suspend_state = PCF50633_SS_STARTING_RESUME;
-
-	/* these guys get reset while pcf50633 is suspend state, refresh */
-
-	__reg_write(pcf, PCF50633_REG_OOCTIM2, pcf->standby_regs.ooctim2);
-
-	memcpy(misc, pcf->standby_regs.misc, sizeof(pcf->standby_regs.misc));
-
-	/* regulator voltages and enable states */
-	ret = i2c_smbus_write_i2c_block_data(pcf->client,
-					     PCF50633_REG_AUTOOUT,
-					     sizeof(misc),
-					     &misc[0]);
-	if (ret)
-		dev_err(dev, "Failed to restore misc :-( %d\n", ret);
-
-	/* regulator voltages and enable states */
-	ret = i2c_smbus_write_i2c_block_data(pcf->client,
-					     PCF50633_REG_LDO1OUT,
-					     sizeof(pcf->standby_regs.ldo),
-					     &pcf->standby_regs.ldo[0]);
-	if (ret)
-		dev_err(dev, "Failed to restore LDOs :-( %d\n", ret);
 
 	memset(res, 0, sizeof(res));
 	/* not interested in second on resume */

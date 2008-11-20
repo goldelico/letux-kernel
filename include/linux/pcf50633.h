@@ -578,20 +578,6 @@ struct pcf50633_data {
 	int adc_queue_tail; /* tail owned by service code */
 
 	struct platform_device *regulator_pdev[__NUM_PCF50633_REGULATORS];
-
-#ifdef CONFIG_PM
-	struct {
-		u_int8_t ooctim2;
-		/* enables are always [1] below
-		 * I2C has limit of 32 sequential regs, so done in two lumps
-		 * because it covers 33 register extent otherwise
-		 */
-		u_int8_t misc[PCF50633_REG_LEDDIM - PCF50633_REG_AUTOOUT + 1];
-		/*  skip 1 reserved reg here */
-		u_int8_t ldo[PCF50633_REG_HCLDOENA - PCF50633_REG_LDO1OUT + 1];
-	} standby_regs;
-
-#endif
 };
 
 /* this is to be provided by the board implementation */
