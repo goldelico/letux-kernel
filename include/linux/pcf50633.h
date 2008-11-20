@@ -200,7 +200,7 @@ struct pcf50633_platform_data {
 	struct regulator_init_data reg_init_data[__NUM_PCF50633_REGULATORS];
 
 	/* Called when a regulator has been registered */
-	void (*regulator_registered)(int regulator_id);
+	void (*regulator_registered)(struct pcf50633_data *pcf, int id);
 
 	/* Runtime data */
 	struct pcf50633_data *pcf;

@@ -47,6 +47,8 @@
 
 #include <linux/i2c.h>
 
+#include <linux/regulator/machine.h>
+
 #include <linux/pcf50633.h>
 #include <linux/lis302dl.h>
 
@@ -555,9 +557,17 @@ static struct platform_device gta02_glamo_dev;
 static void mangle_glamo_res_by_system_rev(void);
 
 static void gta02_pcf50633_attach_child_devices(struct device *parent_device);
+static void gta02_pcf50633_regulator_registered(struct pcf50633_data *pcf, int id);
 
 static struct platform_device gta02_pm_wlan_dev = {
 	.name		= "gta02-pm-wlan",
+};
+
+static struct regulator_consumer_supply ldo4_consumers[] = {
+	{
+		.dev = &gta01_pm_bt_dev.dev,
+		.supply = "BT_3V2",
+	},
 };
 
 struct pcf50633_platform_data gta02_pcf_pdata = {
@@ -675,7 +685,22 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 	},
 	.defer_resume_backlight = 1,
 	.resume_backlight_ramp_speed = 5,
-	.attach_child_devices = gta02_pcf50633_attach_child_devices
+	.attach_child_devices = gta02_pcf50633_attach_child_devices,
+	.regulator_registered = gta02_pcf50633_regulator_registered,
+
+	.reg_init_data = {
+		[PCF50633_REGULATOR_LDO4] = {
+			.constraints = {
+				.min_uV = 3200000,
+				.max_uV = 3200000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
+			},
+			.num_consumer_supplies = 1,
+			.consumer_supplies = ldo4_consumers,
+		},
+
+	},
 
 };
 
@@ -1512,17 +1537,34 @@ static struct platform_device *gta02_devices[] __initdata = {
 /* these guys DO need to be children of PMU */
 
 static struct platform_device *gta02_devices_pmu_children[] = {
-	&gta02_glamo_dev, /* glamo-mci power handling depends on PMU */
+	&gta02_glamo_dev,
 	&s3c_device_ts, /* input 1 */
-	&gta01_pm_gps_dev,
-	&gta01_pm_bt_dev,
 	&gta02_pm_gsm_dev,
+	&gta01_pm_gps_dev,
 	&gta02_pm_usbhost_dev,
 	&s3c_device_spi_acc1, /* input 2 */
 	&s3c_device_spi_acc2, /* input 3 */
 	&gta02_button_dev, /* input 4 */
 	&gta02_resume_reason_device,
 };
+
+static void gta02_pcf50633_regulator_registered(struct pcf50633_data *pcf, int id)
+{
+	struct platform_device *regulator, *pdev;
+
+	regulator = pcf->regulator_pdev[id];
+
+	switch(id) {
+		case PCF50633_REGULATOR_LDO4:
+			pdev = &gta01_pm_bt_dev;
+			break;
+		default:
+			return;	
+	}
+	
+	pdev->dev.parent = &regulator->dev;
+	platform_device_register(pdev);
+}
 
 /* this is called when pc50633 is probed, unfortunately quite late in the
  * day since it is an I2C bus device.  Here we can belatedly define some

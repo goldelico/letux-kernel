@@ -266,7 +266,7 @@ int __init pcf50633_regulator_probe(struct platform_device *pdev)
 		return PTR_ERR(rdev);
 
 	if (pcf->pdata->regulator_registered)
-		pcf->pdata->regulator_registered(pdev->id);
+		pcf->pdata->regulator_registered(pcf, pdev->id);
 
 	return 0;
 }
