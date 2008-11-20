@@ -229,4 +229,8 @@ config INPUT_LIS302DL
 	  The userspece interface is a 3-axis (X/Y/Z) relative movement
 	  Linux input device, reporting REL_[XYZ] events.
 
+config INPUT_PCF50633_PMU
+	tristate "PCF50633 PMU events"
+	depends on MFD_PCF50633
+
 endif

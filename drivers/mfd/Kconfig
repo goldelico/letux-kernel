@@ -153,6 +153,22 @@ config MFD_WM8350_I2C
 	  I2C as the control interface.  Additional options must be
 	  selected to enable support for the functionality of the chip.
 
+config MFD_PCF50633
+	tristate "Support for NXP PCF50633"
+	depends on I2C
+
+config MFD_PCF50633_ADC
+	tristate "Support for NXP PCF50633 ADC"
+	depends on MFD_PCF50633
+
+config MFD_PCF50633_MBC
+	tristate "Support for NXP PCF50633 MBC"
+	depends on MFD_PCF50633
+
+config MFD_PCF50633_GPIO
+	tristate "Support for NXP PCF50633 GPIO"
+	depends on MFD_PCF50633
+
 source "drivers/mfd/glamo/Kconfig"
 
 endmenu

@@ -75,6 +75,6 @@ config REGULATOR_DA903X
 
 config REGULATOR_PCF50633
 	bool "PCF50633 regulator driver"
-        depends on SENSORS_PCF50633
+        depends on MFD_PCF50633
 
 endif
