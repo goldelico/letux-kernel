@@ -48,7 +48,8 @@ void s3c6410_setup_sdhci0_cfg_gpio(struct platform_device *dev, int width)
 		s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
 	}
 
-	s3c_gpio_setpull(S3C64XX_GPG(6), S3C_GPIO_PULL_UP);
+	/* FIXME this needs defining in machine as to if we even have CD */
+	s3c_gpio_setpull(S3C64XX_GPG(6), S3C_GPIO_PULL_DOWN);
 	s3c_gpio_cfgpin(S3C64XX_GPG(6), S3C_GPIO_SFN(2));
 }
 
