@@ -2,7 +2,6 @@
 #define _LINUX_PCF50633_H
 
 #include <linux/pcf506xx.h>
-#include <linux/resume-dependency.h>
 #include <linux/regulator/machine.h>
 
 #define PCF50633_FIDX_CHG_ENABLED	0	/* Charger enabled */
@@ -131,10 +130,6 @@ pcf50633_battvolt(struct pcf50633_data *pcf);
 
 extern int
 pcf50633_report_resumers(struct pcf50633_data *pcf, char *buf);
-
-extern void
-pcf50633_register_resume_dependency(struct pcf50633_data *pcf,
-					struct resume_dependency *dep);
 
 extern int
 pcf50633_notify_usb_current_limit_change(struct pcf50633_data *pcf,
