@@ -1340,6 +1340,14 @@ static struct resource gta02_button_resources[] = {
 		.start = GTA02_GPIO_JACK_INSERT,
 		.end   = GTA02_GPIO_JACK_INSERT,
 	},
+	[3] = {
+		.start = 0,
+		.end   = 0,
+	},
+	[4] = {
+		.start = 0,
+		.end   = 0,
+	},
 };
 
 static struct platform_device gta02_button_dev = {
