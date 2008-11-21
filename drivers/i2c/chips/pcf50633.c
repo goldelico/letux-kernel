@@ -1618,9 +1618,6 @@ static int pcf50633_probe(struct i2c_client *client, const struct i2c_device_id 
 	dev_info(&client->dev, "probe completed\n");
 
 	return 0;
-exit_rtc:
-	if (pcf->pdata->used_features & PCF50633_FEAT_RTC)
-		rtc_device_unregister(pcf->rtc);
 exit_irq:
 	free_irq(pcf->irq, pcf);
 exit_input:
@@ -1730,7 +1727,6 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
 	int i;
 	int ret;
-	u_int8_t tmp;
 	u_int8_t res[5];
 
 	dev_err(dev, "pcf50633_suspend\n");
@@ -1818,7 +1814,6 @@ static int pcf50633_resume(struct device *dev)
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
 	int ret;
 	u8 res[5];
-	u8 misc[PCF50633_REG_LEDDIM - PCF50633_REG_AUTOOUT + 1];
 
 	dev_dbg(dev, "pcf50633_resume suspended on entry = %d\n",
 						 (int)pcf->suspend_state);
