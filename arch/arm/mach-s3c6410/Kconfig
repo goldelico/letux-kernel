@@ -60,3 +60,10 @@ config SMDK6410_SD_CH1
 	  channels 0 and 1 are the same.
 
 endchoice
+
+config MACH_OPENMOKO_GTA03
+        bool "OM_GTA03"
+        select CPU_S3C6410
+        help
+          Machine support for the Openmoko GTA03
+
