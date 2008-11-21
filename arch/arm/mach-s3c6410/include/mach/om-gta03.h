@@ -1,3 +1,16 @@
+/*
+ * GTA03 GPIO Mappings
+ *
+ * (C) 2008 by Openmoko Inc.
+ * Author: Andy Green <andy@openmoko.com>
+ * All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation
+ *
+ */
+
 #ifndef _OM_GTA03_H
 #define _OM_GTA03_H
 
@@ -5,7 +18,7 @@
 #include <mach/irqs.h>
 #include <linux/pcf50633.h>
 
-/* Different hardware revisions, passed in ATAG_REVISION by u-boot */
+/* ATAG_REVISION from bootloader */
 #define GTA03v1_SYSTEM_REV	0x00000001
 
 #define GTA03_GPIO_VIBRATOR_ON		S3C64XX_GPF(13)
@@ -60,19 +73,18 @@
 
 #define GTA03_GPIO_N_MODEM_RESET	S3C64XX_GPO(1)
 
-#define GTA03_IRQ_GSENSOR_1	IRQ_EINT0
-#define GTA03_IRQ_KEY_MINUS	IRQ_EINT1
-#define GTA03_IRQ_KEY_PLUS	IRQ_EINT2
-#define GTA03_IRQ_PWR_IND	IRQ_EINT3
-#define GTA03_IRQ_PMU		IRQ_EINT4
-#define GTA03_IRQ_AUX		IRQ_EINT6
-#define GTA03_IRQ_nHOLD		IRQ_EINT7
-#define GTA03v1_IRQ_nSIM_CD	IRQ_EINT8
-#define GTA03_IRQ_PCF50633	IRQ_EINT9
-#define GTA03_IRQ_3D		IRQ_EINT12
-#define GTA03_IRQ_GSENSOR_2	IRQ_EINT16
-#define GTA03v3_IRQ_nUSB_OC	IRQ_EINT17
-#define GTA03v3_IRQ_nUSB_FLT	IRQ_EINT18
-#define GTA03v3_IRQ_nGSM_OC	IRQ_EINT19
+#define GTA03_IRQ_GSENSOR_1	S3C_EINT(0)
+#define GTA03_IRQ_KEY_MINUS	S3C_EINT(1)
+#define GTA03_IRQ_KEY_PLUS	S3C_EINT(2)
+#define GTA03_IRQ_PWR_IND	S3C_EINT(3)
+#define GTA03_IRQ_PMU		S3C_EINT(4)
+#define GTA03_IRQ_TOUCH		S3C_EINT(5)
+#define GTA03_IRQ_JACK_INSERT	S3C_EINT(6)
+#define GTA03_IRQ_GPS_INT	S3C_EINT(7)
+#define GTA03_IRQ_NHOLD		S3C_EINT(8)
+#define GTA03_IRQ_WLAN_WAKEUP	S3C_EINT(9)
+#define GTA03_IRQ_GSENSOR_2	S3C_EINT(10)
+#define GTA03_IRQ_IO1		S3C_EINT(11)
+#define GTA03_IRQ_NONKEYWAKE	S3C_EINT(12)
 
 #endif /* _OM_GTA03_H */

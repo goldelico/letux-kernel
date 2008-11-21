@@ -1574,7 +1574,7 @@ static int pcf50633_probe(struct i2c_client *client, const struct i2c_device_id 
 
 	if (enable_irq_wake(irq) < 0)
 		dev_err(&client->dev, "IRQ %u cannot be enabled as wake-up"
-		        "source in this hardware revision!", irq);
+		        "source in this hardware revision! vs %d\n", irq, S3C_EINT(4));
 
 	if (pcf->pdata->used_features & PCF50633_FEAT_RTC) {
 		pcf50633_rtc_pdev.dev.platform_data = pcf;

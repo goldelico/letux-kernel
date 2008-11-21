@@ -37,21 +37,21 @@
 #include <asm/mach-types.h>
 
 #include <plat/regs-serial.h>
+#include <plat/iic.h>
 
 #include <plat/s3c6410.h>
 #include <plat/clock.h>
 #include <plat/devs.h>
 #include <plat/cpu.h>
 
-#include <plat/udc.h>
+/* #include <plat/udc.h> */
 #include <linux/i2c.h>
 #include <linux/backlight.h>
 #include <linux/regulator/machine.h>
 
 #include <linux/pcf50633.h>
 
-#include <linux/ts_filter_mean.h>
-#include <linux/ts_filter_median.h>
+#include <mach/om-gta03.h>
 
 #define UCON S3C2410_UCON_DEFAULT | S3C2410_UCON_UCLK
 #define ULCON S3C2410_LCON_CS8 | S3C2410_LCON_PNONE | S3C2410_LCON_STOPB
@@ -88,28 +88,28 @@ static struct s3c2410_uartcfg om_gta03_uartcfgs[] __initdata = {
 	},
 };
 
-struct map_desc om_gta03_iodesc[] = {};
+struct map_desc om_gta03_6410_iodesc[] = {};
 
 static struct resource om_gta03_button_resources[] = {
 	[0] = {
-		.start = GTA03_GPIO_AUX_KEY,
-		.end   = GTA03_GPIO_AUX_KEY,
+		.start = 0,
+		.end   = 0,
 	},
 	[1] = {
-		.start = GTA03_GPIO_HOLD_KEY,
-		.end   = GTA03_GPIO_HOLD_KEY,
+		.start = GTA03_GPIO_HOLD,
+		.end   = GTA03_GPIO_HOLD,
 	},
 	[2] = {
 		.start = GTA03_GPIO_JACK_INSERT,
 		.end   = GTA03_GPIO_JACK_INSERT,
 	},
 	[3] = {
-		.start = GTA03_GPIO_PLUS_KEY,
-		.end   = GTA03_GPIO_PLUS_KEY,
+		.start = GTA03_GPIO_KEY_PLUS,
+		.end   = GTA03_GPIO_KEY_PLUS,
 	},
 	[4] = {
-		.start = GTA03_GPIO_MINUS_KEY,
-		.end   = GTA03_GPIO_MINUS_KEY,
+		.start = GTA03_GPIO_KEY_MINUS,
+		.end   = GTA03_GPIO_KEY_MINUS,
 	},
 };
 
@@ -121,6 +121,25 @@ static struct platform_device om_gta03_button_dev = {
 
 
 /********************** PMU ***************************/
+/*
+ * GTA03 PMU Mapping info
+ *
+ *  name  maxcurr  default    Nom   consumers
+ *
+ *  AUTO   1100mA  ON  3.3V   3.3V  Main 3.3V rail
+ *  DOWN1   500mA  ON  1.2V   1.2V  CPU VddARM, VddINT, VddMPLL, VddOTGI
+ *  DOWN2   500mA  ON  1.8V   1.8V  CPU VddAlive via LDO, Memories, WLAN
+ *  LED      25mA  OFF        18V   Backlight
+ *  HCLDO   200mA  OFF        2.8V  Camera 2V8
+ *  LDO1     50mA  ON  2.8V   --- unused ---
+ *  LDO2     50mA  OFF        1.8V  Camera 1V8
+ *  LDO3     50mA  OFF        3.3V  CODEC 3.3V
+ *  LDO4    150mA  ON  2.8V   2.7V  uSD power
+ *  LDO5    150mA  OFF        3.0V  GPS 3V
+ *  LDO6     50mA  ON  3.0V   3.0V  LCM 3V
+ *
+ */
+
 
 /* PMU driver info */
 
@@ -181,6 +200,21 @@ static void om_gta03_pcf50633_attach_child_devices(struct device *parent_device)
 }
 
 
+static struct regulator_consumer_supply ldo4_consumers[] = {
+	{
+		.dev = &s3c_device_hsmmc0.dev,
+		.supply = "SD_3V",
+	},
+};
+#if 0
+static struct regulator_consumer_supply ldo5_consumers[] = {
+	{
+		.dev = &gta01_pm_gps_dev.dev,
+		.supply = "RF_3V",
+	},
+};
+#endif
+
 
 
 struct pcf50633_platform_data om_gta03_pcf_pdata = {
@@ -205,10 +239,8 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 		[1] = PCF50633_INT2_ONKEYF,
 		[2] = PCF50633_INT3_ONKEY1S
 	},
-	/* warning: these get rewritten during machine init below
-	 * depending on pcb variant
-	 */
 	.reg_init_data = {
+		/* GTA03: Main 3.3V rail */
 		[PCF50633_REGULATOR_AUTO] = {
 			.constraints = {
 				.min_uV = 3300000,
@@ -221,15 +253,17 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			},
 			.num_consumer_supplies = 0,
 		},
+		/* GTA03: CPU core power */
 		[PCF50633_REGULATOR_DOWN1] = {
 			.constraints = {
-				.min_uV = 1300000,
-				.max_uV = 1600000,
+				.min_uV = 900000,
+				.max_uV = 1200000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
 				.apply_uV = 1,
 			},
 			.num_consumer_supplies = 0,
 		},
+		/* GTA03: Memories */
 		[PCF50633_REGULATOR_DOWN2] = {
 			.constraints = {
 				.min_uV = 1800000,
@@ -242,15 +276,17 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			},
 			.num_consumer_supplies = 0,
 		},
+		/* GTA03: Camera 2V8 */
 		[PCF50633_REGULATOR_HCLDO] = {
 			.constraints = {
 				.min_uV = 2000000,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
 			},
-			.num_consumer_supplies = 1,
-			.consumer_supplies = hcldo_consumers,
+			.num_consumer_supplies = 0,
+/*			.consumer_supplies = hcldo_consumers, */
 		},
+		/* GTA03: Unused */
 		[PCF50633_REGULATOR_LDO1] = {
 			.constraints = {
 				.min_uV = 1300000,
@@ -260,6 +296,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			},
 			.num_consumer_supplies = 0,
 		},
+		/* GTA03: Camera 1V8 */
 		[PCF50633_REGULATOR_LDO2] = {
 			.constraints = {
 				.min_uV = 3300000,
@@ -269,7 +306,29 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			},
 			.num_consumer_supplies = 0,
 		},
+		/* GTA03: Codec 3.3V */
 		[PCF50633_REGULATOR_LDO3] = {
+			.constraints = {
+				.min_uV = 3300000,
+				.max_uV = 3300000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
+			},
+			.num_consumer_supplies = 0,
+		},
+		/* GTA03: uSD Power */
+		[PCF50633_REGULATOR_LDO4] = {
+			.constraints = {
+				.min_uV = 3000000,
+				.max_uV = 3000000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
+			},
+			.num_consumer_supplies = 1,
+			.consumer_supplies = ldo4_consumers,
+		},
+		/* GTA03: GPS 3V */
+		[PCF50633_REGULATOR_LDO5] = {
 			.constraints = {
 				.min_uV = 3000000,
 				.max_uV = 3000000,
@@ -277,32 +336,13 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 				.apply_uV = 1,
 			},
 			.num_consumer_supplies = 0,
+/*			.consumer_supplies = ldo5_consumers, */
 		},
-
-		[PCF50633_REGULATOR_LDO4] = {
-			.constraints = {
-				.min_uV = 3200000,
-				.max_uV = 3200000,
-				.valid_modes_mask = REGULATOR_MODE_NORMAL,
-				.apply_uV = 1,
-			},
-			.num_consumer_supplies = 1,
-			.consumer_supplies = ldo4_consumers,
-		},
-		[PCF50633_REGULATOR_LDO5] = {
-			.constraints = {
-				.min_uV = 1500000,
-				.max_uV = 1500000,
-				.valid_modes_mask = REGULATOR_MODE_NORMAL,
-				.apply_uV = 1,
-			},
-			.num_consumer_supplies = 1,
-			.consumer_supplies = ldo5_consumers,
-		},
+		/* GTA03: LCM 3V */
 		[PCF50633_REGULATOR_LDO6] = {
 			.constraints = {
-				.min_uV = 0,
-				.max_uV = 3300000,
+				.min_uV = 3000000,
+				.max_uV = 3000000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
 				.state_mem = {
 					.enabled = 1,
@@ -310,6 +350,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			},
 			.num_consumer_supplies = 0,
 		},
+		/* power for memories in suspend */
 		[PCF50633_REGULATOR_MEMLDO] = {
 			.constraints = {
 				.min_uV = 1800000,
@@ -348,7 +389,7 @@ extern void s3c64xx_init_io(struct map_desc *, int);
 
 static void __init om_gta03_map_io(void)
 {
-	s3c64xx_init_io(om_gta03_iodesc, ARRAY_SIZE(om_gta03_6410_iodesc));
+	s3c64xx_init_io(om_gta03_6410_iodesc, ARRAY_SIZE(om_gta03_6410_iodesc));
 	s3c24xx_init_clocks(12000000);
 	s3c24xx_init_uarts(om_gta03_uartcfgs, ARRAY_SIZE(om_gta03_uartcfgs));
 }
@@ -363,7 +404,7 @@ static void __init om_gta03_machine_init(void)
 	platform_add_devices(om_gta03_devices, ARRAY_SIZE(om_gta03_devices));
 }
 
-MACHINE_START(MACH_TYPE_OPENMOKO_GTA03, "OM-GTA03")
+MACHINE_START(OPENMOKO_GTA03, "OM-GTA03")
 	/* Maintainer: Andy Green <andy@openmoko.com> */
 	.phys_io	= S3C_PA_UART & 0xfff00000,
 	.io_pg_offst	= (((u32)S3C_VA_UART) >> 18) & 0xfffc,
