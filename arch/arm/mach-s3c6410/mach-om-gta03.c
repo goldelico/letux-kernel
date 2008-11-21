@@ -364,8 +364,6 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 		},
 
 	},
-	.defer_resume_backlight = 1,
-	.resume_backlight_ramp_speed = 5,
 	.attach_child_devices = om_gta03_pcf50633_attach_child_devices,
 };
 
