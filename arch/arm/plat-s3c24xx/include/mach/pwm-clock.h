@@ -41,4 +41,15 @@ static inline unsigned int pwm_tdiv_has_div1(void)
 	return 0;
 }
 
+/**
+ * pwm_tdiv_div_bits() - calculate TCFG1 divisor value.
+ * @div: The divisor to calculate the bit information for.
+ *
+ * Turn a divisor into the necessary bit field for TCFG1.
+ */
+static inline unsigned long pwm_tdiv_div_bits(unsigned int div)
+{
+	return ilog2(div) - 1;
+}
+
 #define S3C_TCFG1_MUX_TCLK S3C2410_TCFG1_MUX_TCLK
