@@ -701,6 +701,18 @@ void __init s3c24xx_init_irq(void)
 
 	last = 0;
 	for (i = 0; i < 4; i++) {
+		pend = __raw_readl(S3C2410_SUBSRCPND);
+
+		if (pend == 0 || pend == last)
+			break;
+
+		printk("irq: clearing subpending status %08x\n", (int)pend);
+		__raw_writel(pend, S3C2410_SUBSRCPND);
+		last = pend;
+	}
+
+	last = 0;
+	for (i = 0; i < 4; i++) {
 		pend = __raw_readl(S3C2410_INTPND);
 
 		if (pend == 0 || pend == last)
@@ -709,18 +721,6 @@ void __init s3c24xx_init_irq(void)
 		__raw_writel(pend, S3C2410_SRCPND);
 		__raw_writel(pend, S3C2410_INTPND);
 		printk("irq: clearing pending status %08x\n", (int)pend);
-		last = pend;
-	}
-
-	last = 0;
-	for (i = 0; i < 4; i++) {
-		pend = __raw_readl(S3C2410_SUBSRCPND);
-
-		if (pend == 0 || pend == last)
-			break;
-
-		printk("irq: clearing subpending status %08x\n", (int)pend);
-		__raw_writel(pend, S3C2410_SUBSRCPND);
 		last = pend;
 	}
 
