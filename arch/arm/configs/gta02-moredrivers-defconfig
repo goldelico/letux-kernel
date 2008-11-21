@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.28-rc3
-# Fri Nov 14 13:44:45 2008
+# Linux kernel version: 2.6.28-rc4
+# Thu Nov 20 09:10:06 2008
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1254,6 +1254,7 @@ CONFIG_FB_S3C2410=y
 # CONFIG_FB_S3C2410_DEBUG is not set
 # CONFIG_FB_VIRTUAL is not set
 # CONFIG_FB_METRONOME is not set
+# CONFIG_FB_MB862XX is not set
 CONFIG_BACKLIGHT_LCD_SUPPORT=y
 CONFIG_LCD_CLASS_DEVICE=y
 CONFIG_LCD_LTV350QV=y
@@ -1670,10 +1671,6 @@ CONFIG_ANDROID_LOGGER=y
 # CONFIG_ANDROID_RAM_CONSOLE is not set
 # CONFIG_ANDROID_TIMED_GPIO is not set
 # CONFIG_ANDROID_PARANOID_NETWORK is not set
-
-#
-# Voltage and Current regulators
-#
 CONFIG_REGULATOR=y
 CONFIG_REGULATOR_DEBUG=y
 # CONFIG_REGULATOR_FIXED_VOLTAGE is not set
