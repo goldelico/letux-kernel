@@ -156,18 +156,26 @@ config MFD_WM8350_I2C
 config MFD_PCF50633
 	tristate "Support for NXP PCF50633"
 	depends on I2C
+	help
+	  Say yes here if you have NXP PCF50633 chip on your board.
+	  This core driver provides register access and IRQ handling
+	  facilities, and registers devices for the various functions
+	  so that function-specific drivers can bind to them.
 
-config MFD_PCF50633_ADC
+
+config PCF50633_ADC
 	tristate "Support for NXP PCF50633 ADC"
 	depends on MFD_PCF50633
+	help
+	 Say yes here if you want to include support for ADC in the
+	 NXP PCF50633 chip.
 
-config MFD_PCF50633_MBC
-	tristate "Support for NXP PCF50633 MBC"
-	depends on MFD_PCF50633
-
-config MFD_PCF50633_GPIO
+config PCF50633_GPIO
 	tristate "Support for NXP PCF50633 GPIO"
 	depends on MFD_PCF50633
+	help
+	 Say yes here if you want to include support GPIO for pins on
+	 the PCF50633 chip.
 
 source "drivers/mfd/glamo/Kconfig"
 

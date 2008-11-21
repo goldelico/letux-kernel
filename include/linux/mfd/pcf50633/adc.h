@@ -1,3 +1,15 @@
+/*
+ * adc.h  -- Driver for NXP PCF50633 ADC
+ *
+ * (C) 2006-2008 by Openmoko, Inc.
+ * All rights reserved.
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ */
+
 #ifndef __LINUX_MFD_PCF50633_ADC_H
 #define __LINUX_MFD_PCF50633_ADC_H
 
@@ -66,27 +78,11 @@ struct pcf50633_adc {
 	struct mutex queue_mutex;
 };
 
-#ifdef CONFIG_MFD_PCF50633_ADC
 extern int
 pcf50633_adc_async_read(struct pcf50633 *pcf, int mux, int avg,
 		void (*callback)(struct pcf50633 *, void *, int),
 		void *callback_param);
 extern int
 pcf50633_adc_sync_read(struct pcf50633 *pcf, int mux, int avg);
-#else
-int
-pcf50633_adc_async_read(struct pcf50633 *pcf, int mux, int avg,
-		void (*callback)(struct pcf50633 *, void *, int),
-		void *callback_param)
-{
-	return -ENODEV;
-}
-
-int
-pcf50633_adc_sync_read(struct pcf50633 *pcf, int mux, int avg)
-{
-	return -ENODEV;
-}
-#endif /* CONFIG_PCF50633_ADC */
 
 #endif /* __LINUX_PCF50633_ADC_H */

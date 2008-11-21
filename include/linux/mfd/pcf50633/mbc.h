@@ -1,3 +1,15 @@
+/*
+ * mbc.h  -- Driver for NXP PCF50633 Main Battery Charger
+ *
+ * (C) 2006-2008 by Openmoko, Inc.
+ * All rights reserved.
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ */
+
 #ifndef __LINUX_MFD_PCF50633_MBC_H
 #define __LINUX_MFD_PCF50633_MBC_H
 
@@ -105,6 +117,8 @@ enum pcf50633_reg_mbcs3 {
 
 #define	PCF50633_MBCC2_VBATCOND_MASK	  0x03
 #define PCF50633_MBCC2_VMAX_MASK	  0x3c
+
+struct pcf50633;
 
 void pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma);
 

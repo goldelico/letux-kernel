@@ -1,3 +1,28 @@
+/* Philips PCF50633 ADC Driver
+ *
+ * (C) 2006-2008 by Openmoko, Inc.
+ * Author: Balaji Rao <balajirrao@openmoko.org>
+ * All rights reserved.
+ *
+ * Broken down from monstrous PCF50633 driver mainly by
+ * Harald Welte and Andy Green
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ */
+
 #include <linux/mfd/pcf50633/core.h>
 #include <linux/mfd/pcf50633/adc.h>
 
@@ -22,7 +47,7 @@ static void adc_read_setup(struct pcf50633 *pcf,
 	pcf50633_reg_write(pcf, PCF50633_REG_ADCC2, 0x00);
 	pcf50633_reg_write(pcf, PCF50633_REG_ADCC3, 0x01);
 
-	/* start ADC conversion of selected channel */
+	/* start ADC conversion on selected channel */
 	pcf50633_reg_write(pcf, PCF50633_REG_ADCC1, channel | avg |
 		    PCF50633_ADCC1_ADCSTART | PCF50633_ADCC1_RES_10BIT);
 

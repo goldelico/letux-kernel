@@ -81,5 +81,11 @@ config GTA02_HDQ
 	  on the Neo Freerunner.  You probably want to select
 	  at least BATTERY_BQ27000_HDQ as well
 
+config CHARGER_PCF50633
+	tristate "Support for NXP PCF50633 MBC"
+	depends on MFD_PCF50633
+	help
+	 Say Y to include support for NXP PCF50633 Main Battery Charger.
+
 endif # POWER_SUPPLY
 

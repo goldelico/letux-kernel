@@ -27,3 +27,5 @@ obj-$(CONFIG_BATTERY_PALMTX)	+= palmtx_battery.o
 obj-$(CONFIG_BATTERY_BQ27000_HDQ)	+= bq27000_battery.o
 
 obj-$(CONFIG_GTA02_HDQ)		+= gta02_hdq.o
+
+obj-$(CONFIG_CHARGER_PCF50633)	+= pcf50633-charger.o

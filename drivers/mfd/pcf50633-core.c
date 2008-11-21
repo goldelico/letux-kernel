@@ -1,3 +1,25 @@
+/* Philips PCF50633 Power Management Unit (PMU) driver
+ *
+ * (C) 2006-2008 by Openmoko, Inc.
+ * Author: Harald Welte <laforge@openmoko.org>
+ * All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
+ */
 #include <linux/i2c.h>
 #include <linux/irq.h>
 #include <linux/device.h>
@@ -506,8 +528,6 @@ static int pcf50633_probe(struct i2c_client *client,
 						&pcf->mbc.pdev);
 	pcf50633_client_dev_register(pcf, "pcf50633-adc",
 						&pcf->adc.pdev);
-	pcf50633_client_dev_register(pcf, "pcf50633-gpio",
-						&pcf->gpio.pdev);
 	for (i = 0; i < PCF50633_NUM_REGULATORS; i++) {
 		struct platform_device *pdev;
 

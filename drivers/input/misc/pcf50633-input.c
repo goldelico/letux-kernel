@@ -1,3 +1,28 @@
+/* Philips PCF50633 Input Driver
+ *
+ * (C) 2006-2008 by Openmoko, Inc.
+ * Author: Balaji Rao <balajirrao@openmoko.org>
+ * All rights reserved.
+ *
+ * Broken down from monstrous PCF50633 driver mainly by
+ * Harald Welte and Andy Green
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ */
+
 #include <linux/input.h>
 
 #include <linux/mfd/pcf50633/core.h>
@@ -9,7 +34,6 @@ pcf50633_input_irq(struct pcf50633 *pcf, int irq, void *data)
 	struct input_dev *input_dev = pcf->input.input_dev;
 	int onkey_released;
 
-
 	/* We report only one event depending on if the key status */
 	onkey_released = pcf50633_reg_read(pcf, PCF50633_REG_OOCSTAT) &
 					PCF50633_OOCSTAT_ONKEY;
@@ -18,12 +42,6 @@ pcf50633_input_irq(struct pcf50633 *pcf, int irq, void *data)
 		input_report_key(input_dev, KEY_POWER, 1);
 	else if (irq == PCF50633_IRQ_ONKEYR && onkey_released)
 		input_report_key(input_dev, KEY_POWER, 0);
-
-	/* MBC makes sure that only one of USBINS/USBREM will be called */
-	if (irq == PCF50633_IRQ_USBINS)
-		input_report_key(input_dev, KEY_POWER2, 1);
-	else if (irq == PCF50633_IRQ_USBREM)
-		input_report_key(input_dev, KEY_POWER2, 0);
 
 	input_sync(input_dev);
 }
@@ -41,7 +59,6 @@ int __init pcf50633_input_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	input_dev->name = "GTA02 PMU events";
-	input_dev->phys = "FIXME";
 	input_dev->id.bustype = BUS_I2C;
 
 	input_dev->evbit[0] = BIT(EV_KEY) | BIT(EV_PWR);

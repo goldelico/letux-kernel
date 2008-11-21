@@ -1,3 +1,28 @@
+/* Philips PCF50633 RTC Driver
+ *
+ * (C) 2006-2008 by Openmoko, Inc.
+ * Author: Balaji Rao <balajirrao@openmoko.org>
+ * All rights reserved.
+ *
+ * Broken down from monstrous PCF50633 driver mainly by
+ * Harald Welte and Andy Green
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ */
+
 #include <linux/rtc.h>
 #include <linux/platform_device.h>
 #include <linux/bcd.h>
@@ -214,6 +239,9 @@ static void pcf50633_rtc_irq(struct pcf50633 *pcf, int irq, void *unused)
 	switch(irq) {
 		case PCF50633_IRQ_ALARM:
 			rtc_update_irq(pcf->rtc.rtc_dev, 1, RTC_AF | RTC_IRQF);
+			break;
+		case PCF50633_IRQ_SECOND:
+			rtc_update_irq(pcf->rtc.rtc_dev, 1, RTC_PF | RTC_IRQF);
 			break;
 	}
 }

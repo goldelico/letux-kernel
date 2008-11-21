@@ -1,3 +1,15 @@
+/*
+ * rtc.h  -- RTC driver for NXP PCF50633
+ *
+ * (C) 2006-2008 by Openmoko, Inc.
+ * All rights reserved.
+ *
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ */
+
 #ifndef __LINUX_MFD_PCF50633_RTC_H
 #define __LINUX_MFD_PCF50633_RTC_H
 
@@ -18,8 +30,6 @@
 #define PCF50633_REG_RTCDTA	0x64 /* Alarm Day */
 #define PCF50633_REG_RTCMTA	0x65 /* Alarm Month */
 #define PCF50633_REG_RTCYRA	0x66 /* Alarm Year */
-
-#define PCF50633_F_RTC_SECOND	(1 << PCF50633_FIDX_RTC_SECOND)
 
 struct pcf50633_rtc {
 	int alarm_enabled;

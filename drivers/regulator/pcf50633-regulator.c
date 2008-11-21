@@ -1,5 +1,26 @@
-/*
- * Regulator driver for pcf50633
+/* Philips PCF50633 PMIC Driver
+ *
+ * (C) 2006-2008 by Openmoko, Inc.
+ * Author: Balaji Rao <balajirrao@openmoko.org>
+ * All rights reserved.
+ *
+ * Broken down from monstrous PCF50633 driver mainly by
+ * Harald Welte and Andy Green
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <linux/regulator/driver.h>
@@ -17,8 +38,7 @@
 		.type = REGULATOR_VOLTAGE, 	\
 		.owner = THIS_MODULE, 		\
 	}
-
-static const u_int8_t regulator_registers[PCF50633_NUM_REGULATORS] = {
+static const u8 pcf50633_regulator_registers[PCF50633_NUM_REGULATORS] = {
 	[PCF50633_REGULATOR_AUTO]	= PCF50633_REG_AUTOOUT,
 	[PCF50633_REGULATOR_DOWN1]	= PCF50633_REG_DOWN1OUT,
 	[PCF50633_REGULATOR_DOWN2]	= PCF50633_REG_DOWN2OUT,
@@ -104,7 +124,7 @@ static int pcf50633_regulator_set_voltage(struct regulator_dev *rdev,
 
 	millivolts = min_uV / 1000;
 
-	regnr = regulator_registers[regulator_id];
+	regnr = pcf50633_regulator_registers[regulator_id];
 
 	switch (regulator_id) {
 	case PCF50633_REGULATOR_AUTO:
@@ -143,7 +163,7 @@ static int pcf50633_regulator_get_voltage(struct regulator_dev *rdev)
 	if (regulator_id >= PCF50633_NUM_REGULATORS)
 		return -EINVAL;
 
-	regnr = regulator_registers[regulator_id];
+	regnr = pcf50633_regulator_registers[regulator_id];
 	volt_bits = pcf50633_reg_read(pcf, regnr);
 
 	switch (regulator_id) {
@@ -182,7 +202,7 @@ static int pcf50633_regulator_enable(struct regulator_dev *rdev)
 		return -EINVAL;
 
 	/* the *ENA register is always one after the *OUT register */
-	regnr = regulator_registers[regulator_id] + 1;
+	regnr = pcf50633_regulator_registers[regulator_id] + 1;
 
 	pcf50633_reg_set_bit_mask(pcf, regnr, PCF50633_REGULATOR_ON,
 		       PCF50633_REGULATOR_ON);
@@ -200,7 +220,7 @@ static int pcf50633_regulator_disable(struct regulator_dev *rdev)
 		return -EINVAL;
 
 	/* the *ENA register is always one after the *OUT register */
-	regnr = regulator_registers[regulator_id] + 1;
+	regnr = pcf50633_regulator_registers[regulator_id] + 1;
 
 	pcf50633_reg_set_bit_mask(pcf, regnr, PCF50633_REGULATOR_ON, 0);
 
@@ -217,7 +237,7 @@ static int pcf50633_regulator_is_enabled(struct regulator_dev *rdev)
 		return -EINVAL;
 
 	/* the *ENA register is always one after the *OUT register */
-	regnr = regulator_registers[regulator_id] + 1;
+	regnr = pcf50633_regulator_registers[regulator_id] + 1;
 	val = pcf50633_reg_read(pcf, regnr) & PCF50633_REGULATOR_ON;
 
 	return val;
