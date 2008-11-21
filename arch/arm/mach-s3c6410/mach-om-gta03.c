@@ -218,28 +218,6 @@ static struct platform_device om_gta03_button_dev = {
 /* PMU driver info */
 
 
-/* this is called when pc50633 is probed, unfortunately quite late in the
- * day since it is an I2C bus device.  Here we can belatedly define some
- * platform devices with the advantage that we can mark the pcf50633 as the
- * parent.  This makes them get suspended and resumed with their parent
- * the pcf50633 still around.
- */
-
-static void om_gta03_pcf50633_attach_child_devices(struct device *parent_device)
-{
-#if 0
-	int n;
-
-	for (n = 0; n < ARRAY_SIZE(gta02_devices_pmu_children); n++)
-		gta02_devices_pmu_children[n]->dev.parent = parent_device;
-
-	mangle_glamo_res_by_system_rev();
-	platform_add_devices(gta02_devices_pmu_children,
-					ARRAY_SIZE(gta02_devices_pmu_children));
-#endif
-}
-
-
 static struct regulator_consumer_supply ldo4_consumers[] = {
 	{
 		.dev = &s3c_device_hsmmc0.dev,
@@ -272,31 +250,9 @@ static void om_gta03_pmu_event_callback(struct pcf50633 *pcf, int irq)
 #endif
 }
 
-static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
-{
-#if 0
-	struct platform_device *regulator, *pdev;
 
-	regulator = pcf->pmic.pdev[id];
-
-	switch(id) {
-		case PCF50633_REGULATOR_LDO4:
-			pdev = &gta01_pm_bt_dev;
-			break;
-		case PCF50633_REGULATOR_LDO5:
-			pdev = &gta01_pm_gps_dev;
-			break;
-		case PCF50633_REGULATOR_HCLDO:
-			pdev = &gta02_glamo_dev;
-			break;
-		default:
-			return;
-	}
-
-	pdev->dev.parent = &regulator->dev;
-	platform_device_register(pdev);
-#endif
-}
+static void om_gta03_pcf50633_attach_child_devices(struct pcf50633 *pcf);
+static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id);
 
 struct pcf50633_platform_data om_gta03_pcf_pdata = {
 
@@ -449,13 +405,62 @@ static struct i2c_board_info om_gta03_i2c_devs[] __initdata = {
 
 
 static struct platform_device *om_gta03_devices[] __initdata = {
-	&s3c_device_hsmmc0,
-	&s3c_device_hsmmc1,
-	&s3c_device_i2c0,
 	&s3c_device_fb,
-	&om_gta03_lcd_powerdev,
+	&s3c_device_i2c0,
+	&s3c_device_hsmmc1, /* SDIO to WLAN */
 	&om_gta03_button_dev,
 };
+
+static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
+{
+	struct platform_device *regulator, *pdev;
+
+	regulator = pcf->pmic.pdev[id];
+
+	switch(id) {
+		case PCF50633_REGULATOR_LDO4:
+			pdev = &s3c_device_hsmmc0;
+			break;
+		case PCF50633_REGULATOR_LDO6:
+			pdev = &om_gta03_lcd_powerdev;
+			break;
+		default:
+			return;
+	}
+
+	pdev->dev.parent = &regulator->dev;
+	platform_device_register(pdev);
+}
+
+static struct platform_device *om_gta03_devices_pmu_children[] = {
+};
+
+/* this is called when pc50633 is probed, unfortunately quite late in the
+ * day since it is an I2C bus device.  Here we can belatedly define some
+ * platform devices with the advantage that we can mark the pcf50633 as the
+ * parent.  This makes them get suspended and resumed with their parent
+ * the pcf50633 still around.
+ */
+
+static void om_gta03_pcf50633_attach_child_devices(struct pcf50633 *pcf)
+{
+	int n;
+
+	for (n = 0; n < ARRAY_SIZE(om_gta03_devices_pmu_children); n++)
+		om_gta03_devices_pmu_children[n]->dev.parent = pcf->dev;
+
+	platform_add_devices(om_gta03_devices_pmu_children,
+				     ARRAY_SIZE(om_gta03_devices_pmu_children));
+
+	/* Switch on backlight. Qi does not do it for us */
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
+
+}
+
+
 
 extern void s3c64xx_init_io(struct map_desc *, int);
 
