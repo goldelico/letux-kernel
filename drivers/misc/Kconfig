@@ -493,4 +493,9 @@ config SGI_GRU_DEBUG
 	This option enables addition debugging code for the SGI GRU driver. If
 	you are unsure, say N.
 
+config MACH_NEO1973
+	bool
+	help
+	  Common machine code for Openmoko GTAxx hardware
+
 endif # MISC_DEVICES

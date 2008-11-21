@@ -43,12 +43,9 @@ obj-$(CONFIG_S3C24XX_SPI_BUS1_GPG5_GPG6_GPG7)    += spi-bus1-gpg5_6_7.o
 # machine common support
 
 obj-$(CONFIG_MACH_SMDK)		+= common-smdk.o
-obj-$(CONFIG_MACH_NEO1973)	+= neo1973_version.o \
-				   neo1973_pm_host.o \
-				   neo1973_pm_gsm.o \
-				   neo1973_pm_gps.o \
-				   neo1973_pm_bt.o  \
-				   gta02_pm_wlan.o  \
-				   neo1973_shadow.o \
-				   neo1973_pm_resume_reason.o \
-				   neo1973_memconfig.o
+obj-$(CONFIG_MACH_NEO1973)	+= \
+                                   neo1973_pm_gsm.o \
+                                   neo1973_pm_gps.o \
+                                   neo1973_pm_bt.o  \
+                                   gta02_pm_wlan.o  \
+                                   neo1973_shadow.o
