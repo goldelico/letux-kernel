@@ -228,9 +228,7 @@ EXPORT_SYMBOL(pcf50633_irq_mask_get);
 static void pcf50633_irq_call_handler(struct pcf50633 *pcf,
 					int irq)
 {
-	printk(KERN_INFO "pcf = %p\n", pcf);
 	if (pcf->irq_handler[irq].handler) {
-		printk(KERN_INFO "irq = %d, %p, data=0x%08x\n", irq, pcf->irq_handler[irq].handler, pcf->irq_handler[irq].data);
 		pcf->irq_handler[irq].handler(pcf, irq,
 					pcf->irq_handler[irq].data);
 	}
@@ -453,8 +451,9 @@ static int pcf50633_probe(struct i2c_client *client,
 	struct pcf50633 *pcf;
 	struct pcf50633_platform_data *pdata;
 	int i, ret = 0;
-	int version, variant;
 	u8 mbcs1;
+	int version;
+	int variant;
 
 	pdata = client->dev.platform_data;
 
