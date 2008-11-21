@@ -28,6 +28,7 @@
 #include <linux/i2c.h>
 #include <linux/fb.h>
 #include <linux/delay.h>
+#include <linux/lis302dl.h>
 
 #include <video/platform_lcd.h>
 
@@ -99,6 +100,150 @@ static struct s3c2410_uartcfg om_gta03_uartcfgs[] __initdata = {
 		.ufcon       = 0x51,
 	},
 };
+
+
+/*
+ * Situation is that Linux SPI can't work in an interrupt context, so we
+ * implement our own bitbang here.  Arbitration is needed because not only
+ * can this interrupt happen at any time even if foreground wants to use
+ * the bitbang API from Linux, but multiple motion sensors can be on the
+ * same SPI bus, and multiple interrupts can happen.
+ *
+ * Foreground / interrupt arbitration is okay because the interrupts are
+ * disabled around all the foreground SPI code.
+ *
+ * Interrupt / Interrupt arbitration is evidently needed, otherwise we
+ * lose edge-triggered service after a while due to the two sensors sharing
+ * the SPI bus having irqs at the same time eventually.
+ *
+ * Servicing is typ 75 - 100us at 400MHz.
+ */
+
+/* #define DEBUG_SPEW_MS */
+#define MG_PER_SAMPLE 18
+
+struct lis302dl_platform_data lis302_pdata;
+
+/*
+ * generic SPI RX and TX bitbang
+ * only call with interrupts off!
+ */
+
+static void __gta03_lis302dl_bitbang(struct lis302dl_info *lis, u8 *tx,
+					     int tx_bytes, u8 *rx, int rx_bytes)
+{
+	struct lis302dl_platform_data *pdata = lis->pdata;
+	int n;
+	u8 shifter = 0;
+
+	gpio_direction_output(pdata->pin_chip_select, 1);
+	gpio_direction_output(pdata->pin_clk, 1);
+	gpio_direction_output(pdata->pin_chip_select, 0);
+
+	/* send the register index, r/w and autoinc bits */
+	for (n = 0; n < (tx_bytes << 3); n++) {
+		if (!(n & 7))
+			shifter = ~tx[n >> 3];
+		gpio_direction_output(pdata->pin_clk, 0);
+		gpio_direction_output(pdata->pin_mosi, !(shifter & 0x80));
+		gpio_direction_output(pdata->pin_clk, 1);
+		shifter <<= 1;
+	}
+
+	for (n = 0; n < (rx_bytes << 3); n++) { /* 8 bits each */
+		gpio_direction_output(pdata->pin_clk, 0);
+		shifter <<= 1;
+		if (gpio_direction_input(pdata->pin_miso))
+			shifter |= 1;
+		if ((n & 7) == 7)
+			rx[n >> 3] = shifter;
+		gpio_direction_output(pdata->pin_clk, 1);
+	}
+	gpio_direction_output(pdata->pin_chip_select, 1);
+}
+
+
+static int gta03_lis302dl_bitbang_read_reg(struct lis302dl_info *lis, u8 reg)
+{
+	u8 data = 0xc0 | reg; /* read, autoincrement */
+	unsigned long flags;
+
+	local_irq_save(flags);
+
+	__gta03_lis302dl_bitbang(lis, &data, 1, &data, 1);
+
+	local_irq_restore(flags);
+
+	return data;
+}
+
+static void gta03_lis302dl_bitbang_write_reg(struct lis302dl_info *lis, u8 reg,
+									 u8 val)
+{
+	u8 data[2] = { 0x00 | reg, val }; /* write, no autoincrement */
+	unsigned long flags;
+
+	local_irq_save(flags);
+
+	__gta03_lis302dl_bitbang(lis, &data[0], 2, NULL, 0);
+
+	local_irq_restore(flags);
+
+}
+
+
+void gta03_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
+{
+	struct lis302dl_platform_data *pdata = lis->pdata;
+
+	if (!resume) {
+		 /*
+		 * we don't want to power them with a high level
+		 * because GSENSOR_3V3 is not up during suspend
+		 */
+		gpio_direction_output(pdata->pin_chip_select, 0);
+		gpio_direction_output(pdata->pin_clk, 0);
+		gpio_direction_output(pdata->pin_mosi, 0);
+		s3c_gpio_setpull(pdata->pin_miso, S3C_GPIO_PULL_DOWN);
+
+		return;
+	}
+
+	/* back to normal */
+	gpio_direction_output(pdata->pin_chip_select, 1);
+	gpio_direction_output(pdata->pin_clk, 1);
+	s3c_gpio_setpull(pdata->pin_miso, S3C_GPIO_PULL_NONE);
+
+	s3c_gpio_cfgpin(pdata->pin_chip_select, S3C_GPIO_SFN(1));
+	s3c_gpio_cfgpin(pdata->pin_clk, S3C_GPIO_SFN(1));
+	s3c_gpio_cfgpin(pdata->pin_mosi, S3C_GPIO_SFN(1));
+	s3c_gpio_cfgpin(pdata->pin_miso, S3C_GPIO_SFN(0));
+
+}
+
+struct lis302dl_platform_data lis302_pdata = {
+		.name		= "lis302",
+		.pin_chip_select= S3C64XX_GPC(3), /* NC */
+		.pin_clk	= GTA03_GPIO_ACCEL_CLK,
+		.pin_mosi	= GTA03_GPIO_ACCEL_MOSI,
+		.pin_miso	= GTA03_GPIO_ACCEL_MISO,
+		.interrupt	= GTA03_IRQ_GSENSOR_1,
+		.open_drain	= 0,
+		.lis302dl_bitbang = __gta03_lis302dl_bitbang,
+		.lis302dl_bitbang_reg_read = gta03_lis302dl_bitbang_read_reg,
+		.lis302dl_bitbang_reg_write = gta03_lis302dl_bitbang_write_reg,
+		.lis302dl_suspend_io = gta03_lis302dl_suspend_io,
+};
+
+static struct platform_device s3c_device_spi_acc1 = {
+	.name		  = "lis302dl",
+	.id		  = 1,
+	.dev = {
+		.platform_data = &lis302_pdata,
+	},
+};
+
+
 
 /* framebuffer and LCD setup. */
 
@@ -439,6 +584,7 @@ static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 
 static struct platform_device *om_gta03_devices_pmu_children[] = {
 	&om_gta03_button_dev,
+	&s3c_device_spi_acc1, /* relies on PMU reg for power */
 	&om_gta03_features_dev,
 };
 

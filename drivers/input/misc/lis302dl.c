@@ -626,7 +626,7 @@ static int __devinit lis302dl_probe(struct platform_device *pdev)
 		dev_set_drvdata(lis->dev, NULL);
 		rc = -ENODEV;
 		local_irq_restore(flags);
-		goto bail_sysfs;
+		goto bail_inp_reg;
 	}
 
 	set_bit(EV_REL, lis->input_dev->evbit);
