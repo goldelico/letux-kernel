@@ -50,7 +50,7 @@
 #include <mach/map.h>
 
 #include <plat/regs-serial.h>
-#ifdef CONFIG_MACH_NEO1973
+#if defined(CONFIG_MACH_NEO1973) && !defined(CONFIG_CPU_S3C6410)
 #include <mach/regs-gpio.h>
 #include <mach/regs-clock.h>
 #endif
