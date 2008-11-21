@@ -98,6 +98,6 @@ void s3c6410_setup_sdhci1_cfg_gpio(struct platform_device *dev, int width)
 		s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
 	}
 
-	s3c_gpio_setpull(S3C64XX_GPG(6), S3C_GPIO_PULL_UP);
-	s3c_gpio_cfgpin(S3C64XX_GPG(6), S3C_GPIO_SFN(3));
+//	s3c_gpio_setpull(S3C64XX_GPG(6), S3C_GPIO_PULL_UP);
+//	s3c_gpio_cfgpin(S3C64XX_GPG(6), S3C_GPIO_SFN(3));
 }
