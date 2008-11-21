@@ -48,6 +48,7 @@ module_param_named(fw_name, lbs_fw_name, charp, 0644);
 
 static const struct sdio_device_id if_sdio_ids[] = {
 	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_LIBERTAS) },
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_88W8688) },
 	{ /* end: all zeroes */						},
 };
 
@@ -72,7 +73,12 @@ static struct if_sdio_model if_sdio_models[] = {
 		.helper = "sd8686_helper.bin",
 		.firmware = "sd8686.bin",
 	},
-};
+	{
+		/* 8688 */
+		.model = 0x10,
+		.helper = "sd8688_helper.bin",
+		.firmware = "sd8688.bin",
+	},};
 
 struct if_sdio_packet {
 	struct if_sdio_packet	*next;
