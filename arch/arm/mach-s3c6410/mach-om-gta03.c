@@ -45,7 +45,7 @@
 #include <plat/regs-serial.h>
 #include <plat/iic.h>
 #include <plat/fb.h>
-
+#include <plat/gpio-cfg.h>
 
 #include <plat/s3c6410.h>
 #include <plat/clock.h>
@@ -311,6 +311,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			.num_consumer_supplies = 0,
 /*			.consumer_supplies = hcldo_consumers, */
 		},
+
 		/* GTA03: Accel 3V3 */
 		[PCF50633_REGULATOR_LDO1] = {
 			.constraints = {
@@ -408,7 +409,6 @@ static struct platform_device *om_gta03_devices[] __initdata = {
 	&s3c_device_fb,
 	&s3c_device_i2c0,
 	&s3c_device_hsmmc1, /* SDIO to WLAN */
-	&om_gta03_button_dev,
 };
 
 static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
@@ -433,6 +433,7 @@ static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 }
 
 static struct platform_device *om_gta03_devices_pmu_children[] = {
+	&om_gta03_button_dev,
 };
 
 /* this is called when pc50633 is probed, unfortunately quite late in the
@@ -475,6 +476,40 @@ static void __init om_gta03_machine_init(void)
 {
 	s3c_i2c0_set_platdata(NULL);
 	s3c_fb_set_platdata(&om_gta03_lcd_pdata);
+
+	s3c_gpio_setpull(S3C64XX_GPH(0), S3C_GPIO_PULL_UP);
+	s3c_gpio_setpull(S3C64XX_GPH(1), S3C_GPIO_PULL_UP);
+	s3c_gpio_setpull(S3C64XX_GPH(2), S3C_GPIO_PULL_UP);
+	s3c_gpio_setpull(S3C64XX_GPH(3), S3C_GPIO_PULL_UP);
+	s3c_gpio_setpull(S3C64XX_GPH(4), S3C_GPIO_PULL_UP);
+	s3c_gpio_setpull(S3C64XX_GPH(5), S3C_GPIO_PULL_UP);
+
+
+	/* give power to WLAN / BT module */
+	s3c_gpio_setpull(S3C64XX_GPK(0), S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(S3C64XX_GPK(0), S3C_GPIO_SFN(1));
+	gpio_direction_output(S3C64XX_GPK(0), 0);
+
+	mdelay(50);
+
+	s3c_gpio_setpull(S3C64XX_GPH(6), S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(S3C64XX_GPH(6), S3C_GPIO_SFN(1));
+	gpio_direction_output(S3C64XX_GPH(6), 0);
+	mdelay(1);
+	gpio_direction_output(S3C64XX_GPH(6), 1);
+
+	s3c_gpio_setpull(S3C64XX_GPH(8), S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(S3C64XX_GPH(8), S3C_GPIO_SFN(1));
+	gpio_direction_output(S3C64XX_GPH(8), 1);
+
+	s3c_gpio_setpull(S3C64XX_GPJ(8), S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(S3C64XX_GPJ(8), S3C_GPIO_SFN(2));
+	s3c_gpio_setpull(S3C64XX_GPK(9), S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(S3C64XX_GPK(9), S3C_GPIO_SFN(1));
+	s3c_gpio_setpull(S3C64XX_GPK(10), S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(S3C64XX_GPK(10), S3C_GPIO_SFN(1));
+	s3c_gpio_setpull(S3C64XX_GPK(11), S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(S3C64XX_GPK(11), S3C_GPIO_SFN(1));
 
 
 	i2c_register_board_info(0, om_gta03_i2c_devs,

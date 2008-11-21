@@ -541,8 +541,8 @@ static int pcf50633_probe(struct i2c_client *client,
 	}
 
 	if (enable_irq_wake(client->irq) < 0)
-		dev_err(pcf->dev, "IRQ %u cannot be enabled as wake-up source"
-			"in this hardware revision", client->irq);
+		dev_err(pcf->dev, "IRQ %u cannot be enabled as wake-up "
+		        "source in this hardware revision\n", client->irq);
 
 	/* Cold Intialization */
 	mbcs1 = pcf50633_reg_read(pcf, PCF50633_REG_MBCS1);
