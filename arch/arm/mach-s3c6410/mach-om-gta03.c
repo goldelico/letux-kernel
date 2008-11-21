@@ -131,8 +131,8 @@ static struct platform_device om_gta03_button_dev = {
  *  DOWN2   500mA  ON  1.8V   1.8V  CPU VddAlive via LDO, Memories, WLAN
  *  LED      25mA  OFF        18V   Backlight
  *  HCLDO   200mA  OFF        2.8V  Camera 2V8
- *  LDO1     50mA  ON  2.8V   2.8V  Accel
- *  LDO2     50mA  OFF        1.8V  Camera 1V8
+ *  LDO1     50mA  ON  3.3V   3.3V  Accel
+ *  LDO2     50mA  OFF        1.5V  Camera 1V5
  *  LDO3     50mA  OFF        3.3V  CODEC 3.3V
  *  LDO4    150mA  ON  2.8V   2.7V  uSD power
  *  LDO5    150mA  OFF        3.0V  GPS 3V
@@ -279,28 +279,28 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 		/* GTA03: Camera 2V8 */
 		[PCF50633_REGULATOR_HCLDO] = {
 			.constraints = {
-				.min_uV = 2000000,
-				.max_uV = 3300000,
+				.min_uV = 2800000,
+				.max_uV = 2800000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
 			},
 			.num_consumer_supplies = 0,
 /*			.consumer_supplies = hcldo_consumers, */
 		},
-		/* GTA03: Unused */
+		/* GTA03: Accel 3V3 */
 		[PCF50633_REGULATOR_LDO1] = {
 			.constraints = {
-				.min_uV = 1300000,
-				.max_uV = 1300000,
+				.min_uV = 3300000,
+				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
 				.apply_uV = 1,
 			},
 			.num_consumer_supplies = 0,
 		},
-		/* GTA03: Camera 1V8 */
+		/* GTA03: Camera 1V5 */
 		[PCF50633_REGULATOR_LDO2] = {
 			.constraints = {
-				.min_uV = 3300000,
-				.max_uV = 3300000,
+				.min_uV = 1500000,
+				.max_uV = 1500000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
 				.apply_uV = 1,
 			},
