@@ -131,7 +131,7 @@ static struct platform_device om_gta03_button_dev = {
  *  DOWN2   500mA  ON  1.8V   1.8V  CPU VddAlive via LDO, Memories, WLAN
  *  LED      25mA  OFF        18V   Backlight
  *  HCLDO   200mA  OFF        2.8V  Camera 2V8
- *  LDO1     50mA  ON  2.8V   --- unused ---
+ *  LDO1     50mA  ON  2.8V   2.8V  Accel
  *  LDO2     50mA  OFF        1.8V  Camera 1V8
  *  LDO3     50mA  OFF        3.3V  CODEC 3.3V
  *  LDO4    150mA  ON  2.8V   2.7V  uSD power
