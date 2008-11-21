@@ -82,8 +82,6 @@ source "drivers/usb/Kconfig"
 
 source "drivers/uwb/Kconfig"
 
-source "drivers/sdio/Kconfig"
-
 source "drivers/mmc/Kconfig"
 
 source "drivers/memstick/Kconfig"
