@@ -16,7 +16,6 @@
 
 #include <mach/gpio.h>
 #include <mach/irqs.h>
-#include <linux/pcf50633.h>
 
 /* ATAG_REVISION from bootloader */
 #define GTA03v1_SYSTEM_REV	0x00000001

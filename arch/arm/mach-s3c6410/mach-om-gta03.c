@@ -57,9 +57,13 @@
 #include <linux/backlight.h>
 #include <linux/regulator/machine.h>
 
-#include <linux/pcf50633.h>
-
 #include <mach/om-gta03.h>
+
+#include <linux/mfd/pcf50633/core.h>
+#include <linux/mfd/pcf50633/mbc.h>
+#include <linux/mfd/pcf50633/adc.h>
+#include <linux/mfd/pcf50633/gpio.h>
+#include <linux/mfd/pcf50633/led.h>
 
 #define UCON S3C2410_UCON_DEFAULT | S3C2410_UCON_UCLK
 #define ULCON S3C2410_LCON_CS8 | S3C2410_LCON_PNONE | S3C2410_LCON_STOPB
@@ -213,40 +217,6 @@ static struct platform_device om_gta03_button_dev = {
 
 /* PMU driver info */
 
-static int om_gta03_pmu_callback(struct device *dev, unsigned int feature,
-			enum pmu_event event)
-{
-#if 0
-	switch (feature) {
-	case PCF50633_FEAT_MBC:
-		switch (event) {
-		case PMU_EVT_CHARGER_IDLE:
-			gta02_charger_active_status = 0;
-			break;
-		case PMU_EVT_CHARGER_ACTIVE:
-			gta02_charger_active_status = 1;
-			break;
-		case PMU_EVT_USB_INSERT:
-			gta02_charger_online_status = 1;
-			break;
-		case PMU_EVT_USB_REMOVE:
-			gta02_charger_online_status = 0;
-			break;
-		case PMU_EVT_INSERT: /* adapter is unsused */
-		case PMU_EVT_REMOVE: /* adapter is unused */
-			break;
-		default:
-			break;
-		}
-		break;
-	default:
-		break;
-	}
-
-	bq27000_charging_state_change(&bq27000_battery_device);
-#endif
-	return 0;
-}
 
 /* this is called when pc50633 is probed, unfortunately quite late in the
  * day since it is an I2C bus device.  Here we can belatedly define some
@@ -285,23 +255,51 @@ static struct regulator_consumer_supply ldo5_consumers[] = {
 };
 #endif
 
+static void om_gta03_pmu_event_callback(struct pcf50633 *pcf, int irq)
+{
+#if 0
+	if (irq == PCF50633_IRQ_USBINS) {
+		schedule_delayed_work(&gta02_charger_work,
+				GTA02_CHARGER_CONFIGURE_TIMEOUT);
+		return;
+	} else if (irq == PCF50633_IRQ_USBREM) {
+		cancel_delayed_work_sync(&gta02_charger_work);
+		pcf50633_mbc_usb_curlim_set(pcf, 0);
+		gta02_usb_vbus_draw = 0;
+	}
 
+	bq27000_charging_state_change(&bq27000_battery_device);
+#endif
+}
+
+static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
+{
+#if 0
+	struct platform_device *regulator, *pdev;
+
+	regulator = pcf->pmic.pdev[id];
+
+	switch(id) {
+		case PCF50633_REGULATOR_LDO4:
+			pdev = &gta01_pm_bt_dev;
+			break;
+		case PCF50633_REGULATOR_LDO5:
+			pdev = &gta01_pm_gps_dev;
+			break;
+		case PCF50633_REGULATOR_HCLDO:
+			pdev = &gta02_glamo_dev;
+			break;
+		default:
+			return;
+	}
+
+	pdev->dev.parent = &regulator->dev;
+	platform_device_register(pdev);
+#endif
+}
 
 struct pcf50633_platform_data om_gta03_pcf_pdata = {
-	.used_features	= PCF50633_FEAT_MBC |
-			  PCF50633_FEAT_BBC |
-			  PCF50633_FEAT_RTC |
-			  PCF50633_FEAT_CHGCUR |
-			  PCF50633_FEAT_BATVOLT |
-			  PCF50633_FEAT_BATTEMP |
-			  PCF50633_FEAT_PWM_BL,
-	.onkey_seconds_sig_init = 4,
-	.onkey_seconds_shutdown = 8,
-	.cb		= &om_gta03_pmu_callback,
-	.r_fix_batt	= 10000,
-	.r_fix_batt_par	= 10000,
-	.r_sense_milli	= 220,
-	.flag_use_apm_emulation = 0,
+
 	.resumers = {
 		[0] = PCF50633_INT1_USBINS |
 		      PCF50633_INT1_USBREM |
@@ -309,6 +307,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 		[1] = PCF50633_INT2_ONKEYF,
 		[2] = PCF50633_INT3_ONKEY1S
 	},
+
 	.reg_init_data = {
 		/* GTA03: Main 3.3V rail */
 		[PCF50633_REGULATOR_AUTO] = {
@@ -434,7 +433,9 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 		},
 
 	},
-	.attach_child_devices = om_gta03_pcf50633_attach_child_devices,
+	.probe_done = om_gta03_pcf50633_attach_child_devices,
+	.regulator_registered = om_gta03_pmu_regulator_registered,
+	.mbc_event_callback = om_gta03_pmu_event_callback,
 };
 
 

@@ -228,9 +228,12 @@ EXPORT_SYMBOL(pcf50633_irq_mask_get);
 static void pcf50633_irq_call_handler(struct pcf50633 *pcf,
 					int irq)
 {
-	if (pcf->irq_handler[irq].handler)
+	printk(KERN_INFO "pcf = %p\n", pcf);
+	if (pcf->irq_handler[irq].handler) {
+		printk(KERN_INFO "irq = %d, %p, data=0x%08x\n", irq, pcf->irq_handler[irq].handler, pcf->irq_handler[irq].data);
 		pcf->irq_handler[irq].handler(pcf, irq,
 					pcf->irq_handler[irq].data);
+	}
 }
 
 #define PCF50633_ONKEY1S_TIMEOUT 8
