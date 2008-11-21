@@ -55,7 +55,7 @@ if make -j5 ARCH=arm CONFIG_DEBUG_SECTION_MISMATCH=y EXTRAVERSION=$VERSION; then
 		rm -rf staging
 		mkdir -p staging
 		if [ ! -z "$1" ] ; then
-			make modules_install INSTALL_MOD_PATH=staging
+			make ARCH=arm modules_install INSTALL_MOD_PATH=staging
 			cd staging
 			tar czf ../modules$VERSION.tar.gz .
 			cd ..
