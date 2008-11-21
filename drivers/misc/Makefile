@@ -35,3 +35,4 @@ obj-$(CONFIG_LOW_MEMORY_KILLER)	+= lowmemorykiller.o
 obj-$(CONFIG_MACH_NEO1973)      += neo1973_version.o \
                                    neo1973_pm_host.o \
                                    neo1973_pm_resume_reason.o
+

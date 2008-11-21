@@ -224,14 +224,18 @@ static struct regulator_consumer_supply ldo4_consumers[] = {
 		.supply = "SD_3V",
 	},
 };
-#if 0
+
+static struct platform_device om_gta03_features_dev = {
+	.name		= "om-gta03",
+};
+
 static struct regulator_consumer_supply ldo5_consumers[] = {
 	{
-		.dev = &gta01_pm_gps_dev.dev,
+		.dev = &om_gta03_features_dev.dev,
 		.supply = "RF_3V",
 	},
 };
-#endif
+
 
 static void om_gta03_pmu_event_callback(struct pcf50633 *pcf, int irq)
 {
@@ -361,8 +365,8 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
 				.apply_uV = 1,
 			},
-			.num_consumer_supplies = 0,
-/*			.consumer_supplies = ldo5_consumers, */
+			.num_consumer_supplies = 1,
+			.consumer_supplies = ldo5_consumers,
 		},
 		/* GTA03: LCM 3V */
 		[PCF50633_REGULATOR_LDO6] = {
@@ -411,6 +415,7 @@ static struct platform_device *om_gta03_devices[] __initdata = {
 	&s3c_device_hsmmc1, /* SDIO to WLAN */
 };
 
+
 static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 {
 	struct platform_device *regulator, *pdev;
@@ -434,6 +439,7 @@ static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 
 static struct platform_device *om_gta03_devices_pmu_children[] = {
 	&om_gta03_button_dev,
+	&om_gta03_features_dev,
 };
 
 /* this is called when pc50633 is probed, unfortunately quite late in the
@@ -504,12 +510,12 @@ static void __init om_gta03_machine_init(void)
 
 	s3c_gpio_setpull(S3C64XX_GPJ(8), S3C_GPIO_PULL_NONE);
 	s3c_gpio_cfgpin(S3C64XX_GPJ(8), S3C_GPIO_SFN(2));
-	s3c_gpio_setpull(S3C64XX_GPK(9), S3C_GPIO_PULL_NONE);
-	s3c_gpio_cfgpin(S3C64XX_GPK(9), S3C_GPIO_SFN(1));
-	s3c_gpio_setpull(S3C64XX_GPK(10), S3C_GPIO_PULL_NONE);
-	s3c_gpio_cfgpin(S3C64XX_GPK(10), S3C_GPIO_SFN(1));
-	s3c_gpio_setpull(S3C64XX_GPK(11), S3C_GPIO_PULL_NONE);
-	s3c_gpio_cfgpin(S3C64XX_GPK(11), S3C_GPIO_SFN(1));
+	s3c_gpio_setpull(S3C64XX_GPJ(9), S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(S3C64XX_GPJ(9), S3C_GPIO_SFN(2));
+	s3c_gpio_setpull(S3C64XX_GPJ(10), S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(S3C64XX_GPJ(10), S3C_GPIO_SFN(2));
+	s3c_gpio_setpull(S3C64XX_GPJ(11), S3C_GPIO_PULL_NONE);
+	s3c_gpio_cfgpin(S3C64XX_GPJ(11), S3C_GPIO_SFN(2));
 
 
 	i2c_register_board_info(0, om_gta03_i2c_devs,

@@ -29,6 +29,7 @@
 
 /* For GTA02 */
 #include <mach/gta02.h>
+#include <linux/pcf50633.h>
 
 #include <linux/regulator/consumer.h>
 
@@ -275,6 +276,8 @@ static int gps_power_1v5_get(void)
 static void gps_pwron_set(int on)
 {
 
+	neo1973_gps.power_was_on = !!on;
+
 	if (machine_is_neo1973_gta01())
 		neo1973_gpb_setpin(GTA01_GPIO_GPS_PWRON, on);
 
@@ -294,13 +297,12 @@ static void gps_pwron_set(int on)
 			/* don't let RX from unpowered GPS float */
 			s3c2410_gpio_pullup(S3C2410_GPH5, 1);
 		}
-		if (on && !neo1973_gps.power_was_on)
+		if ((on) && (!neo1973_gps.power_was_on))
 			regulator_enable(neo1973_gps.regulator);
-		else if (!on && neo1973_gps.power_was_on)
+
+		if ((!on) && (neo1973_gps.power_was_on))
 			regulator_disable(neo1973_gps.regulator);
 	}
-
-	neo1973_gps.power_was_on = !!on;
 }
 
 static int gps_pwron_get(void)

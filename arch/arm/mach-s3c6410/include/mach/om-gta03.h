@@ -16,6 +16,9 @@
 
 #include <mach/gpio.h>
 #include <mach/irqs.h>
+#include <linux/mfd/pcf50633/core.h>
+
+extern struct pcf50633_platform_data om_gta03_pcf_pdata;
 
 /* ATAG_REVISION from bootloader */
 #define GTA03v1_SYSTEM_REV	0x00000001
@@ -41,11 +44,10 @@
 #define GTA03_GPIO_WLAN_RESET		S3C64XX_GPH(6)
 #define GTA03_GPIO_HDQ			S3C64XX_GPH(7)
 #define GTA03_GPIO_WLAN_PWRDN		S3C64XX_GPH(8)
-#define GTA03_GPIO_WLAN_OSC		S3C64XX_GPH(9)
 
-#define GTA03_GPIO_VERSION0		S3C64XX_GPI(0)
+#define GTA03_GPIO_VERSION2		S3C64XX_GPI(0)
 #define GTA03_GPIO_VERSION1		S3C64XX_GPI(1)
-#define GTA03_GPIO_VERSION2		S3C64XX_GPI(8)
+#define GTA03_GPIO_VERSION0		S3C64XX_GPI(8)
 
 #define GTA03_GPIO_NWLAN_POWER		S3C64XX_GPK(0)
 #define GTA03_GPIO_MODEN_ON		S3C64XX_GPK(2)
