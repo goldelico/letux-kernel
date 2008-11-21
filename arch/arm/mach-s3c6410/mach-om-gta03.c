@@ -379,6 +379,7 @@ static struct i2c_board_info om_gta03_i2c_devs[] __initdata = {
 
 static struct platform_device *om_gta03_devices[] __initdata = {
 	&s3c_device_hsmmc0,
+	&s3c_device_hsmmc1,
 	&s3c_device_i2c0,
 	&om_gta03_button_dev,
 };
