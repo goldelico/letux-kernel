@@ -36,7 +36,6 @@
  * KNOWN BUGS:
  *
  * - HIF_DEVICE_IRQ_ASYNC_SYNC doesn't work yet (gets MMC errors)
- * - driver doesn't remove cleanly yet
  * - latency can reach hundreds of ms, probably because of scheduling delays
  * - packets go through about three queues before finally hitting the network
  */
@@ -110,6 +109,11 @@ struct hif_request {
 
 
 static HTC_CALLBACKS htcCallbacks;
+
+/*
+ * shutdown_lock prevents recursion through HIFShutDownDevice
+ */
+static DEFINE_MUTEX(shutdown_lock);
 
 
 /* ----- Request processing ------------------------------------------------ */
@@ -521,16 +525,21 @@ static void sdio_ar6000_remove(struct sdio_func *func)
 	HIF_DEVICE *hif = sdio_get_drvdata(func);
 	int ret;
 
-#if 0
-	/*
-	 * Funny, Atheros' HIF does this call, but this just puts us in a
-	 * recursion through HTCShutDown/HIFShutDown if unloading the
-	 * module.
-	 */
-	ret = htcCallbacks.deviceRemovedHandler(hif->htc_handle, A_OK);
-	if (ret != A_OK)
-		dev_err(dev, "deviceRemovedHandler: %d\n", ret);
-#endif
+	dev_dbg(dev, "sdio_ar6000_remove\n");
+	if (mutex_trylock(&shutdown_lock)) {
+		/*
+		 * Funny, Atheros' HIF does this call, but this just puts us in
+		 * a recursion through HTCShutDown/HIFShutDown if unloading the
+		 * module.
+		 *
+		 * However, we need it for suspend/resume. See the comment at
+		 * HIFShutDown, below.
+		 */
+		ret = htcCallbacks.deviceRemovedHandler(hif->htc_handle, A_OK);
+		if (ret != A_OK)
+			dev_err(dev, "deviceRemovedHandler: %d\n", ret);
+		mutex_unlock(&shutdown_lock);
+	}
 	wait_queue_empty(hif);
 	ret = kthread_stop(hif->io_task);
 	if (ret)
@@ -591,8 +600,45 @@ int HIFInit(HTC_CALLBACKS *callbacks)
 }
 
 
+/*
+ * We have three possible call chains here:
+ *
+ * System shutdown/reboot:
+ *
+ *   kernel_restart_prepare ...> device_shutdown ... > s3cmci_shutdown ->
+ *     mmc_remove_host ..> sdio_bus_remove -> sdio_ar6000_remove ->
+ *     deviceRemovedHandler (HTCTargetRemovedHandler) -> HIFShutDownDevice
+ *
+ *   This is roughly the same sequence as suspend, described below.
+ *
+ * Module removal:
+ *
+ *   sys_delete_module -> ar6000_cleanup_module -> HTCShutDown ->
+ *     HIFShutDownDevice -> sdio_unregister_driver ...> sdio_bus_remove ->
+ *     sdio_ar6000_remove
+ *
+ *   In this case, HIFShutDownDevice must call sdio_unregister_driver to
+ *   notify the driver about its removal. sdio_ar6000_remove must not call
+ *   deviceRemovedHandler, because that would loop back into HIFShutDownDevice.
+ *
+ * Suspend:
+ *
+ *   device_suspend ...> s3cmci_suspend ...> sdio_bus_remove ->
+ *     sdio_ar6000_remove -> deviceRemovedHandler (HTCTargetRemovedHandler) ->
+ *     HIFShutDownDevice
+ *
+ *   We must call deviceRemovedHandler to inform the ar6k stack that the device
+ *   has been removed. Since HTCTargetRemovedHandler calls back into
+ *   HIFShutDownDevice, we must also prevent the call to
+ *   sdio_unregister_driver, or we'd end up recursing into the SDIO stack,
+ *   eventually deadlocking somewhere.
+ */
+
 void HIFShutDownDevice(HIF_DEVICE *hif)
 {
 	/* Beware, HTCShutDown calls us with hif == NULL ! */
-	sdio_unregister_driver(&sdio_ar6000_driver);
+	if (mutex_trylock(&shutdown_lock)) {
+		sdio_unregister_driver(&sdio_ar6000_driver);
+		mutex_unlock(&shutdown_lock);
+	}
 }

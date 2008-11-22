@@ -94,12 +94,6 @@ static void ts_filter_mean_destroy(struct ts_filter *tsf)
 {
 	struct ts_filter_mean *tsfs = (struct ts_filter_mean *)tsf;
 
-	if (!tsf)
-		return;
-
-	if (tsf->next) /* chain */
-		(tsf->next->api->destroy)(tsf->next);
-
 	kfree(tsfs->fifo[0]); /* first guy has pointer from kmalloc */
 	kfree(tsf);
 }

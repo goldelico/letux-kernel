@@ -49,9 +49,12 @@ EXPORT_SYMBOL_GPL(ts_filter_create_chain);
 
 void ts_filter_destroy_chain(struct ts_filter **list)
 {
+	struct ts_filter **first;
+	first = list;
 	while (*list) {
 		((*list)->api->destroy)(*list);
 		list++;
 	}
+	*first = NULL;
 }
 EXPORT_SYMBOL_GPL(ts_filter_destroy_chain);

@@ -88,6 +88,7 @@
 #include <plat/iic.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 #include <mach/neo1973-pm-gsm.h>
+#include <mach/gta02-pm-wlan.h>
 
 #include <linux/jbt6k74.h>
 
@@ -955,6 +956,20 @@ static struct s3c2410_platform_nand gta02_nand_info = {
 	.software_ecc	= 1,
 };
 
+
+static void gta02_s3c_mmc_set_power(unsigned char power_mode,
+    unsigned short vdd)
+{
+	gta02_wlan_power(
+	    power_mode == MMC_POWER_ON ||
+	    power_mode == MMC_POWER_UP);
+}
+
+
+static struct s3c24xx_mci_pdata gta02_s3c_mmc_cfg = {
+	.set_power	= gta02_s3c_mmc_set_power,
+};
+
 static void gta02_udc_command(enum s3c2410_udc_cmd_e cmd)
 {
 	printk(KERN_DEBUG "%s(%d)\n", __func__, cmd);
@@ -1674,6 +1689,7 @@ static void __init gta02_machine_init(void)
 
 	s3c_device_usb.dev.platform_data = &gta02_usb_info;
 	s3c_device_nand.dev.platform_data = &gta02_nand_info;
+	s3c_device_sdi.dev.platform_data = &gta02_s3c_mmc_cfg;
 
 	/* acc sensor chip selects */
 	s3c2410_gpio_setpin(S3C2410_GPD12, 1);

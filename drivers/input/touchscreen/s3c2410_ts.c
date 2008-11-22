@@ -98,9 +98,10 @@ static char *s3c2410ts_name = "s3c2410 TouchScreen";
 
 struct s3c2410ts {
 	struct input_dev *dev;
-	int flag_first_touch_sent;
 	struct ts_filter *tsf[MAX_TS_FILTER_CHAIN];
 	int coords[2]; /* just X and Y for us */
+	int is_down;
+	int need_to_send_first_touch;
 };
 
 static struct s3c2410ts ts;
@@ -116,69 +117,58 @@ static inline void s3c2410_ts_connect(void)
 	s3c2410_gpio_cfgpin(S3C2410_GPG15, S3C2410_GPG15_nYPON);
 }
 
-static void touch_timer_fire(unsigned long data)
+enum ts_input_event {IE_DOWN = 0, IE_UP, IE_UPDATE};
+
+static void ts_input_report(int event)
 {
-  	unsigned long data0;
-  	unsigned long data1;
-	int updown;
-
-	data0 = readl(base_addr + S3C2410_ADCDAT0);
-	data1 = readl(base_addr + S3C2410_ADCDAT1);
-
-	updown = (!(data0 & S3C2410_ADCDAT0_UPDOWN)) &&
-					    (!(data1 & S3C2410_ADCDAT0_UPDOWN));
-
-	// if we need to send an untouch event, but we haven't yet sent the
-	// touch event (this happens if the touchscreen was tapped lightly),
-	// send the touch event first
-	if (!updown && !ts.flag_first_touch_sent) {
-		if (ts.tsf[0])
-			(ts.tsf[0]->api->scale)(ts.tsf[0], &ts.coords[0]);
+	if (event == IE_DOWN || event == IE_UPDATE) {
 		input_report_abs(ts.dev, ABS_X, ts.coords[0]);
 		input_report_abs(ts.dev, ABS_Y, ts.coords[1]);
-
 		input_report_key(ts.dev, BTN_TOUCH, 1);
 		input_report_abs(ts.dev, ABS_PRESSURE, 1);
-		input_sync(ts.dev);
-		ts.flag_first_touch_sent = 1;
+	} else {
+		input_report_key(ts.dev, BTN_TOUCH, 0);
+		input_report_abs(ts.dev, ABS_PRESSURE, 0);
 	}
 
-	if (updown) {
-
-		if (ts.tsf[0])
-			(ts.tsf[0]->api->scale)(ts.tsf[0], &ts.coords[0]);
+	input_sync(ts.dev);
 
 #ifdef CONFIG_TOUCHSCREEN_S3C2410_DEBUG
-		{
-			struct timeval tv;
-
-			do_gettimeofday(&tv);
-			printk(DEBUG_LVL "T:%06d, X:%03ld, Y:%03ld\n",
-				   (int)tv.tv_usec, ts.coords[0], ts.coords[1]);
-		}
+	{
+		static char *s[] = {"down", "up", "update"};
+		struct timeval tv;
+		do_gettimeofday(&tv);
+		printk(DEBUG_LVL "T:%06d %6s (X:%03d, Y:%03d)\n",
+		       (int)tv.tv_usec, s[event], ts.coords[0], ts.coords[1]);
+	}
 #endif
+}
+static void touch_timer_fire(unsigned long data)
+{
+	if (ts.tsf[0])
+		(ts.tsf[0]->api->scale)(ts.tsf[0], &ts.coords[0]);
 
-		input_report_abs(ts.dev, ABS_X, ts.coords[0]);
-		input_report_abs(ts.dev, ABS_Y, ts.coords[1]);
+	if (ts.need_to_send_first_touch) {
+		ts.need_to_send_first_touch = 0;
+		ts_input_report(IE_DOWN);
+		if (!ts.is_down) { /* Do we need this? I think so. */
+			ts_input_report(IE_UPDATE);
+			ts_input_report(IE_UP);
+		}
+	} else if (ts.is_down) {
+		ts_input_report(IE_UPDATE);
+	} else {
+		ts_input_report(IE_UP);
+	}
 
-		input_report_key(ts.dev, BTN_TOUCH, 1);
-		input_report_abs(ts.dev, ABS_PRESSURE, 1);
-		input_sync(ts.dev);
-
+	if (ts.is_down) {
 		writel(S3C2410_ADCTSC_PULL_UP_DISABLE | AUTOPST,
 						      base_addr+S3C2410_ADCTSC);
 		writel(readl(base_addr+S3C2410_ADCCON) |
 			 S3C2410_ADCCON_ENABLE_START, base_addr+S3C2410_ADCCON);
 	} else {
-
 		if (ts.tsf[0])
 			(ts.tsf[0]->api->clear)(ts.tsf[0]);
-
-		input_report_key(ts.dev, BTN_TOUCH, 0);
-		input_report_abs(ts.dev, ABS_PRESSURE, 0);
-		input_sync(ts.dev);
-		ts.flag_first_touch_sent = 0;
-
 		writel(WAIT4INT(0), base_addr+S3C2410_ADCTSC);
 	}
 }
@@ -190,20 +180,20 @@ static irqreturn_t stylus_updown(int irq, void *dev_id)
 {
 	unsigned long data0;
 	unsigned long data1;
-	int updown;
 
 	data0 = readl(base_addr+S3C2410_ADCDAT0);
 	data1 = readl(base_addr+S3C2410_ADCDAT1);
 
-	updown = (!(data0 & S3C2410_ADCDAT0_UPDOWN)) &&
+	ts.is_down = (!(data0 & S3C2410_ADCDAT0_UPDOWN)) &&
 					    (!(data1 & S3C2410_ADCDAT0_UPDOWN));
 
-	/* TODO we should never get an interrupt with updown set while
-	 * the timer is running, but maybe we ought to verify that the
-	 * timer isn't running anyways. */
-
-	if (updown)
-		touch_timer_fire(0);
+	if (ts.is_down) {
+		ts.need_to_send_first_touch = 1;
+		writel(S3C2410_ADCTSC_PULL_UP_DISABLE | AUTOPST,
+						      base_addr+S3C2410_ADCTSC);
+		writel(readl(base_addr+S3C2410_ADCCON) |
+			 S3C2410_ADCCON_ENABLE_START, base_addr+S3C2410_ADCCON);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -336,7 +326,9 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 	else /* this is OK, just means there won't be any filtering */
 		dev_info(&pdev->dev, "Unfiltered output selected\n");
 
-	if (!ts.tsf[0])
+	if (ts.tsf[0])
+		(ts.tsf[0]->api->clear)(ts.tsf[0]);
+	else
 		dev_info(&pdev->dev, "No filtering\n");
 
 	/* Get irqs */

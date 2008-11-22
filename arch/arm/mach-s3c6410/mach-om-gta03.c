@@ -136,8 +136,6 @@ static void __gta03_lis302dl_bitbang(struct lis302dl_info *lis, u8 *tx,
 	int n;
 	u8 shifter = 0;
 
-	printk(KERN_INFO "__gta03_lis302dl_bitbang\n");
-
 	gpio_direction_output(pdata->pin_chip_select, 1);
 	gpio_direction_output(pdata->pin_clk, 1);
 	gpio_direction_output(pdata->pin_chip_select, 0);
@@ -225,7 +223,7 @@ void gta03_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
 
 struct lis302dl_platform_data lis302_pdata = {
 		.name		= "lis302",
-		.pin_chip_select= S3C64XX_GPN(15), /* NC */
+		.pin_chip_select= S3C64XX_GPC(3), /* NC */
 		.pin_clk	= GTA03_GPIO_ACCEL_CLK,
 		.pin_mosi	= GTA03_GPIO_ACCEL_MOSI,
 		.pin_miso	= GTA03_GPIO_ACCEL_MISO,

@@ -119,9 +119,6 @@ static void ts_filter_median_destroy(struct ts_filter *tsf)
 {
 	struct ts_filter_median *tsfm = (struct ts_filter_median *)tsf;
 
-	if (tsf->next) /* chain */
-		(tsf->next->api->destroy)(tsf->next);
-
 	kfree(tsfm->sort[0]); /* first guy has pointer from kmalloc */
 	kfree(tsf);
 }
