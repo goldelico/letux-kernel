@@ -25,6 +25,7 @@
 
 #include <linux/regulator/consumer.h>
 #include <linux/mfd/pcf50633/core.h>
+#include <linux/mfd/pcf50633/gpio.h>
 
 #include <plat/gpio-cfg.h>
 
