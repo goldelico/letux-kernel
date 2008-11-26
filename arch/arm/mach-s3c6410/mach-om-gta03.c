@@ -558,6 +558,9 @@ static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 		case PCF50633_REGULATOR_LDO4:
 			pdev = &s3c_device_hsmmc0;
 			break;
+		case PCF50633_REGULATOR_LDO5: /* GPS regulator */
+			pdev = &om_gta03_features_dev;
+			break;
 		case PCF50633_REGULATOR_LDO6:
 			pdev = &om_gta03_lcd_powerdev;
 			break;
@@ -572,7 +575,6 @@ static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 static struct platform_device *om_gta03_devices_pmu_children[] = {
 	&om_gta03_button_dev,
 	&s3c_device_spi_acc1, /* relies on PMU reg for power */
-	&om_gta03_features_dev,
 };
 
 /* this is called when pc50633 is probed, unfortunately quite late in the
