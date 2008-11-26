@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.28-rc4
-# Mon Nov 24 11:08:04 2008
+# Wed Nov 26 16:39:36 2008
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -879,6 +879,7 @@ CONFIG_SSB_POSSIBLE=y
 CONFIG_MFD_PCF50633=y
 CONFIG_PCF50633_ADC=y
 CONFIG_PCF50633_GPIO=y
+# CONFIG_MFD_PCF50606 is not set
 # CONFIG_MFD_GLAMO is not set
 
 #
@@ -1080,6 +1081,7 @@ CONFIG_RTC_INTF_DEV=y
 # CONFIG_RTC_DRV_PCF8563 is not set
 # CONFIG_RTC_DRV_PCF8583 is not set
 CONFIG_RTC_DRV_PCF50633=y
+# CONFIG_RTC_DRV_PCF50606 is not set
 # CONFIG_RTC_DRV_M41T80 is not set
 # CONFIG_RTC_DRV_S35390A is not set
 # CONFIG_RTC_DRV_FM3130 is not set
