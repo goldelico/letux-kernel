@@ -659,6 +659,40 @@ A_STATUS ar6000_SetHTCBlockSize(AR_SOFTC_T *ar)
     return status;
 }
 
+static void free_raw_buffers(AR_SOFTC_T *ar)
+{
+    int i, j;
+
+    for (i = 0; i != HTC_RAW_STREAM_NUM_MAX; i++) {
+	for (j = 0; j != RAW_HTC_READ_BUFFERS_NUM; j++)
+	    kfree(ar->raw_htc_read_buffer[i][j]);
+	for (j = 0; j != RAW_HTC_WRITE_BUFFERS_NUM; j++)
+	    kfree(ar->raw_htc_write_buffer[i][j]);
+    }
+}
+
+static int alloc_raw_buffers(AR_SOFTC_T *ar)
+{
+    int i, j;
+    raw_htc_buffer *b;
+
+    for (i = 0; i != HTC_RAW_STREAM_NUM_MAX; i++) {
+	for (j = 0; j != RAW_HTC_READ_BUFFERS_NUM; j++) {
+	    b = kzalloc(sizeof(*b), GFP_KERNEL);
+	    if (!b)
+		return -ENOMEM;
+	    ar->raw_htc_read_buffer[i][j] = b;
+	}
+	for (j = 0; j != RAW_HTC_WRITE_BUFFERS_NUM; j++) {
+	    b = kzalloc(sizeof(*b), GFP_KERNEL);
+	    if (!b)
+		return -ENOMEM;
+	    ar->raw_htc_write_buffer[i][j] = b;
+	}
+    }
+    return 0;
+}
+
 /*
  * HTC Event handlers
  */
@@ -722,6 +756,15 @@ ar6000_avail_ev(HTC_HANDLE HTCHandle)
     ar6000_init_control_info(ar);
     init_waitqueue_head(&arEvent);
     sema_init(&ar->arSem, 1);
+
+    if (alloc_raw_buffers(ar)) {
+	free_raw_buffers(ar);
+	/*
+	 * @@@ Clean up our own mess, but for anything else, cheerfully mimick
+	 * the beautiful error non-handling of the rest of this function.
+	 */
+	return;
+    }
 
 #ifdef ADAPTIVE_POWER_THROUGHPUT_CONTROL
     A_INIT_TIMER(&aptcTimer, aptcTimerHandler, ar);
@@ -1004,6 +1047,9 @@ ar6000_destroy(struct net_device *dev, unsigned int unregister)
     /* Free up the device data structure */
     if (unregister)
 	    unregister_netdev(dev);
+
+    free_raw_buffers(ar);
+
 #ifndef free_netdev
     kfree(dev);
 #else
