@@ -5,7 +5,7 @@
  * All rights reserved.
  *
  * Broken down from monstrous PCF50633 driver mainly by
- * Harald Welte and Andy Green
+ * Harald Welte, Andy Green and Werner Almesberger
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -30,7 +30,7 @@
 void pcf50633_gpio_set(struct pcf50633 *pcf, int gpio, int val)
 {
 	u8 reg;
-	
+
 	reg = gpio - PCF50633_GPIO1 + PCF50633_REG_GPIO1CFG;
 
 	pcf50633_reg_set_bit_mask(pcf, reg, 0x07, val);
@@ -91,7 +91,7 @@ void pcf50633_gpio_power_supply_set(struct pcf50633 *pcf,
 
 	/* the *ENA register is always one after the *OUT register */
 	reg = pcf50633_regulator_registers[regulator] + 1;
-	
+
 	val = (!!on << (gpio - PCF50633_GPIO1));
 
 	pcf50633_reg_set_bit_mask(pcf, reg, val, val);

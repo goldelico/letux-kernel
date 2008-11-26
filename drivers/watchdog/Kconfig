@@ -233,6 +233,12 @@ config ORION5X_WATCHDOG
 	  To compile this driver as a module, choose M here: the
 	  module will be called orion5x_wdt.
 
+config PCF50606_WATCHDOG
+	tristate "NXP PCF50606 Watchdog"
+	depends on MFD_PCF50606
+	help
+	 Say Y here to include support for NXP PCF50606 watchdog timer.
+
 # ARM26 Architecture
 
 # AVR32 Architecture
@@ -784,7 +790,7 @@ config WATCHDOG_RTAS
 	tristate "RTAS watchdog"
 	depends on PPC_RTAS
 	help
-	  This driver adds watchdog support for the RTAS watchdog.
+	  his driver adds watchdog support for the RTAS watchdog.
 
 	  To compile this driver as a module, choose M here. The module
 	  will be called wdrtas.

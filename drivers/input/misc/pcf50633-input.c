@@ -5,7 +5,7 @@
  * All rights reserved.
  *
  * Broken down from monstrous PCF50633 driver mainly by
- * Harald Welte and Andy Green
+ * Harald Welte, Andy Green and Werner Almesberger
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as

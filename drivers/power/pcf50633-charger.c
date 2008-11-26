@@ -5,7 +5,7 @@
  * All rights reserved.
  *
  * Broken down from monstrous PCF50633 driver mainly by
- * Harald Welte and Andy Green
+ * Harald Welte, Andy Green and Werner Almesberger
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -49,7 +49,7 @@ void pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma)
 
 	power_supply_changed(&pcf->mbc.usb);
 }
-EXPORT_SYMBOL(pcf50633_mbc_usb_curlim_set);
+EXPORT_SYMBOL_GPL(pcf50633_mbc_usb_curlim_set);
 
 static const char *chgmode_names[] = {
 	[PCF50633_MBCS2_MBC_PLAY]		= "play-only",
@@ -130,7 +130,7 @@ static void pcf50633_mbc_irq_handler(struct pcf50633 *pcf, int irq, void *data)
 	struct pcf50633_mbc *mbc;
 
 	mbc = &pcf->mbc;
-	
+
 	/* USB */
 	if (irq == PCF50633_IRQ_USBINS)
 		mbc->usb_online = 1;
@@ -298,4 +298,3 @@ MODULE_AUTHOR("Balaji Rao <balajirrao@openmoko.org>");
 MODULE_DESCRIPTION("PCF50633 mbc driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:pcf50633-mbc");
-

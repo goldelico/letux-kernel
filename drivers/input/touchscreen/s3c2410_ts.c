@@ -89,6 +89,11 @@ MODULE_LICENSE("GPL");
  * Definitions & global arrays.
  */
 
+#define TOUCH_STANDBY_FLAG 0
+#define TOUCH_PRESSED_FLAG 1
+#define TOUCH_RELEASE_FLAG 2
+
+#define TOUCH_RELEASE_TIMEOUT (HZ >> 4)
 
 static char *s3c2410ts_name = "s3c2410 TouchScreen";
 
@@ -143,23 +148,31 @@ static void ts_input_report(int event)
 	}
 #endif
 }
+
+static void touch_timer_fire(unsigned long data);
+static struct timer_list touch_timer =
+		TIMER_INITIALIZER(touch_timer_fire, 0, 0);
+
 static void touch_timer_fire(unsigned long data)
 {
 	if (ts.tsf[0])
 		(ts.tsf[0]->api->scale)(ts.tsf[0], &ts.coords[0]);
 
-	if (ts.need_to_send_first_touch) {
-		ts.need_to_send_first_touch = 0;
-		ts_input_report(IE_DOWN);
-		if (!ts.is_down) { /* Do we need this? I think so. */
+        if (ts.is_down && ts.need_to_send_first_touch == TOUCH_RELEASE_FLAG)
+		ts.need_to_send_first_touch = TOUCH_PRESSED_FLAG;
+
+	if ( ts.is_down ) {
+		if ( ts.need_to_send_first_touch == TOUCH_STANDBY_FLAG )
+			ts_input_report(IE_DOWN);
+		else 
 			ts_input_report(IE_UPDATE);
-			ts_input_report(IE_UP);
-		}
-	} else if (ts.is_down) {
-		ts_input_report(IE_UPDATE);
-	} else {
+		ts.need_to_send_first_touch = TOUCH_PRESSED_FLAG;
+	} else if (ts.need_to_send_first_touch == TOUCH_RELEASE_FLAG)
 		ts_input_report(IE_UP);
-	}
+	else {
+		ts.need_to_send_first_touch = TOUCH_RELEASE_FLAG;
+		mod_timer(&touch_timer, jiffies + TOUCH_RELEASE_TIMEOUT);
+        }
 
 	if (ts.is_down) {
 		writel(S3C2410_ADCTSC_PULL_UP_DISABLE | AUTOPST,
@@ -173,9 +186,6 @@ static void touch_timer_fire(unsigned long data)
 	}
 }
 
-static struct timer_list touch_timer =
-		TIMER_INITIALIZER(touch_timer_fire, 0, 0);
-
 static irqreturn_t stylus_updown(int irq, void *dev_id)
 {
 	unsigned long data0;
@@ -188,7 +198,6 @@ static irqreturn_t stylus_updown(int irq, void *dev_id)
 					    (!(data1 & S3C2410_ADCDAT0_UPDOWN));
 
 	if (ts.is_down) {
-		ts.need_to_send_first_touch = 1;
 		writel(S3C2410_ADCTSC_PULL_UP_DISABLE | AUTOPST,
 						      base_addr+S3C2410_ADCTSC);
 		writel(readl(base_addr+S3C2410_ADCCON) |
@@ -316,6 +325,7 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 	ts.dev->id.vendor = 0xDEAD;
 	ts.dev->id.product = 0xBEEF;
 	ts.dev->id.version = S3C2410TSVERSION;
+	ts.need_to_send_first_touch = TOUCH_STANDBY_FLAG;
 
 	/* create the filter chain set up for the 2 coordinates we produce */
 	ret = ts_filter_create_chain(

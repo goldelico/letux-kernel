@@ -317,7 +317,19 @@ ar6000_ioctl_siwessid(struct net_device *dev,
         ar->arNetworkType = arNetworkType;
     }
 
-    if ((ar->arSsidLen) || (!data->flags))
+    /*
+     * The original logic here prevented a disconnect if issuing an "essid off"
+     * if no ESSID was set, presumably to prevent sending multiple disconnects
+     * to the WMI.
+     *
+     * Unfortunately, this also meant that no disconnect was sent when we were
+     * already connected, but the profile has been changed since (which also
+     * clears the ESSID as a reminder that the WMI needs updating.)
+     *
+     * The "1 ||" makes sure we always disconnect or reconnect. The WMI doesn't
+     * seem to mind being sent multiple disconnects.
+     */
+    if (1 || (ar->arSsidLen) || (!data->flags))
     {
         if ((!data->flags) ||
             (A_MEMCMP(ar->arSsid, ssid, ar->arSsidLen) != 0) ||

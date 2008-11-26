@@ -225,6 +225,12 @@ config RTC_DRV_PCF50633
 	  If you say yes here you get support for the Philips PCF50633
 	  PMU's RTC.
 
+config RTC_DRV_PCF50606
+	tristate "Philips PCF50606"
+	help
+	  If you say yes here you get support for the Philips PCF50606
+	  PMU's RTC.
+
 config RTC_DRV_M41T80
 	tristate "ST M41T65/M41T80/81/82/83/84/85/87"
 	help
