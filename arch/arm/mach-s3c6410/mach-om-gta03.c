@@ -256,19 +256,7 @@ static struct platform_device s3c_device_spi_acc1 = {
 static void om_gta03_lcd_power_set(struct plat_lcd_data *pd,
 				   unsigned int power)
 {
-	if (power) {
-		gpio_direction_output(S3C64XX_GPF(13), 1);
-		gpio_direction_output(S3C64XX_GPF(15), 1);
 
-		/* fire nRESET on power up */
-		gpio_direction_output(S3C64XX_GPN(5), 0);
-		msleep(10);
-		gpio_direction_output(S3C64XX_GPN(5), 1);
-		msleep(1);
-	} else {
-		gpio_direction_output(S3C64XX_GPF(15), 0);
-		gpio_direction_output(S3C64XX_GPF(13), 0);
-	}
 }
 
 static struct plat_lcd_data om_gta03_lcd_power_data = {
@@ -284,21 +272,20 @@ static struct platform_device om_gta03_lcd_powerdev = {
 static struct s3c_fb_pd_win om_gta03_fb_win0 = {
 	/* this is to ensure we use win0 */
 	.win_mode	= {
-		.pixclock	= 41094,
+		.pixclock	= 40816,
 		.left_margin	= 8,
-		.right_margin	= 13,
-		.upper_margin	= 7,
-		.lower_margin	= 5,
-		.hsync_len	= 3,
-		.vsync_len	= 1,
-		.xres		= 800,
+		.right_margin	= 16,
+		.upper_margin	= 2,
+		.lower_margin	= 16,
+		.hsync_len	= 8,
+		.vsync_len	= 2,
+		.xres		= 640,
 		.yres		= 480,
 	},
 	.max_bpp	= 32,
 	.default_bpp	= 16,
 };
 
-/* 405566 clocks per frame => 60Hz refresh requires 24333960Hz clock */
 static struct s3c_fb_platdata om_gta03_lcd_pdata __initdata = {
 	.setup_gpio	= s3c64xx_fb_gpio_setup_24bpp,
 	.win[0]		= &om_gta03_fb_win0,
