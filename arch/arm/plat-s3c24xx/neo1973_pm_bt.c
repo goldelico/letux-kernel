@@ -28,6 +28,7 @@
 
 /* For GTA02 */
 #include <mach/gta02.h>
+#include <linux/mfd/pcf50633/gpio.h>
 
 #include <linux/regulator/consumer.h>
 
@@ -76,6 +77,8 @@ static int bt_rfkill_toggle_radio(void *data, enum rfkill_state state)
 	struct device *dev = data;
 	unsigned long on = (state == RFKILL_STATE_ON);
 	unsigned int vol;
+	struct gta01_pm_bt_data *bt_data;
+	struct regulator *regulator;
 
 	if (machine_is_neo1973_gta01()) {
 		/* if we are powering up, assert reset, then power,
@@ -92,13 +95,23 @@ static int bt_rfkill_toggle_radio(void *data, enum rfkill_state state)
 	} else if (machine_is_neo1973_gta02()) {
 		if (s3c2410_gpio_getpin(GTA02_GPIO_BT_EN) == on)
 			return 0;
+			
+		bt_data = dev_get_drvdata(dev);
+		BUG_ON(!bt_data || !bt_data->regulator);
+		regulator = bt_data->regulator;
+
 		neo1973_gpb_setpin(GTA02_GPIO_BT_EN, !on);
-		pcf50633_voltage_set(pcf50633_global,
-			PCF50633_REGULATOR_LDO4, on ? 3200 : 0);
-		pcf50633_onoff_set(pcf50633_global,
-			PCF50633_REGULATOR_LDO4, on);
-		vol = pcf50633_voltage_get(pcf50633_global,
-			PCF50633_REGULATOR_LDO4);
+			
+		if (on) {
+			if (!regulator_is_enabled(regulator))
+				regulator_enable(regulator);
+		} else {
+			if (regulator_is_enabled(regulator))
+					regulator_disable(regulator);
+		}
+
+		vol = regulator_get_voltage(regulator);
+
 		dev_info(dev, "GTA02 Set PCF50633 LDO4 = %d\n", vol);
 		neo1973_gpb_setpin(GTA02_GPIO_BT_EN, on);
 	}
@@ -208,6 +221,7 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 	struct rfkill *rfkill;
 	struct regulator *regulator;
 	struct gta01_pm_bt_data *bt_data;
+	int ret;
 
 	dev_info(&pdev->dev, DRVMSG ": starting\n");
 
@@ -243,7 +257,11 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 	rfkill->state = -1;
 	rfkill->toggle_radio = bt_rfkill_toggle_radio;
 
-	rfkill_register(rfkill);
+	ret = rfkill_register(rfkill);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register rfkill\n");
+		return ret;
+	}
 
 	platform_set_drvdata(pdev, rfkill);
 
@@ -274,7 +292,6 @@ static int gta01_bt_remove(struct platform_device *pdev)
 
 	regulator_put(regulator);
 	
->>>>>>> patched
 	return 0;
 }
 
