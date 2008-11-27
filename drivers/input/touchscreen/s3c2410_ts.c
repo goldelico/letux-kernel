@@ -189,6 +189,7 @@ static void event_send_timer_f(unsigned long data)
 	static unsigned long running;
 	static int noop_counter;
 	int event_type;
+	static unsigned n_points;
 
 	if (unlikely(test_and_set_bit(0, &running))) {
 		mod_timer(&event_send_timer,
@@ -224,6 +225,9 @@ static void event_send_timer_f(unsigned long data)
 				     != sizeof(int) * 2))
 				goto ts_exit_error;
 
+			if (n_points++ < 2)
+				break;
+
 			if (ts.state == TS_STATE_PRESSED_PENDING)
 				ts_input_report(IE_DOWN, buf);
 			else
@@ -246,8 +250,12 @@ static void event_send_timer_f(unsigned long data)
 			/* We delay the UP event for a
 			 * while to avoid jitter. If we get a DOWN
 			 * event we do not send it. */
-			ts_input_report(IE_UP, NULL);
+
+			if (n_points > 2)
+				ts_input_report(IE_UP, NULL);
+
 			ts.state = TS_STATE_STANDBY;
+			n_points = 0;
 
 			if (ts.tsf[0])
 				(ts.tsf[0]->api->clear)(ts.tsf[0]);
