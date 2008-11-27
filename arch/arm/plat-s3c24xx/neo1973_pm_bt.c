@@ -15,6 +15,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/rfkill.h>
 #include <linux/err.h>
 
 #include <mach/hardware.h>
@@ -70,6 +71,41 @@ static ssize_t bt_read(struct device *dev, struct device_attribute *attr,
 	}
 }
 
+static int bt_rfkill_toggle_radio(void *data, enum rfkill_state state)
+{
+	struct device *dev = data;
+	unsigned long on = (state == RFKILL_STATE_ON);
+	unsigned int vol;
+
+	if (machine_is_neo1973_gta01()) {
+		/* if we are powering up, assert reset, then power,
+		 * then release reset */
+		if (on) {
+			neo1973_gpb_setpin(GTA01_GPIO_BT_EN, 0);
+			pcf50606_voltage_set(pcf50606_global,
+					     PCF50606_REGULATOR_D1REG,
+					     3100);
+		}
+		pcf50606_onoff_set(pcf50606_global,
+				   PCF50606_REGULATOR_D1REG, on);
+		neo1973_gpb_setpin(GTA01_GPIO_BT_EN, on);
+	} else if (machine_is_neo1973_gta02()) {
+		if (s3c2410_gpio_getpin(GTA02_GPIO_BT_EN) == on)
+			return 0;
+		neo1973_gpb_setpin(GTA02_GPIO_BT_EN, !on);
+		pcf50633_voltage_set(pcf50633_global,
+			PCF50633_REGULATOR_LDO4, on ? 3200 : 0);
+		pcf50633_onoff_set(pcf50633_global,
+			PCF50633_REGULATOR_LDO4, on);
+		vol = pcf50633_voltage_get(pcf50633_global,
+			PCF50633_REGULATOR_LDO4);
+		dev_info(dev, "GTA02 Set PCF50633 LDO4 = %d\n", vol);
+		neo1973_gpb_setpin(GTA02_GPIO_BT_EN, on);
+	}
+
+	return 0;
+}
+
 static ssize_t bt_write(struct device *dev, struct device_attribute *attr,
 			const char *buf, size_t count)
 {
@@ -79,6 +115,11 @@ static ssize_t bt_write(struct device *dev, struct device_attribute *attr,
 	struct regulator *regulator;
 
 	if (!strcmp(attr->attr.name, "power_on")) {
+		struct rfkill *rfkill = dev_get_drvdata(dev);
+		enum rfkill_state state = on ? RFKILL_STATE_ON : RFKILL_STATE_OFF;
+		bt_rfkill_toggle_radio(dev, state);
+		rfkill->state = state;
+
 		if (machine_is_neo1973_gta01()) {
 			/* if we are powering up, assert reset, then power,
 			 * then release reset */
@@ -164,6 +205,7 @@ static struct attribute_group gta01_bt_attr_group = {
 
 static int __init gta01_bt_probe(struct platform_device *pdev)
 {
+	struct rfkill *rfkill;
 	struct regulator *regulator;
 	struct gta01_pm_bt_data *bt_data;
 
@@ -194,15 +236,31 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 		neo1973_gpb_setpin(GTA02_GPIO_BT_EN, 0);
 	}
 
+	rfkill = rfkill_allocate(&pdev->dev, RFKILL_TYPE_BLUETOOTH);
+
+	rfkill->name = pdev->name;
+	rfkill->data = pdev;
+	rfkill->state = -1;
+	rfkill->toggle_radio = bt_rfkill_toggle_radio;
+
+	rfkill_register(rfkill);
+
+	platform_set_drvdata(pdev, rfkill);
+
 	return sysfs_create_group(&pdev->dev.kobj, &gta01_bt_attr_group);
 }
 
 static int gta01_bt_remove(struct platform_device *pdev)
 {
+	struct rfkill *rfkill = platform_get_drvdata(pdev);
+
 	struct gta01_pm_bt_data *bt_data;
 	struct regulator *regulator;
 
 	sysfs_remove_group(&pdev->dev.kobj, &gta01_bt_attr_group);
+
+	rfkill_unregister(rfkill);
+	rfkill_free(rfkill);
 
 	bt_data = dev_get_drvdata(&pdev->dev);
 	if (!bt_data || !bt_data->regulator)
@@ -216,6 +274,7 @@ static int gta01_bt_remove(struct platform_device *pdev)
 
 	regulator_put(regulator);
 	
+>>>>>>> patched
 	return 0;
 }
 

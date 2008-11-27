@@ -741,15 +741,6 @@ config ASHMEM
 	  POSIX SHM but with different behavior and sporting a simpler
 	  file-based API.
 
-config ASHMEM
-	bool "Enable Android's Shared Memory Subsystem"
-	default n
-	depends on SHMEM || TINY_SHMEM
-	help
-	  The ashmem subsystem is a new shared memory allocator, similar to
-	  POSIX SHM but with different behavior and sporting a simpler
-	  file-based API.
-
 config VM_EVENT_COUNTERS
 	default y
 	bool "Enable VM event counters for /proc/vmstat" if EMBEDDED

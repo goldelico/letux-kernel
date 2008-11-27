@@ -57,6 +57,7 @@ static const int dbgmap_info  = dbg_info | dbg_conf;
 static const int dbgmap_debug = dbg_err | dbg_debug;
 
 static int f_max = -1; /* override maximum frequency limit */
+static int persist; /* keep interface alive across suspend/resume */
 
 #define dbg(host, channels, args...)		  \
 	do {					  \
@@ -1518,18 +1519,60 @@ static int __devinit s3cmci_2440_probe(struct platform_device *dev)
 
 #ifdef CONFIG_PM
 
+static int save_regs(struct mmc_host *mmc)
+{
+	struct s3cmci_host *host = mmc_priv(mmc);
+	unsigned long flags;
+	unsigned from;
+	u32 *to = host->saved;
+
+	mmc_flush_scheduled_work();
+
+	local_irq_save(flags);
+	for (from = S3C2410_SDICON; from != S3C2410_SDIIMSK+4; from += 4)
+		if (from != host->sdidata)
+			*to++ = readl(host->base + from);
+	BUG_ON(to-host->saved != ARRAY_SIZE(host->saved));
+	local_irq_restore(flags);
+
+	return 0;
+}
+
+static int restore_regs(struct mmc_host *mmc)
+{
+	struct s3cmci_host *host = mmc_priv(mmc);
+	unsigned long flags;
+	unsigned to;
+	u32 *from = host->saved;
+
+	/*
+	 * Before we begin with the necromancy, make sure we don't
+	 * inadvertently start something we'll regret microseconds later.
+	 */
+	from[S3C2410_SDICMDCON - S3C2410_SDICON] = 0;
+
+	local_irq_save(flags);
+	for (to = S3C2410_SDICON; to != S3C2410_SDIIMSK+4; to += 4)
+		if (to != host->sdidata)
+			writel(*from++, host->base + to);
+	BUG_ON(from-host->saved != ARRAY_SIZE(host->saved));
+	local_irq_restore(flags);
+
+	return 0;
+}
+
 static int s3cmci_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct mmc_host *mmc = platform_get_drvdata(dev);
 
-	return  mmc_suspend_host(mmc, state);
+	return persist ? save_regs(mmc) : mmc_suspend_host(mmc, state);
 }
 
 static int s3cmci_resume(struct platform_device *dev)
 {
 	struct mmc_host *mmc = platform_get_drvdata(dev);
 
-	return mmc_resume_host(mmc);
+	return persist ? restore_regs(mmc) : mmc_resume_host(mmc);
 }
 
 #else /* CONFIG_PM */
@@ -1588,6 +1631,7 @@ module_init(s3cmci_init);
 module_exit(s3cmci_exit);
 
 module_param(f_max, int, 0644);
+module_param(persist, int, 0644);
 
 MODULE_DESCRIPTION("Samsung S3C MMC/SD Card Interface driver");
 MODULE_LICENSE("GPL v2");
