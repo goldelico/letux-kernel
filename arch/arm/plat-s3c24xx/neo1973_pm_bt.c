@@ -253,8 +253,8 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 	rfkill = rfkill_allocate(&pdev->dev, RFKILL_TYPE_BLUETOOTH);
 
 	rfkill->name = pdev->name;
-	rfkill->data = pdev;
-	rfkill->state = -1;
+	rfkill->data = &pdev->dev;
+	rfkill->state = RFKILL_STATE_OFF;
 	rfkill->toggle_radio = bt_rfkill_toggle_radio;
 
 	ret = rfkill_register(rfkill);
