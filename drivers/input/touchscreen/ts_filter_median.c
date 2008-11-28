@@ -190,7 +190,8 @@ static int ts_filter_median_process(struct ts_filter *tsf, int *coords)
 	else
 		tsfm->decimation_count = tsfm->config->decimation_below;
 
-	memcpy(&tsfm->last_issued, coords, tsfm->tsf.count_coords);
+	memcpy(&tsfm->last_issued[0], coords,
+	       tsfm->tsf.count_coords * sizeof(int));
 
 	if (tsf->next) /* chain */
 		return (tsf->next->api->process)(tsf->next, coords);

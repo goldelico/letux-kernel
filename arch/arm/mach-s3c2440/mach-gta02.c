@@ -1010,9 +1010,9 @@ static struct s3c2410_udc_mach_info gta02_udc_cfg = {
 
 static struct ts_filter_median_configuration gta02_ts_median_config = {
 	.extent = 31,
-	.decimation_below = 28,
+	.decimation_below = 5,
 	.decimation_threshold = 8 * 3,
-	.decimation_above = 12,
+	.decimation_above = 10,
 };
 
 static struct ts_filter_mean_configuration gta02_ts_mean_config = {
