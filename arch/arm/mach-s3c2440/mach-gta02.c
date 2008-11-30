@@ -1094,6 +1094,14 @@ static void gta02_jbt6k74_reset(int devidx, int level)
 
 static void gta02_jbt6k74_probe_completed(struct device *dev)
 {
+	struct pcf50633 *pcf = gta02_pcf_pdata.pcf;
+
+	/* Switch on backlight. Qi does not do it for us */
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDOUT, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
+
 	gta02_bl_dev.dev.parent = dev;
 	platform_device_register(&gta02_bl_dev);
 }
@@ -1652,12 +1660,6 @@ static void gta02_pmu_attach_child_devices(struct pcf50633 *pcf)
 	mangle_glamo_res_by_system_rev();
 	platform_add_devices(gta02_devices_pmu_children,
 					ARRAY_SIZE(gta02_devices_pmu_children));
-
-	/* Switch on backlight. Qi does not do it for us */
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
 }
 
 
