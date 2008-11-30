@@ -483,6 +483,9 @@ static int sdio_ar6000_probe(struct sdio_func *func,
 		    ret);
 		goto out_got_irq;
 	}
+#else
+	if (0) /* avoid warning */
+		goto out_got_irq;
 #endif
 
 	sdio_release_host(func);
@@ -506,7 +509,6 @@ static int sdio_ar6000_probe(struct sdio_func *func,
 out_func_ready:
 	sdio_claim_host(func);
 
-/* generates a warning */
 out_got_irq:
 	sdio_release_irq(func);
 
