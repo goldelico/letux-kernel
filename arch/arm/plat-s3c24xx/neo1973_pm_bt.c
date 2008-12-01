@@ -76,9 +76,7 @@ static int bt_rfkill_toggle_radio(void *data, enum rfkill_state state)
 {
 	struct device *dev = data;
 	unsigned long on = (state == RFKILL_STATE_ON);
-	unsigned int vol;
 	struct gta01_pm_bt_data *bt_data;
-	struct regulator *regulator;
 
 	if (machine_is_neo1973_gta01()) {
 		/* if we are powering up, assert reset, then power,
@@ -98,21 +96,17 @@ static int bt_rfkill_toggle_radio(void *data, enum rfkill_state state)
 			
 		bt_data = dev_get_drvdata(dev);
 		BUG_ON(!bt_data || !bt_data->regulator);
-		regulator = bt_data->regulator;
 
 		neo1973_gpb_setpin(GTA02_GPIO_BT_EN, !on);
 			
 		if (on) {
-			if (!regulator_is_enabled(regulator))
-				regulator_enable(regulator);
+			if (!regulator_is_enabled(bt_data->regulator))
+				regulator_enable(bt_data->regulator);
 		} else {
-			if (regulator_is_enabled(regulator))
-					regulator_disable(regulator);
+			if (regulator_is_enabled(bt_data->regulator))
+					regulator_disable(bt_data->regulator);
 		}
 
-		vol = regulator_get_voltage(regulator);
-
-		dev_info(dev, "GTA02 Set PCF50633 LDO4 = %d\n", vol);
 		neo1973_gpb_setpin(GTA02_GPIO_BT_EN, on);
 	}
 
@@ -241,9 +235,16 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 		bt_data->regulator = regulator;
 		dev_set_drvdata(&pdev->dev, bt_data);
 
-		/* we make sure that the voltage is off */
-		if (regulator_is_enabled(regulator))
+		/* this tests the true physical state of the regulator... */
+		if (regulator_is_enabled(regulator)) {
+			/*
+			 * but these only operate on the logical state of the
+			 * regulator... so we need to logicaly "adopt" it on
+			 * to turn it off
+			 */
+			regulator_enable(regulator);
 			regulator_disable(regulator);
+		}
 
 		/* we pull reset to low to make sure that the chip doesn't
 	 	 * drain power through the reset line */

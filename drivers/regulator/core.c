@@ -1113,6 +1113,7 @@ int regulator_disable(struct regulator *regulator)
 	if (!regulator->enabled) {
 		printk(KERN_ERR "%s: not in use by this consumer\n",
 			__func__);
+		WARN_ON(1);
 		return 0;
 	}
 
