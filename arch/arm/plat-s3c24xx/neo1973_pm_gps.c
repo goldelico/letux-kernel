@@ -634,7 +634,13 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 		case GTA02v6_SYSTEM_REV:
 			neo1973_gps.regulator = regulator_get(
 							&pdev->dev, "RF_3V");
-			dev_info(&pdev->dev, "FIC Neo1973 GPS Power Managerment:"
+			if (IS_ERR(neo1973_gps.regulator)) {
+				dev_err(&pdev->dev, "probe failed %d\n",
+						    (int)neo1973_gps.regulator);
+				return (int)neo1973_gps.regulator;
+			}
+
+			dev_info(&pdev->dev, "FIC Neo1973 GPS Power Management:"
 				 "starting\n");
 			break;
 		default:
