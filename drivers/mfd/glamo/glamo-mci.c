@@ -626,6 +626,11 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 
 	if (glamo_mci_send_command(host, cmd))
 		goto bail;
+
+	/* we are deselecting card?  because it isn't going to ack then... */
+	if ((cmd->opcode == 7) && (cmd->arg == 0))
+		goto done;
+
 	/*
 	 * we must spin until response is ready or timed out
 	 * -- we don't get interrupts unless there is a bulk rx
@@ -641,7 +646,9 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 
 	if (insanity_timeout < 0) {
 		cmd->error = -ETIMEDOUT;
-		dev_err(&host->pdev->dev, "****** insanity timeout\n");
+		dev_err(&host->pdev->dev, "***** insanity timeout    cmd 0x%x, "
+		 "arg 0x%x data=%p mrq->stop=%p flags 0x%x\n",
+		 cmd->opcode, cmd->arg, cmd->data, cmd->mrq->stop, cmd->flags);
 	}
 
 	if (status & (GLAMO_STAT1_MMC_RTOUT |
