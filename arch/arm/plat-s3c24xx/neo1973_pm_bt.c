@@ -217,6 +217,7 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, DRVMSG ": starting\n");
 
 	bt_data = kzalloc(sizeof(*bt_data), GFP_KERNEL);
+	dev_set_drvdata(&pdev->dev, bt_data);
 
 	if (machine_is_neo1973_gta01()) {
 		/* we make sure that the voltage is off */
@@ -231,7 +232,6 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 			return -ENODEV;
 
 		bt_data->regulator = regulator;
-		dev_set_drvdata(&pdev->dev, bt_data);
 
 		/* this tests the true physical state of the regulator... */
 		if (regulator_is_enabled(regulator)) {
