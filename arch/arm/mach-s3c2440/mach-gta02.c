@@ -604,7 +604,7 @@ static struct regulator_consumer_supply ldo4_consumers[] = {
 
 static struct regulator_consumer_supply ldo5_consumers[] = {
 	{
-		.dev = &gta01_pm_bt_dev.dev,
+		.dev = &gta01_pm_gps_dev.dev,
 		.supply = "RF_3V",
 	},
 };
@@ -681,7 +681,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 				.min_uV = 2000000,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
-				.valid_modes_mask = REGULATOR_CHANGE_VOLTAGE,
+				.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
 			},
 			.num_consumer_supplies = 1,
 			.consumer_supplies = hcldo_consumers,
