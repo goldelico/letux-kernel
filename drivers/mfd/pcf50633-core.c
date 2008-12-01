@@ -458,10 +458,11 @@ static int pcf50633_resume(struct device *dev)
 	pcf50633_write_block(pcf, PCF50633_REG_INT1M, 5,
 					pcf->suspend_irq_masks);
 
-	/* Clear any pending interrupts and set resume reason if any */
-	pcf50633_irq_worker(&pcf->irq_work);
+	get_device(pcf->dev);
 
-	enable_irq(pcf->irq);
+	/* Clear any pending interrupts and set resume reason if any */
+	/* this will leave with enable_irq() */
+	pcf50633_irq_worker(&pcf->irq_work);
 
 	return 0;
 }
