@@ -579,8 +579,8 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 	u16 * reg_resp = (u16 *)(host->base + GLAMO_REG_MMC_CMD_RSP1);
 	u16 status;
 	int n;
-	int timeout = 10000000;
-	int insanity_timeout = 10000000;
+	int timeout = 1000000;
+	int insanity_timeout = 1000000;
 
 	if (host->suspending) {
 		dev_err(&host->pdev->dev, "IGNORING glamo_mci_send_request while "
