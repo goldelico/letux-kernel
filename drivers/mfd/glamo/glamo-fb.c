@@ -333,7 +333,8 @@ static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
 		return;
 	}
 
-	printk(KERN_ERR"glamofb_update_lcd_controller spin_lock_irqsave\n");
+	dev_dbg(&glamo->mach_info->glamo->pdev->dev,
+			  "glamofb_update_lcd_controller spin_lock_irqsave\n");
 	spin_lock_irqsave(&glamo->lock_cmd, flags);
 
 	if (glamofb_cmd_mode(glamo, 1))
@@ -426,7 +427,8 @@ static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
 	glamofb_cmd_mode(glamo, 0);
 
 out_unlock:
-	printk(KERN_ERR"glamofb_update_lcd_controller spin_unlock_irqrestore\n");
+	dev_dbg(&glamo->mach_info->glamo->pdev->dev,
+		      "glamofb_update_lcd_controller spin_unlock_irqrestore\n");
 	spin_unlock_irqrestore(&glamo->lock_cmd, flags);
 }
 
@@ -920,7 +922,7 @@ static int __init glamofb_probe(struct platform_device *pdev)
 	glamo_engine_enable(mach_info->glamo, GLAMO_ENGINE_LCD);
 	glamo_engine_reset(mach_info->glamo, GLAMO_ENGINE_LCD);
 
-	printk(KERN_ERR"spin_lock_init\n");
+	dev_info(&pdev->dev, "spin_lock_init\n");
 	spin_lock_init(&glamofb->lock_cmd);
 	glamofb_init_regs(glamofb);
 #ifdef CONFIG_MFD_GLAMO_HWACCEL

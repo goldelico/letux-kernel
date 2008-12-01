@@ -38,7 +38,7 @@ struct resume_dependency {
  */
 
 #define init_resume_dependency_list(_head) \
-	printk(KERN_ERR "##### init_resume_dependency_list(head=%p)\n", (_head)); \
+	printk(KERN_INFO "##### init_resume_dependency_list(head=%p)\n", (_head)); \
 	INIT_LIST_HEAD(&(_head)->list);
 
 

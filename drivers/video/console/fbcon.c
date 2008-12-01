@@ -3238,7 +3238,7 @@ static int fbcon_event_notify(struct notifier_block *self,
 	struct fb_blit_caps *caps;
 	int ret = 0;
 
-	printk(KERN_ERR "fbcon_event_notify action=%ld, data=%p\n", action, data);
+	printk(KERN_INFO "fbcon_event_notify action=%ld, data=%p\n", action, data);
 
 	event = data;
 	info = event->info;

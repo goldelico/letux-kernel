@@ -368,7 +368,7 @@ static void glamo_mci_irq(unsigned int irq, struct irq_desc *desc)
 		      GLAMO_STAT1_MMC_BRERR))
 		cmd->error = -EILSEQ;
 	if (cmd->error) {
-		dev_err(&host->pdev->dev, "Error after cmd: 0x%x\n", status);
+		dev_info(&host->pdev->dev, "Error after cmd: 0x%x\n", status);
 		goto done;
 	}
 
@@ -655,7 +655,7 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 		goto bail;
 
 	if (cmd->error) {
-		dev_err(&host->pdev->dev, "Error after cmd: 0x%x\n", status);
+		dev_info(&host->pdev->dev, "Error after cmd: 0x%x\n", status);
 		goto done;
 	}
 	/*
@@ -743,7 +743,7 @@ static void glamo_mci_reset(struct glamo_mci_host *host)
 								 "suspended\n");
 		return;
 	}
-	dev_err(&host->pdev->dev, "******* glamo_mci_reset\n");
+	dev_dbg(&host->pdev->dev, "******* glamo_mci_reset\n");
 	/* reset MMC controller */
 	writew(GLAMO_CLOCK_MMC_RESET | GLAMO_CLOCK_MMC_DG_TCLK |
 		   GLAMO_CLOCK_MMC_EN_TCLK | GLAMO_CLOCK_MMC_DG_M9CLK |
