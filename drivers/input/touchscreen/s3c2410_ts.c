@@ -102,6 +102,9 @@ static char *s3c2410ts_name = "s3c2410 TouchScreen";
 #define TS_STATE_RELEASE_PENDING 3
 #define TS_STATE_RELEASE 4
 
+#define SKIP_NHEAD 2
+#define SKIP_NTAIL 2
+
 /*
  * Per-touchscreen data.
  */
@@ -119,6 +122,9 @@ static struct s3c2410ts ts;
 
 static void __iomem *base_addr;
 
+/*
+ * A few low level functions.
+ */
 
 static inline void s3c2410_ts_connect(void)
 {
@@ -140,18 +146,18 @@ static void s3c2410_ts_start_adc_conversion(void)
  * Just send the input events.
  */
 
-enum ts_input_event {IE_DOWN = 0, IE_UP, IE_UPDATE};
+enum ts_input_event {IE_DOWN = 0, IE_UP};
 
 static void ts_input_report(int event, int coords[])
 {
 #ifdef CONFIG_TOUCHSCREEN_S3C2410_DEBUG
-	static char *s[] = {"down", "up", "update"};
+	static char *s[] = {"down", "up"};
 	struct timeval tv;
 
 	do_gettimeofday(&tv);
 #endif
 
-	if (event == IE_DOWN || event == IE_UPDATE) {
+	if (event == IE_DOWN) {
 		input_report_abs(ts.dev, ABS_X, coords[0]);
 		input_report_abs(ts.dev, ABS_Y, coords[1]);
 		input_report_key(ts.dev, BTN_TOUCH, 1);
@@ -174,10 +180,93 @@ static void ts_input_report(int event, int coords[])
 	input_sync(ts.dev);
 }
 
+
 /*
- * Manage state of the touchscreen and send events.
+ * Skip filter for touchscreen values.
+ *
+ * Problem: The first and the last sample might be unreliable. We provide
+ * this filter as a separate function in order to keep the event_send_timer_f
+ * function simple. This filter:
+ *
+ * - Skips NHEAD points after IE_DOWN
+ * - Skips NTAIL points before IE_UP
+ * - Ignores a click if we have less than (NHEAD + NTAILl + 1) points
  */
 
+struct skip_filter_event {
+	int coords[2];
+};
+
+struct skip_filter {
+	unsigned N;
+	unsigned M;
+	int sent;
+	struct skip_filter_event buf[SKIP_NTAIL];
+};
+
+struct skip_filter ts_skip;
+
+static void ts_skip_filter_reset(void)
+{
+	ts_skip.N = 0;
+	ts_skip.M = 0;
+	ts_skip.sent = 0;
+}
+
+static void ts_skip_filter(int event, int coords[])
+{
+	/* skip the first N samples */
+	if (ts_skip.N < SKIP_NHEAD) {
+		if (IE_UP == event)
+			ts_skip_filter_reset();
+		else
+			ts_skip.N++;
+		return;
+	}
+
+	/* We didn't send DOWN -- Ignore UP */
+	if (IE_UP == event && !ts_skip.sent) {
+		ts_skip_filter_reset();
+		return;
+	}
+
+	/* Just accept the event if NTAIL == 0 */
+	if (!SKIP_NTAIL) {
+		ts_input_report(event, coords);
+		if (IE_UP == event)
+			ts_skip_filter_reset();
+		else
+			ts_skip.sent = 1;
+		return;
+	}
+
+	/* NTAIL > 0,  Queue current point if we need to */
+	if (!ts_skip.sent && ts_skip.M < SKIP_NTAIL) {
+		memcpy(&ts_skip.buf[ts_skip.M++].coords[0], &coords[0],
+		       sizeof(int) * 2);
+		return;
+	}
+
+	/* queue full: accept one, queue one */
+
+	if (ts_skip.M >= SKIP_NTAIL)
+		ts_skip.M = 0;
+
+	ts_input_report(event, ts_skip.buf[ts_skip.M].coords);
+
+	if (event == IE_UP) {
+		ts_skip_filter_reset();
+	} else {
+		memcpy(&ts_skip.buf[ts_skip.M++].coords[0], &coords[0],
+		       sizeof(int) * 2);
+		ts_skip.sent = 1;
+	}
+}
+
+
+/*
+ * Manage the state of the touchscreen. Send events to the skip filter.
+ */
 
 static void event_send_timer_f(unsigned long data);
 
@@ -189,7 +278,6 @@ static void event_send_timer_f(unsigned long data)
 	static unsigned long running;
 	static int noop_counter;
 	int event_type;
-	static unsigned n_points;
 
 	if (unlikely(test_and_set_bit(0, &running))) {
 		mod_timer(&event_send_timer,
@@ -225,14 +313,7 @@ static void event_send_timer_f(unsigned long data)
 				     != sizeof(int) * 2))
 				goto ts_exit_error;
 
-			if (n_points++ < 2)
-				break;
-
-			if (ts.state == TS_STATE_PRESSED_PENDING)
-				ts_input_report(IE_DOWN, buf);
-			else
-				ts_input_report(IE_UPDATE, buf);
-
+			ts_skip_filter(IE_DOWN, buf);
 			ts.state = TS_STATE_PRESSED;
 
 			break;
@@ -251,11 +332,8 @@ static void event_send_timer_f(unsigned long data)
 			 * while to avoid jitter. If we get a DOWN
 			 * event we do not send it. */
 
-			if (n_points > 2)
-				ts_input_report(IE_UP, NULL);
-
+			ts_skip_filter(IE_UP, NULL);
 			ts.state = TS_STATE_STANDBY;
-			n_points = 0;
 
 			if (ts.tsf[0])
 				(ts.tsf[0]->api->clear)(ts.tsf[0]);
@@ -437,6 +515,8 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 	ts.dev->id.product = 0xBEEF;
 	ts.dev->id.version = S3C2410TSVERSION;
 	ts.state = TS_STATE_STANDBY;
+
+	ts_skip_filter_reset();
 
 	/* create the filter chain set up for the 2 coordinates we produce */
 	ret = ts_filter_create_chain(
