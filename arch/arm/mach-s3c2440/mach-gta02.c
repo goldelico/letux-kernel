@@ -648,6 +648,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 				.min_uV = 3300000,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.boot_on = 1,
 				.apply_uV = 1,
 				.state_mem = {
 					.enabled = 1,
@@ -660,6 +661,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 				.min_uV = 1300000,
 				.max_uV = 1600000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.boot_on = 1,
 				.apply_uV = 1,
 			},
 			.num_consumer_supplies = 0,
@@ -670,6 +672,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 				.max_uV = 1800000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
 				.apply_uV = 1,
+				.boot_on = 1,
 				.state_mem = {
 					.enabled = 1,
 				},
@@ -682,6 +685,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
 				.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
+				.boot_on = 1,
 			},
 			.num_consumer_supplies = 1,
 			.consumer_supplies = hcldo_consumers,
@@ -738,9 +742,6 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 				.min_uV = 0,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
-				.state_mem = {
-					.enabled = 1,
-				},
 			},
 			.num_consumer_supplies = 0,
 		},
@@ -1659,6 +1660,9 @@ static void gta02_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 static void gta02_pmu_attach_child_devices(struct pcf50633 *pcf)
 {
 	int n;
+
+	/* only now force enable LCM power and codec power */
+	pcf->
 
 	for (n = 0; n < ARRAY_SIZE(gta02_devices_pmu_children); n++)
 		gta02_devices_pmu_children[n]->dev.parent = pcf->dev;
