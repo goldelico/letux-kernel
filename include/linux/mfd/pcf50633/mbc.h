@@ -128,6 +128,7 @@ struct pcf50633_mbc {
 	int usb_active;
 	int usb_online;
 
+	struct power_supply ac;
 	struct power_supply usb;
 	struct power_supply adapter;
 

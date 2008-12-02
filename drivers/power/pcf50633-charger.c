@@ -154,6 +154,7 @@ static void pcf50633_mbc_irq_handler(struct pcf50633 *pcf, int irq, void *data)
 		mbc->adapter_active = 0;
 	}
 
+	power_supply_changed(&mbc->ac);
 	power_supply_changed(&mbc->usb);
 	power_supply_changed(&mbc->adapter);
 
@@ -185,10 +186,36 @@ static int usb_get_property(struct power_supply *psy,
 {
 	int ret = 0;
 	struct pcf50633_mbc *mbc = container_of(psy, struct pcf50633_mbc, usb);
+	struct pcf50633 *pcf = container_of(mbc, struct pcf50633, mbc);
+
+	u8 usblim = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) &
+						PCF50633_MBCC7_USB_MASK;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = mbc->usb_online;
+		val->intval = mbc->usb_online && (usblim == PCF50633_MBCC7_USB_500mA);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
+static int ac_get_property(struct power_supply *psy,
+			enum power_supply_property psp,
+			union power_supply_propval *val)
+{
+	int ret = 0;
+	struct pcf50633_mbc *mbc = container_of(psy, struct pcf50633_mbc, ac);
+	struct pcf50633 *pcf = container_of(mbc, struct pcf50633, mbc);
+
+	u8 usblim = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) &
+						PCF50633_MBCC7_USB_MASK;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = mbc->usb_online && (usblim == PCF50633_MBCC7_USB_1000mA);
 		break;
 	default:
 		ret = -EINVAL;
@@ -254,6 +281,14 @@ int __init pcf50633_mbc_probe(struct platform_device *pdev)
 	mbc->usb.supplied_to		= pcf->pdata->batteries;
 	mbc->usb.num_supplicants	= pcf->pdata->num_batteries;
 
+	mbc->ac.name			= "ac";
+	mbc->ac.type			= POWER_SUPPLY_TYPE_MAINS;
+	mbc->ac.properties		= power_props;
+	mbc->ac.num_properties		= ARRAY_SIZE(power_props);
+	mbc->ac.get_property		= ac_get_property;
+	mbc->ac.supplied_to		= pcf->pdata->batteries;
+	mbc->ac.num_supplicants		= pcf->pdata->num_batteries;
+
 	ret = power_supply_register(&pdev->dev, &mbc->adapter);
 	if (ret)
 		dev_err(pcf->dev, "failed to register adapter\n");
@@ -261,6 +296,10 @@ int __init pcf50633_mbc_probe(struct platform_device *pdev)
 	ret = power_supply_register(&pdev->dev, &mbc->usb);
 	if (ret)
 		dev_err(pcf->dev, "failed to register usb\n");
+
+	ret = power_supply_register(&pdev->dev, &mbc->ac);
+	if (ret)
+		dev_err(pcf->dev, "failed to register ac\n");
 
 	return sysfs_create_group(&pdev->dev.kobj, &mbc_attr_group);
 }
