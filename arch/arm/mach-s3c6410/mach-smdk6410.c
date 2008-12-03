@@ -39,8 +39,10 @@
 #include <asm/mach-types.h>
 
 #include <plat/regs-serial.h>
+#include <plat/regs-gpio.h>
 #include <plat/iic.h>
 #include <plat/fb.h>
+#include <plat/pm.h>
 
 #include <plat/s3c6410.h>
 #include <plat/clock.h>
@@ -158,10 +160,15 @@ static void __init smdk6410_map_io(void)
 	s3c64xx_init_io(smdk6410_iodesc, ARRAY_SIZE(smdk6410_iodesc));
 	s3c24xx_init_clocks(12000000);
 	s3c24xx_init_uarts(smdk6410_uartcfgs, ARRAY_SIZE(smdk6410_uartcfgs));
+
+	/* do not change gpio settings over sleep to xxxSLPCON */
+	__raw_writel(S3C64XX_SLPEN_CFG_BYSLPEN, S3C64XX_SLPEN);
 }
 
 static void __init smdk6410_machine_init(void)
 {
+	s3c_pm_init();
+
 	s3c_i2c0_set_platdata(NULL);
 	s3c_i2c1_set_platdata(NULL);
 	s3c_fb_set_platdata(&smdk6410_lcd_pdata);

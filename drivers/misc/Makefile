@@ -31,6 +31,7 @@ obj-$(CONFIG_KGDB_TESTS)	+= kgdbts.o
 obj-$(CONFIG_SGI_XP)		+= sgi-xp/
 obj-$(CONFIG_SGI_GRU)		+= sgi-gru/
 obj-$(CONFIG_HP_ILO)		+= hpilo.o
+obj-$(CONFIG_MACH_SMDK6410)	+= smdk6410-sleeptest.o
 obj-$(CONFIG_LOW_MEMORY_KILLER)	+= lowmemorykiller.o
 obj-$(CONFIG_MACH_NEO1973)      += neo1973_version.o \
                                    neo1973_pm_host.o \

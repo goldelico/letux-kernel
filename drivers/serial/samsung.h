@@ -23,6 +23,10 @@ struct s3c24xx_uart_info {
 	unsigned long		tx_fifoshift;
 	unsigned long		tx_fifofull;
 
+	/* uart port features */
+
+	unsigned int		has_divslot:1;
+
 	/* clock source control */
 
 	int (*get_clksrc)(struct uart_port *, struct s3c24xx_uart_clksrc *clk);

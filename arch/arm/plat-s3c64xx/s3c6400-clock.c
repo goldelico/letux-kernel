@@ -650,6 +650,5 @@ void __init s3c6400_register_clocks(void)
 		}
 	}
 
-	clk_mpll.parent = &clk_mout_mpll.clk;
 	clk_epll.parent = &clk_mout_epll.clk;
 }

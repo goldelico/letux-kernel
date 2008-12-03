@@ -962,8 +962,48 @@ static int __devexit s3c_fb_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int s3c_fb_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct s3c_fb *sfb = platform_get_drvdata(pdev);
+	struct s3c_fb_win *win;
+	int win_no;
+
+	for (win_no = S3C_FB_MAX_WIN; win_no >= 0; win_no--) {
+		win = sfb->windows[win_no];
+		if (!win)
+			continue;
+
+		/* use the blank function to push into power-down */
+		s3c_fb_blank(FB_BLANK_POWERDOWN, win->fbinfo);
+	}
+
+	clk_disable(sfb->bus_clk);
+	return 0;
+}
+
+static int s3c_fb_resume(struct platform_device *pdev)
+{
+	struct s3c_fb *sfb = platform_get_drvdata(pdev);
+	struct s3c_fb_win *win;
+	int win_no;
+
+	clk_enable(sfb->bus_clk);
+
+	for (win_no = 0; win_no < S3C_FB_MAX_WIN; win_no++) {
+		win = sfb->windows[win_no];
+		if (!win)
+			continue;
+
+		s3c_fb_set_par(win->fbinfo);
+	}
+
+	return 0;
+}
+#else
 #define s3c_fb_suspend NULL
 #define s3c_fb_resume  NULL
+#endif
 
 static struct platform_driver s3c_fb_driver = {
 	.probe		= s3c_fb_probe,

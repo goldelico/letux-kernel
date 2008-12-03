@@ -20,23 +20,11 @@
 #include <asm/hardware/vic.h>
 
 #include <plat/regs-irqtype.h>
+#include <plat/regs-gpio.h>
 
 #include <mach/map.h>
 #include <plat/cpu.h>
-
-/* GPIO is 0x7F008xxx, */
-#define S3C64XX_GPIOREG(x)	(S3C64XX_VA_GPIO + (x))
-
-#define S3C64XX_EINT0CON0	S3C64XX_GPIOREG(0x900)
-#define S3C64XX_EINT0CON1	S3C64XX_GPIOREG(0x904)
-#define S3C64XX_EINT0FLTCON0	S3C64XX_GPIOREG(0x910)
-#define S3C64XX_EINT0FLTCON1	S3C64XX_GPIOREG(0x914)
-#define S3C64XX_EINT0FLTCON2	S3C64XX_GPIOREG(0x918)
-#define S3C64XX_EINT0FLTCON3	S3C64XX_GPIOREG(0x91C)
-
-#define S3C64XX_EINT0MASK	S3C64XX_GPIOREG(0x920)
-#define S3C64XX_EINT0PEND	S3C64XX_GPIOREG(0x924)
-
+#include <plat/pm.h>
 
 #define eint_offset(irq)	((irq) - IRQ_EINT(0))
 #define eint_irq_to_bit(irq)	(1 << eint_offset(irq))
@@ -46,7 +34,7 @@ static inline void s3c_irq_eint_mask(unsigned int irq)
 	u32 mask;
 
 	mask = __raw_readl(S3C64XX_EINT0MASK);
-	mask |= eint_irq_to_bit(irq);
+	mask &= ~eint_irq_to_bit(irq);
 	__raw_writel(mask, S3C64XX_EINT0MASK);
 }
 
@@ -145,6 +133,7 @@ static struct irq_chip s3c_irq_eint = {
 	.mask_ack	= s3c_irq_eint_maskack,
 	.ack		= s3c_irq_eint_ack,
 	.set_type	= s3c_irq_eint_set_type,
+	.set_wake	= s3c_irqext_wake,
 };
 
 /* s3c_irq_demux_eint
