@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.28-rc4
-# Fri Nov 28 10:03:49 2008
+# Wed Dec  3 13:42:20 2008
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -185,6 +185,7 @@ CONFIG_CPU_LLSERIAL_S3C2440=y
 #
 # CONFIG_S3C_BOOT_WATCHDOG is not set
 # CONFIG_S3C_BOOT_ERROR_RESET is not set
+CONFIG_S3C_BOOT_UART_FORCE_FIFO=y
 
 #
 # Power management
