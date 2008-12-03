@@ -367,7 +367,9 @@ static void pcf50633_irq_worker(struct work_struct *work)
 
 	put_device(pcf->dev);
 
-//	enable_irq(pcf->irq);
+	if (!machine_is_openmoko_gta03())
+		enable_irq(pcf->irq);
+
 	return;
 reschedule:
 	schedule_work(&pcf->irq_work);
@@ -385,7 +387,9 @@ static irqreturn_t pcf50633_irq(int irq, void *data)
 
 	get_device(pcf->dev);
 
-//	disable_irq(pcf->irq);
+	if (!machine_is_openmoko_gta03())
+		disable_irq(pcf->irq);
+
 	schedule_work(&pcf->irq_work);
 
 	return IRQ_HANDLED;
@@ -482,6 +486,10 @@ static int pcf50633_probe(struct i2c_client *client,
 	u8 mbcs1;
 	int version;
 	int variant;
+	int irqf = IRQF_TRIGGER_LOW;
+
+	if (machine_is_openmoko_gta03())
+		irqf = IRQF_TRIGGER_FALLING;
 
 	pdata = client->dev.platform_data;
 
@@ -550,13 +558,12 @@ static int pcf50633_probe(struct i2c_client *client,
 
 		platform_device_add(pdev);
 	}
-	printk(KERN_ERR "q\n");
 
 	pcf->irq = client->irq;
 
 	if (client->irq) {
 		ret = request_irq(client->irq, pcf50633_irq,
-				IRQF_TRIGGER_FALLING, "pcf50633", pcf);
+				irqf, "pcf50633", pcf);
 
 		if (ret) {
 			dev_err(pcf->dev, "Failed to request IRQ %d\n", ret);
