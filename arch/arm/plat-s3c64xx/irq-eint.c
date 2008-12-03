@@ -74,6 +74,7 @@ static void s3c_irq_eint_maskack(unsigned int irq)
 static int s3c_irq_eint_set_type(unsigned int irq, unsigned int type)
 {
 	int offs = eint_offset(irq);
+	int pin;
 	int shift;
 	u32 ctrl, mask;
 	u32 newvalue = 0;
@@ -82,7 +83,7 @@ static int s3c_irq_eint_set_type(unsigned int irq, unsigned int type)
 	if (offs > 27)
 		return -EINVAL;
 
-	if (offs < 15)
+	if (offs <= 15)
 		reg = S3C64XX_EINT0CON0;
 	else
 		reg = S3C64XX_EINT0CON1;
@@ -124,6 +125,15 @@ static int s3c_irq_eint_set_type(unsigned int irq, unsigned int type)
 	ctrl &= ~mask;
 	ctrl |= newvalue << shift;
 	__raw_writel(ctrl, reg);
+
+	/* set the GPIO pin appropriately */
+
+	if (offs < 23)
+		pin = S3C64XX_GPN(offs);
+	else
+		pin = S3C64XX_GPM(offs - 23);
+
+	s3c_gpio_cfgpin(pin, S3C_GPIO_SFN(2));
 
 	return 0;
 }
