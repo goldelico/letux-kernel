@@ -47,6 +47,7 @@
 #include <plat/iic.h>
 #include <plat/fb.h>
 #include <plat/gpio-cfg.h>
+#include <plat/pm.h>
 
 #include <plat/s3c6410.h>
 #include <plat/clock.h>
@@ -615,6 +616,8 @@ static void __init om_gta03_map_io(void)
 
 static void __init om_gta03_machine_init(void)
 {
+	s3c_pm_init();
+
 	s3c_i2c0_set_platdata(NULL);
 	s3c_fb_set_platdata(&om_gta03_lcd_pdata);
 
