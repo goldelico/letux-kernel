@@ -36,7 +36,7 @@ static inline void s3c_irq_eint_mask(unsigned int irq)
 	u32 mask;
 
 	mask = __raw_readl(S3C64XX_EINT0MASK);
-	mask &= ~eint_irq_to_bit(irq);
+	mask |= eint_irq_to_bit(irq);
 	__raw_writel(mask, S3C64XX_EINT0MASK);
 }
 
