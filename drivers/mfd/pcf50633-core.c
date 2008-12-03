@@ -367,7 +367,7 @@ static void pcf50633_irq_worker(struct work_struct *work)
 
 	put_device(pcf->dev);
 
-	enable_irq(pcf->irq);
+//	enable_irq(pcf->irq);
 	return;
 reschedule:
 	schedule_work(&pcf->irq_work);
@@ -381,9 +381,11 @@ static irqreturn_t pcf50633_irq(int irq, void *data)
 {
 	struct pcf50633 *pcf = data;
 
+	printk(KERN_ERR "pcf50633_irq\n");
+
 	get_device(pcf->dev);
 
-	disable_irq(pcf->irq);
+//	disable_irq(pcf->irq);
 	schedule_work(&pcf->irq_work);
 
 	return IRQ_HANDLED;
@@ -548,12 +550,13 @@ static int pcf50633_probe(struct i2c_client *client,
 
 		platform_device_add(pdev);
 	}
+	printk(KERN_ERR "q\n");
 
 	pcf->irq = client->irq;
 
 	if (client->irq) {
 		ret = request_irq(client->irq, pcf50633_irq,
-				IRQF_TRIGGER_LOW, "pcf50633", pcf);
+				IRQF_TRIGGER_FALLING, "pcf50633", pcf);
 
 		if (ret) {
 			dev_err(pcf->dev, "Failed to request IRQ %d\n", ret);
