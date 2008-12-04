@@ -21,6 +21,15 @@ menuconfig TOUCHSCREEN_FILTER
 
 if TOUCHSCREEN_FILTER
 
+config TOUCHSCREEN_FILTER_VARIANCE
+	bool "Variance Touchscreen Filter"
+	depends on INPUT_TOUCHSCREEN && TOUCHSCREEN_FILTER
+	default Y
+	help
+	  Say Y here if you want to use the Variance touchscreen filter, it
+	  helps discarding a click if we get too much noise.
+
+
 config TOUCHSCREEN_FILTER_MEDIAN
 	bool "Median Average Touchscreen Filter"
 	depends on INPUT_TOUCHSCREEN && TOUCHSCREEN_FILTER

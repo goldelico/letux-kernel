@@ -65,12 +65,17 @@ static void ts_filter_median_del(int *p, int value, int count)
 }
 
 
-static void ts_filter_median_clear(struct ts_filter *tsf)
+static void ts_filter_median_clear_internal(struct ts_filter *tsf)
 {
 	struct ts_filter_median *tsfm = (struct ts_filter_median *)tsf;
 
 	tsfm->pos = 0;
 	tsfm->valid = 0;
+
+}
+static void ts_filter_median_clear(struct ts_filter *tsf)
+{
+	ts_filter_median_clear_internal(tsf);
 
 	if (tsf->next) /* chain */
 		(tsf->next->api->clear)(tsf->next);
@@ -92,10 +97,6 @@ static struct ts_filter *ts_filter_median_create(void * conf, int count_coords)
 
 	tsfm->config->midpoint = (tsfm->config->extent >> 1) + 1;
 
-	printk(KERN_INFO"  Creating Median ts filter len %d depth %d dec %d\n",
-		tsfm->config->extent, count_coords,
-					    tsfm->config->decimation_threshold);
-
 	p = kmalloc(2 * count_coords * sizeof(int) * (tsfm->config->extent + 1),
 								    GFP_KERNEL);
 	if (!p) {
@@ -110,7 +111,11 @@ static struct ts_filter *ts_filter_median_create(void * conf, int count_coords)
 		p += tsfm->config->extent + 1;
 	}
 
-	ts_filter_median_clear(&tsfm->tsf);
+	ts_filter_median_clear_internal(&tsfm->tsf);
+
+	printk(KERN_INFO"  Created Median ts filter len %d depth %d dec %d\n",
+	       tsfm->config->extent, count_coords,
+	       tsfm->config->decimation_threshold);
 
 	return &tsfm->tsf;
 }
@@ -195,8 +200,8 @@ static int ts_filter_median_process(struct ts_filter *tsf, int *coords)
 
 	if (tsf->next) /* chain */
 		return (tsf->next->api->process)(tsf->next, coords);
-	else
-		return 1;
+
+	return 1;
 }
 
 struct ts_filter_api ts_filter_median_api = {

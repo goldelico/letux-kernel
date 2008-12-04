@@ -36,7 +36,7 @@
 #include <linux/slab.h>
 #include <linux/ts_filter_mean.h>
 
-static void ts_filter_mean_clear(struct ts_filter *tsf)
+static void ts_filter_mean_clear_internal(struct ts_filter *tsf)
 {
 	struct ts_filter_mean *tsfs = (struct ts_filter_mean *)tsf;
 	int n;
@@ -46,6 +46,11 @@ static void ts_filter_mean_clear(struct ts_filter *tsf)
 		tsfs->ftail[n] = 0;
 		tsfs->lowpass[n] = 0;
 	}
+}
+
+static void ts_filter_mean_clear(struct ts_filter *tsf)
+{
+	ts_filter_mean_clear_internal(tsf);
 
 	if (tsf->next) /* chain */
 		(tsf->next->api->clear)(tsf->next);
@@ -82,10 +87,11 @@ static struct ts_filter *ts_filter_mean_create(void *config, int count_coords)
 	if (!tsfs->config->averaging_threshold)
 		tsfs->config->averaging_threshold = 0xffff; /* always active */
 
-	ts_filter_mean_clear(&tsfs->tsf);
+	ts_filter_mean_clear_internal(&tsfs->tsf);
 
-	printk(KERN_INFO "  Created Mean ts filter len %d thresh %d\n",
-		       tsfs->config->extent, tsfs->config->averaging_threshold);
+	printk(KERN_INFO"  Created Mean ts filter len %d depth %d thresh %d\n",
+	       tsfs->config->extent, count_coords,
+	       tsfs->config->averaging_threshold);
 
 	return &tsfs->tsf;
 }
@@ -151,8 +157,8 @@ static int ts_filter_mean_process(struct ts_filter *tsf, int *coords)
 
 	if (tsf->next) /* chain */
 		return (tsf->next->api->process)(tsf->next, coords);
-// 	else
-		return 1;
+
+	return 1;
 }
 
 struct ts_filter_api ts_filter_mean_api = {

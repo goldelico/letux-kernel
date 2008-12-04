@@ -103,7 +103,7 @@ static char *s3c2410ts_name = "s3c2410 TouchScreen";
 #define TS_STATE_RELEASE 4
 
 #define SKIP_NHEAD 2
-#define SKIP_NTAIL 2
+#define SKIP_NTAIL 1
 
 /*
  * Per-touchscreen data.
@@ -392,27 +392,28 @@ static irqreturn_t stylus_action(int irq, void *dev_id)
 	ts.coords[1] = readl(base_addr + S3C2410_ADCDAT1) &
 						    S3C2410_ADCDAT1_YPDATA_MASK;
 
-	if (!ts.tsf[0]) /* filtering is disabled then use raw directly */
-		goto real_sample;
+	if (ts.tsf[0]) { /* filtering is enabled, don't use raw directly */
+		switch ((ts.tsf[0]->api->process)(ts.tsf[0], &ts.coords[0])) {
+		case 0:	/*
+			 * no real sample came out of processing yet,
+			 * get another raw result to feed it
+			 */
+			s3c2410_ts_start_adc_conversion();
+			return IRQ_HANDLED;
+		case 1:	/* filters are ready to deliver a sample */
+			(ts.tsf[0]->api->scale)(ts.tsf[0], &ts.coords[0]);
+			break;
+		case -1:
+			/* error in filters, ignore the event */
+			(ts.tsf[0]->api->clear)(ts.tsf[0]);
+			writel(WAIT4INT(1), base_addr + S3C2410_ADCTSC);
+			return IRQ_HANDLED;
+		default:
+			printk(KERN_ERR":stylus_action error\n");
+		}
+	}
 
-	/* send it to the chain of filters */
-	if ((ts.tsf[0]->api->process)(ts.tsf[0], &ts.coords[0]))
-		goto real_sample;
-
-	/*
-	 * no real sample came out of processing yet,
-	 * get another raw result to feed it
-	 */
-
-	s3c2410_ts_start_adc_conversion();
-
-	return IRQ_HANDLED;
-
-real_sample:
-
-	if (ts.tsf[0])
-		(ts.tsf[0]->api->scale)(ts.tsf[0], &ts.coords[0]);
-
+	/* We use a buffer because want an atomic operation */
 	buf[0] = 'P';
 	buf[1] = ts.coords[0];
 	buf[2] = ts.coords[1];
@@ -420,7 +421,7 @@ real_sample:
 	if (unlikely(__kfifo_put(ts.event_fifo, (unsigned char *)buf,
 		     sizeof(int) * 3) != sizeof(int) * 3))
 		/* should not happen */
-		printk(KERN_ERR __FILE__": stylus_action lost event!\n");
+			printk(KERN_ERR":stylus_action error\n");
 
 	writel(WAIT4INT(1), base_addr + S3C2410_ADCTSC);
 	mod_timer(&event_send_timer, jiffies + 1);

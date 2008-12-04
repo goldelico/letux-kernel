@@ -105,6 +105,7 @@
 
 #include <linux/ts_filter_mean.h>
 #include <linux/ts_filter_median.h>
+#include <linux/ts_filter_variance.h>
 
 /* arbitrates which sensor IRQ owns the shared SPI bus */
 static spinlock_t motion_irq_lock;
@@ -1015,6 +1016,13 @@ static struct s3c2410_udc_mach_info gta02_udc_cfg = {
 
 /* touchscreen configuration */
 
+static struct ts_filter_variance_configuration gta02_ts_variance_config = {
+	.extent = 20,
+	.window = 5,
+	.threshold = 10,	/* variance = 10, std = 3.1623 */
+	.attempts = 5,		/* try 5 times before giving up */
+};
+
 static struct ts_filter_median_configuration gta02_ts_median_config = {
 	.extent = 31,
 	.decimation_below = 5,
@@ -1031,12 +1039,14 @@ static struct s3c2410_ts_mach_info gta02_ts_cfg = {
 	.delay = 10000,
 	.presc = 0xff, /* slow as we can go */
 	.filter_sequence = {
-		[0] = &ts_filter_median_api,
-		[1] = &ts_filter_mean_api,
+		[0] = &ts_filter_variance_api,
+		[1] = &ts_filter_median_api,
+		[2] = &ts_filter_mean_api,
 	},
 	.filter_config = {
-		[0] = &gta02_ts_median_config,
-		[1] = &gta02_ts_mean_config,
+		[0] = &gta02_ts_variance_config,
+		[1] = &gta02_ts_median_config,
+		[2] = &gta02_ts_mean_config,
 	},
 };
 
