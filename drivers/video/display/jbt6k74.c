@@ -252,36 +252,22 @@ static int jbt_init_regs(struct jbt_info *jbt, int qvga)
 	return rc ? -EIO : 0;
 }
 
-int jbt6k74_display_onoff(struct jbt_info *jbt, int on)
-{
-	if (on)
-		return jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_ON);
-	else
-		return jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_OFF);
-}
-EXPORT_SYMBOL_GPL(jbt6k74_display_onoff);
-
 static int standby_to_sleep(struct jbt_info *jbt)
 {
-    static int once = 0;
-    if (!once++) {
-        int rc;
+	int rc;
 
-        /* three times command zero */
-        rc = jbt_reg_write_nodata(jbt, 0x00);
-        mdelay(1);
-        rc |= jbt_reg_write_nodata(jbt, 0x00);
-        mdelay(1);
-        rc |= jbt_reg_write_nodata(jbt, 0x00);
-        mdelay(1);
+	/* three times command zero */
+	rc = jbt_reg_write_nodata(jbt, 0x00);
+	mdelay(1);
+	rc |= jbt_reg_write_nodata(jbt, 0x00);
+	mdelay(1);
+	rc |= jbt_reg_write_nodata(jbt, 0x00);
+	mdelay(1);
 
-        /* deep standby out */
-        rc |= jbt_reg_write(jbt, JBT_REG_POWER_ON_OFF, 0x17);
+	/* deep standby out */
+	rc |= jbt_reg_write(jbt, JBT_REG_POWER_ON_OFF, 0x17);
 
-        return rc ? -EIO : 0;
-    }
-    else 
-        return 0;
+	return rc ? -EIO : 0;
 }
 
 static int sleep_to_normal(struct jbt_info *jbt)
@@ -305,9 +291,6 @@ static int sleep_to_normal(struct jbt_info *jbt)
 
 	/* initialize register set */
 	rc |= jbt_init_regs(jbt, 0);
-
-	/* Turn on display */
-	rc |= jbt6k74_display_onoff(jbt, 1);
 
 	return rc ? -EIO : 0;
 }
@@ -334,9 +317,6 @@ static int sleep_to_qvga_normal(struct jbt_info *jbt)
 	/* initialize register set for qvga*/
 	rc |= jbt_init_regs(jbt, 1);
 
-	/* Turn on display */
-	rc |= jbt6k74_display_onoff(jbt, 1);
-
 	return rc ? -EIO : 0;
 }
 
@@ -344,8 +324,7 @@ static int normal_to_sleep(struct jbt_info *jbt)
 {
 	int rc;
 
-	rc = jbt6k74_display_onoff(jbt, 0);
-	rc |= jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_OFF);
+	rc = jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_OFF);
 	rc |= jbt_reg_write16(jbt, JBT_REG_OUTPUT_CONTROL, 0x8002);
 	rc |= jbt_reg_write_nodata(jbt, JBT_REG_SLEEP_IN);
 
@@ -354,11 +333,7 @@ static int normal_to_sleep(struct jbt_info *jbt)
 
 static int sleep_to_standby(struct jbt_info *jbt)
 {
-#if 0
 	return jbt_reg_write(jbt, JBT_REG_POWER_ON_OFF, 0x00);
-#else
-    return 0;
-#endif
 }
 
 /* frontend function */
@@ -461,13 +436,21 @@ int jbt6k74_enter_state(struct jbt_info *jbt, enum jbt_state new_state)
 		}
 		break;
 	}
-	
 	if (rc == 0)
 		jbt->state = new_state;
 
 	return rc;
 }
 EXPORT_SYMBOL_GPL(jbt6k74_enter_state);
+
+int jbt6k74_display_onoff(struct jbt_info *jbt, int on)
+{
+	if (on)
+		return jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_ON);
+	else
+		return jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_OFF);
+}
+EXPORT_SYMBOL_GPL(jbt6k74_display_onoff);
 
 static ssize_t state_read(struct device *dev, struct device_attribute *attr,
 			  char *buf)
@@ -492,6 +475,17 @@ static ssize_t state_write(struct device *dev, struct device_attribute *attr,
 			rc = jbt6k74_enter_state(jbt, i);
 			if (rc)
 				return rc;
+			switch (i) {
+			case JBT_STATE_NORMAL:
+			case JBT_STATE_QVGA_NORMAL:
+				/* Enable display again after deep-standby */
+				rc = jbt6k74_display_onoff(jbt, 1);
+				if (rc)
+					return rc;
+				break;
+			default:
+				break;
+			}
 			return count;
 		}
 	}
@@ -533,8 +527,6 @@ static ssize_t gamma_write(struct device *dev, struct device_attribute *attr,
 	struct jbt_info *jbt = dev_get_drvdata(dev);
 	int reg = reg_by_string(attr->attr.name);
 	unsigned long val = simple_strtoul(buf, NULL, 10);
-
-	dev_info(dev, "**** jbt6k74 writing gama %lu\n", val & 0xff);
 
 	jbt_reg_write(jbt, reg, val & 0xff);
 
@@ -617,27 +609,19 @@ static int fb_notifier_callback(struct notifier_block *self,
 
 	switch (fb_blank) {
 	case FB_BLANK_UNBLANK:
-		dev_info(&jbt->spi_dev->dev, "**** jbt6k74 unblank\n");
-		break;
 	case FB_BLANK_NORMAL:
-		dev_info(&jbt->spi_dev->dev, "**** jbt6k74 normal\n");
-		/*jbt6k74_enter_state(jbt, JBT_STATE_NORMAL);
-		jbt6k74_display_onoff(jbt, 1); */
+		jbt6k74_enter_state(jbt, JBT_STATE_NORMAL);
+		jbt6k74_display_onoff(jbt, 1);
 		break;
 	case FB_BLANK_VSYNC_SUSPEND:
-		dev_info(&jbt->spi_dev->dev, "**** jbt6k74 vsync suspend\n");
-		break;
 	case FB_BLANK_HSYNC_SUSPEND:
-		dev_info(&jbt->spi_dev->dev, "**** jbt6k74 hsync suspend\n");
 		/* FIXME: we disable SLEEP since it would result in
 		 * a visible artefact (white screen) before the backlight
 		 * is dimmed to a dark enough level */
 		/* jbt6k74_enter_state(jbt, JBT_STATE_SLEEP); */
-		/*jbt6k74_display_onoff(jbt, 0);*/
 		break;
 	case FB_BLANK_POWERDOWN:
-		dev_info(&jbt->spi_dev->dev, "**** jbt6k74 powerdown\n");
-		/*jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);*/
+		jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);
 		break;
 	}
 
@@ -694,10 +678,16 @@ static int __devinit jbt_probe(struct spi_device *spi)
 		goto err_free_drvdata;
 	}
 
+	rc = jbt6k74_display_onoff(jbt, 1);
+	if (rc < 0) {
+		dev_err(&spi->dev, "cannot switch display on\n");
+		goto err_standby;
+	}
+
 	rc = sysfs_create_group(&spi->dev.kobj, &jbt_attr_group);
 	if (rc < 0) {
 		dev_err(&spi->dev, "cannot create sysfs group\n");
-		goto err_standby;
+		goto err_off;
 	}
 
 	jbt->fb_notif.notifier_call = fb_notifier_callback;
@@ -714,6 +704,8 @@ static int __devinit jbt_probe(struct spi_device *spi)
 
 err_sysfs:
 	sysfs_remove_group(&spi->dev.kobj, &jbt_attr_group);
+err_off:
+	jbt6k74_display_onoff(jbt, 0);
 err_standby:
 	jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);
 err_free_drvdata:
@@ -751,8 +743,6 @@ static int jbt_suspend(struct spi_device *spi, pm_message_t state)
 	jbt->have_resumed = 0;
 
 /*	(jbt6k74_pdata->reset)(0, 0); */
-
-	dev_info(&spi->dev, "**** jbt6k74 suspend end\n");
 
 	return 0;
 }
