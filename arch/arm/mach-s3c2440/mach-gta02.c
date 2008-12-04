@@ -1719,7 +1719,7 @@ static void __init gta02_machine_init(void)
 
 	platform_add_devices(gta02_devices, ARRAY_SIZE(gta02_devices));
 
-	s3c2410_pm_init();
+	s3c_pm_init();
 
 	/* Make sure the modem can wake us up */
 	set_irq_type(GTA02_IRQ_MODEM, IRQ_TYPE_EDGE_RISING);

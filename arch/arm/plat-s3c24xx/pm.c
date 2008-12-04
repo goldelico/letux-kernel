@@ -144,37 +144,3 @@ void s3c_pm_save_core(void)
 	s3c_pm_do_save(misc_save, ARRAY_SIZE(misc_save));
 	s3c_pm_do_save(core_save, ARRAY_SIZE(core_save));
 }
-
-<<<<<<< current
-=======
-static int s3c2410_pm_begin(suspend_state_t state)
-{
-	int ret = 0;
-
-#ifdef CONFIG_REGULATOR
-	ret = regulator_suspend_prepare(state);
-#endif
-	return ret;
-}
-
-static struct platform_suspend_ops s3c2410_pm_ops = {
-	.enter		= s3c2410_pm_enter,
-	.valid		= suspend_valid_only_mem,
-	.begin		= s3c2410_pm_begin,
-};
-
-/* s3c2410_pm_init
- *
- * Attach the power management functions. This should be called
- * from the board specific initialisation if the board supports
- * it.
-*/
-
-int __init s3c2410_pm_init(void)
-{
-	printk("S3C2410 Power Management, (c) 2004 Simtec Electronics\n");
-
-	suspend_set_ops(&s3c2410_pm_ops);
-	return 0;
-}
->>>>>>> patched
