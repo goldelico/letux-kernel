@@ -555,10 +555,6 @@ static ssize_t reset_write(struct device *dev, struct device_attribute *attr,
 		break;
 	}
 
-	rc = jbt6k74_display_onoff(jbt, 1);
-	if (rc < 0)
-		dev_err(dev, "cannot switch display on\n");
-
 	return count;
 }
 
@@ -768,10 +764,6 @@ int jbt6k74_resume(struct spi_device *spi)
 		jbt6k74_enter_state(jbt, JBT_STATE_NORMAL);
 		break;
 	}
-
-	rc = jbt6k74_display_onoff(jbt, 1);
-	if (rc < 0)
-		dev_err(&spi->dev, "cannot switch display on\n");
 
 	if (jbt6k74_pdata->resuming)
 		(jbt6k74_pdata->resuming)(0);
