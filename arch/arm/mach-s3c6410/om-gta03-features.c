@@ -26,6 +26,10 @@
 #include <linux/regulator/consumer.h>
 #include <linux/mfd/pcf50633/core.h>
 #include <linux/mfd/pcf50633/gpio.h>
+#include <linux/mmc/host.h>
+
+#include <plat/sdhci.h>
+#include <plat/devs.h>
 
 #include <plat/gpio-cfg.h>
 
@@ -48,7 +52,7 @@ struct om_gta03_feature_info {
 
 static struct om_gta03_feature_info feature_info[OM_GTA03_FEATURE_COUNT] = {
 	[OM_GTA03_GPS] =	{ "gps_power",		1, 0 },
-	[OM_GTA03_WLAN_BT] =	{ "wlan_bt_power",	1, 1 },
+	[OM_GTA03_WLAN_BT] =	{ "wlan_bt_power",	1, 0 },
 	[OM_GTA03_GSM] =	{ "gsm_power",		0, 0 },
 	[OM_GTA03_USBHOST] =	{ "usbhost_power",	1, 0 },
 	[OM_GTA03_VIB] =	{ "vibrator_power",	1, 0 },
@@ -75,8 +79,14 @@ static void om_gta03_features_pwron_set_on(enum feature feature)
 		gpio_direction_output(GTA03_GPIO_NWLAN_POWER, 0);
 		s3c_gpio_setpull(GTA03_GPIO_NWLAN_POWER, S3C_GPIO_PULL_NONE);
 		s3c_gpio_cfgpin(GTA03_GPIO_NWLAN_POWER, S3C_GPIO_SFN(1));
-		msleep(1);
+		msleep(500);
+		gpio_direction_output(GTA03_GPIO_WLAN_PWRDN, 1);
+		s3c_gpio_setpull(GTA03_GPIO_WLAN_PWRDN, S3C_GPIO_PULL_NONE);
+		s3c_gpio_cfgpin(GTA03_GPIO_WLAN_PWRDN, S3C_GPIO_SFN(1));
+		msleep(500);
 		gpio_direction_output(GTA03_GPIO_WLAN_RESET, 1);
+		msleep(500);
+		sdhci_s3c_force_presence_change(&s3c_device_hsmmc1);
 		break;
 	case OM_GTA03_GSM:
 		/* give power to GSM module */
@@ -110,10 +120,15 @@ static void om_gta03_features_pwron_set_off(enum feature feature)
 		regulator_disable(gps_regulator);
 		break;
 	case OM_GTA03_WLAN_BT:
+		gpio_direction_output(GTA03_GPIO_WLAN_PWRDN, 0);
+		s3c_gpio_setpull(GTA03_GPIO_WLAN_PWRDN, S3C_GPIO_PULL_NONE);
+		s3c_gpio_cfgpin(GTA03_GPIO_WLAN_PWRDN, S3C_GPIO_SFN(1));
+		msleep(500);
 		/* remove power from WLAN / BT module */
 		gpio_direction_output(GTA03_GPIO_NWLAN_POWER, 1);
 		s3c_gpio_setpull(GTA03_GPIO_NWLAN_POWER, S3C_GPIO_PULL_NONE);
 		s3c_gpio_cfgpin(GTA03_GPIO_NWLAN_POWER, S3C_GPIO_SFN(1));
+		sdhci_s3c_force_presence_change(&s3c_device_hsmmc1);
 		break;
 	case OM_GTA03_GSM:
 		/* remove power from WLAN / BT module */
