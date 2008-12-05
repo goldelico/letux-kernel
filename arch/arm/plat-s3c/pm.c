@@ -357,7 +357,7 @@ static int s3c_pm_begin(suspend_state_t state)
 static struct platform_suspend_ops s3c_pm_ops = {
 	.enter		= s3c_pm_enter,
 	.valid		= suspend_valid_only_mem,
-        .begin          = s3c_pm_begin,
+	.begin		= s3c_pm_begin,
 };
 
 /* s3c_pm_init

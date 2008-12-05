@@ -1,9 +1,19 @@
 #!/bin/sh
+#
+# Kernel building helper script (C)2008 Openmoko, Inc
+# Andy Green <andy@openmoko.org>
+#
+# Licensed under GPLv3 or later
+#
 
 # set -x
 
-export CROSS_COMPILE=../../cross/bin/arm-angstrom-linux-gnueabi-
+export CROSS_COMPILE=/usr/local/openmoko/arm/bin/arm-angstrom-linux-gnueabi-
 make ARCH=arm silentoldconfig
+
+#
+# figure out what we are building
+#
 
 PRODUCT=
 
@@ -32,6 +42,11 @@ if [ -z "$PRODUCT" ] ; then
 	exit 1
 fi
 
+#
+# get the branch and head hash for the version we are building to
+# allow source tracability
+#
+
 VERSION=
 if [ -d .git ] ; then
  HEAD=`git show --pretty=oneline | head -n1 | cut -d' ' -f1 | cut -b1-16`
@@ -42,7 +57,17 @@ fi
 
 echo $MKIMAGECMD
 
+#
+# actually make it
+#
+
 if make -j5 ARCH=arm CONFIG_DEBUG_SECTION_MISMATCH=y EXTRAVERSION=$VERSION; then
+
+	#
+	# if the build is happy, postprocess it by strip and with U-Boot header wrapper
+	# you can get mkimage from U-Boot or Qi build
+	#
+
 	${CROSS_COMPILE}objcopy -O binary -R .note -R .comment -S arch/arm/boot/compressed/vmlinux linux.bin
 	mkimage -A arm -O linux -T kernel -C none -a $START -e $START -n "OM $PRODUCT $BRANCH""_$HEAD" -d linux.bin uImage-$PRODUCT.bin
 

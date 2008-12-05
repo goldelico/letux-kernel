@@ -23,6 +23,11 @@
  * MA 02111-1307 USA
  */
 
+/* 
+ * NOTE: This driver does not yet support subtractive ADC mode, which means
+ * you can do only one measurement per read request. 
+ */
+
 #include <linux/mfd/pcf50633/core.h>
 #include <linux/mfd/pcf50633/adc.h>
 
@@ -115,7 +120,7 @@ int pcf50633_adc_sync_read(struct pcf50633 *pcf, int mux, int avg)
 	struct pcf50633_adc_request *req;
 	int result;
 
-	/* req is freed when the result is ready, in pcf50633_work*/
+	/* req is freed when the result is ready, in interrupt handler */
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
 	if (!req)
 		return -ENOMEM;
@@ -141,7 +146,7 @@ int pcf50633_adc_async_read(struct pcf50633 *pcf, int mux, int avg,
 {
 	struct pcf50633_adc_request *req;
 
-	/* req is freed when the result is ready, in pcf50633_work*/
+	/* req is freed when the result is ready, in interrupt handler */
 	req = kmalloc(sizeof(*req), GFP_KERNEL);
 	if (!req)
 		return -ENOMEM;
@@ -159,12 +164,16 @@ EXPORT_SYMBOL_GPL(pcf50633_adc_async_read);
 
 static int adc_result(struct pcf50633 *pcf)
 {
-	u16 ret = (pcf50633_reg_read(pcf, PCF50633_REG_ADCS1) << 2) |
-			(pcf50633_reg_read(pcf, PCF50633_REG_ADCS3) &
-						  PCF50633_ADCS3_ADCDAT1L_MASK);
-	dev_info(pcf->dev, "adc result = %d\n", ret);
+	u8 adcs1, adcs3;
+	u16 result;
+	
+	adcs1 = pcf50633_reg_read(pcf, PCF50633_REG_ADCS1);
+	adcs3 = pcf50633_reg_read(pcf, PCF50633_REG_ADCS3);
+	result = (adcs1 << 2) | (adcs3 & PCF50633_ADCS3_ADCDAT1L_MASK);
 
-	return ret;
+	dev_info(pcf->dev, "adc result = %d\n", result);
+
+	return result;
 }
 
 static void pcf50633_adc_irq(struct pcf50633 *pcf, int irq, void *unused)

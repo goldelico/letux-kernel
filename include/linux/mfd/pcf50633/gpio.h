@@ -38,13 +38,13 @@ enum pcf50633_reg_gpocfg {
 
 struct pcf50633;
 
-extern void pcf50633_gpio_set(struct pcf50633 *pcf, int gpio, int on);
-extern int pcf50633_gpio_get(struct pcf50633 *pcf, int gpio);
+void pcf50633_gpio_set(struct pcf50633 *pcf, int gpio, int on);
+int pcf50633_gpio_get(struct pcf50633 *pcf, int gpio);
 
-extern void pcf50633_gpio_invert_set(struct pcf50633 *, int gpio, int invert);
-extern int pcf50633_gpio_invert_get(struct pcf50633 *pcf, int gpio);
+void pcf50633_gpio_invert_set(struct pcf50633 *, int gpio, int invert);
+int pcf50633_gpio_invert_get(struct pcf50633 *pcf, int gpio);
 
-extern void pcf50633_gpio_power_supply_set(struct pcf50633 *,
+void pcf50633_gpio_power_supply_set(struct pcf50633 *,
 					int gpio, int regulator, int on);
 #endif /* __LINUX_MFD_PCF50633_GPIO_H */
 

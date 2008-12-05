@@ -24,6 +24,7 @@
 #include <linux/mfd/pcf50633/mbc.h>
 #include <linux/mfd/pcf50633/rtc.h>
 #include <linux/mfd/pcf50633/adc.h>
+#include <linux/mfd/pcf50633/gpio.h>
 
 struct pcf50633;
 

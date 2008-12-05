@@ -235,4 +235,10 @@ config INPUT_PCF50633_PMU
 	help
 	 Say Y to include support for input events on NXP PCF50633.
 
+config INPUT_PCF50606_PMU
+	tristate "PCF50606 PMU events"
+	depends on MFD_PCF50606
+	help
+	 Say Y to include support for input events on NXP PCF50606.
+
 endif
