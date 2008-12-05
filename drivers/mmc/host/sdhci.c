@@ -1030,12 +1030,13 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 #endif
 
 	host->mrq = mrq;
-
+/*
 	if (!(readl(host->ioaddr + SDHCI_PRESENT_STATE) & SDHCI_CARD_PRESENT)
 		|| (host->flags & SDHCI_DEVICE_DEAD)) {
 		host->mrq->cmd->error = -ENOMEDIUM;
 		tasklet_schedule(&host->finish_tasklet);
 	} else
+*/
 		sdhci_send_command(host, mrq->cmd);
 
 	mmiowb();
@@ -1170,7 +1171,7 @@ static void sdhci_tasklet_card(unsigned long param)
 	host = (struct sdhci_host*)param;
 
 	spin_lock_irqsave(&host->lock, flags);
-
+/*
 	if (!(readl(host->ioaddr + SDHCI_PRESENT_STATE) & SDHCI_CARD_PRESENT)) {
 		if (host->mrq) {
 			printk(KERN_ERR "%s: Card removed during transfer!\n",
@@ -1185,7 +1186,7 @@ static void sdhci_tasklet_card(unsigned long param)
 			tasklet_schedule(&host->finish_tasklet);
 		}
 	}
-
+*/
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	mmc_detect_change(host->mmc, msecs_to_jiffies(200));

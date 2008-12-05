@@ -197,6 +197,21 @@ static struct sdhci_ops sdhci_s3c_ops = {
 	.set_ios		= sdhci_s3c_set_ios,
 };
 
+/*
+ * call this when you need sd stack to recognize insertion or removal of card
+ * that can't be told by SDHCI regs
+ */
+
+void sdhci_s3c_force_presence_change(struct platform_device *pdev)
+{
+	struct s3c_sdhci_platdata *pdata = pdev->dev.platform_data;
+
+	dev_info(&pdev->dev, "sdhci_s3c_force_presence_change called\n");
+	mmc_detect_change(pdata->sdhci_host->mmc, msecs_to_jiffies(200));
+}
+EXPORT_SYMBOL_GPL(sdhci_s3c_force_presence_change);
+
+
 static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 {
 	struct s3c_sdhci_platdata *pdata = pdev->dev.platform_data;
@@ -228,6 +243,8 @@ static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 		dev_err(dev, "sdhci_alloc_host() failed\n");
 		return PTR_ERR(host);
 	}
+
+	pdata->sdhci_host = host;
 
 	sc = sdhci_priv(host);
 

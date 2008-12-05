@@ -29,6 +29,7 @@ struct mmc_ios;
  *            is necessary the controllers and/or GPIO blocks require the
  *	      changing of driver-strength and other controls dependant on
  *	      the card and speed of operation.
+ * sdhci_host: Pointer kept during init, allows presence change notification
  *
  * Initialisation data specific to either the machine or the platform
  * for the device driver to use or call-back when configuring gpio or
@@ -45,7 +46,10 @@ struct s3c_sdhci_platdata {
 			    void __iomem *regbase,
 			    struct mmc_ios *ios,
 			    struct mmc_card *card);
+	struct sdhci_host * sdhci_host;
 };
+
+extern void sdhci_s3c_force_presence_change(struct platform_device *pdev);
 
 /**
  * s3c_sdhci0_set_platdata - Set platform data for S3C SDHCI device.
