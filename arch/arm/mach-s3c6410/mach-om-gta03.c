@@ -629,33 +629,6 @@ static void __init om_gta03_machine_init(void)
 	s3c_gpio_setpull(S3C64XX_GPH(5), S3C_GPIO_PULL_UP);
 
 
-	/* give power to WLAN / BT module */
-	s3c_gpio_setpull(S3C64XX_GPK(0), S3C_GPIO_PULL_NONE);
-	s3c_gpio_cfgpin(S3C64XX_GPK(0), S3C_GPIO_SFN(1));
-	gpio_direction_output(S3C64XX_GPK(0), 0);
-
-	mdelay(50);
-
-	s3c_gpio_setpull(S3C64XX_GPH(6), S3C_GPIO_PULL_NONE);
-	s3c_gpio_cfgpin(S3C64XX_GPH(6), S3C_GPIO_SFN(1));
-	gpio_direction_output(S3C64XX_GPH(6), 0);
-	mdelay(1);
-	gpio_direction_output(S3C64XX_GPH(6), 1);
-
-	s3c_gpio_setpull(S3C64XX_GPH(8), S3C_GPIO_PULL_NONE);
-	s3c_gpio_cfgpin(S3C64XX_GPH(8), S3C_GPIO_SFN(1));
-	gpio_direction_output(S3C64XX_GPH(8), 1);
-
-	s3c_gpio_setpull(S3C64XX_GPJ(8), S3C_GPIO_PULL_NONE);
-	s3c_gpio_cfgpin(S3C64XX_GPJ(8), S3C_GPIO_SFN(2));
-	s3c_gpio_setpull(S3C64XX_GPJ(9), S3C_GPIO_PULL_NONE);
-	s3c_gpio_cfgpin(S3C64XX_GPJ(9), S3C_GPIO_SFN(2));
-	s3c_gpio_setpull(S3C64XX_GPJ(10), S3C_GPIO_PULL_NONE);
-	s3c_gpio_cfgpin(S3C64XX_GPJ(10), S3C_GPIO_SFN(2));
-	s3c_gpio_setpull(S3C64XX_GPJ(11), S3C_GPIO_PULL_NONE);
-	s3c_gpio_cfgpin(S3C64XX_GPJ(11), S3C_GPIO_SFN(2));
-
-
 	i2c_register_board_info(0, om_gta03_i2c_devs,
 						 ARRAY_SIZE(om_gta03_i2c_devs));
 

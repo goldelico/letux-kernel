@@ -64,6 +64,8 @@ static struct regulator *gps_regulator;
 
 static void om_gta03_features_pwron_set_on(enum feature feature)
 {
+	int gpio;
+
 	switch (feature) {
 	case OM_GTA03_GPS:
 		regulator_enable(gps_regulator);
@@ -71,21 +73,29 @@ static void om_gta03_features_pwron_set_on(enum feature feature)
 		gpio_direction_output(GTA03_GPIO_GPS_LNA_EN, 1);
 		break;
 	case OM_GTA03_WLAN_BT:
-		/* give power to WLAN / BT module */
+
+		for (gpio = S3C64XX_GPH(0); gpio < S3C64XX_GPH(6); gpio++) {
+			s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(2)); /* sdio */
+			s3c_gpio_setpull(gpio, S3C_GPIO_PULL_UP);
+		}
+		/* assert reset */
 		s3c_gpio_setpull(GTA03_GPIO_WLAN_RESET, S3C_GPIO_PULL_NONE);
 		s3c_gpio_cfgpin(GTA03_GPIO_WLAN_RESET, S3C_GPIO_SFN(1));
 		gpio_direction_output(GTA03_GPIO_WLAN_RESET, 0);
 
-		gpio_direction_output(GTA03_GPIO_NWLAN_POWER, 0);
-		s3c_gpio_setpull(GTA03_GPIO_NWLAN_POWER, S3C_GPIO_PULL_NONE);
-		s3c_gpio_cfgpin(GTA03_GPIO_NWLAN_POWER, S3C_GPIO_SFN(1));
-		msleep(500);
+		/* "full power down (active low)" -- deassert it*/
 		gpio_direction_output(GTA03_GPIO_WLAN_PWRDN, 1);
 		s3c_gpio_setpull(GTA03_GPIO_WLAN_PWRDN, S3C_GPIO_PULL_NONE);
 		s3c_gpio_cfgpin(GTA03_GPIO_WLAN_PWRDN, S3C_GPIO_SFN(1));
-		msleep(500);
+
+		/* enable P-Channel mosfet switch for power */
+		gpio_direction_output(GTA03_GPIO_NWLAN_POWER, 0);
+		s3c_gpio_setpull(GTA03_GPIO_NWLAN_POWER, S3C_GPIO_PULL_NONE);
+		s3c_gpio_cfgpin(GTA03_GPIO_NWLAN_POWER, S3C_GPIO_SFN(1));
+		msleep(50);
+		/* deassert reset */
 		gpio_direction_output(GTA03_GPIO_WLAN_RESET, 1);
-		msleep(500);
+		msleep(1500);
 		sdhci_s3c_force_presence_change(&s3c_device_hsmmc1);
 		break;
 	case OM_GTA03_GSM:
@@ -113,6 +123,8 @@ static void om_gta03_features_pwron_set_on(enum feature feature)
 
 static void om_gta03_features_pwron_set_off(enum feature feature)
 {
+	int gpio;
+
 	switch (feature) {
 	case OM_GTA03_GPS:
 		/* disable LNA */
@@ -120,6 +132,10 @@ static void om_gta03_features_pwron_set_off(enum feature feature)
 		regulator_disable(gps_regulator);
 		break;
 	case OM_GTA03_WLAN_BT:
+		gpio_direction_output(GTA03_GPIO_WLAN_RESET, 0);
+		s3c_gpio_setpull(GTA03_GPIO_WLAN_RESET, S3C_GPIO_PULL_NONE);
+		s3c_gpio_cfgpin(GTA03_GPIO_WLAN_RESET, S3C_GPIO_SFN(1));
+
 		gpio_direction_output(GTA03_GPIO_WLAN_PWRDN, 0);
 		s3c_gpio_setpull(GTA03_GPIO_WLAN_PWRDN, S3C_GPIO_PULL_NONE);
 		s3c_gpio_cfgpin(GTA03_GPIO_WLAN_PWRDN, S3C_GPIO_SFN(1));
@@ -128,7 +144,12 @@ static void om_gta03_features_pwron_set_off(enum feature feature)
 		gpio_direction_output(GTA03_GPIO_NWLAN_POWER, 1);
 		s3c_gpio_setpull(GTA03_GPIO_NWLAN_POWER, S3C_GPIO_PULL_NONE);
 		s3c_gpio_cfgpin(GTA03_GPIO_NWLAN_POWER, S3C_GPIO_SFN(1));
+
 		sdhci_s3c_force_presence_change(&s3c_device_hsmmc1);
+		for (gpio = S3C64XX_GPH(0); gpio < S3C64XX_GPH(6); gpio++) {
+			s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(0)); /* input */
+			s3c_gpio_setpull(gpio, S3C_GPIO_PULL_DOWN);
+		}
 		break;
 	case OM_GTA03_GSM:
 		/* remove power from WLAN / BT module */
