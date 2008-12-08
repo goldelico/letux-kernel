@@ -8,7 +8,7 @@
  */
 
 #define MAX_TS_FILTER_CHAIN		4  /* max filters you can chain up */
-#define MAX_TS_FILTER_COORDS		3  /* Y, Y and Z (pressure) */
+#define MAX_TS_FILTER_COORDS		3  /* X, Y and Z (pressure) */
 
 struct ts_filter;
 

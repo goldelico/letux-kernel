@@ -427,6 +427,11 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 	ts.dev->id.product = 0xBEEF;
 	ts.dev->id.version = S3C2410TSVERSION;
 	ts.state = TS_STATE_STANDBY;
+	ts.event_fifo = kfifo_alloc(TS_EVENT_FIFO_SIZE, GFP_KERNEL, NULL);
+	if (IS_ERR(ts.event_fifo)) {
+		ret = -EIO;
+		goto bail2;
+	}
 
 	/* create the filter chain set up for the 2 coordinates we produce */
 	ret = ts_filter_create_chain(
@@ -459,26 +464,17 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 		goto bail4;
 	}
 
-	ts.event_fifo = kfifo_alloc(TS_EVENT_FIFO_SIZE, GFP_KERNEL, NULL);
-
-	if (IS_ERR(ts.event_fifo)) {
-		ret = -EIO;
-		goto bail5;
-	}
-
 	dev_info(&pdev->dev, "successfully loaded\n");
 
 	/* All went ok, so register to the input system */
 	rc = input_register_device(ts.dev);
 	if (rc) {
 		ret = -EIO;
-		goto bail6;
+		goto bail5;
 	}
 
 	return 0;
 
-bail6:
-	kfifo_free(ts.event_fifo);
 bail5:
 	free_irq(IRQ_TC, ts.dev);
 	free_irq(IRQ_ADC, ts.dev);
@@ -489,7 +485,8 @@ bail4:
 	disable_irq(IRQ_ADC);
 bail3:
 	ts_filter_destroy_chain(ts.tsf);
-
+	kfifo_free(ts.event_fifo);
+bail2:
 	input_unregister_device(ts.dev);
 bail1:
 	iounmap(base_addr);

@@ -23,8 +23,89 @@
  * MA 02111-1307 USA
  */
 
+#include <linux/delay.h>
 #include <linux/mfd/pcf50633/core.h>
 #include <linux/mfd/pcf50633/mbc.h>
+
+/* this tells us the answer to "how am I set for power?" */
+
+enum pcf50633_power_avail pcf50633_check_power_available(struct pcf50633 *pcf)
+{
+	int ret;
+	int battery_ok;
+	int usb_present;
+
+	/* first look for adapter and USB power status */
+
+	ret = pcf50633_reg_read(pcf, PCF50633_REG_MBCS1);
+	if (ret < 0)
+		return ret;
+
+	if (ret & 8) /* adapter power present */
+		return PCF50633_PA_ADAPTER; /* don't care about anything else */
+
+	usb_present = ret & 2;
+
+	/* measure battery using PMU ADC */
+	/* disable charging momentarily so we can measure battery */
+
+	ret = pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1, 1, 0);
+	if (ret < 0)
+		return ret;
+
+	ret = pcf50633_adc_sync_read(pcf, PCF50633_ADCC1_MUX_BATSNS_RES,
+						     PCF50633_ADCC1_AVERAGE_16);
+	if (ret < 0)
+		return ret;
+
+ 	battery_ok = (ret > pcf->pdata->good_main_battery_adc_threshold);
+
+	/* enable charging again */
+
+	ret = pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1, 1, 1);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * now we know battery and USB situation
+	 * make the decision now if possible
+	 */
+
+	if (!usb_present && !battery_ok)
+		return PCF50633_PA_DEAD_BATTERY_ONLY;
+
+	if (!usb_present && battery_ok)
+		return PCF50633_PA_LIVE_BATTERY_ONLY;
+
+	/* So USB is present... what current limit? */
+
+	ret = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7);
+	if (ret < 0)
+		return ret;
+
+	switch (ret & PCF50633_MBCC7_USB_MASK) {
+
+	case PCF50633_MBCC7_USB_100mA:
+		if (battery_ok)
+			return PCF50633_PA_USB_100mA_AND_LIVE_BATTERY;
+		else
+			return PCF50633_PA_USB_100mA_AND_DEAD_BATTERY;
+
+	case PCF50633_MBCC7_USB_500mA:
+		return PCF50633_PA_USB_500mA;
+
+	case PCF50633_MBCC7_USB_1000mA:
+		return PCF50633_PA_USB_1A;
+
+	default:
+		if (battery_ok)
+			return PCF50633_PA_LIVE_BATTERY_ONLY;
+		else
+			return PCF50633_PA_DEAD_BATTERY_ONLY;
+	}
+
+	return PCF50633_PA_DEAD_BATTERY_ONLY;
+}
 
 void pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma)
 {
