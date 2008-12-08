@@ -130,7 +130,7 @@ struct s3c_gpio_chip s3c24xx_gpios[] = {
 			.base			= S3C2410_GPG0,
 			.owner			= THIS_MODULE,
 			.label			= "GPIOG",
-			.ngpio			= 10,
+			.ngpio			= 16,
 		},
 	},
 };
