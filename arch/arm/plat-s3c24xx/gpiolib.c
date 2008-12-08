@@ -133,6 +133,16 @@ struct s3c_gpio_chip s3c24xx_gpios[] = {
 			.ngpio			= 16,
 		},
 	},
+	[7] = {
+		.base	= S3C24XX_GPIO_BASE(S3C2410_GPH0),
+		.pm	= __gpio_pm(&s3c_gpio_pm_2bit),
+		.chip	= {
+			.base			= S3C2410_GPH0,
+			.owner			= THIS_MODULE,
+			.label			= "GPIOH",
+			.ngpio			= 11,
+		},
+	},
 };
 
 static __init int s3c24xx_gpiolib_init(void)
