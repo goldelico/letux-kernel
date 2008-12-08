@@ -19,7 +19,7 @@
  * ChangeLog
  *
  * 2004-09-05: Herbert Pötzl <herbert@13thfloor.at>
- *	- added clock (de-)allocation code
+ *      - added clock (de-)allocation code
  *
  * 2005-03-06: Arnaud Patard <arnaud.patard@rtp-net.org>
  *      - h1940_ -> s3c2410 (this driver is now also used on the n30
@@ -35,11 +35,14 @@
  *        controller
  *
  * 2007-05-23: Harald Welte <laforge@openmoko.org>
- * 	- Add proper support for S32440
+ *      - Add proper support for S32440
  *
  * 2008-06-23: Andy Green <andy@openmoko.com>
  *      - removed averaging system
  *      - added generic Touchscreen filter stuff
+ *
+ * 2008-11-27: Nelson Castillo <arhuaco@freaks-unidos.net>
+ *      - improve interrupt handling
  */
 
 #include <linux/errno.h>
@@ -97,13 +100,9 @@ static char *s3c2410ts_name = "s3c2410 TouchScreen";
 #define TS_EVENT_FIFO_SIZE (2 << 6) /* must be a power of 2 */
 
 #define TS_STATE_STANDBY 0 /* initial state */
-#define TS_STATE_PRESSED_PENDING 1
-#define TS_STATE_PRESSED 2
-#define TS_STATE_RELEASE_PENDING 3
-#define TS_STATE_RELEASE 4
-
-#define SKIP_NHEAD 2
-#define SKIP_NTAIL 1
+#define TS_STATE_PRESSED 1
+#define TS_STATE_RELEASE_PENDING 2
+#define TS_STATE_RELEASE 3
 
 /*
  * Per-touchscreen data.
@@ -180,92 +179,8 @@ static void ts_input_report(int event, int coords[])
 	input_sync(ts.dev);
 }
 
-
 /*
- * Skip filter for touchscreen values.
- *
- * Problem: The first and the last sample might be unreliable. We provide
- * this filter as a separate function in order to keep the event_send_timer_f
- * function simple. This filter:
- *
- * - Skips NHEAD points after IE_DOWN
- * - Skips NTAIL points before IE_UP
- * - Ignores a click if we have less than (NHEAD + NTAILl + 1) points
- */
-
-struct skip_filter_event {
-	int coords[2];
-};
-
-struct skip_filter {
-	unsigned N;
-	unsigned M;
-	int sent;
-	struct skip_filter_event buf[SKIP_NTAIL];
-};
-
-struct skip_filter ts_skip;
-
-static void ts_skip_filter_reset(void)
-{
-	ts_skip.N = 0;
-	ts_skip.M = 0;
-	ts_skip.sent = 0;
-}
-
-static void ts_skip_filter(int event, int coords[])
-{
-	/* skip the first N samples */
-	if (ts_skip.N < SKIP_NHEAD) {
-		if (IE_UP == event)
-			ts_skip_filter_reset();
-		else
-			ts_skip.N++;
-		return;
-	}
-
-	/* We didn't send DOWN -- Ignore UP */
-	if (IE_UP == event && !ts_skip.sent) {
-		ts_skip_filter_reset();
-		return;
-	}
-
-	/* Just accept the event if NTAIL == 0 */
-	if (!SKIP_NTAIL) {
-		ts_input_report(event, coords);
-		if (IE_UP == event)
-			ts_skip_filter_reset();
-		else
-			ts_skip.sent = 1;
-		return;
-	}
-
-	/* NTAIL > 0,  Queue current point if we need to */
-	if (!ts_skip.sent && ts_skip.M < SKIP_NTAIL) {
-		memcpy(&ts_skip.buf[ts_skip.M++].coords[0], &coords[0],
-		       sizeof(int) * 2);
-		return;
-	}
-
-	/* queue full: accept one, queue one */
-
-	if (ts_skip.M >= SKIP_NTAIL)
-		ts_skip.M = 0;
-
-	ts_input_report(event, ts_skip.buf[ts_skip.M].coords);
-
-	if (event == IE_UP) {
-		ts_skip_filter_reset();
-	} else {
-		memcpy(&ts_skip.buf[ts_skip.M++].coords[0], &coords[0],
-		       sizeof(int) * 2);
-		ts_skip.sent = 1;
-	}
-}
-
-
-/*
- * Manage the state of the touchscreen. Send events to the skip filter.
+ * Manage the state of the touchscreen.
  */
 
 static void event_send_timer_f(unsigned long data);
@@ -294,9 +209,6 @@ static void event_send_timer_f(unsigned long data)
 			if (ts.state == TS_STATE_RELEASE_PENDING)
 				/* Ignore short UP event */
 				ts.state = TS_STATE_PRESSED;
-			else
-				/* Defer PRESSED until we get a valid point */
-				ts.state = TS_STATE_PRESSED_PENDING;
 			break;
 
 		case 'U':
@@ -313,9 +225,8 @@ static void event_send_timer_f(unsigned long data)
 				     != sizeof(int) * 2))
 				goto ts_exit_error;
 
-			ts_skip_filter(IE_DOWN, buf);
+			ts_input_report(IE_DOWN, buf);
 			ts.state = TS_STATE_PRESSED;
-
 			break;
 
 		default:
@@ -332,7 +243,7 @@ static void event_send_timer_f(unsigned long data)
 			 * while to avoid jitter. If we get a DOWN
 			 * event we do not send it. */
 
-			ts_skip_filter(IE_UP, NULL);
+			ts_input_report(IE_UP, NULL);
 			ts.state = TS_STATE_STANDBY;
 
 			if (ts.tsf[0])
@@ -516,8 +427,6 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 	ts.dev->id.product = 0xBEEF;
 	ts.dev->id.version = S3C2410TSVERSION;
 	ts.state = TS_STATE_STANDBY;
-
-	ts_skip_filter_reset();
 
 	/* create the filter chain set up for the 2 coordinates we produce */
 	ret = ts_filter_create_chain(
@@ -710,9 +619,3 @@ static void __exit s3c2410ts_exit(void)
 module_init(s3c2410ts_init);
 module_exit(s3c2410ts_exit);
 
-/*
-    Local variables:
-        compile-command: "make ARCH=arm CROSS_COMPILE=/usr/local/arm/3.3.2/bin/arm-linux- -k -C ../../.."
-        c-basic-offset: 8
-    End:
-*/

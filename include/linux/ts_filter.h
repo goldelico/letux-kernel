@@ -4,14 +4,11 @@
 /*
  * touchscreen filter
  *
- * median
- *
  * (c) 2008 Andy Green <andy@openmoko.com>
  */
 
-/* max filters you can chain up */
-#define MAX_TS_FILTER_CHAIN 4
-#define MAX_TS_FILTER_COORDS 6
+#define MAX_TS_FILTER_CHAIN		4  /* max filters you can chain up */
+#define MAX_TS_FILTER_COORDS		3  /* Y, Y and Z (pressure) */
 
 struct ts_filter;
 

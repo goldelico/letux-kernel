@@ -21,13 +21,13 @@ menuconfig TOUCHSCREEN_FILTER
 
 if TOUCHSCREEN_FILTER
 
-config TOUCHSCREEN_FILTER_VARIANCE
-	bool "Variance Touchscreen Filter"
+config TOUCHSCREEN_FILTER_GROUP
+	bool "Group Touchscreen Filter"
 	depends on INPUT_TOUCHSCREEN && TOUCHSCREEN_FILTER
 	default Y
 	help
-	  Say Y here if you want to use the Variance touchscreen filter, it
-	  helps discarding a click if we get too much noise.
+	  Say Y here if you want to use the Group touchscreen filter, it
+	  avoids using atypical samples.
 
 
 config TOUCHSCREEN_FILTER_MEDIAN
