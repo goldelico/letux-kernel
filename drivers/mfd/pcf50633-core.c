@@ -28,7 +28,6 @@
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
-#include <linux/delay.h>
 
 #include <linux/mfd/pcf50633/core.h>
 
@@ -293,11 +292,10 @@ static void pcf50633_irq_worker(struct work_struct *work)
 			pcf_int[0] &= ~(1 << PCF50633_INT1_ADPINS);
 	}
 
-#if 0
 	dev_info(pcf->dev, "INT1=0x%02x INT2=0x%02x INT3=0x%02x "
 			"INT4=0x%02x INT5=0x%02x\n", pcf_int[0],
 			pcf_int[1], pcf_int[2], pcf_int[3], pcf_int[4]);
-#endif
+
 	/* Some revisions of the chip don't have a 8s standby mode on
 	 * ONKEY1S press. We try to manually do it in such cases. */
 
@@ -378,6 +376,8 @@ reschedule:
 static irqreturn_t pcf50633_irq(int irq, void *data)
 {
 	struct pcf50633 *pcf = data;
+
+	printk(KERN_ERR "pcf50633_irq\n");
 
 	get_device(pcf->dev);
 
@@ -474,17 +474,15 @@ static int pcf50633_resume(struct device *dev)
 #define pcf50633_resume NULL
 #endif
 
-
 static int pcf50633_probe(struct i2c_client *client,
 				const struct i2c_device_id *ids)
 {
 	struct pcf50633 *pcf;
 	struct pcf50633_platform_data *pdata;
-	int ret = 0;
+	int i, ret = 0;
+	u8 mbcs1;
 	int version;
 	int variant;
-	u8 mbcs1;
-	int i;
 
 	pdata = client->dev.platform_data;
 
@@ -520,7 +518,7 @@ static int pcf50633_probe(struct i2c_client *client,
 	dev_info(pcf->dev, "Probed device version %d variant %d\n",
 							version, variant);
 
-	/* Enable all interrupts except RTC SECOND */
+	/* Enable all inteerupts except RTC SECOND */
 	pcf->mask_regs[0] = 0x80;
 	pcf50633_reg_write(pcf, PCF50633_REG_INT1M, 0x80);
 
@@ -537,15 +535,22 @@ static int pcf50633_probe(struct i2c_client *client,
 						&pcf->mbc.pdev);
 	pcf50633_client_dev_register(pcf, "pcf50633-adc",
 						&pcf->adc.pdev);
+	for (i = 0; i < PCF50633_NUM_REGULATORS; i++) {
+		struct platform_device *pdev;
 
-	/* Cold Intialization */
-	mbcs1 = pcf50633_reg_read(pcf, PCF50633_REG_MBCS1);
+		pdev = platform_device_alloc("pcf50633-regltr", i);
+		if (!pdev) {
+			dev_err(pcf->dev, "Cannot create regulator\n");
+			continue;
+		}
 
-	if (mbcs1 & 0x01)
-		pcf50633_irq_call_handler(pcf, PCF50633_IRQ_USBINS);
-	if (mbcs1 & 0x04)
-		pcf50633_irq_call_handler(pcf, PCF50633_IRQ_ADPINS);
+		pdev->dev.parent = pcf->dev;
+		pdev->dev.platform_data = &pdata->reg_init_data[i];
+		pdev->dev.driver_data = pcf;
+		pcf->pmic.pdev[i] = pdev;
 
+		platform_device_add(pdev);
+	}
 
 	pcf->irq = client->irq;
 
@@ -566,41 +571,20 @@ static int pcf50633_probe(struct i2c_client *client,
 		dev_err(pcf->dev, "IRQ %u cannot be enabled as wake-up "
 		        "source in this hardware revision\n", client->irq);
 
+	/* Cold Intialization */
+	mbcs1 = pcf50633_reg_read(pcf, PCF50633_REG_MBCS1);
+
+	if (mbcs1 & 0x01)
+		pcf50633_irq_call_handler(pcf, PCF50633_IRQ_USBINS);
+	if (mbcs1 & 0x04)
+		pcf50633_irq_call_handler(pcf, PCF50633_IRQ_ADPINS);
+
 	ret = sysfs_create_group(&client->dev.kobj, &pcf_attr_group);
 	if (ret)
 		dev_err(pcf->dev, "error creating sysfs entries\n");
 
-	/*
-	 * give the system a chance to spin until power situation becomes
-	 * good enough to continue boot.  USB-based systems are only allowed to
-	 * pull 100mA until enumerated when they can have up to 500mA for
-	 * example
-	 */
-
-	if (pcf->pdata->mbc_event_callback)
-		pcf->pdata->mbc_event_callback(pcf,
-					      PCF50633_ABOUT_TO_INCREASE_POWER);
-
-	for (i = 0; i < PCF50633_NUM_REGULATORS; i++) {
-		struct platform_device *pdev;
-
-		pdev = platform_device_alloc("pcf50633-regltr", i);
-		if (!pdev) {
-			dev_err(pcf->dev, "Cannot create regulator\n");
-			continue;
-		}
-
-		pdev->dev.parent = pcf->dev;
-		pdev->dev.platform_data = &pcf->pdata->reg_init_data[i];
-		pdev->dev.driver_data = pcf;
-		pcf->pmic.pdev[i] = pdev;
-
-		platform_device_add(pdev);
-	}
-
-	if (pcf->pdata->probe_done)
-		pcf->pdata->probe_done(pcf);
-
+	if (pdata->probe_done)
+		pdata->probe_done(pcf);
 
 	return 0;
 

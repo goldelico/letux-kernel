@@ -557,9 +557,6 @@ static void gta02_charger_worker(struct work_struct *work)
 #define GTA02_CHARGER_CONFIGURE_TIMEOUT ((3000 * HZ) / 1000)
 static void gta02_pmu_event_callback(struct pcf50633 *pcf, int irq)
 {
-	int ret;
-	int happy_with_power = 0;
-
 	if (irq == PCF50633_IRQ_USBINS) {
 		schedule_delayed_work(&gta02_charger_work,
 				GTA02_CHARGER_CONFIGURE_TIMEOUT);
@@ -567,44 +564,6 @@ static void gta02_pmu_event_callback(struct pcf50633 *pcf, int irq)
 	} else if (irq == PCF50633_IRQ_USBREM) {
 		cancel_delayed_work_sync(&gta02_charger_work);
 		gta02_usb_vbus_draw = 0;
-	} else if (irq == PCF50633_ABOUT_TO_INCREASE_POWER) {
-
-		/*
-		* we can't let this proceed until we are happy about
-		* power arrangements, because it is going to bring up
-		* the backlight and double our power consumption.
-		*
-		* With Qi/A6 anyway, until now we could boot just from
-		* USB 100mA limit and no or low battery.  So we need
-		* to check for low battery and if so, spin here until
-		* USB enumerated power, or charger comes
-		*/
-
-		while (!happy_with_power) {
-			ret = pcf50633_check_power_available(pcf);
-//			dev_info(pcf->dev, "available power = %d\n", ret);
-			switch (ret) {
-			case PCF50633_PA_DEAD_BATTERY_ONLY:
-				/* turn ourselves off */
-				pcf50633_reg_write(pcf, PCF50633_REG_OOSHDWN,
-									  0x01);
-				break;
-			case PCF50633_PA_USB_100mA_AND_DEAD_BATTERY:
-				/*
-				 * loop waiting for eg 500mA USB
-				 * enumeration by host
-				 */
-				break;
-			default:
-				/*
-				 * one way or another we can afford to
-				 * use more power
-				 */
-				happy_with_power = 1;
-				continue;
-			}
-			msleep(1000);
-		}
 	}
 }
 
@@ -668,7 +627,6 @@ static struct regulator_consumer_supply hcldo_consumers[] = {
 static char *gta02_batteries[] = {
 	"battery",
 };
-
 
 struct pcf50633_platform_data gta02_pcf_pdata = {
 	.resumers = {
@@ -807,7 +765,6 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 	.probe_done = gta02_pmu_attach_child_devices,
 	.regulator_registered = gta02_pmu_regulator_registered,
 	.mbc_event_callback = gta02_pmu_event_callback,
-	.good_main_battery_adc_threshold = 500
 };
 
 static void mangle_pmu_pdata_by_system_rev(void)
@@ -1046,8 +1003,6 @@ static void gta02_udc_vbus_draw(unsigned int ma)
 		printk(KERN_ERR "********** NULL gta02_pcf_pdata.pcf *****\n");
 		return;
 	}
-
-	printk(KERN_ERR "******** UDC gta02_pcf_pdata.pcf ma = %d\n", ma);
 
 	gta02_usb_vbus_draw = ma;
 
@@ -1653,7 +1608,20 @@ __setup("hardware_ecc=", hardware_ecc_setup);
 /* these are the guys that don't need to be children of PMU */
 
 static struct platform_device *gta02_devices[] __initdata = {
+	&gta02_version_device,
+	&s3c_device_usb,
+	&s3c_device_wdt,
+	&gta02_memconfig_device,
+	&s3c_device_sdi,
 	&s3c_device_usbgadget,
+	&s3c_device_nand,
+	&gta02_nor_flash,
+
+	&sc32440_fiq_device,
+	&s3c24xx_pwm_device,
+	&gta02_led_dev,
+	&gta02_pm_wlan_dev, /* not dependent on PMU */
+
 	&s3c_device_iis,
 	&s3c_device_i2c0,
 };
@@ -1661,15 +1629,6 @@ static struct platform_device *gta02_devices[] __initdata = {
 /* these guys DO need to be children of PMU */
 
 static struct platform_device *gta02_devices_pmu_children[] = {
-	&s3c_device_usb,
-	&sc32440_fiq_device,
-	&s3c24xx_pwm_device,
-	&s3c_device_nand,
-	&gta02_nor_flash,
-	&gta02_pm_wlan_dev, /* not dependent on PMU */
-	&gta02_version_device,
-	&s3c_device_wdt,
-	&gta02_memconfig_device,
 	&s3c_device_ts, /* input 1 */
 	&gta02_pm_gsm_dev,
 	&gta02_pm_usbhost_dev,
@@ -1677,8 +1636,6 @@ static struct platform_device *gta02_devices_pmu_children[] = {
 	&s3c_device_spi_acc2, /* input 3 */
 	&gta02_button_dev, /* input 4 */
 	&gta02_resume_reason_device,
-	&s3c_device_sdi,
-	&gta02_led_dev,
 };
 
 static void gta02_pmu_regulator_registered(struct pcf50633 *pcf, int id)
@@ -1688,23 +1645,22 @@ static void gta02_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 	regulator = pcf->pmic.pdev[id];
 
 	switch(id) {
-	case PCF50633_REGULATOR_LDO4:
-		pdev = &gta01_pm_bt_dev;
-		break;
-	case PCF50633_REGULATOR_LDO5:
-		pdev = &gta01_pm_gps_dev;
-		break;
-	case PCF50633_REGULATOR_HCLDO:
-		pdev = &gta02_glamo_dev;
-		break;
-	default:
-		return;
+		case PCF50633_REGULATOR_LDO4:
+			pdev = &gta01_pm_bt_dev;
+			break;
+		case PCF50633_REGULATOR_LDO5:
+			pdev = &gta01_pm_gps_dev;
+			break;
+		case PCF50633_REGULATOR_HCLDO:
+			pdev = &gta02_glamo_dev;
+			break;
+		default:
+			return;	
 	}
 	
 	pdev->dev.parent = &regulator->dev;
 	platform_device_register(pdev);
 }
-
 
 /* this is called when pc50633 is probed, unfortunately quite late in the
  * day since it is an I2C bus device.  Here we can belatedly define some

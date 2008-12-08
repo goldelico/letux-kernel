@@ -15,7 +15,6 @@
 
 #include <linux/platform_device.h>
 
-#define PCF50633_REG_BVMCTL	0x19
 #define PCF50633_REG_MBCC1	0x43
 #define PCF50633_REG_MBCC2	0x44
 #define PCF50633_REG_MBCC3	0x45
@@ -122,18 +121,6 @@ enum pcf50633_reg_mbcs3 {
 struct pcf50633;
 
 void pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma);
-
-enum pcf50633_power_avail {
-	PCF50633_PA_DEAD_BATTERY_ONLY,
-	PCF50633_PA_LIVE_BATTERY_ONLY,
-	PCF50633_PA_ADAPTER,
-	PCF50633_PA_USB_100mA_AND_LIVE_BATTERY,
-	PCF50633_PA_USB_100mA_AND_DEAD_BATTERY,
-	PCF50633_PA_USB_500mA,
-	PCF50633_PA_USB_1A
-};
-
-enum pcf50633_power_avail pcf50633_check_power_available(struct pcf50633 *pcf);
 
 struct pcf50633_mbc {
 	int adapter_active;

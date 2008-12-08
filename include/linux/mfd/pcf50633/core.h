@@ -34,8 +34,6 @@ struct pcf50633_platform_data {
 	char **batteries;
 	int num_batteries;
 
-	int good_main_battery_adc_threshold;
-
 	/* Callbacks */
 	void (*probe_done)(struct pcf50633 *);
 	void (*mbc_event_callback)(struct pcf50633 *, int);
@@ -80,7 +78,6 @@ int pcf50633_reg_clear_bits(struct pcf50633 *pcf, u8 reg, u8 bits);
 #define	PCF50633_REG_INT3M	0x09
 #define	PCF50633_REG_INT4M	0x0a
 #define	PCF50633_REG_INT5M	0x0b
-#define PCF50633_REG_OOSHDWN	0x0c
 
 enum {
 	/* Chip IRQs */
@@ -125,10 +122,8 @@ enum {
 	PCF50633_IRQ_HCLDOPWRFAIL,
 	PCF50633_IRQ_HCLDOOVL,
 
-	/* Always last of real IRQs */
+	/* Always last */
 	PCF50633_NUM_IRQ,
-	/* fake IRQ */
-	PCF50633_ABOUT_TO_INCREASE_POWER
 };
 
 struct pcf50633 {
