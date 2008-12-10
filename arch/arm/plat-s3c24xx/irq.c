@@ -497,20 +497,6 @@ s3c_irq_demux_extint8(unsigned int irq,
 		generic_handle_irq(irq);
 	}
 
-	/* ACK those interrupts which are masked, but pending */
-	eintpnd = __raw_readl(S3C24XX_EINTPEND);
-	eintmsk = __raw_readl(S3C24XX_EINTMASK);
-
-	eintpnd &= eintmsk;
-	eintpnd &= ~0xff;	/* ignore lower irqs */
-
-	while (eintpnd) {
-		irq = __ffs(eintpnd);
-		eintpnd &= ~(1 << irq);
-
-		irq += (IRQ_EINT4 - 4);
-		s3c_irqext_ack(irq);
-	}
 }
 
 static void

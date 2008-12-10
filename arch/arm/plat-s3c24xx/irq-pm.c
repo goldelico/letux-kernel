@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/sysdev.h>
+#include <linux/irq.h>
 
 #include <plat/cpu.h>
 #include <plat/pm.h>
@@ -83,7 +84,9 @@ int s3c24xx_irq_suspend(struct sys_device *dev, pm_message_t state)
 
 int s3c24xx_irq_resume(struct sys_device *dev)
 {
-	unsigned int i;
+	unsigned int i, irq;
+	unsigned long eintpnd;
+	struct irq_desc *desc;
 
 	for (i = 0; i < ARRAY_SIZE(save_extint); i++)
 		__raw_writel(save_extint[i], S3C24XX_EXTINT0 + (i*4));
@@ -93,6 +96,26 @@ int s3c24xx_irq_resume(struct sys_device *dev)
 
 	s3c_pm_do_restore(irq_save, ARRAY_SIZE(irq_save));
 	__raw_writel(save_eintmask, S3C24XX_EINTMASK);
+
+	/*
+	 * ACK those interrupts which are now masked and pending.
+	 * Level interrupts if not ACKed here, create an interrupt storm
+	 * because they are not handled at all.
+	 */
+
+	eintpnd = __raw_readl(S3C24XX_EINTPEND);
+
+	eintpnd &= save_eintmask;
+	eintpnd &= ~0xff;	/* ignore lower irqs */
+
+	while (eintpnd) {
+		irq = __ffs(eintpnd);
+		eintpnd &= ~(1 << irq);
+
+		irq += (IRQ_EINT4 - 4);
+		desc = irq_to_desc(irq);
+		desc->chip->ack(irq);
+	}
 
 	return 0;
 }
