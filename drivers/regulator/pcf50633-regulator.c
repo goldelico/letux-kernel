@@ -189,7 +189,7 @@ static int pcf50633_regulator_get_voltage(struct regulator_dev *rdev)
 		return -EINVAL;
 	}
 
-	return rc;
+	return rc * 1000;
 }
 
 static int pcf50633_regulator_enable(struct regulator_dev *rdev)
