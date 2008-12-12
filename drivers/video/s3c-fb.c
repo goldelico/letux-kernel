@@ -995,6 +995,7 @@ static int s3c_fb_resume(struct platform_device *pdev)
 		if (!win)
 			continue;
 
+		dev_dbg(&pdev->dev, "resuming window %d\n", win_no);
 		s3c_fb_set_par(win->fbinfo);
 	}
 

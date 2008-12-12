@@ -35,9 +35,6 @@ int s3c_irq_wake(unsigned int irqno, unsigned int state)
 {
 	unsigned long irqbit = 1 << (irqno - IRQ_EINT0);
 
-	if (irqno >= IRQ_EINT4)
-		return s3c_irqext_wake(irqno, state);
-
 	if (!(s3c_irqwake_intallow & irqbit))
 		return -ENOENT;
 

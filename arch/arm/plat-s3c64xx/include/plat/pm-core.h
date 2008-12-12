@@ -19,7 +19,7 @@ static inline void s3c_pm_debug_init_uart(void)
 	u32 tmp = __raw_readl(S3C_PCLK_GATE);
 
 	/* As a note, since the S3C64XX UARTs generally have multiple
-	 * clock sources, we simply enable PCLK at the momemnt and hope
+	 * clock sources, we simply enable PCLK at the moment and hope
 	 * that the resume settings for the UART are suitable for the
 	 * use with PCLK.
 	 */
@@ -70,6 +70,7 @@ static inline void s3c_pm_arch_update_uart(void __iomem *regs,
 	u32 ucon_clk = ucon & S3C6400_UCON_CLKMASK;
 	u32 save_clk = save->ucon & S3C6400_UCON_CLKMASK;
 	u32 new_ucon;
+	u32 delta;
 
 	/* S3C64XX UART blocks only support level interrupts, so ensure that
 	 * when we restore unused UART blocks we force the level interrupt
@@ -83,26 +84,23 @@ static inline void s3c_pm_arch_update_uart(void __iomem *regs,
 	 */
 	if (ucon_clk != save_clk) {
 		new_ucon = save->ucon;
-		new_ucon &= ~S3C6400_UCON_CLKMASK;
+		delta = ucon_clk ^ save_clk;
 
-		/* check for illegal change of UCLK, and fixup */
+		/* change from UCLKx => wrong PCLK,
+		 * either UCLK can be tested for by a bit-test
+		 * with UCLK0 */
+		if (ucon_clk & S3C6400_UCON_UCLK0 &&
+		    !(save_clk & S3C6400_UCON_UCLK0) &&
+		    delta & S3C6400_UCON_PCLK2) {
+			new_ucon &= ~S3C6400_UCON_UCLK0;
+		} else if (delta == S3C6400_UCON_PCLK2) {
+			/* as an precaution, don't change from
+			 * PCLK2 => PCLK or vice-versa */
+			new_ucon ^= S3C6400_UCON_PCLK2;
+		}
 
-		if (ucon_clk == S3C6400_UCON_UCLK0 &&
-		    save_clk == S3C6400_UCON_PCLK2)
-			new_ucon |= S3C6400_UCON_PCLK;
-
-		if (ucon_clk == S3C6400_UCON_UCLK1 &&
-		    save_clk == S3C6400_UCON_PCLK)
-			new_ucon |= S3C6400_UCON_PCLK2;
-
-		if (ucon_clk == S3C6400_UCON_PCLK &&
-		    save_clk == S3C6400_UCON_PCLK2)
-			new_ucon |= S3C6400_UCON_PCLK;
-
-		if (ucon_clk == S3C6400_UCON_PCLK2 &&
-		    save_clk == S3C6400_UCON_PCLK)
-			new_ucon |= S3C6400_UCON_PCLK2;
-
+		S3C_PMDBG("ucon change %04x => %04x (save=%04x)\n",
+			  ucon, new_ucon, save->ucon);
 		save->ucon = new_ucon;
 	}
 }

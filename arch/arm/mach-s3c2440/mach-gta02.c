@@ -743,9 +743,6 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 				.min_uV = 0,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
-				.state_mem = {
-					.enabled = 1,
-				},
 			},
 			.num_consumer_supplies = 0,
 		},

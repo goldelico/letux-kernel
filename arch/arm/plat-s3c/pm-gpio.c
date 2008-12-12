@@ -260,7 +260,7 @@ static void s3c_gpio_pm_4bit_resume(struct s3c_gpio_chip *chip)
 	void __iomem *base = chip->base;
 	u32 old_gpcon[2];
 	u32 old_gpdat = __raw_readl(base + OFFS_DAT);
-	u32 gps_gpdat = chip->pm_save[1];
+	u32 gps_gpdat = chip->pm_save[2];
 
 	/* First, modify the CON settings */
 
@@ -284,7 +284,7 @@ static void s3c_gpio_pm_4bit_resume(struct s3c_gpio_chip *chip)
 	__raw_writel(chip->pm_save[3], base + OFFS_UP);
 
 	if (chip->chip.ngpio > 8) {
-		S3C_PMDBG("%s: CON4 %08x => %08x, DAT %08x => %08x\n",
+		S3C_PMDBG("%s: CON4 %08x,%08x => %08x,%08x, DAT %08x => %08x\n",
 			  chip->chip.label, old_gpcon[0], old_gpcon[1],
 			  __raw_readl(base - 4),
 			  __raw_readl(base + OFFS_CON),

@@ -197,7 +197,7 @@ void s3c_pm_do_restore(struct sleep_save *ptr, int count)
 /**
  * s3c_pm_do_restore_core() - early restore register values from save list.
  *
- * This is simialr to s3c_pm_do_restore() except we try and minimise the
+ * This is similar to s3c_pm_do_restore() except we try and minimise the
  * side effects of the function in case registers that hardware might need
  * to work has been restored.
  *
@@ -267,10 +267,6 @@ static int s3c_pm_enter(suspend_state_t state)
 		return -EINVAL;
 	}
 
-	/* prepare check area if configured */
-
-	s3c_pm_check_prepare();
-
 	/* store the physical address of the register recovery block */
 
 	s3c_sleep_save_phys = virt_to_phys(regs_save);
@@ -333,15 +329,28 @@ static int s3c_pm_enter(suspend_state_t state)
 
 	S3C_PMDBG("%s: post sleep, preparing to return\n", __func__);
 
+	s3c_pm_check_restore();
+
 	/* LEDs should now be 1110 */
 	s3c_pm_debug_smdkled(1 << 1, 0);
-
-	s3c_pm_check_restore();
 
 	/* ok, let's return from sleep */
 
 	S3C_PMDBG("S3C PM Resume (post-restore)\n");
 	return 0;
+}
+
+static int s3c_pm_prepare(void)
+{
+	/* prepare check area if configured */
+
+	s3c_pm_check_prepare();
+	return 0;
+}
+
+static void s3c_pm_finish(void)
+{
+	s3c_pm_check_cleanup();
 }
 
 static int s3c_pm_begin(suspend_state_t state)
@@ -356,6 +365,8 @@ static int s3c_pm_begin(suspend_state_t state)
 
 static struct platform_suspend_ops s3c_pm_ops = {
 	.enter		= s3c_pm_enter,
+	.prepare	= s3c_pm_prepare,
+	.finish		= s3c_pm_finish,
 	.valid		= suspend_valid_only_mem,
 	.begin		= s3c_pm_begin,
 };

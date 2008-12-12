@@ -5,7 +5,7 @@
  *      Ben Dooks <ben@simtec.co.uk>
  *      http://armlinux.simtec.co.uk/
  *
- * S3C64XX - Interrupt handling Power Managment
+ * S3C64XX - Interrupt handling Power Management
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -30,10 +30,10 @@
 #include <plat/pm.h>
 
 /* We handled all the IRQ types in this code, to save having to make several
- * small files to handle each different type seperately. Having the EINT_GRP
+ * small files to handle each different type separately. Having the EINT_GRP
  * code here shouldn't be as much bloat as the IRQ table space needed when
  * they are enabled. The added benefit is we ensure that these registers are
- * in the same state as we suspsended.
+ * in the same state as we suspended.
  */
 
 static struct sleep_save irq_save[] = {
@@ -57,6 +57,7 @@ static struct irq_grp_save {
 struct irq_vic_save {
 	u32	int_select;
 	u32	int_enable;
+	u32	soft_int;
 	u32	protect;
 	u32	vect_addr[32];
 	u32	vect_cntl[32];
@@ -73,7 +74,11 @@ static void s3c64xx_vic_save(void __iomem *base, struct irq_vic_save *save)
 
 	save->int_select = readl(base + VIC_INT_SELECT);
 	save->int_enable = readl(base + VIC_INT_ENABLE);
+	save->soft_int = readl(base + VIC_INT_SOFT);
 	save->protect = readl(base + VIC_PROTECT);
+
+	S3C_PMDBG("%s: select=%08x, enable=%08x, protect=%08x\n", __func__,
+		  save->int_select, save->int_enable, save->protect);
 
 	for (v = 0; v < ARRAY_SIZE(save->vect_addr); v++) {
 		save->vect_addr[v] = readl(base + VIC_VECT_ADDR0 + (v * 4));
@@ -92,6 +97,13 @@ static void s3c64xx_vic_restore(void __iomem *base, struct irq_vic_save *save)
 	writel(save->int_enable, base + VIC_INT_ENABLE);
 	writel(~save->int_enable, base + VIC_INT_ENABLE_CLEAR);
 
+	/* and the same for the soft-int register */
+
+	writel(save->soft_int, base + VIC_INT_SOFT);
+	writel(~save->soft_int, base + VIC_INT_SOFT_CLEAR);
+
+	S3C_PMDBG("%s: vic int_enable=%08x\n", __func__, readl(base + VIC_INT_ENABLE));
+
 	for (v = 0; v < ARRAY_SIZE(save->vect_addr); v++) {
 		writel(save->vect_addr[v], base + VIC_VECT_ADDR0 + (v * 4));
 		writel(save->vect_cntl[v], base + VIC_VECT_CNTL0 + (v * 4));
@@ -103,7 +115,7 @@ static int s3c64xx_irq_pm_suspend(struct sys_device *dev, pm_message_t state)
 	struct irq_grp_save *grp = eint_grp_save;
 	int i;
 
-	S3C_PMDBG("%s: suspending IRQs\n");
+	S3C_PMDBG("%s: suspending IRQs\n", __func__);
 
 	s3c64xx_vic_save(S3C_VA_VIC0, &irq_pm_vic0_save);
 	s3c64xx_vic_save(S3C_VA_VIC1, &irq_pm_vic1_save);
@@ -127,7 +139,7 @@ static int s3c64xx_irq_pm_resume(struct sys_device *dev)
 	struct irq_grp_save *grp = eint_grp_save;
 	int i;
 
-	S3C_PMDBG("%s: resuming IRQs\n");
+	S3C_PMDBG("%s: resuming IRQs\n", __func__);
 
 	s3c_pm_do_restore(irq_save, ARRAY_SIZE(irq_save));
 
@@ -143,6 +155,7 @@ static int s3c64xx_irq_pm_resume(struct sys_device *dev)
 		__raw_writel(grp->fltcon, S3C64XX_EINT12FLTCON + (i * 4));
 	}
 
+	S3C_PMDBG("%s: IRQ configuration restored\n", __func__);
 	return 0;
 }
 

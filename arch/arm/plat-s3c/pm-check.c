@@ -43,7 +43,7 @@ typedef u32 *(run_fn_t)(struct resource *ptr, u32 *arg);
 
 /* s3c_pm_run_res
  *
- * go thorugh the given resource list, and look for system ram
+ * go through the given resource list, and look for system ram
 */
 
 static void s3c_pm_run_res(struct resource *ptr, run_fn_t fn, u32 *arg)
@@ -136,7 +136,7 @@ void s3c_pm_check_store(void)
 
 /* in_region
  *
- * return TRUE if the area defined by ptr..ptr+size contatins the
+ * return TRUE if the area defined by ptr..ptr+size contains the
  * what..what+whatsz
 */
 
@@ -152,7 +152,7 @@ static inline int in_region(void *ptr, int size, void *what, size_t whatsz)
 }
 
 /**
- * s3c_pm_runcheck*() - helper to check a resource on restore.
+ * s3c_pm_runcheck() - helper to check a resource on restore.
  * @res: The resource to check
  * @vak: Pointer to list of CRC32 values to check.
  *
@@ -166,8 +166,11 @@ static u32 *s3c_pm_runcheck(struct resource *res, u32 *val)
 	void *save_at = phys_to_virt(s3c_sleep_save_phys);
 	unsigned long addr;
 	unsigned long left;
+	void *stkpage;
 	void *ptr;
 	u32 calc;
+
+	stkpage = (void *)((u32)&calc & ~PAGE_MASK);
 
 	for (addr = res->start; addr < res->end;
 	     addr += CHECK_CHUNKSIZE) {
@@ -177,6 +180,11 @@ static u32 *s3c_pm_runcheck(struct resource *res, u32 *val)
 			left = CHECK_CHUNKSIZE;
 
 		ptr = phys_to_virt(addr);
+
+		if (in_region(ptr, left, stkpage, 4096)) {
+			S3C_PMDBG("skipping %08lx, has stack in\n", addr);
+			goto skip_check;
+		}
 
 		if (in_region(ptr, left, crcs, crc_size)) {
 			S3C_PMDBG("skipping %08lx, has crc block in\n", addr);
@@ -214,9 +222,21 @@ static u32 *s3c_pm_runcheck(struct resource *res, u32 *val)
 */
 void s3c_pm_check_restore(void)
 {
-	if (crcs != NULL) {
+	if (crcs != NULL)
 		s3c_pm_run_sysram(s3c_pm_runcheck, crcs);
-		kfree(crcs);
-		crcs = NULL;
-	}
 }
+
+/**
+ * s3c_pm_check_cleanup() - free memory resources
+ *
+ * Free the resources that where allocated by the suspend
+ * memory check code. We do this separately from the
+ * s3c_pm_check_restore() function as we cannot call any
+ * functions that might sleep during that resume.
+ */
+void s3c_pm_check_cleanup(void)
+{
+	kfree(crcs);
+	crcs = NULL;
+}
+

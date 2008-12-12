@@ -146,10 +146,12 @@ static inline void s3c_pm_debug_smdkled(u32 set, u32 clear) { }
 #ifdef CONFIG_S3C2410_PM_CHECK
 extern void s3c_pm_check_prepare(void);
 extern void s3c_pm_check_restore(void);
+extern void s3c_pm_check_cleanup(void);
 extern void s3c_pm_check_store(void);
 #else
 #define s3c_pm_check_prepare() do { } while(0)
 #define s3c_pm_check_restore() do { } while(0)
+#define s3c_pm_check_cleanup() do { } while(0)
 #define s3c_pm_check_store()   do { } while(0)
 #endif
 
@@ -179,3 +181,4 @@ extern void s3c_pm_save_gpios(void);
 
 extern void s3c_pm_save_core(void);
 extern void s3c_pm_restore_core(void);
+

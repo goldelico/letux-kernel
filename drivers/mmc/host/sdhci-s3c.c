@@ -252,6 +252,8 @@ static int __devinit sdhci_s3c_probe(struct platform_device *pdev)
 	sc->pdev = pdev;
 	sc->pdata = pdata;
 
+	platform_set_drvdata(pdev, host);
+
 	sc->clk_io = clk_get(dev, "hsmmc");
 	if (IS_ERR(sc->clk_io)) {
 		dev_err(dev, "failed to get io clock\n");
@@ -364,9 +366,34 @@ static int __devexit sdhci_s3c_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+
+static int sdhci_s3c_suspend(struct platform_device *dev, pm_message_t pm)
+{
+	struct sdhci_host *host = platform_get_drvdata(dev);
+
+	sdhci_suspend_host(host, pm);
+	return 0;
+}
+
+static int sdhci_s3c_resume(struct platform_device *dev)
+{
+	struct sdhci_host *host = platform_get_drvdata(dev);
+
+	sdhci_resume_host(host);
+	return 0;
+}
+
+#else
+#define sdhci_s3c_suspend NULL
+#define sdhci_s3c_resume NULL
+#endif
+
 static struct platform_driver sdhci_s3c_driver = {
 	.probe		= sdhci_s3c_probe,
 	.remove		= __devexit_p(sdhci_s3c_remove),
+	.suspend	= sdhci_s3c_suspend,
+	.resume	        = sdhci_s3c_resume,
 	.driver		= {
 		.owner	= THIS_MODULE,
 		.name	= "s3c-sdhci",

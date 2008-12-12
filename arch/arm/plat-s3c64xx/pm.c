@@ -23,7 +23,9 @@
 #include <plat/regs-sys.h>
 #include <plat/regs-gpio.h>
 #include <plat/regs-clock.h>
+#include <plat/regs-modem.h>
 #include <plat/regs-syscon-power.h>
+#include <plat/regs-gpio-memport.h>
 
 #ifdef CONFIG_S3C_PM_DEBUG_LED_SMDK
 #include <plat/gpio-bank-n.h>
@@ -67,6 +69,9 @@ static struct sleep_save core_save[] = {
 	SAVE_ITEM(S3C_EPLL_CON1),
 	SAVE_ITEM(S3C_EPLL_CON0),
 
+	SAVE_ITEM(S3C64XX_MEM0DRVCON),
+	SAVE_ITEM(S3C64XX_MEM1DRVCON),
+
 #ifndef CONFIG_CPU_FREQ
 	SAVE_ITEM(S3C_APLL_CON),
 	SAVE_ITEM(S3C_MPLL_CON),
@@ -77,11 +82,19 @@ static struct sleep_save misc_save[] = {
 	SAVE_ITEM(S3C64XX_AHB_CON0),
 	SAVE_ITEM(S3C64XX_AHB_CON1),
 	SAVE_ITEM(S3C64XX_AHB_CON2),
+	
+	SAVE_ITEM(S3C64XX_MODEM_MIFPCON),
+	SAVE_ITEM(S3C64XX_SPCON),
+
+	SAVE_ITEM(S3C64XX_MEM0CONSTOP),
+	SAVE_ITEM(S3C64XX_MEM1CONSTOP),
+	SAVE_ITEM(S3C64XX_MEM0CONSLP0),
+	SAVE_ITEM(S3C64XX_MEM0CONSLP1),
+	SAVE_ITEM(S3C64XX_MEM1CONSLP),
 };
 
 void s3c_pm_configure_extint(void)
 {
-	__raw_writel(s3c_irqwake_eintmask, S3C64XX_EINT_MASK);
 	__raw_writel(s3c_irqwake_eintmask, S3C64XX_EINT_MASK);
 }
 
@@ -106,6 +119,8 @@ void s3c_pm_save_core(void)
  * this.
  */
 
+#include <plat/regs-gpio.h>
+
 static void s3c64xx_cpu_suspend(void)
 {
 	unsigned long tmp;
@@ -116,6 +131,11 @@ static void s3c64xx_cpu_suspend(void)
 	tmp &= ~S3C64XX_PWRCFG_CFG_WFI_MASK;
 	tmp |= S3C64XX_PWRCFG_CFG_WFI_SLEEP;
 	__raw_writel(tmp, S3C64XX_PWR_CFG);
+
+	/* clear any old wakeup */
+
+	__raw_writel(__raw_readl(S3C64XX_WAKEUP_STAT),
+		     S3C64XX_WAKEUP_STAT);
 
 	/* set the LED state to 0110 over sleep */
 	s3c_pm_debug_smdkled(3 << 1, 0xf);

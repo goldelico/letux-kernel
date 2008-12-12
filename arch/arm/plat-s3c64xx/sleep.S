@@ -47,6 +47,8 @@ ENTRY(s3c_cpu_save)
 	mrc	p15, 0, r7, c2, c0, 1	@ Translation Table BASE1
 	mrc	p15, 0, r8, c2, c0, 2	@ Translation Table Control
 	mrc	p15, 0, r9, c1, c0, 0	@ Control register
+	mrc	p15, 0, r10, c1, c0, 1	@ Auxiliary control register
+	mrc	p15, 0, r11, c1, c0, 2	@ Co-processor access controls
 
 	stmia	r0, { r4 - r13 }	@ Save CP registers and SP
 	mov	r0, #0
@@ -109,14 +111,15 @@ ENTRY(s3c_cpu_resume)
 #endif
 
 	/* __v6_setup from arch/arm/mm/proc-v6.S, ensure that the caches
-	 * are thorougly cleaned just in case the bootloader didn't do it
+	 * are thoroughly cleaned just in case the bootloader didn't do it
 	 * for us. */
 	mov	r0, #0
 	mcr	p15, 0, r0, c7, c14, 0		@ clean+invalidate D cache
 	mcr	p15, 0, r0, c7, c5, 0		@ invalidate I cache
 	mcr	p15, 0, r0, c7, c15, 0		@ clean+invalidate cache
 	mcr	p15, 0, r0, c7, c10, 4		@ drain write buffer
-	mcr	p15, 0, r0, c8, c7, 0		@ invalidate I + D TLBs
+	@@mcr	p15, 0, r0, c8, c7, 0		@ invalidate I + D TLBs
+	@@mcr	p15, 0, r0, c7, c7, 0		@ Invalidate I + D caches
 
 	ldr	r0, s3c_sleep_save_phys
 	ldmia	r0, { r4 - r13 }
@@ -126,6 +129,11 @@ ENTRY(s3c_cpu_resume)
 	mcr	p15, 0, r6, c2, c0, 0	@ Translation Table BASE0
 	mcr	p15, 0, r7, c2, c0, 1	@ Translation Table BASE1
 	mcr	p15, 0, r8, c2, c0, 2	@ Translation Table Control
+	mcr	p15, 0, r10, c1, c0, 1	@ Auxiliary control register
+
+	mov	r0, #0			@ restore copro access controls
+	mcr	p15, 0, r11, c1, c0, 2	@ Co-processor access controls
+	mcr 	p15, 0, r0, c7, c5, 4
 
 	ldr	r2, =resume_with_mmu
 	mcr	p15, 0, r9, c1, c0, 0		/* turn mmu back on */
