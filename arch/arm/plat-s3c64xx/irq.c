@@ -251,8 +251,6 @@ void __init s3c64xx_init_irq(u32 vic0_valid, u32 vic1_valid)
 
 	for (uart = 0; uart < ARRAY_SIZE(uart_irqs); uart++)
 		s3c64xx_uart_irq(&uart_irqs[uart]);
-
 }
-
 
 

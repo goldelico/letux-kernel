@@ -699,7 +699,6 @@ static void s3c24xx_serial_set_termios(struct uart_port *port,
 			ourport->baudclk  = NULL;
 		}
 
-		//dbg("calling clk_enable() for new baud clock\n");
 		clk_enable(clk);
 
 		ourport->clksrc = clksrc;
