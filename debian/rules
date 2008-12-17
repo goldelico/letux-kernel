@@ -19,12 +19,17 @@ build-stamp: $(QUILT_STAMPFN)
 
 	$(MAKE) ARCH=arm EXTRAVERSION=-$(VERSION_EXTRA)
 
+	# Prepare postinst/prerm
+	for I in postinst prerm; do \
+		sed -e 's/@PACKAGE_VERSION@/${VERSION_FULL}/' debian/$$I.in >debian/$$I; \
+	done
+
 	touch build-stamp
 
 clean: unpatch
 	dh_testdir
 	dh_testroot
-	rm -f build-stamp
+	rm -f build-stamp debian/postinst debian/prerm
 
 	rm -f .config* linux.bin vmlinuz-$(VERSION_FULL)
 
@@ -51,7 +56,6 @@ install-stamp: build
 	# Install the uImage (this is an ugly hack, I know)
 	mkdir `pwd`/debian/`dh_listpackages`/boot/
 	cp vmlinuz-$(VERSION_FULL) `pwd`/debian/`dh_listpackages`/boot/
-	cp vmlinuz-$(VERSION_FULL) `pwd`/debian/`dh_listpackages`/boot/uImage.bin
 
 	# Install the modules.
 	$(MAKE) INSTALL_MOD_STRIP=1 \

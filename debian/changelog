@@ -1,3 +1,19 @@
+linux-2.6-openmoko (20081103.git7172ec57-2) UNRELEASED; urgency=low
+
+  * This version explicitly does not support vfat /boot partition
+    anymore, since dpkg does not support non-POSIX filesystems.
+  * debian/postinst:
+    + create the uImage.bin symlink.
+  * debian/prerm:
+    - remove the uImage.bin symlink.
+  * debian/rules:
+    + fill in the Debian version in postinst.in and prerm.in.
+    - remove postinst and prerm at clean target.
+    - do not install uImage.bin in order to preserve space, thanks to
+      Timo Juhani Lindfors <timo.lindfors@iki.fi>.
+
+ --
+
 linux-2.6-openmoko (20081103.git7172ec57-1) pkg-fso; urgency=low
 
   * New Git Checkout:

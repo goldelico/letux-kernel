@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -e
+
+# Remove the /boot/uImage.bin symlink
+if [ "$1" = "remove" -o "$1" = "upgrade" ]; then
+    VERSION=@PACKAGE_VERSION@
+    UBOOT_IMAGE=/boot/uImage.bin
+    if [ "`readlink $UBOOT_IMAGE`" = "vmlinuz-$VERSION" ]; then
+	rm -f "$UBOOT_IMAGE"
+    fi
+fi
