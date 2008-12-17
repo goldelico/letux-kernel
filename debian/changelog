@@ -1,4 +1,4 @@
-linux-2.6-openmoko (20081103.git7172ec57-2) UNRELEASED; urgency=low
+linux-2.6-openmoko (20081103.git7172ec57-2) pkg-fso; urgency=low
 
   * This version explicitly does not support vfat /boot partition
     anymore, since dpkg does not support non-POSIX filesystems.
@@ -12,7 +12,7 @@ linux-2.6-openmoko (20081103.git7172ec57-2) UNRELEASED; urgency=low
     - do not install uImage.bin in order to preserve space, thanks to
       Timo Juhani Lindfors <timo.lindfors@iki.fi>.
 
- --
+ -- Luca Capello <luca@pca.it>  Wed, 17 Dec 2008 13:29:33 +0100
 
 linux-2.6-openmoko (20081103.git7172ec57-1) pkg-fso; urgency=low
 
