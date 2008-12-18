@@ -50,7 +50,7 @@ fi
 VERSION=
 if [ -d .git ] ; then
  HEAD=`git show --pretty=oneline | head -n1 | cut -d' ' -f1 | cut -b1-16`
- BRANCH=`git branch | grep ^\* | cut -d' ' -f2`
+ BRANCH=`git branch | grep ^\* | cut -d' ' -f2 | sed s/-hist//g`
  VERSION=-$PRODUCT\_$BRANCH\_$HEAD
 fi
 
