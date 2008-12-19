@@ -798,6 +798,7 @@ struct v4l2_ext_controls {
 #define V4L2_CTRL_CLASS_USER 0x00980000	/* Old-style 'user' controls */
 #define V4L2_CTRL_CLASS_MPEG 0x00990000	/* MPEG-compression controls */
 #define V4L2_CTRL_CLASS_CAMERA 0x009a0000	/* Camera class controls */
+#define V4L2_CTRL_CLASS_MODE 0x009b0000		/* Sensor mode information */
 
 #define V4L2_CTRL_ID_MASK      	  (0x0fffffff)
 #define V4L2_CTRL_ID2CLASS(id)    ((id) & 0x0fff0000UL)
@@ -1134,6 +1135,16 @@ enum  v4l2_exposure_auto_type {
 #define V4L2_CID_ZOOM_CONTINUOUS		(V4L2_CID_CAMERA_CLASS_BASE+15)
 
 #define V4L2_CID_PRIVACY			(V4L2_CID_CAMERA_CLASS_BASE+16)
+
+/* SMIA-type sensor information */
+#define V4L2_CID_MODE_CLASS_BASE		(V4L2_CTRL_CLASS_MODE | 0x900)
+#define V4L2_CID_MODE_CLASS			(V4L2_CTRL_CLASS_MODE | 1)
+#define V4L2_CID_MODE_FRAME_WIDTH		(V4L2_CID_MODE_CLASS_BASE+1)
+#define V4L2_CID_MODE_FRAME_HEIGHT		(V4L2_CID_MODE_CLASS_BASE+2)
+#define V4L2_CID_MODE_VISIBLE_WIDTH		(V4L2_CID_MODE_CLASS_BASE+3)
+#define V4L2_CID_MODE_VISIBLE_HEIGHT		(V4L2_CID_MODE_CLASS_BASE+4)
+#define V4L2_CID_MODE_PIXELCLOCK		(V4L2_CID_MODE_CLASS_BASE+5)
+#define V4L2_CID_MODE_SENSITIVITY		(V4L2_CID_MODE_CLASS_BASE+6)
 
 /*
  *	T U N I N G
