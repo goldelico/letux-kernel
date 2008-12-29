@@ -364,6 +364,12 @@ int __init pcf50633_mbc_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(pcf->dev, "failed to register ac\n");
 
+	/* Disable automatic charging restart. Manually setting RESUME
+	 * won't have effect otherwise
+	 */
+	pcf50633_reg_clear_bits(pcf, PCF50633_REG_MBCC1,
+					PCF50633_MBCC1_AUTORES);
+
 	return sysfs_create_group(&pdev->dev.kobj, &mbc_attr_group);
 }
 
