@@ -480,7 +480,6 @@ static int pcf50633_probe(struct i2c_client *client,
 	struct pcf50633 *pcf;
 	struct pcf50633_platform_data *pdata;
 	int i, ret = 0;
-	u8 mbcs1;
 	int version;
 	int variant;
 
@@ -570,14 +569,6 @@ static int pcf50633_probe(struct i2c_client *client,
 	if (enable_irq_wake(client->irq) < 0)
 		dev_err(pcf->dev, "IRQ %u cannot be enabled as wake-up "
 		        "source in this hardware revision\n", client->irq);
-
-	/* Cold Intialization */
-	mbcs1 = pcf50633_reg_read(pcf, PCF50633_REG_MBCS1);
-
-	if (mbcs1 & 0x01)
-		pcf50633_irq_call_handler(pcf, PCF50633_IRQ_USBINS);
-	if (mbcs1 & 0x04)
-		pcf50633_irq_call_handler(pcf, PCF50633_IRQ_ADPINS);
 
 	ret = sysfs_create_group(&client->dev.kobj, &pcf_attr_group);
 	if (ret)

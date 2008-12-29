@@ -293,6 +293,7 @@ int __init pcf50633_mbc_probe(struct platform_device *pdev)
 	struct pcf50633 *pcf;
 	struct pcf50633_mbc *mbc;
 	int ret;
+	u8 mbcs1;
 
 	pcf = platform_get_drvdata(pdev);
 	mbc = &pcf->mbc;
@@ -363,6 +364,12 @@ int __init pcf50633_mbc_probe(struct platform_device *pdev)
 	ret = power_supply_register(&pdev->dev, &mbc->ac);
 	if (ret)
 		dev_err(pcf->dev, "failed to register ac\n");
+
+	mbcs1 = pcf50633_reg_read(pcf, PCF50633_REG_MBCS1);
+	if (mbcs1 & 0x01)
+		pcf50633_mbc_irq_handler(pcf, PCF50633_IRQ_USBINS, NULL);
+	if (mbcs1 & 0x04)
+		pcf50633_mbc_irq_handler(pcf, PCF50633_IRQ_ADPINS, NULL);
 
 	/* Disable automatic charging restart. Manually setting RESUME
 	 * won't have effect otherwise
