@@ -132,6 +132,8 @@ struct pcf50633_mbc {
 	struct power_supply usb;
 	struct power_supply adapter;
 
+	struct delayed_work charging_restart_work;
+
 	struct platform_device *pdev;
 };
 #endif

@@ -143,6 +143,42 @@ static struct attribute_group mbc_attr_group = {
 	.attrs	= mbc_sysfs_entries,
 };
 
+/* MBC state machine switches into charging mode when the battery voltage
+ * falls below 96% of a battery float voltage. But the voltage drop in Li-ion
+ * batteries is marginal(1~2 %) till about 80% of its capacity - which means,
+ * after a BATFULL, charging won't be restarted until 80%.
+ *
+ * This work_struct function restarts charging every
+ * CHARGING_RESTART_TIMEOUT seconds and makes sure we don't discharge too much
+ */
+
+#define CHARGING_RESTART_TIMEOUT	(900 * HZ)  /* 15 minutes */
+
+static void pcf50633_mbc_charging_restart(struct work_struct *work)
+{
+	struct pcf50633_mbc *mbc;
+	struct pcf50633 *pcf;
+	u8 mbcs2, chgmod;
+
+	mbc = container_of(work, struct pcf50633_mbc,
+				charging_restart_work.work);
+	pcf = container_of(mbc, struct pcf50633, mbc);
+
+	mbcs2 = pcf50633_reg_read(pcf, PCF50633_REG_MBCS2);
+	chgmod = (mbcs2 & PCF50633_MBCS2_MBC_MASK);
+
+	if (chgmod != PCF50633_MBCS2_MBC_BAT_FULL)
+		return;
+
+	/* Restart charging */
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1, PCF50633_MBCC1_RESUME,
+						PCF50633_MBCC1_RESUME);
+	mbc->usb_active = 1;
+	power_supply_changed(&mbc->usb);
+
+	dev_info(pcf->dev, "Charging restarted..\n");
+}
+
 static void pcf50633_mbc_irq_handler(struct pcf50633 *pcf, int irq, void *data)
 {
 	struct pcf50633_mbc *mbc;
@@ -156,6 +192,7 @@ static void pcf50633_mbc_irq_handler(struct pcf50633 *pcf, int irq, void *data)
 		mbc->usb_online = 0;
 		mbc->usb_active = 0;
 		pcf50633_mbc_usb_curlim_set(pcf, 0);
+		cancel_delayed_work_sync(&mbc->charging_restart_work);
 	}
 
 	/* Adapter */
@@ -170,6 +207,8 @@ static void pcf50633_mbc_irq_handler(struct pcf50633 *pcf, int irq, void *data)
 	if (irq == PCF50633_IRQ_BATFULL) {
 		mbc->usb_active = 0;
 		mbc->adapter_active = 0;
+		schedule_delayed_work(&mbc->charging_restart_work,
+						CHARGING_RESTART_TIMEOUT);
 	} else if (irq == PCF50633_IRQ_USBLIMON)
 		mbc->usb_active = 0;
 	else if (irq == PCF50633_IRQ_USBLIMOFF)
@@ -309,6 +348,9 @@ int __init pcf50633_mbc_probe(struct platform_device *pdev)
 	mbc->ac.get_property		= ac_get_property;
 	mbc->ac.supplied_to		= pcf->pdata->batteries;
 	mbc->ac.num_supplicants		= pcf->pdata->num_batteries;
+
+	INIT_DELAYED_WORK(&mbc->charging_restart_work,
+				pcf50633_mbc_charging_restart);
 
 	ret = power_supply_register(&pdev->dev, &mbc->adapter);
 	if (ret)
