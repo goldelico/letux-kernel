@@ -33,6 +33,7 @@ struct neo1973kbd {
 	struct input_dev *input;
 	struct device *cdev;
 	struct work_struct work;
+	int aux_state;
 	int work_in_progress;
 	int hp_irq_count_in_work;
 	int hp_irq_count;
@@ -88,22 +89,67 @@ static struct neo1973kbd_key keys[] = {
 	},
 };
 
+/* This timer section filters AUX button IRQ bouncing */
 
-static irqreturn_t neo1973kbd_aux_irq(int irq, void *dev_id)
+static void aux_key_timer_f(unsigned long data);
+
+static struct timer_list aux_key_timer =
+		TIMER_INITIALIZER(aux_key_timer_f, 0, 0);
+
+#define AUX_TIMER_TIMEOUT (HZ >> 7)
+#define AUX_TIMER_ALLOWED_NOOP 2
+#define AUX_TIMER_CONSECUTIVE_EVENTS 5
+
+struct neo1973kbd *timer_kbd;
+
+static void aux_key_timer_f(unsigned long data)
 {
-	struct neo1973kbd *kbd = dev_id;
-	int key_pressed = !gpio_get_value(
-				    kbd->pdev->resource[NEO1973_KEY_AUX].start);
-	int *p = NULL;
+	static int noop_counter;
+	static int last_key = -1;
+	static int last_count;
+	int key_pressed;
 
-	if (global_inside_suspend)
-		printk("death %d\n", *p);
-
-	/* GTA02 has inverted sense level compared to GTA01 */
+	key_pressed =
+	    !gpio_get_value(timer_kbd->pdev->resource[NEO1973_KEY_AUX].start);
 	if (machine_is_neo1973_gta02())
 		key_pressed = !key_pressed;
-	input_report_key(kbd->input, KEY_PHONE, key_pressed);
-	input_sync(kbd->input);
+
+	if (likely(key_pressed == last_key))
+		last_count++;
+	else {
+		last_count = 1;
+		last_key = key_pressed;
+	}
+
+	if (unlikely(last_count >= AUX_TIMER_CONSECUTIVE_EVENTS)) {
+		if (timer_kbd->aux_state != last_key) {
+			input_report_key(timer_kbd->input, KEY_PHONE, last_key);
+			input_sync(timer_kbd->input);
+
+			timer_kbd->aux_state = last_key;
+			noop_counter = 0;
+		}
+		last_count = 0;
+		if (unlikely(++noop_counter > AUX_TIMER_ALLOWED_NOOP)) {
+			noop_counter = 0;
+			return;
+		}
+	}
+
+	mod_timer(&aux_key_timer, jiffies + AUX_TIMER_TIMEOUT);
+}
+
+static irqreturn_t neo1973kbd_aux_irq(int irq, void *dev)
+{
+	int *p = NULL;
+
+	/* if you stall inside resume then AUX will force a panic,
+	   which in turn forces a dump of the pending syslog */
+
+	if (global_inside_suspend)
+		printk(KERN_ERR "death %d\n", *p);
+
+	mod_timer(&aux_key_timer, jiffies + AUX_TIMER_TIMEOUT);
 
 	return IRQ_HANDLED;
 }
@@ -275,6 +321,7 @@ static int neo1973kbd_probe(struct platform_device *pdev)
 	}
 
 	neo1973kbd->pdev = pdev;
+	timer_kbd = neo1973kbd;
 
 	if (pdev->resource[0].flags != 0)
 		return -EINVAL;
