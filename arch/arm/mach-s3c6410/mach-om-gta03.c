@@ -539,6 +539,11 @@ static struct i2c_board_info om_gta03_i2c_devs[] __initdata = {
 		.irq = GTA03_IRQ_PMU,
 		.platform_data = &om_gta03_pcf_pdata,
 	},
+	{
+		I2C_BOARD_INFO("pcap7200", 0x0a),
+		.irq = GTA03_IRQ_TOUCH,
+	},
+
 };
 
 
