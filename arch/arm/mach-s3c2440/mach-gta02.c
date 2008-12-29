@@ -521,13 +521,8 @@ gta02_configure_pmu_for_charger(struct pcf50633 *pcf, void *unused, int res)
 		pcf50633_gpio_set(pcf, PCF50633_GPO, 0);
 	
 		ma = 1000;	
-		pcf->mbc.usb_active = 1;
-	} else {
+	} else
 		ma = 100;
-
-		/* We know that we can't charge now */
-		pcf->mbc.usb_active = 0;
-	}
 
 	pcf50633_mbc_usb_curlim_set(pcf, ma);
 }
@@ -540,9 +535,6 @@ static void gta02_charger_worker(struct work_struct *work)
 	struct pcf50633 *pcf = gta02_pcf_pdata.pcf;
 
 	if (gta02_usb_vbus_draw) {
-		/* We can charge now */
-		pcf->mbc.usb_active = 1;
-
 		pcf50633_mbc_usb_curlim_set(pcf, gta02_usb_vbus_draw);
 		return;
 	} else {
