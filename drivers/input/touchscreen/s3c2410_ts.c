@@ -435,7 +435,7 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 
 	/* create the filter chain set up for the 2 coordinates we produce */
 	ret = ts_filter_create_chain(
-		(struct ts_filter_api **)&info->filter_sequence,
+		pdev, (struct ts_filter_api **)&info->filter_sequence,
 		(void *)&info->filter_config, ts.tsf, ARRAY_SIZE(ts.coords));
 	if (ret)
 		dev_info(&pdev->dev, "%d filter(s) initialized\n", ret);
@@ -484,7 +484,7 @@ bail5:
 bail4:
 	disable_irq(IRQ_ADC);
 bail3:
-	ts_filter_destroy_chain(ts.tsf);
+	ts_filter_destroy_chain(pdev, ts.tsf);
 	kfifo_free(ts.event_fifo);
 bail2:
 	input_unregister_device(ts.dev);
@@ -511,7 +511,7 @@ static int s3c2410ts_remove(struct platform_device *pdev)
 	input_unregister_device(ts.dev);
 	iounmap(base_addr);
 
-	ts_filter_destroy_chain(ts.tsf);
+	ts_filter_destroy_chain(pdev, ts.tsf);
 
 	kfifo_free(ts.event_fifo);
 

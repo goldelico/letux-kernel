@@ -81,7 +81,8 @@ static void ts_filter_median_clear(struct ts_filter *tsf)
 		(tsf->next->api->clear)(tsf->next);
 }
 
-static struct ts_filter *ts_filter_median_create(void * conf, int count_coords)
+static struct ts_filter *ts_filter_median_create(struct platform_device *pdev,
+						 void *conf, int count_coords)
 {
 	int *p;
 	int n;
@@ -120,7 +121,8 @@ static struct ts_filter *ts_filter_median_create(void * conf, int count_coords)
 	return &tsfm->tsf;
 }
 
-static void ts_filter_median_destroy(struct ts_filter *tsf)
+static void ts_filter_median_destroy(struct platform_device *pdev,
+				     struct ts_filter *tsf)
 {
 	struct ts_filter_median *tsfm = (struct ts_filter_median *)tsf;
 

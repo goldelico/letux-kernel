@@ -20,8 +20,9 @@
 #include <linux/device.h>
 #include <linux/ts_filter.h>
 
-int ts_filter_create_chain(struct ts_filter_api **api, void **config,
-				      struct ts_filter **list, int count_coords)
+int ts_filter_create_chain(struct platform_device *pdev,
+			   struct ts_filter_api **api, void **config,
+			   struct ts_filter **list, int count_coords)
 {
 	int count = 0;
 	struct ts_filter *last = NULL;
@@ -29,13 +30,13 @@ int ts_filter_create_chain(struct ts_filter_api **api, void **config,
 	if (!api)
 		return 0;
 
-	while (*api && (count < MAX_TS_FILTER_CHAIN)) {
-		*list = ((*api)->create)(*config++, count_coords);
+	while (*api && count < MAX_TS_FILTER_CHAIN) {
+		*list = ((*api)->create)(pdev, *config++, count_coords);
 		if (!*list) {
 			printk(KERN_ERR "Filter %d failed init\n", count);
 			return count;
 		}
-		(*list)->api = (struct ts_filter_api *)*api++;
+		(*list)->api = *api++;
 		if (last)
 			last->next = *list;
 		last = *list;
@@ -47,12 +48,15 @@ int ts_filter_create_chain(struct ts_filter_api **api, void **config,
 }
 EXPORT_SYMBOL_GPL(ts_filter_create_chain);
 
-void ts_filter_destroy_chain(struct ts_filter **list)
+void ts_filter_destroy_chain(struct platform_device *pdev,
+			     struct ts_filter **list)
 {
 	struct ts_filter **first;
+	int count = 0;
+
 	first = list;
-	while (*list) {
-		((*list)->api->destroy)(*list);
+	while (*list && count++ < MAX_TS_FILTER_CHAIN) {
+		((*list)->api->destroy)(pdev, *list);
 		list++;
 	}
 	*first = NULL;

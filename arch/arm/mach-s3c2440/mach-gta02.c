@@ -103,6 +103,7 @@
 
 #include "../plat-s3c24xx/neo1973_pm_gps.h"
 
+#include <linux/ts_filter_linear.h>
 #include <linux/ts_filter_mean.h>
 #include <linux/ts_filter_median.h>
 #include <linux/ts_filter_group.h>
@@ -1008,6 +1009,12 @@ static struct s3c2410_udc_mach_info gta02_udc_cfg = {
 
 /* touchscreen configuration */
 
+static struct ts_filter_linear_configuration gta02_ts_linear_config = {
+	.constants = {1, 0, 0, 0, 1, 0, 1},	/* don't modify coords */
+	.coord0 = 0,
+	.coord1 = 1,
+};
+
 static struct ts_filter_group_configuration gta02_ts_group_config = {
 	.extent = 12,
 	.close_enough = 10,
@@ -1033,11 +1040,13 @@ static struct s3c2410_ts_mach_info gta02_ts_cfg = {
 		[0] = &ts_filter_group_api,
 		[1] = &ts_filter_median_api,
 		[2] = &ts_filter_mean_api,
+		[3] = &ts_filter_linear_api,
 	},
 	.filter_config = {
 		[0] = &gta02_ts_group_config,
 		[1] = &gta02_ts_median_config,
 		[2] = &gta02_ts_mean_config,
+		[3] = &gta02_ts_linear_config,
 	},
 };
 

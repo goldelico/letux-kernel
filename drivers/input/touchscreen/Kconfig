@@ -29,7 +29,6 @@ config TOUCHSCREEN_FILTER_GROUP
 	  Say Y here if you want to use the Group touchscreen filter, it
 	  avoids using atypical samples.
 
-
 config TOUCHSCREEN_FILTER_MEDIAN
 	bool "Median Average Touchscreen Filter"
 	depends on INPUT_TOUCHSCREEN && TOUCHSCREEN_FILTER
@@ -45,6 +44,14 @@ config TOUCHSCREEN_FILTER_MEAN
 	help
 	  Say Y here if you want to use the Mean touchscreen filter, it
 	  can further improve decent quality data by removing jitter
+
+config TOUCHSCREEN_FILTER_LINEAR
+	bool "Linear Touchscreen Filter"
+	depends on INPUT_TOUCHSCREEN && TOUCHSCREEN_FILTER
+	default Y
+	help
+	  Say Y here if you want to use the Mean touchscreen filter, it
+	  enables the use of calibration data for the touchscreen.
 
 endif
 
@@ -432,5 +439,15 @@ config TOUCHSCREEN_TOUCHIT213
 	  To compile this driver as a module, choose M here: the
 	  module will be called touchit213.
 
+config TOUCHSCREEN_PCAP7200
+	tristate "EETI Projected capacitive touchscreen controller"
+	help
+	  Say Y here if you have the EETI PCAP7200 touchscreen
+	  controller chip in your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called pcap7200.
 endif
 

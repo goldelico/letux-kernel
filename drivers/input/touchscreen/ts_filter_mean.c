@@ -56,7 +56,8 @@ static void ts_filter_mean_clear(struct ts_filter *tsf)
 		(tsf->next->api->clear)(tsf->next);
 }
 
-static struct ts_filter *ts_filter_mean_create(void *config, int count_coords)
+static struct ts_filter *ts_filter_mean_create(struct platform_device *pdev,
+					       void *config, int count_coords)
 {
 	int *p;
 	int n;
@@ -96,7 +97,8 @@ static struct ts_filter *ts_filter_mean_create(void *config, int count_coords)
 	return &tsfs->tsf;
 }
 
-static void ts_filter_mean_destroy(struct ts_filter *tsf)
+static void ts_filter_mean_destroy(struct platform_device *pdev,
+				   struct ts_filter *tsf)
 {
 	struct ts_filter_mean *tsfs = (struct ts_filter_mean *)tsf;
 

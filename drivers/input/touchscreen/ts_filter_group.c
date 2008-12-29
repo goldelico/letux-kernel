@@ -59,7 +59,8 @@ static void ts_filter_group_clear(struct ts_filter *tsf)
 		(tsf->next->api->clear)(tsf->next);
 }
 
-static struct ts_filter *ts_filter_group_create(void *conf, int count_coords)
+static struct ts_filter *ts_filter_group_create(struct platform_device *pdev,
+						void *conf, int count_coords)
 {
 	struct ts_filter_group *tsfg;
 	int i;
@@ -97,7 +98,8 @@ static struct ts_filter *ts_filter_group_create(void *conf, int count_coords)
 	return &tsfg->tsf;
 }
 
-static void ts_filter_group_destroy(struct ts_filter *tsf)
+static void ts_filter_group_destroy(struct platform_device *pdev,
+				    struct ts_filter *tsf)
 {
 	struct ts_filter_group *tsfg = (struct ts_filter_group *)tsf;
 
