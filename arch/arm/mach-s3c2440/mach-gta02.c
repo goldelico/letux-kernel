@@ -1679,6 +1679,11 @@ static void gta02_pmu_attach_child_devices(struct pcf50633 *pcf)
 					ARRAY_SIZE(gta02_devices_pmu_children));
 }
 
+static void gta02_poweroff(void)
+{
+	pcf50633_reg_set_bit_mask(gta02_pcf_pdata.pcf, PCF50633_REG_OOCSHDWN,
+		  PCF50633_OOCSHDWN_GOSTDBY, PCF50633_OOCSHDWN_GOSTDBY);
+}
 
 static void __init gta02_machine_init(void)
 {
@@ -1747,6 +1752,8 @@ static void __init gta02_machine_init(void)
 	if (rc < 0)
 		printk(KERN_ERR "GTA02: can't request ar6k wakeup IRQ\n");
 	enable_irq_wake(GTA02_IRQ_WLAN_GPIO1);
+
+	pm_power_off = gta02_poweroff;
 }
 
 void DEBUG_LED(int n)

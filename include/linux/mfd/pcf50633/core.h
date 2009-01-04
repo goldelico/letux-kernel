@@ -206,7 +206,8 @@ enum pcf50633_reg_int5 {
 };
 
 /* misc. registers */
-#define PCF50633_REG_OOCSHDWN	0x0c
+#define PCF50633_REG_OOCSHDWN		0x0c
+#define PCF50633_OOCSHDWN_GOSTDBY 	0x01
 
 #endif
 
