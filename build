@@ -5,11 +5,25 @@
 #
 # Licensed under GPLv3 or later
 #
+#
+# you need to run this from the top level source dir, but it creates all
+# object files into a subdir given in the first argument, eg
+#
+# ./build GTA02
+#
+# this radically speeds up swapping between build contexts.  Note the config
+# for each build lives in the subdir.
 
-# set -x
+if [ -z "$1" ] ; then
+	echo "Specify the build subdir, eg, GTA02 which contains the .config"
+	echo "and will hold the object files"
+	exit 1
+fi
+
+mkdir -p $1
 
 export CROSS_COMPILE=/usr/local/openmoko/arm/bin/arm-angstrom-linux-gnueabi-
-make ARCH=arm silentoldconfig
+make O=$1 ARCH=arm silentoldconfig
 
 #
 # figure out what we are building
@@ -17,22 +31,22 @@ make ARCH=arm silentoldconfig
 
 PRODUCT=
 
-if [ ! -z "`grep CONFIG_MACH_NEO1973_GTA01=y .config`" ] ; then
+if [ ! -z "`grep CONFIG_MACH_NEO1973_GTA01=y $1/.config`" ] ; then
 	START=30008000
 	PRODUCT=GTA01
 fi
 
-if [ ! -z "`grep CONFIG_MACH_NEO1973_GTA02=y .config`" ] ; then
+if [ ! -z "`grep CONFIG_MACH_NEO1973_GTA02=y $1/.config`" ] ; then
 	START=30008000
 	PRODUCT=GTA02
 fi
 
-if [ ! -z "`grep CONFIG_MACH_OPENMOKO_GTA03=y .config`" ] ; then
+if [ ! -z "`grep CONFIG_MACH_OPENMOKO_GTA03=y $1/.config`" ] ; then
         START=50008000
         PRODUCT=GTA03
 fi
 
-if [ ! -z "`grep CONFIG_MACH_M800=y .config`" ] ; then
+if [ ! -z "`grep CONFIG_MACH_M800=y $1/.config`" ] ; then
 	START=30008000
 	PRODUCT=M800
 fi
@@ -61,29 +75,29 @@ echo $MKIMAGECMD
 # actually make it
 #
 
-if make -j5 ARCH=arm CONFIG_DEBUG_SECTION_MISMATCH=y EXTRAVERSION=$VERSION; then
+if make -j5 O=$1 ARCH=arm CONFIG_DEBUG_SECTION_MISMATCH=y EXTRAVERSION=$VERSION; then
 
 	#
 	# if the build is happy, postprocess it by strip and with U-Boot header wrapper
 	# you can get mkimage from U-Boot or Qi build
 	#
 
-	${CROSS_COMPILE}objcopy -O binary -R .note -R .comment -S arch/arm/boot/compressed/vmlinux linux.bin
-	mkimage -A arm -O linux -T kernel -C none -a $START -e $START -n "OM $PRODUCT $BRANCH""_$HEAD" -d linux.bin uImage-$PRODUCT.bin
+	${CROSS_COMPILE}objcopy -O binary -R .note -R .comment -S $1/arch/arm/boot/compressed/vmlinux $1/linux.bin
+	mkimage -A arm -O linux -T kernel -C none -a $START -e $START -n "OM $PRODUCT $BRANCH""_$HEAD" -d $1/linux.bin $1/uImage-$PRODUCT.bin
 
 	# we can see if it is an "moredrivers" build by looking for USB Eth gadget
 	# if it is then keep a stamped copy of last build
 
-	if [ ! -z "`grep CONFIG_USB_USBNET=y .config`" ] ; then
-		rm -f uImage-moredrivers-$PRODUCT*.bin modules-$PRODUCT*.tar.gz
-		cp uImage-$PRODUCT.bin uImage-moredrivers$VERSION.bin
-		rm -rf staging
-		mkdir -p staging
-		if [ ! -z "$1" ] ; then
-			make ARCH=arm modules_install INSTALL_MOD_PATH=staging
-			cd staging
+	if [ ! -z "`grep CONFIG_USB_USBNET=y $1/.config`" ] ; then
+		rm -f $1/uImage-moredrivers-$PRODUCT*.bin modules-$PRODUCT*.tar.gz
+		cp $1/uImage-$PRODUCT.bin $1/uImage-moredrivers$VERSION.bin
+		rm -rf $1/staging
+		mkdir -p $1/staging
+		if [ ! -z "$2" ] ; then
+			make O=$1 ARCH=arm modules_install INSTALL_MOD_PATH=$1/staging
+			cd $1/staging
 			tar czf ../modules$VERSION.tar.gz .
-			cd ..
+			cd ../..
 		fi
 	fi
 	exit 0
