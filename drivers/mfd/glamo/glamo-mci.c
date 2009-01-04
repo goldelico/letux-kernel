@@ -361,6 +361,10 @@ static void glamo_mci_irq(unsigned int irq, struct irq_desc *desc)
 	writew(GLAMO_IRQ_MMC,
 	       glamo_mci_def_pdata.pglamo->base + GLAMO_REG_IRQ_CLEAR);
 
+	/* we ignore a data timeout report if we are also told the data came */
+	if (status & GLAMO_STAT1_MMC_RB_DRDY)
+		status &= ~GLAMO_STAT1_MMC_DTOUT;
+
 	if (status & (GLAMO_STAT1_MMC_RTOUT |
 		      GLAMO_STAT1_MMC_DTOUT))
 		cmd->error = -ETIMEDOUT;
