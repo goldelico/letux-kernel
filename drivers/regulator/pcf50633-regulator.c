@@ -249,8 +249,6 @@ struct regulator_ops pcf50633_regulator_ops = {
 	.enable = pcf50633_regulator_enable,
 	.disable = pcf50633_regulator_disable,
 	.is_enabled = pcf50633_regulator_is_enabled,
-	.set_suspend_enable = pcf50633_regulator_enable,
-	.set_suspend_disable = pcf50633_regulator_disable,
 };
 
 static struct regulator_desc regulators[] = {

@@ -18,7 +18,6 @@
 #include <linux/delay.h>
 #include <linux/serial_core.h>
 #include <linux/io.h>
-#include <linux/regulator/machine.h>
 
 #include <asm/cacheflush.h>
 #include <mach/hardware.h>
@@ -353,22 +352,11 @@ static void s3c_pm_finish(void)
 	s3c_pm_check_cleanup();
 }
 
-static int s3c_pm_begin(suspend_state_t state)
-{
-        int ret = 0;
-
-#ifdef CONFIG_REGULATOR
-        ret = regulator_suspend_prepare(state);
-#endif
-        return ret;
-}
-
 static struct platform_suspend_ops s3c_pm_ops = {
 	.enter		= s3c_pm_enter,
 	.prepare	= s3c_pm_prepare,
 	.finish		= s3c_pm_finish,
 	.valid		= suspend_valid_only_mem,
-	.begin		= s3c_pm_begin,
 };
 
 /* s3c_pm_init
