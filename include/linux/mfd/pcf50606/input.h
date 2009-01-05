@@ -16,7 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/input.h>
 
-#define PFC50606_OOCS_ONKEY	 0x01
+#define PCF50606_OOCS_ONKEY	 0x01
 #define PCF50606_OOCS_EXTON	 0x02
 
 #define PCF50606_OOCC2_ONKEYDB_NONE	 0x00
