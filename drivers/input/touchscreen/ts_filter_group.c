@@ -182,8 +182,6 @@ static int ts_filter_group_process(struct ts_filter *tsf, int *coords)
 		tsfg->range_max[n] = v[best_idx + best_size - 1];
 	}
 
-	BUG_ON(!tsf->next);
-
 	for (i = 0; i < tsfg->N; ++i) {
 		int r;
 
@@ -197,10 +195,14 @@ static int ts_filter_group_process(struct ts_filter *tsf, int *coords)
 		if (n != tsfg->tsf.count_coords) /* sample not OK */
 			continue;
 
-		r = (tsf->next->api->process)(tsf->next, coords);
-		if (r)  {
-			ret = r;
-			break;
+		if (tsf->next) {
+			r = (tsf->next->api->process)(tsf->next, coords);
+			if (r)  {
+				ret = r;
+				break;
+			}
+		} else if (i == tsfg->N - 1) {
+			ret = 1;
 		}
 	}
 
