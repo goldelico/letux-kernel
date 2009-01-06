@@ -190,15 +190,8 @@ static struct timer_list event_send_timer =
 
 static void event_send_timer_f(unsigned long data)
 {
-	static unsigned long running;
 	static int noop_counter;
 	int event_type;
-
-	if (unlikely(test_and_set_bit(0, &running))) {
-		mod_timer(&event_send_timer,
-			  jiffies + TS_RELEASE_TIMEOUT);
-		return;
-	}
 
 	while (__kfifo_get(ts.event_fifo, (unsigned char *)&event_type,
 			   sizeof(int))) {
@@ -252,8 +245,6 @@ static void event_send_timer_f(unsigned long data)
 	} else {
 		mod_timer(&event_send_timer, jiffies + TS_RELEASE_TIMEOUT);
 	}
-
-	clear_bit(0, &running);
 
 	return;
 
