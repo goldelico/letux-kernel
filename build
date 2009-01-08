@@ -89,7 +89,7 @@ if make -j5 O=$1 ARCH=arm CONFIG_DEBUG_SECTION_MISMATCH=y EXTRAVERSION=$VERSION;
 	# if it is then keep a stamped copy of last build
 
 	if [ ! -z "`grep CONFIG_USB_USBNET=y $1/.config`" ] ; then
-		rm -f $1/uImage-moredrivers-$PRODUCT*.bin modules-$PRODUCT*.tar.gz
+		rm -f $1/uImage-moredrivers-$PRODUCT*.bin $1/modules-$PRODUCT*.tar.gz
 		cp $1/uImage-$PRODUCT.bin $1/uImage-moredrivers$VERSION.bin
 		rm -rf $1/staging
 		mkdir -p $1/staging
