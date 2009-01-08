@@ -29,6 +29,7 @@
 #include <linux/fb.h>
 #include <linux/delay.h>
 #include <linux/lis302dl.h>
+#include <linux/lp5521.h>
 
 #include <video/platform_lcd.h>
 
@@ -532,6 +533,15 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 	.mbc_event_callback = om_gta03_pmu_event_callback,
 };
 
+static void om_gta03_lp5521_chip_enable(int level)
+{
+	gpio_direction_output(GTA03_GPIO_LED_EN, level);
+	mdelay(500);
+}
+
+static struct lp5521_platform_data om_gta03_lp5521_pdata = {
+	.ext_enable = om_gta03_lp5521_chip_enable,
+};
 
 static struct i2c_board_info om_gta03_i2c_devs[] __initdata = {
 	{
@@ -542,6 +552,11 @@ static struct i2c_board_info om_gta03_i2c_devs[] __initdata = {
 	{
 		I2C_BOARD_INFO("pcap7200", 0x0a),
 		.irq = GTA03_IRQ_TOUCH,
+	},
+	{
+		I2C_BOARD_INFO("lp5521", 0x32),
+		.irq = GTA03_IRQ_LED,
+		.platform_data = &om_gta03_lp5521_pdata,
 	},
 
 };

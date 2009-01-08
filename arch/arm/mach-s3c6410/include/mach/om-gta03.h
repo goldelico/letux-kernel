@@ -51,6 +51,8 @@ extern struct pcf50633_platform_data om_gta03_pcf_pdata;
 
 #define GTA03_GPIO_NWLAN_POWER		S3C64XX_GPK(0)
 #define GTA03_GPIO_MODEN_ON		S3C64XX_GPK(2)
+#define GTA03_GPIO_LED_TRIG 		S3C64XX_GPK(3)
+#define GTA03_GPIO_LED_EN 		S3C64XX_GPK(4)
 
 #define GTA03_GPIO_TP_RESET		S3C64XX_GPM(0)
 #define GTA03_GPIO_GPS_LNA_EN		S3C64XX_GPM(2)
@@ -87,5 +89,7 @@ extern struct pcf50633_platform_data om_gta03_pcf_pdata;
 #define GTA03_IRQ_GSENSOR_2	S3C_EINT(10)
 #define GTA03_IRQ_IO1		S3C_EINT(11)
 #define GTA03_IRQ_NONKEYWAKE	S3C_EINT(12)
+
+#define GTA03_IRQ_LED 		IRQ_EINT_GROUP(6, 9)
 
 #endif /* _OM_GTA03_H */
