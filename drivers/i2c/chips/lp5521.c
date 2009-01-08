@@ -459,6 +459,7 @@ fail1:
 	return ret;
 }
 
+#ifdef MODULE
 static void lp5521_unregister_sysfs(struct i2c_client *client)
 {
 	struct lp5521_chip *chip = i2c_get_clientdata(client);
@@ -472,6 +473,7 @@ static void lp5521_unregister_sysfs(struct i2c_client *client)
 	if (!strcmp(chip->mode, LP5521_MODE_LOAD))
 		device_remove_file(dev, &dev_attr_load);
 }
+#endif
 
 /*--------------------------------------------------------------*/
 /*			Set chip operating mode			*/
@@ -525,7 +527,7 @@ static int lp5521_resume(struct device *dev)
 #define lp5521_resume NULL
 #endif
 
-static int lp5521_probe(struct i2c_client *client)
+static int lp5521_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct lp5521_chip *chip;
 	int ret = 0;
@@ -535,7 +537,7 @@ static int lp5521_probe(struct i2c_client *client)
 	if (!chip)
 		return -ENOMEM;
 
-	chip->client	= client;
+	chip->client = client;
 	strncpy(client->name, LP5521_DRIVER_NAME, I2C_NAME_SIZE);
 	i2c_set_clientdata(client, chip);
 
@@ -567,10 +569,7 @@ fail1:
 	return ret;
 }
 
-static struct i2c_device_id lp5521_id_table[] = {
-	{LP5521_DRIVER_NAME, },
-};
-
+#ifdef MODULE
 static int lp5521_remove(struct i2c_client *client)
 {
 	struct lp5521_chip *chip = i2c_get_clientdata(client);
@@ -580,6 +579,7 @@ static int lp5521_remove(struct i2c_client *client)
 
 	return 0;
 }
+#endif
 
 static struct i2c_driver lp5521_driver = {
 	.driver = {
