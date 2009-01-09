@@ -765,7 +765,7 @@ static void __init gta01_machine_init(void)
 
 	platform_add_devices(gta01_devices, ARRAY_SIZE(gta01_devices));
 
-	s3c2410_pm_init();
+	s3c_pm_init();
 
 	set_irq_type(GTA01_IRQ_MODEM, IRQ_TYPE_EDGE_RISING);
 	rc = request_irq(GTA01_IRQ_MODEM, gta01_modem_irq, IRQF_DISABLED,
