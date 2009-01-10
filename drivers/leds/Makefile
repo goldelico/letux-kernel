@@ -25,6 +25,7 @@ obj-$(CONFIG_LEDS_DA903X)		+= leds-da903x.o
 obj-$(CONFIG_LEDS_HP_DISK)		+= leds-hp-disk.o
 obj-$(CONFIG_LEDS_NEO1973_VIBRATOR)	+= leds-neo1973-vibrator.o
 obj-$(CONFIG_LEDS_NEO1973_GTA02)	+= leds-neo1973-gta02.o
+obj-$(CONFIG_LEDS_LP5521)		+= leds-lp5521.o
 
 # LED Triggers
 obj-$(CONFIG_LEDS_TRIGGER_TIMER)	+= ledtrig-timer.o

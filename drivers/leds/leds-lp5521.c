@@ -1,5 +1,5 @@
 /*
- * drivers/i2c/chips/lp5521.c
+ * drivers/leds/leds-lp5521.c
  *
  * Copyright (C) 2007 Nokia Corporation
  *
@@ -544,7 +544,8 @@ static int lp5521_probe(struct i2c_client *client, const struct i2c_device_id *i
 	mutex_init(&chip->lock);
 
 	/* enter start-up mode */
-	(pdata->ext_enable)(1);
+	if (pdata->ext_enable)
+		(pdata->ext_enable)(1);
 
 	ret = lp5521_configure(client);
 	if (ret < 0) {
