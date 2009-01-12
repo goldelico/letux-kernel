@@ -245,10 +245,7 @@ ar6000_ioctl_giwscan(struct net_device *dev,
         }
     }
 
-    if(!(data->length = param.current_ev - extra)) {
-	    printk("%s(): data length %d\n", __FUNCTION__, data->length);
-	    return -EAGAIN;
-    }
+    data->length = param.current_ev - extra;
     return 0;
 }
 
