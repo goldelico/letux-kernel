@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.28-rc4
-# Sun Jan 11 22:18:00 2009
+# Mon Jan 12 10:48:28 2009
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1609,8 +1609,7 @@ CONFIG_MMC_BLOCK_BOUNCE=y
 #
 # MMC/SD/SDIO Host Controller Drivers
 #
-CONFIG_MMC_SDHCI=y
-CONFIG_MMC_SDHCI_S3C=y
+# CONFIG_MMC_SDHCI is not set
 # CONFIG_MMC_SPI is not set
 CONFIG_MMC_S3C=m
 # CONFIG_MEMSTICK is not set
