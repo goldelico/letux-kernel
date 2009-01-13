@@ -120,9 +120,9 @@ static int __set_op_mode(struct pcap7200_data *pcap, u_int8_t val)
 	 */
 	if (val == WAKEUP) {
 		for (i = 0; i < 3; i++)
-			ret = i2c_master_send(pcap->client, &buf, sizeof(buf));
+			ret = i2c_master_send(pcap->client, buf, sizeof(buf));
 	} else
-		ret = i2c_master_send(pcap->client, &buf, sizeof(buf));
+		ret = i2c_master_send(pcap->client, buf, sizeof(buf));
 
 	mutex_unlock(&pcap->lock);
 	return ret;
@@ -201,23 +201,30 @@ pcap7200_probe(struct i2c_client *client, const struct i2c_device_id *ids)
 
 	INIT_WORK(&pcap->work, pcap7200_work);
 
-	sysfs_create_file(&client->dev.kobj, &dev_attr_op_mode.attr);
+	err = sysfs_create_file(&client->dev.kobj, &dev_attr_op_mode.attr);
+
+	if (err) {
+		dev_err(&client->dev, "Failed to create sysfs\n");
+		goto exit_unreg;
+	}
 
 	/* setup IRQ */
 	if (client->irq < 0) {
 		dev_err(&client->dev,
 			"No irq allocated in client resources!\n");
-		return -EIO;
+		goto exit_rmsysfs;
 	}
 
 	pcap->irq = client->irq;
 	err = request_irq(pcap->irq, pcap7200_irq, IRQF_TRIGGER_LOW, "pcap7200", pcap);
 
 	if (err < 0)
-		goto exit_unreg;
+		goto exit_rmsysfs;
 
 	return 0;
 
+exit_rmsysfs:
+	sysfs_remove_file(&client->dev.kobj, &dev_attr_op_mode.attr);
 exit_unreg:
 	input_unregister_device(input_dev);
 exit_kfree:
