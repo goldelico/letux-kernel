@@ -582,12 +582,17 @@ static int lp5521_remove(struct i2c_client *client)
 }
 #endif
 
+static struct i2c_device_id lp5521_id[] = {
+	{LP5521_DRIVER_NAME, },
+};
+
 static struct i2c_driver lp5521_driver = {
 	.driver = {
 		.name	= LP5521_DRIVER_NAME,
 		.suspend = lp5521_suspend,
 		.resume	= lp5521_resume,
 	},
+	.id_table 	= lp5521_id,
 	.probe		= lp5521_probe,
 	.remove		= __exit_p(lp5521_remove),
 };
