@@ -143,11 +143,13 @@ static irqreturn_t neo1973kbd_aux_irq(int irq, void *dev)
 {
 	int *p = NULL;
 
-	/* if you stall inside resume then AUX will force a panic,
-	   which in turn forces a dump of the pending syslog */
+	if (machine_is_neo1973_gta01()) {
+		/* if you stall inside resume then AUX will force a panic,
+		   which in turn forces a dump of the pending syslog */
 
-	if (global_inside_suspend)
-		printk(KERN_ERR "death %d\n", *p);
+		if (global_inside_suspend)
+			printk(KERN_ERR "death %d\n", *p);
+	}
 
 	mod_timer(&aux_key_timer, jiffies + AUX_TIMER_TIMEOUT);
 
@@ -275,11 +277,18 @@ static irqreturn_t neo1973kbd_headphone_irq(int irq, void *dev_id)
 #ifdef CONFIG_PM
 static int neo1973kbd_suspend(struct platform_device *dev, pm_message_t state)
 {
+	if (machine_is_neo1973_gta02()) {
+		disable_irq(keys[NEO1973_KEY_AUX].irq);
+		del_timer_sync(&aux_key_timer);
+	}
 	return 0;
 }
 
 static int neo1973kbd_resume(struct platform_device *dev)
 {
+	if (machine_is_neo1973_gta02())
+		enable_irq(keys[NEO1973_KEY_AUX].irq);
+
 	return 0;
 }
 #else
