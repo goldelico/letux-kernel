@@ -331,16 +331,11 @@ static int __glamo_mci_set_card_clock(struct glamo_mci_host *host, int freq,
 	return real_rate;
 }
 
-static void glamo_mci_irq(unsigned int irq, struct irq_desc *desc)
+static void glamo_mci_irq_host(struct glamo_mci_host *host)
 {
-	struct glamo_mci_host *host = (struct glamo_mci_host *)
-				      desc->handler_data;
 	u16 status;
 	struct mmc_command *cmd;
 	unsigned long iflags;
-
-	if (!host)
-		return;
 
 	if (host->suspending) { /* bad news, dangerous time */
 		dev_err(&host->pdev->dev, "****glamo_mci_irq before resumed\n");
@@ -403,6 +398,16 @@ done:
 	host->mrq = NULL;
 	mmc_request_done(host->mmc, cmd->mrq);
 	spin_unlock_irqrestore(&host->complete_lock, iflags);
+}
+
+static void glamo_mci_irq(unsigned int irq, struct irq_desc *desc)
+{
+	struct glamo_mci_host *host = (struct glamo_mci_host *)
+				      desc->handler_data;
+
+	if (host)
+		glamo_mci_irq_host(host);
+
 }
 
 static int glamo_mci_send_command(struct glamo_mci_host *host,
@@ -718,8 +723,7 @@ static void glamo_mci_send_request(struct mmc_host *mmc)
 		/* yay we are an interrupt controller! -- call the ISR
 		 * it will stop clock to card
 		 */
-		glamo_mci_irq(IRQ_GLAMO(GLAMO_IRQIDX_MMC),
-			      irq_desc + IRQ_GLAMO(GLAMO_IRQIDX_MMC));
+		glamo_mci_irq_host(host);
 	}
 	return;
 
