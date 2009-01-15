@@ -63,16 +63,6 @@ config SENSORS_PCF50606
 	  This driver can also be built as a module.  If so, the module
 	  will be called pcf50606.
 
-config SENSORS_PCF50633
-	tristate "Philips PCF50633"
-	depends on I2C
-	help
-	  If you say yes here you get support for Philips PCF50633
-	  PMU (Power Management Unit) chips.
-
-	  This driver can also be built as a module.  If so, the module
-	  will be called pcf50633.
-
 config SENSORS_PCF8574
 	tristate "Philips PCF8574 and PCF8574A (DEPRECATED)"
 	depends on EXPERIMENTAL && GPIO_PCF857X = "n"
