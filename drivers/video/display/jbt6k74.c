@@ -776,7 +776,7 @@ EXPORT_SYMBOL_GPL(jbt6k74_resume);
 
 #else
 #define jbt_suspend	NULL
-#define jbt_resume	NULL
+#define jbt6k74_resume	NULL
 #endif
 
 static struct spi_driver jbt6k74_driver = {
