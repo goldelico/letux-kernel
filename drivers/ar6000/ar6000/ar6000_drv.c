@@ -117,6 +117,12 @@ unsigned int _mboxnum = HTC_MAILBOX_NUM_MAX;
 unsigned int mboxnum = HTC_MAILBOX_NUM_MAX;
 #endif
 
+#ifdef CONFIG_AR6000_WLAN_RESET
+unsigned int resetok = 1;
+#else
+unsigned int resetok = 0;
+#endif
+
 #ifdef DEBUG
 A_UINT32 g_dbg_flags = DBG_DEFAULTS;
 unsigned int debugflags = 0;
@@ -124,7 +130,6 @@ int debugdriver = 1;
 unsigned int debughtc = 128;
 unsigned int debugbmi = 1;
 unsigned int debughif = 2;
-unsigned int resetok = 1;
 unsigned int txcreditsavailable[HTC_MAILBOX_NUM_MAX] = {0};
 unsigned int txcreditsconsumed[HTC_MAILBOX_NUM_MAX] = {0};
 unsigned int txcreditintrenable[HTC_MAILBOX_NUM_MAX] = {0};
@@ -154,9 +159,6 @@ MODULE_PARM(txcreditsconsumed, "0-3i");
 MODULE_PARM(txcreditintrenable, "0-3i");
 MODULE_PARM(txcreditintrenableaggregate, "0-3i");
 #endif
-
-#else
-unsigned int resetok = 1;
 
 #endif /* DEBUG */
 
@@ -402,6 +404,9 @@ ar6000_dbglog_get_debug_logs(AR_SOFTC_T *ar)
 
     if (!ar->dbglog_init_done) return A_ERROR;
 
+#ifndef CONFIG_AR6000_WLAN_DEBUG
+    return 0;
+#endif
 
     AR6000_SPIN_LOCK(&ar->arLock, 0);
 
