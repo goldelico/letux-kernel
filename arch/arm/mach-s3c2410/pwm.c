@@ -258,8 +258,8 @@ static int s3c24xx_pwm_resume(struct platform_device *pdev)
 	return 0;
 }
 #else
-#define sc32440_pwm_suspend	NULL
-#define sc32440_pwm_resume	NULL
+#define s3c24xx_pwm_suspend	NULL
+#define s3c24xx_pwm_resume	NULL
 #endif
 
 static struct platform_driver s3c24xx_pwm_driver = {
