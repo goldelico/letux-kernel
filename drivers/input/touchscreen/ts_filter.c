@@ -18,11 +18,13 @@
 
 #include <linux/kernel.h>
 #include <linux/device.h>
-#include <linux/ts_filter.h>
+#include "ts_filter.h"
+
+static DEFINE_MUTEX(chain_mutex);
 
 int ts_filter_create_chain(struct platform_device *pdev,
 			   struct ts_filter_api **api, void **config,
-			   struct ts_filter **list, int count_coords)
+			   struct ts_filter **arr, int count_coords)
 {
 	int count = 0;
 	struct ts_filter *last = NULL;
@@ -30,35 +32,42 @@ int ts_filter_create_chain(struct platform_device *pdev,
 	if (!api)
 		return 0;
 
-	while (*api && count < MAX_TS_FILTER_CHAIN) {
-		*list = ((*api)->create)(pdev, *config++, count_coords);
-		if (!*list) {
+	mutex_lock(&chain_mutex);
+
+	while (*api) {
+		*arr = ((*api)->create)(pdev, *config++, count_coords);
+		if (!*arr) {
 			printk(KERN_ERR "Filter %d failed init\n", count);
 			return count;
 		}
-		(*list)->api = *api++;
+		(*arr)->api = *api++;
 		if (last)
-			last->next = *list;
-		last = *list;
-		list++;
+			last->next = *arr;
+		last = *arr;
+		arr++;
 		count++;
 	}
+
+	mutex_unlock(&chain_mutex);
 
 	return count;
 }
 EXPORT_SYMBOL_GPL(ts_filter_create_chain);
 
 void ts_filter_destroy_chain(struct platform_device *pdev,
-			     struct ts_filter **list)
+			     struct ts_filter **arr)
 {
-	struct ts_filter **first;
-	int count = 0;
+	struct ts_filter **first = arr;
 
-	first = list;
-	while (*list && count++ < MAX_TS_FILTER_CHAIN) {
-		((*list)->api->destroy)(pdev, *list);
-		list++;
+	mutex_lock(&chain_mutex);
+
+	while (*arr) {
+		((*arr)->api->destroy)(pdev, *arr);
+		arr++;
 	}
 	*first = NULL;
+
+	mutex_unlock(&chain_mutex);
 }
 EXPORT_SYMBOL_GPL(ts_filter_destroy_chain);
+

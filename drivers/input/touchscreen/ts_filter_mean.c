@@ -34,7 +34,7 @@
 #include <linux/errno.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
-#include <linux/ts_filter_mean.h>
+#include "ts_filter_mean.h"
 
 static void ts_filter_mean_clear_internal(struct ts_filter *tsf)
 {
@@ -63,7 +63,7 @@ static struct ts_filter *ts_filter_mean_create(struct platform_device *pdev,
 	int n;
 	struct ts_filter_mean *tsfs = kzalloc(
 				  sizeof(struct ts_filter_mean), GFP_KERNEL);
-	
+
 	if (!tsfs)
 		return NULL;
 
@@ -112,8 +112,9 @@ static void ts_filter_mean_scale(struct ts_filter *tsf, int *coords)
 		(tsf->next->api->scale)(tsf->next, coords);
 }
 
-/* give us the raw sample data in x and y, and if we return 1 then you can
- * get a filtered coordinate from tsm->x and tsm->y: if we return 0 you didn't
+/*
+ * Give us the raw sample data in x and y, and if we return 1 then you can
+ * get a filtered coordinate from tsm->x and tsm->y. If we return 0 you didn't
  * fill the filter with samples yet.
  */
 
@@ -125,7 +126,8 @@ static int ts_filter_mean_process(struct ts_filter *tsf, int *coords)
 
 	for (n = 0; n < tsf->count_coords; n++) {
 
-		/* has he moved far enough away that we should abandon current
+		/*
+		 * Has he moved far enough away that we should abandon current
 		 * low pass filtering state?
 		 */
 		if ((coords[n] < (tsfs->reported[n] -

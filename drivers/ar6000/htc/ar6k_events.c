@@ -131,7 +131,7 @@ A_STATUS DevPollMboxMsgRecv(AR6K_DEVICE *pDev,
         }
 
             /* delay a little  */
-         A_MDELAY(DELAY_PER_INTERVAL_MS);
+         msleep(DELAY_PER_INTERVAL_MS);
          AR_DEBUG_PRINTF(ATH_DEBUG_RECV,("  Retry Mbox Poll : %d \n",timeout));
     }
 

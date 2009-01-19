@@ -311,7 +311,7 @@ ar6000_reset_device_skipflash(HIF_DEVICE *hifDevice)
         }
     }
 
-    A_MDELAY(50); /* delay to allow dragon to come to BMI phase  */
+    msleep(50); /* delay to allow dragon to come to BMI phase  */
     return A_OK;
 }
 
@@ -350,7 +350,7 @@ A_STATUS ar6000_reset_device(HIF_DEVICE *hifDevice, A_UINT32 TargetType)
          * Read back the RESET CAUSE register to ensure that the cold reset
          * went through.
          */
-        A_MDELAY(2000); /* 2 second delay to allow things to settle down */
+        msleep(2000); /* 2 second delay to allow things to settle down */
 
 
         // address = RESET_CAUSE_ADDRESS;

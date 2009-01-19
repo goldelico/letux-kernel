@@ -40,7 +40,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/sort.h>
-#include <linux/ts_filter_group.h>
+#include "ts_filter_group.h"
 
 static void ts_filter_group_clear_internal(struct ts_filter_group *tsfg,
 					   int attempts)

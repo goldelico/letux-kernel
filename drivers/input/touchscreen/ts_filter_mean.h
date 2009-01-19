@@ -1,10 +1,10 @@
 #ifndef __TS_FILTER_MEAN_H__
 #define __TS_FILTER_MEAN_H__
 
-#include <linux/ts_filter.h>
+#include "ts_filter.h"
 
 /*
- * touchscreen filter
+ * Touchscreen filter.
  *
  * mean
  *

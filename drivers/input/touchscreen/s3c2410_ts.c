@@ -65,7 +65,7 @@
 
 #include <plat/regs-adc.h>
 
-#include <linux/ts_filter.h>
+#include "ts_filter.h"
 
 /* For ts.dev.id.version */
 #define S3C2410TSVERSION	0x0101

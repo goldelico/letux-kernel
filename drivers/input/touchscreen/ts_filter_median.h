@@ -1,10 +1,10 @@
 #ifndef __TS_FILTER_MEDIAN_H__
 #define __TS_FILTER_MEDIAN_H__
 
-#include <linux/ts_filter.h>
+#include "ts_filter.h"
 
 /*
- * touchscreen filter
+ * Touchscreen filter.
  *
  * median
  *

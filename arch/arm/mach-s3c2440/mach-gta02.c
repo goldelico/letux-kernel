@@ -103,10 +103,10 @@
 
 #include "../plat-s3c24xx/neo1973_pm_gps.h"
 
-#include <linux/ts_filter_linear.h>
-#include <linux/ts_filter_mean.h>
-#include <linux/ts_filter_median.h>
-#include <linux/ts_filter_group.h>
+#include <../drivers/input/touchscreen/ts_filter_linear.h>
+#include <../drivers/input/touchscreen/ts_filter_mean.h>
+#include <../drivers/input/touchscreen/ts_filter_median.h>
+#include <../drivers/input/touchscreen/ts_filter_group.h>
 
 /* arbitrates which sensor IRQ owns the shared SPI bus */
 static spinlock_t motion_irq_lock;
