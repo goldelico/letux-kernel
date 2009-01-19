@@ -26,7 +26,7 @@
 #include <linux/input.h>
 
 #include <linux/pcap7200.h>
-#include <linux/ts_filter.h>
+#include <../drivers/input/touchscreen/ts_filter.h>
 
 #include <mach/om-gta03.h>
 
