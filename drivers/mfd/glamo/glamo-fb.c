@@ -1015,8 +1015,8 @@ static int glamofb_resume(struct platform_device *pdev)
 	return 0;
 }
 #else
-#define glamo_suspend NULL
-#define glamo_resume  NULL
+#define glamofb_suspend NULL
+#define glamofb_resume  NULL
 #endif
 
 static struct platform_driver glamofb_driver = {
