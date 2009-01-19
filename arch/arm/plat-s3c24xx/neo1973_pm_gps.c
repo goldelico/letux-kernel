@@ -1,7 +1,7 @@
 /*
  * GPS Power Management code for the FIC Neo1973 GSM Phone
  *
- * (C) 2007 by Openmoko Inc.
+ * (C) 2007-2009 by Openmoko Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  * All rights reserved.
  *
@@ -29,6 +29,7 @@
 
 /* For GTA02 */
 #include <mach/gta02.h>
+#include <linux/mfd/pcf50633/core.h>
 
 #include <linux/regulator/consumer.h>
 
@@ -294,10 +295,10 @@ static void gps_pwron_set(int on)
 			/* don't let RX from unpowered GPS float */
 			s3c2410_gpio_pullup(S3C2410_GPH5, 1);
 		}
-		if ((on) && (!neo1973_gps.power_was_on))
+		if (on && !neo1973_gps.power_was_on)
 			regulator_enable(neo1973_gps.regulator);
 
-		if ((!on) && (neo1973_gps.power_was_on))
+		if (!on && neo1973_gps.power_was_on)
 			regulator_disable(neo1973_gps.regulator);
 	}
 
@@ -325,10 +326,7 @@ static ssize_t power_gps_read(struct device *dev,
 {
 	int ret = 0;
 
-	if (!strcmp(attr->attr.name, "pwron"))
-#ifdef CONFIG_MACH_NEO1973_GTA01
-	{
-#endif
+	if (!strcmp(attr->attr.name, "power_on")) {
 		ret = gps_pwron_get();
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	} else if (!strcmp(attr->attr.name, "power_avdd_3v")) {
@@ -344,8 +342,8 @@ static ssize_t power_gps_read(struct device *dev,
 	} else if (!strcmp(attr->attr.name, "power_core_1v5") ||
 		   !strcmp(attr->attr.name, "power_vdd_core_1v5")) {
 		ret = gps_power_1v5_get();
-	}
 #endif
+	}
 	if (ret)
 		return strlcpy(buf, "1\n", 3);
 	else
@@ -358,10 +356,7 @@ static ssize_t power_gps_write(struct device *dev,
 {
 	unsigned long on = simple_strtoul(buf, NULL, 10);
 
-	if (!strcmp(attr->attr.name, "pwron"))
-#ifdef CONFIG_MACH_NEO1973_GTA01
-{
-#endif
+	if (!strcmp(attr->attr.name, "power_on")) {
 		gps_pwron_set(on);
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	} else if (!strcmp(attr->attr.name, "power_avdd_3v")) {
@@ -377,8 +372,8 @@ static ssize_t power_gps_write(struct device *dev,
 	} else if (!strcmp(attr->attr.name, "power_core_1v5") ||
 		   !strcmp(attr->attr.name, "power_vdd_core_1v5")) {
 		gps_power_1v5_set(on);
-	}
 #endif
+	}
 	return count;
 }
 
@@ -543,11 +538,11 @@ static int gta01_pm_gps_resume(struct platform_device *pdev)
 #define gta01_pm_gps_resume	NULL
 #endif
 
-static DEVICE_ATTR(pwron, 0644, power_gps_read, power_gps_write);
+static DEVICE_ATTR(power_on, 0644, power_gps_read, power_gps_write);
 
 
 static struct attribute *gta01_gps_sysfs_entries[] = {
-	&dev_attr_pwron.attr,
+	&dev_attr_power_on.attr,
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	&dev_attr_power_avdd_3v.attr,
 	&dev_attr_reset.attr,
@@ -566,7 +561,7 @@ static struct attribute_group gta01_gps_attr_group = {
 };
 
 static struct attribute *gta02_gps_sysfs_entries[] = {
-	&dev_attr_pwron.attr,
+	&dev_attr_power_on.attr,
 	NULL
 };
 
@@ -584,16 +579,21 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 		case GTA01v3_SYSTEM_REV:
 			break;
 		case GTA01v4_SYSTEM_REV:
-			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_RESET, S3C2410_GPIO_OUTPUT);
+			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_RESET,
+			    S3C2410_GPIO_OUTPUT);
 			break;
 		case GTA01Bv3_SYSTEM_REV:
 		case GTA01Bv4_SYSTEM_REV:
-			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_3V3, S3C2410_GPIO_OUTPUT);
+			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_3V3,
+			    S3C2410_GPIO_OUTPUT);
 			/* fallthrough */
 		case GTA01Bv2_SYSTEM_REV:
-			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_2V8, S3C2410_GPIO_OUTPUT);
-			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_3V, S3C2410_GPIO_OUTPUT);
-			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_RESET, S3C2410_GPIO_OUTPUT);
+			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_2V8,
+			    S3C2410_GPIO_OUTPUT);
+			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_EN_3V,
+			    S3C2410_GPIO_OUTPUT);
+			s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_RESET,
+			    S3C2410_GPIO_OUTPUT);
 			break;
 		default:
 			dev_warn(&pdev->dev, "Unknown GTA01 Revision 0x%x, "
@@ -607,22 +607,24 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 		gps_power_sequence_down();
 
 		switch (system_rev) {
+			int entries = ARRAY_SIZE(gta01_gps_sysfs_entries);
 		case GTA01v3_SYSTEM_REV:
 		case GTA01v4_SYSTEM_REV:
 		case GTA01Bv2_SYSTEM_REV:
-			gta01_gps_sysfs_entries[ARRAY_SIZE(gta01_gps_sysfs_entries)-3] =
-						&dev_attr_power_tcxo_2v8.attr;
+			gta01_gps_sysfs_entries[entries-3] =
+			    &dev_attr_power_tcxo_2v8.attr;
 			break;
 		case GTA01Bv3_SYSTEM_REV:
 		case GTA01Bv4_SYSTEM_REV:
-			gta01_gps_sysfs_entries[ARRAY_SIZE(gta01_gps_sysfs_entries)-3] =
-						&dev_attr_power_core_1v5.attr;
-			gta01_gps_sysfs_entries[ARRAY_SIZE(gta01_gps_sysfs_entries)-2] =
-						&dev_attr_power_vdd_core_1v5.attr;
+			gta01_gps_sysfs_entries[entries-3] =
+			    &dev_attr_power_core_1v5.attr;
+			gta01_gps_sysfs_entries[entries-2] =
+			    &dev_attr_power_vdd_core_1v5.attr;
 			break;
 		}
 #endif
-		return sysfs_create_group(&pdev->dev.kobj, &gta01_gps_attr_group);
+		return sysfs_create_group(&pdev->dev.kobj,
+		    &gta01_gps_attr_group);
 	}
 
 	if (machine_is_neo1973_gta02()) {
@@ -635,9 +637,9 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 			neo1973_gps.regulator = regulator_get(
 							&pdev->dev, "RF_3V");
 			if (IS_ERR(neo1973_gps.regulator)) {
-				dev_err(&pdev->dev, "probe failed %d\n",
-						    (int)neo1973_gps.regulator);
-				return (int)neo1973_gps.regulator;
+				dev_err(&pdev->dev, "probe failed %ld\n",
+				    PTR_ERR(neo1973_gps.regulator));
+				return PTR_ERR(neo1973_gps.regulator);
 			}
 
 			dev_info(&pdev->dev, "FIC Neo1973 GPS Power Management:"
@@ -648,9 +650,21 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 				"AGPS PM features not available!!!\n",
 				system_rev);
 			return -1;
-			break;
 		}
-		return sysfs_create_group(&pdev->dev.kobj, &gta02_gps_attr_group);
+
+		/*
+		 * u-boot enables LDO5 (GPS), which doesn't make sense and
+		 * causes confusion. We therefore disable the regulator here.
+		 *
+		 * We don't do this through the regulator API because we'd have
+		 * to second-guess some of its internal logic and make it do
+		 * something that isn't really part of its design.
+		 */
+		pcf50633_reg_write(gta02_pcf_pdata.pcf,
+		    PCF50633_REG_LDO5ENA, 0);
+
+		return sysfs_create_group(&pdev->dev.kobj,
+		    &gta02_gps_attr_group);
 	}
 	return -1;
 }
