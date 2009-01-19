@@ -33,56 +33,15 @@
 /* ----- Module hardware reset ("power") ----------------------------------- */
 
 
-static void __gta02_wlan_power(int on)
+void gta02_wlan_reset(int assert_reset)
 {
-	if (!on) {
-		s3c2410_gpio_setpin(GTA02_CHIP_PWD, 1);
+	if (assert_reset) {
 		s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 0);
-		return;
+		msleep(200); /* probably excessive but we don't have specs */
+	} else {
+		s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 1);
 	}
-
-	/* power up sequencing */
-
-	s3c2410_gpio_setpin(GTA02_CHIP_PWD, 1);
-	s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 0);
-	msleep(100);
-	s3c2410_gpio_setpin(GTA02_CHIP_PWD, 0);
-	msleep(100);
-	s3c2410_gpio_setpin(GTA02_GPIO_nWLAN_RESET, 1);
 }
-
-void gta02_wlan_power(int on)
-{
-	static DEFINE_MUTEX(lock);
-	static int is_on = -1; /* initial state is unknown */
-
-	on = !!on; /* normalize */
-	mutex_lock(&lock);
-	if (on != is_on)
-		__gta02_wlan_power(on);
-	is_on = on;
-	mutex_unlock(&lock);
-}
-
-static ssize_t gta02_wlan_read(struct device *dev,
-				       struct device_attribute *attr, char *buf)
-{
-	if (s3c2410_gpio_getpin(GTA02_CHIP_PWD))
-		return strlcpy(buf, "0\n", 3);
-
-	return strlcpy(buf, "1\n", 3);
-}
-
-static ssize_t gta02_wlan_write(struct device *dev,
-		   struct device_attribute *attr, const char *buf, size_t count)
-{
-	unsigned long on = simple_strtoul(buf, NULL, 10) & 1;
-
-	gta02_wlan_power(on);
-	return count;
-}
-
-static DEVICE_ATTR(power_on, 0644, gta02_wlan_read, gta02_wlan_write);
 
 #ifdef CONFIG_PM
 static int gta02_wlan_suspend(struct platform_device *pdev, pm_message_t state)
@@ -102,16 +61,6 @@ static int gta02_wlan_resume(struct platform_device *pdev)
 #define gta02_wlan_suspend	NULL
 #define gta02_wlan_resume		NULL
 #endif
-
-static struct attribute *gta02_wlan_sysfs_entries[] = {
-	&dev_attr_power_on.attr,
-	NULL
-};
-
-static struct attribute_group gta02_wlan_attr_group = {
-	.name	= NULL,
-	.attrs	= gta02_wlan_sysfs_entries,
-};
 
 
 /* ----- rfkill ------------------------------------------------------------ */
@@ -207,9 +156,9 @@ static int __init gta02_wlan_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "starting\n");
 
-	s3c2410_gpio_cfgpin(GTA02_CHIP_PWD, S3C2410_GPIO_OUTPUT);
 	s3c2410_gpio_cfgpin(GTA02_GPIO_nWLAN_RESET, S3C2410_GPIO_OUTPUT);
-	gta02_wlan_power(1);
+	gta02_wlan_reset(1);
+	gta02_wlan_reset(0);
 
 	rfkill = rfkill_allocate(&pdev->dev, RFKILL_TYPE_WLAN);
 	rfkill->name = "ar6000";
@@ -230,12 +179,6 @@ static int __init gta02_wlan_probe(struct platform_device *pdev)
 		return error;
 	}
 
-	error = sysfs_create_group(&pdev->dev.kobj, &gta02_wlan_attr_group);
-	if (error) {
-		rfkill_free(rfkill);
-		return error;
-	}
-
 	dev_set_drvdata(&pdev->dev, rfkill);
 
 	return 0;
@@ -247,8 +190,6 @@ static int gta02_wlan_remove(struct platform_device *pdev)
 
 	rfkill_unregister(rfkill);
 	rfkill_free(rfkill);
-
-	sysfs_remove_group(&pdev->dev.kobj, &gta02_wlan_attr_group);
 
 	return 0;
 }

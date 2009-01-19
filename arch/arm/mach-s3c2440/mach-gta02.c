@@ -955,9 +955,13 @@ static struct s3c2410_platform_nand gta02_nand_info = {
 static void gta02_s3c_mmc_set_power(unsigned char power_mode,
     unsigned short vdd)
 {
-	gta02_wlan_power(
-	    power_mode == MMC_POWER_ON ||
-	    power_mode == MMC_POWER_UP);
+	static int is_on = -1;
+	int on;
+
+	on = power_mode == MMC_POWER_ON || power_mode == MMC_POWER_UP;
+	if (is_on != on)
+		gta02_wlan_reset(!on);
+	is_on = on;
 }
 
 
