@@ -676,7 +676,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	/* Emit the output into the temporary buffer */
 	printed_len += vscnprintf(printk_buf + printed_len,
 				  sizeof(printk_buf) - printed_len, fmt, args);
-#ifdef CONFIG_MACH_NEO1973_GTA02
+#if defined(CONFIG_MACH_NEO1973_GTA02) && defined(CONFIG_PM)
 	/* if you're debugging resume, the normal methods can change resume
 	 * ordering behaviours because their debugging output is synchronous
 	 * (ie, CONFIG_DEBUG_LL).  If your problem is an OOPS, this code
