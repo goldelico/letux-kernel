@@ -26,7 +26,11 @@
 #include <mach/gpio.h>
 #include <asm/mach-types.h>
 
+#ifdef CONFIG_PM
 extern int global_inside_suspend;
+#else
+#define global_inside_suspend 0
+#endif
 
 struct neo1973kbd {
 	struct platform_device *pdev;
