@@ -32,4 +32,12 @@ config DISPLAY_JBT6K74
 	  The control interface is required for display operation, as it
 	  controls power management, display timing and gamma calibration.
 
+config DISPLAY_L1K002
+	tristate "TP0 L1K0-02 TFT ASIC control interface"
+	depends on SPI_MASTER && SYSFS
+	help
+	  The control interface of this LTPS TFT panel is based on SPI bitbang driver.
+	  It controls display timing and gamma calibration. TP0 LPJ028T007A LCM uses this IC
+	  as its controller in the Openmoko GTA03 GSM phone.
+
 endmenu
