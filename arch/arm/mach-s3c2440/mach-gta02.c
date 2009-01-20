@@ -1058,11 +1058,26 @@ static struct s3c2410_ts_mach_info gta02_ts_cfg = {
 static void gta02_bl_set_intensity(int intensity)
 {
 	struct pcf50633 *pcf = gta02_pcf_pdata.pcf;
-	int old_intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
+	int old_intensity;
 	int ret;
 
 	intensity >>= 2;
 
+	/*
+	 * One code path that leads here is from a kernel panic. Trying to turn
+	 * the backlight on just gives us a nearly endless stream of complaints
+	 * and accomplishes nothing. We can't win. Just give up.
+	 *
+	 * In the unlikely event that there's another path leading here while
+	 * we're atomic, we print at least a warning.
+	 */
+	if (in_atomic()) {
+		printk(KERN_ERR
+		    "gta02_bl_set_intensity called while atomic\n");
+		return;
+	}
+
+	old_intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
 	if (intensity == old_intensity)
 		return;
 
