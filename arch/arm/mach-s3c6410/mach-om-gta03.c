@@ -30,6 +30,8 @@
 #include <linux/delay.h>
 #include <linux/lis302dl.h>
 #include <linux/lp5521.h>
+#include <linux/spi/spi_bitbang.h>
+#include <linux/l1k002.h>
 
 #include <video/platform_lcd.h>
 
@@ -40,6 +42,7 @@
 #include <mach/hardware.h>
 #include <mach/map.h>
 #include <mach/regs-fb.h>
+#include <mach/spi-gpio.h>
 
 #include <asm/irq.h>
 #include <asm/mach-types.h>
@@ -281,8 +284,8 @@ static struct s3c_fb_pd_win om_gta03_fb_win0 = {
 		.lower_margin	= 16,
 		.hsync_len	= 8,
 		.vsync_len	= 2,
-		.xres		= 640,
-		.yres		= 480,
+		.xres		= 480,
+		.yres		= 640,
 	},
 	.max_bpp	= 32,
 	.default_bpp	= 16,
@@ -561,11 +564,13 @@ static struct i2c_board_info om_gta03_i2c_devs[] __initdata = {
 
 };
 
+struct platform_device gta03_device_spi_lcm;
 
 static struct platform_device *om_gta03_devices[] __initdata = {
 	&s3c_device_fb,
 	&s3c_device_i2c0,
 	&s3c_device_hsmmc1, /* SDIO to WLAN */
+	&gta03_device_spi_lcm,
 };
 
 
@@ -623,7 +628,60 @@ static void om_gta03_pcf50633_attach_child_devices(struct pcf50633 *pcf)
 
 }
 
+static void gta03_l1k002_pwronoff(int level)
+{
+	gpio_direction_output(GTA03_GPIO_LCM_SD, 1);
+	mdelay(10);
+	gpio_direction_output(GTA03_GPIO_LCM_RESET, 1);
+	mdelay(15);
+	gpio_direction_output(GTA03_GPIO_LCM_SD, 0);
+}
 
+const struct l1k002_platform_data gta03_l1k002_pdata = {
+	.pwr_onoff = gta03_l1k002_pwronoff,
+};
+
+static struct spi_board_info gta03_spi_board_info[] = {
+	{
+	.modalias	= "l1k002",
+	.platform_data	= &gta03_l1k002_pdata,
+	/* controller_data */
+	/* irq */
+	.max_speed_hz	= 10 * 1000 * 1000,
+	.bus_num	= 1,
+	/* chip_select */
+	},
+};
+
+static void spi_gpio_cs(struct s3c64xx_spigpio_info *spi, int csidx, int cs)
+{
+	switch (cs) {
+	case BITBANG_CS_ACTIVE:
+		gpio_direction_output(GTA03_GPIO_LCM_CS, 0);
+		break;
+	case BITBANG_CS_INACTIVE:
+		gpio_direction_output(GTA03_GPIO_LCM_CS, 1);
+		break;
+	}
+}
+
+static struct s3c64xx_spigpio_info spi_gpio_cfg = {
+	.pin_clk	= GTA03_GPIO_LCM_CLK,
+	.pin_mosi	= GTA03_GPIO_LCM_MOSI,
+	/* no pinout to MISO */
+	.board_size	= ARRAY_SIZE(gta03_spi_board_info),
+	.board_info	= gta03_spi_board_info,
+	.chip_select	= &spi_gpio_cs,
+	.num_chipselect = 1,
+};
+
+struct platform_device gta03_device_spi_lcm = {
+	.name		  = "spi_s3c64xx_gpio",
+	.id		  = 1,
+	.dev = {
+		.platform_data = &spi_gpio_cfg,
+	},
+};
 
 extern void s3c64xx_init_io(struct map_desc *, int);
 
