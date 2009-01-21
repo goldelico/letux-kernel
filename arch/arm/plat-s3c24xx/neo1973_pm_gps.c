@@ -36,6 +36,9 @@
 struct neo1973_pm_gps_data {
 	int power_was_on;
 	struct regulator *regulator;
+#ifdef CONFIG_PM
+	int keep_on_in_suspend;
+#endif
 };
 
 static struct neo1973_pm_gps_data neo1973_gps;
@@ -319,6 +322,19 @@ static void gps_rst_set(int on);
 static int gps_rst_get(void);
 #endif
 
+#ifdef CONFIG_PM
+/* This is the flag for keeping gps ON during suspend */
+static void gps_keep_on_in_suspend_set(int on)
+{
+	neo1973_gps.keep_on_in_suspend = on;
+}
+
+static int gps_keep_on_in_suspend_get(void)
+{
+	return neo1973_gps.keep_on_in_suspend;
+}
+#endif
+
 static ssize_t power_gps_read(struct device *dev,
 			      struct device_attribute *attr, char *buf)
 {
@@ -326,6 +342,10 @@ static ssize_t power_gps_read(struct device *dev,
 
 	if (!strcmp(attr->attr.name, "power_on")) {
 		ret = gps_pwron_get();
+#ifdef CONFIG_PM
+	} else if (!strcmp(attr->attr.name, "keep_on_in_suspend")) {
+		ret = gps_keep_on_in_suspend_get();
+#endif
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	} else if (!strcmp(attr->attr.name, "power_avdd_3v")) {
 		ret = gps_power_3v_get();
@@ -357,6 +377,10 @@ static ssize_t power_gps_write(struct device *dev,
 	if (!strcmp(attr->attr.name, "power_on")) {
 		gps_pwron_set(on);
 		neo1973_gps.power_was_on = !!on;
+#if CONFIG_PM
+	} else if (!strcmp(attr->attr.name, "keep_on_in_suspend")) {
+		gps_keep_on_in_suspend_set(on);
+#endif
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	} else if (!strcmp(attr->attr.name, "power_avdd_3v")) {
 		gps_power_3v_set(on);
@@ -513,8 +537,14 @@ static int gta01_pm_gps_suspend(struct platform_device *pdev,
 		/* FIXME */
 		gps_power_sequence_down();
 #endif
-	if (machine_is_neo1973_gta02())
-		gps_pwron_set(0);
+	if (machine_is_neo1973_gta02()) {
+		if (!neo1973_gps.keep_on_in_suspend ||
+		    !neo1973_gps.power_was_on)
+			gps_pwron_set(0);
+		else
+			dev_warn(&pdev->dev, "GTA02: keeping gps ON "
+				 "during suspend\n");
+	}
 
 	return 0;
 }
@@ -527,11 +557,13 @@ static int gta01_pm_gps_resume(struct platform_device *pdev)
 			gps_power_sequence_up();
 #endif
 	if (machine_is_neo1973_gta02())
-		if (neo1973_gps.power_was_on)
+		if (!neo1973_gps.keep_on_in_suspend && neo1973_gps.power_was_on)
 		    gps_pwron_set(1);
 
 	return 0;
 }
+
+static DEVICE_ATTR(keep_on_in_suspend, 0644, power_gps_read, power_gps_write);
 #else
 #define gta01_pm_gps_suspend	NULL
 #define gta01_pm_gps_resume	NULL
@@ -561,6 +593,9 @@ static struct attribute_group gta01_gps_attr_group = {
 
 static struct attribute *gta02_gps_sysfs_entries[] = {
 	&dev_attr_power_on.attr,
+#ifdef CONFIG_PM
+	&dev_attr_keep_on_in_suspend.attr,
+#endif
 	NULL
 };
 
