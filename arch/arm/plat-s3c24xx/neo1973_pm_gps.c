@@ -295,14 +295,12 @@ static void gps_pwron_set(int on)
 			/* don't let RX from unpowered GPS float */
 			s3c2410_gpio_pullup(S3C2410_GPH5, 1);
 		}
-		if (on && !neo1973_gps.power_was_on)
+		if (on && !regulator_is_enabled(neo1973_gps.regulator))
 			regulator_enable(neo1973_gps.regulator);
 
-		if (!on && neo1973_gps.power_was_on)
+		if (!on && regulator_is_enabled(neo1973_gps.regulator))
 			regulator_disable(neo1973_gps.regulator);
 	}
-
-	neo1973_gps.power_was_on = !!on;
 }
 
 static int gps_pwron_get(void)
@@ -358,6 +356,7 @@ static ssize_t power_gps_write(struct device *dev,
 
 	if (!strcmp(attr->attr.name, "power_on")) {
 		gps_pwron_set(on);
+		neo1973_gps.power_was_on = !!on;
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	} else if (!strcmp(attr->attr.name, "power_avdd_3v")) {
 		gps_power_3v_set(on);
