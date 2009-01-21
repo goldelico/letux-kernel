@@ -1318,6 +1318,7 @@ CONFIG_DISPLAY_SUPPORT=y
 # Display hardware drivers
 #
 CONFIG_DISPLAY_JBT6K74=y
+# CONFIG_DISPLAY_L1K002 is not set
 
 #
 # Console display driver support
