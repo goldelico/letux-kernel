@@ -284,6 +284,8 @@ static void gps_pwron_set(int on)
 
 	if (machine_is_neo1973_gta02()) {
 		if (on) {
+			pcf50633_voltage_set(pcf50633_global,
+				PCF50633_REGULATOR_LDO5, 3000);
 			/* return UART pins to being UART pins */
 			s3c2410_gpio_cfgpin(S3C2410_GPH4, S3C2410_GPH4_TXD1);
 			/* remove pulldown now it won't be floating any more */
@@ -312,7 +314,8 @@ static int gps_pwron_get(void)
 		return !!s3c2410_gpio_getpin(GTA01_GPIO_GPS_PWRON);
 
 	if (machine_is_neo1973_gta02())
-		return regulator_is_enabled(neo1973_gps.regulator);
+		return !!pcf50633_onoff_get(pcf50633_global,
+						       PCF50633_REGULATOR_LDO5);
 	return -1;
 }
 
@@ -713,7 +716,7 @@ static int gta01_pm_gps_remove(struct platform_device *pdev)
 	}
 
 	if (machine_is_neo1973_gta02()) {
-		regulator_put(neo1973_gps.regulator);
+		pcf50633_onoff_set(pcf50633_global, PCF50633_REGULATOR_LDO5, 0);
 		sysfs_remove_group(&pdev->dev.kobj, &gta02_gps_attr_group);
 	}
 	return 0;

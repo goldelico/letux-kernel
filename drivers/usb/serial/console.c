@@ -135,6 +135,7 @@ static int usb_console_setup(struct console *co, char *options)
 				err("no more memory");
 				goto reset_open_count;
 			}
+			kref_init(&tty->kref);
 			termios = kzalloc(sizeof(*termios), GFP_KERNEL);
 			if (!termios) {
 				retval = -ENOMEM;
@@ -240,12 +241,25 @@ static void usb_console_write(struct console *co,
 	}
 }
 
+static struct tty_driver *usb_console_device(struct console *co, int *index)
+{
+	struct tty_driver **p = (struct tty_driver **)co->data;
+
+	if (!*p)
+		return NULL;
+
+	*index = co->index;
+	return *p;
+}
+
 static struct console usbcons = {
 	.name =		"ttyUSB",
 	.write =	usb_console_write,
+	.device =	usb_console_device,
 	.setup =	usb_console_setup,
 	.flags =	CON_PRINTBUFFER,
 	.index =	-1,
+	.data = 	&usb_serial_tty_driver,
 };
 
 void usb_serial_console_disconnect(struct usb_serial *serial)

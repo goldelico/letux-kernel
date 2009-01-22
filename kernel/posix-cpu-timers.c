@@ -58,21 +58,21 @@ void thread_group_cputime(
 	struct task_struct *tsk,
 	struct task_cputime *times)
 {
-	struct signal_struct *sig;
+	struct task_cputime *totals, *tot;
 	int i;
-	struct task_cputime *tot;
 
-	sig = tsk->signal;
-	if (unlikely(!sig) || !sig->cputime.totals) {
+	totals = tsk->signal->cputime.totals;
+	if (!totals) {
 		times->utime = tsk->utime;
 		times->stime = tsk->stime;
 		times->sum_exec_runtime = tsk->se.sum_exec_runtime;
 		return;
 	}
+
 	times->stime = times->utime = cputime_zero;
 	times->sum_exec_runtime = 0;
 	for_each_possible_cpu(i) {
-		tot = per_cpu_ptr(tsk->signal->cputime.totals, i);
+		tot = per_cpu_ptr(totals, i);
 		times->utime = cputime_add(times->utime, tot->utime);
 		times->stime = cputime_add(times->stime, tot->stime);
 		times->sum_exec_runtime += tot->sum_exec_runtime;
@@ -311,7 +311,7 @@ static int cpu_clock_sample_group(const clockid_t which_clock,
 	struct task_cputime cputime;
 
 	thread_group_cputime(p, &cputime);
-	switch (which_clock) {
+	switch (CPUCLOCK_WHICH(which_clock)) {
 	default:
 		return -EINVAL;
 	case CPUCLOCK_PROF:
@@ -1308,9 +1308,10 @@ static inline int task_cputime_expired(const struct task_cputime *sample,
  */
 static inline int fastpath_timer_check(struct task_struct *tsk)
 {
-	struct signal_struct *sig = tsk->signal;
+	struct signal_struct *sig;
 
-	if (unlikely(!sig))
+	/* tsk == current, ensure it is safe to use ->signal/sighand */
+	if (unlikely(tsk->exit_state))
 		return 0;
 
 	if (!task_cputime_zero(&tsk->cputime_expires)) {
@@ -1323,6 +1324,8 @@ static inline int fastpath_timer_check(struct task_struct *tsk)
 		if (task_cputime_expired(&task_sample, &tsk->cputime_expires))
 			return 1;
 	}
+
+	sig = tsk->signal;
 	if (!task_cputime_zero(&sig->cputime_expires)) {
 		struct task_cputime group_sample;
 

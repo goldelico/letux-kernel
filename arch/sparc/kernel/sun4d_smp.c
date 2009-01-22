@@ -60,7 +60,7 @@ extern int __smp4d_processor_id(void);
 #define SMP_PRINTK(x)
 #endif
 
-static inline unsigned long swap(volatile unsigned long *ptr, unsigned long val)
+static inline unsigned long sun4d_swap(volatile unsigned long *ptr, unsigned long val)
 {
 	__asm__ __volatile__("swap [%1], %0\n\t" :
 			     "=&r" (val), "=&r" (ptr) :
@@ -83,7 +83,7 @@ static inline void show_leds(int cpuid)
 			      "i" (ASI_M_CTL));
 }
 
-void __init smp4d_callin(void)
+void __cpuinit smp4d_callin(void)
 {
 	int cpuid = hard_smp4d_processor_id();
 	extern spinlock_t sun4d_imsk_lock;
@@ -115,7 +115,7 @@ void __init smp4d_callin(void)
 	local_flush_tlb_all();
 
 	/* Allow master to continue. */
-	swap((unsigned long *)&cpu_callin_map[cpuid], 1);
+	sun4d_swap((unsigned long *)&cpu_callin_map[cpuid], 1);
 	local_flush_cache_all();
 	local_flush_tlb_all();
 	
@@ -386,7 +386,7 @@ void smp4d_percpu_timer_interrupt(struct pt_regs *regs)
 
 extern unsigned int lvl14_resolution;
 
-static void __init smp_setup_percpu_timer(void)
+static void __cpuinit smp_setup_percpu_timer(void)
 {
 	int cpu = hard_smp4d_processor_id();
 

@@ -10,7 +10,6 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/regulator/consumer.h>
 
 enum glamo_mci_waitfor {
 	COMPLETION_NONE,
@@ -78,6 +77,4 @@ struct glamo_mci_host {
 
 	unsigned int		ccnt, dcnt;
 	struct tasklet_struct	pio_tasklet;
-
-	struct regulator 	*regulator;
 };

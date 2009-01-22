@@ -118,8 +118,8 @@ static u64 __update_sched_clock(struct sched_clock_data *scd, u64 now)
 
 	/*
 	 * scd->clock = clamp(scd->tick_gtod + delta,
-	 *		      max(scd->tick_gtod, scd->clock),
-	 *		      max(scd->clock, scd->tick_gtod + TICK_NSEC));
+	 * 		      max(scd->tick_gtod, scd->clock),
+	 * 		      scd->tick_gtod + TICK_NSEC);
 	 */
 
 	clock = scd->tick_gtod + delta;
@@ -227,6 +227,9 @@ EXPORT_SYMBOL_GPL(sched_clock_idle_sleep_event);
  */
 void sched_clock_idle_wakeup_event(u64 delta_ns)
 {
+	if (timekeeping_suspended)
+		return;
+
 	sched_clock_tick();
 	touch_softlockup_watchdog();
 }

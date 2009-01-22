@@ -19,12 +19,7 @@ obj-$(CONFIG_SENSORS_PCF50606)	+= pcf50606.o
 obj-$(CONFIG_SENSORS_PCF8574)	+= pcf8574.o
 obj-$(CONFIG_PCF8575)		+= pcf8575.o
 obj-$(CONFIG_SENSORS_PCF8591)	+= pcf8591.o
-obj-$(CONFIG_ISP1301_OMAP)	+= isp1301_omap.o
-obj-$(CONFIG_TPS65010)		+= tps65010.o
-obj-$(CONFIG_MENELAUS)		+= menelaus.o
 obj-$(CONFIG_SENSORS_TSL2550)	+= tsl2550.o
-obj-$(CONFIG_MCU_MPC8349EMITX)	+= mcu_mpc8349emitx.o
-obj-$(CONFIG_SENSORS_TSL256X)	+= tsl256x.o
 obj-$(CONFIG_PCA9632)		+= pca9632.o
 
 ifeq ($(CONFIG_I2C_DEBUG_CHIP),y)

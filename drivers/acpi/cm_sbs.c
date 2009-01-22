@@ -27,14 +27,10 @@
 #include <linux/seq_file.h>
 #include <acpi/acpi_bus.h>
 #include <acpi/acpi_drivers.h>
-#include <acpi/acmacros.h>
-#include <acpi/actypes.h>
-#include <acpi/acutils.h>
 
 ACPI_MODULE_NAME("cm_sbs");
 #define ACPI_AC_CLASS		"ac_adapter"
 #define ACPI_BATTERY_CLASS	"battery"
-#define ACPI_SBS_COMPONENT	0x00080000
 #define _COMPONENT		ACPI_SBS_COMPONENT
 static struct proc_dir_entry *acpi_ac_dir;
 static struct proc_dir_entry *acpi_battery_dir;
@@ -105,9 +101,3 @@ void acpi_unlock_battery_dir(struct proc_dir_entry *acpi_battery_dir_param)
 	return;
 }
 EXPORT_SYMBOL(acpi_unlock_battery_dir);
-
-static int __init acpi_cm_sbs_init(void)
-{
-	return 0;
-}
-subsys_initcall(acpi_cm_sbs_init);

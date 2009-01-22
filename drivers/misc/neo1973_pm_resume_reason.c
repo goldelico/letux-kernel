@@ -22,7 +22,7 @@
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 #include <mach/gta02.h>
-#include <linux/mfd/pcf50633/core.h>
+#include <linux/pcf50633.h>
 #endif
 
 static unsigned int *gstatus4_mapped;
@@ -79,8 +79,8 @@ static ssize_t resume_reason_read(struct device *dev,
 			end += sprintf(end, "  %s\n", resume_reasons[gta][bit]);
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
-		if ((gta) && (bit == 9)); /* PMU */
-//			end += pcf50633_report_resumers(gta02_pcf_pdata.pcf, end);
+		if ((gta) && (bit == 9)) /* PMU */
+			end += pcf50633_report_resumers(pcf50633_global, end);
 #endif
 	}
 

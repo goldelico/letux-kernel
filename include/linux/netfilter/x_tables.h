@@ -251,7 +251,7 @@ struct xt_target_param {
  */
 struct xt_tgchk_param {
 	const char *table;
-	void *entryinfo;
+	const void *entryinfo;
 	const struct xt_target *target;
 	void *targinfo;
 	unsigned int hook_mask;
@@ -270,6 +270,7 @@ struct xt_match
 	struct list_head list;
 
 	const char name[XT_FUNCTION_MAXNAMELEN-1];
+	u_int8_t revision;
 
 	/* Return true or false: return FALSE and set *hotdrop = 1 to
            force immediate packet drop. */
@@ -302,7 +303,6 @@ struct xt_match
 	unsigned short proto;
 
 	unsigned short family;
-	u_int8_t revision;
 };
 
 /* Registration hooks for targets. */

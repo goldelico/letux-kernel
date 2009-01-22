@@ -36,12 +36,12 @@
 #include <linux/backlight.h>
 #include <linux/thermal.h>
 #include <linux/video_output.h>
+#include <linux/sort.h>
 #include <asm/uaccess.h>
 
 #include <acpi/acpi_bus.h>
 #include <acpi/acpi_drivers.h>
 
-#define ACPI_VIDEO_COMPONENT		0x08000000
 #define ACPI_VIDEO_CLASS		"video"
 #define ACPI_VIDEO_BUS_NAME		"Video Bus"
 #define ACPI_VIDEO_DEVICE_NAME		"Video Device"
@@ -482,6 +482,7 @@ acpi_video_device_lcd_set_level(struct acpi_video_device *device, int level)
 	int status = AE_OK;
 	union acpi_object arg0 = { ACPI_TYPE_INTEGER };
 	struct acpi_object_list args = { 1, &arg0 };
+	int state;
 
 
 	arg0.integer.value = level;
@@ -490,6 +491,10 @@ acpi_video_device_lcd_set_level(struct acpi_video_device *device, int level)
 		status = acpi_evaluate_object(device->dev->handle, "_BCM",
 					      &args, NULL);
 	device->brightness->curr = level;
+	for (state = 2; state < device->brightness->count; state++)
+		if (level == device->brightness->levels[state])
+			device->backlight->props.brightness = state - 2;
+
 	return status;
 }
 
@@ -627,6 +632,16 @@ acpi_video_bus_DOS(struct acpi_video_bus *video, int bios_flag, int lcd_flag)
 }
 
 /*
+ * Simple comparison function used to sort backlight levels.
+ */
+
+static int
+acpi_video_cmp_level(const void *a, const void *b)
+{
+	return *(int *)a - *(int *)b;
+}
+
+/*
  *  Arg:	
  *  	device	: video output device (LCD, CRT, ..)
  *
@@ -676,6 +691,10 @@ acpi_video_init_brightness(struct acpi_video_device *device)
 			max_level = br->levels[count];
 		count++;
 	}
+
+	/* don't sort the first two brightness levels */
+	sort(&br->levels[2], count - 2, sizeof(br->levels[2]),
+		acpi_video_cmp_level, NULL);
 
 	if (count < 2)
 		goto out_free_levels;
@@ -739,7 +758,8 @@ static void acpi_video_device_find_cap(struct acpi_video_device *device)
 		device->cap._DSS = 1;
 	}
 
-	max_level = acpi_video_init_brightness(device);
+	if (acpi_video_backlight_support())
+		max_level = acpi_video_init_brightness(device);
 
 	if (device->cap._BCL && device->cap._BCM && max_level > 0) {
 		int result;
@@ -785,18 +805,21 @@ static void acpi_video_device_find_cap(struct acpi_video_device *device)
 			printk(KERN_ERR PREFIX "Create sysfs link\n");
 
 	}
-	if (device->cap._DCS && device->cap._DSS){
-		static int count = 0;
-		char *name;
-		name = kzalloc(MAX_NAME_LEN, GFP_KERNEL);
-		if (!name)
-			return;
-		sprintf(name, "acpi_video%d", count++);
-		device->output_dev = video_output_register(name,
-				NULL, device, &acpi_output_properties);
-		kfree(name);
+
+	if (acpi_video_display_switch_support()) {
+
+		if (device->cap._DCS && device->cap._DSS) {
+			static int count;
+			char *name;
+			name = kzalloc(MAX_NAME_LEN, GFP_KERNEL);
+			if (!name)
+				return;
+			sprintf(name, "acpi_video%d", count++);
+			device->output_dev = video_output_register(name,
+					NULL, device, &acpi_output_properties);
+			kfree(name);
+		}
 	}
-	return;
 }
 
 /*
@@ -842,10 +865,15 @@ static void acpi_video_bus_find_cap(struct acpi_video_bus *video)
 static int acpi_video_bus_check(struct acpi_video_bus *video)
 {
 	acpi_status status = -ENOENT;
-
+	struct device *dev;
 
 	if (!video)
 		return -EINVAL;
+
+	dev = acpi_get_physical_pci_device(video->device->handle);
+	if (!dev)
+		return -ENODEV;
+	put_device(dev);
 
 	/* Since there is no HID, CID and so on for VGA driver, we have
 	 * to check well known required nodes.
@@ -2093,12 +2121,6 @@ static int acpi_video_bus_remove(struct acpi_device *device, int type)
 static int __init acpi_video_init(void)
 {
 	int result = 0;
-
-
-	/*
-	   acpi_dbg_level = 0xFFFFFFFF;
-	   acpi_dbg_layer = 0x08000000;
-	 */
 
 	acpi_video_dir = proc_mkdir(ACPI_VIDEO_CLASS, acpi_root_dir);
 	if (!acpi_video_dir)

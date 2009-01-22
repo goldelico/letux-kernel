@@ -27,11 +27,9 @@ struct glamofb_platform_data {
 	struct glamo_spigpio_info *spigpio_info;
 	struct glamo_core *glamo;
 
-	struct platform_device *mmc_dev;
-
 	/* glamo mmc platform specific info */
-	int		(*glamo_can_set_mci_power)(void);
-	
+	void		(*glamo_set_mci_power)(unsigned char power_mode,
+				     unsigned short vdd);
 	/* glamo-mci asking if it should use the slow clock to card */
 	int		(*glamo_mci_use_slow)(void);
 	int		(*glamo_irq_is_wired)(void);

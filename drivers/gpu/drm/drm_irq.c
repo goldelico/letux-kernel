@@ -94,7 +94,7 @@ static void vblank_disable_fn(unsigned long arg)
 	}
 }
 
-static void drm_vblank_cleanup(struct drm_device *dev)
+void drm_vblank_cleanup(struct drm_device *dev)
 {
 	/* Bail if the driver didn't call drm_vblank_init() */
 	if (dev->num_crtcs == 0)
@@ -115,6 +115,9 @@ static void drm_vblank_cleanup(struct drm_device *dev)
 	drm_free(dev->vblank_enabled, sizeof(*dev->vblank_enabled) *
 		 dev->num_crtcs, DRM_MEM_DRIVER);
 	drm_free(dev->last_vblank, sizeof(*dev->last_vblank) * dev->num_crtcs,
+		 DRM_MEM_DRIVER);
+	drm_free(dev->last_vblank_wait,
+		 sizeof(*dev->last_vblank_wait) * dev->num_crtcs,
 		 DRM_MEM_DRIVER);
 	drm_free(dev->vblank_inmodeset, sizeof(*dev->vblank_inmodeset) *
 		 dev->num_crtcs, DRM_MEM_DRIVER);
@@ -159,6 +162,11 @@ int drm_vblank_init(struct drm_device *dev, int num_crtcs)
 
 	dev->last_vblank = drm_calloc(num_crtcs, sizeof(u32), DRM_MEM_DRIVER);
 	if (!dev->last_vblank)
+		goto err;
+
+	dev->last_vblank_wait = drm_calloc(num_crtcs, sizeof(u32),
+					   DRM_MEM_DRIVER);
+	if (!dev->last_vblank_wait)
 		goto err;
 
 	dev->vblank_inmodeset = drm_calloc(num_crtcs, sizeof(int),
@@ -259,7 +267,8 @@ EXPORT_SYMBOL(drm_irq_install);
  */
 int drm_irq_uninstall(struct drm_device * dev)
 {
-	int irq_enabled;
+	unsigned long irqflags;
+	int irq_enabled, i;
 
 	if (!drm_core_check_feature(dev, DRIVER_HAVE_IRQ))
 		return -EINVAL;
@@ -269,6 +278,16 @@ int drm_irq_uninstall(struct drm_device * dev)
 	dev->irq_enabled = 0;
 	mutex_unlock(&dev->struct_mutex);
 
+	/*
+	 * Wake up any waiters so they don't hang.
+	 */
+	spin_lock_irqsave(&dev->vbl_lock, irqflags);
+	for (i = 0; i < dev->num_crtcs; i++) {
+		DRM_WAKEUP(&dev->vbl_queue[i]);
+		dev->vblank_enabled[i] = 0;
+	}
+	spin_unlock_irqrestore(&dev->vbl_lock, irqflags);
+
 	if (!irq_enabled)
 		return -EINVAL;
 
@@ -277,10 +296,6 @@ int drm_irq_uninstall(struct drm_device * dev)
 	dev->driver->irq_uninstall(dev);
 
 	free_irq(dev->pdev->irq, dev);
-
-	drm_vblank_cleanup(dev);
-
-	dev->locked_tasklet_func = NULL;
 
 	return 0;
 }
@@ -309,12 +324,16 @@ int drm_control(struct drm_device *dev, void *data,
 	case DRM_INST_HANDLER:
 		if (!drm_core_check_feature(dev, DRIVER_HAVE_IRQ))
 			return 0;
+		if (drm_core_check_feature(dev, DRIVER_MODESET))
+			return 0;
 		if (dev->if_version < DRM_IF_VERSION(1, 2) &&
 		    ctl->irq != dev->pdev->irq)
 			return -EINVAL;
 		return drm_irq_install(dev);
 	case DRM_UNINST_HANDLER:
 		if (!drm_core_check_feature(dev, DRIVER_HAVE_IRQ))
+			return 0;
+		if (drm_core_check_feature(dev, DRIVER_MODESET))
 			return 0;
 		return drm_irq_uninstall(dev);
 	default:
@@ -431,6 +450,45 @@ void drm_vblank_put(struct drm_device *dev, int crtc)
 EXPORT_SYMBOL(drm_vblank_put);
 
 /**
+ * drm_vblank_pre_modeset - account for vblanks across mode sets
+ * @dev: DRM device
+ * @crtc: CRTC in question
+ * @post: post or pre mode set?
+ *
+ * Account for vblank events across mode setting events, which will likely
+ * reset the hardware frame counter.
+ */
+void drm_vblank_pre_modeset(struct drm_device *dev, int crtc)
+{
+	/*
+	 * To avoid all the problems that might happen if interrupts
+	 * were enabled/disabled around or between these calls, we just
+	 * have the kernel take a reference on the CRTC (just once though
+	 * to avoid corrupting the count if multiple, mismatch calls occur),
+	 * so that interrupts remain enabled in the interim.
+	 */
+	if (!dev->vblank_inmodeset[crtc]) {
+		dev->vblank_inmodeset[crtc] = 1;
+		drm_vblank_get(dev, crtc);
+	}
+}
+EXPORT_SYMBOL(drm_vblank_pre_modeset);
+
+void drm_vblank_post_modeset(struct drm_device *dev, int crtc)
+{
+	unsigned long irqflags;
+
+	if (dev->vblank_inmodeset[crtc]) {
+		spin_lock_irqsave(&dev->vbl_lock, irqflags);
+		dev->vblank_disable_allowed = 1;
+		dev->vblank_inmodeset[crtc] = 0;
+		spin_unlock_irqrestore(&dev->vbl_lock, irqflags);
+		drm_vblank_put(dev, crtc);
+	}
+}
+EXPORT_SYMBOL(drm_vblank_post_modeset);
+
+/**
  * drm_modeset_ctl - handle vblank event counter changes across mode switch
  * @DRM_IOCTL_ARGS: standard ioctl arguments
  *
@@ -445,7 +503,6 @@ int drm_modeset_ctl(struct drm_device *dev, void *data,
 		    struct drm_file *file_priv)
 {
 	struct drm_modeset_ctl *modeset = data;
-	unsigned long irqflags;
 	int crtc, ret = 0;
 
 	/* If drm_vblank_init() hasn't been called yet, just no-op */
@@ -458,28 +515,12 @@ int drm_modeset_ctl(struct drm_device *dev, void *data,
 		goto out;
 	}
 
-	/*
-	 * To avoid all the problems that might happen if interrupts
-	 * were enabled/disabled around or between these calls, we just
-	 * have the kernel take a reference on the CRTC (just once though
-	 * to avoid corrupting the count if multiple, mismatch calls occur),
-	 * so that interrupts remain enabled in the interim.
-	 */
 	switch (modeset->cmd) {
 	case _DRM_PRE_MODESET:
-		if (!dev->vblank_inmodeset[crtc]) {
-			dev->vblank_inmodeset[crtc] = 1;
-			drm_vblank_get(dev, crtc);
-		}
+		drm_vblank_pre_modeset(dev, crtc);
 		break;
 	case _DRM_POST_MODESET:
-		if (dev->vblank_inmodeset[crtc]) {
-			spin_lock_irqsave(&dev->vbl_lock, irqflags);
-			dev->vblank_disable_allowed = 1;
-			dev->vblank_inmodeset[crtc] = 0;
-			spin_unlock_irqrestore(&dev->vbl_lock, irqflags);
-			drm_vblank_put(dev, crtc);
-		}
+		drm_vblank_post_modeset(dev, crtc);
 		break;
 	default:
 		ret = -EINVAL;
@@ -620,9 +661,11 @@ int drm_wait_vblank(struct drm_device *dev, void *data,
 	} else {
 		DRM_DEBUG("waiting on vblank count %d, crtc %d\n",
 			  vblwait->request.sequence, crtc);
+		dev->last_vblank_wait[crtc] = vblwait->request.sequence;
 		DRM_WAIT_ON(ret, dev->vbl_queue[crtc], 3 * DRM_HZ,
-			    ((drm_vblank_count(dev, crtc)
-			      - vblwait->request.sequence) <= (1 << 23)));
+			    (((drm_vblank_count(dev, crtc) -
+			       vblwait->request.sequence) <= (1 << 23)) ||
+			     !dev->irq_enabled));
 
 		if (ret != -EINTR) {
 			struct timeval now;
@@ -699,81 +742,3 @@ void drm_handle_vblank(struct drm_device *dev, int crtc)
 	drm_vbl_send_signals(dev, crtc);
 }
 EXPORT_SYMBOL(drm_handle_vblank);
-
-/**
- * Tasklet wrapper function.
- *
- * \param data DRM device in disguise.
- *
- * Attempts to grab the HW lock and calls the driver callback on success. On
- * failure, leave the lock marked as contended so the callback can be called
- * from drm_unlock().
- */
-static void drm_locked_tasklet_func(unsigned long data)
-{
-	struct drm_device *dev = (struct drm_device *)data;
-	unsigned long irqflags;
-	void (*tasklet_func)(struct drm_device *);
-	
-	spin_lock_irqsave(&dev->tasklet_lock, irqflags);
-	tasklet_func = dev->locked_tasklet_func;
-	spin_unlock_irqrestore(&dev->tasklet_lock, irqflags);
-
-	if (!tasklet_func ||
-	    !drm_lock_take(&dev->lock,
-			   DRM_KERNEL_CONTEXT)) {
-		return;
-	}
-
-	dev->lock.lock_time = jiffies;
-	atomic_inc(&dev->counts[_DRM_STAT_LOCKS]);
-
-	spin_lock_irqsave(&dev->tasklet_lock, irqflags);
-	tasklet_func = dev->locked_tasklet_func;
-	dev->locked_tasklet_func = NULL;
-	spin_unlock_irqrestore(&dev->tasklet_lock, irqflags);
-	
-	if (tasklet_func != NULL)
-		tasklet_func(dev);
-
-	drm_lock_free(&dev->lock,
-		      DRM_KERNEL_CONTEXT);
-}
-
-/**
- * Schedule a tasklet to call back a driver hook with the HW lock held.
- *
- * \param dev DRM device.
- * \param func Driver callback.
- *
- * This is intended for triggering actions that require the HW lock from an
- * interrupt handler. The lock will be grabbed ASAP after the interrupt handler
- * completes. Note that the callback may be called from interrupt or process
- * context, it must not make any assumptions about this. Also, the HW lock will
- * be held with the kernel context or any client context.
- */
-void drm_locked_tasklet(struct drm_device *dev, void (*func)(struct drm_device *))
-{
-	unsigned long irqflags;
-	static DECLARE_TASKLET(drm_tasklet, drm_locked_tasklet_func, 0);
-
-	if (!drm_core_check_feature(dev, DRIVER_HAVE_IRQ) ||
-	    test_bit(TASKLET_STATE_SCHED, &drm_tasklet.state))
-		return;
-
-	spin_lock_irqsave(&dev->tasklet_lock, irqflags);
-
-	if (dev->locked_tasklet_func) {
-		spin_unlock_irqrestore(&dev->tasklet_lock, irqflags);
-		return;
-	}
-
-	dev->locked_tasklet_func = func;
-
-	spin_unlock_irqrestore(&dev->tasklet_lock, irqflags);
-
-	drm_tasklet.data = (unsigned long)dev;
-
-	tasklet_hi_schedule(&drm_tasklet);
-}
-EXPORT_SYMBOL(drm_locked_tasklet);

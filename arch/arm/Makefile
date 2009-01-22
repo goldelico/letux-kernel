@@ -76,6 +76,7 @@ tune-$(CONFIG_CPU_SA110)	:=-mtune=strongarm110
 tune-$(CONFIG_CPU_SA1100)	:=-mtune=strongarm1100
 tune-$(CONFIG_CPU_XSCALE)	:=$(call cc-option,-mtune=xscale,-mtune=strongarm110) -Wa,-mcpu=xscale
 tune-$(CONFIG_CPU_XSC3)		:=$(call cc-option,-mtune=xscale,-mtune=strongarm110) -Wa,-mcpu=xscale
+tune-$(CONFIG_CPU_FEROCEON)	:=$(call cc-option,-mtune=marvell-f,-mtune=xscale)
 tune-$(CONFIG_CPU_V6)		:=$(call cc-option,-mtune=arm1136j-s,-mtune=strongarm)
 
 ifeq ($(CONFIG_AEABI),y)
@@ -96,7 +97,6 @@ textofs-y	:= 0x00008000
 
  machine-$(CONFIG_ARCH_RPC)	   := rpc
  machine-$(CONFIG_ARCH_EBSA110)	   := ebsa110
- machine-$(CONFIG_ARCH_CLPS7500)   := clps7500
  machine-$(CONFIG_FOOTBRIDGE)	   := footbridge
  machine-$(CONFIG_ARCH_SHARK)	   := shark
  machine-$(CONFIG_ARCH_SA1100)	   := sa1100
@@ -142,11 +142,13 @@ endif
     plat-$(CONFIG_ARCH_MXC)	   := mxc
  machine-$(CONFIG_ARCH_MX2)	   := mx2
  machine-$(CONFIG_ARCH_MX3)	   := mx3
+ machine-$(CONFIG_ARCH_MX1)	   := mx1
  machine-$(CONFIG_ARCH_ORION5X)	   := orion5x
     plat-$(CONFIG_PLAT_ORION)	   := orion
  machine-$(CONFIG_ARCH_MSM)	   := msm
  machine-$(CONFIG_ARCH_LOKI)       := loki
  machine-$(CONFIG_ARCH_MV78XX0)    := mv78xx0
+ machine-$(CONFIG_ARCH_W90X900)    := w90x900
 
 ifeq ($(CONFIG_ARCH_EBSA110),y)
 # This is what happens if you forget the IOCS16 line.

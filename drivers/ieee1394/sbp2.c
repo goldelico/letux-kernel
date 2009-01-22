@@ -265,7 +265,7 @@ static struct hpsb_highlevel sbp2_highlevel = {
 	.host_reset	= sbp2_host_reset,
 };
 
-static struct hpsb_address_ops sbp2_ops = {
+const static struct hpsb_address_ops sbp2_ops = {
 	.write		= sbp2_handle_status_write
 };
 
@@ -275,7 +275,7 @@ static int sbp2_handle_physdma_write(struct hpsb_host *, int, int, quadlet_t *,
 static int sbp2_handle_physdma_read(struct hpsb_host *, int, quadlet_t *, u64,
 				    size_t, u16);
 
-static struct hpsb_address_ops sbp2_physdma_ops = {
+const static struct hpsb_address_ops sbp2_physdma_ops = {
 	.read		= sbp2_handle_physdma_read,
 	.write		= sbp2_handle_physdma_write,
 };
@@ -398,6 +398,11 @@ static const struct {
 	/* iPod 4th generation */ {
 		.firmware_revision	= 0x0a2700,
 		.model_id		= 0x000021,
+		.workarounds		= SBP2_WORKAROUND_FIX_CAPACITY,
+	},
+	/* iPod mini */ {
+		.firmware_revision	= 0x0a2700,
+		.model_id		= 0x000022,
 		.workarounds		= SBP2_WORKAROUND_FIX_CAPACITY,
 	},
 	/* iPod mini */ {
@@ -890,12 +895,13 @@ static void sbp2_host_reset(struct hpsb_host *host)
 		return;
 
 	read_lock_irqsave(&sbp2_hi_logical_units_lock, flags);
+
 	list_for_each_entry(lu, &hi->logical_units, lu_list)
-		if (likely(atomic_read(&lu->state) !=
-			   SBP2LU_STATE_IN_SHUTDOWN)) {
-			atomic_set(&lu->state, SBP2LU_STATE_IN_RESET);
+		if (atomic_cmpxchg(&lu->state,
+				   SBP2LU_STATE_RUNNING, SBP2LU_STATE_IN_RESET)
+		    == SBP2LU_STATE_RUNNING)
 			scsi_block_requests(lu->shost);
-		}
+
 	read_unlock_irqrestore(&sbp2_hi_logical_units_lock, flags);
 }
 

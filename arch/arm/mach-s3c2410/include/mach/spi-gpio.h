@@ -18,6 +18,7 @@ struct s3c2410_spigpio_info {
 	unsigned long		 pin_mosi;
 	unsigned long		 pin_miso;
 
+	int			 num_chipselect;
 	int			 bus_num;
 	int			 num_chipselect;
 

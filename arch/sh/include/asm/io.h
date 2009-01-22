@@ -260,6 +260,10 @@ __ioremap_mode(unsigned long offset, unsigned long size, unsigned long flags)
 
 		return (void __iomem *)P2SEGADDR(offset);
 	}
+
+	/* P4 above the store queues are always mapped. */
+	if (unlikely(offset >= P3_ADDR_MAX))
+		return (void __iomem *)P4SEGADDR(offset);
 #endif
 
 	return __ioremap(offset, size, flags);
@@ -292,6 +296,10 @@ __ioremap_mode(unsigned long offset, unsigned long size, unsigned long flags)
  * Convert a virtual cached pointer to an uncached pointer
  */
 #define xlate_dev_kmem_ptr(p)	p
+
+#define ARCH_HAS_VALID_PHYS_ADDR_RANGE
+int valid_phys_addr_range(unsigned long addr, size_t size);
+int valid_mmap_phys_addr_range(unsigned long pfn, size_t size);
 
 #endif /* __KERNEL__ */
 

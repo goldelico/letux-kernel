@@ -33,7 +33,6 @@
 #include <linux/interrupt.h>
 #include <linux/serial_core.h>
 #include <linux/io.h>
-#include <linux/regulator/machine.h>
 
 #include <plat/regs-serial.h>
 #include <mach/regs-clock.h>

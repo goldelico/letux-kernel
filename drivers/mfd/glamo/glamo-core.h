@@ -68,7 +68,8 @@ struct glamo_mci_pdata {
 	unsigned int	gpio_detect;
 	unsigned int	gpio_wprotect;
 	unsigned long	ocr_avail;
-	int		(*glamo_can_set_mci_power)(void);
+	void		(*glamo_set_mci_power)(unsigned char power_mode,
+				     unsigned short vdd);
 	/* glamo-mci asking if it should use the slow clock to card */
 	int		(*glamo_mci_use_slow)(void);
 	int		(*glamo_irq_is_wired)(void);

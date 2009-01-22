@@ -288,9 +288,15 @@ static struct resource glamo_mmc_resources[] = {
 	},
 };
 
+static struct platform_device glamo_mmc_dev = {
+	.name		= "glamo-mci",
+	.resource	= glamo_mmc_resources,
+	.num_resources	= ARRAY_SIZE(glamo_mmc_resources),
+};
+
 struct glamo_mci_pdata glamo_mci_def_pdata = {
 	.gpio_detect		= 0,
-	.glamo_can_set_mci_power	= NULL, /* filled in from MFD platform data */
+	.glamo_set_mci_power	= NULL, /* filled in from MFD platform data */
 	.ocr_avail	= MMC_VDD_20_21 |
 			  MMC_VDD_21_22 |
 			  MMC_VDD_22_23 |
@@ -1147,7 +1153,6 @@ static int __init glamo_probe(struct platform_device *pdev)
 {
 	int rc = 0, irq;
 	struct glamo_core *glamo;
-	struct platform_device *glamo_mmc_dev;
 
 	if (glamo_handle) {
 		dev_err(&pdev->dev,
@@ -1242,8 +1247,8 @@ static int __init glamo_probe(struct platform_device *pdev)
 		 glamo_pll_rate(glamo, GLAMO_PLL2));
 
 	/* bring MCI specific stuff over from our MFD platform data */
-	glamo_mci_def_pdata.glamo_can_set_mci_power =
-					glamo->pdata->glamo_can_set_mci_power;
+	glamo_mci_def_pdata.glamo_set_mci_power =
+					glamo->pdata->glamo_set_mci_power;
 	glamo_mci_def_pdata.glamo_mci_use_slow =
 					glamo->pdata->glamo_mci_use_slow;
 	glamo_mci_def_pdata.glamo_irq_is_wired =
@@ -1283,17 +1288,12 @@ static int __init glamo_probe(struct platform_device *pdev)
 	glamo_spigpio_dev.dev.platform_data = glamo->pdata->spigpio_info;
 	platform_device_register(&glamo_spigpio_dev);
 
-	glamo_mmc_dev = glamo->pdata->mmc_dev;
-	glamo_mmc_dev->name = "glamo-mci";
-	glamo_mmc_dev->dev.parent = &pdev->dev;
-	glamo_mmc_dev->resource = glamo_mmc_resources;
-	glamo_mmc_dev->num_resources = ARRAY_SIZE(glamo_mmc_resources); 
-
+	glamo_mmc_dev.dev.parent = &pdev->dev;
 	/* we need it later to give to the engine enable and disable */
 	glamo_mci_def_pdata.pglamo = glamo;
-	mangle_mem_resources(glamo_mmc_dev->resource,
-			     glamo_mmc_dev->num_resources, glamo->mem);
-	platform_device_register(glamo_mmc_dev);
+	mangle_mem_resources(glamo_mmc_dev.resource,
+			     glamo_mmc_dev.num_resources, glamo->mem);
+	platform_device_register(&glamo_mmc_dev);
 
 	/* only request the generic, hostbus and memory controller MMIO */
 	glamo->mem = request_mem_region(glamo->mem->start,
@@ -1338,7 +1338,7 @@ static int glamo_remove(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, NULL);
 	platform_device_unregister(&glamo_fb_dev);
-	platform_device_unregister(glamo->pdata->mmc_dev);
+	platform_device_unregister(&glamo_mmc_dev);
 	iounmap(glamo->base);
 	release_mem_region(glamo->mem->start, GLAMO_REGOFS_VIDCAP);
 	glamo_handle = NULL;

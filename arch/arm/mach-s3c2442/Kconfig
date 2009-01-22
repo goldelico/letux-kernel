@@ -6,7 +6,9 @@
 
 config CPU_S3C2442
 	bool
-	depends on CPU_S3C2440
+	depends on ARCH_S3C2410
+	select CPU_ARM920T
+	depends on ARCH_S3C2440
 	select S3C2410_CLOCK
 	select S3C2410_GPIO
 	select S3C2410_PM if PM

@@ -343,7 +343,7 @@ static int xlvbd_init_blk_queue(struct gendisk *gd, u16 sector_size)
 	if (rq == NULL)
 		return -1;
 
-	elevator_init(rq, "noop");
+	queue_flag_set_unlocked(QUEUE_FLAG_VIRT, rq);
 
 	/* Hard sector size and max sectors impersonate the equiv. hardware. */
 	blk_queue_hardsect_size(rq, sector_size);

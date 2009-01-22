@@ -3,7 +3,7 @@
  * IDE driver for Linux.
  *
  * Copyright (c) 2000-2002 Vojtech Pavlik
- * Copyright (c) 2007 Bartlomiej Zolnierkiewicz
+ * Copyright (c) 2007-2008 Bartlomiej Zolnierkiewicz
  *
  * Based on the work of:
  *      Andre Hedrick
@@ -82,7 +82,7 @@ static void amd_set_drive(ide_drive_t *drive, const u8 speed)
 {
 	ide_hwif_t *hwif = drive->hwif;
 	struct pci_dev *dev = to_pci_dev(hwif->dev);
-	ide_drive_t *peer = hwif->drives + (~drive->dn & 1);
+	ide_drive_t *peer = ide_get_pair_dev(drive);
 	struct ide_timing t, p;
 	int T, UT;
 	u8 udma_mask = hwif->ultra_mask;
@@ -92,7 +92,7 @@ static void amd_set_drive(ide_drive_t *drive, const u8 speed)
 
 	ide_timing_compute(drive, speed, &t, T, UT);
 
-	if (peer->dev_flags & IDE_DFLAG_PRESENT) {
+	if (peer) {
 		ide_timing_compute(peer, peer->current_speed, &p, T, UT);
 		ide_timing_merge(&p, &t, &t, IDE_TIMING_8BIT);
 	}
@@ -262,6 +262,15 @@ static int __devinit amd74xx_probe(struct pci_dev *dev, const struct pci_device_
 		    dev->subsystem_device == PCI_DEVICE_ID_AMD_SERENADE)
 			d.udma_mask = ATA_UDMA5;
 	}
+
+	/*
+	 * It seems that on some nVidia controllers using AltStatus
+	 * register can be unreliable so default to Status register
+	 * if the device is in Compatibility Mode.
+	 */
+	if (dev->vendor == PCI_VENDOR_ID_NVIDIA &&
+	    ide_pci_is_in_compatibility_mode(dev))
+		d.host_flags |= IDE_HFLAG_BROKEN_ALTSTATUS;
 
 	printk(KERN_INFO "%s %s: UDMA%s controller\n",
 		d.name, pci_name(dev), amd_dma[fls(d.udma_mask) - 1]);

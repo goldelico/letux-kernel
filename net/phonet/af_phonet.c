@@ -33,9 +33,30 @@
 #include <net/phonet/phonet.h>
 #include <net/phonet/pn_dev.h>
 
-static struct net_proto_family phonet_proto_family;
-static struct phonet_protocol *phonet_proto_get(int protocol);
-static inline void phonet_proto_put(struct phonet_protocol *pp);
+/* Transport protocol registration */
+static struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostly;
+static DEFINE_SPINLOCK(proto_tab_lock);
+
+static struct phonet_protocol *phonet_proto_get(int protocol)
+{
+	struct phonet_protocol *pp;
+
+	if (protocol >= PHONET_NPROTO)
+		return NULL;
+
+	spin_lock(&proto_tab_lock);
+	pp = proto_tab[protocol];
+	if (pp && !try_module_get(pp->prot->owner))
+		pp = NULL;
+	spin_unlock(&proto_tab_lock);
+
+	return pp;
+}
+
+static inline void phonet_proto_put(struct phonet_protocol *pp)
+{
+	module_put(pp->prot->owner);
+}
 
 /* protocol family functions */
 
@@ -45,9 +66,6 @@ static int pn_socket_create(struct net *net, struct socket *sock, int protocol)
 	struct pn_sock *pn;
 	struct phonet_protocol *pnp;
 	int err;
-
-	if (net != &init_net)
-		return -EAFNOSUPPORT;
 
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
@@ -144,8 +162,8 @@ static int pn_send(struct sk_buff *skb, struct net_device *dev,
 	struct phonethdr *ph;
 	int err;
 
-	if (skb->len + 2 > 0xffff) {
-		/* Phonet length field would overflow */
+	if (skb->len + 2 > 0xffff /* Phonet length field limit */ ||
+	    skb->len + sizeof(struct phonethdr) > dev->mtu) {
 		err = -EMSGSIZE;
 		goto drop;
 	}
@@ -331,9 +349,6 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
 	struct sockaddr_pn sa;
 	u16 len;
 
-	if (dev_net(dev) != &init_net)
-		goto out;
-
 	/* check we have at least a full Phonet header */
 	if (!pskb_pull(skb, sizeof(struct phonethdr)))
 		goto out;
@@ -352,7 +367,7 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
 	if (pn_sockaddr_get_addr(&sa) == 0)
 		goto out; /* currently, we cannot be device 0 */
 
-	sk = pn_find_sock_by_sa(&sa);
+	sk = pn_find_sock_by_sa(dev_net(dev), &sa);
 	if (sk == NULL) {
 		if (can_respond(skb)) {
 			send_obj_unreachable(skb);
@@ -374,10 +389,6 @@ static struct packet_type phonet_packet_type = {
 	.dev = NULL,
 	.func = phonet_rcv,
 };
-
-/* Transport protocol registration */
-static struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostly;
-static DEFINE_SPINLOCK(proto_tab_lock);
 
 int __init_or_module phonet_proto_register(int protocol,
 						struct phonet_protocol *pp)
@@ -411,27 +422,6 @@ void phonet_proto_unregister(int protocol, struct phonet_protocol *pp)
 	proto_unregister(pp->prot);
 }
 EXPORT_SYMBOL(phonet_proto_unregister);
-
-static struct phonet_protocol *phonet_proto_get(int protocol)
-{
-	struct phonet_protocol *pp;
-
-	if (protocol >= PHONET_NPROTO)
-		return NULL;
-
-	spin_lock(&proto_tab_lock);
-	pp = proto_tab[protocol];
-	if (pp && !try_module_get(pp->prot->owner))
-		pp = NULL;
-	spin_unlock(&proto_tab_lock);
-
-	return pp;
-}
-
-static inline void phonet_proto_put(struct phonet_protocol *pp)
-{
-	module_put(pp->prot->owner);
-}
 
 /* Module registration */
 static int __init phonet_init(void)

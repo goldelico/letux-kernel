@@ -19,6 +19,7 @@
  */
 
 #include <linux/completion.h>
+#include <linux/idr.h>
 #include <linux/kernel.h>
 #include <linux/kref.h>
 #include <linux/module.h>
@@ -207,6 +208,7 @@ fw_fill_request(struct fw_packet *packet, int tcode, int tlabel,
 	packet->speed = speed;
 	packet->generation = generation;
 	packet->ack = 0;
+	packet->payload_bus = 0;
 }
 
 /**
@@ -581,6 +583,8 @@ fw_fill_response(struct fw_packet *response, u32 *request_header,
 		BUG();
 		return;
 	}
+
+	response->payload_bus = 0;
 }
 EXPORT_SYMBOL(fw_fill_response);
 
@@ -968,6 +972,7 @@ static void __exit fw_core_cleanup(void)
 {
 	unregister_chrdev(fw_cdev_major, "firewire");
 	bus_unregister(&fw_bus_type);
+	idr_destroy(&fw_device_idr);
 }
 
 module_init(fw_core_init);

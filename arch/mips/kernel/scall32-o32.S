@@ -262,13 +262,10 @@ bad_alignment:
 	LEAF(sys_syscall)
 	subu	t0, a0, __NR_O32_Linux	# check syscall number
 	sltiu	v0, t0, __NR_O32_Linux_syscalls + 1
+	beqz	t0, einval		# do not recurse
 	sll	t1, t0, 3
 	beqz	v0, einval
-
 	lw	t2, sys_call_table(t1)		# syscall routine
-
-	li	v1, 4000 - __NR_O32_Linux	# index of sys_syscall
-	beq	t0, v1, einval			# do not recurse
 
 	/* Some syscalls like execve get their arguments from struct pt_regs
 	   and claim zero arguments in the syscall table. Thus we have to
@@ -401,7 +398,7 @@ einval:	li	v0, -ENOSYS
 	sys	sys_uselib		1
 	sys	sys_swapon		2
 	sys	sys_reboot		3
-	sys	old_readdir		3
+	sys	sys_old_readdir		3
 	sys	old_mmap		6	/* 4090 */
 	sys	sys_munmap		2
 	sys	sys_truncate		2
@@ -627,7 +624,7 @@ einval:	li	v0, -ENOSYS
 	sys	sys_pselect6		6
 	sys	sys_ppoll		5
 	sys	sys_unshare		1
-	sys	sys_splice		4
+	sys	sys_splice		6
 	sys	sys_sync_file_range	7	/* 4305 */
 	sys	sys_tee			4
 	sys	sys_vmsplice		4

@@ -684,9 +684,6 @@ static int __devinit jbt_probe(struct spi_device *spi)
 		goto err_sysfs;
 	}
 
-	if (jbt6k74_pdata->probe_completed)
-		jbt6k74_pdata->probe_completed(&spi->dev);
-
 	return 0;
 
 err_sysfs:

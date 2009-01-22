@@ -40,6 +40,16 @@ int usbhid_open(struct hid_device *hid);
 void usbhid_init_reports(struct hid_device *hid);
 void usbhid_submit_report(struct hid_device *hid, struct hid_report *report, unsigned char dir);
 
+/* iofl flags */
+#define HID_CTRL_RUNNING	1
+#define HID_OUT_RUNNING		2
+#define HID_IN_RUNNING		3
+#define HID_RESET_PENDING	4
+#define HID_SUSPENDED		5
+#define HID_CLEAR_HALT		6
+#define HID_DISCONNECTED	7
+#define HID_STARTED		8
+
 /*
  * USB-specific HID struct, to be pointed to
  * from struct hid_device->driver_data
@@ -74,7 +84,6 @@ struct usbhid_device {
 	dma_addr_t outbuf_dma;                                          /* Output buffer dma */
 	spinlock_t outlock;                                             /* Output fifo spinlock */
 
-	struct mutex setup;
 	unsigned long iofl;                                             /* I/O flags (CTRL_RUNNING, OUT_RUNNING) */
 	struct timer_list io_retry;                                     /* Retry timer */
 	unsigned long stop_retry;                                       /* Time to give up, in jiffies */

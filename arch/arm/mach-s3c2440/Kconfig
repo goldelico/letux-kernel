@@ -7,6 +7,7 @@
 config CPU_S3C2440
 	bool
 	depends on ARCH_S3C2410
+	select CPU_ARM920T
 	select S3C2410_CLOCK
 	select S3C2410_PM if PM
 	select S3C2410_GPIO
@@ -38,6 +39,7 @@ config MACH_ANUBIS
 	select S3C24XX_DCLK
 	select PM_SIMTEC if PM
 	select HAVE_PATA_PLATFORM
+	select S3C24XX_GPIO_EXTRA64
 	help
 	  Say Y here if you are using the Simtec Electronics ANUBIS
 	  development system
@@ -47,6 +49,7 @@ config MACH_OSIRIS
 	select CPU_S3C2440
 	select S3C24XX_DCLK
 	select PM_SIMTEC if PM
+	select S3C24XX_GPIO_EXTRA128
 	help
 	  Say Y here if you are using the Simtec IM2440D20 module, also
 	  known as the Osiris.
@@ -86,13 +89,7 @@ config MACH_AT2440EVB
 config MACH_NEO1973_GTA02
 	bool "FIC Neo1973 GSM Phone (GTA02 Hardware)"
 	select CPU_S3C2442
-	select MFD_PCF50633
-	select INPUT_PCF50633_PMU
-	select PCF50633_ADC
-	select PCF50633_GPIO
-	select RTC_DRV_PCF50633
-	select REGULATOR_PCF50633
-	select CHARGER_PCF50633
+	select SENSORS_PCF50633
 	select POWER_SUPPLY
 	select GTA02_HDQ
 	select MACH_NEO1973
