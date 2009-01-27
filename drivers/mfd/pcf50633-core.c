@@ -437,25 +437,15 @@ static void pcf50633_irq_worker(struct work_struct *work)
 out:
 	put_device(pcf->dev);
 	enable_irq(pcf->irq);
-
-	enable_irq(pcf->irq);
-
-	return;
-
-reschedule:
-	schedule_work(&pcf->irq_work);
-
-	/* Don't put_device here. Will be used when we are rescheduled */
-
-	return;
 }
 
 static irqreturn_t pcf50633_irq(int irq, void *data)
 {
 	struct pcf50633 *pcf = data;
 
-	get_device(pcf->dev);
+	dev_dbg(pcf->dev, "pcf50633_irq\n");
 
+	get_device(pcf->dev);
 	disable_irq(pcf->irq);
 
 	schedule_work(&pcf->irq_work);
@@ -576,10 +566,6 @@ static int __devinit pcf50633_probe(struct i2c_client *client,
 	struct pcf50633_platform_data *pdata = client->dev.platform_data;
 	int i, ret = 0;
 	int version, variant;
-	int irqf = IRQF_TRIGGER_LOW;
-
-	if (machine_is_openmoko_gta03())
-		irqf = IRQF_TRIGGER_FALLING;
 
 	pcf = kzalloc(sizeof(*pcf), GFP_KERNEL);
 	if (!pcf)
@@ -657,8 +643,8 @@ static int __devinit pcf50633_probe(struct i2c_client *client,
 	}
 
 	if (enable_irq_wake(client->irq) < 0)
-		dev_err(pcf->dev, "IRQ %u cannot be enabled as wake-up "
-		        "source in this hardware revision\n", client->irq);
+		dev_err(pcf->dev, "IRQ %u cannot be enabled as wake-up source"
+			"in this hardware revision", client->irq);
 
 	ret = sysfs_create_group(&client->dev.kobj, &pcf_attr_group);
 	if (ret)
