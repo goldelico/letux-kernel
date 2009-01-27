@@ -56,7 +56,7 @@
 #define NEO_CAPTURE_BLUETOOTH		8
 #define NEO_STEREO_TO_HANDSET_SPK	9
 
-static struct snd_soc_machine neo1973_gta02;
+static struct snd_soc_card neo1973_gta02;
 
 static int neo1973_gta02_hifi_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
@@ -550,7 +550,6 @@ static int neo1973_gta02_wm8753_init(struct snd_soc_codec *codec)
 static struct snd_soc_dai bt_dai =
 {	.name = "Bluetooth",
 	.id = 0,
-	.type = SND_SOC_DAI_PCM,
 	.playback = {
 		.channels_min = 1,
 		.channels_max = 1,
@@ -601,8 +600,9 @@ int neo1973_gta02_resume(struct platform_device *pdev)
 #define neo1973_gta02_resume NULL
 #endif
 
-static struct snd_soc_machine neo1973_gta02 = {
+static struct snd_soc_card neo1973_gta02 = {
 	.name = "neo1973-gta02",
+	.platform = &s3c24xx_soc_platform,
 	.suspend_pre = neo1973_gta02_suspend,
 	.resume_post = neo1973_gta02_resume,
 	.dai_link = neo1973_gta02_dai,
@@ -618,8 +618,7 @@ static struct wm8753_setup_data soc_codec_data_wm8753_gta02 = {
 };
 
 static struct snd_soc_device neo1973_gta02_snd_devdata = {
-	.machine = &neo1973_gta02,
-	.platform = &s3c24xx_soc_platform,
+	.card = &neo1973_gta02,
 	.codec_dev = &soc_codec_dev_wm8753,
 	.codec_data = &soc_codec_data_wm8753_gta02,
 };

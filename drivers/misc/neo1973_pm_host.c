@@ -21,21 +21,29 @@
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 #include <mach/gta02.h>
-#include <linux/pcf50633.h>
+#include <linux/mfd/pcf50633/gpio.h>
 
 static ssize_t pm_host_read(struct device *dev, struct device_attribute *attr,
 			    char *buf)
 {
 	return sprintf(buf, "%d\n",
-		       pcf50633_gpio_get(pcf50633_global, PCF50633_GPO));
+		       pcf50633_gpio_get(gta02_pcf, PCF50633_GPO)
+		       				== PCF50633_GPOCFG_GPOSEL_1);
 }
 
 static ssize_t pm_host_write(struct device *dev, struct device_attribute *attr,
 			     const char *buf, size_t count)
 {
 	unsigned long on = simple_strtoul(buf, NULL, 10);
+	u8 val;
 
-	pcf50633_gpio_set(pcf50633_global, PCF50633_GPO, on);
+	if (on)
+		val = PCF50633_GPOCFG_GPOSEL_1;
+	else
+		val = PCF50633_GPOCFG_GPOSEL_0;
+
+
+	pcf50633_gpio_set(gta02_pcf, PCF50633_GPO, val);
 
 	return count;
 }
