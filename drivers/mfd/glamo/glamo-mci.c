@@ -768,13 +768,24 @@ static void glamo_mci_reset(struct glamo_mci_host *host)
 		   glamo_mci_def_pdata.pglamo->base + GLAMO_REG_CLOCK_MMC);
 }
 #endif
+static inline int glamo_mci_get_mv(int vdd)
+{
+	int mv = 1650;
+
+	if (vdd > 7)
+		mv += 350 + 100 * (vdd - 8);
+
+	return mv;
+}
 
 static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct glamo_mci_host *host = mmc_priv(mmc);
+	struct regulator *regulator;
 	int n = 0;
 	int div;
 	int powering = 0;
+	int mv;
 
 	if (host->suspending) {
 		dev_err(&host->pdev->dev, "IGNORING glamo_mci_set_ios while "
@@ -782,10 +793,18 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		return;
 	}
 
+	regulator = host->regulator;
+
 	/* Set power */
 	switch(ios->power_mode) {
-	case MMC_POWER_ON:
 	case MMC_POWER_UP:
+		if (host->pdata->glamo_can_set_mci_power()) {
+			mv = glamo_mci_get_mv(ios->vdd);
+			regulator_set_voltage(regulator, mv * 1000, mv * 1000);
+			regulator_enable(regulator);
+		}
+		break;
+	case MMC_POWER_ON:
 		/*
 		 * we should use very slow clock until first bulk
 		 * transfer completes OK
@@ -793,8 +812,11 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		host->force_slow_during_powerup = 1;
 
 		if (host->vdd_current != ios->vdd) {
-			host->pdata->glamo_set_mci_power(ios->power_mode,
-							 ios->vdd);
+			if (host->pdata->glamo_can_set_mci_power()) {
+				mv = glamo_mci_get_mv(ios->vdd);
+				regulator_set_voltage(regulator, mv * 1000, mv * 1000);
+				printk(KERN_INFO "SD power -> %dmV\n", mv);
+			}
 			host->vdd_current = ios->vdd;
 		}
 		if (host->power_mode_current == MMC_POWER_OFF) {
@@ -813,7 +835,7 @@ static void glamo_mci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 		glamo_engine_disable(glamo_mci_def_pdata.pglamo,
 				     GLAMO_ENGINE_MMC);
-		host->pdata->glamo_set_mci_power(MMC_POWER_OFF, 0);
+		regulator_disable(regulator);
 		host->vdd_current = -1;
 		break;
 	}
@@ -918,6 +940,12 @@ static int glamo_mci_probe(struct platform_device *pdev)
 		goto probe_free_mem_region;
 	}
 
+	host->regulator = regulator_get(&pdev->dev, "SD_3V3");
+	if (!host->regulator) {
+		dev_err(&pdev->dev, "Cannot proceed without regulator.\n");
+		return -ENODEV;
+	}
+
 	/* set the handler for our bit of the shared chip irq register */
 	set_irq_handler(IRQ_GLAMO(GLAMO_IRQIDX_MMC), glamo_mci_irq);
 	/* stash host as our handler's private data */
@@ -1005,6 +1033,7 @@ static int glamo_mci_remove(struct platform_device *pdev)
 {
 	struct mmc_host 	*mmc  = platform_get_drvdata(pdev);
 	struct glamo_mci_host 	*host = mmc_priv(mmc);
+	struct regulator *regulator;
 
 	mmc_remove_host(mmc);
 	/* stop using our handler, revert it to default */
@@ -1013,6 +1042,10 @@ static int glamo_mci_remove(struct platform_device *pdev)
 	iounmap(host->base_data);
 	release_mem_region(host->mem->start, RESSIZE(host->mem));
 	release_mem_region(host->mem_data->start, RESSIZE(host->mem_data));
+
+	regulator = host->regulator;
+	regulator_put(regulator);
+	
 	mmc_free_host(mmc);
 
 	glamo_engine_disable(glamo_mci_def_pdata.pglamo, GLAMO_ENGINE_MMC);
