@@ -736,14 +736,14 @@ ar6000_avail_ev(HTC_HANDLE HTCHandle)
 
     ether_setup(dev);
 
-    if (dev->priv == NULL) {
+    if (netdev_priv(dev) == NULL) {
         printk(KERN_CRIT "ar6000_available: Could not allocate memory\n");
         return;
     }
 
-    A_MEMZERO(dev->priv, sizeof(AR_SOFTC_T));
+    A_MEMZERO(netdev_priv(dev), sizeof(AR_SOFTC_T));
 
-    ar                       = (AR_SOFTC_T *)dev->priv;
+    ar                       = (AR_SOFTC_T *)netdev_priv(dev);
     ar->arNetDev             = dev;
     ar->arHtcTarget          = HTCHandle;
     ar->arHifDevice          = HTCGetHifDevice(HTCHandle);
@@ -1067,7 +1067,7 @@ ar6000_destroy(struct net_device *dev, unsigned int unregister)
 static void ar6000_detect_error(unsigned long ptr)
 {
     struct net_device *dev = (struct net_device *)ptr;
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     WMI_TARGET_ERROR_REPORT_EVENT errEvent;
 
     AR6000_SPIN_LOCK(&ar->arLock, 0);
@@ -1472,7 +1472,7 @@ ar6000_channelList_rx(void *devt, A_INT8 numChan, A_UINT16 *chanList)
 A_UINT8
 ar6000_ibss_map_epid(struct sk_buff *skb, struct net_device *dev, A_UINT32 * mapNo)
 {
-    AR_SOFTC_T      *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T      *ar = (AR_SOFTC_T *)netdev_priv(dev);
     A_UINT8         *datap;
     ATH_MAC_HDR     *macHdr;
     A_UINT32         i, eptMap;
@@ -1543,7 +1543,7 @@ static void ar6000_dump_skb(struct sk_buff *skb)
 static int
 ar6000_data_tx(struct sk_buff *skb, struct net_device *dev)
 {
-    AR_SOFTC_T        *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T        *ar = (AR_SOFTC_T *)netdev_priv(dev);
     WMI_PRI_STREAM_ID streamID = WMI_NOT_MAPPED;
     A_UINT32          mapNo = 0;
     int               len;
@@ -2091,14 +2091,14 @@ ar6000_rx_refill(void *Context, HTC_ENDPOINT_ID Endpoint)
 static struct net_device_stats *
 ar6000_get_stats(struct net_device *dev)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     return &ar->arNetStats;
 }
 
 static struct iw_statistics *
 ar6000_get_iwstats(struct net_device * dev)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     TARGET_STATS *pStats = &ar->arTargetStats;
     struct iw_statistics * pIwStats = &ar->arIwStats;
 

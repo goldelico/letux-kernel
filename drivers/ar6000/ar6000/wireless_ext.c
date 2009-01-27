@@ -208,7 +208,7 @@ ar6000_ioctl_giwscan(struct net_device *dev,
             struct iw_request_info *info,
             struct iw_point *data, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     struct ar_giwscan_param param;
     int i;
 
@@ -256,7 +256,7 @@ ar6000_ioctl_siwessid(struct net_device *dev,
                      struct iw_request_info *info,
                      struct iw_point *data, char *ssid)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     A_STATUS status;
     A_UINT8     arNetworkType;
 
@@ -434,7 +434,7 @@ ar6000_ioctl_giwessid(struct net_device *dev,
                      struct iw_request_info *info,
                      struct iw_point *data, char *essid)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
 
     if (ar->arWlanState == WLAN_DISABLED) {
         return -EIO;
@@ -482,7 +482,7 @@ int
 ar6000_ioctl_setmlme(struct net_device *dev, struct iw_request_info *info,
              void *w, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     struct ieee80211req_mlme *mlme = (struct ieee80211req_mlme *)extra;
 
     if ((ar->arWmiReady == FALSE) || (ar->arConnected != TRUE))
@@ -525,7 +525,7 @@ int
 ar6000_ioctl_setauthalg(struct net_device *dev, struct iw_request_info *info,
              void *w, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     struct ieee80211req_authalg *req = (struct ieee80211req_authalg *)extra;
     int ret = 0;
 
@@ -550,7 +550,7 @@ static int
 ar6000_ioctl_addpmkid(struct net_device *dev, struct iw_request_info *info,
              void *w, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     struct ieee80211req_addpmkid  *req = (struct ieee80211req_addpmkid *)extra;
     A_STATUS status;
 
@@ -581,7 +581,7 @@ ar6000_ioctl_siwrate(struct net_device *dev,
             struct iw_request_info *info,
             struct iw_param *rrq, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     A_UINT32  kbps;
 
     if (rrq->fixed) {
@@ -612,7 +612,7 @@ ar6000_ioctl_giwrate(struct net_device *dev,
             struct iw_request_info *info,
             struct iw_param *rrq, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     int ret = 0;
 
     if (down_interruptible(&ar->arSem)) {
@@ -654,7 +654,7 @@ ar6000_ioctl_siwtxpow(struct net_device *dev,
              struct iw_request_info *info,
              struct iw_param *rrq, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     A_UINT8 dbM;
 
     if (ar->arWlanState == WLAN_DISABLED) {
@@ -699,7 +699,7 @@ ar6000_ioctl_giwtxpow(struct net_device *dev,
             struct iw_request_info *info,
             struct iw_param *rrq, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     int ret = 0;
 
     if (ar->arWlanState == WLAN_DISABLED) {
@@ -755,7 +755,7 @@ ar6000_ioctl_siwretry(struct net_device *dev,
              struct iw_request_info *info,
              struct iw_param *rrq, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
 
     if (ar->arWlanState == WLAN_DISABLED) {
         return -EIO;
@@ -791,7 +791,7 @@ ar6000_ioctl_giwretry(struct net_device *dev,
              struct iw_request_info *info,
              struct iw_param *rrq, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
 
     if (ar->arWlanState == WLAN_DISABLED) {
         return -EIO;
@@ -827,7 +827,7 @@ ar6000_ioctl_siwencode(struct net_device *dev,
               struct iw_request_info *info,
               struct iw_point *erq, char *keybuf)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     int index;
     A_INT32 auth = ar->arDot11AuthMode;
 
@@ -1219,7 +1219,7 @@ ar6000_ioctl_setparam(struct net_device *dev,
                       struct iw_request_info *info,
                       void *erq, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     int *i = (int *)extra;
     int param = i[0];
     int value = i[1];
@@ -1362,7 +1362,7 @@ int
 ar6000_ioctl_setkey(struct net_device *dev, struct iw_request_info *info,
 		    void *w, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     struct ieee80211req_key *ik = (struct ieee80211req_key *)extra;
     KEY_USAGE keyUsage;
     A_STATUS status;
@@ -1431,7 +1431,7 @@ ar6000_ioctl_giwname(struct net_device *dev,
            struct iw_request_info *info,
            char *name, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
 
     if (ar->arWlanState == WLAN_DISABLED) {
         return -EIO;
@@ -1463,7 +1463,7 @@ ar6000_ioctl_siwfreq(struct net_device *dev,
             struct iw_request_info *info,
             struct iw_freq *freq, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
 
     if (ar->arWlanState == WLAN_DISABLED) {
         return -EIO;
@@ -1496,7 +1496,7 @@ ar6000_ioctl_giwfreq(struct net_device *dev,
                 struct iw_request_info *info,
                 struct iw_freq *freq, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
 
     if (ar->arWlanState == WLAN_DISABLED) {
         return -EIO;
@@ -1520,7 +1520,7 @@ ar6000_ioctl_siwmode(struct net_device *dev,
             struct iw_request_info *info,
             __u32 *mode, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
 
     if (ar->arWlanState == WLAN_DISABLED) {
         return -EIO;
@@ -1548,7 +1548,7 @@ ar6000_ioctl_giwmode(struct net_device *dev,
             struct iw_request_info *info,
             __u32 *mode, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
 
     if (ar->arWlanState == WLAN_DISABLED) {
         return -EIO;
@@ -1600,7 +1600,7 @@ ar6000_ioctl_giwrange(struct net_device *dev,
              struct iw_request_info *info,
              struct iw_point *data, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     struct iw_range *range = (struct iw_range *) extra;
     int i, ret = 0;
 
@@ -1712,7 +1712,7 @@ ar6000_ioctl_siwap(struct net_device *dev,
               struct iw_request_info *info,
               struct sockaddr *ap_addr, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
 
     if (ar->arWlanState == WLAN_DISABLED) {
         return -EIO;
@@ -1739,7 +1739,7 @@ ar6000_ioctl_giwap(struct net_device *dev,
               struct iw_request_info *info,
               struct sockaddr *ap_addr, char *extra)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
 
     if (ar->arWlanState == WLAN_DISABLED) {
         return -EIO;
@@ -1777,7 +1777,7 @@ ar6000_ioctl_siwscan(struct net_device *dev,
 #define ACT_DWELLTIME_DEFAULT   105
 #define HOME_TXDRAIN_TIME       100
 #define SCAN_INT                HOME_TXDRAIN_TIME + ACT_DWELLTIME_DEFAULT
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)dev->priv;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
     int ret = 0;
 
     if (ar->arWmiReady == FALSE) {
