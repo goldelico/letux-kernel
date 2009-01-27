@@ -25,7 +25,6 @@
 /* These two defines should be removed as soon as the
  * generic irq handling makes it upstream */
 #include <mach/hardware.h>
-#define gpio_to_irq(gpio)               s3c2410_gpio_getirq(gpio)
 #define irq_to_gpio(irq)                s3c2410_gpio_irq2pin(irq)
 /* -- cut to here when generic irq makes it */
 

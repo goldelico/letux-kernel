@@ -45,7 +45,6 @@
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/physmap.h>
 
-#include <linux/pcf50633.h>
 #include <linux/lis302dl.h>
 
 #include <asm/mach/arch.h>
@@ -98,6 +97,8 @@
 #include <../drivers/input/touchscreen/ts_filter_mean.h>
 #include <../drivers/input/touchscreen/ts_filter_median.h>
 #include <../drivers/input/touchscreen/ts_filter_group.h>
+
+#include <linux/mfd/pcf50633/core.h>
 
 /* arbitrates which sensor IRQ owns the shared SPI bus */
 static spinlock_t motion_irq_lock;

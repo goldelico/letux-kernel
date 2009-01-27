@@ -20,7 +20,6 @@ struct s3c2410_spigpio_info {
 
 	int			 num_chipselect;
 	int			 bus_num;
-	int			 num_chipselect;
 
 	/*
  	 * FIXME: board_size and board_info DO NOT belong here.
