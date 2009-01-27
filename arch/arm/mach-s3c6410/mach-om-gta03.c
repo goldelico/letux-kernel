@@ -635,11 +635,18 @@ static void om_gta03_pcf50633_attach_child_devices(struct pcf50633 *pcf)
 
 static void gta03_l1k002_pwronoff(int level)
 {
-	gpio_direction_output(GTA03_GPIO_LCM_SD, 1);
-	mdelay(10);
-	gpio_direction_output(GTA03_GPIO_LCM_RESET, 1);
-	mdelay(15);
-	gpio_direction_output(GTA03_GPIO_LCM_SD, 0);
+	if (level){
+			gpio_direction_output(GTA03_GPIO_LCM_SD, 1);
+			udelay(15);
+			gpio_direction_output(GTA03_GPIO_LCM_RESET, 1);
+			udelay(15);
+			gpio_direction_output(GTA03_GPIO_LCM_SD, 0);
+	}
+	else{
+			gpio_direction_output(GTA03_GPIO_LCM_SD, 1);
+			udelay(15);
+			gpio_direction_output(GTA03_GPIO_LCM_RESET, 0);
+	}
 }
 
 const struct l1k002_platform_data gta03_l1k002_pdata = {
