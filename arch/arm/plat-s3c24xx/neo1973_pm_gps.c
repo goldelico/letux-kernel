@@ -25,22 +25,40 @@
 
 /* For GTA01 */
 #include <mach/gta01.h>
-#include <linux/pcf50606.h>
+#include <linux/mfd/pcf50606/core.h>
+#include <linux/mfd/pcf50606/gpo.h>
 
 /* For GTA02 */
 #include <mach/gta02.h>
 #include <linux/mfd/pcf50633/core.h>
+#include <linux/mfd/pcf50633/pmic.h>
 
 #include <linux/regulator/consumer.h>
-
 #include <linux/err.h>
 
+enum gta01_pm_gps_supplies {
+
+	/* GTA01 */
+	GTA01_GPS_REG_2V8,
+	GTA01_GPS_REG_3V,
+	GTA01_GPS_REG_3V3,
+	GTA01_GPS_REG_1V5,
+	GTA01_GPS_REG_2V5,
+
+	/* GTA02 */
+	GTA02_GPS_REG_RF_3V,
+
+	/* Always last */
+	GTA01_GPS_NUM_REG
+};
+
 struct neo1973_pm_gps_data {
-	int power_was_on;
-	struct regulator *regulator;
 #ifdef CONFIG_PM
 	int keep_on_in_suspend;
 #endif
+	int power_was_on; /* For GTA02 only */
+	int regulator_state[GTA01_GPS_NUM_REG];
+	struct regulator *regulator[GTA01_GPS_NUM_REG];
 };
 
 static struct neo1973_pm_gps_data neo1973_gps;
@@ -57,14 +75,16 @@ EXPORT_SYMBOL_GPL(neo1973_pm_gps_is_on);
  * the input to VDD_RF */
 static void gps_power_2v8_set(int on)
 {
+	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_2V8];
+
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 		if (on)
-			pcf50606_voltage_set(pcf50606_global,
-					     PCF50606_REGULATOR_IOREG, 2800);
-		pcf50606_onoff_set(pcf50606_global,
-				   PCF50606_REGULATOR_IOREG, on);
+			regulator_enable(regulator);
+		else
+			regulator_disable(regulator);
+		neo1973_gps.regulator_state[GTA01_GPS_REG_2V8] = on;
 		break;
 	case GTA01Bv2_SYSTEM_REV:
 		s3c2410_gpio_setpin(GTA01_GPIO_GPS_EN_2V8, on);
@@ -78,15 +98,12 @@ static void gps_power_2v8_set(int on)
 static int gps_power_2v8_get(void)
 {
 	int ret = 0;
+	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_2V8];
 
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
-		if (pcf50606_onoff_get(pcf50606_global,
-					PCF50606_REGULATOR_IOREG) &&
-		    pcf50606_voltage_get(pcf50606_global,
-					 PCF50606_REGULATOR_IOREG) == 2800)
-			ret = 1;
+			ret = regulator_is_enabled(regulator);
 		break;
 	case GTA01Bv2_SYSTEM_REV:
 		if (s3c2410_gpio_getpin(GTA01_GPIO_GPS_EN_2V8))
@@ -103,14 +120,16 @@ static int gps_power_2v8_get(void)
 /* This is the 3V supply (AVDD) for the external RF frontend (LNA bias) */
 static void gps_power_3v_set(int on)
 {
+	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_3V];
+
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 		if (on)
-			pcf50606_voltage_set(pcf50606_global,
-					     PCF50606_REGULATOR_D1REG, 3000);
-		pcf50606_onoff_set(pcf50606_global,
-				   PCF50606_REGULATOR_D1REG, on);
+			regulator_enable(regulator);
+		else
+			regulator_disable(regulator);
+		neo1973_gps.regulator_state[GTA01_GPS_REG_3V3] = on;
 		break;
 	case GTA01Bv2_SYSTEM_REV:
 	case GTA01Bv3_SYSTEM_REV:
@@ -123,15 +142,12 @@ static void gps_power_3v_set(int on)
 static int gps_power_3v_get(void)
 {
 	int ret = 0;
+	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_3V];
 
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
-		if (pcf50606_onoff_get(pcf50606_global,
-				       PCF50606_REGULATOR_D1REG) &&
-		    pcf50606_voltage_get(pcf50606_global,
-					 PCF50606_REGULATOR_D1REG) == 3000)
-			ret = 1;
+		ret = regulator_is_enabled(regulator);
 		break;
 	case GTA01Bv2_SYSTEM_REV:
 	case GTA01Bv3_SYSTEM_REV:
@@ -147,15 +163,17 @@ static int gps_power_3v_get(void)
 /* This is the 3.3V supply for VDD_IO and VDD_LPREG input */
 static void gps_power_3v3_set(int on)
 {
+	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_3V3];
+
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 	case GTA01Bv2_SYSTEM_REV:
 		if (on)
-			pcf50606_voltage_set(pcf50606_global,
-					     PCF50606_REGULATOR_DCD, 3300);
-		pcf50606_onoff_set(pcf50606_global,
-				   PCF50606_REGULATOR_DCD, on);
+			regulator_enable(regulator);
+		else
+			regulator_disable(regulator);
+		neo1973_gps.regulator_state[GTA01_GPS_REG_3V3] = on;
 		break;
 	case GTA01Bv3_SYSTEM_REV:
 	case GTA01Bv4_SYSTEM_REV:
@@ -167,16 +185,13 @@ static void gps_power_3v3_set(int on)
 static int gps_power_3v3_get(void)
 {
 	int ret = 0;
+	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_3V3];
 
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 	case GTA01Bv2_SYSTEM_REV:
-		if (pcf50606_onoff_get(pcf50606_global,
-				       PCF50606_REGULATOR_DCD) &&
-		    pcf50606_voltage_get(pcf50606_global,
-					 PCF50606_REGULATOR_DCD) == 3300)
-			ret = 1;
+		ret = regulator_is_enabled(regulator);
 		break;
 	case GTA01Bv3_SYSTEM_REV:
 	case GTA01Bv4_SYSTEM_REV:
@@ -191,6 +206,8 @@ static int gps_power_3v3_get(void)
 /* This is the 2.5V supply for VDD_PLLREG and VDD_COREREG input */
 static void gps_power_2v5_set(int on)
 {
+	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_2V5];
+
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
 		/* This is CORE_1V8 and cannot be disabled */
@@ -200,10 +217,10 @@ static void gps_power_2v5_set(int on)
 	case GTA01Bv3_SYSTEM_REV:
 	case GTA01Bv4_SYSTEM_REV:
 		if (on)
-			pcf50606_voltage_set(pcf50606_global,
-					     PCF50606_REGULATOR_D2REG, 2500);
-		pcf50606_onoff_set(pcf50606_global,
-				   PCF50606_REGULATOR_D2REG, on);
+			regulator_enable(regulator);
+		else
+			regulator_disable(regulator);
+		neo1973_gps.regulator_state[GTA01_GPS_REG_2V5] = on;
 		break;
 	}
 }
@@ -211,6 +228,7 @@ static void gps_power_2v5_set(int on)
 static int gps_power_2v5_get(void)
 {
 	int ret = 0;
+	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_2V5];
 
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
@@ -221,11 +239,7 @@ static int gps_power_2v5_get(void)
 	case GTA01Bv2_SYSTEM_REV:
 	case GTA01Bv3_SYSTEM_REV:
 	case GTA01Bv4_SYSTEM_REV:
-		if (pcf50606_onoff_get(pcf50606_global,
-				       PCF50606_REGULATOR_D2REG) &&
-		    pcf50606_voltage_get(pcf50606_global,
-					 PCF50606_REGULATOR_D2REG) == 2500)
-			ret = 1;
+		ret = regulator_is_enabled(regulator);
 		break;
 	}
 
@@ -235,6 +249,8 @@ static int gps_power_2v5_get(void)
 /* This is the 1.5V supply for VDD_CORE */
 static void gps_power_1v5_set(int on)
 {
+	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_1V5];
+
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
@@ -244,10 +260,10 @@ static void gps_power_1v5_set(int on)
 	case GTA01Bv3_SYSTEM_REV:
 	case GTA01Bv4_SYSTEM_REV:
 		if (on)
-			pcf50606_voltage_set(pcf50606_global,
-					     PCF50606_REGULATOR_DCD, 1500);
-		pcf50606_onoff_set(pcf50606_global,
-				   PCF50606_REGULATOR_DCD, on);
+			regulator_enable(regulator);
+		else
+			regulator_disable(regulator);
+		neo1973_gps.regulator_state[GTA01_GPS_REG_1V5] = on;
 		break;
 	}
 }
@@ -255,6 +271,7 @@ static void gps_power_1v5_set(int on)
 static int gps_power_1v5_get(void)
 {
 	int ret = 0;
+	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_1V5];
 
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
@@ -265,11 +282,7 @@ static int gps_power_1v5_get(void)
 		break;
 	case GTA01Bv3_SYSTEM_REV:
 	case GTA01Bv4_SYSTEM_REV:
-		if (pcf50606_onoff_get(pcf50606_global,
-				       PCF50606_REGULATOR_DCD) &&
-		    pcf50606_voltage_get(pcf50606_global,
-					 PCF50606_REGULATOR_DCD) == 1500)
-			ret = 1;
+		ret = regulator_is_enabled(regulator);
 		break;
 	}
 
@@ -286,8 +299,6 @@ static void gps_pwron_set(int on)
 
 	if (machine_is_neo1973_gta02()) {
 		if (on) {
-			pcf50633_voltage_set(pcf50633_global,
-				PCF50633_REGULATOR_LDO5, 3000);
 			/* return UART pins to being UART pins */
 			s3c2410_gpio_cfgpin(S3C2410_GPH4, S3C2410_GPH4_TXD1);
 			/* remove pulldown now it won't be floating any more */
@@ -302,11 +313,10 @@ static void gps_pwron_set(int on)
 			/* don't let RX from unpowered GPS float */
 			s3c2410_gpio_pullup(S3C2410_GPH5, 1);
 		}
-		if (on && !regulator_is_enabled(neo1973_gps.regulator))
-			regulator_enable(neo1973_gps.regulator);
-
-		if (!on && regulator_is_enabled(neo1973_gps.regulator))
-			regulator_disable(neo1973_gps.regulator);
+		if (on && !neo1973_gps.power_was_on)
+			regulator_enable(neo1973_gps.regulator[GTA02_GPS_REG_RF_3V]);
+		else if (!on && neo1973_gps.power_was_on)
+			regulator_disable(neo1973_gps.regulator[GTA02_GPS_REG_RF_3V]);
 	}
 }
 
@@ -316,8 +326,7 @@ static int gps_pwron_get(void)
 		return !!s3c2410_gpio_getpin(GTA01_GPIO_GPS_PWRON);
 
 	if (machine_is_neo1973_gta02())
-		return !!pcf50633_onoff_get(pcf50633_global,
-						       PCF50633_REGULATOR_LDO5);
+		return regulator_is_enabled(neo1973_gps.regulator[GTA02_GPS_REG_RF_3V]);
 	return -1;
 }
 
@@ -413,7 +422,7 @@ static void gps_rst_set(int on)
 {
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
-		pcf50606_gpo0_set(pcf50606_global, on);
+		pcf50606_gpo_set_active(gta01_pcf, PCF50606_GPO1, on);
 		break;
 	case GTA01v4_SYSTEM_REV:
 	case GTA01Bv2_SYSTEM_REV:
@@ -428,8 +437,7 @@ static int gps_rst_get(void)
 {
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
-		if (pcf50606_gpo0_get(pcf50606_global))
-			return 1;
+		return pcf50606_gpo_get_active(gta01_pcf, PCF50606_GPO1);
 		break;
 	case GTA01v4_SYSTEM_REV:
 	case GTA01Bv2_SYSTEM_REV:
@@ -487,17 +495,22 @@ static void gps_power_sequence_down(void)
 
 	/* Don't disable AVDD before PWRON is cleared, since
 	 * in GTA01Bv3, AVDD and RFREG_IN are shared */
-	gps_power_3v_set(0);
+	if (neo1973_gps.regulator_state[GTA01_GPS_REG_3V])
+		gps_power_3v_set(0);
 
 	/* Remove VDD_COREREG_IN, VDD_PLLREG_IN and VDD_REFREG_IN */
-	gps_power_1v5_set(0);
-	gps_power_2v5_set(0);
-	gps_power_2v8_set(0);
+	if (neo1973_gps.regulator_state[GTA01_GPS_REG_1V5])
+		gps_power_1v5_set(0);
+	if (neo1973_gps.regulator_state[GTA01_GPS_REG_2V5])
+		gps_power_2v5_set(0);
+	if (neo1973_gps.regulator_state[GTA01_GPS_REG_2V8])
+		gps_power_2v8_set(0);
 
 	/* Remove VDD_LPREG_IN and VDD_IO */
-	gps_power_3v3_set(0);
-}
+	if (neo1973_gps.regulator_state[GTA01_GPS_REG_3V3])
+		gps_power_3v3_set(0);
 
+}
 
 static ssize_t power_sequence_read(struct device *dev,
 				   struct device_attribute *attr,
@@ -643,6 +656,18 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 		}
 
 #ifdef CONFIG_MACH_NEO1973_GTA01
+	
+		neo1973_gps.regulator[GTA01_GPS_REG_2V8] =
+		       			regulator_get(&pdev->dev, "GPS_2V8");
+		neo1973_gps.regulator[GTA01_GPS_REG_3V] =
+		       			regulator_get(&pdev->dev, "GPS_3V");
+		neo1973_gps.regulator[GTA01_GPS_REG_3V3] =
+		       			regulator_get(&pdev->dev, "GPS_3V3");
+		neo1973_gps.regulator[GTA01_GPS_REG_1V5] =
+		       			regulator_get(&pdev->dev, "GPS_1V5");
+		neo1973_gps.regulator[GTA01_GPS_REG_2V5] =
+		       			regulator_get(&pdev->dev, "GPS_2V5");
+
 		gps_power_sequence_down();
 
 		switch (system_rev) {
@@ -673,7 +698,7 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 		case GTA02v4_SYSTEM_REV:
 		case GTA02v5_SYSTEM_REV:
 		case GTA02v6_SYSTEM_REV:
-			neo1973_gps.regulator = regulator_get(
+			neo1973_gps.regulator[GTA02_GPS_REG_RF_3V] = regulator_get(
 							&pdev->dev, "RF_3V");
 			if (IS_ERR(neo1973_gps.regulator)) {
 				dev_err(&pdev->dev, "probe failed %ld\n",
@@ -681,7 +706,7 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 				return PTR_ERR(neo1973_gps.regulator);
 			}
 
-			dev_info(&pdev->dev, "FIC Neo1973 GPS Power Management:"
+			dev_info(&pdev->dev, "FIC Neo1973 GPS Power Managerment:"
 				 "starting\n");
 			break;
 		default:
@@ -699,7 +724,7 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 		 * to second-guess some of its internal logic and make it do
 		 * something that isn't really part of its design.
 		 */
-		pcf50633_reg_write(gta02_pcf_pdata.pcf,
+		pcf50633_reg_write(gta02_pcf,
 		    PCF50633_REG_LDO5ENA, 0);
 
 		return sysfs_create_group(&pdev->dev.kobj,
@@ -712,13 +737,19 @@ static int gta01_pm_gps_remove(struct platform_device *pdev)
 {
 	if (machine_is_neo1973_gta01()) {
 #ifdef CONFIG_MACH_NEO1973_GTA01
+		int i;
+
 		gps_power_sequence_down();
+		/* Now disable all regulators */
+		for (i = 0; i < GTA01_GPS_NUM_REG; i++) {
+			regulator_put(neo1973_gps.regulator[i]);
+		}
 #endif
 		sysfs_remove_group(&pdev->dev.kobj, &gta01_gps_attr_group);
 	}
 
 	if (machine_is_neo1973_gta02()) {
-		pcf50633_onoff_set(pcf50633_global, PCF50633_REGULATOR_LDO5, 0);
+		regulator_put(neo1973_gps.regulator[GTA02_GPS_REG_RF_3V]);
 		sysfs_remove_group(&pdev->dev.kobj, &gta02_gps_attr_group);
 	}
 	return 0;
