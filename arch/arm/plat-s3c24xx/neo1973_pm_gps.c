@@ -422,6 +422,8 @@ static ssize_t power_gps_write(struct device *dev,
 /* This is the nRESET pin */
 static void gps_rst_set(int on)
 {
+	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_2V5];
+
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
 		pcf50606_gpo_set_active(gta01_pcf, PCF50606_GPO1, on);
@@ -437,6 +439,8 @@ static void gps_rst_set(int on)
 
 static int gps_rst_get(void)
 {
+	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_1V5];
+
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
 		return pcf50606_gpo_get_active(gta01_pcf, PCF50606_GPO1);

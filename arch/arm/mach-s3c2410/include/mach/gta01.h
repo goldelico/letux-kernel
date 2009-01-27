@@ -71,4 +71,6 @@ struct gta01bl_machinfo {
 
 #define GTA01Bv4_IRQ_PCF50606	IRQ_EINT9
 
+extern struct pcf50606 *gta01_pcf;
+
 #endif /* _GTA01_H */

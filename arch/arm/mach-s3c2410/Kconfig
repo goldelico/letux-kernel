@@ -143,7 +143,17 @@ config MACH_NEO1973_GTA01
 	bool "FIC Neo1973 GSM Phone (GTA01 Hardware)"
 	select CPU_S3C2410
 	select MACH_NEO1973
-	select SENSORS_PCF50606
+	select MFD_PCF50606
+	select INPUT_PCF50606_PMU
+	select PCF50606_ADC
+	select PCF50606_GPIO
+	select RTC_DRV_PCF50606
+	select REGULATOR_PCF50606
+	select CHARGER_PCF50606
+	select PCF50606_WATCHDOG
+	select POWER_SUPPLY
+	select BATTERY_GTA01
+
 	help
 	   Say Y here if you are using the FIC Neo1973 GSM Phone
 
