@@ -88,7 +88,6 @@ config CHARGER_PCF50633
 	help
 	 Say Y to include support for NXP PCF50633 Main Battery Charger.
 
-endif # POWER_SUPPLY
 config BATTERY_BQ27000_HDQ
 	tristate "BQ27000 HDQ battery monitor driver"
 	help
