@@ -1662,6 +1662,8 @@ static void gta02_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 {
 	struct platform_device *regulator, *pdev;
 
+	gta02_pcf = pcf;
+
 	regulator = pcf->regulator_pdev[id];
 
 	switch(id) {
@@ -1692,8 +1694,6 @@ static void gta02_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 static void gta02_pmu_attach_child_devices(struct pcf50633 *pcf)
 {
 	int n;
-
-	gta02_pcf = pcf;
 
 	for (n = 0; n < ARRAY_SIZE(gta02_devices_pmu_children); n++)
 		gta02_devices_pmu_children[n]->dev.parent = pcf->dev;
