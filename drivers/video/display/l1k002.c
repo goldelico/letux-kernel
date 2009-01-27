@@ -239,7 +239,7 @@ static int l1k002_suspend(struct spi_device *spi, pm_message_t state)
 static int l1k002_resume(struct spi_device *spi)
 {
 	struct l1k002_platform_data *l1k002_pdata = spi->dev.platform_data;
-	struct l1k002 *l1k002 = dev_get_drvdata(&spi->dev);
+	struct l1k002_data *l1k002 = dev_get_drvdata(&spi->dev);
 
 	(l1k002_pdata->pwr_onoff)(1);
 	return l1k002_init_reg(l1k002);
