@@ -106,4 +106,6 @@
 
 int gta02_get_pcb_revision(void);
 
+extern struct pcf50633 *gta02_pcf;
+
 #endif /* _GTA02_H */

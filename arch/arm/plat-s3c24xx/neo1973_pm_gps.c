@@ -33,6 +33,8 @@
 
 #include <linux/regulator/consumer.h>
 
+#include <linux/err.h>
+
 struct neo1973_pm_gps_data {
 	int power_was_on;
 	struct regulator *regulator;

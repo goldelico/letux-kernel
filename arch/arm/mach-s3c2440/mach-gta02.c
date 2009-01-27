@@ -99,6 +99,9 @@
 #include <../drivers/input/touchscreen/ts_filter_group.h>
 
 #include <linux/mfd/pcf50633/core.h>
+#include <linux/mfd/pcf50633/gpio.h>
+#include <linux/mfd/pcf50633/mbc.h>
+#include <linux/pcf506xx.h>
 
 /* arbitrates which sensor IRQ owns the shared SPI bus */
 static spinlock_t motion_irq_lock;
@@ -524,7 +527,7 @@ gta02_configure_pmu_for_charger(struct pcf50633 *pcf, void *unused, int res)
 static int pmu_callback(struct device *dev, unsigned int feature,
 			enum pmu_event event)
 {
-	struct pcf50633 *pcf = gta02_pcf_pdata.pcf;
+	struct pcf50633 *pcf = gta02_pcf;
 
 	if (gta02_usb_vbus_draw) {
 		pcf50633_mbc_usb_curlim_set(pcf, gta02_usb_vbus_draw);
@@ -1016,10 +1019,8 @@ static void gta02_udc_command(enum s3c2410_udc_cmd_e cmd)
 
 static void gta02_udc_vbus_draw(unsigned int ma)
 {
-        if (!gta02_pcf_pdata.pcf) {
-		printk(KERN_ERR "********** NULL gta02_pcf_pdata.pcf *****\n");
+        if (!gta02_pcf)
 		return;
-	}
 
 	gta02_usb_vbus_draw = ma;
 
@@ -1728,6 +1729,12 @@ static void gta02_pcf50633_attach_child_devices(struct device *parent_device)
 {
 	int n;
 
+	gta02_pcf = pcf;
+
+	gta02_pcf = pcf;
+
+	gta02_pcf = pcf;
+
 	for (n = 0; n < ARRAY_SIZE(gta02_devices_pmu_children); n++)
 		gta02_devices_pmu_children[n]->dev.parent = parent_device;
 
@@ -1738,7 +1745,7 @@ static void gta02_pcf50633_attach_child_devices(struct device *parent_device)
 
 static void gta02_poweroff(void)
 {
-	pcf50633_reg_set_bit_mask(gta02_pcf_pdata.pcf, PCF50633_REG_OOCSHDWN,
+	pcf50633_reg_set_bit_mask(gta02_pcf, PCF50633_REG_OOCSHDWN,
 		  PCF50633_OOCSHDWN_GOSTDBY, PCF50633_OOCSHDWN_GOSTDBY);
 }
 
