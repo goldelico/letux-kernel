@@ -1678,7 +1678,6 @@ static struct i2c_driver wm8753_i2c_driver = {
 	.probe =    wm8753_i2c_probe,
 	.remove =   wm8753_i2c_remove,
 	.id_table = wm8753_i2c_id,
-	.class =    I2C_CLASS_SOUND
 };
 
 static int wm8753_add_i2c_device(struct platform_device *pdev,
