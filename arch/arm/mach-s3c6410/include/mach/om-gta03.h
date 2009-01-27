@@ -18,7 +18,7 @@
 #include <mach/irqs.h>
 #include <linux/mfd/pcf50633/core.h>
 
-extern struct pcf50633_platform_data om_gta03_pcf_pdata;
+extern struct pcf50633 *om_gta03_pcf;
 
 /* ATAG_REVISION from bootloader */
 #define GTA03v1_SYSTEM_REV	0x00000001

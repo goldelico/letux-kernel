@@ -69,7 +69,7 @@
 #include <linux/mfd/pcf50633/mbc.h>
 #include <linux/mfd/pcf50633/adc.h>
 #include <linux/mfd/pcf50633/gpio.h>
-#include <linux/mfd/pcf50633/led.h>
+#include <linux/mfd/pcf50633/pmic.h>
 
 #define UCON S3C2410_UCON_DEFAULT | S3C2410_UCON_UCLK
 #define ULCON S3C2410_LCON_CS8 | S3C2410_LCON_PNONE | S3C2410_LCON_STOPB
@@ -395,6 +395,9 @@ static void om_gta03_pmu_event_callback(struct pcf50633 *pcf, int irq)
 static void om_gta03_pcf50633_attach_child_devices(struct pcf50633 *pcf);
 static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id);
 
+/* Global reference */
+struct pcf50633 *om_gta03_pcf;
+
 struct pcf50633_platform_data om_gta03_pcf_pdata = {
 
 	.resumers = {
@@ -578,7 +581,7 @@ static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 {
 	struct platform_device *regulator, *pdev;
 
-	regulator = pcf->pmic.pdev[id];
+	regulator = pcf->regulator_pdev[id];
 
 	switch(id) {
 		case PCF50633_REGULATOR_LDO4:
@@ -613,6 +616,8 @@ static struct platform_device *om_gta03_devices_pmu_children[] = {
 static void om_gta03_pcf50633_attach_child_devices(struct pcf50633 *pcf)
 {
 	int n;
+
+	om_gta03_pcf = pcf;
 
 	for (n = 0; n < ARRAY_SIZE(om_gta03_devices_pmu_children); n++)
 		om_gta03_devices_pmu_children[n]->dev.parent = pcf->dev;

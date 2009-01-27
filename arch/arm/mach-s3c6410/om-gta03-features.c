@@ -111,7 +111,7 @@ static void om_gta03_features_pwron_set_on(enum feature feature)
 		gpio_direction_output(GTA03_GPIO_N_MODEM_RESET, 1);
 		break;
 	case OM_GTA03_USBHOST:
-		pcf50633_gpio_set(om_gta03_pcf_pdata.pcf, PCF50633_GPO, 1);
+		pcf50633_gpio_set(om_gta03_pcf, PCF50633_GPO, 1);
 		break;
 	case OM_GTA03_VIB:
 		gpio_direction_output(GTA03_GPIO_VIBRATOR_ON, 1);
@@ -158,7 +158,7 @@ static void om_gta03_features_pwron_set_off(enum feature feature)
 		s3c_gpio_cfgpin(GTA03_GPIO_MODEN_ON, S3C_GPIO_SFN(1));
 		break;
 	case OM_GTA03_USBHOST:
-		pcf50633_gpio_set(om_gta03_pcf_pdata.pcf, PCF50633_GPO, 0);
+		pcf50633_gpio_set(om_gta03_pcf, PCF50633_GPO, 0);
 		break;
 	case OM_GTA03_VIB:
 		gpio_direction_output(GTA03_GPIO_VIBRATOR_ON, 0);
@@ -199,7 +199,7 @@ static ssize_t om_gta03_feature_read(struct device *dev,
 		on = regulator_is_enabled(gps_regulator);
 		break;
 	case OM_GTA03_USBHOST:
-		on = pcf50633_gpio_get(om_gta03_pcf_pdata.pcf, PCF50633_GPO);
+		on = pcf50633_gpio_get(om_gta03_pcf, PCF50633_GPO);
 		break;
 	default:
 		on = feature_info[feature].on;
