@@ -71,6 +71,10 @@
 #include <linux/mfd/pcf50633/gpio.h>
 #include <linux/mfd/pcf50633/pmic.h>
 
+extern struct platform_device s3c_device_usbgadget;
+
+
+
 #define UCON S3C2410_UCON_DEFAULT | S3C2410_UCON_UCLK
 #define ULCON S3C2410_LCON_CS8 | S3C2410_LCON_PNONE | S3C2410_LCON_STOPB
 #define UFCON S3C2410_UFCON_RXTRIG8 | S3C2410_UFCON_FIFOMODE
@@ -573,6 +577,7 @@ static struct platform_device *om_gta03_devices[] __initdata = {
 	&s3c_device_fb,
 	&s3c_device_i2c0,
 	&gta03_device_spi_lcm,
+	&s3c_device_usbgadget,
 };
 
 
@@ -691,7 +696,18 @@ struct platform_device gta03_device_spi_lcm = {
 	},
 };
 
+
+
+
+
+
+
 extern void s3c64xx_init_io(struct map_desc *, int);
+
+struct s3c_plat_otg_data s3c_hs_otg_plat_data = {
+	.phyclk = 2, /* 12MHz osc */
+};
+
 
 static void __init om_gta03_map_io(void)
 {
@@ -703,6 +719,8 @@ static void __init om_gta03_map_io(void)
 static void __init om_gta03_machine_init(void)
 {
 	s3c_pm_init();
+
+	s3c_device_usbgadget.dev.platform_data = &s3c_hs_otg_plat_data;
 
 	s3c_i2c0_set_platdata(NULL);
 	s3c_fb_set_platdata(&om_gta03_lcd_pdata);

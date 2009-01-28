@@ -19,6 +19,7 @@ config PLAT_S3C64XX
 	select S3C_GPIO_PULL_UPDOWN
 	select S3C_GPIO_CFG_S3C24XX
 	select S3C_GPIO_CFG_S3C64XX
+	select S3C64XX_SETUP_USBOTG
 	help
 	  Base platform code for any Samsung S3C64XX device
 
@@ -58,5 +59,11 @@ config S3C64XX_SETUP_FB_24BPP
 	bool
 	help
 	  Common setup code for S3C64XX with an 24bpp RGB display helper.
+
+config S3C64XX_SETUP_USBOTG
+	bool
+	help
+	  Common setup code for S3C64XX with USB OTG
+
 
 endif
