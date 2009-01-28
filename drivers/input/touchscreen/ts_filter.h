@@ -45,6 +45,7 @@ struct ts_filter {
  * array and fills in ->next pointers to create the chain.
  */
 
+#ifdef CONFIG_TOUCHSCREEN_FILTER
 extern int ts_filter_create_chain(struct platform_device *pdev,
 				  struct ts_filter_api **api, void **config,
 				  struct ts_filter **arr, int count_coords);
@@ -53,5 +54,9 @@ extern int ts_filter_create_chain(struct platform_device *pdev,
 
 extern void ts_filter_destroy_chain(struct platform_device *pdev,
 				    struct ts_filter **arr);
+#else
+#define ts_filter_create_chain(pdev, api, config, arr, count_coords) (0)
+#define ts_filter_destroy_chain(pdev, arr) do { } while (0)
+#endif
 
 #endif
