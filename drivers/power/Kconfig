@@ -101,5 +101,16 @@ config GTA02_HDQ
 	  on the Neo Freerunner.  You probably want to select
 	  at least BATTERY_BQ27000_HDQ as well
 
+config CHARGER_PCF50606
+	tristate "Support for NXP PCF50606 MBC"
+	depends on MFD_PCF50606
+	help
+	 Say Y to include support for NXP PCF50606 Battery Charger.
+
+config BATTERY_GTA01
+	tristate "GTA01 battery driver"
+	help
+	  Say Y here to enable this dumb driver for dumb gta01 batteries
+
 endif # POWER_SUPPLY
 

@@ -10,6 +10,7 @@
 
 
 #include <mach/regs-sdi.h>
+#include <linux/regulator/consumer.h>
 
 /* FIXME: DMA Resource management ?! */
 #define S3CMCI_DMA 0
@@ -81,4 +82,6 @@ struct s3cmci_host {
 #ifdef CONFIG_CPU_FREQ
 	struct notifier_block	freq_transition;
 #endif
+
+	struct regulator *regulator;
 };

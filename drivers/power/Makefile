@@ -26,8 +26,9 @@ obj-$(CONFIG_BATTERY_WM97XX)	+= wm97xx_battery.o
 obj-$(CONFIG_BATTERY_BQ27x00)	+= bq27x00_battery.o
 obj-$(CONFIG_BATTERY_DA9030)	+= da9030_battery.o
 obj-$(CONFIG_CHARGER_PCF50633)	+= pcf50633-charger.o
+obj-$(CONFIG_CHARGER_PCF50606)	+= pcf50606-charger.o
 obj-$(CONFIG_BATTERY_PALMTX)	+= palmtx_battery.o
 obj-$(CONFIG_BATTERY_BQ27000_HDQ)	+= bq27000_battery.o
+obj-$(CONFIG_BATTERY_GTA01)	+= gta01_battery.o
 
 obj-$(CONFIG_GTA02_HDQ)		+= gta02_hdq.o
-
