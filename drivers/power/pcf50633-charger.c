@@ -172,11 +172,9 @@ static struct attribute_group mbc_attr_group = {
  * batteries is marginal(1~2 %) till about 80% of its capacity - which means,
  * after a BATFULL, charging won't be restarted until 80%.
  *
- * This work_struct function restarts charging every
- * CHARGING_RESTART_TIMEOUT seconds and makes sure we don't discharge too much
+ * This work_struct function restarts charging every few seconds and makes
+ * sure we don't discharge too much
  */
-
-#define CHARGING_RESTART_TIMEOUT	(900 * HZ)  /* 15 minutes */
 
 static void pcf50633_mbc_charging_restart(struct work_struct *work)
 {
@@ -205,6 +203,8 @@ static void
 pcf50633_mbc_irq_handler(int irq, void *data)
 {
 	struct pcf50633_mbc *mbc = data;
+	int chg_restart_interval = 
+			mbc->pcf->pdata->charging_restart_interval;
 
 	/* USB */
 	if (irq == PCF50633_IRQ_USBINS) {
@@ -212,7 +212,7 @@ pcf50633_mbc_irq_handler(int irq, void *data)
 	} else if (irq == PCF50633_IRQ_USBREM) {
 		mbc->usb_online = 0;
 		mbc->usb_active = 0;
-		pcf50633_mbc_usb_curlim_set(mbc->pcf, 0);
+		pcf50633_mbc_usb_curlim_set(mbc->pcf, 0);		
 		cancel_delayed_work_sync(&mbc->charging_restart_work);
 	}
 
@@ -228,8 +228,10 @@ pcf50633_mbc_irq_handler(int irq, void *data)
 	if (irq == PCF50633_IRQ_BATFULL) {
 		mbc->usb_active = 0;
 		mbc->adapter_active = 0;
-		schedule_delayed_work(&mbc->charging_restart_work,
-						CHARGING_RESTART_TIMEOUT);
+
+		if (chg_restart_interval > 0)
+			schedule_delayed_work(&mbc->charging_restart_work,
+							chg_restart_interval);
 	} else if (irq == PCF50633_IRQ_USBLIMON)
 		mbc->usb_active = 0;
 	else if (irq == PCF50633_IRQ_USBLIMOFF)
@@ -418,6 +420,8 @@ static int __devexit pcf50633_mbc_remove(struct platform_device *pdev)
 
 	power_supply_unregister(&mbc->usb);
 	power_supply_unregister(&mbc->adapter);
+
+	cancel_delayed_work_sync(&mbc->charging_restart_work);
 
 	kfree(mbc);
 
