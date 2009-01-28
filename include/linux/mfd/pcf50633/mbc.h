@@ -129,15 +129,5 @@ int pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma);
 
 int pcf50633_mbc_get_status(struct pcf50633 *);
 void pcf50633_mbc_set_status(struct pcf50633 *, int what, int status);
-#if 0
-	struct power_supply ac;
-	struct power_supply usb;
-	struct power_supply adapter;
-
-	struct delayed_work charging_restart_work;
-
-	struct platform_device *pdev;
-};
-#endif
 #endif
 

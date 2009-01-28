@@ -52,8 +52,6 @@ enum gta01_pm_gps_supplies {
 	GTA01_GPS_NUM_REG
 };
 
-#include <linux/err.h>
-
 struct neo1973_pm_gps_data {
 #ifdef CONFIG_PM
 	int keep_on_in_suspend;
