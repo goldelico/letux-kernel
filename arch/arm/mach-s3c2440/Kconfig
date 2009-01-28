@@ -94,6 +94,7 @@ config MACH_NEO1973_GTA02
 	select GTA02_HDQ
 	select MACH_NEO1973
 	select S3C2410_PWM
+	select S3C2410_CLOCK
 	help
 	   Say Y here if you are using the FIC Neo1973 GSM Phone
 
