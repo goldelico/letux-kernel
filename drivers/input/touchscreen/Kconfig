@@ -14,6 +14,10 @@ if INPUT_TOUCHSCREEN
 menuconfig TOUCHSCREEN_FILTER
 	boolean "Touchscreen Filtering"
 	depends on INPUT_TOUCHSCREEN
+	select TOUCHSCREEN_FILTER_GROUP
+	select TOUCHSCREEN_FILTER_MEDIAN
+	select TOUCHSCREEN_FILTER_MEAN
+	select TOUCHSCREEN_FILTER_LINEAR
 	help
 	  Select this to include kernel touchscreen filter support.  The filters
 	  can be combined in any order in your machine init and the parameters
@@ -127,7 +131,6 @@ config TOUCHSCREEN_S3C2410
 	tristate "Samsung S3C2410 touchscreen input driver"
 	depends on ARCH_S3C2410 && INPUT && INPUT_TOUCHSCREEN
 	select SERIO
-	select TOUCHSCREEN_FILTER
 	help
 	  Say Y here if you have the s3c2410 touchscreen.
 
