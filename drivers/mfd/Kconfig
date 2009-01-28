@@ -240,6 +240,31 @@ config PCF50633_GPIO
 	 Say yes here if you want to include support GPIO for pins on
 	 the PCF50633 chip.
 
+
+config MFD_PCF50606
+        tristate "Support for NXP PCF50606"
+        depends on I2C
+        help
+          Say yes here if you have NXP PCF50606 chip on your board.
+          This core driver provides register access and IRQ handling
+          facilities, and registers devices for the various functions
+          so that function-specific drivers can bind to them.
+
+config PCF50606_ADC
+        tristate "Support for NXP PCF50606 ADC"
+        depends on MFD_PCF50606
+        help
+         Say yes here if you want to include support for ADC in the
+         NXP PCF50606 chip.
+
+config PCF50606_GPO
+        tristate "Support for NXP PCF50606 GPO"
+        depends on MFD_PCF50606
+        help
+         Say yes here if you want to include support GPO for pins on
+         the PCF50606 chip.
+
+
 source "drivers/mfd/glamo/Kconfig"
 
 endmenu
