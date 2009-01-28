@@ -275,6 +275,18 @@ struct usb_ep * __init usb_ep_autoconfig (
 		ep = find_ep (gadget, "ep1-bulk");
 		if (ep && ep_matches (gadget, ep, desc))
 			return ep;
+	} else if (gadget_is_s3c64xx(gadget)) {
+		if (USB_ENDPOINT_XFER_INT == type) {
+			/* single buffering is enough */
+			ep = find_ep(gadget, "ep3-int");
+			if (ep && ep_matches(gadget, ep, desc))
+				return ep;
+		} else if (USB_ENDPOINT_XFER_BULK == type
+				&& (USB_DIR_IN & desc->bEndpointAddress)) {
+			ep = find_ep(gadget, "ep2-bulk");
+			if (ep && ep_matches(gadget, ep, desc))
+				return ep;
+		}
 	}
 
 	/* Second, look at endpoints until an unclaimed one looks usable */

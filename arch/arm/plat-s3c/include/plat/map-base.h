@@ -36,5 +36,7 @@
 #define S3C_VA_TIMER	S3C_ADDR(0x00300000)	/* timer block */
 #define S3C_VA_WATCHDOG	S3C_ADDR(0x00400000)	/* watchdog */
 #define S3C_VA_UART	S3C_ADDR(0x01000000)	/* UART */
+#define S3C_VA_OTG	S3C_ADDR(0x03900000)	/* OTG */
+#define S3C_VA_OTGSFR	S3C_ADDR(0x03a00000)	/* OTGSFR */
 
 #endif /* __ASM_PLAT_MAP_H */
