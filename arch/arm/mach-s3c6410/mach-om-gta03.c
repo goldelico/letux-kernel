@@ -572,7 +572,6 @@ struct platform_device gta03_device_spi_lcm;
 static struct platform_device *om_gta03_devices[] __initdata = {
 	&s3c_device_fb,
 	&s3c_device_i2c0,
-	&s3c_device_hsmmc1, /* SDIO to WLAN */
 	&gta03_device_spi_lcm,
 };
 
@@ -585,7 +584,7 @@ static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 
 	switch(id) {
 		case PCF50633_REGULATOR_LDO4:
-			pdev = &s3c_device_hsmmc0;
+			pdev = &s3c_device_hsmmc0; /* uSD card */
 			break;
 		case PCF50633_REGULATOR_LDO5: /* GPS regulator */
 			pdev = &om_gta03_features_dev;
@@ -707,14 +706,6 @@ static void __init om_gta03_machine_init(void)
 
 	s3c_i2c0_set_platdata(NULL);
 	s3c_fb_set_platdata(&om_gta03_lcd_pdata);
-
-	s3c_gpio_setpull(S3C64XX_GPH(0), S3C_GPIO_PULL_UP);
-	s3c_gpio_setpull(S3C64XX_GPH(1), S3C_GPIO_PULL_UP);
-	s3c_gpio_setpull(S3C64XX_GPH(2), S3C_GPIO_PULL_UP);
-	s3c_gpio_setpull(S3C64XX_GPH(3), S3C_GPIO_PULL_UP);
-	s3c_gpio_setpull(S3C64XX_GPH(4), S3C_GPIO_PULL_UP);
-	s3c_gpio_setpull(S3C64XX_GPH(5), S3C_GPIO_PULL_UP);
-
 
 	i2c_register_board_info(0, om_gta03_i2c_devs,
 						 ARRAY_SIZE(om_gta03_i2c_devs));
