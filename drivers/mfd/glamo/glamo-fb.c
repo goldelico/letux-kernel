@@ -86,12 +86,22 @@ static struct platform_device glamo_spi_dev = {
 static int reg_read(struct glamofb_handle *glamo,
 			   u_int16_t reg)
 {
+	int i = 0;
+
+	for (i = 0; i != 2; i ++)
+		nop();
+
 	return readw(glamo->base + reg);
 }
 
 static void reg_write(struct glamofb_handle *glamo,
 			     u_int16_t reg, u_int16_t val)
 {
+	int i = 0;
+
+	for (i = 0; i != 2; i ++)
+		nop();
+
 	writew(val, glamo->base + reg);
 }
 
