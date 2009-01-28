@@ -103,10 +103,12 @@
 
 #include "../plat-s3c24xx/neo1973_pm_gps.h"
 
+#ifdef CONFIG_TOUCHSCREEN_FILTER
 #include <../drivers/input/touchscreen/ts_filter_linear.h>
 #include <../drivers/input/touchscreen/ts_filter_mean.h>
 #include <../drivers/input/touchscreen/ts_filter_median.h>
 #include <../drivers/input/touchscreen/ts_filter_group.h>
+#endif
 
 /* arbitrates which sensor IRQ owns the shared SPI bus */
 static spinlock_t motion_irq_lock;
@@ -1015,7 +1017,7 @@ static struct s3c2410_udc_mach_info gta02_udc_cfg = {
 
 
 /* touchscreen configuration */
-
+#ifdef CONFIG_TOUCHSCREEN_FILTER
 static struct ts_filter_linear_configuration gta02_ts_linear_config = {
 	.constants = {1, 0, 0, 0, 1, 0, 1},	/* don't modify coords */
 	.coord0 = 0,
@@ -1056,7 +1058,14 @@ static struct s3c2410_ts_mach_info gta02_ts_cfg = {
 		[3] = &gta02_ts_linear_config,
 	},
 };
-
+#else /* !CONFIG_TOUCHSCREEN_FILTER */
+static struct s3c2410_ts_mach_info gta02_ts_cfg = {
+	.delay = 10000,
+	.presc = 0xff, /* slow as we can go */
+	.filter_sequence = { NULL },
+	.filter_config = { NULL },
+};
+#endif
 
 static void gta02_bl_set_intensity(int intensity)
 {
