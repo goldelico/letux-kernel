@@ -58,6 +58,25 @@
 
 #define GLAMO_MEM_REFRESH_COUNT 0x100
 
+
+/*
+ * Glamo internal settings
+ *
+ * We run the memory interface from the faster PLLB on 2.6.28 kernels and
+ * above.  Couple of GTA02 users report trouble with memory bus when they
+ * upgraded from 2.6.24.  So this parameter allows reversion to 2.6.24
+ * scheme if their Glamo chip needs it.
+ *
+ * you can override the faster default on kernel commandline using
+ *
+ *   glamo3362.slow_memory=1
+ *
+ * for example
+ */
+
+static int slow_memory = 0;
+module_param(slow_memory, int, 0644);
+
 struct reg_range {
 	int start;
 	int count;
@@ -786,6 +805,19 @@ int glamo_run_script(struct glamo_core *glamo, struct glamo_script *script,
 			while ((__reg_read(glamo, GLAMO_REG_PLL_GEN5) & 3) != 3)
 				;
 			break;
+
+		/*
+		 * couple of people reported artefacts with 2.6.28 changes, this
+		 * allows reversion to 2.6.24 settings
+		 */
+
+		case 0x200:
+			if (slow_memory)
+				__reg_write(glamo, script[i].reg, 0xef0);
+			else
+				__reg_write(glamo, script[i].reg, 0xe03);
+			break;
+
 		default:
 			__reg_write(glamo, script[i].reg, script[i].val);
 			break;
@@ -848,7 +880,7 @@ static struct glamo_script glamo_init_script[] = {
 	 * b7..b4 = 0 = no wait states on read or write
 	 * b0 = 1 select PLL2 for Host interface, b1 = enable it
 	 */
-	{ 0x200,	0x0e03 },
+	{ 0x200,	0x0e03 /* this is replaced by script parser */ },
 	{ 0x202, 	0x07ff },
 	{ 0x212,	0x0000 },
 	{ 0x214,	0x4000 },
