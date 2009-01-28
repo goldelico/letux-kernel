@@ -116,19 +116,19 @@ udc_proc_read(char *page, char **start, off_t off, int count,
 #endif	/* CONFIG_USB_GADGET_DEBUG_FILES */
 
 
-static inline u32 s3c_otg_readl(u32 reg)
+static u32 s3c_otg_readl(struct s3c_udc *dev, u32 reg)
 {
-	return readl(reg);
+	return readl((u32)dev->reg_base + reg);
 }
 
-static inline void s3c_otg_writel(u32 val, u32 reg, int update)
+static inline void s3c_otg_writel(struct s3c_udc *dev, u32 val, u32 reg, int update)
 {
 	u32 temp = 0;
 
 	if (update)
-		temp = readl(reg);
+		temp = readl(((u32)dev->reg_base) + reg);
 
-	writel(val|temp, reg);
+	writel(val|temp, ((u32)dev->reg_base) + reg);
 }
 
 /*
@@ -216,7 +216,7 @@ static void s3c_otg_ep_control(int ep, int dir, u32 val, int update)
 		return;
 	}
 
-	s3c_otg_writel(val, epctrl, update);
+	s3c_otg_writel(the_controller, val, epctrl, update);
 }
 
 static int s3c_otg_write_packet(struct s3c_ep *ep,
@@ -252,12 +252,12 @@ static int s3c_otg_write_packet(struct s3c_ep *ep,
 		return 0;
 	}
 
-	s3c_otg_writel(PKT_CNT(0x1)|XFERSIZE(length), epsize, 0);
+	s3c_otg_writel(ep->dev, PKT_CNT(0x1)|XFERSIZE(length), epsize, 0);
 	s3c_otg_ep_control(ep_index(ep), USB_DIR_IN,
 			DEPCTL_EPENA|DEPCTL_CNAK, 1);
 
 	for (count = 0; count < length; count += 4)
-		s3c_otg_writel(*buf++, fifo, 0);
+		s3c_otg_writel(ep->dev, *buf++, fifo, 0);
 
 	return length;
 }
@@ -299,7 +299,7 @@ static int s3c_otg_read_fifo_ep0(struct s3c_ep *ep, struct s3c_request *req)
 	unsigned bytes;
 	u32 fifo = ep->fifo;
 
-	csr = s3c_otg_readl((u32)S3C_UDC_OTG_GRXSTSP);
+	csr = s3c_otg_readl(ep->dev, S3C_UDC_OTG_GRXSTSP);
 	bytes = BYTE_COUNT(csr);
 
 	buf = req->req.buf + req->req.actual;
@@ -322,7 +322,7 @@ static int s3c_otg_read_fifo_ep0(struct s3c_ep *ep, struct s3c_request *req)
 		  req->req.actual, req->req.length);
 
 	while (count--) {
-		u32 byte = s3c_otg_readl(fifo);
+		u32 byte = s3c_otg_readl(ep->dev, fifo);
 
 		if (unlikely(bufferspace == 0)) {
 			/* this happens when the driver's buffer
@@ -464,7 +464,7 @@ static int s3c_otg_write_fifo(struct s3c_ep *ep, struct s3c_request *req)
 	int is_last = 0;
 	int is_short = 0;
 
-	gintmsk = s3c_otg_readl((u32)S3C_UDC_OTG_GINTMSK);
+	gintmsk = s3c_otg_readl(ep->dev, S3C_UDC_OTG_GINTMSK);
 
 	max = le16_to_cpu(ep->desc->wMaxPacketSize);
 	count = s3c_otg_write_packet(ep, req, max);
@@ -495,14 +495,14 @@ static int s3c_otg_write_fifo(struct s3c_ep *ep, struct s3c_request *req)
 			BUG();
 		}
 
-		s3c_otg_writel(gintmsk & (~INT_TX_FIFO_EMPTY),
+		s3c_otg_writel(ep->dev, gintmsk & (~INT_TX_FIFO_EMPTY),
 				(u32)S3C_UDC_OTG_GINTMSK, 0);
 		s3c_otg_done(ep, req, 0);
 
 		return 1;
 	}
 
-	s3c_otg_writel(gintmsk|INT_TX_FIFO_EMPTY,
+	s3c_otg_writel(ep->dev, gintmsk|INT_TX_FIFO_EMPTY,
 			(u32)S3C_UDC_OTG_GINTMSK, 0);
 
 	return 0;
@@ -522,13 +522,13 @@ static int s3c_otg_read_fifo(struct s3c_ep *ep, struct s3c_request *req)
 	unsigned bytes;
 	u32 fifo = ep->fifo;
 
-	csr = s3c_otg_readl((u32)S3C_UDC_OTG_GRXSTSP);
+	csr = s3c_otg_readl(ep->dev, S3C_UDC_OTG_GRXSTSP);
 	bytes = BYTE_COUNT(csr);
 	gintmsk = readl(S3C_UDC_OTG_GINTMSK);
 
 	if (!bytes) {
 		DBG(2, "%d bytes\n", bytes);
-		s3c_otg_writel(INT_RX_FIFO_NOT_EMPTY,
+		s3c_otg_writel(ep->dev, INT_RX_FIFO_NOT_EMPTY,
 				(u32)S3C_UDC_OTG_GINTMSK, 1);
 		return 0;
 	}
@@ -547,7 +547,7 @@ static int s3c_otg_read_fifo(struct s3c_ep *ep, struct s3c_request *req)
 			req->req.actual, req->req.length);
 
 	while (count--) {
-		u32 byte = s3c_otg_readl(fifo);
+		u32 byte = s3c_otg_readl(ep->dev, fifo);
 
 		if (unlikely(bufferspace == 0)) {
 			/* this happens when the driver's buffer
@@ -563,7 +563,7 @@ static int s3c_otg_read_fifo(struct s3c_ep *ep, struct s3c_request *req)
 		}
 	}
 
-	s3c_otg_writel(gintmsk|INT_RX_FIFO_NOT_EMPTY,
+	s3c_otg_writel(ep->dev, gintmsk|INT_RX_FIFO_NOT_EMPTY,
 			(u32)S3C_UDC_OTG_GINTMSK, 0);
 
 	/* completion */
@@ -663,7 +663,7 @@ static int s3c_otg_queue(struct usb_ep *_ep,
 			s3c_otg_kick_ep0(dev, ep);
 			req = NULL;
 		} else if (ep_is_in(ep)) {
-			csr = s3c_otg_readl((u32)S3C_UDC_OTG_GINTSTS);
+			csr = s3c_otg_readl(ep->dev, S3C_UDC_OTG_GINTSTS);
 
 			if ((csr & INT_TX_FIFO_EMPTY) &&
 			   (s3c_otg_write_fifo(ep, req) == 1))
@@ -671,7 +671,7 @@ static int s3c_otg_queue(struct usb_ep *_ep,
 			else
 				tx_ep_num = ep_index(ep);
 		} else {
-			csr = s3c_otg_readl((u32)S3C_UDC_OTG_GINTSTS);
+			csr = s3c_otg_readl(ep->dev, S3C_UDC_OTG_GINTSTS);
 
 			if ((csr & INT_RX_FIFO_NOT_EMPTY) &&
 			   (s3c_otg_read_fifo(ep, req) == 1))
@@ -900,7 +900,7 @@ void s3c_otg_set_ep(struct s3c_udc *dev, enum usb_device_speed speed)
  */
 static void s3c_otg_set_address(struct s3c_udc *dev, unsigned char addr)
 {
-	s3c_otg_writel(DEVICE_ADDR(addr), (u32)S3C_UDC_OTG_DCFG, 1);
+	s3c_otg_writel(dev, DEVICE_ADDR(addr), (u32)S3C_UDC_OTG_DCFG, 1);
 	s3c_otg_ep_control(0, USB_DIR_IN, DEPCTL_EPENA|DEPCTL_CNAK, 1);
 
 	DBG(2, "USB OTG 2.0 Device Address=%d\n", addr);
@@ -912,7 +912,7 @@ static inline int s3c_otg_read_setup(struct s3c_ep *ep, u32 *ctrl, int max)
 {
 	int bytes;
 	int count;
-	u32 csr = s3c_otg_readl((u32)S3C_UDC_OTG_GRXSTSP);
+	u32 csr = s3c_otg_readl(ep->dev, S3C_UDC_OTG_GRXSTSP);
 
 	bytes = BYTE_COUNT(csr);
 
@@ -920,7 +920,7 @@ static inline int s3c_otg_read_setup(struct s3c_ep *ep, u32 *ctrl, int max)
 	count = bytes / 4;
 
 	while (count--)
-		*ctrl++ = s3c_otg_readl((u32)S3C_UDC_OTG_EP0_FIFO);
+		*ctrl++ = s3c_otg_readl(ep->dev, S3C_UDC_OTG_EP0_FIFO);
 
 	return bytes;
 }
@@ -1085,9 +1085,9 @@ static void s3c_otg_handle_ep(struct s3c_udc *dev, u32 gintmsk)
 	u32 bytes = 0;
 
 	gintmsk &= ~INT_RX_FIFO_NOT_EMPTY;
-	s3c_otg_writel(gintmsk, (u32)S3C_UDC_OTG_GINTMSK, 0);
+	s3c_otg_writel(dev, gintmsk, (u32)S3C_UDC_OTG_GINTMSK, 0);
 
-	csr = s3c_otg_readl((u32)S3C_UDC_OTG_GRXSTSR);
+	csr = s3c_otg_readl(dev, S3C_UDC_OTG_GRXSTSR);
 
 	packet_status = PKT_STS(csr);
 	bytes = BYTE_COUNT(csr);
@@ -1118,7 +1118,7 @@ static void s3c_otg_handle_ep(struct s3c_udc *dev, u32 gintmsk)
 			DBG(2, " Bulk OUT received : %d bytes\n", bytes);
 
 			s3c_otg_handle_ep_out(dev, 1);
-			gintmsk = s3c_otg_readl((u32)S3C_UDC_OTG_GINTMSK);
+			gintmsk = s3c_otg_readl(dev,S3C_UDC_OTG_GINTMSK);
 
 			s3c_otg_ep_control(1, USB_DIR_OUT, DEPCTL_CNAK, 1);
 		} else
@@ -1142,11 +1142,11 @@ static void s3c_otg_handle_ep(struct s3c_udc *dev, u32 gintmsk)
 	}
 
 	if (!bytes) {
-		csr = s3c_otg_readl((u32)S3C_UDC_OTG_GRXSTSP);
+		csr = s3c_otg_readl(dev, S3C_UDC_OTG_GRXSTSP);
 		gintmsk |= INT_RX_FIFO_NOT_EMPTY;
 	}
 
-	s3c_otg_writel(gintmsk, (u32)S3C_UDC_OTG_GINTMSK, 0);
+	s3c_otg_writel(dev, gintmsk, (u32)S3C_UDC_OTG_GINTMSK, 0);
 }
 
 /*
@@ -1160,7 +1160,7 @@ static void s3c_otg_disable(struct s3c_udc *dev)
 	dev->gadget.speed = USB_SPEED_UNKNOWN;
 	dev->usb_address = 0;
 
-	s3c_otg_writel(ANALOG_PWR_DOWN, (u32)S3C_USBOTG_PHYPWR, 1);
+	s3c_otg_writel(dev, ANALOG_PWR_DOWN, (u32)S3C_USBOTG_PHYPWR, 1);
 }
 
 /*
@@ -1203,32 +1203,32 @@ static void s3c_otg_reinit(struct s3c_udc *dev)
 #define GAHBCFG_INIT	(PTXFE_HALF|NPTXFE_HALF| \
 		MODE_SLAVE|BURST_INCR16|GBL_INT_UNMASK)
 
-static void s3c_otg_config(void)
+static void s3c_otg_config(struct s3c_udc *dev)
 {
 	u32 reg;
 
 	/* OTG USB configuration */
-	s3c_otg_writel(GUSBCFG_INIT, (u32)S3C_UDC_OTG_GUSBCFG, 0);
+	s3c_otg_writel(dev, GUSBCFG_INIT, (u32)S3C_UDC_OTG_GUSBCFG, 0);
 
 	/* Soft-reset OTG Core and then unreset again */
-	s3c_otg_writel(CORE_SOFT_RESET, (u32)S3C_UDC_OTG_GRSTCTL, 0);
+	s3c_otg_writel(dev, CORE_SOFT_RESET, (u32)S3C_UDC_OTG_GRSTCTL, 0);
 
 	/* Put the OTG device core in the disconnected state */
-	s3c_otg_writel(SOFT_DISCONNECT, (u32)S3C_UDC_OTG_DCTL, 1);
+	s3c_otg_writel(dev, SOFT_DISCONNECT, (u32)S3C_UDC_OTG_DCTL, 1);
 
 	udelay(20);
 
 	/* Make the OTG device core exit from the disconnected state */
-	reg = s3c_otg_readl((u32)S3C_UDC_OTG_DCTL);
-	s3c_otg_writel(reg & ~SOFT_DISCONNECT, (u32)S3C_UDC_OTG_DCTL, 0);
+	reg = s3c_otg_readl(dev, S3C_UDC_OTG_DCTL);
+	s3c_otg_writel(dev, reg & ~SOFT_DISCONNECT, (u32)S3C_UDC_OTG_DCTL, 0);
 
 	/* Configure OTG Core to initial settings of device mode */
-	s3c_otg_writel(EP_MIS_CNT(0x1)|SPEED_2_HIGH, (u32)S3C_UDC_OTG_DCFG, 1);
+	s3c_otg_writel(dev, EP_MIS_CNT(0x1)|SPEED_2_HIGH, (u32)S3C_UDC_OTG_DCFG, 1);
 
 	udelay(1000);
 
 	/* Unmask the core interrupts */
-	s3c_otg_writel(GINTMSK_INIT, (u32)S3C_UDC_OTG_GINTMSK, 0);
+	s3c_otg_writel(dev, GINTMSK_INIT, (u32)S3C_UDC_OTG_GINTMSK, 0);
 
 	/* Set NAK bit of EP0, EP1, EP2 */
 	s3c_otg_ep_control(0, USB_DIR_OUT,
@@ -1243,7 +1243,7 @@ static void s3c_otg_config(void)
 			DEPCTL_EPDIS|DEPCTL_SNAK|DEPCTL_BULK_TYPE, 0);
 
 	/* Unmask EP interrupts */
-	s3c_otg_writel(S3C_UDC_INT_IN_EP0
+	s3c_otg_writel(dev, S3C_UDC_INT_IN_EP0
 			|S3C_UDC_INT_IN_EP2
 			|S3C_UDC_INT_IN_EP3
 			|S3C_UDC_INT_OUT_EP0
@@ -1251,41 +1251,43 @@ static void s3c_otg_config(void)
 			(u32)S3C_UDC_OTG_DAINTMSK, 0);
 
 	/* Unmask device OUT EP common interrupts */
-	s3c_otg_writel(DOEPMSK_INIT, (u32)S3C_UDC_OTG_DOEPMSK, 0);
+	s3c_otg_writel(dev, DOEPMSK_INIT, (u32)S3C_UDC_OTG_DOEPMSK, 0);
 
 	/* Unmask device IN EP common interrupts */
-	s3c_otg_writel(DIEPMSK_INIT, (u32)S3C_UDC_OTG_DIEPMSK, 0);
+	s3c_otg_writel(dev, DIEPMSK_INIT, (u32)S3C_UDC_OTG_DIEPMSK, 0);
 
 	/* Set Rx FIFO Size */
-	s3c_otg_writel(RX_FIFO_SIZE, (u32)S3C_UDC_OTG_GRXFSIZ, 0);
+	s3c_otg_writel(dev, RX_FIFO_SIZE, (u32)S3C_UDC_OTG_GRXFSIZ, 0);
 
 	/* Set Non Periodic Tx FIFO Size */
-	s3c_otg_writel(NPTX_FIFO_SIZE|NPTX_FIFO_START_ADDR,
+	s3c_otg_writel(dev, NPTX_FIFO_SIZE|NPTX_FIFO_START_ADDR,
 			(u32)S3C_UDC_OTG_GNPTXFSIZ, 0);
 
 	/* Clear NAK bit of EP0 For Slave mode */
 	s3c_otg_ep_control(0, USB_DIR_OUT, DEPCTL_EPDIS|DEPCTL_CNAK, 0);
 
 	/* Initialize OTG Link Core */
-	s3c_otg_writel(GAHBCFG_INIT, (u32)S3C_UDC_OTG_GAHBCFG, 0);
+	s3c_otg_writel(dev, GAHBCFG_INIT, (u32)S3C_UDC_OTG_GAHBCFG, 0);
 }
 
 static int s3c_otg_enable(struct s3c_udc *dev)
 {
 	/* USB_SIG_MASK */
-	s3c_otg_writel(S3C64XX_OTHERS_USBMASK, (u32)S3C64XX_OTHERS, 1);
+	__raw_writel(S3C64XX_OTHERS_USBMASK | __raw_readl(S3C64XX_OTHERS),
+								S3C64XX_OTHERS);
 
 	/* Initializes OTG Phy. */
-	s3c_otg_writel(SUSPEND_DISABLE, (u32)S3C_USBOTG_PHYPWR, 0);
-	s3c_otg_writel(dev->phyclk, (u32)S3C_USBOTG_PHYCLK, 0);
+	s3c_otg_writel(dev, SUSPEND_DISABLE, (u32)S3C_USBOTG_PHYPWR, 0);
+	
+	s3c_otg_writel(dev, dev->phyclk, (u32)S3C_USBOTG_PHYCLK, 0);
 
-	s3c_otg_writel(SW_RST_ON, (u32)S3C_USBOTG_RSTCON, 0);
+	s3c_otg_writel(dev, SW_RST_ON, (u32)S3C_USBOTG_RSTCON, 0);
 	udelay(50);
 
-	s3c_otg_writel(SW_RST_OFF, (u32)S3C_USBOTG_RSTCON, 0);
+	s3c_otg_writel(dev, SW_RST_OFF, (u32)S3C_USBOTG_RSTCON, 0);
 	udelay(50);
 
-	s3c_otg_config();
+	s3c_otg_config(dev);
 
 	DBG(2, "S3C USB 2.0 OTG Controller Core Initialized\n");
 
@@ -1306,8 +1308,8 @@ static irqreturn_t s3c_otg_irq(int irq, void *_dev)
 
 	spin_lock(&dev->lock);
 
-	intr_status = s3c_otg_readl((u32)S3C_UDC_OTG_GINTSTS);
-	gintmsk = s3c_otg_readl((u32)S3C_UDC_OTG_GINTMSK);
+	intr_status = s3c_otg_readl(dev, S3C_UDC_OTG_GINTSTS);
+	gintmsk = s3c_otg_readl(dev, S3C_UDC_OTG_GINTMSK);
 
 	DBG(1, "GINTSTS=0x%x(on state %s), GINTMSK : 0x%x\n",
 			intr_status, state_names[dev->ep0state], gintmsk);
@@ -1319,9 +1321,9 @@ static irqreturn_t s3c_otg_irq(int irq, void *_dev)
 
 	if (intr_status & INT_ENUMDONE) {
 		DBG(2, "Speed Detection interrupt\n");
-		s3c_otg_writel(INT_ENUMDONE, (u32)S3C_UDC_OTG_GINTSTS, 0);
+		s3c_otg_writel(dev, INT_ENUMDONE, S3C_UDC_OTG_GINTSTS, 0);
 
-		usb_status = ENUM_SPEED(s3c_otg_readl((u32)S3C_UDC_OTG_DSTS));
+		usb_status = ENUM_SPEED(s3c_otg_readl(dev, S3C_UDC_OTG_DSTS));
 
 		if (usb_status & (USB_FULL_30_60MHZ | USB_FULL_48MHZ))
 			s3c_otg_set_ep(dev, USB_SPEED_FULL);
@@ -1331,12 +1333,12 @@ static irqreturn_t s3c_otg_irq(int irq, void *_dev)
 
 	if (intr_status & INT_EARLY_SUSPEND) {
 		DBG(2, "Early suspend interrupt\n");
-		s3c_otg_writel(INT_EARLY_SUSPEND, (u32)S3C_UDC_OTG_GINTSTS, 0);
+		s3c_otg_writel(dev, INT_EARLY_SUSPEND, (u32)S3C_UDC_OTG_GINTSTS, 0);
 	}
 
 	if (intr_status & INT_SUSPEND) {
 		DBG(2, "Suspend interrupt\n");
-		s3c_otg_writel(INT_SUSPEND, (u32)S3C_UDC_OTG_GINTSTS, 0);
+		s3c_otg_writel(dev, INT_SUSPEND, (u32)S3C_UDC_OTG_GINTSTS, 0);
 
 		if (dev->gadget.speed != USB_SPEED_UNKNOWN
 		    && dev->driver
@@ -1347,7 +1349,7 @@ static irqreturn_t s3c_otg_irq(int irq, void *_dev)
 
 	if (intr_status & INT_RESUME) {
 		DBG(2, "Resume interrupt\n");
-		s3c_otg_writel(INT_RESUME, (u32)S3C_UDC_OTG_GINTSTS, 0);
+		s3c_otg_writel(dev, INT_RESUME, (u32)S3C_UDC_OTG_GINTSTS, 0);
 
 		if (dev->gadget.speed != USB_SPEED_UNKNOWN
 		    && dev->driver
@@ -1358,13 +1360,13 @@ static irqreturn_t s3c_otg_irq(int irq, void *_dev)
 
 	if (intr_status & INT_RESET) {
 		DBG(2, "Reset interrupt\n");
-		s3c_otg_writel(INT_RESET, (u32)S3C_UDC_OTG_GINTSTS, 0);
+		s3c_otg_writel(dev, INT_RESET, (u32)S3C_UDC_OTG_GINTSTS, 0);
 
-		usb_status = s3c_otg_readl((u32)S3C_UDC_OTG_GOTGCTL);
+		usb_status = s3c_otg_readl(dev, S3C_UDC_OTG_GOTGCTL);
 
 		if (usb_status | (A_SESSION_VALID|B_SESSION_VALID)) {
 			if (reset_available) {
-				s3c_otg_config();
+				s3c_otg_config(dev);
 				dev->ep0state = WAIT_FOR_SETUP;
 				reset_available = 0;
 			}
@@ -1466,7 +1468,8 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 		return retval;
 	}
 
-	printk("Registered gadget driver '%s'\n", driver->driver.name);
+	dev_info(&dev->gadget.dev, "Registered gadget driver '%s'\n",
+							   driver->driver.name);
 	s3c_otg_enable(dev);
 
 	enable_irq(IRQ_OTG);
@@ -1503,8 +1506,8 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 
 	disable_irq(IRQ_OTG);
 
-	printk(KERN_INFO "Unregistered gadget driver '%s'\n",
-			driver->driver.name);
+	dev_info(&dev->gadget.dev, "Unregistered gadget driver '%s'\n",
+							   driver->driver.name);
 
 	s3c_otg_disable(dev);
 
@@ -1517,7 +1520,7 @@ EXPORT_SYMBOL(usb_gadget_unregister_driver);
  */
 static int s3c_otg_get_frame(struct usb_gadget *gadget)
 {
-	u32 frame = s3c_otg_readl((u32)S3C_UDC_OTG_DSTS);
+	u32 frame = s3c_otg_readl(the_controller, S3C_UDC_OTG_DSTS);
 	return FRAME_CNT(frame);
 }
 
@@ -1712,6 +1715,14 @@ static int s3c_otg_probe(struct platform_device *pdev)
 	struct s3c_plat_otg_data *pdata = pdev->dev.platform_data;
 	int retval;
 
+	dev->reg_base = ioremap(pdev->resource[0].start,
+			pdev->resource[0].end - pdev->resource[0].start);
+	if (dev->reg_base == NULL) {
+		dev_err(&pdev->dev, "Unable to map USB OTG physical regs\n");
+		return -ENOMEM;
+	}
+
+
 	DBG(2, "%p\n", pdev);
 
 	spin_lock_init(&dev->lock);
@@ -1744,7 +1755,7 @@ static int s3c_otg_probe(struct platform_device *pdev)
 	local_irq_disable();
 
 	/* irq setup after old hardware state is cleaned up */
-	retval = request_irq(IRQ_OTG, s3c_otg_irq,
+	retval = request_irq(pdev->resource[1].start, s3c_otg_irq,
 			IRQF_DISABLED, driver_name, dev);
 
 	if (retval != 0) {
@@ -1778,6 +1789,9 @@ static int s3c_otg_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, 0);
 
 	the_controller = 0;
+
+	if (dev->reg_base)
+		iounmap(dev->reg_base);
 
 	return 0;
 }

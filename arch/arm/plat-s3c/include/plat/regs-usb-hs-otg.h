@@ -20,7 +20,7 @@
 
 /* USB2.0 OTG Controller register */
 /* Core Global Registers */
-#define S3C_USBOTGREG(x)		((x) + S3C64XX_VA_OTG)
+#define S3C_USBOTGREG(x)		((x) /*+ S3C64XX_VA_OTG */)
 /* OTG Control & Status */
 #define S3C_UDC_OTG_GOTGCTL		S3C_USBOTGREG(0x000)
 /* OTG Interrupt */

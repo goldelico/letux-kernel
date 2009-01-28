@@ -109,6 +109,7 @@ struct s3c_udc {
 	struct usb_gadget_driver *driver;
 	struct platform_device *dev;
 	spinlock_t lock;
+	u32 * reg_base;
 
 	int phyclk;
 	int ep0state;
