@@ -813,11 +813,6 @@ static int cascade(struct tvec_base *base, struct tvec *tv, int index)
 	 * don't have to detach them individually.
 	 */
 	list_for_each_entry_safe(timer, tmp, &tv_list, entry) {
-		if (tbase_get_base(timer->base) != base) {
-			printk(KERN_ERR "cascade: timer %p: tbase_get_base(timer->base) 0x%x "
-				"!= base 0x%x\n", timer, tbase_get_base(timer->base), base);
-			BUG_ON(1);
-		}
 		internal_add_timer(base, timer);
 	}
 
