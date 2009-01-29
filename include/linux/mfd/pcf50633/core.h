@@ -31,6 +31,8 @@ struct pcf50633_platform_data {
 
 	int charging_restart_interval;
 
+	int chg_ref_current_ma;
+
 	/* Callbacks */
 	void (*probe_done)(struct pcf50633 *);
 	void (*mbc_event_callback)(struct pcf50633 *, int);
