@@ -637,6 +637,11 @@ static int __init neo1973_gta02_init(void)
 		return -ENODEV;
 	}
 
+	/* register bluetooth DAI here */
+	ret = snd_soc_register_dai(&bt_dai);
+	if (ret)
+		return ret;
+
 	neo1973_gta02_snd_device = platform_device_alloc("soc-audio", -1);
 	if (!neo1973_gta02_snd_device)
 		return -ENOMEM;
@@ -646,8 +651,10 @@ static int __init neo1973_gta02_init(void)
 	neo1973_gta02_snd_devdata.dev = &neo1973_gta02_snd_device->dev;
 	ret = platform_device_add(neo1973_gta02_snd_device);
 
-	if (ret)
+	if (ret) {
 		platform_device_put(neo1973_gta02_snd_device);
+		return ret;
+	}
 
 	/* Initialise GPIOs used by amp */
 	s3c2410_gpio_cfgpin(GTA02_GPIO_HP_IN, S3C2410_GPIO_OUTPUT);
