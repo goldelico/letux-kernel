@@ -146,6 +146,8 @@ static struct platform_device *smdk6410_devices[] __initdata = {
 	&s3c_device_i2c1,
 	&s3c_device_fb,
 	&smdk6410_lcd_powerdev,
+	&s3c_device_usbgadget,
+
 };
 
 static struct i2c_board_info i2c_devs0[] __initdata = {
@@ -178,9 +180,16 @@ static void __init smdk6410_map_io(void)
 	__raw_writel(tmp, S3C64XX_MODEM_MIFPCON);
 }
 
+struct s3c_plat_otg_data s3c_hs_otg_plat_data = {
+	.phyclk = 2, /* 12MHz osc */
+};
+
+
 static void __init smdk6410_machine_init(void)
 {
 	s3c_pm_init();
+
+	s3c_device_usbgadget.dev.platform_data = &s3c_hs_otg_plat_data;
 
 	s3c_i2c0_set_platdata(NULL);
 	s3c_i2c1_set_platdata(NULL);
