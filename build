@@ -48,6 +48,11 @@ if [ ! -z "`grep CONFIG_MACH_OPENMOKO_GTA03=y $1/.config`" ] ; then
         PRODUCT=GTA03
 fi
 
+if [ ! -z "`grep CONFIG_MACH_SMDK6410=y $1/.config`" ] ; then
+        START=50008000
+        PRODUCT=SMDK6410
+fi
+
 if [ ! -z "`grep CONFIG_MACH_M800=y $1/.config`" ] ; then
 	START=30008000
 	PRODUCT=M800
@@ -67,7 +72,7 @@ VERSION=
 if [ -d .git ] ; then
  HEAD=`git show --pretty=oneline | head -n1 | cut -d' ' -f1 | cut -b1-16`
  BRANCH=`git branch | grep ^\* | cut -d' ' -f2 | sed s/-hist//g`
- VERSION=-$PRODUCT\_$BRANCH\_$HEAD
+ VERSION=-$PRODUCT\_$BRANCH
 fi
 
 
