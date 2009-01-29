@@ -664,7 +664,6 @@ static int __devinit jbt_probe(struct spi_device *spi)
 
 	mdelay(120);
 
-
 	rc = jbt6k74_enter_state(jbt, JBT_STATE_NORMAL);
 	if (rc < 0) {
 		dev_err(&spi->dev, "cannot enter NORMAL state\n");
@@ -683,6 +682,8 @@ static int __devinit jbt_probe(struct spi_device *spi)
 		dev_err(&spi->dev, "cannot register notifier\n");
 		goto err_sysfs;
 	}
+
+	(jbt6k74_pdata->probe_completed)(&spi->dev);
 
 	return 0;
 
