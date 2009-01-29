@@ -42,7 +42,7 @@ void iblock_start(void)
 		return;
 	iblock_t0 = s3c2410_gettimeoffset();
 }
-
+EXPORT_SYMBOL_GPL(iblock_start);
 
 void iblock_end(void)
 {
@@ -68,7 +68,7 @@ void iblock_end(void)
 	printk(KERN_ERR "interrupts were disabled for %lu us !\n", us);
 	WARN_ON(1);
 }
-
+EXPORT_SYMBOL_GPL(iblock_end);
 
 void iblock_end_maybe(unsigned long flags)
 {
@@ -76,7 +76,7 @@ void iblock_end_maybe(unsigned long flags)
 		return;
 	iblock_end();
 }
-
+EXPORT_SYMBOL_GPL(iblock_end_maybe);
 
 static ssize_t limit_read(struct device *dev, struct device_attribute *attr,
     char *buf)
