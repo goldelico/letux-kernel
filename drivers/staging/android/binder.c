@@ -54,7 +54,7 @@ static int binder_read_proc_proc(
 #define SZ_4M                               0x400000
 #endif
 
-#ifndef __i386__
+#if !defined(__i386__) && !defined(__arm__)
 #define FORBIDDEN_MMAP_FLAGS                (VM_WRITE | VM_EXEC)
 #else
 #define FORBIDDEN_MMAP_FLAGS                (VM_WRITE)
@@ -2649,14 +2649,14 @@ static void binder_vma_open(struct vm_area_struct *vma)
 {
 	struct binder_proc *proc = vma->vm_private_data;
 	if (binder_debug_mask & BINDER_DEBUG_OPEN_CLOSE)
-		printk(KERN_INFO "binder: %d open vm area %lx-%lx (%ld K) vma %lx pagep %lx\n", proc->pid, vma->vm_start, vma->vm_end, (vma->vm_end - vma->vm_start) / SZ_1K, vma->vm_flags, vma->vm_page_prot.pgprot);
+		printk(KERN_INFO "binder: %d open vm area %lx-%lx (%ld K) vma %lx pagep %lx\n", proc->pid, vma->vm_start, vma->vm_end, (vma->vm_end - vma->vm_start) / SZ_1K, vma->vm_flags, vma->vm_page_prot);
 	dump_stack();
 }
 static void binder_vma_close(struct vm_area_struct *vma)
 {
 	struct binder_proc *proc = vma->vm_private_data;
 	if (binder_debug_mask & BINDER_DEBUG_OPEN_CLOSE)
-		printk(KERN_INFO "binder: %d close vm area %lx-%lx (%ld K) vma %lx pagep %lx\n", proc->pid, vma->vm_start, vma->vm_end, (vma->vm_end - vma->vm_start) / SZ_1K, vma->vm_flags, vma->vm_page_prot.pgprot);
+		printk(KERN_INFO "binder: %d close vm area %lx-%lx (%ld K) vma %lx pagep %lx\n", proc->pid, vma->vm_start, vma->vm_end, (vma->vm_end - vma->vm_start) / SZ_1K, vma->vm_flags, vma->vm_page_prot);
 	proc->vma = NULL;
 }
 
@@ -2677,7 +2677,7 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 		vma->vm_end = vma->vm_start + SZ_4M;
 
 	if (binder_debug_mask & BINDER_DEBUG_OPEN_CLOSE)
-		printk(KERN_INFO "binder_mmap: %d %lx-%lx (%ld K) vma %lx pagep %lx\n", proc->pid, vma->vm_start, vma->vm_end, (vma->vm_end - vma->vm_start) / SZ_1K, vma->vm_flags, vma->vm_page_prot.pgprot);
+		printk(KERN_INFO "binder_mmap: %d %lx-%lx (%ld K) vma %lx pagep %lx\n", proc->pid, vma->vm_start, vma->vm_end, (vma->vm_end - vma->vm_start) / SZ_1K, vma->vm_flags, vma->vm_page_prot);
 
 	if (vma->vm_flags & FORBIDDEN_MMAP_FLAGS) {
 		ret = -EPERM;
