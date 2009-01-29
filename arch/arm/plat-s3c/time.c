@@ -97,7 +97,7 @@ static inline unsigned long timer_ticks_to_usec(unsigned long ticks)
  * IRQs are disabled before entering here from do_gettimeofday()
  */
 
-static unsigned long s3c2410_gettimeoffset (void)
+unsigned long s3c2410_gettimeoffset (void)
 {
 	unsigned long tdone;
 	unsigned long tval;

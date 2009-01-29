@@ -5,6 +5,12 @@
 
 #include <asm/ptrace.h>
 
+
+void iblock_start(void);
+void iblock_end(void);
+void iblock_end_maybe(unsigned long flags);
+
+
 /*
  * CPU interrupt mask handling.
  */
@@ -31,6 +37,7 @@
 #define raw_local_irq_save(x)					\
 	({							\
 		unsigned long temp;				\
+	iblock_start(); \
 		(void) (&temp == &x);				\
 	__asm__ __volatile__(					\
 	"mrs	%0, cpsr		@ local_irq_save\n"	\
@@ -47,6 +54,7 @@
 #define raw_local_irq_enable()					\
 	({							\
 		unsigned long temp;				\
+	 iblock_start(); \
 	__asm__ __volatile__(					\
 	"mrs	%0, cpsr		@ local_irq_enable\n"	\
 "	bic	%0, %0, #128\n"					\
@@ -62,6 +70,7 @@
 #define raw_local_irq_disable()					\
 	({							\
 		unsigned long temp;				\
+	iblock_start(); \
 	__asm__ __volatile__(					\
 	"mrs	%0, cpsr		@ local_irq_disable\n"	\
 "	orr	%0, %0, #128\n"					\
@@ -117,11 +126,12 @@
  * restore saved IRQ & FIQ state
  */
 #define raw_local_irq_restore(x)				\
+	({ iblock_end_maybe(x); \
 	__asm__ __volatile__(					\
 	"msr	cpsr_c, %0		@ local_irq_restore\n"	\
 	:							\
 	: "r" (x)						\
-	: "memory", "cc")
+	: "memory", "cc"); })
 
 #define raw_irqs_disabled_flags(flags)	\
 ({					\
