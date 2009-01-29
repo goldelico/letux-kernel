@@ -82,7 +82,9 @@ EXPORT_SYMBOL(printk_emergency_debug_spew_send_string);
  * driver system.
  */
 static DECLARE_MUTEX(console_sem);
+#ifdef CONFIG_ANDROID_CONSOLE_EARLYSUSPEND
 static DECLARE_MUTEX(secondary_console_sem);
+#endif
 struct console *console_drivers;
 EXPORT_SYMBOL_GPL(console_drivers);
 
@@ -931,12 +933,18 @@ void suspend_console(void)
 	printk("Suspending console(s) (use no_console_suspend to debug)\n");
 	acquire_console_sem();
 	console_suspended = 1;
+#ifdef CONFIG_ANDROID_CONSOLE_EARLYSUSPEND
+	up(&console_sem);
+#endif
 }
 
 void resume_console(void)
 {
 	if (!console_suspend_enabled)
 		return;
+#ifdef CONFIG_ANDROID_CONSOLE_EARLYSUSPEND
+	down(&console_sem);
+#endif
 	console_suspended = 0;
 	release_console_sem();
 }
@@ -952,11 +960,17 @@ void resume_console(void)
 void acquire_console_sem(void)
 {
 	BUG_ON(in_interrupt());
+#ifndef CONFIG_ANDROID_CONSOLE_EARLYSUSPEND
 	if (console_suspended) {
 		down(&secondary_console_sem);
 		return;
 	}
+#endif
 	down(&console_sem);
+#ifdef CONFIG_ANDROID_CONSOLE_EARLYSUSPEND
+	if (console_suspended)
+		return;
+#endif
 	console_locked = 1;
 	console_may_schedule = 1;
 }
@@ -966,6 +980,12 @@ int try_acquire_console_sem(void)
 {
 	if (down_trylock(&console_sem))
 		return -1;
+#ifdef CONFIG_ANDROID_CONSOLE_EARLYSUSPEND
+	if (console_suspended) {
+		up(&console_sem);
+		return -1;
+	}
+#endif
 	console_locked = 1;
 	console_may_schedule = 0;
 	return 0;
@@ -1019,7 +1039,11 @@ void release_console_sem(void)
 	unsigned wake_klogd = 0;
 
 	if (console_suspended) {
+#ifdef CONFIG_ANDROID_CONSOLE_EARLYSUSPEND
+		up(&console_sem);
+#else
 		up(&secondary_console_sem);
+#endif
 		return;
 	}
 
