@@ -851,6 +851,13 @@ menuconfig BUILD_DOCSRC
 
 	  Say N if you are unsure.
 
+config FIND_IRQ_BLOCKERS
+        bool "IRQ Blocker statistics"
+	depends on ARM
+        ---help---
+          Enables tracking of IRQ dead-time because something has
+          disabled interrupts
+
 config DYNAMIC_PRINTK_DEBUG
 	bool "Enable dynamic printk() call support"
 	default n

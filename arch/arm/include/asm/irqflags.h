@@ -5,11 +5,15 @@
 
 #include <asm/ptrace.h>
 
-
+#ifdef CONFIG_FIND_IRQ_BLOCKERS
 void iblock_start(void);
 void iblock_end(void);
 void iblock_end_maybe(unsigned long flags);
-
+#else
+#define iblock_start()
+#define iblock_end()
+#define iblock_end_maybe(x)
+#endif
 
 /*
  * CPU interrupt mask handling.
