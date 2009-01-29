@@ -82,7 +82,7 @@ EXPORT_SYMBOL(printk_emergency_debug_spew_send_string);
  * driver system.
  */
 static DECLARE_MUTEX(console_sem);
-#ifdef CONFIG_ANDROID_CONSOLE_EARLYSUSPEND
+#ifndef CONFIG_ANDROID_CONSOLE_EARLYSUSPEND
 static DECLARE_MUTEX(secondary_console_sem);
 #endif
 struct console *console_drivers;
