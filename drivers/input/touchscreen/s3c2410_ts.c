@@ -96,7 +96,7 @@ MODULE_LICENSE("GPL");
 
 static char *s3c2410ts_name = "s3c2410 TouchScreen";
 
-#define TS_RELEASE_TIMEOUT (HZ >> 4)		/* ~ 60 milliseconds */
+#define TS_RELEASE_TIMEOUT (HZ >> 7 ? HZ >> 7 : 1) /* 8ms (5ms if HZ is 200) */
 #define TS_EVENT_FIFO_SIZE (2 << 6) /* must be a power of 2 */
 
 #define TS_STATE_STANDBY 0 /* initial state */
