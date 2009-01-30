@@ -183,7 +183,7 @@ static void __init smdk6410_map_io(void)
 }
 
 struct s3c_plat_otg_data s3c_hs_otg_plat_data = {
-	.phyclk = REF_CLK_OSCC | 2, /* 12MHz osc */
+	.phyclk = REF_CLK_OSCC
 };
 
 

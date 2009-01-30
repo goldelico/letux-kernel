@@ -38,7 +38,7 @@ static char *state_names[] = {
 	"DATA_STATE_RECV"
 };
 
-#define S3C_USB_DBG_LEVEL 0
+#define S3C_USB_DBG_LEVEL 3
 
 #define DBG(level, fmt, args...) do { \
 	if (level >= S3C_USB_DBG_LEVEL) { \
