@@ -292,10 +292,10 @@
 #define PKT_STS(x)			((x & (0xF<<17)) >> 17)
 #define EP_NUM(x)			(x & 0xF)
 
-#define OUT_PKT_RECEIVED	(0x2<<17)
-#define OUT_COMPLELTED		(0x3<<17)
-#define SETUP_COMPLETED		(0x4<<17)
-#define SETUP_PKT_RECEIVED	(0x6<<17)
+#define OUT_PKT_RECEIVED	(0x2)
+#define OUT_COMPLELTED		(0x3)
+#define SETUP_COMPLETED		(0x4)
+#define SETUP_PKT_RECEIVED	(0x6)
 
 /* S3C_UDC_OTG_DCFG */
 #define EP_MIS_CNT(x)		(x<<18)
