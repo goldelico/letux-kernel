@@ -13,7 +13,7 @@
 static struct resource s3c_usbgadget_resource[] = {
 	[0] = {
 		.start = S3C64XX_PA_OTG,
-		.end   = S3C64XX_PA_OTG + SZ_1M  - 1,
+		.end   = S3C64XX_PA_OTG + 0x200000  - 1,
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {

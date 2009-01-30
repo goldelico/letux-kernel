@@ -51,6 +51,8 @@
 #include <plat/devs.h>
 #include <plat/cpu.h>
 
+#include <plat/regs-usb-hs-otg.h>
+
 #define UCON S3C2410_UCON_DEFAULT | S3C2410_UCON_UCLK
 #define ULCON S3C2410_LCON_CS8 | S3C2410_LCON_PNONE | S3C2410_LCON_STOPB
 #define UFCON S3C2410_UFCON_RXTRIG8 | S3C2410_UFCON_FIFOMODE
@@ -181,7 +183,7 @@ static void __init smdk6410_map_io(void)
 }
 
 struct s3c_plat_otg_data s3c_hs_otg_plat_data = {
-	.phyclk = 2, /* 12MHz osc */
+	.phyclk = REF_CLK_OSCC | 2, /* 12MHz osc */
 };
 
 
