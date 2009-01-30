@@ -420,8 +420,6 @@ static ssize_t power_gps_write(struct device *dev,
 /* This is the nRESET pin */
 static void gps_rst_set(int on)
 {
-	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_2V5];
-
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
 		pcf50606_gpo_set_active(gta01_pcf, PCF50606_GPO1, on);
@@ -437,8 +435,6 @@ static void gps_rst_set(int on)
 
 static int gps_rst_get(void)
 {
-	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_1V5];
-
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
 		return pcf50606_gpo_get_active(gta01_pcf, PCF50606_GPO1);
@@ -628,6 +624,10 @@ static struct attribute_group gta02_gps_attr_group = {
 
 static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 {
+#ifdef CONFIG_MACH_NEO1973_GTA01
+	int entries = ARRAY_SIZE(gta01_gps_sysfs_entries);
+#endif
+
 	if (machine_is_neo1973_gta01()) {
 		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_PWRON, S3C2410_GPIO_OUTPUT);
 
@@ -675,7 +675,6 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 		gps_power_sequence_down();
 
 		switch (system_rev) {
-			int entries = ARRAY_SIZE(gta01_gps_sysfs_entries);
 		case GTA01v3_SYSTEM_REV:
 		case GTA01v4_SYSTEM_REV:
 		case GTA01Bv2_SYSTEM_REV:
