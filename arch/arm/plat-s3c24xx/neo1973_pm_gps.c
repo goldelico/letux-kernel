@@ -391,7 +391,7 @@ static ssize_t power_gps_write(struct device *dev,
 	if (!strcmp(attr->attr.name, "power_on")) {
 		gps_pwron_set(on);
 		neo1973_gps.power_was_on = !!on;
-#if CONFIG_PM
+#ifdef CONFIG_PM
 	} else if (!strcmp(attr->attr.name, "keep_on_in_suspend")) {
 		gps_keep_on_in_suspend_set(on);
 #endif
