@@ -817,7 +817,7 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 		if (!found) {
 			dev_dbg(card->dev, "DAI %s not registered\n",
 				card->dai_link[i].cpu_dai->name);
-			continue;
+			return;
 		}
 
 		if (card->dai_link[i].cpu_dai->ac97_control)
@@ -841,7 +841,7 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 			if (!found) {
 				dev_dbg(card->dev, "DAI %s not registered\n",
 					card->dai_link[i].codec_dai->name);
-				continue;
+				return;
 			}
 		}
 
