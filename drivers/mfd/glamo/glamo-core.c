@@ -812,10 +812,36 @@ int glamo_run_script(struct glamo_core *glamo, struct glamo_script *script,
 		 */
 
 		case 0x200:
-			if (slow_memory)
+			switch (slow_memory) {
+			/* choice 1 is the most conservative */
+			case 1: /* 3 waits on Async BB R & W, Use PLL 1 for mem bus */
 				__reg_write(glamo, script[i].reg, 0xef0);
-			else
+				break;
+			case 2: /* 2 waits on Async BB R & W, Use PLL 1 for mem bus */
+				__reg_write(glamo, script[i].reg, 0xea0);
+				break;
+			case 3: /* 1 waits on Async BB R & W, Use PLL 1 for mem bus */
+				__reg_write(glamo, script[i].reg, 0xe50);
+				break;
+			case 4: /* 0 waits on Async BB R & W, Use PLL 1 for mem bus */
+				__reg_write(glamo, script[i].reg, 0xe00);
+				break;
+
+			/* using PLL2 for memory bus increases CPU bandwidth significantly */
+			case 5: /* 3 waits on Async BB R & W, Use PLL 2 for mem bus */
+				__reg_write(glamo, script[i].reg, 0xef3);
+				break;
+			case 6: /* 2 waits on Async BB R & W, Use PLL 2 for mem bus */
+				__reg_write(glamo, script[i].reg, 0xea3);
+				break;
+			case 7: /* 1 waits on Async BB R & W, Use PLL 2 for mem bus */
+				__reg_write(glamo, script[i].reg, 0xe53);
+				break;
+			/* default of 0 or >7 is fastest */
+			default: /* 0 waits on Async BB R & W, Use PLL 2 for mem bus */
 				__reg_write(glamo, script[i].reg, 0xe03);
+				break;
+			}
 			break;
 
 		default:
