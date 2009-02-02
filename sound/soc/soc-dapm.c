@@ -332,6 +332,14 @@ static int dapm_new_mixer(struct snd_soc_codec *codec,
 
 			snprintf(path->long_name, name_len, "%s %s",
 				 w->name, w->kcontrols[i].name);
+
+			/* this is a ugly openmoko revert for name
+			   changing in alsa configuration file.  This is mergeable
+			   with the future linux version.  Remember to revert XXX
+			   We need it for compatability with previous state files.
+			 */
+			name_len = (name_len > 32) ? 32 : name_len;
+
 			path->long_name[name_len - 1] = '\0';
 
 			path->kcontrol = snd_soc_cnew(&w->kcontrols[i], w,
