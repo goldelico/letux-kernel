@@ -333,12 +333,22 @@ static int dapm_new_mixer(struct snd_soc_codec *codec,
 			snprintf(path->long_name, name_len, "%s %s",
 				 w->name, w->kcontrols[i].name);
 
-			/* this is a ugly openmoko revert for name
-			   changing in alsa configuration file.  This is mergeable
-			   with the future linux version.  Remember to revert XXX
-			   We need it for compatability with previous state files.
+			/*
+			 * This is an ugly Openmoko revert for name
+			 * changes in alsa configuration. This is mergeable
+			 * with the future Linux version.
+			 * We force the truncation again for now because we
+			 * can't cope with mass breakage on alsa state files
+			 * that are spread all over the different distros.
+			 * FIXME: Remember to revert this change.
 			 */
-			name_len = (name_len > 32) ? 32 : name_len;
+
+			if (name_len > 32) {
+				printk(KERN_WARNING __FILE__ ":%d mixer name "
+				"'%s' truncated to 31 characters.\n",
+				__LINE__, path->long_name);
+				name_len = 32;
+			}
 
 			path->long_name[name_len - 1] = '\0';
 
