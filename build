@@ -97,13 +97,13 @@ if make -j$PARALLEL O=$1 ARCH=arm CONFIG_DEBUG_SECTION_MISMATCH=y EXTRAVERSION=$
 
 	if [ ! -z "`grep CONFIG_USB_USBNET=y $1/.config`" ] ; then
 		rm -f $1/uImage-moredrivers-$PRODUCT*.bin $1/modules-$PRODUCT*.tar.gz
-		cp $1/uImage-$PRODUCT.bin $1/uImage-moredrivers$VERSION.bin
+		cp $1/uImage-$PRODUCT.bin $1/uImage-moredrivers$VERSION-$HEAD.bin
 		rm -rf $1/staging
 		mkdir -p $1/staging
 		if [ ! -z "$2" ] ; then
 			make O=$1 ARCH=arm modules_install INSTALL_MOD_PATH=staging
 			cd $1/staging
-			tar czf ../modules$VERSION.tar.gz .
+			tar czf ../modules$VERSION-$HEAD.tar.gz .
 			cd ../..
 		fi
 	fi
