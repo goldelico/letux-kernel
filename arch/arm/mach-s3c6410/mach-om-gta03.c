@@ -707,7 +707,7 @@ struct platform_device gta03_device_spi_lcm = {
 extern void s3c64xx_init_io(struct map_desc *, int);
 
 struct s3c_plat_otg_data s3c_hs_otg_plat_data = {
-	.phyclk = REF_CLK_OSCC
+	.phyclk = 0
 };
 
 
