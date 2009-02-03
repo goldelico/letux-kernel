@@ -249,10 +249,6 @@ static void lis302dl_bitbang_read_sample(struct lis302dl_info *lis)
 
 		input_sync(lis->input_dev);
 	}
-
-	/* Reset the HP filter */
-	__reg_read(lis,	LIS302DL_REG_HP_FILTER_RESET);
-	__reg_read(lis,	LIS302DL_REG_FF_WU_SRC_1);
 }
 
 static irqreturn_t lis302dl_interrupt(int irq, void *_lis)
