@@ -216,13 +216,12 @@ static void lis302dl_bitbang_read_sample(struct lis302dl_info *lis)
 	u8 data = 0xc0 | LIS302DL_REG_STATUS; /* read, autoincrement */
 	u8 read[(LIS302DL_REG_OUT_Z - LIS302DL_REG_STATUS) + 1];
 	unsigned long flags;
-	int mg_per_sample;
+	int mg_per_sample = __threshold_to_mg(lis, 1);
+
+	/* grab the set of register containing status and XYZ data */
 
 	local_irq_save(flags);
-	mg_per_sample = __threshold_to_mg(lis, 1);
-
 	(lis->pdata->lis302dl_bitbang)(lis, &data, 1, &read[0], sizeof(read));
-
 	local_irq_restore(flags);
 
 	/*
@@ -249,6 +248,10 @@ static void lis302dl_bitbang_read_sample(struct lis302dl_info *lis)
 
 		input_sync(lis->input_dev);
 	}
+
+	if (lis->threshold)
+		/* acknowledge the wakeup source */
+		__reg_read(lis,	LIS302DL_REG_FF_WU_SRC_1);
 }
 
 static irqreturn_t lis302dl_interrupt(int irq, void *_lis)
