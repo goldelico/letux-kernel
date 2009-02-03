@@ -91,9 +91,16 @@ struct xfrm_replay_state
 };
 
 struct xfrm_algo {
-	char	alg_name[64];
-	int	alg_key_len;    /* in bits */
-	char	alg_key[0];
+	char		alg_name[64];
+	unsigned int	alg_key_len;    /* in bits */
+	char		alg_key[0];
+};
+
+struct xfrm_algo_aead {
+	char		alg_name[64];
+	unsigned int	alg_key_len;	/* in bits */
+	unsigned int	alg_icv_len;	/* in bits */
+	char		alg_key[0];
 };
 
 struct xfrm_stats {
@@ -106,7 +113,8 @@ enum
 {
 	XFRM_POLICY_TYPE_MAIN	= 0,
 	XFRM_POLICY_TYPE_SUB	= 1,
-	XFRM_POLICY_TYPE_MAX	= 2
+	XFRM_POLICY_TYPE_MAX	= 2,
+	XFRM_POLICY_TYPE_ANY	= 255
 };
 
 enum
@@ -114,6 +122,7 @@ enum
 	XFRM_POLICY_IN	= 0,
 	XFRM_POLICY_OUT	= 1,
 	XFRM_POLICY_FWD	= 2,
+	XFRM_POLICY_MASK = 3,
 	XFRM_POLICY_MAX	= 3
 };
 
@@ -269,6 +278,8 @@ enum xfrm_attr_type_t {
 	XFRMA_LASTUSED,
 	XFRMA_POLICY_TYPE,	/* struct xfrm_userpolicy_type */
 	XFRMA_MIGRATE,
+	XFRMA_ALG_AEAD,		/* struct xfrm_algo_aead */
+	XFRMA_KMADDRESS,        /* struct xfrm_user_kmaddress */
 	__XFRMA_MAX
 
 #define XFRMA_MAX (__XFRMA_MAX - 1)
@@ -328,6 +339,8 @@ struct xfrm_usersa_info {
 #define XFRM_STATE_DECAP_DSCP	2
 #define XFRM_STATE_NOPMTUDISC	4
 #define XFRM_STATE_WILDRECV	8
+#define XFRM_STATE_ICMP		16
+#define XFRM_STATE_AF_UNSPEC	32
 };
 
 struct xfrm_usersa_id {
@@ -362,6 +375,8 @@ struct xfrm_userpolicy_info {
 #define XFRM_POLICY_BLOCK	1
 	__u8				flags;
 #define XFRM_POLICY_LOCALOK	1	/* Allow user to override global policy */
+	/* Automatically expand selector to include matching ICMP payloads. */
+#define XFRM_POLICY_ICMP	2
 	__u8				share;
 };
 
@@ -399,6 +414,15 @@ struct xfrm_usersa_flush {
 struct xfrm_user_report {
 	__u8				proto;
 	struct xfrm_selector		sel;
+};
+
+/* Used by MIGRATE to pass addresses IKE should use to perform
+ * SA negotiation with the peer */
+struct xfrm_user_kmaddress {
+	xfrm_address_t                  local;
+	xfrm_address_t                  remote;
+	__u32				reserved;
+	__u16				family;
 };
 
 struct xfrm_user_migrate {

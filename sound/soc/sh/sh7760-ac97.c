@@ -9,7 +9,6 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
-#include <sound/driver.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -21,12 +20,12 @@
 #define IPSEL 0xFE400034
 
 /* platform specific structs can be declared here */
-extern struct snd_soc_cpu_dai sh4_hac_dai[2];
+extern struct snd_soc_dai sh4_hac_dai[2];
 extern struct snd_soc_platform sh7760_soc_platform;
 
 static int machine_init(struct snd_soc_codec *codec)
 {
-	snd_soc_dapm_sync_endpoints(codec);
+	snd_soc_dapm_sync(codec);
 	return 0;
 }
 

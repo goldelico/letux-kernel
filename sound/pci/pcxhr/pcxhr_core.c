@@ -20,7 +20,6 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
  */
 
-#include <sound/driver.h>
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
@@ -270,7 +269,7 @@ int pcxhr_load_xilinx_binary(struct pcxhr_mgr *mgr, const struct firmware *xilin
 	unsigned int chipsc;
 	unsigned char data;
 	unsigned char mask;
-	unsigned char *image;
+	const unsigned char *image;
 
 	/* test first xilinx */
 	chipsc = PCXHR_INPL(mgr, PCXHR_PLX_CHIPSC);
@@ -317,19 +316,23 @@ static int pcxhr_download_dsp(struct pcxhr_mgr *mgr, const struct firmware *dsp)
 	int err;
 	unsigned int i;
 	unsigned int len;
-	unsigned char *data;
+	const unsigned char *data;
 	unsigned char dummy;
 	/* check the length of boot image */
-	snd_assert(dsp->size > 0, return -EINVAL);
-	snd_assert(dsp->size % 3 == 0, return -EINVAL);
-	snd_assert(dsp->data, return -EINVAL);
+	if (dsp->size <= 0)
+		return -EINVAL;
+	if (dsp->size % 3)
+		return -EINVAL;
+	if (snd_BUG_ON(!dsp->data))
+		return -EINVAL;
 	/* transfert data buffer from PC to DSP */
 	for (i = 0; i < dsp->size; i += 3) {
 		data = dsp->data + i;
 		if (i == 0) {
 			/* test data header consistency */
 			len = (unsigned int)((data[0]<<16) + (data[1]<<8) + data[2]);
-			snd_assert((len==0) || (dsp->size == (len+2)*3), return -EINVAL);
+			if (len && dsp->size != (len + 2) * 3)
+				return -EINVAL;
 		}
 		/* wait DSP ready for new transfer */
 		err = pcxhr_check_reg_bit(mgr, PCXHR_DSP_ISR, PCXHR_ISR_HI08_TRDY,
@@ -390,7 +393,8 @@ int pcxhr_load_boot_binary(struct pcxhr_mgr *mgr, const struct firmware *boot)
 	unsigned char dummy;
 
 	/* send the hostport address to the DSP (only the upper 24 bit !) */
-	snd_assert((physaddr & 0xff) == 0, return -EINVAL);
+	if (snd_BUG_ON(physaddr & 0xff))
+		return -EINVAL;
 	PCXHR_OUTPL(mgr, PCXHR_PLX_MBOX1, (physaddr >> 8));
 
 	err = pcxhr_send_it_dsp(mgr, PCXHR_IT_DOWNLOAD_BOOT, 0);
@@ -474,7 +478,7 @@ static struct pcxhr_cmd_info pcxhr_dsp_cmds[] = {
 [CMD_AUDIO_LEVEL_ADJUST] =		{ 0xc22000, 0, RMH_SSIZE_FIXED },
 };
 
-#ifdef CONFIG_SND_DEBUG_DETECT
+#ifdef CONFIG_SND_DEBUG_VERBOSE
 static char* cmd_names[] = {
 [CMD_VERSION] =				"CMD_VERSION",
 [CMD_SUPPORTED] =			"CMD_SUPPORTED",
@@ -550,7 +554,7 @@ static int pcxhr_read_rmh_status(struct pcxhr_mgr *mgr, struct pcxhr_rmh *rmh)
 				}
 			}
 		}
-#ifdef CONFIG_SND_DEBUG_DETECT
+#ifdef CONFIG_SND_DEBUG_VERBOSE
 		if (rmh->cmd_idx < CMD_LAST_INDEX)
 			snd_printdd("    stat[%d]=%x\n", i, data);
 #endif
@@ -571,7 +575,8 @@ static int pcxhr_send_msg_nolock(struct pcxhr_mgr *mgr, struct pcxhr_rmh *rmh)
 	u32 data;
 	unsigned char reg;
 
-	snd_assert(rmh->cmd_len<PCXHR_SIZE_MAX_CMD, return -EINVAL);
+	if (snd_BUG_ON(rmh->cmd_len >= PCXHR_SIZE_MAX_CMD))
+		return -EINVAL;
 	err = pcxhr_send_it_dsp(mgr, PCXHR_IT_MESSAGE, 1);
 	if (err) {
 		snd_printk(KERN_ERR "pcxhr_send_message : ED_DSP_CRASHED\n");
@@ -598,7 +603,7 @@ static int pcxhr_send_msg_nolock(struct pcxhr_mgr *mgr, struct pcxhr_rmh *rmh)
 		data |= 0x008000;	/* MASK_MORE_THAN_1_WORD_COMMAND */
 	else
 		data &= 0xff7fff;	/* MASK_1_WORD_COMMAND */
-#ifdef CONFIG_SND_DEBUG_DETECT
+#ifdef CONFIG_SND_DEBUG_VERBOSE
 	if (rmh->cmd_idx < CMD_LAST_INDEX)
 		snd_printdd("MSG cmd[0]=%x (%s)\n", data, cmd_names[rmh->cmd_idx]);
 #endif
@@ -625,7 +630,7 @@ static int pcxhr_send_msg_nolock(struct pcxhr_mgr *mgr, struct pcxhr_rmh *rmh)
 		for (i=1; i < rmh->cmd_len; i++) {
 			/* send other words */
 			data = rmh->cmd[i];
-#ifdef CONFIG_SND_DEBUG_DETECT
+#ifdef CONFIG_SND_DEBUG_VERBOSE
 			if (rmh->cmd_idx < CMD_LAST_INDEX)
 				snd_printdd("    cmd[%d]=%x\n", i, data);
 #endif
@@ -678,7 +683,8 @@ static int pcxhr_send_msg_nolock(struct pcxhr_mgr *mgr, struct pcxhr_rmh *rmh)
  */
 void pcxhr_init_rmh(struct pcxhr_rmh *rmh, int cmd)
 {
-	snd_assert(cmd < CMD_LAST_INDEX, return);
+	if (snd_BUG_ON(cmd >= CMD_LAST_INDEX))
+		return;
 	rmh->cmd[0] = pcxhr_dsp_cmds[cmd].opcode;
 	rmh->cmd_len = 1;
 	rmh->stat_len = pcxhr_dsp_cmds[cmd].st_length;
@@ -691,17 +697,17 @@ void pcxhr_set_pipe_cmd_params(struct pcxhr_rmh *rmh, int capture,
 			       unsigned int param1, unsigned int param2,
 			       unsigned int param3)
 {
-	snd_assert(param1 <= MASK_FIRST_FIELD);
+	snd_BUG_ON(param1 > MASK_FIRST_FIELD);
 	if (capture)
 		rmh->cmd[0] |= 0x800;		/* COMMAND_RECORD_MASK */
 	if (param1)
 		rmh->cmd[0] |= (param1 << FIELD_SIZE);
 	if (param2) {
-		snd_assert(param2 <= MASK_FIRST_FIELD);
+		snd_BUG_ON(param2 > MASK_FIRST_FIELD);
 		rmh->cmd[0] |= param2;
 	}
 	if(param3) {
-		snd_assert(param3 <= MASK_DSP_WORD);
+		snd_BUG_ON(param3 > MASK_DSP_WORD);
 		rmh->cmd[1] = param3;
 		rmh->cmd_len = 2;
 	}
@@ -848,7 +854,7 @@ int pcxhr_set_pipe_state(struct pcxhr_mgr *mgr, int playback_mask, int capture_m
 	int state, i, err;
 	int audio_mask;
 
-#ifdef CONFIG_SND_DEBUG_DETECT
+#ifdef CONFIG_SND_DEBUG_VERBOSE
 	struct timeval my_tv1, my_tv2;
 	do_gettimeofday(&my_tv1);
 #endif
@@ -895,10 +901,10 @@ int pcxhr_set_pipe_state(struct pcxhr_mgr *mgr, int playback_mask, int capture_m
 		if (err)
 			return err;
 	}
-#ifdef CONFIG_SND_DEBUG_DETECT
+#ifdef CONFIG_SND_DEBUG_VERBOSE
 	do_gettimeofday(&my_tv2);
 	snd_printdd("***SET PIPE STATE*** TIME = %ld (err = %x)\n",
-		    my_tv2.tv_usec - my_tv1.tv_usec, err);
+		    (long)(my_tv2.tv_usec - my_tv1.tv_usec), err);
 #endif
 	return 0;
 }
@@ -952,7 +958,7 @@ static int pcxhr_handle_async_err(struct pcxhr_mgr *mgr, u32 err,
 				  enum pcxhr_async_err_src err_src, int pipe,
 				  int is_capture)
 {
-#ifdef CONFIG_SND_DEBUG_DETECT
+#ifdef CONFIG_SND_DEBUG_VERBOSE
 	static char* err_src_name[] = {
 		[PCXHR_ERR_PIPE]	= "Pipe",
 		[PCXHR_ERR_STREAM]	= "Stream",
@@ -1006,30 +1012,37 @@ void pcxhr_msg_tasklet(unsigned long arg)
 			int nb_stream = (prmh->stat[i] >> (2*FIELD_SIZE)) & MASK_FIRST_FIELD;
 			int pipe = prmh->stat[i] & MASK_FIRST_FIELD;
 			int is_capture = prmh->stat[i] & 0x400000;
-			u32 err;
+			u32 err2;
 
 			if (prmh->stat[i] & 0x800000) {	/* if BIT_END */
 				snd_printdd("TASKLET : End%sPipe %d\n",
 					    is_capture ? "Record" : "Play", pipe);
 			}
 			i++;
-			err = prmh->stat[i] ? prmh->stat[i] : prmh->stat[i+1];
-			if (err)
-				pcxhr_handle_async_err(mgr, err, PCXHR_ERR_PIPE,
+			err2 = prmh->stat[i] ? prmh->stat[i] : prmh->stat[i+1];
+			if (err2)
+				pcxhr_handle_async_err(mgr, err2,
+						       PCXHR_ERR_PIPE,
 						       pipe, is_capture);
 			i += 2;
 			for (j = 0; j < nb_stream; j++) {
-				err = prmh->stat[i] ? prmh->stat[i] : prmh->stat[i+1];
-				if (err)
-					pcxhr_handle_async_err(mgr, err, PCXHR_ERR_STREAM,
-							       pipe, is_capture);
+				err2 = prmh->stat[i] ?
+					prmh->stat[i] : prmh->stat[i+1];
+				if (err2)
+					pcxhr_handle_async_err(mgr, err2,
+							       PCXHR_ERR_STREAM,
+							       pipe,
+							       is_capture);
 				i += 2;
 			}
 			for (j = 0; j < nb_audio; j++) {
-				err = prmh->stat[i] ? prmh->stat[i] : prmh->stat[i+1];
-				if (err)
-					pcxhr_handle_async_err(mgr, err, PCXHR_ERR_AUDIO,
-							       pipe, is_capture);
+				err2 = prmh->stat[i] ?
+					prmh->stat[i] : prmh->stat[i+1];
+				if (err2)
+					pcxhr_handle_async_err(mgr, err2,
+							       PCXHR_ERR_AUDIO,
+							       pipe,
+							       is_capture);
 				i += 2;
 			}
 		}
@@ -1163,7 +1176,7 @@ irqreturn_t pcxhr_interrupt(int irq, void *dev_id)
 				    mgr->dsp_time_last, dsp_time_new);
 			mgr->dsp_time_err++;
 		}
-#ifdef CONFIG_SND_DEBUG_DETECT
+#ifdef CONFIG_SND_DEBUG_VERBOSE
 		if (dsp_time_diff == 0)
 			snd_printdd("ERROR DSP TIME NO DIFF time(%d)\n", dsp_time_new);
 		else if (dsp_time_diff >= (2*PCXHR_GRANULARITY))
@@ -1202,7 +1215,7 @@ irqreturn_t pcxhr_interrupt(int irq, void *dev_id)
 		mgr->src_it_dsp = reg;
 		tasklet_hi_schedule(&mgr->msg_taskq);
 	}
-#ifdef CONFIG_SND_DEBUG_DETECT
+#ifdef CONFIG_SND_DEBUG_VERBOSE
 	if (reg & PCXHR_FATAL_DSP_ERR)
 		snd_printdd("FATAL DSP ERROR : %x\n", reg);
 #endif

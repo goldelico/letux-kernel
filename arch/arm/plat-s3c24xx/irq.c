@@ -1,6 +1,6 @@
 /* linux/arch/arm/plat-s3c24xx/irq.c
  *
- * Copyright (c) 2003,2004 Simtec Electronics
+ * Copyright (c) 2003,2004 Simtec Electronics 
  *	Ben Dooks <ben@simtec.co.uk>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -16,38 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
- * Changelog:
- *
- *   22-Jul-2004  Ben Dooks <ben@simtec.co.uk>
- *                Fixed compile warnings
- *
- *   22-Jul-2004  Roc Wu <cooloney@yahoo.com.cn>
- *                Fixed s3c_extirq_type
- *
- *   21-Jul-2004  Arnaud Patard (Rtp) <arnaud.patard@rtp-net.org>
- *                Addition of ADC/TC demux
- *
- *   04-Oct-2004  Klaus Fetscher <k.fetscher@fetron.de>
- *		  Fix for set_irq_type() on low EINT numbers
- *
- *   05-Oct-2004  Ben Dooks <ben@simtec.co.uk>
- *		  Tidy up KF's patch and sort out new release
- *
- *   05-Oct-2004  Ben Dooks <ben@simtec.co.uk>
- *		  Add support for power management controls
- *
- *   04-Nov-2004  Ben Dooks
- *		  Fix standard IRQ wake for EINT0..4 and RTC
- *
- *   22-Feb-2005  Ben Dooks
- *		  Fixed edge-triggering on ADC IRQ
- *
- *   28-Jun-2005  Ben Dooks
- *		  Mark IRQ_LCD valid
- *
- *   25-Jul-2005  Ben Dooks
- *		  Split the S3C2440 IRQ code to seperate file
 */
 
 #include <linux/init.h>
@@ -56,78 +24,14 @@
 #include <linux/ioport.h>
 #include <linux/sysdev.h>
 
-#include <asm/hardware.h>
 #include <asm/irq.h>
-#include <asm/io.h>
-
 #include <asm/mach/irq.h>
 
-#include <asm/arch/regs-irq.h>
-#include <asm/arch/regs-gpio.h>
+#include <plat/regs-irqtype.h>
 
-#include <asm/plat-s3c24xx/cpu.h>
-#include <asm/plat-s3c24xx/pm.h>
-#include <asm/plat-s3c24xx/irq.h>
-
-/* wakeup irq control */
-
-#ifdef CONFIG_PM
-
-/* state for IRQs over sleep */
-
-/* default is to allow for EINT0..EINT15, and IRQ_RTC as wakeup sources
- *
- * set bit to 1 in allow bitfield to enable the wakeup settings on it
-*/
-
-unsigned long s3c_irqwake_intallow	= 1L << (IRQ_RTC - IRQ_EINT0) | 0xfL;
-unsigned long s3c_irqwake_intmask	= 0xffffffffL;
-unsigned long s3c_irqwake_eintallow	= 0x0000fff0L;
-unsigned long s3c_irqwake_eintmask	= 0xffffffffL;
-
-int
-s3c_irq_wake(unsigned int irqno, unsigned int state)
-{
-	unsigned long irqbit = 1 << (irqno - IRQ_EINT0);
-
-	if (!(s3c_irqwake_intallow & irqbit))
-		return -ENOENT;
-
-	printk(KERN_INFO "wake %s for irq %d\n",
-	       state ? "enabled" : "disabled", irqno);
-
-	if (!state)
-		s3c_irqwake_intmask |= irqbit;
-	else
-		s3c_irqwake_intmask &= ~irqbit;
-
-	return 0;
-}
-
-static int
-s3c_irqext_wake(unsigned int irqno, unsigned int state)
-{
-	unsigned long bit = 1L << (irqno - EXTINT_OFF);
-
-	if (!(s3c_irqwake_eintallow & bit))
-		return -ENOENT;
-
-	printk(KERN_INFO "wake %s for irq %d\n",
-	       state ? "enabled" : "disabled", irqno);
-
-	if (!state)
-		s3c_irqwake_eintmask |= bit;
-	else
-		s3c_irqwake_eintmask &= ~bit;
-
-	return 0;
-}
-
-#else
-#define s3c_irqext_wake NULL
-#define s3c_irq_wake NULL
-#endif
-
+#include <plat/cpu.h>
+#include <plat/pm.h>
+#include <plat/irq.h>
 
 static void
 s3c_irq_mask(unsigned int irqno)
@@ -215,7 +119,7 @@ struct irq_chip s3c_irq_level_chip = {
 	.set_wake	= s3c_irq_wake
 };
 
-static struct irq_chip s3c_irq_chip = {
+struct irq_chip s3c_irq_chip = {
 	.name		= "s3c",
 	.ack		= s3c_irq_ack,
 	.mask		= s3c_irq_mask,
@@ -320,27 +224,27 @@ s3c_irqext_type(unsigned int irq, unsigned int type)
 	/* Set the external interrupt to pointed trigger type */
 	switch (type)
 	{
-		case IRQT_NOEDGE:
+		case IRQ_TYPE_NONE:
 			printk(KERN_WARNING "No edge setting!\n");
 			break;
 
-		case IRQT_RISING:
+		case IRQ_TYPE_EDGE_RISING:
 			newvalue = S3C2410_EXTINT_RISEEDGE;
 			break;
 
-		case IRQT_FALLING:
+		case IRQ_TYPE_EDGE_FALLING:
 			newvalue = S3C2410_EXTINT_FALLEDGE;
 			break;
 
-		case IRQT_BOTHEDGE:
+		case IRQ_TYPE_EDGE_BOTH:
 			newvalue = S3C2410_EXTINT_BOTHEDGE;
 			break;
 
-		case IRQT_LOW:
+		case IRQ_TYPE_LEVEL_LOW:
 			newvalue = S3C2410_EXTINT_LOWLEV;
 			break;
 
-		case IRQT_HIGH:
+		case IRQ_TYPE_LEVEL_HIGH:
 			newvalue = S3C2410_EXTINT_HILEV;
 			break;
 
@@ -496,7 +400,6 @@ static void s3c_irq_demux_adc(unsigned int irq,
 {
 	unsigned int subsrc, submsk;
 	unsigned int offset = 9;
-	struct irq_desc *mydesc;
 
 	/* read the current pending interrupts, and the mask
 	 * for what it is available */
@@ -510,12 +413,10 @@ static void s3c_irq_demux_adc(unsigned int irq,
 
 	if (subsrc != 0) {
 		if (subsrc & 1) {
-			mydesc = irq_desc + IRQ_TC;
-			desc_handle_irq(IRQ_TC, mydesc);
+			generic_handle_irq(IRQ_TC);
 		}
 		if (subsrc & 2) {
-			mydesc = irq_desc + IRQ_ADC;
-			desc_handle_irq(IRQ_ADC, mydesc);
+			generic_handle_irq(IRQ_ADC);
 		}
 	}
 }
@@ -524,7 +425,6 @@ static void s3c_irq_demux_uart(unsigned int start)
 {
 	unsigned int subsrc, submsk;
 	unsigned int offset = start - IRQ_S3CUART_RX0;
-	struct irq_desc *desc;
 
 	/* read the current pending interrupts, and the mask
 	 * for what it is available */
@@ -540,20 +440,14 @@ static void s3c_irq_demux_uart(unsigned int start)
 	subsrc &= 7;
 
 	if (subsrc != 0) {
-		desc = irq_desc + start;
-
 		if (subsrc & 1)
-			desc_handle_irq(start, desc);
-
-		desc++;
+			generic_handle_irq(start);
 
 		if (subsrc & 2)
-			desc_handle_irq(start+1, desc);
-
-		desc++;
+			generic_handle_irq(start+1);
 
 		if (subsrc & 4)
-			desc_handle_irq(start+2, desc);
+			generic_handle_irq(start+2);
 	}
 }
 
@@ -600,7 +494,7 @@ s3c_irq_demux_extint8(unsigned int irq,
 		eintpnd &= ~(1<<irq);
 
 		irq += (IRQ_EINT4 - 4);
-		desc_handle_irq(irq, irq_desc + irq);
+		generic_handle_irq(irq);
 	}
 
 }
@@ -623,62 +517,9 @@ s3c_irq_demux_extint4t7(unsigned int irq,
 
 		irq += (IRQ_EINT4 - 4);
 
-		desc_handle_irq(irq, irq_desc + irq);
+		generic_handle_irq(irq);
 	}
 }
-
-#ifdef CONFIG_PM
-
-static struct sleep_save irq_save[] = {
-	SAVE_ITEM(S3C2410_INTMSK),
-	SAVE_ITEM(S3C2410_INTSUBMSK),
-};
-
-/* the extint values move between the s3c2410/s3c2440 and the s3c2412
- * so we use an array to hold them, and to calculate the address of
- * the register at run-time
-*/
-
-static unsigned long save_extint[3];
-static unsigned long save_eintflt[4];
-static unsigned long save_eintmask;
-
-int s3c24xx_irq_suspend(struct sys_device *dev, pm_message_t state)
-{
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(save_extint); i++)
-		save_extint[i] = __raw_readl(S3C24XX_EXTINT0 + (i*4));
-
-	for (i = 0; i < ARRAY_SIZE(save_eintflt); i++)
-		save_eintflt[i] = __raw_readl(S3C24XX_EINFLT0 + (i*4));
-
-	s3c2410_pm_do_save(irq_save, ARRAY_SIZE(irq_save));
-	save_eintmask = __raw_readl(S3C24XX_EINTMASK);
-
-	return 0;
-}
-
-int s3c24xx_irq_resume(struct sys_device *dev)
-{
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(save_extint); i++)
-		__raw_writel(save_extint[i], S3C24XX_EXTINT0 + (i*4));
-
-	for (i = 0; i < ARRAY_SIZE(save_eintflt); i++)
-		__raw_writel(save_eintflt[i], S3C24XX_EINFLT0 + (i*4));
-
-	s3c2410_pm_do_restore(irq_save, ARRAY_SIZE(irq_save));
-	__raw_writel(save_eintmask, S3C24XX_EINTMASK);
-
-	return 0;
-}
-
-#else
-#define s3c24xx_irq_suspend NULL
-#define s3c24xx_irq_resume  NULL
-#endif
 
 /* s3c24xx_init_irq
  *
@@ -710,6 +551,18 @@ void __init s3c24xx_init_irq(void)
 
 	last = 0;
 	for (i = 0; i < 4; i++) {
+		pend = __raw_readl(S3C2410_SUBSRCPND);
+
+		if (pend == 0 || pend == last)
+			break;
+
+		printk("irq: clearing subpending status %08x\n", (int)pend);
+		__raw_writel(pend, S3C2410_SUBSRCPND);
+		last = pend;
+	}
+
+	last = 0;
+	for (i = 0; i < 4; i++) {
 		pend = __raw_readl(S3C2410_INTPND);
 
 		if (pend == 0 || pend == last)
@@ -718,18 +571,6 @@ void __init s3c24xx_init_irq(void)
 		__raw_writel(pend, S3C2410_SRCPND);
 		__raw_writel(pend, S3C2410_INTPND);
 		printk("irq: clearing pending status %08x\n", (int)pend);
-		last = pend;
-	}
-
-	last = 0;
-	for (i = 0; i < 4; i++) {
-		pend = __raw_readl(S3C2410_SUBSRCPND);
-
-		if (pend == 0 || pend == last)
-			break;
-
-		printk("irq: clearing subpending status %08x\n", (int)pend);
-		__raw_writel(pend, S3C2410_SUBSRCPND);
 		last = pend;
 	}
 

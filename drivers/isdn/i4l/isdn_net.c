@@ -287,7 +287,7 @@ isdn_net_unbind_channel(isdn_net_local * lp)
 		   BEWARE! This chunk of code cannot be called from hardware
 		   interrupt handler. I hope it is true. --ANK
 		 */
-		qdisc_reset(lp->netdev->dev->qdisc);
+		qdisc_reset_all_tx(lp->netdev->dev);
 	}
 	lp->dialstate = 0;
 	dev->rx_netdev[isdn_dc2minor(lp->isdn_device, lp->isdn_channel)] = NULL;
@@ -2010,6 +2010,7 @@ isdn_net_init(struct net_device *ndev)
 	ndev->flags = IFF_NOARP|IFF_POINTOPOINT;
 	ndev->type = ARPHRD_ETHER;
 	ndev->addr_len = ETH_ALEN;
+	ndev->validate_addr = NULL;
 
 	/* for clients with MPPP maybe higher values better */
 	ndev->tx_queue_len = 30;

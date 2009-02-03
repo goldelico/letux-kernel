@@ -30,6 +30,7 @@
 #include <asm/io.h>
 #include <linux/videodev.h>
 #include <media/v4l2-common.h>
+#include <media/v4l2-ioctl.h>
 #include <linux/mutex.h>
 
 #include <asm/uaccess.h>
@@ -46,6 +47,7 @@ struct pms_device
 	struct video_picture picture;
 	int height;
 	int width;
+	unsigned long in_use;
 	struct mutex lock;
 };
 
@@ -57,11 +59,11 @@ struct i2c_info
 	u8 hits;
 };
 
-static int i2c_count 		= 0;
+static int i2c_count;
 static struct i2c_info i2cinfo[64];
 
 static int decoder 		= PHILIPS2;
-static int standard 		= 0;	/* 0 - auto 1 - ntsc 2 - pal 3 - secam */
+static int standard;	/* 0 - auto 1 - ntsc 2 - pal 3 - secam */
 
 /*
  *	I/O ports and Shared Memory
@@ -880,22 +882,40 @@ static ssize_t pms_read(struct file *file, char __user *buf,
 	return len;
 }
 
+static int pms_exclusive_open(struct inode *inode, struct file *file)
+{
+	struct video_device *v = video_devdata(file);
+	struct pms_device *pd = (struct pms_device *)v;
+
+	return test_and_set_bit(0, &pd->in_use) ? -EBUSY : 0;
+}
+
+static int pms_exclusive_release(struct inode *inode, struct file *file)
+{
+	struct video_device *v = video_devdata(file);
+	struct pms_device *pd = (struct pms_device *)v;
+
+	clear_bit(0, &pd->in_use);
+	return 0;
+}
+
 static const struct file_operations pms_fops = {
 	.owner		= THIS_MODULE,
-	.open           = video_exclusive_open,
-	.release        = video_exclusive_release,
+	.open           = pms_exclusive_open,
+	.release        = pms_exclusive_release,
 	.ioctl          = pms_ioctl,
+#ifdef CONFIG_COMPAT
 	.compat_ioctl	= v4l_compat_ioctl32,
+#endif
 	.read           = pms_read,
 	.llseek         = no_llseek,
 };
 
 static struct video_device pms_template=
 {
-	.owner		= THIS_MODULE,
 	.name		= "Mediavision PMS",
-	.type		= VID_TYPE_CAPTURE,
 	.fops           = &pms_fops,
+	.release 	= video_device_release_empty,
 };
 
 static struct pms_device pms_device;
@@ -1018,9 +1038,22 @@ static int init_mediavision(void)
  *	Initialization and module stuff
  */
 
+#ifndef MODULE
+static int enable;
+module_param(enable, int, 0);
+#endif
+
 static int __init init_pms_cards(void)
 {
 	printk(KERN_INFO "Mediavision Pro Movie Studio driver 0.02\n");
+
+#ifndef MODULE
+	if (!enable) {
+		printk(KERN_INFO "PMS: not enabled, use pms.enable=1 to "
+				 "probe\n");
+		return -ENODEV;
+	}
+#endif
 
 	data_port = io_port +1;
 

@@ -20,7 +20,6 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
  */
 
-#include <sound/driver.h>
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <sound/core.h>
@@ -175,7 +174,8 @@ static int build_afg_tree(struct hda_codec *codec)
 	int i, nodes, err;
 	hda_nid_t nid;
 
-	snd_assert(spec, return -EINVAL);
+	if (snd_BUG_ON(!spec))
+		return -EINVAL;
 
 	spec->def_amp_out_caps = snd_hda_param_read(codec, codec->afg, AC_PAR_AMP_OUT_CAP);
 	spec->def_amp_in_caps = snd_hda_param_read(codec, codec->afg, AC_PAR_AMP_IN_CAP);
@@ -1008,8 +1008,8 @@ static int generic_pcm2_cleanup(struct hda_pcm_stream *hinfo,
 {
 	struct hda_gspec *spec = codec->spec;
 
-	snd_hda_codec_setup_stream(codec, hinfo->nid, 0, 0, 0);
-	snd_hda_codec_setup_stream(codec, spec->dac_node[1]->nid, 0, 0, 0);
+	snd_hda_codec_cleanup_stream(codec, hinfo->nid);
+	snd_hda_codec_cleanup_stream(codec, spec->dac_node[1]->nid);
 	return 0;
 }
 

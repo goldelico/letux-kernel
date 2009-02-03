@@ -203,7 +203,7 @@ static unsigned int rtc_dev_poll(struct file *file, poll_table *wait)
 	return (data != 0) ? (POLLIN | POLLRDNORM) : 0;
 }
 
-static int rtc_dev_ioctl(struct inode *inode, struct file *file,
+static long rtc_dev_ioctl(struct file *file,
 		unsigned int cmd, unsigned long arg)
 {
 	int err = 0;
@@ -213,6 +213,10 @@ static int rtc_dev_ioctl(struct inode *inode, struct file *file,
 	struct rtc_wkalrm alarm;
 	void __user *uarg = (void __user *) arg;
 
+	err = mutex_lock_interruptible(&rtc->ops_lock);
+	if (err)
+		return err;
+
 	/* check that the calling task has appropriate permissions
 	 * for certain ioctls. doing this check here is useful
 	 * to avoid duplicate code in each driver.
@@ -221,44 +225,62 @@ static int rtc_dev_ioctl(struct inode *inode, struct file *file,
 	case RTC_EPOCH_SET:
 	case RTC_SET_TIME:
 		if (!capable(CAP_SYS_TIME))
-			return -EACCES;
+			err = -EACCES;
 		break;
 
 	case RTC_IRQP_SET:
 		if (arg > rtc->max_user_freq && !capable(CAP_SYS_RESOURCE))
-			return -EACCES;
+			err = -EACCES;
 		break;
 
 	case RTC_PIE_ON:
 		if (rtc->irq_freq > rtc->max_user_freq &&
 				!capable(CAP_SYS_RESOURCE))
-			return -EACCES;
+			err = -EACCES;
 		break;
 	}
+
+	if (err)
+		goto done;
 
 	/* try the driver's ioctl interface */
 	if (ops->ioctl) {
 		err = ops->ioctl(rtc->dev.parent, cmd, arg);
-		if (err != -ENOIOCTLCMD)
+		if (err != -ENOIOCTLCMD) {
+			mutex_unlock(&rtc->ops_lock);
 			return err;
+		}
 	}
 
 	/* if the driver does not provide the ioctl interface
 	 * or if that particular ioctl was not implemented
 	 * (-ENOIOCTLCMD), we will try to emulate here.
+	 *
+	 * Drivers *SHOULD NOT* provide ioctl implementations
+	 * for these requests.  Instead, provide methods to
+	 * support the following code, so that the RTC's main
+	 * features are accessible without using ioctls.
+	 *
+	 * RTC and alarm times will be in UTC, by preference,
+	 * but dual-booting with MS-Windows implies RTCs must
+	 * use the local wall clock time.
 	 */
 
 	switch (cmd) {
 	case RTC_ALM_READ:
+		mutex_unlock(&rtc->ops_lock);
+
 		err = rtc_read_alarm(rtc, &alarm);
 		if (err < 0)
 			return err;
 
 		if (copy_to_user(uarg, &alarm.time, sizeof(tm)))
-			return -EFAULT;
-		break;
+			err = -EFAULT;
+		return err;
 
 	case RTC_ALM_SET:
+		mutex_unlock(&rtc->ops_lock);
+
 		if (copy_from_user(&alarm.time, uarg, sizeof(tm)))
 			return -EFAULT;
 
@@ -306,24 +328,26 @@ static int rtc_dev_ioctl(struct inode *inode, struct file *file,
 			}
 		}
 
-		err = rtc_set_alarm(rtc, &alarm);
-		break;
+		return rtc_set_alarm(rtc, &alarm);
 
 	case RTC_RD_TIME:
+		mutex_unlock(&rtc->ops_lock);
+
 		err = rtc_read_time(rtc, &tm);
 		if (err < 0)
 			return err;
 
 		if (copy_to_user(uarg, &tm, sizeof(tm)))
-			return -EFAULT;
-		break;
+			err = -EFAULT;
+		return err;
 
 	case RTC_SET_TIME:
+		mutex_unlock(&rtc->ops_lock);
+
 		if (copy_from_user(&tm, uarg, sizeof(tm)))
 			return -EFAULT;
 
-		err = rtc_set_time(rtc, &tm);
-		break;
+		return rtc_set_time(rtc, &tm);
 
 	case RTC_PIE_ON:
 		err = rtc_irq_set_state(rtc, NULL, 1);
@@ -361,49 +385,41 @@ static int rtc_dev_ioctl(struct inode *inode, struct file *file,
 		break;
 #endif
 	case RTC_WKALM_SET:
+		mutex_unlock(&rtc->ops_lock);
 		if (copy_from_user(&alarm, uarg, sizeof(alarm)))
 			return -EFAULT;
 
-		err = rtc_set_alarm(rtc, &alarm);
-		break;
+		return rtc_set_alarm(rtc, &alarm);
 
 	case RTC_WKALM_RD:
+		mutex_unlock(&rtc->ops_lock);
 		err = rtc_read_alarm(rtc, &alarm);
 		if (err < 0)
 			return err;
 
 		if (copy_to_user(uarg, &alarm, sizeof(alarm)))
-			return -EFAULT;
-		break;
+			err = -EFAULT;
+		return err;
 
 #ifdef CONFIG_RTC_INTF_DEV_UIE_EMUL
 	case RTC_UIE_OFF:
+		mutex_unlock(&rtc->ops_lock);
 		clear_uie(rtc);
 		return 0;
 
 	case RTC_UIE_ON:
-		return set_uie(rtc);
+		mutex_unlock(&rtc->ops_lock);
+		err = set_uie(rtc);
+		return err;
 #endif
 	default:
 		err = -ENOTTY;
 		break;
 	}
 
+done:
+	mutex_unlock(&rtc->ops_lock);
 	return err;
-}
-
-static int rtc_dev_release(struct inode *inode, struct file *file)
-{
-	struct rtc_device *rtc = file->private_data;
-
-#ifdef CONFIG_RTC_INTF_DEV_UIE_EMUL
-	clear_uie(rtc);
-#endif
-	if (rtc->ops->release)
-		rtc->ops->release(rtc->dev.parent);
-
-	clear_bit_unlock(RTC_DEV_BUSY, &rtc->flags);
-	return 0;
 }
 
 static int rtc_dev_fasync(int fd, struct file *file, int on)
@@ -412,12 +428,34 @@ static int rtc_dev_fasync(int fd, struct file *file, int on)
 	return fasync_helper(fd, file, on, &rtc->async_queue);
 }
 
+static int rtc_dev_release(struct inode *inode, struct file *file)
+{
+	struct rtc_device *rtc = file->private_data;
+
+	/* We shut down the repeating IRQs that userspace enabled,
+	 * since nothing is listening to them.
+	 *  - Update (UIE) ... currently only managed through ioctls
+	 *  - Periodic (PIE) ... also used through rtc_*() interface calls
+	 *
+	 * Leave the alarm alone; it may be set to trigger a system wakeup
+	 * later, or be used by kernel code, and is a one-shot event anyway.
+	 */
+	rtc_dev_ioctl(file, RTC_UIE_OFF, 0);
+	rtc_irq_set_state(rtc, NULL, 0);
+
+	if (rtc->ops->release)
+		rtc->ops->release(rtc->dev.parent);
+
+	clear_bit_unlock(RTC_DEV_BUSY, &rtc->flags);
+	return 0;
+}
+
 static const struct file_operations rtc_dev_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,
 	.read		= rtc_dev_read,
 	.poll		= rtc_dev_poll,
-	.ioctl		= rtc_dev_ioctl,
+	.unlocked_ioctl	= rtc_dev_ioctl,
 	.open		= rtc_dev_open,
 	.release	= rtc_dev_release,
 	.fasync		= rtc_dev_fasync,

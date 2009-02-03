@@ -34,18 +34,20 @@
 #include <linux/mutex.h>
 #include <asm/s390_rdev.h>
 #include <asm/reset.h>
+#include <linux/hrtimer.h>
+#include <linux/ktime.h>
 
 #include "ap_bus.h"
 
 /* Some prototypes. */
 static void ap_scan_bus(struct work_struct *);
 static void ap_poll_all(unsigned long);
-static void ap_poll_timeout(unsigned long);
+static enum hrtimer_restart ap_poll_timeout(struct hrtimer *);
 static int ap_poll_thread_start(void);
 static void ap_poll_thread_stop(void);
 static void ap_request_timeout(unsigned long);
 
-/**
+/*
  * Module description.
  */
 MODULE_AUTHOR("IBM Corporation");
@@ -53,7 +55,7 @@ MODULE_DESCRIPTION("Adjunct Processor Bus driver, "
 		   "Copyright 2006 IBM Corporation");
 MODULE_LICENSE("GPL");
 
-/**
+/*
  * Module parameter
  */
 int ap_domain_index = -1;	/* Adjunct Processor Domain Index */
@@ -61,15 +63,15 @@ module_param_named(domain, ap_domain_index, int, 0000);
 MODULE_PARM_DESC(domain, "domain index for ap devices");
 EXPORT_SYMBOL(ap_domain_index);
 
-static int ap_thread_flag = 1;
+static int ap_thread_flag = 0;
 module_param_named(poll_thread, ap_thread_flag, int, 0000);
-MODULE_PARM_DESC(poll_thread, "Turn on/off poll thread, default is 1 (on).");
+MODULE_PARM_DESC(poll_thread, "Turn on/off poll thread, default is 0 (off).");
 
 static struct device *ap_root_device = NULL;
 static DEFINE_SPINLOCK(ap_device_lock);
 static LIST_HEAD(ap_device_list);
 
-/**
+/*
  * Workqueue & timer for bus rescan.
  */
 static struct workqueue_struct *ap_work_queue;
@@ -77,20 +79,23 @@ static struct timer_list ap_config_timer;
 static int ap_config_time = AP_CONFIG_TIME;
 static DECLARE_WORK(ap_config_work, ap_scan_bus);
 
-/**
+/*
  * Tasklet & timer for AP request polling.
  */
-static struct timer_list ap_poll_timer = TIMER_INITIALIZER(ap_poll_timeout,0,0);
 static DECLARE_TASKLET(ap_tasklet, ap_poll_all, 0);
 static atomic_t ap_poll_requests = ATOMIC_INIT(0);
 static DECLARE_WAIT_QUEUE_HEAD(ap_poll_wait);
 static struct task_struct *ap_poll_kthread = NULL;
 static DEFINE_MUTEX(ap_poll_thread_mutex);
+static struct hrtimer ap_poll_timer;
+/* In LPAR poll with 4kHz frequency. Poll every 250000 nanoseconds.
+ * If z/VM change to 1500000 nanoseconds to adjust to z/VM polling.*/
+static unsigned long long poll_timeout = 250000;
 
 /**
- * Test if ap instructions are available.
+ * ap_intructions_available() - Test if AP instructions are available.
  *
- * Returns 0 if the ap instructions are installed.
+ * Returns 0 if the AP instructions are installed.
  */
 static inline int ap_instructions_available(void)
 {
@@ -108,12 +113,12 @@ static inline int ap_instructions_available(void)
 }
 
 /**
- * Test adjunct processor queue.
- * @qid: the ap queue number
- * @queue_depth: pointer to queue depth value
- * @device_type: pointer to device type value
+ * ap_test_queue(): Test adjunct processor queue.
+ * @qid: The AP queue number
+ * @queue_depth: Pointer to queue depth value
+ * @device_type: Pointer to device type value
  *
- * Returns ap queue status structure.
+ * Returns AP queue status structure.
  */
 static inline struct ap_queue_status
 ap_test_queue(ap_qid_t qid, int *queue_depth, int *device_type)
@@ -130,10 +135,10 @@ ap_test_queue(ap_qid_t qid, int *queue_depth, int *device_type)
 }
 
 /**
- * Reset adjunct processor queue.
- * @qid: the ap queue number
+ * ap_reset_queue(): Reset adjunct processor queue.
+ * @qid: The AP queue number
  *
- * Returns ap queue status structure.
+ * Returns AP queue status structure.
  */
 static inline struct ap_queue_status ap_reset_queue(ap_qid_t qid)
 {
@@ -148,16 +153,14 @@ static inline struct ap_queue_status ap_reset_queue(ap_qid_t qid)
 }
 
 /**
- * Send message to adjunct processor queue.
- * @qid: the ap queue number
- * @psmid: the program supplied message identifier
- * @msg: the message text
- * @length: the message length
+ * __ap_send(): Send message to adjunct processor queue.
+ * @qid: The AP queue number
+ * @psmid: The program supplied message identifier
+ * @msg: The message text
+ * @length: The message length
  *
- * Returns ap queue status structure.
- *
+ * Returns AP queue status structure.
  * Condition code 1 on NQAP can't happen because the L bit is 1.
- *
  * Condition code 2 on NQAP also means the send is incomplete,
  * because a segment boundary was reached. The NQAP is repeated.
  */
@@ -198,23 +201,20 @@ int ap_send(ap_qid_t qid, unsigned long long psmid, void *msg, size_t length)
 }
 EXPORT_SYMBOL(ap_send);
 
-/*
- * Receive message from adjunct processor queue.
- * @qid: the ap queue number
- * @psmid: pointer to program supplied message identifier
- * @msg: the message text
- * @length: the message length
+/**
+ * __ap_recv(): Receive message from adjunct processor queue.
+ * @qid: The AP queue number
+ * @psmid: Pointer to program supplied message identifier
+ * @msg: The message text
+ * @length: The message length
  *
- * Returns ap queue status structure.
- *
+ * Returns AP queue status structure.
  * Condition code 1 on DQAP means the receive has taken place
  * but only partially.	The response is incomplete, hence the
  * DQAP is repeated.
- *
  * Condition code 2 on DQAP also means the receive is incomplete,
  * this time because a segment boundary was reached. Again, the
  * DQAP is repeated.
- *
  * Note that gpr2 is used by the DQAP instruction to keep track of
  * any 'residual' length, in case the instruction gets interrupted.
  * Hence it gets zeroed before the instruction.
@@ -263,11 +263,12 @@ int ap_recv(ap_qid_t qid, unsigned long long *psmid, void *msg, size_t length)
 EXPORT_SYMBOL(ap_recv);
 
 /**
- * Check if an AP queue is available. The test is repeated for
- * AP_MAX_RESET times.
- * @qid: the ap queue number
- * @queue_depth: pointer to queue depth value
- * @device_type: pointer to device type value
+ * ap_query_queue(): Check if an AP queue is available.
+ * @qid: The AP queue number
+ * @queue_depth: Pointer to queue depth value
+ * @device_type: Pointer to device type value
+ *
+ * The test is repeated for AP_MAX_RESET times.
  */
 static int ap_query_queue(ap_qid_t qid, int *queue_depth, int *device_type)
 {
@@ -308,8 +309,10 @@ static int ap_query_queue(ap_qid_t qid, int *queue_depth, int *device_type)
 }
 
 /**
+ * ap_init_queue(): Reset an AP queue.
+ * @qid: The AP queue number
+ *
  * Reset an AP queue and wait for it to become available again.
- * @qid: the ap queue number
  */
 static int ap_init_queue(ap_qid_t qid)
 {
@@ -346,7 +349,10 @@ static int ap_init_queue(ap_qid_t qid)
 }
 
 /**
- * Arm request timeout if a AP device was idle and a new request is submitted.
+ * ap_increase_queue_count(): Arm request timeout.
+ * @ap_dev: Pointer to an AP device.
+ *
+ * Arm request timeout if an AP device was idle and a new request is submitted.
  */
 static void ap_increase_queue_count(struct ap_device *ap_dev)
 {
@@ -360,7 +366,10 @@ static void ap_increase_queue_count(struct ap_device *ap_dev)
 }
 
 /**
- * AP device is still alive, re-schedule request timeout if there are still
+ * ap_decrease_queue_count(): Decrease queue count.
+ * @ap_dev: Pointer to an AP device.
+ *
+ * If AP device is still alive, re-schedule request timeout if there are still
  * pending requests.
  */
 static void ap_decrease_queue_count(struct ap_device *ap_dev)
@@ -371,7 +380,7 @@ static void ap_decrease_queue_count(struct ap_device *ap_dev)
 	if (ap_dev->queue_count > 0)
 		mod_timer(&ap_dev->timeout, jiffies + timeout);
 	else
-		/**
+		/*
 		 * The timeout timer should to be disabled now - since
 		 * del_timer_sync() is very expensive, we just tell via the
 		 * reset flag to ignore the pending timeout timer.
@@ -379,7 +388,7 @@ static void ap_decrease_queue_count(struct ap_device *ap_dev)
 		ap_dev->reset = AP_RESET_IGNORE;
 }
 
-/**
+/*
  * AP device related attributes.
  */
 static ssize_t ap_hwtype_show(struct device *dev,
@@ -433,6 +442,10 @@ static struct attribute_group ap_dev_attr_group = {
 };
 
 /**
+ * ap_bus_match()
+ * @dev: Pointer to device
+ * @drv: Pointer to device_driver
+ *
  * AP bus driver registration/unregistration.
  */
 static int ap_bus_match(struct device *dev, struct device_driver *drv)
@@ -441,7 +454,7 @@ static int ap_bus_match(struct device *dev, struct device_driver *drv)
 	struct ap_driver *ap_drv = to_ap_drv(drv);
 	struct ap_device_id *id;
 
-	/**
+	/*
 	 * Compare device type of the device with the list of
 	 * supported types of the device_driver.
 	 */
@@ -455,8 +468,12 @@ static int ap_bus_match(struct device *dev, struct device_driver *drv)
 }
 
 /**
- * uevent function for AP devices. It sets up a single environment
- * variable DEV_TYPE which contains the hardware device type.
+ * ap_uevent(): Uevent function for AP devices.
+ * @dev: Pointer to device
+ * @env: Pointer to kobj_uevent_env
+ *
+ * It sets up a single environment variable DEV_TYPE which contains the
+ * hardware device type.
  */
 static int ap_uevent (struct device *dev, struct kobj_uevent_env *env)
 {
@@ -490,16 +507,20 @@ static int ap_device_probe(struct device *dev)
 	int rc;
 
 	ap_dev->drv = ap_drv;
-	spin_lock_bh(&ap_device_lock);
-	list_add(&ap_dev->list, &ap_device_list);
-	spin_unlock_bh(&ap_device_lock);
 	rc = ap_drv->probe ? ap_drv->probe(ap_dev) : -ENODEV;
+	if (!rc) {
+		spin_lock_bh(&ap_device_lock);
+		list_add(&ap_dev->list, &ap_device_list);
+		spin_unlock_bh(&ap_device_lock);
+	}
 	return rc;
 }
 
 /**
+ * __ap_flush_queue(): Flush requests.
+ * @ap_dev: Pointer to the AP device
+ *
  * Flush all requests from the request/pending queue of an AP device.
- * @ap_dev: pointer to the AP device.
  */
 static void __ap_flush_queue(struct ap_device *ap_dev)
 {
@@ -532,11 +553,11 @@ static int ap_device_remove(struct device *dev)
 
 	ap_flush_queue(ap_dev);
 	del_timer_sync(&ap_dev->timeout);
-	if (ap_drv->remove)
-		ap_drv->remove(ap_dev);
 	spin_lock_bh(&ap_device_lock);
 	list_del_init(&ap_dev->list);
 	spin_unlock_bh(&ap_device_lock);
+	if (ap_drv->remove)
+		ap_drv->remove(ap_dev);
 	spin_lock_bh(&ap_dev->lock);
 	atomic_sub(ap_dev->queue_count, &ap_poll_requests);
 	spin_unlock_bh(&ap_dev->lock);
@@ -563,7 +584,7 @@ void ap_driver_unregister(struct ap_driver *ap_drv)
 }
 EXPORT_SYMBOL(ap_driver_unregister);
 
-/**
+/*
  * AP bus attributes.
  */
 static ssize_t ap_domain_show(struct bus_type *bus, char *buf)
@@ -620,22 +641,52 @@ static ssize_t ap_poll_thread_store(struct bus_type *bus,
 
 static BUS_ATTR(poll_thread, 0644, ap_poll_thread_show, ap_poll_thread_store);
 
+static ssize_t poll_timeout_show(struct bus_type *bus, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%llu\n", poll_timeout);
+}
+
+static ssize_t poll_timeout_store(struct bus_type *bus, const char *buf,
+				  size_t count)
+{
+	unsigned long long time;
+	ktime_t hr_time;
+
+	/* 120 seconds = maximum poll interval */
+	if (sscanf(buf, "%llu\n", &time) != 1 || time < 1 || time > 120000000000)
+		return -EINVAL;
+	poll_timeout = time;
+	hr_time = ktime_set(0, poll_timeout);
+
+	if (!hrtimer_is_queued(&ap_poll_timer) ||
+	    !hrtimer_forward(&ap_poll_timer, hrtimer_get_expires(&ap_poll_timer), hr_time)) {
+		hrtimer_set_expires(&ap_poll_timer, hr_time);
+		hrtimer_start_expires(&ap_poll_timer, HRTIMER_MODE_ABS);
+	}
+	return count;
+}
+
+static BUS_ATTR(poll_timeout, 0644, poll_timeout_show, poll_timeout_store);
+
 static struct bus_attribute *const ap_bus_attrs[] = {
 	&bus_attr_ap_domain,
 	&bus_attr_config_time,
 	&bus_attr_poll_thread,
-	NULL
+	&bus_attr_poll_timeout,
+	NULL,
 };
 
 /**
- * Pick one of the 16 ap domains.
+ * ap_select_domain(): Select an AP domain.
+ *
+ * Pick one of the 16 AP domains.
  */
 static int ap_select_domain(void)
 {
 	int queue_depth, device_type, count, max_count, best_domain;
 	int rc, i, j;
 
-	/**
+	/*
 	 * We want to use a single domain. Either the one specified with
 	 * the "domain=" parameter or the domain with the maximum number
 	 * of devices.
@@ -667,8 +718,10 @@ static int ap_select_domain(void)
 }
 
 /**
- * Find the device type if query queue returned a device type of 0.
+ * ap_probe_device_type(): Find the device type of an AP.
  * @ap_dev: pointer to the AP device.
+ *
+ * Find the device type if query queue returned a device type of 0.
  */
 static int ap_probe_device_type(struct ap_device *ap_dev)
 {
@@ -762,7 +815,11 @@ out:
 }
 
 /**
- * Scan the ap bus for new devices.
+ * __ap_scan_bus(): Scan the AP bus.
+ * @dev: Pointer to device
+ * @data: Pointer to data
+ *
+ * Scan the AP bus for new devices.
  */
 static int __ap_scan_bus(struct device *dev, void *data)
 {
@@ -835,8 +892,8 @@ static void ap_scan_bus(struct work_struct *unused)
 
 		ap_dev->device.bus = &ap_bus_type;
 		ap_dev->device.parent = ap_root_device;
-		snprintf(ap_dev->device.bus_id, BUS_ID_SIZE, "card%02x",
-			 AP_QID_DEVICE(ap_dev->qid));
+		dev_set_name(&ap_dev->device, "card%02x",
+			     AP_QID_DEVICE(ap_dev->qid));
 		ap_dev->device.release = ap_device_release;
 		rc = device_register(&ap_dev->device);
 		if (rc) {
@@ -865,20 +922,24 @@ ap_config_timeout(unsigned long ptr)
 }
 
 /**
+ * ap_schedule_poll_timer(): Schedule poll timer.
+ *
  * Set up the timer to run the poll tasklet
  */
 static inline void ap_schedule_poll_timer(void)
 {
-	if (timer_pending(&ap_poll_timer))
+	if (hrtimer_is_queued(&ap_poll_timer))
 		return;
-	mod_timer(&ap_poll_timer, jiffies + AP_POLL_TIME);
+	hrtimer_start(&ap_poll_timer, ktime_set(0, poll_timeout),
+		      HRTIMER_MODE_ABS);
 }
 
 /**
- * Receive pending reply messages from an AP device.
+ * ap_poll_read(): Receive pending reply messages from an AP device.
  * @ap_dev: pointer to the AP device
  * @flags: pointer to control flags, bit 2^0 is set if another poll is
  *	   required, bit 2^1 is set if the poll timer needs to get armed
+ *
  * Returns 0 if the device is still present, -ENODEV if not.
  */
 static int ap_poll_read(struct ap_device *ap_dev, unsigned long *flags)
@@ -923,10 +984,11 @@ static int ap_poll_read(struct ap_device *ap_dev, unsigned long *flags)
 }
 
 /**
- * Send messages from the request queue to an AP device.
+ * ap_poll_write(): Send messages from the request queue to an AP device.
  * @ap_dev: pointer to the AP device
  * @flags: pointer to control flags, bit 2^0 is set if another poll is
  *	   required, bit 2^1 is set if the poll timer needs to get armed
+ *
  * Returns 0 if the device is still present, -ENODEV if not.
  */
 static int ap_poll_write(struct ap_device *ap_dev, unsigned long *flags)
@@ -966,11 +1028,13 @@ static int ap_poll_write(struct ap_device *ap_dev, unsigned long *flags)
 }
 
 /**
- * Poll AP device for pending replies and send new messages. If either
- * ap_poll_read or ap_poll_write returns -ENODEV unregister the device.
+ * ap_poll_queue(): Poll AP device for pending replies and send new messages.
  * @ap_dev: pointer to the bus device
  * @flags: pointer to control flags, bit 2^0 is set if another poll is
  *	   required, bit 2^1 is set if the poll timer needs to get armed
+ *
+ * Poll AP device for pending replies and send new messages. If either
+ * ap_poll_read or ap_poll_write returns -ENODEV unregister the device.
  * Returns 0.
  */
 static inline int ap_poll_queue(struct ap_device *ap_dev, unsigned long *flags)
@@ -984,9 +1048,11 @@ static inline int ap_poll_queue(struct ap_device *ap_dev, unsigned long *flags)
 }
 
 /**
- * Queue a message to a device.
+ * __ap_queue_message(): Queue a message to a device.
  * @ap_dev: pointer to the AP device
  * @ap_msg: the message to be queued
+ *
+ * Queue a message to a device. Returns 0 if successful.
  */
 static int __ap_queue_message(struct ap_device *ap_dev, struct ap_message *ap_msg)
 {
@@ -1053,12 +1119,14 @@ void ap_queue_message(struct ap_device *ap_dev, struct ap_message *ap_msg)
 EXPORT_SYMBOL(ap_queue_message);
 
 /**
+ * ap_cancel_message(): Cancel a crypto request.
+ * @ap_dev: The AP device that has the message queued
+ * @ap_msg: The message that is to be removed
+ *
  * Cancel a crypto request. This is done by removing the request
- * from the devive pendingq or requestq queue. Note that the
+ * from the device pending or request queue. Note that the
  * request stays on the AP queue. When it finishes the message
  * reply will be discarded because the psmid can't be found.
- * @ap_dev: AP device that has the message queued
- * @ap_msg: the message that is to be removed
  */
 void ap_cancel_message(struct ap_device *ap_dev, struct ap_message *ap_msg)
 {
@@ -1080,14 +1148,21 @@ void ap_cancel_message(struct ap_device *ap_dev, struct ap_message *ap_msg)
 EXPORT_SYMBOL(ap_cancel_message);
 
 /**
- * AP receive polling for finished AP requests
+ * ap_poll_timeout(): AP receive polling for finished AP requests.
+ * @unused: Unused pointer.
+ *
+ * Schedules the AP tasklet using a high resolution timer.
  */
-static void ap_poll_timeout(unsigned long unused)
+static enum hrtimer_restart ap_poll_timeout(struct hrtimer *unused)
 {
 	tasklet_schedule(&ap_tasklet);
+	return HRTIMER_NORESTART;
 }
 
 /**
+ * ap_reset(): Reset a not responding AP device.
+ * @ap_dev: Pointer to the AP device
+ *
  * Reset a not responding AP device and move all requests from the
  * pending queue to the request queue.
  */
@@ -1106,11 +1181,6 @@ static void ap_reset(struct ap_device *ap_dev)
 		ap_dev->unregistered = 1;
 }
 
-/**
- * Poll all AP devices on the bus in a round robin fashion. Continue
- * polling until bit 2^0 of the control flags is not set. If bit 2^1
- * of the control flags has been set arm the poll timer.
- */
 static int __ap_poll_all(struct ap_device *ap_dev, unsigned long *flags)
 {
 	spin_lock(&ap_dev->lock);
@@ -1124,6 +1194,14 @@ static int __ap_poll_all(struct ap_device *ap_dev, unsigned long *flags)
 	return 0;
 }
 
+/**
+ * ap_poll_all(): Poll all AP devices.
+ * @dummy: Unused variable
+ *
+ * Poll all AP devices on the bus in a round robin fashion. Continue
+ * polling until bit 2^0 of the control flags is not set. If bit 2^1
+ * of the control flags has been set arm the poll timer.
+ */
 static void ap_poll_all(unsigned long dummy)
 {
 	unsigned long flags;
@@ -1142,6 +1220,9 @@ static void ap_poll_all(unsigned long dummy)
 }
 
 /**
+ * ap_poll_thread(): Thread that polls for finished requests.
+ * @data: Unused pointer
+ *
  * AP bus poll thread. The purpose of this thread is to poll for
  * finished requests in a loop if there is a "free" cpu - that is
  * a cpu that doesn't have anything better to do. The polling stops
@@ -1211,7 +1292,10 @@ static void ap_poll_thread_stop(void)
 }
 
 /**
- * Handling of request timeouts
+ * ap_request_timeout(): Handling of request timeouts
+ * @data: Holds the AP device.
+ *
+ * Handles request timeouts.
  */
 static void ap_request_timeout(unsigned long data)
 {
@@ -1244,7 +1328,9 @@ static struct reset_call ap_reset_call = {
 };
 
 /**
- * The module initialization code.
+ * ap_module_init(): The module initialization code.
+ *
+ * Initializes the module.
  */
 int __init ap_module_init(void)
 {
@@ -1286,12 +1372,20 @@ int __init ap_module_init(void)
 	if (ap_select_domain() == 0)
 		ap_scan_bus(NULL);
 
-	/* Setup the ap bus rescan timer. */
+	/* Setup the AP bus rescan timer. */
 	init_timer(&ap_config_timer);
 	ap_config_timer.function = ap_config_timeout;
 	ap_config_timer.data = 0;
 	ap_config_timer.expires = jiffies + ap_config_time * HZ;
 	add_timer(&ap_config_timer);
+
+	/* Setup the high resultion poll timer.
+	 * If we are running under z/VM adjust polling to z/VM polling rate.
+	 */
+	if (MACHINE_IS_VM)
+		poll_timeout = 1500000;
+	hrtimer_init(&ap_poll_timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
+	ap_poll_timer.function = ap_poll_timeout;
 
 	/* Start the low priority AP bus poll thread. */
 	if (ap_thread_flag) {
@@ -1304,7 +1398,7 @@ int __init ap_module_init(void)
 
 out_work:
 	del_timer_sync(&ap_config_timer);
-	del_timer_sync(&ap_poll_timer);
+	hrtimer_cancel(&ap_poll_timer);
 	destroy_workqueue(ap_work_queue);
 out_root:
 	s390_root_dev_unregister(ap_root_device);
@@ -1323,7 +1417,9 @@ static int __ap_match_all(struct device *dev, void *data)
 }
 
 /**
- * The module termination code
+ * ap_modules_exit(): The module termination code
+ *
+ * Terminates the module.
  */
 void ap_module_exit(void)
 {
@@ -1333,7 +1429,7 @@ void ap_module_exit(void)
 	ap_reset_domain();
 	ap_poll_thread_stop();
 	del_timer_sync(&ap_config_timer);
-	del_timer_sync(&ap_poll_timer);
+	hrtimer_cancel(&ap_poll_timer);
 	destroy_workqueue(ap_work_queue);
 	tasklet_kill(&ap_tasklet);
 	s390_root_dev_unregister(ap_root_device);

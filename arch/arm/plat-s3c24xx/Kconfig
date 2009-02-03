@@ -6,19 +6,41 @@
 
 config PLAT_S3C24XX
 	bool
-	depends on ARCH_S3C2410
-	default y if ARCH_S3C2410
+	depends on ARCH_S3C2410 || ARCH_S3C24A0
+	default y
 	select NO_IOPORT
+	select ARCH_REQUIRE_GPIOLIB
+	select S3C_GPIO_TRACK
 	help
 	  Base platform code for any Samsung S3C24XX device
 
 if PLAT_S3C24XX
+
+# code that is shared between a number of the s3c24xx implementations
+
+config S3C2410_CLOCK
+	bool
+	help
+	  Clock code for the S3C2410, and similar processors which
+	  is currently includes the S3C2410, S3C2440, S3C2442.
+
+config S3C24XX_DCLK
+	bool
+	help
+	  Clock code for supporting DCLK/CLKOUT on S3C24XX architectures
 
 config CPU_S3C244X
 	bool
 	default y if CPU_S3C2440 || CPU_S3C2442
 	help
 	  Support for S3C2440 and S3C2442 Samsung Mobile CPU based systems.
+
+config S3C24XX_PWM
+	bool "PWM device support"
+	select HAVE_PWM
+	help
+	  Support for exporting the PWM timer blocks via the pwm device
+	  system.
 
 config PM_SIMTEC
 	bool
@@ -41,6 +63,22 @@ config S3C2410_DMA_DEBUG
 	  Enable debugging output for the DMA code. This option sends info
 	  to the kernel log, at priority KERN_DEBUG.
 
+# SPI default pin configuration code
+
+config S3C24XX_SPI_BUS0_GPE11_GPE12_GPE13
+	bool
+	help
+	  SPI GPIO configuration code for BUS0 when connected to
+	  GPE11, GPE12 and GPE13.
+
+config S3C24XX_SPI_BUS1_GPG5_GPG6_GPG7
+	bool
+	help
+	  SPI GPIO configuration code for BUS 1 when connected to
+	  GPG5, GPG6 and GPG7.
+
+# common code for s3c24xx based machines, such as the SMDKs.
+
 config MACH_SMDK
 	bool
 	help
@@ -48,6 +86,7 @@ config MACH_SMDK
 
 config MACH_NEO1973
 	bool
+	select RFKILL
 	help
 	  Common machine code for Neo1973 hardware
 

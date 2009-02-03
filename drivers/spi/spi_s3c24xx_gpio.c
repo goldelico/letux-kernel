@@ -21,9 +21,9 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
 
-#include <asm/arch/regs-gpio.h>
-#include <asm/arch/spi-gpio.h>
-#include <asm/hardware.h>
+#include <mach/regs-gpio.h>
+#include <mach/spi-gpio.h>
+#include <mach/hardware.h>
 
 struct s3c2410_spigpio {
 	struct spi_bitbang		 bitbang;
@@ -187,6 +187,8 @@ static int s3c2410_spigpio_remove(struct platform_device *dev)
 #define s3c2410_spigpio_suspend NULL
 #define s3c2410_spigpio_resume NULL
 
+/* work with hotplug and coldplug */
+MODULE_ALIAS("platform:spi_s3c24xx_gpio");
 
 static struct platform_driver s3c2410_spigpio_drv = {
 	.probe		= s3c2410_spigpio_probe,

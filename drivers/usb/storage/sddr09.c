@@ -1,6 +1,5 @@
 /* Driver for SanDisk SDDR-09 SmartMedia reader
  *
- * $Id: sddr09.c,v 1.24 2002/04/22 03:39:43 mdharm Exp $
  *   (c) 2000, 2001 Robert Baruch (autophile@starband.net)
  *   (c) 2002 Andries Brouwer (aeb@cwi.nl)
  * Developed with the assistance of:
@@ -1623,7 +1622,7 @@ int sddr09_transport(struct scsi_cmnd *srb, struct us_data *us)
 		return USB_STOR_TRANSPORT_ERROR;
 	}
 
-	if (srb->request_bufflen == 0)
+	if (scsi_bufflen(srb) == 0)
 		return USB_STOR_TRANSPORT_GOOD;
 
 	if (srb->sc_data_direction == DMA_TO_DEVICE ||
@@ -1634,12 +1633,9 @@ int sddr09_transport(struct scsi_cmnd *srb, struct us_data *us)
 		US_DEBUGP("SDDR09: %s %d bytes\n",
 			  (srb->sc_data_direction == DMA_TO_DEVICE) ?
 			  "sending" : "receiving",
-			  srb->request_bufflen);
+			  scsi_bufflen(srb));
 
-		result = usb_stor_bulk_transfer_sg(us, pipe,
-					srb->request_buffer,
-					srb->request_bufflen,
-					srb->use_sg, &srb->resid);
+		result = usb_stor_bulk_srb(us, pipe, srb);
 
 		return (result == USB_STOR_XFER_GOOD ?
 			USB_STOR_TRANSPORT_GOOD : USB_STOR_TRANSPORT_ERROR);

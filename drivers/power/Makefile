@@ -20,6 +20,12 @@ obj-$(CONFIG_APM_POWER)		+= apm_power.o
 obj-$(CONFIG_BATTERY_DS2760)	+= ds2760_battery.o
 obj-$(CONFIG_BATTERY_PMU)	+= pmu_battery.o
 obj-$(CONFIG_BATTERY_OLPC)	+= olpc_battery.o
+obj-$(CONFIG_BATTERY_TOSA)	+= tosa_battery.o
+obj-$(CONFIG_BATTERY_WM97XX)	+= wm97xx_battery.o
+obj-$(CONFIG_BATTERY_BQ27x00)	+= bq27x00_battery.o
+obj-$(CONFIG_BATTERY_PALMTX)	+= palmtx_battery.o
 obj-$(CONFIG_BATTERY_BQ27000_HDQ)	+= bq27000_battery.o
 
 obj-$(CONFIG_GTA02_HDQ)		+= gta02_hdq.o
+
+obj-$(CONFIG_CHARGER_PCF50633)	+= pcf50633-charger.o

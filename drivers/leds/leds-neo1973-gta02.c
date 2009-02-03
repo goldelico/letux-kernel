@@ -1,7 +1,7 @@
 /*
- * LED driver for the FIC Neo1973 GTA02 GSM phone
+ * LED driver for the Openmoko GTA02 GSM phone
  *
- * (C) 2006-2007 by Openmoko, Inc.
+ * (C) 2006-2008 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  * All rights reserved.
  *
@@ -15,11 +15,10 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/leds.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
-#include <asm/arch/pwm.h>
-#include <asm/arch/gta02.h>
-#include <asm/plat-s3c/regs-timer.h>
+#include <mach/gta02.h>
+#include <plat/regs-timer.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 
 #define MAX_LEDS 3
@@ -29,9 +28,7 @@ struct gta02_led_priv
 {
 	spinlock_t lock;
 	struct led_classdev cdev;
-	struct s3c2410_pwm pwm;
 	unsigned int gpio;
-	unsigned int has_pwm;
 };
 
 struct gta02_led_bundle
@@ -51,24 +48,13 @@ static inline struct gta02_led_bundle *to_bundle(struct led_classdev *led_cdev)
 }
 
 static void gta02led_set(struct led_classdev *led_cdev,
-		enum led_brightness value)
+			 enum led_brightness value)
 {
 	unsigned long flags;
 	struct gta02_led_priv *lp = to_priv(led_cdev);
 
-	/*
- 	 * value == 255 -> 99% duty cycle (full power)
- 	 * value == 128 -> 50% duty cycle (medium power)
- 	 * value == 0 -> 0% duty cycle (zero power)
- 	 */
 	spin_lock_irqsave(&lp->lock, flags);
-
-	if (lp->has_pwm) {
-		s3c2410_pwm_duty_cycle(value, &lp->pwm);
-	} else {
-		neo1973_gpb_setpin(lp->gpio, value ? 1 : 0);
-	}
-
+	neo1973_gpb_setpin(lp->gpio, value ? 1 : 0);
 	spin_unlock_irqrestore(&lp->lock, flags);
 }
 
@@ -128,42 +114,8 @@ static int __init gta02led_probe(struct platform_device *pdev)
 
 		switch (lp->gpio) {
 		case S3C2410_GPB0:
-			lp->has_pwm = 1;
-			lp->pwm.timerid = PWM0;
-			s3c2410_gpio_cfgpin(lp->gpio, S3C2410_GPB0_TOUT0);
-			break;
-		case S3C2410_GPB1:
-			lp->has_pwm = 1;
-			lp->pwm.timerid = PWM1;
-			s3c2410_gpio_cfgpin(lp->gpio, S3C2410_GPB1_TOUT1);
-			break;
-		case S3C2410_GPB2:
-			lp->has_pwm = 1;
-			lp->pwm.timerid = PWM2;
-			s3c2410_gpio_cfgpin(lp->gpio, S3C2410_GPB2_TOUT2);
-			break;
-		case S3C2410_GPB3:
-			lp->has_pwm = 1;
-			lp->pwm.timerid = PWM3;
-			s3c2410_gpio_cfgpin(lp->gpio, S3C2410_GPB3_TOUT3);
-			break;
-		default:
-			break;
-		}
-
-		lp->pwm.prescaler = 0;
-		lp->pwm.divider = S3C2410_TCFG1_MUX3_DIV8;
-		lp->pwm.counter = COUNTER;
-		lp->pwm.comparer = COUNTER;
-		s3c2410_pwm_enable(&lp->pwm);
-		s3c2410_pwm_start(&lp->pwm);
-
-		switch (lp->gpio) {
-		case S3C2410_GPB0:
 		case S3C2410_GPB1:
 		case S3C2410_GPB2:
-		case S3C2410_GPB3:
-			lp->has_pwm = 0;
 			s3c2410_gpio_cfgpin(lp->gpio, S3C2410_GPIO_OUTPUT);
 			neo1973_gpb_add_shadow_gpio(lp->gpio);
 			break;
@@ -187,11 +139,7 @@ static int gta02led_remove(struct platform_device *pdev)
 
 	for (i = 0; i < bundle->num_leds; i++) {
 		struct gta02_led_priv *lp = &bundle->led[i];
-		if (lp->has_pwm)
-			s3c2410_pwm_disable(&lp->pwm);
-		else
-			gta02led_set(&lp->cdev, 0);
-
+		gta02led_set(&lp->cdev, 0);
 		led_classdev_unregister(&lp->cdev);
 	}
 
@@ -220,12 +168,12 @@ static int __init gta02led_init(void)
 
 static void __exit gta02led_exit(void)
 {
- 	platform_driver_unregister(&gta02led_driver);
+	platform_driver_unregister(&gta02led_driver);
 }
 
 module_init(gta02led_init);
 module_exit(gta02led_exit);
 
 MODULE_AUTHOR("Harald Welte <laforge@openmoko.org>");
-MODULE_DESCRIPTION("FIC Neo1973 GTA02 LED driver");
+MODULE_DESCRIPTION("Openmoko GTA02 LED driver");
 MODULE_LICENSE("GPL");

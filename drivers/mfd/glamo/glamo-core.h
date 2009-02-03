@@ -2,7 +2,6 @@
 #define __GLAMO_CORE_H
 
 #include <asm/system.h>
-#include <linux/resume-dependency.h>
 
 /* for the time being, we put the on-screen framebuffer into the lowest
  * VRAM space.  This should make the code easily compatible with the various
@@ -17,7 +16,6 @@
 #define GLAMO_MMC_BUFFER_SIZE (64 * 1024)
 #define GLAMO_FB_SIZE	(GLAMO_INTERNAL_RAM_SIZE - GLAMO_MMC_BUFFER_SIZE)
 
-
 struct glamo_core {
 	int irq;
 	int irq_works; /* 0 means PCB does not support Glamo IRQ */
@@ -29,10 +27,9 @@ struct glamo_core {
 	u_int16_t type;
 	u_int16_t revision;
 	spinlock_t lock;
-	struct resume_dependency resume_dependency;
 	u32 engine_enabled_bitfield;
 	u32 engine_enabled_bitfield_suspend;
-	int is_suspended;
+	int suspending;
 };
 
 struct glamo_script {
@@ -71,26 +68,14 @@ struct glamo_mci_pdata {
 	unsigned int	gpio_detect;
 	unsigned int	gpio_wprotect;
 	unsigned long	ocr_avail;
-	void		(*glamo_set_mci_power)(unsigned char power_mode,
-				     unsigned short vdd);
+	int		(*glamo_can_set_mci_power)(void);
 	/* glamo-mci asking if it should use the slow clock to card */
 	int		(*glamo_mci_use_slow)(void);
 	int		(*glamo_irq_is_wired)(void);
 	void		(*mci_suspending)(struct platform_device *dev);
-	int		(*mci_all_dependencies_resumed)(struct platform_device
-									  *dev);
+	int		(*mci_all_dependencies_resumed)(struct platform_device *dev);
 
 };
-
-
-static inline void glamo_reg_access_delay(void)
-{
-	int n;
-
-	for (n = 0; n != 2; n++)
-		nop();
-}
-
 
 int glamo_engine_enable(struct glamo_core *glamo, enum glamo_engine engine);
 int glamo_engine_disable(struct glamo_core *glamo, enum glamo_engine engine);

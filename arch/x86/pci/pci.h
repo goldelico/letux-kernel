@@ -19,8 +19,6 @@
 #define PCI_PROBE_MASK		0x000f
 #define PCI_PROBE_NOEARLY	0x0010
 
-#define PCI_NO_SORT		0x0100
-#define PCI_BIOS_SORT		0x0200
 #define PCI_NO_CHECKS		0x0400
 #define PCI_USE_PIRQ_MASK	0x0800
 #define PCI_ASSIGN_ROMS		0x1000
@@ -28,6 +26,9 @@
 #define PCI_ASSIGN_ALL_BUSSES	0x4000
 #define PCI_CAN_SKIP_ISA_ALIGN	0x8000
 #define PCI_USE__CRS		0x10000
+#define PCI_CHECK_ENABLE_AMD_MMCONF	0x20000
+#define PCI_HAS_IO_ECS		0x40000
+#define PCI_NOASSIGN_ROMS	0x80000
 
 extern unsigned int pci_probe;
 extern unsigned long pirq_table_addr;
@@ -44,7 +45,6 @@ enum pci_bf_sort_state {
 extern unsigned int pcibios_max_latency;
 
 void pcibios_resource_survey(void);
-int pcibios_enable_resources(struct pci_dev *, int);
 
 /* pci-pc.c */
 
@@ -85,27 +85,37 @@ extern spinlock_t pci_config_lock;
 extern int (*pcibios_enable_irq)(struct pci_dev *dev);
 extern void (*pcibios_disable_irq)(struct pci_dev *dev);
 
-extern int pci_conf1_write(unsigned int seg, unsigned int bus,
-			   unsigned int devfn, int reg, int len, u32 value);
-extern int pci_conf1_read(unsigned int seg, unsigned int bus,
-			  unsigned int devfn, int reg, int len, u32 *value);
+struct pci_raw_ops {
+	int (*read)(unsigned int domain, unsigned int bus, unsigned int devfn,
+						int reg, int len, u32 *val);
+	int (*write)(unsigned int domain, unsigned int bus, unsigned int devfn,
+						int reg, int len, u32 val);
+};
 
+extern struct pci_raw_ops *raw_pci_ops;
+extern struct pci_raw_ops *raw_pci_ext_ops;
+
+extern struct pci_raw_ops pci_direct_conf1;
+
+/* arch_initcall level */
 extern int pci_direct_probe(void);
 extern void pci_direct_init(int type);
 extern void pci_pcbios_init(void);
-extern void pci_mmcfg_init(int type);
-extern void pcibios_sort(void);
+extern int pci_olpc_init(void);
+extern void __init dmi_check_pciprobe(void);
+extern void __init dmi_check_skip_isa_align(void);
+
+/* some common used subsys_initcalls */
+extern int __init pci_acpi_init(void);
+extern int __init pcibios_irq_init(void);
+extern int __init pci_visws_init(void);
+extern int __init pci_numaq_init(void);
+extern int __init pcibios_init(void);
 
 /* pci-mmconfig.c */
 
-/* Verify the first 16 busses. We assume that systems with more busses
-   get MCFG right. */
-#define PCI_MMCFG_MAX_CHECK_BUS 16
-extern DECLARE_BITMAP(pci_mmcfg_fallback_slots, 32*PCI_MMCFG_MAX_CHECK_BUS);
-
-extern int __init pci_mmcfg_arch_reachable(unsigned int seg, unsigned int bus,
-					   unsigned int devfn);
 extern int __init pci_mmcfg_arch_init(void);
+extern void __init pci_mmcfg_arch_free(void);
 
 /*
  * AMD Fam10h CPUs are buggy, and cannot access MMIO config space

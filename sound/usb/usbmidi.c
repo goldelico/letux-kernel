@@ -35,7 +35,6 @@
  * SUCH DAMAGE.
  */
 
-#include <sound/driver.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/bitops.h>
@@ -105,12 +104,14 @@ struct snd_usb_midi {
 	struct usb_protocol_ops* usb_protocol_ops;
 	struct list_head list;
 	struct timer_list error_timer;
+	spinlock_t disc_lock;
 
 	struct snd_usb_midi_endpoint {
 		struct snd_usb_midi_out_endpoint *out;
 		struct snd_usb_midi_in_endpoint *in;
 	} endpoints[MIDI_MAX_ENDPOINTS];
 	unsigned long input_triggered;
+	unsigned char disconnected;
 };
 
 struct snd_usb_midi_out_endpoint {
@@ -307,6 +308,11 @@ static void snd_usbmidi_error_timer(unsigned long data)
 	struct snd_usb_midi *umidi = (struct snd_usb_midi *)data;
 	int i;
 
+	spin_lock(&umidi->disc_lock);
+	if (umidi->disconnected) {
+		spin_unlock(&umidi->disc_lock);
+		return;
+	}
 	for (i = 0; i < MIDI_MAX_ENDPOINTS; ++i) {
 		struct snd_usb_midi_in_endpoint *in = umidi->endpoints[i].in;
 		if (in && in->error_resubmit) {
@@ -317,6 +323,7 @@ static void snd_usbmidi_error_timer(unsigned long data)
 		if (umidi->endpoints[i].out)
 			snd_usbmidi_do_output(umidi->endpoints[i].out);
 	}
+	spin_unlock(&umidi->disc_lock);
 }
 
 /* helper function to send static data that may not DMA-able */
@@ -660,6 +667,42 @@ static void snd_usbmidi_raw_output(struct snd_usb_midi_out_endpoint* ep)
 static struct usb_protocol_ops snd_usbmidi_raw_ops = {
 	.input = snd_usbmidi_raw_input,
 	.output = snd_usbmidi_raw_output,
+};
+
+static void snd_usbmidi_us122l_input(struct snd_usb_midi_in_endpoint *ep,
+				     uint8_t *buffer, int buffer_length)
+{
+	if (buffer_length != 9)
+		return;
+	buffer_length = 8;
+	while (buffer_length && buffer[buffer_length - 1] == 0xFD)
+		buffer_length--;
+	if (buffer_length)
+		snd_usbmidi_input_data(ep, 0, buffer, buffer_length);
+}
+
+static void snd_usbmidi_us122l_output(struct snd_usb_midi_out_endpoint *ep)
+{
+	int count;
+
+	if (!ep->ports[0].active)
+		return;
+	count = ep->urb->dev->speed == USB_SPEED_HIGH ? 1 : 2;
+	count = snd_rawmidi_transmit(ep->ports[0].substream,
+				     ep->urb->transfer_buffer,
+				     count);
+	if (count < 1) {
+		ep->ports[0].active = 0;
+		return;
+	}
+
+	memset(ep->urb->transfer_buffer + count, 0xFD, 9 - count);
+	ep->urb->transfer_buffer_length = count;
+}
+
+static struct usb_protocol_ops snd_usbmidi_122l_ops = {
+	.input = snd_usbmidi_us122l_input,
+	.output = snd_usbmidi_us122l_output,
 };
 
 /*
@@ -1050,7 +1093,14 @@ void snd_usbmidi_disconnect(struct list_head* p)
 	int i;
 
 	umidi = list_entry(p, struct snd_usb_midi, list);
-	del_timer_sync(&umidi->error_timer);
+	/*
+	 * an URB's completion handler may start the timer and
+	 * a timer may submit an URB. To reliably break the cycle
+	 * a flag under lock must be used
+	 */
+	spin_lock_irq(&umidi->disc_lock);
+	umidi->disconnected = 1;
+	spin_unlock_irq(&umidi->disc_lock);
 	for (i = 0; i < MIDI_MAX_ENDPOINTS; ++i) {
 		struct snd_usb_midi_endpoint* ep = &umidi->endpoints[i];
 		if (ep->out)
@@ -1062,7 +1112,17 @@ void snd_usbmidi_disconnect(struct list_head* p)
 		}
 		if (ep->in)
 			usb_kill_urb(ep->in->urb);
+		/* free endpoints here; later call can result in Oops */
+		if (ep->out) {
+			snd_usbmidi_out_endpoint_delete(ep->out);
+			ep->out = NULL;
+		}
+		if (ep->in) {
+			snd_usbmidi_in_endpoint_delete(ep->in);
+			ep->in = NULL;
+		}
 	}
+	del_timer_sync(&umidi->error_timer);
 }
 
 static void snd_usbmidi_rawmidi_free(struct snd_rawmidi *rmidi)
@@ -1686,6 +1746,7 @@ int snd_usb_create_midi_interface(struct snd_usb_audio* chip,
 	umidi->quirk = quirk;
 	umidi->usb_protocol_ops = &snd_usbmidi_standard_ops;
 	init_timer(&umidi->error_timer);
+	spin_lock_init(&umidi->disc_lock);
 	umidi->error_timer.function = snd_usbmidi_error_timer;
 	umidi->error_timer.data = (unsigned long)umidi;
 
@@ -1698,6 +1759,9 @@ int snd_usb_create_midi_interface(struct snd_usb_audio* chip,
 			umidi->usb_protocol_ops =
 				&snd_usbmidi_maudio_broken_running_status_ops;
 		break;
+	case QUIRK_MIDI_US122L:
+		umidi->usb_protocol_ops = &snd_usbmidi_122l_ops;
+		/* fall through */
 	case QUIRK_MIDI_FIXED_ENDPOINT:
 		memcpy(&endpoints[0], quirk->data,
 		       sizeof(struct snd_usb_midi_endpoint_info));

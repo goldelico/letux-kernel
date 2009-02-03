@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,6 @@
 
 #include <acpi/acpi.h>
 #include <acpi/acresrc.h>
-#include <acpi/amlcode.h>
 #include <acpi/acnamesp.h>
 
 #define _COMPONENT          ACPI_RESOURCES
@@ -81,10 +80,10 @@ static u8 acpi_rs_count_set_bits(u16 bit_field)
 
 		/* Zero the least significant bit that is set */
 
-		bit_field &= (bit_field - 1);
+		bit_field &= (u16) (bit_field - 1);
 	}
 
-	return (bits_set);
+	return bits_set;
 }
 
 /*******************************************************************************
@@ -211,6 +210,24 @@ acpi_rs_get_aml_length(struct acpi_resource * resource, acpi_size * size_needed)
 		 * variable-length fields
 		 */
 		switch (resource->type) {
+		case ACPI_RESOURCE_TYPE_IRQ:
+
+			/* Length can be 3 or 2 */
+
+			if (resource->data.irq.descriptor_length == 2) {
+				total_size--;
+			}
+			break;
+
+		case ACPI_RESOURCE_TYPE_START_DEPENDENT:
+
+			/* Length can be 1 or 0 */
+
+			if (resource->data.irq.descriptor_length == 0) {
+				total_size--;
+			}
+			break;
+
 		case ACPI_RESOURCE_TYPE_VENDOR:
 			/*
 			 * Vendor Defined Resource:
@@ -542,8 +559,8 @@ acpi_rs_get_pci_routing_table_length(union acpi_operand_object *package_object,
 			      ACPI_GET_OBJECT_TYPE(*sub_object_list)) ||
 			     ((ACPI_TYPE_LOCAL_REFERENCE ==
 			       ACPI_GET_OBJECT_TYPE(*sub_object_list)) &&
-			      ((*sub_object_list)->reference.opcode ==
-			       AML_INT_NAMEPATH_OP)))) {
+			      ((*sub_object_list)->reference.class ==
+			       ACPI_REFCLASS_NAME)))) {
 				name_found = TRUE;
 			} else {
 				/* Look at the next element */
@@ -569,6 +586,9 @@ acpi_rs_get_pci_routing_table_length(union acpi_operand_object *package_object,
 			} else {
 				temp_size_needed +=
 				    acpi_ns_get_pathname_length((*sub_object_list)->reference.node);
+				if (!temp_size_needed) {
+					return_ACPI_STATUS(AE_BAD_PARAMETER);
+				}
 			}
 		} else {
 			/*

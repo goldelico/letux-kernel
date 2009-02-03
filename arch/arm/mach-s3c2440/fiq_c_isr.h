@@ -1,12 +1,23 @@
 #ifndef _LINUX_FIQ_C_ISR_H
 #define _LINUX_FIQ_C_ISR_H
 
-#include <asm/arch-s3c2410/regs-irq.h>
+#include <mach/regs-irq.h>
+#include <linux/platform_device.h>
 
 extern unsigned long _fiq_count_fiqs;
 extern u32 _fiq_ack_mask;
 extern int _fiq_timer_index;
 extern u16 _fiq_timer_divisor;
+
+/* platform data */
+
+struct sc32440_fiq_platform_data {
+	/*
+	 * give an opportunity to use us as parent for
+	 * devices that depend on us
+	 */
+	void (*attach_child_devices)(struct device *parent_device);
+};
 
 /* This CANNOT be implemented in a module -- it has to be used in code
  * included in the monolithic kernel
@@ -29,7 +40,6 @@ void __attribute__ ((naked)) s3c2440_fiq_isr(void) \
 	const int _FIQ_FRAME_SIZE = FRAME; \
 	/* entry takes care to store registers we will be treading on here */\
 	asm __volatile__ (\
-		"mov     ip, sp ;"\
 		/* stash FIQ and r0-r8 normal regs */\
 		"stmdb	sp!, {r0-r12, lr};"\
 		/* allow SP to get some space */\

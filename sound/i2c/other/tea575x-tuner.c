@@ -20,7 +20,6 @@
  *
  */      
 
-#include <sound/driver.h>
 #include <asm/io.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -88,8 +87,7 @@ static void snd_tea575x_set_freq(struct snd_tea575x *tea)
 static int snd_tea575x_ioctl(struct inode *inode, struct file *file,
 			     unsigned int cmd, unsigned long data)
 {
-	struct video_device *dev = video_devdata(file);
-	struct snd_tea575x *tea = video_get_drvdata(dev);
+	struct snd_tea575x *tea = video_drvdata(file);
 	void __user *arg = (void __user *)data;
 	
 	switch(cmd) {
@@ -159,6 +157,10 @@ static int snd_tea575x_ioctl(struct inode *inode, struct file *file,
 			struct video_audio v;
 			if(copy_from_user(&v, arg, sizeof(v))) 
 				return -EFAULT;	
+			if (tea->ops->mute)
+				tea->ops->mute(tea,
+					       (v.flags &
+						VIDEO_AUDIO_MUTE) ? 1 : 0);
 			if(v.audio) 
 				return -EINVAL;
 			return 0;
@@ -170,6 +172,21 @@ static int snd_tea575x_ioctl(struct inode *inode, struct file *file,
 
 static void snd_tea575x_release(struct video_device *vfd)
 {
+}
+
+static int snd_tea575x_exclusive_open(struct inode *inode, struct file *file)
+{
+	struct snd_tea575x *tea = video_drvdata(file);
+
+	return test_and_set_bit(0, &tea->in_use) ? -EBUSY : 0;
+}
+
+static int snd_tea575x_exclusive_release(struct inode *inode, struct file *file)
+{
+	struct snd_tea575x *tea = video_drvdata(file);
+
+	clear_bit(0, &tea->in_use);
+	return 0;
 }
 
 /*
@@ -186,15 +203,14 @@ void snd_tea575x_init(struct snd_tea575x *tea)
 	}
 
 	memset(&tea->vd, 0, sizeof(tea->vd));
-	tea->vd.owner = tea->card->module;
 	strcpy(tea->vd.name, tea->tea5759 ? "TEA5759 radio" : "TEA5757 radio");
-	tea->vd.type = VID_TYPE_TUNER;
 	tea->vd.release = snd_tea575x_release;
 	video_set_drvdata(&tea->vd, tea);
 	tea->vd.fops = &tea->fops;
+	tea->in_use = 0;
 	tea->fops.owner = tea->card->module;
-	tea->fops.open = video_exclusive_open;
-	tea->fops.release = video_exclusive_release;
+	tea->fops.open = snd_tea575x_exclusive_open;
+	tea->fops.release = snd_tea575x_exclusive_release;
 	tea->fops.ioctl = snd_tea575x_ioctl;
 	if (video_register_device(&tea->vd, VFL_TYPE_RADIO, tea->dev_nr - 1) < 0) {
 		snd_printk(KERN_ERR "unable to register tea575x tuner\n");
@@ -206,6 +222,10 @@ void snd_tea575x_init(struct snd_tea575x *tea)
 	tea->freq = 90500 * 16;		/* 90.5Mhz default */
 
 	snd_tea575x_set_freq(tea);
+
+	/* mute on init */
+	if (tea->ops->mute)
+		tea->ops->mute(tea, 1);
 }
 
 void snd_tea575x_exit(struct snd_tea575x *tea)

@@ -1,6 +1,6 @@
 /*
  * QLogic Fibre Channel HBA Driver
- * Copyright (c)  2003-2005 QLogic Corporation
+ * Copyright (c)  2003-2008 QLogic Corporation
  *
  * See LICENSE.qla2xxx for copyright and licensing details.
  */
@@ -22,19 +22,7 @@
 /* #define QL_DEBUG_LEVEL_13 */ /* Output fdmi function trace msgs */
 /* #define QL_DEBUG_LEVEL_14 */ /* Output RSCN trace msgs */
 /* #define QL_DEBUG_LEVEL_15 */ /* Output NPIV trace msgs */
-/*
- *  Local Macro Definitions.
- */
-#if defined(QL_DEBUG_LEVEL_1)  || defined(QL_DEBUG_LEVEL_2) || \
-    defined(QL_DEBUG_LEVEL_3)  || defined(QL_DEBUG_LEVEL_4) || \
-    defined(QL_DEBUG_LEVEL_5)  || defined(QL_DEBUG_LEVEL_6) || \
-    defined(QL_DEBUG_LEVEL_7)  || defined(QL_DEBUG_LEVEL_8) || \
-    defined(QL_DEBUG_LEVEL_9)  || defined(QL_DEBUG_LEVEL_10) || \
-    defined(QL_DEBUG_LEVEL_11) || defined(QL_DEBUG_LEVEL_12) || \
-    defined(QL_DEBUG_LEVEL_13) || defined(QL_DEBUG_LEVEL_14) || \
-    defined(QL_DEBUG_LEVEL_15)
-    #define QL_DEBUG_ROUTINES
-#endif
+/* #define QL_DEBUG_LEVEL_16 */ /* Output ISP84XX trace msgs */
 
 /*
 * Macros use for debugging the driver.
@@ -54,6 +42,7 @@
 #define DEBUG2_9_10(x)	do { if (ql2xextended_error_logging) { x; } } while (0)
 #define DEBUG2_11(x)	do { if (ql2xextended_error_logging) { x; } } while (0)
 #define DEBUG2_13(x)	do { if (ql2xextended_error_logging) { x; } } while (0)
+#define DEBUG2_16(x)	do { if (ql2xextended_error_logging) { x; } } while (0)
 
 #if defined(QL_DEBUG_LEVEL_3)
 #define DEBUG3(x)	do {x;} while (0)
@@ -131,6 +120,12 @@
 #define DEBUG15(x)      do {x;} while (0)
 #else
 #define DEBUG15(x)	do {} while (0)
+#endif
+
+#if defined(QL_DEBUG_LEVEL_16)
+#define DEBUG16(x)	do {x;} while (0)
+#else
+#define DEBUG16(x)	do {} while (0)
 #endif
 
 /*
@@ -255,6 +250,25 @@ struct qla25xx_fw_dump {
 #define EFT_NUM_BUFFERS		4
 #define EFT_BYTES_PER_BUFFER	0x4000
 #define EFT_SIZE		((EFT_BYTES_PER_BUFFER) * (EFT_NUM_BUFFERS))
+
+#define FCE_NUM_BUFFERS		64
+#define FCE_BYTES_PER_BUFFER	0x400
+#define FCE_SIZE		((FCE_BYTES_PER_BUFFER) * (FCE_NUM_BUFFERS))
+#define fce_calc_size(b)	((FCE_BYTES_PER_BUFFER) * (b))
+
+struct qla2xxx_fce_chain {
+	uint32_t type;
+	uint32_t chain_size;
+
+	uint32_t size;
+	uint32_t addr_l;
+	uint32_t addr_h;
+	uint32_t eregs[8];
+};
+
+#define DUMP_CHAIN_VARIANT	0x80000000
+#define DUMP_CHAIN_FCE		0x7FFFFAF0
+#define DUMP_CHAIN_LAST		0x80000000
 
 struct qla2xxx_fw_dump {
 	uint8_t signature[4];

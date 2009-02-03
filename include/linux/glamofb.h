@@ -2,7 +2,6 @@
 #define _LINUX_GLAMOFB_H
 
 #include <linux/spi/glamo.h>
-#include <linux/resume-dependency.h>
 
 struct glamofb_val {
 	unsigned int defval;
@@ -28,21 +27,19 @@ struct glamofb_platform_data {
 	struct glamo_spigpio_info *spigpio_info;
 	struct glamo_core *glamo;
 
+	struct platform_device *mmc_dev;
+
 	/* glamo mmc platform specific info */
-	void		(*glamo_set_mci_power)(unsigned char power_mode,
-				     unsigned short vdd);
+	int		(*glamo_can_set_mci_power)(void);
+	
 	/* glamo-mci asking if it should use the slow clock to card */
 	int		(*glamo_mci_use_slow)(void);
 	int		(*glamo_irq_is_wired)(void);
-	void		(*mci_suspending)(struct platform_device *dev);
-	int		(*mci_all_dependencies_resumed)(struct platform_device
-									  *dev);
+	void		(*glamo_external_reset)(int);
 };
 
 int glamofb_cmd_mode(struct glamofb_handle *gfb, int on);
 int glamofb_cmd_write(struct glamofb_handle *gfb, u_int16_t val);
 void glamo_lcm_reset(int level);
-extern void
-glamo_register_resume_dependency(struct resume_dependency * resume_dependency);
 
 #endif

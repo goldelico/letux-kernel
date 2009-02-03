@@ -60,6 +60,8 @@
 #define MLOG_MASK_PREFIX ML_DLMFS
 #include "cluster/masklog.h"
 
+#include "ocfs2_lockingver.h"
+
 static const struct super_operations dlmfs_ops;
 static const struct file_operations dlmfs_file_operations;
 static const struct inode_operations dlmfs_dir_inode_operations;
@@ -68,6 +70,16 @@ static const struct inode_operations dlmfs_file_inode_operations;
 static struct kmem_cache *dlmfs_inode_cache;
 
 struct workqueue_struct *user_dlm_worker;
+
+/*
+ * This is the userdlmfs locking protocol version.
+ *
+ * See fs/ocfs2/dlmglue.c for more details on locking versions.
+ */
+static const struct dlm_protocol_version user_locking_protocol = {
+	.pv_major = OCFS2_LOCKING_PROTOCOL_MAJOR,
+	.pv_minor = OCFS2_LOCKING_PROTOCOL_MINOR,
+};
 
 /*
  * decodes a set of open flags into a valid lock level and a set of flags.
@@ -255,8 +267,7 @@ static ssize_t dlmfs_file_write(struct file *filp,
 	return writelen;
 }
 
-static void dlmfs_init_once(struct kmem_cache *cachep,
-			    void *foo)
+static void dlmfs_init_once(void *foo)
 {
 	struct dlmfs_inode_private *ip =
 		(struct dlmfs_inode_private *) foo;
@@ -315,7 +326,7 @@ clear_fields:
 
 static struct backing_dev_info dlmfs_backing_dev_info = {
 	.ra_pages	= 0,	/* No readahead */
-	.capabilities	= BDI_CAP_NO_ACCT_DIRTY | BDI_CAP_NO_WRITEBACK,
+	.capabilities	= BDI_CAP_NO_ACCT_AND_WRITEBACK,
 };
 
 static struct inode *dlmfs_get_root_inode(struct super_block *sb)
@@ -416,6 +427,7 @@ static int dlmfs_mkdir(struct inode * dir,
 	struct qstr *domain = &dentry->d_name;
 	struct dlmfs_inode_private *ip;
 	struct dlm_ctxt *dlm;
+	struct dlm_protocol_version proto = user_locking_protocol;
 
 	mlog(0, "mkdir %.*s\n", domain->len, domain->name);
 
@@ -435,7 +447,7 @@ static int dlmfs_mkdir(struct inode * dir,
 
 	ip = DLMFS_I(inode);
 
-	dlm = user_dlm_register_context(domain);
+	dlm = user_dlm_register_context(domain, &proto);
 	if (IS_ERR(dlm)) {
 		status = PTR_ERR(dlm);
 		mlog(ML_ERROR, "Error %d could not register domain \"%.*s\"\n",

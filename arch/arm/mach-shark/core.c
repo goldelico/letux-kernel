@@ -9,10 +9,10 @@
 #include <linux/irq.h>
 #include <linux/sched.h>
 #include <linux/serial_8250.h>
+#include <linux/io.h>
 
 #include <asm/setup.h>
 #include <asm/mach-types.h>
-#include <asm/io.h>
 #include <asm/leds.h>
 #include <asm/param.h>
 
@@ -82,9 +82,7 @@ static void __init shark_map_io(void)
 static irqreturn_t
 shark_timer_interrupt(int irq, void *dev_id)
 {
-	write_seqlock(&xtime_lock);
 	timer_tick();
-	write_sequnlock(&xtime_lock);
 	return IRQ_HANDLED;
 }
 

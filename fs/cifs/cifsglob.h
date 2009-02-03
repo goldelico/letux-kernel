@@ -1,7 +1,7 @@
 /*
  *   fs/cifs/cifsglob.h
  *
- *   Copyright (C) International Business Machines  Corp., 2002,2007
+ *   Copyright (C) International Business Machines  Corp., 2002,2008
  *   Author(s): Steve French (sfrench@us.ibm.com)
  *              Jeremy Allison (jra@samba.org)
  *
@@ -27,7 +27,7 @@
 #define MAX_SES_INFO 2
 #define MAX_TCON_INFO 4
 
-#define MAX_TREE_SIZE 2 + MAX_SERVER_SIZE + 1 + MAX_SHARE_SIZE + 1
+#define MAX_TREE_SIZE (2 + MAX_SERVER_SIZE + 1 + MAX_SHARE_SIZE + 1)
 #define MAX_SERVER_SIZE 15
 #define MAX_SHARE_SIZE  64	/* used to be 20, this should still be enough */
 #define MAX_USERNAME_SIZE 32	/* 32 is to allow for 15 char names + null
@@ -57,25 +57,9 @@
 
 #include "cifspdu.h"
 
-#ifndef FALSE
-#define FALSE 0
-#endif
-
-#ifndef TRUE
-#define TRUE 1
-#endif
-
 #ifndef XATTR_DOS_ATTRIB
 #define XATTR_DOS_ATTRIB "user.DOSATTRIB"
 #endif
-
-/*
- * This information is kept on every Server we know about.
- *
- * Some things to note:
- *
- */
-#define SERVER_NAME_LEN_WITH_NULL	(SERVER_NAME_LENGTH + 1)
 
 /*
  * CIFS vfs client Status information (based on what we know.)
@@ -96,7 +80,8 @@ enum securityEnum {
 	NTLMv2,			/* Legacy NTLM auth with NTLMv2 hash */
 	RawNTLMSSP,		/* NTLMSSP without SPNEGO */
 	NTLMSSP,		/* NTLMSSP via SPNEGO */
-	Kerberos		/* Kerberos via SPNEGO */
+	Kerberos,		/* Kerberos via SPNEGO */
+	MSKerberos,		/* MS Kerberos via SPNEGO */
 };
 
 enum protocolEnum {
@@ -155,7 +140,9 @@ struct TCP_Server_Info {
 	enum protocolEnum protocolType;
 	char versionMajor;
 	char versionMinor;
-	unsigned svlocal:1;	/* local server or remote */
+	bool svlocal:1;			/* local server or remote */
+	bool noblocksnd;		/* use blocking sendmsg */
+	bool noautotune;		/* do not autotune send buf sizes */
 	atomic_t socketUseCount; /* number of open cifs sessions on socket */
 	atomic_t inFlight;  /* number of requests on the wire to server */
 #ifdef CONFIG_CIFS_STATS2
@@ -294,11 +281,13 @@ struct cifsTconInfo {
 	FILE_SYSTEM_DEVICE_INFO fsDevInfo;
 	FILE_SYSTEM_ATTRIBUTE_INFO fsAttrInfo; /* ok if fs name truncated */
 	FILE_SYSTEM_UNIX_INFO fsUnixInfo;
-	unsigned ipc:1;		/* set if connection to IPC$ eg for RPC/PIPES */
-	unsigned retry:1;
-	unsigned nocase:1;
-	unsigned unix_ext:1; /* if off disable Linux extensions to CIFS protocol
+	bool ipc:1;		/* set if connection to IPC$ eg for RPC/PIPES */
+	bool retry:1;
+	bool nocase:1;
+	bool seal:1;      /* transport encryption for this mounted share */
+	bool unix_ext:1;  /* if false disable Linux extensions to CIFS protocol
 				for this mount even if server would support */
+	bool local_lease:1; /* check leases (only) on local system not remote */
 	/* BB add field for back pointer to sb struct(s)? */
 };
 
@@ -323,12 +312,13 @@ struct cifs_search_info {
 	__u32 resume_key;
 	char *ntwrk_buf_start;
 	char *srch_entries_start;
+	char *last_entry;
 	char *presume_name;
 	unsigned int resume_name_len;
-	unsigned endOfSearch:1;
-	unsigned emptyDir:1;
-	unsigned unicode:1;
-	unsigned smallBuf:1; /* so we know which buf_release function to call */
+	bool endOfSearch:1;
+	bool emptyDir:1;
+	bool unicode:1;
+	bool smallBuf:1; /* so we know which buf_release function to call */
 };
 
 struct cifsFileInfo {
@@ -343,12 +333,11 @@ struct cifsFileInfo {
 	struct inode *pInode; /* needed for oplock break */
 	struct mutex lock_mutex;
 	struct list_head llist; /* list of byte range locks we have. */
-	unsigned closePend:1;	/* file is marked to close */
-	unsigned invalidHandle:1;  /* file closed via session abend */
-	unsigned messageMode:1;    /* for pipes: message vs byte mode */
+	bool closePend:1;	/* file is marked to close */
+	bool invalidHandle:1;	/* file closed via session abend */
+	bool messageMode:1;	/* for pipes: message vs byte mode */
 	atomic_t wrtPending;   /* handle in use - defer close */
 	struct semaphore fh_sem; /* prevents reopen race after dead ses*/
-	char *search_resume_name; /* BB removeme BB */
 	struct cifs_search_info srch_inf;
 };
 
@@ -364,9 +353,10 @@ struct cifsInodeInfo {
 	__u32 cifsAttrs; /* e.g. DOS archive bit, sparse, compressed, system */
 	atomic_t inUse;	 /* num concurrent users (local openers cifs) of file*/
 	unsigned long time;	/* jiffies of last update/check of inode */
-	unsigned clientCanCacheRead:1; /* read oplock */
-	unsigned clientCanCacheAll:1;  /* read and writebehind oplock */
-	unsigned oplockPending:1;
+	bool clientCanCacheRead:1;	/* read oplock */
+	bool clientCanCacheAll:1;	/* read and writebehind oplock */
+	bool oplockPending:1;
+	bool delete_pending:1;		/* DELETE_ON_CLOSE is set */
 	struct inode vfs_inode;
 };
 
@@ -434,9 +424,9 @@ struct mid_q_entry {
 	struct smb_hdr *resp_buf;	/* response buffer */
 	int midState;	/* wish this were enum but can not pass to wait_event */
 	__u8 command;	/* smb command code */
-	unsigned largeBuf:1;    /* if valid response, is pointer to large buf */
-	unsigned multiRsp:1;   /* multiple trans2 responses for one request  */
-	unsigned multiEnd:1; /* both received */
+	bool largeBuf:1;	/* if valid response, is pointer to large buf */
+	bool multiRsp:1;	/* multiple trans2 responses for one request  */
+	bool multiEnd:1;	/* both received */
 };
 
 struct oplock_q_entry {
@@ -459,6 +449,37 @@ struct dir_notify_req {
        int multishot;
        struct file *pfile;
 };
+
+struct dfs_info3_param {
+	int flags; /* DFSREF_REFERRAL_SERVER, DFSREF_STORAGE_SERVER*/
+	int path_consumed;
+	int server_type;
+	int ref_flag;
+	char *path_name;
+	char *node_name;
+};
+
+static inline void free_dfs_info_param(struct dfs_info3_param *param)
+{
+	if (param) {
+		kfree(param->path_name);
+		kfree(param->node_name);
+		kfree(param);
+	}
+}
+
+static inline void free_dfs_info_array(struct dfs_info3_param *param,
+				       int number_of_items)
+{
+	int i;
+	if ((number_of_items == 0) || (param == NULL))
+		return;
+	for (i = 0; i < number_of_items; i++) {
+		kfree(param[i].path_name);
+		kfree(param[i].node_name);
+	}
+	kfree(param);
+}
 
 #define   MID_FREE 0
 #define   MID_REQUEST_ALLOCATED 1
@@ -522,8 +543,8 @@ require use of the stronger protocol */
 #endif /* WEAK_PW_HASH */
 #define   CIFSSEC_MUST_SEAL	0x40040 /* not supported yet */
 
-#define   CIFSSEC_DEF  CIFSSEC_MAY_SIGN | CIFSSEC_MAY_NTLM | CIFSSEC_MAY_NTLMV2
-#define   CIFSSEC_MAX  CIFSSEC_MUST_SIGN | CIFSSEC_MUST_NTLMV2
+#define   CIFSSEC_DEF (CIFSSEC_MAY_SIGN | CIFSSEC_MAY_NTLM | CIFSSEC_MAY_NTLMV2)
+#define   CIFSSEC_MAX (CIFSSEC_MUST_SIGN | CIFSSEC_MUST_NTLMV2)
 #define   CIFSSEC_AUTH_MASK (CIFSSEC_MAY_NTLM | CIFSSEC_MAY_NTLMV2 | CIFSSEC_MAY_LANMAN | CIFSSEC_MAY_PLNTXT | CIFSSEC_MAY_KRB5)
 /*
  *****************************************************************
@@ -610,7 +631,7 @@ GLOBAL_EXTERN atomic_t tcpSesAllocCount;
 GLOBAL_EXTERN atomic_t tcpSesReconnectCount;
 GLOBAL_EXTERN atomic_t tconInfoReconnectCount;
 
-/* Various Debug counters to remove someday (BB) */
+/* Various Debug counters */
 GLOBAL_EXTERN atomic_t bufAllocCount;    /* current number allocated  */
 #ifdef CONFIG_CIFS_STATS2
 GLOBAL_EXTERN atomic_t totBufAllocCount; /* total allocated over all time */

@@ -6,7 +6,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -137,7 +137,6 @@ acpi_ex_resolve_operands(u16 opcode,
 	union acpi_operand_object *obj_desc;
 	acpi_status status = AE_OK;
 	u8 object_type;
-	void *temp_node;
 	u32 arg_types;
 	const struct acpi_opcode_info *op_info;
 	u32 this_arg_type;
@@ -226,42 +225,36 @@ acpi_ex_resolve_operands(u16 opcode,
 
 			if (object_type == (u8) ACPI_TYPE_LOCAL_REFERENCE) {
 
-				/* Decode the Reference */
+				/* Validate the Reference */
 
-				op_info = acpi_ps_get_opcode_info(opcode);
-				if (op_info->class == AML_CLASS_UNKNOWN) {
-					return_ACPI_STATUS(AE_AML_BAD_OPCODE);
-				}
+				switch (obj_desc->reference.class) {
+				case ACPI_REFCLASS_DEBUG:
 
-				switch (obj_desc->reference.opcode) {
-				case AML_DEBUG_OP:
 					target_op = AML_DEBUG_OP;
 
 					/*lint -fallthrough */
 
-				case AML_NAME_OP:
-				case AML_INDEX_OP:
-				case AML_REF_OF_OP:
-				case AML_ARG_OP:
-				case AML_LOCAL_OP:
-				case AML_LOAD_OP:	/* ddb_handle from LOAD_OP or LOAD_TABLE_OP */
-				case AML_INT_NAMEPATH_OP:	/* Reference to a named object */
+				case ACPI_REFCLASS_ARG:
+				case ACPI_REFCLASS_LOCAL:
+				case ACPI_REFCLASS_INDEX:
+				case ACPI_REFCLASS_REFOF:
+				case ACPI_REFCLASS_TABLE:	/* ddb_handle from LOAD_OP or LOAD_TABLE_OP */
+				case ACPI_REFCLASS_NAME:	/* Reference to a named object */
 
-					ACPI_DEBUG_ONLY_MEMBERS(ACPI_DEBUG_PRINT
-								((ACPI_DB_EXEC,
-								  "Operand is a Reference, RefOpcode [%s]\n",
-								  (acpi_ps_get_opcode_info
-								   (obj_desc->
-								    reference.
-								    opcode))->
-								  name)));
+					ACPI_DEBUG_PRINT((ACPI_DB_EXEC,
+							  "Operand is a Reference, Class [%s] %2.2X\n",
+							  acpi_ut_get_reference_name
+							  (obj_desc),
+							  obj_desc->reference.
+							  class));
 					break;
 
 				default:
+
 					ACPI_ERROR((AE_INFO,
-						    "Operand is a Reference, Unknown Reference Opcode: %X",
-						    obj_desc->reference.
-						    opcode));
+						    "Unknown Reference Class %2.2X in %p",
+						    obj_desc->reference.class,
+						    obj_desc));
 
 					return_ACPI_STATUS(AE_AML_OPERAND_TYPE);
 				}
@@ -272,8 +265,7 @@ acpi_ex_resolve_operands(u16 opcode,
 
 			/* Invalid descriptor */
 
-			ACPI_ERROR((AE_INFO,
-				    "Invalid descriptor %p [%s]",
+			ACPI_ERROR((AE_INFO, "Invalid descriptor %p [%s]",
 				    obj_desc,
 				    acpi_ut_get_descriptor_name(obj_desc)));
 
@@ -332,15 +324,6 @@ acpi_ex_resolve_operands(u16 opcode,
 			if (ACPI_FAILURE(status)) {
 				return_ACPI_STATUS(status);
 			}
-
-			if (obj_desc->reference.opcode == AML_NAME_OP) {
-
-				/* Convert a named reference to the actual named object */
-
-				temp_node = obj_desc->reference.object;
-				acpi_ut_remove_reference(obj_desc);
-				(*stack_ptr) = temp_node;
-			}
 			goto next_operand;
 
 		case ARGI_DATAREFOBJ:	/* Store operator only */
@@ -354,7 +337,7 @@ acpi_ex_resolve_operands(u16 opcode,
 			if ((opcode == AML_STORE_OP) &&
 			    (ACPI_GET_OBJECT_TYPE(*stack_ptr) ==
 			     ACPI_TYPE_LOCAL_REFERENCE)
-			    && ((*stack_ptr)->reference.opcode == AML_INDEX_OP)) {
+			    && ((*stack_ptr)->reference.class == ACPI_REFCLASS_INDEX)) {
 				goto next_operand;
 			}
 			break;
@@ -708,6 +691,10 @@ acpi_ex_resolve_operands(u16 opcode,
 			stack_ptr--;
 		}
 	}
+
+	ACPI_DUMP_OPERANDS(walk_state->operands,
+			   acpi_ps_get_opcode_name(opcode),
+			   walk_state->num_operands);
 
 	return_ACPI_STATUS(status);
 }

@@ -351,8 +351,6 @@ nlmsvc_decode_reboot(struct svc_rqst *rqstp, __be32 *p, struct nlm_reboot *argp)
 	argp->state = ntohl(*p++);
 	/* Preserve the address in network byte order */
 	argp->addr = *p++;
-	argp->vers = *p++;
-	argp->proto = *p++;
 	return xdr_argsize_check(rqstp, p);
 }
 
@@ -612,8 +610,7 @@ const char *nlmdbg_cookie2a(const struct nlm_cookie *cookie)
 	 * called with BKL held.
 	 */
 	static char buf[2*NLM_MAXCOOKIELEN+1];
-	int i;
-	int len = sizeof(buf);
+	unsigned int i, len = sizeof(buf);
 	char *p = buf;
 
 	len--;	/* allow for trailing \0 */

@@ -7,7 +7,6 @@ menuconfig ATA
 	depends on HAS_IOMEM
 	depends on BLOCK
 	depends on !(M32R || M68K) || BROKEN
-	depends on !SUN4 || BROKEN
 	select SCSI
 	---help---
 	  If you want to use a ATA hard disk, ATA tape drive, ATA CD-ROM or
@@ -28,8 +27,9 @@ config ATA_NONSTANDARD
        default n
 
 config ATA_ACPI
-	bool
+	bool "ATA ACPI Support"
 	depends on ACPI && PCI
+	select ACPI_DOCK
 	default y
 	help
 	  This option adds support for ATA-related ACPI objects.
@@ -40,6 +40,13 @@ config ATA_ACPI
 	  You can disable this at kernel boot time by using the
 	  option libata.noacpi=1
 
+config SATA_PMP
+	bool "SATA Port Multiplier support"
+	default y
+	help
+	  This option adds support for SATA Port Multipliers
+	  (the SATA version of an ethernet hub, or SAS expander).
+
 config SATA_AHCI
 	tristate "AHCI SATA support"
 	depends on PCI
@@ -47,6 +54,43 @@ config SATA_AHCI
 	  This option enables support for AHCI Serial ATA.
 
 	  If unsure, say N.
+
+config SATA_SIL24
+	tristate "Silicon Image 3124/3132 SATA support"
+	depends on PCI
+	help
+	  This option enables support for Silicon Image 3124/3132 Serial ATA.
+
+	  If unsure, say N.
+
+config SATA_FSL
+	tristate "Freescale 3.0Gbps SATA support"
+	depends on FSL_SOC
+	help
+	  This option enables support for Freescale 3.0Gbps SATA controller.
+	  It can be found on MPC837x and MPC8315.
+
+	  If unsure, say N.
+
+config ATA_SFF
+	bool "ATA SFF support"
+	default y
+	help
+	  This option adds support for ATA controllers with SFF
+	  compliant or similar programming interface.
+
+	  SFF is the legacy IDE interface that has been around since
+	  the dawn of time.  Almost all PATA controllers have an
+	  SFF interface.  Many SATA controllers have an SFF interface
+	  when configured into a legacy compatibility mode.
+
+	  For users with exclusively modern controllers like AHCI,
+	  Silicon Image 3124, or Marvell 6440, you may choose to
+	  disable this uneeded SFF support.
+
+	  If unsure, say Y.
+
+if ATA_SFF
 
 config SATA_SVW
 	tristate "ServerWorks Frodo / Apple K2 SATA support"
@@ -69,7 +113,7 @@ config ATA_PIIX
 
 config SATA_MV
 	tristate "Marvell SATA support (HIGHLY EXPERIMENTAL)"
-	depends on PCI && EXPERIMENTAL
+	depends on EXPERIMENTAL
 	help
 	  This option enables support for the Marvell Serial ATA family.
 	  Currently supports 88SX[56]0[48][01] chips.
@@ -124,14 +168,6 @@ config SATA_SIL
 
 	  If unsure, say N.
 
-config SATA_SIL24
-	tristate "Silicon Image 3124/3132 SATA support"
-	depends on PCI
-	help
-	  This option enables support for Silicon Image 3124/3132 Serial ATA.
-
-	  If unsure, say N.
-
 config SATA_SIS
 	tristate "SiS 964/965/966/180 SATA support"
 	depends on PCI
@@ -168,8 +204,8 @@ config SATA_VITESSE
 	  If unsure, say N.
 
 config SATA_INIC162X
-	tristate "Initio 162x SATA support (HIGHLY EXPERIMENTAL)"
-	depends on PCI && EXPERIMENTAL
+	tristate "Initio 162x SATA support"
+	depends on PCI
 	help
 	  This option enables support for Initio 162x Serial ATA.
 
@@ -181,15 +217,6 @@ config PATA_ACPI
 	  motherboard PATA controller interfaces through the ACPI
 	  firmware in the BIOS. This driver can sometimes handle
 	  otherwise unsupported hardware.
-
-config SATA_FSL
-	tristate "Freescale 3.0Gbps SATA support"
-	depends on PPC_MPC837x
-	help
-	  This option enables support for Freescale 3.0Gbps SATA controller.
-	  It can be found on MPC837x and MPC8315.
-
-	  If unsure, say N.
 
 config PATA_ALI
 	tristate "ALi PATA support (Experimental)"
@@ -420,8 +447,10 @@ config PATA_MARVELL
 	tristate "Marvell PATA support via legacy mode"
 	depends on PCI
 	help
-	  This option enables limited support for the Marvell 88SE6145 ATA
-	  controller.
+	  This option enables limited support for the Marvell 88SE61xx ATA
+	  controllers. If you wish to use only the SATA ports then select
+	  the AHCI driver alone. If you wish to the use the PATA port or
+	  both SATA and PATA include this driver.
 
 	  If unsure, say N.
 
@@ -456,6 +485,15 @@ config PATA_NETCELL
 	help
 	  This option enables support for the Netcell Revolution RAID
 	  PATA controller.
+
+	  If unsure, say N.
+
+config PATA_NINJA32
+	tristate "Ninja32/Delkin Cardbus ATA support (Experimental)"
+	depends on PCI && EXPERIMENTAL
+	help
+	  This option enables support for the Ninja32, Delkin and
+	  possibly other brands of Cardbus ATA adapter
 
 	  If unsure, say N.
 
@@ -526,6 +564,15 @@ config PATA_RADISYS
 	help
 	  This option enables support for the RADISYS 82600
 	  PATA controllers via the new ATA layer
+
+	  If unsure, say N.
+
+config PATA_RB532
+	tristate "RouterBoard 532 PATA CompactFlash support"
+	depends on MIKROTIK_RB532
+	help
+	  This option enables support for the RouterBoard 532
+	  PATA CompactFlash controller.
 
 	  If unsure, say N.
 
@@ -605,12 +652,30 @@ config PATA_WINBOND_VLB
 	  Support for the Winbond W83759A controller on Vesa Local Bus
 	  systems.
 
+config HAVE_PATA_PLATFORM
+	bool
+	help
+	  This is an internal configuration node for any machine that
+	  uses pata-platform driver to enable the relevant driver in the
+	  configuration structure without having to submit endless patches
+	  to update the PATA_PLATFORM entry.
+
 config PATA_PLATFORM
 	tristate "Generic platform device PATA support"
-	depends on EMBEDDED || ARCH_RPC
+	depends on EMBEDDED || PPC || HAVE_PATA_PLATFORM
 	help
 	  This option enables support for generic directly connected ATA
 	  devices commonly found on embedded systems.
+
+	  If unsure, say N.
+
+config PATA_OF_PLATFORM
+	tristate "OpenFirmware platform device PATA support"
+	depends on PATA_PLATFORM && PPC_OF
+	help
+	  This option enables support for generic directly connected ATA
+	  devices commonly found on embedded systems with OpenFirmware
+	  bindings.
 
 	  If unsure, say N.
 
@@ -641,6 +706,15 @@ config PATA_SCC
 
 	  If unsure, say N.
 
+config PATA_SCH
+	tristate "Intel SCH PATA support"
+	depends on PCI
+	help
+	  This option enables support for Intel SCH PATA on the Intel
+	  SCH (US15W, US15L, UL11L) series host controllers.
+
+	  If unsure, say N.
+
 config PATA_BF54X
 	tristate "Blackfin 54x ATAPI support"
 	depends on BF542 || BF548 || BF549
@@ -650,4 +724,5 @@ config PATA_BF54X
 
 	  If unsure, say N.
 
+endif # ATA_SFF
 endif # ATA

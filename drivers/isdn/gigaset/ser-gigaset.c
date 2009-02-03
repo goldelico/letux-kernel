@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/tty.h>
 #include <linux/poll.h>
+#include <linux/completion.h>
 
 /* Version Information */
 #define DRIVER_AUTHOR "Tilman Schmidt"
@@ -48,7 +49,7 @@ struct ser_cardstate {
 	struct platform_device	dev;
 	struct tty_struct	*tty;
 	atomic_t		refcnt;
-	struct mutex		dead_mutex;
+	struct completion	dead_cmp;
 };
 
 static struct platform_driver device_driver = {
@@ -67,10 +68,10 @@ static int write_modem(struct cardstate *cs)
 	struct tty_struct *tty = cs->hw.ser->tty;
 	struct bc_state *bcs = &cs->bcs[0];	/* only one channel */
 	struct sk_buff *skb = bcs->tx_skb;
-	int sent;
+	int sent = -EOPNOTSUPP;
 
 	if (!tty || !tty->driver || !skb)
-		return -EFAULT;
+		return -EINVAL;
 
 	if (!skb->len) {
 		dev_kfree_skb_any(skb);
@@ -79,7 +80,8 @@ static int write_modem(struct cardstate *cs)
 	}
 
 	set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
-	sent = tty->driver->write(tty, skb->data, skb->len);
+	if (tty->ops->write)
+		sent = tty->ops->write(tty, skb->data, skb->len);
 	gig_dbg(DEBUG_OUTPUT, "write_modem: sent %d", sent);
 	if (sent < 0) {
 		/* error */
@@ -119,7 +121,7 @@ static int send_cb(struct cardstate *cs)
 
 	if (cb->len) {
 		set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
-		sent = tty->driver->write(tty, cb->buf + cb->offset, cb->len);
+		sent = tty->ops->write(tty, cb->buf + cb->offset, cb->len);
 		if (sent < 0) {
 			/* error */
 			gig_dbg(DEBUG_OUTPUT, "send_cb: write error %d", sent);
@@ -240,7 +242,7 @@ static int gigaset_write_cmd(struct cardstate *cs, const unsigned char *buf,
 	struct cmdbuf_t *cb;
 	unsigned long flags;
 
-	gigaset_dbg_buffer(atomic_read(&cs->mstate) != MS_LOCKED ?
+	gigaset_dbg_buffer(cs->mstate != MS_LOCKED ?
 	                     DEBUG_TRANSCMD : DEBUG_LOCKCMD,
 	                   "CMD Transmit", len, buf);
 
@@ -439,14 +441,14 @@ static int gigaset_set_modem_ctrl(struct cardstate *cs, unsigned old_state, unsi
 	struct tty_struct *tty = cs->hw.ser->tty;
 	unsigned int set, clear;
 
-	if (!tty || !tty->driver || !tty->driver->tiocmset)
-		return -EFAULT;
+	if (!tty || !tty->driver || !tty->ops->tiocmset)
+		return -EINVAL;
 	set = new_state & ~old_state;
 	clear = old_state & ~new_state;
 	if (!set && !clear)
 		return 0;
 	gig_dbg(DEBUG_IF, "tiocmset set %x clear %x", set, clear);
-	return tty->driver->tiocmset(tty, NULL, set, clear);
+	return tty->ops->tiocmset(tty, NULL, set, clear);
 }
 
 static int gigaset_baud_rate(struct cardstate *cs, unsigned cflag)
@@ -498,7 +500,7 @@ static struct cardstate *cs_get(struct tty_struct *tty)
 static void cs_put(struct cardstate *cs)
 {
 	if (atomic_dec_and_test(&cs->hw.ser->refcnt))
-		mutex_unlock(&cs->hw.ser->dead_mutex);
+		complete(&cs->hw.ser->dead_cmp);
 }
 
 /*
@@ -527,8 +529,8 @@ gigaset_tty_open(struct tty_struct *tty)
 
 	cs->dev = &cs->hw.ser->dev.dev;
 	cs->hw.ser->tty = tty;
-	mutex_init(&cs->hw.ser->dead_mutex);
 	atomic_set(&cs->hw.ser->refcnt, 1);
+	init_completion(&cs->hw.ser->dead_cmp);
 
 	tty->disc_data = cs;
 
@@ -536,14 +538,13 @@ gigaset_tty_open(struct tty_struct *tty)
 	 * startup system and notify the LL that we are ready to run
 	 */
 	if (startmode == SM_LOCKED)
-		atomic_set(&cs->mstate, MS_LOCKED);
+		cs->mstate = MS_LOCKED;
 	if (!gigaset_start(cs)) {
 		tasklet_kill(&cs->write_tasklet);
 		goto error;
 	}
 
 	gig_dbg(DEBUG_INIT, "Startup of HLL done");
-	mutex_lock(&cs->hw.ser->dead_mutex);
 	return 0;
 
 error:
@@ -570,6 +571,7 @@ gigaset_tty_close(struct tty_struct *tty)
 	}
 
 	/* prevent other callers from entering ldisc methods */
+	/* FIXME: should use the tty state flags */
 	tty->disc_data = NULL;
 
 	if (!cs->hw.ser)
@@ -577,7 +579,7 @@ gigaset_tty_close(struct tty_struct *tty)
 	else {
 		/* wait for running methods to finish */
 		if (!atomic_dec_and_test(&cs->hw.ser->refcnt))
-			mutex_lock(&cs->hw.ser->dead_mutex);
+			wait_for_completion(&cs->hw.ser->dead_cmp);
 	}
 
 	/* stop operations */
@@ -641,10 +643,11 @@ gigaset_tty_ioctl(struct tty_struct *tty, struct file *file,
 		return -ENXIO;
 
 	switch (cmd) {
-	case TCGETS:
-	case TCGETA:
-		/* pass through to underlying serial device */
-		rc = n_tty_ioctl(tty, file, cmd, arg);
+
+	case FIONREAD:
+		/* unused, always return zero */
+		val = 0;
+		rc = put_user(val, p);
 		break;
 
 	case TCFLSH:
@@ -658,20 +661,13 @@ gigaset_tty_ioctl(struct tty_struct *tty, struct file *file,
 			flush_send_queue(cs);
 			break;
 		}
-		/* flush the serial port's buffer */
-		rc = n_tty_ioctl(tty, file, cmd, arg);
-		break;
-
-	case FIONREAD:
-		/* unused, always return zero */
-		val = 0;
-		rc = put_user(val, p);
-		break;
+		/* Pass through */
 
 	default:
-		rc = -ENOIOCTLCMD;
+		/* pass through to underlying serial device */
+		rc = n_tty_ioctl_helper(tty, file, cmd, arg);
+		break;
 	}
-
 	cs_put(cs);
 	return rc;
 }
@@ -679,6 +675,8 @@ gigaset_tty_ioctl(struct tty_struct *tty, struct file *file,
 /*
  * Poll on the tty.
  * Unused, always return zero.
+ *
+ * FIXME: should probably return an exception - especially on hangup
  */
 static unsigned int
 gigaset_tty_poll(struct tty_struct *tty, struct file *file, poll_table *wait)
@@ -714,8 +712,8 @@ gigaset_tty_receive(struct tty_struct *tty, const unsigned char *buf,
 		return;
 	}
 
-	tail = atomic_read(&inbuf->tail);
-	head = atomic_read(&inbuf->head);
+	tail = inbuf->tail;
+	head = inbuf->head;
 	gig_dbg(DEBUG_INTR, "buffer state: %u -> %u, receive %u bytes",
 		head, tail, count);
 
@@ -742,7 +740,7 @@ gigaset_tty_receive(struct tty_struct *tty, const unsigned char *buf,
 	}
 
 	gig_dbg(DEBUG_INTR, "setting tail to %u", tail);
-	atomic_set(&inbuf->tail, tail);
+	inbuf->tail = tail;
 
 	/* Everything was received .. Push data into handler */
 	gig_dbg(DEBUG_INTR, "%s-->BH", __func__);
@@ -765,7 +763,7 @@ gigaset_tty_wakeup(struct tty_struct *tty)
 	cs_put(cs);
 }
 
-static struct tty_ldisc gigaset_ldisc = {
+static struct tty_ldisc_ops gigaset_ldisc = {
 	.owner		= THIS_MODULE,
 	.magic		= TTY_LDISC_MAGIC,
 	.name		= "ser_gigaset",

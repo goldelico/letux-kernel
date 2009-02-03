@@ -84,7 +84,7 @@ static int prism2_get_datarates(struct net_device *dev, u8 *rates)
 	if (len < 2)
 		return 0;
 
-	val = le16_to_cpu(*(u16 *) buf); /* string length */
+	val = le16_to_cpu(*(__le16 *) buf); /* string length */
 
 	if (len - 2 < val || val > 10)
 		return 0;
@@ -496,7 +496,7 @@ static int prism2_ioctl_giwsens(struct net_device *dev,
 {
 	struct hostap_interface *iface;
 	local_info_t *local;
-	u16 val;
+	__le16 val;
 
 	iface = netdev_priv(dev);
 	local = iface->local;
@@ -506,7 +506,7 @@ static int prism2_ioctl_giwsens(struct net_device *dev,
 	    0)
 		return -EINVAL;
 
-	sens->value = __le16_to_cpu(val);
+	sens->value = le16_to_cpu(val);
 	sens->fixed = 1;
 
 	return 0;
@@ -561,17 +561,17 @@ static int prism2_ioctl_siwrts(struct net_device *dev,
 {
 	struct hostap_interface *iface;
 	local_info_t *local;
-	u16 val;
+	__le16 val;
 
 	iface = netdev_priv(dev);
 	local = iface->local;
 
 	if (rts->disabled)
-		val = __constant_cpu_to_le16(2347);
+		val = cpu_to_le16(2347);
 	else if (rts->value < 0 || rts->value > 2347)
 		return -EINVAL;
 	else
-		val = __cpu_to_le16(rts->value);
+		val = cpu_to_le16(rts->value);
 
 	if (local->func->set_rid(dev, HFA384X_RID_RTSTHRESHOLD, &val, 2) ||
 	    local->func->reset_port(dev))
@@ -588,7 +588,7 @@ static int prism2_ioctl_giwrts(struct net_device *dev,
 {
 	struct hostap_interface *iface;
 	local_info_t *local;
-	u16 val;
+	__le16 val;
 
 	iface = netdev_priv(dev);
 	local = iface->local;
@@ -597,7 +597,7 @@ static int prism2_ioctl_giwrts(struct net_device *dev,
 	    0)
 		return -EINVAL;
 
-	rts->value = __le16_to_cpu(val);
+	rts->value = le16_to_cpu(val);
 	rts->disabled = (rts->value == 2347);
 	rts->fixed = 1;
 
@@ -611,17 +611,17 @@ static int prism2_ioctl_siwfrag(struct net_device *dev,
 {
 	struct hostap_interface *iface;
 	local_info_t *local;
-	u16 val;
+	__le16 val;
 
 	iface = netdev_priv(dev);
 	local = iface->local;
 
 	if (rts->disabled)
-		val = __constant_cpu_to_le16(2346);
+		val = cpu_to_le16(2346);
 	else if (rts->value < 256 || rts->value > 2346)
 		return -EINVAL;
 	else
-		val = __cpu_to_le16(rts->value & ~0x1); /* even numbers only */
+		val = cpu_to_le16(rts->value & ~0x1); /* even numbers only */
 
 	local->fragm_threshold = rts->value & ~0x1;
 	if (local->func->set_rid(dev, HFA384X_RID_FRAGMENTATIONTHRESHOLD, &val,
@@ -638,7 +638,7 @@ static int prism2_ioctl_giwfrag(struct net_device *dev,
 {
 	struct hostap_interface *iface;
 	local_info_t *local;
-	u16 val;
+	__le16 val;
 
 	iface = netdev_priv(dev);
 	local = iface->local;
@@ -647,7 +647,7 @@ static int prism2_ioctl_giwfrag(struct net_device *dev,
 				 &val, 2, 1) < 0)
 		return -EINVAL;
 
-	rts->value = __le16_to_cpu(val);
+	rts->value = le16_to_cpu(val);
 	rts->disabled = (rts->value == 2346);
 	rts->fixed = 1;
 
@@ -718,8 +718,8 @@ static int prism2_ioctl_siwap(struct net_device *dev,
 	if (local->host_roaming == 1 && local->iw_mode == IW_MODE_INFRA) {
 		struct hfa384x_scan_request scan_req;
 		memset(&scan_req, 0, sizeof(scan_req));
-		scan_req.channel_list = __constant_cpu_to_le16(0x3fff);
-		scan_req.txrate = __constant_cpu_to_le16(HFA384X_RATES_1MBPS);
+		scan_req.channel_list = cpu_to_le16(0x3fff);
+		scan_req.txrate = cpu_to_le16(HFA384X_RATES_1MBPS);
 		if (local->func->set_rid(dev, HFA384X_RID_SCANREQUEST,
 					 &scan_req, sizeof(scan_req))) {
 			printk(KERN_DEBUG "%s: ScanResults request failed - "
@@ -812,7 +812,7 @@ static int prism2_ioctl_giwnickn(struct net_device *dev,
 
 	len = local->func->get_rid(dev, HFA384X_RID_CNFOWNNAME,
 				   &name, MAX_NAME_LEN + 2, 0);
-	val = __le16_to_cpu(*(u16 *) name);
+	val = le16_to_cpu(*(__le16 *) name);
 	if (len > MAX_NAME_LEN + 2 || len < 0 || val > MAX_NAME_LEN)
 		return -EOPNOTSUPP;
 
@@ -897,6 +897,8 @@ static void hostap_monitor_set_type(local_info_t *local)
 	if (local->monitor_type == PRISM2_MONITOR_PRISM ||
 	    local->monitor_type == PRISM2_MONITOR_CAPHDR) {
 		dev->type = ARPHRD_IEEE80211_PRISM;
+	} else if (local->monitor_type == PRISM2_MONITOR_RADIOTAP) {
+		dev->type = ARPHRD_IEEE80211_RADIOTAP;
 	} else {
 		dev->type = ARPHRD_IEEE80211;
 	}
@@ -963,7 +965,7 @@ static int prism2_ioctl_giwessid(struct net_device *dev,
 		memset(ssid, 0, sizeof(ssid));
 		len = local->func->get_rid(dev, HFA384X_RID_CURRENTSSID,
 					   &ssid, MAX_SSID_LEN + 2, 0);
-		val = __le16_to_cpu(*(u16 *) ssid);
+		val = le16_to_cpu(*(__le16 *) ssid);
 		if (len > MAX_SSID_LEN + 2 || len < 0 || val > MAX_SSID_LEN) {
 			return -EOPNOTSUPP;
 		}
@@ -1088,6 +1090,9 @@ static int prism2_ioctl_giwrange(struct net_device *dev,
 
 	range->enc_capa = IW_ENC_CAPA_WPA | IW_ENC_CAPA_WPA2 |
 		IW_ENC_CAPA_CIPHER_TKIP | IW_ENC_CAPA_CIPHER_CCMP;
+
+	if (local->sta_fw_ver >= PRISM2_FW_VER(1,3,1))
+		range->scan_capa = IW_SCAN_CAPA_ESSID;
 
 	return 0;
 }
@@ -1316,7 +1321,7 @@ static int prism2_ioctl_giwpower(struct net_device *dev,
 #else /* PRISM2_NO_STATION_MODES */
 	struct hostap_interface *iface;
 	local_info_t *local;
-	u16 enable, mcast;
+	__le16 enable, mcast;
 
 	iface = netdev_priv(dev);
 	local = iface->local;
@@ -1325,7 +1330,7 @@ static int prism2_ioctl_giwpower(struct net_device *dev,
 	    < 0)
 		return -EINVAL;
 
-	if (!__le16_to_cpu(enable)) {
+	if (!le16_to_cpu(enable)) {
 		rrq->disabled = 1;
 		return 0;
 	}
@@ -1333,29 +1338,29 @@ static int prism2_ioctl_giwpower(struct net_device *dev,
 	rrq->disabled = 0;
 
 	if ((rrq->flags & IW_POWER_TYPE) == IW_POWER_TIMEOUT) {
-		u16 timeout;
+		__le16 timeout;
 		if (local->func->get_rid(dev,
 					 HFA384X_RID_CNFPMHOLDOVERDURATION,
 					 &timeout, 2, 1) < 0)
 			return -EINVAL;
 
 		rrq->flags = IW_POWER_TIMEOUT;
-		rrq->value = __le16_to_cpu(timeout) * 1024;
+		rrq->value = le16_to_cpu(timeout) * 1024;
 	} else {
-		u16 period;
+		__le16 period;
 		if (local->func->get_rid(dev, HFA384X_RID_CNFMAXSLEEPDURATION,
 					 &period, 2, 1) < 0)
 			return -EINVAL;
 
 		rrq->flags = IW_POWER_PERIOD;
-		rrq->value = __le16_to_cpu(period) * 1024;
+		rrq->value = le16_to_cpu(period) * 1024;
 	}
 
 	if (local->func->get_rid(dev, HFA384X_RID_CNFMULTICASTRECEIVE, &mcast,
 				 2, 1) < 0)
 		return -EINVAL;
 
-	if (__le16_to_cpu(mcast))
+	if (le16_to_cpu(mcast))
 		rrq->flags |= IW_POWER_ALL_R;
 	else
 		rrq->flags |= IW_POWER_UNICAST_R;
@@ -1432,7 +1437,7 @@ static int prism2_ioctl_giwretry(struct net_device *dev,
 {
 	struct hostap_interface *iface;
 	local_info_t *local;
-	u16 shortretry, longretry, lifetime, altretry;
+	__le16 shortretry, longretry, lifetime, altretry;
 
 	iface = netdev_priv(dev);
 	local = iface->local;
@@ -1445,15 +1450,11 @@ static int prism2_ioctl_giwretry(struct net_device *dev,
 				 &lifetime, 2, 1) < 0)
 		return -EINVAL;
 
-	le16_to_cpus(&shortretry);
-	le16_to_cpus(&longretry);
-	le16_to_cpus(&lifetime);
-
 	rrq->disabled = 0;
 
 	if ((rrq->flags & IW_RETRY_TYPE) == IW_RETRY_LIFETIME) {
 		rrq->flags = IW_RETRY_LIFETIME;
-		rrq->value = lifetime * 1024;
+		rrq->value = le16_to_cpu(lifetime) * 1024;
 	} else {
 		if (local->manual_retry_count >= 0) {
 			rrq->flags = IW_RETRY_LIMIT;
@@ -1465,10 +1466,10 @@ static int prism2_ioctl_giwretry(struct net_device *dev,
 				rrq->value = local->manual_retry_count;
 		} else if ((rrq->flags & IW_RETRY_LONG)) {
 			rrq->flags = IW_RETRY_LIMIT | IW_RETRY_LONG;
-			rrq->value = longretry;
+			rrq->value = le16_to_cpu(longretry);
 		} else {
 			rrq->flags = IW_RETRY_LIMIT;
-			rrq->value = shortretry;
+			rrq->value = le16_to_cpu(shortretry);
 			if (shortretry != longretry)
 				rrq->flags |= IW_RETRY_SHORT;
 		}
@@ -1794,6 +1795,7 @@ static int prism2_ioctl_siwscan(struct net_device *dev,
 
 #ifndef PRISM2_NO_STATION_MODES
 static char * __prism2_translate_scan(local_info_t *local,
+				      struct iw_request_info *info,
 				      struct hfa384x_hostscan_result *scan,
 				      struct hostap_bss_info *bss,
 				      char *current_ev, char *end_buf)
@@ -1824,7 +1826,7 @@ static char * __prism2_translate_scan(local_info_t *local,
 	iwe.cmd = SIOCGIWAP;
 	iwe.u.ap_addr.sa_family = ARPHRD_ETHER;
 	memcpy(iwe.u.ap_addr.sa_data, bssid, ETH_ALEN);
-	current_ev = iwe_stream_add_event(current_ev, end_buf, &iwe,
+	current_ev = iwe_stream_add_event(info, current_ev, end_buf, &iwe,
 					  IW_EV_ADDR_LEN);
 
 	/* Other entries will be displayed in the order we give them */
@@ -1833,7 +1835,8 @@ static char * __prism2_translate_scan(local_info_t *local,
 	iwe.cmd = SIOCGIWESSID;
 	iwe.u.data.length = ssid_len;
 	iwe.u.data.flags = 1;
-	current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe, ssid);
+	current_ev = iwe_stream_add_point(info, current_ev, end_buf,
+					  &iwe, ssid);
 
 	memset(&iwe, 0, sizeof(iwe));
 	iwe.cmd = SIOCGIWMODE;
@@ -1848,8 +1851,8 @@ static char * __prism2_translate_scan(local_info_t *local,
 			iwe.u.mode = IW_MODE_MASTER;
 		else
 			iwe.u.mode = IW_MODE_ADHOC;
-		current_ev = iwe_stream_add_event(current_ev, end_buf, &iwe,
-						  IW_EV_UINT_LEN);
+		current_ev = iwe_stream_add_event(info, current_ev, end_buf,
+						  &iwe, IW_EV_UINT_LEN);
 	}
 
 	memset(&iwe, 0, sizeof(iwe));
@@ -1865,8 +1868,8 @@ static char * __prism2_translate_scan(local_info_t *local,
 	if (chan > 0) {
 		iwe.u.freq.m = freq_list[chan - 1] * 100000;
 		iwe.u.freq.e = 1;
-		current_ev = iwe_stream_add_event(current_ev, end_buf, &iwe,
-						  IW_EV_FREQ_LEN);
+		current_ev = iwe_stream_add_event(info, current_ev, end_buf,
+						  &iwe, IW_EV_FREQ_LEN);
 	}
 
 	if (scan) {
@@ -1885,8 +1888,8 @@ static char * __prism2_translate_scan(local_info_t *local,
 			| IW_QUAL_NOISE_UPDATED
 			| IW_QUAL_QUAL_INVALID
 			| IW_QUAL_DBM;
-		current_ev = iwe_stream_add_event(current_ev, end_buf, &iwe,
-						  IW_EV_QUAL_LEN);
+		current_ev = iwe_stream_add_event(info, current_ev, end_buf,
+						  &iwe, IW_EV_QUAL_LEN);
 	}
 
 	memset(&iwe, 0, sizeof(iwe));
@@ -1896,13 +1899,13 @@ static char * __prism2_translate_scan(local_info_t *local,
 	else
 		iwe.u.data.flags = IW_ENCODE_DISABLED;
 	iwe.u.data.length = 0;
-	current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe, "");
+	current_ev = iwe_stream_add_point(info, current_ev, end_buf, &iwe, "");
 
 	/* TODO: add SuppRates into BSS table */
 	if (scan) {
 		memset(&iwe, 0, sizeof(iwe));
 		iwe.cmd = SIOCGIWRATE;
-		current_val = current_ev + IW_EV_LCP_LEN;
+		current_val = current_ev + iwe_stream_lcp_len(info);
 		pos = scan->sup_rates;
 		for (i = 0; i < sizeof(scan->sup_rates); i++) {
 			if (pos[i] == 0)
@@ -1910,11 +1913,11 @@ static char * __prism2_translate_scan(local_info_t *local,
 			/* Bit rate given in 500 kb/s units (+ 0x80) */
 			iwe.u.bitrate.value = ((pos[i] & 0x7f) * 500000);
 			current_val = iwe_stream_add_value(
-				current_ev, current_val, end_buf, &iwe,
+				info, current_ev, current_val, end_buf, &iwe,
 				IW_EV_PARAM_LEN);
 		}
 		/* Check if we added any event */
-		if ((current_val - current_ev) > IW_EV_LCP_LEN)
+		if ((current_val - current_ev) > iwe_stream_lcp_len(info))
 			current_ev = current_val;
 	}
 
@@ -1925,15 +1928,15 @@ static char * __prism2_translate_scan(local_info_t *local,
 		iwe.cmd = IWEVCUSTOM;
 		sprintf(buf, "bcn_int=%d", le16_to_cpu(scan->beacon_interval));
 		iwe.u.data.length = strlen(buf);
-		current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe,
-						  buf);
+		current_ev = iwe_stream_add_point(info, current_ev, end_buf,
+						  &iwe, buf);
 
 		memset(&iwe, 0, sizeof(iwe));
 		iwe.cmd = IWEVCUSTOM;
 		sprintf(buf, "resp_rate=%d", le16_to_cpu(scan->rate));
 		iwe.u.data.length = strlen(buf);
-		current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe,
-						  buf);
+		current_ev = iwe_stream_add_point(info, current_ev, end_buf,
+						  &iwe, buf);
 
 		if (local->last_scan_type == PRISM2_HOSTSCAN &&
 		    (capabilities & WLAN_CAPABILITY_IBSS)) {
@@ -1941,8 +1944,8 @@ static char * __prism2_translate_scan(local_info_t *local,
 			iwe.cmd = IWEVCUSTOM;
 			sprintf(buf, "atim=%d", le16_to_cpu(scan->atim));
 			iwe.u.data.length = strlen(buf);
-			current_ev = iwe_stream_add_point(current_ev, end_buf,
-							  &iwe, buf);
+			current_ev = iwe_stream_add_point(info, current_ev,
+							  end_buf, &iwe, buf);
 		}
 	}
 	kfree(buf);
@@ -1951,16 +1954,16 @@ static char * __prism2_translate_scan(local_info_t *local,
 		memset(&iwe, 0, sizeof(iwe));
 		iwe.cmd = IWEVGENIE;
 		iwe.u.data.length = bss->wpa_ie_len;
-		current_ev = iwe_stream_add_point(
-			current_ev, end_buf, &iwe, bss->wpa_ie);
+		current_ev = iwe_stream_add_point(info, current_ev, end_buf,
+						  &iwe, bss->wpa_ie);
 	}
 
 	if (bss && bss->rsn_ie_len > 0 && bss->rsn_ie_len <= MAX_WPA_IE_LEN) {
 		memset(&iwe, 0, sizeof(iwe));
 		iwe.cmd = IWEVGENIE;
 		iwe.u.data.length = bss->rsn_ie_len;
-		current_ev = iwe_stream_add_point(
-			current_ev, end_buf, &iwe, bss->rsn_ie);
+		current_ev = iwe_stream_add_point(info, current_ev, end_buf,
+						  &iwe, bss->rsn_ie);
 	}
 
 	return current_ev;
@@ -1970,6 +1973,7 @@ static char * __prism2_translate_scan(local_info_t *local,
 /* Translate scan data returned from the card to a card independant
  * format that the Wireless Tools will understand - Jean II */
 static inline int prism2_translate_scan(local_info_t *local,
+					struct iw_request_info *info,
 					char *buffer, int buflen)
 {
 	struct hfa384x_hostscan_result *scan;
@@ -2000,13 +2004,14 @@ static inline int prism2_translate_scan(local_info_t *local,
 			if (memcmp(bss->bssid, scan->bssid, ETH_ALEN) == 0) {
 				bss->included = 1;
 				current_ev = __prism2_translate_scan(
-					local, scan, bss, current_ev, end_buf);
+					local, info, scan, bss, current_ev,
+					end_buf);
 				found++;
 			}
 		}
 		if (!found) {
 			current_ev = __prism2_translate_scan(
-				local, scan, NULL, current_ev, end_buf);
+				local, info, scan, NULL, current_ev, end_buf);
 		}
 		/* Check if there is space for one more entry */
 		if ((end_buf - current_ev) <= IW_EV_ADDR_LEN) {
@@ -2024,7 +2029,7 @@ static inline int prism2_translate_scan(local_info_t *local,
 		bss = list_entry(ptr, struct hostap_bss_info, list);
 		if (bss->included)
 			continue;
-		current_ev = __prism2_translate_scan(local, NULL, bss,
+		current_ev = __prism2_translate_scan(local, info, NULL, bss,
 						     current_ev, end_buf);
 		/* Check if there is space for one more entry */
 		if ((end_buf - current_ev) <= IW_EV_ADDR_LEN) {
@@ -2071,7 +2076,7 @@ static inline int prism2_ioctl_giwscan_sta(struct net_device *dev,
 	}
 	local->scan_timestamp = 0;
 
-	res = prism2_translate_scan(local, extra, data->length);
+	res = prism2_translate_scan(local, info, extra, data->length);
 
 	if (res >= 0) {
 		data->length = res;
@@ -2104,7 +2109,7 @@ static int prism2_ioctl_giwscan(struct net_device *dev,
 		 * Jean II */
 
 		/* Translate to WE format */
-		res = prism2_ap_translate_scan(dev, extra);
+		res = prism2_ap_translate_scan(dev, info, extra);
 		if (res >= 0) {
 			printk(KERN_DEBUG "Scan result translation succeeded "
 			       "(length=%d)\n", res);
@@ -2517,7 +2522,8 @@ static int prism2_ioctl_priv_prism2_param(struct net_device *dev,
 	case PRISM2_PARAM_MONITOR_TYPE:
 		if (value != PRISM2_MONITOR_80211 &&
 		    value != PRISM2_MONITOR_CAPHDR &&
-		    value != PRISM2_MONITOR_PRISM) {
+		    value != PRISM2_MONITOR_PRISM &&
+		    value != PRISM2_MONITOR_RADIOTAP) {
 			ret = -EINVAL;
 			break;
 		}
@@ -3098,7 +3104,7 @@ static int prism2_set_genericelement(struct net_device *dev, u8 *elem,
 	if (buf == NULL)
 		return -ENOMEM;
 
-	*((u16 *) buf) = cpu_to_le16(len);
+	*((__le16 *) buf) = cpu_to_le16(len);
 	memcpy(buf + 2, elem, len);
 
 	kfree(local->generic_elem);
@@ -3758,7 +3764,7 @@ static int prism2_ioctl_siwmlme(struct net_device *dev,
 	struct hostap_interface *iface = netdev_priv(dev);
 	local_info_t *local = iface->local;
 	struct iw_mlme *mlme = (struct iw_mlme *) extra;
-	u16 reason;
+	__le16 reason;
 
 	reason = cpu_to_le16(mlme->reason_code);
 
@@ -3780,7 +3786,7 @@ static int prism2_ioctl_siwmlme(struct net_device *dev,
 static int prism2_ioctl_mlme(local_info_t *local,
 			     struct prism2_hostapd_param *param)
 {
-	u16 reason;
+	__le16 reason;
 
 	reason = cpu_to_le16(param->u.mlme.reason_code);
 	switch (param->u.mlme.cmd) {

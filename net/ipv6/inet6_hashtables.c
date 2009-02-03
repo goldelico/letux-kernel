@@ -22,13 +22,13 @@
 #include <net/inet6_hashtables.h>
 #include <net/ip.h>
 
-void __inet6_hash(struct inet_hashinfo *hashinfo,
-				struct sock *sk)
+void __inet6_hash(struct sock *sk)
 {
+	struct inet_hashinfo *hashinfo = sk->sk_prot->h.hashinfo;
 	struct hlist_head *list;
 	rwlock_t *lock;
 
-	BUG_TRAP(sk_unhashed(sk));
+	WARN_ON(!sk_unhashed(sk));
 
 	if (sk->sk_state == TCP_LISTEN) {
 		list = &hashinfo->listening_hash[inet_sk_listen_hashfn(sk)];
@@ -43,7 +43,7 @@ void __inet6_hash(struct inet_hashinfo *hashinfo,
 	}
 
 	__sk_add_node(sk, list);
-	sock_prot_inc_use(sk->sk_prot);
+	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
 	write_unlock(lock);
 }
 EXPORT_SYMBOL(__inet6_hash);
@@ -54,7 +54,8 @@ EXPORT_SYMBOL(__inet6_hash);
  *
  * The sockhash lock must be held as a reader here.
  */
-struct sock *__inet6_lookup_established(struct inet_hashinfo *hashinfo,
+struct sock *__inet6_lookup_established(struct net *net,
+					struct inet_hashinfo *hashinfo,
 					   const struct in6_addr *saddr,
 					   const __be16 sport,
 					   const struct in6_addr *daddr,
@@ -67,7 +68,7 @@ struct sock *__inet6_lookup_established(struct inet_hashinfo *hashinfo,
 	/* Optimize here for direct hit, only listening connections can
 	 * have wildcards anyways.
 	 */
-	unsigned int hash = inet6_ehashfn(daddr, hnum, saddr, sport);
+	unsigned int hash = inet6_ehashfn(net, daddr, hnum, saddr, sport);
 	struct inet_ehash_bucket *head = inet_ehash_bucket(hashinfo, hash);
 	rwlock_t *lock = inet_ehash_lockp(hashinfo, hash);
 
@@ -75,22 +76,13 @@ struct sock *__inet6_lookup_established(struct inet_hashinfo *hashinfo,
 	read_lock(lock);
 	sk_for_each(sk, node, &head->chain) {
 		/* For IPV6 do the cheaper port and family tests first. */
-		if (INET6_MATCH(sk, hash, saddr, daddr, ports, dif))
+		if (INET6_MATCH(sk, net, hash, saddr, daddr, ports, dif))
 			goto hit; /* You sunk my battleship! */
 	}
 	/* Must check for a TIME_WAIT'er before going to listener hash. */
 	sk_for_each(sk, node, &head->twchain) {
-		const struct inet_timewait_sock *tw = inet_twsk(sk);
-
-		if(*((__portpair *)&(tw->tw_dport))	== ports	&&
-		   sk->sk_family		== PF_INET6) {
-			const struct inet6_timewait_sock *tw6 = inet6_twsk(sk);
-
-			if (ipv6_addr_equal(&tw6->tw_v6_daddr, saddr)	&&
-			    ipv6_addr_equal(&tw6->tw_v6_rcv_saddr, daddr)	&&
-			    (!sk->sk_bound_dev_if || sk->sk_bound_dev_if == dif))
-				goto hit;
-		}
+		if (INET6_TW_MATCH(sk, net, hash, saddr, daddr, ports, dif))
+			goto hit;
 	}
 	read_unlock(lock);
 	return NULL;
@@ -102,9 +94,9 @@ hit:
 }
 EXPORT_SYMBOL(__inet6_lookup_established);
 
-struct sock *inet6_lookup_listener(struct inet_hashinfo *hashinfo,
-				   const struct in6_addr *daddr,
-				   const unsigned short hnum, const int dif)
+struct sock *inet6_lookup_listener(struct net *net,
+		struct inet_hashinfo *hashinfo, const struct in6_addr *daddr,
+		const unsigned short hnum, const int dif)
 {
 	struct sock *sk;
 	const struct hlist_node *node;
@@ -112,8 +104,10 @@ struct sock *inet6_lookup_listener(struct inet_hashinfo *hashinfo,
 	int score, hiscore = 0;
 
 	read_lock(&hashinfo->lhash_lock);
-	sk_for_each(sk, node, &hashinfo->listening_hash[inet_lhashfn(hnum)]) {
-		if (inet_sk(sk)->num == hnum && sk->sk_family == PF_INET6) {
+	sk_for_each(sk, node,
+			&hashinfo->listening_hash[inet_lhashfn(net, hnum)]) {
+		if (net_eq(sock_net(sk), net) && inet_sk(sk)->num == hnum &&
+				sk->sk_family == PF_INET6) {
 			const struct ipv6_pinfo *np = inet6_sk(sk);
 
 			score = 1;
@@ -145,7 +139,7 @@ struct sock *inet6_lookup_listener(struct inet_hashinfo *hashinfo,
 
 EXPORT_SYMBOL_GPL(inet6_lookup_listener);
 
-struct sock *inet6_lookup(struct inet_hashinfo *hashinfo,
+struct sock *inet6_lookup(struct net *net, struct inet_hashinfo *hashinfo,
 			  const struct in6_addr *saddr, const __be16 sport,
 			  const struct in6_addr *daddr, const __be16 dport,
 			  const int dif)
@@ -153,7 +147,7 @@ struct sock *inet6_lookup(struct inet_hashinfo *hashinfo,
 	struct sock *sk;
 
 	local_bh_disable();
-	sk = __inet6_lookup(hashinfo, saddr, sport, daddr, ntohs(dport), dif);
+	sk = __inet6_lookup(net, hashinfo, saddr, sport, daddr, ntohs(dport), dif);
 	local_bh_enable();
 
 	return sk;
@@ -172,7 +166,8 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
 	const struct in6_addr *saddr = &np->daddr;
 	const int dif = sk->sk_bound_dev_if;
 	const __portpair ports = INET_COMBINED_PORTS(inet->dport, lport);
-	const unsigned int hash = inet6_ehashfn(daddr, lport, saddr,
+	struct net *net = sock_net(sk);
+	const unsigned int hash = inet6_ehashfn(net, daddr, lport, saddr,
 						inet->dport);
 	struct inet_ehash_bucket *head = inet_ehash_bucket(hinfo, hash);
 	rwlock_t *lock = inet_ehash_lockp(hinfo, hash);
@@ -185,15 +180,9 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
 
 	/* Check TIME-WAIT sockets first. */
 	sk_for_each(sk2, node, &head->twchain) {
-		const struct inet6_timewait_sock *tw6 = inet6_twsk(sk2);
-
 		tw = inet_twsk(sk2);
 
-		if(*((__portpair *)&(tw->tw_dport)) == ports		 &&
-		   sk2->sk_family	       == PF_INET6	 &&
-		   ipv6_addr_equal(&tw6->tw_v6_daddr, saddr)	 &&
-		   ipv6_addr_equal(&tw6->tw_v6_rcv_saddr, daddr) &&
-		   (!sk2->sk_bound_dev_if || sk2->sk_bound_dev_if == dif)) {
+		if (INET6_TW_MATCH(sk2, net, hash, saddr, daddr, ports, dif)) {
 			if (twsk_unique(sk, sk2, twp))
 				goto unique;
 			else
@@ -204,7 +193,7 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
 
 	/* And established part... */
 	sk_for_each(sk2, node, &head->chain) {
-		if (INET6_MATCH(sk2, hash, saddr, daddr, ports, dif))
+		if (INET6_MATCH(sk2, net, hash, saddr, daddr, ports, dif))
 			goto not_unique;
 	}
 
@@ -213,19 +202,19 @@ unique:
 	 * in hash table socket with a funny identity. */
 	inet->num = lport;
 	inet->sport = htons(lport);
-	BUG_TRAP(sk_unhashed(sk));
+	WARN_ON(!sk_unhashed(sk));
 	__sk_add_node(sk, &head->chain);
 	sk->sk_hash = hash;
-	sock_prot_inc_use(sk->sk_prot);
+	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
 	write_unlock(lock);
 
 	if (twp != NULL) {
 		*twp = tw;
-		NET_INC_STATS_BH(LINUX_MIB_TIMEWAITRECYCLED);
+		NET_INC_STATS_BH(twsk_net(tw), LINUX_MIB_TIMEWAITRECYCLED);
 	} else if (tw != NULL) {
 		/* Silly. Should hash-dance instead... */
 		inet_twsk_deschedule(tw, death_row);
-		NET_INC_STATS_BH(LINUX_MIB_TIMEWAITRECYCLED);
+		NET_INC_STATS_BH(twsk_net(tw), LINUX_MIB_TIMEWAITRECYCLED);
 
 		inet_twsk_put(tw);
 	}
@@ -248,97 +237,8 @@ static inline u32 inet6_sk_port_offset(const struct sock *sk)
 int inet6_hash_connect(struct inet_timewait_death_row *death_row,
 		       struct sock *sk)
 {
-	struct inet_hashinfo *hinfo = death_row->hashinfo;
-	const unsigned short snum = inet_sk(sk)->num;
-	struct inet_bind_hashbucket *head;
-	struct inet_bind_bucket *tb;
-	int ret;
-
-	if (snum == 0) {
-		int i, port, low, high, remaining;
-		static u32 hint;
-		const u32 offset = hint + inet6_sk_port_offset(sk);
-		struct hlist_node *node;
-		struct inet_timewait_sock *tw = NULL;
-
-		inet_get_local_port_range(&low, &high);
-		remaining = (high - low) + 1;
-
-		local_bh_disable();
-		for (i = 1; i <= remaining; i++) {
-			port = low + (i + offset) % remaining;
-			head = &hinfo->bhash[inet_bhashfn(port, hinfo->bhash_size)];
-			spin_lock(&head->lock);
-
-			/* Does not bother with rcv_saddr checks,
-			 * because the established check is already
-			 * unique enough.
-			 */
-			inet_bind_bucket_for_each(tb, node, &head->chain) {
-				if (tb->port == port) {
-					BUG_TRAP(!hlist_empty(&tb->owners));
-					if (tb->fastreuse >= 0)
-						goto next_port;
-					if (!__inet6_check_established(death_row,
-								       sk, port,
-								       &tw))
-						goto ok;
-					goto next_port;
-				}
-			}
-
-			tb = inet_bind_bucket_create(hinfo->bind_bucket_cachep,
-						     head, port);
-			if (!tb) {
-				spin_unlock(&head->lock);
-				break;
-			}
-			tb->fastreuse = -1;
-			goto ok;
-
-		next_port:
-			spin_unlock(&head->lock);
-		}
-		local_bh_enable();
-
-		return -EADDRNOTAVAIL;
-
-ok:
-		hint += i;
-
-		/* Head lock still held and bh's disabled */
-		inet_bind_hash(sk, tb, port);
-		if (sk_unhashed(sk)) {
-			inet_sk(sk)->sport = htons(port);
-			__inet6_hash(hinfo, sk);
-		}
-		spin_unlock(&head->lock);
-
-		if (tw) {
-			inet_twsk_deschedule(tw, death_row);
-			inet_twsk_put(tw);
-		}
-
-		ret = 0;
-		goto out;
-	}
-
-	head = &hinfo->bhash[inet_bhashfn(snum, hinfo->bhash_size)];
-	tb   = inet_csk(sk)->icsk_bind_hash;
-	spin_lock_bh(&head->lock);
-
-	if (sk_head(&tb->owners) == sk && sk->sk_bind_node.next == NULL) {
-		__inet6_hash(hinfo, sk);
-		spin_unlock_bh(&head->lock);
-		return 0;
-	} else {
-		spin_unlock(&head->lock);
-		/* No definite answer... Walk to established hash table */
-		ret = __inet6_check_established(death_row, sk, snum, NULL);
-out:
-		local_bh_enable();
-		return ret;
-	}
+	return __inet_hash_connect(death_row, sk, inet6_sk_port_offset(sk),
+			__inet6_check_established, __inet6_hash);
 }
 
 EXPORT_SYMBOL_GPL(inet6_hash_connect);

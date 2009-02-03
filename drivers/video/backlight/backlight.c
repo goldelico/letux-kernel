@@ -94,8 +94,10 @@ static ssize_t backlight_store_power(struct device *dev,
 	mutex_lock(&bd->ops_lock);
 	if (bd->ops) {
 		pr_debug("backlight: set power to %d\n", power);
-		bd->props.power = power;
-		backlight_update_status(bd);
+		if (bd->props.power != power) {
+			bd->props.power = power;
+			backlight_update_status(bd);
+		}
 		rc = count;
 	}
 	mutex_unlock(&bd->ops_lock);
@@ -132,8 +134,10 @@ static ssize_t backlight_store_brightness(struct device *dev,
 		else {
 			pr_debug("backlight: set brightness to %d\n",
 				 brightness);
-			bd->props.brightness = brightness;
-			backlight_update_status(bd);
+			if (bd->props.brightness != brightness) {
+				bd->props.brightness = brightness;
+				backlight_update_status(bd);
+			}
 			rc = count;
 		}
 	}
@@ -187,6 +191,7 @@ static struct device_attribute bl_device_attributes[] = {
  *   backlight_device class.
  * @name: the name of the new object(must be the same as the name of the
  *   respective framebuffer device).
+ * @parent: a pointer to the parent device
  * @devdata: an optional pointer to be stored for private driver use. The
  *   methods may retrieve it by using bl_get_data(bd).
  * @ops: the backlight operations structure.

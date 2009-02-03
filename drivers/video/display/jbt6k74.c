@@ -292,6 +292,9 @@ static int sleep_to_normal(struct jbt_info *jbt)
 	/* initialize register set */
 	rc |= jbt_init_regs(jbt, 0);
 
+	/* Turn on display */
+	rc |= jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_ON);
+
 	return rc ? -EIO : 0;
 }
 
@@ -316,6 +319,9 @@ static int sleep_to_qvga_normal(struct jbt_info *jbt)
 
 	/* initialize register set for qvga*/
 	rc |= jbt_init_regs(jbt, 1);
+
+	/* Turn on display */
+	rc |= jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_ON);
 
 	return rc ? -EIO : 0;
 }
@@ -436,21 +442,13 @@ int jbt6k74_enter_state(struct jbt_info *jbt, enum jbt_state new_state)
 		}
 		break;
 	}
+	
 	if (rc == 0)
 		jbt->state = new_state;
 
 	return rc;
 }
 EXPORT_SYMBOL_GPL(jbt6k74_enter_state);
-
-int jbt6k74_display_onoff(struct jbt_info *jbt, int on)
-{
-	if (on)
-		return jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_ON);
-	else
-		return jbt_reg_write_nodata(jbt, JBT_REG_DISPLAY_OFF);
-}
-EXPORT_SYMBOL_GPL(jbt6k74_display_onoff);
 
 static ssize_t state_read(struct device *dev, struct device_attribute *attr,
 			  char *buf)
@@ -475,17 +473,6 @@ static ssize_t state_write(struct device *dev, struct device_attribute *attr,
 			rc = jbt6k74_enter_state(jbt, i);
 			if (rc)
 				return rc;
-			switch (i) {
-			case JBT_STATE_NORMAL:
-			case JBT_STATE_QVGA_NORMAL:
-				/* Enable display again after deep-standby */
-				rc = jbt6k74_display_onoff(jbt, 1);
-				if (rc)
-					return rc;
-				break;
-			default:
-				break;
-			}
 			return count;
 		}
 	}
@@ -528,7 +515,45 @@ static ssize_t gamma_write(struct device *dev, struct device_attribute *attr,
 	int reg = reg_by_string(attr->attr.name);
 	unsigned long val = simple_strtoul(buf, NULL, 10);
 
+	dev_info(dev, "**** jbt6k74 writing gama %lu\n", val & 0xff);
+
 	jbt_reg_write(jbt, reg, val & 0xff);
+
+	return count;
+}
+
+static ssize_t reset_write(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct jbt_info *jbt = dev_get_drvdata(dev);
+	struct jbt6k74_platform_data *jbt6k74_pdata = jbt->spi_dev->dev.platform_data;
+	int rc;
+
+	dev_info(dev, "**** jbt6k74 reset\n");
+
+	/* hard reset the jbt6k74 */
+
+	(jbt6k74_pdata->reset)(0, 0);
+	mdelay(1);
+	(jbt6k74_pdata->reset)(0, 1);
+	mdelay(120);
+
+	rc = jbt_reg_write_nodata(jbt, 0x01);
+	if (rc < 0)
+		dev_err(dev, "cannot soft reset\n");
+
+	mdelay(120);
+
+	jbt->state = JBT_STATE_DEEP_STANDBY;
+
+	switch (jbt->last_state) {
+	case JBT_STATE_QVGA_NORMAL:
+		jbt6k74_enter_state(jbt, JBT_STATE_QVGA_NORMAL);
+		break;
+	default:
+		jbt6k74_enter_state(jbt, JBT_STATE_NORMAL);
+		break;
+	}
 
 	return count;
 }
@@ -537,6 +562,7 @@ static DEVICE_ATTR(gamma_fine1, 0644, gamma_read, gamma_write);
 static DEVICE_ATTR(gamma_fine2, 0644, gamma_read, gamma_write);
 static DEVICE_ATTR(gamma_inclination, 0644, gamma_read, gamma_write);
 static DEVICE_ATTR(gamma_blue_offset, 0644, gamma_read, gamma_write);
+static DEVICE_ATTR(reset, 0600, NULL, reset_write);
 
 static struct attribute *jbt_sysfs_entries[] = {
 	&dev_attr_state.attr,
@@ -544,6 +570,7 @@ static struct attribute *jbt_sysfs_entries[] = {
 	&dev_attr_gamma_fine2.attr,
 	&dev_attr_gamma_inclination.attr,
 	&dev_attr_gamma_blue_offset.attr,
+	&dev_attr_reset.attr,
 	NULL,
 };
 
@@ -567,19 +594,27 @@ static int fb_notifier_callback(struct notifier_block *self,
 
 	switch (fb_blank) {
 	case FB_BLANK_UNBLANK:
-	case FB_BLANK_NORMAL:
+		dev_info(&jbt->spi_dev->dev, "**** jbt6k74 unblank\n");
 		jbt6k74_enter_state(jbt, JBT_STATE_NORMAL);
-		jbt6k74_display_onoff(jbt, 1);
+		break;
+	case FB_BLANK_NORMAL:
+		dev_info(&jbt->spi_dev->dev, "**** jbt6k74 normal\n");
 		break;
 	case FB_BLANK_VSYNC_SUSPEND:
+		dev_info(&jbt->spi_dev->dev, "**** jbt6k74 vsync suspend\n");
+		break;
 	case FB_BLANK_HSYNC_SUSPEND:
+		dev_info(&jbt->spi_dev->dev, "**** jbt6k74 hsync suspend\n");
 		/* FIXME: we disable SLEEP since it would result in
 		 * a visible artefact (white screen) before the backlight
 		 * is dimmed to a dark enough level */
 		/* jbt6k74_enter_state(jbt, JBT_STATE_SLEEP); */
 		break;
 	case FB_BLANK_POWERDOWN:
-		jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);
+		dev_info(&jbt->spi_dev->dev, "**** jbt6k74 powerdown\n");
+	/* FIXME: deep standby causes WSOD on certain devices. We use
+	 * sleep as workaround */
+		jbt6k74_enter_state(jbt, JBT_STATE_SLEEP);
 		break;
 	}
 
@@ -592,6 +627,7 @@ static int __devinit jbt_probe(struct spi_device *spi)
 {
 	int rc;
 	struct jbt_info *jbt;
+	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
 
 	/* the controller doesn't have a MISO pin; we can't do detection */
 
@@ -615,22 +651,30 @@ static int __devinit jbt_probe(struct spi_device *spi)
 
 	dev_set_drvdata(&spi->dev, jbt);
 
+	/* hard reset the jbt6k74 */
+
+	(jbt6k74_pdata->reset)(0, 0);
+	mdelay(1);
+	(jbt6k74_pdata->reset)(0, 1);
+	mdelay(120);
+
+	rc = jbt_reg_write_nodata(jbt, 0x01);
+	if (rc < 0)
+		dev_err(&spi->dev, "cannot soft reset\n");
+
+	mdelay(120);
+
+
 	rc = jbt6k74_enter_state(jbt, JBT_STATE_NORMAL);
 	if (rc < 0) {
 		dev_err(&spi->dev, "cannot enter NORMAL state\n");
 		goto err_free_drvdata;
 	}
 
-	rc = jbt6k74_display_onoff(jbt, 1);
-	if (rc < 0) {
-		dev_err(&spi->dev, "cannot switch display on\n");
-		goto err_standby;
-	}
-
 	rc = sysfs_create_group(&spi->dev.kobj, &jbt_attr_group);
 	if (rc < 0) {
 		dev_err(&spi->dev, "cannot create sysfs group\n");
-		goto err_off;
+		goto err_standby;
 	}
 
 	jbt->fb_notif.notifier_call = fb_notifier_callback;
@@ -640,12 +684,13 @@ static int __devinit jbt_probe(struct spi_device *spi)
 		goto err_sysfs;
 	}
 
+	if (jbt6k74_pdata->probe_completed)
+		jbt6k74_pdata->probe_completed(&spi->dev);
+
 	return 0;
 
 err_sysfs:
 	sysfs_remove_group(&spi->dev.kobj, &jbt_attr_group);
-err_off:
-	jbt6k74_display_onoff(jbt, 0);
 err_standby:
 	jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);
 err_free_drvdata:
@@ -674,20 +719,16 @@ static int __devexit jbt_remove(struct spi_device *spi)
 static int jbt_suspend(struct spi_device *spi, pm_message_t state)
 {
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
-	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
-
-	/* platform can register resume dependencies here, if any */
-	if (jbt6k74_pdata->suspending)
-		(jbt6k74_pdata->suspending)(0, spi);
 
 	/* Save mode for resume */
 	jbt->last_state = jbt->state;
-
-	jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);
+	/* FIXME: deep standby causes WSOD on certain devices. We use
+	 * sleep as workaround */
+	jbt6k74_enter_state(jbt, JBT_STATE_SLEEP);
 
 	jbt->have_resumed = 0;
 
-/*	(jbt6k74_pdata->reset)(0, 0); */
+	dev_info(&spi->dev, "**** jbt6k74 suspend end\n");
 
 	return 0;
 }
@@ -696,19 +737,25 @@ int jbt6k74_resume(struct spi_device *spi)
 {
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
 	struct jbt6k74_platform_data *jbt6k74_pdata = spi->dev.platform_data;
+	int rc;
 
-	if (jbt6k74_pdata->all_dependencies_resumed)
-		if (!(jbt6k74_pdata->all_dependencies_resumed)(0))
-			return 0;
+	dev_info(&spi->dev, "**** jbt6k74 resume start\n");
 
-	/* we can get called twice with all dependencies resumed if our core
-	 * resume callback is last of all.  Protect against doing anything twice
-	 */
-	if (jbt->have_resumed)
-		return 0;
+	/* hard reset the jbt6k74 */
 
-	jbt->have_resumed |= 1;
+	(jbt6k74_pdata->reset)(0, 0);
+	mdelay(1);
+	(jbt6k74_pdata->reset)(0, 1);
+	mdelay(120);
 
+	rc = jbt_reg_write_nodata(jbt, 0x01);
+	if (rc < 0)
+		dev_err(&spi->dev, "cannot soft reset\n");
+
+	mdelay(120);
+
+	jbt->state = JBT_STATE_DEEP_STANDBY;
+	
 	switch (jbt->last_state) {
 	case JBT_STATE_QVGA_NORMAL:
 		jbt6k74_enter_state(jbt, JBT_STATE_QVGA_NORMAL);
@@ -717,10 +764,11 @@ int jbt6k74_resume(struct spi_device *spi)
 		jbt6k74_enter_state(jbt, JBT_STATE_NORMAL);
 		break;
 	}
-	jbt6k74_display_onoff(jbt, 1);
 
 	if (jbt6k74_pdata->resuming)
 		(jbt6k74_pdata->resuming)(0);
+
+	dev_info(&spi->dev, "**** jbt6k74 resume end\n");
 
 	return 0;
 }

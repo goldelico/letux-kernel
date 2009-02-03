@@ -49,6 +49,25 @@ config BATTERY_OLPC
 	help
 	  Say Y to enable support for the battery on the OLPC laptop.
 
+config BATTERY_TOSA
+	tristate "Sharp SL-6000 (tosa) battery"
+	depends on MACH_TOSA && MFD_TC6393XB && TOUCHSCREEN_WM97XX
+	help
+	  Say Y to enable support for the battery on the Sharp Zaurus
+	  SL-6000 (tosa) models.
+
+config BATTERY_WM97XX
+	bool "WM97xx generic battery driver"
+	depends on TOUCHSCREEN_WM97XX=y
+	help
+	  Say Y to enable support for battery measured by WM97xx aux port.
+
+config BATTERY_BQ27x00
+	tristate "BQ27200 battery driver"
+	depends on I2C
+	help
+	  Say Y here to enable support for batteries with BQ27200(I2C) chip.
+
 config BATTERY_BQ27000_HDQ
 	tristate "BQ27000 HDQ battery monitor driver"
 	help
@@ -61,6 +80,12 @@ config GTA02_HDQ
 	  Say Y to enable support for communicating with an HDQ battery
 	  on the Neo Freerunner.  You probably want to select
 	  at least BATTERY_BQ27000_HDQ as well
+
+config CHARGER_PCF50633
+	tristate "Support for NXP PCF50633 MBC"
+	depends on MFD_PCF50633
+	help
+	 Say Y to include support for NXP PCF50633 Main Battery Charger.
 
 endif # POWER_SUPPLY
 

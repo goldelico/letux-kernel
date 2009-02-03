@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Mellanox Technologies. All rights reserved.
+ * Copyright (c) 2005, 2006, 2007, 2008 Mellanox Technologies. All rights reserved.
  * Copyright (c) 2005, 2006, 2007 Cisco Systems, Inc. All rights reserved.
  *
  * This software is available to you under a choice of one of two
@@ -33,6 +33,7 @@
 
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/mm.h>
 #include <linux/dma-mapping.h>
 
 #include <linux/mlx4/cmd.h>
@@ -202,7 +203,10 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
 			break;
 
 		case MLX4_EVENT_TYPE_PORT_CHANGE:
-			mlx4_dispatch_event(dev, eqe->type, eqe->subtype,
+			mlx4_dispatch_event(dev,
+					    eqe->subtype == MLX4_PORT_CHANGE_SUBTYPE_ACTIVE ?
+					    MLX4_DEV_EVENT_PORT_UP :
+					    MLX4_DEV_EVENT_PORT_DOWN,
 					    be32_to_cpu(eqe->event.port_change.port) >> 28);
 			break;
 
@@ -522,7 +526,7 @@ int mlx4_map_eq_icm(struct mlx4_dev *dev, u64 icm_virt)
 		return -ENOMEM;
 	priv->eq_table.icm_dma  = pci_map_page(dev->pdev, priv->eq_table.icm_page, 0,
 					       PAGE_SIZE, PCI_DMA_BIDIRECTIONAL);
-	if (pci_dma_mapping_error(priv->eq_table.icm_dma)) {
+	if (pci_dma_mapping_error(dev->pdev, priv->eq_table.icm_dma)) {
 		__free_page(priv->eq_table.icm_page);
 		return -ENOMEM;
 	}
@@ -554,7 +558,7 @@ int mlx4_init_eq_table(struct mlx4_dev *dev)
 	int i;
 
 	err = mlx4_bitmap_init(&priv->eq_table.bitmap, dev->caps.num_eqs,
-			       dev->caps.num_eqs - 1, dev->caps.reserved_eqs);
+			       dev->caps.num_eqs - 1, dev->caps.reserved_eqs, 0);
 	if (err)
 		return err;
 

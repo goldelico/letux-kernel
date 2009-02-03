@@ -40,6 +40,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/init.h>
 #include <linux/seq_file.h>
+#include <linux/module.h>
 
 #include <asm/system.h>
 #include <asm/traps.h>
@@ -406,10 +407,8 @@ void __init atari_init_IRQ(void)
 		 * gets overruns)
 		 */
 
-		if (!MACH_IS_HADES) {
-			vectors[VEC_INT2] = falcon_hblhandler;
-			vectors[VEC_INT4] = falcon_hblhandler;
-		}
+		vectors[VEC_INT2] = falcon_hblhandler;
+		vectors[VEC_INT4] = falcon_hblhandler;
 	}
 
 	if (ATARIHW_PRESENT(PCM_8BIT) && ATARIHW_PRESENT(MICROWIRE)) {
@@ -446,6 +445,7 @@ unsigned long atari_register_vme_int(void)
 	free_vme_vec_bitmap |= 1 << i;
 	return VME_SOURCE_BASE + i;
 }
+EXPORT_SYMBOL(atari_register_vme_int);
 
 
 void atari_unregister_vme_int(unsigned long irq)
@@ -455,5 +455,6 @@ void atari_unregister_vme_int(unsigned long irq)
 		free_vme_vec_bitmap &= ~(1 << irq);
 	}
 }
+EXPORT_SYMBOL(atari_unregister_vme_int);
 
 

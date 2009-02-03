@@ -1,7 +1,7 @@
 /*
- * LED driver for the vibrator of the FIC Neo1973 GSM Phone
+ * LED driver for the vibrator of the Openmoko GTA01/GTA02 GSM Phones
  *
- * (C) 2006-2007 by Openmoko, Inc.
+ * (C) 2006-2008 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
  * All rights reserved.
  *
@@ -10,20 +10,22 @@
  * published by the Free Software Foundation.
  *
  * Javi Roman <javiroman@kernel-labs.org>:
- * 	Implement PWM support for GTA01Bv4 and later
+ *	Implement PWM support for GTA01Bv4 and later
  */
 
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/leds.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/mach-types.h>
-#include <asm/arch/pwm.h>
-#include <asm/arch/gta01.h>
-#include <asm/plat-s3c/regs-timer.h>
+#include <mach/pwm.h>
+#include <mach/gta01.h>
+#include <plat/regs-timer.h>
 
-#include <asm/arch-s3c2410/fiq_ipc_gta02.h>
+#ifdef CONFIG_MACH_NEO1973_GTA02
+#include <mach/fiq_ipc_gta02.h>
+#endif
 #include <asm/plat-s3c24xx/neo1973.h>
 
 #define COUNTER 64
@@ -31,38 +33,39 @@
 struct neo1973_vib_priv {
 	struct led_classdev cdev;
 	unsigned int gpio;
-	struct mutex mutex;
+	spinlock_t lock;
 	unsigned int has_pwm;
 	struct s3c2410_pwm pwm;
 };
 
 static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
-		enum led_brightness value)
+				enum led_brightness value)
 {
-	struct neo1973_vib_priv *vp =
-		container_of(led_cdev, struct neo1973_vib_priv, cdev);
+	unsigned long flags;
+	struct neo1973_vib_priv *vp = container_of(led_cdev,
+						   struct neo1973_vib_priv,
+						   cdev);
 
+#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) { /* use FIQ to control GPIO */
 		fiq_ipc.vib_pwm = value; /* set it for FIQ */
 		fiq_kick(); /* start up FIQs if not already going */
 		return;
 	}
+#endif
 	/*
 	 * value == 255 -> 99% duty cycle (full power)
 	 * value == 128 -> 50% duty cycle (medium power)
 	 * value == 0 -> 0% duty cycle (zero power)
 	 */
-	mutex_lock(&vp->mutex);
-	if (vp->has_pwm)
+	spin_lock_irqsave(&vp->lock, flags);
+	if (vp->has_pwm) {
 		s3c2410_pwm_duty_cycle(value / 4, &vp->pwm);
-	else {
-		if (value)
-			neo1973_gpb_setpin(vp->gpio, 1);
-		else
-			neo1973_gpb_setpin(vp->gpio, 0);
 	}
-
-	mutex_unlock(&vp->mutex);
+	else {
+		neo1973_gpb_setpin(vp->gpio, value ? 1 : 0);
+	}
+	spin_unlock_irqrestore(&vp->lock, flags);
 }
 
 static struct neo1973_vib_priv neo1973_vib_led = {
@@ -131,6 +134,7 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 	neo1973_vib_led.gpio = r->start;
 	platform_set_drvdata(pdev, &neo1973_vib_led);
 
+#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) { /* use FIQ to control GPIO */
 		neo1973_gpb_setpin(neo1973_vib_led.gpio, 0); /* off */
 		s3c2410_gpio_cfgpin(neo1973_vib_led.gpio, S3C2410_GPIO_OUTPUT);
@@ -139,6 +143,7 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 		fiq_ipc.vib_pwm = 0; /* off */
 		goto configured;
 	}
+#endif
 
 	/* TOUT3 */
 	if (neo1973_vib_led.gpio == S3C2410_GPB3) {
@@ -150,24 +155,26 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 		s3c2410_gpio_cfgpin(neo1973_vib_led.gpio, S3C2410_GPB3_TOUT3);
 		neo1973_vib_led.has_pwm = 1;
 	}
+#ifdef CONFIG_MACH_NEO1973_GTA02
 configured:
-	mutex_init(&neo1973_vib_led.mutex);
+#endif
+	spin_lock_init(&neo1973_vib_led.lock);
 
 	return led_classdev_register(&pdev->dev, &neo1973_vib_led.cdev);
 }
 
 static int neo1973_vib_remove(struct platform_device *pdev)
 {
+#ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) /* use FIQ to control GPIO */
 		fiq_ipc.vib_pwm = 0; /* off */
 	/* would only need kick if already off so no kick needed */
+#endif
 
 	if (neo1973_vib_led.has_pwm)
 		s3c2410_pwm_disable(&neo1973_vib_led.pwm);
 
 	led_classdev_unregister(&neo1973_vib_led.cdev);
-
-	mutex_destroy(&neo1973_vib_led.mutex);
 
 	return 0;
 }
@@ -198,5 +205,5 @@ module_init(neo1973_vib_init);
 module_exit(neo1973_vib_exit);
 
 MODULE_AUTHOR("Harald Welte <laforge@openmoko.org>");
-MODULE_DESCRIPTION("FIC Neo1973 vibrator driver");
+MODULE_DESCRIPTION("Openmoko GTA01/GTA02 vibrator driver");
 MODULE_LICENSE("GPL");

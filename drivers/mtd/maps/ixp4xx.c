@@ -1,6 +1,4 @@
 /*
- * $Id: ixp4xx.c,v 1.13 2005/11/16 16:23:21 dvrabel Exp $
- *
  * drivers/mtd/maps/ixp4xx.c
  *
  * MTD Map file for IXP4XX based systems. Please do not make per-board
@@ -275,6 +273,7 @@ static struct platform_driver ixp4xx_flash_driver = {
 	.remove		= ixp4xx_flash_remove,
 	.driver		= {
 		.name	= "IXP4XX-Flash",
+		.owner	= THIS_MODULE,
 	},
 };
 
@@ -295,3 +294,4 @@ module_exit(ixp4xx_flash_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MTD map driver for Intel IXP4xx systems");
 MODULE_AUTHOR("Deepak Saxena");
+MODULE_ALIAS("platform:IXP4XX-Flash");

@@ -86,38 +86,66 @@ static int nfs4_validate_fspath(const struct vfsmount *mnt_parent,
 
 	if (strncmp(path, fs_path, strlen(fs_path)) != 0) {
 		dprintk("%s: path %s does not begin with fsroot %s\n",
-			__FUNCTION__, path, fs_path);
+			__func__, path, fs_path);
 		return -ENOENT;
 	}
 
 	return 0;
 }
 
-/*
- * Check if the string represents a "valid" IPv4 address
- */
-static inline int valid_ipaddr4(const char *buf)
+static struct vfsmount *try_location(struct nfs_clone_mount *mountdata,
+				     char *page, char *page2,
+				     const struct nfs4_fs_location *location)
 {
-	int rc, count, in[4];
+	struct vfsmount *mnt = ERR_PTR(-ENOENT);
+	char *mnt_path;
+	int page2len;
+	unsigned int s;
 
-	rc = sscanf(buf, "%d.%d.%d.%d", &in[0], &in[1], &in[2], &in[3]);
-	if (rc != 4)
-		return -EINVAL;
-	for (count = 0; count < 4; count++) {
-		if (in[count] > 255)
-			return -EINVAL;
+	mnt_path = nfs4_pathname_string(&location->rootpath, page2, PAGE_SIZE);
+	if (IS_ERR(mnt_path))
+		return mnt;
+	mountdata->mnt_path = mnt_path;
+	page2 += strlen(mnt_path) + 1;
+	page2len = PAGE_SIZE - strlen(mnt_path) - 1;
+
+	for (s = 0; s < location->nservers; s++) {
+		const struct nfs4_string *buf = &location->servers[s];
+		struct sockaddr_storage addr;
+
+		if (buf->len <= 0 || buf->len >= PAGE_SIZE)
+			continue;
+
+		mountdata->addr = (struct sockaddr *)&addr;
+
+		if (memchr(buf->data, IPV6_SCOPE_DELIMITER, buf->len))
+			continue;
+		nfs_parse_ip_address(buf->data, buf->len,
+				mountdata->addr, &mountdata->addrlen);
+		if (mountdata->addr->sa_family == AF_UNSPEC)
+			continue;
+		nfs_set_port(mountdata->addr, NFS_PORT);
+
+		strncpy(page2, buf->data, page2len);
+		page2[page2len] = '\0';
+		mountdata->hostname = page2;
+
+		snprintf(page, PAGE_SIZE, "%s:%s",
+				mountdata->hostname,
+				mountdata->mnt_path);
+
+		mnt = vfs_kern_mount(&nfs4_referral_fs_type, 0, page, mountdata);
+		if (!IS_ERR(mnt))
+			break;
 	}
-	return 0;
+	return mnt;
 }
 
 /**
  * nfs_follow_referral - set up mountpoint when hitting a referral on moved error
  * @mnt_parent - mountpoint of parent directory
  * @dentry - parent directory
- * @fspath - fs path returned in fs_locations
- * @mntpath - mount path to new server
- * @hostname - hostname of new server
- * @addr - host addr of new server
+ * @locations - array of NFSv4 server location information
  *
  */
 static struct vfsmount *nfs_follow_referral(const struct vfsmount *mnt_parent,
@@ -131,12 +159,12 @@ static struct vfsmount *nfs_follow_referral(const struct vfsmount *mnt_parent,
 		.authflavor = NFS_SB(mnt_parent->mnt_sb)->client->cl_auth->au_flavor,
 	};
 	char *page = NULL, *page2 = NULL;
-	int loc, s, error;
+	int loc, error;
 
 	if (locations == NULL || locations->nlocations <= 0)
 		goto out;
 
-	dprintk("%s: referral at %s/%s\n", __FUNCTION__,
+	dprintk("%s: referral at %s/%s\n", __func__,
 		dentry->d_parent->d_name.name, dentry->d_name.name);
 
 	page = (char *) __get_free_page(GFP_USER);
@@ -154,57 +182,22 @@ static struct vfsmount *nfs_follow_referral(const struct vfsmount *mnt_parent,
 		goto out;
 	}
 
-	loc = 0;
-	while (loc < locations->nlocations && IS_ERR(mnt)) {
+	for (loc = 0; loc < locations->nlocations; loc++) {
 		const struct nfs4_fs_location *location = &locations->locations[loc];
-		char *mnt_path;
 
 		if (location == NULL || location->nservers <= 0 ||
-		    location->rootpath.ncomponents == 0) {
-			loc++;
+		    location->rootpath.ncomponents == 0)
 			continue;
-		}
 
-		mnt_path = nfs4_pathname_string(&location->rootpath, page2, PAGE_SIZE);
-		if (IS_ERR(mnt_path)) {
-			loc++;
-			continue;
-		}
-		mountdata.mnt_path = mnt_path;
-
-		s = 0;
-		while (s < location->nservers) {
-			struct sockaddr_in addr = {};
-
-			if (location->servers[s].len <= 0 ||
-			    valid_ipaddr4(location->servers[s].data) < 0) {
-				s++;
-				continue;
-			}
-
-			mountdata.hostname = location->servers[s].data;
-			addr.sin_addr.s_addr = in_aton(mountdata.hostname);
-			addr.sin_family = AF_INET;
-			addr.sin_port = htons(NFS_PORT);
-			mountdata.addr = &addr;
-
-			snprintf(page, PAGE_SIZE, "%s:%s",
-					mountdata.hostname,
-					mountdata.mnt_path);
-
-			mnt = vfs_kern_mount(&nfs4_referral_fs_type, 0, page, &mountdata);
-			if (!IS_ERR(mnt)) {
-				break;
-			}
-			s++;
-		}
-		loc++;
+		mnt = try_location(&mountdata, page, page2, location);
+		if (!IS_ERR(mnt))
+			break;
 	}
 
 out:
 	free_page((unsigned long) page);
 	free_page((unsigned long) page2);
-	dprintk("%s: done\n", __FUNCTION__);
+	dprintk("%s: done\n", __func__);
 	return mnt;
 }
 
@@ -223,7 +216,7 @@ struct vfsmount *nfs_do_refmount(const struct vfsmount *mnt_parent, struct dentr
 	int err;
 
 	/* BUG_ON(IS_ROOT(dentry)); */
-	dprintk("%s: enter\n", __FUNCTION__);
+	dprintk("%s: enter\n", __func__);
 
 	page = alloc_page(GFP_KERNEL);
 	if (page == NULL)
@@ -238,7 +231,7 @@ struct vfsmount *nfs_do_refmount(const struct vfsmount *mnt_parent, struct dentr
 
 	parent = dget_parent(dentry);
 	dprintk("%s: getting locations for %s/%s\n",
-		__FUNCTION__, parent->d_name.name, dentry->d_name.name);
+		__func__, parent->d_name.name, dentry->d_name.name);
 
 	err = nfs4_proc_fs_locations(parent->d_inode, &dentry->d_name, fs_locations, page);
 	dput(parent);
@@ -252,6 +245,6 @@ out_free:
 	__free_page(page);
 	kfree(fs_locations);
 out:
-	dprintk("%s: done\n", __FUNCTION__);
+	dprintk("%s: done\n", __func__);
 	return mnt;
 }

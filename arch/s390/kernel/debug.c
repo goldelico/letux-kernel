@@ -17,7 +17,6 @@
 #include <linux/ctype.h>
 #include <linux/sysctl.h>
 #include <asm/uaccess.h>
-#include <asm/semaphore.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/fs.h>
@@ -72,8 +71,8 @@ static ssize_t debug_input(struct file *file, const char __user *user_buf,
 			size_t user_len, loff_t * offset);
 static int debug_open(struct inode *inode, struct file *file);
 static int debug_close(struct inode *inode, struct file *file);
-static debug_info_t*  debug_info_create(char *name, int pages_per_area,
-			int nr_areas, int buf_size);
+static debug_info_t *debug_info_create(const char *name, int pages_per_area,
+			int nr_areas, int buf_size, mode_t mode);
 static void debug_info_get(debug_info_t *);
 static void debug_info_put(debug_info_t *);
 static int debug_prolog_level_fn(debug_info_t * id,
@@ -157,7 +156,7 @@ struct debug_view debug_sprintf_view = {
 };
 
 /* used by dump analysis tools to determine version of debug feature */
-unsigned int debug_feature_version = __DEBUG_FEATURE_VERSION;
+static unsigned int __used debug_feature_version = __DEBUG_FEATURE_VERSION;
 
 /* static globals */
 
@@ -235,8 +234,8 @@ fail_malloc_areas:
  */
 
 static debug_info_t*
-debug_info_alloc(char *name, int pages_per_area, int nr_areas, int buf_size,
-		int level, int mode)
+debug_info_alloc(const char *name, int pages_per_area, int nr_areas,
+		 int buf_size, int level, int mode)
 {
 	debug_info_t* rc;
 
@@ -327,7 +326,8 @@ debug_info_free(debug_info_t* db_info){
  */
 
 static debug_info_t*
-debug_info_create(char *name, int pages_per_area, int nr_areas, int buf_size)
+debug_info_create(const char *name, int pages_per_area, int nr_areas,
+		  int buf_size, mode_t mode)
 {
 	debug_info_t* rc;
 
@@ -335,6 +335,8 @@ debug_info_create(char *name, int pages_per_area, int nr_areas, int buf_size)
 				DEBUG_DEFAULT_LEVEL, ALL_AREAS);
         if(!rc) 
 		goto out;
+
+	rc->mode = mode & ~S_IFMT;
 
 	/* create root directory */
         rc->debugfs_root_entry = debugfs_create_dir(rc->name,
@@ -676,23 +678,30 @@ debug_close(struct inode *inode, struct file *file)
 }
 
 /*
- * debug_register:
- * - creates and initializes debug area for the caller
- * - returns handle for debug area
+ * debug_register_mode:
+ * - Creates and initializes debug area for the caller
+ *   The mode parameter allows to specify access rights for the s390dbf files
+ * - Returns handle for debug area
  */
 
-debug_info_t*
-debug_register (char *name, int pages_per_area, int nr_areas, int buf_size)
+debug_info_t *debug_register_mode(const char *name, int pages_per_area,
+				  int nr_areas, int buf_size, mode_t mode,
+				  uid_t uid, gid_t gid)
 {
 	debug_info_t *rc = NULL;
 
+	/* Since debugfs currently does not support uid/gid other than root, */
+	/* we do not allow gid/uid != 0 until we get support for that. */
+	if ((uid != 0) || (gid != 0))
+		printk(KERN_WARNING "debug: Warning - Currently only uid/gid "
+		       "= 0 are supported. Using root as owner now!");
 	if (!initialized)
 		BUG();
 	mutex_lock(&debug_mutex);
 
         /* create new debug_info */
 
-	rc = debug_info_create(name, pages_per_area, nr_areas, buf_size);
+	rc = debug_info_create(name, pages_per_area, nr_areas, buf_size, mode);
 	if(!rc) 
 		goto out;
 	debug_register_view(rc, &debug_level_view);
@@ -704,6 +713,20 @@ out:
         }
 	mutex_unlock(&debug_mutex);
 	return rc;
+}
+EXPORT_SYMBOL(debug_register_mode);
+
+/*
+ * debug_register:
+ * - creates and initializes debug area for the caller
+ * - returns handle for debug area
+ */
+
+debug_info_t *debug_register(const char *name, int pages_per_area,
+			     int nr_areas, int buf_size)
+{
+	return debug_register_mode(name, pages_per_area, nr_areas, buf_size,
+				   S_IRUSR | S_IWUSR, 0, 0);
 }
 
 /*
@@ -1056,7 +1079,6 @@ __init debug_init(void)
 	s390dbf_sysctl_header = register_sysctl_table(s390dbf_dir_table);
 	mutex_lock(&debug_mutex);
 	debug_debugfs_root_entry = debugfs_create_dir(DEBUG_DIR_ROOT,NULL);
-	printk(KERN_INFO "debug: Initialization complete\n");
 	initialized = 1;
 	mutex_unlock(&debug_mutex);
 
@@ -1073,15 +1095,16 @@ debug_register_view(debug_info_t * id, struct debug_view *view)
 	int rc = 0;
 	int i;
 	unsigned long flags;
-	mode_t mode = S_IFREG;
+	mode_t mode;
 	struct dentry *pde;
 
 	if (!id)
 		goto out;
-	if (view->prolog_proc || view->format_proc || view->header_proc)
-		mode |= S_IRUSR;
-	if (view->input_proc)
-		mode |= S_IWUSR;
+	mode = (id->mode | S_IFREG) & ~S_IXUGO;
+	if (!(view->prolog_proc || view->format_proc || view->header_proc))
+		mode &= ~(S_IRUSR | S_IRGRP | S_IROTH);
+	if (!view->input_proc)
+		mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
 	pde = debugfs_create_file(view->name, mode, id->debugfs_root_entry,
 				id , &debug_file_ops);
 	if (!pde){
@@ -1169,7 +1192,6 @@ debug_get_uint(char *buf)
 	for(; isspace(*buf); buf++);
 	rc = simple_strtoul(buf, &buf, 10);
 	if(*buf){
-		printk("debug: no integer specified!\n");
 		rc = -EINVAL;
 	}
 	return rc;
@@ -1316,19 +1338,12 @@ static void debug_flush(debug_info_t* id, int area)
                         	memset(id->areas[i][j], 0, PAGE_SIZE);
 			}
 		}
-                printk(KERN_INFO "debug: %s: all areas flushed\n",id->name);
         } else if(area >= 0 && area < id->nr_areas) {
                 id->active_entries[area] = 0;
 		id->active_pages[area] = 0;
 		for(i = 0; i < id->pages_per_area; i++) {
                 	memset(id->areas[area][i],0,PAGE_SIZE);
 		}
-                printk(KERN_INFO "debug: %s: area %i has been flushed\n",
-                        id->name, area);
-        } else {
-                printk(KERN_INFO
-                      "debug: %s: area %i cannot be flushed (range: %i - %i)\n",
-                        id->name, area, 0, id->nr_areas-1);
         }
         spin_unlock_irqrestore(&id->lock,flags);
 }

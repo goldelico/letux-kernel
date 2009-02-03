@@ -4,8 +4,6 @@
  * Author: Fabrice Bellard (fabrice.bellard@netgem.com)
  * Copyright (C) 2000 Netgem S.A.
  *
- * $Id: nftlmount.c,v 1.41 2005/11/07 11:14:21 gleixner Exp $
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -30,13 +28,6 @@
 #include <linux/mtd/nftl.h>
 
 #define SECTORSIZE 512
-
-char nftlmountrev[]="$Revision: 1.41 $";
-
-extern int nftl_read_oob(struct mtd_info *mtd, loff_t offs, size_t len,
-			 size_t *retlen, uint8_t *buf);
-extern int nftl_write_oob(struct mtd_info *mtd, loff_t offs, size_t len,
-			  size_t *retlen, uint8_t *buf);
 
 /* find_boot_record: Find the NFTL Media Header and its Spare copy which contains the
  *	various device information of the NFTL partition and Bad Unit Table. Update
@@ -429,7 +420,7 @@ static void check_sectors_in_chain(struct NFTLrecord *nftl, unsigned int first_b
 	}
 }
 
-/* calc_chain_lenght: Walk through a Virtual Unit Chain and estimate chain length */
+/* calc_chain_length: Walk through a Virtual Unit Chain and estimate chain length */
 static int calc_chain_length(struct NFTLrecord *nftl, unsigned int first_block)
 {
 	unsigned int length = 0, block = first_block;

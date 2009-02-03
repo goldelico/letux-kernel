@@ -35,11 +35,11 @@
 #include <linux/backlight.h>
 #include <linux/clk.h>
 
-#include <asm/arch/hardware.h>
-#include <asm/arch/gta01.h>
-#include <asm/arch/pwm.h>
+#include <mach/hardware.h>
+#include <mach/gta01.h>
+#include <mach/pwm.h>
 
-#include <asm/plat-s3c/regs-timer.h>
+#include <plat/regs-timer.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 
 static struct backlight_properties gta01bl_prop;

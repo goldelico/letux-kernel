@@ -32,10 +32,8 @@ struct lis302dl_info {
 	unsigned int threshold;
 	unsigned int duration;
 	struct {
-		u8 cfg;
-		u8 threshold;
-		u8 duration;
-		int active;
+		unsigned int threshold; /* mg */
+		unsigned int duration;  /* ms */
 	} wakeup;
 	u_int8_t regs[0x40];
 };

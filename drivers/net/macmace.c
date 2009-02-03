@@ -9,7 +9,7 @@
  *	2 of the License, or (at your option) any later version.
  *
  *	Copyright (C) 1996 Paul Mackerras.
- *	Copyright (C) 1998 Alan Cox <alan@redhat.com>
+ *	Copyright (C) 1998 Alan Cox <alan@lxorguk.ukuu.org.uk>
  *
  *	Modified heavily by Joshua M. Thompson based on Dave Huang's NetBSD driver
  *
@@ -780,6 +780,9 @@ static struct platform_driver mac_mace_driver = {
 static int __init mac_mace_init_module(void)
 {
 	int err;
+
+	if (!MACH_IS_MAC)
+		return -ENODEV;
 
 	if ((err = platform_driver_register(&mac_mace_driver))) {
 		printk(KERN_ERR "Driver registration failed\n");

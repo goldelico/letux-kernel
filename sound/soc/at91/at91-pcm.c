@@ -23,14 +23,13 @@
 #include <linux/dma-mapping.h>
 #include <linux/atmel_pdc.h>
 
-#include <sound/driver.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 
-#include <asm/arch/hardware.h>
-#include <asm/arch/at91_ssc.h>
+#include <mach/hardware.h>
+#include <mach/at91_ssc.h>
 
 #include "at91-pcm.h"
 
@@ -104,7 +103,8 @@ static void at91_pcm_dma_irq(u32 ssc_sr,
 		if (prtd->period_ptr >= prtd->dma_buffer_end) {
 			prtd->period_ptr = prtd->dma_buffer;
 		}
-		at91_ssc_write(params->ssc_base + params->pdc->xnpr, prtd->period_ptr);
+		at91_ssc_write(params->ssc_base + params->pdc->xnpr,
+			       prtd->period_ptr);
 		at91_ssc_write(params->ssc_base + params->pdc->xncr,
 				prtd->period_size / params->pdc_xfer_size);
 	}
@@ -192,10 +192,12 @@ static int at91_pcm_trigger(struct snd_pcm_substream *substream,
 		at91_ssc_write(params->ssc_base + AT91_SSC_IER,
 			params->mask->ssc_endx | params->mask->ssc_endbuf);
 
-		at91_ssc_write(params->ssc_base + ATMEL_PDC_PTCR, params->mask->pdc_enable);
+		at91_ssc_write(params->ssc_base + ATMEL_PDC_PTCR,
+			params->mask->pdc_enable);
 
-		DBG("sr=%lx imr=%lx\n", at91_ssc_read(params->ssc_base + AT91_SSC_SR),
-					at91_ssc_read(params->ssc_base + AT91_SSC_IER));
+		DBG("sr=%lx imr=%lx\n",
+		    at91_ssc_read(params->ssc_base + AT91_SSC_SR),
+		    at91_ssc_read(params->ssc_base + AT91_SSC_IMR));
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -316,7 +318,7 @@ static int at91_pcm_preallocate_dma_buffer(struct snd_pcm *pcm,
 static u64 at91_pcm_dmamask = 0xffffffff;
 
 static int at91_pcm_new(struct snd_card *card,
-	struct snd_soc_codec_dai *dai, struct snd_pcm *pcm)
+	struct snd_soc_dai *dai, struct snd_pcm *pcm)
 {
 	int ret = 0;
 
@@ -365,7 +367,7 @@ static void at91_pcm_free_dma_buffers(struct snd_pcm *pcm)
 
 #ifdef CONFIG_PM
 static int at91_pcm_suspend(struct platform_device *pdev,
-	struct snd_soc_cpu_dai *dai)
+	struct snd_soc_dai *dai)
 {
 	struct snd_pcm_runtime *runtime = dai->runtime;
 	struct at91_runtime_data *prtd;
@@ -390,7 +392,7 @@ static int at91_pcm_suspend(struct platform_device *pdev,
 }
 
 static int at91_pcm_resume(struct platform_device *pdev,
-	struct snd_soc_cpu_dai *dai)
+	struct snd_soc_dai *dai)
 {
 	struct snd_pcm_runtime *runtime = dai->runtime;
 	struct at91_runtime_data *prtd;

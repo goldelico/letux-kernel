@@ -296,7 +296,7 @@ int hostap_tx_callback_unregister(local_info_t *local, u16 idx)
 int hostap_set_word(struct net_device *dev, int rid, u16 val)
 {
 	struct hostap_interface *iface;
-	u16 tmp = cpu_to_le16(val);
+	__le16 tmp = cpu_to_le16(val);
 	iface = netdev_priv(dev);
 	return iface->local->func->set_rid(dev, rid, &tmp, 2);
 }
@@ -594,27 +594,10 @@ void hostap_dump_tx_header(const char *name, const struct hfa384x_tx_frame *tx)
 }
 
 
-int hostap_80211_header_parse(const struct sk_buff *skb, unsigned char *haddr)
+static int hostap_80211_header_parse(const struct sk_buff *skb,
+				     unsigned char *haddr)
 {
-	struct hostap_interface *iface = netdev_priv(skb->dev);
-	local_info_t *local = iface->local;
-
-	if (local->monitor_type == PRISM2_MONITOR_PRISM ||
-	    local->monitor_type == PRISM2_MONITOR_CAPHDR) {
-		const unsigned char *mac = skb_mac_header(skb);
-
-		if (*(u32 *)mac == LWNG_CAP_DID_BASE) {
-			memcpy(haddr,
-			       mac + sizeof(struct linux_wlan_ng_prism_hdr) + 10,
-			       ETH_ALEN); /* addr2 */
-		} else { /* (*(u32 *)mac == htonl(LWNG_CAPHDR_VERSION)) */
-			memcpy(haddr,
-			       mac + sizeof(struct linux_wlan_ng_cap_hdr) + 10,
-			       ETH_ALEN); /* addr2 */
-		}
-	} else
-		memcpy(haddr, skb_mac_header(skb) + 10, ETH_ALEN); /* addr2 */
-
+	memcpy(haddr, skb_mac_header(skb) + 10, ETH_ALEN); /* addr2 */
 	return ETH_ALEN;
 }
 
@@ -682,7 +665,13 @@ static int prism2_close(struct net_device *dev)
 		netif_device_detach(dev);
 	}
 
-	flush_scheduled_work();
+	cancel_work_sync(&local->reset_queue);
+	cancel_work_sync(&local->set_multicast_list_queue);
+	cancel_work_sync(&local->set_tim_queue);
+#ifndef PRISM2_NO_STATION_MODES
+	cancel_work_sync(&local->info_queue);
+#endif
+	cancel_work_sync(&local->comms_qual_update);
 
 	module_put(local->hw_module);
 
@@ -851,7 +840,6 @@ const struct header_ops hostap_80211_ops = {
 	.rebuild	= eth_rebuild_header,
 	.cache		= eth_header_cache,
 	.cache_update	= eth_header_cache_update,
-
 	.parse		= hostap_80211_header_parse,
 };
 EXPORT_SYMBOL(hostap_80211_ops);
@@ -1095,15 +1083,15 @@ int prism2_sta_deauth(local_info_t *local, u16 reason)
 {
 	union iwreq_data wrqu;
 	int ret;
+	__le16 val = cpu_to_le16(reason);
 
 	if (local->iw_mode != IW_MODE_INFRA ||
 	    memcmp(local->bssid, "\x00\x00\x00\x00\x00\x00", ETH_ALEN) == 0 ||
 	    memcmp(local->bssid, "\x44\x44\x44\x44\x44\x44", ETH_ALEN) == 0)
 		return 0;
 
-	reason = cpu_to_le16(reason);
 	ret = prism2_sta_send_mgmt(local, local->bssid, IEEE80211_STYPE_DEAUTH,
-				   (u8 *) &reason, 2);
+				   (u8 *) &val, 2);
 	memset(wrqu.ap_addr.sa_data, 0, ETH_ALEN);
 	wireless_send_event(local->dev, SIOCGIWAP, &wrqu, NULL);
 	return ret;
@@ -1144,7 +1132,6 @@ EXPORT_SYMBOL(hostap_set_roaming);
 EXPORT_SYMBOL(hostap_set_auth_algs);
 EXPORT_SYMBOL(hostap_dump_rx_header);
 EXPORT_SYMBOL(hostap_dump_tx_header);
-EXPORT_SYMBOL(hostap_80211_header_parse);
 EXPORT_SYMBOL(hostap_80211_get_hdrlen);
 EXPORT_SYMBOL(hostap_get_stats);
 EXPORT_SYMBOL(hostap_setup_dev);

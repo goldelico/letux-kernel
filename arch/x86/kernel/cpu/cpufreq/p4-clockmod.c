@@ -122,7 +122,7 @@ static int cpufreq_p4_target(struct cpufreq_policy *policy,
 		return 0;
 
 	/* notifiers */
-	for_each_cpu_mask(i, policy->cpus) {
+	for_each_cpu_mask_nr(i, policy->cpus) {
 		freqs.cpu = i;
 		cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
 	}
@@ -130,11 +130,11 @@ static int cpufreq_p4_target(struct cpufreq_policy *policy,
 	/* run on each logical CPU, see section 13.15.3 of IA32 Intel Architecture Software
 	 * Developer's Manual, Volume 3
 	 */
-	for_each_cpu_mask(i, policy->cpus)
+	for_each_cpu_mask_nr(i, policy->cpus)
 		cpufreq_p4_setdc(i, p4clockmod_table[newstate].index);
 
 	/* notifiers */
-	for_each_cpu_mask(i, policy->cpus) {
+	for_each_cpu_mask_nr(i, policy->cpus) {
 		freqs.cpu = i;
 		cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
 	}
@@ -171,7 +171,7 @@ static unsigned int cpufreq_p4_get_frequency(struct cpuinfo_x86 *c)
 	}
 
 	if (c->x86 != 0xF) {
-		printk(KERN_WARNING PFX "Unknown p4-clockmod-capable CPU. Please send an e-mail to <cpufreq@lists.linux.org.uk>\n");
+		printk(KERN_WARNING PFX "Unknown p4-clockmod-capable CPU. Please send an e-mail to <cpufreq@vger.kernel.org>\n");
 		return 0;
 	}
 
@@ -289,8 +289,8 @@ static int __init cpufreq_p4_init(void)
 	if (c->x86_vendor != X86_VENDOR_INTEL)
 		return -ENODEV;
 
-	if (!test_bit(X86_FEATURE_ACPI, c->x86_capability) ||
-		!test_bit(X86_FEATURE_ACC, c->x86_capability))
+	if (!test_cpu_cap(c, X86_FEATURE_ACPI) ||
+				!test_cpu_cap(c, X86_FEATURE_ACC))
 		return -ENODEV;
 
 	ret = cpufreq_register_driver(&p4clockmod_driver);

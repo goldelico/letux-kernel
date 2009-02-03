@@ -5,7 +5,9 @@
 #include <linux/linkage.h>
 #include <linux/mmzone.h>
 #include <linux/list.h>
+#include <linux/memcontrol.h>
 #include <linux/sched.h>
+#include <linux/node.h>
 
 #include <asm/atomic.h>
 #include <asm/page.h>
@@ -158,9 +160,6 @@ struct swap_list_t {
 /* Swap 50% full? Release swapcache more aggressively.. */
 #define vm_swap_full() (nr_swap_pages*2 < total_swap_pages)
 
-/* linux/mm/memory.c */
-extern void swapin_readahead(swp_entry_t, unsigned long, struct vm_area_struct *);
-
 /* linux/mm/page_alloc.c */
 extern unsigned long totalram_pages;
 extern unsigned long totalreserve_pages;
@@ -173,18 +172,49 @@ extern unsigned int nr_free_pagecache_pages(void);
 
 
 /* linux/mm/swap.c */
-extern void FASTCALL(lru_cache_add(struct page *));
-extern void FASTCALL(lru_cache_add_active(struct page *));
-extern void FASTCALL(activate_page(struct page *));
-extern void FASTCALL(mark_page_accessed(struct page *));
+extern void __lru_cache_add(struct page *, enum lru_list lru);
+extern void lru_cache_add_lru(struct page *, enum lru_list lru);
+extern void lru_cache_add_active_or_unevictable(struct page *,
+					struct vm_area_struct *);
+extern void activate_page(struct page *);
+extern void mark_page_accessed(struct page *);
 extern void lru_add_drain(void);
 extern int lru_add_drain_all(void);
-extern int rotate_reclaimable_page(struct page *page);
+extern void rotate_reclaimable_page(struct page *page);
 extern void swap_setup(void);
 
+extern void add_page_to_unevictable_list(struct page *page);
+
+/**
+ * lru_cache_add: add a page to the page lists
+ * @page: the page to add
+ */
+static inline void lru_cache_add_anon(struct page *page)
+{
+	__lru_cache_add(page, LRU_INACTIVE_ANON);
+}
+
+static inline void lru_cache_add_active_anon(struct page *page)
+{
+	__lru_cache_add(page, LRU_ACTIVE_ANON);
+}
+
+static inline void lru_cache_add_file(struct page *page)
+{
+	__lru_cache_add(page, LRU_INACTIVE_FILE);
+}
+
+static inline void lru_cache_add_active_file(struct page *page)
+{
+	__lru_cache_add(page, LRU_ACTIVE_FILE);
+}
+
 /* linux/mm/vmscan.c */
-extern unsigned long try_to_free_pages(struct zone **zones, int order,
+extern unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
 					gfp_t gfp_mask);
+extern unsigned long try_to_free_mem_cgroup_pages(struct mem_cgroup *mem,
+							gfp_t gfp_mask);
+extern int __isolate_lru_page(struct page *page, int mode, int file);
 extern unsigned long shrink_all_memory(unsigned long nr_pages);
 extern int vm_swappiness;
 extern int remove_mapping(struct address_space *mapping, struct page *page);
@@ -201,6 +231,34 @@ static inline int zone_reclaim(struct zone *z, gfp_t mask, unsigned int order)
 {
 	return 0;
 }
+#endif
+
+#ifdef CONFIG_UNEVICTABLE_LRU
+extern int page_evictable(struct page *page, struct vm_area_struct *vma);
+extern void scan_mapping_unevictable_pages(struct address_space *);
+
+extern unsigned long scan_unevictable_pages;
+extern int scan_unevictable_handler(struct ctl_table *, int, struct file *,
+					void __user *, size_t *, loff_t *);
+extern int scan_unevictable_register_node(struct node *node);
+extern void scan_unevictable_unregister_node(struct node *node);
+#else
+static inline int page_evictable(struct page *page,
+						struct vm_area_struct *vma)
+{
+	return 1;
+}
+
+static inline void scan_mapping_unevictable_pages(struct address_space *mapping)
+{
+}
+
+static inline int scan_unevictable_register_node(struct node *node)
+{
+	return 0;
+}
+
+static inline void scan_unevictable_unregister_node(struct node *node) { }
 #endif
 
 extern int kswapd_run(int nid);
@@ -223,19 +281,19 @@ extern struct address_space swapper_space;
 #define total_swapcache_pages  swapper_space.nrpages
 extern void show_swap_cache_info(void);
 extern int add_to_swap(struct page *, gfp_t);
+extern int add_to_swap_cache(struct page *, swp_entry_t, gfp_t);
 extern void __delete_from_swap_cache(struct page *);
 extern void delete_from_swap_cache(struct page *);
-extern int move_to_swap_cache(struct page *, swp_entry_t);
-extern int move_from_swap_cache(struct page *, unsigned long,
-		struct address_space *);
 extern void free_page_and_swap_cache(struct page *);
 extern void free_pages_and_swap_cache(struct page **, int);
-extern struct page * lookup_swap_cache(swp_entry_t);
-extern struct page * read_swap_cache_async(swp_entry_t, struct vm_area_struct *vma,
-					   unsigned long addr);
+extern struct page *lookup_swap_cache(swp_entry_t);
+extern struct page *read_swap_cache_async(swp_entry_t, gfp_t,
+			struct vm_area_struct *vma, unsigned long addr);
+extern struct page *swapin_readahead(swp_entry_t, gfp_t,
+			struct vm_area_struct *vma, unsigned long addr);
+
 /* linux/mm/swapfile.c */
 extern long total_swap_pages;
-extern unsigned int nr_swapfiles;
 extern void si_swapinfo(struct sysinfo *);
 extern swp_entry_t get_swap_page(void);
 extern swp_entry_t get_swap_page_of_type(int);
@@ -250,9 +308,8 @@ extern sector_t swapdev_block(int, pgoff_t);
 extern struct swap_info_struct *get_swap_info_struct(unsigned);
 extern int can_share_swap_page(struct page *);
 extern int remove_exclusive_swap_page(struct page *);
+extern int remove_exclusive_swap_page_ref(struct page *);
 struct backing_dev_info;
-
-extern spinlock_t swap_lock;
 
 /* linux/mm/thrash.c */
 extern struct mm_struct * swap_token_mm;
@@ -306,7 +363,7 @@ static inline void swap_free(swp_entry_t swp)
 {
 }
 
-static inline struct page *read_swap_cache_async(swp_entry_t swp,
+static inline struct page *swapin_readahead(swp_entry_t swp, gfp_t gfp_mask,
 			struct vm_area_struct *vma, unsigned long addr)
 {
 	return NULL;
@@ -317,22 +374,12 @@ static inline struct page *lookup_swap_cache(swp_entry_t swp)
 	return NULL;
 }
 
-static inline int valid_swaphandles(swp_entry_t entry, unsigned long *offset)
-{
-	return 0;
-}
-
 #define can_share_swap_page(p)			(page_mapcount(p) == 1)
 
-static inline int move_to_swap_cache(struct page *page, swp_entry_t entry)
+static inline int add_to_swap_cache(struct page *page, swp_entry_t entry,
+							gfp_t gfp_mask)
 {
-	return 1;
-}
-
-static inline int move_from_swap_cache(struct page *page, unsigned long index,
-					struct address_space *mapping)
-{
-	return 1;
+	return -1;
 }
 
 static inline void __delete_from_swap_cache(struct page *page)
@@ -346,6 +393,11 @@ static inline void delete_from_swap_cache(struct page *page)
 #define swap_token_default_timeout		0
 
 static inline int remove_exclusive_swap_page(struct page *p)
+{
+	return 0;
+}
+
+static inline int remove_exclusive_swap_page_ref(struct page *page)
 {
 	return 0;
 }

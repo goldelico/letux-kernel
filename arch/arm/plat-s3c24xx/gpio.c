@@ -26,13 +26,13 @@
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
+#include <linux/io.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/irq.h>
-#include <asm/io.h>
 
-#include <asm/arch/regs-gpio.h>
-#include <asm/arch/regs-gpioj.h>
+#include <mach/regs-gpio.h>
+#include <mach/regs-gpioj.h>
 
 void s3c2410_gpio_cfgpin(unsigned int pin, unsigned int function)
 {
@@ -123,6 +123,19 @@ void s3c2410_gpio_pullup(unsigned int pin, unsigned int to)
 
 EXPORT_SYMBOL(s3c2410_gpio_pullup);
 
+int s3c2410_gpio_getpull(unsigned int pin)
+{
+	void __iomem *base = S3C24XX_GPIO_BASE(pin);
+	unsigned long offs = S3C2410_GPIO_OFFSET(pin);
+
+	if (pin < S3C2410_GPIO_BANKB)
+		return -EINVAL;
+
+	return (__raw_readl(base + 0x08) & (1L << offs)) ? 1 : 0;
+}
+
+EXPORT_SYMBOL(s3c2410_gpio_getpull);
+
 void s3c2410_gpio_setpin(unsigned int pin, unsigned int to)
 {
 	void __iomem *base = S3C24XX_GPIO_BASE(pin);
@@ -188,22 +201,21 @@ int s3c2410_gpio_getirq(unsigned int pin)
 
 EXPORT_SYMBOL(s3c2410_gpio_getirq);
 
-int s3c2410_irq_to_gpio(unsigned int irq)
+int s3c2410_gpio_irq2pin(unsigned int irq)
 {
-	/* not valid interrupts */
-	if (irq > 15 + IRQ_EINT8)
-		return -1;
+	if (irq >= IRQ_EINT0 && irq <= IRQ_EINT3)
+		return S3C2410_GPF0 + (irq - IRQ_EINT0);
 
-	if (irq < IRQ_EINT4)
-		return (irq - IRQ_EINT0) + S3C2410_GPF0;
+	if (irq >= IRQ_EINT4 && irq <= IRQ_EINT7)
+		return S3C2410_GPF4 + (irq - IRQ_EINT4);
 
-	if (irq < IRQ_EINT8)
-		return (irq - IRQ_EINT4) + S3C2410_GPF4;
+	if (irq >= IRQ_EINT8 && irq <= IRQ_EINT23)
+		return S3C2410_GPG0 + (irq - IRQ_EINT8);
 
-	return (irq - IRQ_EINT8) + S3C2410_GPG0;
+	return -EINVAL;
 }
 
-EXPORT_SYMBOL(s3c2410_irq_to_gpio);
+EXPORT_SYMBOL(s3c2410_gpio_irq2pin);
 
 static void pretty_dump(u32 cfg, u32 state, u32 pull,
 			const char ** function_names_2,
@@ -623,3 +635,4 @@ void s3c24xx_dump_gpio_states(void)
 
 }
 EXPORT_SYMBOL(s3c24xx_dump_gpio_states);
+

@@ -17,13 +17,17 @@
 #include <linux/kernel.h>
 #include <linux/security.h>
 
+/* Boot-time LSM user choice */
+static __initdata char chosen_lsm[SECURITY_NAME_MAX + 1];
 
-/* things that live in dummy.c */
-extern struct security_operations dummy_security_ops;
+/* things that live in capability.c */
+extern struct security_operations default_security_ops;
 extern void security_fixup_ops(struct security_operations *ops);
 
 struct security_operations *security_ops;	/* Initialized to NULL */
-unsigned long mmap_min_addr;		/* 0 means no protection */
+
+/* amount of vm to protect from userspace access */
+unsigned long mmap_min_addr = CONFIG_SECURITY_DEFAULT_MMAP_MIN_ADDR;
 
 static inline int verify(struct security_operations *ops)
 {
@@ -53,38 +57,67 @@ int __init security_init(void)
 {
 	printk(KERN_INFO "Security Framework initialized\n");
 
-	if (verify(&dummy_security_ops)) {
-		printk(KERN_ERR "%s could not verify "
-		       "dummy_security_ops structure.\n", __FUNCTION__);
-		return -EIO;
-	}
-
-	security_ops = &dummy_security_ops;
+	security_fixup_ops(&default_security_ops);
+	security_ops = &default_security_ops;
 	do_security_initcalls();
 
 	return 0;
+}
+
+/* Save user chosen LSM */
+static int __init choose_lsm(char *str)
+{
+	strncpy(chosen_lsm, str, SECURITY_NAME_MAX);
+	return 1;
+}
+__setup("security=", choose_lsm);
+
+/**
+ * security_module_enable - Load given security module on boot ?
+ * @ops: a pointer to the struct security_operations that is to be checked.
+ *
+ * Each LSM must pass this method before registering its own operations
+ * to avoid security registration races. This method may also be used
+ * to check if your LSM is currently loaded during kernel initialization.
+ *
+ * Return true if:
+ *	-The passed LSM is the one chosen by user at boot time,
+ *	-or user didn't specify a specific LSM and we're the first to ask
+ *	 for registration permission,
+ *	-or the passed LSM is currently loaded.
+ * Otherwise, return false.
+ */
+int __init security_module_enable(struct security_operations *ops)
+{
+	if (!*chosen_lsm)
+		strncpy(chosen_lsm, ops->name, SECURITY_NAME_MAX);
+	else if (strncmp(ops->name, chosen_lsm, SECURITY_NAME_MAX))
+		return 0;
+
+	return 1;
 }
 
 /**
  * register_security - registers a security framework with the kernel
  * @ops: a pointer to the struct security_options that is to be registered
  *
- * This function is to allow a security module to register itself with the
+ * This function allows a security module to register itself with the
  * kernel security subsystem.  Some rudimentary checking is done on the @ops
- * value passed to this function.
+ * value passed to this function. You'll need to check first if your LSM
+ * is allowed to register its @ops by calling security_module_enable(@ops).
  *
  * If there is already a security module registered with the kernel,
- * an error will be returned.  Otherwise 0 is returned on success.
+ * an error will be returned.  Otherwise %0 is returned on success.
  */
 int register_security(struct security_operations *ops)
 {
 	if (verify(ops)) {
 		printk(KERN_DEBUG "%s could not verify "
-		       "security_operations structure.\n", __FUNCTION__);
+		       "security_operations structure.\n", __func__);
 		return -EINVAL;
 	}
 
-	if (security_ops != &dummy_security_ops)
+	if (security_ops != &default_security_ops)
 		return -EAGAIN;
 
 	security_ops = ops;
@@ -92,40 +125,16 @@ int register_security(struct security_operations *ops)
 	return 0;
 }
 
-/**
- * mod_reg_security - allows security modules to be "stacked"
- * @name: a pointer to a string with the name of the security_options to be registered
- * @ops: a pointer to the struct security_options that is to be registered
- *
- * This function allows security modules to be stacked if the currently loaded
- * security module allows this to happen.  It passes the @name and @ops to the
- * register_security function of the currently loaded security module.
- *
- * The return value depends on the currently loaded security module, with 0 as
- * success.
- */
-int mod_reg_security(const char *name, struct security_operations *ops)
-{
-	if (verify(ops)) {
-		printk(KERN_INFO "%s could not verify "
-		       "security operations.\n", __FUNCTION__);
-		return -EINVAL;
-	}
-
-	if (ops == security_ops) {
-		printk(KERN_INFO "%s security operations "
-		       "already registered.\n", __FUNCTION__);
-		return -EINVAL;
-	}
-
-	return security_ops->register_security(name, ops);
-}
-
 /* Security operations */
 
-int security_ptrace(struct task_struct *parent, struct task_struct *child)
+int security_ptrace_may_access(struct task_struct *child, unsigned int mode)
 {
-	return security_ops->ptrace(parent, child);
+	return security_ops->ptrace_may_access(child, mode);
+}
+
+int security_ptrace_traceme(struct task_struct *parent)
+{
+	return security_ops->ptrace_traceme(parent);
 }
 
 int security_capget(struct task_struct *target,
@@ -189,12 +198,21 @@ int security_settime(struct timespec *ts, struct timezone *tz)
 
 int security_vm_enough_memory(long pages)
 {
+	WARN_ON(current->mm == NULL);
 	return security_ops->vm_enough_memory(current->mm, pages);
 }
 
 int security_vm_enough_memory_mm(struct mm_struct *mm, long pages)
 {
+	WARN_ON(mm == NULL);
 	return security_ops->vm_enough_memory(mm, pages);
+}
+
+int security_vm_enough_memory_kern(long pages)
+{
+	/* If current->mm is a kernel thread then we will pass NULL,
+	   for this specific case that is fine */
+	return security_ops->vm_enough_memory(current->mm, pages);
 }
 
 int security_bprm_alloc(struct linux_binprm *bprm)
@@ -242,14 +260,20 @@ void security_sb_free(struct super_block *sb)
 	security_ops->sb_free_security(sb);
 }
 
-int security_sb_copy_data(struct file_system_type *type, void *orig, void *copy)
+int security_sb_copy_data(char *orig, char *copy)
 {
-	return security_ops->sb_copy_data(type, orig, copy);
+	return security_ops->sb_copy_data(orig, copy);
 }
+EXPORT_SYMBOL(security_sb_copy_data);
 
 int security_sb_kern_mount(struct super_block *sb, void *data)
 {
 	return security_ops->sb_kern_mount(sb, data);
+}
+
+int security_sb_show_options(struct seq_file *m, struct super_block *sb)
+{
+	return security_ops->sb_show_options(m, sb);
 }
 
 int security_sb_statfs(struct dentry *dentry)
@@ -257,15 +281,15 @@ int security_sb_statfs(struct dentry *dentry)
 	return security_ops->sb_statfs(dentry);
 }
 
-int security_sb_mount(char *dev_name, struct nameidata *nd,
+int security_sb_mount(char *dev_name, struct path *path,
                        char *type, unsigned long flags, void *data)
 {
-	return security_ops->sb_mount(dev_name, nd, type, flags, data);
+	return security_ops->sb_mount(dev_name, path, type, flags, data);
 }
 
-int security_sb_check_sb(struct vfsmount *mnt, struct nameidata *nd)
+int security_sb_check_sb(struct vfsmount *mnt, struct path *path)
 {
-	return security_ops->sb_check_sb(mnt, nd);
+	return security_ops->sb_check_sb(mnt, path);
 }
 
 int security_sb_umount(struct vfsmount *mnt, int flags)
@@ -288,25 +312,40 @@ void security_sb_post_remount(struct vfsmount *mnt, unsigned long flags, void *d
 	security_ops->sb_post_remount(mnt, flags, data);
 }
 
-void security_sb_post_mountroot(void)
+void security_sb_post_addmount(struct vfsmount *mnt, struct path *mountpoint)
 {
-	security_ops->sb_post_mountroot();
+	security_ops->sb_post_addmount(mnt, mountpoint);
 }
 
-void security_sb_post_addmount(struct vfsmount *mnt, struct nameidata *mountpoint_nd)
+int security_sb_pivotroot(struct path *old_path, struct path *new_path)
 {
-	security_ops->sb_post_addmount(mnt, mountpoint_nd);
+	return security_ops->sb_pivotroot(old_path, new_path);
 }
 
-int security_sb_pivotroot(struct nameidata *old_nd, struct nameidata *new_nd)
+void security_sb_post_pivotroot(struct path *old_path, struct path *new_path)
 {
-	return security_ops->sb_pivotroot(old_nd, new_nd);
+	security_ops->sb_post_pivotroot(old_path, new_path);
 }
 
-void security_sb_post_pivotroot(struct nameidata *old_nd, struct nameidata *new_nd)
+int security_sb_set_mnt_opts(struct super_block *sb,
+				struct security_mnt_opts *opts)
 {
-	security_ops->sb_post_pivotroot(old_nd, new_nd);
+	return security_ops->sb_set_mnt_opts(sb, opts);
 }
+EXPORT_SYMBOL(security_sb_set_mnt_opts);
+
+void security_sb_clone_mnt_opts(const struct super_block *oldsb,
+				struct super_block *newsb)
+{
+	security_ops->sb_clone_mnt_opts(oldsb, newsb);
+}
+EXPORT_SYMBOL(security_sb_clone_mnt_opts);
+
+int security_sb_parse_opts_str(char *options, struct security_mnt_opts *opts)
+{
+	return security_ops->sb_parse_opts_str(options, opts);
+}
+EXPORT_SYMBOL(security_sb_parse_opts_str);
 
 int security_inode_alloc(struct inode *inode)
 {
@@ -403,11 +442,11 @@ int security_inode_follow_link(struct dentry *dentry, struct nameidata *nd)
 	return security_ops->inode_follow_link(dentry, nd);
 }
 
-int security_inode_permission(struct inode *inode, int mask, struct nameidata *nd)
+int security_inode_permission(struct inode *inode, int mask)
 {
 	if (unlikely(IS_PRIVATE(inode)))
 		return 0;
-	return security_ops->inode_permission(inode, mask, nd);
+	return security_ops->inode_permission(inode, mask);
 }
 
 int security_inode_setattr(struct dentry *dentry, struct iattr *attr)
@@ -416,6 +455,7 @@ int security_inode_setattr(struct dentry *dentry, struct iattr *attr)
 		return 0;
 	return security_ops->inode_setattr(dentry, attr);
 }
+EXPORT_SYMBOL_GPL(security_inode_setattr);
 
 int security_inode_getattr(struct vfsmount *mnt, struct dentry *dentry)
 {
@@ -431,23 +471,23 @@ void security_inode_delete(struct inode *inode)
 	security_ops->inode_delete(inode);
 }
 
-int security_inode_setxattr(struct dentry *dentry, char *name,
-			     void *value, size_t size, int flags)
+int security_inode_setxattr(struct dentry *dentry, const char *name,
+			    const void *value, size_t size, int flags)
 {
 	if (unlikely(IS_PRIVATE(dentry->d_inode)))
 		return 0;
 	return security_ops->inode_setxattr(dentry, name, value, size, flags);
 }
 
-void security_inode_post_setxattr(struct dentry *dentry, char *name,
-				   void *value, size_t size, int flags)
+void security_inode_post_setxattr(struct dentry *dentry, const char *name,
+				  const void *value, size_t size, int flags)
 {
 	if (unlikely(IS_PRIVATE(dentry->d_inode)))
 		return;
 	security_ops->inode_post_setxattr(dentry, name, value, size, flags);
 }
 
-int security_inode_getxattr(struct dentry *dentry, char *name)
+int security_inode_getxattr(struct dentry *dentry, const char *name)
 {
 	if (unlikely(IS_PRIVATE(dentry->d_inode)))
 		return 0;
@@ -461,7 +501,7 @@ int security_inode_listxattr(struct dentry *dentry)
 	return security_ops->inode_listxattr(dentry);
 }
 
-int security_inode_removexattr(struct dentry *dentry, char *name)
+int security_inode_removexattr(struct dentry *dentry, const char *name)
 {
 	if (unlikely(IS_PRIVATE(dentry->d_inode)))
 		return 0;
@@ -478,11 +518,11 @@ int security_inode_killpriv(struct dentry *dentry)
 	return security_ops->inode_killpriv(dentry);
 }
 
-int security_inode_getsecurity(const struct inode *inode, const char *name, void *buffer, size_t size, int err)
+int security_inode_getsecurity(const struct inode *inode, const char *name, void **buffer, bool alloc)
 {
 	if (unlikely(IS_PRIVATE(inode)))
 		return 0;
-	return security_ops->inode_getsecurity(inode, name, buffer, size, err);
+	return security_ops->inode_getsecurity(inode, name, buffer, alloc);
 }
 
 int security_inode_setsecurity(struct inode *inode, const char *name, const void *value, size_t size, int flags)
@@ -497,6 +537,11 @@ int security_inode_listsecurity(struct inode *inode, char *buffer, size_t buffer
 	if (unlikely(IS_PRIVATE(inode)))
 		return 0;
 	return security_ops->inode_listsecurity(inode, buffer, buffer_size);
+}
+
+void security_inode_getsecid(const struct inode *inode, u32 *secid)
+{
+	security_ops->inode_getsecid(inode, secid);
 }
 
 int security_file_permission(struct file *file, int mask)
@@ -668,9 +713,9 @@ int security_task_wait(struct task_struct *p)
 }
 
 int security_task_prctl(int option, unsigned long arg2, unsigned long arg3,
-			 unsigned long arg4, unsigned long arg5)
+			 unsigned long arg4, unsigned long arg5, long *rc_p)
 {
-	return security_ops->task_prctl(option, arg2, arg3, arg4, arg5);
+	return security_ops->task_prctl(option, arg2, arg3, arg4, arg5, rc_p);
 }
 
 void security_task_reparent_to_init(struct task_struct *p)
@@ -686,6 +731,11 @@ void security_task_to_inode(struct task_struct *p, struct inode *inode)
 int security_ipc_permission(struct kern_ipc_perm *ipcp, short flag)
 {
 	return security_ops->ipc_permission(ipcp, flag);
+}
+
+void security_ipc_getsecid(struct kern_ipc_perm *ipcp, u32 *secid)
+{
+	security_ops->ipc_getsecid(ipcp, secid);
 }
 
 int security_msg_msg_alloc(struct msg_msg *msg)
@@ -816,9 +866,15 @@ int security_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
 }
 EXPORT_SYMBOL(security_secid_to_secctx);
 
+int security_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid)
+{
+	return security_ops->secctx_to_secid(secdata, seclen, secid);
+}
+EXPORT_SYMBOL(security_secctx_to_secid);
+
 void security_release_secctx(char *secdata, u32 seclen)
 {
-	return security_ops->release_secctx(secdata, seclen);
+	security_ops->release_secctx(secdata, seclen);
 }
 EXPORT_SYMBOL(security_release_secctx);
 
@@ -935,12 +991,12 @@ int security_sk_alloc(struct sock *sk, int family, gfp_t priority)
 
 void security_sk_free(struct sock *sk)
 {
-	return security_ops->sk_free_security(sk);
+	security_ops->sk_free_security(sk);
 }
 
 void security_sk_clone(const struct sock *sk, struct sock *newsk)
 {
-	return security_ops->sk_clone_security(sk, newsk);
+	security_ops->sk_clone_security(sk, newsk);
 }
 
 void security_sk_classify_flow(struct sock *sk, struct flowi *fl)
@@ -984,26 +1040,27 @@ void security_inet_conn_established(struct sock *sk,
 
 #ifdef CONFIG_SECURITY_NETWORK_XFRM
 
-int security_xfrm_policy_alloc(struct xfrm_policy *xp, struct xfrm_user_sec_ctx *sec_ctx)
+int security_xfrm_policy_alloc(struct xfrm_sec_ctx **ctxp, struct xfrm_user_sec_ctx *sec_ctx)
 {
-	return security_ops->xfrm_policy_alloc_security(xp, sec_ctx);
+	return security_ops->xfrm_policy_alloc_security(ctxp, sec_ctx);
 }
 EXPORT_SYMBOL(security_xfrm_policy_alloc);
 
-int security_xfrm_policy_clone(struct xfrm_policy *old, struct xfrm_policy *new)
+int security_xfrm_policy_clone(struct xfrm_sec_ctx *old_ctx,
+			      struct xfrm_sec_ctx **new_ctxp)
 {
-	return security_ops->xfrm_policy_clone_security(old, new);
+	return security_ops->xfrm_policy_clone_security(old_ctx, new_ctxp);
 }
 
-void security_xfrm_policy_free(struct xfrm_policy *xp)
+void security_xfrm_policy_free(struct xfrm_sec_ctx *ctx)
 {
-	security_ops->xfrm_policy_free_security(xp);
+	security_ops->xfrm_policy_free_security(ctx);
 }
 EXPORT_SYMBOL(security_xfrm_policy_free);
 
-int security_xfrm_policy_delete(struct xfrm_policy *xp)
+int security_xfrm_policy_delete(struct xfrm_sec_ctx *ctx)
 {
-	return security_ops->xfrm_policy_delete_security(xp);
+	return security_ops->xfrm_policy_delete_security(ctx);
 }
 
 int security_xfrm_state_alloc(struct xfrm_state *x, struct xfrm_user_sec_ctx *sec_ctx)
@@ -1035,9 +1092,9 @@ void security_xfrm_state_free(struct xfrm_state *x)
 	security_ops->xfrm_state_free_security(x);
 }
 
-int security_xfrm_policy_lookup(struct xfrm_policy *xp, u32 fl_secid, u8 dir)
+int security_xfrm_policy_lookup(struct xfrm_sec_ctx *ctx, u32 fl_secid, u8 dir)
 {
-	return security_ops->xfrm_policy_lookup(xp, fl_secid, dir);
+	return security_ops->xfrm_policy_lookup(ctx, fl_secid, dir);
 }
 
 int security_xfrm_state_pol_flow_match(struct xfrm_state *x,
@@ -1079,4 +1136,34 @@ int security_key_permission(key_ref_t key_ref,
 	return security_ops->key_permission(key_ref, context, perm);
 }
 
+int security_key_getsecurity(struct key *key, char **_buffer)
+{
+	return security_ops->key_getsecurity(key, _buffer);
+}
+
 #endif	/* CONFIG_KEYS */
+
+#ifdef CONFIG_AUDIT
+
+int security_audit_rule_init(u32 field, u32 op, char *rulestr, void **lsmrule)
+{
+	return security_ops->audit_rule_init(field, op, rulestr, lsmrule);
+}
+
+int security_audit_rule_known(struct audit_krule *krule)
+{
+	return security_ops->audit_rule_known(krule);
+}
+
+void security_audit_rule_free(void *lsmrule)
+{
+	security_ops->audit_rule_free(lsmrule);
+}
+
+int security_audit_rule_match(u32 secid, u32 field, u32 op, void *lsmrule,
+			      struct audit_context *actx)
+{
+	return security_ops->audit_rule_match(secid, field, op, lsmrule, actx);
+}
+
+#endif /* CONFIG_AUDIT */

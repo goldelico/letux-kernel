@@ -88,6 +88,20 @@ void dt_fixup_clock(const char *path, u32 freq)
 	}
 }
 
+void dt_fixup_mac_address_by_alias(const char *alias, const u8 *addr)
+{
+	void *devp = find_node_by_alias(alias);
+
+	if (devp) {
+		printf("%s: local-mac-address <-"
+		       " %02x:%02x:%02x:%02x:%02x:%02x\n\r", alias,
+		       addr[0], addr[1], addr[2],
+		       addr[3], addr[4], addr[5]);
+
+		setprop(devp, "local-mac-address", addr, 6);
+	}
+}
+
 void dt_fixup_mac_address(u32 index, const u8 *addr)
 {
 	void *devp = find_node_by_prop_value(NULL, "linux,network-index",
@@ -336,3 +350,23 @@ int dt_is_compatible(void *node, const char *compat)
 
 	return 0;
 }
+
+int dt_get_virtual_reg(void *node, void **addr, int nres)
+{
+	unsigned long xaddr;
+	int n;
+
+	n = getprop(node, "virtual-reg", addr, nres * 4);
+	if (n > 0)
+		return n / 4;
+
+	for (n = 0; n < nres; n++) {
+		if (!dt_xlate_reg(node, n, &xaddr, NULL))
+			break;
+
+		addr[n] = (void *)xaddr;
+	}
+
+	return n;
+}
+

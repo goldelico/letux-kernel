@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -333,9 +333,9 @@ acpi_status acpi_ps_execute_method(struct acpi_evaluate_info *info)
 static void
 acpi_ps_update_parameter_list(struct acpi_evaluate_info *info, u16 action)
 {
-	acpi_native_uint i;
+	u32 i;
 
-	if ((info->parameter_type == ACPI_PARAM_ARGS) && (info->parameters)) {
+	if (info->parameters) {
 
 		/* Update reference count for each parameter */
 

@@ -1,9 +1,14 @@
 #!/bin/bash
-../../dfu-util/src/dfu-util -a 3 -d 0x1d50:0x5119 -D uImage.bin
-if [ $? -eq 1 ] ; then
-../../dfu-util/src/dfu-util -a 3 -d 0x1d50:0x5120 -D uImage.bin
-../../dfu-util/src/dfu-util -a 3 -d 0x1d50:0x5119 -D uImage.bin
 
+if [ -z "$1" ] ; then
+	echo "Usage: $0 <DEVICE>    eg, $0 GTA02"
+	exit 1
+fi
+
+../../dfu-util/src/dfu-util -a 3 -d 0x1d50:0x5119 -D uImage-$1.bin
+if [ $? -eq 1 ] ; then
+../../dfu-util/src/dfu-util -a 3 -d 0x1d50:0x5120 -D uImage-$1.bin
+../../dfu-util/src/dfu-util -a 3 -d 0x1d50:0x5119 -D uImage-$1.bin
 fi
 
 

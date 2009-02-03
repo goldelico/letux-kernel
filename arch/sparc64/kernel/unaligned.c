@@ -1,12 +1,13 @@
-/* $Id: unaligned.c,v 1.24 2002/02/09 19:49:31 davem Exp $
+/*
  * unaligned.c: Unaligned load/store trap handling with special
  *              cases for the kernel to do them more quickly.
  *
- * Copyright (C) 1996 David S. Miller (davem@caip.rutgers.edu)
+ * Copyright (C) 1996,2008 David S. Miller (davem@davemloft.net)
  * Copyright (C) 1996,1997 Jakub Jelinek (jj@sunsite.mff.cuni.cz)
  */
 
 
+#include <linux/jiffies.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
@@ -19,7 +20,6 @@
 #include <asm/uaccess.h>
 #include <linux/smp.h>
 #include <linux/bitops.h>
-#include <linux/kallsyms.h>
 #include <asm/fpumacro.h>
 
 /* #define DEBUG_MNA */
@@ -175,7 +175,7 @@ unsigned long compute_effective_address(struct pt_regs *regs,
 }
 
 /* This is just to make gcc think die_if_kernel does return... */
-static void __attribute_used__ unaligned_panic(char *str, struct pt_regs *regs)
+static void __used unaligned_panic(char *str, struct pt_regs *regs)
 {
 	die_if_kernel(str, regs);
 }
@@ -283,13 +283,13 @@ static void log_unaligned(struct pt_regs *regs)
 {
 	static unsigned long count, last_time;
 
-	if (jiffies - last_time > 5 * HZ)
+	if (time_after(jiffies, last_time + 5 * HZ))
 		count = 0;
 	if (count < 5) {
 		last_time = jiffies;
 		count++;
-		printk("Kernel unaligned access at TPC[%lx] ", regs->tpc);
-		print_symbol("%s\n", regs->tpc);
+		printk("Kernel unaligned access at TPC[%lx] %pS\n",
+		       regs->tpc, (void *) regs->tpc);
 	}
 }
 

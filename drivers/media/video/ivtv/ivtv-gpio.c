@@ -22,6 +22,7 @@
 #include "ivtv-driver.h"
 #include "ivtv-cards.h"
 #include "ivtv-gpio.h"
+#include "tuner-xc2028.h"
 #include <media/tuner.h>
 
 /*
@@ -122,18 +123,43 @@ void ivtv_reset_ir_gpio(struct ivtv *itv)
 	write_reg(curdir, IVTV_REG_GPIO_DIR);
 }
 
+/* Xceive tuner reset function */
+int ivtv_reset_tuner_gpio(void *dev, int component, int cmd, int value)
+{
+	struct i2c_algo_bit_data *algo = dev;
+	struct ivtv *itv = algo->data;
+	u32 curout;
+
+	if (cmd != XC2028_TUNER_RESET)
+		return 0;
+	IVTV_DEBUG_INFO("Resetting tuner\n");
+	curout = read_reg(IVTV_REG_GPIO_OUT);
+	curout &= ~(1 << itv->card->xceive_pin);
+	write_reg(curout, IVTV_REG_GPIO_OUT);
+	schedule_timeout_interruptible(msecs_to_jiffies(1));
+
+	curout |= 1 << itv->card->xceive_pin;
+	write_reg(curout, IVTV_REG_GPIO_OUT);
+	schedule_timeout_interruptible(msecs_to_jiffies(1));
+	return 0;
+}
 
 void ivtv_gpio_init(struct ivtv *itv)
 {
-	if (itv->card->gpio_init.direction == 0)
+	u16 pin = 0;
+
+	if (itv->card->xceive_pin)
+		pin = 1 << itv->card->xceive_pin;
+
+	if ((itv->card->gpio_init.direction | pin) == 0)
 		return;
 
 	IVTV_DEBUG_INFO("GPIO initial dir: %08x out: %08x\n",
 		   read_reg(IVTV_REG_GPIO_DIR), read_reg(IVTV_REG_GPIO_OUT));
 
 	/* init output data then direction */
-	write_reg(itv->card->gpio_init.initial_value, IVTV_REG_GPIO_OUT);
-	write_reg(itv->card->gpio_init.direction, IVTV_REG_GPIO_DIR);
+	write_reg(itv->card->gpio_init.initial_value | pin, IVTV_REG_GPIO_OUT);
+	write_reg(itv->card->gpio_init.direction | pin, IVTV_REG_GPIO_DIR);
 }
 
 static struct v4l2_queryctrl gpio_ctrl_mute = {

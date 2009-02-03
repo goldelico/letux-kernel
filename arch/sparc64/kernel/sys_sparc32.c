@@ -55,202 +55,8 @@
 #include <asm/types.h>
 #include <asm/uaccess.h>
 #include <asm/fpumacro.h>
-#include <asm/semaphore.h>
 #include <asm/mmu_context.h>
-#include <asm/a.out.h>
 #include <asm/compat_signal.h>
-
-asmlinkage long sys32_chown16(const char __user * filename, u16 user, u16 group)
-{
-	return sys_chown(filename, low2highuid(user), low2highgid(group));
-}
-
-asmlinkage long sys32_lchown16(const char __user * filename, u16 user, u16 group)
-{
-	return sys_lchown(filename, low2highuid(user), low2highgid(group));
-}
-
-asmlinkage long sys32_fchown16(unsigned int fd, u16 user, u16 group)
-{
-	return sys_fchown(fd, low2highuid(user), low2highgid(group));
-}
-
-asmlinkage long sys32_setregid16(u16 rgid, u16 egid)
-{
-	return sys_setregid(low2highgid(rgid), low2highgid(egid));
-}
-
-asmlinkage long sys32_setgid16(u16 gid)
-{
-	return sys_setgid((gid_t)gid);
-}
-
-asmlinkage long sys32_setreuid16(u16 ruid, u16 euid)
-{
-	return sys_setreuid(low2highuid(ruid), low2highuid(euid));
-}
-
-asmlinkage long sys32_setuid16(u16 uid)
-{
-	return sys_setuid((uid_t)uid);
-}
-
-asmlinkage long sys32_setresuid16(u16 ruid, u16 euid, u16 suid)
-{
-	return sys_setresuid(low2highuid(ruid), low2highuid(euid),
-		low2highuid(suid));
-}
-
-asmlinkage long sys32_getresuid16(u16 __user *ruid, u16 __user *euid, u16 __user *suid)
-{
-	int retval;
-
-	if (!(retval = put_user(high2lowuid(current->uid), ruid)) &&
-	    !(retval = put_user(high2lowuid(current->euid), euid)))
-		retval = put_user(high2lowuid(current->suid), suid);
-
-	return retval;
-}
-
-asmlinkage long sys32_setresgid16(u16 rgid, u16 egid, u16 sgid)
-{
-	return sys_setresgid(low2highgid(rgid), low2highgid(egid),
-		low2highgid(sgid));
-}
-
-asmlinkage long sys32_getresgid16(u16 __user *rgid, u16 __user *egid, u16 __user *sgid)
-{
-	int retval;
-
-	if (!(retval = put_user(high2lowgid(current->gid), rgid)) &&
-	    !(retval = put_user(high2lowgid(current->egid), egid)))
-		retval = put_user(high2lowgid(current->sgid), sgid);
-
-	return retval;
-}
-
-asmlinkage long sys32_setfsuid16(u16 uid)
-{
-	return sys_setfsuid((uid_t)uid);
-}
-
-asmlinkage long sys32_setfsgid16(u16 gid)
-{
-	return sys_setfsgid((gid_t)gid);
-}
-
-static int groups16_to_user(u16 __user *grouplist, struct group_info *group_info)
-{
-	int i;
-	u16 group;
-
-	for (i = 0; i < group_info->ngroups; i++) {
-		group = (u16)GROUP_AT(group_info, i);
-		if (put_user(group, grouplist+i))
-			return -EFAULT;
-	}
-
-	return 0;
-}
-
-static int groups16_from_user(struct group_info *group_info, u16 __user *grouplist)
-{
-	int i;
-	u16 group;
-
-	for (i = 0; i < group_info->ngroups; i++) {
-		if (get_user(group, grouplist+i))
-			return  -EFAULT;
-		GROUP_AT(group_info, i) = (gid_t)group;
-	}
-
-	return 0;
-}
-
-asmlinkage long sys32_getgroups16(int gidsetsize, u16 __user *grouplist)
-{
-	int i;
-
-	if (gidsetsize < 0)
-		return -EINVAL;
-
-	get_group_info(current->group_info);
-	i = current->group_info->ngroups;
-	if (gidsetsize) {
-		if (i > gidsetsize) {
-			i = -EINVAL;
-			goto out;
-		}
-		if (groups16_to_user(grouplist, current->group_info)) {
-			i = -EFAULT;
-			goto out;
-		}
-	}
-out:
-	put_group_info(current->group_info);
-	return i;
-}
-
-asmlinkage long sys32_setgroups16(int gidsetsize, u16 __user *grouplist)
-{
-	struct group_info *group_info;
-	int retval;
-
-	if (!capable(CAP_SETGID))
-		return -EPERM;
-	if ((unsigned)gidsetsize > NGROUPS_MAX)
-		return -EINVAL;
-
-	group_info = groups_alloc(gidsetsize);
-	if (!group_info)
-		return -ENOMEM;
-	retval = groups16_from_user(group_info, grouplist);
-	if (retval) {
-		put_group_info(group_info);
-		return retval;
-	}
-
-	retval = set_current_groups(group_info);
-	put_group_info(group_info);
-
-	return retval;
-}
-
-asmlinkage long sys32_getuid16(void)
-{
-	return high2lowuid(current->uid);
-}
-
-asmlinkage long sys32_geteuid16(void)
-{
-	return high2lowuid(current->euid);
-}
-
-asmlinkage long sys32_getgid16(void)
-{
-	return high2lowgid(current->gid);
-}
-
-asmlinkage long sys32_getegid16(void)
-{
-	return high2lowgid(current->egid);
-}
-
-/* 32-bit timeval and related flotsam.  */
-
-static long get_tv32(struct timeval *o, struct compat_timeval __user *i)
-{
-	return (!access_ok(VERIFY_READ, i, sizeof(*i)) ||
-		(__get_user(o->tv_sec, &i->tv_sec) |
-		 __get_user(o->tv_usec, &i->tv_usec)));
-}
-
-static inline long put_tv32(struct compat_timeval __user *o, struct timeval *i)
-{
-	return (!access_ok(VERIFY_WRITE, o, sizeof(*o)) ||
-		(__put_user(i->tv_sec, &o->tv_sec) |
-		 __put_user(i->tv_usec, &o->tv_usec)));
-}
 
 #ifdef CONFIG_SYSVIPC                                                        
 asmlinkage long compat_sys_ipc(u32 call, u32 first, u32 second, u32 third, compat_uptr_t ptr, u32 fifth)
@@ -333,42 +139,8 @@ asmlinkage long sys32_ftruncate64(unsigned int fd, unsigned long high, unsigned 
 		return sys_ftruncate(fd, (high << 32) | low);
 }
 
-int cp_compat_stat(struct kstat *stat, struct compat_stat __user *statbuf)
-{
-	compat_ino_t ino;
-	int err;
-
-	if (stat->size > MAX_NON_LFS || !old_valid_dev(stat->dev) ||
-	    !old_valid_dev(stat->rdev))
-		return -EOVERFLOW;
-
-	ino = stat->ino;
-	if (sizeof(ino) < sizeof(stat->ino) && ino != stat->ino)
-		return -EOVERFLOW;
-
-	err  = put_user(old_encode_dev(stat->dev), &statbuf->st_dev);
-	err |= put_user(stat->ino, &statbuf->st_ino);
-	err |= put_user(stat->mode, &statbuf->st_mode);
-	err |= put_user(stat->nlink, &statbuf->st_nlink);
-	err |= put_user(high2lowuid(stat->uid), &statbuf->st_uid);
-	err |= put_user(high2lowgid(stat->gid), &statbuf->st_gid);
-	err |= put_user(old_encode_dev(stat->rdev), &statbuf->st_rdev);
-	err |= put_user(stat->size, &statbuf->st_size);
-	err |= put_user(stat->atime.tv_sec, &statbuf->st_atime);
-	err |= put_user(stat->atime.tv_nsec, &statbuf->st_atime_nsec);
-	err |= put_user(stat->mtime.tv_sec, &statbuf->st_mtime);
-	err |= put_user(stat->mtime.tv_nsec, &statbuf->st_mtime_nsec);
-	err |= put_user(stat->ctime.tv_sec, &statbuf->st_ctime);
-	err |= put_user(stat->ctime.tv_nsec, &statbuf->st_ctime_nsec);
-	err |= put_user(stat->blksize, &statbuf->st_blksize);
-	err |= put_user(stat->blocks, &statbuf->st_blocks);
-	err |= put_user(0, &statbuf->__unused4[0]);
-	err |= put_user(0, &statbuf->__unused4[1]);
-
-	return err;
-}
-
-int cp_compat_stat64(struct kstat *stat, struct compat_stat64 __user *statbuf)
+static int cp_compat_stat64(struct kstat *stat,
+			    struct compat_stat64 __user *statbuf)
 {
 	int err;
 
@@ -556,10 +328,8 @@ asmlinkage long compat_sys_sigaction(int sig, struct old_sigaction32 __user *act
         struct k_sigaction new_ka, old_ka;
         int ret;
 
-	if (sig < 0) {
-		set_thread_flag(TIF_NEWSIGNALS);
-		sig = -sig;
-	}
+	WARN_ON_ONCE(sig >= 0);
+	sig = -sig;
 
         if (act) {
 		compat_old_sigset_t mask;
@@ -602,11 +372,6 @@ asmlinkage long compat_sys_rt_sigaction(int sig,
         /* XXX: Don't preclude handling different sized sigset_t's.  */
         if (sigsetsize != sizeof(compat_sigset_t))
                 return -EINVAL;
-
-	/* All tasks which use RT signals (effectively) use
-	 * new style signals.
-	 */
-	set_thread_flag(TIF_NEWSIGNALS);
 
         if (act) {
 		u32 u_handler, u_restorer;
@@ -679,9 +444,6 @@ asmlinkage long sparc32_execve(struct pt_regs *regs)
 		current_thread_info()->xfsr[0] = 0;
 		current_thread_info()->fpsaved[0] = 0;
 		regs->tstate &= ~TSTATE_PEF;
-		task_lock(current);
-		current->ptrace &= ~PT_DTRACE;
-		task_unlock(current);
 	}
 out:
 	return error;
@@ -715,91 +477,6 @@ asmlinkage long sys32_delete_module(const char __user *name_user)
 }
 
 #endif  /* CONFIG_MODULES */
-
-/* Translations due to time_t size differences.  Which affects all
-   sorts of things, like timeval and itimerval.  */
-
-extern struct timezone sys_tz;
-
-asmlinkage long sys32_gettimeofday(struct compat_timeval __user *tv,
-				   struct timezone __user *tz)
-{
-	if (tv) {
-		struct timeval ktv;
-		do_gettimeofday(&ktv);
-		if (put_tv32(tv, &ktv))
-			return -EFAULT;
-	}
-	if (tz) {
-		if (copy_to_user(tz, &sys_tz, sizeof(sys_tz)))
-			return -EFAULT;
-	}
-	return 0;
-}
-
-static inline long get_ts32(struct timespec *o, struct compat_timeval __user *i)
-{
-	long usec;
-
-	if (!access_ok(VERIFY_READ, i, sizeof(*i)))
-		return -EFAULT;
-	if (__get_user(o->tv_sec, &i->tv_sec))
-		return -EFAULT;
-	if (__get_user(usec, &i->tv_usec))
-		return -EFAULT;
-	o->tv_nsec = usec * 1000;
-	return 0;
-}
-
-asmlinkage long sys32_settimeofday(struct compat_timeval __user *tv,
-				   struct timezone __user *tz)
-{
-	struct timespec kts;
-	struct timezone ktz;
-
- 	if (tv) {
-		if (get_ts32(&kts, tv))
-			return -EFAULT;
-	}
-	if (tz) {
-		if (copy_from_user(&ktz, tz, sizeof(ktz)))
-			return -EFAULT;
-	}
-
-	return do_sys_settimeofday(tv ? &kts : NULL, tz ? &ktz : NULL);
-}
-
-asmlinkage long sys32_utimes(char __user *filename,
-			     struct compat_timeval __user *tvs)
-{
-	struct timespec tv[2];
-
-	if (tvs) {
-		struct timeval ktvs[2];
-		if (get_tv32(&ktvs[0], tvs) ||
-		    get_tv32(&ktvs[1], 1+tvs))
-			return -EFAULT;
-
-		if (ktvs[0].tv_usec < 0 || ktvs[0].tv_usec >= 1000000 ||
-		    ktvs[1].tv_usec < 0 || ktvs[1].tv_usec >= 1000000)
-			return -EINVAL;
-
-		tv[0].tv_sec = ktvs[0].tv_sec;
-		tv[0].tv_nsec = 1000 * ktvs[0].tv_usec;
-		tv[1].tv_sec = ktvs[1].tv_sec;
-		tv[1].tv_nsec = 1000 * ktvs[1].tv_usec;
-	}
-
-	return do_utimes(AT_FDCWD, filename, tvs ? tv : NULL, 0);
-}
-
-/* These are here just in case some old sparc32 binary calls it. */
-asmlinkage long sys32_pause(void)
-{
-	current->state = TASK_INTERRUPTIBLE;
-	schedule();
-	return -ERESTARTNOHAND;
-}
 
 asmlinkage compat_ssize_t sys32_pread64(unsigned int fd,
 					char __user *ubuf,
@@ -910,44 +587,15 @@ asmlinkage unsigned long sys32_mremap(unsigned long addr,
 	unsigned long old_len, unsigned long new_len,
 	unsigned long flags, u32 __new_addr)
 {
-	struct vm_area_struct *vma;
 	unsigned long ret = -EINVAL;
 	unsigned long new_addr = __new_addr;
 
-	if (old_len > STACK_TOP32 || new_len > STACK_TOP32)
+	if (unlikely(sparc_mmap_check(addr, old_len)))
 		goto out;
-	if (addr > STACK_TOP32 - old_len)
+	if (unlikely(sparc_mmap_check(new_addr, new_len)))
 		goto out;
 	down_write(&current->mm->mmap_sem);
-	if (flags & MREMAP_FIXED) {
-		if (new_addr > STACK_TOP32 - new_len)
-			goto out_sem;
-	} else if (addr > STACK_TOP32 - new_len) {
-		unsigned long map_flags = 0;
-		struct file *file = NULL;
-
-		ret = -ENOMEM;
-		if (!(flags & MREMAP_MAYMOVE))
-			goto out_sem;
-
-		vma = find_vma(current->mm, addr);
-		if (vma) {
-			if (vma->vm_flags & VM_SHARED)
-				map_flags |= MAP_SHARED;
-			file = vma->vm_file;
-		}
-
-		/* MREMAP_FIXED checked above. */
-		new_addr = get_unmapped_area(file, addr, new_len,
-				    vma ? vma->vm_pgoff : 0,
-				    map_flags);
-		ret = new_addr;
-		if (new_addr & ~PAGE_MASK)
-			goto out_sem;
-		flags |= MREMAP_FIXED;
-	}
 	ret = do_mremap(addr, old_len, new_len, flags, new_addr);
-out_sem:
 	up_write(&current->mm->mmap_sem);
 out:
 	return ret;       

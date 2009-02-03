@@ -201,7 +201,6 @@ static void z8530_init(void);
 
 static void init_channel(struct scc_channel *scc);
 static void scc_key_trx (struct scc_channel *scc, char tx);
-static irqreturn_t scc_isr(int irq, void *dev_id);
 static void scc_init_timer(struct scc_channel *scc);
 
 static int scc_net_alloc(const char *name, struct scc_channel *scc);
@@ -629,6 +628,7 @@ static void scc_isr_dispatch(struct scc_channel *scc, int vector)
 
 static irqreturn_t scc_isr(int irq, void *dev_id)
 {
+	int chip_irq = (long) dev_id;
 	unsigned char vector;	
 	struct scc_channel *scc;
 	struct scc_ctrl *ctrl;
@@ -665,7 +665,7 @@ static irqreturn_t scc_isr(int irq, void *dev_id)
 	ctrl = SCC_ctrl;
 	while (ctrl->chan_A)
 	{
-		if (ctrl->irq != irq)
+		if (ctrl->irq != chip_irq)
 		{
 			ctrl++;
 			continue;
@@ -1340,9 +1340,10 @@ static unsigned int scc_set_param(struct scc_channel *scc, unsigned int cmd, uns
 		case PARAM_RTS:	
 			if ( !(scc->wreg[R5] & RTS) )
 			{
-				if (arg != TX_OFF)
+				if (arg != TX_OFF) {
 					scc_key_trx(scc, TX_ON);
 					scc_start_tx_timer(scc, t_txdelay, scc->kiss.txdelay);
+				}
 			} else {
 				if (arg == TX_OFF)
 				{
@@ -1464,7 +1465,7 @@ static void z8530_init(void)
 	printk(KERN_INFO "Init Z8530 driver: %u channels, IRQ", Nchips*2);
 	
 	flag=" ";
-	for (k = 0; k < NR_IRQS; k++)
+	for (k = 0; k < nr_irqs; k++)
 		if (Ivec[k].used) 
 		{
 			printk("%s%d", flag, k);
@@ -1727,12 +1728,14 @@ static int scc_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 			if (hwcfg.irq == 2) hwcfg.irq = 9;
 
-			if (hwcfg.irq < 0 || hwcfg.irq >= NR_IRQS)
+			if (hwcfg.irq < 0 || hwcfg.irq >= nr_irqs)
 				return -EINVAL;
 				
 			if (!Ivec[hwcfg.irq].used && hwcfg.irq)
 			{
-				if (request_irq(hwcfg.irq, scc_isr, IRQF_DISABLED, "AX.25 SCC", NULL))
+				if (request_irq(hwcfg.irq, scc_isr,
+						IRQF_DISABLED, "AX.25 SCC",
+						(void *)(long) hwcfg.irq))
 					printk(KERN_WARNING "z8530drv: warning, cannot get IRQ %d\n", hwcfg.irq);
 				else
 					Ivec[hwcfg.irq].used = 1;
@@ -2145,7 +2148,7 @@ static void __exit scc_cleanup_driver(void)
 		}
 		
 	/* To unload the port must be closed so no real IRQ pending */
-	for (k=0; k < NR_IRQS ; k++)
+	for (k = 0; k < nr_irqs ; k++)
 		if (Ivec[k].used) free_irq(k, NULL);
 		
 	local_irq_enable();

@@ -21,13 +21,14 @@
 #include <linux/elf.h>
 #include <linux/security.h>
 #include <linux/bootmem.h>
+#include <linux/lmb.h>
 
 #include <asm/pgtable.h>
 #include <asm/system.h>
 #include <asm/processor.h>
 #include <asm/mmu.h>
 #include <asm/mmu_context.h>
-#include <asm/lmb.h>
+#include <asm/prom.h>
 #include <asm/machdep.h>
 #include <asm/cputable.h>
 #include <asm/sections.h>
@@ -141,7 +142,7 @@ static void dump_one_vdso_page(struct page *pg, struct page *upg)
 	printk("kpg: %p (c:%d,f:%08lx)", __va(page_to_pfn(pg) << PAGE_SHIFT),
 	       page_count(pg),
 	       pg->flags);
-	if (upg/* && pg != upg*/) {
+	if (upg && !IS_ERR(upg) /* && pg != upg*/) {
 		printk(" upg: %p (c:%d,f:%08lx)", __va(page_to_pfn(upg)
 						       << PAGE_SHIFT),
 		       page_count(upg),
@@ -336,9 +337,9 @@ static unsigned long __init find_function32(struct lib32_elfinfo *lib,
 	return sym->st_value - VDSO32_LBASE;
 }
 
-static int vdso_do_func_patch32(struct lib32_elfinfo *v32,
-				struct lib64_elfinfo *v64,
-				const char *orig, const char *fix)
+static int __init vdso_do_func_patch32(struct lib32_elfinfo *v32,
+				       struct lib64_elfinfo *v64,
+				       const char *orig, const char *fix)
 {
 	Elf32_Sym *sym32_gen, *sym32_fix;
 
@@ -433,9 +434,9 @@ static unsigned long __init find_function64(struct lib64_elfinfo *lib,
 #endif
 }
 
-static int vdso_do_func_patch64(struct lib32_elfinfo *v32,
-				struct lib64_elfinfo *v64,
-				const char *orig, const char *fix)
+static int __init vdso_do_func_patch64(struct lib32_elfinfo *v32,
+				       struct lib64_elfinfo *v64,
+				       const char *orig, const char *fix)
 {
 	Elf64_Sym *sym64_gen, *sym64_fix;
 
@@ -570,6 +571,11 @@ static __init int vdso_fixup_features(struct lib32_elfinfo *v32,
 	if (start64)
 		do_feature_fixups(powerpc_firmware_features,
 				  start64, start64 + size64);
+
+	start64 = find_section64(v64->hdr, "__lwsync_fixup", &size64);
+	if (start64)
+		do_lwsync_fixups(cur_cpu_spec->cpu_features,
+				 start64, start64 + size64);
 #endif /* CONFIG_PPC64 */
 
 	start32 = find_section32(v32->hdr, "__ftr_fixup", &size32);
@@ -583,6 +589,11 @@ static __init int vdso_fixup_features(struct lib32_elfinfo *v32,
 		do_feature_fixups(powerpc_firmware_features,
 				  start32, start32 + size32);
 #endif /* CONFIG_PPC64 */
+
+	start32 = find_section32(v32->hdr, "__lwsync_fixup", &size32);
+	if (start32)
+		do_lwsync_fixups(cur_cpu_spec->cpu_features,
+				 start32, start32 + size32);
 
 	return 0;
 }
@@ -777,9 +788,7 @@ static int __init vdso_init(void)
 
 	return 0;
 }
-#ifdef CONFIG_PPC_MERGE
 arch_initcall(vdso_init);
-#endif
 
 int in_gate_area_no_task(unsigned long addr)
 {

@@ -13,16 +13,8 @@
  *
  */
 #include <linux/module.h>
-#include <linux/types.h>
-#include <linux/init.h>
-#include <linux/errno.h>
 #include <linux/netdevice.h>
-#include <linux/slab.h>
-#include <linux/rtnetlink.h>
-#include <linux/interrupt.h>
-#include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
-#include <linux/pm.h>
 #include <linux/clk.h>
 
 #include <net/irda/irda.h>
@@ -30,16 +22,9 @@
 #include <net/irda/wrapper.h>
 #include <net/irda/irda_device.h>
 
-#include <asm/irq.h>
 #include <asm/dma.h>
-#include <asm/delay.h>
-#include <asm/hardware.h>
-#include <asm/arch/irda.h>
-#include <asm/arch/pxa-regs.h>
-
-#ifdef CONFIG_MACH_MAINSTONE
-#include <asm/arch/mainstone.h>
-#endif
+#include <mach/irda.h>
+#include <mach/pxa-regs.h>
 
 #define IrSR_RXPL_NEG_IS_ZERO (1<<4)
 #define IrSR_RXPL_POS_IS_ZERO 0x0
@@ -162,10 +147,6 @@ static int pxa_irda_set_speed(struct pxa_irda *si, int speed)
 			/* set board transceiver to SIR mode */
 			si->pdata->transceiver_mode(si->dev, IR_SIRMODE);
 
-			/* configure GPIO46/47 */
-			pxa_gpio_mode(GPIO46_STRXD_MD);
-			pxa_gpio_mode(GPIO47_STTXD_MD);
-
 			/* enable the STUART clock */
 			pxa_irda_enable_sirclk(si);
 		}
@@ -199,10 +180,6 @@ static int pxa_irda_set_speed(struct pxa_irda *si, int speed)
 
 		/* set board transceiver to FIR mode */
 		si->pdata->transceiver_mode(si->dev, IR_FIRMODE);
-
-		/* configure GPIO46/47 */
-		pxa_gpio_mode(GPIO46_ICPRXD_MD);
-		pxa_gpio_mode(GPIO47_ICPTXD_MD);
 
 		/* enable the FICP clock */
 		pxa_irda_enable_firclk(si);
@@ -595,8 +572,8 @@ static void pxa_irda_startup(struct pxa_irda *si)
 	ICCR2 = ICCR2_TXP | ICCR2_TRIG_32;
 
 	/* configure DMAC */
-	DRCMR17 = si->rxdma | DRCMR_MAPVLD;
-	DRCMR18 = si->txdma | DRCMR_MAPVLD;
+	DRCMR(17) = si->rxdma | DRCMR_MAPVLD;
+	DRCMR(18) = si->txdma | DRCMR_MAPVLD;
 
 	/* force SIR reinitialization */
 	si->speed = 4000000;
@@ -625,8 +602,8 @@ static void pxa_irda_shutdown(struct pxa_irda *si)
 	/* disable the STUART or FICP clocks */
 	pxa_irda_disable_clk(si);
 
-	DRCMR17 = 0;
-	DRCMR18 = 0;
+	DRCMR(17) = 0;
+	DRCMR(18) = 0;
 
 	local_irq_restore(flags);
 
@@ -831,6 +808,11 @@ static int pxa_irda_probe(struct platform_device *pdev)
 	if (err)
 		goto err_mem_5;
 
+	if (si->pdata->startup)
+		err = si->pdata->startup(si->dev);
+	if (err)
+		goto err_startup;
+
 	dev->hard_start_xmit	= pxa_irda_hard_xmit;
 	dev->open		= pxa_irda_start;
 	dev->stop		= pxa_irda_stop;
@@ -856,6 +838,9 @@ static int pxa_irda_probe(struct platform_device *pdev)
 		dev_set_drvdata(&pdev->dev, dev);
 
 	if (err) {
+		if (si->pdata->shutdown)
+			si->pdata->shutdown(si->dev);
+err_startup:
 		kfree(si->tx_buff.head);
 err_mem_5:
 		kfree(si->rx_buff.head);
@@ -881,6 +866,8 @@ static int pxa_irda_remove(struct platform_device *_dev)
 	if (dev) {
 		struct pxa_irda *si = netdev_priv(dev);
 		unregister_netdev(dev);
+		if (si->pdata->shutdown)
+			si->pdata->shutdown(si->dev);
 		kfree(si->tx_buff.head);
 		kfree(si->rx_buff.head);
 		clk_put(si->fir_clk);
@@ -897,6 +884,7 @@ static int pxa_irda_remove(struct platform_device *_dev)
 static struct platform_driver pxa_ir_driver = {
 	.driver         = {
 		.name   = "pxa2xx-ir",
+		.owner	= THIS_MODULE,
 	},
 	.probe		= pxa_irda_probe,
 	.remove		= pxa_irda_remove,
@@ -918,3 +906,4 @@ module_init(pxa_irda_init);
 module_exit(pxa_irda_exit);
 
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:pxa2xx-ir");

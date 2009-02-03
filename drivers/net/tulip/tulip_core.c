@@ -1,7 +1,5 @@
-/* tulip_core.c: A DEC 21x4x-family ethernet driver for Linux. */
+/*	tulip_core.c: A DEC 21x4x-family ethernet driver for Linux.
 
-/*
-	Maintained by Valerie Henson <val_henson@linux.intel.com>
 	Copyright 2000,2001  The Linux Kernel Team
 	Written/copyright 1994-2001 by Donald Becker.
 
@@ -9,9 +7,9 @@
 	of the GNU General Public License, incorporated herein by reference.
 
 	Please refer to Documentation/DocBook/tulip-user.{pdf,ps,html}
-	for more information on this driver, or visit the project
-	Web page at http://sourceforge.net/projects/tulip/
+	for more information on this driver.
 
+	Please submit bugs to http://bugzilla.kernel.org/ .
 */
 
 
@@ -327,8 +325,8 @@ static void tulip_up(struct net_device *dev)
 	tp->dirty_rx = tp->dirty_tx = 0;
 
 	if (tp->flags & MC_HASH_ONLY) {
-		u32 addr_low = le32_to_cpu(get_unaligned((__le32 *)dev->dev_addr));
-		u32 addr_high = le16_to_cpu(get_unaligned((__le16 *)(dev->dev_addr+4)));
+		u32 addr_low = get_unaligned_le32(dev->dev_addr);
+		u32 addr_high = get_unaligned_le16(dev->dev_addr + 4);
 		if (tp->chip_id == AX88140) {
 			iowrite32(0, ioaddr + CSR13);
 			iowrite32(addr_low,  ioaddr + CSR14);
@@ -731,7 +729,7 @@ static void tulip_down (struct net_device *dev)
 	void __iomem *ioaddr = tp->base_addr;
 	unsigned long flags;
 
-	flush_scheduled_work();
+	cancel_work_sync(&tp->media_work);
 
 #ifdef CONFIG_TULIP_NAPI
 	napi_disable(&tp->napi);
@@ -1154,18 +1152,13 @@ static void __devinit tulip_mwi_config (struct pci_dev *pdev,
 
 	tp->csr0 = csr0 = 0;
 
-	/* if we have any cache line size at all, we can do MRM */
-	csr0 |= MRM;
+	/* if we have any cache line size at all, we can do MRM and MWI */
+	csr0 |= MRM | MWI;
 
-	/* ...and barring hardware bugs, MWI */
-	if (!(tp->chip_id == DC21143 && tp->revision == 65))
-		csr0 |= MWI;
-
-	/* set or disable MWI in the standard PCI command bit.
-	 * Check for the case where  mwi is desired but not available
+	/* Enable MWI in the standard PCI command bit.
+	 * Check for the case where MWI is desired but not available
 	 */
-	if (csr0 & MWI)	pci_try_set_mwi(pdev);
-	else		pci_clear_mwi(pdev);
+	pci_try_set_mwi(pdev);
 
 	/* read result from hardware (in case bit refused to enable) */
 	pci_read_config_word(pdev, PCI_COMMAND, &pci_command);
@@ -1401,10 +1394,6 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 #ifdef CONFIG_TULIP_MWI
 	if (!force_csr0 && (tp->flags & HAS_PCI_MWI))
 		tulip_mwi_config (pdev, dev);
-#else
-	/* MWI is broken for DC21143 rev 65... */
-	if (chip_idx == DC21143 && pdev->revision == 65)
-		tp->csr0 &= ~MWI;
 #endif
 
 	/* Stop the chip's Tx and Rx processes. */
@@ -1437,6 +1426,7 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 	   EEPROM.
 	   */
 	ee_data = tp->eeprom;
+	memset(ee_data, 0, sizeof(tp->eeprom));
 	sum = 0;
 	if (chip_idx == LC82C168) {
 		for (i = 0; i < 3; i++) {
@@ -1445,21 +1435,25 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 			do
 				value = ioread32(ioaddr + CSR9);
 			while (value < 0  && --boguscnt > 0);
-			put_unaligned(cpu_to_le16(value), ((__le16*)dev->dev_addr) + i);
+			put_unaligned_le16(value, ((__le16 *)dev->dev_addr) + i);
 			sum += value & 0xffff;
 		}
 	} else if (chip_idx == COMET) {
 		/* No need to read the EEPROM. */
-		put_unaligned(cpu_to_le32(ioread32(ioaddr + 0xA4)), (__le32 *)dev->dev_addr);
-		put_unaligned(cpu_to_le16(ioread32(ioaddr + 0xA8)), (__le16 *)(dev->dev_addr + 4));
+		put_unaligned_le32(ioread32(ioaddr + 0xA4), dev->dev_addr);
+		put_unaligned_le16(ioread32(ioaddr + 0xA8), dev->dev_addr + 4);
 		for (i = 0; i < 6; i ++)
 			sum += dev->dev_addr[i];
 	} else {
 		/* A serial EEPROM interface, we read now and sort it out later. */
 		int sa_offset = 0;
 		int ee_addr_size = tulip_read_eeprom(dev, 0xff, 8) & 0x40000 ? 8 : 6;
+		int ee_max_addr = ((1 << ee_addr_size) - 1) * sizeof(u16);
 
-		for (i = 0; i < sizeof(tp->eeprom); i+=2) {
+		if (ee_max_addr > sizeof(tp->eeprom))
+			ee_max_addr = sizeof(tp->eeprom);
+
+		for (i = 0; i < ee_max_addr ; i += sizeof(u16)) {
 			u16 data = tulip_read_eeprom(dev, i/2, ee_addr_size);
 			ee_data[i] = data & 0xff;
 			ee_data[i + 1] = data >> 8;
@@ -1733,12 +1727,15 @@ static int tulip_suspend (struct pci_dev *pdev, pm_message_t state)
 	if (!dev)
 		return -EINVAL;
 
-	if (netif_running(dev))
-		tulip_down(dev);
+	if (!netif_running(dev))
+		goto save_state;
+
+	tulip_down(dev);
 
 	netif_device_detach(dev);
 	free_irq(dev->irq, dev);
 
+save_state:
 	pci_save_state(pdev);
 	pci_disable_device(pdev);
 	pci_set_power_state(pdev, pci_choose_state(pdev, state));
@@ -1757,6 +1754,9 @@ static int tulip_resume(struct pci_dev *pdev)
 
 	pci_set_power_state(pdev, PCI_D0);
 	pci_restore_state(pdev);
+
+	if (!netif_running(dev))
+		return 0;
 
 	if ((retval = pci_enable_device(pdev))) {
 		printk (KERN_ERR "tulip: pci_enable_device failed in resume\n");

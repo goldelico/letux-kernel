@@ -55,7 +55,7 @@ static struct ebt_table frame_nat =
 	.name		= "nat",
 	.table		= &initial_table,
 	.valid_hooks	= NAT_VALID_HOOKS,
-	.lock		= RW_LOCK_UNLOCKED,
+	.lock		= __RW_LOCK_UNLOCKED(frame_nat.lock),
 	.check		= check,
 	.me		= THIS_MODULE,
 };
@@ -74,7 +74,7 @@ ebt_nat_src(unsigned int hook, struct sk_buff *skb, const struct net_device *in
 	return ebt_do_table(hook, skb, in, out, &frame_nat);
 }
 
-static struct nf_hook_ops ebt_ops_nat[] = {
+static struct nf_hook_ops ebt_ops_nat[] __read_mostly = {
 	{
 		.hook		= ebt_nat_dst,
 		.owner		= THIS_MODULE,
@@ -100,28 +100,20 @@ static struct nf_hook_ops ebt_ops_nat[] = {
 
 static int __init ebtable_nat_init(void)
 {
-	int i, ret, j;
+	int ret;
 
 	ret = ebt_register_table(&frame_nat);
 	if (ret < 0)
 		return ret;
-	for (i = 0; i < ARRAY_SIZE(ebt_ops_nat); i++)
-		if ((ret = nf_register_hook(&ebt_ops_nat[i])) < 0)
-			goto cleanup;
-	return ret;
-cleanup:
-	for (j = 0; j < i; j++)
-		nf_unregister_hook(&ebt_ops_nat[j]);
-	ebt_unregister_table(&frame_nat);
+	ret = nf_register_hooks(ebt_ops_nat, ARRAY_SIZE(ebt_ops_nat));
+	if (ret < 0)
+		ebt_unregister_table(&frame_nat);
 	return ret;
 }
 
 static void __exit ebtable_nat_fini(void)
 {
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(ebt_ops_nat); i++)
-		nf_unregister_hook(&ebt_ops_nat[i]);
+	nf_unregister_hooks(ebt_ops_nat, ARRAY_SIZE(ebt_ops_nat));
 	ebt_unregister_table(&frame_nat);
 }
 

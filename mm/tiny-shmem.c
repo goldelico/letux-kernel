@@ -39,12 +39,11 @@ static int __init init_tmpfs(void)
 }
 module_init(init_tmpfs)
 
-/*
+/**
  * shmem_file_setup - get an unlinked file living in tmpfs
- *
  * @name: name for dentry (to be seen in /proc/<pid>/maps
  * @size: size to be set for the file
- *
+ * @flags: vm_flags
  */
 struct file *shmem_file_setup(char *name, loff_t size, unsigned long flags)
 {
@@ -66,25 +65,27 @@ struct file *shmem_file_setup(char *name, loff_t size, unsigned long flags)
 	if (!dentry)
 		goto put_memory;
 
-	error = -ENOSPC;
-	inode = ramfs_get_inode(root->d_sb, S_IFREG | S_IRWXUGO, 0);
-	if (!inode)
-		goto put_dentry;
-
-	d_instantiate(dentry, inode);
 	error = -ENFILE;
-	file = alloc_file(shm_mnt, dentry, FMODE_WRITE | FMODE_READ,
-			&ramfs_file_operations);
+	file = get_empty_filp();
 	if (!file)
 		goto put_dentry;
 
-	inode->i_nlink = 0;	/* It is unlinked */
-
-	/* notify everyone as to the change of file size */
-	error = do_truncate(dentry, size, 0, file);
-	if (error < 0)
+	error = -ENOSPC;
+	inode = ramfs_get_inode(root->d_sb, S_IFREG | S_IRWXUGO, 0);
+	if (!inode)
 		goto close_file;
 
+	d_instantiate(dentry, inode);
+	inode->i_size = size;
+	inode->i_nlink = 0;	/* It is unlinked */
+	init_file(file, shm_mnt, dentry, FMODE_WRITE | FMODE_READ,
+			&ramfs_file_operations);
+
+#ifndef CONFIG_MMU
+	error = ramfs_nommu_expand_for_mapping(inode, size);
+	if (error)
+		goto close_file;
+#endif
 	return file;
 
 close_file:
@@ -94,10 +95,26 @@ put_dentry:
 put_memory:
 	return ERR_PTR(error);
 }
+EXPORT_SYMBOL_GPL(shmem_file_setup);
 
-/*
+void shmem_set_file(struct vm_area_struct *vma, struct file *file)
+{
+	if (vma->vm_file)
+		fput(vma->vm_file);
+	vma->vm_file = file;
+	vma->vm_ops = &generic_file_vm_ops;
+}
+
+void shmem_set_file(struct vm_area_struct *vma, struct file *file)
+{
+	if (vma->vm_file)
+		fput(vma->vm_file);
+	vma->vm_file = file;
+	vma->vm_ops = &generic_file_vm_ops;
+}
+
+/**
  * shmem_zero_setup - setup a shared anonymous mapping
- *
  * @vma: the vma to be mmapped is prepared by do_mmap_pgoff
  */
 int shmem_zero_setup(struct vm_area_struct *vma)
@@ -109,10 +126,8 @@ int shmem_zero_setup(struct vm_area_struct *vma)
 	if (IS_ERR(file))
 		return PTR_ERR(file);
 
-	if (vma->vm_file)
-		fput(vma->vm_file);
-	vma->vm_file = file;
-	vma->vm_ops = &generic_file_vm_ops;
+	shmem_set_file(vma, file);
+
 	return 0;
 }
 
@@ -120,18 +135,6 @@ int shmem_unuse(swp_entry_t entry, struct page *page)
 {
 	return 0;
 }
-
-#if 0
-int shmem_mmap(struct file *file, struct vm_area_struct *vma)
-{
-	file_accessed(file);
-#ifndef CONFIG_MMU
-	return ramfs_nommu_mmap(file, vma);
-#else
-	return 0;
-#endif
-}
-#endif  /*  0  */
 
 #ifndef CONFIG_MMU
 unsigned long shmem_get_unmapped_area(struct file *file,

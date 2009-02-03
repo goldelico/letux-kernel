@@ -8,6 +8,12 @@
  * published by the Free Software Foundation.
  */
 
+
+#include <mach/regs-sdi.h>
+
+/* FIXME: DMA Resource management ?! */
+#define S3CMCI_DMA 0
+
 enum s3cmci_waitfor {
 	COMPLETION_NONE,
 	COMPLETION_FINALIZE,
@@ -36,9 +42,7 @@ struct s3cmci_host {
 	int			is2440;
 	unsigned		sdiimsk;
 	unsigned		sdidata;
-	unsigned		sdidata_b;
 	int			dodma;
-
 	int			dmatogo;
 
 	struct mmc_request	*mrq;
@@ -52,7 +56,7 @@ struct s3cmci_host {
 	u32			pio_sgptr;
 	u32			pio_bytes;
 	u32			pio_count;
-	u8			*pio_ptr;
+	u32			*pio_ptr;
 #define XFER_NONE 0
 #define XFER_READ 1
 #define XFER_WRITE 2
@@ -66,4 +70,15 @@ struct s3cmci_host {
 
 	unsigned int		ccnt, dcnt;
 	struct tasklet_struct	pio_tasklet;
+
+	/*
+	 * Here's where we save the registers during suspend. Note that we skip
+	 * SDIDATA, which is at different positions on 2410 and 2440, so
+	 * there's no "+1" in the array size.
+	 */
+	u32			saved[(S3C2410_SDIIMSK-S3C2410_SDICON)/4];
+
+#ifdef CONFIG_CPU_FREQ
+	struct notifier_block	freq_transition;
+#endif
 };

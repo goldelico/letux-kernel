@@ -21,11 +21,11 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/clocksource.h>
+#include <linux/io.h>
 
-#include <asm/hardware.h>
-#include <asm/io.h>
+#include <mach/hardware.h>
 #include <asm/mach/time.h>
-#include <asm/arch/netx-regs.h>
+#include <mach/netx-regs.h>
 
 /*
  * IRQ handler for the timer
@@ -33,11 +33,7 @@
 static irqreturn_t
 netx_timer_interrupt(int irq, void *dev_id)
 {
-	write_seqlock(&xtime_lock);
-
 	timer_tick();
-
-	write_sequnlock(&xtime_lock);
 
 	/* acknowledge interrupt */
 	writel(COUNTER_BIT(0), NETX_GPIO_IRQ);

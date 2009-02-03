@@ -58,13 +58,20 @@ struct rtl818x_csr {
 #define RTL818X_INT_TX_FO		(1 << 15)
 	__le32	TX_CONF;
 #define RTL818X_TX_CONF_LOOPBACK_MAC	(1 << 17)
+#define RTL818X_TX_CONF_LOOPBACK_CONT	(3 << 17)
 #define RTL818X_TX_CONF_NO_ICV		(1 << 19)
 #define RTL818X_TX_CONF_DISCW		(1 << 20)
+#define RTL818X_TX_CONF_SAT_HWPLCP	(1 << 24)
 #define RTL818X_TX_CONF_R8180_ABCD	(2 << 25)
 #define RTL818X_TX_CONF_R8180_F		(3 << 25)
 #define RTL818X_TX_CONF_R8185_ABC	(4 << 25)
 #define RTL818X_TX_CONF_R8185_D		(5 << 25)
+#define RTL818X_TX_CONF_R8187vD		(5 << 25)
+#define RTL818X_TX_CONF_R8187vD_B	(6 << 25)
 #define RTL818X_TX_CONF_HWVER_MASK	(7 << 25)
+#define RTL818X_TX_CONF_DISREQQSIZE	(1 << 28)
+#define RTL818X_TX_CONF_PROBE_DTS	(1 << 29)
+#define RTL818X_TX_CONF_HW_SEQNUM	(1 << 30)
 #define RTL818X_TX_CONF_CW_MIN		(1 << 31)
 	__le32	RX_CONF;
 #define RTL818X_RX_CONF_MONITOR		(1 <<  0)
@@ -75,8 +82,12 @@ struct rtl818x_csr {
 #define RTL818X_RX_CONF_DATA		(1 << 18)
 #define RTL818X_RX_CONF_CTRL		(1 << 19)
 #define RTL818X_RX_CONF_MGMT		(1 << 20)
+#define RTL818X_RX_CONF_ADDR3		(1 << 21)
+#define RTL818X_RX_CONF_PM		(1 << 22)
 #define RTL818X_RX_CONF_BSSID		(1 << 23)
 #define RTL818X_RX_CONF_RX_AUTORESETPHY	(1 << 28)
+#define RTL818X_RX_CONF_CSDM1		(1 << 29)
+#define RTL818X_RX_CONF_CSDM2		(1 << 30)
 #define RTL818X_RX_CONF_ONLYERLPKT	(1 << 31)
 	__le32	INT_TIMEOUT;
 	__le32	TBDA;
@@ -92,26 +103,33 @@ struct rtl818x_csr {
 	u8	CONFIG0;
 	u8	CONFIG1;
 	u8	CONFIG2;
+#define RTL818X_CONFIG2_ANTENNA_DIV	(1 << 6)
 	__le32	ANAPARAM;
 	u8	MSR;
 #define RTL818X_MSR_NO_LINK		(0 << 2)
 #define RTL818X_MSR_ADHOC		(1 << 2)
 #define RTL818X_MSR_INFRA		(2 << 2)
+#define RTL818X_MSR_MASTER		(3 << 2)
+#define RTL818X_MSR_ENEDCA		(4 << 2)
 	u8	CONFIG3;
 #define RTL818X_CONFIG3_ANAPARAM_WRITE	(1 << 6)
+#define RTL818X_CONFIG3_GNT_SELECT	(1 << 7)
 	u8	CONFIG4;
 #define RTL818X_CONFIG4_POWEROFF	(1 << 6)
 #define RTL818X_CONFIG4_VCOOFF		(1 << 7)
 	u8	TESTR;
 	u8	reserved_9[2];
-	__le16	PGSELECT;
+	u8	PGSELECT;
+	u8	SECURITY;
 	__le32	ANAPARAM2;
 	u8	reserved_10[12];
 	__le16	BEACON_INTERVAL;
 	__le16	ATIM_WND;
 	__le16	BEACON_INTERVAL_TIME;
 	__le16	ATIMTR_INTERVAL;
-	u8	reserved_11[4];
+	u8	PHY_DELAY;
+	u8	CARRIER_SENSE_COUNTER;
+	u8	reserved_11[2];
 	u8	PHY[4];
 	__le16	RFPinsOutput;
 	__le16	RFPinsEnable;
@@ -121,7 +139,9 @@ struct rtl818x_csr {
 	__le32	RF_TIMING;
 	u8	GP_ENABLE;
 	u8	GPIO;
-	u8	reserved_12[10];
+	u8	reserved_12[2];
+	__le32	HSSI_PARA;
+	u8	reserved_13[4];
 	u8	TX_AGC_CTL;
 #define RTL818X_TX_AGC_CTL_PERPACKET_GAIN_SHIFT		(1 << 0)
 #define RTL818X_TX_AGC_CTL_PERPACKET_ANTSEL_SHIFT	(1 << 1)
@@ -129,99 +149,83 @@ struct rtl818x_csr {
 	u8	TX_GAIN_CCK;
 	u8	TX_GAIN_OFDM;
 	u8	TX_ANTENNA;
-	u8	reserved_13[16];
+	u8	reserved_14[16];
 	u8	WPA_CONF;
-	u8	reserved_14[3];
+	u8	reserved_15[3];
 	u8	SIFS;
 	u8	DIFS;
 	u8	SLOT;
-	u8	reserved_15[5];
+	u8	reserved_16[5];
 	u8	CW_CONF;
 #define RTL818X_CW_CONF_PERPACKET_CW_SHIFT	(1 << 0)
 #define RTL818X_CW_CONF_PERPACKET_RETRY_SHIFT	(1 << 1)
 	u8	CW_VAL;
 	u8	RATE_FALLBACK;
-	u8	reserved_16[25];
+#define RTL818X_RATE_FALLBACK_ENABLE	(1 << 7)
+	u8	ACM_CONTROL;
+	u8	reserved_17[24];
 	u8	CONFIG5;
 	u8	TX_DMA_POLLING;
-	u8	reserved_17[2];
+	u8	reserved_18[2];
 	__le16	CWR;
 	u8	RETRY_CTR;
-	u8	reserved_18[5];
+	u8	reserved_19[3];
+	__le16	INT_MIG;
+/* RTL818X_R8187B_*: magic numbers from ioregisters */
+#define RTL818X_R8187B_B	0
+#define RTL818X_R8187B_D	1
+#define RTL818X_R8187B_E	2
 	__le32	RDSAR;
-	u8	reserved_19[18];
-	u16	TALLY_CNT;
+	__le16	TID_AC_MAP;
+	u8	reserved_20[4];
+	u8	ANAPARAM3;
+	u8	reserved_21[5];
+	__le16	FEMR;
+	u8	reserved_22[4];
+	__le16	TALLY_CNT;
 	u8	TALLY_SEL;
 } __attribute__((packed));
 
-static const struct ieee80211_rate rtl818x_rates[] = {
-	{ .rate = 10,
-	  .val = 0,
-	  .flags = IEEE80211_RATE_CCK },
-	{ .rate = 20,
-	  .val = 1,
-	  .flags = IEEE80211_RATE_CCK },
-	{ .rate = 55,
-	  .val = 2,
-	  .flags = IEEE80211_RATE_CCK },
-	{ .rate = 110,
-	  .val = 3,
-	  .flags = IEEE80211_RATE_CCK },
-	{ .rate = 60,
-	  .val = 4,
-	  .flags = IEEE80211_RATE_OFDM },
-	{ .rate = 90,
-	  .val = 5,
-	  .flags = IEEE80211_RATE_OFDM },
-	{ .rate = 120,
-	  .val = 6,
-	  .flags = IEEE80211_RATE_OFDM },
-	{ .rate = 180,
-	  .val = 7,
-	  .flags = IEEE80211_RATE_OFDM },
-	{ .rate = 240,
-	  .val = 8,
-	  .flags = IEEE80211_RATE_OFDM },
-	{ .rate = 360,
-	  .val = 9,
-	  .flags = IEEE80211_RATE_OFDM },
-	{ .rate = 480,
-	  .val = 10,
-	  .flags = IEEE80211_RATE_OFDM },
-	{ .rate = 540,
-	  .val = 11,
-	  .flags = IEEE80211_RATE_OFDM },
+struct rtl818x_rf_ops {
+	char *name;
+	void (*init)(struct ieee80211_hw *);
+	void (*stop)(struct ieee80211_hw *);
+	void (*set_chan)(struct ieee80211_hw *, struct ieee80211_conf *);
 };
 
-static const struct ieee80211_channel rtl818x_channels[] = {
-	{ .chan = 1,
-	  .freq = 2412},
-	{ .chan = 2,
-	  .freq = 2417},
-	{ .chan = 3,
-	  .freq = 2422},
-	{ .chan = 4,
-	  .freq = 2427},
-	{ .chan = 5,
-	  .freq = 2432},
-	{ .chan = 6,
-	  .freq = 2437},
-	{ .chan = 7,
-	  .freq = 2442},
-	{ .chan = 8,
-	  .freq = 2447},
-	{ .chan = 9,
-	  .freq = 2452},
-	{ .chan = 10,
-	  .freq = 2457},
-	{ .chan = 11,
-	  .freq = 2462},
-	{ .chan = 12,
-	  .freq = 2467},
-	{ .chan = 13,
-	  .freq = 2472},
-	{ .chan = 14,
-	  .freq = 2484}
+/* Tx/Rx flags are common between RTL818X chips */
+
+enum rtl818x_tx_desc_flags {
+	RTL818X_TX_DESC_FLAG_NO_ENC	= (1 << 15),
+	RTL818X_TX_DESC_FLAG_TX_OK	= (1 << 15),
+	RTL818X_TX_DESC_FLAG_SPLCP	= (1 << 16),
+	RTL818X_TX_DESC_FLAG_RX_UNDER	= (1 << 16),
+	RTL818X_TX_DESC_FLAG_MOREFRAG	= (1 << 17),
+	RTL818X_TX_DESC_FLAG_CTS	= (1 << 18),
+	RTL818X_TX_DESC_FLAG_RTS	= (1 << 23),
+	RTL818X_TX_DESC_FLAG_LS		= (1 << 28),
+	RTL818X_TX_DESC_FLAG_FS		= (1 << 29),
+	RTL818X_TX_DESC_FLAG_DMA	= (1 << 30),
+	RTL818X_TX_DESC_FLAG_OWN	= (1 << 31)
+};
+
+enum rtl818x_rx_desc_flags {
+	RTL818X_RX_DESC_FLAG_ICV_ERR	= (1 << 12),
+	RTL818X_RX_DESC_FLAG_CRC32_ERR	= (1 << 13),
+	RTL818X_RX_DESC_FLAG_PM		= (1 << 14),
+	RTL818X_RX_DESC_FLAG_RX_ERR	= (1 << 15),
+	RTL818X_RX_DESC_FLAG_BCAST	= (1 << 16),
+	RTL818X_RX_DESC_FLAG_PAM	= (1 << 17),
+	RTL818X_RX_DESC_FLAG_MCAST	= (1 << 18),
+	RTL818X_RX_DESC_FLAG_QOS	= (1 << 19), /* RTL8187(B) only */
+	RTL818X_RX_DESC_FLAG_TRSW	= (1 << 24), /* RTL8187(B) only */
+	RTL818X_RX_DESC_FLAG_SPLCP	= (1 << 25),
+	RTL818X_RX_DESC_FLAG_FOF	= (1 << 26),
+	RTL818X_RX_DESC_FLAG_DMA_FAIL	= (1 << 27),
+	RTL818X_RX_DESC_FLAG_LS		= (1 << 28),
+	RTL818X_RX_DESC_FLAG_FS		= (1 << 29),
+	RTL818X_RX_DESC_FLAG_EOR	= (1 << 30),
+	RTL818X_RX_DESC_FLAG_OWN	= (1 << 31)
 };
 
 #endif /* RTL818X_H */

@@ -10,10 +10,6 @@
  *  Free Software Foundation;  either version 2 of the  License, or (at your
  *  option) any later version.
  *
- *  Revision history
- *    20th Jan 2007   Initial version.
- *    05th Feb 2007   Rename all to Neo1973
- *
  */
 
 #include <linux/module.h>
@@ -22,21 +18,21 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
-#include <sound/driver.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
+#include <sound/tlv.h>
 
 #include <asm/mach-types.h>
 #include <asm/hardware/scoop.h>
-#include <asm/arch/regs-clock.h>
-#include <asm/arch/regs-gpio.h>
-#include <asm/hardware.h>
-#include <asm/arch/audio.h>
-#include <asm/io.h>
-#include <asm/arch/spi-gpio.h>
-
+#include <mach/regs-clock.h>
+#include <mach/regs-gpio.h>
+#include <mach/hardware.h>
+#include <mach/audio.h>
+#include <linux/io.h>
+#include <mach/spi-gpio.h>
+#include <asm/mach-types.h>
 #include <asm/plat-s3c24xx/regs-iis.h>
 
 #include "../codecs/wm8753.h"
@@ -45,13 +41,12 @@
 #include "s3c24xx-i2s.h"
 
 /* Debugging stuff */
-#ifdef SND_S3C24XX_SOC_NEO1973_WM8753_DEBUG
-static int debug        = 1;
+#define S3C24XX_SOC_NEO1973_WM8753_DEBUG 0
+#if S3C24XX_SOC_NEO1973_WM8753_DEBUG
+#define DBG(x...) printk(KERN_DEBUG "s3c24xx-soc-neo1973-wm8753: " x)
 #else
-static int debug        = 0;
+#define DBG(x...)
 #endif
-
-#define dprintk(msg...) if (debug) { printk(KERN_DEBUG "wm8753: " msg); }
 
 /* define the scenarios */
 #define NEO_AUDIO_OFF			0
@@ -71,13 +66,13 @@ static int neo1973_hifi_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_codec_dai *codec_dai = rtd->dai->codec_dai;
-	struct snd_soc_cpu_dai *cpu_dai = rtd->dai->cpu_dai;
+	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
 	unsigned int pll_out = 0, bclk = 0;
 	int ret = 0;
 	unsigned long iis_clkrate;
 
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	iis_clkrate = s3c24xx_i2s_get_clockrate();
 
@@ -113,44 +108,44 @@ static int neo1973_hifi_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	/* set codec DAI configuration */
-	ret = codec_dai->dai_ops.set_fmt(codec_dai,
+	ret = snd_soc_dai_set_fmt(codec_dai,
 		SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 		SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0)
 		return ret;
 
 	/* set cpu DAI configuration */
-	ret = cpu_dai->dai_ops.set_fmt(cpu_dai,
+	ret = snd_soc_dai_set_fmt(cpu_dai,
 		SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 		SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0)
 		return ret;
 
 	/* set the codec system clock for DAC and ADC */
-	ret = codec_dai->dai_ops.set_sysclk(codec_dai, WM8753_MCLK, pll_out,
+	ret = snd_soc_dai_set_sysclk(codec_dai, WM8753_MCLK, pll_out,
 		SND_SOC_CLOCK_IN);
 	if (ret < 0)
 		return ret;
 
 	/* set MCLK division for sample rate */
-	ret = cpu_dai->dai_ops.set_clkdiv(cpu_dai, S3C24XX_DIV_MCLK,
-		S3C2410_IISMOD_32FS );
+	ret = snd_soc_dai_set_clkdiv(cpu_dai, S3C24XX_DIV_MCLK,
+		S3C2410_IISMOD_32FS);
 	if (ret < 0)
 		return ret;
 
 	/* set codec BCLK division for sample rate */
-	ret = codec_dai->dai_ops.set_clkdiv(codec_dai, WM8753_BCLKDIV, bclk);
+	ret = snd_soc_dai_set_clkdiv(codec_dai, WM8753_BCLKDIV, bclk);
 	if (ret < 0)
 		return ret;
 
 	/* set prescaler division for sample rate */
-	ret = cpu_dai->dai_ops.set_clkdiv(cpu_dai, S3C24XX_DIV_PRESCALER,
-		S3C24XX_PRESCALE(4,4));
+	ret = snd_soc_dai_set_clkdiv(cpu_dai, S3C24XX_DIV_PRESCALER,
+		S3C24XX_PRESCALE(4, 4));
 	if (ret < 0)
 		return ret;
 
 	/* codec PLL input is PCLK/4 */
-	ret = codec_dai->dai_ops.set_pll(codec_dai, WM8753_PLL1,
+	ret = snd_soc_dai_set_pll(codec_dai, WM8753_PLL1,
 		iis_clkrate / 4, pll_out);
 	if (ret < 0)
 		return ret;
@@ -161,12 +156,12 @@ static int neo1973_hifi_hw_params(struct snd_pcm_substream *substream,
 static int neo1973_hifi_hw_free(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_codec_dai *codec_dai = rtd->dai->codec_dai;
+	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
 
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	/* disable the PLL */
-	return codec_dai->dai_ops.set_pll(codec_dai, WM8753_PLL1, 0, 0);
+	return snd_soc_dai_set_pll(codec_dai, WM8753_PLL1, 0, 0);
 }
 
 /*
@@ -181,12 +176,12 @@ static int neo1973_voice_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_codec_dai *codec_dai = rtd->dai->codec_dai;
+	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
 	unsigned int pcmdiv = 0;
 	int ret = 0;
 	unsigned long iis_clkrate;
 
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	iis_clkrate = s3c24xx_i2s_get_clockrate();
 
@@ -199,24 +194,24 @@ static int neo1973_voice_hw_params(struct snd_pcm_substream *substream,
 
 	/* todo: gg check mode (DSP_B) against CSR datasheet */
 	/* set codec DAI configuration */
-	ret = codec_dai->dai_ops.set_fmt(codec_dai, SND_SOC_DAIFMT_DSP_B |
+	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_DSP_B |
 		SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBS_CFS);
 	if (ret < 0)
 		return ret;
 
 	/* set the codec system clock for DAC and ADC */
-	ret = codec_dai->dai_ops.set_sysclk(codec_dai, WM8753_PCMCLK, 12288000,
+	ret = snd_soc_dai_set_sysclk(codec_dai, WM8753_PCMCLK, 12288000,
 		SND_SOC_CLOCK_IN);
 	if (ret < 0)
 		return ret;
 
 	/* set codec PCM division for sample rate */
-	ret = codec_dai->dai_ops.set_clkdiv(codec_dai, WM8753_PCMDIV, pcmdiv);
+	ret = snd_soc_dai_set_clkdiv(codec_dai, WM8753_PCMDIV, pcmdiv);
 	if (ret < 0)
 		return ret;
 
 	/* configue and enable PLL for 12.288MHz output */
-	ret = codec_dai->dai_ops.set_pll(codec_dai, WM8753_PLL2,
+	ret = snd_soc_dai_set_pll(codec_dai, WM8753_PLL2,
 		iis_clkrate / 4, 12288000);
 	if (ret < 0)
 		return ret;
@@ -227,12 +222,12 @@ static int neo1973_voice_hw_params(struct snd_pcm_substream *substream,
 static int neo1973_voice_hw_free(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_codec_dai *codec_dai = rtd->dai->codec_dai;
+	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
 
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	/* disable the PLL */
-	return codec_dai->dai_ops.set_pll(codec_dai, WM8753_PLL2, 0, 0);
+	return snd_soc_dai_set_pll(codec_dai, WM8753_PLL2, 0, 0);
 }
 
 static struct snd_soc_ops neo1973_voice_ops = {
@@ -240,94 +235,92 @@ static struct snd_soc_ops neo1973_voice_ops = {
 	.hw_free = neo1973_voice_hw_free,
 };
 
-static int neo1973_scenario = 0;
+static int neo1973_scenario;
 
 static int neo1973_get_scenario(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	dprintk("Entered %s\n", __FUNCTION__);
-
 	ucontrol->value.integer.value[0] = neo1973_scenario;
 	return 0;
 }
 
 static int set_scenario_endpoints(struct snd_soc_codec *codec, int scenario)
 {
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
-	switch(neo1973_scenario) {
+	switch (neo1973_scenario) {
 	case NEO_AUDIO_OFF:
-		snd_soc_dapm_set_endpoint(codec, "Audio Out",    0);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line Out", 0);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line In",  0);
-		snd_soc_dapm_set_endpoint(codec, "Headset Mic",  0);
-		snd_soc_dapm_set_endpoint(codec, "Call Mic",     0);
+		snd_soc_dapm_disable_pin(codec, "Audio Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line In");
+		snd_soc_dapm_disable_pin(codec, "Headset Mic");
+		snd_soc_dapm_disable_pin(codec, "Call Mic");
 		break;
 	case NEO_GSM_CALL_AUDIO_HANDSET:
-		snd_soc_dapm_set_endpoint(codec, "Audio Out",    1);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line Out", 1);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line In",  1);
-		snd_soc_dapm_set_endpoint(codec, "Headset Mic",  0);
-		snd_soc_dapm_set_endpoint(codec, "Call Mic",     1);
+		snd_soc_dapm_enable_pin(codec, "Audio Out");
+		snd_soc_dapm_enable_pin(codec, "GSM Line Out");
+		snd_soc_dapm_enable_pin(codec, "GSM Line In");
+		snd_soc_dapm_disable_pin(codec, "Headset Mic");
+		snd_soc_dapm_enable_pin(codec, "Call Mic");
 		break;
 	case NEO_GSM_CALL_AUDIO_HEADSET:
-		snd_soc_dapm_set_endpoint(codec, "Audio Out",    1);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line Out", 1);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line In",  1);
-		snd_soc_dapm_set_endpoint(codec, "Headset Mic",  1);
-		snd_soc_dapm_set_endpoint(codec, "Call Mic",     0);
+		snd_soc_dapm_enable_pin(codec, "Audio Out");
+		snd_soc_dapm_enable_pin(codec, "GSM Line Out");
+		snd_soc_dapm_enable_pin(codec, "GSM Line In");
+		snd_soc_dapm_enable_pin(codec, "Headset Mic");
+		snd_soc_dapm_disable_pin(codec, "Call Mic");
 		break;
 	case NEO_GSM_CALL_AUDIO_BLUETOOTH:
-		snd_soc_dapm_set_endpoint(codec, "Audio Out",    0);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line Out", 1);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line In",  1);
-		snd_soc_dapm_set_endpoint(codec, "Headset Mic",  0);
-		snd_soc_dapm_set_endpoint(codec, "Call Mic",     0);
+		snd_soc_dapm_disable_pin(codec, "Audio Out");
+		snd_soc_dapm_enable_pin(codec, "GSM Line Out");
+		snd_soc_dapm_enable_pin(codec, "GSM Line In");
+		snd_soc_dapm_disable_pin(codec, "Headset Mic");
+		snd_soc_dapm_disable_pin(codec, "Call Mic");
 		break;
 	case NEO_STEREO_TO_SPEAKERS:
-		snd_soc_dapm_set_endpoint(codec, "Audio Out",    1);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line Out", 0);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line In",  0);
-		snd_soc_dapm_set_endpoint(codec, "Headset Mic",  0);
-		snd_soc_dapm_set_endpoint(codec, "Call Mic",     0);
+		snd_soc_dapm_enable_pin(codec, "Audio Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line In");
+		snd_soc_dapm_disable_pin(codec, "Headset Mic");
+		snd_soc_dapm_disable_pin(codec, "Call Mic");
 		break;
 	case NEO_STEREO_TO_HEADPHONES:
-		snd_soc_dapm_set_endpoint(codec, "Audio Out",    1);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line Out", 0);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line In",  0);
-		snd_soc_dapm_set_endpoint(codec, "Headset Mic",  0);
-		snd_soc_dapm_set_endpoint(codec, "Call Mic",     0);
+		snd_soc_dapm_enable_pin(codec, "Audio Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line In");
+		snd_soc_dapm_disable_pin(codec, "Headset Mic");
+		snd_soc_dapm_disable_pin(codec, "Call Mic");
 		break;
 	case NEO_CAPTURE_HANDSET:
-		snd_soc_dapm_set_endpoint(codec, "Audio Out",    0);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line Out", 0);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line In",  0);
-		snd_soc_dapm_set_endpoint(codec, "Headset Mic",  0);
-		snd_soc_dapm_set_endpoint(codec, "Call Mic",     1);
+		snd_soc_dapm_disable_pin(codec, "Audio Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line In");
+		snd_soc_dapm_disable_pin(codec, "Headset Mic");
+		snd_soc_dapm_enable_pin(codec, "Call Mic");
 		break;
 	case NEO_CAPTURE_HEADSET:
-		snd_soc_dapm_set_endpoint(codec, "Audio Out",    0);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line Out", 0);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line In",  0);
-		snd_soc_dapm_set_endpoint(codec, "Headset Mic",  1);
-		snd_soc_dapm_set_endpoint(codec, "Call Mic",     0);
+		snd_soc_dapm_disable_pin(codec, "Audio Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line In");
+		snd_soc_dapm_enable_pin(codec, "Headset Mic");
+		snd_soc_dapm_disable_pin(codec, "Call Mic");
 		break;
 	case NEO_CAPTURE_BLUETOOTH:
-		snd_soc_dapm_set_endpoint(codec, "Audio Out",    0);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line Out", 0);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line In",  0);
-		snd_soc_dapm_set_endpoint(codec, "Headset Mic",  0);
-		snd_soc_dapm_set_endpoint(codec, "Call Mic",     0);
+		snd_soc_dapm_disable_pin(codec, "Audio Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line In");
+		snd_soc_dapm_disable_pin(codec, "Headset Mic");
+		snd_soc_dapm_disable_pin(codec, "Call Mic");
 		break;
 	default:
-		snd_soc_dapm_set_endpoint(codec, "Audio Out",    0);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line Out", 0);
-		snd_soc_dapm_set_endpoint(codec, "GSM Line In",  0);
-		snd_soc_dapm_set_endpoint(codec, "Headset Mic",  0);
-		snd_soc_dapm_set_endpoint(codec, "Call Mic",     0);
+		snd_soc_dapm_disable_pin(codec, "Audio Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
+		snd_soc_dapm_disable_pin(codec, "GSM Line In");
+		snd_soc_dapm_disable_pin(codec, "Headset Mic");
+		snd_soc_dapm_disable_pin(codec, "Call Mic");
 	}
 
-	snd_soc_dapm_sync_endpoints(codec);
+	snd_soc_dapm_sync(codec);
 
 	return 0;
 }
@@ -337,7 +330,7 @@ static int neo1973_set_scenario(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	if (neo1973_scenario == ucontrol->value.integer.value[0])
 		return 0;
@@ -351,7 +344,7 @@ static u8 lm4857_regs[4] = {0x00, 0x40, 0x80, 0xC0};
 
 static void lm4857_write_regs(void)
 {
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	if (i2c_master_send(i2c, lm4857_regs, 4) != 4)
 		printk(KERN_ERR "lm4857: i2c write failed\n");
@@ -360,11 +353,11 @@ static void lm4857_write_regs(void)
 static int lm4857_get_reg(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	int reg=kcontrol->private_value & 0xFF;
+	int reg = kcontrol->private_value & 0xFF;
 	int shift = (kcontrol->private_value >> 8) & 0x0F;
 	int mask = (kcontrol->private_value >> 16) & 0xFF;
 
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	ucontrol->value.integer.value[0] = (lm4857_regs[reg] >> shift) & mask;
 	return 0;
@@ -377,13 +370,11 @@ static int lm4857_set_reg(struct snd_kcontrol *kcontrol,
 	int shift = (kcontrol->private_value >> 8) & 0x0F;
 	int mask = (kcontrol->private_value >> 16) & 0xFF;
 
-	dprintk("Entered %s\n", __FUNCTION__);
-
-	if (((lm4857_regs[reg] >> shift ) & mask) ==
+	if (((lm4857_regs[reg] >> shift) & mask) ==
 		ucontrol->value.integer.value[0])
 		return 0;
 
-	lm4857_regs[reg] &= ~ (mask << shift);
+	lm4857_regs[reg] &= ~(mask << shift);
 	lm4857_regs[reg] |= ucontrol->value.integer.value[0] << shift;
 	lm4857_write_regs();
 	return 1;
@@ -394,7 +385,7 @@ static int lm4857_get_mode(struct snd_kcontrol *kcontrol,
 {
 	u8 value = lm4857_regs[LM4857_CTRL] & 0x0F;
 
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	if (value)
 		value -= 5;
@@ -408,7 +399,7 @@ static int lm4857_set_mode(struct snd_kcontrol *kcontrol,
 {
 	u8 value = ucontrol->value.integer.value[0];
 
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	if (value)
 		value += 5;
@@ -431,8 +422,7 @@ static const struct snd_soc_dapm_widget wm8753_dapm_widgets[] = {
 };
 
 
-/* example machine audio_mapnections */
-static const char* audio_map[][3] = {
+static const struct snd_soc_dapm_route dapm_routes[] = {
 
 	/* Connections to the lm4857 amp */
 	{"Audio Out", NULL, "LOUT1"},
@@ -455,8 +445,6 @@ static const char* audio_map[][3] = {
 
 	/* Connect the ALC pins */
 	{"ACIN", NULL, "ACOP"},
-
-	{NULL, NULL, NULL},
 };
 
 static const char *lm4857_mode[] = {
@@ -484,16 +472,19 @@ static const char *neo_scenarios[] = {
 };
 
 static const struct soc_enum neo_scenario_enum[] = {
-	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(neo_scenarios),neo_scenarios),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(neo_scenarios), neo_scenarios),
 };
 
+static const DECLARE_TLV_DB_SCALE(stereo_tlv, -4050, 150, 0);
+static const DECLARE_TLV_DB_SCALE(mono_tlv, -3450, 150, 0);
+
 static const struct snd_kcontrol_new wm8753_neo1973_controls[] = {
-	SOC_SINGLE_EXT("Amp Left Playback Volume", LM4857_LVOL, 0, 31, 0,
-		lm4857_get_reg, lm4857_set_reg),
-	SOC_SINGLE_EXT("Amp Right Playback Volume", LM4857_RVOL, 0, 31, 0,
-		lm4857_get_reg, lm4857_set_reg),
-	SOC_SINGLE_EXT("Amp Mono Playback Volume", LM4857_MVOL, 0, 31, 0,
-		lm4857_get_reg, lm4857_set_reg),
+	SOC_SINGLE_EXT_TLV("Amp Left Playback Volume", LM4857_LVOL, 0, 31, 0,
+		lm4857_get_reg, lm4857_set_reg, stereo_tlv),
+	SOC_SINGLE_EXT_TLV("Amp Right Playback Volume", LM4857_RVOL, 0, 31, 0,
+		lm4857_get_reg, lm4857_set_reg, stereo_tlv),
+	SOC_SINGLE_EXT_TLV("Amp Mono Playback Volume", LM4857_MVOL, 0, 31, 0,
+		lm4857_get_reg, lm4857_set_reg, mono_tlv),
 	SOC_ENUM_EXT("Amp Mode", lm4857_mode_enum[0],
 		lm4857_get_mode, lm4857_set_mode),
 	SOC_ENUM_EXT("Neo Mode", neo_scenario_enum[0],
@@ -517,23 +508,22 @@ static int neo1973_wm8753_init(struct snd_soc_codec *codec)
 {
 	int i, err;
 
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	/* set up NC codec pins */
-	snd_soc_dapm_set_endpoint(codec, "LOUT2", 0);
-	snd_soc_dapm_set_endpoint(codec, "ROUT2", 0);
-	snd_soc_dapm_set_endpoint(codec, "OUT3",  0);
-	snd_soc_dapm_set_endpoint(codec, "OUT4",  0);
-	snd_soc_dapm_set_endpoint(codec, "LINE1", 0);
-	snd_soc_dapm_set_endpoint(codec, "LINE2", 0);
+	snd_soc_dapm_nc_pin(codec, "LOUT2");
+	snd_soc_dapm_nc_pin(codec, "ROUT2");
+	snd_soc_dapm_nc_pin(codec, "OUT3");
+	snd_soc_dapm_nc_pin(codec, "OUT4");
+	snd_soc_dapm_nc_pin(codec, "LINE1");
+	snd_soc_dapm_nc_pin(codec, "LINE2");
 
+	/* Add neo1973 specific widgets */
+	snd_soc_dapm_new_controls(codec, wm8753_dapm_widgets,
+				  ARRAY_SIZE(wm8753_dapm_widgets));
 
 	/* set endpoints to default mode */
 	set_scenario_endpoints(codec, NEO_AUDIO_OFF);
-
-	/* Add neo1973 specific widgets */
-	for (i = 0; i < ARRAY_SIZE(wm8753_dapm_widgets); i++)
-		snd_soc_dapm_new_control(codec, &wm8753_dapm_widgets[i]);
 
 	/* add neo1973 specific controls */
 	for (i = 0; i < ARRAY_SIZE(wm8753_neo1973_controls); i++) {
@@ -544,21 +534,19 @@ static int neo1973_wm8753_init(struct snd_soc_codec *codec)
 			return err;
 	}
 
-	/* set up neo1973 specific audio path audio_mapnects */
-	for (i = 0; audio_map[i][0] != NULL; i++) {
-		snd_soc_dapm_connect_input(codec, audio_map[i][0],
-			audio_map[i][1], audio_map[i][2]);
-	}
+	/* set up neo1973 specific audio routes */
+	err = snd_soc_dapm_add_routes(codec, dapm_routes,
+				      ARRAY_SIZE(dapm_routes));
 
-	snd_soc_dapm_sync_endpoints(codec);
+	snd_soc_dapm_sync(codec);
 	return 0;
 }
 
 /*
  * BT Codec DAI
  */
-static struct snd_soc_cpu_dai bt_dai =
-{	.name = "Bluetooth",
+static struct snd_soc_dai bt_dai = {
+	.name = "Bluetooth",
 	.id = 0,
 	.type = SND_SOC_DAI_PCM,
 	.playback = {
@@ -597,7 +585,8 @@ static struct snd_soc_machine neo1973 = {
 	.num_links = ARRAY_SIZE(neo1973_dai),
 };
 
-static struct wm8753_setup_data neo1973_wm8753_setup = {
+static struct wm8753_setup_data soc_codec_data_wm8753_gta01 = {
+	.i2c_bus = 0,
 	.i2c_address = 0x1a,
 };
 
@@ -605,64 +594,34 @@ static struct snd_soc_device neo1973_snd_devdata = {
 	.machine = &neo1973,
 	.platform = &s3c24xx_soc_platform,
 	.codec_dev = &soc_codec_dev_wm8753,
-	.codec_data = &neo1973_wm8753_setup,
+	.codec_data = &soc_codec_data_wm8753_gta01
 };
 
-static struct i2c_client client_template;
-
-static unsigned short normal_i2c[] = { 0x7C, I2C_CLIENT_END };
-
-/* Magic definition of all other variables and things */
-I2C_CLIENT_INSMOD;
-
-static int lm4857_amp_probe(struct i2c_adapter *adap, int addr, int kind)
+static int lm4857_i2c_probe(struct i2c_client *client,
+			    const struct i2c_device_id *id)
 {
-	int ret;
+	DBG("Entered %s\n", __func__);
 
-	dprintk("Entered %s\n", __FUNCTION__);
-
-	client_template.adapter = adap;
-	client_template.addr = addr;
-
-	i2c = kmemdup(&client_template, sizeof(client_template), GFP_KERNEL);
-	if (i2c == NULL)
-		return -ENOMEM;
-
-	ret = i2c_attach_client(i2c);
-	if (ret < 0) {
-		printk(KERN_ERR "LM4857 failed to attach at addr %x\n", addr);
-		goto exit_err;
-	}
+	i2c = client;
 
 	lm4857_write_regs();
-	return ret;
-
-exit_err:
-	kfree(i2c);
-	return ret;
-}
-
-static int lm4857_i2c_detach(struct i2c_client *client)
-{
-	dprintk("Entered %s\n", __FUNCTION__);
-
-	i2c_detach_client(client);
-	kfree(client);
 	return 0;
 }
 
-static int lm4857_i2c_attach(struct i2c_adapter *adap)
+static int lm4857_i2c_remove(struct i2c_client *client)
 {
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
-	return i2c_probe(adap, &addr_data, lm4857_amp_probe);
+	i2c = NULL;
+
+	return 0;
 }
 
 static u8 lm4857_state;
 
 static int lm4857_suspend(struct i2c_client *dev, pm_message_t state)
 {
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	dev_dbg(&dev->dev, "lm4857_suspend\n");
 	lm4857_state = lm4857_regs[LM4857_CTRL] & 0xf;
@@ -675,7 +634,7 @@ static int lm4857_suspend(struct i2c_client *dev, pm_message_t state)
 
 static int lm4857_resume(struct i2c_client *dev)
 {
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	if (lm4857_state) {
 		lm4857_regs[LM4857_CTRL] |= (lm4857_state & 0x0f);
@@ -686,31 +645,29 @@ static int lm4857_resume(struct i2c_client *dev)
 
 static void lm4857_shutdown(struct i2c_client *dev)
 {
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	dev_dbg(&dev->dev, "lm4857_shutdown\n");
 	lm4857_regs[LM4857_CTRL] &= 0xf0;
 	lm4857_write_regs();
 }
 
-/* corgi i2c codec control layer */
+static const struct i2c_device_id lm4857_i2c_id[] = {
+	{ "neo1973_lm4857", 0 },
+	{ }
+};
+
 static struct i2c_driver lm4857_i2c_driver = {
 	.driver = {
 		.name = "LM4857 I2C Amp",
 		.owner = THIS_MODULE,
 	},
-	.id =             I2C_DRIVERID_LM4857,
 	.suspend =        lm4857_suspend,
 	.resume	=         lm4857_resume,
 	.shutdown =       lm4857_shutdown,
-	.attach_adapter = lm4857_i2c_attach,
-	.detach_client =  lm4857_i2c_detach,
-	.command =        NULL,
-};
-
-static struct i2c_client client_template = {
-	.name =   "LM4857",
-	.driver = &lm4857_i2c_driver,
+	.probe =          lm4857_i2c_probe,
+	.remove =         lm4857_i2c_remove,
+	.id_table =       lm4857_i2c_id,
 };
 
 static struct platform_device *neo1973_snd_device;
@@ -719,11 +676,11 @@ static int __init neo1973_init(void)
 {
 	int ret;
 
-	dprintk("Entered %s\n", __FUNCTION__);
+	printk(KERN_DEBUG "Entered %s\n", __func__);
 
 	if (!machine_is_neo1973_gta01()) {
 		printk(KERN_INFO
-		       "Only GTA01 hardware supported by ASoc driver\n");
+			"Only GTA01 hardware supported by ASoC driver\n");
 		return -ENODEV;
 	}
 
@@ -735,19 +692,22 @@ static int __init neo1973_init(void)
 	neo1973_snd_devdata.dev = &neo1973_snd_device->dev;
 	ret = platform_device_add(neo1973_snd_device);
 
-	if (ret)
+	if (ret) {
 		platform_device_put(neo1973_snd_device);
+		return ret;
+	}
 
 	ret = i2c_add_driver(&lm4857_i2c_driver);
+
 	if (ret != 0)
-		printk(KERN_ERR "can't add i2c driver");
+		platform_device_unregister(neo1973_snd_device);
 
 	return ret;
 }
 
 static void __exit neo1973_exit(void)
 {
-	dprintk("Entered %s\n", __FUNCTION__);
+	DBG("Entered %s\n", __func__);
 
 	i2c_del_driver(&lm4857_i2c_driver);
 	platform_device_unregister(neo1973_snd_device);
@@ -757,6 +717,6 @@ module_init(neo1973_init);
 module_exit(neo1973_exit);
 
 /* Module information */
-MODULE_AUTHOR("Graeme Gregory, graeme.gregory@wolfsonmicro.com, www.wolfsonmicro.com");
-MODULE_DESCRIPTION("ALSA SoC WM8753 Neo1973 GTA01");
+MODULE_AUTHOR("Graeme Gregory, graeme@openmoko.org, www.openmoko.org");
+MODULE_DESCRIPTION("ALSA SoC WM8753 Neo1973");
 MODULE_LICENSE("GPL");

@@ -14,6 +14,12 @@ config BFIN533_STAMP
 	help
 	  BF533-STAMP board support.
 
+config BLACKSTAMP
+	bool "BlackStamp"
+	help
+	  Support for the BlackStamp board.  Hardware info available at
+	  http://blackfin.uclinux.org/gf/project/blackstamp/
+
 config BFIN533_BLUETECHNIX_CM
 	bool "Bluetechnix CM-BF533"
 	depends on (BF533)
@@ -25,6 +31,12 @@ config H8606_HVSISTEMAS
 	depends on (BF532)
 	help
 	  HV Sistemas H8606 board support.
+
+config BFIN532_IP0X
+	bool "IP04/IP08 IP-PBX"
+	depends on (BF532)
+	help
+	  Core support for IP04/IP04 open hardware IP-PBX.
 
 config GENERIC_BF533_BOARD
 	bool "Generic"

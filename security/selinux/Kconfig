@@ -6,9 +6,6 @@ config SECURITY_SELINUX
 	help
 	  This selects NSA Security-Enhanced Linux (SELinux).
 	  You will also need a policy configuration and a labeled filesystem.
-	  You can obtain the policy compiler (checkpolicy), the utility for
-	  labeling filesystems (setfiles), and an example policy configuration
-	  from <http://www.nsa.gov/selinux/>.
 	  If you are unsure how to answer this question, answer N.
 
 config SECURITY_SELINUX_BOOTPARAM
@@ -145,7 +142,7 @@ config SECURITY_SELINUX_POLICYDB_VERSION_MAX
 config SECURITY_SELINUX_POLICYDB_VERSION_MAX_VALUE
 	int "NSA SELinux maximum supported policy format version value"
 	depends on SECURITY_SELINUX_POLICYDB_VERSION_MAX
-	range 15 21
+	range 15 23
 	default 19
 	help
 	  This option sets the value for the maximum policy format version

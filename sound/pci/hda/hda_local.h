@@ -90,6 +90,13 @@ int snd_hda_codec_amp_stereo(struct hda_codec *codec, hda_nid_t nid,
 void snd_hda_codec_resume_amp(struct hda_codec *codec);
 #endif
 
+void snd_hda_set_vmaster_tlv(struct hda_codec *codec, hda_nid_t nid, int dir,
+			     unsigned int *tlv);
+struct snd_kcontrol *snd_hda_find_mixer_ctl(struct hda_codec *codec,
+					    const char *name);
+int snd_hda_add_vmaster(struct hda_codec *codec, char *name,
+			unsigned int *tlv, const char **slaves);
+
 /* amp value bits */
 #define HDA_AMP_MUTE	0x80
 #define HDA_AMP_UNMUTE	0x00
@@ -221,8 +228,18 @@ struct hda_multi_out {
 	int max_channels;	/* currently supported analog channels */
 	int dig_out_used;	/* current usage of digital out (HDA_DIG_XXX) */
 	int no_share_stream;	/* don't share a stream with multiple pins */
+	int share_spdif;	/* share SPDIF pin */
+	/* PCM information for both analog and SPDIF DACs */
+	unsigned int analog_rates;
+	unsigned int analog_maxbps;
+	u64 analog_formats;
+	unsigned int spdif_rates;
+	unsigned int spdif_maxbps;
+	u64 spdif_formats;
 };
 
+int snd_hda_create_spdif_share_sw(struct hda_codec *codec,
+				  struct hda_multi_out *mout);
 int snd_hda_multi_out_dig_open(struct hda_codec *codec,
 			       struct hda_multi_out *mout);
 int snd_hda_multi_out_dig_close(struct hda_codec *codec,
@@ -234,7 +251,8 @@ int snd_hda_multi_out_dig_prepare(struct hda_codec *codec,
 				  struct snd_pcm_substream *substream);
 int snd_hda_multi_out_analog_open(struct hda_codec *codec,
 				  struct hda_multi_out *mout,
-				  struct snd_pcm_substream *substream);
+				  struct snd_pcm_substream *substream,
+				  struct hda_pcm_stream *hinfo);
 int snd_hda_multi_out_analog_prepare(struct hda_codec *codec,
 				     struct hda_multi_out *mout,
 				     unsigned int stream_tag,
@@ -325,6 +343,7 @@ struct auto_pin_cfg {
 	hda_nid_t input_pins[AUTO_PIN_LAST];
 	hda_nid_t dig_out_pin;
 	hda_nid_t dig_in_pin;
+	hda_nid_t mono_out_pin;
 };
 
 #define get_defcfg_connect(cfg) \
@@ -349,12 +368,15 @@ int snd_hda_parse_pin_def_config(struct hda_codec *codec,
 #define AMP_OUT_UNMUTE	0xb000
 #define AMP_OUT_ZERO	0xb000
 /* pinctl values */
-#define PIN_IN		0x20
-#define PIN_VREF80	0x24
-#define PIN_VREF50	0x21
-#define PIN_OUT		0x40
-#define PIN_HP		0xc0
-#define PIN_HP_AMP	0x80
+#define PIN_IN			(AC_PINCTL_IN_EN)
+#define PIN_VREFHIZ	(AC_PINCTL_IN_EN | AC_PINCTL_VREF_HIZ)
+#define PIN_VREF50		(AC_PINCTL_IN_EN | AC_PINCTL_VREF_50)
+#define PIN_VREFGRD	(AC_PINCTL_IN_EN | AC_PINCTL_VREF_GRD)
+#define PIN_VREF80		(AC_PINCTL_IN_EN | AC_PINCTL_VREF_80)
+#define PIN_VREF100	(AC_PINCTL_IN_EN | AC_PINCTL_VREF_100)
+#define PIN_OUT		(AC_PINCTL_OUT_EN)
+#define PIN_HP			(AC_PINCTL_OUT_EN | AC_PINCTL_HP_EN)
+#define PIN_HP_AMP		(AC_PINCTL_HP_EN)
 
 /*
  * get widget capabilities
@@ -363,10 +385,11 @@ static inline u32 get_wcaps(struct hda_codec *codec, hda_nid_t nid)
 {
 	if (nid < codec->start_nid ||
 	    nid >= codec->start_nid + codec->num_nodes)
-		return snd_hda_param_read(codec, nid, AC_PAR_AUDIO_WIDGET_CAP);
+		return 0;
 	return codec->wcaps[nid - codec->start_nid];
 }
 
+u32 query_amp_caps(struct hda_codec *codec, hda_nid_t nid, int direction);
 int snd_hda_override_amp_caps(struct hda_codec *codec, hda_nid_t nid, int dir,
 			      unsigned int caps);
 
@@ -397,5 +420,14 @@ int snd_hda_check_amp_list_power(struct hda_codec *codec,
 				 struct hda_loopback_check *check,
 				 hda_nid_t nid);
 #endif /* CONFIG_SND_HDA_POWER_SAVE */
+
+/*
+ * AMP control callbacks
+ */
+/* retrieve parameters from private_value */
+#define get_amp_nid(kc)		((kc)->private_value & 0xffff)
+#define get_amp_channels(kc)	(((kc)->private_value >> 16) & 0x3)
+#define get_amp_direction(kc)	(((kc)->private_value >> 18) & 0x1)
+#define get_amp_index(kc)	(((kc)->private_value >> 19) & 0xf)
 
 #endif /* __SOUND_HDA_LOCAL_H */

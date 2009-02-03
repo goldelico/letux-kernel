@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,7 +64,7 @@ ACPI_MODULE_NAME("utmisc")
  ******************************************************************************/
 const char *acpi_ut_validate_exception(acpi_status status)
 {
-	acpi_status sub_status;
+	u32 sub_status;
 	const char *exception = NULL;
 
 	ACPI_FUNCTION_ENTRY();
@@ -85,32 +85,28 @@ const char *acpi_ut_validate_exception(acpi_status status)
 	case AE_CODE_PROGRAMMER:
 
 		if (sub_status <= AE_CODE_PGM_MAX) {
-			exception =
-			    acpi_gbl_exception_names_pgm[sub_status - 1];
+			exception = acpi_gbl_exception_names_pgm[sub_status];
 		}
 		break;
 
 	case AE_CODE_ACPI_TABLES:
 
 		if (sub_status <= AE_CODE_TBL_MAX) {
-			exception =
-			    acpi_gbl_exception_names_tbl[sub_status - 1];
+			exception = acpi_gbl_exception_names_tbl[sub_status];
 		}
 		break;
 
 	case AE_CODE_AML:
 
 		if (sub_status <= AE_CODE_AML_MAX) {
-			exception =
-			    acpi_gbl_exception_names_aml[sub_status - 1];
+			exception = acpi_gbl_exception_names_aml[sub_status];
 		}
 		break;
 
 	case AE_CODE_CONTROL:
 
 		if (sub_status <= AE_CODE_CTRL_MAX) {
-			exception =
-			    acpi_gbl_exception_names_ctrl[sub_status - 1];
+			exception = acpi_gbl_exception_names_ctrl[sub_status];
 		}
 		break;
 
@@ -165,9 +161,9 @@ u8 acpi_ut_is_aml_table(struct acpi_table_header *table)
 
 acpi_status acpi_ut_allocate_owner_id(acpi_owner_id * owner_id)
 {
-	acpi_native_uint i;
-	acpi_native_uint j;
-	acpi_native_uint k;
+	u32 i;
+	u32 j;
+	u32 k;
 	acpi_status status;
 
 	ACPI_FUNCTION_TRACE(ut_allocate_owner_id);
@@ -273,7 +269,7 @@ void acpi_ut_release_owner_id(acpi_owner_id * owner_id_ptr)
 {
 	acpi_owner_id owner_id = *owner_id_ptr;
 	acpi_status status;
-	acpi_native_uint index;
+	u32 index;
 	u32 bit;
 
 	ACPI_FUNCTION_TRACE_U32(ut_release_owner_id, owner_id);
@@ -593,7 +589,7 @@ acpi_ut_display_init_pathname(u8 type,
  *
  ******************************************************************************/
 
-u8 acpi_ut_valid_acpi_char(char character, acpi_native_uint position)
+u8 acpi_ut_valid_acpi_char(char character, u32 position)
 {
 
 	if (!((character >= 'A' && character <= 'Z') ||
@@ -628,7 +624,7 @@ u8 acpi_ut_valid_acpi_char(char character, acpi_native_uint position)
 
 u8 acpi_ut_valid_acpi_name(u32 name)
 {
-	acpi_native_uint i;
+	u32 i;
 
 	ACPI_FUNCTION_ENTRY();
 
@@ -657,7 +653,7 @@ u8 acpi_ut_valid_acpi_name(u32 name)
 
 acpi_name acpi_ut_repair_name(char *name)
 {
-	acpi_native_uint i;
+       u32 i;
 	char new_name[ACPI_NAME_SIZE];
 
 	for (i = 0; i < ACPI_NAME_SIZE; i++) {
@@ -999,6 +995,15 @@ acpi_ut_walk_package_tree(union acpi_operand_object * source_object,
 							 state->pkg.
 							 this_target_obj, 0);
 			if (!state) {
+
+				/* Free any stacked Update State objects */
+
+				while (state_list) {
+					state =
+					    acpi_ut_pop_generic_state
+					    (&state_list);
+					acpi_ut_delete_generic_state(state);
+				}
 				return_ACPI_STATUS(AE_NO_MEMORY);
 			}
 		}
@@ -1024,7 +1029,7 @@ acpi_ut_walk_package_tree(union acpi_operand_object * source_object,
  ******************************************************************************/
 
 void ACPI_INTERNAL_VAR_XFACE
-acpi_ut_error(char *module_name, u32 line_number, char *format, ...)
+acpi_ut_error(const char *module_name, u32 line_number, const char *format, ...)
 {
 	va_list args;
 
@@ -1033,11 +1038,12 @@ acpi_ut_error(char *module_name, u32 line_number, char *format, ...)
 	va_start(args, format);
 	acpi_os_vprintf(format, args);
 	acpi_os_printf(" [%X]\n", ACPI_CA_VERSION);
+	va_end(args);
 }
 
 void ACPI_INTERNAL_VAR_XFACE
-acpi_ut_exception(char *module_name,
-		  u32 line_number, acpi_status status, char *format, ...)
+acpi_ut_exception(const char *module_name,
+		  u32 line_number, acpi_status status, const char *format, ...)
 {
 	va_list args;
 
@@ -1047,12 +1053,14 @@ acpi_ut_exception(char *module_name,
 	va_start(args, format);
 	acpi_os_vprintf(format, args);
 	acpi_os_printf(" [%X]\n", ACPI_CA_VERSION);
+	va_end(args);
 }
 
 EXPORT_SYMBOL(acpi_ut_exception);
 
 void ACPI_INTERNAL_VAR_XFACE
-acpi_ut_warning(char *module_name, u32 line_number, char *format, ...)
+acpi_ut_warning(const char *module_name,
+		u32 line_number, const char *format, ...)
 {
 	va_list args;
 
@@ -1061,10 +1069,11 @@ acpi_ut_warning(char *module_name, u32 line_number, char *format, ...)
 	va_start(args, format);
 	acpi_os_vprintf(format, args);
 	acpi_os_printf(" [%X]\n", ACPI_CA_VERSION);
+	va_end(args);
 }
 
 void ACPI_INTERNAL_VAR_XFACE
-acpi_ut_info(char *module_name, u32 line_number, char *format, ...)
+acpi_ut_info(const char *module_name, u32 line_number, const char *format, ...)
 {
 	va_list args;
 
@@ -1077,4 +1086,5 @@ acpi_ut_info(char *module_name, u32 line_number, char *format, ...)
 	va_start(args, format);
 	acpi_os_vprintf(format, args);
 	acpi_os_printf("\n");
+	va_end(args);
 }

@@ -57,6 +57,7 @@
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/ioctl.h>
+#include <linux/synclink.h>
 
 #include <asm/system.h>
 #include <asm/io.h>
@@ -86,8 +87,6 @@
 #define COPY_TO_USER(error,dest,src,size) error = copy_to_user(dest,src,size) ? -EFAULT : 0
 
 #include <asm/uaccess.h>
-
-#include "linux/synclink.h"
 
 static MGSL_PARAMS default_params = {
 	MGSL_MODE_HDLC,			/* unsigned long mode */
@@ -190,20 +189,20 @@ typedef struct _mgslpc_info {
 
 	u32 pending_bh;
 
-	int bh_running;
-	int bh_requested;
+	bool bh_running;
+	bool bh_requested;
 
 	int dcd_chkcount; /* check counts to prevent */
 	int cts_chkcount; /* too many IRQs if a signal */
 	int dsr_chkcount; /* is floating */
 	int ri_chkcount;
 
-	int rx_enabled;
-	int rx_overflow;
+	bool rx_enabled;
+	bool rx_overflow;
 
-	int tx_enabled;
-	int tx_active;
-	int tx_aborting;
+	bool tx_enabled;
+	bool tx_active;
+	bool tx_aborting;
 	u32 idle_mode;
 
 	int if_mode; /* serial interface selection (RS-232, v.35 etc) */
@@ -217,12 +216,12 @@ typedef struct _mgslpc_info {
 
 	unsigned char serial_signals;	/* current serial signal states */
 
-	char irq_occurred;		/* for diagnostics use */
+	bool irq_occurred;		/* for diagnostics use */
 	char testing_irq;
 	unsigned int init_error;	/* startup error (DIAGS)	*/
 
 	char flag_buf[MAX_ASYNC_BUFFER_SIZE];
-	BOOLEAN drop_rts_on_tx_done;
+	bool drop_rts_on_tx_done;
 
 	struct	_input_signal_events	input_signal_events;
 
@@ -233,7 +232,6 @@ typedef struct _mgslpc_info {
 
 	/* SPPP/Cisco HDLC device parts */
 	int netcount;
-	int dosyncppp;
 	spinlock_t netlock;
 
 #if SYNCLINK_GENERIC_HDLC
@@ -403,8 +401,8 @@ static void hdlcdev_exit(MGSLPC_INFO *info);
 
 static void trace_block(MGSLPC_INFO *info,const char* data, int count, int xmit);
 
-static BOOLEAN register_test(MGSLPC_INFO *info);
-static BOOLEAN irq_test(MGSLPC_INFO *info);
+static bool register_test(MGSLPC_INFO *info);
+static bool irq_test(MGSLPC_INFO *info);
 static int adapter_test(MGSLPC_INFO *info);
 
 static int claim_resources(MGSLPC_INFO *info);
@@ -412,7 +410,7 @@ static void release_resources(MGSLPC_INFO *info);
 static void mgslpc_add_device(MGSLPC_INFO *info);
 static void mgslpc_remove_device(MGSLPC_INFO *info);
 
-static int  rx_get_frame(MGSLPC_INFO *info);
+static bool rx_get_frame(MGSLPC_INFO *info);
 static void rx_reset_buffers(MGSLPC_INFO *info);
 static int  rx_alloc_buffers(MGSLPC_INFO *info);
 static void rx_free_buffers(MGSLPC_INFO *info);
@@ -460,13 +458,11 @@ static int ttymajor=0;
 
 static int debug_level = 0;
 static int maxframe[MAX_DEVICE_COUNT] = {0,};
-static int dosyncppp[MAX_DEVICE_COUNT] = {1,1,1,1};
 
 module_param(break_on_load, bool, 0);
 module_param(ttymajor, int, 0);
 module_param(debug_level, int, 0);
 module_param_array(maxframe, int, NULL, 0);
-module_param_array(dosyncppp, int, NULL, 0);
 
 MODULE_LICENSE("GPL");
 
@@ -504,19 +500,8 @@ static void* mgslpc_get_text_ptr(void)
  * The wrappers maintain line discipline references
  * while calling into the line discipline.
  *
- * ldisc_flush_buffer - flush line discipline receive buffers
  * ldisc_receive_buf  - pass receive data to line discipline
  */
-
-static void ldisc_flush_buffer(struct tty_struct *tty)
-{
-	struct tty_ldisc *ld = tty_ldisc_ref(tty);
-	if (ld) {
-		if (ld->flush_buffer)
-			ld->flush_buffer(tty);
-		tty_ldisc_deref(ld);
-	}
-}
 
 static void ldisc_receive_buf(struct tty_struct *tty,
 			      const __u8 *data, char *flags, int count)
@@ -526,8 +511,8 @@ static void ldisc_receive_buf(struct tty_struct *tty,
 		return;
 	ld = tty_ldisc_ref(tty);
 	if (ld) {
-		if (ld->receive_buf)
-			ld->receive_buf(tty, data, flags, count);
+		if (ld->ops->receive_buf)
+			ld->ops->receive_buf(tty, data, flags, count);
 		tty_ldisc_deref(ld);
 	}
 }
@@ -569,7 +554,7 @@ static int mgslpc_probe(struct pcmcia_device *link)
     /* Initialize the struct pcmcia_device structure */
 
     /* Interrupt setup */
-    link->irq.Attributes = IRQ_TYPE_EXCLUSIVE;
+    link->irq.Attributes = IRQ_TYPE_DYNAMIC_SHARING;
     link->irq.IRQInfo1   = IRQ_LEVEL_ID;
     link->irq.Handler = NULL;
 
@@ -616,7 +601,7 @@ static int mgslpc_config(struct pcmcia_device *link)
 
     cfg = &(parse.cftable_entry);
     CS_CHECK(GetTupleData, pcmcia_get_tuple_data(link, &tuple));
-    CS_CHECK(ParseTuple, pcmcia_parse_tuple(link, &tuple, &parse));
+    CS_CHECK(ParseTuple, pcmcia_parse_tuple(&tuple, &parse));
 
     if (cfg->flags & CISTPL_CFTABLE_DEFAULT) dflt = *cfg;
     if (cfg->index == 0)
@@ -720,7 +705,7 @@ static int mgslpc_resume(struct pcmcia_device *link)
 }
 
 
-static inline int mgslpc_paranoia_check(MGSLPC_INFO *info,
+static inline bool mgslpc_paranoia_check(MGSLPC_INFO *info,
 					char *name, const char *routine)
 {
 #ifdef MGSLPC_PARANOIA_CHECK
@@ -731,17 +716,17 @@ static inline int mgslpc_paranoia_check(MGSLPC_INFO *info,
 
 	if (!info) {
 		printk(badinfo, name, routine);
-		return 1;
+		return true;
 	}
 	if (info->magic != MGSLPC_MAGIC) {
 		printk(badmagic, name, routine);
-		return 1;
+		return true;
 	}
 #else
 	if (!info)
-		return 1;
+		return true;
 #endif
-	return 0;
+	return false;
 }
 
 
@@ -753,16 +738,16 @@ static inline int mgslpc_paranoia_check(MGSLPC_INFO *info,
 #define CMD_TXEOM       BIT1	// transmit end message
 #define CMD_TXRESET     BIT0	// transmit reset
 
-static BOOLEAN wait_command_complete(MGSLPC_INFO *info, unsigned char channel)
+static bool wait_command_complete(MGSLPC_INFO *info, unsigned char channel)
 {
 	int i = 0;
 	/* wait for command completion */
 	while (read_reg(info, (unsigned char)(channel+STAR)) & BIT2) {
 		udelay(1);
 		if (i++ == 1000)
-			return FALSE;
+			return false;
 	}
-	return TRUE;
+	return true;
 }
 
 static void issue_command(MGSLPC_INFO *info, unsigned char channel, unsigned char cmd)
@@ -826,8 +811,8 @@ static int bh_action(MGSLPC_INFO *info)
 
 	if (!rc) {
 		/* Mark BH routine as complete */
-		info->bh_running   = 0;
-		info->bh_requested = 0;
+		info->bh_running = false;
+		info->bh_requested = false;
 	}
 
 	spin_unlock_irqrestore(&info->lock,flags);
@@ -847,7 +832,7 @@ static void bh_handler(struct work_struct *work)
 		printk( "%s(%d):bh_handler(%s) entry\n",
 			__FILE__,__LINE__,info->device_name);
 
-	info->bh_running = 1;
+	info->bh_running = true;
 
 	while((action = bh_action(info)) != 0) {
 
@@ -914,7 +899,7 @@ static void rx_ready_hdlc(MGSLPC_INFO *info, int eom)
 		/* no more free buffers */
 		issue_command(info, CHA, CMD_RXRESET);
 		info->pending_bh |= BH_RECEIVE;
-		info->rx_overflow = 1;
+		info->rx_overflow = true;
 		info->icount.buf_overrun++;
 		return;
 	}
@@ -1033,8 +1018,8 @@ static void tx_done(MGSLPC_INFO *info)
 	if (!info->tx_active)
 		return;
 
-	info->tx_active = 0;
-	info->tx_aborting = 0;
+	info->tx_active = false;
+	info->tx_aborting = false;
 
 	if (info->params.mode == MGSL_MODE_ASYNC)
 		return;
@@ -1048,7 +1033,7 @@ static void tx_done(MGSLPC_INFO *info)
 			info->serial_signals &= ~SerialSignal_RTS;
 			set_signals(info);
 		}
-		info->drop_rts_on_tx_done = 0;
+		info->drop_rts_on_tx_done = false;
 	}
 
 #if SYNCLINK_GENERIC_HDLC
@@ -1082,7 +1067,7 @@ static void tx_ready(MGSLPC_INFO *info)
 			return;
 		}
 		if (!info->tx_count)
-			info->tx_active = 0;
+			info->tx_active = false;
 	}
 
 	if (!info->tx_count)
@@ -1226,17 +1211,15 @@ static void ri_change(MGSLPC_INFO *info)
  * irq     interrupt number that caused interrupt
  * dev_id  device ID supplied during interrupt registration
  */
-static irqreturn_t mgslpc_isr(int irq, void *dev_id)
+static irqreturn_t mgslpc_isr(int dummy, void *dev_id)
 {
-	MGSLPC_INFO * info = (MGSLPC_INFO *)dev_id;
+	MGSLPC_INFO *info = dev_id;
 	unsigned short isr;
 	unsigned char gis, pis;
 	int count=0;
 
 	if (debug_level >= DEBUG_LEVEL_ISR)
-		printk("mgslpc_isr(%d) entry.\n", irq);
-	if (!info)
-		return IRQ_NONE;
+		printk("mgslpc_isr(%d) entry.\n", info->irq_level);
 
 	if (!(info->p_dev->_locked))
 		return IRQ_HANDLED;
@@ -1264,7 +1247,7 @@ static irqreturn_t mgslpc_isr(int irq, void *dev_id)
 		{
 			isr = read_reg16(info, CHA + ISR);
 			if (isr & IRQ_TIMER) {
-				info->irq_occurred = 1;
+				info->irq_occurred = true;
 				irq_disable(info, CHA, IRQ_TIMER);
 			}
 
@@ -1321,14 +1304,14 @@ static irqreturn_t mgslpc_isr(int irq, void *dev_id)
 			printk("%s(%d):%s queueing bh task.\n",
 				__FILE__,__LINE__,info->device_name);
 		schedule_work(&info->task);
-		info->bh_requested = 1;
+		info->bh_requested = true;
 	}
 
 	spin_unlock(&info->lock);
 
 	if (debug_level >= DEBUG_LEVEL_ISR)
 		printk("%s(%d):mgslpc_isr(%d)exit.\n",
-		       __FILE__,__LINE__,irq);
+		       __FILE__, __LINE__, info->irq_level);
 
 	return IRQ_HANDLED;
 }
@@ -1559,7 +1542,7 @@ static void mgslpc_change_params(MGSLPC_INFO *info)
 
 /* Add a character to the transmit buffer
  */
-static void mgslpc_put_char(struct tty_struct *tty, unsigned char ch)
+static int mgslpc_put_char(struct tty_struct *tty, unsigned char ch)
 {
 	MGSLPC_INFO *info = (MGSLPC_INFO *)tty->driver_data;
 	unsigned long flags;
@@ -1570,10 +1553,10 @@ static void mgslpc_put_char(struct tty_struct *tty, unsigned char ch)
 	}
 
 	if (mgslpc_paranoia_check(info, tty->name, "mgslpc_put_char"))
-		return;
+		return 0;
 
 	if (!info->tx_buf)
-		return;
+		return 0;
 
 	spin_lock_irqsave(&info->lock,flags);
 
@@ -1586,6 +1569,7 @@ static void mgslpc_put_char(struct tty_struct *tty, unsigned char ch)
 	}
 
 	spin_unlock_irqrestore(&info->lock,flags);
+	return 1;
 }
 
 /* Enable transmitter so remaining characters in the
@@ -1993,7 +1977,7 @@ static int tx_abort(MGSLPC_INFO * info)
 		 * This results in underrun and abort transmission.
 		 */
 		info->tx_count = info->tx_put = info->tx_get = 0;
-		info->tx_aborting = TRUE;
+		info->tx_aborting = true;
 	}
 	spin_unlock_irqrestore(&info->lock,flags);
 	return 0;
@@ -2243,7 +2227,7 @@ static int tiocmset(struct tty_struct *tty, struct file *file,
  * Arguments:		tty		pointer to tty instance data
  *			break_state	-1=set break condition, 0=clear
  */
-static void mgslpc_break(struct tty_struct *tty, int break_state)
+static int mgslpc_break(struct tty_struct *tty, int break_state)
 {
 	MGSLPC_INFO * info = (MGSLPC_INFO *)tty->driver_data;
 	unsigned long flags;
@@ -2253,7 +2237,7 @@ static void mgslpc_break(struct tty_struct *tty, int break_state)
 			 __FILE__,__LINE__, info->device_name, break_state);
 
 	if (mgslpc_paranoia_check(info, tty->name, "mgslpc_break"))
-		return;
+		return -EINVAL;
 
 	spin_lock_irqsave(&info->lock,flags);
  	if (break_state == -1)
@@ -2261,6 +2245,7 @@ static void mgslpc_break(struct tty_struct *tty, int break_state)
 	else
 		clear_reg_bits(info, CHA+DAFO, BIT6);
 	spin_unlock_irqrestore(&info->lock,flags);
+	return 0;
 }
 
 /* Service an IOCTL request
@@ -2470,10 +2455,9 @@ static void mgslpc_close(struct tty_struct *tty, struct file * filp)
  	if (info->flags & ASYNC_INITIALIZED)
  		mgslpc_wait_until_sent(tty, info->timeout);
 
-	if (tty->driver->flush_buffer)
-		tty->driver->flush_buffer(tty);
+	mgslpc_flush_buffer(tty);
 
-	ldisc_flush_buffer(tty);
+	tty_ldisc_flush(tty);
 
 	shutdown(info);
 
@@ -2592,7 +2576,8 @@ static int block_til_ready(struct tty_struct *tty, struct file *filp,
 {
 	DECLARE_WAITQUEUE(wait, current);
 	int		retval;
-	int		do_clocal = 0, extra_count = 0;
+	bool		do_clocal = false;
+	bool		extra_count = false;
 	unsigned long	flags;
 
 	if (debug_level >= DEBUG_LEVEL_INFO)
@@ -2607,7 +2592,7 @@ static int block_til_ready(struct tty_struct *tty, struct file *filp,
 	}
 
 	if (tty->termios->c_cflag & CLOCAL)
-		do_clocal = 1;
+		do_clocal = true;
 
 	/* Wait for carrier detect and the line to become
 	 * free (i.e., not in use by the callout).  While we are in
@@ -2625,7 +2610,7 @@ static int block_til_ready(struct tty_struct *tty, struct file *filp,
 
 	spin_lock_irqsave(&info->lock, flags);
 	if (!tty_hung_up_p(filp)) {
-		extra_count = 1;
+		extra_count = true;
 		info->count--;
 	}
 	spin_unlock_irqrestore(&info->lock, flags);
@@ -2927,7 +2912,6 @@ static void mgslpc_add_device(MGSLPC_INFO *info)
 	if (info->line < MAX_DEVICE_COUNT) {
 		if (maxframe[info->line])
 			info->max_frame_size = maxframe[info->line];
-		info->dosyncppp = dosyncppp[info->line];
 	}
 
 	mgslpc_device_count++;
@@ -3496,8 +3480,8 @@ static void rx_stop(MGSLPC_INFO *info)
 	/* MODE:03 RAC Receiver Active, 0=inactive */
 	clear_reg_bits(info, CHA + MODE, BIT3);
 
-	info->rx_enabled = 0;
-	info->rx_overflow = 0;
+	info->rx_enabled = false;
+	info->rx_overflow = false;
 }
 
 static void rx_start(MGSLPC_INFO *info)
@@ -3507,13 +3491,13 @@ static void rx_start(MGSLPC_INFO *info)
 			 __FILE__,__LINE__, info->device_name );
 
 	rx_reset_buffers(info);
-	info->rx_enabled = 0;
-	info->rx_overflow = 0;
+	info->rx_enabled = false;
+	info->rx_overflow = false;
 
 	/* MODE:03 RAC Receiver Active, 1=active */
 	set_reg_bits(info, CHA + MODE, BIT3);
 
-	info->rx_enabled = 1;
+	info->rx_enabled = true;
 }
 
 static void tx_start(MGSLPC_INFO *info)
@@ -3526,24 +3510,24 @@ static void tx_start(MGSLPC_INFO *info)
 		/* If auto RTS enabled and RTS is inactive, then assert */
 		/* RTS and set a flag indicating that the driver should */
 		/* negate RTS when the transmission completes. */
-		info->drop_rts_on_tx_done = 0;
+		info->drop_rts_on_tx_done = false;
 
 		if (info->params.flags & HDLC_FLAG_AUTO_RTS) {
 			get_signals(info);
 			if (!(info->serial_signals & SerialSignal_RTS)) {
 				info->serial_signals |= SerialSignal_RTS;
 				set_signals(info);
-				info->drop_rts_on_tx_done = 1;
+				info->drop_rts_on_tx_done = true;
 			}
 		}
 
 		if (info->params.mode == MGSL_MODE_ASYNC) {
 			if (!info->tx_active) {
-				info->tx_active = 1;
+				info->tx_active = true;
 				tx_ready(info);
 			}
 		} else {
-			info->tx_active = 1;
+			info->tx_active = true;
 			tx_ready(info);
 			mod_timer(&info->tx_timer, jiffies +
 					msecs_to_jiffies(5000));
@@ -3551,7 +3535,7 @@ static void tx_start(MGSLPC_INFO *info)
 	}
 
 	if (!info->tx_enabled)
-		info->tx_enabled = 1;
+		info->tx_enabled = true;
 }
 
 static void tx_stop(MGSLPC_INFO *info)
@@ -3562,8 +3546,8 @@ static void tx_stop(MGSLPC_INFO *info)
 
 	del_timer(&info->tx_timer);
 
-	info->tx_enabled = 0;
-	info->tx_active  = 0;
+	info->tx_enabled = false;
+	info->tx_active = false;
 }
 
 /* Reset the adapter to a known state and prepare it for further use.
@@ -3863,19 +3847,19 @@ static void rx_reset_buffers(MGSLPC_INFO *info)
 /* Attempt to return a received HDLC frame
  * Only frames received without errors are returned.
  *
- * Returns 1 if frame returned, otherwise 0
+ * Returns true if frame returned, otherwise false
  */
-static int rx_get_frame(MGSLPC_INFO *info)
+static bool rx_get_frame(MGSLPC_INFO *info)
 {
 	unsigned short status;
 	RXBUF *buf;
 	unsigned int framesize = 0;
 	unsigned long flags;
 	struct tty_struct *tty = info->tty;
-	int return_frame = 0;
+	bool return_frame = false;
 
 	if (info->rx_frame_count == 0)
-		return 0;
+		return false;
 
 	buf = (RXBUF*)(info->rx_buf + (info->rx_get * info->rx_buf_size));
 
@@ -3894,18 +3878,17 @@ static int rx_get_frame(MGSLPC_INFO *info)
 		else if (!(status & BIT5)) {
 			info->icount.rxcrc++;
 			if (info->params.crc_type & HDLC_CRC_RETURN_EX)
-				return_frame = 1;
+				return_frame = true;
 		}
 		framesize = 0;
 #if SYNCLINK_GENERIC_HDLC
 		{
-			struct net_device_stats *stats = hdlc_stats(info->netdev);
-			stats->rx_errors++;
-			stats->rx_frame_errors++;
+			info->netdev->stats.rx_errors++;
+			info->netdev->stats.rx_frame_errors++;
 		}
 #endif
 	} else
-		return_frame = 1;
+		return_frame = true;
 
 	if (return_frame)
 		framesize = buf->count;
@@ -3948,16 +3931,16 @@ static int rx_get_frame(MGSLPC_INFO *info)
 		info->rx_get = 0;
 	spin_unlock_irqrestore(&info->lock,flags);
 
-	return 1;
+	return true;
 }
 
-static BOOLEAN register_test(MGSLPC_INFO *info)
+static bool register_test(MGSLPC_INFO *info)
 {
 	static unsigned char patterns[] =
 	    { 0x00, 0xff, 0xaa, 0x55, 0x69, 0x96, 0x0f };
 	static unsigned int count = ARRAY_SIZE(patterns);
 	unsigned int i;
-	BOOLEAN rc = TRUE;
+	bool rc = true;
 	unsigned long flags;
 
 	spin_lock_irqsave(&info->lock,flags);
@@ -3968,7 +3951,7 @@ static BOOLEAN register_test(MGSLPC_INFO *info)
 		write_reg(info, XAD2, patterns[(i + 1) % count]);
 		if ((read_reg(info, XAD1) != patterns[i]) ||
 		    (read_reg(info, XAD2) != patterns[(i + 1) % count])) {
-			rc = FALSE;
+			rc = false;
 			break;
 		}
 	}
@@ -3977,7 +3960,7 @@ static BOOLEAN register_test(MGSLPC_INFO *info)
 	return rc;
 }
 
-static BOOLEAN irq_test(MGSLPC_INFO *info)
+static bool irq_test(MGSLPC_INFO *info)
 {
 	unsigned long end_time;
 	unsigned long flags;
@@ -3985,10 +3968,10 @@ static BOOLEAN irq_test(MGSLPC_INFO *info)
 	spin_lock_irqsave(&info->lock,flags);
 	reset_device(info);
 
-	info->testing_irq = TRUE;
+	info->testing_irq = true;
 	hdlc_mode(info);
 
-	info->irq_occurred = FALSE;
+	info->irq_occurred = false;
 
 	/* init hdlc mode */
 
@@ -4003,13 +3986,13 @@ static BOOLEAN irq_test(MGSLPC_INFO *info)
 		msleep_interruptible(10);
 	}
 
-	info->testing_irq = FALSE;
+	info->testing_irq = false;
 
 	spin_lock_irqsave(&info->lock,flags);
 	reset_device(info);
 	spin_unlock_irqrestore(&info->lock,flags);
 
-	return info->irq_occurred ? TRUE : FALSE;
+	return info->irq_occurred;
 }
 
 static int adapter_test(MGSLPC_INFO *info)
@@ -4082,7 +4065,7 @@ static void tx_timeout(unsigned long context)
 		info->icount.txtimeout++;
 	}
 	spin_lock_irqsave(&info->lock,flags);
-	info->tx_active = 0;
+	info->tx_active = false;
 	info->tx_count = info->tx_put = info->tx_get = 0;
 
 	spin_unlock_irqrestore(&info->lock,flags);
@@ -4157,7 +4140,6 @@ static int hdlcdev_attach(struct net_device *dev, unsigned short encoding,
 static int hdlcdev_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	MGSLPC_INFO *info = dev_to_port(dev);
-	struct net_device_stats *stats = hdlc_stats(dev);
 	unsigned long flags;
 
 	if (debug_level >= DEBUG_LEVEL_INFO)
@@ -4172,8 +4154,8 @@ static int hdlcdev_xmit(struct sk_buff *skb, struct net_device *dev)
 	info->tx_put = info->tx_count = skb->len;
 
 	/* update network statistics */
-	stats->tx_packets++;
-	stats->tx_bytes += skb->len;
+	dev->stats.tx_packets++;
+	dev->stats.tx_bytes += skb->len;
 
 	/* done with socket buffer, so free it */
 	dev_kfree_skb(skb);
@@ -4389,14 +4371,13 @@ static int hdlcdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 static void hdlcdev_tx_timeout(struct net_device *dev)
 {
 	MGSLPC_INFO *info = dev_to_port(dev);
-	struct net_device_stats *stats = hdlc_stats(dev);
 	unsigned long flags;
 
 	if (debug_level >= DEBUG_LEVEL_INFO)
 		printk("hdlcdev_tx_timeout(%s)\n",dev->name);
 
-	stats->tx_errors++;
-	stats->tx_aborted_errors++;
+	dev->stats.tx_errors++;
+	dev->stats.tx_aborted_errors++;
 
 	spin_lock_irqsave(&info->lock,flags);
 	tx_stop(info);
@@ -4429,27 +4410,26 @@ static void hdlcdev_rx(MGSLPC_INFO *info, char *buf, int size)
 {
 	struct sk_buff *skb = dev_alloc_skb(size);
 	struct net_device *dev = info->netdev;
-	struct net_device_stats *stats = hdlc_stats(dev);
 
 	if (debug_level >= DEBUG_LEVEL_INFO)
 		printk("hdlcdev_rx(%s)\n",dev->name);
 
 	if (skb == NULL) {
 		printk(KERN_NOTICE "%s: can't alloc skb, dropping packet\n", dev->name);
-		stats->rx_dropped++;
+		dev->stats.rx_dropped++;
 		return;
 	}
 
-	memcpy(skb_put(skb, size),buf,size);
+	memcpy(skb_put(skb, size), buf, size);
 
-	skb->protocol = hdlc_type_trans(skb, info->netdev);
+	skb->protocol = hdlc_type_trans(skb, dev);
 
-	stats->rx_packets++;
-	stats->rx_bytes += size;
+	dev->stats.rx_packets++;
+	dev->stats.rx_bytes += size;
 
 	netif_rx(skb);
 
-	info->netdev->last_rx = jiffies;
+	dev->last_rx = jiffies;
 }
 
 /**

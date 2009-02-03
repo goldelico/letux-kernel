@@ -44,10 +44,6 @@ ifeq ($(CONFIG_PXA_SHARPSL),y)
 OBJS		+= head-sharpsl.o
 endif
 
-ifeq ($(CONFIG_ARCH_AT91RM9200),y)
-OBJS		+= head-at91rm9200.o
-endif
-
 ifeq ($(CONFIG_CPU_BIG_ENDIAN),y)
 ifeq ($(CONFIG_CPU_CP15),y)
 OBJS		+= big-endian.o
@@ -73,8 +69,14 @@ SEDFLAGS	= s/TEXT_START/$(ZTEXTADDR)/;s/BSS_START/$(ZBSSADDR)/
 
 targets       := vmlinux vmlinux.lds piggy.gz piggy.o font.o font.c \
 		 head.o misc.o $(OBJS)
+
+ifeq ($(CONFIG_FUNCTION_TRACER),y)
+ORIG_CFLAGS := $(KBUILD_CFLAGS)
+KBUILD_CFLAGS = $(subst -pg, , $(ORIG_CFLAGS))
+endif
+
 EXTRA_CFLAGS  := -fpic -fno-builtin
-EXTRA_AFLAGS  :=
+EXTRA_AFLAGS  := -Wa,-march=all
 
 # Supply ZRELADDR, INITRD_PHYS and PARAMS_PHYS to the decompressor via
 # linker symbols.  We only define initrd_phys and params_phys if the
@@ -110,6 +112,3 @@ $(obj)/font.c: $(FONTC)
 
 $(obj)/vmlinux.lds: $(obj)/vmlinux.lds.in arch/arm/boot/Makefile .config
 	@sed "$(SEDFLAGS)" < $< > $@
-
-$(obj)/misc.o: $(obj)/misc.c include/asm/arch/uncompress.h lib/inflate.c
-

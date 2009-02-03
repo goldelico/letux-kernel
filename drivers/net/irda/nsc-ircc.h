@@ -35,6 +35,9 @@
 #include <linux/types.h>
 #include <asm/io.h>
 
+/* Features for chips (set in driver_data) */
+#define NSC_FORCE_DONGLE_TYPE9	0x00000001
+
 /* DMA modes needed */
 #define DMA_TX_MODE     0x08    /* Mem to I/O, ++, demand. */
 #define DMA_RX_MODE     0x04    /* I/O to mem, ++, demand. */
@@ -231,13 +234,13 @@ struct st_fifo {
 
 struct frame_cb {
 	void *start; /* Start of frame in DMA mem */
-	int len;     /* Lenght of frame in DMA mem */
+	int len;     /* Length of frame in DMA mem */
 };
 
 struct tx_fifo {
 	struct frame_cb queue[MAX_TX_WINDOW]; /* Info about frames in queue */
 	int             ptr;                  /* Currently being sent */
-	int             len;                  /* Lenght of queue */
+	int             len;                  /* Length of queue */
 	int             free;                 /* Next free slot */
 	void           *tail;                 /* Next free start in DMA mem */
 };

@@ -168,7 +168,7 @@ struct dvb_net_priv {
  *  stolen from eth.c out of the linux kernel, hacked for dvb-device
  *  by Michael Holzt <kju@debian.org>
  */
-static unsigned short dvb_net_eth_type_trans(struct sk_buff *skb,
+static __be16 dvb_net_eth_type_trans(struct sk_buff *skb,
 				      struct net_device *dev)
 {
 	struct ethhdr *eth;
@@ -277,10 +277,10 @@ static int handle_one_ule_extension( struct dvb_net_priv *p )
 			if(ext_len >= 0) {
 				p->ule_next_hdr += ext_len;
 				if (!p->ule_bridged) {
-					p->ule_sndu_type = ntohs(*(unsigned short *)p->ule_next_hdr);
+					p->ule_sndu_type = ntohs(*(__be16 *)p->ule_next_hdr);
 					p->ule_next_hdr += 2;
 				} else {
-					p->ule_sndu_type = ntohs(*(unsigned short *)(p->ule_next_hdr + ((p->ule_dbit ? 2 : 3) * ETH_ALEN)));
+					p->ule_sndu_type = ntohs(*(__be16 *)(p->ule_next_hdr + ((p->ule_dbit ? 2 : 3) * ETH_ALEN)));
 					/* This assures the extension handling loop will terminate. */
 				}
 			}
@@ -294,7 +294,7 @@ static int handle_one_ule_extension( struct dvb_net_priv *p )
 		if (ule_optional_ext_handlers[htype])
 			(void)ule_optional_ext_handlers[htype]( p );
 		p->ule_next_hdr += ext_len;
-		p->ule_sndu_type = ntohs( *(unsigned short *)(p->ule_next_hdr-2) );
+		p->ule_sndu_type = ntohs( *(__be16 *)(p->ule_next_hdr-2) );
 		/*
 		 * note: the length of the next header type is included in the
 		 * length of THIS optional extension header
@@ -354,7 +354,7 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
 #ifdef ULE_DEBUG
 	/* The code inside ULE_DEBUG keeps a history of the last 100 TS cells processed. */
 	static unsigned char ule_hist[100*TS_SZ];
-	static unsigned char *ule_where = ule_hist, ule_dump = 0;
+	static unsigned char *ule_where = ule_hist, ule_dump;
 #endif
 
 	/* For all TS cells in current buffer.
@@ -594,8 +594,8 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
 		/* Check for complete payload. */
 		if (priv->ule_sndu_remain <= 0) {
 			/* Check CRC32, we've got it in our skb already. */
-			unsigned short ulen = htons(priv->ule_sndu_len);
-			unsigned short utype = htons(priv->ule_sndu_type);
+			__be16 ulen = htons(priv->ule_sndu_len);
+			__be16 utype = htons(priv->ule_sndu_type);
 			const u8 *tail;
 			struct kvec iov[3] = {
 				{ &ulen, sizeof ulen },
@@ -606,7 +606,7 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
 			if (priv->ule_dbit) {
 				/* Set D-bit for CRC32 verification,
 				 * if it was set originally. */
-				ulen |= 0x0080;
+				ulen |= htons(0x8000);
 			}
 
 			ule_crc = iov_crc32(ule_crc, iov, 3);
@@ -681,7 +681,7 @@ static void dvb_net_ule( struct net_device *dev, const u8 *buf, size_t buf_len )
 							drop = 1;
 						/* else: destination address matches the MAC address of our receiver device */
 					}
-					/* else: promiscious mode; pass everything up the stack */
+					/* else: promiscuous mode; pass everything up the stack */
 
 					if (drop) {
 #ifdef ULE_DEBUG
@@ -784,8 +784,8 @@ static int dvb_net_ts_callback(const u8 *buffer1, size_t buffer1_len,
 {
 	struct net_device *dev = feed->priv;
 
-	if (buffer2 != 0)
-		printk(KERN_WARNING "buffer2 not 0: %p.\n", buffer2);
+	if (buffer2)
+		printk(KERN_WARNING "buffer2 not NULL: %p.\n", buffer2);
 	if (buffer1_len > 32768)
 		printk(KERN_WARNING "length > 32k: %zu.\n", buffer1_len);
 	/* printk("TS callback: %u bytes, %u TS cells @ %p.\n",
@@ -965,17 +965,17 @@ static int dvb_net_feed_start(struct net_device *dev)
 	struct dmx_demux *demux = priv->demux;
 	unsigned char *mac = (unsigned char *) dev->dev_addr;
 
-	dprintk("%s: rx_mode %i\n", __FUNCTION__, priv->rx_mode);
+	dprintk("%s: rx_mode %i\n", __func__, priv->rx_mode);
 	mutex_lock(&priv->mutex);
 	if (priv->tsfeed || priv->secfeed || priv->secfilter || priv->multi_secfilter[0])
-		printk("%s: BUG %d\n", __FUNCTION__, __LINE__);
+		printk("%s: BUG %d\n", __func__, __LINE__);
 
 	priv->secfeed=NULL;
 	priv->secfilter=NULL;
 	priv->tsfeed = NULL;
 
 	if (priv->feedtype == DVB_NET_FEEDTYPE_MPE) {
-		dprintk("%s: alloc secfeed\n", __FUNCTION__);
+		dprintk("%s: alloc secfeed\n", __func__);
 		ret=demux->allocate_section_feed(demux, &priv->secfeed,
 					 dvb_net_sec_callback);
 		if (ret<0) {
@@ -993,38 +993,38 @@ static int dvb_net_feed_start(struct net_device *dev)
 		}
 
 		if (priv->rx_mode != RX_MODE_PROMISC) {
-			dprintk("%s: set secfilter\n", __FUNCTION__);
+			dprintk("%s: set secfilter\n", __func__);
 			dvb_net_filter_sec_set(dev, &priv->secfilter, mac, mask_normal);
 		}
 
 		switch (priv->rx_mode) {
 		case RX_MODE_MULTI:
 			for (i = 0; i < priv->multi_num; i++) {
-				dprintk("%s: set multi_secfilter[%d]\n", __FUNCTION__, i);
+				dprintk("%s: set multi_secfilter[%d]\n", __func__, i);
 				dvb_net_filter_sec_set(dev, &priv->multi_secfilter[i],
 						       priv->multi_macs[i], mask_normal);
 			}
 			break;
 		case RX_MODE_ALL_MULTI:
 			priv->multi_num=1;
-			dprintk("%s: set multi_secfilter[0]\n", __FUNCTION__);
+			dprintk("%s: set multi_secfilter[0]\n", __func__);
 			dvb_net_filter_sec_set(dev, &priv->multi_secfilter[0],
 					       mac_allmulti, mask_allmulti);
 			break;
 		case RX_MODE_PROMISC:
 			priv->multi_num=0;
-			dprintk("%s: set secfilter\n", __FUNCTION__);
+			dprintk("%s: set secfilter\n", __func__);
 			dvb_net_filter_sec_set(dev, &priv->secfilter, mac, mask_promisc);
 			break;
 		}
 
-		dprintk("%s: start filtering\n", __FUNCTION__);
+		dprintk("%s: start filtering\n", __func__);
 		priv->secfeed->start_filtering(priv->secfeed);
 	} else if (priv->feedtype == DVB_NET_FEEDTYPE_ULE) {
 		struct timespec timeout = { 0, 10000000 }; // 10 msec
 
 		/* we have payloads encapsulated in TS */
-		dprintk("%s: alloc tsfeed\n", __FUNCTION__);
+		dprintk("%s: alloc tsfeed\n", __func__);
 		ret = demux->allocate_ts_feed(demux, &priv->tsfeed, dvb_net_ts_callback);
 		if (ret < 0) {
 			printk("%s: could not allocate ts feed\n", dev->name);
@@ -1048,7 +1048,7 @@ static int dvb_net_feed_start(struct net_device *dev)
 			goto error;
 		}
 
-		dprintk("%s: start filtering\n", __FUNCTION__);
+		dprintk("%s: start filtering\n", __func__);
 		priv->tsfeed->start_filtering(priv->tsfeed);
 	} else
 		ret = -EINVAL;
@@ -1063,17 +1063,17 @@ static int dvb_net_feed_stop(struct net_device *dev)
 	struct dvb_net_priv *priv = dev->priv;
 	int i, ret = 0;
 
-	dprintk("%s\n", __FUNCTION__);
+	dprintk("%s\n", __func__);
 	mutex_lock(&priv->mutex);
 	if (priv->feedtype == DVB_NET_FEEDTYPE_MPE) {
 		if (priv->secfeed) {
 			if (priv->secfeed->is_filtering) {
-				dprintk("%s: stop secfeed\n", __FUNCTION__);
+				dprintk("%s: stop secfeed\n", __func__);
 				priv->secfeed->stop_filtering(priv->secfeed);
 			}
 
 			if (priv->secfilter) {
-				dprintk("%s: release secfilter\n", __FUNCTION__);
+				dprintk("%s: release secfilter\n", __func__);
 				priv->secfeed->release_filter(priv->secfeed,
 							      priv->secfilter);
 				priv->secfilter=NULL;
@@ -1082,7 +1082,7 @@ static int dvb_net_feed_stop(struct net_device *dev)
 			for (i=0; i<priv->multi_num; i++) {
 				if (priv->multi_secfilter[i]) {
 					dprintk("%s: release multi_filter[%d]\n",
-						__FUNCTION__, i);
+						__func__, i);
 					priv->secfeed->release_filter(priv->secfeed,
 								      priv->multi_secfilter[i]);
 					priv->multi_secfilter[i] = NULL;
@@ -1096,7 +1096,7 @@ static int dvb_net_feed_stop(struct net_device *dev)
 	} else if (priv->feedtype == DVB_NET_FEEDTYPE_ULE) {
 		if (priv->tsfeed) {
 			if (priv->tsfeed->is_filtering) {
-				dprintk("%s: stop tsfeed\n", __FUNCTION__);
+				dprintk("%s: stop tsfeed\n", __func__);
 				priv->tsfeed->stop_filtering(priv->tsfeed);
 			}
 			priv->demux->release_ts_feed(priv->demux, priv->tsfeed);
@@ -1133,7 +1133,7 @@ static void wq_set_multicast_list (struct work_struct *work)
 
 	dvb_net_feed_stop(dev);
 	priv->rx_mode = RX_MODE_UNI;
-	netif_tx_lock_bh(dev);
+	netif_addr_lock_bh(dev);
 
 	if (dev->flags & IFF_PROMISC) {
 		dprintk("%s: promiscuous mode\n", dev->name);
@@ -1158,7 +1158,7 @@ static void wq_set_multicast_list (struct work_struct *work)
 		}
 	}
 
-	netif_tx_unlock_bh(dev);
+	netif_addr_unlock_bh(dev);
 	dvb_net_feed_start(dev);
 }
 

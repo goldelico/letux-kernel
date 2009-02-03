@@ -25,10 +25,6 @@
    SOFTWARE IS DISCLAIMED.
 */
 
-/*
- * $Id: core.c,v 1.20 2002/08/04 21:23:58 maxk Exp $
- */
-
 #include <linux/module.h>
 
 #include <linux/kernel.h>
@@ -61,7 +57,10 @@
 #define BT_DBG(D...)
 #endif
 
-#define VERSION "1.2"
+#define VERSION "1.3"
+
+static int compress_src = 1;
+static int compress_dst = 1;
 
 static LIST_HEAD(bnep_session_list);
 static DECLARE_RWSEM(bnep_session_sem);
@@ -135,7 +134,7 @@ static int bnep_ctrl_set_netfilter(struct bnep_session *s, __be16 *data, int len
 	if (len < 2)
 		return -EILSEQ;
 
-	n = ntohs(get_unaligned(data));
+	n = get_unaligned_be16(data);
 	data++; len -= 2;
 
 	if (len < n)
@@ -150,8 +149,8 @@ static int bnep_ctrl_set_netfilter(struct bnep_session *s, __be16 *data, int len
 		int i;
 
 		for (i = 0; i < n; i++) {
-			f[i].start = ntohs(get_unaligned(data++));
-			f[i].end   = ntohs(get_unaligned(data++));
+			f[i].start = get_unaligned_be16(data++);
+			f[i].end   = get_unaligned_be16(data++);
 
 			BT_DBG("proto filter start %d end %d",
 				f[i].start, f[i].end);
@@ -180,7 +179,7 @@ static int bnep_ctrl_set_mcfilter(struct bnep_session *s, u8 *data, int len)
 	if (len < 2)
 		return -EILSEQ;
 
-	n = ntohs(get_unaligned((__be16 *) data));
+	n = get_unaligned_be16(data);
 	data += 2; len -= 2;
 
 	if (len < n)
@@ -422,10 +421,10 @@ static inline int bnep_tx_frame(struct bnep_session *s, struct sk_buff *skb)
 	iv[il++] = (struct kvec) { &type, 1 };
 	len++;
 
-	if (!compare_ether_addr(eh->h_dest, s->eh.h_source))
+	if (compress_src && !compare_ether_addr(eh->h_dest, s->eh.h_source))
 		type |= 0x01;
 
-	if (!compare_ether_addr(eh->h_source, s->eh.h_dest))
+	if (compress_dst && !compare_ether_addr(eh->h_source, s->eh.h_dest))
 		type |= 0x02;
 
 	if (type)
@@ -506,6 +505,11 @@ static int bnep_session(void *arg)
 
 	/* Delete network device */
 	unregister_netdev(dev);
+
+	/* Wakeup user-space polling for socket errors */
+	s->sock->sk->sk_err = EUNATCH;
+
+	wake_up_interruptible(s->sock->sk->sk_sleep);
 
 	/* Release the socket */
 	fput(s->sock->file);
@@ -726,7 +730,13 @@ static void __exit bnep_exit(void)
 module_init(bnep_init);
 module_exit(bnep_exit);
 
-MODULE_AUTHOR("David Libault <david.libault@inventel.fr>, Maxim Krasnyansky <maxk@qualcomm.com>");
+module_param(compress_src, bool, 0644);
+MODULE_PARM_DESC(compress_src, "Compress sources headers");
+
+module_param(compress_dst, bool, 0644);
+MODULE_PARM_DESC(compress_dst, "Compress destination headers");
+
+MODULE_AUTHOR("Marcel Holtmann <marcel@holtmann.org>");
 MODULE_DESCRIPTION("Bluetooth BNEP ver " VERSION);
 MODULE_VERSION(VERSION);
 MODULE_LICENSE("GPL");

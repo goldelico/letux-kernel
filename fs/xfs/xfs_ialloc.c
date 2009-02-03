@@ -107,6 +107,16 @@ xfs_ialloc_log_di(
 /*
  * Allocation group level functions.
  */
+static inline int
+xfs_ialloc_cluster_alignment(
+	xfs_alloc_arg_t	*args)
+{
+	if (xfs_sb_version_hasalign(&args->mp->m_sb) &&
+	    args->mp->m_sb.sb_inoalignmt >=
+	     XFS_B_TO_FSBT(args->mp, XFS_INODE_CLUSTER_SIZE(args->mp)))
+		return args->mp->m_sb.sb_inoalignmt;
+	return 1;
+}
 
 /*
  * Allocate new inodes in the allocation group specified by agbp.
@@ -137,6 +147,7 @@ xfs_ialloc_ag_alloc(
 	int		version;	/* inode version number to use */
 	int		isaligned = 0;	/* inode allocation at stripe unit */
 					/* boundary */
+	unsigned int	gen;
 
 	args.tp = tp;
 	args.mp = tp->t_mountp;
@@ -167,10 +178,24 @@ xfs_ialloc_ag_alloc(
 		args.mod = args.total = args.wasdel = args.isfl =
 			args.userdata = args.minalignslop = 0;
 		args.prod = 1;
-		args.alignment = 1;
+
 		/*
-		 * Allow space for the inode btree to split.
+		 * We need to take into account alignment here to ensure that
+		 * we don't modify the free list if we fail to have an exact
+		 * block. If we don't have an exact match, and every oher
+		 * attempt allocation attempt fails, we'll end up cancelling
+		 * a dirty transaction and shutting down.
+		 *
+		 * For an exact allocation, alignment must be 1,
+		 * however we need to take cluster alignment into account when
+		 * fixing up the freelist. Use the minalignslop field to
+		 * indicate that extra blocks might be required for alignment,
+		 * but not to use them in the actual exact allocation.
 		 */
+		args.alignment = 1;
+		args.minalignslop = xfs_ialloc_cluster_alignment(&args) - 1;
+
+		/* Allow space for the inode btree to split. */
 		args.minleft = XFS_IN_MAXLEVELS(args.mp) - 1;
 		if ((error = xfs_alloc_vextent(&args)))
 			return error;
@@ -191,13 +216,8 @@ xfs_ialloc_ag_alloc(
 			ASSERT(!(args.mp->m_flags & XFS_MOUNT_NOALIGN));
 			args.alignment = args.mp->m_dalign;
 			isaligned = 1;
-		} else if (XFS_SB_VERSION_HASALIGN(&args.mp->m_sb) &&
-			   args.mp->m_sb.sb_inoalignmt >=
-			   XFS_B_TO_FSBT(args.mp,
-			  	XFS_INODE_CLUSTER_SIZE(args.mp)))
-				args.alignment = args.mp->m_sb.sb_inoalignmt;
-		else
-			args.alignment = 1;
+		} else
+			args.alignment = xfs_ialloc_cluster_alignment(&args);
 		/*
 		 * Need to figure out where to allocate the inode blocks.
 		 * Ideally they should be spaced out through the a.g.
@@ -230,12 +250,7 @@ xfs_ialloc_ag_alloc(
 		args.agbno = be32_to_cpu(agi->agi_root);
 		args.fsbno = XFS_AGB_TO_FSB(args.mp,
 				be32_to_cpu(agi->agi_seqno), args.agbno);
-		if (XFS_SB_VERSION_HASALIGN(&args.mp->m_sb) &&
-			args.mp->m_sb.sb_inoalignmt >=
-			XFS_B_TO_FSBT(args.mp, XFS_INODE_CLUSTER_SIZE(args.mp)))
-				args.alignment = args.mp->m_sb.sb_inoalignmt;
-		else
-			args.alignment = 1;
+		args.alignment = xfs_ialloc_cluster_alignment(&args);
 		if ((error = xfs_alloc_vextent(&args)))
 			return error;
 	}
@@ -271,11 +286,19 @@ xfs_ialloc_ag_alloc(
 	 * use the old version so that old kernels will continue to be
 	 * able to use the file system.
 	 */
-	if (XFS_SB_VERSION_HASNLINK(&args.mp->m_sb))
+	if (xfs_sb_version_hasnlink(&args.mp->m_sb))
 		version = XFS_DINODE_VERSION_2;
 	else
 		version = XFS_DINODE_VERSION_1;
 
+	/*
+	 * Seed the new inode cluster with a random generation number. This
+	 * prevents short-term reuse of generation numbers if a chunk is
+	 * freed and then immediately reallocated. We use random numbers
+	 * rather than a linear progression to prevent the next generation
+	 * number from being easily guessable.
+	 */
+	gen = random32();
 	for (j = 0; j < nbufs; j++) {
 		/*
 		 * Get the block.
@@ -295,14 +318,15 @@ xfs_ialloc_ag_alloc(
 			free = XFS_MAKE_IPTR(args.mp, fbuf, i);
 			free->di_core.di_magic = cpu_to_be16(XFS_DINODE_MAGIC);
 			free->di_core.di_version = version;
+			free->di_core.di_gen = cpu_to_be32(gen);
 			free->di_next_unlinked = cpu_to_be32(NULLAGINO);
 			xfs_ialloc_log_di(tp, fbuf, i,
 				XFS_DI_CORE_BITS | XFS_DI_NEXT_UNLINKED);
 		}
 		xfs_trans_inode_alloc_buf(tp, fbuf);
 	}
-	be32_add(&agi->agi_count, newlen);
-	be32_add(&agi->agi_freecount, newlen);
+	be32_add_cpu(&agi->agi_count, newlen);
+	be32_add_cpu(&agi->agi_freecount, newlen);
 	agno = be32_to_cpu(agi->agi_seqno);
 	down_read(&args.mp->m_peraglock);
 	args.mp->m_perag[agno].pagi_freecount += newlen;
@@ -885,7 +909,7 @@ nextag:
 	if ((error = xfs_inobt_update(cur, rec.ir_startino, rec.ir_freecount,
 			rec.ir_free)))
 		goto error0;
-	be32_add(&agi->agi_freecount, -1);
+	be32_add_cpu(&agi->agi_freecount, -1);
 	xfs_ialloc_log_agi(tp, agbp, XFS_AGI_FREECOUNT);
 	down_read(&mp->m_peraglock);
 	mp->m_perag[tagno].pagi_freecount--;
@@ -1053,7 +1077,7 @@ xfs_difree(
 	/*
 	 * When an inode cluster is free, it becomes eligible for removal
 	 */
-	if ((mp->m_flags & XFS_MOUNT_IDELETE) &&
+	if (!(mp->m_flags & XFS_MOUNT_IKEEP) &&
 	    (rec.ir_freecount == XFS_IALLOC_INODES(mp))) {
 
 		*delete = 1;
@@ -1065,8 +1089,8 @@ xfs_difree(
 		 * to be freed when the transaction is committed.
 		 */
 		ilen = XFS_IALLOC_INODES(mp);
-		be32_add(&agi->agi_count, -ilen);
-		be32_add(&agi->agi_freecount, -(ilen - 1));
+		be32_add_cpu(&agi->agi_count, -ilen);
+		be32_add_cpu(&agi->agi_freecount, -(ilen - 1));
 		xfs_ialloc_log_agi(tp, agbp, XFS_AGI_COUNT | XFS_AGI_FREECOUNT);
 		down_read(&mp->m_peraglock);
 		mp->m_perag[agno].pagi_freecount -= ilen - 1;
@@ -1095,7 +1119,7 @@ xfs_difree(
 		/* 
 		 * Change the inode free counts and log the ag/sb changes.
 		 */
-		be32_add(&agi->agi_freecount, 1);
+		be32_add_cpu(&agi->agi_freecount, 1);
 		xfs_ialloc_log_agi(tp, agbp, XFS_AGI_FREECOUNT);
 		down_read(&mp->m_peraglock);
 		mp->m_perag[agno].pagi_freecount++;

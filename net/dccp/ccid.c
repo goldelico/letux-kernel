@@ -92,15 +92,15 @@ int ccid_register(struct ccid_operations *ccid_ops)
 
 	ccid_ops->ccid_hc_rx_slab =
 			ccid_kmem_cache_create(ccid_ops->ccid_hc_rx_obj_size,
-					       "%s_hc_rx_sock",
-					       ccid_ops->ccid_name);
+					       "ccid%u_hc_rx_sock",
+					       ccid_ops->ccid_id);
 	if (ccid_ops->ccid_hc_rx_slab == NULL)
 		goto out;
 
 	ccid_ops->ccid_hc_tx_slab =
 			ccid_kmem_cache_create(ccid_ops->ccid_hc_tx_obj_size,
-					       "%s_hc_tx_sock",
-					       ccid_ops->ccid_name);
+					       "ccid%u_hc_tx_sock",
+					       ccid_ops->ccid_id);
 	if (ccid_ops->ccid_hc_tx_slab == NULL)
 		goto out_free_rx_slab;
 
@@ -154,7 +154,7 @@ struct ccid *ccid_new(unsigned char id, struct sock *sk, int rx, gfp_t gfp)
 	struct ccid *ccid = NULL;
 
 	ccids_read_lock();
-#ifdef CONFIG_KMOD
+#ifdef CONFIG_MODULES
 	if (ccids[id] == NULL) {
 		/* We only try to load if in process context */
 		ccids_read_unlock();

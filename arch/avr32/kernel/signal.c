@@ -93,6 +93,9 @@ asmlinkage int sys_rt_sigreturn(struct pt_regs *regs)
 	if (restore_sigcontext(regs, &frame->uc.uc_mcontext))
 		goto badframe;
 
+	if (do_sigaltstack(&frame->uc.uc_stack, NULL, regs->sp) == -EFAULT)
+		goto badframe;
+
 	pr_debug("Context restored: pc = %08lx, lr = %08lx, sp = %08lx\n",
 		 regs->pc, regs->lr, regs->sp);
 
@@ -270,19 +273,12 @@ int do_signal(struct pt_regs *regs, sigset_t *oldset, int syscall)
 	if (!user_mode(regs))
 		return 0;
 
-	if (try_to_freeze()) {
-		signr = 0;
-		if (!signal_pending(current))
-			goto no_signal;
-	}
-
 	if (test_thread_flag(TIF_RESTORE_SIGMASK))
 		oldset = &current->saved_sigmask;
 	else if (!oldset)
 		oldset = &current->blocked;
 
 	signr = get_signal_to_deliver(&info, &ka, regs, NULL);
-no_signal:
 	if (syscall) {
 		switch (regs->r12) {
 		case -ERESTART_RESTARTBLOCK:

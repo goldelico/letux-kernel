@@ -162,14 +162,15 @@ void tcp_vegas_cwnd_event(struct sock *sk, enum tcp_ca_event event)
 }
 EXPORT_SYMBOL_GPL(tcp_vegas_cwnd_event);
 
-static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack,
-				 u32 in_flight, int flag)
+static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct vegas *vegas = inet_csk_ca(sk);
 
-	if (!vegas->doing_vegas_now)
-		return tcp_reno_cong_avoid(sk, ack, in_flight, flag);
+	if (!vegas->doing_vegas_now) {
+		tcp_reno_cong_avoid(sk, ack, in_flight);
+		return;
+	}
 
 	/* The key players are v_beg_snd_una and v_beg_snd_nxt.
 	 *
@@ -228,9 +229,10 @@ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack,
 			/* We don't have enough RTT samples to do the Vegas
 			 * calculation, so we'll behave like Reno.
 			 */
-			tcp_reno_cong_avoid(sk, ack, in_flight, flag);
+			tcp_reno_cong_avoid(sk, ack, in_flight);
 		} else {
-			u32 rtt, target_cwnd, diff;
+			u32 rtt, diff;
+			u64 target_cwnd;
 
 			/* We have enough RTT samples, so, using the Vegas
 			 * algorithm, we determine if we should increase or
@@ -253,8 +255,9 @@ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack,
 			 * We keep it as a fixed point number with
 			 * V_PARAM_SHIFT bits to the right of the binary point.
 			 */
-			target_cwnd = ((old_wnd * vegas->baseRTT)
-				       << V_PARAM_SHIFT) / rtt;
+			target_cwnd = ((u64)old_wnd * vegas->baseRTT);
+			target_cwnd <<= V_PARAM_SHIFT;
+			do_div(target_cwnd, rtt);
 
 			/* Calculate the difference between the window we had,
 			 * and the window we would like to have. This quantity
@@ -280,7 +283,7 @@ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack,
 				 * utilization.
 				 */
 				tp->snd_cwnd = min(tp->snd_cwnd,
-						   (target_cwnd >>
+						   ((u32)target_cwnd >>
 						    V_PARAM_SHIFT)+1);
 
 			} else if (tp->snd_cwnd <= tp->snd_ssthresh) {

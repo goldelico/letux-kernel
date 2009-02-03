@@ -22,14 +22,13 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
  */
 
-#include <sound/driver.h>
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <sound/core.h>
 #include "hda_codec.h"
 #include "hda_local.h"
-
+#include "hda_patch.h"
 
 /* si3054 verbs */
 #define SI3054_VERB_READ_NODE  0x900
@@ -207,7 +206,7 @@ static int si3054_build_pcms(struct hda_codec *codec)
 	info->name = "Si3054 Modem";
 	info->stream[SNDRV_PCM_STREAM_PLAYBACK] = si3054_pcm;
 	info->stream[SNDRV_PCM_STREAM_CAPTURE]  = si3054_pcm;
-	info->is_modem = 1;
+	info->pcm_type = HDA_PCM_TYPE_MODEM;
 	return 0;
 }
 
@@ -287,7 +286,6 @@ static int patch_si3054(struct hda_codec *codec)
 struct hda_codec_preset snd_hda_preset_si3054[] = {
  	{ .id = 0x163c3055, .name = "Si3054", .patch = patch_si3054 },
  	{ .id = 0x163c3155, .name = "Si3054", .patch = patch_si3054 },
- 	{ .id = 0x11c11040, .name = "Si3054", .patch = patch_si3054 },
  	{ .id = 0x11c13026, .name = "Si3054", .patch = patch_si3054 },
  	{ .id = 0x11c13055, .name = "Si3054", .patch = patch_si3054 },
  	{ .id = 0x11c13155, .name = "Si3054", .patch = patch_si3054 },

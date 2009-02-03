@@ -12,7 +12,7 @@
 #include <linux/module.h>
 #include <linux/rtc.h>
 #include <linux/platform_device.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 
 #define EP93XX_RTC_REG(x)	(EP93XX_RTC_BASE + (x))
 #define EP93XX_RTC_DATA		EP93XX_RTC_REG(0x0000)
@@ -131,6 +131,9 @@ static int __devexit ep93xx_rtc_remove(struct platform_device *dev)
 
 	return 0;
 }
+
+/* work with hotplug and coldplug */
+MODULE_ALIAS("platform:ep93xx-rtc");
 
 static struct platform_driver ep93xx_rtc_platform_driver = {
 	.driver		= {

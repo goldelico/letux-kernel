@@ -245,6 +245,18 @@
 #include "gadget_chips.h"
 
 
+
+/*
+ * Kbuild is not very cooperative with respect to linking separately
+ * compiled library objects into one module.  So for now we won't use
+ * separate compilation ... ensuring init/exit sections work to shrink
+ * the runtime footprint, and giving us at least some parts of what
+ * a "gcc --combine ... part1.c part2.c part3.c ... " build would.
+ */
+#include "usbstring.c"
+#include "config.c"
+#include "epautoconf.c"
+
 /*-------------------------------------------------------------------------*/
 
 #define DRIVER_DESC		"File-backed Storage Gadget"
@@ -275,19 +287,15 @@ MODULE_LICENSE("Dual BSD/GPL");
 
 /*-------------------------------------------------------------------------*/
 
-#ifdef DEBUG
 #define LDBG(lun,fmt,args...) \
 	dev_dbg(&(lun)->dev , fmt , ## args)
 #define MDBG(fmt,args...) \
-	printk(KERN_DEBUG DRIVER_NAME ": " fmt , ## args)
-#else
-#define LDBG(lun,fmt,args...) \
-	do { } while (0)
-#define MDBG(fmt,args...) \
-	do { } while (0)
+	pr_debug(DRIVER_NAME ": " fmt , ## args)
+
+#ifndef DEBUG
 #undef VERBOSE_DEBUG
 #undef DUMP_MSGS
-#endif /* DEBUG */
+#endif /* !DEBUG */
 
 #ifdef VERBOSE_DEBUG
 #define VLDBG	LDBG
@@ -304,7 +312,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 	dev_info(&(lun)->dev , fmt , ## args)
 
 #define MINFO(fmt,args...) \
-	printk(KERN_INFO DRIVER_NAME ": " fmt , ## args)
+	pr_info(DRIVER_NAME ": " fmt , ## args)
 
 #define DBG(d, fmt, args...) \
 	dev_dbg(&(d)->gadget->dev , fmt , ## args)
@@ -312,7 +320,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 	dev_vdbg(&(d)->gadget->dev , fmt , ## args)
 #define ERROR(d, fmt, args...) \
 	dev_err(&(d)->gadget->dev , fmt , ## args)
-#define WARN(d, fmt, args...) \
+#define WARNING(d, fmt, args...) \
 	dev_warn(&(d)->gadget->dev , fmt , ## args)
 #define INFO(d, fmt, args...) \
 	dev_info(&(d)->gadget->dev , fmt , ## args)
@@ -648,7 +656,7 @@ struct fsg_dev {
 
 	unsigned long		atomic_bitflags;
 #define REGISTERED		0
-#define CLEAR_BULK_HALTS	1
+#define IGNORE_BULK_OUT		1
 #define SUSPENDED		2
 
 	struct usb_ep		*bulk_in;
@@ -843,7 +851,7 @@ config_desc = {
 	.bConfigurationValue =	CONFIG_VALUE,
 	.iConfiguration =	STRING_CONFIG,
 	.bmAttributes =		USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER,
-	.bMaxPower =		1,	// self-powered
+	.bMaxPower =		CONFIG_USB_GADGET_VBUS_DRAW / 2,
 };
 
 static struct usb_otg_descriptor
@@ -1095,7 +1103,7 @@ static int ep0_queue(struct fsg_dev *fsg)
 	if (rc != 0 && rc != -ESHUTDOWN) {
 
 		/* We can't do much more than wait for a reset */
-		WARN(fsg, "error in submission: %s --> %d\n",
+		WARNING(fsg, "error in submission: %s --> %d\n",
 				fsg->ep0->name, rc);
 	}
 	return rc;
@@ -1108,7 +1116,7 @@ static void ep0_complete(struct usb_ep *ep, struct usb_request *req)
 	if (req->actual > 0)
 		dump_msg(fsg, fsg->ep0req_name, req->buf, req->actual);
 	if (req->status || req->actual != req->length)
-		DBG(fsg, "%s --> %d, %u/%u\n", __FUNCTION__,
+		DBG(fsg, "%s --> %d, %u/%u\n", __func__,
 				req->status, req->actual, req->length);
 	if (req->status == -ECONNRESET)		// Request was cancelled
 		usb_ep_fifo_flush(ep);
@@ -1129,7 +1137,7 @@ static void bulk_in_complete(struct usb_ep *ep, struct usb_request *req)
 	struct fsg_buffhd	*bh = req->context;
 
 	if (req->status || req->actual != req->length)
-		DBG(fsg, "%s --> %d, %u/%u\n", __FUNCTION__,
+		DBG(fsg, "%s --> %d, %u/%u\n", __func__,
 				req->status, req->actual, req->length);
 	if (req->status == -ECONNRESET)		// Request was cancelled
 		usb_ep_fifo_flush(ep);
@@ -1150,7 +1158,7 @@ static void bulk_out_complete(struct usb_ep *ep, struct usb_request *req)
 
 	dump_msg(fsg, "bulk-out", req->buf, req->actual);
 	if (req->status || req->actual != bh->bulk_out_intended_length)
-		DBG(fsg, "%s --> %d, %u/%u\n", __FUNCTION__,
+		DBG(fsg, "%s --> %d, %u/%u\n", __func__,
 				req->status, req->actual,
 				bh->bulk_out_intended_length);
 	if (req->status == -ECONNRESET)		// Request was cancelled
@@ -1173,7 +1181,7 @@ static void intr_in_complete(struct usb_ep *ep, struct usb_request *req)
 	struct fsg_buffhd	*bh = req->context;
 
 	if (req->status || req->actual != req->length)
-		DBG(fsg, "%s --> %d, %u/%u\n", __FUNCTION__,
+		DBG(fsg, "%s --> %d, %u/%u\n", __func__,
 				req->status, req->actual, req->length);
 	if (req->status == -ECONNRESET)		// Request was cancelled
 		usb_ep_fifo_flush(ep);
@@ -1231,7 +1239,7 @@ static void received_cbi_adsc(struct fsg_dev *fsg, struct fsg_buffhd *bh)
 
 	/* Save the command for later */
 	if (fsg->cbbuf_cmnd_size)
-		WARN(fsg, "CB[I] overwriting previous command\n");
+		WARNING(fsg, "CB[I] overwriting previous command\n");
 	fsg->cbbuf_cmnd_size = req->actual;
 	memcpy(fsg->cbbuf_cmnd, req->buf, fsg->cbbuf_cmnd_size);
 
@@ -1510,7 +1518,7 @@ static void start_transfer(struct fsg_dev *fsg, struct usb_ep *ep,
 		 * submissions if DMA is enabled. */
 		if (rc != -ESHUTDOWN && !(rc == -EOPNOTSUPP &&
 						req->length == 0))
-			WARN(fsg, "error in submission: %s --> %d\n",
+			WARNING(fsg, "error in submission: %s --> %d\n",
 					ep->name, rc);
 	}
 }
@@ -2298,7 +2306,7 @@ static int halt_bulk_in_endpoint(struct fsg_dev *fsg)
 		VDBG(fsg, "delayed bulk-in endpoint halt\n");
 	while (rc != 0) {
 		if (rc != -EAGAIN) {
-			WARN(fsg, "usb_ep_set_halt -> %d\n", rc);
+			WARNING(fsg, "usb_ep_set_halt -> %d\n", rc);
 			rc = 0;
 			break;
 		}
@@ -2307,6 +2315,29 @@ static int halt_bulk_in_endpoint(struct fsg_dev *fsg)
 		if (msleep_interruptible(100) != 0)
 			return -EINTR;
 		rc = usb_ep_set_halt(fsg->bulk_in);
+	}
+	return rc;
+}
+
+static int wedge_bulk_in_endpoint(struct fsg_dev *fsg)
+{
+	int	rc;
+
+	DBG(fsg, "bulk-in set wedge\n");
+	rc = usb_ep_set_wedge(fsg->bulk_in);
+	if (rc == -EAGAIN)
+		VDBG(fsg, "delayed bulk-in endpoint wedge\n");
+	while (rc != 0) {
+		if (rc != -EAGAIN) {
+			WARNING(fsg, "usb_ep_set_wedge -> %d\n", rc);
+			rc = 0;
+			break;
+		}
+
+		/* Wait for a short time and then try again */
+		if (msleep_interruptible(100) != 0)
+			return -EINTR;
+		rc = usb_ep_set_wedge(fsg->bulk_in);
 	}
 	return rc;
 }
@@ -2645,11 +2676,24 @@ static int check_command(struct fsg_dev *fsg, int cmnd_size,
 	/* Verify the length of the command itself */
 	if (cmnd_size != fsg->cmnd_size) {
 
-		/* Special case workaround: MS-Windows issues REQUEST SENSE
-		 * with cbw->Length == 12 (it should be 6). */
-		if (fsg->cmnd[0] == SC_REQUEST_SENSE && fsg->cmnd_size == 12)
+		/* Special case workaround: There are plenty of buggy SCSI
+		 * implementations. Many have issues with cbw->Length
+		 * field passing a wrong command size. For those cases we
+		 * always try to work around the problem by using the length
+		 * sent by the host side provided it is at least as large
+		 * as the correct command length.
+		 * Examples of such cases would be MS-Windows, which issues
+		 * REQUEST SENSE with cbw->Length == 12 where it should
+		 * be 6, and xbox360 issuing INQUIRY, TEST UNIT READY and
+		 * REQUEST SENSE with cbw->Length == 10 where it should
+		 * be 6 as well.
+		 */
+		if (cmnd_size <= fsg->cmnd_size) {
+			DBG(fsg, "%s is buggy! Expected length %d "
+					"but we got %d\n", name,
+					cmnd_size, fsg->cmnd_size);
 			cmnd_size = fsg->cmnd_size;
-		else {
+		} else {
 			fsg->phase_error = 1;
 			return -EINVAL;
 		}
@@ -2940,8 +2984,8 @@ static int received_cbw(struct fsg_dev *fsg, struct fsg_buffhd *bh)
 	struct usb_request	*req = bh->outreq;
 	struct bulk_cb_wrap	*cbw = req->buf;
 
-	/* Was this a real packet? */
-	if (req->status)
+	/* Was this a real packet?  Should it be ignored? */
+	if (req->status || test_bit(IGNORE_BULK_OUT, &fsg->atomic_bitflags))
 		return -EINVAL;
 
 	/* Is the CBW valid? */
@@ -2952,13 +2996,17 @@ static int received_cbw(struct fsg_dev *fsg, struct fsg_buffhd *bh)
 				req->actual,
 				le32_to_cpu(cbw->Signature));
 
-		/* The Bulk-only spec says we MUST stall the bulk pipes!
-		 * If we want to avoid stalls, set a flag so that we will
-		 * clear the endpoint halts at the next reset. */
-		if (!mod_data.can_stall)
-			set_bit(CLEAR_BULK_HALTS, &fsg->atomic_bitflags);
-		fsg_set_halt(fsg, fsg->bulk_out);
-		halt_bulk_in_endpoint(fsg);
+		/* The Bulk-only spec says we MUST stall the IN endpoint
+		 * (6.6.1), so it's unavoidable.  It also says we must
+		 * retain this state until the next reset, but there's
+		 * no way to tell the controller driver it should ignore
+		 * Clear-Feature(HALT) requests.
+		 *
+		 * We aren't required to halt the OUT endpoint; instead
+		 * we can simply accept and discard any data received
+		 * until the next reset. */
+		wedge_bulk_in_endpoint(fsg);
+		set_bit(IGNORE_BULK_OUT, &fsg->atomic_bitflags);
 		return -EINVAL;
 	}
 
@@ -3144,6 +3192,7 @@ reset:
 		goto reset;
 	fsg->bulk_out_enabled = 1;
 	fsg->bulk_out_maxpacket = le16_to_cpu(d->wMaxPacketSize);
+	clear_bit(IGNORE_BULK_OUT, &fsg->atomic_bitflags);
 
 	if (transport_is_cbi()) {
 		d = ep_desc(fsg->gadget, &fs_intr_in_desc, &hs_intr_in_desc);
@@ -3325,11 +3374,8 @@ static void handle_exception(struct fsg_dev *fsg)
 		/* In case we were forced against our will to halt a
 		 * bulk endpoint, clear the halt now.  (The SuperH UDC
 		 * requires this.) */
-		if (test_and_clear_bit(CLEAR_BULK_HALTS,
-				&fsg->atomic_bitflags)) {
+		if (test_and_clear_bit(IGNORE_BULK_OUT, &fsg->atomic_bitflags))
 			usb_ep_clear_halt(fsg->bulk_in);
-			usb_ep_clear_halt(fsg->bulk_out);
-		}
 
 		if (transport_is_bbb()) {
 			if (fsg->ep0_req_tag == exception_req_tag)
@@ -3567,8 +3613,7 @@ static ssize_t show_file(struct device *dev, struct device_attribute *attr,
 
 	down_read(&fsg->filesem);
 	if (backing_file_is_open(curlun)) {	// Get the complete pathname
-		p = d_path(curlun->filp->f_path.dentry,
-				curlun->filp->f_path.mnt, buf, PAGE_SIZE - 1);
+		p = d_path(&curlun->filp->f_path, buf, PAGE_SIZE - 1);
 		if (IS_ERR(p))
 			rc = PTR_ERR(p);
 		else {
@@ -3735,7 +3780,7 @@ static int __init check_parameters(struct fsg_dev *fsg)
 		if (gcnum >= 0)
 			mod_data.release = 0x0300 + gcnum;
 		else {
-			WARN(fsg, "controller '%s' not recognized\n",
+			WARNING(fsg, "controller '%s' not recognized\n",
 				fsg->gadget->name);
 			mod_data.release = 0x0399;
 		}
@@ -3847,8 +3892,8 @@ static int __init fsg_bind(struct usb_gadget *gadget)
 		curlun->dev.parent = &gadget->dev;
 		curlun->dev.driver = &fsg_driver.driver;
 		dev_set_drvdata(&curlun->dev, fsg);
-		snprintf(curlun->dev.bus_id, BUS_ID_SIZE,
-				"%s-lun%d", gadget->dev.bus_id, i);
+		dev_set_name(&curlun->dev,"%s-lun%d",
+			     dev_name(&gadget->dev), i);
 
 		if ((rc = device_register(&curlun->dev)) != 0) {
 			INFO(fsg, "failed to register LUN%d: %d\n", i, rc);
@@ -3985,9 +4030,8 @@ static int __init fsg_bind(struct usb_gadget *gadget)
 		if (backing_file_is_open(curlun)) {
 			p = NULL;
 			if (pathbuf) {
-				p = d_path(curlun->filp->f_path.dentry,
-					curlun->filp->f_path.mnt,
-					pathbuf, PATH_MAX);
+				p = d_path(&curlun->filp->f_path,
+					   pathbuf, PATH_MAX);
 				if (IS_ERR(p))
 					p = NULL;
 			}

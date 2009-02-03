@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,6 @@
 
 #include <acpi/acpi.h>
 #include <acpi/acnamesp.h>
-#include <acpi/acparser.h>
 
 #define _COMPONENT          ACPI_NAMESPACE
 ACPI_MODULE_NAME("nsdump")
@@ -73,7 +72,7 @@ acpi_ns_dump_one_device(acpi_handle obj_handle,
 
 void acpi_ns_print_pathname(u32 num_segments, char *pathname)
 {
-	acpi_native_uint i;
+	u32 i;
 
 	ACPI_FUNCTION_NAME(ns_print_pathname);
 
@@ -249,7 +248,9 @@ acpi_ns_dump_one_object(acpi_handle obj_handle,
 			acpi_os_printf("ID %X Len %.4X Addr %p\n",
 				       obj_desc->processor.proc_id,
 				       obj_desc->processor.length,
-				       (char *)obj_desc->processor.address);
+				       ACPI_CAST_PTR(void,
+						     obj_desc->processor.
+						     address));
 			break;
 
 		case ACPI_TYPE_DEVICE:
@@ -320,9 +321,8 @@ acpi_ns_dump_one_object(acpi_handle obj_handle,
 							       space_id));
 			if (obj_desc->region.flags & AOPOBJ_DATA_VALID) {
 				acpi_os_printf(" Addr %8.8X%8.8X Len %.4X\n",
-					       ACPI_FORMAT_UINT64(obj_desc->
-								  region.
-								  address),
+					       ACPI_FORMAT_NATIVE_UINT
+					       (obj_desc->region.address),
 					       obj_desc->region.length);
 			} else {
 				acpi_os_printf
@@ -333,9 +333,7 @@ acpi_ns_dump_one_object(acpi_handle obj_handle,
 		case ACPI_TYPE_LOCAL_REFERENCE:
 
 			acpi_os_printf("[%s]\n",
-				       acpi_ps_get_opcode_name(obj_desc->
-							       reference.
-							       opcode));
+				       acpi_ut_get_reference_name(obj_desc));
 			break;
 
 		case ACPI_TYPE_BUFFER_FIELD:
@@ -514,12 +512,12 @@ acpi_ns_dump_one_object(acpi_handle obj_handle,
 
 			if (obj_type > ACPI_TYPE_LOCAL_MAX) {
 				acpi_os_printf
-				    ("(Ptr to ACPI Object type %X [UNKNOWN])\n",
+				    ("(Pointer to ACPI Object type %.2X [UNKNOWN])\n",
 				     obj_type);
 				bytes_to_dump = 32;
 			} else {
 				acpi_os_printf
-				    ("(Ptr to ACPI Object type %X [%s])\n",
+				    ("(Pointer to ACPI Object type %.2X [%s])\n",
 				     obj_type, acpi_ut_get_type_name(obj_type));
 				bytes_to_dump =
 				    sizeof(union acpi_operand_object);

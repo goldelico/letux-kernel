@@ -239,8 +239,7 @@ static void vgacon_restore_screen(struct vc_data *c)
 
 static int vgacon_scrolldelta(struct vc_data *c, int lines)
 {
-	int start, end, count, soff, diff;
-	void *d, *s;
+	int start, end, count, soff;
 
 	if (!lines) {
 		c->vc_visible_origin = c->vc_origin;
@@ -287,29 +286,29 @@ static int vgacon_scrolldelta(struct vc_data *c, int lines)
 	if (count > c->vc_rows)
 		count = c->vc_rows;
 
-	diff = c->vc_rows - count;
+	if (count) {
+		int copysize;
 
-	d = (void *) c->vc_origin;
-	s = (void *) c->vc_screenbuf;
+		int diff = c->vc_rows - count;
+		void *d = (void *) c->vc_origin;
+		void *s = (void *) c->vc_screenbuf;
 
-	while (count--) {
-		scr_memcpyw(d, vgacon_scrollback + soff, c->vc_size_row);
-		d += c->vc_size_row;
-		soff += c->vc_size_row;
+		count *= c->vc_size_row;
+		/* how much memory to end of buffer left? */
+		copysize = min(count, vgacon_scrollback_size - soff);
+		scr_memcpyw(d, vgacon_scrollback + soff, copysize);
+		d += copysize;
+		count -= copysize;
 
-		if (soff >= vgacon_scrollback_size)
-			soff = 0;
-	}
-
-	if (diff == c->vc_rows) {
-		vgacon_cursor(c, CM_MOVE);
-	} else {
-		while (diff--) {
-			scr_memcpyw(d, s, c->vc_size_row);
-			d += c->vc_size_row;
-			s += c->vc_size_row;
+		if (count) {
+			scr_memcpyw(d, vgacon_scrollback, count);
+			d += count;
 		}
-	}
+
+		if (diff)
+			scr_memcpyw(d, s, diff * c->vc_size_row);
+	} else
+		vgacon_cursor(c, CM_MOVE);
 
 	return 1;
 }
@@ -1153,8 +1152,6 @@ static int vgacon_do_font_op(struct vgastate *state,char *arg,int set,int ch512)
 
 	/* if 512 char mode is already enabled don't re-enable it. */
 	if ((set) && (ch512 != vga_512_chars)) {
-		int i;	
-		
 		/* attribute controller */
 		for (i = 0; i < MAX_NR_CONSOLES; i++) {
 			struct vc_data *c = vc_cons[i].d;

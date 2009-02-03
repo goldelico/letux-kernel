@@ -24,9 +24,11 @@
 #include <linux/tty.h>
 #include <linux/personality.h>
 #include <linux/binfmts.h>
+#include <linux/tracehook.h>
 #include <asm/ucontext.h>
 #include <asm/uaccess.h>
 #include <asm/lowcore.h>
+#include "entry.h"
 
 #define _BLOCKABLE (~(sigmask(SIGKILL) | sigmask(SIGSTOP)))
 
@@ -235,6 +237,10 @@ get_sigframe(struct k_sigaction *ka, struct pt_regs * regs, size_t frame_size)
 	/* Default to using normal stack */
 	sp = regs->gprs[15];
 
+	/* Overflow on alternate signal stack gives SIGSEGV. */
+	if (on_sig_stack(sp) && !on_sig_stack((sp - frame_size) & -8UL))
+		return (void __user *) -1UL;
+
 	/* This is the X/Open sanctioned signal stack switching.  */
 	if (ka->sa.sa_flags & SA_ONSTACK) {
 		if (! sas_ss_flags(sp))
@@ -268,6 +274,9 @@ static int setup_frame(int sig, struct k_sigaction *ka,
 
 	frame = get_sigframe(ka, regs, sizeof(sigframe));
 	if (!access_ok(VERIFY_WRITE, frame, sizeof(sigframe)))
+		goto give_sigsegv;
+
+	if (frame == (void __user *) -1UL)
 		goto give_sigsegv;
 
 	if (__copy_to_user(&frame->sc.oldmask, &set->sig, _SIGMASK_COPY_SIZE))
@@ -325,6 +334,9 @@ static int setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 
 	frame = get_sigframe(ka, regs, sizeof(rt_sigframe));
 	if (!access_ok(VERIFY_WRITE, frame, sizeof(rt_sigframe)))
+		goto give_sigsegv;
+
+	if (frame == (void __user *) -1UL)
 		goto give_sigsegv;
 
 	if (copy_siginfo_to_user(&frame->info, info))
@@ -471,22 +483,15 @@ void do_signal(struct pt_regs *regs)
 
 	if (signr > 0) {
 		/* Whee!  Actually deliver the signal.  */
+		int ret;
 #ifdef CONFIG_COMPAT
 		if (test_thread_flag(TIF_31BIT)) {
-			extern int handle_signal32(unsigned long sig,
-						   struct k_sigaction *ka,
-						   siginfo_t *info,
-						   sigset_t *oldset,
-						   struct pt_regs *regs);
-			if (handle_signal32(
-				    signr, &ka, &info, oldset, regs) == 0) {
-				if (test_thread_flag(TIF_RESTORE_SIGMASK))
-					clear_thread_flag(TIF_RESTORE_SIGMASK);
-			}
-			return;
+			ret = handle_signal32(signr, &ka, &info, oldset, regs);
 	        }
+		else
 #endif
-		if (handle_signal(signr, &ka, &info, oldset, regs) == 0) {
+			ret = handle_signal(signr, &ka, &info, oldset, regs);
+		if (!ret) {
 			/*
 			 * A signal was successfully delivered; the saved
 			 * sigmask will have been stored in the signal frame,
@@ -495,6 +500,20 @@ void do_signal(struct pt_regs *regs)
 			 */
 			if (test_thread_flag(TIF_RESTORE_SIGMASK))
 				clear_thread_flag(TIF_RESTORE_SIGMASK);
+
+			/*
+			 * If we would have taken a single-step trap
+			 * for a normal instruction, act like we took
+			 * one for the handler setup.
+			 */
+			if (current->thread.per_info.single_step)
+				set_thread_flag(TIF_SINGLE_STEP);
+
+			/*
+			 * Let tracing know that we've done the handler setup.
+			 */
+			tracehook_signal_handler(signr, &info, &ka, regs,
+					 test_thread_flag(TIF_SINGLE_STEP));
 		}
 		return;
 	}
@@ -513,4 +532,10 @@ void do_signal(struct pt_regs *regs)
 		regs->gprs[2] = __NR_restart_syscall;
 		set_thread_flag(TIF_RESTART_SVC);
 	}
+}
+
+void do_notify_resume(struct pt_regs *regs)
+{
+	clear_thread_flag(TIF_NOTIFY_RESUME);
+	tracehook_notify_resume(regs);
 }

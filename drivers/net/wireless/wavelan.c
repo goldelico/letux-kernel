@@ -49,27 +49,6 @@ static int __init wv_psa_to_irq(u8 irqval)
 	return -1;
 }
 
-#ifdef STRUCT_CHECK
-/*------------------------------------------------------------------*/
-/*
- * Sanity routine to verify the sizes of the various WaveLAN interface
- * structures.
- */
-static char *wv_struct_check(void)
-{
-#define	SC(t,s,n)	if (sizeof(t) != s) return(n);
-
-	SC(psa_t, PSA_SIZE, "psa_t");
-	SC(mmw_t, MMW_SIZE, "mmw_t");
-	SC(mmr_t, MMR_SIZE, "mmr_t");
-	SC(ha_t, HA_SIZE, "ha_t");
-
-#undef	SC
-
-	return ((char *) NULL);
-}				/* wv_struct_check */
-#endif				/* STRUCT_CHECK */
-
 /********************* HOST ADAPTER SUBROUTINES *********************/
 /*
  * Useful subroutines to manage the WaveLAN ISA interface
@@ -929,9 +908,9 @@ static void wv_psa_show(psa_t * p)
 	     p->psa_call_code[3], p->psa_call_code[4], p->psa_call_code[5],
 	     p->psa_call_code[6], p->psa_call_code[7]);
 #ifdef DEBUG_SHOW_UNUSED
-	printk(KERN_DEBUG "psa_reserved[]: %02X:%02X:%02X:%02X\n",
+	printk(KERN_DEBUG "psa_reserved[]: %02X:%02X\n",
 	       p->psa_reserved[0],
-	       p->psa_reserved[1], p->psa_reserved[2], p->psa_reserved[3]);
+	       p->psa_reserved[1]);
 #endif				/* DEBUG_SHOW_UNUSED */
 	printk(KERN_DEBUG "psa_conf_status: %d, ", p->psa_conf_status);
 	printk("psa_crc: 0x%02x%02x, ", p->psa_crc[0], p->psa_crc[1]);
@@ -1430,9 +1409,6 @@ static void wavelan_set_multicast_list(struct net_device * dev)
 			lp->mc_count = 0;
 
 			wv_82586_reconfig(dev);
-
-			/* Tell the kernel that we are doing a really bad job. */
-			dev->flags |= IFF_PROMISC;
 		}
 	} else
 		/* Are there multicast addresses to send? */
@@ -3740,7 +3716,7 @@ static int wv_check_ioaddr(unsigned long ioaddr, u8 * mac)
 	 * non-NCR/AT&T/Lucent ISA card.  See wavelan.p.h for detail on
 	 * how to configure your card.
 	 */
-	for (i = 0; i < (sizeof(MAC_ADDRESSES) / sizeof(char) / 3); i++)
+	for (i = 0; i < ARRAY_SIZE(MAC_ADDRESSES); i++)
 		if ((mac[0] == MAC_ADDRESSES[i][0]) &&
 		    (mac[1] == MAC_ADDRESSES[i][1]) &&
 		    (mac[2] == MAC_ADDRESSES[i][2]))
@@ -4215,14 +4191,11 @@ struct net_device * __init wavelan_probe(int unit)
 	int i;
 	int r = 0;
 
-#ifdef	STRUCT_CHECK
-	if (wv_struct_check() != (char *) NULL) {
-		printk(KERN_WARNING
-		       "%s: wavelan_probe(): structure/compiler botch: \"%s\"\n",
-		       dev->name, wv_struct_check());
-		return -ENODEV;
-	}
-#endif				/* STRUCT_CHECK */
+	/* compile-time check the sizes of structures */
+	BUILD_BUG_ON(sizeof(psa_t) != PSA_SIZE);
+	BUILD_BUG_ON(sizeof(mmw_t) != MMW_SIZE);
+	BUILD_BUG_ON(sizeof(mmr_t) != MMR_SIZE);
+	BUILD_BUG_ON(sizeof(ha_t) != HA_SIZE);
 
 	dev = alloc_etherdev(sizeof(net_local));
 	if (!dev)
@@ -4414,7 +4387,7 @@ MODULE_LICENSE("GPL");
  *
  * Thanks go also to:
  *	James Ashton (jaa101@syseng.anu.edu.au),
- *	Alan Cox (alan@redhat.com),
+ *	Alan Cox (alan@lxorguk.ukuu.org.uk),
  *	Allan Creighton (allanc@cs.usyd.edu.au),
  *	Matthew Geier (matthew@cs.usyd.edu.au),
  *	Remo di Giovanni (remo@cs.usyd.edu.au),

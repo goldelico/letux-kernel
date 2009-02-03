@@ -364,7 +364,7 @@ static __inline__ int led_get_net_activity(void)
 	    struct in_device *in_dev = __in_dev_get_rcu(dev);
 	    if (!in_dev || !in_dev->ifa_list)
 		continue;
-	    if (LOOPBACK(in_dev->ifa_list->ifa_local))
+	    if (ipv4_is_loopback(in_dev->ifa_list->ifa_local))
 		continue;
 	    stats = dev->get_stats(dev);
 	    rx_total += stats->rx_packets;
@@ -569,7 +569,7 @@ int __init register_led_driver(int model, unsigned long cmd_reg, unsigned long d
 
 	default:
 		printk(KERN_ERR "%s: Wrong LCD/LED model %d !\n",
-		       __FUNCTION__, lcd_info.model);
+		       __func__, lcd_info.model);
 		return 1;
 	}
 	

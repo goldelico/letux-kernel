@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,6 @@
 
 #include <acpi/acpi.h>
 #include <acpi/acnamesp.h>
-#include <acpi/amlcode.h>
 
 #define _COMPONENT          ACPI_UTILITIES
 ACPI_MODULE_NAME("utobject")
@@ -83,7 +82,8 @@ acpi_ut_get_element_length(u8 object_type,
  *
  ******************************************************************************/
 
-union acpi_operand_object *acpi_ut_create_internal_object_dbg(char *module_name,
+union acpi_operand_object *acpi_ut_create_internal_object_dbg(const char
+							      *module_name,
 							      u32 line_number,
 							      u32 component_id,
 							      acpi_object_type
@@ -107,6 +107,7 @@ union acpi_operand_object *acpi_ut_create_internal_object_dbg(char *module_name,
 	switch (type) {
 	case ACPI_TYPE_REGION:
 	case ACPI_TYPE_BUFFER_FIELD:
+	case ACPI_TYPE_LOCAL_BANK_FIELD:
 
 		/* These types require a secondary object */
 
@@ -174,8 +175,8 @@ union acpi_operand_object *acpi_ut_create_package_object(u32 count)
 	 * Create the element array. Count+1 allows the array to be null
 	 * terminated.
 	 */
-	package_elements = ACPI_ALLOCATE_ZEROED((acpi_size)
-						(count + 1) * sizeof(void *));
+	package_elements = ACPI_ALLOCATE_ZEROED(((acpi_size) count +
+						 1) * sizeof(void *));
 	if (!package_elements) {
 		acpi_ut_remove_reference(package_desc);
 		return_PTR(NULL);
@@ -346,7 +347,7 @@ u8 acpi_ut_valid_internal_object(void *object)
  *
  ******************************************************************************/
 
-void *acpi_ut_allocate_object_desc_dbg(char *module_name,
+void *acpi_ut_allocate_object_desc_dbg(const char *module_name,
 				       u32 line_number, u32 component_id)
 {
 	union acpi_operand_object *object;
@@ -423,6 +424,7 @@ acpi_ut_get_simple_object_size(union acpi_operand_object *internal_object,
 			       acpi_size * obj_length)
 {
 	acpi_size length;
+	acpi_size size;
 	acpi_status status = AE_OK;
 
 	ACPI_FUNCTION_TRACE_PTR(ut_get_simple_object_size, internal_object);
@@ -432,7 +434,7 @@ acpi_ut_get_simple_object_size(union acpi_operand_object *internal_object,
 	 * element -- which is legal)
 	 */
 	if (!internal_object) {
-		*obj_length = 0;
+		*obj_length = sizeof(union acpi_object);
 		return_ACPI_STATUS(AE_OK);
 	}
 
@@ -469,24 +471,27 @@ acpi_ut_get_simple_object_size(union acpi_operand_object *internal_object,
 	case ACPI_TYPE_PROCESSOR:
 	case ACPI_TYPE_POWER:
 
-		/*
-		 * No extra data for these types
-		 */
+		/* No extra data for these types */
+
 		break;
 
 	case ACPI_TYPE_LOCAL_REFERENCE:
 
-		switch (internal_object->reference.opcode) {
-		case AML_INT_NAMEPATH_OP:
+		switch (internal_object->reference.class) {
+		case ACPI_REFCLASS_NAME:
 
 			/*
 			 * Get the actual length of the full pathname to this object.
 			 * The reference will be converted to the pathname to the object
 			 */
-			length +=
-			    ACPI_ROUND_UP_TO_NATIVE_WORD
-			    (acpi_ns_get_pathname_length
-			     (internal_object->reference.node));
+			size =
+			    acpi_ns_get_pathname_length(internal_object->
+							reference.node);
+			if (!size) {
+				return_ACPI_STATUS(AE_BAD_PARAMETER);
+			}
+
+			length += ACPI_ROUND_UP_TO_NATIVE_WORD(size);
 			break;
 
 		default:
@@ -497,8 +502,10 @@ acpi_ut_get_simple_object_size(union acpi_operand_object *internal_object,
 			 * required eventually.
 			 */
 			ACPI_ERROR((AE_INFO,
-				    "Unsupported Reference opcode=%X in object %p",
-				    internal_object->reference.opcode,
+				    "Cannot convert to external object - "
+				    "unsupported Reference Class [%s] %X in object %p",
+				    acpi_ut_get_reference_name(internal_object),
+				    internal_object->reference.class,
 				    internal_object));
 			status = AE_TYPE;
 			break;
@@ -507,7 +514,9 @@ acpi_ut_get_simple_object_size(union acpi_operand_object *internal_object,
 
 	default:
 
-		ACPI_ERROR((AE_INFO, "Unsupported type=%X in object %p",
+		ACPI_ERROR((AE_INFO, "Cannot convert to external object - "
+			    "unsupported type [%s] %X in object %p",
+			    acpi_ut_get_object_type_name(internal_object),
 			    ACPI_GET_OBJECT_TYPE(internal_object),
 			    internal_object));
 		status = AE_TYPE;

@@ -341,12 +341,12 @@ static int cmf_copy_block(struct ccw_device *cdev)
 	if (stsch(sch->schid, &sch->schib))
 		return -ENODEV;
 
-	if (sch->schib.scsw.fctl & SCSW_FCTL_START_FUNC) {
+	if (scsw_fctl(&sch->schib.scsw) & SCSW_FCTL_START_FUNC) {
 		/* Don't copy if a start function is in progress. */
-		if ((!(sch->schib.scsw.actl & SCSW_ACTL_SUSPENDED)) &&
-		    (sch->schib.scsw.actl &
+		if ((!(scsw_actl(&sch->schib.scsw) & SCSW_ACTL_SUSPENDED)) &&
+		    (scsw_actl(&sch->schib.scsw) &
 		     (SCSW_ACTL_DEVACT | SCSW_ACTL_SCHACT)) &&
-		    (!(sch->schib.scsw.stctl & SCSW_STCTL_SEC_STATUS)))
+		    (!(scsw_stctl(&sch->schib.scsw) & SCSW_STCTL_SEC_STATUS)))
 			return -EBUSY;
 	}
 	cmb_data = cdev->private->cmb;
@@ -612,9 +612,6 @@ static int alloc_cmb(struct ccw_device *cdev)
 			free_pages((unsigned long)mem, get_order(size));
 		} else if (!mem) {
 			/* no luck */
-			printk(KERN_WARNING "cio: failed to allocate area "
-			       "for measuring %d subchannels\n",
-			       cmb_area.num_channels);
 			ret = -ENOMEM;
 			goto out;
 		} else {
@@ -1219,19 +1216,20 @@ static ssize_t cmb_enable_store(struct device *dev,
 {
 	struct ccw_device *cdev;
 	int ret;
+	unsigned long val;
+
+	ret = strict_strtoul(buf, 16, &val);
+	if (ret)
+		return ret;
 
 	cdev = to_ccwdev(dev);
 
-	switch (buf[0]) {
-	case '0':
+	switch (val) {
+	case 0:
 		ret = disable_cmf(cdev);
-		if (ret)
-			dev_info(&cdev->dev, "disable_cmf failed (%d)\n", ret);
 		break;
-	case '1':
+	case 1:
 		ret = enable_cmf(cdev);
-		if (ret && ret != -EBUSY)
-			dev_info(&cdev->dev, "enable_cmf failed (%d)\n", ret);
 		break;
 	}
 
@@ -1339,8 +1337,7 @@ static int __init init_cmf(void)
 	 * to basic mode.
 	 */
 	if (format == CMF_AUTODETECT) {
-		if (!css_characteristics_avail ||
-		    !css_general_characteristics.ext_mb) {
+		if (!css_general_characteristics.ext_mb) {
 			format = CMF_BASIC;
 		} else {
 			format = CMF_EXTENDED;
@@ -1360,8 +1357,6 @@ static int __init init_cmf(void)
 		cmbops = &cmbops_extended;
 		break;
 	default:
-		printk(KERN_ERR "cio: Invalid format %d for channel "
-			"measurement facility\n", format);
 		return 1;
 	}
 

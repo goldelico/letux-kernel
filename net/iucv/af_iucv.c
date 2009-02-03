@@ -53,7 +53,7 @@ static int iucv_callback_connreq(struct iucv_path *, u8 ipvmid[8],
 static void iucv_callback_connrej(struct iucv_path *, u8 ipuser[16]);
 
 static struct iucv_sock_list iucv_sk_list = {
-	.lock = RW_LOCK_UNLOCKED,
+	.lock = __RW_LOCK_UNLOCKED(iucv_sk_list.lock),
 	.autobind_name = ATOMIC_INIT(0)
 };
 
@@ -92,13 +92,6 @@ static void iucv_sock_timeout(unsigned long arg)
 static void iucv_sock_clear_timer(struct sock *sk)
 {
 	sk_stop_timer(sk, &sk->sk_timer);
-}
-
-static void iucv_sock_init_timer(struct sock *sk)
-{
-	init_timer(&sk->sk_timer);
-	sk->sk_timer.function = iucv_sock_timeout;
-	sk->sk_timer.data = (unsigned long)sk;
 }
 
 static struct sock *__iucv_get_sock_by_name(char *nm)
@@ -238,7 +231,7 @@ static struct sock *iucv_sock_alloc(struct socket *sock, int proto, gfp_t prio)
 	sk->sk_protocol = proto;
 	sk->sk_state	= IUCV_OPEN;
 
-	iucv_sock_init_timer(sk);
+	setup_timer(&sk->sk_timer, iucv_sock_timeout, (unsigned long)sk);
 
 	iucv_sock_link(&iucv_sk_list, sk);
 	return sk;
@@ -489,6 +482,10 @@ static int iucv_sock_connect(struct socket *sock, struct sockaddr *addr,
 	/* Create path. */
 	iucv->path = iucv_path_alloc(IUCV_QUEUELEN_DEFAULT,
 				     IPRMDATA, GFP_KERNEL);
+	if (!iucv->path) {
+		err = -ENOMEM;
+		goto done;
+	}
 	err = iucv_path_connect(iucv->path, &af_iucv_handler,
 				sa->siucv_user_id, NULL, user_data, sk);
 	if (err) {
@@ -647,6 +644,7 @@ static int iucv_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 		}
 
 		txmsg.class = 0;
+		memcpy(&txmsg.class, skb->data, skb->len >= 4 ? 4 : skb->len);
 		txmsg.tag = iucv->send_tag++;
 		memcpy(skb->cb, &txmsg.tag, 4);
 		skb_queue_tail(&iucv->send_skb_q, skb);
@@ -1101,6 +1099,8 @@ static void iucv_callback_rx(struct iucv_path *path, struct iucv_message *msg)
 
 save_message:
 	save_msg = kzalloc(sizeof(struct sock_msg_q), GFP_ATOMIC | GFP_DMA);
+	if (!save_msg)
+		return;
 	save_msg->path = path;
 	save_msg->msg = *msg;
 
@@ -1113,24 +1113,30 @@ static void iucv_callback_txdone(struct iucv_path *path,
 				 struct iucv_message *msg)
 {
 	struct sock *sk = path->private;
-	struct sk_buff *this;
+	struct sk_buff *this = NULL;
 	struct sk_buff_head *list = &iucv_sk(sk)->send_skb_q;
 	struct sk_buff *list_skb = list->next;
 	unsigned long flags;
 
-	if (list_skb) {
+	if (!skb_queue_empty(list)) {
 		spin_lock_irqsave(&list->lock, flags);
 
-		do {
-			this = list_skb;
+		while (list_skb != (struct sk_buff *)list) {
+			if (!memcmp(&msg->tag, list_skb->cb, 4)) {
+				this = list_skb;
+				break;
+			}
 			list_skb = list_skb->next;
-		} while (memcmp(&msg->tag, this->cb, 4) && list_skb);
+		}
+		if (this)
+			__skb_unlink(this, list);
 
 		spin_unlock_irqrestore(&list->lock, flags);
 
-		skb_unlink(this, &iucv_sk(sk)->send_skb_q);
-		kfree_skb(this);
+		if (this)
+			kfree_skb(this);
 	}
+	BUG_ON(!this);
 
 	if (sk->sk_state == IUCV_CLOSING) {
 		if (skb_queue_empty(&iucv_sk(sk)->send_skb_q)) {
@@ -1190,7 +1196,7 @@ static int __init afiucv_init(void)
 	}
 	cpcmd("QUERY USERID", iucv_userid, sizeof(iucv_userid), &err);
 	if (unlikely(err)) {
-		printk(KERN_ERR "AF_IUCV needs the VM userid\n");
+		WARN_ON(err);
 		err = -EPROTONOSUPPORT;
 		goto out;
 	}
@@ -1204,7 +1210,6 @@ static int __init afiucv_init(void)
 	err = sock_register(&iucv_sock_family_ops);
 	if (err)
 		goto out_proto;
-	printk(KERN_INFO "AF_IUCV lowlevel driver initialized\n");
 	return 0;
 
 out_proto:
@@ -1220,8 +1225,6 @@ static void __exit afiucv_exit(void)
 	sock_unregister(PF_IUCV);
 	proto_unregister(&iucv_proto);
 	iucv_unregister(&af_iucv_handler, 0);
-
-	printk(KERN_INFO "AF_IUCV lowlevel driver unloaded\n");
 }
 
 module_init(afiucv_init);

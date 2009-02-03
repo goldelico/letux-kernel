@@ -11,6 +11,7 @@
 
 #include <linux/sys.h>
 #include <linux/linkage.h>
+#include <linux/init.h>
 #include <asm/cache.h>
 #include <asm/lowcore.h>
 #include <asm/errno.h>
@@ -51,9 +52,9 @@ SP_SIZE      =	STACK_FRAME_OVERHEAD + __PT_SIZE
 STACK_SHIFT = PAGE_SHIFT + THREAD_ORDER
 STACK_SIZE  = 1 << STACK_SHIFT
 
-_TIF_WORK_SVC = (_TIF_SIGPENDING | _TIF_RESTORE_SIGMASK | _TIF_NEED_RESCHED | \
+_TIF_WORK_SVC = (_TIF_SIGPENDING | _TIF_NOTIFY_RESUME | _TIF_NEED_RESCHED | \
 		 _TIF_MCCK_PENDING | _TIF_RESTART_SVC | _TIF_SINGLE_STEP )
-_TIF_WORK_INT = (_TIF_SIGPENDING | _TIF_RESTORE_SIGMASK | _TIF_NEED_RESCHED | \
+_TIF_WORK_INT = (_TIF_SIGPENDING | _TIF_NOTIFY_RESUME | _TIF_NEED_RESCHED | \
 		 _TIF_MCCK_PENDING)
 
 #define BASED(name) name-system_call(%r13)
@@ -270,8 +271,6 @@ sysc_noemu:
 	stg	%r2,SP_R2(%r15) # store return value (change R2 on stack)
 
 sysc_return:
-	tm	SP_PSW+1(%r15),0x01	# returning to user ?
-	jno	sysc_restore
 	tm	__TI_flags+7(%r9),_TIF_WORK_SVC
 	jnz	sysc_work	# there is work to do (signals etc.)
 sysc_restore:
@@ -303,12 +302,16 @@ sysc_work_loop:
 # One of the work bits is on. Find out which one.
 #
 sysc_work:
+	tm	SP_PSW+1(%r15),0x01	# returning to user ?
+	jno	sysc_restore
 	tm	__TI_flags+7(%r9),_TIF_MCCK_PENDING
 	jo	sysc_mcck_pending
 	tm	__TI_flags+7(%r9),_TIF_NEED_RESCHED
 	jo	sysc_reschedule
-	tm	__TI_flags+7(%r9),(_TIF_SIGPENDING | _TIF_RESTORE_SIGMASK)
+	tm	__TI_flags+7(%r9),_TIF_SIGPENDING
 	jnz	sysc_sigpending
+	tm	__TI_flags+7(%r9),_TIF_NOTIFY_RESUME
+	jnz	sysc_notify_resume
 	tm	__TI_flags+7(%r9),_TIF_RESTART_SVC
 	jo	sysc_restart
 	tm	__TI_flags+7(%r9),_TIF_SINGLE_STEP
@@ -331,7 +334,7 @@ sysc_mcck_pending:
 	jg	s390_handle_mcck	# TIF bit will be cleared by handler
 
 #
-# _TIF_SIGPENDING or _TIF_RESTORE_SIGMASK is set, call do_signal
+# _TIF_SIGPENDING is set, call do_signal
 #
 sysc_sigpending:
 	ni	__TI_flags+7(%r9),255-_TIF_SINGLE_STEP # clear TIF_SINGLE_STEP
@@ -342,6 +345,14 @@ sysc_sigpending:
 	tm	__TI_flags+7(%r9),_TIF_SINGLE_STEP
 	jo	sysc_singlestep
 	j	sysc_work_loop
+
+#
+# _TIF_NOTIFY_RESUME is set, call do_notify_resume
+#
+sysc_notify_resume:
+	la	%r2,SP_PTREGS(%r15)	# load pt_regs
+	larl	%r14,sysc_work_loop
+	jg	do_notify_resume	# call do_notify_resume
 
 #
 # _TIF_RESTART_SVC is set, set up registers and restart svc
@@ -366,20 +377,19 @@ sysc_singlestep:
 	jg	do_single_step		# branch to do_sigtrap
 
 #
-# call syscall_trace before and after system call
-# special linkage: %r12 contains the return address for trace_svc
+# call tracehook_report_syscall_entry/tracehook_report_syscall_exit before
+# and after the system call
 #
 sysc_tracesys:
 	la	%r2,SP_PTREGS(%r15)	# load pt_regs
 	la	%r3,0
 	srl	%r7,2
 	stg	%r7,SP_R2(%r15)
-	brasl	%r14,syscall_trace
+	brasl	%r14,do_syscall_trace_enter
 	lghi	%r0,NR_syscalls
-	clg	%r0,SP_R2(%r15)
+	clgr	%r0,%r2
 	jnh	sysc_tracenogo
-	lg	%r7,SP_R2(%r15)		# strace might have changed the
-	sll	%r7,2			# system call
+	slag	%r7,%r2,2		# *4
 	lgf	%r8,0(%r7,%r10)
 sysc_tracego:
 	lmg	%r3,%r6,SP_R3(%r15)
@@ -390,9 +400,8 @@ sysc_tracenogo:
 	tm	__TI_flags+7(%r9),(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT)
 	jz	sysc_return
 	la	%r2,SP_PTREGS(%r15)	# load pt_regs
-	la	%r3,1
 	larl	%r14,sysc_return	# return point is sysc_return
-	jg	syscall_trace
+	jg	do_syscall_trace_exit
 
 #
 # a new process exits the kernel with ret_from_fork
@@ -474,6 +483,7 @@ pgm_check_handler:
 pgm_no_vtime:
 #endif
 	lg	%r9,__LC_THREAD_INFO	# load pointer to thread_info struct
+	mvc	SP_ARGS(8,%r15),__LC_LAST_BREAK
 	TRACE_IRQS_OFF
 	lgf	%r3,__LC_PGM_ILC	# load program interruption code
 	lghi	%r8,0x7f
@@ -583,12 +593,6 @@ io_no_vtime:
 	la	%r2,SP_PTREGS(%r15)	# address of register-save area
 	brasl	%r14,do_IRQ		# call standard irq handler
 io_return:
-	tm	SP_PSW+1(%r15),0x01	# returning to user ?
-#ifdef CONFIG_PREEMPT
-	jno	io_preempt		# no -> check for preemptive scheduling
-#else
-	jno	io_restore		# no-> skip resched & signal
-#endif
 	tm	__TI_flags+7(%r9),_TIF_WORK_INT
 	jnz	io_work 		# there is work to do (signals etc.)
 io_restore:
@@ -610,10 +614,41 @@ io_restore_trace_psw:
 	.quad	0, io_restore_trace
 #endif
 
-#ifdef CONFIG_PREEMPT
-io_preempt:
+#
+# There is work todo, we need to check if we return to userspace, then
+# check, if we are in SIE, if yes leave it
+#
+io_work:
+	tm	SP_PSW+1(%r15),0x01	# returning to user ?
+#ifndef CONFIG_PREEMPT
+#if defined(CONFIG_KVM) || defined(CONFIG_KVM_MODULE)
+	jnz	io_work_user		# yes -> no need to check for SIE
+	la	%r1, BASED(sie_opcode)	# we return to kernel here
+	lg	%r2, SP_PSW+8(%r15)
+	clc	0(2,%r1), 0(%r2)	# is current instruction = SIE?
+	jne	io_restore		# no-> return to kernel
+	lg	%r1, SP_PSW+8(%r15)	# yes-> add 4 bytes to leave SIE
+	aghi	%r1, 4
+	stg	%r1, SP_PSW+8(%r15)
+	j	io_restore		# return to kernel
+#else
+	jno	io_restore		# no-> skip resched & signal
+#endif
+#else
+	jnz	io_work_user		# yes -> do resched & signal
+#if defined(CONFIG_KVM) || defined(CONFIG_KVM_MODULE)
+	la	%r1, BASED(sie_opcode)
+	lg	%r2, SP_PSW+8(%r15)
+	clc	0(2,%r1), 0(%r2)	# is current instruction = SIE?
+	jne	0f			# no -> leave PSW alone
+	lg	%r1, SP_PSW+8(%r15)	# yes-> add 4 bytes to leave SIE
+	aghi	%r1, 4
+	stg	%r1, SP_PSW+8(%r15)
+0:
+#endif
+	# check for preemptive scheduling
 	icm	%r0,15,__TI_precount(%r9)
-	jnz	io_restore
+	jnz	io_restore		# preemption is disabled
 	# switch to kernel stack
 	lg	%r1,SP_R15(%r15)
 	aghi	%r1,-SP_SIZE
@@ -627,10 +662,7 @@ io_resume_loop:
 	jg	preempt_schedule_irq
 #endif
 
-#
-# switch to kernel stack, then check TIF bits
-#
-io_work:
+io_work_user:
 	lg	%r1,__LC_KERNEL_STACK
 	aghi	%r1,-SP_SIZE
 	mvc	SP_PTREGS(__PT_SIZE,%r1),SP_PTREGS(%r15)
@@ -646,10 +678,17 @@ io_work_loop:
 	jo	io_mcck_pending
 	tm	__TI_flags+7(%r9),_TIF_NEED_RESCHED
 	jo	io_reschedule
-	tm	__TI_flags+7(%r9),(_TIF_SIGPENDING | _TIF_RESTORE_SIGMASK)
+	tm	__TI_flags+7(%r9),_TIF_SIGPENDING
 	jnz	io_sigpending
+	tm	__TI_flags+7(%r9),_TIF_NOTIFY_RESUME
+	jnz	io_notify_resume
 	j	io_restore
 io_work_done:
+
+#if defined(CONFIG_KVM) || defined(CONFIG_KVM_MODULE)
+sie_opcode:
+	.long 0xb2140000
+#endif
 
 #
 # _TIF_MCCK_PENDING is set, call handler
@@ -672,13 +711,25 @@ io_reschedule:
 	j	io_work_loop
 
 #
-# _TIF_SIGPENDING or _TIF_RESTORE_SIGMASK is set, call do_signal
+# _TIF_SIGPENDING or is set, call do_signal
 #
 io_sigpending:
 	TRACE_IRQS_ON
 	stosm	__SF_EMPTY(%r15),0x03	# reenable interrupts
 	la	%r2,SP_PTREGS(%r15)	# load pt_regs
 	brasl	%r14,do_signal		# call do_signal
+	stnsm	__SF_EMPTY(%r15),0xfc	# disable I/O and ext. interrupts
+	TRACE_IRQS_OFF
+	j	io_work_loop
+
+#
+# _TIF_NOTIFY_RESUME or is set, call do_notify_resume
+#
+io_notify_resume:
+	TRACE_IRQS_ON
+	stosm	__SF_EMPTY(%r15),0x03	# reenable interrupts
+	la	%r2,SP_PTREGS(%r15)	# load pt_regs
+	brasl	%r14,do_notify_resume	# call do_notify_resume
 	stnsm	__SF_EMPTY(%r15),0xfc	# disable I/O and ext. interrupts
 	TRACE_IRQS_OFF
 	j	io_work_loop
@@ -801,9 +852,7 @@ mcck_return:
  * Restart interruption handler, kick starter for additional CPUs
  */
 #ifdef CONFIG_SMP
-#ifndef CONFIG_HOTPLUG_CPU
-	.section .init.text,"ax"
-#endif
+	__CPUINIT
 	.globl restart_int_handler
 restart_int_handler:
 	lg	%r15,__LC_SAVE_AREA+120 # load ksp
@@ -814,9 +863,7 @@ restart_int_handler:
 	lmg	%r6,%r15,__SF_GPRS(%r15) # load registers from clone
 	stosm	__SF_EMPTY(%r15),0x04	# now we can turn dat on
 	jg	start_secondary
-#ifndef CONFIG_HOTPLUG_CPU
 	.previous
-#endif
 #else
 /*
  * If we do not run with SMP enabled, let the new CPU crash ...
@@ -850,6 +897,7 @@ stack_overflow:
 	je	0f
 	la	%r1,__LC_SAVE_AREA+32
 0:	mvc	SP_R12(32,%r15),0(%r1)	# move %r12-%r15 to stack
+	mvc	SP_ARGS(8,%r15),__LC_LAST_BREAK
 	xc	__SF_BACKCHAIN(8,%r15),__SF_BACKCHAIN(%r15) # clear back chain
 	la	%r2,SP_PTREGS(%r15)	# load pt_regs
 	jg	kernel_stack_overflow

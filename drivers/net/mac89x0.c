@@ -183,6 +183,9 @@ struct net_device * __init mac89x0_probe(int unit)
 	int err = -ENODEV;
 	DECLARE_MAC_BUF(mac);
 
+	if (!MACH_IS_MAC)
+		return ERR_PTR(-ENODEV);
+
 	dev = alloc_etherdev(sizeof(struct net_local));
 	if (!dev)
 		return ERR_PTR(-ENOMEM);
@@ -289,7 +292,7 @@ struct net_device * __init mac89x0_probe(int unit)
 	err = register_netdev(dev);
 	if (err)
 		goto out1;
-	return 0;
+	return NULL;
 out1:
 	nubus_writew(0, dev->base_addr + ADD_PORT);
 out:

@@ -5,18 +5,36 @@
 #include <linux/module.h>
 #include <linux/dma-mapping.h>
 
-#include <asm/gart.h>
+#include <asm/iommu.h>
 #include <asm/swiotlb.h>
 #include <asm/dma.h>
 
 int swiotlb __read_mostly;
-EXPORT_SYMBOL(swiotlb);
 
-const struct dma_mapping_ops swiotlb_dma_ops = {
+static dma_addr_t
+swiotlb_map_single_phys(struct device *hwdev, phys_addr_t paddr, size_t size,
+			int direction)
+{
+	return swiotlb_map_single(hwdev, phys_to_virt(paddr), size, direction);
+}
+
+static void *x86_swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+					dma_addr_t *dma_handle, gfp_t flags)
+{
+	void *vaddr;
+
+	vaddr = dma_generic_alloc_coherent(hwdev, size, dma_handle, flags);
+	if (vaddr)
+		return vaddr;
+
+	return swiotlb_alloc_coherent(hwdev, size, dma_handle, flags);
+}
+
+struct dma_mapping_ops swiotlb_dma_ops = {
 	.mapping_error = swiotlb_dma_mapping_error,
-	.alloc_coherent = swiotlb_alloc_coherent,
+	.alloc_coherent = x86_swiotlb_alloc_coherent,
 	.free_coherent = swiotlb_free_coherent,
-	.map_single = swiotlb_map_single,
+	.map_single = swiotlb_map_single_phys,
 	.unmap_single = swiotlb_unmap_single,
 	.sync_single_for_cpu = swiotlb_sync_single_for_cpu,
 	.sync_single_for_device = swiotlb_sync_single_for_device,
@@ -32,7 +50,7 @@ const struct dma_mapping_ops swiotlb_dma_ops = {
 void __init pci_swiotlb_init(void)
 {
 	/* don't initialize swiotlb if iommu=off (no_iommu=1) */
-	if (!iommu_detected && !no_iommu && end_pfn > MAX_DMA32_PFN)
+	if (!iommu_detected && !no_iommu && max_pfn > MAX_DMA32_PFN)
 	       swiotlb = 1;
 	if (swiotlb_force)
 		swiotlb = 1;

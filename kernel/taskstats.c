@@ -35,7 +35,7 @@
  */
 #define TASKSTATS_CPUMASK_MAXLEN	(100+6*NR_CPUS)
 
-static DEFINE_PER_CPU(__u32, taskstats_seqnum) = { 0 };
+static DEFINE_PER_CPU(__u32, taskstats_seqnum);
 static int family_registered;
 struct kmem_cache *taskstats_cache;
 
@@ -183,7 +183,7 @@ static int fill_pid(pid_t pid, struct task_struct *tsk,
 
 	if (!tsk) {
 		rcu_read_lock();
-		tsk = find_task_by_pid(pid);
+		tsk = find_task_by_vpid(pid);
 		if (tsk)
 			get_task_struct(tsk);
 		rcu_read_unlock();
@@ -230,7 +230,7 @@ static int fill_tgid(pid_t tgid, struct task_struct *first,
 	 */
 	rcu_read_lock();
 	if (!first)
-		first = find_task_by_pid(tgid);
+		first = find_task_by_vpid(tgid);
 
 	if (!first || !lock_task_sighand(first, &flags))
 		goto out;
@@ -301,7 +301,7 @@ static int add_del_listener(pid_t pid, cpumask_t *maskp, int isadd)
 		return -EINVAL;
 
 	if (isadd == REGISTER) {
-		for_each_cpu_mask(cpu, mask) {
+		for_each_cpu_mask_nr(cpu, mask) {
 			s = kmalloc_node(sizeof(struct listener), GFP_KERNEL,
 					 cpu_to_node(cpu));
 			if (!s)
@@ -320,7 +320,7 @@ static int add_del_listener(pid_t pid, cpumask_t *maskp, int isadd)
 
 	/* Deregister or cleanup */
 cleanup:
-	for_each_cpu_mask(cpu, mask) {
+	for_each_cpu_mask_nr(cpu, mask) {
 		listeners = &per_cpu(listener_array, cpu);
 		down_write(&listeners->sem);
 		list_for_each_entry_safe(s, tmp, &listeners->list, list) {
@@ -547,7 +547,7 @@ void taskstats_exit(struct task_struct *tsk, int group_dead)
 	if (!stats)
 		goto err;
 
-	rc = fill_pid(tsk->pid, tsk, stats);
+	rc = fill_pid(-1, tsk, stats);
 	if (rc < 0)
 		goto err;
 

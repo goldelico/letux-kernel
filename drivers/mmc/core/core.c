@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2003-2004 Russell King, All Rights Reserved.
  *  SD support Copyright (C) 2004 Ian Molton, All Rights Reserved.
- *  Copyright (C) 2005-2007 Pierre Ossman, All Rights Reserved.
+ *  Copyright (C) 2005-2008 Pierre Ossman, All Rights Reserved.
  *  MMCv4 support Copyright (C) 2006 Philip Langdale, All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -35,10 +35,6 @@
 #include "sd_ops.h"
 #include "sdio_ops.h"
 
-extern int mmc_attach_mmc(struct mmc_host *host, u32 ocr);
-extern int mmc_attach_sd(struct mmc_host *host, u32 ocr);
-extern int mmc_attach_sdio(struct mmc_host *host, u32 ocr);
-
 static struct workqueue_struct *workqueue;
 
 /*
@@ -61,10 +57,11 @@ static int mmc_schedule_delayed_work(struct delayed_work *work,
 /*
  * Internal function. Flush all scheduled work from the MMC work queue.
  */
-static void mmc_flush_scheduled_work(void)
+void mmc_flush_scheduled_work(void)
 {
 	flush_workqueue(workqueue);
 }
+EXPORT_SYMBOL_GPL(mmc_flush_scheduled_work);
 
 /**
  *	mmc_request_done - finish processing an MMC request
@@ -125,6 +122,7 @@ mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 {
 #ifdef CONFIG_MMC_DEBUG
 	unsigned int i, sz;
+	struct scatterlist *sg;
 #endif
 
 	pr_debug("%s: starting CMD%u arg %08x flags %08x\n",
@@ -160,8 +158,8 @@ mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 
 #ifdef CONFIG_MMC_DEBUG
 		sz = 0;
-		for (i = 0;i < mrq->data->sg_len;i++)
-			sz += mrq->data->sg[i].length;
+		for_each_sg(mrq->data->sg, sg, mrq->data->sg_len, i)
+			sz += sg->length;
 		BUG_ON(sz != mrq->data->blocks * mrq->data->blksz);
 #endif
 
@@ -283,7 +281,11 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 			(card->host->ios.clock / 1000);
 
 		if (data->flags & MMC_DATA_WRITE)
-			limit_us = 250000;
+			/*
+			 * The limit is really 250 ms, but that is
+			 * insufficient for some crappy cards.
+			 */
+			limit_us = 300000;
 		else
 			limit_us = 100000;
 
@@ -297,6 +299,33 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 	}
 }
 EXPORT_SYMBOL(mmc_set_data_timeout);
+
+/**
+ *	mmc_align_data_size - pads a transfer size to a more optimal value
+ *	@card: the MMC card associated with the data transfer
+ *	@sz: original transfer size
+ *
+ *	Pads the original data size with a number of extra bytes in
+ *	order to avoid controller bugs and/or performance hits
+ *	(e.g. some controllers revert to PIO for certain sizes).
+ *
+ *	Returns the improved size, which might be unmodified.
+ *
+ *	Note that this function is only relevant when issuing a
+ *	single scatter gather entry.
+ */
+unsigned int mmc_align_data_size(struct mmc_card *card, unsigned int sz)
+{
+	/*
+	 * FIXME: We don't have a system for the controller to tell
+	 * the core about its problems yet, so for now we just 32-bit
+	 * align the size.
+	 */
+	sz = ((sz + 3) / 4) * 4;
+
+	return sz;
+}
+EXPORT_SYMBOL(mmc_align_data_size);
 
 /**
  *	__mmc_claim_host - exclusively claim a host
@@ -467,7 +496,13 @@ void mmc_set_timing(struct mmc_host *host, unsigned int timing)
  */
 static void mmc_power_up(struct mmc_host *host)
 {
-	int bit = fls(host->ocr_avail) - 1;
+	int bit;
+
+	/* If ocr is set, we use it */
+	if (host->ocr)
+		bit = ffs(host->ocr) - 1;
+	else
+		bit = fls(host->ocr_avail) - 1;
 
 	host->ios.vdd = bit;
 	if (mmc_host_is_spi(host)) {
@@ -516,7 +551,7 @@ static void mmc_power_off(struct mmc_host *host)
 /*
  * Cleanup when the last reference to the bus operator is dropped.
  */
-void __mmc_release_bus(struct mmc_host *host)
+static void __mmc_release_bus(struct mmc_host *host)
 {
 	BUG_ON(!host);
 	BUG_ON(host->bus_refs);
@@ -642,6 +677,9 @@ void mmc_rescan(struct work_struct *work)
 		 */
 		mmc_bus_put(host);
 
+		if (host->ops->get_cd && host->ops->get_cd(host) == 0)
+			goto out;
+
 		mmc_claim_host(host);
 
 		mmc_power_up(host);
@@ -656,7 +694,7 @@ void mmc_rescan(struct work_struct *work)
 		if (!err) {
 			if (mmc_attach_sdio(host, ocr))
 				mmc_power_off(host);
-			return;
+			goto out;
 		}
 
 		/*
@@ -666,7 +704,7 @@ void mmc_rescan(struct work_struct *work)
 		if (!err) {
 			if (mmc_attach_sd(host, ocr))
 				mmc_power_off(host);
-			return;
+			goto out;
 		}
 
 		/*
@@ -676,7 +714,7 @@ void mmc_rescan(struct work_struct *work)
 		if (!err) {
 			if (mmc_attach_mmc(host, ocr))
 				mmc_power_off(host);
-			return;
+			goto out;
 		}
 
 		mmc_release_host(host);
@@ -687,6 +725,9 @@ void mmc_rescan(struct work_struct *work)
 
 		mmc_bus_put(host);
 	}
+out:
+	if (host->caps & MMC_CAP_NEEDS_POLL)
+		mmc_schedule_delayed_work(&host->detect, HZ);
 }
 
 void mmc_start_host(struct mmc_host *host)

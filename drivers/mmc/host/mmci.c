@@ -213,9 +213,10 @@ static int mmci_pio_read(struct mmci_host *host, char *buffer, unsigned int rema
 	void __iomem *base = host->base;
 	char *ptr = buffer;
 	u32 status;
+	int host_remain = host->size;
 
 	do {
-		int count = host->size - (readl(base + MMCIFIFOCNT) << 2);
+		int count = host_remain - (readl(base + MMCIFIFOCNT) << 2);
 
 		if (count > remain)
 			count = remain;
@@ -227,6 +228,7 @@ static int mmci_pio_read(struct mmci_host *host, char *buffer, unsigned int rema
 
 		ptr += count;
 		remain -= count;
+		host_remain -= count;
 
 		if (remain == 0)
 			break;
@@ -389,6 +391,7 @@ static irqreturn_t mmci_irq(int irq, void *dev_id)
 static void mmci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct mmci_host *host = mmc_priv(mmc);
+	unsigned long flags;
 
 	WARN_ON(host->mrq != NULL);
 
@@ -400,7 +403,7 @@ static void mmci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		return;
 	}
 
-	spin_lock_irq(&host->lock);
+	spin_lock_irqsave(&host->lock, flags);
 
 	host->mrq = mrq;
 
@@ -409,7 +412,7 @@ static void mmci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	mmci_start_command(host, mrq->cmd, 0);
 
-	spin_unlock_irq(&host->lock);
+	spin_unlock_irqrestore(&host->lock, flags);
 }
 
 static void mmci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
@@ -423,7 +426,7 @@ static void mmci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			host->cclk = host->mclk;
 		} else {
 			clk = host->mclk / (2 * ios->clock) - 1;
-			if (clk > 256)
+			if (clk >= 256)
 				clk = 255;
 			host->cclk = host->mclk / (2 * (clk + 1));
 		}
@@ -510,6 +513,18 @@ static int mmci_probe(struct amba_device *dev, void *id)
 
 	host->plat = plat;
 	host->mclk = clk_get_rate(host->clk);
+	/*
+	 * According to the spec, mclk is max 100 MHz,
+	 * so we try to adjust the clock down to this,
+	 * (if possible).
+	 */
+	if (host->mclk > 100000000) {
+		ret = clk_set_rate(host->clk, 100000000);
+		if (ret < 0)
+			goto clk_disable;
+		host->mclk = clk_get_rate(host->clk);
+		DBG(host, "eventual mclk rate: %u Hz\n", host->mclk);
+	}
 	host->mmc = mmc;
 	host->base = ioremap(dev->res.start, SZ_4K);
 	if (!host->base) {
@@ -521,7 +536,6 @@ static int mmci_probe(struct amba_device *dev, void *id)
 	mmc->f_min = (host->mclk + 511) / 512;
 	mmc->f_max = min(host->mclk, fmax);
 	mmc->ocr_avail = plat->ocr_mask;
-	mmc->caps = MMC_CAP_MULTIWRITE;
 
 	/*
 	 * We can do SGIO

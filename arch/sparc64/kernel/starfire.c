@@ -1,4 +1,4 @@
-/* $Id: starfire.c,v 1.10 2001/04/14 21:13:45 davem Exp $
+/*
  * starfire.c: Starfire/E10000 support.
  *
  * Copyright (C) 1998 David S. Miller (davem@redhat.com)
@@ -26,11 +26,6 @@ void check_if_starfire(void)
 	int ssnode = prom_finddevice("/ssp-serial");
 	if (ssnode != 0 && ssnode != -1)
 		this_is_starfire = 1;
-}
-
-void starfire_cpu_setup(void)
-{
-	/* Currently, nothing to do.  */
 }
 
 int starfire_hard_smp_processor_id(void)

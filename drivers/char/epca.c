@@ -38,8 +38,8 @@
 #include <linux/slab.h>
 #include <linux/ioport.h>
 #include <linux/interrupt.h>
-#include <asm/uaccess.h>
-#include <asm/io.h>
+#include <linux/uaccess.h>
+#include <linux/io.h>
 #include <linux/spinlock.h>
 #include <linux/pci.h>
 #include "digiPCI.h"
@@ -73,7 +73,8 @@ static int invalid_lilo_config;
  */
 static DEFINE_SPINLOCK(epca_lock);
 
-/* MAXBOARDS is typically 12, but ISA and EISA cards are restricted to 7 below. */
+/* MAXBOARDS is typically 12, but ISA and EISA cards are restricted
+   to 7 below. */
 static struct board_info boards[MAXBOARDS];
 
 static struct tty_driver *pc_driver;
@@ -157,13 +158,12 @@ static void epca_error(int, char *);
 static void pc_close(struct tty_struct *, struct file *);
 static void shutdown(struct channel *);
 static void pc_hangup(struct tty_struct *);
-static void pc_put_char(struct tty_struct *, unsigned char);
 static int pc_write_room(struct tty_struct *);
 static int pc_chars_in_buffer(struct tty_struct *);
 static void pc_flush_buffer(struct tty_struct *);
 static void pc_flush_chars(struct tty_struct *);
 static int block_til_ready(struct tty_struct *, struct file *,
-                           struct channel *);
+			struct channel *);
 static int pc_open(struct tty_struct *, struct file *);
 static void post_fep_init(unsigned int crd);
 static void epcapoll(unsigned long);
@@ -175,18 +175,17 @@ static unsigned termios2digi_c(struct channel *ch, unsigned);
 static void epcaparam(struct tty_struct *, struct channel *);
 static void receive_data(struct channel *);
 static int pc_ioctl(struct tty_struct *, struct file *,
-                    unsigned int, unsigned long);
+			unsigned int, unsigned long);
 static int info_ioctl(struct tty_struct *, struct file *,
-                    unsigned int, unsigned long);
+			unsigned int, unsigned long);
 static void pc_set_termios(struct tty_struct *, struct ktermios *);
 static void do_softint(struct work_struct *work);
 static void pc_stop(struct tty_struct *);
 static void pc_start(struct tty_struct *);
-static void pc_throttle(struct tty_struct * tty);
+static void pc_throttle(struct tty_struct *tty);
 static void pc_unthrottle(struct tty_struct *tty);
-static void digi_send_break(struct channel *ch, int msec);
+static int pc_send_break(struct tty_struct *tty, int msec);
 static void setup_empty_event(struct tty_struct *tty, struct channel *ch);
-void epca_setup(char *, int *);
 
 static int pc_write(struct tty_struct *, const unsigned char *, int);
 static int pc_init(void);
@@ -243,7 +242,7 @@ static void assertmemoff(struct channel *ch)
 /* PCXEM windowing is the same as that used in the PCXR and CX series cards. */
 static void pcxem_memwinon(struct board_info *b, unsigned int win)
 {
-        outb_p(FEPWIN|win, b->port + 1);
+	outb_p(FEPWIN | win, b->port + 1);
 }
 
 static void pcxem_memwinoff(struct board_info *b, unsigned int win)
@@ -253,7 +252,7 @@ static void pcxem_memwinoff(struct board_info *b, unsigned int win)
 
 static void pcxem_globalwinon(struct channel *ch)
 {
-	outb_p( FEPWIN, (int)ch->board->port + 1);
+	outb_p(FEPWIN, (int)ch->board->port + 1);
 }
 
 static void pcxem_rxwinon(struct channel *ch)
@@ -394,7 +393,7 @@ static struct channel *verifyChannel(struct tty_struct *tty)
 	 */
 	if (tty) {
 		struct channel *ch = (struct channel *)tty->driver_data;
-		if ((ch >= &digi_channels[0]) && (ch < &digi_channels[nbdevs])) {
+		if (ch >= &digi_channels[0] && ch < &digi_channels[nbdevs]) {
 			if (ch->magic == EPCA_MAGIC)
 				return ch;
 		}
@@ -414,7 +413,7 @@ static void pc_sched_event(struct channel *ch, int event)
 
 static void epca_error(int line, char *msg)
 {
-	printk(KERN_ERR "epca_error (Digi): line = %d %s\n",line,msg);
+	printk(KERN_ERR "epca_error (Digi): line = %d %s\n", line, msg);
 }
 
 static void pc_close(struct tty_struct *tty, struct file *filp)
@@ -425,13 +424,14 @@ static void pc_close(struct tty_struct *tty, struct file *filp)
 	 * verifyChannel returns the channel from the tty struct if it is
 	 * valid. This serves as a sanity check.
 	 */
-	if ((ch = verifyChannel(tty)) != NULL) {
+	ch = verifyChannel(tty);
+	if (ch != NULL) {
 		spin_lock_irqsave(&epca_lock, flags);
 		if (tty_hung_up_p(filp)) {
 			spin_unlock_irqrestore(&epca_lock, flags);
 			return;
 		}
-		if (ch->count-- > 1)  {
+		if (ch->port.count-- > 1)  {
 			/* Begin channel is open more than once */
 			/*
 			 * Return without doing anything. Someone might still
@@ -440,27 +440,27 @@ static void pc_close(struct tty_struct *tty, struct file *filp)
 			spin_unlock_irqrestore(&epca_lock, flags);
 			return;
 		}
-
 		/* Port open only once go ahead with shutdown & reset */
-		BUG_ON(ch->count < 0);
+		BUG_ON(ch->port.count < 0);
 
 		/*
 		 * Let the rest of the driver know the channel is being closed.
 		 * This becomes important if an open is attempted before close
 		 * is finished.
 		 */
-		ch->asyncflags |= ASYNC_CLOSING;
+		ch->port.flags |= ASYNC_CLOSING;
 		tty->closing = 1;
 
 		spin_unlock_irqrestore(&epca_lock, flags);
 
-		if (ch->asyncflags & ASYNC_INITIALIZED)  {
-			/* Setup an event to indicate when the transmit buffer empties */
+		if (ch->port.flags & ASYNC_INITIALIZED)  {
+			/* Setup an event to indicate when the
+			   transmit buffer empties */
 			setup_empty_event(tty, ch);
-			tty_wait_until_sent(tty, 3000); /* 30 seconds timeout */
+			/* 30 seconds timeout */
+			tty_wait_until_sent(tty, 3000);
 		}
-		if (tty->driver->flush_buffer)
-			tty->driver->flush_buffer(tty);
+		pc_flush_buffer(tty);
 
 		tty_ldisc_flush(tty);
 		shutdown(ch);
@@ -468,17 +468,17 @@ static void pc_close(struct tty_struct *tty, struct file *filp)
 		spin_lock_irqsave(&epca_lock, flags);
 		tty->closing = 0;
 		ch->event = 0;
-		ch->tty = NULL;
+		ch->port.tty = NULL;
 		spin_unlock_irqrestore(&epca_lock, flags);
 
-		if (ch->blocked_open) {
+		if (ch->port.blocked_open) {
 			if (ch->close_delay)
 				msleep_interruptible(jiffies_to_msecs(ch->close_delay));
-			wake_up_interruptible(&ch->open_wait);
+			wake_up_interruptible(&ch->port.open_wait);
 		}
-		ch->asyncflags &= ~(ASYNC_NORMAL_ACTIVE | ASYNC_INITIALIZED |
-		                      ASYNC_CLOSING);
-		wake_up_interruptible(&ch->close_wait);
+		ch->port.flags &= ~(ASYNC_NORMAL_ACTIVE | ASYNC_INITIALIZED |
+					ASYNC_CLOSING);
+		wake_up_interruptible(&ch->port.close_wait);
 	}
 }
 
@@ -488,7 +488,7 @@ static void shutdown(struct channel *ch)
 	struct tty_struct *tty;
 	struct board_chan __iomem *bc;
 
-	if (!(ch->asyncflags & ASYNC_INITIALIZED))
+	if (!(ch->port.flags & ASYNC_INITIALIZED))
 		return;
 
 	spin_lock_irqsave(&epca_lock, flags);
@@ -503,7 +503,7 @@ static void shutdown(struct channel *ch)
 	 */
 	if (bc)
 		writeb(0, &bc->idata);
-	tty = ch->tty;
+	tty = ch->port.tty;
 
 	/* If we're a modem control device and HUPCL is on, drop RTS & DTR. */
 	if (tty->termios->c_cflag & HUPCL)  {
@@ -517,38 +517,37 @@ static void shutdown(struct channel *ch)
 	 * will have to reinitialized. Set a flag to indicate this.
 	 */
 	/* Prevent future Digi programmed interrupts from coming active */
-	ch->asyncflags &= ~ASYNC_INITIALIZED;
+	ch->port.flags &= ~ASYNC_INITIALIZED;
 	spin_unlock_irqrestore(&epca_lock, flags);
 }
 
 static void pc_hangup(struct tty_struct *tty)
 {
 	struct channel *ch;
-
 	/*
 	 * verifyChannel returns the channel from the tty struct if it is
 	 * valid. This serves as a sanity check.
 	 */
-	if ((ch = verifyChannel(tty)) != NULL) {
+	ch = verifyChannel(tty);
+	if (ch != NULL) {
 		unsigned long flags;
 
-		if (tty->driver->flush_buffer)
-			tty->driver->flush_buffer(tty);
+		pc_flush_buffer(tty);
 		tty_ldisc_flush(tty);
 		shutdown(ch);
 
 		spin_lock_irqsave(&epca_lock, flags);
-		ch->tty   = NULL;
+		ch->port.tty   = NULL;
 		ch->event = 0;
-		ch->count = 0;
-		ch->asyncflags &= ~(ASYNC_NORMAL_ACTIVE | ASYNC_INITIALIZED);
+		ch->port.count = 0;
+		ch->port.flags &= ~(ASYNC_NORMAL_ACTIVE | ASYNC_INITIALIZED);
 		spin_unlock_irqrestore(&epca_lock, flags);
-		wake_up_interruptible(&ch->open_wait);
+		wake_up_interruptible(&ch->port.open_wait);
 	}
 }
 
 static int pc_write(struct tty_struct *tty,
-                    const unsigned char *buf, int bytesAvailable)
+			const unsigned char *buf, int bytesAvailable)
 {
 	unsigned int head, tail;
 	int dataLen;
@@ -572,7 +571,8 @@ static int pc_write(struct tty_struct *tty,
 	 * verifyChannel returns the channel from the tty struct if it is
 	 * valid. This serves as a sanity check.
 	 */
-	if ((ch = verifyChannel(tty)) == NULL)
+	ch = verifyChannel(tty);
+	if (ch == NULL)
 		return 0;
 
 	/* Make a pointer to the channel data structure found on the board. */
@@ -645,26 +645,19 @@ static int pc_write(struct tty_struct *tty,
 	return amountCopied;
 }
 
-static void pc_put_char(struct tty_struct *tty, unsigned char c)
-{
-	pc_write(tty, &c, 1);
-}
-
 static int pc_write_room(struct tty_struct *tty)
 {
-	int remain;
+	int remain = 0;
 	struct channel *ch;
 	unsigned long flags;
 	unsigned int head, tail;
 	struct board_chan __iomem *bc;
-
-	remain = 0;
-
 	/*
 	 * verifyChannel returns the channel from the tty struct if it is
 	 * valid. This serves as a sanity check.
 	 */
-	if ((ch = verifyChannel(tty)) != NULL)  {
+	ch = verifyChannel(tty);
+	if (ch != NULL) {
 		spin_lock_irqsave(&epca_lock, flags);
 		globalwinon(ch);
 
@@ -676,8 +669,8 @@ static int pc_write_room(struct tty_struct *tty)
 			tail = readw(&bc->tout);
 		/* Wrap tail if necessary */
 		tail &= (ch->txbufsize - 1);
-
-		if ((remain = tail - head - 1) < 0 )
+		remain = tail - head - 1;
+		if (remain < 0)
 			remain += ch->txbufsize;
 
 		if (remain && (ch->statusflags & LOWWAIT) == 0) {
@@ -699,12 +692,12 @@ static int pc_chars_in_buffer(struct tty_struct *tty)
 	unsigned long flags;
 	struct channel *ch;
 	struct board_chan __iomem *bc;
-
 	/*
 	 * verifyChannel returns the channel from the tty struct if it is
 	 * valid. This serves as a sanity check.
 	 */
-	if ((ch = verifyChannel(tty)) == NULL)
+	ch = verifyChannel(tty);
+	if (ch == NULL)
 		return 0;
 
 	spin_lock_irqsave(&epca_lock, flags);
@@ -715,7 +708,8 @@ static int pc_chars_in_buffer(struct tty_struct *tty)
 	head = readw(&bc->tin);
 	ctail = readw(&ch->mailbox->cout);
 
-	if (tail == head && readw(&ch->mailbox->cin) == ctail && readb(&bc->tbusy) == 0)
+	if (tail == head && readw(&ch->mailbox->cin) == ctail &&
+						readb(&bc->tbusy) == 0)
 		chars = 0;
 	else  { /* Begin if some space on the card has been used */
 		head = readw(&bc->tin) & (ch->txbufsize - 1);
@@ -725,7 +719,8 @@ static int pc_chars_in_buffer(struct tty_struct *tty)
 		 * pc_write_room here we are finding the amount of bytes in the
 		 * buffer filled. Not the amount of bytes empty.
 		 */
-		if ((remain = tail - head - 1) < 0 )
+		remain = tail - head - 1;
+		if (remain < 0)
 			remain += ch->txbufsize;
 		chars = (int)(ch->txbufsize - remain);
 		/*
@@ -736,7 +731,7 @@ static int pc_chars_in_buffer(struct tty_struct *tty)
 		 * transmit buffer empties.
 		 */
 		if (!(ch->statusflags & EMPTYWAIT))
-			setup_empty_event(tty,ch);
+			setup_empty_event(tty, ch);
 	} /* End if some space on the card has been used */
 	memoff(ch);
 	spin_unlock_irqrestore(&epca_lock, flags);
@@ -754,7 +749,8 @@ static void pc_flush_buffer(struct tty_struct *tty)
 	 * verifyChannel returns the channel from the tty struct if it is
 	 * valid. This serves as a sanity check.
 	 */
-	if ((ch = verifyChannel(tty)) == NULL)
+	ch = verifyChannel(tty);
+	if (ch == NULL)
 		return;
 
 	spin_lock_irqsave(&epca_lock, flags);
@@ -775,28 +771,30 @@ static void pc_flush_chars(struct tty_struct *tty)
 	 * verifyChannel returns the channel from the tty struct if it is
 	 * valid. This serves as a sanity check.
 	 */
-	if ((ch = verifyChannel(tty)) != NULL) {
+	ch = verifyChannel(tty);
+	if (ch != NULL) {
 		unsigned long flags;
 		spin_lock_irqsave(&epca_lock, flags);
 		/*
 		 * If not already set and the transmitter is busy setup an
 		 * event to indicate when the transmit empties.
 		 */
-		if ((ch->statusflags & TXBUSY) && !(ch->statusflags & EMPTYWAIT))
-			setup_empty_event(tty,ch);
+		if ((ch->statusflags & TXBUSY) &&
+				!(ch->statusflags & EMPTYWAIT))
+			setup_empty_event(tty, ch);
 		spin_unlock_irqrestore(&epca_lock, flags);
 	}
 }
 
 static int block_til_ready(struct tty_struct *tty,
-                           struct file *filp, struct channel *ch)
+				struct file *filp, struct channel *ch)
 {
-	DECLARE_WAITQUEUE(wait,current);
+	DECLARE_WAITQUEUE(wait, current);
 	int retval, do_clocal = 0;
 	unsigned long flags;
 
 	if (tty_hung_up_p(filp)) {
-		if (ch->asyncflags & ASYNC_HUP_NOTIFY)
+		if (ch->port.flags & ASYNC_HUP_NOTIFY)
 			retval = -EAGAIN;
 		else
 			retval = -ERESTARTSYS;
@@ -807,10 +805,10 @@ static int block_til_ready(struct tty_struct *tty,
 	 * If the device is in the middle of being closed, then block until
 	 * it's done, and then try again.
 	 */
-	if (ch->asyncflags & ASYNC_CLOSING) {
-		interruptible_sleep_on(&ch->close_wait);
+	if (ch->port.flags & ASYNC_CLOSING) {
+		interruptible_sleep_on(&ch->port.close_wait);
 
-		if (ch->asyncflags & ASYNC_HUP_NOTIFY)
+		if (ch->port.flags & ASYNC_HUP_NOTIFY)
 			return -EAGAIN;
 		else
 			return -ERESTARTSYS;
@@ -821,7 +819,7 @@ static int block_til_ready(struct tty_struct *tty,
 		 * If non-blocking mode is set, then make the check up front
 		 * and then exit.
 		 */
-		ch->asyncflags |= ASYNC_NORMAL_ACTIVE;
+		ch->port.flags |= ASYNC_NORMAL_ACTIVE;
 		return 0;
 	}
 	if (tty->termios->c_cflag & CLOCAL)
@@ -829,25 +827,24 @@ static int block_til_ready(struct tty_struct *tty,
 	/* Block waiting for the carrier detect and the line to become free */
 
 	retval = 0;
-	add_wait_queue(&ch->open_wait, &wait);
+	add_wait_queue(&ch->port.open_wait, &wait);
 
 	spin_lock_irqsave(&epca_lock, flags);
 	/* We dec count so that pc_close will know when to free things */
 	if (!tty_hung_up_p(filp))
-		ch->count--;
-	ch->blocked_open++;
+		ch->port.count--;
+	ch->port.blocked_open++;
 	while (1) {
 		set_current_state(TASK_INTERRUPTIBLE);
 		if (tty_hung_up_p(filp) ||
-		    !(ch->asyncflags & ASYNC_INITIALIZED))
-		{
-			if (ch->asyncflags & ASYNC_HUP_NOTIFY)
+				!(ch->port.flags & ASYNC_INITIALIZED)) {
+			if (ch->port.flags & ASYNC_HUP_NOTIFY)
 				retval = -EAGAIN;
 			else
 				retval = -ERESTARTSYS;
 			break;
 		}
-		if (!(ch->asyncflags & ASYNC_CLOSING) &&
+		if (!(ch->port.flags & ASYNC_CLOSING) &&
 			  (do_clocal || (ch->imodem & ch->dcd)))
 			break;
 		if (signal_pending(current)) {
@@ -866,21 +863,21 @@ static int block_til_ready(struct tty_struct *tty,
 	}
 
 	__set_current_state(TASK_RUNNING);
-	remove_wait_queue(&ch->open_wait, &wait);
+	remove_wait_queue(&ch->port.open_wait, &wait);
 	if (!tty_hung_up_p(filp))
-		ch->count++;
-	ch->blocked_open--;
+		ch->port.count++;
+	ch->port.blocked_open--;
 
 	spin_unlock_irqrestore(&epca_lock, flags);
 
 	if (retval)
 		return retval;
 
-	ch->asyncflags |= ASYNC_NORMAL_ACTIVE;
+	ch->port.flags |= ASYNC_NORMAL_ACTIVE;
 	return 0;
 }
 
-static int pc_open(struct tty_struct *tty, struct file * filp)
+static int pc_open(struct tty_struct *tty, struct file *filp)
 {
 	struct channel *ch;
 	unsigned long flags;
@@ -923,7 +920,8 @@ static int pc_open(struct tty_struct *tty, struct file * filp)
 		return(-ENODEV);
 	}
 
-	if ((bc = ch->brdchan) == 0) {
+	bc = ch->brdchan;
+	if (bc == NULL) {
 		tty->driver_data = NULL;
 		return -ENODEV;
 	}
@@ -934,7 +932,7 @@ static int pc_open(struct tty_struct *tty, struct file * filp)
 	 * necessary because we do not wish to flush and shutdown the channel
 	 * until the last app holding the channel open, closes it.
 	 */
-	ch->count++;
+	ch->port.count++;
 	/*
 	 * Set a kernel structures pointer to our local channel structure. This
 	 * way we can get to it when passed only a tty struct.
@@ -958,14 +956,14 @@ static int pc_open(struct tty_struct *tty, struct file * filp)
 	writew(head, &bc->rout);
 
 	/* Set the channels associated tty structure */
-	ch->tty = tty;
+	ch->port.tty = tty;
 
 	/*
 	 * The below routine generally sets up parity, baud, flow control
 	 * issues, etc.... It effect both control flags and input flags.
 	 */
-	epcaparam(tty,ch);
-	ch->asyncflags |= ASYNC_INITIALIZED;
+	epcaparam(tty, ch);
+	ch->port.flags |= ASYNC_INITIALIZED;
 	memoff(ch);
 	spin_unlock_irqrestore(&epca_lock, flags);
 
@@ -977,7 +975,7 @@ static int pc_open(struct tty_struct *tty, struct file * filp)
 	 * waiting for the line...
 	 */
 	spin_lock_irqsave(&epca_lock, flags);
-	ch->tty = tty;
+	ch->port.tty = tty;
 	globalwinon(ch);
 	/* Enable Digi Data events */
 	writeb(1, &bc->idata);
@@ -1002,8 +1000,8 @@ static void __exit epca_module_exit(void)
 
 	del_timer_sync(&epca_timer);
 
-	if (tty_unregister_driver(pc_driver) || tty_unregister_driver(pc_info))
-	{
+	if (tty_unregister_driver(pc_driver) ||
+				tty_unregister_driver(pc_info)) {
 		printk(KERN_WARNING "epca: cleanup_module failed to un-register tty driver\n");
 		return;
 	}
@@ -1018,8 +1016,8 @@ static void __exit epca_module_exit(void)
 		}
 		ch = card_ptr[crd];
 		for (count = 0; count < bd->numports; count++, ch++) {
-			if (ch && ch->tty)
-				tty_hangup(ch->tty);
+			if (ch && ch->port.tty)
+				tty_hangup(ch->port.tty);
 		}
 	}
 	pci_unregister_driver(&epca_driver);
@@ -1034,7 +1032,6 @@ static const struct tty_operations pc_ops = {
 	.flush_buffer = pc_flush_buffer,
 	.chars_in_buffer = pc_chars_in_buffer,
 	.flush_chars = pc_flush_chars,
-	.put_char = pc_put_char,
 	.ioctl = pc_ioctl,
 	.set_termios = pc_set_termios,
 	.stop = pc_stop,
@@ -1042,9 +1039,10 @@ static const struct tty_operations pc_ops = {
 	.throttle = pc_throttle,
 	.unthrottle = pc_unthrottle,
 	.hangup = pc_hangup,
+	.break_ctl = pc_send_break
 };
 
-static int info_open(struct tty_struct *tty, struct file * filp)
+static int info_open(struct tty_struct *tty, struct file *filp)
 {
 	return 0;
 }
@@ -1099,7 +1097,7 @@ static int __init pc_init(void)
 	 * Set up interrupt, we will worry about memory allocation in
 	 * post_fep_init.
 	 */
-	printk(KERN_INFO "DIGI epca driver version %s loaded.\n",VERSION);
+	printk(KERN_INFO "DIGI epca driver version %s loaded.\n", VERSION);
 
 	/*
 	 * NOTE : This code assumes that the number of ports found in the
@@ -1134,7 +1132,7 @@ static int __init pc_init(void)
 	pc_driver->init_termios.c_lflag = 0;
 	pc_driver->init_termios.c_ispeed = 9600;
 	pc_driver->init_termios.c_ospeed = 9600;
-	pc_driver->flags = TTY_DRIVER_REAL_RAW;
+	pc_driver->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_HARDWARE_BREAK;
 	tty_set_operations(pc_driver, &pc_ops);
 
 	pc_info->owner = THIS_MODULE;
@@ -1252,7 +1250,7 @@ static int __init pc_init(void)
 				if ((board_id & 0x30) == 0x30)
 					bd->memory_seg = 0x8000;
 			} else
-				printk(KERN_ERR "epca: Board at 0x%x doesn't appear to be an XI\n",(int)bd->port);
+				printk(KERN_ERR "epca: Board at 0x%x doesn't appear to be an XI\n", (int)bd->port);
 			break;
 		}
 	}
@@ -1326,12 +1324,12 @@ static void post_fep_init(unsigned int crd)
 		 */
 		/* PCI cards are already remapped at this point ISA are not */
 		bd->numports = readw(bd->re_map_membase + XEMPORTS);
-		epcaassert(bd->numports <= 64,"PCI returned a invalid number of ports");
+		epcaassert(bd->numports <= 64, "PCI returned a invalid number of ports");
 		nbdevs += (bd->numports);
 	} else {
 		/* Fix up the mappings for ISA/EISA etc */
 		/* FIXME: 64K - can we be smarter ? */
-		bd->re_map_membase = ioremap(bd->membase, 0x10000);
+		bd->re_map_membase = ioremap_nocache(bd->membase, 0x10000);
 	}
 
 	if (crd != 0)
@@ -1362,7 +1360,8 @@ static void post_fep_init(unsigned int crd)
 	 * XEPORTS (address 0xc22) points at the number of channels the card
 	 * supports. (For 64XE, XI, XEM, and XR use 0xc02)
 	 */
-	if ((bd->type == PCXEVE || bd->type == PCXE) && (readw(memaddr + XEPORTS) < 3))
+	if ((bd->type == PCXEVE || bd->type == PCXE) &&
+					(readw(memaddr + XEPORTS) < 3))
 		shrinkmem = 1;
 	if (bd->type < PCIXEM)
 		if (!request_region((int)bd->port, 4, board_desc[bd->type]))
@@ -1377,6 +1376,7 @@ static void post_fep_init(unsigned int crd)
 		unsigned long flags;
 		u16 tseg, rseg;
 
+		tty_port_init(&ch->port);
 		ch->brdchan = bc;
 		ch->mailbox = gd;
 		INIT_WORK(&ch->tqueue, do_softint);
@@ -1428,7 +1428,7 @@ static void post_fep_init(unsigned int crd)
 		ch->boardnum   = crd;
 		ch->channelnum = i;
 		ch->magic      = EPCA_MAGIC;
-		ch->tty        = NULL;
+		ch->port.tty        = NULL;
 
 		if (shrinkmem) {
 			fepcmd(ch, SETBUFFER, 32, 0, 0, 0);
@@ -1461,10 +1461,12 @@ static void post_fep_init(unsigned int crd)
 
 		case PCXEVE:
 		case PCXE:
-			ch->txptr = memaddr + (((tseg - bd->memory_seg) << 4) & 0x1fff);
+			ch->txptr = memaddr + (((tseg - bd->memory_seg) << 4)
+								& 0x1fff);
 			ch->txwin = FEPWIN | ((tseg - bd->memory_seg) >> 9);
-			ch->rxptr = memaddr + (((rseg - bd->memory_seg) << 4) & 0x1fff);
-			ch->rxwin = FEPWIN | ((rseg - bd->memory_seg) >>9 );
+			ch->rxptr = memaddr + (((rseg - bd->memory_seg) << 4)
+								& 0x1fff);
+			ch->rxwin = FEPWIN | ((rseg - bd->memory_seg) >> 9);
 			break;
 
 		case PCXI:
@@ -1509,17 +1511,14 @@ static void post_fep_init(unsigned int crd)
 		ch->fepstopca = 0;
 
 		ch->close_delay = 50;
-		ch->count = 0;
-		ch->blocked_open = 0;
-		init_waitqueue_head(&ch->open_wait);
-		init_waitqueue_head(&ch->close_wait);
 
 		spin_unlock_irqrestore(&epca_lock, flags);
 	}
 
 	printk(KERN_INFO
-	        "Digi PC/Xx Driver V%s:  %s I/O = 0x%lx Mem = 0x%lx Ports = %d\n",
-	        VERSION, board_desc[bd->type], (long)bd->port, (long)bd->membase, bd->numports);
+	"Digi PC/Xx Driver V%s:  %s I/O = 0x%lx Mem = 0x%lx Ports = %d\n",
+				VERSION, board_desc[bd->type], (long)bd->port,
+					(long)bd->membase, bd->numports);
 	memwinoff(bd, 0);
 }
 
@@ -1527,7 +1526,7 @@ static void epcapoll(unsigned long ignored)
 {
 	unsigned long flags;
 	int crd;
-	volatile unsigned int head, tail;
+	unsigned int head, tail;
 	struct channel *ch;
 	struct board_info *bd;
 
@@ -1593,7 +1592,9 @@ static void doevent(int crd)
 	chan0 = card_ptr[crd];
 	epcaassert(chan0 <= &digi_channels[nbdevs - 1], "ch out of range");
 	assertgwinon(chan0);
-	while ((tail = readw(&chan0->mailbox->eout)) != (head = readw(&chan0->mailbox->ein))) { /* Begin while something in event queue */
+	while ((tail = readw(&chan0->mailbox->eout)) !=
+			(head = readw(&chan0->mailbox->ein))) {
+		/* Begin while something in event queue */
 		assertgwinon(chan0);
 		eventbuf = bd->re_map_membase + tail + ISTART;
 		/* Get the channel the event occurred on */
@@ -1617,7 +1618,8 @@ static void doevent(int crd)
 			goto next;
 		}
 
-		if ((bc = ch->brdchan) == NULL)
+		bc = ch->brdchan;
+		if (bc == NULL)
 			goto next;
 
 		if (event & DATA_IND)  { /* Begin DATA_IND */
@@ -1628,14 +1630,15 @@ static void doevent(int crd)
 		if (event & MODEMCHG_IND) {
 			/* A modem signal change has been indicated */
 			ch->imodem = mstat;
-			if (ch->asyncflags & ASYNC_CHECK_CD) {
-				if (mstat & ch->dcd)  /* We are now receiving dcd */
-					wake_up_interruptible(&ch->open_wait);
-				else
-					pc_sched_event(ch, EPCA_EVENT_HANGUP); /* No dcd; hangup */
+			if (ch->port.flags & ASYNC_CHECK_CD) {
+				/* We are now receiving dcd */
+				if (mstat & ch->dcd)
+					wake_up_interruptible(&ch->port.open_wait);
+				else	/* No dcd; hangup */
+					pc_sched_event(ch, EPCA_EVENT_HANGUP);
 			}
 		}
-		tty = ch->tty;
+		tty = ch->port.tty;
 		if (tty) {
 			if (event & BREAK_IND) {
 				/* A break has been indicated */
@@ -1647,7 +1650,8 @@ static void doevent(int crd)
 					tty_wakeup(tty);
 				}
 			} else if (event & EMPTYTX_IND) {
-				/* This event is generated by setup_empty_event */
+				/* This event is generated by
+				   setup_empty_event */
 				ch->statusflags &= ~TXBUSY;
 				if (ch->statusflags & EMPTYWAIT) {
 					ch->statusflags &= ~EMPTYWAIT;
@@ -1655,7 +1659,7 @@ static void doevent(int crd)
 				}
 			}
 		}
-	next:
+next:
 		globalwinon(ch);
 		BUG_ON(!bc);
 		writew(1, &bc->idata);
@@ -1665,7 +1669,7 @@ static void doevent(int crd)
 }
 
 static void fepcmd(struct channel *ch, int cmd, int word_or_byte,
-                   int byte2, int ncmds, int bytecmd)
+					int byte2, int ncmds, int bytecmd)
 {
 	unchar __iomem *memaddr;
 	unsigned int head, cmdTail, cmdStart, cmdMax;
@@ -1690,8 +1694,10 @@ static void fepcmd(struct channel *ch, int cmd, int word_or_byte,
 	memaddr = ch->board->re_map_membase;
 
 	if (head >= (cmdMax - cmdStart) || (head & 03))  {
-		printk(KERN_ERR "line %d: Out of range, cmd = %x, head = %x\n", __LINE__,  cmd, head);
-		printk(KERN_ERR "line %d: Out of range, cmdMax = %x, cmdStart = %x\n", __LINE__,  cmdMax, cmdStart);
+		printk(KERN_ERR "line %d: Out of range, cmd = %x, head = %x\n",
+						__LINE__,  cmd, head);
+		printk(KERN_ERR "line %d: Out of range, cmdMax = %x, cmdStart = %x\n",
+						__LINE__,  cmdMax, cmdStart);
 		return;
 	}
 	if (bytecmd)  {
@@ -1770,7 +1776,7 @@ static unsigned termios2digi_h(struct channel *ch, unsigned cflag)
 static unsigned termios2digi_i(struct channel *ch, unsigned iflag)
 {
 	unsigned res = iflag & (IGNBRK | BRKINT | IGNPAR | PARMRK |
-	                        INPCK | ISTRIP|IXON|IXANY|IXOFF);
+					INPCK | ISTRIP | IXON | IXANY | IXOFF);
 	if (ch->digiext.digi_flags & DIGI_AIXON)
 		res |= IAIXON;
 	return res;
@@ -1797,7 +1803,7 @@ static unsigned termios2digi_c(struct channel *ch, unsigned cflag)
 	res |= cflag & ((CBAUD ^ CBAUDEX) | PARODD | PARENB | CSTOPB | CSIZE);
 	/*
 	 * This gets a little confusing. The Digi cards have their own
-	 * representation of c_cflags controling baud rate. For the most part
+	 * representation of c_cflags controlling baud rate. For the most part
 	 * this is identical to the Linux implementation. However; Digi
 	 * supports one rate (76800) that Linux doesn't. This means that the
 	 * c_cflag entry that would normally mean 76800 for Digi actually means
@@ -1838,7 +1844,7 @@ static void epcaparam(struct tty_struct *tty, struct channel *ch)
 	unsigned mval, hflow, cflag, iflag;
 
 	bc = ch->brdchan;
-	epcaassert(bc !=0, "bc out of range");
+	epcaassert(bc != NULL, "bc out of range");
 
 	assertgwinon(ch);
 	ts = tty->termios;
@@ -1871,9 +1877,9 @@ static void epcaparam(struct tty_struct *tty, struct channel *ch)
 		 * that the driver will wait on carrier detect.
 		 */
 		if (ts->c_cflag & CLOCAL)
-			ch->asyncflags &= ~ASYNC_CHECK_CD;
+			ch->port.flags &= ~ASYNC_CHECK_CD;
 		else
-			ch->asyncflags |= ASYNC_CHECK_CD;
+			ch->port.flags |= ASYNC_CHECK_CD;
 		mval = ch->m_dtr | ch->m_rts;
 	} /* End CBAUD not detected */
 	iflag = termios2digi_i(ch, ts->c_iflag);
@@ -1884,8 +1890,10 @@ static void epcaparam(struct tty_struct *tty, struct channel *ch)
 		 * Command sets channels iflag structure on the board. Such
 		 * things as input soft flow control, handling of parity
 		 * errors, and break handling are all set here.
+		 *
+		 * break handling, parity handling, input stripping,
+		 * flow control chars
 		 */
-		/* break handling, parity handling, input stripping, flow control chars */
 		fepcmd(ch, SETIFLAGS, (unsigned int) ch->fepiflag, 0, 0, 0);
 	}
 	/*
@@ -1961,7 +1969,7 @@ static void receive_data(struct channel *ch)
 	globalwinon(ch);
 	if (ch->statusflags & RXSTOPPED)
 		return;
-	tty = ch->tty;
+	tty = ch->port.tty;
 	if (tty)
 		ts = tty->termios;
 	bc = ch->brdchan;
@@ -1981,7 +1989,7 @@ static void receive_data(struct channel *ch)
 		return;
 
 	/* If CREAD bit is off or device not open, set TX tail to head */
-	if (!tty || !ts || !(ts->c_cflag & CREAD))  {
+	if (!tty || !ts || !(ts->c_cflag & CREAD)) {
 		writew(head, &bc->rout);
 		return;
 	}
@@ -1991,18 +1999,21 @@ static void receive_data(struct channel *ch)
 
 	if (readb(&bc->orun)) {
 		writeb(0, &bc->orun);
-		printk(KERN_WARNING "epca; overrun! DigiBoard device %s\n",tty->name);
+		printk(KERN_WARNING "epca; overrun! DigiBoard device %s\n",
+								tty->name);
 		tty_insert_flip_char(tty, 0, TTY_OVERRUN);
 	}
 	rxwinon(ch);
-	while (bytesAvailable > 0)  { /* Begin while there is data on the card */
+	while (bytesAvailable > 0) {
+		/* Begin while there is data on the card */
 		wrapgap = (head >= tail) ? head - tail : ch->rxbufsize - tail;
 		/*
 		 * Even if head has wrapped around only report the amount of
 		 * data to be equal to the size - tail. Remember memcpy can't
 		 * automaticly wrap around the receive buffer.
 		 */
-		dataToRead = (wrapgap < bytesAvailable) ? wrapgap : bytesAvailable;
+		dataToRead = (wrapgap < bytesAvailable) ? wrapgap
+							: bytesAvailable;
 		/* Make sure we don't overflow the buffer */
 		dataToRead = tty_prepare_flip_string(tty, &rptr, dataToRead);
 		if (dataToRead == 0)
@@ -2018,7 +2029,7 @@ static void receive_data(struct channel *ch)
 	globalwinon(ch);
 	writew(tail, &bc->rout);
 	/* Must be called with global data */
-	tty_schedule_flip(ch->tty);
+	tty_schedule_flip(ch->port.tty);
 }
 
 static int info_ioctl(struct tty_struct *tty, struct file *file,
@@ -2068,7 +2079,7 @@ static int info_ioctl(struct tty_struct *tty, struct file *file,
 		{
 			/*
 			 * This call is made by the apps to complete the
-			 * initilization of the board(s). This routine is
+			 * initialization of the board(s). This routine is
 			 * responsible for setting the card to its initial
 			 * state and setting the drivers control fields to the
 			 * sutianle settings for the card in question.
@@ -2153,17 +2164,16 @@ static int pc_tiocmset(struct tty_struct *tty, struct file *file,
 	 * The below routine generally sets up parity, baud, flow control
 	 * issues, etc.... It effect both control flags and input flags.
 	 */
-	epcaparam(tty,ch);
+	epcaparam(tty, ch);
 	memoff(ch);
 	spin_unlock_irqrestore(&epca_lock, flags);
 	return 0;
 }
 
-static int pc_ioctl(struct tty_struct *tty, struct file * file,
-		    unsigned int cmd, unsigned long arg)
+static int pc_ioctl(struct tty_struct *tty, struct file *file,
+					unsigned int cmd, unsigned long arg)
 {
 	digiflow_t dflow;
-	int retval;
 	unsigned long flags;
 	unsigned int mflag, mstat;
 	unsigned char startc, stopc;
@@ -2175,52 +2185,7 @@ static int pc_ioctl(struct tty_struct *tty, struct file * file,
 		bc = ch->brdchan;
 	else
 		return -EINVAL;
-
-	/*
-	 * For POSIX compliance we need to add more ioctls. See tty_ioctl.c in
-	 * /usr/src/linux/drivers/char for a good example. In particular think
-	 * about adding TCSETAF, TCSETAW, TCSETA, TCSETSF, TCSETSW, TCSETS.
-	 */
 	switch (cmd) {
-	case TCSBRK:	/* SVID version: non-zero arg --> no break */
-		retval = tty_check_change(tty);
-		if (retval)
-			return retval;
-		/* Setup an event to indicate when the transmit buffer empties */
-		spin_lock_irqsave(&epca_lock, flags);
-		setup_empty_event(tty,ch);
-		spin_unlock_irqrestore(&epca_lock, flags);
-		tty_wait_until_sent(tty, 0);
-		if (!arg)
-			digi_send_break(ch, HZ / 4);    /* 1/4 second */
-		return 0;
-	case TCSBRKP:	/* support for POSIX tcsendbreak() */
-		retval = tty_check_change(tty);
-		if (retval)
-			return retval;
-
-		/* Setup an event to indicate when the transmit buffer empties */
-		spin_lock_irqsave(&epca_lock, flags);
-		setup_empty_event(tty,ch);
-		spin_unlock_irqrestore(&epca_lock, flags);
-		tty_wait_until_sent(tty, 0);
-		digi_send_break(ch, arg ? arg*(HZ/10) : HZ/4);
-		return 0;
-	case TIOCGSOFTCAR:
-		if (put_user(C_CLOCAL(tty)?1:0, (unsigned long __user *)arg))
-			return -EFAULT;
-		return 0;
-	case TIOCSSOFTCAR:
-		{
-			unsigned int value;
-
-			if (get_user(value, (unsigned __user *)argp))
-				return -EFAULT;
-			tty->termios->c_cflag =
-				((tty->termios->c_cflag & ~CLOCAL) |
-				 (value ? CLOCAL : 0));
-			return 0;
-		}
 	case TIOCMODG:
 		mflag = pc_tiocmget(tty, file);
 		if (put_user(mflag, (unsigned long __user *)argp))
@@ -2253,17 +2218,20 @@ static int pc_ioctl(struct tty_struct *tty, struct file * file,
 		break;
 	case DIGI_SETAW:
 	case DIGI_SETAF:
+		lock_kernel();
 		if (cmd == DIGI_SETAW) {
-			/* Setup an event to indicate when the transmit buffer empties */
+			/* Setup an event to indicate when the transmit
+			   buffer empties */
 			spin_lock_irqsave(&epca_lock, flags);
-			setup_empty_event(tty,ch);
+			setup_empty_event(tty, ch);
 			spin_unlock_irqrestore(&epca_lock, flags);
 			tty_wait_until_sent(tty, 0);
 		} else {
 			/* ldisc lock already held in ioctl */
-			if (tty->ldisc.flush_buffer)
-				tty->ldisc.flush_buffer(tty);
+			if (tty->ldisc.ops->flush_buffer)
+				tty->ldisc.ops->flush_buffer(tty);
 		}
+		unlock_kernel();
 		/* Fall Thru */
 	case DIGI_SETA:
 		if (copy_from_user(&ch->digiext, argp, sizeof(digi_t)))
@@ -2285,7 +2253,7 @@ static int pc_ioctl(struct tty_struct *tty, struct file * file,
 		 * control issues, etc.... It effect both control flags and
 		 * input flags.
 		 */
-		epcaparam(tty,ch);
+		epcaparam(tty, ch);
 		memoff(ch);
 		spin_unlock_irqrestore(&epca_lock, flags);
 		break;
@@ -2321,18 +2289,21 @@ static int pc_ioctl(struct tty_struct *tty, struct file * file,
 		if (copy_from_user(&dflow, argp, sizeof(dflow)))
 			return -EFAULT;
 
-		if (dflow.startc != startc || dflow.stopc != stopc) { /* Begin  if setflow toggled */
+		if (dflow.startc != startc || dflow.stopc != stopc) {
+			/* Begin  if setflow toggled */
 			spin_lock_irqsave(&epca_lock, flags);
 			globalwinon(ch);
 
 			if (cmd == DIGI_SETFLOW) {
 				ch->fepstartc = ch->startc = dflow.startc;
 				ch->fepstopc = ch->stopc = dflow.stopc;
-				fepcmd(ch, SONOFFC, ch->fepstartc, ch->fepstopc, 0, 1);
+				fepcmd(ch, SONOFFC, ch->fepstartc,
+						ch->fepstopc, 0, 1);
 			} else {
 				ch->fepstartca = ch->startca = dflow.startc;
 				ch->fepstopca  = ch->stopca = dflow.stopc;
-				fepcmd(ch, SAUXONOFFC, ch->fepstartca, ch->fepstopca, 0, 1);
+				fepcmd(ch, SAUXONOFFC, ch->fepstartca,
+						ch->fepstopca, 0, 1);
 			}
 
 			if (ch->statusflags & TXSTOPPED)
@@ -2356,7 +2327,9 @@ static void pc_set_termios(struct tty_struct *tty, struct ktermios *old_termios)
 	 * verifyChannel returns the channel from the tty struct if it is
 	 * valid. This serves as a sanity check.
 	 */
-	if ((ch = verifyChannel(tty)) != NULL)  { /* Begin if channel valid */
+	ch = verifyChannel(tty);
+
+	if (ch != NULL)  { /* Begin if channel valid */
 		spin_lock_irqsave(&epca_lock, flags);
 		globalwinon(ch);
 		epcaparam(tty, ch);
@@ -2369,7 +2342,7 @@ static void pc_set_termios(struct tty_struct *tty, struct ktermios *old_termios)
 
 		if (!(old_termios->c_cflag & CLOCAL) &&
 			 (tty->termios->c_cflag & CLOCAL))
-			wake_up_interruptible(&ch->open_wait);
+			wake_up_interruptible(&ch->port.open_wait);
 
 	} /* End if channel valid */
 }
@@ -2379,13 +2352,13 @@ static void do_softint(struct work_struct *work)
 	struct channel *ch = container_of(work, struct channel, tqueue);
 	/* Called in response to a modem change event */
 	if (ch && ch->magic == EPCA_MAGIC) {
-		struct tty_struct *tty = ch->tty;
+		struct tty_struct *tty = ch->port.tty;
 
 		if (tty && tty->driver_data) {
 			if (test_and_clear_bit(EPCA_EVENT_HANGUP, &ch->event)) {
-				tty_hangup(tty);	/* FIXME: module removal race here - AKPM */
-				wake_up_interruptible(&ch->open_wait);
-				ch->asyncflags &= ~ASYNC_NORMAL_ACTIVE;
+				tty_hangup(tty);
+				wake_up_interruptible(&ch->port.open_wait);
+				ch->port.flags &= ~ASYNC_NORMAL_ACTIVE;
 			}
 		}
 	}
@@ -2403,9 +2376,11 @@ static void pc_stop(struct tty_struct *tty)
 	 * verifyChannel returns the channel from the tty struct if it is
 	 * valid. This serves as a sanity check.
 	 */
-	if ((ch = verifyChannel(tty)) != NULL) {
+	ch = verifyChannel(tty);
+	if (ch != NULL) {
 		spin_lock_irqsave(&epca_lock, flags);
-		if ((ch->statusflags & TXSTOPPED) == 0) { /* Begin if transmit stop requested */
+		if ((ch->statusflags & TXSTOPPED) == 0) {
+			/* Begin if transmit stop requested */
 			globalwinon(ch);
 			/* STOP transmitting now !! */
 			fepcmd(ch, PAUSETX, 0, 0, 0, 0);
@@ -2423,11 +2398,14 @@ static void pc_start(struct tty_struct *tty)
 	 * verifyChannel returns the channel from the tty struct if it is
 	 * valid. This serves as a sanity check.
 	 */
-	if ((ch = verifyChannel(tty)) != NULL) {
+	ch = verifyChannel(tty);
+	if (ch != NULL) {
 		unsigned long flags;
 		spin_lock_irqsave(&epca_lock, flags);
-		/* Just in case output was resumed because of a change in Digi-flow */
-		if (ch->statusflags & TXSTOPPED)  { /* Begin transmit resume requested */
+		/* Just in case output was resumed because of a change
+		   in Digi-flow */
+		if (ch->statusflags & TXSTOPPED)  {
+			/* Begin transmit resume requested */
 			struct board_chan __iomem *bc;
 			globalwinon(ch);
 			bc = ch->brdchan;
@@ -2457,7 +2435,8 @@ static void pc_throttle(struct tty_struct *tty)
 	 * verifyChannel returns the channel from the tty struct if it is
 	 * valid. This serves as a sanity check.
 	 */
-	if ((ch = verifyChannel(tty)) != NULL) {
+	ch = verifyChannel(tty);
+	if (ch != NULL) {
 		spin_lock_irqsave(&epca_lock, flags);
 		if ((ch->statusflags & RXSTOPPED) == 0) {
 			globalwinon(ch);
@@ -2477,8 +2456,10 @@ static void pc_unthrottle(struct tty_struct *tty)
 	 * verifyChannel returns the channel from the tty struct if it is
 	 * valid. This serves as a sanity check.
 	 */
-	if ((ch = verifyChannel(tty)) != NULL) {
-		/* Just in case output was resumed because of a change in Digi-flow */
+	ch = verifyChannel(tty);
+	if (ch != NULL) {
+		/* Just in case output was resumed because of a change
+		   in Digi-flow */
 		spin_lock_irqsave(&epca_lock, flags);
 		if (ch->statusflags & RXSTOPPED) {
 			globalwinon(ch);
@@ -2490,9 +2471,17 @@ static void pc_unthrottle(struct tty_struct *tty)
 	}
 }
 
-void digi_send_break(struct channel *ch, int msec)
+static int pc_send_break(struct tty_struct *tty, int msec)
 {
+	struct channel *ch = (struct channel *) tty->driver_data;
 	unsigned long flags;
+
+	if (msec == -1)
+		msec = 0xFFFF;
+	else if (msec > 0xFFFE)
+		msec = 0xFFFE;
+	else if (msec < 1)
+		msec = 1;
 
 	spin_lock_irqsave(&epca_lock, flags);
 	globalwinon(ch);
@@ -2506,6 +2495,7 @@ void digi_send_break(struct channel *ch, int msec)
 	fepcmd(ch, SENDBREAK, msec, 0, 10, 0);
 	memoff(ch);
 	spin_unlock_irqrestore(&epca_lock, flags);
+	return 0;
 }
 
 /* Caller MUST hold the lock */
@@ -2523,7 +2513,8 @@ static void setup_empty_event(struct tty_struct *tty, struct channel *ch)
 	memoff(ch);
 }
 
-void epca_setup(char *str, int *ints)
+#ifndef MODULE
+static void __init epca_setup(char *str, int *ints)
 {
 	struct board_info board;
 	int               index, loop, last;
@@ -2552,14 +2543,16 @@ void epca_setup(char *str, int *ints)
 			 * instructing the driver to ignore epcaconfig.) For
 			 * this reason we check for 2.
 			 */
-			if (board.status == 2) { /* Begin ignore epcaconfig as well as lilo cmd line */
+			if (board.status == 2) {
+			/* Begin ignore epcaconfig as well as lilo cmd line */
 				nbdevs = 0;
 				num_cards = 0;
 				return;
 			} /* End ignore epcaconfig as well as lilo cmd line */
 
 			if (board.status > 2) {
-				printk(KERN_ERR "epca_setup: Invalid board status 0x%x\n", board.status);
+				printk(KERN_ERR "epca_setup: Invalid board status 0x%x\n",
+						board.status);
 				invalid_lilo_config = 1;
 				setup_error_code |= INVALID_BOARD_STATUS;
 				return;
@@ -2613,7 +2606,8 @@ void epca_setup(char *str, int *ints)
 		case 6:
 			board.membase = ints[index];
 			if (ints[index] <= 0) {
-				printk(KERN_ERR "epca_setup: Invalid memory base 0x%x\n",(unsigned int)board.membase);
+				printk(KERN_ERR "epca_setup: Invalid memory base 0x%x\n",
+					(unsigned int)board.membase);
 				invalid_lilo_config = 1;
 				setup_error_code |= INVALID_MEM_BASE;
 				return;
@@ -2744,7 +2738,7 @@ void epca_setup(char *str, int *ints)
 				t2++;
 
 			if (*t2) {
-				printk(KERN_ERR "epca_setup: Invalid memory base %s\n",str);
+				printk(KERN_ERR "epca_setup: Invalid memory base %s\n", str);
 				invalid_lilo_config = 1;
 				setup_error_code |= INVALID_MEM_BASE;
 				return;
@@ -2766,13 +2760,24 @@ void epca_setup(char *str, int *ints)
 
 	/* I should REALLY validate the stuff here */
 	/* Copies our local copy of board into boards */
-	memcpy((void *)&boards[num_cards],(void *)&board, sizeof(board));
+	memcpy((void *)&boards[num_cards], (void *)&board, sizeof(board));
 	/* Does this get called once per lilo arg are what ? */
 	printk(KERN_INFO "PC/Xx: Added board %i, %s %i ports at 0x%4.4X base 0x%6.6X\n",
 		num_cards, board_desc[board.type],
 		board.numports, (int)board.port, (unsigned int) board.membase);
 	num_cards++;
 }
+
+static int __init epca_real_setup(char *str)
+{
+	int ints[11];
+
+	epca_setup(get_options(str, 11, ints), ints);
+	return 1;
+}
+
+__setup("digiepca", epca_real_setup);
+#endif
 
 enum epic_board_types {
 	brd_xr = 0,
@@ -2807,9 +2812,9 @@ static int __devinit epca_init_one(struct pci_dev *pdev,
 	if (board_idx >= MAXBOARDS)
 		goto err_out;
 
-	addr = pci_resource_start (pdev, epca_info_tbl[info_idx].bar_idx);
+	addr = pci_resource_start(pdev, epca_info_tbl[info_idx].bar_idx);
 	if (!addr) {
-		printk (KERN_ERR PFX "PCI region #%d not available (size 0)\n",
+		printk(KERN_ERR PFX "PCI region #%d not available (size 0)\n",
 			epca_info_tbl[info_idx].bar_idx);
 		goto err_out;
 	}
@@ -2820,28 +2825,29 @@ static int __devinit epca_init_one(struct pci_dev *pdev,
 	boards[board_idx].port = addr + PCI_IO_OFFSET;
 	boards[board_idx].membase = addr;
 
-	if (!request_mem_region (addr + PCI_IO_OFFSET, 0x200000, "epca")) {
-		printk (KERN_ERR PFX "resource 0x%x @ 0x%lx unavailable\n",
+	if (!request_mem_region(addr + PCI_IO_OFFSET, 0x200000, "epca")) {
+		printk(KERN_ERR PFX "resource 0x%x @ 0x%lx unavailable\n",
 			0x200000, addr + PCI_IO_OFFSET);
 		goto err_out;
 	}
 
-	boards[board_idx].re_map_port = ioremap(addr + PCI_IO_OFFSET, 0x200000);
+	boards[board_idx].re_map_port = ioremap_nocache(addr + PCI_IO_OFFSET,
+								0x200000);
 	if (!boards[board_idx].re_map_port) {
-		printk (KERN_ERR PFX "cannot map 0x%x @ 0x%lx\n",
+		printk(KERN_ERR PFX "cannot map 0x%x @ 0x%lx\n",
 			0x200000, addr + PCI_IO_OFFSET);
 		goto err_out_free_pciio;
 	}
 
-	if (!request_mem_region (addr, 0x200000, "epca")) {
-		printk (KERN_ERR PFX "resource 0x%x @ 0x%lx unavailable\n",
+	if (!request_mem_region(addr, 0x200000, "epca")) {
+		printk(KERN_ERR PFX "resource 0x%x @ 0x%lx unavailable\n",
 			0x200000, addr);
 		goto err_out_free_iounmap;
 	}
 
-	boards[board_idx].re_map_membase = ioremap(addr, 0x200000);
+	boards[board_idx].re_map_membase = ioremap_nocache(addr, 0x200000);
 	if (!boards[board_idx].re_map_membase) {
-		printk (KERN_ERR PFX "cannot map 0x%x @ 0x%lx\n",
+		printk(KERN_ERR PFX "cannot map 0x%x @ 0x%lx\n",
 			0x200000, addr + PCI_IO_OFFSET);
 		goto err_out_free_memregion;
 	}
@@ -2858,11 +2864,11 @@ static int __devinit epca_init_one(struct pci_dev *pdev,
 	return 0;
 
 err_out_free_memregion:
-	release_mem_region (addr, 0x200000);
+	release_mem_region(addr, 0x200000);
 err_out_free_iounmap:
-	iounmap (boards[board_idx].re_map_port);
+	iounmap(boards[board_idx].re_map_port);
 err_out_free_pciio:
-	release_mem_region (addr + PCI_IO_OFFSET, 0x200000);
+	release_mem_region(addr + PCI_IO_OFFSET, 0x200000);
 err_out:
 	return -ENODEV;
 }
@@ -2878,9 +2884,9 @@ static struct pci_device_id epca_pci_tbl[] = {
 
 MODULE_DEVICE_TABLE(pci, epca_pci_tbl);
 
-int __init init_PCI (void)
+static int __init init_PCI(void)
 {
-	memset (&epca_driver, 0, sizeof (epca_driver));
+	memset(&epca_driver, 0, sizeof(epca_driver));
 	epca_driver.name = "epca";
 	epca_driver.id_table = epca_pci_tbl;
 	epca_driver.probe = epca_init_one;

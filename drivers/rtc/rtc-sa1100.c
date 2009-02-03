@@ -31,12 +31,11 @@
 #include <linux/pm.h>
 #include <linux/bitops.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/irq.h>
-#include <asm/rtc.h>
 
 #ifdef CONFIG_ARCH_PXA
-#include <asm/arch/pxa-regs.h>
+#include <mach/pxa-regs.h>
 #endif
 
 #define TIMER_FREQ		CLOCK_TICK_RATE
@@ -46,6 +45,42 @@
 static unsigned long rtc_freq = 1024;
 static struct rtc_time rtc_alarm;
 static DEFINE_SPINLOCK(sa1100_rtc_lock);
+
+static inline int rtc_periodic_alarm(struct rtc_time *tm)
+{
+	return  (tm->tm_year == -1) ||
+		((unsigned)tm->tm_mon >= 12) ||
+		((unsigned)(tm->tm_mday - 1) >= 31) ||
+		((unsigned)tm->tm_hour > 23) ||
+		((unsigned)tm->tm_min > 59) ||
+		((unsigned)tm->tm_sec > 59);
+}
+
+/*
+ * Calculate the next alarm time given the requested alarm time mask
+ * and the current time.
+ */
+static void rtc_next_alarm_time(struct rtc_time *next, struct rtc_time *now, struct rtc_time *alrm)
+{
+	unsigned long next_time;
+	unsigned long now_time;
+
+	next->tm_year = now->tm_year;
+	next->tm_mon = now->tm_mon;
+	next->tm_mday = now->tm_mday;
+	next->tm_hour = alrm->tm_hour;
+	next->tm_min = alrm->tm_min;
+	next->tm_sec = alrm->tm_sec;
+
+	rtc_tm_to_time(now, &now_time);
+	rtc_tm_to_time(next, &next_time);
+
+	if (next_time < now_time) {
+		/* Advance one day */
+		next_time += 60 * 60 * 24;
+		rtc_time_to_tm(next_time, next);
+	}
+}
 
 static int rtc_update_alarm(struct rtc_time *alrm)
 {
@@ -331,6 +366,8 @@ static int sa1100_rtc_probe(struct platform_device *pdev)
 		RCNR = 0;
 	}
 
+	device_init_wakeup(&pdev->dev, 1);
+
 	rtc = rtc_device_register(pdev->name, &pdev->dev, &sa1100_rtc_ops,
 				THIS_MODULE);
 
@@ -352,9 +389,30 @@ static int sa1100_rtc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int sa1100_rtc_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	if (device_may_wakeup(&pdev->dev))
+		enable_irq_wake(IRQ_RTCAlrm);
+	return 0;
+}
+
+static int sa1100_rtc_resume(struct platform_device *pdev)
+{
+	if (device_may_wakeup(&pdev->dev))
+		disable_irq_wake(IRQ_RTCAlrm);
+	return 0;
+}
+#else
+#define sa1100_rtc_suspend	NULL
+#define sa1100_rtc_resume	NULL
+#endif
+
 static struct platform_driver sa1100_rtc_driver = {
 	.probe		= sa1100_rtc_probe,
 	.remove		= sa1100_rtc_remove,
+	.suspend	= sa1100_rtc_suspend,
+	.resume		= sa1100_rtc_resume,
 	.driver		= {
 		.name		= "sa1100-rtc",
 	},
@@ -376,3 +434,4 @@ module_exit(sa1100_rtc_exit);
 MODULE_AUTHOR("Richard Purdie <rpurdie@rpsys.net>");
 MODULE_DESCRIPTION("SA11x0/PXA2xx Realtime Clock Driver (RTC)");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:sa1100-rtc");

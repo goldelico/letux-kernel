@@ -317,6 +317,14 @@ S: 2322 37th Ave SW
 S: Seattle, Washington 98126-2010
 S: USA
 
+N: Muli Ben-Yehuda
+E: mulix@mulix.org
+E: muli@il.ibm.com
+W: http://www.mulix.org
+D: trident OSS sound driver, x86-64 dma-ops and Calgary IOMMU,
+D: KVM and Xen bits and other misc. hackery.
+S: Haifa, Israel
+
 N: Johannes Berg
 E: johannes@sipsolutions.net
 W: http://johannes.sipsolutions.net/
@@ -403,6 +411,8 @@ D: Linux CD and Support Giveaway List
 N: Erik Inge Bolsø
 E: knan@mo.himolde.no
 D: Misc kernel hacks
+D: Updated PC speaker driver for 2.3
+S: Norway
 
 N: Andreas E. Bombe
 E: andreas.bombe@munich.netsurf.de
@@ -508,12 +518,8 @@ D: REINER SCT cyberJack pinpad/e-com USB chipcard reader driver
 S: Germany
 
 N: Adrian Bunk
-E: bunk@stusta.de
 P: 1024D/4F12B400  B29C E71E FE19 6755 5C8A  84D4 99FC EA98 4F12 B400
 D: misc kernel hacking and testing
-S: Grasmeierstrasse 11
-S: 80805 Muenchen
-S: Germany
 
 N: Ray Burr
 E: ryb@nightmare.com
@@ -591,6 +597,11 @@ S: 3F, 65 Tajen street
 S: Tamsui town, Taipei county,
 S: Taiwan 251
 S: Republic of China
+
+N: Reinette Chatre
+E: reinette.chatre@intel.com
+D: WiMedia Link Protocol implementation
+D: UWB stack bits and pieces
 
 N: Michael Elizabeth Chastain
 E: mec@shout.net
@@ -1124,6 +1135,9 @@ S: 1150 Ringwood Court
 S: San Jose, California 95131
 S: USA
 
+N: Adam Fritzler
+E: mid@zigamorph.net
+
 N: Fernando Fuganti
 E: fuganti@conectiva.com.br
 E: fuganti@netbank.com.br
@@ -1352,6 +1366,14 @@ D: MTRR emulation with Centaur MCRs
 S: Gen Stedmanstraat 212
 S: 5623 HZ Eindhoven
 S: The Netherlands
+
+N: Oliver Hartkopp
+E: oliver.hartkopp@volkswagen.de
+W: http://www.volkswagen.de
+D: Controller Area Network (network layer core)
+S: Brieffach 1776
+S: 38436 Wolfsburg
+S: Germany
 
 N: Andrew Haylett
 E: ajh@primag.co.uk
@@ -1636,14 +1658,14 @@ S: Chapel Hill, North Carolina 27514-4818
 S: USA
 
 N: Dave Jones
-E: davej@codemonkey.org.uk
+E: davej@redhat.com
 W: http://www.codemonkey.org.uk
-D: x86 errata/setup maintenance.
-D: AGPGART driver.
+D: Assorted VIA x86 support.
+D: 2.5 AGPGART overhaul.
 D: CPUFREQ maintenance.
-D: Backport/Forwardport merge monkey.
-D: Various Janitor work.
-S: United Kingdom
+D: Fedora kernel maintainence.
+D: Misc/Other.
+S: 314 Littleton Rd, Westford, MA 01886, USA
 
 N: Martin Josfsson
 E: gandalf@wlug.westbo.se
@@ -2602,8 +2624,9 @@ S: Perth, Western Australia
 S: Australia
 
 N: Miguel Ojeda Sandonis
-E: maxextreme@gmail.com
-W: http://maxextreme.googlepages.com/
+E: miguel.ojeda.sandonis@gmail.com
+W: http://miguelojeda.es
+W: http://jair.lab.fi.uva.es/~migojed/
 D: Author of the ks0108, cfag12864b and cfag12864bfb auxiliary display drivers.
 D: Maintainer of the auxiliary display drivers tree (drivers/auxdisplay/*)
 S: C/ Mieses 20, 9-B
@@ -2676,6 +2699,12 @@ D: Some smbfs fixes
 S: Demonstratsii 8-382
 S: Tula 300000
 S: Russia
+
+N: Inaky Perez-Gonzalez
+E: inaky.perez-gonzalez@intel.com
+D: UWB stack, HWA-RC driver and HWA-HC drivers
+D: Wireless USB additions to the USB stack
+D: WiMedia Link Protocol bits and pieces
 
 N: Gordon Peters
 E: GordPeters@smarttech.com
@@ -3109,6 +3138,12 @@ S: Post Office Box 64132
 S: Sunnyvale, California 94088-4132
 S: USA
 
+N: Stas Sergeev
+E: stsp@users.sourceforge.net
+D: PCM PC-Speaker driver
+D: misc fixes
+S: Russia
+
 N: Simon Shapiro
 E: shimon@i-Connect.Net
 W: http://www.-i-Connect.Net/~shimon
@@ -3306,6 +3341,14 @@ S: Universit=E9 de Rennes I
 S: F-35042 Rennes Cedex
 S: France
 
+N: Urs Thuermann
+E: urs.thuermann@volkswagen.de
+W: http://www.volkswagen.de
+D: Controller Area Network (network layer core)
+S: Brieffach 1776
+S: 38436 Wolfsburg
+S: Germany
+
 N: Jon Tombs
 E: jon@gte.esi.us.es
 W: http://www.esi.us.es/~jon
@@ -3320,8 +3363,7 @@ S: Spain
 N: Linus Torvalds
 E: torvalds@linux-foundation.org
 D: Original kernel hacker
-S: 12725 SW Millikan Way, Suite 400
-S: Beaverton, Oregon 97005
+S: Portland, Oregon 97005
 S: USA
 
 N: Marcelo Tosatti

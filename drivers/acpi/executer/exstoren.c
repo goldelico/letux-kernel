@@ -7,7 +7,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -121,7 +121,8 @@ acpi_ex_resolve_object(union acpi_operand_object **source_desc_ptr,
 		    (ACPI_GET_OBJECT_TYPE(source_desc) != ACPI_TYPE_STRING) &&
 		    !((ACPI_GET_OBJECT_TYPE(source_desc) ==
 		       ACPI_TYPE_LOCAL_REFERENCE)
-		      && (source_desc->reference.opcode == AML_LOAD_OP))) {
+		      && (source_desc->reference.class ==
+			  ACPI_REFCLASS_TABLE))) {
 
 			/* Conversion successful but still not a valid type */
 

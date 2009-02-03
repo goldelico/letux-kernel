@@ -45,6 +45,8 @@ void reiserfs_delete_inode(struct inode *inode)
 			goto out;
 		reiserfs_update_inode_transaction(inode);
 
+		reiserfs_discard_prealloc(&th, inode);
+
 		err = reiserfs_delete_object(&th, inode);
 
 		/* Do quota update inside a transaction for journaled quotas. We must do that
@@ -1520,7 +1522,6 @@ static struct dentry *reiserfs_get_dentry(struct super_block *sb,
 
 {
 	struct cpu_key key;
-	struct dentry *result;
 	struct inode *inode;
 
 	key.on_disk_key.k_objectid = objectid;
@@ -1533,16 +1534,8 @@ static struct dentry *reiserfs_get_dentry(struct super_block *sb,
 		inode = NULL;
 	}
 	reiserfs_write_unlock(sb);
-	if (!inode)
-		inode = ERR_PTR(-ESTALE);
-	if (IS_ERR(inode))
-		return ERR_PTR(PTR_ERR(inode));
-	result = d_alloc_anon(inode);
-	if (!result) {
-		iput(inode);
-		return ERR_PTR(-ENOMEM);
-	}
-	return result;
+
+	return d_obtain_alias(inode);
 }
 
 struct dentry *reiserfs_fh_to_dentry(struct super_block *sb, struct fid *fid,
@@ -2143,7 +2136,7 @@ int reiserfs_truncate_file(struct inode *p_s_inode, int update_timestamps)
 		/* if we are not on a block boundary */
 		if (length) {
 			length = blocksize - length;
-			zero_user_page(page, offset, length, KM_USER0);
+			zero_user(page, offset, length);
 			if (buffer_mapped(bh) && bh->b_blocknr != 0) {
 				mark_buffer_dirty(bh);
 			}
@@ -2367,7 +2360,7 @@ static int reiserfs_write_full_page(struct page *page,
 			unlock_page(page);
 			return 0;
 		}
-		zero_user_page(page, last_offset, PAGE_CACHE_SIZE - last_offset, KM_USER0);
+		zero_user_segment(page, last_offset, PAGE_CACHE_SIZE);
 	}
 	bh = head;
 	block = page->index << (PAGE_CACHE_SHIFT - s->s_blocksize_bits);
@@ -2433,7 +2426,7 @@ static int reiserfs_write_full_page(struct page *page,
 		if (wbc->sync_mode != WB_SYNC_NONE || !wbc->nonblocking) {
 			lock_buffer(bh);
 		} else {
-			if (test_set_buffer_locked(bh)) {
+			if (!trylock_buffer(bh)) {
 				redirty_page_for_writepage(wbc, page);
 				continue;
 			}

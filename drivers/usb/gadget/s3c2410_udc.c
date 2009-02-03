@@ -35,7 +35,6 @@
 #include <linux/list.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
-#include <linux/version.h>
 #include <linux/clk.h>
 
 #include <linux/debugfs.h>
@@ -49,15 +48,14 @@
 #include <asm/irq.h>
 #include <asm/system.h>
 #include <asm/unaligned.h>
-#include <asm/arch/irqs.h>
+#include <mach/irqs.h>
 
-#include <asm/arch/hardware.h>
-#include <asm/arch/regs-gpio.h>
+#include <mach/hardware.h>
+#include <mach/regs-gpio.h>
 
-#include <asm/plat-s3c24xx/regs-udc.h>
-#include <asm/plat-s3c24xx/udc.h>
+#include <plat/regs-udc.h>
+#include <plat/udc.h>
 
-#include <asm/mach-types.h>
 
 #include "s3c2410_udc.h"
 
@@ -136,6 +134,8 @@ static int dprintk(int level, const char *fmt, ...)
 	return 0;
 }
 #endif
+
+#ifdef CONFIG_USB_GADGET_DEBUG_FS
 static int s3c2410_udc_debugfs_seq_show(struct seq_file *m, void *p)
 {
 	u32 addr_reg,pwr_reg,ep_int_reg,usb_int_reg;
@@ -199,6 +199,7 @@ static const struct file_operations s3c2410_udc_debugfs_fops = {
 	.release	= single_release,
 	.owner		= THIS_MODULE,
 };
+#endif
 
 /* io macros */
 
@@ -891,12 +892,12 @@ handle_ep_again:
 	}
 }
 
-#include <asm/arch/regs-irq.h>
+#include <mach/regs-irq.h>
 
 /*
  *	s3c2410_udc_irq - interrupt handler
  */
-static irqreturn_t s3c2410_udc_irq(int irq, void *_dev)
+static irqreturn_t s3c2410_udc_irq(int dummy, void *_dev)
 {
 	struct s3c2410_udc *dev = _dev;
 	int usb_status;
@@ -1019,7 +1020,7 @@ static irqreturn_t s3c2410_udc_irq(int irq, void *_dev)
 		}
 	}
 
-	dprintk(DEBUG_VERBOSE, "irq: %d s3c2410_udc_done.\n", irq);
+	dprintk(DEBUG_VERBOSE, "irq: %d s3c2410_udc_done.\n", IRQ_USBD);
 
 	/* Restore old index */
 	udc_write(idx, S3C2410_UDC_INDEX_REG);
@@ -1656,7 +1657,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 		return -EBUSY;
 
 	if (!driver->bind || !driver->setup
-			|| driver->speed != USB_SPEED_FULL) {
+			|| driver->speed < USB_SPEED_FULL) {
 		printk(KERN_ERR "Invalid driver: bind %p setup %p speed %d\n",
 			driver->bind, driver->setup, driver->speed);
 		return -EINVAL;
@@ -1895,16 +1896,15 @@ static int s3c2410_udc_probe(struct platform_device *pdev)
 		udc->vbus = 1;
 	}
 
+#ifdef CONFIG_USB_GADGET_DEBUG_FS
 	if (s3c2410_udc_debugfs_root) {
 		udc->regs_info = debugfs_create_file("registers", S_IRUGO,
 				s3c2410_udc_debugfs_root,
 				udc, &s3c2410_udc_debugfs_fops);
-		if (IS_ERR(udc->regs_info)) {
-			dev_warn(dev, "debugfs file creation failed %ld\n",
-				 PTR_ERR(udc->regs_info));
-			udc->regs_info = NULL;
-		}
+		if (!udc->regs_info)
+			dev_warn(dev, "debugfs file creation failed\n");
 	}
+#endif
 
 	dev_dbg(dev, "probe ok\n");
 
@@ -2011,12 +2011,14 @@ static int __init udc_init(void)
 
 	dprintk(DEBUG_NORMAL, "%s: version %s\n", gadget_name, DRIVER_VERSION);
 
+#ifdef CONFIG_USB_GADGET_DEBUG_FS
 	s3c2410_udc_debugfs_root = debugfs_create_dir(gadget_name, NULL);
 	if (IS_ERR(s3c2410_udc_debugfs_root)) {
 		printk(KERN_ERR "%s: debugfs dir creation failed %ld\n",
 			gadget_name, PTR_ERR(s3c2410_udc_debugfs_root));
 		s3c2410_udc_debugfs_root = NULL;
 	}
+#endif
 
 	retval = platform_driver_register(&udc_driver_2410);
 	if (retval)
@@ -2050,3 +2052,5 @@ MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_VERSION(DRIVER_VERSION);
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:s3c2410-usbgadget");
+MODULE_ALIAS("platform:s3c2440-usbgadget");

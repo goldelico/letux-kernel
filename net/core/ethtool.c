@@ -209,6 +209,36 @@ static int ethtool_get_drvinfo(struct net_device *dev, void __user *useraddr)
 	return 0;
 }
 
+static int ethtool_set_rxhash(struct net_device *dev, void __user *useraddr)
+{
+	struct ethtool_rxnfc cmd;
+
+	if (!dev->ethtool_ops->set_rxhash)
+		return -EOPNOTSUPP;
+
+	if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
+		return -EFAULT;
+
+	return dev->ethtool_ops->set_rxhash(dev, &cmd);
+}
+
+static int ethtool_get_rxhash(struct net_device *dev, void __user *useraddr)
+{
+	struct ethtool_rxnfc info;
+
+	if (!dev->ethtool_ops->get_rxhash)
+		return -EOPNOTSUPP;
+
+	if (copy_from_user(&info, useraddr, sizeof(info)))
+		return -EFAULT;
+
+	dev->ethtool_ops->get_rxhash(dev, &info);
+
+	if (copy_to_user(useraddr, &info, sizeof(info)))
+		return -EFAULT;
+	return 0;
+}
+
 static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
 {
 	struct ethtool_regs regs;
@@ -284,8 +314,10 @@ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
 {
 	struct ethtool_eeprom eeprom;
 	const struct ethtool_ops *ops = dev->ethtool_ops;
+	void __user *userbuf = useraddr + sizeof(eeprom);
+	u32 bytes_remaining;
 	u8 *data;
-	int ret;
+	int ret = 0;
 
 	if (!ops->get_eeprom || !ops->get_eeprom_len)
 		return -EOPNOTSUPP;
@@ -301,26 +333,31 @@ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
 	if (eeprom.offset + eeprom.len > ops->get_eeprom_len(dev))
 		return -EINVAL;
 
-	data = kmalloc(eeprom.len, GFP_USER);
+	data = kmalloc(PAGE_SIZE, GFP_USER);
 	if (!data)
 		return -ENOMEM;
 
-	ret = -EFAULT;
-	if (copy_from_user(data, useraddr + sizeof(eeprom), eeprom.len))
-		goto out;
+	bytes_remaining = eeprom.len;
+	while (bytes_remaining > 0) {
+		eeprom.len = min(bytes_remaining, (u32)PAGE_SIZE);
 
-	ret = ops->get_eeprom(dev, &eeprom, data);
-	if (ret)
-		goto out;
+		ret = ops->get_eeprom(dev, &eeprom, data);
+		if (ret)
+			break;
+		if (copy_to_user(userbuf, data, eeprom.len)) {
+			ret = -EFAULT;
+			break;
+		}
+		userbuf += eeprom.len;
+		eeprom.offset += eeprom.len;
+		bytes_remaining -= eeprom.len;
+	}
 
-	ret = -EFAULT;
+	eeprom.len = userbuf - (useraddr + sizeof(eeprom));
+	eeprom.offset -= eeprom.len;
 	if (copy_to_user(useraddr, &eeprom, sizeof(eeprom)))
-		goto out;
-	if (copy_to_user(useraddr + sizeof(eeprom), data, eeprom.len))
-		goto out;
-	ret = 0;
+		ret = -EFAULT;
 
- out:
 	kfree(data);
 	return ret;
 }
@@ -329,8 +366,10 @@ static int ethtool_set_eeprom(struct net_device *dev, void __user *useraddr)
 {
 	struct ethtool_eeprom eeprom;
 	const struct ethtool_ops *ops = dev->ethtool_ops;
+	void __user *userbuf = useraddr + sizeof(eeprom);
+	u32 bytes_remaining;
 	u8 *data;
-	int ret;
+	int ret = 0;
 
 	if (!ops->set_eeprom || !ops->get_eeprom_len)
 		return -EOPNOTSUPP;
@@ -346,22 +385,26 @@ static int ethtool_set_eeprom(struct net_device *dev, void __user *useraddr)
 	if (eeprom.offset + eeprom.len > ops->get_eeprom_len(dev))
 		return -EINVAL;
 
-	data = kmalloc(eeprom.len, GFP_USER);
+	data = kmalloc(PAGE_SIZE, GFP_USER);
 	if (!data)
 		return -ENOMEM;
 
-	ret = -EFAULT;
-	if (copy_from_user(data, useraddr + sizeof(eeprom), eeprom.len))
-		goto out;
+	bytes_remaining = eeprom.len;
+	while (bytes_remaining > 0) {
+		eeprom.len = min(bytes_remaining, (u32)PAGE_SIZE);
 
-	ret = ops->set_eeprom(dev, &eeprom, data);
-	if (ret)
-		goto out;
+		if (copy_from_user(data, userbuf, eeprom.len)) {
+			ret = -EFAULT;
+			break;
+		}
+		ret = ops->set_eeprom(dev, &eeprom, data);
+		if (ret)
+			break;
+		userbuf += eeprom.len;
+		eeprom.offset += eeprom.len;
+		bytes_remaining -= eeprom.len;
+	}
 
-	if (copy_to_user(useraddr + sizeof(eeprom), data, eeprom.len))
-		ret = -EFAULT;
-
- out:
 	kfree(data);
 	return ret;
 }
@@ -813,6 +856,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
 	case ETHTOOL_GGSO:
 	case ETHTOOL_GFLAGS:
 	case ETHTOOL_GPFLAGS:
+	case ETHTOOL_GRXFH:
 		break;
 	default:
 		if (!capable(CAP_NET_ADMIN))
@@ -963,6 +1007,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
 	case ETHTOOL_SPFLAGS:
 		rc = ethtool_set_value(dev, useraddr,
 				       dev->ethtool_ops->set_priv_flags);
+		break;
+	case ETHTOOL_GRXFH:
+		rc = ethtool_get_rxhash(dev, useraddr);
+		break;
+	case ETHTOOL_SRXFH:
+		rc = ethtool_set_rxhash(dev, useraddr);
 		break;
 	default:
 		rc = -EOPNOTSUPP;

@@ -1,7 +1,7 @@
 /*
- * MPC85xx/86xx PCI/PCIE support routing.
+ * MPC83xx/85xx/86xx PCI/PCIE support routing.
  *
- * Copyright 2007 Freescale Semiconductor, Inc
+ * Copyright 2007,2008 Freescale Semiconductor, Inc
  *
  * Initial author: Xianghua Xiao <x.xiao@freescale.com>
  * Recode: ZHANG WEI <wei.zhang@freescale.com>
@@ -27,14 +27,15 @@
 #include <sysdev/fsl_soc.h>
 #include <sysdev/fsl_pci.h>
 
+#if defined(CONFIG_PPC_85xx) || defined(CONFIG_PPC_86xx)
 /* atmu setup for fsl pci/pcie controller */
 void __init setup_pci_atmu(struct pci_controller *hose, struct resource *rsrc)
 {
 	struct ccsr_pci __iomem *pci;
 	int i;
 
-	pr_debug("PCI memory map start 0x%x, size 0x%x\n", rsrc->start,
-			rsrc->end - rsrc->start + 1);
+	pr_debug("PCI memory map start 0x%016llx, size 0x%016llx\n",
+		    (u64)rsrc->start, (u64)rsrc->end - (u64)rsrc->start + 1);
 	pci = ioremap(rsrc->start, rsrc->end - rsrc->start + 1);
 
 	/* Disable all windows (except powar0 since its ignored) */
@@ -46,17 +47,17 @@ void __init setup_pci_atmu(struct pci_controller *hose, struct resource *rsrc)
 	/* Setup outbound MEM window */
 	for(i = 0; i < 3; i++)
 		if (hose->mem_resources[i].flags & IORESOURCE_MEM){
-			pr_debug("PCI MEM resource start 0x%08x, size 0x%08x.\n",
-				hose->mem_resources[i].start,
-				hose->mem_resources[i].end
-				  - hose->mem_resources[i].start + 1);
-			out_be32(&pci->pow[i+1].potar,
-				(hose->mem_resources[i].start >> 12)
-				& 0x000fffff);
+			resource_size_t pci_addr_start =
+				 hose->mem_resources[i].start -
+				 hose->pci_mem_offset;
+			pr_debug("PCI MEM resource start 0x%016llx, size 0x%016llx.\n",
+				(u64)hose->mem_resources[i].start,
+				(u64)hose->mem_resources[i].end
+				  - (u64)hose->mem_resources[i].start + 1);
+			out_be32(&pci->pow[i+1].potar, (pci_addr_start >> 12));
 			out_be32(&pci->pow[i+1].potear, 0);
 			out_be32(&pci->pow[i+1].powbar,
-				(hose->mem_resources[i].start >> 12)
-				& 0x000fffff);
+				(hose->mem_resources[i].start >> 12));
 			/* Enable, Mem R/W */
 			out_be32(&pci->pow[i+1].powar, 0x80044000
 				| (__ilog2(hose->mem_resources[i].end
@@ -65,15 +66,14 @@ void __init setup_pci_atmu(struct pci_controller *hose, struct resource *rsrc)
 
 	/* Setup outbound IO window */
 	if (hose->io_resource.flags & IORESOURCE_IO){
-		pr_debug("PCI IO resource start 0x%08x, size 0x%08x, phy base 0x%08x.\n",
-			hose->io_resource.start,
-			hose->io_resource.end - hose->io_resource.start + 1,
-			hose->io_base_phys);
-		out_be32(&pci->pow[i+1].potar, (hose->io_resource.start >> 12)
-				& 0x000fffff);
+		pr_debug("PCI IO resource start 0x%016llx, size 0x%016llx, "
+			 "phy base 0x%016llx.\n",
+			(u64)hose->io_resource.start,
+			(u64)hose->io_resource.end - (u64)hose->io_resource.start + 1,
+			(u64)hose->io_base_phys);
+		out_be32(&pci->pow[i+1].potar, (hose->io_resource.start >> 12));
 		out_be32(&pci->pow[i+1].potear, 0);
-		out_be32(&pci->pow[i+1].powbar, (hose->io_base_phys >> 12)
-				& 0x000fffff);
+		out_be32(&pci->pow[i+1].powbar, (hose->io_base_phys >> 12));
 		/* Enable, IO R/W */
 		out_be32(&pci->pow[i+1].powar, 0x80088000
 			| (__ilog2(hose->io_resource.end
@@ -107,55 +107,27 @@ void __init setup_pci_cmd(struct pci_controller *hose)
 	}
 }
 
-static void __init quirk_fsl_pcie_transparent(struct pci_dev *dev)
+static void __init setup_pci_pcsrbar(struct pci_controller *hose)
 {
-	struct resource *res;
-	int i, res_idx = PCI_BRIDGE_RESOURCES;
-	struct pci_controller *hose;
+#ifdef CONFIG_PCI_MSI
+	phys_addr_t immr_base;
 
+	immr_base = get_immrbase();
+	early_write_config_dword(hose, 0, 0, PCI_BASE_ADDRESS_0, immr_base);
+#endif
+}
+
+static int fsl_pcie_bus_fixup;
+
+static void __init quirk_fsl_pcie_header(struct pci_dev *dev)
+{
 	/* if we aren't a PCIe don't bother */
 	if (!pci_find_capability(dev, PCI_CAP_ID_EXP))
 		return ;
 
-	/*
-	 * Make the bridge be transparent.
-	 */
-	dev->transparent = 1;
-
-	hose = pci_bus_to_host(dev->bus);
-	if (!hose) {
-		printk(KERN_ERR "Can't find hose for bus %d\n",
-		       dev->bus->number);
-		return;
-	}
-
-	/* Clear out any of the virtual P2P bridge registers */
-	pci_write_config_word(dev, PCI_IO_BASE_UPPER16, 0);
-	pci_write_config_word(dev, PCI_IO_LIMIT_UPPER16, 0);
-	pci_write_config_byte(dev, PCI_IO_BASE, 0x10);
-	pci_write_config_byte(dev, PCI_IO_LIMIT, 0);
-	pci_write_config_word(dev, PCI_MEMORY_BASE, 0x10);
-	pci_write_config_word(dev, PCI_MEMORY_LIMIT, 0);
-	pci_write_config_word(dev, PCI_PREF_BASE_UPPER32, 0x0);
-	pci_write_config_word(dev, PCI_PREF_LIMIT_UPPER32, 0x0);
-	pci_write_config_word(dev, PCI_PREF_MEMORY_BASE, 0x10);
-	pci_write_config_word(dev, PCI_PREF_MEMORY_LIMIT, 0);
-
-	if (hose->io_resource.flags) {
-		res = &dev->resource[res_idx++];
-		res->start = hose->io_resource.start;
-		res->end = hose->io_resource.end;
-		res->flags = hose->io_resource.flags;
-		update_bridge_resource(dev, res);
-	}
-
-	for (i = 0; i < 3; i++) {
-		res = &dev->resource[res_idx + i];
-		res->start = hose->mem_resources[i].start;
-		res->end = hose->mem_resources[i].end;
-		res->flags = hose->mem_resources[i].flags;
-		update_bridge_resource(dev, res);
-	}
+	dev->class = PCI_CLASS_BRIDGE_PCI << 8;
+	fsl_pcie_bus_fixup = 1;
+	return ;
 }
 
 int __init fsl_pcie_check_link(struct pci_controller *hose)
@@ -172,11 +144,24 @@ void fsl_pcibios_fixup_bus(struct pci_bus *bus)
 	struct pci_controller *hose = (struct pci_controller *) bus->sysdata;
 	int i;
 
-	/* deal with bogus pci_bus when we don't have anything connected on PCIe */
-	if (hose->indirect_type & PPC_INDIRECT_TYPE_NO_PCIE_LINK) {
-		if (bus->parent) {
-			for (i = 0; i < 4; ++i)
-				bus->resource[i] = bus->parent->resource[i];
+	if ((bus->parent == hose->bus) &&
+	    ((fsl_pcie_bus_fixup &&
+	      early_find_capability(hose, 0, 0, PCI_CAP_ID_EXP)) ||
+	     (hose->indirect_type & PPC_INDIRECT_TYPE_NO_PCIE_LINK)))
+	{
+		for (i = 0; i < 4; ++i) {
+			struct resource *res = bus->resource[i];
+			struct resource *par = bus->parent->resource[i];
+			if (res) {
+				res->start = 0;
+				res->end   = 0;
+				res->flags = 0;
+			}
+			if (res && par) {
+				res->start = par->start;
+				res->end   = par->end;
+				res->flags = par->flags;
+			}
 		}
 	}
 }
@@ -202,7 +187,7 @@ int __init fsl_add_bridge(struct device_node *dev, int is_primary)
 		printk(KERN_WARNING "Can't get bus-range for %s, assume"
 			" bus 0\n", dev->full_name);
 
-	pci_assign_all_buses = 1;
+	ppc_pci_flags |= PPC_PCI_REASSIGN_ALL_BUS;
 	hose = pcibios_alloc_controller(dev);
 	if (!hose)
 		return -ENOMEM;
@@ -222,7 +207,7 @@ int __init fsl_add_bridge(struct device_node *dev, int is_primary)
 			hose->indirect_type |= PPC_INDIRECT_TYPE_NO_PCIE_LINK;
 	}
 
-	printk(KERN_INFO "Found FSL PCI host bridge at 0x%016llx."
+	printk(KERN_INFO "Found FSL PCI host bridge at 0x%016llx. "
 		"Firmware bus number: %d->%d\n",
 		(unsigned long long)rsrc.start, hose->first_busno,
 		hose->last_busno);
@@ -237,26 +222,106 @@ int __init fsl_add_bridge(struct device_node *dev, int is_primary)
 	/* Setup PEX window registers */
 	setup_pci_atmu(hose, &rsrc);
 
+	/* Setup PEXCSRBAR */
+	setup_pci_pcsrbar(hose);
 	return 0;
 }
 
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8548E, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8548, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8543E, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8543, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8547E, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8545E, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8545, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8568E, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8568, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8567E, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8567, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8533E, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8533, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8544E, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8544, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8572E, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8572, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8641, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8641D, quirk_fsl_pcie_transparent);
-DECLARE_PCI_FIXUP_EARLY(0x1957, PCI_DEVICE_ID_MPC8610, quirk_fsl_pcie_transparent);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8548E, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8548, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8543E, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8543, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8547E, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8545E, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8545, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8568E, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8568, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8567E, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8567, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8533E, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8533, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8544E, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8544, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8572E, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8572, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8536E, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8536, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8641, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8641D, quirk_fsl_pcie_header);
+DECLARE_PCI_FIXUP_HEADER(0x1957, PCI_DEVICE_ID_MPC8610, quirk_fsl_pcie_header);
+#endif /* CONFIG_PPC_85xx || CONFIG_PPC_86xx */
+
+#if defined(CONFIG_PPC_83xx) || defined(CONFIG_PPC_MPC512x)
+int __init mpc83xx_add_bridge(struct device_node *dev)
+{
+	int len;
+	struct pci_controller *hose;
+	struct resource rsrc_reg;
+	struct resource rsrc_cfg;
+	const int *bus_range;
+	int primary;
+
+	pr_debug("Adding PCI host bridge %s\n", dev->full_name);
+
+	/* Fetch host bridge registers address */
+	if (of_address_to_resource(dev, 0, &rsrc_reg)) {
+		printk(KERN_WARNING "Can't get pci register base!\n");
+		return -ENOMEM;
+	}
+
+	memset(&rsrc_cfg, 0, sizeof(rsrc_cfg));
+
+	if (of_address_to_resource(dev, 1, &rsrc_cfg)) {
+		printk(KERN_WARNING
+			"No pci config register base in dev tree, "
+			"using default\n");
+		/*
+		 * MPC83xx supports up to two host controllers
+		 * 	one at 0x8500 has config space registers at 0x8300
+		 * 	one at 0x8600 has config space registers at 0x8380
+		 */
+		if ((rsrc_reg.start & 0xfffff) == 0x8500)
+			rsrc_cfg.start = (rsrc_reg.start & 0xfff00000) + 0x8300;
+		else if ((rsrc_reg.start & 0xfffff) == 0x8600)
+			rsrc_cfg.start = (rsrc_reg.start & 0xfff00000) + 0x8380;
+	}
+	/*
+	 * Controller at offset 0x8500 is primary
+	 */
+	if ((rsrc_reg.start & 0xfffff) == 0x8500)
+		primary = 1;
+	else
+		primary = 0;
+
+	/* Get bus range if any */
+	bus_range = of_get_property(dev, "bus-range", &len);
+	if (bus_range == NULL || len < 2 * sizeof(int)) {
+		printk(KERN_WARNING "Can't get bus-range for %s, assume"
+		       " bus 0\n", dev->full_name);
+	}
+
+	ppc_pci_flags |= PPC_PCI_REASSIGN_ALL_BUS;
+	hose = pcibios_alloc_controller(dev);
+	if (!hose)
+		return -ENOMEM;
+
+	hose->first_busno = bus_range ? bus_range[0] : 0;
+	hose->last_busno = bus_range ? bus_range[1] : 0xff;
+
+	setup_indirect_pci(hose, rsrc_cfg.start, rsrc_cfg.start + 4, 0);
+
+	printk(KERN_INFO "Found FSL PCI host bridge at 0x%016llx. "
+	       "Firmware bus number: %d->%d\n",
+	       (unsigned long long)rsrc_reg.start, hose->first_busno,
+	       hose->last_busno);
+
+	pr_debug(" ->Hose at 0x%p, cfg_addr=0x%p,cfg_data=0x%p\n",
+	    hose, hose->cfg_addr, hose->cfg_data);
+
+	/* Interpret the "ranges" property */
+	/* This also maps the I/O region and sets isa_io/mem_base */
+	pci_process_bridge_OF_ranges(hose, dev, primary);
+
+	return 0;
+}
+#endif /* CONFIG_PPC_83xx */

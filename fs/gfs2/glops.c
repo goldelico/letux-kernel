@@ -1,6 +1,6 @@
 /*
  * Copyright (C) Sistina Software, Inc.  1997-2003 All rights reserved.
- * Copyright (C) 2004-2006 Red Hat, Inc.  All rights reserved.
+ * Copyright (C) 2004-2008 Red Hat, Inc.  All rights reserved.
  *
  * This copyrighted material is made available to anyone wishing to use,
  * modify, copy, or redistribute it subject to the terms and conditions
@@ -13,6 +13,7 @@
 #include <linux/buffer_head.h>
 #include <linux/gfs2_ondisk.h>
 #include <linux/lm_interface.h>
+#include <linux/bio.h>
 
 #include "gfs2.h"
 #include "incore.h"
@@ -56,7 +57,7 @@ static void gfs2_ail_empty_gl(struct gfs2_glock *gl)
 		bd = list_entry(head->next, struct gfs2_bufdata,
 				bd_ail_gl_list);
 		bh = bd->bd_bh;
-		gfs2_remove_from_ail(NULL, bd);
+		gfs2_remove_from_ail(bd);
 		bd->bd_bh = NULL;
 		bh->b_private = NULL;
 		bd->bd_blkno = bh->b_blocknr;
@@ -86,15 +87,10 @@ static void gfs2_pte_inval(struct gfs2_glock *gl)
 	if (!ip || !S_ISREG(inode->i_mode))
 		return;
 
-	if (!test_bit(GIF_PAGED, &ip->i_flags))
-		return;
-
 	unmap_shared_mapping_range(inode->i_mapping, 0, 0);
-
 	if (test_bit(GIF_SW_PAGED, &ip->i_flags))
 		set_bit(GLF_DIRTY, &gl->gl_flags);
 
-	clear_bit(GIF_SW_PAGED, &ip->i_flags);
 }
 
 /**
@@ -131,7 +127,13 @@ static void meta_go_inval(struct gfs2_glock *gl, int flags)
 		return;
 
 	gfs2_meta_inval(gl);
-	gl->gl_vn++;
+	if (gl->gl_object == GFS2_I(gl->gl_sbd->sd_rindex))
+		gl->gl_sbd->sd_rindex_uptodate = 0;
+	else if (gl->gl_ops == &gfs2_rgrp_glops && gl->gl_object) {
+		struct gfs2_rgrpd *rgd = (struct gfs2_rgrpd *)gl->gl_object;
+
+		rgd->rd_flags &= ~GFS2_RDF_UPTODATE;
+	}
 }
 
 /**
@@ -143,77 +145,31 @@ static void meta_go_inval(struct gfs2_glock *gl, int flags)
 static void inode_go_sync(struct gfs2_glock *gl)
 {
 	struct gfs2_inode *ip = gl->gl_object;
+	struct address_space *metamapping = gl->gl_aspace->i_mapping;
+	int error;
+
+	if (gl->gl_state != LM_ST_UNLOCKED)
+		gfs2_pte_inval(gl);
+	if (gl->gl_state != LM_ST_EXCLUSIVE)
+		return;
 
 	if (ip && !S_ISREG(ip->i_inode.i_mode))
 		ip = NULL;
 
 	if (test_bit(GLF_DIRTY, &gl->gl_flags)) {
-		if (ip && !gfs2_is_jdata(ip))
-			filemap_fdatawrite(ip->i_inode.i_mapping);
 		gfs2_log_flush(gl->gl_sbd, gl);
-		if (ip && gfs2_is_jdata(ip))
-			filemap_fdatawrite(ip->i_inode.i_mapping);
-		gfs2_meta_sync(gl);
+		filemap_fdatawrite(metamapping);
 		if (ip) {
 			struct address_space *mapping = ip->i_inode.i_mapping;
-			int error = filemap_fdatawait(mapping);
+			filemap_fdatawrite(mapping);
+			error = filemap_fdatawait(mapping);
 			mapping_set_error(mapping, error);
 		}
+		error = filemap_fdatawait(metamapping);
+		mapping_set_error(metamapping, error);
 		clear_bit(GLF_DIRTY, &gl->gl_flags);
 		gfs2_ail_empty_gl(gl);
 	}
-}
-
-/**
- * inode_go_xmote_th - promote/demote a glock
- * @gl: the glock
- * @state: the requested state
- * @flags:
- *
- */
-
-static void inode_go_xmote_th(struct gfs2_glock *gl)
-{
-	if (gl->gl_state != LM_ST_UNLOCKED)
-		gfs2_pte_inval(gl);
-	if (gl->gl_state == LM_ST_EXCLUSIVE)
-		inode_go_sync(gl);
-}
-
-/**
- * inode_go_xmote_bh - After promoting/demoting a glock
- * @gl: the glock
- *
- */
-
-static void inode_go_xmote_bh(struct gfs2_glock *gl)
-{
-	struct gfs2_holder *gh = gl->gl_req_gh;
-	struct buffer_head *bh;
-	int error;
-
-	if (gl->gl_state != LM_ST_UNLOCKED &&
-	    (!gh || !(gh->gh_flags & GL_SKIP))) {
-		error = gfs2_meta_read(gl, gl->gl_name.ln_number, 0, &bh);
-		if (!error)
-			brelse(bh);
-	}
-}
-
-/**
- * inode_go_drop_th - unlock a glock
- * @gl: the glock
- *
- * Invoked from rq_demote().
- * Another node needs the lock in EXCLUSIVE mode, or lock (unused for too long)
- * is being purged from our node's glock cache; we're dropping lock.
- */
-
-static void inode_go_drop_th(struct gfs2_glock *gl)
-{
-	gfs2_pte_inval(gl);
-	if (gl->gl_state == LM_ST_EXCLUSIVE)
-		inode_go_sync(gl);
 }
 
 /**
@@ -234,10 +190,8 @@ static void inode_go_inval(struct gfs2_glock *gl, int flags)
 			set_bit(GIF_INVALID, &ip->i_flags);
 	}
 
-	if (ip && S_ISREG(ip->i_inode.i_mode)) {
+	if (ip && S_ISREG(ip->i_inode.i_mode))
 		truncate_inode_pages(ip->i_inode.i_mapping, 0);
-		clear_bit(GIF_PAGED, &ip->i_flags);
-	}
 }
 
 /**
@@ -276,7 +230,7 @@ static int inode_go_lock(struct gfs2_holder *gh)
 	struct gfs2_inode *ip = gl->gl_object;
 	int error = 0;
 
-	if (!ip)
+	if (!ip || (gh->gh_flags & GL_SKIP))
 		return 0;
 
 	if (test_bit(GIF_INVALID, &ip->i_flags)) {
@@ -294,20 +248,23 @@ static int inode_go_lock(struct gfs2_holder *gh)
 }
 
 /**
- * inode_go_unlock - operation done before an inode lock is unlocked by a
- *		     process
- * @gl: the glock
- * @flags:
+ * inode_go_dump - print information about an inode
+ * @seq: The iterator
+ * @ip: the inode
  *
+ * Returns: 0 on success, -ENOBUFS when we run out of space
  */
 
-static void inode_go_unlock(struct gfs2_holder *gh)
+static int inode_go_dump(struct seq_file *seq, const struct gfs2_glock *gl)
 {
-	struct gfs2_glock *gl = gh->gh_gl;
-	struct gfs2_inode *ip = gl->gl_object;
-
-	if (ip)
-		gfs2_meta_cache_flush(ip);
+	const struct gfs2_inode *ip = gl->gl_object;
+	if (ip == NULL)
+		return 0;
+	gfs2_print_dbg(seq, " I: n:%llu/%llu t:%u f:0x%08lx\n",
+		  (unsigned long long)ip->i_no_formal_ino,
+		  (unsigned long long)ip->i_no_addr,
+		  IF2DT(ip->i_inode.i_mode), ip->i_flags);
+	return 0;
 }
 
 /**
@@ -350,14 +307,30 @@ static void rgrp_go_unlock(struct gfs2_holder *gh)
 }
 
 /**
- * trans_go_xmote_th - promote/demote the transaction glock
+ * rgrp_go_dump - print out an rgrp
+ * @seq: The iterator
+ * @gl: The glock in question
+ *
+ */
+
+static int rgrp_go_dump(struct seq_file *seq, const struct gfs2_glock *gl)
+{
+	const struct gfs2_rgrpd *rgd = gl->gl_object;
+	if (rgd == NULL)
+		return 0;
+	gfs2_print_dbg(seq, " R: n:%llu\n", (unsigned long long)rgd->rd_addr);
+	return 0;
+}
+
+/**
+ * trans_go_sync - promote/demote the transaction glock
  * @gl: the glock
  * @state: the requested state
  * @flags:
  *
  */
 
-static void trans_go_xmote_th(struct gfs2_glock *gl)
+static void trans_go_sync(struct gfs2_glock *gl)
 {
 	struct gfs2_sbd *sdp = gl->gl_sbd;
 
@@ -374,7 +347,7 @@ static void trans_go_xmote_th(struct gfs2_glock *gl)
  *
  */
 
-static void trans_go_xmote_bh(struct gfs2_glock *gl)
+static int trans_go_xmote_bh(struct gfs2_glock *gl, struct gfs2_holder *gh)
 {
 	struct gfs2_sbd *sdp = gl->gl_sbd;
 	struct gfs2_inode *ip = GFS2_I(sdp->sd_jdesc->jd_inode);
@@ -382,9 +355,7 @@ static void trans_go_xmote_bh(struct gfs2_glock *gl)
 	struct gfs2_log_header_host head;
 	int error;
 
-	if (gl->gl_state != LM_ST_UNLOCKED &&
-	    test_bit(SDF_JOURNAL_LIVE, &sdp->sd_flags)) {
-		gfs2_meta_cache_flush(GFS2_I(sdp->sd_jdesc->jd_inode));
+	if (test_bit(SDF_JOURNAL_LIVE, &sdp->sd_flags)) {
 		j_gl->gl_ops->go_inval(j_gl, DIO_METADATA);
 
 		error = gfs2_find_jhead(sdp->sd_jdesc, &head);
@@ -399,24 +370,7 @@ static void trans_go_xmote_bh(struct gfs2_glock *gl)
 			gfs2_log_pointers_init(sdp, head.lh_blkno);
 		}
 	}
-}
-
-/**
- * trans_go_drop_th - unlock the transaction glock
- * @gl: the glock
- *
- * We want to sync the device even with localcaching.  Remember
- * that localcaching journal replay only marks buffers dirty.
- */
-
-static void trans_go_drop_th(struct gfs2_glock *gl)
-{
-	struct gfs2_sbd *sdp = gl->gl_sbd;
-
-	if (test_bit(SDF_JOURNAL_LIVE, &sdp->sd_flags)) {
-		gfs2_meta_syncfs(sdp);
-		gfs2_log_shutdown(sdp);
-	}
+	return 0;
 }
 
 /**
@@ -433,37 +387,33 @@ static int quota_go_demote_ok(struct gfs2_glock *gl)
 
 const struct gfs2_glock_operations gfs2_meta_glops = {
 	.go_xmote_th = meta_go_sync,
-	.go_drop_th = meta_go_sync,
 	.go_type = LM_TYPE_META,
 };
 
 const struct gfs2_glock_operations gfs2_inode_glops = {
-	.go_xmote_th = inode_go_xmote_th,
-	.go_xmote_bh = inode_go_xmote_bh,
-	.go_drop_th = inode_go_drop_th,
+	.go_xmote_th = inode_go_sync,
 	.go_inval = inode_go_inval,
 	.go_demote_ok = inode_go_demote_ok,
 	.go_lock = inode_go_lock,
-	.go_unlock = inode_go_unlock,
+	.go_dump = inode_go_dump,
 	.go_type = LM_TYPE_INODE,
-	.go_min_hold_time = HZ / 10,
+	.go_min_hold_time = HZ / 5,
 };
 
 const struct gfs2_glock_operations gfs2_rgrp_glops = {
 	.go_xmote_th = meta_go_sync,
-	.go_drop_th = meta_go_sync,
 	.go_inval = meta_go_inval,
 	.go_demote_ok = rgrp_go_demote_ok,
 	.go_lock = rgrp_go_lock,
 	.go_unlock = rgrp_go_unlock,
+	.go_dump = rgrp_go_dump,
 	.go_type = LM_TYPE_RGRP,
-	.go_min_hold_time = HZ / 10,
+	.go_min_hold_time = HZ / 5,
 };
 
 const struct gfs2_glock_operations gfs2_trans_glops = {
-	.go_xmote_th = trans_go_xmote_th,
+	.go_xmote_th = trans_go_sync,
 	.go_xmote_bh = trans_go_xmote_bh,
-	.go_drop_th = trans_go_drop_th,
 	.go_type = LM_TYPE_NONDISK,
 };
 

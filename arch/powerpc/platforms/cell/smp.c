@@ -42,6 +42,7 @@
 #include <asm/firmware.h>
 #include <asm/system.h>
 #include <asm/rtas.h>
+#include <asm/cputhreads.h>
 
 #include "interrupt.h"
 #include <asm/udbg.h>
@@ -53,8 +54,8 @@
 #endif
 
 /*
- * The primary thread of each non-boot processor is recorded here before
- * smp init.
+ * The Primary thread of each non-boot processor was started from the OF client
+ * interface by prom_hold_cpus and is spinning on secondary_hold_spinloop.
  */
 static cpumask_t of_spin_map;
 
@@ -182,7 +183,7 @@ static int smp_cell_cpu_bootable(unsigned int nr)
 	 */
 	if (system_state < SYSTEM_RUNNING &&
 	    cpu_has_feature(CPU_FTR_SMT) &&
-	    !smt_enabled_at_boot && nr % 2 != 0)
+	    !smt_enabled_at_boot && cpu_thread_in_core(nr) != 0)
 		return 0;
 
 	return 1;
@@ -207,11 +208,7 @@ void __init smp_init_cell(void)
 	/* Mark threads which are still spinning in hold loops. */
 	if (cpu_has_feature(CPU_FTR_SMT)) {
 		for_each_present_cpu(i) {
-			if (i % 2 == 0)
-				/*
-				 * Even-numbered logical cpus correspond to
-				 * primary threads.
-				 */
+			if (cpu_thread_in_core(i) == 0)
 				cpu_set(i, of_spin_map);
 		}
 	} else {

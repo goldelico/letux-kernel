@@ -10,14 +10,10 @@
  *  Free Software Foundation;  either version 2 of the  License, or (at your
  *  option) any later version.
  *
- *  Revision history
- *    8th Mar 2007   Initial version.
- *
  */
 
 #include <linux/module.h>
 #include <linux/device.h>
-#include <sound/driver.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>

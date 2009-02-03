@@ -116,6 +116,7 @@ struct inet_timewait_sock {
 #define tw_hash			__tw_common.skc_hash
 #define tw_prot			__tw_common.skc_prot
 #define tw_net			__tw_common.skc_net
+	int			tw_timeout;
 	volatile unsigned char	tw_substate;
 	/* 3 bits hole, try to pack */
 	unsigned char		tw_rcv_wscale;
@@ -127,10 +128,10 @@ struct inet_timewait_sock {
 	__be16			tw_dport;
 	__u16			tw_num;
 	/* And these are ours. */
-	__u8			tw_ipv6only:1;
+	__u8			tw_ipv6only:1,
+				tw_transparent:1;
 	/* 15 bits hole, try to pack */
 	__u16			tw_ipv6_offset;
-	int			tw_timeout;
 	unsigned long		tw_ttd;
 	struct inet_bind_bucket	*tw_tb;
 	struct hlist_node	tw_death_node;
@@ -193,19 +194,7 @@ static inline __be32 inet_rcv_saddr(const struct sock *sk)
 		inet_sk(sk)->rcv_saddr : inet_twsk(sk)->tw_rcv_saddr;
 }
 
-static inline void inet_twsk_put(struct inet_timewait_sock *tw)
-{
-	if (atomic_dec_and_test(&tw->tw_refcnt)) {
-		struct module *owner = tw->tw_prot->owner;
-		twsk_destructor((struct sock *)tw);
-#ifdef SOCK_REFCNT_DEBUG
-		printk(KERN_DEBUG "%s timewait_sock %p released\n",
-		       tw->tw_prot->name, tw);
-#endif
-		kmem_cache_free(tw->tw_prot->twsk_prot->twsk_slab, tw);
-		module_put(owner);
-	}
-}
+extern void inet_twsk_put(struct inet_timewait_sock *tw);
 
 extern struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk,
 						  const int state);
@@ -219,4 +208,25 @@ extern void inet_twsk_schedule(struct inet_timewait_sock *tw,
 			       const int timeo, const int timewait_len);
 extern void inet_twsk_deschedule(struct inet_timewait_sock *tw,
 				 struct inet_timewait_death_row *twdr);
+
+extern void inet_twsk_purge(struct net *net, struct inet_hashinfo *hashinfo,
+			    struct inet_timewait_death_row *twdr, int family);
+
+static inline
+struct net *twsk_net(const struct inet_timewait_sock *twsk)
+{
+#ifdef CONFIG_NET_NS
+	return twsk->tw_net;
+#else
+	return &init_net;
+#endif
+}
+
+static inline
+void twsk_net_set(struct inet_timewait_sock *twsk, struct net *net)
+{
+#ifdef CONFIG_NET_NS
+	twsk->tw_net = net;
+#endif
+}
 #endif	/* _INET_TIMEWAIT_SOCK_ */

@@ -42,7 +42,7 @@
 #define PCICC_MAX_MOD_SIZE_OLD	128	/* 1024 bits */
 #define PCICC_MAX_MOD_SIZE	256	/* 2048 bits */
 
-/**
+/*
  * PCICC cards need a speed rating of 0. This keeps them at the end of
  * the zcrypt device list (see zcrypt_api.c). PCICC cards are only
  * used if no other cards are present because they are slow and can only
@@ -361,26 +361,18 @@ static int convert_type86(struct zcrypt_device *zdev,
 	service_rc = le16_to_cpu(msg->cprb.ccp_rtcode);
 	if (unlikely(service_rc != 0)) {
 		service_rs = le16_to_cpu(msg->cprb.ccp_rscode);
-		if (service_rc == 8 && service_rs == 66) {
-			PDEBUG("Bad block format on PCICC\n");
+		if (service_rc == 8 && service_rs == 66)
 			return -EINVAL;
-		}
-		if (service_rc == 8 && service_rs == 65) {
-			PDEBUG("Probably an even modulus on PCICC\n");
+		if (service_rc == 8 && service_rs == 65)
 			return -EINVAL;
-		}
 		if (service_rc == 8 && service_rs == 770) {
-			PDEBUG("Invalid key length on PCICC\n");
 			zdev->max_mod_size = PCICC_MAX_MOD_SIZE_OLD;
 			return -EAGAIN;
 		}
 		if (service_rc == 8 && service_rs == 783) {
-			PDEBUG("Extended bitlengths not enabled on PCICC\n");
 			zdev->max_mod_size = PCICC_MAX_MOD_SIZE_OLD;
 			return -EAGAIN;
 		}
-		PRINTK("Unknown service rc/rs (PCICC): %d/%d\n",
-		       service_rc, service_rs);
 		zdev->online = 0;
 		return -EAGAIN;	/* repeat the request on a different device. */
 	}
@@ -388,7 +380,7 @@ static int convert_type86(struct zcrypt_device *zdev,
 	reply_len = le16_to_cpu(msg->length) - 2;
 	if (reply_len > outputdatalength)
 		return -EINVAL;
-	/**
+	/*
 	 * For all encipher requests, the length of the ciphertext (reply_len)
 	 * will always equal the modulus length. For MEX decipher requests
 	 * the output needs to get padded. Minimum pad size is 10.
@@ -434,9 +426,6 @@ static int convert_response(struct zcrypt_device *zdev,
 					      outputdata, outputdatalength);
 		/* no break, incorrect cprb version is an unknown response */
 	default: /* Unknown response type, this should NEVER EVER happen */
-		PRINTK("Unrecognized Message Header: %08x%08x\n",
-		       *(unsigned int *) reply->message,
-		       *(unsigned int *) (reply->message+4));
 		zdev->online = 0;
 		return -EAGAIN;	/* repeat the request on a different device. */
 	}

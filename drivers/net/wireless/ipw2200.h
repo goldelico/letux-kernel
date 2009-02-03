@@ -267,25 +267,25 @@ enum connection_manager_assoc_states {
 #define CW_MIN_CCK           31
 #define CW_MAX_CCK           1023
 
-#define QOS_TX0_CW_MIN_OFDM      CW_MIN_OFDM
-#define QOS_TX1_CW_MIN_OFDM      CW_MIN_OFDM
-#define QOS_TX2_CW_MIN_OFDM      ( (CW_MIN_OFDM + 1) / 2 - 1 )
-#define QOS_TX3_CW_MIN_OFDM      ( (CW_MIN_OFDM + 1) / 4 - 1 )
+#define QOS_TX0_CW_MIN_OFDM      cpu_to_le16(CW_MIN_OFDM)
+#define QOS_TX1_CW_MIN_OFDM      cpu_to_le16(CW_MIN_OFDM)
+#define QOS_TX2_CW_MIN_OFDM      cpu_to_le16((CW_MIN_OFDM + 1)/2 - 1)
+#define QOS_TX3_CW_MIN_OFDM      cpu_to_le16((CW_MIN_OFDM + 1)/4 - 1)
 
-#define QOS_TX0_CW_MIN_CCK       CW_MIN_CCK
-#define QOS_TX1_CW_MIN_CCK       CW_MIN_CCK
-#define QOS_TX2_CW_MIN_CCK       ( (CW_MIN_CCK + 1) / 2 - 1 )
-#define QOS_TX3_CW_MIN_CCK       ( (CW_MIN_CCK + 1) / 4 - 1 )
+#define QOS_TX0_CW_MIN_CCK       cpu_to_le16(CW_MIN_CCK)
+#define QOS_TX1_CW_MIN_CCK       cpu_to_le16(CW_MIN_CCK)
+#define QOS_TX2_CW_MIN_CCK       cpu_to_le16((CW_MIN_CCK + 1)/2 - 1)
+#define QOS_TX3_CW_MIN_CCK       cpu_to_le16((CW_MIN_CCK + 1)/4 - 1)
 
-#define QOS_TX0_CW_MAX_OFDM      CW_MAX_OFDM
-#define QOS_TX1_CW_MAX_OFDM      CW_MAX_OFDM
-#define QOS_TX2_CW_MAX_OFDM      CW_MIN_OFDM
-#define QOS_TX3_CW_MAX_OFDM      ( (CW_MIN_OFDM + 1) / 2 - 1 )
+#define QOS_TX0_CW_MAX_OFDM      cpu_to_le16(CW_MAX_OFDM)
+#define QOS_TX1_CW_MAX_OFDM      cpu_to_le16(CW_MAX_OFDM)
+#define QOS_TX2_CW_MAX_OFDM      cpu_to_le16(CW_MIN_OFDM)
+#define QOS_TX3_CW_MAX_OFDM      cpu_to_le16((CW_MIN_OFDM + 1)/2 - 1)
 
-#define QOS_TX0_CW_MAX_CCK       CW_MAX_CCK
-#define QOS_TX1_CW_MAX_CCK       CW_MAX_CCK
-#define QOS_TX2_CW_MAX_CCK       CW_MIN_CCK
-#define QOS_TX3_CW_MAX_CCK       ( (CW_MIN_CCK + 1) / 2 - 1 )
+#define QOS_TX0_CW_MAX_CCK       cpu_to_le16(CW_MAX_CCK)
+#define QOS_TX1_CW_MAX_CCK       cpu_to_le16(CW_MAX_CCK)
+#define QOS_TX2_CW_MAX_CCK       cpu_to_le16(CW_MIN_CCK)
+#define QOS_TX3_CW_MAX_CCK       cpu_to_le16((CW_MIN_CCK + 1)/2 - 1)
 
 #define QOS_TX0_AIFS            (3 - QOS_AIFSN_MIN_VALUE)
 #define QOS_TX1_AIFS            (7 - QOS_AIFSN_MIN_VALUE)
@@ -299,33 +299,33 @@ enum connection_manager_assoc_states {
 
 #define QOS_TX0_TXOP_LIMIT_CCK          0
 #define QOS_TX1_TXOP_LIMIT_CCK          0
-#define QOS_TX2_TXOP_LIMIT_CCK          6016
-#define QOS_TX3_TXOP_LIMIT_CCK          3264
+#define QOS_TX2_TXOP_LIMIT_CCK          cpu_to_le16(6016)
+#define QOS_TX3_TXOP_LIMIT_CCK          cpu_to_le16(3264)
 
 #define QOS_TX0_TXOP_LIMIT_OFDM      0
 #define QOS_TX1_TXOP_LIMIT_OFDM      0
-#define QOS_TX2_TXOP_LIMIT_OFDM      3008
-#define QOS_TX3_TXOP_LIMIT_OFDM      1504
+#define QOS_TX2_TXOP_LIMIT_OFDM      cpu_to_le16(3008)
+#define QOS_TX3_TXOP_LIMIT_OFDM      cpu_to_le16(1504)
 
-#define DEF_TX0_CW_MIN_OFDM      CW_MIN_OFDM
-#define DEF_TX1_CW_MIN_OFDM      CW_MIN_OFDM
-#define DEF_TX2_CW_MIN_OFDM      CW_MIN_OFDM
-#define DEF_TX3_CW_MIN_OFDM      CW_MIN_OFDM
+#define DEF_TX0_CW_MIN_OFDM      cpu_to_le16(CW_MIN_OFDM)
+#define DEF_TX1_CW_MIN_OFDM      cpu_to_le16(CW_MIN_OFDM)
+#define DEF_TX2_CW_MIN_OFDM      cpu_to_le16(CW_MIN_OFDM)
+#define DEF_TX3_CW_MIN_OFDM      cpu_to_le16(CW_MIN_OFDM)
 
-#define DEF_TX0_CW_MIN_CCK       CW_MIN_CCK
-#define DEF_TX1_CW_MIN_CCK       CW_MIN_CCK
-#define DEF_TX2_CW_MIN_CCK       CW_MIN_CCK
-#define DEF_TX3_CW_MIN_CCK       CW_MIN_CCK
+#define DEF_TX0_CW_MIN_CCK       cpu_to_le16(CW_MIN_CCK)
+#define DEF_TX1_CW_MIN_CCK       cpu_to_le16(CW_MIN_CCK)
+#define DEF_TX2_CW_MIN_CCK       cpu_to_le16(CW_MIN_CCK)
+#define DEF_TX3_CW_MIN_CCK       cpu_to_le16(CW_MIN_CCK)
 
-#define DEF_TX0_CW_MAX_OFDM      CW_MAX_OFDM
-#define DEF_TX1_CW_MAX_OFDM      CW_MAX_OFDM
-#define DEF_TX2_CW_MAX_OFDM      CW_MAX_OFDM
-#define DEF_TX3_CW_MAX_OFDM      CW_MAX_OFDM
+#define DEF_TX0_CW_MAX_OFDM      cpu_to_le16(CW_MAX_OFDM)
+#define DEF_TX1_CW_MAX_OFDM      cpu_to_le16(CW_MAX_OFDM)
+#define DEF_TX2_CW_MAX_OFDM      cpu_to_le16(CW_MAX_OFDM)
+#define DEF_TX3_CW_MAX_OFDM      cpu_to_le16(CW_MAX_OFDM)
 
-#define DEF_TX0_CW_MAX_CCK       CW_MAX_CCK
-#define DEF_TX1_CW_MAX_CCK       CW_MAX_CCK
-#define DEF_TX2_CW_MAX_CCK       CW_MAX_CCK
-#define DEF_TX3_CW_MAX_CCK       CW_MAX_CCK
+#define DEF_TX0_CW_MAX_CCK       cpu_to_le16(CW_MAX_CCK)
+#define DEF_TX1_CW_MAX_CCK       cpu_to_le16(CW_MAX_CCK)
+#define DEF_TX2_CW_MAX_CCK       cpu_to_le16(CW_MAX_CCK)
+#define DEF_TX3_CW_MAX_CCK       cpu_to_le16(CW_MAX_CCK)
 
 #define DEF_TX0_AIFS            0
 #define DEF_TX1_AIFS            0
@@ -385,73 +385,73 @@ struct clx2_queue {
 	dma_addr_t dma_addr;		/**< physical addr for BD's */
 	int low_mark;		       /**< low watermark, resume queue if free space more than this */
 	int high_mark;		       /**< high watermark, stop queue if free space less than this */
-} __attribute__ ((packed));
+} __attribute__ ((packed)); /* XXX */
 
 struct machdr32 {
-	u16 frame_ctl;
-	u16 duration;		// watch out for endians!
+	__le16 frame_ctl;
+	__le16 duration;		// watch out for endians!
 	u8 addr1[MACADRR_BYTE_LEN];
 	u8 addr2[MACADRR_BYTE_LEN];
 	u8 addr3[MACADRR_BYTE_LEN];
-	u16 seq_ctrl;		// more endians!
+	__le16 seq_ctrl;		// more endians!
 	u8 addr4[MACADRR_BYTE_LEN];
-	u16 qos_ctrl;
+	__le16 qos_ctrl;
 } __attribute__ ((packed));
 
 struct machdr30 {
-	u16 frame_ctl;
-	u16 duration;		// watch out for endians!
+	__le16 frame_ctl;
+	__le16 duration;		// watch out for endians!
 	u8 addr1[MACADRR_BYTE_LEN];
 	u8 addr2[MACADRR_BYTE_LEN];
 	u8 addr3[MACADRR_BYTE_LEN];
-	u16 seq_ctrl;		// more endians!
+	__le16 seq_ctrl;		// more endians!
 	u8 addr4[MACADRR_BYTE_LEN];
 } __attribute__ ((packed));
 
 struct machdr26 {
-	u16 frame_ctl;
-	u16 duration;		// watch out for endians!
+	__le16 frame_ctl;
+	__le16 duration;		// watch out for endians!
 	u8 addr1[MACADRR_BYTE_LEN];
 	u8 addr2[MACADRR_BYTE_LEN];
 	u8 addr3[MACADRR_BYTE_LEN];
-	u16 seq_ctrl;		// more endians!
-	u16 qos_ctrl;
+	__le16 seq_ctrl;		// more endians!
+	__le16 qos_ctrl;
 } __attribute__ ((packed));
 
 struct machdr24 {
-	u16 frame_ctl;
-	u16 duration;		// watch out for endians!
+	__le16 frame_ctl;
+	__le16 duration;		// watch out for endians!
 	u8 addr1[MACADRR_BYTE_LEN];
 	u8 addr2[MACADRR_BYTE_LEN];
 	u8 addr3[MACADRR_BYTE_LEN];
-	u16 seq_ctrl;		// more endians!
+	__le16 seq_ctrl;		// more endians!
 } __attribute__ ((packed));
 
 // TX TFD with 32 byte MAC Header
 struct tx_tfd_32 {
 	struct machdr32 mchdr;	// 32
-	u32 uivplaceholder[2];	// 8
+	__le32 uivplaceholder[2];	// 8
 } __attribute__ ((packed));
 
 // TX TFD with 30 byte MAC Header
 struct tx_tfd_30 {
 	struct machdr30 mchdr;	// 30
 	u8 reserved[2];		// 2
-	u32 uivplaceholder[2];	// 8
+	__le32 uivplaceholder[2];	// 8
 } __attribute__ ((packed));
 
 // tx tfd with 26 byte mac header
 struct tx_tfd_26 {
 	struct machdr26 mchdr;	// 26
 	u8 reserved1[2];	// 2
-	u32 uivplaceholder[2];	// 8
+	__le32 uivplaceholder[2];	// 8
 	u8 reserved2[4];	// 4
 } __attribute__ ((packed));
 
 // tx tfd with 24 byte mac header
 struct tx_tfd_24 {
 	struct machdr24 mchdr;	// 24
-	u32 uivplaceholder[2];	// 8
+	__le32 uivplaceholder[2];	// 8
 	u8 reserved[8];		// 8
 } __attribute__ ((packed));
 
@@ -460,21 +460,21 @@ struct tx_tfd_24 {
 struct tfd_command {
 	u8 index;
 	u8 length;
-	u16 reserved;
+	__le16 reserved;
 	u8 payload[0];
 } __attribute__ ((packed));
 
 struct tfd_data {
 	/* Header */
-	u32 work_area_ptr;
+	__le32 work_area_ptr;
 	u8 station_number;	/* 0 for BSS */
 	u8 reserved1;
-	u16 reserved2;
+	__le16 reserved2;
 
 	/* Tx Parameters */
 	u8 cmd_id;
 	u8 seq_num;
-	u16 len;
+	__le16 len;
 	u8 priority;
 	u8 tx_flags;
 	u8 tx_flags_ext;
@@ -482,11 +482,11 @@ struct tfd_data {
 	u8 wepkey[DCT_WEP_KEY_FIELD_LENGTH];
 	u8 rate;
 	u8 antenna;
-	u16 next_packet_duration;
-	u16 next_frag_len;
-	u16 back_off_counter;	//////txop;
+	__le16 next_packet_duration;
+	__le16 next_frag_len;
+	__le16 back_off_counter;	//////txop;
 	u8 retrylimit;
-	u16 cwcurrent;
+	__le16 cwcurrent;
 	u8 reserved3;
 
 	/* 802.11 MAC Header */
@@ -498,9 +498,9 @@ struct tfd_data {
 	} tfd;
 
 	/* Payload DMA info */
-	u32 num_chunks;
-	u32 chunk_ptr[NUM_TFD_CHUNKS];
-	u16 chunk_len[NUM_TFD_CHUNKS];
+	__le32 num_chunks;
+	__le32 chunk_ptr[NUM_TFD_CHUNKS];
+	__le16 chunk_len[NUM_TFD_CHUNKS];
 } __attribute__ ((packed));
 
 struct txrx_control_flags {
@@ -547,14 +547,14 @@ struct clx2_tx_queue {
 // Used for passing to driver number of successes and failures per rate
 struct rate_histogram {
 	union {
-		u32 a[SUP_RATE_11A_MAX_NUM_CHANNELS];
-		u32 b[SUP_RATE_11B_MAX_NUM_CHANNELS];
-		u32 g[SUP_RATE_11G_MAX_NUM_CHANNELS];
+		__le32 a[SUP_RATE_11A_MAX_NUM_CHANNELS];
+		__le32 b[SUP_RATE_11B_MAX_NUM_CHANNELS];
+		__le32 g[SUP_RATE_11G_MAX_NUM_CHANNELS];
 	} success;
 	union {
-		u32 a[SUP_RATE_11A_MAX_NUM_CHANNELS];
-		u32 b[SUP_RATE_11B_MAX_NUM_CHANNELS];
-		u32 g[SUP_RATE_11G_MAX_NUM_CHANNELS];
+		__le32 a[SUP_RATE_11A_MAX_NUM_CHANNELS];
+		__le32 b[SUP_RATE_11B_MAX_NUM_CHANNELS];
+		__le32 g[SUP_RATE_11G_MAX_NUM_CHANNELS];
 	} failed;
 } __attribute__ ((packed));
 
@@ -562,27 +562,27 @@ struct rate_histogram {
 struct ipw_cmd_stats {
 	u8 cmd_id;
 	u8 seq_num;
-	u16 good_sfd;
-	u16 bad_plcp;
-	u16 wrong_bssid;
-	u16 valid_mpdu;
-	u16 bad_mac_header;
-	u16 reserved_frame_types;
-	u16 rx_ina;
-	u16 bad_crc32;
-	u16 invalid_cts;
-	u16 invalid_acks;
-	u16 long_distance_ina_fina;
-	u16 dsp_silence_unreachable;
-	u16 accumulated_rssi;
-	u16 rx_ovfl_frame_tossed;
-	u16 rssi_silence_threshold;
-	u16 rx_ovfl_frame_supplied;
-	u16 last_rx_frame_signal;
-	u16 last_rx_frame_noise;
-	u16 rx_autodetec_no_ofdm;
-	u16 rx_autodetec_no_barker;
-	u16 reserved;
+	__le16 good_sfd;
+	__le16 bad_plcp;
+	__le16 wrong_bssid;
+	__le16 valid_mpdu;
+	__le16 bad_mac_header;
+	__le16 reserved_frame_types;
+	__le16 rx_ina;
+	__le16 bad_crc32;
+	__le16 invalid_cts;
+	__le16 invalid_acks;
+	__le16 long_distance_ina_fina;
+	__le16 dsp_silence_unreachable;
+	__le16 accumulated_rssi;
+	__le16 rx_ovfl_frame_tossed;
+	__le16 rssi_silence_threshold;
+	__le16 rx_ovfl_frame_supplied;
+	__le16 last_rx_frame_signal;
+	__le16 last_rx_frame_noise;
+	__le16 rx_autodetec_no_ofdm;
+	__le16 rx_autodetec_no_barker;
+	__le16 reserved;
 } __attribute__ ((packed));
 
 struct notif_channel_result {
@@ -602,13 +602,13 @@ struct notif_scan_complete {
 } __attribute__ ((packed));
 
 struct notif_frag_length {
-	u16 frag_length;
-	u16 reserved;
+	__le16 frag_length;
+	__le16 reserved;
 } __attribute__ ((packed));
 
 struct notif_beacon_state {
-	u32 state;
-	u32 number;
+	__le32 state;
+	__le32 number;
 } __attribute__ ((packed));
 
 struct notif_tgi_tx_key {
@@ -627,7 +627,7 @@ struct notif_link_deterioration {
 	u8 modulation;
 	struct rate_histogram histogram;
 	u8 silence_notification_type;	/* SILENCE_OVER/UNDER_THRESH */
-	u16 silence_count;
+	__le16 silence_count;
 } __attribute__ ((packed));
 
 struct notif_association {
@@ -637,7 +637,7 @@ struct notif_association {
 struct notif_authenticate {
 	u8 state;
 	struct machdr24 addr;
-	u16 status;
+	__le16 status;
 } __attribute__ ((packed));
 
 struct notif_calibration {
@@ -645,14 +645,14 @@ struct notif_calibration {
 } __attribute__ ((packed));
 
 struct notif_noise {
-	u32 value;
+	__le32 value;
 } __attribute__ ((packed));
 
 struct ipw_rx_notification {
 	u8 reserved[8];
 	u8 subtype;
 	u8 flags;
-	u16 size;
+	__le16 size;
 	union {
 		struct notif_association assoc;
 		struct notif_authenticate auth;
@@ -669,7 +669,7 @@ struct ipw_rx_notification {
 } __attribute__ ((packed));
 
 struct ipw_rx_frame {
-	u32 reserved1;
+	__le32 reserved1;
 	u8 parent_tsf[4];	// fw_use[0] is boolean for OUR_TSF_IS_GREATER
 	u8 received_channel;	// The channel that this frame was received on.
 	// Note that for .11b this does not have to be
@@ -680,14 +680,14 @@ struct ipw_rx_frame {
 	u8 rssi;
 	u8 agc;
 	u8 rssi_dbm;
-	u16 signal;
-	u16 noise;
+	__le16 signal;
+	__le16 noise;
 	u8 antennaAndPhy;
 	u8 control;		// control bit should be on in bg
 	u8 rtscts_rate;		// rate of rts or cts (in rts cts sequence rate
 	// is identical)
 	u8 rtscts_seen;		// 0x1 RTS seen ; 0x2 CTS seen
-	u16 length;
+	__le16 length;
 	u8 data[0];
 } __attribute__ ((packed));
 
@@ -732,14 +732,14 @@ struct ipw_rx_queue {
 struct alive_command_responce {
 	u8 alive_command;
 	u8 sequence_number;
-	u16 software_revision;
+	__le16 software_revision;
 	u8 device_identifier;
 	u8 reserved1[5];
-	u16 reserved2;
-	u16 reserved3;
-	u16 clock_settle_time;
-	u16 powerup_settle_time;
-	u16 reserved4;
+	__le16 reserved2;
+	__le16 reserved3;
+	__le16 clock_settle_time;
+	__le16 powerup_settle_time;
+	__le16 reserved4;
 	u8 time_stamp[5];	/* month, day, year, hours, minutes */
 	u8 ucode_valid;
 } __attribute__ ((packed));
@@ -827,14 +827,14 @@ struct ipw_tgi_tx_key {
 	u8 station_index;
 	u8 flags;
 	u8 key[16];
-	u32 tx_counter[2];
+	__le32 tx_counter[2];
 } __attribute__ ((packed));
 
 #define IPW_SCAN_CHANNELS 54
 
 struct ipw_scan_request {
 	u8 scan_type;
-	u16 dwell_time;
+	__le16 dwell_time;
 	u8 channels_list[IPW_SCAN_CHANNELS];
 	u8 channels_reserved[3];
 } __attribute__ ((packed));
@@ -849,11 +849,11 @@ enum {
 };
 
 struct ipw_scan_request_ext {
-	u32 full_scan_index;
+	__le32 full_scan_index;
 	u8 channels_list[IPW_SCAN_CHANNELS];
 	u8 scan_type[IPW_SCAN_CHANNELS / 2];
 	u8 reserved;
-	u16 dwell_time[IPW_SCAN_TYPES];
+	__le16 dwell_time[IPW_SCAN_TYPES];
 } __attribute__ ((packed));
 
 static inline u8 ipw_get_scan_type(struct ipw_scan_request_ext *scan, u8 index)
@@ -878,23 +878,27 @@ static inline void ipw_set_scan_type(struct ipw_scan_request_ext *scan,
 
 struct ipw_associate {
 	u8 channel;
+#ifdef __LITTLE_ENDIAN_BITFIELD
 	u8 auth_type:4, auth_key:4;
+#else
+	u8 auth_key:4, auth_type:4;
+#endif
 	u8 assoc_type;
 	u8 reserved;
-	u16 policy_support;
+	__le16 policy_support;
 	u8 preamble_length;
 	u8 ieee_mode;
 	u8 bssid[ETH_ALEN];
-	u32 assoc_tsf_msw;
-	u32 assoc_tsf_lsw;
-	u16 capability;
-	u16 listen_interval;
-	u16 beacon_interval;
+	__le32 assoc_tsf_msw;
+	__le32 assoc_tsf_lsw;
+	__le16 capability;
+	__le16 listen_interval;
+	__le16 beacon_interval;
 	u8 dest[ETH_ALEN];
-	u16 atim_window;
+	__le16 atim_window;
 	u8 smr;
 	u8 reserved1;
-	u16 reserved2;
+	__le16 reserved2;
 } __attribute__ ((packed));
 
 struct ipw_supported_rates {
@@ -906,24 +910,24 @@ struct ipw_supported_rates {
 } __attribute__ ((packed));
 
 struct ipw_rts_threshold {
-	u16 rts_threshold;
-	u16 reserved;
+	__le16 rts_threshold;
+	__le16 reserved;
 } __attribute__ ((packed));
 
 struct ipw_frag_threshold {
-	u16 frag_threshold;
-	u16 reserved;
+	__le16 frag_threshold;
+	__le16 reserved;
 } __attribute__ ((packed));
 
 struct ipw_retry_limit {
 	u8 short_retry_limit;
 	u8 long_retry_limit;
-	u16 reserved;
+	__le16 reserved;
 } __attribute__ ((packed));
 
 struct ipw_dino_config {
-	u32 dino_config_addr;
-	u16 dino_config_size;
+	__le32 dino_config_addr;
+	__le16 dino_config_size;
 	u8 dino_response;
 	u8 reserved;
 } __attribute__ ((packed));
@@ -931,7 +935,7 @@ struct ipw_dino_config {
 struct ipw_aironet_info {
 	u8 id;
 	u8 length;
-	u16 reserved;
+	__le16 reserved;
 } __attribute__ ((packed));
 
 struct ipw_rx_key {
@@ -977,12 +981,12 @@ struct ipw_tx_power {
 struct ipw_rsn_capabilities {
 	u8 id;
 	u8 length;
-	u16 version;
+	__le16 version;
 } __attribute__ ((packed));
 
 struct ipw_sensitivity_calib {
-	u16 beacon_rssi_raw;
-	u16 reserved;
+	__le16 beacon_rssi_raw;
+	__le16 reserved;
 } __attribute__ ((packed));
 
 /**
@@ -998,7 +1002,7 @@ struct ipw_sensitivity_calib {
  * - \a status contains status;
  * - \a param filled with status parameters.
  */
-struct ipw_cmd {
+struct ipw_cmd {	 /* XXX */
 	u32 cmd;   /**< Host command */
 	u32 status;/**< Status */
 	u32 status_len;
@@ -1033,6 +1037,7 @@ struct ipw_cmd {
 #define STATUS_DISASSOC_PENDING (1<<12)
 #define STATUS_STATE_PENDING    (1<<13)
 
+#define STATUS_DIRECT_SCAN_PENDING (1<<19)
 #define STATUS_SCAN_PENDING     (1<<20)
 #define STATUS_SCANNING         (1<<21)
 #define STATUS_SCAN_ABORTING    (1<<22)
@@ -1092,7 +1097,7 @@ struct ipw_ibss_seq {
 	struct list_head list;
 };
 
-struct ipw_error_elem {
+struct ipw_error_elem {	 /* XXX */
 	u32 desc;
 	u32 time;
 	u32 blink1;
@@ -1102,13 +1107,13 @@ struct ipw_error_elem {
 	u32 data;
 };
 
-struct ipw_event {
+struct ipw_event {	 /* XXX */
 	u32 event;
 	u32 time;
 	u32 data;
 } __attribute__ ((packed));
 
-struct ipw_fw_error {
+struct ipw_fw_error {	 /* XXX */
 	unsigned long jiffies;
 	u32 status;
 	u32 config;
@@ -1153,11 +1158,11 @@ struct ipw_prom_priv {
  */
 struct ipw_rt_hdr {
 	struct ieee80211_radiotap_header rt_hdr;
-	u64 rt_tsf;      /* TSF */
+	u64 rt_tsf;      /* TSF */	/* XXX */
 	u8 rt_flags;	/* radiotap packet flags */
 	u8 rt_rate;	/* rate in 500kb/s */
-	u16 rt_channel;	/* channel in mhz */
-	u16 rt_chbitmask;	/* channel bitfield */
+	__le16 rt_channel;	/* channel in mhz */
+	__le16 rt_chbitmask;	/* channel bitfield */
 	s8 rt_dbmsignal;	/* signal in dbM, kluged to signed */
 	s8 rt_dbmnoise;
 	u8 rt_antenna;	/* antenna number */
@@ -1288,6 +1293,8 @@ struct ipw_priv {
 	struct iw_public_data wireless_data;
 
 	int user_requested_scan;
+	u8 direct_scan_ssid[IW_ESSID_MAX_SIZE];
+	u8 direct_scan_ssid_len;
 
 	struct workqueue_struct *workqueue;
 
@@ -1297,8 +1304,9 @@ struct ipw_priv {
 	struct work_struct system_config;
 	struct work_struct rx_replenish;
 	struct delayed_work request_scan;
+	struct delayed_work request_direct_scan;
+	struct delayed_work request_passive_scan;
 	struct delayed_work scan_event;
-  	struct work_struct request_passive_scan;
 	struct work_struct adapter_restart;
 	struct delayed_work rf_kill;
 	struct work_struct up;
@@ -1386,13 +1394,13 @@ BIT_ARG16(x)
 #define IPW_DEBUG(level, fmt, args...) \
 do { if (ipw_debug_level & (level)) \
   printk(KERN_DEBUG DRV_NAME": %c %s " fmt, \
-         in_interrupt() ? 'I' : 'U', __FUNCTION__ , ## args); } while (0)
+         in_interrupt() ? 'I' : 'U', __func__ , ## args); } while (0)
 
 #ifdef CONFIG_IPW2200_DEBUG
 #define IPW_LL_DEBUG(level, fmt, args...) \
 do { if (ipw_debug_level & (level)) \
   printk(KERN_DEBUG DRV_NAME": %c %s " fmt, \
-         in_interrupt() ? 'I' : 'U', __FUNCTION__ , ## args); } while (0)
+         in_interrupt() ? 'I' : 'U', __func__ , ## args); } while (0)
 #else
 #define IPW_LL_DEBUG(level, fmt, args...) do {} while (0)
 #endif				/* CONFIG_IPW2200_DEBUG */
@@ -1759,7 +1767,7 @@ enum {
 #define HC_IBSS_RECONF    4
 #define HC_DISASSOC_QUIET 5
 
-#define HC_QOS_SUPPORT_ASSOC  0x01
+#define HC_QOS_SUPPORT_ASSOC  cpu_to_le16(0x01)
 
 #define IPW_RATE_CAPABILITIES 1
 #define IPW_RATE_CONNECT      0
@@ -1940,8 +1948,8 @@ enum {
 #define IPW_MEM_FIXED_OVERRIDE          (IPW_SHARED_LOWER_BOUND + 0x41C)
 
 struct ipw_fixed_rate {
-	u16 tx_rates;
-	u16 reserved;
+	__le16 tx_rates;
+	__le16 reserved;
 } __attribute__ ((packed));
 
 #define IPW_INDIRECT_ADDR_MASK (~0x3ul)
@@ -1951,12 +1959,12 @@ struct host_cmd {
 	u8 len;
 	u16 reserved;
 	u32 *param;
-} __attribute__ ((packed));
+} __attribute__ ((packed));	/* XXX */
 
 struct cmdlog_host_cmd {
 	u8 cmd;
 	u8 len;
-	u16 reserved;
+	__le16 reserved;
 	char param[124];
 } __attribute__ ((packed));
 

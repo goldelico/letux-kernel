@@ -14,8 +14,8 @@
  */
 
 #include <linux/signal.h>
+#include <linux/of_platform.h>
 
-#include <asm/of_platform.h>
 #include <asm/prom.h>
 
 
@@ -72,7 +72,6 @@ static const struct hc_driver ohci_ppc_of_hc_driver = {
 	 */
 	.hub_status_data =	ohci_hub_status_data,
 	.hub_control =		ohci_hub_control,
-	.hub_irq_enable =	ohci_rhsc_enable,
 #ifdef	CONFIG_PM
 	.bus_suspend =		ohci_bus_suspend,
 	.bus_resume =		ohci_bus_resume,
@@ -136,6 +135,8 @@ ohci_hcd_ppc_of_probe(struct of_device *op, const struct of_device_id *match)
 	ohci = hcd_to_ohci(hcd);
 	if (is_bigendian) {
 		ohci->flags |= OHCI_QUIRK_BE_MMIO | OHCI_QUIRK_BE_DESC;
+		if (of_device_is_compatible(dn, "fsl,mpc5200-ohci"))
+			ohci->flags |= OHCI_QUIRK_FRAME_NO;
 		if (of_device_is_compatible(dn, "mpc5200-ohci"))
 			ohci->flags |= OHCI_QUIRK_FRAME_NO;
 	}

@@ -8,7 +8,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -144,7 +144,7 @@ void acpi_os_release_mutex(acpi_mutex handle);
 void *acpi_os_allocate(acpi_size size);
 
 void __iomem *acpi_os_map_memory(acpi_physical_address where,
-				 acpi_native_uint length);
+				acpi_size length);
 
 void acpi_os_unmap_memory(void __iomem * logical_address, acpi_size size);
 
@@ -181,6 +181,9 @@ acpi_os_install_interrupt_handler(u32 gsi,
 acpi_status
 acpi_os_remove_interrupt_handler(u32 gsi, acpi_osd_handler service_routine);
 
+void acpi_os_gpe_count(u32 gpe_number);
+void acpi_os_fixed_event_count(u32 fixed_event_number);
+
 /*
  * Threads and Scheduling
  */
@@ -189,6 +192,9 @@ acpi_thread_id acpi_os_get_thread_id(void);
 acpi_status
 acpi_os_execute(acpi_execute_type type,
 		acpi_osd_exec_callback function, void *context);
+
+acpi_status
+acpi_os_hotplug_execute(acpi_osd_exec_callback function, void *context);
 
 void acpi_os_wait_events_complete(void *context);
 
@@ -219,7 +225,7 @@ acpi_os_write_memory(acpi_physical_address address, u32 value, u32 width);
  */
 acpi_status
 acpi_os_read_pci_configuration(struct acpi_pci_id *pci_id,
-			       u32 reg, void *value, u32 width);
+			       u32 reg, u32 *value, u32 width);
 
 acpi_status
 acpi_os_write_pci_configuration(struct acpi_pci_id *pci_id,
@@ -239,8 +245,8 @@ acpi_status acpi_os_validate_interface(char *interface);
 acpi_status acpi_osi_invalidate(char* interface);
 
 acpi_status
-acpi_os_validate_address(u8 space_id,
-			 acpi_physical_address address, acpi_size length);
+acpi_os_validate_address(u8 space_id, acpi_physical_address address,
+			 acpi_size length, char *name);
 
 u64 acpi_os_get_timer(void);
 

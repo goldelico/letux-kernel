@@ -32,8 +32,9 @@
 #include <linux/init.h>
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
+#include <linux/i2c.h>
 #include <linux/serial_core.h>
-#include <asm/arch/ts.h>
+#include <mach/ts.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
 #include <linux/mmc/mmc.h>
@@ -52,30 +53,35 @@
 #include <asm/mach/map.h>
 #include <asm/mach/irq.h>
 
-#include <asm/hardware.h>
-#include <asm/io.h>
+#include <mach/hardware.h>
+#include <mach/io.h>
 #include <asm/irq.h>
 #include <asm/mach-types.h>
 
-#include <asm/arch/regs-gpio.h>
-#include <asm/arch/fb.h>
-#include <asm/arch/mci.h>
-#include <asm/arch/spi.h>
-#include <asm/arch/spi-gpio.h>
-#include <asm/arch/usb-control.h>
+#include <mach/regs-gpio.h>
+#include <mach/fb.h>
+#include <mach/mci.h>
+#include <mach/spi.h>
+#include <mach/spi-gpio.h>
+#include <mach/usb-control.h>
 
-#include <asm/arch/gta01.h>
+#include <mach/gta01.h>
 
-#include <asm/plat-s3c/regs-serial.h>
-#include <asm/plat-s3c/nand.h>
-#include <asm/plat-s3c24xx/devs.h>
-#include <asm/plat-s3c24xx/cpu.h>
-#include <asm/plat-s3c24xx/pm.h>
-#include <asm/plat-s3c24xx/udc.h>
+#include <plat/regs-serial.h>
+#include <plat/nand.h>
+#include <plat/devs.h>
+#include <plat/cpu.h>
+#include <plat/pm.h>
+#include <plat/udc.h>
+#include <plat/iic.h>
 #include <asm/plat-s3c24xx/neo1973.h>
-#include <asm/arch-s3c2410/neo1973-pm-gsm.h>
+#include <mach/neo1973-pm-gsm.h>
 
 #include <linux/jbt6k74.h>
+
+#include <linux/ts_filter_mean.h>
+#include <linux/ts_filter_median.h>
+
 
 static struct map_desc gta01_iodesc[] __initdata = {
 	{
@@ -365,7 +371,7 @@ static struct platform_device *gta01_devices[] __initdata = {
 	&s3c_device_usb,
 	&s3c_device_lcd,
 	&s3c_device_wdt,
-	&s3c_device_i2c,
+	&s3c_device_i2c0,
 	&s3c_device_iis,
 	&s3c_device_sdi,
 	&s3c_device_usbgadget,
@@ -496,18 +502,34 @@ static struct s3c2410_udc_mach_info gta01_udc_cfg = {
 	.vbus_draw	= gta01_udc_vbus_draw,
 };
 
+
+/* touchscreen configuration */
+
+static struct ts_filter_median_configuration gta01_ts_median_config = {
+	.extent = 31,
+	.decimation_below = 24,
+	.decimation_threshold = 8 * 3,
+	.decimation_above = 12,
+};
+
+static struct ts_filter_mean_configuration gta01_ts_mean_config = {
+	.bits_filter_length = 5,
+	.averaging_threshold = 12
+};
+
 static struct s3c2410_ts_mach_info gta01_ts_cfg = {
 	.delay = 10000,
-	.presc = 50000000 / 1000000, /* 50 MHz PCLK / 1MHz */
-	/* simple averaging, 2^n samples */
-	.oversampling_shift = 5,
-	/* averaging filter length, 2^n */
-	.excursion_filter_len_bits = 5,
-	/* flagged for beauty contest on next sample if differs from
-	 * average more than this
-	 */
-	.reject_threshold_vs_avg = 2,
+	.presc = 0xff, /* slow as we can go */
+	.filter_sequence = {
+		[0] = &ts_filter_median_api,
+		[1] = &ts_filter_mean_api,
+	},
+	.filter_config = {
+		[0] = &gta01_ts_median_config,
+		[1] = &gta01_ts_mean_config,
+	},
 };
+
 
 /* SPI */
 
@@ -639,6 +661,14 @@ static struct resource gta01_button_resources[] = {
 		.start = GTA01_GPIO_JACK_INSERT,
 		.end   = GTA01_GPIO_JACK_INSERT,
 	},
+	[3] = {
+		.start = 0,
+		.end   = 0,
+	},
+	[4] = {
+		.start = 0,
+		.end   = 0,
+	},
 };
 
 struct platform_device gta01_button_dev = {
@@ -695,6 +725,7 @@ static void __init gta01_machine_init(void)
 
 	INIT_WORK(&gta01_udc_vbus_drawer.work, __gta01_udc_vbus_draw);
 	s3c24xx_udc_set_platdata(&gta01_udc_cfg);
+	s3c_i2c0_set_platdata(NULL);
 	set_s3c2410ts_info(&gta01_ts_cfg);
 
 	/* Set LCD_RESET / XRES to high */
@@ -736,7 +767,7 @@ static void __init gta01_machine_init(void)
 
 	s3c2410_pm_init();
 
-	set_irq_type(GTA01_IRQ_MODEM, IRQT_RISING);
+	set_irq_type(GTA01_IRQ_MODEM, IRQ_TYPE_EDGE_RISING);
 	rc = request_irq(GTA01_IRQ_MODEM, gta01_modem_irq, IRQF_DISABLED,
 			 "modem", NULL);
 	enable_irq_wake(GTA01_IRQ_MODEM);

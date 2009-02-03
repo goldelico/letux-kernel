@@ -346,13 +346,15 @@ int pwc_video_do_ioctl(struct inode *inode, struct file *file,
 
 	if (vdev == NULL)
 		return -EFAULT;
-	pdev = vdev->priv;
+	pdev = video_get_drvdata(vdev);
 	if (pdev == NULL)
 		return -EFAULT;
 
 #ifdef CONFIG_USB_PWC_DEBUG
-	if (PWC_DEBUG_LEVEL_IOCTL & pwc_trace)
+	if (PWC_DEBUG_LEVEL_IOCTL & pwc_trace) {
 		v4l_printk_ioctl(cmd);
+		printk("\n");
+	}
 #endif
 
 

@@ -242,8 +242,6 @@ static int hiddev_release(struct inode * inode, struct file * file)
 	struct hiddev_list *list = file->private_data;
 	unsigned long flags;
 
-	hiddev_fasync(-1, file, 0);
-
 	spin_lock_irqsave(&list->hiddev->list_lock, flags);
 	list_del(&list->node);
 	spin_unlock_irqrestore(&list->hiddev->list_lock, flags);
@@ -393,7 +391,157 @@ static unsigned int hiddev_poll(struct file *file, poll_table *wait)
 /*
  * "ioctl" file op
  */
-static int hiddev_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
+static noinline int hiddev_ioctl_usage(struct hiddev *hiddev, unsigned int cmd, void __user *user_arg)
+{
+	struct hid_device *hid = hiddev->hid;
+	struct hiddev_report_info rinfo;
+	struct hiddev_usage_ref_multi *uref_multi = NULL;
+	struct hiddev_usage_ref *uref;
+	struct hid_report *report;
+	struct hid_field *field;
+	int i;
+
+	uref_multi = kmalloc(sizeof(struct hiddev_usage_ref_multi), GFP_KERNEL);
+	if (!uref_multi)
+		return -ENOMEM;
+	lock_kernel();
+	uref = &uref_multi->uref;
+	if (cmd == HIDIOCGUSAGES || cmd == HIDIOCSUSAGES) {
+		if (copy_from_user(uref_multi, user_arg,
+				   sizeof(*uref_multi)))
+			goto fault;
+	} else {
+		if (copy_from_user(uref, user_arg, sizeof(*uref)))
+			goto fault;
+	}
+
+	switch (cmd) {
+	case HIDIOCGUCODE:
+		rinfo.report_type = uref->report_type;
+		rinfo.report_id = uref->report_id;
+		if ((report = hiddev_lookup_report(hid, &rinfo)) == NULL)
+			goto inval;
+
+		if (uref->field_index >= report->maxfield)
+			goto inval;
+
+		field = report->field[uref->field_index];
+		if (uref->usage_index >= field->maxusage)
+			goto inval;
+
+		uref->usage_code = field->usage[uref->usage_index].hid;
+
+		if (copy_to_user(user_arg, uref, sizeof(*uref)))
+			goto fault;
+
+		goto goodreturn;
+
+	default:
+		if (cmd != HIDIOCGUSAGE &&
+		    cmd != HIDIOCGUSAGES &&
+		    uref->report_type == HID_REPORT_TYPE_INPUT)
+			goto inval;
+
+		if (uref->report_id == HID_REPORT_ID_UNKNOWN) {
+			field = hiddev_lookup_usage(hid, uref);
+			if (field == NULL)
+				goto inval;
+		} else {
+			rinfo.report_type = uref->report_type;
+			rinfo.report_id = uref->report_id;
+			if ((report = hiddev_lookup_report(hid, &rinfo)) == NULL)
+				goto inval;
+
+			if (uref->field_index >= report->maxfield)
+				goto inval;
+
+			field = report->field[uref->field_index];
+
+			if (cmd == HIDIOCGCOLLECTIONINDEX) {
+				if (uref->usage_index >= field->maxusage)
+					goto inval;
+			} else if (uref->usage_index >= field->report_count)
+				goto inval;
+
+			else if ((cmd == HIDIOCGUSAGES || cmd == HIDIOCSUSAGES) &&
+				 (uref_multi->num_values > HID_MAX_MULTI_USAGES ||
+				  uref->usage_index + uref_multi->num_values > field->report_count))
+				goto inval;
+			}
+
+		switch (cmd) {
+		case HIDIOCGUSAGE:
+			uref->value = field->value[uref->usage_index];
+			if (copy_to_user(user_arg, uref, sizeof(*uref)))
+				goto fault;
+			goto goodreturn;
+
+		case HIDIOCSUSAGE:
+			field->value[uref->usage_index] = uref->value;
+			goto goodreturn;
+
+		case HIDIOCGCOLLECTIONINDEX:
+			kfree(uref_multi);
+			return field->usage[uref->usage_index].collection_index;
+		case HIDIOCGUSAGES:
+			for (i = 0; i < uref_multi->num_values; i++)
+				uref_multi->values[i] =
+				    field->value[uref->usage_index + i];
+			if (copy_to_user(user_arg, uref_multi,
+					 sizeof(*uref_multi)))
+				goto fault;
+			goto goodreturn;
+		case HIDIOCSUSAGES:
+			for (i = 0; i < uref_multi->num_values; i++)
+				field->value[uref->usage_index + i] =
+				    uref_multi->values[i];
+			goto goodreturn;
+		}
+
+goodreturn:
+		unlock_kernel();
+		kfree(uref_multi);
+		return 0;
+fault:
+		unlock_kernel();
+		kfree(uref_multi);
+		return -EFAULT;
+inval:
+		unlock_kernel();
+		kfree(uref_multi);
+		return -EINVAL;
+	}
+}
+
+static noinline int hiddev_ioctl_string(struct hiddev *hiddev, unsigned int cmd, void __user *user_arg)
+{
+	struct hid_device *hid = hiddev->hid;
+	struct usb_device *dev = hid_to_usb_dev(hid);
+	int idx, len;
+	char *buf;
+
+	if (get_user(idx, (int __user *)user_arg))
+		return -EFAULT;
+
+	if ((buf = kmalloc(HID_STRING_SIZE, GFP_KERNEL)) == NULL)
+		return -ENOMEM;
+
+	if ((len = usb_string(dev, idx, buf, HID_STRING_SIZE-1)) < 0) {
+		kfree(buf);
+		return -EINVAL;
+	}
+
+	if (copy_to_user(user_arg+sizeof(int), buf, len+1)) {
+		kfree(buf);
+		return -EFAULT;
+	}
+
+	kfree(buf);
+
+	return len;
+}
+
+static long hiddev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct hiddev_list *list = file->private_data;
 	struct hiddev *hiddev = list->hiddev;
@@ -402,15 +550,16 @@ static int hiddev_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 	struct hiddev_collection_info cinfo;
 	struct hiddev_report_info rinfo;
 	struct hiddev_field_info finfo;
-	struct hiddev_usage_ref_multi *uref_multi = NULL;
-	struct hiddev_usage_ref *uref;
 	struct hiddev_devinfo dinfo;
 	struct hid_report *report;
 	struct hid_field *field;
 	struct usbhid_device *usbhid = hid->driver_data;
 	void __user *user_arg = (void __user *)arg;
 	int i;
+	
+	/* Called without BKL by compat methods so no BKL taken */
 
+	/* FIXME: Who or what stop this racing with a disconnect ?? */
 	if (!hiddev->exist)
 		return -EIO;
 
@@ -470,30 +619,7 @@ static int hiddev_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 		}
 
 	case HIDIOCGSTRING:
-		{
-			int idx, len;
-			char *buf;
-
-			if (get_user(idx, (int __user *)arg))
-				return -EFAULT;
-
-			if ((buf = kmalloc(HID_STRING_SIZE, GFP_KERNEL)) == NULL)
-				return -ENOMEM;
-
-			if ((len = usb_string(dev, idx, buf, HID_STRING_SIZE-1)) < 0) {
-				kfree(buf);
-				return -EINVAL;
-			}
-
-			if (copy_to_user(user_arg+sizeof(int), buf, len+1)) {
-				kfree(buf);
-				return -EFAULT;
-			}
-
-			kfree(buf);
-
-			return len;
-		}
+		return hiddev_ioctl_string(hiddev, cmd, user_arg);
 
 	case HIDIOCINITREPORT:
 		usbhid_init_reports(hid);
@@ -578,121 +704,13 @@ static int hiddev_ioctl(struct inode *inode, struct file *file, unsigned int cmd
 		return 0;
 
 	case HIDIOCGUCODE:
-		uref_multi = kmalloc(sizeof(struct hiddev_usage_ref_multi), GFP_KERNEL);
-		if (!uref_multi)
-			return -ENOMEM;
-		uref = &uref_multi->uref;
-		if (copy_from_user(uref, user_arg, sizeof(*uref)))
-			goto fault;
-
-		rinfo.report_type = uref->report_type;
-		rinfo.report_id = uref->report_id;
-		if ((report = hiddev_lookup_report(hid, &rinfo)) == NULL)
-			goto inval;
-
-		if (uref->field_index >= report->maxfield)
-			goto inval;
-
-		field = report->field[uref->field_index];
-		if (uref->usage_index >= field->maxusage)
-			goto inval;
-
-		uref->usage_code = field->usage[uref->usage_index].hid;
-
-		if (copy_to_user(user_arg, uref, sizeof(*uref)))
-			goto fault;
-
-		kfree(uref_multi);
-		return 0;
-
+		/* fall through */
 	case HIDIOCGUSAGE:
 	case HIDIOCSUSAGE:
 	case HIDIOCGUSAGES:
 	case HIDIOCSUSAGES:
 	case HIDIOCGCOLLECTIONINDEX:
-		uref_multi = kmalloc(sizeof(struct hiddev_usage_ref_multi), GFP_KERNEL);
-		if (!uref_multi)
-			return -ENOMEM;
-		uref = &uref_multi->uref;
-		if (cmd == HIDIOCGUSAGES || cmd == HIDIOCSUSAGES) {
-			if (copy_from_user(uref_multi, user_arg,
-					   sizeof(*uref_multi)))
-				goto fault;
-		} else {
-			if (copy_from_user(uref, user_arg, sizeof(*uref)))
-				goto fault;
-		}
-
-		if (cmd != HIDIOCGUSAGE &&
-		    cmd != HIDIOCGUSAGES &&
-		    uref->report_type == HID_REPORT_TYPE_INPUT)
-			goto inval;
-
-		if (uref->report_id == HID_REPORT_ID_UNKNOWN) {
-			field = hiddev_lookup_usage(hid, uref);
-			if (field == NULL)
-				goto inval;
-		} else {
-			rinfo.report_type = uref->report_type;
-			rinfo.report_id = uref->report_id;
-			if ((report = hiddev_lookup_report(hid, &rinfo)) == NULL)
-				goto inval;
-
-			if (uref->field_index >= report->maxfield)
-				goto inval;
-
-			field = report->field[uref->field_index];
-
-			if (cmd == HIDIOCGCOLLECTIONINDEX) {
-				if (uref->usage_index >= field->maxusage)
-					goto inval;
-			} else if (uref->usage_index >= field->report_count)
-				goto inval;
-
-			else if ((cmd == HIDIOCGUSAGES || cmd == HIDIOCSUSAGES) &&
-				 (uref_multi->num_values > HID_MAX_MULTI_USAGES ||
-				  uref->usage_index + uref_multi->num_values > field->report_count))
-				goto inval;
-			}
-
-		switch (cmd) {
-			case HIDIOCGUSAGE:
-				uref->value = field->value[uref->usage_index];
-				if (copy_to_user(user_arg, uref, sizeof(*uref)))
-					goto fault;
-				goto goodreturn;
-
-			case HIDIOCSUSAGE:
-				field->value[uref->usage_index] = uref->value;
-				goto goodreturn;
-
-			case HIDIOCGCOLLECTIONINDEX:
-				kfree(uref_multi);
-				return field->usage[uref->usage_index].collection_index;
-			case HIDIOCGUSAGES:
-				for (i = 0; i < uref_multi->num_values; i++)
-					uref_multi->values[i] =
-					    field->value[uref->usage_index + i];
-				if (copy_to_user(user_arg, uref_multi,
-						 sizeof(*uref_multi)))
-					goto fault;
-				goto goodreturn;
-			case HIDIOCSUSAGES:
-				for (i = 0; i < uref_multi->num_values; i++)
-					field->value[uref->usage_index + i] =
-					    uref_multi->values[i];
-				goto goodreturn;
-		}
-
-goodreturn:
-		kfree(uref_multi);
-		return 0;
-fault:
-		kfree(uref_multi);
-		return -EFAULT;
-inval:
-		kfree(uref_multi);
-		return -EINVAL;
+		return hiddev_ioctl_usage(hiddev, cmd, user_arg);
 
 	case HIDIOCGCOLLECTIONINFO:
 		if (copy_from_user(&cinfo, user_arg, sizeof(cinfo)))
@@ -742,8 +760,7 @@ inval:
 #ifdef CONFIG_COMPAT
 static long hiddev_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	struct inode *inode = file->f_path.dentry->d_inode;
-	return hiddev_ioctl(inode, file, cmd, (unsigned long)compat_ptr(arg));
+	return hiddev_ioctl(file, cmd, (unsigned long)compat_ptr(arg));
 }
 #endif
 
@@ -754,7 +771,7 @@ static const struct file_operations hiddev_fops = {
 	.poll =		hiddev_poll,
 	.open =		hiddev_open,
 	.release =	hiddev_release,
-	.ioctl =	hiddev_ioctl,
+	.unlocked_ioctl =	hiddev_ioctl,
 	.fasync =	hiddev_fasync,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl	= hiddev_compat_ioctl,
@@ -770,21 +787,23 @@ static struct usb_class_driver hiddev_class = {
 /*
  * This is where hid.c calls us to connect a hid device to the hiddev driver
  */
-int hiddev_connect(struct hid_device *hid)
+int hiddev_connect(struct hid_device *hid, unsigned int force)
 {
 	struct hiddev *hiddev;
 	struct usbhid_device *usbhid = hid->driver_data;
-	int i;
 	int retval;
 
-	for (i = 0; i < hid->maxcollection; i++)
-		if (hid->collection[i].type ==
-		    HID_COLLECTION_APPLICATION &&
-		    !IS_INPUT_APPLICATION(hid->collection[i].usage))
-			break;
+	if (!force) {
+		unsigned int i;
+		for (i = 0; i < hid->maxcollection; i++)
+			if (hid->collection[i].type ==
+			    HID_COLLECTION_APPLICATION &&
+			    !IS_INPUT_APPLICATION(hid->collection[i].usage))
+				break;
 
-	if (i == hid->maxcollection && (hid->quirks & HID_QUIRK_HIDDEV) == 0)
-		return -1;
+		if (i == hid->maxcollection)
+			return -1;
+	}
 
 	if (!(hiddev = kzalloc(sizeof(struct hiddev), GFP_KERNEL)))
 		return -1;

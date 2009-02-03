@@ -78,6 +78,7 @@ struct xfs_mount_args {
 #define XFSMNT_IOSIZE		0x00002000	/* optimize for I/O size */
 #define XFSMNT_OSYNCISOSYNC	0x00004000	/* o_sync is REALLY o_sync */
 						/* (osyncisdsync is default) */
+#define XFSMNT_NOATTR2		0x00008000	/* turn off ATTR2 EA format */
 #define XFSMNT_32BITINODES	0x00200000	/* restrict inodes to 32
 						 * bits of address space */
 #define XFSMNT_GQUOTA		0x00400000	/* group quota accounting */
@@ -86,7 +87,7 @@ struct xfs_mount_args {
 #define XFSMNT_NOUUID		0x01000000	/* Ignore fs uuid */
 #define XFSMNT_DMAPI		0x02000000	/* enable dmapi/xdsm */
 #define XFSMNT_BARRIER		0x04000000	/* use write barriers */
-#define XFSMNT_IDELETE		0x08000000	/* inode cluster delete */
+#define XFSMNT_IKEEP		0x08000000	/* inode cluster delete */
 #define XFSMNT_SWALLOC		0x10000000	/* turn on stripe width
 						 * allocation */
 #define XFSMNT_DIRSYNC		0x40000000	/* sync creat,link,unlink,rename

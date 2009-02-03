@@ -126,7 +126,7 @@ payload of each frame is reduced to 492 bytes.
 static u8 P802_1H_OUI[P80211_OUI_LEN] = { 0x00, 0x00, 0xf8 };
 static u8 RFC1042_OUI[P80211_OUI_LEN] = { 0x00, 0x00, 0x00 };
 
-static int ieee80211_copy_snap(u8 * data, u16 h_proto)
+static int ieee80211_copy_snap(u8 * data, __be16 h_proto)
 {
 	struct ieee80211_snap_hdr *snap;
 	u8 *oui;
@@ -136,7 +136,7 @@ static int ieee80211_copy_snap(u8 * data, u16 h_proto)
 	snap->ssap = 0xaa;
 	snap->ctrl = 0x03;
 
-	if (h_proto == 0x8137 || h_proto == 0x80f3)
+	if (h_proto == htons(ETH_P_AARP) || h_proto == htons(ETH_P_IPX))
 		oui = P802_1H_OUI;
 	else
 		oui = RFC1042_OUI;
@@ -144,7 +144,6 @@ static int ieee80211_copy_snap(u8 * data, u16 h_proto)
 	snap->oui[1] = oui[1];
 	snap->oui[2] = oui[2];
 
-	h_proto = htons(h_proto);
 	memcpy(data + SNAP_SIZE, &h_proto, sizeof(u16));
 
 	return SNAP_SIZE + sizeof(u16);
@@ -261,7 +260,8 @@ int ieee80211_xmit(struct sk_buff *skb, struct net_device *dev)
 	    rts_required;
 	unsigned long flags;
 	struct net_device_stats *stats = &ieee->stats;
-	int ether_type, encrypt, host_encrypt, host_encrypt_msdu, host_build_iv;
+	int encrypt, host_encrypt, host_encrypt_msdu, host_build_iv;
+	__be16 ether_type;
 	int bytes, fc, hdr_len;
 	struct sk_buff *skb_frag;
 	struct ieee80211_hdr_3addrqos header = {/* Ensure zero initialized */
@@ -292,11 +292,11 @@ int ieee80211_xmit(struct sk_buff *skb, struct net_device *dev)
 		goto success;
 	}
 
-	ether_type = ntohs(((struct ethhdr *)skb->data)->h_proto);
+	ether_type = ((struct ethhdr *)skb->data)->h_proto;
 
 	crypt = ieee->crypt[ieee->tx_keyidx];
 
-	encrypt = !(ether_type == ETH_P_PAE && ieee->ieee802_1x) &&
+	encrypt = !(ether_type == htons(ETH_P_PAE) && ieee->ieee802_1x) &&
 	    ieee->sec.encrypt;
 
 	host_encrypt = ieee->host_encrypt && encrypt && crypt;
@@ -304,7 +304,7 @@ int ieee80211_xmit(struct sk_buff *skb, struct net_device *dev)
 	host_build_iv = ieee->host_build_iv && encrypt && crypt;
 
 	if (!encrypt && ieee->ieee802_1x &&
-	    ieee->drop_unencrypted && ether_type != ETH_P_PAE) {
+	    ieee->drop_unencrypted && ether_type != htons(ETH_P_PAE)) {
 		stats->tx_dropped++;
 		goto success;
 	}
@@ -542,90 +542,4 @@ int ieee80211_xmit(struct sk_buff *skb, struct net_device *dev)
 	return 1;
 }
 
-/* Incoming 802.11 strucure is converted to a TXB
- * a block of 802.11 fragment packets (stored as skbs) */
-int ieee80211_tx_frame(struct ieee80211_device *ieee,
-		       struct ieee80211_hdr *frame, int hdr_len, int total_len,
-		       int encrypt_mpdu)
-{
-	struct ieee80211_txb *txb = NULL;
-	unsigned long flags;
-	struct net_device_stats *stats = &ieee->stats;
-	struct sk_buff *skb_frag;
-	int priority = -1;
-	int fraglen = total_len;
-	int headroom = ieee->tx_headroom;
-	struct ieee80211_crypt_data *crypt = ieee->crypt[ieee->tx_keyidx];
-
-	spin_lock_irqsave(&ieee->lock, flags);
-
-	if (encrypt_mpdu && (!ieee->sec.encrypt || !crypt))
-		encrypt_mpdu = 0;
-
-	/* If there is no driver handler to take the TXB, dont' bother
-	 * creating it... */
-	if (!ieee->hard_start_xmit) {
-		printk(KERN_WARNING "%s: No xmit handler.\n", ieee->dev->name);
-		goto success;
-	}
-
-	if (unlikely(total_len < 24)) {
-		printk(KERN_WARNING "%s: skb too small (%d).\n",
-		       ieee->dev->name, total_len);
-		goto success;
-	}
-
-	if (encrypt_mpdu) {
-		frame->frame_ctl |= cpu_to_le16(IEEE80211_FCTL_PROTECTED);
-		fraglen += crypt->ops->extra_mpdu_prefix_len +
-			   crypt->ops->extra_mpdu_postfix_len;
-		headroom += crypt->ops->extra_mpdu_prefix_len;
-	}
-
-	/* When we allocate the TXB we allocate enough space for the reserve
-	 * and full fragment bytes (bytes_per_frag doesn't include prefix,
-	 * postfix, header, FCS, etc.) */
-	txb = ieee80211_alloc_txb(1, fraglen, headroom, GFP_ATOMIC);
-	if (unlikely(!txb)) {
-		printk(KERN_WARNING "%s: Could not allocate TXB\n",
-		       ieee->dev->name);
-		goto failed;
-	}
-	txb->encrypted = 0;
-	txb->payload_size = fraglen;
-
-	skb_frag = txb->fragments[0];
-
-	memcpy(skb_put(skb_frag, total_len), frame, total_len);
-
-	if (ieee->config &
-	    (CFG_IEEE80211_COMPUTE_FCS | CFG_IEEE80211_RESERVE_FCS))
-		skb_put(skb_frag, 4);
-
-	/* To avoid overcomplicating things, we do the corner-case frame
-	 * encryption in software. The only real situation where encryption is
-	 * needed here is during software-based shared key authentication. */
-	if (encrypt_mpdu)
-		ieee80211_encrypt_fragment(ieee, skb_frag, hdr_len);
-
-      success:
-	spin_unlock_irqrestore(&ieee->lock, flags);
-
-	if (txb) {
-		if ((*ieee->hard_start_xmit) (txb, ieee->dev, priority) == 0) {
-			stats->tx_packets++;
-			stats->tx_bytes += txb->payload_size;
-			return 0;
-		}
-		ieee80211_txb_free(txb);
-	}
-	return 0;
-
-      failed:
-	spin_unlock_irqrestore(&ieee->lock, flags);
-	stats->tx_errors++;
-	return 1;
-}
-
-EXPORT_SYMBOL(ieee80211_tx_frame);
 EXPORT_SYMBOL(ieee80211_txb_free);

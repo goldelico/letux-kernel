@@ -409,6 +409,8 @@ CIFS_SessSetup(unsigned int xid, struct cifsSesInfo *ses, int first_time,
 #ifdef CONFIG_CIFS_WEAK_PW_HASH
 		char lnm_session_key[CIFS_SESS_KEY_SIZE];
 
+		pSMB->req.hdr.Flags2 &= ~SMBFLG2_UNICODE;
+
 		/* no capabilities flags in old lanman negotiation */
 
 		pSMB->old_req.PasswordLength = cpu_to_le16(CIFS_SESS_KEY_SIZE);
@@ -417,10 +419,6 @@ CIFS_SessSetup(unsigned int xid, struct cifsSesInfo *ses, int first_time,
 
 		calc_lanman_hash(ses, lnm_session_key);
 		ses->flags |= CIFS_SES_LANMAN;
-/* #ifdef CONFIG_CIFS_DEBUG2
-		cifs_dump_mem("cryptkey: ",ses->server->cryptKey,
-			CIFS_SESS_KEY_SIZE);
-#endif */
 		memcpy(bcc_ptr, (char *)lnm_session_key, CIFS_SESS_KEY_SIZE);
 		bcc_ptr += CIFS_SESS_KEY_SIZE;
 
@@ -509,7 +507,7 @@ CIFS_SessSetup(unsigned int xid, struct cifsSesInfo *ses, int first_time,
 			unicode_ssetup_strings(&bcc_ptr, ses, nls_cp);
 		} else
 			ascii_ssetup_strings(&bcc_ptr, ses, nls_cp);
-	} else if (type == Kerberos) {
+	} else if (type == Kerberos || type == MSKerberos) {
 #ifdef CONFIG_CIFS_UPCALL
 		struct cifs_spnego_msg *msg;
 		spnego_key = cifs_get_spnego_key(ses);
@@ -520,6 +518,15 @@ CIFS_SessSetup(unsigned int xid, struct cifsSesInfo *ses, int first_time,
 		}
 
 		msg = spnego_key->payload.data;
+		/* check version field to make sure that cifs.upcall is
+		   sending us a response in an expected form */
+		if (msg->version != CIFS_SPNEGO_UPCALL_VERSION) {
+			cERROR(1, ("incorrect version of cifs.upcall (expected"
+				   " %d but got %d)",
+				   CIFS_SPNEGO_UPCALL_VERSION, msg->version));
+			rc = -EKEYREJECTED;
+			goto ssetup_exit;
+		}
 		/* bail out if key is too long */
 		if (msg->sesskey_len >
 		    sizeof(ses->server->mac_signing_key.data.krb5)) {
@@ -528,9 +535,11 @@ CIFS_SessSetup(unsigned int xid, struct cifsSesInfo *ses, int first_time,
 			rc = -EOVERFLOW;
 			goto ssetup_exit;
 		}
-		ses->server->mac_signing_key.len = msg->sesskey_len;
-		memcpy(ses->server->mac_signing_key.data.krb5, msg->data,
-			msg->sesskey_len);
+		if (first_time) {
+			ses->server->mac_signing_key.len = msg->sesskey_len;
+			memcpy(ses->server->mac_signing_key.data.krb5,
+				msg->data, msg->sesskey_len);
+		}
 		pSMB->req.hdr.Flags2 |= SMBFLG2_EXT_SEC;
 		capabilities |= CAP_EXTENDED_SECURITY;
 		pSMB->req.Capabilities = cpu_to_le32(capabilities);
@@ -540,7 +549,7 @@ CIFS_SessSetup(unsigned int xid, struct cifsSesInfo *ses, int first_time,
 
 		if (ses->capabilities & CAP_UNICODE) {
 			/* unicode strings must be word aligned */
-			if (iov[0].iov_len % 2) {
+			if ((iov[0].iov_len + iov[1].iov_len) % 2) {
 				*bcc_ptr = 0;
 				bcc_ptr++;
 			}
@@ -615,8 +624,10 @@ CIFS_SessSetup(unsigned int xid, struct cifsSesInfo *ses, int first_time,
 					 ses, nls_cp);
 
 ssetup_exit:
-	if (spnego_key)
+	if (spnego_key) {
+		key_revoke(spnego_key);
 		key_put(spnego_key);
+	}
 	kfree(str_area);
 	if (resp_buf_type == CIFS_SMALL_BUFFER) {
 		cFYI(1, ("ssetup freeing small buf %p", iov[0].iov_base));

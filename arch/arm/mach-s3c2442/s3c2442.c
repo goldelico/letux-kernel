@@ -19,9 +19,9 @@
 #include <linux/serial_core.h>
 #include <linux/sysdev.h>
 
-#include <asm/plat-s3c24xx/s3c2442.h>
-#include <asm/plat-s3c24xx/cpu.h>
-#include <asm/plat-s3c24xx/devs.h>
+#include <plat/s3c2442.h>
+#include <plat/cpu.h>
+#include <plat/devs.h>
 
 static struct sys_device s3c2442_sysdev = {
 	.cls		= &s3c2442_sysclass,

@@ -43,6 +43,7 @@
 #include <linux/vmalloc.h>
 #include <linux/videodev.h>
 #include <media/v4l2-common.h>
+#include <media/v4l2-ioctl.h>
 
 #include "saa7146.h"
 #include "saa7146reg.h"
@@ -58,7 +59,7 @@
 
 static struct saa7146 saa7146s[SAA7146_MAX];
 
-static int saa_num = 0;		/* number of SAA7146s in use */
+static int saa_num;		/* number of SAA7146s in use */
 
 static int video_nr = -1;
 module_param(video_nr, int, 0);
@@ -248,7 +249,7 @@ static void I2CBusScan(struct saa7146 *saa)
 			attach_inform(saa, i);
 }
 
-static int debiwait_maxwait = 0;
+static int debiwait_maxwait;
 
 static int wait_for_debi_done(struct saa7146 *saa)
 {
@@ -1881,12 +1882,16 @@ static int saa_open(struct inode *inode, struct file *file)
 	struct video_device *vdev = video_devdata(file);
 	struct saa7146 *saa = container_of(vdev, struct saa7146, video_dev);
 
+	lock_kernel();
 	file->private_data = saa;
 
 	saa->user++;
-	if (saa->user > 1)
+	if (saa->user > 1) {
+		unlock_kernel();
 		return 0;	/* device open already, don't reset */
+	}
 	saa->writemode = VID_WRITE_MPEG_VID;	/* default to video */
+	unlock_kernel();
 	return 0;
 }
 
@@ -1906,7 +1911,9 @@ static const struct file_operations saa_fops = {
 	.open = saa_open,
 	.release = saa_release,
 	.ioctl = saa_ioctl,
+#ifdef CONFIG_COMPAT
 	.compat_ioctl = v4l_compat_ioctl32,
+#endif
 	.read = saa_read,
 	.llseek = no_llseek,
 	.write = saa_write,
@@ -1916,9 +1923,9 @@ static const struct file_operations saa_fops = {
 /* template for video_device-structure */
 static struct video_device saa_template = {
 	.name = "SAA7146A",
-	.type = VID_TYPE_CAPTURE | VID_TYPE_OVERLAY,
 	.fops = &saa_fops,
 	.minor = -1,
+	.release = video_device_release_empty,
 };
 
 static int __devinit configure_saa7146(struct pci_dev *pdev, int num)

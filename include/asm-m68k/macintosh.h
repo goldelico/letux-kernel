@@ -12,19 +12,12 @@ extern void mac_reset(void);
 extern void mac_poweroff(void);
 extern void mac_init_IRQ(void);
 extern int mac_irq_pending(unsigned int);
-extern void mac_identify(void);
-extern void mac_report_hardware(void);
-extern void mac_debugging_penguin(int);
-extern void mac_boom(int);
 
 /*
  *	Floppy driver magic hook - probably shouldnt be here
  */
 
 extern void via1_set_head(int);
-
-extern void parse_booter(char *ptr);
-extern void print_booter(char *ptr);
 
 /*
  *	Macintosh Table

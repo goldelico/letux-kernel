@@ -64,6 +64,7 @@
 #define OCFS2_INODE_SIGNATURE		"INODE01"
 #define OCFS2_EXTENT_BLOCK_SIGNATURE	"EXBLK01"
 #define OCFS2_GROUP_DESC_SIGNATURE      "GROUP01"
+#define OCFS2_XATTR_BLOCK_SIGNATURE	"XATTR01"
 
 /* Compatibility flags */
 #define OCFS2_HAS_COMPAT_FEATURE(sb,mask)			\
@@ -88,7 +89,10 @@
 #define OCFS2_FEATURE_COMPAT_SUPP	OCFS2_FEATURE_COMPAT_BACKUP_SB
 #define OCFS2_FEATURE_INCOMPAT_SUPP	(OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT \
 					 | OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC \
-					 | OCFS2_FEATURE_INCOMPAT_INLINE_DATA)
+					 | OCFS2_FEATURE_INCOMPAT_INLINE_DATA \
+					 | OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP \
+					 | OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK \
+					 | OCFS2_FEATURE_INCOMPAT_XATTR)
 #define OCFS2_FEATURE_RO_COMPAT_SUPP	OCFS2_FEATURE_RO_COMPAT_UNWRITTEN
 
 /*
@@ -124,6 +128,23 @@
 
 /* Support for data packed into inode blocks */
 #define OCFS2_FEATURE_INCOMPAT_INLINE_DATA	0x0040
+
+/*
+ * Support for alternate, userspace cluster stacks.  If set, the superblock
+ * field s_cluster_info contains a tag for the alternate stack in use as
+ * well as the name of the cluster being joined.
+ * mount.ocfs2 must pass in a matching stack name.
+ *
+ * If not set, the classic stack will be used.  This is compatbile with
+ * all older versions.
+ */
+#define OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK	0x0080
+
+/* Support for the extended slot map */
+#define OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP 0x100
+
+/* Support for extended attributes */
+#define OCFS2_FEATURE_INCOMPAT_XATTR		0x0200
 
 /*
  * backup superblock flag is used to indicate that this volume
@@ -231,6 +252,20 @@ struct ocfs2_space_resv {
 #define OCFS2_IOC_RESVSP64	_IOW ('X', 42, struct ocfs2_space_resv)
 #define OCFS2_IOC_UNRESVSP64	_IOW ('X', 43, struct ocfs2_space_resv)
 
+/* Used to pass group descriptor data when online resize is done */
+struct ocfs2_new_group_input {
+	__u64 group;		/* Group descriptor's blkno. */
+	__u32 clusters;		/* Total number of clusters in this group */
+	__u32 frees;		/* Total free clusters in this group */
+	__u16 chain;		/* Chain for this group */
+	__u16 reserved1;
+	__u32 reserved2;
+};
+
+#define OCFS2_IOC_GROUP_EXTEND	_IOW('o', 1, int)
+#define OCFS2_IOC_GROUP_ADD	_IOW('o', 2,struct ocfs2_new_group_input)
+#define OCFS2_IOC_GROUP_ADD64	_IOW('o', 3,struct ocfs2_new_group_input)
+
 /*
  * Journal Flags (ocfs2_dinode.id1.journal1.i_flags)
  */
@@ -253,8 +288,26 @@ struct ocfs2_space_resv {
 #define OCFS2_VOL_UUID_LEN		16
 #define OCFS2_MAX_VOL_LABEL_LEN		64
 
+/* The alternate, userspace stack fields */
+#define OCFS2_STACK_LABEL_LEN		4
+#define OCFS2_CLUSTER_NAME_LEN		16
+
 /* Journal limits (in bytes) */
 #define OCFS2_MIN_JOURNAL_SIZE		(4 * 1024 * 1024)
+
+/*
+ * Default local alloc size (in megabytes)
+ *
+ * The value chosen should be such that most allocations, including new
+ * block groups, use local alloc.
+ */
+#define OCFS2_DEFAULT_LOCAL_ALLOC_SIZE	8
+
+/*
+ * Inline extended attribute size (in bytes)
+ * The value chosen should be aligned to 16 byte boundaries.
+ */
+#define OCFS2_MIN_XATTR_INLINE_SIZE     256
 
 struct ocfs2_system_inode_info {
 	char	*si_name;
@@ -453,6 +506,47 @@ struct ocfs2_extent_block
 };
 
 /*
+ * On disk slot map for OCFS2.  This defines the contents of the "slot_map"
+ * system file.  A slot is valid if it contains a node number >= 0.  The
+ * value -1 (0xFFFF) is OCFS2_INVALID_SLOT.  This marks a slot empty.
+ */
+struct ocfs2_slot_map {
+/*00*/	__le16 sm_slots[0];
+/*
+ * Actual on-disk size is one block.  OCFS2_MAX_SLOTS is 255,
+ * 255 * sizeof(__le16) == 512B, within the 512B block minimum blocksize.
+ */
+};
+
+struct ocfs2_extended_slot {
+/*00*/	__u8	es_valid;
+	__u8	es_reserved1[3];
+	__le32	es_node_num;
+/*10*/
+};
+
+/*
+ * The extended slot map, used when OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP
+ * is set.  It separates out the valid marker from the node number, and
+ * has room to grow.  Unlike the old slot map, this format is defined by
+ * i_size.
+ */
+struct ocfs2_slot_map_extended {
+/*00*/	struct ocfs2_extended_slot se_slots[0];
+/*
+ * Actual size is i_size of the slot_map system file.  It should
+ * match s_max_slots * sizeof(struct ocfs2_extended_slot)
+ */
+};
+
+struct ocfs2_cluster_info {
+/*00*/	__u8   ci_stack[OCFS2_STACK_LABEL_LEN];
+	__le32 ci_reserved;
+/*08*/	__u8   ci_cluster[OCFS2_CLUSTER_NAME_LEN];
+/*18*/
+};
+
+/*
  * On disk superblock for OCFS2
  * Note that it is contained inside an ocfs2_dinode, so all offsets
  * are relative to the start of ocfs2_dinode.id2.
@@ -479,12 +573,29 @@ struct ocfs2_super_block {
 /*40*/	__le16 s_max_slots;		/* Max number of simultaneous mounts
 					   before tunefs required */
 	__le16 s_tunefs_flag;
-	__le32 s_reserved1;
+	__le32 s_uuid_hash;		/* hash value of uuid */
 	__le64 s_first_cluster_group;	/* Block offset of 1st cluster
 					 * group header */
 /*50*/	__u8  s_label[OCFS2_MAX_VOL_LABEL_LEN];	/* Label for mounting, etc. */
 /*90*/	__u8  s_uuid[OCFS2_VOL_UUID_LEN];	/* 128-bit uuid */
-/*A0*/
+/*A0*/  struct ocfs2_cluster_info s_cluster_info; /* Selected userspace
+						     stack.  Only valid
+						     with INCOMPAT flag. */
+/*B8*/	__le16 s_xattr_inline_size;	/* extended attribute inline size
+					   for this fs*/
+	__le16 s_reserved0;
+	__le32 s_reserved1;
+/*C0*/  __le64 s_reserved2[16];		/* Fill out superblock */
+/*140*/
+
+	/*
+	 * NOTE: As stated above, all offsets are relative to
+	 * ocfs2_dinode.id2, which is at 0xC0 in the inode.
+	 * 0xC0 + 0x140 = 0x200 or 512 bytes.  A superblock must fit within
+	 * our smallest blocksize, which is 512 bytes.  To ensure this,
+	 * we reserve the space in s_reserved2.  Anything past s_reserved2
+	 * will not be available on the smallest blocksize.
+	 */
 };
 
 /*
@@ -524,7 +635,8 @@ struct ocfs2_dinode {
 					   belongs to */
 	__le16 i_suballoc_bit;		/* Bit offset in suballocator
 					   block group */
-/*10*/	__le32 i_reserved0;
+/*10*/	__le16 i_reserved0;
+	__le16 i_xattr_inline_size;
 	__le32 i_clusters;		/* Cluster count */
 	__le32 i_uid;			/* Owner UID */
 	__le32 i_gid;			/* Owning GID */
@@ -543,11 +655,12 @@ struct ocfs2_dinode {
 	__le32 i_atime_nsec;
 	__le32 i_ctime_nsec;
 	__le32 i_mtime_nsec;
-	__le32 i_attr;
+/*70*/	__le32 i_attr;
 	__le16 i_orphaned_slot;		/* Only valid when OCFS2_ORPHANED_FL
 					   was set in i_flags */
 	__le16 i_dyn_features;
-/*70*/	__le64 i_reserved2[8];
+	__le64 i_xattr_loc;
+/*80*/	__le64 i_reserved2[7];
 /*B8*/	union {
 		__le64 i_pad1;		/* Generic way to refer to this
 					   64bit union */
@@ -563,7 +676,10 @@ struct ocfs2_dinode {
 		struct {		/* Info for journal system
 					   inodes */
 			__le32 ij_flags;	/* Mounted, version, etc. */
-			__le32 ij_pad;
+			__le32 ij_recovery_generation; /* Incremented when the
+							  journal is recovered
+							  after an unclean
+							  shutdown */
 		} journal1;
 	} id1;				/* Inode type dependant 1 */
 /*C0*/	union {
@@ -615,6 +731,136 @@ struct ocfs2_group_desc
 /*40*/	__u8    bg_bitmap[0];
 };
 
+/*
+ * On disk extended attribute structure for OCFS2.
+ */
+
+/*
+ * ocfs2_xattr_entry indicates one extend attribute.
+ *
+ * Note that it can be stored in inode, one block or one xattr bucket.
+ */
+struct ocfs2_xattr_entry {
+	__le32	xe_name_hash;    /* hash value of xattr prefix+suffix. */
+	__le16	xe_name_offset;  /* byte offset from the 1st etnry in the local
+				    local xattr storage(inode, xattr block or
+				    xattr bucket). */
+	__u8	xe_name_len;	 /* xattr name len, does't include prefix. */
+	__u8	xe_type;         /* the low 7 bits indicates the name prefix's
+				  * type and the highest 1 bits indicate whether
+				  * the EA is stored in the local storage. */
+	__le64	xe_value_size;	 /* real xattr value length. */
+};
+
+/*
+ * On disk structure for xattr header.
+ *
+ * One ocfs2_xattr_header describes how many ocfs2_xattr_entry records in
+ * the local xattr storage.
+ */
+struct ocfs2_xattr_header {
+	__le16	xh_count;                       /* contains the count of how
+						   many records are in the
+						   local xattr storage. */
+	__le16	xh_free_start;                  /* current offset for storing
+						   xattr. */
+	__le16	xh_name_value_len;              /* total length of name/value
+						   length in this bucket. */
+	__le16	xh_num_buckets;                 /* bucket nums in one extent
+						   record, only valid in the
+						   first bucket. */
+	__le64  xh_csum;
+	struct ocfs2_xattr_entry xh_entries[0]; /* xattr entry list. */
+};
+
+/*
+ * On disk structure for xattr value root.
+ *
+ * It is used when one extended attribute's size is larger, and we will save it
+ * in an outside cluster. It will stored in a b-tree like file content.
+ */
+struct ocfs2_xattr_value_root {
+/*00*/	__le32	xr_clusters;              /* clusters covered by xattr value. */
+	__le32	xr_reserved0;
+	__le64	xr_last_eb_blk;           /* Pointer to last extent block */
+/*10*/	struct ocfs2_extent_list xr_list; /* Extent record list */
+};
+
+/*
+ * On disk structure for xattr tree root.
+ *
+ * It is used when there are too many extended attributes for one file. These
+ * attributes will be organized and stored in an indexed-btree.
+ */
+struct ocfs2_xattr_tree_root {
+/*00*/	__le32	xt_clusters;              /* clusters covered by xattr. */
+	__le32	xt_reserved0;
+	__le64	xt_last_eb_blk;           /* Pointer to last extent block */
+/*10*/	struct ocfs2_extent_list xt_list; /* Extent record list */
+};
+
+#define OCFS2_XATTR_INDEXED	0x1
+#define OCFS2_HASH_SHIFT	5
+#define OCFS2_XATTR_ROUND	3
+#define OCFS2_XATTR_SIZE(size)	(((size) + OCFS2_XATTR_ROUND) & \
+				~(OCFS2_XATTR_ROUND))
+
+#define OCFS2_XATTR_BUCKET_SIZE			4096
+#define OCFS2_XATTR_MAX_BLOCKS_PER_BUCKET 	(OCFS2_XATTR_BUCKET_SIZE \
+						 / OCFS2_MIN_BLOCKSIZE)
+
+/*
+ * On disk structure for xattr block.
+ */
+struct ocfs2_xattr_block {
+/*00*/	__u8	xb_signature[8];     /* Signature for verification */
+	__le16	xb_suballoc_slot;    /* Slot suballocator this
+					block belongs to. */
+	__le16	xb_suballoc_bit;     /* Bit offset in suballocator
+					block group */
+	__le32	xb_fs_generation;    /* Must match super block */
+/*10*/	__le64	xb_blkno;            /* Offset on disk, in blocks */
+	__le64	xb_csum;
+/*20*/	__le16	xb_flags;            /* Indicates whether this block contains
+					real xattr or a xattr tree. */
+	__le16	xb_reserved0;
+	__le32  xb_reserved1;
+	__le64	xb_reserved2;
+/*30*/	union {
+		struct ocfs2_xattr_header xb_header; /* xattr header if this
+							block contains xattr */
+		struct ocfs2_xattr_tree_root xb_root;/* xattr tree root if this
+							block cotains xattr
+							tree. */
+	} xb_attrs;
+};
+
+#define OCFS2_XATTR_ENTRY_LOCAL		0x80
+#define OCFS2_XATTR_TYPE_MASK		0x7F
+static inline void ocfs2_xattr_set_local(struct ocfs2_xattr_entry *xe,
+					 int local)
+{
+	if (local)
+		xe->xe_type |= OCFS2_XATTR_ENTRY_LOCAL;
+	else
+		xe->xe_type &= ~OCFS2_XATTR_ENTRY_LOCAL;
+}
+
+static inline int ocfs2_xattr_is_local(struct ocfs2_xattr_entry *xe)
+{
+	return xe->xe_type & OCFS2_XATTR_ENTRY_LOCAL;
+}
+
+static inline void ocfs2_xattr_set_type(struct ocfs2_xattr_entry *xe, int type)
+{
+	xe->xe_type |= type & OCFS2_XATTR_TYPE_MASK;
+}
+
+static inline int ocfs2_xattr_get_type(struct ocfs2_xattr_entry *xe)
+{
+	return xe->xe_type & OCFS2_XATTR_TYPE_MASK;
+}
+
 #ifdef __KERNEL__
 static inline int ocfs2_fast_symlink_chars(struct super_block *sb)
 {
@@ -628,12 +874,44 @@ static inline int ocfs2_max_inline_data(struct super_block *sb)
 		offsetof(struct ocfs2_dinode, id2.i_data.id_data);
 }
 
+static inline int ocfs2_max_inline_data_with_xattr(struct super_block *sb,
+						   struct ocfs2_dinode *di)
+{
+	unsigned int xattrsize = le16_to_cpu(di->i_xattr_inline_size);
+
+	if (le16_to_cpu(di->i_dyn_features) & OCFS2_INLINE_XATTR_FL)
+		return sb->s_blocksize -
+			offsetof(struct ocfs2_dinode, id2.i_data.id_data) -
+			xattrsize;
+	else
+		return sb->s_blocksize -
+			offsetof(struct ocfs2_dinode, id2.i_data.id_data);
+}
+
 static inline int ocfs2_extent_recs_per_inode(struct super_block *sb)
 {
 	int size;
 
 	size = sb->s_blocksize -
 		offsetof(struct ocfs2_dinode, id2.i_list.l_recs);
+
+	return size / sizeof(struct ocfs2_extent_rec);
+}
+
+static inline int ocfs2_extent_recs_per_inode_with_xattr(
+						struct super_block *sb,
+						struct ocfs2_dinode *di)
+{
+	int size;
+	unsigned int xattrsize = le16_to_cpu(di->i_xattr_inline_size);
+
+	if (le16_to_cpu(di->i_dyn_features) & OCFS2_INLINE_XATTR_FL)
+		size = sb->s_blocksize -
+			offsetof(struct ocfs2_dinode, id2.i_list.l_recs) -
+			xattrsize;
+	else
+		size = sb->s_blocksize -
+			offsetof(struct ocfs2_dinode, id2.i_list.l_recs);
 
 	return size / sizeof(struct ocfs2_extent_rec);
 }
@@ -700,6 +978,17 @@ static inline u64 ocfs2_backup_super_blkno(struct super_block *sb, int index)
 
 	return 0;
 
+}
+
+static inline u16 ocfs2_xattr_recs_per_xb(struct super_block *sb)
+{
+	int size;
+
+	size = sb->s_blocksize -
+		offsetof(struct ocfs2_xattr_block,
+			 xb_attrs.xb_root.xt_list.l_recs);
+
+	return size / sizeof(struct ocfs2_extent_rec);
 }
 #else
 static inline int ocfs2_fast_symlink_chars(int blocksize)
@@ -784,6 +1073,17 @@ static inline uint64_t ocfs2_backup_super_blkno(int blocksize, int index)
 
 	return 0;
 }
+
+static inline int ocfs2_xattr_recs_per_xb(int blocksize)
+{
+	int size;
+
+	size = blocksize -
+		offsetof(struct ocfs2_xattr_block,
+			 xb_attrs.xb_root.xt_list.l_recs);
+
+	return size / sizeof(struct ocfs2_extent_rec);
+}
 #endif  /* __KERNEL__ */
 
 
@@ -804,7 +1104,7 @@ static inline int ocfs2_sprintf_system_inode_name(char *buf, int len,
          * list has a copy per slot.
          */
 	if (type <= OCFS2_LAST_GLOBAL_SYSTEM_INODE)
-		chars = snprintf(buf, len,
+		chars = snprintf(buf, len, "%s",
 				 ocfs2_system_inodes[type].si_name);
 	else
 		chars = snprintf(buf, len,

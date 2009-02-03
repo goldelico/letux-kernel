@@ -7,15 +7,12 @@
  *            - added skeleton for GG-II and Amiga PCMCIA
  * 2/3/01 RZ: - moved a few more defs into raw_io.h
  *
- * inX/outX/readX/writeX should not be used by any driver unless it does
- * ISA or PCI access. Other drivers should use function defined in raw_io.h
+ * inX/outX should not be used by any driver unless it does
+ * ISA access. Other drivers should use function defined in raw_io.h
  * or define its own macros on top of these.
  *
- *    inX(),outX()              are for PCI and ISA I/O
- *    readX(),writeX()          are for PCI memory
+ *    inX(),outX()              are for ISA I/O
  *    isa_readX(),isa_writeX()  are for ISA memory
- *
- * moved mem{cpy,set}_*io inside CONFIG_PCI
  */
 
 #ifndef _IO_H
@@ -91,20 +88,20 @@ extern unsigned long gg2_isa_base;
 #undef MULTI_ISA
 #endif
 
-#define Q40_ISA (1)
-#define GG2_ISA (2)
-#define AG_ISA  (3)
+#define ISA_TYPE_Q40 (1)
+#define ISA_TYPE_GG2 (2)
+#define ISA_TYPE_AG  (3)
 
 #if defined(CONFIG_Q40) && !defined(MULTI_ISA)
-#define ISA_TYPE Q40_ISA
+#define ISA_TYPE ISA_TYPE_Q40
 #define ISA_SEX  0
 #endif
 #if defined(CONFIG_AMIGA_PCMCIA) && !defined(MULTI_ISA)
-#define ISA_TYPE AG_ISA
+#define ISA_TYPE ISA_TYPE_AG
 #define ISA_SEX  1
 #endif
 #if defined(CONFIG_GG2) && !defined(MULTI_ISA)
-#define ISA_TYPE GG2_ISA
+#define ISA_TYPE ISA_TYPE_GG2
 #define ISA_SEX  0
 #endif
 
@@ -126,13 +123,13 @@ static inline u8 __iomem *isa_itb(unsigned long addr)
   switch(ISA_TYPE)
     {
 #ifdef CONFIG_Q40
-    case Q40_ISA: return (u8 __iomem *)Q40_ISA_IO_B(addr);
+    case ISA_TYPE_Q40: return (u8 __iomem *)Q40_ISA_IO_B(addr);
 #endif
 #ifdef CONFIG_GG2
-    case GG2_ISA: return (u8 __iomem *)GG2_ISA_IO_B(addr);
+    case ISA_TYPE_GG2: return (u8 __iomem *)GG2_ISA_IO_B(addr);
 #endif
 #ifdef CONFIG_AMIGA_PCMCIA
-    case AG_ISA: return (u8 __iomem *)AG_ISA_IO_B(addr);
+    case ISA_TYPE_AG: return (u8 __iomem *)AG_ISA_IO_B(addr);
 #endif
     default: return NULL; /* avoid warnings, just in case */
     }
@@ -142,13 +139,13 @@ static inline u16 __iomem *isa_itw(unsigned long addr)
   switch(ISA_TYPE)
     {
 #ifdef CONFIG_Q40
-    case Q40_ISA: return (u16 __iomem *)Q40_ISA_IO_W(addr);
+    case ISA_TYPE_Q40: return (u16 __iomem *)Q40_ISA_IO_W(addr);
 #endif
 #ifdef CONFIG_GG2
-    case GG2_ISA: return (u16 __iomem *)GG2_ISA_IO_W(addr);
+    case ISA_TYPE_GG2: return (u16 __iomem *)GG2_ISA_IO_W(addr);
 #endif
 #ifdef CONFIG_AMIGA_PCMCIA
-    case AG_ISA: return (u16 __iomem *)AG_ISA_IO_W(addr);
+    case ISA_TYPE_AG: return (u16 __iomem *)AG_ISA_IO_W(addr);
 #endif
     default: return NULL; /* avoid warnings, just in case */
     }
@@ -158,7 +155,7 @@ static inline u32 __iomem *isa_itl(unsigned long addr)
   switch(ISA_TYPE)
     {
 #ifdef CONFIG_AMIGA_PCMCIA
-    case AG_ISA: return (u32 __iomem *)AG_ISA_IO_W(addr);
+    case ISA_TYPE_AG: return (u32 __iomem *)AG_ISA_IO_W(addr);
 #endif
     default: return 0; /* avoid warnings, just in case */
     }
@@ -168,13 +165,13 @@ static inline u8 __iomem *isa_mtb(unsigned long addr)
   switch(ISA_TYPE)
     {
 #ifdef CONFIG_Q40
-    case Q40_ISA: return (u8 __iomem *)Q40_ISA_MEM_B(addr);
+    case ISA_TYPE_Q40: return (u8 __iomem *)Q40_ISA_MEM_B(addr);
 #endif
 #ifdef CONFIG_GG2
-    case GG2_ISA: return (u8 __iomem *)GG2_ISA_MEM_B(addr);
+    case ISA_TYPE_GG2: return (u8 __iomem *)GG2_ISA_MEM_B(addr);
 #endif
 #ifdef CONFIG_AMIGA_PCMCIA
-    case AG_ISA: return (u8 __iomem *)addr;
+    case ISA_TYPE_AG: return (u8 __iomem *)addr;
 #endif
     default: return NULL; /* avoid warnings, just in case */
     }
@@ -184,13 +181,13 @@ static inline u16 __iomem *isa_mtw(unsigned long addr)
   switch(ISA_TYPE)
     {
 #ifdef CONFIG_Q40
-    case Q40_ISA: return (u16 __iomem *)Q40_ISA_MEM_W(addr);
+    case ISA_TYPE_Q40: return (u16 __iomem *)Q40_ISA_MEM_W(addr);
 #endif
 #ifdef CONFIG_GG2
-    case GG2_ISA: return (u16 __iomem *)GG2_ISA_MEM_W(addr);
+    case ISA_TYPE_GG2: return (u16 __iomem *)GG2_ISA_MEM_W(addr);
 #endif
 #ifdef CONFIG_AMIGA_PCMCIA
-    case AG_ISA: return (u16 __iomem *)addr;
+    case ISA_TYPE_AG: return (u16 __iomem *)addr;
 #endif
     default: return NULL; /* avoid warnings, just in case */
     }
@@ -218,13 +215,13 @@ static inline void isa_delay(void)
   switch(ISA_TYPE)
     {
 #ifdef CONFIG_Q40
-    case Q40_ISA: isa_outb(0,0x80); break;
+    case ISA_TYPE_Q40: isa_outb(0,0x80); break;
 #endif
 #ifdef CONFIG_GG2
-    case GG2_ISA: break;
+    case ISA_TYPE_GG2: break;
 #endif
 #ifdef CONFIG_AMIGA_PCMCIA
-    case AG_ISA: break;
+    case ISA_TYPE_AG: break;
 #endif
     default: break; /* avoid warnings */
     }
@@ -256,10 +253,7 @@ static inline void isa_delay(void)
        (ISA_SEX ? raw_outsl(isa_itl(port), (u32 *)(buf), (nr)) :  \
                   raw_outsw_swapw(isa_itw(port), (u16 *)(buf), (nr)<<1))
 
-#endif  /* CONFIG_ISA */
 
-
-#if defined(CONFIG_ISA) && !defined(CONFIG_PCI)
 #define inb     isa_inb
 #define inb_p   isa_inb_p
 #define outb    isa_outb
@@ -282,55 +276,9 @@ static inline void isa_delay(void)
 #define readw   isa_readw
 #define writeb  isa_writeb
 #define writew  isa_writew
-#endif /* CONFIG_ISA */
 
-#if defined(CONFIG_PCI)
+#else  /* CONFIG_ISA */
 
-#define readl(addr)      in_le32(addr)
-#define writel(val,addr) out_le32((addr),(val))
-
-/* those can be defined for both ISA and PCI - it won't work though */
-#define readb(addr)       in_8(addr)
-#define readw(addr)       in_le16(addr)
-#define writeb(val,addr)  out_8((addr),(val))
-#define writew(val,addr)  out_le16((addr),(val))
-
-#define readb_relaxed(addr) readb(addr)
-#define readw_relaxed(addr) readw(addr)
-#define readl_relaxed(addr) readl(addr)
-
-#ifndef CONFIG_ISA
-#define inb(port)      in_8(port)
-#define outb(val,port) out_8((port),(val))
-#define inw(port)      in_le16(port)
-#define outw(val,port) out_le16((port),(val))
-#define inl(port)      in_le32(port)
-#define outl(val,port) out_le32((port),(val))
-
-#else
-/*
- * kernel with both ISA and PCI compiled in, those have
- * conflicting defs for in/out. Simply consider port < 1024
- * ISA and everything else PCI. read,write not defined
- * in this case
- */
-#define inb(port) ((port)<1024 ? isa_inb(port) : in_8(port))
-#define inb_p(port) ((port)<1024 ? isa_inb_p(port) : in_8(port))
-#define inw(port) ((port)<1024 ? isa_inw(port) : in_le16(port))
-#define inw_p(port) ((port)<1024 ? isa_inw_p(port) : in_le16(port))
-#define inl(port) ((port)<1024 ? isa_inl(port) : in_le32(port))
-#define inl_p(port) ((port)<1024 ? isa_inl_p(port) : in_le32(port))
-
-#define outb(val,port) ((port)<1024 ? isa_outb((val),(port)) : out_8((port),(val)))
-#define outb_p(val,port) ((port)<1024 ? isa_outb_p((val),(port)) : out_8((port),(val)))
-#define outw(val,port) ((port)<1024 ? isa_outw((val),(port)) : out_le16((port),(val)))
-#define outw_p(val,port) ((port)<1024 ? isa_outw_p((val),(port)) : out_le16((port),(val)))
-#define outl(val,port) ((port)<1024 ? isa_outl((val),(port)) : out_le32((port),(val)))
-#define outl_p(val,port) ((port)<1024 ? isa_outl_p((val),(port)) : out_le32((port),(val)))
-#endif
-#endif /* CONFIG_PCI */
-
-#if !defined(CONFIG_ISA) && !defined(CONFIG_PCI)
 /*
  * We need to define dummy functions for GENERIC_IOMAP support.
  */
@@ -357,11 +305,11 @@ static inline void isa_delay(void)
 #define writeb(val,addr) out_8((addr),(val))
 #define readw(addr)      in_le16(addr)
 #define writew(val,addr) out_le16((addr),(val))
-#endif
-#if !defined(CONFIG_PCI)
+
+#endif /* CONFIG_ISA */
+
 #define readl(addr)      in_le32(addr)
 #define writel(val,addr) out_le32((addr),(val))
-#endif
 
 #define mmiowb()
 

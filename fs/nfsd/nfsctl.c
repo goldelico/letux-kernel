@@ -12,6 +12,7 @@
 #include <linux/time.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
+#include <linux/namei.h>
 #include <linux/fcntl.h>
 #include <linux/net.h>
 #include <linux/in.h>
@@ -22,6 +23,7 @@
 #include <linux/seq_file.h>
 #include <linux/pagemap.h>
 #include <linux/init.h>
+#include <linux/inet.h>
 #include <linux/string.h>
 #include <linux/smp_lock.h>
 #include <linux/ctype.h>
@@ -35,8 +37,10 @@
 #include <linux/nfsd/cache.h>
 #include <linux/nfsd/xdr.h>
 #include <linux/nfsd/syscall.h>
+#include <linux/lockd/lockd.h>
 
 #include <asm/uaccess.h>
+#include <net/ipv6.h>
 
 /*
  *	We have a single directory with 9 nodes in it.
@@ -52,6 +56,8 @@ enum {
 	NFSD_Getfs,
 	NFSD_List,
 	NFSD_Fh,
+	NFSD_FO_UnlockIP,
+	NFSD_FO_UnlockFS,
 	NFSD_Threads,
 	NFSD_Pool_Threads,
 	NFSD_Versions,
@@ -88,6 +94,9 @@ static ssize_t write_leasetime(struct file *file, char *buf, size_t size);
 static ssize_t write_recoverydir(struct file *file, char *buf, size_t size);
 #endif
 
+static ssize_t failover_unlock_ip(struct file *file, char *buf, size_t size);
+static ssize_t failover_unlock_fs(struct file *file, char *buf, size_t size);
+
 static ssize_t (*write_op[])(struct file *, char *, size_t) = {
 	[NFSD_Svc] = write_svc,
 	[NFSD_Add] = write_add,
@@ -97,6 +106,8 @@ static ssize_t (*write_op[])(struct file *, char *, size_t) = {
 	[NFSD_Getfd] = write_getfd,
 	[NFSD_Getfs] = write_getfs,
 	[NFSD_Fh] = write_filehandle,
+	[NFSD_FO_UnlockIP] = failover_unlock_ip,
+	[NFSD_FO_UnlockFS] = failover_unlock_fs,
 	[NFSD_Threads] = write_threads,
 	[NFSD_Pool_Threads] = write_pool_threads,
 	[NFSD_Versions] = write_versions,
@@ -149,7 +160,6 @@ static const struct file_operations transaction_ops = {
 	.release	= simple_transaction_release,
 };
 
-extern struct seq_operations nfs_exports_op;
 static int exports_open(struct inode *inode, struct file *file)
 {
 	return seq_open(file, &nfs_exports_op);
@@ -160,6 +170,7 @@ static const struct file_operations exports_operations = {
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= seq_release,
+	.owner		= THIS_MODULE,
 };
 
 /*----------------------------------------------------------------------------*/
@@ -222,6 +233,7 @@ static ssize_t write_getfs(struct file *file, char *buf, size_t size)
 	struct auth_domain *clp;
 	int err = 0;
 	struct knfsd_fh *res;
+	struct in6_addr in6;
 
 	if (size < sizeof(*data))
 		return -EINVAL;
@@ -236,7 +248,11 @@ static ssize_t write_getfs(struct file *file, char *buf, size_t size)
 	res = (struct knfsd_fh*)buf;
 
 	exp_readlock();
-	if (!(clp = auth_unix_lookup(sin->sin_addr)))
+
+	ipv6_addr_set_v4mapped(sin->sin_addr.s_addr, &in6);
+
+	clp = auth_unix_lookup(&in6);
+	if (!clp)
 		err = -EPERM;
 	else {
 		err = exp_rootfh(clp, data->gd_path, res, data->gd_maxlen);
@@ -257,6 +273,7 @@ static ssize_t write_getfd(struct file *file, char *buf, size_t size)
 	int err = 0;
 	struct knfsd_fh fh;
 	char *res;
+	struct in6_addr in6;
 
 	if (size < sizeof(*data))
 		return -EINVAL;
@@ -271,7 +288,11 @@ static ssize_t write_getfd(struct file *file, char *buf, size_t size)
 	res = buf;
 	sin = (struct sockaddr_in *)&data->gd_addr;
 	exp_readlock();
-	if (!(clp = auth_unix_lookup(sin->sin_addr)))
+
+	ipv6_addr_set_v4mapped(sin->sin_addr.s_addr, &in6);
+
+	clp = auth_unix_lookup(&in6);
+	if (!clp)
 		err = -EPERM;
 	else {
 		err = exp_rootfh(clp, data->gd_path, &fh, NFS_FHSIZE);
@@ -286,6 +307,63 @@ static ssize_t write_getfd(struct file *file, char *buf, size_t size)
 	}
  out:
 	return err;
+}
+
+static ssize_t failover_unlock_ip(struct file *file, char *buf, size_t size)
+{
+	struct sockaddr_in sin = {
+		.sin_family	= AF_INET,
+	};
+	int b1, b2, b3, b4;
+	char c;
+	char *fo_path;
+
+	/* sanity check */
+	if (size == 0)
+		return -EINVAL;
+
+	if (buf[size-1] != '\n')
+		return -EINVAL;
+
+	fo_path = buf;
+	if (qword_get(&buf, fo_path, size) < 0)
+		return -EINVAL;
+
+	/* get ipv4 address */
+	if (sscanf(fo_path, NIPQUAD_FMT "%c", &b1, &b2, &b3, &b4, &c) != 4)
+		return -EINVAL;
+	if (b1 > 255 || b2 > 255 || b3 > 255 || b4 > 255)
+		return -EINVAL;
+	sin.sin_addr.s_addr = htonl((b1 << 24) | (b2 << 16) | (b3 << 8) | b4);
+
+	return nlmsvc_unlock_all_by_ip((struct sockaddr *)&sin);
+}
+
+static ssize_t failover_unlock_fs(struct file *file, char *buf, size_t size)
+{
+	struct path path;
+	char *fo_path;
+	int error;
+
+	/* sanity check */
+	if (size == 0)
+		return -EINVAL;
+
+	if (buf[size-1] != '\n')
+		return -EINVAL;
+
+	fo_path = buf;
+	if (qword_get(&buf, fo_path, size) < 0)
+		return -EINVAL;
+
+	error = kern_path(fo_path, 0, &path);
+	if (error)
+		return error;
+
+	error = nlmsvc_unlock_all_by_sb(path.mnt->mnt_sb);
+
+	path_put(&path);
+	return error;
 }
 
 static ssize_t write_filehandle(struct file *file, char *buf, size_t size)
@@ -303,6 +381,9 @@ static ssize_t write_filehandle(struct file *file, char *buf, size_t size)
 	int len;
 	struct auth_domain *dom;
 	struct knfsd_fh fh;
+
+	if (size == 0)
+		return -EINVAL;
 
 	if (buf[size-1] != '\n')
 		return -EINVAL;
@@ -344,8 +425,6 @@ static ssize_t write_filehandle(struct file *file, char *buf, size_t size)
 	return mesg - buf;	
 }
 
-extern int nfsd_nrthreads(void);
-
 static ssize_t write_threads(struct file *file, char *buf, size_t size)
 {
 	/* if size > 0, look for a number of threads and call nfsd_svc
@@ -368,10 +447,6 @@ static ssize_t write_threads(struct file *file, char *buf, size_t size)
 	return strlen(buf);
 }
 
-extern int nfsd_nrpools(void);
-extern int nfsd_get_nrthreads(int n, int *);
-extern int nfsd_set_nrthreads(int n, int *);
-
 static ssize_t write_pool_threads(struct file *file, char *buf, size_t size)
 {
 	/* if size > 0, look for an array of number of threads per node
@@ -381,22 +456,26 @@ static ssize_t write_pool_threads(struct file *file, char *buf, size_t size)
 	int i;
 	int rv;
 	int len;
-    	int npools = nfsd_nrpools();
+	int npools;
 	int *nthreads;
 
+	mutex_lock(&nfsd_mutex);
+	npools = nfsd_nrpools();
 	if (npools == 0) {
 		/*
 		 * NFS is shut down.  The admin can start it by
 		 * writing to the threads file but NOT the pool_threads
 		 * file, sorry.  Report zero threads.
 		 */
+		mutex_unlock(&nfsd_mutex);
 		strcpy(buf, "0\n");
 		return strlen(buf);
 	}
 
 	nthreads = kcalloc(npools, sizeof(int), GFP_KERNEL);
+	rv = -ENOMEM;
 	if (nthreads == NULL)
-		return -ENOMEM;
+		goto out_free;
 
 	if (size > 0) {
 		for (i = 0; i < npools; i++) {
@@ -427,14 +506,16 @@ static ssize_t write_pool_threads(struct file *file, char *buf, size_t size)
 		mesg += len;
 	}
 
+	mutex_unlock(&nfsd_mutex);
 	return (mesg-buf);
 
 out_free:
 	kfree(nthreads);
+	mutex_unlock(&nfsd_mutex);
 	return rv;
 }
 
-static ssize_t write_versions(struct file *file, char *buf, size_t size)
+static ssize_t __write_versions(struct file *file, char *buf, size_t size)
 {
 	/*
 	 * Format:
@@ -497,14 +578,23 @@ static ssize_t write_versions(struct file *file, char *buf, size_t size)
 	return len;
 }
 
-static ssize_t write_ports(struct file *file, char *buf, size_t size)
+static ssize_t write_versions(struct file *file, char *buf, size_t size)
+{
+	ssize_t rv;
+
+	mutex_lock(&nfsd_mutex);
+	rv = __write_versions(file, buf, size);
+	mutex_unlock(&nfsd_mutex);
+	return rv;
+}
+
+static ssize_t __write_ports(struct file *file, char *buf, size_t size)
 {
 	if (size == 0) {
 		int len = 0;
-		lock_kernel();
+
 		if (nfsd_serv)
-			len = svc_sock_names(buf, nfsd_serv, NULL);
-		unlock_kernel();
+			len = svc_xprt_names(nfsd_serv, buf, 0);
 		return len;
 	}
 	/* Either a single 'fd' number is written, in which
@@ -524,38 +614,89 @@ static ssize_t write_ports(struct file *file, char *buf, size_t size)
 			return -EINVAL;
 		err = nfsd_create_serv();
 		if (!err) {
-			int proto = 0;
-			err = svc_addsock(nfsd_serv, fd, buf, &proto);
+			err = svc_addsock(nfsd_serv, fd, buf);
 			if (err >= 0) {
-				err = lockd_up(proto);
+				err = lockd_up();
 				if (err < 0)
 					svc_sock_names(buf+strlen(buf)+1, nfsd_serv, buf);
 			}
 			/* Decrease the count, but don't shutdown the
 			 * the service
 			 */
-			lock_kernel();
 			nfsd_serv->sv_nrthreads--;
-			unlock_kernel();
 		}
 		return err < 0 ? err : 0;
 	}
-	if (buf[0] == '-') {
+	if (buf[0] == '-' && isdigit(buf[1])) {
 		char *toclose = kstrdup(buf+1, GFP_KERNEL);
 		int len = 0;
 		if (!toclose)
 			return -ENOMEM;
-		lock_kernel();
 		if (nfsd_serv)
 			len = svc_sock_names(buf, nfsd_serv, toclose);
-		unlock_kernel();
 		if (len >= 0)
 			lockd_down();
 		kfree(toclose);
 		return len;
 	}
+	/*
+	 * Add a transport listener by writing it's transport name
+	 */
+	if (isalpha(buf[0])) {
+		int err;
+		char transport[16];
+		int port;
+		if (sscanf(buf, "%15s %4d", transport, &port) == 2) {
+			err = nfsd_create_serv();
+			if (!err) {
+				err = svc_create_xprt(nfsd_serv,
+						      transport, port,
+						      SVC_SOCK_ANONYMOUS);
+				if (err == -ENOENT)
+					/* Give a reasonable perror msg for
+					 * bad transport string */
+					err = -EPROTONOSUPPORT;
+			}
+			return err < 0 ? err : 0;
+		}
+	}
+	/*
+	 * Remove a transport by writing it's transport name and port number
+	 */
+	if (buf[0] == '-' && isalpha(buf[1])) {
+		struct svc_xprt *xprt;
+		int err = -EINVAL;
+		char transport[16];
+		int port;
+		if (sscanf(&buf[1], "%15s %4d", transport, &port) == 2) {
+			if (port == 0)
+				return -EINVAL;
+			if (nfsd_serv) {
+				xprt = svc_find_xprt(nfsd_serv, transport,
+						     AF_UNSPEC, port);
+				if (xprt) {
+					svc_close_xprt(xprt);
+					svc_xprt_put(xprt);
+					err = 0;
+				} else
+					err = -ENOTCONN;
+			}
+			return err < 0 ? err : 0;
+		}
+	}
 	return -EINVAL;
 }
+
+static ssize_t write_ports(struct file *file, char *buf, size_t size)
+{
+	ssize_t rv;
+
+	mutex_lock(&nfsd_mutex);
+	rv = __write_ports(file, buf, size);
+	mutex_unlock(&nfsd_mutex);
+	return rv;
+}
+
 
 int nfsd_max_blksize;
 
@@ -575,13 +716,13 @@ static ssize_t write_maxblksize(struct file *file, char *buf, size_t size)
 		if (bsize > NFSSVC_MAXBLKSIZE)
 			bsize = NFSSVC_MAXBLKSIZE;
 		bsize &= ~(1024-1);
-		lock_kernel();
+		mutex_lock(&nfsd_mutex);
 		if (nfsd_serv && nfsd_serv->sv_nrthreads) {
-			unlock_kernel();
+			mutex_unlock(&nfsd_mutex);
 			return -EBUSY;
 		}
 		nfsd_max_blksize = bsize;
-		unlock_kernel();
+		mutex_unlock(&nfsd_mutex);
 	}
 	return sprintf(buf, "%d\n", nfsd_max_blksize);
 }
@@ -589,16 +730,17 @@ static ssize_t write_maxblksize(struct file *file, char *buf, size_t size)
 #ifdef CONFIG_NFSD_V4
 extern time_t nfs4_leasetime(void);
 
-static ssize_t write_leasetime(struct file *file, char *buf, size_t size)
+static ssize_t __write_leasetime(struct file *file, char *buf, size_t size)
 {
 	/* if size > 10 seconds, call
 	 * nfs4_reset_lease() then write out the new lease (seconds) as reply
 	 */
 	char *mesg = buf;
-	int rv;
+	int rv, lease;
 
 	if (size > 0) {
-		int lease;
+		if (nfsd_serv)
+			return -EBUSY;
 		rv = get_int(&mesg, &lease);
 		if (rv)
 			return rv;
@@ -610,24 +752,52 @@ static ssize_t write_leasetime(struct file *file, char *buf, size_t size)
 	return strlen(buf);
 }
 
-static ssize_t write_recoverydir(struct file *file, char *buf, size_t size)
+static ssize_t write_leasetime(struct file *file, char *buf, size_t size)
+{
+	ssize_t rv;
+
+	mutex_lock(&nfsd_mutex);
+	rv = __write_leasetime(file, buf, size);
+	mutex_unlock(&nfsd_mutex);
+	return rv;
+}
+
+extern char *nfs4_recoverydir(void);
+
+static ssize_t __write_recoverydir(struct file *file, char *buf, size_t size)
 {
 	char *mesg = buf;
 	char *recdir;
 	int len, status;
 
-	if (size > PATH_MAX || buf[size-1] != '\n')
-		return -EINVAL;
-	buf[size-1] = 0;
+	if (size > 0) {
+		if (nfsd_serv)
+			return -EBUSY;
+		if (size > PATH_MAX || buf[size-1] != '\n')
+			return -EINVAL;
+		buf[size-1] = 0;
 
-	recdir = mesg;
-	len = qword_get(&mesg, recdir, size);
-	if (len <= 0)
-		return -EINVAL;
+		recdir = mesg;
+		len = qword_get(&mesg, recdir, size);
+		if (len <= 0)
+			return -EINVAL;
 
-	status = nfs4_reset_recoverydir(recdir);
+		status = nfs4_reset_recoverydir(recdir);
+	}
+	sprintf(buf, "%s\n", nfs4_recoverydir());
 	return strlen(buf);
 }
+
+static ssize_t write_recoverydir(struct file *file, char *buf, size_t size)
+{
+	ssize_t rv;
+
+	mutex_lock(&nfsd_mutex);
+	rv = __write_recoverydir(file, buf, size);
+	mutex_unlock(&nfsd_mutex);
+	return rv;
+}
+
 #endif
 
 /*----------------------------------------------------------------------------*/
@@ -646,6 +816,10 @@ static int nfsd_fill_super(struct super_block * sb, void * data, int silent)
 		[NFSD_Getfd] = {".getfd", &transaction_ops, S_IWUSR|S_IRUSR},
 		[NFSD_Getfs] = {".getfs", &transaction_ops, S_IWUSR|S_IRUSR},
 		[NFSD_List] = {"exports", &exports_operations, S_IRUGO},
+		[NFSD_FO_UnlockIP] = {"unlock_ip",
+					&transaction_ops, S_IWUSR|S_IRUSR},
+		[NFSD_FO_UnlockFS] = {"unlock_filesystem",
+					&transaction_ops, S_IWUSR|S_IRUSR},
 		[NFSD_Fh] = {"filehandle", &transaction_ops, S_IWUSR|S_IRUSR},
 		[NFSD_Threads] = {"threads", &transaction_ops, S_IWUSR|S_IRUSR},
 		[NFSD_Pool_Threads] = {"pool_threads", &transaction_ops, S_IWUSR|S_IRUSR},
@@ -674,6 +848,26 @@ static struct file_system_type nfsd_fs_type = {
 	.kill_sb	= kill_litter_super,
 };
 
+#ifdef CONFIG_PROC_FS
+static int create_proc_exports_entry(void)
+{
+	struct proc_dir_entry *entry;
+
+	entry = proc_mkdir("fs/nfs", NULL);
+	if (!entry)
+		return -ENOMEM;
+	entry = proc_create("exports", 0, entry, &exports_operations);
+	if (!entry)
+		return -ENOMEM;
+	return 0;
+}
+#else /* CONFIG_PROC_FS */
+static int create_proc_exports_entry(void)
+{
+	return 0;
+}
+#endif
+
 static int __init init_nfsd(void)
 {
 	int retval;
@@ -683,32 +877,43 @@ static int __init init_nfsd(void)
 	if (retval)
 		return retval;
 	nfsd_stat_init();	/* Statistics */
-	nfsd_cache_init();	/* RPC reply cache */
-	nfsd_export_init();	/* Exports table */
+	retval = nfsd_reply_cache_init();
+	if (retval)
+		goto out_free_stat;
+	retval = nfsd_export_init();
+	if (retval)
+		goto out_free_cache;
 	nfsd_lockd_init();	/* lockd->nfsd callbacks */
-	nfsd_idmap_init();      /* Name to ID mapping */
-	if (proc_mkdir("fs/nfs", NULL)) {
-		struct proc_dir_entry *entry;
-		entry = create_proc_entry("fs/nfs/exports", 0, NULL);
-		if (entry)
-			entry->proc_fops =  &exports_operations;
-	}
+	retval = nfsd_idmap_init();
+	if (retval)
+		goto out_free_lockd;
+	retval = create_proc_exports_entry();
+	if (retval)
+		goto out_free_idmap;
 	retval = register_filesystem(&nfsd_fs_type);
-	if (retval) {
-		nfsd_export_shutdown();
-		nfsd_cache_shutdown();
-		remove_proc_entry("fs/nfs/exports", NULL);
-		remove_proc_entry("fs/nfs", NULL);
-		nfsd_stat_shutdown();
-		nfsd_lockd_shutdown();
-	}
+	if (retval)
+		goto out_free_all;
+	return 0;
+out_free_all:
+	remove_proc_entry("fs/nfs/exports", NULL);
+	remove_proc_entry("fs/nfs", NULL);
+out_free_idmap:
+	nfsd_idmap_shutdown();
+out_free_lockd:
+	nfsd_lockd_shutdown();
+	nfsd_export_shutdown();
+out_free_cache:
+	nfsd_reply_cache_shutdown();
+out_free_stat:
+	nfsd_stat_shutdown();
+	nfsd4_free_slabs();
 	return retval;
 }
 
 static void __exit exit_nfsd(void)
 {
 	nfsd_export_shutdown();
-	nfsd_cache_shutdown();
+	nfsd_reply_cache_shutdown();
 	remove_proc_entry("fs/nfs/exports", NULL);
 	remove_proc_entry("fs/nfs", NULL);
 	nfsd_stat_shutdown();

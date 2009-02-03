@@ -33,12 +33,14 @@
 #include <linux/mtd/partitions.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/flash.h>
+#if defined(CONFIG_USB_ISP1362_HCD) || defined(CONFIG_USB_ISP1362_HCD_MODULE)
 #include <linux/usb/isp1362.h>
-#include <linux/pata_platform.h>
+#endif
 #include <linux/irq.h>
 #include <asm/dma.h>
 #include <asm/bfin5xx_spi.h>
 #include <asm/portmux.h>
+#include <asm/dpmc.h>
 
 /*
  * Name the Board for the /proc/cpuinfo
@@ -50,16 +52,16 @@ const char bfin_board_name[] = "Bluetechnix CM BF533";
 #if defined(CONFIG_MTD_M25P80) || defined(CONFIG_MTD_M25P80_MODULE)
 static struct mtd_partition bfin_spi_flash_partitions[] = {
 	{
-		.name = "bootloader",
+		.name = "bootloader(spi)",
 		.size = 0x00020000,
 		.offset = 0,
 		.mask_flags = MTD_CAP_ROM
 	}, {
-		.name = "kernel",
+		.name = "linux kernel(spi)",
 		.size = 0xe0000,
 		.offset = 0x20000
 	}, {
-		.name = "file system",
+		.name = "file system(spi)",
 		.size = 0x700000,
 		.offset = 0x00100000,
 	}
@@ -234,6 +236,25 @@ static struct platform_device bfin_uart_device = {
 };
 #endif
 
+#if defined(CONFIG_BFIN_SIR) || defined(CONFIG_BFIN_SIR_MODULE)
+static struct resource bfin_sir_resources[] = {
+#ifdef CONFIG_BFIN_SIR0
+	{
+		.start = 0xFFC00400,
+		.end = 0xFFC004FF,
+		.flags = IORESOURCE_MEM,
+	},
+#endif
+};
+
+static struct platform_device bfin_sir_device = {
+	.name = "bfin_sir",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(bfin_sir_resources),
+	.resource = bfin_sir_resources,
+};
+#endif
+
 #if defined(CONFIG_SERIAL_BFIN_SPORT) || defined(CONFIG_SERIAL_BFIN_SPORT_MODULE)
 static struct platform_device bfin_sport0_uart_device = {
 	.name = "bfin-sport-uart",
@@ -285,46 +306,43 @@ static struct platform_device isp1362_hcd_device = {
 };
 #endif
 
-#if defined(CONFIG_PATA_PLATFORM) || defined(CONFIG_PATA_PLATFORM_MODULE)
-#define PATA_INT	38
-
-static struct pata_platform_info bfin_pata_platform_data = {
-	.ioport_shift = 2,
-	.irq_type = IRQF_TRIGGER_HIGH | IRQF_DISABLED,
+static const unsigned int cclk_vlev_datasheet[] =
+{
+	VRPAIR(VLEV_085, 250000000),
+	VRPAIR(VLEV_090, 376000000),
+	VRPAIR(VLEV_095, 426000000),
+	VRPAIR(VLEV_100, 426000000),
+	VRPAIR(VLEV_105, 476000000),
+	VRPAIR(VLEV_110, 476000000),
+	VRPAIR(VLEV_115, 476000000),
+	VRPAIR(VLEV_120, 600000000),
+	VRPAIR(VLEV_125, 600000000),
+	VRPAIR(VLEV_130, 600000000),
 };
 
-static struct resource bfin_pata_resources[] = {
-	{
-		.start = 0x2030C000,
-		.end = 0x2030C01F,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.start = 0x2030D018,
-		.end = 0x2030D01B,
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.start = PATA_INT,
-		.end = PATA_INT,
-		.flags = IORESOURCE_IRQ,
-	},
+static struct bfin_dpmc_platform_data bfin_dmpc_vreg_data = {
+	.tuple_tab = cclk_vlev_datasheet,
+	.tabsize = ARRAY_SIZE(cclk_vlev_datasheet),
+	.vr_settling_time = 25 /* us */,
 };
 
-static struct platform_device bfin_pata_device = {
-	.name = "pata_platform",
-	.id = -1,
-	.num_resources = ARRAY_SIZE(bfin_pata_resources),
-	.resource = bfin_pata_resources,
+static struct platform_device bfin_dpmc = {
+	.name = "bfin dpmc",
 	.dev = {
-		.platform_data = &bfin_pata_platform_data,
-	}
+		.platform_data = &bfin_dmpc_vreg_data,
+	},
 };
-#endif
 
 static struct platform_device *cm_bf533_devices[] __initdata = {
+
+	&bfin_dpmc,
+
 #if defined(CONFIG_SERIAL_BFIN) || defined(CONFIG_SERIAL_BFIN_MODULE)
 	&bfin_uart_device,
+#endif
+
+#if defined(CONFIG_BFIN_SIR) || defined(CONFIG_BFIN_SIR_MODULE)
+	&bfin_sir_device,
 #endif
 
 #if defined(CONFIG_SERIAL_BFIN_SPORT) || defined(CONFIG_SERIAL_BFIN_SPORT_MODULE)
@@ -347,22 +365,14 @@ static struct platform_device *cm_bf533_devices[] __initdata = {
 #if defined(CONFIG_SPI_BFIN) || defined(CONFIG_SPI_BFIN_MODULE)
 	&bfin_spi0_device,
 #endif
-
-#if defined(CONFIG_PATA_PLATFORM) || defined(CONFIG_PATA_PLATFORM_MODULE)
-	&bfin_pata_device,
-#endif
 };
 
 static int __init cm_bf533_init(void)
 {
-	printk(KERN_INFO "%s(): registering device resources\n", __FUNCTION__);
+	printk(KERN_INFO "%s(): registering device resources\n", __func__);
 	platform_add_devices(cm_bf533_devices, ARRAY_SIZE(cm_bf533_devices));
 #if defined(CONFIG_SPI_BFIN) || defined(CONFIG_SPI_BFIN_MODULE)
 	spi_register_board_info(bfin_spi_board_info, ARRAY_SIZE(bfin_spi_board_info));
-#endif
-
-#if defined(CONFIG_PATA_PLATFORM) || defined(CONFIG_PATA_PLATFORM_MODULE)
-	irq_desc[PATA_INT].status |= IRQ_NOAUTOEN;
 #endif
 	return 0;
 }

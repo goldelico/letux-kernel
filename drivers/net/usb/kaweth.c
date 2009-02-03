@@ -57,13 +57,11 @@
 #include <linux/ethtool.h>
 #include <linux/dma-mapping.h>
 #include <linux/wait.h>
+#include <linux/firmware.h>
 #include <asm/uaccess.h>
-#include <asm/semaphore.h>
 #include <asm/byteorder.h>
 
 #undef DEBUG
-
-#include "kawethfw.h"
 
 #define KAWETH_MTU			1514
 #define KAWETH_BUF_SIZE			1664
@@ -109,6 +107,10 @@
 MODULE_AUTHOR("Michael Zappe <zapman@interlan.net>, Stephane Alnet <stephane@u-picardie.fr>, Brad Hards <bhards@bigpond.net.au> and Oliver Neukum <oliver@neukum.org>");
 MODULE_DESCRIPTION("KL5USB101 USB Ethernet driver");
 MODULE_LICENSE("GPL");
+MODULE_FIRMWARE("kaweth/new_code.bin");
+MODULE_FIRMWARE("kaweth/new_code_fix.bin");
+MODULE_FIRMWARE("kaweth/trigger_code.bin");
+MODULE_FIRMWARE("kaweth/trigger_code_fix.bin");
 
 static const char driver_name[] = "kaweth";
 
@@ -386,17 +388,28 @@ static int kaweth_set_receive_filter(struct kaweth_device *kaweth,
  *     kaweth_download_firmware
  ****************************************************************/
 static int kaweth_download_firmware(struct kaweth_device *kaweth,
-				    __u8 *data,
-				    __u16 data_len,
+				    const char *fwname,
 				    __u8 interrupt,
 				    __u8 type)
 {
-	if(data_len > KAWETH_FIRMWARE_BUF_SIZE)	{
-		err("Firmware too big: %d", data_len);
-		return -ENOSPC;
+	const struct firmware *fw;
+	int data_len;
+	int ret;
+
+	ret = request_firmware(&fw, fwname, &kaweth->dev->dev);
+	if (ret) {
+		err("Firmware request failed\n");
+		return ret;
 	}
 
-	memcpy(kaweth->firmware_buf, data, data_len);
+	if (fw->size > KAWETH_FIRMWARE_BUF_SIZE) {
+		err("Firmware too big: %zu", fw->size);
+		return -ENOSPC;
+	}
+	data_len = fw->size;
+	memcpy(kaweth->firmware_buf, fw->data, fw->size);
+
+	release_firmware(fw);
 
 	kaweth->firmware_buf[2] = (data_len & 0xFF) - 7;
 	kaweth->firmware_buf[3] = data_len >> 8;
@@ -407,8 +420,7 @@ static int kaweth_download_firmware(struct kaweth_device *kaweth,
 		   kaweth->firmware_buf[2]);
 
 	dbg("Downloading firmware at %p to kaweth device at %p",
-	    data,
-	    kaweth);
+	    fw->data, kaweth);
 	dbg("Firmware length: %d", data_len);
 
 	return kaweth_control(kaweth,
@@ -707,7 +719,7 @@ static void kaweth_kill_urbs(struct kaweth_device *kaweth)
 	usb_kill_urb(kaweth->rx_urb);
 	usb_kill_urb(kaweth->tx_urb);
 
-	flush_scheduled_work();
+	cancel_delayed_work_sync(&kaweth->lowmem_work);
 
 	/* a scheduled work may have resubmitted,
 	   we hit them again */
@@ -820,7 +832,7 @@ static int kaweth_start_xmit(struct sk_buff *skb, struct net_device *net)
 
 	if((res = usb_submit_urb(kaweth->tx_urb, GFP_ATOMIC)))
 	{
-		warn("kaweth failed tx_urb %d", res);
+		dev_warn(&net->dev, "kaweth failed tx_urb %d\n", res);
 skip:
 		kaweth->stats.tx_errors++;
 
@@ -912,7 +924,7 @@ static void kaweth_tx_timeout(struct net_device *net)
 {
 	struct kaweth_device *kaweth = netdev_priv(net);
 
-	warn("%s: Tx timed out. Resetting.", net->name);
+	dev_warn(&net->dev, "%s: Tx timed out. Resetting.\n", net->name);
 	kaweth->stats.tx_errors++;
 	net->trans_start = jiffies;
 
@@ -1004,14 +1016,13 @@ static int kaweth_probe(
 	 */
 
 	if (le16_to_cpu(dev->descriptor.bcdDevice) >> 8) {
-		info("Firmware present in device.");
+		dev_info(&intf->dev, "Firmware present in device.\n");
 	} else {
 		/* Download the firmware */
-		info("Downloading firmware...");
+		dev_info(&intf->dev, "Downloading firmware...\n");
 		kaweth->firmware_buf = (__u8 *)__get_free_page(GFP_KERNEL);
 		if ((result = kaweth_download_firmware(kaweth,
-						      kaweth_new_code,
-						      len_kaweth_new_code,
+						      "kaweth/new_code.bin",
 						      100,
 						      2)) < 0) {
 			err("Error downloading firmware (%d)", result);
@@ -1019,8 +1030,7 @@ static int kaweth_probe(
 		}
 
 		if ((result = kaweth_download_firmware(kaweth,
-						      kaweth_new_code_fix,
-						      len_kaweth_new_code_fix,
+						      "kaweth/new_code_fix.bin",
 						      100,
 						      3)) < 0) {
 			err("Error downloading firmware fix (%d)", result);
@@ -1028,8 +1038,7 @@ static int kaweth_probe(
 		}
 
 		if ((result = kaweth_download_firmware(kaweth,
-						      kaweth_trigger_code,
-						      len_kaweth_trigger_code,
+						      "kaweth/trigger_code.bin",
 						      126,
 						      2)) < 0) {
 			err("Error downloading trigger code (%d)", result);
@@ -1038,8 +1047,7 @@ static int kaweth_probe(
 		}
 
 		if ((result = kaweth_download_firmware(kaweth,
-						      kaweth_trigger_code_fix,
-						      len_kaweth_trigger_code_fix,
+						      "kaweth/trigger_code_fix.bin",
 						      126,
 						      3)) < 0) {
 			err("Error downloading trigger code fix (%d)", result);
@@ -1053,7 +1061,7 @@ static int kaweth_probe(
 		}
 
 		/* Device will now disappear for a moment...  */
-		info("Firmware loaded.  I'll be back...");
+		dev_info(&intf->dev, "Firmware loaded.  I'll be back...\n");
 err_fw:
 		free_page((unsigned long)kaweth->firmware_buf);
 		free_netdev(netdev);
@@ -1067,10 +1075,10 @@ err_fw:
 		goto err_free_netdev;
 	}
 
-	info("Statistics collection: %x", kaweth->configuration.statistics_mask);
-	info("Multicast filter limit: %x", kaweth->configuration.max_multicast_filters & ((1 << 15) - 1));
-	info("MTU: %d", le16_to_cpu(kaweth->configuration.segment_size));
-	info("Read MAC address %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x",
+	dev_info(&intf->dev, "Statistics collection: %x\n", kaweth->configuration.statistics_mask);
+	dev_info(&intf->dev, "Multicast filter limit: %x\n", kaweth->configuration.max_multicast_filters & ((1 << 15) - 1));
+	dev_info(&intf->dev, "MTU: %d\n", le16_to_cpu(kaweth->configuration.segment_size));
+	dev_info(&intf->dev, "Read MAC address %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
 		 (int)kaweth->configuration.hw_addr[0],
 		 (int)kaweth->configuration.hw_addr[1],
 		 (int)kaweth->configuration.hw_addr[2],
@@ -1166,7 +1174,8 @@ err_fw:
 		goto err_intfdata;
 	}
 
-	info("kaweth interface created at %s", kaweth->net->name);
+	dev_info(&intf->dev, "kaweth interface created at %s\n",
+		 kaweth->net->name);
 
 	dbg("Kaweth probe returning.");
 
@@ -1197,11 +1206,11 @@ static void kaweth_disconnect(struct usb_interface *intf)
 	struct kaweth_device *kaweth = usb_get_intfdata(intf);
 	struct net_device *netdev;
 
-	info("Unregistering");
+	dev_info(&intf->dev, "Unregistering\n");
 
 	usb_set_intfdata(intf, NULL);
 	if (!kaweth) {
-		warn("unregistering non-existant device");
+		dev_warn(&intf->dev, "unregistering non-existant device\n");
 		return;
 	}
 	netdev = kaweth->net;
@@ -1261,7 +1270,7 @@ static int usb_start_wait_urb(struct urb *urb, int timeout, int* actual_length)
 
 	if (!wait_event_timeout(awd.wqh, awd.done, timeout)) {
                 // timeout
-                warn("usb_control/bulk_msg: timeout");
+                dev_warn(&urb->dev->dev, "usb_control/bulk_msg: timeout\n");
                 usb_kill_urb(urb);  // remove urb safely
                 status = -ETIMEDOUT;
         }

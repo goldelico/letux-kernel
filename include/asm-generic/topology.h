@@ -27,22 +27,24 @@
 #ifndef _ASM_GENERIC_TOPOLOGY_H
 #define _ASM_GENERIC_TOPOLOGY_H
 
+#ifndef	CONFIG_NUMA
+
 /* Other architectures wishing to use this simple topology API should fill
    in the below functions as appropriate in their own <asm/topology.h> file. */
 #ifndef cpu_to_node
-#define cpu_to_node(cpu)	(0)
+#define cpu_to_node(cpu)	((void)(cpu),0)
 #endif
 #ifndef parent_node
-#define parent_node(node)	(0)
+#define parent_node(node)	((void)(node),0)
 #endif
 #ifndef node_to_cpumask
-#define node_to_cpumask(node)	(cpu_online_map)
+#define node_to_cpumask(node)	((void)node, cpu_online_map)
 #endif
 #ifndef node_to_first_cpu
-#define node_to_first_cpu(node)	(0)
+#define node_to_first_cpu(node)	((void)(node),0)
 #endif
 #ifndef pcibus_to_node
-#define pcibus_to_node(node)	(-1)
+#define pcibus_to_node(bus)	((void)(bus), -1)
 #endif
 
 #ifndef pcibus_to_cpumask
@@ -50,6 +52,19 @@
 					CPU_MASK_ALL : \
 					node_to_cpumask(pcibus_to_node(bus)) \
 				)
+#endif
+
+#endif	/* CONFIG_NUMA */
+
+/* returns pointer to cpumask for specified node */
+#ifndef node_to_cpumask_ptr
+
+#define	node_to_cpumask_ptr(v, node) 					\
+		cpumask_t _##v = node_to_cpumask(node);			\
+		const cpumask_t *v = &_##v
+
+#define node_to_cpumask_ptr_next(v, node)				\
+			  _##v = node_to_cpumask(node)
 #endif
 
 #endif /* _ASM_GENERIC_TOPOLOGY_H */

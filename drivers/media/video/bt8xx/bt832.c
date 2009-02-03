@@ -97,6 +97,11 @@ int bt832_init(struct i2c_client *i2c_client_s)
 	int rc;
 
 	buf=kmalloc(65,GFP_KERNEL);
+	if (!buf) {
+		v4l_err(&t->client,
+			"Unable to allocate memory. Detaching.\n");
+		return 0;
+	}
 	bt832_hexdump(i2c_client_s,buf);
 
 	if(buf[0x40] != 0x31) {
@@ -174,7 +179,6 @@ static int bt832_attach(struct i2c_adapter *adap, int addr, int kind)
 
 	v4l_info(&t->client,"chip found @ 0x%x\n", addr<<1);
 
-
 	if(! bt832_init(&t->client)) {
 		bt832_detach(&t->client);
 		return -1;
@@ -211,7 +215,12 @@ bt832_command(struct i2c_client *client, unsigned int cmd, void *arg)
 	switch (cmd) {
 		case BT832_HEXDUMP: {
 			unsigned char *buf;
-			buf=kmalloc(65,GFP_KERNEL);
+			buf = kmalloc(65, GFP_KERNEL);
+			if (!buf) {
+				v4l_err(&t->client,
+					"Unable to allocate memory\n");
+				break;
+			}
 			bt832_hexdump(&t->client,buf);
 			kfree(buf);
 		}

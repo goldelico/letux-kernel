@@ -1,8 +1,6 @@
 /* Driver for USB Mass Storage compliant devices
  * SCSI layer glue code
  *
- * $Id: scsiglue.c,v 1.26 2002/04/22 03:39:43 mdharm Exp $
- *
  * Current development and maintenance by:
  *   (c) 1999-2002 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
  *
@@ -81,6 +79,23 @@ static int slave_alloc (struct scsi_device *sdev)
 	 */
 	sdev->inquiry_len = 36;
 
+	/* USB has unusual DMA-alignment requirements: Although the
+	 * starting address of each scatter-gather element doesn't matter,
+	 * the length of each element except the last must be divisible
+	 * by the Bulk maxpacket value.  There's currently no way to
+	 * express this by block-layer constraints, so we'll cop out
+	 * and simply require addresses to be aligned at 512-byte
+	 * boundaries.  This is okay since most block I/O involves
+	 * hardware sectors that are multiples of 512 bytes in length,
+	 * and since host controllers up through USB 2.0 have maxpacket
+	 * values no larger than 512.
+	 *
+	 * But it doesn't suffice for Wireless USB, where Bulk maxpacket
+	 * values can be as large as 2048.  To make that work properly
+	 * will require changes to the block layer.
+	 */
+	blk_queue_update_dma_alignment(sdev->request_queue, (512 - 1));
+
 	/*
 	 * The UFI spec treates the Peripheral Qualifier bits in an
 	 * INQUIRY result as reserved and requires devices to set them
@@ -100,24 +115,14 @@ static int slave_configure(struct scsi_device *sdev)
 {
 	struct us_data *us = host_to_us(sdev->host);
 
-	/* Scatter-gather buffers (all but the last) must have a length
-	 * divisible by the bulk maxpacket size.  Otherwise a data packet
-	 * would end up being short, causing a premature end to the data
-	 * transfer.  Since high-speed bulk pipes have a maxpacket size
-	 * of 512, we'll use that as the scsi device queue's DMA alignment
-	 * mask.  Guaranteeing proper alignment of the first buffer will
-	 * have the desired effect because, except at the beginning and
-	 * the end, scatter-gather buffers follow page boundaries. */
-	blk_queue_dma_alignment(sdev->request_queue, (512 - 1));
-
 	/* Many devices have trouble transfering more than 32KB at a time,
 	 * while others have trouble with more than 64K. At this time we
 	 * are limiting both to 32K (64 sectores).
 	 */
-	if (us->flags & (US_FL_MAX_SECTORS_64 | US_FL_MAX_SECTORS_MIN)) {
+	if (us->fflags & (US_FL_MAX_SECTORS_64 | US_FL_MAX_SECTORS_MIN)) {
 		unsigned int max_sectors = 64;
 
-		if (us->flags & US_FL_MAX_SECTORS_MIN)
+		if (us->fflags & US_FL_MAX_SECTORS_MIN)
 			max_sectors = PAGE_CACHE_SIZE >> 9;
 		if (sdev->request_queue->max_sectors > max_sectors)
 			blk_queue_max_sectors(sdev->request_queue,
@@ -132,7 +137,7 @@ static int slave_configure(struct scsi_device *sdev)
 		/* Disk-type devices use MODE SENSE(6) if the protocol
 		 * (SubClass) is Transparent SCSI, otherwise they use
 		 * MODE SENSE(10). */
-		if (us->subclass != US_SC_SCSI)
+		if (us->subclass != US_SC_SCSI && us->subclass != US_SC_CYP_ATACB)
 			sdev->use_10_for_ms = 1;
 
 		/* Many disks only accept MODE SENSE transfer lengths of
@@ -146,7 +151,7 @@ static int slave_configure(struct scsi_device *sdev)
 		 * majority of devices work fine, but a few still can't
 		 * handle it.  The sd driver will simply assume those
 		 * devices are write-enabled. */
-		if (us->flags & US_FL_NO_WP_DETECT)
+		if (us->fflags & US_FL_NO_WP_DETECT)
 			sdev->skip_ms_page_3f = 1;
 
 		/* A number of devices have problems with MODE SENSE for
@@ -156,13 +161,13 @@ static int slave_configure(struct scsi_device *sdev)
 		/* Some disks return the total number of blocks in response
 		 * to READ CAPACITY rather than the highest block number.
 		 * If this device makes that mistake, tell the sd driver. */
-		if (us->flags & US_FL_FIX_CAPACITY)
+		if (us->fflags & US_FL_FIX_CAPACITY)
 			sdev->fix_capacity = 1;
 
 		/* A few disks have two indistinguishable version, one of
 		 * which reports the correct capacity and the other does not.
 		 * The sd driver has to guess which is the case. */
-		if (us->flags & US_FL_CAPACITY_HEURISTICS)
+		if (us->fflags & US_FL_CAPACITY_HEURISTICS)
 			sdev->guess_capacity = 1;
 
 		/* Some devices report a SCSI revision level above 2 but are
@@ -187,6 +192,10 @@ static int slave_configure(struct scsi_device *sdev)
 		 * automatically, requiring a START-STOP UNIT command. */
 		sdev->allow_restart = 1;
 
+		/* Some USB cardreaders have trouble reading an sdcard's last
+		 * sector in a larger then 1 sector read, since the performance
+		 * impact is negible we set this flag for all USB disks */
+		sdev->last_sector_bug = 1;
 	} else {
 
 		/* Non-disk-type devices don't need to blacklist any pages
@@ -207,7 +216,7 @@ static int slave_configure(struct scsi_device *sdev)
 
 	/* Some devices choke when they receive a PREVENT-ALLOW MEDIUM
 	 * REMOVAL command, so suppress those commands. */
-	if (us->flags & US_FL_NOT_LOCKABLE)
+	if (us->fflags & US_FL_NOT_LOCKABLE)
 		sdev->lockable = 0;
 
 	/* this is to satisfy the compiler, tho I don't think the 
@@ -222,17 +231,17 @@ static int queuecommand(struct scsi_cmnd *srb,
 {
 	struct us_data *us = host_to_us(srb->device->host);
 
-	US_DEBUGP("%s called\n", __FUNCTION__);
+	US_DEBUGP("%s called\n", __func__);
 
 	/* check for state-transition errors */
 	if (us->srb != NULL) {
 		printk(KERN_ERR USB_STORAGE "Error in %s: us->srb = %p\n",
-			__FUNCTION__, us->srb);
+			__func__, us->srb);
 		return SCSI_MLQUEUE_HOST_BUSY;
 	}
 
 	/* fail the command if we are disconnecting */
-	if (test_bit(US_FLIDX_DISCONNECTING, &us->flags)) {
+	if (test_bit(US_FLIDX_DISCONNECTING, &us->dflags)) {
 		US_DEBUGP("Fail command during disconnect\n");
 		srb->result = DID_NO_CONNECT << 16;
 		done(srb);
@@ -242,7 +251,7 @@ static int queuecommand(struct scsi_cmnd *srb,
 	/* enqueue the command and wake up the control thread */
 	srb->scsi_done = done;
 	us->srb = srb;
-	up(&(us->sema));
+	complete(&us->cmnd_ready);
 
 	return 0;
 }
@@ -256,7 +265,7 @@ static int command_abort(struct scsi_cmnd *srb)
 {
 	struct us_data *us = host_to_us(srb->device->host);
 
-	US_DEBUGP("%s called\n", __FUNCTION__);
+	US_DEBUGP("%s called\n", __func__);
 
 	/* us->srb together with the TIMED_OUT, RESETTING, and ABORTING
 	 * bits are protected by the host lock. */
@@ -274,9 +283,9 @@ static int command_abort(struct scsi_cmnd *srb)
 	 * with the reset).  Note that we must retain the host lock while
 	 * calling usb_stor_stop_transport(); otherwise it might interfere
 	 * with an auto-reset that begins as soon as we release the lock. */
-	set_bit(US_FLIDX_TIMED_OUT, &us->flags);
-	if (!test_bit(US_FLIDX_RESETTING, &us->flags)) {
-		set_bit(US_FLIDX_ABORTING, &us->flags);
+	set_bit(US_FLIDX_TIMED_OUT, &us->dflags);
+	if (!test_bit(US_FLIDX_RESETTING, &us->dflags)) {
+		set_bit(US_FLIDX_ABORTING, &us->dflags);
 		usb_stor_stop_transport(us);
 	}
 	scsi_unlock(us_to_host(us));
@@ -293,7 +302,7 @@ static int device_reset(struct scsi_cmnd *srb)
 	struct us_data *us = host_to_us(srb->device->host);
 	int result;
 
-	US_DEBUGP("%s called\n", __FUNCTION__);
+	US_DEBUGP("%s called\n", __func__);
 
 	/* lock the device pointers and do the reset */
 	mutex_lock(&(us->dev_mutex));
@@ -309,7 +318,7 @@ static int bus_reset(struct scsi_cmnd *srb)
 	struct us_data *us = host_to_us(srb->device->host);
 	int result;
 
-	US_DEBUGP("%s called\n", __FUNCTION__);
+	US_DEBUGP("%s called\n", __func__);
 	result = usb_stor_port_reset(us);
 	return result < 0 ? FAILED : SUCCESS;
 }
@@ -323,7 +332,7 @@ void usb_stor_report_device_reset(struct us_data *us)
 	struct Scsi_Host *host = us_to_host(us);
 
 	scsi_report_device_reset(host, 0, 0);
-	if (us->flags & US_FL_SCM_MULT_TARG) {
+	if (us->fflags & US_FL_SCM_MULT_TARG) {
 		for (i = 1; i < host->max_id; ++i)
 			scsi_report_device_reset(host, 0, i);
 	}
@@ -394,7 +403,7 @@ static int proc_info (struct Scsi_Host *host, char *buffer,
 		pos += sprintf(pos, "       Quirks:");
 
 #define US_FLAG(name, value) \
-	if (us->flags & value) pos += sprintf(pos, " " #name);
+	if (us->fflags & value) pos += sprintf(pos, " " #name);
 US_DO_ALL_FLAGS
 #undef US_FLAG
 

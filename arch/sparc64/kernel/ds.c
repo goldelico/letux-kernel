@@ -1,6 +1,6 @@
 /* ds.c: Domain Services driver for Logical Domains
  *
- * Copyright (C) 2007 David S. Miller <davem@davemloft.net>
+ * Copyright (C) 2007, 2008 David S. Miller <davem@davemloft.net>
  */
 
 #include <linux/kernel.h>
@@ -159,7 +159,7 @@ static void ds_var_data(struct ds_info *dp,
 			struct ds_cap_state *cp,
 			void *buf, int len);
 
-struct ds_cap_state ds_states_template[] = {
+static struct ds_cap_state ds_states_template[] = {
 	{
 		.service_id	= "md-update",
 		.data		= md_update_data,
@@ -525,10 +525,10 @@ static void dr_cpu_mark(struct ds_data *resp, int cpu, int ncpus,
 	}
 }
 
-static int dr_cpu_configure(struct ds_info *dp,
-			    struct ds_cap_state *cp,
-			    u64 req_num,
-			    cpumask_t *mask)
+static int __cpuinit dr_cpu_configure(struct ds_info *dp,
+				      struct ds_cap_state *cp,
+				      u64 req_num,
+				      cpumask_t *mask)
 {
 	struct ds_data *resp;
 	int resp_len, ncpus, cpu;
@@ -623,9 +623,9 @@ static int dr_cpu_unconfigure(struct ds_info *dp,
 	return 0;
 }
 
-static void dr_cpu_data(struct ds_info *dp,
-			struct ds_cap_state *cp,
-			void *buf, int len)
+static void __cpuinit dr_cpu_data(struct ds_info *dp,
+				  struct ds_cap_state *cp,
+				  void *buf, int len)
 {
 	struct ds_data *data = buf;
 	struct dr_cpu_tag *tag = (struct dr_cpu_tag *) (data + 1);
@@ -972,8 +972,7 @@ static void process_ds_work(void)
 	LIST_HEAD(todo);
 
 	spin_lock_irqsave(&ds_lock, flags);
-	list_splice(&ds_work_list, &todo);
-	INIT_LIST_HEAD(&ds_work_list);
+	list_splice_init(&ds_work_list, &todo);
 	spin_unlock_irqrestore(&ds_lock, flags);
 
 	list_for_each_entry_safe(qp, tmp, &todo, list) {
@@ -1218,7 +1217,7 @@ static int ds_remove(struct vio_dev *vdev)
 	return 0;
 }
 
-static struct vio_device_id ds_match[] = {
+static struct vio_device_id __initdata ds_match[] = {
 	{
 		.type = "domain-services-port",
 	},

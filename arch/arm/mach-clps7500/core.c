@@ -15,15 +15,15 @@
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/serial_8250.h>
+#include <linux/io.h>
 
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/mach/irq.h>
 #include <asm/mach/time.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/hardware/iomd.h>
-#include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/mach-types.h>
 
@@ -298,8 +298,6 @@ extern unsigned long ioc_timer_gettimeoffset(void);
 static irqreturn_t
 clps7500_timer_interrupt(int irq, void *dev_id)
 {
-	write_seqlock(&xtime_lock);
-
 	timer_tick();
 
 	/* Why not using do_leds interface?? */
@@ -312,8 +310,6 @@ clps7500_timer_interrupt(int irq, void *dev_id)
 			*((volatile unsigned int *)LED_ADDRESS) = state;
 		}
 	}
-
-	write_sequnlock(&xtime_lock);
 
 	return IRQ_HANDLED;
 }

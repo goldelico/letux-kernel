@@ -20,10 +20,10 @@
 
 #include <asm/system.h>
 #include <asm/irq.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/dma.h>
 
-#include <asm/arch/pxa-regs.h>
+#include <mach/pxa-regs.h>
 
 struct dma_channel {
 	char *name;
@@ -81,7 +81,7 @@ void pxa_free_dma (int dma_ch)
 	if (!dma_channels[dma_ch].name) {
 		printk (KERN_CRIT
 			"%s: trying to free channel %d which is already freed\n",
-			__FUNCTION__, dma_ch);
+			__func__, dma_ch);
 		return;
 	}
 

@@ -28,12 +28,11 @@ static int if_lock(struct cardstate *cs, int *arg)
 		return -EINVAL;
 
 	if (cmd < 0) {
-		*arg = atomic_read(&cs->mstate) == MS_LOCKED; //FIXME remove?
+		*arg = cs->mstate == MS_LOCKED;
 		return 0;
 	}
 
-	if (!cmd && atomic_read(&cs->mstate) == MS_LOCKED
-	    && cs->connected) {
+	if (!cmd && cs->mstate == MS_LOCKED && cs->connected) {
 		cs->ops->set_modem_ctrl(cs, 0, TIOCM_DTR|TIOCM_RTS);
 		cs->ops->baud_rate(cs, B115200);
 		cs->ops->set_line_ctrl(cs, CS8);
@@ -104,7 +103,7 @@ static int if_config(struct cardstate *cs, int *arg)
 	if (*arg != 1)
 		return -EINVAL;
 
-	if (atomic_read(&cs->mstate) != MS_LOCKED)
+	if (cs->mstate != MS_LOCKED)
 		return -EBUSY;
 
 	if (!cs->connected) {
@@ -162,7 +161,7 @@ static int if_open(struct tty_struct *tty, struct file *filp)
 	tty->driver_data = NULL;
 
 	cs = gigaset_get_cs_by_tty(tty);
-	if (!cs)
+	if (!cs || !try_module_get(cs->driver->owner))
 		return -ENODEV;
 
 	if (mutex_lock_interruptible(&cs->mutex))
@@ -198,7 +197,7 @@ static void if_close(struct tty_struct *tty, struct file *filp)
 	mutex_lock(&cs->mutex);
 
 	if (!cs->open_count)
-		warn("%s: device not opened", __func__);
+		dev_warn(cs->dev, "%s: device not opened\n", __func__);
 	else {
 		if (!--cs->open_count) {
 			spin_lock_irqsave(&cs->lock, flags);
@@ -208,6 +207,8 @@ static void if_close(struct tty_struct *tty, struct file *filp)
 	}
 
 	mutex_unlock(&cs->mutex);
+
+	module_put(cs->driver->owner);
 }
 
 static int if_ioctl(struct tty_struct *tty, struct file *file,
@@ -231,7 +232,7 @@ static int if_ioctl(struct tty_struct *tty, struct file *file,
 		return -ERESTARTSYS; // FIXME -EINTR?
 
 	if (!cs->open_count)
-		warn("%s: device not opened", __func__);
+		dev_warn(cs->dev, "%s: device not opened\n", __func__);
 	else {
 		retval = 0;
 		switch (cmd) {
@@ -363,9 +364,9 @@ static int if_write(struct tty_struct *tty, const unsigned char *buf, int count)
 		return -ERESTARTSYS; // FIXME -EINTR?
 
 	if (!cs->open_count)
-		warn("%s: device not opened", __func__);
-	else if (atomic_read(&cs->mstate) != MS_LOCKED) {
-		warn("can't write to unlocked device");
+		dev_warn(cs->dev, "%s: device not opened\n", __func__);
+	else if (cs->mstate != MS_LOCKED) {
+		dev_warn(cs->dev, "can't write to unlocked device\n");
 		retval = -EBUSY;
 	} else if (!cs->connected) {
 		gig_dbg(DEBUG_ANY, "can't write to unplugged device");
@@ -397,10 +398,10 @@ static int if_write_room(struct tty_struct *tty)
 		return -ERESTARTSYS; // FIXME -EINTR?
 
 	if (!cs->open_count)
-		warn("%s: device not opened", __func__);
-	else if (atomic_read(&cs->mstate) != MS_LOCKED) {
-		warn("can't write to unlocked device");
-		retval = -EBUSY; //FIXME
+		dev_warn(cs->dev, "%s: device not opened\n", __func__);
+	else if (cs->mstate != MS_LOCKED) {
+		dev_warn(cs->dev, "can't write to unlocked device\n");
+		retval = -EBUSY;
 	} else if (!cs->connected) {
 		gig_dbg(DEBUG_ANY, "can't write to unplugged device");
 		retval = -EBUSY; //FIXME
@@ -429,9 +430,9 @@ static int if_chars_in_buffer(struct tty_struct *tty)
 		return -ERESTARTSYS; // FIXME -EINTR?
 
 	if (!cs->open_count)
-		warn("%s: device not opened", __func__);
-	else if (atomic_read(&cs->mstate) != MS_LOCKED) {
-		warn("can't write to unlocked device");
+		dev_warn(cs->dev, "%s: device not opened\n", __func__);
+	else if (cs->mstate != MS_LOCKED) {
+		dev_warn(cs->dev, "can't write to unlocked device\n");
 		retval = -EBUSY;
 	} else if (!cs->connected) {
 		gig_dbg(DEBUG_ANY, "can't write to unplugged device");
@@ -459,7 +460,7 @@ static void if_throttle(struct tty_struct *tty)
 	mutex_lock(&cs->mutex);
 
 	if (!cs->open_count)
-		warn("%s: device not opened", __func__);
+		dev_warn(cs->dev, "%s: device not opened\n", __func__);
 	else {
 		//FIXME
 	}
@@ -482,7 +483,7 @@ static void if_unthrottle(struct tty_struct *tty)
 	mutex_lock(&cs->mutex);
 
 	if (!cs->open_count)
-		warn("%s: device not opened", __func__);
+		dev_warn(cs->dev, "%s: device not opened\n", __func__);
 	else {
 		//FIXME
 	}
@@ -509,7 +510,7 @@ static void if_set_termios(struct tty_struct *tty, struct ktermios *old)
 	mutex_lock(&cs->mutex);
 
 	if (!cs->open_count) {
-		warn("%s: device not opened", __func__);
+		dev_warn(cs->dev, "%s: device not opened\n", __func__);
 		goto out;
 	}
 
@@ -622,7 +623,8 @@ void gigaset_if_init(struct cardstate *cs)
 	if (!IS_ERR(cs->tty_dev))
 		dev_set_drvdata(cs->tty_dev, cs);
 	else {
-		warn("could not register device to the tty subsystem");
+		dev_warn(cs->dev,
+			 "could not register device to the tty subsystem\n");
 		cs->tty_dev = NULL;
 	}
 	mutex_unlock(&cs->mutex);

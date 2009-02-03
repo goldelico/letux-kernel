@@ -53,33 +53,6 @@ static unsigned long empty_bad_page;
 
 unsigned long empty_zero_page;
 
-void show_mem(void)
-{
-	unsigned long i;
-	int free = 0, total = 0, reserved = 0, shared = 0;
-
-	int cached = 0;
-	printk(KERN_INFO "Mem-info:\n");
-	show_free_areas();
-	i = max_mapnr;
-	while (i-- > 0) {
-		total++;
-		if (PageReserved(mem_map + i))
-			reserved++;
-		else if (PageSwapCache(mem_map + i))
-			cached++;
-		else if (!page_count(mem_map + i))
-			free++;
-		else
-			shared += page_count(mem_map + i) - 1;
-	}
-	printk(KERN_INFO "%d pages of RAM\n", total);
-	printk(KERN_INFO "%d free pages\n", free);
-	printk(KERN_INFO "%d reserved pages\n", reserved);
-	printk(KERN_INFO "%d pages shared\n", shared);
-	printk(KERN_INFO "%d pages swap cached\n", cached);
-}
-
 /*
  * paging_init() continues the virtual memory environment setup which
  * was begun by the code in arch/head.S.
@@ -128,8 +101,8 @@ void __init paging_init(void)
 void __init mem_init(void)
 {
 	unsigned int codek = 0, datak = 0, initk = 0;
+	unsigned int reservedpages = 0, freepages = 0;
 	unsigned long tmp;
-	unsigned int len = _ramend - _rambase;
 	unsigned long start_mem = memory_start;
 	unsigned long end_mem = memory_end;
 
@@ -138,24 +111,40 @@ void __init mem_init(void)
 
 	start_mem = PAGE_ALIGN(start_mem);
 	max_mapnr = num_physpages = MAP_NR(high_memory);
-	printk(KERN_INFO "Physical pages: %lx\n", num_physpages);
+	printk(KERN_DEBUG "Kernel managed physical pages: %lu\n", num_physpages);
 
 	/* This will put all memory onto the freelists. */
 	totalram_pages = free_all_bootmem();
 
-	codek = (_etext - _stext) >> 10;
-	datak = (__bss_stop - __bss_start) >> 10;
-	initk = (__init_end - __init_begin) >> 10;
+	reservedpages = 0;
+	for (tmp = 0; tmp < max_mapnr; tmp++)
+		if (PageReserved(pfn_to_page(tmp)))
+			reservedpages++;
+	freepages =  max_mapnr - reservedpages;
 
-	tmp = nr_free_pages() << PAGE_SHIFT;
+	/* do not count in kernel image between _rambase and _ramstart */
+	reservedpages -= (_ramstart - _rambase) >> PAGE_SHIFT;
+#if (defined(CONFIG_BFIN_ICACHE) && ANOMALY_05000263)
+	reservedpages += (_ramend - memory_end - DMA_UNCACHED_REGION) >> PAGE_SHIFT;
+#endif
+
+	codek = (_etext - _stext) >> 10;
+	initk = (__init_end - __init_begin) >> 10;
+	datak = ((_ramstart - _rambase) >> 10) - codek - initk;
+
 	printk(KERN_INFO
-	     "Memory available: %luk/%uk RAM, (%uk init code, %uk kernel code, %uk data, %uk dma)\n",
-	     tmp >> 10, len >> 10, initk, codek, datak, DMA_UNCACHED_REGION >> 10);
+	     "Memory available: %luk/%luk RAM, "
+		"(%uk init code, %uk kernel code, %uk data, %uk dma, %uk reserved)\n",
+		(unsigned long) freepages << (PAGE_SHIFT-10), _ramend >> 10,
+		initk, codek, datak, DMA_UNCACHED_REGION >> 10, (reservedpages << (PAGE_SHIFT-10)));
+}
+
+static int __init sram_init(void)
+{
+	unsigned long tmp;
 
 	/* Initialize the blackfin L1 Memory. */
-	l1sram_init();
-	l1_data_sram_init();
-	l1_inst_sram_init();
+	bfin_sram_init();
 
 	/* Allocate this once; never free it.  We assume this gives us a
 	   pointer to the start of L1 scratchpad memory; panic if it
@@ -166,9 +155,12 @@ void __init mem_init(void)
 			tmp, (unsigned long)L1_SCRATCH_TASK_INFO);
 		panic("No L1, time to give up\n");
 	}
-}
 
-static __init void free_init_pages(const char *what, unsigned long begin, unsigned long end)
+	return 0;
+}
+pure_initcall(sram_init);
+
+static void __init free_init_pages(const char *what, unsigned long begin, unsigned long end)
 {
 	unsigned long addr;
 	/* next to check that the page we free is not a partial page */
@@ -184,13 +176,15 @@ static __init void free_init_pages(const char *what, unsigned long begin, unsign
 #ifdef CONFIG_BLK_DEV_INITRD
 void __init free_initrd_mem(unsigned long start, unsigned long end)
 {
+#ifndef CONFIG_MPU
 	free_init_pages("initrd memory", start, end);
+#endif
 }
 #endif
 
-void __init free_initmem(void)
+void __init_refok free_initmem(void)
 {
-#ifdef CONFIG_RAMKERNEL
+#if defined CONFIG_RAMKERNEL && !defined CONFIG_MPU
 	free_init_pages("unused kernel memory",
 			(unsigned long)(&__init_begin),
 			(unsigned long)(&__init_end));

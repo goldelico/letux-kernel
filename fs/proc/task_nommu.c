@@ -1,6 +1,7 @@
 
 #include <linux/mm.h>
 #include <linux/file.h>
+#include <linux/fdtable.h>
 #include <linux/mount.h>
 #include <linux/ptrace.h>
 #include <linux/seq_file.h>
@@ -12,7 +13,7 @@
  * each process that owns it. Non-shared memory is counted
  * accurately.
  */
-char *task_mem(struct mm_struct *mm, char *buffer)
+void task_mem(struct seq_file *m, struct mm_struct *mm)
 {
 	struct vm_list_struct *vml;
 	unsigned long bytes = 0, sbytes = 0, slack = 0;
@@ -58,14 +59,13 @@ char *task_mem(struct mm_struct *mm, char *buffer)
 
 	bytes += kobjsize(current); /* includes kernel stack */
 
-	buffer += sprintf(buffer,
+	seq_printf(m,
 		"Mem:\t%8lu bytes\n"
 		"Slack:\t%8lu bytes\n"
 		"Shared:\t%8lu bytes\n",
 		bytes, slack, sbytes);
 
 	up_read(&mm->mmap_sem);
-	return buffer;
 }
 
 unsigned long task_vsize(struct mm_struct *mm)
@@ -104,51 +104,12 @@ int task_statm(struct mm_struct *mm, int *shared, int *text,
 	return size;
 }
 
-int proc_exe_link(struct inode *inode, struct dentry **dentry, struct vfsmount **mnt)
-{
-	struct vm_list_struct *vml;
-	struct vm_area_struct *vma;
-	struct task_struct *task = get_proc_task(inode);
-	struct mm_struct *mm = get_task_mm(task);
-	int result = -ENOENT;
-
-	if (!mm)
-		goto out;
-	down_read(&mm->mmap_sem);
-
-	vml = mm->context.vmlist;
-	vma = NULL;
-	while (vml) {
-		if ((vml->vma->vm_flags & VM_EXECUTABLE) && vml->vma->vm_file) {
-			vma = vml->vma;
-			break;
-		}
-		vml = vml->next;
-	}
-
-	if (vma) {
-		*mnt = mntget(vma->vm_file->f_path.mnt);
-		*dentry = dget(vma->vm_file->f_path.dentry);
-		result = 0;
-	}
-
-	up_read(&mm->mmap_sem);
-	mmput(mm);
-out:
-	return result;
-}
-
 /*
  * display mapping lines for a particular process's /proc/pid/maps
  */
 static int show_map(struct seq_file *m, void *_vml)
 {
 	struct vm_list_struct *vml = _vml;
-	struct proc_maps_private *priv = m->private;
-	struct task_struct *task = priv->task;
-
-	if (maps_protect && !ptrace_may_attach(task))
-		return -EACCES;
 
 	return nommu_vma_show(m, vml->vma);
 }
@@ -199,7 +160,7 @@ static void *m_next(struct seq_file *m, void *_vml, loff_t *pos)
 	return vml ? vml->next : NULL;
 }
 
-static struct seq_operations proc_pid_maps_ops = {
+static const struct seq_operations proc_pid_maps_ops = {
 	.start	= m_start,
 	.next	= m_next,
 	.stop	= m_stop,

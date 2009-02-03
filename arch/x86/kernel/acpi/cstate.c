@@ -1,6 +1,4 @@
 /*
- * arch/i386/kernel/acpi/cstate.c
- *
  * Copyright (C) 2005 Intel Corporation
  * 	Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>
  * 	- Added _PDC for SMP C-states on Intel CPUs
@@ -93,7 +91,7 @@ int acpi_processor_ffh_cstate_probe(unsigned int cpu,
 
 	/* Make sure we are running on right CPU */
 	saved_mask = current->cpus_allowed;
-	retval = set_cpus_allowed(current, cpumask_of_cpu(cpu));
+	retval = set_cpus_allowed_ptr(current, &cpumask_of_cpu(cpu));
 	if (retval)
 		return -1;
 
@@ -126,9 +124,11 @@ int acpi_processor_ffh_cstate_probe(unsigned int cpu,
 		printk(KERN_DEBUG "Monitor-Mwait will be used to enter C-%d "
 		       "state\n", cx->type);
 	}
+	snprintf(cx->desc, ACPI_CX_DESC_LEN, "ACPI FFH INTEL MWAIT 0x%x",
+		 cx->address);
 
 out:
-	set_cpus_allowed(current, saved_mask);
+	set_cpus_allowed_ptr(current, &saved_mask);
 	return retval;
 }
 EXPORT_SYMBOL_GPL(acpi_processor_ffh_cstate_probe);

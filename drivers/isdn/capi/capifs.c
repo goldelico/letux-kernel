@@ -52,6 +52,7 @@ static int capifs_remount(struct super_block *s, int *flags, char *data)
 	gid_t gid = 0;
 	umode_t mode = 0600;
 	char *this_char;
+	char *new_opt = kstrdup(data, GFP_KERNEL);
 
 	this_char = NULL;
 	while ((this_char = strsep(&data, ",")) != NULL) {
@@ -68,15 +69,21 @@ static int capifs_remount(struct super_block *s, int *flags, char *data)
 		} else if (sscanf(this_char, "mode=%o%c", &n, &dummy) == 1)
 			mode = n & ~S_IFMT;
 		else {
+			kfree(new_opt);
 			printk("capifs: called with bogus options\n");
 			return -EINVAL;
 		}
 	}
+
+	kfree(s->s_options);
+	s->s_options = new_opt;
+
 	config.setuid  = setuid;
 	config.setgid  = setgid;
 	config.uid     = uid;
 	config.gid     = gid;
 	config.mode    = mode;
+
 	return 0;
 }
 
@@ -84,6 +91,7 @@ static struct super_operations capifs_sops =
 {
 	.statfs		= simple_statfs,
 	.remount_fs	= capifs_remount,
+	.show_options	= generic_show_options,
 };
 
 
@@ -182,9 +190,9 @@ static int __init capifs_init(void)
 	char *p;
 	int err;
 
-	if ((p = strchr(revision, ':')) != 0 && p[1]) {
+	if ((p = strchr(revision, ':')) != NULL && p[1]) {
 		strlcpy(rev, p + 2, sizeof(rev));
-		if ((p = strchr(rev, '$')) != 0 && p > rev)
+		if ((p = strchr(rev, '$')) != NULL && p > rev)
 		   *(p-1) = 0;
 	} else
 		strcpy(rev, "1.0");

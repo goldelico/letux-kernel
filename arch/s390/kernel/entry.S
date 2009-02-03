@@ -11,6 +11,7 @@
 
 #include <linux/sys.h>
 #include <linux/linkage.h>
+#include <linux/init.h>
 #include <asm/cache.h>
 #include <asm/lowcore.h>
 #include <asm/errno.h>
@@ -48,9 +49,9 @@ SP_ILC	     =	STACK_FRAME_OVERHEAD + __PT_ILC
 SP_TRAP      =	STACK_FRAME_OVERHEAD + __PT_TRAP
 SP_SIZE      =	STACK_FRAME_OVERHEAD + __PT_SIZE
 
-_TIF_WORK_SVC = (_TIF_SIGPENDING | _TIF_RESTORE_SIGMASK | _TIF_NEED_RESCHED | \
+_TIF_WORK_SVC = (_TIF_SIGPENDING | _TIF_NOTIFY_RESUME | _TIF_NEED_RESCHED | \
 		 _TIF_MCCK_PENDING | _TIF_RESTART_SVC | _TIF_SINGLE_STEP )
-_TIF_WORK_INT = (_TIF_SIGPENDING | _TIF_RESTORE_SIGMASK | _TIF_NEED_RESCHED | \
+_TIF_WORK_INT = (_TIF_SIGPENDING | _TIF_NOTIFY_RESUME | _TIF_NEED_RESCHED | \
 		 _TIF_MCCK_PENDING)
 
 STACK_SHIFT = PAGE_SHIFT + THREAD_ORDER
@@ -278,8 +279,6 @@ sysc_do_restart:
 	st	%r2,SP_R2(%r15)   # store return value (change R2 on stack)
 
 sysc_return:
-	tm	SP_PSW+1(%r15),0x01	# returning to user ?
-	bno	BASED(sysc_restore)
 	tm	__TI_flags+3(%r9),_TIF_WORK_SVC
 	bnz	BASED(sysc_work)  # there is work to do (signals etc.)
 sysc_restore:
@@ -311,12 +310,16 @@ sysc_work_loop:
 # One of the work bits is on. Find out which one.
 #
 sysc_work:
+	tm	SP_PSW+1(%r15),0x01	# returning to user ?
+	bno	BASED(sysc_restore)
 	tm	__TI_flags+3(%r9),_TIF_MCCK_PENDING
 	bo	BASED(sysc_mcck_pending)
 	tm	__TI_flags+3(%r9),_TIF_NEED_RESCHED
 	bo	BASED(sysc_reschedule)
-	tm	__TI_flags+3(%r9),(_TIF_SIGPENDING | _TIF_RESTORE_SIGMASK)
+	tm	__TI_flags+3(%r9),_TIF_SIGPENDING
 	bnz	BASED(sysc_sigpending)
+	tm	__TI_flags+3(%r9),_TIF_NOTIFY_RESUME
+	bnz	BASED(sysc_notify_resume)
 	tm	__TI_flags+3(%r9),_TIF_RESTART_SVC
 	bo	BASED(sysc_restart)
 	tm	__TI_flags+3(%r9),_TIF_SINGLE_STEP
@@ -341,7 +344,7 @@ sysc_mcck_pending:
 	br	%r1			# TIF bit will be cleared by handler
 
 #
-# _TIF_SIGPENDING or _TIF_RESTORE_SIGMASK is set, call do_signal
+# _TIF_SIGPENDING is set, call do_signal
 #
 sysc_sigpending:
 	ni	__TI_flags+3(%r9),255-_TIF_SINGLE_STEP # clear TIF_SINGLE_STEP
@@ -353,6 +356,16 @@ sysc_sigpending:
 	tm	__TI_flags+3(%r9),_TIF_SINGLE_STEP
 	bo	BASED(sysc_singlestep)
 	b	BASED(sysc_work_loop)
+
+#
+# _TIF_NOTIFY_RESUME is set, call do_notify_resume
+#
+sysc_notify_resume:
+	la	%r2,SP_PTREGS(%r15)	# load pt_regs
+	l	%r1,BASED(.Ldo_notify_resume)
+	la	%r14,BASED(sysc_work_loop)
+	br	%r1			# call do_notify_resume
+
 
 #
 # _TIF_RESTART_SVC is set, set up registers and restart svc
@@ -377,20 +390,21 @@ sysc_singlestep:
 	br	%r1			# branch to do_single_step
 
 #
-# call trace before and after sys_call
+# call tracehook_report_syscall_entry/tracehook_report_syscall_exit before
+# and after the system call
 #
 sysc_tracesys:
-	l	%r1,BASED(.Ltrace)
+	l	%r1,BASED(.Ltrace_entry)
 	la	%r2,SP_PTREGS(%r15)	# load pt_regs
 	la	%r3,0
 	srl	%r7,2
 	st	%r7,SP_R2(%r15)
 	basr	%r14,%r1
-	clc	SP_R2(4,%r15),BASED(.Lnr_syscalls)
+	cl	%r2,BASED(.Lnr_syscalls)
 	bnl	BASED(sysc_tracenogo)
 	l	%r8,BASED(.Lsysc_table)
-	l	%r7,SP_R2(%r15) 	# strace might have changed the
-	sll	%r7,2			#  system call
+	lr	%r7,%r2
+	sll	%r7,2			# *4
 	l	%r8,0(%r7,%r8)
 sysc_tracego:
 	lm	%r3,%r6,SP_R3(%r15)
@@ -400,9 +414,8 @@ sysc_tracego:
 sysc_tracenogo:
 	tm	__TI_flags+3(%r9),(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT)
 	bz	BASED(sysc_return)
-	l	%r1,BASED(.Ltrace)
+	l	%r1,BASED(.Ltrace_exit)
 	la	%r2,SP_PTREGS(%r15)	# load pt_regs
-	la	%r3,1
 	la	%r14,BASED(sysc_return)
 	br	%r1
 
@@ -601,12 +614,6 @@ io_no_vtime:
 	la	%r2,SP_PTREGS(%r15)	# address of register-save area
 	basr	%r14,%r1		# branch to standard irq handler
 io_return:
-	tm	SP_PSW+1(%r15),0x01	# returning to user ?
-#ifdef CONFIG_PREEMPT
-	bno	BASED(io_preempt)	# no -> check for preemptive scheduling
-#else
-	bno	BASED(io_restore)	# no-> skip resched & signal
-#endif
 	tm	__TI_flags+3(%r9),_TIF_WORK_INT
 	bnz	BASED(io_work)		# there is work to do (signals etc.)
 io_restore:
@@ -628,10 +635,18 @@ io_restore_trace_psw:
 	.long	0, io_restore_trace + 0x80000000
 #endif
 
-#ifdef CONFIG_PREEMPT
-io_preempt:
+#
+# switch to kernel stack, then check the TIF bits
+#
+io_work:
+	tm	SP_PSW+1(%r15),0x01	# returning to user ?
+#ifndef CONFIG_PREEMPT
+	bno	BASED(io_restore)	# no-> skip resched & signal
+#else
+	bnz	BASED(io_work_user)	# no -> check for preemptive scheduling
+	# check for preemptive scheduling
 	icm	%r0,15,__TI_precount(%r9)
-	bnz	BASED(io_restore)
+	bnz	BASED(io_restore)	# preemption disabled
 	l	%r1,SP_R15(%r15)
 	s	%r1,BASED(.Lc_spsize)
 	mvc	SP_PTREGS(__PT_SIZE,%r1),SP_PTREGS(%r15)
@@ -645,10 +660,7 @@ io_resume_loop:
 	br	%r1			# call schedule
 #endif
 
-#
-# switch to kernel stack, then check the TIF bits
-#
-io_work:
+io_work_user:
 	l	%r1,__LC_KERNEL_STACK
 	s	%r1,BASED(.Lc_spsize)
 	mvc	SP_PTREGS(__PT_SIZE,%r1),SP_PTREGS(%r15)
@@ -656,7 +668,7 @@ io_work:
 	lr	%r15,%r1
 #
 # One of the work bits is on. Find out which one.
-# Checked are: _TIF_SIGPENDING, _TIF_RESTORE_SIGMASK, _TIF_NEED_RESCHED
+# Checked are: _TIF_SIGPENDING, _TIF_NEED_RESCHED
 #		and _TIF_MCCK_PENDING
 #
 io_work_loop:
@@ -664,8 +676,10 @@ io_work_loop:
 	bo	BASED(io_mcck_pending)
 	tm	__TI_flags+3(%r9),_TIF_NEED_RESCHED
 	bo	BASED(io_reschedule)
-	tm	__TI_flags+3(%r9),(_TIF_SIGPENDING | _TIF_RESTORE_SIGMASK)
+	tm	__TI_flags+3(%r9),_TIF_SIGPENDING
 	bnz	BASED(io_sigpending)
+	tm	__TI_flags+3(%r9),_TIF_NOTIFY_RESUME
+	bnz	BASED(io_notify_resume)
 	b	BASED(io_restore)
 io_work_done:
 
@@ -692,13 +706,26 @@ io_reschedule:
 	b	BASED(io_work_loop)
 
 #
-# _TIF_SIGPENDING or _TIF_RESTORE_SIGMASK is set, call do_signal
+# _TIF_SIGPENDING is set, call do_signal
 #
 io_sigpending:
 	TRACE_IRQS_ON
 	stosm	__SF_EMPTY(%r15),0x03	# reenable interrupts
 	la	%r2,SP_PTREGS(%r15)	# load pt_regs
 	l	%r1,BASED(.Ldo_signal)
+	basr	%r14,%r1		# call do_signal
+	stnsm	__SF_EMPTY(%r15),0xfc	# disable I/O and ext. interrupts
+	TRACE_IRQS_OFF
+	b	BASED(io_work_loop)
+
+#
+# _TIF_SIGPENDING is set, call do_signal
+#
+io_notify_resume:
+	TRACE_IRQS_ON
+	stosm	__SF_EMPTY(%r15),0x03	# reenable interrupts
+	la	%r2,SP_PTREGS(%r15)	# load pt_regs
+	l	%r1,BASED(.Ldo_notify_resume)
 	basr	%r14,%r1		# call do_signal
 	stnsm	__SF_EMPTY(%r15),0xfc	# disable I/O and ext. interrupts
 	TRACE_IRQS_OFF
@@ -830,9 +857,7 @@ mcck_return:
  * Restart interruption handler, kick starter for additional CPUs
  */
 #ifdef CONFIG_SMP
-#ifndef CONFIG_HOTPLUG_CPU
-	.section .init.text,"ax"
-#endif
+	__CPUINIT
 	.globl restart_int_handler
 restart_int_handler:
 	l	%r15,__LC_SAVE_AREA+60	# load ksp
@@ -845,9 +870,7 @@ restart_int_handler:
 	br	%r14			# branch to start_secondary
 restart_addr:
 	.long	start_secondary
-#ifndef CONFIG_HOTPLUG_CPU
 	.previous
-#endif
 #else
 /*
  * If we do not run with SMP enabled, let the new CPU crash ...
@@ -1074,6 +1097,8 @@ cleanup_io_leave_insn:
 .Ldo_IRQ:	.long	do_IRQ
 .Ldo_extint:	.long	do_extint
 .Ldo_signal:	.long	do_signal
+.Ldo_notify_resume:
+		.long	do_notify_resume
 .Lhandle_per:	.long	do_single_step
 .Ldo_execve:	.long	do_execve
 .Lexecve_tail:	.long	execve_tail
@@ -1083,7 +1108,8 @@ cleanup_io_leave_insn:
 .Lpreempt_schedule_irq:
 		.long	preempt_schedule_irq
 #endif
-.Ltrace:	.long	syscall_trace
+.Ltrace_entry:	.long	do_syscall_trace_enter
+.Ltrace_exit:	.long	do_syscall_trace_exit
 .Lschedtail:	.long	schedule_tail
 .Lsysc_table:	.long	sys_call_table
 #ifdef CONFIG_TRACE_IRQFLAGS

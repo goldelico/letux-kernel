@@ -19,20 +19,24 @@
 #include <linux/errno.h>
 #include <linux/interrupt.h>
 
-#include <asm/gpio.h>
+#include <mach/gpio.h>
 #include <asm/mach-types.h>
-#include <asm/arch/gta01.h>
+#include <mach/gta01.h>
 #include <asm/plat-s3c24xx/neo1973.h>
-#include <asm/arch/s3c24xx-serial.h>
+#include <mach/s3c24xx-serial.h>
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
-#include <asm/arch/gta02.h>
-#include <linux/pcf50633.h>
-#include <asm/arch/regs-gpioj.h>
-#endif
+#include <mach/hardware.h>
+
+/* For GTA02 */
+#include <mach/gta02.h>
+#include <linux/mfd/pcf50633/gpio.h>
+#include <mach/regs-gpio.h>
+#include <mach/regs-gpioj.h>
 
 int gta_gsm_interrupts;
 EXPORT_SYMBOL(gta_gsm_interrupts);
+
+extern void s3c24xx_serial_console_set_silence(int);
 
 struct gta01pm_priv {
 	int gpio_ngsm_en;
@@ -40,8 +44,6 @@ struct gta01pm_priv {
 
 	struct console *con;
 };
-
-struct resume_dependency resume_dep_gsm_uart;
 
 static struct gta01pm_priv gta01_gsm;
 
@@ -108,34 +110,34 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 			if (gta01_gsm.gpio_ngsm_en)
 				s3c2410_gpio_setpin(gta01_gsm.gpio_ngsm_en, 0);
 
-			switch (system_rev) {
-#ifdef CONFIG_MACH_NEO1973_GTA02
-			case GTA02v2_SYSTEM_REV:
-			case GTA02v3_SYSTEM_REV:
-			case GTA02v4_SYSTEM_REV:
-			case GTA02v5_SYSTEM_REV:
-			case GTA02v6_SYSTEM_REV:
-				pcf50633_gpio_set(pcf50633_global,
-						  PCF50633_GPIO2, 1);
-				break;
-#endif
+			if (machine_is_neo1973_gta02()) {
+				switch (system_rev) {
+				case GTA02v2_SYSTEM_REV:
+				case GTA02v3_SYSTEM_REV:
+				case GTA02v4_SYSTEM_REV:
+				case GTA02v5_SYSTEM_REV:
+				case GTA02v6_SYSTEM_REV:
+					pcf50633_gpio_set(gta02_pcf_pdata.pcf,
+							  PCF50633_GPIO2, 1);
+					break;
+				}
 			}
 
 			neo1973_gpb_setpin(GTA01_GPIO_MODEM_ON, 1);
 		} else {
 			neo1973_gpb_setpin(GTA01_GPIO_MODEM_ON, 0);
 
-			switch (system_rev) {
-#ifdef CONFIG_MACH_NEO1973_GTA02
-			case GTA02v2_SYSTEM_REV:
-			case GTA02v3_SYSTEM_REV:
-			case GTA02v4_SYSTEM_REV:
-			case GTA02v5_SYSTEM_REV:
-			case GTA02v6_SYSTEM_REV:
-				pcf50633_gpio_set(pcf50633_global,
-						  PCF50633_GPIO2, 0);
-				break;
-#endif
+			if (machine_is_neo1973_gta02()) {
+				switch (system_rev) {
+				case GTA02v2_SYSTEM_REV:
+				case GTA02v3_SYSTEM_REV:
+				case GTA02v4_SYSTEM_REV:
+				case GTA02v5_SYSTEM_REV:
+				case GTA02v6_SYSTEM_REV:
+					pcf50633_gpio_set(gta02_pcf_pdata.pcf,
+							  PCF50633_GPIO2, 0);
+					break;
+				}
 			}
 
 			if (gta01_gsm.gpio_ngsm_en)
@@ -199,6 +201,7 @@ static DEVICE_ATTR(download, 0644, gsm_read, gsm_write);
 static DEVICE_ATTR(flowcontrolled, 0644, gsm_read, gsm_write);
 
 #ifdef CONFIG_PM
+
 static int gta01_gsm_resume(struct platform_device *pdev);
 static int gta01_gsm_suspend(struct platform_device *pdev, pm_message_t state)
 {
@@ -214,13 +217,6 @@ static int gta01_gsm_suspend(struct platform_device *pdev, pm_message_t state)
 	/* disable DL GSM to prevent jack_insert becoming 'floating' */
 	if (machine_is_neo1973_gta02())
 		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, 1);
-
-	/* register our resume dependency on the appropriate UART being up */
-	resume_dep_gsm_uart.callback = gta01_gsm_resume;
-	resume_dep_gsm_uart.context = (void *)pdev;
-
-	s3c24xx_serial_register_resume_dependency(&resume_dep_gsm_uart, 0);
-
 	return 0;
 
 busy:
@@ -240,11 +236,6 @@ gta01_gsm_suspend_late(struct platform_device *pdev, pm_message_t state)
 
 static int gta01_gsm_resume(struct platform_device *pdev)
 {
-	if (resume_dep_gsm_uart.called_flag != 1)
-		return 0;
-
-	resume_dep_gsm_uart.called_flag++; /* only run once */
-
 	/* GPIO state is saved/restored by S3C2410 core GPIO driver, so we
 	 * don't need to do much here. */
 
@@ -262,7 +253,7 @@ static int gta01_gsm_resume(struct platform_device *pdev)
 #define gta01_gsm_suspend	NULL
 #define gta01_gsm_suspend_late	NULL
 #define gta01_gsm_resume	NULL
-#endif
+#endif /* CONFIG_PM */
 
 static struct attribute *gta01_gsm_sysfs_entries[] = {
 	&dev_attr_power_on.attr,
@@ -292,7 +283,6 @@ static int __init gta01_gsm_probe(struct platform_device *pdev)
 		gta01_gsm.gpio_ngsm_en = GTA01Bv2_GPIO_nGSM_EN;
 		s3c2410_gpio_setpin(GTA01v3_GPIO_nGSM_EN, 0);
 		break;
-#ifdef CONFIG_MACH_NEO1973_GTA02
 	case GTA02v1_SYSTEM_REV:
 	case GTA02v2_SYSTEM_REV:
 	case GTA02v3_SYSTEM_REV:
@@ -301,7 +291,6 @@ static int __init gta01_gsm_probe(struct platform_device *pdev)
 	case GTA02v6_SYSTEM_REV:
 		gta01_gsm.gpio_ngsm_en = 0;
 		break;
-#endif
 	default:
 		dev_warn(&pdev->dev, "Unknown Neo1973 Revision 0x%x, "
 			 "some PM features not available!!!\n",
@@ -331,8 +320,6 @@ static int __init gta01_gsm_probe(struct platform_device *pdev)
 	gta01_gsm.gpio_ndl_gsm = 1;
 	if (machine_is_neo1973_gta02())
 		s3c2410_gpio_setpin(GTA02_GPIO_nDL_GSM, 1);
-
-	init_resume_dependency_list(&resume_dep_gsm_uart);
 
 	return sysfs_create_group(&pdev->dev.kobj, &gta01_gsm_attr_group);
 }

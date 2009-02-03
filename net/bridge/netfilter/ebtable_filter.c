@@ -55,7 +55,7 @@ static struct ebt_table frame_filter =
 	.name		= "filter",
 	.table		= &initial_table,
 	.valid_hooks	= FILTER_VALID_HOOKS,
-	.lock		= RW_LOCK_UNLOCKED,
+	.lock		= __RW_LOCK_UNLOCKED(frame_filter.lock),
 	.check		= check,
 	.me		= THIS_MODULE,
 };
@@ -67,7 +67,7 @@ ebt_hook(unsigned int hook, struct sk_buff *skb, const struct net_device *in,
 	return ebt_do_table(hook, skb, in, out, &frame_filter);
 }
 
-static struct nf_hook_ops ebt_ops_filter[] = {
+static struct nf_hook_ops ebt_ops_filter[] __read_mostly = {
 	{
 		.hook		= ebt_hook,
 		.owner		= THIS_MODULE,
@@ -93,28 +93,20 @@ static struct nf_hook_ops ebt_ops_filter[] = {
 
 static int __init ebtable_filter_init(void)
 {
-	int i, j, ret;
+	int ret;
 
 	ret = ebt_register_table(&frame_filter);
 	if (ret < 0)
 		return ret;
-	for (i = 0; i < ARRAY_SIZE(ebt_ops_filter); i++)
-		if ((ret = nf_register_hook(&ebt_ops_filter[i])) < 0)
-			goto cleanup;
-	return ret;
-cleanup:
-	for (j = 0; j < i; j++)
-		nf_unregister_hook(&ebt_ops_filter[j]);
-	ebt_unregister_table(&frame_filter);
+	ret = nf_register_hooks(ebt_ops_filter, ARRAY_SIZE(ebt_ops_filter));
+	if (ret < 0)
+		ebt_unregister_table(&frame_filter);
 	return ret;
 }
 
 static void __exit ebtable_filter_fini(void)
 {
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(ebt_ops_filter); i++)
-		nf_unregister_hook(&ebt_ops_filter[i]);
+	nf_unregister_hooks(ebt_ops_filter, ARRAY_SIZE(ebt_ops_filter));
 	ebt_unregister_table(&frame_filter);
 }
 

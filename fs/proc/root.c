@@ -22,8 +22,6 @@
 
 #include "internal.h"
 
-struct proc_dir_entry *proc_bus, *proc_root_fs, *proc_root_driver;
-
 static int proc_test_super(struct super_block *sb, void *data)
 {
 	return sb->s_fs_info == data;
@@ -106,9 +104,9 @@ static struct file_system_type proc_fs_type = {
 
 void __init proc_root_init(void)
 {
-	int err = proc_init_inodecache();
-	if (err)
-		return;
+	int err;
+
+	proc_init_inodecache();
 	err = register_filesystem(&proc_fs_type);
 	if (err)
 		return;
@@ -119,15 +117,15 @@ void __init proc_root_init(void)
 		return;
 	}
 
-	proc_misc_init();
+	proc_symlink("mounts", NULL, "self/mounts");
 
 	proc_net_init();
 
 #ifdef CONFIG_SYSVIPC
 	proc_mkdir("sysvipc", NULL);
 #endif
-	proc_root_fs = proc_mkdir("fs", NULL);
-	proc_root_driver = proc_mkdir("driver", NULL);
+	proc_mkdir("fs", NULL);
+	proc_mkdir("driver", NULL);
 	proc_mkdir("fs/nfsd", NULL); /* somewhere for the nfsd filesystem to be mounted */
 #if defined(CONFIG_SUN_OPENPROMFS) || defined(CONFIG_SUN_OPENPROMFS_MODULE)
 	/* just give it a mountpoint */
@@ -137,7 +135,7 @@ void __init proc_root_init(void)
 #ifdef CONFIG_PROC_DEVICETREE
 	proc_device_tree_init();
 #endif
-	proc_bus = proc_mkdir("bus", NULL);
+	proc_mkdir("bus", NULL);
 	proc_sys_init();
 }
 
@@ -232,8 +230,5 @@ void pid_ns_release_proc(struct pid_namespace *ns)
 EXPORT_SYMBOL(proc_symlink);
 EXPORT_SYMBOL(proc_mkdir);
 EXPORT_SYMBOL(create_proc_entry);
+EXPORT_SYMBOL(proc_create_data);
 EXPORT_SYMBOL(remove_proc_entry);
-EXPORT_SYMBOL(proc_root);
-EXPORT_SYMBOL(proc_root_fs);
-EXPORT_SYMBOL(proc_bus);
-EXPORT_SYMBOL(proc_root_driver);

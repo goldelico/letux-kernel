@@ -28,7 +28,7 @@
 #include <linux/netlink.h>
 #include <linux/sched.h>
 #include <linux/inotify.h>
-#include <linux/selinux.h>
+#include <linux/security.h>
 #include "audit.h"
 
 /*
@@ -38,7 +38,7 @@
  * 		Synchronizes writes and blocking reads of audit's filterlist
  * 		data.  Rcu is used to traverse the filterlist and access
  * 		contents of structs audit_entry, audit_watch and opaque
- * 		selinux rules during filtering.  If modified, these structures
+ * 		LSM rules during filtering.  If modified, these structures
  * 		must be copied and replace their counterparts in the filterlist.
  * 		An audit_parent struct is not accessed during filtering, so may
  * 		be written directly provided audit_filter_mutex is held.
@@ -89,9 +89,6 @@ struct list_head audit_filter_list[AUDIT_NR_FILTERS] = {
 
 DEFINE_MUTEX(audit_filter_mutex);
 
-/* Inotify handle */
-extern struct inotify_handle *audit_ih;
-
 /* Inotify events we care about. */
 #define AUDIT_IN_WATCH IN_MOVE|IN_CREATE|IN_DELETE|IN_DELETE_SELF|IN_MOVE_SELF
 
@@ -137,8 +134,8 @@ static inline void audit_free_rule(struct audit_entry *e)
 	if (e->rule.fields)
 		for (i = 0; i < e->rule.field_count; i++) {
 			struct audit_field *f = &e->rule.fields[i];
-			kfree(f->se_str);
-			selinux_audit_rule_free(f->se_rule);
+			kfree(f->lsm_str);
+			security_audit_rule_free(f->lsm_rule);
 		}
 	kfree(e->rule.fields);
 	kfree(e->rule.filterkey);
@@ -167,8 +164,8 @@ static struct audit_parent *audit_init_parent(struct nameidata *ndp)
 	inotify_init_watch(&parent->wdata);
 	/* grab a ref so inotify watch hangs around until we take audit_filter_mutex */
 	get_inotify_watch(&parent->wdata);
-	wd = inotify_add_watch(audit_ih, &parent->wdata, ndp->dentry->d_inode,
-			       AUDIT_IN_WATCH);
+	wd = inotify_add_watch(audit_ih, &parent->wdata,
+			       ndp->path.dentry->d_inode, AUDIT_IN_WATCH);
 	if (wd < 0) {
 		audit_free_parent(&parent->wdata);
 		return ERR_PTR(wd);
@@ -270,7 +267,7 @@ static int audit_to_watch(struct audit_krule *krule, char *path, int len,
 		return -EINVAL;
 
 	watch = audit_init_watch(path);
-	if (unlikely(IS_ERR(watch)))
+	if (IS_ERR(watch))
 		return PTR_ERR(watch);
 
 	audit_get_watch(watch);
@@ -420,7 +417,7 @@ exit_err:
 static struct audit_entry *audit_rule_to_entry(struct audit_rule *rule)
 {
 	struct audit_entry *entry;
-	struct audit_field *f;
+	struct audit_field *ino_f;
 	int err = 0;
 	int i;
 
@@ -481,6 +478,10 @@ static struct audit_entry *audit_rule_to_entry(struct audit_rule *rule)
 			if (f->val & ~15)
 				goto exit_free;
 			break;
+		case AUDIT_FILETYPE:
+			if ((f->val & ~S_IFMT) > S_IFMT)
+				goto exit_free;
+			break;
 		case AUDIT_INODE:
 			err = audit_to_inode(&entry->rule, f);
 			if (err)
@@ -502,9 +503,9 @@ static struct audit_entry *audit_rule_to_entry(struct audit_rule *rule)
 		}
 	}
 
-	f = entry->rule.inode_f;
-	if (f) {
-		switch(f->op) {
+	ino_f = entry->rule.inode_f;
+	if (ino_f) {
+		switch(ino_f->op) {
 		case AUDIT_NOT_EQUAL:
 			entry->rule.inode_f = NULL;
 		case AUDIT_EQUAL:
@@ -529,7 +530,7 @@ static struct audit_entry *audit_data_to_entry(struct audit_rule_data *data,
 {
 	int err = 0;
 	struct audit_entry *entry;
-	struct audit_field *f;
+	struct audit_field *ino_f;
 	void *bufp;
 	size_t remain = datasz - sizeof(struct audit_rule_data);
 	int i;
@@ -552,8 +553,8 @@ static struct audit_entry *audit_data_to_entry(struct audit_rule_data *data,
 		f->op = data->fieldflags[i] & AUDIT_OPERATORS;
 		f->type = data->fields[i];
 		f->val = data->values[i];
-		f->se_str = NULL;
-		f->se_rule = NULL;
+		f->lsm_str = NULL;
+		f->lsm_rule = NULL;
 		switch(f->type) {
 		case AUDIT_PID:
 		case AUDIT_UID:
@@ -595,12 +596,12 @@ static struct audit_entry *audit_data_to_entry(struct audit_rule_data *data,
 				goto exit_free;
 			entry->rule.buflen += f->val;
 
-			err = selinux_audit_rule_init(f->type, f->op, str,
-						      &f->se_rule);
+			err = security_audit_rule_init(f->type, f->op, str,
+						       (void **)&f->lsm_rule);
 			/* Keep currently invalid fields around in case they
 			 * become valid after a policy reload. */
 			if (err == -EINVAL) {
-				printk(KERN_WARNING "audit rule for selinux "
+				printk(KERN_WARNING "audit rule for LSM "
 				       "\'%s\' is invalid\n",  str);
 				err = 0;
 			}
@@ -608,7 +609,7 @@ static struct audit_entry *audit_data_to_entry(struct audit_rule_data *data,
 				kfree(str);
 				goto exit_free;
 			} else
-				f->se_str = str;
+				f->lsm_str = str;
 			break;
 		case AUDIT_WATCH:
 			str = audit_unpack_string(&bufp, &remain, f->val);
@@ -652,14 +653,18 @@ static struct audit_entry *audit_data_to_entry(struct audit_rule_data *data,
 			if (f->val & ~15)
 				goto exit_free;
 			break;
+		case AUDIT_FILETYPE:
+			if ((f->val & ~S_IFMT) > S_IFMT)
+				goto exit_free;
+			break;
 		default:
 			goto exit_free;
 		}
 	}
 
-	f = entry->rule.inode_f;
-	if (f) {
-		switch(f->op) {
+	ino_f = entry->rule.inode_f;
+	if (ino_f) {
+		switch(ino_f->op) {
 		case AUDIT_NOT_EQUAL:
 			entry->rule.inode_f = NULL;
 		case AUDIT_EQUAL:
@@ -752,7 +757,7 @@ static struct audit_rule_data *audit_krule_to_data(struct audit_krule *krule)
 		case AUDIT_OBJ_LEV_LOW:
 		case AUDIT_OBJ_LEV_HIGH:
 			data->buflen += data->values[i] =
-				audit_pack_string(&bufp, f->se_str);
+				audit_pack_string(&bufp, f->lsm_str);
 			break;
 		case AUDIT_WATCH:
 			data->buflen += data->values[i] =
@@ -804,7 +809,7 @@ static int audit_compare_rule(struct audit_krule *a, struct audit_krule *b)
 		case AUDIT_OBJ_TYPE:
 		case AUDIT_OBJ_LEV_LOW:
 		case AUDIT_OBJ_LEV_HIGH:
-			if (strcmp(a->fields[i].se_str, b->fields[i].se_str))
+			if (strcmp(a->fields[i].lsm_str, b->fields[i].lsm_str))
 				return 1;
 			break;
 		case AUDIT_WATCH:
@@ -846,7 +851,7 @@ static struct audit_watch *audit_dupe_watch(struct audit_watch *old)
 		return ERR_PTR(-ENOMEM);
 
 	new = audit_init_watch(path);
-	if (unlikely(IS_ERR(new))) {
+	if (IS_ERR(new)) {
 		kfree(path);
 		goto out;
 	}
@@ -860,28 +865,28 @@ out:
 	return new;
 }
 
-/* Duplicate selinux field information.  The se_rule is opaque, so must be
+/* Duplicate LSM field information.  The lsm_rule is opaque, so must be
  * re-initialized. */
-static inline int audit_dupe_selinux_field(struct audit_field *df,
+static inline int audit_dupe_lsm_field(struct audit_field *df,
 					   struct audit_field *sf)
 {
 	int ret = 0;
-	char *se_str;
+	char *lsm_str;
 
-	/* our own copy of se_str */
-	se_str = kstrdup(sf->se_str, GFP_KERNEL);
-	if (unlikely(!se_str))
+	/* our own copy of lsm_str */
+	lsm_str = kstrdup(sf->lsm_str, GFP_KERNEL);
+	if (unlikely(!lsm_str))
 		return -ENOMEM;
-	df->se_str = se_str;
+	df->lsm_str = lsm_str;
 
-	/* our own (refreshed) copy of se_rule */
-	ret = selinux_audit_rule_init(df->type, df->op, df->se_str,
-				      &df->se_rule);
+	/* our own (refreshed) copy of lsm_rule */
+	ret = security_audit_rule_init(df->type, df->op, df->lsm_str,
+				       (void **)&df->lsm_rule);
 	/* Keep currently invalid fields around in case they
 	 * become valid after a policy reload. */
 	if (ret == -EINVAL) {
-		printk(KERN_WARNING "audit rule for selinux \'%s\' is "
-		       "invalid\n", df->se_str);
+		printk(KERN_WARNING "audit rule for LSM \'%s\' is "
+		       "invalid\n", df->lsm_str);
 		ret = 0;
 	}
 
@@ -889,7 +894,7 @@ static inline int audit_dupe_selinux_field(struct audit_field *df,
 }
 
 /* Duplicate an audit rule.  This will be a deep copy with the exception
- * of the watch - that pointer is carried over.  The selinux specific fields
+ * of the watch - that pointer is carried over.  The LSM specific fields
  * will be updated in the copy.  The point is to be able to replace the old
  * rule with the new rule in the filterlist, then free the old rule.
  * The rlist element is undefined; list manipulations are handled apart from
@@ -928,7 +933,7 @@ static struct audit_entry *audit_dupe_rule(struct audit_krule *old,
 	new->tree = old->tree;
 	memcpy(new->fields, old->fields, sizeof(struct audit_field) * fcount);
 
-	/* deep copy this information, updating the se_rule fields, because
+	/* deep copy this information, updating the lsm_rule fields, because
 	 * the originals will all be freed when the old rule is freed. */
 	for (i = 0; i < fcount; i++) {
 		switch (new->fields[i].type) {
@@ -942,7 +947,7 @@ static struct audit_entry *audit_dupe_rule(struct audit_krule *old,
 		case AUDIT_OBJ_TYPE:
 		case AUDIT_OBJ_LEV_LOW:
 		case AUDIT_OBJ_LEV_HIGH:
-			err = audit_dupe_selinux_field(&new->fields[i],
+			err = audit_dupe_lsm_field(&new->fields[i],
 						       &old->fields[i]);
 			break;
 		case AUDIT_FILTERKEY:
@@ -974,7 +979,6 @@ static void audit_update_watch(struct audit_parent *parent,
 	struct audit_watch *owatch, *nwatch, *nextw;
 	struct audit_krule *r, *nextr;
 	struct audit_entry *oentry, *nentry;
-	struct audit_buffer *ab;
 
 	mutex_lock(&audit_filter_mutex);
 	list_for_each_entry_safe(owatch, nextw, &parent->watches, wlist) {
@@ -988,7 +992,7 @@ static void audit_update_watch(struct audit_parent *parent,
 			audit_set_auditable(current->audit_context);
 
 		nwatch = audit_dupe_watch(owatch);
-		if (unlikely(IS_ERR(nwatch))) {
+		if (IS_ERR(nwatch)) {
 			mutex_unlock(&audit_filter_mutex);
 			audit_panic("error updating watch, skipping");
 			return;
@@ -1003,7 +1007,7 @@ static void audit_update_watch(struct audit_parent *parent,
 			list_del_rcu(&oentry->list);
 
 			nentry = audit_dupe_rule(&oentry->rule, nwatch);
-			if (unlikely(IS_ERR(nentry)))
+			if (IS_ERR(nentry))
 				audit_panic("error updating watch, removing");
 			else {
 				int h = audit_hash_ino((u32)ino);
@@ -1014,13 +1018,21 @@ static void audit_update_watch(struct audit_parent *parent,
 			call_rcu(&oentry->rcu, audit_free_rule_rcu);
 		}
 
-		ab = audit_log_start(NULL, GFP_KERNEL, AUDIT_CONFIG_CHANGE);
-		audit_log_format(ab, "op=updated rules specifying path=");
-		audit_log_untrustedstring(ab, owatch->path);
-		audit_log_format(ab, " with dev=%u ino=%lu\n", dev, ino);
-		audit_log_format(ab, " list=%d res=1", r->listnr);
-		audit_log_end(ab);
-
+		if (audit_enabled) {
+			struct audit_buffer *ab;
+			ab = audit_log_start(NULL, GFP_KERNEL,
+				AUDIT_CONFIG_CHANGE);
+			audit_log_format(ab, "auid=%u ses=%u",
+				audit_get_loginuid(current),
+				audit_get_sessionid(current));
+			audit_log_format(ab,
+				" op=updated rules specifying path=");
+			audit_log_untrustedstring(ab, owatch->path);
+			audit_log_format(ab, " with dev=%u ino=%lu\n",
+				 dev, ino);
+			audit_log_format(ab, " list=%d res=1", r->listnr);
+			audit_log_end(ab);
+		}
 		audit_remove_watch(owatch);
 		goto add_watch_to_parent; /* event applies to a single watch */
 	}
@@ -1039,25 +1051,31 @@ static void audit_remove_parent_watches(struct audit_parent *parent)
 	struct audit_watch *w, *nextw;
 	struct audit_krule *r, *nextr;
 	struct audit_entry *e;
-	struct audit_buffer *ab;
 
 	mutex_lock(&audit_filter_mutex);
 	parent->flags |= AUDIT_PARENT_INVALID;
 	list_for_each_entry_safe(w, nextw, &parent->watches, wlist) {
 		list_for_each_entry_safe(r, nextr, &w->rules, rlist) {
 			e = container_of(r, struct audit_entry, rule);
-
-			ab = audit_log_start(NULL, GFP_KERNEL, AUDIT_CONFIG_CHANGE);
-			audit_log_format(ab, "op=remove rule path=");
-			audit_log_untrustedstring(ab, w->path);
-			if (r->filterkey) {
-				audit_log_format(ab, " key=");
-				audit_log_untrustedstring(ab, r->filterkey);
-			} else
-				audit_log_format(ab, " key=(null)");
-			audit_log_format(ab, " list=%d res=1", r->listnr);
-			audit_log_end(ab);
-
+			if (audit_enabled) {
+				struct audit_buffer *ab;
+				ab = audit_log_start(NULL, GFP_KERNEL,
+					AUDIT_CONFIG_CHANGE);
+				audit_log_format(ab, "auid=%u ses=%u",
+					audit_get_loginuid(current),
+					audit_get_sessionid(current));
+				audit_log_format(ab, " op=remove rule path=");
+				audit_log_untrustedstring(ab, w->path);
+				if (r->filterkey) {
+					audit_log_format(ab, " key=");
+					audit_log_untrustedstring(ab,
+							r->filterkey);
+				} else
+					audit_log_format(ab, " key=(null)");
+				audit_log_format(ab, " list=%d res=1",
+					r->listnr);
+				audit_log_end(ab);
+			}
 			list_del(&r->rlist);
 			list_del_rcu(&e->list);
 			call_rcu(&e->rcu, audit_free_rule_rcu);
@@ -1152,11 +1170,11 @@ static int audit_get_nd(char *path, struct nameidata **ndp,
 static void audit_put_nd(struct nameidata *ndp, struct nameidata *ndw)
 {
 	if (ndp) {
-		path_release(ndp);
+		path_put(&ndp->path);
 		kfree(ndp);
 	}
 	if (ndw) {
-		path_release(ndw);
+		path_put(&ndw->path);
 		kfree(ndw);
 	}
 }
@@ -1205,8 +1223,8 @@ static int audit_add_watch(struct audit_krule *krule, struct nameidata *ndp,
 
 	/* update watch filter fields */
 	if (ndw) {
-		watch->dev = ndw->dentry->d_inode->i_sb->s_dev;
-		watch->ino = ndw->dentry->d_inode->i_ino;
+		watch->dev = ndw->path.dentry->d_inode->i_sb->s_dev;
+		watch->ino = ndw->path.dentry->d_inode->i_ino;
 	}
 
 	/* The audit_filter_mutex must not be held during inotify calls because
@@ -1216,7 +1234,8 @@ static int audit_add_watch(struct audit_krule *krule, struct nameidata *ndp,
 	 */
 	mutex_unlock(&audit_filter_mutex);
 
-	if (inotify_find_watch(audit_ih, ndp->dentry->d_inode, &i_watch) < 0) {
+	if (inotify_find_watch(audit_ih, ndp->path.dentry->d_inode,
+			       &i_watch) < 0) {
 		parent = audit_init_parent(ndp);
 		if (IS_ERR(parent)) {
 			/* caller expects mutex locked */
@@ -1490,23 +1509,28 @@ static void audit_list_rules(int pid, int seq, struct sk_buff_head *q)
 }
 
 /* Log rule additions and removals */
-static void audit_log_rule_change(uid_t loginuid, u32 sid, char *action,
-				  struct audit_krule *rule, int res)
+static void audit_log_rule_change(uid_t loginuid, u32 sessionid, u32 sid,
+				  char *action, struct audit_krule *rule,
+				  int res)
 {
 	struct audit_buffer *ab;
+
+	if (!audit_enabled)
+		return;
 
 	ab = audit_log_start(NULL, GFP_KERNEL, AUDIT_CONFIG_CHANGE);
 	if (!ab)
 		return;
-	audit_log_format(ab, "auid=%u", loginuid);
+	audit_log_format(ab, "auid=%u ses=%u", loginuid, sessionid);
 	if (sid) {
 		char *ctx = NULL;
 		u32 len;
-		if (selinux_sid_to_string(sid, &ctx, &len))
+		if (security_secid_to_secctx(sid, &ctx, &len))
 			audit_log_format(ab, " ssid=%u", sid);
-		else
+		else {
 			audit_log_format(ab, " subj=%s", ctx);
-		kfree(ctx);
+			security_release_secctx(ctx, len);
+		}
 	}
 	audit_log_format(ab, " op=%s rule key=", action);
 	if (rule->filterkey)
@@ -1526,10 +1550,11 @@ static void audit_log_rule_change(uid_t loginuid, u32 sid, char *action,
  * @data: payload data
  * @datasz: size of payload data
  * @loginuid: loginuid of sender
+ * @sessionid: sessionid for netlink audit message
  * @sid: SE Linux Security ID of sender
  */
 int audit_receive_filter(int type, int pid, int uid, int seq, void *data,
-			 size_t datasz, uid_t loginuid, u32 sid)
+			 size_t datasz, uid_t loginuid, u32 sessionid, u32 sid)
 {
 	struct task_struct *tsk;
 	struct audit_netlink_list *dest;
@@ -1576,7 +1601,8 @@ int audit_receive_filter(int type, int pid, int uid, int seq, void *data,
 
 		err = audit_add_rule(entry,
 				     &audit_filter_list[entry->rule.listnr]);
-		audit_log_rule_change(loginuid, sid, "add", &entry->rule, !err);
+		audit_log_rule_change(loginuid, sessionid, sid, "add",
+				      &entry->rule, !err);
 
 		if (err)
 			audit_free_rule(entry);
@@ -1592,8 +1618,8 @@ int audit_receive_filter(int type, int pid, int uid, int seq, void *data,
 
 		err = audit_del_rule(entry,
 				     &audit_filter_list[entry->rule.listnr]);
-		audit_log_rule_change(loginuid, sid, "remove", &entry->rule,
-				      !err);
+		audit_log_rule_change(loginuid, sessionid, sid, "remove",
+				      &entry->rule, !err);
 
 		audit_free_rule(entry);
 		break;
@@ -1701,7 +1727,7 @@ static int audit_filter_user_rules(struct netlink_skb_parms *cb,
 	return 1;
 }
 
-int audit_filter_user(struct netlink_skb_parms *cb, int type)
+int audit_filter_user(struct netlink_skb_parms *cb)
 {
 	enum audit_state state = AUDIT_DISABLED;
 	struct audit_entry *e;
@@ -1748,38 +1774,12 @@ unlock_and_return:
 	return result;
 }
 
-/* Check to see if the rule contains any selinux fields.  Returns 1 if there
-   are selinux fields specified in the rule, 0 otherwise. */
-static inline int audit_rule_has_selinux(struct audit_krule *rule)
-{
-	int i;
-
-	for (i = 0; i < rule->field_count; i++) {
-		struct audit_field *f = &rule->fields[i];
-		switch (f->type) {
-		case AUDIT_SUBJ_USER:
-		case AUDIT_SUBJ_ROLE:
-		case AUDIT_SUBJ_TYPE:
-		case AUDIT_SUBJ_SEN:
-		case AUDIT_SUBJ_CLR:
-		case AUDIT_OBJ_USER:
-		case AUDIT_OBJ_ROLE:
-		case AUDIT_OBJ_TYPE:
-		case AUDIT_OBJ_LEV_LOW:
-		case AUDIT_OBJ_LEV_HIGH:
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-/* This function will re-initialize the se_rule field of all applicable rules.
- * It will traverse the filter lists serarching for rules that contain selinux
+/* This function will re-initialize the lsm_rule field of all applicable rules.
+ * It will traverse the filter lists serarching for rules that contain LSM
  * specific filter fields.  When such a rule is found, it is copied, the
- * selinux field is re-initialized, and the old rule is replaced with the
+ * LSM field is re-initialized, and the old rule is replaced with the
  * updated rule. */
-int selinux_audit_rule_update(void)
+int audit_update_lsm_rules(void)
 {
 	struct audit_entry *entry, *n, *nentry;
 	struct audit_watch *watch;
@@ -1791,18 +1791,18 @@ int selinux_audit_rule_update(void)
 
 	for (i = 0; i < AUDIT_NR_FILTERS; i++) {
 		list_for_each_entry_safe(entry, n, &audit_filter_list[i], list) {
-			if (!audit_rule_has_selinux(&entry->rule))
+			if (!security_audit_rule_known(&entry->rule))
 				continue;
 
 			watch = entry->rule.watch;
 			tree = entry->rule.tree;
 			nentry = audit_dupe_rule(&entry->rule, watch);
-			if (unlikely(IS_ERR(nentry))) {
+			if (IS_ERR(nentry)) {
 				/* save the first error encountered for the
 				 * return value */
 				if (!err)
 					err = PTR_ERR(nentry);
-				audit_panic("error updating selinux filters");
+				audit_panic("error updating LSM filters");
 				if (watch)
 					list_del(&entry->rule.rlist);
 				list_del_rcu(&entry->list);

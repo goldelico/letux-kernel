@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -147,7 +147,7 @@ acpi_status acpi_ut_delete_caches(void)
 
 	if (acpi_gbl_display_final_mem_stats) {
 		ACPI_STRCPY(buffer, "MEMORY");
-		acpi_db_display_statistics(buffer);
+		(void)acpi_db_display_statistics(buffer);
 	}
 #endif
 
@@ -232,7 +232,7 @@ acpi_status acpi_ut_validate_buffer(struct acpi_buffer * buffer)
  * RETURN:      Status
  *
  * DESCRIPTION: Validate that the buffer is of the required length or
- *              allocate a new buffer.  Returned buffer is always zeroed.
+ *              allocate a new buffer. Returned buffer is always zeroed.
  *
  ******************************************************************************/
 
@@ -240,57 +240,66 @@ acpi_status
 acpi_ut_initialize_buffer(struct acpi_buffer * buffer,
 			  acpi_size required_length)
 {
-	acpi_status status = AE_OK;
+	acpi_size input_buffer_length;
 
-	switch (buffer->length) {
+	/* Parameter validation */
+
+	if (!buffer || !required_length) {
+		return (AE_BAD_PARAMETER);
+	}
+
+	/*
+	 * Buffer->Length is used as both an input and output parameter. Get the
+	 * input actual length and set the output required buffer length.
+	 */
+	input_buffer_length = buffer->length;
+	buffer->length = required_length;
+
+	/*
+	 * The input buffer length contains the actual buffer length, or the type
+	 * of buffer to be allocated by this routine.
+	 */
+	switch (input_buffer_length) {
 	case ACPI_NO_BUFFER:
 
-		/* Set the exception and returned the required length */
+		/* Return the exception (and the required buffer length) */
 
-		status = AE_BUFFER_OVERFLOW;
-		break;
+		return (AE_BUFFER_OVERFLOW);
 
 	case ACPI_ALLOCATE_BUFFER:
 
 		/* Allocate a new buffer */
 
 		buffer->pointer = acpi_os_allocate(required_length);
-		if (!buffer->pointer) {
-			return (AE_NO_MEMORY);
-		}
-
-		/* Clear the buffer */
-
-		ACPI_MEMSET(buffer->pointer, 0, required_length);
 		break;
 
 	case ACPI_ALLOCATE_LOCAL_BUFFER:
 
 		/* Allocate a new buffer with local interface to allow tracking */
 
-		buffer->pointer = ACPI_ALLOCATE_ZEROED(required_length);
-		if (!buffer->pointer) {
-			return (AE_NO_MEMORY);
-		}
+		buffer->pointer = ACPI_ALLOCATE(required_length);
 		break;
 
 	default:
 
 		/* Existing buffer: Validate the size of the buffer */
 
-		if (buffer->length < required_length) {
-			status = AE_BUFFER_OVERFLOW;
-			break;
+		if (input_buffer_length < required_length) {
+			return (AE_BUFFER_OVERFLOW);
 		}
-
-		/* Clear the buffer */
-
-		ACPI_MEMSET(buffer->pointer, 0, required_length);
 		break;
 	}
 
-	buffer->length = required_length;
-	return (status);
+	/* Validate allocation from above or input buffer pointer */
+
+	if (!buffer->pointer) {
+		return (AE_NO_MEMORY);
+	}
+
+	/* Have a valid buffer, clear it */
+
+	ACPI_MEMSET(buffer->pointer, 0, required_length);
+	return (AE_OK);
 }
 
 #ifdef NOT_USED_BY_LINUX
@@ -309,7 +318,8 @@ acpi_ut_initialize_buffer(struct acpi_buffer * buffer,
  *
  ******************************************************************************/
 
-void *acpi_ut_allocate(acpi_size size, u32 component, char *module, u32 line)
+void *acpi_ut_allocate(acpi_size size,
+		       u32 component, const char *module, u32 line)
 {
 	void *allocation;
 
@@ -353,7 +363,7 @@ void *acpi_ut_allocate(acpi_size size, u32 component, char *module, u32 line)
  ******************************************************************************/
 
 void *acpi_ut_allocate_zeroed(acpi_size size,
-			      u32 component, char *module, u32 line)
+			      u32 component, const char *module, u32 line)
 {
 	void *allocation;
 

@@ -17,11 +17,21 @@
 #include <linux/namei.h>
 #include <linux/mount.h>
 #include <linux/tty.h>
+#include <linux/mutex.h>
+#include <linux/idr.h>
 #include <linux/devpts_fs.h>
 #include <linux/parser.h>
 #include <linux/fsnotify.h>
+#include <linux/seq_file.h>
 
 #define DEVPTS_SUPER_MAGIC 0x1cd1
+
+#define DEVPTS_DEFAULT_MODE 0600
+#define PTMX_MINOR	2
+
+extern int pty_limit;			/* Config limit on Unix98 ptys */
+static DEFINE_IDA(allocated_ptys);
+static DEFINE_MUTEX(allocated_ptys_lock);
 
 static struct vfsmount *devpts_mnt;
 static struct dentry *devpts_root;
@@ -32,14 +42,14 @@ static struct {
 	uid_t   uid;
 	gid_t   gid;
 	umode_t mode;
-} config = {.mode = 0600};
+} config = {.mode = DEVPTS_DEFAULT_MODE};
 
 enum {
 	Opt_uid, Opt_gid, Opt_mode,
 	Opt_err
 };
 
-static match_table_t tokens = {
+static const match_table_t tokens = {
 	{Opt_uid, "uid=%u"},
 	{Opt_gid, "gid=%u"},
 	{Opt_mode, "mode=%o"},
@@ -54,7 +64,7 @@ static int devpts_remount(struct super_block *sb, int *flags, char *data)
 	config.setgid  = 0;
 	config.uid     = 0;
 	config.gid     = 0;
-	config.mode    = 0600;
+	config.mode    = DEVPTS_DEFAULT_MODE;
 
 	while ((p = strsep(&data, ",")) != NULL) {
 		substring_t args[MAX_OPT_ARGS];
@@ -81,7 +91,7 @@ static int devpts_remount(struct super_block *sb, int *flags, char *data)
 		case Opt_mode:
 			if (match_octal(&args[0], &option))
 				return -EINVAL;
-			config.mode = option & ~S_IFMT;
+			config.mode = option & S_IALLUGO;
 			break;
 		default:
 			printk(KERN_ERR "devpts: called with bogus options\n");
@@ -92,9 +102,21 @@ static int devpts_remount(struct super_block *sb, int *flags, char *data)
 	return 0;
 }
 
+static int devpts_show_options(struct seq_file *seq, struct vfsmount *vfs)
+{
+	if (config.setuid)
+		seq_printf(seq, ",uid=%u", config.uid);
+	if (config.setgid)
+		seq_printf(seq, ",gid=%u", config.gid);
+	seq_printf(seq, ",mode=%03o", config.mode);
+
+	return 0;
+}
+
 static const struct super_operations devpts_sops = {
 	.statfs		= simple_statfs,
 	.remount_fs	= devpts_remount,
+	.show_options	= devpts_show_options,
 };
 
 static int
@@ -148,21 +170,49 @@ static struct file_system_type devpts_fs_type = {
  * to the System V naming convention
  */
 
-static struct dentry *get_node(int num)
+int devpts_new_index(struct inode *ptmx_inode)
 {
-	char s[12];
-	struct dentry *root = devpts_root;
-	mutex_lock(&root->d_inode->i_mutex);
-	return lookup_one_len(s, root, sprintf(s, "%d", num));
+	int index;
+	int ida_ret;
+
+retry:
+	if (!ida_pre_get(&allocated_ptys, GFP_KERNEL)) {
+		return -ENOMEM;
+	}
+
+	mutex_lock(&allocated_ptys_lock);
+	ida_ret = ida_get_new(&allocated_ptys, &index);
+	if (ida_ret < 0) {
+		mutex_unlock(&allocated_ptys_lock);
+		if (ida_ret == -EAGAIN)
+			goto retry;
+		return -EIO;
+	}
+
+	if (index >= pty_limit) {
+		ida_remove(&allocated_ptys, index);
+		mutex_unlock(&allocated_ptys_lock);
+		return -EIO;
+	}
+	mutex_unlock(&allocated_ptys_lock);
+	return index;
 }
 
-int devpts_pty_new(struct tty_struct *tty)
+void devpts_kill_index(struct inode *ptmx_inode, int idx)
 {
-	int number = tty->index;
+	mutex_lock(&allocated_ptys_lock);
+	ida_remove(&allocated_ptys, idx);
+	mutex_unlock(&allocated_ptys_lock);
+}
+
+int devpts_pty_new(struct inode *ptmx_inode, struct tty_struct *tty)
+{
+	int number = tty->index; /* tty layer puts index from devpts_new_index() in here */
 	struct tty_driver *driver = tty->driver;
 	dev_t device = MKDEV(driver->major, driver->minor_start+number);
 	struct dentry *dentry;
 	struct inode *inode = new_inode(devpts_mnt->mnt_sb);
+	char s[12];
 
 	/* We're supposed to be given the slave end of a pty */
 	BUG_ON(driver->type != TTY_DRIVER_TYPE_PTY);
@@ -177,10 +227,15 @@ int devpts_pty_new(struct tty_struct *tty)
 	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
 	init_special_inode(inode, S_IFCHR|config.mode, device);
 	inode->i_private = tty;
+	tty->driver_data = inode;
 
-	dentry = get_node(number);
-	if (!IS_ERR(dentry) && !dentry->d_inode) {
-		d_instantiate(dentry, inode);
+	sprintf(s, "%d", number);
+
+	mutex_lock(&devpts_root->d_inode->i_mutex);
+
+	dentry = d_alloc_name(devpts_root, s);
+	if (!IS_ERR(dentry)) {
+		d_add(dentry, inode);
 		fsnotify_create(devpts_root->d_inode, dentry);
 	}
 
@@ -189,36 +244,31 @@ int devpts_pty_new(struct tty_struct *tty)
 	return 0;
 }
 
-struct tty_struct *devpts_get_tty(int number)
+struct tty_struct *devpts_get_tty(struct inode *pts_inode, int number)
 {
-	struct dentry *dentry = get_node(number);
-	struct tty_struct *tty;
+	BUG_ON(pts_inode->i_rdev == MKDEV(TTYAUX_MAJOR, PTMX_MINOR));
 
-	tty = NULL;
-	if (!IS_ERR(dentry)) {
-		if (dentry->d_inode)
-			tty = dentry->d_inode->i_private;
-		dput(dentry);
-	}
-
-	mutex_unlock(&devpts_root->d_inode->i_mutex);
-
-	return tty;
+	if (pts_inode->i_sb->s_magic == DEVPTS_SUPER_MAGIC)
+		return (struct tty_struct *)pts_inode->i_private;
+	return NULL;
 }
 
-void devpts_pty_kill(int number)
+void devpts_pty_kill(struct tty_struct *tty)
 {
-	struct dentry *dentry = get_node(number);
+	struct inode *inode = tty->driver_data;
+	struct dentry *dentry;
 
-	if (!IS_ERR(dentry)) {
-		struct inode *inode = dentry->d_inode;
-		if (inode) {
-			inode->i_nlink--;
-			d_delete(dentry);
-			dput(dentry);
-		}
+	BUG_ON(inode->i_rdev == MKDEV(TTYAUX_MAJOR, PTMX_MINOR));
+
+	mutex_lock(&devpts_root->d_inode->i_mutex);
+
+	dentry = d_find_alias(inode);
+	if (dentry && !IS_ERR(dentry)) {
+		inode->i_nlink--;
+		d_delete(dentry);
 		dput(dentry);
 	}
+
 	mutex_unlock(&devpts_root->d_inode->i_mutex);
 }
 

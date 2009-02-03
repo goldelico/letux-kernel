@@ -1,6 +1,6 @@
 /*  linux/arch/sparc/kernel/process.c
  *
- *  Copyright (C) 1995 David S. Miller (davem@davemloft.net)
+ *  Copyright (C) 1995, 2008 David S. Miller (davem@davemloft.net)
  *  Copyright (C) 1996 Eddie C. Dost   (ecd@skynet.be)
  */
 
@@ -14,13 +14,11 @@
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/kernel.h>
-#include <linux/kallsyms.h>
 #include <linux/mm.h>
 #include <linux/stddef.h>
 #include <linux/ptrace.h>
 #include <linux/slab.h>
 #include <linux/user.h>
-#include <linux/a.out.h>
 #include <linux/smp.h>
 #include <linux/reboot.h>
 #include <linux/delay.h>
@@ -77,7 +75,7 @@ void cpu_idle(void)
 {
 	/* endless idle loop with no priority at all */
 	for (;;) {
-		if (ARCH_SUN4C_SUN4) {
+		if (ARCH_SUN4C) {
 			static int count = HZ;
 			static unsigned long last_jiffies;
 			static unsigned long last_faults;
@@ -140,18 +138,12 @@ void cpu_idle(void)
 
 #endif
 
-extern char reboot_command [];
-
-extern void (*prom_palette)(int);
-
 /* XXX cli/sti -> local_irq_xxx here, check this works once SMP is fixed. */
 void machine_halt(void)
 {
 	local_irq_enable();
 	mdelay(8);
 	local_irq_disable();
-	if (prom_palette)
-		prom_palette (1);
 	prom_halt();
 	panic("Halt failed!");
 }
@@ -166,8 +158,6 @@ void machine_restart(char * cmd)
 
 	p = strchr (reboot_command, '\n');
 	if (p) *p = 0;
-	if (prom_palette)
-		prom_palette (1);
 	if (cmd)
 		prom_reboot(cmd);
 	if (*reboot_command)
@@ -185,6 +175,8 @@ void machine_power_off(void)
 #endif
 	machine_halt();
 }
+
+#if 0
 
 static DEFINE_SPINLOCK(sparc_backtrace_lock);
 
@@ -205,7 +197,7 @@ void __show_backtrace(unsigned long fp)
 		       rw->ins[4], rw->ins[5],
 		       rw->ins[6],
 		       rw->ins[7]);
-		print_symbol("%s\n", rw->ins[7]);
+		printk("%pS\n", (void *) rw->ins[7]);
 		rw = (struct reg_window *) rw->ins[6];
 	}
 	spin_unlock_irqrestore(&sparc_backtrace_lock, flags);
@@ -237,7 +229,6 @@ void smp_show_backtrace_all_cpus(void)
 }
 #endif
 
-#if 0
 void show_stackframe(struct sparc_stackf *sf)
 {
 	unsigned long size;
@@ -273,14 +264,14 @@ void show_regs(struct pt_regs *r)
 
         printk("PSR: %08lx PC: %08lx NPC: %08lx Y: %08lx    %s\n",
 	       r->psr, r->pc, r->npc, r->y, print_tainted());
-	print_symbol("PC: <%s>\n", r->pc);
+	printk("PC: <%pS>\n", (void *) r->pc);
 	printk("%%G: %08lx %08lx  %08lx %08lx  %08lx %08lx  %08lx %08lx\n",
 	       r->u_regs[0], r->u_regs[1], r->u_regs[2], r->u_regs[3],
 	       r->u_regs[4], r->u_regs[5], r->u_regs[6], r->u_regs[7]);
 	printk("%%O: %08lx %08lx  %08lx %08lx  %08lx %08lx  %08lx %08lx\n",
 	       r->u_regs[8], r->u_regs[9], r->u_regs[10], r->u_regs[11],
 	       r->u_regs[12], r->u_regs[13], r->u_regs[14], r->u_regs[15]);
-	print_symbol("RPC: <%s>\n", r->u_regs[15]);
+	printk("RPC: <%pS>\n", (void *) r->u_regs[15]);
 
 	printk("%%L: %08lx %08lx  %08lx %08lx  %08lx %08lx  %08lx %08lx\n",
 	       rw->locals[0], rw->locals[1], rw->locals[2], rw->locals[3],
@@ -315,7 +306,7 @@ void show_stack(struct task_struct *tsk, unsigned long *_ksp)
 		rw = (struct reg_window *) fp;
 		pc = rw->ins[7];
 		printk("[%08lx : ", pc);
-		print_symbol("%s ] ", pc);
+		printk("%pS ] ", (void *) pc);
 		fp = rw->ins[6];
 	} while (++count < 16);
 	printk("\n");
@@ -366,8 +357,6 @@ void flush_thread(void)
 {
 	current_thread_info()->w_saved = 0;
 
-	/* No new signal delivery by default */
-	current->thread.new_signal = 0;
 #ifndef CONFIG_SMP
 	if(last_task_used_math == current) {
 #else
@@ -430,14 +419,26 @@ asmlinkage int sparc_do_fork(unsigned long clone_flags,
                              unsigned long stack_size)
 {
 	unsigned long parent_tid_ptr, child_tid_ptr;
+	unsigned long orig_i1 = regs->u_regs[UREG_I1];
+	long ret;
 
 	parent_tid_ptr = regs->u_regs[UREG_I2];
 	child_tid_ptr = regs->u_regs[UREG_I4];
 
-	return do_fork(clone_flags, stack_start,
-		       regs, stack_size,
-		       (int __user *) parent_tid_ptr,
-		       (int __user *) child_tid_ptr);
+	ret = do_fork(clone_flags, stack_start,
+		      regs, stack_size,
+		      (int __user *) parent_tid_ptr,
+		      (int __user *) child_tid_ptr);
+
+	/* If we get an error and potentially restart the system
+	 * call, we're screwed because copy_thread() clobbered
+	 * the parent's %o1.  So detect that case and restore it
+	 * here.
+	 */
+	if ((unsigned long)ret >= -ERESTART_RESTARTBLOCK)
+		regs->u_regs[UREG_I1] = orig_i1;
+
+	return ret;
 }
 
 /* Copy a Sparc thread.  The fork() return value conventions
@@ -567,38 +568,6 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long sp,
 }
 
 /*
- * fill in the user structure for a core dump..
- */
-void dump_thread(struct pt_regs * regs, struct user * dump)
-{
-	unsigned long first_stack_page;
-
-	dump->magic = SUNOS_CORE_MAGIC;
-	dump->len = sizeof(struct user);
-	dump->regs.psr = regs->psr;
-	dump->regs.pc = regs->pc;
-	dump->regs.npc = regs->npc;
-	dump->regs.y = regs->y;
-	/* fuck me plenty */
-	memcpy(&dump->regs.regs[0], &regs->u_regs[1], (sizeof(unsigned long) * 15));
-	dump->uexec = current->thread.core_exec;
-	dump->u_tsize = (((unsigned long) current->mm->end_code) -
-		((unsigned long) current->mm->start_code)) & ~(PAGE_SIZE - 1);
-	dump->u_dsize = ((unsigned long) (current->mm->brk + (PAGE_SIZE-1)));
-	dump->u_dsize -= dump->u_tsize;
-	dump->u_dsize &= ~(PAGE_SIZE - 1);
-	first_stack_page = (regs->u_regs[UREG_FP] & ~(PAGE_SIZE - 1));
-	dump->u_ssize = (TASK_SIZE - first_stack_page) & ~(PAGE_SIZE - 1);
-	memcpy(&dump->fpu.fpstatus.fregs.regs[0], &current->thread.float_regs[0], (sizeof(unsigned long) * 32));
-	dump->fpu.fpstatus.fsr = current->thread.fsr;
-	dump->fpu.fpstatus.flags = dump->fpu.fpstatus.extra = 0;
-	dump->fpu.fpstatus.fpq_count = current->thread.fpqdepth;
-	memcpy(&dump->fpu.fpstatus.fpq[0], &current->thread.fpqueue[0],
-	       ((sizeof(unsigned long) * 2) * 16));
-	dump->sigcode = 0;
-}
-
-/*
  * fill in the fpu structure for a core dump.
  */
 int dump_fpu (struct pt_regs * regs, elf_fpregset_t * fpregs)
@@ -669,11 +638,6 @@ asmlinkage int sparc_execve(struct pt_regs *regs)
 			  (char __user * __user *)regs->u_regs[base + UREG_I2],
 			  regs);
 	putname(filename);
-	if (error == 0) {
-		task_lock(current);
-		current->ptrace &= ~PT_DTRACE;
-		task_unlock(current);
-	}
 out:
 	return error;
 }

@@ -77,13 +77,8 @@ extern const char gfar_driver_name[];
 extern const char gfar_driver_version[];
 
 /* These need to be powers of 2 for this driver */
-#ifdef CONFIG_GFAR_NAPI
 #define DEFAULT_TX_RING_SIZE	256
 #define DEFAULT_RX_RING_SIZE	256
-#else
-#define DEFAULT_TX_RING_SIZE    64
-#define DEFAULT_RX_RING_SIZE    64
-#endif
 
 #define GFAR_RX_MAX_RING_SIZE   256
 #define GFAR_TX_MAX_RING_SIZE   256
@@ -102,7 +97,7 @@ extern const char gfar_driver_version[];
 #define DEFAULT_FIFO_TX_STARVE 0x40
 #define DEFAULT_FIFO_TX_STARVE_OFF 0x80
 #define DEFAULT_BD_STASH 1
-#define DEFAULT_STASH_LENGTH	64
+#define DEFAULT_STASH_LENGTH	96
 #define DEFAULT_STASH_INDEX	0
 
 /* The number of Exact Match registers */
@@ -124,13 +119,13 @@ extern const char gfar_driver_version[];
 
 #define DEFAULT_TX_COALESCE 1
 #define DEFAULT_TXCOUNT	16
-#define DEFAULT_TXTIME	4
+#define DEFAULT_TXTIME	21
 
-#define DEFAULT_RX_COALESCE 1
-#define DEFAULT_RXCOUNT	16
-#define DEFAULT_RXTIME	4
+#define DEFAULT_RXTIME	21
 
-#define TBIPA_VALUE		0x1f
+#define DEFAULT_RX_COALESCE 0
+#define DEFAULT_RXCOUNT	0
+
 #define MIIMCFG_INIT_VALUE	0x00000007
 #define MIIMCFG_RESET           0x80000000
 #define MIIMIND_BUSY            0x00000001
@@ -162,6 +157,7 @@ extern const char gfar_driver_version[];
 #define MACCFG2_GMII            0x00000200
 #define MACCFG2_HUGEFRAME	0x00000020
 #define MACCFG2_LENGTHCHECK	0x00000010
+#define MACCFG2_MPEN		0x00000008
 
 #define ECNTRL_INIT_SETTINGS	0x00001000
 #define ECNTRL_TBI_MODE         0x00000020
@@ -234,6 +230,7 @@ extern const char gfar_driver_version[];
 #define IEVENT_CRL		0x00020000
 #define IEVENT_XFUN		0x00010000
 #define IEVENT_RXB0		0x00008000
+#define IEVENT_MAG		0x00000800
 #define IEVENT_GRSC		0x00000100
 #define IEVENT_RXF0		0x00000080
 #define IEVENT_FIR		0x00000008
@@ -242,10 +239,12 @@ extern const char gfar_driver_version[];
 #define IEVENT_PERR		0x00000001
 #define IEVENT_RX_MASK          (IEVENT_RXB0 | IEVENT_RXF0)
 #define IEVENT_TX_MASK          (IEVENT_TXB | IEVENT_TXF)
+#define IEVENT_RTX_MASK         (IEVENT_RX_MASK | IEVENT_TX_MASK)
 #define IEVENT_ERR_MASK         \
 (IEVENT_RXC | IEVENT_BSY | IEVENT_EBERR | IEVENT_MSRO | \
  IEVENT_BABT | IEVENT_TXC | IEVENT_TXE | IEVENT_LC \
- | IEVENT_CRL | IEVENT_XFUN | IEVENT_DPE | IEVENT_PERR)
+ | IEVENT_CRL | IEVENT_XFUN | IEVENT_DPE | IEVENT_PERR \
+ | IEVENT_MAG)
 
 #define IMASK_INIT_CLEAR	0x00000000
 #define IMASK_BABR              0x80000000
@@ -263,17 +262,19 @@ extern const char gfar_driver_version[];
 #define IMASK_CRL		0x00020000
 #define IMASK_XFUN		0x00010000
 #define IMASK_RXB0              0x00008000
+#define IMASK_MAG		0x00000800
 #define IMASK_GTSC              0x00000100
 #define IMASK_RXFEN0		0x00000080
 #define IMASK_FIR		0x00000008
 #define IMASK_FIQ		0x00000004
 #define IMASK_DPE		0x00000002
 #define IMASK_PERR		0x00000001
-#define IMASK_RX_DISABLED ~(IMASK_RXFEN0 | IMASK_BSY)
 #define IMASK_DEFAULT  (IMASK_TXEEN | IMASK_TXFEN | IMASK_TXBEN | \
 		IMASK_RXFEN0 | IMASK_BSY | IMASK_EBERR | IMASK_BABR | \
 		IMASK_XFUN | IMASK_RXC | IMASK_BABT | IMASK_DPE \
 		| IMASK_PERR)
+#define IMASK_RTX_DISABLED ((~(IMASK_RXFEN0 | IMASK_TXFEN | IMASK_BSY)) \
+			   & IMASK_DEFAULT)
 
 /* Fifo management */
 #define FIFO_TX_THR_MASK	0x01ff
@@ -340,6 +341,9 @@ extern const char gfar_driver_version[];
 #define RXBD_OVERRUN		0x0002
 #define RXBD_TRUNCATED		0x0001
 #define RXBD_STATS		0x01ff
+#define RXBD_ERR		(RXBD_LARGE | RXBD_SHORT | RXBD_NONOCTET 	\
+				| RXBD_CRCERR | RXBD_OVERRUN			\
+				| RXBD_TRUNCATED)
 
 /* Rx FCB status field bits */
 #define RXFCB_VLN		0x8000
@@ -726,10 +730,14 @@ struct gfar_private {
 	unsigned int fifo_starve;
 	unsigned int fifo_starve_off;
 
+	/* Bitfield update lock */
+	spinlock_t bflock;
+
 	unsigned char vlan_enable:1,
 		rx_csum_enable:1,
 		extended_hash:1,
-		bd_stash_en:1;
+		bd_stash_en:1,
+		wol_en:1; /* Wake-on-LAN enabled */
 	unsigned short padding;
 
 	unsigned int interruptTransmit;
@@ -748,6 +756,7 @@ struct gfar_private {
 
 	uint32_t msg_enable;
 
+	struct work_struct reset_task;
 	/* Network Statistics */
 	struct gfar_extra_stats extra_stats;
 };
@@ -771,5 +780,8 @@ extern void gfar_halt(struct net_device *dev);
 extern void gfar_phy_test(struct mii_bus *bus, struct phy_device *phydev,
 		int enable, u32 regnum, u32 read);
 void gfar_init_sysfs(struct net_device *dev);
+int gfar_local_mdio_write(struct gfar_mii __iomem *regs, int mii_id,
+			  int regnum, u16 value);
+int gfar_local_mdio_read(struct gfar_mii __iomem *regs, int mii_id, int regnum);
 
 #endif /* __GIANFAR_H */

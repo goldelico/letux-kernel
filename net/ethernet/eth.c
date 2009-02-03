@@ -57,6 +57,7 @@
 #include <net/sock.h>
 #include <net/ipv6.h>
 #include <net/ip.h>
+#include <net/dsa.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
 
@@ -129,7 +130,7 @@ int eth_rebuild_header(struct sk_buff *skb)
 
 	switch (eth->h_proto) {
 #ifdef CONFIG_INET
-	case __constant_htons(ETH_P_IP):
+	case htons(ETH_P_IP):
 		return arp_find(eth->h_dest, skb);
 #endif
 	default:
@@ -183,6 +184,17 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
 		if (unlikely(compare_ether_addr(eth->h_dest, dev->dev_addr)))
 			skb->pkt_type = PACKET_OTHERHOST;
 	}
+
+	/*
+	 * Some variants of DSA tagging don't have an ethertype field
+	 * at all, so we check here whether one of those tagging
+	 * variants has been configured on the receiving interface,
+	 * and if so, set skb->protocol without looking at the packet.
+	 */
+	if (netdev_uses_dsa_tags(dev))
+		return htons(ETH_P_DSA);
+	if (netdev_uses_trailer_tags(dev))
+		return htons(ETH_P_TRAILER);
 
 	if (ntohs(eth->h_proto) >= 1536)
 		return eth->h_proto;
@@ -301,7 +313,7 @@ static int eth_change_mtu(struct net_device *dev, int new_mtu)
 static int eth_validate_addr(struct net_device *dev)
 {
 	if (!is_valid_ether_addr(dev->dev_addr))
-		return -EINVAL;
+		return -EADDRNOTAVAIL;
 
 	return 0;
 }
@@ -359,10 +371,34 @@ struct net_device *alloc_etherdev_mq(int sizeof_priv, unsigned int queue_count)
 }
 EXPORT_SYMBOL(alloc_etherdev_mq);
 
-char *print_mac(char *buf, const u8 *addr)
+static size_t _format_mac_addr(char *buf, int buflen,
+				const unsigned char *addr, int len)
 {
-	sprintf(buf, MAC_FMT,
-		addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+	int i;
+	char *cp = buf;
+
+	for (i = 0; i < len; i++) {
+		cp += scnprintf(cp, buflen - (cp - buf), "%02x", addr[i]);
+		if (i == len - 1)
+			break;
+		cp += strlcpy(cp, ":", buflen - (cp - buf));
+	}
+	return cp - buf;
+}
+
+ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len)
+{
+	size_t l;
+
+	l = _format_mac_addr(buf, PAGE_SIZE, addr, len);
+	l += strlcpy(buf + l, "\n", PAGE_SIZE - l);
+	return ((ssize_t) l);
+}
+EXPORT_SYMBOL(sysfs_format_mac);
+
+char *print_mac(char *buf, const unsigned char *addr)
+{
+	_format_mac_addr(buf, MAC_BUF_SIZE, addr, ETH_ALEN);
 	return buf;
 }
 EXPORT_SYMBOL(print_mac);

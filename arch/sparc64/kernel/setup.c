@@ -1,4 +1,4 @@
-/*  $Id: setup.c,v 1.72 2002/02/09 19:49:30 davem Exp $
+/*
  *  linux/arch/sparc64/kernel/setup.c
  *
  *  Copyright (C) 1995,1996  David S. Miller (davem@caip.rutgers.edu)
@@ -15,7 +15,6 @@
 #include <linux/slab.h>
 #include <asm/smp.h>
 #include <linux/user.h>
-#include <linux/a.out.h>
 #include <linux/screen_info.h>
 #include <linux/delay.h>
 #include <linux/fs.h>
@@ -52,6 +51,8 @@
 #include <net/ipconfig.h>
 #endif
 
+#include "entry.h"
+
 /* Used to synchronize accesses to NatSemi SUPER I/O chip configure
  * operations in asm/ns87303.h
  */
@@ -69,32 +70,21 @@ struct screen_info screen_info = {
 	16                      /* orig-video-points */
 };
 
-void (*prom_palette)(int);
-void (*prom_keyboard)(void);
-
 static void
 prom_console_write(struct console *con, const char *s, unsigned n)
 {
 	prom_write(s, n);
 }
 
-unsigned int boot_flags = 0;
-#define BOOTME_DEBUG  0x1
-
 /* Exported for mm/init.c:paging_init. */
 unsigned long cmdline_memory_size = 0;
 
-static struct console prom_debug_console = {
-	.name =		"debug",
+static struct console prom_early_console = {
+	.name =		"earlyprom",
 	.write =	prom_console_write,
-	.flags =	CON_PRINTBUFFER,
+	.flags =	CON_PRINTBUFFER | CON_BOOT | CON_ANYTIME,
 	.index =	-1,
 };
-
-/* XXX Implement this at some point... */
-void kernel_enter_debugger(void)
-{
-}
 
 /* 
  * Process kernel command line switches that are specific to the
@@ -104,8 +94,6 @@ static void __init process_switch(char c)
 {
 	switch (c) {
 	case 'd':
-		boot_flags |= BOOTME_DEBUG;
-		break;
 	case 's':
 		break;
 	case 'h':
@@ -113,8 +101,7 @@ static void __init process_switch(char c)
 		prom_halt();
 		break;
 	case 'p':
-		/* Use PROM debug console. */
-		register_console(&prom_debug_console);
+		/* Just ignore, this behavior is now the default.  */
 		break;
 	case 'P':
 		/* Force UltraSPARC-III P-Cache on. */
@@ -168,8 +155,6 @@ static void __init boot_flags_init(char *commands)
 			commands++;
 	}
 }
-
-extern void panic_setup(char *, int *);
 
 extern unsigned short root_flags;
 extern unsigned short root_dev;
@@ -296,6 +281,10 @@ void __init setup_arch(char **cmdline_p)
 	/* Initialize PROM console and command line. */
 	*cmdline_p = prom_getbootargs();
 	strcpy(boot_command_line, *cmdline_p);
+	parse_early_param();
+
+	boot_flags_init(*cmdline_p);
+	register_console(&prom_early_console);
 
 	if (tlb_type == hypervisor)
 		printk("ARCH: SUN4V\n");
@@ -307,8 +296,6 @@ void __init setup_arch(char **cmdline_p)
 #elif defined(CONFIG_PROM_CONSOLE)
 	conswitchp = &prom_con;
 #endif
-
-	boot_flags_init(*cmdline_p);
 
 	idprom_init();
 
@@ -350,9 +337,6 @@ void __init setup_arch(char **cmdline_p)
 }
 
 /* BUFFER is PAGE_SIZE bytes long. */
-
-extern char *sparc_cpu_type;
-extern char *sparc_fpu_type;
 
 extern void smp_info(struct seq_file *);
 extern void smp_bogo(struct seq_file *);

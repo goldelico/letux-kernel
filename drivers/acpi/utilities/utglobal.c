@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -281,7 +281,6 @@ struct acpi_bit_register_info acpi_gbl_bit_register_info[ACPI_NUM_BITREG] = {
 	/* ACPI_BITREG_RT_CLOCK_ENABLE      */ {ACPI_REGISTER_PM1_ENABLE,
 						ACPI_BITPOSITION_RT_CLOCK_ENABLE,
 						ACPI_BITMASK_RT_CLOCK_ENABLE},
-	/* ACPI_BITREG_WAKE_ENABLE          */ {ACPI_REGISTER_PM1_ENABLE, 0, 0},
 	/* ACPI_BITREG_PCIEXP_WAKE_DISABLE  */ {ACPI_REGISTER_PM1_ENABLE,
 						ACPI_BITPOSITION_PCIEXP_WAKE_DISABLE,
 						ACPI_BITMASK_PCIEXP_WAKE_DISABLE},
@@ -575,6 +574,47 @@ char *acpi_ut_get_descriptor_name(void *object)
 
 }
 
+/*******************************************************************************
+ *
+ * FUNCTION:    acpi_ut_get_reference_name
+ *
+ * PARAMETERS:  Object               - An ACPI reference object
+ *
+ * RETURN:      Pointer to a string
+ *
+ * DESCRIPTION: Decode a reference object sub-type to a string.
+ *
+ ******************************************************************************/
+
+/* Printable names of reference object sub-types */
+
+static const char *acpi_gbl_ref_class_names[] = {
+	/* 00 */ "Local",
+	/* 01 */ "Argument",
+	/* 02 */ "RefOf",
+	/* 03 */ "Index",
+	/* 04 */ "DdbHandle",
+	/* 05 */ "Named Object",
+	/* 06 */ "Debug"
+};
+
+const char *acpi_ut_get_reference_name(union acpi_operand_object *object)
+{
+	if (!object)
+		return "NULL Object";
+
+	if (ACPI_GET_DESCRIPTOR_TYPE(object) != ACPI_DESC_TYPE_OPERAND)
+		return "Not an Operand object";
+
+	if (object->common.type != ACPI_TYPE_LOCAL_REFERENCE)
+		return "Not a Reference object";
+
+	if (object->reference.class > ACPI_REFCLASS_MAX)
+		return "Unknown Reference class";
+
+	return acpi_gbl_ref_class_names[object->reference.class];
+}
+
 #if defined(ACPI_DEBUG_OUTPUT) || defined(ACPI_DEBUGGER)
 /*
  * Strings and procedures used for debug only
@@ -601,6 +641,48 @@ char *acpi_ut_get_mutex_name(u32 mutex_id)
 	}
 
 	return (acpi_gbl_mutex_names[mutex_id]);
+}
+
+/*******************************************************************************
+ *
+ * FUNCTION:    acpi_ut_get_notify_name
+ *
+ * PARAMETERS:  notify_value    - Value from the Notify() request
+ *
+ * RETURN:      String corresponding to the Notify Value.
+ *
+ * DESCRIPTION: Translate a Notify Value to a notify namestring.
+ *
+ ******************************************************************************/
+
+/* Names for Notify() values, used for debug output */
+
+static const char *acpi_gbl_notify_value_names[] = {
+	"Bus Check",
+	"Device Check",
+	"Device Wake",
+	"Eject Request",
+	"Device Check Light",
+	"Frequency Mismatch",
+	"Bus Mode Mismatch",
+	"Power Fault",
+	"Capabilities Check",
+	"Device PLD Check",
+	"Reserved",
+	"System Locality Update"
+};
+
+const char *acpi_ut_get_notify_name(u32 notify_value)
+{
+
+	if (notify_value <= ACPI_NOTIFY_MAX) {
+		return (acpi_gbl_notify_value_names[notify_value]);
+	} else if (notify_value <= ACPI_MAX_SYS_NOTIFY) {
+		return ("Reserved");
+	} else {		/* Greater or equal to 0x80 */
+
+		return ("**Device Specific**");
+	}
 }
 #endif
 
@@ -635,14 +717,14 @@ u8 acpi_ut_valid_object_type(acpi_object_type type)
  *
  * PARAMETERS:  None
  *
- * RETURN:      None
+ * RETURN:      Status
  *
  * DESCRIPTION: Init library globals.  All globals that require specific
  *              initialization should be initialized here!
  *
  ******************************************************************************/
 
-void acpi_ut_init_globals(void)
+acpi_status acpi_ut_init_globals(void)
 {
 	acpi_status status;
 	u32 i;
@@ -653,7 +735,7 @@ void acpi_ut_init_globals(void)
 
 	status = acpi_ut_create_caches();
 	if (ACPI_FAILURE(status)) {
-		return;
+		return_ACPI_STATUS(status);
 	}
 
 	/* Mutex locked flags */
@@ -671,17 +753,17 @@ void acpi_ut_init_globals(void)
 
 	/* GPE support */
 
-	acpi_gpe_count = 0;
 	acpi_gbl_gpe_xrupt_list_head = NULL;
 	acpi_gbl_gpe_fadt_blocks[0] = NULL;
 	acpi_gbl_gpe_fadt_blocks[1] = NULL;
 
-	/* Global notify handlers */
+	/* Global handlers */
 
 	acpi_gbl_system_notify.handler = NULL;
 	acpi_gbl_device_notify.handler = NULL;
 	acpi_gbl_exception_handler = NULL;
 	acpi_gbl_init_handler = NULL;
+	acpi_gbl_table_handler = NULL;
 
 	/* Global Lock support */
 
@@ -723,16 +805,15 @@ void acpi_ut_init_globals(void)
 	acpi_gbl_root_node_struct.flags = ANOBJ_END_OF_PEER_LIST;
 
 #ifdef ACPI_DEBUG_OUTPUT
-	acpi_gbl_lowest_stack_pointer = ACPI_SIZE_MAX;
+	acpi_gbl_lowest_stack_pointer = ACPI_CAST_PTR(acpi_size, ACPI_SIZE_MAX);
 #endif
 
 #ifdef ACPI_DBG_TRACK_ALLOCATIONS
 	acpi_gbl_display_final_mem_stats = FALSE;
 #endif
 
-	return_VOID;
+	return_ACPI_STATUS(AE_OK);
 }
 
 ACPI_EXPORT_SYMBOL(acpi_dbg_level)
-    ACPI_EXPORT_SYMBOL(acpi_dbg_layer)
-    ACPI_EXPORT_SYMBOL(acpi_gpe_count)
+ACPI_EXPORT_SYMBOL(acpi_dbg_layer)

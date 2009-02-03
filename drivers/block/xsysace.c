@@ -483,7 +483,6 @@ static void ace_fsm_dostate(struct ace_device *ace)
 	u32 status;
 	u16 val;
 	int count;
-	int i;
 
 #if defined(DEBUG)
 	dev_dbg(ace->dev, "fsm_state=%i, id_req_count=%i\n",
@@ -688,7 +687,6 @@ static void ace_fsm_dostate(struct ace_device *ace)
 		}
 
 		/* Transfer the next buffer */
-		i = 16;
 		if (ace->fsm_task == ACE_TASK_WRITE)
 			ace->reg_ops->dataout(ace);
 		else
@@ -702,8 +700,8 @@ static void ace_fsm_dostate(struct ace_device *ace)
 		}
 
 		/* bio finished; is there another one? */
-		i = ace->req->current_nr_sectors;
-		if (end_that_request_first(ace->req, 1, i)) {
+		if (__blk_end_request(ace->req, 0,
+					blk_rq_cur_bytes(ace->req))) {
 			/* dev_dbg(ace->dev, "next block; h=%li c=%i\n",
 			 *      ace->req->hard_nr_sectors,
 			 *      ace->req->current_nr_sectors);
@@ -718,9 +716,6 @@ static void ace_fsm_dostate(struct ace_device *ace)
 		break;
 
 	case ACE_FSM_STATE_REQ_COMPLETE:
-		/* Complete the block request */
-		blkdev_dequeue_request(ace->req);
-		end_that_request_last(ace->req, 1);
 		ace->req = NULL;
 
 		/* Finished request; go to idle state */
@@ -875,25 +870,24 @@ static int ace_revalidate_disk(struct gendisk *gd)
 	return ace->id_result;
 }
 
-static int ace_open(struct inode *inode, struct file *filp)
+static int ace_open(struct block_device *bdev, fmode_t mode)
 {
-	struct ace_device *ace = inode->i_bdev->bd_disk->private_data;
+	struct ace_device *ace = bdev->bd_disk->private_data;
 	unsigned long flags;
 
 	dev_dbg(ace->dev, "ace_open() users=%i\n", ace->users + 1);
 
-	filp->private_data = ace;
 	spin_lock_irqsave(&ace->lock, flags);
 	ace->users++;
 	spin_unlock_irqrestore(&ace->lock, flags);
 
-	check_disk_change(inode->i_bdev);
+	check_disk_change(bdev);
 	return 0;
 }
 
-static int ace_release(struct inode *inode, struct file *filp)
+static int ace_release(struct gendisk *disk, fmode_t mode)
 {
-	struct ace_device *ace = inode->i_bdev->bd_disk->private_data;
+	struct ace_device *ace = disk->private_data;
 	unsigned long flags;
 	u16 val;
 
@@ -1207,8 +1201,10 @@ static int __devexit ace_of_remove(struct of_device *op)
 }
 
 /* Match table for of_platform binding */
-static struct of_device_id __devinit ace_of_match[] = {
-	{ .compatible = "xilinx,xsysace", },
+static struct of_device_id ace_of_match[] __devinitdata = {
+	{ .compatible = "xlnx,opb-sysace-1.00.b", },
+	{ .compatible = "xlnx,opb-sysace-1.00.c", },
+	{ .compatible = "xlnx,xps-sysace-1.00.a", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, ace_of_match);

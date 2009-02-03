@@ -44,7 +44,6 @@
 #include <linux/lis302dl.h>
 
 /* Utility functions */
-
 static u8 __reg_read(struct lis302dl_info *lis, u8 reg)
 {
 	return (lis->pdata->lis302dl_bitbang_reg_read)(lis, reg);
@@ -115,7 +114,6 @@ enum lis302dl_intmode {
 	LIS302DL_INTMODE_CLICK		= 0x07,
 };
 
-
 static void __lis302dl_int_mode(struct device *dev, int int_pin,
 			      enum lis302dl_intmode mode)
 {
@@ -135,19 +133,29 @@ static void __lis302dl_int_mode(struct device *dev, int int_pin,
 
 static void __enable_wakeup(struct lis302dl_info *lis)
 {
+	__reg_write(lis, LIS302DL_REG_CTRL1, 0);
+
 	/* First zero to get to a known state */
-	__reg_write(lis, LIS302DL_REG_FF_WU_CFG_1,
-			lis->wakeup.cfg);
+	__reg_write(lis, LIS302DL_REG_FF_WU_CFG_1, LIS302DL_FFWUCFG_XHIE |
+			LIS302DL_FFWUCFG_YHIE | LIS302DL_FFWUCFG_ZHIE |
+			LIS302DL_FFWUCFG_LIR);
 	__reg_write(lis, LIS302DL_REG_FF_WU_THS_1,
-			lis->wakeup.threshold);
+			__mg_to_threshold(lis, lis->wakeup.threshold));
 	__reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1,
-			lis->wakeup.duration);
+			__ms_to_duration(lis, lis->wakeup.duration));
 
 	/* Route the interrupt for wakeup */
 	__lis302dl_int_mode(lis->dev, 1,
 			LIS302DL_INTMODE_FF_WU_1);
 
-	__reg_write(lis, LIS302DL_REG_CTRL1, LIS302DL_CTRL1_PD);
+	__reg_read(lis, LIS302DL_REG_HP_FILTER_RESET);
+	__reg_read(lis, LIS302DL_REG_OUT_X);
+	__reg_read(lis, LIS302DL_REG_OUT_Y);
+	__reg_read(lis, LIS302DL_REG_OUT_Z);
+	__reg_read(lis, LIS302DL_REG_STATUS);
+	__reg_read(lis, LIS302DL_REG_FF_WU_SRC_1);
+	__reg_read(lis, LIS302DL_REG_FF_WU_SRC_2);
+	__reg_write(lis, LIS302DL_REG_CTRL1, LIS302DL_CTRL1_PD | 7);
 }
 
 static void __enable_data_collection(struct lis302dl_info *lis)
@@ -167,14 +175,16 @@ static void __enable_data_collection(struct lis302dl_info *lis)
 	} else {
 		__reg_write(lis, LIS302DL_REG_CTRL2,
 				LIS302DL_CTRL2_HPFF1);
-		__reg_write(lis, LIS302DL_REG_FF_WU_THS_1, lis->threshold);
-		__reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1, lis->duration);
+		__reg_write(lis, LIS302DL_REG_FF_WU_THS_1,
+				__mg_to_threshold(lis, lis->threshold));
+		__reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1,
+				__ms_to_duration(lis, lis->duration));
 
 		/* Clear the HP filter "starting point" */
 		__reg_read(lis, LIS302DL_REG_HP_FILTER_RESET);
 		__reg_write(lis, LIS302DL_REG_FF_WU_CFG_1,
 				LIS302DL_FFWUCFG_XHIE | LIS302DL_FFWUCFG_YHIE |
-				LIS302DL_FFWUCFG_ZHIE);
+				LIS302DL_FFWUCFG_ZHIE | LIS302DL_FFWUCFG_LIR);
 		__lis302dl_int_mode(lis->dev, 1, LIS302DL_INTMODE_FF_WU_12);
 		__lis302dl_int_mode(lis->dev, 2, LIS302DL_INTMODE_FF_WU_12);
 	}
@@ -223,6 +233,7 @@ static void lis302dl_bitbang_read_sample(struct lis302dl_info *lis)
 
 	/* Reset the HP filter */
 	__reg_read(lis,	LIS302DL_REG_HP_FILTER_RESET);
+	__reg_read(lis,	LIS302DL_REG_FF_WU_SRC_1);
 }
 
 static irqreturn_t lis302dl_interrupt(int irq, void *_lis)
@@ -254,7 +265,6 @@ static ssize_t set_rate(struct device *dev, struct device_attribute *attr,
 {
 	struct lis302dl_info *lis = dev_get_drvdata(dev);
 	unsigned long flags;
-	int duration_ms = __duration_to_ms(lis, lis->duration);
 
 	local_irq_save(flags);
 
@@ -267,7 +277,6 @@ static ssize_t set_rate(struct device *dev, struct device_attribute *attr,
 				0);
 		lis->flags &= ~LIS302DL_F_DR;
 	}
-	lis->duration = __ms_to_duration(lis, duration_ms);
 	local_irq_restore(flags);
 
 	return count;
@@ -294,7 +303,6 @@ static ssize_t set_scale(struct device *dev, struct device_attribute *attr,
 {
 	struct lis302dl_info *lis = dev_get_drvdata(dev);
 	unsigned long flags;
-	int threshold_mg = __threshold_to_mg(lis, lis->threshold);
 
 	local_irq_save(flags);
 
@@ -308,8 +316,6 @@ static ssize_t set_scale(struct device *dev, struct device_attribute *attr,
 		lis->flags &= ~LIS302DL_F_FS;
 	}
 
-	/* Adjust the threshold */
-	lis->threshold = __mg_to_threshold(lis, threshold_mg);
 	if (lis->flags & LIS302DL_F_INPUT_OPEN)
 		__enable_data_collection(lis);
 
@@ -325,23 +331,25 @@ static ssize_t show_threshold(struct device *dev, struct device_attribute *attr,
 {
 	struct lis302dl_info *lis = dev_get_drvdata(dev);
 
-	return sprintf(buf, "%d\n", __threshold_to_mg(lis, lis->threshold));
+	/* Display the device view of the threshold setting */
+	return sprintf(buf, "%d\n", __threshold_to_mg(lis,
+			__mg_to_threshold(lis, lis->threshold)));
 }
 
 static ssize_t set_threshold(struct device *dev, struct device_attribute *attr,
 		 const char *buf, size_t count)
 {
 	struct lis302dl_info *lis = dev_get_drvdata(dev);
-	u32 val;
+	unsigned int val;
 
-	if (sscanf(buf, "%d\n", &val) != 1)
+	if (sscanf(buf, "%u\n", &val) != 1)
 		return -EINVAL;
 	/* 8g is the maximum if FS is 1 */
-	if (val < 0 || val > 8000)
+	if (val > 8000)
 		return -ERANGE;
 
 	/* Set the threshold and write it out if the device is used */
-	lis->threshold = __mg_to_threshold(lis, val);
+	lis->threshold = val;
 
 	if (lis->flags & LIS302DL_F_INPUT_OPEN) {
 		unsigned long flags;
@@ -361,23 +369,25 @@ static ssize_t show_duration(struct device *dev, struct device_attribute *attr,
 {
 	struct lis302dl_info *lis = dev_get_drvdata(dev);
 
-	return sprintf(buf, "%d\n", __duration_to_ms(lis, lis->duration));
+	return sprintf(buf, "%d\n", __duration_to_ms(lis,
+			__ms_to_duration(lis, lis->duration)));
 }
 
 static ssize_t set_duration(struct device *dev, struct device_attribute *attr,
 		 const char *buf, size_t count)
 {
 	struct lis302dl_info *lis = dev_get_drvdata(dev);
-	u32 val;
+	unsigned int val;
 
-	if (sscanf(buf, "%d\n", &val) != 1)
+	if (sscanf(buf, "%u\n", &val) != 1)
 		return -EINVAL;
-	if (val < 0 || val > 2550)
+	if (val > 2550)
 		return -ERANGE;
 
-	lis->duration = __ms_to_duration(lis, val);
+	lis->duration = val;
 	if (lis->flags & LIS302DL_F_INPUT_OPEN)
-		__reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1, lis->duration);
+		__reg_write(lis, LIS302DL_REG_FF_WU_DURATION_1,
+				__ms_to_duration(lis, lis->duration));
 
 	return count;
 }
@@ -412,19 +422,20 @@ static ssize_t lis302dl_dump(struct device *dev, struct device_attribute *attr,
 static DEVICE_ATTR(dump, S_IRUGO, lis302dl_dump, NULL);
 
 /* Configure freefall/wakeup interrupts */
-static ssize_t set_wakeup(struct device *dev, struct device_attribute *attr,
-			 const char *buf, size_t count)
+static ssize_t set_wakeup_threshold(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct lis302dl_info *lis = dev_get_drvdata(dev);
-	u_int8_t x_lo, y_lo, z_lo;
-	u_int8_t x_hi, y_hi, z_hi;
-	int duration, threshold, and_events;
-	int x, y, z;
+	unsigned int threshold;
+
+	if (sscanf(buf, "%u\n", &threshold) != 1)
+		return -EINVAL;
+
+	if (threshold > 8000)
+		return -ERANGE;
 
 	/* Zero turns the feature off */
-	if (strcmp(buf, "0\n") == 0) {
-		lis->wakeup.active = 0;
-
+	if (threshold == 0) {
 		if (lis->flags & LIS302DL_F_IRQ_WAKE) {
 			disable_irq_wake(lis->pdata->interrupt);
 			lis->flags &= ~LIS302DL_F_IRQ_WAKE;
@@ -433,63 +444,58 @@ static ssize_t set_wakeup(struct device *dev, struct device_attribute *attr,
 		return count;
 	}
 
-	if (sscanf(buf, "%d %d %d %d %d %d", &x, &y, &z, &threshold, &duration,
-			&and_events) != 6)
-		return -EINVAL;
-
-	if (duration < 0 || duration > 2550 ||
-			threshold < 0 || threshold > 8000)
-		return -ERANGE;
-
-	/* Interrupt flags */
-	x_lo = x < 0 ? LIS302DL_FFWUCFG_XLIE : 0;
-	y_lo = y < 0 ? LIS302DL_FFWUCFG_YLIE : 0;
-	z_lo = z < 0 ? LIS302DL_FFWUCFG_ZLIE : 0;
-	x_hi = x > 0 ? LIS302DL_FFWUCFG_XHIE : 0;
-	y_hi = y > 0 ? LIS302DL_FFWUCFG_YHIE : 0;
-	z_hi = z > 0 ? LIS302DL_FFWUCFG_ZHIE : 0;
-
-	lis->wakeup.duration = __ms_to_duration(lis, duration);
-	lis->wakeup.threshold = __mg_to_threshold(lis, threshold);
-	lis->wakeup.cfg = (and_events ? LIS302DL_FFWUCFG_AOI : 0) |
-		x_lo | x_hi | y_lo | y_hi | z_lo | z_hi;
+	lis->wakeup.threshold = threshold;
 
 	if (!(lis->flags & LIS302DL_F_IRQ_WAKE)) {
 		enable_irq_wake(lis->pdata->interrupt);
 		lis->flags |= LIS302DL_F_IRQ_WAKE;
 	}
-	lis->wakeup.active = 1;
 
 	return count;
 }
 
-static ssize_t show_wakeup(struct device *dev,
+static ssize_t show_wakeup_threshold(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct lis302dl_info *lis = dev_get_drvdata(dev);
-	u8 config;
 
 	/* All events off? */
-	if (!lis->wakeup.active)
+	if (lis->wakeup.threshold == 0)
 		return sprintf(buf, "off\n");
 
-	config = lis->wakeup.cfg;
-
-	return sprintf(buf,
-			"%s events, duration %d, threshold %d, "
-			"enabled: %s %s %s %s %s %s\n",
-			(config & LIS302DL_FFWUCFG_AOI) == 0 ? "or" : "and",
-			__duration_to_ms(lis, lis->wakeup.duration),
-			__threshold_to_mg(lis, lis->wakeup.threshold),
-			(config & LIS302DL_FFWUCFG_XLIE) == 0 ? "---" : "xlo",
-			(config & LIS302DL_FFWUCFG_XHIE) == 0 ? "---" : "xhi",
-			(config & LIS302DL_FFWUCFG_YLIE) == 0 ? "---" : "ylo",
-			(config & LIS302DL_FFWUCFG_YHIE) == 0 ? "---" : "yhi",
-			(config & LIS302DL_FFWUCFG_ZLIE) == 0 ? "---" : "zlo",
-			(config & LIS302DL_FFWUCFG_ZHIE) == 0 ? "---" : "zhi");
+	return sprintf(buf, "%u\n", lis->wakeup.threshold);
 }
 
-static DEVICE_ATTR(wakeup, S_IRUGO | S_IWUSR, show_wakeup, set_wakeup);
+static DEVICE_ATTR(wakeup_threshold, S_IRUGO | S_IWUSR, show_wakeup_threshold,
+		set_wakeup_threshold);
+
+static ssize_t set_wakeup_duration(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct lis302dl_info *lis = dev_get_drvdata(dev);
+	unsigned int duration;
+
+	if (sscanf(buf, "%u\n", &duration) != 1)
+		return -EINVAL;
+
+	if (duration > 2550)
+		return -ERANGE;
+
+	lis->wakeup.duration = duration;
+
+	return count;
+}
+
+static ssize_t show_wakeup_duration(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct lis302dl_info *lis = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%u\n", lis->wakeup.duration);
+}
+
+static DEVICE_ATTR(wakeup_duration, S_IRUGO | S_IWUSR, show_wakeup_duration,
+		set_wakeup_duration);
 
 static struct attribute *lis302dl_sysfs_entries[] = {
 	&dev_attr_sample_rate.attr,
@@ -497,7 +503,8 @@ static struct attribute *lis302dl_sysfs_entries[] = {
 	&dev_attr_threshold.attr,
 	&dev_attr_duration.attr,
 	&dev_attr_dump.attr,
-	&dev_attr_wakeup.attr,
+	&dev_attr_wakeup_threshold.attr,
+	&dev_attr_wakeup_duration.attr,
 	NULL
 };
 
@@ -507,19 +514,16 @@ static struct attribute_group lis302dl_attr_group = {
 };
 
 /* input device handling and driver core interaction */
+
 static int lis302dl_input_open(struct input_dev *inp)
 {
-	struct lis302dl_info *lis = inp->private;
+	struct lis302dl_info *lis = input_get_drvdata(inp);
 	unsigned long flags;
 
 	local_irq_save(flags);
 
 	__enable_data_collection(lis);
 	lis->flags |= LIS302DL_F_INPUT_OPEN;
-
-	/* kick it off -- since we are edge triggered, if we missed the edge
-	 * permanent low interrupt is death for us */
-	lis302dl_bitbang_read_sample(lis);
 
 	local_irq_restore(flags);
 
@@ -528,7 +532,7 @@ static int lis302dl_input_open(struct input_dev *inp)
 
 static void lis302dl_input_close(struct input_dev *inp)
 {
-	struct lis302dl_info *lis = inp->private;
+	struct lis302dl_info *lis = input_get_drvdata(inp);
 	u_int8_t ctrl1 = LIS302DL_CTRL1_Xen | LIS302DL_CTRL1_Yen |
 			 LIS302DL_CTRL1_Zen;
 	unsigned long flags;
@@ -580,24 +584,11 @@ static int __devinit lis302dl_probe(struct platform_device *pdev)
 	if (!lis)
 		return -ENOMEM;
 
-	local_irq_save(flags);
-
 	lis->dev = &pdev->dev;
 
 	dev_set_drvdata(lis->dev, lis);
 
 	lis->pdata = pdata;
-
-	/* Configure our IO */
-	(lis->pdata->lis302dl_suspend_io)(lis, 1);
-
-	wai = __reg_read(lis, LIS302DL_REG_WHO_AM_I);
-	if (wai != LIS302DL_WHO_AM_I_MAGIC) {
-		dev_err(lis->dev, "unknown who_am_i signature 0x%02x\n", wai);
-		dev_set_drvdata(lis->dev, NULL);
-		rc = -ENODEV;
-		goto bail_free_lis;
-	}
 
 	rc = sysfs_create_group(&lis->dev->kobj, &lis302dl_attr_group);
 	if (rc) {
@@ -612,20 +603,7 @@ static int __devinit lis302dl_probe(struct platform_device *pdev)
 		goto bail_sysfs;
 	}
 
-	set_bit(EV_REL, lis->input_dev->evbit);
-	set_bit(REL_X, lis->input_dev->relbit);
-	set_bit(REL_Y, lis->input_dev->relbit);
-	set_bit(REL_Z, lis->input_dev->relbit);
-/*	set_bit(EV_KEY, lis->input_dev->evbit);
-	set_bit(BTN_X, lis->input_dev->keybit);
-	set_bit(BTN_Y, lis->input_dev->keybit);
-	set_bit(BTN_Z, lis->input_dev->keybit);
-*/
-	lis->threshold = 1;
-	lis->duration = 0;
-	memset(&lis->wakeup, 0, sizeof(lis->wakeup));
-
-	lis->input_dev->private = lis;
+	input_set_drvdata(lis->input_dev, lis);
 	lis->input_dev->name = pdata->name;
 	 /* SPI Bus not defined as a valid bus for input subsystem*/
 	lis->input_dev->id.bustype = BUS_I2C; /* lie about it */
@@ -637,6 +615,32 @@ static int __devinit lis302dl_probe(struct platform_device *pdev)
 		dev_err(lis->dev, "error %d registering input device\n", rc);
 		goto bail_inp_dev;
 	}
+
+	local_irq_save(flags);
+	/* Configure our IO */
+	(lis->pdata->lis302dl_suspend_io)(lis, 1);
+
+	wai = __reg_read(lis, LIS302DL_REG_WHO_AM_I);
+	if (wai != LIS302DL_WHO_AM_I_MAGIC) {
+		dev_err(lis->dev, "unknown who_am_i signature 0x%02x\n", wai);
+		dev_set_drvdata(lis->dev, NULL);
+		rc = -ENODEV;
+		local_irq_restore(flags);
+		goto bail_inp_reg;
+	}
+
+	set_bit(EV_REL, lis->input_dev->evbit);
+	set_bit(REL_X, lis->input_dev->relbit);
+	set_bit(REL_Y, lis->input_dev->relbit);
+	set_bit(REL_Z, lis->input_dev->relbit);
+/*	set_bit(EV_KEY, lis->input_dev->evbit);
+	set_bit(BTN_X, lis->input_dev->keybit);
+	set_bit(BTN_Y, lis->input_dev->keybit);
+	set_bit(BTN_Z, lis->input_dev->keybit);
+*/
+	lis->threshold = 0;
+	lis->duration = 0;
+	memset(&lis->wakeup, 0, sizeof(lis->wakeup));
 
 	if (__lis302dl_reset_device(lis))
 		dev_err(lis->dev, "device BOOT reload failed\n");
@@ -674,19 +678,22 @@ static int __devinit lis302dl_probe(struct platform_device *pdev)
 	__reg_read(lis, LIS302DL_REG_FF_WU_SRC_1);
 	__reg_read(lis, LIS302DL_REG_FF_WU_SRC_2);
 	__reg_read(lis, LIS302DL_REG_CLICK_SRC);
+	local_irq_restore(flags);
 
 	dev_info(lis->dev, "Found %s\n", pdata->name);
 
 	lis->pdata = pdata;
 
-	rc = request_irq(pdata->interrupt, lis302dl_interrupt,
-			 IRQF_TRIGGER_FALLING, "lis302dl", lis);
+	set_irq_handler(lis->pdata->interrupt, handle_level_irq);
+
+	rc = request_irq(lis->pdata->interrupt, lis302dl_interrupt,
+			 IRQF_TRIGGER_LOW, "lis302dl", lis);
+	
 	if (rc < 0) {
 		dev_err(lis->dev, "error requesting IRQ %d\n",
 			lis->pdata->interrupt);
 		goto bail_inp_reg;
 	}
-	local_irq_restore(flags);
 	return 0;
 
 bail_inp_reg:
@@ -697,7 +704,6 @@ bail_sysfs:
 	sysfs_remove_group(&lis->dev->kobj, &lis302dl_attr_group);
 bail_free_lis:
 	kfree(lis);
-	local_irq_restore(flags);
 	return rc;
 }
 
@@ -705,6 +711,11 @@ static int __devexit lis302dl_remove(struct platform_device *pdev)
 {
 	struct lis302dl_info *lis = dev_get_drvdata(&pdev->dev);
 	unsigned long flags;
+
+	/* Disable interrupts */
+	if (lis->flags & LIS302DL_F_IRQ_WAKE)
+		disable_irq_wake(lis->pdata->interrupt);
+	free_irq(lis->pdata->interrupt, lis);
 
 	/* Reset and power down the device */
 	local_irq_save(flags);
@@ -714,7 +725,6 @@ static int __devexit lis302dl_remove(struct platform_device *pdev)
 	local_irq_restore(flags);
 
 	/* Cleanup resources */
-	free_irq(lis->pdata->interrupt, lis);
 	sysfs_remove_group(&pdev->dev.kobj, &lis302dl_attr_group);
 	input_unregister_device(lis->input_dev);
 	if (lis->input_dev)
@@ -775,7 +785,8 @@ static int lis302dl_suspend(struct platform_device *pdev, pm_message_t state)
 			__reg_read(lis, regs_to_save[n]);
 
 	/* power down or enable wakeup */
-	if (!lis->wakeup.active) {
+
+	if (lis->wakeup.threshold == 0) {
 		tmp = __reg_read(lis, LIS302DL_REG_CTRL1);
 		tmp &= ~LIS302DL_CTRL1_PD;
 		__reg_write(lis, LIS302DL_REG_CTRL1, tmp);

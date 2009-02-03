@@ -109,6 +109,7 @@ static struct mlog_attribute mlog_attrs[MLOG_MAX_BITS] = {
 	define_mask(CONN),
 	define_mask(QUORUM),
 	define_mask(EXPORT),
+	define_mask(XATTR),
 	define_mask(ERROR),
 	define_mask(NOTICE),
 	define_mask(KTHREAD),
@@ -146,7 +147,7 @@ static struct kset mlog_kset = {
 	.kobj   = {.ktype = &mlog_ktype},
 };
 
-int mlog_sys_init(struct kset *o2cb_subsys)
+int mlog_sys_init(struct kset *o2cb_kset)
 {
 	int i = 0;
 
@@ -157,7 +158,7 @@ int mlog_sys_init(struct kset *o2cb_subsys)
 	mlog_attr_ptrs[i] = NULL;
 
 	kobject_set_name(&mlog_kset.kobj, "logmask");
-	kobj_set_kset_s(&mlog_kset, *o2cb_subsys);
+	mlog_kset.kobj.kset = o2cb_kset;
 	return kset_register(&mlog_kset);
 }
 

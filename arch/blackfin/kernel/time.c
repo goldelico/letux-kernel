@@ -6,9 +6,10 @@
  * Created:
  * Description:  This file contains the bfin-specific time handling details.
  *               Most of the stuff is located in the machine specific files.
+ *		 FIXME: (This file is subject for removal)
  *
  * Modified:
- *               Copyright 2004-2006 Analog Devices Inc.
+ *               Copyright 2004-2008 Analog Devices Inc.
  *
  * Bugs:         Enter bugs at http://blackfin.uclinux.org/
  *
@@ -35,105 +36,21 @@
 #include <linux/irq.h>
 
 #include <asm/blackfin.h>
+#include <asm/time.h>
 
 /* This is an NTP setting */
 #define	TICK_SIZE (tick_nsec / 1000)
 
-static void time_sched_init(irqreturn_t(*timer_routine)
-			(int, void *));
+static void time_sched_init(irq_handler_t timer_routine);
 static unsigned long gettimeoffset(void);
-static inline void do_leds(void);
-
-#if (defined(CONFIG_BFIN_ALIVE_LED) || defined(CONFIG_BFIN_IDLE_LED))
-void __init init_leds(void)
-{
-	unsigned int tmp = 0;
-
-#if defined(CONFIG_BFIN_ALIVE_LED)
-	/* config pins as output. */
-	tmp = bfin_read_CONFIG_BFIN_ALIVE_LED_DPORT();
-	SSYNC();
-	bfin_write_CONFIG_BFIN_ALIVE_LED_DPORT(tmp | CONFIG_BFIN_ALIVE_LED_PIN);
-	SSYNC();
-
-	/*      First set led be off */
-	tmp = bfin_read_CONFIG_BFIN_ALIVE_LED_PORT();
-	SSYNC();
-	bfin_write_CONFIG_BFIN_ALIVE_LED_PORT(tmp | CONFIG_BFIN_ALIVE_LED_PIN);	/* light off */
-	SSYNC();
-#endif
-
-#if defined(CONFIG_BFIN_IDLE_LED)
-	/* config pins as output. */
-	tmp = bfin_read_CONFIG_BFIN_IDLE_LED_DPORT();
-	SSYNC();
-	bfin_write_CONFIG_BFIN_IDLE_LED_DPORT(tmp | CONFIG_BFIN_IDLE_LED_PIN);
-	SSYNC();
-
-	/*      First set led be off */
-	tmp = bfin_read_CONFIG_BFIN_IDLE_LED_PORT();
-	SSYNC();
-	bfin_write_CONFIG_BFIN_IDLE_LED_PORT(tmp | CONFIG_BFIN_IDLE_LED_PIN);	/* light off */
-	SSYNC();
-#endif
-}
-#else
-void __init init_leds(void)
-{
-}
-#endif
-
-#if defined(CONFIG_BFIN_ALIVE_LED)
-static inline void do_leds(void)
-{
-	static unsigned int count = 50;
-	static int flag;
-	unsigned short tmp = 0;
-
-	if (--count == 0) {
-		count = 50;
-		flag = ~flag;
-	}
-	tmp = bfin_read_CONFIG_BFIN_ALIVE_LED_PORT();
-	SSYNC();
-
-	if (flag)
-		tmp &= ~CONFIG_BFIN_ALIVE_LED_PIN;	/* light on */
-	else
-		tmp |= CONFIG_BFIN_ALIVE_LED_PIN;	/* light off */
-
-	bfin_write_CONFIG_BFIN_ALIVE_LED_PORT(tmp);
-	SSYNC();
-
-}
-#else
-static inline void do_leds(void)
-{
-}
-#endif
 
 static struct irqaction bfin_timer_irq = {
 	.name = "BFIN Timer Tick",
 	.flags = IRQF_DISABLED
 };
 
-/*
- * The way that the Blackfin core timer works is:
- *  - CCLK is divided by a programmable 8-bit pre-scaler (TSCALE)
- *  - Every time TSCALE ticks, a 32bit is counted down (TCOUNT)
- *
- * If you take the fastest clock (1ns, or 1GHz to make the math work easier)
- *    10ms is 10,000,000 clock ticks, which fits easy into a 32-bit counter
- *    (32 bit counter is 4,294,967,296ns or 4.2 seconds) so, we don't need
- *    to use TSCALE, and program it to zero (which is pass CCLK through).
- *    If you feel like using it, try to keep HZ * TIMESCALE to some
- *    value that divides easy (like power of 2).
- */
-
-#define TIME_SCALE 1
-
 static void
-time_sched_init(irqreturn_t(*timer_routine) (int, void *))
+time_sched_init(irq_handler_t timer_routine)
 {
 	u32 tcount;
 
@@ -205,11 +122,7 @@ irqreturn_t timer_interrupt(int irq, void *dummy)
 	write_seqlock(&xtime_lock);
 
 	do_timer(1);
-	do_leds();
 
-#ifndef CONFIG_SMP
-	update_process_times(user_mode(get_irq_regs()));
-#endif
 	profile_tick(CPU_PROFILING);
 
 	/*
@@ -231,6 +144,11 @@ irqreturn_t timer_interrupt(int irq, void *dummy)
 			last_rtc_update = xtime.tv_sec - 600;
 	}
 	write_sequnlock(&xtime_lock);
+
+#ifndef CONFIG_SMP
+	update_process_times(user_mode(get_irq_regs()));
+#endif
+
 	return IRQ_HANDLED;
 }
 

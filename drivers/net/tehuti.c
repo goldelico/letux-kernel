@@ -621,8 +621,14 @@ err:
 static void __init bdx_firmware_endianess(void)
 {
 	int i;
-	for (i = 0; i < sizeof(s_firmLoad) / sizeof(u32); i++)
+	for (i = 0; i < ARRAY_SIZE(s_firmLoad); i++)
 		s_firmLoad[i] = CPU_CHIP_SWAP32(s_firmLoad[i]);
+}
+
+static int bdx_range_check(struct bdx_priv *priv, u32 offset)
+{
+	return (offset > (u32) (BDX_REGS_SIZE / priv->nic->port_num)) ?
+		-EINVAL : 0;
 }
 
 static int bdx_ioctl_priv(struct net_device *ndev, struct ifreq *ifr, int cmd)
@@ -643,9 +649,15 @@ static int bdx_ioctl_priv(struct net_device *ndev, struct ifreq *ifr, int cmd)
 		DBG("%d 0x%x 0x%x\n", data[0], data[1], data[2]);
 	}
 
+	if (!capable(CAP_SYS_RAWIO))
+		return -EPERM;
+
 	switch (data[0]) {
 
 	case BDX_OP_READ:
+		error = bdx_range_check(priv, data[1]);
+		if (error < 0)
+			return error;
 		data[2] = READ_REG(priv, data[1]);
 		DBG("read_reg(0x%x)=0x%x (dec %d)\n", data[1], data[2],
 		    data[2]);
@@ -655,6 +667,9 @@ static int bdx_ioctl_priv(struct net_device *ndev, struct ifreq *ifr, int cmd)
 		break;
 
 	case BDX_OP_WRITE:
+		error = bdx_range_check(priv, data[1]);
+		if (error < 0)
+			return error;
 		WRITE_REG(priv, data[1], data[2]);
 		DBG("write_reg(0x%x, 0x%x)\n", data[1], data[2]);
 		break;
@@ -1150,7 +1165,7 @@ NETIF_RX_MUX(struct bdx_priv *priv, u32 rxd_val1, u16 rxd_vlan,
 					  GET_RXD_VLAN_ID(rxd_vlan))->name);
 		/* NAPI variant of receive functions */
 		vlan_hwaccel_receive_skb(skb, priv->vlgrp,
-					 GET_RXD_VLAN_ID(rxd_vlan));
+					 GET_RXD_VLAN_TCI(rxd_vlan));
 	} else {
 		netif_receive_skb(skb);
 	}
@@ -2174,8 +2189,7 @@ bdx_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
 	strlcat(drvinfo->bus_info, pci_name(priv->pdev),
 		sizeof(drvinfo->bus_info));
 
-	drvinfo->n_stats = ((priv->stats_flag) ?
-			    (sizeof(bdx_stat_names) / ETH_GSTRING_LEN) : 0);
+	drvinfo->n_stats = ((priv->stats_flag) ? ARRAY_SIZE(bdx_stat_names) : 0);
 	drvinfo->testinfo_len = 0;
 	drvinfo->regdump_len = 0;
 	drvinfo->eedump_len = 0;
@@ -2375,10 +2389,9 @@ static void bdx_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
 static int bdx_get_stats_count(struct net_device *netdev)
 {
 	struct bdx_priv *priv = netdev->priv;
-	BDX_ASSERT(sizeof(bdx_stat_names) / ETH_GSTRING_LEN
+	BDX_ASSERT(ARRAY_SIZE(bdx_stat_names)
 		   != sizeof(struct bdx_stats) / sizeof(u64));
-	return ((priv->stats_flag) ? (sizeof(bdx_stat_names) / ETH_GSTRING_LEN)
-		: 0);
+	return ((priv->stats_flag) ? ARRAY_SIZE(bdx_stat_names)	: 0);
 }
 
 /*

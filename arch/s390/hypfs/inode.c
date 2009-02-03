@@ -150,33 +150,24 @@ static ssize_t hypfs_aio_read(struct kiocb *iocb, const struct iovec *iov,
 			      unsigned long nr_segs, loff_t offset)
 {
 	char *data;
-	size_t len;
+	ssize_t ret;
 	struct file *filp = iocb->ki_filp;
 	/* XXX: temporary */
 	char __user *buf = iov[0].iov_base;
 	size_t count = iov[0].iov_len;
 
-	if (nr_segs != 1) {
-		count = -EINVAL;
-		goto out;
-	}
+	if (nr_segs != 1)
+		return -EINVAL;
 
 	data = filp->private_data;
-	len = strlen(data);
-	if (offset > len) {
-		count = 0;
-		goto out;
-	}
-	if (count > len - offset)
-		count = len - offset;
-	if (copy_to_user(buf, data + offset, count)) {
-		count = -EFAULT;
-		goto out;
-	}
-	iocb->ki_pos += count;
+	ret = simple_read_from_buffer(buf, count, &offset, data, strlen(data));
+	if (ret <= 0)
+		return ret;
+
+	iocb->ki_pos += ret;
 	file_accessed(filp);
-out:
-	return count;
+
+	return ret;
 }
 static ssize_t hypfs_aio_write(struct kiocb *iocb, const struct iovec *iov,
 			      unsigned long nr_segs, loff_t offset)
@@ -228,7 +219,7 @@ static int hypfs_release(struct inode *inode, struct file *filp)
 
 enum { opt_uid, opt_gid, opt_err };
 
-static match_table_t hypfs_tokens = {
+static const match_table_t hypfs_tokens = {
 	{opt_uid, "uid=%u"},
 	{opt_gid, "gid=%u"},
 	{opt_err, NULL}
@@ -490,7 +481,7 @@ static struct super_operations hypfs_s_ops = {
 	.show_options	= hypfs_show_options,
 };
 
-static decl_subsys(s390, NULL, NULL);
+static struct kobject *s390_kobj;
 
 static int __init hypfs_init(void)
 {
@@ -506,17 +497,18 @@ static int __init hypfs_init(void)
 			goto fail_diag;
 		}
 	}
-	kobj_set_kset_s(&s390_subsys, hypervisor_subsys);
-	rc = subsystem_register(&s390_subsys);
-	if (rc)
+	s390_kobj = kobject_create_and_add("s390", hypervisor_kobj);
+	if (!s390_kobj) {
+		rc = -ENOMEM;;
 		goto fail_sysfs;
+	}
 	rc = register_filesystem(&hypfs_type);
 	if (rc)
 		goto fail_filesystem;
 	return 0;
 
 fail_filesystem:
-	subsystem_unregister(&s390_subsys);
+	kobject_put(s390_kobj);
 fail_sysfs:
 	if (!MACHINE_IS_VM)
 		hypfs_diag_exit();
@@ -530,7 +522,7 @@ static void __exit hypfs_exit(void)
 	if (!MACHINE_IS_VM)
 		hypfs_diag_exit();
 	unregister_filesystem(&hypfs_type);
-	subsystem_unregister(&s390_subsys);
+	kobject_put(s390_kobj);
 }
 
 module_init(hypfs_init)

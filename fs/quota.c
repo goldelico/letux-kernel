@@ -69,7 +69,6 @@ static int generic_quotactl_valid(struct super_block *sb, int type, int cmd, qid
 	switch (cmd) {
 		case Q_GETFMT:
 		case Q_GETINFO:
-		case Q_QUOTAOFF:
 		case Q_SETINFO:
 		case Q_SETQUOTA:
 		case Q_GETQUOTA:
@@ -187,7 +186,7 @@ static void quota_sync_sb(struct super_block *sb, int type)
 
 void sync_dquots(struct super_block *sb, int type)
 {
-	int cnt, dirty;
+	int cnt;
 
 	if (sb) {
 		if (sb->s_qcop->quota_sync)
@@ -199,11 +198,17 @@ void sync_dquots(struct super_block *sb, int type)
 restart:
 	list_for_each_entry(sb, &super_blocks, s_list) {
 		/* This test just improves performance so it needn't be reliable... */
-		for (cnt = 0, dirty = 0; cnt < MAXQUOTAS; cnt++)
-			if ((type == cnt || type == -1) && sb_has_quota_enabled(sb, cnt)
-			    && info_any_dirty(&sb_dqopt(sb)->info[cnt]))
-				dirty = 1;
-		if (!dirty)
+		for (cnt = 0; cnt < MAXQUOTAS; cnt++) {
+			if (type != -1 && type != cnt)
+				continue;
+			if (!sb_has_quota_enabled(sb, cnt))
+				continue;
+			if (!info_dirty(&sb_dqopt(sb)->info[cnt]) &&
+			    list_empty(&sb_dqopt(sb)->info[cnt].dqi_dirty_list))
+				continue;
+			break;
+		}
+		if (cnt == MAXQUOTAS)
 			continue;
 		sb->s_count++;
 		spin_unlock(&sb_lock);
@@ -229,12 +234,12 @@ static int do_quotactl(struct super_block *sb, int type, int cmd, qid_t id, void
 
 			if (IS_ERR(pathname = getname(addr)))
 				return PTR_ERR(pathname);
-			ret = sb->s_qcop->quota_on(sb, type, id, pathname);
+			ret = sb->s_qcop->quota_on(sb, type, id, pathname, 0);
 			putname(pathname);
 			return ret;
 		}
 		case Q_QUOTAOFF:
-			return sb->s_qcop->quota_off(sb, type);
+			return sb->s_qcop->quota_off(sb, type, 0);
 
 		case Q_GETFMT: {
 			__u32 fmt;
@@ -341,11 +346,11 @@ static inline struct super_block *quotactl_block(const char __user *special)
 	char *tmp = getname(special);
 
 	if (IS_ERR(tmp))
-		return ERR_PTR(PTR_ERR(tmp));
+		return ERR_CAST(tmp);
 	bdev = lookup_bdev(tmp);
 	putname(tmp);
 	if (IS_ERR(bdev))
-		return ERR_PTR(PTR_ERR(bdev));
+		return ERR_CAST(bdev);
 	sb = get_super(bdev);
 	bdput(bdev);
 	if (!sb)

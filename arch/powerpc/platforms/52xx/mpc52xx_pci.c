@@ -63,6 +63,7 @@
 
 #define MPC52xx_PCI_TCR_P		0x01000000
 #define MPC52xx_PCI_TCR_LD		0x00010000
+#define MPC52xx_PCI_TCR_WCT8		0x00000008
 
 #define MPC52xx_PCI_TBATR_DISABLE	0x0
 #define MPC52xx_PCI_TBATR_ENABLE	0x1
@@ -99,6 +100,12 @@ struct mpc52xx_pci {
 	u8	reserved6[4];	/* PCI + 0xFC */
 };
 
+/* MPC5200 device tree match tables */
+const struct of_device_id mpc52xx_pci_ids[] __initdata = {
+	{ .type = "pci", .compatible = "fsl,mpc5200-pci", },
+	{ .type = "pci", .compatible = "mpc5200-pci", },
+	{}
+};
 
 /* ======================================================================== */
 /* PCI configuration acess                                                  */
@@ -258,8 +265,11 @@ mpc52xx_pci_setup(struct pci_controller *hose,
 	/* Memory windows */
 	res = &hose->mem_resources[0];
 	if (res->flags) {
-		pr_debug("mem_resource[0] = {.start=%x, .end=%x, .flags=%lx}\n",
-		         res->start, res->end, res->flags);
+		pr_debug("mem_resource[0] = "
+		         "{.start=%llx, .end=%llx, .flags=%llx}\n",
+		         (unsigned long long)res->start,
+			 (unsigned long long)res->end,
+			 (unsigned long long)res->flags);
 		out_be32(&pci_regs->iw0btar,
 		         MPC52xx_PCI_IWBTAR_TRANSLATION(res->start, res->start,
 		                  res->end - res->start + 1));
@@ -290,9 +300,11 @@ mpc52xx_pci_setup(struct pci_controller *hose,
 		printk(KERN_ERR "%s: Didn't find IO resources\n", __FILE__);
 		return;
 	}
-	pr_debug(".io_resource={.start=%x,.end=%x,.flags=%lx} "
+	pr_debug(".io_resource={.start=%llx,.end=%llx,.flags=%llx} "
 	         ".io_base_phys=0x%p\n",
-	         res->start, res->end, res->flags, (void*)hose->io_base_phys);
+	         (unsigned long long)res->start,
+		 (unsigned long long)res->end,
+		 (unsigned long long)res->flags, (void*)hose->io_base_phys);
 	out_be32(&pci_regs->iw2btar,
 	         MPC52xx_PCI_IWBTAR_TRANSLATION(hose->io_base_phys,
 	                                        res->start,
@@ -307,7 +319,7 @@ mpc52xx_pci_setup(struct pci_controller *hose,
 	out_be32(&pci_regs->tbatr1,
 		MPC52xx_PCI_TBATR_ENABLE | MPC52xx_PCI_TARGET_MEM );
 
-	out_be32(&pci_regs->tcr, MPC52xx_PCI_TCR_LD);
+	out_be32(&pci_regs->tcr, MPC52xx_PCI_TCR_LD | MPC52xx_PCI_TCR_WCT8);
 
 	tmp = in_be32(&pci_regs->gscr);
 #if 0
@@ -363,7 +375,7 @@ mpc52xx_add_bridge(struct device_node *node)
 
 	pr_debug("Adding MPC52xx PCI host bridge %s\n", node->full_name);
 
-	pci_assign_all_buses = 1;
+	ppc_pci_flags |= PPC_PCI_REASSIGN_ALL_BUS;
 
 	if (of_address_to_resource(node, 0, &rsrc) != 0) {
 		printk(KERN_ERR "Can't get %s resources\n", node->full_name);
@@ -405,4 +417,16 @@ mpc52xx_add_bridge(struct device_node *node)
 	mpc52xx_pci_setup(hose, pci_regs);
 
 	return 0;
+}
+
+void __init mpc52xx_setup_pci(void)
+{
+	struct device_node *pci;
+
+	pci = of_find_matching_node(NULL, mpc52xx_pci_ids);
+	if (!pci)
+		return;
+
+	mpc52xx_add_bridge(pci);
+	of_node_put(pci);
 }

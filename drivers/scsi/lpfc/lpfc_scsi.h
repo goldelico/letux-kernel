@@ -107,6 +107,10 @@ struct fcp_cmnd {
 
 };
 
+struct lpfc_scsicmd_bkt {
+	uint32_t cmd_count;
+};
+
 struct lpfc_scsi_buf {
 	struct list_head list;
 	struct scsi_cmnd *pCmd;
@@ -138,6 +142,8 @@ struct lpfc_scsi_buf {
 	 * Iotag is in here
 	 */
 	struct lpfc_iocbq cur_iocbq;
+	wait_queue_head_t *waitq;
+	unsigned long start_time;
 };
 
 #define LPFC_SCSI_DMA_EXT_SIZE 264

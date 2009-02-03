@@ -12,8 +12,9 @@
 #include <linux/kexec.h>
 #include <linux/reboot.h>
 #include <linux/threads.h>
+#include <linux/lmb.h>
 #include <asm/machdep.h>
-#include <asm/lmb.h>
+#include <asm/prom.h>
 
 void machine_crash_shutdown(struct pt_regs *regs)
 {
@@ -47,7 +48,7 @@ void machine_kexec_cleanup(struct kimage *image)
  * Do not allocate memory (or fail in any way) in machine_kexec().
  * We are past the point of no return, committed to rebooting now.
  */
-NORET_TYPE void machine_kexec(struct kimage *image)
+void machine_kexec(struct kimage *image)
 {
 	if (ppc_md.machine_kexec)
 		ppc_md.machine_kexec(image);
@@ -73,25 +74,27 @@ void __init reserve_crashkernel(void)
 	ret = parse_crashkernel(boot_command_line, lmb_phys_mem_size(),
 			&crash_size, &crash_base);
 	if (ret == 0 && crash_size > 0) {
-		if (crash_base == 0)
-			crash_base = KDUMP_KERNELBASE;
 		crashk_res.start = crash_base;
-	} else {
-		/* handle the device tree */
-		crash_size = crashk_res.end - crashk_res.start + 1;
+		crashk_res.end = crash_base + crash_size - 1;
 	}
 
-	if (crash_size == 0)
+	if (crashk_res.end == crashk_res.start) {
+		crashk_res.start = crashk_res.end = 0;
 		return;
+	}
 
 	/* We might have got these values via the command line or the
 	 * device tree, either way sanitise them now. */
 
+	crash_size = crashk_res.end - crashk_res.start + 1;
+
+#ifndef CONFIG_RELOCATABLE
 	if (crashk_res.start != KDUMP_KERNELBASE)
 		printk("Crash kernel location must be 0x%x\n",
 				KDUMP_KERNELBASE);
 
 	crashk_res.start = KDUMP_KERNELBASE;
+#endif
 	crash_size = PAGE_ALIGN(crash_size);
 	crashk_res.end = crashk_res.start + crash_size - 1;
 

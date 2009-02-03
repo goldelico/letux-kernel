@@ -120,9 +120,9 @@ static struct irq_chip msi_irq = {
 	/* XXX affinity XXX */
 };
 
-int sparc64_setup_msi_irq(unsigned int *virt_irq_p,
-			  struct pci_dev *pdev,
-			  struct msi_desc *entry)
+static int sparc64_setup_msi_irq(unsigned int *virt_irq_p,
+				 struct pci_dev *pdev,
+				 struct msi_desc *entry)
 {
 	struct pci_pbm_info *pbm = pdev->dev.archdata.host_controller;
 	const struct sparc64_msiq_ops *ops = pbm->msi_ops;
@@ -179,8 +179,8 @@ out_err:
 	return err;
 }
 
-void sparc64_teardown_msi_irq(unsigned int virt_irq,
-			      struct pci_dev *pdev)
+static void sparc64_teardown_msi_irq(unsigned int virt_irq,
+				     struct pci_dev *pdev)
 {
 	struct pci_pbm_info *pbm = pdev->dev.archdata.host_controller;
 	const struct sparc64_msiq_ops *ops = pbm->msi_ops;
@@ -279,11 +279,17 @@ static int bringup_one_msi_queue(struct pci_pbm_info *pbm,
 				 unsigned long devino)
 {
 	int irq = ops->msiq_build_irq(pbm, msiqid, devino);
-	int err;
+	int err, nid;
 
 	if (irq < 0)
 		return irq;
 
+	nid = pbm->numa_node;
+	if (nid != -1) {
+		cpumask_t numa_mask = node_to_cpumask(nid);
+
+		irq_set_affinity(irq, numa_mask);
+	}
 	err = request_irq(irq, sparc64_msiq_interrupt, 0,
 			  "MSIQ",
 			  &pbm->msiq_irq_cookies[msiqid - pbm->msiq_first]);
@@ -317,7 +323,7 @@ void sparc64_pbm_msi_init(struct pci_pbm_info *pbm,
 	const u32 *val;
 	int len;
 
-	val = of_get_property(pbm->prom_node, "#msi-eqs", &len);
+	val = of_get_property(pbm->op->node, "#msi-eqs", &len);
 	if (!val || len != 4)
 		goto no_msi;
 	pbm->msiq_num = *val;
@@ -340,16 +346,16 @@ void sparc64_pbm_msi_init(struct pci_pbm_info *pbm,
 			u32 msi64_len;
 		} *arng;
 
-		val = of_get_property(pbm->prom_node, "msi-eq-size", &len);
+		val = of_get_property(pbm->op->node, "msi-eq-size", &len);
 		if (!val || len != 4)
 			goto no_msi;
 
 		pbm->msiq_ent_count = *val;
 
-		mqp = of_get_property(pbm->prom_node,
+		mqp = of_get_property(pbm->op->node,
 				      "msi-eq-to-devino", &len);
 		if (!mqp)
-			mqp = of_get_property(pbm->prom_node,
+			mqp = of_get_property(pbm->op->node,
 					      "msi-eq-devino", &len);
 		if (!mqp || len != sizeof(struct msiq_prop))
 			goto no_msi;
@@ -357,27 +363,27 @@ void sparc64_pbm_msi_init(struct pci_pbm_info *pbm,
 		pbm->msiq_first = mqp->first_msiq;
 		pbm->msiq_first_devino = mqp->first_devino;
 
-		val = of_get_property(pbm->prom_node, "#msi", &len);
+		val = of_get_property(pbm->op->node, "#msi", &len);
 		if (!val || len != 4)
 			goto no_msi;
 		pbm->msi_num = *val;
 
-		mrng = of_get_property(pbm->prom_node, "msi-ranges", &len);
+		mrng = of_get_property(pbm->op->node, "msi-ranges", &len);
 		if (!mrng || len != sizeof(struct msi_range_prop))
 			goto no_msi;
 		pbm->msi_first = mrng->first_msi;
 
-		val = of_get_property(pbm->prom_node, "msi-data-mask", &len);
+		val = of_get_property(pbm->op->node, "msi-data-mask", &len);
 		if (!val || len != 4)
 			goto no_msi;
 		pbm->msi_data_mask = *val;
 
-		val = of_get_property(pbm->prom_node, "msix-data-width", &len);
+		val = of_get_property(pbm->op->node, "msix-data-width", &len);
 		if (!val || len != 4)
 			goto no_msi;
 		pbm->msix_data_width = *val;
 
-		arng = of_get_property(pbm->prom_node, "msi-address-ranges",
+		arng = of_get_property(pbm->op->node, "msi-address-ranges",
 				       &len);
 		if (!arng || len != sizeof(struct addr_range_prop))
 			goto no_msi;

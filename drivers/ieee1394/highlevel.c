@@ -228,10 +228,8 @@ void hpsb_register_highlevel(struct hpsb_highlevel *hl)
 {
 	unsigned long flags;
 
+	hpsb_init_highlevel(hl);
 	INIT_LIST_HEAD(&hl->addr_list);
-	INIT_LIST_HEAD(&hl->host_info_list);
-
-	rwlock_init(&hl->host_info_lock);
 
 	down_write(&hl_drivers_sem);
 	list_add_tail(&hl->hl_list, &hl_drivers);
@@ -339,7 +337,7 @@ u64 hpsb_allocate_and_register_addrspace(struct hpsb_highlevel *hl,
 	if ((alignment & 3) || (alignment > 0x800000000000ULL) ||
 	    (hweight64(alignment) != 1)) {
 		HPSB_ERR("%s called with invalid alignment: 0x%048llx",
-			 __FUNCTION__, (unsigned long long)alignment);
+			 __func__, (unsigned long long)alignment);
 		return retval;
 	}
 
@@ -354,7 +352,7 @@ u64 hpsb_allocate_and_register_addrspace(struct hpsb_highlevel *hl,
 	if (((start|end) & ~align_mask) || (start >= end) ||
 	    (end > CSR1212_ALL_SPACE_END)) {
 		HPSB_ERR("%s called with invalid addresses "
-			 "(start = %012Lx  end = %012Lx)", __FUNCTION__,
+			 "(start = %012Lx  end = %012Lx)", __func__,
 			 (unsigned long long)start,(unsigned long long)end);
 		return retval;
 	}
@@ -422,7 +420,7 @@ int hpsb_register_addrspace(struct hpsb_highlevel *hl, struct hpsb_host *host,
 
 	if (((start|end) & 3) || (start >= end) ||
 	    (end > CSR1212_ALL_SPACE_END)) {
-		HPSB_ERR("%s called with invalid addresses", __FUNCTION__);
+		HPSB_ERR("%s called with invalid addresses", __func__);
 		return 0;
 	}
 

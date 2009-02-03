@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -151,7 +151,7 @@ acpi_ds_init_one_object(acpi_handle obj_handle,
  ******************************************************************************/
 
 acpi_status
-acpi_ds_initialize_objects(acpi_native_uint table_index,
+acpi_ds_initialize_objects(u32 table_index,
 			   struct acpi_namespace_node * start_node)
 {
 	acpi_status status;

@@ -133,7 +133,7 @@ sn_get_bussoft_ptr(struct pci_bus *bus)
 	if (ACPI_FAILURE(status)) {
 		printk(KERN_ERR "%s: "
 		       "acpi_get_vendor_resource() failed (0x%x) for: ",
-		       __FUNCTION__, status);
+		       __func__, status);
 		acpi_ns_print_node_pathname(handle, NULL);
 		printk("\n");
 		return NULL;
@@ -145,7 +145,7 @@ sn_get_bussoft_ptr(struct pci_bus *bus)
 	     sizeof(struct pcibus_bussoft *)) {
 		printk(KERN_ERR
 		       "%s: Invalid vendor data length %d\n",
-			__FUNCTION__, vendor->byte_length);
+			__func__, vendor->byte_length);
 		kfree(buffer.pointer);
 		return NULL;
 	}
@@ -184,7 +184,7 @@ sn_extract_device_info(acpi_handle handle, struct pcidev_info **pcidev_info,
 	if (ACPI_FAILURE(status)) {
 		printk(KERN_ERR
 		       "%s: acpi_get_vendor_resource() failed (0x%x) for: ",
-		        __FUNCTION__, status);
+		        __func__, status);
 		acpi_ns_print_node_pathname(handle, NULL);
 		printk("\n");
 		return 1;
@@ -196,7 +196,7 @@ sn_extract_device_info(acpi_handle handle, struct pcidev_info **pcidev_info,
 	    sizeof(struct pci_devdev_info *)) {
 		printk(KERN_ERR
 		       "%s: Invalid vendor data length: %d for: ",
-		        __FUNCTION__, vendor->byte_length);
+		        __func__, vendor->byte_length);
 		acpi_ns_print_node_pathname(handle, NULL);
 		printk("\n");
 		ret = 1;
@@ -205,7 +205,7 @@ sn_extract_device_info(acpi_handle handle, struct pcidev_info **pcidev_info,
 
 	pcidev_ptr = kzalloc(sizeof(struct pcidev_info), GFP_KERNEL);
 	if (!pcidev_ptr)
-		panic("%s: Unable to alloc memory for pcidev_info", __FUNCTION__);
+		panic("%s: Unable to alloc memory for pcidev_info", __func__);
 
 	memcpy(&addr, vendor->byte_data, sizeof(struct pcidev_info *));
 	pcidev_prom_ptr = __va(addr);
@@ -214,7 +214,7 @@ sn_extract_device_info(acpi_handle handle, struct pcidev_info **pcidev_info,
 	/* Get the IRQ info */
 	irq_info = kzalloc(sizeof(struct sn_irq_info), GFP_KERNEL);
 	if (!irq_info)
-		 panic("%s: Unable to alloc memory for sn_irq_info", __FUNCTION__);
+		 panic("%s: Unable to alloc memory for sn_irq_info", __func__);
 
 	if (pcidev_ptr->pdi_sn_irq_info) {
 		irq_info_prom = __va(pcidev_ptr->pdi_sn_irq_info);
@@ -232,7 +232,7 @@ exit:
 static unsigned int
 get_host_devfn(acpi_handle device_handle, acpi_handle rootbus_handle)
 {
-	unsigned long adr;
+	unsigned long long adr;
 	acpi_handle child;
 	unsigned int devfn;
 	int function;
@@ -249,10 +249,10 @@ get_host_devfn(acpi_handle device_handle, acpi_handle rootbus_handle)
 		status = acpi_get_parent(child, &parent);
 		if (ACPI_FAILURE(status)) {
 			printk(KERN_ERR "%s: acpi_get_parent() failed "
-			       "(0x%x) for: ", __FUNCTION__, status);
+			       "(0x%x) for: ", __func__, status);
 			acpi_ns_print_node_pathname(child, NULL);
 			printk("\n");
-			panic("%s: Unable to find host devfn\n", __FUNCTION__);
+			panic("%s: Unable to find host devfn\n", __func__);
 		}
 		if (parent == rootbus_handle)
 			break;
@@ -260,7 +260,7 @@ get_host_devfn(acpi_handle device_handle, acpi_handle rootbus_handle)
 	}
 	if (!child) {
 		printk(KERN_ERR "%s: Unable to find root bus for: ",
-		       __FUNCTION__);
+		       __func__);
 		acpi_ns_print_node_pathname(device_handle, NULL);
 		printk("\n");
 		BUG();
@@ -269,10 +269,10 @@ get_host_devfn(acpi_handle device_handle, acpi_handle rootbus_handle)
 	status = acpi_evaluate_integer(child, METHOD_NAME__ADR, NULL, &adr);
 	if (ACPI_FAILURE(status)) {
 		printk(KERN_ERR "%s: Unable to get _ADR (0x%x) for: ",
-		       __FUNCTION__, status);
+		       __func__, status);
 		acpi_ns_print_node_pathname(child, NULL);
 		printk("\n");
-		panic("%s: Unable to find host devfn\n", __FUNCTION__);
+		panic("%s: Unable to find host devfn\n", __func__);
 	}
 
 	slot = (adr >> 16) & 0xffff;
@@ -292,8 +292,8 @@ get_host_devfn(acpi_handle device_handle, acpi_handle rootbus_handle)
 static acpi_status
 find_matching_device(acpi_handle handle, u32 lvl, void *context, void **rv)
 {
-	unsigned long bbn = -1;
-	unsigned long adr;
+	unsigned long long bbn = -1;
+	unsigned long long adr;
 	acpi_handle parent = NULL;
 	acpi_status status;
 	unsigned int devfn;
@@ -308,7 +308,7 @@ find_matching_device(acpi_handle handle, u32 lvl, void *context, void **rv)
 		if (ACPI_FAILURE(status)) {
 			printk(KERN_ERR
 			       "%s: acpi_get_parent() failed (0x%x) for: ",
-					__FUNCTION__, status);
+					__func__, status);
 			acpi_ns_print_node_pathname(handle, NULL);
 			printk("\n");
 			return AE_OK;
@@ -318,7 +318,7 @@ find_matching_device(acpi_handle handle, u32 lvl, void *context, void **rv)
 		if (ACPI_FAILURE(status)) {
 			printk(KERN_ERR
 			  "%s: Failed to find _BBN in parent of: ",
-					__FUNCTION__);
+					__func__);
 			acpi_ns_print_node_pathname(handle, NULL);
 			printk("\n");
 			return AE_OK;
@@ -348,7 +348,7 @@ sn_acpi_get_pcidev_info(struct pci_dev *dev, struct pcidev_info **pcidev_info,
 	unsigned int host_devfn;
 	struct sn_pcidev_match pcidev_match;
 	acpi_handle rootbus_handle;
-	unsigned long segment;
+	unsigned long long segment;
 	acpi_status status;
 
 	rootbus_handle = PCI_CONTROLLER(dev)->acpi_handle;
@@ -357,15 +357,15 @@ sn_acpi_get_pcidev_info(struct pci_dev *dev, struct pcidev_info **pcidev_info,
         if (ACPI_SUCCESS(status)) {
 		if (segment != pci_domain_nr(dev)) {
 			printk(KERN_ERR
-			       "%s: Segment number mismatch, 0x%lx vs 0x%x for: ",
-			       __FUNCTION__, segment, pci_domain_nr(dev));
+			       "%s: Segment number mismatch, 0x%llx vs 0x%x for: ",
+			       __func__, segment, pci_domain_nr(dev));
 			acpi_ns_print_node_pathname(rootbus_handle, NULL);
 			printk("\n");
 			return 1;
 		}
 	} else {
 		printk(KERN_ERR "%s: Unable to get __SEG from: ",
-		       __FUNCTION__);
+		       __func__);
 		acpi_ns_print_node_pathname(rootbus_handle, NULL);
 		printk("\n");
 		return 1;
@@ -386,7 +386,7 @@ sn_acpi_get_pcidev_info(struct pci_dev *dev, struct pcidev_info **pcidev_info,
 	if (!pcidev_match.handle) {
 		printk(KERN_ERR
 		       "%s: Could not find matching ACPI device for %s.\n",
-		       __FUNCTION__, pci_name(dev));
+		       __func__, pci_name(dev));
 		return 1;
 	}
 
@@ -422,7 +422,7 @@ sn_acpi_slot_fixup(struct pci_dev *dev)
 
 	if (sn_acpi_get_pcidev_info(dev, &pcidev_info, &sn_irq_info)) {
 		panic("%s:  Failure obtaining pcidev_info for %s\n",
-		      __FUNCTION__, pci_name(dev));
+		      __func__, pci_name(dev));
 	}
 
 	if (pcidev_info->pdi_pio_mapped_addr[PCI_ROM_RESOURCE]) {
@@ -463,7 +463,7 @@ sn_acpi_bus_fixup(struct pci_bus *bus)
 			printk(KERN_ERR
 			       "%s: 0x%04x:0x%02x Unable to "
 			       "obtain prom_bussoft_ptr\n",
-			       __FUNCTION__, pci_domain_nr(bus), bus->number);
+			       __func__, pci_domain_nr(bus), bus->number);
 			return;
 		}
 		sn_common_bus_fixup(bus, prom_bussoft_ptr);

@@ -1,7 +1,6 @@
-/*  $Id: process.c,v 1.131 2002/02/09 19:49:30 davem Exp $
- *  arch/sparc64/kernel/process.c
+/*  arch/sparc64/kernel/process.c
  *
- *  Copyright (C) 1995, 1996 David S. Miller (davem@caip.rutgers.edu)
+ *  Copyright (C) 1995, 1996, 2008 David S. Miller (davem@davemloft.net)
  *  Copyright (C) 1996       Eddie C. Dost   (ecd@skynet.be)
  *  Copyright (C) 1997, 1998 Jakub Jelinek   (jj@sunsite.mff.cuni.cz)
  */
@@ -16,7 +15,6 @@
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/kernel.h>
-#include <linux/kallsyms.h>
 #include <linux/mm.h>
 #include <linux/fs.h>
 #include <linux/smp.h>
@@ -24,15 +22,14 @@
 #include <linux/ptrace.h>
 #include <linux/slab.h>
 #include <linux/user.h>
-#include <linux/a.out.h>
-#include <linux/reboot.h>
 #include <linux/delay.h>
 #include <linux/compat.h>
 #include <linux/tick.h>
 #include <linux/init.h>
 #include <linux/cpu.h>
+#include <linux/elfcore.h>
+#include <linux/sysrq.h>
 
-#include <asm/oplib.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <asm/page.h>
@@ -47,9 +44,11 @@
 #include <asm/mmu_context.h>
 #include <asm/unistd.h>
 #include <asm/hypervisor.h>
-#include <asm/sstate.h>
+#include <asm/syscalls.h>
+#include <asm/irq_regs.h>
+#include <asm/smp.h>
 
-/* #define VERBOSE_SHOWREGS */
+#include "kstack.h"
 
 static void sparc64_yield(int cpu)
 {
@@ -93,7 +92,7 @@ void cpu_idle(void)
 	set_thread_flag(TIF_POLLING_NRFLAG);
 
 	while(1) {
-		tick_nohz_stop_sched_tick();
+		tick_nohz_stop_sched_tick(1);
 
 		while (!need_resched() && !cpu_is_offline(cpu))
 			sparc64_yield(cpu);
@@ -110,52 +109,6 @@ void cpu_idle(void)
 		schedule();
 		preempt_disable();
 	}
-}
-
-extern char reboot_command [];
-
-extern void (*prom_palette)(int);
-extern void (*prom_keyboard)(void);
-
-void machine_halt(void)
-{
-	sstate_halt();
-	if (prom_palette)
-		prom_palette (1);
-	if (prom_keyboard)
-		prom_keyboard();
-	prom_halt();
-	panic("Halt failed!");
-}
-
-void machine_alt_power_off(void)
-{
-	sstate_poweroff();
-	if (prom_palette)
-		prom_palette(1);
-	if (prom_keyboard)
-		prom_keyboard();
-	prom_halt_power_off();
-	panic("Power-off failed!");
-}
-
-void machine_restart(char * cmd)
-{
-	char *p;
-	
-	sstate_reboot();
-	p = strchr (reboot_command, '\n');
-	if (p) *p = 0;
-	if (prom_palette)
-		prom_palette (1);
-	if (prom_keyboard)
-		prom_keyboard();
-	if (cmd)
-		prom_reboot(cmd);
-	if (*reboot_command)
-		prom_reboot(reboot_command);
-	prom_reboot("");
-	panic("Reboot failed!");
 }
 
 #ifdef CONFIG_COMPAT
@@ -224,84 +177,14 @@ static void show_regwindow(struct pt_regs *regs)
 	printk("i4: %016lx i5: %016lx i6: %016lx i7: %016lx\n",
 	       rwk->ins[4], rwk->ins[5], rwk->ins[6], rwk->ins[7]);
 	if (regs->tstate & TSTATE_PRIV)
-		print_symbol("I7: <%s>\n", rwk->ins[7]);
+		printk("I7: <%pS>\n", (void *) rwk->ins[7]);
 }
 
-void show_stackframe(struct sparc_stackf *sf)
+void show_regs(struct pt_regs *regs)
 {
-	unsigned long size;
-	unsigned long *stk;
-	int i;
-
-	printk("l0: %016lx l1: %016lx l2: %016lx l3: %016lx\n"
-	       "l4: %016lx l5: %016lx l6: %016lx l7: %016lx\n",
-	       sf->locals[0], sf->locals[1], sf->locals[2], sf->locals[3],
-	       sf->locals[4], sf->locals[5], sf->locals[6], sf->locals[7]);
-	printk("i0: %016lx i1: %016lx i2: %016lx i3: %016lx\n"
-	       "i4: %016lx i5: %016lx fp: %016lx ret_pc: %016lx\n",
-	       sf->ins[0], sf->ins[1], sf->ins[2], sf->ins[3],
-	       sf->ins[4], sf->ins[5], (unsigned long)sf->fp, sf->callers_pc);
-	printk("sp: %016lx x0: %016lx x1: %016lx x2: %016lx\n"
-	       "x3: %016lx x4: %016lx x5: %016lx xx: %016lx\n",
-	       (unsigned long)sf->structptr, sf->xargs[0], sf->xargs[1],
-	       sf->xargs[2], sf->xargs[3], sf->xargs[4], sf->xargs[5],
-	       sf->xxargs[0]);
-	size = ((unsigned long)sf->fp) - ((unsigned long)sf);
-	size -= STACKFRAME_SZ;
-	stk = (unsigned long *)((unsigned long)sf + STACKFRAME_SZ);
-	i = 0;
-	do {
-		printk("s%d: %016lx\n", i++, *stk++);
-	} while ((size -= sizeof(unsigned long)));
-}
-
-void show_stackframe32(struct sparc_stackf32 *sf)
-{
-	unsigned long size;
-	unsigned *stk;
-	int i;
-
-	printk("l0: %08x l1: %08x l2: %08x l3: %08x\n",
-	       sf->locals[0], sf->locals[1], sf->locals[2], sf->locals[3]);
-	printk("l4: %08x l5: %08x l6: %08x l7: %08x\n",
-	       sf->locals[4], sf->locals[5], sf->locals[6], sf->locals[7]);
-	printk("i0: %08x i1: %08x i2: %08x i3: %08x\n",
-	       sf->ins[0], sf->ins[1], sf->ins[2], sf->ins[3]);
-	printk("i4: %08x i5: %08x fp: %08x ret_pc: %08x\n",
-	       sf->ins[4], sf->ins[5], sf->fp, sf->callers_pc);
-	printk("sp: %08x x0: %08x x1: %08x x2: %08x\n"
-	       "x3: %08x x4: %08x x5: %08x xx: %08x\n",
-	       sf->structptr, sf->xargs[0], sf->xargs[1],
-	       sf->xargs[2], sf->xargs[3], sf->xargs[4], sf->xargs[5],
-	       sf->xxargs[0]);
-	size = ((unsigned long)sf->fp) - ((unsigned long)sf);
-	size -= STACKFRAME32_SZ;
-	stk = (unsigned *)((unsigned long)sf + STACKFRAME32_SZ);
-	i = 0;
-	do {
-		printk("s%d: %08x\n", i++, *stk++);
-	} while ((size -= sizeof(unsigned)));
-}
-
-#ifdef CONFIG_SMP
-static DEFINE_SPINLOCK(regdump_lock);
-#endif
-
-void __show_regs(struct pt_regs * regs)
-{
-#ifdef CONFIG_SMP
-	unsigned long flags;
-
-	/* Protect against xcall ipis which might lead to livelock on the lock */
-	__asm__ __volatile__("rdpr      %%pstate, %0\n\t"
-			     "wrpr      %0, %1, %%pstate"
-			     : "=r" (flags)
-			     : "i" (PSTATE_IE));
-	spin_lock(&regdump_lock);
-#endif
 	printk("TSTATE: %016lx TPC: %016lx TNPC: %016lx Y: %08x    %s\n", regs->tstate,
 	       regs->tpc, regs->tnpc, regs->y, print_tainted());
-	print_symbol("TPC: <%s>\n", regs->tpc);
+	printk("TPC: <%pS>\n", (void *) regs->tpc);
 	printk("g0: %016lx g1: %016lx g2: %016lx g3: %016lx\n",
 	       regs->u_regs[0], regs->u_regs[1], regs->u_regs[2],
 	       regs->u_regs[3]);
@@ -314,79 +197,127 @@ void __show_regs(struct pt_regs * regs)
 	printk("o4: %016lx o5: %016lx sp: %016lx ret_pc: %016lx\n",
 	       regs->u_regs[12], regs->u_regs[13], regs->u_regs[14],
 	       regs->u_regs[15]);
-	print_symbol("RPC: <%s>\n", regs->u_regs[15]);
+	printk("RPC: <%pS>\n", (void *) regs->u_regs[15]);
 	show_regwindow(regs);
-#ifdef CONFIG_SMP
-	spin_unlock(&regdump_lock);
-	__asm__ __volatile__("wrpr	%0, 0, %%pstate"
-			     : : "r" (flags));
-#endif
 }
 
-#ifdef VERBOSE_SHOWREGS
-static void idump_from_user (unsigned int *pc)
+struct global_reg_snapshot global_reg_snapshot[NR_CPUS];
+static DEFINE_SPINLOCK(global_reg_snapshot_lock);
+
+static void __global_reg_self(struct thread_info *tp, struct pt_regs *regs,
+			      int this_cpu)
 {
-	int i;
-	int code;
-	
-	if((((unsigned long) pc) & 3))
-		return;
-	
-	pc -= 3;
-	for(i = -3; i < 6; i++) {
-		get_user(code, pc);
-		printk("%c%08x%c",i?' ':'<',code,i?' ':'>');
-		pc++;
-	}
-	printk("\n");
-}
-#endif
+	flushw_all();
 
-void show_regs(struct pt_regs *regs)
+	global_reg_snapshot[this_cpu].tstate = regs->tstate;
+	global_reg_snapshot[this_cpu].tpc = regs->tpc;
+	global_reg_snapshot[this_cpu].tnpc = regs->tnpc;
+	global_reg_snapshot[this_cpu].o7 = regs->u_regs[UREG_I7];
+
+	if (regs->tstate & TSTATE_PRIV) {
+		struct reg_window *rw;
+
+		rw = (struct reg_window *)
+			(regs->u_regs[UREG_FP] + STACK_BIAS);
+		if (kstack_valid(tp, (unsigned long) rw)) {
+			global_reg_snapshot[this_cpu].i7 = rw->ins[7];
+			rw = (struct reg_window *)
+				(rw->ins[6] + STACK_BIAS);
+			if (kstack_valid(tp, (unsigned long) rw))
+				global_reg_snapshot[this_cpu].rpc = rw->ins[7];
+		}
+	} else {
+		global_reg_snapshot[this_cpu].i7 = 0;
+		global_reg_snapshot[this_cpu].rpc = 0;
+	}
+	global_reg_snapshot[this_cpu].thread = tp;
+}
+
+/* In order to avoid hangs we do not try to synchronize with the
+ * global register dump client cpus.  The last store they make is to
+ * the thread pointer, so do a short poll waiting for that to become
+ * non-NULL.
+ */
+static void __global_reg_poll(struct global_reg_snapshot *gp)
 {
-#ifdef VERBOSE_SHOWREGS
-	extern long etrap, etraptl1;
-#endif
-	__show_regs(regs);
-#if 0
-#ifdef CONFIG_SMP
-	{
-		extern void smp_report_regs(void);
+	int limit = 0;
 
-		smp_report_regs();
+	while (!gp->thread && ++limit < 100) {
+		barrier();
+		udelay(1);
 	}
-#endif
-#endif
-
-#ifdef VERBOSE_SHOWREGS	
-	if (regs->tpc >= &etrap && regs->tpc < &etraptl1 &&
-	    regs->u_regs[14] >= (long)current - PAGE_SIZE &&
-	    regs->u_regs[14] < (long)current + 6 * PAGE_SIZE) {
-		printk ("*********parent**********\n");
-		__show_regs((struct pt_regs *)(regs->u_regs[14] + PTREGS_OFF));
-		idump_from_user(((struct pt_regs *)(regs->u_regs[14] + PTREGS_OFF))->tpc);
-		printk ("*********endpar**********\n");
-	}
-#endif
 }
 
-void show_regs32(struct pt_regs32 *regs)
+void __trigger_all_cpu_backtrace(void)
 {
-	printk("PSR: %08x PC: %08x NPC: %08x Y: %08x    %s\n", regs->psr,
-	       regs->pc, regs->npc, regs->y, print_tainted());
-	printk("g0: %08x g1: %08x g2: %08x g3: %08x ",
-	       regs->u_regs[0], regs->u_regs[1], regs->u_regs[2],
-	       regs->u_regs[3]);
-	printk("g4: %08x g5: %08x g6: %08x g7: %08x\n",
-	       regs->u_regs[4], regs->u_regs[5], regs->u_regs[6],
-	       regs->u_regs[7]);
-	printk("o0: %08x o1: %08x o2: %08x o3: %08x ",
-	       regs->u_regs[8], regs->u_regs[9], regs->u_regs[10],
-	       regs->u_regs[11]);
-	printk("o4: %08x o5: %08x sp: %08x ret_pc: %08x\n",
-	       regs->u_regs[12], regs->u_regs[13], regs->u_regs[14],
-	       regs->u_regs[15]);
+	struct thread_info *tp = current_thread_info();
+	struct pt_regs *regs = get_irq_regs();
+	unsigned long flags;
+	int this_cpu, cpu;
+
+	if (!regs)
+		regs = tp->kregs;
+
+	spin_lock_irqsave(&global_reg_snapshot_lock, flags);
+
+	memset(global_reg_snapshot, 0, sizeof(global_reg_snapshot));
+
+	this_cpu = raw_smp_processor_id();
+
+	__global_reg_self(tp, regs, this_cpu);
+
+	smp_fetch_global_regs();
+
+	for_each_online_cpu(cpu) {
+		struct global_reg_snapshot *gp = &global_reg_snapshot[cpu];
+
+		__global_reg_poll(gp);
+
+		tp = gp->thread;
+		printk("%c CPU[%3d]: TSTATE[%016lx] TPC[%016lx] TNPC[%016lx] TASK[%s:%d]\n",
+		       (cpu == this_cpu ? '*' : ' '), cpu,
+		       gp->tstate, gp->tpc, gp->tnpc,
+		       ((tp && tp->task) ? tp->task->comm : "NULL"),
+		       ((tp && tp->task) ? tp->task->pid : -1));
+
+		if (gp->tstate & TSTATE_PRIV) {
+			printk("             TPC[%pS] O7[%pS] I7[%pS] RPC[%pS]\n",
+			       (void *) gp->tpc,
+			       (void *) gp->o7,
+			       (void *) gp->i7,
+			       (void *) gp->rpc);
+		} else {
+			printk("             TPC[%lx] O7[%lx] I7[%lx] RPC[%lx]\n",
+			       gp->tpc, gp->o7, gp->i7, gp->rpc);
+		}
+	}
+
+	memset(global_reg_snapshot, 0, sizeof(global_reg_snapshot));
+
+	spin_unlock_irqrestore(&global_reg_snapshot_lock, flags);
 }
+
+#ifdef CONFIG_MAGIC_SYSRQ
+
+static void sysrq_handle_globreg(int key, struct tty_struct *tty)
+{
+	__trigger_all_cpu_backtrace();
+}
+
+static struct sysrq_key_op sparc_globalreg_op = {
+	.handler	= sysrq_handle_globreg,
+	.help_msg	= "Globalregs",
+	.action_msg	= "Show Global CPU Regs",
+};
+
+static int __init sparc_globreg_init(void)
+{
+	return register_sysrq_key('y', &sparc_globalreg_op);
+}
+
+core_initcall(sparc_globreg_init);
+
+#endif
 
 unsigned long thread_saved_pc(struct task_struct *tsk)
 {
@@ -457,9 +388,6 @@ void flush_thread(void)
 	
 	if (get_thread_current_ds() != ASI_AIUS)
 		set_fs(USER_DS);
-
-	/* Init new signal delivery disposition. */
-	clear_thread_flag(TIF_NEWSIGNALS);
 }
 
 /* It's a bit more tricky when 64-bit tasks are involved... */
@@ -596,6 +524,8 @@ asmlinkage long sparc_do_fork(unsigned long clone_flags,
 			      unsigned long stack_size)
 {
 	int __user *parent_tid_ptr, *child_tid_ptr;
+	unsigned long orig_i1 = regs->u_regs[UREG_I1];
+	long ret;
 
 #ifdef CONFIG_COMPAT
 	if (test_thread_flag(TIF_32BIT)) {
@@ -608,9 +538,19 @@ asmlinkage long sparc_do_fork(unsigned long clone_flags,
 		child_tid_ptr = (int __user *) regs->u_regs[UREG_I4];
 	}
 
-	return do_fork(clone_flags, stack_start,
-		       regs, stack_size,
-		       parent_tid_ptr, child_tid_ptr);
+	ret = do_fork(clone_flags, stack_start,
+		      regs, stack_size,
+		      parent_tid_ptr, child_tid_ptr);
+
+	/* If we get an error and potentially restart the system
+	 * call, we're screwed because copy_thread() clobbered
+	 * the parent's %o1.  So detect that case and restore it
+	 * here.
+	 */
+	if ((unsigned long)ret >= -ERESTART_RESTARTBLOCK)
+		regs->u_regs[UREG_I1] = orig_i1;
+
+	return ret;
 }
 
 /* Copy a Sparc thread.  The fork() return value conventions
@@ -623,36 +563,50 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long sp,
 		struct task_struct *p, struct pt_regs *regs)
 {
 	struct thread_info *t = task_thread_info(p);
+	struct sparc_stackf *parent_sf;
+	unsigned long child_stack_sz;
 	char *child_trap_frame;
+	int kernel_thread;
+
+	kernel_thread = (regs->tstate & TSTATE_PRIV) ? 1 : 0;
+	parent_sf = ((struct sparc_stackf *) regs) - 1;
 
 	/* Calculate offset to stack_frame & pt_regs */
-	child_trap_frame = task_stack_page(p) + (THREAD_SIZE - (TRACEREG_SZ+STACKFRAME_SZ));
-	memcpy(child_trap_frame, (((struct sparc_stackf *)regs)-1), (TRACEREG_SZ+STACKFRAME_SZ));
+	child_stack_sz = ((STACKFRAME_SZ + TRACEREG_SZ) +
+			  (kernel_thread ? STACKFRAME_SZ : 0));
+	child_trap_frame = (task_stack_page(p) +
+			    (THREAD_SIZE - child_stack_sz));
+	memcpy(child_trap_frame, parent_sf, child_stack_sz);
 
-	t->flags = (t->flags & ~((0xffUL << TI_FLAG_CWP_SHIFT) | (0xffUL << TI_FLAG_CURRENT_DS_SHIFT))) |
+	t->flags = (t->flags & ~((0xffUL << TI_FLAG_CWP_SHIFT) |
+				 (0xffUL << TI_FLAG_CURRENT_DS_SHIFT))) |
 		(((regs->tstate + 1) & TSTATE_CWP) << TI_FLAG_CWP_SHIFT);
 	t->new_child = 1;
 	t->ksp = ((unsigned long) child_trap_frame) - STACK_BIAS;
-	t->kregs = (struct pt_regs *)(child_trap_frame+sizeof(struct sparc_stackf));
+	t->kregs = (struct pt_regs *) (child_trap_frame +
+				       sizeof(struct sparc_stackf));
 	t->fpsaved[0] = 0;
 
-	if (regs->tstate & TSTATE_PRIV) {
+	if (kernel_thread) {
+		struct sparc_stackf *child_sf = (struct sparc_stackf *)
+			(child_trap_frame + (STACKFRAME_SZ + TRACEREG_SZ));
+
+		/* Zero terminate the stack backtrace.  */
+		child_sf->fp = NULL;
+		t->kregs->u_regs[UREG_FP] =
+		  ((unsigned long) child_sf) - STACK_BIAS;
+
 		/* Special case, if we are spawning a kernel thread from
-		 * a userspace task (via KMOD, NFS, or similar) we must
-		 * disable performance counters in the child because the
-		 * address space and protection realm are changing.
+		 * a userspace task (usermode helper, NFS or similar), we
+		 * must disable performance counters in the child because
+		 * the address space and protection realm are changing.
 		 */
 		if (t->flags & _TIF_PERFCTR) {
 			t->user_cntd0 = t->user_cntd1 = NULL;
 			t->pcr_reg = 0;
 			t->flags &= ~_TIF_PERFCTR;
 		}
-		t->kregs->u_regs[UREG_FP] = t->ksp;
 		t->flags |= ((long)ASI_P << TI_FLAG_CURRENT_DS_SHIFT);
-		flush_register_windows();
-		memcpy((void *)(t->ksp + STACK_BIAS),
-		       (void *)(regs->u_regs[UREG_FP] + STACK_BIAS),
-		       sizeof(struct sparc_stackf));
 		t->kregs->u_regs[UREG_G6] = (unsigned long) t;
 		t->kregs->u_regs[UREG_G4] = (unsigned long) t->task;
 	} else {
@@ -723,17 +677,6 @@ pid_t kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 			     "i" (__NR_exit),  "r" (fn), "r" (arg) :
 			     "g1", "g2", "g3", "o0", "o1", "memory", "cc");
 	return retval;
-}
-
-/*
- * fill in the user structure for a core dump..
- */
-void dump_thread(struct pt_regs * regs, struct user * dump)
-{
-	/* Only should be used for SunOS and ancient a.out
-	 * SparcLinux binaries...  Not worth implementing.
-	 */
-	memset(dump, 0, sizeof(struct user));
 }
 
 typedef struct {
@@ -831,9 +774,6 @@ asmlinkage int sparc_execve(struct pt_regs *regs)
 		current_thread_info()->xfsr[0] = 0;
 		current_thread_info()->fpsaved[0] = 0;
 		regs->tstate &= ~TSTATE_PEF;
-		task_lock(current);
-		current->ptrace &= ~PT_DTRACE;
-		task_unlock(current);
 	}
 out:
 	return error;
@@ -842,7 +782,7 @@ out:
 unsigned long get_wchan(struct task_struct *task)
 {
 	unsigned long pc, fp, bias = 0;
-	unsigned long thread_info_base;
+	struct thread_info *tp;
 	struct reg_window *rw;
         unsigned long ret = 0;
 	int count = 0; 
@@ -851,14 +791,12 @@ unsigned long get_wchan(struct task_struct *task)
             task->state == TASK_RUNNING)
 		goto out;
 
-	thread_info_base = (unsigned long) task_stack_page(task);
+	tp = task_thread_info(task);
 	bias = STACK_BIAS;
 	fp = task_thread_info(task)->ksp + bias;
 
 	do {
-		/* Bogus frame pointer? */
-		if (fp < (thread_info_base + sizeof(struct thread_info)) ||
-		    fp >= (thread_info_base + THREAD_SIZE))
+		if (!kstack_valid(tp, fp))
 			break;
 		rw = (struct reg_window *) fp;
 		pc = rw->ins[7];

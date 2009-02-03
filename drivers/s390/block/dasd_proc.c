@@ -54,27 +54,35 @@ static int
 dasd_devices_show(struct seq_file *m, void *v)
 {
 	struct dasd_device *device;
+	struct dasd_block *block;
 	char *substr;
 
 	device = dasd_device_from_devindex((unsigned long) v - 1);
 	if (IS_ERR(device))
 		return 0;
+	if (device->block)
+		block = device->block;
+	else {
+		dasd_put_device(device);
+		return 0;
+	}
 	/* Print device number. */
-	seq_printf(m, "%s", device->cdev->dev.bus_id);
+	seq_printf(m, "%s", dev_name(&device->cdev->dev));
 	/* Print discipline string. */
 	if (device != NULL && device->discipline != NULL)
 		seq_printf(m, "(%s)", device->discipline->name);
 	else
 		seq_printf(m, "(none)");
 	/* Print kdev. */
-	if (device->gdp)
+	if (block->gdp)
 		seq_printf(m, " at (%3d:%6d)",
-			   device->gdp->major, device->gdp->first_minor);
+			   MAJOR(disk_devt(block->gdp)),
+			   MINOR(disk_devt(block->gdp)));
 	else
 		seq_printf(m, "  at (???:??????)");
 	/* Print device name. */
-	if (device->gdp)
-		seq_printf(m, " is %-8s", device->gdp->disk_name);
+	if (block->gdp)
+		seq_printf(m, " is %-8s", block->gdp->disk_name);
 	else
 		seq_printf(m, " is ????????");
 	/* Print devices features. */
@@ -100,14 +108,14 @@ dasd_devices_show(struct seq_file *m, void *v)
 	case DASD_STATE_READY:
 	case DASD_STATE_ONLINE:
 		seq_printf(m, "active ");
-		if (dasd_check_blocksize(device->bp_block))
+		if (dasd_check_blocksize(block->bp_block))
 			seq_printf(m, "n/f	 ");
 		else
 			seq_printf(m,
 				   "at blocksize: %d, %ld blocks, %ld MB",
-				   device->bp_block, device->blocks,
-				   ((device->bp_block >> 9) *
-				    device->blocks) >> 11);
+				   block->bp_block, block->blocks,
+				   ((block->bp_block >> 9) *
+				    block->blocks) >> 11);
 		break;
 	default:
 		seq_printf(m, "no stat");
@@ -137,7 +145,7 @@ static void dasd_devices_stop(struct seq_file *m, void *v)
 {
 }
 
-static struct seq_operations dasd_devices_seq_ops = {
+static const struct seq_operations dasd_devices_seq_ops = {
 	.start		= dasd_devices_start,
 	.next		= dasd_devices_next,
 	.stop		= dasd_devices_stop,
@@ -150,6 +158,7 @@ static int dasd_devices_open(struct inode *inode, struct file *file)
 }
 
 static const struct file_operations dasd_devices_file_ops = {
+	.owner		= THIS_MODULE,
 	.open		= dasd_devices_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
@@ -304,17 +313,16 @@ out_error:
 int
 dasd_proc_init(void)
 {
-	dasd_proc_root_entry = proc_mkdir("dasd", &proc_root);
+	dasd_proc_root_entry = proc_mkdir("dasd", NULL);
 	if (!dasd_proc_root_entry)
 		goto out_nodasd;
 	dasd_proc_root_entry->owner = THIS_MODULE;
-	dasd_devices_entry = create_proc_entry("devices",
-					       S_IFREG | S_IRUGO | S_IWUSR,
-					       dasd_proc_root_entry);
+	dasd_devices_entry = proc_create("devices",
+					 S_IFREG | S_IRUGO | S_IWUSR,
+					 dasd_proc_root_entry,
+					 &dasd_devices_file_ops);
 	if (!dasd_devices_entry)
 		goto out_nodevices;
-	dasd_devices_entry->proc_fops = &dasd_devices_file_ops;
-	dasd_devices_entry->owner = THIS_MODULE;
 	dasd_statistics_entry = create_proc_entry("statistics",
 						  S_IFREG | S_IRUGO | S_IWUSR,
 						  dasd_proc_root_entry);
@@ -328,7 +336,7 @@ dasd_proc_init(void)
  out_nostatistics:
 	remove_proc_entry("devices", dasd_proc_root_entry);
  out_nodevices:
-	remove_proc_entry("dasd", &proc_root);
+	remove_proc_entry("dasd", NULL);
  out_nodasd:
 	return -ENOENT;
 }
@@ -338,5 +346,5 @@ dasd_proc_exit(void)
 {
 	remove_proc_entry("devices", dasd_proc_root_entry);
 	remove_proc_entry("statistics", dasd_proc_root_entry);
-	remove_proc_entry("dasd", &proc_root);
+	remove_proc_entry("dasd", NULL);
 }

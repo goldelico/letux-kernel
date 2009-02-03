@@ -11,6 +11,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/quotaops.h>
 
 #include <asm/byteorder.h>
 
@@ -59,6 +60,9 @@ static int v2_read_file_info(struct super_block *sb, int type)
 			sb->s_id);
 		return -1;
 	}
+	/* limits are stored as unsigned 32-bit data */
+	info->dqi_maxblimit = 0xffffffff;
+	info->dqi_maxilimit = 0xffffffff;
 	info->dqi_bgrace = le32_to_cpu(dinfo.dqi_bgrace);
 	info->dqi_igrace = le32_to_cpu(dinfo.dqi_igrace);
 	info->dqi_flags = le32_to_cpu(dinfo.dqi_flags);
@@ -303,7 +307,7 @@ static uint find_free_dqentry(struct dquot *dquot, int *err)
 			printk(KERN_ERR "VFS: find_free_dqentry(): Can't remove block (%u) from entry free list.\n", blk);
 			goto out_buf;
 		}
-	dh->dqdh_entries = cpu_to_le16(le16_to_cpu(dh->dqdh_entries)+1);
+	le16_add_cpu(&dh->dqdh_entries, 1);
 	memset(&fakedquot, 0, sizeof(struct v2_disk_dqblk));
 	/* Find free structure in block */
 	for (i = 0; i < V2_DQSTRINBLK && memcmp(&fakedquot, ddquot+i, sizeof(struct v2_disk_dqblk)); i++);
@@ -445,7 +449,7 @@ static int free_dqentry(struct dquot *dquot, uint blk)
 		goto out_buf;
 	}
 	dh = (struct v2_disk_dqdbheader *)buf;
-	dh->dqdh_entries = cpu_to_le16(le16_to_cpu(dh->dqdh_entries)-1);
+	le16_add_cpu(&dh->dqdh_entries, -1);
 	if (!le16_to_cpu(dh->dqdh_entries)) {	/* Block got free? */
 		if ((ret = remove_free_dqentry(sb, type, buf, blk)) < 0 ||
 		    (ret = put_free_dqblk(sb, type, buf, blk)) < 0) {

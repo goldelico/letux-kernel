@@ -37,7 +37,7 @@
 
 #else
 
-#include <asm/arch/debug-macro.S>
+#include <mach/debug-macro.S>
 
 		.macro	writeb,	ch, rb
 		senduart \ch, \rb
@@ -421,6 +421,7 @@ __setup_mmu:	sub	r3, r4, #16384		@ Page directory size
 		add	r1, r1, #1048576
 		str	r1, [r0]
 		mov	pc, lr
+ENDPROC(__setup_mmu)
 
 __armv4_mmu_cache_on:
 		mov	r12, lr
@@ -623,6 +624,12 @@ proc_types:
 		b	__armv4_mmu_cache_off
 		b	__armv4_mmu_cache_flush
 
+		.word	0x56050000		@ Feroceon
+		.word	0xff0f0000
+		b	__armv4_mmu_cache_on
+		b	__armv4_mmu_cache_off
+		b	__armv5tej_mmu_cache_flush
+
 		@ These match on the architecture ID
 
 		.word	0x00020000		@ ARMv4T
@@ -641,7 +648,7 @@ proc_types:
 		.word	0x000f0000
 		b	__armv4_mmu_cache_on
 		b	__armv4_mmu_cache_off
-		b	__armv4_mmu_cache_flush
+		b	__armv5tej_mmu_cache_flush
 
 		.word	0x0007b000		@ ARMv6
 		.word	0x000ff000
@@ -795,7 +802,7 @@ loop1:
 		add	r2, r2, #4		@ add 4 (line length offset)
 		ldr	r4, =0x3ff
 		ands	r4, r4, r1, lsr #3	@ find maximum number on the way size
-		.word	0xe16f5f14		@ clz r5, r4 - find bit position of way size increment
+		clz	r5, r4			@ find bit position of way size increment
 		ldr	r7, =0x7fff
 		ands	r7, r7, r1, lsr #13	@ extract max number of the index size
 loop2:
@@ -819,6 +826,13 @@ finished:
 iflush:
 		mcr	p15, 0, r10, c7, c5, 0	@ invalidate I+BTB
 		mcr	p15, 0, r10, c7, c10, 4	@ drain WB
+		mov	pc, lr
+
+__armv5tej_mmu_cache_flush:
+1:		mrc	p15, 0, r15, c7, c14, 3	@ test,clean,invalidate D cache
+		bne	1b
+		mcr	p15, 0, r0, c7, c5, 0	@ flush I cache
+		mcr	p15, 0, r0, c7, c10, 4	@ drain WB
 		mov	pc, lr
 
 __armv4_mmu_cache_flush:

@@ -9,26 +9,29 @@
 #ifndef DM_SNAPSHOT_H
 #define DM_SNAPSHOT_H
 
-#include "dm.h"
+#include <linux/device-mapper.h>
 #include "dm-bio-list.h"
 #include <linux/blkdev.h>
 #include <linux/workqueue.h>
 
 struct exception_table {
 	uint32_t hash_mask;
+	unsigned hash_shift;
 	struct list_head *table;
 };
 
 /*
  * The snapshot code deals with largish chunks of the disk at a
- * time. Typically 64k - 256k.
+ * time. Typically 32k - 512k.
  */
-/* FIXME: can we get away with limiting these to a uint32_t ? */
 typedef sector_t chunk_t;
 
 /*
  * An exception is used where an old chunk of data has been
  * replaced by a new one.
+ * If chunk_t is 64 bits in size, the top 8 bits of new_chunk hold the number
+ * of chunks that follow contiguously.  Remaining bits hold the number of the
+ * chunk within the device.
  */
 struct dm_snap_exception {
 	struct list_head hash_list;
@@ -36,6 +39,49 @@ struct dm_snap_exception {
 	chunk_t old_chunk;
 	chunk_t new_chunk;
 };
+
+/*
+ * Funtions to manipulate consecutive chunks
+ */
+#  if defined(CONFIG_LBD) || (BITS_PER_LONG == 64)
+#    define DM_CHUNK_CONSECUTIVE_BITS 8
+#    define DM_CHUNK_NUMBER_BITS 56
+
+static inline chunk_t dm_chunk_number(chunk_t chunk)
+{
+	return chunk & (chunk_t)((1ULL << DM_CHUNK_NUMBER_BITS) - 1ULL);
+}
+
+static inline unsigned dm_consecutive_chunk_count(struct dm_snap_exception *e)
+{
+	return e->new_chunk >> DM_CHUNK_NUMBER_BITS;
+}
+
+static inline void dm_consecutive_chunk_count_inc(struct dm_snap_exception *e)
+{
+	e->new_chunk += (1ULL << DM_CHUNK_NUMBER_BITS);
+
+	BUG_ON(!dm_consecutive_chunk_count(e));
+}
+
+#  else
+#    define DM_CHUNK_CONSECUTIVE_BITS 0
+
+static inline chunk_t dm_chunk_number(chunk_t chunk)
+{
+	return chunk;
+}
+
+static inline unsigned dm_consecutive_chunk_count(struct dm_snap_exception *e)
+{
+	return 0;
+}
+
+static inline void dm_consecutive_chunk_count_inc(struct dm_snap_exception *e)
+{
+}
+
+#  endif
 
 /*
  * Abstraction to handle the meta/layout of exception stores (the
@@ -84,9 +130,13 @@ struct exception_store {
 	void *context;
 };
 
+#define DM_TRACKED_CHUNK_HASH_SIZE	16
+#define DM_TRACKED_CHUNK_HASH(x)	((unsigned long)(x) & \
+					 (DM_TRACKED_CHUNK_HASH_SIZE - 1))
+
 struct dm_snapshot {
 	struct rw_semaphore lock;
-	struct dm_table *table;
+	struct dm_target *ti;
 
 	struct dm_dev *origin;
 	struct dm_dev *cow;
@@ -108,8 +158,9 @@ struct dm_snapshot {
 	/* Used for display of table */
 	char type;
 
-	/* The last percentage we notified */
-	int last_percent;
+	mempool_t *pending_pool;
+
+	atomic_t pending_exceptions_count;
 
 	struct exception_table pending;
 	struct exception_table complete;
@@ -123,11 +174,16 @@ struct dm_snapshot {
 	/* The on disk metadata handler */
 	struct exception_store store;
 
-	struct kcopyd_client *kcopyd_client;
+	struct dm_kcopyd_client *kcopyd_client;
 
 	/* Queue of snapshot writes for ksnapd to flush */
 	struct bio_list queued_bios;
 	struct work_struct queued_bios_work;
+
+	/* Chunks with outstanding reads */
+	mempool_t *tracked_chunk_pool;
+	spinlock_t tracked_chunk_lock;
+	struct hlist_head tracked_chunk_hash[DM_TRACKED_CHUNK_HASH_SIZE];
 };
 
 /*

@@ -742,7 +742,7 @@ static void start_internal_command (dword Id, PLCI   *plci, t_std_internal_comma
   else
   {
     i = 1;
-    while (plci->internal_command_queue[i] != 0)
+    while (plci->internal_command_queue[i] != NULL)
       i++;
     plci->internal_command_queue[i] = command_function;
   }
@@ -758,7 +758,7 @@ static void next_internal_command (dword Id, PLCI   *plci)
 
   plci->internal_command = 0;
   plci->internal_command_queue[0] = NULL;
-  while (plci->internal_command_queue[1] != 0)
+  while (plci->internal_command_queue[1] != NULL)
   {
     for (i = 0; i < MAX_INTERNAL_COMMAND_LEVELS - 1; i++)
       plci->internal_command_queue[i] = plci->internal_command_queue[i+1];
@@ -4941,7 +4941,7 @@ void sig_ind(PLCI   * plci)
       /* b = IE1                */
       /* S = IE1 length + cont. */
       /* b = IE2                */
-      /* S = IE2 lenght + cont. */
+      /* S = IE2 length + cont. */
       sendf(plci->appl,
         _MANUFACTURER_I,
         Id,
@@ -9027,7 +9027,7 @@ static byte AddInfo(byte   **add_i,
    /* facility is a nested structure */
    /* FTY can be more than once      */
 
-  if(esc_chi[0] && !(esc_chi[esc_chi[0]])&0x7f )
+	if (esc_chi[0] && !(esc_chi[esc_chi[0]] & 0x7f))
   {
     add_i[0] = (byte   *)"\x02\x02\x00"; /* use neither b nor d channel */
   }
@@ -9119,7 +9119,7 @@ word AdvCodecSupport(DIVA_CAPI_ADAPTER   *a, PLCI   *plci, APPL   *appl, byte ho
         dbug(1,dprintf("AdvSigPlci=0x%x",a->AdvSignalPLCI));
         return 0x2001; /* codec in use by another application */
       }
-      if(plci!=0)
+      if(plci!=NULL)
       {
         a->AdvSignalPLCI = plci;
         plci->tel=ADV_VOICE;
@@ -9144,7 +9144,7 @@ word AdvCodecSupport(DIVA_CAPI_ADAPTER   *a, PLCI   *plci, APPL   *appl, byte ho
         }
                                                /* indicate D-ch connect if  */
       }                                        /* codec is connected OK     */
-      if(plci!=0)
+      if(plci!=NULL)
       {
         a->AdvSignalPLCI = plci;
         plci->tel=ADV_VOICE;
@@ -9170,7 +9170,7 @@ word AdvCodecSupport(DIVA_CAPI_ADAPTER   *a, PLCI   *plci, APPL   *appl, byte ho
   {
     if(hook_listen) return 0x300B;               /* Facility not supported */
                                                  /* no hook with SCOM      */
-    if(plci!=0) plci->tel = CODEC;
+    if(plci!=NULL) plci->tel = CODEC;
     dbug(1,dprintf("S/SCOM codec"));
     /* first time we use the scom-s codec we must shut down the internal   */
     /* handset application of the card. This can be done by an assign with */
@@ -14604,7 +14604,7 @@ static void channel_xmit_extended_xon (PLCI   * plci) {
   int max_ch = ARRAY_SIZE(a->ch_flow_control);
   int i, one_requested = 0;
 
-  if ((!plci) || (!plci->Id) || ((a = plci->adapter) == 0)) {
+  if ((!plci) || (!plci->Id) || ((a = plci->adapter) == NULL)) {
     return;
   }
 

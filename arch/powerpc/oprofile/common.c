@@ -65,7 +65,7 @@ static int op_powerpc_setup(void)
 
 	/* Configure the registers on all cpus.	 If an error occurs on one
 	 * of the cpus, op_per_cpu_rc will be set to the error */
-	on_each_cpu(op_powerpc_cpu_setup, NULL, 0, 1);
+	on_each_cpu(op_powerpc_cpu_setup, NULL, 1);
 
 out:	if (op_per_cpu_rc) {
 		/* error on setup release the performance counter hardware */
@@ -100,7 +100,7 @@ static int op_powerpc_start(void)
 	if (model->global_start)
 		return model->global_start(ctr);
 	if (model->start) {
-		on_each_cpu(op_powerpc_cpu_start, NULL, 0, 1);
+		on_each_cpu(op_powerpc_cpu_start, NULL, 1);
 		return op_per_cpu_rc;
 	}
 	return -EIO; /* No start function is defined for this
@@ -115,7 +115,7 @@ static inline void op_powerpc_cpu_stop(void *dummy)
 static void op_powerpc_stop(void)
 {
 	if (model->stop)
-		on_each_cpu(op_powerpc_cpu_stop, NULL, 0, 1);
+		on_each_cpu(op_powerpc_cpu_stop, NULL, 1);
         if (model->global_stop)
                 model->global_stop();
 }
@@ -202,9 +202,9 @@ int __init oprofile_arch_init(struct oprofile_operations *ops)
 			model = &op_model_7450;
 			break;
 #endif
-#ifdef CONFIG_FSL_BOOKE
-		case PPC_OPROFILE_BOOKE:
-			model = &op_model_fsl_booke;
+#if defined(CONFIG_FSL_EMB_PERFMON)
+		case PPC_OPROFILE_FSL_EMB:
+			model = &op_model_fsl_emb;
 			break;
 #endif
 		default:

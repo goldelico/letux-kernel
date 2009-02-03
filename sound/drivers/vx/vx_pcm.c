@@ -45,7 +45,6 @@
  *  - scheduled action on the stream.
  */
 
-#include <sound/driver.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/delay.h>
@@ -588,7 +587,8 @@ static int vx_pcm_playback_open(struct snd_pcm_substream *subs)
 		return -EBUSY;
 
 	audio = subs->pcm->device * 2;
-	snd_assert(audio < chip->audio_outs, return -EINVAL);
+	if (snd_BUG_ON(audio >= chip->audio_outs))
+		return -EINVAL;
 	
 	/* playback pipe may have been already allocated for monitoring */
 	pipe = chip->playback_pipes[audio];
@@ -997,7 +997,8 @@ static int vx_pcm_capture_open(struct snd_pcm_substream *subs)
 		return -EBUSY;
 
 	audio = subs->pcm->device * 2;
-	snd_assert(audio < chip->audio_ins, return -EINVAL);
+	if (snd_BUG_ON(audio >= chip->audio_ins))
+		return -EINVAL;
 	err = vx_alloc_pipe(chip, 1, audio, 2, &pipe);
 	if (err < 0)
 		return err;
@@ -1215,7 +1216,8 @@ void vx_pcm_update_intr(struct vx_core *chip, unsigned int events)
 			}
 			if (capture)
 				continue;
-			snd_assert(p >= 0 && (unsigned int)p < chip->audio_outs,);
+			if (snd_BUG_ON(p < 0 || p >= chip->audio_outs))
+				continue;
 			pipe = chip->playback_pipes[p];
 			if (pipe && pipe->substream) {
 				vx_pcm_playback_update(chip, pipe->substream, pipe);

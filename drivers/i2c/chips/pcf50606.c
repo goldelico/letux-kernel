@@ -52,7 +52,7 @@
 #include <linux/apm-emulation.h>
 
 #include <asm/mach-types.h>
-#include <asm/arch/gta01.h>
+#include <mach/gta01.h>
 
 #include "pcf50606.h"
 
@@ -773,8 +773,9 @@ static void pcf50606_work(struct work_struct *work)
 				 * which is very bad.  Therefore we confirm
 				 * PID #1 exists before issuing the signal
 				 */
-				if (find_task_by_pid(1)) {
-					kill_proc(1, SIGINT, 1);
+				if (find_task_by_pid_ns(1, &init_pid_ns)) {
+					kill_pid(task_pid(find_task_by_pid_ns(1, 
+							&init_pid_ns)), SIGINT, 1);
 					DEBUGPC("SIGINT(init) ");
 				}
 				/* FIXME: what to do if userspace doesn't
@@ -888,10 +889,10 @@ static void pcf50606_work(struct work_struct *work)
 			 * very bad.  Therefore we confirm PID #1 exists
 			 * before issuing SPIGPWR
 			 */
-			if (find_task_by_pid(1)) {
+			if (find_task_by_pid_ns(1, &init_pid_ns)) {
 				apm_queue_event(APM_LOW_BATTERY);
 				DEBUGPC("SIGPWR(init) ");
-				kill_proc(1, SIGPWR, 1);
+				kill_pid(task_pid(find_task_by_pid_ns(1, &init_pid_ns)), SIGPWR, 1);
 			} else
 				/*
 				 * well, our situation is like this:  we do not
@@ -1285,24 +1286,24 @@ struct pcf50606_time {
 
 static void pcf2rtc_time(struct rtc_time *rtc, struct pcf50606_time *pcf)
 {
-	rtc->tm_sec = BCD2BIN(pcf->sec);
-	rtc->tm_min = BCD2BIN(pcf->min);
-	rtc->tm_hour = BCD2BIN(pcf->hour);
-	rtc->tm_wday = BCD2BIN(pcf->wkday);
-	rtc->tm_mday = BCD2BIN(pcf->day);
-	rtc->tm_mon = BCD2BIN(pcf->month);
-	rtc->tm_year = BCD2BIN(pcf->year) + 100;
+	rtc->tm_sec = bcd2bin(pcf->sec);
+	rtc->tm_min = bcd2bin(pcf->min);
+	rtc->tm_hour = bcd2bin(pcf->hour);
+	rtc->tm_wday = bcd2bin(pcf->wkday);
+	rtc->tm_mday = bcd2bin(pcf->day);
+	rtc->tm_mon = bcd2bin(pcf->month);
+	rtc->tm_year = bcd2bin(pcf->year) + 100;
 }
 
 static void rtc2pcf_time(struct pcf50606_time *pcf, struct rtc_time *rtc)
 {
-	pcf->sec = BIN2BCD(rtc->tm_sec);
-	pcf->min = BIN2BCD(rtc->tm_min);
-	pcf->hour = BIN2BCD(rtc->tm_hour);
-	pcf->wkday = BIN2BCD(rtc->tm_wday);
-	pcf->day = BIN2BCD(rtc->tm_mday);
-	pcf->month = BIN2BCD(rtc->tm_mon);
-	pcf->year = BIN2BCD(rtc->tm_year - 100);
+	pcf->sec = bin2bcd(rtc->tm_sec);
+	pcf->min = bin2bcd(rtc->tm_min);
+	pcf->hour = bin2bcd(rtc->tm_hour);
+	pcf->wkday = bin2bcd(rtc->tm_wday);
+	pcf->day = bin2bcd(rtc->tm_mday);
+	pcf->month = bin2bcd(rtc->tm_mon);
+	pcf->year = bin2bcd(rtc->tm_year - 100);
 }
 
 static int pcf50606_rtc_ioctl(struct device *dev, unsigned int cmd,
@@ -1829,7 +1830,6 @@ static int pcf50606_detect(struct i2c_adapter *adapter, int address, int kind)
 	data->input_dev->name = "FIC Neo1973 PMU events";
 	data->input_dev->phys = "I2C";
 	data->input_dev->id.bustype = BUS_I2C;
-	data->input_dev->cdev.dev = &new_client->dev;
 
 	data->input_dev->evbit[0] = BIT(EV_KEY) | BIT(EV_PWR);
 	set_bit(KEY_POWER, data->input_dev->keybit);
@@ -1914,8 +1914,8 @@ static int pcf50606_detect(struct i2c_adapter *adapter, int address, int kind)
 		}
 		platform_device_register(&gta01_pm_gps_dev);
 		/* a link for gllin compatibility */
-		err = sysfs_create_link(&platform_bus_type.devices.kobj,
-		    &gta01_pm_gps_dev.dev.kobj, "gta01-pm-gps.0");
+		err = bus_create_device_link(&platform_bus_type,
+			&gta01_pm_gps_dev.dev.kobj, "gta01-pm-gps.0");
 		if (err)
 			printk(KERN_ERR
 			    "sysfs_create_link (gta01-pm-gps.0): %d\n", err);

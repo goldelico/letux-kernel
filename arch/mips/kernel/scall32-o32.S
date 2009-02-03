@@ -34,12 +34,8 @@ NESTED(handle_sys, PT_SIZE, sp)
 
 	lw	t1, PT_EPC(sp)		# skip syscall on return
 
-#if defined(CONFIG_BINFMT_IRIX)
-	sltiu	t0, v0, MAX_SYSCALL_NO + 1 # check syscall number
-#else
 	subu	v0, v0, __NR_O32_Linux	# check syscall number
 	sltiu	t0, v0, __NR_O32_Linux_syscalls + 1
-#endif
 	addiu	t1, 4			# skip to next instruction
 	sw	t1, PT_EPC(sp)
 	beqz	t0, illegal_syscall
@@ -184,7 +180,7 @@ bad_stack:
 	 * The system call does not exist in this kernel
 	 */
 illegal_syscall:
-	li	v0, -ENOSYS			# error
+	li	v0, ENOSYS			# error
 	sw	v0, PT_R2(sp)
 	li	t0, 1				# set error flag
 	sw	t0, PT_R7(sp)
@@ -264,22 +260,14 @@ bad_alignment:
 	END(sys_sysmips)
 
 	LEAF(sys_syscall)
-#if defined(CONFIG_BINFMT_IRIX)
-	sltiu	v0, a0, MAX_SYSCALL_NO + 1 # check syscall number
-#else
 	subu	t0, a0, __NR_O32_Linux	# check syscall number
 	sltiu	v0, t0, __NR_O32_Linux_syscalls + 1
-#endif
 	sll	t1, t0, 3
 	beqz	v0, einval
 
 	lw	t2, sys_call_table(t1)		# syscall routine
 
-#if defined(CONFIG_BINFMT_IRIX)
-	li	v1, 4000			# nr of sys_syscall
-#else
 	li	v1, 4000 - __NR_O32_Linux	# index of sys_syscall
-#endif
 	beq	t0, v1, einval			# do not recurse
 
 	/* Some syscalls like execve get their arguments from struct pt_regs
@@ -305,7 +293,7 @@ bad_alignment:
 	jr	t2
 	/* Unreached */
 
-einval:	li	v0, -EINVAL
+einval:	li	v0, -ENOSYS
 	jr	ra
 	END(sys_syscall)
 
@@ -324,13 +312,6 @@ einval:	li	v0, -EINVAL
 	.endm
 
 	.macro	syscalltable
-#if defined(CONFIG_BINFMT_IRIX)
-	mille	sys_ni_syscall		0	/*    0 -  999 SVR4 flavour */
-	mille	sys_ni_syscall		0	/* 1000 - 1999 32-bit IRIX */
-	mille	sys_ni_syscall		0	/* 2000 - 2999 BSD43 flavour */
-	mille	sys_ni_syscall		0	/* 3000 - 3999 POSIX flavour */
-#endif
-
 	sys	sys_syscall		8	/* 4000 */
 	sys	sys_exit		1
 	sys	sys_fork		0
@@ -373,7 +354,7 @@ einval:	li	v0, -EINVAL
 	sys	sys_mkdir		2
 	sys	sys_rmdir		1	/* 4040 */
 	sys	sys_dup			1
-	sys	sys_pipe		0
+	sys	sysm_pipe		0
 	sys	sys_times		1
 	sys	sys_ni_syscall		0
 	sys	sys_brk			1	/* 4045 */
@@ -660,9 +641,18 @@ einval:	li	v0, -EINVAL
 	sys	sys_ioprio_get		2	/* 4315 */
 	sys	sys_utimensat		4
 	sys	sys_signalfd		3
-	sys	sys_timerfd		4
+	sys	sys_ni_syscall		0
 	sys	sys_eventfd		1
 	sys	sys_fallocate		6	/* 4320 */
+	sys	sys_timerfd_create	2
+	sys	sys_timerfd_gettime	2
+	sys	sys_timerfd_settime	4
+	sys	sys_signalfd4		4
+	sys	sys_eventfd2		2	/* 4325 */
+	sys	sys_epoll_create1	1
+	sys	sys_dup3		3
+	sys	sys_pipe2		2
+	sys	sys_inotify_init1	1
 	.endm
 
 	/* We pre-compute the number of _instruction_ bytes needed to

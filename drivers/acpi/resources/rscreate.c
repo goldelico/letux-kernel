@@ -5,7 +5,7 @@
  ******************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,6 @@
 
 #include <acpi/acpi.h>
 #include <acpi/acresrc.h>
-#include <acpi/amlcode.h>
 #include <acpi/acnamesp.h>
 
 #define _COMPONENT          ACPI_RESOURCES
@@ -181,9 +180,9 @@ acpi_rs_create_pci_routing_table(union acpi_operand_object *package_object,
 	}
 
 	/*
-	 * Loop through the ACPI_INTERNAL_OBJECTS - Each object
-	 * should be a package that in turn contains an
-	 * acpi_integer Address, a u8 Pin, a Name and a u8 source_index.
+	 * Loop through the ACPI_INTERNAL_OBJECTS - Each object should be a
+	 * package that in turn contains an acpi_integer Address, a u8 Pin,
+	 * a Name, and a u8 source_index.
 	 */
 	top_object_list = package_object->package.elements;
 	number_of_elements = package_object->package.count;
@@ -240,9 +239,7 @@ acpi_rs_create_pci_routing_table(union acpi_operand_object *package_object,
 		/* 1) First subobject: Dereference the PRT.Address */
 
 		obj_desc = sub_object_list[0];
-		if (ACPI_GET_OBJECT_TYPE(obj_desc) == ACPI_TYPE_INTEGER) {
-			user_prt->address = obj_desc->integer.value;
-		} else {
+		if (ACPI_GET_OBJECT_TYPE(obj_desc) != ACPI_TYPE_INTEGER) {
 			ACPI_ERROR((AE_INFO,
 				    "(PRT[%X].Address) Need Integer, found %s",
 				    index,
@@ -250,12 +247,12 @@ acpi_rs_create_pci_routing_table(union acpi_operand_object *package_object,
 			return_ACPI_STATUS(AE_BAD_DATA);
 		}
 
+		user_prt->address = obj_desc->integer.value;
+
 		/* 2) Second subobject: Dereference the PRT.Pin */
 
 		obj_desc = sub_object_list[1];
-		if (ACPI_GET_OBJECT_TYPE(obj_desc) == ACPI_TYPE_INTEGER) {
-			user_prt->pin = (u32) obj_desc->integer.value;
-		} else {
+		if (ACPI_GET_OBJECT_TYPE(obj_desc) != ACPI_TYPE_INTEGER) {
 			ACPI_ERROR((AE_INFO,
 				    "(PRT[%X].Pin) Need Integer, found %s",
 				    index,
@@ -284,6 +281,25 @@ acpi_rs_create_pci_routing_table(union acpi_operand_object *package_object,
 			}
 		}
 
+		user_prt->pin = (u32) obj_desc->integer.value;
+
+		/*
+		 * If the BIOS has erroneously reversed the _PRT source_name (index 2)
+		 * and the source_index (index 3), fix it. _PRT is important enough to
+		 * workaround this BIOS error. This also provides compatibility with
+		 * other ACPI implementations.
+		 */
+		obj_desc = sub_object_list[3];
+		if (!obj_desc
+		    || (ACPI_GET_OBJECT_TYPE(obj_desc) != ACPI_TYPE_INTEGER)) {
+			sub_object_list[3] = sub_object_list[2];
+			sub_object_list[2] = obj_desc;
+
+			ACPI_WARNING((AE_INFO,
+				      "(PRT[%X].Source) SourceName and SourceIndex are reversed, fixed",
+				      index));
+		}
+
 		/*
 		 * 3) Third subobject: Dereference the PRT.source_name
 		 * The name may be unresolved (slack mode), so allow a null object
@@ -293,13 +309,12 @@ acpi_rs_create_pci_routing_table(union acpi_operand_object *package_object,
 			switch (ACPI_GET_OBJECT_TYPE(obj_desc)) {
 			case ACPI_TYPE_LOCAL_REFERENCE:
 
-				if (obj_desc->reference.opcode !=
-				    AML_INT_NAMEPATH_OP) {
+				if (obj_desc->reference.class !=
+				    ACPI_REFCLASS_NAME) {
 					ACPI_ERROR((AE_INFO,
-						    "(PRT[%X].Source) Need name, found reference op %X",
+						    "(PRT[%X].Source) Need name, found Reference Class %X",
 						    index,
-						    obj_desc->reference.
-						    opcode));
+						    obj_desc->reference.class));
 					return_ACPI_STATUS(AE_BAD_DATA);
 				}
 
@@ -364,15 +379,15 @@ acpi_rs_create_pci_routing_table(union acpi_operand_object *package_object,
 		/* 4) Fourth subobject: Dereference the PRT.source_index */
 
 		obj_desc = sub_object_list[source_index_index];
-		if (ACPI_GET_OBJECT_TYPE(obj_desc) == ACPI_TYPE_INTEGER) {
-			user_prt->source_index = (u32) obj_desc->integer.value;
-		} else {
+		if (ACPI_GET_OBJECT_TYPE(obj_desc) != ACPI_TYPE_INTEGER) {
 			ACPI_ERROR((AE_INFO,
 				    "(PRT[%X].SourceIndex) Need Integer, found %s",
 				    index,
 				    acpi_ut_get_object_type_name(obj_desc)));
 			return_ACPI_STATUS(AE_BAD_DATA);
 		}
+
+		user_prt->source_index = (u32) obj_desc->integer.value;
 
 		/* Point to the next union acpi_operand_object in the top level package */
 

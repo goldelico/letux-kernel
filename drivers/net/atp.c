@@ -378,8 +378,8 @@ static void __init get_node_ID(struct net_device *dev)
 		sa_offset = 15;
 
 	for (i = 0; i < 3; i++)
-		((u16 *)dev->dev_addr)[i] =
-			be16_to_cpu(eeprom_op(ioaddr, EE_READ(sa_offset + i)));
+		((__be16 *)dev->dev_addr)[i] =
+			cpu_to_be16(eeprom_op(ioaddr, EE_READ(sa_offset + i)));
 
 	write_reg(ioaddr, CMR2, CMR2_NULL);
 }
@@ -854,14 +854,9 @@ static void set_rx_mode_8002(struct net_device *dev)
 	struct net_local *lp = netdev_priv(dev);
 	long ioaddr = dev->base_addr;
 
-	if ( dev->mc_count > 0 || (dev->flags & (IFF_ALLMULTI|IFF_PROMISC))) {
-		/* We must make the kernel realise we had to move
-		 *	into promisc mode or we start all out war on
-		 *	the cable. - AC
-		 */
-		dev->flags|=IFF_PROMISC;
+	if (dev->mc_count > 0 || (dev->flags & (IFF_ALLMULTI|IFF_PROMISC)))
 		lp->addr_mode = CMR2h_PROMISC;
-	} else
+	else
 		lp->addr_mode = CMR2h_Normal;
 	write_reg_high(ioaddr, CMR2, lp->addr_mode);
 }

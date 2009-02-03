@@ -18,8 +18,6 @@
 #include <asm/idle.h>
 #include <asm/smp.h>
 
-atomic_t irq_err_count;
-
 #ifdef CONFIG_DEBUG_STACKOVERFLOW
 /*
  * Probabilistic stack overflow check:
@@ -33,104 +31,16 @@ static inline void stack_overflow_check(struct pt_regs *regs)
 	u64 curbase = (u64)task_stack_page(current);
 	static unsigned long warned = -60*HZ;
 
-	if (regs->rsp >= curbase && regs->rsp <= curbase + THREAD_SIZE &&
-	    regs->rsp <  curbase + sizeof(struct thread_info) + 128 &&
+	if (regs->sp >= curbase && regs->sp <= curbase + THREAD_SIZE &&
+	    regs->sp <  curbase + sizeof(struct thread_info) + 128 &&
 	    time_after(jiffies, warned + 60*HZ)) {
-		printk("do_IRQ: %s near stack overflow (cur:%Lx,rsp:%lx)\n",
-		       current->comm, curbase, regs->rsp);
+		printk("do_IRQ: %s near stack overflow (cur:%Lx,sp:%lx)\n",
+		       current->comm, curbase, regs->sp);
 		show_stack(NULL,NULL);
 		warned = jiffies;
 	}
 }
 #endif
-
-/*
- * Generic, controller-independent functions:
- */
-
-int show_interrupts(struct seq_file *p, void *v)
-{
-	int i = *(loff_t *) v, j;
-	struct irqaction * action;
-	unsigned long flags;
-
-	if (i == 0) {
-		seq_printf(p, "           ");
-		for_each_online_cpu(j)
-			seq_printf(p, "CPU%-8d",j);
-		seq_putc(p, '\n');
-	}
-
-	if (i < NR_IRQS) {
-		unsigned any_count = 0;
-
-		spin_lock_irqsave(&irq_desc[i].lock, flags);
-#ifndef CONFIG_SMP
-		any_count = kstat_irqs(i);
-#else
-		for_each_online_cpu(j)
-			any_count |= kstat_cpu(j).irqs[i];
-#endif
-		action = irq_desc[i].action;
-		if (!action && !any_count)
-			goto skip;
-		seq_printf(p, "%3d: ",i);
-#ifndef CONFIG_SMP
-		seq_printf(p, "%10u ", kstat_irqs(i));
-#else
-		for_each_online_cpu(j)
-			seq_printf(p, "%10u ", kstat_cpu(j).irqs[i]);
-#endif
-		seq_printf(p, " %8s", irq_desc[i].chip->name);
-		seq_printf(p, "-%-8s", irq_desc[i].name);
-
-		if (action) {
-			seq_printf(p, "  %s", action->name);
-			while ((action = action->next) != NULL)
-				seq_printf(p, ", %s", action->name);
-		}
-		seq_putc(p, '\n');
-skip:
-		spin_unlock_irqrestore(&irq_desc[i].lock, flags);
-	} else if (i == NR_IRQS) {
-		seq_printf(p, "NMI: ");
-		for_each_online_cpu(j)
-			seq_printf(p, "%10u ", cpu_pda(j)->__nmi_count);
-		seq_printf(p, "  Non-maskable interrupts\n");
-		seq_printf(p, "LOC: ");
-		for_each_online_cpu(j)
-			seq_printf(p, "%10u ", cpu_pda(j)->apic_timer_irqs);
-		seq_printf(p, "  Local timer interrupts\n");
-#ifdef CONFIG_SMP
-		seq_printf(p, "RES: ");
-		for_each_online_cpu(j)
-			seq_printf(p, "%10u ", cpu_pda(j)->irq_resched_count);
-		seq_printf(p, "  Rescheduling interrupts\n");
-		seq_printf(p, "CAL: ");
-		for_each_online_cpu(j)
-			seq_printf(p, "%10u ", cpu_pda(j)->irq_call_count);
-		seq_printf(p, "  function call interrupts\n");
-		seq_printf(p, "TLB: ");
-		for_each_online_cpu(j)
-			seq_printf(p, "%10u ", cpu_pda(j)->irq_tlb_count);
-		seq_printf(p, "  TLB shootdowns\n");
-#endif
-		seq_printf(p, "TRM: ");
-		for_each_online_cpu(j)
-			seq_printf(p, "%10u ", cpu_pda(j)->irq_thermal_count);
-		seq_printf(p, "  Thermal event interrupts\n");
-		seq_printf(p, "THR: ");
-		for_each_online_cpu(j)
-			seq_printf(p, "%10u ", cpu_pda(j)->irq_threshold_count);
-		seq_printf(p, "  Threshold APIC interrupts\n");
-		seq_printf(p, "SPU: ");
-		for_each_online_cpu(j)
-			seq_printf(p, "%10u ", cpu_pda(j)->irq_spurious_count);
-		seq_printf(p, "  Spurious interrupts\n");
-		seq_printf(p, "ERR: %10u\n", atomic_read(&irq_err_count));
-	}
-	return 0;
-}
 
 /*
  * do_IRQ handles all normal device IRQ's (the special
@@ -140,9 +50,10 @@ skip:
 asmlinkage unsigned int do_IRQ(struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
+	struct irq_desc *desc;
 
 	/* high bit used in ret_from_ code  */
-	unsigned vector = ~regs->orig_rax;
+	unsigned vector = ~regs->orig_ax;
 	unsigned irq;
 
 	exit_idle();
@@ -153,8 +64,9 @@ asmlinkage unsigned int do_IRQ(struct pt_regs *regs)
 	stack_overflow_check(regs);
 #endif
 
-	if (likely(irq < NR_IRQS))
-		generic_handle_irq(irq);
+	desc = irq_to_desc(irq);
+	if (likely(desc))
+		generic_handle_irq_desc(irq, desc);
 	else {
 		if (!disable_apic)
 			ack_APIC_irq();
@@ -175,8 +87,9 @@ void fixup_irqs(cpumask_t map)
 {
 	unsigned int irq;
 	static int warned;
+	struct irq_desc *desc;
 
-	for (irq = 0; irq < NR_IRQS; irq++) {
+	for_each_irq_desc(irq, desc) {
 		cpumask_t mask;
 		int break_affinity = 0;
 		int set_affinity = 1;
@@ -185,32 +98,32 @@ void fixup_irqs(cpumask_t map)
 			continue;
 
 		/* interrupt's are disabled at this point */
-		spin_lock(&irq_desc[irq].lock);
+		spin_lock(&desc->lock);
 
 		if (!irq_has_action(irq) ||
-		    cpus_equal(irq_desc[irq].affinity, map)) {
-			spin_unlock(&irq_desc[irq].lock);
+		    cpus_equal(desc->affinity, map)) {
+			spin_unlock(&desc->lock);
 			continue;
 		}
 
-		cpus_and(mask, irq_desc[irq].affinity, map);
+		cpus_and(mask, desc->affinity, map);
 		if (cpus_empty(mask)) {
 			break_affinity = 1;
 			mask = map;
 		}
 
-		if (irq_desc[irq].chip->mask)
-			irq_desc[irq].chip->mask(irq);
+		if (desc->chip->mask)
+			desc->chip->mask(irq);
 
-		if (irq_desc[irq].chip->set_affinity)
-			irq_desc[irq].chip->set_affinity(irq, mask);
+		if (desc->chip->set_affinity)
+			desc->chip->set_affinity(irq, mask);
 		else if (!(warned++))
 			set_affinity = 0;
 
-		if (irq_desc[irq].chip->unmask)
-			irq_desc[irq].chip->unmask(irq);
+		if (desc->chip->unmask)
+			desc->chip->unmask(irq);
 
-		spin_unlock(&irq_desc[irq].lock);
+		spin_unlock(&desc->lock);
 
 		if (break_affinity && set_affinity)
 			printk("Broke affinity for irq %i\n", irq);

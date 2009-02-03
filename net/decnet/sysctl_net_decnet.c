@@ -132,7 +132,7 @@ static int parse_addr(__le16 *addr, char *str)
 }
 
 
-static int dn_node_address_strategy(ctl_table *table, int __user *name, int nlen,
+static int dn_node_address_strategy(ctl_table *table,
 				void __user *oldval, size_t __user *oldlenp,
 				void __user *newval, size_t newlen)
 {
@@ -217,7 +217,7 @@ static int dn_node_address_handler(ctl_table *table, int write,
 }
 
 
-static int dn_def_dev_strategy(ctl_table *table, int __user *name, int nlen,
+static int dn_def_dev_strategy(ctl_table *table,
 				void __user *oldval, size_t __user *oldlenp,
 				void __user *newval, size_t newlen)
 {
@@ -470,28 +470,15 @@ static ctl_table dn_table[] = {
 	{0}
 };
 
-static ctl_table dn_dir_table[] = {
-	{
-		.ctl_name = NET_DECNET,
-		.procname = "decnet",
-		.mode = 0555,
-		.child = dn_table},
-	{0}
-};
-
-static ctl_table dn_root_table[] = {
-	{
-		.ctl_name = CTL_NET,
-		.procname = "net",
-		.mode = 0555,
-		.child = dn_dir_table
-	},
-	{0}
+static struct ctl_path dn_path[] = {
+	{ .procname = "net", .ctl_name = CTL_NET, },
+	{ .procname = "decnet", .ctl_name = NET_DECNET, },
+	{ }
 };
 
 void dn_register_sysctl(void)
 {
-	dn_table_header = register_sysctl_table(dn_root_table);
+	dn_table_header = register_sysctl_paths(dn_path, dn_table);
 }
 
 void dn_unregister_sysctl(void)

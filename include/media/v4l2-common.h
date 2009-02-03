@@ -28,12 +28,6 @@
 
 #include <media/v4l2-dev.h>
 
-/* v4l debugging and diagnostics */
-
-/* Debug bitmask flags to be used on V4L2 */
-#define V4L2_DEBUG_IOCTL     0x01
-#define V4L2_DEBUG_IOCTL_ARG 0x02
-
 /* Common printk constucts for v4l-i2c drivers. These macros create a unique
    prefix consisting of the driver name, the adapter number and the i2c
    address. */
@@ -61,23 +55,20 @@
 			v4l_client_printk(KERN_DEBUG, client, fmt , ## arg); \
 	} while (0)
 
-/* Prints the ioctl in a human-readable format */
-extern void v4l_printk_ioctl(unsigned int cmd);
+/* ------------------------------------------------------------------------- */
 
-/* Use this macro for non-I2C drivers. Pass the driver name as the first arg. */
-#define v4l_print_ioctl(name, cmd)  		 \
-	do {  					 \
-		printk(KERN_DEBUG "%s: ", name); \
-		v4l_printk_ioctl(cmd);		 \
-	} while (0)
+/* Priority helper functions */
 
-/* Use this macro in I2C drivers where 'client' is the struct i2c_client
-   pointer */
-#define v4l_i2c_print_ioctl(client, cmd) 		   \
-	do {      					   \
-		v4l_client_printk(KERN_DEBUG, client, ""); \
-		v4l_printk_ioctl(cmd);			   \
-	} while (0)
+struct v4l2_prio_state {
+	atomic_t prios[4];
+};
+int v4l2_prio_init(struct v4l2_prio_state *global);
+int v4l2_prio_change(struct v4l2_prio_state *global, enum v4l2_priority *local,
+		     enum v4l2_priority new);
+int v4l2_prio_open(struct v4l2_prio_state *global, enum v4l2_priority *local);
+int v4l2_prio_close(struct v4l2_prio_state *global, enum v4l2_priority *local);
+enum v4l2_priority v4l2_prio_max(struct v4l2_prio_state *global);
+int v4l2_prio_check(struct v4l2_prio_state *global, enum v4l2_priority *local);
 
 /* ------------------------------------------------------------------------- */
 
@@ -85,11 +76,14 @@ extern void v4l_printk_ioctl(unsigned int cmd);
 
 int v4l2_ctrl_check(struct v4l2_ext_control *ctrl, struct v4l2_queryctrl *qctrl,
 		const char **menu_items);
+const char *v4l2_ctrl_get_name(u32 id);
 const char **v4l2_ctrl_get_menu(u32 id);
 int v4l2_ctrl_query_fill(struct v4l2_queryctrl *qctrl, s32 min, s32 max, s32 step, s32 def);
 int v4l2_ctrl_query_fill_std(struct v4l2_queryctrl *qctrl);
 int v4l2_ctrl_query_menu(struct v4l2_querymenu *qmenu,
 		struct v4l2_queryctrl *qctrl, const char **menu_items);
+#define V4L2_CTRL_MENU_IDS_END (0xffffffff)
+int v4l2_ctrl_query_menu_valid_items(struct v4l2_querymenu *qmenu, const u32 *ids);
 u32 v4l2_ctrl_next(const u32 * const *ctrl_classes, u32 id);
 
 /* ------------------------------------------------------------------------- */
@@ -104,6 +98,19 @@ int v4l2_chip_match_host(u32 id_type, u32 chip_id);
 
 /* ------------------------------------------------------------------------- */
 
+/* Helper function for I2C legacy drivers */
+
+struct i2c_driver;
+struct i2c_adapter;
+struct i2c_client;
+struct i2c_device_id;
+
+int v4l2_i2c_attach(struct i2c_adapter *adapter, int address, struct i2c_driver *driver,
+		const char *name,
+		int (*probe)(struct i2c_client *, const struct i2c_device_id *));
+
+/* ------------------------------------------------------------------------- */
+
 /* Internal ioctls */
 
 /* VIDIOC_INT_DECODE_VBI_LINE */
@@ -114,6 +121,11 @@ struct v4l2_decode_vbi_line {
 				   On exit points to the start of the payload. */
 	u32 line;		/* Line number of the sliced VBI data (1-23) */
 	u32 type;		/* VBI service type (V4L2_SLICED_*). 0 if no service found */
+};
+
+struct v4l2_priv_tun_config {
+	int tuner;
+	void *priv;
 };
 
 /* audio ioctls */
@@ -131,7 +143,7 @@ struct v4l2_decode_vbi_line {
 #define TUNER_SET_STANDBY            _IOW('d', 91, int)
 
 /* Sets tda9887 specific stuff, like port1, port2 and qss */
-#define TDA9887_SET_CONFIG           _IOW('d', 92, int)
+#define TUNER_SET_CONFIG           _IOW('d', 92, struct v4l2_priv_tun_config)
 
 /* Switch the tuner to a specific tuner mode. Replacement of AUDC_SET_RADIO */
 #define VIDIOC_INT_S_TUNER_MODE	     _IOW('d', 93, enum v4l2_tuner_type)
@@ -213,18 +225,22 @@ struct v4l2_crystal_freq {
    An extra flags field allows device specific configuration regarding
    clock frequency dividers, etc. If not used, then set flags to 0.
    If the frequency is not supported, then -EINVAL is returned. */
-#define VIDIOC_INT_S_CRYSTAL_FREQ 	_IOW ('d', 113, struct v4l2_crystal_freq)
+#define VIDIOC_INT_S_CRYSTAL_FREQ 	_IOW('d', 113, struct v4l2_crystal_freq)
 
 /* Initialize the sensor registors to some sort of reasonable
    default values. */
-#define VIDIOC_INT_INIT			_IOW ('d', 114, u32)
+#define VIDIOC_INT_INIT			_IOW('d', 114, u32)
 
 /* Set v4l2_std_id for video OUTPUT devices. This is ignored by
    video input devices. */
-#define VIDIOC_INT_S_STD_OUTPUT		_IOW  ('d', 115, v4l2_std_id)
+#define VIDIOC_INT_S_STD_OUTPUT		_IOW('d', 115, v4l2_std_id)
 
 /* Get v4l2_std_id for video OUTPUT devices. This is ignored by
    video input devices. */
-#define VIDIOC_INT_G_STD_OUTPUT		_IOW  ('d', 116, v4l2_std_id)
+#define VIDIOC_INT_G_STD_OUTPUT		_IOW('d', 116, v4l2_std_id)
+
+/* Set GPIO pins. Very simple right now, might need to be extended with
+   a v4l2_gpio struct if a direction is also needed. */
+#define VIDIOC_INT_S_GPIO		_IOW('d', 117, u32)
 
 #endif /* V4L2_COMMON_H_ */

@@ -423,7 +423,10 @@ static int catc_hard_start_xmit(struct sk_buff *skb, struct net_device *netdev)
 
 	catc->tx_ptr = (((catc->tx_ptr - 1) >> 6) + 1) << 6;
 	tx_buf = catc->tx_buf[catc->tx_idx] + catc->tx_ptr;
-	*((u16*)tx_buf) = (catc->is_f5u011) ? cpu_to_be16((u16)skb->len) : cpu_to_le16((u16)skb->len);
+	if (catc->is_f5u011)
+		*(__be16 *)tx_buf = cpu_to_be16(skb->len);
+	else
+		*(__le16 *)tx_buf = cpu_to_le16(skb->len);
 	skb_copy_from_linear_data(skb, tx_buf + 2, skb->len);
 	catc->tx_ptr += skb->len + 2;
 
@@ -453,7 +456,7 @@ static void catc_tx_timeout(struct net_device *netdev)
 {
 	struct catc *catc = netdev_priv(netdev);
 
-	warn("Transmit timed out.");
+	dev_warn(&netdev->dev, "Transmit timed out.\n");
 	usb_unlink_urb(catc->tx_urb);
 }
 
@@ -844,7 +847,8 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
 			dbg("64k Memory\n");
 			break;
 		default:
-			warn("Couldn't detect memory size, assuming 32k");
+			dev_warn(&intf->dev,
+				 "Couldn't detect memory size, assuming 32k\n");
 		case 0x87654321:
 			catc_set_reg(catc, TxBufCount, 4);
 			catc_set_reg(catc, RxBufCount, 16);
@@ -950,7 +954,8 @@ static int __init catc_init(void)
 {
 	int result = usb_register(&catc_driver);
 	if (result == 0)
-		info(DRIVER_VERSION " " DRIVER_DESC);
+		printk(KERN_INFO KBUILD_MODNAME ": " DRIVER_VERSION ":"
+		       DRIVER_DESC "\n");
 	return result;
 }
 

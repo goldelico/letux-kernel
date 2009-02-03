@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2004 - 2007 rt2x00 SourceForge Project
+	Copyright (C) 2004 - 2008 rt2x00 SourceForge Project
 	<http://rt2x00.serialmonkey.com>
 
 	This program is free software; you can redistribute it and/or modify
@@ -57,51 +57,61 @@
 /*
  * Register access.
  */
-static inline void rt2x00pci_register_read(const struct rt2x00_dev *rt2x00dev,
+static inline void rt2x00pci_register_read(struct rt2x00_dev *rt2x00dev,
 					   const unsigned long offset,
 					   u32 *value)
 {
-	*value = readl(rt2x00dev->csr_addr + offset);
+	*value = readl(rt2x00dev->csr.base + offset);
 }
 
 static inline void
-rt2x00pci_register_multiread(const struct rt2x00_dev *rt2x00dev,
+rt2x00pci_register_multiread(struct rt2x00_dev *rt2x00dev,
 			     const unsigned long offset,
 			     void *value, const u16 length)
 {
-	memcpy_fromio(value, rt2x00dev->csr_addr + offset, length);
+	memcpy_fromio(value, rt2x00dev->csr.base + offset, length);
 }
 
-static inline void rt2x00pci_register_write(const struct rt2x00_dev *rt2x00dev,
+static inline void rt2x00pci_register_write(struct rt2x00_dev *rt2x00dev,
 					    const unsigned long offset,
 					    u32 value)
 {
-	writel(value, rt2x00dev->csr_addr + offset);
+	writel(value, rt2x00dev->csr.base + offset);
 }
 
 static inline void
-rt2x00pci_register_multiwrite(const struct rt2x00_dev *rt2x00dev,
+rt2x00pci_register_multiwrite(struct rt2x00_dev *rt2x00dev,
 			      const unsigned long offset,
-			      void *value, const u16 length)
+			      const void *value, const u16 length)
 {
-	memcpy_toio(rt2x00dev->csr_addr + offset, value, length);
+	memcpy_toio(rt2x00dev->csr.base + offset, value, length);
 }
 
-/*
- * Beacon handlers.
+/**
+ * rt2x00pci_write_tx_data - Initialize data for TX operation
+ * @entry: The entry where the frame is located
+ *
+ * This function will initialize the DMA and skb descriptor
+ * to prepare the entry for the actual TX operation.
  */
-int rt2x00pci_beacon_update(struct ieee80211_hw *hw, struct sk_buff *skb,
-			    struct ieee80211_tx_control *control);
+int rt2x00pci_write_tx_data(struct queue_entry *entry);
 
-/*
- * TX data handlers.
+/**
+ * struct queue_entry_priv_pci: Per entry PCI specific information
+ *
+ * @desc: Pointer to device descriptor
+ * @desc_dma: DMA pointer to &desc.
+ * @data: Pointer to device's entry memory.
+ * @data_dma: DMA pointer to &data.
  */
-int rt2x00pci_write_tx_data(struct rt2x00_dev *rt2x00dev,
-			    struct data_ring *ring, struct sk_buff *skb,
-			    struct ieee80211_tx_control *control);
+struct queue_entry_priv_pci {
+	__le32 *desc;
+	dma_addr_t desc_dma;
+};
 
-/*
- * RX data handlers.
+/**
+ * rt2x00pci_rxdone - Handle RX done events
+ * @rt2x00dev: Device pointer, see &struct rt2x00_dev.
  */
 void rt2x00pci_rxdone(struct rt2x00_dev *rt2x00dev);
 

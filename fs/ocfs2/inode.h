@@ -34,12 +34,14 @@ struct ocfs2_inode_info
 	u64			ip_blkno;
 
 	struct ocfs2_lock_res		ip_rw_lockres;
-	struct ocfs2_lock_res		ip_meta_lockres;
-	struct ocfs2_lock_res		ip_data_lockres;
+	struct ocfs2_lock_res		ip_inode_lockres;
 	struct ocfs2_lock_res		ip_open_lockres;
 
 	/* protects allocation changes on this inode. */
 	struct rw_semaphore		ip_alloc_sem;
+
+	/* protects extended attribute changes on this inode */
+	struct rw_semaphore		ip_xattr_sem;
 
 	/* These fields are protected by ip_lock */
 	spinlock_t			ip_lock;
@@ -69,6 +71,7 @@ struct ocfs2_inode_info
 	struct ocfs2_extent_map		ip_extent_map;
 
 	struct inode			vfs_inode;
+	struct jbd2_inode		ip_jinode;
 };
 
 /*
@@ -114,16 +117,15 @@ extern struct kmem_cache *ocfs2_inode_cache;
 
 extern const struct address_space_operations ocfs2_aops;
 
-struct buffer_head *ocfs2_bread(struct inode *inode, int block,
-				int *err, int reada);
 void ocfs2_clear_inode(struct inode *inode);
 void ocfs2_delete_inode(struct inode *inode);
 void ocfs2_drop_inode(struct inode *inode);
 
 /* Flags for ocfs2_iget() */
-#define OCFS2_FI_FLAG_SYSFILE		0x4
-#define OCFS2_FI_FLAG_ORPHAN_RECOVERY	0x8
-struct inode *ocfs2_iget(struct ocfs2_super *osb, u64 feoff, int flags);
+#define OCFS2_FI_FLAG_SYSFILE		0x1
+#define OCFS2_FI_FLAG_ORPHAN_RECOVERY	0x2
+struct inode *ocfs2_iget(struct ocfs2_super *osb, u64 feoff, unsigned flags,
+			 int sysfile_type);
 int ocfs2_inode_init_private(struct inode *inode);
 int ocfs2_inode_revalidate(struct dentry *dentry);
 int ocfs2_populate_inode(struct inode *inode, struct ocfs2_dinode *fe,

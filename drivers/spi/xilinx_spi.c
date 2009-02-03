@@ -151,13 +151,13 @@ static int xilinx_spi_setup_transfer(struct spi_device *spi,
 	hz = (t) ? t->speed_hz : spi->max_speed_hz;
 	if (bits_per_word != 8) {
 		dev_err(&spi->dev, "%s, unsupported bits_per_word=%d\n",
-			__FUNCTION__, bits_per_word);
+			__func__, bits_per_word);
 		return -EINVAL;
 	}
 
 	if (hz && xspi->speed_hz > hz) {
 		dev_err(&spi->dev, "%s, unsupported clock rate %uHz\n",
-			__FUNCTION__, hz);
+			__func__, hz);
 		return -EINVAL;
 	}
 
@@ -181,7 +181,7 @@ static int xilinx_spi_setup(struct spi_device *spi)
 
 	if (spi->mode & ~MODEBITS) {
 		dev_err(&spi->dev, "%s, unsupported mode bits %x\n",
-			__FUNCTION__, spi->mode & ~MODEBITS);
+			__func__, spi->mode & ~MODEBITS);
 		return -EINVAL;
 	}
 
@@ -190,7 +190,7 @@ static int xilinx_spi_setup(struct spi_device *spi)
 		return retval;
 
 	dev_dbg(&spi->dev, "%s, mode %d, %u bits/w, %u nsec/bit\n",
-		__FUNCTION__, spi->mode & MODEBITS, spi->bits_per_word, 0);
+		__func__, spi->mode & MODEBITS, spi->bits_per_word, 0);
 
 	return 0;
 }
@@ -353,11 +353,12 @@ static int __init xilinx_spi_probe(struct platform_device *dev)
 		goto put_master;
 	}
 
-	xspi->irq = platform_get_irq(dev, 0);
-	if (xspi->irq < 0) {
+	ret = platform_get_irq(dev, 0);
+	if (ret < 0) {
 		ret = -ENXIO;
 		goto unmap_io;
 	}
+	xspi->irq = ret;
 
 	master->bus_num = pdata->bus_num;
 	master->num_chipselect = pdata->num_chipselect;
@@ -407,6 +408,9 @@ static int __devexit xilinx_spi_remove(struct platform_device *dev)
 
 	return 0;
 }
+
+/* work with hotplug and coldplug */
+MODULE_ALIAS("platform:" XILINX_SPI_NAME);
 
 static struct platform_driver xilinx_spi_driver = {
 	.probe	= xilinx_spi_probe,

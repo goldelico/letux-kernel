@@ -46,11 +46,12 @@
 #include <linux/scatterlist.h>
 #include <linux/crypto.h>
 #include <linux/sched.h>
+#include <linux/mount.h>
 
 #define NFSDDBG_FACILITY                NFSDDBG_PROC
 
 /* Globals */
-static struct nameidata rec_dir;
+static struct path rec_dir;
 static int rec_dir_init = 0;
 
 static void
@@ -154,7 +155,11 @@ nfsd4_create_clid_dir(struct nfs4_client *clp)
 		dprintk("NFSD: nfsd4_create_clid_dir: DIRECTORY EXISTS\n");
 		goto out_put;
 	}
+	status = mnt_want_write(rec_dir.mnt);
+	if (status)
+		goto out_put;
 	status = vfs_mkdir(rec_dir.dentry->d_inode, dentry, S_IRWXU);
+	mnt_drop_write(rec_dir.mnt);
 out_put:
 	dput(dentry);
 out_unlock:
@@ -313,12 +318,17 @@ nfsd4_remove_clid_dir(struct nfs4_client *clp)
 	if (!rec_dir_init || !clp->cl_firststate)
 		return;
 
+	status = mnt_want_write(rec_dir.mnt);
+	if (status)
+		goto out;
 	clp->cl_firststate = 0;
 	nfs4_save_user(&uid, &gid);
 	status = nfsd4_unlink_clid_dir(clp->cl_recdir, HEXDIR_LEN-1);
 	nfs4_reset_user(uid, gid);
 	if (status == 0)
 		nfsd4_sync_rec_dir();
+	mnt_drop_write(rec_dir.mnt);
+out:
 	if (status)
 		printk("NFSD: Failed to remove expired client state directory"
 				" %.*s\n", HEXDIR_LEN, clp->cl_recdir);
@@ -347,13 +357,17 @@ nfsd4_recdir_purge_old(void) {
 
 	if (!rec_dir_init)
 		return;
+	status = mnt_want_write(rec_dir.mnt);
+	if (status)
+		goto out;
 	status = nfsd4_list_rec_dir(rec_dir.dentry, purge_old);
 	if (status == 0)
 		nfsd4_sync_rec_dir();
+	mnt_drop_write(rec_dir.mnt);
+out:
 	if (status)
 		printk("nfsd4: failed to purge old clients from recovery"
 			" directory %s\n", rec_dir.dentry->d_name.name);
-	return;
 }
 
 static int
@@ -398,7 +412,7 @@ nfsd4_init_recdir(char *rec_dirname)
 
 	nfs4_save_user(&uid, &gid);
 
-	status = path_lookup(rec_dirname, LOOKUP_FOLLOW | LOOKUP_DIRECTORY,
+	status = kern_path(rec_dirname, LOOKUP_FOLLOW | LOOKUP_DIRECTORY,
 			&rec_dir);
 	if (status)
 		printk("NFSD: unable to find recovery directory %s\n",
@@ -415,5 +429,5 @@ nfsd4_shutdown_recdir(void)
 	if (!rec_dir_init)
 		return;
 	rec_dir_init = 0;
-	path_release(&rec_dir);
+	path_put(&rec_dir);
 }

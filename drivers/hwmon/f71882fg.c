@@ -74,6 +74,10 @@
 
 #define FAN_MIN_DETECT			366 /* Lowest detectable fanspeed */
 
+static unsigned short force_id;
+module_param(force_id, ushort, 0);
+MODULE_PARM_DESC(force_id, "Override the detected device ID");
+
 static struct platform_device *f71882fg_pdev = NULL;
 
 /* Super-I/O Function prototypes */
@@ -82,8 +86,6 @@ static inline int superio_inw(int base, int reg);
 static inline void superio_enter(int base);
 static inline void superio_select(int base, int ld);
 static inline void superio_exit(int base);
-
-static inline u16 fan_from_reg ( u16 reg );
 
 struct f71882fg_data {
 	unsigned short addr;
@@ -111,10 +113,6 @@ struct f71882fg_data {
 	u8	temp_beep;
 	u8	temp_diode_open;
 };
-
-static u8 f71882fg_read8(struct f71882fg_data *data, u8 reg);
-static u16 f71882fg_read16(struct f71882fg_data *data, u8 reg);
-static void f71882fg_write8(struct f71882fg_data *data, u8 reg, u8 val);
 
 /* Sysfs in*/
 static ssize_t show_in(struct device *dev, struct device_attribute *devattr,
@@ -843,7 +841,7 @@ static int __init f71882fg_find(int sioaddr, unsigned short *address)
 		goto exit;
 	}
 
-	devid = superio_inw(sioaddr, SIO_REG_DEVID);
+	devid = force_id ? force_id : superio_inw(sioaddr, SIO_REG_DEVID);
 	if (devid != SIO_F71882_ID) {
 		printk(KERN_INFO DRVNAME ": Unsupported Fintek device\n");
 		goto exit;

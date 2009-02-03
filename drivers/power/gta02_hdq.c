@@ -15,16 +15,24 @@
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
+#include <linux/gta02_hdq.h>
 #include <asm/mach-types.h>
-#include <asm/arch/gta02.h>
-#include <asm/arch/fiq_ipc_gta02.h>
+#include <mach/gta02.h>
+#include <mach/fiq_ipc_gta02.h>
 
 
 
 #define HDQ_READ 0
 #define HDQ_WRITE 0x80
 
+static int fiq_busy(void)
+{
+	int request = (volatile u8)fiq_ipc.hdq_request_ctr;
+	int transact = (volatile u8)fiq_ipc.hdq_transaction_ctr;
+
+	return (request != transact);
+}
 
 int gta02hdq_initialized(void)
 {
@@ -37,8 +45,12 @@ int gta02hdq_read(int address)
 	int count_sleeps = 5;
 	int ret = -ETIME;
 
+	if (!fiq_ipc.hdq_probed)
+		return -EINVAL;
+
 	mutex_lock(&fiq_ipc.hdq_lock);
 
+	fiq_ipc.hdq_error = 0;
 	fiq_ipc.hdq_ads = address | HDQ_READ;
 	fiq_ipc.hdq_request_ctr++;
 	fiq_kick();
@@ -50,7 +62,7 @@ int gta02hdq_read(int address)
 	while (count_sleeps--) {
 		msleep(10); /* valid transaction always completes in < 10ms */
 
-		if (fiq_ipc.hdq_request_ctr != fiq_ipc.hdq_transaction_ctr)
+		if (fiq_busy())
 			continue;
 
 		if (fiq_ipc.hdq_error)
@@ -59,7 +71,6 @@ int gta02hdq_read(int address)
 		ret = fiq_ipc.hdq_rx_data;
 		goto done;
 	}
-	ret = -EINVAL;
 
 done:
 	mutex_unlock(&fiq_ipc.hdq_lock);
@@ -72,8 +83,12 @@ int gta02hdq_write(int address, u8 data)
 	int count_sleeps = 5;
 	int ret = -ETIME;
 
+	if (!fiq_ipc.hdq_probed)
+		return -EINVAL;
+
 	mutex_lock(&fiq_ipc.hdq_lock);
 
+	fiq_ipc.hdq_error = 0;
 	fiq_ipc.hdq_ads = address | HDQ_WRITE;
 	fiq_ipc.hdq_tx_data = data;
 	fiq_ipc.hdq_request_ctr++;
@@ -86,13 +101,15 @@ int gta02hdq_write(int address, u8 data)
 	while (count_sleeps--) {
 		msleep(10); /* valid transaction always completes in < 10ms */
 
-		if (fiq_ipc.hdq_request_ctr != fiq_ipc.hdq_transaction_ctr)
+		if (fiq_busy())
 			continue; /* something bad with FIQ */
 
 		if (fiq_ipc.hdq_error)
 			goto done; /* didn't see a response in good time */
+
+		ret = 0;
+		goto done;
 	}
-	ret = -EINVAL;
 
 done:
 	mutex_unlock(&fiq_ipc.hdq_lock);
@@ -109,6 +126,9 @@ static ssize_t hdq_sysfs_dump(struct device *dev, struct device_attribute *attr,
 	int v;
 	u8 u8a[128]; /* whole address space for HDQ */
 	char *end = buf;
+
+	if (!fiq_ipc.hdq_probed)
+		return -EINVAL;
 
 	/* the dump does not take care about 16 bit regs, because at this
 	 * bus level we don't know about the chip details
@@ -142,6 +162,9 @@ static ssize_t hdq_sysfs_write(struct device *dev,
 {
 	const char *end = buf + count;
 	int address = atoi(buf);
+
+	if (!fiq_ipc.hdq_probed)
+		return -EINVAL;
 
 	while ((buf != end) && (*buf != ' '))
 		buf++;
@@ -192,12 +215,19 @@ static int gta02hdq_resume(struct platform_device *pdev)
 static int __init gta02hdq_probe(struct platform_device *pdev)
 {
 	struct resource *r = platform_get_resource(pdev, 0, 0);
+	int ret;
+	struct gta02_hdq_platform_data *pdata = pdev->dev.platform_data;
 
 	if (!machine_is_neo1973_gta02())
 		return -EIO;
 
 	if (!r)
 		return -EINVAL;
+
+	if (!fiq_ready) {
+		printk(KERN_ERR "hdq probe fails on fiq not ready\n");
+		return -EINVAL;
+	}
 
 	platform_set_drvdata(pdev, NULL);
 
@@ -209,9 +239,21 @@ static int __init gta02hdq_probe(struct platform_device *pdev)
 	s3c2410_gpio_setpin(fiq_ipc.hdq_gpio_pin, 1);
 	s3c2410_gpio_cfgpin(fiq_ipc.hdq_gpio_pin, S3C2410_GPIO_OUTPUT);
 
+	ret = sysfs_create_group(&pdev->dev.kobj, &gta02hdq_attr_group);
+	if (ret)
+		return ret;
+
 	fiq_ipc.hdq_probed = 1; /* we are ready to do stuff now */
 
-	return sysfs_create_group(&pdev->dev.kobj, &gta02hdq_attr_group);
+	/*
+	 * if wanted, users can defer registration of devices
+	 * that depend on HDQ until after we register, and can use our
+	 * device as parent so suspend-resume ordering is correct
+	 */
+	if (pdata->attach_child_devices)
+		(pdata->attach_child_devices)(&pdev->dev);
+
+	return 0;
 }
 
 static int gta02hdq_remove(struct platform_device *pdev)

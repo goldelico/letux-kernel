@@ -67,6 +67,12 @@
 #ifndef SET_ENDIAN
 # define SET_ENDIAN(a,b)	(-EINVAL)
 #endif
+#ifndef GET_TSC_CTL
+# define GET_TSC_CTL(a)		(-EINVAL)
+#endif
+#ifndef SET_TSC_CTL
+# define SET_TSC_CTL(a)		(-EINVAL)
+#endif
 
 /*
  * this is where the system-wide overflow UID and GID are defined, for
@@ -163,9 +169,9 @@ asmlinkage long sys_setpriority(int which, int who, int niceval)
 				pgrp = find_vpid(who);
 			else
 				pgrp = task_pgrp(current);
-			do_each_pid_task(pgrp, PIDTYPE_PGID, p) {
+			do_each_pid_thread(pgrp, PIDTYPE_PGID, p) {
 				error = set_one_prio(p, niceval, error);
-			} while_each_pid_task(pgrp, PIDTYPE_PGID, p);
+			} while_each_pid_thread(pgrp, PIDTYPE_PGID, p);
 			break;
 		case PRIO_USER:
 			user = current->user;
@@ -223,11 +229,11 @@ asmlinkage long sys_getpriority(int which, int who)
 				pgrp = find_vpid(who);
 			else
 				pgrp = task_pgrp(current);
-			do_each_pid_task(pgrp, PIDTYPE_PGID, p) {
+			do_each_pid_thread(pgrp, PIDTYPE_PGID, p) {
 				niceval = 20 - task_nice(p);
 				if (niceval > retval)
 					retval = niceval;
-			} while_each_pid_task(pgrp, PIDTYPE_PGID, p);
+			} while_each_pid_thread(pgrp, PIDTYPE_PGID, p);
 			break;
 		case PRIO_USER:
 			user = current->user;
@@ -268,7 +274,7 @@ void emergency_restart(void)
 }
 EXPORT_SYMBOL_GPL(emergency_restart);
 
-static void kernel_restart_prepare(char *cmd)
+void kernel_restart_prepare(char *cmd)
 {
 	blocking_notifier_call_chain(&reboot_notifier_list, SYS_RESTART, cmd);
 	system_state = SYSTEM_RESTART;
@@ -295,27 +301,7 @@ void kernel_restart(char *cmd)
 }
 EXPORT_SYMBOL_GPL(kernel_restart);
 
-/**
- *	kernel_kexec - reboot the system
- *
- *	Move into place and start executing a preloaded standalone
- *	executable.  If nothing was preloaded return an error.
- */
-static void kernel_kexec(void)
-{
-#ifdef CONFIG_KEXEC
-	struct kimage *image;
-	image = xchg(&kexec_image, NULL);
-	if (!image)
-		return;
-	kernel_restart_prepare(NULL);
-	printk(KERN_EMERG "Starting new kernel\n");
-	machine_shutdown();
-	machine_kexec(image);
-#endif
-}
-
-void kernel_shutdown_prepare(enum system_states state)
+static void kernel_shutdown_prepare(enum system_states state)
 {
 	blocking_notifier_call_chain(&reboot_notifier_list,
 		(state == SYSTEM_HALT)?SYS_HALT:SYS_POWER_OFF, NULL);
@@ -419,10 +405,15 @@ asmlinkage long sys_reboot(int magic1, int magic2, unsigned int cmd, void __user
 		kernel_restart(buffer);
 		break;
 
+#ifdef CONFIG_KEXEC
 	case LINUX_REBOOT_CMD_KEXEC:
-		kernel_kexec();
-		unlock_kernel();
-		return -EINVAL;
+		{
+			int ret;
+			ret = kernel_kexec();
+			unlock_kernel();
+			return ret;
+		}
+#endif
 
 #ifdef CONFIG_HIBERNATION
 	case LINUX_REBOOT_CMD_SW_SUSPEND:
@@ -862,38 +853,28 @@ asmlinkage long sys_setfsgid(gid_t gid)
 	return old_fsgid;
 }
 
+void do_sys_times(struct tms *tms)
+{
+	struct task_cputime cputime;
+	cputime_t cutime, cstime;
+
+	spin_lock_irq(&current->sighand->siglock);
+	thread_group_cputime(current, &cputime);
+	cutime = current->signal->cutime;
+	cstime = current->signal->cstime;
+	spin_unlock_irq(&current->sighand->siglock);
+	tms->tms_utime = cputime_to_clock_t(cputime.utime);
+	tms->tms_stime = cputime_to_clock_t(cputime.stime);
+	tms->tms_cutime = cputime_to_clock_t(cutime);
+	tms->tms_cstime = cputime_to_clock_t(cstime);
+}
+
 asmlinkage long sys_times(struct tms __user * tbuf)
 {
-	/*
-	 *	In the SMP world we might just be unlucky and have one of
-	 *	the times increment as we use it. Since the value is an
-	 *	atomically safe type this is just fine. Conceptually its
-	 *	as if the syscall took an instant longer to occur.
-	 */
 	if (tbuf) {
 		struct tms tmp;
-		struct task_struct *tsk = current;
-		struct task_struct *t;
-		cputime_t utime, stime, cutime, cstime;
 
-		spin_lock_irq(&tsk->sighand->siglock);
-		utime = tsk->signal->utime;
-		stime = tsk->signal->stime;
-		t = tsk;
-		do {
-			utime = cputime_add(utime, t->utime);
-			stime = cputime_add(stime, t->stime);
-			t = next_thread(t);
-		} while (t != tsk);
-
-		cutime = tsk->signal->cutime;
-		cstime = tsk->signal->cstime;
-		spin_unlock_irq(&tsk->sighand->siglock);
-
-		tmp.tms_utime = cputime_to_clock_t(utime);
-		tmp.tms_stime = cputime_to_clock_t(stime);
-		tmp.tms_cutime = cputime_to_clock_t(cutime);
-		tmp.tms_cstime = cputime_to_clock_t(cstime);
+		do_sys_times(&tmp);
 		if (copy_to_user(tbuf, &tmp, sizeof(struct tms)))
 			return -EFAULT;
 	}
@@ -916,8 +897,8 @@ asmlinkage long sys_setpgid(pid_t pid, pid_t pgid)
 {
 	struct task_struct *p;
 	struct task_struct *group_leader = current->group_leader;
-	int err = -EINVAL;
-	struct pid_namespace *ns;
+	struct pid *pgrp;
+	int err;
 
 	if (!pid)
 		pid = task_pid_vnr(group_leader);
@@ -929,12 +910,10 @@ asmlinkage long sys_setpgid(pid_t pid, pid_t pgid)
 	/* From this point forward we keep holding onto the tasklist lock
 	 * so that our parent does not change from under us. -DaveM
 	 */
-	ns = current->nsproxy->pid_ns;
-
 	write_lock_irq(&tasklist_lock);
 
 	err = -ESRCH;
-	p = find_task_by_pid_ns(pid, ns);
+	p = find_task_by_vpid(pid);
 	if (!p)
 		goto out;
 
@@ -942,7 +921,7 @@ asmlinkage long sys_setpgid(pid_t pid, pid_t pgid)
 	if (!thread_group_leader(p))
 		goto out;
 
-	if (p->real_parent->tgid == group_leader->tgid) {
+	if (same_thread_group(p->real_parent, group_leader)) {
 		err = -EPERM;
 		if (task_session(p) != task_session(group_leader))
 			goto out;
@@ -959,10 +938,12 @@ asmlinkage long sys_setpgid(pid_t pid, pid_t pgid)
 	if (p->signal->leader)
 		goto out;
 
+	pgrp = task_pid(p);
 	if (pgid != pid) {
 		struct task_struct *g;
 
-		g = find_task_by_pid_type_ns(PIDTYPE_PGID, pgid, ns);
+		pgrp = find_vpid(pgid);
+		g = pid_task(pgrp, PIDTYPE_PGID);
 		if (!g || task_session(g) != task_session(group_leader))
 			goto out;
 	}
@@ -971,13 +952,9 @@ asmlinkage long sys_setpgid(pid_t pid, pid_t pgid)
 	if (err)
 		goto out;
 
-	if (task_pgrp_nr_ns(p, ns) != pgid) {
-		struct pid *pid;
-
-		detach_pid(p, PIDTYPE_PGID);
-		pid = find_vpid(pgid);
-		attach_pid(p, PIDTYPE_PGID, pid);
-		set_task_pgrp(p, pid_nr(pid));
+	if (task_pgrp(p) != pgrp) {
+		change_pid(p, PIDTYPE_PGID, pgrp);
+		set_task_pgrp(p, pid_nr(pgrp));
 	}
 
 	err = 0;
@@ -989,94 +966,93 @@ out:
 
 asmlinkage long sys_getpgid(pid_t pid)
 {
+	struct task_struct *p;
+	struct pid *grp;
+	int retval;
+
+	rcu_read_lock();
 	if (!pid)
-		return task_pgrp_vnr(current);
+		grp = task_pgrp(current);
 	else {
-		int retval;
-		struct task_struct *p;
-		struct pid_namespace *ns;
-
-		ns = current->nsproxy->pid_ns;
-
-		read_lock(&tasklist_lock);
-		p = find_task_by_pid_ns(pid, ns);
 		retval = -ESRCH;
-		if (p) {
-			retval = security_task_getpgid(p);
-			if (!retval)
-				retval = task_pgrp_nr_ns(p, ns);
-		}
-		read_unlock(&tasklist_lock);
-		return retval;
+		p = find_task_by_vpid(pid);
+		if (!p)
+			goto out;
+		grp = task_pgrp(p);
+		if (!grp)
+			goto out;
+
+		retval = security_task_getpgid(p);
+		if (retval)
+			goto out;
 	}
+	retval = pid_vnr(grp);
+out:
+	rcu_read_unlock();
+	return retval;
 }
 
 #ifdef __ARCH_WANT_SYS_GETPGRP
 
 asmlinkage long sys_getpgrp(void)
 {
-	/* SMP - assuming writes are word atomic this is fine */
-	return task_pgrp_vnr(current);
+	return sys_getpgid(0);
 }
 
 #endif
 
 asmlinkage long sys_getsid(pid_t pid)
 {
+	struct task_struct *p;
+	struct pid *sid;
+	int retval;
+
+	rcu_read_lock();
 	if (!pid)
-		return task_session_vnr(current);
+		sid = task_session(current);
 	else {
-		int retval;
-		struct task_struct *p;
-		struct pid_namespace *ns;
-
-		ns = current->nsproxy->pid_ns;
-
-		read_lock(&tasklist_lock);
-		p = find_task_by_pid_ns(pid, ns);
 		retval = -ESRCH;
-		if (p) {
-			retval = security_task_getsid(p);
-			if (!retval)
-				retval = task_session_nr_ns(p, ns);
-		}
-		read_unlock(&tasklist_lock);
-		return retval;
+		p = find_task_by_vpid(pid);
+		if (!p)
+			goto out;
+		sid = task_session(p);
+		if (!sid)
+			goto out;
+
+		retval = security_task_getsid(p);
+		if (retval)
+			goto out;
 	}
+	retval = pid_vnr(sid);
+out:
+	rcu_read_unlock();
+	return retval;
 }
 
 asmlinkage long sys_setsid(void)
 {
 	struct task_struct *group_leader = current->group_leader;
-	pid_t session;
+	struct pid *sid = task_pid(group_leader);
+	pid_t session = pid_vnr(sid);
 	int err = -EPERM;
 
 	write_lock_irq(&tasklist_lock);
-
 	/* Fail if I am already a session leader */
 	if (group_leader->signal->leader)
 		goto out;
 
-	session = group_leader->pid;
 	/* Fail if a process group id already exists that equals the
 	 * proposed session id.
-	 *
-	 * Don't check if session id == 1 because kernel threads use this
-	 * session id and so the check will always fail and make it so
-	 * init cannot successfully call setsid.
 	 */
-	if (session > 1 && find_task_by_pid_type_ns(PIDTYPE_PGID,
-				session, &init_pid_ns))
+	if (pid_task(sid, PIDTYPE_PGID))
 		goto out;
 
 	group_leader->signal->leader = 1;
-	__set_special_pids(session, session);
+	__set_special_pids(sid);
 
-	spin_lock(&group_leader->sighand->siglock);
-	group_leader->signal->tty = NULL;
-	spin_unlock(&group_leader->sighand->siglock);
+	proc_clear_tty(group_leader);
 
-	err = task_pgrp_vnr(group_leader);
+	err = session;
 out:
 	write_unlock_irq(&tasklist_lock);
 	return err;
@@ -1145,16 +1121,16 @@ static int groups_to_user(gid_t __user *grouplist,
     struct group_info *group_info)
 {
 	int i;
-	int count = group_info->ngroups;
+	unsigned int count = group_info->ngroups;
 
 	for (i = 0; i < group_info->nblocks; i++) {
-		int cp_count = min(NGROUPS_PER_BLOCK, count);
-		int off = i * NGROUPS_PER_BLOCK;
-		int len = cp_count * sizeof(*grouplist);
+		unsigned int cp_count = min(NGROUPS_PER_BLOCK, count);
+		unsigned int len = cp_count * sizeof(*grouplist);
 
-		if (copy_to_user(grouplist+off, group_info->blocks[i], len))
+		if (copy_to_user(grouplist, group_info->blocks[i], len))
 			return -EFAULT;
 
+		grouplist += NGROUPS_PER_BLOCK;
 		count -= cp_count;
 	}
 	return 0;
@@ -1165,16 +1141,16 @@ static int groups_from_user(struct group_info *group_info,
     gid_t __user *grouplist)
 {
 	int i;
-	int count = group_info->ngroups;
+	unsigned int count = group_info->ngroups;
 
 	for (i = 0; i < group_info->nblocks; i++) {
-		int cp_count = min(NGROUPS_PER_BLOCK, count);
-		int off = i * NGROUPS_PER_BLOCK;
-		int len = cp_count * sizeof(*grouplist);
+		unsigned int cp_count = min(NGROUPS_PER_BLOCK, count);
+		unsigned int len = cp_count * sizeof(*grouplist);
 
-		if (copy_from_user(group_info->blocks[i], grouplist+off, len))
+		if (copy_from_user(group_info->blocks[i], grouplist, len))
 			return -EFAULT;
 
+		grouplist += NGROUPS_PER_BLOCK;
 		count -= cp_count;
 	}
 	return 0;
@@ -1340,8 +1316,6 @@ EXPORT_SYMBOL(in_egroup_p);
 
 DECLARE_RWSEM(uts_sem);
 
-EXPORT_SYMBOL(uts_sem);
-
 asmlinkage long sys_newuname(struct new_utsname __user * name)
 {
 	int errno = 0;
@@ -1365,8 +1339,10 @@ asmlinkage long sys_sethostname(char __user *name, int len)
 	down_write(&uts_sem);
 	errno = -EFAULT;
 	if (!copy_from_user(tmp, name, len)) {
-		memcpy(utsname()->nodename, tmp, len);
-		utsname()->nodename[len] = 0;
+		struct new_utsname *u = utsname();
+
+		memcpy(u->nodename, tmp, len);
+		memset(u->nodename + len, 0, sizeof(u->nodename) - len);
 		errno = 0;
 	}
 	up_write(&uts_sem);
@@ -1378,15 +1354,17 @@ asmlinkage long sys_sethostname(char __user *name, int len)
 asmlinkage long sys_gethostname(char __user *name, int len)
 {
 	int i, errno;
+	struct new_utsname *u;
 
 	if (len < 0)
 		return -EINVAL;
 	down_read(&uts_sem);
-	i = 1 + strlen(utsname()->nodename);
+	u = utsname();
+	i = 1 + strlen(u->nodename);
 	if (i > len)
 		i = len;
 	errno = 0;
-	if (copy_to_user(name, utsname()->nodename, i))
+	if (copy_to_user(name, u->nodename, i))
 		errno = -EFAULT;
 	up_read(&uts_sem);
 	return errno;
@@ -1411,8 +1389,10 @@ asmlinkage long sys_setdomainname(char __user *name, int len)
 	down_write(&uts_sem);
 	errno = -EFAULT;
 	if (!copy_from_user(tmp, name, len)) {
-		memcpy(utsname()->domainname, tmp, len);
-		utsname()->domainname[len] = 0;
+		struct new_utsname *u = utsname();
+
+		memcpy(u->domainname, tmp, len);
+		memset(u->domainname + len, 0, sizeof(u->domainname) - len);
 		errno = 0;
 	}
 	up_write(&uts_sem);
@@ -1459,21 +1439,28 @@ asmlinkage long sys_old_getrlimit(unsigned int resource, struct rlimit __user *r
 asmlinkage long sys_setrlimit(unsigned int resource, struct rlimit __user *rlim)
 {
 	struct rlimit new_rlim, *old_rlim;
-	unsigned long it_prof_secs;
 	int retval;
 
 	if (resource >= RLIM_NLIMITS)
 		return -EINVAL;
 	if (copy_from_user(&new_rlim, rlim, sizeof(*rlim)))
 		return -EFAULT;
-	if (new_rlim.rlim_cur > new_rlim.rlim_max)
-		return -EINVAL;
 	old_rlim = current->signal->rlim + resource;
 	if ((new_rlim.rlim_max > old_rlim->rlim_max) &&
 	    !capable(CAP_SYS_RESOURCE))
 		return -EPERM;
-	if (resource == RLIMIT_NOFILE && new_rlim.rlim_max > NR_OPEN)
-		return -EPERM;
+
+	if (resource == RLIMIT_NOFILE) {
+		if (new_rlim.rlim_max == RLIM_INFINITY)
+			new_rlim.rlim_max = sysctl_nr_open;
+		if (new_rlim.rlim_cur == RLIM_INFINITY)
+			new_rlim.rlim_cur = sysctl_nr_open;
+		if (new_rlim.rlim_max > sysctl_nr_open)
+			return -EPERM;
+	}
+
+	if (new_rlim.rlim_cur > new_rlim.rlim_max)
+		return -EINVAL;
 
 	retval = security_task_setrlimit(resource, &new_rlim);
 	if (retval)
@@ -1505,18 +1492,7 @@ asmlinkage long sys_setrlimit(unsigned int resource, struct rlimit __user *rlim)
 	if (new_rlim.rlim_cur == RLIM_INFINITY)
 		goto out;
 
-	it_prof_secs = cputime_to_secs(current->signal->it_prof_expires);
-	if (it_prof_secs == 0 || new_rlim.rlim_cur <= it_prof_secs) {
-		unsigned long rlim_cur = new_rlim.rlim_cur;
-		cputime_t cputime;
-
-		cputime = secs_to_cputime(rlim_cur);
-		read_lock(&tasklist_lock);
-		spin_lock_irq(&current->sighand->siglock);
-		set_process_cpu_timer(current, CPUCLOCK_PROF, &cputime, NULL);
-		spin_unlock_irq(&current->sighand->siglock);
-		read_unlock(&tasklist_lock);
-	}
+	update_rlimit_cpu(new_rlim.rlim_cur);
 out:
 	return 0;
 }
@@ -1554,20 +1530,33 @@ out:
  *
  */
 
+static void accumulate_thread_rusage(struct task_struct *t, struct rusage *r)
+{
+	r->ru_nvcsw += t->nvcsw;
+	r->ru_nivcsw += t->nivcsw;
+	r->ru_minflt += t->min_flt;
+	r->ru_majflt += t->maj_flt;
+	r->ru_inblock += task_io_get_inblock(t);
+	r->ru_oublock += task_io_get_oublock(t);
+}
+
 static void k_getrusage(struct task_struct *p, int who, struct rusage *r)
 {
 	struct task_struct *t;
 	unsigned long flags;
 	cputime_t utime, stime;
+	struct task_cputime cputime;
 
 	memset((char *) r, 0, sizeof *r);
 	utime = stime = cputime_zero;
 
-	rcu_read_lock();
-	if (!lock_task_sighand(p, &flags)) {
-		rcu_read_unlock();
-		return;
+	if (who == RUSAGE_THREAD) {
+		accumulate_thread_rusage(p, r);
+		goto out;
 	}
+
+	if (!lock_task_sighand(p, &flags))
+		return;
 
 	switch (who) {
 		case RUSAGE_BOTH:
@@ -1585,8 +1574,9 @@ static void k_getrusage(struct task_struct *p, int who, struct rusage *r)
 				break;
 
 		case RUSAGE_SELF:
-			utime = cputime_add(utime, p->signal->utime);
-			stime = cputime_add(stime, p->signal->stime);
+			thread_group_cputime(p, &cputime);
+			utime = cputime_add(utime, cputime.utime);
+			stime = cputime_add(stime, cputime.stime);
 			r->ru_nvcsw += p->signal->nvcsw;
 			r->ru_nivcsw += p->signal->nivcsw;
 			r->ru_minflt += p->signal->min_flt;
@@ -1595,14 +1585,7 @@ static void k_getrusage(struct task_struct *p, int who, struct rusage *r)
 			r->ru_oublock += p->signal->oublock;
 			t = p;
 			do {
-				utime = cputime_add(utime, t->utime);
-				stime = cputime_add(stime, t->stime);
-				r->ru_nvcsw += t->nvcsw;
-				r->ru_nivcsw += t->nivcsw;
-				r->ru_minflt += t->min_flt;
-				r->ru_majflt += t->maj_flt;
-				r->ru_inblock += task_io_get_inblock(t);
-				r->ru_oublock += task_io_get_oublock(t);
+				accumulate_thread_rusage(t, r);
 				t = next_thread(t);
 			} while (t != p);
 			break;
@@ -1610,10 +1593,9 @@ static void k_getrusage(struct task_struct *p, int who, struct rusage *r)
 		default:
 			BUG();
 	}
-
 	unlock_task_sighand(p, &flags);
-	rcu_read_unlock();
 
+out:
 	cputime_to_timeval(utime, &r->ru_utime);
 	cputime_to_timeval(stime, &r->ru_stime);
 }
@@ -1627,7 +1609,8 @@ int getrusage(struct task_struct *p, int who, struct rusage __user *ru)
 
 asmlinkage long sys_getrusage(int who, struct rusage __user *ru)
 {
-	if (who != RUSAGE_SELF && who != RUSAGE_CHILDREN)
+	if (who != RUSAGE_SELF && who != RUSAGE_CHILDREN &&
+	    who != RUSAGE_THREAD)
 		return -EINVAL;
 	return getrusage(current, who, ru);
 }
@@ -1637,14 +1620,13 @@ asmlinkage long sys_umask(int mask)
 	mask = xchg(&current->fs->umask, mask & S_IRWXUGO);
 	return mask;
 }
-    
+
 asmlinkage long sys_prctl(int option, unsigned long arg2, unsigned long arg3,
 			  unsigned long arg4, unsigned long arg5)
 {
-	long error;
+	long error = 0;
 
-	error = security_task_prctl(option, arg2, arg3, arg4, arg5);
-	if (error)
+	if (security_task_prctl(option, arg2, arg3, arg4, arg5, &error))
 		return error;
 
 	switch (option) {
@@ -1691,23 +1673,10 @@ asmlinkage long sys_prctl(int option, unsigned long arg2, unsigned long arg3,
 			error = PR_TIMING_STATISTICAL;
 			break;
 		case PR_SET_TIMING:
-			if (arg2 == PR_TIMING_STATISTICAL)
-				error = 0;
-			else
+			if (arg2 != PR_TIMING_STATISTICAL)
 				error = -EINVAL;
 			break;
 
-		case PR_GET_KEEPCAPS:
-			if (current->keep_capabilities)
-				error = 1;
-			break;
-		case PR_SET_KEEPCAPS:
-			if (arg2 != 0 && arg2 != 1) {
-				error = -EINVAL;
-				break;
-			}
-			current->keep_capabilities = arg2;
-			break;
 		case PR_SET_NAME: {
 			struct task_struct *me = current;
 			unsigned char ncomm[sizeof(me->comm)];
@@ -1741,7 +1710,22 @@ asmlinkage long sys_prctl(int option, unsigned long arg2, unsigned long arg3,
 		case PR_SET_SECCOMP:
 			error = prctl_set_seccomp(arg2);
 			break;
-
+		case PR_GET_TSC:
+			error = GET_TSC_CTL(arg2);
+			break;
+		case PR_SET_TSC:
+			error = SET_TSC_CTL(arg2);
+			break;
+		case PR_GET_TIMERSLACK:
+			error = current->timer_slack_ns;
+			break;
+		case PR_SET_TIMERSLACK:
+			if (arg2 <= 0)
+				current->timer_slack_ns =
+					current->default_timer_slack_ns;
+			else
+				current->timer_slack_ns = arg2;
+			break;
 		default:
 			error = -EINVAL;
 			break;
@@ -1793,7 +1777,7 @@ int orderly_poweroff(bool force)
 		goto out;
 	}
 
-	info = call_usermodehelper_setup(argv[0], argv, envp);
+	info = call_usermodehelper_setup(argv[0], argv, envp, GFP_ATOMIC);
 	if (info == NULL) {
 		argv_free(argv);
 		goto out;

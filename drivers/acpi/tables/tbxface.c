@@ -6,7 +6,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -125,7 +125,7 @@ acpi_initialize_tables(struct acpi_table_desc * initial_table_array,
 		/* Root Table Array has been statically allocated by the host */
 
 		ACPI_MEMSET(initial_table_array, 0,
-			    initial_table_count *
+			    (acpi_size) initial_table_count *
 			    sizeof(struct acpi_table_desc));
 
 		acpi_gbl_root_table_list.tables = initial_table_array;
@@ -183,9 +183,9 @@ acpi_status acpi_reallocate_root_table(void)
 		return_ACPI_STATUS(AE_SUPPORT);
 	}
 
-	new_size =
-	    (acpi_gbl_root_table_list.count +
-	     ACPI_ROOT_TABLE_SIZE_INCREMENT) * sizeof(struct acpi_table_desc);
+	new_size = ((acpi_size) acpi_gbl_root_table_list.count +
+		    ACPI_ROOT_TABLE_SIZE_INCREMENT) *
+	    sizeof(struct acpi_table_desc);
 
 	/* Create new array and copy the old array */
 
@@ -222,7 +222,7 @@ acpi_status acpi_reallocate_root_table(void)
 acpi_status acpi_load_table(struct acpi_table_header *table_ptr)
 {
 	acpi_status status;
-	acpi_native_uint table_index;
+	u32 table_index;
 	struct acpi_table_desc table_desc;
 
 	if (!table_ptr)
@@ -264,11 +264,10 @@ ACPI_EXPORT_SYMBOL(acpi_load_table)
  *****************************************************************************/
 acpi_status
 acpi_get_table_header(char *signature,
-		      acpi_native_uint instance,
-		      struct acpi_table_header * out_table_header)
+		      u32 instance, struct acpi_table_header *out_table_header)
 {
-	acpi_native_uint i;
-	acpi_native_uint j;
+       u32 i;
+       u32 j;
 	struct acpi_table_header *header;
 
 	/* Parameter validation */
@@ -378,10 +377,10 @@ ACPI_EXPORT_SYMBOL(acpi_unload_table_id)
  *****************************************************************************/
 acpi_status
 acpi_get_table(char *signature,
-	       acpi_native_uint instance, struct acpi_table_header **out_table)
+	       u32 instance, struct acpi_table_header **out_table)
 {
-	acpi_native_uint i;
-	acpi_native_uint j;
+       u32 i;
+       u32 j;
 	acpi_status status;
 
 	/* Parameter validation */
@@ -435,8 +434,7 @@ ACPI_EXPORT_SYMBOL(acpi_get_table)
  *
  ******************************************************************************/
 acpi_status
-acpi_get_table_by_index(acpi_native_uint table_index,
-			struct acpi_table_header ** table)
+acpi_get_table_by_index(u32 table_index, struct acpi_table_header **table)
 {
 	acpi_status status;
 
@@ -493,7 +491,7 @@ static acpi_status acpi_tb_load_namespace(void)
 {
 	acpi_status status;
 	struct acpi_table_header *table;
-	acpi_native_uint i;
+	u32 i;
 
 	ACPI_FUNCTION_TRACE(tb_load_namespace);
 
@@ -540,7 +538,7 @@ static acpi_status acpi_tb_load_namespace(void)
 		acpi_tb_print_table_header(0, table);
 
 		if (no_auto_ssdt == 0) {
-			printk(KERN_WARNING "ACPI: DSDT override uses original SSDTs unless \"acpi_no_auto_ssdt\"");
+			printk(KERN_WARNING "ACPI: DSDT override uses original SSDTs unless \"acpi_no_auto_ssdt\"\n");
 		}
 	}
 
@@ -633,6 +631,95 @@ acpi_status acpi_load_tables(void)
 }
 
 ACPI_EXPORT_SYMBOL(acpi_load_tables)
+
+
+/*******************************************************************************
+ *
+ * FUNCTION:    acpi_install_table_handler
+ *
+ * PARAMETERS:  Handler         - Table event handler
+ *              Context         - Value passed to the handler on each event
+ *
+ * RETURN:      Status
+ *
+ * DESCRIPTION: Install table event handler
+ *
+ ******************************************************************************/
+acpi_status
+acpi_install_table_handler(acpi_tbl_handler handler, void *context)
+{
+	acpi_status status;
+
+	ACPI_FUNCTION_TRACE(acpi_install_table_handler);
+
+	if (!handler) {
+		return_ACPI_STATUS(AE_BAD_PARAMETER);
+	}
+
+	status = acpi_ut_acquire_mutex(ACPI_MTX_EVENTS);
+	if (ACPI_FAILURE(status)) {
+		return_ACPI_STATUS(status);
+	}
+
+	/* Don't allow more than one handler */
+
+	if (acpi_gbl_table_handler) {
+		status = AE_ALREADY_EXISTS;
+		goto cleanup;
+	}
+
+	/* Install the handler */
+
+	acpi_gbl_table_handler = handler;
+	acpi_gbl_table_handler_context = context;
+
+      cleanup:
+	(void)acpi_ut_release_mutex(ACPI_MTX_EVENTS);
+	return_ACPI_STATUS(status);
+}
+
+ACPI_EXPORT_SYMBOL(acpi_install_table_handler)
+
+/*******************************************************************************
+ *
+ * FUNCTION:    acpi_remove_table_handler
+ *
+ * PARAMETERS:  Handler         - Table event handler that was installed
+ *                                previously.
+ *
+ * RETURN:      Status
+ *
+ * DESCRIPTION: Remove table event handler
+ *
+ ******************************************************************************/
+acpi_status acpi_remove_table_handler(acpi_tbl_handler handler)
+{
+	acpi_status status;
+
+	ACPI_FUNCTION_TRACE(acpi_remove_table_handler);
+
+	status = acpi_ut_acquire_mutex(ACPI_MTX_EVENTS);
+	if (ACPI_FAILURE(status)) {
+		return_ACPI_STATUS(status);
+	}
+
+	/* Make sure that the installed handler is the same */
+
+	if (!handler || handler != acpi_gbl_table_handler) {
+		status = AE_BAD_PARAMETER;
+		goto cleanup;
+	}
+
+	/* Remove the handler */
+
+	acpi_gbl_table_handler = NULL;
+
+      cleanup:
+	(void)acpi_ut_release_mutex(ACPI_MTX_EVENTS);
+	return_ACPI_STATUS(status);
+}
+
+ACPI_EXPORT_SYMBOL(acpi_remove_table_handler)
 
 
 static int __init acpi_no_auto_ssdt_setup(char *s) {

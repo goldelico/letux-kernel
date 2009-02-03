@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2003 - 2007 Intel Corporation. All rights reserved.
+ * Copyright(c) 2003 - 2008 Intel Corporation. All rights reserved.
  *
  * Portions of this file are derived from the ipw3945 project, as well
  * as portions of the ieee80211 subsystem header files.
@@ -136,106 +136,13 @@ static inline void iwl_set_bits16(__le16 *dst, u8 pos, u8 len, int val)
 
 #define KELVIN_TO_CELSIUS(x) ((x)-273)
 #define CELSIUS_TO_KELVIN(x) ((x)+273)
+#define IWL_MASK(lo, hi) ((1 << (hi)) | ((1 << (hi)) - (1 << (lo))))
 
-#define IEEE80211_CHAN_W_RADAR_DETECT 0x00000010
 
 static inline struct ieee80211_conf *ieee80211_get_hw_conf(
 	struct ieee80211_hw *hw)
 {
 	return &hw->conf;
-}
-
-#define QOS_CONTROL_LEN 2
-
-#define IEEE80211_STYPE_BACK_REQ	0x0080
-#define IEEE80211_STYPE_BACK		0x0090
-
-
-static inline int ieee80211_is_management(u16 fc)
-{
-	return (fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT;
-}
-
-static inline int ieee80211_is_control(u16 fc)
-{
-	return (fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_CTL;
-}
-
-static inline int ieee80211_is_data(u16 fc)
-{
-	return (fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_DATA;
-}
-
-static inline int ieee80211_is_back_request(u16 fc)
-{
-	return ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_CTL) &&
-	       ((fc & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_BACK_REQ);
-}
-
-static inline int ieee80211_is_probe_response(u16 fc)
-{
-	return ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT) &&
-	       ((fc & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_PROBE_RESP);
-}
-
-static inline int ieee80211_is_probe_request(u16 fc)
-{
-	return ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT) &&
-	       ((fc & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_PROBE_REQ);
-}
-
-static inline int ieee80211_is_beacon(u16 fc)
-{
-	return ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT) &&
-	       ((fc & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_BEACON);
-}
-
-static inline int ieee80211_is_atim(u16 fc)
-{
-	return ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT) &&
-	       ((fc & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_ATIM);
-}
-
-static inline int ieee80211_is_assoc_request(u16 fc)
-{
-	return ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT) &&
-	       ((fc & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_ASSOC_REQ);
-}
-
-static inline int ieee80211_is_assoc_response(u16 fc)
-{
-	return ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT) &&
-	       ((fc & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_ASSOC_RESP);
-}
-
-static inline int ieee80211_is_auth(u16 fc)
-{
-	return ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT) &&
-	       ((fc & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_ASSOC_REQ);
-}
-
-static inline int ieee80211_is_deauth(u16 fc)
-{
-	return ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT) &&
-	       ((fc & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_ASSOC_REQ);
-}
-
-static inline int ieee80211_is_disassoc(u16 fc)
-{
-	return ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT) &&
-	       ((fc & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_ASSOC_REQ);
-}
-
-static inline int ieee80211_is_reassoc_request(u16 fc)
-{
-	return ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT) &&
-	       ((fc & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_REASSOC_REQ);
-}
-
-static inline int ieee80211_is_reassoc_response(u16 fc)
-{
-	return ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_MGMT) &&
-	       ((fc & IEEE80211_FCTL_STYPE) == IEEE80211_STYPE_REASSOC_RESP);
 }
 
 static inline int iwl_check_bits(unsigned long field, unsigned long mask)
@@ -246,10 +153,53 @@ static inline int iwl_check_bits(unsigned long field, unsigned long mask)
 static inline unsigned long elapsed_jiffies(unsigned long start,
 					    unsigned long end)
 {
-	if (end > start)
+	if (end >= start)
 		return end - start;
 
-	return end + (MAX_JIFFY_OFFSET - start);
+	return end + (MAX_JIFFY_OFFSET - start) + 1;
+}
+
+static inline u8 iwl_get_dma_hi_address(dma_addr_t addr)
+{
+	return sizeof(addr) > sizeof(u32) ? (addr >> 16) >> 16 : 0;
+}
+
+/**
+ * iwl_queue_inc_wrap - increment queue index, wrap back to beginning
+ * @index -- current index
+ * @n_bd -- total number of entries in queue (must be power of 2)
+ */
+static inline int iwl_queue_inc_wrap(int index, int n_bd)
+{
+	return ++index & (n_bd - 1);
+}
+
+/**
+ * iwl_queue_dec_wrap - decrement queue index, wrap back to end
+ * @index -- current index
+ * @n_bd -- total number of entries in queue (must be power of 2)
+ */
+static inline int iwl_queue_dec_wrap(int index, int n_bd)
+{
+	return --index & (n_bd - 1);
+}
+
+/* TODO: Move fw_desc functions to iwl-pci.ko */
+static inline void iwl_free_fw_desc(struct pci_dev *pci_dev,
+				    struct fw_desc *desc)
+{
+	if (desc->v_addr)
+		pci_free_consistent(pci_dev, desc->len,
+				    desc->v_addr, desc->p_addr);
+	desc->v_addr = NULL;
+	desc->len = 0;
+}
+
+static inline int iwl_alloc_fw_desc(struct pci_dev *pci_dev,
+				    struct fw_desc *desc)
+{
+	desc->v_addr = pci_alloc_consistent(pci_dev, desc->len, &desc->p_addr);
+	return (desc->v_addr != NULL) ? 0 : -ENOMEM;
 }
 
 #endif				/* __iwl_helpers_h__ */

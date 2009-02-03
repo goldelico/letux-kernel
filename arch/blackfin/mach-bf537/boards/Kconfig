@@ -15,11 +15,23 @@ config BFIN537_BLUETECHNIX_CM
 	help
 	  CM-BF537 support for EVAL- and DEV-Board.
 
+config BFIN537_BLUETECHNIX_TCM
+	bool "Bluetechnix TCM-BF537"
+	depends on (BF537)
+	help
+	  TCM-BF537 support for EVAL- and DEV-Board.
+
 config PNAV10
 	bool "PNAV board"
 	depends on (BF537)
 	help
 	  PNAV board support.
+
+config CAMSIG_MINOTAUR
+	bool "Cambridge Signal Processing LTD Minotaur"
+	depends on (BF537)
+	help
+	  Board supply package for CSP Minotaur
 
 config GENERIC_BF537_BOARD
 	bool "Generic"

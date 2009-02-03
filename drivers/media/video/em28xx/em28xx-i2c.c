@@ -25,27 +25,37 @@
 #include <linux/kernel.h>
 #include <linux/usb.h>
 #include <linux/i2c.h>
-#include <linux/video_decoder.h>
 
 #include "em28xx.h"
+#include "tuner-xc2028.h"
 #include <media/v4l2-common.h>
 #include <media/tuner.h>
 
 /* ----------------------------------------------------------- */
 
-static unsigned int i2c_scan = 0;
+static unsigned int i2c_scan;
 module_param(i2c_scan, int, 0444);
 MODULE_PARM_DESC(i2c_scan, "scan i2c bus at insmod time");
 
-static unsigned int i2c_debug = 0;
+static unsigned int i2c_debug;
 module_param(i2c_debug, int, 0644);
 MODULE_PARM_DESC(i2c_debug, "enable debug messages [i2c]");
 
-#define dprintk1(lvl,fmt, args...) if (i2c_debug>=lvl) do {\
-			printk(fmt, ##args); } while (0)
-#define dprintk2(lvl,fmt, args...) if (i2c_debug>=lvl) do{ \
-			printk(KERN_DEBUG "%s at %s: " fmt, \
-			dev->name, __FUNCTION__ , ##args); } while (0)
+
+#define dprintk1(lvl, fmt, args...)			\
+do {							\
+	if (i2c_debug >= lvl) {				\
+	printk(fmt, ##args);				\
+      }							\
+} while (0)
+
+#define dprintk2(lvl, fmt, args...)			\
+do {							\
+	if (i2c_debug >= lvl) {				\
+		printk(KERN_DEBUG "%s at %s: " fmt,	\
+		       dev->name, __func__ , ##args);	\
+      } 						\
+} while (0)
 
 /*
  * em2800_i2c_send_max4()
@@ -133,10 +143,11 @@ static int em2800_i2c_check_for_device(struct em28xx *dev, unsigned char addr)
 	}
 	for (write_timeout = EM2800_I2C_WRITE_TIMEOUT; write_timeout > 0;
 	     write_timeout -= 5) {
-		unsigned msg = dev->em28xx_read_reg(dev, 0x5);
-		if (msg == 0x94)
+		unsigned reg = dev->em28xx_read_reg(dev, 0x5);
+
+		if (reg == 0x94)
 			return -ENODEV;
-		else if (msg == 0x84)
+		else if (reg == 0x84)
 			return 0;
 		msleep(5);
 	}
@@ -235,16 +246,16 @@ static int em28xx_i2c_xfer(struct i2c_adapter *i2c_adap,
 		return 0;
 	for (i = 0; i < num; i++) {
 		addr = msgs[i].addr << 1;
-		dprintk2(2,"%s %s addr=%x len=%d:",
+		dprintk2(2, "%s %s addr=%x len=%d:",
 			 (msgs[i].flags & I2C_M_RD) ? "read" : "write",
 			 i == num - 1 ? "stop" : "nonstop", addr, msgs[i].len);
-		if (!msgs[i].len) {	/* no len: check only for device presence */
+		if (!msgs[i].len) { /* no len: check only for device presence */
 			if (dev->is_em2800)
 				rc = em2800_i2c_check_for_device(dev, addr);
 			else
 				rc = em28xx_i2c_check_for_device(dev, addr);
 			if (rc < 0) {
-				dprintk2(2," no device\n");
+				dprintk2(2, " no device\n");
 				return rc;
 			}
 
@@ -258,14 +269,13 @@ static int em28xx_i2c_xfer(struct i2c_adapter *i2c_adap,
 				rc = em28xx_i2c_recv_bytes(dev, addr,
 							   msgs[i].buf,
 							   msgs[i].len);
-			if (i2c_debug>=2) {
-				for (byte = 0; byte < msgs[i].len; byte++) {
+			if (i2c_debug >= 2) {
+				for (byte = 0; byte < msgs[i].len; byte++)
 					printk(" %02x", msgs[i].buf[byte]);
-				}
 			}
 		} else {
 			/* write bytes */
-			if (i2c_debug>=2) {
+			if (i2c_debug >= 2) {
 				for (byte = 0; byte < msgs[i].len; byte++)
 					printk(" %02x", msgs[i].buf[byte]);
 			}
@@ -281,14 +291,39 @@ static int em28xx_i2c_xfer(struct i2c_adapter *i2c_adap,
 		}
 		if (rc < 0)
 			goto err;
-		if (i2c_debug>=2)
+		if (i2c_debug >= 2)
 			printk("\n");
 	}
 
 	return num;
-      err:
-	dprintk2(2," ERROR: %i\n", rc);
+err:
+	dprintk2(2, " ERROR: %i\n", rc);
 	return rc;
+}
+
+/* based on linux/sunrpc/svcauth.h and linux/hash.h
+ * The original hash function returns a different value, if arch is x86_64
+ *  or i386.
+ */
+static inline unsigned long em28xx_hash_mem(char *buf, int length, int bits)
+{
+	unsigned long hash = 0;
+	unsigned long l = 0;
+	int len = 0;
+	unsigned char c;
+	do {
+		if (len == length) {
+			c = (char)len;
+			len = -1;
+		} else
+			c = *buf++;
+		l = (l << 8) | c;
+		len++;
+		if ((len & (32 / 8 - 1)) == 0)
+			hash = ((hash^l) * 0x9e370001UL);
+	} while (len);
+
+	return (hash >> (32 - bits)) & 0xffffffffUL;
 }
 
 static int em28xx_i2c_eeprom(struct em28xx *dev, unsigned char *eedata, int len)
@@ -301,14 +336,19 @@ static int em28xx_i2c_eeprom(struct em28xx *dev, unsigned char *eedata, int len)
 
 	/* Check if board has eeprom */
 	err = i2c_master_recv(&dev->i2c_client, &buf, 0);
-	if (err < 0)
-		return -1;
+	if (err < 0) {
+		em28xx_errdev("%s: i2c_master_recv failed! err [%d]\n",
+			__func__, err);
+		return err;
+	}
 
 	buf = 0;
-	if (1 != (err = i2c_master_send(&dev->i2c_client, &buf, 1))) {
+
+	err = i2c_master_send(&dev->i2c_client, &buf, 1);
+	if (err != 1) {
 		printk(KERN_INFO "%s: Huh, no eeprom present (err=%d)?\n",
 		       dev->name, err);
-		return -1;
+		return err;
 	}
 	while (size > 0) {
 		if (size > 16)
@@ -321,7 +361,7 @@ static int em28xx_i2c_eeprom(struct em28xx *dev, unsigned char *eedata, int len)
 			printk(KERN_WARNING
 			       "%s: i2c eeprom read error (err=%d)\n",
 			       dev->name, err);
-			return -1;
+			return err;
 		}
 		size -= block;
 		p += block;
@@ -334,7 +374,11 @@ static int em28xx_i2c_eeprom(struct em28xx *dev, unsigned char *eedata, int len)
 			printk("\n");
 	}
 
-	printk(KERN_INFO "EEPROM ID= 0x%08x\n", em_eeprom->id);
+	if (em_eeprom->id == 0x9567eb1a)
+		dev->hash = em28xx_hash_mem(eedata, len, 32);
+
+	printk(KERN_INFO "EEPROM ID= 0x%08x, hash = 0x%08lx\n",
+	       em_eeprom->id, dev->hash);
 	printk(KERN_INFO "Vendor/Product ID= %04x:%04x\n", em_eeprom->vendor_ID,
 	       em_eeprom->product_ID);
 
@@ -374,8 +418,10 @@ static int em28xx_i2c_eeprom(struct em28xx *dev, unsigned char *eedata, int len)
 		break;
 	}
 	printk(KERN_INFO "Table at 0x%02x, strings=0x%04x, 0x%04x, 0x%04x\n",
-				em_eeprom->string_idx_table,em_eeprom->string1,
-				em_eeprom->string2,em_eeprom->string3);
+				em_eeprom->string_idx_table,
+				em_eeprom->string1,
+				em_eeprom->string2,
+				em_eeprom->string3);
 
 	return 0;
 }
@@ -390,22 +436,6 @@ static u32 functionality(struct i2c_adapter *adap)
 	return I2C_FUNC_SMBUS_EMUL;
 }
 
-
-static int em28xx_set_tuner(int check_eeprom, struct i2c_client *client)
-{
-	struct em28xx *dev = client->adapter->algo_data;
-	struct tuner_setup tun_setup;
-
-	if (dev->has_tuner) {
-		tun_setup.mode_mask = T_ANALOG_TV | T_RADIO;
-		tun_setup.type = dev->tuner_type;
-		tun_setup.addr = dev->tuner_addr;
-		em28xx_i2c_call_clients(dev, TUNER_SET_TYPE_ADDR, &tun_setup);
-	}
-
-	return (0);
-}
-
 /*
  * attach_inform()
  * gets called when a device attaches to the i2c bus
@@ -416,51 +446,62 @@ static int attach_inform(struct i2c_client *client)
 	struct em28xx *dev = client->adapter->algo_data;
 
 	switch (client->addr << 1) {
-		case 0x86:
-		case 0x84:
-		case 0x96:
-		case 0x94:
-		{
-			struct tuner_setup tun_setup;
+	case 0x86:
+	case 0x84:
+	case 0x96:
+	case 0x94:
+	{
+		struct v4l2_priv_tun_config tda9887_cfg;
 
-			tun_setup.mode_mask = T_ANALOG_TV | T_RADIO;
-			tun_setup.type = TUNER_TDA9887;
-			tun_setup.addr = client->addr;
+		struct tuner_setup tun_setup;
 
-			em28xx_i2c_call_clients(dev, TUNER_SET_TYPE_ADDR, &tun_setup);
-			em28xx_i2c_call_clients(dev, TDA9887_SET_CONFIG, &dev->tda9887_conf);
-			break;
-		}
-		case 0x42:
-			dprintk1(1,"attach_inform: saa7114 detected.\n");
-			break;
-		case 0x4a:
-			dprintk1(1,"attach_inform: saa7113 detected.\n");
-			break;
-		case 0xa0:
-			dprintk1(1,"attach_inform: eeprom detected.\n");
-			break;
-		case 0x60:
-		case 0x8e:
-		{
-			struct IR_i2c *ir = i2c_get_clientdata(client);
-			dprintk1(1,"attach_inform: IR detected (%s).\n",ir->phys);
-			em28xx_set_ir(dev,ir);
-			break;
-		}
-		case 0x80:
-		case 0x88:
-			dprintk1(1,"attach_inform: msp34xx detected.\n");
-			break;
-		case 0xb8:
-		case 0xba:
-			dprintk1(1,"attach_inform: tvp5150 detected.\n");
-			break;
+		tun_setup.mode_mask = T_ANALOG_TV | T_RADIO;
+		tun_setup.type = TUNER_TDA9887;
+		tun_setup.addr = client->addr;
 
-		default:
-			dprintk1(1,"attach inform: detected I2C address %x\n", client->addr << 1);
+		em28xx_i2c_call_clients(dev, TUNER_SET_TYPE_ADDR,
+			&tun_setup);
+
+		tda9887_cfg.tuner = TUNER_TDA9887;
+		tda9887_cfg.priv = &dev->tda9887_conf;
+		em28xx_i2c_call_clients(dev, TUNER_SET_CONFIG,
+					&tda9887_cfg);
+		break;
+	}
+	case 0x42:
+		dprintk1(1, "attach_inform: saa7114 detected.\n");
+		break;
+	case 0x4a:
+		dprintk1(1, "attach_inform: saa7113 detected.\n");
+		break;
+	case 0xa0:
+		dprintk1(1, "attach_inform: eeprom detected.\n");
+		break;
+	case 0x60:
+	case 0x8e:
+	{
+		struct IR_i2c *ir = i2c_get_clientdata(client);
+		dprintk1(1, "attach_inform: IR detected (%s).\n",
+			ir->phys);
+		em28xx_set_ir(dev, ir);
+		break;
+	}
+	case 0x80:
+	case 0x88:
+		dprintk1(1, "attach_inform: msp34xx detected.\n");
+		break;
+	case 0xb8:
+	case 0xba:
+		dprintk1(1, "attach_inform: tvp5150 detected.\n");
+		break;
+
+	default:
+		if (!dev->tuner_addr)
 			dev->tuner_addr = client->addr;
-			em28xx_set_tuner(-1, client);
+
+		dprintk1(1, "attach inform: detected I2C address %x\n",
+				client->addr << 1);
+
 	}
 
 	return 0;
@@ -510,19 +551,26 @@ static char *i2c_devs[128] = {
  * do_i2c_scan()
  * check i2c address range for devices
  */
-static void do_i2c_scan(char *name, struct i2c_client *c)
+void em28xx_do_i2c_scan(struct em28xx *dev)
 {
+	u8 i2c_devicelist[128];
 	unsigned char buf;
 	int i, rc;
 
+	memset(i2c_devicelist, 0, ARRAY_SIZE(i2c_devicelist));
+
 	for (i = 0; i < ARRAY_SIZE(i2c_devs); i++) {
-		c->addr = i;
-		rc = i2c_master_recv(c, &buf, 0);
+		dev->i2c_client.addr = i;
+		rc = i2c_master_recv(&dev->i2c_client, &buf, 0);
 		if (rc < 0)
 			continue;
-		printk(KERN_INFO "%s: found i2c device @ 0x%x [%s]\n", name,
-		       i << 1, i2c_devs[i] ? i2c_devs[i] : "???");
+		i2c_devicelist[i] = i;
+		printk(KERN_INFO "%s: found i2c device @ 0x%x [%s]\n",
+		       dev->name, i << 1, i2c_devs[i] ? i2c_devs[i] : "???");
 	}
+
+	dev->i2c_hash = em28xx_hash_mem(i2c_devicelist,
+					ARRAY_SIZE(i2c_devicelist), 32);
 }
 
 /*
@@ -541,21 +589,34 @@ void em28xx_i2c_call_clients(struct em28xx *dev, unsigned int cmd, void *arg)
  */
 int em28xx_i2c_register(struct em28xx *dev)
 {
+	int retval;
+
 	BUG_ON(!dev->em28xx_write_regs || !dev->em28xx_read_reg);
 	BUG_ON(!dev->em28xx_write_regs_req || !dev->em28xx_read_reg_req);
 	dev->i2c_adap = em28xx_adap_template;
 	dev->i2c_adap.dev.parent = &dev->udev->dev;
 	strcpy(dev->i2c_adap.name, dev->name);
 	dev->i2c_adap.algo_data = dev;
-	i2c_add_adapter(&dev->i2c_adap);
+
+	retval = i2c_add_adapter(&dev->i2c_adap);
+	if (retval < 0) {
+		em28xx_errdev("%s: i2c_add_adapter failed! retval [%d]\n",
+			__func__, retval);
+		return retval;
+	}
 
 	dev->i2c_client = em28xx_client_template;
 	dev->i2c_client.adapter = &dev->i2c_adap;
 
-	em28xx_i2c_eeprom(dev, dev->eedata, sizeof(dev->eedata));
+	retval = em28xx_i2c_eeprom(dev, dev->eedata, sizeof(dev->eedata));
+	if (retval < 0) {
+		em28xx_errdev("%s: em28xx_i2_eeprom failed! retval [%d]\n",
+			__func__, retval);
+		return retval;
+	}
 
 	if (i2c_scan)
-		do_i2c_scan(dev->name, &dev->i2c_client);
+		em28xx_do_i2c_scan(dev);
 	return 0;
 }
 

@@ -16,7 +16,6 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
-#include <sound/driver.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -327,7 +326,7 @@ static void camelot_pcm_free(struct snd_pcm *pcm)
 }
 
 static int camelot_pcm_new(struct snd_card *card,
-			   struct snd_soc_codec_dai *dai,
+			   struct snd_soc_dai *dai,
 			   struct snd_pcm *pcm)
 {
 	/* dont use SNDRV_DMA_TYPE_DEV, since it will oops the SH kernel

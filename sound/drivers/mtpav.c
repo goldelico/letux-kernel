@@ -50,7 +50,6 @@
  *
  */
 
-#include <sound/driver.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/err.h>
@@ -716,6 +715,10 @@ static int __devinit snd_mtpav_probe(struct platform_device *dev)
 
 	card->private_free = snd_mtpav_free;
 
+	err = snd_mtpav_get_RAWMIDI(mtp_card);
+	if (err < 0)
+		goto __error;
+
 	err = snd_mtpav_get_ISA(mtp_card);
 	if (err < 0)
 		goto __error;
@@ -724,10 +727,6 @@ static int __devinit snd_mtpav_probe(struct platform_device *dev)
 	strcpy(card->shortname, "MTPAV on parallel port");
 	snprintf(card->longname, sizeof(card->longname),
 		 "MTPAV on parallel port at 0x%lx", port);
-
-	err = snd_mtpav_get_RAWMIDI(mtp_card);
-	if (err < 0)
-		goto __error;
 
 	snd_mtpav_portscan(mtp_card);
 

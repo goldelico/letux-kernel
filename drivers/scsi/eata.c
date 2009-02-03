@@ -524,7 +524,6 @@ static struct scsi_host_template driver_template = {
 	.this_id = 7,
 	.unchecked_isa_dma = 1,
 	.use_clustering = ENABLE_CLUSTERING,
-	.use_sg_chaining = ENABLE_SG_CHAINING,
 };
 
 #if !defined(__BIG_ENDIAN_BITFIELD) && !defined(__LITTLE_ENDIAN_BITFIELD)
@@ -1623,9 +1622,9 @@ static void map_dma(unsigned int i, struct hostdata *ha)
 	if (SCpnt->sense_buffer)
 		cpp->sense_addr =
 		    H2DEV(pci_map_single(ha->pdev, SCpnt->sense_buffer,
-			   sizeof SCpnt->sense_buffer, PCI_DMA_FROMDEVICE));
+			   SCSI_SENSE_BUFFERSIZE, PCI_DMA_FROMDEVICE));
 
-	cpp->sense_len = sizeof SCpnt->sense_buffer;
+	cpp->sense_len = SCSI_SENSE_BUFFERSIZE;
 
 	count = scsi_dma_map(SCpnt);
 	BUG_ON(count < 0);
@@ -2287,17 +2286,14 @@ static void flush_dev(struct scsi_device *dev, unsigned long cursec,
 	}
 }
 
-static irqreturn_t ihdlr(int irq, struct Scsi_Host *shost)
+static irqreturn_t ihdlr(struct Scsi_Host *shost)
 {
 	struct scsi_cmnd *SCpnt;
 	unsigned int i, k, c, status, tstatus, reg;
 	struct mssp *spp;
 	struct mscp *cpp;
 	struct hostdata *ha = (struct hostdata *)shost->hostdata;
-
-	if (shost->irq != irq)
-		panic("%s: ihdlr, irq %d, shost->irq %d.\n", ha->board_name, irq,
-		      shost->irq);
+	int irq = shost->irq;
 
 	/* Check if this board need to be serviced */
 	if (!(inb(shost->io_port + REG_AUX_STATUS) & IRQ_ASSERTED))
@@ -2536,7 +2532,7 @@ static irqreturn_t ihdlr(int irq, struct Scsi_Host *shost)
 	return IRQ_NONE;
 }
 
-static irqreturn_t do_interrupt_handler(int irq, void *shap)
+static irqreturn_t do_interrupt_handler(int dummy, void *shap)
 {
 	struct Scsi_Host *shost;
 	unsigned int j;
@@ -2549,7 +2545,7 @@ static irqreturn_t do_interrupt_handler(int irq, void *shap)
 	shost = sh[j];
 
 	spin_lock_irqsave(shost->host_lock, spin_flags);
-	ret = ihdlr(irq, shost);
+	ret = ihdlr(shost);
 	spin_unlock_irqrestore(shost->host_lock, spin_flags);
 	return ret;
 }

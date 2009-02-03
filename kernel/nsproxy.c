@@ -14,13 +14,13 @@
  */
 
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/nsproxy.h>
 #include <linux/init_task.h>
 #include <linux/mnt_namespace.h>
 #include <linux/utsname.h>
 #include <linux/pid_namespace.h>
 #include <net/net_namespace.h>
+#include <linux/ipc_namespace.h>
 
 static struct kmem_cache *nsproxy_cachep;
 
@@ -138,15 +138,21 @@ int copy_namespaces(unsigned long flags, struct task_struct *tsk)
 		goto out;
 	}
 
-	new_ns = create_new_namespaces(flags, tsk, tsk->fs);
-	if (IS_ERR(new_ns)) {
-		err = PTR_ERR(new_ns);
+	/*
+	 * CLONE_NEWIPC must detach from the undolist: after switching
+	 * to a new ipc namespace, the semaphore arrays from the old
+	 * namespace are unreachable.  In clone parlance, CLONE_SYSVSEM
+	 * means share undolist with parent, so we must forbid using
+	 * it along with CLONE_NEWIPC.
+	 */
+	if ((flags & CLONE_NEWIPC) && (flags & CLONE_SYSVSEM)) {
+		err = -EINVAL;
 		goto out;
 	}
 
-	err = ns_cgroup_clone(tsk);
-	if (err) {
-		put_nsproxy(new_ns);
+	new_ns = create_new_namespaces(flags, tsk, tsk->fs);
+	if (IS_ERR(new_ns)) {
+		err = PTR_ERR(new_ns);
 		goto out;
 	}
 
@@ -196,7 +202,7 @@ int unshare_nsproxy_namespaces(unsigned long unshare_flags,
 		goto out;
 	}
 
-	err = ns_cgroup_clone(current);
+	err = ns_cgroup_clone(current, task_pid(current));
 	if (err)
 		put_nsproxy(*new_nsp);
 

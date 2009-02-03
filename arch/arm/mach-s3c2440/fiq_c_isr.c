@@ -6,20 +6,21 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/fiq.h>
 #include "fiq_c_isr.h"
 #include <linux/sysfs.h>
 #include <linux/device.h>
+#include <linux/delay.h>
 #include <linux/platform_device.h>
 
 #include <asm/io.h>
 
-#include <asm/plat-s3c24xx/cpu.h>
-#include <asm/plat-s3c24xx/irq.h>
+#include <plat/cpu.h>
+#include <plat/irq.h>
 
-#include <asm/arch/pwm.h>
-#include <asm/plat-s3c/regs-timer.h>
+#include <mach/pwm.h>
+#include <plat/regs-timer.h>
 
 /*
  * Major Caveats for using FIQ
@@ -59,11 +60,12 @@
  */
 
 /* more than enough to cover our jump instruction to the isr */
-#define SIZEOF_FIQ_JUMP 8
-/* more than enough to cover s3c2440_fiq_isr() in 4K blocks */
-#define SIZEOF_FIQ_ISR 0x2000
-/* increase the size of the stack that is active during FIQ as needed */
-static u8 u8aFiqStack[4096];
+#define SIZEOF_FIQ_JUMP 4
+
+#define FIQ_VECTOR 0xffff001c
+
+/* we put the stack at the area after the FIQ vector */
+#define FIQ_STACK_SIZE 256
 
 /* only one FIQ ISR possible, okay to do these here */
 u32 _fiq_ack_mask; /* used by isr exit define */
@@ -72,12 +74,14 @@ static int _fiq_irq; /* private ; irq index we were started with, or 0 */
 struct s3c2410_pwm pwm_timer_fiq;
 int _fiq_timer_index;
 u16 _fiq_timer_divisor;
-
+u8 fiq_ready;
 
 /* this function must live in the monolithic kernel somewhere!  A module is
  * NOT good enough!
  */
 extern void __attribute__ ((naked)) s3c2440_fiq_isr(void);
+
+static void fiq_set_vector_and_regs(void);
 
 
 /* this is copied into the hard FIQ vector during init */
@@ -178,6 +182,11 @@ void fiq_kick(void)
 	unsigned long flags;
 	u32 tcon;
 
+	if (!fiq_ready) {
+		printk(KERN_ERR "fiq_kick called before fiq probed\n");
+		return;
+	}
+	
 	/* we have to take care about FIQ because this modification is
 	 * non-atomic, FIQ could come in after the read and before the
 	 * writeback and its changes to the register would be lost
@@ -206,22 +215,40 @@ EXPORT_SYMBOL_GPL(fiq_kick);
 static int __init sc32440_fiq_probe(struct platform_device *pdev)
 {
 	struct resource *r = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	struct sc32440_fiq_platform_data *pdata = pdev->dev.platform_data;
+	int ret;
 
 	if (!r)
 		return -EIO;
 
 	/* configure for the interrupt we are meant to use */
-	printk(KERN_INFO"Enabling FIQ using irq %d\n", r->start);
+	printk(KERN_INFO "Enabling FIQ using irq %d\n", r->start);
 
+	fiq_set_vector_and_regs();
 	fiq_init_irq_source(r->start);
 
-	return sysfs_create_group(&pdev->dev.kobj, &s3c2440_fiq_attr_group);
+	ret = sysfs_create_group(&pdev->dev.kobj, &s3c2440_fiq_attr_group);
+	if (ret)
+		return ret;
+	
+	fiq_ready = 1;
+
+	/*
+	 * if wanted, users can defer registration of devices
+	 * that depend on FIQ until after we register, and can use our
+	 * device as parent so suspend-resume ordering is correct
+	 */
+	if (pdata->attach_child_devices)
+		(pdata->attach_child_devices)(&pdev->dev);
+
+	return 0;
 }
 
 static int sc32440_fiq_remove(struct platform_device *pdev)
 {
 	fiq_disable_irq_source();
 	sysfs_remove_group(&pdev->dev.kobj, &s3c2440_fiq_attr_group);
+
 	return 0;
 }
 
@@ -232,11 +259,14 @@ static void fiq_set_vector_and_regs(void)
 	/* prep the special FIQ mode regs */
 	memset(&regs, 0, sizeof(regs));
 	regs.ARM_r8 = (unsigned long)s3c2440_fiq_isr;
-	regs.ARM_sp = (unsigned long)u8aFiqStack + sizeof(u8aFiqStack) - 4;
-	/* set up the special FIQ-mode-only registers from our regs */
-	set_fiq_regs(&regs);
+	regs.ARM_r10 = FIQ_VECTOR + SIZEOF_FIQ_JUMP;
+	regs.ARM_sp = FIQ_VECTOR + SIZEOF_FIQ_JUMP + FIQ_STACK_SIZE - 4;
+	
 	/* copy our jump to the real ISR into the hard vector address */
 	set_fiq_handler(s3c2440_FIQ_Branch, SIZEOF_FIQ_JUMP);
+
+	/* set up the special FIQ-mode-only registers from our regs */
+	set_fiq_regs(&regs);
 }
 
 #ifdef CONFIG_PM

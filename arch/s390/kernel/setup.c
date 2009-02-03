@@ -24,7 +24,6 @@
 #include <linux/ptrace.h>
 #include <linux/slab.h>
 #include <linux/user.h>
-#include <linux/a.out.h>
 #include <linux/tty.h>
 #include <linux/ioport.h>
 #include <linux/delay.h>
@@ -40,6 +39,7 @@
 #include <linux/pfn.h>
 #include <linux/ctype.h>
 #include <linux/reboot.h>
+#include <linux/topology.h>
 
 #include <asm/ipl.h>
 #include <asm/uaccess.h>
@@ -54,6 +54,7 @@
 #include <asm/sections.h>
 #include <asm/ebcdic.h>
 #include <asm/compat.h>
+#include <asm/kvm_virtio.h>
 
 long psw_kernel_bits	= (PSW_BASE_BITS | PSW_MASK_DAT | PSW_ASC_PRIMARY |
 			   PSW_MASK_MCHECK | PSW_DEFAULT_KEY);
@@ -73,7 +74,7 @@ EXPORT_SYMBOL(uaccess);
 unsigned int console_mode = 0;
 unsigned int console_devno = -1;
 unsigned int console_irq = -1;
-unsigned long machine_flags = 0;
+unsigned long machine_flags;
 unsigned long elf_hwcap = 0;
 char elf_platform[ELF_PLATFORM_SIZE];
 
@@ -126,75 +127,6 @@ void __cpuinit cpu_init(void)
 }
 
 /*
- * VM halt and poweroff setup routines
- */
-char vmhalt_cmd[128] = "";
-char vmpoff_cmd[128] = "";
-static char vmpanic_cmd[128] = "";
-
-static void strncpy_skip_quote(char *dst, char *src, int n)
-{
-        int sx, dx;
-
-        dx = 0;
-        for (sx = 0; src[sx] != 0; sx++) {
-                if (src[sx] == '"') continue;
-                dst[dx++] = src[sx];
-                if (dx >= n) break;
-        }
-}
-
-static int __init vmhalt_setup(char *str)
-{
-        strncpy_skip_quote(vmhalt_cmd, str, 127);
-        vmhalt_cmd[127] = 0;
-        return 1;
-}
-
-__setup("vmhalt=", vmhalt_setup);
-
-static int __init vmpoff_setup(char *str)
-{
-        strncpy_skip_quote(vmpoff_cmd, str, 127);
-        vmpoff_cmd[127] = 0;
-        return 1;
-}
-
-__setup("vmpoff=", vmpoff_setup);
-
-static int vmpanic_notify(struct notifier_block *self, unsigned long event,
-			  void *data)
-{
-	if (MACHINE_IS_VM && strlen(vmpanic_cmd) > 0)
-		cpcmd(vmpanic_cmd, NULL, 0, NULL);
-
-	return NOTIFY_OK;
-}
-
-#define PANIC_PRI_VMPANIC	0
-
-static struct notifier_block vmpanic_nb = {
-	.notifier_call = vmpanic_notify,
-	.priority = PANIC_PRI_VMPANIC
-};
-
-static int __init vmpanic_setup(char *str)
-{
-	static int register_done __initdata = 0;
-
-	strncpy_skip_quote(vmpanic_cmd, str, 127);
-	vmpanic_cmd[127] = 0;
-	if (!register_done) {
-		register_done = 1;
-		atomic_notifier_chain_register(&panic_notifier_list,
-					       &vmpanic_nb);
-	}
-	return 1;
-}
-
-__setup("vmpanic=", vmpanic_setup);
-
-/*
  * condev= and conmode= setup parameter.
  */
 
@@ -214,7 +146,7 @@ __setup("condev=", condev_setup);
 
 static int __init conmode_setup(char *str)
 {
-#if defined(CONFIG_SCLP_CONSOLE)
+#if defined(CONFIG_SCLP_CONSOLE) || defined(CONFIG_SCLP_VT220_CONSOLE)
 	if (strncmp(str, "hwc", 4) == 0 || strncmp(str, "sclp", 5) == 0)
                 SET_CONSOLE_SCLP;
 #endif
@@ -252,7 +184,7 @@ static void __init conmode_default(void)
 		 */
 		cpcmd("TERM CONMODE 3215", NULL, 0, NULL);
 		if (ptr == NULL) {
-#if defined(CONFIG_SCLP_CONSOLE)
+#if defined(CONFIG_SCLP_CONSOLE) || defined(CONFIG_SCLP_VT220_CONSOLE)
 			SET_CONSOLE_SCLP;
 #endif
 			return;
@@ -262,7 +194,7 @@ static void __init conmode_default(void)
 			SET_CONSOLE_3270;
 #elif defined(CONFIG_TN3215_CONSOLE)
 			SET_CONSOLE_3215;
-#elif defined(CONFIG_SCLP_CONSOLE)
+#elif defined(CONFIG_SCLP_CONSOLE) || defined(CONFIG_SCLP_VT220_CONSOLE)
 			SET_CONSOLE_SCLP;
 #endif
 		} else if (strncmp(ptr + 8, "3215", 4) == 0) {
@@ -270,18 +202,12 @@ static void __init conmode_default(void)
 			SET_CONSOLE_3215;
 #elif defined(CONFIG_TN3270_CONSOLE)
 			SET_CONSOLE_3270;
-#elif defined(CONFIG_SCLP_CONSOLE)
+#elif defined(CONFIG_SCLP_CONSOLE) || defined(CONFIG_SCLP_VT220_CONSOLE)
 			SET_CONSOLE_SCLP;
 #endif
 		}
-        } else if (MACHINE_IS_P390) {
-#if defined(CONFIG_TN3215_CONSOLE)
-		SET_CONSOLE_3215;
-#elif defined(CONFIG_TN3270_CONSOLE)
-		SET_CONSOLE_3270;
-#endif
 	} else {
-#if defined(CONFIG_SCLP_CONSOLE)
+#if defined(CONFIG_SCLP_CONSOLE) || defined(CONFIG_SCLP_VT220_CONSOLE)
 		SET_CONSOLE_SCLP;
 #endif
 	}
@@ -290,55 +216,22 @@ static void __init conmode_default(void)
 #if defined(CONFIG_ZFCPDUMP) || defined(CONFIG_ZFCPDUMP_MODULE)
 static void __init setup_zfcpdump(unsigned int console_devno)
 {
-	static char str[64];
+	static char str[41];
 
 	if (ipl_info.type != IPL_TYPE_FCP_DUMP)
 		return;
 	if (console_devno != -1)
-		sprintf(str, "cio_ignore=all,!0.0.%04x,!0.0.%04x",
+		sprintf(str, " cio_ignore=all,!0.0.%04x,!0.0.%04x",
 			ipl_info.data.fcp.dev_id.devno, console_devno);
 	else
-		sprintf(str, "cio_ignore=all,!0.0.%04x",
+		sprintf(str, " cio_ignore=all,!0.0.%04x",
 			ipl_info.data.fcp.dev_id.devno);
-	strcat(COMMAND_LINE, " ");
-	strcat(COMMAND_LINE, str);
+	strcat(boot_command_line, str);
 	console_loglevel = 2;
 }
 #else
 static inline void setup_zfcpdump(unsigned int console_devno) {}
 #endif /* CONFIG_ZFCPDUMP */
-
-#ifdef CONFIG_SMP
-void (*_machine_restart)(char *command) = machine_restart_smp;
-void (*_machine_halt)(void) = machine_halt_smp;
-void (*_machine_power_off)(void) = machine_power_off_smp;
-#else
-/*
- * Reboot, halt and power_off routines for non SMP.
- */
-static void do_machine_restart_nonsmp(char * __unused)
-{
-	do_reipl();
-}
-
-static void do_machine_halt_nonsmp(void)
-{
-        if (MACHINE_IS_VM && strlen(vmhalt_cmd) > 0)
-		__cpcmd(vmhalt_cmd, NULL, 0, NULL);
-        signal_processor(smp_processor_id(), sigp_stop_and_store_status);
-}
-
-static void do_machine_power_off_nonsmp(void)
-{
-        if (MACHINE_IS_VM && strlen(vmpoff_cmd) > 0)
-		__cpcmd(vmpoff_cmd, NULL, 0, NULL);
-        signal_processor(smp_processor_id(), sigp_stop_and_store_status);
-}
-
-void (*_machine_restart)(char *command) = do_machine_restart_nonsmp;
-void (*_machine_halt)(void) = do_machine_halt_nonsmp;
-void (*_machine_power_off)(void) = do_machine_power_off_nonsmp;
-#endif
 
  /*
  * Reboot, halt and power_off stubs. They just call _machine_restart,
@@ -390,34 +283,12 @@ static int __init early_parse_mem(char *p)
 }
 early_param("mem", early_parse_mem);
 
-/*
- * "ipldelay=XXX[sm]" sets ipl delay in seconds or minutes
- */
-static int __init early_parse_ipldelay(char *p)
-{
-	unsigned long delay = 0;
-
-	delay = simple_strtoul(p, &p, 0);
-
-	switch (*p) {
-	case 's':
-	case 'S':
-		delay *= 1000000;
-		break;
-	case 'm':
-	case 'M':
-		delay *= 60 * 1000000;
-	}
-
-	/* now wait for the requested amount of time */
-	udelay(delay);
-
-	return 0;
-}
-early_param("ipldelay", early_parse_ipldelay);
-
 #ifdef CONFIG_S390_SWITCH_AMODE
+#ifdef CONFIG_PGSTE
+unsigned int switch_amode = 1;
+#else
 unsigned int switch_amode = 0;
+#endif
 EXPORT_SYMBOL_GPL(switch_amode);
 
 static void set_amode_and_uaccess(unsigned long user_amode,
@@ -529,7 +400,7 @@ setup_lowcore(void)
 	lc->io_new_psw.mask = psw_kernel_bits;
 	lc->io_new_psw.addr = PSW_ADDR_AMODE | (unsigned long) io_int_handler;
 	lc->ipl_device = S390_lowcore.ipl_device;
-	lc->jiffy_timer = -1LL;
+	lc->clock_comparator = -1ULL;
 	lc->kernel_stack = ((unsigned long) &init_thread_union) + THREAD_SIZE;
 	lc->async_stack = (unsigned long)
 		__alloc_bootmem(ASYNC_SIZE, ASYNC_SIZE, 0) + ASYNC_SIZE;
@@ -559,7 +430,9 @@ setup_resources(void)
 	data_resource.start = (unsigned long) &_etext;
 	data_resource.end = (unsigned long) &_edata - 1;
 
-	for (i = 0; i < MEMORY_CHUNKS && memory_chunk[i].size > 0; i++) {
+	for (i = 0; i < MEMORY_CHUNKS; i++) {
+		if (!memory_chunk[i].size)
+			continue;
 		res = alloc_bootmem_low(sizeof(struct resource));
 		res->flags = IORESOURCE_BUSY | IORESOURCE_MEM;
 		switch (memory_chunk[i].type) {
@@ -617,7 +490,7 @@ EXPORT_SYMBOL_GPL(real_memory_size);
 static void __init setup_memory_end(void)
 {
 	unsigned long memory_size;
-	unsigned long max_mem, max_phys;
+	unsigned long max_mem;
 	int i;
 
 #if defined(CONFIG_ZFCPDUMP) || defined(CONFIG_ZFCPDUMP_MODULE)
@@ -625,10 +498,31 @@ static void __init setup_memory_end(void)
 		memory_end = ZFCPDUMP_HSA_SIZE;
 #endif
 	memory_size = 0;
-	max_phys = VMALLOC_END_INIT - VMALLOC_MIN_SIZE;
 	memory_end &= PAGE_MASK;
 
-	max_mem = memory_end ? min(max_phys, memory_end) : max_phys;
+	max_mem = memory_end ? min(VMEM_MAX_PHYS, memory_end) : VMEM_MAX_PHYS;
+	memory_end = min(max_mem, memory_end);
+
+	/*
+	 * Make sure all chunks are MAX_ORDER aligned so we don't need the
+	 * extra checks that HOLES_IN_ZONE would require.
+	 */
+	for (i = 0; i < MEMORY_CHUNKS; i++) {
+		unsigned long start, end;
+		struct mem_chunk *chunk;
+		unsigned long align;
+
+		chunk = &memory_chunk[i];
+		align = 1UL << (MAX_ORDER + PAGE_SHIFT - 1);
+		start = (chunk->addr + align - 1) & ~(align - 1);
+		end = (chunk->addr + chunk->size) & ~(align - 1);
+		if (start >= end)
+			memset(chunk, 0, sizeof(*chunk));
+		else {
+			chunk->addr = start;
+			chunk->size = end - start;
+		}
+	}
 
 	for (i = 0; i < MEMORY_CHUNKS; i++) {
 		struct mem_chunk *chunk = &memory_chunk[i];
@@ -727,21 +621,24 @@ setup_memory(void)
 	/*
 	 * Reserve memory used for lowcore/command line/kernel image.
 	 */
-	reserve_bootmem(0, (unsigned long)_ehead);
+	reserve_bootmem(0, (unsigned long)_ehead, BOOTMEM_DEFAULT);
 	reserve_bootmem((unsigned long)_stext,
-			PFN_PHYS(start_pfn) - (unsigned long)_stext);
+			PFN_PHYS(start_pfn) - (unsigned long)_stext,
+			BOOTMEM_DEFAULT);
 	/*
 	 * Reserve the bootmem bitmap itself as well. We do this in two
 	 * steps (first step was init_bootmem()) because this catches
 	 * the (very unlikely) case of us accidentally initializing the
 	 * bootmem allocator with an invalid RAM area.
 	 */
-	reserve_bootmem(start_pfn << PAGE_SHIFT, bootmap_size);
+	reserve_bootmem(start_pfn << PAGE_SHIFT, bootmap_size,
+			BOOTMEM_DEFAULT);
 
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (INITRD_START && INITRD_SIZE) {
 		if (INITRD_START + INITRD_SIZE <= memory_end) {
-			reserve_bootmem(INITRD_START, INITRD_SIZE);
+			reserve_bootmem(INITRD_START, INITRD_SIZE,
+					BOOTMEM_DEFAULT);
 			initrd_start = INITRD_START;
 			initrd_end = initrd_start + INITRD_SIZE;
 		} else {
@@ -754,16 +651,7 @@ setup_memory(void)
 #endif
 }
 
-static __init unsigned int stfl(void)
-{
-	asm volatile(
-		"	.insn	s,0xb2b10000,0(0)\n" /* stfl */
-		"0:\n"
-		EX_TABLE(0b,0b));
-	return S390_lowcore.stfl_fac_list;
-}
-
-static __init int stfle(unsigned long long *list, int doublewords)
+static int __init __stfle(unsigned long long *list, int doublewords)
 {
 	typedef struct { unsigned long long _[doublewords]; } addrtype;
 	register unsigned long __nr asm("0") = doublewords - 1;
@@ -771,6 +659,13 @@ static __init int stfle(unsigned long long *list, int doublewords)
 	asm volatile(".insn s,0xb2b00000,%0" /* stfle */
 		     : "=m" (*(addrtype *) list), "+d" (__nr) : : "cc");
 	return __nr + 1;
+}
+
+int __init stfle(unsigned long long *list, int doublewords)
+{
+	if (!(stfl() & (1UL << 24)))
+		return -EOPNOTSUPP;
+	return __stfle(list, doublewords);
 }
 
 /*
@@ -817,10 +712,13 @@ static void __init setup_hwcaps(void)
 	 *   HWCAP_S390_DFP bit 6.
 	 */
 	if ((elf_hwcap & (1UL << 2)) &&
-	    stfle(&facility_list_extended, 1) > 0) {
+	    __stfle(&facility_list_extended, 1) > 0) {
 		if (facility_list_extended & (1ULL << (64 - 43)))
 			elf_hwcap |= 1UL << 6;
 	}
+
+	if (MACHINE_HAS_HPAGE)
+		elf_hwcap |= 1UL << 7;
 
 	switch (cpuinfo->cpu_id.machine) {
 	case 0x9672:
@@ -865,16 +763,19 @@ setup_arch(char **cmdline_p)
 	       "This machine has an IEEE fpu\n" :
 	       "This machine has no IEEE fpu\n");
 #else /* CONFIG_64BIT */
-	printk((MACHINE_IS_VM) ?
-	       "We are running under VM (64 bit mode)\n" :
-	       "We are running native (64 bit mode)\n");
+	if (MACHINE_IS_VM)
+		printk("We are running under VM (64 bit mode)\n");
+	else if (MACHINE_IS_KVM) {
+		printk("We are running under KVM (64 bit mode)\n");
+		add_preferred_console("hvc", 0, NULL);
+		s390_virtio_console_init();
+	} else
+		printk("We are running native (64 bit mode)\n");
 #endif /* CONFIG_64BIT */
 
-	/* Save unparsed command line copy for /proc/cmdline */
-	strlcpy(boot_command_line, COMMAND_LINE, COMMAND_LINE_SIZE);
-
-	*cmdline_p = COMMAND_LINE;
-	*(*cmdline_p + COMMAND_LINE_SIZE - 1) = '\0';
+	/* Have one command line that is parsed and saved in /proc/cmdline */
+	/* boot_command_line has been already set up in early.c */
+	*cmdline_p = boot_command_line;
 
         ROOT_DEV = Root_RAM0;
 
@@ -890,7 +791,7 @@ setup_arch(char **cmdline_p)
 
 	parse_early_param();
 
-	setup_ipl_info();
+	setup_ipl();
 	setup_memory_end();
 	setup_addressing_mode();
 	setup_memory();
@@ -899,7 +800,7 @@ setup_arch(char **cmdline_p)
 
         cpu_init();
         __cpu_logical_map[0] = S390_lowcore.cpu_data.cpu_addr;
-	smp_setup_cpu_possible_map();
+	s390_init_cpu_topology();
 
 	/*
 	 * Setup capabilities (ELF_HWCAP & ELF_PLATFORM).
@@ -920,7 +821,7 @@ setup_arch(char **cmdline_p)
 
 void __cpuinit print_cpu_info(struct cpuinfo_S390 *cpuinfo)
 {
-   printk("cpu %d "
+   printk(KERN_INFO "cpu %d "
 #ifdef CONFIG_SMP
            "phys_idx=%d "
 #endif
@@ -941,8 +842,9 @@ void __cpuinit print_cpu_info(struct cpuinfo_S390 *cpuinfo)
 
 static int show_cpuinfo(struct seq_file *m, void *v)
 {
-	static const char *hwcap_str[7] = {
-		"esan3", "zarch", "stfle", "msa", "ldisp", "eimm", "dfp"
+	static const char *hwcap_str[8] = {
+		"esan3", "zarch", "stfle", "msa", "ldisp", "eimm", "dfp",
+		"edat"
 	};
         struct cpuinfo_S390 *cpuinfo;
 	unsigned long n = (unsigned long) v - 1;
@@ -957,7 +859,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 			       num_online_cpus(), loops_per_jiffy/(500000/HZ),
 			       (loops_per_jiffy/(5000/HZ))%100);
 		seq_puts(m, "features\t: ");
-		for (i = 0; i < 7; i++)
+		for (i = 0; i < 8; i++)
 			if (hwcap_str[i] && (elf_hwcap & (1UL << i)))
 				seq_printf(m, "%s ", hwcap_str[i]);
 		seq_puts(m, "\n");
@@ -996,7 +898,7 @@ static void *c_next(struct seq_file *m, void *v, loff_t *pos)
 static void c_stop(struct seq_file *m, void *v)
 {
 }
-struct seq_operations cpuinfo_op = {
+const struct seq_operations cpuinfo_op = {
 	.start	= c_start,
 	.next	= c_next,
 	.stop	= c_stop,

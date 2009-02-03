@@ -24,7 +24,6 @@
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/version.h>
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/mm.h>
@@ -459,8 +458,8 @@ static int __devexit xilinxfb_of_remove(struct of_device *op)
 }
 
 /* Match table for of_platform binding */
-static struct of_device_id __devinit xilinxfb_of_match[] = {
-	{ .compatible = "xilinx,ml300-fb", },
+static struct of_device_id xilinxfb_of_match[] __devinitdata = {
+	{ .compatible = "xlnx,plb-tft-cntlr-ref-1.00.a", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, xilinxfb_of_match);

@@ -21,7 +21,6 @@
  */
 
 
-#include <sound/driver.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
@@ -459,13 +458,14 @@ static int pcxhr_update_r_buffer(struct pcxhr_stream *stream)
 
 	snd_printdd("pcxhr_update_r_buffer(pcm%c%d) : addr(%p) bytes(%zx) subs(%d)\n",
 		    is_capture ? 'c' : 'p',
-		    chip->chip_idx, (void*)subs->runtime->dma_addr,
+		    chip->chip_idx, (void *)(long)subs->runtime->dma_addr,
 		    subs->runtime->dma_bytes, subs->number);
 
 	pcxhr_init_rmh(&rmh, CMD_UPDATE_R_BUFFERS);
 	pcxhr_set_pipe_cmd_params(&rmh, is_capture, stream->pipe->first_audio, stream_num, 0);
 
-	snd_assert(subs->runtime->dma_bytes < 0x200000);	/* max buffer size is 2 MByte */
+	/* max buffer size is 2 MByte */
+	snd_BUG_ON(subs->runtime->dma_bytes >= 0x200000);
 	rmh.cmd[1] = subs->runtime->dma_bytes * 8;		/* size in bits */
 	rmh.cmd[2] = subs->runtime->dma_addr >> 24;		/* most significant byte */
 	rmh.cmd[2] |= 1<<19;					/* this is a circular buffer */
@@ -517,7 +517,7 @@ static void pcxhr_trigger_tasklet(unsigned long arg)
 	int capture_mask = 0;
 	int playback_mask = 0;
 
-#ifdef CONFIG_SND_DEBUG_DETECT
+#ifdef CONFIG_SND_DEBUG_VERBOSE
 	struct timeval my_tv1, my_tv2;
 	do_gettimeofday(&my_tv1);
 #endif
@@ -624,10 +624,10 @@ static void pcxhr_trigger_tasklet(unsigned long arg)
 
 	mutex_unlock(&mgr->setup_mutex);
 
-#ifdef CONFIG_SND_DEBUG_DETECT
+#ifdef CONFIG_SND_DEBUG_VERBOSE
 	do_gettimeofday(&my_tv2);
 	snd_printdd("***TRIGGER TASKLET*** TIME = %ld (err = %x)\n",
-		    my_tv2.tv_usec - my_tv1.tv_usec, err);
+		    (long)(my_tv2.tv_usec - my_tv1.tv_usec), err);
 #endif
 }
 
@@ -847,7 +847,6 @@ static int pcxhr_open(struct snd_pcm_substream *subs)
 	struct pcxhr_mgr       *mgr = chip->mgr;
 	struct snd_pcm_runtime *runtime = subs->runtime;
 	struct pcxhr_stream    *stream;
-	int                 is_capture;
 
 	mutex_lock(&mgr->setup_mutex);
 
@@ -857,12 +856,10 @@ static int pcxhr_open(struct snd_pcm_substream *subs)
 	if( subs->stream == SNDRV_PCM_STREAM_PLAYBACK ) {
 		snd_printdd("pcxhr_open playback chip%d subs%d\n",
 			    chip->chip_idx, subs->number);
-		is_capture = 0;
 		stream = &chip->playback_stream[subs->number];
 	} else {
 		snd_printdd("pcxhr_open capture chip%d subs%d\n",
 			    chip->chip_idx, subs->number);
-		is_capture = 1;
 		if (mgr->mono_capture)
 			runtime->hw.channels_max = 1;
 		else
@@ -1232,7 +1229,8 @@ static int __devinit pcxhr_probe(struct pci_dev *pci, const struct pci_device_id
 		return -ENOMEM;
 	}
 
-	snd_assert(pci_id->driver_data < PCI_ID_LAST, return -ENODEV);
+	if (snd_BUG_ON(pci_id->driver_data >= PCI_ID_LAST))
+		return -ENODEV;
 	card_name = pcxhr_board_params[pci_id->driver_data].board_name;
 	mgr->playback_chips = pcxhr_board_params[pci_id->driver_data].playback_chips;
 	mgr->capture_chips  = pcxhr_board_params[pci_id->driver_data].capture_chips;

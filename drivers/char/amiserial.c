@@ -832,33 +832,31 @@ static void change_speed(struct async_struct *info,
 	local_irq_restore(flags);
 }
 
-static void rs_put_char(struct tty_struct *tty, unsigned char ch)
+static int rs_put_char(struct tty_struct *tty, unsigned char ch)
 {
 	struct async_struct *info;
 	unsigned long flags;
 
-	if (!tty)
-		return;
-
 	info = tty->driver_data;
 
 	if (serial_paranoia_check(info, tty->name, "rs_put_char"))
-		return;
+		return 0;
 
 	if (!info->xmit.buf)
-		return;
+		return 0;
 
 	local_irq_save(flags);
 	if (CIRC_SPACE(info->xmit.head,
 		       info->xmit.tail,
 		       SERIAL_XMIT_SIZE) == 0) {
 		local_irq_restore(flags);
-		return;
+		return 0;
 	}
 
 	info->xmit.buf[info->xmit.head++] = ch;
 	info->xmit.head &= SERIAL_XMIT_SIZE-1;
 	local_irq_restore(flags);
+	return 1;
 }
 
 static void rs_flush_chars(struct tty_struct *tty)
@@ -890,9 +888,6 @@ static int rs_write(struct tty_struct * tty, const unsigned char *buf, int count
 	int	c, ret = 0;
 	struct async_struct *info;
 	unsigned long flags;
-
-	if (!tty)
-		return 0;
 
 	info = tty->driver_data;
 
@@ -1074,6 +1069,7 @@ static int get_serial_info(struct async_struct * info,
 	if (!retinfo)
 		return -EFAULT;
 	memset(&tmp, 0, sizeof(tmp));
+	lock_kernel();
 	tmp.type = state->type;
 	tmp.line = state->line;
 	tmp.port = state->port;
@@ -1084,6 +1080,7 @@ static int get_serial_info(struct async_struct * info,
 	tmp.close_delay = state->close_delay;
 	tmp.closing_wait = state->closing_wait;
 	tmp.custom_divisor = state->custom_divisor;
+	unlock_kernel();
 	if (copy_to_user(retinfo,&tmp,sizeof(*retinfo)))
 		return -EFAULT;
 	return 0;
@@ -1099,13 +1096,17 @@ static int set_serial_info(struct async_struct * info,
 
 	if (copy_from_user(&new_serial,new_info,sizeof(new_serial)))
 		return -EFAULT;
+
+	lock_kernel();
 	state = info->state;
 	old_state = *state;
   
 	change_irq = new_serial.irq != state->irq;
 	change_port = (new_serial.port != state->port);
-	if(change_irq || change_port || (new_serial.xmit_fifo_size != state->xmit_fifo_size))
+	if(change_irq || change_port || (new_serial.xmit_fifo_size != state->xmit_fifo_size)) {
+	  unlock_kernel();
 	  return -EINVAL;
+	}
   
 	if (!serial_isroot()) {
 		if ((new_serial.baud_base != state->baud_base) ||
@@ -1122,8 +1123,10 @@ static int set_serial_info(struct async_struct * info,
 		goto check_and_exit;
 	}
 
-	if (new_serial.baud_base < 9600)
+	if (new_serial.baud_base < 9600) {
+		unlock_kernel();
 		return -EINVAL;
+	}
 
 	/*
 	 * OK, past this point, all the error checking has been done.
@@ -1157,6 +1160,7 @@ check_and_exit:
 		}
 	} else
 		retval = startup(info);
+	unlock_kernel();
 	return retval;
 }
 
@@ -1238,13 +1242,13 @@ static int rs_tiocmset(struct tty_struct *tty, struct file *file,
 /*
  * rs_break() --- routine which turns the break handling on or off
  */
-static void rs_break(struct tty_struct *tty, int break_state)
+static int rs_break(struct tty_struct *tty, int break_state)
 {
 	struct async_struct * info = (struct async_struct *)tty->driver_data;
 	unsigned long flags;
 
 	if (serial_paranoia_check(info, tty->name, "rs_break"))
-		return;
+		return -EINVAL;
 
 	local_irq_save(flags);
 	if (break_state == -1)
@@ -1253,6 +1257,7 @@ static void rs_break(struct tty_struct *tty, int break_state)
 	  custom.adkcon = AC_UARTBRK;
 	mb();
 	local_irq_restore(flags);
+	return 0;
 }
 
 
@@ -1496,8 +1501,7 @@ static void rs_close(struct tty_struct *tty, struct file * filp)
 		rs_wait_until_sent(tty, info->timeout);
 	}
 	shutdown(info);
-	if (tty->driver->flush_buffer)
-		tty->driver->flush_buffer(tty);
+	rs_flush_buffer(tty);
 		
 	tty_ldisc_flush(tty);
 	tty->closing = 0;
@@ -1530,6 +1534,8 @@ static void rs_wait_until_sent(struct tty_struct *tty, int timeout)
 		return; /* Just in case.... */
 
 	orig_jiffies = jiffies;
+
+	lock_kernel();
 	/*
 	 * Set the check interval to be 1/5 of the estimated time to
 	 * send a single character, and make it at least 1.  The check
@@ -1570,6 +1576,7 @@ static void rs_wait_until_sent(struct tty_struct *tty, int timeout)
 			break;
 	}
 	__set_current_state(TASK_RUNNING);
+	unlock_kernel();
 #ifdef SERIAL_DEBUG_RS_WAIT_UNTIL_SENT
 	printk("lsr = %d (jiff=%lu)...done\n", lsr, jiffies);
 #endif
@@ -2064,12 +2071,13 @@ module_init(rs_init)
 module_exit(rs_exit)
 
 
+#if defined(CONFIG_SERIAL_CONSOLE) && !defined(MODULE)
+
 /*
  * ------------------------------------------------------------
  * Serial console driver
  * ------------------------------------------------------------
  */
-#ifdef CONFIG_SERIAL_CONSOLE
 
 static void amiga_serial_putc(char c)
 {
@@ -2123,6 +2131,7 @@ static int __init amiserial_console_init(void)
 	return 0;
 }
 console_initcall(amiserial_console_init);
-#endif
+
+#endif /* CONFIG_SERIAL_CONSOLE && !MODULE */
 
 MODULE_LICENSE("GPL");

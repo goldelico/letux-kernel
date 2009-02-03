@@ -22,9 +22,7 @@
  * This driver is a monster ;) It provides the following features
  * - voltage control for a dozen different voltage domains
  * - charging control for main and backup battery
- * - rtc / alarm
  * - adc driver (hw_sensors like)
- * - backlight
  *
  */
 
@@ -42,7 +40,6 @@
 #include <linux/miscdevice.h>
 #include <linux/input.h>
 #include <linux/fb.h>
-#include <linux/backlight.h>
 #include <linux/sched.h>
 #include <linux/platform_device.h>
 #include <linux/pcf50633.h>
@@ -51,8 +48,9 @@
 
 #include <asm/mach-types.h>
 
-#include "pcf50633.h"
-#include <linux/resume-dependency.h>
+#include <linux/pcf50633.h>
+#include <linux/regulator/pcf50633.h>
+#include <linux/rtc/pcf50633.h>
 
 #if 0
 #define DEBUGP(x, args ...) printk("%s: " x, __FUNCTION__, ## args)
@@ -70,131 +68,12 @@ static unsigned short normal_i2c[] = { 0x73, I2C_CLIENT_END };
 
 I2C_CLIENT_INSMOD_1(pcf50633);
 
-#define PCF50633_FIDX_CHG_ENABLED	0	/* Charger enabled */
-#define PCF50633_FIDX_CHG_PRESENT	1	/* Charger present */
-#define PCF50633_FIDX_CHG_ERR		3	/* Charger Error */
-#define PCF50633_FIDX_CHG_PROT		4	/* Charger Protection */
-#define PCF50633_FIDX_CHG_READY		5	/* Charging completed */
-#define PCF50633_FIDX_PWR_PRESSED	8
-#define PCF50633_FIDX_RTC_SECOND	9
-#define PCF50633_FIDX_USB_PRESENT	10
-
-#define PCF50633_F_CHG_ENABLED	(1 << PCF50633_FIDX_CHG_ENABLED)
-#define PCF50633_F_CHG_PRESENT	(1 << PCF50633_FIDX_CHG_PRESENT)
-#define PCF50633_F_CHG_ERR	(1 << PCF50633_FIDX_CHG_ERR)
-#define PCF50633_F_CHG_PROT	(1 << PCF50633_FIDX_CHG_PROT)
-#define PCF50633_F_CHG_READY	(1 << PCF50633_FIDX_CHG_READY)
-
-#define PCF50633_F_CHG_MASK	0x000000fc
-
-#define PCF50633_F_PWR_PRESSED	(1 << PCF50633_FIDX_PWR_PRESSED)
-#define PCF50633_F_RTC_SECOND	(1 << PCF50633_FIDX_RTC_SECOND)
-#define PCF50633_F_USB_PRESENT	(1 << PCF50633_FIDX_USB_PRESENT)
-
 enum close_state {
 	CLOSE_STATE_NOT,
 	CLOSE_STATE_ALLOW = 0x2342,
 };
 
-enum charger_type {
-	CHARGER_TYPE_NONE = 0,
-	CHARGER_TYPE_HOSTUSB,
-	CHARGER_TYPE_1A
-};
-
-#define ADC_NOM_CHG_DETECT_1A 6
-#define ADC_NOM_CHG_DETECT_NONE 43
-
-#define MAX_ADC_FIFO_DEPTH 8
-
-enum pcf50633_suspend_states {
-	PCF50633_SS_RUNNING,
-	PCF50633_SS_STARTING_SUSPEND,
-	PCF50633_SS_COMPLETED_SUSPEND,
-	PCF50633_SS_RESUMING_BUT_NOT_US_YET,
-	PCF50633_SS_STARTING_RESUME,
-	PCF50633_SS_COMPLETED_RESUME,
-};
-
-
-struct pcf50633_data {
-	struct i2c_client client;
-	struct pcf50633_platform_data *pdata;
-	struct backlight_device *backlight;
-	struct mutex lock;
-	unsigned int flags;
-	unsigned int working;
-	struct mutex working_lock;
-	struct work_struct work;
-	struct rtc_device *rtc;
-	struct input_dev *input_dev;
-	int allow_close;
-	int onkey_seconds;
-	int irq;
-	enum pcf50633_suspend_states suspend_state;
-	int usb_removal_count;
-	u8 pcfirq_resume[5];
-	int probe_completed;
-	int suppress_onkey_events;
-
-	/* if he pulls battery while charging, we notice that and correctly
-	 * report that the charger is idle.  But there is no interrupt that
-	 * fires if he puts a battery back in and charging resumes.  So when
-	 * the battery is pulled, we run this work function looking for
-	 * either charger resumption or USB cable pull
-	 */
-	struct mutex working_lock_nobat;
-	struct work_struct work_nobat;
-	int working_nobat;
-	int usb_removal_count_nobat;
-	int jiffies_last_bat_ins;
-
-	/* current limit notification handler stuff */
-	struct mutex working_lock_usb_curlimit;
-	struct work_struct work_usb_curlimit;
-	int pending_curlimit;
-	int usb_removal_count_usb_curlimit;
-
-	int last_curlim_set;
-
-	int coldplug_done; /* cleared by probe, set by first work service */
-	int flag_bat_voltage_read; /* ipc to /sys batt voltage read func */
-
-	int charger_adc_result_raw;
-	enum charger_type charger_type;
-
-	/* we have a FIFO of ADC measurement requests that are used only by
-	 * the workqueue service code after the ADC completion interrupt
-	 */
-	int adc_queue_mux[MAX_ADC_FIFO_DEPTH]; /* which ADC input to use */
-	int adc_queue_avg[MAX_ADC_FIFO_DEPTH]; /* amount of averaging */
-	int adc_queue_head; /* head owned by foreground code */
-	int adc_queue_tail; /* tail owned by service code */
-
-#ifdef CONFIG_PM
-	struct {
-		u_int8_t ooctim2;
-		/* enables are always [1] below
-		 * I2C has limit of 32 sequential regs, so done in two lumps
-		 * because it covers 33 register extent otherwise
-		 */
-		u_int8_t misc[PCF50633_REG_LEDDIM - PCF50633_REG_AUTOOUT + 1];
-		/*  skip 1 reserved reg here */
-		u_int8_t ldo[PCF50633_REG_HCLDOENA - PCF50633_REG_LDO1OUT + 1];
-	} standby_regs;
-
-	struct resume_dependency resume_dependency;
-	int is_suspended;
-
-#endif
-};
-
 static struct i2c_driver pcf50633_driver;
-
-struct pcf50633_data *pcf50633_global;
-EXPORT_SYMBOL_GPL(pcf50633_global);
-
-static struct platform_device *pcf50633_pdev;
 
 static void pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma);
 static void pcf50633_charge_enable(struct pcf50633_data *pcf, int on);
@@ -204,16 +83,36 @@ static void pcf50633_charge_enable(struct pcf50633_data *pcf, int on);
  * Low-Level routines
  ***********************************************************************/
 
+/* Read a block of upto 32 regs 
+ *
+ * Locks assumed to be held by caller
+ */
+int pcf50633_read(struct pcf50633_data *pcf, u_int8_t reg, int nr_regs, u_int8_t *data)
+{
+	return i2c_smbus_read_i2c_block_data(pcf->client, reg, nr_regs, data);
+}
+EXPORT_SYMBOL(pcf50633_read);
+
+/* Read a block of upto 32 regs 
+ *
+ * Locks assumed to be held by caller
+ */
+int pcf50633_write(struct pcf50633_data *pcf, u_int8_t reg, int nr_regs, u_int8_t *data)
+{
+	return i2c_smbus_write_i2c_block_data(pcf->client, reg, nr_regs, data);
+}
+EXPORT_SYMBOL(pcf50633_write);
+
 static int __reg_write(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
 {
 	if (pcf->suspend_state == PCF50633_SS_COMPLETED_SUSPEND) {
-		dev_err(&pcf->client.dev, "__reg_write while suspended\n");
+		dev_err(&pcf->client->dev, "__reg_write while suspended\n");
 		dump_stack();
 	}
-	return i2c_smbus_write_byte_data(&pcf->client, reg, val);
+	return i2c_smbus_write_byte_data(pcf->client, reg, val);
 }
 
-static int reg_write(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
+int pcf50633_reg_write(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
 {
 	int ret;
 
@@ -223,21 +122,22 @@ static int reg_write(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
 
 	return ret;
 }
+EXPORT_SYMBOL(pcf50633_reg_write);
 
 static int32_t __reg_read(struct pcf50633_data *pcf, u_int8_t reg)
 {
 	int32_t ret;
 
 	if (pcf->suspend_state == PCF50633_SS_COMPLETED_SUSPEND) {
-		dev_err(&pcf->client.dev, "__reg_read while suspended\n");
+		dev_err(&pcf->client->dev, "__reg_read while suspended\n");
 		dump_stack();
 	}
-	ret = i2c_smbus_read_byte_data(&pcf->client, reg);
+	ret = i2c_smbus_read_byte_data(pcf->client, reg);
 
 	return ret;
 }
 
-static u_int8_t reg_read(struct pcf50633_data *pcf, u_int8_t reg)
+u_int8_t pcf50633_reg_read(struct pcf50633_data *pcf, u_int8_t reg)
 {
 	int32_t ret;
 
@@ -247,8 +147,9 @@ static u_int8_t reg_read(struct pcf50633_data *pcf, u_int8_t reg)
 
 	return ret & 0xff;
 }
+EXPORT_SYMBOL(pcf50633_reg_read);
 
-static int reg_set_bit_mask(struct pcf50633_data *pcf,
+int pcf50633_reg_set_bit_mask(struct pcf50633_data *pcf,
 			    u_int8_t reg, u_int8_t mask, u_int8_t val)
 {
 	int ret;
@@ -267,8 +168,9 @@ static int reg_set_bit_mask(struct pcf50633_data *pcf,
 
 	return ret;
 }
+EXPORT_SYMBOL(pcf50633_reg_set_bit_mask);
 
-static int reg_clear_bits(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
+int pcf50633_reg_clear_bits(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
 {
 	int ret;
 	u_int8_t tmp;
@@ -283,6 +185,7 @@ static int reg_clear_bits(struct pcf50633_data *pcf, u_int8_t reg, u_int8_t val)
 
 	return ret;
 }
+EXPORT_SYMBOL(pcf50633_reg_clear_bits);
 
 /* asynchronously setup reading one ADC channel */
 static void async_adc_read_setup(struct pcf50633_data *pcf,
@@ -300,7 +203,7 @@ static void async_adc_read_setup(struct pcf50633_data *pcf,
 
 }
 
-static u_int16_t async_adc_complete(struct pcf50633_data *pcf)
+static u_int16_t adc_read_result(struct pcf50633_data *pcf)
 {
 	u_int16_t ret = (__reg_read(pcf, PCF50633_REG_ADCS1) << 2) |
 			(__reg_read(pcf, PCF50633_REG_ADCS3) &
@@ -311,204 +214,10 @@ static u_int16_t async_adc_complete(struct pcf50633_data *pcf)
 	return ret;
 }
 
-
-
-
-/***********************************************************************
- * Voltage / ADC
- ***********************************************************************/
-
-static u_int8_t auto_voltage(unsigned int millivolts)
-{
-	if (millivolts < 1800)
-		return 0;
-	if (millivolts > 3800)
-		return 0xff;
-
-	millivolts -= 625;
-	return millivolts/25;
-}
-
-static unsigned int auto_2voltage(u_int8_t bits)
-{
-	if (bits < 0x2f)
-		return 0;
-	return 625 + (bits * 25);
-}
-
-static u_int8_t down_voltage(unsigned int millivolts)
-{
-	if (millivolts < 625)
-		return 0;
-	else if (millivolts > 3000)
-		return 0xff;
-
-	millivolts -= 625;
-	return millivolts/25;
-}
-
-static unsigned int down_2voltage(u_int8_t bits)
-{
-	return 625 + (bits*25);
-}
-
-static u_int8_t ldo_voltage(unsigned int millivolts)
-{
-	if (millivolts < 900)
-		return 0;
-	else if (millivolts > 3600)
-		return 0x1f;
-
-	millivolts -= 900;
-	return millivolts/100;
-}
-
-static unsigned int ldo_2voltage(u_int8_t bits)
-{
-	bits &= 0x1f;
-	return 900 + (bits * 100);
-}
-
-static const u_int8_t regulator_registers[__NUM_PCF50633_REGULATORS] = {
-	[PCF50633_REGULATOR_AUTO]	= PCF50633_REG_AUTOOUT,
-	[PCF50633_REGULATOR_DOWN1]	= PCF50633_REG_DOWN1OUT,
-	[PCF50633_REGULATOR_DOWN2]	= PCF50633_REG_DOWN2OUT,
-	[PCF50633_REGULATOR_MEMLDO]	= PCF50633_REG_MEMLDOOUT,
-	[PCF50633_REGULATOR_LDO1]	= PCF50633_REG_LDO1OUT,
-	[PCF50633_REGULATOR_LDO2]	= PCF50633_REG_LDO2OUT,
-	[PCF50633_REGULATOR_LDO3]	= PCF50633_REG_LDO3OUT,
-	[PCF50633_REGULATOR_LDO4]	= PCF50633_REG_LDO4OUT,
-	[PCF50633_REGULATOR_LDO5]	= PCF50633_REG_LDO5OUT,
-	[PCF50633_REGULATOR_LDO6]	= PCF50633_REG_LDO6OUT,
-	[PCF50633_REGULATOR_HCLDO]	= PCF50633_REG_HCLDOOUT,
-};
-
-int pcf50633_onoff_set(struct pcf50633_data *pcf,
-		       enum pcf50633_regulator_id reg, int on)
-{
-	u_int8_t addr;
-
-	if (reg >= __NUM_PCF50633_REGULATORS)
-		return -EINVAL;
-
-	/* the *ENA register is always one after the *OUT register */
-	addr = regulator_registers[reg] + 1;
-
-	if (on == 0)
-		reg_set_bit_mask(pcf, addr, PCF50633_REGULATOR_ON, 0);
-	else
-		reg_set_bit_mask(pcf, addr, PCF50633_REGULATOR_ON,
-				 PCF50633_REGULATOR_ON);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(pcf50633_onoff_set);
-
-int pcf50633_onoff_get(struct pcf50633_data *pcf,
-		       enum pcf50633_regulator_id reg)
-{
-	u_int8_t val, addr;
-
-	if (reg >= __NUM_PCF50633_REGULATORS)
-		return -EINVAL;
-
-	/* the *ENA register is always one after the *OUT register */
-	addr = regulator_registers[reg] + 1;
-	val = reg_read(pcf, addr) & PCF50633_REGULATOR_ON;
-
-	return val;
-}
-EXPORT_SYMBOL_GPL(pcf50633_onoff_get);
-
-int pcf50633_voltage_set(struct pcf50633_data *pcf,
-			 enum pcf50633_regulator_id reg,
-			 unsigned int millivolts)
-{
-	u_int8_t volt_bits;
-	u_int8_t regnr;
-
-	DEBUGP("pcf=%p, reg=%d, mvolts=%d\n", pcf, reg, millivolts);
-
-	if (reg >= __NUM_PCF50633_REGULATORS)
-		return -EINVAL;
-
-	regnr = regulator_registers[reg];
-
-	if (millivolts > pcf->pdata->rails[reg].voltage.max)
-		return -EINVAL;
-
-	switch (reg) {
-	case PCF50633_REGULATOR_AUTO:
-		volt_bits = auto_voltage(millivolts);
-		break;
-	case PCF50633_REGULATOR_DOWN1:
-		volt_bits = down_voltage(millivolts);
-		break;
-	case PCF50633_REGULATOR_DOWN2:
-		volt_bits = down_voltage(millivolts);
-		break;
-	case PCF50633_REGULATOR_LDO1:
-	case PCF50633_REGULATOR_LDO2:
-	case PCF50633_REGULATOR_LDO3:
-	case PCF50633_REGULATOR_LDO4:
-	case PCF50633_REGULATOR_LDO5:
-	case PCF50633_REGULATOR_LDO6:
-	case PCF50633_REGULATOR_HCLDO:
-		volt_bits = ldo_voltage(millivolts);
-		DEBUGP("ldo_voltage(0x%x)=%u\n", millivolts, volt_bits);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return reg_write(pcf, regnr, volt_bits);
-}
-EXPORT_SYMBOL_GPL(pcf50633_voltage_set);
-
-unsigned int pcf50633_voltage_get(struct pcf50633_data *pcf,
-			 enum pcf50633_regulator_id reg)
-{
-	u_int8_t volt_bits;
-	u_int8_t regnr;
-	unsigned int rc = 0;
-
-	if (reg >= __NUM_PCF50633_REGULATORS)
-		return -EINVAL;
-
-	regnr = regulator_registers[reg];
-	volt_bits = reg_read(pcf, regnr);
-
-	switch (reg) {
-	case PCF50633_REGULATOR_AUTO:
-		rc = auto_2voltage(volt_bits);
-		break;
-	case PCF50633_REGULATOR_DOWN1:
-		rc = down_2voltage(volt_bits);
-		break;
-	case PCF50633_REGULATOR_DOWN2:
-		rc = down_2voltage(volt_bits);
-		break;
-	case PCF50633_REGULATOR_LDO1:
-	case PCF50633_REGULATOR_LDO2:
-	case PCF50633_REGULATOR_LDO3:
-	case PCF50633_REGULATOR_LDO4:
-	case PCF50633_REGULATOR_LDO5:
-	case PCF50633_REGULATOR_LDO6:
-	case PCF50633_REGULATOR_HCLDO:
-		rc = ldo_2voltage(volt_bits);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return rc;
-}
-EXPORT_SYMBOL_GPL(pcf50633_voltage_get);
-
 /* go into 'STANDBY' mode, i.e. power off the main CPU and peripherals */
-void pcf50633_go_standby(void)
+void pcf50633_go_standby(struct pcf50633_data *pcf)
 {
-	reg_set_bit_mask(pcf50633_global, PCF50633_REG_OOCSHDWN,
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_OOCSHDWN,
 		  PCF50633_OOCSHDWN_GOSTDBY, PCF50633_OOCSHDWN_GOSTDBY);
 }
 EXPORT_SYMBOL_GPL(pcf50633_go_standby);
@@ -519,16 +228,16 @@ void pcf50633_gpio_set(struct pcf50633_data *pcf, enum pcf50633_gpio gpio,
 	u_int8_t reg = gpio - PCF50633_GPIO1 + PCF50633_REG_GPIO1CFG;
 
 	if (on)
-		reg_set_bit_mask(pcf, reg, 0x0f, 0x07);
+		pcf50633_reg_set_bit_mask(pcf, reg, 0x0f, 0x07);
 	else
-		reg_set_bit_mask(pcf, reg, 0x0f, 0x00);
+		pcf50633_reg_set_bit_mask(pcf, reg, 0x0f, 0x00);
 }
 EXPORT_SYMBOL_GPL(pcf50633_gpio_set);
 
 int pcf50633_gpio_get(struct pcf50633_data *pcf, enum pcf50633_gpio gpio)
 {
 	u_int8_t reg = gpio - PCF50633_GPIO1 + PCF50633_REG_GPIO1CFG;
-	u_int8_t val = reg_read(pcf, reg) & 0x0f;
+	u_int8_t val = pcf50633_reg_read(pcf, reg) & 0x0f;
 
 	if (val == PCF50633_GPOCFG_GPOSEL_1 ||
 	    val == (PCF50633_GPOCFG_GPOSEL_0|PCF50633_GPOCFG_GPOSEL_INVERSE))
@@ -556,9 +265,14 @@ static int interpret_charger_type_from_adc(struct pcf50633_data *pcf,
 
 
 
-static void configure_pmu_for_charger(struct pcf50633_data *pcf,
-				      enum charger_type type)
+static void
+configure_pmu_for_charger(struct pcf50633_data *pcf,
+					void *unused, int adc_result_raw)
 {
+	int type;
+
+	type = interpret_charger_type_from_adc(
+					     pcf, adc_result_raw);
 	switch (type) {
 	case CHARGER_TYPE_NONE:
 		pcf50633_usb_curlim_set(pcf, 0);
@@ -586,7 +300,7 @@ static void configure_pmu_for_charger(struct pcf50633_data *pcf,
 		 * stop GPO / EN_HOSTUSB power driving out on the same
 		 * USB power pins we have a 1A charger on right now!
 		 */
-		dev_dbg(&pcf->client.dev, "Charger -> CHARGER_TYPE_1A\n");
+		dev_dbg(&pcf->client->dev, "Charger -> CHARGER_TYPE_1A\n");
 		__reg_write(pcf, PCF50633_GPO - PCF50633_GPIO1 +
 				 PCF50633_REG_GPIO1CFG,
 				 __reg_read(pcf, PCF50633_GPO - PCF50633_GPIO1 +
@@ -606,16 +320,16 @@ static void trigger_next_adc_job_if_any(struct pcf50633_data *pcf)
 	if (pcf->adc_queue_head == pcf->adc_queue_tail)
 		return;
 	async_adc_read_setup(pcf,
-			     pcf->adc_queue_mux[pcf->adc_queue_tail],
-			     pcf->adc_queue_avg[pcf->adc_queue_tail]);
+			     pcf->adc_queue[pcf->adc_queue_tail]->mux,
+			     pcf->adc_queue[pcf->adc_queue_tail]->avg);
 }
 
-static void add_request_to_adc_queue(struct pcf50633_data *pcf,
-				     int mux, int avg)
+
+static void
+adc_add_request_to_queue(struct pcf50633_data *pcf, struct adc_request *req)
 {
 	int old_head = pcf->adc_queue_head;
-	pcf->adc_queue_mux[pcf->adc_queue_head] = mux;
-	pcf->adc_queue_avg[pcf->adc_queue_head] = avg;
+	pcf->adc_queue[pcf->adc_queue_head] = req;
 
 	pcf->adc_queue_head = (pcf->adc_queue_head + 1) &
 			      (MAX_ADC_FIFO_DEPTH - 1);
@@ -623,6 +337,64 @@ static void add_request_to_adc_queue(struct pcf50633_data *pcf,
 	/* it was idle before we just added this?  we need to kick it then */
 	if (old_head == pcf->adc_queue_tail)
 		trigger_next_adc_job_if_any(pcf);
+}
+
+static void 
+__pcf50633_adc_sync_read_callback(struct pcf50633_data *pcf, void *param, int result)
+{
+	struct adc_request *req;
+
+	/*We know here that the passed param is an adc_request object */
+	req = (struct adc_request *)param;
+
+	req->result = result;
+	complete(&req->completion);
+}
+
+int pcf50633_adc_sync_read(struct pcf50633_data *pcf, int mux, int avg)
+{
+
+	struct adc_request *req;
+	int result;
+
+	/* req is freed when the result is ready, in pcf50633_work*/
+	req = kmalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	req->mux = mux;
+	req->avg = avg;
+	req->callback =  __pcf50633_adc_sync_read_callback;
+	req->callback_param = req;
+	init_completion(&req->completion);
+
+	adc_add_request_to_queue(pcf, req);
+
+	wait_for_completion(&req->completion);
+	result = req->result;
+
+	return result;
+}
+
+int pcf50633_adc_async_read(struct pcf50633_data *pcf, int mux, int avg,
+			     void (*callback)(struct pcf50633_data *, void *,int),
+			     void *callback_param)
+{
+	struct adc_request *req;
+
+	/* req is freed when the result is ready, in pcf50633_work*/
+	req = kmalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	req->mux = mux;
+	req->avg = avg;
+	req->callback = callback;
+	req->callback_param = callback_param;
+
+	adc_add_request_to_queue(pcf, req);
+
+	return 0;
 }
 
 /*
@@ -642,7 +414,7 @@ static void pcf50633_work_usbcurlim(struct work_struct *work)
 	    (pcf->suspend_state == PCF50633_SS_COMPLETED_SUSPEND))
 		goto bail;
 
-	dev_dbg(&pcf->client.dev, "pcf50633_work_usbcurlim\n");
+	dev_dbg(&pcf->client->dev, "pcf50633_work_usbcurlim\n");
 
 	if (!pcf->probe_completed)
 		goto reschedule;
@@ -662,7 +434,7 @@ static void pcf50633_work_usbcurlim(struct work_struct *work)
 
 	/* OK let's set the requested limit and finish */
 
-	dev_dbg(&pcf->client.dev, "pcf50633_work_usbcurlim setting %dmA\n",
+	dev_dbg(&pcf->client->dev, "pcf50633_work_usbcurlim setting %dmA\n",
 							 pcf->pending_curlimit);
 	pcf50633_usb_curlim_set(pcf, pcf->pending_curlimit);
 
@@ -671,9 +443,9 @@ bail:
 	return;
 
 reschedule:
-	dev_dbg(&pcf->client.dev, "pcf50633_work_usbcurlim rescheduling\n");
+	dev_dbg(&pcf->client->dev, "pcf50633_work_usbcurlim rescheduling\n");
 	if (!schedule_work(&pcf->work_usb_curlimit))
-		dev_err(&pcf->client.dev, "curlim reschedule work "
+		dev_err(&pcf->client->dev, "curlim reschedule work "
 							    "already queued\n");
 
 	mutex_unlock(&pcf->working_lock_usb_curlimit);
@@ -692,7 +464,7 @@ reschedule:
 int pcf50633_notify_usb_current_limit_change(struct pcf50633_data *pcf,
 								unsigned int ma)
 {
-	/* can happen if he calls with pcf50633_global before probe
+	/* can happen if he calls before probe
 	 * have to bail with error since we can't even schedule the work
 	 */
 	if (!pcf) {
@@ -700,7 +472,7 @@ int pcf50633_notify_usb_current_limit_change(struct pcf50633_data *pcf,
 		return -EBUSY;
 	}
 
-	dev_dbg(&pcf->client.dev,
+	dev_dbg(&pcf->client->dev,
 		 "pcf50633_notify_usb_current_limit_change %dmA\n", ma);
 
 	/* prepare to detect USB power removal before we complete */
@@ -709,7 +481,7 @@ int pcf50633_notify_usb_current_limit_change(struct pcf50633_data *pcf,
 	pcf->pending_curlimit = ma;
 
 	if (!schedule_work(&pcf->work_usb_curlimit))
-		dev_err(&pcf->client.dev, "curlim work item already queued\n");
+		dev_err(&pcf->client->dev, "curlim work item already queued\n");
 
 	return 0;
 }
@@ -740,13 +512,15 @@ static void pcf50633_work_nobat(struct work_struct *work)
 			continue;
 
 		/* there's a battery in there now? */
-		if (reg_read(pcf, PCF50633_REG_MBCS3) & 0x40) {
+		if (pcf50633_reg_read(pcf, PCF50633_REG_MBCS3) & 0x40) {
 
 			pcf->jiffies_last_bat_ins = jiffies;
 
 			/* figure out our charging stance */
-			add_request_to_adc_queue(pcf, PCF50633_ADCC1_MUX_ADCIN1,
-						     PCF50633_ADCC1_AVERAGE_16);
+			(void)pcf50633_adc_async_read(pcf, PCF50633_ADCC1_MUX_ADCIN1,
+						     PCF50633_ADCC1_AVERAGE_16,
+						     configure_pmu_for_charger,
+						     NULL);
 			goto bail;
 		}
 
@@ -769,12 +543,13 @@ static void pcf50633_work(struct work_struct *work)
 	u_int8_t pcfirq[5];
 	int ret;
 	int tail;
+	struct adc_request *req;
 
 	mutex_lock(&pcf->working_lock);
 	pcf->working = 1;
 
 	/* sanity */
-	if (!&pcf->client.dev)
+	if (!&pcf->client->dev)
 		goto bail;
 
 	/*
@@ -811,21 +586,19 @@ static void pcf50633_work(struct work_struct *work)
 		goto reschedule;
 
 	/* this is the case early in resume! Sanity check! */
-	if (i2c_get_clientdata(&pcf->client) == NULL)
+	if (i2c_get_clientdata(pcf->client) == NULL)
 		goto reschedule;
 
 	/*
 	* datasheet says we have to read the five IRQ
 	* status regs in one transaction
 	*/
-	ret = i2c_smbus_read_i2c_block_data(&pcf->client,
-						PCF50633_REG_INT1,
-						sizeof(pcfirq),
-						pcfirq);
+	ret = pcf50633_read(pcf, PCF50633_REG_INT1,
+						sizeof(pcfirq), pcfirq);
 	if (ret != sizeof(pcfirq)) {
-		dev_dbg(&pcf->client.dev,
-			"Oh crap PMU IRQ register read failed -- "
-			"retrying later %d\n", ret);
+		dev_info(&pcf->client->dev,
+			 "Oh crap PMU IRQ register read failed -- "
+		         "retrying later %d\n", ret);
 		/*
 		 * it shouldn't fail, we no longer attempt to use
 		 * I2C while it can be suspended.  But we don't have
@@ -866,7 +639,7 @@ static void pcf50633_work(struct work_struct *work)
 
 		/* we used SECOND to kick ourselves started -- turn it off */
 		pcfirq[0] &= ~PCF50633_INT1_SECOND;
-		reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
+		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
 					PCF50633_INT1_SECOND,
 					PCF50633_INT1_SECOND);
 
@@ -879,13 +652,14 @@ static void pcf50633_work(struct work_struct *work)
 			apm_queue_event(APM_POWER_STATUS_CHANGE);
 			pcf->flags |= PCF50633_F_USB_PRESENT;
 			if (pcf->pdata->cb)
-				pcf->pdata->cb(&pcf->client.dev,
+				pcf->pdata->cb(&pcf->client->dev,
 					PCF50633_FEAT_MBC, PMU_EVT_USB_INSERT);
 		}
 
 		/* figure out our initial charging stance */
-		add_request_to_adc_queue(pcf, PCF50633_ADCC1_MUX_ADCIN1,
-					      PCF50633_ADCC1_AVERAGE_16);
+		(void)pcf50633_adc_async_read(pcf, PCF50633_ADCC1_MUX_ADCIN1,
+					      PCF50633_ADCC1_AVERAGE_16,
+					     configure_pmu_for_charger, NULL);
 
 		pcf->coldplug_done = 1;
 	}
@@ -900,7 +674,7 @@ static void pcf50633_work(struct work_struct *work)
 		apm_queue_event(APM_POWER_STATUS_CHANGE);
 		pcf->flags |= PCF50633_F_CHG_PRESENT;
 		if (pcf->pdata->cb)
-			pcf->pdata->cb(&pcf->client.dev,
+			pcf->pdata->cb(&pcf->client->dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_INSERT);
 	}
 	if (pcfirq[0] & PCF50633_INT1_ADPREM) {
@@ -910,7 +684,7 @@ static void pcf50633_work(struct work_struct *work)
 		apm_queue_event(APM_POWER_STATUS_CHANGE);
 		pcf->flags &= ~PCF50633_F_CHG_PRESENT;
 		if (pcf->pdata->cb)
-			pcf->pdata->cb(&pcf->client.dev,
+			pcf->pdata->cb(&pcf->client->dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_REMOVE);
 	}
 	if (pcfirq[0] & PCF50633_INT1_USBINS) {
@@ -919,12 +693,13 @@ static void pcf50633_work(struct work_struct *work)
 		apm_queue_event(APM_POWER_STATUS_CHANGE);
 		pcf->flags |= PCF50633_F_USB_PRESENT;
 		if (pcf->pdata->cb)
-			pcf->pdata->cb(&pcf->client.dev,
+			pcf->pdata->cb(&pcf->client->dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_USB_INSERT);
 		msleep(500); /* debounce, allow to see any ID resistor */
 		/* completion irq will figure out our charging stance */
-		add_request_to_adc_queue(pcf, PCF50633_ADCC1_MUX_ADCIN1,
-				     PCF50633_ADCC1_AVERAGE_16);
+		(void)pcf50633_adc_async_read(pcf, PCF50633_ADCC1_MUX_ADCIN1,
+				     PCF50633_ADCC1_AVERAGE_16,
+				     configure_pmu_for_charger, NULL);
 	}
 	if (pcfirq[0] & PCF50633_INT1_USBREM &&
 				!(pcfirq[0] & PCF50633_INT1_USBINS)) {
@@ -942,33 +717,35 @@ static void pcf50633_work(struct work_struct *work)
 			pcf->flags &= ~PCF50633_F_USB_PRESENT;
 
 			if (pcf->pdata->cb)
-				pcf->pdata->cb(&pcf->client.dev,
+				pcf->pdata->cb(&pcf->client->dev,
 					PCF50633_FEAT_MBC, PMU_EVT_USB_REMOVE);
 
 			/* destroy any memory of grant of power from host */
 			pcf->last_curlim_set = 0;
 
 			/* completion irq will figure out our charging stance */
-			add_request_to_adc_queue(pcf, PCF50633_ADCC1_MUX_ADCIN1,
-					PCF50633_ADCC1_AVERAGE_16);
+			(void)pcf50633_adc_async_read(pcf, PCF50633_ADCC1_MUX_ADCIN1,
+					PCF50633_ADCC1_AVERAGE_16,
+					configure_pmu_for_charger, NULL);
 		}
 	}
 	if (pcfirq[0] & PCF50633_INT1_ALARM) {
 		DEBUGPC("ALARM ");
 		if (pcf->pdata->used_features & PCF50633_FEAT_RTC)
-			rtc_update_irq(pcf->rtc, 1, RTC_AF | RTC_IRQF);
+			pcf50633_rtc_handle_event(pcf,
+					PCF50633_RTC_EVENT_ALARM);
 	}
 	if (pcfirq[0] & PCF50633_INT1_SECOND) {
-		if (pcf->flags & PCF50633_F_RTC_SECOND) {
-			DEBUGPC("SECOND ");
-			rtc_update_irq(pcf->rtc, 1, RTC_PF | RTC_IRQF);
-		}
+		DEBUGPC("SECOND ");
+		if (pcf->flags & PCF50633_F_RTC_SECOND)
+			pcf50633_rtc_handle_event(pcf,
+					PCF50633_RTC_EVENT_SECOND);
 
 		if (pcf->onkey_seconds >= 0 &&
 		    pcf->flags & PCF50633_F_PWR_PRESSED) {
 			DEBUGP("ONKEY_SECONDS(%u, OOCSTAT=0x%02x) ",
 				pcf->onkey_seconds,
-				reg_read(pcf, PCF50633_REG_OOCSTAT));
+				pcf50633_reg_read(pcf, PCF50633_REG_OOCSTAT));
 			pcf->onkey_seconds++;
 			if (pcf->onkey_seconds >=
 			    pcf->pdata->onkey_seconds_sig_init) {
@@ -983,16 +760,17 @@ static void pcf50633_work(struct work_struct *work)
 				 * which is very bad.  Therefore we confirm
 				 * PID #1 exists before issuing the signal
 				 */
-				if (find_task_by_pid(1)) {
+				if (find_task_by_pid_ns(1, &init_pid_ns)) {
+					kill_pid(task_pid(find_task_by_pid_ns(1, 
+							&init_pid_ns)), SIGPWR, 1);
 					DEBUGPC("SIGINT(init) ");
-					kill_proc(1, SIGINT, 1);
 				}
 				/* FIXME: what if userspace doesn't shut down? */
 			}
 			if (pcf->onkey_seconds >=
 				pcf->pdata->onkey_seconds_shutdown) {
 				DEBUGPC("Power Off ");
-				pcf50633_go_standby();
+				pcf50633_go_standby(pcf);
 			}
 		}
 	}
@@ -1022,7 +800,7 @@ static void pcf50633_work(struct work_struct *work)
 		/* disable SECOND interrupt in case RTC didn't
 		 * request it */
 		if (!(pcf->flags & PCF50633_F_RTC_SECOND))
-			reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
+			pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
 					 PCF50633_INT1_SECOND,
 					 PCF50633_INT1_SECOND);
 	}
@@ -1040,20 +818,20 @@ static void pcf50633_work(struct work_struct *work)
 
 			DEBUGPC("*** Ignoring BATFULL ***\n");
 
-			ret = reg_read(pcf, PCF50633_REG_MBCC7) &
+			ret = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) &
 					PCF56033_MBCC7_USB_MASK;
 
 
-			reg_set_bit_mask(pcf, PCF50633_REG_MBCC7,
+			pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC7,
 					 PCF56033_MBCC7_USB_MASK,
 					 PCF50633_MBCC7_USB_SUSPEND);
 
-			reg_set_bit_mask(pcf, PCF50633_REG_MBCC7,
+			pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC7,
 					 PCF56033_MBCC7_USB_MASK,
 					 ret);
 		} else {
 			if (pcf->pdata->cb)
-				pcf->pdata->cb(&pcf->client.dev,
+				pcf->pdata->cb(&pcf->client->dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_IDLE);
 		}
 
@@ -1066,33 +844,33 @@ static void pcf50633_work(struct work_struct *work)
 		 * appear with no battery attached
 		 */
 		if (pcf->pdata->cb)
-			pcf->pdata->cb(&pcf->client.dev,
+			pcf->pdata->cb(&pcf->client->dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_CHANGE);
 	}
 	if (pcfirq[2] & PCF50633_INT3_THLIMON) {
 		DEBUGPC("THLIMON ");
 		pcf->flags |= PCF50633_F_CHG_PROT;
 		if (pcf->pdata->cb)
-			pcf->pdata->cb(&pcf->client.dev,
+			pcf->pdata->cb(&pcf->client->dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_CHANGE);
 	}
 	if (pcfirq[2] & PCF50633_INT3_THLIMOFF) {
 		DEBUGPC("THLIMOFF ");
 		pcf->flags &= ~PCF50633_F_CHG_PROT;
 		if (pcf->pdata->cb)
-			pcf->pdata->cb(&pcf->client.dev,
+			pcf->pdata->cb(&pcf->client->dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_CHANGE);
 	}
 	if (pcfirq[2] & PCF50633_INT3_USBLIMON) {
 		DEBUGPC("USBLIMON ");
 		if (pcf->pdata->cb)
-			pcf->pdata->cb(&pcf->client.dev,
+			pcf->pdata->cb(&pcf->client->dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_CHANGE);
 	}
 	if (pcfirq[2] & PCF50633_INT3_USBLIMOFF) {
 		DEBUGPC("USBLIMOFF ");
 		if (pcf->pdata->cb)
-			pcf->pdata->cb(&pcf->client.dev,
+			pcf->pdata->cb(&pcf->client->dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_CHANGE);
 	}
 	if (pcfirq[2] & PCF50633_INT3_ADCRDY) {
@@ -1101,21 +879,11 @@ static void pcf50633_work(struct work_struct *work)
 		tail = pcf->adc_queue_tail;
 		pcf->adc_queue_tail = (pcf->adc_queue_tail + 1) &
 				      (MAX_ADC_FIFO_DEPTH - 1);
+		req = pcf->adc_queue[tail];
+		req->callback(pcf, req->callback_param,
+					adc_read_result(pcf));
+		kfree(req);
 
-		switch (pcf->adc_queue_mux[tail]) {
-		case PCF50633_ADCC1_MUX_BATSNS_RES: /* battery voltage */
-			pcf->flag_bat_voltage_read = async_adc_complete(pcf);
-			break;
-		case PCF50633_ADCC1_MUX_ADCIN1: /* charger type */
-			pcf->charger_adc_result_raw = async_adc_complete(pcf);
-			pcf->charger_type = interpret_charger_type_from_adc(
-					     pcf, pcf->charger_adc_result_raw);
-			configure_pmu_for_charger(pcf, pcf->charger_type);
-			break;
-		default:
-			async_adc_complete(pcf);
-			break;
-		}
 		trigger_next_adc_job_if_any(pcf);
 	}
 	if (pcfirq[2] & PCF50633_INT3_ONKEY1S) {
@@ -1123,11 +891,11 @@ static void pcf50633_work(struct work_struct *work)
 		pcf->onkey_seconds = 0;
 		DEBUGPC("ONKEY1S ");
 		/* Tell PMU we are taking care of this */
-		reg_set_bit_mask(pcf, PCF50633_REG_OOCSHDWN,
+		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_OOCSHDWN,
 				 PCF50633_OOCSHDWN_TOTRST,
 				 PCF50633_OOCSHDWN_TOTRST);
 		/* enable SECOND interrupt (hz tick) */
-		reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_SECOND);
+		pcf50633_reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_SECOND);
 	}
 
 	if (pcfirq[3] & (PCF50633_INT4_LOWBAT|PCF50633_INT4_LOWSYS)) {
@@ -1140,10 +908,10 @@ static void pcf50633_work(struct work_struct *work)
 			 * we are not actually charging anything
 			 */
 			if (pcf->pdata->cb)
-				pcf->pdata->cb(&pcf->client.dev,
+				pcf->pdata->cb(&pcf->client->dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_IDLE);
 
-			reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
+			pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
 					PCF50633_MBCC1_RESUME,
 					PCF50633_MBCC1_RESUME);
 	
@@ -1180,10 +948,11 @@ static void pcf50633_work(struct work_struct *work)
 			 * very bad.  Therefore we confirm PID #1 exists
 			 * before issuing SPIGPWR
 			 */
-			if (find_task_by_pid(1)) {
-				apm_queue_event(APM_LOW_BATTERY);
-				DEBUGPC("SIGPWR(init) ");
-				kill_proc(1, SIGPWR, 1);
+
+                        if (find_task_by_pid_ns(1, &init_pid_ns)) {
+                                apm_queue_event(APM_LOW_BATTERY);
+                                DEBUGPC("SIGPWR(init) ");
+                                kill_pid(task_pid(find_task_by_pid_ns(1, &init_pid_ns)), SIGPWR, 1);
 			} else
 				/*
 				 * well, our situation is like this:  we do not
@@ -1196,7 +965,7 @@ static void pcf50633_work(struct work_struct *work)
 		}
 
 		/* Tell PMU we are taking care of this */
-		reg_set_bit_mask(pcf, PCF50633_REG_OOCSHDWN,
+		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_OOCSHDWN,
 				 PCF50633_OOCSHDWN_TOTRST,
 				 PCF50633_OOCSHDWN_TOTRST);
 	}
@@ -1231,7 +1000,7 @@ static void pcf50633_work(struct work_struct *work)
 bail:
 	pcf->working = 0;
 	input_sync(pcf->input_dev);
-	put_device(&pcf->client.dev);
+	put_device(&pcf->client->dev);
 	mutex_unlock(&pcf->working_lock);
 
 	return;
@@ -1244,10 +1013,10 @@ reschedule:
 	if ((pcf->suspend_state != PCF50633_SS_STARTING_SUSPEND) &&
 	    (pcf->suspend_state != PCF50633_SS_COMPLETED_SUSPEND)) {
 		msleep(10);
-		dev_dbg(&pcf->client.dev, "rescheduling interrupt service\n");
+		dev_dbg(&pcf->client->dev, "rescheduling interrupt service\n");
 	}
 	if (!schedule_work(&pcf->work))
-		dev_err(&pcf->client.dev, "int service reschedule failed\n");
+		dev_err(&pcf->client->dev, "int service reschedule failed\n");
 
 	/* we don't put the device here, hold it for next time */
 	mutex_unlock(&pcf->working_lock);
@@ -1258,11 +1027,11 @@ static irqreturn_t pcf50633_irq(int irq, void *_pcf)
 	struct pcf50633_data *pcf = _pcf;
 
 	DEBUGP("entering(irq=%u, pcf=%p): scheduling work\n", irq, _pcf);
-	dev_dbg(&pcf->client.dev, "pcf50633_irq scheduling work\n");
+	dev_dbg(&pcf->client->dev, "pcf50633_irq scheduling work\n");
 
-	get_device(&pcf->client.dev);
+	get_device(&pcf->client->dev);
 	if (!schedule_work(&pcf->work) && !pcf->working)
-		dev_err(&pcf->client.dev, "pcf irq work already queued\n");
+		dev_err(&pcf->client->dev, "pcf irq work already queued\n");
 
 	return IRQ_HANDLED;
 }
@@ -1291,22 +1060,17 @@ static u_int8_t battvolt_scale(u_int16_t battvolt)
 
 u_int16_t pcf50633_battvolt(struct pcf50633_data *pcf)
 {
-	int count = 10;
+	int ret;
 
-	pcf->flag_bat_voltage_read = -1;
-	add_request_to_adc_queue(pcf, PCF50633_ADCC1_MUX_BATSNS_RES,
+	ret = pcf50633_adc_sync_read(pcf, PCF50633_ADCC1_MUX_BATSNS_RES,
 				      PCF50633_ADCC1_AVERAGE_16);
 
-	while ((count--) && (pcf->flag_bat_voltage_read < 0))
-		msleep(1);
+	if (ret < 0)
+		return ret;
 
-	if (count < 0) { /* timeout somehow */
-		DEBUGPC("pcf50633_battvolt timeout :-(\n");
-		return -1;
-	}
-
-	return adc_to_batt_millivolts(pcf->flag_bat_voltage_read);
+	return adc_to_batt_millivolts(ret);
 }
+
 EXPORT_SYMBOL_GPL(pcf50633_battvolt);
 
 static ssize_t show_battvolt(struct device *dev, struct device_attribute *attr,
@@ -1318,97 +1082,6 @@ static ssize_t show_battvolt(struct device *dev, struct device_attribute *attr,
 	return sprintf(buf, "%u\n", pcf50633_battvolt(pcf));
 }
 static DEVICE_ATTR(battvolt, S_IRUGO | S_IWUSR, show_battvolt, NULL);
-
-static int reg_id_by_name(const char *name)
-{
-	int reg_id;
-
-	if (!strcmp(name, "voltage_auto"))
-		reg_id = PCF50633_REGULATOR_AUTO;
-	else if (!strcmp(name, "voltage_down1"))
-		reg_id = PCF50633_REGULATOR_DOWN1;
-	else if (!strcmp(name, "voltage_down2"))
-		reg_id = PCF50633_REGULATOR_DOWN2;
-	else if (!strcmp(name, "voltage_memldo"))
-		reg_id = PCF50633_REGULATOR_MEMLDO;
-	else if (!strcmp(name, "voltage_ldo1"))
-		reg_id = PCF50633_REGULATOR_LDO1;
-	else if (!strcmp(name, "voltage_ldo2"))
-		reg_id = PCF50633_REGULATOR_LDO2;
-	else if (!strcmp(name, "voltage_ldo3"))
-		reg_id = PCF50633_REGULATOR_LDO3;
-	else if (!strcmp(name, "voltage_ldo4"))
-		reg_id = PCF50633_REGULATOR_LDO4;
-	else if (!strcmp(name, "voltage_ldo5"))
-		reg_id = PCF50633_REGULATOR_LDO5;
-	else if (!strcmp(name, "voltage_ldo6"))
-		reg_id = PCF50633_REGULATOR_LDO6;
-	else if (!strcmp(name, "voltage_hcldo"))
-		reg_id = PCF50633_REGULATOR_HCLDO;
-	else
-		reg_id = -1;
-
-	return reg_id;
-}
-
-static ssize_t show_vreg(struct device *dev, struct device_attribute *attr,
-			 char *buf)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	unsigned int reg_id;
-
-	reg_id = reg_id_by_name(attr->attr.name);
-	if (reg_id < 0)
-		return 0;
-
-	if (pcf50633_onoff_get(pcf, reg_id) > 0)
-		return sprintf(buf, "%u\n", pcf50633_voltage_get(pcf, reg_id));
-	else
-		return strlcpy(buf, "0\n", PAGE_SIZE);
-}
-
-static ssize_t set_vreg(struct device *dev, struct device_attribute *attr,
-			const char *buf, size_t count)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	unsigned long mvolts = simple_strtoul(buf, NULL, 10);
-	unsigned int reg_id;
-
-	reg_id = reg_id_by_name(attr->attr.name);
-	if (reg_id < 0)
-		return -EIO;
-
-	DEBUGP("attempting to set %s(%d) to %lu mvolts\n", attr->attr.name,
-		reg_id, mvolts);
-
-	if (mvolts == 0) {
-		pcf50633_onoff_set(pcf, reg_id, 0);
-	} else {
-		if (pcf50633_voltage_set(pcf, reg_id, mvolts) < 0) {
-			dev_warn(dev, "refusing to set %s(%d) to %lu mvolts "
-				 "(max=%u)\n", attr->attr.name, reg_id, mvolts,
-				 pcf->pdata->rails[reg_id].voltage.max);
-			return -EINVAL;
-		}
-		pcf50633_onoff_set(pcf, reg_id, 1);
-	}
-
-	return count;
-}
-
-static DEVICE_ATTR(voltage_auto, S_IRUGO | S_IWUSR, show_vreg, set_vreg);
-static DEVICE_ATTR(voltage_down1, S_IRUGO | S_IWUSR, show_vreg, set_vreg);
-static DEVICE_ATTR(voltage_down2, S_IRUGO | S_IWUSR, show_vreg, set_vreg);
-static DEVICE_ATTR(voltage_memldo, S_IRUGO | S_IWUSR, show_vreg, set_vreg);
-static DEVICE_ATTR(voltage_ldo1, S_IRUGO | S_IWUSR, show_vreg, set_vreg);
-static DEVICE_ATTR(voltage_ldo2, S_IRUGO | S_IWUSR, show_vreg, set_vreg);
-static DEVICE_ATTR(voltage_ldo3, S_IRUGO | S_IWUSR, show_vreg, set_vreg);
-static DEVICE_ATTR(voltage_ldo4, S_IRUGO | S_IWUSR, show_vreg, set_vreg);
-static DEVICE_ATTR(voltage_ldo5, S_IRUGO | S_IWUSR, show_vreg, set_vreg);
-static DEVICE_ATTR(voltage_ldo6, S_IRUGO | S_IWUSR, show_vreg, set_vreg);
-static DEVICE_ATTR(voltage_hcldo, S_IRUGO | S_IWUSR, show_vreg, set_vreg);
 
 /***********************************************************************
  * Charger Control
@@ -1422,7 +1095,7 @@ static void pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma)
 
 	pcf->last_curlim_set = ma;
 
-	dev_dbg(&pcf->client.dev, "setting usb current limit to %d ma", ma);
+	dev_dbg(&pcf->client->dev, "setting usb current limit to %d ma", ma);
 
 	if (ma >= 1000) {
 		bits = PCF50633_MBCC7_USB_1000mA;
@@ -1435,7 +1108,7 @@ static void pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma)
 		bits = PCF50633_MBCC7_USB_SUSPEND;
 
 	/* set the nearest charging limit */
-	reg_set_bit_mask(pcf, PCF50633_REG_MBCC7, PCF56033_MBCC7_USB_MASK,
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC7, PCF56033_MBCC7_USB_MASK,
 			 bits);
 
 	/* with this charging limit, is charging actually meaningful? */
@@ -1445,24 +1118,26 @@ static void pcf50633_usb_curlim_set(struct pcf50633_data *pcf, int ma)
 		/* yes with this charging limit, we can do real charging */
 		active = 1;
 		break;
-	default:
-		/* no charging is gonna be happening */
+	default: /* right charging context that if there is power, we charge */
+		if (pcf->flags & PCF50633_F_USB_PRESENT)
+			pcf->pdata->cb(&pcf->client->dev,
+			       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_ACTIVE);
 		break;
 	}
 	/*
 	 * enable or disable charging according to current limit -- this will
 	 * also throw a platform notification callback about it
 	 */
-	pcf50633_charge_enable(pcf50633_global, active);
+	pcf50633_charge_enable(pcf, active);
 
 	/* clear batfull */
-	reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
 				PCF50633_MBCC1_AUTORES,
 				0);
-	reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
 				PCF50633_MBCC1_RESUME,
 				PCF50633_MBCC1_RESUME);
-	reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
 				PCF50633_MBCC1_AUTORES,
 				PCF50633_MBCC1_AUTORES);
 
@@ -1473,7 +1148,7 @@ static ssize_t show_usblim(struct device *dev, struct device_attribute *attr,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	u_int8_t usblim = reg_read(pcf, PCF50633_REG_MBCC7) &
+	u_int8_t usblim = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) &
 						PCF56033_MBCC7_USB_MASK;
 	unsigned int ma;
 
@@ -1504,14 +1179,14 @@ static void pcf50633_charge_enable(struct pcf50633_data *pcf, int on)
 	if (on) {
 		pcf->flags |= PCF50633_F_CHG_ENABLED;
 		bits = PCF50633_MBCC1_CHGENA;
-		usblim = reg_read(pcf, PCF50633_REG_MBCC7) &
+		usblim = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) &
 							PCF56033_MBCC7_USB_MASK;
 		switch (usblim) {
 		case PCF50633_MBCC7_USB_1000mA:
 		case PCF50633_MBCC7_USB_500mA:
 			if (pcf->flags & PCF50633_F_USB_PRESENT)
 				if (pcf->pdata->cb)
-					pcf->pdata->cb(&pcf->client.dev,
+					pcf->pdata->cb(&pcf->client->dev,
 						       PCF50633_FEAT_MBC,
 						       PMU_EVT_CHARGER_ACTIVE);
 			break;
@@ -1522,10 +1197,10 @@ static void pcf50633_charge_enable(struct pcf50633_data *pcf, int on)
 		pcf->flags &= ~PCF50633_F_CHG_ENABLED;
 		bits = 0;
 		if (pcf->pdata->cb)
-			pcf->pdata->cb(&pcf->client.dev,
+			pcf->pdata->cb(&pcf->client->dev,
 				       PCF50633_FEAT_MBC, PMU_EVT_CHARGER_IDLE);
 	}
-	reg_set_bit_mask(pcf, PCF50633_REG_MBCC1, PCF50633_MBCC1_CHGENA,
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1, PCF50633_MBCC1_CHGENA,
 			 bits);
 }
 
@@ -1582,7 +1257,7 @@ static ssize_t show_chgmode(struct device *dev, struct device_attribute *attr,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	u_int8_t mbcs2 = reg_read(pcf, PCF50633_REG_MBCS2);
+	u_int8_t mbcs2 = pcf50633_reg_read(pcf, PCF50633_REG_MBCS2);
 	u_int8_t chgmod = (mbcs2 & PCF50633_MBCS2_MBC_MASK);
 
 	return sprintf(buf, "%s\n", chgmode_names[chgmod]);
@@ -1636,325 +1311,6 @@ static ssize_t show_chgstate(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR(chgstate, S_IRUGO | S_IWUSR, show_chgstate, NULL);
 
-/***********************************************************************
- * APM emulation
- ***********************************************************************/
-
-extern void (*apm_get_power_status)(struct apm_power_info *);
-
-static void pcf50633_get_power_status(struct apm_power_info *info)
-{
-        struct pcf50633_data *pcf = pcf50633_global;
-	u_int8_t chgmod = reg_read(pcf, PCF50633_REG_MBCS2) &
-				   PCF50633_MBCS2_MBC_MASK;
-
-	u_int16_t battvolt = pcf50633_battvolt(pcf);
-
-	if (reg_read(pcf, PCF50633_REG_MBCS1) &
-			(PCF50633_MBCS1_USBPRES|PCF50633_MBCS1_ADAPTPRES))
-		info->ac_line_status = APM_AC_ONLINE;
-	else
-		info->ac_line_status = APM_AC_OFFLINE;
-
-	switch (chgmod) {
-	case PCF50633_MBCS2_MBC_PLAY:
-	case PCF50633_MBCS2_MBC_USB_PRE:
-	case PCF50633_MBCS2_MBC_USB_PRE_WAIT:
-	case PCF50633_MBCS2_MBC_USB_FAST_WAIT:
-	case PCF50633_MBCS2_MBC_ADP_PRE:
-	case PCF50633_MBCS2_MBC_ADP_PRE_WAIT:
-	case PCF50633_MBCS2_MBC_ADP_FAST_WAIT:
-	case PCF50633_MBCS2_MBC_BAT_FULL:
-	case PCF50633_MBCS2_MBC_HALT:
-		info->battery_life = battvolt_scale(battvolt);
-		break;
-	case PCF50633_MBCS2_MBC_USB_FAST:
-	case PCF50633_MBCS2_MBC_ADP_FAST:
-		info->battery_status = APM_BATTERY_STATUS_CHARGING;
-		info->battery_flag = APM_BATTERY_FLAG_CHARGING;
-	default:
-		break;
-	}
-}
-
-/***********************************************************************
- * RTC
- ***********************************************************************/
-enum pcf50633_time_indexes {
-	PCF50633_TI_SEC = 0,
-	PCF50633_TI_MIN,
-	PCF50633_TI_HOUR,
-	PCF50633_TI_WKDAY,
-	PCF50633_TI_DAY,
-	PCF50633_TI_MONTH,
-	PCF50633_TI_YEAR,
-	PCF50633_TI_EXTENT /* always last */
-};
-
-
-struct pcf50633_time {
-	u_int8_t time[PCF50633_TI_EXTENT];
-};
-
-static void pcf2rtc_time(struct rtc_time *rtc, struct pcf50633_time *pcf)
-{
-	rtc->tm_sec = BCD2BIN(pcf->time[PCF50633_TI_SEC]);
-	rtc->tm_min = BCD2BIN(pcf->time[PCF50633_TI_MIN]);
-	rtc->tm_hour = BCD2BIN(pcf->time[PCF50633_TI_HOUR]);
-	rtc->tm_wday = BCD2BIN(pcf->time[PCF50633_TI_WKDAY]);
-	rtc->tm_mday = BCD2BIN(pcf->time[PCF50633_TI_DAY]);
-	rtc->tm_mon = BCD2BIN(pcf->time[PCF50633_TI_MONTH]);
-	rtc->tm_year = BCD2BIN(pcf->time[PCF50633_TI_YEAR]) + 100;
-}
-
-static void rtc2pcf_time(struct pcf50633_time *pcf, struct rtc_time *rtc)
-{
-	pcf->time[PCF50633_TI_SEC] = BIN2BCD(rtc->tm_sec);
-	pcf->time[PCF50633_TI_MIN] = BIN2BCD(rtc->tm_min);
-	pcf->time[PCF50633_TI_HOUR] = BIN2BCD(rtc->tm_hour);
-	pcf->time[PCF50633_TI_WKDAY] = BIN2BCD(rtc->tm_wday);
-	pcf->time[PCF50633_TI_DAY] = BIN2BCD(rtc->tm_mday);
-	pcf->time[PCF50633_TI_MONTH] = BIN2BCD(rtc->tm_mon);
-	pcf->time[PCF50633_TI_YEAR] = BIN2BCD(rtc->tm_year - 100);
-}
-
-static int pcf50633_rtc_ioctl(struct device *dev, unsigned int cmd,
-			      unsigned long arg)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-
-	switch (cmd) {
-	case RTC_AIE_OFF:
-		/* disable the alarm interrupt */
-		reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
-				 PCF50633_INT1_ALARM, PCF50633_INT1_ALARM);
-		return 0;
-	case RTC_AIE_ON:
-		/* enable the alarm interrupt */
-		reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_ALARM);
-		return 0;
-	case RTC_PIE_OFF:
-		/* disable periodic interrupt (hz tick) */
-		pcf->flags &= ~PCF50633_F_RTC_SECOND;
-		reg_set_bit_mask(pcf, PCF50633_REG_INT1M,
-				 PCF50633_INT1_SECOND, PCF50633_INT1_SECOND);
-		return 0;
-	case RTC_PIE_ON:
-		/* ensable periodic interrupt (hz tick) */
-		pcf->flags |= PCF50633_F_RTC_SECOND;
-		reg_clear_bits(pcf, PCF50633_REG_INT1M, PCF50633_INT1_SECOND);
-		return 0;
-	}
-	return -ENOIOCTLCMD;
-}
-
-static int pcf50633_rtc_read_time(struct device *dev, struct rtc_time *tm)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	struct pcf50633_time pcf_tm;
-	int ret;
-
-	mutex_lock(&pcf->lock);
-
-	ret = i2c_smbus_read_i2c_block_data(&pcf->client,
-					    PCF50633_REG_RTCSC,
-					    PCF50633_TI_EXTENT,
-					    &pcf_tm.time[0]);
-	if (ret != PCF50633_TI_EXTENT)
-		dev_err(dev, "Failed to read time :-(\n");
-
-	mutex_unlock(&pcf->lock);
-
-	dev_dbg(dev, "PCF_TIME: %02x.%02x.%02x %02x:%02x:%02x\n",
-		pcf_tm.time[PCF50633_TI_DAY],
-		pcf_tm.time[PCF50633_TI_MONTH],
-		pcf_tm.time[PCF50633_TI_YEAR],
-		pcf_tm.time[PCF50633_TI_HOUR],
-		pcf_tm.time[PCF50633_TI_MIN],
-		pcf_tm.time[PCF50633_TI_SEC]);
-
-	pcf2rtc_time(tm, &pcf_tm);
-
-	dev_dbg(dev, "RTC_TIME: %u.%u.%u %u:%u:%u\n",
-		tm->tm_mday, tm->tm_mon, tm->tm_year,
-		tm->tm_hour, tm->tm_min, tm->tm_sec);
-
-	return 0;
-}
-
-static int pcf50633_rtc_set_time(struct device *dev, struct rtc_time *tm)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	struct pcf50633_time pcf_tm;
-	int ret;
-
-	dev_dbg(dev, "RTC_TIME: %u.%u.%u %u:%u:%u\n",
-		tm->tm_mday, tm->tm_mon, tm->tm_year,
-		tm->tm_hour, tm->tm_min, tm->tm_sec);
-	rtc2pcf_time(&pcf_tm, tm);
-	dev_dbg(dev, "PCF_TIME: %02x.%02x.%02x %02x:%02x:%02x\n",
-		pcf_tm.time[PCF50633_TI_DAY],
-		pcf_tm.time[PCF50633_TI_MONTH],
-		pcf_tm.time[PCF50633_TI_YEAR],
-		pcf_tm.time[PCF50633_TI_HOUR],
-		pcf_tm.time[PCF50633_TI_MIN],
-		pcf_tm.time[PCF50633_TI_SEC]);
-
-	mutex_lock(&pcf->lock);
-	/* FIXME: disable second interrupt */
-
-	ret = i2c_smbus_write_i2c_block_data(&pcf->client,
-					     PCF50633_REG_RTCSC,
-					     PCF50633_TI_EXTENT,
-					     &pcf_tm.time[0]);
-	if (ret)
-		dev_err(dev, "Failed to set time %d\n", ret);
-
-	/* FIXME: re-enable second interrupt */
-	mutex_unlock(&pcf->lock);
-
-	return 0;
-}
-
-static int pcf50633_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	struct pcf50633_time pcf_tm;
-	int ret;
-
-	mutex_lock(&pcf->lock);
-
-	alrm->enabled =
-	     __reg_read(pcf, PCF50633_REG_INT1M) & PCF50633_INT1_ALARM ? 0 : 1;
-
-	ret = i2c_smbus_read_i2c_block_data(&pcf->client,
-					    PCF50633_REG_RTCSCA,
-					    PCF50633_TI_EXTENT,
-					    &pcf_tm.time[0]);
-	if (ret != PCF50633_TI_EXTENT)
-		dev_err(dev, "Failed to read Alarm time :-(\n");
-
-	mutex_unlock(&pcf->lock);
-
-	pcf2rtc_time(&alrm->time, &pcf_tm);
-
-	return 0;
-}
-
-static int pcf50633_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct pcf50633_data *pcf = i2c_get_clientdata(client);
-	struct pcf50633_time pcf_tm;
-	u_int8_t irqmask;
-	int ret;
-
-	rtc2pcf_time(&pcf_tm, &alrm->time);
-
-	mutex_lock(&pcf->lock);
-
-	/* disable alarm interrupt */
-	irqmask = __reg_read(pcf, PCF50633_REG_INT1M);
-	irqmask |= PCF50633_INT1_ALARM;
-	__reg_write(pcf, PCF50633_REG_INT1M, irqmask);
-
-	ret = i2c_smbus_write_i2c_block_data(&pcf->client,
-					     PCF50633_REG_RTCSCA,
-					     PCF50633_TI_EXTENT,
-					     &pcf_tm.time[0]);
-	if (ret)
-		dev_err(dev, "Failed to write alarm time :-( %d\n", ret);
-
-	if (alrm->enabled) {
-		/* (re-)enaable alarm interrupt */
-		irqmask = __reg_read(pcf, PCF50633_REG_INT1M);
-		irqmask &= ~PCF50633_INT1_ALARM;
-		__reg_write(pcf, PCF50633_REG_INT1M, irqmask);
-	}
-
-	mutex_unlock(&pcf->lock);
-
-	/* FIXME */
-	return 0;
-}
-
-static struct rtc_class_ops pcf50633_rtc_ops = {
-	.ioctl		= pcf50633_rtc_ioctl,
-	.read_time	= pcf50633_rtc_read_time,
-	.set_time	= pcf50633_rtc_set_time,
-	.read_alarm	= pcf50633_rtc_read_alarm,
-	.set_alarm	= pcf50633_rtc_set_alarm,
-};
-
-/***********************************************************************
- * Backlight device
- ***********************************************************************/
-
-static int pcf50633bl_get_intensity(struct backlight_device *bd)
-{
-	struct pcf50633_data *pcf = bl_get_data(bd);
-	int intensity = reg_read(pcf, PCF50633_REG_LEDOUT);
-
-	if (!(reg_read(pcf, PCF50633_REG_LEDENA) & 1))
-		intensity = 0;
-
-	return intensity & 0x3f;
-}
-
-static int __pcf50633bl_set_intensity(struct pcf50633_data *pcf, int intensity)
-{
-	int old_intensity = reg_read(pcf, PCF50633_REG_LEDOUT);
-	int ret;
-
-	if (!(reg_read(pcf, PCF50633_REG_LEDENA) & 1))
-		old_intensity = 0;
-
-	/*
-	 * The PCF50633 cannot handle LEDOUT = 0 (datasheet p60)
-	 * if seen, you have to re-enable the LED unit
-	 * we treat intensity 0 as disable
-	 */
-
-	if (intensity && !old_intensity) {
-		ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDENA, 0x01, 0x00);
-		if (ret)
-			return ret;
-	}
-
-	if (!intensity) /* illegal to set LEDOUT to 0 */
-		ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDENA, 0x01, 0x00);
-	else {
-		ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f,
-			       intensity);
-		if (ret)
-			return ret;
-		ret = reg_set_bit_mask(pcf, PCF50633_REG_LEDENA, 0x01, 0x01);
-	}
-
-	return ret;
-}
-
-static int pcf50633bl_set_intensity(struct backlight_device *bd)
-{
-	struct pcf50633_data *pcf = bl_get_data(bd);
-	int intensity = bd->props.brightness;
-
-	if ((bd->props.power != FB_BLANK_UNBLANK) ||
-	    (bd->props.fb_blank != FB_BLANK_UNBLANK))
-		intensity = 0;
-
-	return __pcf50633bl_set_intensity(pcf, intensity);
-}
-
-static struct backlight_ops pcf50633bl_ops = {
-	.get_brightness	= pcf50633bl_get_intensity,
-	.update_status	= pcf50633bl_set_intensity,
-};
-
 /*
  * Charger type
  */
@@ -1964,6 +1320,8 @@ static ssize_t show_charger_type(struct device *dev,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
+	int adc_raw_result, charger_type;
+
 	static const char *names_charger_type[] = {
 		[CHARGER_TYPE_NONE] 	= "none",
 		[CHARGER_TYPE_HOSTUSB] 	= "host/500mA usb",
@@ -1975,10 +1333,13 @@ static ssize_t show_charger_type(struct device *dev,
 		[PCF50633_MBCC7_USB_100mA] 	= "100mA",
 		[PCF50633_MBCC7_USB_SUSPEND] 	= "suspend",
 	};
-	int mode = reg_read(pcf, PCF50633_REG_MBCC7) & PCF56033_MBCC7_USB_MASK;
+	int mode = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) & PCF56033_MBCC7_USB_MASK;
 
+	adc_raw_result = pcf50633_adc_sync_read(pcf, PCF50633_ADCC1_MUX_ADCIN1,
+						     PCF50633_ADCC1_AVERAGE_16);
+	charger_type = interpret_charger_type_from_adc(pcf, adc_raw_result);
 	return sprintf(buf, "%s mode %s\n",
-			    names_charger_type[pcf->charger_type],
+			    names_charger_type[charger_type],
 			    names_charger_modes[mode]);
 }
 
@@ -2007,8 +1368,14 @@ static ssize_t show_charger_adc(struct device *dev,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
+	int result;
 
-	return sprintf(buf, "%d\n", pcf->charger_adc_result_raw);
+	result = pcf50633_adc_sync_read(pcf, PCF50633_ADCC1_MUX_ADCIN1,
+					     PCF50633_ADCC1_AVERAGE_16);
+	if (result < 0)
+		return result;
+
+	return sprintf(buf, "%d\n", result);
 }
 
 static DEVICE_ATTR(charger_adc, 0444, show_charger_adc, NULL);
@@ -2041,7 +1408,7 @@ static ssize_t show_dump_regs(struct device *dev, struct device_attribute *attr,
 				idx++;
 				dump[n1] = 0x00;
 			} else
-				dump[n1] = reg_read(pcf, n + n1);
+				dump[n1] = pcf50633_reg_read(pcf, n + n1);
 
 		hex_dump_to_buffer(dump, sizeof(dump), 16, 1, buf1, 128, 0);
 		buf1 += strlen(buf1);
@@ -2063,17 +1430,6 @@ static DEVICE_ATTR(dump_regs, 0400, show_dump_regs, NULL);
  * CARE!  This table is modified at runtime!
  */
 static struct attribute *pcf_sysfs_entries[] = {
-	&dev_attr_voltage_auto.attr,
-	&dev_attr_voltage_down1.attr,
-	&dev_attr_voltage_down2.attr,
-	&dev_attr_voltage_memldo.attr,
-	&dev_attr_voltage_ldo1.attr,
-	&dev_attr_voltage_ldo2.attr,
-	&dev_attr_voltage_ldo3.attr,
-	&dev_attr_voltage_ldo4.attr,
-	&dev_attr_voltage_ldo5.attr,
-	&dev_attr_voltage_ldo6.attr,
-	&dev_attr_voltage_hcldo.attr,
 	&dev_attr_charger_type.attr,
 	&dev_attr_force_usb_limit_dangerous.attr,
 	&dev_attr_charger_adc.attr,
@@ -2117,36 +1473,29 @@ static void populate_sysfs_group(struct pcf50633_data *pcf)
 
 }
 
-static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
+static struct platform_device pcf50633_rtc_pdev = {
+	.name	= "pcf50633-rtc",
+	.id	= -1,
+};
+
+static int pcf50633_probe(struct i2c_client *client, const struct i2c_device_id *ids)
 {
-	struct i2c_client *new_client;
 	struct pcf50633_data *pcf;
+	struct pcf50633_platform_data *pdata;
 	int err = 0;
 	int irq;
+	int i;
 
-	DEBUGP("entering\n");
-	if (!pcf50633_pdev) {
-		printk(KERN_ERR "pcf50633: driver needs a platform_device!\n");
-		return -EIO;
-	}
+	DEBUGP("entering probe\n");
 
-	irq = platform_get_irq(pcf50633_pdev, 0);
-	if (irq < 0) {
-		dev_err(&pcf50633_pdev->dev, "no irq in platform resources!\n");
-		return -EIO;
-	}
-
-	/* At the moment, we only support one PCF50633 in a system */
-	if (pcf50633_global) {
-		dev_err(&pcf50633_pdev->dev,
-			"currently only one chip supported\n");
-		return -EBUSY;
-	}
+	pdata = client->dev.platform_data;
 
 	pcf = kzalloc(sizeof(*pcf), GFP_KERNEL);
 	if (!pcf)
-		return -ENOMEM;
+		return -ENOMEM;	
 
+	i2c_set_clientdata(client, pcf);
+	irq = client->irq;
 	mutex_init(&pcf->lock);
 	mutex_init(&pcf->working_lock);
 	mutex_init(&pcf->working_lock_nobat);
@@ -2154,43 +1503,28 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 	INIT_WORK(&pcf->work, pcf50633_work);
 	INIT_WORK(&pcf->work_nobat, pcf50633_work_nobat);
 	INIT_WORK(&pcf->work_usb_curlimit, pcf50633_work_usbcurlim);
+
+	pcf->client = client;
 	pcf->irq = irq;
 	pcf->working = 0;
 	pcf->suppress_onkey_events = 0;
 	pcf->onkey_seconds = -1;
-	pcf->pdata = pcf50633_pdev->dev.platform_data;
+	pcf->pdata = pdata;
 
-	new_client = &pcf->client;
-	i2c_set_clientdata(new_client, pcf);
-	new_client->addr = address;
-	new_client->adapter = adapter;
-	new_client->driver = &pcf50633_driver;
-	new_client->flags = 0;
-	strlcpy(new_client->name, "pcf50633", I2C_NAME_SIZE);
-
-	/* now we try to detect the chip */
-
-	/* register with i2c core */
-	if ((err = i2c_attach_client(new_client))) {
-		dev_err(&new_client->dev,
-			"error during i2c_attach_client()\n");
-		goto exit_free;
-	}
-
-	init_resume_dependency_list(&pcf->resume_dependency);
+	/* FIXME: now we try to detect the chip */
 
 	populate_sysfs_group(pcf);
 
-	err = sysfs_create_group(&new_client->dev.kobj, &pcf_attr_group);
+	err = sysfs_create_group(&client->dev.kobj, &pcf_attr_group);
 	if (err) {
-		dev_err(&new_client->dev, "error creating sysfs group\n");
-		goto exit_detach;
+		dev_err(&client->dev, "error creating sysfs group\n");
+		goto exit_free;
 	}
 
 	/* create virtual charger 'device' */
 
 	/* register power off handler with core power management */
-	pm_power_off = &pcf50633_go_standby;
+	/* FIXME : pm_power_off = &pcf50633_go_standby; */
 
 	pcf->input_dev = input_allocate_device();
 	if (!pcf->input_dev)
@@ -2199,7 +1533,6 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 	pcf->input_dev->name = "GTA02 PMU events";
 	pcf->input_dev->phys = "FIXME";
 	pcf->input_dev->id.bustype = BUS_I2C;
-	pcf->input_dev->cdev.dev = &new_client->dev;
 
 	pcf->input_dev->evbit[0] = BIT(EV_KEY) | BIT(EV_PWR);
 	set_bit(KEY_POWER, pcf->input_dev->keybit);
@@ -2211,12 +1544,28 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 		goto exit_sysfs;
 
 	/* configure interrupt mask */
+
 	/* we want SECOND to kick for the coldplug initialisation */
-	reg_write(pcf, PCF50633_REG_INT1M, 0x00);
-	reg_write(pcf, PCF50633_REG_INT2M, 0x00);
-	reg_write(pcf, PCF50633_REG_INT3M, 0x00);
-	reg_write(pcf, PCF50633_REG_INT4M, 0x00);
-	reg_write(pcf, PCF50633_REG_INT5M, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_INT1M, 0x00);
+
+	pcf50633_reg_write(pcf, PCF50633_REG_INT2M, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_INT3M, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_INT4M, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_INT5M, 0x00);
+
+	/* force the backlight up, Qi does not do this for us */
+
+	/* pcf50633 manual p60
+	 * "led_out should never be set to 000000, as this would result
+	 * in a deadlock making it impossible to program another value.
+	 * If led_out should be inadvertently set to 000000, the
+	 * LEDOUT register can be reset by disabling and enabling the
+	 * LED converter via control bit led_on in the LEDENA register"
+	 */
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
 
 	err = request_irq(irq, pcf50633_irq, IRQF_TRIGGER_FALLING,
 			  "pcf50633", pcf);
@@ -2224,74 +1573,64 @@ static int pcf50633_detect(struct i2c_adapter *adapter, int address, int kind)
 		goto exit_input;
 
 	if (enable_irq_wake(irq) < 0)
-		dev_err(&new_client->dev, "IRQ %u cannot be enabled as wake-up"
-		        "source in this hardware revision!", irq);
+		dev_err(&client->dev, "IRQ %u cannot be enabled as wake-up"
+		        "source in this hardware revision!\n", irq);
 
 	if (pcf->pdata->used_features & PCF50633_FEAT_RTC) {
-		pcf->rtc = rtc_device_register("pcf50633", &new_client->dev,
-						&pcf50633_rtc_ops, THIS_MODULE);
-		if (IS_ERR(pcf->rtc)) {
-			err = PTR_ERR(pcf->rtc);
+		pcf50633_rtc_pdev.dev.platform_data = pcf;
+		
+		err = platform_device_register(&pcf50633_rtc_pdev);
+		if (err)
 			goto exit_irq;
-		}
-	}
-
-	if (pcf->pdata->used_features & PCF50633_FEAT_PWM_BL) {
-		pcf->backlight = backlight_device_register("pcf50633-bl",
-							    &new_client->dev,
-							    pcf,
-							    &pcf50633bl_ops);
-		if (!pcf->backlight)
-			goto exit_rtc;
-		/* FIXME: are we sure we want default == off? */
-		pcf->backlight->props.max_brightness = 0x3f;
-		pcf->backlight->props.power = FB_BLANK_UNBLANK;
-		pcf->backlight->props.fb_blank = FB_BLANK_UNBLANK;
-		pcf->backlight->props.brightness =
-					pcf->backlight->props.max_brightness;
-		backlight_update_status(pcf->backlight);
 	}
 
 	if (pcf->pdata->flag_use_apm_emulation)
-		apm_get_power_status = pcf50633_get_power_status;
+		apm_get_power_status = NULL;
 
+	pdata->pcf = pcf;
+
+	/* Create platform regulator devices from the platform data */
+	for (i = 0; i < __NUM_PCF50633_REGULATORS; i++) {
+		struct platform_device *pdev;
+
+		pdev = kzalloc(sizeof(*pdev), GFP_KERNEL);
+		/* FIXME : Handle failure */
+
+		pdev->name = "pcf50633-regltr";
+		pdev->id = i;
+		pdev->dev.parent = &client->dev;
+		pdev->dev.platform_data = &pdata->reg_init_data[i];
+		pdev->dev.driver_data = pcf;
+		pcf->regulator_pdev[i] = pdev;
+		
+		platform_device_register(pdev);
+	}
+	
 	pcf->probe_completed = 1;
-	pcf50633_global = pcf;
-	dev_info(&new_client->dev, "probe completed\n");
 
 	/* if platform was interested, give him a chance to register
 	 * platform devices that switch power with us as the parent
 	 * at registration time -- ensures suspend / resume ordering
 	 */
 	if (pcf->pdata->attach_child_devices)
-		(pcf->pdata->attach_child_devices)(&new_client->dev);
+		(pcf->pdata->attach_child_devices)(&client->dev);
+
+	dev_info(&client->dev, "probe completed\n");
 
 	return 0;
-exit_rtc:
-	if (pcf->pdata->used_features & PCF50633_FEAT_RTC)
-		rtc_device_unregister(pcf50633_global->rtc);
 exit_irq:
-	free_irq(pcf50633_global->irq, pcf50633_global);
+	free_irq(pcf->irq, pcf);
 exit_input:
 	input_unregister_device(pcf->input_dev);
 exit_sysfs:
 	pm_power_off = NULL;
-	sysfs_remove_group(&new_client->dev.kobj, &pcf_attr_group);
-exit_detach:
-	i2c_detach_client(new_client);
+	sysfs_remove_group(&client->dev.kobj, &pcf_attr_group);
 exit_free:
 	kfree(pcf);
-	pcf50633_global = NULL;
 	return err;
 }
 
-static int pcf50633_attach_adapter(struct i2c_adapter *adapter)
-{
-	DEBUGP("entering, calling i2c_probe\n");
-	return i2c_probe(adapter, &addr_data, &pcf50633_detect);
-}
-
-static int pcf50633_detach_client(struct i2c_client *client)
+static int pcf50633_remove(struct i2c_client *client)
 {
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
 
@@ -2302,9 +1641,6 @@ static int pcf50633_detach_client(struct i2c_client *client)
 	free_irq(pcf->irq, pcf);
 
 	input_unregister_device(pcf->input_dev);
-
-	if (pcf->pdata->used_features & PCF50633_FEAT_PWM_BL)
-		backlight_device_unregister(pcf->backlight);
 
 	if (pcf->pdata->used_features & PCF50633_FEAT_RTC)
 		rtc_device_unregister(pcf->rtc);
@@ -2385,27 +1721,12 @@ int pcf50633_report_resumers(struct pcf50633_data *pcf, char *buf)
 
 #ifdef CONFIG_PM
 
-/*
- * we need to export this because pcf50633_data is kept opaque
- */
-
-void pcf50633_register_resume_dependency(struct pcf50633_data *pcf,
-					struct resume_dependency *dep)
-{
-	register_resume_dependency(&pcf->resume_dependency, dep);
-	if (pcf->is_suspended)
-		activate_all_resume_dependencies(&pcf->resume_dependency);
-}
-EXPORT_SYMBOL_GPL(pcf50633_register_resume_dependency);
-
-
 static int pcf50633_suspend(struct device *dev, pm_message_t state)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
 	int i;
 	int ret;
-	u_int8_t tmp;
 	u_int8_t res[5];
 
 	dev_err(dev, "pcf50633_suspend\n");
@@ -2431,59 +1752,13 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 
 	disable_irq(pcf->irq);
 
-	/* Save all registers that don't "survive" standby state */
-	pcf->standby_regs.ooctim2 = __reg_read(pcf, PCF50633_REG_OOCTIM2);
-
-	ret = i2c_smbus_read_i2c_block_data(&pcf->client,
-					    PCF50633_REG_AUTOOUT,
-					    sizeof(pcf->standby_regs.misc),
-					    &pcf->standby_regs.misc[0]);
-	if (ret != sizeof(pcf->standby_regs.misc))
-		dev_err(dev, "Failed to save misc levels and enables :-(\n");
-
-	/* regulator voltages and enable states */
-	ret = i2c_smbus_read_i2c_block_data(&pcf->client,
-					    PCF50633_REG_LDO1OUT,
-					    sizeof(pcf->standby_regs.ldo),
-					    &pcf->standby_regs.ldo[0]);
-	if (ret != sizeof(pcf->standby_regs.ldo))
-		dev_err(dev, "Failed to save LDO levels and enables :-(\n");
-
-	/* switch off power supplies that are not needed during suspend */
-	for (i = 0; i < __NUM_PCF50633_REGULATORS; i++) {
-		if ((pcf->pdata->rails[i].flags & PMU_VRAIL_F_SUSPEND_ON))
-			continue;
-
-		/* we can save ourselves the read part of a read-modify-write
-		 * here because we captured all these already
-		 */
-		if (i < 4)
-			tmp = pcf->standby_regs.misc[i * 4 + 1];
-		else
-			tmp = pcf->standby_regs.ldo[(i - 4) * 2 + 1];
-
-		dev_dbg(dev, "disabling reg %s by setting ENA %d to 0x%02X\n",
-			      pcf->pdata->rails[i].name,
-			      regulator_registers[i] + 1, tmp & 0xfe);
-
-		/* associated enable is always +1 from OUT reg */
-		__reg_write(pcf, regulator_registers[i] + 1, tmp & 0xfe);
-	}
-
-	/* turn off the backlight */
-	__reg_write(pcf, PCF50633_REG_LEDDIM, 0);
-	__reg_write(pcf, PCF50633_REG_LEDOUT, 2);
-	__reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
-
 	/* set interrupt masks so only those sources we want to wake
 	 * us are able to
 	 */
 	for (i = 0; i < 5; i++)
 		res[i] = ~pcf->pdata->resumers[i];
 
-	ret = i2c_smbus_write_i2c_block_data(&pcf->client,
-					     PCF50633_REG_INT1M,
-					     5, &res[0]);
+	ret = pcf50633_write(pcf, PCF50633_REG_INT1M, 5, &res[0]);
 	if (ret)
 		dev_err(dev, "Failed to set wake masks :-( %d\n", ret);
 
@@ -2491,8 +1766,6 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 
 	mutex_unlock(&pcf->lock);
 
-	pcf->is_suspended = 1;
-	activate_all_resume_dependencies(&pcf->resume_dependency);
 	return 0;
 }
 
@@ -2535,32 +1808,12 @@ int pcf50633_wait_for_ready(struct pcf50633_data *pcf, int timeout_ms,
 }
 EXPORT_SYMBOL_GPL(pcf50633_wait_for_ready);
 
-/*
- * if backlight resume is selected to be deferred by platform, then it
- * can call this to finally reset backlight status (after LCM is resumed
- * for example
- */
-
-void pcf50633_backlight_resume(struct pcf50633_data *pcf)
-{
-	dev_dbg(&pcf->client.dev, "pcf50633_backlight_resume\n");
-
-	/* platform defines resume ramp speed */
-	reg_write(pcf, PCF50633_REG_LEDDIM,
-				       pcf->pdata->resume_backlight_ramp_speed);
-
-	__pcf50633bl_set_intensity(pcf, pcf->backlight->props.brightness);
-}
-EXPORT_SYMBOL_GPL(pcf50633_backlight_resume);
-
-
 static int pcf50633_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct pcf50633_data *pcf = i2c_get_clientdata(client);
 	int ret;
 	u8 res[5];
-	u8 misc[PCF50633_REG_LEDDIM - PCF50633_REG_AUTOOUT + 1];
 
 	dev_dbg(dev, "pcf50633_resume suspended on entry = %d\n",
 						 (int)pcf->suspend_state);
@@ -2568,45 +1821,10 @@ static int pcf50633_resume(struct device *dev)
 
 	pcf->suspend_state = PCF50633_SS_STARTING_RESUME;
 
-	/* these guys get reset while pcf50633 is suspend state, refresh */
-
-	__reg_write(pcf, PCF50633_REG_OOCTIM2, pcf->standby_regs.ooctim2);
-
-	memcpy(misc, pcf->standby_regs.misc, sizeof(pcf->standby_regs.misc));
-
-	if (pcf->pdata->defer_resume_backlight) {
-		misc[PCF50633_REG_LEDOUT - PCF50633_REG_AUTOOUT] = 1;
-		misc[PCF50633_REG_LEDENA - PCF50633_REG_AUTOOUT] = 0x20;
-		misc[PCF50633_REG_LEDCTL - PCF50633_REG_AUTOOUT] = 1;
-		misc[PCF50633_REG_LEDDIM - PCF50633_REG_AUTOOUT] = 1;
-	}
-
-	/* regulator voltages and enable states */
-	ret = i2c_smbus_write_i2c_block_data(&pcf->client,
-					     PCF50633_REG_AUTOOUT,
-					     sizeof(misc),
-					     &misc[0]);
-	if (ret)
-		dev_err(dev, "Failed to restore misc :-( %d\n", ret);
-
-	/* platform can choose to defer backlight bringup */
-	if (!pcf->pdata->defer_resume_backlight)
-		pcf50633_backlight_resume(pcf);
-
-	/* regulator voltages and enable states */
-	ret = i2c_smbus_write_i2c_block_data(&pcf->client,
-					     PCF50633_REG_LDO1OUT,
-					     sizeof(pcf->standby_regs.ldo),
-					     &pcf->standby_regs.ldo[0]);
-	if (ret)
-		dev_err(dev, "Failed to restore LDOs :-( %d\n", ret);
-
 	memset(res, 0, sizeof(res));
 	/* not interested in second on resume */
 	res[0] = PCF50633_INT1_SECOND;
-	ret = i2c_smbus_write_i2c_block_data(&pcf->client,
-					     PCF50633_REG_INT1M,
-					     5, &res[0]);
+	ret = pcf50633_write(pcf, PCF50633_REG_INT1M, 5, &res[0]);
 	if (ret)
 		dev_err(dev, "Failed to set int masks :-( %d\n", ret);
 
@@ -2622,11 +1840,8 @@ static int pcf50633_resume(struct device *dev)
 	 * case nothing is waiting for service, no harm done.
 	 */
 
-	get_device(&pcf->client.dev);
+	get_device(&pcf->client->dev);
 	pcf50633_work(&pcf->work);
-
-	pcf->is_suspended = 0;
-	callback_all_resume_dependencies(&pcf->resume_dependency);
 
 	return 0;
 }
@@ -2635,74 +1850,29 @@ static int pcf50633_resume(struct device *dev)
 #define pcf50633_resume NULL
 #endif
 
+static struct i2c_device_id pcf50633_id_table[] = {
+	{"pcf50633", 0x73},
+};
+
 static struct i2c_driver pcf50633_driver = {
 	.driver = {
 		.name	= "pcf50633",
 		.suspend= pcf50633_suspend,
 		.resume	= pcf50633_resume,
 	},
-	.id		= I2C_DRIVERID_PCF50633,
-	.attach_adapter	= pcf50633_attach_adapter,
-	.detach_client	= pcf50633_detach_client,
-};
-
-/* we have this purely to capture an early indication that we are coming out
- * of suspend, before our device resume got called; async interrupt service is
- * interested in this
- */
-
-static int pcf50633_plat_resume(struct platform_device *pdev)
-{
-	/* i2c_get_clientdata(to_i2c_client(&pdev->dev)) returns NULL at this
-	 * early resume time so we have to use pcf50633_global
-	 */
-	pcf50633_global->suspend_state = PCF50633_SS_RESUMING_BUT_NOT_US_YET;
-
-	return 0;
-}
-
-/* platform driver, since i2c devices don't have platform_data */
-static int __init pcf50633_plat_probe(struct platform_device *pdev)
-{
-	struct pcf50633_platform_data *pdata = pdev->dev.platform_data;
-
-	if (!pdata)
-		return -ENODEV;
-
-	pcf50633_pdev = pdev;
-
-	return 0;
-}
-
-static int pcf50633_plat_remove(struct platform_device *pdev)
-{
-	return 0;
-}
-
-static struct platform_driver pcf50633_plat_driver = {
-	.probe	= pcf50633_plat_probe,
-	.remove	= pcf50633_plat_remove,
-	.resume_early = pcf50633_plat_resume,
-	.driver = {
-		.owner	= THIS_MODULE,
-		.name 	= "pcf50633",
-	},
+	.id_table = pcf50633_id_table,
+	.probe = pcf50633_probe,
+	.remove = pcf50633_remove,
 };
 
 static int __init pcf50633_init(void)
 {
-	int rc;
-
-	if (!(rc = platform_driver_register(&pcf50633_plat_driver)))
-		rc = i2c_add_driver(&pcf50633_driver);
-
-	return rc;
+	return i2c_add_driver(&pcf50633_driver);
 }
 
 static void pcf50633_exit(void)
 {
 	i2c_del_driver(&pcf50633_driver);
-	platform_driver_unregister(&pcf50633_plat_driver);
 }
 
 MODULE_DESCRIPTION("I2C chip driver for NXP PCF50633 power management unit");

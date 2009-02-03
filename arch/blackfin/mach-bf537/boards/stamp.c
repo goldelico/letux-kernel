@@ -29,23 +29,28 @@
  */
 
 #include <linux/device.h>
+#include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/mtd/mtd.h>
+#include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
+#include <linux/mtd/plat-ram.h>
+#include <linux/mtd/physmap.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/flash.h>
 #if defined(CONFIG_USB_ISP1362_HCD) || defined(CONFIG_USB_ISP1362_HCD_MODULE)
 #include <linux/usb/isp1362.h>
 #endif
-#include <linux/pata_platform.h>
+#include <linux/ata_platform.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
+#include <linux/i2c.h>
 #include <linux/usb/sl811.h>
 #include <asm/dma.h>
 #include <asm/bfin5xx_spi.h>
 #include <asm/reboot.h>
 #include <asm/portmux.h>
-#include <linux/spi/ad7877.h>
+#include <asm/dpmc.h>
 
 /*
  * Name the Board for the /proc/cpuinfo
@@ -89,7 +94,7 @@ int __init bfin_isp1761_init(void)
 {
 	unsigned int num_devices = ARRAY_SIZE(bfin_isp1761_devices);
 
-	printk(KERN_INFO "%s(): registering device resources\n", __FUNCTION__);
+	printk(KERN_INFO "%s(): registering device resources\n", __func__);
 	set_irq_type(ISP1761_IRQ, IRQF_TRIGGER_FALLING);
 
 	return platform_add_devices(bfin_isp1761_devices, num_devices);
@@ -102,6 +107,43 @@ void __exit bfin_isp1761_exit(void)
 
 arch_initcall(bfin_isp1761_init);
 #endif
+
+#if defined(CONFIG_KEYBOARD_GPIO) || defined(CONFIG_KEYBOARD_GPIO_MODULE)
+#include <linux/input.h>
+#include <linux/gpio_keys.h>
+
+static struct gpio_keys_button bfin_gpio_keys_table[] = {
+	{BTN_0, GPIO_PF2, 1, "gpio-keys: BTN0"},
+	{BTN_1, GPIO_PF3, 1, "gpio-keys: BTN1"},
+	{BTN_2, GPIO_PF4, 1, "gpio-keys: BTN2"},
+	{BTN_3, GPIO_PF5, 1, "gpio-keys: BTN3"},
+};
+
+static struct gpio_keys_platform_data bfin_gpio_keys_data = {
+	.buttons        = bfin_gpio_keys_table,
+	.nbuttons       = ARRAY_SIZE(bfin_gpio_keys_table),
+};
+
+static struct platform_device bfin_device_gpiokeys = {
+	.name      = "gpio-keys",
+	.dev = {
+		.platform_data = &bfin_gpio_keys_data,
+	},
+};
+#endif
+
+static struct resource bfin_gpios_resources = {
+	.start = 0,
+	.end   = MAX_BLACKFIN_GPIOS - 1,
+	.flags = IORESOURCE_IRQ,
+};
+
+static struct platform_device bfin_gpios_device = {
+	.name = "simple-gpio",
+	.id = -1,
+	.num_resources = 1,
+	.resource = &bfin_gpios_resources,
+};
 
 #if defined(CONFIG_BFIN_CFPCMCIA) || defined(CONFIG_BFIN_CFPCMCIA_MODULE)
 static struct resource bfin_pcmcia_cf_resources[] = {
@@ -226,12 +268,7 @@ static struct resource sl811_hcd_resources[] = {
 void sl811_port_power(struct device *dev, int is_on)
 {
 	gpio_request(CONFIG_USB_SL811_BFIN_GPIO_VBUS, "usb:SL811_VBUS");
-	gpio_direction_output(CONFIG_USB_SL811_BFIN_GPIO_VBUS);
-
-	if (is_on)
-		gpio_set_value(CONFIG_USB_SL811_BFIN_GPIO_VBUS, 1);
-	else
-		gpio_set_value(CONFIG_USB_SL811_BFIN_GPIO_VBUS, 0);
+	gpio_direction_output(CONFIG_USB_SL811_BFIN_GPIO_VBUS, is_on);
 }
 #endif
 
@@ -320,25 +357,145 @@ static struct platform_device net2272_bfin_device = {
 };
 #endif
 
-#if defined(CONFIG_SPI_BFIN) || defined(CONFIG_SPI_BFIN_MODULE)
-/* all SPI peripherals info goes here */
+#if defined(CONFIG_MTD_NAND_PLATFORM) || defined(CONFIG_MTD_NAND_PLATFORM_MODULE)
+#ifdef CONFIG_MTD_PARTITIONS
+const char *part_probes[] = { "cmdlinepart", "RedBoot", NULL };
+
+static struct mtd_partition bfin_plat_nand_partitions[] = {
+	{
+		.name   = "linux kernel(nand)",
+		.size   = 0x400000,
+		.offset = 0,
+	}, {
+		.name   = "file system(nand)",
+		.size   = MTDPART_SIZ_FULL,
+		.offset = MTDPART_OFS_APPEND,
+	},
+};
+#endif
+
+#define BFIN_NAND_PLAT_CLE 2
+#define BFIN_NAND_PLAT_ALE 1
+static void bfin_plat_nand_cmd_ctrl(struct mtd_info *mtd, int cmd, unsigned int ctrl)
+{
+	struct nand_chip *this = mtd->priv;
+
+	if (cmd == NAND_CMD_NONE)
+		return;
+
+	if (ctrl & NAND_CLE)
+		writeb(cmd, this->IO_ADDR_W + (1 << BFIN_NAND_PLAT_CLE));
+	else
+		writeb(cmd, this->IO_ADDR_W + (1 << BFIN_NAND_PLAT_ALE));
+}
+
+#define BFIN_NAND_PLAT_READY GPIO_PF3
+static int bfin_plat_nand_dev_ready(struct mtd_info *mtd)
+{
+	return gpio_get_value(BFIN_NAND_PLAT_READY);
+}
+
+static struct platform_nand_data bfin_plat_nand_data = {
+	.chip = {
+		.chip_delay = 30,
+#ifdef CONFIG_MTD_PARTITIONS
+		.part_probe_types = part_probes,
+		.partitions = bfin_plat_nand_partitions,
+		.nr_partitions = ARRAY_SIZE(bfin_plat_nand_partitions),
+#endif
+	},
+	.ctrl = {
+		.cmd_ctrl  = bfin_plat_nand_cmd_ctrl,
+		.dev_ready = bfin_plat_nand_dev_ready,
+	},
+};
+
+#define MAX(x, y) (x > y ? x : y)
+static struct resource bfin_plat_nand_resources = {
+	.start = 0x20212000,
+	.end   = 0x20212000 + (1 << MAX(BFIN_NAND_PLAT_CLE, BFIN_NAND_PLAT_ALE)),
+	.flags = IORESOURCE_IO,
+};
+
+static struct platform_device bfin_async_nand_device = {
+	.name = "gen_nand",
+	.id = -1,
+	.num_resources = 1,
+	.resource = &bfin_plat_nand_resources,
+	.dev = {
+		.platform_data = &bfin_plat_nand_data,
+	},
+};
+
+static void bfin_plat_nand_init(void)
+{
+	gpio_request(BFIN_NAND_PLAT_READY, "bfin_nand_plat");
+}
+#else
+static void bfin_plat_nand_init(void) {}
+#endif
+
+#if defined(CONFIG_MTD_PHYSMAP) || defined(CONFIG_MTD_PHYSMAP_MODULE)
+static struct mtd_partition stamp_partitions[] = {
+	{
+		.name       = "bootloader(nor)",
+		.size       = 0x40000,
+		.offset     = 0,
+	}, {
+		.name       = "linux kernel(nor)",
+		.size       = 0xE0000,
+		.offset     = MTDPART_OFS_APPEND,
+	}, {
+		.name       = "file system(nor)",
+		.size       = 0x400000 - 0x40000 - 0xE0000 - 0x10000,
+		.offset     = MTDPART_OFS_APPEND,
+	}, {
+		.name       = "MAC Address(nor)",
+		.size       = MTDPART_SIZ_FULL,
+		.offset     = 0x3F0000,
+		.mask_flags = MTD_WRITEABLE,
+	}
+};
+
+static struct physmap_flash_data stamp_flash_data = {
+	.width      = 2,
+	.parts      = stamp_partitions,
+	.nr_parts   = ARRAY_SIZE(stamp_partitions),
+};
+
+static struct resource stamp_flash_resource = {
+	.start = 0x20000000,
+	.end   = 0x203fffff,
+	.flags = IORESOURCE_MEM,
+};
+
+static struct platform_device stamp_flash_device = {
+	.name          = "physmap-flash",
+	.id            = 0,
+	.dev = {
+		.platform_data = &stamp_flash_data,
+	},
+	.num_resources = 1,
+	.resource      = &stamp_flash_resource,
+};
+#endif
 
 #if defined(CONFIG_MTD_M25P80) \
 	|| defined(CONFIG_MTD_M25P80_MODULE)
 static struct mtd_partition bfin_spi_flash_partitions[] = {
 	{
-		.name = "bootloader",
-		.size = 0x00020000,
+		.name = "bootloader(spi)",
+		.size = 0x00040000,
 		.offset = 0,
 		.mask_flags = MTD_CAP_ROM
 	}, {
-		.name = "kernel",
+		.name = "linux kernel(spi)",
 		.size = 0xe0000,
-		.offset = 0x20000
+		.offset = MTDPART_OFS_APPEND,
 	}, {
-		.name = "file system",
-		.size = 0x700000,
-		.offset = 0x00100000,
+		.name = "file system(spi)",
+		.size = MTDPART_SIZ_FULL,
+		.offset = MTDPART_OFS_APPEND,
 	}
 };
 
@@ -396,14 +553,8 @@ static struct bfin5xx_spi_chip spi_si3xxx_chip_info = {
 };
 #endif
 
-#if defined(CONFIG_AD5304) || defined(CONFIG_AD5304_MODULE)
-static struct bfin5xx_spi_chip ad5304_chip_info = {
-	.enable_dma = 0,
-	.bits_per_word = 16,
-};
-#endif
-
 #if defined(CONFIG_TOUCHSCREEN_AD7877) || defined(CONFIG_TOUCHSCREEN_AD7877_MODULE)
+#include <linux/spi/ad7877.h>
 static struct bfin5xx_spi_chip spi_ad7877_chip_info = {
 	.enable_dma = 0,
 	.bits_per_word = 16,
@@ -424,6 +575,77 @@ static const struct ad7877_platform_data bfin_ad7877_ts_info = {
 };
 #endif
 
+#if defined(CONFIG_TOUCHSCREEN_AD7879) || defined(CONFIG_TOUCHSCREEN_AD7879_MODULE)
+#include <linux/spi/ad7879.h>
+static const struct ad7879_platform_data bfin_ad7879_ts_info = {
+	.model			= 7879,	/* Model = AD7879 */
+	.x_plate_ohms		= 620,	/* 620 Ohm from the touch datasheet */
+	.pressure_max		= 10000,
+	.pressure_min		= 0,
+	.first_conversion_delay = 3,	/* wait 512us before do a first conversion */
+	.acquisition_time 	= 1,	/* 4us acquisition time per sample */
+	.median			= 2,	/* do 8 measurements */
+	.averaging 		= 1,	/* take the average of 4 middle samples */
+	.pen_down_acc_interval 	= 255,	/* 9.4 ms */
+	.gpio_output		= 1,	/* configure AUX/VBAT/GPIO as GPIO output */
+	.gpio_default 		= 1,	/* During initialization set GPIO = HIGH */
+};
+#endif
+
+#if defined(CONFIG_TOUCHSCREEN_AD7879_SPI) || defined(CONFIG_TOUCHSCREEN_AD7879_SPI_MODULE)
+static struct bfin5xx_spi_chip spi_ad7879_chip_info = {
+	.enable_dma = 0,
+	.bits_per_word = 16,
+};
+#endif
+
+#if defined(CONFIG_SPI_SPIDEV) || defined(CONFIG_SPI_SPIDEV_MODULE)
+static struct bfin5xx_spi_chip spidev_chip_info = {
+	.enable_dma = 0,
+	.bits_per_word = 8,
+};
+#endif
+
+#if defined(CONFIG_FB_BFIN_LQ035Q1) || defined(CONFIG_FB_BFIN_LQ035Q1_MODULE)
+static struct bfin5xx_spi_chip lq035q1_spi_chip_info = {
+	.enable_dma	= 0,
+	.bits_per_word	= 8,
+};
+#endif
+
+#if defined(CONFIG_MTD_DATAFLASH) \
+	|| defined(CONFIG_MTD_DATAFLASH_MODULE)
+
+static struct mtd_partition bfin_spi_dataflash_partitions[] = {
+	{
+		.name = "bootloader(spi)",
+		.size = 0x00040000,
+		.offset = 0,
+		.mask_flags = MTD_CAP_ROM
+	}, {
+		.name = "linux kernel(spi)",
+		.size = 0xe0000,
+		.offset = MTDPART_OFS_APPEND,
+	}, {
+		.name = "file system(spi)",
+		.size = MTDPART_SIZ_FULL,
+		.offset = MTDPART_OFS_APPEND,
+	}
+};
+
+static struct flash_platform_data bfin_spi_dataflash_data = {
+	.name = "SPI Dataflash",
+	.parts = bfin_spi_dataflash_partitions,
+	.nr_parts = ARRAY_SIZE(bfin_spi_dataflash_partitions),
+};
+
+/* DataFlash chip */
+static struct bfin5xx_spi_chip data_flash_chip_info = {
+	.enable_dma = 0,         /* use dma transfer with this chip*/
+	.bits_per_word = 8,
+};
+#endif
+
 static struct spi_board_info bfin_spi_board_info[] __initdata = {
 #if defined(CONFIG_MTD_M25P80) \
 	|| defined(CONFIG_MTD_M25P80_MODULE)
@@ -438,7 +660,18 @@ static struct spi_board_info bfin_spi_board_info[] __initdata = {
 		.mode = SPI_MODE_3,
 	},
 #endif
-
+#if defined(CONFIG_MTD_DATAFLASH) \
+	|| defined(CONFIG_MTD_DATAFLASH_MODULE)
+	{	/* DataFlash chip */
+		.modalias = "mtd_dataflash",
+		.max_speed_hz = 33250000,     /* max spi clock (SCK) speed in HZ */
+		.bus_num = 0, /* Framework bus number */
+		.chip_select = 1, /* Framework chip select. On STAMP537 it is SPISSEL1*/
+		.platform_data = &bfin_spi_dataflash_data,
+		.controller_data = &data_flash_chip_info,
+		.mode = SPI_MODE_3,
+	},
+#endif
 #if defined(CONFIG_SPI_ADC_BF533) \
 	|| defined(CONFIG_SPI_ADC_BF533_MODULE)
 	{
@@ -508,17 +741,6 @@ static struct spi_board_info bfin_spi_board_info[] __initdata = {
 		.mode = SPI_MODE_3,
 	},
 #endif
-#if defined(CONFIG_AD5304) || defined(CONFIG_AD5304_MODULE)
-	{
-		.modalias = "ad5304_spi",
-		.max_speed_hz = 1250000,     /* max spi clock (SCK) speed in HZ */
-		.bus_num = 0,
-		.chip_select = 2,
-		.platform_data = NULL,
-		.controller_data = &ad5304_chip_info,
-		.mode = SPI_MODE_2,
-	},
-#endif
 #if defined(CONFIG_TOUCHSCREEN_AD7877) || defined(CONFIG_TOUCHSCREEN_AD7877_MODULE)
 	{
 		.modalias		= "ad7877",
@@ -530,8 +752,40 @@ static struct spi_board_info bfin_spi_board_info[] __initdata = {
 		.controller_data = &spi_ad7877_chip_info,
 	},
 #endif
+#if defined(CONFIG_TOUCHSCREEN_AD7879_SPI) || defined(CONFIG_TOUCHSCREEN_AD7879_SPI_MODULE)
+	{
+		.modalias = "ad7879",
+		.platform_data = &bfin_ad7879_ts_info,
+		.irq = IRQ_PF7,
+		.max_speed_hz = 5000000,     /* max spi clock (SCK) speed in HZ */
+		.bus_num = 0,
+		.chip_select = 1,
+		.controller_data = &spi_ad7879_chip_info,
+		.mode = SPI_CPHA | SPI_CPOL,
+	},
+#endif
+#if defined(CONFIG_SPI_SPIDEV) || defined(CONFIG_SPI_SPIDEV_MODULE)
+	{
+		.modalias = "spidev",
+		.max_speed_hz = 3125000,     /* max spi clock (SCK) speed in HZ */
+		.bus_num = 0,
+		.chip_select = 1,
+		.controller_data = &spidev_chip_info,
+	},
+#endif
+#if defined(CONFIG_FB_BFIN_LQ035Q1) || defined(CONFIG_FB_BFIN_LQ035Q1_MODULE)
+	{
+		.modalias = "bfin-lq035q1-spi",
+		.max_speed_hz = 20000000,     /* max spi clock (SCK) speed in HZ */
+		.bus_num = 0,
+		.chip_select = 2,
+		.controller_data = &lq035q1_spi_chip_info,
+		.mode = SPI_CPHA | SPI_CPOL,
+	},
+#endif
 };
 
+#if defined(CONFIG_SPI_BFIN) || defined(CONFIG_SPI_BFIN_MODULE)
 /* SPI controller data */
 static struct bfin5xx_spi_master bfin_spi0_info = {
 	.num_chipselect = 8,
@@ -576,6 +830,34 @@ static struct platform_device bfin_fb_adv7393_device = {
 };
 #endif
 
+#if defined(CONFIG_FB_BFIN_LQ035Q1) || defined(CONFIG_FB_BFIN_LQ035Q1_MODULE)
+#include <asm/bfin-lq035q1.h>
+
+static struct bfin_lq035q1fb_disp_info bfin_lq035q1_data = {
+	.mode = 	LQ035_NORM | LQ035_RGB | LQ035_RL | LQ035_TB,
+	.use_bl = 	0,	/* let something else control the LCD Blacklight */
+	.gpio_bl =	GPIO_PF7,
+};
+
+static struct resource bfin_lq035q1_resources[] = {
+	{
+		.start = IRQ_PPI_ERROR,
+		.end = IRQ_PPI_ERROR,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device bfin_lq035q1_device = {
+	.name		= "bfin-lq035q1",
+	.id		= -1,
+	.num_resources 	= ARRAY_SIZE(bfin_lq035q1_resources),
+	.resource 	= bfin_lq035q1_resources,
+	.dev		= {
+		.platform_data = &bfin_lq035q1_data,
+	},
+};
+#endif
+
 #if defined(CONFIG_SERIAL_BFIN) || defined(CONFIG_SERIAL_BFIN_MODULE)
 static struct resource bfin_uart_resources[] = {
 #ifdef CONFIG_SERIAL_BFIN_UART0
@@ -602,6 +884,32 @@ static struct platform_device bfin_uart_device = {
 };
 #endif
 
+#if defined(CONFIG_BFIN_SIR) || defined(CONFIG_BFIN_SIR_MODULE)
+static struct resource bfin_sir_resources[] = {
+#ifdef CONFIG_BFIN_SIR0
+	{
+		.start = 0xFFC00400,
+		.end = 0xFFC004FF,
+		.flags = IORESOURCE_MEM,
+	},
+#endif
+#ifdef CONFIG_BFIN_SIR1
+	{
+		.start = 0xFFC02000,
+		.end = 0xFFC020FF,
+		.flags = IORESOURCE_MEM,
+	},
+#endif
+};
+
+static struct platform_device bfin_sir_device = {
+	.name = "bfin_sir",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(bfin_sir_resources),
+	.resource = bfin_sir_resources,
+};
+#endif
+
 #if defined(CONFIG_I2C_BLACKFIN_TWI) || defined(CONFIG_I2C_BLACKFIN_TWI_MODULE)
 static struct resource bfin_twi0_resource[] = {
 	[0] = {
@@ -624,6 +932,35 @@ static struct platform_device i2c_bfin_twi_device = {
 };
 #endif
 
+#ifdef CONFIG_I2C_BOARDINFO
+static struct i2c_board_info __initdata bfin_i2c_board_info[] = {
+#if defined(CONFIG_JOYSTICK_AD7142) || defined(CONFIG_JOYSTICK_AD7142_MODULE)
+	{
+		I2C_BOARD_INFO("ad7142_joystick", 0x2C),
+		.irq = IRQ_PF5,
+	},
+#endif
+#if defined(CONFIG_TWI_LCD) || defined(CONFIG_TWI_LCD_MODULE)
+	{
+		I2C_BOARD_INFO("pcf8574_lcd", 0x22),
+	},
+#endif
+#if defined(CONFIG_TWI_KEYPAD) || defined(CONFIG_TWI_KEYPAD_MODULE)
+	{
+		I2C_BOARD_INFO("pcf8574_keypad", 0x27),
+		.irq = IRQ_PG6,
+	},
+#endif
+#if defined(CONFIG_TOUCHSCREEN_AD7879_I2C) || defined(CONFIG_TOUCHSCREEN_AD7879_I2C_MODULE)
+	{
+		I2C_BOARD_INFO("ad7879", 0x2F),
+		.irq = IRQ_PG5,
+		.platform_data = (void *)&bfin_ad7879_ts_info,
+	},
+#endif
+};
+#endif
+
 #if defined(CONFIG_SERIAL_BFIN_SPORT) || defined(CONFIG_SERIAL_BFIN_SPORT_MODULE)
 static struct platform_device bfin_sport0_uart_device = {
 	.name = "bfin-sport-uart",
@@ -637,7 +974,7 @@ static struct platform_device bfin_sport1_uart_device = {
 #endif
 
 #if defined(CONFIG_PATA_PLATFORM) || defined(CONFIG_PATA_PLATFORM_MODULE)
-#define PATA_INT	55
+#define PATA_INT	IRQ_PF5
 
 static struct pata_platform_info bfin_pata_platform_data = {
 	.ioport_shift = 1,
@@ -673,7 +1010,37 @@ static struct platform_device bfin_pata_device = {
 };
 #endif
 
+static const unsigned int cclk_vlev_datasheet[] =
+{
+	VRPAIR(VLEV_085, 250000000),
+	VRPAIR(VLEV_090, 376000000),
+	VRPAIR(VLEV_095, 426000000),
+	VRPAIR(VLEV_100, 426000000),
+	VRPAIR(VLEV_105, 476000000),
+	VRPAIR(VLEV_110, 476000000),
+	VRPAIR(VLEV_115, 476000000),
+	VRPAIR(VLEV_120, 500000000),
+	VRPAIR(VLEV_125, 533000000),
+	VRPAIR(VLEV_130, 600000000),
+};
+
+static struct bfin_dpmc_platform_data bfin_dmpc_vreg_data = {
+	.tuple_tab = cclk_vlev_datasheet,
+	.tabsize = ARRAY_SIZE(cclk_vlev_datasheet),
+	.vr_settling_time = 25 /* us */,
+};
+
+static struct platform_device bfin_dpmc = {
+	.name = "bfin dpmc",
+	.dev = {
+		.platform_data = &bfin_dmpc_vreg_data,
+	},
+};
+
 static struct platform_device *stamp_devices[] __initdata = {
+
+	&bfin_dpmc,
+
 #if defined(CONFIG_BFIN_CFPCMCIA) || defined(CONFIG_BFIN_CFPCMCIA_MODULE)
 	&bfin_pcmcia_cf_device,
 #endif
@@ -718,12 +1085,20 @@ static struct platform_device *stamp_devices[] __initdata = {
 	&bfin_fb_device,
 #endif
 
+#if defined(CONFIG_FB_BFIN_LQ035Q1) || defined(CONFIG_FB_BFIN_LQ035Q1_MODULE)
+	&bfin_lq035q1_device,
+#endif
+
 #if defined(CONFIG_FB_BFIN_7393) || defined(CONFIG_FB_BFIN_7393_MODULE)
 	&bfin_fb_adv7393_device,
 #endif
 
 #if defined(CONFIG_SERIAL_BFIN) || defined(CONFIG_SERIAL_BFIN_MODULE)
 	&bfin_uart_device,
+#endif
+
+#if defined(CONFIG_BFIN_SIR) || defined(CONFIG_BFIN_SIR_MODULE)
+	&bfin_sir_device,
 #endif
 
 #if defined(CONFIG_I2C_BLACKFIN_TWI) || defined(CONFIG_I2C_BLACKFIN_TWI_MODULE)
@@ -738,20 +1113,39 @@ static struct platform_device *stamp_devices[] __initdata = {
 #if defined(CONFIG_PATA_PLATFORM) || defined(CONFIG_PATA_PLATFORM_MODULE)
 	&bfin_pata_device,
 #endif
+
+#if defined(CONFIG_KEYBOARD_GPIO) || defined(CONFIG_KEYBOARD_GPIO_MODULE)
+	&bfin_device_gpiokeys,
+#endif
+
+	&bfin_gpios_device,
+
+#if defined(CONFIG_MTD_NAND_PLATFORM) || defined(CONFIG_MTD_NAND_PLATFORM_MODULE)
+	&bfin_async_nand_device,
+#endif
+
+#if defined(CONFIG_MTD_PHYSMAP) || defined(CONFIG_MTD_PHYSMAP_MODULE)
+	&stamp_flash_device,
+#endif
 };
 
 static int __init stamp_init(void)
 {
-	printk(KERN_INFO "%s(): registering device resources\n", __FUNCTION__);
-	platform_add_devices(stamp_devices, ARRAY_SIZE(stamp_devices));
-#if defined(CONFIG_SPI_BFIN) || defined(CONFIG_SPI_BFIN_MODULE)
-	spi_register_board_info(bfin_spi_board_info,
-				ARRAY_SIZE(bfin_spi_board_info));
+	printk(KERN_INFO "%s(): registering device resources\n", __func__);
+
+#ifdef CONFIG_I2C_BOARDINFO
+	i2c_register_board_info(0, bfin_i2c_board_info,
+				ARRAY_SIZE(bfin_i2c_board_info));
 #endif
+
+	bfin_plat_nand_init();
+	platform_add_devices(stamp_devices, ARRAY_SIZE(stamp_devices));
+	spi_register_board_info(bfin_spi_board_info, ARRAY_SIZE(bfin_spi_board_info));
 
 #if defined(CONFIG_PATA_PLATFORM) || defined(CONFIG_PATA_PLATFORM_MODULE)
 	irq_desc[PATA_INT].status |= IRQ_NOAUTOEN;
 #endif
+
 	return 0;
 }
 

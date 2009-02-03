@@ -21,7 +21,6 @@
  *
  */
 
-#include <sound/driver.h>
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -104,8 +103,6 @@ MODULE_FIRMWARE("digiface_firmware_rev11.bin");
 #define HDSP_statusRegister    0
 #define HDSP_timecode        128
 #define HDSP_status2Register 192
-#define HDSP_midiDataOut0    352
-#define HDSP_midiDataOut1    356
 #define HDSP_midiDataIn0     360
 #define HDSP_midiDataIn1     364
 #define HDSP_midiStatusOut0  384
@@ -321,6 +318,10 @@ MODULE_FIRMWARE("digiface_firmware_rev11.bin");
 #define HDSP_midi1IRQPending    (1<<31)
 
 #define HDSP_spdifFrequencyMask    (HDSP_spdifFrequency0|HDSP_spdifFrequency1|HDSP_spdifFrequency2)
+#define HDSP_spdifFrequencyMask_9632 (HDSP_spdifFrequency0|\
+				      HDSP_spdifFrequency1|\
+				      HDSP_spdifFrequency2|\
+				      HDSP_spdifFrequency3)
 
 #define HDSP_spdifFrequency32KHz   (HDSP_spdifFrequency0)
 #define HDSP_spdifFrequency44_1KHz (HDSP_spdifFrequency1)
@@ -331,7 +332,9 @@ MODULE_FIRMWARE("digiface_firmware_rev11.bin");
 #define HDSP_spdifFrequency96KHz   (HDSP_spdifFrequency2|HDSP_spdifFrequency1)
 
 /* This is for H9632 cards */
-#define HDSP_spdifFrequency128KHz   HDSP_spdifFrequencyMask
+#define HDSP_spdifFrequency128KHz   (HDSP_spdifFrequency0|\
+				     HDSP_spdifFrequency1|\
+				     HDSP_spdifFrequency2)
 #define HDSP_spdifFrequency176_4KHz HDSP_spdifFrequency3
 #define HDSP_spdifFrequency192KHz   (HDSP_spdifFrequency3|HDSP_spdifFrequency0)
 
@@ -610,7 +613,10 @@ static int hdsp_playback_to_output_key (struct hdsp *hdsp, int in, int out)
 	case Multiface:
 	case Digiface:
 	default:
-		return (64 * out) + (32 + (in));
+		if (hdsp->firmware_rev == 0xa)
+			return (64 * out) + (32 + (in));
+		else
+			return (52 * out) + (26 + (in));
 	case H9632:
 		return (32 * out) + (16 + (in));
 	case H9652:
@@ -624,7 +630,10 @@ static int hdsp_input_to_output_key (struct hdsp *hdsp, int in, int out)
 	case Multiface:
 	case Digiface:
 	default:
-		return (64 * out) + in;
+		if (hdsp->firmware_rev == 0xa)
+			return (64 * out) + in;
+		else
+			return (52 * out) + in;
 	case H9632:
 		return (32 * out) + in;
 	case H9652:
@@ -742,7 +751,7 @@ static int hdsp_get_iobox_version (struct hdsp *hdsp)
 
 
 #ifdef HDSP_FW_LOADER
-static int __devinit hdsp_request_fw_loader(struct hdsp *hdsp);
+static int hdsp_request_fw_loader(struct hdsp *hdsp);
 #endif
 
 static int hdsp_check_for_firmware (struct hdsp *hdsp, int load_on_demand)
@@ -882,27 +891,14 @@ static int snd_hdsp_use_is_exclusive(struct hdsp *hdsp)
 	return ret;
 }
 
-static int hdsp_external_sample_rate (struct hdsp *hdsp)
-{
-	unsigned int status2 = hdsp_read(hdsp, HDSP_status2Register);
-	unsigned int rate_bits = status2 & HDSP_systemFrequencyMask;
-
-	switch (rate_bits) {
-	case HDSP_systemFrequency32:   return 32000;
-	case HDSP_systemFrequency44_1: return 44100;
-	case HDSP_systemFrequency48:   return 48000;
-	case HDSP_systemFrequency64:   return 64000;
-	case HDSP_systemFrequency88_2: return 88200;
-	case HDSP_systemFrequency96:   return 96000;
-	default:
-		return 0;
-	}
-}
-
 static int hdsp_spdif_sample_rate(struct hdsp *hdsp)
 {
 	unsigned int status = hdsp_read(hdsp, HDSP_statusRegister);
 	unsigned int rate_bits = (status & HDSP_spdifFrequencyMask);
+
+	/* For the 9632, the mask is different */
+	if (hdsp->io_type == H9632)
+		 rate_bits = (status & HDSP_spdifFrequencyMask_9632);
 
 	if (status & HDSP_SPDIFErrorFlag)
 		return 0;
@@ -928,6 +924,31 @@ static int hdsp_spdif_sample_rate(struct hdsp *hdsp)
 	}
 	snd_printk ("Hammerfall-DSP: unknown spdif frequency status; bits = 0x%x, status = 0x%x\n", rate_bits, status);
 	return 0;
+}
+
+static int hdsp_external_sample_rate(struct hdsp *hdsp)
+{
+	unsigned int status2 = hdsp_read(hdsp, HDSP_status2Register);
+	unsigned int rate_bits = status2 & HDSP_systemFrequencyMask;
+
+	/* For the 9632 card, there seems to be no bit for indicating external
+	 * sample rate greater than 96kHz. The card reports the corresponding
+	 * single speed. So the best means seems to get spdif rate when
+	 * autosync reference is spdif */
+	if (hdsp->io_type == H9632 &&
+	    hdsp_autosync_ref(hdsp) == HDSP_AUTOSYNC_FROM_SPDIF)
+		 return hdsp_spdif_sample_rate(hdsp);
+
+	switch (rate_bits) {
+	case HDSP_systemFrequency32:   return 32000;
+	case HDSP_systemFrequency44_1: return 44100;
+	case HDSP_systemFrequency48:   return 48000;
+	case HDSP_systemFrequency64:   return 64000;
+	case HDSP_systemFrequency88_2: return 88200;
+	case HDSP_systemFrequency96:   return 96000;
+	default:
+		return 0;
+	}
 }
 
 static void hdsp_compute_period_size(struct hdsp *hdsp)
@@ -1015,7 +1036,7 @@ static void hdsp_set_dds_value(struct hdsp *hdsp, int rate)
 	n = DDS_NUMERATOR;
 	div64_32(&n, rate, &r);
 	/* n should be less than 2^32 for being written to FREQ register */
-	snd_assert((n >> 32) == 0);
+	snd_BUG_ON(n >> 32);
 	/* HDSP_freqReg and HDSP_resetPointer are the same, so keep the DDS
 	   value to write it after a reset */
 	hdsp->dds_value = n;
@@ -2121,7 +2142,7 @@ static int snd_hdsp_put_clock_source_lock(struct snd_kcontrol *kcontrol, struct 
 
 	change = (int)ucontrol->value.integer.value[0] != hdsp->clock_source_locked;
 	if (change)
-		hdsp->clock_source_locked = ucontrol->value.integer.value[0];
+		hdsp->clock_source_locked = !!ucontrol->value.integer.value[0];
 	return change;
 }
 
@@ -3022,7 +3043,7 @@ static int snd_hdsp_get_adat_sync_check(struct snd_kcontrol *kcontrol, struct sn
 	struct hdsp *hdsp = snd_kcontrol_chip(kcontrol);
 
 	offset = ucontrol->id.index - 1;
-	snd_assert(offset >= 0);
+	snd_BUG_ON(offset < 0);
 
 	switch (hdsp->io_type) {
 	case Digiface:
@@ -3558,7 +3579,7 @@ snd_hdsp_proc_read(struct snd_info_entry *entry, struct snd_info_buffer *buffer)
 
 }
 
-static void __devinit snd_hdsp_proc_init(struct hdsp *hdsp)
+static void snd_hdsp_proc_init(struct hdsp *hdsp)
 {
 	struct snd_info_entry *entry;
 
@@ -3606,7 +3627,7 @@ static int snd_hdsp_set_defaults(struct hdsp *hdsp)
 
 	/* ASSUMPTION: hdsp->lock is either held, or
 	   there is no need to hold it (e.g. during module
-	   initalization).
+	   initialization).
 	 */
 
 	/* set defaults:
@@ -3746,7 +3767,8 @@ static char *hdsp_channel_buffer_location(struct hdsp *hdsp,
 {
 	int mapped_channel;
 
-        snd_assert(channel >= 0 && channel < hdsp->max_channels, return NULL);
+        if (snd_BUG_ON(channel < 0 || channel >= hdsp->max_channels))
+		return NULL;
         
 	if ((mapped_channel = hdsp->channel_map[channel]) < 0)
 		return NULL;
@@ -3763,10 +3785,12 @@ static int snd_hdsp_playback_copy(struct snd_pcm_substream *substream, int chann
 	struct hdsp *hdsp = snd_pcm_substream_chip(substream);
 	char *channel_buf;
 
-	snd_assert(pos + count <= HDSP_CHANNEL_BUFFER_BYTES / 4, return -EINVAL);
+	if (snd_BUG_ON(pos + count > HDSP_CHANNEL_BUFFER_BYTES / 4))
+		return -EINVAL;
 
 	channel_buf = hdsp_channel_buffer_location (hdsp, substream->pstr->stream, channel);
-	snd_assert(channel_buf != NULL, return -EIO);
+	if (snd_BUG_ON(!channel_buf))
+		return -EIO;
 	if (copy_from_user(channel_buf + pos * 4, src, count * 4))
 		return -EFAULT;
 	return count;
@@ -3778,10 +3802,12 @@ static int snd_hdsp_capture_copy(struct snd_pcm_substream *substream, int channe
 	struct hdsp *hdsp = snd_pcm_substream_chip(substream);
 	char *channel_buf;
 
-	snd_assert(pos + count <= HDSP_CHANNEL_BUFFER_BYTES / 4, return -EINVAL);
+	if (snd_BUG_ON(pos + count > HDSP_CHANNEL_BUFFER_BYTES / 4))
+		return -EINVAL;
 
 	channel_buf = hdsp_channel_buffer_location (hdsp, substream->pstr->stream, channel);
-	snd_assert(channel_buf != NULL, return -EIO);
+	if (snd_BUG_ON(!channel_buf))
+		return -EIO;
 	if (copy_to_user(dst, channel_buf + pos * 4, count * 4))
 		return -EFAULT;
 	return count;
@@ -3794,7 +3820,8 @@ static int snd_hdsp_hw_silence(struct snd_pcm_substream *substream, int channel,
 	char *channel_buf;
 
 	channel_buf = hdsp_channel_buffer_location (hdsp, substream->pstr->stream, channel);
-	snd_assert(channel_buf != NULL, return -EIO);
+	if (snd_BUG_ON(!channel_buf))
+		return -EIO;
 	memset(channel_buf + pos * 4, 0, count * 4);
 	return count;
 }
@@ -3906,7 +3933,8 @@ static int snd_hdsp_channel_info(struct snd_pcm_substream *substream,
 	struct hdsp *hdsp = snd_pcm_substream_chip(substream);
 	int mapped_channel;
 
-	snd_assert(info->channel < hdsp->max_channels, return -EINVAL);
+	if (snd_BUG_ON(info->channel >= hdsp->max_channels))
+		return -EINVAL;
 
 	if ((mapped_channel = hdsp->channel_map[info->channel]) < 0)
 		return -EINVAL;
@@ -4685,8 +4713,7 @@ static struct snd_pcm_ops snd_hdsp_capture_ops = {
 	.copy =		snd_hdsp_capture_copy,
 };
 
-static int __devinit snd_hdsp_create_hwdep(struct snd_card *card,
-					   struct hdsp *hdsp)
+static int snd_hdsp_create_hwdep(struct snd_card *card, struct hdsp *hdsp)
 {
 	struct snd_hwdep *hw;
 	int err;
@@ -4854,7 +4881,7 @@ static int snd_hdsp_create_alsa_devices(struct snd_card *card, struct hdsp *hdsp
 
 #ifdef HDSP_FW_LOADER
 /* load firmware via hotplug fw loader */
-static int __devinit hdsp_request_fw_loader(struct hdsp *hdsp)
+static int hdsp_request_fw_loader(struct hdsp *hdsp)
 {
 	const char *fwfile;
 	const struct firmware *fw;

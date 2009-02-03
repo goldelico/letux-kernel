@@ -24,10 +24,12 @@
  *
  */
 
+#include <linux/module.h>
 #include <linux/io.h>
 #include <linux/irq.h>
 
 #include <asm/gpio.h>
+#include <mach/regs-gpio.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 
 /**

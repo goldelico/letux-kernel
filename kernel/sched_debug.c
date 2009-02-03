@@ -67,14 +67,24 @@ print_task(struct seq_file *m, struct rq *rq, struct task_struct *p)
 		(long long)(p->nvcsw + p->nivcsw),
 		p->prio);
 #ifdef CONFIG_SCHEDSTATS
-	SEQ_printf(m, "%9Ld.%06ld %9Ld.%06ld %9Ld.%06ld\n",
+	SEQ_printf(m, "%9Ld.%06ld %9Ld.%06ld %9Ld.%06ld",
 		SPLIT_NS(p->se.vruntime),
 		SPLIT_NS(p->se.sum_exec_runtime),
 		SPLIT_NS(p->se.sum_sleep_runtime));
 #else
-	SEQ_printf(m, "%15Ld %15Ld %15Ld.%06ld %15Ld.%06ld %15Ld.%06ld\n",
+	SEQ_printf(m, "%15Ld %15Ld %15Ld.%06ld %15Ld.%06ld %15Ld.%06ld",
 		0LL, 0LL, 0LL, 0L, 0LL, 0L, 0LL, 0L);
 #endif
+
+#ifdef CONFIG_CGROUP_SCHED
+	{
+		char path[64];
+
+		cgroup_path(task_group(p)->css.cgroup, path, sizeof(path));
+		SEQ_printf(m, " %s", path);
+	}
+#endif
+	SEQ_printf(m, "\n");
 }
 
 static void print_rq(struct seq_file *m, struct rq *rq, int rq_cpu)
@@ -109,7 +119,21 @@ void print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 	struct sched_entity *last;
 	unsigned long flags;
 
-	SEQ_printf(m, "\ncfs_rq\n");
+#if defined(CONFIG_CGROUP_SCHED) && defined(CONFIG_FAIR_GROUP_SCHED)
+	char path[128] = "";
+	struct cgroup *cgroup = NULL;
+	struct task_group *tg = cfs_rq->tg;
+
+	if (tg)
+		cgroup = tg->css.cgroup;
+
+	if (cgroup)
+		cgroup_path(cgroup, path, sizeof(path));
+
+	SEQ_printf(m, "\ncfs_rq[%d]:%s\n", cpu, path);
+#else
+	SEQ_printf(m, "\ncfs_rq[%d]:\n", cpu);
+#endif
 
 	SEQ_printf(m, "  .%-30s: %Ld.%06ld\n", "exec_clock",
 			SPLIT_NS(cfs_rq->exec_clock));
@@ -138,11 +162,64 @@ void print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 	SEQ_printf(m, "  .%-30s: %ld\n", "nr_running", cfs_rq->nr_running);
 	SEQ_printf(m, "  .%-30s: %ld\n", "load", cfs_rq->load.weight);
 #ifdef CONFIG_SCHEDSTATS
-	SEQ_printf(m, "  .%-30s: %d\n", "bkl_count",
-			rq->bkl_count);
+#define P(n) SEQ_printf(m, "  .%-30s: %d\n", #n, rq->n);
+
+	P(yld_exp_empty);
+	P(yld_act_empty);
+	P(yld_both_empty);
+	P(yld_count);
+
+	P(sched_switch);
+	P(sched_count);
+	P(sched_goidle);
+
+	P(ttwu_count);
+	P(ttwu_local);
+
+	P(bkl_count);
+
+#undef P
 #endif
 	SEQ_printf(m, "  .%-30s: %ld\n", "nr_spread_over",
 			cfs_rq->nr_spread_over);
+#ifdef CONFIG_FAIR_GROUP_SCHED
+#ifdef CONFIG_SMP
+	SEQ_printf(m, "  .%-30s: %lu\n", "shares", cfs_rq->shares);
+#endif
+#endif
+}
+
+void print_rt_rq(struct seq_file *m, int cpu, struct rt_rq *rt_rq)
+{
+#if defined(CONFIG_CGROUP_SCHED) && defined(CONFIG_RT_GROUP_SCHED)
+	char path[128] = "";
+	struct cgroup *cgroup = NULL;
+	struct task_group *tg = rt_rq->tg;
+
+	if (tg)
+		cgroup = tg->css.cgroup;
+
+	if (cgroup)
+		cgroup_path(cgroup, path, sizeof(path));
+
+	SEQ_printf(m, "\nrt_rq[%d]:%s\n", cpu, path);
+#else
+	SEQ_printf(m, "\nrt_rq[%d]:\n", cpu);
+#endif
+
+
+#define P(x) \
+	SEQ_printf(m, "  .%-30s: %Ld\n", #x, (long long)(rt_rq->x))
+#define PN(x) \
+	SEQ_printf(m, "  .%-30s: %Ld.%06ld\n", #x, SPLIT_NS(rt_rq->x))
+
+	P(rt_nr_running);
+	P(rt_throttled);
+	PN(rt_time);
+	PN(rt_runtime);
+
+#undef PN
+#undef P
 }
 
 static void print_cpu(struct seq_file *m, int cpu)
@@ -175,12 +252,6 @@ static void print_cpu(struct seq_file *m, int cpu)
 	PN(next_balance);
 	P(curr->pid);
 	PN(clock);
-	PN(idle_clock);
-	PN(prev_clock_raw);
-	P(clock_warps);
-	P(clock_overflows);
-	P(clock_deep_idle_events);
-	PN(clock_max_delta);
 	P(cpu_load[0]);
 	P(cpu_load[1]);
 	P(cpu_load[2]);
@@ -190,6 +261,7 @@ static void print_cpu(struct seq_file *m, int cpu)
 #undef PN
 
 	print_cfs_stats(m, cpu);
+	print_rt_stats(m, cpu);
 
 	print_rq(m, rq, cpu);
 }
@@ -213,7 +285,6 @@ static int sched_debug_show(struct seq_file *m, void *v)
 	PN(sysctl_sched_latency);
 	PN(sysctl_sched_min_granularity);
 	PN(sysctl_sched_wakeup_granularity);
-	PN(sysctl_sched_batch_wakeup_granularity);
 	PN(sysctl_sched_child_runs_first);
 	P(sysctl_sched_features);
 #undef PN
@@ -248,12 +319,9 @@ static int __init init_sched_debug_procfs(void)
 {
 	struct proc_dir_entry *pe;
 
-	pe = create_proc_entry("sched_debug", 0644, NULL);
+	pe = proc_create("sched_debug", 0444, NULL, &sched_debug_fops);
 	if (!pe)
 		return -ENOMEM;
-
-	pe->proc_fops = &sched_debug_fops;
-
 	return 0;
 }
 
@@ -265,12 +333,10 @@ void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 	unsigned long flags;
 	int num_threads = 1;
 
-	rcu_read_lock();
 	if (lock_task_sighand(p, &flags)) {
 		num_threads = atomic_read(&p->signal->count);
 		unlock_task_sighand(p, &flags);
 	}
-	rcu_read_unlock();
 
 	SEQ_printf(m, "%s (%d, #threads: %d)\n", p->comm, p->pid, num_threads);
 	SEQ_printf(m,
@@ -287,6 +353,7 @@ void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 	PN(se.exec_start);
 	PN(se.vruntime);
 	PN(se.sum_exec_runtime);
+	PN(se.avg_overlap);
 
 	nr_switches = p->nvcsw + p->nivcsw;
 
@@ -299,6 +366,8 @@ void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 	PN(se.exec_max);
 	PN(se.slice_max);
 	PN(se.wait_max);
+	PN(se.wait_sum);
+	P(se.wait_count);
 	P(sched_info.bkl_count);
 	P(se.nr_migrations);
 	P(se.nr_migrations_cold);
@@ -328,8 +397,8 @@ void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 
 		avg_per_cpu = p->se.sum_exec_runtime;
 		if (p->se.nr_migrations) {
-			avg_per_cpu = div64_64(avg_per_cpu,
-					       p->se.nr_migrations);
+			avg_per_cpu = div64_u64(avg_per_cpu,
+						p->se.nr_migrations);
 		} else {
 			avg_per_cpu = -1LL;
 		}
@@ -366,6 +435,8 @@ void proc_sched_set_task(struct task_struct *p)
 {
 #ifdef CONFIG_SCHEDSTATS
 	p->se.wait_max				= 0;
+	p->se.wait_sum				= 0;
+	p->se.wait_count			= 0;
 	p->se.sleep_max				= 0;
 	p->se.sum_sleep_runtime			= 0;
 	p->se.block_max				= 0;

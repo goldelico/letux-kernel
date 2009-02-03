@@ -83,23 +83,18 @@ EXPORT_SYMBOL_GPL(pcibios_remove_pci_devices);
 
 /* Must be called before pci_bus_add_devices */
 void
-pcibios_fixup_new_pci_devices(struct pci_bus *bus, int fix_bus)
+pcibios_fixup_new_pci_devices(struct pci_bus *bus)
 {
 	struct pci_dev *dev;
 
 	list_for_each_entry(dev, &bus->devices, bus_list) {
-		/*
-		 * Skip already-present devices (which are on the
-		 * global device list.)
-		 */
-		if (list_empty(&dev->global_list)) {
+		/* Skip already-added devices */
+		if (!dev->is_added) {
 			int i;
 
 			/* Fill device archdata and setup iommu table */
 			pcibios_setup_new_device(dev);
 
-			if(fix_bus)
-				pcibios_fixup_device_resources(dev, bus);
 			pci_read_irq_line(dev);
 			for (i = 0; i < PCI_NUM_RESOURCES; i++) {
 				struct resource *r = &dev->resource[i];
@@ -125,15 +120,15 @@ pcibios_pci_config_bridge(struct pci_dev *dev)
 	/* Add to children of PCI bridge dev->bus */
 	child_bus = pci_add_new_bus(dev->bus, dev, sec_busno);
 	if (!child_bus) {
-		printk (KERN_ERR "%s: could not add second bus\n", __FUNCTION__);
+		printk (KERN_ERR "%s: could not add second bus\n", __func__);
 		return -EIO;
 	}
 	sprintf(child_bus->name, "PCI Bus #%02x", child_bus->number);
 
 	pci_scan_child_bus(child_bus);
 
-	/* Fixup new pci devices without touching bus struct */
-	pcibios_fixup_new_pci_devices(child_bus, 0);
+	/* Fixup new pci devices */
+	pcibios_fixup_new_pci_devices(child_bus);
 
 	/* Make the discovered devices available */
 	pci_bus_add_devices(child_bus);
@@ -169,7 +164,7 @@ pcibios_add_pci_devices(struct pci_bus * bus)
 		/* use ofdt-based probe */
 		of_scan_bus(dn, bus);
 		if (!list_empty(&bus->devices)) {
-			pcibios_fixup_new_pci_devices(bus, 0);
+			pcibios_fixup_new_pci_devices(bus);
 			pci_bus_add_devices(bus);
 			eeh_add_device_tree_late(bus);
 		}
@@ -178,7 +173,7 @@ pcibios_add_pci_devices(struct pci_bus * bus)
 		slotno = PCI_SLOT(PCI_DN(dn->child)->devfn);
 		num = pci_scan_slot(bus, PCI_DEVFN(slotno, 0));
 		if (num) {
-			pcibios_fixup_new_pci_devices(bus, 1);
+			pcibios_fixup_new_pci_devices(bus);
 			pci_bus_add_devices(bus);
 			eeh_add_device_tree_late(bus);
 		}
@@ -208,7 +203,8 @@ struct pci_controller * __devinit init_phb_dynamic(struct device_node *dn)
 		eeh_add_device_tree_early(dn);
 
 	scan_phb(phb);
-	pcibios_fixup_new_pci_devices(phb->bus, 0);
+	pcibios_allocate_bus_resources(phb->bus);
+	pcibios_fixup_new_pci_devices(phb->bus);
 	pci_bus_add_devices(phb->bus);
 	eeh_add_device_tree_late(phb->bus);
 

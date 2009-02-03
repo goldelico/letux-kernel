@@ -26,13 +26,13 @@
 
 #include <linux/linkage.h>
 #include <asm/assembler.h>
-#include <asm/hardware.h>
-#include <asm/arch/map.h>
+#include <mach/hardware.h>
+#include <mach/map.h>
 
-#include <asm/arch/regs-gpio.h>
-#include <asm/arch/regs-clock.h>
-#include <asm/arch/regs-mem.h>
-#include <asm/plat-s3c/regs-serial.h>
+#include <mach/regs-gpio.h>
+#include <mach/regs-clock.h>
+#include <mach/regs-mem.h>
+#include <plat/regs-serial.h>
 
 /* CONFIG_DEBUG_RESUME is dangerous if your bootloader does not
  * reset the UART configuration, only enable if you really need this!
@@ -41,7 +41,7 @@
 
 	.text
 
-	/* s3c2410_cpu_save
+	/* s3c_cpu_save
 	 *
 	 * save enough of the CPU state to allow us to re-start
 	 * pm.c code. as we store items like the sp/lr, we will
@@ -59,7 +59,7 @@
 	 *	     1 => resumed from sleep
 	*/
 
-ENTRY(s3c2410_cpu_save)
+ENTRY(s3c_cpu_save)
 	stmfd	sp!, { r4 - r12, lr }
 
 	@@ store co-processor registers
@@ -84,7 +84,7 @@ resume_with_mmu:
 	.ltorg
 
 	@@ the next bits sit in the .data segment, even though they
-	@@ happen to be code... the s3c2410_sleep_save_phys needs to be
+	@@ happen to be code... the s3c_sleep_save_phys needs to be
 	@@ accessed by the resume code before it can restore the MMU.
 	@@ This means that the variable has to be close enough for the
 	@@ code to read it... since the .text segment needs to be RO,
@@ -92,19 +92,19 @@ resume_with_mmu:
 
 	.data
 
-	.global	s3c2410_sleep_save_phys
-s3c2410_sleep_save_phys:
+	.global	s3c_sleep_save_phys
+s3c_sleep_save_phys:
 	.word	0
 
 
 	/* sleep magic, to allow the bootloader to check for an valid
 	 * image to resume to. Must be the first word before the
-	 * s3c2410_cpu_resume entry.
+	 * s3c_cpu_resume entry.
 	*/
 
 	.word	0x2bedf00d
 
-	/* s3c2410_cpu_resume
+	/* s3c_cpu_resume
 	 *
 	 * resume code entry for bootloader to call
 	 *
@@ -113,7 +113,7 @@ s3c2410_sleep_save_phys:
 	 * must not write to the code segment (code is read-only)
 	*/
 
-ENTRY(s3c2410_cpu_resume)
+ENTRY(s3c_cpu_resume)
 	mov	r0, #PSR_I_BIT | PSR_F_BIT | SVC_MODE
 	msr	cpsr_c, r0
 
@@ -145,7 +145,7 @@ ENTRY(s3c2410_cpu_resume)
 	mcr	p15, 0, r1, c8, c7, 0		@@ invalidate I & D TLBs
 	mcr	p15, 0, r1, c7, c7, 0		@@ invalidate I & D caches
 
-	ldr	r0, s3c2410_sleep_save_phys	@ address of restore block
+	ldr	r0, s3c_sleep_save_phys		@ address of restore block
 	ldmia	r0, { r4 - r13 }
 
 	mcr	p15, 0, r4, c13, c0, 0		@ PID

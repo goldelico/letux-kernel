@@ -6,8 +6,9 @@
 # for more details.
 #
 
-
-CROSS_COMPILE    ?= bfin-uclinux-
+ifeq ($(CROSS_COMPILE),)
+CROSS_COMPILE    := bfin-uclinux-
+endif
 LDFLAGS_vmlinux  := -X
 OBJCOPYFLAGS     := -O binary -R .note -R .comment -S
 GZFLAGS          := -9
@@ -21,7 +22,10 @@ KBUILD_DEFCONFIG := BF537-STAMP_defconfig
 
 # setup the machine name and the machine dependent settings
 machine-$(CONFIG_BF522) := bf527
+machine-$(CONFIG_BF523) := bf527
+machine-$(CONFIG_BF524) := bf527
 machine-$(CONFIG_BF525) := bf527
+machine-$(CONFIG_BF526) := bf527
 machine-$(CONFIG_BF527) := bf527
 machine-$(CONFIG_BF531) := bf533
 machine-$(CONFIG_BF532) := bf533
@@ -39,7 +43,10 @@ MACHINE := $(machine-y)
 export MACHINE
 
 cpu-$(CONFIG_BF522) := bf522
+cpu-$(CONFIG_BF523) := bf523
+cpu-$(CONFIG_BF524) := bf524
 cpu-$(CONFIG_BF525) := bf525
+cpu-$(CONFIG_BF526) := bf526
 cpu-$(CONFIG_BF527) := bf527
 cpu-$(CONFIG_BF531) := bf531
 cpu-$(CONFIG_BF532) := bf532
@@ -60,11 +67,17 @@ rev-$(CONFIG_BF_REV_0_2)  := 0.2
 rev-$(CONFIG_BF_REV_0_3)  := 0.3
 rev-$(CONFIG_BF_REV_0_4)  := 0.4
 rev-$(CONFIG_BF_REV_0_5)  := 0.5
+rev-$(CONFIG_BF_REV_0_6)  := 0.6
 rev-$(CONFIG_BF_REV_NONE) := none
 rev-$(CONFIG_BF_REV_ANY)  := any
 
 KBUILD_CFLAGS += -mcpu=$(cpu-y)-$(rev-y)
 KBUILD_AFLAGS += -mcpu=$(cpu-y)-$(rev-y)
+
+# - we utilize the silicon rev from the toolchain, so move it over to the checkflags
+# - the l1_text attribute is Blackfin specific, so fake it out as used to kill warnings
+CHECKFLAGS_SILICON = $(shell echo "" | $(CPP) $(KBUILD_CFLAGS) -dD - 2>/dev/null | awk '$$2 == "__SILICON_REVISION__" { print $$3 }')
+CHECKFLAGS += -D__SILICON_REVISION__=$(CHECKFLAGS_SILICON) -Dl1_text=__used__
 
 head-y   := arch/$(ARCH)/mach-$(MACHINE)/head.o arch/$(ARCH)/kernel/init_task.o
 
@@ -76,37 +89,31 @@ core-y   += arch/$(ARCH)/mach-$(MACHINE)/
 core-y   += arch/$(ARCH)/mach-$(MACHINE)/boards/
 endif
 
+ifeq ($(CONFIG_MPU),y)
+core-y	+= arch/$(ARCH)/kernel/cplb-mpu/
+else
+core-y	+= arch/$(ARCH)/kernel/cplb-nompu/
+endif
+
 libs-y   += arch/$(ARCH)/lib/
 
 drivers-$(CONFIG_OPROFILE) += arch/$(ARCH)/oprofile/
 
+machdirs	:= $(patsubst %,arch/blackfin/mach-%/, $(machine-y))
 
+KBUILD_CFLAGS += -Iarch/$(ARCH)/include/
+KBUILD_CFLAGS += -Iarch/$(ARCH)/mach-$(MACHINE)/include
 
-#	Update machine arch symlinks if something which affects
-#	them changed.  We use .mach to indicate when they were updated
-#	last, otherwise make uses the target directory mtime.
-
-include/asm-blackfin/.mach: $(wildcard include/config/arch/*.h) include/config/auto.conf
-	@echo '  SYMLINK include/asm-$(ARCH)/mach-$(MACHINE) -> include/asm-$(ARCH)/mach'
-ifneq ($(KBUILD_SRC),)
-	$(Q)mkdir -p include/asm-$(ARCH)
-	$(Q)ln -fsn $(srctree)/include/asm-$(ARCH)/mach-$(MACHINE) include/asm-$(ARCH)/mach
-else
-	$(Q)ln -fsn mach-$(MACHINE) include/asm-$(ARCH)/mach
-endif
-	@touch $@
+KBUILD_CPPFLAGS	+= $(patsubst %,-I$(srctree)/%include,$(machdirs))
 
 CLEAN_FILES += \
-	include/asm-$(ARCH)/asm-offsets.h \
+	arch/$(ARCH)/include/asm/asm-offsets.h \
 	arch/$(ARCH)/kernel/asm-offsets.s \
-	include/asm-$(ARCH)/mach \
-	include/asm-$(ARCH)/.mach
 
-archprepare: include/asm-blackfin/.mach
 archclean:
 	$(Q)$(MAKE) $(clean)=$(boot)
 
-
+INSTALL_PATH ?= /tftpboot
 boot := arch/$(ARCH)/boot
 BOOT_TARGETS = vmImage
 PHONY += $(BOOT_TARGETS) install

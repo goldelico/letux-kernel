@@ -20,8 +20,8 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
-#include <asm/hardware.h>
-#include <asm/arch/gta01.h>
+#include <mach/hardware.h>
+#include <mach/gta01.h>
 
 struct gta01kbd {
 	struct input_dev *input;
@@ -124,8 +124,6 @@ static int gta01kbd_probe(struct platform_device *pdev)
 	input_dev->id.vendor = 0x0001;
 	input_dev->id.product = 0x0001;
 	input_dev->id.version = 0x0100;
-	input_dev->cdev.dev = &pdev->dev;
-	input_dev->private = gta01kbd;
 
 	input_dev->evbit[0] = BIT(EV_KEY);
 #if 0

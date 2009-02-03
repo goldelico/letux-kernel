@@ -324,7 +324,6 @@ void dma_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg, int nelems,
 		if (cpu_is_noncoherent_r10000(dev))
 			__dma_sync((unsigned long)page_address(sg_page(sg)),
 			           sg->length, direction);
-		plat_unmap_dma_mem(sg->dma_address);
 	}
 }
 
@@ -342,13 +341,12 @@ void dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg, int nele
 		if (!plat_device_is_coherent(dev))
 			__dma_sync((unsigned long)page_address(sg_page(sg)),
 			           sg->length, direction);
-		plat_unmap_dma_mem(sg->dma_address);
 	}
 }
 
 EXPORT_SYMBOL(dma_sync_sg_for_device);
 
-int dma_mapping_error(dma_addr_t dma_addr)
+int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
 {
 	return 0;
 }
@@ -383,7 +381,7 @@ void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
 	BUG_ON(direction == DMA_NONE);
 
 	if (!plat_device_is_coherent(dev))
-		dma_cache_wback_inv((unsigned long)vaddr, size);
+		__dma_sync((unsigned long)vaddr, size, direction);
 }
 
 EXPORT_SYMBOL(dma_cache_sync);

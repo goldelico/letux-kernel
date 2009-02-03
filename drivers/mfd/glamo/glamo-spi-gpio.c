@@ -30,7 +30,7 @@
 
 #include <linux/glamofb.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 
 #include "glamo-core.h"
 #include "glamo-regs.h"

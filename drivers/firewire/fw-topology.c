@@ -21,6 +21,8 @@
 #include <linux/module.h>
 #include <linux/wait.h>
 #include <linux/errno.h>
+#include <asm/bug.h>
+#include <asm/system.h>
 #include "fw-transaction.h"
 #include "fw-topology.h"
 
@@ -106,6 +108,7 @@ static struct fw_node *fw_node_create(u32 sid, int port_count, int color)
 	node->node_id = LOCAL_BUS | SELF_ID_PHY_ID(sid);
 	node->link_on = SELF_ID_LINK_ON(sid);
 	node->phy_speed = SELF_ID_PHY_SPEED(sid);
+	node->initiated_reset = SELF_ID_PHY_INITIATOR(sid);
 	node->port_count = port_count;
 
 	atomic_set(&node->ref_count, 1);
@@ -287,12 +290,11 @@ static struct fw_node *build_tree(struct fw_card *card,
 			beta_repeaters_present = true;
 
 		/*
-		 * If all PHYs does not report the same gap count
-		 * setting, we fall back to 63 which will force a gap
-		 * count reconfiguration and a reset.
+		 * If PHYs report different gap counts, set an invalid count
+		 * which will force a gap count reconfiguration and a reset.
 		 */
 		if (SELF_ID_GAP_COUNT(q) != gap_count)
-			gap_count = 63;
+			gap_count = 0;
 
 		update_hop_count(node);
 
@@ -382,6 +384,7 @@ void fw_destroy_nodes(struct fw_card *card)
 	card->color++;
 	if (card->local_node != NULL)
 		for_each_fw_node(card, card->local_node, report_lost_node);
+	card->local_node = NULL;
 	spin_unlock_irqrestore(&card->lock, flags);
 }
 
@@ -410,7 +413,7 @@ static void
 update_tree(struct fw_card *card, struct fw_node *root)
 {
 	struct list_head list0, list1;
-	struct fw_node *node0, *node1;
+	struct fw_node *node0, *node1, *next1;
 	int i, event;
 
 	INIT_LIST_HEAD(&list0);
@@ -422,12 +425,14 @@ update_tree(struct fw_card *card, struct fw_node *root)
 	node1 = fw_node(list1.next);
 
 	while (&node0->link != &list0) {
+		WARN_ON(node0->port_count != node1->port_count);
 
-		/* assert(node0->port_count == node1->port_count); */
 		if (node0->link_on && !node1->link_on)
 			event = FW_NODE_LINK_OFF;
 		else if (!node0->link_on && node1->link_on)
 			event = FW_NODE_LINK_ON;
+		else if (node1->initiated_reset && node1->link_on)
+			event = FW_NODE_INITIATED_RESET;
 		else
 			event = FW_NODE_UPDATED;
 
@@ -480,7 +485,9 @@ update_tree(struct fw_card *card, struct fw_node *root)
 		}
 
 		node0 = fw_node(node0->link.next);
-		node1 = fw_node(node1->link.next);
+		next1 = fw_node(node1->link.next);
+		fw_node_put(node1);
+		node1 = next1;
 	}
 }
 
@@ -505,8 +512,6 @@ fw_core_handle_bus_reset(struct fw_card *card,
 	struct fw_node *local_node;
 	unsigned long flags;
 
-	fw_flush_transactions(card);
-
 	spin_lock_irqsave(&card->lock, flags);
 
 	/*
@@ -518,6 +523,11 @@ fw_core_handle_bus_reset(struct fw_card *card,
 		card->bm_retries = 0;
 
 	card->node_id = node_id;
+	/*
+	 * Update node_id before generation to prevent anybody from using
+	 * a stale node_id together with a current generation.
+	 */
+	smp_wmb();
 	card->generation = generation;
 	card->reset_jiffies = jiffies;
 	schedule_delayed_work(&card->work, 0);

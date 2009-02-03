@@ -5,7 +5,7 @@
  *****************************************************************************/
 
 /*
- * Copyright (C) 2000 - 2007, R. Byron Moore
+ * Copyright (C) 2000 - 2008, Intel Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -100,7 +100,7 @@ static acpi_status acpi_tb_validate_rsdp(struct acpi_table_rsdp *rsdp)
 
 /*******************************************************************************
  *
- * FUNCTION:    acpi_tb_find_rsdp
+ * FUNCTION:    acpi_find_root_pointer
  *
  * PARAMETERS:  table_address           - Where the table pointer is returned
  *
@@ -118,7 +118,7 @@ static acpi_status acpi_tb_validate_rsdp(struct acpi_table_rsdp *rsdp)
  *
  ******************************************************************************/
 
-acpi_status acpi_find_root_pointer(acpi_native_uint * table_address)
+acpi_status acpi_find_root_pointer(acpi_size *table_address)
 {
 	u8 *table_ptr;
 	u8 *mem_rover;
@@ -153,7 +153,7 @@ acpi_status acpi_find_root_pointer(acpi_native_uint * table_address)
 		 * 1b) Search EBDA paragraphs (EBDA is required to be a
 		 *     minimum of 1_k length)
 		 */
-		table_ptr = acpi_os_map_memory((acpi_native_uint)
+		table_ptr = acpi_os_map_memory((acpi_physical_address)
 					       physical_address,
 					       ACPI_EBDA_WINDOW_SIZE);
 		if (!table_ptr) {
@@ -218,8 +218,6 @@ acpi_status acpi_find_root_pointer(acpi_native_uint * table_address)
 	ACPI_ERROR((AE_INFO, "A valid RSDP was not found"));
 	return_ACPI_STATUS(AE_NOT_FOUND);
 }
-
-ACPI_EXPORT_SYMBOL(acpi_find_root_pointer)
 
 /*******************************************************************************
  *

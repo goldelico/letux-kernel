@@ -19,12 +19,12 @@
 #include <linux/termios.h>
 #include <linux/amba/bus.h>
 #include <linux/amba/serial.h>
+#include <linux/io.h>
 
-#include <asm/hardware.h>
+#include <mach/hardware.h>
 #include <asm/irq.h>
-#include <asm/io.h>
 #include <asm/hardware/arm_timer.h>
-#include <asm/arch/cm.h>
+#include <mach/cm.h>
 #include <asm/system.h>
 #include <asm/leds.h>
 #include <asm/mach/time.h>
@@ -250,16 +250,12 @@ unsigned long integrator_gettimeoffset(void)
 static irqreturn_t
 integrator_timer_interrupt(int irq, void *dev_id)
 {
-	write_seqlock(&xtime_lock);
-
 	/*
 	 * clear the interrupt
 	 */
 	writel(1, TIMER1_VA_BASE + TIMER_INTCLR);
 
 	timer_tick();
-
-	write_sequnlock(&xtime_lock);
 
 	return IRQ_HANDLED;
 }

@@ -49,22 +49,22 @@
 #include <linux/i2c-algo-bit.h>
 #include <linux/list.h>
 #include <linux/unistd.h>
-#include <linux/byteorder/swab.h>
 #include <linux/pagemap.h>
 #include <linux/scatterlist.h>
 #include <linux/workqueue.h>
 #include <linux/mutex.h>
 #include <asm/uaccess.h>
 #include <asm/system.h>
+#include <asm/byteorder.h>
 
 #include <linux/dvb/video.h>
 #include <linux/dvb/audio.h>
 #include <media/v4l2-common.h>
+#include <media/v4l2-ioctl.h>
 #include <media/tuner.h>
 #include <media/cx2341x.h>
 
 #include <linux/ivtv.h>
-
 
 /* Memory layout */
 #define IVTV_ENCODER_OFFSET	0x00000000
@@ -251,6 +251,7 @@ struct ivtv_mailbox_data {
 #define IVTV_F_I_DEC_PAUSED	   20 	/* the decoder is paused */
 #define IVTV_F_I_INITED		   21 	/* set after first open */
 #define IVTV_F_I_FAILED		   22 	/* set if first open failed */
+#define IVTV_F_I_WORK_INITED       23	/* worker thread was initialized */
 
 /* Event notifications */
 #define IVTV_F_I_EV_DEC_STOPPED	   28	/* decoder stopped event */
@@ -260,6 +261,12 @@ struct ivtv_mailbox_data {
 
 /* Scatter-Gather array element, used in DMA transfers */
 struct ivtv_sg_element {
+	__le32 src;
+	__le32 dst;
+	__le32 size;
+};
+
+struct ivtv_sg_host_element {
 	u32 src;
 	u32 dst;
 	u32 size;
@@ -350,8 +357,8 @@ struct ivtv_stream {
 	u16 dma_xfer_cnt;
 
 	/* Base Dev SG Array for cx23415/6 */
-	struct ivtv_sg_element *sg_pending;
-	struct ivtv_sg_element *sg_processing;
+	struct ivtv_sg_host_element *sg_pending;
+	struct ivtv_sg_host_element *sg_processing;
 	struct ivtv_sg_element *sg_dma;
 	dma_addr_t sg_handle;
 	int sg_pending_size;
@@ -392,6 +399,9 @@ struct yuv_frame_info
 	u32 tru_h;
 	u32 offset_y;
 	s32 lace_mode;
+	u32 sync_field;
+	u32 delay;
+	u32 interlaced;
 };
 
 #define IVTV_YUV_MODE_INTERLACED	0x00
@@ -402,6 +412,8 @@ struct yuv_frame_info
 #define IVTV_YUV_SYNC_EVEN		0x00
 #define IVTV_YUV_SYNC_ODD		0x04
 #define IVTV_YUV_SYNC_MASK		0x04
+
+#define IVTV_YUV_BUFFERS 8
 
 struct yuv_playback_info
 {
@@ -452,6 +464,8 @@ struct yuv_playback_info
 	int v_filter_2;
 	int h_filter;
 
+	u8 track_osd; /* Should yuv output track the OSD size & position */
+
 	u32 osd_x_offset;
 	u32 osd_y_offset;
 
@@ -461,9 +475,10 @@ struct yuv_playback_info
 	u32 osd_vis_w;
 	u32 osd_vis_h;
 
-	int decode_height;
+	u32 osd_full_w;
+	u32 osd_full_h;
 
-	int frame_interlaced;
+	int decode_height;
 
 	int lace_mode;
 	int lace_threshold;
@@ -475,16 +490,25 @@ struct yuv_playback_info
 	u32 yuv_forced_update;
 	int update_frame;
 
-	int sync_field[4];  /* Field to sync on */
-	int field_delay[4]; /* Flag to extend duration of previous frame */
 	u8 fields_lapsed;   /* Counter used when delaying a frame */
 
-	struct yuv_frame_info new_frame_info[4];
+	struct yuv_frame_info new_frame_info[IVTV_YUV_BUFFERS];
 	struct yuv_frame_info old_frame_info;
 	struct yuv_frame_info old_frame_info_args;
 
 	void *blanking_ptr;
 	dma_addr_t blanking_dmaptr;
+
+	int stream_size;
+
+	u8 draw_frame; /* PVR350 buffer to draw into */
+	u8 max_frames_buffered; /* Maximum number of frames to buffer */
+
+	struct v4l2_rect main_rect;
+	u32 v4l2_src_w;
+	u32 v4l2_src_h;
+
+	u8 running; /* Have any frames been displayed */
 };
 
 #define IVTV_VBI_FRAMES 32
@@ -577,13 +601,13 @@ struct ivtv {
 	struct pci_dev *dev;		/* PCI device */
 	const struct ivtv_card *card;	/* card information */
 	const char *card_name;          /* full name of the card */
+	const struct ivtv_card_tuner_i2c *card_i2c; /* i2c addresses to probe for tuner */
 	u8 has_cx23415;			/* 1 if it is a cx23415 based card, 0 for cx23416 */
 	u8 pvr150_workaround;           /* 1 if the cx25840 needs to workaround a PVR150 bug */
 	u8 nof_inputs;			/* number of video inputs */
 	u8 nof_audio_inputs;		/* number of audio inputs */
 	u32 v4l2_cap;			/* V4L2 capabilities of card */
 	u32 hw_flags; 			/* hardware description of the board */
-	int tunerid;			/* userspace tuner ID for experimental Xceive tuner support */
 	v4l2_std_id tuner_std;		/* the norm of the card's tuner (fixed) */
 					/* controlling video decoder function */
 	int (*video_dec_func)(struct ivtv *, unsigned int, void *);
@@ -614,7 +638,6 @@ struct ivtv {
 	/* Locking */
 	spinlock_t lock;                /* lock access to this struct */
 	struct mutex serialize_lock;    /* mutex used to serialize open/close/start/stop/ioctl operations */
-
 
 	/* Streams */
 	int stream_buf_size[IVTV_MAX_STREAMS];          /* stream buffer size */
@@ -729,6 +752,12 @@ void ivtv_read_eeprom(struct ivtv *itv, struct tveeprom *tv);
 
 /* First-open initialization: load firmware, init cx25840, etc. */
 int ivtv_init_on_first_open(struct ivtv *itv);
+
+/* Test if the current VBI mode is raw (1) or sliced (0) */
+static inline int ivtv_raw_vbi(const struct ivtv *itv)
+{
+	return itv->vbi.in.type == V4L2_BUF_TYPE_VBI_CAPTURE;
+}
 
 /* This is a PCI post thing, where if the pci register is not read, then
    the write doesn't always take effect right away. By reading back the

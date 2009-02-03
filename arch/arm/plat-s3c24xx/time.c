@@ -34,9 +34,9 @@
 
 #include <asm/io.h>
 #include <asm/irq.h>
-#include <asm/arch/map.h>
+#include <mach/map.h>
 #include <asm/plat-s3c/regs-timer.h>
-#include <asm/arch/regs-irq.h>
+#include <mach/regs-irq.h>
 #include <asm/mach/time.h>
 
 #include <asm/plat-s3c24xx/clock.h>
@@ -136,9 +136,7 @@ static unsigned long s3c2410_gettimeoffset (void)
 static irqreturn_t
 s3c2410_timer_interrupt(int irq, void *dev_id)
 {
-	write_seqlock(&xtime_lock);
 	timer_tick();
-	write_sequnlock(&xtime_lock);
 	return IRQ_HANDLED;
 }
 

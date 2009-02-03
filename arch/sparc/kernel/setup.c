@@ -1,4 +1,4 @@
-/*  $Id: setup.c,v 1.126 2001/11/13 00:49:27 davem Exp $
+/*
  *  linux/arch/sparc/kernel/setup.c
  *
  *  Copyright (C) 1995  David S. Miller (davem@caip.rutgers.edu)
@@ -16,7 +16,6 @@
 #include <linux/initrd.h>
 #include <asm/smp.h>
 #include <linux/user.h>
-#include <linux/a.out.h>
 #include <linux/screen_info.h>
 #include <linux/delay.h>
 #include <linux/fs.h>
@@ -66,10 +65,9 @@ struct screen_info screen_info = {
  */
 
 extern unsigned long trapbase;
-void (*prom_palette)(int);
 
 /* Pretty sick eh? */
-void prom_sync_me(void)
+static void prom_sync_me(void)
 {
 	unsigned long prom_tbr, flags;
 
@@ -81,8 +79,6 @@ void prom_sync_me(void)
 			     "nop\n\t"
 			     "nop\n\t" : : "r" (&trapbase));
 
-	if (prom_palette)
-		prom_palette(1);
 	prom_printf("PROM SYNC COMMAND...\n");
 	show_free_areas();
 	if(current->pid != 0) {
@@ -101,7 +97,7 @@ void prom_sync_me(void)
 	return;
 }
 
-unsigned int boot_flags __initdata = 0;
+static unsigned int boot_flags __initdata = 0;
 #define BOOTME_DEBUG  0x1
 
 /* Exported for mm/init.c:paging_init. */
@@ -184,15 +180,12 @@ static void __init boot_flags_init(char *commands)
 
 /* This routine will in the future do all the nasty prom stuff
  * to probe for the mmu type and its parameters, etc. This will
- * also be where SMP things happen plus the Sparc specific memory
- * physical memory probe as on the alpha.
+ * also be where SMP things happen.
  */
 
-extern int prom_probe_memory(void);
 extern void sun4c_probe_vac(void);
 extern char cputypval;
 extern unsigned long start, end;
-extern void panic_setup(char *, int *);
 
 extern unsigned short root_flags;
 extern unsigned short root_dev;
@@ -220,23 +213,25 @@ void __init setup_arch(char **cmdline_p)
 	/* Initialize PROM console and command line. */
 	*cmdline_p = prom_getbootargs();
 	strcpy(boot_command_line, *cmdline_p);
+	parse_early_param();
 
 	/* Set sparc_cpu_model */
 	sparc_cpu_model = sun_unknown;
-	if(!strcmp(&cputypval,"sun4 ")) { sparc_cpu_model=sun4; }
-	if(!strcmp(&cputypval,"sun4c")) { sparc_cpu_model=sun4c; }
-	if(!strcmp(&cputypval,"sun4m")) { sparc_cpu_model=sun4m; }
-	if(!strcmp(&cputypval,"sun4s")) { sparc_cpu_model=sun4m; }  /* CP-1200 with PROM 2.30 -E */
-	if(!strcmp(&cputypval,"sun4d")) { sparc_cpu_model=sun4d; }
-	if(!strcmp(&cputypval,"sun4e")) { sparc_cpu_model=sun4e; }
-	if(!strcmp(&cputypval,"sun4u")) { sparc_cpu_model=sun4u; }
+	if (!strcmp(&cputypval,"sun4 "))
+		sparc_cpu_model = sun4;
+	if (!strcmp(&cputypval,"sun4c"))
+		sparc_cpu_model = sun4c;
+	if (!strcmp(&cputypval,"sun4m"))
+		sparc_cpu_model = sun4m;
+	if (!strcmp(&cputypval,"sun4s"))
+		sparc_cpu_model = sun4m; /* CP-1200 with PROM 2.30 -E */
+	if (!strcmp(&cputypval,"sun4d"))
+		sparc_cpu_model = sun4d;
+	if (!strcmp(&cputypval,"sun4e"))
+		sparc_cpu_model = sun4e;
+	if (!strcmp(&cputypval,"sun4u"))
+		sparc_cpu_model = sun4u;
 
-#ifdef CONFIG_SUN4
-	if (sparc_cpu_model != sun4) {
-		prom_printf("This kernel is for Sun4 architecture only.\n");
-		prom_halt();
-	}
-#endif
 	printk("ARCH: ");
 	switch(sparc_cpu_model) {
 	case sun4:
@@ -270,10 +265,9 @@ void __init setup_arch(char **cmdline_p)
 	boot_flags_init(*cmdline_p);
 
 	idprom_init();
-	if (ARCH_SUN4C_SUN4)
+	if (ARCH_SUN4C)
 		sun4c_probe_vac();
 	load_mmu();
-	(void) prom_probe_memory();
 
 	phys_base = 0xffffffffUL;
 	highest_paddr = 0UL;

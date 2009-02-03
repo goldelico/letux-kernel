@@ -482,7 +482,6 @@
 static char version[] __devinitdata = "de4x5.c:V0.546 2001/02/22 davies@maniac.ultranet.com\n";
 
 #define c_char const char
-#define TWIDDLE(a) (u_short)le16_to_cpu(get_unaligned((__le16 *)(a)))
 
 /*
 ** MII Information
@@ -833,7 +832,7 @@ struct de4x5_private {
 	s32 csr14;                          /* Saved SIA TX/RX Register     */
 	s32 csr15;                          /* Saved SIA General Register   */
 	int save_cnt;                       /* Flag if state already saved  */
-	struct sk_buff *skb;                /* Save the (re-ordered) skb's  */
+	struct sk_buff_head queue;          /* Save the (re-ordered) skb's  */
     } cache;
     struct de4x5_srom srom;                 /* A copy of the SROM           */
     int cfrv;				    /* Card CFRV copy */
@@ -1129,6 +1128,7 @@ de4x5_hw_init(struct net_device *dev, u_long iobase, struct device *gendev)
 	printk("      which has an Ethernet PROM CRC error.\n");
 	return -ENXIO;
     } else {
+	skb_queue_head_init(&lp->cache.queue);
 	lp->cache.gepc = GEP_INIT;
 	lp->asBit = GEP_SLNK;
 	lp->asPolarity = GEP_SLNK;
@@ -1488,7 +1488,7 @@ de4x5_queue_pkt(struct sk_buff *skb, struct net_device *dev)
 	}
     } else if (skb->len > 0) {
 	/* If we already have stuff queued locally, use that first */
-	if (lp->cache.skb && !lp->interrupt) {
+	if (!skb_queue_empty(&lp->cache.queue) && !lp->interrupt) {
 	    de4x5_put_cache(dev, skb);
 	    skb = de4x5_get_cache(dev);
 	}
@@ -1581,7 +1581,7 @@ de4x5_interrupt(int irq, void *dev_id)
 
     /* Load the TX ring with any locally stored packets */
     if (!test_and_set_bit(0, (void *)&lp->cache.lock)) {
-	while (lp->cache.skb && !netif_queue_stopped(dev) && lp->tx_enable) {
+	while (!skb_queue_empty(&lp->cache.queue) && !netif_queue_stopped(dev) && lp->tx_enable) {
 	    de4x5_queue_pkt(de4x5_get_cache(dev), dev);
 	}
 	lp->cache.lock = 0;
@@ -3680,11 +3680,7 @@ de4x5_free_tx_buffs(struct net_device *dev)
     }
 
     /* Unload the locally queued packets */
-    while (lp->cache.skb) {
-	dev_kfree_skb(de4x5_get_cache(dev));
-    }
-
-    return;
+    __skb_queue_purge(&lp->cache.queue);
 }
 
 /*
@@ -3782,43 +3778,24 @@ static void
 de4x5_put_cache(struct net_device *dev, struct sk_buff *skb)
 {
     struct de4x5_private *lp = netdev_priv(dev);
-    struct sk_buff *p;
 
-    if (lp->cache.skb) {
-	for (p=lp->cache.skb; p->next; p=p->next);
-	p->next = skb;
-    } else {
-	lp->cache.skb = skb;
-    }
-    skb->next = NULL;
-
-    return;
+    __skb_queue_tail(&lp->cache.queue, skb);
 }
 
 static void
 de4x5_putb_cache(struct net_device *dev, struct sk_buff *skb)
 {
     struct de4x5_private *lp = netdev_priv(dev);
-    struct sk_buff *p = lp->cache.skb;
 
-    lp->cache.skb = skb;
-    skb->next = p;
-
-    return;
+    __skb_queue_head(&lp->cache.queue, skb);
 }
 
 static struct sk_buff *
 de4x5_get_cache(struct net_device *dev)
 {
     struct de4x5_private *lp = netdev_priv(dev);
-    struct sk_buff *p = lp->cache.skb;
 
-    if (p) {
-	lp->cache.skb = p->next;
-	p->next = NULL;
-    }
-
-    return p;
+    return __skb_dequeue(&lp->cache.queue);
 }
 
 /*
@@ -4168,7 +4145,7 @@ de4x5_bad_srom(struct de4x5_private *lp)
 {
     int i, status = 0;
 
-    for (i=0; i<sizeof(enet_det)/ETH_ALEN; i++) {
+    for (i = 0; i < ARRAY_SIZE(enet_det); i++) {
 	if (!de4x5_strncmp((char *)&lp->srom, (char *)&enet_det[i], 3) &&
 	    !de4x5_strncmp((char *)&lp->srom+0x10, (char *)&enet_det[i], 3)) {
 	    if (i == 0) {
@@ -4188,7 +4165,7 @@ de4x5_strncmp(char *a, char *b, int n)
 {
     int ret=0;
 
-    for (;n && !ret;n--) {
+    for (;n && !ret; n--) {
 	ret = *a++ - *b++;
     }
 
@@ -4405,7 +4382,7 @@ srom_infoleaf_info(struct net_device *dev)
 	}
     }
 
-    lp->infoleaf_offset = TWIDDLE(p+1);
+	lp->infoleaf_offset = get_unaligned_le16(p + 1);
 
     return 0;
 }
@@ -4476,7 +4453,7 @@ srom_exec(struct net_device *dev, u_char *p)
 
     while (count--) {
 	gep_wr(((lp->chipset==DC21140) && (lp->ibn!=5) ?
-		                                   *p++ : TWIDDLE(w++)), dev);
+		                                   *p++ : get_unaligned_le16(w++)), dev);
 	mdelay(2);                          /* 2ms per action */
     }
 
@@ -4711,10 +4688,10 @@ type1_infoblock(struct net_device *dev, u_char count, u_char *p)
 	lp->active = *p++;
 	lp->phy[lp->active].gep = (*p ? p : NULL); p += (*p + 1);
 	lp->phy[lp->active].rst = (*p ? p : NULL); p += (*p + 1);
-	lp->phy[lp->active].mc  = TWIDDLE(p); p += 2;
-	lp->phy[lp->active].ana = TWIDDLE(p); p += 2;
-	lp->phy[lp->active].fdx = TWIDDLE(p); p += 2;
-	lp->phy[lp->active].ttm = TWIDDLE(p);
+	lp->phy[lp->active].mc  = get_unaligned_le16(p); p += 2;
+	lp->phy[lp->active].ana = get_unaligned_le16(p); p += 2;
+	lp->phy[lp->active].fdx = get_unaligned_le16(p); p += 2;
+	lp->phy[lp->active].ttm = get_unaligned_le16(p);
 	return 0;
     } else if ((lp->media == INIT) && (lp->timeout < 0)) {
         lp->ibn = 1;
@@ -4751,16 +4728,16 @@ type2_infoblock(struct net_device *dev, u_char count, u_char *p)
 	lp->infoblock_media = (*p) & MEDIA_CODE;
 
         if ((*p++) & EXT_FIELD) {
-	    lp->cache.csr13 = TWIDDLE(p); p += 2;
-	    lp->cache.csr14 = TWIDDLE(p); p += 2;
-	    lp->cache.csr15 = TWIDDLE(p); p += 2;
+	    lp->cache.csr13 = get_unaligned_le16(p); p += 2;
+	    lp->cache.csr14 = get_unaligned_le16(p); p += 2;
+	    lp->cache.csr15 = get_unaligned_le16(p); p += 2;
 	} else {
 	    lp->cache.csr13 = CSR13;
 	    lp->cache.csr14 = CSR14;
 	    lp->cache.csr15 = CSR15;
 	}
-        lp->cache.gepc = ((s32)(TWIDDLE(p)) << 16); p += 2;
-        lp->cache.gep  = ((s32)(TWIDDLE(p)) << 16);
+        lp->cache.gepc = ((s32)(get_unaligned_le16(p)) << 16); p += 2;
+        lp->cache.gep  = ((s32)(get_unaligned_le16(p)) << 16);
 	lp->infoblock_csr6 = OMR_SIA;
 	lp->useMII = false;
 
@@ -4792,10 +4769,10 @@ type3_infoblock(struct net_device *dev, u_char count, u_char *p)
 	if (MOTO_SROM_BUG) lp->active = 0;
 	lp->phy[lp->active].gep = (*p ? p : NULL); p += (2 * (*p) + 1);
 	lp->phy[lp->active].rst = (*p ? p : NULL); p += (2 * (*p) + 1);
-	lp->phy[lp->active].mc  = TWIDDLE(p); p += 2;
-	lp->phy[lp->active].ana = TWIDDLE(p); p += 2;
-	lp->phy[lp->active].fdx = TWIDDLE(p); p += 2;
-	lp->phy[lp->active].ttm = TWIDDLE(p); p += 2;
+	lp->phy[lp->active].mc  = get_unaligned_le16(p); p += 2;
+	lp->phy[lp->active].ana = get_unaligned_le16(p); p += 2;
+	lp->phy[lp->active].fdx = get_unaligned_le16(p); p += 2;
+	lp->phy[lp->active].ttm = get_unaligned_le16(p); p += 2;
 	lp->phy[lp->active].mci = *p;
 	return 0;
     } else if ((lp->media == INIT) && (lp->timeout < 0)) {
@@ -4835,8 +4812,8 @@ type4_infoblock(struct net_device *dev, u_char count, u_char *p)
         lp->cache.csr13 = CSR13;              /* Hard coded defaults */
 	lp->cache.csr14 = CSR14;
 	lp->cache.csr15 = CSR15;
-        lp->cache.gepc = ((s32)(TWIDDLE(p)) << 16); p += 2;
-        lp->cache.gep  = ((s32)(TWIDDLE(p)) << 16); p += 2;
+        lp->cache.gepc = ((s32)(get_unaligned_le16(p)) << 16); p += 2;
+        lp->cache.gep  = ((s32)(get_unaligned_le16(p)) << 16); p += 2;
 	csr6 = *p++;
 	flags = *p++;
 
@@ -5513,22 +5490,6 @@ de4x5_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	lp->tx_new = (++lp->tx_new) % lp->txRingSize;
 	outl(POLL_DEMAND, DE4X5_TPD);                /* Start the TX */
 	netif_wake_queue(dev);                      /* Unlock the TX ring */
-	break;
-
-    case DE4X5_SET_PROM:             /* Set Promiscuous Mode */
-	if (!capable(CAP_NET_ADMIN)) return -EPERM;
-	omr = inl(DE4X5_OMR);
-	omr |= OMR_PR;
-	outl(omr, DE4X5_OMR);
-	dev->flags |= IFF_PROMISC;
-	break;
-
-    case DE4X5_CLR_PROM:             /* Clear Promiscuous Mode */
-	if (!capable(CAP_NET_ADMIN)) return -EPERM;
-	omr = inl(DE4X5_OMR);
-	omr &= ~OMR_PR;
-	outl(omr, DE4X5_OMR);
-	dev->flags &= ~IFF_PROMISC;
 	break;
 
     case DE4X5_SAY_BOO:              /* Say "Boo!" to the kernel log file */

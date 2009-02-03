@@ -1,4 +1,4 @@
-/* $Id: rwsem.S,v 1.5 2000/05/09 17:40:13 davem Exp $
+/*
  * Assembly part of rw semaphores.
  *
  * Copyright (C) 1999 Jakub Jelinek (jakub@redhat.com)
@@ -7,7 +7,7 @@
 #include <asm/ptrace.h>
 #include <asm/psr.h>
 
-	.section .sched.text
+	.section .sched.text, "ax"
 	.align	4
 
 	.globl		___down_read

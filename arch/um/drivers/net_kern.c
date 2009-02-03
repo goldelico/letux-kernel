@@ -116,7 +116,7 @@ static void uml_dev_close(struct work_struct *work)
 	dev_close(lp->dev);
 }
 
-irqreturn_t uml_net_interrupt(int irq, void *dev_id)
+static irqreturn_t uml_net_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = dev_id;
 	struct uml_net_private *lp = dev->priv;
@@ -256,11 +256,7 @@ static struct net_device_stats *uml_net_get_stats(struct net_device *dev)
 
 static void uml_net_set_multicast_list(struct net_device *dev)
 {
-	if (dev->flags & IFF_PROMISC)
-		return;
-	else if (dev->mc_count)
-		dev->flags |= IFF_ALLMULTI;
-	else dev->flags &= ~IFF_ALLMULTI;
+	return;
 }
 
 static void uml_net_tx_timeout(struct net_device *dev)
@@ -300,7 +296,7 @@ static struct ethtool_ops uml_net_ethtool_ops = {
 	.get_link	= ethtool_op_get_link,
 };
 
-void uml_net_user_timer_expire(unsigned long _conn)
+static void uml_net_user_timer_expire(unsigned long _conn)
 {
 #ifdef undef
 	struct connection *conn = (struct connection *)_conn;
@@ -318,7 +314,7 @@ static void setup_etheraddr(char *str, unsigned char *addr, char *name)
 	if (str == NULL)
 		goto random;
 
-	for (i = 0;i < 6; i++) {
+	for (i = 0; i < 6; i++) {
 		addr[i] = simple_strtoul(str, &end, 16);
 		if ((end == str) ||
 		   ((*end != ':') && (*end != ',') && (*end != '\0'))) {
@@ -343,14 +339,13 @@ static void setup_etheraddr(char *str, unsigned char *addr, char *name)
 	}
 	if (!is_local_ether_addr(addr)) {
 		printk(KERN_WARNING
-		       "Warning: attempt to assign a globally valid ethernet "
+		       "Warning: Assigning a globally valid ethernet "
 		       "address to a device\n");
-		printk(KERN_WARNING "You should better enable the 2nd "
-		       "rightmost bit in the first byte of the MAC,\n");
+		printk(KERN_WARNING "You should set the 2nd rightmost bit in "
+		       "the first byte of the MAC,\n");
 		printk(KERN_WARNING "i.e. %02x:%02x:%02x:%02x:%02x:%02x\n",
 		       addr[0] | 0x02, addr[1], addr[2], addr[3], addr[4],
 		       addr[5]);
-		goto random;
 	}
 	return;
 
@@ -368,7 +363,6 @@ static struct platform_driver uml_net_driver = {
 		.name  = DRIVER_NAME,
 	},
 };
-static int driver_registered;
 
 static void net_device_release(struct device *dev)
 {
@@ -382,6 +376,12 @@ static void net_device_release(struct device *dev)
 	kfree(device);
 	free_netdev(netdev);
 }
+
+/*
+ * Ensures that platform_driver_register is called only once by
+ * eth_configure.  Will be set in an initcall.
+ */
+static int driver_registered;
 
 static void eth_configure(int n, void *init, char *mac,
 			  struct transport *transport)
@@ -786,7 +786,7 @@ static int uml_inetaddr_event(struct notifier_block *this, unsigned long event,
 }
 
 /* uml_net_init shouldn't be called twice on two CPUs at the same time */
-struct notifier_block uml_inetaddr_notifier = {
+static struct notifier_block uml_inetaddr_notifier = {
 	.notifier_call		= uml_inetaddr_event,
 };
 

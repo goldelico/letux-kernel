@@ -50,6 +50,7 @@
 #include <linux/pagemap.h>
 #include <linux/idr.h>
 #include <linux/file.h>
+#include <linux/mutex.h>
 #include <linux/sctp.h>
 #include <net/sctp/user.h>
 
@@ -138,7 +139,7 @@ static struct workqueue_struct *recv_workqueue;
 static struct workqueue_struct *send_workqueue;
 
 static DEFINE_IDR(connections_idr);
-static DECLARE_MUTEX(connections_lock);
+static DEFINE_MUTEX(connections_lock);
 static int max_nodeid;
 static struct kmem_cache *con_cache;
 
@@ -205,9 +206,9 @@ static struct connection *nodeid2con(int nodeid, gfp_t allocation)
 {
 	struct connection *con;
 
-	down(&connections_lock);
+	mutex_lock(&connections_lock);
 	con = __nodeid2con(nodeid, allocation);
-	up(&connections_lock);
+	mutex_unlock(&connections_lock);
 
 	return con;
 }
@@ -218,15 +219,15 @@ static struct connection *assoc2con(int assoc_id)
 	int i;
 	struct connection *con;
 
-	down(&connections_lock);
+	mutex_lock(&connections_lock);
 	for (i=0; i<=max_nodeid; i++) {
 		con = __nodeid2con(i, 0);
 		if (con && con->sctp_assoc == assoc_id) {
-			up(&connections_lock);
+			mutex_unlock(&connections_lock);
 			return con;
 		}
 	}
-	up(&connections_lock);
+	mutex_unlock(&connections_lock);
 	return NULL;
 }
 
@@ -381,7 +382,7 @@ static void sctp_init_failed(void)
 	int i;
 	struct connection *con;
 
-	down(&connections_lock);
+	mutex_lock(&connections_lock);
 	for (i=1; i<=max_nodeid; i++) {
 		con = __nodeid2con(i, 0);
 		if (!con)
@@ -393,7 +394,7 @@ static void sctp_init_failed(void)
 			}
 		}
 	}
-	up(&connections_lock);
+	mutex_unlock(&connections_lock);
 }
 
 /* Something happened to an association */
@@ -864,7 +865,7 @@ static void sctp_init_assoc(struct connection *con)
 static void tcp_connect_to_sock(struct connection *con)
 {
 	int result = -EHOSTUNREACH;
-	struct sockaddr_storage saddr;
+	struct sockaddr_storage saddr, src_addr;
 	int addr_len;
 	struct socket *sock;
 
@@ -890,13 +891,26 @@ static void tcp_connect_to_sock(struct connection *con)
 		goto out_err;
 
 	memset(&saddr, 0, sizeof(saddr));
-	if (dlm_nodeid_to_addr(con->nodeid, &saddr))
+	if (dlm_nodeid_to_addr(con->nodeid, &saddr)) {
+		sock_release(sock);
 		goto out_err;
+	}
 
 	sock->sk->sk_user_data = con;
 	con->rx_action = receive_from_sock;
 	con->connect_action = tcp_connect_to_sock;
 	add_sock(sock, con);
+
+	/* Bind to our cluster-known address connecting to avoid
+	   routing problems */
+	memcpy(&src_addr, dlm_local_addr[0], sizeof(src_addr));
+	make_sockaddr(&src_addr, 0, &addr_len);
+	result = sock->ops->bind(sock, (struct sockaddr *) &src_addr,
+				 addr_len);
+	if (result < 0) {
+		log_print("could not bind for connect: %d", result);
+		/* This *may* not indicate a critical error */
+	}
 
 	make_sockaddr(&saddr, dlm_config.ci_tcp_port, &addr_len);
 
@@ -919,7 +933,7 @@ out_err:
 	 * errors we try again until the max number of retries is reached.
 	 */
 	if (result != -EHOSTUNREACH && result != -ENETUNREACH &&
-	    result != -ENETDOWN && result != EINVAL
+	    result != -ENETDOWN && result != -EINVAL
 	    && result != -EPROTONOSUPPORT) {
 		lowcomms_connect_sock(con);
 		result = 0;
@@ -1406,7 +1420,7 @@ void dlm_lowcomms_stop(void)
 	/* Set all the flags to prevent any
 	   socket activity.
 	*/
-	down(&connections_lock);
+	mutex_lock(&connections_lock);
 	for (i = 0; i <= max_nodeid; i++) {
 		con = __nodeid2con(i, 0);
 		if (con) {
@@ -1415,22 +1429,24 @@ void dlm_lowcomms_stop(void)
 				con->sock->sk->sk_user_data = NULL;
 		}
 	}
-	up(&connections_lock);
+	mutex_unlock(&connections_lock);
 
 	work_stop();
 
-	down(&connections_lock);
+	mutex_lock(&connections_lock);
 	clean_writequeues();
 
 	for (i = 0; i <= max_nodeid; i++) {
 		con = __nodeid2con(i, 0);
 		if (con) {
 			close_connection(con, true);
+			if (con->othercon)
+				kmem_cache_free(con_cache, con->othercon);
 			kmem_cache_free(con_cache, con);
 		}
 	}
 	max_nodeid = 0;
-	up(&connections_lock);
+	mutex_unlock(&connections_lock);
 	kmem_cache_destroy(con_cache);
 	idr_init(&connections_idr);
 }

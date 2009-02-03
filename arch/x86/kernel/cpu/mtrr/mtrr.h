@@ -2,10 +2,8 @@
  * local mtrr defines.
  */
 
-#ifndef TRUE
-#define TRUE  1
-#define FALSE 0
-#endif
+#include <linux/types.h>
+#include <linux/stddef.h>
 
 #define MTRRcap_MSR     0x0fe
 #define MTRRdefType_MSR 0x2ff
@@ -14,6 +12,7 @@
 #define MTRRphysMask_MSR(reg) (0x200 + 2 * (reg) + 1)
 
 #define NUM_FIXED_RANGES 88
+#define MAX_VAR_RANGES 256
 #define MTRRfix64K_00000_MSR 0x250
 #define MTRRfix16K_80000_MSR 0x258
 #define MTRRfix16K_A0000_MSR 0x259
@@ -33,6 +32,8 @@
 /* In the Intel processor's MTRR interface, the MTRR type is always held in
    an 8 bit field: */
 typedef u8 mtrr_type;
+
+extern unsigned int mtrr_usage_table[MAX_VAR_RANGES];
 
 struct mtrr_ops {
 	u32	vendor;
@@ -80,6 +81,8 @@ void set_mtrr_done(struct set_mtrr_context *ctxt);
 void set_mtrr_cache_disable(struct set_mtrr_context *ctxt);
 void set_mtrr_prepare_save(struct set_mtrr_context *ctxt);
 
+void fill_mtrr_var_range(unsigned int index,
+		u32 base_lo, u32 base_hi, u32 mask_lo, u32 mask_hi);
 void get_mtrr_state(void);
 
 extern void set_mtrr_ops(struct mtrr_ops * ops);
@@ -91,8 +94,13 @@ extern struct mtrr_ops * mtrr_if;
 #define use_intel()	(mtrr_if && mtrr_if->use_intel_if == 1)
 
 extern unsigned int num_var_ranges;
+extern u64 mtrr_tom2;
 
 void mtrr_state_warn(void);
 const char *mtrr_attrib_to_str(int x);
 void mtrr_wrmsr(unsigned, unsigned, unsigned);
 
+/* CPU specific mtrr init functions */
+int amd_init_mtrr(void);
+int cyrix_init_mtrr(void);
+int centaur_init_mtrr(void);

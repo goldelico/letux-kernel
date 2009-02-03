@@ -41,6 +41,9 @@ _jiffies = _jiffies_64;
 SECTIONS
 {
 	. = CONFIG_BOOT_LOAD;
+	/* Neither the text, ro_data or bss section need to be aligned
+	 * So pack them back to back
+	 */
 	.text :
 	{
 		__text = .;
@@ -53,51 +56,91 @@ SECTIONS
 		*(.text.*)
 		*(.fixup)
 
+#if !L1_CODE_LENGTH
+		*(.l1.text)
+#endif
+
 		. = ALIGN(16);
 		___start___ex_table = .;
 		*(__ex_table)
 		___stop___ex_table = .;
 
-		. = ALIGN(4);
 		__etext = .;
 	}
 
-	RO_DATA(PAGE_SIZE)
+	/* Just in case the first read only is a 32-bit access */
+	RO_DATA(4)
+
+	.bss :
+	{
+		. = ALIGN(4);
+		___bss_start = .;
+		*(.bss .bss.*)
+		*(COMMON)
+#if !L1_DATA_A_LENGTH
+		*(.l1.bss)
+#endif
+#if !L1_DATA_B_LENGTH
+		*(.l1.bss.B)
+#endif
+		. = ALIGN(4);
+		___bss_stop = .;
+	}
 
 	.data :
 	{
-		/* make sure the init_task is aligned to the
-		 * kernel thread size so we can locate the kernel
-		 * stack properly and quickly.
-		 */
 		__sdata = .;
-		. = ALIGN(THREAD_SIZE);
-		*(.data.init_task)
-
+		/* This gets done first, so the glob doesn't suck it in */
 		. = ALIGN(32);
 		*(.data.cacheline_aligned)
+
+#if !L1_DATA_A_LENGTH
+		. = ALIGN(32);
+		*(.data_l1.cacheline_aligned)
+		*(.l1.data)
+#endif
+#if !L1_DATA_B_LENGTH
+		*(.l1.data.B)
+#endif
+#if !L2_LENGTH
+		. = ALIGN(32);
+		*(.data_l2.cacheline_aligned)
+		*(.l2.data)
+#endif
 
 		DATA_DATA
 		*(.data.*)
 		CONSTRUCTORS
 
+		/* make sure the init_task is aligned to the
+		 * kernel thread size so we can locate the kernel
+		 * stack properly and quickly.
+		 */
 		. = ALIGN(THREAD_SIZE);
+		*(.init_task.data)
+
 		__edata = .;
 	}
 
+	/* The init section should be last, so when we free it, it goes into
+	 * the general memory pool, and (hopefully) will decrease fragmentation
+	 * a tiny bit. The init section has a _requirement_ that it be
+	 * PAGE_SIZE aligned
+	 */
+	. = ALIGN(PAGE_SIZE);
 	___init_begin = .;
 
 	.init.text :
 	{
 		. = ALIGN(PAGE_SIZE);
 		__sinittext = .;
-		*(.init.text)
+		INIT_TEXT
 		__einittext = .;
 	}
 	.init.data :
 	{
 		. = ALIGN(16);
-		*(.init.data)
+		INIT_DATA
 	}
 	.init.setup :
 	{
@@ -134,7 +177,6 @@ SECTIONS
 		. = ALIGN(4);
 		__stext_l1 = .;
 		*(.l1.text)
-
 		. = ALIGN(4);
 		__etext_l1 = .;
 	}
@@ -146,13 +188,12 @@ SECTIONS
 		*(.l1.data)
 		__edata_l1 = .;
 
-		. = ALIGN(4);
-		__sbss_l1 = .;
-		*(.l1.bss)
-
 		. = ALIGN(32);
 		*(.data_l1.cacheline_aligned)
 
+		. = ALIGN(4);
+		__sbss_l1 = .;
+		*(.l1.bss)
 		. = ALIGN(4);
 		__ebss_l1 = .;
 	}
@@ -167,9 +208,33 @@ SECTIONS
 		. = ALIGN(4);
 		__sbss_b_l1 = .;
 		*(.l1.bss.B)
-
 		. = ALIGN(4);
 		__ebss_b_l1 = .;
+	}
+
+	__l2_lma_start = .;
+
+	.text_data_l2 L2_START : AT(LOADADDR(.data_b_l1) + SIZEOF(.data_b_l1))
+	{
+		. = ALIGN(4);
+		__stext_l2 = .;
+		*(.l2.text)
+		. = ALIGN(4);
+		__etext_l2 = .;
+
+		. = ALIGN(4);
+		__sdata_l2 = .;
+		*(.l2.data)
+		__edata_l2 = .;
+
+		. = ALIGN(32);
+		*(.data_l2.cacheline_aligned)
+
+		. = ALIGN(4);
+		__sbss_l2 = .;
+		*(.l2.bss)
+		. = ALIGN(4);
+		__ebss_l2 = .;
 	}
 
 	/* Force trailing alignment of our init section so that when we
@@ -179,27 +244,16 @@ SECTIONS
 	. = ALIGN(PAGE_SIZE);
 	___init_end = .;
 
-	.bss :
-	{
-		. = ALIGN(4);
-		___bss_start = .;
-		*(.bss .bss.*)
-		*(COMMON)
-		. = ALIGN(4);
-		___bss_stop = .;
-		__end = .;
-	}
+	__end =.;
 
 	STABS_DEBUG
 
 	DWARF_DEBUG
 
-	NOTES
-
 	/DISCARD/ :
 	{
-		*(.exit.text)
-		*(.exit.data)
+		EXIT_TEXT
+		EXIT_DATA
 		*(.exitcall.exit)
 	}
 }

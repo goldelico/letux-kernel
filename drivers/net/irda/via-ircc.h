@@ -54,13 +54,13 @@ struct st_fifo {
 
 struct frame_cb {
 	void *start;		/* Start of frame in DMA mem */
-	int len;		/* Lenght of frame in DMA mem */
+	int len;		/* Length of frame in DMA mem */
 };
 
 struct tx_fifo {
 	struct frame_cb queue[MAX_TX_WINDOW + 2];	/* Info about frames in queue */
 	int ptr;		/* Currently being sent */
-	int len;		/* Lenght of queue */
+	int len;		/* Length of queue */
 	int free;		/* Next free slot */
 	void *tail;		/* Next free start in DMA mem */
 };
@@ -118,7 +118,6 @@ struct via_ircc_cb {
 	int index;		/* Instance index */
 
 	struct eventflag EventFlag;
-	struct pm_dev *dev;
 	unsigned int chip_id;	/* to remember chip id */
 	unsigned int RetryCount;
 	unsigned int RxDataReady;

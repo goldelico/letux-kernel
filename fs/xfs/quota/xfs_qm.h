@@ -52,8 +52,8 @@ extern kmem_zone_t	*qm_dqtrxzone;
 /*
  * Dquot hashtable constants/threshold values.
  */
-#define XFS_QM_HASHSIZE_LOW		(NBPP / sizeof(xfs_dqhash_t))
-#define XFS_QM_HASHSIZE_HIGH		((NBPP * 4) / sizeof(xfs_dqhash_t))
+#define XFS_QM_HASHSIZE_LOW		(PAGE_SIZE / sizeof(xfs_dqhash_t))
+#define XFS_QM_HASHSIZE_HIGH		((PAGE_SIZE * 4) / sizeof(xfs_dqhash_t))
 
 /*
  * This defines the unit of allocation of dquots.
@@ -106,7 +106,7 @@ typedef struct xfs_qm {
 typedef struct xfs_quotainfo {
 	xfs_inode_t	*qi_uquotaip;	 /* user quota inode */
 	xfs_inode_t	*qi_gquotaip;	 /* group quota inode */
-	lock_t		 qi_pinlock;	 /* dquot pinning mutex */
+	spinlock_t	 qi_pinlock;	 /* dquot pinning lock */
 	xfs_dqlist_t	 qi_dqlist;	 /* all dquots in filesys */
 	int		 qi_dqreclaims;	 /* a change here indicates
 					    a removal in the dqlist */
@@ -165,7 +165,7 @@ typedef struct xfs_dquot_acct {
 #define XFS_QM_RELE(xqm)	((xqm)->qm_nrefs--)
 
 extern void		xfs_qm_destroy_quotainfo(xfs_mount_t *);
-extern int		xfs_qm_mount_quotas(xfs_mount_t *, int);
+extern void		xfs_qm_mount_quotas(xfs_mount_t *);
 extern int		xfs_qm_quotacheck(xfs_mount_t *);
 extern void		xfs_qm_unmount_quotadestroy(xfs_mount_t *);
 extern int		xfs_qm_unmount_quotas(xfs_mount_t *);

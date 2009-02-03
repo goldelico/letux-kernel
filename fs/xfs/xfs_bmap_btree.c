@@ -275,21 +275,21 @@ xfs_bmbt_trace_cursor(
 }
 
 #define	XFS_BMBT_TRACE_ARGBI(c,b,i)	\
-	xfs_bmbt_trace_argbi(__FUNCTION__, c, b, i, __LINE__)
+	xfs_bmbt_trace_argbi(__func__, c, b, i, __LINE__)
 #define	XFS_BMBT_TRACE_ARGBII(c,b,i,j)	\
-	xfs_bmbt_trace_argbii(__FUNCTION__, c, b, i, j, __LINE__)
+	xfs_bmbt_trace_argbii(__func__, c, b, i, j, __LINE__)
 #define	XFS_BMBT_TRACE_ARGFFFI(c,o,b,i,j)	\
-	xfs_bmbt_trace_argfffi(__FUNCTION__, c, o, b, i, j, __LINE__)
+	xfs_bmbt_trace_argfffi(__func__, c, o, b, i, j, __LINE__)
 #define	XFS_BMBT_TRACE_ARGI(c,i)	\
-	xfs_bmbt_trace_argi(__FUNCTION__, c, i, __LINE__)
+	xfs_bmbt_trace_argi(__func__, c, i, __LINE__)
 #define	XFS_BMBT_TRACE_ARGIFK(c,i,f,s)	\
-	xfs_bmbt_trace_argifk(__FUNCTION__, c, i, f, s, __LINE__)
+	xfs_bmbt_trace_argifk(__func__, c, i, f, s, __LINE__)
 #define	XFS_BMBT_TRACE_ARGIFR(c,i,f,r)	\
-	xfs_bmbt_trace_argifr(__FUNCTION__, c, i, f, r, __LINE__)
+	xfs_bmbt_trace_argifr(__func__, c, i, f, r, __LINE__)
 #define	XFS_BMBT_TRACE_ARGIK(c,i,k)	\
-	xfs_bmbt_trace_argik(__FUNCTION__, c, i, k, __LINE__)
+	xfs_bmbt_trace_argik(__func__, c, i, k, __LINE__)
 #define	XFS_BMBT_TRACE_CURSOR(c,s)	\
-	xfs_bmbt_trace_cursor(__FUNCTION__, c, s, __LINE__)
+	xfs_bmbt_trace_cursor(__func__, c, s, __LINE__)
 #else
 #define	XFS_BMBT_TRACE_ARGBI(c,b,i)
 #define	XFS_BMBT_TRACE_ARGBII(c,b,i,j)
@@ -631,7 +631,7 @@ xfs_bmbt_delrec(
 		memcpy(lrp, rrp, numrrecs * sizeof(*lrp));
 		xfs_bmbt_log_recs(cur, lbp, numlrecs + 1, numlrecs + numrrecs);
 	}
-	be16_add(&left->bb_numrecs, numrrecs);
+	be16_add_cpu(&left->bb_numrecs, numrrecs);
 	left->bb_rightsib = right->bb_rightsib;
 	xfs_bmbt_log_block(cur, lbp, XFS_BB_RIGHTSIB | XFS_BB_NUMRECS);
 	if (be64_to_cpu(left->bb_rightsib) != NULLDFSBNO) {
@@ -924,7 +924,7 @@ xfs_bmbt_killroot(
 		xfs_iroot_realloc(ip, i, cur->bc_private.b.whichfork);
 		block = ifp->if_broot;
 	}
-	be16_add(&block->bb_numrecs, i);
+	be16_add_cpu(&block->bb_numrecs, i);
 	ASSERT(block->bb_numrecs == cblock->bb_numrecs);
 	kp = XFS_BMAP_KEY_IADDR(block, 1, cur);
 	ckp = XFS_BMAP_KEY_IADDR(cblock, 1, cur);
@@ -947,7 +947,7 @@ xfs_bmbt_killroot(
 			XFS_TRANS_DQ_BCOUNT, -1L);
 	xfs_trans_binval(cur->bc_tp, cbp);
 	cur->bc_bufs[level - 1] = NULL;
-	be16_add(&block->bb_level, -1);
+	be16_add_cpu(&block->bb_level, -1);
 	xfs_trans_log_inode(cur->bc_tp, ip,
 		XFS_ILOG_CORE | XFS_ILOG_FBROOT(cur->bc_private.b.whichfork));
 	cur->bc_nlevels--;
@@ -1401,9 +1401,9 @@ xfs_bmbt_rshift(
 		key.br_startoff = cpu_to_be64(xfs_bmbt_disk_get_startoff(rrp));
 		rkp = &key;
 	}
-	be16_add(&left->bb_numrecs, -1);
+	be16_add_cpu(&left->bb_numrecs, -1);
 	xfs_bmbt_log_block(cur, lbp, XFS_BB_NUMRECS);
-	be16_add(&right->bb_numrecs, 1);
+	be16_add_cpu(&right->bb_numrecs, 1);
 #ifdef DEBUG
 	if (level > 0)
 		xfs_btree_check_key(XFS_BTNUM_BMAP, rkp, rkp + 1);
@@ -1493,12 +1493,27 @@ xfs_bmbt_split(
 	left = XFS_BUF_TO_BMBT_BLOCK(lbp);
 	args.fsbno = cur->bc_private.b.firstblock;
 	args.firstblock = args.fsbno;
+	args.minleft = 0;
 	if (args.fsbno == NULLFSBLOCK) {
 		args.fsbno = lbno;
 		args.type = XFS_ALLOCTYPE_START_BNO;
-	} else
+		/*
+		 * Make sure there is sufficient room left in the AG to
+		 * complete a full tree split for an extent insert.  If
+		 * we are converting the middle part of an extent then
+		 * we may need space for two tree splits.
+		 *
+		 * We are relying on the caller to make the correct block
+		 * reservation for this operation to succeed.  If the
+		 * reservation amount is insufficient then we may fail a
+		 * block allocation here and corrupt the filesystem.
+		 */
+		args.minleft = xfs_trans_get_block_res(args.tp);
+	} else if (cur->bc_private.b.flist->xbf_low)
+		args.type = XFS_ALLOCTYPE_START_BNO;
+	else
 		args.type = XFS_ALLOCTYPE_NEAR_BNO;
-	args.mod = args.minleft = args.alignment = args.total = args.isfl =
+	args.mod = args.alignment = args.total = args.isfl =
 		args.userdata = args.minalignslop = 0;
 	args.minlen = args.maxlen = args.prod = 1;
 	args.wasdel = cur->bc_private.b.flags & XFS_BTCUR_BPRV_WASDEL;
@@ -1509,6 +1524,21 @@ xfs_bmbt_split(
 	if ((error = xfs_alloc_vextent(&args))) {
 		XFS_BMBT_TRACE_CURSOR(cur, ERROR);
 		return error;
+	}
+	if (args.fsbno == NULLFSBLOCK && args.minleft) {
+		/*
+		 * Could not find an AG with enough free space to satisfy
+		 * a full btree split.  Try again without minleft and if
+		 * successful activate the lowspace algorithm.
+		 */
+		args.fsbno = 0;
+		args.type = XFS_ALLOCTYPE_FIRST_AG;
+		args.minleft = 0;
+		if ((error = xfs_alloc_vextent(&args))) {
+			XFS_BMBT_TRACE_CURSOR(cur, ERROR);
+			return error;
+		}
+		cur->bc_private.b.flist->xbf_low = 1;
 	}
 	if (args.fsbno == NULLFSBLOCK) {
 		XFS_BMBT_TRACE_CURSOR(cur, EXIT);
@@ -1535,7 +1565,7 @@ xfs_bmbt_split(
 	right->bb_numrecs = cpu_to_be16(be16_to_cpu(left->bb_numrecs) / 2);
 	if ((be16_to_cpu(left->bb_numrecs) & 1) &&
 	    cur->bc_ptrs[level] <= be16_to_cpu(right->bb_numrecs) + 1)
-		be16_add(&right->bb_numrecs, 1);
+		be16_add_cpu(&right->bb_numrecs, 1);
 	i = be16_to_cpu(left->bb_numrecs) - be16_to_cpu(right->bb_numrecs) + 1;
 	if (level > 0) {
 		lkp = XFS_BMAP_KEY_IADDR(left, i, cur);
@@ -1562,7 +1592,7 @@ xfs_bmbt_split(
 		xfs_bmbt_log_recs(cur, rbp, 1, be16_to_cpu(right->bb_numrecs));
 		*startoff = xfs_bmbt_disk_get_startoff(rrp);
 	}
-	be16_add(&left->bb_numrecs, -(be16_to_cpu(right->bb_numrecs)));
+	be16_add_cpu(&left->bb_numrecs, -(be16_to_cpu(right->bb_numrecs)));
 	right->bb_rightsib = left->bb_rightsib;
 	left->bb_rightsib = cpu_to_be64(args.fsbno);
 	right->bb_leftsib = cpu_to_be64(lbno);
@@ -2027,6 +2057,10 @@ xfs_bmbt_increment(
 
 /*
  * Insert the current record at the point referenced by cur.
+ *
+ * A multi-level split of the tree on insert will invalidate the original
+ * cursor.  All callers of this function should assume that the cursor is
+ * no longer valid and revalidate it.
  */
 int					/* error */
 xfs_bmbt_insert(
@@ -2062,8 +2096,7 @@ xfs_bmbt_insert(
 				pcur->bc_private.b.allocated;
 			pcur->bc_private.b.allocated = 0;
 			ASSERT((cur->bc_private.b.firstblock != NULLFSBLOCK) ||
-			       (cur->bc_private.b.ip->i_d.di_flags &
-				XFS_DIFLAG_REALTIME));
+			       XFS_IS_REALTIME_INODE(cur->bc_private.b.ip));
 			cur->bc_private.b.firstblock =
 				pcur->bc_private.b.firstblock;
 			ASSERT(cur->bc_private.b.flist ==
@@ -2221,7 +2254,9 @@ xfs_bmbt_newroot(
 #endif
 		args.fsbno = be64_to_cpu(*pp);
 		args.type = XFS_ALLOCTYPE_START_BNO;
-	} else
+	} else if (cur->bc_private.b.flist->xbf_low)
+		args.type = XFS_ALLOCTYPE_START_BNO;
+	else
 		args.type = XFS_ALLOCTYPE_NEAR_BNO;
 	if ((error = xfs_alloc_vextent(&args))) {
 		XFS_BMBT_TRACE_CURSOR(cur, ERROR);
@@ -2241,7 +2276,7 @@ xfs_bmbt_newroot(
 	bp = xfs_btree_get_bufl(args.mp, cur->bc_tp, args.fsbno, 0);
 	cblock = XFS_BUF_TO_BMBT_BLOCK(bp);
 	*cblock = *block;
-	be16_add(&block->bb_level, 1);
+	be16_add_cpu(&block->bb_level, 1);
 	block->bb_numrecs = cpu_to_be16(1);
 	cur->bc_nlevels++;
 	cur->bc_ptrs[level + 1] = 1;

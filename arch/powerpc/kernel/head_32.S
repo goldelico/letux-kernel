@@ -30,6 +30,7 @@
 #include <asm/thread_info.h>
 #include <asm/ppc_asm.h>
 #include <asm/asm-offsets.h>
+#include <asm/ptrace.h>
 
 /* 601 only have IBAT; cr0.eq is set on 601 when using this macro */
 #define LOAD_BAT(n, reg, RA, RB)	\
@@ -109,6 +110,12 @@ __start:
 #ifdef CONFIG_PPC_MULTIPLATFORM
 	cmpwi	0,r5,0
 	beq	1f
+
+	/* find out where we are now */
+	bcl	20,31,$+4
+0:	mflr	r8			/* r8 = runtime addr here */
+	addis	r8,r8,(_stext - 0b)@ha
+	addi	r8,r8,(_stext - 0b)@l	/* current runtime base addr */
 	bl	prom_init
 	trap
 #endif
@@ -268,8 +275,8 @@ __secondary_hold_acknowledge:
 	li	r10,MSR_KERNEL & ~(MSR_IR|MSR_DR); /* can take exceptions */ \
 	MTMSRD(r10);			/* (except for mach check in rtas) */ \
 	stw	r0,GPR0(r11);	\
-	lis	r10,0x7265;		/* put exception frame marker */ \
-	addi	r10,r10,0x6773;	\
+	lis	r10,STACK_FRAME_REGS_MARKER@ha; /* exception frame marker */ \
+	addi	r10,r10,STACK_FRAME_REGS_MARKER@l; \
 	stw	r10,8(r11);	\
 	SAVE_4GPRS(3, r11);	\
 	SAVE_2GPRS(7, r11)
@@ -368,13 +375,13 @@ i##n:								\
 DataAccess:
 	EXCEPTION_PROLOG
 	mfspr	r10,SPRN_DSISR
+	stw	r10,_DSISR(r11)
 	andis.	r0,r10,0xa470		/* weird error? */
 	bne	1f			/* if not, try to put a PTE */
 	mfspr	r4,SPRN_DAR		/* into the hash table */
 	rlwinm	r3,r10,32-15,21,21	/* DSISR_STORE -> _PAGE_RW */
 	bl	hash_page
-1:	stw	r10,_DSISR(r11)
-	mr	r5,r10
+1:	lwz	r5,_DSISR(r11)		/* get DSISR value */
 	mfspr	r4,SPRN_DAR
 	EXC_XFER_EE_LITE(0x300, handle_page_fault)
 
@@ -420,8 +427,10 @@ BEGIN_FTR_SECTION
 	b 	ProgramCheck
 END_FTR_SECTION_IFSET(CPU_FTR_FPU_UNAVAILABLE)
 	EXCEPTION_PROLOG
-	bne	load_up_fpu		/* if from user, just load it up */
-	addi	r3,r1,STACK_FRAME_OVERHEAD
+	beq	1f
+	bl	load_up_fpu		/* if from user, just load it up */
+	b	fast_exception_return
+1:	addi	r3,r1,STACK_FRAME_OVERHEAD
 	EXC_XFER_EE_LITE(0x800, kernel_fp_unavailable_exception)
 
 /* Decrementer */
@@ -761,23 +770,6 @@ load_up_altivec:
 	/* restore registers and return */
 	/* we haven't used ctr or xer or lr */
 	b	fast_exception_return
-
-/*
- * AltiVec unavailable trap from kernel - print a message, but let
- * the task use AltiVec in the kernel until it returns to user mode.
- */
-KernelAltiVec:
-	lwz	r3,_MSR(r1)
-	oris	r3,r3,MSR_VEC@h
-	stw	r3,_MSR(r1)	/* enable use of AltiVec after return */
-	lis	r3,87f@h
-	ori	r3,r3,87f@l
-	mr	r4,r2		/* current */
-	lwz	r5,_NIP(r1)
-	bl	printk
-	b	ret_from_except
-87:	.string	"AltiVec used in kernel  (task=%p, pc=%x)  \n"
-	.align	4,0
 
 /*
  * giveup_altivec(tsk)
@@ -1169,7 +1161,7 @@ flush_tlbs:
 	lis	r10, 0x40
 1:	addic.	r10, r10, -0x1000
 	tlbie	r10
-	blt	1b
+	bgt	1b
 	sync
 	blr
 

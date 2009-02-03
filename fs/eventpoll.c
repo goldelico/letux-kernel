@@ -257,25 +257,6 @@ static inline int ep_cmp_ffd(struct epoll_filefd *p1,
 	        (p1->file < p2->file ? -1 : p1->fd - p2->fd));
 }
 
-/* Special initialization for the RB tree node to detect linkage */
-static inline void ep_rb_initnode(struct rb_node *n)
-{
-	rb_set_parent(n, n);
-}
-
-/* Removes a node from the RB tree and marks it for a fast is-linked check */
-static inline void ep_rb_erase(struct rb_node *n, struct rb_root *r)
-{
-	rb_erase(n, r);
-	rb_set_parent(n, n);
-}
-
-/* Fast check to verify that the item is linked to the main RB tree */
-static inline int ep_rb_linked(struct rb_node *n)
-{
-	return rb_parent(n) != n;
-}
-
 /* Tells us if the item is currently linked */
 static inline int ep_is_linked(struct list_head *p)
 {
@@ -283,13 +264,13 @@ static inline int ep_is_linked(struct list_head *p)
 }
 
 /* Get the "struct epitem" from a wait queue pointer */
-static inline struct epitem * ep_item_from_wait(wait_queue_t *p)
+static inline struct epitem *ep_item_from_wait(wait_queue_t *p)
 {
 	return container_of(p, struct eppoll_entry, wait)->base;
 }
 
 /* Get the "struct epitem" from an epoll queue wrapper */
-static inline struct epitem * ep_item_from_epqueue(poll_table *p)
+static inline struct epitem *ep_item_from_epqueue(poll_table *p)
 {
 	return container_of(p, struct ep_pqueue, pt)->epi;
 }
@@ -353,7 +334,7 @@ static void ep_poll_safewake(struct poll_safewake *psw, wait_queue_head_t *wq)
 	spin_unlock_irqrestore(&psw->lock, flags);
 
 	/* Do really wake up now */
-	wake_up(wq);
+	wake_up_nested(wq, 1 + wake_nests);
 
 	/* Remove the current task from the list */
 	spin_lock_irqsave(&psw->lock, flags);
@@ -411,8 +392,7 @@ static int ep_remove(struct eventpoll *ep, struct epitem *epi)
 		list_del_init(&epi->fllink);
 	spin_unlock(&file->f_ep_lock);
 
-	if (ep_rb_linked(&epi->rbn))
-		ep_rb_erase(&epi->rbn, &ep->rbr);
+	rb_erase(&epi->rbn, &ep->rbr);
 
 	spin_lock_irqsave(&ep->lock, flags);
 	if (ep_is_linked(&epi->rdllink))
@@ -656,8 +636,7 @@ is_linked:
 	 * wait list.
 	 */
 	if (waitqueue_active(&ep->wq))
-		__wake_up_locked(&ep->wq, TASK_UNINTERRUPTIBLE |
-				 TASK_INTERRUPTIBLE);
+		wake_up_locked(&ep->wq);
 	if (waitqueue_active(&ep->poll_wait))
 		pwake++;
 
@@ -729,7 +708,6 @@ static int ep_insert(struct eventpoll *ep, struct epoll_event *event,
 		goto error_return;
 
 	/* Item initialization follow here ... */
-	ep_rb_initnode(&epi->rbn);
 	INIT_LIST_HEAD(&epi->rdllink);
 	INIT_LIST_HEAD(&epi->fllink);
 	INIT_LIST_HEAD(&epi->pwqlist);
@@ -780,7 +758,7 @@ static int ep_insert(struct eventpoll *ep, struct epoll_event *event,
 
 		/* Notify waiting tasks that events are available */
 		if (waitqueue_active(&ep->wq))
-			__wake_up_locked(&ep->wq, TASK_UNINTERRUPTIBLE | TASK_INTERRUPTIBLE);
+			wake_up_locked(&ep->wq);
 		if (waitqueue_active(&ep->poll_wait))
 			pwake++;
 	}
@@ -854,8 +832,7 @@ static int ep_modify(struct eventpoll *ep, struct epitem *epi, struct epoll_even
 
 			/* Notify waiting tasks that events are available */
 			if (waitqueue_active(&ep->wq))
-				__wake_up_locked(&ep->wq, TASK_UNINTERRUPTIBLE |
-						 TASK_INTERRUPTIBLE);
+				wake_up_locked(&ep->wq);
 			if (waitqueue_active(&ep->poll_wait))
 				pwake++;
 		}
@@ -950,12 +927,16 @@ errxit:
 	/*
 	 * During the time we spent in the loop above, some other events
 	 * might have been queued by the poll callback. We re-insert them
-	 * here (in case they are not already queued, or they're one-shot).
+	 * inside the main ready-list here.
 	 */
 	for (nepi = ep->ovflist; (epi = nepi) != NULL;
 	     nepi = epi->next, epi->next = EP_UNACTIVE_PTR) {
-		if (!ep_is_linked(&epi->rdllink) &&
-		    (epi->event.events & ~EP_PRIVATE_BITS))
+		/*
+		 * If the above loop quit with errors, the epoll item might still
+		 * be linked to "txlist", and the list_splice() done below will
+		 * take care of those cases.
+		 */
+		if (!ep_is_linked(&epi->rdllink))
 			list_add_tail(&epi->rdllink, &ep->rdllist);
 	}
 	/*
@@ -978,8 +959,7 @@ errxit:
 		 * wait list (delayed after we release the lock).
 		 */
 		if (waitqueue_active(&ep->wq))
-			__wake_up_locked(&ep->wq, TASK_UNINTERRUPTIBLE |
-					 TASK_INTERRUPTIBLE);
+			wake_up_locked(&ep->wq);
 		if (waitqueue_active(&ep->poll_wait))
 			pwake++;
 	}
@@ -1065,49 +1045,53 @@ retry:
 }
 
 /*
- * It opens an eventpoll file descriptor. The "size" parameter is there
- * for historical reasons, when epoll was using an hash instead of an
- * RB tree. With the current implementation, the "size" parameter is ignored
- * (besides sanity checks).
+ * Open an eventpoll file descriptor.
  */
-asmlinkage long sys_epoll_create(int size)
+asmlinkage long sys_epoll_create1(int flags)
 {
 	int error, fd = -1;
 	struct eventpoll *ep;
-	struct inode *inode;
-	struct file *file;
+
+	/* Check the EPOLL_* constant for consistency.  */
+	BUILD_BUG_ON(EPOLL_CLOEXEC != O_CLOEXEC);
+
+	if (flags & ~EPOLL_CLOEXEC)
+		return -EINVAL;
 
 	DNPRINTK(3, (KERN_INFO "[%p] eventpoll: sys_epoll_create(%d)\n",
-		     current, size));
+		     current, flags));
 
 	/*
-	 * Sanity check on the size parameter, and create the internal data
-	 * structure ( "struct eventpoll" ).
+	 * Create the internal data structure ( "struct eventpoll" ).
 	 */
-	error = -EINVAL;
-	if (size <= 0 || (error = ep_alloc(&ep)) != 0)
+	error = ep_alloc(&ep);
+	if (error < 0) {
+		fd = error;
 		goto error_return;
+	}
 
 	/*
 	 * Creates all the items needed to setup an eventpoll file. That is,
-	 * a file structure, and inode and a free file descriptor.
+	 * a file structure and a free file descriptor.
 	 */
-	error = anon_inode_getfd(&fd, &inode, &file, "[eventpoll]",
-				 &eventpoll_fops, ep);
-	if (error)
-		goto error_free;
+	fd = anon_inode_getfd("[eventpoll]", &eventpoll_fops, ep,
+			      flags & O_CLOEXEC);
+	if (fd < 0)
+		ep_free(ep);
 
-	DNPRINTK(3, (KERN_INFO "[%p] eventpoll: sys_epoll_create(%d) = %d\n",
-		     current, size, fd));
-
-	return fd;
-
-error_free:
-	ep_free(ep);
 error_return:
 	DNPRINTK(3, (KERN_INFO "[%p] eventpoll: sys_epoll_create(%d) = %d\n",
-		     current, size, error));
-	return error;
+		     current, flags, fd));
+
+	return fd;
+}
+
+asmlinkage long sys_epoll_create(int size)
+{
+	if (size < 0)
+		return -EINVAL;
+
+	return sys_epoll_create1(0);
 }
 
 /*
@@ -1265,7 +1249,7 @@ error_return:
 	return error;
 }
 
-#ifdef TIF_RESTORE_SIGMASK
+#ifdef HAVE_SET_RESTORE_SIGMASK
 
 /*
  * Implement the event wait interface for the eventpoll file. It is the kernel
@@ -1303,7 +1287,7 @@ asmlinkage long sys_epoll_pwait(int epfd, struct epoll_event __user *events,
 		if (error == -EINTR) {
 			memcpy(&current->saved_sigmask, &sigsaved,
 			       sizeof(sigsaved));
-			set_thread_flag(TIF_RESTORE_SIGMASK);
+			set_restore_sigmask();
 		} else
 			sigprocmask(SIG_SETMASK, &sigsaved, NULL);
 	}
@@ -1311,7 +1295,7 @@ asmlinkage long sys_epoll_pwait(int epfd, struct epoll_event __user *events,
 	return error;
 }
 
-#endif /* #ifdef TIF_RESTORE_SIGMASK */
+#endif /* HAVE_SET_RESTORE_SIGMASK */
 
 static int __init eventpoll_init(void)
 {
@@ -1333,4 +1317,3 @@ static int __init eventpoll_init(void)
 	return 0;
 }
 fs_initcall(eventpoll_init);
-

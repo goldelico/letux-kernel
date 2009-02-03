@@ -25,6 +25,8 @@ struct xfs_inode;
 struct xfs_mount;
 struct xfs_trans;
 
+extern kmem_zone_t	*xfs_bmap_free_item_zone;
+
 /*
  * DELTA: describe a change to the in-core extent list.
  *
@@ -52,12 +54,23 @@ typedef struct xfs_bmap_free_item
 
 /*
  * Header for free extent list.
+ *
+ * xbf_low is used by the allocator to activate the lowspace algorithm -
+ * when free space is running low the extent allocator may choose to
+ * allocate an extent from an AG without leaving sufficient space for
+ * a btree split when inserting the new extent.  In this case the allocator
+ * will enable the lowspace algorithm which is supposed to allow further
+ * allocations (such as btree splits and newroots) to allocate from
+ * sequential AGs.  In order to avoid locking AGs out of order the lowspace
+ * algorithm will start searching for free space from AG 0.  If the correct
+ * transaction reservations have been made then this algorithm will eventually
+ * find all the space it needs.
  */
 typedef	struct xfs_bmap_free
 {
 	xfs_bmap_free_item_t	*xbf_first;	/* list of to-be-free extents */
 	int			xbf_count;	/* count of items on list */
-	int			xbf_low;	/* kludge: alloc in low mode */
+	int			xbf_low;	/* alloc in low mode */
 } xfs_bmap_free_t;
 
 #define	XFS_BMAP_MAX_NMAP	4
@@ -149,7 +162,7 @@ xfs_bmap_trace_exlist(
 	xfs_extnum_t		cnt,		/* count of entries in list */
 	int			whichfork);	/* data or attr fork */
 #define	XFS_BMAP_TRACE_EXLIST(ip,c,w)	\
-	xfs_bmap_trace_exlist(__FUNCTION__,ip,c,w)
+	xfs_bmap_trace_exlist(__func__,ip,c,w)
 #else
 #define	XFS_BMAP_TRACE_EXLIST(ip,c,w)
 #endif

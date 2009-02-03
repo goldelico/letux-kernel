@@ -31,8 +31,8 @@
 #include <asm/io.h>
 #include <asm/sizes.h>
 
-#include <asm/arch/pxa-regs.h>
-#include <asm/arch/mmc.h>
+#include <mach/pxa-regs.h>
+#include <mach/mmc.h>
 
 #include "pxamci.h"
 
@@ -65,6 +65,8 @@ struct pxamci_host {
 	unsigned int		dma_len;
 
 	unsigned int		dma_dir;
+	unsigned int		dma_drcmrrx;
+	unsigned int		dma_drcmrtx;
 };
 
 static void pxamci_stop_clock(struct pxamci_host *host)
@@ -112,6 +114,7 @@ static void pxamci_setup_data(struct pxamci_host *host, struct mmc_data *data)
 	unsigned int nob = data->blocks;
 	unsigned long long clks;
 	unsigned int timeout;
+	bool dalgn = 0;
 	u32 dcmd;
 	int i;
 
@@ -131,13 +134,13 @@ static void pxamci_setup_data(struct pxamci_host *host, struct mmc_data *data)
 	if (data->flags & MMC_DATA_READ) {
 		host->dma_dir = DMA_FROM_DEVICE;
 		dcmd = DCMD_INCTRGADDR | DCMD_FLOWTRG;
-		DRCMRTXMMC = 0;
-		DRCMRRXMMC = host->dma | DRCMR_MAPVLD;
+		DRCMR(host->dma_drcmrtx) = 0;
+		DRCMR(host->dma_drcmrrx) = host->dma | DRCMR_MAPVLD;
 	} else {
 		host->dma_dir = DMA_TO_DEVICE;
 		dcmd = DCMD_INCSRCADDR | DCMD_FLOWSRC;
-		DRCMRRXMMC = 0;
-		DRCMRTXMMC = host->dma | DRCMR_MAPVLD;
+		DRCMR(host->dma_drcmrrx) = 0;
+		DRCMR(host->dma_drcmrtx) = host->dma | DRCMR_MAPVLD;
 	}
 
 	dcmd |= DCMD_BURST32 | DCMD_WIDTH1;
@@ -150,6 +153,9 @@ static void pxamci_setup_data(struct pxamci_host *host, struct mmc_data *data)
 		host->sg_cpu[i].dcmd = dcmd | length;
 		if (length & 31 && !(data->flags & MMC_DATA_READ))
 			host->sg_cpu[i].dcmd |= DCMD_ENDIRQEN;
+		/* Not aligned to 8-byte boundary? */
+		if (sg_dma_address(&data->sg[i]) & 0x7)
+			dalgn = 1;
 		if (data->flags & MMC_DATA_READ) {
 			host->sg_cpu[i].dsadr = host->res->start + MMC_RXFIFO;
 			host->sg_cpu[i].dtadr = sg_dma_address(&data->sg[i]);
@@ -163,6 +169,15 @@ static void pxamci_setup_data(struct pxamci_host *host, struct mmc_data *data)
 	host->sg_cpu[host->dma_len - 1].ddadr = DDADR_STOP;
 	wmb();
 
+	/*
+	 * The PXA27x DMA controller encounters overhead when working with
+	 * unaligned (to 8-byte boundaries) data, so switch on byte alignment
+	 * mode only if we have unaligned data.
+	 */
+	if (dalgn)
+		DALGN |= (1 << host->dma);
+	else
+		DALGN &= ~(1 << host->dma);
 	DDADR(host->dma) = host->sg_dma;
 	DCSR(host->dma) = DCSR_RUN;
 }
@@ -359,9 +374,12 @@ static int pxamci_get_ro(struct mmc_host *mmc)
 	struct pxamci_host *host = mmc_priv(mmc);
 
 	if (host->pdata && host->pdata->get_ro)
-		return host->pdata->get_ro(mmc_dev(mmc));
-	/* Host doesn't support read only detection so assume writeable */
-	return 0;
+		return !!host->pdata->get_ro(mmc_dev(mmc));
+	/*
+	 * Board doesn't support read only detection; let the mmc core
+	 * decide what to do.
+	 */
+	return -ENOSYS;
 }
 
 static void pxamci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
@@ -375,14 +393,23 @@ static void pxamci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		if (host->clkrt == CLKRT_OFF)
 			clk_enable(host->clk);
 
-		/*
-		 * clk might result in a lower divisor than we
-		 * desire.  check for that condition and adjust
-		 * as appropriate.
-		 */
-		if (rate / clk > ios->clock)
-			clk <<= 1;
-		host->clkrt = fls(clk) - 1;
+		if (ios->clock == 26000000) {
+			/* to support 26MHz on pxa300/pxa310 */
+			host->clkrt = 7;
+		} else {
+			/* to handle (19.5MHz, 26MHz) */
+			if (!clk)
+				clk = 1;
+
+			/*
+			 * clk might result in a lower divisor than we
+			 * desire.  check for that condition and adjust
+			 * as appropriate.
+			 */
+			if (rate / clk > ios->clock)
+				clk <<= 1;
+			host->clkrt = fls(clk) - 1;
+		}
 
 		/*
 		 * we write clkrt on the next command
@@ -459,7 +486,7 @@ static int pxamci_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
 	struct pxamci_host *host = NULL;
-	struct resource *r;
+	struct resource *r, *dmarx, *dmatx;
 	int ret, irq;
 
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -493,7 +520,7 @@ static int pxamci_probe(struct platform_device *pdev)
 	/*
 	 * Block length register is only 10 bits before PXA27x.
 	 */
-	mmc->max_blk_size = (cpu_is_pxa21x() || cpu_is_pxa25x()) ? 1023 : 2048;
+	mmc->max_blk_size = cpu_is_pxa25x() ? 1023 : 2048;
 
 	/*
 	 * Block count register is 16 bits.
@@ -519,16 +546,20 @@ static int pxamci_probe(struct platform_device *pdev)
 	 * Calculate minimum clock rate, rounding up.
 	 */
 	mmc->f_min = (host->clkrate + 63) / 64;
-	mmc->f_max = host->clkrate;
+	mmc->f_max = (cpu_is_pxa300() || cpu_is_pxa310()) ? 26000000
+							  : host->clkrate;
 
 	mmc->ocr_avail = host->pdata ?
 			 host->pdata->ocr_mask :
 			 MMC_VDD_32_33|MMC_VDD_33_34;
 	mmc->caps = 0;
 	host->cmdat = 0;
-	if (!cpu_is_pxa21x() && !cpu_is_pxa25x()) {
+	if (!cpu_is_pxa25x()) {
 		mmc->caps |= MMC_CAP_4_BIT_DATA | MMC_CAP_SDIO_IRQ;
 		host->cmdat |= CMDAT_SDIO_INT_EN;
+		if (cpu_is_pxa300() || cpu_is_pxa310())
+			mmc->caps |= MMC_CAP_MMC_HIGHSPEED |
+				     MMC_CAP_SD_HIGHSPEED;
 	}
 
 	host->sg_cpu = dma_alloc_coherent(&pdev->dev, PAGE_SIZE, &host->sg_dma, GFP_KERNEL);
@@ -569,6 +600,20 @@ static int pxamci_probe(struct platform_device *pdev)
 		goto out;
 
 	platform_set_drvdata(pdev, mmc);
+
+	dmarx = platform_get_resource(pdev, IORESOURCE_DMA, 0);
+	if (!dmarx) {
+		ret = -ENXIO;
+		goto out;
+	}
+	host->dma_drcmrrx = dmarx->start;
+
+	dmatx = platform_get_resource(pdev, IORESOURCE_DMA, 1);
+	if (!dmatx) {
+		ret = -ENXIO;
+		goto out;
+	}
+	host->dma_drcmrtx = dmatx->start;
 
 	if (host->pdata && host->pdata->init)
 		host->pdata->init(&pdev->dev, pxamci_detect_irq, mmc);
@@ -613,8 +658,8 @@ static int pxamci_remove(struct platform_device *pdev)
 		       END_CMD_RES|PRG_DONE|DATA_TRAN_DONE,
 		       host->base + MMC_I_MASK);
 
-		DRCMRRXMMC = 0;
-		DRCMRTXMMC = 0;
+		DRCMR(host->dma_drcmrrx) = 0;
+		DRCMR(host->dma_drcmrtx) = 0;
 
 		free_irq(host->irq, host);
 		pxa_free_dma(host->dma);
@@ -664,6 +709,7 @@ static struct platform_driver pxamci_driver = {
 	.resume		= pxamci_resume,
 	.driver		= {
 		.name	= DRIVER_NAME,
+		.owner	= THIS_MODULE,
 	},
 };
 
@@ -682,3 +728,4 @@ module_exit(pxamci_exit);
 
 MODULE_DESCRIPTION("PXA Multimedia Card Interface Driver");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:pxa2xx-mci");

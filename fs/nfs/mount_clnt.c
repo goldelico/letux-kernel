@@ -14,6 +14,7 @@
 #include <linux/sunrpc/clnt.h>
 #include <linux/sunrpc/sched.h>
 #include <linux/nfs_fs.h>
+#include "internal.h"
 
 #ifdef RPC_DEBUG
 # define NFSDBG_FACILITY	NFSDBG_MOUNT
@@ -56,7 +57,7 @@ int nfs_mount(struct sockaddr *addr, size_t len, char *hostname, char *path,
 		.program	= &mnt_program,
 		.version	= version,
 		.authflavor	= RPC_AUTH_UNIX,
-		.flags		= RPC_CLNT_CREATE_INTR,
+		.flags		= 0,
 	};
 	struct rpc_clnt		*mnt_clnt;
 	int			status;
@@ -98,7 +99,7 @@ out_call_err:
 
 out_mnt_err:
 	dprintk("NFS: MNT server returned result %d\n", result.status);
-	status = -EACCES;
+	status = nfs_stat_to_errno(result.status);
 	goto out;
 }
 
@@ -130,10 +131,11 @@ static int xdr_decode_fhstatus3(struct rpc_rqst *req, __be32 *p,
 				struct mnt_fhstatus *res)
 {
 	struct nfs_fh *fh = res->fh;
+	unsigned size;
 
 	if ((res->status = ntohl(*p++)) == 0) {
-		int size = ntohl(*p++);
-		if (size <= NFS3_FHSIZE) {
+		size = ntohl(*p++);
+		if (size <= NFS3_FHSIZE && size != 0) {
 			fh->size = size;
 			memcpy(fh->data, p, size);
 		} else

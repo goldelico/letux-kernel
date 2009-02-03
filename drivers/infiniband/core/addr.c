@@ -4,28 +4,33 @@
  * Copyright (c) 1999-2005, Mellanox Technologies, Inc. All rights reserved.
  * Copyright (c) 2005 Intel Corporation.  All rights reserved.
  *
- * This Software is licensed under one of the following licenses:
+ * This software is available to you under a choice of one of two
+ * licenses.  You may choose to be licensed under the terms of the GNU
+ * General Public License (GPL) Version 2, available from the file
+ * COPYING in the main directory of this source tree, or the
+ * OpenIB.org BSD license below:
  *
- * 1) under the terms of the "Common Public License 1.0" a copy of which is
- *    available from the Open Source Initiative, see
- *    http://www.opensource.org/licenses/cpl.php.
+ *     Redistribution and use in source and binary forms, with or
+ *     without modification, are permitted provided that the following
+ *     conditions are met:
  *
- * 2) under the terms of the "The BSD License" a copy of which is
- *    available from the Open Source Initiative, see
- *    http://www.opensource.org/licenses/bsd-license.php.
+ *      - Redistributions of source code must retain the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer.
  *
- * 3) under the terms of the "GNU General Public License (GPL) Version 2" a
- *    copy of which is available from the Open Source Initiative, see
- *    http://www.opensource.org/licenses/gpl-license.php.
+ *      - Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials
+ *        provided with the distribution.
  *
- * Licensee has the right to choose one of the above licenses.
- *
- * Redistributions of source code must retain the above copyright
- * notice and one of the license notices.
- *
- * Redistributions in binary form must reproduce both the above copyright
- * notice, one of the license notices in the documentation
- * and/or other materials provided with the distribution.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 #include <linux/mutex.h>
@@ -100,6 +105,7 @@ int rdma_copy_addr(struct rdma_dev_addr *dev_addr, struct net_device *dev,
 	memcpy(dev_addr->broadcast, dev->broadcast, MAX_ADDR_LEN);
 	if (dst_dev_addr)
 		memcpy(dev_addr->dst_dev_addr, dst_dev_addr, MAX_ADDR_LEN);
+	dev_addr->src_dev = dev;
 	return 0;
 }
 EXPORT_SYMBOL(rdma_copy_addr);
@@ -110,7 +116,7 @@ int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr)
 	__be32 ip = ((struct sockaddr_in *) addr)->sin_addr.s_addr;
 	int ret;
 
-	dev = ip_dev_find(ip);
+	dev = ip_dev_find(&init_net, ip);
 	if (!dev)
 		return -EADDRNOTAVAIL;
 
@@ -154,11 +160,11 @@ static void addr_send_arp(struct sockaddr_in *dst_in)
 {
 	struct rtable *rt;
 	struct flowi fl;
-	u32 dst_ip = dst_in->sin_addr.s_addr;
+	__be32 dst_ip = dst_in->sin_addr.s_addr;
 
 	memset(&fl, 0, sizeof fl);
 	fl.nl_u.ip4_u.daddr = dst_ip;
-	if (ip_route_output_key(&rt, &fl))
+	if (ip_route_output_key(&init_net, &rt, &fl))
 		return;
 
 	neigh_event_send(rt->u.dst.neighbour, NULL);
@@ -169,8 +175,8 @@ static int addr_resolve_remote(struct sockaddr_in *src_in,
 			       struct sockaddr_in *dst_in,
 			       struct rdma_dev_addr *addr)
 {
-	u32 src_ip = src_in->sin_addr.s_addr;
-	u32 dst_ip = dst_in->sin_addr.s_addr;
+	__be32 src_ip = src_in->sin_addr.s_addr;
+	__be32 dst_ip = dst_in->sin_addr.s_addr;
 	struct flowi fl;
 	struct rtable *rt;
 	struct neighbour *neigh;
@@ -179,7 +185,7 @@ static int addr_resolve_remote(struct sockaddr_in *src_in,
 	memset(&fl, 0, sizeof fl);
 	fl.nl_u.ip4_u.daddr = dst_ip;
 	fl.nl_u.ip4_u.saddr = src_ip;
-	ret = ip_route_output_key(&rt, &fl);
+	ret = ip_route_output_key(&init_net, &rt, &fl);
 	if (ret)
 		goto out;
 
@@ -257,19 +263,19 @@ static int addr_resolve_local(struct sockaddr_in *src_in,
 			      struct rdma_dev_addr *addr)
 {
 	struct net_device *dev;
-	u32 src_ip = src_in->sin_addr.s_addr;
+	__be32 src_ip = src_in->sin_addr.s_addr;
 	__be32 dst_ip = dst_in->sin_addr.s_addr;
 	int ret;
 
-	dev = ip_dev_find(dst_ip);
+	dev = ip_dev_find(&init_net, dst_ip);
 	if (!dev)
 		return -EADDRNOTAVAIL;
 
-	if (ZERONET(src_ip)) {
+	if (ipv4_is_zeronet(src_ip)) {
 		src_in->sin_family = dst_in->sin_family;
 		src_in->sin_addr.s_addr = dst_ip;
 		ret = rdma_copy_addr(addr, dev, dev->dev_addr);
-	} else if (LOOPBACK(src_ip)) {
+	} else if (ipv4_is_loopback(src_ip)) {
 		ret = rdma_translate_ip((struct sockaddr *)dst_in, addr);
 		if (!ret)
 			memcpy(addr->dst_dev_addr, dev->dev_addr, MAX_ADDR_LEN);

@@ -13,6 +13,48 @@ menuconfig MISC_DEVICES
 
 if MISC_DEVICES
 
+config ATMEL_PWM
+	tristate "Atmel AT32/AT91 PWM support"
+	depends on AVR32 || ARCH_AT91SAM9263 || ARCH_AT91SAM9RL || ARCH_AT91CAP9
+	help
+	  This option enables device driver support for the PWM channels
+	  on certain Atmel prcoessors.  Pulse Width Modulation is used for
+	  purposes including software controlled power-efficent backlights
+	  on LCD displays, motor control, and waveform generation.
+
+config ATMEL_TCLIB
+	bool "Atmel AT32/AT91 Timer/Counter Library"
+	depends on (AVR32 || ARCH_AT91)
+	help
+	  Select this if you want a library to allocate the Timer/Counter
+	  blocks found on many Atmel processors.  This facilitates using
+	  these blocks by different drivers despite processor differences.
+
+config ATMEL_TCB_CLKSRC
+	bool "TC Block Clocksource"
+	depends on ATMEL_TCLIB && GENERIC_TIME
+	default y
+	help
+	  Select this to get a high precision clocksource based on a
+	  TC block with a 5+ MHz base clock rate.  Two timer channels
+	  are combined to make a single 32-bit timer.
+
+	  When GENERIC_CLOCKEVENTS is defined, the third timer channel
+	  may be used as a clock event device supporting oneshot mode
+	  (delays of up to two seconds) based on the 32 KiHz clock.
+
+config ATMEL_TCB_CLKSRC_BLOCK
+	int
+	depends on ATMEL_TCB_CLKSRC
+	prompt "TC Block" if ARCH_AT91RM9200 || ARCH_AT91SAM9260 || CPU_AT32AP700X
+	default 0
+	range 0 1
+	help
+	  Some chips provide more than one TC block, so you have the
+	  choice of which one to use for the clock framework.  The other
+	  TC can be used for other purposes, such as PWM generation and
+	  interval timing.
+
 config IBM_ASM
 	tristate "Device driver for IBM RSA service processor"
 	depends on X86 && PCI && INPUT && EXPERIMENTAL
@@ -35,10 +77,12 @@ config IBM_ASM
 	  for your IBM server.
 
 config PHANTOM
-	tristate "Sensable PHANToM"
+	tristate "Sensable PHANToM (PCI)"
 	depends on PCI
 	help
 	  Say Y here if you want to build a driver for Sensable PHANToM device.
+
+	  This driver is only for PCI PHANToMs.
 
 	  If you choose to build module, its name will be phantom. If unsure,
 	  say N here.
@@ -92,12 +136,35 @@ config TIFM_7XX1
           To compile this driver as a module, choose M here: the module will
 	  be called tifm_7xx1.
 
+config ACER_WMI
+        tristate "Acer WMI Laptop Extras (EXPERIMENTAL)"
+	depends on X86
+	depends on EXPERIMENTAL
+	depends on ACPI
+	depends on LEDS_CLASS
+	depends on NEW_LEDS
+	depends on BACKLIGHT_CLASS_DEVICE
+	depends on SERIO_I8042
+	depends on RFKILL
+	select ACPI_WMI
+	---help---
+	  This is a driver for newer Acer (and Wistron) laptops. It adds
+	  wireless radio and bluetooth control, and on some laptops,
+	  exposes the mail LED and LCD backlight.
+
+	  For more information about this driver see
+	  <file:Documentation/laptops/acer-wmi.txt>
+
+	  If you have an ACPI-WMI compatible Acer/ Wistron laptop, say Y or M
+	  here.
+
 config ASUS_LAPTOP
         tristate "Asus Laptop Extras (EXPERIMENTAL)"
         depends on X86
         depends on ACPI
 	depends on EXPERIMENTAL && !ACPI_ASUS
 	depends on LEDS_CLASS
+	depends on NEW_LEDS
 	depends on BACKLIGHT_CLASS_DEVICE
         ---help---
 	  This is the new Linux driver for Asus laptops. It may also support some
@@ -115,16 +182,50 @@ config FUJITSU_LAPTOP
         tristate "Fujitsu Laptop Extras"
         depends on X86
         depends on ACPI
+	depends on INPUT
         depends on BACKLIGHT_CLASS_DEVICE
         ---help---
 	  This is a driver for laptops built by Fujitsu:
 
 	    * P2xxx/P5xxx/S6xxx/S7xxx series Lifebooks
 	    * Possibly other Fujitsu laptop models
+	    * Tested with S6410 and S7020
 
-	  It adds support for LCD brightness control.
+	  It adds support for LCD brightness control and some hotkeys.
 
 	  If you have a Fujitsu laptop, say Y or M here.
+
+config FUJITSU_LAPTOP_DEBUG
+	bool "Verbose debug mode for Fujitsu Laptop Extras"
+	depends on FUJITSU_LAPTOP
+	default n
+	---help---
+	  Enables extra debug output from the fujitsu extras driver, at the
+	  expense of a slight increase in driver size.
+
+	  If you are not sure, say N here.
+
+config TC1100_WMI
+	tristate "HP Compaq TC1100 Tablet WMI Extras (EXPERIMENTAL)"
+	depends on X86 && !X86_64
+	depends on EXPERIMENTAL
+	depends on ACPI
+	select ACPI_WMI
+	---help---
+	  This is a driver for the WMI extensions (wireless and bluetooth power
+	  control) of the HP Compaq TC1100 tablet.
+
+config HP_WMI
+       tristate "HP WMI extras"
+       depends on ACPI_WMI
+       depends on INPUT
+       depends on RFKILL
+       help
+         Say Y here if you want to support WMI-based hotkeys on HP laptops and
+	 to read data from WMI such as docking or ambient light sensor state.
+
+         To compile this driver as a module, choose M here: the module will
+         be called hp-wmi.
 
 config MSI_LAPTOP
         tristate "MSI Laptop Extras"
@@ -145,6 +246,34 @@ config MSI_LAPTOP
 
 	  If you have an MSI S270 laptop, say Y or M here.
 
+config PANASONIC_LAPTOP
+	tristate "Panasonic Laptop Extras"
+	depends on X86 && INPUT && ACPI
+        depends on BACKLIGHT_CLASS_DEVICE
+	---help---
+	  This driver adds support for access to backlight control and hotkeys
+	  on Panasonic Let's Note laptops.
+
+	  If you have a Panasonic Let's note laptop (such as the R1(N variant),
+	  R2, R3, R5, T2, W2 and Y2 series), say Y.
+
+config COMPAL_LAPTOP
+	tristate "Compal Laptop Extras"
+	depends on X86
+	depends on ACPI_EC
+	depends on BACKLIGHT_CLASS_DEVICE
+	---help---
+	  This is a driver for laptops built by Compal:
+
+	  Compal FL90/IFL90
+	  Compal FL91/IFL91
+	  Compal FL92/JFL92
+	  Compal FT00/IFT00
+
+	  It adds support for Bluetooth, WLAN and LCD brightness control.
+
+	  If you have an Compal FL9x/IFL9x/FT00 laptop, say Y or M here.
+
 config SONY_LAPTOP
 	tristate "Sony Laptop Extras"
 	depends on X86 && ACPI
@@ -158,7 +287,7 @@ config SONY_LAPTOP
 	  screen brightness control, Fn keys and allows powering on/off some
 	  devices.
 
-	  Read <file:Documentation/sony-laptop.txt> for more information.
+	  Read <file:Documentation/laptops/sony-laptop.txt> for more information.
 
 config SONYPI_COMPAT
 	bool "Sonypi compatibility"
@@ -169,16 +298,22 @@ config SONYPI_COMPAT
 config THINKPAD_ACPI
 	tristate "ThinkPad ACPI Laptop Extras"
 	depends on X86 && ACPI
+	select BACKLIGHT_LCD_SUPPORT
 	select BACKLIGHT_CLASS_DEVICE
 	select HWMON
 	select NVRAM
-	depends on INPUT
+	select INPUT
+	select NEW_LEDS
+	select LEDS_CLASS
+	select NET
+	select RFKILL
 	---help---
 	  This is a driver for the IBM and Lenovo ThinkPad laptops. It adds
 	  support for Fn-Fx key combinations, Bluetooth control, video
 	  output switching, ThinkLight control, UltraBay eject and more.
-	  For more information about this driver see 
-	  <file:Documentation/thinkpad-acpi.txt> and <http://ibm-acpi.sf.net/> .
+	  For more information about this driver see
+	  <file:Documentation/laptops/thinkpad-acpi.txt> and
+	  <http://ibm-acpi.sf.net/> .
 
 	  This driver was formerly known as ibm-acpi.
 
@@ -219,6 +354,47 @@ config THINKPAD_ACPI_BAY
 
 	  If you are not sure, say Y here.
 
+config THINKPAD_ACPI_VIDEO
+	bool "Video output control support"
+	depends on THINKPAD_ACPI
+	default y
+	---help---
+	  Allows the thinkpad_acpi driver to provide an interface to control
+	  the various video output ports.
+
+	  This feature often won't work well, depending on ThinkPad model,
+	  display state, video output devices in use, whether there is a X
+	  server running, phase of the moon, and the current mood of
+	  Schroedinger's cat.  If you can use X.org's RandR to control
+	  your ThinkPad's video output ports instead of this feature,
+	  don't think twice: do it and say N here to save some memory.
+
+	  If you are not sure, say Y here.
+
+config THINKPAD_ACPI_HOTKEY_POLL
+	bool "Support NVRAM polling for hot keys"
+	depends on THINKPAD_ACPI
+	default y
+	---help---
+	  Some thinkpad models benefit from NVRAM polling to detect a few of
+	  the hot key press events.  If you know your ThinkPad model does not
+	  need to do NVRAM polling to support any of the hot keys you use,
+	  unselecting this option will save about 1kB of memory.
+
+	  ThinkPads T40 and newer, R52 and newer, and X31 and newer are
+	  unlikely to need NVRAM polling in their latest BIOS versions.
+
+	  NVRAM polling can detect at most the following keys: ThinkPad/Access
+	  IBM, Zoom, Switch Display (fn+F7), ThinkLight, Volume up/down/mute,
+	  Brightness up/down, Display Expand (fn+F8), Hibernate (fn+F12).
+
+	  If you are not sure, say Y here.  The driver enables polling only if
+	  it is strictly necessary to do so.
+
+config LOW_MEMORY_KILLER
+    tristate "Low Memory Killer"
+	  ---help---
+	  Register processes to be killed when memory is low.
 
 config ATMEL_SSC
 	tristate "Device driver for Atmel SSC peripheral"
@@ -231,5 +407,95 @@ config ATMEL_SSC
 	  communications, i.e. I2S, SPI, etc.
 
 	  If unsure, say N.
+
+config INTEL_MENLOW
+	tristate "Thermal Management driver for Intel menlow platform"
+	depends on ACPI_THERMAL
+	select THERMAL
+	depends on X86
+	---help---
+	  ACPI thermal management enhancement driver on
+	  Intel Menlow platform.
+
+	  If unsure, say N.
+
+config EEEPC_LAPTOP
+	tristate "Eee PC Hotkey Driver (EXPERIMENTAL)"
+	depends on X86
+	depends on ACPI
+	depends on BACKLIGHT_CLASS_DEVICE
+	depends on HWMON
+	depends on EXPERIMENTAL
+	depends on RFKILL
+	---help---
+	  This driver supports the Fn-Fx keys on Eee PC laptops.
+	  It also adds the ability to switch camera/wlan on/off.
+
+	  If you have an Eee PC laptop, say Y or M here.
+
+config ENCLOSURE_SERVICES
+	tristate "Enclosure Services"
+	default n
+	help
+	  Provides support for intelligent enclosures (bays which
+	  contain storage devices).  You also need either a host
+	  driver (SCSI/ATA) which supports enclosures
+	  or a SCSI enclosure device (SES) to use these services.
+
+config SGI_XP
+	tristate "Support communication between SGI SSIs"
+	depends on NET
+	depends on (IA64_GENERIC || IA64_SGI_SN2 || IA64_SGI_UV || X86_64) && SMP
+	select IA64_UNCACHED_ALLOCATOR if IA64_GENERIC || IA64_SGI_SN2
+	select GENERIC_ALLOCATOR if IA64_GENERIC || IA64_SGI_SN2
+	select SGI_GRU if (IA64_GENERIC || IA64_SGI_UV || X86_64) && SMP
+	---help---
+	  An SGI machine can be divided into multiple Single System
+	  Images which act independently of each other and have
+	  hardware based memory protection from the others.  Enabling
+	  this feature will allow for direct communication between SSIs
+	  based on a network adapter and DMA messaging.
+
+config HP_ILO
+	tristate "Channel interface driver for HP iLO/iLO2 processor"
+	depends on PCI
+	default n
+	help
+	  The channel interface driver allows applications to communicate
+	  with iLO/iLO2 management processors present on HP ProLiant
+	  servers.  Upon loading, the driver creates /dev/hpilo/dXccbN files,
+	  which can be used to gather data from the management processor,
+	  via read and write system calls.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called hpilo.
+
+config SGI_GRU
+	tristate "SGI GRU driver"
+	depends on (X86_64 || IA64_SGI_UV || IA64_GENERIC) && SMP
+	default n
+	select MMU_NOTIFIER
+	---help---
+	The GRU is a hardware resource located in the system chipset. The GRU
+	contains memory that can be mmapped into the user address space. This memory is
+	used to communicate with the GRU to perform functions such as load/store,
+	scatter/gather, bcopy, AMOs, etc.  The GRU is directly accessed by user
+	instructions using user virtual addresses. GRU instructions (ex., bcopy) use
+	user virtual addresses for operands.
+
+	If you are not running on a SGI UV system, say N.
+
+config SGI_GRU_DEBUG
+	bool  "SGI GRU driver debug"
+	depends on SGI_GRU
+	default n
+	---help---
+	This option enables addition debugging code for the SGI GRU driver. If
+	you are unsure, say N.
+
+config MACH_NEO1973
+	bool
+	help
+	  Common machine code for Openmoko GTAxx hardware
 
 endif # MISC_DEVICES

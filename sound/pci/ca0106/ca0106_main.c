@@ -135,7 +135,6 @@
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
  *
  */
-#include <sound/driver.h>
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -250,6 +249,12 @@ static struct snd_ca0106_details ca0106_chip_details[] = {
 	   .name   = "MSI K8N Diamond MB [SB0438]",
 	   .gpio_type = 2,
 	   .i2c_adc = 1 } ,
+	 /* MSI K8N Diamond PLUS MB */
+	 { .serial = 0x10091102,
+	   .name   = "MSI K8N Diamond MB",
+	   .gpio_type = 2,
+	   .i2c_adc = 1,
+	   .spi_dac = 2 } ,
 	 /* Shuttle XPC SD31P which has an onboard Creative Labs
 	  * Sound Blaster Live! 24-bit EAX
 	  * high-definition 7.1 audio processor".
@@ -436,22 +441,22 @@ int snd_ca0106_i2c_write(struct snd_ca0106 *emu,
 static void snd_ca0106_intr_enable(struct snd_ca0106 *emu, unsigned int intrenb)
 {
 	unsigned long flags;
-	unsigned int enable;
-  
+	unsigned int intr_enable;
+
 	spin_lock_irqsave(&emu->emu_lock, flags);
-	enable = inl(emu->port + INTE) | intrenb;
-	outl(enable, emu->port + INTE);
+	intr_enable = inl(emu->port + INTE) | intrenb;
+	outl(intr_enable, emu->port + INTE);
 	spin_unlock_irqrestore(&emu->emu_lock, flags);
 }
 
 static void snd_ca0106_intr_disable(struct snd_ca0106 *emu, unsigned int intrenb)
 {
 	unsigned long flags;
-	unsigned int enable;
-  
+	unsigned int intr_enable;
+
 	spin_lock_irqsave(&emu->emu_lock, flags);
-	enable = inl(emu->port + INTE) & ~intrenb;
-	outl(enable, emu->port + INTE);
+	intr_enable = inl(emu->port + INTE) & ~intrenb;
+	outl(intr_enable, emu->port + INTE);
 	spin_unlock_irqrestore(&emu->emu_lock, flags);
 }
 
@@ -754,7 +759,6 @@ static int snd_ca0106_pcm_prepare_playback(struct snd_pcm_substream *substream)
 			       SPCS_CHANNELNUM_LEFT | SPCS_SOURCENUM_UNSPEC |
 			       SPCS_GENERATIONSTATUS | 0x00001200 |
 			       0x00000000 | SPCS_EMPHASIS_NONE | SPCS_COPYRIGHT );
-	}
 #endif
 
 	return 0;
@@ -1115,6 +1119,8 @@ static int snd_ca0106_free(struct snd_ca0106 *chip)
 		 * So we can fix: snd-malloc: Memory leak?  pages not freed = 8
 		 */
 	}
+	if (chip->irq >= 0)
+		free_irq(chip->irq, chip);
 	// release the data
 #if 1
 	if (chip->buffer.area)
@@ -1124,9 +1130,6 @@ static int snd_ca0106_free(struct snd_ca0106 *chip)
 	// release the i/o port
 	release_and_free_resource(chip->res_port);
 
-	// release the irq
-	if (chip->irq >= 0)
-		free_irq(chip->irq, chip);
 	pci_disable_device(chip->pci);
 	kfree(chip);
 	return 0;
