@@ -31,6 +31,7 @@ struct lis302dl_info {
 	unsigned int flags;
 	unsigned int threshold;
 	unsigned int duration;
+	u32 overruns;
 	struct {
 		unsigned int threshold; /* mg */
 		unsigned int duration;  /* ms */
