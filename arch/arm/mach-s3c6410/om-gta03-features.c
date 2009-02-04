@@ -101,14 +101,19 @@ static void om_gta03_features_pwron_set_on(enum feature feature)
 	case OM_GTA03_GSM:
 		/* give power to GSM module */
 		s3c_gpio_setpull(GTA03_GPIO_N_MODEM_RESET, S3C_GPIO_PULL_NONE);
-		s3c_gpio_cfgpin(GTA03_GPIO_N_MODEM_RESET, S3C_GPIO_SFN(1));
-		gpio_direction_output(GTA03_GPIO_N_MODEM_RESET, 0);
-
-		gpio_direction_output(GTA03_GPIO_MODEN_ON, 0);
 		s3c_gpio_setpull(GTA03_GPIO_MODEN_ON, S3C_GPIO_PULL_NONE);
+		s3c_gpio_cfgpin(GTA03_GPIO_N_MODEM_RESET, S3C_GPIO_SFN(1));
 		s3c_gpio_cfgpin(GTA03_GPIO_MODEN_ON, S3C_GPIO_SFN(1));
-		msleep(1);
+		gpio_direction_output(GTA03_GPIO_MODEN_ON, 1);
+		gpio_direction_output(GTA03_GPIO_N_MODEM_RESET, 0);
+		gpio_direction_output(GTA03_GPIO_MODEN_ON, 0);
+		msleep(150);
 		gpio_direction_output(GTA03_GPIO_N_MODEM_RESET, 1);
+		msleep(10);
+		/* Release GPIO1 */
+		s3c_gpio_cfgpin(GTA03_GPIO_N_MODEM_RESET, S3C_GPIO_SFN(0));
+		msleep(300);
+		gpio_direction_output(GTA03_GPIO_MODEN_ON, 1);
 		break;
 	case OM_GTA03_USBHOST:
 		pcf50633_gpio_set(om_gta03_pcf, PCF50633_GPO, 1);
@@ -153,9 +158,10 @@ static void om_gta03_features_pwron_set_off(enum feature feature)
 		break;
 	case OM_GTA03_GSM:
 		/* remove power from WLAN / BT module */
-		gpio_direction_output(GTA03_GPIO_MODEN_ON, 1);
-		s3c_gpio_setpull(GTA03_GPIO_MODEN_ON, S3C_GPIO_PULL_NONE);
 		s3c_gpio_cfgpin(GTA03_GPIO_MODEN_ON, S3C_GPIO_SFN(1));
+		gpio_direction_output(GTA03_GPIO_MODEN_ON, 0);
+		msleep(1100);
+		gpio_direction_output(GTA03_GPIO_MODEN_ON, 1);
 		break;
 	case OM_GTA03_USBHOST:
 		pcf50633_gpio_set(om_gta03_pcf, PCF50633_GPO, 0);
