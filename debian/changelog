@@ -6,6 +6,10 @@ linux-2.6-openmoko (20090105.git69b2aa26-1) UNRELEASED; urgency=low
       means that the Linux kernel is now at version 2.6.28.
   * debian/control:
     + s/2.6.24/2.6.28/ in binary package name and description.
+  * debian/config.gta02:
+    + new file from the /proc/config.gz of the FSO-MS5 image.
+  * debian/rules:
+    + adapt to the new location for the GTA02 config file.
 
  --
 
