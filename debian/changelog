@@ -1,3 +1,14 @@
+linux-2.6-openmoko (20090105.git69b2aa26-1) UNRELEASED; urgency=low
+
+  * New Git Checkout:
+    + milestone5.
+    + switch to the upstream 'andy-tracking' branch, which also
+      means that the Linux kernel is now at version 2.6.28.
+  * debian/control:
+    + s/2.6.24/2.6.28/ in binary package name and description.
+
+ --
+
 linux-2.6-openmoko (20081103.git7172ec57-2) pkg-fso; urgency=low
 
   * This version explicitly does not support vfat /boot partition
