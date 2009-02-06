@@ -39,6 +39,7 @@
 #include <mach/regs-gpio.h>
 #include <mach/regs-mem.h>
 #include <mach/regs-irq.h>
+#include <mach/hardware.h>
 
 #include <asm/mach/time.h>
 

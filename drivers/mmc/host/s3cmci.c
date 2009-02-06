@@ -21,7 +21,7 @@
 #include <linux/irq.h>
 #include <linux/io.h>
 
-#include <asm/dma.h>
+#include <mach/dma.h>
 
 #include <mach/regs-sdi.h>
 #include <mach/regs-gpio.h>
@@ -805,12 +805,11 @@ static void s3cmci_dma_setup(struct s3cmci_host *host,
 
 	last_source = source;
 
-	s3c2410_dma_devconfig(host->dma, source, 3,
+	s3c2410_dma_devconfig(host->dma, source,
 			      host->mem->start + host->sdidata);
 
 	if (!setup_ok) {
-		s3c2410_dma_config(host->dma, 4,
-			(S3C2410_DCON_HWTRIG | S3C2410_DCON_CH0_SDI));
+		s3c2410_dma_config(host->dma, 4, 0);
 		s3c2410_dma_set_buffdone_fn(host->dma,
 					    s3cmci_dma_done_callback);
 		s3c2410_dma_setflags(host->dma, S3C2410_DMAF_AUTOSTART);
