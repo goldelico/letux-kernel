@@ -62,7 +62,7 @@
 
 #include <mach/regs-gpio.h>
 #include <mach/ts.h>
-
+#include <mach/hardware.h>
 #include <plat/regs-adc.h>
 
 #include "ts_filter.h"
