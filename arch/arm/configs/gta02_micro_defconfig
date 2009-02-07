@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.29-rc2
-# Fri Jan 30 16:15:16 2009
+# Linux kernel version: 2.6.29-rc3
+# Sat Feb  7 11:12:32 2009
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -39,6 +39,15 @@ CONFIG_LOCALVERSION="-mokodev"
 # CONFIG_SWAP is not set
 # CONFIG_SYSVIPC is not set
 # CONFIG_BSD_PROCESS_ACCT is not set
+
+#
+# RCU Subsystem
+#
+CONFIG_CLASSIC_RCU=y
+# CONFIG_TREE_RCU is not set
+# CONFIG_PREEMPT_RCU is not set
+# CONFIG_TREE_RCU_TRACE is not set
+# CONFIG_PREEMPT_RCU_TRACE is not set
 # CONFIG_IKCONFIG is not set
 CONFIG_LOG_BUF_SHIFT=18
 # CONFIG_GROUP_SCHED is not set
@@ -99,11 +108,6 @@ CONFIG_DEFAULT_DEADLINE=y
 # CONFIG_DEFAULT_CFQ is not set
 # CONFIG_DEFAULT_NOOP is not set
 CONFIG_DEFAULT_IOSCHED="deadline"
-CONFIG_CLASSIC_RCU=y
-# CONFIG_TREE_RCU is not set
-# CONFIG_PREEMPT_RCU is not set
-# CONFIG_TREE_RCU_TRACE is not set
-# CONFIG_PREEMPT_RCU_TRACE is not set
 # CONFIG_FREEZER is not set
 
 #
@@ -633,7 +637,6 @@ CONFIG_SPI_S3C24XX_GPIO=y
 #
 # SPI Protocol Masters
 #
-# CONFIG_SPI_AT25 is not set
 # CONFIG_SPI_SPIDEV is not set
 # CONFIG_SPI_TLE62X0 is not set
 CONFIG_ARCH_REQUIRE_GPIOLIB=y
