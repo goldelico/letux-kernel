@@ -31,11 +31,13 @@
 
 #include <asm/mach-types.h>
 #include <asm/hardware/scoop.h>
-#include <asm/plat-s3c24xx/regs-iis.h>
+
+#include <plat/regs-iis.h>
+
 #include <mach/regs-clock.h>
 #include <mach/regs-gpio.h>
 #include <mach/hardware.h>
-#include <mach/audio.h>
+//#include <mach/audio.h>
 #include <asm/io.h>
 #include <mach/spi-gpio.h>
 #include <mach/regs-gpioj.h>
