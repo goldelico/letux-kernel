@@ -25,6 +25,7 @@
 
 #include <mach/regs-sdi.h>
 #include <mach/regs-gpio.h>
+#include <mach/hardware.h>
 
 #include <plat/mci.h>
 
