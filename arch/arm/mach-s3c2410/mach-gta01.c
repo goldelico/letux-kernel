@@ -279,7 +279,6 @@ static void gta01_pmu_regulator_registered(struct pcf50606 *pcf, int id)
 			break;
 		case PCF50606_REGULATOR_D2REG:
 			gps_registered_regulators++;
-			platform_device_register(&s3c_device_sdi);
 			break;
 		case PCF50606_REGULATOR_IOREG:
 		case PCF50606_REGULATOR_DCD:
@@ -551,6 +550,7 @@ static struct platform_device *gta01_devices[] __initdata = {
 	&s3c_device_wdt,
 	&s3c_device_i2c0,
 	&s3c_device_iis,
+	&s3c_device_sdi,
 	&s3c_device_usbgadget,
 	&s3c_device_nand,
 	&s3c_device_ts,
@@ -572,8 +572,69 @@ static struct s3c2410_platform_nand gta01_nand_info = {
 	.sets		= gta01_nand_sets,
 };
 
+static struct regulator *s3c_sdi_regulator;
+
+static void gta01_mmc_set_power(unsigned char power_mode, unsigned short vdd)
+{
+	int bit;
+	int mv = 1700; /* 1.7V for MMC_VDD_165_195 */
+	struct regulator *regulator;
+
+	printk(KERN_DEBUG "mmc_set_power(power_mode=%u, vdd=%u)\n",
+	       power_mode, vdd);
+
+	if (!s3c_sdi_regulator) {
+		s3c_sdi_regulator =
+		       	regulator_get(&s3c_device_sdi.dev, "SD_3V3");
+		if (!s3c_sdi_regulator) {
+			printk(KERN_ERR "gta01_mmc_set_power : Cannot get regulator");
+			return;
+		}
+	}
+
+	regulator = s3c_sdi_regulator;
+
+		return;
+	switch (system_rev) {
+	case GTA01v3_SYSTEM_REV:
+		switch (power_mode) {
+		case MMC_POWER_OFF:
+			regulator_disable(regulator);
+			break;
+		case MMC_POWER_ON:
+			/* translate MMC_VDD_* VDD bit to mv */
+			for (bit = 8; bit != 24; bit++)
+				if (vdd == (1 << bit))
+					mv += 100 * (bit - 4);
+			regulator_set_voltage(regulator, mv * 1000, mv * 10000);
+			break;
+		case MMC_POWER_UP:
+			regulator_enable(regulator);
+			break;
+		}
+		break;
+	case GTA01v4_SYSTEM_REV:
+	case GTA01Bv2_SYSTEM_REV:
+	case GTA01Bv3_SYSTEM_REV:
+	case GTA01Bv4_SYSTEM_REV:
+		switch (power_mode) {
+		case MMC_POWER_OFF:
+			neo1973_gpb_setpin(GTA01_GPIO_SDMMC_ON, 1);
+			break;
+		case MMC_POWER_ON:
+			neo1973_gpb_setpin(GTA01_GPIO_SDMMC_ON, 0);
+			break;
+		}
+		break;
+	}
+	
+	if (regulator)
+		regulator_put(regulator);
+}
+
 static struct s3c24xx_mci_pdata gta01_mmc_cfg = {
 	.gpio_detect	= GTA01_GPIO_nSD_DETECT,
+	.set_power	= &gta01_mmc_set_power,	
 	.ocr_avail	= MMC_VDD_165_195|MMC_VDD_20_21|
 			  MMC_VDD_21_22|MMC_VDD_22_23|MMC_VDD_23_24|
 			  MMC_VDD_24_25|MMC_VDD_25_26|MMC_VDD_26_27|

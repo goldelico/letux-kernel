@@ -1109,42 +1109,18 @@ static void s3cmci_set_clk(struct s3cmci_host *host, struct mmc_ios *ios)
 		host->real_rate = 0;
 }
 
-static int s3cmci_get_mv(int vdd)
-{
-	int mv = 1700; /* 1.7V for MMC_VDD_165_195 */
-	int bit;
-
-	for (bit = 0; bit != 24; bit++)
-		if (vdd == (1 << bit))
-			mv += 100 * (bit - 4);
-
-	return mv;
-}	
-
 static void s3cmci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct s3cmci_host *host = mmc_priv(mmc);
 	u32 mci_con;
-	struct regulator *regulator;
-	int mv;
 
 	/* Set the power state */
 
 	mci_con = readl(host->base + S3C2410_SDICON);
 
-	regulator = host->regulator;
-
 	switch (ios->power_mode) {
-	case MMC_POWER_UP:
-		if (regulator) {
-			mv = s3cmci_get_mv(ios->vdd);
-			regulator_set_voltage(regulator, mv * 1000, mv * 1000);
-			regulator_enable(regulator);
-		} else if (host->pdata->set_power) {
-			host->pdata->set_power(ios->power_mode, ios->vdd);
-		}  else
-			dev_err(&host->pdev->dev, "Can't MMC_POWERUP\n");
 	case MMC_POWER_ON:
+	case MMC_POWER_UP:
 		s3c2410_gpio_cfgpin(S3C2410_GPE5, S3C2410_GPE5_SDCLK);
 		s3c2410_gpio_cfgpin(S3C2410_GPE6, S3C2410_GPE6_SDCMD);
 		s3c2410_gpio_cfgpin(S3C2410_GPE7, S3C2410_GPE7_SDDAT0);
@@ -1152,37 +1128,26 @@ static void s3cmci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		s3c2410_gpio_cfgpin(S3C2410_GPE9, S3C2410_GPE9_SDDAT2);
 		s3c2410_gpio_cfgpin(S3C2410_GPE10, S3C2410_GPE10_SDDAT3);
 
-		if (regulator) {
-			mv = s3cmci_get_mv(ios->vdd);
-			regulator_set_voltage(regulator, mv * 1000, mv * 1000);
-		} else if (host->pdata->set_power) {
+		if (host->pdata->set_power)
 			host->pdata->set_power(ios->power_mode, ios->vdd);
-		}  else
-			dev_err(&host->pdev->dev, "Can't MMC_POWERON\n");
-	
+
 		if (!host->is2440)
 			mci_con |= S3C2410_SDICON_FIFORESET;
 
 		break;
 
 	case MMC_POWER_OFF:
+	default:
 		s3c2410_gpio_setpin(S3C2410_GPE5, 0);
 		s3c2410_gpio_cfgpin(S3C2410_GPE5, S3C2410_GPE5_OUTP);
 
 		if (host->is2440)
 			mci_con |= S3C2440_SDICON_SDRESET;
 
-		if (regulator) {
-			if (regulator_is_enabled(regulator))
-				regulator_disable(regulator);
-		} else if (host->pdata->set_power) {
+		if (host->pdata->set_power)
 			host->pdata->set_power(ios->power_mode, ios->vdd);
-		}  else
-			dev_err(&host->pdev->dev, "Can't MMC_POWEROFF\n");
-	
+
 		break;
-	default:
-		printk(KERN_ERR "No such power mode %d\n", ios->power_mode);
 	}
 
 	s3cmci_set_clk(host, ios);
@@ -1462,12 +1427,6 @@ static int __devinit s3cmci_probe(struct platform_device *pdev, int is2440)
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register cpufreq\n");
 		goto free_dmabuf;
-	}
-
-	host->regulator = regulator_get(&pdev->dev, "SD_3V3");
-	if (IS_ERR(host->regulator)) {
-		dev_err(&pdev->dev, "Regulator for SD_3V3 unavilable \n");
-		host->regulator = NULL;
 	}
 
 	ret = mmc_add_host(mmc);
