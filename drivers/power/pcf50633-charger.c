@@ -48,7 +48,7 @@ int pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma)
 	u8 bits;
 	int charging_start = 1;
 	u8 mbcs2, chgmod;
-	u8 mbcc5;
+	unsigned int mbcc5;
 
 	if (ma >= 1000) {
 		bits = PCF50633_MBCC7_USB_1000mA;
@@ -76,7 +76,7 @@ int pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma)
 	 * We limit the charging current to be the USB current limit.
 	 * The reason is that on pcf50633, when it enters PMU Standby mode,
 	 * which it does when the device goes "off", the USB current limit
-	 * reverts to the variant default.  It at least one common case, that
+	 * reverts to the variant default.  In at least one common case, that
 	 * default is 500mA.  By setting the charging current to be the same
 	 * as the USB limit we set here before PMU standby, we enforce it only
 	 * using the correct amount of current even when the USB current limit
@@ -84,6 +84,8 @@ int pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma)
 	 */
 
 	mbcc5 = (ma << 8) / mbc->pcf->pdata->chg_ref_current_ma;
+	if (mbcc5 > 255)
+		mbcc5 = 255;
 	pcf50633_reg_write(mbc->pcf, PCF50633_REG_MBCC5, mbcc5);
 
 	mbcs2 = pcf50633_reg_read(pcf, PCF50633_REG_MBCS2);
@@ -192,7 +194,7 @@ static ssize_t set_chglim(struct device *dev,
 {
 	struct pcf50633_mbc *mbc = dev_get_drvdata(dev);
 	unsigned long ma;
-	u8 mbcc5;
+	unsigned int mbcc5;
 	int ret;
 
 	ret = strict_strtoul(buf, 10, &ma);
@@ -200,6 +202,8 @@ static ssize_t set_chglim(struct device *dev,
 		return -EINVAL;
 
 	mbcc5 = (ma << 8) / mbc->pcf->pdata->chg_ref_current_ma;
+	if (mbcc5 > 255)
+		mbcc5 = 255;
 	pcf50633_reg_write(mbc->pcf, PCF50633_REG_MBCC5, mbcc5);
 
 	return count;
