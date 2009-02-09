@@ -17,4 +17,9 @@ enum gesture {
 	SND_SLIDE,
 };
 
+struct pcap7200_platform_data {
+	enum op_mode mode;
+	void (*reset)(void);
+};
+
 #endif 	/* _LINUX_PCPA7200_H */

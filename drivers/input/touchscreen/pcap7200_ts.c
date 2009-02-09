@@ -161,8 +161,9 @@ pcap7200_probe(struct i2c_client *client, const struct i2c_device_id *ids)
 	struct pcap7200_data *pcap;
 	struct input_dev *input_dev;
 	int err;
+	struct pcap7200_platform_data *pdata = client->dev.platform_data;
 
-	/* allocat pcap7200 data */
+	/* allocate pcap7200 data */
 	pcap = kzalloc(sizeof(struct pcap7200_data), GFP_KERNEL);
 	if (!pcap)
 		return -ENOMEM;
@@ -171,6 +172,15 @@ pcap7200_probe(struct i2c_client *client, const struct i2c_device_id *ids)
 	pcap->client = client;
 
 	mutex_init(&pcap->lock);
+
+	/* reset */
+	if (pdata->reset) {
+		pdata->reset();
+		dev_dbg(&client->dev, "hard reset\n");
+	}
+
+	/* operating mode */
+	__set_op_mode(pcap, pdata->mode);
 
 	/* initialize input device */
 	input_dev = input_allocate_device();
