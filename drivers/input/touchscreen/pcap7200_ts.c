@@ -24,6 +24,7 @@
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/input.h>
+#include <linux/device.h>
 
 #include <linux/pcap7200.h>
 #include <../drivers/input/touchscreen/ts_filter.h>
@@ -113,6 +114,8 @@ static int __set_op_mode(struct pcap7200_data *pcap, u_int8_t val)
 	int ret, i;
 
 	mutex_lock(&pcap->lock);
+
+	val = val & 0x03;
 
 	/* this chip has an issue.
 	 * you need to give wakeup call for 3 times if it's
