@@ -32,6 +32,7 @@
 #include <linux/lp5521.h>
 #include <linux/spi/spi_bitbang.h>
 #include <linux/l1k002.h>
+#include <linux/pcap7200.h>
 
 #include <video/platform_lcd.h>
 
@@ -555,6 +556,18 @@ static struct lp5521_platform_data om_gta03_lp5521_pdata = {
 	.ext_enable = om_gta03_lp5521_chip_enable,
 };
 
+static void om_gta03_pcap7200_reset(void)
+{
+	gpio_direction_output(GTA03_GPIO_TP_RESET, 1);
+	udelay(10);
+	gpio_direction_output(GTA03_GPIO_TP_RESET, 0);
+}
+
+static struct pcap7200_platform_data om_gta03_pcap7200_pdata = {
+	.mode = MULTI_TOUCH,
+	.reset = om_gta03_pcap7200_reset,
+};
+
 static struct i2c_board_info om_gta03_i2c_devs[] __initdata = {
 	{
 		I2C_BOARD_INFO("pcf50633", 0x73),
@@ -564,6 +577,7 @@ static struct i2c_board_info om_gta03_i2c_devs[] __initdata = {
 	{
 		I2C_BOARD_INFO("pcap7200", 0x0a),
 		.irq = GTA03_IRQ_TOUCH,
+		.platform_data = &om_gta03_pcap7200_pdata,
 	},
 	{
 		I2C_BOARD_INFO("lp5521", 0x32),
