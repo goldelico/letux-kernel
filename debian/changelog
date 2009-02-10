@@ -1,9 +1,9 @@
-linux-2.6-openmoko (20090105.git69b2aa26-2) UNRELEASED; urgency=low
+linux-2.6-openmoko (20090105.git69b2aa26-2) pkg-fso; urgency=low
 
   * debian/rules:
     + s/2.6.24/2.6.28/ in VERSION_FULL.
 
- --
+ -- Luca Capello <luca@pca.it>  Tue, 10 Feb 2009 01:52:12 +0100
 
 linux-2.6-openmoko (20090105.git69b2aa26-1) pkg-fso; urgency=low
 
