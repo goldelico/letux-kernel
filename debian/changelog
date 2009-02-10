@@ -1,3 +1,10 @@
+linux-2.6-openmoko (20090105.git69b2aa26-2) UNRELEASED; urgency=low
+
+  * debian/rules:
+    + s/2.6.24/2.6.28/ in VERSION_FULL.
+
+ --
+
 linux-2.6-openmoko (20090105.git69b2aa26-1) pkg-fso; urgency=low
 
   * New Git Checkout:
