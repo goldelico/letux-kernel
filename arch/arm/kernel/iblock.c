@@ -29,7 +29,7 @@ unsigned long s3c2410_gettimeoffset(void);
 
 
 static unsigned long iblock_t0;
-static int iblock_limit;
+int iblock_limit;
 static int iblock_max;
 
 
@@ -64,9 +64,9 @@ void iblock_end(void)
 		return;
 	if (us < iblock_limit)
 		return;
-	iblock_limit = 0;
+//	iblock_limit = 0;
 	printk(KERN_ERR "interrupts were disabled for %lu us !\n", us);
-	WARN_ON(1);
+//	WARN_ON(1);
 }
 EXPORT_SYMBOL_GPL(iblock_end);
 

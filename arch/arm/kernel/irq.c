@@ -104,6 +104,9 @@ static struct irq_desc bad_irq_desc = {
 	.lock = SPIN_LOCK_UNLOCKED
 };
 
+extern int iblock_limit;
+unsigned long s3c2410_gettimeoffset(void);
+
 /*
  * do_IRQ handles all hardware IRQ's.  Decoded IRQs should not
  * come via this function.  Instead, they should provide their
@@ -112,8 +115,11 @@ static struct irq_desc bad_irq_desc = {
 asmlinkage void __exception asm_do_IRQ(unsigned int irq, struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
+	unsigned long us;
 
 	irq_enter();
+
+	us = s3c2410_gettimeoffset();
 
 	/*
 	 * Some hardware gives randomly wrong interrupts.  Rather
@@ -123,6 +129,11 @@ asmlinkage void __exception asm_do_IRQ(unsigned int irq, struct pt_regs *regs)
 		handle_bad_irq(irq, &bad_irq_desc);
 	else
 		generic_handle_irq(irq);
+
+	us = s3c2410_gettimeoffset() - us;
+
+	if (iblock_limit && us > iblock_limit && us < 10000000)
+		printk(KERN_ERR "asm_do_IRQ(%u): %lu us\n", irq, us);
 
 	/* AT91 specific workaround */
 	irq_finish(irq);
