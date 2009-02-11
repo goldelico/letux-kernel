@@ -58,7 +58,7 @@ void iblock_end_maybe(unsigned long flags);
 #define raw_local_irq_enable()					\
 	({							\
 		unsigned long temp;				\
-	 iblock_start(); \
+	 iblock_end(); \
 	__asm__ __volatile__(					\
 	"mrs	%0, cpsr		@ local_irq_enable\n"	\
 "	bic	%0, %0, #128\n"					\
