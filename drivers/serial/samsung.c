@@ -239,8 +239,8 @@ s3c24xx_serial_rx_chars(int irq, void *dev_id)
 		port->icount.rx++;
 
 		if (unlikely(uerstat & S3C2410_UERSTAT_ANY)) {
-			printk(KERN_DEBUG "rxerr: port ch=0x%02x, rxs=0x%08x\n",
-			    ch, uerstat);
+			printk(KERN_DEBUG "rxerr: port=%d ch=0x%02x, rxs=0x%08x\n",
+			    port->line, ch, uerstat);
 
 			/* check for break */
 			if (uerstat & S3C2410_UERSTAT_BREAK) {
@@ -269,8 +269,8 @@ s3c24xx_serial_rx_chars(int irq, void *dev_id)
 		if (uart_handle_sysrq_char(port, ch))
 			goto ignore_char;
 
-		uart_insert_char(port, uerstat, S3C2410_UERSTAT_OVERRUN,
-				 ch, flag);
+		if ((uerstat & port->ignore_status_mask & ~S3C2410_UERSTAT_OVERRUN) == 0)
+			tty_insert_flip_char(tty, ch, flag);
 
  ignore_char:
 		continue;
