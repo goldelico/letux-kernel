@@ -7,6 +7,6 @@ if [ "$1" = "configure" ]; then
     VERSION=@PACKAGE_VERSION@
     UBOOT_IMAGE=/boot/uImage.bin
     if [ ! -e "$UBOOT_IMAGE" ]; then
-	cd /boot && ln -s vmlinuz-"$VERSION" "$UBOOT_IMAGE"
+	cd /boot && ln -s uImage.bin-"$VERSION" "$UBOOT_IMAGE"
     fi
 fi
