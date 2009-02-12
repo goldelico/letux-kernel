@@ -864,6 +864,10 @@ static int lis302dl_resume(struct platform_device *pdev)
 	for (n = 0; n < ARRAY_SIZE(regs_to_save); n++)
 		__reg_write(lis, regs_to_save[n], lis->regs[regs_to_save[n]]);
 
+	/* if someone had us open, reset the non-wake threshold stuff */
+	if (lis->flags & LIS302DL_F_INPUT_OPEN)
+		__enable_data_collection(lis);
+
 	local_irq_restore(flags);
 	enable_irq(lis->pdata->interrupt);
 
