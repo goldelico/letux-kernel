@@ -490,6 +490,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
 				.apply_uV = 1,
+				.always_on = 1,
 			},
 			.num_consumer_supplies = 0,
 		},
