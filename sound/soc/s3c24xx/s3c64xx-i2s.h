@@ -25,4 +25,6 @@
 
 extern struct snd_soc_dai s3c64xx_i2s_dai;
 
+extern unsigned long s3c64xx_i2s_get_clockrate(struct snd_soc_dai *cpu_dai);
+
 #endif /* __SND_SOC_S3C24XX_S3C64XX_I2S_H */

@@ -82,6 +82,19 @@ static int s3c64xx_i2s_set_sysclk(struct snd_soc_dai *cpu_dai,
 	return 0;
 }
 
+static inline struct s3c_i2sv2_info *to_info(struct snd_soc_dai *cpu_dai)
+{
+	return cpu_dai->private_data;
+}
+
+unsigned long s3c64xx_i2s_get_clockrate(struct snd_soc_dai *dai)
+{
+	struct s3c_i2sv2_info *i2s = to_info(dai);
+
+	return clk_get_rate(i2s->iis_cclk);
+}
+EXPORT_SYMBOL_GPL(s3c64xx_i2s_get_clockrate);
+
 static int s3c64xx_i2s_probe(struct platform_device *pdev,
 			     struct snd_soc_dai *dai)
 {
