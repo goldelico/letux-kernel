@@ -1574,7 +1574,11 @@ static int wm8753_init(struct snd_soc_device *socdev)
 
 	wm8753_set_dai_mode(codec, 0);
 
-	wm8753_reset(codec);
+	ret = wm8753_reset(codec);
+	if (ret < 0) {
+		printk(KERN_ERR "wm8753: failed reset, not present?\n");
+		return -EIO;
+	}
 
 	/* register pcms */
 	ret = snd_soc_new_pcms(socdev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1);

@@ -521,7 +521,11 @@ static int wm8731_init(struct snd_soc_device *socdev)
 	if (codec->reg_cache == NULL)
 		return -ENOMEM;
 
-	wm8731_reset(codec);
+	ret = wm8731_reset(codec);
+	if (ret < 0) {
+		printk(KERN_ERR "wm8731: failed to send reset\n");
+		return -EIO;
+	}
 
 	/* register pcms */
 	ret = snd_soc_new_pcms(socdev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1);
