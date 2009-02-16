@@ -1467,30 +1467,35 @@ static void wm8753_set_dai_mode(struct snd_soc_codec *codec, unsigned int mode)
 	if (mode < 4) {
 		int playback_active, capture_active, codec_active, pop_wait;
 		void *private_data;
+		struct list_head list;
 
 		playback_active = wm8753_dai[0].playback.active;
 		capture_active = wm8753_dai[0].capture.active;
 		codec_active = wm8753_dai[0].active;
 		private_data = wm8753_dai[0].private_data;
 		pop_wait = wm8753_dai[0].pop_wait;
+		list = wm8753_dai[0].list;
 		wm8753_dai[0] = wm8753_all_dai[mode << 1];
 		wm8753_dai[0].playback.active = playback_active;
 		wm8753_dai[0].capture.active = capture_active;
 		wm8753_dai[0].active = codec_active;
 		wm8753_dai[0].private_data = private_data;
 		wm8753_dai[0].pop_wait = pop_wait;
+		wm8753_dai[0].list = list;
 
 		playback_active = wm8753_dai[1].playback.active;
 		capture_active = wm8753_dai[1].capture.active;
 		codec_active = wm8753_dai[1].active;
 		private_data = wm8753_dai[1].private_data;
 		pop_wait = wm8753_dai[1].pop_wait;
+		list = wm8753_dai[1].list;
 		wm8753_dai[1] = wm8753_all_dai[(mode << 1) + 1];
 		wm8753_dai[1].playback.active = playback_active;
 		wm8753_dai[1].capture.active = capture_active;
 		wm8753_dai[1].active = codec_active;
 		wm8753_dai[1].private_data = private_data;
 		wm8753_dai[1].pop_wait = pop_wait;
+		wm8753_dai[1].list = list;
 	}
 	wm8753_dai[0].codec = codec;
 	wm8753_dai[1].codec = codec;
@@ -1873,6 +1878,7 @@ static int wm8753_remove(struct platform_device *pdev)
 {
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
 	struct snd_soc_codec *codec = socdev->codec;
+	struct wm8753_setup_data *setup = socdev->codec_data;
 
 	if (codec->control_data)
 		wm8753_set_bias_level(codec, SND_SOC_BIAS_OFF);
@@ -1880,10 +1886,14 @@ static int wm8753_remove(struct platform_device *pdev)
 	snd_soc_free_pcms(socdev);
 	snd_soc_dapm_free(socdev);
 #if defined(CONFIG_I2C) || defined(CONFIG_I2C_MODULE)
-	i2c_del_driver(&wm8753_i2c_driver);
+	if (setup->i2c_address) {
+		i2c_del_driver(&wm8753_i2c_driver);
+	}
 #endif
 #if defined(CONFIG_SPI_MASTER)
-	spi_unregister_driver(&wm8753_spi_driver);
+	if (setup->spi) {
+		spi_unregister_driver(&wm8753_spi_driver);
+	}
 #endif
 	kfree(codec->private_data);
 	kfree(codec);
