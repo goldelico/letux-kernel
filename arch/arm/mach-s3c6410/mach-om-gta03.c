@@ -414,7 +414,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 		[1] = PCF50633_INT2_ONKEYF,
 		[2] = PCF50633_INT3_ONKEY1S
 	},
-
+	.chg_ref_current_ma = 1000,
 	.reg_init_data = {
 		/* GTA03: Main 3.3V rail */
 		[PCF50633_REGULATOR_AUTO] = {
