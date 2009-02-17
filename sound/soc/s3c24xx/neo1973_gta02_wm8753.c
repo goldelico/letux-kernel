@@ -673,6 +673,7 @@ static int __init neo1973_gta02_init(void)
 
 static void __exit neo1973_gta02_exit(void)
 {
+	snd_soc_unregister_dai(&bt_dai);
 	platform_device_unregister(neo1973_gta02_snd_device);
 }
 
