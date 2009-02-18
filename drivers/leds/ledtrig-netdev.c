@@ -149,7 +149,6 @@ static ssize_t led_mode_show(struct device *dev,
 	if (trigger_data->mode == 0) {
 		strcpy(buf, "none\n");
 	} else {
-		char *p = buf;
 		if (trigger_data->mode & MODE_LINK) 
 			strcat(buf, "link ");
 		if (trigger_data->mode & MODE_TX)
