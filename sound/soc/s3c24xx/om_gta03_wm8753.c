@@ -374,8 +374,8 @@ static const struct snd_soc_dapm_widget wm8753_dapm_widgets[] = {
 /* example machine audio_mapnections */
 static const struct snd_soc_dapm_route audio_map[] = {
 
-	{"Stereo Out", NULL, "LOUT1"},
-	{"Stereo Out", NULL, "ROUT1"},
+	{"Stereo Out", NULL, "LOUT2"},
+	{"Stereo Out", NULL, "ROUT2"},
 
 	/* Connections to the GSM Module */
 	{"GSM Line Out", NULL, "MONO1"},
@@ -393,8 +393,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"Mic Bias", NULL, "Handset Mic"},
 
 	/* Call Speaker */
-	{"Handset Spk", NULL, "LOUT2"},
-	{"Handset Spk", NULL, "ROUT2"},
+	{"Handset Spk", NULL, "OUT3"},
+	{"Handset Spk", NULL, "LOUT1"},
 
 	/* Connect the ALC pins */
 	{"ACIN", NULL, "ACOP"},
@@ -430,7 +430,6 @@ static int om_gta03_wm8753_init(struct snd_soc_codec *codec)
 	int i, err;
 
 	/* set up NC codec pins */
-	snd_soc_dapm_set_endpoint(codec, "OUT3",  0);
 	snd_soc_dapm_set_endpoint(codec, "OUT4",  0);
 	snd_soc_dapm_set_endpoint(codec, "LINE1", 0);
 	snd_soc_dapm_set_endpoint(codec, "LINE2", 0);
