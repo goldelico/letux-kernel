@@ -17,6 +17,15 @@ config CPU_S3C2442
 	help
 	  Support for S3C2442 Samsung Mobile CPU based systems.
 
+config S3C2440_C_FIQ
+	bool "FIQ ISR support in C"
+	depends on ARCH_S3C2410
+	select FIQ
+	help
+	  Support for S3C2440 FIQ support in C -- see
+	  ./arch/arm/mach-s3c2440/fiq_c_isr.c
+
+
 
 menu "S3C2442 Machines"
 
@@ -24,6 +33,18 @@ config SMDK2440_CPU2442
 	bool "SMDM2440 with S3C2442 CPU module"
 	depends on ARCH_S3C2440
 	select CPU_S3C2442
+
+config MACH_NEO1973_GTA02
+	bool "FIC Neo1973 GSM Phone (GTA02 Hardware)"
+	select CPU_S3C2442
+	select SENSORS_PCF50633
+	select POWER_SUPPLY
+	select GTA02_HDQ
+	select MACH_NEO1973
+	select S3C2410_PWM
+	select S3C2410_CLOCK
+	help
+	   Say Y here if you are using the FIC Neo1973 GSM Phone
 
 
 endmenu
