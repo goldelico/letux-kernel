@@ -108,4 +108,3 @@ config NEO1973_GTA02_2440
 
 endmenu
 
-#source "arch/arm/mach-s3c2440/camera/Kconfig"
