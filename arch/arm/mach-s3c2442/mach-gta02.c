@@ -1564,8 +1564,8 @@ static struct resource gta02_glamo_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 	[2] = {
-		.start = GTA02v1_GPIO_3D_RESET,
-		.end   = GTA02v1_GPIO_3D_RESET,
+		.start = GTA02_GPIO_3D_RESET,
+		.end   = GTA02_GPIO_3D_RESET,
 	},
 };
 
