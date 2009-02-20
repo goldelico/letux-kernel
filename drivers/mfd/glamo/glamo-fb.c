@@ -357,14 +357,14 @@ static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
 			var->xres = width;var->yres = height;
 		}
 
-		var->xres_virtual = width * 2;
-		var->yres_virtual = height;
+		var->xres_virtual = width;
+		var->yres_virtual = height * 2;
 		pitch = width * var->bits_per_pixel / 8;
 	} else {
 		var->xres = height;
 		var->yres = width;
-		var->xres_virtual = height;
-		var->yres_virtual = width * 2;
+		var->xres_virtual = height * 2;
+		var->yres_virtual = width;
 		pitch = height * var->bits_per_pixel / 8;
 	}
 
