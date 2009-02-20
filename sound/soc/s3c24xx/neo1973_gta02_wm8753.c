@@ -583,14 +583,15 @@ static struct snd_soc_dai_link neo1973_gta02_dai[] = {
 };
 
 #ifdef CONFIG_PM
-int neo1973_gta02_suspend(struct platform_device *pdev, pm_message_t state)
+static int neo1973_gta02_suspend(struct platform_device *pdev,
+				 pm_message_t state)
 {
 	s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT, 1);
 
 	return 0;
 }
 
-int neo1973_gta02_resume(struct platform_device *pdev)
+static int neo1973_gta02_resume(struct platform_device *pdev)
 {
 	if(lm4853_state & LM4853_AMP)
 		s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT, 0);
