@@ -54,9 +54,10 @@ struct glamo_mci_host {
 
 	struct mmc_request	*mrq;
 	int			cmd_is_stop;
+	struct work_struct	irq_work;
 
 	spinlock_t		complete_lock;
-	volatile enum glamo_mci_waitfor
+	volatile enum 		glamo_mci_waitfor
 				complete_what;
 
 	volatile int		dma_complete;
