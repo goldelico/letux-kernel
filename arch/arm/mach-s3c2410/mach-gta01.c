@@ -88,8 +88,13 @@
 
 #include <linux/jbt6k74.h>
 
+#ifdef CONFIG_TOUCHSCREEN_FILTER
+#include <../drivers/input/touchscreen/ts_filter_linear.h>
 #include <../drivers/input/touchscreen/ts_filter_mean.h>
 #include <../drivers/input/touchscreen/ts_filter_median.h>
+#include <../drivers/input/touchscreen/ts_filter_group.h>
+#endif
+
 
 static struct map_desc gta01_iodesc[] __initdata = {
 	{
@@ -698,6 +703,19 @@ static struct s3c2410_udc_mach_info gta01_udc_cfg = {
 
 
 /* touchscreen configuration */
+#ifdef CONFIG_TOUCHSCREEN_FILTER
+static struct ts_filter_linear_configuration gta01_ts_linear_config = {
+	.constants = {1, 0, 0, 0, 1, 0, 1},	/* don't modify coords */
+	.coord0 = 0,
+	.coord1 = 1,
+};
+
+static struct ts_filter_group_configuration gta01_ts_group_config = {
+	.extent = 12,
+	.close_enough = 10,
+	.threshold = 6,		/* at least half of the points in a group */
+	.attempts = 10,
+};
 
 static struct ts_filter_median_configuration gta01_ts_median_config = {
 	.extent = 31,
@@ -715,14 +733,26 @@ static struct s3c2410_ts_mach_info gta01_ts_cfg = {
 	.delay = 10000,
 	.presc = 0xff, /* slow as we can go */
 	.filter_sequence = {
-		[0] = &ts_filter_median_api,
-		[1] = &ts_filter_mean_api,
+		[0] = &ts_filter_group_api,
+		[1] = &ts_filter_median_api,
+		[2] = &ts_filter_mean_api,
+		[3] = &ts_filter_linear_api,
 	},
 	.filter_config = {
-		[0] = &gta01_ts_median_config,
-		[1] = &gta01_ts_mean_config,
+		[0] = &gta01_ts_group_config,
+		[1] = &gta01_ts_median_config,
+		[2] = &gta01_ts_mean_config,
+		[3] = &gta01_ts_linear_config,
 	},
 };
+#else /* !CONFIG_TOUCHSCREEN_FILTER */
+static struct s3c2410_ts_mach_info gta01_ts_cfg = {
+	.delay = 10000,
+	.presc = 0xff, /* slow as we can go */
+	.filter_sequence = { NULL },
+	.filter_config = { NULL },
+};
+#endif
 
 
 /* SPI */
