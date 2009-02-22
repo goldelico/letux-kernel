@@ -28,19 +28,6 @@
 
 #define COUNTER 64
 
-enum hdq_bitbang_states {
-	HDQB_IDLE = 0,
-	HDQB_TX_BREAK,
-	HDQB_TX_BREAK_RECOVERY,
-	HDQB_ADS_CALC,
-	HDQB_ADS_LOW,
-	HDQB_ADS_HIGH,
-	HDQB_WAIT_RX,
-	HDQB_DATA_RX_LOW,
-	HDQB_DATA_RX_HIGH,
-	HDQB_WAIT_TX,
-};
-
 static struct neo1973_vib_priv {
 	struct led_classdev cdev;
 	unsigned int gpio;
@@ -60,18 +47,21 @@ int neo1973_vibrator_fiq_handler(void)
 {
 	neo1973_vib_priv.fiq_count++;
 
-	if (neo1973_vib_priv.vib_pwm_latched || neo1973_vib_priv.vib_pwm) { /* not idle */
-		if (((u8)neo1973_vib_priv.fiq_count) == neo1973_vib_priv.vib_pwm_latched)
-			neo1973_gpb_setpin(neo1973_vib_priv.vib_gpio_pin, 0);
-		if (((u8)neo1973_vib_priv.fiq_count) == 0) {
-			neo1973_vib_priv.vib_pwm_latched = neo1973_vib_priv.vib_pwm;
-			if (neo1973_vib_priv.vib_pwm_latched)
-				neo1973_gpb_setpin(neo1973_vib_priv.vib_gpio_pin, 1);
-		}
+	if (!neo1973_vib_priv.vib_pwm_latched && !neo1973_vib_priv.vib_pwm)
+		/* idle */
+		return 0;
 
+	if ((u8)neo1973_vib_priv.fiq_count == neo1973_vib_priv.vib_pwm_latched)
+		neo1973_gpb_setpin(neo1973_vib_priv.vib_gpio_pin, 0);
+
+	if ((u8)neo1973_vib_priv.fiq_count)
 		return 1;
-	}
-	return 0;
+
+	neo1973_vib_priv.vib_pwm_latched = neo1973_vib_priv.vib_pwm;
+	if (neo1973_vib_priv.vib_pwm_latched)
+		neo1973_gpb_setpin(neo1973_vib_priv.vib_gpio_pin, 1);
+
+	return 1;
 }
 
 static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
@@ -95,12 +85,12 @@ static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
 	 * value == 0 -> 0% duty cycle (zero power)
 	 */
 	spin_lock_irqsave(&vp->lock, flags);
-	if (vp->has_pwm) {
+
+	if (vp->has_pwm)
 		s3c2410_pwm_duty_cycle(value / 4, &vp->pwm);
-	}
-	else {
+	else
 		neo1973_gpb_setpin(vp->gpio, value ? 1 : 0);
-	}
+
 	spin_unlock_irqrestore(&vp->lock, flags);
 }
 
