@@ -101,6 +101,12 @@ config GTA02_HDQ
 	  on the Neo Freerunner.  You probably want to select
 	  at least BATTERY_BQ27000_HDQ as well
 
+config HDQ_GPIO_BITBANG
+	bool "Generic gpio based HDQ bitbang"
+	help
+	  Say Y to enable supoort for generic gpio based HDQ bitbang driver.
+	  This can not be built as a module.
+
 config CHARGER_PCF50606
 	tristate "Support for NXP PCF50606 MBC"
 	depends on MFD_PCF50606
