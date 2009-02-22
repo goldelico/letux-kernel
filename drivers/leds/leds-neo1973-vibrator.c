@@ -22,21 +22,57 @@
 #include <plat/pwm.h>
 #include <mach/gta01.h>
 #include <plat/regs-timer.h>
+#include <linux/neo1973_vibrator.h>
 
-#ifdef CONFIG_MACH_NEO1973_GTA02
-#include <mach/fiq_ipc_gta02.h>
-#endif
 #include <asm/plat-s3c24xx/neo1973.h>
 
 #define COUNTER 64
 
-struct neo1973_vib_priv {
+enum hdq_bitbang_states {
+	HDQB_IDLE = 0,
+	HDQB_TX_BREAK,
+	HDQB_TX_BREAK_RECOVERY,
+	HDQB_ADS_CALC,
+	HDQB_ADS_LOW,
+	HDQB_ADS_HIGH,
+	HDQB_WAIT_RX,
+	HDQB_DATA_RX_LOW,
+	HDQB_DATA_RX_HIGH,
+	HDQB_WAIT_TX,
+};
+
+static struct neo1973_vib_priv {
 	struct led_classdev cdev;
 	unsigned int gpio;
 	spinlock_t lock;
 	unsigned int has_pwm;
 	struct s3c2410_pwm pwm;
-};
+	
+	unsigned long vib_gpio_pin; /* which pin to meddle with */
+	u8 vib_pwm; /* 0 = OFF -- will ensure GPIO deasserted and stop FIQ */
+	u8 vib_pwm_latched;
+	u32 fiq_count;
+
+	struct neo1973_vib_platform_data *pdata;
+} neo1973_vib_priv;
+
+int neo1973_vibrator_fiq_handler(void)
+{
+	neo1973_vib_priv.fiq_count++;
+
+	if (neo1973_vib_priv.vib_pwm_latched || neo1973_vib_priv.vib_pwm) { /* not idle */
+		if (((u8)neo1973_vib_priv.fiq_count) == neo1973_vib_priv.vib_pwm_latched)
+			neo1973_gpb_setpin(neo1973_vib_priv.vib_gpio_pin, 0);
+		if (((u8)neo1973_vib_priv.fiq_count) == 0) {
+			neo1973_vib_priv.vib_pwm_latched = neo1973_vib_priv.vib_pwm;
+			if (neo1973_vib_priv.vib_pwm_latched)
+				neo1973_gpb_setpin(neo1973_vib_priv.vib_gpio_pin, 1);
+		}
+
+		return 1;
+	}
+	return 0;
+}
 
 static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
 				enum led_brightness value)
@@ -48,8 +84,8 @@ static void neo1973_vib_vib_set(struct led_classdev *led_cdev,
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) { /* use FIQ to control GPIO */
-		fiq_ipc.vib_pwm = value; /* set it for FIQ */
-		fiq_kick(); /* start up FIQs if not already going */
+		neo1973_vib_priv.vib_pwm = value; /* set it for FIQ */
+		neo1973_vib_priv.pdata->kick_fiq(); /* start up FIQs if not already going */
 		return;
 	}
 #endif
@@ -103,6 +139,7 @@ static int neo1973_vib_init_hw(struct neo1973_vib_priv *vp)
 static int neo1973_vib_suspend(struct platform_device *dev, pm_message_t state)
 {
 	led_classdev_suspend(&neo1973_vib_led.cdev);
+	neo1973_vib_priv.pdata->disable_fiq();
 	return 0;
 }
 
@@ -114,6 +151,7 @@ static int neo1973_vib_resume(struct platform_device *dev)
 		neo1973_vib_init_hw(vp);
 
 	led_classdev_resume(&neo1973_vib_led.cdev);
+	neo1973_vib_priv.pdata->enable_fiq();
 
 	return 0;
 }
@@ -132,6 +170,8 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 		return -EIO;
 
 	neo1973_vib_led.gpio = r->start;
+
+	neo1973_vib_priv.pdata = pdev->dev.platform_data;
 	platform_set_drvdata(pdev, &neo1973_vib_led);
 
 #ifdef CONFIG_MACH_NEO1973_GTA02
@@ -139,8 +179,8 @@ static int __init neo1973_vib_probe(struct platform_device *pdev)
 		neo1973_gpb_setpin(neo1973_vib_led.gpio, 0); /* off */
 		s3c2410_gpio_cfgpin(neo1973_vib_led.gpio, S3C2410_GPIO_OUTPUT);
 		/* safe, kmalloc'd copy needed for FIQ ISR */
-		fiq_ipc.vib_gpio_pin = neo1973_vib_led.gpio;
-		fiq_ipc.vib_pwm = 0; /* off */
+		neo1973_vib_priv.vib_gpio_pin = neo1973_vib_led.gpio;
+		neo1973_vib_priv.vib_pwm = 0; /* off */
 		goto configured;
 	}
 #endif
@@ -167,7 +207,7 @@ static int neo1973_vib_remove(struct platform_device *pdev)
 {
 #ifdef CONFIG_MACH_NEO1973_GTA02
 	if (machine_is_neo1973_gta02()) /* use FIQ to control GPIO */
-		fiq_ipc.vib_pwm = 0; /* off */
+		neo1973_vib_priv.vib_pwm = 0; /* off */
 	/* would only need kick if already off so no kick needed */
 #endif
 

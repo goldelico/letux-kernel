@@ -76,6 +76,7 @@
 #include <mach/spi-gpio.h>
 #include <mach/usb-control.h>
 #include <mach/regs-mem.h>
+#include <plat/pwm.h>
 
 #include <mach/gta02.h>
 
@@ -89,14 +90,13 @@
 #include <asm/plat-s3c24xx/neo1973.h>
 #include <mach/neo1973-pm-gsm.h>
 #include <mach/gta02-pm-wlan.h>
+#include <plat/regs-timer.h>
 
 #include <linux/jbt6k74.h>
 
 #include <linux/glamofb.h>
 
-#include <mach/fiq_ipc_gta02.h>
-#include "fiq_c_isr.h"
-#include <linux/gta02_hdq.h>
+#include <linux/hdq.h>
 #include <linux/bq27000_battery.h>
 
 #include <linux/i2c.h>
@@ -110,226 +110,44 @@
 #include <../drivers/input/touchscreen/ts_filter_group.h>
 #endif
 
+#include <asm/fiq.h>
+
+#include <linux/neo1973_vibrator.h>
+
 /* arbitrates which sensor IRQ owns the shared SPI bus */
 static spinlock_t motion_irq_lock;
 
-/* define FIQ IPC struct */
-/*
- * contains stuff FIQ ISR modifies and normal kernel code can see and use
- * this is defined in <arch/arm/mach-s3c2410/include/mach/fiq_ipc_gta02.h>, you should customize
- * the definition in there and include the same definition in your kernel
- * module that wants to interoperate with your FIQ code.
+
+/* -------------------------------------------------------------------------------
+ * GTA02 FIQ related
+ *
+ * Calls into vibrator and hdq and based on the return values
+ * determines if we the FIQ source be kept alive
  */
-struct fiq_ipc fiq_ipc;
-EXPORT_SYMBOL(fiq_ipc);
 
 #define DIVISOR_FROM_US(x) ((x) << 3)
 
-#define FIQ_DIVISOR_VIBRATOR DIVISOR_FROM_US(100)
-
-#ifdef CONFIG_GTA02_HDQ
-/* HDQ specific */
-#define HDQ_SAMPLE_PERIOD_US 20
-/* private HDQ FSM state -- all other info interesting for caller in fiq_ipc */
-static enum hdq_bitbang_states hdq_state;
-static u8 hdq_ctr;
-static u8 hdq_ctr2;
-static u8 hdq_bit;
-static u8 hdq_shifter;
-static u8 hdq_tx_data_done;
-
-#define FIQ_DIVISOR_HDQ DIVISOR_FROM_US(HDQ_SAMPLE_PERIOD_US)
+#ifdef CONFIG_HDQ_GPIO_BITBANG
+#define FIQ_DIVISOR_HDQ DIVISOR_FROM_US(20)
+extern int hdq_fiq_handler(void);
 #endif
-/* define FIQ ISR */
 
-FIQ_HANDLER_START()
-/* define your locals here -- no initializers though */
-	u16 divisor;
-FIQ_HANDLER_ENTRY(64, 64)
-/* Your ISR here :-) */
-	divisor = 0xffff;
+#ifdef CONFIG_LEDS_NEO1973_VIBRATOR
+#define FIQ_DIVISOR_VIBRATOR DIVISOR_FROM_US(100)
+extern int neo1973_vibrator_fiq_handler(void);
+#endif
+
+/* Global data related to our fiq source */
+static u32 gta02_fiq_ack_mask;
+static struct s3c2410_pwm gta02_fiq_pwm_timer;
+static u16 gta02_fiq_timer_index;
+static int gta02_fiq_irq;
+
+static void gta02_fiq_handler(void)
+{
+	u16 divisor = 0xffff;
 
 	/* Vibrator servicing */
-
-	if (fiq_ipc.vib_pwm_latched || fiq_ipc.vib_pwm) { /* not idle */
-		if (((u8)_fiq_count_fiqs) == fiq_ipc.vib_pwm_latched)
-			neo1973_gpb_setpin(fiq_ipc.vib_gpio_pin, 0);
-		if (((u8)_fiq_count_fiqs) == 0) {
-			fiq_ipc.vib_pwm_latched = fiq_ipc.vib_pwm;
-			if (fiq_ipc.vib_pwm_latched)
-				neo1973_gpb_setpin(fiq_ipc.vib_gpio_pin, 1);
-		}
-		divisor = FIQ_DIVISOR_VIBRATOR;
-	}
-
-#ifdef CONFIG_GTA02_HDQ
-	/* HDQ servicing */
-
-	switch (hdq_state) {
-	case HDQB_IDLE:
-		if (fiq_ipc.hdq_request_ctr == fiq_ipc.hdq_transaction_ctr)
-			break;
-		hdq_ctr = 210 / HDQ_SAMPLE_PERIOD_US;
-		s3c2410_gpio_setpin(fiq_ipc.hdq_gpio_pin, 0);
-		s3c2410_gpio_cfgpin(fiq_ipc.hdq_gpio_pin, S3C2410_GPIO_OUTPUT);
-		hdq_tx_data_done = 0;
-		hdq_state = HDQB_TX_BREAK;
-		break;
-
-	case HDQB_TX_BREAK: /* issue low for > 190us */
-		if (--hdq_ctr == 0) {
-			hdq_ctr = 60 / HDQ_SAMPLE_PERIOD_US;
-			hdq_state = HDQB_TX_BREAK_RECOVERY;
-			s3c2410_gpio_setpin(fiq_ipc.hdq_gpio_pin, 1);
-		}
-		break;
-
-	case HDQB_TX_BREAK_RECOVERY: /* issue low for > 40us */
-		if (--hdq_ctr)
-			break;
-		hdq_shifter = fiq_ipc.hdq_ads;
-		hdq_bit = 8; /* 8 bits of ads / rw */
-		hdq_tx_data_done = 0; /* doing ads */
-		/* fallthru on last one */
-	case HDQB_ADS_CALC:
-		if (hdq_shifter & 1)
-			hdq_ctr = 50 / HDQ_SAMPLE_PERIOD_US;
-		else
-			hdq_ctr = 120 / HDQ_SAMPLE_PERIOD_US;
-		/* carefully precompute the other phase length */
-		hdq_ctr2 = (210 - (hdq_ctr * HDQ_SAMPLE_PERIOD_US)) /
-				HDQ_SAMPLE_PERIOD_US;
-		hdq_state = HDQB_ADS_LOW;
-		hdq_shifter >>= 1;
-		hdq_bit--;
-		s3c2410_gpio_setpin(fiq_ipc.hdq_gpio_pin, 0);
-		break;
-
-	case HDQB_ADS_LOW:
-		if (--hdq_ctr)
-			break;
-		s3c2410_gpio_setpin(fiq_ipc.hdq_gpio_pin, 1);
-		hdq_state = HDQB_ADS_HIGH;
-		break;
-
-	case HDQB_ADS_HIGH:
-		if (--hdq_ctr2 > 1) /* account for HDQB_ADS_CALC */
-			break;
-		if (hdq_bit) { /* more bits to do */
-			hdq_state = HDQB_ADS_CALC;
-			break;
-		}
-		/* no more bits, wait it out until hdq_ctr2 exhausted */
-		if (hdq_ctr2)
-			break;
-		/* ok no more bits and very last state */
-		hdq_ctr = 60 / HDQ_SAMPLE_PERIOD_US;
-		/* FIXME 0 = read */
-		if (fiq_ipc.hdq_ads & 0x80) { /* write the byte out */
-			 /* set delay before payload */
-			hdq_ctr = 300 / HDQ_SAMPLE_PERIOD_US;
- 			/* already high, no need to write */
-			hdq_state = HDQB_WAIT_TX;
-			break;
-		}
-		/* read the next byte */
-		hdq_bit = 8; /* 8 bits of data */
-		hdq_ctr = 3000 / HDQ_SAMPLE_PERIOD_US;
-		hdq_state = HDQB_WAIT_RX;
-		s3c2410_gpio_cfgpin(fiq_ipc.hdq_gpio_pin, S3C2410_GPIO_INPUT);
-		break;
-
-	case HDQB_WAIT_TX: /* issue low for > 40us */
-		if (--hdq_ctr)
-			break;
-		if (!hdq_tx_data_done) { /* was that the data sent? */
-			hdq_tx_data_done++;
-			hdq_shifter = fiq_ipc.hdq_tx_data;
-			hdq_bit = 8; /* 8 bits of data */
-			hdq_state = HDQB_ADS_CALC; /* start sending */
-			break;
-		}
-		fiq_ipc.hdq_error = 0;
-		fiq_ipc.hdq_transaction_ctr = fiq_ipc.hdq_request_ctr;
-		hdq_state = HDQB_IDLE; /* all tx is done */
-		/* idle in input mode, it's pulled up by 10K */
-		s3c2410_gpio_cfgpin(fiq_ipc.hdq_gpio_pin, S3C2410_GPIO_INPUT);
-		break;
-
-	case HDQB_WAIT_RX: /* wait for battery to talk to us */
-		if (s3c2410_gpio_getpin(fiq_ipc.hdq_gpio_pin) == 0) {
-			/* it talks to us! */
-			hdq_ctr2 = 1;
-			hdq_bit = 8; /* 8 bits of data */
-			/* timeout */
-			hdq_ctr = 300 / HDQ_SAMPLE_PERIOD_US;
-			hdq_state = HDQB_DATA_RX_LOW;
-			break;
-		}
-		if (--hdq_ctr == 0) { /* timed out, error */
-			fiq_ipc.hdq_error = 1;
-			fiq_ipc.hdq_transaction_ctr = fiq_ipc.hdq_request_ctr;
-			hdq_state = HDQB_IDLE; /* abort */
-		}
-		break;
-
-	/*
-	 * HDQ basically works by measuring the low time of the bit cell
-	 * 32-50us --> '1', 80 - 145us --> '0'
-	 */
-
-	case HDQB_DATA_RX_LOW:
-		if (s3c2410_gpio_getpin(fiq_ipc.hdq_gpio_pin)) {
-			fiq_ipc.hdq_rx_data >>= 1;
-			if (hdq_ctr2 <= (65 / HDQ_SAMPLE_PERIOD_US))
-				fiq_ipc.hdq_rx_data |= 0x80;
-
-			if (--hdq_bit == 0) {
-				fiq_ipc.hdq_error = 0;
-				fiq_ipc.hdq_transaction_ctr =
-							fiq_ipc.hdq_request_ctr;
-
-				hdq_state = HDQB_IDLE;
-			} else
-				hdq_state = HDQB_DATA_RX_HIGH;
-			/* timeout */
-			hdq_ctr = 1000 / HDQ_SAMPLE_PERIOD_US;
-			hdq_ctr2 = 1;
-			break;
-		}
-		hdq_ctr2++;
-		if (--hdq_ctr)
-			break;
-		 /* timed out, error */
-		fiq_ipc.hdq_error = 2;
-		fiq_ipc.hdq_transaction_ctr = fiq_ipc.hdq_request_ctr;
-		hdq_state = HDQB_IDLE; /* abort */
-		break;
-
-	case HDQB_DATA_RX_HIGH:
-		if (!s3c2410_gpio_getpin(fiq_ipc.hdq_gpio_pin)) {
-			/* it talks to us! */
-			hdq_ctr2 = 1;
-			/* timeout */
-			hdq_ctr = 400 / HDQ_SAMPLE_PERIOD_US;
-			hdq_state = HDQB_DATA_RX_LOW;
-			break;
-		}
-		if (--hdq_ctr)
-			break;
-		/* timed out, error */
-		fiq_ipc.hdq_error = 3;
-		fiq_ipc.hdq_transaction_ctr = fiq_ipc.hdq_request_ctr;
-
-		/* we're in input mode already */
-		hdq_state = HDQB_IDLE; /* abort */
-		break;
-	}
-
-	if (hdq_state != HDQB_IDLE) /* ie, not idle */
-		if (divisor > FIQ_DIVISOR_HDQ)
-			divisor = FIQ_DIVISOR_HDQ; /* keep us going */
-#endif
 
 	/* disable further timer interrupts if nobody has any work
 	 * or adjust rate according to who still has work
@@ -338,15 +156,102 @@ FIQ_HANDLER_ENTRY(64, 64)
 	 * its own non-atomic S3C2410_INTMSK changes... not common
 	 * thankfully and taken care of by the fiq-basis patch
 	 */
+
+#ifdef CONFIG_LEDS_NEO1973_VIBRATOR
+	if (neo1973_vibrator_fiq_handler())
+		divisor = FIQ_DIVISOR_VIBRATOR;
+#endif
+
+#ifdef CONFIG_HDQ_GPIO_BITBANG
+	if (hdq_fiq_handler())
+		divisor = FIQ_DIVISOR_HDQ;
+#endif
+
 	if (divisor == 0xffff) /* mask the fiq irq source */
-		__raw_writel(__raw_readl(S3C2410_INTMSK) | _fiq_ack_mask,
+		__raw_writel(__raw_readl(S3C2410_INTMSK) | gta02_fiq_ack_mask,
 			     S3C2410_INTMSK);
 	else /* still working, maybe at a different rate */
-		__raw_writel(divisor, S3C2410_TCNTB(_fiq_timer_index));
-	_fiq_timer_divisor = divisor;
+		__raw_writel(divisor, S3C2410_TCNTB(gta02_fiq_timer_index));
 
-FIQ_HANDLER_END()
+	__raw_writel(gta02_fiq_ack_mask, S3C2410_SRCPND);
+}
 
+static void gta02_fiq_kick(void)
+{
+	unsigned long flags;
+	u32 tcon;
+	
+	/* we have to take care about FIQ because this modification is
+	 * non-atomic, FIQ could come in after the read and before the
+	 * writeback and its changes to the register would be lost
+	 * (platform INTMSK mod code is taken care of already)
+	 */
+	local_save_flags(flags);
+	local_fiq_disable();
+	/* allow FIQs to resume */
+	__raw_writel(__raw_readl(S3C2410_INTMSK) &
+		     ~(1 << (gta02_fiq_irq - S3C2410_CPUIRQ_OFFSET)),
+		     S3C2410_INTMSK);
+	tcon = __raw_readl(S3C2410_TCON) & ~S3C2410_TCON_T3START;
+	/* fake the timer to a count of 1 */
+	__raw_writel(1, S3C2410_TCNTB(gta02_fiq_timer_index));
+	__raw_writel(tcon | S3C2410_TCON_T3MANUALUPD, S3C2410_TCON);
+	__raw_writel(tcon | S3C2410_TCON_T3MANUALUPD | S3C2410_TCON_T3START,
+		     S3C2410_TCON);
+	__raw_writel(tcon | S3C2410_TCON_T3START, S3C2410_TCON);
+	local_irq_restore(flags);
+}
+
+static int gta02_fiq_enable(void)
+{
+	int irq_index_fiq = IRQ_TIMER3;
+	int rc = 0;
+
+	local_fiq_disable();
+
+	gta02_fiq_irq = irq_index_fiq;
+	gta02_fiq_ack_mask = 1 << (irq_index_fiq - S3C2410_CPUIRQ_OFFSET);
+	gta02_fiq_timer_index = (irq_index_fiq - IRQ_TIMER0);
+
+	/* set up the timer to operate as a pwm device */
+
+	rc = s3c2410_pwm_init(&gta02_fiq_pwm_timer);
+	if (rc)
+		goto bail;
+
+	gta02_fiq_pwm_timer.timerid = PWM0 + gta02_fiq_timer_index;
+	gta02_fiq_pwm_timer.prescaler = (6 - 1) / 2;
+	gta02_fiq_pwm_timer.divider = S3C2410_TCFG1_MUX3_DIV2;
+	/* default rate == ~32us */
+	gta02_fiq_pwm_timer.counter = gta02_fiq_pwm_timer.comparer = 3000;
+
+	rc = s3c2410_pwm_enable(&gta02_fiq_pwm_timer);
+	if (rc)
+		goto bail;
+
+	s3c2410_pwm_start(&gta02_fiq_pwm_timer);
+
+	/* let our selected interrupt be a magic FIQ interrupt */
+	__raw_writel(gta02_fiq_ack_mask, S3C2410_INTMOD);
+
+	/* it's ready to go as soon as we unmask the source in S3C2410_INTMSK */
+	local_fiq_enable();
+
+	set_fiq_c_handler(gta02_fiq_handler);
+
+bail:
+	printk(KERN_ERR "Count not initialize FIQ for GTA02\n");
+	return rc;
+}
+
+static void gta02_fiq_disable(void)
+{
+	__raw_writel(0, S3C2410_INTMOD);
+	local_fiq_disable();
+	gta02_fiq_irq = 0; /* no active source interrupt now either */
+
+}
+/* -------------------- /GTA02 FIQ Handler ------------------------------------- */
 
 /*
  * this gets called every 1ms when we paniced.
@@ -497,9 +402,9 @@ static int gta02_get_charger_active_status(void)
 struct bq27000_platform_data bq27000_pdata = {
 	.name = "battery",
 	.rsense_mohms = 20,
-	.hdq_read = gta02hdq_read,
-	.hdq_write = gta02hdq_write,
-	.hdq_initialized = gta02hdq_initialized,
+	.hdq_read = hdq_read,
+	.hdq_write = hdq_write,
+	.hdq_initialized = hdq_initialized,
 	.get_charger_online_status = gta02_get_charger_online_status,
 	.get_charger_active_status = gta02_get_charger_active_status
 };
@@ -807,7 +712,7 @@ static void mangle_pmu_pdata_by_system_rev(void)
 	}
 }
 
-#ifdef CONFIG_GTA02_HDQ
+#ifdef CONFIG_HDQ_GPIO_BITBANG
 /* HDQ */
 
 static void gta02_hdq_attach_child_devices(struct device *parent_device)
@@ -823,6 +728,27 @@ static void gta02_hdq_attach_child_devices(struct device *parent_device)
 	}
 }
 
+static void gta02_hdq_gpio_direction_out(void)
+{
+	s3c2410_gpio_cfgpin(GTA02v5_GPIO_HDQ, S3C2410_GPIO_OUTPUT);
+}
+
+static void gta02_hdq_gpio_direction_in(void)
+{
+	s3c2410_gpio_cfgpin(GTA02v5_GPIO_HDQ, S3C2410_GPIO_INPUT);
+}
+
+static void gta02_hdq_gpio_set_value(int val)
+{
+
+	s3c2410_gpio_setpin(GTA02v5_GPIO_HDQ, val);
+}
+
+static int gta02_hdq_gpio_get_value(void)
+{
+	return s3c2410_gpio_getpin(GTA02v5_GPIO_HDQ);
+}
+
 static struct resource gta02_hdq_resources[] = {
 	[0] = {
 		.start	= GTA02v5_GPIO_HDQ,
@@ -830,12 +756,21 @@ static struct resource gta02_hdq_resources[] = {
 	},
 };
 
-struct gta02_hdq_platform_data gta02_hdq_platform_data = {
-	.attach_child_devices = gta02_hdq_attach_child_devices
+struct hdq_platform_data gta02_hdq_platform_data = {
+	.attach_child_devices = gta02_hdq_attach_child_devices,
+	.gpio_dir_out = gta02_hdq_gpio_direction_out,
+	.gpio_dir_in = gta02_hdq_gpio_direction_in,
+	.gpio_set = gta02_hdq_gpio_set_value,
+	.gpio_get = gta02_hdq_gpio_get_value,
+
+	.enable_fiq = gta02_fiq_enable,
+	.disable_fiq = gta02_fiq_disable,
+	.kick_fiq = gta02_fiq_kick,
+
 };
 
 struct platform_device gta02_hdq_device = {
-	.name 		= "gta02-hdq",
+	.name 		= "hdq",
 	.num_resources	= 1,
 	.resource	= gta02_hdq_resources,
 	.dev		= {
@@ -852,52 +787,19 @@ static struct resource gta02_vibrator_resources[] = {
 		.end	= GTA02_GPIO_VIBRATOR_ON,
 	},
 };
+struct neo1973_vib_platform_data gta02_vib_pdata = {
+	.enable_fiq = gta02_fiq_enable,
+	.disable_fiq = gta02_fiq_disable,
+	.kick_fiq = gta02_fiq_kick,
+};
 
 static struct platform_device gta02_vibrator_dev = {
 	.name		= "neo1973-vibrator",
 	.num_resources	= ARRAY_SIZE(gta02_vibrator_resources),
 	.resource	= gta02_vibrator_resources,
-};
-
-/* FIQ, used PWM regs, so not child of PWM */
-
-static void gta02_fiq_attach_child_devices(struct device *parent_device)
-{
-#ifdef CONFIG_GTA02_HDQ
-	switch (system_rev) {
-	case GTA02v5_SYSTEM_REV:
-	case GTA02v6_SYSTEM_REV:
-		gta02_hdq_device.dev.parent = parent_device;
-		platform_device_register(&gta02_hdq_device);
-		gta02_vibrator_dev.dev.parent = parent_device;
-		platform_device_register(&gta02_vibrator_dev);
-		break;
-	default:
-		break;
-	}
-#endif
-}
-
-
-static struct resource sc32440_fiq_resources[] = {
-	[0] = {
-		.flags	= IORESOURCE_IRQ,
-		.start	= IRQ_TIMER3,
-		.end	= IRQ_TIMER3,
-	},
-};
-
-struct sc32440_fiq_platform_data gta02_sc32440_fiq_platform_data = {
-	.attach_child_devices = gta02_fiq_attach_child_devices
-};
-
-struct platform_device sc32440_fiq_device = {
-	.name 		= "sc32440_fiq",
-	.num_resources	= 1,
-	.resource	= sc32440_fiq_resources,
-	.dev		= {
-		.platform_data = &gta02_sc32440_fiq_platform_data,
-	},
+	.dev	 = {
+		.platform_data = &gta02_vib_pdata,
+		},
 };
 
 /* NOR Flash */
@@ -1648,7 +1550,6 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&s3c_device_nand,
 	&gta02_nor_flash,
 
-	&sc32440_fiq_device,
 	&s3c24xx_pwm_device,
 	&gta02_led_dev,
 	&gta02_pm_wlan_dev, /* not dependent on PMU */
@@ -1789,6 +1690,13 @@ static void __init gta02_machine_init(void)
 	enable_irq_wake(GTA02_IRQ_WLAN_GPIO1);
 
 	pm_power_off = gta02_poweroff;
+
+	/* Register the HDQ and vibrator as children of pwm device */
+	gta02_vibrator_dev.dev.parent = &s3c24xx_pwm_device.dev; 
+	gta02_hdq_device.dev.parent = &s3c24xx_pwm_device.dev;
+	platform_device_register(&gta02_hdq_device);
+	platform_device_register(&gta02_vibrator_dev);
+
 }
 
 void DEBUG_LED(int n)
