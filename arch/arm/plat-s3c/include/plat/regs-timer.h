@@ -10,6 +10,8 @@
  * S3C2410 Timer configuration
 */
 
+#include <plat/map-base.h>
+
 #ifndef __ASM_ARCH_REGS_TIMER_H
 #define __ASM_ARCH_REGS_TIMER_H
 

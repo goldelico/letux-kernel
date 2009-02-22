@@ -37,7 +37,7 @@
 
 #include <mach/hardware.h>
 #include <mach/gta01.h>
-#include <mach/pwm.h>
+#include <plat/pwm.h>
 
 #include <plat/regs-timer.h>
 #include <asm/plat-s3c24xx/neo1973.h>

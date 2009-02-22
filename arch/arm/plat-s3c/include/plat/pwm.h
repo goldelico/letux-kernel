@@ -9,7 +9,6 @@
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <plat/regs-timer.h>
-#include <mach/gta01.h>
 
 enum pwm_timer {
 	PWM0,

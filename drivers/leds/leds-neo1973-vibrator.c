@@ -19,7 +19,7 @@
 #include <linux/leds.h>
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
-#include <mach/pwm.h>
+#include <plat/pwm.h>
 #include <mach/gta01.h>
 #include <plat/regs-timer.h>
 

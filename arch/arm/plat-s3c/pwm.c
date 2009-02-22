@@ -1,5 +1,5 @@
 /*
- * arch/arm/mach-s3c2410/3c2410-pwm.c
+ * arch/arm/plat-s3c/pwm.c
  *
  * Copyright (c) by Javi Roman <javiroman@kernel-labs.org>
  * 		 for the Openmoko Project.
@@ -23,7 +23,7 @@
 #include <linux/device.h>
 #include <mach/hardware.h>
 #include <plat/regs-timer.h>
-#include <mach/pwm.h>
+#include <plat/pwm.h>
 #include <asm/io.h>
 
 #ifdef CONFIG_PM

@@ -159,6 +159,11 @@ config S3C_GPIO_CFG_S3C64XX
 	  Internal configuration to enable S3C64XX style GPIO configuration
 	  functions.
 
+config S3C_PWM
+	bool
+	help
+	  PWM timer code for the S3C2410, and similar processors
+
 # device definitions to compile in
 
 config S3C_DEV_HSMMC

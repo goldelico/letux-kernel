@@ -16,7 +16,7 @@
  * for testing
  */
 
-#include <mach/pwm.h>
+#include <plat/pwm.h>
 #include <plat/regs-timer.h>
 
 extern u8 fiq_ready;
