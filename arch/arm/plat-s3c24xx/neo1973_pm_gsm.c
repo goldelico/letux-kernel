@@ -18,6 +18,7 @@
 #include <linux/console.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
+#include <linux/delay.h>
 
 #include <mach/gpio.h>
 #include <asm/mach-types.h>
@@ -67,13 +68,12 @@ static ssize_t gsm_read(struct device *dev, struct device_attribute *attr,
 			char *buf)
 {
 	if (!strcmp(attr->attr.name, "power_on")) {
-		if (s3c2410_gpio_getpin(GTA01_GPIO_MODEM_ON))
-			goto out_1;
-	} else if (!strcmp(attr->attr.name, "reset")) {
-		if (machine_is_neo1973_gta01() && s3c2410_gpio_getpin(GTA01_GPIO_MODEM_RST))
-			goto out_1;
-		else if (machine_is_neo1973_gta02() && s3c2410_gpio_getpin(GTA02_GPIO_MODEM_RST))
-			goto out_1;
+		if (gta01_gsm.gpio_ngsm_en) {
+			if (!s3c2410_gpio_getpin(gta01_gsm.gpio_ngsm_en))
+				goto out_1;
+		} else if (machine_is_neo1973_gta02())
+			if (pcf50633_gpio_get(gta02_pcf, PCF50633_GPIO2))
+				goto out_1;
 	} else if (!strcmp(attr->attr.name, "download")) {
 		if (machine_is_neo1973_gta01()) {
 			if (s3c2410_gpio_getpin(GTA01_GPIO_MODEM_DNLOAD))
@@ -118,15 +118,24 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 				case GTA02v5_SYSTEM_REV:
 				case GTA02v6_SYSTEM_REV:
 					pcf50633_gpio_set(gta02_pcf,
-							  PCF50633_GPIO2, 1);
+							  PCF50633_GPIO2, 7);
 					break;
 				}
 			}
+			msleep(100);
 
 			neo1973_gpb_setpin(GTA01_GPIO_MODEM_ON, 1);
-		} else {
+			msleep(500);
 			neo1973_gpb_setpin(GTA01_GPIO_MODEM_ON, 0);
 
+			/* workaround for calypso firmware moko10 and earlier,
+			   without this it will leave IRQ line high after booting */
+			s3c2410_gpio_setpin(S3C2410_GPH1, 1);
+			s3c2410_gpio_cfgpin(S3C2410_GPH1, S3C2410_GPH1_OUTP);
+			msleep(1000);
+			s3c2410_gpio_cfgpin(S3C2410_GPH1, S3C2410_GPH1_nRTS0);
+		} else {
+			/* FIXME should all GPIOs connected to the modem be tri-stated? */
 			if (machine_is_neo1973_gta02()) {
 				switch (system_rev) {
 				case GTA02v2_SYSTEM_REV:
@@ -151,11 +160,6 @@ static ssize_t gsm_write(struct device *dev, struct device_attribute *attr,
 					 "serial console\n");
 			}
 		}
-	} else if (!strcmp(attr->attr.name, "reset")) {
-		if (machine_is_neo1973_gta01())
-			neo1973_gpb_setpin(GTA01_GPIO_MODEM_RST, on);
-		else if (machine_is_neo1973_gta02())
-			neo1973_gpb_setpin(GTA02_GPIO_MODEM_RST, on);
 	} else if (!strcmp(attr->attr.name, "download")) {
 		if (machine_is_neo1973_gta01())
 			s3c2410_gpio_setpin(GTA01_GPIO_MODEM_DNLOAD, on);
