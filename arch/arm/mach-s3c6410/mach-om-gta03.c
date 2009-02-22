@@ -33,6 +33,8 @@
 #include <linux/spi/spi_bitbang.h>
 #include <linux/l1k002.h>
 #include <linux/pcap7200.h>
+#include <linux/bq27000_battery.h>
+#include <linux/hdq.h>
 
 #include <video/platform_lcd.h>
 
@@ -41,18 +43,23 @@
 #include <asm/mach/irq.h>
 
 #include <mach/hardware.h>
+#include <asm/hardware/vic.h> 
 #include <mach/map.h>
 #include <mach/regs-fb.h>
 #include <mach/spi-gpio.h>
 
 #include <asm/irq.h>
 #include <asm/mach-types.h>
+#include <asm/fiq.h>
 
 #include <plat/regs-serial.h>
+#include <plat/regs-timer.h>
+#include <plat/regs-gpio.h>
 #include <plat/iic.h>
 #include <plat/fb.h>
 #include <plat/gpio-cfg.h>
 #include <plat/pm.h>
+#include <plat/pwm.h>
 
 #include <plat/s3c6410.h>
 #include <plat/clock.h>
@@ -76,7 +83,146 @@
 
 extern struct platform_device s3c_device_usbgadget;
 
+/* -------------------------------------------------------------------------------
+ * GTA03 FIQ related
+ *
+ * Calls into vibrator and hdq and based on the return values
+ * determines if we the FIQ source be kept alive
+ */
 
+#define DIVISOR_FROM_US(x) ((x) << 3)
+
+#ifdef CONFIG_HDQ_GPIO_BITBANG
+#define FIQ_DIVISOR_HDQ DIVISOR_FROM_US(20)
+extern int hdq_fiq_handler(void);
+#endif
+
+/* Global data related to our fiq source */
+static u32 gta03_fiq_ack_mask;
+static u32 gta03_fiq_mod_mask;
+static struct s3c2410_pwm gta03_fiq_pwm_timer;
+static u16 gta03_fiq_timer_index;
+static int gta03_fiq_irq;
+
+/* Convinience defines */
+#define S3C6410_INTMSK	(S3C_VA_VIC0 + VIC_INT_ENABLE)
+#define S3C6410_INTMOD	(S3C_VA_VIC0 + VIC_INT_SELECT)
+
+static void gta03_fiq_handler(void)
+{
+	u16 divisor = 0xffff;
+
+	/* Vibrator servicing */
+
+	/* disable further timer interrupts if nobody has any work
+	 * or adjust rate according to who still has work
+	 *
+	 * CAUTION: it means forground code must disable FIQ around
+	 * its own non-atomic S3C2410_INTMSK changes... not common
+	 * thankfully and taken care of by the fiq-basis patch
+	 */
+
+#ifdef CONFIG_HDQ_GPIO_BITBANG
+	if (hdq_fiq_handler())
+		divisor = FIQ_DIVISOR_HDQ;
+#endif
+
+	if (divisor == 0xffff) /* mask the fiq irq source */
+		__raw_writel(1 << 27, S3C6410_INTMSK + 4);
+	else /* still working, maybe at a different rate */
+		__raw_writel(divisor, S3C2410_TCNTB(gta03_fiq_timer_index));
+
+	__raw_writel((__raw_readl(S3C64XX_TINT_CSTAT) & 0x1f ) | 1 << 8 , S3C64XX_TINT_CSTAT);
+
+}
+
+static void gta03_fiq_kick(void)
+{
+	unsigned long flags;
+	u32 tcon;
+	
+	printk("ENABLE = %08x\n", __raw_readl(0xF4000000 + VIC_INT_ENABLE));
+	printk("FIQ = %08x\n", __raw_readl(0xF4000000 + VIC_FIQ_STATUS));
+	printk("CSTAT = %08x\n", __raw_readl(S3C64XX_TINT_CSTAT));
+
+	/* we have to take care about FIQ because this modification is
+	 * non-atomic, FIQ could come in after the read and before the
+	 * writeback and its changes to the register would be lost
+	 * (platform INTMSK mod code is taken care of already)
+	 */
+	local_save_flags(flags);
+	local_fiq_disable();
+	/* allow FIQs to resume   */
+	__raw_writel(1 << 27, S3C6410_INTMSK);
+
+	tcon = __raw_readl(S3C2410_TCON) & ~S3C2410_TCON_T3START; 
+	/* fake the timer to a count of 1 */
+	__raw_writel(1, S3C2410_TCNTB(gta03_fiq_timer_index));
+	__raw_writel(tcon | S3C2410_TCON_T3MANUALUPD, S3C2410_TCON);
+	__raw_writel(tcon | S3C2410_TCON_T3MANUALUPD | S3C2410_TCON_T3START,
+		     S3C2410_TCON);
+	__raw_writel(tcon | S3C2410_TCON_T3START, S3C2410_TCON);
+	local_irq_restore(flags);
+}
+
+static int gta03_fiq_enable(void)
+{
+	int irq_index_fiq = IRQ_TIMER3_VIC;
+	int rc = 0;
+
+	local_fiq_disable();
+
+	gta03_fiq_irq = irq_index_fiq;
+	gta03_fiq_ack_mask = 1 << 3;
+	gta03_fiq_mod_mask = 1 << 27;
+	gta03_fiq_timer_index = 3;
+
+	/* set up the timer to operate as a pwm device */
+
+	rc = s3c2410_pwm_init(&gta03_fiq_pwm_timer);
+	if (rc)
+		goto bail;
+
+	gta03_fiq_pwm_timer.timerid = PWM0 + gta03_fiq_timer_index;
+	gta03_fiq_pwm_timer.prescaler = (6 - 1) / 2;
+	gta03_fiq_pwm_timer.divider = S3C2410_TCFG1_MUX3_DIV2;
+	/* default rate == ~32us */
+	gta03_fiq_pwm_timer.counter = gta03_fiq_pwm_timer.comparer = 3000;
+
+	rc = s3c2410_pwm_enable(&gta03_fiq_pwm_timer);
+	if (rc) 
+		goto bail;
+
+	s3c2410_pwm_start(&gta03_fiq_pwm_timer);
+
+	/* let our selected interrupt be a magic FIQ interrupt */
+	__raw_writel(1 << 27,  S3C6410_INTMSK + 4);
+	__raw_writel(gta03_fiq_mod_mask, S3C6410_INTMOD);
+	__raw_writel((__raw_readl(S3C64XX_TINT_CSTAT)  & 0x1f)| 1 << 3, S3C64XX_TINT_CSTAT);
+	__raw_writel(1 << 27, S3C6410_INTMSK);
+
+	/* it's ready to go as soon as we unmask the source in S3C2410_INTMSK */
+	local_fiq_enable();
+
+	set_fiq_c_handler(gta03_fiq_handler);
+
+	if (rc < 0)
+		goto bail;
+
+	return 0;
+bail:
+	printk(KERN_ERR "Count not initialize FIQ for GTA03 %d \n", rc);
+	return rc;
+}
+
+static void gta03_fiq_disable(void)
+{
+	__raw_writel(0, S3C6410_INTMOD);
+	local_fiq_disable();
+	gta03_fiq_irq = 0; /* no active source interrupt now either */
+
+}
+/* -------------------- /GTA03 FIQ Handler ------------------------------------- */
 
 #define UCON S3C2410_UCON_DEFAULT | S3C2410_UCON_UCLK
 #define ULCON S3C2410_LCON_CS8 | S3C2410_LCON_PNONE | S3C2410_LCON_STOPB
@@ -385,19 +531,18 @@ static void om_gta03_pmu_event_callback(struct pcf50633 *pcf, int irq)
 {
 #if 0
 	if (irq == PCF50633_IRQ_USBINS) {
-		schedule_delayed_work(&gta02_charger_work,
+		schedule_delayed_work(&gta03_charger_work,
 				GTA02_CHARGER_CONFIGURE_TIMEOUT);
 		return;
 	} else if (irq == PCF50633_IRQ_USBREM) {
-		cancel_delayed_work_sync(&gta02_charger_work);
+		cancel_delayed_work_sync(&gta03_charger_work);
 		pcf50633_mbc_usb_curlim_set(pcf, 0);
-		gta02_usb_vbus_draw = 0;
+		gta03_usb_vbus_draw = 0;
 	}
 
 	bq27000_charging_state_change(&bq27000_battery_device);
 #endif
 }
-
 
 static void om_gta03_pcf50633_attach_child_devices(struct pcf50633 *pcf);
 static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id);
@@ -547,6 +692,123 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 	.mbc_event_callback = om_gta03_pmu_event_callback,
 };
 
+/* BQ27000 Battery */
+static int gta03_get_charger_online_status(void)
+{
+	struct pcf50633 *pcf = om_gta03_pcf;
+
+	return pcf50633_mbc_get_status(pcf) & PCF50633_MBC_USB_ONLINE;
+}
+
+static int gta03_get_charger_active_status(void)
+{
+	struct pcf50633 *pcf = om_gta03_pcf;
+
+	return pcf50633_mbc_get_status(pcf) & PCF50633_MBC_USB_ACTIVE;
+}
+
+
+struct bq27000_platform_data bq27000_pdata = {
+	.name = "battery",
+	.rsense_mohms = 20,
+	.hdq_read = hdq_read,
+	.hdq_write = hdq_write,
+	.hdq_initialized = hdq_initialized,
+	.get_charger_online_status = gta03_get_charger_online_status,
+	.get_charger_active_status = gta03_get_charger_active_status
+};
+
+struct platform_device bq27000_battery_device = {
+	.name 		= "bq27000-battery",
+	.dev = {
+		.platform_data = &bq27000_pdata,
+	},
+};
+
+#ifdef CONFIG_HDQ_GPIO_BITBANG
+/* HDQ */
+
+static void gta03_hdq_attach_child_devices(struct device *parent_device)
+{
+		bq27000_battery_device.dev.parent = parent_device;
+		platform_device_register(&bq27000_battery_device);
+}
+
+static void gta03_hdq_gpio_direction_out(void)
+{
+	unsigned long con;
+	void __iomem *regcon = S3C64XX_GPH_BASE; 
+
+	con = __raw_readl(regcon);
+	con &= ~(0xf << 28);
+	con |= 0x01 << 28;
+	__raw_writel(con, regcon);
+}
+
+static void gta03_hdq_gpio_direction_in(void)
+{
+	unsigned long con;
+	void __iomem *regcon = S3C64XX_GPH_BASE;
+
+	con = __raw_readl(regcon);
+	con &= ~(0xf << 28);
+	__raw_writel(con, regcon);
+}
+
+static void gta03_hdq_gpio_set_value(int val)
+{
+	u32 dat;
+	void __iomem *base = S3C64XX_GPH_BASE;
+
+	dat = __raw_readl(base + 0x08);
+	if (val)
+		dat |= 1 << 7;
+	else
+		dat &= ~(1 << 7);
+
+	__raw_writel(dat, base + 0x08);
+}
+
+static int gta03_hdq_gpio_get_value(void)
+{
+	u32 dat;
+	void *base = S3C64XX_GPH_BASE;
+	
+	dat = __raw_readl(base + 0x08);
+
+	return dat & (1 << 7);
+}
+
+static struct resource gta03_hdq_resources[] = {
+	[0] = {
+		.start	= S3C64XX_GPH(7),
+		.end	= S3C64XX_GPH(7),
+	},
+};
+
+struct hdq_platform_data gta03_hdq_platform_data = {
+	.attach_child_devices = gta03_hdq_attach_child_devices,
+	.gpio_dir_out = gta03_hdq_gpio_direction_out,
+	.gpio_dir_in = gta03_hdq_gpio_direction_in,
+	.gpio_set = gta03_hdq_gpio_set_value,
+	.gpio_get = gta03_hdq_gpio_get_value,
+
+	.enable_fiq = gta03_fiq_enable,
+	.disable_fiq = gta03_fiq_disable,
+	.kick_fiq = gta03_fiq_kick,
+
+};
+
+struct platform_device gta03_hdq_device = {
+	.name 		= "hdq",
+	.num_resources	= 1,
+	.resource	= gta03_hdq_resources,
+	.dev		= {
+		.platform_data = &gta03_hdq_platform_data,
+	},
+};
+#endif
+
 static void om_gta03_lp5521_chip_enable(int level)
 {
 	gpio_direction_output(GTA03_GPIO_LED_EN, level);
@@ -588,6 +850,11 @@ static struct i2c_board_info om_gta03_i2c_devs[] __initdata = {
 
 };
 
+struct platform_device s3c24xx_pwm_device = {
+	.name 		= "s3c24xx_pwm",
+	.num_resources	= 0,
+};
+
 struct platform_device gta03_device_spi_lcm;
 
 static struct platform_device *om_gta03_devices[] __initdata = {
@@ -595,6 +862,7 @@ static struct platform_device *om_gta03_devices[] __initdata = {
 	&s3c_device_i2c0,
 	&gta03_device_spi_lcm,
 	&s3c_device_usbgadget,
+	&s3c24xx_pwm_device,
 };
 
 
@@ -746,6 +1014,10 @@ static void __init om_gta03_machine_init(void)
 						 ARRAY_SIZE(om_gta03_i2c_devs));
 
 	platform_add_devices(om_gta03_devices, ARRAY_SIZE(om_gta03_devices));
+
+	/* Register the HDQ and vibrator as children of pwm device */
+	gta03_hdq_device.dev.parent = &s3c24xx_pwm_device.dev;
+	platform_device_register(&gta03_hdq_device);
 }
 
 MACHINE_START(OPENMOKO_GTA03, "OM-GTA03")
