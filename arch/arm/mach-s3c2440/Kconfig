@@ -78,18 +78,6 @@ config MACH_AT2440EVB
 	help
 	  Say Y here if you are using the AT2440EVB development board
 
-config MACH_NEO1973_GTA02
-	bool "FIC Neo1973 GSM Phone (GTA02 Hardware)"
-	select CPU_S3C2442
-	select SENSORS_PCF50633
-	select POWER_SUPPLY
-	select GTA02_HDQ
-	select MACH_NEO1973
-	select S3C2410_PWM
-	select S3C2410_CLOCK
-	help
-	   Say Y here if you are using the FIC Neo1973 GSM Phone
-
 config NEO1973_GTA02_2440
 	bool "Old FIC Neo1973 GTA02 hardware using S3C2440 CPU"
 	depends on MACH_NEO1973_GTA02
