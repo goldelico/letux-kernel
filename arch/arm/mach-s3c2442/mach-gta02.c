@@ -378,10 +378,9 @@ static struct s3c2410_uartcfg gta02_uartcfgs[] = {
 
 };
 
-/* BQ27000 Battery */
-
 struct pcf50633 *gta02_pcf;
 
+#ifdef CONFIG_CHARGER_PCF50633
 static int gta02_get_charger_online_status(void)
 {
 	struct pcf50633 *pcf = gta02_pcf;
@@ -395,24 +394,6 @@ static int gta02_get_charger_active_status(void)
 
 	return pcf50633_mbc_get_status(pcf) & PCF50633_MBC_USB_ACTIVE;
 }
-
-
-struct bq27000_platform_data bq27000_pdata = {
-	.name = "battery",
-	.rsense_mohms = 20,
-	.hdq_read = hdq_read,
-	.hdq_write = hdq_write,
-	.hdq_initialized = hdq_initialized,
-	.get_charger_online_status = gta02_get_charger_online_status,
-	.get_charger_active_status = gta02_get_charger_active_status
-};
-
-struct platform_device bq27000_battery_device = {
-	.name 		= "bq27000-battery",
-	.dev = {
-		.platform_data = &bq27000_pdata,
-	},
-};
 
 #define ADC_NOM_CHG_DETECT_1A 6
 #define ADC_NOM_CHG_DETECT_USB 43
@@ -466,6 +447,42 @@ static void gta02_pmu_event_callback(struct pcf50633 *pcf, int irq)
 		gta02_usb_vbus_draw = 0;
 	}
 }
+
+static void gta02_udc_vbus_draw(unsigned int ma)
+{
+        if (!gta02_pcf)
+		return;
+
+	gta02_usb_vbus_draw = ma;
+
+	schedule_delayed_work(&gta02_charger_work,
+				GTA02_CHARGER_CONFIGURE_TIMEOUT);
+}
+#else /* !CONFIG_CHARGER_PCF50633 */
+#define gta02_get_charger_online_status NULL
+#define gta02_get_charger_active_status NULL
+#define gta02_pmu_event_callback        NULL
+#define gta02_udc_vbus_draw             NULL
+#endif
+
+/* BQ27000 Battery */
+
+struct bq27000_platform_data bq27000_pdata = {
+	.name = "battery",
+	.rsense_mohms = 20,
+	.hdq_read = hdq_read,
+	.hdq_write = hdq_write,
+	.hdq_initialized = hdq_initialized,
+	.get_charger_online_status = gta02_get_charger_online_status,
+	.get_charger_active_status = gta02_get_charger_active_status
+};
+
+struct platform_device bq27000_battery_device = {
+	.name 		= "bq27000-battery",
+	.dev = {
+		.platform_data = &bq27000_pdata,
+	},
+};
 
 static struct platform_device gta01_pm_gps_dev = {
 	.name		= "neo1973-pm-gps",
@@ -899,17 +916,6 @@ static void gta02_udc_command(enum s3c2410_udc_cmd_e cmd)
 }
 
 /* get PMU to set USB current limit accordingly */
-
-static void gta02_udc_vbus_draw(unsigned int ma)
-{
-        if (!gta02_pcf)
-		return;
-
-	gta02_usb_vbus_draw = ma;
-
-	schedule_delayed_work(&gta02_charger_work,
-				GTA02_CHARGER_CONFIGURE_TIMEOUT);
-}
 
 static struct s3c2410_udc_mach_info gta02_udc_cfg = {
 	.vbus_draw	= gta02_udc_vbus_draw,
@@ -1637,7 +1643,10 @@ static void __init gta02_machine_init(void)
 	}
 
 	spin_lock_init(&motion_irq_lock);
+
+#ifdef CONFIG_CHARGER_PCF50633
 	INIT_DELAYED_WORK(&gta02_charger_work, gta02_charger_worker);
+#endif
 
 	/* Glamo chip select optimization */
 /*	 *((u32 *)(S3C2410_MEMREG(((1 + 1) << 2)))) = 0x1280; */
@@ -1691,9 +1700,11 @@ static void __init gta02_machine_init(void)
 
 	/* Register the HDQ and vibrator as children of pwm device */
 	gta02_vibrator_dev.dev.parent = &s3c24xx_pwm_device.dev; 
+	platform_device_register(&gta02_vibrator_dev);
+#ifdef CONFIG_HDQ_GPIO_BITBANG
 	gta02_hdq_device.dev.parent = &s3c24xx_pwm_device.dev;
 	platform_device_register(&gta02_hdq_device);
-	platform_device_register(&gta02_vibrator_dev);
+#endif
 
 }
 
