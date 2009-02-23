@@ -28,7 +28,7 @@ config SMDK2440_CPU2442
 config MACH_NEO1973_GTA02
 	bool "FIC Neo1973 GSM Phone (GTA02 Hardware)"
 	select CPU_S3C2442
-	select SENSORS_PCF50633
+	select MFD_PCF50633
 	select POWER_SUPPLY
 	select GTA02_HDQ
 	select MACH_NEO1973
