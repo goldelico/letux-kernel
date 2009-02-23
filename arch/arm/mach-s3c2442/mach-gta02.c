@@ -427,10 +427,15 @@ static void gta02_charger_worker(struct work_struct *work)
 		pcf50633_mbc_usb_curlim_set(pcf, gta02_usb_vbus_draw);
 		return;
 	} else {
+#ifdef CONFIG_PCF50633_ADC
 		pcf50633_adc_async_read(pcf,
 			PCF50633_ADCC1_MUX_ADCIN1,
 			PCF50633_ADCC1_AVERAGE_16,
 			gta02_configure_pmu_for_charger, NULL);
+#else
+		/* If the PCF50633 ADC is disabled we fallback to save 100mA */
+		pcf50633_mbc_usb_curlim_set(pcf, 100);
+#endif
 		return;
 	}
 }
