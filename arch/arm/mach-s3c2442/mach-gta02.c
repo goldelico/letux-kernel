@@ -714,6 +714,25 @@ static void mangle_pmu_pdata_by_system_rev(void)
 }
 
 #ifdef CONFIG_HDQ_GPIO_BITBANG
+/* BQ27000 Battery */
+
+struct bq27000_platform_data bq27000_pdata = {
+	.name = "battery",
+	.rsense_mohms = 20,
+	.hdq_read = hdq_read,
+	.hdq_write = hdq_write,
+	.hdq_initialized = hdq_initialized,
+	.get_charger_online_status = gta02_get_charger_online_status,
+	.get_charger_active_status = gta02_get_charger_active_status
+};
+
+struct platform_device bq27000_battery_device = {
+	.name 		= "bq27000-battery",
+	.dev = {
+		.platform_data = &bq27000_pdata,
+	},
+};
+
 /* HDQ */
 
 static void gta02_hdq_attach_child_devices(struct device *parent_device)
@@ -776,25 +795,6 @@ struct platform_device gta02_hdq_device = {
 	.resource	= gta02_hdq_resources,
 	.dev		= {
 		.platform_data = &gta02_hdq_platform_data,
-	},
-};
-
-/* BQ27000 Battery */
-
-struct bq27000_platform_data bq27000_pdata = {
-	.name = "battery",
-	.rsense_mohms = 20,
-	.hdq_read = hdq_read,
-	.hdq_write = hdq_write,
-	.hdq_initialized = hdq_initialized,
-	.get_charger_online_status = gta02_get_charger_online_status,
-	.get_charger_active_status = gta02_get_charger_active_status
-};
-
-struct platform_device bq27000_battery_device = {
-	.name 		= "bq27000-battery",
-	.dev = {
-		.platform_data = &bq27000_pdata,
 	},
 };
 #endif
