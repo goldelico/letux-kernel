@@ -24,7 +24,9 @@ fi
 
 mkdir -p $1
 
-export CROSS_COMPILE=/usr/local/openmoko/arm/bin/arm-angstrom-linux-gnueabi-
+if [ -z "$CROSS_COMPILE" ]; then
+    export CROSS_COMPILE=/usr/local/openmoko/arm/bin/arm-angstrom-linux-gnueabi-
+fi
 make O=$1 ARCH=arm silentoldconfig
 
 #
