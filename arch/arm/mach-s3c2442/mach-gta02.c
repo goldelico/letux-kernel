@@ -465,25 +465,6 @@ static void gta02_udc_vbus_draw(unsigned int ma)
 #define gta02_udc_vbus_draw             NULL
 #endif
 
-/* BQ27000 Battery */
-
-struct bq27000_platform_data bq27000_pdata = {
-	.name = "battery",
-	.rsense_mohms = 20,
-	.hdq_read = hdq_read,
-	.hdq_write = hdq_write,
-	.hdq_initialized = hdq_initialized,
-	.get_charger_online_status = gta02_get_charger_online_status,
-	.get_charger_active_status = gta02_get_charger_active_status
-};
-
-struct platform_device bq27000_battery_device = {
-	.name 		= "bq27000-battery",
-	.dev = {
-		.platform_data = &bq27000_pdata,
-	},
-};
-
 static struct platform_device gta01_pm_gps_dev = {
 	.name		= "neo1973-pm-gps",
 };
@@ -790,6 +771,25 @@ struct platform_device gta02_hdq_device = {
 	.resource	= gta02_hdq_resources,
 	.dev		= {
 		.platform_data = &gta02_hdq_platform_data,
+	},
+};
+
+/* BQ27000 Battery */
+
+struct bq27000_platform_data bq27000_pdata = {
+	.name = "battery",
+	.rsense_mohms = 20,
+	.hdq_read = hdq_read,
+	.hdq_write = hdq_write,
+	.hdq_initialized = hdq_initialized,
+	.get_charger_online_status = gta02_get_charger_online_status,
+	.get_charger_active_status = gta02_get_charger_active_status
+};
+
+struct platform_device bq27000_battery_device = {
+	.name 		= "bq27000-battery",
+	.dev = {
+		.platform_data = &bq27000_pdata,
 	},
 };
 #endif
