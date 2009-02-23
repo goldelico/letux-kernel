@@ -115,6 +115,8 @@ config MACH_SMDK
 config MACH_NEO1973
 	bool
 	select RFKILL
+	select SERIAL_SAMSUNG
+	select SERIAL_SAMSUNG_CONSOLE
 	help
 	  Common machine code for Neo1973 hardware
 
