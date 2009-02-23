@@ -28,12 +28,14 @@ config SMDK2440_CPU2442
 config MACH_NEO1973_GTA02
 	bool "FIC Neo1973 GSM Phone (GTA02 Hardware)"
 	select CPU_S3C2442
-	select MACH_NEO1973
-	select POWER_SUPPLY
-	select FIQ
-	select I2C
 	select MFD_PCF50633
+	select I2C
+	select POWER_SUPPLY
+	select GTA02_HDQ
+	select MACH_NEO1973
 	select S3C_PWM
+	select S3C2410_CLOCK
+	select FIQ
 	help
 	   Say Y here if you are using the FIC Neo1973 GSM Phone
 
