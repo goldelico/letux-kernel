@@ -794,6 +794,8 @@ struct platform_device bq27000_battery_device = {
 };
 #endif
 
+
+#ifdef CONFIG_LEDS_NEO1973_VIBRATOR
 /* vibrator (child of FIQ) */
 
 static struct resource gta02_vibrator_resources[] = {
@@ -816,6 +818,7 @@ static struct platform_device gta02_vibrator_dev = {
 		.platform_data = &gta02_vib_pdata,
 		},
 };
+#endif
 
 /* NOR Flash */
 
@@ -1699,13 +1702,14 @@ static void __init gta02_machine_init(void)
 	pm_power_off = gta02_poweroff;
 
 	/* Register the HDQ and vibrator as children of pwm device */
-	gta02_vibrator_dev.dev.parent = &s3c24xx_pwm_device.dev; 
-	platform_device_register(&gta02_vibrator_dev);
 #ifdef CONFIG_HDQ_GPIO_BITBANG
 	gta02_hdq_device.dev.parent = &s3c24xx_pwm_device.dev;
 	platform_device_register(&gta02_hdq_device);
 #endif
-
+#ifdef CONFIG_LEDS_NEO1973_VIBRATOR
+	gta02_vibrator_dev.dev.parent = &s3c24xx_pwm_device.dev; 
+	platform_device_register(&gta02_vibrator_dev);
+#endif
 }
 
 void DEBUG_LED(int n)
