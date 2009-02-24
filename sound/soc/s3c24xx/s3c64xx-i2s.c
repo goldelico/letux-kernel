@@ -116,11 +116,6 @@ unsigned long s3c64xx_i2s_get_clockrate(struct snd_soc_dai *dai)
 }
 EXPORT_SYMBOL_GPL(s3c64xx_i2s_get_clockrate);
 
-static inline struct s3c_i2sv2_info *to_info(struct snd_soc_dai *cpu_dai)
-{
-	return cpu_dai->private_data;
-}
-
 static int s3c64xx_i2s_probe(struct platform_device *pdev,
 			     struct snd_soc_dai *dai)
 {
