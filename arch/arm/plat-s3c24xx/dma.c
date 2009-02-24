@@ -35,6 +35,7 @@
 
 #include <plat/dma-core.h>
 #include <plat/regs-dma.h>
+#include <plat/dma-plat.h>
 
 /* io map for dma */
 static void __iomem *dma_base;
