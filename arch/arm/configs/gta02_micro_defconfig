@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.29-rc3
-# Mon Feb 23 01:10:27 2009
+# Tue Feb 24 02:12:05 2009
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -176,6 +176,7 @@ CONFIG_S3C_BOOT_UART_FORCE_FIFO=y
 CONFIG_S3C_LOWLEVEL_UART_PORT=2
 CONFIG_S3C_GPIO_SPACE=0
 CONFIG_S3C_GPIO_TRACK=y
+CONFIG_S3C_DMA=y
 CONFIG_S3C_PWM=y
 
 #
