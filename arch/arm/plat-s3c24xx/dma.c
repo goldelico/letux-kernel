@@ -1093,7 +1093,7 @@ int s3c2410_dma_config(unsigned int channel,
 }
 
 EXPORT_SYMBOL(s3c2410_dma_config);
-
+#if 0 /* moved to plat-s3c? */
 int s3c2410_dma_setflags(unsigned int channel, unsigned int flags)
 {
 	struct s3c2410_dma_chan *chan = s3c_dma_lookup_channel(channel);
@@ -1109,7 +1109,7 @@ int s3c2410_dma_setflags(unsigned int channel, unsigned int flags)
 }
 
 EXPORT_SYMBOL(s3c2410_dma_setflags);
-
+#endif
 
 /* s3c2410_dma_devconfig
  *
