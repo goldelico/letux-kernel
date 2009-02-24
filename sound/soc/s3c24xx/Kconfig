@@ -84,3 +84,11 @@ config SND_S3C24XX_SOC_S3C24XX_UDA134X
        	depends on SND_S3C24XX_SOC
        	select SND_S3C24XX_SOC_I2S
        	select SND_SOC_UDA134X
+
+config SND_S3C64XX_SOC_SMDK6410_WM8731
+	tristate "SoC I2S Audio support for WM8731 added to an SMDK6410"
+	depends on SND_S3C24XX_SOC
+	select SND_S3C64XX_SOC_I2S
+	select SND_SOC_WM8731
+	help
+	  Support for an WM8731 add-on board on I2S channel 0 on an SMDK6410

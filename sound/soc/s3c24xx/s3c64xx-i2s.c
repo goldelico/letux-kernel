@@ -49,11 +49,13 @@ static struct s3c2410_dma_client s3c64xx_dma_client_in = {
 
 static struct s3c24xx_pcm_dma_params s3c64xx_i2s_pcm_stereo_out[2] = {
 	[0] = {
+		.channel	= DMACH_I2S0_OUT,
 		.client		= &s3c64xx_dma_client_out,
 		.dma_addr	= S3C64XX_PA_IIS0 + S3C2412_IISTXD,
 		.dma_size	= 4,
 	},
 	[1] = {
+		.channel	= DMACH_I2S1_OUT,
 		.client		= &s3c64xx_dma_client_out,
 		.dma_addr	= S3C64XX_PA_IIS1 + S3C2412_IISTXD,
 		.dma_size	= 4,
@@ -62,11 +64,13 @@ static struct s3c24xx_pcm_dma_params s3c64xx_i2s_pcm_stereo_out[2] = {
 
 static struct s3c24xx_pcm_dma_params s3c64xx_i2s_pcm_stereo_in[2] = {
 	[0] = {
+		.channel	= DMACH_I2S0_IN,
 		.client		= &s3c64xx_dma_client_in,
 		.dma_addr	= S3C64XX_PA_IIS0 + S3C2412_IISRXD,
 		.dma_size	= 4,
 	}, 
 	[1] = {
+		.channel	= DMACH_I2S1_IN,
 		.client		= &s3c64xx_dma_client_in,
 		.dma_addr	= S3C64XX_PA_IIS1 + S3C2412_IISRXD,
 		.dma_size	= 4,
@@ -75,16 +79,33 @@ static struct s3c24xx_pcm_dma_params s3c64xx_i2s_pcm_stereo_in[2] = {
 
 static struct s3c_i2sv2_info s3c64xx_i2s[2];
 
-static int s3c64xx_i2s_set_sysclk(struct snd_soc_dai *cpu_dai,
-				  int clk_id, unsigned int freq, int dir)
-{
-	/* TODO */
-	return 0;
-}
-
 static inline struct s3c_i2sv2_info *to_info(struct snd_soc_dai *cpu_dai)
 {
 	return cpu_dai->private_data;
+}
+
+static int s3c64xx_i2s_set_sysclk(struct snd_soc_dai *cpu_dai,
+				  int clk_id, unsigned int freq, int dir)
+{
+	struct s3c_i2sv2_info *i2s = to_info(cpu_dai);
+	u32 iismod = readl(i2s->regs + S3C2412_IISMOD);
+
+	switch (clk_id) {
+	case S3C64XX_CLKSRC_PCLK:
+		iismod &= ~S3C64XX_IISMOD_IMS_SYSMUX;
+		break;
+
+	case S3C64XX_CLKSRC_MUX:
+		iismod |= S3C64XX_IISMOD_IMS_SYSMUX;
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+	writel(iismod, i2s->regs + S3C2412_IISMOD);
+
+	return 0;
 }
 
 unsigned long s3c64xx_i2s_get_clockrate(struct snd_soc_dai *dai)
@@ -94,6 +115,11 @@ unsigned long s3c64xx_i2s_get_clockrate(struct snd_soc_dai *dai)
 	return clk_get_rate(i2s->iis_cclk);
 }
 EXPORT_SYMBOL_GPL(s3c64xx_i2s_get_clockrate);
+
+static inline struct s3c_i2sv2_info *to_info(struct snd_soc_dai *cpu_dai)
+{
+	return cpu_dai->private_data;
+}
 
 static int s3c64xx_i2s_probe(struct platform_device *pdev,
 			     struct snd_soc_dai *dai)
@@ -119,9 +145,9 @@ static int s3c64xx_i2s_probe(struct platform_device *pdev,
 	i2s->dma_capture = &s3c64xx_i2s_pcm_stereo_in[pdev->id];
 	i2s->dma_playback = &s3c64xx_i2s_pcm_stereo_out[pdev->id];
 
-	i2s->iis_cclk = clk_get(dev, "i2sclk");
-	if (i2s->iis_cclk == NULL) {
-		dev_err(dev, "failed to get i2sclk");
+	i2s->iis_cclk = clk_get(dev, "audio-bus");
+	if (IS_ERR(i2s->iis_cclk)) {
+		dev_err(dev, "failed to get audio-bus");
 		iounmap(i2s->regs);
 		return -ENODEV;
 	}

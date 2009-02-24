@@ -55,9 +55,9 @@ enum dma_ch {
 
 /* we have 4 dma channels */
 #ifndef CONFIG_CPU_S3C2443
-#define S3C2410_DMA_CHANNELS		(4)
+#define S3C_DMA_CHANNELS		(4)
 #else
-#define S3C2410_DMA_CHANNELS		(6)
+#define S3C_DMA_CHANNELS		(6)
 #endif
 
 /* types */
@@ -109,6 +109,8 @@ enum s3c2410_dma_loadst {
 #define S3C2410_DMAF_SLOW         (1<<0)   /* slow, so don't worry about
 					    * waiting for reloads */
 #define S3C2410_DMAF_AUTOSTART    (1<<1)   /* auto-start if buffer queued */
+
+#define S3C2410_DMAF_CIRCULAR	  (0x00)   /* circular enqueue not supp. */
 
 /* dma buffer */
 
@@ -192,10 +194,12 @@ struct s3c2410_dma_chan {
 	struct sys_device	dev;
 };
 
-/* the currently allocated channel information */
-extern struct s3c2410_dma_chan s3c2410_chans[];
-
-/* note, we don't really use dma_device_t at the moment */
 typedef unsigned long dma_device_t;
+
+
+static int s3c_dma_has_circular(void)
+{
+	return 0;
+}
 
 #endif /* __ASM_ARCH_DMA_H */

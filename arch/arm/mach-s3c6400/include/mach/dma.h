@@ -11,6 +11,8 @@
 #ifndef __ASM_ARCH_DMA_H
 #define __ASM_ARCH_DMA_H __FILE__
 
+#define S3C_DMA_CHANNELS	(16)
+
 /* see mach-s3c2410/dma.h for notes on dma channel numbers */
 
 /* Note, for the S3C64XX architecture we keep the DMACH_
@@ -56,6 +58,15 @@ enum dma_ch {
 	DMACH_MAX		/* the end */
 };
 
+static __inline__ int s3c_dma_has_circular(void)
+{
+	/* we will be supporting ciruclar buffers as soon as we have DMA
+	 * engine support.
+	 */
+	return 1;
+}
+
+#define S3C2410_DMAF_CIRCULAR		(1 << 0)
 
 #include <plat/dma.h>
 

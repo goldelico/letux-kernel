@@ -73,6 +73,8 @@ static inline void wm8731_write_reg_cache(struct snd_soc_codec *codec,
 	u16 *cache = codec->reg_cache;
 	if (reg >= WM8731_CACHEREGNUM)
 		return;
+
+	printk(KERN_INFO "%s: reg %d, val %04x\n", __func__, reg, value);
 	cache[reg] = value;
 }
 
@@ -83,6 +85,8 @@ static int wm8731_write(struct snd_soc_codec *codec, unsigned int reg,
 	unsigned int value)
 {
 	u8 data[2];
+
+	printk(KERN_INFO "%s: reg %d val %04x\n", __func__, reg, value);
 
 	/* data is
 	 *   D15..D9 WM8731 register offset

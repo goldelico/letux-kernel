@@ -19,13 +19,14 @@ obj-y				+= irq-eint.o
 obj-y				+= clock.o
 obj-y				+= gpiolib.o
 
-# fake dma support
-obj-y				+= dma-fake.o
-
 # CPU support
 
 obj-$(CONFIG_CPU_S3C6400_INIT)	+= s3c6400-init.o
 obj-$(CONFIG_CPU_S3C6400_CLOCK)	+= s3c6400-clock.o
+
+# DMA support
+
+obj-$(CONFIG_S3C64XX_DMA)	+= dma.o
 
 # PM support
 

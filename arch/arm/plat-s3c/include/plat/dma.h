@@ -98,6 +98,7 @@ extern int s3c2410_dma_free(unsigned int channel, struct s3c2410_dma_client *);
 extern int s3c2410_dma_enqueue(unsigned int channel, void *id,
 			       dma_addr_t data, int size);
 
+
 /* s3c2410_dma_config
  *
  * configure the dma channel

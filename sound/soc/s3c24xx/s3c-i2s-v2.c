@@ -257,6 +257,25 @@ static int s3c2412_i2s_set_fmt(struct snd_soc_dai *cpu_dai,
 	iismod = readl(i2s->regs + S3C2412_IISMOD);
 	DBG("hw_params r: IISMOD: %x \n", iismod);
 
+#if defined(CONFIG_CPU_S3C2412) || defined(CONFIG_CPU_S3C2413)
+#define IISMOD_MASTER_MASK S3C2412_IISMOD_MASTER_MASK
+#define IISMOD_SLAVE S3C2412_IISMOD_SLAVE
+#define IISMOD_MASTER S3C2412_IISMOD_MASTER_INTERNAL
+#endif
+
+#if defined(CONFIG_CPU_S3C64XX)
+/* From Rev1.1 datasheet, we have two master and two slave modes:
+ * IMS[11:10]:
+ *	00 = master mode, fed from PCLK
+ *	01 = master mode, fed from CLKAUDIO
+ *	10 = slave mode, using PCLK
+ *	11 = slave mode, using I2SCLK
+ */
+#define IISMOD_MASTER_MASK (1 << 11)
+#define IISMOD_SLAVE (1 << 11)
+#define IISMOD_MASTER (0x0)
+#endif
+
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBM_CFM:
 		i2s->master = 0;

@@ -21,6 +21,7 @@ snd-soc-ln2440sbc-alc650-objs := ln2440sbc_alc650.o
 snd-soc-s3c24xx-uda134x-objs := s3c24xx_uda134x.o
 snd-soc-neo1973-gta02-wm8753-objs := neo1973_gta02_wm8753.o
 snd-soc-om-gta03-wm8753-objs := om_gta03_wm8753.o
+snd-soc-smdk6410-wm8731-objs := smdk6410-wm8731.o
 
 obj-$(CONFIG_SND_S3C24XX_SOC_JIVE_WM8750) += snd-soc-jive-wm8750.o
 obj-$(CONFIG_SND_S3C24XX_SOC_NEO1973_WM8753) += snd-soc-neo1973-wm8753.o
@@ -29,3 +30,4 @@ obj-$(CONFIG_SND_S3C24XX_SOC_LN2440SBC_ALC650) += snd-soc-ln2440sbc-alc650.o
 obj-$(CONFIG_SND_S3C24XX_SOC_S3C24XX_UDA134X) += snd-soc-s3c24xx-uda134x.o
 obj-$(CONFIG_SND_S3C24XX_SOC_NEO1973_GTA02_WM8753) += snd-soc-neo1973-gta02-wm8753.o
 obj-$(CONFIG_SND_S3C24XX_SOC_OM_GTA03_WM8753) += snd-soc-om-gta03-wm8753.o
+obj-$(CONFIG_SND_S3C64XX_SOC_SMDK6410_WM8731) += snd-soc-smdk6410-wm8731.o
