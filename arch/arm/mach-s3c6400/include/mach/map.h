@@ -51,6 +51,8 @@
 #define S3C64XX_SZ_GPIO		SZ_4K
 
 #define S3C64XX_PA_SDRAM	(0x50000000)
+#define S3C64XX_PA_TZIC0	(0x71000000)
+#define S3C64XX_PA_TZIC1	(0x71100000)
 #define S3C64XX_PA_VIC0		(0x71200000)
 #define S3C64XX_PA_VIC1		(0x71300000)
 
@@ -60,6 +62,8 @@
 /* place VICs close together */
 #define S3C_VA_VIC0		(S3C_VA_IRQ + 0x00)
 #define S3C_VA_VIC1		(S3C_VA_IRQ + 0x10000)
+#define S3C_VA_TZIC0		(S3C_VA_IRQ + 0x20000)
+#define S3C_VA_TZIC1		(S3C_VA_IRQ + 0x30000)
 
 /* compatibiltiy defines. */
 #define S3C_PA_TIMER		S3C64XX_PA_TIMER

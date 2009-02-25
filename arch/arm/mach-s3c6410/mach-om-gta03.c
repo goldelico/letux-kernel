@@ -43,7 +43,8 @@
 #include <asm/mach/irq.h>
 
 #include <mach/hardware.h>
-#include <asm/hardware/vic.h> 
+#include <asm/hardware/vic.h>
+#include <asm/hardware/tzic-sp890.h>
 #include <mach/map.h>
 #include <mach/regs-fb.h>
 #include <mach/spi-gpio.h>
@@ -65,6 +66,7 @@
 #include <plat/clock.h>
 #include <plat/devs.h>
 #include <plat/cpu.h>
+#include <plat/tzic-sp890.h>
 
 /* #include <plat/udc.h> */
 #include <linux/i2c.h>
@@ -107,6 +109,8 @@ static int gta03_fiq_irq;
 /* Convinience defines */
 #define S3C6410_INTMSK	(S3C_VA_VIC0 + VIC_INT_ENABLE)
 #define S3C6410_INTMOD	(S3C_VA_VIC0 + VIC_INT_SELECT)
+
+
 
 static void gta03_fiq_handler(void)
 {
@@ -190,16 +194,21 @@ static int gta03_fiq_enable(void)
 	gta03_fiq_pwm_timer.counter = gta03_fiq_pwm_timer.comparer = 3000;
 
 	rc = s3c2410_pwm_enable(&gta03_fiq_pwm_timer);
-	if (rc) 
+	if (rc)
 		goto bail;
 
 	s3c2410_pwm_start(&gta03_fiq_pwm_timer);
 
 	/* let our selected interrupt be a magic FIQ interrupt */
-	__raw_writel(1 << 27,  S3C6410_INTMSK + 4);
+	__raw_writel(gta03_fiq_mod_mask, S3C6410_INTMSK + 4);
 	__raw_writel(gta03_fiq_mod_mask, S3C6410_INTMOD);
-	__raw_writel((__raw_readl(S3C64XX_TINT_CSTAT)  & 0x1f)| 1 << 3, S3C64XX_TINT_CSTAT);
-	__raw_writel(1 << 27, S3C6410_INTMSK);
+	__raw_writel((__raw_readl(S3C64XX_TINT_CSTAT)  & 0x1f)| 1 << 3,
+							    S3C64XX_TINT_CSTAT);
+	__raw_writel(gta03_fiq_mod_mask, S3C6410_INTMSK);
+
+	__raw_writel(SP890_TZIC_UNLOCK_MAGIC, S3C64XX_VA_TZIC0_LOCK);
+	__raw_writel(gta03_fiq_mod_mask, S3C64XX_VA_TZIC0_FIQENABLE);
+	__raw_writel(gta03_fiq_mod_mask, S3C64XX_VA_TZIC0_INTSELECT);
 
 	/* it's ready to go as soon as we unmask the source in S3C2410_INTMSK */
 	local_fiq_enable();
