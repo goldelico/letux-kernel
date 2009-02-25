@@ -19,6 +19,8 @@
 #include <linux/sysdev.h>
 #include <linux/errno.h>
 #include <linux/delay.h>
+#include <linux/clk.h>
+#include <linux/err.h>
 #include <linux/io.h>
 
 #include <mach/dma.h>
@@ -40,9 +42,10 @@
 
 struct s3c64xx_dmac {
 	struct sys_device	 sysdev;
+	struct clk		*clk;
 	void __iomem		*regs;
 	struct s3c2410_dma_chan *channels;
-	enum dma_ch		chanbase;
+	enum dma_ch		 chanbase;
 };
 
 /* pool to provide LLI buffers */
@@ -614,6 +617,7 @@ static int s3c64xx_dma_init1(int chno, enum dma_ch chbase,
 {
 	struct s3c2410_dma_chan *chptr = &s3c2410_chans[chno];
 	struct s3c64xx_dmac *dmac;
+	char clkname[16];
 	void __iomem *regs;
 	void __iomem *regptr;
 	int err, ch;
@@ -640,6 +644,17 @@ static int s3c64xx_dma_init1(int chno, enum dma_ch chbase,
 		goto err_dev;
 	}
 
+	snprintf(clkname, sizeof(clkname), "dma%d", dmac->sysdev.id);
+
+	dmac->clk = clk_get(NULL, clkname);
+	if (IS_ERR(dmac->clk)) {
+		printk(KERN_ERR "%s: failed to get clock %s\n", __func__, clkname);
+		err = PTR_ERR(dmac->clk);
+		goto err_map;
+	}
+
+	clk_enable(dmac->clk);
+
 	dmac->regs = regs;
 	dmac->chanbase = chbase;
 	dmac->channels = chptr;
@@ -647,7 +662,7 @@ static int s3c64xx_dma_init1(int chno, enum dma_ch chbase,
 	err = request_irq(irq, s3c64xx_dma_irq, 0, "DMA", dmac);
 	if (err < 0) {
 		printk(KERN_ERR "%s: failed to get irq\n", __func__);
-		goto err_map;
+		goto err_clk;
 	}
 
 	regptr = regs + PL080_Cx_BASE(0);
@@ -670,6 +685,9 @@ static int s3c64xx_dma_init1(int chno, enum dma_ch chbase,
 
 	return 0;
 
+err_clk:
+	clk_disable(dmac->clk);
+	clk_put(dmac->clk);
 err_map:
 	iounmap(regs);
 err_dev:
