@@ -303,20 +303,24 @@ static void gps_pwron_set(int on)
 			s3c2410_gpio_cfgpin(S3C2410_GPH4, S3C2410_GPH4_TXD1);
 			/* remove pulldown now it won't be floating any more */
 			s3c2410_gpio_pullup(S3C2410_GPH5, 0);
-		} else {
-			/*
-			 * take care not to power unpowered GPS from UART TX
-			 * return them to GPIO and force low
-			 */
-			s3c2410_gpio_cfgpin(S3C2410_GPH4, S3C2410_GPH4_OUTP);
-			s3c2410_gpio_setpin(S3C2410_GPH4, 0);
-			/* don't let RX from unpowered GPS float */
-			s3c2410_gpio_pullup(S3C2410_GPH5, 1);
+
+			if (!neo1973_gps.power_was_on)
+				regulator_enable(neo1973_gps.regulator[
+							  GTA02_GPS_REG_RF_3V]);
+			return;
 		}
-		if (on && !neo1973_gps.power_was_on)
-			regulator_enable(neo1973_gps.regulator[GTA02_GPS_REG_RF_3V]);
-		else if (!on && neo1973_gps.power_was_on)
-			regulator_disable(neo1973_gps.regulator[GTA02_GPS_REG_RF_3V]);
+
+		/*
+		 * take care not to power unpowered GPS from UART TX
+		 * return them to GPIO and force low
+		 */
+		s3c2410_gpio_cfgpin(S3C2410_GPH4, S3C2410_GPH4_OUTP);
+		s3c2410_gpio_setpin(S3C2410_GPH4, 0);
+		/* don't let RX from unpowered GPS float */
+		s3c2410_gpio_pullup(S3C2410_GPH5, 1);
+		if (neo1973_gps.power_was_on)
+			regulator_disable(neo1973_gps.regulator[
+							  GTA02_GPS_REG_RF_3V]);
 	}
 }
 
@@ -695,43 +699,45 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 	}
 
 	if (machine_is_neo1973_gta02()) {
-		switch (system_rev) {
-		case GTA02v2_SYSTEM_REV:
-		case GTA02v3_SYSTEM_REV:
-		case GTA02v4_SYSTEM_REV:
-		case GTA02v5_SYSTEM_REV:
-		case GTA02v6_SYSTEM_REV:
-			neo1973_gps.regulator[GTA02_GPS_REG_RF_3V] = regulator_get(
-							&pdev->dev, "RF_3V");
-			if (IS_ERR(neo1973_gps.regulator)) {
-				dev_err(&pdev->dev, "probe failed %ld\n",
-				    PTR_ERR(neo1973_gps.regulator));
-				return PTR_ERR(neo1973_gps.regulator);
-			}
 
-			dev_info(&pdev->dev, "FIC Neo1973 GPS Power Managerment:"
-				 "starting\n");
-			break;
-		default:
-			dev_warn(&pdev->dev, "Unknown GTA02 Revision 0x%x, "
-				"AGPS PM features not available!!!\n",
-				system_rev);
-			return -1;
+		neo1973_gps.regulator[GTA02_GPS_REG_RF_3V] = regulator_get(
+						&pdev->dev, "RF_3V");
+		if (IS_ERR(neo1973_gps.regulator)) {
+			dev_err(&pdev->dev, "probe failed %ld\n",
+			    PTR_ERR(neo1973_gps.regulator));
+
+			return PTR_ERR(neo1973_gps.regulator);
 		}
+
+		dev_info(&pdev->dev, "starting\n");
+
+		/*
+		 * Here we should call the code that handles the set GPS power
+		 * off action.  But, the regulator API does not allow us to
+		 * reassert regulator state, and when we read the regulator API
+		 * logical state, it can differ from the actual state,  So
+		 * a workaround for this is to just set the regulator off in the
+		 * PMU directly.  Because that's different from normal flow, we
+		 * have to reproduce other things from the OFF action here too.
+		 */
 
 		/*
 		 * u-boot enables LDO5 (GPS), which doesn't make sense and
 		 * causes confusion. We therefore disable the regulator here.
-		 *
-		 * We don't do this through the regulator API because we'd have
-		 * to second-guess some of its internal logic and make it do
-		 * something that isn't really part of its design.
 		 */
-		pcf50633_reg_write(gta02_pcf,
-		    PCF50633_REG_LDO5ENA, 0);
+		pcf50633_reg_write(gta02_pcf, PCF50633_REG_LDO5ENA, 0);
+
+		/*
+		 * take care not to power unpowered GPS from UART TX
+		 * return them to GPIO and force low
+		 */
+		s3c2410_gpio_cfgpin(S3C2410_GPH4, S3C2410_GPH4_OUTP);
+		s3c2410_gpio_setpin(S3C2410_GPH4, 0);
+		/* don't let RX from unpowered GPS float */
+		s3c2410_gpio_pullup(S3C2410_GPH5, 1);
 
 		return sysfs_create_group(&pdev->dev.kobj,
-		    &gta02_gps_attr_group);
+					  &gta02_gps_attr_group);
 	}
 	return -1;
 }
