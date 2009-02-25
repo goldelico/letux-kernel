@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/dmapool.h>
+#include <linux/sysdev.h>
 #include <linux/errno.h>
 #include <linux/delay.h>
 #include <linux/io.h>
@@ -38,6 +39,7 @@
 
 
 struct s3c64xx_dmac {
+	struct sys_device	 sysdev;
 	void __iomem		*regs;
 	struct s3c2410_dma_chan *channels;
 	enum dma_ch		chanbase;
@@ -603,6 +605,10 @@ static irqreturn_t s3c64xx_dma_irq(int irq, void *pw)
 	return IRQ_HANDLED;
 }
 
+static struct sysdev_class dma_sysclass = {
+	.name		= "s3c64xx-dma",
+};
+
 static int s3c64xx_dma_init1(int chno, enum dma_ch chbase,
 			     int irq, unsigned int base)
 {
@@ -618,11 +624,20 @@ static int s3c64xx_dma_init1(int chno, enum dma_ch chbase,
 		return -ENOMEM;
 	}
 
+	dmac->sysdev.id = chno / 8;
+	dmac->sysdev.cls = &dma_sysclass;
+
+	err = sysdev_register(&dmac->sysdev);
+	if (err) {
+		printk(KERN_ERR "%s: failed to register sysdevice\n", __func__);
+		goto err_alloc;
+	}
+
 	regs = ioremap(base, 0x200);
 	if (!regs) {
 		printk(KERN_ERR "%s: failed to ioremap()\n", __func__);
 		err = -ENXIO;
-		goto err_alloc;
+		goto err_dev;
 	}
 
 	dmac->regs = regs;
@@ -657,6 +672,8 @@ static int s3c64xx_dma_init1(int chno, enum dma_ch chbase,
 
 err_map:
 	iounmap(regs);
+err_dev:
+	sysdev_unregister(&dmac->sysdev);
 err_alloc:
 	kfree(dmac);
 	return err;
@@ -664,11 +681,19 @@ err_alloc:
 
 static int __init s3c64xx_dma_init(void)
 {
+	int ret;
+
 	printk(KERN_INFO "%s: Registering DMA channels\n", __func__);
 
 	dma_pool = dma_pool_create("DMA-LLI", NULL, 32, 16, 0);
 	if (!dma_pool) {
 		printk(KERN_ERR "%s: failed to create pool\n", __func__);
+		return -ENOMEM;
+	}
+
+	ret = sysdev_class_register(&dma_sysclass);
+	if (ret) {
+		printk(KERN_ERR "%s: failed to create sysclass\n", __func__);
 		return -ENOMEM;
 	}
 
