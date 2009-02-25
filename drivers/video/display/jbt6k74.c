@@ -112,6 +112,7 @@ static const char *jbt_state_names[] = {
 
 struct jbt_info {
 	enum jbt_state state, last_state;
+	enum jbt_state normal_state; /* QVGA or VGA */
 	struct spi_device *spi_dev;
 	struct mutex lock;		/* protects tx_buf and reg_cache */
 	struct notifier_block fb_notif;
@@ -446,6 +447,10 @@ int jbt6k74_enter_state(struct jbt_info *jbt, enum jbt_state new_state)
 	if (rc == 0)
 		jbt->state = new_state;
 
+	if (new_state == JBT_STATE_NORMAL ||
+		       	new_state == JBT_STATE_QVGA_NORMAL)
+		jbt->normal_state = new_state;
+
 	return rc;
 }
 EXPORT_SYMBOL_GPL(jbt6k74_enter_state);
@@ -595,7 +600,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 	switch (fb_blank) {
 	case FB_BLANK_UNBLANK:
 		dev_info(&jbt->spi_dev->dev, "**** jbt6k74 unblank\n");
-		jbt6k74_enter_state(jbt, JBT_STATE_NORMAL);
+		jbt6k74_enter_state(jbt, jbt->normal_state);
 		break;
 	case FB_BLANK_NORMAL:
 		dev_info(&jbt->spi_dev->dev, "**** jbt6k74 normal\n");
