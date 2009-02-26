@@ -64,7 +64,7 @@ int hdq_fiq_handler(void)
 	case HDQB_IDLE:
 		if (hdq_priv.hdq_request_ctr == hdq_priv.hdq_transaction_ctr)
 			break;
-		hdq_priv.hdq_ctr = 210 / HDQ_SAMPLE_PERIOD_US;
+		hdq_priv.hdq_ctr = 250 / HDQ_SAMPLE_PERIOD_US;
 		hdq_priv.pdata->gpio_set(0);
 		hdq_priv.pdata->gpio_dir_out();
 		hdq_priv.hdq_tx_data_done = 0;
