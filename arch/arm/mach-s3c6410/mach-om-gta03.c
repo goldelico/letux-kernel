@@ -92,7 +92,7 @@ extern struct platform_device s3c_device_usbgadget;
  * determines if we the FIQ source be kept alive
  */
 
-#define DIVISOR_FROM_US(x) ((x) << 3)
+#define DIVISOR_FROM_US(x) ((x) * 23)
 
 #ifdef CONFIG_HDQ_GPIO_BITBANG
 #define FIQ_DIVISOR_HDQ DIVISOR_FROM_US(20)
@@ -132,7 +132,8 @@ static void gta03_fiq_handler(void)
 #endif
 
 	if (divisor == 0xffff) /* mask the fiq irq source */
-		__raw_writel(1 << 27, S3C6410_INTMSK + 4);
+		__raw_writel((__raw_readl(S3C64XX_TINT_CSTAT) & 0x1f) & ~(1 << 3),
+							    S3C64XX_TINT_CSTAT);
 	else /* still working, maybe at a different rate */
 		__raw_writel(divisor, S3C2410_TCNTB(gta03_fiq_timer_index));
 
@@ -145,10 +146,6 @@ static void gta03_fiq_kick(void)
 	unsigned long flags;
 	u32 tcon;
 	
-	printk("ENABLE = %08x\n", __raw_readl(0xF4000000 + VIC_INT_ENABLE));
-	printk("FIQ = %08x\n", __raw_readl(0xF4000000 + VIC_FIQ_STATUS));
-	printk("CSTAT = %08x\n", __raw_readl(S3C64XX_TINT_CSTAT));
-
 	/* we have to take care about FIQ because this modification is
 	 * non-atomic, FIQ could come in after the read and before the
 	 * writeback and its changes to the register would be lost
@@ -157,7 +154,8 @@ static void gta03_fiq_kick(void)
 	local_save_flags(flags);
 	local_fiq_disable();
 	/* allow FIQs to resume   */
-	__raw_writel(1 << 27, S3C6410_INTMSK);
+	__raw_writel((__raw_readl(S3C64XX_TINT_CSTAT)  & 0x1f)| 1 << 3,
+							    S3C64XX_TINT_CSTAT);
 
 	tcon = __raw_readl(S3C2410_TCON) & ~S3C2410_TCON_T3START; 
 	/* fake the timer to a count of 1 */
@@ -188,8 +186,8 @@ static int gta03_fiq_enable(void)
 		goto bail;
 
 	gta03_fiq_pwm_timer.timerid = PWM0 + gta03_fiq_timer_index;
-	gta03_fiq_pwm_timer.prescaler = (6 - 1) / 2;
-	gta03_fiq_pwm_timer.divider = S3C2410_TCFG1_MUX3_DIV2;
+	gta03_fiq_pwm_timer.prescaler = ((6 - 1) / 2);
+	gta03_fiq_pwm_timer.divider = S3C64XX_TCFG1_MUX_DIV2 << S3C2410_TCFG1_SHIFT(3);
 	/* default rate == ~32us */
 	gta03_fiq_pwm_timer.counter = gta03_fiq_pwm_timer.comparer = 3000;
 
@@ -197,18 +195,16 @@ static int gta03_fiq_enable(void)
 	if (rc)
 		goto bail;
 
-	s3c2410_pwm_start(&gta03_fiq_pwm_timer);
-
 	/* let our selected interrupt be a magic FIQ interrupt */
 	__raw_writel(gta03_fiq_mod_mask, S3C6410_INTMSK + 4);
 	__raw_writel(gta03_fiq_mod_mask, S3C6410_INTMOD);
-	__raw_writel((__raw_readl(S3C64XX_TINT_CSTAT)  & 0x1f)| 1 << 3,
-							    S3C64XX_TINT_CSTAT);
 	__raw_writel(gta03_fiq_mod_mask, S3C6410_INTMSK);
 
 	__raw_writel(SP890_TZIC_UNLOCK_MAGIC, S3C64XX_VA_TZIC0_LOCK);
 	__raw_writel(gta03_fiq_mod_mask, S3C64XX_VA_TZIC0_FIQENABLE);
 	__raw_writel(gta03_fiq_mod_mask, S3C64XX_VA_TZIC0_INTSELECT);
+
+	s3c2410_pwm_start(&gta03_fiq_pwm_timer);
 
 	/* it's ready to go as soon as we unmask the source in S3C2410_INTMSK */
 	local_fiq_enable();
@@ -387,7 +383,7 @@ void gta03_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
 	s3c_gpio_cfgpin(pdata->pin_miso, S3C_GPIO_SFN(0));
 
 }
-
+#if 0
 struct lis302dl_platform_data lis302_pdata = {
 		.name		= "lis302",
 		.pin_chip_select= S3C64XX_GPC(3), /* NC */
@@ -410,7 +406,7 @@ static struct platform_device s3c_device_spi_acc1 = {
 	},
 };
 
-
+#endif
 
 /* framebuffer and LCD setup. */
 
@@ -752,6 +748,11 @@ static void gta03_hdq_gpio_direction_out(void)
 	con &= ~(0xf << 28);
 	con |= 0x01 << 28;
 	__raw_writel(con, regcon);
+
+	/* Set pull-up enabled */
+	con = __raw_readl(regcon + 0x0c);
+	con |= 3 << 14;
+	__raw_writel(con, regcon + 0x0c);
 }
 
 static void gta03_hdq_gpio_direction_in(void)
@@ -901,7 +902,7 @@ static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 
 static struct platform_device *om_gta03_devices_pmu_children[] = {
 	&om_gta03_button_dev,
-	&s3c_device_spi_acc1, /* relies on PMU reg for power */
+//	&s3c_device_spi_acc1, /* relies on PMU reg for power */
 };
 
 /* this is called when pc50633 is probed, unfortunately quite late in the

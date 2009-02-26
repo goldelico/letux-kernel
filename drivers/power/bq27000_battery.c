@@ -133,7 +133,7 @@ struct bq27000_device_info {
 	struct bq27000_bat_regs regs;
 };
 
-static unsigned int cache_time = 10000;
+static unsigned int cache_time = 5000;
 module_param(cache_time, uint, 0644);
 MODULE_PARM_DESC(cache_time, "cache time in milliseconds");
 
