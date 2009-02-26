@@ -449,8 +449,29 @@ static struct s3c_fb_pd_win om_gta03_fb_win0 = {
 	.default_bpp	= 16,
 };
 
+static void om_gta03_fb_gpio_setup(void)
+{
+	unsigned int gpio;
+
+	/* GPI0, GPI1, GPI8 are for hardware version contrl.
+	 * They should be set as input in order to prevent
+	 * current leaking
+	 */
+	for (gpio = S3C64XX_GPI(2); gpio <= S3C64XX_GPI(15); gpio++) {
+		if (gpio != S3C64XX_GPI(8)) {
+			s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(2));
+			s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
+		}
+	}
+
+	for (gpio = S3C64XX_GPJ(0); gpio <= S3C64XX_GPJ(11); gpio++) {
+		s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(2));
+		s3c_gpio_setpull(gpio, S3C_GPIO_PULL_NONE);
+	}
+}
+
 static struct s3c_fb_platdata om_gta03_lcd_pdata __initdata = {
-	.setup_gpio	= s3c64xx_fb_gpio_setup_24bpp,
+	.setup_gpio	= om_gta03_fb_gpio_setup,
 	.win[0]		= &om_gta03_fb_win0,
 	.vidcon0	= VIDCON0_VIDOUT_RGB | VIDCON0_PNRMODE_RGB,
 	.vidcon1	= VIDCON1_INV_HSYNC | VIDCON1_INV_VSYNC,
