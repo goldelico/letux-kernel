@@ -76,6 +76,7 @@
 #include <mach/spi-gpio.h>
 #include <mach/usb-control.h>
 #include <mach/regs-mem.h>
+#include <mach/spi-gpio.h>
 #include <plat/pwm.h>
 
 #include <mach/gta02.h>
@@ -1104,124 +1105,7 @@ static struct glamo_spigpio_info glamo_spigpio_cfg = {
 	.board_info	= gta02_spi_board_info,
 };
 
-/* SPI: Accelerometers attached to SPI of s3c244x */
-
-/*
- * Situation is that Linux SPI can't work in an interrupt context, so we
- * implement our own bitbang here.  Arbitration is needed because not only
- * can this interrupt happen at any time even if foreground wants to use
- * the bitbang API from Linux, but multiple motion sensors can be on the
- * same SPI bus, and multiple interrupts can happen.
- *
- * Foreground / interrupt arbitration is okay because the interrupts are
- * disabled around all the foreground SPI code.
- *
- * Interrupt / Interrupt arbitration is evidently needed, otherwise we
- * lose edge-triggered service after a while due to the two sensors sharing
- * the SPI bus having irqs at the same time eventually.
- *
- * Servicing is typ 75 - 100us at 400MHz.
- */
-
-/* #define DEBUG_SPEW_MS */
-#define MG_PER_SAMPLE 18
-
-struct lis302dl_platform_data lis302_pdata_top;
-struct lis302dl_platform_data lis302_pdata_bottom;
-
-/*
- * generic SPI RX and TX bitbang
- * only call with interrupts off!
- */
-
-static void __gta02_lis302dl_bitbang(struct lis302dl_info *lis, u8 *tx,
-					     int tx_bytes, u8 *rx, int rx_bytes)
-{
-	struct lis302dl_platform_data *pdata = lis->pdata;
-	int n;
-	u8 shifter = 0;
-	unsigned long other_cs;
-
-	/*
-	 * Huh... "quirk"... CS on this device is not really "CS" like you can
-	 * expect.
-	 *
-	 * When it is 0 it selects SPI interface mode.
-	 * When it is 1 it selects I2C interface mode.
-	 *
-	 * Because we have 2 devices on one interface we have to make sure
-	 * that the "disabled" device (actually in I2C mode) don't think we're
-	 * talking to it.
-	 *
-	 * When we talk to the "enabled" device, the "disabled" device sees
-	 * the clocks as I2C clocks, creating havoc.
-	 *
-	 * I2C sees MOSI going LOW while CLK HIGH as a START action, thus we
-	 * must ensure this is never issued.
-	 */
-
-	if (&lis302_pdata_top == pdata)
-		other_cs = lis302_pdata_bottom.pin_chip_select;
-	else
-		other_cs = lis302_pdata_top.pin_chip_select;
-
-	s3c2410_gpio_setpin(other_cs, 1);
-	s3c2410_gpio_setpin(pdata->pin_chip_select, 1);
-	s3c2410_gpio_setpin(pdata->pin_clk, 1);
-	s3c2410_gpio_setpin(pdata->pin_chip_select, 0);
-
-	/* send the register index, r/w and autoinc bits */
-	for (n = 0; n < (tx_bytes << 3); n++) {
-		if (!(n & 7))
-			shifter = ~tx[n >> 3];
-		s3c2410_gpio_setpin(pdata->pin_clk, 0);
-		s3c2410_gpio_setpin(pdata->pin_mosi, !(shifter & 0x80));
-		s3c2410_gpio_setpin(pdata->pin_clk, 1);
-		shifter <<= 1;
-	}
-
-	for (n = 0; n < (rx_bytes << 3); n++) { /* 8 bits each */
-		s3c2410_gpio_setpin(pdata->pin_clk, 0);
-		shifter <<= 1;
-		if (s3c2410_gpio_getpin(pdata->pin_miso))
-			shifter |= 1;
-		if ((n & 7) == 7)
-			rx[n >> 3] = shifter;
-		s3c2410_gpio_setpin(pdata->pin_clk, 1);
-	}
-	s3c2410_gpio_setpin(pdata->pin_chip_select, 1);
-	s3c2410_gpio_setpin(other_cs, 1);
-}
-
-
-static int gta02_lis302dl_bitbang_read_reg(struct lis302dl_info *lis, u8 reg)
-{
-	u8 data = 0xc0 | reg; /* read, autoincrement */
-	unsigned long flags;
-
-	local_irq_save(flags);
-
-	__gta02_lis302dl_bitbang(lis, &data, 1, &data, 1);
-
-	local_irq_restore(flags);
-
-	return data;
-}
-
-static void gta02_lis302dl_bitbang_write_reg(struct lis302dl_info *lis, u8 reg,
-									 u8 val)
-{
-	u8 data[2] = { 0x00 | reg, val }; /* write, no autoincrement */
-	unsigned long flags;
-
-	local_irq_save(flags);
-
-	__gta02_lis302dl_bitbang(lis, &data[0], 2, NULL, 0);
-
-	local_irq_restore(flags);
-
-}
-
+/*----------- SPI: Accelerometers attached to SPI of s3c244x ----------------- */
 
 void gta02_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
 {
@@ -1253,8 +1137,6 @@ void gta02_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
 
 }
 
-
-
 struct lis302dl_platform_data lis302_pdata_top = {
 		.name		= "lis302-1 (top)",
 		.pin_chip_select= S3C2410_GPD12,
@@ -1263,9 +1145,6 @@ struct lis302dl_platform_data lis302_pdata_top = {
 		.pin_miso	= S3C2410_GPG5,
 		.interrupt	= GTA02_IRQ_GSENSOR_1,
 		.open_drain	= 1, /* altered at runtime by PCB rev */
-		.lis302dl_bitbang = __gta02_lis302dl_bitbang,
-		.lis302dl_bitbang_reg_read = gta02_lis302dl_bitbang_read_reg,
-		.lis302dl_bitbang_reg_write = gta02_lis302dl_bitbang_write_reg,
 		.lis302dl_suspend_io = gta02_lis302dl_suspend_io,
 };
 
@@ -1277,28 +1156,90 @@ struct lis302dl_platform_data lis302_pdata_bottom = {
 		.pin_miso	= S3C2410_GPG5,
 		.interrupt	= GTA02_IRQ_GSENSOR_2,
 		.open_drain	= 1, /* altered at runtime by PCB rev */
-		.lis302dl_bitbang = __gta02_lis302dl_bitbang,
-		.lis302dl_bitbang_reg_read = gta02_lis302dl_bitbang_read_reg,
-		.lis302dl_bitbang_reg_write = gta02_lis302dl_bitbang_write_reg,
 		.lis302dl_suspend_io = gta02_lis302dl_suspend_io,
 };
 
+static struct spi_board_info lis302dl_spi_board_info[] = {
+	{
+		.modalias	= "lis302dl",
+		/* platform_data */
+		.platform_data	= &lis302_pdata_top,
+		/* controller_data */
+		/* irq */
+		.max_speed_hz	= 100 * 1000,
+		.bus_num	= 3,
+		.chip_select	= 0,
+	},
 
-static struct platform_device s3c_device_spi_acc1 = {
-	.name		  = "lis302dl",
-	.id		  = 1,
-	.dev = {
-		.platform_data = &lis302_pdata_top,
+	{
+		.modalias	= "lis302dl",
+		/* platform_data */
+		.platform_data	= &lis302_pdata_bottom,
+		/* controller_data */
+		/* irq */
+		.max_speed_hz	= 100 * 1000,
+		.bus_num	= 3,
+		.chip_select	= 1,
 	},
 };
 
-static struct platform_device s3c_device_spi_acc2 = {
-	.name		  = "lis302dl",
-	.id		  = 2,
+static void gta02_lis302_chip_select(struct s3c2410_spigpio_info *info, int csid, int cs)
+{
+
+	/*
+	 * Huh... "quirk"... CS on this device is not really "CS" like you can
+	 * expect.
+	 *
+	 * When it is 0 it selects SPI interface mode.
+	 * When it is 1 it selects I2C interface mode.
+	 *
+	 * Because we have 2 devices on one interface we have to make sure
+	 * that the "disabled" device (actually in I2C mode) don't think we're
+	 * talking to it.
+	 *
+	 * When we talk to the "enabled" device, the "disabled" device sees
+	 * the clocks as I2C clocks, creating havoc.
+	 *
+	 * I2C sees MOSI going LOW while CLK HIGH as a START action, thus we
+	 * must ensure this is never issued.
+	 */
+
+	int cs_gpio, other_cs_gpio;
+
+	cs_gpio = csid ? S3C2410_GPD13 : S3C2410_GPD12;
+	other_cs_gpio = (1 - csid) ? S3C2410_GPD13 : S3C2410_GPD12;
+	
+
+	if (cs == BITBANG_CS_ACTIVE) {
+		s3c2410_gpio_setpin(other_cs_gpio, 1);
+		s3c2410_gpio_setpin(cs_gpio, 1);
+		s3c2410_gpio_setpin(info->pin_clk, 1);
+		s3c2410_gpio_setpin(cs_gpio, 0);
+	} else {
+		s3c2410_gpio_setpin(cs_gpio, 1);
+		s3c2410_gpio_setpin(other_cs_gpio, 1);
+	} 
+}
+
+static struct s3c2410_spigpio_info gta02_spigpio_cfg = {
+	.pin_clk	= S3C2410_GPG7,
+	.pin_mosi	= S3C2410_GPG6,
+	.pin_miso	= S3C2410_GPG5,
+	.board_size	= ARRAY_SIZE(lis302dl_spi_board_info),
+	.board_info	= lis302dl_spi_board_info,
+	.num_chipselect	= 2,
+	.chip_select	= gta02_lis302_chip_select,
+	.non_blocking_transfer = 1,
+};
+
+static struct platform_device gta02_spi_gpio_dev = {
+	.name		= "spi_s3c24xx_gpio",
 	.dev = {
-		.platform_data = &lis302_pdata_bottom,
+		.platform_data = &gta02_spigpio_cfg,
 	},
 };
+
+/*----------- / SPI: Accelerometers attached to SPI of s3c244x ----------------- */
 
 static struct resource gta02_led_resources[] = {
 	{
@@ -1576,8 +1517,7 @@ static struct platform_device *gta02_devices_pmu_children[] = {
 	&s3c_device_ts, /* input 1 */
 	&gta02_pm_gsm_dev,
 	&gta02_pm_usbhost_dev,
-	&s3c_device_spi_acc1, /* input 2 */
-	&s3c_device_spi_acc2, /* input 3 */
+	&gta02_spi_gpio_dev, /* input 2 and 3 */
 	&gta02_button_dev, /* input 4 */
 	&gta02_resume_reason_device,
 };
