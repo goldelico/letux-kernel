@@ -93,6 +93,11 @@ static int om_gta03_hifi_hw_params(struct snd_pcm_substream *substream,
 		break;
 	}
 
+	ret = snd_soc_dai_set_sysclk(cpu_dai, S3C64XX_CLKSRC_MUX, 0,
+				     SND_SOC_CLOCK_OUT);
+	if (ret < 0)
+		return ret;
+
 	/* set codec DAI configuration */
 	ret = snd_soc_dai_set_fmt(codec_dai,
 				  SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
@@ -129,13 +134,13 @@ static int om_gta03_hifi_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 
 	/* set prescaler division for sample rate */
-	ret = snd_soc_dai_set_clkdiv(cpu_dai, S3C64XX_DIV_PRESCALER, 4);
+	ret = snd_soc_dai_set_clkdiv(cpu_dai, S3C64XX_DIV_PRESCALER, 2-1);
 	if (ret < 0)
 		return ret;
 
-	/* codec PLL input is PCLK/4 */
+	/* codec PLL input is ACLK/2 */
 	ret = snd_soc_dai_set_pll(codec_dai, WM8753_PLL1,
-				  iis_clkrate / 4, pll_out);
+				  iis_clkrate / 2, pll_out);
 	if (ret < 0)
 		return ret;
 
@@ -199,7 +204,7 @@ static int om_gta03_voice_hw_params(
 
 	/* configue and enable PLL for 12.288MHz output */
 	ret = snd_soc_dai_set_pll(codec_dai, WM8753_PLL2,
-				  iis_clkrate / 4, 12288000);
+				  iis_clkrate / 2, 12288000);
 	if (ret < 0)
 		return ret;
 
@@ -537,7 +542,7 @@ static int __init om_gta03_init(void)
 	if (ret)
 		return ret;
 
-	om_gta03_snd_device = platform_device_alloc("soc-audio", 0);
+	om_gta03_snd_device = platform_device_alloc("soc-audio", 1);
 	if (!om_gta03_snd_device)
 		return -ENOMEM;
 
