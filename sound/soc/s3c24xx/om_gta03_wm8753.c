@@ -164,9 +164,8 @@ static struct snd_soc_ops om_gta03_hifi_ops = {
 	.hw_free	= om_gta03_hifi_hw_free,
 };
 
-static int om_gta03_voice_hw_params(
-	struct snd_pcm_substream *substream,
-	struct snd_pcm_hw_params *params)
+static int om_gta03_voice_hw_params(struct snd_pcm_substream *substream,
+				    struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
@@ -226,7 +225,7 @@ static struct snd_soc_ops om_gta03_voice_ops = {
 };
 
 static int om_gta03_set_stereo_out(struct snd_kcontrol *kcontrol,
-					struct snd_ctl_elem_value *ucontrol)
+				   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	int val = ucontrol->value.integer.value[0];
@@ -238,7 +237,7 @@ static int om_gta03_set_stereo_out(struct snd_kcontrol *kcontrol,
 }
 
 static int om_gta03_get_stereo_out(struct snd_kcontrol *kcontrol,
-					struct snd_ctl_elem_value *ucontrol)
+				   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 
@@ -250,7 +249,7 @@ static int om_gta03_get_stereo_out(struct snd_kcontrol *kcontrol,
 
 
 static int om_gta03_set_gsm_out(struct snd_kcontrol *kcontrol,
-				     struct snd_ctl_elem_value *ucontrol)
+				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	int val = ucontrol->value.integer.value[0];
@@ -262,7 +261,7 @@ static int om_gta03_set_gsm_out(struct snd_kcontrol *kcontrol,
 }
 
 static int om_gta03_get_gsm_out(struct snd_kcontrol *kcontrol,
-				     struct snd_ctl_elem_value *ucontrol)
+				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 
@@ -273,7 +272,7 @@ static int om_gta03_get_gsm_out(struct snd_kcontrol *kcontrol,
 }
 
 static int om_gta03_set_gsm_in(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
+			       struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	int val = ucontrol->value.integer.value[0];
@@ -285,7 +284,7 @@ static int om_gta03_set_gsm_in(struct snd_kcontrol *kcontrol,
 }
 
 static int om_gta03_get_gsm_in(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
+			       struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 
@@ -296,7 +295,7 @@ static int om_gta03_get_gsm_in(struct snd_kcontrol *kcontrol,
 }
 
 static int om_gta03_set_headset_mic(struct snd_kcontrol *kcontrol,
-					 struct snd_ctl_elem_value *ucontrol)
+				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	int val = ucontrol->value.integer.value[0];
@@ -308,7 +307,7 @@ static int om_gta03_set_headset_mic(struct snd_kcontrol *kcontrol,
 }
 
 static int om_gta03_get_headset_mic(struct snd_kcontrol *kcontrol,
-					 struct snd_ctl_elem_value *ucontrol)
+				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 
@@ -319,7 +318,7 @@ static int om_gta03_get_headset_mic(struct snd_kcontrol *kcontrol,
 }
 
 static int om_gta03_set_handset_mic(struct snd_kcontrol *kcontrol,
-					 struct snd_ctl_elem_value *ucontrol)
+				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	int val = ucontrol->value.integer.value[0];
@@ -332,7 +331,7 @@ static int om_gta03_set_handset_mic(struct snd_kcontrol *kcontrol,
 }
 
 static int om_gta03_get_handset_mic(struct snd_kcontrol *kcontrol,
-					 struct snd_ctl_elem_value *ucontrol)
+				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 
@@ -343,7 +342,7 @@ static int om_gta03_get_handset_mic(struct snd_kcontrol *kcontrol,
 }
 
 static int om_gta03_set_handset_spk(struct snd_kcontrol *kcontrol,
-					 struct snd_ctl_elem_value *ucontrol)
+				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	int val = ucontrol->value.integer.value[0];
@@ -356,7 +355,7 @@ static int om_gta03_set_handset_spk(struct snd_kcontrol *kcontrol,
 }
 
 static int om_gta03_get_handset_spk(struct snd_kcontrol *kcontrol,
-					 struct snd_ctl_elem_value *ucontrol)
+				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 
@@ -516,8 +515,8 @@ static struct snd_soc_card om_gta03 = {
 
 /* Audio private data */
 static struct wm8753_setup_data soc_codec_data_wm8753_gta02 = {
-	.i2c_bus = 0,
-	.i2c_address = 0x1a,
+	.i2c_bus	= 0,
+	.i2c_address	= 0x1a,
 };
 
 static struct snd_soc_device om_gta03_snd_devdata = {
