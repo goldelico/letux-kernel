@@ -96,27 +96,27 @@ static int om_gta03_hifi_hw_params(struct snd_pcm_substream *substream,
 	ret = snd_soc_dai_set_sysclk(cpu_dai, S3C64XX_CLKSRC_MUX, 0,
 				     SND_SOC_CLOCK_OUT);
 	if (ret < 0)
-		return ret;
+		goto err;
 
 	/* set codec DAI configuration */
 	ret = snd_soc_dai_set_fmt(codec_dai,
 				  SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 				  SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0)
-		return ret;
+		goto err;
 
 	/* set cpu DAI configuration */
 	ret = snd_soc_dai_set_fmt(cpu_dai,
 				  SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 				  SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0)
-		return ret;
+		goto err;
 
 	/* set the codec system clock for DAC and ADC */
 	ret = snd_soc_dai_set_sysclk(codec_dai, WM8753_MCLK, pll_out,
 				     SND_SOC_CLOCK_IN);
 	if (ret < 0)
-		return ret;
+		goto err;
 
 #if 0
 	/* do not think we need to set this if the cpu is not the bitclk
@@ -131,20 +131,24 @@ static int om_gta03_hifi_hw_params(struct snd_pcm_substream *substream,
 	/* set codec BCLK division for sample rate */
 	ret = snd_soc_dai_set_clkdiv(codec_dai, WM8753_BCLKDIV, bclk);
 	if (ret < 0)
-		return ret;
+		goto err;
 
 	/* set prescaler division for sample rate */
 	ret = snd_soc_dai_set_clkdiv(cpu_dai, S3C64XX_DIV_PRESCALER, 2-1);
 	if (ret < 0)
-		return ret;
+		goto err;
 
 	/* codec PLL input is ACLK/2 */
 	ret = snd_soc_dai_set_pll(codec_dai, WM8753_PLL1,
 				  iis_clkrate / 2, pll_out);
 	if (ret < 0)
-		return ret;
+		goto err;
 
 	return 0;
+
+err:
+	printk(KERN_ERR "%s: failed %d\n", __func__, ret);
+	return ret;
 }
 
 static int om_gta03_hifi_hw_free(struct snd_pcm_substream *substream)
