@@ -21,6 +21,7 @@ struct s3c2410_spigpio_info {
 	int			 num_chipselect;
 	int			 bus_num;
 
+	int			 non_blocking_transfer;
 	/*
  	 * FIXME: board_size and board_info DO NOT belong here.
  	 * These were already removed upstream... but we still rely on them

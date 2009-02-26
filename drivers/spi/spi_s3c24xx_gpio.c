@@ -123,6 +123,7 @@ static int s3c2410_spigpio_probe(struct platform_device *dev)
 	sp->bitbang.master->bus_num = info->bus_num;
 	sp->bitbang.master->num_chipselect = info->num_chipselect;
 	sp->bitbang.chipselect = s3c2410_spigpio_chipselect;
+	sp->bitbang.non_blocking_transfer = info->non_blocking_transfer;
 
 	sp->bitbang.txrx_word[SPI_MODE_0] = s3c2410_spigpio_txrx_mode0;
 	sp->bitbang.txrx_word[SPI_MODE_1] = s3c2410_spigpio_txrx_mode1;
