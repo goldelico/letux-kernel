@@ -1,7 +1,7 @@
 linux-2.6-openmoko (20090105.git69b2aa26-3) UNRELEASED; urgency=low
 
   * debian/config.gta02:
-    + compile the wireless ar6000 driver as module.
+    + CONFIG_AR6000_WLAN=m.
   * debian/postinst:
     + s/vmlinuz/uImage.bin/.
   * debian/prerm:
