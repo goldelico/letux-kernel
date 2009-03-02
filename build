@@ -45,9 +45,9 @@ if [ ! -z "`grep CONFIG_MACH_NEO1973_GTA02=y $1/.config`" ] ; then
 	PRODUCT=GTA02
 fi
 
-if [ ! -z "`grep CONFIG_MACH_OPENMOKO_GTA03=y $1/.config`" ] ; then
+if [ ! -z "`grep CONFIG_MACH_OM_3D7K=y $1/.config`" ] ; then
         START=50008000
-        PRODUCT=GTA03
+        PRODUCT=OM_3D7K
 fi
 
 if [ ! -z "`grep CONFIG_MACH_SMDK6410=y $1/.config`" ] ; then

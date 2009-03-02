@@ -1,9 +1,9 @@
-/* linux/arch/arm/mach-s3c6410/mach-om_gta03.c
+/* linux/arch/arm/mach-s3c6410/mach-om-3d7k.c
  *
  * Copyright 2008 Openmoko, Inc.
  * Andy Green <andy@openmoko.org>
  *
- * based on mach_om_gta03.c which is
+ * based on mach_smdk6410.c which is
  *
  * Copyright 2008 Openmoko, Inc.
  * Copyright 2008 Simtec Electronics
@@ -73,7 +73,7 @@
 #include <linux/backlight.h>
 #include <linux/regulator/machine.h>
 
-#include <mach/om-gta03.h>
+#include <mach/om-3d7k.h>
 
 #include <linux/mfd/pcf50633/core.h>
 #include <linux/mfd/pcf50633/mbc.h>
@@ -86,7 +86,7 @@
 extern struct platform_device s3c_device_usbgadget;
 
 /* -------------------------------------------------------------------------------
- * GTA03 FIQ related
+ * OM_3D7K FIQ related
  *
  * Calls into vibrator and hdq and based on the return values
  * determines if we the FIQ source be kept alive
@@ -100,11 +100,11 @@ extern int hdq_fiq_handler(void);
 #endif
 
 /* Global data related to our fiq source */
-static u32 gta03_fiq_ack_mask;
-static u32 gta03_fiq_mod_mask;
-static struct s3c2410_pwm gta03_fiq_pwm_timer;
-static u16 gta03_fiq_timer_index;
-static int gta03_fiq_irq;
+static u32 om_3d7k_fiq_ack_mask;
+static u32 om_3d7k_fiq_mod_mask;
+static struct s3c2410_pwm om_3d7k_fiq_pwm_timer;
+static u16 om_3d7k_fiq_timer_index;
+static int om_3d7k_fiq_irq;
 
 /* Convinience defines */
 #define S3C6410_INTMSK	(S3C_VA_VIC0 + VIC_INT_ENABLE)
@@ -112,7 +112,7 @@ static int gta03_fiq_irq;
 
 
 
-static void gta03_fiq_handler(void)
+static void om_3d7k_fiq_handler(void)
 {
 	u16 divisor = 0xffff;
 
@@ -135,13 +135,13 @@ static void gta03_fiq_handler(void)
 		__raw_writel((__raw_readl(S3C64XX_TINT_CSTAT) & 0x1f) & ~(1 << 3),
 							    S3C64XX_TINT_CSTAT);
 	else /* still working, maybe at a different rate */
-		__raw_writel(divisor, S3C2410_TCNTB(gta03_fiq_timer_index));
+		__raw_writel(divisor, S3C2410_TCNTB(om_3d7k_fiq_timer_index));
 
 	__raw_writel((__raw_readl(S3C64XX_TINT_CSTAT) & 0x1f ) | 1 << 8 , S3C64XX_TINT_CSTAT);
 
 }
 
-static void gta03_fiq_kick(void)
+static void om_3d7k_fiq_kick(void)
 {
 	unsigned long flags;
 	u32 tcon;
@@ -159,7 +159,7 @@ static void gta03_fiq_kick(void)
 
 	tcon = __raw_readl(S3C2410_TCON) & ~S3C2410_TCON_T3START; 
 	/* fake the timer to a count of 1 */
-	__raw_writel(1, S3C2410_TCNTB(gta03_fiq_timer_index));
+	__raw_writel(1, S3C2410_TCNTB(om_3d7k_fiq_timer_index));
 	__raw_writel(tcon | S3C2410_TCON_T3MANUALUPD, S3C2410_TCON);
 	__raw_writel(tcon | S3C2410_TCON_T3MANUALUPD | S3C2410_TCON_T3START,
 		     S3C2410_TCON);
@@ -167,73 +167,73 @@ static void gta03_fiq_kick(void)
 	local_irq_restore(flags);
 }
 
-static int gta03_fiq_enable(void)
+static int om_3d7k_fiq_enable(void)
 {
 	int irq_index_fiq = IRQ_TIMER3_VIC;
 	int rc = 0;
 
 	local_fiq_disable();
 
-	gta03_fiq_irq = irq_index_fiq;
-	gta03_fiq_ack_mask = 1 << 3;
-	gta03_fiq_mod_mask = 1 << 27;
-	gta03_fiq_timer_index = 3;
+	om_3d7k_fiq_irq = irq_index_fiq;
+	om_3d7k_fiq_ack_mask = 1 << 3;
+	om_3d7k_fiq_mod_mask = 1 << 27;
+	om_3d7k_fiq_timer_index = 3;
 
 	/* set up the timer to operate as a pwm device */
 
-	rc = s3c2410_pwm_init(&gta03_fiq_pwm_timer);
+	rc = s3c2410_pwm_init(&om_3d7k_fiq_pwm_timer);
 	if (rc)
 		goto bail;
 
-	gta03_fiq_pwm_timer.timerid = PWM0 + gta03_fiq_timer_index;
-	gta03_fiq_pwm_timer.prescaler = ((6 - 1) / 2);
-	gta03_fiq_pwm_timer.divider = S3C64XX_TCFG1_MUX_DIV2 << S3C2410_TCFG1_SHIFT(3);
+	om_3d7k_fiq_pwm_timer.timerid = PWM0 + om_3d7k_fiq_timer_index;
+	om_3d7k_fiq_pwm_timer.prescaler = ((6 - 1) / 2);
+	om_3d7k_fiq_pwm_timer.divider = S3C64XX_TCFG1_MUX_DIV2 << S3C2410_TCFG1_SHIFT(3);
 	/* default rate == ~32us */
-	gta03_fiq_pwm_timer.counter = gta03_fiq_pwm_timer.comparer = 3000;
+	om_3d7k_fiq_pwm_timer.counter = om_3d7k_fiq_pwm_timer.comparer = 3000;
 
-	rc = s3c2410_pwm_enable(&gta03_fiq_pwm_timer);
+	rc = s3c2410_pwm_enable(&om_3d7k_fiq_pwm_timer);
 	if (rc)
 		goto bail;
 
 	/* let our selected interrupt be a magic FIQ interrupt */
-	__raw_writel(gta03_fiq_mod_mask, S3C6410_INTMSK + 4);
-	__raw_writel(gta03_fiq_mod_mask, S3C6410_INTMOD);
-	__raw_writel(gta03_fiq_mod_mask, S3C6410_INTMSK);
+	__raw_writel(om_3d7k_fiq_mod_mask, S3C6410_INTMSK + 4);
+	__raw_writel(om_3d7k_fiq_mod_mask, S3C6410_INTMOD);
+	__raw_writel(om_3d7k_fiq_mod_mask, S3C6410_INTMSK);
 
 	__raw_writel(SP890_TZIC_UNLOCK_MAGIC, S3C64XX_VA_TZIC0_LOCK);
-	__raw_writel(gta03_fiq_mod_mask, S3C64XX_VA_TZIC0_FIQENABLE);
-	__raw_writel(gta03_fiq_mod_mask, S3C64XX_VA_TZIC0_INTSELECT);
+	__raw_writel(om_3d7k_fiq_mod_mask, S3C64XX_VA_TZIC0_FIQENABLE);
+	__raw_writel(om_3d7k_fiq_mod_mask, S3C64XX_VA_TZIC0_INTSELECT);
 
-	s3c2410_pwm_start(&gta03_fiq_pwm_timer);
+	s3c2410_pwm_start(&om_3d7k_fiq_pwm_timer);
 
 	/* it's ready to go as soon as we unmask the source in S3C2410_INTMSK */
 	local_fiq_enable();
 
-	set_fiq_c_handler(gta03_fiq_handler);
+	set_fiq_c_handler(om_3d7k_fiq_handler);
 
 	if (rc < 0)
 		goto bail;
 
 	return 0;
 bail:
-	printk(KERN_ERR "Count not initialize FIQ for GTA03 %d \n", rc);
+	printk(KERN_ERR "Count not initialize FIQ for OM_3D7K %d \n", rc);
 	return rc;
 }
 
-static void gta03_fiq_disable(void)
+static void om_3d7k_fiq_disable(void)
 {
 	__raw_writel(0, S3C6410_INTMOD);
 	local_fiq_disable();
-	gta03_fiq_irq = 0; /* no active source interrupt now either */
+	om_3d7k_fiq_irq = 0; /* no active source interrupt now either */
 
 }
-/* -------------------- /GTA03 FIQ Handler ------------------------------------- */
+/* -------------------- /OM_3D7K FIQ Handler ------------------------------------- */
 
 #define UCON S3C2410_UCON_DEFAULT | S3C2410_UCON_UCLK
 #define ULCON S3C2410_LCON_CS8 | S3C2410_LCON_PNONE | S3C2410_LCON_STOPB
 #define UFCON S3C2410_UFCON_RXTRIG8 | S3C2410_UFCON_FIFOMODE
 
-static struct s3c2410_uartcfg om_gta03_uartcfgs[] __initdata = {
+static struct s3c2410_uartcfg om_3d7k_uartcfgs[] __initdata = {
 	[0] = {
 		.hwport	     = 0,
 		.flags	     = 0,
@@ -292,7 +292,7 @@ struct lis302dl_platform_data lis302_pdata;
  * only call with interrupts off!
  */
 
-static void __gta03_lis302dl_bitbang(struct lis302dl_info *lis, u8 *tx,
+static void __3d7k_lis302dl_bitbang(struct lis302dl_info *lis, u8 *tx,
 					     int tx_bytes, u8 *rx, int rx_bytes)
 {
 	struct lis302dl_platform_data *pdata = lis->pdata;
@@ -326,21 +326,21 @@ static void __gta03_lis302dl_bitbang(struct lis302dl_info *lis, u8 *tx,
 }
 
 
-static int gta03_lis302dl_bitbang_read_reg(struct lis302dl_info *lis, u8 reg)
+static int om_3d7k_lis302dl_bitbang_read_reg(struct lis302dl_info *lis, u8 reg)
 {
 	u8 data = 0xc0 | reg; /* read, autoincrement */
 	unsigned long flags;
 
 	local_irq_save(flags);
 
-	__gta03_lis302dl_bitbang(lis, &data, 1, &data, 1);
+	__3d7k_lis302dl_bitbang(lis, &data, 1, &data, 1);
 
 	local_irq_restore(flags);
 
 	return data;
 }
 
-static void gta03_lis302dl_bitbang_write_reg(struct lis302dl_info *lis, u8 reg,
+static void om_3d7k_lis302dl_bitbang_write_reg(struct lis302dl_info *lis, u8 reg,
 									 u8 val)
 {
 	u8 data[2] = { 0x00 | reg, val }; /* write, no autoincrement */
@@ -348,14 +348,14 @@ static void gta03_lis302dl_bitbang_write_reg(struct lis302dl_info *lis, u8 reg,
 
 	local_irq_save(flags);
 
-	__gta03_lis302dl_bitbang(lis, &data[0], 2, NULL, 0);
+	__3d7k_lis302dl_bitbang(lis, &data[0], 2, NULL, 0);
 
 	local_irq_restore(flags);
 
 }
 
 
-void gta03_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
+void om_3d7k_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
 {
 	struct lis302dl_platform_data *pdata = lis->pdata;
 
@@ -387,15 +387,15 @@ void gta03_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
 struct lis302dl_platform_data lis302_pdata = {
 		.name		= "lis302",
 		.pin_chip_select= S3C64XX_GPC(3), /* NC */
-		.pin_clk	= GTA03_GPIO_ACCEL_CLK,
-		.pin_mosi	= GTA03_GPIO_ACCEL_MOSI,
-		.pin_miso	= GTA03_GPIO_ACCEL_MISO,
-		.interrupt	= GTA03_IRQ_GSENSOR_1,
+		.pin_clk	= OM_3D7K_GPIO_ACCEL_CLK,
+		.pin_mosi	= OM_3D7K_GPIO_ACCEL_MOSI,
+		.pin_miso	= OM_3D7K_GPIO_ACCEL_MISO,
+		.interrupt	= OM_3D7K_IRQ_GSENSOR_1,
 		.open_drain	= 0,
-		.lis302dl_bitbang = __gta03_lis302dl_bitbang,
-		.lis302dl_bitbang_reg_read = gta03_lis302dl_bitbang_read_reg,
-		.lis302dl_bitbang_reg_write = gta03_lis302dl_bitbang_write_reg,
-		.lis302dl_suspend_io = gta03_lis302dl_suspend_io,
+		.lis302dl_bitbang = __3d7k_lis302dl_bitbang,
+		.lis302dl_bitbang_reg_read = om_3d7k_lis302dl_bitbang_read_reg,
+		.lis302dl_bitbang_reg_write = om_3d7k_lis302dl_bitbang_write_reg,
+		.lis302dl_suspend_io = om_3d7k_lis302dl_suspend_io,
 };
 
 static struct platform_device s3c_device_spi_acc1 = {
@@ -416,23 +416,23 @@ static struct platform_device s3c_device_spi_acc1 = {
  * PWM_TOUT1 => backlight brightness
  */
 
-static void om_gta03_lcd_power_set(struct plat_lcd_data *pd,
+static void om_3d7k_lcd_power_set(struct plat_lcd_data *pd,
 				   unsigned int power)
 {
 
 }
 
-static struct plat_lcd_data om_gta03_lcd_power_data = {
-	.set_power	= om_gta03_lcd_power_set,
+static struct plat_lcd_data om_3d7k_lcd_power_data = {
+	.set_power	= om_3d7k_lcd_power_set,
 };
 
-static struct platform_device om_gta03_lcd_powerdev = {
+static struct platform_device om_3d7k_lcd_powerdev = {
 	.name			= "platform-lcd",
 	.dev.parent		= &s3c_device_fb.dev,
-	.dev.platform_data	= &om_gta03_lcd_power_data,
+	.dev.platform_data	= &om_3d7k_lcd_power_data,
 };
 
-static struct s3c_fb_pd_win om_gta03_fb_win0 = {
+static struct s3c_fb_pd_win om_3d7k_fb_win0 = {
 	/* this is to ensure we use win0 */
 	.win_mode	= {
 		.pixclock	= 40816,
@@ -449,7 +449,7 @@ static struct s3c_fb_pd_win om_gta03_fb_win0 = {
 	.default_bpp	= 16,
 };
 
-static void om_gta03_fb_gpio_setup(void)
+static void om_3d7k_fb_gpio_setup(void)
 {
 	unsigned int gpio;
 
@@ -470,49 +470,49 @@ static void om_gta03_fb_gpio_setup(void)
 	}
 }
 
-static struct s3c_fb_platdata om_gta03_lcd_pdata __initdata = {
-	.setup_gpio	= om_gta03_fb_gpio_setup,
-	.win[0]		= &om_gta03_fb_win0,
+static struct s3c_fb_platdata om_3d7k_lcd_pdata __initdata = {
+	.setup_gpio	= om_3d7k_fb_gpio_setup,
+	.win[0]		= &om_3d7k_fb_win0,
 	.vidcon0	= VIDCON0_VIDOUT_RGB | VIDCON0_PNRMODE_RGB,
 	.vidcon1	= VIDCON1_INV_HSYNC | VIDCON1_INV_VSYNC,
 };
 
 
-struct map_desc om_gta03_6410_iodesc[] = {};
+struct map_desc om_3d7k_6410_iodesc[] = {};
 
-static struct resource om_gta03_button_resources[] = {
+static struct resource om_3d7k_button_resources[] = {
 	[0] = {
 		.start = 0,
 		.end   = 0,
 	},
 	[1] = {
-		.start = GTA03_GPIO_HOLD,
-		.end   = GTA03_GPIO_HOLD,
+		.start = OM_3D7K_GPIO_HOLD,
+		.end   = OM_3D7K_GPIO_HOLD,
 	},
 	[2] = {
-		.start = GTA03_GPIO_JACK_INSERT,
-		.end   = GTA03_GPIO_JACK_INSERT,
+		.start = OM_3D7K_GPIO_JACK_INSERT,
+		.end   = OM_3D7K_GPIO_JACK_INSERT,
 	},
 	[3] = {
-		.start = GTA03_GPIO_KEY_PLUS,
-		.end   = GTA03_GPIO_KEY_PLUS,
+		.start = OM_3D7K_GPIO_KEY_PLUS,
+		.end   = OM_3D7K_GPIO_KEY_PLUS,
 	},
 	[4] = {
-		.start = GTA03_GPIO_KEY_MINUS,
-		.end   = GTA03_GPIO_KEY_MINUS,
+		.start = OM_3D7K_GPIO_KEY_MINUS,
+		.end   = OM_3D7K_GPIO_KEY_MINUS,
 	},
 };
 
-static struct platform_device om_gta03_button_dev = {
+static struct platform_device om_3d7k_button_dev = {
 	.name		= "neo1973-button",
-	.num_resources	= ARRAY_SIZE(om_gta03_button_resources),
-	.resource	= om_gta03_button_resources,
+	.num_resources	= ARRAY_SIZE(om_3d7k_button_resources),
+	.resource	= om_3d7k_button_resources,
 };
 
 
 /********************** PMU ***************************/
 /*
- * GTA03 PMU Mapping info
+ * OM_3D7K PMU Mapping info
  *
  *  name  maxcurr  default    Nom   consumers
  *
@@ -541,42 +541,42 @@ static struct regulator_consumer_supply ldo4_consumers[] = {
 	},
 };
 
-static struct platform_device om_gta03_features_dev = {
-	.name		= "om-gta03",
+static struct platform_device om_3d7k_features_dev = {
+	.name		= "om-3d7k",
 };
 
 static struct regulator_consumer_supply ldo5_consumers[] = {
 	{
-		.dev = &om_gta03_features_dev.dev,
+		.dev = &om_3d7k_features_dev.dev,
 		.supply = "RF_3V",
 	},
 };
 
 
-static void om_gta03_pmu_event_callback(struct pcf50633 *pcf, int irq)
+static void om_3d7k_pmu_event_callback(struct pcf50633 *pcf, int irq)
 {
 #if 0
 	if (irq == PCF50633_IRQ_USBINS) {
-		schedule_delayed_work(&gta03_charger_work,
+		schedule_delayed_work(&om_3d7k_charger_work,
 				GTA02_CHARGER_CONFIGURE_TIMEOUT);
 		return;
 	} else if (irq == PCF50633_IRQ_USBREM) {
-		cancel_delayed_work_sync(&gta03_charger_work);
+		cancel_delayed_work_sync(&om_3d7k_charger_work);
 		pcf50633_mbc_usb_curlim_set(pcf, 0);
-		gta03_usb_vbus_draw = 0;
+		om_3d7k_usb_vbus_draw = 0;
 	}
 
 	bq27000_charging_state_change(&bq27000_battery_device);
 #endif
 }
 
-static void om_gta03_pcf50633_attach_child_devices(struct pcf50633 *pcf);
-static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id);
+static void om_3d7k_pcf50633_attach_child_devices(struct pcf50633 *pcf);
+static void om_3d7k_pmu_regulator_registered(struct pcf50633 *pcf, int id);
 
 /* Global reference */
-struct pcf50633 *om_gta03_pcf;
+struct pcf50633 *om_3d7k_pcf;
 
-struct pcf50633_platform_data om_gta03_pcf_pdata = {
+struct pcf50633_platform_data om_3d7k_pcf_pdata = {
 
 	.resumers = {
 		[0] = PCF50633_INT1_USBINS |
@@ -587,7 +587,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 	},
 	.chg_ref_current_ma = 1000,
 	.reg_init_data = {
-		/* GTA03: Main 3.3V rail */
+		/* OM_3D7K: Main 3.3V rail */
 		[PCF50633_REGULATOR_AUTO] = {
 			.constraints = {
 				.min_uV = 3300000,
@@ -600,7 +600,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			},
 			.num_consumer_supplies = 0,
 		},
-		/* GTA03: CPU core power */
+		/* OM_3D7K: CPU core power */
 		[PCF50633_REGULATOR_DOWN1] = {
 			.constraints = {
 				.min_uV = 900000,
@@ -610,7 +610,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			},
 			.num_consumer_supplies = 0,
 		},
-		/* GTA03: Memories */
+		/* OM_3D7K: Memories */
 		[PCF50633_REGULATOR_DOWN2] = {
 			.constraints = {
 				.min_uV = 1800000,
@@ -623,7 +623,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			},
 			.num_consumer_supplies = 0,
 		},
-		/* GTA03: Camera 2V8 */
+		/* OM_3D7K: Camera 2V8 */
 		[PCF50633_REGULATOR_HCLDO] = {
 			.constraints = {
 				.min_uV = 2800000,
@@ -634,7 +634,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 /*			.consumer_supplies = hcldo_consumers, */
 		},
 
-		/* GTA03: Accel 3V3 */
+		/* OM_3D7K: Accel 3V3 */
 		[PCF50633_REGULATOR_LDO1] = {
 			.constraints = {
 				.min_uV = 3300000,
@@ -644,7 +644,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			},
 			.num_consumer_supplies = 0,
 		},
-		/* GTA03: Camera 1V5 */
+		/* OM_3D7K: Camera 1V5 */
 		[PCF50633_REGULATOR_LDO2] = {
 			.constraints = {
 				.min_uV = 1500000,
@@ -654,7 +654,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			},
 			.num_consumer_supplies = 0,
 		},
-		/* GTA03: Codec 3.3V */
+		/* OM_3D7K: Codec 3.3V */
 		[PCF50633_REGULATOR_LDO3] = {
 			.constraints = {
 				.min_uV = 3300000,
@@ -665,7 +665,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			},
 			.num_consumer_supplies = 0,
 		},
-		/* GTA03: uSD Power */
+		/* OM_3D7K: uSD Power */
 		[PCF50633_REGULATOR_LDO4] = {
 			.constraints = {
 				.min_uV = 3000000,
@@ -676,7 +676,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			.num_consumer_supplies = 1,
 			.consumer_supplies = ldo4_consumers,
 		},
-		/* GTA03: GPS 3V */
+		/* OM_3D7K: GPS 3V */
 		[PCF50633_REGULATOR_LDO5] = {
 			.constraints = {
 				.min_uV = 3000000,
@@ -687,7 +687,7 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 			.num_consumer_supplies = 1,
 			.consumer_supplies = ldo5_consumers,
 		},
-		/* GTA03: LCM 3V */
+		/* OM_3D7K: LCM 3V */
 		[PCF50633_REGULATOR_LDO6] = {
 			.constraints = {
 				.min_uV = 3000000,
@@ -713,22 +713,22 @@ struct pcf50633_platform_data om_gta03_pcf_pdata = {
 		},
 
 	},
-	.probe_done = om_gta03_pcf50633_attach_child_devices,
-	.regulator_registered = om_gta03_pmu_regulator_registered,
-	.mbc_event_callback = om_gta03_pmu_event_callback,
+	.probe_done = om_3d7k_pcf50633_attach_child_devices,
+	.regulator_registered = om_3d7k_pmu_regulator_registered,
+	.mbc_event_callback = om_3d7k_pmu_event_callback,
 };
 
 /* BQ27000 Battery */
-static int gta03_get_charger_online_status(void)
+static int om_3d7k_get_charger_online_status(void)
 {
-	struct pcf50633 *pcf = om_gta03_pcf;
+	struct pcf50633 *pcf = om_3d7k_pcf;
 
 	return pcf50633_mbc_get_status(pcf) & PCF50633_MBC_USB_ONLINE;
 }
 
-static int gta03_get_charger_active_status(void)
+static int om_3d7k_get_charger_active_status(void)
 {
-	struct pcf50633 *pcf = om_gta03_pcf;
+	struct pcf50633 *pcf = om_3d7k_pcf;
 
 	return pcf50633_mbc_get_status(pcf) & PCF50633_MBC_USB_ACTIVE;
 }
@@ -740,8 +740,8 @@ struct bq27000_platform_data bq27000_pdata = {
 	.hdq_read = hdq_read,
 	.hdq_write = hdq_write,
 	.hdq_initialized = hdq_initialized,
-	.get_charger_online_status = gta03_get_charger_online_status,
-	.get_charger_active_status = gta03_get_charger_active_status
+	.get_charger_online_status = om_3d7k_get_charger_online_status,
+	.get_charger_active_status = om_3d7k_get_charger_active_status
 };
 
 struct platform_device bq27000_battery_device = {
@@ -754,13 +754,13 @@ struct platform_device bq27000_battery_device = {
 #ifdef CONFIG_HDQ_GPIO_BITBANG
 /* HDQ */
 
-static void gta03_hdq_attach_child_devices(struct device *parent_device)
+static void om_3d7k_hdq_attach_child_devices(struct device *parent_device)
 {
 		bq27000_battery_device.dev.parent = parent_device;
 		platform_device_register(&bq27000_battery_device);
 }
 
-static void gta03_hdq_gpio_direction_out(void)
+static void om_3d7k_hdq_gpio_direction_out(void)
 {
 	unsigned long con;
 	void __iomem *regcon = S3C64XX_GPH_BASE; 
@@ -776,7 +776,7 @@ static void gta03_hdq_gpio_direction_out(void)
 	__raw_writel(con, regcon + 0x0c);
 }
 
-static void gta03_hdq_gpio_direction_in(void)
+static void om_3d7k_hdq_gpio_direction_in(void)
 {
 	unsigned long con;
 	void __iomem *regcon = S3C64XX_GPH_BASE;
@@ -786,7 +786,7 @@ static void gta03_hdq_gpio_direction_in(void)
 	__raw_writel(con, regcon);
 }
 
-static void gta03_hdq_gpio_set_value(int val)
+static void om_3d7k_hdq_gpio_set_value(int val)
 {
 	u32 dat;
 	void __iomem *base = S3C64XX_GPH_BASE;
@@ -800,7 +800,7 @@ static void gta03_hdq_gpio_set_value(int val)
 	__raw_writel(dat, base + 0x08);
 }
 
-static int gta03_hdq_gpio_get_value(void)
+static int om_3d7k_hdq_gpio_get_value(void)
 {
 	u32 dat;
 	void *base = S3C64XX_GPH_BASE;
@@ -810,73 +810,73 @@ static int gta03_hdq_gpio_get_value(void)
 	return dat & (1 << 7);
 }
 
-static struct resource gta03_hdq_resources[] = {
+static struct resource om_3d7k_hdq_resources[] = {
 	[0] = {
 		.start	= S3C64XX_GPH(7),
 		.end	= S3C64XX_GPH(7),
 	},
 };
 
-struct hdq_platform_data gta03_hdq_platform_data = {
-	.attach_child_devices = gta03_hdq_attach_child_devices,
-	.gpio_dir_out = gta03_hdq_gpio_direction_out,
-	.gpio_dir_in = gta03_hdq_gpio_direction_in,
-	.gpio_set = gta03_hdq_gpio_set_value,
-	.gpio_get = gta03_hdq_gpio_get_value,
+struct hdq_platform_data om_3d7k_hdq_platform_data = {
+	.attach_child_devices = om_3d7k_hdq_attach_child_devices,
+	.gpio_dir_out = om_3d7k_hdq_gpio_direction_out,
+	.gpio_dir_in = om_3d7k_hdq_gpio_direction_in,
+	.gpio_set = om_3d7k_hdq_gpio_set_value,
+	.gpio_get = om_3d7k_hdq_gpio_get_value,
 
-	.enable_fiq = gta03_fiq_enable,
-	.disable_fiq = gta03_fiq_disable,
-	.kick_fiq = gta03_fiq_kick,
+	.enable_fiq = om_3d7k_fiq_enable,
+	.disable_fiq = om_3d7k_fiq_disable,
+	.kick_fiq = om_3d7k_fiq_kick,
 
 };
 
-struct platform_device gta03_hdq_device = {
+struct platform_device om_3d7k_hdq_device = {
 	.name 		= "hdq",
 	.num_resources	= 1,
-	.resource	= gta03_hdq_resources,
+	.resource	= om_3d7k_hdq_resources,
 	.dev		= {
-		.platform_data = &gta03_hdq_platform_data,
+		.platform_data = &om_3d7k_hdq_platform_data,
 	},
 };
 #endif
 
-static void om_gta03_lp5521_chip_enable(int level)
+static void om_3d7k_lp5521_chip_enable(int level)
 {
-	gpio_direction_output(GTA03_GPIO_LED_EN, level);
+	gpio_direction_output(OM_3D7K_GPIO_LED_EN, level);
 	mdelay(500);
 }
 
-static struct lp5521_platform_data om_gta03_lp5521_pdata = {
-	.ext_enable = om_gta03_lp5521_chip_enable,
+static struct lp5521_platform_data om_3d7k_lp5521_pdata = {
+	.ext_enable = om_3d7k_lp5521_chip_enable,
 };
 
-static void om_gta03_pcap7200_reset(void)
+static void om_3d7k_pcap7200_reset(void)
 {
-	gpio_direction_output(GTA03_GPIO_TP_RESET, 1);
+	gpio_direction_output(OM_3D7K_GPIO_TP_RESET, 1);
 	udelay(10);
-	gpio_direction_output(GTA03_GPIO_TP_RESET, 0);
+	gpio_direction_output(OM_3D7K_GPIO_TP_RESET, 0);
 }
 
-static struct pcap7200_platform_data om_gta03_pcap7200_pdata = {
+static struct pcap7200_platform_data om_3d7k_pcap7200_pdata = {
 	.mode = MULTI_TOUCH,
-	.reset = om_gta03_pcap7200_reset,
+	.reset = om_3d7k_pcap7200_reset,
 };
 
-static struct i2c_board_info om_gta03_i2c_devs[] __initdata = {
+static struct i2c_board_info om_3d7k_i2c_devs[] __initdata = {
 	{
 		I2C_BOARD_INFO("pcf50633", 0x73),
-		.irq = GTA03_IRQ_PMU,
-		.platform_data = &om_gta03_pcf_pdata,
+		.irq = OM_3D7K_IRQ_PMU,
+		.platform_data = &om_3d7k_pcf_pdata,
 	},
 	{
 		I2C_BOARD_INFO("pcap7200", 0x0a),
-		.irq = GTA03_IRQ_TOUCH,
-		.platform_data = &om_gta03_pcap7200_pdata,
+		.irq = OM_3D7K_IRQ_TOUCH,
+		.platform_data = &om_3d7k_pcap7200_pdata,
 	},
 	{
 		I2C_BOARD_INFO("lp5521", 0x32),
-		.irq = GTA03_IRQ_LED,
-		.platform_data = &om_gta03_lp5521_pdata,
+		.irq = OM_3D7K_IRQ_LED,
+		.platform_data = &om_3d7k_lp5521_pdata,
 	},
 	{
 		I2C_BOARD_INFO("wm8753", 0x1a),
@@ -888,18 +888,18 @@ struct platform_device s3c24xx_pwm_device = {
 	.num_resources	= 0,
 };
 
-struct platform_device gta03_device_spi_lcm;
+struct platform_device om_3d7k_device_spi_lcm;
 
-static struct platform_device *om_gta03_devices[] __initdata = {
+static struct platform_device *om_3d7k_devices[] __initdata = {
 	&s3c_device_fb,
 	&s3c_device_i2c0,
-	&gta03_device_spi_lcm,
+	&om_3d7k_device_spi_lcm,
 	&s3c_device_usbgadget,
 	&s3c24xx_pwm_device,
 };
 
 
-static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
+static void om_3d7k_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 {
 	struct platform_device *regulator, *pdev;
 
@@ -910,10 +910,10 @@ static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 			pdev = &s3c_device_hsmmc0; /* uSD card */
 			break;
 		case PCF50633_REGULATOR_LDO5: /* GPS regulator */
-			pdev = &om_gta03_features_dev;
+			pdev = &om_3d7k_features_dev;
 			break;
 		case PCF50633_REGULATOR_LDO6:
-			pdev = &om_gta03_lcd_powerdev;
+			pdev = &om_3d7k_lcd_powerdev;
 			break;
 		default:
 			return;
@@ -923,8 +923,8 @@ static void om_gta03_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 	platform_device_register(pdev);
 }
 
-static struct platform_device *om_gta03_devices_pmu_children[] = {
-	&om_gta03_button_dev,
+static struct platform_device *om_3d7k_devices_pmu_children[] = {
+	&om_3d7k_button_dev,
 //	&s3c_device_spi_acc1, /* relies on PMU reg for power */
 };
 
@@ -935,17 +935,17 @@ static struct platform_device *om_gta03_devices_pmu_children[] = {
  * the pcf50633 still around.
  */
 
-static void om_gta03_pcf50633_attach_child_devices(struct pcf50633 *pcf)
+static void om_3d7k_pcf50633_attach_child_devices(struct pcf50633 *pcf)
 {
 	int n;
 
-	om_gta03_pcf = pcf;
+	om_3d7k_pcf = pcf;
 
-	for (n = 0; n < ARRAY_SIZE(om_gta03_devices_pmu_children); n++)
-		om_gta03_devices_pmu_children[n]->dev.parent = pcf->dev;
+	for (n = 0; n < ARRAY_SIZE(om_3d7k_devices_pmu_children); n++)
+		om_3d7k_devices_pmu_children[n]->dev.parent = pcf->dev;
 
-	platform_add_devices(om_gta03_devices_pmu_children,
-				     ARRAY_SIZE(om_gta03_devices_pmu_children));
+	platform_add_devices(om_3d7k_devices_pmu_children,
+				     ARRAY_SIZE(om_3d7k_devices_pmu_children));
 
 	/* Switch on backlight. Qi does not do it for us */
 	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
@@ -955,27 +955,27 @@ static void om_gta03_pcf50633_attach_child_devices(struct pcf50633 *pcf)
 
 }
 
-static void gta03_l1k002_pwronoff(int level)
+static void om_3d7k_l1k002_pwronoff(int level)
 {
-	gpio_direction_output(GTA03_GPIO_LCM_SD, 1);
+	gpio_direction_output(OM_3D7K_GPIO_LCM_SD, 1);
 	udelay(15);
 
-	gpio_direction_output(GTA03_GPIO_LCM_RESET, !!level);
+	gpio_direction_output(OM_3D7K_GPIO_LCM_RESET, !!level);
 
 	if (level){
 		udelay(15);
-		gpio_direction_output(GTA03_GPIO_LCM_SD, 0);
+		gpio_direction_output(OM_3D7K_GPIO_LCM_SD, 0);
 	}
 }
 
-const struct l1k002_platform_data gta03_l1k002_pdata = {
-	.pwr_onoff = gta03_l1k002_pwronoff,
+const struct l1k002_platform_data om_3d7k_l1k002_pdata = {
+	.pwr_onoff = om_3d7k_l1k002_pwronoff,
 };
 
-static struct spi_board_info gta03_spi_board_info[] = {
+static struct spi_board_info om_3d7k_spi_board_info[] = {
 	{
 	.modalias	= "l1k002",
-	.platform_data	= &gta03_l1k002_pdata,
+	.platform_data	= &om_3d7k_l1k002_pdata,
 	/* controller_data */
 	/* irq */
 	.max_speed_hz	= 10 * 1000 * 1000,
@@ -988,24 +988,24 @@ static void spi_gpio_cs(struct s3c64xx_spigpio_info *spi, int csidx, int cs)
 {
 	switch (cs) {
 	case BITBANG_CS_ACTIVE:
-		gpio_direction_output(GTA03_GPIO_LCM_CS, 0);
+		gpio_direction_output(OM_3D7K_GPIO_LCM_CS, 0);
 		break;
 	case BITBANG_CS_INACTIVE:
-		gpio_direction_output(GTA03_GPIO_LCM_CS, 1);
+		gpio_direction_output(OM_3D7K_GPIO_LCM_CS, 1);
 		break;
 	}
 }
 
 static struct s3c64xx_spigpio_info spi_gpio_cfg = {
-	.pin_clk	= GTA03_GPIO_LCM_CLK,
-	.pin_mosi	= GTA03_GPIO_LCM_MOSI,
+	.pin_clk	= OM_3D7K_GPIO_LCM_CLK,
+	.pin_mosi	= OM_3D7K_GPIO_LCM_MOSI,
 	/* no pinout to MISO */
 	.chip_select	= &spi_gpio_cs,
 	.num_chipselect = 1,
 	.bus_num	= 1,
 };
 
-struct platform_device gta03_device_spi_lcm = {
+struct platform_device om_3d7k_device_spi_lcm = {
 	.name		  = "spi_s3c64xx_gpio",
 	.id		  = 1,
 	.dev = {
@@ -1026,44 +1026,44 @@ struct s3c_plat_otg_data s3c_hs_otg_plat_data = {
 };
 
 
-static void __init om_gta03_map_io(void)
+static void __init om_3d7k_map_io(void)
 {
-	s3c64xx_init_io(om_gta03_6410_iodesc, ARRAY_SIZE(om_gta03_6410_iodesc));
+	s3c64xx_init_io(om_3d7k_6410_iodesc, ARRAY_SIZE(om_3d7k_6410_iodesc));
 	s3c24xx_init_clocks(12000000);
-	s3c24xx_init_uarts(om_gta03_uartcfgs, ARRAY_SIZE(om_gta03_uartcfgs));
+	s3c24xx_init_uarts(om_3d7k_uartcfgs, ARRAY_SIZE(om_3d7k_uartcfgs));
 }
 
-static void __init om_gta03_machine_init(void)
+static void __init om_3d7k_machine_init(void)
 {
 	s3c_pm_init();
 
 	s3c_device_usbgadget.dev.platform_data = &s3c_hs_otg_plat_data;
 
 	s3c_i2c0_set_platdata(NULL);
-	s3c_fb_set_platdata(&om_gta03_lcd_pdata);
+	s3c_fb_set_platdata(&om_3d7k_lcd_pdata);
 
-	i2c_register_board_info(0, om_gta03_i2c_devs,
-						 ARRAY_SIZE(om_gta03_i2c_devs));
+	i2c_register_board_info(0, om_3d7k_i2c_devs,
+						 ARRAY_SIZE(om_3d7k_i2c_devs));
 
-	spi_register_board_info(gta03_spi_board_info,
-		       				ARRAY_SIZE(gta03_spi_board_info));
+	spi_register_board_info(om_3d7k_spi_board_info,
+		       				ARRAY_SIZE(om_3d7k_spi_board_info));
 
-	platform_add_devices(om_gta03_devices, ARRAY_SIZE(om_gta03_devices));
+	platform_add_devices(om_3d7k_devices, ARRAY_SIZE(om_3d7k_devices));
 
 	/* Register the HDQ and vibrator as children of pwm device */
-	gta03_hdq_device.dev.parent = &s3c24xx_pwm_device.dev;
-	platform_device_register(&gta03_hdq_device);
+	om_3d7k_hdq_device.dev.parent = &s3c24xx_pwm_device.dev;
+	platform_device_register(&om_3d7k_hdq_device);
 }
 
-MACHINE_START(OPENMOKO_GTA03, "OM-GTA03")
+MACHINE_START(OM_3D7K, "OM-3D7K")
 	/* Maintainer: Andy Green <andy@openmoko.com> */
 	.phys_io	= S3C_PA_UART & 0xfff00000,
 	.io_pg_offst	= (((u32)S3C_VA_UART) >> 18) & 0xfffc,
 	.boot_params	= S3C64XX_PA_SDRAM + 0x100,
 
 	.init_irq	= s3c6410_init_irq,
-	.map_io		= om_gta03_map_io,
-	.init_machine	= om_gta03_machine_init,
+	.map_io		= om_3d7k_map_io,
+	.init_machine	= om_3d7k_machine_init,
 	.timer		= &s3c24xx_timer,
 MACHINE_END
 

@@ -29,7 +29,7 @@
 #include <linux/pcap7200.h>
 #include <../drivers/input/touchscreen/ts_filter.h>
 
-#include <mach/om-gta03.h>
+#include <mach/om-3d7k.h>
 
 #define PCAP7200_OP_MODE_REG	0x07
 #define RPT_PKT_SIZE 	5
