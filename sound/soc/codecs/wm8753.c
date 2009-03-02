@@ -51,8 +51,6 @@
 
 #include "wm8753.h"
 
-#define WM8753_VERSION "0.16"
-
 static int caps_charge = 2000;
 module_param(caps_charge, int, 0);
 MODULE_PARM_DESC(caps_charge, "WM8753 cap charge time (msecs)");
@@ -1537,6 +1535,11 @@ static int wm8753_resume(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(wm8753_reg); i++) {
 		if (i + 1 == WM8753_RESET)
 			continue;
+
+		/* No point in writing hardware default values back */
+		if (cache[i] == wm8753_reg[i])
+			continue;
+
 		data[0] = ((i + 1) << 1) | ((cache[i] >> 8) & 0x0001);
 		data[1] = cache[i] & 0x00ff;
 		codec->hw_write(codec->control_data, data, 2);
@@ -1806,8 +1809,6 @@ static int wm8753_probe(struct platform_device *pdev)
 	struct snd_soc_codec *codec;
 	struct wm8753_priv *wm8753;
 	int ret = 0;
-
-	pr_info("WM8753 Audio Codec %s\n", WM8753_VERSION);
 
 	setup = socdev->codec_data;
 	codec = kzalloc(sizeof(struct snd_soc_codec), GFP_KERNEL);
