@@ -863,6 +863,9 @@ static struct i2c_board_info gta02_i2c_devs[] __initdata = {
 		.irq = GTA02_IRQ_PCF50633,
 		.platform_data = &gta02_pcf_pdata,
 	},
+	{
+		I2C_BOARD_INFO("wm8753", 0x1a),
+	},
 };
 
 static struct s3c2410_nand_set gta02_nand_sets[] = {

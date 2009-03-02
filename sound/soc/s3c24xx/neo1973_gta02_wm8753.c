@@ -612,18 +612,9 @@ static struct snd_soc_card neo1973_gta02 = {
 	.num_links = ARRAY_SIZE(neo1973_gta02_dai),
 };
 
-/* Audio private data */
-static struct wm8753_setup_data soc_codec_data_wm8753_gta02 = {
-	.i2c_bus = 0,
-	.i2c_address = 0x1a,
-//	.gpio_func[0] = AIC3X_GPIO1_FUNC_DISABLED,
-//	.gpio_func[1] = AIC3X_GPIO2_FUNC_DIGITAL_MIC_INPUT,
-};
-
 static struct snd_soc_device neo1973_gta02_snd_devdata = {
 	.card = &neo1973_gta02,
 	.codec_dev = &soc_codec_dev_wm8753,
-	.codec_data = &soc_codec_data_wm8753_gta02,
 };
 
 

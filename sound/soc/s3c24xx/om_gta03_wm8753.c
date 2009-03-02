@@ -517,16 +517,9 @@ static struct snd_soc_card om_gta03 = {
 	.num_links	= ARRAY_SIZE(om_gta03_dai),
 };
 
-/* Audio private data */
-static struct wm8753_setup_data soc_codec_data_wm8753_gta02 = {
-	.i2c_bus	= 0,
-	.i2c_address	= 0x1a,
-};
-
 static struct snd_soc_device om_gta03_snd_devdata = {
 	.card		= &om_gta03,
 	.codec_dev	= &soc_codec_dev_wm8753,
-	.codec_data	= &soc_codec_data_wm8753_gta02,
 };
 
 static struct platform_device *om_gta03_snd_device;

@@ -878,7 +878,9 @@ static struct i2c_board_info om_gta03_i2c_devs[] __initdata = {
 		.irq = GTA03_IRQ_LED,
 		.platform_data = &om_gta03_lp5521_pdata,
 	},
-
+	{
+		I2C_BOARD_INFO("wm8753", 0x1a),
+	},
 };
 
 struct platform_device s3c24xx_pwm_device = {

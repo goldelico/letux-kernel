@@ -923,7 +923,10 @@ static struct i2c_board_info gta01_i2c_devs[] __initdata = {
 	},
 	{
 		I2C_BOARD_INFO("lm4587", 0x7c),
-	}
+	},
+	{
+		I2C_BOARD_INFO("wm8753", 0x1a),
+	},
 };
 
 static void __init gta01_machine_init(void)
