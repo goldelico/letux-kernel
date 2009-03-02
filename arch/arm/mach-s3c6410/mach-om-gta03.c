@@ -998,10 +998,9 @@ static struct s3c64xx_spigpio_info spi_gpio_cfg = {
 	.pin_clk	= GTA03_GPIO_LCM_CLK,
 	.pin_mosi	= GTA03_GPIO_LCM_MOSI,
 	/* no pinout to MISO */
-	.board_size	= ARRAY_SIZE(gta03_spi_board_info),
-	.board_info	= gta03_spi_board_info,
 	.chip_select	= &spi_gpio_cs,
 	.num_chipselect = 1,
+	.bus_num	= 1,
 };
 
 struct platform_device gta03_device_spi_lcm = {
@@ -1043,6 +1042,9 @@ static void __init om_gta03_machine_init(void)
 
 	i2c_register_board_info(0, om_gta03_i2c_devs,
 						 ARRAY_SIZE(om_gta03_i2c_devs));
+
+	spi_register_board_info(gta03_spi_board_info,
+		       				ARRAY_SIZE(gta03_spi_board_info));
 
 	platform_add_devices(om_gta03_devices, ARRAY_SIZE(om_gta03_devices));
 

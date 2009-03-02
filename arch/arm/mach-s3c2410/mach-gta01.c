@@ -801,8 +801,6 @@ static struct s3c2410_spigpio_info spi_gpio_cfg = {
 	.pin_clk	= S3C2410_GPG7,
 	.pin_mosi	= S3C2410_GPG6,
 	.pin_miso	= S3C2410_GPG5,
-	.board_size	= ARRAY_SIZE(gta01_spi_board_info),
-	.board_info	= gta01_spi_board_info,
 	.chip_select	= &spi_gpio_cs,
 	.num_chipselect = 2,   /*** Should be 1 or 2 for gta01? ***/
 };
@@ -983,6 +981,7 @@ static void __init gta01_machine_init(void)
 	}
 	mangle_pmu_pdata_by_system_rev();
 	i2c_register_board_info(0, gta01_i2c_devs, ARRAY_SIZE(gta01_i2c_devs));
+	spi_register_board_info(gta01_spi_board_info, ARRAY_SIZE(gta01_spi_board_info));
 	
 	platform_device_register(&gta01_led_dev);
 

@@ -101,7 +101,6 @@ static int s3c64xx_spigpio_probe(struct platform_device *dev)
 	struct s3c64xx_spigpio 	*spi;
 
 	int ret;
-	int i;
 
 	master = spi_alloc_master(&dev->dev, sizeof(struct s3c64xx_spigpio));
 	if (master == NULL) {
@@ -135,21 +134,6 @@ static int s3c64xx_spigpio_probe(struct platform_device *dev)
 	ret = spi_bitbang_start(&spi->bitbang);
 	if (ret)
 		goto err_no_bitbang;
-
-	/* register the chips to go with the board */
-	for (i = 0; i < spi->info->board_size; i++) {
-		struct spi_device *spidev;
-
-		dev_info(&dev->dev, "registering %p: %s\n",
-			 &spi->info->board_info[i],
-			 spi->info->board_info[i].modalias);
-
-		spi->info->board_info[i].controller_data = spi;
-		spidev = spi_new_device(master, spi->info->board_info + i);
-		if (spidev)
-			spidev->max_speed_hz =
-					  spi->info->board_info[i].max_speed_hz;
-	}
 
 	return 0;
 

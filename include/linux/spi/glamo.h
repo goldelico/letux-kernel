@@ -18,9 +18,8 @@ struct glamo_spigpio_info {
 	unsigned int		pin_mosi;
 	unsigned int		pin_miso;
 	unsigned int 		pin_cs;
+	int 			bus_num;
 
-	unsigned int		board_size;
-	struct spi_board_info	*board_info;
 	struct glamo_core	*glamo;
 };
 

@@ -1076,19 +1076,6 @@ const struct jbt6k74_platform_data jbt6k74_pdata = {
 	.probe_completed = gta02_jbt6k74_probe_completed,
 };
 
-static struct spi_board_info gta02_spi_board_info[] = {
-	{
-		.modalias	= "jbt6k74",
-		/* platform_data */
-		.platform_data	= &jbt6k74_pdata,
-		/* controller_data */
-		/* irq */
-		.max_speed_hz	= 100 * 1000,
-		.bus_num	= 2,
-		/* chip_select */
-	},
-};
-
 #if 0 /* currently this is not used and we use gpio spi */
 static struct glamo_spi_info glamo_spi_cfg = {
 	.board_size	= ARRAY_SIZE(gta02_spi_board_info),
@@ -1101,8 +1088,7 @@ static struct glamo_spigpio_info glamo_spigpio_cfg = {
 	.pin_mosi	= GLAMO_GPIO11_OUTPUT,
 	.pin_cs		= GLAMO_GPIO12_OUTPUT,
 	.pin_miso	= 0,
-	.board_size	= ARRAY_SIZE(gta02_spi_board_info),
-	.board_info	= gta02_spi_board_info,
+	.bus_num	= 2,
 };
 
 /*----------- SPI: Accelerometers attached to SPI of s3c244x ----------------- */
@@ -1159,7 +1145,17 @@ struct lis302dl_platform_data lis302_pdata_bottom = {
 		.lis302dl_suspend_io = gta02_lis302dl_suspend_io,
 };
 
-static struct spi_board_info lis302dl_spi_board_info[] = {
+static struct spi_board_info gta02_spi_board_info[] = {
+	{
+		.modalias	= "jbt6k74",
+		/* platform_data */
+		.platform_data	= &jbt6k74_pdata,
+		/* controller_data */
+		/* irq */
+		.max_speed_hz	= 100 * 1000,
+		.bus_num	= 2,
+		/* chip_select */
+	},
 	{
 		.modalias	= "lis302dl",
 		/* platform_data */
@@ -1181,6 +1177,7 @@ static struct spi_board_info lis302dl_spi_board_info[] = {
 		.bus_num	= 3,
 		.chip_select	= 1,
 	},
+
 };
 
 static void gta02_lis302_chip_select(struct s3c2410_spigpio_info *info, int csid, int cs)
@@ -1225,8 +1222,7 @@ static struct s3c2410_spigpio_info gta02_spigpio_cfg = {
 	.pin_clk	= S3C2410_GPG7,
 	.pin_mosi	= S3C2410_GPG6,
 	.pin_miso	= S3C2410_GPG5,
-	.board_size	= ARRAY_SIZE(lis302dl_spi_board_info),
-	.board_info	= lis302dl_spi_board_info,
+	.bus_num	= 3,
 	.num_chipselect	= 2,
 	.chip_select	= gta02_lis302_chip_select,
 	.non_blocking_transfer = 1,
@@ -1620,6 +1616,8 @@ static void __init gta02_machine_init(void)
 	mangle_glamo_res_by_system_rev();
 
 	i2c_register_board_info(0, gta02_i2c_devs, ARRAY_SIZE(gta02_i2c_devs));
+	spi_register_board_info(gta02_spi_board_info,
+				ARRAY_SIZE(gta02_spi_board_info));
 
 	mangle_pmu_pdata_by_system_rev();
 

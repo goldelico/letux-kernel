@@ -22,14 +22,6 @@ struct s3c2410_spigpio_info {
 	int			 bus_num;
 
 	int			 non_blocking_transfer;
-	/*
- 	 * FIXME: board_size and board_info DO NOT belong here.
- 	 * These were already removed upstream... but we still rely on them
- 	 * so leave for now and revisit this.
- 	 */
-	unsigned long            board_size;
-	struct spi_board_info   *board_info;
-
 	void (*chip_select)(struct s3c2410_spigpio_info *spi, int csid, int cs);
 };
 
