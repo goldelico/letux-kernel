@@ -434,7 +434,7 @@ static void gta02_charger_worker(struct work_struct *work)
 			PCF50633_ADCC1_AVERAGE_16,
 			gta02_configure_pmu_for_charger, NULL);
 #else
-		/* If the PCF50633 ADC is disabled we fallback to save 100mA */
+		/* If the PCF50633 ADC is disabled we fallback to a 100mA limit for safety. */
 		pcf50633_mbc_usb_curlim_set(pcf, 100);
 #endif
 		return;
