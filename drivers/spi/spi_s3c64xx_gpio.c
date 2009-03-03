@@ -37,7 +37,7 @@ struct s3c64xx_spigpio {
 
 static inline struct s3c64xx_spigpio *spidev_to_sg(struct spi_device *spi)
 {
-	return spi->controller_data;
+	return dev_get_drvdata(&spi->master->dev);
 }
 
 static inline void setsck(struct spi_device *dev, int on)
@@ -130,6 +130,8 @@ static int s3c64xx_spigpio_probe(struct platform_device *dev)
 	/* set state of spi pins. */
 	gpio_direction_output(info->pin_clk, 0);
 	s3c_gpio_cfgpin(info->pin_clk, S3C_GPIO_OUTPUT);
+
+	dev_set_drvdata(&master->dev, spi);
 
 	ret = spi_bitbang_start(&spi->bitbang);
 	if (ret)
