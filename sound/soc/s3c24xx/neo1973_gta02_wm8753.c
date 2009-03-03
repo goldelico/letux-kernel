@@ -17,40 +17,24 @@
 #include <linux/timer.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
-#include <linux/i2c.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 
 #include <asm/mach-types.h>
-#include <asm/hardware/scoop.h>
 
 #include <plat/regs-iis.h>
 
 #include <mach/regs-clock.h>
 #include <mach/regs-gpio.h>
 #include <mach/hardware.h>
-//#include <mach/audio.h>
 #include <asm/io.h>
-#include <mach/spi-gpio.h>
 #include <mach/regs-gpioj.h>
 #include <mach/gta02.h>
 #include "../codecs/wm8753.h"
 #include "s3c24xx-pcm.h"
 #include "s3c24xx-i2s.h"
-
-/* define the scenarios */
-#define NEO_AUDIO_OFF			0
-#define NEO_GSM_CALL_AUDIO_HANDSET	1
-#define NEO_GSM_CALL_AUDIO_HEADSET	2
-#define NEO_GSM_CALL_AUDIO_BLUETOOTH	3
-#define NEO_STEREO_TO_SPEAKERS		4
-#define NEO_STEREO_TO_HEADPHONES	5
-#define NEO_CAPTURE_HANDSET		6
-#define NEO_CAPTURE_HEADSET		7
-#define NEO_CAPTURE_BLUETOOTH		8
-#define NEO_STEREO_TO_HANDSET_SPK	9
 
 static struct snd_soc_card neo1973_gta02;
 
