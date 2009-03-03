@@ -259,169 +259,6 @@ static int lm4853_get_spk(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int neo1973_gta02_set_stereo_out(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	int val = ucontrol->value.integer.value[0];
-
-	if (val)
-		snd_soc_dapm_enable_pin(codec, "Stereo Out");
-	else
-		snd_soc_dapm_disable_pin(codec, "Stereo Out");
-
-	snd_soc_dapm_sync(codec);
-
-	return 0;
-}
-
-static int neo1973_gta02_get_stereo_out(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-
-	ucontrol->value.integer.value[0] =
-		snd_soc_dapm_get_pin_status(codec, "Stereo Out");
-
-	return 0;
-}
-
-
-static int neo1973_gta02_set_gsm_out(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	int val = ucontrol->value.integer.value[0];
-
-	if (val)
-		snd_soc_dapm_enable_pin(codec, "GSM Line Out");
-	else
-		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
-
-	snd_soc_dapm_sync(codec);
-
-	return 0;
-}
-
-static int neo1973_gta02_get_gsm_out(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-
-	ucontrol->value.integer.value[0] =
-		snd_soc_dapm_get_pin_status(codec, "GSM Line Out");
-
-	return 0;
-}
-
-static int neo1973_gta02_set_gsm_in(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	int val = ucontrol->value.integer.value[0];
-
-	if (val)
-		snd_soc_dapm_enable_pin(codec, "GSM Line In");
-	else
-		snd_soc_dapm_disable_pin(codec, "GSM Line In");
-
-	snd_soc_dapm_sync(codec);
-
-	return 0;
-}
-
-static int neo1973_gta02_get_gsm_in(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-
-	ucontrol->value.integer.value[0] =
-		snd_soc_dapm_get_pin_status(codec, "GSM Line In");
-
-	return 0;
-}
-
-static int neo1973_gta02_set_headset_mic(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	int val = ucontrol->value.integer.value[0];
-
-	if (val)
-		snd_soc_dapm_enable_pin(codec, "Headset Mic");
-	else
-		snd_soc_dapm_disable_pin(codec, "Headset Mic");
-
-	snd_soc_dapm_sync(codec);
-
-	return 0;
-}
-
-static int neo1973_gta02_get_headset_mic(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-
-	ucontrol->value.integer.value[0] =
-		snd_soc_dapm_get_pin_status(codec, "Headset Mic");
-
-	return 0;
-}
-
-static int neo1973_gta02_set_handset_mic(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	int val = ucontrol->value.integer.value[0];
-
-	if (val)
-		snd_soc_dapm_enable_pin(codec, "Handset Mic");
-	else
-		snd_soc_dapm_disable_pin(codec, "Handset Mic");
-
-	snd_soc_dapm_sync(codec);
-
-	return 0;
-}
-
-static int neo1973_gta02_get_handset_mic(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-
-	ucontrol->value.integer.value[0] =
-		snd_soc_dapm_get_pin_status(codec, "Handset Mic");
-
-	return 0;
-}
-
-static int neo1973_gta02_set_handset_spk(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	int val = ucontrol->value.integer.value[0];
-
-	if (val)
-		snd_soc_dapm_enable_pin(codec, "Handset Spk");
-	else
-		snd_soc_dapm_disable_pin(codec, "Handset Spk");
-
-	snd_soc_dapm_sync(codec);
-
-	return 0;
-}
-
-static int neo1973_gta02_get_handset_spk(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-
-	ucontrol->value.integer.value[0] =
-		snd_soc_dapm_get_pin_status(codec, "Handset Spk");
-
-	return 0;
-}
-
 static const struct snd_soc_dapm_widget wm8753_dapm_widgets[] = {
 	SND_SOC_DAPM_LINE("Stereo Out", NULL),
 	SND_SOC_DAPM_LINE("GSM Line Out", NULL),
@@ -463,24 +300,13 @@ static const struct snd_soc_dapm_route audio_map[] = {
 };
 
 static const struct snd_kcontrol_new wm8753_neo1973_gta02_controls[] = {
-	SOC_SINGLE_EXT("DAPM Stereo Out Switch", 0, 0, 1, 0,
-		neo1973_gta02_get_stereo_out,
-		neo1973_gta02_set_stereo_out),
-	SOC_SINGLE_EXT("DAPM GSM Line Out Switch", 1, 0, 1, 0,
-		neo1973_gta02_get_gsm_out,
-		neo1973_gta02_set_gsm_out),
-	SOC_SINGLE_EXT("DAPM GSM Line In Switch", 2, 0, 1, 0,
-		neo1973_gta02_get_gsm_in,
-		neo1973_gta02_set_gsm_in),
-	SOC_SINGLE_EXT("DAPM Headset Mic Switch", 3, 0, 1, 0,
-		neo1973_gta02_get_headset_mic,
-		neo1973_gta02_set_headset_mic),
-	SOC_SINGLE_EXT("DAPM Handset Mic Switch", 4, 0, 1, 0,
-		neo1973_gta02_get_handset_mic,
-		neo1973_gta02_set_handset_mic),
-	SOC_SINGLE_EXT("DAPM Handset Spk Switch", 5, 0, 1, 0,
-		neo1973_gta02_get_handset_spk,
-		neo1973_gta02_set_handset_spk),
+	SOC_DAPM_PIN_SWITCH("Stereo Out"),
+	SOC_DAPM_PIN_SWITCH("GSM Line Out"),
+	SOC_DAPM_PIN_SWITCH("GSM Line In"),
+	SOC_DAPM_PIN_SWITCH("Headset Mic"),
+	SOC_DAPM_PIN_SWITCH("Handset Mic"),
+	SOC_DAPM_PIN_SWITCH("Handset Spk"),
+
 	SOC_SINGLE_EXT("Amp State Switch", 6, 0, 1, 0,
 		lm4853_get_state,
 		lm4853_set_state),
