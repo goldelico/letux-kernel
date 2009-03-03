@@ -95,7 +95,7 @@ extern struct platform_device s3c_device_usbgadget;
 #define DIVISOR_FROM_US(x) ((x) * 23)
 
 #ifdef CONFIG_HDQ_GPIO_BITBANG
-#define FIQ_DIVISOR_HDQ DIVISOR_FROM_US(20)
+#define FIQ_DIVISOR_HDQ DIVISOR_FROM_US(HDQ_SAMPLE_PERIOD_US)
 extern int hdq_fiq_handler(void);
 #endif
 
@@ -128,7 +128,7 @@ static void om_3d7k_fiq_handler(void)
 
 #ifdef CONFIG_HDQ_GPIO_BITBANG
 	if (hdq_fiq_handler())
-		divisor = FIQ_DIVISOR_HDQ;
+		divisor = (u16)FIQ_DIVISOR_HDQ;
 #endif
 
 	if (divisor == 0xffff) /* mask the fiq irq source */

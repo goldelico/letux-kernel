@@ -3,6 +3,8 @@
 
 #include <linux/device.h>
 
+#define HDQ_SAMPLE_PERIOD_US	10
+
 /* platform data */
 
 struct hdq_platform_data {

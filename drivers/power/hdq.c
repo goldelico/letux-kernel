@@ -53,7 +53,6 @@ struct hdq_priv {
 	struct hdq_platform_data *pdata;
 } hdq_priv;
 
-#define HDQ_SAMPLE_PERIOD_US	20
 
 int hdq_fiq_handler(void)
 {
@@ -157,7 +156,7 @@ int hdq_fiq_handler(void)
 			hdq_priv.hdq_ctr2 = 1;
 			hdq_priv.hdq_bit = 8; /* 8 bits of data */
 			/* timeout */
-			hdq_priv.hdq_ctr = 300 / HDQ_SAMPLE_PERIOD_US;
+			hdq_priv.hdq_ctr = 500 / HDQ_SAMPLE_PERIOD_US;
 			hdq_priv.hdq_state = HDQB_DATA_RX_LOW;
 			break;
 		}
@@ -267,8 +266,10 @@ int hdq_read(int address)
 		if (fiq_busy())
 			continue;
 
-		if (hdq_priv.hdq_error)
+		if (hdq_priv.hdq_error) {
+			printk(KERN_ERR "HDQ error: %d\n", hdq_priv.hdq_error);
 			goto done; /* didn't see a response in good time */
+		}
 
 		ret = hdq_priv.hdq_rx_data;
 		goto done;
@@ -306,8 +307,10 @@ int hdq_write(int address, u8 data)
 		if (fiq_busy())
 			continue; /* something bad with FIQ */
 
-		if (hdq_priv.hdq_error)
+		if (hdq_priv.hdq_error) {
+			printk(KERN_ERR "HDQ error: %d\n", hdq_priv.hdq_error);
 			goto done; /* didn't see a response in good time */
+		}
 
 		ret = 0;
 		goto done;
