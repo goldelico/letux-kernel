@@ -480,11 +480,10 @@ static int neo1973_gta02_wm8753_init(struct snd_soc_codec *codec)
 	int i, err;
 
 	/* set up NC codec pins */
-	snd_soc_dapm_set_endpoint(codec, "OUT3",  0);
-	snd_soc_dapm_set_endpoint(codec, "OUT4",  0);
-	snd_soc_dapm_set_endpoint(codec, "LINE1", 0);
-	snd_soc_dapm_set_endpoint(codec, "LINE2", 0);
-
+	snd_soc_dapm_nc_pin(codec, "OUT3");
+	snd_soc_dapm_nc_pin(codec, "OUT4");
+	snd_soc_dapm_nc_pin(codec, "LINE1");
+	snd_soc_dapm_nc_pin(codec, "LINE2");
 
 	/* Add neo1973 gta02 specific widgets */
 	snd_soc_dapm_new_controls(codec, wm8753_dapm_widgets, ARRAY_SIZE(wm8753_dapm_widgets));
