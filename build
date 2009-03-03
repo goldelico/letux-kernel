@@ -69,7 +69,7 @@ fi
 # check that we are in a valid branch
 #
 
-if git-branch | head -n1 | grep -q "* (no branch)"; then
+if git branch | head -n1 | grep -q "* (no branch)"; then
 	cat <<EOF 1>&2
 There is no branch in the local copy of the repository right now!
 Hint: type git-branch, make sure you are in a valid branch and then try again
