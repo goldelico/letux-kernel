@@ -533,12 +533,20 @@ static int ohci_hcd_s3c2410_drv_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int ohci_hcd_s3c2410_drv_resume(struct platform_device *pdev)
+{
+	struct usb_hcd *hcd = platform_get_drvdata(pdev);
+
+	ohci_finish_controller_resume(hcd);
+	return 0;
+}
+
 static struct platform_driver ohci_hcd_s3c2410_driver = {
 	.probe		= ohci_hcd_s3c2410_drv_probe,
 	.remove		= ohci_hcd_s3c2410_drv_remove,
 	.shutdown	= usb_hcd_platform_shutdown,
 	/*.suspend	= ohci_hcd_s3c2410_drv_suspend, */
-	/*.resume	= ohci_hcd_s3c2410_drv_resume, */
+	.resume		= ohci_hcd_s3c2410_drv_resume,
 	.driver		= {
 		.owner	= THIS_MODULE,
 		.name	= "s3c2410-ohci",
