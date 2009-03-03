@@ -1,4 +1,4 @@
-linux-2.6-openmoko (20090105.git69b2aa26-3) UNRELEASED; urgency=low
+linux-2.6-openmoko (20090105.git69b2aa26-3) pkg-fso; urgency=low
 
   * debian/config.gta02:
     + CONFIG_AR6000_WLAN=m.
@@ -11,7 +11,7 @@ linux-2.6-openmoko (20090105.git69b2aa26-3) UNRELEASED; urgency=low
     + s/vmlinuz/uImage.bin/g, since the resulting binary is a
       U-Boot image and no more a Linux kernel executable.
 
- --
+ -- Luca Capello <luca@pca.it>  Tue, 03 Mar 2009 09:28:42 +0100
 
 linux-2.6-openmoko (20090105.git69b2aa26-2) pkg-fso; urgency=low
 
