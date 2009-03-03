@@ -5,6 +5,7 @@
  * Author: Graeme Gregory <graeme@openmoko.org>
  * Copyright 2007 Wolfson Microelectronics PLC.
  * Author: Graeme Gregory <linux@wolfsonmicro.com>
+ * Copyright 2009 Wolfson Microelectronics
  *
  *  This program is free software; you can redistribute  it and/or modify it
  *  under  the terms of  the GNU General  Public License as published by the
@@ -211,6 +212,9 @@ static struct snd_soc_ops neo1973_gta02_voice_ops = {
 
 static u8 lm4853_state=0;
 
+/* This has no effect, it exists only to maintain compatibility with
+ * existing ALSA state files.
+ */
 static int lm4853_set_state(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -218,10 +222,8 @@ static int lm4853_set_state(struct snd_kcontrol *kcontrol,
 
 	if(val) {
 		lm4853_state |= LM4853_AMP;
-		s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT,0);
 	} else {
 		lm4853_state &= ~LM4853_AMP;
-		s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT,1);
 	}
 
 	return 0;
@@ -245,7 +247,7 @@ static int lm4853_set_spk(struct snd_kcontrol *kcontrol,
 		s3c2410_gpio_setpin(GTA02_GPIO_HP_IN,0);
 	} else {
 		lm4853_state &= ~LM4853_SPK;
-		s3c2410_gpio_setpin(GTA02_GPIO_HP_IN,1);
+		s3c2410_gpio_setpin(GTA02_GPIO_HP_IN,0);
 	}
 
 	return 0;
@@ -259,8 +261,21 @@ static int lm4853_get_spk(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int lm4853_event(struct snd_soc_dapm_widget *w,
+			struct snd_kcontrol *k,
+			int event)
+{
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT, 0);
+
+	if (SND_SOC_DAPM_EVENT_OFF(event))
+		s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT, 1);
+
+	return 0;
+}
+
 static const struct snd_soc_dapm_widget wm8753_dapm_widgets[] = {
-	SND_SOC_DAPM_LINE("Stereo Out", NULL),
+	SND_SOC_DAPM_SPK("Stereo Out", lm4853_event),
 	SND_SOC_DAPM_LINE("GSM Line Out", NULL),
 	SND_SOC_DAPM_LINE("GSM Line In", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
@@ -307,6 +322,9 @@ static const struct snd_kcontrol_new wm8753_neo1973_gta02_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Handset Mic"),
 	SOC_DAPM_PIN_SWITCH("Handset Spk"),
 
+	/* This has no effect, it exists only to maintain compatibility with
+	 * existing ALSA state files.
+	 */
 	SOC_SINGLE_EXT("Amp State Switch", 6, 0, 1, 0,
 		lm4853_get_state,
 		lm4853_set_state),
@@ -393,32 +411,9 @@ static struct snd_soc_dai_link neo1973_gta02_dai[] = {
 },
 };
 
-#ifdef CONFIG_PM
-static int neo1973_gta02_suspend(struct platform_device *pdev,
-				 pm_message_t state)
-{
-	s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT, 1);
-
-	return 0;
-}
-
-static int neo1973_gta02_resume(struct platform_device *pdev)
-{
-	if(lm4853_state & LM4853_AMP)
-		s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT, 0);
-
-	return 0;
-}
-#else
-#define neo1973_gta02_suspend NULL
-#define neo1973_gta02_resume NULL
-#endif
-
 static struct snd_soc_card neo1973_gta02 = {
 	.name = "neo1973-gta02",
 	.platform = &s3c24xx_soc_platform,
-	.suspend_pre = neo1973_gta02_suspend,
-	.resume_post = neo1973_gta02_resume,
 	.dai_link = neo1973_gta02_dai,
 	.num_links = ARRAY_SIZE(neo1973_gta02_dai),
 };
