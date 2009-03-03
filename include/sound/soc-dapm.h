@@ -182,8 +182,11 @@
 	.get = snd_soc_dapm_get_value_enum_double, \
 	.put = snd_soc_dapm_put_value_enum_double, \
 	.private_value = (unsigned long)&xenum }
+/* NOTE: Openmoko-specific "DAPM " prefix added to controls for
+ * backwards compatibility.
+ */
 #define SOC_DAPM_PIN_SWITCH(xname) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname " Switch", \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = "DAPM " xname " Switch", \
 	.info = snd_soc_dapm_info_pin_switch, \
 	.get = snd_soc_dapm_get_pin_switch, \
 	.put = snd_soc_dapm_put_pin_switch, \
