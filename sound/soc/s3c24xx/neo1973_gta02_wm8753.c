@@ -10,12 +10,6 @@
  *  under  the terms of  the GNU General  Public License as published by the
  *  Free Software Foundation;  either version 2 of the  License, or (at your
  *  option) any later version.
- *
- *  Revision history
- *    06th Nov 2007   Changed from GTA01 to GTA02
- *    20th Jan 2007   Initial version.
- *    05th Feb 2007   Rename all to Neo1973
- *
  */
 
 #include <linux/module.h>
