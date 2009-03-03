@@ -331,7 +331,7 @@ static int usb_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = mbc->usb_online &&
-			       	(usblim == PCF50633_MBCC7_USB_100mA);
+			       	(usblim <= PCF50633_MBCC7_USB_500mA);
 		break;
 	default:
 		ret = -EINVAL;
@@ -352,7 +352,7 @@ static int ac_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = mbc->usb_online &&
-			       	(usblim == PCF50633_MBCC7_USB_500mA);
+			       	(usblim == PCF50633_MBCC7_USB_1000mA);
 		break;
 	default:
 		ret = -EINVAL;
