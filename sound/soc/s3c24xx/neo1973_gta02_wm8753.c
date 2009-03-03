@@ -488,10 +488,6 @@ static int neo1973_gta02_wm8753_init(struct snd_soc_codec *codec)
 
 	/* Add neo1973 gta02 specific widgets */
 	snd_soc_dapm_new_controls(codec, wm8753_dapm_widgets, ARRAY_SIZE(wm8753_dapm_widgets));
-#if 0
-	for (i = 0; i < ARRAY_SIZE(wm8753_dapm_widgets); i++)
-		snd_soc_dapm_new_control(codec, &wm8753_dapm_widgets[i]);
-#endif
 
 	/* add neo1973 gta02 specific controls */
 	for (i = 0; i < ARRAY_SIZE(wm8753_neo1973_gta02_controls); i++) {
@@ -502,13 +498,7 @@ static int neo1973_gta02_wm8753_init(struct snd_soc_codec *codec)
 			return err;
 	}
 
-	/* set up neo1973 gta02 specific audio path audio_mapnects */
-#if 0
-	for (i = 0; audio_map[i][0] != NULL; i++) {
-		snd_soc_dapm_connect_input(codec, audio_map[i][0],
-			audio_map[i][1], audio_map[i][2]);
-	}
-#endif
+	/* set up neo1973 gta02 specific audio path audio_map */
 	snd_soc_dapm_add_routes(codec, audio_map, ARRAY_SIZE(audio_map));
 
 	/* set endpoints to default off mode */
