@@ -92,7 +92,7 @@ static void s3c24xx_pcm_enqueue(struct snd_pcm_substream *substream)
 	} else
 		limit = prtd->dma_limit;
 
-	printk(KERN_INFO "%s: loaded %d, limit %d\n", __func__, prtd->dma_loaded, limit);
+	DBG("%s: loaded %d, limit %d\n", __func__, prtd->dma_loaded, limit);
 
 	while (prtd->dma_loaded < limit) {
 		unsigned long len = prtd->dma_period;
