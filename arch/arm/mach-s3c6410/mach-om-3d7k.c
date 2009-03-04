@@ -718,6 +718,72 @@ struct pcf50633_platform_data om_3d7k_pcf_pdata = {
 	.mbc_event_callback = om_3d7k_pmu_event_callback,
 };
 
+static void om_3d7k_bl_set_intensity(int intensity)
+{
+	struct pcf50633 *pcf = om_3d7k_pcf;
+	int old_intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
+	int ret;
+
+	intensity >>= 2;
+
+	/*
+	 * One code path that leads here is from a kernel panic. Trying to turn
+	 * the backlight on just gives us a nearly endless stream of complaints
+	 * and accomplishes nothing. We can't win. Just give up.
+	 *
+	 * In the unlikely event that there's another path leading here while
+	 * we're atomic, we print at least a warning.
+	 */
+	if (in_atomic()) {
+		printk(KERN_ERR
+		    "3d7k_bl_set_intensity called while atomic\n");
+		return;
+	}
+
+	old_intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
+	if (intensity == old_intensity)
+		return;
+
+	/* We can't do this anywhere else */
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 5);
+
+	if (!(pcf50633_reg_read(pcf, PCF50633_REG_LEDENA) & 3))
+		old_intensity = 0;
+
+	/*
+	 * The PCF50633 cannot handle LEDOUT = 0 (datasheet p60)
+	 * if seen, you have to re-enable the LED unit
+	 */
+	if (!intensity || !old_intensity)
+		pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0);
+
+	if (!intensity) /* illegal to set LEDOUT to 0 */
+		ret = pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f,
+									     2);
+	else
+		ret = pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f,
+			       intensity);
+
+	if (intensity)
+		pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 2);
+
+}
+
+static struct generic_bl_info om_3d7k_bl_info = {
+	.name 			= "om-3d7k-bl",
+	.max_intensity 		= 0xff,
+	.default_intensity 	= 0x7f,
+	.set_bl_intensity 	= om_3d7k_bl_set_intensity,
+};
+
+static struct platform_device om_3d7k_bl_dev = {
+	.name  = "generic-bl",
+	.id  = 1,
+	.dev = {
+		.platform_data = &om_3d7k_bl_info,
+	},
+};
+
 /* BQ27000 Battery */
 static int om_3d7k_get_charger_online_status(void)
 {
@@ -947,11 +1013,14 @@ static void om_3d7k_pcf50633_attach_child_devices(struct pcf50633 *pcf)
 	platform_add_devices(om_3d7k_devices_pmu_children,
 				     ARRAY_SIZE(om_3d7k_devices_pmu_children));
 
+	/* backlight device should be registered until pcf50633 probe is done */
+	om_3d7k_bl_dev.dev.parent = &om_3d7k_device_spi_lcm.dev;
+	platform_device_register(&om_3d7k_bl_dev);
+
 	/* Switch on backlight. Qi does not do it for us */
 	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
 	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
 	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
 
 }
 
