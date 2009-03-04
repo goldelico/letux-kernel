@@ -1,5 +1,5 @@
 /*
- * om_3d7K_wm8753.c  --  SoC audio for 3D7K
+ * om_3d7k_wm8753.c  --  SoC audio for 3D7K
  *
  * Based on neo1973_gta02_wm8753
  *
@@ -48,9 +48,9 @@
 #define NEO_CAPTURE_BLUETOOTH		8
 #define NEO_STEREO_TO_HANDSET_SPK	9
 
-static struct snd_soc_card om_3d7K;
+static struct snd_soc_card om_3d7k;
 
-static int om_3d7K_hifi_hw_params(struct snd_pcm_substream *substream,
+static int om_3d7k_hifi_hw_params(struct snd_pcm_substream *substream,
 				   struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -151,7 +151,7 @@ err:
 	return ret;
 }
 
-static int om_3d7K_hifi_hw_free(struct snd_pcm_substream *substream)
+static int om_3d7k_hifi_hw_free(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
@@ -163,12 +163,12 @@ static int om_3d7K_hifi_hw_free(struct snd_pcm_substream *substream)
 /*
  * 3D7K WM8753 HiFi DAI opserations.
  */
-static struct snd_soc_ops om_3d7K_hifi_ops = {
-	.hw_params	= om_3d7K_hifi_hw_params,
-	.hw_free	= om_3d7K_hifi_hw_free,
+static struct snd_soc_ops om_3d7k_hifi_ops = {
+	.hw_params	= om_3d7k_hifi_hw_params,
+	.hw_free	= om_3d7k_hifi_hw_free,
 };
 
-static int om_3d7K_voice_hw_params(struct snd_pcm_substream *substream,
+static int om_3d7k_voice_hw_params(struct snd_pcm_substream *substream,
 				    struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -214,7 +214,7 @@ static int om_3d7K_voice_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static int om_3d7K_voice_hw_free(struct snd_pcm_substream *substream)
+static int om_3d7k_voice_hw_free(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
@@ -223,12 +223,12 @@ static int om_3d7K_voice_hw_free(struct snd_pcm_substream *substream)
 	return snd_soc_dai_set_pll(codec_dai, WM8753_PLL2, 0, 0);
 }
 
-static struct snd_soc_ops om_3d7K_voice_ops = {
-	.hw_params	= om_3d7K_voice_hw_params,
-	.hw_free	= om_3d7K_voice_hw_free,
+static struct snd_soc_ops om_3d7k_voice_ops = {
+	.hw_params	= om_3d7k_voice_hw_params,
+	.hw_free	= om_3d7k_voice_hw_free,
 };
 
-static int om_3d7K_set_stereo_out(struct snd_kcontrol *kcontrol,
+static int om_3d7k_set_stereo_out(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
@@ -240,7 +240,7 @@ static int om_3d7K_set_stereo_out(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int om_3d7K_get_stereo_out(struct snd_kcontrol *kcontrol,
+static int om_3d7k_get_stereo_out(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
@@ -252,7 +252,7 @@ static int om_3d7K_get_stereo_out(struct snd_kcontrol *kcontrol,
 }
 
 
-static int om_3d7K_set_gsm_out(struct snd_kcontrol *kcontrol,
+static int om_3d7k_set_gsm_out(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
@@ -264,7 +264,7 @@ static int om_3d7K_set_gsm_out(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int om_3d7K_get_gsm_out(struct snd_kcontrol *kcontrol,
+static int om_3d7k_get_gsm_out(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
@@ -275,7 +275,7 @@ static int om_3d7K_get_gsm_out(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int om_3d7K_set_gsm_in(struct snd_kcontrol *kcontrol,
+static int om_3d7k_set_gsm_in(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
@@ -287,7 +287,7 @@ static int om_3d7K_set_gsm_in(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int om_3d7K_get_gsm_in(struct snd_kcontrol *kcontrol,
+static int om_3d7k_get_gsm_in(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
@@ -298,7 +298,7 @@ static int om_3d7K_get_gsm_in(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int om_3d7K_set_headset_mic(struct snd_kcontrol *kcontrol,
+static int om_3d7k_set_headset_mic(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
@@ -310,7 +310,7 @@ static int om_3d7K_set_headset_mic(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int om_3d7K_get_headset_mic(struct snd_kcontrol *kcontrol,
+static int om_3d7k_get_headset_mic(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
@@ -321,7 +321,7 @@ static int om_3d7K_get_headset_mic(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int om_3d7K_set_handset_mic(struct snd_kcontrol *kcontrol,
+static int om_3d7k_set_handset_mic(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
@@ -334,7 +334,7 @@ static int om_3d7K_set_handset_mic(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int om_3d7K_get_handset_mic(struct snd_kcontrol *kcontrol,
+static int om_3d7k_get_handset_mic(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
@@ -345,7 +345,7 @@ static int om_3d7K_get_handset_mic(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int om_3d7K_set_handset_spk(struct snd_kcontrol *kcontrol,
+static int om_3d7k_set_handset_spk(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
@@ -358,7 +358,7 @@ static int om_3d7K_set_handset_spk(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int om_3d7K_get_handset_spk(struct snd_kcontrol *kcontrol,
+static int om_3d7k_get_handset_spk(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
@@ -408,32 +408,32 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"ACIN", NULL, "ACOP"},
 };
 
-static const struct snd_kcontrol_new wm8753_om_3d7K_controls[] = {
+static const struct snd_kcontrol_new wm8753_om_3d7k_controls[] = {
 	SOC_SINGLE_EXT("DAPM Stereo Out Switch", 0, 0, 1, 0,
-		om_3d7K_get_stereo_out,
-		om_3d7K_set_stereo_out),
+		om_3d7k_get_stereo_out,
+		om_3d7k_set_stereo_out),
 	SOC_SINGLE_EXT("DAPM GSM Line Out Switch", 1, 0, 1, 0,
-		om_3d7K_get_gsm_out,
-		om_3d7K_set_gsm_out),
+		om_3d7k_get_gsm_out,
+		om_3d7k_set_gsm_out),
 	SOC_SINGLE_EXT("DAPM GSM Line In Switch", 2, 0, 1, 0,
-		om_3d7K_get_gsm_in,
-		om_3d7K_set_gsm_in),
+		om_3d7k_get_gsm_in,
+		om_3d7k_set_gsm_in),
 	SOC_SINGLE_EXT("DAPM Headset Mic Switch", 3, 0, 1, 0,
-		om_3d7K_get_headset_mic,
-		om_3d7K_set_headset_mic),
+		om_3d7k_get_headset_mic,
+		om_3d7k_set_headset_mic),
 	SOC_SINGLE_EXT("DAPM Handset Mic Switch", 4, 0, 1, 0,
-		om_3d7K_get_handset_mic,
-		om_3d7K_set_handset_mic),
+		om_3d7k_get_handset_mic,
+		om_3d7k_set_handset_mic),
 	SOC_SINGLE_EXT("DAPM Handset Spk Switch", 5, 0, 1, 0,
-		om_3d7K_get_handset_spk,
-		om_3d7K_set_handset_spk),
+		om_3d7k_get_handset_spk,
+		om_3d7k_set_handset_spk),
 };
 
 /*
  * This is an example machine initialisation for a wm8753 connected to a
  * neo1973 GTA02.
  */
-static int om_3d7K_wm8753_init(struct snd_soc_codec *codec)
+static int om_3d7k_wm8753_init(struct snd_soc_codec *codec)
 {
 	int i, err;
 
@@ -448,9 +448,9 @@ static int om_3d7K_wm8753_init(struct snd_soc_codec *codec)
 				  ARRAY_SIZE(wm8753_dapm_widgets));
 
 	/* add neo1973 gta02 specific controls */
-	for (i = 0; i < ARRAY_SIZE(wm8753_om_3d7K_controls); i++) {
+	for (i = 0; i < ARRAY_SIZE(wm8753_om_3d7k_controls); i++) {
 		err = snd_ctl_add(codec->card,
-			snd_soc_cnew(&wm8753_om_3d7K_controls[i],
+			snd_soc_cnew(&wm8753_om_3d7k_controls[i],
 			codec, NULL));
 		if (err < 0)
 			return err;
@@ -492,39 +492,39 @@ static struct snd_soc_dai bt_dai =
 	},
 };
 
-static struct snd_soc_dai_link om_3d7K_dai[] = {
+static struct snd_soc_dai_link om_3d7k_dai[] = {
 	{ /* Hifi Playback - for similatious use with voice below */
 		.name		= "WM8753",
 		.stream_name	= "WM8753 HiFi",
 		.cpu_dai	= &s3c64xx_i2s_dai,
 		.codec_dai	= &wm8753_dai[WM8753_DAI_HIFI],
-		.init		= om_3d7K_wm8753_init,
-		.ops		= &om_3d7K_hifi_ops,
+		.init		= om_3d7k_wm8753_init,
+		.ops		= &om_3d7k_hifi_ops,
 	},
 	{ /* Voice via BT */
 		.name		= "Bluetooth",
 		.stream_name	= "Voice",
 		.cpu_dai	= &bt_dai,
 		.codec_dai	= &wm8753_dai[WM8753_DAI_VOICE],
-		.ops		= &om_3d7K_voice_ops,
+		.ops		= &om_3d7k_voice_ops,
 	},
 };
 
-static struct snd_soc_card om_3d7K = {
-	.name		= "om-3d7K",
+static struct snd_soc_card om_3d7k = {
+	.name		= "om-3d7k",
 	.platform	= &s3c24xx_soc_platform,
-	.dai_link	= om_3d7K_dai,
-	.num_links	= ARRAY_SIZE(om_3d7K_dai),
+	.dai_link	= om_3d7k_dai,
+	.num_links	= ARRAY_SIZE(om_3d7k_dai),
 };
 
-static struct snd_soc_device om_3d7K_snd_devdata = {
-	.card		= &om_3d7K,
+static struct snd_soc_device om_3d7k_snd_devdata = {
+	.card		= &om_3d7k,
 	.codec_dev	= &soc_codec_dev_wm8753,
 };
 
-static struct platform_device *om_3d7K_snd_device;
+static struct platform_device *om_3d7k_snd_device;
 
-static int __init om_3d7K_init(void)
+static int __init om_3d7k_init(void)
 {
 	int ret;
 
@@ -538,29 +538,29 @@ static int __init om_3d7K_init(void)
 	if (ret)
 		return ret;
 
-	om_3d7K_snd_device = platform_device_alloc("soc-audio", 1);
-	if (!om_3d7K_snd_device)
+	om_3d7k_snd_device = platform_device_alloc("soc-audio", 1);
+	if (!om_3d7k_snd_device)
 		return -ENOMEM;
 
-	platform_set_drvdata(om_3d7K_snd_device, &om_3d7K_snd_devdata);
-	om_3d7K_snd_devdata.dev = &om_3d7K_snd_device->dev;
-	ret = platform_device_add(om_3d7K_snd_device);
+	platform_set_drvdata(om_3d7k_snd_device, &om_3d7k_snd_devdata);
+	om_3d7k_snd_devdata.dev = &om_3d7k_snd_device->dev;
+	ret = platform_device_add(om_3d7k_snd_device);
 
 	if (ret) {
-		platform_device_put(om_3d7K_snd_device);
+		platform_device_put(om_3d7k_snd_device);
 		return ret;
 	}
 
 	return ret;
 }
 
-static void __exit om_3d7K_exit(void)
+static void __exit om_3d7k_exit(void)
 {
-	platform_device_unregister(om_3d7K_snd_device);
+	platform_device_unregister(om_3d7k_snd_device);
 }
 
-module_init(om_3d7K_init);
-module_exit(om_3d7K_exit);
+module_init(om_3d7k_init);
+module_exit(om_3d7k_exit);
 
 /* Module information */
 MODULE_AUTHOR("Graeme Gregory, graeme@openmoko.org; Ben Dooks <ben@simtec.co.uk>");
