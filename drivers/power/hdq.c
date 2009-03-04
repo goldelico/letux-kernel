@@ -128,7 +128,7 @@ int hdq_fiq_handler(void)
 		}
 		/* read the next byte */
 		hdq_priv.hdq_bit = 8; /* 8 bits of data */
-		hdq_priv.hdq_ctr = 3000 / HDQ_SAMPLE_PERIOD_US;
+		hdq_priv.hdq_ctr = 2500 / HDQ_SAMPLE_PERIOD_US;
 		hdq_priv.hdq_state = HDQB_WAIT_RX;
 		hdq_priv.pdata->gpio_dir_in();
 		break;
