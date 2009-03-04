@@ -53,8 +53,8 @@ config SND_S3C24XX_SOC_NEO1973_GTA02_WM8753
 	  with the WM8753 codec
 
 config SND_S3C24XX_SOC_OM_3D7K_WM8753
-	tristate "SoC I2S Audio support for OM GTA03 - WM8753"
-	depends on SND_S3C24XX_SOC && MACH_OPENMOKO_GTA03
+	tristate "SoC I2S Audio support for OM 3D7K - WM8753"
+	depends on SND_S3C24XX_SOC && MACH_OM_3D7K
 	select SND_S3C64XX_SOC_I2S
 	select SND_SOC_WM8753
 	help

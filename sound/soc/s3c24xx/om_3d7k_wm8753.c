@@ -528,7 +528,7 @@ static int __init om_3d7K_init(void)
 {
 	int ret;
 
-	if (!machine_is_openmoko_gta03()) {
+	if (!machine_is_om_3d7k()) {
 		printk(KERN_INFO "Only 3D7K supported by ASoC driver\n");
 		return -ENODEV;
 	}
