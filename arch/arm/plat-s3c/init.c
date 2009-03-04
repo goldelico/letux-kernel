@@ -31,6 +31,31 @@
 
 static struct cpu_table *cpu;
 
+static void __init set_system_rev(unsigned int idcode)
+{
+	/*
+	 * system_rev encoding is as follows
+	 * system_rev & 0xff000000 -> S3C Class (24xx/64xx)
+	 * system_rev & 0xfff00000 -> S3C Sub Class (241x/244x)
+	 * system_rev & 0xffff0000 -> S3C Type (2410/2440/6400/6410)
+	 *
+	 * Remains[15:0] are reserved
+	 *
+	 * Exception:
+	 *  Store Revision A to 1 such as
+	 *  s3c2410A to s3c2411
+	 *  s3c2440A to s3c2441
+	 */
+	system_rev = (idcode & 0x0ffff000) << 4;
+
+	if (idcode == 0x32410002 || idcode == 0x32440001)
+		system_rev |= (0x1 << 16);
+	if (idcode == 0x32440aaa)	/* s3c2442 */
+		system_rev |= (0x2 << 16);
+	if (idcode == 0x0)		/* s3c2400 */
+		system_rev |= (0x2400 << 16);
+}
+
 static struct cpu_table * __init s3c_lookup_cpu(unsigned long idcode,
 						struct cpu_table *tab,
 						unsigned int count)
@@ -52,6 +77,8 @@ void __init s3c_init_cpu(unsigned long idcode,
 		printk(KERN_ERR "Unknown CPU type 0x%08lx\n", idcode);
 		panic("Unknown S3C24XX CPU");
 	}
+
+	set_system_rev(idcode);
 
 	printk("CPU %s (id 0x%08lx)\n", cpu->name, idcode);
 
