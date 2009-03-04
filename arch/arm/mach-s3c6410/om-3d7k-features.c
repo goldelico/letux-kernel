@@ -34,8 +34,6 @@
 #include <plat/gpio-cfg.h>
 
 enum feature {
-	OM_3D7K_GPS,		/* power to GPS section and LNA */
-	OM_3D7K_WLAN_BT,	/* WLAN and BT Module */
 	OM_3D7K_GSM,		/* GSM module */
 	OM_3D7K_USBHOST,	/* USB Host power generation */
 	OM_3D7K_VIB,		/* Vibrator */
@@ -51,8 +49,6 @@ struct om_3d7k_feature_info {
 };
 
 static struct om_3d7k_feature_info feature_info[OM_3D7K_FEATURE_COUNT] = {
-	[OM_3D7K_GPS] =	{ "gps_power",		1, 0 },
-	[OM_3D7K_WLAN_BT] =	{ "wlan_bt_power",	1, 0 },
 	[OM_3D7K_GSM] =	{ "gsm_power",		0, 0 },
 	[OM_3D7K_USBHOST] =	{ "usbhost_power",	1, 0 },
 	[OM_3D7K_VIB] =	{ "vibrator_power",	1, 0 },
@@ -64,40 +60,7 @@ static struct regulator *gps_regulator;
 
 static void om_3d7k_features_pwron_set_on(enum feature feature)
 {
-	int gpio;
-
 	switch (feature) {
-	case OM_3D7K_GPS:
-		regulator_enable(gps_regulator);
-		/* enable LNA */
-		gpio_direction_output(OM_3D7K_GPIO_GPS_LNA_EN, 1);
-		break;
-	case OM_3D7K_WLAN_BT:
-
-		for (gpio = S3C64XX_GPH(0); gpio < S3C64XX_GPH(6); gpio++) {
-			s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(2)); /* sdio */
-			s3c_gpio_setpull(gpio, S3C_GPIO_PULL_UP);
-		}
-		/* assert reset */
-		s3c_gpio_setpull(OM_3D7K_GPIO_WLAN_RESET, S3C_GPIO_PULL_NONE);
-		s3c_gpio_cfgpin(OM_3D7K_GPIO_WLAN_RESET, S3C_GPIO_SFN(1));
-		gpio_direction_output(OM_3D7K_GPIO_WLAN_RESET, 0);
-
-		/* "full power down (active low)" -- deassert it*/
-		gpio_direction_output(OM_3D7K_GPIO_WLAN_PWRDN, 1);
-		s3c_gpio_setpull(OM_3D7K_GPIO_WLAN_PWRDN, S3C_GPIO_PULL_NONE);
-		s3c_gpio_cfgpin(OM_3D7K_GPIO_WLAN_PWRDN, S3C_GPIO_SFN(1));
-
-		/* enable P-Channel mosfet switch for power */
-		gpio_direction_output(OM_3D7K_GPIO_NWLAN_POWER, 0);
-		s3c_gpio_setpull(OM_3D7K_GPIO_NWLAN_POWER, S3C_GPIO_PULL_NONE);
-		s3c_gpio_cfgpin(OM_3D7K_GPIO_NWLAN_POWER, S3C_GPIO_SFN(1));
-		msleep(50);
-		/* deassert reset */
-		gpio_direction_output(OM_3D7K_GPIO_WLAN_RESET, 1);
-		msleep(1500);
-		sdhci_s3c_force_presence_change(&s3c_device_hsmmc1);
-		break;
 	case OM_3D7K_GSM:
 		/* give power to GSM module */
 		s3c_gpio_setpull(OM_3D7K_GPIO_N_MODEM_RESET, S3C_GPIO_PULL_NONE);
@@ -126,34 +89,7 @@ static void om_3d7k_features_pwron_set_on(enum feature feature)
 
 static void om_3d7k_features_pwron_set_off(enum feature feature)
 {
-	int gpio;
-
 	switch (feature) {
-	case OM_3D7K_GPS:
-		/* disable LNA */
-		gpio_direction_output(OM_3D7K_GPIO_GPS_LNA_EN, 0);
-		regulator_disable(gps_regulator);
-		break;
-	case OM_3D7K_WLAN_BT:
-		gpio_direction_output(OM_3D7K_GPIO_WLAN_RESET, 0);
-		s3c_gpio_setpull(OM_3D7K_GPIO_WLAN_RESET, S3C_GPIO_PULL_NONE);
-		s3c_gpio_cfgpin(OM_3D7K_GPIO_WLAN_RESET, S3C_GPIO_SFN(1));
-
-		gpio_direction_output(OM_3D7K_GPIO_WLAN_PWRDN, 0);
-		s3c_gpio_setpull(OM_3D7K_GPIO_WLAN_PWRDN, S3C_GPIO_PULL_NONE);
-		s3c_gpio_cfgpin(OM_3D7K_GPIO_WLAN_PWRDN, S3C_GPIO_SFN(1));
-		msleep(500);
-		/* remove power from WLAN / BT module */
-		gpio_direction_output(OM_3D7K_GPIO_NWLAN_POWER, 1);
-		s3c_gpio_setpull(OM_3D7K_GPIO_NWLAN_POWER, S3C_GPIO_PULL_NONE);
-		s3c_gpio_cfgpin(OM_3D7K_GPIO_NWLAN_POWER, S3C_GPIO_SFN(1));
-
-		sdhci_s3c_force_presence_change(&s3c_device_hsmmc1);
-		for (gpio = S3C64XX_GPH(0); gpio < S3C64XX_GPH(6); gpio++) {
-			s3c_gpio_cfgpin(gpio, S3C_GPIO_SFN(0)); /* input */
-			s3c_gpio_setpull(gpio, S3C_GPIO_PULL_DOWN);
-		}
-		break;
 	case OM_3D7K_GSM:
 		/* remove power from WLAN / BT module */
 		s3c_gpio_cfgpin(OM_3D7K_GPIO_MODEM_ON, S3C_GPIO_SFN(1));
@@ -199,9 +135,6 @@ static ssize_t om_3d7k_feature_read(struct device *dev,
 		return -EINVAL;
 
 	switch (feature) {
-	case OM_3D7K_GPS:
-		on = regulator_is_enabled(gps_regulator);
-		break;
 	case OM_3D7K_USBHOST:
 		on = pcf50633_gpio_get(om_3d7k_pcf, PCF50633_GPO);
 		break;
@@ -241,12 +174,6 @@ static ssize_t om_3d7k_feature_write(struct device *dev,
 }
 
 
-static DEVICE_ATTR(gps_power, 0644, om_3d7k_feature_read,
-							om_3d7k_feature_write);
-
-static DEVICE_ATTR(wlan_bt_power, 0644, om_3d7k_feature_read,
-							om_3d7k_feature_write);
-
 static DEVICE_ATTR(gsm_power, 0644, om_3d7k_feature_read,
 							om_3d7k_feature_write);
 
@@ -258,8 +185,6 @@ static DEVICE_ATTR(vibrator_power, 0644, om_3d7k_feature_read,
 
 
 static struct attribute *om_3d7k_features_sysfs_entries[] = {
-	&dev_attr_gps_power.attr,
-	&dev_attr_wlan_bt_power.attr,
 	&dev_attr_gsm_power.attr,
 	&dev_attr_usbhost_power.attr,
 	&dev_attr_vibrator_power.attr,
