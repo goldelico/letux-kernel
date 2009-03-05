@@ -1025,6 +1025,10 @@ static void om_3d7k_pcf50633_attach_child_devices(struct pcf50633 *pcf)
 	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
 	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
 
+	/* @@@ do this properly later - WA */
+	pcf50633_reg_write(om_3d7k_pcf, 0x30, 0x21);
+	pcf50633_reg_write(om_3d7k_pcf, 0x39, 0x13);
+	pcf50633_reg_write(om_3d7k_pcf, 0x3a, 0x21);
 }
 
 static void om_3d7k_l1k002_pwronoff(int level)

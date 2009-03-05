@@ -74,6 +74,7 @@ camif_cfg_t *s3c_camif_get_fimc_object(int nr)
 
 	default:
 		printk(KERN_ERR "Unknown minor number\n");
+		ret = &s3c_fimc[FIMC_PREVIEW_INDEX];
 	}
 
 	return ret;
