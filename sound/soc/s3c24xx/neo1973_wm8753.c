@@ -677,6 +677,11 @@ static int __init neo1973_init(void)
 		return -ENODEV;
 	}
 
+	/* register bluetooth DAI here */
+	ret = snd_soc_register_dai(&bt_dai);
+	if (ret)
+		return ret;
+
 	neo1973_snd_device = platform_device_alloc("soc-audio", -1);
 	if (!neo1973_snd_device)
 		return -ENOMEM;
@@ -702,6 +707,7 @@ static void __exit neo1973_exit(void)
 {
 	DBG("Entered %s\n", __func__);
 
+	snd_soc_unregister_dai(&bt_dai);
 	i2c_del_driver(&lm4857_i2c_driver);
 	platform_device_unregister(neo1973_snd_device);
 }
