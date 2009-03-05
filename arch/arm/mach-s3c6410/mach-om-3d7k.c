@@ -84,6 +84,8 @@
 #include <plat/regs-usb-hs-otg.h>
 
 extern struct platform_device s3c_device_usbgadget;
+extern struct platform_device s3c_device_camif; /* @@@ change plat/devs.h */
+
 
 /* -------------------------------------------------------------------------------
  * OM_3D7K FIQ related
@@ -962,6 +964,7 @@ static struct platform_device *om_3d7k_devices[] __initdata = {
 	&om_3d7k_device_spi_lcm,
 	&s3c_device_usbgadget,
 	&s3c24xx_pwm_device,
+	&s3c_device_camif,
 };
 
 
