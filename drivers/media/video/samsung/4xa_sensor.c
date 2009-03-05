@@ -102,16 +102,13 @@ camif_cis_t* get_initialized_cis(void)
 
 static unsigned short ignore[] = { I2C_CLIENT_END };
 static unsigned short normal_addr[] = { (CAM_ID >> 1), I2C_CLIENT_END };
-static unsigned short *forces[] = { NULL };
+static const unsigned short *forces[] = { NULL };
 
 static struct i2c_client_address_data addr_data = {
-      normal_i2c:normal_addr,
-      /* normal_i2c_range:ignore, */
-      probe:ignore,
-      /* probe_range:ignore, */
-      ignore:ignore,
-      /* ignore_range:ignore, */
-      forces:forces,
+      .normal_i2c	= normal_addr,
+      .probe		= ignore,
+      .ignore		= ignore,
+      .forces		= forces,
 };
 
 
@@ -171,13 +168,13 @@ s5k4xa_attach(struct i2c_adapter *adap, int addr, int kind)
 	if (!c)
 		return -ENOMEM;
 
-	memset(c, 0, sizeof(struct i2c_client));	
+	memset(c, 0, sizeof(struct i2c_client));
 
 	strcpy(c->name, "S5K4XA");
 	c->addr = addr;
 	c->adapter = adap;
 	c->driver = &sensor_driver;
-	c->data = &data;
+	i2c_set_clientdata(c, &data);
 	data.sensor = c;
 
 	s3c_camif_register_sensor(c);
@@ -346,4 +343,3 @@ module_exit(camif_sensor_exit)
 MODULE_AUTHOR("Jinsung, Yang <jsgood.yang@samsung.com>");
 MODULE_DESCRIPTION("I2C Client Driver For FIMC V4L2 Driver");
 MODULE_LICENSE("GPL");
-
