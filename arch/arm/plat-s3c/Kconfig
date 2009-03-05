@@ -193,4 +193,9 @@ config S3C_DEV_FB
 	help
 	  Compile in platform device definition for framebuffer
 
+config S3C_DEV_CAMIF
+	bool
+	help
+	  Compile in platform device definitions for camera interface code
+
 endif
