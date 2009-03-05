@@ -99,7 +99,7 @@ static struct v4l2_input fimc_inputs[] = {
 		.tuner		= 0,
 		.std		= V4L2_STD_PAL_BG | V4L2_STD_NTSC_M,
 		.status		= 0,
-	}, 
+	},
 	{
 		.index		= 1,
 		.name		= "Memory Input (MSDMA)",
@@ -117,9 +117,9 @@ static struct v4l2_output fimc_outputs[] = {
 		.name		= "Pingpong Memory Output",
 		.type		= 0,
 		.audioset	= 0,
-		.modulator	= 0, 
+		.modulator	= 0,
 		.std		= 0,
-	}, 
+	},
 	{
 		.index		= 1,
 		.name		= "LCD FIFO Output",
@@ -127,7 +127,7 @@ static struct v4l2_output fimc_outputs[] = {
 		.audioset	= 0,
 		.modulator	= 0,
 		.std		= 0,
-	} 
+	}
 };
 
 const struct v4l2_fmtdesc fimc_codec_formats[] = {
@@ -168,14 +168,14 @@ const struct v4l2_fmtdesc fimc_preview_formats[] = {
 		.type		= V4L2_BUF_TYPE_VIDEO_OVERLAY,
 		.flags		= FORMAT_FLAGS_PACKED,
 		.description	= "16 bpp RGB, le",
-		.pixelformat	= V4L2_PIX_FMT_RGB565,		
+		.pixelformat	= V4L2_PIX_FMT_RGB565,
 	},
 	{
 		.index		= 1,
 		.type		= V4L2_BUF_TYPE_VIDEO_OVERLAY,
 		.flags		= FORMAT_FLAGS_PACKED,
 		.description	= "24 bpp RGB, le",
-		.pixelformat	= V4L2_PIX_FMT_RGB24,		
+		.pixelformat	= V4L2_PIX_FMT_RGB24,
 	},
 	{
 		.index		= 2,

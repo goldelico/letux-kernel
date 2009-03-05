@@ -41,12 +41,13 @@
 #include <linux/videodev2.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/semaphore.h>
 #include <asm/io.h>
 #include <asm/page.h>
-#include <asm/semaphore.h>
-#include <asm/arch/regs-gpio.h>
-#include <asm/arch/regs-camif.h>
+#include <plat/regs-gpio.h>
+#include <plat/regs-camif.h>
 #include <media/v4l2-dev.h>
+#include <media/v4l2-ioctl.h>
 #include "s3c_camif.h"
 #include "videodev2_s3c.h"
 
@@ -82,7 +83,7 @@ camif_cfg_t *s3c_camif_get_fimc_object(int nr)
 static int s3c_camif_check_global_status(camif_cfg_t *cfg)
 {
 	int ret = 0;
- 
+
         if (down_interruptible((struct semaphore *) &cfg->cis->lock))
 		return -ERESTARTSYS;
 
@@ -420,7 +421,7 @@ static int s3c_camif_v4l2_querycap(camif_cfg_t *cfg, void *arg)
 	sprintf(cap->bus_info, "FIMC AHB Bus");
 
 	cap->version = 0;
-	cap->capabilities = cfg->v->type2;
+	cap->capabilities = V4L2_CAP_VIDEO_OVERLAY | V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
 
 	return 0;
 }
@@ -1147,7 +1148,8 @@ static irqreturn_t s3c_camif_do_irq_codec(int irq, void *dev_id)
 {
 	camif_cfg_t *cfg = (camif_cfg_t *) dev_id;
 
-#if defined(CONFIG_CPU_S3C6400) || defined(CONFIG_CPU_S3C6410)
+/* @@@ SMKD ? - WA */
+#if 0 && (defined(CONFIG_CPU_S3C6400) || defined(CONFIG_CPU_S3C6410))
 	s3c_gpio_setpin(S3C_GPN15, 1);
 #endif
 	s3c_camif_clear_irq(irq);
@@ -1199,14 +1201,14 @@ static int s3c_camif_request_irq(camif_cfg_t * cfg)
 	int ret = 0;
 
 	if (cfg->dma_type & CAMIF_CODEC) {
-		if ((ret = request_irq(cfg->irq, s3c_camif_do_irq_codec, SA_INTERRUPT, cfg->shortname, cfg)))
+		if ((ret = request_irq(cfg->irq, s3c_camif_do_irq_codec, IRQF_SHARED, cfg->shortname, cfg)))
 			printk(KERN_ERR "Request irq (CAM_C) failed\n");
 		else
 			printk(KERN_INFO "Request irq %d for codec\n", cfg->irq);
 	}
 
 	if (cfg->dma_type & CAMIF_PREVIEW) {
-		if ((ret = request_irq(cfg->irq, s3c_camif_do_irq_preview, SA_INTERRUPT, cfg->shortname, cfg)))
+		if ((ret = request_irq(cfg->irq, s3c_camif_do_irq_preview, IRQF_SHARED, cfg->shortname, cfg)))
 			printk("Request_irq (CAM_P) failed\n");
 		else
 			printk(KERN_INFO "Request irq %d for preview\n", cfg->irq);
@@ -1218,10 +1220,11 @@ static int s3c_camif_request_irq(camif_cfg_t * cfg)
 /*************************************************************************
  * Standard file operations part
  ************************************************************************/
-int s3c_camif_ioctl(struct inode *inode, struct file *file, unsigned int cmd, void *arg)
+long s3c_camif_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
 {
 	camif_cfg_t *cfg = file->private_data;
 	int ret = -1;
+	void *arg = (void *) _arg; /* @@@ - WA */
 
 	switch (cmd) {
         case VIDIOC_QUERYCAP:
@@ -1345,17 +1348,21 @@ int s3c_camif_ioctl(struct inode *inode, struct file *file, unsigned int cmd, vo
 		break;
 
 	default:	/* For v4l compatability */
-		v4l_compat_translate_ioctl(inode, file, cmd, arg, s3c_camif_ioctl);
+		ret = v4l_compat_translate_ioctl(file, cmd, arg, s3c_camif_ioctl);
 		break;
 	} /* End of Switch  */
 
 	return ret;
 }
 
-int s3c_camif_open(struct inode *inode, struct file *file)
+/* @@@ - WA */
+#define s3c_camif_exclusive_open(inode, file) 0
+#define s3c_camif_exclusive_release(inode, file)
+
+int s3c_camif_open(struct file *file)
 {
 	int err;
-	camif_cfg_t *cfg = s3c_camif_get_fimc_object(MINOR(inode->i_rdev));
+	camif_cfg_t *cfg = s3c_camif_get_fimc_object(MINOR(file->f_dentry->d_inode->i_rdev));
 
 	if (!cfg->cis) {
 		printk(KERN_ERR "An object for a CIS is missing\n");
@@ -1374,7 +1381,7 @@ int s3c_camif_open(struct inode *inode, struct file *file)
 		up((struct semaphore *) &cfg->cis->lock);
 	}
 
-	err = video_exclusive_open(inode, file);
+	err = s3c_camif_exclusive_open(inode, file);
 	cfg->cis->user++;
 	cfg->status = CAMIF_STOPPED;
 
@@ -1393,9 +1400,9 @@ int s3c_camif_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-int s3c_camif_release(struct inode *inode, struct file *file)
+int s3c_camif_release(struct file *file)
 {
-	camif_cfg_t *cfg = s3c_camif_get_fimc_object(MINOR(inode->i_rdev));
+	camif_cfg_t *cfg = s3c_camif_get_fimc_object(MINOR(file->f_dentry->d_inode->i_rdev));
 
 	if (cfg->dma_type & CAMIF_PREVIEW) {
 		cfg->cis->status &= ~PWANT2START;
@@ -1407,7 +1414,7 @@ int s3c_camif_release(struct inode *inode, struct file *file)
 		s3c_camif_stop_capture(cfg);
 	}
 
-	video_exclusive_release(inode, file);
+	s3c_camif_exclusive_release(inode, file);
 
 	if (cfg->cis->sensor == NULL)
 		DPRINTK("A CIS sensor for MSDMA has been used\n");
@@ -1546,7 +1553,7 @@ static unsigned int s3c_camif_poll(struct file *file, poll_table *wait)
 	return mask;
 }
 
-struct file_operations camif_c_fops = {
+struct v4l2_file_operations camif_c_fops = {
 	.owner = THIS_MODULE,
 	.open = s3c_camif_open,
 	.release = s3c_camif_release,
@@ -1557,7 +1564,7 @@ struct file_operations camif_c_fops = {
 	.poll = s3c_camif_poll,
 };
 
-struct file_operations camif_p_fops = {
+struct v4l2_file_operations camif_p_fops = {
 	.owner = THIS_MODULE,
 	.open = s3c_camif_open,
 	.release = s3c_camif_release,
@@ -1577,9 +1584,11 @@ void camif_vdev_release (struct video_device *vdev) {
 
 struct video_device codec_template = {
 	.name = CODEC_DEV_NAME,
+#if 0
 	.type = VID_TYPE_OVERLAY | VID_TYPE_CAPTURE | VID_TYPE_CLIPPING | VID_TYPE_SCALES,
 	.type2 = V4L2_CAP_VIDEO_OVERLAY | V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING,
 	.hardware = VID_HARDWARE_SAMSUNG_FIMC3X,
+#endif
 	.fops = &camif_c_fops,
 	.release  = camif_vdev_release,
 	.minor = CODEC_MINOR,
@@ -1587,9 +1596,11 @@ struct video_device codec_template = {
 
 struct video_device preview_template = {
 	.name = PREVIEW_DEV_NAME,
+#if 0
 	.type = VID_TYPE_OVERLAY | VID_TYPE_CAPTURE | VID_TYPE_CLIPPING | VID_TYPE_SCALES,
 	.type2 = V4L2_CAP_VIDEO_OVERLAY | V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING,
 	.hardware = VID_HARDWARE_SAMSUNG_FIMC3X,
+#endif
 	.fops = &camif_p_fops,
 	.release  = camif_vdev_release,
 	.minor = PREVIEW_MINOR,
@@ -1647,7 +1658,8 @@ static int s3c_camif_init_preview(camif_cfg_t * cfg)
 	cfg->flip = CAMIF_FLIP_Y;
 	cfg->v = &preview_template;
 
-	init_MUTEX((struct semaphore *) &cfg->v->lock);
+	/* @@@ - WA */
+	//init_MUTEX((struct semaphore *) &cfg->v->lock);
 	init_waitqueue_head(&cfg->waitq);
 
 	cfg->status = CAMIF_STOPPED;
@@ -1671,7 +1683,8 @@ static int s3c_camif_init_codec(camif_cfg_t * cfg)
 	cfg->flip = CAMIF_FLIP_X;
 	cfg->v = &codec_template;
 
-	init_MUTEX((struct semaphore *) &cfg->v->lock);
+	/* @@@ - WA */
+	//init_MUTEX((struct semaphore *) &cfg->v->lock);
 
 	init_waitqueue_head(&cfg->waitq);
 
@@ -1764,9 +1777,10 @@ static int s3c_camif_probe(struct platform_device *pdev)
 
 	if (IS_ERR(cam_clock)) {
 		printk("Failed to find camera clock source\n");
-		ret = PTR_ERR(cam_clock);
+		return PTR_ERR(cam_clock);
 	}
 
+printk("cam_clock %p\n", cam_clock);
 	clk_enable(cam_clock);
 
 	/* Print banner */
@@ -1834,7 +1848,7 @@ void s3c_camif_open_sensor(camif_cis_t *cis)
 void s3c_camif_register_sensor(struct i2c_client *ptr)
 {
 	camif_cfg_t *codec, *preview;
-	camif_cis_t *cis = (camif_cis_t *) ptr->data;
+	camif_cis_t *cis = i2c_get_clientdata(ptr);
 
 	codec = s3c_camif_get_fimc_object(CODEC_MINOR);
 	preview = s3c_camif_get_fimc_object(PREVIEW_MINOR);
@@ -1855,7 +1869,7 @@ void s3c_camif_unregister_sensor(struct i2c_client *ptr)
 {
 	camif_cis_t *cis;
 
-	cis = (camif_cis_t *) (ptr->data);
+	cis = i2c_get_clientdata(ptr);
 	cis->init_sensor = 0;
 }
 
@@ -1868,4 +1882,3 @@ EXPORT_SYMBOL(s3c_camif_unregister_sensor);
 MODULE_AUTHOR("Jinsung Yang <jsgood.yang@samsung.com>");
 MODULE_DESCRIPTION("S3C Camera Driver for FIMC Interface");
 MODULE_LICENSE("GPL");
-

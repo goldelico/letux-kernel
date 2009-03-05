@@ -30,20 +30,25 @@
 #include <linux/wait.h>
 #include <linux/videodev.h>
 #include <asm/io.h>
-#include <asm/semaphore.h>
-#include <asm/hardware.h>
+#include <linux/semaphore.h>
+#include <mach/hardware.h>
 #include <asm/uaccess.h>
-#include <asm/arch/map.h>
-#include <asm/arch/regs-camif.h>
-#include <asm/arch/regs-gpio.h>
-#include <asm/arch/regs-gpioj.h>
-#include <asm/arch/regs-lcd.h>
+#include <mach/map.h>
+#include <mach/gpio.h>
+#include <mach/irqs.h>
+#include <plat/gpio-cfg.h>
+#include <plat/regs-camif.h>
+#include <plat/regs-gpio.h>
+#include <plat/gpio-bank-f.h>
 
 #if defined(CONFIG_CPU_S3C2443) || defined(CONFIG_CPU_S3C2450) || defined(CONFIG_CPU_S3C2416)
 #include <asm/arch/regs-irq.h>
 #endif
 
 #include "s3c_camif.h"
+
+#define S3C_VIDW00ADD0B0 (S3C24XX_VA_LCD+0xa0)
+#define S3C_VIDW01ADD0B0 (S3C24XX_VA_LCD+0xa8)
 
 static unsigned int irq_old_priority;
 
@@ -673,7 +678,10 @@ static int s3c_camif_output_pp_codec_rgb(camif_cfg_t *cfg)
 	cfg->buffer_size = area;
 
 	if (cfg->input_channel == MSDMA_FROM_CODEC) {
+{
+void __iomem *S3C24XX_VA_LCD = ioremap(S3C64XX_PA_FB, 1024*1024);
 		val = readl(S3C_VIDW00ADD0B0);
+}
 
 		for (i = 0; i < 4; i++)
 			writel(val, cfg->regs + S3C_CICOYSA(i));
@@ -865,7 +873,10 @@ static int s3c_camif_io_duplex_preview(camif_cfg_t *cfg)
 	unsigned int val;
 	int i;
 
+{
+void __iomem *S3C24XX_VA_LCD = ioremap(S3C64XX_PA_FB, 1024*1024);
 	val = readl(S3C_VIDW01ADD0B0);
+}
 
 	if (!((cfg->dst_fmt & CAMIF_RGB16) || (cfg->dst_fmt & CAMIF_RGB24)))
 		printk(KERN_ERR "Invalid target format\n");
@@ -1631,20 +1642,20 @@ void s3c_camif_set_priority(int flag)
 	unsigned int val;
 
 	if (flag) {
-		irq_old_priority = readl(S3C_PRIORITY);
+		irq_old_priority = readl(S3C64XX_PRIORITY);
 		val = irq_old_priority;
 		val &= ~(3 << 7);
-		writel(val, S3C_PRIORITY);
+		writel(val, S3C64XX_PRIORITY);
 
 		/* Arbiter 1, REQ2 first */
 		val |=  (1 << 7);
-		writel(val, S3C_PRIORITY);
+		writel(val, S3C64XX_PRIORITY);
 
 		/* Disable Priority Rotate */
 		val &= ~(1 << 1);
-		writel(val, S3C_PRIORITY);
+		writel(val, S3C64XX_PRIORITY);
 	} else
-		writel(irq_old_priority, S3C_PRIORITY);
+		writel(irq_old_priority, S3C64XX_PRIORITY);
 }
 
 /*************************************************************************
@@ -1749,21 +1760,21 @@ static int s3c_camif_set_gpio(void)
 #elif defined(CONFIG_CPU_S3C6400) || defined(CONFIG_CPU_S3C6410)
 static int s3c_camif_set_gpio(void)
 {
-	s3c_gpio_cfgpin(S3C_GPF5, S3C_GPF5_CAMIF_YDATA0);
-	s3c_gpio_cfgpin(S3C_GPF6, S3C_GPF6_CAMIF_YDATA1);
-	s3c_gpio_cfgpin(S3C_GPF7, S3C_GPF7_CAMIF_YDATA2);
-	s3c_gpio_cfgpin(S3C_GPF8, S3C_GPF8_CAMIF_YDATA03);
-	s3c_gpio_cfgpin(S3C_GPF9, S3C_GPF9_CAMIF_YDATA4);
-	s3c_gpio_cfgpin(S3C_GPF10, S3C_GPF10_CAMIF_YDATA5);
-	s3c_gpio_cfgpin(S3C_GPF11, S3C_GPF11_CAMIF_YDATA06);
-	s3c_gpio_cfgpin(S3C_GPF12, S3C_GPF12_CAMIF_YDATA7);
-	s3c_gpio_cfgpin(S3C_GPF2, S3C_GPF2_CAMIF_CLK);
-	s3c_gpio_cfgpin(S3C_GPF4, S3C_GPF4_CAMIF_VSYNC);
-	s3c_gpio_cfgpin(S3C_GPF1, S3C_GPF1_CAMIF_HREF);
-	s3c_gpio_cfgpin(S3C_GPF0, S3C_GPF0_CAMIF_CLK);
-	s3c_gpio_cfgpin(S3C_GPF3, S3C_GPF3_CAMIF_RST);
+	s3c_gpio_cfgpin(S3C64XX_GPF(5), S3C64XX_GPF5_CAMIF_YDATA0);
+	s3c_gpio_cfgpin(S3C64XX_GPF(6), S3C64XX_GPF6_CAMIF_YDATA1);
+	s3c_gpio_cfgpin(S3C64XX_GPF(7), S3C64XX_GPF7_CAMIF_YDATA2);
+	s3c_gpio_cfgpin(S3C64XX_GPF(8), S3C64XX_GPF8_CAMIF_YDATA3);
+	s3c_gpio_cfgpin(S3C64XX_GPF(9), S3C64XX_GPF9_CAMIF_YDATA4);
+	s3c_gpio_cfgpin(S3C64XX_GPF(10), S3C64XX_GPF10_CAMIF_YDATA5);
+	s3c_gpio_cfgpin(S3C64XX_GPF(11), S3C64XX_GPF11_CAMIF_YDATA6);
+	s3c_gpio_cfgpin(S3C64XX_GPF(12), S3C64XX_GPF12_CAMIF_YDATA7);
+	s3c_gpio_cfgpin(S3C64XX_GPF(2), S3C64XX_GPF2_CAMIF_PCLK);
+	s3c_gpio_cfgpin(S3C64XX_GPF(4), S3C64XX_GPF4_CAMIF_VSYNC);
+	s3c_gpio_cfgpin(S3C64XX_GPF(1), S3C64XX_GPF1_CAMIF_HREF);
+	s3c_gpio_cfgpin(S3C64XX_GPF(0), S3C64XX_GPF0_CAMIF_CLK);
+	s3c_gpio_cfgpin(S3C64XX_GPF(3), S3C64XX_GPF3_CAMIF_nRST);
 
-	writel(0, S3C_GPFPU);
+	writel(0, S3C64XX_GPFPUD);
 
 	return 0;
 }
