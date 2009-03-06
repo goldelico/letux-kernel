@@ -915,6 +915,11 @@ static void om_3d7k_lp5521_chip_enable(int level)
 }
 
 static struct lp5521_platform_data om_3d7k_lp5521_pdata = {
+	 .channels = {
+		[LP5521_BLUE] = LP5521_CONNECTED,
+		[LP5521_GREEN] = LP5521_CONNECTED,
+		[LP5521_RED] = LP5521_NC,
+	},
 	.ext_enable = om_3d7k_lp5521_chip_enable,
 };
 
