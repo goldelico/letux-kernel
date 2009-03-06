@@ -18,19 +18,19 @@
 #include <linux/serial_core.h>
 #include <linux/io.h>
 
-#include <asm/dma.h>
 #include <mach/dma.h>
 
-#include <plat/dma.h>
+#include <plat/dma-plat.h>
 #include <plat/cpu.h>
 
 #include <plat/regs-serial.h>
 #include <mach/regs-gpio.h>
 #include <plat/regs-ac97.h>
+#include <plat/regs-dma.h>
 #include <mach/regs-mem.h>
 #include <mach/regs-lcd.h>
 #include <mach/regs-sdi.h>
-#include <asm/plat-s3c24xx/regs-iis.h>
+#include <plat/regs-iis.h>
 #include <plat/regs-spi.h>
 
 #define MAP(x) { \

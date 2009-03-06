@@ -11,26 +11,24 @@
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; either version 2 of
  * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
  */
 
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/device.h>
+#include <linux/rtc.h>
+#include <linux/bcd.h>
+#include <linux/err.h>
 #include <linux/miscdevice.h>
 #include <linux/watchdog.h>
+#include <linux/platform_device.h>
 
 #include <linux/mfd/pcf50606/core.h>
-#include <linux/mfd/pcf50606/wdt.h>
 
-static struct pcf50606 *pcf;
+static struct pcf50606 *pcf = NULL;
 static unsigned long wdt_status;
+
 #define WDT_IN_USE        0
 #define WDT_OK_TO_CLOSE   1
 #define WDT_REGION_INITED 2
@@ -39,6 +37,12 @@ static unsigned long wdt_status;
 static int allow_close;
 #define CLOSE_STATE_NOT		0x0000
 #define CLOSE_STATE_ALLOW	0x2342
+
+#define PCF50606_REG_OOCC1 	0x08
+#define PCF50606_REG_OOCS 	0x01
+
+#define PCF50606_OOCS_WDTEXP 	0x80
+#define PCF50606_OOCC1_WDTRST 	0x08
 
 static void pcf50606_wdt_start(void)
 {
@@ -145,7 +149,7 @@ static struct miscdevice pcf50606_wdt_miscdev = {
 	.fops		= &pcf50606_wdt_fops,
 };
 
-static void pcf50606_wdt_irq(struct pcf50606 *pcf, int irq, void *unused)
+static void pcf50606_wdt_irq(int irq, void *unused)
 {
 	pcf50606_reg_set_bit_mask(pcf, PCF50606_REG_OOCC1,
 				 PCF50606_OOCC1_WDTRST,
@@ -154,10 +158,21 @@ static void pcf50606_wdt_irq(struct pcf50606 *pcf, int irq, void *unused)
 
 int __init pcf50606_wdt_probe(struct platform_device *pdev)
 {
-	struct pcf50606 *pcf;
+	struct pcf50606_subdev_pdata *pdata;
 	int err;
 
-	pcf = platform_get_drvdata(pdev);
+	if (pcf) {
+		dev_err(pcf->dev, "Only one instance of WDT supported\n");
+		return -ENODEV;
+	}
+
+	pdata = pdev->dev.platform_data;
+	if (!pdata) {
+		dev_err(&pdev->dev, "No platform data available\n");
+		return -EINVAL;
+	}
+
+	pcf = pdata->pcf;
 
 	err = misc_register(&pcf50606_wdt_miscdev);
 	if (err) {
@@ -167,21 +182,16 @@ int __init pcf50606_wdt_probe(struct platform_device *pdev)
 	}
 	set_bit(WDT_DEVICE_INITED, &wdt_status);
 
-	/* Set up IRQ handlers */
-	pcf->irq_handler[PCF50606_IRQ_CHGWD10S].handler = pcf50606_wdt_irq;
+	pcf50606_register_irq(pcf, PCF50606_IRQ_CHGWD10S, pcf50606_wdt_irq, NULL);
 
 	return 0;
 }
 
 static int __devexit pcf50606_wdt_remove(struct platform_device *pdev)
 {
-	struct pcf50606 *pcf;
-
-	pcf = platform_get_drvdata(pdev);
-	
+	pcf50606_free_irq(pcf, PCF50606_IRQ_CHGWD10S);
 	misc_deregister(&pcf50606_wdt_miscdev);
-
-	pcf->irq_handler[PCF50606_IRQ_CHGWD10S].handler = NULL;
+	pcf = NULL;
 
 	return 0;
 }

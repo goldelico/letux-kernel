@@ -19,6 +19,8 @@
 #ifndef __LINUX_SPI_H
 #define __LINUX_SPI_H
 
+#include <linux/device.h>
+
 /*
  * INTERFACES between SPI master-side drivers and SPI infrastructure.
  * (There's no SPI slave support for Linux yet...)
@@ -262,6 +264,13 @@ struct spi_master {
 	int			(*transfer)(struct spi_device *spi,
 						struct spi_message *mesg);
 
+	/* 
+	 * Synchronous non blocking transfer function. Should guarantee
+	 * data availability when it returns 
+	 */
+	int			(*transfer_sync)(struct spi_device *spi,
+						struct spi_message *mesg);
+
 	/* called on release() to free memory provided by spi_master */
 	void			(*cleanup)(struct spi_device *spi);
 };
@@ -325,9 +334,9 @@ extern struct spi_master *spi_busnum_to_master(u16 busnum);
  * @tx_dma: DMA address of tx_buf, if @spi_message.is_dma_mapped
  * @rx_dma: DMA address of rx_buf, if @spi_message.is_dma_mapped
  * @len: size of rx and tx buffers (in bytes)
- * @speed_hz: Select a speed other then the device default for this
+ * @speed_hz: Select a speed other than the device default for this
  *      transfer. If 0 the default (from @spi_device) is used.
- * @bits_per_word: select a bits_per_word other then the device default
+ * @bits_per_word: select a bits_per_word other than the device default
  *      for this transfer. If 0 the default (from @spi_device) is used.
  * @cs_change: affects chipselect after this transfer completes
  * @delay_usecs: microseconds to delay after this transfer before
@@ -569,6 +578,29 @@ spi_async(struct spi_device *spi, struct spi_message *message)
 {
 	message->spi = spi;
 	return spi->master->transfer(spi, message);
+}
+
+/**
+ * spi_non_blocking_transfer - Synchronous, non blocking transfer
+ * @spi: device with which data will be exchanged
+ * @message: describes the data transfers with optional completion handlers
+ * Context: any (irqs may be blocked, etc)
+ *
+ * Data is guaranteed to be written or read when this function returns.
+ *
+ * Note : This may not be supported by all spi masters.
+ */
+
+static inline int
+spi_non_blocking_transfer(struct spi_device *spi, struct spi_message *message)
+{
+	if (unlikely(!spi->master->transfer_sync)) {
+		dev_err(&spi->master->dev,
+			       	"non-blocking transfers not supported\n");
+		return -EIO;
+	}
+
+	return spi->master->transfer_sync(spi, message);
 }
 
 /*---------------------------------------------------------------------------*/

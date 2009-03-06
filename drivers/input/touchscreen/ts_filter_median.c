@@ -32,7 +32,7 @@
 #include <linux/errno.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
-#include <linux/ts_filter_median.h>
+#include "ts_filter_median.h"
 
 static void ts_filter_median_insert(int *p, int sample, int count)
 {
@@ -141,8 +141,9 @@ static void ts_filter_median_scale(struct ts_filter *tsf, int *coords)
 		(tsf->next->api->scale)(tsf->next, coords);
 }
 
-/* give us the raw sample data coords, and if we return 1 then you can
- * get a filtered coordinate from coords: if we return 0 you didn't
+/*
+ * Give us the raw sample data coords, and if we return 1 then you can
+ * get a filtered coordinate from coords. If we return 0 you didn't
  * fill all the filters with samples yet.
  */
 
@@ -169,9 +170,10 @@ static int ts_filter_median_process(struct ts_filter *tsf, int *coords)
 	/* discard the oldest sample in median sorted array */
 	tsfm->valid--;
 
-	/* sum the middle 3 in the median sorted arrays.  We don't divide back
+	/*
+	 * Sum the middle 3 in the median sorted arrays. We don't divide back
 	 * down which increases the sum resolution by a factor of 3 until the
-	 * scale API is called
+	 * scale API is called.
 	 */
 	for (n = 0; n < tsfm->tsf.count_coords; n++)
 		/* perform the deletion of the oldest sample */

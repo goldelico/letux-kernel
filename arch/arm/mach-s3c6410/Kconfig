@@ -61,8 +61,8 @@ config SMDK6410_SD_CH1
 
 endchoice
 
-config MACH_OPENMOKO_GTA03
-        bool "Openmoko GTA03 Phone"
+config MACH_OM_3D7K
+        bool "Openmoko 3D7K Phone"
 	select CPU_S3C6410
 	select S3C_DEV_HSMMC
 	select S3C_DEV_HSMMC1
@@ -73,8 +73,10 @@ config MACH_OPENMOKO_GTA03
 	select S3C64XX_SETUP_FB_24BPP
 #	select SENSORS_PCF50633
 	select POWER_SUPPLY
-#	select GTA02_HDQ
+	select HDQ_GPIO_BITBANG
+	select S3C_PWM
+	select FIQ
 	select MACH_NEO1973
 	help
-          Machine support for the Openmoko GTA03 Phone
+          Machine support for the Openmoko 3D7K Phone
 

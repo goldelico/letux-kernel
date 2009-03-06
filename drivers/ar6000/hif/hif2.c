@@ -1,7 +1,7 @@
 /*
  * hif2.c - HIF layer re-implementation for the Linux SDIO stack
  *
- * Copyright (C) 2008 by OpenMoko, Inc.
+ * Copyright (C) 2008, 2009 by OpenMoko, Inc.
  * Written by Werner Almesberger <werner@openmoko.org>
  * All Rights Reserved
  *
@@ -21,11 +21,13 @@
 #include <linux/list.h>
 #include <linux/wait.h>
 #include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <linux/sched.h>
 #include <linux/mmc/sdio_func.h>
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/sdio_ids.h>
 #include <asm/gpio.h>
+#include <mach/gta02-pm-wlan.h>
 
 #include "athdefs.h"
 #include "a_types.h"
@@ -91,6 +93,17 @@ struct hif_device {
 	spinlock_t queue_lock;
 	struct task_struct *io_task;
 	wait_queue_head_t wait;
+
+	/*
+	 * activate_lock protects "active" and the activation/deactivation
+	 * process itself.
+	 *
+	 * Relation to other locks: The SDIO function can be claimed while
+	 * activate_lock is being held, but trying to acquire activate_lock
+	 * while having ownership of the SDIO function could cause a deadlock.
+	 */
+	int active;
+	struct mutex activate_lock;
 };
 
 struct hif_request {
@@ -119,6 +132,9 @@ static DEFINE_MUTEX(shutdown_lock);
 /* ----- Request processing ------------------------------------------------ */
 
 
+#include <mach/regs-gpio.h>
+
+
 static A_STATUS process_request(struct hif_request *req)
 {
 	int ret;
@@ -126,10 +142,19 @@ static A_STATUS process_request(struct hif_request *req)
 
 	dev_dbg(&req->func->dev, "process_request(req %p)\n", req);
 	sdio_claim_host(req->func);
-	if (req->read)
+	if (req->read) {
+		while (!s3c2410_gpio_getpin(S3C2410_GPE7)) {
+			printk(KERN_INFO "READ WHILE BUSY !\n");
+			yield();
+		}
 		ret = req->read(req->func, req->buf, req->addr, req->len);
-	else
+	} else {
+		while (!s3c2410_gpio_getpin(S3C2410_GPE7)) {
+			printk(KERN_INFO "WRITE WHILE BUSY !\n");
+			yield();
+		}
 		ret = req->write(req->func, req->addr, req->buf, req->len);
+	}
 	sdio_release_host(req->func);
 	status = ret ? A_ERROR : A_OK;
 	if (req->completion)
@@ -442,25 +467,17 @@ A_STATUS HIFConfigureDevice(HIF_DEVICE *hif,
 /* ----- Device probe and removal (Linux side) ----------------------------- */
 
 
-static int sdio_ar6000_probe(struct sdio_func *func,
-    const struct sdio_device_id *id)
+static int ar6000_do_activate(struct hif_device *hif)
 {
+	struct sdio_func *func = hif->func;
 	struct device *dev = &func->dev;
-	struct hif_device *hif;
 	int ret;
 
-	dev_dbg(dev, "sdio_ar6000_probe\n");
-	BUG_ON(!htcCallbacks.deviceInsertedHandler);
+	dev_dbg(dev, "ar6000_do_activate\n");
 
-	hif = kzalloc(sizeof(*hif), GFP_KERNEL);
-	if (!hif)
-		return -ENOMEM;
-
-	sdio_set_drvdata(func, hif);
 	sdio_claim_host(func);
 	sdio_enable_func(func);
 
-	hif->func = func;
 	INIT_LIST_HEAD(&hif->queue);
 	init_waitqueue_head(&hif->wait);
 	spin_lock_init(&hif->queue_lock);
@@ -513,7 +530,6 @@ out_got_irq:
 	sdio_release_irq(func);
 
 out_enabled:
-	sdio_set_drvdata(func, NULL);
 	sdio_disable_func(func);
 	sdio_release_host(func);
 
@@ -521,13 +537,16 @@ out_enabled:
 }
 
 
-static void sdio_ar6000_remove(struct sdio_func *func)
+static void ar6000_do_deactivate(struct hif_device *hif)
 {
+	struct sdio_func *func = hif->func;
 	struct device *dev = &func->dev;
-	HIF_DEVICE *hif = sdio_get_drvdata(func);
 	int ret;
 
-	dev_dbg(dev, "sdio_ar6000_remove\n");
+	dev_dbg(dev, "ar6000_do_deactivate\n");
+	if (!hif->active)
+		return;
+
 	if (mutex_trylock(&shutdown_lock)) {
 		/*
 		 * Funny, Atheros' HIF does this call, but this just puts us in
@@ -548,9 +567,93 @@ static void sdio_ar6000_remove(struct sdio_func *func)
 		dev_err(dev, "kthread_stop (ar6000_io): %d\n", ret);
 	sdio_claim_host(func);
 	sdio_release_irq(func);
-	sdio_set_drvdata(func, NULL);
 	sdio_disable_func(func);
 	sdio_release_host(func);
+}
+
+
+static int ar6000_activate(struct hif_device *hif)
+{
+	int ret = 0;
+
+	dev_dbg(&hif->func->dev, "ar6000_activate\n");
+	mutex_lock(&hif->activate_lock);
+	if (!hif->active) {
+		ret = ar6000_do_activate(hif);
+		hif->active = 1;
+	}
+	mutex_unlock(&hif->activate_lock);
+	return ret;
+}
+
+
+static void ar6000_deactivate(struct hif_device *hif)
+{
+	dev_dbg(&hif->func->dev, "ar6000_deactivate\n");
+	mutex_lock(&hif->activate_lock);
+	if (hif->active) {
+		ar6000_do_deactivate(hif);
+		hif->active = 0;
+	}
+	mutex_unlock(&hif->activate_lock);
+}
+
+
+static int ar6000_rfkill_cb(void *data, int on)
+{
+	struct hif_device *hif = data;
+	struct sdio_func *func = hif->func;
+	struct device *dev = &func->dev;
+
+	dev_dbg(dev, "ar6000_rfkill_cb: on %d\n", on);
+	if (on)
+		return ar6000_activate(hif);
+	ar6000_deactivate(hif);
+	return 0;
+}
+
+
+static int sdio_ar6000_probe(struct sdio_func *func,
+    const struct sdio_device_id *id)
+{
+	struct device *dev = &func->dev;
+	struct hif_device *hif;
+	int ret = 0;
+
+	dev_dbg(dev, "sdio_ar6000_probe\n");
+	BUG_ON(!htcCallbacks.deviceInsertedHandler);
+
+	hif = kzalloc(sizeof(*hif), GFP_KERNEL);
+	if (!hif)
+		return -ENOMEM;
+
+	sdio_set_drvdata(func, hif);
+	hif->func = func;
+	mutex_init(&hif->activate_lock);
+	hif->active = 0;
+
+	if (gta02_wlan_query_rfkill_lock())
+		ret = ar6000_activate(hif);
+	if (!ret) {
+		gta02_wlan_set_rfkill_cb(ar6000_rfkill_cb, hif);
+		return 0;
+	}
+	gta02_wlan_query_rfkill_unlock();
+	sdio_set_drvdata(func, NULL);
+	kfree(hif);
+	return ret;
+}
+
+
+static void sdio_ar6000_remove(struct sdio_func *func)
+{
+	struct device *dev = &func->dev;
+	HIF_DEVICE *hif = sdio_get_drvdata(func);
+
+	dev_dbg(dev, "sdio_ar6000_remove\n");
+	gta02_wlan_clear_rfkill_cb();
+	ar6000_deactivate(hif);
+	sdio_set_drvdata(func, NULL);
 	kfree(hif);
 }
 
@@ -603,12 +706,13 @@ int HIFInit(HTC_CALLBACKS *callbacks)
 
 
 /*
- * We have three possible call chains here:
+ * We have four possible call chains here:
  *
  * System shutdown/reboot:
  *
  *   kernel_restart_prepare ...> device_shutdown ... > s3cmci_shutdown ->
  *     mmc_remove_host ..> sdio_bus_remove -> sdio_ar6000_remove ->
+ *     ar6000_deactivate -> ar6000_do_deactivate ->
  *     deviceRemovedHandler (HTCTargetRemovedHandler) -> HIFShutDownDevice
  *
  *   This is roughly the same sequence as suspend, described below.
@@ -617,23 +721,31 @@ int HIFInit(HTC_CALLBACKS *callbacks)
  *
  *   sys_delete_module -> ar6000_cleanup_module -> HTCShutDown ->
  *     HIFShutDownDevice -> sdio_unregister_driver ...> sdio_bus_remove ->
- *     sdio_ar6000_remove
+ *     sdio_ar6000_remove -> ar6000_deactivate -> ar6000_do_deactivate
  *
  *   In this case, HIFShutDownDevice must call sdio_unregister_driver to
- *   notify the driver about its removal. sdio_ar6000_remove must not call
+ *   notify the driver about its removal. ar6000_do_deactivate must not call
  *   deviceRemovedHandler, because that would loop back into HIFShutDownDevice.
  *
  * Suspend:
  *
  *   device_suspend ...> s3cmci_suspend ...> sdio_bus_remove ->
- *     sdio_ar6000_remove -> deviceRemovedHandler (HTCTargetRemovedHandler) ->
- *     HIFShutDownDevice
+ *     sdio_ar6000_remove -> ar6000_deactivate -> ar6000_do_deactivate ->
+ *     deviceRemovedHandler (HTCTargetRemovedHandler) -> HIFShutDownDevice
  *
  *   We must call deviceRemovedHandler to inform the ar6k stack that the device
  *   has been removed. Since HTCTargetRemovedHandler calls back into
  *   HIFShutDownDevice, we must also prevent the call to
  *   sdio_unregister_driver, or we'd end up recursing into the SDIO stack,
  *   eventually deadlocking somewhere.
+ *
+ * rfkill:
+ *
+ *   rfkill_state_store -> rfkill_toggle_radio -> gta02_wlan_toggle_radio ->
+ *   ar6000_rfkill_cb -> ar6000_deactivate -> ar6000_do_deactivate ->
+ *     deviceRemovedHandler (HTCTargetRemovedHandler) -> HIFShutDownDevice
+ *
+ *   This is similar to suspend - only the entry point changes.
  */
 
 void HIFShutDownDevice(HIF_DEVICE *hif)

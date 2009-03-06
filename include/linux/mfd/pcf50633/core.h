@@ -19,20 +19,19 @@
 #include <linux/regulator/machine.h>
 #include <linux/power_supply.h>
 
-#include <linux/mfd/pcf50633/pmic.h>
-#include <linux/mfd/pcf50633/input.h>
-#include <linux/mfd/pcf50633/mbc.h>
-#include <linux/mfd/pcf50633/rtc.h>
-#include <linux/mfd/pcf50633/adc.h>
-#include <linux/mfd/pcf50633/gpio.h>
-
 struct pcf50633;
+
+#define PCF50633_NUM_REGULATORS	11
 
 struct pcf50633_platform_data {
 	struct regulator_init_data reg_init_data[PCF50633_NUM_REGULATORS];
 
 	char **batteries;
 	int num_batteries;
+
+	int charging_restart_interval;
+
+	int chg_ref_current_ma;
 
 	/* Callbacks */
 	void (*probe_done)(struct pcf50633 *);
@@ -41,15 +40,20 @@ struct pcf50633_platform_data {
 	void (*force_shutdown)(struct pcf50633 *);
 
 	u8 resumers[5];
+};
 
-	/* Runtime data - filled by driver afer probe */
+struct pcf50633_subdev_pdata {
 	struct pcf50633 *pcf;
 };
 
 struct pcf50633_irq {
-	void (*handler)(struct pcf50633 *, int, void *);
+	void (*handler) (int, void *);
 	void *data;
 };
+
+int pcf50633_register_irq(struct pcf50633 *pcf, int irq,
+			void (*handler) (int, void *), void *data);
+int pcf50633_free_irq(struct pcf50633 *pcf, int irq);
 
 int pcf50633_irq_mask(struct pcf50633 *pcf, int irq);
 int pcf50633_irq_unmask(struct pcf50633 *pcf, int irq);
@@ -68,20 +72,20 @@ int pcf50633_reg_clear_bits(struct pcf50633 *pcf, u8 reg, u8 bits);
 /* Interrupt registers */
 
 #define PCF50633_REG_INT1	0x02
-#define	PCF50633_REG_INT2	0x03
-#define	PCF50633_REG_INT3	0x04
-#define	PCF50633_REG_INT4	0x05
-#define	PCF50633_REG_INT5	0x06
+#define PCF50633_REG_INT2	0x03
+#define PCF50633_REG_INT3	0x04
+#define PCF50633_REG_INT4	0x05
+#define PCF50633_REG_INT5	0x06
 
 #define PCF50633_REG_INT1M	0x07
-#define	PCF50633_REG_INT2M	0x08
-#define	PCF50633_REG_INT3M	0x09
-#define	PCF50633_REG_INT4M	0x0a
-#define	PCF50633_REG_INT5M	0x0b
+#define PCF50633_REG_INT2M	0x08
+#define PCF50633_REG_INT3M	0x09
+#define PCF50633_REG_INT4M	0x0a
+#define PCF50633_REG_INT5M	0x0b
 
 enum {
 	/* Chip IRQs */
-	PCF50633_IRQ_ADPINS = 0,
+	PCF50633_IRQ_ADPINS,
 	PCF50633_IRQ_ADPREM,
 	PCF50633_IRQ_USBINS,
 	PCF50633_IRQ_USBREM,
@@ -144,11 +148,11 @@ struct pcf50633 {
 
 	int onkey1s_held;
 
-	struct pcf50633_pmic pmic;
-	struct pcf50633_input input;
-	struct pcf50633_mbc mbc;
-	struct pcf50633_rtc rtc;
-	struct pcf50633_adc adc;
+	struct platform_device *rtc_pdev;
+	struct platform_device *mbc_pdev;
+	struct platform_device *adc_pdev;
+	struct platform_device *input_pdev;
+	struct platform_device *regulator_pdev[PCF50633_NUM_REGULATORS];
 };
 
 enum pcf50633_reg_int1 {
@@ -208,6 +212,12 @@ enum pcf50633_reg_int5 {
 /* misc. registers */
 #define PCF50633_REG_OOCSHDWN		0x0c
 #define PCF50633_OOCSHDWN_GOSTDBY 	0x01
+
+/* LED registers */
+#define PCF50633_REG_LEDOUT 0x28
+#define PCF50633_REG_LEDENA 0x29
+#define PCF50633_REG_LEDCTL 0x2a
+#define PCF50633_REG_LEDDIM 0x2b
 
 #endif
 

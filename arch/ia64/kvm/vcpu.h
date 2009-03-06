@@ -384,6 +384,10 @@ static inline u64 __gpfn_is_io(u64 gpfn)
 #define MODE_IND(psr)	\
 	(((psr).it << 2) + ((psr).dt << 1) + (psr).rt)
 
+#ifndef CONFIG_SMP
+#define _vmm_raw_spin_lock(x)	 do {}while(0)
+#define _vmm_raw_spin_unlock(x) do {}while(0)
+#else
 #define _vmm_raw_spin_lock(x)						\
 	do {								\
 		__u32 *ia64_spinlock_ptr = (__u32 *) (x);		\
@@ -403,6 +407,7 @@ static inline u64 __gpfn_is_io(u64 gpfn)
 	do { barrier();				\
 		((spinlock_t *)x)->raw_lock.lock = 0; } \
 while (0)
+#endif
 
 void vmm_spin_lock(spinlock_t *lock);
 void vmm_spin_unlock(spinlock_t *lock);
@@ -732,9 +737,12 @@ void kvm_init_vtlb(struct kvm_vcpu *v);
 void kvm_init_vhpt(struct kvm_vcpu *v);
 void thash_init(struct thash_cb *hcb, u64 sz);
 
-void panic_vm(struct kvm_vcpu *v);
+void panic_vm(struct kvm_vcpu *v, const char *fmt, ...);
 
 extern u64 ia64_call_vsa(u64 proc, u64 arg1, u64 arg2, u64 arg3,
 		u64 arg4, u64 arg5, u64 arg6, u64 arg7);
+
+extern long vmm_sanity;
+
 #endif
 #endif	/* __VCPU_H__ */

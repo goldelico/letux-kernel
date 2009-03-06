@@ -6,7 +6,8 @@
 
 config CPU_S3C2442
 	bool
-	depends on CPU_S3C2440
+	depends on ARCH_S3C2410
+	select CPU_ARM920T
 	select S3C2410_CLOCK
 	select S3C2410_GPIO
 	select S3C2410_PM if PM
@@ -23,6 +24,19 @@ config SMDK2440_CPU2442
 	bool "SMDM2440 with S3C2442 CPU module"
 	depends on ARCH_S3C2440
 	select CPU_S3C2442
+
+config MACH_NEO1973_GTA02
+	bool "FIC Neo1973 GSM Phone (GTA02 Hardware)"
+	select CPU_S3C2442
+	select MFD_PCF50633
+	select PCF50633_GPIO
+	select I2C
+	select POWER_SUPPLY
+	select MACH_NEO1973
+	select S3C_PWM
+	select FIQ
+	help
+	   Say Y here if you are using the FIC Neo1973 GSM Phone
 
 
 endmenu

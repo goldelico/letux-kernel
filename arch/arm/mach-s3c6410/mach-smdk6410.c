@@ -51,6 +51,8 @@
 #include <plat/devs.h>
 #include <plat/cpu.h>
 
+#include <plat/regs-usb-hs-otg.h>
+
 #define UCON S3C2410_UCON_DEFAULT | S3C2410_UCON_UCLK
 #define ULCON S3C2410_LCON_CS8 | S3C2410_LCON_PNONE | S3C2410_LCON_STOPB
 #define UFCON S3C2410_UFCON_RXTRIG8 | S3C2410_UFCON_FIFOMODE
@@ -146,6 +148,8 @@ static struct platform_device *smdk6410_devices[] __initdata = {
 	&s3c_device_i2c1,
 	&s3c_device_fb,
 	&smdk6410_lcd_powerdev,
+	&s3c_device_usbgadget,
+
 };
 
 static struct i2c_board_info i2c_devs0[] __initdata = {
@@ -178,9 +182,16 @@ static void __init smdk6410_map_io(void)
 	__raw_writel(tmp, S3C64XX_MODEM_MIFPCON);
 }
 
+struct s3c_plat_otg_data s3c_hs_otg_plat_data = {
+	.phyclk = REF_CLK_OSCC
+};
+
+
 static void __init smdk6410_machine_init(void)
 {
 	s3c_pm_init();
+
+	s3c_device_usbgadget.dev.platform_data = &s3c_hs_otg_plat_data;
 
 	s3c_i2c0_set_platdata(NULL);
 	s3c_i2c1_set_platdata(NULL);

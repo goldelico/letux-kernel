@@ -126,6 +126,7 @@ struct blk_scsi_cmd_filter {
 struct disk_part_tbl {
 	struct rcu_head rcu_head;
 	int len;
+	struct hd_struct *last_lookup;
 	struct hd_struct *part[];
 };
 
@@ -522,7 +523,9 @@ extern char *disk_name (struct gendisk *hd, int partno, char *buf);
 
 extern int disk_expand_part_tbl(struct gendisk *disk, int target);
 extern int rescan_partitions(struct gendisk *disk, struct block_device *bdev);
-extern int __must_check add_partition(struct gendisk *, int, sector_t, sector_t, int);
+extern struct hd_struct * __must_check add_partition(struct gendisk *disk,
+						     int partno, sector_t start,
+						     sector_t len, int flags);
 extern void delete_partition(struct gendisk *, int);
 extern void printk_all_partitions(void);
 

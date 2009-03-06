@@ -4,7 +4,7 @@
 #include <linux/types.h>
 #include <linux/spi/spi.h>
 #include <linux/input.h>
-
+#include <linux/workqueue.h>
 
 struct lis302dl_info;
 
@@ -16,12 +16,7 @@ struct lis302dl_platform_data {
 	unsigned long pin_miso;
 	int open_drain;
 	int interrupt;
-	void (*lis302dl_bitbang)(struct lis302dl_info *lis, u8 *tx,
-			int tx_bytes, u8 *rx, int rx_bytes);
 	void (*lis302dl_suspend_io)(struct lis302dl_info *, int resuming);
-	int (*lis302dl_bitbang_reg_read)(struct lis302dl_info *, u8 reg);
-	void (*lis302dl_bitbang_reg_write)(struct lis302dl_info *, u8 reg,
-									u8 val);
 };
 
 struct lis302dl_info {
@@ -31,10 +26,13 @@ struct lis302dl_info {
 	unsigned int flags;
 	unsigned int threshold;
 	unsigned int duration;
+	u32 overruns;
 	struct {
 		unsigned int threshold; /* mg */
 		unsigned int duration;  /* ms */
 	} wakeup;
+
+	struct spi_device *spi;
 	u_int8_t regs[0x40];
 };
 

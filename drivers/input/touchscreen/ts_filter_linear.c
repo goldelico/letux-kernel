@@ -24,15 +24,13 @@
  *
  */
 
-#include <linux/ts_filter_linear.h>
+#include "ts_filter_linear.h"
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 
 
-/*
- * sysfs functions
- */
+/* sysfs functions */
 
 
 static ssize_t const_attr_show(struct kobject *kobj,
@@ -82,9 +80,7 @@ static ssize_t const_store(struct const_obj *obj, struct const_attribute *attr,
 	return count;
 }
 
-/*
- * filter functions
- */
+/* filter functions */
 
 static struct ts_filter *ts_filter_linear_create(struct platform_device *pdev,
 						 void *conf, int count_coords)
@@ -118,7 +114,6 @@ static struct ts_filter *ts_filter_linear_create(struct platform_device *pdev,
 	tsfl->const_ktype.default_attrs = tsfl->attrs;
 	tsfl->c_obj.tsfl = tsfl; /* kernel frees tsfl in const_release */
 
-	/* TODO: /sys/ts-calibration is not OK */
 	ret = kobject_init_and_add(&tsfl->c_obj.kobj, &tsfl->const_ktype,
 				   &pdev->dev.kobj, "calibration");
 	if (ret) {

@@ -13,6 +13,8 @@
 #ifndef __LINUX_MFD_PCF50606_GPO_H
 #define __LINUX_MFD_PCF50606_GPO_H
 
+#include <linux/mfd/pcf50633/core.h>
+
 #define PCF50606_REG_GPOC1 0x38
 #define PCF50606_REG_GPOC2 0x39
 #define PCF50606_REG_GPOC3 0x3a
@@ -28,8 +30,6 @@
 
 #define PCF50606_GPOCFG_GPOSEL_MASK	0x07
 
-struct pcf50606;
-
 void pcf50606_gpo_set_active(struct pcf50606 *pcf, int gpo, int value);
 int pcf50606_gpo_get_active(struct pcf50606 *pcf, int gpo);
 void pcf50606_gpo_set_standby(struct pcf50606 *pcf, int gpo, int value);
@@ -39,5 +39,4 @@ void pcf50606_gpo_invert_set(struct pcf50606 *, int gpo, int invert);
 int pcf50606_gpo_invert_get(struct pcf50606 *pcf, int gpo);
 
 #endif /* __LINUX_MFD_PCF50606_GPIO_H */
-
 

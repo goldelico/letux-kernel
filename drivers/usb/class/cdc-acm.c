@@ -158,16 +158,12 @@ static int acm_wb_is_avail(struct acm *acm)
 }
 
 /*
- * Finish write.
+ * Finish write. Caller must hold acm->write_lock
  */
 static void acm_write_done(struct acm *acm, struct acm_wb *wb)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&acm->write_lock, flags);
 	wb->use = 0;
 	acm->transmitting--;
-	spin_unlock_irqrestore(&acm->write_lock, flags);
 }
 
 /*
@@ -482,6 +478,7 @@ static void acm_write_bulk(struct urb *urb)
 {
 	struct acm_wb *wb = urb->context;
 	struct acm *acm = wb->instance;
+	unsigned long flags;
 
 	if (verbose || urb->status
 			|| (urb->actual_length != urb->transfer_buffer_length))
@@ -490,7 +487,9 @@ static void acm_write_bulk(struct urb *urb)
 			urb->transfer_buffer_length,
 			urb->status);
 
+	spin_lock_irqsave(&acm->write_lock, flags);
 	acm_write_done(acm, wb);
+	spin_unlock_irqrestore(&acm->write_lock, flags);
 	if (ACM_READY(acm))
 		schedule_work(&acm->work);
 	else
@@ -1276,7 +1275,7 @@ static int acm_suspend(struct usb_interface *intf, pm_message_t message)
 	struct acm *acm = usb_get_intfdata(intf);
 	int cnt;
 
-	if (acm->dev->auto_pm) {
+	if (message.event & PM_EVENT_AUTO) {
 		int b;
 
 		spin_lock_irq(&acm->read_lock);
@@ -1350,6 +1349,12 @@ static struct usb_device_id acm_ids[] = {
 	{ USB_DEVICE(0x0e8d, 0x0003), /* FIREFLY, MediaTek Inc; andrey.arapov@gmail.com */
 	.driver_info = NO_UNION_NORMAL, /* has no union descriptor */
 	},
+	{ USB_DEVICE(0x0e8d, 0x3329), /* i-blue 747, Qstarz BT-Q1000, Holux M-241 */
+	.driver_info = NO_UNION_NORMAL, /* has no union descriptor */
+	},
+	{ USB_DEVICE(0x0e8d, 0x3329), /* MediaTek Inc GPS */
+	.driver_info = NO_UNION_NORMAL, /* has no union descriptor */
+	},
 	{ USB_DEVICE(0x0482, 0x0203), /* KYOCERA AH-K3001V */
 	.driver_info = NO_UNION_NORMAL, /* has no union descriptor */
 	},
@@ -1369,6 +1374,9 @@ static struct usb_device_id acm_ids[] = {
 	.driver_info = NO_UNION_NORMAL, /* has no union descriptor */
 	},
 	{ USB_DEVICE(0x0572, 0x1321), /* Conexant USB MODEM CX93010 */
+	.driver_info = NO_UNION_NORMAL, /* has no union descriptor */
+	},
+	{ USB_DEVICE(0x0572, 0x1324), /* Conexant USB MODEM RD02-D400 */
 	.driver_info = NO_UNION_NORMAL, /* has no union descriptor */
 	},
 

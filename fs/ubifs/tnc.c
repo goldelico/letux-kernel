@@ -1501,7 +1501,12 @@ out:
  * @bu: bulk-read parameters and results
  *
  * Lookup consecutive data node keys for the same inode that reside
- * consecutively in the same LEB.
+ * consecutively in the same LEB. This function returns zero in case of success
+ * and a negative error code in case of failure.
+ *
+ * Note, if the bulk-read buffer length (@bu->buf_len) is known, this function
+ * makes sure bulk-read nodes fit the buffer. Otherwise, this function prepares
+ * maxumum possible amount of nodes for bulk-read.
  */
 int ubifs_tnc_get_bu_keys(struct ubifs_info *c, struct bu_info *bu)
 {
@@ -2240,12 +2245,11 @@ int ubifs_tnc_replace(struct ubifs_info *c, const union ubifs_key *key,
 			if (found) {
 				/* Ensure the znode is dirtied */
 				if (znode->cnext || !ubifs_zn_dirty(znode)) {
-					    znode = dirty_cow_bottom_up(c,
-									znode);
-					    if (IS_ERR(znode)) {
-						    err = PTR_ERR(znode);
-						    goto out_unlock;
-					    }
+					znode = dirty_cow_bottom_up(c, znode);
+					if (IS_ERR(znode)) {
+						err = PTR_ERR(znode);
+						goto out_unlock;
+					}
 				}
 				zbr = &znode->zbranch[n];
 				lnc_free(zbr);
@@ -2312,11 +2316,11 @@ int ubifs_tnc_add_nm(struct ubifs_info *c, const union ubifs_key *key,
 
 		/* Ensure the znode is dirtied */
 		if (znode->cnext || !ubifs_zn_dirty(znode)) {
-			    znode = dirty_cow_bottom_up(c, znode);
-			    if (IS_ERR(znode)) {
-				    err = PTR_ERR(znode);
-				    goto out_unlock;
-			    }
+			znode = dirty_cow_bottom_up(c, znode);
+			if (IS_ERR(znode)) {
+				err = PTR_ERR(znode);
+				goto out_unlock;
+			}
 		}
 
 		if (found == 1) {
@@ -2622,11 +2626,11 @@ int ubifs_tnc_remove_range(struct ubifs_info *c, union ubifs_key *from_key,
 
 		/* Ensure the znode is dirtied */
 		if (znode->cnext || !ubifs_zn_dirty(znode)) {
-			    znode = dirty_cow_bottom_up(c, znode);
-			    if (IS_ERR(znode)) {
-				    err = PTR_ERR(znode);
-				    goto out_unlock;
-			    }
+			znode = dirty_cow_bottom_up(c, znode);
+			if (IS_ERR(znode)) {
+				err = PTR_ERR(znode);
+				goto out_unlock;
+			}
 		}
 
 		/* Remove all keys in range except the first */
@@ -2677,7 +2681,7 @@ int ubifs_tnc_remove_ino(struct ubifs_info *c, ino_t inum)
 	struct ubifs_dent_node *xent, *pxent = NULL;
 	struct qstr nm = { .name = NULL };
 
-	dbg_tnc("ino %lu", inum);
+	dbg_tnc("ino %lu", (unsigned long)inum);
 
 	/*
 	 * Walk all extended attribute entries and remove them together with
@@ -2697,7 +2701,8 @@ int ubifs_tnc_remove_ino(struct ubifs_info *c, ino_t inum)
 		}
 
 		xattr_inum = le64_to_cpu(xent->inum);
-		dbg_tnc("xent '%s', ino %lu", xent->name, xattr_inum);
+		dbg_tnc("xent '%s', ino %lu", xent->name,
+			(unsigned long)xattr_inum);
 
 		nm.name = xent->name;
 		nm.len = le16_to_cpu(xent->nlen);

@@ -44,15 +44,11 @@ static ssize_t bt_read(struct device *dev, struct device_attribute *attr,
 		       char *buf)
 {
 	int ret = 0;	
+	struct gta01_pm_bt_data *bt_data = dev_get_drvdata(dev);
 
 	if (!strcmp(attr->attr.name, "power_on")) {
-
 		if (machine_is_neo1973_gta01()) {
-			if (pcf50606_onoff_get(pcf50606_global,
-						PCF50606_REGULATOR_D1REG) &&
-			    pcf50606_voltage_get(pcf50606_global,
-						 PCF50606_REGULATOR_D1REG) == 3100)
-				ret = 1;
+			ret = regulator_is_enabled(bt_data->regulator);
 		} else if (machine_is_neo1973_gta02()) {
 			if (s3c2410_gpio_getpin(GTA02_GPIO_BT_EN))
 				ret = 1;
@@ -103,18 +99,19 @@ static int bt_rfkill_toggle_radio(void *data, enum rfkill_state state)
 {
 	struct device *dev = data;
 	unsigned long on = (state == RFKILL_STATE_ON);
+	struct gta01_pm_bt_data *bt_data = dev_get_drvdata(dev);
 
 	if (machine_is_neo1973_gta01()) {
 		/* if we are powering up, assert reset, then power,
 		 * then release reset */
 		if (on) {
 			neo1973_gpb_setpin(GTA01_GPIO_BT_EN, 0);
-			pcf50606_voltage_set(pcf50606_global,
-					     PCF50606_REGULATOR_D1REG,
-					     3100);
+				if (!regulator_is_enabled(bt_data->regulator))
+					regulator_enable(bt_data->regulator);
+		} else {
+			if (regulator_is_enabled(bt_data->regulator))
+				regulator_disable(bt_data->regulator);
 		}
-		pcf50606_onoff_set(pcf50606_global,
-				   PCF50606_REGULATOR_D1REG, on);
 		neo1973_gpb_setpin(GTA01_GPIO_BT_EN, on);
 	} else if (machine_is_neo1973_gta02())
 		__gta02_pm_bt_toggle_radio(dev, on);
@@ -138,12 +135,13 @@ static ssize_t bt_write(struct device *dev, struct device_attribute *attr,
 			 * then release reset */
 			if (on) {
 				neo1973_gpb_setpin(GTA01_GPIO_BT_EN, 0);
-				pcf50606_voltage_set(pcf50606_global,
-						     PCF50606_REGULATOR_D1REG,
-						     3100);
+				if (!regulator_is_enabled(bt_data->regulator))
+					regulator_enable(bt_data->regulator);
+			} else {
+				if (regulator_is_enabled(bt_data->regulator))
+					regulator_disable(bt_data->regulator);
 			}
-			pcf50606_onoff_set(pcf50606_global,
-					   PCF50606_REGULATOR_D1REG, on);
+
 			neo1973_gpb_setpin(GTA01_GPIO_BT_EN, on);
 		} else if (machine_is_neo1973_gta02())
 			__gta02_pm_bt_toggle_radio(dev, on);
@@ -170,7 +168,10 @@ static int gta01_bt_suspend(struct platform_device *pdev, pm_message_t state)
 
 	dev_dbg(&pdev->dev, DRVMSG ": suspending\n");
 
-	if (machine_is_neo1973_gta02()) {
+	if (machine_is_neo1973_gta01()) {
+		if (regulator_is_enabled(bt_data->regulator))
+			regulator_disable(bt_data->regulator);
+	} else if (machine_is_neo1973_gta02()) {
 		bt_data->pre_resume_state =
 					  s3c2410_gpio_getpin(GTA02_GPIO_BT_EN);
 		__gta02_pm_bt_toggle_radio(&pdev->dev, 0);
@@ -221,8 +222,23 @@ static int __init gta01_bt_probe(struct platform_device *pdev)
 
 	if (machine_is_neo1973_gta01()) {
 		/* we make sure that the voltage is off */
-		pcf50606_onoff_set(pcf50606_global,
-				   PCF50606_REGULATOR_D1REG, 0);
+		regulator = regulator_get(&pdev->dev, "BT_3V1");
+		if (IS_ERR(regulator))
+			return -ENODEV;
+
+		bt_data->regulator = regulator;
+
+		/* this tests the true physical state of the regulator... */
+		if (regulator_is_enabled(regulator)) {
+			/*
+			 * but these only operate on the logical state of the
+			 * regulator... so we need to logicaly "adopt" it on
+			 * to turn it off
+			 */
+			regulator_enable(regulator);
+			regulator_disable(regulator);
+		}
+
 		/* we pull reset to low to make sure that the chip doesn't
 	 	 * drain power through the reset line */
 		neo1973_gpb_setpin(GTA01_GPIO_BT_EN, 0);

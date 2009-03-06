@@ -27,7 +27,7 @@ static ssize_t pm_host_read(struct device *dev, struct device_attribute *attr,
 			    char *buf)
 {
 	return sprintf(buf, "%d\n",
-		       pcf50633_gpio_get(gta02_pcf_pdata.pcf, PCF50633_GPO)
+		       pcf50633_gpio_get(gta02_pcf, PCF50633_GPO)
 		       				== PCF50633_GPOCFG_GPOSEL_1);
 }
 
@@ -43,7 +43,7 @@ static ssize_t pm_host_write(struct device *dev, struct device_attribute *attr,
 		val = PCF50633_GPOCFG_GPOSEL_0;
 
 
-	pcf50633_gpio_set(gta02_pcf_pdata.pcf, PCF50633_GPO, val);
+	pcf50633_gpio_set(gta02_pcf, PCF50633_GPO, val);
 
 	return count;
 }

@@ -44,17 +44,17 @@ static void sleep_setup(unsigned int irq, unsigned int gpio)
 
 static void sleep_led(unsigned int gpio)
 {
-	gpio_request(gpio, "sleep led");
-	gpio_direction_output(gpio, 0);
+//	gpio_request(gpio, "sleep led");
+//	gpio_direction_output(gpio, 0);
 }
 
 static __init int smdk6410_sleeptest_init(void)
 {
 	sleep_setup(IRQ_EINT(10), S3C64XX_GPN(10));
-	sleep_led(S3C64XX_GPN(15));
-	sleep_led(S3C64XX_GPN(14));
-	sleep_led(S3C64XX_GPN(13));
-	sleep_led(S3C64XX_GPN(12));
+//	sleep_led(S3C64XX_GPN(15));
+//	sleep_led(S3C64XX_GPN(14));
+//	sleep_led(S3C64XX_GPN(13));
+//	sleep_led(S3C64XX_GPN(12));
 
 	return 0;
 }

@@ -20,6 +20,7 @@
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/mutex.h>
+#include <linux/math64.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -37,9 +38,9 @@
 #define	OPCODE_NORM_READ	0x03	/* Read data bytes (low frequency) */
 #define	OPCODE_FAST_READ	0x0b	/* Read data bytes (high frequency) */
 #define	OPCODE_PP		0x02	/* Page program (up to 256 bytes) */
-#define	OPCODE_BE_4K 		0x20	/* Erase 4KiB block */
+#define	OPCODE_BE_4K		0x20	/* Erase 4KiB block */
 #define	OPCODE_BE_32K		0x52	/* Erase 32KiB block */
-#define	OPCODE_BE		0xc7	/* Erase whole flash block */
+#define	OPCODE_CHIP_ERASE	0xc7	/* Erase whole flash chip */
 #define	OPCODE_SE		0xd8	/* Sector erase (usually 64KiB) */
 #define	OPCODE_RDID		0x9f	/* Read JEDEC ID */
 
@@ -167,11 +168,11 @@ static int wait_till_ready(struct m25p *flash)
  *
  * Returns 0 if successful, non-zero otherwise.
  */
-static int erase_block(struct m25p *flash)
+static int erase_chip(struct m25p *flash)
 {
-	DEBUG(MTD_DEBUG_LEVEL3, "%s: %s %dKiB\n",
-			flash->spi->dev.bus_id, __func__,
-			flash->mtd.size / 1024);
+	DEBUG(MTD_DEBUG_LEVEL3, "%s: %s %lldKiB\n",
+	      dev_name(&flash->spi->dev), __func__,
+	      (long long)(flash->mtd.size >> 10));
 
 	/* Wait until finished previous write command. */
 	if (wait_till_ready(flash))
@@ -181,7 +182,7 @@ static int erase_block(struct m25p *flash)
 	write_enable(flash);
 
 	/* Set up command buffer. */
-	flash->command[0] = OPCODE_BE;
+	flash->command[0] = OPCODE_CHIP_ERASE;
 
 	spi_write(flash->spi, flash->command, 1);
 
@@ -197,7 +198,7 @@ static int erase_block(struct m25p *flash)
 static int erase_sector(struct m25p *flash, u32 offset)
 {
 	DEBUG(MTD_DEBUG_LEVEL3, "%s: %s %dKiB at 0x%08x\n",
-			flash->spi->dev.bus_id, __func__,
+			dev_name(&flash->spi->dev), __func__,
 			flash->mtd.erasesize / 1024, offset);
 
 	/* Wait until finished previous write command. */
@@ -232,33 +233,36 @@ static int m25p80_erase(struct mtd_info *mtd, struct erase_info *instr)
 {
 	struct m25p *flash = mtd_to_m25p(mtd);
 	u32 addr,len;
+	uint32_t rem;
 
-	DEBUG(MTD_DEBUG_LEVEL2, "%s: %s %s 0x%08x, len %d\n",
-			flash->spi->dev.bus_id, __func__, "at",
-			(u32)instr->addr, instr->len);
+	DEBUG(MTD_DEBUG_LEVEL2, "%s: %s %s 0x%llx, len %lld\n",
+	      dev_name(&flash->spi->dev), __func__, "at",
+	      (long long)instr->addr, (long long)instr->len);
 
 	/* sanity checks */
 	if (instr->addr + instr->len > flash->mtd.size)
 		return -EINVAL;
-	if ((instr->addr % mtd->erasesize) != 0
-			|| (instr->len % mtd->erasesize) != 0) {
+	div_u64_rem(instr->len, mtd->erasesize, &rem);
+	if (rem)
 		return -EINVAL;
-	}
 
 	addr = instr->addr;
 	len = instr->len;
 
 	mutex_lock(&flash->lock);
 
-	/* REVISIT in some cases we could speed up erasing large regions
-	 * by using OPCODE_SE instead of OPCODE_BE_4K
-	 */
-
-	/* now erase those sectors */
-	if (len == flash->mtd.size && erase_block(flash)) {
+	/* whole-chip erase? */
+	if (len == flash->mtd.size && erase_chip(flash)) {
 		instr->state = MTD_ERASE_FAILED;
 		mutex_unlock(&flash->lock);
 		return -EIO;
+
+	/* REVISIT in some cases we could speed up erasing large regions
+	 * by using OPCODE_SE instead of OPCODE_BE_4K.  We may have set up
+	 * to use "small sector erase", but that's not always optimal.
+	 */
+
+	/* "sector"-at-a-time erase */
 	} else {
 		while (len) {
 			if (erase_sector(flash, addr)) {
@@ -292,7 +296,7 @@ static int m25p80_read(struct mtd_info *mtd, loff_t from, size_t len,
 	struct spi_message m;
 
 	DEBUG(MTD_DEBUG_LEVEL2, "%s: %s %s 0x%08x, len %zd\n",
-			flash->spi->dev.bus_id, __func__, "from",
+			dev_name(&flash->spi->dev), __func__, "from",
 			(u32)from, len);
 
 	/* sanity checks */
@@ -364,7 +368,7 @@ static int m25p80_write(struct mtd_info *mtd, loff_t to, size_t len,
 	struct spi_message m;
 
 	DEBUG(MTD_DEBUG_LEVEL2, "%s: %s %s 0x%08x, len %zd\n",
-			flash->spi->dev.bus_id, __func__, "to",
+			dev_name(&flash->spi->dev), __func__, "to",
 			(u32)to, len);
 
 	if (retlen)
@@ -560,7 +564,7 @@ static struct flash_info *__devinit jedec_probe(struct spi_device *spi)
 	tmp = spi_write_then_read(spi, &code, 1, id, 5);
 	if (tmp < 0) {
 		DEBUG(MTD_DEBUG_LEVEL0, "%s: error %d reading JEDEC ID\n",
-			spi->dev.bus_id, tmp);
+			dev_name(&spi->dev), tmp);
 		return NULL;
 	}
 	jedec = id[0];
@@ -574,10 +578,11 @@ static struct flash_info *__devinit jedec_probe(struct spi_device *spi)
 	for (tmp = 0, info = m25p_data;
 			tmp < ARRAY_SIZE(m25p_data);
 			tmp++, info++) {
-		if (info->jedec_id == jedec)
-			if (ext_jedec != 0 && info->ext_id != ext_jedec)
+		if (info->jedec_id == jedec) {
+			if (info->ext_id != 0 && info->ext_id != ext_jedec)
 				continue;
 			return info;
+		}
 	}
 	dev_err(&spi->dev, "unrecognized JEDEC id %06x\n", jedec);
 	return NULL;
@@ -613,7 +618,7 @@ static int __devinit m25p_probe(struct spi_device *spi)
 		/* unrecognized chip? */
 		if (i == ARRAY_SIZE(m25p_data)) {
 			DEBUG(MTD_DEBUG_LEVEL0, "%s: unrecognized id %s\n",
-					spi->dev.bus_id, data->type);
+					dev_name(&spi->dev), data->type);
 			info = NULL;
 
 		/* recognized; is that chip really what's there? */
@@ -654,7 +659,7 @@ static int __devinit m25p_probe(struct spi_device *spi)
 	if (data && data->name)
 		flash->mtd.name = data->name;
 	else
-		flash->mtd.name = spi->dev.bus_id;
+		flash->mtd.name = dev_name(&spi->dev);
 
 	flash->mtd.type = MTD_NORFLASH;
 	flash->mtd.writesize = 1;
@@ -673,24 +678,24 @@ static int __devinit m25p_probe(struct spi_device *spi)
 		flash->mtd.erasesize = info->sector_size;
 	}
 
-	dev_info(&spi->dev, "%s (%d Kbytes)\n", info->name,
-			flash->mtd.size / 1024);
+	dev_info(&spi->dev, "%s (%lld Kbytes)\n", info->name,
+			(long long)flash->mtd.size >> 10);
 
 	DEBUG(MTD_DEBUG_LEVEL2,
-		"mtd .name = %s, .size = 0x%.8x (%uMiB) "
+		"mtd .name = %s, .size = 0x%llx (%lldMiB) "
 			".erasesize = 0x%.8x (%uKiB) .numeraseregions = %d\n",
 		flash->mtd.name,
-		flash->mtd.size, flash->mtd.size / (1024*1024),
+		(long long)flash->mtd.size, (long long)(flash->mtd.size >> 20),
 		flash->mtd.erasesize, flash->mtd.erasesize / 1024,
 		flash->mtd.numeraseregions);
 
 	if (flash->mtd.numeraseregions)
 		for (i = 0; i < flash->mtd.numeraseregions; i++)
 			DEBUG(MTD_DEBUG_LEVEL2,
-				"mtd.eraseregions[%d] = { .offset = 0x%.8x, "
+				"mtd.eraseregions[%d] = { .offset = 0x%llx, "
 				".erasesize = 0x%.8x (%uKiB), "
 				".numblocks = %d }\n",
-				i, flash->mtd.eraseregions[i].offset,
+				i, (long long)flash->mtd.eraseregions[i].offset,
 				flash->mtd.eraseregions[i].erasesize,
 				flash->mtd.eraseregions[i].erasesize / 1024,
 				flash->mtd.eraseregions[i].numblocks);
@@ -718,12 +723,12 @@ static int __devinit m25p_probe(struct spi_device *spi)
 		if (nr_parts > 0) {
 			for (i = 0; i < nr_parts; i++) {
 				DEBUG(MTD_DEBUG_LEVEL2, "partitions[%d] = "
-					"{.name = %s, .offset = 0x%.8x, "
-						".size = 0x%.8x (%uKiB) }\n",
+					"{.name = %s, .offset = 0x%llx, "
+						".size = 0x%llx (%lldKiB) }\n",
 					i, parts[i].name,
-					parts[i].offset,
-					parts[i].size,
-					parts[i].size / 1024);
+					(long long)parts[i].offset,
+					(long long)parts[i].size,
+					(long long)(parts[i].size >> 10));
 			}
 			flash->partitioned = 1;
 			return add_mtd_partitions(&flash->mtd, parts, nr_parts);

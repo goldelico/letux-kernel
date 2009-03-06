@@ -47,7 +47,16 @@
 
 #include <linux/mmc/host.h>
 
-#include <linux/pcf50606.h>
+#include <linux/mfd/pcf50606/core.h>
+#include <linux/mfd/pcf50606/pmic.h>
+#include <linux/mfd/pcf50606/mbc.h>
+#include <linux/mfd/pcf50606/adc.h>
+
+#include <linux/gta01_battery.h>
+
+#include <linux/regulator/machine.h>
+#include <linux/regulator/consumer.h>
+
 
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -60,7 +69,6 @@
 
 #include <mach/regs-gpio.h>
 #include <mach/fb.h>
-#include <mach/mci.h>
 #include <mach/spi.h>
 #include <mach/spi-gpio.h>
 #include <mach/usb-control.h>
@@ -74,13 +82,18 @@
 #include <plat/pm.h>
 #include <plat/udc.h>
 #include <plat/iic.h>
+#include <plat/mci.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 #include <mach/neo1973-pm-gsm.h>
 
 #include <linux/jbt6k74.h>
 
-#include <linux/ts_filter_mean.h>
-#include <linux/ts_filter_median.h>
+#ifdef CONFIG_TOUCHSCREEN_FILTER
+#include <../drivers/input/touchscreen/ts_filter_linear.h>
+#include <../drivers/input/touchscreen/ts_filter_mean.h>
+#include <../drivers/input/touchscreen/ts_filter_median.h>
+#include <../drivers/input/touchscreen/ts_filter_group.h>
+#endif
 
 
 static struct map_desc gta01_iodesc[] __initdata = {
@@ -115,8 +128,14 @@ static struct s3c2410_uartcfg gta01_uartcfgs[] = {
 	},
 };
 
-/* PMU driver info */
+/* TODO */
+static void gta01_pmu_event_callback(struct pcf50606 *pcf, int irq)
+{
+	/*TODO : Handle ACD here */
+}
 
+/* FIXME : Goes away when ACD is handled above */
+#if 0 
 static int pmu_callback(struct device *dev, unsigned int feature,
 			enum pmu_event event)
 {
@@ -139,152 +158,315 @@ static int pmu_callback(struct device *dev, unsigned int feature,
 
 	return 0;
 }
+#endif
 
-static struct pcf50606_platform_data gta01_pcf_pdata = {
-	.used_features	= PCF50606_FEAT_EXTON |
-			  PCF50606_FEAT_MBC |
-			  PCF50606_FEAT_BBC |
-			  PCF50606_FEAT_RTC |
-			  PCF50606_FEAT_WDT |
-			  PCF50606_FEAT_CHGCUR |
-			  PCF50606_FEAT_BATVOLT |
-			  PCF50606_FEAT_BATTEMP,
-	.onkey_seconds_required = 3,
-	.cb		= &pmu_callback,
-	.r_fix_batt	= 10000,
-	.r_fix_batt_par	= 10000,
-	.r_sense_milli	= 220,
-	.rails	= {
-		[PCF50606_REGULATOR_D1REG] = {
-			.name		= "bt_3v15",
-			.voltage	= {
-				.init	= 3150,
-				.max	= 3150,
-			},
-		},
-		[PCF50606_REGULATOR_D2REG] = {
-			.name		= "gl_2v5",
-			.voltage	= {
-				.init	= 2500,
-				.max	= 2500,
-			},
-		},
-		[PCF50606_REGULATOR_D3REG] = {
-			.name		= "stby_1v8",
-			.flags		= PMU_VRAIL_F_SUSPEND_ON,
-			.voltage	= {
-				.init	= 1800,
-				.max	= 2100,
-			},
-		},
-		[PCF50606_REGULATOR_DCD] = {
-			.name		= "gl_1v5",
-			.voltage	= {
-				.init	= 1500,
-				.max	= 1500,
-			},
-		},
-		[PCF50606_REGULATOR_DCDE] = {
-			.name		= "io_3v3",
-			.flags		= PMU_VRAIL_F_SUSPEND_ON,
-			.voltage	= {
-				.init	= 3300,
-				.max	= 3330,
-			},
-		},
-		[PCF50606_REGULATOR_DCUD] = {
-			.name		= "core_1v8",
-			.flags		= PMU_VRAIL_F_SUSPEND_ON,
-			.voltage	= {
-				.init	= 2100,
-				.max	= 2100,
-			},
-		},
-		[PCF50606_REGULATOR_IOREG] = {
-			.name		= "codec_3v3",
-			.voltage	= {
-				.init	= 3300,
-				.max	= 3300,
-			},
-		},
-		[PCF50606_REGULATOR_LPREG] = {
-			.name		= "lcm_3v3",
-			.voltage	= {
-				.init	= 3300,
-				.max	= 3300,
-			},
-		}
+struct pcf50606 *gta01_pcf;
+
+static struct platform_device gta01_pm_gsm_dev = {
+	.name		= "neo1973-pm-gsm",
+};
+
+static struct platform_device gta01_pm_bt_dev = {
+	.name		= "neo1973-pm-bt",
+};
+static struct platform_device gta01_pm_gps_dev = {
+	.name		= "neo1973-pm-gps",
+};
+
+static struct regulator_consumer_supply ioreg_consumers[] = {
+	{
+		.dev = &gta01_pm_gps_dev.dev,
+		.supply = "GPS_2V8",
 	},
 };
 
-static void cfg_pmu_vrail(struct pmu_voltage_rail *vrail, char *name,
-			  unsigned int flags, unsigned int init,
+static struct regulator_consumer_supply d1reg_consumers[] = {
+	{
+		.dev = &gta01_pm_gps_dev.dev,
+		.supply = "GPS_3V",
+	},
+	{
+		.dev = &gta01_pm_bt_dev.dev,
+		.supply = "BT_3V1",
+	},
+};
+
+static struct regulator_consumer_supply dcd_consumers[] = {
+	{
+		.dev = &gta01_pm_gps_dev.dev,
+		.supply = "GPS_3V3",
+	},
+	{
+		.dev = &gta01_pm_gps_dev.dev,
+		.supply = "GPS_1V5",
+	},
+};
+
+static struct regulator_consumer_supply d2reg_consumers[] = {
+	{
+		.dev = &gta01_pm_gps_dev.dev,
+		.supply = "GPS_2V5",
+	},
+	{
+		.dev = &s3c_device_sdi.dev,
+		.supply = "SD_3V3",
+	},
+};
+
+static int gta01_bat_get_charging_status(void)
+{
+	struct pcf50606 *pcf = gta01_pcf;
+	u8 mbcc1, chgmod;
+
+	mbcc1 = pcf50606_reg_read(pcf, PCF50606_REG_MBCC1);
+	chgmod = mbcc1 & PCF50606_MBCC1_CHGMOD_MASK;
+
+	if (chgmod == PCF50606_MBCC1_CHGMOD_IDLE)
+		return 0;
+	else
+		return 1;
+}
+
+static int gta01_bat_get_voltage(void)
+{
+	struct pcf50606 *pcf = gta01_pcf;
+	u16 adc, mv = 0;
+
+	adc = pcf50606_adc_sync_read(pcf, PCF50606_ADCMUX_BATVOLT_RES);
+	mv = (adc * 6000) / 1024;
+	
+	return mv;
+}
+
+static int gta01_bat_get_current(void)
+{
+	struct pcf50606 *pcf = gta01_pcf;
+	u16 adc_battvolt, adc_adcin1;
+	s32 res;
+	
+	adc_battvolt = pcf50606_adc_sync_read(pcf, PCF50606_ADCMUX_BATVOLT_SUBTR);
+	adc_adcin1 = pcf50606_adc_sync_read(pcf, PCF50606_ADCMUX_ADCIN1_SUBTR);
+	res = (adc_adcin1 - adc_battvolt) * 2400;
+
+	/*rsense is 220 milli */
+	return (res * 1000) / (220 * 1024);
+}
+
+static struct gta01_bat_platform_data gta01_bat_pdata = {
+	.get_charging_status = gta01_bat_get_charging_status,
+	.get_voltage = gta01_bat_get_voltage,
+	.get_current = gta01_bat_get_current,
+};
+
+struct platform_device gta01_bat = {
+	.name = "gta01_battery",
+	.id = -1,
+	.dev = {
+		.platform_data = &gta01_bat_pdata,
+	}
+};
+
+static void gta01_pcf_probe_done(struct pcf50606 *pcf)
+{
+	gta01_pcf = pcf;
+	gta01_bat.dev.parent = pcf->dev;
+	platform_device_register(&gta01_bat);
+}
+
+static int gps_registered_regulators = 0;
+
+static void gta01_pmu_regulator_registered(struct pcf50606 *pcf, int id)
+{
+	switch(id) {
+		case PCF50606_REGULATOR_D1REG:
+			platform_device_register(&gta01_pm_bt_dev);
+			gps_registered_regulators++;
+			break;
+		case PCF50606_REGULATOR_D2REG:
+			gps_registered_regulators++;
+			break;
+		case PCF50606_REGULATOR_IOREG:
+		case PCF50606_REGULATOR_DCD:
+			gps_registered_regulators++;
+			break;
+	}
+
+	/* All GPS related regulators registered ? */
+	if (gps_registered_regulators == 4)
+		platform_device_register(&gta01_pm_gps_dev);
+			
+}
+
+static struct pcf50606_platform_data gta01_pcf_pdata = {
+	.resumers = {
+			[0] = 	PCF50606_INT1_ALARM |
+				PCF50606_INT1_ONKEYF |
+				PCF50606_INT1_EXTONR,
+			[1] = 	PCF50606_INT2_CHGWD10S |
+				PCF50606_INT2_CHGPROT |
+				PCF50606_INT2_CHGERR,
+			[2] =	PCF50606_INT3_LOWBAT |
+				PCF50606_INT3_HIGHTMP |
+				PCF50606_INT3_ACDINS,
+	},
+	.mbc_event_callback = gta01_pmu_event_callback,
+	.reg_init_data = {
+		[PCF50606_REGULATOR_D1REG] = {
+			.constraints = {
+				.min_uV = 3000000,
+				.max_uV = 3150000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
+			},
+			.num_consumer_supplies = ARRAY_SIZE(d1reg_consumers),
+			.consumer_supplies = d1reg_consumers,
+		},
+		
+		[PCF50606_REGULATOR_D2REG] = {
+			.constraints = {
+				.min_uV = 1650000,
+				.max_uV = 3300000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
+				.apply_uV = 1,
+			},
+			.num_consumer_supplies = ARRAY_SIZE(d2reg_consumers),
+			.consumer_supplies = d2reg_consumers,
+
+		},
+
+		[PCF50606_REGULATOR_D3REG] = {
+			.constraints = {
+				.min_uV = 1800000,
+				.max_uV = 2100000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.state_mem = {
+					.enabled = 1,
+				},
+			},
+			.num_consumer_supplies = 0,
+		},
+
+		[PCF50606_REGULATOR_DCD] = {
+			.constraints = {
+				.min_uV = 1500000,
+				.max_uV = 1500000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
+			},
+			.num_consumer_supplies = ARRAY_SIZE(dcd_consumers),
+			.consumer_supplies = dcd_consumers,
+		},
+
+		[PCF50606_REGULATOR_DCDE] = {
+			.constraints = {
+				.min_uV = 3300000,
+				.max_uV = 3300000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
+				.state_mem = {
+					.enabled = 1,
+				},
+			},
+			.num_consumer_supplies = 0,
+		},
+
+		[PCF50606_REGULATOR_DCUD] = {
+			.constraints = {
+				.min_uV = 2100000,
+				.max_uV = 2100000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
+				.state_mem = {
+					.enabled = 1,
+				},
+			},
+			.num_consumer_supplies = 0,
+		},
+		
+		[PCF50606_REGULATOR_IOREG] = {
+			.constraints = {
+				.min_uV = 3300000,
+				.max_uV = 3300000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
+			},
+			.num_consumer_supplies = ARRAY_SIZE(ioreg_consumers),
+			.consumer_supplies = ioreg_consumers,
+
+		},
+		
+		[PCF50606_REGULATOR_LPREG] = {
+			.constraints = {
+				.min_uV = 3300000,
+				.max_uV = 3300000,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.apply_uV = 1,
+			},
+			.num_consumer_supplies = 0,
+		},
+	},
+	.probe_done = gta01_pcf_probe_done,
+	.regulator_registered = gta01_pmu_regulator_registered,
+};
+
+static void cfg_pmu_vrail(struct regulator_init_data *vrail,
+			  unsigned int suspend_on, unsigned int min,
 			  unsigned int max)
 {
-	vrail->name = name;
-	vrail->flags = flags;
-	vrail->voltage.init = init;
-	vrail->voltage.max = max;
+	vrail->constraints.state_mem.enabled = suspend_on;
+	vrail->constraints.min_uV = min;
+	vrail->constraints.max_uV = min;
+	vrail->constraints.apply_uV = 1;
 }
 
 static void mangle_pmu_pdata_by_system_rev(void)
 {
+	struct regulator_init_data *reg_init_data;
+
+	reg_init_data = gta01_pcf_pdata.reg_init_data;
+
 	switch (system_rev) {
 	case GTA01Bv4_SYSTEM_REV:
-		gta01_pcf_pdata.used_features |= PCF50606_FEAT_ACD;
+
+		/* FIXME : gta01_pcf_pdata.used_features |= PCF50606_FEAT_ACD; */
 		break;
 	case GTA01Bv3_SYSTEM_REV:
 	case GTA01Bv2_SYSTEM_REV:
-		gta01_pcf_pdata.rails[PCF50606_REGULATOR_D3REG]
-					.name = "user1";
-		gta01_pcf_pdata.rails[PCF50606_REGULATOR_D3REG]
-					.flags &= ~PMU_VRAIL_F_SUSPEND_ON;
-		gta01_pcf_pdata.rails[PCF50606_REGULATOR_D3REG]
-					.flags = PMU_VRAIL_F_UNUSED;
+		reg_init_data[PCF50606_REGULATOR_D3REG].constraints.state_mem.enabled = 1;
 		break;
 	case GTA01v4_SYSTEM_REV:
-		cfg_pmu_vrail(&gta01_pcf_pdata.rails[PCF50606_REGULATOR_DCUD],
-			      "core_1v8", PMU_VRAIL_F_SUSPEND_ON, 1800, 1800);
-		cfg_pmu_vrail(&gta01_pcf_pdata.rails[PCF50606_REGULATOR_D1REG],
-			      "vrf_3v", 0, 3000, 3000);
-		cfg_pmu_vrail(&gta01_pcf_pdata.rails[PCF50606_REGULATOR_D3REG],
-			      "vtcxo_2v8", 0, 2800, 2800);
-		cfg_pmu_vrail(&gta01_pcf_pdata.rails[PCF50606_REGULATOR_DCD],
-			      "gl_3v5", 0, 3500, 3500);
+		cfg_pmu_vrail(&reg_init_data[PCF50606_REGULATOR_DCUD],
+			      1, 18000000, 1800000);
+		cfg_pmu_vrail(&reg_init_data[PCF50606_REGULATOR_D1REG],
+			      0, 3000000, 3000000);
+		cfg_pmu_vrail(&reg_init_data[PCF50606_REGULATOR_D3REG],
+			      0, 2800000, 2800000);
+		cfg_pmu_vrail(&reg_init_data[PCF50606_REGULATOR_DCD],
+			      0, 3500000, 3500000);
 		break;
 	case GTA01v3_SYSTEM_REV:
-		cfg_pmu_vrail(&gta01_pcf_pdata.rails[PCF50606_REGULATOR_D1REG],
-			      "vrf_3v", 0, 3000, 3000);
-		cfg_pmu_vrail(&gta01_pcf_pdata.rails[PCF50606_REGULATOR_D2REG],
-			      "sd_3v3", 0, 3300, 3300);
-		cfg_pmu_vrail(&gta01_pcf_pdata.rails[PCF50606_REGULATOR_D3REG],
-			      "codec_3v3", 0, 3300, 3300);
-		cfg_pmu_vrail(&gta01_pcf_pdata.rails[PCF50606_REGULATOR_DCD],
-			      "gpsio_3v3", 0, 3300, 3300);
-		cfg_pmu_vrail(&gta01_pcf_pdata.rails[PCF50606_REGULATOR_DCUD],
-			      "core_1v8", PMU_VRAIL_F_SUSPEND_ON, 1800, 1800);
-		cfg_pmu_vrail(&gta01_pcf_pdata.rails[PCF50606_REGULATOR_IOREG],
-			      "vtcxo_2v8", 0, 2800, 2800);
+		cfg_pmu_vrail(&reg_init_data[PCF50606_REGULATOR_D1REG],
+			      0, 3000000, 3000000);
+		cfg_pmu_vrail(&reg_init_data[PCF50606_REGULATOR_D2REG],
+			      0, 3300000, 3300000);
+		cfg_pmu_vrail(&reg_init_data[PCF50606_REGULATOR_D3REG],
+			      0, 3300000, 3300000);
+		cfg_pmu_vrail(&reg_init_data[PCF50606_REGULATOR_DCD],
+			      0, 3300000, 3300000);
+		cfg_pmu_vrail(&reg_init_data[PCF50606_REGULATOR_DCUD],
+			      1, 1800000, 1800000);
+		cfg_pmu_vrail(&reg_init_data[PCF50606_REGULATOR_IOREG],
+			      0, 2800000, 2800000);
 		break;
 	}
 }
 
-static struct resource gta01_pmu_resources[] = {
-	[0] = {
-		.flags	= IORESOURCE_IRQ,
-		.start	= GTA01_IRQ_PCF50606,
-		.end	= GTA01_IRQ_PCF50606,
-	},
-};
-
-struct platform_device gta01_pmu_dev = {
-	.name 		= "pcf50606",
-	.num_resources	= ARRAY_SIZE(gta01_pmu_resources),
-	.resource	= gta01_pmu_resources,
-	.dev		= {
-		.platform_data = &gta01_pcf_pdata,
-	},
-};
+static void gta01_power_off(void)
+{
+	pcf50606_reg_write(gta01_pcf, PCF50606_REG_OOCC1,
+			PCF50606_OOCC1_GOSTDBY);
+}
 
 /* LCD driver info */
 
@@ -395,30 +577,44 @@ static struct s3c2410_platform_nand gta01_nand_info = {
 	.sets		= gta01_nand_sets,
 };
 
+static struct regulator *s3c_sdi_regulator;
+
 static void gta01_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 {
 	int bit;
 	int mv = 1700; /* 1.7V for MMC_VDD_165_195 */
+	struct regulator *regulator;
 
 	printk(KERN_DEBUG "mmc_set_power(power_mode=%u, vdd=%u)\n",
 	       power_mode, vdd);
 
+	if (!s3c_sdi_regulator) {
+		s3c_sdi_regulator =
+		       	regulator_get(&s3c_device_sdi.dev, "SD_3V3");
+		if (!s3c_sdi_regulator) {
+			printk(KERN_ERR "gta01_mmc_set_power : Cannot get regulator");
+			return;
+		}
+	}
+
+	regulator = s3c_sdi_regulator;
+
+		return;
 	switch (system_rev) {
 	case GTA01v3_SYSTEM_REV:
 		switch (power_mode) {
 		case MMC_POWER_OFF:
-			pcf50606_onoff_set(pcf50606_global,
-					   PCF50606_REGULATOR_D2REG, 0);
+			regulator_disable(regulator);
 			break;
 		case MMC_POWER_ON:
 			/* translate MMC_VDD_* VDD bit to mv */
 			for (bit = 8; bit != 24; bit++)
 				if (vdd == (1 << bit))
 					mv += 100 * (bit - 4);
-			pcf50606_voltage_set(pcf50606_global,
-					     PCF50606_REGULATOR_D2REG, mv);
-			pcf50606_onoff_set(pcf50606_global,
-					   PCF50606_REGULATOR_D2REG, 1);
+			regulator_set_voltage(regulator, mv * 1000, mv * 10000);
+			break;
+		case MMC_POWER_UP:
+			regulator_enable(regulator);
 			break;
 		}
 		break;
@@ -436,11 +632,14 @@ static void gta01_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 		}
 		break;
 	}
+	
+	if (regulator)
+		regulator_put(regulator);
 }
 
 static struct s3c24xx_mci_pdata gta01_mmc_cfg = {
 	.gpio_detect	= GTA01_GPIO_nSD_DETECT,
-	.set_power	= &gta01_mmc_set_power,
+	.set_power	= &gta01_mmc_set_power,	
 	.ocr_avail	= MMC_VDD_165_195|MMC_VDD_20_21|
 			  MMC_VDD_21_22|MMC_VDD_22_23|MMC_VDD_23_24|
 			  MMC_VDD_24_25|MMC_VDD_25_26|MMC_VDD_26_27|
@@ -478,17 +677,17 @@ static void __gta01_udc_vbus_draw(struct work_struct *work)
 	/* this is a fix to work around boot-time ordering problems if the
 	 * s3c2410_udc is initialized before the pcf50606 driver has defined
 	 * pcf50606_global */
-	if (!pcf50606_global)
+	if (!gta01_pcf)
 		return;
 
 	if (gta01_udc_vbus_drawer.ma >= 500) {
 		/* enable fast charge */
 		printk(KERN_DEBUG "udc: enabling fast charge\n");
-		pcf50606_charge_fast(pcf50606_global, 1);
+		pcf50606_charge_fast(gta01_pcf, 1);
 	} else {
 		/* disable fast charge */
 		printk(KERN_DEBUG "udc: disabling fast charge\n");
-		pcf50606_charge_fast(pcf50606_global, 0);
+		pcf50606_charge_fast(gta01_pcf, 1);
 	}
 }
 
@@ -504,6 +703,19 @@ static struct s3c2410_udc_mach_info gta01_udc_cfg = {
 
 
 /* touchscreen configuration */
+#ifdef CONFIG_TOUCHSCREEN_FILTER
+static struct ts_filter_linear_configuration gta01_ts_linear_config = {
+	.constants = {1, 0, 0, 0, 1, 0, 1},	/* don't modify coords */
+	.coord0 = 0,
+	.coord1 = 1,
+};
+
+static struct ts_filter_group_configuration gta01_ts_group_config = {
+	.extent = 12,
+	.close_enough = 10,
+	.threshold = 6,		/* at least half of the points in a group */
+	.attempts = 10,
+};
 
 static struct ts_filter_median_configuration gta01_ts_median_config = {
 	.extent = 31,
@@ -521,14 +733,26 @@ static struct s3c2410_ts_mach_info gta01_ts_cfg = {
 	.delay = 10000,
 	.presc = 0xff, /* slow as we can go */
 	.filter_sequence = {
-		[0] = &ts_filter_median_api,
-		[1] = &ts_filter_mean_api,
+		[0] = &ts_filter_group_api,
+		[1] = &ts_filter_median_api,
+		[2] = &ts_filter_mean_api,
+		[3] = &ts_filter_linear_api,
 	},
 	.filter_config = {
-		[0] = &gta01_ts_median_config,
-		[1] = &gta01_ts_mean_config,
+		[0] = &gta01_ts_group_config,
+		[1] = &gta01_ts_median_config,
+		[2] = &gta01_ts_mean_config,
+		[3] = &gta01_ts_linear_config,
 	},
 };
+#else /* !CONFIG_TOUCHSCREEN_FILTER */
+static struct s3c2410_ts_mach_info gta01_ts_cfg = {
+	.delay = 10000,
+	.presc = 0xff, /* slow as we can go */
+	.filter_sequence = { NULL },
+	.filter_config = { NULL },
+};
+#endif
 
 
 /* SPI */
@@ -577,8 +801,6 @@ static struct s3c2410_spigpio_info spi_gpio_cfg = {
 	.pin_clk	= S3C2410_GPG7,
 	.pin_mosi	= S3C2410_GPG6,
 	.pin_miso	= S3C2410_GPG5,
-	.board_size	= ARRAY_SIZE(gta01_spi_board_info),
-	.board_info	= gta01_spi_board_info,
 	.chip_select	= &spi_gpio_cs,
 	.num_chipselect = 2,   /*** Should be 1 or 2 for gta01? ***/
 };
@@ -661,24 +883,12 @@ static struct resource gta01_button_resources[] = {
 		.start = GTA01_GPIO_JACK_INSERT,
 		.end   = GTA01_GPIO_JACK_INSERT,
 	},
-	[3] = {
-		.start = 0,
-		.end   = 0,
-	},
-	[4] = {
-		.start = 0,
-		.end   = 0,
-	},
 };
 
 struct platform_device gta01_button_dev = {
 	.name		= "neo1973-button",
 	.num_resources	= ARRAY_SIZE(gta01_button_resources),
 	.resource	= gta01_button_resources,
-};
-
-static struct platform_device gta01_pm_gsm_dev = {
-	.name		= "neo1973-pm-gsm",
 };
 
 /* USB */
@@ -704,6 +914,20 @@ static irqreturn_t gta01_modem_irq(int irq, void *param)
 	gta_gsm_interrupts++;
 	return IRQ_HANDLED;
 }
+
+static struct i2c_board_info gta01_i2c_devs[] __initdata = {
+	{
+		I2C_BOARD_INFO("pcf50606", 0x08),
+		.irq = GTA01_IRQ_PCF50606,
+		.platform_data = &gta01_pcf_pdata,
+	},
+	{
+		I2C_BOARD_INFO("lm4587", 0x7c),
+	},
+	{
+		I2C_BOARD_INFO("wm8753", 0x1a),
+	},
+};
 
 static void __init gta01_machine_init(void)
 {
@@ -753,19 +977,20 @@ static void __init gta01_machine_init(void)
 			gta01_led_resources[0].end = GTA01Bv2_GPIO_VIBRATOR_ON;
 		break;
 	case GTA01Bv4_SYSTEM_REV:
-		gta01_pmu_resources[0].start =
-			gta01_pmu_resources[0].end = GTA01Bv4_IRQ_PCF50606;
+		gta01_i2c_devs[0].irq =	 GTA01Bv4_IRQ_PCF50606;
 		gta01_led_resources[0].start =
 			gta01_led_resources[0].end = GTA01Bv4_GPIO_VIBRATOR_ON;
 		break;
 	}
 	mangle_pmu_pdata_by_system_rev();
-	platform_device_register(&gta01_pmu_dev);
+	i2c_register_board_info(0, gta01_i2c_devs, ARRAY_SIZE(gta01_i2c_devs));
+	spi_register_board_info(gta01_spi_board_info, ARRAY_SIZE(gta01_spi_board_info));
+	
 	platform_device_register(&gta01_led_dev);
 
 	platform_add_devices(gta01_devices, ARRAY_SIZE(gta01_devices));
 
-	s3c2410_pm_init();
+	s3c_pm_init();
 
 	set_irq_type(GTA01_IRQ_MODEM, IRQ_TYPE_EDGE_RISING);
 	rc = request_irq(GTA01_IRQ_MODEM, gta01_modem_irq, IRQF_DISABLED,
@@ -773,6 +998,8 @@ static void __init gta01_machine_init(void)
 	enable_irq_wake(GTA01_IRQ_MODEM);
 	printk(KERN_DEBUG  "Enabled GSM wakeup IRQ %d (rc=%d)\n",
 	       GTA01_IRQ_MODEM, rc);
+
+	pm_power_off = &gta01_power_off;
 }
 
 MACHINE_START(NEO1973_GTA01, "GTA01")

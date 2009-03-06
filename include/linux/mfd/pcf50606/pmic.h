@@ -1,8 +1,6 @@
 #ifndef __LINUX_MFD_PCF50606_PMIC_H
 #define __LINUX_MFD_PCF50606_PMIC_H
 
-#include <linux/platform_device.h>
-
 #define PCF50606_REG_DCDC1	 0x1b
 #define PCF50606_REG_DCDC2	 0x1c
 #define PCF50606_REG_DCDC3	 0x1d
@@ -70,13 +68,6 @@ enum pcf50606_regulator_id {
 	PCF50606_REGULATOR_D3REG,
 	PCF50606_REGULATOR_LPREG,
 	PCF50606_REGULATOR_IOREG,
-
-	/* Always last */
-	PCF50606_NUM_REGULATORS
 };
 
-struct pcf50606_pmic {
-	struct platform_device *pdev[PCF50606_NUM_REGULATORS];
-};
 #endif
-

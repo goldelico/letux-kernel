@@ -99,7 +99,7 @@ static inline unsigned long timer_ticks_to_usec(unsigned long ticks)
 
 #define SRCPND_TIMER4 (1<<(IRQ_TIMER4 - IRQ_EINT0))
 
-static unsigned long s3c2410_gettimeoffset (void)
+unsigned long s3c2410_gettimeoffset (void)
 {
 	unsigned long tdone;
 	unsigned long irqpend;

@@ -104,6 +104,11 @@ static struct irq_desc bad_irq_desc = {
 	.lock = SPIN_LOCK_UNLOCKED
 };
 
+#ifdef CONFIG_FIND_IRQ_BLOCKERS
+extern int iblock_limit;
+unsigned long s3c2410_gettimeoffset(void);
+#endif
+
 /*
  * do_IRQ handles all hardware IRQ's.  Decoded IRQs should not
  * come via this function.  Instead, they should provide their
@@ -112,8 +117,14 @@ static struct irq_desc bad_irq_desc = {
 asmlinkage void __exception asm_do_IRQ(unsigned int irq, struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
-
+#ifdef CONFIG_FIND_IRQ_BLOCKERS
+	unsigned long us;
+#endif
 	irq_enter();
+
+#ifdef CONFIG_FIND_IRQ_BLOCKERS
+	us = s3c2410_gettimeoffset();
+#endif
 
 	/*
 	 * Some hardware gives randomly wrong interrupts.  Rather
@@ -124,6 +135,12 @@ asmlinkage void __exception asm_do_IRQ(unsigned int irq, struct pt_regs *regs)
 	else
 		generic_handle_irq(irq);
 
+#ifdef CONFIG_FIND_IRQ_BLOCKERS
+	us = s3c2410_gettimeoffset() - us;
+
+	if (iblock_limit && us > iblock_limit && us < 10000000)
+		printk(KERN_ERR "asm_do_IRQ(%u): %lu us\n", irq, us);
+#endif
 	/* AT91 specific workaround */
 	irq_finish(irq);
 
@@ -174,7 +191,7 @@ static void route_irq(struct irq_desc *desc, unsigned int irq, unsigned int cpu)
 	pr_debug("IRQ%u: moving from cpu%u to cpu%u\n", irq, desc->cpu, cpu);
 
 	spin_lock_irq(&desc->lock);
-	desc->chip->set_affinity(irq, cpumask_of_cpu(cpu));
+	desc->chip->set_affinity(irq, cpumask_of(cpu));
 	spin_unlock_irq(&desc->lock);
 }
 

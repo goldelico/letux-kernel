@@ -7,9 +7,10 @@
 config CPU_S3C2410
 	bool
 	depends on ARCH_S3C2410
+	select CPU_ARM920T
 	select S3C2410_CLOCK
 	select S3C2410_GPIO
-	select S3C2410_PWM
+	select S3C_PWM
 	select CPU_LLSERIAL_S3C2410
 	select S3C2410_PM if PM
 	help
@@ -44,11 +45,6 @@ config MACH_BAST_IDE
 	help
 	  Internal node for machines with an BAST style IDE
 	  interface
-
-config S3C2410_PWM
-	bool
-	help
-	  PWM timer code for the S3C2410, and similar processors
 
 
 menu "S3C2410 Machines"
@@ -142,7 +138,17 @@ config MACH_NEO1973_GTA01
 	bool "FIC Neo1973 GSM Phone (GTA01 Hardware)"
 	select CPU_S3C2410
 	select MACH_NEO1973
-	select SENSORS_PCF50606
+	select MFD_PCF50606
+	select INPUT_PCF50606_PMU
+	select PCF50606_ADC
+	select PCF50606_GPIO
+	select RTC_DRV_PCF50606
+	select REGULATOR_PCF50606
+	select CHARGER_PCF50606
+	select PCF50606_WATCHDOG
+	select POWER_SUPPLY
+	select BATTERY_GTA01
+
 	help
 	   Say Y here if you are using the FIC Neo1973 GSM Phone
 

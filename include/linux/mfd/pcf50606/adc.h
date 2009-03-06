@@ -13,6 +13,7 @@
 #ifndef __LINUX_MFD_PCF50606_ADC_H
 #define __LINUX_MFD_PCF50606_ADC_H
 
+#include <linux/mfd/pcf50633/core.h>
 #include <linux/platform_device.h>
 
 /* ADC Registers */
@@ -61,27 +62,11 @@
 
 #define PCF50606_ADCS2_ADCRDY		 0x80
 
-struct pcf50606;
-
-#define PCF50606_MAX_ADC_FIFO_DEPTH 8
-
-struct pcf50606_adc_request;
-
-struct pcf50606_adc {
-	struct platform_device *pdev;
-
-	/* Private stuff */
-	struct pcf50606_adc_request *queue[PCF50606_MAX_ADC_FIFO_DEPTH];
-	int queue_head;
-	int queue_tail;
-	struct mutex queue_mutex;
-};
-
 extern int
-pcf50606_adc_async_read(struct pcf50606 *pcf, int mux, int avg,
+pcf50606_adc_async_read(struct pcf50606 *pcf, int mux,
 		void (*callback)(struct pcf50606 *, void *, int),
 		void *callback_param);
 extern int
-pcf50606_adc_sync_read(struct pcf50606 *pcf, int mux, int avg);
+pcf50606_adc_sync_read(struct pcf50606 *pcf, int mux);
 
 #endif /* __LINUX_PCF50606_ADC_H */

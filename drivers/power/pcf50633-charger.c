@@ -1,4 +1,4 @@
-/* Philips PCF50633 Main Battery Charger Driver
+/* NXP PCF50633 Main Battery Charger Driver
  *
  * (C) 2006-2008 by Openmoko, Inc.
  * Author: Balaji Rao <balajirrao@openmoko.org>
@@ -7,41 +7,62 @@
  * Broken down from monstrous PCF50633 driver mainly by
  * Harald Welte, Andy Green and Werner Almesberger
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
+ *  This program is free software; you can redistribute  it and/or modify it
+ *  under  the terms of  the GNU General  Public License as published by the
+ *  Free Software Foundation;  either version 2 of the  License, or (at your
+ *  option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
  */
+
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/types.h>
+#include <linux/device.h>
+#include <linux/sysfs.h>
+#include <linux/platform_device.h>
+#include <linux/power_supply.h>
 
 #include <linux/mfd/pcf50633/core.h>
 #include <linux/mfd/pcf50633/mbc.h>
 
-void pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma)
+struct pcf50633_mbc {
+	struct pcf50633 *pcf;
+
+	int adapter_active;
+	int adapter_online;
+	int usb_active;
+	int usb_online;
+
+	struct power_supply usb;
+	struct power_supply adapter;
+	struct power_supply ac;
+
+	struct delayed_work charging_restart_work;
+};
+
+int pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma)
 {
-	int ret;
+	struct pcf50633_mbc *mbc = platform_get_drvdata(pcf->mbc_pdev);
+	int ret = 0;
 	u8 bits;
 	int charging_start = 1;
 	u8 mbcs2, chgmod;
+	unsigned int mbcc5;
 
-	if (ma >= 1000)
+	if (ma >= 1000) {
 		bits = PCF50633_MBCC7_USB_1000mA;
-	else if (ma >= 500)
+		ma = 1000;
+	} else if (ma >= 500) {
 		bits = PCF50633_MBCC7_USB_500mA;
-	else if (ma >= 100)
+		ma = 500;
+	} else if (ma >= 100) {
 		bits = PCF50633_MBCC7_USB_100mA;
-	else {
+		ma = 100;
+	} else {
 		bits = PCF50633_MBCC7_USB_SUSPEND;
 		charging_start = 0;
+		ma = 0;
 	}
 
 	ret = pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC7,
@@ -50,6 +71,22 @@ void pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma)
 		dev_err(pcf->dev, "error setting usb curlim to %d mA\n", ma);
 	else
 		dev_info(pcf->dev, "usb curlim to %d mA\n", ma);
+
+	/*
+	 * We limit the charging current to be the USB current limit.
+	 * The reason is that on pcf50633, when it enters PMU Standby mode,
+	 * which it does when the device goes "off", the USB current limit
+	 * reverts to the variant default.  In at least one common case, that
+	 * default is 500mA.  By setting the charging current to be the same
+	 * as the USB limit we set here before PMU standby, we enforce it only
+	 * using the correct amount of current even when the USB current limit
+	 * gets reset to the wrong thing
+	 */
+
+	mbcc5 = (ma << 8) / mbc->pcf->pdata->chg_ref_current_ma;
+	if (mbcc5 > 255)
+		mbcc5 = 255;
+	pcf50633_reg_write(mbc->pcf, PCF50633_REG_MBCC5, mbcc5);
 
 	mbcs2 = pcf50633_reg_read(pcf, PCF50633_REG_MBCS2);
 	chgmod = (mbcs2 & PCF50633_MBCS2_MBC_MASK);
@@ -64,41 +101,49 @@ void pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma)
 		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
 				PCF50633_MBCC1_RESUME, PCF50633_MBCC1_RESUME);
 
-	pcf->mbc.usb_active = charging_start;
-	power_supply_changed(&pcf->mbc.usb);
+	mbc->usb_active = charging_start;
+	
+	power_supply_changed(&mbc->usb);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(pcf50633_mbc_usb_curlim_set);
 
-static const char *chgmode_names[] = {
-	[PCF50633_MBCS2_MBC_PLAY]		= "play-only",
-	[PCF50633_MBCS2_MBC_USB_PRE]		= "pre",
-	[PCF50633_MBCS2_MBC_ADP_PRE]		= "pre",
-	[PCF50633_MBCS2_MBC_USB_PRE_WAIT]	= "pre-wait",
-	[PCF50633_MBCS2_MBC_ADP_PRE_WAIT]	= "pre-wait",
-	[PCF50633_MBCS2_MBC_USB_FAST]		= "fast",
-	[PCF50633_MBCS2_MBC_ADP_FAST]		= "fast",
-	[PCF50633_MBCS2_MBC_USB_FAST_WAIT]	= "fast-wait",
-	[PCF50633_MBCS2_MBC_ADP_FAST_WAIT]	= "fast-wait",
-	[PCF50633_MBCS2_MBC_BAT_FULL]	= "bat-full",
-};
-
-static ssize_t show_chgmode(struct device *dev, struct device_attribute *attr,
-			    char *buf)
+int pcf50633_mbc_get_status(struct pcf50633 *pcf)
 {
-	struct pcf50633 *pcf = dev_get_drvdata(dev);
+	struct pcf50633_mbc *mbc  = platform_get_drvdata(pcf->mbc_pdev);
+	int status = 0;
 
-	u8 mbcs2 = pcf50633_reg_read(pcf, PCF50633_REG_MBCS2);
+	if (mbc->usb_online)
+		status |= PCF50633_MBC_USB_ONLINE;
+	if (mbc->usb_active)
+		status |= PCF50633_MBC_USB_ACTIVE;
+	if (mbc->adapter_online)
+		status |= PCF50633_MBC_ADAPTER_ONLINE;
+	if (mbc->adapter_active)
+		status |= PCF50633_MBC_ADAPTER_ACTIVE;
+
+	return status;
+}
+EXPORT_SYMBOL_GPL(pcf50633_mbc_get_status);
+
+static ssize_t
+show_chgmode(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct pcf50633_mbc *mbc = dev_get_drvdata(dev);
+
+	u8 mbcs2 = pcf50633_reg_read(mbc->pcf, PCF50633_REG_MBCS2);
 	u8 chgmod = (mbcs2 & PCF50633_MBCS2_MBC_MASK);
 
-	return sprintf(buf, "%s %d\n", chgmode_names[chgmod], chgmod);
+	return sprintf(buf, "%d\n", chgmod);
 }
-static DEVICE_ATTR(chgmode, S_IRUGO | S_IWUSR, show_chgmode, NULL);
+static DEVICE_ATTR(chgmode, S_IRUGO, show_chgmode, NULL);
 
-static ssize_t show_usblim(struct device *dev, struct device_attribute *attr,
-			   char *buf)
+static ssize_t
+show_usblim(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	struct pcf50633 *pcf = dev_get_drvdata(dev);
-	u8 usblim = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) &
+	struct pcf50633_mbc *mbc = dev_get_drvdata(dev);
+	u8 usblim = pcf50633_reg_read(mbc->pcf, PCF50633_REG_MBCC7) &
 						PCF50633_MBCC7_USB_MASK;
 	unsigned int ma;
 
@@ -113,34 +158,69 @@ static ssize_t show_usblim(struct device *dev, struct device_attribute *attr,
 
 	return sprintf(buf, "%u\n", ma);
 }
-static DEVICE_ATTR(usb_curlim, S_IRUGO | S_IWUSR, show_usblim, NULL);
 
-static ssize_t force_usb_limit_dangerous(struct device *dev,
-		   struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t set_usblim(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
 {
-	struct pcf50633 *pcf = dev_get_drvdata(dev);
+	struct pcf50633_mbc *mbc = dev_get_drvdata(dev);
 	unsigned long ma;
+	int ret;
 
-	strict_strtoul(buf, 10, &ma);
+	ret = strict_strtoul(buf, 10, &ma);
+	if (ret)
+		return -EINVAL;
 
-	pcf50633_mbc_usb_curlim_set(pcf, ma);
+	pcf50633_mbc_usb_curlim_set(mbc->pcf, ma);
 
 	return count;
 }
 
-static DEVICE_ATTR(force_usb_limit_dangerous, 0600,
-					       NULL, force_usb_limit_dangerous);
+static DEVICE_ATTR(usb_curlim, S_IRUGO | S_IWUSR, show_usblim, set_usblim);
 
-static struct attribute *mbc_sysfs_entries[] = {
+static ssize_t
+show_chglim(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct pcf50633_mbc *mbc = dev_get_drvdata(dev);
+	u8 mbcc5 = pcf50633_reg_read(mbc->pcf, PCF50633_REG_MBCC5);
+	unsigned int ma;
+
+	ma = (mbc->pcf->pdata->chg_ref_current_ma *  mbcc5) >> 8;
+
+	return sprintf(buf, "%u\n", ma);
+}
+
+static ssize_t set_chglim(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct pcf50633_mbc *mbc = dev_get_drvdata(dev);
+	unsigned long ma;
+	unsigned int mbcc5;
+	int ret;
+
+	ret = strict_strtoul(buf, 10, &ma);
+	if (ret)
+		return -EINVAL;
+
+	mbcc5 = (ma << 8) / mbc->pcf->pdata->chg_ref_current_ma;
+	if (mbcc5 > 255)
+		mbcc5 = 255;
+	pcf50633_reg_write(mbc->pcf, PCF50633_REG_MBCC5, mbcc5);
+
+	return count;
+}
+
+static DEVICE_ATTR(chg_curlim, S_IRUGO | S_IWUSR, show_chglim, set_chglim);
+
+static struct attribute *pcf50633_mbc_sysfs_entries[] = {
 	&dev_attr_chgmode.attr,
 	&dev_attr_usb_curlim.attr,
-	&dev_attr_force_usb_limit_dangerous.attr,
+	&dev_attr_chg_curlim.attr,
 	NULL,
 };
 
 static struct attribute_group mbc_attr_group = {
 	.name	= NULL,			/* put in device directory */
-	.attrs	= mbc_sysfs_entries,
+	.attrs	= pcf50633_mbc_sysfs_entries,
 };
 
 /* MBC state machine switches into charging mode when the battery voltage
@@ -148,57 +228,54 @@ static struct attribute_group mbc_attr_group = {
  * batteries is marginal(1~2 %) till about 80% of its capacity - which means,
  * after a BATFULL, charging won't be restarted until 80%.
  *
- * This work_struct function restarts charging every
- * CHARGING_RESTART_TIMEOUT seconds and makes sure we don't discharge too much
+ * This work_struct function restarts charging every few seconds and makes
+ * sure we don't discharge too much
  */
-
-#define CHARGING_RESTART_TIMEOUT	(900 * HZ)  /* 15 minutes */
 
 static void pcf50633_mbc_charging_restart(struct work_struct *work)
 {
 	struct pcf50633_mbc *mbc;
-	struct pcf50633 *pcf;
 	u8 mbcs2, chgmod;
 
 	mbc = container_of(work, struct pcf50633_mbc,
 				charging_restart_work.work);
-	pcf = container_of(mbc, struct pcf50633, mbc);
 
-	mbcs2 = pcf50633_reg_read(pcf, PCF50633_REG_MBCS2);
+	mbcs2 = pcf50633_reg_read(mbc->pcf, PCF50633_REG_MBCS2);
 	chgmod = (mbcs2 & PCF50633_MBCS2_MBC_MASK);
 
 	if (chgmod != PCF50633_MBCS2_MBC_BAT_FULL)
 		return;
 
 	/* Restart charging */
-	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1, PCF50633_MBCC1_RESUME,
-						PCF50633_MBCC1_RESUME);
+	pcf50633_reg_set_bit_mask(mbc->pcf, PCF50633_REG_MBCC1,
+				PCF50633_MBCC1_RESUME, PCF50633_MBCC1_RESUME);
 	mbc->usb_active = 1;
 	power_supply_changed(&mbc->usb);
 
-	dev_info(pcf->dev, "Charging restarted..\n");
+	dev_info(mbc->pcf->dev, "Charging restarted\n");
 }
 
-static void pcf50633_mbc_irq_handler(struct pcf50633 *pcf, int irq, void *data)
+static void
+pcf50633_mbc_irq_handler(int irq, void *data)
 {
-	struct pcf50633_mbc *mbc;
-
-	mbc = &pcf->mbc;
+	struct pcf50633_mbc *mbc = data;
+	int chg_restart_interval = 
+			mbc->pcf->pdata->charging_restart_interval;
 
 	/* USB */
-	if (irq == PCF50633_IRQ_USBINS)
+	if (irq == PCF50633_IRQ_USBINS) {
 		mbc->usb_online = 1;
-	else if (irq == PCF50633_IRQ_USBREM) {
+	} else if (irq == PCF50633_IRQ_USBREM) {
 		mbc->usb_online = 0;
 		mbc->usb_active = 0;
-		pcf50633_mbc_usb_curlim_set(pcf, 0);
+		pcf50633_mbc_usb_curlim_set(mbc->pcf, 0);		
 		cancel_delayed_work_sync(&mbc->charging_restart_work);
 	}
 
 	/* Adapter */
 	if (irq == PCF50633_IRQ_ADPINS) {
-		pcf->mbc.adapter_online = 1;
-		pcf->mbc.adapter_active = 1;
+		mbc->adapter_online = 1;
+		mbc->adapter_active = 1;
 	} else if (irq == PCF50633_IRQ_ADPREM) {
 		mbc->adapter_online = 0;
 		mbc->adapter_active = 0;
@@ -207,27 +284,29 @@ static void pcf50633_mbc_irq_handler(struct pcf50633 *pcf, int irq, void *data)
 	if (irq == PCF50633_IRQ_BATFULL) {
 		mbc->usb_active = 0;
 		mbc->adapter_active = 0;
-		schedule_delayed_work(&mbc->charging_restart_work,
-						CHARGING_RESTART_TIMEOUT);
+
+		if (chg_restart_interval > 0)
+			schedule_delayed_work(&mbc->charging_restart_work,
+							chg_restart_interval);
 	} else if (irq == PCF50633_IRQ_USBLIMON)
 		mbc->usb_active = 0;
 	else if (irq == PCF50633_IRQ_USBLIMOFF)
 		mbc->usb_active = 1;
 
-	power_supply_changed(&mbc->ac);
 	power_supply_changed(&mbc->usb);
 	power_supply_changed(&mbc->adapter);
+	power_supply_changed(&mbc->ac);
 
-	if (pcf->pdata->mbc_event_callback)
-		pcf->pdata->mbc_event_callback(pcf, irq);
+	if (mbc->pcf->pdata->mbc_event_callback)
+		mbc->pcf->pdata->mbc_event_callback(mbc->pcf, irq);
 }
 
 static int adapter_get_property(struct power_supply *psy,
 			enum power_supply_property psp,
 			union power_supply_propval *val)
 {
+	struct pcf50633_mbc *mbc = container_of(psy, struct pcf50633_mbc, adapter);
 	int ret = 0;
-	struct pcf50633_mbc *mbc = container_of(psy, struct pcf50633_mbc, usb);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -244,16 +323,15 @@ static int usb_get_property(struct power_supply *psy,
 			enum power_supply_property psp,
 			union power_supply_propval *val)
 {
-	int ret = 0;
 	struct pcf50633_mbc *mbc = container_of(psy, struct pcf50633_mbc, usb);
-	struct pcf50633 *pcf = container_of(mbc, struct pcf50633, mbc);
-
-	u8 usblim = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) &
+	int ret = 0;
+	u8 usblim = pcf50633_reg_read(mbc->pcf, PCF50633_REG_MBCC7) &
 						PCF50633_MBCC7_USB_MASK;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = mbc->usb_online && (usblim == PCF50633_MBCC7_USB_500mA);
+		val->intval = mbc->usb_online &&
+			       	(usblim <= PCF50633_MBCC7_USB_500mA);
 		break;
 	default:
 		ret = -EINVAL;
@@ -266,16 +344,15 @@ static int ac_get_property(struct power_supply *psy,
 			enum power_supply_property psp,
 			union power_supply_propval *val)
 {
-	int ret = 0;
 	struct pcf50633_mbc *mbc = container_of(psy, struct pcf50633_mbc, ac);
-	struct pcf50633 *pcf = container_of(mbc, struct pcf50633, mbc);
-
-	u8 usblim = pcf50633_reg_read(pcf, PCF50633_REG_MBCC7) &
+	int ret = 0;
+	u8 usblim = pcf50633_reg_read(mbc->pcf, PCF50633_REG_MBCC7) &
 						PCF50633_MBCC7_USB_MASK;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = mbc->usb_online && (usblim == PCF50633_MBCC7_USB_1000mA);
+		val->intval = mbc->usb_online &&
+			       	(usblim == PCF50633_MBCC7_USB_1000mA);
 		break;
 	default:
 		ret = -EINVAL;
@@ -288,108 +365,126 @@ static enum power_supply_property power_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 };
 
-int __init pcf50633_mbc_probe(struct platform_device *pdev)
+static const u8 mbc_irq_handlers[] = {
+	PCF50633_IRQ_ADPINS,
+	PCF50633_IRQ_ADPREM,
+	PCF50633_IRQ_USBINS,
+	PCF50633_IRQ_USBREM,
+	PCF50633_IRQ_BATFULL,
+	PCF50633_IRQ_CHGHALT,
+	PCF50633_IRQ_THLIMON,
+	PCF50633_IRQ_THLIMOFF,
+	PCF50633_IRQ_USBLIMON,
+	PCF50633_IRQ_USBLIMOFF,
+	PCF50633_IRQ_LOWSYS,
+	PCF50633_IRQ_LOWBAT,
+};
+
+static int __devinit pcf50633_mbc_probe(struct platform_device *pdev)
 {
-	struct pcf50633 *pcf;
 	struct pcf50633_mbc *mbc;
+	struct pcf50633_subdev_pdata *pdata = pdev->dev.platform_data;
 	int ret;
+	int i;
 	u8 mbcs1;
 
-	pcf = platform_get_drvdata(pdev);
-	mbc = &pcf->mbc;
+	mbc = kzalloc(sizeof(*mbc), GFP_KERNEL);
+	if (!mbc)
+		return -ENOMEM;
+
+	platform_set_drvdata(pdev, mbc);
+	mbc->pcf = pdata->pcf;
 
 	/* Set up IRQ handlers */
-	pcf->irq_handler[PCF50633_IRQ_ADPINS].handler =
-					pcf50633_mbc_irq_handler;
-	pcf->irq_handler[PCF50633_IRQ_ADPREM].handler =
-					pcf50633_mbc_irq_handler;
-	pcf->irq_handler[PCF50633_IRQ_USBINS].handler =
-					pcf50633_mbc_irq_handler;
-	pcf->irq_handler[PCF50633_IRQ_USBREM].handler =
-					pcf50633_mbc_irq_handler;
-	pcf->irq_handler[PCF50633_IRQ_BATFULL].handler =
-					pcf50633_mbc_irq_handler;
-	pcf->irq_handler[PCF50633_IRQ_CHGHALT].handler =
-					pcf50633_mbc_irq_handler;
-	pcf->irq_handler[PCF50633_IRQ_THLIMON].handler =
-					pcf50633_mbc_irq_handler;
-	pcf->irq_handler[PCF50633_IRQ_THLIMOFF].handler =
-					pcf50633_mbc_irq_handler;
-	pcf->irq_handler[PCF50633_IRQ_USBLIMON].handler =
-					pcf50633_mbc_irq_handler;
-	pcf->irq_handler[PCF50633_IRQ_USBLIMOFF].handler =
-					pcf50633_mbc_irq_handler;
-	pcf->irq_handler[PCF50633_IRQ_LOWSYS].handler =
-					pcf50633_mbc_irq_handler;
-	pcf->irq_handler[PCF50633_IRQ_LOWBAT].handler =
-					pcf50633_mbc_irq_handler;
+	for (i = 0; i < ARRAY_SIZE(mbc_irq_handlers); i++)
+		pcf50633_register_irq(mbc->pcf, mbc_irq_handlers[i],
+					pcf50633_mbc_irq_handler, mbc);
 
 	/* Create power supplies */
-
 	mbc->adapter.name		= "adapter";
 	mbc->adapter.type		= POWER_SUPPLY_TYPE_MAINS;
 	mbc->adapter.properties		= power_props;
 	mbc->adapter.num_properties	= ARRAY_SIZE(power_props);
 	mbc->adapter.get_property	= &adapter_get_property;
-	mbc->adapter.supplied_to	= pcf->pdata->batteries;
-	mbc->adapter.num_supplicants	= pcf->pdata->num_batteries;
+	mbc->adapter.supplied_to	= mbc->pcf->pdata->batteries;
+	mbc->adapter.num_supplicants	= mbc->pcf->pdata->num_batteries;
 
 	mbc->usb.name			= "usb";
 	mbc->usb.type			= POWER_SUPPLY_TYPE_USB;
 	mbc->usb.properties		= power_props;
 	mbc->usb.num_properties		= ARRAY_SIZE(power_props);
 	mbc->usb.get_property		= usb_get_property;
-	mbc->usb.supplied_to		= pcf->pdata->batteries;
-	mbc->usb.num_supplicants	= pcf->pdata->num_batteries;
+	mbc->usb.supplied_to		= mbc->pcf->pdata->batteries;
+	mbc->usb.num_supplicants	= mbc->pcf->pdata->num_batteries;
 
 	mbc->ac.name			= "ac";
 	mbc->ac.type			= POWER_SUPPLY_TYPE_MAINS;
 	mbc->ac.properties		= power_props;
 	mbc->ac.num_properties		= ARRAY_SIZE(power_props);
 	mbc->ac.get_property		= ac_get_property;
-	mbc->ac.supplied_to		= pcf->pdata->batteries;
-	mbc->ac.num_supplicants		= pcf->pdata->num_batteries;
+	mbc->ac.supplied_to		= mbc->pcf->pdata->batteries;
+	mbc->ac.num_supplicants		= mbc->pcf->pdata->num_batteries;
 
 	INIT_DELAYED_WORK(&mbc->charging_restart_work,
 				pcf50633_mbc_charging_restart);
 
 	ret = power_supply_register(&pdev->dev, &mbc->adapter);
-	if (ret)
-		dev_err(pcf->dev, "failed to register adapter\n");
+	if (ret) {
+		dev_err(mbc->pcf->dev, "failed to register adapter\n");
+		kfree(mbc);
+		return ret;
+	}
 
 	ret = power_supply_register(&pdev->dev, &mbc->usb);
-	if (ret)
-		dev_err(pcf->dev, "failed to register usb\n");
+	if (ret) {
+		dev_err(mbc->pcf->dev, "failed to register usb\n");
+		power_supply_unregister(&mbc->adapter);
+		kfree(mbc);
+		return ret;
+	}
 
 	ret = power_supply_register(&pdev->dev, &mbc->ac);
+	if (ret) {
+		dev_err(mbc->pcf->dev, "failed to register ac\n");
+		power_supply_unregister(&mbc->adapter);
+		power_supply_unregister(&mbc->usb);
+		kfree(mbc);
+		return ret;
+	}
+	
+	ret = sysfs_create_group(&pdev->dev.kobj, &mbc_attr_group);
 	if (ret)
-		dev_err(pcf->dev, "failed to register ac\n");
+		dev_err(mbc->pcf->dev, "failed to create sysfs entries\n");
 
-	mbcs1 = pcf50633_reg_read(pcf, PCF50633_REG_MBCS1);
-	if (mbcs1 & 0x01)
-		pcf50633_mbc_irq_handler(pcf, PCF50633_IRQ_USBINS, NULL);
-	if (mbcs1 & 0x04)
-		pcf50633_mbc_irq_handler(pcf, PCF50633_IRQ_ADPINS, NULL);
-
-	/* Disable automatic charging restart. Manually setting RESUME
-	 * won't have effect otherwise
-	 */
-	pcf50633_reg_clear_bits(pcf, PCF50633_REG_MBCC1,
-					PCF50633_MBCC1_AUTORES);
-
-	return sysfs_create_group(&pdev->dev.kobj, &mbc_attr_group);
-}
-
-static int __devexit pcf50633_mbc_remove(struct platform_device *pdev)
-{
-	struct pcf50633 *pcf;
-
-	pcf = platform_get_drvdata(pdev);
+	mbcs1 = pcf50633_reg_read(mbc->pcf, PCF50633_REG_MBCS1);
+	if (mbcs1 & PCF50633_MBCS1_USBPRES)
+		pcf50633_mbc_irq_handler(PCF50633_IRQ_USBINS, mbc);
+	if (mbcs1 & PCF50633_MBCS1_ADAPTPRES)
+		pcf50633_mbc_irq_handler(PCF50633_IRQ_ADPINS, mbc);
 
 	return 0;
 }
 
-struct platform_driver pcf50633_mbc_driver = {
+static int __devexit pcf50633_mbc_remove(struct platform_device *pdev)
+{
+	struct pcf50633_mbc *mbc = platform_get_drvdata(pdev);
+	int i;
+
+	/* Remove IRQ handlers */
+	for (i = 0; i < ARRAY_SIZE(mbc_irq_handlers); i++)
+		pcf50633_free_irq(mbc->pcf, mbc_irq_handlers[i]);
+
+	power_supply_unregister(&mbc->usb);
+	power_supply_unregister(&mbc->adapter);
+
+	cancel_delayed_work_sync(&mbc->charging_restart_work);
+
+	kfree(mbc);
+
+	return 0;
+}
+
+static struct platform_driver pcf50633_mbc_driver = {
 	.driver = {
 		.name = "pcf50633-mbc",
 	},
@@ -399,13 +494,13 @@ struct platform_driver pcf50633_mbc_driver = {
 
 static int __init pcf50633_mbc_init(void)
 {
-		return platform_driver_register(&pcf50633_mbc_driver);
+	return platform_driver_register(&pcf50633_mbc_driver);
 }
 module_init(pcf50633_mbc_init);
 
 static void __exit pcf50633_mbc_exit(void)
 {
-		platform_driver_unregister(&pcf50633_mbc_driver);
+	platform_driver_unregister(&pcf50633_mbc_driver);
 }
 module_exit(pcf50633_mbc_exit);
 

@@ -723,7 +723,7 @@ static A_STATUS GetCredits(AR6K_DEVICE *pDev, int mbox, int *pCredits)
         }
 
          /* delay a little, target may not be ready */
-         A_MDELAY(1000);
+         msleep(1000);
 
     }
 

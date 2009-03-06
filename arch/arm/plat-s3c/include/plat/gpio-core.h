@@ -32,6 +32,7 @@ struct s3c_gpio_pm {
 	void (*resume)(struct s3c_gpio_chip *chip);
 };
 
+
 struct s3c_gpio_cfg;
 
 /**

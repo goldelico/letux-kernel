@@ -40,6 +40,11 @@ struct glamofb_platform_data {
 
 int glamofb_cmd_mode(struct glamofb_handle *gfb, int on);
 int glamofb_cmd_write(struct glamofb_handle *gfb, u_int16_t val);
+
+#ifdef CONFIG_MFD_GLAMO
 void glamo_lcm_reset(int level);
+#else
+#define glamo_lcm_reset(...) do {} while (0)
+#endif
 
 #endif

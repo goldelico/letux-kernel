@@ -20,7 +20,7 @@
  *
  *
  * ACPI based HotPlug driver that supports Memory Hotplug
- * This driver fields notifications from firmare for memory add
+ * This driver fields notifications from firmware for memory add
  * and remove operations and alerts the VM of the affected memory
  * ranges.
  */
@@ -32,7 +32,6 @@
 #include <linux/memory_hotplug.h>
 #include <acpi/acpi_drivers.h>
 
-#define ACPI_MEMORY_DEVICE_COMPONENT		0x08000000UL
 #define ACPI_MEMORY_DEVICE_CLASS		"memory"
 #define ACPI_MEMORY_DEVICE_HID			"PNP0C80"
 #define ACPI_MEMORY_DEVICE_NAME			"Hotplug Mem Device"

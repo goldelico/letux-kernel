@@ -1,8 +1,6 @@
 /*
  * wm8350-i2c.c  --  Generic I2C driver for Wolfson WM8350 PMIC
  *
- * This driver defines and configures the WM8350 for the Freescale i.MX32ADS.
- *
  * Copyright 2007, 2008 Wolfson Microelectronics PLC.
  *
  * Author: Liam Girdwood
@@ -30,7 +28,12 @@ static int wm8350_i2c_read_device(struct wm8350 *wm8350, char reg,
 	ret = i2c_master_send(wm8350->i2c_client, &reg, 1);
 	if (ret < 0)
 		return ret;
-	return i2c_master_recv(wm8350->i2c_client, dest, bytes);
+	ret = i2c_master_recv(wm8350->i2c_client, dest, bytes);
+	if (ret < 0)
+		return ret;
+	if (ret != bytes)
+		return -EIO;
+	return 0;
 }
 
 static int wm8350_i2c_write_device(struct wm8350 *wm8350, char reg,
@@ -38,13 +41,19 @@ static int wm8350_i2c_write_device(struct wm8350 *wm8350, char reg,
 {
 	/* we add 1 byte for device register */
 	u8 msg[(WM8350_MAX_REGISTER << 1) + 1];
+	int ret;
 
 	if (bytes > ((WM8350_MAX_REGISTER << 1) + 1))
 		return -EINVAL;
 
 	msg[0] = reg;
 	memcpy(&msg[1], src, bytes);
-	return i2c_master_send(wm8350->i2c_client, msg, bytes + 1);
+	ret = i2c_master_send(wm8350->i2c_client, msg, bytes + 1);
+	if (ret < 0)
+		return ret;
+	if (ret != bytes + 1)
+		return -EIO;
+	return 0;
 }
 
 static int wm8350_i2c_probe(struct i2c_client *i2c,
@@ -88,6 +97,8 @@ static int wm8350_i2c_remove(struct i2c_client *i2c)
 
 static const struct i2c_device_id wm8350_i2c_id[] = {
        { "wm8350", 0 },
+       { "wm8351", 0 },
+       { "wm8352", 0 },
        { }
 };
 MODULE_DEVICE_TABLE(i2c, wm8350_i2c_id);

@@ -18,17 +18,10 @@ struct s3c2410_spigpio_info {
 	unsigned long		 pin_mosi;
 	unsigned long		 pin_miso;
 
-	int			 bus_num;
 	int			 num_chipselect;
+	int			 bus_num;
 
-	/*
- 	 * FIXME: board_size and board_info DO NOT belong here.
- 	 * These were already removed upstream... but we still rely on them
- 	 * so leave for now and revisit this.
- 	 */
-	unsigned long            board_size;
-	struct spi_board_info   *board_info;
-
+	int			 non_blocking_transfer;
 	void (*chip_select)(struct s3c2410_spigpio_info *spi, int csid, int cs);
 };
 

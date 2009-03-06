@@ -441,13 +441,13 @@ static void process_queued_ios(struct work_struct *work)
 		__choose_pgpath(m);
 
 	pgpath = m->current_pgpath;
-	m->pgpath_to_activate = m->current_pgpath;
 
 	if ((pgpath && !m->queue_io) ||
 	    (!pgpath && !m->queue_if_no_path))
 		must_queue = 0;
 
-	if (m->pg_init_required && !m->pg_init_in_progress) {
+	if (m->pg_init_required && !m->pg_init_in_progress && pgpath) {
+		m->pgpath_to_activate = pgpath;
 		m->pg_init_count++;
 		m->pg_init_required = 0;
 		m->pg_init_in_progress = 1;
@@ -708,6 +708,10 @@ static int parse_hw_handler(struct arg_set *as, struct multipath *m)
 		m->hw_handler_name = NULL;
 		return -EINVAL;
 	}
+
+	if (hw_argc > 1)
+		DMWARN("Ignoring user-specified arguments for "
+		       "hardware handler \"%s\"", m->hw_handler_name);
 	consume(as, hw_argc - 1);
 
 	return 0;
@@ -885,7 +889,7 @@ static int fail_path(struct pgpath *pgpath)
 	dm_path_uevent(DM_UEVENT_PATH_FAILED, m->ti,
 		      pgpath->path.dev->name, m->nr_valid_paths);
 
-	queue_work(kmultipathd, &m->trigger_event);
+	schedule_work(&m->trigger_event);
 	queue_work(kmultipathd, &pgpath->deactivate_path);
 
 out:
@@ -928,7 +932,7 @@ static int reinstate_path(struct pgpath *pgpath)
 	dm_path_uevent(DM_UEVENT_PATH_REINSTATED, m->ti,
 		      pgpath->path.dev->name, m->nr_valid_paths);
 
-	queue_work(kmultipathd, &m->trigger_event);
+	schedule_work(&m->trigger_event);
 
 out:
 	spin_unlock_irqrestore(&m->lock, flags);
@@ -972,7 +976,7 @@ static void bypass_pg(struct multipath *m, struct priority_group *pg,
 
 	spin_unlock_irqrestore(&m->lock, flags);
 
-	queue_work(kmultipathd, &m->trigger_event);
+	schedule_work(&m->trigger_event);
 }
 
 /*
@@ -1002,7 +1006,7 @@ static int switch_pg_num(struct multipath *m, const char *pgstr)
 	}
 	spin_unlock_irqrestore(&m->lock, flags);
 
-	queue_work(kmultipathd, &m->trigger_event);
+	schedule_work(&m->trigger_event);
 	return 0;
 }
 
@@ -1491,14 +1495,10 @@ static int __init dm_multipath_init(void)
 
 static void __exit dm_multipath_exit(void)
 {
-	int r;
-
 	destroy_workqueue(kmpath_handlerd);
 	destroy_workqueue(kmultipathd);
 
-	r = dm_unregister_target(&multipath_target);
-	if (r < 0)
-		DMERR("target unregister failed %d", r);
+	dm_unregister_target(&multipath_target);
 	kmem_cache_destroy(_mpio_cache);
 }
 

@@ -66,14 +66,10 @@ void __clear_page_mlock(struct page *page)
 		putback_lru_page(page);
 	} else {
 		/*
-		 * Page not on the LRU yet.  Flush all pagevecs and retry.
+		 * We lost the race. the page already moved to evictable list.
 		 */
-		lru_add_drain_all();
-		if (!isolate_lru_page(page))
-			putback_lru_page(page);
-		else if (PageUnevictable(page))
+		if (PageUnevictable(page))
 			count_vm_event(UNEVICTABLE_PGSTRANDED);
-
 	}
 }
 
@@ -166,7 +162,7 @@ static long __mlock_vma_pages_range(struct vm_area_struct *vma,
 	unsigned long addr = start;
 	struct page *pages[16]; /* 16 gives a reasonable batch */
 	int nr_pages = (end - start) / PAGE_SIZE;
-	int ret;
+	int ret = 0;
 	int gup_flags = 0;
 
 	VM_BUG_ON(start & ~PAGE_MASK);
@@ -177,17 +173,16 @@ static long __mlock_vma_pages_range(struct vm_area_struct *vma,
 		  (atomic_read(&mm->mm_users) != 0));
 
 	/*
-	 * mlock:   don't page populate if page has PROT_NONE permission.
-	 * munlock: the pages always do munlock althrough
-	 *          its has PROT_NONE permission.
+	 * mlock:   don't page populate if vma has PROT_NONE permission.
+	 * munlock: always do munlock although the vma has PROT_NONE
+	 *          permission, or SIGKILL is pending.
 	 */
 	if (!mlock)
-		gup_flags |= GUP_FLAGS_IGNORE_VMA_PERMISSIONS;
+		gup_flags |= GUP_FLAGS_IGNORE_VMA_PERMISSIONS |
+			     GUP_FLAGS_IGNORE_SIGKILL;
 
 	if (vma->vm_flags & VM_WRITE)
 		gup_flags |= GUP_FLAGS_WRITE;
-
-	lru_add_drain_all();	/* push cached pages to LRU */
 
 	while (nr_pages > 0) {
 		int i;
@@ -250,8 +245,6 @@ static long __mlock_vma_pages_range(struct vm_area_struct *vma,
 		}
 		ret = 0;
 	}
-
-	lru_add_drain_all();	/* to update stats */
 
 	return ret;	/* count entire vma as locked_vm */
 }
@@ -537,7 +530,7 @@ static int do_mlock(unsigned long start, size_t len, int on)
 	return error;
 }
 
-asmlinkage long sys_mlock(unsigned long start, size_t len)
+SYSCALL_DEFINE2(mlock, unsigned long, start, size_t, len)
 {
 	unsigned long locked;
 	unsigned long lock_limit;
@@ -545,6 +538,8 @@ asmlinkage long sys_mlock(unsigned long start, size_t len)
 
 	if (!can_do_mlock())
 		return -EPERM;
+
+	lru_add_drain_all();	/* flush pagevec */
 
 	down_write(&current->mm->mmap_sem);
 	len = PAGE_ALIGN(len + (start & ~PAGE_MASK));
@@ -563,7 +558,7 @@ asmlinkage long sys_mlock(unsigned long start, size_t len)
 	return error;
 }
 
-asmlinkage long sys_munlock(unsigned long start, size_t len)
+SYSCALL_DEFINE2(munlock, unsigned long, start, size_t, len)
 {
 	int ret;
 
@@ -600,7 +595,7 @@ out:
 	return 0;
 }
 
-asmlinkage long sys_mlockall(int flags)
+SYSCALL_DEFINE1(mlockall, int, flags)
 {
 	unsigned long lock_limit;
 	int ret = -EINVAL;
@@ -611,6 +606,8 @@ asmlinkage long sys_mlockall(int flags)
 	ret = -EPERM;
 	if (!can_do_mlock())
 		goto out;
+
+	lru_add_drain_all();	/* flush pagevec */
 
 	down_write(&current->mm->mmap_sem);
 
@@ -626,7 +623,7 @@ out:
 	return ret;
 }
 
-asmlinkage long sys_munlockall(void)
+SYSCALL_DEFINE0(munlockall)
 {
 	int ret;
 
@@ -670,4 +667,49 @@ void user_shm_unlock(size_t size, struct user_struct *user)
 	user->locked_shm -= (size + PAGE_SIZE - 1) >> PAGE_SHIFT;
 	spin_unlock(&shmlock_user_lock);
 	free_uid(user);
+}
+
+void *alloc_locked_buffer(size_t size)
+{
+	unsigned long rlim, vm, pgsz;
+	void *buffer = NULL;
+
+	pgsz = PAGE_ALIGN(size) >> PAGE_SHIFT;
+
+	down_write(&current->mm->mmap_sem);
+
+	rlim = current->signal->rlim[RLIMIT_AS].rlim_cur >> PAGE_SHIFT;
+	vm   = current->mm->total_vm + pgsz;
+	if (rlim < vm)
+		goto out;
+
+	rlim = current->signal->rlim[RLIMIT_MEMLOCK].rlim_cur >> PAGE_SHIFT;
+	vm   = current->mm->locked_vm + pgsz;
+	if (rlim < vm)
+		goto out;
+
+	buffer = kzalloc(size, GFP_KERNEL);
+	if (!buffer)
+		goto out;
+
+	current->mm->total_vm  += pgsz;
+	current->mm->locked_vm += pgsz;
+
+ out:
+	up_write(&current->mm->mmap_sem);
+	return buffer;
+}
+
+void free_locked_buffer(void *buffer, size_t size)
+{
+	unsigned long pgsz = PAGE_ALIGN(size) >> PAGE_SHIFT;
+
+	down_write(&current->mm->mmap_sem);
+
+	current->mm->total_vm  -= pgsz;
+	current->mm->locked_vm -= pgsz;
+
+	up_write(&current->mm->mmap_sem);
+
+	kfree(buffer);
 }

@@ -10,76 +10,6 @@
 #include <linux/kernel_stat.h>
 
 /*
- * Allocate the thread_group_cputime structure appropriately and fill in the
- * current values of the fields.  Called from copy_signal() via
- * thread_group_cputime_clone_thread() when adding a second or subsequent
- * thread to a thread group.  Assumes interrupts are enabled when called.
- */
-int thread_group_cputime_alloc(struct task_struct *tsk)
-{
-	struct signal_struct *sig = tsk->signal;
-	struct task_cputime *cputime;
-
-	/*
-	 * If we have multiple threads and we don't already have a
-	 * per-CPU task_cputime struct (checked in the caller), allocate
-	 * one and fill it in with the times accumulated so far.  We may
-	 * race with another thread so recheck after we pick up the sighand
-	 * lock.
-	 */
-	cputime = alloc_percpu(struct task_cputime);
-	if (cputime == NULL)
-		return -ENOMEM;
-	spin_lock_irq(&tsk->sighand->siglock);
-	if (sig->cputime.totals) {
-		spin_unlock_irq(&tsk->sighand->siglock);
-		free_percpu(cputime);
-		return 0;
-	}
-	sig->cputime.totals = cputime;
-	cputime = per_cpu_ptr(sig->cputime.totals, smp_processor_id());
-	cputime->utime = tsk->utime;
-	cputime->stime = tsk->stime;
-	cputime->sum_exec_runtime = tsk->se.sum_exec_runtime;
-	spin_unlock_irq(&tsk->sighand->siglock);
-	return 0;
-}
-
-/**
- * thread_group_cputime - Sum the thread group time fields across all CPUs.
- *
- * @tsk:	The task we use to identify the thread group.
- * @times:	task_cputime structure in which we return the summed fields.
- *
- * Walk the list of CPUs to sum the per-CPU time fields in the thread group
- * time structure.
- */
-void thread_group_cputime(
-	struct task_struct *tsk,
-	struct task_cputime *times)
-{
-	struct signal_struct *sig;
-	int i;
-	struct task_cputime *tot;
-
-	sig = tsk->signal;
-	if (unlikely(!sig) || !sig->cputime.totals) {
-		times->utime = tsk->utime;
-		times->stime = tsk->stime;
-		times->sum_exec_runtime = tsk->se.sum_exec_runtime;
-		return;
-	}
-	times->stime = times->utime = cputime_zero;
-	times->sum_exec_runtime = 0;
-	for_each_possible_cpu(i) {
-		tot = per_cpu_ptr(tsk->signal->cputime.totals, i);
-		times->utime = cputime_add(times->utime, tot->utime);
-		times->stime = cputime_add(times->stime, tot->stime);
-		times->sum_exec_runtime += tot->sum_exec_runtime;
-	}
-}
-
-/*
  * Called after updating RLIMIT_CPU to set timer expiration if necessary.
  */
 void update_rlimit_cpu(unsigned long rlim_new)
@@ -311,7 +241,7 @@ static int cpu_clock_sample_group(const clockid_t which_clock,
 	struct task_cputime cputime;
 
 	thread_group_cputime(p, &cputime);
-	switch (which_clock) {
+	switch (CPUCLOCK_WHICH(which_clock)) {
 	default:
 		return -EINVAL;
 	case CPUCLOCK_PROF:
@@ -1308,9 +1238,10 @@ static inline int task_cputime_expired(const struct task_cputime *sample,
  */
 static inline int fastpath_timer_check(struct task_struct *tsk)
 {
-	struct signal_struct *sig = tsk->signal;
+	struct signal_struct *sig;
 
-	if (unlikely(!sig))
+	/* tsk == current, ensure it is safe to use ->signal/sighand */
+	if (unlikely(tsk->exit_state))
 		return 0;
 
 	if (!task_cputime_zero(&tsk->cputime_expires)) {
@@ -1323,6 +1254,8 @@ static inline int fastpath_timer_check(struct task_struct *tsk)
 		if (task_cputime_expired(&task_sample, &tsk->cputime_expires))
 			return 1;
 	}
+
+	sig = tsk->signal;
 	if (!task_cputime_zero(&sig->cputime_expires)) {
 		struct task_cputime group_sample;
 

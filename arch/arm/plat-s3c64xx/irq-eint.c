@@ -125,7 +125,6 @@ static int s3c_irq_eint_set_type(unsigned int irq, unsigned int type)
 		pin = S3C64XX_GPM(offs - 23);
 
 	s3c_gpio_cfgpin(pin, S3C_GPIO_SFN(2));
-
 	return 0;
 }
 

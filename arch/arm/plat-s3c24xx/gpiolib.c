@@ -60,6 +60,22 @@ static int s3c24xx_gpiolib_banka_output(struct gpio_chip *chip,
 	return 0;
 }
 
+static int s3c24xx_gpiolib_bankf_toirq(struct gpio_chip *chip, unsigned offset)
+{
+	if (offset < 4)
+		return IRQ_EINT0 + offset;
+	
+	if (offset < 8)
+		return IRQ_EINT4 + offset - 4;
+	
+	return -EINVAL;
+}
+
+static int s3c24xx_gpiolib_bankg_toirq(struct gpio_chip *chip, unsigned offset)
+{
+	return IRQ_EINT8 + offset;
+}
+
 struct s3c_gpio_chip s3c24xx_gpios[] = {
 	[0] = {
 		.base	= S3C24XX_GPIO_BASE(S3C2410_GPA0),
@@ -121,6 +137,7 @@ struct s3c_gpio_chip s3c24xx_gpios[] = {
 			.owner			= THIS_MODULE,
 			.label			= "GPIOF",
 			.ngpio			= 8,
+			.to_irq			= s3c24xx_gpiolib_bankf_toirq,
 		},
 	},
 	[6] = {
@@ -130,6 +147,7 @@ struct s3c_gpio_chip s3c24xx_gpios[] = {
 			.base			= S3C2410_GPG0,
 			.owner			= THIS_MODULE,
 			.label			= "GPIOG",
+			.to_irq			= s3c24xx_gpiolib_bankg_toirq,
 			.ngpio			= 16,
 		},
 	},

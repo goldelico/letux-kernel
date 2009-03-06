@@ -5,30 +5,29 @@
  * All rights reserved.
  *
  * Broken down from monstrous PCF50606 driver mainly by
- * Harald Welte, Andy Green and Werner Almesberger
+ * Harald Welte, Andy Green, Werner Almesberger and Matt Hsu
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
+ *  This program is free software; you can redistribute  it and/or modify it
+ *  under  the terms of  the GNU General  Public License as published by the
+ *  Free Software Foundation;  either version 2 of the  License, or (at your
+ *  option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ *  NOTE: This driver does not yet support subtractive ADC mode, which means
+ *  you can do only one measurement per read request.
  */
+
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/device.h>
+#include <linux/platform_device.h>
+#include <linux/completion.h>
 
 #include <linux/mfd/pcf50606/core.h>
 #include <linux/mfd/pcf50606/adc.h>
 
 struct pcf50606_adc_request {
 	int mux;
-	int avg;
 	int result;
 	void (*callback)(struct pcf50606 *, void *, int);
 	void *callback_param;
@@ -38,8 +37,24 @@ struct pcf50606_adc_request {
 
 };
 
-static void adc_read_setup(struct pcf50606 *pcf,
-				 int channel, int avg)
+#define PCF50606_MAX_ADC_FIFO_DEPTH 8
+
+struct pcf50606_adc {
+	struct pcf50606 *pcf;
+
+	/* Private stuff */
+	struct pcf50606_adc_request *queue[PCF50606_MAX_ADC_FIFO_DEPTH];
+	int queue_head;
+	int queue_tail;
+	struct mutex queue_mutex;
+};
+
+static inline struct pcf50606_adc *__to_adc(struct pcf50606 *pcf)
+{
+	return platform_get_drvdata(pcf->adc_pdev);
+}
+
+static void adc_setup(struct pcf50606 *pcf, int channel)
 {
 	channel &= PCF50606_ADCC2_ADCMUX_MASK;
 
@@ -51,42 +66,43 @@ static void adc_read_setup(struct pcf50606 *pcf,
 
 static void trigger_next_adc_job_if_any(struct pcf50606 *pcf)
 {
+	struct pcf50606_adc *adc = __to_adc(pcf);
 	int head, tail;
 
-	mutex_lock(&pcf->adc.queue_mutex);
+	mutex_lock(&adc->queue_mutex);
 
-	head = pcf->adc.queue_head;
-	tail = pcf->adc.queue_tail;
+	head = adc->queue_head;
+	tail = adc->queue_tail;
 
-	if (!pcf->adc.queue[head])
+	if (!adc->queue[head])
 		goto out;
 
-	adc_read_setup(pcf, pcf->adc.queue[head]->mux,
-				pcf->adc.queue[head]->avg);
+	adc_setup(pcf, adc->queue[head]->mux);
 out:
-	mutex_unlock(&pcf->adc.queue_mutex);
+	mutex_unlock(&adc->queue_mutex);
 }
 
 static int
 adc_enqueue_request(struct pcf50606 *pcf, struct pcf50606_adc_request *req)
 {
+	struct pcf50606_adc *adc = __to_adc(pcf);
 	int head, tail;
 
-	mutex_lock(&pcf->adc.queue_mutex);
-	head = pcf->adc.queue_head;
-	tail = pcf->adc.queue_tail;
+	mutex_lock(&adc->queue_mutex);
+	head = adc->queue_head;
+	tail = adc->queue_tail;
 
-	if (pcf->adc.queue[tail]) {
-		mutex_unlock(&pcf->adc.queue_mutex);
+	if (adc->queue[tail]) {
+		mutex_unlock(&adc->queue_mutex);
 		return -EBUSY;
 	}
 
-	pcf->adc.queue[tail] = req;
+	adc->queue[tail] = req;
 
-	pcf->adc.queue_tail =
+	adc->queue_tail =
 		(tail + 1) & (PCF50606_MAX_ADC_FIFO_DEPTH - 1);
 
-	mutex_unlock(&pcf->adc.queue_mutex);
+	mutex_unlock(&adc->queue_mutex);
 
 	trigger_next_adc_job_if_any(pcf);
 
@@ -105,33 +121,35 @@ pcf50606_adc_sync_read_callback(struct pcf50606 *pcf, void *param, int result)
 	complete(&req->completion);
 }
 
-int pcf50606_adc_sync_read(struct pcf50606 *pcf, int mux, int avg)
+int pcf50606_adc_sync_read(struct pcf50606 *pcf, int mux)
 {
 
 	struct pcf50606_adc_request *req;
 	int result;
 
-	/* req is freed when the result is ready, in pcf50606_work*/
+	/* req is freed when the result is ready, in irq handler*/
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
 	if (!req)
 		return -ENOMEM;
 
 	req->mux = mux;
-	req->avg = avg;
 	req->callback =  pcf50606_adc_sync_read_callback;
 	req->callback_param = req;
 	init_completion(&req->completion);
 
 	adc_enqueue_request(pcf, req);
 
-	wait_for_completion(&req->completion);
+	if (wait_for_completion_timeout(&req->completion, 5 * HZ) == 5 * HZ) {
+		dev_err(pcf->dev, "ADC read timed out \n");
+	}
+
 	result = req->result;
 
 	return result;
 }
 EXPORT_SYMBOL_GPL(pcf50606_adc_sync_read);
 
-int pcf50606_adc_async_read(struct pcf50606 *pcf, int mux, int avg,
+int pcf50606_adc_async_read(struct pcf50606 *pcf, int mux,
 			     void (*callback)(struct pcf50606 *, void *, int),
 			     void *callback_param)
 {
@@ -143,7 +161,6 @@ int pcf50606_adc_async_read(struct pcf50606 *pcf, int mux, int avg,
 		return -ENOMEM;
 
 	req->mux = mux;
-	req->avg = avg;
 	req->callback = callback;
 	req->callback_param = callback_param;
 
@@ -163,51 +180,74 @@ static int adc_result(struct pcf50606 *pcf)
 	return ret;
 }
 
-static void pcf50606_adc_irq(struct pcf50606 *pcf, int irq, void *unused)
+static void pcf50606_adc_irq(int irq, void *data)
 {
+	struct pcf50606_adc *adc = data;
+	struct pcf50606 *pcf = adc->pcf;
 	struct pcf50606_adc_request *req;
 	int head;
 
-	mutex_lock(&pcf->adc.queue_mutex);
-	head = pcf->adc.queue_head;
+	mutex_lock(&adc->queue_mutex);
+	head = adc->queue_head;
 
-	req = pcf->adc.queue[head];
-	if (!req) {
-		dev_err(pcf->dev, "ADC queue empty\n");
-		mutex_unlock(&pcf->adc.queue_mutex);
+	req = adc->queue[head];
+	if (WARN_ON(!req)) {
+		dev_err(pcf->dev, "pcf50606-adc irq: ADC queue empty!\n");
+		mutex_unlock(&adc->queue_mutex);
 		return;
 	}
-	pcf->adc.queue[head] = NULL;
-	pcf->adc.queue_head = (head + 1) &
+
+	adc->queue[head] = NULL;
+	adc->queue_head = (head + 1) &
 				      (PCF50606_MAX_ADC_FIFO_DEPTH - 1);
 
-	mutex_unlock(&pcf->adc.queue_mutex);
-	req->callback(pcf, req->callback_param, adc_result(pcf));
+	mutex_unlock(&adc->queue_mutex);
 
+	req->callback(pcf, req->callback_param, adc_result(pcf));
 	kfree(req);
 
 	trigger_next_adc_job_if_any(pcf);
 }
 
-int __init pcf50606_adc_probe(struct platform_device *pdev)
+static int __devinit pcf50606_adc_probe(struct platform_device *pdev)
 {
-	struct pcf50606 *pcf;
+	struct pcf50606_subdev_pdata *pdata = pdev->dev.platform_data;
+	struct pcf50606_adc *adc;
 
-	pcf = platform_get_drvdata(pdev);
+	adc = kzalloc(sizeof(*adc), GFP_KERNEL);
+	if (!adc)
+		return -ENOMEM;
 
-	/* Set up IRQ handlers */
-	pcf->irq_handler[PCF50606_IRQ_ADCRDY].handler = pcf50606_adc_irq;
+	adc->pcf = pdata->pcf;
+	platform_set_drvdata(pdev, adc);
 
-	mutex_init(&pcf->adc.queue_mutex);
+	pcf50606_register_irq(pdata->pcf, PCF50606_IRQ_ADCRDY,
+					pcf50606_adc_irq, adc);
+
+	mutex_init(&adc->queue_mutex);
+
 	return 0;
 }
 
 static int __devexit pcf50606_adc_remove(struct platform_device *pdev)
 {
-	struct pcf50606 *pcf;
+	struct pcf50606_adc *adc = platform_get_drvdata(pdev);
+	int i, head;
 
-	pcf = platform_get_drvdata(pdev);
-	pcf->irq_handler[PCF50606_IRQ_ADCRDY].handler = NULL;
+	pcf50606_free_irq(adc->pcf, PCF50606_IRQ_ADCRDY);
+
+	mutex_lock(&adc->queue_mutex);
+	head = adc->queue_head;
+
+	if (WARN_ON(adc->queue[head]))
+		dev_err(adc->pcf->dev,
+			"adc driver removed with request pending\n");
+
+	for (i = 0; i < PCF50606_MAX_ADC_FIFO_DEPTH; i++)
+		kfree(adc->queue[i]);
+
+	mutex_unlock(&adc->queue_mutex);
+	kfree(adc);
 
 	return 0;
 }

@@ -19,14 +19,9 @@
 #include <linux/regulator/machine.h>
 #include <linux/power_supply.h>
 
-#include <linux/mfd/pcf50606/pmic.h>
-#include <linux/mfd/pcf50606/input.h>
-#include <linux/mfd/pcf50606/mbc.h>
-#include <linux/mfd/pcf50606/rtc.h>
-#include <linux/mfd/pcf50606/adc.h>
-#include <linux/mfd/pcf50606/wdt.h>
-
 struct pcf50606;
+
+#define PCF50606_NUM_REGULATORS	8
 
 struct pcf50606_platform_data {
 	struct regulator_init_data reg_init_data[PCF50606_NUM_REGULATORS];
@@ -41,15 +36,20 @@ struct pcf50606_platform_data {
 	void (*force_shutdown)(struct pcf50606 *);
 
 	u8 resumers[3];
+};
 
-	/* Runtime data - filled by driver afer probe */
+struct pcf50606_subdev_pdata {
 	struct pcf50606 *pcf;
 };
 
 struct pcf50606_irq {
-	void (*handler)(struct pcf50606 *, int, void *);
+	void (*handler)(int, void *);
 	void *data;
 };
+
+int pcf50606_register_irq(struct pcf50606 *pcf, int irq,
+			void (*handler) (int, void *), void *data);
+int pcf50606_free_irq(struct pcf50606 *pcf, int irq);
 
 int pcf50606_irq_mask(struct pcf50606 *pcf, int irq);
 int pcf50606_irq_unmask(struct pcf50606 *pcf, int irq);
@@ -82,6 +82,7 @@ enum {
 	PCF50606_IRQ_ONKEY1S,
 	PCF50606_IRQ_EXTONR,
 	PCF50606_IRQ_EXTONF,
+	PCF50606_IRQ_RESERVED_1,
 	PCF50606_IRQ_SECOND,
 	PCF50606_IRQ_ALARM,
 	PCF50606_IRQ_CHGINS,
@@ -96,6 +97,8 @@ enum {
 	PCF50606_IRQ_ACDINS,
 	PCF50606_IRQ_ACDREM,
 	PCF50606_IRQ_TSCPRES,
+	PCF50606_IRQ_RESERVED_2,
+	PCF50606_IRQ_RESERVED_3,
 	PCF50606_IRQ_LOWBAT,
 	PCF50606_IRQ_HIGHTMP,
 
@@ -121,12 +124,12 @@ struct pcf50606 {
 
 	int onkey1s_held;
 
-	struct pcf50606_pmic pmic;
-	struct pcf50606_input input;
-	struct pcf50606_mbc mbc;
-	struct pcf50606_rtc rtc;
-	struct pcf50606_adc adc;
-	struct pcf50606_wdt wdt;
+	struct platform_device *rtc_pdev;
+	struct platform_device *mbc_pdev;
+	struct platform_device *adc_pdev;
+	struct platform_device *input_pdev;
+	struct platform_device *wdt_pdev;
+	struct platform_device *regulator_pdev[PCF50606_NUM_REGULATORS];
 };
 
 enum pcf50606_reg_int1 {
@@ -159,5 +162,9 @@ enum pcf50606_reg_int3 {
 	PCF50606_INT3_HIGHTMP	= 0x80, /* High temperature */
 };
 
+/* Misc regs */
+
+#define PCF50606_REG_OOCC1 	0x08
+#define PCF50606_OOCC1_GOSTDBY	0x01
 #endif
 

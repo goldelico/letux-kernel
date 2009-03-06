@@ -531,7 +531,7 @@ int __init acpi_irq_penalty_init(void)
 	return 0;
 }
 
-static int acpi_irq_balance;	/* 0: static, 1: balance */
+static int acpi_irq_balance = -1;	/* 0: static, 1: balance */
 
 static int acpi_pci_link_allocate(struct acpi_pci_link *link)
 {
@@ -796,10 +796,6 @@ static int irqrouter_resume(struct sys_device *dev)
 	struct list_head *node = NULL;
 	struct acpi_pci_link *link = NULL;
 
-
-	/* Make sure SCI is enabled again (Apple firmware bug?) */
-	acpi_set_register(ACPI_BITREG_SCI_ENABLE, 1);
-
 	list_for_each(node, &acpi_link.entries) {
 		link = list_entry(node, struct acpi_pci_link, node);
 		if (!link) {
@@ -912,7 +908,7 @@ static int __init acpi_irq_nobalance_set(char *str)
 
 __setup("acpi_irq_nobalance", acpi_irq_nobalance_set);
 
-int __init acpi_irq_balance_set(char *str)
+static int __init acpi_irq_balance_set(char *str)
 {
 	acpi_irq_balance = 1;
 	return 1;
@@ -950,9 +946,16 @@ device_initcall(irqrouter_init_sysfs);
 
 static int __init acpi_pci_link_init(void)
 {
-
 	if (acpi_noirq)
 		return 0;
+
+	if (acpi_irq_balance == -1) {
+		/* no command line switch: enable balancing in IOAPIC mode */
+		if (acpi_irq_model == ACPI_IRQ_MODEL_IOAPIC)
+			acpi_irq_balance = 1;
+		else
+			acpi_irq_balance = 0;
+	}
 
 	acpi_link.count = 0;
 	INIT_LIST_HEAD(&acpi_link.entries);

@@ -16,7 +16,7 @@
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include <asm/types.h>
+#include <linux/types.h>
 #endif
 
 /*
@@ -238,6 +238,7 @@ struct input_absinfo {
 #define KEY_KPEQUAL		117
 #define KEY_KPPLUSMINUS		118
 #define KEY_PAUSE		119
+#define KEY_SCALE		120	/* AL Compiz Scale (Expose) */
 
 #define KEY_KPCOMMA		121
 #define KEY_HANGEUL		122
@@ -322,6 +323,7 @@ struct input_absinfo {
 #define KEY_PAUSECD		201
 #define KEY_PROG3		202
 #define KEY_PROG4		203
+#define KEY_DASHBOARD		204	/* AL Dashboard */
 #define KEY_SUSPEND		205
 #define KEY_CLOSE		206	/* AC Close */
 #define KEY_PLAY		207
@@ -657,6 +659,8 @@ struct input_absinfo {
 #define SW_RADIO		SW_RFKILL_ALL	/* deprecated */
 #define SW_MICROPHONE_INSERT	0x04  /* set = inserted */
 #define SW_DOCK			0x05  /* set = plugged into dock */
+#define SW_LINEOUT_INSERT	0x06  /* set = inserted */
+#define SW_JACK_PHYSICAL_INSERT 0x07  /* set = mechanical switch set */
 #define SW_MAX			0x0f
 #define SW_CNT			(SW_MAX+1)
 

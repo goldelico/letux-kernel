@@ -40,18 +40,51 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/sysfs.h>
+#include <linux/spi/spi.h>
 
 #include <linux/lis302dl.h>
 
 /* Utility functions */
 static u8 __reg_read(struct lis302dl_info *lis, u8 reg)
 {
-	return (lis->pdata->lis302dl_bitbang_reg_read)(lis, reg);
+	struct spi_message msg;
+	struct spi_transfer t;
+	u8 data[2] = {0xc0 | reg};
+	int rc;
+
+	spi_message_init(&msg);
+	memset(&t, 0, sizeof t);
+	t.len = 2;
+	spi_message_add_tail(&t, &msg);
+	t.tx_buf = &data[0];
+	t.rx_buf = &data[0];
+
+	/* Should complete without blocking */
+	rc = spi_non_blocking_transfer(lis->spi, &msg);
+	if (rc < 0) {
+		dev_err(lis->dev, "Error reading register\n");
+		return rc;
+	}
+
+	return data[1];
 }
 
 static void __reg_write(struct lis302dl_info *lis, u8 reg, u8 val)
-{
-	(lis->pdata->lis302dl_bitbang_reg_write)(lis, reg, val);
+{	
+	struct spi_message msg;
+	struct spi_transfer t;
+	u8 data[2] = {reg, val};
+
+	spi_message_init(&msg);
+	memset(&t, 0, sizeof t);
+	t.len = 2;
+	spi_message_add_tail(&t, &msg);
+	t.tx_buf = &data[0];
+	t.rx_buf = &data[0];
+
+	/* Completes without blocking */
+	if (spi_non_blocking_transfer(lis->spi, &msg) < 0)
+		dev_err(lis->dev, "Error writing register\n");
 }
 
 static void __reg_set_bit_mask(struct lis302dl_info *lis, u8 reg, u8 mask,
@@ -213,27 +246,58 @@ static void _report_btn_double(struct input_dev *inp, int btn)
 
 static void lis302dl_bitbang_read_sample(struct lis302dl_info *lis)
 {
-	u8 data = 0xc0 | LIS302DL_REG_OUT_X; /* read, autoincrement */
-	u8 read[5];
+	u8 data[(LIS302DL_REG_OUT_Z - LIS302DL_REG_STATUS) + 2] = {0xC0 | LIS302DL_REG_STATUS};
+	u8 *read = data + 1;
 	unsigned long flags;
-	int mg_per_sample;
+	int mg_per_sample = __threshold_to_mg(lis, 1);
+	struct spi_message msg;
+	struct spi_transfer t;
+
+	spi_message_init(&msg);
+	memset(&t, 0, sizeof t);
+	t.len = sizeof(data);
+	spi_message_add_tail(&t, &msg);
+	t.tx_buf = &data[0];
+	t.rx_buf = &data[0];
+
+	/* grab the set of register containing status and XYZ data */
 
 	local_irq_save(flags);
-	mg_per_sample = __threshold_to_mg(lis, 1);
 
-	(lis->pdata->lis302dl_bitbang)(lis, &data, 1, &read[0], 5);
+	/* Should complete without blocking */
+	if (spi_non_blocking_transfer(lis->spi, &msg) < 0) 
+		dev_err(lis->dev, "Error reading registers\n");
 
 	local_irq_restore(flags);
 
-	input_report_rel(lis->input_dev, REL_X, mg_per_sample * (s8)read[0]);
-	input_report_rel(lis->input_dev, REL_Y, mg_per_sample * (s8)read[2]);
-	input_report_rel(lis->input_dev, REL_Z, mg_per_sample * (s8)read[4]);
+	/*
+	 * at the minute the test below fails 50% of the time due to
+	 * a problem with level interrupts causing ISRs to get called twice.
+	 * This is a workaround for that, but actually this test is still
+	 * valid and the information can be used for overrrun stats.
+	 */
 
-	input_sync(lis->input_dev);
+	/* has any kind of overrun been observed by the lis302dl? */
+	if (read[0] & (LIS302DL_STATUS_XOR |
+		       LIS302DL_STATUS_YOR |
+		       LIS302DL_STATUS_ZOR))
+		lis->overruns++;
 
-	/* Reset the HP filter */
-	__reg_read(lis,	LIS302DL_REG_HP_FILTER_RESET);
-	__reg_read(lis,	LIS302DL_REG_FF_WU_SRC_1);
+	/* we have a valid sample set? */
+	if (read[0] & LIS302DL_STATUS_XYZDA) {
+		input_report_rel(lis->input_dev, REL_X, mg_per_sample *
+			    (s8)read[LIS302DL_REG_OUT_X - LIS302DL_REG_STATUS]);
+		input_report_rel(lis->input_dev, REL_Y, mg_per_sample *
+			    (s8)read[LIS302DL_REG_OUT_Y - LIS302DL_REG_STATUS]);
+		input_report_rel(lis->input_dev, REL_Z, mg_per_sample *
+			    (s8)read[LIS302DL_REG_OUT_Z - LIS302DL_REG_STATUS]);
+
+		input_sync(lis->input_dev);
+	}
+
+	if (lis->threshold)
+		/* acknowledge the wakeup source */
+		__reg_read(lis,	LIS302DL_REG_FF_WU_SRC_1);
 }
 
 static irqreturn_t lis302dl_interrupt(int irq, void *_lis)
@@ -245,6 +309,16 @@ static irqreturn_t lis302dl_interrupt(int irq, void *_lis)
 }
 
 /* sysfs */
+
+static ssize_t show_overruns(struct device *dev, struct device_attribute *attr,
+			 char *buf)
+{
+	struct lis302dl_info *lis = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%u\n", lis->overruns);
+}
+
+static DEVICE_ATTR(overruns, S_IRUGO, show_overruns, NULL);
 
 static ssize_t show_rate(struct device *dev, struct device_attribute *attr,
 			 char *buf)
@@ -505,6 +579,7 @@ static struct attribute *lis302dl_sysfs_entries[] = {
 	&dev_attr_dump.attr,
 	&dev_attr_wakeup_threshold.attr,
 	&dev_attr_wakeup_duration.attr,
+	&dev_attr_overruns.attr,
 	NULL
 };
 
@@ -572,19 +647,27 @@ static int __lis302dl_reset_device(struct lis302dl_info *lis)
 	return !!(timeout < 0);
 }
 
-static int __devinit lis302dl_probe(struct platform_device *pdev)
+static int __devinit lis302dl_probe(struct spi_device *spi)
 {
 	int rc;
 	struct lis302dl_info *lis;
 	u_int8_t wai;
 	unsigned long flags;
-	struct lis302dl_platform_data *pdata = pdev->dev.platform_data;
+	struct lis302dl_platform_data *pdata = spi->dev.platform_data;
+
+	spi->mode = SPI_MODE_3;
+	rc = spi_setup(spi);
+	if (rc < 0) {
+		dev_err(&spi->dev, "spi_setup failed\n");
+		return rc;
+	}
 
 	lis = kzalloc(sizeof(*lis), GFP_KERNEL);
 	if (!lis)
 		return -ENOMEM;
 
-	lis->dev = &pdev->dev;
+	lis->dev = &spi->dev;
+	lis->spi = spi;
 
 	dev_set_drvdata(lis->dev, lis);
 
@@ -707,9 +790,9 @@ bail_free_lis:
 	return rc;
 }
 
-static int __devexit lis302dl_remove(struct platform_device *pdev)
+static int __devexit lis302dl_remove(struct spi_device *spi)
 {
-	struct lis302dl_info *lis = dev_get_drvdata(&pdev->dev);
+	struct lis302dl_info *lis = dev_get_drvdata(&spi->dev);
 	unsigned long flags;
 
 	/* Disable interrupts */
@@ -725,7 +808,7 @@ static int __devexit lis302dl_remove(struct platform_device *pdev)
 	local_irq_restore(flags);
 
 	/* Cleanup resources */
-	sysfs_remove_group(&pdev->dev.kobj, &lis302dl_attr_group);
+	sysfs_remove_group(&spi->dev.kobj, &lis302dl_attr_group);
 	input_unregister_device(lis->input_dev);
 	if (lis->input_dev)
 		input_free_device(lis->input_dev);
@@ -756,9 +839,9 @@ static u8 regs_to_save[] = {
 
 };
 
-static int lis302dl_suspend(struct platform_device *pdev, pm_message_t state)
+static int lis302dl_suspend(struct spi_device *spi, pm_message_t state)
 {
-	struct lis302dl_info *lis = dev_get_drvdata(&pdev->dev);
+	struct lis302dl_info *lis = dev_get_drvdata(&spi->dev);
 	unsigned long flags;
 	u_int8_t tmp;
 	int n;
@@ -801,9 +884,9 @@ static int lis302dl_suspend(struct platform_device *pdev, pm_message_t state)
 	return 0;
 }
 
-static int lis302dl_resume(struct platform_device *pdev)
+static int lis302dl_resume(struct spi_device *spi)
 {
-	struct lis302dl_info *lis = dev_get_drvdata(&pdev->dev);
+	struct lis302dl_info *lis = dev_get_drvdata(&spi->dev);
 	unsigned long flags;
 	int n;
 
@@ -824,7 +907,7 @@ static int lis302dl_resume(struct platform_device *pdev)
 	mdelay(1);
 
 	if (__lis302dl_reset_device(lis))
-		dev_err(&pdev->dev, "device BOOT reload failed\n");
+		dev_err(&spi->dev, "device BOOT reload failed\n");
 
 	lis->regs[LIS302DL_REG_CTRL1] |=	LIS302DL_CTRL1_PD |
 						LIS302DL_CTRL1_Xen |
@@ -834,6 +917,10 @@ static int lis302dl_resume(struct platform_device *pdev)
 	/* restore registers after resume */
 	for (n = 0; n < ARRAY_SIZE(regs_to_save); n++)
 		__reg_write(lis, regs_to_save[n], lis->regs[regs_to_save[n]]);
+
+	/* if someone had us open, reset the non-wake threshold stuff */
+	if (lis->flags & LIS302DL_F_INPUT_OPEN)
+		__enable_data_collection(lis);
 
 	local_irq_restore(flags);
 	enable_irq(lis->pdata->interrupt);
@@ -845,26 +932,26 @@ static int lis302dl_resume(struct platform_device *pdev)
 #define lis302dl_resume		NULL
 #endif
 
-static struct platform_driver lis302dl_driver = {
+static struct spi_driver lis302dl_spi_driver = {
 	.driver = {
-		.name	= "lis302dl",
-		.owner	= THIS_MODULE,
+		.name = "lis302dl",
+		.owner = THIS_MODULE,
 	},
 
-	.probe	 = lis302dl_probe,
-	.remove	 = __devexit_p(lis302dl_remove),
+	.probe 	= lis302dl_probe,	
+	.remove	= __devexit_p(lis302dl_remove),
 	.suspend = lis302dl_suspend,
 	.resume	 = lis302dl_resume,
 };
 
 static int __devinit lis302dl_init(void)
 {
-	return platform_driver_register(&lis302dl_driver);
+	return spi_register_driver(&lis302dl_spi_driver);
 }
 
 static void __exit lis302dl_exit(void)
 {
-	platform_driver_unregister(&lis302dl_driver);
+	spi_unregister_driver(&lis302dl_spi_driver);
 }
 
 MODULE_AUTHOR("Harald Welte <laforge@openmoko.org>");

@@ -1,45 +1,70 @@
-/* Philips PCF50633 Power Management Unit (PMU) driver
+/* NXP PCF50633 Power Management Unit (PMU) driver
  *
  * (C) 2006-2008 by Openmoko, Inc.
  * Author: Harald Welte <laforge@openmoko.org>
+ * 	   Balaji Rao <balajirrao@openmoko.org>
  * All rights reserved.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- * MA 02111-1307 USA
+ *  This program is free software; you can redistribute  it and/or modify it
+ *  under  the terms of  the GNU General  Public License as published by the
+ *  Free Software Foundation;  either version 2 of the  License, or (at your
+ *  option) any later version.
  *
  */
-#include <linux/i2c.h>
-#include <linux/irq.h>
+
+#include <linux/kernel.h>
+#include <linux/device.h>
+#include <linux/sysfs.h>
 #include <linux/device.h>
 #include <linux/module.h>
-#include <linux/reboot.h>
+#include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
+#include <linux/i2c.h>
+#include <linux/irq.h>
 
 #include <linux/mfd/pcf50633/core.h>
 
+/* Two MBCS registers used during cold start */
+#define PCF50633_REG_MBCS1		0x4b
+#define PCF50633_REG_MBCS2		0x4c
+#define PCF50633_MBCS1_USBPRES 		0x01
+#define PCF50633_MBCS1_ADAPTPRES	0x01
+
+static int __pcf50633_read(struct pcf50633 *pcf, u8 reg, int num, u8 *data)
+{
+	int ret;
+
+	ret = i2c_smbus_read_i2c_block_data(pcf->i2c_client, reg,
+				num, data);
+	if (ret < 0)
+		dev_err(pcf->dev, "Error reading %d regs at %d\n", num, reg);
+
+	return ret;
+}
+
+static int __pcf50633_write(struct pcf50633 *pcf, u8 reg, int num, u8 *data)
+{
+	int ret;
+
+	ret = i2c_smbus_write_i2c_block_data(pcf->i2c_client, reg,
+				num, data);
+	if (ret < 0)
+		dev_err(pcf->dev, "Error writing %d regs at %d\n", num, reg);
+
+	return ret;
+
+}
+
 /* Read a block of upto 32 regs  */
-int pcf50633_read_block(struct pcf50633 *pcf , u8 reg,
+int pcf50633_read_block(struct pcf50633 *pcf, u8 reg,
 					int nr_regs, u8 *data)
 {
 	int ret;
 
 	mutex_lock(&pcf->lock);
-	ret = i2c_smbus_read_i2c_block_data(pcf->i2c_client, reg,
-							nr_regs, data);
+	ret = __pcf50633_read(pcf, reg, nr_regs, data);
 	mutex_unlock(&pcf->lock);
 
 	return ret;
@@ -53,8 +78,7 @@ int pcf50633_write_block(struct pcf50633 *pcf , u8 reg,
 	int ret;
 
 	mutex_lock(&pcf->lock);
-	ret = i2c_smbus_write_i2c_block_data(pcf->i2c_client, reg,
-							nr_regs, data);
+	ret = __pcf50633_write(pcf, reg, nr_regs, data);
 	mutex_unlock(&pcf->lock);
 
 	return ret;
@@ -63,21 +87,22 @@ EXPORT_SYMBOL_GPL(pcf50633_write_block);
 
 u8 pcf50633_reg_read(struct pcf50633 *pcf, u8 reg)
 {
-	int ret;
+	u8 val;
 
 	mutex_lock(&pcf->lock);
-	ret = i2c_smbus_read_byte_data(pcf->i2c_client, reg);
+	__pcf50633_read(pcf, reg, 1, &val);
 	mutex_unlock(&pcf->lock);
 
-	return ret;
+	return val;
 }
 EXPORT_SYMBOL_GPL(pcf50633_reg_read);
 
 int pcf50633_reg_write(struct pcf50633 *pcf, u8 reg, u8 val)
 {
 	int ret;
+
 	mutex_lock(&pcf->lock);
-	ret = i2c_smbus_write_byte_data(pcf->i2c_client, reg, val);
+	ret = __pcf50633_write(pcf, reg, 1, &val);
 	mutex_unlock(&pcf->lock);
 
 	return ret;
@@ -92,12 +117,15 @@ int pcf50633_reg_set_bit_mask(struct pcf50633 *pcf, u8 reg, u8 mask, u8 val)
 	val &= mask;
 
 	mutex_lock(&pcf->lock);
+	ret = __pcf50633_read(pcf, reg, 1, &tmp);
+	if (ret < 0)
+		goto out;
 
-	tmp = i2c_smbus_read_byte_data(pcf->i2c_client, reg);
 	tmp &= ~mask;
 	tmp |= val;
-	ret = i2c_smbus_write_byte_data(pcf->i2c_client, reg, tmp);
+	ret = __pcf50633_write(pcf, reg, 1, &tmp);
 
+out:
 	mutex_unlock(&pcf->lock);
 
 	return ret;
@@ -110,11 +138,14 @@ int pcf50633_reg_clear_bits(struct pcf50633 *pcf, u8 reg, u8 val)
 	u8 tmp;
 
 	mutex_lock(&pcf->lock);
+	ret = __pcf50633_read(pcf, reg, 1, &tmp);
+	if (ret < 0)
+		goto out;
 
-	tmp = i2c_smbus_read_byte_data(pcf->i2c_client, reg);
 	tmp &= ~val;
-	ret = i2c_smbus_write_byte_data(pcf->i2c_client, reg, tmp);
+	ret = __pcf50633_write(pcf, reg, 1, &tmp);
 
+out:
 	mutex_unlock(&pcf->lock);
 
 	return ret;
@@ -184,43 +215,85 @@ static struct attribute_group pcf_attr_group = {
 	.attrs	= pcf_sysfs_entries,
 };
 
+int pcf50633_register_irq(struct pcf50633 *pcf, int irq,
+			void (*handler) (int, void *), void *data)
+{
+	if (irq < 0 || irq > PCF50633_NUM_IRQ || !handler)
+		return -EINVAL;
 
-static int pcf50633_irq_mask_set(struct pcf50633 *pcf, int irq, int mask)
+	if (WARN_ON(pcf->irq_handler[irq].handler))
+		return -EBUSY;
+
+	mutex_lock(&pcf->lock);
+	pcf->irq_handler[irq].handler = handler;
+	pcf->irq_handler[irq].data = data;
+	mutex_unlock(&pcf->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pcf50633_register_irq);
+
+int pcf50633_free_irq(struct pcf50633 *pcf, int irq)
+{
+	if (irq < 0 || irq > PCF50633_NUM_IRQ)
+		return -EINVAL;
+
+	mutex_lock(&pcf->lock);
+	pcf->irq_handler[irq].handler = NULL;
+	mutex_unlock(&pcf->lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pcf50633_free_irq);
+
+static int __pcf50633_irq_mask_set(struct pcf50633 *pcf, int irq, u8 mask)
 {
 	u8 reg, bits, tmp;
 	int ret = 0, idx;
 
-	idx = irq / 8;
+	idx = irq >> 3;
 	reg =  PCF50633_REG_INT1M + idx;
-	bits = 1 << (irq % 8);
+	bits = 1 << (irq & 0x07);
 
 	mutex_lock(&pcf->lock);
 
 	if (mask) {
-		tmp = i2c_smbus_read_byte_data(pcf->i2c_client, reg);
+		ret = __pcf50633_read(pcf, reg, 1, &tmp);
+		if (ret < 0)
+			goto out;
+
 		tmp |= bits;
-		ret = i2c_smbus_write_byte_data(pcf->i2c_client, reg, tmp);
+
+		ret = __pcf50633_write(pcf, reg, 1, &tmp);
+		if (ret < 0)
+			goto out;
 
 		pcf->mask_regs[idx] &= ~bits;
 		pcf->mask_regs[idx] |= bits;
 	} else {
-		tmp = i2c_smbus_read_byte_data(pcf->i2c_client, reg);
+		ret = __pcf50633_read(pcf, reg, 1, &tmp);
+		if (ret < 0)
+			goto out;
+
 		tmp &= ~bits;
-		ret = i2c_smbus_write_byte_data(pcf->i2c_client, reg, tmp);
+
+		ret = __pcf50633_write(pcf, reg, 1, &tmp);
+		if (ret < 0)
+			goto out;
 
 		pcf->mask_regs[idx] &= ~bits;
 	}
-
+out:
 	mutex_unlock(&pcf->lock);
 
-	return 0;
+	return ret;
 }
 
 int pcf50633_irq_mask(struct pcf50633 *pcf, int irq)
 {
 	dev_info(pcf->dev, "Masking IRQ %d\n", irq);
 
-	return pcf50633_irq_mask_set(pcf, irq, 1);
+	return __pcf50633_irq_mask_set(pcf, irq, 1);
 }
 EXPORT_SYMBOL_GPL(pcf50633_irq_mask);
 
@@ -228,7 +301,7 @@ int pcf50633_irq_unmask(struct pcf50633 *pcf, int irq)
 {
 	dev_info(pcf->dev, "Unmasking IRQ %d\n", irq);
 
-	return pcf50633_irq_mask_set(pcf, irq, 0);
+	return __pcf50633_irq_mask_set(pcf, irq, 0);
 }
 EXPORT_SYMBOL_GPL(pcf50633_irq_unmask);
 
@@ -236,22 +309,20 @@ int pcf50633_irq_mask_get(struct pcf50633 *pcf, int irq)
 {
 	u8 reg, bits;
 
-	reg =  (irq / 8);
-	bits = (1 << (irq % 8));
+	reg =  irq >> 3;
+	bits = 1 << (irq & 0x07);
 
 	return pcf->mask_regs[reg] & bits;
 }
 EXPORT_SYMBOL_GPL(pcf50633_irq_mask_get);
 
-static void pcf50633_irq_call_handler(struct pcf50633 *pcf,
-					int irq)
+static void pcf50633_irq_call_handler(struct pcf50633 *pcf, int irq)
 {
-	if (pcf->irq_handler[irq].handler) {
-		pcf->irq_handler[irq].handler(pcf, irq,
-					pcf->irq_handler[irq].data);
-	}
+	if (pcf->irq_handler[irq].handler)
+		pcf->irq_handler[irq].handler(irq, pcf->irq_handler[irq].data);
 }
 
+/* Maximum amount of time ONKEY is held before emergency action is taken */
 #define PCF50633_ONKEY1S_TIMEOUT 8
 
 static void pcf50633_irq_worker(struct work_struct *work)
@@ -264,20 +335,21 @@ static void pcf50633_irq_worker(struct work_struct *work)
 
 	/* Read the 5 INT regs in one transaction */
 	ret = pcf50633_read_block(pcf, PCF50633_REG_INT1,
-						sizeof(pcf_int), pcf_int);
-	if (ret != sizeof(pcf_int)) {
-		dev_info(pcf->dev, "Error reading INT registers\n");
+						ARRAY_SIZE(pcf_int), pcf_int);
+	if (ret != ARRAY_SIZE(pcf_int)) {
+		dev_err(pcf->dev, "Error reading INT registers\n");
 
-		/* We don't have an option but to retry. Because if
-		 * we don't, there won't be another interrupt edge.
+		/*
+		 * If this doesn't ACK the interrupt to the chip, we'll be
+		 * called once again as we're level triggered.
 		 */
-		goto reschedule;
+		goto out;
 	}
 
 	pcf50633_reg_write(pcf, PCF50633_REG_OOCSHDWN,	0x04 );  /* defeat 8s death from lowsys on A5 */
 
 	/* We immediately read the usb and adapter status. We thus make sure
-	 * only of USBINS/USBREM and ADAPINS/ADPREM IRQ handlers are called */
+	 * only of USBINS/USBREM IRQ handlers are called */
 	if (pcf_int[0] & (PCF50633_INT1_USBINS | PCF50633_INT1_USBREM)) {
 		chgstat = pcf50633_reg_read(pcf, PCF50633_REG_MBCS2);
 		if (chgstat & (0x3 << 4))
@@ -286,6 +358,7 @@ static void pcf50633_irq_worker(struct work_struct *work)
 			pcf_int[0] &= ~(1 << PCF50633_INT1_USBINS);
 	}
 
+	/* Make sure only one of ADPINS or ADPREM is set */
 	if (pcf_int[0] & (PCF50633_INT1_ADPINS | PCF50633_INT1_ADPREM)) {
 		chgstat = pcf50633_reg_read(pcf, PCF50633_REG_MBCS2);
 		if (chgstat & (0x3 << 4))
@@ -294,13 +367,12 @@ static void pcf50633_irq_worker(struct work_struct *work)
 			pcf_int[0] &= ~(1 << PCF50633_INT1_ADPINS);
 	}
 
-	dev_info(pcf->dev, "INT1=0x%02x INT2=0x%02x INT3=0x%02x "
+	dev_dbg(pcf->dev, "INT1=0x%02x INT2=0x%02x INT3=0x%02x "
 			"INT4=0x%02x INT5=0x%02x\n", pcf_int[0],
 			pcf_int[1], pcf_int[2], pcf_int[3], pcf_int[4]);
 
 	/* Some revisions of the chip don't have a 8s standby mode on
 	 * ONKEY1S press. We try to manually do it in such cases. */
-
 	if ((pcf_int[0] & PCF50633_INT1_SECOND) && pcf->onkey1s_held) {
 		dev_info(pcf->dev, "ONKEY1S held for %d secs\n",
 							pcf->onkey1s_held);
@@ -341,7 +413,6 @@ static void pcf50633_irq_worker(struct work_struct *work)
 
 	/* Have we just resumed ? */
 	if (pcf->is_suspended) {
-
 		pcf->is_suspended = 0;
 
 		/* Set the resume reason filtering out non resumers */
@@ -351,36 +422,30 @@ static void pcf50633_irq_worker(struct work_struct *work)
 
 		/* Make sure we don't pass on any ONKEY events to
 		 * userspace now */
-		pcf_int[1] &= ~ (PCF50633_INT2_ONKEYR | PCF50633_INT2_ONKEYF);
+		pcf_int[1] &= ~(PCF50633_INT2_ONKEYR | PCF50633_INT2_ONKEYF);
 	}
 
-	/* Unset masked interrupts */
 	for (i = 0; i < ARRAY_SIZE(pcf_int); i++) {
+		/* Unset masked interrupts */
 		pcf_int[i] &= ~pcf->mask_regs[i];
+
 		for (j = 0; j < 8 ; j++)
 			if (pcf_int[i] & (1 << j))
 				pcf50633_irq_call_handler(pcf, (i * 8) + j);
 	}
 
+out:
 	put_device(pcf->dev);
-
 	enable_irq(pcf->irq);
-
-	return;
-reschedule:
-	schedule_work(&pcf->irq_work);
-
-	/* Don't put_device here. Will be used when we are rescheduled */
-
-	return;
 }
 
 static irqreturn_t pcf50633_irq(int irq, void *data)
 {
 	struct pcf50633 *pcf = data;
 
-	get_device(pcf->dev);
+	dev_dbg(pcf->dev, "pcf50633_irq\n");
 
+	get_device(pcf->dev);
 	disable_irq(pcf->irq);
 
 	schedule_work(&pcf->irq_work);
@@ -392,20 +457,28 @@ static void
 pcf50633_client_dev_register(struct pcf50633 *pcf, const char *name,
 						struct platform_device **pdev)
 {
+	struct pcf50633_subdev_pdata *subdev_pdata;
 	int ret;
 
 	*pdev = platform_device_alloc(name, -1);
-
-	if (!pdev) {
+	if (!*pdev) {
 		dev_err(pcf->dev, "Falied to allocate %s\n", name);
 		return;
 	}
 
+	subdev_pdata = kmalloc(sizeof(*subdev_pdata), GFP_KERNEL);
+	if (!subdev_pdata) {
+		dev_err(pcf->dev, "Error allocating subdev pdata\n");
+		platform_device_put(*pdev);
+	}
+
+	subdev_pdata->pcf = pcf;
+	platform_device_add_data(*pdev, subdev_pdata, sizeof(*subdev_pdata));
+
 	(*pdev)->dev.parent = pcf->dev;
-	platform_set_drvdata(*pdev, pcf);
 
 	ret = platform_device_add(*pdev);
-	if (ret != 0) {
+	if (ret) {
 		dev_err(pcf->dev, "Failed to register %s: %d\n", name, ret);
 		platform_device_put(*pdev);
 		*pdev = NULL;
@@ -416,7 +489,7 @@ pcf50633_client_dev_register(struct pcf50633 *pcf, const char *name,
 static int pcf50633_suspend(struct device *dev, pm_message_t state)
 {
 	struct pcf50633 *pcf;
-	int ret, i;
+	int ret = 0, i;
 	u8 res[5];
 
 	pcf = dev_get_drvdata(dev);
@@ -425,39 +498,51 @@ static int pcf50633_suspend(struct device *dev, pm_message_t state)
 	 * henceforth */
 	disable_irq(pcf->irq);
 
-	/* Make sure that an IRQ worker has quit */
+	/* Make sure that any running IRQ worker has quit */
 	cancel_work_sync(&pcf->irq_work);
 
 	/* Save the masks */
 	ret = pcf50633_read_block(pcf, PCF50633_REG_INT1M,
 				ARRAY_SIZE(pcf->suspend_irq_masks),
 					pcf->suspend_irq_masks);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(pcf->dev, "error saving irq masks\n");
+		goto out;
+	}
 
-	/* Set interrupt masks. So that only those sources we want to wake
-	 * us up can
-	 */
+	/* Write wakeup irq masks */
 	for (i = 0; i < ARRAY_SIZE(res); i++)
 		res[i] = ~pcf->pdata->resumers[i];
 
-	pcf50633_write_block(pcf, PCF50633_REG_INT1M, ARRAY_SIZE(res), &res[0]);
+	ret = pcf50633_write_block(pcf, PCF50633_REG_INT1M,
+					ARRAY_SIZE(res), &res[0]);
+	if (ret < 0) {
+		dev_err(pcf->dev, "error writing wakeup irq masks\n");
+		goto out;
+	}
 
 	pcf->is_suspended = 1;
 
-	return 0;
+out:
+	return ret;
 }
 
 static int pcf50633_resume(struct device *dev)
 {
 	struct pcf50633 *pcf;
+	int ret;
 
 	pcf = dev_get_drvdata(dev);
 
 	/* Write the saved mask registers */
-	pcf50633_write_block(pcf, PCF50633_REG_INT1M,
+	ret = pcf50633_write_block(pcf, PCF50633_REG_INT1M,
 				ARRAY_SIZE(pcf->suspend_irq_masks),
 					pcf->suspend_irq_masks);
+	if (ret < 0)
+		dev_err(pcf->dev, "Error restoring saved suspend masks\n");
+
+	/* Restore regulators' state */
+
 
 	get_device(pcf->dev);
 
@@ -474,66 +559,58 @@ static int pcf50633_resume(struct device *dev)
 #define pcf50633_resume NULL
 #endif
 
-static int pcf50633_probe(struct i2c_client *client,
+static int __devinit pcf50633_probe(struct i2c_client *client,
 				const struct i2c_device_id *ids)
 {
 	struct pcf50633 *pcf;
-	struct pcf50633_platform_data *pdata;
+	struct pcf50633_platform_data *pdata = client->dev.platform_data;
 	int i, ret = 0;
-	int version;
-	int variant;
-
-	pdata = client->dev.platform_data;
+	int version, variant;
 
 	pcf = kzalloc(sizeof(*pcf), GFP_KERNEL);
 	if (!pcf)
 		return -ENOMEM;
 
 	pcf->pdata = pdata;
-	pdata->pcf = pcf;
 
 	mutex_init(&pcf->lock);
 
 	i2c_set_clientdata(client, pcf);
 	pcf->dev = &client->dev;
 	pcf->i2c_client = client;
+	pcf->irq = client->irq;
 
 	INIT_WORK(&pcf->irq_work, pcf50633_irq_worker);
 
 	version = pcf50633_reg_read(pcf, 0);
-	if (version < 0) {
-		dev_err(pcf->dev, "Unable to probe pcf50633\n");
-		kfree(pcf);
-		return -ENODEV;
-	}
-
 	variant = pcf50633_reg_read(pcf, 1);
-	if (variant < 0) {
+	if (version < 0 || variant < 0) {
 		dev_err(pcf->dev, "Unable to probe pcf50633\n");
-		kfree(pcf);
-		return -ENODEV;
+		ret = -ENODEV;
+		goto err;
 	}
 
 	dev_info(pcf->dev, "Probed device version %d variant %d\n",
 							version, variant);
 
-	/* Enable all inteerupts except RTC SECOND */
+	/* Enable all interrupts except RTC SECOND */
 	pcf->mask_regs[0] = 0x80;
-	pcf50633_reg_write(pcf, PCF50633_REG_INT1M, 0x80);
-
+	pcf50633_reg_write(pcf, PCF50633_REG_INT1M, pcf->mask_regs[0]);
 	pcf50633_reg_write(pcf, PCF50633_REG_INT2M, 0x00);
 	pcf50633_reg_write(pcf, PCF50633_REG_INT3M, 0x00);
 	pcf50633_reg_write(pcf, PCF50633_REG_INT4M, 0x00);
 	pcf50633_reg_write(pcf, PCF50633_REG_INT5M, 0x00);
 
+	/* Create sub devices */
 	pcf50633_client_dev_register(pcf, "pcf50633-input",
-						&pcf->input.pdev);
+						&pcf->input_pdev);
 	pcf50633_client_dev_register(pcf, "pcf50633-rtc",
-						&pcf->rtc.pdev);
+						&pcf->rtc_pdev);
 	pcf50633_client_dev_register(pcf, "pcf50633-mbc",
-						&pcf->mbc.pdev);
+						&pcf->mbc_pdev);
 	pcf50633_client_dev_register(pcf, "pcf50633-adc",
-						&pcf->adc.pdev);
+						&pcf->adc_pdev);
+
 	for (i = 0; i < PCF50633_NUM_REGULATORS; i++) {
 		struct platform_device *pdev;
 
@@ -546,14 +623,13 @@ static int pcf50633_probe(struct i2c_client *client,
 		pdev->dev.parent = pcf->dev;
 		pdev->dev.platform_data = &pdata->reg_init_data[i];
 		pdev->dev.driver_data = pcf;
-		pcf->pmic.pdev[i] = pdev;
+		pcf->regulator_pdev[i] = pdev;
 
 		platform_device_add(pdev);
 	}
 
-	pcf->irq = client->irq;
-
 	if (client->irq) {
+		set_irq_handler(client->irq, handle_level_irq);
 		ret = request_irq(client->irq, pcf50633_irq,
 				IRQF_TRIGGER_LOW, "pcf50633", pcf);
 
@@ -567,8 +643,8 @@ static int pcf50633_probe(struct i2c_client *client,
 	}
 
 	if (enable_irq_wake(client->irq) < 0)
-		dev_err(pcf->dev, "IRQ %u cannot be enabled as wake-up "
-		        "source in this hardware revision\n", client->irq);
+		dev_err(pcf->dev, "IRQ %u cannot be enabled as wake-up source"
+			"in this hardware revision", client->irq);
 
 	ret = sysfs_create_group(&client->dev.kobj, &pcf_attr_group);
 	if (ret)
@@ -584,11 +660,21 @@ err:
 	return ret;
 }
 
-static int pcf50633_remove(struct i2c_client *client)
+static int __devexit pcf50633_remove(struct i2c_client *client)
 {
 	struct pcf50633 *pcf = i2c_get_clientdata(client);
+	int i;
 
 	free_irq(pcf->irq, pcf);
+
+	platform_device_unregister(pcf->input_pdev);
+	platform_device_unregister(pcf->rtc_pdev);
+	platform_device_unregister(pcf->mbc_pdev);
+	platform_device_unregister(pcf->adc_pdev);
+
+	for (i = 0; i < PCF50633_NUM_REGULATORS; i++)
+		platform_device_unregister(pcf->regulator_pdev[i]);
+
 	kfree(pcf);
 
 	return 0;
@@ -606,7 +692,7 @@ static struct i2c_driver pcf50633_driver = {
 	},
 	.id_table = pcf50633_id_table,
 	.probe = pcf50633_probe,
-	.remove = pcf50633_remove,
+	.remove = __devexit_p(pcf50633_remove),
 };
 
 static int __init pcf50633_init(void)
@@ -614,7 +700,7 @@ static int __init pcf50633_init(void)
 	return i2c_add_driver(&pcf50633_driver);
 }
 
-static void pcf50633_exit(void)
+static void __exit pcf50633_exit(void)
 {
 	i2c_del_driver(&pcf50633_driver);
 }

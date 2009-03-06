@@ -16,8 +16,6 @@
 #include <linux/cpumask.h>
 typedef unsigned long address_t;
 
-extern cpumask_t cpu_online_map;
-
 
 /*
  *	Private routines/data
@@ -43,8 +41,6 @@ extern void arch_send_call_function_ipi(cpumask_t mask);
  */
  
 #define PROC_CHANGE_PENALTY	15		/* Schedule penalty */
-
-extern unsigned long cpu_present_mask;
 
 #define raw_smp_processor_id()	(current_thread_info()->cpu)
 

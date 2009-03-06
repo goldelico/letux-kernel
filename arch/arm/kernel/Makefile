@@ -44,5 +44,6 @@ endif
 
 head-y			:= head$(MMUEXT).o
 obj-$(CONFIG_DEBUG_LL)	+= debug.o
+obj-$(CONFIG_FIND_IRQ_BLOCKERS)			+= iblock.o
 
 extra-y := $(head-y) init_task.o vmlinux.lds

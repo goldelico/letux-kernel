@@ -1,0 +1,162 @@
+menu "Android"
+
+config ANDROID
+	bool "Android Drivers"
+	default N
+	---help---
+	  Enable support for various drivers needed on the Android platform
+
+config ANDROID_BINDER_IPC
+	bool "Android Binder IPC Driver"
+	default n
+
+config ANDROID_LOGGER
+	tristate "Android log driver"
+	default n
+
+config ANDROID_RAM_CONSOLE
+	bool "Android RAM buffer console"
+	default n
+
+config ANDROID_RAM_CONSOLE_ENABLE_VERBOSE
+	bool "Enable verbose console messages on Android RAM console"
+	default y
+	depends on ANDROID_RAM_CONSOLE
+
+menuconfig ANDROID_RAM_CONSOLE_ERROR_CORRECTION
+	bool "Android RAM Console Enable error correction"
+	default n
+	depends on ANDROID_RAM_CONSOLE
+	select REED_SOLOMON
+	select REED_SOLOMON_ENC8
+	select REED_SOLOMON_DEC8
+
+if ANDROID_RAM_CONSOLE_ERROR_CORRECTION
+
+config ANDROID_RAM_CONSOLE_ERROR_CORRECTION_DATA_SIZE
+	int "Android RAM Console Data data size"
+	default 128
+	help
+	  Must be a power of 2.
+
+config ANDROID_RAM_CONSOLE_ERROR_CORRECTION_ECC_SIZE
+	int "Android RAM Console ECC size"
+	default 16
+
+config ANDROID_RAM_CONSOLE_ERROR_CORRECTION_SYMBOL_SIZE
+	int "Android RAM Console Symbol size"
+	default 8
+
+config ANDROID_RAM_CONSOLE_ERROR_CORRECTION_POLYNOMIAL
+	hex "Android RAM Console Polynomial"
+	default 0x19 if (ANDROID_RAM_CONSOLE_ERROR_CORRECTION_SYMBOL_SIZE = 4)
+	default 0x29 if (ANDROID_RAM_CONSOLE_ERROR_CORRECTION_SYMBOL_SIZE = 5)
+	default 0x61 if (ANDROID_RAM_CONSOLE_ERROR_CORRECTION_SYMBOL_SIZE = 6)
+	default 0x89 if (ANDROID_RAM_CONSOLE_ERROR_CORRECTION_SYMBOL_SIZE = 7)
+	default 0x11d if (ANDROID_RAM_CONSOLE_ERROR_CORRECTION_SYMBOL_SIZE = 8)
+
+endif # ANDROID_RAM_CONSOLE_ERROR_CORRECTION
+
+config ANDROID_RAM_CONSOLE_EARLY_INIT
+	bool "Start Android RAM console early"
+	default n
+	depends on ANDROID_RAM_CONSOLE
+
+config ANDROID_RAM_CONSOLE_EARLY_ADDR
+	hex "Android RAM console virtual address"
+	default 0
+	depends on ANDROID_RAM_CONSOLE_EARLY_INIT
+
+config ANDROID_RAM_CONSOLE_EARLY_SIZE
+	hex "Android RAM console buffer size"
+	default 0
+	depends on ANDROID_RAM_CONSOLE_EARLY_INIT
+
+config ANDROID_TIMED_GPIO
+	tristate "Android timed gpio driver"
+	depends on GENERIC_GPIO
+	default n
+
+config ANDROID_LOW_MEMORY_KILLER
+	bool "Android Low Memory Killer"
+	default N
+	---help---
+	  Register processes to be killed when memory is low
+
+config ANDROID_HAS_WAKELOCK
+	bool
+
+config ANDROID_HAS_EARLYSUSPEND
+	bool
+
+config ANDROID_WAKELOCK
+	bool "Wake lock"
+	depends on PM && RTC_CLASS
+	default n
+	select ANDROID_HAS_WAKELOCK
+	---help---
+	  Enable wakelocks. When user space request a sleep state the
+	  sleep request will be delayed until no wake locks are held.
+
+config ANDROID_WAKELOCK_STAT
+	bool "Wake lock stats"
+	depends on WAKELOCK
+	default y
+	---help---
+	  Report wake lock stats in /proc/wakelocks
+
+config ANDROID_USER_WAKELOCK
+	bool "Userspace wake locks"
+	depends on ANDROID_WAKELOCK
+	default y
+	---help---
+	  User-space wake lock api. Write "lockname" or "lockname timeout"
+	  to /sys/power/wake_lock lock and if needed create a wake lock.
+	  Write "lockname" to /sys/power/wake_unlock to unlock a user wake
+	  lock.
+
+config ANDROID_EARLYSUSPEND
+	bool "Early suspend"
+	depends on ANDROID_WAKELOCK
+	default y
+	select ANDROID_HAS_EARLYSUSPEND
+	---help---
+	  Call early suspend handlers when the user requested sleep state
+	  changes.
+
+choice
+	prompt "User-space screen access"
+	default ANDROID_FB_EARLYSUSPEND if !FRAMEBUFFER_CONSOLE
+	default ANDROID_CONSOLE_EARLYSUSPEND
+	depends on ANDROID_HAS_EARLYSUSPEND
+
+	config NO_USER_SPACE_SCREEN_ACCESS_CONTROL
+		bool "None"
+
+	config ANDROID_CONSOLE_EARLYSUSPEND
+		bool "Console switch on early-suspend"
+		depends on ANDROID_HAS_EARLYSUSPEND && VT
+		---help---
+		  Register early suspend handler to perform a console switch to
+		  when user-space should stop drawing to the screen and a switch
+		  back when it should resume.
+
+	config ANDROID_FB_EARLYSUSPEND
+		bool "Sysfs interface"
+		depends on ANDROID_HAS_EARLYSUSPEND
+		---help---
+		  Register early suspend handler that notifies and waits for
+		  user-space through sysfs when user-space should stop drawing
+		  to the screen and notifies user-space when it should resume.
+endchoice
+
+config ANDROID_POWER_ALARM
+	bool "Android alarm driver"
+	depends on ANDROID_WAKELOCK
+	default y
+
+config ANDROID_PARANOID_NETWORK
+	bool "Only allow certain groups to create sockets"
+	default y
+
+endmenu

@@ -17,6 +17,7 @@
 #include <asm/io_apic.h>
 #include <asm/apic.h>
 #include <asm/iommu.h>
+#include <asm/gart.h>
 
 static void __init fix_hypertransport_config(int num, int slot, int func)
 {
@@ -188,20 +189,6 @@ static void __init ati_bugs_contd(int num, int slot, int func)
 }
 #endif
 
-#ifdef CONFIG_DMAR
-static void __init intel_g33_dmar(int num, int slot, int func)
-{
-	struct acpi_table_header *dmar_tbl;
-	acpi_status status;
-
-	status = acpi_get_table(ACPI_SIG_DMAR, 0, &dmar_tbl);
-	if (ACPI_SUCCESS(status)) {
-		printk(KERN_INFO "BIOS BUG: DMAR advertised on Intel G31/G33 chipset -- ignoring\n");
-		dmar_disabled = 1;
-	}
-}
-#endif
-
 #define QFLAG_APPLY_ONCE 	0x1
 #define QFLAG_APPLIED		0x2
 #define QFLAG_DONE		(QFLAG_APPLY_ONCE|QFLAG_APPLIED)
@@ -214,6 +201,12 @@ struct chipset {
 	void (*f)(int num, int slot, int func);
 };
 
+/*
+ * Only works for devices on the root bus. If you add any devices
+ * not on bus 0 readd another loop level in early_quirks(). But
+ * be careful because at least the Nvidia quirk here relies on
+ * only matching on bus 0.
+ */
 static struct chipset early_qrk[] __initdata = {
 	{ PCI_VENDOR_ID_NVIDIA, PCI_ANY_ID,
 	  PCI_CLASS_BRIDGE_PCI, PCI_ANY_ID, QFLAG_APPLY_ONCE, nvidia_bugs },
@@ -225,10 +218,6 @@ static struct chipset early_qrk[] __initdata = {
 	  PCI_CLASS_SERIAL_SMBUS, PCI_ANY_ID, 0, ati_bugs },
 	{ PCI_VENDOR_ID_ATI, PCI_DEVICE_ID_ATI_SBX00_SMBUS,
 	  PCI_CLASS_SERIAL_SMBUS, PCI_ANY_ID, 0, ati_bugs_contd },
-#ifdef CONFIG_DMAR
-	{ PCI_VENDOR_ID_INTEL, 0x29c0,
-	  PCI_CLASS_BRIDGE_HOST, PCI_ANY_ID, 0, intel_g33_dmar },
-#endif
 	{}
 };
 
@@ -284,17 +273,17 @@ static int __init check_dev_quirk(int num, int slot, int func)
 
 void __init early_quirks(void)
 {
-	int num, slot, func;
+	int slot, func;
 
 	if (!early_pci_allowed())
 		return;
 
 	/* Poor man's PCI discovery */
-	for (num = 0; num < 32; num++)
-		for (slot = 0; slot < 32; slot++)
-			for (func = 0; func < 8; func++) {
-				/* Only probe function 0 on single fn devices */
-				if (check_dev_quirk(num, slot, func))
-					break;
-			}
+	/* Only scan the root bus */
+	for (slot = 0; slot < 32; slot++)
+		for (func = 0; func < 8; func++) {
+			/* Only probe function 0 on single fn devices */
+			if (check_dev_quirk(0, slot, func))
+				break;
+		}
 }

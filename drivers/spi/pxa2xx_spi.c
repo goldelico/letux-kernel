@@ -32,8 +32,8 @@
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/delay.h>
-#include <asm/dma.h>
 
+#include <mach/dma.h>
 #include <mach/hardware.h>
 #include <mach/pxa-regs.h>
 #include <mach/regs-ssp.h>
@@ -352,21 +352,21 @@ static int map_dma_buffers(struct driver_data *drv_data)
 	} else
 		drv_data->tx_map_len = drv_data->len;
 
-	/* Stream map the rx buffer */
-	drv_data->rx_dma = dma_map_single(dev, drv_data->rx,
-						drv_data->rx_map_len,
-						DMA_FROM_DEVICE);
-	if (dma_mapping_error(dev, drv_data->rx_dma))
+	/* Stream map the tx buffer. Always do DMA_TO_DEVICE first
+	 * so we flush the cache *before* invalidating it, in case
+	 * the tx and rx buffers overlap.
+	 */
+	drv_data->tx_dma = dma_map_single(dev, drv_data->tx,
+					drv_data->tx_map_len, DMA_TO_DEVICE);
+	if (dma_mapping_error(dev, drv_data->tx_dma))
 		return 0;
 
-	/* Stream map the tx buffer */
-	drv_data->tx_dma = dma_map_single(dev, drv_data->tx,
-						drv_data->tx_map_len,
-						DMA_TO_DEVICE);
-
-	if (dma_mapping_error(dev, drv_data->tx_dma)) {
-		dma_unmap_single(dev, drv_data->rx_dma,
+	/* Stream map the rx buffer */
+	drv_data->rx_dma = dma_map_single(dev, drv_data->rx,
 					drv_data->rx_map_len, DMA_FROM_DEVICE);
+	if (dma_mapping_error(dev, drv_data->rx_dma)) {
+		dma_unmap_single(dev, drv_data->tx_dma,
+					drv_data->tx_map_len, DMA_TO_DEVICE);
 		return 0;
 	}
 
@@ -1561,11 +1561,12 @@ out_error_master_alloc:
 static int pxa2xx_spi_remove(struct platform_device *pdev)
 {
 	struct driver_data *drv_data = platform_get_drvdata(pdev);
-	struct ssp_device *ssp = drv_data->ssp;
+	struct ssp_device *ssp;
 	int status = 0;
 
 	if (!drv_data)
 		return 0;
+	ssp = drv_data->ssp;
 
 	/* Remove the queue */
 	status = destroy_queue(drv_data);

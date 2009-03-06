@@ -62,10 +62,10 @@
 
 #include <mach/regs-gpio.h>
 #include <mach/ts.h>
-
+#include <mach/hardware.h>
 #include <plat/regs-adc.h>
 
-#include <linux/ts_filter.h>
+#include "ts_filter.h"
 
 /* For ts.dev.id.version */
 #define S3C2410TSVERSION	0x0101
@@ -96,7 +96,7 @@ MODULE_LICENSE("GPL");
 
 static char *s3c2410ts_name = "s3c2410 TouchScreen";
 
-#define TS_RELEASE_TIMEOUT (HZ >> 4)		/* ~ 60 milliseconds */
+#define TS_RELEASE_TIMEOUT (HZ >> 7 ? HZ >> 7 : 1) /* 8ms (5ms if HZ is 200) */
 #define TS_EVENT_FIFO_SIZE (2 << 6) /* must be a power of 2 */
 
 #define TS_STATE_STANDBY 0 /* initial state */
@@ -190,15 +190,8 @@ static struct timer_list event_send_timer =
 
 static void event_send_timer_f(unsigned long data)
 {
-	static unsigned long running;
 	static int noop_counter;
 	int event_type;
-
-	if (unlikely(test_and_set_bit(0, &running))) {
-		mod_timer(&event_send_timer,
-			  jiffies + TS_RELEASE_TIMEOUT);
-		return;
-	}
 
 	while (__kfifo_get(ts.event_fifo, (unsigned char *)&event_type,
 			   sizeof(int))) {
@@ -252,8 +245,6 @@ static void event_send_timer_f(unsigned long data)
 	} else {
 		mod_timer(&event_send_timer, jiffies + TS_RELEASE_TIMEOUT);
 	}
-
-	clear_bit(0, &running);
 
 	return;
 

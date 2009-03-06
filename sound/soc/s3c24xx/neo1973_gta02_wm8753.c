@@ -5,17 +5,12 @@
  * Author: Graeme Gregory <graeme@openmoko.org>
  * Copyright 2007 Wolfson Microelectronics PLC.
  * Author: Graeme Gregory <linux@wolfsonmicro.com>
+ * Copyright 2009 Wolfson Microelectronics
  *
  *  This program is free software; you can redistribute  it and/or modify it
  *  under  the terms of  the GNU General  Public License as published by the
  *  Free Software Foundation;  either version 2 of the  License, or (at your
  *  option) any later version.
- *
- *  Revision history
- *    06th Nov 2007   Changed from GTA01 to GTA02
- *    20th Jan 2007   Initial version.
- *    05th Feb 2007   Rename all to Neo1973
- *
  */
 
 #include <linux/module.h>
@@ -23,40 +18,26 @@
 #include <linux/timer.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
-#include <linux/i2c.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 
 #include <asm/mach-types.h>
-#include <asm/hardware/scoop.h>
-#include <asm/plat-s3c24xx/regs-iis.h>
+
+#include <plat/regs-iis.h>
+
 #include <mach/regs-clock.h>
 #include <mach/regs-gpio.h>
 #include <mach/hardware.h>
-#include <mach/audio.h>
 #include <asm/io.h>
-#include <mach/spi-gpio.h>
 #include <mach/regs-gpioj.h>
 #include <mach/gta02.h>
 #include "../codecs/wm8753.h"
 #include "s3c24xx-pcm.h"
 #include "s3c24xx-i2s.h"
 
-/* define the scenarios */
-#define NEO_AUDIO_OFF			0
-#define NEO_GSM_CALL_AUDIO_HANDSET	1
-#define NEO_GSM_CALL_AUDIO_HEADSET	2
-#define NEO_GSM_CALL_AUDIO_BLUETOOTH	3
-#define NEO_STEREO_TO_SPEAKERS		4
-#define NEO_STEREO_TO_HEADPHONES	5
-#define NEO_CAPTURE_HANDSET		6
-#define NEO_CAPTURE_HEADSET		7
-#define NEO_CAPTURE_BLUETOOTH		8
-#define NEO_STEREO_TO_HANDSET_SPK	9
-
-static struct snd_soc_machine neo1973_gta02;
+static struct snd_soc_card neo1973_gta02;
 
 static int neo1973_gta02_hifi_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
@@ -102,45 +83,45 @@ static int neo1973_gta02_hifi_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	/* set codec DAI configuration */
-	ret = codec_dai->dai_ops.set_fmt(codec_dai,
+	ret = codec_dai->ops.set_fmt(codec_dai,
 		SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 		SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0)
 		return ret;
 
 	/* set cpu DAI configuration */
-	ret = cpu_dai->dai_ops.set_fmt(cpu_dai,
+	ret = cpu_dai->ops.set_fmt(cpu_dai,
 		SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 		SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0)
 		return ret;
 
 	/* set the codec system clock for DAC and ADC */
-	ret = codec_dai->dai_ops.set_sysclk(codec_dai, WM8753_MCLK, pll_out,
+	ret = codec_dai->ops.set_sysclk(codec_dai, WM8753_MCLK, pll_out,
 		SND_SOC_CLOCK_IN);
 	if (ret < 0)
 		return ret;
 
 	/* set MCLK division for sample rate */
-	ret = cpu_dai->dai_ops.set_clkdiv(cpu_dai, S3C24XX_DIV_MCLK,
+	ret = cpu_dai->ops.set_clkdiv(cpu_dai, S3C24XX_DIV_MCLK,
 		S3C2410_IISMOD_32FS );
 	if (ret < 0)
 		return ret;
 
 	/* set codec BCLK division for sample rate */
-	ret = codec_dai->dai_ops.set_clkdiv(codec_dai,
+	ret = codec_dai->ops.set_clkdiv(codec_dai,
 					WM8753_BCLKDIV, bclk);
 	if (ret < 0)
 		return ret;
 
 	/* set prescaler division for sample rate */
-	ret = cpu_dai->dai_ops.set_clkdiv(cpu_dai, S3C24XX_DIV_PRESCALER,
+	ret = cpu_dai->ops.set_clkdiv(cpu_dai, S3C24XX_DIV_PRESCALER,
 		S3C24XX_PRESCALE(4,4));
 	if (ret < 0)
 		return ret;
 
 	/* codec PLL input is PCLK/4 */
-	ret = codec_dai->dai_ops.set_pll(codec_dai, WM8753_PLL1,
+	ret = codec_dai->ops.set_pll(codec_dai, WM8753_PLL1,
 		iis_clkrate / 4, pll_out);
 	if (ret < 0)
 		return ret;
@@ -154,7 +135,7 @@ static int neo1973_gta02_hifi_hw_free(struct snd_pcm_substream *substream)
 	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
 
 	/* disable the PLL */
-	return codec_dai->dai_ops.set_pll(codec_dai, WM8753_PLL1, 0, 0);
+	return codec_dai->ops.set_pll(codec_dai, WM8753_PLL1, 0, 0);
 }
 
 /*
@@ -186,25 +167,25 @@ static int neo1973_gta02_voice_hw_params(
 
 	/* todo: gg check mode (DSP_B) against CSR datasheet */
 	/* set codec DAI configuration */
-	ret = codec_dai->dai_ops.set_fmt(codec_dai, SND_SOC_DAIFMT_DSP_B |
+	ret = codec_dai->ops.set_fmt(codec_dai, SND_SOC_DAIFMT_DSP_B |
 		SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBS_CFS);
 	if (ret < 0)
 		return ret;
 
 	/* set the codec system clock for DAC and ADC */
-	ret = codec_dai->dai_ops.set_sysclk(codec_dai, WM8753_PCMCLK,
+	ret = codec_dai->ops.set_sysclk(codec_dai, WM8753_PCMCLK,
 		12288000, SND_SOC_CLOCK_IN);
 	if (ret < 0)
 		return ret;
 
 	/* set codec PCM division for sample rate */
-	ret = codec_dai->dai_ops.set_clkdiv(codec_dai, WM8753_PCMDIV,
+	ret = codec_dai->ops.set_clkdiv(codec_dai, WM8753_PCMDIV,
 					pcmdiv);
 	if (ret < 0)
 		return ret;
 
 	/* configue and enable PLL for 12.288MHz output */
-	ret = codec_dai->dai_ops.set_pll(codec_dai, WM8753_PLL2,
+	ret = codec_dai->ops.set_pll(codec_dai, WM8753_PLL2,
 		iis_clkrate / 4, 12288000);
 	if (ret < 0)
 		return ret;
@@ -218,7 +199,7 @@ static int neo1973_gta02_voice_hw_free(struct snd_pcm_substream *substream)
 	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
 
 	/* disable the PLL */
-	return codec_dai->dai_ops.set_pll(codec_dai, WM8753_PLL2, 0, 0);
+	return codec_dai->ops.set_pll(codec_dai, WM8753_PLL2, 0, 0);
 }
 
 static struct snd_soc_ops neo1973_gta02_voice_ops = {
@@ -231,6 +212,9 @@ static struct snd_soc_ops neo1973_gta02_voice_ops = {
 
 static u8 lm4853_state=0;
 
+/* This has no effect, it exists only to maintain compatibility with
+ * existing ALSA state files.
+ */
 static int lm4853_set_state(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -238,10 +222,8 @@ static int lm4853_set_state(struct snd_kcontrol *kcontrol,
 
 	if(val) {
 		lm4853_state |= LM4853_AMP;
-		s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT,0);
 	} else {
 		lm4853_state &= ~LM4853_AMP;
-		s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT,1);
 	}
 
 	return 0;
@@ -265,7 +247,7 @@ static int lm4853_set_spk(struct snd_kcontrol *kcontrol,
 		s3c2410_gpio_setpin(GTA02_GPIO_HP_IN,0);
 	} else {
 		lm4853_state &= ~LM4853_SPK;
-		s3c2410_gpio_setpin(GTA02_GPIO_HP_IN,1);
+		s3c2410_gpio_setpin(GTA02_GPIO_HP_IN,0);
 	}
 
 	return 0;
@@ -279,153 +261,21 @@ static int lm4853_get_spk(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int neo1973_gta02_set_stereo_out(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
+static int lm4853_event(struct snd_soc_dapm_widget *w,
+			struct snd_kcontrol *k,
+			int event)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	int val = ucontrol->value.integer.value[0];
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT, 0);
 
-	snd_soc_dapm_set_endpoint(codec, "Stereo Out", val);
-
-	snd_soc_dapm_sync(codec);
-
-	return 0;
-}
-
-static int neo1973_gta02_get_stereo_out(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-
-	ucontrol->value.integer.value[0] =
-		snd_soc_dapm_get_endpoint(codec, "Stereo Out");
-
-	return 0;
-}
-
-
-static int neo1973_gta02_set_gsm_out(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	int val = ucontrol->value.integer.value[0];
-
-	snd_soc_dapm_set_endpoint(codec, "GSM Line Out", val);
-
-	snd_soc_dapm_sync(codec);
-
-	return 0;
-}
-
-static int neo1973_gta02_get_gsm_out(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-
-	ucontrol->value.integer.value[0] =
-		snd_soc_dapm_get_endpoint(codec, "GSM Line Out");
-
-	return 0;
-}
-
-static int neo1973_gta02_set_gsm_in(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	int val = ucontrol->value.integer.value[0];
-
-	snd_soc_dapm_set_endpoint(codec, "GSM Line In", val);
-
-	snd_soc_dapm_sync(codec);
-
-	return 0;
-}
-
-static int neo1973_gta02_get_gsm_in(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-
-	ucontrol->value.integer.value[0] =
-		snd_soc_dapm_get_endpoint(codec, "GSM Line In");
-
-	return 0;
-}
-
-static int neo1973_gta02_set_headset_mic(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	int val = ucontrol->value.integer.value[0];
-
-	snd_soc_dapm_set_endpoint(codec, "Headset Mic", val);
-
-	snd_soc_dapm_sync(codec);
-
-	return 0;
-}
-
-static int neo1973_gta02_get_headset_mic(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-
-	ucontrol->value.integer.value[0] =
-		snd_soc_dapm_get_endpoint(codec, "Headset Mic");
-
-	return 0;
-}
-
-static int neo1973_gta02_set_handset_mic(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	int val = ucontrol->value.integer.value[0];
-
-	snd_soc_dapm_set_endpoint(codec, "Handset Mic", val);
-
-	snd_soc_dapm_sync(codec);
-
-	return 0;
-}
-
-static int neo1973_gta02_get_handset_mic(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-
-	ucontrol->value.integer.value[0] =
-		snd_soc_dapm_get_endpoint(codec, "Handset Mic");
-
-	return 0;
-}
-
-static int neo1973_gta02_set_handset_spk(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	int val = ucontrol->value.integer.value[0];
-
-	snd_soc_dapm_set_endpoint(codec, "Handset Spk", val);
-
-	snd_soc_dapm_sync(codec);
-
-	return 0;
-}
-
-static int neo1973_gta02_get_handset_spk(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-
-	ucontrol->value.integer.value[0] =
-		snd_soc_dapm_get_endpoint(codec, "Handset Spk");
+	if (SND_SOC_DAPM_EVENT_OFF(event))
+		s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT, 1);
 
 	return 0;
 }
 
 static const struct snd_soc_dapm_widget wm8753_dapm_widgets[] = {
-	SND_SOC_DAPM_LINE("Stereo Out", NULL),
+	SND_SOC_DAPM_SPK("Stereo Out", lm4853_event),
 	SND_SOC_DAPM_LINE("GSM Line Out", NULL),
 	SND_SOC_DAPM_LINE("GSM Line In", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
@@ -435,7 +285,7 @@ static const struct snd_soc_dapm_widget wm8753_dapm_widgets[] = {
 
 
 /* example machine audio_mapnections */
-static const char* audio_map[][3] = {
+static const struct snd_soc_dapm_route audio_map[] = {
 
 	/* Connections to the lm4853 amp */
 	{"Stereo Out", NULL, "LOUT1"},
@@ -462,29 +312,19 @@ static const char* audio_map[][3] = {
 
 	/* Connect the ALC pins */
 	{"ACIN", NULL, "ACOP"},
-
-	{NULL, NULL, NULL},
 };
 
 static const struct snd_kcontrol_new wm8753_neo1973_gta02_controls[] = {
-	SOC_SINGLE_EXT("DAPM Stereo Out Switch", 0, 0, 1, 0,
-		neo1973_gta02_get_stereo_out,
-		neo1973_gta02_set_stereo_out),
-	SOC_SINGLE_EXT("DAPM GSM Line Out Switch", 1, 0, 1, 0,
-		neo1973_gta02_get_gsm_out,
-		neo1973_gta02_set_gsm_out),
-	SOC_SINGLE_EXT("DAPM GSM Line In Switch", 2, 0, 1, 0,
-		neo1973_gta02_get_gsm_in,
-		neo1973_gta02_set_gsm_in),
-	SOC_SINGLE_EXT("DAPM Headset Mic Switch", 3, 0, 1, 0,
-		neo1973_gta02_get_headset_mic,
-		neo1973_gta02_set_headset_mic),
-	SOC_SINGLE_EXT("DAPM Handset Mic Switch", 4, 0, 1, 0,
-		neo1973_gta02_get_handset_mic,
-		neo1973_gta02_set_handset_mic),
-	SOC_SINGLE_EXT("DAPM Handset Spk Switch", 5, 0, 1, 0,
-		neo1973_gta02_get_handset_spk,
-		neo1973_gta02_set_handset_spk),
+	SOC_DAPM_PIN_SWITCH("Stereo Out"),
+	SOC_DAPM_PIN_SWITCH("GSM Line Out"),
+	SOC_DAPM_PIN_SWITCH("GSM Line In"),
+	SOC_DAPM_PIN_SWITCH("Headset Mic"),
+	SOC_DAPM_PIN_SWITCH("Handset Mic"),
+	SOC_DAPM_PIN_SWITCH("Handset Spk"),
+
+	/* This has no effect, it exists only to maintain compatibility with
+	 * existing ALSA state files.
+	 */
 	SOC_SINGLE_EXT("Amp State Switch", 6, 0, 1, 0,
 		lm4853_get_state,
 		lm4853_set_state),
@@ -502,14 +342,13 @@ static int neo1973_gta02_wm8753_init(struct snd_soc_codec *codec)
 	int i, err;
 
 	/* set up NC codec pins */
-	snd_soc_dapm_set_endpoint(codec, "OUT3",  0);
-	snd_soc_dapm_set_endpoint(codec, "OUT4",  0);
-	snd_soc_dapm_set_endpoint(codec, "LINE1", 0);
-	snd_soc_dapm_set_endpoint(codec, "LINE2", 0);
+	snd_soc_dapm_nc_pin(codec, "OUT3");
+	snd_soc_dapm_nc_pin(codec, "OUT4");
+	snd_soc_dapm_nc_pin(codec, "LINE1");
+	snd_soc_dapm_nc_pin(codec, "LINE2");
 
 	/* Add neo1973 gta02 specific widgets */
-	for (i = 0; i < ARRAY_SIZE(wm8753_dapm_widgets); i++)
-		snd_soc_dapm_new_control(codec, &wm8753_dapm_widgets[i]);
+	snd_soc_dapm_new_controls(codec, wm8753_dapm_widgets, ARRAY_SIZE(wm8753_dapm_widgets));
 
 	/* add neo1973 gta02 specific controls */
 	for (i = 0; i < ARRAY_SIZE(wm8753_neo1973_gta02_controls); i++) {
@@ -520,19 +359,16 @@ static int neo1973_gta02_wm8753_init(struct snd_soc_codec *codec)
 			return err;
 	}
 
-	/* set up neo1973 gta02 specific audio path audio_mapnects */
-	for (i = 0; audio_map[i][0] != NULL; i++) {
-		snd_soc_dapm_connect_input(codec, audio_map[i][0],
-			audio_map[i][1], audio_map[i][2]);
-	}
+	/* set up neo1973 gta02 specific audio path audio_map */
+	snd_soc_dapm_add_routes(codec, audio_map, ARRAY_SIZE(audio_map));
 
 	/* set endpoints to default off mode */
-	snd_soc_dapm_set_endpoint(codec, "Stereo Out",  0);
-	snd_soc_dapm_set_endpoint(codec, "GSM Line Out",0);
-	snd_soc_dapm_set_endpoint(codec, "GSM Line In", 0);
-	snd_soc_dapm_set_endpoint(codec, "Headset Mic", 0);
-	snd_soc_dapm_set_endpoint(codec, "Handset Mic", 0);
-	snd_soc_dapm_set_endpoint(codec, "Handset Spk", 0);
+	snd_soc_dapm_disable_pin(codec, "Stereo Out");
+	snd_soc_dapm_disable_pin(codec, "GSM Line Out");
+	snd_soc_dapm_disable_pin(codec, "GSM Line In");
+	snd_soc_dapm_disable_pin(codec, "Headset Mic");
+	snd_soc_dapm_disable_pin(codec, "Handset Mic");
+	snd_soc_dapm_disable_pin(codec, "Handset Spk");
 
 	snd_soc_dapm_sync(codec);
 
@@ -545,7 +381,6 @@ static int neo1973_gta02_wm8753_init(struct snd_soc_codec *codec)
 static struct snd_soc_dai bt_dai =
 {	.name = "Bluetooth",
 	.id = 0,
-	.type = SND_SOC_DAI_PCM,
 	.playback = {
 		.channels_min = 1,
 		.channels_max = 1,
@@ -576,47 +411,16 @@ static struct snd_soc_dai_link neo1973_gta02_dai[] = {
 },
 };
 
-#ifdef CONFIG_PM
-int neo1973_gta02_suspend(struct platform_device *pdev, pm_message_t state)
-{
-	s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT, 1);
-
-	return 0;
-}
-
-int neo1973_gta02_resume(struct platform_device *pdev)
-{
-	if(lm4853_state & LM4853_AMP)
-		s3c2410_gpio_setpin(GTA02_GPIO_AMP_SHUT, 0);
-
-	return 0;
-}
-#else
-#define neo1973_gta02_suspend NULL
-#define neo1973_gta02_resume NULL
-#endif
-
-static struct snd_soc_machine neo1973_gta02 = {
+static struct snd_soc_card neo1973_gta02 = {
 	.name = "neo1973-gta02",
-	.suspend_pre = neo1973_gta02_suspend,
-	.resume_post = neo1973_gta02_resume,
+	.platform = &s3c24xx_soc_platform,
 	.dai_link = neo1973_gta02_dai,
 	.num_links = ARRAY_SIZE(neo1973_gta02_dai),
 };
 
-/* Audio private data */
-static struct wm8753_setup_data soc_codec_data_wm8753_gta02 = {
-	.i2c_bus = 0,
-	.i2c_address = 0x1a,
-//	.gpio_func[0] = AIC3X_GPIO1_FUNC_DISABLED,
-//	.gpio_func[1] = AIC3X_GPIO2_FUNC_DIGITAL_MIC_INPUT,
-};
-
 static struct snd_soc_device neo1973_gta02_snd_devdata = {
-	.machine = &neo1973_gta02,
-	.platform = &s3c24xx_soc_platform,
+	.card = &neo1973_gta02,
 	.codec_dev = &soc_codec_dev_wm8753,
-	.codec_data = &soc_codec_data_wm8753_gta02,
 };
 
 
@@ -633,6 +437,11 @@ static int __init neo1973_gta02_init(void)
 		return -ENODEV;
 	}
 
+	/* register bluetooth DAI here */
+	ret = snd_soc_register_dai(&bt_dai);
+	if (ret)
+		return ret;
+
 	neo1973_gta02_snd_device = platform_device_alloc("soc-audio", -1);
 	if (!neo1973_gta02_snd_device)
 		return -ENOMEM;
@@ -642,8 +451,10 @@ static int __init neo1973_gta02_init(void)
 	neo1973_gta02_snd_devdata.dev = &neo1973_gta02_snd_device->dev;
 	ret = platform_device_add(neo1973_gta02_snd_device);
 
-	if (ret)
+	if (ret) {
 		platform_device_put(neo1973_gta02_snd_device);
+		return ret;
+	}
 
 	/* Initialise GPIOs used by amp */
 	s3c2410_gpio_cfgpin(GTA02_GPIO_HP_IN, S3C2410_GPIO_OUTPUT);
@@ -660,6 +471,7 @@ static int __init neo1973_gta02_init(void)
 
 static void __exit neo1973_gta02_exit(void)
 {
+	snd_soc_unregister_dai(&bt_dai);
 	platform_device_unregister(neo1973_gta02_snd_device);
 }
 

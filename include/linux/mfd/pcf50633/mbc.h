@@ -13,6 +13,7 @@
 #ifndef __LINUX_MFD_PCF50633_MBC_H
 #define __LINUX_MFD_PCF50633_MBC_H
 
+#include <linux/mfd/pcf50633/core.h>
 #include <linux/platform_device.h>
 
 #define PCF50633_REG_MBCC1	0x43
@@ -115,26 +116,17 @@ enum pcf50633_reg_mbcs3 {
 	PCF50633_MBCS3_VRES		= 0x80, /* 1: Vbat > Vth(RES) */
 };
 
-#define	PCF50633_MBCC2_VBATCOND_MASK	  0x03
+#define PCF50633_MBCC2_VBATCOND_MASK	  0x03
 #define PCF50633_MBCC2_VMAX_MASK	  0x3c
 
-struct pcf50633;
+/* Charger status */
+#define PCF50633_MBC_USB_ONLINE		0x01
+#define PCF50633_MBC_USB_ACTIVE		0x02
+#define PCF50633_MBC_ADAPTER_ONLINE	0x04
+#define PCF50633_MBC_ADAPTER_ACTIVE	0x08
 
-void pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma);
+int pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma);
 
-struct pcf50633_mbc {
-	int adapter_active;
-	int adapter_online;
-	int usb_active;
-	int usb_online;
-
-	struct power_supply ac;
-	struct power_supply usb;
-	struct power_supply adapter;
-
-	struct delayed_work charging_restart_work;
-
-	struct platform_device *pdev;
-};
+int pcf50633_mbc_get_status(struct pcf50633 *);
 #endif
 

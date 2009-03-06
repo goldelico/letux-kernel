@@ -4,7 +4,7 @@
  * (c) 2006 Wolfson Microelectronics PLC.
  * Graeme Gregory graeme.gregory@wolfsonmicro.com or linux@wolfsonmicro.com
  *
- * (c) 2004-2005 Simtec Electronics
+ * Copyright 2004-2005 Simtec Electronics
  *	http://armlinux.simtec.co.uk/
  *	Ben Dooks <ben@simtec.co.uk>
  *
@@ -29,7 +29,7 @@
 #include <asm/dma.h>
 #include <mach/hardware.h>
 #include <mach/dma.h>
-#include <mach/audio.h>
+#include <plat/audio.h>
 
 #include "s3c24xx-pcm.h"
 
@@ -82,11 +82,19 @@ static void s3c24xx_pcm_enqueue(struct snd_pcm_substream *substream)
 {
 	struct s3c24xx_runtime_data *prtd = substream->runtime->private_data;
 	dma_addr_t pos = prtd->dma_pos;
+	unsigned int limit;
 	int ret;
 
 	DBG("Entered %s\n", __func__);
 
-	while (prtd->dma_loaded < prtd->dma_limit) {
+	if (s3c_dma_has_circular()) {
+		limit = (prtd->dma_end - prtd->dma_start) / prtd->dma_period;
+	} else
+		limit = prtd->dma_limit;
+
+	DBG("%s: loaded %d, limit %d\n", __func__, prtd->dma_loaded, limit);
+
+	while (prtd->dma_loaded < limit) {
 		unsigned long len = prtd->dma_period;
 
 		DBG("dma_loaded: %d\n", prtd->dma_loaded);
@@ -130,7 +138,7 @@ static void s3c24xx_audio_buffdone(struct s3c2410_dma_chan *channel,
 		snd_pcm_period_elapsed(substream);
 
 	spin_lock(&prtd->lock);
-	if (prtd->state & ST_RUNNING) {
+	if (prtd->state & ST_RUNNING && !s3c_dma_has_circular()) {
 		prtd->dma_loaded--;
 		s3c24xx_pcm_enqueue(substream);
 	}
@@ -171,6 +179,11 @@ static int s3c24xx_pcm_hw_params(struct snd_pcm_substream *substream,
 			DBG(KERN_ERR "failed to get dma channel: %d\n", ret);
 			return ret;
 		}
+
+		/* use the circular buffering if we have it available. */
+		if (s3c_dma_has_circular())
+			s3c2410_dma_setflags(prtd->params->channel,
+					     S3C2410_DMAF_CIRCULAR);
 	}
 
 	s3c2410_dma_set_buffdone_fn(prtd->params->channel,
@@ -225,23 +238,16 @@ static int s3c24xx_pcm_prepare(struct snd_pcm_substream *substream)
 	 * sync to pclk, half-word transfers to the IIS-FIFO. */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		s3c2410_dma_devconfig(prtd->params->channel,
-				S3C2410_DMASRC_MEM, S3C2410_DISRCC_INC |
-				S3C2410_DISRCC_APB, prtd->params->dma_addr);
-
-		s3c2410_dma_config(prtd->params->channel,
-				prtd->params->dma_size,
-				S3C2410_DCON_SYNC_PCLK |
-				S3C2410_DCON_HANDSHAKE);
+				      S3C2410_DMASRC_MEM,
+				      prtd->params->dma_addr);
 	} else {
-		s3c2410_dma_config(prtd->params->channel,
-				prtd->params->dma_size,
-				S3C2410_DCON_HANDSHAKE |
-				S3C2410_DCON_SYNC_PCLK);
-
 		s3c2410_dma_devconfig(prtd->params->channel,
-					S3C2410_DMASRC_HW, 0x3,
-					prtd->params->dma_addr);
+				      S3C2410_DMASRC_HW, 
+				      prtd->params->dma_addr);
 	}
+	
+	s3c2410_dma_config(prtd->params->channel,
+			   prtd->params->dma_size);
 
 	/* flush the DMA channel */
 	s3c2410_dma_ctrl(prtd->params->channel, S3C2410_DMAOP_FLUSH);
@@ -464,6 +470,18 @@ struct snd_soc_platform s3c24xx_soc_platform = {
 	.pcm_free	= s3c24xx_pcm_free_dma_buffers,
 };
 EXPORT_SYMBOL_GPL(s3c24xx_soc_platform);
+
+static int __init s3c24xx_soc_platform_init(void)
+{
+	return snd_soc_register_platform(&s3c24xx_soc_platform);
+}
+module_init(s3c24xx_soc_platform_init);
+
+static void __exit s3c24xx_soc_platform_exit(void)
+{
+	snd_soc_unregister_platform(&s3c24xx_soc_platform);
+}
+module_exit(s3c24xx_soc_platform_exit);
 
 MODULE_AUTHOR("Ben Dooks, <ben@simtec.co.uk>");
 MODULE_DESCRIPTION("Samsung S3C24XX PCM DMA module");

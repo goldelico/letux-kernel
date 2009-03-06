@@ -16,6 +16,10 @@ struct s3c24xx_uart_resources {
 	unsigned long		 nr_resources;
 };
 
+struct s3c_plat_otg_data {
+	int		phyclk;
+};
+
 extern struct s3c24xx_uart_resources s3c2410_uart_resources[];
 extern struct s3c24xx_uart_resources s3c64xx_uart_resources[];
 

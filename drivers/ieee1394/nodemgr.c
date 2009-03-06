@@ -67,7 +67,7 @@ static int nodemgr_check_speed(struct nodemgr_csr_info *ci, u64 addr,
 	for (i = IEEE1394_SPEED_100; i <= old_speed; i++) {
 		*speed = i;
 		error = hpsb_read(ci->host, ci->nodeid, ci->generation, addr,
-				  &q, sizeof(quadlet_t));
+				  &q, 4);
 		if (error)
 			break;
 		*buffer = q;
@@ -85,7 +85,7 @@ static int nodemgr_check_speed(struct nodemgr_csr_info *ci, u64 addr,
 	return error;
 }
 
-static int nodemgr_bus_read(struct csr1212_csr *csr, u64 addr, u16 length,
+static int nodemgr_bus_read(struct csr1212_csr *csr, u64 addr,
 			    void *buffer, void *__ci)
 {
 	struct nodemgr_csr_info *ci = (struct nodemgr_csr_info*)__ci;
@@ -93,7 +93,7 @@ static int nodemgr_bus_read(struct csr1212_csr *csr, u64 addr, u16 length,
 
 	for (i = 1; ; i++) {
 		error = hpsb_read(ci->host, ci->nodeid, ci->generation, addr,
-				  buffer, length);
+				  buffer, 4);
 		if (!error) {
 			ci->speed_unverified = 0;
 			break;
@@ -104,7 +104,7 @@ static int nodemgr_bus_read(struct csr1212_csr *csr, u64 addr, u16 length,
 
 		/* The ieee1394_core guessed the node's speed capability from
 		 * the self ID.  Check whether a lower speed works. */
-		if (ci->speed_unverified && length == sizeof(quadlet_t)) {
+		if (ci->speed_unverified) {
 			error = nodemgr_check_speed(ci, addr, buffer);
 			if (!error)
 				break;
@@ -115,14 +115,8 @@ static int nodemgr_bus_read(struct csr1212_csr *csr, u64 addr, u16 length,
 	return error;
 }
 
-static int nodemgr_get_max_rom(quadlet_t *bus_info_data, void *__ci)
-{
-	return (be32_to_cpu(bus_info_data[2]) >> 8) & 0x3;
-}
-
 static struct csr1212_bus_ops nodemgr_csr_ops = {
 	.bus_read =	nodemgr_bus_read,
-	.get_max_rom =	nodemgr_get_max_rom
 };
 
 
@@ -1685,6 +1679,7 @@ static int nodemgr_host_thread(void *data)
 		g = get_hpsb_generation(host);
 		for (i = 0; i < 4 ; i++) {
 			msleep_interruptible(63);
+			try_to_freeze();
 			if (kthread_should_stop())
 				goto exit;
 
@@ -1725,6 +1720,7 @@ static int nodemgr_host_thread(void *data)
 		/* Sleep 3 seconds */
 		for (i = 3000/200; i; i--) {
 			msleep_interruptible(200);
+			try_to_freeze();
 			if (kthread_should_stop())
 				goto exit;
 

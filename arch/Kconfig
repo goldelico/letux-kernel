@@ -6,6 +6,8 @@ config OPROFILE
 	tristate "OProfile system profiling (EXPERIMENTAL)"
 	depends on PROFILING
 	depends on HAVE_OPROFILE
+	select TRACING
+	select RING_BUFFER
 	help
 	  OProfile is a profiling system capable of profiling the
 	  whole system, include the kernel, kernel modules, libraries,
@@ -60,6 +62,9 @@ config HAVE_EFFICIENT_UNALIGNED_ACCESS
 	  See Documentation/unaligned-memory-access.txt for more
 	  information on the topic of unaligned memory accesses.
 
+config HAVE_SYSCALL_WRAPPERS
+	bool
+
 config KRETPROBES
 	def_bool y
 	depends on KPROBES && HAVE_KRETPROBES
@@ -79,8 +84,6 @@ config HAVE_KRETPROBES
 #	task_pt_regs()		in asm/processor.h or asm/ptrace.h
 #	arch_has_single_step()	if there is hardware single-step support
 #	arch_has_block_step()	if there is hardware block-step support
-#	arch_ptrace()		and not #define __ARCH_SYS_PTRACE
-#	compat_arch_ptrace()	and #define __ARCH_WANT_COMPAT_SYS_PTRACE
 #	asm/syscall.h		supplying asm-generic/syscall.h interface
 #	linux/regset.h		user_regset interfaces
 #	CORE_DUMP_USE_REGSET	#define'd in linux/elf.h

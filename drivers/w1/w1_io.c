@@ -217,7 +217,7 @@ u8 w1_triplet(struct w1_master *dev, int bdir)
  * @param dev     the master device
  * @return        the byte read
  */
-static u8 w1_read_8(struct w1_master * dev)
+u8 w1_read_8(struct w1_master *dev)
 {
 	int i;
 	u8 res = 0;
@@ -230,6 +230,7 @@ static u8 w1_read_8(struct w1_master * dev)
 
 	return res;
 }
+EXPORT_SYMBOL_GPL(w1_read_8);
 
 /**
  * Writes a series of bytes.
@@ -237,7 +238,6 @@ static u8 w1_read_8(struct w1_master * dev)
  * @param dev     the master device
  * @param buf     pointer to the data to write
  * @param len     the number of bytes to write
- * @return        the byte read
  */
 void w1_write_block(struct w1_master *dev, const u8 *buf, int len)
 {
@@ -253,6 +253,31 @@ void w1_write_block(struct w1_master *dev, const u8 *buf, int len)
 	w1_post_write(dev);
 }
 EXPORT_SYMBOL_GPL(w1_write_block);
+
+/**
+ * Touches a series of bytes.
+ *
+ * @param dev     the master device
+ * @param buf     pointer to the data to write
+ * @param len     the number of bytes to write
+ */
+void w1_touch_block(struct w1_master *dev, u8 *buf, int len)
+{
+	int i, j;
+	u8 tmp;
+
+	for (i = 0; i < len; ++i) {
+		tmp = 0;
+		for (j = 0; j < 8; ++j) {
+			if (j == 7)
+				w1_pre_write(dev);
+			tmp |= w1_touch_bit(dev, (buf[i] >> j) & 0x1) << j;
+		}
+
+		buf[i] = tmp;
+	}
+}
+EXPORT_SYMBOL_GPL(w1_touch_block);
 
 /**
  * Reads a series of bytes.
@@ -355,7 +380,9 @@ int w1_reset_select_slave(struct w1_slave *sl)
 		w1_write_8(sl->master, W1_SKIP_ROM);
 	else {
 		u8 match[9] = {W1_MATCH_ROM, };
-		memcpy(&match[1], (u8 *)&sl->reg_num, 8);
+		u64 rn = le64_to_cpu(*((u64*)&sl->reg_num));
+
+		memcpy(&match[1], &rn, 8);
 		w1_write_block(sl->master, match, 9);
 	}
 	return 0;

@@ -125,13 +125,15 @@ struct bq27000_bat_regs {
 struct bq27000_device_info {
 	struct device *dev;
 	struct power_supply bat;
+	struct power_supply ac;
+	struct power_supply usb;
 	struct delayed_work work;
 	struct bq27000_platform_data *pdata;
 
 	struct bq27000_bat_regs regs;
 };
 
-static unsigned int cache_time = 10000;
+static unsigned int cache_time = 5000;
 module_param(cache_time, uint, 0644);
 MODULE_PARM_DESC(cache_time, "cache time in milliseconds");
 
@@ -170,7 +172,6 @@ static void bq27000_battery_external_power_changed(struct power_supply *psy)
 {
 	struct bq27000_device_info *di = container_of(psy, struct bq27000_device_info, bat);
 
-	power_supply_changed(&di->bat);
 	dev_dbg(di->dev, "%s\n", __FUNCTION__);
 }
 
@@ -408,6 +409,15 @@ static int bq27000_battery_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
+void bq27000_charging_state_change(struct platform_device *pdev)
+{
+	struct bq27000_device_info *di = platform_get_drvdata(pdev);
+
+	if (!di)
+	    return;
+}
+EXPORT_SYMBOL_GPL(bq27000_charging_state_change);
 
 #ifdef CONFIG_PM
 

@@ -44,7 +44,7 @@ struct glamo_spigpio {
 
 static inline struct glamo_spigpio *to_sg(struct spi_device *spi)
 {
-	return spi->controller_data;
+	return dev_get_drvdata(&spi->master->dev);
 }
 
 static inline void setsck(struct spi_device *dev, int on)
@@ -132,7 +132,6 @@ static int glamo_spigpio_probe(struct platform_device *pdev)
 	struct spi_master *master;
 	struct glamo_spigpio *sp;
 	int ret;
-	int i;
 
 	master = spi_alloc_master(&pdev->dev, sizeof(struct glamo_spigpio));
 	if (master == NULL) {
@@ -188,20 +187,11 @@ static int glamo_spigpio_probe(struct platform_device *pdev)
 	sp->bitbang.master->setup = glamo_spi_setup;
 #endif
 
+	dev_set_drvdata(&sp->master->dev, sp);
+
 	ret = spi_bitbang_start(&sp->bitbang);
 	if (ret)
 		goto err_no_bitbang;
-
-	/* register the chips to go with the board */
-
-	for (i = 0; i < sp->info->board_size; i++) {
-		dev_info(&pdev->dev, "registering %p: %s\n",
-			 &sp->info->board_info[i],
-			 sp->info->board_info[i].modalias);
-
-		sp->info->board_info[i].controller_data = sp;
-		spi_new_device(master, sp->info->board_info + i);
-	}
 
 	return 0;
 

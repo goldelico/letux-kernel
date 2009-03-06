@@ -33,13 +33,13 @@
 #include <linux/interrupt.h>
 #include <linux/serial_core.h>
 #include <linux/io.h>
-#include <linux/regulator/machine.h>
 
 #include <plat/regs-serial.h>
 #include <mach/regs-clock.h>
 #include <mach/regs-gpio.h>
 #include <mach/regs-mem.h>
 #include <mach/regs-irq.h>
+#include <mach/hardware.h>
 
 #include <asm/mach/time.h>
 
