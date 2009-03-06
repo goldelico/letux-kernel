@@ -943,7 +943,14 @@ static struct i2c_board_info om_3d7k_i2c_devs[] __initdata = {
 	},
 	{
 		I2C_BOARD_INFO("lp5521", 0x32),
+		/* mark this temporarily, since LED INT is connected
+		 * to EXT group6_9, the handling of EXT group1~group9
+		 * is not implemented. Besides, we don't need this IRQ
+		 * now
+		 */
+#if 0
 		.irq = OM_3D7K_IRQ_LED,
+#endif
 		.platform_data = &om_3d7k_lp5521_pdata,
 	},
 	{
