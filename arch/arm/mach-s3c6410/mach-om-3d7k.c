@@ -911,7 +911,7 @@ struct platform_device om_3d7k_hdq_device = {
 static void om_3d7k_lp5521_chip_enable(int level)
 {
 	gpio_direction_output(OM_3D7K_GPIO_LED_EN, level);
-	mdelay(500);
+	udelay(500);
 }
 
 static struct lp5521_platform_data om_3d7k_lp5521_pdata = {
