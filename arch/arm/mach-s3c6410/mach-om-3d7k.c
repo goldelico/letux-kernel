@@ -35,6 +35,7 @@
 #include <linux/pcap7200.h>
 #include <linux/bq27000_battery.h>
 #include <linux/hdq.h>
+#include <linux/jbt6k74.h>
 
 #include <video/platform_lcd.h>
 
@@ -1072,6 +1073,27 @@ static struct spi_board_info om_3d7k_spi_board_info[] = {
 	},
 };
 
+static void om_3d7k_jbt6k74_probe_completed(struct device *dev)
+{
+	dev_info(dev, "device attached\n");
+}
+
+const struct jbt6k74_platform_data jbt6k74_pdata = {
+	.probe_completed = om_3d7k_jbt6k74_probe_completed,
+};
+
+static struct spi_board_info alt_om_3d7k_spi_board_info[] = {
+	{
+	.modalias	= "jbt6k74",
+	.platform_data	= &jbt6k74_pdata,
+	/* controller_data */
+	/* irq */
+	.max_speed_hz	= 100 * 1000,
+	.bus_num	= 1,
+	/* chip_select */
+	},
+};
+
 static void spi_gpio_cs(struct s3c64xx_spigpio_info *spi, int csidx, int cs)
 {
 	switch (cs) {
@@ -1101,11 +1123,16 @@ struct platform_device om_3d7k_device_spi_lcm = {
 	},
 };
 
+static int attached_lcm;
 
+static int __init om3d7k_lcm_probe(char *s)
+{
+	if (!strcmp(s, "jbt6k74"))
+		attached_lcm = 1;
 
-
-
-
+	return 1;
+}
+__setup("om_3d7k_lcm=", om3d7k_lcm_probe);
 
 extern void s3c64xx_init_io(struct map_desc *, int);
 
@@ -1132,8 +1159,11 @@ static void __init om_3d7k_machine_init(void)
 
 	i2c_register_board_info(0, om_3d7k_i2c_devs,
 						 ARRAY_SIZE(om_3d7k_i2c_devs));
-
-	spi_register_board_info(om_3d7k_spi_board_info,
+	if (attached_lcm)
+		spi_register_board_info(alt_om_3d7k_spi_board_info,
+					ARRAY_SIZE(alt_om_3d7k_spi_board_info));
+	else
+		spi_register_board_info(om_3d7k_spi_board_info,
 		       				ARRAY_SIZE(om_3d7k_spi_board_info));
 
 	platform_add_devices(om_3d7k_devices, ARRAY_SIZE(om_3d7k_devices));
