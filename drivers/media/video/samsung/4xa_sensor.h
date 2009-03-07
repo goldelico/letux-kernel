@@ -223,14 +223,8 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x62,0x0a},	// Mirror Option
 
 	{0xfc,0x02},
-	{0x4e,0x00},	// IO current 8mA set
-	{0x4e,0x00},	// IO current 8mA set
-	{0x4e,0x00},	// IO current 8mA set
-	{0x4e,0x00},	// IO current 8mA set
-	{0x4f,0x0a},	// 2a IO current 48mA set
-	{0x4f,0x0a},	// IO current 48mA set
-	{0x4f,0x0a},	// IO current 48mA set
-	{0x4f,0x0a},	// IO current 48mA set
+	{0x4e,0x1b},	// Enable SDA and SCL pull-up; drive 8 mA
+	{0x4f,0xf0},	// PCLK and YC: 8 mA, AF and ZM (AZ): 2 mA
 
 	{0xfc,0x01},
 	{0x0c,0x03},	// Full YC Enable
