@@ -127,7 +127,7 @@ static spinlock_t motion_irq_lock;
 #define DIVISOR_FROM_US(x) ((x) << 3)
 
 #ifdef CONFIG_HDQ_GPIO_BITBANG
-#define FIQ_DIVISOR_HDQ DIVISOR_FROM_US(20)
+#define FIQ_DIVISOR_HDQ DIVISOR_FROM_US(HDQ_SAMPLE_PERIOD_US)
 extern int hdq_fiq_handler(void);
 #endif
 
