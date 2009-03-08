@@ -238,8 +238,11 @@ static int gta02_fiq_enable(void)
 
 	set_fiq_c_handler(gta02_fiq_handler);
 
+	return 0;
+
 bail:
-	printk(KERN_ERR "Count not initialize FIQ for GTA02\n");
+	printk(KERN_ERR "Could not initialize FIQ for GTA02: %d\n", rc);
+
 	return rc;
 }
 
