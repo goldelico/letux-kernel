@@ -29,6 +29,27 @@
 #include "../s3c_camif.h"
 #include "4xa_sensor.h"
 
+
+/*
+ * Samsung's original code:
+ *	.camclk		= 44000000,	/ * for 20 fps: 44MHz, for 12 fps (more
+ *					   stable): 26MHz * /
+ *
+ * Experimenting with the controls yielded the following:
+ *
+ * PLL_CLK gets divided according to TCMD.Div8_r (1,00h) and then by
+ * SEL_MAIN.Half_PCLK_Enable (5,8Fh) until it finally becomes PCLK.
+ *
+ * Div8_r = 0: 1/4, 1: 1/2 (default)
+ * Half_PCLK_Enable = 0: 1/1 (default), 1: 1/2
+ *
+ * Thus our 26.6 MHz MCLK becomes an 87.78 MHz PLL_CLK and eventually a PCLK
+ * of 43.89 MHz.
+ */
+
+#define	CAMCLK	26600000	/* 26.6 MHz */
+
+
 static struct i2c_driver sensor_driver;
 
 /* This is an abstract CIS sensor for MSDMA input. */
@@ -36,8 +57,7 @@ static struct i2c_driver sensor_driver;
 camif_cis_t msdma_input = {
 	.itu_fmt	= CAMIF_ITU601,
 	.order422	= CAMIF_CBYCRY,	/* another case: YCRYCB */
-	.camclk		= 44000000,	/* for 20 fps: 44MHz, for 12 fps (more
-					   stable): 26MHz */
+	.camclk		= CAMCLK,
 	.source_x	= 800,
 	.source_y	= 600,
 	.win_hor_ofst	= 0,
@@ -54,8 +74,7 @@ camif_cis_t msdma_input = {
 camif_cis_t interlace_input = {
 	.itu_fmt	= CAMIF_ITU601,
 	.order422	= CAMIF_CBYCRY,	/* another case: YCRYCB */
-	.camclk		= 44000000,	/* for 20 fps: 44MHz, for 12 fps (more
-					   stable): 26MHz */
+	.camclk		= CAMCLK,
 	.source_x	= 800,
 	.source_y	= 600,
 	.win_hor_ofst	= 0,
@@ -73,8 +92,7 @@ camif_cis_t interlace_input = {
 static camif_cis_t data = {
 	.itu_fmt	= CAMIF_ITU601,
 	.order422	= CAMIF_YCBYCR,
-	.camclk		= 44000000,	/* for 20 fps: 44MHz, for 12 fps (more
-					   stable): 26MHz */
+	.camclk		= CAMCLK,
 	.source_x	= 800,
 	.source_y	= 600,
 	.win_hor_ofst	= 0,
