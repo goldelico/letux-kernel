@@ -285,11 +285,11 @@ static void lis302dl_bitbang_read_sample(struct lis302dl_info *lis)
 
 	/* we have a valid sample set? */
 	if (read[0] & LIS302DL_STATUS_XYZDA) {
-		input_report_rel(lis->input_dev, REL_X, mg_per_sample *
+		input_report_abs(lis->input_dev, ABS_X, mg_per_sample *
 			    (s8)read[LIS302DL_REG_OUT_X - LIS302DL_REG_STATUS]);
-		input_report_rel(lis->input_dev, REL_Y, mg_per_sample *
+		input_report_abs(lis->input_dev, ABS_Y, mg_per_sample *
 			    (s8)read[LIS302DL_REG_OUT_Y - LIS302DL_REG_STATUS]);
-		input_report_rel(lis->input_dev, REL_Z, mg_per_sample *
+		input_report_abs(lis->input_dev, ABS_Z, mg_per_sample *
 			    (s8)read[LIS302DL_REG_OUT_Z - LIS302DL_REG_STATUS]);
 
 		input_sync(lis->input_dev);
@@ -712,15 +712,12 @@ static int __devinit lis302dl_probe(struct spi_device *spi)
 		goto bail_inp_reg;
 	}
 
-	set_bit(EV_REL, lis->input_dev->evbit);
-	set_bit(REL_X, lis->input_dev->relbit);
-	set_bit(REL_Y, lis->input_dev->relbit);
-	set_bit(REL_Z, lis->input_dev->relbit);
-/*	set_bit(EV_KEY, lis->input_dev->evbit);
-	set_bit(BTN_X, lis->input_dev->keybit);
-	set_bit(BTN_Y, lis->input_dev->keybit);
-	set_bit(BTN_Z, lis->input_dev->keybit);
-*/
+	set_bit(EV_ABS, lis->input_dev->evbit);
+	input_set_abs_params(lis->input_dev, ABS_X, 0, 0, 0, 0);
+	input_set_abs_params(lis->input_dev, ABS_Y, 0, 0, 0, 0);
+	input_set_abs_params(lis->input_dev, ABS_Z, 0, 0, 0, 0);
+	
+
 	lis->threshold = 0;
 	lis->duration = 0;
 	memset(&lis->wakeup, 0, sizeof(lis->wakeup));
