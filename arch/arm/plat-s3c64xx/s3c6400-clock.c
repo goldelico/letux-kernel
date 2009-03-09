@@ -24,6 +24,7 @@
 
 #include <mach/hardware.h>
 #include <mach/map.h>
+#include <mach/cpu.h>
 
 #include <plat/cpu-freq.h>
 
@@ -86,6 +87,80 @@ struct clksrc_clk clk_mout_apll = {
 	.shift		= S3C6400_CLKSRC_APLL_MOUT_SHIFT,
 	.mask		= S3C6400_CLKSRC_APLL_MOUT,
 	.sources	= &clk_src_apll,
+};
+
+static u32 clk_arm_div_mask(void)
+{
+	if (cpu_is_s3c6400())
+		return S3C6400_CLKDIV0_ARM_MASK;
+
+	if (cpu_is_s3c6410())
+		return S3C6410_CLKDIV0_ARM_MASK;
+
+	return 0;
+}
+
+static unsigned long s3c64xx_clk_arm_get_rate(struct clk *clk)
+{
+	unsigned long rate = clk_get_rate(clk->parent);
+	u32 val;
+
+	val = __raw_readl(S3C_CLK_DIV0);
+	val &= clk_arm_div_mask();
+
+	return rate / (val + 1);
+}
+
+static unsigned long s3c64xx_clk_arm_round_rate(struct clk *clk,
+						unsigned long rate)
+{
+	unsigned long parent = clk_get_rate(clk->parent);
+	int div;
+	int max = clk_arm_div_mask() + 1;
+
+	if (parent < rate)
+		return parent;
+
+	div = parent / rate;
+
+	if (div < 1)
+		div = 1;
+	if (div > max)
+		div = max;
+
+	return parent / div;
+}
+
+static int s3c64xx_clk_arm_set_rate(struct clk *clk, unsigned long rate)
+{
+	unsigned int div;
+	u32 val;
+	unsigned long flags;
+
+	div = (clk_get_rate(clk->parent) / rate) - 1;
+
+	if (div > clk_arm_div_mask())
+		return -EINVAL;
+
+	local_irq_save(flags);
+
+	val = __raw_readl(S3C_CLK_DIV0);
+	val &= ~clk_arm_div_mask();
+	val |= div;
+
+	__raw_writel(val, S3C_CLK_DIV0);
+	local_irq_restore(flags);
+
+	return 0;
+}
+
+static struct clk clk_arm = {
+	.name		= "armclk",
+	.id		= -1,
+	.parent		= &clk_mout_apll.clk,
+	.round_rate	= &s3c64xx_clk_arm_round_rate,
+	.get_rate	= s3c64xx_clk_arm_get_rate,
+	.set_rate	= s3c64xx_clk_arm_set_rate,
 };
 
 struct clk clk_fout_epll = {
@@ -636,6 +711,7 @@ static struct clk *clks[] __initdata = {
 	&clk_audio0.clk,
 	&clk_audio1.clk,
 	&clk_irda.clk,
+	&clk_arm,
 };
 
 void __init s3c6400_register_clocks(void)
