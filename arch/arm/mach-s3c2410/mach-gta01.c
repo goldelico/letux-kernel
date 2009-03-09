@@ -71,7 +71,7 @@
 #include <mach/fb.h>
 #include <mach/spi.h>
 #include <mach/spi-gpio.h>
-#include <mach/usb-control.h>
+#include <mach/cpu.h>
 
 #include <mach/gta01.h>
 
@@ -84,6 +84,7 @@
 #include <plat/iic.h>
 #include <plat/mci.h>
 #include <asm/plat-s3c24xx/neo1973.h>
+#include <plat/usb-control.h>
 #include <mach/neo1973-pm-gsm.h>
 
 #include <linux/jbt6k74.h>
@@ -426,7 +427,7 @@ static void mangle_pmu_pdata_by_system_rev(void)
 
 	reg_init_data = gta01_pcf_pdata.reg_init_data;
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01Bv4_SYSTEM_REV:
 
 		/* FIXME : gta01_pcf_pdata.used_features |= PCF50606_FEAT_ACD; */
@@ -600,7 +601,7 @@ static void gta01_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 	regulator = s3c_sdi_regulator;
 
 		return;
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 		switch (power_mode) {
 		case MMC_POWER_OFF:
@@ -933,10 +934,10 @@ static void __init gta01_machine_init(void)
 {
 	int rc;
 
-	if (system_rev == GTA01v4_SYSTEM_REV ||
-	    system_rev == GTA01Bv2_SYSTEM_REV ||
-	    system_rev == GTA01Bv3_SYSTEM_REV ||
-	    system_rev == GTA01Bv4_SYSTEM_REV) {
+	if (S3C_SYSTEM_REV_ATAG == GTA01v4_SYSTEM_REV ||
+	    S3C_SYSTEM_REV_ATAG == GTA01Bv2_SYSTEM_REV ||
+	    S3C_SYSTEM_REV_ATAG == GTA01Bv3_SYSTEM_REV ||
+	    S3C_SYSTEM_REV_ATAG == GTA01Bv4_SYSTEM_REV) {
 		gta01_udc_cfg.udc_command = gta01_udc_command;
 		gta01_mmc_cfg.ocr_avail = MMC_VDD_32_33;
 	}
@@ -965,7 +966,7 @@ static void __init gta01_machine_init(void)
 	platform_device_register(&gta01_button_dev);
 	platform_device_register(&gta01_pm_gsm_dev);
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 		/* just use the default (GTA01_IRQ_PCF50606) */

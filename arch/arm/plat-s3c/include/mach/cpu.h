@@ -28,6 +28,9 @@
 
 extern unsigned int system_rev;
 
+#define S3C_SYSTEM_REV_ATAG (system_rev & 0xffff)
+#define S3C_SYSTEM_REV_CPU (system_rev & 0xffff0000)
+
 /*
  * cpu_is_s3c24xx():	True for s3c2400, s3c2410, s3c2440 and so on
  * cpu_is_s3c241x():	True fro s3c2410, s3c2412

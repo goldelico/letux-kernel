@@ -39,14 +39,16 @@ static void __init set_system_rev(unsigned int idcode)
 	 * system_rev & 0xfff00000 -> S3C Sub Class (241x/244x)
 	 * system_rev & 0xffff0000 -> S3C Type (2410/2440/6400/6410)
 	 *
-	 * Remains[15:0] are reserved
+	 * Remaining[15:0] are preserved from the value set by ATAG
 	 *
 	 * Exception:
 	 *  Store Revision A to 1 such as
 	 *  s3c2410A to s3c2411
 	 *  s3c2440A to s3c2441
 	 */
-	system_rev = (idcode & 0x0ffff000) << 4;
+
+	system_rev &= 0xffff;
+	system_rev |= (idcode & 0x0ffff000) << 4;
 
 	if (idcode == 0x32410002 || idcode == 0x32440001)
 		system_rev |= (0x1 << 16);

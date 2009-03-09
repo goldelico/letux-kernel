@@ -27,6 +27,7 @@
 #include <mach/s3c24xx-serial.h>
 
 #include <mach/hardware.h>
+#include <mach/cpu.h>
 
 /* For GTA02 */
 #include <mach/gta02.h>
@@ -281,7 +282,7 @@ static struct attribute_group gta01_gsm_attr_group = {
 
 static int __init gta01_gsm_probe(struct platform_device *pdev)
 {
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 		gta01_gsm.gpio_ngsm_en = GTA01v3_GPIO_nGSM_EN;
 		break;
@@ -309,7 +310,7 @@ static int __init gta01_gsm_probe(struct platform_device *pdev)
 		break;
 	}
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v4_SYSTEM_REV:
 	case GTA01Bv2_SYSTEM_REV:
 		gta01_gsm_sysfs_entries[ARRAY_SIZE(gta01_gsm_sysfs_entries)-2] =

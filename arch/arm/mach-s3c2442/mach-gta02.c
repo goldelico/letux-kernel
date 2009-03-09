@@ -77,6 +77,7 @@
 #include <mach/regs-mem.h>
 #include <mach/spi-gpio.h>
 #include <plat/pwm.h>
+#include <mach/cpu.h>
 
 #include <mach/gta02.h>
 
@@ -691,7 +692,7 @@ static void mangle_pmu_pdata_by_system_rev(void)
 
 	reg_init_data = gta02_pcf_pdata.reg_init_data;
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA02v1_SYSTEM_REV:
 		/* FIXME: this is only in v1 due to wrong PMU variant */
 		reg_init_data[PCF50633_REGULATOR_DOWN2]
@@ -750,7 +751,7 @@ struct platform_device bq27000_battery_device = {
 
 static void gta02_hdq_attach_child_devices(struct device *parent_device)
 {
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA02v5_SYSTEM_REV:
 	case GTA02v6_SYSTEM_REV:
 		bq27000_battery_device.dev.parent = parent_device;
@@ -1352,7 +1353,7 @@ static int glamo_irq_is_wired(void)
 
 static int gta02_glamo_can_set_mmc_power(void)
 {
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 		case GTA02v3_SYSTEM_REV:
 		case GTA02v4_SYSTEM_REV:
 		case GTA02v5_SYSTEM_REV:
@@ -1446,7 +1447,7 @@ static struct platform_device gta02_glamo_dev = {
 
 static void mangle_glamo_res_by_system_rev(void)
 {
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA02v1_SYSTEM_REV:
 		break;
 	default:
@@ -1455,7 +1456,7 @@ static void mangle_glamo_res_by_system_rev(void)
 		break;
 	}
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA02v1_SYSTEM_REV:
 	case GTA02v2_SYSTEM_REV:
 	case GTA02v3_SYSTEM_REV:
@@ -1591,7 +1592,7 @@ static void __init gta02_machine_init(void)
 	/* set the panic callback to make AUX blink fast */
 	panic_blink = gta02_panic_blink;
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA02v6_SYSTEM_REV:
 		/* we need push-pull interrupt from motion sensors */
 		lis302_pdata_top.open_drain = 0;

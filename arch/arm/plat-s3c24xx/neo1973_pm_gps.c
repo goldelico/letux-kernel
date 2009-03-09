@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 
 #include <mach/hardware.h>
+#include <mach/cpu.h>
 
 #include <asm/mach-types.h>
 
@@ -77,7 +78,7 @@ static void gps_power_2v8_set(int on)
 {
 	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_2V8];
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 		if (on)
@@ -100,7 +101,7 @@ static int gps_power_2v8_get(void)
 	int ret = 0;
 	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_2V8];
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 			ret = regulator_is_enabled(regulator);
@@ -122,7 +123,7 @@ static void gps_power_3v_set(int on)
 {
 	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_3V];
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 		if (on)
@@ -144,7 +145,7 @@ static int gps_power_3v_get(void)
 	int ret = 0;
 	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_3V];
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 		ret = regulator_is_enabled(regulator);
@@ -165,7 +166,7 @@ static void gps_power_3v3_set(int on)
 {
 	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_3V3];
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 	case GTA01Bv2_SYSTEM_REV:
@@ -187,7 +188,7 @@ static int gps_power_3v3_get(void)
 	int ret = 0;
 	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_3V3];
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 	case GTA01Bv2_SYSTEM_REV:
@@ -208,7 +209,7 @@ static void gps_power_2v5_set(int on)
 {
 	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_2V5];
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 		/* This is CORE_1V8 and cannot be disabled */
 		break;
@@ -230,7 +231,7 @@ static int gps_power_2v5_get(void)
 	int ret = 0;
 	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_2V5];
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 		/* This is CORE_1V8 and cannot be disabled */
 		ret = 1;
@@ -251,7 +252,7 @@ static void gps_power_1v5_set(int on)
 {
 	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_1V5];
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 	case GTA01Bv2_SYSTEM_REV:
@@ -273,7 +274,7 @@ static int gps_power_1v5_get(void)
 	int ret = 0;
 	struct regulator *regulator = neo1973_gps.regulator[GTA01_GPS_REG_1V5];
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 	case GTA01Bv2_SYSTEM_REV:
@@ -424,7 +425,7 @@ static ssize_t power_gps_write(struct device *dev,
 /* This is the nRESET pin */
 static void gps_rst_set(int on)
 {
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 		pcf50606_gpo_set_active(gta01_pcf, PCF50606_GPO1, on);
 		break;
@@ -439,7 +440,7 @@ static void gps_rst_set(int on)
 
 static int gps_rst_get(void)
 {
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 		return pcf50606_gpo_get_active(gta01_pcf, PCF50606_GPO1);
 		break;
@@ -635,7 +636,7 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 	if (machine_is_neo1973_gta01()) {
 		s3c2410_gpio_cfgpin(GTA01_GPIO_GPS_PWRON, S3C2410_GPIO_OUTPUT);
 
-		switch (system_rev) {
+		switch (S3C_SYSTEM_REV_ATAG) {
 		case GTA01v3_SYSTEM_REV:
 			break;
 		case GTA01v4_SYSTEM_REV:
@@ -678,7 +679,7 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 
 		gps_power_sequence_down();
 
-		switch (system_rev) {
+		switch (S3C_SYSTEM_REV_ATAG) {
 		case GTA01v3_SYSTEM_REV:
 		case GTA01v4_SYSTEM_REV:
 		case GTA01Bv2_SYSTEM_REV:
