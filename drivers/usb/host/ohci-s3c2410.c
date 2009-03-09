@@ -22,9 +22,9 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 
-#include <mach/hardware.h>
-#include <mach/usb-control.h>
-#include <mach/regs-gpio.h>
+//#include <mach/hardware.h>
+#include <plat/usb-control.h>
+//#include <mach/regs-gpio.h>
 
 #define valid_port(idx) ((idx) == 1 || (idx) == 2)
 
@@ -309,6 +309,7 @@ static void s3c2410_hcd_oc(struct s3c2410_hcd_info *info, int port_oc)
 	local_irq_restore(flags);
 }
 
+#if 0
 /* switching of USB pads */
 static ssize_t show_usb_mode(struct device *dev, struct device_attribute *attr,
 			     char *buf)
@@ -344,6 +345,7 @@ static ssize_t set_usb_mode(struct device *dev, struct device_attribute *attr,
 }
 
 static DEVICE_ATTR(usb_mode, S_IRUGO | S_IWUSR, show_usb_mode, set_usb_mode);
+#endif
 
 /* may be called without controller electrically present */
 /* may be called with controller, bus, and devices active */
@@ -362,7 +364,7 @@ static DEVICE_ATTR(usb_mode, S_IRUGO | S_IWUSR, show_usb_mode, set_usb_mode);
 static void
 usb_hcd_s3c2410_remove (struct usb_hcd *hcd, struct platform_device *dev)
 {
-	device_remove_file(&dev->dev, &dev_attr_usb_mode);
+	//device_remove_file(&dev->dev, &dev_attr_usb_mode);
 	usb_remove_hcd(hcd);
 	s3c2410_stop_hc(dev);
 	iounmap(hcd->regs);
@@ -430,9 +432,9 @@ static int usb_hcd_s3c2410_probe (const struct hc_driver *driver,
 	if (retval != 0)
 		goto err_ioremap;
 
-	retval = device_create_file(&dev->dev, &dev_attr_usb_mode);
-	if (retval != 0)
-		goto err_hcd;
+//	retval = device_create_file(&dev->dev, &dev_attr_usb_mode);
+//	if (retval != 0)
+//		goto err_hcd;
 
 	return 0;
 
@@ -549,7 +551,7 @@ static struct platform_driver ohci_hcd_s3c2410_driver = {
 	.resume		= ohci_hcd_s3c2410_drv_resume,
 	.driver		= {
 		.owner	= THIS_MODULE,
-		.name	= "s3c2410-ohci",
+		.name	= "s3c-ohci",
 	},
 };
 

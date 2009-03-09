@@ -36,6 +36,7 @@ obj-y				+= dev-i2c0.o
 obj-$(CONFIG_S3C_DEV_I2C1)	+= dev-i2c1.o
 obj-$(CONFIG_S3C_DEV_FB)	+= dev-fb.o
 obj-$(CONFIG_S3C_DEV_CAMIF)	+= dev-camif.o
+obj-$(CONFIG_S3C_DEV_USBHOST)	+= dev-usbhost.o
 
 obj-$(CONFIG_S3C_PWM)		+= pwm.o
 obj-$(CONFIG_S3C_DMA)		+= dma.o

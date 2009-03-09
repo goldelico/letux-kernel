@@ -18,6 +18,7 @@
  * This file is licenced under the GPL.
  */
 
+#define DEBUG 2
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/pci.h>
@@ -997,7 +998,7 @@ MODULE_LICENSE ("GPL");
 #define SA1111_DRIVER		ohci_hcd_sa1111_driver
 #endif
 
-#ifdef CONFIG_ARCH_S3C2410
+#ifdef CONFIG_PLAT_S3C
 #include "ohci-s3c2410.c"
 #define PLATFORM_DRIVER		ohci_hcd_s3c2410_driver
 #endif

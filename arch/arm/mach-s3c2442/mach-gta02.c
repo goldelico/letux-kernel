@@ -74,7 +74,6 @@
 #include <mach/ts.h>
 #include <mach/spi.h>
 #include <mach/spi-gpio.h>
-#include <mach/usb-control.h>
 #include <mach/regs-mem.h>
 #include <mach/spi-gpio.h>
 #include <plat/pwm.h>
@@ -88,6 +87,7 @@
 #include <plat/pm.h>
 #include <plat/udc.h>
 #include <plat/iic.h>
+#include <plat/usb-control.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 #include <mach/neo1973-pm-gsm.h>
 #include <mach/gta02-pm-wlan.h>
