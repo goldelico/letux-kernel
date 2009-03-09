@@ -438,8 +438,8 @@ static int usb_hcd_s3c2410_probe (const struct hc_driver *driver,
 
 	return 0;
 
- err_hcd:
-	usb_remove_hcd(hcd);
+// err_hcd:
+//	usb_remove_hcd(hcd);
 
  err_ioremap:
 	s3c2410_stop_hc(dev);
