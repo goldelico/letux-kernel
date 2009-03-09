@@ -268,7 +268,7 @@ enum v4l2_status {
 };
 
 typedef struct {
-	struct mutex		lock;
+	struct semaphore	lock;
 	enum camif_itu_fmt	itu_fmt;
 	enum camif_order422	order422;
 	struct i2c_client	*sensor;

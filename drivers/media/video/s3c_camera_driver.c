@@ -85,7 +85,7 @@ static int s3c_camif_check_global_status(camif_cfg_t *cfg)
 {
 	int ret = 0;
 
-        if (down_interruptible((struct semaphore *) &cfg->cis->lock))
+	if (down_interruptible(&cfg->cis->lock))
 		return -ERESTARTSYS;
 
 	if (cfg->cis->status & CWANT2START) {
@@ -93,13 +93,13 @@ static int s3c_camif_check_global_status(camif_cfg_t *cfg)
 		cfg->auto_restart = 1;
 		ret = 1;
 	} else {
-	        ret = 0; 		/* There is no codec */
-		cfg->auto_restart = 0; 	/* Duplicated ..Dummy */
+	        ret = 0;		/* There is no codec */
+		cfg->auto_restart = 0;	/* Duplicated ..Dummy */
 	}
 
-	up((struct semaphore *) &cfg->cis->lock);
+	up(&cfg->cis->lock);
 
-        return ret;
+	return ret;
 }
 #endif
 
@@ -149,7 +149,8 @@ static int s3c_camif_convert_format(int pixfmt, int *fmtptr)
 		break;
 	}
 
-	if (fmtptr) *fmtptr = fmt;
+	if (fmtptr)
+		*fmtptr = fmt;
 
 	return depth;
 }
@@ -162,7 +163,8 @@ static int s3c_camif_set_fb_info(camif_cfg_t *cfg, int depth, int fourcc)
 	cfg->v2.frmbuf.fmt.field = V4L2_FIELD_NONE;
 	cfg->v2.frmbuf.fmt.pixelformat = fourcc;
 	cfg->v2.frmbuf.fmt.bytesperline = cfg->v2.frmbuf.fmt.width * depth >> 3;
-	cfg->v2.frmbuf.fmt.sizeimage = cfg->v2.frmbuf.fmt.height * cfg->v2.frmbuf.fmt.bytesperline;
+	cfg->v2.frmbuf.fmt.sizeimage =
+	    cfg->v2.frmbuf.fmt.height * cfg->v2.frmbuf.fmt.bytesperline;
 
 	return 0;
 }
@@ -170,6 +172,7 @@ static int s3c_camif_set_fb_info(camif_cfg_t *cfg, int depth, int fourcc)
 static int s3c_camif_convert_type(camif_cfg_t *cfg, int f)
 {
 	int pixfmt;
+
 	cfg->target_x = cfg->v2.frmbuf.fmt.width;
 	cfg->target_y = cfg->v2.frmbuf.fmt.height;
 
@@ -193,7 +196,8 @@ static int s3c_camif_start_capture(camif_cfg_t * cfg)
 
 	cfg->status = CAMIF_STARTED;
 
-	if (!(cfg->fsm == CAMIF_SET_LAST_INT || cfg->fsm == CAMIF_CONTINUOUS_INT)) {
+	if (!(cfg->fsm == CAMIF_SET_LAST_INT ||
+	    cfg->fsm == CAMIF_CONTINUOUS_INT)) {
 		cfg->fsm = CAMIF_DUMMY_INT;
 		cfg->perf.frames = 0;
 	}
@@ -256,7 +260,7 @@ ssize_t s3c_camif_stop_fimc(camif_cfg_t *cfg)
 #if defined(FSM_ON_PREVIEW)
 static void s3c_camif_start_preview_with_codec(camif_cfg_t *cfg)
 {
-	camif_cfg_t *other = (camif_cfg_t *)cfg->other;
+	camif_cfg_t *other = cfg->other;
 
 	/* Preview Stop */
 	cfg->capture_enable = CAMIF_DMA_OFF;
@@ -321,28 +325,32 @@ static void s3c_camif_change_mode(camif_cfg_t *cfg, int mode)
 
 	switch (res) {
 	case SENSOR_SXGA:
-		printk(KERN_INFO "Resolution changed into SXGA (1280x1024) mode -> 1.3M\n");
+		printk(KERN_INFO
+		    "Resolution changed into SXGA (1280x1024) mode -> 1.3M\n");
 		cis->sensor->driver->command(cis->sensor, SENSOR_SXGA, NULL);
 		cis->source_x = 1280;
 		cis->source_y = 1024;
 		break;
 
 	case SENSOR_UXGA:
-		printk(KERN_INFO "Resolution changed into UXGA (1600x1200) mode -> 2.0M\n");
+		printk(KERN_INFO
+		    "Resolution changed into UXGA (1600x1200) mode -> 2.0M\n");
 		cis->sensor->driver->command(cis->sensor, SENSOR_UXGA, NULL);
 		cis->source_x = 1600;
 		cis->source_y = 1200;
 		break;
 
 	case SENSOR_SVGA:
-		printk(KERN_INFO "Resolution changed back to SVGA (800x600) mode\n");
+		printk(KERN_INFO
+		    "Resolution changed back to SVGA (800x600) mode\n");
 		cis->sensor->driver->command(cis->sensor, SENSOR_SVGA, NULL);
 		cis->source_x = 800;
 		cis->source_y = 600;
 		break;
 
 	case SENSOR_VGA:
-		printk(KERN_INFO "Resolution changed back to VGA (640x480) mode (default)\n");
+		printk(KERN_INFO "Resolution changed back to VGA (640x480) "
+		    "mode (default)\n");
 		cis->sensor->driver->command(cis->sensor, SENSOR_VGA, NULL);
 		cis->source_x = 640;
 		cis->source_y = 480;
@@ -359,10 +367,12 @@ static int s3c_camif_check_zoom_range(camif_cfg_t *cfg, int type)
 {
 	switch (type) {
 	case V4L2_CID_ZOOMIN:
-		if (((cfg->sc.modified_src_x - (cfg->cis->win_hor_ofst + \
-			ZOOM_AT_A_TIME_IN_PIXELS + cfg->cis->win_hor_ofst2 + \
-			ZOOM_AT_A_TIME_IN_PIXELS)) / cfg->sc.prehratio) > ZOOM_IN_MAX) {
-	                printk(KERN_INFO "Invalid Zoom-in: this zoom-in on preview scaler already comes to the maximum\n");
+		if (((cfg->sc.modified_src_x - (cfg->cis->win_hor_ofst +
+		    ZOOM_AT_A_TIME_IN_PIXELS + cfg->cis->win_hor_ofst2 +
+		    ZOOM_AT_A_TIME_IN_PIXELS)) / cfg->sc.prehratio) >
+		    ZOOM_IN_MAX) {
+	                printk(KERN_INFO "Invalid Zoom-in: this zoom-in on "
+			    "preview scaler already comes to the maximum\n");
 			return 0;
 		}
 
@@ -372,9 +382,9 @@ static int s3c_camif_check_zoom_range(camif_cfg_t *cfg, int type)
 	case V4L2_CID_ZOOMOUT:
 		if (cfg->sc.zoom_in_cnt > 0) {
 			cfg->sc.zoom_in_cnt--;
-			break;
 		} else {
-	                printk(KERN_INFO "Invalid Zoom-out: this zoom-out on preview scaler already comes to the minimum\n");
+	                printk(KERN_INFO "Invalid Zoom-out: this zoom-out on "
+			    "preview scaler already comes to the minimum\n");
 			return 0;
 		}
 
@@ -403,7 +413,8 @@ static int s3c_camif_restart_preview(camif_cfg_t *cfg)
 	return ret;
 }
 
-static int s3c_camif_send_sensor_command(camif_cfg_t *cfg, unsigned int cmd, int arg)
+static int s3c_camif_send_sensor_command(camif_cfg_t *cfg, unsigned int cmd,
+    int arg)
 {
 	cfg->cis->sensor->driver->command(cfg->cis->sensor, cmd, (void *) arg);
 
@@ -422,7 +433,8 @@ static int s3c_camif_v4l2_querycap(camif_cfg_t *cfg, void *arg)
 	sprintf(cap->bus_info, "FIMC AHB Bus");
 
 	cap->version = 0;
-	cap->capabilities = V4L2_CAP_VIDEO_OVERLAY | V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
+	cap->capabilities = V4L2_CAP_VIDEO_OVERLAY | V4L2_CAP_VIDEO_CAPTURE |
+	    V4L2_CAP_STREAMING;
 
 	return 0;
 }
@@ -463,7 +475,8 @@ static int s3c_camif_v4l2_s_fbuf(camif_cfg_t *cfg, void *arg)
 	cfg->target_x = fb->fmt.width;
 	cfg->target_y = fb->fmt.height;
 
-	depth = s3c_camif_convert_format(fb->fmt.pixelformat, (int *) &(cfg->dst_fmt));
+	depth = s3c_camif_convert_format(fb->fmt.pixelformat,
+	    (int *) &cfg->dst_fmt);
 	s3c_camif_set_fb_info(cfg, depth, fb->fmt.pixelformat);
 
 	return s3c_camif_control_fimc(cfg);
@@ -471,7 +484,7 @@ static int s3c_camif_v4l2_s_fbuf(camif_cfg_t *cfg, void *arg)
 
 static int s3c_camif_v4l2_g_fmt(camif_cfg_t *cfg, void *arg)
 {
-	struct v4l2_format *f = (struct v4l2_format *) arg;
+	struct v4l2_format *f = arg;
 	int size = sizeof(struct v4l2_pix_format);
 	int ret = -1;
 
@@ -491,14 +504,14 @@ static int s3c_camif_v4l2_g_fmt(camif_cfg_t *cfg, void *arg)
 
 static int s3c_camif_v4l2_s_fmt(camif_cfg_t *cfg, void *arg)
 {
-	struct v4l2_format *f = (struct v4l2_format *) arg;
+	struct v4l2_format *f = arg;
 	int ret = -1;
 
 	switch (f->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		cfg->v2.frmbuf.fmt   = f->fmt.pix;
-		cfg->v2.status       |= CAMIF_v4L2_DIRTY;
-		cfg->v2.status      &= ~CAMIF_v4L2_DIRTY; /* dummy ? */
+		cfg->v2.frmbuf.fmt = f->fmt.pix;
+		cfg->v2.status |= CAMIF_v4L2_DIRTY;
+		cfg->v2.status &= ~CAMIF_v4L2_DIRTY; /* dummy ? */
 
 		s3c_camif_convert_type(cfg, 1);
 		s3c_camif_control_fimc(cfg);
@@ -537,15 +550,12 @@ static int s3c_camif_v4l2_enum_fmt(camif_cfg_t *cfg, void *arg)
 
 static int s3c_camif_v4l2_overlay(camif_cfg_t *cfg, void *arg)
 {
-	int on = *((int *) arg);
-	int ret;
+	int on = *(int *) arg;
 
-	if (on != 0)
-		ret = s3c_camif_start_preview(cfg);
+	if (on)
+		return s3c_camif_start_preview(cfg);
 	else
-		ret = s3c_camif_stop_preview(cfg);
-
-	return ret;
+		return s3c_camif_stop_preview(cfg);
 }
 
 static int s3c_camif_v4l2_g_ctrl(camif_cfg_t *cfg, void *arg)
@@ -555,7 +565,7 @@ static int s3c_camif_v4l2_g_ctrl(camif_cfg_t *cfg, void *arg)
 
 static int s3c_camif_v4l2_s_ctrl(camif_cfg_t *cfg, void *arg)
 {
-	struct v4l2_control *ctrl = (struct v4l2_control *) arg;
+	struct v4l2_control *ctrl = arg;
 
 	switch (ctrl->id) {
 		case V4L2_CID_ORIGINAL:
@@ -601,32 +611,33 @@ static int s3c_camif_v4l2_s_ctrl(camif_cfg_t *cfg, void *arg)
 			break;
 
 		case V4L2_CID_ZOOMIN:
-			if (s3c_camif_check_zoom_range(cfg, ctrl->id)) {
-				cfg->cis->win_hor_ofst += ZOOM_AT_A_TIME_IN_PIXELS;
-				cfg->cis->win_ver_ofst += ZOOM_AT_A_TIME_IN_PIXELS;
-				cfg->cis->win_hor_ofst2 += ZOOM_AT_A_TIME_IN_PIXELS;
-				cfg->cis->win_ver_ofst2 += ZOOM_AT_A_TIME_IN_PIXELS;
+			if (!s3c_camif_check_zoom_range(cfg, ctrl->id))
+				break;
+			cfg->cis->win_hor_ofst += ZOOM_AT_A_TIME_IN_PIXELS;
+			cfg->cis->win_ver_ofst += ZOOM_AT_A_TIME_IN_PIXELS;
+			cfg->cis->win_hor_ofst2 += ZOOM_AT_A_TIME_IN_PIXELS;
+			cfg->cis->win_ver_ofst2 += ZOOM_AT_A_TIME_IN_PIXELS;
 
-				s3c_camif_restart_preview(cfg);
-			}
+			s3c_camif_restart_preview(cfg);
 
 			break;
 
 		case V4L2_CID_ZOOMOUT:
-			if (s3c_camif_check_zoom_range(cfg, ctrl->id)) {
-				cfg->cis->win_hor_ofst -= ZOOM_AT_A_TIME_IN_PIXELS;
-				cfg->cis->win_ver_ofst -= ZOOM_AT_A_TIME_IN_PIXELS;
-				cfg->cis->win_hor_ofst2 -= ZOOM_AT_A_TIME_IN_PIXELS;
-				cfg->cis->win_ver_ofst2 -= ZOOM_AT_A_TIME_IN_PIXELS;
+			if (!s3c_camif_check_zoom_range(cfg, ctrl->id))
+				break;
+			cfg->cis->win_hor_ofst -= ZOOM_AT_A_TIME_IN_PIXELS;
+			cfg->cis->win_ver_ofst -= ZOOM_AT_A_TIME_IN_PIXELS;
+			cfg->cis->win_hor_ofst2 -= ZOOM_AT_A_TIME_IN_PIXELS;
+			cfg->cis->win_ver_ofst2 -= ZOOM_AT_A_TIME_IN_PIXELS;
 
-				s3c_camif_restart_preview(cfg);
-			}
+			s3c_camif_restart_preview(cfg);
 
 			break;
 
 		case V4L2_CID_CONTRAST:
 		case V4L2_CID_AUTO_WHITE_BALANCE:
-			s3c_camif_send_sensor_command(cfg, SENSOR_WB, ctrl->value);
+			s3c_camif_send_sensor_command(cfg, SENSOR_WB,
+			    ctrl->value);
 			break;
 
 		default:
@@ -639,29 +650,23 @@ static int s3c_camif_v4l2_s_ctrl(camif_cfg_t *cfg, void *arg)
 
 static int s3c_camif_v4l2_streamon(camif_cfg_t *cfg, void *arg)
 {
-	int ret = 0;
-
-	ret = s3c_camif_start_capture(cfg);
-
-	return ret;
+	return s3c_camif_start_capture(cfg);
 }
 
 static int s3c_camif_v4l2_streamoff(camif_cfg_t *cfg, void *arg)
 {
-	int ret = 0;
-
 	cfg->cis->status &= ~C_WORKING;
 
 	s3c_camif_stop_capture(cfg);
 
-	return ret;
+	return 0;
 }
 
 static int s3c_camif_v4l2_g_input(camif_cfg_t *cfg, void *arg)
 {
-	unsigned int index = *((int *) arg);
+	unsigned int *index = arg;
 
-	index = cfg->v2.input->index;
+	*index = cfg->v2.input->index;
 
 	return 0;
 }
@@ -694,9 +699,9 @@ static int s3c_camif_v4l2_s_input(camif_cfg_t *cfg, unsigned int index)
 
 static int s3c_camif_v4l2_g_output(camif_cfg_t *cfg, void *arg)
 {
-	unsigned int index = *((int *) arg);
+	unsigned int *index = arg;
 
-	index = cfg->v2.output->index;
+	*index = cfg->v2.output->index;
 
 	return 0;
 }
@@ -727,7 +732,7 @@ static int s3c_camif_v4l2_enum_output(camif_cfg_t *cfg, void *arg)
 {
 	struct v4l2_output *i = arg;
 
-	if ((i->index) >= NUMBER_OF_OUTPUTS)
+	if (i->index >= NUMBER_OF_OUTPUTS)
 		return -EINVAL;
 
 	memcpy(i, &fimc_outputs[i->index], sizeof(struct v4l2_output));
@@ -759,7 +764,8 @@ static int s3c_camif_v4l2_querybuf(camif_cfg_t *cfg, void *arg)
 {
 	struct v4l2_buffer *buf = arg;
 
-	if (buf->type != V4L2_BUF_TYPE_VIDEO_CAPTURE && buf->memory != V4L2_MEMORY_MMAP)
+	if (buf->type != V4L2_BUF_TYPE_VIDEO_CAPTURE &&
+	    buf->memory != V4L2_MEMORY_MMAP)
 		return -1;
 
 	buf->length = cfg->buffer_size;
@@ -788,11 +794,12 @@ static int s3c_camif_v4l2_dqbuf(camif_cfg_t *cfg, void *arg)
 static int s3c_camif_v4l2_s_msdma(camif_cfg_t *cfg, void *arg)
 {
 	struct v4l2_msdma_format *f = arg;
-	int ret = -1;
+	int ret;
 
 	switch(f->input_path) {
 	case V4L2_MSDMA_PREVIEW:
-		cfg->cis->user--;   /* CIS will be replaced with a CIS for MSDMA */
+		cfg->cis->user--;
+		    /* CIS will be replaced with a CIS for MSDMA */
 
 		cfg->cis = &msdma_input;
 		cfg->cis->user++;
@@ -800,7 +807,8 @@ static int s3c_camif_v4l2_s_msdma(camif_cfg_t *cfg, void *arg)
 		break;
 
 	case V4L2_MSDMA_CODEC:
-		cfg->cis->user--;   /* CIS will be replaced with a CIS for MSDMA */
+		cfg->cis->user--;
+		    /* CIS will be replaced with a CIS for MSDMA */
 
 		cfg->cis = &msdma_input;
 		cfg->cis->user++;
@@ -900,8 +908,10 @@ static int s3c_camif_v4l2_cropcap(camif_cfg_t *cfg, void *arg)
 	cfg->v2.crop_bounds.height = cfg->cis->source_y;
 
 	/* crop default values */
-	cfg->v2.crop_defrect.left = (cfg->cis->source_x - CROP_DEFAULT_WIDTH) / 2;
-	cfg->v2.crop_defrect.top = (cfg->cis->source_y - CROP_DEFAULT_HEIGHT) / 2;
+	cfg->v2.crop_defrect.left =
+	    (cfg->cis->source_x - CROP_DEFAULT_WIDTH) / 2;
+	cfg->v2.crop_defrect.top =
+	    (cfg->cis->source_y - CROP_DEFAULT_HEIGHT) / 2;
 	cfg->v2.crop_defrect.width = CROP_DEFAULT_WIDTH;
 	cfg->v2.crop_defrect.height = CROP_DEFAULT_HEIGHT;
 
@@ -938,7 +948,7 @@ static int s3c_camif_v4l2_s_crop(camif_cfg_t *cfg, void *arg)
 	if (crop->c.width < 0)
 		return -EINVAL;
 
-	if ((crop->c.left + crop->c.width > cfg->cis->source_x) || \
+	if ((crop->c.left + crop->c.width > cfg->cis->source_x) ||
 		(crop->c.top + crop->c.height > cfg->cis->source_y))
 		return -EINVAL;
 
@@ -979,11 +989,10 @@ static int s3c_camif_v4l2_s_parm(camif_cfg_t *cfg, void *arg)
 #if defined(FSM_ON_CODEC) && !defined(USE_LAST_IRQ)
 int s3c_camif_do_fsm_codec(camif_cfg_t *cfg)
 {
-	int ret;
-
 	cfg->perf.frames++;
 
-	if ((cfg->fsm == CAMIF_DUMMY_INT) && (cfg->perf.frames > CAMIF_CAPTURE_SKIP_FRAMES))
+	if (cfg->fsm == CAMIF_DUMMY_INT &&
+	    cfg->perf.frames > CAMIF_CAPTURE_SKIP_FRAMES)
 		cfg->fsm = CAMIF_NORMAL_INT;
 
 	switch (cfg->fsm) {
@@ -991,41 +1000,35 @@ int s3c_camif_do_fsm_codec(camif_cfg_t *cfg)
 		DPRINTK(KERN_INFO "CAMIF_DUMMY_INT: %d\n", cfg->perf.frames);
 		cfg->status = CAMIF_STARTED;
 		cfg->fsm = CAMIF_DUMMY_INT;
-		ret = INSTANT_SKIP;
-		break;
+		return INSTANT_SKIP;
 
 	case CAMIF_NORMAL_INT:
 		DPRINTK(KERN_INFO "CAMIF_NORMAL_INT: %d\n", cfg->perf.frames);
 		cfg->status = CAMIF_INT_HAPPEN;
 		cfg->fsm = CAMIF_CONTINUOUS_INT;
-		ret = INSTANT_GO;
-		break;
+		return INSTANT_GO;
 
 	case CAMIF_CONTINUOUS_INT:
-		DPRINTK(KERN_INFO "CAMIF_CONTINUOS_INT: %d\n", cfg->perf.frames);
+		DPRINTK(KERN_INFO "CAMIF_CONTINUOS_INT: %d\n",
+		    cfg->perf.frames);
 		cfg->status = CAMIF_INT_HAPPEN;
 		cfg->fsm = CAMIF_CONTINUOUS_INT;
-		ret = INSTANT_GO;
-		break;
+		return INSTANT_GO;
 
 	default:
 		printk(KERN_INFO "Unexpect INT: %d\n", cfg->fsm);
-		ret = INSTANT_SKIP;
-		break;
+		return INSTANT_SKIP;
 	}
-
-	return ret;
 }
 #endif
 
 #if defined(FSM_ON_CODEC) && defined(USE_LAST_IRQ)
 int s3c_camif_do_fsm_codec_lastirq(camif_cfg_t *cfg)
 {
-	int ret;
-
 	cfg->perf.frames++;
 
-	if ((cfg->fsm == CAMIF_DUMMY_INT) && (cfg->perf.frames > (CAMIF_CAPTURE_SKIP_FRAMES - 2)))
+	if (cfg->fsm == CAMIF_DUMMY_INT &&
+	    cfg->perf.frames > CAMIF_CAPTURE_SKIP_FRAMES - 2)
 		cfg->fsm = CAMIF_SET_LAST_INT;
 
 	switch (cfg->fsm) {
@@ -1033,8 +1036,7 @@ int s3c_camif_do_fsm_codec_lastirq(camif_cfg_t *cfg)
 		DPRINTK(KERN_INFO "CAMIF_DUMMY_INT: %d\n", cfg->perf.frames);
 		cfg->status = CAMIF_STARTED;
 		cfg->fsm = CAMIF_DUMMY_INT;
-		ret = INSTANT_SKIP;
-		break;
+		return INSTANT_SKIP;
 
 	case CAMIF_SET_LAST_INT:
 		DPRINTK(KERN_INFO "CAMIF_SET_LAST_INT: %d\n", cfg->perf.frames);
@@ -1046,70 +1048,56 @@ int s3c_camif_do_fsm_codec_lastirq(camif_cfg_t *cfg)
 #endif
 		cfg->status = CAMIF_INT_HAPPEN;
 		cfg->fsm = CAMIF_STOP_CAPTURE;
-		ret = INSTANT_SKIP;
-		break;
+		return INSTANT_SKIP;
 
 	case CAMIF_STOP_CAPTURE:
 		DPRINTK(KERN_INFO "CAMIF_STOP_CAPTURE: %d\n", cfg->perf.frames);
 		cfg->capture_enable = CAMIF_DMA_OFF;
 		s3c_camif_stop_dma(cfg);
 		cfg->fsm = CAMIF_LAST_IRQ;
-		ret = INSTANT_SKIP;
-		break;
+		return INSTANT_SKIP;
 
 	case CAMIF_LAST_IRQ:
 		DPRINTK(KERN_INFO "CAMIF_LAST_IRQ: %d\n", cfg->perf.frames);
 		cfg->fsm = CAMIF_SET_LAST_INT;
 		cfg->status = CAMIF_INT_HAPPEN;
-		ret = INSTANT_GO;
-		break;
+		return INSTANT_GO;
 
 	default:
 		printk(KERN_INFO "Unexpect INT: %d\n", cfg->fsm);
-		ret = INSTANT_SKIP;
-		break;
+		return = INSTANT_SKIP;
 	}
-
-	return ret;
 }
 #endif
 
 #if defined(FSM_ON_PREVIEW)
 static int s3c_camif_do_lastirq_preview(camif_cfg_t *cfg)
 {
-	int ret = 0;
-
 	cfg->perf.frames++;
 
-	if (cfg->fsm == CAMIF_NORMAL_INT) {
+	if (cfg->fsm == CAMIF_NORMAL_INT)
 		if (cfg->perf.frames % CHECK_FREQ == 0)
-			ret = s3c_camif_check_global_status(cfg);
-	}
-
-	if (ret > 0)
-		cfg->fsm = CAMIF_Xth_INT;
+			if (s3c_camif_check_global_status(cfg) > 0)
+				cfg->fsm = CAMIF_Xth_INT;
 
 	switch (cfg->fsm) {
 	case CAMIF_1st_INT:
 		DPRINTK(KERN_INFO "CAMIF_1st_INT INT\n");
 		cfg->fsm = CAMIF_NORMAL_INT;
-		ret = INSTANT_SKIP;
-		break;
+		return INSTANT_SKIP;
 
 	case CAMIF_NORMAL_INT:
 		DPRINTK(KERN_INFO "CAMIF_NORMAL_INT\n");
 		cfg->status = CAMIF_INT_HAPPEN;
 		cfg->fsm = CAMIF_NORMAL_INT;
-		ret = INSTANT_GO;
-		break;
+		return INSTANT_GO;
 
 	case CAMIF_Xth_INT:
 		DPRINTK(KERN_INFO "CAMIF_Xth_INT\n");
 		s3c_camif_enable_lastirq(cfg);
 		cfg->status = CAMIF_INT_HAPPEN;
 		cfg->fsm = CAMIF_Yth_INT;
-		ret = INSTANT_GO;
-		break;
+		return INSTANT_GO;
 
 	case CAMIF_Yth_INT:
 		DPRINTK(KERN_INFO "CAMIF_Yth_INT\n");
@@ -1118,30 +1106,24 @@ static int s3c_camif_do_lastirq_preview(camif_cfg_t *cfg)
 		cfg->status = CAMIF_INT_HAPPEN;
 		s3c_camif_stop_dma(cfg);
 		cfg->fsm = CAMIF_Zth_INT;
-		ret = INSTANT_GO;
-		break;
+		return INSTANT_GO;
 
 	case CAMIF_Zth_INT:
 		DPRINTK(KERN_INFO "CAMIF_Zth_INT\n");
 		cfg->fsm = CAMIF_DUMMY_INT;
 		cfg->status = CAMIF_INT_HAPPEN;
-		ret = INSTANT_GO;
 		s3c_camif_auto_restart(cfg);
-		break;
+		return INSTANT_GO;
 
-        case CAMIF_DUMMY_INT:
+	case CAMIF_DUMMY_INT:
 		DPRINTK(KERN_INFO "CAMIF_DUMMY_INT\n");
 		cfg->status = CAMIF_STOPPED;
-		ret = INSTANT_SKIP;
-		break;
+		return INSTANT_SKIP;
 
 	default:
 		printk(KERN_INFO "Unexpected INT %d\n", cfg->fsm);
-		ret = INSTANT_SKIP;
-		break;
+		return INSTANT_SKIP;
 	}
-
-	return ret;
 }
 #endif
 
@@ -1199,20 +1181,26 @@ static void s3c_camif_release_irq(camif_cfg_t * cfg)
 
 static int s3c_camif_request_irq(camif_cfg_t * cfg)
 {
-	int ret = 0;
+	int ret;
 
 	if (cfg->dma_type & CAMIF_CODEC) {
-		if ((ret = request_irq(cfg->irq, s3c_camif_do_irq_codec, IRQF_SHARED, cfg->shortname, cfg)))
+		ret = request_irq(cfg->irq, s3c_camif_do_irq_codec,
+		    IRQF_SHARED, cfg->shortname, cfg);
+		if (ret)
 			printk(KERN_ERR "Request irq (CAM_C) failed\n");
 		else
-			printk(KERN_INFO "Request irq %d for codec\n", cfg->irq);
+			printk(KERN_INFO "Request irq %d for codec\n",
+			    cfg->irq);
 	}
 
 	if (cfg->dma_type & CAMIF_PREVIEW) {
-		if ((ret = request_irq(cfg->irq, s3c_camif_do_irq_preview, IRQF_SHARED, cfg->shortname, cfg)))
+		ret = request_irq(cfg->irq, s3c_camif_do_irq_preview,
+		    IRQF_SHARED, cfg->shortname, cfg);
+		if (ret)
 			printk("Request_irq (CAM_P) failed\n");
 		else
-			printk(KERN_INFO "Request irq %d for preview\n", cfg->irq);
+			printk(KERN_INFO "Request irq %d for preview\n",
+			    cfg->irq);
 	}
 
 	return 0;
@@ -1224,136 +1212,103 @@ static int s3c_camif_request_irq(camif_cfg_t * cfg)
 long s3c_camif_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
 {
 	camif_cfg_t *cfg = file->private_data;
-	int ret = -1;
 	void *arg = (void *) _arg; /* @@@ - WA */
 
 	switch (cmd) {
-        case VIDIOC_QUERYCAP:
-		ret = s3c_camif_v4l2_querycap(cfg, arg);
-		break;
+	case VIDIOC_QUERYCAP:
+		return s3c_camif_v4l2_querycap(cfg, arg);
 
 	case VIDIOC_G_FBUF:
-		ret = s3c_camif_v4l2_g_fbuf(cfg, arg);
-		break;
+		return s3c_camif_v4l2_g_fbuf(cfg, arg);
 
 	case VIDIOC_S_FBUF:
-		ret = s3c_camif_v4l2_s_fbuf(cfg, arg);
-		break;
+		return s3c_camif_v4l2_s_fbuf(cfg, arg);
 
 	case VIDIOC_G_FMT:
-		ret = s3c_camif_v4l2_g_fmt(cfg, arg);
-		break;
+		return s3c_camif_v4l2_g_fmt(cfg, arg);
 
 	case VIDIOC_S_FMT:
-		ret = s3c_camif_v4l2_s_fmt(cfg, arg);
-		break;
+		return s3c_camif_v4l2_s_fmt(cfg, arg);
 
 	case VIDIOC_ENUM_FMT:
-		ret = s3c_camif_v4l2_enum_fmt(cfg, arg);
-		break;
+		return s3c_camif_v4l2_enum_fmt(cfg, arg);
 
 	case VIDIOC_OVERLAY:
-		ret = s3c_camif_v4l2_overlay(cfg, arg);
-		break;
+		return s3c_camif_v4l2_overlay(cfg, arg);
 
 	case VIDIOC_S_CTRL:
-		ret = s3c_camif_v4l2_s_ctrl(cfg, arg);
-		break;
+		return s3c_camif_v4l2_s_ctrl(cfg, arg);
 
 	case VIDIOC_G_CTRL:
-		ret = s3c_camif_v4l2_g_ctrl(cfg, arg);
-		break;
+		return s3c_camif_v4l2_g_ctrl(cfg, arg);
 
 	case VIDIOC_STREAMON:
-		ret = s3c_camif_v4l2_streamon(cfg, arg);
-		break;
+		return s3c_camif_v4l2_streamon(cfg, arg);
 
 	case VIDIOC_STREAMOFF:
-		ret = s3c_camif_v4l2_streamoff(cfg, arg);
-		break;
+		return s3c_camif_v4l2_streamoff(cfg, arg);
 
 	case VIDIOC_G_INPUT:
-		ret = s3c_camif_v4l2_g_input(cfg, arg);
-		break;
+		return s3c_camif_v4l2_g_input(cfg, arg);
 
 	case VIDIOC_S_INPUT:
-		ret = s3c_camif_v4l2_s_input(cfg, *((int *) arg));
-		break;
+		return s3c_camif_v4l2_s_input(cfg, *((int *) arg));
 
 	case VIDIOC_G_OUTPUT:
-		ret = s3c_camif_v4l2_g_output(cfg, arg);
-		break;
+		return s3c_camif_v4l2_g_output(cfg, arg);
 
 	case VIDIOC_S_OUTPUT:
-		ret = s3c_camif_v4l2_s_output(cfg, *((int *) arg));
-		break;
+		return s3c_camif_v4l2_s_output(cfg, *((int *) arg));
 
 	case VIDIOC_ENUMINPUT:
-		ret = s3c_camif_v4l2_enum_input(cfg, arg);
-		break;
+		return s3c_camif_v4l2_enum_input(cfg, arg);
 
 	case VIDIOC_ENUMOUTPUT:
-		ret = s3c_camif_v4l2_enum_output(cfg, arg);
-		break;
+		return s3c_camif_v4l2_enum_output(cfg, arg);
 
 	case VIDIOC_REQBUFS:
-		ret = s3c_camif_v4l2_reqbufs(cfg, arg);
-		break;
+		return s3c_camif_v4l2_reqbufs(cfg, arg);
 
 	case VIDIOC_QUERYBUF:
-		ret = s3c_camif_v4l2_querybuf(cfg, arg);
-		break;
+		return s3c_camif_v4l2_querybuf(cfg, arg);
 
 	case VIDIOC_QBUF:
-		ret = s3c_camif_v4l2_qbuf(cfg, arg);
-		break;
+		return s3c_camif_v4l2_qbuf(cfg, arg);
 
 	case VIDIOC_DQBUF:
-		ret = s3c_camif_v4l2_dqbuf(cfg, arg);
-		break;
+		return s3c_camif_v4l2_dqbuf(cfg, arg);
 
 	case VIDIOC_S_MSDMA:
-		ret = s3c_camif_v4l2_s_msdma(cfg, arg);
-		break;
+		return s3c_camif_v4l2_s_msdma(cfg, arg);
 
 	case VIDIOC_MSDMA_START:
-		ret = s3c_camif_v4l2_msdma_start(cfg, arg);
-		break;
+		return s3c_camif_v4l2_msdma_start(cfg, arg);
 
 	case VIDIOC_MSDMA_STOP:
-		ret = s3c_camif_v4l2_msdma_stop(cfg, arg);
-		break;
+		return s3c_camif_v4l2_msdma_stop(cfg, arg);
 
 	case VIDIOC_S_CAMERA_START:
-		ret = s3c_camif_v4l2_camera_start(cfg, arg);
-		break;
+		return s3c_camif_v4l2_camera_start(cfg, arg);
 
 	case VIDIOC_S_CAMERA_STOP:
-		ret = s3c_camif_v4l2_camera_stop(cfg, arg);
-		break;
+		return s3c_camif_v4l2_camera_stop(cfg, arg);
 
 	case VIDIOC_CROPCAP:
-		ret = s3c_camif_v4l2_cropcap(cfg, arg);
-		break;
+		return s3c_camif_v4l2_cropcap(cfg, arg);
 
 	case VIDIOC_G_CROP:
-		ret = s3c_camif_v4l2_g_crop(cfg, arg);
-		break;
+		return s3c_camif_v4l2_g_crop(cfg, arg);
 
 	case VIDIOC_S_CROP:
-		ret = s3c_camif_v4l2_s_crop(cfg, arg);
-		break;
+		return s3c_camif_v4l2_s_crop(cfg, arg);
 
 	case VIDIOC_S_PARM:
-		ret = s3c_camif_v4l2_s_parm(cfg, arg);
-		break;
+		return s3c_camif_v4l2_s_parm(cfg, arg);
 
 	default:	/* For v4l compatability */
-		ret = v4l_compat_translate_ioctl(file, cmd, arg, s3c_camif_ioctl);
-		break;
-	} /* End of Switch  */
-
-	return ret;
+		return
+		    v4l_compat_translate_ioctl(file, cmd, arg, s3c_camif_ioctl);
+	}
 }
 
 /* @@@ - WA */
@@ -1363,15 +1318,17 @@ long s3c_camif_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
 int s3c_camif_open(struct file *file)
 {
 	int err;
-	camif_cfg_t *cfg = s3c_camif_get_fimc_object(MINOR(file->f_dentry->d_inode->i_rdev));
+	camif_cfg_t *cfg =
+	    s3c_camif_get_fimc_object(MINOR(file->f_dentry->d_inode->i_rdev));
 
 	if (!cfg->cis) {
 		printk(KERN_ERR "An object for a CIS is missing\n");
-		printk(KERN_ERR "Using msdma_input as a default CIS data structure\n");
+		printk(KERN_ERR
+		    "Using msdma_input as a default CIS data structure\n");
 		cfg->cis = &msdma_input;
 
 		/* global lock for both Codec and Preview */
-		sema_init((struct semaphore *) &cfg->cis->lock, 1);
+		sema_init(&cfg->cis->lock, 1);
 		cfg->cis->status |= P_NOT_WORKING;
 	}
 
@@ -1379,7 +1336,7 @@ int s3c_camif_open(struct file *file)
 		if (cfg->dma_type & CAMIF_PREVIEW)
 			cfg->cis->status &= ~P_NOT_WORKING;
 
-		up((struct semaphore *) &cfg->cis->lock);
+		up(&cfg->cis->lock);
 	}
 
 	err = s3c_camif_exclusive_open(inode, file);
@@ -1403,13 +1360,14 @@ int s3c_camif_open(struct file *file)
 
 int s3c_camif_release(struct file *file)
 {
-	camif_cfg_t *cfg = s3c_camif_get_fimc_object(MINOR(file->f_dentry->d_inode->i_rdev));
+	camif_cfg_t *cfg =
+	    s3c_camif_get_fimc_object(MINOR(file->f_dentry->d_inode->i_rdev));
 
 	if (cfg->dma_type & CAMIF_PREVIEW) {
 		cfg->cis->status &= ~PWANT2START;
 		cfg->cis->status |= P_NOT_WORKING;
 		s3c_camif_stop_preview(cfg);
-		up((struct semaphore *) &cfg->cis->lock);
+		up(&cfg->cis->lock);
 	} else {
 		cfg->cis->status &= ~CWANT2START;
 		s3c_camif_stop_capture(cfg);
@@ -1420,7 +1378,8 @@ int s3c_camif_release(struct file *file)
 	if (cfg->cis->sensor == NULL)
 		DPRINTK("A CIS sensor for MSDMA has been used\n");
 	else
-		cfg->cis->sensor->driver->command(cfg->cis->sensor, USER_EXIT, NULL);
+		cfg->cis->sensor->driver->command(cfg->cis->sensor, USER_EXIT,
+		    NULL);
 
 	cfg->cis->user--;
 	cfg->status = CAMIF_STOPPED;
@@ -1428,7 +1387,8 @@ int s3c_camif_release(struct file *file)
 	return 0;
 }
 
-ssize_t s3c_camif_read(struct file * file, char *buf, size_t count, loff_t * pos)
+ssize_t s3c_camif_read(struct file * file, char *buf, size_t count,
+    loff_t *pos)
 {
 	camif_cfg_t *cfg = NULL;
 	size_t end;
@@ -1437,7 +1397,8 @@ ssize_t s3c_camif_read(struct file * file, char *buf, size_t count, loff_t * pos
 
 #if defined(FSM_ON_PREVIEW)
 	if (cfg->dma_type == CAMIF_PREVIEW) {
-		if (wait_event_interruptible(cfg->waitq, cfg->status == CAMIF_INT_HAPPEN))
+		if (wait_event_interruptible(cfg->waitq,
+		    cfg->status == CAMIF_INT_HAPPEN))
 			return -ERESTARTSYS;
 
 		cfg->status = CAMIF_STOPPED;
@@ -1446,7 +1407,8 @@ ssize_t s3c_camif_read(struct file * file, char *buf, size_t count, loff_t * pos
 
 #if defined(FSM_ON_CODEC)
 	if (cfg->dma_type == CAMIF_CODEC) {
-		if (wait_event_interruptible(cfg->waitq, cfg->status == CAMIF_INT_HAPPEN))
+		if (wait_event_interruptible(cfg->waitq,
+		    cfg->status == CAMIF_INT_HAPPEN))
 			return -ERESTARTSYS;
 
 		cfg->status = CAMIF_STOPPED;
@@ -1460,7 +1422,8 @@ ssize_t s3c_camif_read(struct file * file, char *buf, size_t count, loff_t * pos
 	return end;
 }
 
-ssize_t s3c_camif_write(struct file * f, const char *b, size_t c, loff_t * offset)
+ssize_t s3c_camif_write(struct file * f, const char *b, size_t c,
+    loff_t *offset)
 {
 	camif_cfg_t *cfg;
 	int ret = 0;
@@ -1501,7 +1464,8 @@ ssize_t s3c_camif_write(struct file * f, const char *b, size_t c, loff_t * offse
 			return -EFAULT;
 #endif
 	default:
-		panic("s3c_camera_driver.c: s3c_camif_write() - Unexpected Parameter\n");
+		panic("s3c_camera_driver.c: s3c_camif_write() - "
+		    "Unexpected Parameter\n");
 	}
 
 	return ret;
@@ -1520,7 +1484,10 @@ int s3c_camif_mmap(struct file* filp, struct vm_area_struct *vma)
 	else
 		total_size = YUV_MEM;
 
-	/* page frame number of the address for a source RGB frame to be stored at. */
+	/*
+	 * page frame number of the address for a source RGB frame to be stored
+	 * at.
+	 */
 	pageFrameNo = __phys_to_pfn(cfg->pp_phys_buf);
 
 	if (size > total_size) {
@@ -1533,7 +1500,8 @@ int s3c_camif_mmap(struct file* filp, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 
-	if (remap_pfn_range(vma, vma->vm_start, pageFrameNo + vma->vm_pgoff, size, vma->vm_page_prot))
+	if (remap_pfn_range(vma, vma->vm_start, pageFrameNo + vma->vm_pgoff,
+	    size, vma->vm_page_prot))
 		return -EINVAL;
 
 	return 0;
@@ -1701,7 +1669,6 @@ static int s3c_camif_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	camif_cfg_t *codec, *preview;
-	int ret = 0;
 
 	/* Initialize fimc objects */
 	codec = s3c_camif_get_fimc_object(CODEC_MINOR);
@@ -1723,7 +1690,8 @@ static int s3c_camif_probe(struct platform_device *pdev)
 	}
 
 	/* request mem region */
-	res = request_mem_region(res->start, res->end - res->start + 1, pdev->name);
+	res = request_mem_region(res->start, res->end - res->start + 1,
+	    pdev->name);
 
 	if (!res) {
 		printk("Failed to request io memory region.\n");
@@ -1731,7 +1699,8 @@ static int s3c_camif_probe(struct platform_device *pdev)
 	}
 
 	/* ioremap for register block */
-	codec->regs = preview->regs = ioremap(res->start, res->end - res->start + 1);
+	codec->regs = preview->regs =
+	    ioremap(res->start, res->end - res->start + 1);
 
 	if (codec->regs == NULL) {
 		printk(KERN_ERR "Failed to remap register block\n");
@@ -1742,7 +1711,8 @@ static int s3c_camif_probe(struct platform_device *pdev)
 	codec->pp_phys_buf = PHYS_OFFSET + (MEM_SIZE - RESERVED_MEM);
 	codec->pp_virt_buf = ioremap_nocache(codec->pp_phys_buf, YUV_MEM);
 
-	preview->pp_phys_buf = PHYS_OFFSET + (MEM_SIZE - RESERVED_MEM) + YUV_MEM;
+	preview->pp_phys_buf =
+	    PHYS_OFFSET + (MEM_SIZE - RESERVED_MEM) + YUV_MEM;
 	preview->pp_virt_buf = ioremap_nocache(preview->pp_phys_buf, RGB_MEM);
 
 	/* Device init */
@@ -1758,12 +1728,14 @@ static int s3c_camif_probe(struct platform_device *pdev)
 	s3c_camif_request_irq(preview);
 
 	/* Register to video device */
-	if (video_register_device(codec->v, VFL_TYPE_GRABBER, CODEC_MINOR) != 0) {
+	if (video_register_device(codec->v, VFL_TYPE_GRABBER, CODEC_MINOR) !=
+	    0) {
 		printk(KERN_ERR "Couldn't register this codec driver\n");
 		return -1;
 	}
 
-	if (video_register_device(preview->v, VFL_TYPE_GRABBER, PREVIEW_MINOR) != 0) {
+	if (video_register_device(preview->v, VFL_TYPE_GRABBER, PREVIEW_MINOR)
+	    != 0) {
 		printk(KERN_ERR "Couldn't register this preview driver\n");
 		return -1;
 	}
@@ -1820,8 +1792,8 @@ static int s3c_camif_remove(struct platform_device *pdev)
 
 static struct platform_driver s3c_camif_driver =
 {
-        .probe          = s3c_camif_probe,
-        .remove         = s3c_camif_remove,
+	.probe          = s3c_camif_probe,
+	.remove         = s3c_camif_remove,
 	.driver		= {
 		.name	= "s3c-camif",
 		.owner	= THIS_MODULE,
@@ -1856,8 +1828,8 @@ void s3c_camif_register_sensor(struct i2c_client *ptr)
 
 	codec->cis = preview->cis = cis;
 
-	sema_init((struct semaphore *) &codec->cis->lock, 1);
-	sema_init((struct semaphore *) &preview->cis->lock, 1);
+	sema_init(&codec->cis->lock, 1);
+	sema_init(&preview->cis->lock, 1);
 
 	preview->cis->status |= P_NOT_WORKING;	/* Default Value */
 
