@@ -1,4 +1,4 @@
-/* arch/arm/mach-s3c2410/include/mach/usb-control.h
+/* arch/arm/plat-s3c/include/plat/usb-control.h
  *
  * Copyright (c) 2004 Simtec Electronics
  *	Ben Dooks <ben@simtec.co.uk>
@@ -11,7 +11,7 @@
 */
 
 #ifndef __ASM_ARCH_USBCONTROL_H
-#define __ASM_ARCH_USBCONTROL_H "arch/arm/mach-s3c2410/include/mach/usb-control.h"
+#define __ASM_ARCH_USBCONTROL_H "arch/arm/plat-s3c/include/plat/usb-control.h"
 
 #define S3C_HCDFLG_USED	(1)
 

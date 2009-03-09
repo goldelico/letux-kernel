@@ -197,9 +197,5 @@ config S3C_DEV_CAMIF
 	bool
 	help
 	  Compile in platform device definitions for camera interface code
-config S3C_DEV_USBHOST
-	bool
-	help
-	  Compile in platform device definition for USB OHCI 1.0 host
 
 endif
