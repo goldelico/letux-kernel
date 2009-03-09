@@ -555,6 +555,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 	.reg_init_data = {
 		[PCF50633_REGULATOR_AUTO] = {
 			.constraints = {
+				.name = "IO_3V3",
 				.min_uV = 3300000,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -568,6 +569,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_DOWN1] = {
 			.constraints = {
+				.name = "CORE_1V3",
 				.min_uV = 1300000,
 				.max_uV = 1600000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -578,6 +580,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_DOWN2] = {
 			.constraints = {
+				.name = "IO_1V8",
 				.min_uV = 1800000,
 				.max_uV = 1800000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -591,6 +594,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_HCLDO] = {
 			.constraints = {
+				.name = "SD_3V3",
 				.min_uV = 2000000,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -602,6 +606,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_LDO1] = {
 			.constraints = {
+				.name = "GSENSOR_3V3",
 				.min_uV = 1300000,
 				.max_uV = 1300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -611,6 +616,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_LDO2] = {
 			.constraints = {
+				.name = "CODEC_3V3",
 				.min_uV = 3300000,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -629,6 +635,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_LDO4] = {
 			.constraints = {
+				.name = "BT_3V2",
 				.min_uV = 3200000,
 				.max_uV = 3200000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -639,6 +646,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_LDO5] = {
 			.constraints = {
+				.name = "RF_3V",
 				.min_uV = 1500000,
 				.max_uV = 1500000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -652,6 +660,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_LDO6] = {
 			.constraints = {
+				.name = "LCM_3V",
 				.min_uV = 0,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
