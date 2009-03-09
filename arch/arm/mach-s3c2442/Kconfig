@@ -35,7 +35,7 @@ config MACH_NEO1973_GTA02
 	select MACH_NEO1973
 	select S3C_PWM
 	select FIQ
-	select S3C_DEV_USBHOST
+	select S3C_DEV_USB_HOST
 	help
 	   Say Y here if you are using the FIC Neo1973 GSM Phone
 
