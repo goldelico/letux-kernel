@@ -34,55 +34,58 @@ static struct i2c_driver sensor_driver;
 /* This is an abstract CIS sensor for MSDMA input. */
 
 camif_cis_t msdma_input = {
-        itu_fmt:       CAMIF_ITU601,
-	order422:      CAMIF_CBYCRY,	/* another case: YCRYCB */
-	camclk:        44000000,	/* for 20 fps: 44MHz, for 12 fps(more stable): 26MHz */
-	source_x:      800,
-	source_y:      600,
-	win_hor_ofst:  0,
-	win_ver_ofst:  0,
-	win_hor_ofst2: 0,
-	win_ver_ofst2: 0,
-	polarity_pclk: 0,
-	polarity_vsync:1,
-	polarity_href: 0,
-	reset_type:CAMIF_EX_RESET_AL,
-	reset_udelay: 5000,
+	.itu_fmt	= CAMIF_ITU601,
+	.order422	= CAMIF_CBYCRY,	/* another case: YCRYCB */
+	.camclk		= 44000000,	/* for 20 fps: 44MHz, for 12 fps (more
+					   stable): 26MHz */
+	.source_x	= 800,
+	.source_y	= 600,
+	.win_hor_ofst	= 0,
+	.win_ver_ofst	= 0,
+	.win_hor_ofst2	= 0,
+	.win_ver_ofst2	= 0,
+	.polarity_pclk	= 0,
+	.polarity_vsync	= 1,
+	.polarity_href	= 0,
+	.reset_type	= CAMIF_EX_RESET_AL,
+	.reset_udelay	= 5000,
 };
 
 camif_cis_t interlace_input = {
-        itu_fmt:       CAMIF_ITU601,
-	order422:      CAMIF_CBYCRY,	/* another case: YCRYCB */
-	camclk:        44000000,	/* for 20 fps: 44MHz, for 12 fps(more stable): 26MHz */
-	source_x:      800,
-	source_y:      600,
-	win_hor_ofst:  0,
-	win_ver_ofst:  0,
-	win_hor_ofst2: 0,
-	win_ver_ofst2: 0,
-	polarity_pclk: 0,
-	polarity_vsync:1,
-	polarity_href: 0,
-	reset_type:CAMIF_EX_RESET_AL,
-	reset_udelay: 5000,
+	.itu_fmt	= CAMIF_ITU601,
+	.order422	= CAMIF_CBYCRY,	/* another case: YCRYCB */
+	.camclk		= 44000000,	/* for 20 fps: 44MHz, for 12 fps (more
+					   stable): 26MHz */
+	.source_x	= 800,
+	.source_y	= 600,
+	.win_hor_ofst	= 0,
+	.win_ver_ofst	= 0,
+	.win_hor_ofst2	= 0,
+	.win_ver_ofst2	= 0,
+	.polarity_pclk	= 0,
+	.polarity_vsync	= 1,
+	.polarity_href	= 0,
+	.reset_type	= CAMIF_EX_RESET_AL,
+	.reset_udelay	= 5000,
 };
 
 #if defined(CONFIG_VIDEO_SAMSUNG_S5K4BA)
 static camif_cis_t data = {
-	itu_fmt:       CAMIF_ITU601,
-	order422:      CAMIF_YCBYCR,
-	camclk:        44000000,	/* for 20 fps: 44MHz, for 12 fps(more stable): 26MHz */
-	source_x:      800,
-	source_y:      600,
-	win_hor_ofst:  0,
-	win_ver_ofst:  0,
-	win_hor_ofst2: 0,
-	win_ver_ofst2: 0,
-	polarity_pclk: 0,
-	polarity_vsync:1,
-	polarity_href: 0,
-	reset_type:CAMIF_EX_RESET_AL,
-	reset_udelay: 5000,
+	.itu_fmt	= CAMIF_ITU601,
+	.order422	= CAMIF_YCBYCR,
+	.camclk		= 44000000,	/* for 20 fps: 44MHz, for 12 fps (more
+					   stable): 26MHz */
+	.source_x	= 800,
+	.source_y	= 600,
+	.win_hor_ofst	= 0,
+	.win_ver_ofst	= 0,
+	.win_hor_ofst2	= 0,
+	.win_ver_ofst2	= 0,
+	.polarity_pclk	= 0,
+	.polarity_vsync	= 1,
+	.polarity_href	= 0,
+	.reset_type	= CAMIF_EX_RESET_AL,
+	.reset_udelay	= 5000,
 };
 
 s5k4xa_t s5k4ba_regs_mirror[S5K4BA_REGS];
@@ -101,34 +104,40 @@ camif_cis_t* get_initialized_cis(void)
 #define CAM_ID 0x5a
 
 static unsigned short ignore[] = { I2C_CLIENT_END };
-static unsigned short normal_addr[] = { (CAM_ID >> 1), I2C_CLIENT_END };
+static unsigned short normal_addr[] = { CAM_ID >> 1, I2C_CLIENT_END };
 static const unsigned short *forces[] = { NULL };
 
 static struct i2c_client_address_data addr_data = {
-      .normal_i2c	= normal_addr,
-      .probe		= ignore,
-      .ignore		= ignore,
-      .forces		= forces,
+	.normal_i2c	= normal_addr,
+	.probe		= ignore,
+	.ignore		= ignore,
+	.forces		= forces,
 };
 
 
-unsigned char sensor_read(struct i2c_client *client, unsigned char subaddr)
+static unsigned char sensor_read(struct i2c_client *client,
+    unsigned char subaddr)
 {
-	int ret;
-	unsigned char buf[1];
-	struct i2c_msg msg = { client->addr, 0, 1, buf };
-	buf[0] = subaddr;
+	unsigned char buf = subaddr;
+	struct i2c_msg msg = {
+		.addr	= client->addr,
+		.flags	= 0,
+		.len	= 1,
+		.buf	= &buf,
+	};
 
-	ret = i2c_transfer(client->adapter, &msg, 1) == 1 ? 0 : -EIO;
-	if (ret == -EIO) {
-		printk(" I2C write Error \n");
+	if (i2c_transfer(client->adapter, &msg, 1) != 1) {
+		printk(" I2C write Error\n");
 		return -EIO;
 	}
 
 	msg.flags = I2C_M_RD;
-	ret = i2c_transfer(client->adapter, &msg, 1) == 1 ? 0 : -EIO;
+	if (i2c_transfer(client->adapter, &msg, 1) != 1) {
+		printk(" I2C read Error\n");
+		return -EIO;
+	}
 
-	return buf[0];
+	return buf;
 }
 
 static int
@@ -136,7 +145,12 @@ sensor_write(struct i2c_client *client,
 	     unsigned char subaddr, unsigned char val)
 {
 	unsigned char buf[2];
-	struct i2c_msg msg = { client->addr, 0, 2, buf };
+	struct i2c_msg msg = {
+		.addr	= client->addr,
+		.flags	= 0,
+		.len	= 2,
+		.buf	= buf,
+	};
 
 	buf[0] = subaddr;
 	buf[1] = val;
@@ -149,11 +163,10 @@ void inline sensor_init(struct i2c_client *sam_client)
 {
 	int i;
 
-	i = (sizeof(s5k4ba_reg)/sizeof(s5k4ba_reg[0]));
-	for (i = 0; i < S5K4BA_INIT_REGS; i++) {
+	i = ARRAY_SIZE(s5k4ba_reg);
+	for (i = 0; i < S5K4BA_INIT_REGS; i++)
 		sensor_write(sam_client,
 			     s5k4ba_reg[i].subaddr, s5k4ba_reg[i].value);
-	}
 }
 #else
 #error No samsung CIS moudule !
@@ -195,9 +208,11 @@ static int sensor_detach(struct i2c_client *client)
 	return 0;
 }
 
-/* Purpose:
-    This fucntion only for SVGA Camera : 4BA
-*/
+/*
+ * Purpose:
+ * This function only for SVGA Camera : 4BA
+ */
+
 static int change_sensor_size(struct i2c_client *client, int size)
 {
 	int i;
@@ -205,23 +220,21 @@ static int change_sensor_size(struct i2c_client *client, int size)
 	switch (size) {
 #if defined(CONFIG_VIDEO_SAMSUNG_S5K4BA)
 	case SENSOR_QSVGA:
-		for (i = 0; i < S5K4BA_QSVGA_REGS; i++) {
+		for (i = 0; i < S5K4BA_QSVGA_REGS; i++)
 			sensor_write(client, s5k4ba_reg_qsvga[i].subaddr,
 				     s5k4ba_reg_qsvga[i].value);
-		}
 		break;
 
 	case SENSOR_SVGA:
- 		for (i = 0; i < S5K4BA_SVGA_REGS; i++) {
+		for (i = 0; i < S5K4BA_SVGA_REGS; i++)
 			sensor_write(client, s5k4ba_reg_svga[i].subaddr,
 				     s5k4ba_reg_svga[i].value);
-		}
 		break;
 #else
 #error No samsung CIS moudule !
 #endif
 	default:
-		panic("4xa_sensor.c: unexpect value \n");
+		panic("4xa_sensor.c: unexpect value\n");
 	}
 
 	return 0;
@@ -229,39 +242,39 @@ static int change_sensor_size(struct i2c_client *client, int size)
 
 static int change_sensor_wb(struct i2c_client *client, int type)
 {
-       printk("[ *** Page 0, 4XA Sensor White Balance Mode ***]\n");
+	printk("[ *** Page 0, 4XA Sensor White Balance Mode ***]\n");
 
 #if defined(CONFIG_VIDEO_SAMSUNG_S5K4BA)
-       sensor_write(client, 0xFC, 0x0);
-       sensor_write(client, 0x30, type);
+	sensor_write(client, 0xFC, 0x0);
+	sensor_write(client, 0x30, type);
 #endif
 
-       switch(type){
-           case 0:
-           default:
-                printk(" -> AWB auto mode ]\n");
-                break;
-           case 1:
-                printk(" -> Indoor 3100 mode ]\n");
-                break;
-           case 2:
-                printk(" -> Outdoor 5100 mode ]\n");
-                break;
-           case 3:
-                printk(" -> Indoor 2000 mode ]\n");
-                break;
-           case 4:
-                printk(" -> AE/AWB halt ]\n");
-                break;
-           case 5:
-                printk(" -> Cloudy(6000) mode ]\n");
-                break;
-           case 6:
-                printk(" -> Sunny(8000) mode ]\n");
-                break;
-       }
+	switch(type){
+	case 0:
+	default:
+		printk(" -> AWB auto mode ]\n");
+		break;
+	case 1:
+		printk(" -> Indoor 3100 mode ]\n");
+		break;
+	case 2:
+		printk(" -> Outdoor 5100 mode ]\n");
+		break;
+	case 3:
+		printk(" -> Indoor 2000 mode ]\n");
+		break;
+	case 4:
+		printk(" -> AE/AWB halt ]\n");
+		break;
+	case 5:
+		printk(" -> Cloudy(6000) mode ]\n");
+		break;
+	case 6:
+		printk(" -> Sunny(8000) mode ]\n");
+		break;
+	}
 
-       return 0;
+	return 0;
 }
 
 static int
@@ -304,12 +317,12 @@ sensor_command(struct i2c_client *client, unsigned int cmd, void *arg)
 		break;
 */
 	case SENSOR_WB:
-        	printk("[ *** 4XA Sensor White Balance , No mode ***]\n");
-        	change_sensor_wb(client, (int) arg);
-        	break;
+		printk("[ *** 4XA Sensor White Balance , No mode ***]\n");
+		change_sensor_wb(client, (int) arg);
+		break;
 
 	default:
-		panic("4xa_sensor.c : Unexpect Sensor Command \n");
+		panic("4xa_sensor.c: Unexpected Sensor Command\n");
 		break;
 	}
 
@@ -320,10 +333,10 @@ static struct i2c_driver sensor_driver = {
 	.driver = {
 		.name = "s5k4xa",
 	},
-      .id = I2C_DRIVERID_S5K_4XA,
-      .attach_adapter = sensor_attach_adapter,
-      .detach_client = sensor_detach,
-      .command = sensor_command
+	.id = I2C_DRIVERID_S5K_4XA,
+	.attach_adapter = sensor_attach_adapter,
+	.detach_client = sensor_detach,
+	.command = sensor_command
 };
 
 static __init int camif_sensor_init(void)

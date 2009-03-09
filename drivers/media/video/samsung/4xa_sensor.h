@@ -1,32 +1,33 @@
-
 #ifndef _SAMSUNG_SXGA_H_
 #define _SAMSUNG_SXGA_H_
 
-/*******************************************************************************************
- #  Display resolution standards #
-
-	QCIF: 176 x 144
-	CIF: 352 x 288
-	QVGA: 320 x 240
-	VGA: 640 x 480
-	SVGA: 800 x 600
-	XGA: 1024 x 768
-	WXGA: 1280 x 800
-	QVGA: 1280 x 960
-	SXGA: 1280 x 1024
-	SXGA+: 1400 x 1050
-	WSXGA+: 1680 x 1050
-	UXGA: 1600 x 1200
-	WUXGA: 1920 x 1200
-	QXGA: 2048 x 1536
-********************************************************************************************/
+/******************************************************************************
+ *  Display resolution standards
+ *
+ *	QCIF: 176 x 144
+ *	CIF: 352 x 288
+ *	QVGA: 320 x 240
+ *	VGA: 640 x 480
+ *	SVGA: 800 x 600
+ *	XGA: 1024 x 768
+ *	WXGA: 1280 x 800
+ *	QVGA: 1280 x 960
+ *	SXGA: 1280 x 1024
+ *	SXGA+: 1400 x 1050
+ *	WSXGA+: 1680 x 1050
+ *	UXGA: 1600 x 1200
+ *	WUXGA: 1920 x 1200
+ *	QXGA: 2048 x 1536
+ *****************************************************************************/
 
 //#include "../bits.h"
 
-/* Camera information
+/*
+ * Camera information
  * FPC Label : Samsung MEGA Pixel Camera : V4220 REV06
  * Modified by charles -Initial function of '3AA' test routine
- * Modified and tested by YongHwui.Kim <yonghwui.kim@samsung.com> for S5K3AAEX Camera
+ * Modified and tested by YongHwui.Kim <yonghwui.kim@samsung.com> for S5K3AAEX
+ * Camera
  */
 
 #define CHIP_DELAY 0xFF
@@ -41,78 +42,82 @@ typedef struct samsung_t{
 #define TRY_HIGH_CLOCK 1
 #endif
 
-				//***************************************************
-				//  name: 	S5K3AAEX EVT2 setfile
-				//  ver:		v2.61
-				//  history:
-				//	v0.0	start from 040908 setfile
-				//	v1.0	arange register
-				//	v1.01	change MCLK(25Mhz) and Frame rate(7fps)
-				//	v2.0	adjust register setting for 3AA EVT2
-				//		- color correction, RGB shding off, hsync start position, Mirror, fps
-				//		- Color Tuning, YGRPDLY
-				//	v2.1	change Frame rate(7.5fps) and Total gain to x4
-				//		(because of reducing visual noise at low illumination)
-				//		- change BPRM AGC Max and FrameAE start
-				//		improve AE speed
-				//	v2.2	modify AWB G gain and solve 50hz flicker detection fail in 25MHz 7.5fps
-				//	v2.3	Adjust gamma, Dark Slice, white point, Hue gain,
-				//		White Balance B control, Y gain On, Digital Clamp On
-				//		lower AWB G gain
-				//	v2.4	Adjust AE window weight, Y Gamma, WhitePoint, Shading and BPR Max Thres.
-				// 	v2.41	Adjust AE/AWB window and AWB internal window boundary to decrease skin color tracking
-				// 	v2.411	special version for PSCDS
-				// 	v2.412	RGB shading off
-				//	v2.5	Lens change STW to Sekonix
-				//		adjust White point and Y shading Coef (RGB shading off)
-				//	v2.6	New Tuning because of Full YC off and YCbCr Coef change
-				//		Gamma, Dark Slice, color matrix (not use), Color suppress
-				//		R Gain and DBPR agc MIN/MAX
-				//	v2.61	VCK inversion(data rising)
-				//***************************************************
-				///////////////////////////////////////////////////
+/***************************************************
+ *  name: 	S5K3AAEX EVT2 setfile
+ *  ver:		v2.61
+ *  history:
+ *	v0.0	start from 040908 setfile
+ *	v1.0	arange register
+ *	v1.01	change MCLK(25Mhz) and Frame rate(7fps)
+ *	v2.0	adjust register setting for 3AA EVT2
+ *		- color correction, RGB shading off, hsync start position,
+ *		   Mirror, fps
+ *		- Color Tuning, YGRPDLY
+ *	v2.1	change Frame rate(7.5fps) and Total gain to x4
+ *		(because of reducing visual noise at low illumination)
+ *		- change BPRM AGC Max and FrameAE start
+ *		improve AE speed
+ *	v2.2	modify AWB G gain and solve 50hz flicker detection fail in
+ *		25MHz 7.5fps
+ *	v2.3	Adjust gamma, Dark Slice, white point, Hue gain,
+ *		White Balance B control, Y gain On, Digital Clamp On
+ *		lower AWB G gain
+ *	v2.4	Adjust AE window weight, Y Gamma, WhitePoint, Shading and BPR
+ *		Max Thres.
+ * 	v2.41	Adjust AE/AWB window and AWB internal window boundary to
+ *		decrease skin color tracking
+ * 	v2.411	special version for PSCDS
+ * 	v2.412	RGB shading off
+ *	v2.5	Lens change STW to Sekonix
+ *		adjust White point and Y shading Coef (RGB shading off)
+ *	v2.6	New Tuning because of Full YC off and YCbCr Coef change
+ *		Gamma, Dark Slice, color matrix (not use), Color suppress
+ *		R Gain and DBPR agc MIN/MAX
+ *	v2.61	VCK inversion(data rising)
+ ****************************************************/
 
 #if defined(CONFIG_VIDEO_SAMSUNG_S5K4BA)
 
-// For SVGA (800 x 600)
-#if 1 // from han
+/* For SVGA (800 x 600) */
+#if 1 /* from han */
 s5k4xa_t s5k4ba_reg[] =
 {
 	{0xfc,0x07},
-	{0x66,0x01},    // Watch Dog Time On
+	{0x66,0x01},    /* Watch Dog Time On */
 	{0xfc,0x00},
-	{0x00,0xAA},	// For EDS Check
-	{0x21,0x03},	// peter0223 추가
+	{0x00,0xAA},	/* For EDS Check */
+	{0x21,0x03},	/* peter */
 	{0xfc,0x01},
-	{0x04,0x01},	// ARM Clock Divider
+	{0x04,0x01},	/* ARM Clock Divider */
 
 	{0xfc,0x02},
-	{0x30,0x90},	// Analog offset
-	{0x37,0x0d}, 	// Global Gain
-	{0x2d,0x48},	// Double Shutter
-	{0x60,0x00},	// Blank_Adrs
+	{0x30,0x90},	/* Analog offset */
+	{0x37,0x0d}, 	/* Global Gain */
+	{0x2d,0x48},	/* Double Shutter */
+	{0x60,0x00},	/* Blank_Adrs */
 
-	{0x45,0x1e},	//0e// CDS Timing for Average Sub_Sampling
+	{0x45,0x1e},	/* 0e -  CDS Timing for Average Sub_Sampling */
 	{0x47,0x2f},
-	{0x02,0x0e},	// ADC Resolution
-	{0x3d,0x06},	// Frame ADLC
-	{0x4d,0x08},	// Doubler Volatage
-	{0x54,0x02},	// Double Shutter
-	{0x55,0x1e},	// Line ADLC
-	{0x56,0x30},	//
-	{0x59,0x00},	// LineADLC offset
-	{0x5b,0x08},	// R_Ref_Ctrl
-	{0x44,0x63},	// CLP_EN
-	{0x4A,0x10},	// Clamp Control
-	{0x42,0x02},	//
-	{0x43,0xef},	//
+	{0x02,0x0e},	/* ADC Resolution */
+	{0x3d,0x06},	/* Frame ADLC */
+	{0x4d,0x08},	/* Doubler Volatage */
+	{0x54,0x02},	/* Double Shutter */
+	{0x55,0x1e},	/* Line ADLC */
+	{0x56,0x30},
+	{0x59,0x00},	/* LineADLC offset */
+	{0x5b,0x08},	/* R_Ref_Ctrl */
+	{0x44,0x63},	/* CLP_EN */
+	{0x4A,0x10},	/* Clamp Control */
+	{0x42,0x02},
+	{0x43,0xef},
 
-	//==========================================================
-	//	Table Set for Sub-Sampling
-	//==========================================================
+	/*
+	 * Table Set for Sub-Sampling
+	 */
+
 	{0xfc,0x03},
-	{0x2c,0x00},	// crcb_sel for Sub-Sampling Table
-	{0x05,0x46},	// Output Image Size Set for Capture
+	{0x2c,0x00},	/* crcb_sel for Sub-Sampling Table */
+	{0x05,0x46},	/* Output Image Size Set for Capture */
 	{0x07,0xb6},
 	{0x0e,0x04},
 	{0x12,0x03},
@@ -122,12 +127,12 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x33,0xbc},
 
 	{0xfc,0x04},
-	{0xc5,0x26},	// Output Image Size Set for Preview
+	{0xc5,0x26},	/* Output Image Size Set for Preview */
 	{0xc7,0x5e},
 	{0xce,0x04},
 	{0xd2,0x04},
 
-	{0xec,0x06},	//CrCb sel = YCBYCR(0x06) by jsgood
+	{0xec,0x06},	/* CrCb sel = YCBYCR(0x06) by jsgood */
 	{0xc0,0x06},
 	{0xc1,0x70},
 	{0xc2,0x02},
@@ -148,7 +153,7 @@ s5k4xa_t s5k4ba_reg[] =
 	{0xfc,0x00},
 	{0x70,0x02},
 
-	// Jeongyun added still shot cbcr_sel
+	/* Jeongyun added still shot cbcr_sel */
 	{0xfc,0x03},
 	{0x2c,0x00},
 	{0x5c,0x00},
@@ -157,87 +162,88 @@ s5k4xa_t s5k4ba_reg[] =
 	{0xfc,0x04},
 	{0x5c,0x00},
 
-
-	//==========================================================
-	//	COMMAND SET
-	//==========================================================
-	{0xfc,0x00},
-	{0x73,0x21},	// Frmae AE Enable peter
-	{0x20,0x02},	// Change AWB Mode
+	/*
+	 * COMMAND SET
+	 */
 
 	{0xfc,0x00},
-	{0x6c,0xb0},	// AE target
+	{0x73,0x21},	/* Frame AE Enable peter */
+	{0x20,0x02},	/* Change AWB Mode */
+
+	{0xfc,0x00},
+	{0x6c,0xb0},	/* AE target */
 	{0x6d,0x00},
 
 	{0xfc,0x20},
-	{0x16,0x5a},	// for Prevating AE Hunting
+	{0x16,0x5a},	/* for Prevating AE Hunting */
 
 	{0xfc,0x00},
-	{0x78,0x6a},	// AGC Max
+	{0x78,0x6a},	/* AGC Max */
 	{0xfc,0x20},
-	{0x16,0x60},	// Frame AE Start
+	{0x16,0x60},	/* Frame AE Start */
 
 	{0xfc,0x20},
-	{0x57,0x18},	// Stable_Frame_AE
-	{0x2C,0x30},	// For Forbidden Area
-	{0x2E,0x00},	// For Forbidden Area
+	{0x57,0x18},	/* Stable_Frame_AE */
+	{0x2C,0x30},	/* For Forbidden Area */
+	{0x2E,0x00},	/* For Forbidden Area */
 	{0x14,0x70},
-	{0x01,0x00},	// Stepless_Off
+	{0x01,0x00},	/* Stepless_Off */
 
 	{0xfc,0x07},
-	{0x11,0x02},	// AWB G Gain offset
+	{0x11,0x02},	/* AWB G Gain offset */
 
 	{0xfc,0x07},
-	{0x3e,0x0a},	// AWB Cut R max
+	{0x3e,0x0a},	/* AWB Cut R max */
 
 	{0xfc,0x01},
-	{0xc8,0xd0},	// AWB Y Max e0  Y값이 어느 이상일때 그 이상값을 짤라내는 세팅값
+	{0xc8,0xd0},	/* AWB Y Max */
 	{0xfc,0x00},
-	{0x3e,0x20},	//30 AWB Y_min
-	{0x3d,0x10},	// AWB Y_min Low
+	{0x3e,0x20},	/* 30 - AWB Y_min */
+	{0x3d,0x10},	/* AWB Y_min Low */
 	{0xfc,0x22},
-	{0x8c,0x04},	// AWB Min Y Weight AWB 할때 Y신호를 기준으로 하는데 가중치를 바꾸는 것.
-	{0x8d,0x16},	// AWB Max Y Weight
+	{0x8c,0x04},	/* AWB Min Y Weight AWB */
+	{0x8d,0x16},	/* AWB Max Y Weight */
 
 	{0xfc,0x00},
-	{0x32,0x04},	// AWB moving average 8 frame
-	{0x81,0x10},	// AWB G gain suppress Disable
+	{0x32,0x04},	/* AWB moving average 8 frame */
+	{0x81,0x10},	/* AWB G gain suppress Disable */
 	{0xbc,0xf0},
 
-	{0x29,0x04},	// Y level H
-	{0x2a,0x00},	// Y level L
-	{0x2b,0x03},	// color level H
-	{0x2c,0xc8},	// color level L
+	{0x29,0x04},	/* Y level H */
+	{0x2a,0x00},	/* Y level L */
+	{0x2b,0x03},	/* color level H */
+	{0x2c,0xc8},	/* color level L */
 
 	{0xfc,0x07},
-	{0x37,0x00},	// Flicker Add for 32Mhz
+	{0x37,0x00},	/* Flicker Add for 32 MHz */
 	{0xfc,0x00},
-	{0x72,0xa0},	// Flicker for 32MHz
-	{0x74,0x08},	// flicker 60Hz Fix
+	{0x72,0xa0},	/* Flicker for 32 MHz */
+	{0x74,0x08},	/* flicker 60 Hz Fix */
 
 	{0xfc,0x20},
-	{0x02,0x02},	// Flicker Dgain Mode
+	{0x02,0x02},	/* Flicker Dgain Mode */
 
 	{0xfc,0x00},
-	//{0x23,0x40},  // Mirror Option
-	{0x62,0x0a},	// Mirror Option
+	//{0x23,0x40},  /* Mirror Option */
+	{0x62,0x0a},	/* Mirror Option */
 
 	{0xfc,0x02},
-	{0x4e,0x1b},	// Enable SDA and SCL pull-up; drive 8 mA
-	{0x4f,0xf0},	// PCLK and YC: 8 mA, AF and ZM (AZ): 2 mA
+	{0x4e,0x1b},	/* Enable SDA and SCL pull-up; drive 8 mA */
+	{0x4f,0xf0},	/* PCLK and YC: 8 mA, AF and ZM (AZ): 2 mA */
 
 	{0xfc,0x01},
-	{0x0c,0x03},	// Full YC Enable
-	//{0x0c,03},	// Full YC Enable
-	//{0x02,02},	// crcb_sel
-	//{0x02,02},	// crcb_sel  peter0222 추가
-	//{0x01,01},	// pclk      peter0222 추가
+	{0x0c,0x03},	/* Full YC Enable */
+	//{0x0c,03},	/* Full YC Enable */
+	//{0x02,02},	/* crcb_sel */
+	//{0x02,02},	/* crcb_sel  peter */
+	//{0x01,01},	/* pclk      peter */
 	//{0x01,01},
 
-	//==========================================================
-	//	COLOR MATRIX
-	//==========================================================
-	{0xfc,0x01},	// color matrix
+	/*
+	 * COLOR MATRIX
+	 */
+
+	{0xfc,0x01},	/* color matrix */
 	{0x51,0x0A},
 	{0x52,0x42},
 	{0x53,0xF9},
@@ -259,40 +265,42 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x61,0x07},
 	{0x62,0xFA},
 
-	//==========================================================
-	//	EDGE ENHANCEMENT
-	//==========================================================
+	/*
+	 * EDGE ENHANCEMENT
+	 */
+
 	{0xfc,0x00},
-	{0x89,0x03},	// Edge Suppress On
+	{0x89,0x03},	/* Edge Suppress On */
 	{0xfc,0x0b},
-	{0x42,0x50},	// Edge AGC MIN
-	{0x43,0x60},	// Edge AGC MAX
-	{0x45,0x18},	// positive gain AGC MIN
-	{0x49,0x0a},	// positive gain AGC MAX
-	{0x4d,0x18},	// negative gain AGC MIN
-	{0x51,0x0a},	// negative gain AGC MAX
+	{0x42,0x50},	/* Edge AGC MIN */
+	{0x43,0x60},	/* Edge AGC MAX */
+	{0x45,0x18},	/* positive gain AGC MIN */
+	{0x49,0x0a},	/* positive gain AGC MAX */
+	{0x4d,0x18},	/* negative gain AGC MIN */
+	{0x51,0x0a},	/* negative gain AGC MAX */
 
 	{0xfc,0x05},
-	{0x34,0x20},	// APTCLP
-	{0x35,0x09},	// APTSC
-	{0x36,0x0b},	// ENHANCE
-	{0x3f,0x00},	// NON-LIN
-	{0x42,0x10},	// EGFALL
-	{0x43,0x00},	// HLFALL
-	{0x45,0xa0},	// EGREF
-	{0x46,0x7a},	// HLREF
-	{0x47,0x40},	// LLREF
+	{0x34,0x20},	/* APTCLP */
+	{0x35,0x09},	/* APTSC */
+	{0x36,0x0b},	/* ENHANCE */
+	{0x3f,0x00},	/* NON-LIN */
+	{0x42,0x10},	/* EGFALL */
+	{0x43,0x00},	/* HLFALL */
+	{0x45,0xa0},	/* EGREF */
+	{0x46,0x7a},	/* HLREF */
+	{0x47,0x40},	/* LLREF */
 	{0x48,0x0c},
-	{0x49,0x31},	// CSSEL  EGSEL  CS_DLY
+	{0x49,0x31},	/* CSSEL  EGSEL  CS_DLY */
 
-	{0x40,0x41},	// Y delay
+	{0x40,0x41},	/* Y delay */
 
-	//==========================================================
-	//	GAMMA
-	//==========================================================                                                                                                                                         -
+	/*
+	 * GAMMA
+	 */
+
 	{0xfc,0x01},
 
-	{0x6F,0x0A},	// R
+	{0x6F,0x0A},	/* R */
 	{0x70,0x1A},
 	{0x71,0x7A},
 	{0x72,0xF8},
@@ -321,7 +329,7 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x85,0xDA},
 	{0x86,0xFC},
 
-	{0x87,0x08},	//G
+	{0x87,0x08},	/* G */
 	{0x88,0x12},
 	{0x89,0x42},
 	{0x8A,0xBA},
@@ -350,7 +358,7 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x9D,0xD5},
 	{0x9E,0xFC},
 
-	{0x9F,0x05},	//B
+	{0x9F,0x05},	/* B */
 	{0xA0,0x18},
 	{0xA1,0x42},
 	{0xA2,0xd7},
@@ -379,11 +387,12 @@ s5k4xa_t s5k4ba_reg[] =
 	{0xB5,0xDA},
 	{0xB6,0xFC},
 
-	//==========================================================
-	//	HUE CONTROL
-	//==========================================================
+	/*
+	 * HUE CONTROL
+	 */
+
 	{0xfc,0x00},
-	{0x48,0x34},	// 2000K
+	{0x48,0x34},	/* 2000K */
 	{0x49,0x34},
 	{0x4a,0xf4},
 	{0x4b,0x00},
@@ -392,7 +401,7 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x4e,0xf0},
 	{0x4f,0x0c},
 
-	{0x50,0x34},	// 3000K
+	{0x50,0x34},	/* 3000K */
 	{0x51,0x34},
 	{0x52,0xf4},
 	{0x53,0x00},
@@ -401,7 +410,7 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x56,0xf0},
 	{0x57,0x0c},
 
-	{0x58,0x34},	// 5100K
+	{0x58,0x34},	/* 5100K */
 	{0x59,0x30},
 	{0x5a,0x00},
 	{0x5b,0x04},
@@ -409,117 +418,125 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x5d,0x2c},
 	{0x5e,0xfc},
 	{0x5f,0x04},
-	//==========================================================
-	//	UPPRE0x0x FUNCTION
-	//==========================================================
+
+	/*
+	 * UPPRE0x0x FUNCTION
+	 */
+
 	{0xfc,0x00},
 	{0x7e,0xf4},
 
-	//==========================================================
-	//	BPR
-	//==========================================================
+	/*
+	 * BPR
+	 */
+
 	{0xfc,0x01},
 	{0x3d,0x10},
 
 	{0xfc,0x0b},
-	{0x0b,0x00},	// ISP BPR On start
-	{0x0c,0x20},	// Th13 AGC Min
-	{0x0d,0x40},	// Th13 AGC Max
-	{0x0e,0x00},	// Th1 Max H for AGCMIN
-	{0x0f,0x20},	// Th1 Max L for AGCMIN
-	{0x10,0x00},	// Th1 Min H for AGCMAX
-	{0x11,0x10},	// Th1 Min L for AGCMAX
-	{0x12,0x00},	// Th3 Max H for AGCMIN
-	{0x13,0x00},	// Th3 Max L for AGCMIN
-	{0x14,0xff},	// Th3 Min H for AGCMAX
-	{0x15,0xff},	// Th3 Min L for AGCMAX
-	{0x16,0x20},	// Th57 AGC Min
-	{0x17,0x40},	// Th57 AGC Max
-	{0x18,0x00},	// Th5 Max H for AGCMIN
-	{0x19,0x00},	// Th5 Max L for AGCMIN
-	{0x1a,0x00},	// Th5 Min H for AGCMAX
-	{0x1b,0x20},	// Th5 Min L for AGCMAX
-	{0x1c,0x00},	// Th7 Max H for AGCMIN
-	{0x1d,0x00},	// Th7 Max L for AGCMIN
-	{0x1e,0x00},	// Th7 Min H for AGCMAX
-	{0x1f,0x20},	// Th7 Min L for AGCMAX
+	{0x0b,0x00},	/* ISP BPR On start */
+	{0x0c,0x20},	/* Th13 AGC Min */
+	{0x0d,0x40},	/* Th13 AGC Max */
+	{0x0e,0x00},	/* Th1 Max H for AGCMIN */
+	{0x0f,0x20},	/* Th1 Max L for AGCMIN */
+	{0x10,0x00},	/* Th1 Min H for AGCMAX */
+	{0x11,0x10},	/* Th1 Min L for AGCMAX */
+	{0x12,0x00},	/* Th3 Max H for AGCMIN */
+	{0x13,0x00},	/* Th3 Max L for AGCMIN */
+	{0x14,0xff},	/* Th3 Min H for AGCMAX */
+	{0x15,0xff},	/* Th3 Min L for AGCMAX */
+	{0x16,0x20},	/* Th57 AGC Min */
+	{0x17,0x40},	/* Th57 AGC Max */
+	{0x18,0x00},	/* Th5 Max H for AGCMIN */
+	{0x19,0x00},	/* Th5 Max L for AGCMIN */
+	{0x1a,0x00},	/* Th5 Min H for AGCMAX */
+	{0x1b,0x20},	/* Th5 Min L for AGCMAX */
+	{0x1c,0x00},	/* Th7 Max H for AGCMIN */
+	{0x1d,0x00},	/* Th7 Max L for AGCMIN */
+	{0x1e,0x00},	/* Th7 Min H for AGCMAX */
+	{0x1f,0x20},	/* Th7 Min L for AGCMAX */
 
-	//==========================================================
-	//	GR/GB CORRECTION
-	//==========================================================
+	/*
+	 * GR/GB CORRECTION
+	 */
+
 	{0xfc,0x01},
 	{0x45,0x0c},
 
 	{0xfc,0x0b},
-	{0x21,0x00},	// start AGC
-	{0x22,0x18},	// AGCMIN
-	{0x23,0x58},	// AGCMAX
-	{0x24,0x0d}, 	// G Th AGCMIN
-	{0x25,0x30}, 	// G Th AGCMAX
-	{0x26,0x0d}, 	// RB Th AGCMIN
-	{0x27,0x30}, 	// RB Th AGCMAX
+	{0x21,0x00},	/* start AGC */
+	{0x22,0x18},	/* AGCMIN */
+	{0x23,0x58},	/* AGCMAX */
+	{0x24,0x0d}, 	/* G Th AGCMIN */
+	{0x25,0x30}, 	/* G Th AGCMAX */
+	{0x26,0x0d}, 	/* RB Th AGCMIN */
+	{0x27,0x30}, 	/* RB Th AGCMAX */
 
-	//==========================================================
-	//	NR
-	//==========================================================
+	/*
+	 * NR
+	 */
+
 	{0xfc,0x01},
-	{0x4C,0x01},	// NR Enable
-	{0x49,0x15},	// Sig_Th Mult
-	{0x4B,0x0A},	// Pre_Th Mult
+	{0x4C,0x01},	/* NR Enable */
+	{0x49,0x15},	/* Sig_Th Mult */
+	{0x4B,0x0A},	/* Pre_Th Mult */
 
 	{0xfc,0x0b},
-	{0x28,0x00},	// NR start AGC
-	{0x29,0x00},	// SIG Th AGCMIN H
-	{0x2a,0x14},	// SIG Th AGCMIN L
-	{0x2b,0x00},	// SIG Th AGCMAX H
-	{0x2c,0x14},	// SIG Th AGCMAX L
-	{0x2d,0x00},	// PRE Th AGCMIN H
-	{0x2e,0x90},	// PRE Th AGCMIN L
-	{0x2f,0x01},	// PRE Th AGCMAX H
-	{0x30,0x00},	// PRE Th AGCMAX L
-	{0x31,0x00},	// POST Th AGCMIN H
-	{0x32,0xa0},	// POST Th AGCMIN L
-	{0x33,0x01},	// POST Th AGCMAX H
-	{0x34,0x10},	// POST Th AGCMAX L
+	{0x28,0x00},	/* NR start AGC */
+	{0x29,0x00},	/* SIG Th AGCMIN H */
+	{0x2a,0x14},	/* SIG Th AGCMIN L */
+	{0x2b,0x00},	/* SIG Th AGCMAX H */
+	{0x2c,0x14},	/* SIG Th AGCMAX L */
+	{0x2d,0x00},	/* PRE Th AGCMIN H */
+	{0x2e,0x90},	/* PRE Th AGCMIN L */
+	{0x2f,0x01},	/* PRE Th AGCMAX H */
+	{0x30,0x00},	/* PRE Th AGCMAX L */
+	{0x31,0x00},	/* POST Th AGCMIN H */
+	{0x32,0xa0},	/* POST Th AGCMIN L */
+	{0x33,0x01},	/* POST Th AGCMAX H */
+	{0x34,0x10},	/* POST Th AGCMAX L */
 
-	//==========================================================
-	//	1D-Y/C-SIGMA-LPF
-	//==========================================================
+	/*
+	 * 1D-Y/C-SIGMA-LPF
+	 */
+
 	{0xfc,0x01},
 	{0x05,0xc0},
 
 	{0xfc,0x0b},
-	{0x35,0x00},	// YLPF start AGC
-	{0x36,0x40},	// YLPF01 AGCMIN
-	{0x37,0x60},	// YLPF01 AGCMAX
-	{0x38,0x00},	// YLPF SIG01 Th AGCMINH
-	{0x39,0x18},	// YLPF SIG01 Th AGCMINL
-	{0x3a,0x00},	// YLPF SIG01 Th AGCMAXH
-	{0x3b,0x40},	// YLPF SIG01 Th AGCMAXH
-	{0x3c,0x50},	// YLPF02 AGCMIN
-	{0x3d,0x60},	// YLPF02 AGCMAX
-	{0x3e,0x00},	// YLPF SIG02 Th AGCMINH
-	{0x3f,0x30},	// YLPF SIG02 Th AGCMINL
-	{0x40,0x00},	// YLPF SIG02 Th AGCMAXH
-	{0x41,0x40},	// YLPF SIG02 Th AGCMAXH
-	{0xd4,0x40},	// CLPF AGCMIN
-	{0xd5,0x60},	// CLPF AGCMAX
-	{0xd6,0xb0},	// CLPF SIG01 Th AGCMIN
-	{0xd7,0xf0},	// CLPF SIG01 Th AGCMAX
-	{0xd8,0xb0},	// CLPF SIG02 Th AGCMIN
-	{0xd9,0xf0},	// CLPF SIG02 Th AGCMAX
+	{0x35,0x00},	/* YLPF start AGC */
+	{0x36,0x40},	/* YLPF01 AGCMIN */
+	{0x37,0x60},	/* YLPF01 AGCMAX */
+	{0x38,0x00},	/* YLPF SIG01 Th AGCMINH */
+	{0x39,0x18},	/* YLPF SIG01 Th AGCMINL */
+	{0x3a,0x00},	/* YLPF SIG01 Th AGCMAXH */
+	{0x3b,0x40},	/* YLPF SIG01 Th AGCMAXH */
+	{0x3c,0x50},	/* YLPF02 AGCMIN */
+	{0x3d,0x60},	/* YLPF02 AGCMAX */
+	{0x3e,0x00},	/* YLPF SIG02 Th AGCMINH */
+	{0x3f,0x30},	/* YLPF SIG02 Th AGCMINL */
+	{0x40,0x00},	/* YLPF SIG02 Th AGCMAXH */
+	{0x41,0x40},	/* YLPF SIG02 Th AGCMAXH */
+	{0xd4,0x40},	/* CLPF AGCMIN */
+	{0xd5,0x60},	/* CLPF AGCMAX */
+	{0xd6,0xb0},	/* CLPF SIG01 Th AGCMIN */
+	{0xd7,0xf0},	/* CLPF SIG01 Th AGCMAX */
+	{0xd8,0xb0},	/* CLPF SIG02 Th AGCMIN */
+	{0xd9,0xf0},	/* CLPF SIG02 Th AGCMAX */
 
-	//==========================================================
-	//	COLOR SUPPRESS
-	//==========================================================
+	/*
+	 * COLOR SUPPRESS
+	 */
+
 	{0xfc,0x0b},
-	{0x08,0x58},	// Color suppress AGC MIN
-	{0x09,0x03},	// Color suppress MIN H
-	{0x0a,0x80},	// Color suppress MIN L
+	{0x08,0x58},	/* Color suppress AGC MIN */
+	{0x09,0x03},	/* Color suppress MIN H */
+	{0x0a,0x80},	/* Color suppress MIN L */
 
-	//==========================================================
-	//	SHADING
-	//==========================================================
+	/*
+	 * SHADING
+	 */
+
 	{0xfc,0x09},
 	 //Shading file for 3BAFX
 	//s90000// shading off
@@ -734,7 +751,7 @@ s5k4xa_t s5k4ba_reg[] =
 	{0xCC,0x11},
 	{0xCD,0xCC},
 
-	{0x00,0x02},  // {0xhading on
+	{0x00,0x02},  // Shading on
 
 	//==========================================================
 	//	X-SHADING
@@ -1096,7 +1113,7 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x35,0xb0},
 
 	{0xfc,0x00},
-	{0x73,0x21},	// Frmae AE Enable}, peter0223 위치 변경
+	{0x73,0x21},	// Frame AE Enable, peter
 
 	{0xfc,0x04},
 	{0xc0,0x06},
@@ -1354,9 +1371,10 @@ s5k4xa_t s5k4ba_reg[] =
 
 	{0x85, 0x01},
 
-//==========================================================
-//	GAMMA
-//==========================================================
+/*
+ * GAMMA
+ */
+
 	{0xfc, 0x1d},
 	{0x00, 0x0b},
 	{0x01, 0x18},
@@ -1488,11 +1506,12 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x7f, 0xf5},
 	{0x80, 0xf0},
 
-//==========================================================
-//	HUE CONTROL
-//==========================================================
+/*
+ * HUE CONTROL
+ */
+
 	{0xfc, 0x00},
-	{0x48, 0x40},// 2000K
+	{0x48, 0x40},		/* 2000K */
 	{0x49, 0x30},
 	{0x4a, 0x00},
 	{0x4b, 0x00},
@@ -1501,7 +1520,7 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x4e, 0x00},
 	{0x4f, 0x00},
 
-	{0x50, 0x40},// 3000K
+	{0x50, 0x40},		/* 3000K */
 	{0x51, 0x30},
 	{0x52, 0x00},
 	{0x53, 0x00},
@@ -1510,24 +1529,26 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x56, 0x00},
 	{0x57, 0x00},
 
-	{0x58, 0x3c},//40	              // 5100K
-	{0x59, 0x30},//4a                   //40
-	{0x5a, 0x00},//0c                   //00
-	{0x5b, 0x00},//00
-	{0x5c, 0x30},//4a
-	{0x5d, 0x38},//40
-	{0x5e, 0x00},//f6                   //15
-	{0x5f, 0xfc},//00
+	{0x58, 0x3c},		/* 40 - 5100K */
+	{0x59, 0x30},		/* 4a, 40 */
+	{0x5a, 0x00},		/* 0c, 00 */
+	{0x5b, 0x00},		/* 00 */
+	{0x5c, 0x30},		/* 4a */
+	{0x5d, 0x38},		/* 40 */
+	{0x5e, 0x00},		/* f6, 15 */
+	{0x5f, 0xfc},		/* 00 */
 
-//==========================================================
-//	SUPPRESS FUNCTION
-//==========================================================
+/*
+ * SUPPRESS FUNCTION
+ */
+
 	{0xfc, 0x00},
 	{0x7e, 0xf4},
 
-//==========================================================
-//	BPR
-//==========================================================
+/*
+ * BPR
+ */
+
 	{0xfc, 0x0b},
 	{0x3d, 0x10},
 
@@ -1554,9 +1575,10 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x1e, 0x00},
 	{0x1f, 0x20},
 
-//==========================================================
-//	GR/GB CORRECTION
-//==========================================================
+/*
+ * GR/GB CORRECTION
+ */
+
 	{0xfc, 0x01},
 	{0x45, 0x0c},
 	{0xfc, 0x0b},
@@ -1568,9 +1590,10 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x26, 0x0d},
 	{0x27, 0x20},
 
-//==========================================================
-//	NR
-//==========================================================
+/*
+ * NR
+ */
+
 	{0xfc, 0x01},
 	{0x4c, 0x01},
 	{0x49, 0x15},
@@ -1591,9 +1614,10 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x33, 0x00},
 	{0x34, 0xe0},
 
-//==========================================================
-//	1D-Y/C-SIGMA-LPF
-//==========================================================
+/*
+ * 1D-Y/C-SIGMA-LPF
+ */
+
 	{0xfc, 0x01},
 	{0x05, 0xC0},
 
@@ -1618,17 +1642,19 @@ s5k4xa_t s5k4ba_reg[] =
 	{0xd8, 0xb0},
 	{0xd9, 0xf0},
 
-//==========================================================
-//	COLOR SUPPRESS
-//==========================================================
+/*
+ * COLOR SUPPRESS
+ */
+
 	{0xfc, 0x0b},
 	{0x08, 0x58},
 	{0x09, 0x03},
 	{0x0a, 0x00},
 
-//==========================================================
-//	SHADING
-//==========================================================
+/*
+ * SHADING
+ */
+
 	{0xfc, 0x09},
 
 	{0x01, 0x06},
@@ -1841,11 +1867,12 @@ s5k4xa_t s5k4ba_reg[] =
 	{0xCC, 0x15},
 	{0xCD, 0xBA},
 
-	{0x00, 0x02},// shading on
+	{0x00, 0x02},	/* shading on */
 
-//==========================================================
-//	X-SHADING
-//==========================================================
+/*
+ * X-SHADING
+ */
+
 	{0xfc, 0x1B},
 	{0x80, 0x01},
 	{0x81, 0x00},
@@ -1937,9 +1964,10 @@ s5k4xa_t s5k4ba_reg[] =
 	{0xfc, 0x1b},
 	{0x80, 0x01},
 
-//==========================================================
-//	AE WINDOW WEIGHT
-//==========================================================
+/*
+ * AE WINDOW WEIGHT
+ */
+
 	{0xfc, 0x00},
 	{0x03, 0x4b},
 	{0xfc, 0x06},
@@ -1978,9 +2006,10 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x76, 0x33},
 	{0x77, 0x33},
 
-//==========================================================
-//	SAIT AWB
-//==========================================================
+/*
+ * SAIT AWB
+ */
+
 	{0xfc, 0x00},
 	{0x7b, 0x00},
 
@@ -2008,9 +2037,10 @@ s5k4xa_t s5k4ba_reg[] =
 	{0xfc, 0x07},
 	{0x97, 0x00},
 
-//=================================
-// White Point
-//=================================
+/*
+ * White Point
+ */
+
 	{0xfc, 0x22},
 	{0x01, 0xD8},
 	{0x03, 0xA1},
@@ -2027,9 +2057,10 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x16, 0x01},
 	{0x17, 0x10},
 
-//=================================
-// Basic Setting
-//=================================
+/*
+ * Basic Setting
+ */
+
 	{0xfc, 0x22},
 	{0xA8, 0xFF},
 
@@ -2072,9 +2103,10 @@ s5k4xa_t s5k4ba_reg[] =
 	{0xfc, 0x00},
 	{0x8a, 0x02},
 
-//=================================
-// Pixel Filter Setting
-//=================================
+/*
+ * Pixel Filter Setting
+ */
+
 	{0xFC, 0x07},
 	{0x95, 0xCF},
 
@@ -2105,11 +2137,11 @@ s5k4xa_t s5k4ba_reg[] =
 	{0xea, 0x1c},
 	{0xeb, 0x00},
 
-//=================================
-// Polygon AWB Region Tune
-//=================================
+/*
+ * Polygon AWB Region Tune
+ */
 
-	// AWB3 - Polygon Region
+	/* AWB3 - Polygon Region */
 	{0xfc, 0x22},
 	{0x18, 0x00},
 	{0x19, 0x4b},
@@ -2154,15 +2186,17 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x40, 0x00},
 	{0x41, 0x00},
 
-//=================================
-// Moving Equation Weight
-//=================================
+/*
+ * Moving Equation Weight
+ */
+
 	{0xfc, 0x22},
 	{0x98, 0x07},
 
-//=================================
-// EIT Threshold
-//=================================
+/*
+ * EIT Threshold
+ */
+
 	{0xfc, 0x22},
 	{0xb1, 0x00},
 	{0xb2, 0x02},
@@ -2179,9 +2213,10 @@ s5k4xa_t s5k4ba_reg[] =
 	{0xd9, 0x20},
 	{0xda, 0x81},
 
-//=================================
-// Gain Offset
-//=================================
+/*
+ * Gain Offset
+ */
+
 	{0xfc, 0x00},
 	{0x79, 0xf8},
 	{0x7a, 0x08},
@@ -2206,9 +2241,10 @@ s5k4xa_t s5k4ba_reg[] =
 	{0xde, 0x00},
 	{0xf0, 0x6a},
 
-//=================================
-// Green Stablity Enhance
-//=================================
+/*
+ * Green Stablity Enhance
+ */
+
 	{0xfc, 0x22},
 	{0xb9, 0x00},
 	{0xba, 0x00},
@@ -2218,9 +2254,10 @@ s5k4xa_t s5k4ba_reg[] =
 	{0xe6, 0xff},
 	{0xbd, 0x8c},
 
-//==========================================================
-//	Special Effect
-//==========================================================
+/*
+ * Special Effect
+ */
+
 	{0xfc, 0x07},
 	{0x30, 0xc0},
 	{0x31, 0x20},
@@ -2229,9 +2266,11 @@ s5k4xa_t s5k4ba_reg[] =
 	{0x34, 0x00},
 	{0x35, 0xb0},
 #endif
-//==========================================================
-//	ETC
-//==========================================================
+
+/*
+ * ETC
+ */
+
 	{0xfc, 0x01},
 	{0x01, 0x01},
 	{0x00, 0x90},
@@ -2254,13 +2293,15 @@ s5k4xa_t s5k4ba_reg[] =
 #endif
 
 
-// For VGA ( 640 x 480) on 4BA module
+/* For VGA ( 640 x 480) on 4BA module */
+
 s5k4xa_t s5k4ba_reg_vga[] =
 {
 	// To do.
 };
 
-// For SVGA ( 800 x 600) on 4BA module
+/* For SVGA ( 800 x 600) on 4BA module */
+
 s5k4xa_t s5k4ba_reg_svga[] =
 {
 	{0xfc,0x02},
@@ -2273,25 +2314,25 @@ s5k4xa_t s5k4ba_reg_svga[] =
 	{0x14,0x70},
 
 	{0xfc,0x00},
-	{0x03,0x4b},		// AE/AWB On
-	{0x7e,0xf4},		// Suppress On
-	{0x89,0x03},		// Edge Suppress On
+	{0x03,0x4b},		/* AE/AWB On */
+	{0x7e,0xf4},		/* Suppress On */
+	{0x89,0x03},		/* Edge Suppress On */
 
 	{0xfc,0x02},
-	{0x02,0x0e},//sensor BPRoff
+	{0x02,0x0e},		/* sensor BPRoff */
 
 	{0xfc,0x20},
-	{0x16,0x60},		// Frame AE Start
+	{0x16,0x60},		/* Frame AE Start */
 
 	{0xfc,0x02},
-	{0x30,0x90},		// Analog offset
-	{0x37,0x0d},		// Global Gain
-	{0x60,0x00},		// Blank_Adrs
-	{0x45,0x0e},		// CDS Timing for Average Sub_Sampling
+	{0x30,0x90},		/* Analog offset */
+	{0x37,0x0d},		/* Global Gain */
+	{0x60,0x00},		/* Blank_Adrs */
+	{0x45,0x0e},		/* CDS Timing for Average Sub_Sampling */
 	{0x47,0x2f},
 
 	{0xfc,0x01},
-	{0x9F,0x05},		//B
+	{0x9F,0x05},		/* B */
 	{0xA0,0x18},
 	{0xA1,0x42},
 	{0xA2,0xd7},
@@ -2304,58 +2345,60 @@ s5k4xa_t s5k4ba_reg_svga[] =
 	{0xA8,0x6A},
 
 	{0xfc,0x05},
-	{0x34,0x20},	// APTCLP
-	{0x35,0x08},	//9 //APTSC
+	{0x34,0x20},		/* APTCLP */
+	{0x35,0x08},		/* 9 - APTSC */
 
-	{0xfc,0x00},  // flash 0821
-	{0x32,0x04},  // AWB moving average 8 frame
+	{0xfc,0x00},  		/* flash 0821 */
+	{0x32,0x04},  		/* AWB moving average 8 frame */
 
 	{0xfc,0x01},
-	{0x01,0x01}, // Pclk inversion
+	{0x01,0x01}, 		/* Pclk inversion */
 
 	{0xfc,0x00},
-	{0x02,0x09},		// 800 x 600
+	{0x02,0x09},		/* 800 x 600 */
 
 
-	{0xFF,0xFF} // REGISTER END
+	{0xFF,0xFF} /* REGISTER END */
 };
 
-// For SXGA (1280 x 1024 = 1.3M) on 4BA module
+/* For SXGA (1280 x 1024 = 1.3M) on 4BA module */
+
 s5k4xa_t s5k4ba_reg_sxga[] =
 {
 	// To do.
 };
 
 
-// For UXGA (1600 x 1200 = 2M) on 4BA module
+/* For UXGA (1600 x 1200 = 2M) on 4BA module */
+
 s5k4xa_t s5k4ba_reg_uxga[] =
 {
 	// To do.
 };
 
 
-// For SQVGA on 4BA module
+/* For SQVGA on 4BA module */
+
 s5k4xa_t s5k4ba_reg_qsvga[] =
 {
-	// Pclk inversion
+	/* Pclk inversion */
 	{0xfc,0x01},
 	{0x01,0x01},
 
-	// To setting CbCr selection on Table 14h
+	/* To setting CbCr selection on Table 14h */
 	{0xfc, 0x14},
 	{0x5c, 0x00},
 
-	// To load table_11 H4V4
+	/* To load table_11 H4V4 */
 	{0xfc, 0x00},
 	{0x02, 0x0B}
 };
 
-#define S5K4BA_INIT_REGS (sizeof(s5k4ba_reg)/sizeof(s5k4ba_reg[0]))
-#define S5K4BA_UXGA_REGS (sizeof(s5k4ba_reg_uxga)/sizeof(s5k4ba_reg_uxga[0]))
-#define S5K4BA_SVGA_REGS (sizeof(s5k4ba_reg_svga)/sizeof(s5k4ba_reg_svga[0]))
-#define S5K4BA_VGA_REGS (sizeof(s5k4ba_reg_vga)/sizeof(s5k4ba_reg_vga[0]))
-#define S5K4BA_QSVGA_REGS (sizeof(s5k4ba_reg_qsvga)/sizeof(s5k4ba_reg_qsvga[0]))
-
+#define S5K4BA_INIT_REGS	ARRAY_SIZE(s5k4ba_reg)
+#define S5K4BA_UXGA_REGS	ARRAY_SIZE(s5k4ba_reg_uxga)
+#define S5K4BA_SVGA_REGS	ARRAY_SIZE(s5k4ba_reg_svga)
+#define S5K4BA_VGA_REGS		ARRAY_SIZE(s5k4ba_reg_vga)
+#define S5K4BA_QSVGA_REGS	ARRAY_SIZE(s5k4ba_reg_qsvga)
 
 
 #define S5K4BA_RISC_REGS 0xEB
@@ -2364,7 +2407,6 @@ s5k4xa_t s5k4ba_reg_qsvga[] =
 
 
 #define S5K4BA_REGS (0x1000)
-
 
 
 #endif
