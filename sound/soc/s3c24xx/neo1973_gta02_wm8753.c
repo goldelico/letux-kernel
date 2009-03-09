@@ -247,7 +247,7 @@ static int lm4853_set_spk(struct snd_kcontrol *kcontrol,
 		s3c2410_gpio_setpin(GTA02_GPIO_HP_IN,0);
 	} else {
 		lm4853_state &= ~LM4853_SPK;
-		s3c2410_gpio_setpin(GTA02_GPIO_HP_IN,0);
+		s3c2410_gpio_setpin(GTA02_GPIO_HP_IN,1);
 	}
 
 	return 0;
