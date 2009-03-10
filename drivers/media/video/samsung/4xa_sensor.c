@@ -215,8 +215,16 @@ s5k4xa_attach(struct i2c_adapter *adap, int addr, int kind)
 
 static int sensor_attach_adapter(struct i2c_adapter *adap)
 {
+	extern void om_3d7k_camera_on(void);
+	extern void om_3d7k_camera_off(void);
+	int ret;
+
 	s3c_camif_open_sensor(&data);
-	return i2c_probe(adap, &addr_data, s5k4xa_attach);
+
+	om_3d7k_camera_on();
+	ret = i2c_probe(adap, &addr_data, s5k4xa_attach);
+	om_3d7k_camera_off();
+	return ret;
 }
 
 static int sensor_detach(struct i2c_client *client)

@@ -51,6 +51,15 @@
 #include "s3c_camif.h"
 #include "videodev2_s3c.h"
 
+#include <linux/mfd/pcf50633/core.h>	/* @@@ hack - WA */
+#include <plat/gpio-bank-f.h>
+#include <plat/gpio-cfg.h>
+#include <mach/gpio.h>
+#include <mach/map.h>
+#include <plat/regs-sys.h>
+#include <plat/regs-syscon-power.h>
+
+
 static struct clk *cam_clock;
 camif_cfg_t s3c_fimc[CAMIF_DEV_NUM];
 extern camif_cis_t msdma_input;
@@ -1311,6 +1320,72 @@ long s3c_camif_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
 	}
 }
 
+
+void om_3d7k_camera_on(void)
+{
+	extern struct pcf50633 *om_3d7k_pcf;
+	int i;
+
+	gpio_direction_output(S3C64XX_GPF(3), 0);
+
+	/* @@@ hack - WA */
+	pcf50633_reg_write(om_3d7k_pcf, 0x30, 0x21);
+	for (i = 0; !(pcf50633_reg_read(om_3d7k_pcf, 0x42) & 0x02); i++) {
+		if (i == 100) {
+			printk(KERN_ERR "can't bring up LDO2\n");
+			break;
+		}
+		msleep(10);
+	}
+
+	pcf50633_reg_write(om_3d7k_pcf, 0x39, 0x13);
+	pcf50633_reg_write(om_3d7k_pcf, 0x3a, 0x21);
+	for (i = 0; !(pcf50633_reg_read(om_3d7k_pcf, 0x42) & 0x40); i++) {
+		if (i == 100) {
+			printk(KERN_ERR "can't bring up HCLDO\n");
+			break;
+		}
+		msleep(10);
+	}
+
+	msleep(100);	/* > 0 ms */
+
+	if (cam_clock)
+		clk_enable(cam_clock);
+
+	msleep(1);	/* > 100 cycles */
+	gpio_direction_output(S3C64XX_GPF(3), 1);
+	msleep(25);	/* > 1 Mcycles */
+	s3c_gpio_cfgpin(S3C64XX_GPF(3), S3C64XX_GPF3_CAMIF_nRST);
+	msleep(25);	/* just to be sure > 1 Mcycles */
+
+	__raw_writel(__raw_readl(S3C64XX_NORMAL_CFG) |
+	    S3C64XX_NORMALCFG_DOMAIN_I_ON, S3C64XX_NORMAL_CFG);
+}
+
+void om_3d7k_camera_off(void)
+{
+	extern struct pcf50633 *om_3d7k_pcf;
+
+	gpio_direction_output(S3C64XX_GPF(3), 0);
+
+	msleep(1);	/* > 20 cycles */
+
+	if (cam_clock)
+		clk_disable(cam_clock);
+	msleep(1);	/* > 0 ms */
+
+	/* @@@ hack - WA */
+	pcf50633_reg_write(om_3d7k_pcf, 0x3a, 0x20);	/* 2V8, ... */
+	pcf50633_reg_write(om_3d7k_pcf, 0x30, 0x20);	/* ... then 1V5 */
+
+#if 0
+	__raw_writel(__raw_readl(S3C64XX_NORMAL_CFG) &
+	    ~S3C64XX_NORMALCFG_DOMAIN_I_ON, S3C64XX_NORMAL_CFG);
+#endif
+}
+
+
 /* @@@ - WA */
 #define s3c_camif_exclusive_open(inode, file) 0
 #define s3c_camif_exclusive_release(inode, file)
@@ -1338,6 +1413,8 @@ int s3c_camif_open(struct file *file)
 
 		up(&cfg->cis->lock);
 	}
+
+	om_3d7k_camera_on();
 
 	err = s3c_camif_exclusive_open(inode, file);
 	cfg->cis->user++;
@@ -1383,6 +1460,9 @@ int s3c_camif_release(struct file *file)
 
 	cfg->cis->user--;
 	cfg->status = CAMIF_STOPPED;
+
+	om_3d7k_camera_off();
+	cfg->cis->init_sensor = 0;
 
 	return 0;
 }
@@ -1752,9 +1832,6 @@ static int s3c_camif_probe(struct platform_device *pdev)
 		printk("Failed to find camera clock source\n");
 		return PTR_ERR(cam_clock);
 	}
-
-printk("cam_clock %p\n", cam_clock);
-	clk_enable(cam_clock);
 
 	/* Print banner */
 	printk(KERN_INFO "S3C FIMC v%s\n", FIMC_VER);
