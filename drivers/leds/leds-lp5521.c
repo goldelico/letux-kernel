@@ -144,7 +144,7 @@ static ssize_t set_mode(struct device *dev, struct device_attribute *attr,
 
 	mask = (0x3 << (id * 2));
 
-	for (i = LP5521_REG_OP_MODE; i <= LP5521_MODE_DIRECT; i++) {
+	for (i = LP5521_MODE_DISABLE; i <= LP5521_MODE_DIRECT; i++) {
 		if (!strncmp(buf, lp5521_ch_mode[i], strlen(lp5521_ch_mode[i]))) {
 			reg_set_bit_mask(lp,
 				LP5521_REG_OP_MODE, mask, (i << (id * 2)));
