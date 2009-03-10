@@ -193,6 +193,11 @@ config S3C_DEV_FB
 	help
 	  Compile in platform device definition for framebuffer
 
+config S3C_DEV_USB_HOST
+	bool
+	help
+	  Compile in platform device definition for USB host.
+
 config S3C_DEV_CAMIF
 	bool
 	help
