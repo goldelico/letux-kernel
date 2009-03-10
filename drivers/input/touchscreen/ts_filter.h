@@ -18,9 +18,10 @@ struct ts_filter_configuration;
 
 struct ts_filter_api {
 	/* Create the filter - mandatory. */
-	struct ts_filter * (*create)(struct platform_device *pdev,
-				     struct ts_filter_configuration *config,
-				     int count_coords);
+	struct ts_filter * (*create)(
+		struct platform_device *pdev,
+		const struct ts_filter_configuration *config,
+		int count_coords);
 	/* Destroy the filter - mandatory. */
 	void (*destroy)(struct ts_filter *filter);
 	/* Clear the filter - optional. */
@@ -62,14 +63,14 @@ struct ts_filter_api {
  */
 struct ts_filter_configuration {
 	/* API to use */
-	struct ts_filter_api *api;
+	const struct ts_filter_api *api;
 	/* Generic filter configuration. Different for each filter. */
-	struct ts_filter_configuration *config;
+	const struct ts_filter_configuration *config;
 };
 
 struct ts_filter {
 	/* Operations for this filter. */
-	struct ts_filter_api *api;
+	const struct ts_filter_api *api;
 	/* Number of coordinates to process. */
 	int count_coords;
 };
@@ -82,7 +83,7 @@ struct ts_filter {
  */
 extern struct ts_filter **ts_filter_chain_create(
 	struct platform_device *pdev,
-	struct ts_filter_configuration conf[],
+	const struct ts_filter_configuration conf[],
 	int count_coords);
 
 /* Helper to destroy a whole chain from the list of filter pointers. */

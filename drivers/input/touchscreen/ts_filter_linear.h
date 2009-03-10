@@ -26,6 +26,6 @@ struct ts_filter_linear_configuration {
 	struct ts_filter_configuration config;
 };
 
-extern struct ts_filter_api ts_filter_linear_api;
+extern const struct ts_filter_api ts_filter_linear_api;
 
 #endif

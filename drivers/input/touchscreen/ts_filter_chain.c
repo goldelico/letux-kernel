@@ -29,9 +29,10 @@
  * sptrlen - Count how many non-null pointers are in a pointer array
  * @arr: The array of pointers
  */
-static int sptrlen(void *arr)
+static int sptrlen(const void *arr)
 {
-	int **p = arr; /* all pointers have the same size */
+	/* All pointers have the same size. */
+	const int **p = (const int **)arr;
 	int len = 0;
 
 	while (*(p++))
@@ -43,9 +44,10 @@ static int sptrlen(void *arr)
 /* FIXME: rename & remove this temporal hack. */
 static struct ts_filter **revchain;
 
-struct ts_filter **ts_filter_chain_create(struct platform_device *pdev,
-					  struct ts_filter_configuration conf[],
-					  int count_coords)
+struct ts_filter **ts_filter_chain_create(
+	struct platform_device *pdev,
+	const struct ts_filter_configuration conf[],
+	int count_coords)
 {
 	struct ts_filter **arr;
 	int count = 0;

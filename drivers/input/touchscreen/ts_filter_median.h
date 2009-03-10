@@ -27,6 +27,6 @@ struct ts_filter_median_configuration {
 	struct ts_filter_configuration config;
 };
 
-extern struct ts_filter_api ts_filter_median_api;
+extern const struct ts_filter_api ts_filter_median_api;
 
 #endif

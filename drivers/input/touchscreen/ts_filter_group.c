@@ -85,7 +85,7 @@ static void ts_filter_group_clear(struct ts_filter *tsf)
 
 static struct ts_filter *ts_filter_group_create(
 	struct platform_device *pdev,
-	struct ts_filter_configuration *conf,
+	const struct ts_filter_configuration *conf,
 	int count_coords)
 {
 	struct ts_filter_group *tsfg;
@@ -283,7 +283,7 @@ static void ts_filter_group_scale(struct ts_filter *tsf, int *coords)
 	ts_filter_group_clear_internal(priv, priv->config->attempts);
 }
 
-struct ts_filter_api ts_filter_group_api = {
+const struct ts_filter_api ts_filter_group_api = {
 	.create =	ts_filter_group_create,
 	.destroy =	ts_filter_group_destroy,
 	.clear =	ts_filter_group_clear,
@@ -292,4 +292,5 @@ struct ts_filter_api ts_filter_group_api = {
 	.getpoint =	ts_filter_group_getpoint,
 	.scale =	ts_filter_group_scale,
 };
+EXPORT_SYMBOL_GPL(ts_filter_group_api);
 

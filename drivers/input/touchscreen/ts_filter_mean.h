@@ -23,6 +23,6 @@ struct ts_filter_mean_configuration {
 };
 
 /* API functions for the mean filter */
-extern struct ts_filter_api ts_filter_mean_api;
+extern const struct ts_filter_api ts_filter_mean_api;
 
 #endif /* __TS_FILTER_MEAN_H__ */

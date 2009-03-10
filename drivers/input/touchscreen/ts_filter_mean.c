@@ -52,7 +52,7 @@ static void ts_filter_mean_clear(struct ts_filter *tsf);
 
 static struct ts_filter *ts_filter_mean_create(
 	struct platform_device *pdev,
-	struct ts_filter_configuration *conf,
+	const struct ts_filter_configuration *conf,
 	int count_coords)
 {
 	struct ts_filter_mean *priv;
@@ -161,7 +161,7 @@ static void ts_filter_mean_scale(struct ts_filter *tsf, int *coords)
 	}
 }
 
-struct ts_filter_api ts_filter_mean_api = {
+const struct ts_filter_api ts_filter_mean_api = {
 	.create =	ts_filter_mean_create,
 	.destroy =	ts_filter_mean_destroy,
 	.clear =	ts_filter_mean_clear,
@@ -170,4 +170,5 @@ struct ts_filter_api ts_filter_mean_api = {
 	.haspoint =	ts_filter_mean_haspoint,
 	.getpoint =	ts_filter_mean_getpoint,
 };
+EXPORT_SYMBOL_GPL(ts_filter_mean_api);
 

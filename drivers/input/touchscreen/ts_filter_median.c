@@ -105,7 +105,7 @@ static void ts_filter_median_clear(struct ts_filter *tsf)
 
 static struct ts_filter *ts_filter_median_create(
 	struct platform_device *pdev,
-	struct ts_filter_configuration *conf,
+	const struct ts_filter_configuration *conf,
 	int count_coords)
 {
 	int *p;
@@ -248,7 +248,7 @@ static void ts_filter_median_getpoint(struct ts_filter *tsf, int *point)
 	priv->ready = 0;
 }
 
-struct ts_filter_api ts_filter_median_api = {
+const struct ts_filter_api ts_filter_median_api = {
 	.create =	ts_filter_median_create,
 	.destroy =	ts_filter_median_destroy,
 	.clear =	ts_filter_median_clear,
@@ -257,3 +257,5 @@ struct ts_filter_api ts_filter_median_api = {
 	.haspoint =	ts_filter_median_haspoint,
 	.getpoint =	ts_filter_median_getpoint,
 };
+EXPORT_SYMBOL_GPL(ts_filter_median_api);
+

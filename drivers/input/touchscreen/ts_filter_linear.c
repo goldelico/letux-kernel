@@ -127,7 +127,7 @@ static ssize_t const_store(struct const_obj *obj, struct const_attribute *attr,
 
 static struct ts_filter *ts_filter_linear_create(
 	struct platform_device *pdev,
-	struct ts_filter_configuration *conf,
+	const struct ts_filter_configuration *conf,
 	int count_coords)
 {
 	struct ts_filter_linear *tsfl;
@@ -194,8 +194,10 @@ static void ts_filter_linear_scale(struct ts_filter *tsf, int *coords)
 	coords[tsfl->config->coord1] = (k[5] + k[3] * c0 + k[4] * c1) / k[6];
 }
 
-struct ts_filter_api ts_filter_linear_api = {
+const struct ts_filter_api ts_filter_linear_api = {
 	.create =	ts_filter_linear_create,
 	.destroy =	ts_filter_linear_destroy,
 	.scale =	ts_filter_linear_scale,
 };
+EXPORT_SYMBOL_GPL(ts_filter_linear_api);
+
