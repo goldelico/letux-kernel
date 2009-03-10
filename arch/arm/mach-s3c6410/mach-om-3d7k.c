@@ -69,6 +69,9 @@
 #include <plat/cpu.h>
 #include <plat/tzic-sp890.h>
 #include <plat/usb-control.h>
+/* temp -- move to camera driver along with _NORMAL register setting */
+#include <plat/regs-sys.h>
+#include <plat/regs-syscon-power.h>
 
 /* #include <plat/udc.h> */
 #include <linux/i2c.h>
@@ -978,7 +981,9 @@ static struct platform_device *om_3d7k_devices[] __initdata = {
 	&om_3d7k_device_spi_lcm,
 	&s3c_device_usbgadget,
 	&s3c24xx_pwm_device,
+#ifdef CONFIG_S3C_DEV_CAMIF
 	&s3c_device_camif,
+#endif
 };
 
 
@@ -1040,10 +1045,16 @@ static void om_3d7k_pcf50633_attach_child_devices(struct pcf50633 *pcf)
 	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
 	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
 
+#ifdef CONFIG_S3C_DEV_CAMIF
 	/* @@@ do this properly later - WA */
 	pcf50633_reg_write(om_3d7k_pcf, 0x30, 0x21);
 	pcf50633_reg_write(om_3d7k_pcf, 0x39, 0x13);
 	pcf50633_reg_write(om_3d7k_pcf, 0x3a, 0x21);
+
+	/* so it doesn't get lost */
+	__raw_writel(__raw_readl(S3C64XX_NORMAL_CFG) |
+		     S3C64XX_NORMALCFG_DOMAIN_I_ON, S3C64XX_NORMAL_CFG);
+#endif
 }
 
 static void om_3d7k_l1k002_pwronoff(int level)
