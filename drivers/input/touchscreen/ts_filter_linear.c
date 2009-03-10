@@ -125,8 +125,10 @@ static ssize_t const_store(struct const_obj *obj, struct const_attribute *attr,
 
 /* Filter functions. */
 
-static struct ts_filter *ts_filter_linear_create(struct platform_device *pdev,
-						 void *conf, int count_coords)
+static struct ts_filter *ts_filter_linear_create(
+	struct platform_device *pdev,
+	struct ts_filter_configuration *conf,
+	int count_coords)
 {
 	struct ts_filter_linear *tsfl;
 	int i;
@@ -136,7 +138,10 @@ static struct ts_filter *ts_filter_linear_create(struct platform_device *pdev,
 	if (!tsfl)
 		return NULL;
 
-	tsfl->config = (struct ts_filter_linear_configuration *)conf;
+	tsfl->config = container_of(conf,
+				    struct ts_filter_linear_configuration,
+				    config);
+
 	tsfl->tsf.count_coords = count_coords;
 
 	for (i = 0; i < TS_FILTER_LINEAR_NCONSTANTS; ++i) {

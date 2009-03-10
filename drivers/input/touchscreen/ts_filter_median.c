@@ -103,8 +103,10 @@ static void ts_filter_median_clear(struct ts_filter *tsf)
 	memset(&tsfm->last_issued[0], 1, tsf->count_coords * sizeof(int));
 }
 
-static struct ts_filter *ts_filter_median_create(struct platform_device *pdev,
-						 void *conf, int count_coords)
+static struct ts_filter *ts_filter_median_create(
+	struct platform_device *pdev,
+	struct ts_filter_configuration *conf,
+	int count_coords)
 {
 	int *p;
 	int n;
@@ -114,7 +116,10 @@ static struct ts_filter *ts_filter_median_create(struct platform_device *pdev,
 	if (!tsfm)
 		return NULL;
 
-	tsfm->config = (struct ts_filter_median_configuration *)conf;
+	tsfm->config = container_of(conf,
+				    struct ts_filter_median_configuration,
+				    config);
+
 	tsfm->tsf.count_coords = count_coords;
 
 	tsfm->config->midpoint = (tsfm->config->extent >> 1) + 1;

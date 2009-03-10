@@ -98,7 +98,6 @@ static char *s3c2410ts_name = "s3c2410 TouchScreen";
 
 #define TS_RELEASE_TIMEOUT (HZ >> 7 ? HZ >> 7 : 1) /* 8ms (5ms if HZ is 200) */
 #define TS_EVENT_FIFO_SIZE (2 << 6) /* must be a power of 2 */
-#define TS_COORDINATES_SIZE 2		/* just X and Y for us */
 
 #define TS_STATE_STANDBY 0 /* initial state */
 #define TS_STATE_PRESSED 1
@@ -411,9 +410,7 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 	}
 
 	/* create the filter chain set up for the 2 coordinates we produce */
-	ts.tsf = ts_filter_chain_create(
-			pdev, (struct ts_filter_api **)&info->filter_sequence,
-			(void *)&info->filter_config, TS_COORDINATES_SIZE);
+	ts.tsf = ts_filter_chain_create(pdev, info->filter_config, 2);
 
 	if (!ts.tsf)
 		goto bail2;

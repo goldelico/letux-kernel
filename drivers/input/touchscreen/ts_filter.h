@@ -9,16 +9,17 @@
 
 #include <linux/platform_device.h>
 
-#define MAX_TS_FILTER_CHAIN		8  /* Max. filters we can chain up. */
 #define MAX_TS_FILTER_COORDS		3  /* X, Y and Z (pressure). */
 
 struct ts_filter;
+struct ts_filter_configuration;
 
 /* Operations that a filter can perform. */
 
 struct ts_filter_api {
 	/* Create the filter - mandatory. */
-	struct ts_filter * (*create)(struct platform_device *pdev, void *config,
+	struct ts_filter * (*create)(struct platform_device *pdev,
+				     struct ts_filter_configuration *config,
 				     int count_coords);
 	/* Destroy the filter - mandatory. */
 	void (*destroy)(struct ts_filter *filter);
@@ -56,15 +57,21 @@ struct ts_filter_api {
 };
 
 /*
- * This is the common part of all filters.
- * We use this type as an otherwise opaque handle on to
- * the actual filter.  Therefore you need one of these
- * at the start of your actual filter struct.
+ * Generic filter configuration. Actual configurations have this structure
+ * as a member.
  */
+struct ts_filter_configuration {
+	/* API to use */
+	struct ts_filter_api *api;
+	/* Generic filter configuration. Different for each filter. */
+	struct ts_filter_configuration *config;
+};
+
 struct ts_filter {
-	struct ts_filter_api *api;	/* operations for this filter */
-	int count_coords;		/* how many coordinates to process */
-	int coords[MAX_TS_FILTER_COORDS];	/* count_coords coordinates */
+	/* Operations for this filter. */
+	struct ts_filter_api *api;
+	/* Number of coordinates to process. */
+	int count_coords;
 };
 
 #ifdef CONFIG_TOUCHSCREEN_FILTER
@@ -75,7 +82,8 @@ struct ts_filter {
  */
 extern struct ts_filter **ts_filter_chain_create(
 	struct platform_device *pdev,
-	struct ts_filter_api **api, void **config, int count_coords);
+	struct ts_filter_configuration conf[],
+	int count_coords);
 
 /* Helper to destroy a whole chain from the list of filter pointers. */
 extern void ts_filter_chain_destroy(struct ts_filter **arr);
@@ -94,7 +102,7 @@ extern void ts_filter_chain_clear(struct ts_filter **arr);
 int ts_filter_chain_feed(struct ts_filter **arr, int *coords);
 
 #else /* !CONFIG_TOUCHSCREEN_FILTER */
-#define ts_filter_chain_create(pdev, api, config, arr, count_coords) (0)
+#define ts_filter_chain_create(pdev, config, count_coords) (0) /*TODO:fail!*/
 #define ts_filter_chain_destroy(pdev, arr) do { } while (0)
 #define ts_filter_chain_clear(arr) do { } while (0)
 #define ts_filter_chain_feed(arr, coords) (1)

@@ -40,11 +40,11 @@ static int sptrlen(void *arr)
 	return len;
 }
 
-static struct ts_filter **revchain; /* FIXME: rename this temporal hack. */
+/* FIXME: rename & remove this temporal hack. */
+static struct ts_filter **revchain;
 
 struct ts_filter **ts_filter_chain_create(struct platform_device *pdev,
-					  struct ts_filter_api **api,
-					  void **config,
+					  struct ts_filter_configuration conf[],
 					  int count_coords)
 {
 	struct ts_filter **arr;
@@ -55,28 +55,31 @@ struct ts_filter **ts_filter_chain_create(struct platform_device *pdev,
 	BUG_ON((count_coords < 1));
 	BUG_ON(count_coords > MAX_TS_FILTER_COORDS);
 
-	len = (sptrlen(api) + 1);
+	len = (sptrlen(conf) + 1);
 	/* memory for two null-terminated arrays of filters */
 	arr = kzalloc(2 * sizeof(struct ts_filter *) * len, GFP_KERNEL);
 	if (!arr)
 		goto create_err;
 	revchain = arr + len;
 
-	while (*api) {
-		/* TODO: Can get away with only sending pdev->dev? */
-		/* FIXME: Avoid config (void**) */
-		struct ts_filter *f = ((*api)->create)(pdev, *config++,
-						       count_coords);
+	while (conf->api) {
+		/* TODO: Can we get away with only sending pdev->dev? */
+		struct ts_filter *f =
+			(conf->api->create)(pdev, conf->config, count_coords);
 		if (!f) {
-			dev_info(&pdev->dev, "Filter %d failed init\n", count);
+			dev_info(&pdev->dev, "Filter %d creation failed\n",
+				 count);
 			goto create_err;
 		}
-		f->api = *(api++);
+
+		f->api = conf->api;
 		arr[count++] = f;
 
 		/* Filters that can propagate values in the chain. */
 		if (f->api->haspoint && f->api->getpoint && f->api->process)
 			revchain[nrev++] = f;
+
+		conf++;
 	}
 
 	dev_info(&pdev->dev, "%d filter(s) initialized\n", count);

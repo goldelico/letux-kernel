@@ -50,8 +50,10 @@ struct ts_filter_mean {
 
 static void ts_filter_mean_clear(struct ts_filter *tsf);
 
-static struct ts_filter *ts_filter_mean_create(struct platform_device *pdev,
-					       void *config, int count_coords)
+static struct ts_filter *ts_filter_mean_create(
+	struct platform_device *pdev,
+	struct ts_filter_configuration *conf,
+	int count_coords)
 {
 	struct ts_filter_mean *priv;
 	int *v;
@@ -62,7 +64,9 @@ static struct ts_filter *ts_filter_mean_create(struct platform_device *pdev,
 		return NULL;
 
 	priv->tsf.count_coords = count_coords;
-	priv->config = (struct ts_filter_mean_configuration *)config;
+	priv->config = container_of(conf,
+				    struct ts_filter_mean_configuration,
+				    config);
 
 	BUG_ON(priv->config->length <= 0);
 

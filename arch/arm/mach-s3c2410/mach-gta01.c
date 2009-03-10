@@ -702,59 +702,50 @@ static struct s3c2410_udc_mach_info gta01_udc_cfg = {
 	.vbus_draw	= gta01_udc_vbus_draw,
 };
 
+/* Touchscreen configuration. */
 
-/* touchscreen configuration */
 #ifdef CONFIG_TOUCHSCREEN_FILTER
-static struct ts_filter_linear_configuration gta01_ts_linear_config = {
-	.constants = {1, 0, 0, 0, 1, 0, 1},	/* don't modify coords */
-	.coord0 = 0,
-	.coord1 = 1,
-};
-
-static struct ts_filter_group_configuration gta01_ts_group_config = {
-	.extent = 12,
+static struct ts_filter_group_configuration gta01_ts_group = {
+	.length = 12,
 	.close_enough = 10,
-	.threshold = 6,		/* at least half of the points in a group */
+	.threshold = 6,		/* At least half of the points in a group. */
 	.attempts = 10,
 };
 
-static struct ts_filter_median_configuration gta01_ts_median_config = {
-	.extent = 31,
-	.decimation_below = 24,
+static struct ts_filter_median_configuration gta01_ts_median = {
+	.extent = 20,
+	.decimation_below = 3,
 	.decimation_threshold = 8 * 3,
-	.decimation_above = 12,
+	.decimation_above = 4,
 };
 
-static struct ts_filter_mean_configuration gta01_ts_mean_config = {
-	.bits_filter_length = 5,
-	.averaging_threshold = 12
+static struct ts_filter_mean_configuration gta01_ts_mean = {
+	.length = 4,
 };
 
-static struct s3c2410_ts_mach_info gta01_ts_cfg = {
-	.delay = 10000,
-	.presc = 0xff, /* slow as we can go */
-	.filter_sequence = {
-		[0] = &ts_filter_group_api,
-		[1] = &ts_filter_median_api,
-		[2] = &ts_filter_mean_api,
-		[3] = &ts_filter_linear_api,
-	},
-	.filter_config = {
-		[0] = &gta01_ts_group_config,
-		[1] = &gta01_ts_median_config,
-		[2] = &gta01_ts_mean_config,
-		[3] = &gta01_ts_linear_config,
-	},
-};
-#else /* !CONFIG_TOUCHSCREEN_FILTER */
-static struct s3c2410_ts_mach_info gta01_ts_cfg = {
-	.delay = 10000,
-	.presc = 0xff, /* slow as we can go */
-	.filter_sequence = { NULL },
-	.filter_config = { NULL },
+static struct ts_filter_linear_configuration gta01_ts_linear = {
+	.constants = {1, 0, 0, 0, 1, 0, 1},	/* Don't modify coords. */
+	.coord0 = 0,
+	.coord1 = 1,
 };
 #endif
 
+struct ts_filter_configuration filter_configuration[] =
+{
+#ifdef CONFIG_TOUCHSCREEN_FILTER
+	{&ts_filter_group_api,		&gta01_ts_group.config},
+	{&ts_filter_median_api,		&gta01_ts_median.config},
+	{&ts_filter_mean_api,		&gta01_ts_mean.config},
+	{&ts_filter_linear_api,		&gta01_ts_linear.config},
+#endif
+	{NULL, NULL},
+};
+
+static struct s3c2410_ts_mach_info gta01_ts_cfg = {
+	.delay = 10000,
+	.presc = 0xff, /* slow as we can go */
+	.filter_config = filter_configuration,
+};
 
 /* SPI */
 

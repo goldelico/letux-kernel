@@ -19,17 +19,17 @@
 #include <../drivers/input/touchscreen/ts_filter.h>
 
 struct s3c2410_ts_mach_info {
-        int delay;
-        int presc;
-        /* array of pointers to filter APIs we want to use, in order
-         * ends on first NULL, all NULL is OK
-         */
-        struct ts_filter_api *filter_sequence[MAX_TS_FILTER_CHAIN];
-        /* array of configuration ints, one for each filter above */
-        void *filter_config[MAX_TS_FILTER_CHAIN];
+	/* Touchscreen delay. */
+	int delay;
+	/* Prescaler value. */
+	int presc;
+	/*
+	 * Null-terminated array of pointers to filter APIs and configurations
+	 * we want to use. In the same order they will be applied.
+	 */
+	struct ts_filter_configuration *filter_config;
 };
 
 void set_s3c2410ts_info(struct s3c2410_ts_mach_info *hard_s3c2410ts_info);
 
 #endif /* __ASM_ARM_TS_H */
-

@@ -12,10 +12,23 @@
  */
 
 struct ts_filter_group_configuration {
-	int extent;
+	/* Size of the filter. */
+	int length;
+	/*
+	 * If two points are separated by this distance or less they
+	 * are considered to be members of the same group.
+	 */
 	int close_enough;
+	/* Minimum allowed size for the biggest group in the sample set. */
 	int threshold;
+	/*
+	 * Number of times we try to get a group of points with at least
+	 * threshold points.
+	 */
 	int attempts;
+
+	/* Generic filter configuration. */
+	struct ts_filter_configuration config;
 };
 
 extern struct ts_filter_api ts_filter_group_api;

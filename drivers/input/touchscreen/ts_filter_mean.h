@@ -17,6 +17,9 @@
 struct ts_filter_mean_configuration {
 	/* Number of points for the mean. */
 	int length;
+
+	/* Generic filter configuration. */
+	struct ts_filter_configuration config;
 };
 
 /* API functions for the mean filter */

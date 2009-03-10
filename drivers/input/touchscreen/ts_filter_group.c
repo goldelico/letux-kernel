@@ -83,8 +83,10 @@ static void ts_filter_group_clear(struct ts_filter *tsf)
 	ts_filter_group_clear_internal(tsfg, tsfg->config->attempts);
 }
 
-static struct ts_filter *ts_filter_group_create(struct platform_device *pdev,
-						void *conf, int count_coords)
+static struct ts_filter *ts_filter_group_create(
+	struct platform_device *pdev,
+	struct ts_filter_configuration *conf,
+	int count_coords)
 {
 	struct ts_filter_group *tsfg;
 	int i;
@@ -93,28 +95,30 @@ static struct ts_filter *ts_filter_group_create(struct platform_device *pdev,
 	if (!tsfg)
 		return NULL;
 
-	tsfg->config = (struct ts_filter_group_configuration *)conf;
+	tsfg->config = container_of(conf,
+				    struct ts_filter_group_configuration,
+				    config);
 	tsfg->tsf.count_coords = count_coords;
 
 	BUG_ON(tsfg->config->attempts <= 0);
 
 	tsfg->samples[0] = kmalloc((2 + count_coords) * sizeof(int) *
-				   tsfg->config->extent, GFP_KERNEL);
+				   tsfg->config->length, GFP_KERNEL);
 	if (!tsfg->samples[0]) {
 		kfree(tsfg);
 		return NULL;
 	}
 	for (i = 1; i < count_coords; ++i)
-		tsfg->samples[i] = tsfg->samples[0] + i * tsfg->config->extent;
+		tsfg->samples[i] = tsfg->samples[0] + i * tsfg->config->length;
 	tsfg->sorted_samples = tsfg->samples[0] + count_coords *
-			       tsfg->config->extent;
+			       tsfg->config->length;
 	tsfg->group_size = tsfg->samples[0] + (1 + count_coords) *
-			       tsfg->config->extent;
+			       tsfg->config->length;
 
 	ts_filter_group_clear_internal(tsfg, tsfg->config->attempts);
 
 	dev_info(&pdev->dev, "Created Group filter len:%d coords:%d close:%d "
-		 "thresh:%d\n", tsfg->config->extent, count_coords,
+		 "thresh:%d\n", tsfg->config->length, count_coords,
 		 tsfg->config->close_enough, tsfg->config->threshold);
 
 	return &tsfg->tsf;
@@ -148,13 +152,13 @@ static int ts_filter_group_process(struct ts_filter *tsf, int *coords)
 	int n;
 	int i;
 
-	BUG_ON(tsfg->N >= tsfg->config->extent);
+	BUG_ON(tsfg->N >= tsfg->config->length);
 	BUG_ON(tsfg->ready);
 
 	for (n = 0; n < tsf->count_coords; n++)
 		tsfg->samples[n][tsfg->N] = coords[n];
 
-	if (++tsfg->N < tsfg->config->extent)
+	if (++tsfg->N < tsfg->config->length)
 		return 0;	/* We need more samples. */
 
 	for (n = 0; n < tsfg->tsf.count_coords; n++) {
