@@ -8,27 +8,18 @@
  *
  * mean
  *
- * (c) 2008 Andy Green <andy@openmoko.com>
+ * (c) 2008,2009
+ *     Andy Green <andy@openmoko.com>
+ *     Nelson Castillo <arhuaco@freaks-unidos.net>
  */
 
+/* Configuration for this filter. */
 struct ts_filter_mean_configuration {
-	int bits_filter_length;
-	int averaging_threshold;
-
-	int extent;
+	/* Number of points for the mean. */
+	int length;
 };
 
-struct ts_filter_mean {
-	struct ts_filter tsf;
-	struct ts_filter_mean_configuration *config;
-
-	int reported[MAX_TS_FILTER_COORDS];
-	int lowpass[MAX_TS_FILTER_COORDS];
-	int *fifo[MAX_TS_FILTER_COORDS];
-	int fhead[MAX_TS_FILTER_COORDS];
-	int ftail[MAX_TS_FILTER_COORDS];
-};
-
+/* API functions for the mean filter */
 extern struct ts_filter_api ts_filter_mean_api;
 
-#endif
+#endif /* __TS_FILTER_MEAN_H__ */

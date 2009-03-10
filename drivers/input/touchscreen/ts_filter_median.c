@@ -34,22 +34,50 @@
 #include <linux/slab.h>
 #include "ts_filter_median.h"
 
+struct ts_filter_median {
+	/* Private configuration. */
+	struct ts_filter_median_configuration *config;
+	/* Generic Filter API. */
+	struct ts_filter tsf;
+
+	/* Count raw samples we get. */
+	int samples_count;
+	/*
+	 * Remember the last coordinates we got in order to know if
+	 * we are moving slow or fast.
+	 */
+	int last_issued[MAX_TS_FILTER_COORDS];
+	/* How many samples in the sort buffer are valid. */
+	int valid;
+	/* Samples taken for median in sorted form. */
+	int *sort[MAX_TS_FILTER_COORDS];
+	/* Samples taken for median. */
+	int *fifo[MAX_TS_FILTER_COORDS];
+	/* Where we are in the fifo sample memory. */
+	int pos;
+	/* Do we have a sample to deliver? */
+	int ready;
+};
+
+#define ts_filter_to_filter_median(f) \
+	container_of(f, struct ts_filter_median, tsf)
+
+
 static void ts_filter_median_insert(int *p, int sample, int count)
 {
 	int n;
 
-	/* search through what we got so far to find where to put sample */
+	/* Search through what we got so far to find where to put sample. */
 	for (n = 0; n < count; n++)
-		 /* we met somebody bigger than us? */
-		if (sample < p[n]) {
-			/* starting from the end, push bigger guys down one */
+		if (sample < p[n]) {	/* We met somebody bigger than us? */
+			/* Starting from the end, push bigger guys down one. */
 			for (count--; count >= n; count--)
 				p[count + 1] = p[count];
-			p[n] = sample; /* and put us in place of first bigger */
+			p[n] = sample; /* Put us in place of first bigger. */
 			return;
 		}
 
-	p[count] = sample; /* nobody was bigger than us, add us on the end */
+	p[count] = sample; /* Nobody was bigger than us, add us on the end. */
 }
 
 static void ts_filter_median_del(int *p, int value, int count)
@@ -65,20 +93,14 @@ static void ts_filter_median_del(int *p, int value, int count)
 }
 
 
-static void ts_filter_median_clear_internal(struct ts_filter *tsf)
+static void ts_filter_median_clear(struct ts_filter *tsf)
 {
-	struct ts_filter_median *tsfm = (struct ts_filter_median *)tsf;
+	struct ts_filter_median *tsfm = ts_filter_to_filter_median(tsf);
 
 	tsfm->pos = 0;
 	tsfm->valid = 0;
-
-}
-static void ts_filter_median_clear(struct ts_filter *tsf)
-{
-	ts_filter_median_clear_internal(tsf);
-
-	if (tsf->next) /* chain */
-		(tsf->next->api->clear)(tsf->next);
+	tsfm->ready = 0;
+	memset(&tsfm->last_issued[0], 1, tsf->count_coords * sizeof(int));
 }
 
 static struct ts_filter *ts_filter_median_create(struct platform_device *pdev,
@@ -93,13 +115,12 @@ static struct ts_filter *ts_filter_median_create(struct platform_device *pdev,
 		return NULL;
 
 	tsfm->config = (struct ts_filter_median_configuration *)conf;
-	BUG_ON((count_coords < 1) || (count_coords > MAX_TS_FILTER_COORDS));
 	tsfm->tsf.count_coords = count_coords;
 
 	tsfm->config->midpoint = (tsfm->config->extent >> 1) + 1;
 
 	p = kmalloc(2 * count_coords * sizeof(int) * (tsfm->config->extent + 1),
-								    GFP_KERNEL);
+		    GFP_KERNEL);
 	if (!p) {
 		kfree(tsfm);
 		return NULL;
@@ -112,21 +133,21 @@ static struct ts_filter *ts_filter_median_create(struct platform_device *pdev,
 		p += tsfm->config->extent + 1;
 	}
 
-	ts_filter_median_clear_internal(&tsfm->tsf);
+	ts_filter_median_clear(&tsfm->tsf);
 
-	printk(KERN_INFO"  Created Median ts filter len %d depth %d dec %d\n",
-	       tsfm->config->extent, count_coords,
-	       tsfm->config->decimation_threshold);
+	dev_info(&pdev->dev,
+		 "Created Median filter len:%d coords:%d dec_threshold:%d\n",
+		 tsfm->config->extent, count_coords,
+		 tsfm->config->decimation_threshold);
 
 	return &tsfm->tsf;
 }
 
-static void ts_filter_median_destroy(struct platform_device *pdev,
-				     struct ts_filter *tsf)
+static void ts_filter_median_destroy(struct ts_filter *tsf)
 {
-	struct ts_filter_median *tsfm = (struct ts_filter_median *)tsf;
+	struct ts_filter_median *tsfm = ts_filter_to_filter_median(tsf);
 
-	kfree(tsfm->sort[0]); /* first guy has pointer from kmalloc */
+	kfree(tsfm->sort[0]); /* First guy has pointer from kmalloc. */
 	kfree(tsf);
 }
 
@@ -136,9 +157,6 @@ static void ts_filter_median_scale(struct ts_filter *tsf, int *coords)
 
 	for (n = 0; n < tsf->count_coords; n++)
 		coords[n] = (coords[n] + 2) / 3;
-
-	if (tsf->next) /* chain */
-		(tsf->next->api->scale)(tsf->next, coords);
 }
 
 /*
@@ -149,69 +167,88 @@ static void ts_filter_median_scale(struct ts_filter *tsf, int *coords)
 
 static int ts_filter_median_process(struct ts_filter *tsf, int *coords)
 {
-	struct ts_filter_median *tsfm = (struct ts_filter_median *)tsf;
+	struct ts_filter_median *tsfm = ts_filter_to_filter_median(tsf);
 	int n;
 	int movement = 1;
 
 	for (n = 0; n < tsf->count_coords; n++) {
-		/* grab copy in insertion order to remove when oldest */
+		/* Grab copy in insertion order to remove when oldest. */
 		tsfm->fifo[n][tsfm->pos] = coords[n];
-		/* insert these samples in sorted order in the median arrays */
+		/* Insert these samples in sorted order in the median arrays. */
 		ts_filter_median_insert(tsfm->sort[n], coords[n], tsfm->valid);
 	}
-	/* move us on in the fifo */
+	/* Move us on in the fifo. */
 	if (++tsfm->pos == (tsfm->config->extent + 1))
 		tsfm->pos = 0;
 
-	/* we have finished a median sampling? */
-	if (++tsfm->valid != tsfm->config->extent)
-		return 0; /* no valid sample to use */
+	/* Have we finished a median sampling? */
+	if (++tsfm->valid < tsfm->config->extent)
+		goto process_exit; /* No valid sample to use. */
 
-	/* discard the oldest sample in median sorted array */
+	BUG_ON(tsfm->valid != tsfm->config->extent);
+
 	tsfm->valid--;
 
 	/*
 	 * Sum the middle 3 in the median sorted arrays. We don't divide back
 	 * down which increases the sum resolution by a factor of 3 until the
-	 * scale API is called.
+	 * scale API function is called.
 	 */
-	for (n = 0; n < tsfm->tsf.count_coords; n++)
-		/* perform the deletion of the oldest sample */
+	for (n = 0; n < tsf->count_coords; n++)
+		/* Perform the deletion of the oldest sample. */
 		ts_filter_median_del(tsfm->sort[n], tsfm->fifo[n][tsfm->pos],
-								   tsfm->valid);
+				     tsfm->valid);
 
-	tsfm->decimation_count--;
-	if (tsfm->decimation_count >= 0)
-		return 0;
+	tsfm->samples_count--;
+	if (tsfm->samples_count >= 0)
+		goto process_exit;
 
-	for (n = 0; n < tsfm->tsf.count_coords; n++) {
-		/* give the coordinate result from summing median 3 */
+	for (n = 0; n < tsf->count_coords; n++) {
+		/* Give the coordinate result from summing median 3. */
 		coords[n] = tsfm->sort[n][tsfm->config->midpoint - 1] +
 			    tsfm->sort[n][tsfm->config->midpoint] +
-			    tsfm->sort[n][tsfm->config->midpoint + 1]
-			;
+			    tsfm->sort[n][tsfm->config->midpoint + 1];
 
 		movement += abs(tsfm->last_issued[n] - coords[n]);
 	}
 
-	if (movement > tsfm->config->decimation_threshold) /* fast */
-		tsfm->decimation_count = tsfm->config->decimation_above;
+	if (movement > tsfm->config->decimation_threshold) /* Moving fast. */
+		tsfm->samples_count = tsfm->config->decimation_above;
 	else
-		tsfm->decimation_count = tsfm->config->decimation_below;
+		tsfm->samples_count = tsfm->config->decimation_below;
 
-	memcpy(&tsfm->last_issued[0], coords,
-	       tsfm->tsf.count_coords * sizeof(int));
+	memcpy(&tsfm->last_issued[0], coords, tsf->count_coords * sizeof(int));
 
-	if (tsf->next) /* chain */
-		return (tsf->next->api->process)(tsf->next, coords);
+	tsfm->ready = 1;
 
-	return 1;
+process_exit:
+	return 0;
+}
+
+static int ts_filter_median_haspoint(struct ts_filter *tsf)
+{
+	struct ts_filter_median *priv = ts_filter_to_filter_median(tsf);
+
+	return priv->ready;
+}
+
+static void ts_filter_median_getpoint(struct ts_filter *tsf, int *point)
+{
+	struct ts_filter_median *priv = ts_filter_to_filter_median(tsf);
+
+	BUG_ON(!priv->ready);
+
+	memcpy(point, &priv->last_issued[0], tsf->count_coords * sizeof(int));
+
+	priv->ready = 0;
 }
 
 struct ts_filter_api ts_filter_median_api = {
-	.create = ts_filter_median_create,
-	.destroy = ts_filter_median_destroy,
-	.clear = ts_filter_median_clear,
-	.process = ts_filter_median_process,
-	.scale = ts_filter_median_scale,
+	.create =	ts_filter_median_create,
+	.destroy =	ts_filter_median_destroy,
+	.clear =	ts_filter_median_clear,
+	.process =	ts_filter_median_process,
+	.scale =	ts_filter_median_scale,
+	.haspoint =	ts_filter_median_haspoint,
+	.getpoint =	ts_filter_median_getpoint,
 };

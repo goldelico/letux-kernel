@@ -972,7 +972,7 @@ static struct ts_filter_median_configuration gta02_ts_median_config = {
 };
 
 static struct ts_filter_mean_configuration gta02_ts_mean_config = {
-	.bits_filter_length = 2, /* 4 points */
+	.length = 4,
 };
 
 static struct s3c2410_ts_mach_info gta02_ts_cfg = {

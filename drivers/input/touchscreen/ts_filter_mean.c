@@ -13,162 +13,157 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * Copyright (c) 2008 Andy Green <andy@openmoko.com>
+ * Copyright (c) 2008,2009
+ *       Andy Green <andy@openmoko.com>
+ *       Nelson Castillo <arhuaco@freaks-unidos.net>
  *
+ * Simple mean filter.
  *
- * Mean has no effect if the samples are changing by more that the
- * threshold set by averaging_threshold in the configuration.
- *
- * However while samples come in that don't go outside this threshold from
- * the last reported sample, Mean replaces the samples with a simple mean
- * of a configurable number of samples (set by bits_filter_length in config,
- * which is 2^n, so 5 there makes 32 sample averaging).
- *
- * Mean works well if the input data is already good quality, reducing + / - 1
- * sample jitter when the stylus is still, or moving very slowly, without
- * introducing abrupt transitions or reducing ability to follow larger
- * movements.  If you set the threshold higher than the dynamic range of the
- * coordinates, you can just use it as a simple mean average.
  */
 
 #include <linux/errno.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
+
 #include "ts_filter_mean.h"
 
-static void ts_filter_mean_clear_internal(struct ts_filter *tsf)
-{
-	struct ts_filter_mean *tsfs = (struct ts_filter_mean *)tsf;
-	int n;
+struct ts_filter_mean {
+	/* Copy of the private filter configuration. */
+	struct ts_filter_mean_configuration *config;
+	/* Filter API. */
+	struct ts_filter tsf;
 
-	for (n = 0; n < tsfs->tsf.count_coords; n++) {
-		tsfs->fhead[n] = 0;
-		tsfs->ftail[n] = 0;
-		tsfs->lowpass[n] = 0;
-	}
-}
+	/* Index on a circular buffer. */
+	int curr;
+	/* Useful to tell if the circular buffer is full(read:ready). */
+	int count;
+	/* Sumation used to compute the mean. */
+	int sum[MAX_TS_FILTER_COORDS];
+	/* Keep point values and decrement them from the sum on time. */
+	int *fifo[MAX_TS_FILTER_COORDS];
+	/* Store the output of this filter. */
+	int ready;
+};
 
-static void ts_filter_mean_clear(struct ts_filter *tsf)
-{
-	ts_filter_mean_clear_internal(tsf);
+#define ts_filter_to_filter_mean(f) container_of(f, struct ts_filter_mean, tsf)
 
-	if (tsf->next) /* chain */
-		(tsf->next->api->clear)(tsf->next);
-}
+
+static void ts_filter_mean_clear(struct ts_filter *tsf);
 
 static struct ts_filter *ts_filter_mean_create(struct platform_device *pdev,
 					       void *config, int count_coords)
 {
-	int *p;
+	struct ts_filter_mean *priv;
+	int *v;
 	int n;
-	struct ts_filter_mean *tsfs = kzalloc(
-				  sizeof(struct ts_filter_mean), GFP_KERNEL);
 
-	if (!tsfs)
+	priv = kzalloc(sizeof(struct ts_filter_mean), GFP_KERNEL);
+	if (!priv)
 		return NULL;
 
-	BUG_ON((count_coords < 1) || (count_coords > MAX_TS_FILTER_COORDS));
-	tsfs->tsf.count_coords = count_coords;
+	priv->tsf.count_coords = count_coords;
+	priv->config = (struct ts_filter_mean_configuration *)config;
 
-	tsfs->config = (struct ts_filter_mean_configuration *)config;
+	BUG_ON(priv->config->length <= 0);
 
-	tsfs->config->extent = 1 << tsfs->config->bits_filter_length;
-	BUG_ON((tsfs->config->extent > 256) || (!tsfs->config->extent));
-
-	p = kmalloc(tsfs->config->extent * sizeof(int) * count_coords,
-								    GFP_KERNEL);
-	if (!p)
+	v = kmalloc(priv->config->length * sizeof(int) * count_coords,
+		    GFP_KERNEL);
+	if (!v)
 		return NULL;
 
 	for (n = 0; n < count_coords; n++) {
-		tsfs->fifo[n] = p;
-		p += tsfs->config->extent;
+		priv->fifo[n] = v;
+		v += priv->config->length;
 	}
 
-	if (!tsfs->config->averaging_threshold)
-		tsfs->config->averaging_threshold = 0xffff; /* always active */
+	ts_filter_mean_clear(&priv->tsf);
 
-	ts_filter_mean_clear_internal(&tsfs->tsf);
+	dev_info(&pdev->dev, "Created Mean filter len:%d coords:%d\n",
+		 priv->config->length, count_coords);
 
-	printk(KERN_INFO"  Created Mean ts filter len %d depth %d thresh %d\n",
-	       tsfs->config->extent, count_coords,
-	       tsfs->config->averaging_threshold);
-
-	return &tsfs->tsf;
+	return &priv->tsf;
 }
 
-static void ts_filter_mean_destroy(struct platform_device *pdev,
-				   struct ts_filter *tsf)
+static void ts_filter_mean_destroy(struct ts_filter *tsf)
 {
-	struct ts_filter_mean *tsfs = (struct ts_filter_mean *)tsf;
+	struct ts_filter_mean *priv = ts_filter_to_filter_mean(tsf);
 
-	kfree(tsfs->fifo[0]); /* first guy has pointer from kmalloc */
+	kfree(priv->fifo[0]); /* first guy has pointer from kmalloc */
 	kfree(tsf);
+}
+
+static void ts_filter_mean_clear(struct ts_filter *tsf)
+{
+	struct ts_filter_mean *priv = ts_filter_to_filter_mean(tsf);
+
+	priv->count = 0;
+	priv->curr = 0;
+	priv->ready = 0;
+	memset(priv->sum, 0, tsf->count_coords * sizeof(int));
+}
+
+static int ts_filter_mean_process(struct ts_filter *tsf, int *coords)
+{
+	struct ts_filter_mean *priv = ts_filter_to_filter_mean(tsf);
+	int n;
+
+	BUG_ON(priv->ready);
+
+	for (n = 0; n < tsf->count_coords; n++) {
+		priv->sum[n] += coords[n];
+		priv->fifo[n][priv->curr] = coords[n];
+	}
+
+	if (priv->count + 1 == priv->config->length)
+		priv->ready = 1;
+	else
+		priv->count++;
+
+	priv->curr = (priv->curr + 1) % priv->config->length;
+
+	return 0; /* no error */
+}
+
+static int ts_filter_mean_haspoint(struct ts_filter *tsf)
+{
+	struct ts_filter_mean *priv = ts_filter_to_filter_mean(tsf);
+
+	return priv->ready;
+}
+
+static void ts_filter_mean_getpoint(struct ts_filter *tsf, int *point)
+{
+	struct ts_filter_mean *priv = ts_filter_to_filter_mean(tsf);
+	int n;
+
+	BUG_ON(!priv->ready);
+
+	for (n = 0; n < tsf->count_coords; n++) {
+		point[n] = priv->sum[n];
+		priv->sum[n] -= priv->fifo[n][priv->curr];
+	}
+
+	priv->ready = 0;
 }
 
 static void ts_filter_mean_scale(struct ts_filter *tsf, int *coords)
 {
-	if (tsf->next) /* chain */
-		(tsf->next->api->scale)(tsf->next, coords);
-}
-
-/*
- * Give us the raw sample data in x and y, and if we return 1 then you can
- * get a filtered coordinate from tsm->x and tsm->y. If we return 0 you didn't
- * fill the filter with samples yet.
- */
-
-static int ts_filter_mean_process(struct ts_filter *tsf, int *coords)
-{
-	struct ts_filter_mean *tsfs = (struct ts_filter_mean *)tsf;
 	int n;
-	int len;
+	struct ts_filter_mean *priv = ts_filter_to_filter_mean(tsf);
 
 	for (n = 0; n < tsf->count_coords; n++) {
-
-		/*
-		 * Has he moved far enough away that we should abandon current
-		 * low pass filtering state?
-		 */
-		if ((coords[n] < (tsfs->reported[n] -
-					  tsfs->config->averaging_threshold)) ||
-		    (coords[n] > (tsfs->reported[n] +
-					  tsfs->config->averaging_threshold))) {
-			tsfs->fhead[n] = 0;
-			tsfs->ftail[n] = 0;
-			tsfs->lowpass[n] = 0;
-		}
-
-		/* capture this sample into fifo and sum */
-		tsfs->fifo[n][tsfs->fhead[n]++] = coords[n];
-		if (tsfs->fhead[n] == tsfs->config->extent)
-			tsfs->fhead[n] = 0;
-		tsfs->lowpass[n] += coords[n];
-
-		/* adjust the sum into an average and use that*/
-		len = (tsfs->fhead[n] - tsfs->ftail[n]) &
-						     (tsfs->config->extent - 1);
-		coords[n] = (tsfs->lowpass[n] + (len >> 1)) / len;
-		tsfs->reported[n] = coords[n];
-
-		/* remove oldest sample if we are full */
-		if (len == (tsfs->config->extent - 1)) {
-			tsfs->lowpass[n] -= tsfs->fifo[n][tsfs->ftail[n]++];
-			if (tsfs->ftail[n] == tsfs->config->extent)
-				tsfs->ftail[n] = 0;
-		}
+		coords[n] += priv->config->length >> 1; /* rounding */
+		coords[n] /= priv->config->length;
 	}
-
-	if (tsf->next) /* chain */
-		return (tsf->next->api->process)(tsf->next, coords);
-
-	return 1;
 }
 
 struct ts_filter_api ts_filter_mean_api = {
-	.create = ts_filter_mean_create,
-	.destroy = ts_filter_mean_destroy,
-	.clear = ts_filter_mean_clear,
-	.process = ts_filter_mean_process,
-	.scale = ts_filter_mean_scale,
+	.create =	ts_filter_mean_create,
+	.destroy =	ts_filter_mean_destroy,
+	.clear =	ts_filter_mean_clear,
+	.process =	ts_filter_mean_process,
+	.scale =	ts_filter_mean_scale,
+	.haspoint =	ts_filter_mean_haspoint,
+	.getpoint =	ts_filter_mean_getpoint,
 };
+

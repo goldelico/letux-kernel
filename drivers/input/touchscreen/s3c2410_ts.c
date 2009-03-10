@@ -98,6 +98,7 @@ static char *s3c2410ts_name = "s3c2410 TouchScreen";
 
 #define TS_RELEASE_TIMEOUT (HZ >> 7 ? HZ >> 7 : 1) /* 8ms (5ms if HZ is 200) */
 #define TS_EVENT_FIFO_SIZE (2 << 6) /* must be a power of 2 */
+#define TS_COORDINATES_SIZE 2		/* just X and Y for us */
 
 #define TS_STATE_STANDBY 0 /* initial state */
 #define TS_STATE_PRESSED 1
@@ -110,8 +111,7 @@ static char *s3c2410ts_name = "s3c2410 TouchScreen";
 
 struct s3c2410ts {
 	struct input_dev *dev;
-	struct ts_filter *tsf[MAX_TS_FILTER_CHAIN];
-	int coords[2]; /* just X and Y for us */
+	struct ts_filter **tsf;
 	int is_down;
 	int state;
 	struct kfifo *event_fifo;
@@ -232,15 +232,14 @@ static void event_send_timer_f(unsigned long data)
 	if (noop_counter++ >= 1) {
 		noop_counter = 0;
 		if (ts.state == TS_STATE_RELEASE_PENDING) {
-			/* We delay the UP event for a
-			 * while to avoid jitter. If we get a DOWN
-			 * event we do not send it. */
-
+			/*
+			 * We delay the UP event for a while to avoid jitter.
+			 * If we get a DOWN event we do not send it.
+			 */
 			ts_input_report(IE_UP, NULL);
 			ts.state = TS_STATE_STANDBY;
 
-			if (ts.tsf[0])
-				(ts.tsf[0]->api->clear)(ts.tsf[0]);
+			ts_filter_chain_clear(ts.tsf);
 		}
 	} else {
 		mod_timer(&event_send_timer, jiffies + TS_RELEASE_TIMEOUT);
@@ -288,42 +287,29 @@ static irqreturn_t stylus_action(int irq, void *dev_id)
 {
 	int buf[3];
 
-	/* grab the ADC results */
-	ts.coords[0] = readl(base_addr + S3C2410_ADCDAT0) &
-						    S3C2410_ADCDAT0_XPDATA_MASK;
-	ts.coords[1] = readl(base_addr + S3C2410_ADCDAT1) &
-						    S3C2410_ADCDAT1_YPDATA_MASK;
+	/* Grab the ADC results. */
+	buf[1] = readl(base_addr + S3C2410_ADCDAT0) &
+		       S3C2410_ADCDAT0_XPDATA_MASK;
+	buf[2] = readl(base_addr + S3C2410_ADCDAT1) &
+		       S3C2410_ADCDAT1_YPDATA_MASK;
 
-	if (ts.tsf[0]) { /* filtering is enabled, don't use raw directly */
-		switch ((ts.tsf[0]->api->process)(ts.tsf[0], &ts.coords[0])) {
-		case 0:	/*
-			 * no real sample came out of processing yet,
-			 * get another raw result to feed it
-			 */
-			s3c2410_ts_start_adc_conversion();
-			return IRQ_HANDLED;
-		case 1:	/* filters are ready to deliver a sample */
-			(ts.tsf[0]->api->scale)(ts.tsf[0], &ts.coords[0]);
-			break;
-		case -1:
-			/* error in filters, ignore the event */
-			(ts.tsf[0]->api->clear)(ts.tsf[0]);
-			writel(WAIT4INT(1), base_addr + S3C2410_ADCTSC);
-			return IRQ_HANDLED;
-		default:
-			printk(KERN_ERR":stylus_action error\n");
-		}
-	}
-
-	/* We use a buffer because want an atomic operation */
-	buf[0] = 'P';
-	buf[1] = ts.coords[0];
-	buf[2] = ts.coords[1];
+	switch (ts_filter_chain_feed(ts.tsf, &buf[1])) {
+	case 0:
+		s3c2410_ts_start_adc_conversion();
+		return IRQ_HANDLED;
+	case -1:
+		/* Error. Ignore the event. */
+		ts_filter_chain_clear(ts.tsf);
+		writel(WAIT4INT(1), base_addr + S3C2410_ADCTSC);
+		return IRQ_HANDLED;
+	default:
+		/* We have a point from the filters or no filtering enabled. */
+		buf[0] = 'P';
+	};
 
 	if (unlikely(__kfifo_put(ts.event_fifo, (unsigned char *)buf,
 		     sizeof(int) * 3) != sizeof(int) * 3))
-		/* should not happen */
-			printk(KERN_ERR":stylus_action error\n");
+		printk(KERN_ERR":stylus_action error\n"); /* happens => bug */
 
 	writel(WAIT4INT(1), base_addr + S3C2410_ADCTSC);
 	mod_timer(&event_send_timer, jiffies + 1);
@@ -425,18 +411,14 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 	}
 
 	/* create the filter chain set up for the 2 coordinates we produce */
-	ret = ts_filter_create_chain(
-		pdev, (struct ts_filter_api **)&info->filter_sequence,
-		(void *)&info->filter_config, ts.tsf, ARRAY_SIZE(ts.coords));
-	if (ret)
-		dev_info(&pdev->dev, "%d filter(s) initialized\n", ret);
-	else /* this is OK, just means there won't be any filtering */
-		dev_info(&pdev->dev, "Unfiltered output selected\n");
+	ts.tsf = ts_filter_chain_create(
+			pdev, (struct ts_filter_api **)&info->filter_sequence,
+			(void *)&info->filter_config, TS_COORDINATES_SIZE);
 
-	if (ts.tsf[0])
-		(ts.tsf[0]->api->clear)(ts.tsf[0]);
-	else
-		dev_info(&pdev->dev, "No filtering\n");
+	if (!ts.tsf)
+		goto bail2;
+
+	ts_filter_chain_clear(ts.tsf);
 
 	/* Get irqs */
 	if (request_irq(IRQ_ADC, stylus_action, IRQF_SAMPLE_RANDOM,
@@ -455,7 +437,7 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 		goto bail4;
 	}
 
-	dev_info(&pdev->dev, "successfully loaded\n");
+	dev_info(&pdev->dev, "Successfully loaded\n");
 
 	/* All went ok, so register to the input system */
 	rc = input_register_device(ts.dev);
@@ -475,7 +457,7 @@ bail5:
 bail4:
 	disable_irq(IRQ_ADC);
 bail3:
-	ts_filter_destroy_chain(pdev, ts.tsf);
+	ts_filter_chain_destroy(ts.tsf);
 	kfifo_free(ts.event_fifo);
 bail2:
 	input_unregister_device(ts.dev);
@@ -502,7 +484,7 @@ static int s3c2410ts_remove(struct platform_device *pdev)
 	input_unregister_device(ts.dev);
 	iounmap(base_addr);
 
-	ts_filter_destroy_chain(pdev, ts.tsf);
+	ts_filter_chain_destroy(ts.tsf);
 
 	kfifo_free(ts.event_fifo);
 
@@ -532,8 +514,7 @@ static int s3c2410ts_resume(struct platform_device *pdev)
 	clk_enable(adc_clock);
 	mdelay(1);
 
-	if (ts.tsf[0])
-		(ts.tsf[0]->api->clear)(ts.tsf[0]);
+	ts_filter_chain_clear(ts.tsf);
 
 	enable_irq(IRQ_ADC);
 	enable_irq(IRQ_TC);
