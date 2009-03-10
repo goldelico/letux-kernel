@@ -62,10 +62,6 @@ struct ts_filter_api {
  * as a member.
  */
 struct ts_filter_configuration {
-	/* API to use */
-	const struct ts_filter_api *api;
-	/* Generic filter configuration. Different for each filter. */
-	const struct ts_filter_configuration *config;
 };
 
 struct ts_filter {
@@ -74,39 +70,5 @@ struct ts_filter {
 	/* Number of coordinates to process. */
 	int count_coords;
 };
-
-#ifdef CONFIG_TOUCHSCREEN_FILTER
-
-/*
- * Helper to create a filter chain. It will allocate an array of
- * null-terminated pointers to filters.
- */
-extern struct ts_filter **ts_filter_chain_create(
-	struct platform_device *pdev,
-	const struct ts_filter_configuration conf[],
-	int count_coords);
-
-/* Helper to destroy a whole chain from the list of filter pointers. */
-extern void ts_filter_chain_destroy(struct ts_filter **arr);
-
-/* Helper to call the clear API function */
-extern void ts_filter_chain_clear(struct ts_filter **arr);
-
-/*
- * Try to get one point. Returns 0 if no points are available.
- * coords will be used as temporal space, thus you supply a point
- * using coords but you shouldn't rely on its value on return unless
- * it returns a nonzero value that is not -1.
- * If one of the filters find an error then this function will
- * return -1.
- */
-int ts_filter_chain_feed(struct ts_filter **arr, int *coords);
-
-#else /* !CONFIG_TOUCHSCREEN_FILTER */
-#define ts_filter_chain_create(pdev, config, count_coords) (0) /*TODO:fail!*/
-#define ts_filter_chain_destroy(pdev, arr) do { } while (0)
-#define ts_filter_chain_clear(arr) do { } while (0)
-#define ts_filter_chain_feed(arr, coords) (1)
-#endif
 
 #endif

@@ -27,7 +27,7 @@ struct s3c2410_ts_mach_info {
 	 * Null-terminated array of pointers to filter APIs and configurations
 	 * we want to use. In the same order they will be applied.
 	 */
-	const struct ts_filter_configuration *filter_config;
+	const struct ts_filter_chain_configuration *filter_config;
 };
 
 void set_s3c2410ts_info(const struct s3c2410_ts_mach_info *hard_s3c2410ts_info);

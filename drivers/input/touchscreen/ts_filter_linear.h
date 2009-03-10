@@ -7,7 +7,7 @@
 /*
  * Touchscreen linear filter.
  *
- * Copyright (C) 2008 by Openmoko, Inc.
+ * Copyright (C) 2008,2009 by Openmoko, Inc.
  * Author: Nelson Castillo <arhuaco@freaks-unidos.net>
  *
  */

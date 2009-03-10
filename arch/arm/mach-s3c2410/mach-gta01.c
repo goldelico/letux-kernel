@@ -89,6 +89,7 @@
 
 #include <linux/jbt6k74.h>
 
+#include <../drivers/input/touchscreen/ts_filter_chain.h>
 #ifdef CONFIG_TOUCHSCREEN_FILTER
 #include <../drivers/input/touchscreen/ts_filter_linear.h>
 #include <../drivers/input/touchscreen/ts_filter_mean.h>
@@ -730,7 +731,7 @@ static struct ts_filter_linear_configuration gta01_ts_linear = {
 };
 #endif
 
-struct ts_filter_configuration filter_configuration[] =
+struct ts_filter_chain_configuration filter_configuration[] =
 {
 #ifdef CONFIG_TOUCHSCREEN_FILTER
 	{&ts_filter_group_api,		&gta01_ts_group.config},

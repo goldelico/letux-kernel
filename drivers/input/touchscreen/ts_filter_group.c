@@ -49,7 +49,7 @@ struct ts_filter_group {
 	/* Filter API. */
 	struct ts_filter tsf;
 
-	int N;			/* How many samples we have */
+	int N;			/* How many samples we have. */
 	int *samples[MAX_TS_FILTER_COORDS];	/* The samples: our input. */
 
 	int *group_size;	/* Used for temporal computations. */
@@ -198,7 +198,7 @@ static int ts_filter_group_process(struct ts_filter *tsf, int *coords)
 		}
 
 		if (best_size < tsfg->config->threshold) {
-			/* this set is not good enough for us */
+			/* This set is not good enough for us. */
 			if (--tsfg->tries_left) {
 				ts_filter_group_clear_internal
 					(tsfg, tsfg->tries_left);

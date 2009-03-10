@@ -24,19 +24,20 @@
  *
  */
 
-#include "ts_filter_linear.h"
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 
+#include "ts_filter_linear.h"
+
 struct ts_filter_linear;
 
-/* Sysfs. */
-
-/* FIXME: Comment all structure attributes. */
+/* Sysfs code. */
 
 struct const_obj {
+	/* The actual private object. */
 	struct ts_filter_linear *tsfl;
+	/* Our kobject. */
 	struct kobject kobj;
 };
 
@@ -56,18 +57,26 @@ struct const_attribute {
 /* Private linear filter structure. */
 
 struct ts_filter_linear {
-	struct ts_filter tsf; /* TODO: don't use as first */
-
+	/* Private configuration for this filter. */
 	struct ts_filter_linear_configuration *config;
 
+	/* Generic filter API. */
+	struct ts_filter tsf;
 
+	/* Linear constants for the transformation. */
 	int constants[TS_FILTER_LINEAR_NCONSTANTS];
 
 	/* Sysfs. */
+
+	/* Our const_object. */
 	struct const_obj c_obj;
+	/* Our type. We will stick operations to it. */
 	struct kobj_type const_ktype;
+	/* Attrs. of the virtual files. */
 	struct const_attribute kattrs[TS_FILTER_LINEAR_NCONSTANTS];
+	/* Default Attrs. Always NULL for us. */
 	struct attribute *attrs[TS_FILTER_LINEAR_NCONSTANTS + 1];
+	/* Storage for the name of the virtual files. */
 	char attr_names[TS_FILTER_LINEAR_NCONSTANTS][2];
 };
 

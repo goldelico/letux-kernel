@@ -103,6 +103,7 @@
 
 #include "../plat-s3c24xx/neo1973_pm_gps.h"
 
+#include <../drivers/input/touchscreen/ts_filter_chain.h>
 #ifdef CONFIG_TOUCHSCREEN_FILTER
 #include <../drivers/input/touchscreen/ts_filter_linear.h>
 #include <../drivers/input/touchscreen/ts_filter_mean.h>
@@ -977,7 +978,7 @@ const static struct ts_filter_linear_configuration gta02_ts_linear = {
 };
 #endif
 
-const struct ts_filter_configuration filter_configuration[] =
+const struct ts_filter_chain_configuration filter_configuration[] =
 {
 #ifdef CONFIG_TOUCHSCREEN_FILTER
 	{&ts_filter_group_api,		&gta02_ts_group.config},

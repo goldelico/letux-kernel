@@ -65,7 +65,7 @@
 #include <mach/hardware.h>
 #include <plat/regs-adc.h>
 
-#include "ts_filter.h"
+#include "ts_filter_chain.h"
 
 /* For ts.dev.id.version */
 #define S3C2410TSVERSION	0x0101
@@ -110,7 +110,7 @@ static char *s3c2410ts_name = "s3c2410 TouchScreen";
 
 struct s3c2410ts {
 	struct input_dev *dev;
-	struct ts_filter **tsf;
+	struct ts_filter_chain *chain;
 	int is_down;
 	int state;
 	struct kfifo *event_fifo;
@@ -238,7 +238,7 @@ static void event_send_timer_f(unsigned long data)
 			ts_input_report(IE_UP, NULL);
 			ts.state = TS_STATE_STANDBY;
 
-			ts_filter_chain_clear(ts.tsf);
+			ts_filter_chain_clear(ts.chain);
 		}
 	} else {
 		mod_timer(&event_send_timer, jiffies + TS_RELEASE_TIMEOUT);
@@ -292,23 +292,29 @@ static irqreturn_t stylus_action(int irq, void *dev_id)
 	buf[2] = readl(base_addr + S3C2410_ADCDAT1) &
 		       S3C2410_ADCDAT1_YPDATA_MASK;
 
-	switch (ts_filter_chain_feed(ts.tsf, &buf[1])) {
+	switch (ts_filter_chain_feed(ts.chain, &buf[1])) {
 	case 0:
+		/* The filter wants more points. */
 		s3c2410_ts_start_adc_conversion();
 		return IRQ_HANDLED;
-	case -1:
-		/* Error. Ignore the event. */
-		ts_filter_chain_clear(ts.tsf);
-		writel(WAIT4INT(1), base_addr + S3C2410_ADCTSC);
-		return IRQ_HANDLED;
-	default:
+	case 1:
 		/* We have a point from the filters or no filtering enabled. */
 		buf[0] = 'P';
+		break;
+	default:
+		printk(KERN_ERR __FILE__
+		       ":%d Invalid ts_filter_chain_feed return value.\n",
+		       __LINE__);
+	case -1:
+		/* Error. Ignore the event. */
+		ts_filter_chain_clear(ts.chain);
+		writel(WAIT4INT(1), base_addr + S3C2410_ADCTSC);
+		return IRQ_HANDLED;
 	};
 
 	if (unlikely(__kfifo_put(ts.event_fifo, (unsigned char *)buf,
 		     sizeof(int) * 3) != sizeof(int) * 3))
-		printk(KERN_ERR":stylus_action error\n"); /* happens => bug */
+		printk(KERN_ERR __FILE__":stylus_action bug.\n");
 
 	writel(WAIT4INT(1), base_addr + S3C2410_ADCTSC);
 	mod_timer(&event_send_timer, jiffies + 1);
@@ -410,12 +416,12 @@ static int __init s3c2410ts_probe(struct platform_device *pdev)
 	}
 
 	/* create the filter chain set up for the 2 coordinates we produce */
-	ts.tsf = ts_filter_chain_create(pdev, info->filter_config, 2);
+	ts.chain = ts_filter_chain_create(pdev, info->filter_config, 2);
 
-	if (!ts.tsf)
+	if (IS_ERR(ts.chain))
 		goto bail2;
 
-	ts_filter_chain_clear(ts.tsf);
+	ts_filter_chain_clear(ts.chain);
 
 	/* Get irqs */
 	if (request_irq(IRQ_ADC, stylus_action, IRQF_SAMPLE_RANDOM,
@@ -454,7 +460,7 @@ bail5:
 bail4:
 	disable_irq(IRQ_ADC);
 bail3:
-	ts_filter_chain_destroy(ts.tsf);
+	ts_filter_chain_destroy(ts.chain);
 	kfifo_free(ts.event_fifo);
 bail2:
 	input_unregister_device(ts.dev);
@@ -481,7 +487,7 @@ static int s3c2410ts_remove(struct platform_device *pdev)
 	input_unregister_device(ts.dev);
 	iounmap(base_addr);
 
-	ts_filter_chain_destroy(ts.tsf);
+	ts_filter_chain_destroy(ts.chain);
 
 	kfifo_free(ts.event_fifo);
 
@@ -511,7 +517,7 @@ static int s3c2410ts_resume(struct platform_device *pdev)
 	clk_enable(adc_clock);
 	mdelay(1);
 
-	ts_filter_chain_clear(ts.tsf);
+	ts_filter_chain_clear(ts.chain);
 
 	enable_irq(IRQ_ADC);
 	enable_irq(IRQ_TC);

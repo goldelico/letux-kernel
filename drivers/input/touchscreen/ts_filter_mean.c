@@ -125,7 +125,7 @@ static int ts_filter_mean_process(struct ts_filter *tsf, int *coords)
 
 	priv->curr = (priv->curr + 1) % priv->config->length;
 
-	return 0; /* no error */
+	return 0; /* No error. */
 }
 
 static int ts_filter_mean_haspoint(struct ts_filter *tsf)
@@ -156,7 +156,7 @@ static void ts_filter_mean_scale(struct ts_filter *tsf, int *coords)
 	struct ts_filter_mean *priv = ts_filter_to_filter_mean(tsf);
 
 	for (n = 0; n < tsf->count_coords; n++) {
-		coords[n] += priv->config->length >> 1; /* rounding */
+		coords[n] += priv->config->length >> 1; /* Rounding. */
 		coords[n] /= priv->config->length;
 	}
 }
