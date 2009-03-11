@@ -1749,6 +1749,7 @@ static int s3c_camif_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	camif_cfg_t *codec, *preview;
+	struct clk *camif_clock;
 
 	/* Initialize fimc objects */
 	codec = s3c_camif_get_fimc_object(CODEC_MINOR);
@@ -1794,6 +1795,14 @@ static int s3c_camif_probe(struct platform_device *pdev)
 	preview->pp_phys_buf =
 	    PHYS_OFFSET + (MEM_SIZE - RESERVED_MEM) + YUV_MEM;
 	preview->pp_virt_buf = ioremap_nocache(preview->pp_phys_buf, RGB_MEM);
+
+	camif_clock = clk_get(&pdev->dev, "camif");
+	if (IS_ERR(camif_clock)) {
+		dev_err(&pdev->dev,
+		    "Failed to find camera interface clock source\n");
+		return PTR_ERR(cam_clock);
+	}
+	clk_enable(camif_clock);
 
 	/* Device init */
 	s3c_camif_init();
