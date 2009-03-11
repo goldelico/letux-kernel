@@ -33,7 +33,7 @@ enum hdq_bitbang_states {
 	HDQB_WAIT_TX,
 };
 
-struct hdq_priv {
+static struct hdq_priv {
 	u8 hdq_probed; /* nonzero after HDQ driver probed */
 	struct mutex hdq_lock; /* if you want to use hdq, you have to take lock */
 	unsigned long hdq_gpio_pin; /* GTA02 = GPD14 which pin to meddle with */
@@ -49,10 +49,25 @@ struct hdq_priv {
 	u8 hdq_shifter;
 	u8 hdq_tx_data_done;
 	enum hdq_bitbang_states hdq_state;
+	int reported_error;
 
 	struct hdq_platform_data *pdata;
 } hdq_priv;
 
+
+static void hdq_bad(void)
+{
+	if (!hdq_priv.reported_error)
+		printk(KERN_ERR "HDQ error: %d\n", hdq_priv.hdq_error);
+	hdq_priv.reported_error = 1;
+}
+
+static void hdq_good(void)
+{
+	if (hdq_priv.reported_error)
+		printk(KERN_INFO "HDQ responds again\n");
+	hdq_priv.reported_error = 0;
+}
 
 int hdq_fiq_handler(void)
 {
@@ -267,9 +282,10 @@ int hdq_read(int address)
 			continue;
 
 		if (hdq_priv.hdq_error) {
-			printk(KERN_ERR "HDQ error: %d\n", hdq_priv.hdq_error);
+			hdq_bad();
 			goto done; /* didn't see a response in good time */
 		}
+		hdq_good();
 
 		ret = hdq_priv.hdq_rx_data;
 		goto done;
@@ -308,9 +324,10 @@ int hdq_write(int address, u8 data)
 			continue; /* something bad with FIQ */
 
 		if (hdq_priv.hdq_error) {
-			printk(KERN_ERR "HDQ error: %d\n", hdq_priv.hdq_error);
+			hdq_bad();
 			goto done; /* didn't see a response in good time */
 		}
+		hdq_good();
 
 		ret = 0;
 		goto done;
