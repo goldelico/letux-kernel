@@ -404,8 +404,7 @@ static struct attribute_group hdq_attr_group = {
 static int hdq_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	/* after 18s of this, the battery monitor will also go to sleep */
-	hdq_priv.pdata->gpio_set(0);
-	hdq_priv.pdata->gpio_dir_out();
+	hdq_priv.pdata->gpio_dir_in();
 	hdq_priv.pdata->disable_fiq();
 	return 0;
 }
