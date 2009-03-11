@@ -369,6 +369,30 @@ static int om_3d7k_get_handset_spk(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int om_3d7k_set_headset_spk(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	int val = ucontrol->value.integer.value[0];
+
+	snd_soc_dapm_set_endpoint(codec, "Headset Spk", val);
+
+	snd_soc_dapm_sync(codec);
+
+	return 0;
+}
+
+static int om_3d7k_get_headset_spk(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+
+	ucontrol->value.integer.value[0] =
+		snd_soc_dapm_get_endpoint(codec, "Headset Spk");
+
+	return 0;
+}
+
 static const struct snd_soc_dapm_widget wm8753_dapm_widgets[] = {
 	SND_SOC_DAPM_LINE("Stereo Out", NULL),
 	SND_SOC_DAPM_LINE("GSM Line Out", NULL),
@@ -376,6 +400,7 @@ static const struct snd_soc_dapm_widget wm8753_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_SPK("Handset Spk", NULL),
+	SND_SOC_DAPM_SPK("Headset Spk", NULL),
 };
 
 
@@ -404,6 +429,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"Handset Spk", NULL, "OUT3"},
 	{"Handset Spk", NULL, "LOUT1"},
 
+	{"Headset Spk", NULL, "ROUT1"},
+	{"Headset Spk", NULL, "LOUT1"},
+
 	/* Connect the ALC pins */
 	{"ACIN", NULL, "ACOP"},
 };
@@ -427,6 +455,9 @@ static const struct snd_kcontrol_new wm8753_om_3d7k_controls[] = {
 	SOC_SINGLE_EXT("DAPM Handset Spk Switch", 5, 0, 1, 0,
 		om_3d7k_get_handset_spk,
 		om_3d7k_set_handset_spk),
+	SOC_SINGLE_EXT("DAPM Headset Spk Switch", 6, 0, 1, 0,
+		om_3d7k_get_headset_spk,
+		om_3d7k_set_headset_spk),
 };
 
 /*
@@ -466,6 +497,7 @@ static int om_3d7k_wm8753_init(struct snd_soc_codec *codec)
 	snd_soc_dapm_set_endpoint(codec, "Headset Mic", 0);
 	snd_soc_dapm_set_endpoint(codec, "Handset Mic", 0);
 	snd_soc_dapm_set_endpoint(codec, "Handset Spk", 0);
+	snd_soc_dapm_set_endpoint(codec, "Headset Spk", 0);
 
 	snd_soc_dapm_sync(codec);
 
