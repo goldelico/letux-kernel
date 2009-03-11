@@ -595,16 +595,16 @@ static struct clksrc_clk clk_irda = {
 	.reg_divider	= S3C_CLK_DIV2,
 };
 
-static struct clk *clkset_camif_list[] = {
+static struct clk *clkset_camera_list[] = {
 	&clk_h2,
 };
 
-static struct clk_sources clkset_camif = {
-	.sources	= clkset_camif_list,
-	.nr_sources	= ARRAY_SIZE(clkset_camif_list),
+static struct clk_sources clkset_camera = {
+	.sources	= clkset_camera_list,
+	.nr_sources	= ARRAY_SIZE(clkset_camera_list),
 };
 
-static struct clksrc_clk clk_camif = {
+static struct clksrc_clk clk_camera = {
 	.clk	= {
 		.name		= "camera",
 		.id		= -1,
@@ -617,7 +617,7 @@ static struct clksrc_clk clk_camif = {
 	},
 	.shift		= 0,
 	.mask		= 0,
-	.sources	= &clkset_camif,
+	.sources	= &clkset_camera,
 	.divider_shift	= S3C6400_CLKDIV0_CAM_SHIFT,
 	.reg_divider	= S3C_CLK_DIV0,
 };
@@ -739,7 +739,7 @@ static struct clk *clks[] __initdata = {
 	&clk_audio0.clk,
 	&clk_audio1.clk,
 	&clk_irda.clk,
-	&clk_camif.clk,
+	&clk_camera.clk,
 	&clk_arm,
 };
 
