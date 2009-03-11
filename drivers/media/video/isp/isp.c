@@ -933,6 +933,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 	struct isp_bufs *bufs = &isp->bufs;
 	unsigned long flags;
 	u32 irqstatus = 0;
+	u32 sbl_pcr;
 	unsigned long irqflags = 0;
 	int wait_hs_vs = 0;
 
@@ -1043,6 +1044,24 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 				irqdis->isp_callbk_arg2[CBK_H3A_AF_DONE]);
 	}
 
+	/* Handle shared buffer logic overflows for video buffers. */
+	/* ISPSBL_PCR_CCDCPRV_2_RSZ_OVF can be safely ignored. */
+	sbl_pcr = isp_reg_readl(OMAP3_ISP_IOMEM_SBL, ISPSBL_PCR) &
+		~ISPSBL_PCR_CCDCPRV_2_RSZ_OVF;
+	isp_reg_writel(sbl_pcr, OMAP3_ISP_IOMEM_SBL, ISPSBL_PCR);
+	if (sbl_pcr & (ISPSBL_PCR_RSZ1_WBL_OVF
+		       | ISPSBL_PCR_RSZ2_WBL_OVF
+		       | ISPSBL_PCR_RSZ3_WBL_OVF
+		       | ISPSBL_PCR_RSZ4_WBL_OVF
+		       | ISPSBL_PCR_PRV_WBL_OVF
+		       | ISPSBL_PCR_CCDC_WBL_OVF
+		       | ISPSBL_PCR_CSIA_WBL_OVF
+		       | ISPSBL_PCR_CSIB_WBL_OVF)) {
+		struct isp_buf *buf = ISP_BUF_DONE(bufs);
+		buf->vb_state = VIDEOBUF_ERROR;
+		printk(KERN_INFO "%s: sbl overflow, sbl_pcr = %8.8x\n",
+		       __func__, sbl_pcr);
+	}
 
 out_ignore_buff:
 	if (irqstatus & LSC_PRE_ERR) {
