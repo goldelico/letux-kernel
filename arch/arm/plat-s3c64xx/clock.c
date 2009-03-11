@@ -89,7 +89,7 @@ static int s3c64xx_pclk_ctrl(struct clk *clk, int enable)
 	return s3c64xx_gate(S3C_PCLK_GATE, clk, enable);
 }
 
-static int s3c64xx_hclk_ctrl(struct clk *clk, int enable)
+int s3c64xx_hclk_ctrl(struct clk *clk, int enable)
 {
 	return s3c64xx_gate(S3C_HCLK_GATE, clk, enable);
 }

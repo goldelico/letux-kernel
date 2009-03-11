@@ -622,6 +622,28 @@ static struct clksrc_clk clk_camera = {
 	.reg_divider	= S3C_CLK_DIV0,
 };
 
+static struct clk *clkset_camif_list[] = {
+	&clk_h,
+};
+
+static struct clk_sources clkset_camif = {
+	.sources	= clkset_camif_list,
+	.nr_sources	= ARRAY_SIZE(clkset_camif_list),
+};
+
+static struct clksrc_clk clk_camif = {
+	.clk	= {
+		.name		= "camif",
+		.id		= -1,
+		.ctrlbit        = S3C_CLKCON_HCLK_CAMIF,
+		.enable		= s3c64xx_hclk_ctrl,
+		.set_parent	= s3c64xx_setparent_clksrc,
+	},
+	.shift		= 0,
+	.mask		= 0,
+	.sources	= &clkset_camif,
+};
+
 /* Clock initialisation code */
 
 static struct clksrc_clk *init_parents[] = {
@@ -639,6 +661,7 @@ static struct clksrc_clk *init_parents[] = {
 	&clk_audio1,
 	&clk_irda,
 	&clk_camif,
+	&clk_camera,
 };
 
 static void __init_or_cpufreq s3c6400_set_clksrc(struct clksrc_clk *clk)
@@ -740,6 +763,7 @@ static struct clk *clks[] __initdata = {
 	&clk_audio1.clk,
 	&clk_irda.clk,
 	&clk_camera.clk,
+	&clk_camif.clk,
 	&clk_arm,
 };
 
