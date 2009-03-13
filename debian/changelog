@@ -1,3 +1,16 @@
+linux-2.6-openmoko (20090303.gitb9de904e-1) UNRELEASED; urgency=low
+
+  * New Git Checkout:
+    + back to use the first 8 digits to identify the Git commit
+      (Philipp was correct, it seems this is the standard).
+    + now at Linux kernel version 2.6.29.
+  * debian/control:
+    + s/2.6.28/2.6.29/ in binary package name and description.
+  * debian/rules:
+    + s/2.6.28/2.6.29/ in VERSION_FULL.
+
+ --
+
 linux-2.6-openmoko (20090105.git69b2aa26-3) pkg-fso; urgency=low
 
   * debian/config.gta02:
