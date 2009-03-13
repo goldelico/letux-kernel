@@ -1,4 +1,4 @@
-linux-2.6-openmoko (20090303.gitb9de904e-1) UNRELEASED; urgency=low
+linux-2.6-openmoko (20090303.gitb9de904e-1) pkg-fso; urgency=low
 
   * New Git Checkout:
     + back to use the first 8 digits to identify the Git commit
@@ -9,7 +9,7 @@ linux-2.6-openmoko (20090303.gitb9de904e-1) UNRELEASED; urgency=low
   * debian/rules:
     + s/2.6.28/2.6.29/ in VERSION_FULL.
 
- --
+ -- Luca Capello <luca@pca.it>  Fri, 13 Mar 2009 01:51:45 +0100
 
 linux-2.6-openmoko (20090105.git69b2aa26-3) pkg-fso; urgency=low
 
