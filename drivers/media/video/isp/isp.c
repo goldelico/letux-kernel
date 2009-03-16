@@ -264,6 +264,7 @@ static struct isp {
 	struct clk *cam_ick;
 	struct clk *cam_mclk;
 	struct clk *csi2_fck;
+	struct clk *l3_ick;
 	struct isp_interface_config *config;
 	dma_addr_t tmp_buf;
 	size_t tmp_buf_size;
@@ -844,6 +845,7 @@ static int isp_init_csi(struct isp_interface_config *config)
 int isp_configure_interface(struct isp_interface_config *config)
 {
 	u32 ispctrl_val = isp_reg_readl(OMAP3_ISP_IOMEM_MAIN, ISP_CTRL);
+	u32 fmtcfg;
 	int r;
 
 	isp_obj.config = config;
@@ -907,6 +909,20 @@ int isp_configure_interface(struct isp_interface_config *config)
 	/* Set sensor specific fields in CCDC and Previewer module.*/
 	ispccdc_set_wenlog(config->wenlog);
 	ispccdc_set_raw_offset(config->raw_fmt_in);
+
+	/* FIXME: this should be set in ispccdc_config_vp() */
+	fmtcfg = isp_reg_readl(OMAP3_ISP_IOMEM_CCDC, ISPCCDC_FMTCFG);
+	fmtcfg &= ISPCCDC_FMTCFG_VPIF_FRQ_MASK;
+	if (config->pixelclk) {
+		unsigned long l3_ick = clk_get_rate(isp_obj.l3_ick);
+		unsigned long div = l3_ick / config->pixelclk;
+		if (div < 2)
+			div = 2;
+		if (div > 6)
+			div = 6;
+		fmtcfg |= (div - 2) << ISPCCDC_FMTCFG_VPIF_FRQ_SHIFT;
+	}
+	isp_reg_writel(fmtcfg, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_FMTCFG);
 
 	return 0;
 }
@@ -2460,6 +2476,7 @@ static int isp_remove(struct platform_device *pdev)
 	clk_put(isp_obj.cam_ick);
 	clk_put(isp_obj.cam_mclk);
 	clk_put(isp_obj.csi2_fck);
+	clk_put(isp_obj.l3_ick);
 
 	free_irq(isp->irq, &isp_obj);
 
@@ -2613,6 +2630,13 @@ static int isp_probe(struct platform_device *pdev)
 		ret_err = PTR_ERR(isp_obj.csi2_fck);
 		goto out_clk_get_csi2_fclk;
 	}
+	isp_obj.l3_ick = clk_get(&camera_dev, "l3_ick");
+	if (IS_ERR(isp_obj.l3_ick)) {
+		DPRINTK_ISPCTRL("ISP_ERR: clk_get for l3_ick"
+				" failed\n");
+		ret_err = PTR_ERR(isp_obj.l3_ick);
+		goto out_clk_get_l3_ick;
+	}
 
 	if (request_irq(isp->irq, omap34xx_isp_isr, IRQF_SHARED,
 			"Omap 3 Camera ISP", &isp_obj)) {
@@ -2654,6 +2678,8 @@ out_ispmmu_init:
 	omap3isp = NULL;
 	free_irq(isp->irq, &isp_obj);
 out_request_irq:
+	clk_put(isp_obj.l3_ick);
+out_clk_get_l3_ick:
 	clk_put(isp_obj.csi2_fck);
 out_clk_get_csi2_fclk:
 	clk_put(isp_obj.cam_mclk);
