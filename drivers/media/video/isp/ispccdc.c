@@ -959,7 +959,7 @@ void ispccdc_config_vp(struct ispccdc_vp vpcfg)
 {
 	u32 fmtcfg_vp = isp_reg_readl(OMAP3_ISP_IOMEM_CCDC, ISPCCDC_FMTCFG);
 
-	fmtcfg_vp &= ISPCCDC_FMTCFG_VPIN_MASK & ISPCCDC_FMTCF_VPIF_FRQ_MASK;
+	fmtcfg_vp &= ISPCCDC_FMTCFG_VPIN_MASK & ISPCCDC_FMTCFG_VPIF_FRQ_MASK;
 
 	switch (vpcfg.bitshift_sel) {
 	case BIT9_0:
@@ -977,19 +977,19 @@ void ispccdc_config_vp(struct ispccdc_vp vpcfg)
 	};
 	switch (vpcfg.freq_sel) {
 	case PIXCLKBY2:
-		fmtcfg_vp |= ISPCCDC_FMTCF_VPIF_FRQ_BY2;
+		fmtcfg_vp |= ISPCCDC_FMTCFG_VPIF_FRQ_BY2;
 		break;
 	case PIXCLKBY3_5:
-		fmtcfg_vp |= ISPCCDC_FMTCF_VPIF_FRQ_BY3;
+		fmtcfg_vp |= ISPCCDC_FMTCFG_VPIF_FRQ_BY3;
 		break;
 	case PIXCLKBY4_5:
-		fmtcfg_vp |= ISPCCDC_FMTCF_VPIF_FRQ_BY4;
+		fmtcfg_vp |= ISPCCDC_FMTCFG_VPIF_FRQ_BY4;
 		break;
 	case PIXCLKBY5_5:
-		fmtcfg_vp |= ISPCCDC_FMTCF_VPIF_FRQ_BY5;
+		fmtcfg_vp |= ISPCCDC_FMTCFG_VPIF_FRQ_BY5;
 		break;
 	case PIXCLKBY6_5:
-		fmtcfg_vp |= ISPCCDC_FMTCF_VPIF_FRQ_BY6;
+		fmtcfg_vp |= ISPCCDC_FMTCFG_VPIF_FRQ_BY6;
 		break;
 	};
 	isp_reg_writel(fmtcfg_vp, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_FMTCFG);
