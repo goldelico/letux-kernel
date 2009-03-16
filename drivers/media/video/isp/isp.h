@@ -170,6 +170,7 @@ struct isp_reg {
  * @vskip: Vertical Start Line performed in Preview module.
  * @wenlog: Store the value for the sensor specific wenlog field.
  * @wait_hs_vs: Wait for this many hs_vs before anything else in the beginning.
+ * @pixelclk: Pixel data rate from sensor.
  */
 struct isp_interface_config {
 	enum isp_interface_type ccdc_par_ser;
@@ -181,6 +182,7 @@ struct isp_interface_config {
 	u32 wenlog;
 	int wait_hs_vs;
 	enum ispccdc_raw_fmt raw_fmt_in;
+	unsigned int pixelclk;
 	union {
 		struct par {
 			unsigned par_bridge:2;
