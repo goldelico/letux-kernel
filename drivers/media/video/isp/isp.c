@@ -1242,19 +1242,15 @@ static int __isp_disable_modules(int suspend)
 		isp_af_suspend();
 		isph3a_aewb_suspend();
 		isp_hist_suspend();
-		if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW)
-			isppreview_suspend();
-		if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER)
-			ispresizer_suspend();
 	} else {
 		isp_af_enable(0);
 		isph3a_aewb_enable(0);
 		isp_hist_enable(0);
-		if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW)
-			isppreview_enable(0);
-		if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER)
-			ispresizer_enable(0);
 	}
+	if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW)
+		isppreview_enable(0);
+	if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER)
+		ispresizer_enable(0);
 
 	timeout = jiffies + ISP_STOP_TIMEOUT;
 	while (isp_af_busy()
@@ -1272,12 +1268,7 @@ static int __isp_disable_modules(int suspend)
 	}
 
 	/* Let's stop CCDC now. */
-	if (suspend)
-		/* This function supends lsc too */
-		ispccdc_suspend();
-	else {
-		ispccdc_enable(0);
-	}
+	ispccdc_enable(0);
 
 	timeout = jiffies + ISP_STOP_TIMEOUT;
 	while (ispccdc_busy()) {
@@ -1294,6 +1285,8 @@ static int __isp_disable_modules(int suspend)
 			"(%s) isp_complete_reset \n", __func__);
 		isp_complete_reset = 1;
 	}
+	isp_buf_init();
+
 	return reset;
 }
 
@@ -1309,14 +1302,9 @@ static int isp_suspend_modules(void)
 
 static void isp_resume_modules(void)
 {
-	if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER)
-		ispresizer_resume();
-	if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW)
-		isppreview_resume();
 	isp_hist_resume();
 	isph3a_aewb_resume();
 	isp_af_resume();
-	ispccdc_resume();
 }
 
 static void isp_reset(void)
@@ -1346,7 +1334,6 @@ void isp_stop()
 	isp_af_notify(1);
 	isp_disable_interrupts();
 	reset = isp_stop_modules();
-	isp_buf_init();
 	if (!reset)
 		return;
 
@@ -1469,6 +1456,17 @@ void isp_set_hs_vs(int hs_vs)
 }
 EXPORT_SYMBOL(isp_set_hs_vs);
 
+/**
+ * isp_vbq_sync - Walks the pages table and flushes the cache for
+ *                each page.
+ **/
+static int isp_vbq_sync(struct videobuf_buffer *vb, int when)
+{
+	flush_cache_all();
+
+	return 0;
+}
+
 static void isp_buf_init(void)
 {
 	struct isp_bufs *bufs = &isp_obj.bufs;
@@ -1479,21 +1477,16 @@ static void isp_buf_init(void)
 	bufs->done = 0;
 	bufs->wait_hs_vs = isp_obj.config->wait_hs_vs;
 	for (sg = 0; sg < NUM_BUFS; sg++) {
+		if (bufs->buf[sg].vb) {
+			isp_vbq_sync(bufs->buf[sg].vb, DMA_FROM_DEVICE);
+			bufs->buf[sg].vb->state = VIDEOBUF_ERROR;
+			bufs->buf[sg].complete(bufs->buf[sg].vb,
+					       bufs->buf[sg].priv);
+		}
 		bufs->buf[sg].complete = NULL;
 		bufs->buf[sg].vb = NULL;
 		bufs->buf[sg].priv = NULL;
 	}
-}
-
-/**
- * isp_vbq_sync - Walks the pages table and flushes the cache for
- *                each page.
- **/
-static int isp_vbq_sync(struct videobuf_buffer *vb, int when)
-{
-	flush_cache_all();
-
-	return 0;
 }
 
 static int isp_buf_process(struct isp_bufs *bufs)
@@ -1571,7 +1564,7 @@ static int isp_buf_process(struct isp_bufs *bufs)
 out:
 	spin_unlock_irqrestore(&bufs->lock, flags);
 
-	if (buf != NULL) {
+	if (buf && buf->vb) {
 		/*
 		 * We want to dequeue a buffer from the video buffer
 		 * queue. Let's do it!
@@ -1579,6 +1572,7 @@ out:
 		isp_vbq_sync(buf->vb, DMA_FROM_DEVICE);
 		buf->vb->state = buf->vb_state;
 		buf->complete(buf->vb, buf->priv);
+		buf->vb = NULL;
 	}
 
 	return 0;
@@ -1610,6 +1604,7 @@ int isp_buf_queue(struct videobuf_buffer *vb,
 	buf->vb = vb;
 	buf->priv = priv;
 	buf->vb_state = VIDEOBUF_DONE;
+	buf->vb->state = VIDEOBUF_ACTIVE;
 
 	if (ISP_BUFS_IS_EMPTY(bufs)) {
 		isp_enable_interrupts();
@@ -2506,8 +2501,11 @@ static int isp_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	int reset;
 
-	mutex_lock(&(isp_obj.isp_mutex));
 	DPRINTK_ISPCTRL("isp_suspend: starting\n");
+
+	if (mutex_is_locked(&isp_obj.isp_mutex))
+		printk(KERN_ERR "%s: bug: isp_mutex is locked\n", __func__);
+
 	if (isp_obj.ref_count == 0)
 		goto out;
 
@@ -2521,7 +2519,7 @@ static int isp_suspend(struct platform_device *pdev, pm_message_t state)
 
 out:
 	DPRINTK_ISPCTRL("isp_suspend: done\n");
-	mutex_unlock(&(isp_obj.isp_mutex));
+
 	return 0;
 }
 
@@ -2531,10 +2529,11 @@ static int isp_resume(struct platform_device *pdev)
 
 	DPRINTK_ISPCTRL("isp_resume: starting\n");
 
-	if (omap3isp == NULL)
-		goto out;
+	if (mutex_is_locked(&isp_obj.isp_mutex))
+		printk(KERN_ERR "%s: bug: isp_mutex is locked\n", __func__);
 
-	if (isp_obj.ref_count == 0)
+	if (omap3isp == NULL
+	    || isp_obj.ref_count == 0)
 		goto out;
 
 	ret_err = isp_enable_clocks();
@@ -2542,11 +2541,10 @@ static int isp_resume(struct platform_device *pdev)
 		goto out;
 	isp_restore_ctx();
 	isp_resume_modules();
-	isp_enable_interrupts();
-	isp_start();
 
 out:
 	DPRINTK_ISPCTRL("isp_resume: done \n");
+
 	return ret_err;
 }
 
