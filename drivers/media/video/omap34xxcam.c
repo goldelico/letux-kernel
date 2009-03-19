@@ -208,7 +208,7 @@ static int omap34xxcam_vbq_setup(struct videobuf_queue *vbq, unsigned int *cnt,
 	while (*size * *cnt > fh->vdev->vdev_sensor_config.capture_mem)
 		(*cnt)--;
 
-	return isp_vbq_setup(vbq, cnt, size);
+	return isp_vbq_setup(vdev->cam->isp, vbq, cnt, size);
 }
 
 /**
@@ -222,8 +222,12 @@ static int omap34xxcam_vbq_setup(struct videobuf_queue *vbq, unsigned int *cnt,
 static void omap34xxcam_vbq_release(struct videobuf_queue *vbq,
 				    struct videobuf_buffer *vb)
 {
+	struct omap34xxcam_fh *fh = vbq->priv_data;
+	struct omap34xxcam_videodev *vdev = fh->vdev;
+	struct device *isp = vdev->cam->isp;
+
 	if (!vbq->streaming) {
-		isp_vbq_release(vbq, vb);
+		isp_vbq_release(isp, vbq, vb);
 		videobuf_dma_unmap(vbq, videobuf_to_dma(vb));
 		videobuf_dma_free(videobuf_to_dma(vb));
 		vb->state = VIDEOBUF_NEEDS_INIT;
@@ -247,6 +251,8 @@ static int omap34xxcam_vbq_prepare(struct videobuf_queue *vbq,
 {
 	struct omap34xxcam_fh *fh = vbq->priv_data;
 	struct omap34xxcam_videodev *vdev = fh->vdev;
+	struct device *isp = vdev->cam->isp;
+
 	int err = 0;
 
 	/*
@@ -277,7 +283,7 @@ static int omap34xxcam_vbq_prepare(struct videobuf_queue *vbq,
 		err = videobuf_iolock(vbq, vb, NULL);
 		if (!err) {
 			/* isp_addr will be stored locally inside isp code */
-			err = isp_vbq_prepare(vbq, vb, field);
+			err = isp_vbq_prepare(isp, vbq, vb, field);
 		}
 	}
 
@@ -302,10 +308,12 @@ static void omap34xxcam_vbq_queue(struct videobuf_queue *vbq,
 				  struct videobuf_buffer *vb)
 {
 	struct omap34xxcam_fh *fh = vbq->priv_data;
+	struct omap34xxcam_videodev *vdev = fh->vdev;
+	struct device *isp = vdev->cam->isp;
 
 	vb->state = VIDEOBUF_ACTIVE;
 
-	isp_buf_queue(vb, omap34xxcam_vbq_complete, (void *)fh);
+	isp_buf_queue(isp, vb, omap34xxcam_vbq_complete, (void *)fh);
 }
 
 static struct videobuf_queue_ops omap34xxcam_vbq_ops = {
@@ -405,6 +413,7 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 	int fmtd_index;
 	int rval;
 	struct v4l2_pix_format best_pix_out;
+	struct device *isp = vdev->cam->isp;
 
 	if (best_ival->numerator == 0
 	    || best_ival->denominator == 0)
@@ -447,7 +456,7 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 			pix_tmp_in.width = frms.discrete.width;
 			pix_tmp_in.height = frms.discrete.height;
 			pix_tmp_out = *wanted_pix_out;
-			rval = isp_try_fmt_cap(&pix_tmp_in, &pix_tmp_out);
+			rval = isp_try_fmt_cap(isp, &pix_tmp_in, &pix_tmp_out);
 			if (rval)
 				return rval;
 
@@ -588,7 +597,7 @@ do_it_now:
 		 best_pix_in->pixelformat,
 		 best_pix_out.width, best_pix_out.height);
 
-	return isp_try_fmt_cap(best_pix_in, wanted_pix_out);
+	return isp_try_fmt_cap(isp, best_pix_in, wanted_pix_out);
 }
 
 static int s_pix_parm(struct omap34xxcam_videodev *vdev,
@@ -596,6 +605,7 @@ static int s_pix_parm(struct omap34xxcam_videodev *vdev,
 		      struct v4l2_pix_format *pix,
 		      struct v4l2_fract *best_ival)
 {
+	struct device *isp = vdev->cam->isp;
 	struct v4l2_streamparm a;
 	struct v4l2_format fmt;
 	int rval;
@@ -604,7 +614,7 @@ static int s_pix_parm(struct omap34xxcam_videodev *vdev,
 	if (rval)
 		return rval;
 
-	rval = isp_s_fmt_cap(best_pix, pix);
+	rval = isp_s_fmt_cap(isp, best_pix, pix);
 	if (rval)
 		return rval;
 
@@ -818,6 +828,7 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type i)
 {
 	struct omap34xxcam_fh *ofh = fh;
 	struct omap34xxcam_videodev *vdev = ofh->vdev;
+	struct device *isp = vdev->cam->isp;
 	int rval;
 
 	if (vdev->vdev_sensor == v4l2_int_device_dummy())
@@ -866,13 +877,14 @@ static int vidioc_streamoff(struct file *file, void *fh, enum v4l2_buf_type i)
 {
 	struct omap34xxcam_fh *ofh = fh;
 	struct omap34xxcam_videodev *vdev = ofh->vdev;
+	struct device *isp = vdev->cam->isp;
 	struct videobuf_queue *q = &ofh->vbq;
 	int rval;
 
 	mutex_lock(&vdev->mutex);
 
 	if (vdev->streaming == file)
-		isp_stop();
+		isp_stop(isp);
 
 	rval = videobuf_streamoff(q);
 	if (!rval) {
@@ -1041,6 +1053,7 @@ static int vidioc_g_ext_ctrls(struct file *file, void *fh,
 {
 	struct omap34xxcam_fh *ofh = fh;
 	struct omap34xxcam_videodev *vdev = ofh->vdev;
+	struct device *isp = vdev->cam->isp;
 	int i, ctrl_idx, rval = 0;
 
 	mutex_lock(&vdev->mutex);
@@ -1061,7 +1074,7 @@ static int vidioc_g_ext_ctrls(struct file *file, void *fh,
 		}
 
 		if (rval)
-			rval = isp_g_ctrl(&ctrl);
+			rval = isp_g_ctrl(isp, &ctrl);
 
 		if (rval) {
 			a->error_idx = ctrl_idx;
@@ -1081,6 +1094,7 @@ static int vidioc_s_ext_ctrls(struct file *file, void *fh,
 {
 	struct omap34xxcam_fh *ofh = fh;
 	struct omap34xxcam_videodev *vdev = ofh->vdev;
+	struct device *isp = vdev->cam->isp;
 	int i, ctrl_idx, rval = 0;
 
 	mutex_lock(&vdev->mutex);
@@ -1102,7 +1116,7 @@ static int vidioc_s_ext_ctrls(struct file *file, void *fh,
 		}
 
 		if (rval)
-			rval = isp_s_ctrl(&ctrl);
+			rval = isp_s_ctrl(isp, &ctrl);
 
 		if (rval) {
 			a->error_idx = ctrl_idx;
@@ -1243,6 +1257,7 @@ static int vidioc_g_crop(struct file *file, void *fh, struct v4l2_crop *a)
 {
 	struct omap34xxcam_fh *ofh = fh;
 	struct omap34xxcam_videodev *vdev = ofh->vdev;
+	struct device *isp = vdev->cam->isp;
 	int rval = 0;
 
 	if (vdev->vdev_sensor == v4l2_int_device_dummy())
@@ -1253,7 +1268,7 @@ static int vidioc_g_crop(struct file *file, void *fh, struct v4l2_crop *a)
 	if (vdev->vdev_sensor_config.sensor_isp)
 		rval = vidioc_int_g_crop(vdev->vdev_sensor, a);
 	else
-		rval = isp_g_crop(a);
+		rval = isp_g_crop(isp, a);
 
 	mutex_unlock(&vdev->mutex);
 
@@ -1273,6 +1288,7 @@ static int vidioc_s_crop(struct file *file, void *fh, struct v4l2_crop *a)
 {
 	struct omap34xxcam_fh *ofh = fh;
 	struct omap34xxcam_videodev *vdev = ofh->vdev;
+	struct device *isp = vdev->cam->isp;
 	int rval = 0;
 
 	if (vdev->vdev_sensor == v4l2_int_device_dummy())
@@ -1283,7 +1299,7 @@ static int vidioc_s_crop(struct file *file, void *fh, struct v4l2_crop *a)
 	if (vdev->vdev_sensor_config.sensor_isp)
 		rval = vidioc_int_s_crop(vdev->vdev_sensor, a);
 	else
-		rval = isp_s_crop(a, &vdev->pix);
+		rval = isp_s_crop(isp, a, &vdev->pix);
 
 	mutex_unlock(&vdev->mutex);
 
@@ -1354,6 +1370,7 @@ static long vidioc_default(struct file *file, void *fh, int cmd, void *arg)
 {
 	struct omap34xxcam_fh *ofh = file->private_data;
 	struct omap34xxcam_videodev *vdev = ofh->vdev;
+	struct device *isp = vdev->cam->isp;
 	int rval;
 
 	if (cmd == VIDIOC_PRIVATE_OMAP34XXCAM_SENSOR_INFO) {
@@ -1453,7 +1470,7 @@ static long vidioc_default(struct file *file, void *fh, int cmd, void *arg)
 			break;
 		}
 
-		rval = isp_handle_private(&vdev->mutex, cmd, arg);
+		rval = isp_handle_private(isp, &vdev->mutex, cmd, arg);
 	}
 out:
 	return rval;
@@ -1533,6 +1550,7 @@ static int omap34xxcam_open(struct file *file)
 	int rval = 0;
 	struct omap34xxcam_videodev *vdev = NULL;
 	struct omap34xxcam_device *cam = omap34xxcam;
+	struct device *isp;
 	struct omap34xxcam_fh *fh;
 	struct v4l2_format format;
 	int i;
@@ -1566,11 +1584,14 @@ static int omap34xxcam_open(struct file *file)
 	}
 
 	if (atomic_inc_return(&vdev->users) == 1) {
-		rval = isp_get();
-		if (rval < 0) {
+		first_user = 1;
+		isp = isp_get();
+		if (!isp) {
+			rval = -EBUSY;
 			dev_err(&vdev->vfd->dev, "can't get isp\n");
 			goto out_isp_get;
 		}
+		cam->isp = isp;
 		if (omap34xxcam_slave_power_set(vdev, V4L2_POWER_ON,
 						OMAP34XXCAM_SLAVE_POWER_ALL)) {
 			dev_err(&vdev->vfd->dev, "can't power up slaves\n");
@@ -1597,7 +1618,7 @@ static int omap34xxcam_open(struct file *file)
 		}
 		if (!vdev->vdev_sensor_config.sensor_isp) {
 			struct v4l2_pix_format pix = format.fmt.pix;
-			if (isp_s_fmt_cap(&pix, &format.fmt.pix)) {
+			if (isp_s_fmt_cap(cam->isp, &pix, &format.fmt.pix)) {
 				dev_err(&vdev->vfd->dev,
 					"isp doesn't like the sensor!\n");
 				goto out_isp_s_fmt_cap;
@@ -1657,11 +1678,12 @@ static int omap34xxcam_release(struct file *file)
 {
 	struct omap34xxcam_fh *fh = file->private_data;
 	struct omap34xxcam_videodev *vdev = fh->vdev;
+	struct device *isp = vdev->cam->isp;
 	int i;
 
 	mutex_lock(&vdev->mutex);
 	if (vdev->streaming == file) {
-		isp_stop();
+		isp_stop(isp);
 		videobuf_streamoff(&fh->vbq);
 		omap34xxcam_slave_power_set(
 			vdev, V4L2_POWER_STANDBY,
@@ -1801,6 +1823,7 @@ static int omap34xxcam_device_register(struct v4l2_int_device *s)
 {
 	struct omap34xxcam_videodev *vdev = s->u.slave->master->priv;
 	struct omap34xxcam_hw_config hwc;
+	struct device *isp;
 	int rval;
 
 	/* We need to check rval just once. The place is here. */
@@ -1829,12 +1852,14 @@ static int omap34xxcam_device_register(struct v4l2_int_device *s)
 	vdev->slave_config[hwc.dev_type] = hwc;
 
 	if (hwc.dev_type == OMAP34XXCAM_SLAVE_SENSOR) {
-		rval = isp_get();
-		if (rval < 0) {
+		isp = isp_get();
+		if (!isp) {
+			rval = -EBUSY;
 			printk(KERN_ERR "%s: can't get ISP, "
 			       "sensor init failed\n", __func__);
 			goto err;
 		}
+		vdev->cam->isp = isp;
 	}
 	rval = omap34xxcam_slave_power_set(vdev, V4L2_POWER_ON,
 					   1 << hwc.dev_type);
