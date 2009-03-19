@@ -164,6 +164,7 @@ struct omap34xxcam_videodev {
  */
 struct omap34xxcam_device {
 	struct omap34xxcam_videodev vdevs[OMAP34XXCAM_VIDEODEVS];
+	struct device *isp;
 };
 
 /**
