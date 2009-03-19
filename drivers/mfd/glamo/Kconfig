@@ -8,6 +8,9 @@ config MFD_GLAMO
 config MFD_GLAMO_FB
 	tristate "Smedia Glamo 336x/337x framebuffer support"
 	depends on FB && MFD_GLAMO
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
 	help
 	  Frame buffer driver for the LCD controller in the Smedia Glamo
 	  336x/337x.
