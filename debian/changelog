@@ -1,10 +1,10 @@
-linux-2.6-openmoko (20090303.gitb9de904e-2) UNRELEASED; urgency=low
+linux-2.6-openmoko (20090303.gitb9de904e-2) pkg-fso; urgency=low
 
   * debian/rules:
     - remove /lib/firmware/ from the linux-image-2.6.29-openmoko-gta02
       package, these binary blobs do not belong there.
 
- --
+ -- Luca Capello <luca@pca.it>  Thu, 19 Mar 2009 01:37:53 +0100
 
 linux-2.6-openmoko (20090303.gitb9de904e-1) pkg-fso; urgency=low
 
