@@ -65,6 +65,9 @@ install-stamp: build
 	# Install the config file
 	cp .config `pwd`/debian/`dh_listpackages`/boot/config-$(VERSION_FULL)
 
+	# Remove binary blobs
+	rm -rf `pwd`/debian/`dh_listpackages`/lib/firmware
+
 	touch install-stamp
 
 # Build architecture-independent files here.
