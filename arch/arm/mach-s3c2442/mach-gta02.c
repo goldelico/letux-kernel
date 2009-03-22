@@ -459,6 +459,13 @@ static void gta02_pmu_event_callback(struct pcf50633 *pcf, int irq)
 	}
 }
 
+static void gta02_pmu_force_shutdown(struct pcf50633 *pcf)
+{
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_OOCSHDWN,
+			PCF50633_OOCSHDWN_GOSTDBY, PCF50633_OOCSHDWN_GOSTDBY);
+}
+
+
 static void gta02_udc_vbus_draw(unsigned int ma)
 {
         if (!gta02_pcf)
@@ -685,6 +692,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 	.probe_done = gta02_pmu_attach_child_devices,
 	.regulator_registered = gta02_pmu_regulator_registered,
 	.mbc_event_callback = gta02_pmu_event_callback,
+	.force_shutdown = gta02_pmu_force_shutdown,
 };
 
 static void mangle_pmu_pdata_by_system_rev(void)
