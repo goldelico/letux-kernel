@@ -96,12 +96,17 @@ out_1:
 static void gsm_on_off(struct device *dev, int on)
 {
 	if (!on) {
-		/* do not drive into powered-down GSM side */
-		s3c2410_gpio_cfgpin(S3C2410_GPH1, S3C2410_GPIO_INPUT);
-		s3c2410_gpio_cfgpin(S3C2410_GPH2, S3C2410_GPIO_INPUT);
+		if (machine_is_neo1973_gta02()) {
+			/*
+			 * Do not drive into powered-down GSM side
+			 * GTA02 only, because on GTA01 maybe serial
+			 * is used otherwise.
+			 */
+			s3c2410_gpio_cfgpin(S3C2410_GPH1, S3C2410_GPIO_INPUT);
+			s3c2410_gpio_cfgpin(S3C2410_GPH2, S3C2410_GPIO_INPUT);
 
-		if (machine_is_neo1973_gta02())
 			pcf50633_gpio_set(gta02_pcf, PCF50633_GPIO2, 0);
+		}
 
 		if (gta01_gsm.gpio_ngsm_en)
 			s3c2410_gpio_setpin(gta01_gsm.gpio_ngsm_en, 1);
