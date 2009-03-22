@@ -689,7 +689,7 @@ static void __gta01_udc_vbus_draw(struct work_struct *work)
 	} else {
 		/* disable fast charge */
 		printk(KERN_DEBUG "udc: disabling fast charge\n");
-		pcf50606_charge_fast(gta01_pcf, 1);
+		pcf50606_charge_fast(gta01_pcf, 0);
 	}
 }
 
