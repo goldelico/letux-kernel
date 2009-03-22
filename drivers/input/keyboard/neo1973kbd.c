@@ -145,16 +145,6 @@ static void aux_key_timer_f(unsigned long data)
 
 static irqreturn_t neo1973kbd_aux_irq(int irq, void *dev)
 {
-	int *p = NULL;
-
-	if (machine_is_neo1973_gta01()) {
-		/* if you stall inside resume then AUX will force a panic,
-		   which in turn forces a dump of the pending syslog */
-
-		if (global_inside_suspend)
-			printk(KERN_ERR "death %d\n", *p);
-	}
-
 	mod_timer(&aux_key_timer, jiffies + AUX_TIMER_TIMEOUT);
 
 	return IRQ_HANDLED;
