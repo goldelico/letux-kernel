@@ -646,13 +646,13 @@ static void lm4857_shutdown(struct i2c_client *dev)
 }
 
 static const struct i2c_device_id lm4857_i2c_id[] = {
-	{ "neo1973_lm4857", 0 },
+	{ "lm4857", 0 },
 	{ }
 };
 
 static struct i2c_driver lm4857_i2c_driver = {
 	.driver = {
-		.name = "LM4857 I2C Amp",
+		.name = "lm4857",
 		.owner = THIS_MODULE,
 	},
 	.suspend =        lm4857_suspend,
