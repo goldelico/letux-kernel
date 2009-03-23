@@ -29,78 +29,6 @@
 #include "isphist.h"
 #include "ispmmu.h"
 
-/**
- * struct isp_hist_status - Histogram status.
- * @hist_enable: Enables the histogram module.
- * @initialized: Flag to indicate that the module is correctly initializated.
- * @frame_cnt: Actual frame count.
- * @frame_req: Frame requested by user.
- * @completed: Flag to indicate if a frame request is completed.
- */
-struct isp_hist_status {
-	u8 hist_enable;
-	u8 pm_state;
-	u8 initialized;
-	u8 frame_cnt;
-	u8 frame_req;
-	u8 completed;
-	struct device *dev;
-} histstat;
-
-/**
- * struct isp_hist_buffer - Frame histogram buffer.
- * @virt_addr: Virtual address to mmap the buffer.
- * @phy_addr: Physical address of the buffer.
- * @addr_align: Virtual Address 32 bytes aligned.
- * @ispmmu_addr: Address of the buffer mapped by the ISPMMU.
- * @mmap_addr: Mapped memory area of buffer. For userspace access.
- */
-struct isp_hist_buffer {
-	unsigned long virt_addr;
-	unsigned long phy_addr;
-	unsigned long addr_align;
-	unsigned long ispmmu_addr;
-	unsigned long mmap_addr;
-} hist_buff;
-
-/**
- * struct isp_hist_regs - Current value of Histogram configuration registers.
- * @reg_pcr: Peripheral control register.
- * @reg_cnt: Histogram control register.
- * @reg_wb_gain: Histogram white balance gain register.
- * @reg_r0_h: Region 0 horizontal register.
- * @reg_r0_v: Region 0 vertical register.
- * @reg_r1_h: Region 1 horizontal register.
- * @reg_r1_v: Region 1 vertical register.
- * @reg_r2_h: Region 2 horizontal register.
- * @reg_r2_v: Region 2 vertical register.
- * @reg_r3_h: Region 3 horizontal register.
- * @reg_r3_v: Region 3 vertical register.
- * @reg_hist_addr: Histogram address register.
- * @reg_hist_data: Histogram data.
- * @reg_hist_radd: Address register. When input data comes from mem.
- * @reg_hist_radd_off: Address offset register. When input data comes from mem.
- * @reg_h_v_info: Image size register. When input data comes from mem.
- */
-static struct isp_hist_regs {
-	u32 reg_pcr;
-	u32 reg_cnt;
-	u32 reg_wb_gain;
-	u32 reg_r0_h;
-	u32 reg_r0_v;
-	u32 reg_r1_h;
-	u32 reg_r1_v;
-	u32 reg_r2_h;
-	u32 reg_r2_v;
-	u32 reg_r3_h;
-	u32 reg_r3_v;
-	u32 reg_hist_addr;
-	u32 reg_hist_data;
-	u32 reg_hist_radd;
-	u32 reg_hist_radd_off;
-	u32 reg_h_v_info;
-} hist_regs;
-
 /* Structure for saving/restoring histogram module registers */
 struct isp_reg isphist_reg_list[] = {
 	{OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT, 0},
@@ -120,18 +48,18 @@ struct isp_reg isphist_reg_list[] = {
 	{0, ISP_TOK_TERM, 0}
 };
 
-static void isp_hist_print_status(void);
+static void isp_hist_print_status(struct isp_hist_device *isp_hist);
 
-void __isp_hist_enable(u8 enable)
+void __isp_hist_enable(struct isp_hist_device *isp_hist, u8 enable)
 {
 	if (enable)
 		DPRINTK_ISPHIST("   histogram enabled \n");
 	else
 		DPRINTK_ISPHIST("   histogram disabled \n");
 
-	isp_reg_and_or(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_PCR,
+	isp_reg_and_or(isp_hist->dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_PCR,
 		       ~ISPHIST_PCR_EN,	(enable ? ISPHIST_PCR_EN : 0));
-	histstat.hist_enable = enable;
+	isp_hist->hist_enable = enable;
 }
 
 /**
@@ -141,73 +69,73 @@ void __isp_hist_enable(u8 enable)
  * Client should configure all the Histogram registers before calling this
  * function.
  **/
-void isp_hist_enable(u8 enable)
+void isp_hist_enable(struct isp_hist_device *isp_hist, u8 enable)
 {
-	__isp_hist_enable(enable);
-	histstat.pm_state = enable;
+	__isp_hist_enable(isp_hist, enable);
+	isp_hist->pm_state = enable;
 }
 
 /**
  * isp_hist_suspend - Suspend ISP Histogram submodule.
  **/
-void isp_hist_suspend(void)
+void isp_hist_suspend(struct isp_hist_device *isp_hist)
 {
-	if (histstat.pm_state)
-		__isp_hist_enable(0);
+	if (isp_hist->pm_state)
+		__isp_hist_enable(isp_hist, 0);
 }
 
 /**
  * isp_hist_resume - Resume ISP Histogram submodule.
  **/
-void isp_hist_resume(void)
+void isp_hist_resume(struct isp_hist_device *isp_hist)
 {
-	if (histstat.pm_state)
-		__isp_hist_enable(1);
+	if (isp_hist->pm_state)
+		__isp_hist_enable(isp_hist, 1);
 }
 
-int isp_hist_busy(void)
+int isp_hist_busy(struct isp_hist_device *isp_hist)
 {
-	return isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_PCR) &
-		ISPHIST_PCR_BUSY;
+	return isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_PCR)
+			     & ISPHIST_PCR_BUSY;
 }
 
 
 /**
  * isp_hist_update_regs - Helper function to update Histogram registers.
  **/
-static void isp_hist_update_regs(void)
+static void isp_hist_update_regs(struct isp_hist_device *isp_hist)
 {
-	isp_reg_writel(histstat.dev, hist_regs.reg_pcr, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.pcr, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_PCR);
-	isp_reg_writel(histstat.dev, hist_regs.reg_cnt, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.cnt, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_CNT);
-	isp_reg_writel(histstat.dev, hist_regs.reg_wb_gain,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.wb_gain,
 		       OMAP3_ISP_IOMEM_HIST, ISPHIST_WB_GAIN);
-	isp_reg_writel(histstat.dev, hist_regs.reg_r0_h, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.r0_h, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R0_HORZ);
-	isp_reg_writel(histstat.dev, hist_regs.reg_r0_v, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.r0_v, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R0_VERT);
-	isp_reg_writel(histstat.dev, hist_regs.reg_r1_h, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.r1_h, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R1_HORZ);
-	isp_reg_writel(histstat.dev, hist_regs.reg_r1_v, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.r1_v, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R1_VERT);
-	isp_reg_writel(histstat.dev, hist_regs.reg_r2_h, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.r2_h, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R2_HORZ);
-	isp_reg_writel(histstat.dev, hist_regs.reg_r2_v, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.r2_v, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R2_VERT);
-	isp_reg_writel(histstat.dev, hist_regs.reg_r3_h, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.r3_h, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R3_HORZ);
-	isp_reg_writel(histstat.dev, hist_regs.reg_r3_v, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.r3_v, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R3_VERT);
-	isp_reg_writel(histstat.dev, hist_regs.reg_hist_addr,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.hist_addr,
 		       OMAP3_ISP_IOMEM_HIST, ISPHIST_ADDR);
-	isp_reg_writel(histstat.dev, hist_regs.reg_hist_data,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.hist_data,
 		       OMAP3_ISP_IOMEM_HIST, ISPHIST_DATA);
-	isp_reg_writel(histstat.dev, hist_regs.reg_hist_radd,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.hist_radd,
 		       OMAP3_ISP_IOMEM_HIST, ISPHIST_RADD);
-	isp_reg_writel(histstat.dev, hist_regs.reg_hist_radd_off,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.hist_radd_off,
 		       OMAP3_ISP_IOMEM_HIST, ISPHIST_RADD_OFF);
-	isp_reg_writel(histstat.dev, hist_regs.reg_h_v_info,
+	isp_reg_writel(isp_hist->dev, isp_hist->regs.h_v_info,
 		       OMAP3_ISP_IOMEM_HIST, ISPHIST_H_V_INFO);
 }
 
@@ -219,19 +147,21 @@ static void isp_hist_update_regs(void)
 static void isp_hist_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 			 void *arg2)
 {
-	isp_hist_enable(0);
+	struct isp_hist_device *isp_hist = arg2;
+
+	isp_hist_enable(isp_hist, 0);
 
 	if (!(status & HIST_DONE))
 		return;
 
-	if (!histstat.completed) {
-		if (histstat.frame_req == histstat.frame_cnt) {
-			histstat.frame_cnt = 0;
-			histstat.frame_req = 0;
-			histstat.completed = 1;
+	if (!isp_hist->completed) {
+		if (isp_hist->frame_req == isp_hist->frame_cnt) {
+			isp_hist->frame_cnt = 0;
+			isp_hist->frame_req = 0;
+			isp_hist->completed = 1;
 		} else {
-			isp_hist_enable(1);
-			histstat.frame_cnt++;
+			isp_hist_enable(isp_hist, 1);
+			isp_hist->frame_cnt++;
 		}
 	}
 }
@@ -241,17 +171,18 @@ static void isp_hist_isr(unsigned long status, isp_vbq_callback_ptr arg1,
  *
  * Returns 0 after histogram memory was cleared.
  **/
-static int isp_hist_reset_mem(void)
+static int isp_hist_reset_mem(struct isp_hist_device *isp_hist)
 {
 	int i;
 
-	isp_reg_or(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
+	isp_reg_or(isp_hist->dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
 		   ISPHIST_CNT_CLR_EN);
 
 	for (i = 0; i < HIST_MEM_SIZE; i++)
-		isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_DATA);
+		isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
+			      ISPHIST_DATA);
 
-	isp_reg_and(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
+	isp_reg_and(isp_hist->dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
 		    ~ISPHIST_CNT_CLR_EN);
 
 	return 0;
@@ -263,29 +194,30 @@ static int isp_hist_reset_mem(void)
  *
  * Returns 0 on success configuration.
  **/
-static int isp_hist_set_params(struct isp_hist_config *user_cfg)
+static int isp_hist_set_params(struct isp_hist_device *isp_hist,
+			       struct isp_hist_config *user_cfg)
 {
 
 	int reg_num = 0;
 	int bit_shift = 0;
 
 
-	if (isp_hist_busy())
+	if (isp_hist_busy(isp_hist))
 		return -EINVAL;
 
 	if (user_cfg->input_bit_width > MIN_BIT_WIDTH)
-		WRITE_DATA_SIZE(hist_regs.reg_cnt, 0);
+		WRITE_DATA_SIZE(isp_hist->regs.cnt, 0);
 	else
-		WRITE_DATA_SIZE(hist_regs.reg_cnt, 1);
+		WRITE_DATA_SIZE(isp_hist->regs.cnt, 1);
 
-	WRITE_SOURCE(hist_regs.reg_cnt, user_cfg->hist_source);
+	WRITE_SOURCE(isp_hist->regs.cnt, user_cfg->hist_source);
 
 	if (user_cfg->hist_source) {
-		WRITE_HV_INFO(hist_regs.reg_h_v_info, user_cfg->hist_h_v_info);
+		WRITE_HV_INFO(isp_hist->regs.h_v_info, user_cfg->hist_h_v_info);
 
 		if ((user_cfg->hist_radd & ISP_32B_BOUNDARY_BUF) ==
 		    user_cfg->hist_radd) {
-			WRITE_RADD(hist_regs.reg_hist_radd,
+			WRITE_RADD(isp_hist->regs.hist_radd,
 				   user_cfg->hist_radd);
 		} else {
 			printk(KERN_ERR "Address should be in 32 byte boundary"
@@ -295,7 +227,7 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
 
 		if ((user_cfg->hist_radd_off & ISP_32B_BOUNDARY_OFFSET) ==
 		    user_cfg->hist_radd_off) {
-			WRITE_RADD_OFF(hist_regs.reg_hist_radd_off,
+			WRITE_RADD_OFF(isp_hist->regs.hist_radd_off,
 				       user_cfg->hist_radd_off);
 		} else {
 			printk(KERN_ERR "Offset should be in 32 byte boundary"
@@ -305,9 +237,9 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
 
 	}
 
-	isp_hist_reset_mem();
+	isp_hist_reset_mem(isp_hist);
 	DPRINTK_ISPHIST("ISPHIST: Memory Cleared\n");
-	histstat.frame_req = user_cfg->hist_frames;
+	isp_hist->frame_req = user_cfg->hist_frames;
 
 	if (unlikely(user_cfg->wb_gain_R > MAX_WB_GAIN ||
 		     user_cfg->wb_gain_RG > MAX_WB_GAIN ||
@@ -316,10 +248,10 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
 		printk(KERN_ERR "Invalid WB gain\n");
 		return -EINVAL;
 	} else {
-		WRITE_WB_R(hist_regs.reg_wb_gain, user_cfg->wb_gain_R);
-		WRITE_WB_RG(hist_regs.reg_wb_gain, user_cfg->wb_gain_RG);
-		WRITE_WB_B(hist_regs.reg_wb_gain, user_cfg->wb_gain_B);
-		WRITE_WB_BG(hist_regs.reg_wb_gain, user_cfg->wb_gain_BG);
+		WRITE_WB_R(isp_hist->regs.wb_gain, user_cfg->wb_gain_R);
+		WRITE_WB_RG(isp_hist->regs.wb_gain, user_cfg->wb_gain_RG);
+		WRITE_WB_B(isp_hist->regs.wb_gain, user_cfg->wb_gain_B);
+		WRITE_WB_BG(isp_hist->regs.wb_gain, user_cfg->wb_gain_BG);
 	}
 
 	/* Regions size and position */
@@ -330,7 +262,7 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
 	if (likely((user_cfg->reg0_hor & ISPHIST_REGHORIZ_HEND_MASK) -
 		   ((user_cfg->reg0_hor & ISPHIST_REGHORIZ_HSTART_MASK) >>
 		    ISPHIST_REGHORIZ_HSTART_SHIFT))) {
-		WRITE_REG_HORIZ(hist_regs.reg_r0_h, user_cfg->reg0_hor);
+		WRITE_REG_HORIZ(isp_hist->regs.r0_h, user_cfg->reg0_hor);
 		reg_num++;
 	} else {
 		printk(KERN_ERR "Invalid Region parameters\n");
@@ -340,7 +272,7 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
 	if (likely((user_cfg->reg0_ver & ISPHIST_REGVERT_VEND_MASK) -
 		   ((user_cfg->reg0_ver & ISPHIST_REGVERT_VSTART_MASK) >>
 		    ISPHIST_REGVERT_VSTART_SHIFT))) {
-		WRITE_REG_VERT(hist_regs.reg_r0_v, user_cfg->reg0_ver);
+		WRITE_REG_VERT(isp_hist->regs.r0_v, user_cfg->reg0_ver);
 	} else {
 		printk(KERN_ERR "Invalid Region parameters\n");
 		return -EINVAL;
@@ -351,7 +283,8 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
 			   ((user_cfg->reg1_hor &
 			     ISPHIST_REGHORIZ_HSTART_MASK) >>
 			    ISPHIST_REGHORIZ_HSTART_SHIFT))) {
-			WRITE_REG_HORIZ(hist_regs.reg_r1_h, user_cfg->reg1_hor);
+			WRITE_REG_HORIZ(isp_hist->regs.r1_h,
+					user_cfg->reg1_hor);
 		} else {
 			printk(KERN_ERR "Invalid Region parameters\n");
 			return -EINVAL;
@@ -361,7 +294,8 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
 			   ((user_cfg->reg1_ver &
 			     ISPHIST_REGVERT_VSTART_MASK) >>
 			    ISPHIST_REGVERT_VSTART_SHIFT))) {
-			WRITE_REG_VERT(hist_regs.reg_r1_v, user_cfg->reg1_ver);
+			WRITE_REG_VERT(isp_hist->regs.r1_v,
+				       user_cfg->reg1_ver);
 		} else {
 			printk(KERN_ERR "Invalid Region parameters\n");
 			return -EINVAL;
@@ -373,7 +307,8 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
 			   ((user_cfg->reg2_hor &
 			     ISPHIST_REGHORIZ_HSTART_MASK) >>
 			    ISPHIST_REGHORIZ_HSTART_SHIFT))) {
-			WRITE_REG_HORIZ(hist_regs.reg_r2_h, user_cfg->reg2_hor);
+			WRITE_REG_HORIZ(isp_hist->regs.r2_h,
+					user_cfg->reg2_hor);
 		} else {
 			printk(KERN_ERR "Invalid Region parameters\n");
 			return -EINVAL;
@@ -383,7 +318,8 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
 			   ((user_cfg->reg2_ver &
 			     ISPHIST_REGVERT_VSTART_MASK) >>
 			    ISPHIST_REGVERT_VSTART_SHIFT))) {
-			WRITE_REG_VERT(hist_regs.reg_r2_v, user_cfg->reg2_ver);
+			WRITE_REG_VERT(isp_hist->regs.r2_v,
+				       user_cfg->reg2_ver);
 		} else {
 			printk(KERN_ERR "Invalid Region parameters\n");
 			return -EINVAL;
@@ -395,7 +331,8 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
 			   ((user_cfg->reg3_hor &
 			     ISPHIST_REGHORIZ_HSTART_MASK) >>
 			    ISPHIST_REGHORIZ_HSTART_SHIFT))) {
-			WRITE_REG_HORIZ(hist_regs.reg_r3_h, user_cfg->reg3_hor);
+			WRITE_REG_HORIZ(isp_hist->regs.r3_h,
+					user_cfg->reg3_hor);
 		} else {
 			printk(KERN_ERR "Invalid Region parameters\n");
 			return -EINVAL;
@@ -405,7 +342,8 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
 			   ((user_cfg->reg3_ver &
 			     ISPHIST_REGVERT_VSTART_MASK) >>
 			    ISPHIST_REGVERT_VSTART_SHIFT))) {
-			WRITE_REG_VERT(hist_regs.reg_r3_v, user_cfg->reg3_ver);
+			WRITE_REG_VERT(isp_hist->regs.r3_v,
+				       user_cfg->reg3_ver);
 		} else {
 			printk(KERN_ERR "Invalid Region parameters\n");
 			return -EINVAL;
@@ -421,7 +359,7 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
 		       user_cfg->hist_bins);
 		return -EINVAL;
 	} else {
-		WRITE_NUM_BINS(hist_regs.reg_cnt, user_cfg->hist_bins);
+		WRITE_NUM_BINS(isp_hist->regs.cnt, user_cfg->hist_bins);
 	}
 
 	if (user_cfg->input_bit_width > MAX_BIT_WIDTH ||
@@ -446,11 +384,11 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
 		default:
 			return -EINVAL;
 		}
-		WRITE_BIT_SHIFT(hist_regs.reg_cnt, bit_shift);
+		WRITE_BIT_SHIFT(isp_hist->regs.cnt, bit_shift);
 	}
 
-	isp_hist_update_regs();
-	histstat.initialized = 1;
+	isp_hist_update_regs(isp_hist);
+	isp_hist->initialized = 1;
 
 	return 0;
 }
@@ -461,7 +399,8 @@ static int isp_hist_set_params(struct isp_hist_config *user_cfg)
  *
  * Returns 0 on success configuration.
  **/
-int isp_hist_configure(struct isp_hist_config *histcfg)
+int isp_hist_configure(struct isp_hist_device *isp_hist,
+		       struct isp_hist_config *histcfg)
 {
 
 	int ret = 0;
@@ -471,27 +410,27 @@ int isp_hist_configure(struct isp_hist_config *histcfg)
 		return -EINVAL;
 	}
 
-	if (!histstat.initialized) {
+	if (!isp_hist->initialized) {
 		DPRINTK_ISPHIST("Setting callback for HISTOGRAM\n");
-		ret = isp_set_callback(histstat.dev, CBK_HIST_DONE,
+		ret = isp_set_callback(isp_hist->dev, CBK_HIST_DONE,
 				       isp_hist_isr, (void *)NULL,
-				       (void *)NULL);
+				       isp_hist);
 		if (ret) {
 			printk(KERN_ERR "No callback for HIST\n");
 			return ret;
 		}
 	}
 
-	ret = isp_hist_set_params(histcfg);
+	ret = isp_hist_set_params(isp_hist, histcfg);
 	if (ret) {
 		printk(KERN_ERR "Invalid parameters! \n");
 		return ret;
 	}
 
-	histstat.frame_cnt = 0;
-	histstat.completed = 0;
-	isp_hist_enable(1);
-	isp_hist_print_status();
+	isp_hist->frame_cnt = 0;
+	isp_hist->completed = 0;
+	isp_hist_enable(isp_hist, 1);
+	isp_hist_print_status(isp_hist);
 
 	return 0;
 }
@@ -505,22 +444,23 @@ EXPORT_SYMBOL(isp_hist_configure);
  *
  * Returns 0 on successful request.
  **/
-int isp_hist_request_statistics(struct isp_hist_data *histdata)
+int isp_hist_request_statistics(struct isp_hist_device *isp_hist,
+				struct isp_hist_data *histdata)
 {
 	int i, ret;
 	u32 curr;
 
-	if (isp_hist_busy())
+	if (isp_hist_busy(isp_hist))
 		return -EBUSY;
 
-	if (!histstat.completed && histstat.initialized)
+	if (!isp_hist->completed && isp_hist->initialized)
 		return -EINVAL;
 
-	isp_reg_or(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
+	isp_reg_or(isp_hist->dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
 		   ISPHIST_CNT_CLR_EN);
 
 	for (i = 0; i < HIST_MEM_SIZE; i++) {
-		curr = isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+		curr = isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				     ISPHIST_DATA);
 		ret = put_user(curr, histdata->hist_statistics_buf + i);
 		if (ret) {
@@ -529,9 +469,9 @@ int isp_hist_request_statistics(struct isp_hist_data *histdata)
 		}
 	}
 
-	isp_reg_and(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
+	isp_reg_and(isp_hist->dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
 		    ~ISPHIST_CNT_CLR_EN);
-	histstat.completed = 0;
+	isp_hist->completed = 0;
 	return 0;
 }
 EXPORT_SYMBOL(isp_hist_request_statistics);
@@ -543,10 +483,9 @@ EXPORT_SYMBOL(isp_hist_request_statistics);
  **/
 int __init isp_hist_init(struct device *dev)
 {
-	memset(&histstat, 0, sizeof(histstat));
-	memset(&hist_regs, 0, sizeof(hist_regs));
+	struct isp_device *isp = dev_get_drvdata(dev);
 
-	histstat.dev = dev;
+	isp->isp_hist.dev = dev;
 
 	return 0;
 }
@@ -556,8 +495,6 @@ int __init isp_hist_init(struct device *dev)
  **/
 void isp_hist_cleanup(struct device *dev)
 {
-	memset(&histstat, 0, sizeof(histstat));
-	memset(&hist_regs, 0, sizeof(hist_regs));
 }
 
 /**
@@ -583,51 +520,51 @@ EXPORT_SYMBOL(isphist_restore_context);
 /**
  * isp_hist_print_status - Debug print
  **/
-static void isp_hist_print_status(void)
+static void isp_hist_print_status(struct isp_hist_device *isp_hist)
 {
 	DPRINTK_ISPHIST("ISPHIST_PCR = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_PCR));
 	DPRINTK_ISPHIST("ISPHIST_CNT = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_CNT));
 	DPRINTK_ISPHIST("ISPHIST_WB_GAIN = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_WB_GAIN));
 	DPRINTK_ISPHIST("ISPHIST_R0_HORZ = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_R0_HORZ));
 	DPRINTK_ISPHIST("ISPHIST_R0_VERT = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_R0_VERT));
 	DPRINTK_ISPHIST("ISPHIST_R1_HORZ = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_R1_HORZ));
 	DPRINTK_ISPHIST("ISPHIST_R1_VERT = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_R1_VERT));
 	DPRINTK_ISPHIST("ISPHIST_R2_HORZ = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_R2_HORZ));
 	DPRINTK_ISPHIST("ISPHIST_R2_VERT = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_R2_VERT));
 	DPRINTK_ISPHIST("ISPHIST_R3_HORZ = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_R3_HORZ));
 	DPRINTK_ISPHIST("ISPHIST_R3_VERT = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_R3_VERT));
 	DPRINTK_ISPHIST("ISPHIST_ADDR = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_ADDR));
 	DPRINTK_ISPHIST("ISPHIST_RADD = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_RADD));
 	DPRINTK_ISPHIST("ISPHIST_RADD_OFF = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_RADD_OFF));
 	DPRINTK_ISPHIST("ISPHIST_H_V_INFO = 0x%08x\n",
-			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+			isp_reg_readl(isp_hist->dev, OMAP3_ISP_IOMEM_HIST,
 				      ISPHIST_H_V_INFO));
 }

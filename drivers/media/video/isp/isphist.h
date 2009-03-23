@@ -85,20 +85,78 @@
 	(reg = ((reg & ~ISPHIST_REGVERT_MASK)		\
 		| (reg_n_vert & ISPHIST_REGVERT_MASK)))
 
+/**
+ * struct isp_hist_regs - Current value of Histogram configuration registers.
+ * @pcr: Peripheral control register.
+ * @cnt: Histogram control register.
+ * @wb_gain: Histogram white balance gain register.
+ * @r0_h: Region 0 horizontal register.
+ * @r0_v: Region 0 vertical register.
+ * @r1_h: Region 1 horizontal register.
+ * @r1_v: Region 1 vertical register.
+ * @r2_h: Region 2 horizontal register.
+ * @r2_v: Region 2 vertical register.
+ * @r3_h: Region 3 horizontal register.
+ * @r3_v: Region 3 vertical register.
+ * @hist_addr: Histogram address register.
+ * @hist_data: Histogram data.
+ * @hist_radd: Address register. When input data comes from mem.
+ * @hist_radd_off: Address offset register. When input data comes from mem.
+ * @h_v_info: Image size register. When input data comes from mem.
+ */
+struct isp_hist_regs {
+	u32 pcr;
+	u32 cnt;
+	u32 wb_gain;
+	u32 r0_h;
+	u32 r0_v;
+	u32 r1_h;
+	u32 r1_v;
+	u32 r2_h;
+	u32 r2_v;
+	u32 r3_h;
+	u32 r3_v;
+	u32 hist_addr;
+	u32 hist_data;
+	u32 hist_radd;
+	u32 hist_radd_off;
+	u32 h_v_info;
+};
 
-void isp_hist_enable(u8 enable);
+/**
+ * struct isp_hist_status - Histogram status.
+ * @hist_enable: Enables the histogram module.
+ * @initialized: Flag to indicate that the module is correctly initializated.
+ * @frame_cnt: Actual frame count.
+ * @frame_req: Frame requested by user.
+ * @completed: Flag to indicate if a frame request is completed.
+ */
+struct isp_hist_device {
+	u8 hist_enable;
+	u8 pm_state;
+	u8 initialized;
+	u8 frame_cnt;
+	u8 frame_req;
+	u8 completed;
+	struct isp_hist_regs regs;
+	struct device *dev;
+};
 
-int isp_hist_busy(void);
+void isp_hist_enable(struct isp_hist_device *isp_hist, u8 enable);
 
-int isp_hist_configure(struct isp_hist_config *histcfg);
+int isp_hist_busy(struct isp_hist_device *isp_hist);
 
-int isp_hist_request_statistics(struct isp_hist_data *histdata);
+int isp_hist_configure(struct isp_hist_device *isp_hist,
+		       struct isp_hist_config *histcfg);
+
+int isp_hist_request_statistics(struct isp_hist_device *isp_hist,
+				struct isp_hist_data *histdata);
 
 void isphist_save_context(struct device *dev);
 
-void isp_hist_suspend(void);
+void isp_hist_suspend(struct isp_hist_device *isp_hist);
 
-void isp_hist_resume(void);
+void isp_hist_resume(struct isp_hist_device *isp_hist);
 
 void isphist_restore_context(struct device *dev);
 
