@@ -106,12 +106,6 @@
 #define AF_UPDATEXS_FIELDCOUNT	(1 << 1)
 #define AF_UPDATEXS_LENSPOS		(1 << 2)
 
-/* Structure for device of AF Engine */
-struct af_device {
-	struct af_configuration *config; /*Device configuration structure */
-	int size_paxel;         /*Paxel size in bytes */
-};
-
 /**
  * struct isp_af_buffer - AF frame stats buffer.
  * @virt_addr: Virtual address to mmap the buffer.
@@ -165,6 +159,7 @@ struct isp_af_device {
 	unsigned int stats_buf_size;
 	unsigned int min_buf_size;
 	unsigned int curr_cfg_buf_size;
+	struct isp_af_buffer *active_buff;
 
 	int pm_state;
 	u32 frame_count;
@@ -172,11 +167,15 @@ struct isp_af_device {
 	atomic_t config_counter;
 	spinlock_t buffer_lock;		/* For stats buffers read/write sync */
 	struct device *dev;
+	int camnotify;
+
+	struct af_configuration config; /*Device configuration structure */
+	int size_paxel;         /*Paxel size in bytes */
 };
 
 int isp_af_check_paxel(struct isp_af_device *);
 int isp_af_check_iir(struct isp_af_device *);
-int isp_af_register_setup(struct isp_af_device *, struct af_device *);
+int isp_af_register_setup(struct isp_af_device *);
 int isp_af_enable(struct isp_af_device *, int);
 void isp_af_suspend(struct isp_af_device *);
 void isp_af_resume(struct isp_af_device *);
