@@ -30,6 +30,7 @@
 #include <linux/videodev2.h>
 
 #include "isp_af.h"
+#include "isphist.h"
 #include "ispccdc.h"
 #include "ispreg.h"
 #include "isph3a.h"
@@ -346,6 +347,7 @@ struct isp_device {
 
 	/* ISP modules */
 	struct isp_af_device isp_af;
+	struct isp_hist_device isp_hist;
 };
 
 u32 isp_reg_readl(struct device *dev, enum isp_mem_resources isp_mmio_range,
