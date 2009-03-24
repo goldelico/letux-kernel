@@ -35,6 +35,7 @@
 #include "ispreg.h"
 #include "isph3a.h"
 #include "ispmmu.h"
+#include "ispresizer.h"
 
 #define OMAP_ISP_CCDC		(1 << 0)
 #define OMAP_ISP_PREVIEW	(1 << 1)
@@ -349,6 +350,7 @@ struct isp_device {
 	struct isp_af_device isp_af;
 	struct isp_hist_device isp_hist;
 	struct isp_h3a_device isp_h3a;
+	struct isp_res_device isp_res;
 };
 
 u32 isp_reg_readl(struct device *dev, enum isp_mem_resources isp_mmio_range,
