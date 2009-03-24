@@ -922,7 +922,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 				isppreview_enable(1);
 			}
 			if (!isppreview_busy())
-				isph3a_update_wb();
+				isph3a_update_wb(&isp->isp_h3a);
 			if (CCDC_PREV_CAPTURE(isp))
 				isp_buf_process(dev, bufs);
 		}
@@ -1152,11 +1152,11 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 	 */
 	if (suspend) {
 		isp_af_suspend(&isp->isp_af);
-		isph3a_aewb_suspend();
+		isph3a_aewb_suspend(&isp->isp_h3a);
 		isp_hist_suspend(&isp->isp_hist);
 	} else {
 		isp_af_enable(&isp->isp_af, 0);
-		isph3a_aewb_enable(0);
+		isph3a_aewb_enable(&isp->isp_h3a, 0);
 		isp_hist_enable(&isp->isp_hist, 0);
 	}
 	if (isp->module.isp_pipeline & OMAP_ISP_PREVIEW)
@@ -1166,7 +1166,7 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 
 	timeout = jiffies + ISP_STOP_TIMEOUT;
 	while (isp_af_busy(&isp->isp_af)
-	       || isph3a_aewb_busy()
+	       || isph3a_aewb_busy(&isp->isp_h3a)
 	       || isp_hist_busy(&isp->isp_hist)
 	       || isppreview_busy()
 	       || ispresizer_busy()) {
@@ -1217,7 +1217,7 @@ static void isp_resume_modules(struct device *dev)
 	struct isp_device *isp = dev_get_drvdata(dev);
 
 	isp_hist_resume(&isp->isp_hist);
-	isph3a_aewb_resume();
+	isph3a_aewb_resume(&isp->isp_h3a);
 	isp_af_resume(&isp->isp_af);
 }
 
@@ -1779,14 +1779,14 @@ int isp_handle_private(struct device *dev, struct mutex *vdev_mutex, int cmd,
 		struct isph3a_aewb_config *params;
 		params = (struct isph3a_aewb_config *)arg;
 		mutex_lock(vdev_mutex);
-		rval = isph3a_aewb_configure(params);
+		rval = isph3a_aewb_configure(&isp->isp_h3a, params);
 		mutex_unlock(vdev_mutex);
 	}
 		break;
 	case VIDIOC_PRIVATE_ISP_AEWB_REQ: {
 		struct isph3a_aewb_data *data;
 		data = (struct isph3a_aewb_data *)arg;
-		rval = isph3a_aewb_request_statistics(data);
+		rval = isph3a_aewb_request_statistics(&isp->isp_h3a, data);
 	}
 		break;
 	case VIDIOC_PRIVATE_ISP_HIST_CFG: {
@@ -2611,7 +2611,7 @@ static int isp_probe(struct platform_device *pdev)
 	isp_power_settings(&pdev->dev, 1);
 	isp_put();
 
-	isph3a_notify(1);
+	isph3a_notify(&isp->isp_h3a, 1);
 	isp_af_notify(&isp->isp_af, 1);
 
 	return 0;

@@ -348,6 +348,7 @@ struct isp_device {
 	/* ISP modules */
 	struct isp_af_device isp_af;
 	struct isp_hist_device isp_hist;
+	struct isp_h3a_device isp_h3a;
 };
 
 u32 isp_reg_readl(struct device *dev, enum isp_mem_resources isp_mmio_range,
