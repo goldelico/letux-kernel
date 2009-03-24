@@ -130,7 +130,7 @@ static void gps_power_3v_set(int on)
 			regulator_enable(regulator);
 		else
 			regulator_disable(regulator);
-		neo1973_gps.regulator_state[GTA01_GPS_REG_3V3] = on;
+		neo1973_gps.regulator_state[GTA01_GPS_REG_3V] = on;
 		break;
 	case GTA01Bv2_SYSTEM_REV:
 	case GTA01Bv3_SYSTEM_REV:
@@ -359,7 +359,8 @@ static ssize_t power_gps_read(struct device *dev,
 {
 	int ret = 0;
 
-	if (!strcmp(attr->attr.name, "power_on")) {
+	if (!strcmp(attr->attr.name, "power_on") ||
+	    !strcmp(attr->attr.name, "pwron")) {
 		ret = gps_pwron_get();
 #ifdef CONFIG_PM
 	} else if (!strcmp(attr->attr.name, "keep_on_in_suspend")) {
@@ -393,7 +394,8 @@ static ssize_t power_gps_write(struct device *dev,
 {
 	unsigned long on = simple_strtoul(buf, NULL, 10);
 
-	if (!strcmp(attr->attr.name, "power_on")) {
+	if (!strcmp(attr->attr.name, "power_on") ||
+	    !strcmp(attr->attr.name, "pwron")) {
 		gps_pwron_set(on);
 		neo1973_gps.power_was_on = !!on;
 #ifdef CONFIG_PM
@@ -593,10 +595,12 @@ static DEVICE_ATTR(keep_on_in_suspend, 0644, power_gps_read, power_gps_write);
 #endif
 
 static DEVICE_ATTR(power_on, 0644, power_gps_read, power_gps_write);
+static DEVICE_ATTR(pwron, 0644, power_gps_read, power_gps_write);
 
 
 static struct attribute *gta01_gps_sysfs_entries[] = {
 	&dev_attr_power_on.attr,
+	&dev_attr_pwron.attr,
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	&dev_attr_power_avdd_3v.attr,
 	&dev_attr_reset.attr,
@@ -629,6 +633,7 @@ static struct attribute_group gta02_gps_attr_group = {
 
 static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 {
+	int ret;
 #ifdef CONFIG_MACH_NEO1973_GTA01
 	int entries = ARRAY_SIZE(gta01_gps_sysfs_entries);
 #endif
@@ -695,8 +700,12 @@ static int __init gta01_pm_gps_probe(struct platform_device *pdev)
 			break;
 		}
 #endif
-		return sysfs_create_group(&pdev->dev.kobj,
+		ret = sysfs_create_group(&pdev->dev.kobj,
 		    &gta01_gps_attr_group);
+		if (ret)
+			return ret;
+		return bus_create_device_link(&platform_bus_type,
+				&pdev->dev.kobj, "gta01-pm-gps.0");
 	}
 
 	if (machine_is_neo1973_gta02()) {
