@@ -268,6 +268,8 @@ struct isp_irq {
  * @resizer_output_height: ISP Resizer module output image height.
  */
 struct isp_module {
+	u32 interrupts;
+	int enable;
 	unsigned int isp_pipeline;
 	int applyCrop;
 	struct v4l2_pix_format pix;
