@@ -436,7 +436,7 @@ static void
 pcf50606_client_dev_register(struct pcf50606 *pcf, const char *name,
 						struct platform_device **pdev)
 {
-	struct pcf50606_subdev_pdata *subdev_pdata;
+	struct pcf50606_subdev_pdata subdev_pdata;
 	int ret;
 
 	*pdev = platform_device_alloc(name, -1);
@@ -445,14 +445,8 @@ pcf50606_client_dev_register(struct pcf50606 *pcf, const char *name,
 		return;
 	}
 
-	subdev_pdata = kmalloc(sizeof(*subdev_pdata), GFP_KERNEL);
-	if (!subdev_pdata) {
-		dev_err(pcf->dev, "Error allocating subdev pdata\n");
-		platform_device_put(*pdev);
-	}
-
-	subdev_pdata->pcf = pcf;
-	platform_device_add_data(*pdev, subdev_pdata, sizeof(*subdev_pdata));
+	subdev_pdata.pcf = pcf;
+	platform_device_add_data(*pdev, &subdev_pdata, sizeof(subdev_pdata));
 
 	(*pdev)->dev.parent = pcf->dev;
 
