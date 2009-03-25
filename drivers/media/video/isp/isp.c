@@ -318,7 +318,7 @@ static void isp_release_resources(struct device *dev)
 		ispccdc_free();
 
 	if (isp->module.isp_pipeline & OMAP_ISP_PREVIEW)
-		isppreview_free();
+		isppreview_free(&isp->isp_prev);
 
 	if (isp->module.isp_pipeline & OMAP_ISP_RESIZER)
 		ispresizer_free(&isp->isp_res);
@@ -911,10 +911,11 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 							isp \
 							->module.applyCrop = 0;
 					}
-					if (!isppreview_busy()) {
+					if (!isppreview_busy(&isp->isp_prev)) {
 						ispresizer_enable(&isp->isp_res,
 								  1);
-						if (isppreview_busy()) {
+						if (isppreview_busy(
+							&isp->isp_prev)) {
 							/* FIXME: locking! */
 							ISP_BUF_DONE \
 							(bufs)->vb_state =
@@ -927,12 +928,12 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 					}
 				}
 			}
-			if (!isppreview_busy()) {
-				isppreview_enable(0);
-				isppreview_config_shadow_registers();
-				isppreview_enable(1);
+			if (!isppreview_busy(&isp->isp_prev)) {
+				isppreview_enable(&isp->isp_prev, 0);
+				isppreview_config_shadow_registers(&isp->isp_prev);
+				isppreview_enable(&isp->isp_prev, 1);
 			}
-			if (!isppreview_busy())
+			if (!isppreview_busy(&isp->isp_prev))
 				isph3a_update_wb(&isp->isp_h3a);
 			if (CCDC_PREV_CAPTURE(isp))
 				isp_buf_process(dev, bufs);
@@ -1124,7 +1125,7 @@ static u32 isp_tmp_buf_alloc(struct device *dev, size_t size)
 	}
 	isp->tmp_buf_size = size;
 
-	isppreview_set_outaddr(isp->tmp_buf);
+	isppreview_set_outaddr(&isp->isp_prev, isp->tmp_buf);
 	ispresizer_set_inaddr(&isp->isp_res, isp->tmp_buf);
 
 	return 0;
@@ -1141,7 +1142,7 @@ void isp_start(struct device *dev)
 	struct isp_device *isp = dev_get_drvdata(dev);
 
 	if (isp->module.isp_pipeline & OMAP_ISP_PREVIEW)
-		isppreview_enable(1);
+		isppreview_enable(&isp->isp_prev, 1);
 
 	isph3a_notify(0);
 	isp_af_notify(0);
@@ -1172,7 +1173,7 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 		isp_hist_enable(&isp->isp_hist, 0);
 	}
 	if (isp->module.isp_pipeline & OMAP_ISP_PREVIEW)
-		isppreview_enable(0);
+		isppreview_enable(&isp->isp_prev, 0);
 	if (isp->module.isp_pipeline & OMAP_ISP_RESIZER)
 		ispresizer_enable(&isp->isp_res, 0);
 
@@ -1180,7 +1181,7 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 	while (isp_af_busy(&isp->isp_af)
 	       || isph3a_aewb_busy(&isp->isp_h3a)
 	       || isp_hist_busy(&isp->isp_hist)
-	       || isppreview_busy()
+	       || isppreview_busy(&isp->isp_prev)
 	       || ispresizer_busy(&isp->isp_res)) {
 		if (time_after(jiffies, timeout)) {
 			printk(KERN_ERR "%s: can't stop non-ccdc modules\n",
@@ -1280,7 +1281,7 @@ static void isp_set_buf(struct device *dev, struct isp_buf *buf)
 	if (CCDC_PREV_RESZ_CAPTURE(isp))
 		ispresizer_set_outaddr(&isp->isp_res, buf->isp_addr);
 	else if (CCDC_PREV_CAPTURE(isp))
-		isppreview_set_outaddr(buf->isp_addr);
+		isppreview_set_outaddr(&isp->isp_prev, buf->isp_addr);
 	else if (CCDC_CAPTURE(isp))
 		ispccdc_set_outaddr(buf->isp_addr);
 
@@ -1314,9 +1315,10 @@ static u32 isp_calc_pipeline(struct device *dev,
 						      OMAP_ISP_CCDC;
 
 		ispccdc_request();
-		isppreview_request();
+		isppreview_request(&isp->isp_prev);
 		ispccdc_config_datapath(CCDC_RAW, CCDC_OTHERS_VP);
-		isppreview_config_datapath(PRV_RAW_CCDC, PREVIEW_MEM);
+		isppreview_config_datapath(&isp->isp_prev, PRV_RAW_CCDC,
+					   PREVIEW_MEM);
 		if (isp->module.isp_pipeline & OMAP_ISP_RESIZER) {
 			ispresizer_request(&isp->isp_res);
 			ispresizer_config_datapath(&isp->isp_res, RSZ_MEM_YUV);
@@ -1353,7 +1355,8 @@ static void isp_config_pipeline(struct device *dev,
 			    isp->module.ccdc_output_height);
 
 	if (isp->module.isp_pipeline & OMAP_ISP_PREVIEW) {
-		isppreview_config_size(isp->module.preview_input_width,
+		isppreview_config_size(&isp->isp_prev,
+				       isp->module.preview_input_width,
 				       isp->module.preview_input_height,
 				       isp->module.preview_output_width,
 				       isp->module.preview_output_height);
@@ -1369,17 +1372,17 @@ static void isp_config_pipeline(struct device *dev,
 
 	if (CCDC_PREV_RESZ_CAPTURE(isp)) {
 		if (pix_output->pixelformat == V4L2_PIX_FMT_UYVY) {
-			isppreview_config_ycpos(YCPOS_YCrYCb);
+			isppreview_config_ycpos(&isp->isp_prev, YCPOS_YCrYCb);
 			ispresizer_config_ycpos(&isp->isp_res, 0);
 		} else {
-			isppreview_config_ycpos(YCPOS_CrYCbY);
+			isppreview_config_ycpos(&isp->isp_prev, YCPOS_CrYCbY);
 			ispresizer_config_ycpos(&isp->isp_res, 1);
 		}
 	} else if (CCDC_PREV_CAPTURE(isp)) {
 		if (pix_output->pixelformat == V4L2_PIX_FMT_UYVY)
-			isppreview_config_ycpos(YCPOS_YCrYCb);
+			isppreview_config_ycpos(&isp->isp_prev, YCPOS_YCrYCb);
 		else
-			isppreview_config_ycpos(YCPOS_CrYCbY);
+			isppreview_config_ycpos(&isp->isp_prev, YCPOS_CrYCbY);
 	}
 
 	return;
@@ -1460,7 +1463,7 @@ static int isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 		if (CCDC_CAPTURE(isp))
 			ispccdc_enable(0);
 		else if (CCDC_PREV_CAPTURE(isp))
-			isppreview_enable(0);
+			isppreview_enable(&isp->isp_prev, 0);
 		else if (CCDC_PREV_RESZ_CAPTURE(isp))
 			ispresizer_enable(&isp->isp_res, 0);
 		/*
@@ -1472,7 +1475,7 @@ static int isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 	}
 	if ((CCDC_CAPTURE(isp) && ispccdc_busy())
 	    || (CCDC_PREV_RESZ_CAPTURE(isp) && ispresizer_busy(&isp->isp_res))
-	    || (CCDC_PREV_CAPTURE(isp) && isppreview_busy())) {
+	    || (CCDC_PREV_CAPTURE(isp) && isppreview_busy(&isp->isp_prev))) {
 		/*
 		 * Next buffer available: for the transfer to succeed, the
 		 * CCDC (RAW capture) or resizer (YUV capture) must be idle
@@ -1694,15 +1697,15 @@ int isp_g_ctrl(struct device *dev, struct v4l2_control *a)
 
 	switch (a->id) {
 	case V4L2_CID_BRIGHTNESS:
-		isppreview_query_brightness(&current_value);
+		isppreview_query_brightness(&isp->isp_prev, &current_value);
 		a->value = current_value / ISPPRV_BRIGHT_UNITS;
 		break;
 	case V4L2_CID_CONTRAST:
-		isppreview_query_contrast(&current_value);
+		isppreview_query_contrast(&isp->isp_prev, &current_value);
 		a->value = current_value / ISPPRV_CONTRAST_UNITS;
 		break;
 	case V4L2_CID_COLORFX:
-		isppreview_get_color(&current_value);
+		isppreview_get_color(&isp->isp_prev, &current_value);
 		a->value = current_value;
 		break;
 	default:
@@ -1737,19 +1740,20 @@ int isp_s_ctrl(struct device *dev, struct v4l2_control *a)
 		if (new_value > ISPPRV_BRIGHT_HIGH)
 			rval = -EINVAL;
 		else
-			isppreview_update_brightness(&new_value);
+			isppreview_update_brightness(&isp->isp_prev,
+						     &new_value);
 		break;
 	case V4L2_CID_CONTRAST:
 		if (new_value > ISPPRV_CONTRAST_HIGH)
 			rval = -EINVAL;
 		else
-			isppreview_update_contrast(&new_value);
+			isppreview_update_contrast(&isp->isp_prev, &new_value);
 		break;
 	case V4L2_CID_COLORFX:
 		if (new_value > V4L2_COLORFX_SEPIA)
 			rval = -EINVAL;
 		else
-			isppreview_set_color(&new_value);
+			isppreview_set_color(&isp->isp_prev, &new_value);
 		break;
 	default:
 		rval = -EINVAL;
@@ -1787,7 +1791,7 @@ int isp_handle_private(struct device *dev, struct mutex *vdev_mutex, int cmd,
 		break;
 	case VIDIOC_PRIVATE_ISP_PRV_CFG:
 		mutex_lock(vdev_mutex);
-		rval = omap34xx_isp_preview_config(arg);
+		rval = omap34xx_isp_preview_config(&isp->isp_prev, arg);
 		mutex_unlock(vdev_mutex);
 		break;
 	case VIDIOC_PRIVATE_ISP_AEWB_CFG: {
@@ -2151,7 +2155,8 @@ static int isp_try_size(struct device *dev, struct v4l2_pix_format *pix_input,
 		isp->module.preview_input_width = isp->module.ccdc_output_width;
 		isp->module.preview_input_height =
 			isp->module.ccdc_output_height;
-		rval = isppreview_try_size(isp->module.preview_input_width,
+		rval = isppreview_try_size(&isp->isp_prev,
+					   isp->module.preview_input_width,
 					   isp->module.preview_input_height,
 					   &isp->module.preview_output_width,
 					   &isp->module.preview_output_height);

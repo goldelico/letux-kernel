@@ -165,8 +165,11 @@ int isph3a_aewb_busy(struct isp_h3a_device *isp_h3a)
  **/
 void isph3a_update_wb(struct isp_h3a_device *isp_h3a)
 {
+	struct isp_device *isp = dev_get_drvdata(isp_h3a->dev);
+
 	if (isp_h3a->wb_update) {
-		isppreview_config_whitebalance(isp_h3a->h3awb_update);
+		isppreview_config_whitebalance(&isp->isp_prev,
+					       isp_h3a->h3awb_update);
 		isp_h3a->wb_update = 0;
 	}
 	return;
