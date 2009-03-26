@@ -608,6 +608,7 @@ static int s_pix_parm(struct omap34xxcam_videodev *vdev,
 	struct device *isp = vdev->cam->isp;
 	struct v4l2_streamparm a;
 	struct v4l2_format fmt;
+	struct v4l2_format old_fmt;
 	int rval;
 
 	rval = try_pix_parm(vdev, best_pix, pix, best_ival);
@@ -620,6 +621,7 @@ static int s_pix_parm(struct omap34xxcam_videodev *vdev,
 
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	fmt.fmt.pix = *best_pix;
+	vidioc_int_g_fmt_cap(vdev->vdev_sensor, &old_fmt);
 	rval = vidioc_int_s_fmt_cap(vdev->vdev_sensor, &fmt);
 	if (rval)
 		return rval;
@@ -627,6 +629,21 @@ static int s_pix_parm(struct omap34xxcam_videodev *vdev,
 	a.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	a.parm.capture.timeperframe = *best_ival;
 	rval = vidioc_int_s_parm(vdev->vdev_sensor, &a);
+
+	/*
+	 * FIXME: the crop parameters are reset here. That
+	 * shouldn't be done. How to do this for different
+	 * sensor resolutions?
+	 */
+	if (memcmp(&old_fmt.fmt.pix, &fmt.fmt.pix, sizeof(old_fmt.fmt.pix))) {
+		struct v4l2_crop crop;
+
+		crop.c.left = crop.c.top = 0;
+		crop.c.width = fmt.fmt.pix.width;
+		crop.c.height = fmt.fmt.pix.height;
+
+		isp_s_crop(isp, &crop);
+	}
 
 	return rval;
 }
@@ -1299,7 +1316,7 @@ static int vidioc_s_crop(struct file *file, void *fh, struct v4l2_crop *a)
 	if (vdev->vdev_sensor_config.sensor_isp)
 		rval = vidioc_int_s_crop(vdev->vdev_sensor, a);
 	else
-		rval = isp_s_crop(isp, a, &vdev->pix);
+		rval = isp_s_crop(isp, a);
 
 	mutex_unlock(&vdev->mutex);
 
