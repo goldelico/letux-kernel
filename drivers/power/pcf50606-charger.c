@@ -37,7 +37,7 @@ void pcf50606_charge_fast(struct pcf50606 *pcf, int on)
 {
 	struct pcf50606_mbc *mbc = platform_get_drvdata(pcf->mbc_pdev);
 
- 	/*
+	/*
 	 * This is a fix to work around boot-time ordering problems if
 	 * the s3c2410_udc is initialized before the pcf50606 mbc is
 	 * ready.
