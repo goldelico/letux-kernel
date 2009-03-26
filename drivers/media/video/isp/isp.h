@@ -252,7 +252,6 @@ struct isp_irq {
 /**
  * struct ispmodule - Structure for storing ISP sub-module information.
  * @isp_pipeline: Bit mask for submodules enabled within the ISP.
- * @applyCrop: Flag to do a crop operation when video buffer queue ISR is done
  * @pix: Structure containing the format and layout of the output image.
  * @ccdc_input_width: ISP CCDC module input image width.
  * @ccdc_input_height: ISP CCDC module input image height.
@@ -271,7 +270,6 @@ struct isp_module {
 	u32 interrupts;
 	int enable;
 	unsigned int isp_pipeline;
-	int applyCrop;
 	struct v4l2_pix_format pix;
 	unsigned int ccdc_input_width;
 	unsigned int ccdc_input_height;
@@ -345,8 +343,6 @@ struct isp_device {
 	struct isp_bufs bufs;
 	struct isp_irq irq;
 	struct isp_module module;
-	struct v4l2_rect croprect;
-	struct v4l2_rect cur_rect;
 
 	/* ISP modules */
 	struct isp_af_device isp_af;
@@ -428,10 +424,7 @@ int isp_s_fmt_cap(struct device *dev, struct v4l2_pix_format *pix_input,
 
 int isp_g_crop(struct device *dev, struct v4l2_crop *a);
 
-int isp_s_crop(struct device *dev, struct v4l2_crop *a,
-	       struct v4l2_pix_format *pix);
-
-void isp_config_crop(struct device *dev, struct v4l2_pix_format *pix);
+int isp_s_crop(struct device *dev, struct v4l2_crop *a);
 
 int isp_try_fmt(struct device *dev, struct v4l2_pix_format *pix_input,
 		struct v4l2_pix_format *pix_output);
