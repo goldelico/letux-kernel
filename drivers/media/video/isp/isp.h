@@ -118,11 +118,10 @@ enum isp_callback_type {
 	CBK_END,
 };
 
-enum ispccdc_raw_fmt {
-	ISPCCDC_INPUT_FMT_GR_BG,
-	ISPCCDC_INPUT_FMT_RG_GB,
-	ISPCCDC_INPUT_FMT_BG_GR,
-	ISPCCDC_INPUT_FMT_GB_RG,
+enum isp_running {
+	ISP_STOPPED,
+	ISP_RUNNING,
+	ISP_STOPPING,
 };
 
 /**
@@ -355,6 +354,7 @@ struct isp_device {
 	struct isp_h3a_device isp_h3a;
 	struct isp_res_device isp_res;
 	struct isp_prev_device isp_prev;
+	struct isp_ccdc_device isp_ccdc;
 };
 
 u32 isp_reg_readl(struct device *dev, enum isp_mem_resources isp_mmio_range,
