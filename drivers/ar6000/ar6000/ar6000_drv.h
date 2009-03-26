@@ -273,7 +273,6 @@ typedef struct ar6_softc {
     A_BOOL                  write_buffer_available[HTC_RAW_STREAM_NUM_MAX];
     A_BOOL                  read_buffer_available[HTC_RAW_STREAM_NUM_MAX];
 #endif
-    A_BOOL                  arNetQueueStopped;
     A_BOOL                  arRawIfInit;
     int                     arDeviceIndex;
     COMMON_CREDIT_STATE_INFO arCreditStateInfo;

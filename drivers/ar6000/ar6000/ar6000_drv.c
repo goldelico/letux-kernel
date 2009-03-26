@@ -238,6 +238,8 @@ static void ar6000_tx_complete(void *Context, HTC_PACKET *pPacket);
 
 static void ar6000_tx_queue_full(void *Context, HTC_ENDPOINT_ID Endpoint);
 
+static void ar6000_tx_queue_avail(void *Context, HTC_ENDPOINT_ID Endpoint);
+
 /*
  * Static variables
  */
@@ -1149,7 +1151,7 @@ static int
 ar6000_open(struct net_device *dev)
 {
     /* Wake up the queues */
-    netif_wake_queue(dev);
+    netif_start_queue(dev);
 
     return 0;
 }
@@ -1278,6 +1280,7 @@ int ar6000_init(struct net_device *dev)
         connect.EpCallbacks.EpRecv = ar6000_rx;
         connect.EpCallbacks.EpRecvRefill = ar6000_rx_refill;
         connect.EpCallbacks.EpSendFull = ar6000_tx_queue_full;
+        connect.EpCallbacks.EpSendAvail = ar6000_tx_queue_avail;
             /* set the max queue depth so that our ar6000_tx_queue_full handler gets called.
              * Linux has the peculiarity of not providing flow control between the
              * NIC and the network stack. There is no API to indicate that a TX packet
@@ -1753,10 +1756,10 @@ applyAPTCHeuristics(AR_SOFTC_T *ar)
 }
 #endif /* ADAPTIVE_POWER_THROUGHPUT_CONTROL */
 
-static void ar6000_tx_queue_full(void *Context, HTC_ENDPOINT_ID Endpoint)
+static void
+ar6000_tx_queue_full(void *Context, HTC_ENDPOINT_ID Endpoint)
 {
-    AR_SOFTC_T     *ar = (AR_SOFTC_T *)Context;
-
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)Context;
 
     if (Endpoint == arWMIStream2EndpointID(ar,WMI_CONTROL_PRI)) {
         if (!bypasswmi) {
@@ -1771,18 +1774,26 @@ static void ar6000_tx_queue_full(void *Context, HTC_ENDPOINT_ID Endpoint)
             AR_DEBUG_PRINTF("WMI Control Endpoint is FULL!!! \n");
         }
     } else {
-
-        AR6000_SPIN_LOCK(&ar->arLock, 0);
-        ar->arNetQueueStopped = TRUE;
-        AR6000_SPIN_UNLOCK(&ar->arLock, 0);
         /* one of the data endpoints queues is getting full..need to stop network stack
-         * the queue will resume in ar6000_tx_complete() */
+         * the queue will resume after credits received */
         netif_stop_queue(ar->arNetDev);
     }
-
-
 }
 
+static void
+ar6000_tx_queue_avail(void *Context, HTC_ENDPOINT_ID Endpoint)
+{
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)Context;
+
+    if (Endpoint == arWMIStream2EndpointID(ar,WMI_CONTROL_PRI)) {
+        /* FIXME: what do for it?  */
+    } else {
+        /* Wake up interface, rescheduling prevented.  */
+        if ((ar->arConnected == TRUE) || (bypasswmi)) {
+            netif_wake_queue(ar->arNetDev);
+        }
+    }
+}
 
 static void
 ar6000_tx_complete(void *Context, HTC_PACKET *pPacket)
@@ -1877,10 +1888,6 @@ ar6000_tx_complete(void *Context, HTC_PACKET *pPacket)
         ar6000_free_cookie(ar, cookie);
     }
 
-    if (ar->arNetQueueStopped) {
-        ar->arNetQueueStopped = FALSE;
-    }
-
     AR6000_SPIN_UNLOCK(&ar->arLock, 0);
 
     /* lock is released, we can freely call other kernel APIs */
@@ -1888,18 +1895,9 @@ ar6000_tx_complete(void *Context, HTC_PACKET *pPacket)
         /* this indirectly frees the HTC_PACKET */
     A_NETBUF_FREE(skb);
 
-    if ((ar->arConnected == TRUE) || (bypasswmi)) {
-        if (status != A_ECANCELED) {
-                /* don't wake the queue if we are flushing, other wise it will just
-                 * keep queueing packets, which will keep failing */
-            netif_wake_queue(ar->arNetDev);
-        }
-    }
-
     if (wakeEvent) {
         wake_up(&arEvent);
     }
-
 }
 
 /*
@@ -2317,7 +2315,7 @@ ar6000_connect_event(AR_SOFTC_T *ar, A_UINT16 channel, A_UINT8 *bssid,
         /* flush data queues */
     ar6000_TxDataCleanup(ar);
 
-    netif_wake_queue(ar->arNetDev);
+    netif_start_queue(ar->arNetDev);
 
     if ((OPEN_AUTH == ar->arDot11AuthMode) &&
         (NONE_AUTH == ar->arAuthMode)      &&

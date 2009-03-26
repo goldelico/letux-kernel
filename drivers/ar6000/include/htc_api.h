@@ -86,6 +86,8 @@ typedef void   (*HTC_EP_RECV_REFILL)(void *, HTC_ENDPOINT_ID Endpoint);
  * Other OSes require a "per-packet" indication_RAW_STREAM_NUM_MAX for each completed TX packet, this
  * closed loop mechanism will prevent the network stack from overunning the NIC */
 typedef void (*HTC_EP_SEND_QUEUE_FULL)(void *, HTC_ENDPOINT_ID Endpoint);
+/* Optional per service connection callback when a send queue is available for receive new packet. */
+typedef void (*HTC_EP_SEND_QUEUE_AVAIL)(void *, HTC_ENDPOINT_ID Endpoint);
 
 typedef struct _HTC_EP_CALLBACKS {
     void                     *pContext;     /* context for each callback */
@@ -93,6 +95,7 @@ typedef struct _HTC_EP_CALLBACKS {
     HTC_EP_RECV_PKT          EpRecv;        /* receive callback for connected endpoint */
     HTC_EP_RECV_REFILL       EpRecvRefill;  /* OPTIONAL receive re-fill callback for connected endpoint */
     HTC_EP_SEND_QUEUE_FULL   EpSendFull;    /* OPTIONAL send full callback */
+    HTC_EP_SEND_QUEUE_AVAIL  EpSendAvail;    /* OPTIONAL send available callback */
 } HTC_EP_CALLBACKS;
 
 /* service connection information */
