@@ -676,9 +676,11 @@ static struct vbus_draw gta01_udc_vbus_drawer;
 
 static void __gta01_udc_vbus_draw(struct work_struct *work)
 {
-	/* this is a fix to work around boot-time ordering problems if the
+	/*
+	 * This is a fix to work around boot-time ordering problems if the
 	 * s3c2410_udc is initialized before the pcf50606 driver has defined
-	 * pcf50606_global */
+	 * pcf50606_global
+	 */
 	if (!gta01_pcf)
 		return;
 
