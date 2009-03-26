@@ -133,7 +133,7 @@ EXPORT_SYMBOL(ispresizer_config_shadow_registers);
  * @oh: Height of output image.
  **/
 void ispresizer_trycrop(struct isp_res_device *isp_res, u32 left, u32 top,
-			u32 width, u32 height, u32 ow, u32 oh)
+			    u32 width, u32 height, u32 ow, u32 oh)
 {
 	isp_res->cropwidth = width + 6;
 	isp_res->cropheight = height + 6;
@@ -149,12 +149,69 @@ EXPORT_SYMBOL(ispresizer_trycrop);
  **/
 void ispresizer_applycrop(struct isp_res_device *isp_res)
 {
+	if (!isp_res->applycrop)
+		return;
+
 	ispresizer_config_size(isp_res, isp_res->cropwidth, isp_res->cropheight,
 			       isp_res->outputwidth,
 			       isp_res->outputheight);
+
+	isp_res->applycrop = 0;
+
 	return;
 }
 EXPORT_SYMBOL(ispresizer_applycrop);
+
+void ispresizer_config_crop(struct isp_res_device *isp_res,
+			    struct v4l2_crop *a)
+{
+	struct isp_device *isp =
+		container_of(isp_res, struct isp_device, isp_res);
+	struct v4l2_crop *crop = a;
+
+	crop->c.left &= ~0xf;
+	crop->c.width &= ~0xf;
+
+	if (crop->c.left < 0)
+		crop->c.left = 0;
+	if (crop->c.width < 0)
+		crop->c.width = 0;
+	if (crop->c.top < 0)
+		crop->c.top = 0;
+	if (crop->c.height < 0)
+		crop->c.height = 0;
+
+	if (crop->c.left >= isp->module.preview_output_width)
+		crop->c.left = isp->module.preview_output_width - 1;
+	if (crop->c.top >= isp->module.preview_output_height)
+		crop->c.top = isp->module.preview_output_height - 1;
+
+	if (crop->c.left + crop->c.width > isp->module.preview_output_width)
+		crop->c.width = isp->module.preview_output_width - crop->c.left;
+	if (crop->c.top + crop->c.height > isp->module.preview_output_height)
+		crop->c.height =
+			isp->module.preview_output_height - crop->c.top;
+
+	isp_res->croprect.left = crop->c.left;
+	isp_res->croprect.top = crop->c.top;
+	isp_res->croprect.width = crop->c.width;
+	isp_res->croprect.height = crop->c.height;
+
+	ispresizer_trycrop(isp_res,
+			   isp_res->croprect.left, isp_res->croprect.top,
+			   isp_res->croprect.width, isp_res->croprect.height,
+			   isp->module.resizer_output_width,
+			   isp->module.resizer_output_height);
+
+	isp_res->applycrop = 1;
+
+	/* FIXME: ugly hack. */
+	if (!ispresizer_busy(isp_res))
+		ispresizer_applycrop(isp_res);
+
+	return;
+}
+EXPORT_SYMBOL(ispresizer_config_crop);
 
 /**
  * ispresizer_request - Reserves the Resizer module.
@@ -415,6 +472,7 @@ int ispresizer_try_size(struct isp_res_device *isp_res, u32 *input_width,
 
 	*input_height = input_h;
 	*input_width = input_w;
+
 	return 0;
 }
 EXPORT_SYMBOL(ispresizer_try_size);
@@ -435,6 +493,8 @@ EXPORT_SYMBOL(ispresizer_try_size);
 int ispresizer_config_size(struct isp_res_device *isp_res, u32 input_w,
 			   u32 input_h, u32 output_w, u32 output_h)
 {
+	struct isp_device *isp =
+		container_of(isp_res, struct isp_device, isp_res);
 	int i, j;
 	u32 res;
 	DPRINTK_ISPRESZ("ispresizer_config_size()+, input_w = %d,input_h ="
@@ -476,12 +536,11 @@ int ispresizer_config_size(struct isp_res_device *isp_res, u32 input_w,
 		       ISPRSZ_CNT);
 
 	/* Set start address for cropping */
-	isp_reg_writel(isp_res->dev,
-		       isp_res->tmp_buf + isp_get_buf_offset(isp_res->dev),
-		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
+	ispresizer_set_inaddr(isp_res,
+			      isp_res->tmp_buf + isp_get_buf_offset(isp_res->dev));
 
 	isp_reg_writel(isp_res->dev,
-		((isp_res->ipwd_crop & 15) << ISPRSZ_IN_START_HORZ_ST_SHIFT) |
+		(0 << ISPRSZ_IN_START_HORZ_ST_SHIFT) |
 		(0x00 << ISPRSZ_IN_START_VERT_ST_SHIFT),
 		OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START);
 
@@ -491,8 +550,8 @@ int ispresizer_config_size(struct isp_res_device *isp_res, u32 input_w,
 		       ISPRSZ_IN_START);
 
 	isp_reg_writel(isp_res->dev,
-		       (isp_res->inputwidth << ISPRSZ_IN_SIZE_HORZ_SHIFT) |
-		       (isp_res->inputheight <<
+		       (isp_res->croprect.width << ISPRSZ_IN_SIZE_HORZ_SHIFT) |
+		       (isp_res->croprect.height <<
 			ISPRSZ_IN_SIZE_VERT_SHIFT),
 		       OMAP3_ISP_IOMEM_RESZ,
 		       ISPRSZ_IN_SIZE);
@@ -783,9 +842,10 @@ int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr)
 	DPRINTK_ISPRESZ("ispresizer_set_inaddr()+\n");
 	if (addr % 32)
 		return -EINVAL;
-	isp_reg_writel(isp_res->dev, addr << ISPRSZ_SDR_INADD_ADDR_SHIFT,
-		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
 	isp_res->tmp_buf = addr;
+	isp_reg_writel(isp_res->dev,
+		       isp_res->tmp_buf,
+		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
 	DPRINTK_ISPRESZ("ispresizer_set_inaddr()-\n");
 	return 0;
 }

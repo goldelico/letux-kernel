@@ -149,6 +149,8 @@ struct isp_res_device {
 	struct mutex ispres_mutex; /* For checking/modifying res_inuse */
 	struct isprsz_yenh defaultyenh;
 	struct device *dev;
+	int applycrop;
+	struct v4l2_rect croprect;
 };
 
 void ispresizer_config_shadow_registers(struct isp_res_device *isp_res);
@@ -177,6 +179,9 @@ int ispresizer_try_size(struct isp_res_device *isp_res, u32 *input_w,
 			u32 *input_h, u32 *output_w, u32 *output_h);
 
 void ispresizer_applycrop(struct isp_res_device *isp_res);
+
+void ispresizer_config_crop(struct isp_res_device *isp_res,
+			    struct v4l2_crop *a);
 
 void ispresizer_trycrop(struct isp_res_device *isp_res, u32 left, u32 top,
 			u32 width, u32 height, u32 ow, u32 oh);

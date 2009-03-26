@@ -903,14 +903,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		else {
 			if (CCDC_PREV_RESZ_CAPTURE(isp)) {
 				if (!ispresizer_busy(&isp->isp_res)) {
-					if (isp->module.applyCrop) {
-						ispresizer_applycrop(
-								&isp->isp_res);
-						if (!ispresizer_busy(
-								&isp->isp_res))
-							isp \
-							->module.applyCrop = 0;
-					}
+					ispresizer_applycrop(&isp->isp_res);
 					if (!isppreview_busy(&isp->isp_prev)) {
 						ispresizer_enable(&isp->isp_res,
 								  1);
@@ -1910,7 +1903,6 @@ int isp_s_fmt_cap(struct device *dev, struct v4l2_pix_format *pix_input,
 		  struct v4l2_pix_format *pix_output)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
-	int crop_scaling_w = 0, crop_scaling_h = 0;
 	int rval = 0;
 
 
@@ -1929,77 +1921,12 @@ int isp_s_fmt_cap(struct device *dev, struct v4l2_pix_format *pix_input,
 	if (rval)
 		goto out;
 
-	if (isp->croprect.width != pix_output->width) {
-		crop_scaling_w = 1;
-		isp->croprect.left = 0;
-		isp->croprect.width = pix_output->width;
-	}
-
-	if (isp->croprect.height != pix_output->height) {
-		crop_scaling_h = 1;
-		isp->croprect.top = 0;
-		isp->croprect.height = pix_output->height;
-	}
-
 	isp_config_pipeline(dev, pix_input, pix_output);
-	if (isp->module.isp_pipeline & OMAP_ISP_RESIZER
-	    && (crop_scaling_h || crop_scaling_w))
-		isp_config_crop(dev, pix_output);
 
 out:
 	return rval;
 }
 EXPORT_SYMBOL(isp_s_fmt_cap);
-
-/**
- * isp_config_crop - Configures crop parameters in isp resizer.
- * @croppix: Pointer to V4L2 pixel format structure containing crop parameters
- **/
-void isp_config_crop(struct device *dev, struct v4l2_pix_format *croppix)
-{
-	struct isp_device *isp = dev_get_drvdata(dev);
-	u8 crop_scaling_w;
-	u8 crop_scaling_h;
-	unsigned long org_left, num_pix, new_top;
-
-	struct v4l2_pix_format *pix = croppix;
-
-	crop_scaling_w = (isp->module.preview_output_width * 10) / pix->width;
-	crop_scaling_h = (isp->module.preview_output_height * 10) / pix->height;
-
-	isp->cur_rect.left = (isp->croprect.left * crop_scaling_w) / 10;
-	isp->cur_rect.top = (isp->croprect.top * crop_scaling_h) / 10;
-	isp->cur_rect.width = (isp->croprect.width * crop_scaling_w) / 10;
-	isp->cur_rect.height = (isp->croprect.height * crop_scaling_h) / 10;
-
-	org_left = isp->cur_rect.left;
-	while (((int)isp->cur_rect.left & 0xFFFFFFF0)
-		!= (int)isp->cur_rect.left)
-		(int)isp->cur_rect.left--;
-
-	num_pix = org_left - isp->cur_rect.left;
-	new_top = (int)(num_pix * 3) / 4;
-	isp->cur_rect.top = isp->cur_rect.top - new_top;
-	isp->cur_rect.height = (2 * new_top) + isp->cur_rect.height;
-
-	isp->cur_rect.width = isp->cur_rect.width + (2 * num_pix);
-	while (((int)isp->cur_rect.width & 0xFFFFFFF0)
-		!= (int)isp->cur_rect.width)
-		(int)isp->cur_rect.width--;
-
-	isp->tmp_buf_offset =
-		isp->cur_rect.left * 2 +
-		isp->module.preview_output_width * 2 * isp->cur_rect.top;
-
-	ispresizer_trycrop(&isp->isp_res,
-			   isp->cur_rect.left, isp->cur_rect.top,
-			   isp->cur_rect.width, isp->cur_rect.height,
-			   isp->module.resizer_output_width,
-			   isp->module.resizer_output_height);
-
-	return;
-}
-EXPORT_SYMBOL(isp_config_crop);
 
 /**
  * isp_get_buf_offset - Gets offset of start of crop.
@@ -2024,7 +1951,7 @@ int isp_g_crop(struct device *dev, struct v4l2_crop *crop)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 
-	crop->c = isp->croprect;
+	crop->c = isp->isp_res.croprect;
 
 	return 0;
 }
@@ -2037,45 +1964,13 @@ EXPORT_SYMBOL(isp_g_crop);
  *
  * Returns 0 if successful, or -EINVAL if crop parameters are out of bounds.
  **/
-int isp_s_crop(struct device *dev, struct v4l2_crop *a,
-	       struct v4l2_pix_format *pix)
+int isp_s_crop(struct device *dev, struct v4l2_crop *a)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
-	struct v4l2_crop *crop = a;
-	int rval = 0;
 
-	if (!isp->ref_count)
-		return -EINVAL;
+	ispresizer_config_crop(&isp->isp_res, a);
 
-	if (crop->c.left < 0)
-		crop->c.left = 0;
-	if (crop->c.width < 0)
-		crop->c.width = 0;
-	if (crop->c.top < 0)
-		crop->c.top = 0;
-	if (crop->c.height < 0)
-		crop->c.height = 0;
-
-	if (crop->c.left >= pix->width)
-		crop->c.left = pix->width - 1;
-	if (crop->c.top >= pix->height)
-		crop->c.top = pix->height - 1;
-
-	if (crop->c.left + crop->c.width > pix->width)
-		crop->c.width = pix->width - crop->c.left;
-	if (crop->c.top + crop->c.height > pix->height)
-		crop->c.height = pix->height - crop->c.top;
-
-	isp->croprect.left = crop->c.left;
-	isp->croprect.top = crop->c.top;
-	isp->croprect.width = crop->c.width;
-	isp->croprect.height = crop->c.height;
-
-	isp_config_crop(dev, pix);
-
-	isp->module.applyCrop = 1;
-
-	return rval;
+	return 0;
 }
 EXPORT_SYMBOL(isp_s_crop);
 
@@ -2388,8 +2283,6 @@ int isp_put(void)
 			isp_release_resources(&pdev->dev);
 			isp->module.isp_pipeline = 0;
 			isp_disable_clocks(&pdev->dev);
-			memset(&isp->croprect, 0, sizeof(isp->croprect));
-			memset(&isp->cur_rect, 0, sizeof(isp->cur_rect));
 		}
 	}
 	mutex_unlock(&(isp->isp_mutex));
