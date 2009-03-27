@@ -129,7 +129,8 @@ static int neo1973_vib_init_hw(struct neo1973_vib_priv *vp)
 static int neo1973_vib_suspend(struct platform_device *dev, pm_message_t state)
 {
 	led_classdev_suspend(&neo1973_vib_led.cdev);
-	neo1973_vib_priv.pdata->disable_fiq();
+	if (neo1973_vib_priv.pdata)
+		neo1973_vib_priv.pdata->disable_fiq();
 	return 0;
 }
 
@@ -141,7 +142,8 @@ static int neo1973_vib_resume(struct platform_device *dev)
 		neo1973_vib_init_hw(vp);
 
 	led_classdev_resume(&neo1973_vib_led.cdev);
-	neo1973_vib_priv.pdata->enable_fiq();
+	if (neo1973_vib_priv.pdata)
+		neo1973_vib_priv.pdata->enable_fiq();
 
 	return 0;
 }
