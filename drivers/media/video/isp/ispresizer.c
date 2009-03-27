@@ -497,8 +497,6 @@ EXPORT_SYMBOL(ispresizer_try_size);
 int ispresizer_config_size(struct isp_res_device *isp_res, u32 input_w,
 			   u32 input_h, u32 output_w, u32 output_h)
 {
-	struct isp_device *isp =
-		container_of(isp_res, struct isp_device, isp_res);
 	int i, j;
 	u32 res;
 	DPRINTK_ISPRESZ("ispresizer_config_size()+, input_w = %d,input_h ="
