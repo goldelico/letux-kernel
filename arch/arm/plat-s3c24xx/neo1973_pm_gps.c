@@ -764,6 +764,7 @@ static int gta01_pm_gps_remove(struct platform_device *pdev)
 			regulator_put(neo1973_gps.regulator[i]);
 		}
 #endif
+		bus_remove_device_link(&platform_bus_type, "gta01-pm-gps.0");
 		sysfs_remove_group(&pdev->dev.kobj, &gta01_gps_attr_group);
 	}
 
