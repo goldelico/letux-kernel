@@ -52,7 +52,8 @@ static void __init set_system_rev(unsigned int idcode)
 
 	if (idcode == 0x32410002 || idcode == 0x32440001)
 		system_rev |= (0x1 << 16);
-	if (idcode == 0x32440aaa)	/* s3c2442 */
+	if (idcode == 0x32440aaa	/* s3c2442 */
+	    || idcode == 0x32440aab)	/* s3c2442b */
 		system_rev |= (0x2 << 16);
 	if (idcode == 0x0)		/* s3c2400 */
 		system_rev |= (0x2400 << 16);
