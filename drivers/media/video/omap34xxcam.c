@@ -32,29 +32,14 @@
  *
  */
 
-#include <linux/io.h>
-#include <linux/clk.h>
-#include <linux/pci.h>		/* needed for videobufs */
-#include <linux/delay.h>
-#include <linux/kernel.h>
-#include <linux/interrupt.h>
 #include <linux/videodev2.h>
 #include <linux/version.h>
-#include <linux/platform_device.h>
 
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
 
 #include "omap34xxcam.h"
 #include "isp/isp.h"
-#include "isp/ispmmu.h"
-#include "isp/ispreg.h"
-#include "isp/ispccdc.h"
-#include "isp/isph3a.h"
-#include "isp/isp_af.h"
-#include "isp/isphist.h"
-#include "isp/isppreview.h"
-#include "isp/ispresizer.h"
 
 #define OMAP34XXCAM_VERSION KERNEL_VERSION(0, 0, 0)
 
