@@ -219,9 +219,8 @@ static void HTCTrySend(HTC_TARGET      *target,
     } else {
         UNLOCK_HTC_TX(target);
             /* queue is now available for new packet, let caller know */
-        if (pEndpoint->EpCallBacks.EpSendAvail) {
+        if (pEndpoint->EpCallBacks.EpSendAvail)
             pEndpoint->EpCallBacks.EpSendAvail(pEndpoint->EpCallBacks.pContext, ep);
-        }
     }
 
     AR_DEBUG_PRINTF(ATH_DEBUG_SEND,("-HTCTrySend:  \n"));

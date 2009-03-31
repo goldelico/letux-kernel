@@ -1759,7 +1759,7 @@ applyAPTCHeuristics(AR_SOFTC_T *ar)
 static void
 ar6000_tx_queue_full(void *Context, HTC_ENDPOINT_ID Endpoint)
 {
-    AR_SOFTC_T *ar = (AR_SOFTC_T *)Context;
+    AR_SOFTC_T *ar = (AR_SOFTC_T *) Context;
 
     if (Endpoint == arWMIStream2EndpointID(ar,WMI_CONTROL_PRI)) {
         if (!bypasswmi) {
@@ -1789,9 +1789,8 @@ ar6000_tx_queue_avail(void *Context, HTC_ENDPOINT_ID Endpoint)
         /* FIXME: what do for it?  */
     } else {
         /* Wake up interface, rescheduling prevented.  */
-        if ((ar->arConnected == TRUE) || (bypasswmi)) {
+        if (ar->arConnected == TRUE || bypasswmi)
             netif_wake_queue(ar->arNetDev);
-        }
     }
 }
 
