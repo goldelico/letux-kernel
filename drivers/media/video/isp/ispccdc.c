@@ -172,8 +172,9 @@ int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
 			isp_ccdc->fpc_table_add = kmalloc(64 + fpc_t.fpnum * 4,
 						GFP_KERNEL | GFP_DMA);
 			if (!isp_ccdc->fpc_table_add) {
-				printk(KERN_ERR "Cannot allocate memory for"
-				       " FPC table");
+				dev_err(isp_ccdc->dev,
+					"ccdc: Cannot allocate memory for"
+					" FPC table");
 				ret = -ENOMEM;
 				goto out;
 			}
@@ -265,11 +266,11 @@ int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
 
 out:
 	if (ret == -EFAULT)
-		printk(KERN_ERR
+		dev_err(isp_ccdc->dev,
 		       "ccdc: user provided bad configuration data address");
 
 	if (ret == -ENOMEM)
-		printk(KERN_ERR
+		dev_err(isp_ccdc->dev,
 		       "ccdc: can not allocate memory");
 
 	isp_ccdc->shadow_update = 0;
@@ -374,17 +375,19 @@ static int ispccdc_validate_config_lsc(struct isp_ccdc_device *isp_ccdc,
 
 	if ((paxel_shift_x < 2) || (paxel_shift_x > 6) ||
 	    (paxel_shift_y < 2) || (paxel_shift_y > 6)) {
-		printk(KERN_ERR "CCDC: LSC: Invalid paxel size\n");
+		dev_err(isp_ccdc->dev, "CCDC: LSC: Invalid paxel size\n");
 		return -EINVAL;
 	}
 
 	if (lsc_cfg->offset & 3) {
-		printk(KERN_ERR "CCDC: LSC: Offset must be a multiple of 4\n");
+		dev_err(isp_ccdc->dev,
+			"CCDC: LSC: Offset must be a multiple of 4\n");
 		return -EINVAL;
 	}
 
 	if ((lsc_cfg->initial_x & 1) || (lsc_cfg->initial_y & 1)) {
-		printk(KERN_ERR "CCDC: LSC: initial_x and y must be even\n");
+		dev_err(isp_ccdc->dev,
+			"CCDC: LSC: initial_x and y must be even\n");
 		return -EINVAL;
 	}
 
@@ -402,15 +405,15 @@ static int ispccdc_validate_config_lsc(struct isp_ccdc_device *isp_ccdc,
 
 	min_size = 4 * min_width * min_height;
 	if (min_size > lsc_cfg->size) {
-		printk(KERN_ERR "CCDC: LSC: too small table\n");
+		dev_err(isp_ccdc->dev, "CCDC: LSC: too small table\n");
 		return -EINVAL;
 	}
 	if (lsc_cfg->offset < (min_width * 4)) {
-		printk(KERN_ERR "CCDC: LSC: Offset is too small\n");
+		dev_err(isp_ccdc->dev, "CCDC: LSC: Offset is too small\n");
 		return -EINVAL;
 	}
 	if ((lsc_cfg->size / lsc_cfg->offset) < min_height) {
-		printk(KERN_ERR "CCDC: LSC: Wrong size/offset combination\n");
+		dev_err(isp_ccdc->dev, "CCDC: LSC: Wrong size/offset combination\n");
 		return -EINVAL;
 	}
 	return 0;
@@ -1420,7 +1423,7 @@ void __ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
 		isp_reg_and(isp_ccdc->dev, OMAP3_ISP_IOMEM_MAIN,
 			    ISP_IRQ0STATUS, ~IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
 		if (timeout <= 0) {
-			printk(KERN_ERR "LSC ouch!\n");
+			dev_err(isp_ccdc->dev, "LSC ouch!\n");
 			ispccdc_enable_lsc(isp_ccdc, 0);
 		}
 	}

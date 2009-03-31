@@ -227,7 +227,7 @@ int isp_af_configure(struct isp_af_device *isp_af,
 	struct af_configuration *af_curr_cfg = &isp_af->config;
 
 	if (NULL == afconfig) {
-		printk(KERN_ERR "Null argument in configuration. \n");
+		dev_err(isp_af->dev, "af: Null argument in configuration. \n");
 		return -EINVAL;
 	}
 
@@ -284,8 +284,9 @@ int isp_af_configure(struct isp_af_device *isp_af,
 					isp_af->min_buf_size,
 					GFP_KERNEL | GFP_DMA);
 			if (isp_af->af_buff[i].virt_addr == 0) {
-				printk(KERN_ERR "Can't acquire memory for "
-				       "buffer[%d]\n", i);
+				dev_err(isp_af->dev,
+					"af: Can't acquire memory for "
+					"buffer[%d]\n", i);
 				return -ENOMEM;
 			}
 			isp_af->af_buff[i].phy_addr = dma_map_single(NULL,
@@ -473,8 +474,9 @@ static int isp_af_stats_available(struct isp_af_device *isp_af,
 					   (void *)isp_af->af_buff[i].virt_addr,
 					   isp_af->curr_cfg_buf_size);
 			if (ret) {
-				printk(KERN_ERR "Failed copy_to_user for "
-				       "H3A stats buff, %d\n", ret);
+				dev_err(isp_af->dev,
+					"af: Failed copy_to_user for "
+					"H3A stats buff, %d\n", ret);
 			}
 			afdata->xtrastats.ts = isp_af->af_buff[i].xtrastats.ts;
 			afdata->xtrastats.field_count =
@@ -513,7 +515,7 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 	wait_queue_t wqt;
 
 	if (!isp_af->config.af_config) {
-		printk(KERN_ERR "AF engine not enabled\n");
+		dev_err(isp_af->dev, "af: engine not enabled\n");
 		return -EINVAL;
 	}
 
@@ -545,8 +547,9 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 	}
 
 	if (frame_diff > MAX_FUTURE_FRAMES) {
-		printk(KERN_ERR "Invalid frame requested, returning current"
-		       " frame stats\n");
+		dev_err(isp_af->dev,
+			"af: Invalid frame requested, returning current"
+			" frame stats\n");
 		afdata->frame_number = frame_cnt;
 	}
 	if (!isp_af->camnotify) {
@@ -566,8 +569,9 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 		/* Stats now available */
 		ret = isp_af_stats_available(isp_af, afdata);
 		if (ret) {
-			printk(KERN_ERR "After waiting for stats, stats not"
-			       " available!!\n");
+			dev_err(isp_af->dev,
+				"af: After waiting for stats, stats not"
+				" available!!\n");
 			afdata->af_statistics_buf = NULL;
 		}
 	}
@@ -630,7 +634,7 @@ int __isp_af_enable(struct isp_af_device *isp_af, int enable)
 	if (enable) {
 		if (isp_set_callback(isp_af->dev, CBK_H3A_AF_DONE, isp_af_isr,
 				     (void *)NULL, isp_af)) {
-			printk(KERN_ERR "No callback for AF\n");
+			dev_err(isp_af->dev, "af: No callback for AF\n");
 			return -EINVAL;
 		}
 

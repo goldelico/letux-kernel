@@ -235,7 +235,7 @@ int ispresizer_request(struct isp_res_device *isp_res)
 		return 0;
 	} else {
 		mutex_unlock(&isp_res->ispres_mutex);
-		printk(KERN_ERR "ISP_ERR : Resizer Module Busy\n");
+		dev_err(isp_res->dev, "resizer: Module Busy\n");
 		return -EBUSY;
 	}
 }
@@ -293,7 +293,7 @@ int ispresizer_config_datapath(struct isp_res_device *isp_res,
 		cnt |= ISPRSZ_CNT_INPTYP;
 		break;
 	default:
-		printk(KERN_ERR "ISP_ERR : Wrong Input\n");
+		dev_err(isp_res->dev, "resizer: Wrong Input\n");
 		return -EINVAL;
 	}
 	isp_reg_or(isp_res->dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT, cnt);
@@ -399,8 +399,9 @@ int ispresizer_try_size(struct isp_res_device *isp_res, u32 *input_width,
 		if (rsz < MINIMUM_RESIZE_VALUE) {
 			rsz = MINIMUM_RESIZE_VALUE;
 			*output_h = (((input_h - 4) * 256) / rsz) + 1;
-			printk(KERN_INFO "%s: using output_h %d instead\n",
-			       __func__, *output_h);
+			dev_info(isp_res->dev,
+				 "resizer: %s: using output_h %d instead\n",
+				 __func__, *output_h);
 		}
 	} else {
 		rsz = rsz_7;
@@ -409,8 +410,9 @@ int ispresizer_try_size(struct isp_res_device *isp_res, u32 *input_width,
 		if (rsz > MAXIMUM_RESIZE_VALUE) {
 			rsz = MAXIMUM_RESIZE_VALUE;
 			*output_h = (((input_h - 7) * 256) / rsz) + 1;
-			printk(KERN_INFO "%s: using output_h %d instead\n",
-			       __func__, *output_h);
+			dev_info(isp_res->dev,
+				 "resizer: %s: using output_h %d instead\n",
+				__func__, *output_h);
 		}
 	}
 
@@ -441,8 +443,9 @@ int ispresizer_try_size(struct isp_res_device *isp_res, u32 *input_width,
 			rsz = MAXIMUM_RESIZE_VALUE;
 			*output_w = (((input_w - 7) * 256) / rsz) + 1;
 			*output_w = (*output_w + 0xf) & 0xfffffff0;
-			printk(KERN_INFO "%s: using output_w %d instead\n",
-			       __func__, *output_w);
+			dev_info(isp_res->dev,
+				 "resizer: %s: using output_w %d instead\n",
+				 __func__, *output_w);
 		}
 	} else {
 		rsz = rsz_4;
@@ -450,8 +453,9 @@ int ispresizer_try_size(struct isp_res_device *isp_res, u32 *input_width,
 			rsz = MINIMUM_RESIZE_VALUE;
 			*output_w = (((input_w - 4) * 256) / rsz) + 1;
 			*output_w = (*output_w + 0xf) & 0xfffffff0;
-			printk(KERN_INFO "%s: using output_w %d instead\n",
-			       __func__, *output_w);
+			dev_info(isp_res->dev,
+				 "resizer: %s: using output_w %d instead\n",
+				 __func__, *output_w);
 		}
 	}
 
@@ -514,10 +518,10 @@ int ispresizer_config_size(struct isp_res_device *isp_res, u32 input_w,
 			isp_res->v_startphase);
 	if ((output_w != isp_res->outputwidth)
 	    || (output_h != isp_res->outputheight)) {
-		printk(KERN_ERR "Output parameters passed do not match the"
-		       " values calculated by the"
-		       " trysize passed w %d, h %d"
-		       " \n", output_w , output_h);
+		dev_err(isp_res->dev,
+			"resizer: Output parameters passed do not match the"
+			" values calculated by the trysize passed w %d, h %d"
+			" \n", output_w , output_h);
 		return -EINVAL;
 	}
 
