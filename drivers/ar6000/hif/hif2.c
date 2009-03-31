@@ -26,11 +26,26 @@
 #include <linux/mmc/sdio_func.h>
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/sdio_ids.h>
-#include <mach/gta02-pm-wlan.h>
 
 #include "athdefs.h"
 #include "a_types.h"
 #include "hif.h"
+
+
+/* @@@ Hack - this wants cleaning up */
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
+
+#include <mach/gta02-pm-wlan.h>
+
+#else /* CONFIG_MACH_NEO1973_GTA02 */
+
+#define	gta02_wlan_query_rfkill_lock()  1
+#define	gta02_wlan_set_rfkill_cb(cb, hif) ((void) cb)
+#define	gta02_wlan_query_rfkill_unlock()
+#define	gta02_wlan_clear_rfkill_cb()
+
+#endif /* !CONFIG_MACH_NEO1973_GTA02 */
 
 
 /*
