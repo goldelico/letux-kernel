@@ -2513,15 +2513,16 @@ static int isp_probe(struct platform_device *pdev)
 		mem = platform_get_resource(pdev, IORESOURCE_MEM, i);
 		if (!mem) {
 			dev_err(isp->dev, "no mem resource?\n");
-			return -ENODEV;
+			ret_err = -ENODEV;
+			goto out_free_mmio;
 		}
 
 		if (!request_mem_region(mem->start, mem->end - mem->start + 1,
 					pdev->name)) {
 			dev_err(isp->dev,
 				"cannot reserve camera register I/O region\n");
-			return -ENODEV;
-
+			ret_err = -ENODEV;
+			goto out_free_mmio;
 		}
 		isp->mmio_base_phys[i] = mem->start;
 		isp->mmio_size[i] = mem->end - mem->start + 1;
@@ -2533,20 +2534,23 @@ static int isp_probe(struct platform_device *pdev)
 		if (!isp->mmio_base[i]) {
 			dev_err(isp->dev,
 				"cannot map camera register I/O region\n");
-			return -ENODEV;
+			ret_err = -ENODEV;
+			goto out_free_mmio;
 		}
 	}
 
 	isp->irq_num = platform_get_irq(pdev, 0);
 	if (isp->irq_num <= 0) {
 		dev_err(isp->dev, "no irq for camera?\n");
-		return -ENODEV;
+		ret_err = -ENODEV;
+		goto out_free_mmio;
 	}
 
 	isp->cam_ick = clk_get(&camera_dev, "cam_ick");
 	if (IS_ERR(isp->cam_ick)) {
 		DPRINTK_ISPCTRL("ISP_ERR: clk_get for cam_ick failed\n");
-		return PTR_ERR(isp->cam_ick);
+		ret_err = PTR_ERR(isp->cam_ick);
+		goto out_free_mmio;
 	}
 	isp->cam_mclk = clk_get(&camera_dev, "cam_mclk");
 	if (IS_ERR(isp->cam_mclk)) {
@@ -2609,6 +2613,7 @@ static int isp_probe(struct platform_device *pdev)
 
 out_iommu_get:
 	free_irq(isp->irq_num, isp);
+	omap3isp_pdev = NULL;
 out_request_irq:
 	clk_put(isp->l3_ick);
 out_clk_get_l3_ick:
@@ -2617,7 +2622,21 @@ out_clk_get_csi2_fclk:
 	clk_put(isp->cam_mclk);
 out_clk_get_mclk:
 	clk_put(isp->cam_ick);
+out_free_mmio:
+	for (i = 0; i <= OMAP3_ISP_IOMEM_CSI2PHY; i++) {
+		if (isp->mmio_base[i]) {
+			iounmap((void *)isp->mmio_base[i]);
+			isp->mmio_base[i] = 0;
+		}
 
+		if (isp->mmio_base_phys[i]) {
+			release_mem_region(isp->mmio_base_phys[i],
+					   isp->mmio_size[i]);
+			isp->mmio_base_phys[i] = 0;
+		}
+	}
+
+	kfree(isp);
 	return ret_err;
 }
 
