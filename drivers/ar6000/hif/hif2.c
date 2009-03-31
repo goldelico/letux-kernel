@@ -26,7 +26,6 @@
 #include <linux/mmc/sdio_func.h>
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/sdio_ids.h>
-#include <asm/gpio.h>
 #include <mach/gta02-pm-wlan.h>
 
 #include "athdefs.h"
@@ -132,9 +131,6 @@ static DEFINE_MUTEX(shutdown_lock);
 /* ----- Request processing ------------------------------------------------ */
 
 
-#include <mach/regs-gpio.h>
-
-
 static A_STATUS process_request(struct hif_request *req)
 {
 	int ret;
@@ -143,16 +139,8 @@ static A_STATUS process_request(struct hif_request *req)
 	dev_dbg(&req->func->dev, "process_request(req %p)\n", req);
 	sdio_claim_host(req->func);
 	if (req->read) {
-		while (!s3c2410_gpio_getpin(S3C2410_GPE7)) {
-			printk(KERN_INFO "READ WHILE BUSY !\n");
-			yield();
-		}
 		ret = req->read(req->func, req->buf, req->addr, req->len);
 	} else {
-		while (!s3c2410_gpio_getpin(S3C2410_GPE7)) {
-			printk(KERN_INFO "WRITE WHILE BUSY !\n");
-			yield();
-		}
 		ret = req->write(req->func, req->addr, req->buf, req->len);
 	}
 	sdio_release_host(req->func);
