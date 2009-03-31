@@ -220,8 +220,9 @@ static int isp_hist_set_params(struct isp_hist_device *isp_hist,
 			WRITE_RADD(isp_hist->regs.hist_radd,
 				   user_cfg->hist_radd);
 		} else {
-			printk(KERN_ERR "Address should be in 32 byte boundary"
-			       "\n");
+			dev_err(isp_hist->dev,
+				"hist: Address should be in 32 byte boundary"
+				"\n");
 			return -EINVAL;
 		}
 
@@ -230,8 +231,8 @@ static int isp_hist_set_params(struct isp_hist_device *isp_hist,
 			WRITE_RADD_OFF(isp_hist->regs.hist_radd_off,
 				       user_cfg->hist_radd_off);
 		} else {
-			printk(KERN_ERR "Offset should be in 32 byte boundary"
-			       "\n");
+			dev_err(isp_hist->dev,
+				"hist: Offset should be in 32 byte boundary\n");
 			return -EINVAL;
 		}
 
@@ -245,7 +246,7 @@ static int isp_hist_set_params(struct isp_hist_device *isp_hist,
 		     user_cfg->wb_gain_RG > MAX_WB_GAIN ||
 		     user_cfg->wb_gain_B > MAX_WB_GAIN ||
 		     user_cfg->wb_gain_BG > MAX_WB_GAIN)) {
-		printk(KERN_ERR "Invalid WB gain\n");
+		dev_err(isp_hist->dev, "hist: Invalid WB gain\n");
 		return -EINVAL;
 	} else {
 		WRITE_WB_R(isp_hist->regs.wb_gain, user_cfg->wb_gain_R);
@@ -265,7 +266,7 @@ static int isp_hist_set_params(struct isp_hist_device *isp_hist,
 		WRITE_REG_HORIZ(isp_hist->regs.r0_h, user_cfg->reg0_hor);
 		reg_num++;
 	} else {
-		printk(KERN_ERR "Invalid Region parameters\n");
+		dev_err(isp_hist->dev, "hist: Invalid Region parameters\n");
 		return -EINVAL;
 	}
 
@@ -274,7 +275,7 @@ static int isp_hist_set_params(struct isp_hist_device *isp_hist,
 		    ISPHIST_REGVERT_VSTART_SHIFT))) {
 		WRITE_REG_VERT(isp_hist->regs.r0_v, user_cfg->reg0_ver);
 	} else {
-		printk(KERN_ERR "Invalid Region parameters\n");
+		dev_err(isp_hist->dev, "hist: Invalid Region parameters\n");
 		return -EINVAL;
 	}
 
@@ -286,7 +287,8 @@ static int isp_hist_set_params(struct isp_hist_device *isp_hist,
 			WRITE_REG_HORIZ(isp_hist->regs.r1_h,
 					user_cfg->reg1_hor);
 		} else {
-			printk(KERN_ERR "Invalid Region parameters\n");
+			dev_err(isp_hist->dev,
+				"hist: Invalid Region parameters\n");
 			return -EINVAL;
 		}
 
@@ -297,7 +299,8 @@ static int isp_hist_set_params(struct isp_hist_device *isp_hist,
 			WRITE_REG_VERT(isp_hist->regs.r1_v,
 				       user_cfg->reg1_ver);
 		} else {
-			printk(KERN_ERR "Invalid Region parameters\n");
+			dev_err(isp_hist->dev,
+				"hist: Invalid Region parameters\n");
 			return -EINVAL;
 		}
 	}
@@ -310,7 +313,8 @@ static int isp_hist_set_params(struct isp_hist_device *isp_hist,
 			WRITE_REG_HORIZ(isp_hist->regs.r2_h,
 					user_cfg->reg2_hor);
 		} else {
-			printk(KERN_ERR "Invalid Region parameters\n");
+			dev_err(isp_hist->dev,
+				"hist: Invalid Region parameters\n");
 			return -EINVAL;
 		}
 
@@ -321,7 +325,8 @@ static int isp_hist_set_params(struct isp_hist_device *isp_hist,
 			WRITE_REG_VERT(isp_hist->regs.r2_v,
 				       user_cfg->reg2_ver);
 		} else {
-			printk(KERN_ERR "Invalid Region parameters\n");
+			dev_err(isp_hist->dev,
+				"hist: Invalid Region parameters\n");
 			return -EINVAL;
 		}
 	}
@@ -334,7 +339,8 @@ static int isp_hist_set_params(struct isp_hist_device *isp_hist,
 			WRITE_REG_HORIZ(isp_hist->regs.r3_h,
 					user_cfg->reg3_hor);
 		} else {
-			printk(KERN_ERR "Invalid Region parameters\n");
+			dev_err(isp_hist->dev,
+				"hist: Invalid Region parameters\n");
 			return -EINVAL;
 		}
 
@@ -345,7 +351,8 @@ static int isp_hist_set_params(struct isp_hist_device *isp_hist,
 			WRITE_REG_VERT(isp_hist->regs.r3_v,
 				       user_cfg->reg3_ver);
 		} else {
-			printk(KERN_ERR "Invalid Region parameters\n");
+			dev_err(isp_hist->dev,
+				"hist: Invalid Region parameters\n");
 			return -EINVAL;
 		}
 	}
@@ -355,7 +362,7 @@ static int isp_hist_set_params(struct isp_hist_device *isp_hist,
 		     ((user_cfg->hist_bins == BINS_256) &&
 		      reg_num != 0) || ((user_cfg->hist_bins ==
 					 BINS_128) && reg_num >= 2))) {
-		printk(KERN_ERR "Invalid Bins Number: %d\n",
+		dev_err(isp_hist->dev, "hist: Invalid Bins Number: %d\n",
 		       user_cfg->hist_bins);
 		return -EINVAL;
 	} else {
@@ -364,7 +371,7 @@ static int isp_hist_set_params(struct isp_hist_device *isp_hist,
 
 	if (user_cfg->input_bit_width > MAX_BIT_WIDTH ||
 	    user_cfg->input_bit_width < MIN_BIT_WIDTH) {
-		printk(KERN_ERR "Invalid Bit Width: %d\n",
+		dev_err(isp_hist->dev, "hist: Invalid Bit Width: %d\n",
 		       user_cfg->input_bit_width);
 		return -EINVAL;
 	} else {
@@ -406,7 +413,8 @@ int isp_hist_configure(struct isp_hist_device *isp_hist,
 	int ret = 0;
 
 	if (NULL == histcfg) {
-		printk(KERN_ERR "Null argument in configuration. \n");
+		dev_err(isp_hist->dev,
+			"hist: Null argument in configuration. \n");
 		return -EINVAL;
 	}
 
@@ -416,14 +424,14 @@ int isp_hist_configure(struct isp_hist_device *isp_hist,
 				       isp_hist_isr, (void *)NULL,
 				       isp_hist);
 		if (ret) {
-			printk(KERN_ERR "No callback for HIST\n");
+			dev_err(isp_hist->dev, "hist: No callback for HIST\n");
 			return ret;
 		}
 	}
 
 	ret = isp_hist_set_params(isp_hist, histcfg);
 	if (ret) {
-		printk(KERN_ERR "Invalid parameters! \n");
+		dev_err(isp_hist->dev, "hist: Invalid parameters! \n");
 		return ret;
 	}
 
@@ -464,7 +472,7 @@ int isp_hist_request_statistics(struct isp_hist_device *isp_hist,
 				     ISPHIST_DATA);
 		ret = put_user(curr, histdata->hist_statistics_buf + i);
 		if (ret) {
-			printk(KERN_ERR "Failed copy_to_user for "
+			dev_err(isp_hist->dev, "hist: Failed copy_to_user for "
 			       "HIST stats buff, %d\n", ret);
 		}
 	}

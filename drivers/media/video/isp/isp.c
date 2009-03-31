@@ -325,8 +325,8 @@ static void isp_release_resources(struct device *dev)
 	return;
 }
 
-static int isp_wait(int (*busy)(void *), int wait_for_busy, int max_wait,
-		    void *priv)
+static int isp_wait(struct device *dev, int (*busy)(void *), int wait_for_busy,
+		    int max_wait, void *priv)
 {
 	int wait = 0;
 
@@ -339,7 +339,7 @@ static int isp_wait(int (*busy)(void *), int wait_for_busy, int max_wait,
 		udelay(1);
 		wait++;
 		if (wait > max_wait) {
-			printk(KERN_ALERT "%s: wait is too much\n", __func__);
+			dev_alert(dev, "%s: wait is too much\n", __func__);
 			return -EBUSY;
 		}
 	}
@@ -350,7 +350,7 @@ static int isp_wait(int (*busy)(void *), int wait_for_busy, int max_wait,
 
 static int ispccdc_sbl_wait_idle(struct isp_ccdc_device *isp_ccdc, int max_wait)
 {
-	return isp_wait(ispccdc_sbl_busy, 0, max_wait, isp_ccdc);
+	return isp_wait(isp_ccdc->dev, ispccdc_sbl_busy, 0, max_wait, isp_ccdc);
 }
 
 static void isp_enable_interrupts(struct device *dev)
@@ -660,7 +660,7 @@ static int isp_init_csi(struct device *dev, struct isp_interface_config *config)
 		format = 0x12;		/* RAW8+DPCM10+VP */
 		break;
 	default:
-		printk(KERN_ERR "isp_init_csi: bad csi format\n");
+		dev_err(dev, "isp_init_csi: bad csi format\n");
 		return -EINVAL;
 	}
 
@@ -676,7 +676,7 @@ static int isp_init_csi(struct device *dev, struct isp_interface_config *config)
 	}
 	if (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_SYSSTATUS) &
 	      BIT(0))) {
-		printk(KERN_WARNING
+		dev_warn(dev,
 		       "omap3_isp: timeout waiting for csi reset\n");
 	}
 
@@ -731,7 +731,7 @@ static int isp_init_csi(struct device *dev, struct isp_interface_config *config)
 
 	if (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
 			    ISPCSI1_CTRL) & BIT(4))) {
-		printk(KERN_WARNING "OMAP3 CSI1 bus not available\n");
+		dev_warn(dev, "OMAP3 CSI1 bus not available\n");
 		if (config->u.csi.signalling)	/* Strobe mode requires CSI1 */
 			return -EIO;
 	}
@@ -913,7 +913,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 							ISP_BUF_DONE \
 							(bufs)->vb_state =
 								VIDEOBUF_ERROR;
-							printk(KERN_ERR \
+							dev_err(dev, \
 								"%s: can't stop"
 								" preview\n",
 								__func__);
@@ -986,7 +986,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		       | ISPSBL_PCR_CSIB_WBL_OVF)) {
 		struct isp_buf *buf = ISP_BUF_DONE(bufs);
 		buf->vb_state = VIDEOBUF_ERROR;
-		printk(KERN_INFO "%s: sbl overflow, sbl_pcr = %8.8x\n",
+		dev_info(dev, "%s: sbl overflow, sbl_pcr = %8.8x\n",
 		       __func__, sbl_pcr);
 	}
 
@@ -996,7 +996,7 @@ out_ignore_buff:
 		/* Mark buffer faulty. */
 		buf->vb_state = VIDEOBUF_ERROR;
 		ispccdc_lsc_error_handler(&isp->isp_ccdc);
-		printk(KERN_ERR "%s: lsc prefetch error\n", __func__);
+		dev_err(dev, "%s: lsc prefetch error\n", __func__);
 	}
 
 	if (irqstatus & CSIA) {
@@ -1109,11 +1109,11 @@ static u32 isp_tmp_buf_alloc(struct device *dev, size_t size)
 
 	isp_tmp_buf_free(dev);
 
-	printk(KERN_INFO "%s: allocating %d bytes\n", __func__, size);
+	dev_info(dev, "%s: allocating %d bytes\n", __func__, size);
 
 	isp->tmp_buf = ispmmu_vmalloc(size);
 	if (IS_ERR((void *)isp->tmp_buf)) {
-		printk(KERN_ERR "ispmmu_vmap mapping failed ");
+		dev_err(dev, "ispmmu_vmap mapping failed ");
 		return -ENOMEM;
 	}
 	isp->tmp_buf_size = size;
@@ -1177,7 +1177,7 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 	       || isppreview_busy(&isp->isp_prev)
 	       || ispresizer_busy(&isp->isp_res)) {
 		if (time_after(jiffies, timeout)) {
-			printk(KERN_ERR "%s: can't stop non-ccdc modules\n",
+			dev_err(dev, "%s: can't stop non-ccdc modules\n",
 			       __func__);
 			reset = 1;
 			break;
@@ -1191,7 +1191,7 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 	timeout = jiffies + ISP_STOP_TIMEOUT;
 	while (ispccdc_busy(&isp->isp_ccdc)) {
 		if (time_after(jiffies, timeout)) {
-			printk(KERN_ERR "%s: can't stop ccdc\n", __func__);
+			dev_err(dev, "%s: can't stop ccdc\n", __func__);
 			reset = 1;
 			break;
 		}
@@ -1238,7 +1238,7 @@ static void isp_reset(struct device *dev)
 	while (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
 			       ISP_SYSSTATUS) & 0x1)) {
 		if (timeout++ > 10000) {
-			printk(KERN_ALERT "%s: cannot reset ISP\n", __func__);
+			dev_alert(dev, "%s: cannot reset ISP\n", __func__);
 			break;
 		}
 		udelay(1);
@@ -1441,7 +1441,7 @@ static int isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 		goto out;
 
 	if (CCDC_CAPTURE(isp) && ispccdc_sbl_wait_idle(&isp->isp_ccdc, 1000)) {
-		printk(KERN_ERR "ccdc %d won't become idle!\n",
+		dev_err(dev, "ccdc %d won't become idle!\n",
 		       CCDC_CAPTURE(isp));
 		goto out;
 	}
@@ -1486,9 +1486,9 @@ static int isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 		/* Mark next faulty, too, in case we have one. */
 		if (!last) {
 			ISP_BUF_NEXT_DONE(bufs)->vb_state = VIDEOBUF_ERROR;
-			printk(KERN_ALERT "OUCH!!!\n");
+			dev_alert(dev, "OUCH!!!\n");
 		} else {
-			printk(KERN_ALERT "Ouch!\n");
+			dev_alert(dev, "Ouch!\n");
 		}
 	}
 
@@ -2041,7 +2041,7 @@ static int isp_try_size(struct device *dev, struct v4l2_pix_format *pix_input,
 					&isp->module.ccdc_output_width,
 					&isp->module.ccdc_output_height);
 		if (rval) {
-			printk(KERN_ERR "ISP_ERR: The dimensions %dx%d are not"
+			dev_err(dev, "the dimensions %dx%d are not"
 			       " supported\n", pix_input->width,
 			       pix_input->height);
 			return rval;
@@ -2060,7 +2060,7 @@ static int isp_try_size(struct device *dev, struct v4l2_pix_format *pix_input,
 					   &isp->module.preview_output_width,
 					   &isp->module.preview_output_height);
 		if (rval) {
-			printk(KERN_ERR "ISP_ERR: The dimensions %dx%d are not"
+			dev_err(dev, "the dimensions %dx%d are not"
 			       " supported\n", pix_input->width,
 			       pix_input->height);
 			return rval;
@@ -2080,7 +2080,7 @@ static int isp_try_size(struct device *dev, struct v4l2_pix_format *pix_input,
 					   &isp->module.resizer_output_width,
 					   &isp->module.resizer_output_height);
 		if (rval) {
-			printk(KERN_ERR "ISP_ERR: The dimensions %dx%d are not"
+			dev_err(dev, "The dimensions %dx%d are not"
 			       " supported\n", pix_input->width,
 			       pix_input->height);
 			return rval;
@@ -2372,7 +2372,7 @@ static int isp_suspend(struct platform_device *pdev, pm_message_t state)
 	DPRINTK_ISPCTRL("isp_suspend: starting\n");
 
 	if (mutex_is_locked(&isp->isp_mutex))
-		printk(KERN_ERR "%s: bug: isp_mutex is locked\n", __func__);
+		dev_err(&pdev->dev, "%s: bug: isp_mutex is locked\n", __func__);
 
 	if (isp->ref_count == 0)
 		goto out;
@@ -2399,7 +2399,7 @@ static int isp_resume(struct platform_device *pdev)
 	DPRINTK_ISPCTRL("isp_resume: starting\n");
 
 	if (mutex_is_locked(&isp->isp_mutex))
-		printk(KERN_ERR "%s: bug: isp_mutex is locked\n", __func__);
+		dev_err(&pdev->dev, "%s: bug: isp_mutex is locked\n", __func__);
 
 	if (isp->ref_count == 0)
 		goto out;

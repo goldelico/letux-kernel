@@ -352,7 +352,7 @@ err_copy_from_user:
 	isp_prev->shadow_update = 0;
 	spin_unlock_irqrestore(&isp_prev->lock, flags);
 
-	printk(KERN_ERR "Preview Config: Copy From User Error\n");
+	dev_err(isp_prev->dev, "preview: Config: Copy From User Error\n");
 	return -EFAULT;
 }
 EXPORT_SYMBOL_GPL(omap34xx_isp_preview_config);
@@ -455,7 +455,7 @@ int omap34xx_isp_tables_update(struct isp_prev_device *isp_prev,
 	return 0;
 
 err_copy_from_user:
-	printk(KERN_ERR "Preview Tables:Copy From User Error\n");
+	dev_err(isp_prev->dev, "preview tables: Copy From User Error\n");
 	return -EFAULT;
 }
 
@@ -587,7 +587,7 @@ int isppreview_request(struct isp_prev_device *isp_prev)
 	mutex_lock(&isp_prev->ispprev_mutex);
 	if (isp_prev->prev_inuse) {
 		mutex_unlock(&isp_prev->ispprev_mutex);
-		printk(KERN_ERR "ISP_ERR : Preview Module Busy\n");
+		dev_err(isp_prev->dev, "preview: Module Busy\n");
 		return -EBUSY;
 	}
 	isp_prev->prev_inuse = 1;
@@ -675,7 +675,7 @@ int isppreview_config_datapath(struct isp_prev_device *isp_prev,
 		isp_prev->prev_inpfmt = PRV_RGBBAYERCFA;
 		break;
 	default:
-		printk(KERN_ERR "ISP_ERR : Wrong Input\n");
+		dev_err(isp_prev->dev, "preview: Wrong Input\n");
 		return -EINVAL;
 	};
 
@@ -689,7 +689,7 @@ int isppreview_config_datapath(struct isp_prev_device *isp_prev,
 		pcr |= ISPPRV_PCR_SDRPORT;
 		break;
 	default:
-		printk(KERN_ERR "ISP_ERR : Wrong Output\n");
+		dev_err(isp_prev->dev, "preview: Wrong Output\n");
 		return -EINVAL;
 	}
 	isp_prev->prev_outfmt = output;
@@ -1522,7 +1522,7 @@ int isppreview_try_size(struct isp_prev_device *isp_prev, u32 input_w,
 	isp_prev->previn_h = input_h;
 
 	if (input_w < 32 || input_h < 32) {
-		printk(KERN_ERR "ISP_ERR : preview does not support "
+		dev_err(isp_prev->dev, "preview does not support "
 		       "width < 16 or height < 32 \n");
 		return -EINVAL;
 	}
@@ -1614,7 +1614,7 @@ int isppreview_config_size(struct isp_prev_device *isp_prev, u32 input_w,
 
 	if ((output_w != isp_prev->prevout_w) ||
 	    (output_h != isp_prev->prevout_h)) {
-		printk(KERN_ERR "ISP_ERR : isppreview_try_size should "
+		dev_err(isp_prev->dev, "preview: isppreview_try_size should "
 		       "be called before config size\n");
 		return -EINVAL;
 	}
@@ -1661,7 +1661,7 @@ int isppreview_config_inlineoffset(struct isp_prev_device *isp_prev, u32 offset)
 		isp_reg_writel(isp_prev->dev, offset & 0xffff,
 			       OMAP3_ISP_IOMEM_PREV, ISPPRV_RADR_OFFSET);
 	} else {
-		printk(KERN_ERR "ISP_ERR : Offset should be in 32 byte "
+		dev_err(isp_prev->dev, "preview: Offset should be in 32 byte "
 		       "boundary\n");
 		return -EINVAL;
 	}
@@ -1681,7 +1681,7 @@ int isppreview_set_inaddr(struct isp_prev_device *isp_prev, u32 addr)
 		isp_reg_writel(isp_prev->dev, addr,
 			       OMAP3_ISP_IOMEM_PREV, ISPPRV_RSDR_ADDR);
 	else {
-		printk(KERN_ERR "ISP_ERR: Address should be in 32 byte "
+		dev_err(isp_prev->dev, "preview: Address should be in 32 byte "
 		       "boundary\n");
 		return -EINVAL;
 	}
@@ -1697,7 +1697,7 @@ int isppreview_config_outlineoffset(struct isp_prev_device *isp_prev,
 				    u32 offset)
 {
 	if ((offset & ISP_32B_BOUNDARY_OFFSET) != offset) {
-		printk(KERN_ERR "ISP_ERR : Offset should be in 32 byte "
+		dev_err(isp_prev->dev, "preview: Offset should be in 32 byte "
 		       "boundary\n");
 		return -EINVAL;
 	}
@@ -1716,7 +1716,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_outlineoffset);
 int isppreview_set_outaddr(struct isp_prev_device *isp_prev, u32 addr)
 {
 	if ((addr & ISP_32B_BOUNDARY_BUF) != addr) {
-		printk(KERN_ERR "ISP_ERR: Address should be in 32 byte "
+		dev_err(isp_prev->dev, "preview: Address should be in 32 byte "
 		       "boundary\n");
 		return -EINVAL;
 	}
@@ -1734,7 +1734,7 @@ int isppreview_config_darklineoffset(struct isp_prev_device *isp_prev,
 				     u32 offset)
 {
 	if ((offset & ISP_32B_BOUNDARY_OFFSET) != offset) {
-		printk(KERN_ERR "ISP_ERR : Offset should be in 32 byte "
+		dev_err(isp_prev->dev, "preview: Offset should be in 32 byte "
 		       "boundary\n");
 		return -EINVAL;
 	}
@@ -1751,7 +1751,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_darklineoffset);
 int isppreview_set_darkaddr(struct isp_prev_device *isp_prev, u32 addr)
 {
 	if ((addr & ISP_32B_BOUNDARY_BUF) != addr) {
-		printk(KERN_ERR "ISP_ERR : Address should be in 32 byte "
+		dev_err(isp_prev->dev, "preview: Address should be in 32 byte "
 		       "boundary\n");
 		return -EINVAL;
 	}
