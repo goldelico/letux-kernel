@@ -660,12 +660,12 @@ static void sdio_ar6000_remove(struct sdio_func *func)
     SDIO_DEVICE(SDIO_VENDOR_ID_ATHEROS, SDIO_DEVICE_ID_ATHEROS_##id | (offset))
 
 static const struct sdio_device_id sdio_ar6000_ids[] = {
-	{ ATHEROS_SDIO_DEVICE(AR6000, 0)	},
-	{ ATHEROS_SDIO_DEVICE(AR6000, 0x1)	},
-	{ ATHEROS_SDIO_DEVICE(AR6000, 0x8)	},
-	{ ATHEROS_SDIO_DEVICE(AR6000, 0x9)	},
-	{ ATHEROS_SDIO_DEVICE(AR6000, 0xa)	},
-	{ ATHEROS_SDIO_DEVICE(AR6000, 0xb)	},
+	{ ATHEROS_SDIO_DEVICE(AR6002, 0)	},
+	{ ATHEROS_SDIO_DEVICE(AR6002, 0x1)	},
+	{ ATHEROS_SDIO_DEVICE(AR6001, 0x8)	},
+	{ ATHEROS_SDIO_DEVICE(AR6001, 0x9)	},
+	{ ATHEROS_SDIO_DEVICE(AR6001, 0xa)	},
+	{ ATHEROS_SDIO_DEVICE(AR6001, 0xb)	},
 	{ /* end: all zeroes */			},
 };
 
