@@ -508,7 +508,8 @@ static int ar6000_do_activate(struct hif_device *hif)
 	sdio_release_host(func);
 
 	hif->io_task = kthread_run(io, hif, "ar6000_io");
-	if (IS_ERR(hif->io_task)) {
+	ret = IS_ERR(hif->io_task);
+	if (ret) {
 		dev_err(dev, "kthread_run(ar6000_io): %d\n", ret);
 		goto out_func_ready;
 	}
@@ -580,8 +581,14 @@ static int ar6000_activate(struct hif_device *hif)
 	mutex_lock(&hif->activate_lock);
 	if (!hif->active) {
 		ret = ar6000_do_activate(hif);
+		if (ret) {
+			printk(KERN_ERR "%s: Failed to activate %d\n",
+				__func__, ret);
+			goto out;
+		}
 		hif->active = 1;
 	}
+out:
 	mutex_unlock(&hif->activate_lock);
 	return ret;
 }
