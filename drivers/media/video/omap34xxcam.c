@@ -850,12 +850,15 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type i)
 		goto out;
 	}
 
+	isp_start(isp);
+
 	rval = videobuf_streamon(&ofh->vbq);
-	if (rval)
+	if (rval) {
+		isp_stop(isp);
 		omap34xxcam_slave_power_set(
 			vdev, V4L2_POWER_OFF,
 			OMAP34XXCAM_SLAVE_POWER_SENSOR_LENS);
-	else
+	} else
 		vdev->streaming = file;
 
 out:
