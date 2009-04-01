@@ -1133,8 +1133,7 @@ void isp_start(struct device *dev)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 
-	if (isp->module.isp_pipeline & OMAP_ISP_PREVIEW)
-		isppreview_enable(&isp->isp_prev, 1);
+	isp->module.enable = 1;
 
 	isph3a_notify(0);
 	isp_af_notify(0);
@@ -1548,7 +1547,8 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 		isp_enable_interrupts(dev);
 		isp_set_buf(dev, buf);
 		ispccdc_enable(&isp->isp_ccdc, 1);
-		isp_start(dev);
+		if (CCDC_PREV_CAPTURE(isp) || CCDC_PREV_RESZ_CAPTURE(isp))
+			isppreview_enable(&isp->isp_prev, 1);
 	}
 
 	ISP_BUF_MARK_QUEUED(bufs);
