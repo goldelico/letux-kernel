@@ -104,7 +104,7 @@ static int neo1973_gta02_hifi_hw_params(struct snd_pcm_substream *substream,
 
 	/* set MCLK division for sample rate */
 	ret = snd_soc_dai_set_clkdiv(cpu_dai, S3C24XX_DIV_MCLK,
-		S3C2410_IISMOD_32FS );
+		S3C2410_IISMOD_32FS);
 	if (ret < 0)
 		return ret;
 
@@ -116,7 +116,7 @@ static int neo1973_gta02_hifi_hw_params(struct snd_pcm_substream *substream,
 
 	/* set prescaler division for sample rate */
 	ret = snd_soc_dai_set_clkdiv(cpu_dai, S3C24XX_DIV_PRESCALER,
-		S3C24XX_PRESCALE(4,4));
+		S3C24XX_PRESCALE(4, 4));
 	if (ret < 0)
 		return ret;
 
@@ -210,7 +210,7 @@ static struct snd_soc_ops neo1973_gta02_voice_ops = {
 #define LM4853_AMP 1
 #define LM4853_SPK 2
 
-static u8 lm4853_state=0;
+static u8 lm4853_state;
 
 /* This has no effect, it exists only to maintain compatibility with
  * existing ALSA state files.
@@ -220,11 +220,10 @@ static int lm4853_set_state(struct snd_kcontrol *kcontrol,
 {
 	int val = ucontrol->value.integer.value[0];
 
-	if(val) {
+	if (val)
 		lm4853_state |= LM4853_AMP;
-	} else {
+	else
 		lm4853_state &= ~LM4853_AMP;
-	}
 
 	return 0;
 }
@@ -242,12 +241,12 @@ static int lm4853_set_spk(struct snd_kcontrol *kcontrol,
 {
 	int val = ucontrol->value.integer.value[0];
 
-	if(val) {
+	if (val) {
 		lm4853_state |= LM4853_SPK;
-		s3c2410_gpio_setpin(GTA02_GPIO_HP_IN,0);
+		s3c2410_gpio_setpin(GTA02_GPIO_HP_IN, 0);
 	} else {
 		lm4853_state &= ~LM4853_SPK;
-		s3c2410_gpio_setpin(GTA02_GPIO_HP_IN,1);
+		s3c2410_gpio_setpin(GTA02_GPIO_HP_IN, 1);
 	}
 
 	return 0;
@@ -348,7 +347,8 @@ static int neo1973_gta02_wm8753_init(struct snd_soc_codec *codec)
 	snd_soc_dapm_nc_pin(codec, "LINE2");
 
 	/* Add neo1973 gta02 specific widgets */
-	snd_soc_dapm_new_controls(codec, wm8753_dapm_widgets, ARRAY_SIZE(wm8753_dapm_widgets));
+	snd_soc_dapm_new_controls(codec, wm8753_dapm_widgets,
+				  ARRAY_SIZE(wm8753_dapm_widgets));
 
 	/* add neo1973 gta02 specific controls */
 	for (i = 0; i < ARRAY_SIZE(wm8753_neo1973_gta02_controls); i++) {
@@ -378,8 +378,8 @@ static int neo1973_gta02_wm8753_init(struct snd_soc_codec *codec)
 /*
  * BT Codec DAI
  */
-static struct snd_soc_dai bt_dai =
-{	.name = "Bluetooth",
+static struct snd_soc_dai bt_dai = {
+	.name = "Bluetooth",
 	.id = 0,
 	.playback = {
 		.channels_min = 1,
@@ -423,8 +423,6 @@ static struct snd_soc_device neo1973_gta02_snd_devdata = {
 	.codec_dev = &soc_codec_dev_wm8753,
 };
 
-
-
 static struct platform_device *neo1973_gta02_snd_device;
 
 static int __init neo1973_gta02_init(void)
@@ -433,7 +431,7 @@ static int __init neo1973_gta02_init(void)
 
 	if (!machine_is_neo1973_gta02()) {
 		printk(KERN_INFO
-		       "Only GTA02 hardware supported by ASoc driver\n");
+		       "Only GTA02 is supported by this ASoC driver\n");
 		return -ENODEV;
 	}
 
@@ -468,18 +466,16 @@ static int __init neo1973_gta02_init(void)
 
 	return ret;
 }
+module_init(neo1973_gta02_init);
 
 static void __exit neo1973_gta02_exit(void)
 {
 	snd_soc_unregister_dai(&bt_dai);
 	platform_device_unregister(neo1973_gta02_snd_device);
 }
-
-module_init(neo1973_gta02_init);
 module_exit(neo1973_gta02_exit);
 
 /* Module information */
 MODULE_AUTHOR("Graeme Gregory, graeme@openmoko.org");
 MODULE_DESCRIPTION("ALSA SoC WM8753 Neo1973 GTA02");
 MODULE_LICENSE("GPL");
-
