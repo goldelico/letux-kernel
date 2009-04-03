@@ -1357,8 +1357,8 @@ static void isp_config_pipeline(struct device *dev,
 
 	if (isp->module.isp_pipeline & OMAP_ISP_RESIZER) {
 		ispresizer_config_size(&isp->isp_res,
-				       isp->module.resizer_input_width,
-				       isp->module.resizer_input_height,
+				       isp->isp_res.croprect.width,
+				       isp->isp_res.croprect.height,
 				       isp->module.resizer_output_width,
 				       isp->module.resizer_output_height);
 	}

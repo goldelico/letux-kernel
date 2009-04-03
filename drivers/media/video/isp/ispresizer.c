@@ -529,6 +529,11 @@ int ispresizer_config_size(struct isp_res_device *isp_res, u32 input_w,
 		return -EINVAL;
 	}
 
+	res = ispresizer_try_size(
+		isp_res, &input_w, &input_h, &output_w, &output_h);
+	if (res)
+		return res;
+
 	/* Set Resizer input address and offset adderss */
 	ispresizer_config_inlineoffset(isp_res,
 				       isp_reg_readl(isp_res->dev,
