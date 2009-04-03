@@ -620,7 +620,9 @@ static int s_pix_parm(struct omap34xxcam_videodev *vdev,
 	 * shouldn't be done. How to do this for different
 	 * sensor resolutions?
 	 */
-	if (memcmp(&old_fmt.fmt.pix, &fmt.fmt.pix, sizeof(old_fmt.fmt.pix))) {
+	if (old_fmt.fmt.pix.width != fmt.fmt.pix.width
+	    || old_fmt.fmt.pix.height != fmt.fmt.pix.height
+	    || old_fmt.fmt.pix.pixelformat != fmt.fmt.pix.pixelformat) {
 		struct v4l2_crop crop;
 
 		crop.c.left = crop.c.top = 0;
