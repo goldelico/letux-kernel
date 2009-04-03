@@ -169,9 +169,6 @@ void ispresizer_config_crop(struct isp_res_device *isp_res,
 		container_of(isp_res, struct isp_device, isp_res);
 	struct v4l2_crop *crop = a;
 
-	crop->c.left &= ~0xf;
-	crop->c.width &= ~0xf;
-
 	if (crop->c.left < 0)
 		crop->c.left = 0;
 	if (crop->c.width < 0)
@@ -185,6 +182,15 @@ void ispresizer_config_crop(struct isp_res_device *isp_res,
 		crop->c.left = isp->module.preview_output_width - 1;
 	if (crop->c.top >= isp->module.preview_output_height)
 		crop->c.top = isp->module.preview_output_height - 1;
+
+	/* Make sure the crop rectangle is never smaller than width
+	 * and height divided by 4, since the resizer cannot upscale it
+	 * by more than 4x.
+	 */
+	if (crop->c.width < (isp->module.resizer_output_width + 3) / 4)
+		crop->c.width = (isp->module.resizer_output_width + 3) / 4;
+	if (crop->c.height < (isp->module.resizer_output_height + 3) / 4)
+		crop->c.height = (isp->module.resizer_output_height + 3) / 4;
 
 	if (crop->c.left + crop->c.width > isp->module.preview_output_width)
 		crop->c.width = isp->module.preview_output_width - crop->c.left;
@@ -542,16 +548,6 @@ int ispresizer_config_size(struct isp_res_device *isp_res, u32 input_w,
 			      isp_res->tmp_buf + isp_get_buf_offset(isp_res->dev));
 
 	isp_reg_writel(isp_res->dev,
-		(0 << ISPRSZ_IN_START_HORZ_ST_SHIFT) |
-		(0x00 << ISPRSZ_IN_START_VERT_ST_SHIFT),
-		OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START);
-
-	isp_reg_writel(isp_res->dev, (0x00 << ISPRSZ_IN_START_HORZ_ST_SHIFT) |
-		       (0x00 << ISPRSZ_IN_START_VERT_ST_SHIFT),
-		       OMAP3_ISP_IOMEM_RESZ,
-		       ISPRSZ_IN_START);
-
-	isp_reg_writel(isp_res->dev,
 		       (isp_res->croprect.width << ISPRSZ_IN_SIZE_HORZ_SHIFT) |
 		       (isp_res->croprect.height <<
 			ISPRSZ_IN_SIZE_VERT_SHIFT),
@@ -842,12 +838,23 @@ EXPORT_SYMBOL(ispresizer_config_inlineoffset);
 int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr)
 {
 	DPRINTK_ISPRESZ("ispresizer_set_inaddr()+\n");
+
 	if (addr % 32)
 		return -EINVAL;
 	isp_res->tmp_buf = addr;
+	/* FIXME: is this the right place to put crop-related junk? */
 	isp_reg_writel(isp_res->dev,
-		       isp_res->tmp_buf,
+		       isp_res->tmp_buf + ISP_BYTES_PER_PIXEL
+		       * ((isp_res->croprect.left & ~0xf) +
+			  isp->module.preview_output_width
+			  * isp_res->croprect.top),
 		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
+	/* Set the fractional part of the starting address. Needed for crop */
+	isp_reg_writel(isp_res->dev, ((isp_res->croprect.left & 0xf) <<
+		       ISPRSZ_IN_START_HORZ_ST_SHIFT) |
+		       (0x00 << ISPRSZ_IN_START_VERT_ST_SHIFT),
+		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START);
+
 	DPRINTK_ISPRESZ("ispresizer_set_inaddr()-\n");
 	return 0;
 }
