@@ -1732,20 +1732,20 @@ int isp_s_ctrl(struct device *dev, struct v4l2_control *a)
 
 	switch (a->id) {
 	case V4L2_CID_BRIGHTNESS:
-		if (new_value > ISPPRV_BRIGHT_HIGH)
+		if (a->value > ISPPRV_BRIGHT_HIGH)
 			rval = -EINVAL;
 		else
 			isppreview_update_brightness(&isp->isp_prev,
 						     &new_value);
 		break;
 	case V4L2_CID_CONTRAST:
-		if (new_value > ISPPRV_CONTRAST_HIGH)
+		if (a->value > ISPPRV_CONTRAST_HIGH)
 			rval = -EINVAL;
 		else
 			isppreview_update_contrast(&isp->isp_prev, &new_value);
 		break;
 	case V4L2_CID_COLORFX:
-		if (new_value > V4L2_COLORFX_SEPIA)
+		if (a->value > V4L2_COLORFX_SEPIA)
 			rval = -EINVAL;
 		else
 			isppreview_set_color(&isp->isp_prev, &new_value);
