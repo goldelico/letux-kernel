@@ -124,27 +124,6 @@ void ispresizer_config_shadow_registers(struct isp_res_device *isp_res)
 EXPORT_SYMBOL(ispresizer_config_shadow_registers);
 
 /**
- * ispresizer_trycrop - Validate crop dimensions.
- * @left: Left distance to start position of crop.
- * @top: Top distance to start position of crop.
- * @width: Width of input image.
- * @height: Height of input image.
- * @ow: Width of output image.
- * @oh: Height of output image.
- **/
-void ispresizer_trycrop(struct isp_res_device *isp_res, u32 left, u32 top,
-			    u32 width, u32 height, u32 ow, u32 oh)
-{
-	isp_res->cropwidth = width + 6;
-	isp_res->cropheight = height + 6;
-	ispresizer_try_size(isp_res, &isp_res->cropwidth, &isp_res->cropheight,
-			    &ow, &oh);
-	isp_res->ipht_crop = top;
-	isp_res->ipwd_crop = left;
-}
-EXPORT_SYMBOL(ispresizer_trycrop);
-
-/**
  * ispresizer_applycrop - Apply crop to input image.
  **/
 void ispresizer_applycrop(struct isp_res_device *isp_res)
@@ -152,7 +131,9 @@ void ispresizer_applycrop(struct isp_res_device *isp_res)
 	if (!isp_res->applycrop)
 		return;
 
-	ispresizer_config_size(isp_res, isp_res->cropwidth, isp_res->cropheight,
+	ispresizer_config_size(isp_res,
+			       isp_res->croprect.width,
+			       isp_res->croprect.height,
 			       isp_res->outputwidth,
 			       isp_res->outputheight);
 
@@ -198,21 +179,16 @@ void ispresizer_config_crop(struct isp_res_device *isp_res,
 		crop->c.height =
 			isp->module.preview_output_height - crop->c.top;
 
-	isp_res->croprect.left = crop->c.left;
-	isp_res->croprect.top = crop->c.top;
-	isp_res->croprect.width = crop->c.width;
-	isp_res->croprect.height = crop->c.height;
+	isp_res->croprect = crop->c;
 
-	ispresizer_trycrop(isp_res,
-			   isp_res->croprect.left, isp_res->croprect.top,
-			   isp_res->croprect.width, isp_res->croprect.height,
-			   isp->module.resizer_output_width,
-			   isp->module.resizer_output_height);
+	ispresizer_try_size(isp_res,
+			    &isp_res->croprect.width, &isp_res->croprect.height,
+			    &isp->module.resizer_output_width,
+			    &isp->module.resizer_output_height);
 
 	isp_res->applycrop = 1;
 
-	/* FIXME: ugly hack. */
-	if (!ispresizer_busy(isp_res))
+	if (!isp->module.enable)
 		ispresizer_applycrop(isp_res);
 
 	return;
@@ -364,8 +340,6 @@ int ispresizer_try_size(struct isp_res_device *isp_res, u32 *input_width,
 				" 32\n");
 		return -EINVAL;
 	}
-	input_w -= 6;
-	input_h -= 6;
 
 	if (input_h > MAX_IN_HEIGHT)
 		return -EINVAL;
@@ -432,8 +406,7 @@ int ispresizer_try_size(struct isp_res_device *isp_res, u32 *input_width,
 
 	isp_res->outputheight = *output_h;
 	isp_res->v_resz = rsz;
-	isp_res->inputheight = input_h;
-	isp_res->ipht_crop = DEFAULTSTPIXEL;
+	/* FIXME: input_h here is the real input height! */
 	isp_res->v_startphase = sph;
 
 	*output_w &= 0xfffffff0;
@@ -476,8 +449,7 @@ int ispresizer_try_size(struct isp_res_device *isp_res, u32 *input_width,
 
 	isp_res->outputwidth = *output_w;
 	isp_res->h_resz = rsz;
-	isp_res->inputwidth = input_w;
-	isp_res->ipwd_crop = DEFAULTSTPIXEL;
+	/* FIXME: input_w here is the real input width! */
 	isp_res->h_startphase = sph;
 
 	*input_height = input_h;
@@ -505,19 +477,14 @@ int ispresizer_config_size(struct isp_res_device *isp_res, u32 input_w,
 {
 	int i, j;
 	u32 res;
-	DPRINTK_ISPRESZ("ispresizer_config_size()+, input_w = %d,input_h ="
-			" %d, output_w = %d, output_h"
+	DPRINTK_ISPRESZ("ispresizer_config_size()+, "
+			" output_w = %d, output_h"
 			" = %d,hresz = %d,vresz = %d,"
-			" hcrop = %d, vcrop = %d,"
 			" hstph = %d, vstph = %d\n",
-			isp_res->inputwidth,
-			isp_res->inputheight,
 			isp_res->outputwidth,
 			isp_res->outputheight,
 			isp_res->h_resz,
 			isp_res->v_resz,
-			isp_res->ipwd_crop,
-			isp_res->ipht_crop,
 			isp_res->h_startphase,
 			isp_res->v_startphase);
 	if ((output_w != isp_res->outputwidth)
