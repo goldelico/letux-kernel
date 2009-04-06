@@ -136,13 +136,7 @@ struct isp_res_device {
 	u16 v_resz;
 	u32 outputwidth;
 	u32 outputheight;
-	u32 inputwidth;
-	u32 inputheight;
 	u8 algo;
-	u32 ipht_crop;
-	u32 ipwd_crop;
-	u32 cropwidth;
-	u32 cropheight;
 	dma_addr_t tmp_buf;
 	enum ispresizer_input resinput;
 	struct isprsz_coef coeflist;
