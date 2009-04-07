@@ -620,10 +620,10 @@ do_it_now:
 
 	*wanted_pix_out = best_pix_out;
 
-	dev_info(&vdev->vfd->dev, "w %d, h %d, fmt %8.8x -> w %d, h %d\n",
-		 best_pix_in->width, best_pix_in->height,
-		 best_pix_in->pixelformat,
-		 best_pix_out.width, best_pix_out.height);
+	dev_dbg(&vdev->vfd->dev, "w %d, h %d, fmt %8.8x -> w %d, h %d\n",
+		best_pix_in->width, best_pix_in->height,
+		best_pix_in->pixelformat,
+		best_pix_out.width, best_pix_out.height);
 
 	return 0;
 }
@@ -1630,9 +1630,9 @@ static long vidioc_default(struct file *file, void *_fh, int cmd, void *arg)
 
 			data = (struct isph3a_aewb_data *) arg;
 			if (data->update & SET_EXPOSURE) {
-				dev_info(&vdev->vfd->dev, "using "
-					 "VIDIOC_PRIVATE_ISP_AEWB_REQ to set "
-					 "exposure is deprecated!\n");
+				dev_dbg(&vdev->vfd->dev, "using "
+					"VIDIOC_PRIVATE_ISP_AEWB_REQ to set "
+					"exposure is deprecated!\n");
 				vc.id = V4L2_CID_EXPOSURE;
 				vc.value = data->shutter;
 				mutex_lock(&vdev->mutex);
@@ -1643,9 +1643,9 @@ static long vidioc_default(struct file *file, void *_fh, int cmd, void *arg)
 					goto out;
 			}
 			if (data->update & SET_ANALOG_GAIN) {
-				dev_info(&vdev->vfd->dev, "using "
-					 "VIDIOC_PRIVATE_ISP_AEWB_REQ to set "
-					 "gain is deprecated!\n");
+				dev_dbg(&vdev->vfd->dev, "using "
+					"VIDIOC_PRIVATE_ISP_AEWB_REQ to set "
+					"gain is deprecated!\n");
 				vc.id = V4L2_CID_GAIN;
 				vc.value = data->gain;
 				mutex_lock(&vdev->mutex);
@@ -1668,9 +1668,9 @@ static long vidioc_default(struct file *file, void *_fh, int cmd, void *arg)
 			}
 			data = (struct isp_af_data *) arg;
 			if (data->update & LENS_DESIRED_POSITION) {
-				dev_info(&vdev->vfd->dev, "using "
-					 "VIDIOC_PRIVATE_ISP_AF_REQ to set "
-					 "lens position is deprecated!\n");
+				dev_dbg(&vdev->vfd->dev, "using "
+					"VIDIOC_PRIVATE_ISP_AF_REQ to set "
+					"lens position is deprecated!\n");
 				vc.id = V4L2_CID_FOCUS_ABSOLUTE;
 				vc.value = data->desired_lens_direction;
 				mutex_lock(&vdev->mutex);
@@ -1960,7 +1960,7 @@ static void omap34xxcam_vfd_name_update(struct omap34xxcam_videodev *vdev)
 			continue;
 		strlcat(vfd->name, vdev->slave[i]->name, sizeof(vfd->name));
 	}
-	dev_info(&vdev->vfd->dev, "video%d is now %s\n", vfd->num, vfd->name);
+	dev_dbg(&vdev->vfd->dev, "video%d is now %s\n", vfd->num, vfd->name);
 }
 
 /**
