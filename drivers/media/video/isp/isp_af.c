@@ -29,7 +29,6 @@
 #include "ispreg.h"
 #include "isph3a.h"
 #include "isp_af.h"
-#include "ispmmu.h"
 
 /**
  * isp_af_setxtrastats - Receives extra statistics from prior frames.
@@ -221,6 +220,8 @@ static void isp_af_link_buffers(struct isp_af_device *isp_af)
 int isp_af_configure(struct isp_af_device *isp_af,
 		     struct af_configuration *afconfig)
 {
+	struct isp_device *isp =
+		container_of(isp_af, struct isp_device, isp_af);
 	int result;
 	int buff_size, i;
 	unsigned int busyaf;
@@ -266,7 +267,8 @@ int isp_af_configure(struct isp_af_device *isp_af,
 	if (isp_af->stats_buf_size && buff_size > isp_af->stats_buf_size) {
 		isp_af_enable(isp_af, 0);
 		for (i = 0; i < H3A_MAX_BUFF; i++) {
-			ispmmu_kunmap(isp_af->af_buff[i].ispmmu_addr);
+			iommu_kunmap(isp->iommu,
+				     isp_af->af_buff[i].ispmmu_addr);
 			free_pages_exact((void *)isp_af->af_buff[i].virt_addr,
 					isp_af->min_buf_size);
 			isp_af->af_buff[i].virt_addr = 0;
@@ -299,8 +301,11 @@ int isp_af_configure(struct isp_af_device *isp_af,
 			       isp_af->af_buff[i].addr_align)
 				isp_af->af_buff[i].addr_align++;
 			isp_af->af_buff[i].ispmmu_addr =
-				ispmmu_kmap(isp_af->af_buff[i].phy_addr,
-					    isp_af->min_buf_size);
+				iommu_kmap(isp->iommu,
+					   0,
+					   isp_af->af_buff[i].phy_addr,
+					   isp_af->min_buf_size,
+					   IOMMU_FLAG);
 		}
 		isp_af_unlock_buffers(isp_af);
 		isp_af_link_buffers(isp_af);
@@ -706,7 +711,7 @@ void isp_af_exit(struct device *dev)
 		if (!isp_af->af_buff[i].phy_addr)
 			continue;
 
-		ispmmu_kunmap(isp_af->af_buff[i].ispmmu_addr);
+		iommu_kunmap(isp->iommu, isp_af->af_buff[i].ispmmu_addr);
 
 		dma_free_coherent(NULL,
 				  isp_af->min_buf_size,

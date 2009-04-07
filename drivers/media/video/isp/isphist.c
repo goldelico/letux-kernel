@@ -27,7 +27,6 @@
 #include "isp.h"
 #include "ispreg.h"
 #include "isphist.h"
-#include "ispmmu.h"
 
 /* Structure for saving/restoring histogram module registers */
 struct isp_reg isphist_reg_list[] = {
