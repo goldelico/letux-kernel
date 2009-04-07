@@ -1236,7 +1236,8 @@ static int twl4030_set_bias_level(struct snd_soc_codec *codec,
 	return 0;
 }
 
-static int twl4030_startup(struct snd_pcm_substream *substream)
+static int twl4030_startup(struct snd_pcm_substream *substream,
+			   struct snd_soc_dai *dai)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_device *socdev = rtd->socdev;
@@ -1267,7 +1268,8 @@ static int twl4030_startup(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static void twl4030_shutdown(struct snd_pcm_substream *substream)
+static void twl4030_shutdown(struct snd_pcm_substream *substream,
+			     struct snd_soc_dai *dai)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_device *socdev = rtd->socdev;
