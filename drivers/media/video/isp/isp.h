@@ -29,14 +29,20 @@
 #include <media/videobuf-dma-sg.h>
 #include <linux/videodev2.h>
 
+#include <asm/io.h>
+
+#include <mach/iommu.h>
+#include <mach/iovmm.h>
+
 #include "isp_af.h"
 #include "isphist.h"
 #include "ispccdc.h"
 #include "ispreg.h"
 #include "isph3a.h"
-#include "ispmmu.h"
 #include "ispresizer.h"
 #include "isppreview.h"
+
+#define IOMMU_FLAG (IOVMF_ENDIAN_LITTLE | IOVMF_ELSZ_8)
 
 #define OMAP_ISP_CCDC		(1 << 0)
 #define OMAP_ISP_PREVIEW	(1 << 1)
@@ -351,6 +357,8 @@ struct isp_device {
 	struct isp_res_device isp_res;
 	struct isp_prev_device isp_prev;
 	struct isp_ccdc_device isp_ccdc;
+
+	struct iommu *iommu;
 };
 
 u32 isp_reg_readl(struct device *dev, enum isp_mem_resources isp_mmio_range,
@@ -456,5 +464,10 @@ void isp_preview_cleanup(struct device *dev);
 void isp_resizer_cleanup(struct device *dev);
 void isp_af_exit(struct device *dev);
 void isp_csi2_cleanup(struct device *dev);
+
+/* FIXME: Remove these when iommu supports these directly. */
+dma_addr_t ispmmu_vmap(struct device *dev, const struct scatterlist *sglist,
+		       int sglen);
+void ispmmu_vunmap(struct device *dev, dma_addr_t da);
 
 #endif	/* OMAP_ISP_TOP_H */

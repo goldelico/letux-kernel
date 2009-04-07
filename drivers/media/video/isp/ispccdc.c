@@ -28,7 +28,6 @@
 #include "isp.h"
 #include "ispreg.h"
 #include "ispccdc.h"
-#include "ispmmu.h"
 
 #define LSC_TABLE_INIT_SIZE	50052
 #define PTR_FREE		((u32)(-ENOMEM))
@@ -94,6 +93,8 @@ static int ispccdc_validate_config_lsc(struct isp_ccdc_device *isp_ccdc,
 int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
 			     void *userspace_add)
 {
+	struct isp_device *isp =
+		container_of(isp_ccdc, struct isp_device, isp_ccdc);
 	struct ispccdc_bclamp bclamp_t;
 	struct ispccdc_blcomp blcomp_t;
 	struct ispccdc_fpc fpc_t;
@@ -183,9 +184,12 @@ int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
 			       != (unsigned long)isp_ccdc->fpc_table_add)
 				isp_ccdc->fpc_table_add++;
 
-			isp_ccdc->fpc_table_add_m = ispmmu_kmap(virt_to_phys
-						      (isp_ccdc->fpc_table_add),
-						      fpc_t.fpnum * 4);
+			isp_ccdc->fpc_table_add_m = iommu_kmap(
+				isp->iommu,
+				0,
+				virt_to_phys(isp_ccdc->fpc_table_add),
+				fpc_t.fpnum * 4,
+				IOMMU_FLAG);
 
 			if (copy_from_user(isp_ccdc->fpc_table_add,
 					   (u32 *)fpc_t.fpcaddr,
@@ -234,9 +238,10 @@ int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
 	if (ISP_ABS_TBL_LSC & ccdc_struct->update) {
 		void *n;
 		if (isp_ccdc->lsc_table_new != PTR_FREE)
-			ispmmu_vfree(isp_ccdc->lsc_table_new);
-		isp_ccdc->lsc_table_new =
-				ispmmu_vmalloc(isp_ccdc->lsc_config.size);
+			iommu_vfree(isp->iommu, isp_ccdc->lsc_table_new);
+		isp_ccdc->lsc_table_new = iommu_vmalloc(isp->iommu, 0,
+						isp_ccdc->lsc_config.size,
+						IOMMU_FLAG);
 		if (IS_ERR_VALUE(isp_ccdc->lsc_table_new)) {
 			/* Disable LSC if table can not be allocated */
 			isp_ccdc->lsc_table_new = PTR_FREE;
@@ -245,7 +250,7 @@ int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
 			ret = -ENOMEM;
 			goto out;
 		}
-		n = ispmmu_da_to_va(isp_ccdc->lsc_table_new);
+		n = da_to_va(isp->iommu, isp_ccdc->lsc_table_new);
 		if (copy_from_user(n, ccdc_struct->lsc,
 				   isp_ccdc->lsc_config.size)) {
 			ret = -EFAULT;
@@ -483,13 +488,16 @@ void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
  */
 static void ispccdc_setup_lsc(struct isp_ccdc_device *isp_ccdc)
 {
+	struct isp_device *isp =
+		container_of(isp_ccdc, struct isp_device, isp_ccdc);
+
 	ispccdc_enable_lsc(isp_ccdc, 0);	/* Disable LSC */
 	if (isp_ccdc->ccdc_inpfmt == CCDC_RAW &&
 	    isp_ccdc->lsc_request_enable) {
 		/* LSC is requested to be enabled, so configure it */
 		if (isp_ccdc->update_lsc_table) {
 			BUG_ON(isp_ccdc->lsc_table_new == PTR_FREE);
-			ispmmu_vfree(isp_ccdc->lsc_table_inuse);
+			iommu_vfree(isp->iommu, isp_ccdc->lsc_table_inuse);
 			isp_ccdc->lsc_table_inuse = isp_ccdc->lsc_table_new;
 			isp_ccdc->lsc_table_new = PTR_FREE;
 			isp_ccdc->update_lsc_table = 0;
@@ -1670,10 +1678,12 @@ int __init isp_ccdc_init(struct device *dev)
 
 	isp_ccdc->update_lsc_table = 0;
 	isp_ccdc->lsc_table_new = PTR_FREE;
-	isp_ccdc->lsc_table_inuse = ispmmu_vmalloc(LSC_TABLE_INIT_SIZE);
+	isp_ccdc->lsc_table_inuse = iommu_vmalloc(isp->iommu, 0,
+						  LSC_TABLE_INIT_SIZE,
+						  IOMMU_FLAG);
 	if (IS_ERR_VALUE(isp_ccdc->lsc_table_inuse))
 		return -ENOMEM;
-	p = ispmmu_da_to_va(isp_ccdc->lsc_table_inuse);
+	p = da_to_va(isp->iommu, isp_ccdc->lsc_table_inuse);
 	memset(p, 0x40, LSC_TABLE_INIT_SIZE);
 
 	isp_ccdc->shadow_update = 0;
@@ -1689,12 +1699,12 @@ void isp_ccdc_cleanup(struct device *dev)
 	struct isp_device *isp = dev_get_drvdata(dev);
 	struct isp_ccdc_device *isp_ccdc = &isp->isp_ccdc;
 
-	ispmmu_vfree(isp_ccdc->lsc_table_inuse);
+	iommu_vfree(isp->iommu, isp_ccdc->lsc_table_inuse);
 	if (isp_ccdc->lsc_table_new != PTR_FREE)
-		ispmmu_vfree(isp_ccdc->lsc_table_new);
+		iommu_vfree(isp->iommu, isp_ccdc->lsc_table_new);
 
 	if (isp_ccdc->fpc_table_add_m != 0) {
-		ispmmu_kunmap(isp_ccdc->fpc_table_add_m);
+		iommu_kunmap(isp->iommu, isp_ccdc->fpc_table_add_m);
 		kfree(isp_ccdc->fpc_table_add);
 	}
 }

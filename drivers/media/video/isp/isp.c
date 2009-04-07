@@ -35,7 +35,6 @@
 #include <linux/device.h>
 
 #include "isp.h"
-#include "ispmmu.h"
 #include "ispreg.h"
 #include "ispccdc.h"
 #include "isph3a.h"
@@ -1092,7 +1091,7 @@ static void isp_tmp_buf_free(struct device *dev)
 	struct isp_device *isp = dev_get_drvdata(dev);
 
 	if (isp->tmp_buf) {
-		ispmmu_vfree(isp->tmp_buf);
+		iommu_vfree(isp->iommu, isp->tmp_buf);
 		isp->tmp_buf = 0;
 		isp->tmp_buf_size = 0;
 		isp->tmp_buf_offset = 0;
@@ -1111,9 +1110,9 @@ static u32 isp_tmp_buf_alloc(struct device *dev, size_t size)
 
 	dev_dbg(dev, "%s: allocating %d bytes\n", __func__, size);
 
-	isp->tmp_buf = ispmmu_vmalloc(size);
+	isp->tmp_buf = iommu_vmalloc(isp->iommu, 0, size, IOMMU_FLAG);
 	if (IS_ERR((void *)isp->tmp_buf)) {
-		dev_err(dev, "ispmmu_vmap mapping failed ");
+		dev_err(dev, "iommu_vmap mapping failed ");
 		return -ENOMEM;
 	}
 	isp->tmp_buf_size = size;
@@ -1581,6 +1580,58 @@ int isp_vbq_setup(struct device *dev, struct videobuf_queue *vbq,
 }
 EXPORT_SYMBOL(isp_vbq_setup);
 
+dma_addr_t ispmmu_vmap(struct device *dev, const struct scatterlist *sglist,
+		       int sglen)
+{
+	struct isp_device *isp = dev_get_drvdata(dev);
+	int err;
+	void *da;
+	struct sg_table *sgt;
+	unsigned int i;
+	struct scatterlist *sg, *src = (struct scatterlist *)sglist;
+
+	/*
+	 * convert isp sglist to iommu sgt
+	 * FIXME: should be fixed in the upper layer?
+	 */
+	sgt = kmalloc(sizeof(*sgt), GFP_KERNEL);
+	if (!sgt)
+		return -ENOMEM;
+	err = sg_alloc_table(sgt, sglen, GFP_KERNEL);
+	if (err)
+		goto err_sg_alloc;
+
+	for_each_sg(sgt->sgl, sg, sgt->nents, i)
+		sg_set_buf(sg, phys_to_virt(sg_dma_address(src + i)),
+			   sg_dma_len(src + i));
+
+	da = (void *)iommu_vmap(isp->iommu, 0, sgt, IOMMU_FLAG);
+	if (IS_ERR(da))
+		goto err_vmap;
+
+	return (dma_addr_t)da;
+
+err_vmap:
+	sg_free_table(sgt);
+err_sg_alloc:
+	kfree(sgt);
+	return -ENOMEM;
+}
+EXPORT_SYMBOL_GPL(ispmmu_vmap);
+
+void ispmmu_vunmap(struct device *dev, dma_addr_t da)
+{
+	struct isp_device *isp = dev_get_drvdata(dev);
+	struct sg_table *sgt;
+
+	sgt = iommu_vunmap(isp->iommu, (u32)da);
+	if (!sgt)
+		return;
+	sg_free_table(sgt);
+	kfree(sgt);
+}
+EXPORT_SYMBOL_GPL(ispmmu_vunmap);
+
 /**
  * isp_vbq_prepare - Videobuffer queue prepare.
  * @vbq: Pointer to videobuf_queue structure.
@@ -1602,7 +1653,7 @@ int isp_vbq_prepare(struct device *dev, struct videobuf_queue *vbq,
 
 	vdma = videobuf_to_dma(vb);
 
-	isp_addr = ispmmu_vmap(vdma->sglist, vdma->sglen);
+	isp_addr = ispmmu_vmap(dev, vdma->sglist, vdma->sglen);
 
 	if (IS_ERR_VALUE(isp_addr))
 		err = -EIO;
@@ -1624,7 +1675,7 @@ void isp_vbq_release(struct device *dev, struct videobuf_queue *vbq,
 	struct isp_device *isp = dev_get_drvdata(dev);
 	struct isp_bufs *bufs = &isp->bufs;
 
-	ispmmu_vunmap(bufs->isp_addr_capture[vb->i]);
+	ispmmu_vunmap(dev, bufs->isp_addr_capture[vb->i]);
 	bufs->isp_addr_capture[vb->i] = (dma_addr_t)NULL;
 	return;
 }
@@ -2146,9 +2197,12 @@ EXPORT_SYMBOL(isp_try_fmt);
  **/
 static void isp_save_ctx(struct device *dev)
 {
+	struct isp_device *isp = dev_get_drvdata(dev);
+
 	isp_save_context(dev, isp_reg_list);
 	ispccdc_save_context(dev);
-	ispmmu_save_context();
+	if (isp->iommu)
+		iommu_save_ctx(isp->iommu);
 	isphist_save_context(dev);
 	isph3a_save_context(dev);
 	isppreview_save_context(dev);
@@ -2164,9 +2218,12 @@ static void isp_save_ctx(struct device *dev)
  **/
 static void isp_restore_ctx(struct device *dev)
 {
+	struct isp_device *isp = dev_get_drvdata(dev);
+
 	isp_restore_context(dev, isp_reg_list);
 	ispccdc_restore_context(dev);
-	ispmmu_restore_context();
+	if (isp->iommu)
+		iommu_restore_ctx(isp->iommu);
 	isphist_restore_context(dev);
 	isph3a_restore_context(dev);
 	isppreview_restore_context(dev);
@@ -2330,7 +2387,10 @@ static int isp_remove(struct platform_device *pdev)
 	isp_af_exit(&pdev->dev);
 	isp_resizer_cleanup(&pdev->dev);
 	isp_preview_cleanup(&pdev->dev);
-	ispmmu_cleanup();
+	isp_get();
+	if (isp->iommu)
+		iommu_put(isp->iommu);
+	isp_put();
 	isph3a_aewb_cleanup(&pdev->dev);
 	isp_hist_cleanup(&pdev->dev);
 	isp_ccdc_cleanup(&pdev->dev);
@@ -2513,9 +2573,14 @@ static int isp_probe(struct platform_device *pdev)
 	spin_lock_init(&isp->lock);
 	spin_lock_init(&isp->bufs.lock);
 
-	ret_err = ispmmu_init();
-	if (ret_err)
-		goto out_ispmmu_init;
+	isp_get();
+	isp->iommu = iommu_get("isp");
+	isp_put();
+	if (IS_ERR(isp->iommu)) {
+		ret_err = PTR_ERR(isp->iommu);
+		isp->iommu = NULL;
+		goto out_iommu_get;
+	}
 
 	isp_ccdc_init(&pdev->dev);
 	isp_hist_init(&pdev->dev);
@@ -2534,7 +2599,7 @@ static int isp_probe(struct platform_device *pdev)
 
 	return 0;
 
-out_ispmmu_init:
+out_iommu_get:
 	free_irq(isp->irq_num, isp);
 out_request_irq:
 	clk_put(isp->l3_ick);
