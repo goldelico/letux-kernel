@@ -406,6 +406,8 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 
 	fps = best_ival->denominator / best_ival->numerator;
 
+	memset(best_pix_in, 0, sizeof(*best_pix_in));
+
 	best_ival->denominator = 0;
 	best_pix_out.height = INT_MAX >> 1;
 	best_pix_out.width = best_pix_out.height;
@@ -511,6 +513,9 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 					/ frmi.discrete.numerator);
 
 				if (best_ival->denominator == 0)
+					goto do_it_now;
+
+				if (best_pix_in->width == 0)
 					goto do_it_now;
 
 				/*
