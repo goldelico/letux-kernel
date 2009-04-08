@@ -1109,7 +1109,7 @@ static u32 isp_tmp_buf_alloc(struct device *dev, size_t size)
 
 	isp_tmp_buf_free(dev);
 
-	dev_info(dev, "%s: allocating %d bytes\n", __func__, size);
+	dev_dbg(dev, "%s: allocating %d bytes\n", __func__, size);
 
 	isp->tmp_buf = ispmmu_vmalloc(size);
 	if (IS_ERR((void *)isp->tmp_buf)) {
