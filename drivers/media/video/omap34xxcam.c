@@ -1545,7 +1545,8 @@ static int omap34xxcam_open(struct file *file)
 	struct omap34xxcam_device *cam = omap34xxcam;
 	struct device *isp;
 	struct omap34xxcam_fh *fh;
-	struct v4l2_format format;
+	struct v4l2_format sensor_format;
+	int first_user = 0;
 	int i;
 
 	for (i = 0; i < OMAP34XXCAM_VIDEODEVS; i++) {
@@ -1601,23 +1602,27 @@ static int omap34xxcam_open(struct file *file)
 
 	fh->vdev = vdev;
 
-	if (!vdev->pix.width
-	    && vdev->vdev_sensor != v4l2_int_device_dummy()) {
-		memset(&format, 0, sizeof(format));
-		if (vidioc_int_g_fmt_cap(vdev->vdev_sensor, &format)) {
+	/* Get the format the sensor is using. */
+	if (vidioc_int_g_fmt_cap(vdev->vdev_sensor, &sensor_format)) {
+		dev_err(&vdev->vfd->dev,
+			"can't get current pix from sensor!\n");
+		goto out_vidioc_int_g_fmt_cap;
+	}
+
+	if (!vdev->pix.width && vdev->vdev_sensor != v4l2_int_device_dummy())
+		vdev->pix = sensor_format.fmt.pix;
+
+	if (!vdev->vdev_sensor_config.sensor_isp) {
+		struct v4l2_pix_format pix;
+		struct v4l2_fract timeperframe =
+			vdev->want_timeperframe;
+
+		if (s_pix_parm(vdev, &pix, &vdev->pix,
+			       &timeperframe)) {
 			dev_err(&vdev->vfd->dev,
-				"can't get current pix from sensor!\n");
-			goto out_vidioc_int_g_fmt_cap;
+				"isp doesn't like the sensor!\n");
+			goto out_isp_s_fmt_cap;
 		}
-		if (!vdev->vdev_sensor_config.sensor_isp) {
-			struct v4l2_pix_format pix = format.fmt.pix;
-			if (isp_s_fmt_cap(cam->isp, &pix, &format.fmt.pix)) {
-				dev_err(&vdev->vfd->dev,
-					"isp doesn't like the sensor!\n");
-				goto out_isp_s_fmt_cap;
-			}
-		}
-		vdev->pix = format.fmt.pix;
 	}
 
 	mutex_unlock(&vdev->mutex);
