@@ -620,23 +620,6 @@ static int s_pix_parm(struct omap34xxcam_videodev *vdev,
 	a.parm.capture.timeperframe = *best_ival;
 	rval = vidioc_int_s_parm(vdev->vdev_sensor, &a);
 
-	/*
-	 * FIXME: the crop parameters are reset here. That
-	 * shouldn't be done. How to do this for different
-	 * sensor resolutions?
-	 */
-	if (old_fmt.fmt.pix.width != fmt.fmt.pix.width
-	    || old_fmt.fmt.pix.height != fmt.fmt.pix.height
-	    || old_fmt.fmt.pix.pixelformat != fmt.fmt.pix.pixelformat) {
-		struct v4l2_crop crop;
-
-		crop.c.left = crop.c.top = 0;
-		crop.c.width = fmt.fmt.pix.width;
-		crop.c.height = fmt.fmt.pix.height;
-
-		isp_s_crop(isp, &crop);
-	}
-
 	return rval;
 }
 
