@@ -2120,6 +2120,8 @@ static int isp_try_size(struct device *dev, struct v4l2_pix_format *pix_input,
 	}
 
 	if (isp->module.isp_pipeline & OMAP_ISP_RESIZER) {
+		struct v4l2_crop crop;
+
 		isp->module.resizer_input_width =
 			isp->module.preview_output_width;
 		isp->module.resizer_input_height =
@@ -2135,6 +2137,12 @@ static int isp_try_size(struct device *dev, struct v4l2_pix_format *pix_input,
 			       pix_input->height);
 			return rval;
 		}
+
+		crop.c.left = crop.c.top = 0;
+		crop.c.width = isp->module.resizer_input_width;
+		crop.c.height = isp->module.resizer_input_height;
+
+		ispresizer_config_crop(&isp->isp_res, &crop);
 		pix_output->width = isp->module.resizer_output_width;
 		pix_output->height = isp->module.resizer_output_height;
 	}
