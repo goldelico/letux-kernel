@@ -2246,17 +2246,17 @@ static int isp_enable_clocks(struct device *dev)
 
 	r = clk_enable(isp->cam_ick);
 	if (r) {
-		DPRINTK_ISPCTRL("ISP_ERR: clk_en for ick failed\n");
+		dev_err(dev, "clk_enable cam_ick failed\n");
 		goto out_clk_enable_ick;
 	}
 	r = clk_enable(isp->cam_mclk);
 	if (r) {
-		DPRINTK_ISPCTRL("ISP_ERR: clk_en for mclk failed\n");
+		dev_err(dev, "clk_enable cam_mclk failed\n");
 		goto out_clk_enable_mclk;
 	}
 	r = clk_enable(isp->csi2_fck);
 	if (r) {
-		DPRINTK_ISPCTRL("ISP_ERR: clk_en for csi2_fclk failed\n");
+		dev_err(dev, "clk_enable csi2_fck failed\n");
 		goto out_clk_enable_csi2_fclk;
 	}
 	return 0;
@@ -2548,32 +2548,32 @@ static int isp_probe(struct platform_device *pdev)
 
 	isp->cam_ick = clk_get(&camera_dev, "cam_ick");
 	if (IS_ERR(isp->cam_ick)) {
-		DPRINTK_ISPCTRL("ISP_ERR: clk_get for cam_ick failed\n");
+		dev_err(isp->dev, "clk_get cam_ick failed\n");
 		ret_err = PTR_ERR(isp->cam_ick);
 		goto out_free_mmio;
 	}
 	isp->cam_mclk = clk_get(&camera_dev, "cam_mclk");
 	if (IS_ERR(isp->cam_mclk)) {
-		DPRINTK_ISPCTRL("ISP_ERR: clk_get for cam_mclk failed\n");
+		dev_err(isp->dev, "clk_get cam_mclk failed\n");
 		ret_err = PTR_ERR(isp->cam_mclk);
 		goto out_clk_get_mclk;
 	}
 	isp->csi2_fck = clk_get(&camera_dev, "csi2_96m_fck");
 	if (IS_ERR(isp->csi2_fck)) {
-		DPRINTK_ISPCTRL("ISP_ERR: clk_get for csi2_fclk failed\n");
+		dev_err(isp->dev, "clk_get csi2_96m_fck failed\n");
 		ret_err = PTR_ERR(isp->csi2_fck);
 		goto out_clk_get_csi2_fclk;
 	}
 	isp->l3_ick = clk_get(&camera_dev, "l3_ick");
 	if (IS_ERR(isp->l3_ick)) {
-		DPRINTK_ISPCTRL("ISP_ERR: clk_get for l3_ick failed\n");
+		dev_err(isp->dev, "clk_get l3_ick failed\n");
 		ret_err = PTR_ERR(isp->l3_ick);
 		goto out_clk_get_l3_ick;
 	}
 
 	if (request_irq(isp->irq_num, omap34xx_isp_isr, IRQF_SHARED,
 			"Omap 3 Camera ISP", pdev)) {
-		DPRINTK_ISPCTRL("Could not install ISR\n");
+		dev_err(isp->dev, "could not install isr\n");
 		ret_err = -EINVAL;
 		goto out_request_irq;
 	}
