@@ -523,7 +523,7 @@ static ssize_t gamma_write(struct device *dev, struct device_attribute *attr,
 	int reg = reg_by_string(attr->attr.name);
 	unsigned long val = simple_strtoul(buf, NULL, 10);
 
-	dev_info(dev, "**** jbt6k74 writing gama %lu\n", val & 0xff);
+	dev_info(dev, "writing gama %lu\n", val & 0xff);
 
 	mutex_lock(&jbt->lock);
 	jbt_reg_write(jbt, reg, val & 0xff);
@@ -539,7 +539,7 @@ static ssize_t reset_write(struct device *dev, struct device_attribute *attr,
 	struct jbt_info *jbt = dev_get_drvdata(dev);
 	struct jbt6k74_platform_data *pdata = jbt->spi_dev->dev.platform_data;
 
-	dev_info(dev, "**** jbt6k74 reset\n");
+	dev_info(dev, "reset\n");
 
 	mutex_lock(&jbt->lock);
 
@@ -593,7 +593,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 
 	jbt = container_of(self, struct jbt_info, fb_notif);
 
-	dev_dbg(&jbt->spi_dev->dev, "jbt6k74 event=%lu\n", event);
+	dev_dbg(&jbt->spi_dev->dev, "event=%lu\n", event);
 
 	if (event != FB_EVENT_BLANK && event != FB_EVENT_CONBLANK)
 		return 0;
@@ -712,7 +712,7 @@ static int jbt_suspend(struct spi_device *spi, pm_message_t state)
 
 	jbt6k74_enter_state(jbt, JBT_STATE_DEEP_STANDBY);
 
-	dev_info(&spi->dev, "**** jbt6k74 suspend end\n");
+	dev_info(&spi->dev, "suspended\n");
 
 	return 0;
 }
@@ -722,14 +722,12 @@ int jbt6k74_resume(struct spi_device *spi)
 	struct jbt_info *jbt = dev_get_drvdata(&spi->dev);
 	struct jbt6k74_platform_data *pdata = spi->dev.platform_data;
 
-	dev_info(&spi->dev, "**** jbt6k74 resume start\n");
-
 	jbt6k74_enter_state(jbt, jbt->normal_state);
 
 	if (pdata->resuming)
 		(pdata->resuming)(0);
 
-	dev_info(&spi->dev, "**** jbt6k74 resume end\n");
+	dev_info(&spi->dev, "resumed\n");
 
 	return 0;
 }

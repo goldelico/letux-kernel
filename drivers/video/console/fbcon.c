@@ -3130,17 +3130,13 @@ static void fbcon_get_requirement(struct fb_info *info,
 static int fbcon_event_notify(struct notifier_block *self, 
 			      unsigned long action, void *data)
 {
-	struct fb_event *event;
-	struct fb_info *info;
+	struct fb_event *event = data;
+	struct fb_info *info = event->info;
 	struct fb_videomode *mode;
 	struct fb_con2fbmap *con2fb;
 	struct fb_blit_caps *caps;
 	int ret = 0;
 
-	printk(KERN_INFO "fbcon_event_notify action=%ld, data=%p\n", action, data);
-
-	event = data;
-	info = event->info;
 	/*
 	 * ignore all events except driver registration and deregistration
 	 * if fbcon is not active
