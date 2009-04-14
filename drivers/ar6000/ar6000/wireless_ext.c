@@ -976,6 +976,16 @@ static int ar6000_ioctl_giwpower(struct net_device *dev,
 {
 	AR_SOFTC_T *ar = (AR_SOFTC_T *)netdev_priv(dev);
 
+	/*
+	 * FIXME:
+	 * https://docs.openmoko.org/trac/ticket/2267
+	 * When starting wpa_supplicant the kernel oopses.
+	 * The following condition avoids the oops.
+	 * Remove this comment to bless this solution.
+	 */
+	if (ar->arWlanState == WLAN_DISABLED || ar->arWmiReady == FALSE)
+		return -EIO;
+
 	return wmi_get_power_mode_cmd(ar->arWmi);
 }
 
