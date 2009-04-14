@@ -986,7 +986,7 @@ const static struct ts_filter_linear_configuration gta02_ts_linear = {
 };
 #endif
 
-const struct ts_filter_chain_configuration filter_configuration[] =
+const struct ts_filter_chain_configuration gta02_filter_configuration[] =
 {
 #ifdef CONFIG_TOUCHSCREEN_FILTER
 	{&ts_filter_group_api,		&gta02_ts_group.config},
@@ -1000,7 +1000,7 @@ const struct ts_filter_chain_configuration filter_configuration[] =
 const static struct s3c2410_ts_mach_info gta02_ts_cfg = {
 	.delay = 10000,
 	.presc = 0xff, /* slow as we can go */
-	.filter_config = filter_configuration,
+	.filter_config = gta02_filter_configuration,
 };
 
 
