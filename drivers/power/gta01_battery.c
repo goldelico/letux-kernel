@@ -44,7 +44,6 @@ static int gta01_bat_get_property(struct power_supply *psy,
 		val->intval = bat->pdata->get_current();
 		break;
 	default:
-		printk(KERN_ERR "Unknown property benig asked for\n");
 		return -EINVAL;
 	}
 

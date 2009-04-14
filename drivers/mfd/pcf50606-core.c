@@ -349,7 +349,7 @@ static void pcf50606_irq_worker(struct work_struct *work)
 			pcf_int[1] &= ~(1 << PCF50606_INT2_CHGINS);
 	}
 	
-	dev_info(pcf->dev, "INT1=0x%02x INT2=0x%02x INT3=0x%02x\n",
+	dev_dbg(pcf->dev, "INT1=0x%02x INT2=0x%02x INT3=0x%02x\n",
 				pcf_int[0], pcf_int[1], pcf_int[2]);
 
 	/* Some revisions of the chip don't have a 8s standby mode on
