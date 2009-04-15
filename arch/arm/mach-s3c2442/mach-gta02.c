@@ -986,7 +986,7 @@ const static struct ts_filter_linear_configuration gta02_ts_linear = {
 };
 #endif
 
-const struct ts_filter_chain_configuration gta02_filter_configuration[] =
+const static struct ts_filter_chain_configuration gta02_filter_configuration[] =
 {
 #ifdef CONFIG_TOUCHSCREEN_FILTER
 	{&ts_filter_group_api,		&gta02_ts_group.config},
