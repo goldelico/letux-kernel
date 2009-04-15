@@ -284,6 +284,36 @@ static void isph3a_aewb_unlock_buffers(struct isp_h3a_device *isp_h3a)
 	spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
 }
 
+static struct isph3a_aewb_buffer *isph3a_aewb_get_next_buffer(
+					struct isp_h3a_device *isp_h3a)
+{
+	struct isph3a_aewb_buffer *buff;
+	int found = 0;
+
+	if (unlikely(isp_h3a->active_buff->next == NULL))
+		/* Buffers are not linked yet */
+		isph3a_aewb_link_buffers(isp_h3a);
+
+	for (buff = isp_h3a->active_buff->next; buff != isp_h3a->active_buff;
+						buff = buff->next) {
+		if (buff->locked == 0) {
+			found = 1;
+			break;
+		}
+	}
+
+	/* This should never happen, as all buffers must not be locked
+	 * at the same time */
+	if (unlikely(found == 0)) {
+		dev_dbg(isp_h3a->dev, "h3a: FIXME: no unlocked buffer "
+				      "available.\n");
+		/* FIXME: falling back to the previous approach for now */
+		buff = isp_h3a->active_buff->next->next;
+	}
+
+	return buff;
+}
+
 /**
  * isph3a_aewb_isr - Callback from ISP driver for H3A AEWB interrupt.
  * @status: IRQ0STATUS in case of MMU error, 0 for H3A interrupt.
@@ -302,9 +332,7 @@ static void isph3a_aewb_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 	do_gettimeofday(&isp_h3a->active_buff->ts);
 	isp_h3a->active_buff->config_counter =
 					atomic_read(&isp_h3a->config_counter);
-	isp_h3a->active_buff = isp_h3a->active_buff->next;
-	if (isp_h3a->active_buff->locked == 1)
-		isp_h3a->active_buff = isp_h3a->active_buff->next;
+	isp_h3a->active_buff = isph3a_aewb_get_next_buffer(isp_h3a);
 	isp_reg_writel(isp_h3a->dev, isp_h3a->active_buff->ispmmu_addr,
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
 
