@@ -18,7 +18,6 @@
  * This file is licenced under the GPL.
  */
 
-#define DEBUG 2
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/pci.h>
