@@ -1027,15 +1027,16 @@ static void gta02_bl_set_intensity(int intensity)
 		return;
 	}
 
-	old_intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
+	if (!(pcf50633_reg_read(pcf, PCF50633_REG_LEDENA) & 3))
+		old_intensity = 0;
+	else
+		old_intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
+
 	if (intensity == old_intensity)
 		return;
 
 	/* We can't do this anywhere else */
 	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 5);
-
-	if (!(pcf50633_reg_read(pcf, PCF50633_REG_LEDENA) & 3))
-		old_intensity = 0;
 
 	/*
 	 * The PCF50633 cannot handle LEDOUT = 0 (datasheet p60)
