@@ -865,6 +865,9 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 	unsigned long irqflags = 0;
 	int wait_hs_vs = 0;
 
+	if (!isp->module.enable)
+		return IRQ_NONE;
+
 	irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 	isp_reg_writel(dev, irqstatus, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 
