@@ -115,15 +115,6 @@ static struct isp_reg isprsz_reg_list[] = {
 };
 
 /**
- * ispresizer_config_shadow_registers - Configure shadow registers.
- **/
-void ispresizer_config_shadow_registers(struct isp_res_device *isp_res)
-{
-	return;
-}
-EXPORT_SYMBOL(ispresizer_config_shadow_registers);
-
-/**
  * ispresizer_applycrop - Apply crop to input image.
  **/
 void ispresizer_applycrop(struct isp_res_device *isp_res)
@@ -141,7 +132,17 @@ void ispresizer_applycrop(struct isp_res_device *isp_res)
 
 	return;
 }
-EXPORT_SYMBOL(ispresizer_applycrop);
+
+/**
+ * ispresizer_config_shadow_registers - Configure shadow registers.
+ **/
+void ispresizer_config_shadow_registers(struct isp_res_device *isp_res)
+{
+	ispresizer_applycrop(isp_res);
+
+	return;
+}
+EXPORT_SYMBOL(ispresizer_config_shadow_registers);
 
 void ispresizer_config_crop(struct isp_res_device *isp_res,
 			    struct v4l2_crop *a)
