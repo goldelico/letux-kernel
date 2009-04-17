@@ -172,8 +172,6 @@ void ispresizer_config_luma_enhance(struct isp_res_device *isp_res,
 int ispresizer_try_size(struct isp_res_device *isp_res, u32 *input_w,
 			u32 *input_h, u32 *output_w, u32 *output_h);
 
-void ispresizer_applycrop(struct isp_res_device *isp_res);
-
 void ispresizer_config_crop(struct isp_res_device *isp_res,
 			    struct v4l2_crop *a);
 

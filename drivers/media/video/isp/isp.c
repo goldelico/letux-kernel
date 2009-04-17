@@ -881,10 +881,33 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 	 * We need to wait for the first HS_VS interrupt from CCDC.
 	 * Otherwise our frame (and everything else) might be bad.
 	 */
-	if (wait_hs_vs) {
+	switch (wait_hs_vs) {
+	case 1:
+		/*
+		 * Enable preview for the first time. We just have
+		 * missed the start-of-frame so we can do it now.
+		 */
+		if (irqstatus & HS_VS && (CCDC_PREV_CAPTURE(isp) ||
+					  CCDC_PREV_RESZ_CAPTURE(isp)))
+			isppreview_enable(&isp->isp_prev, 1);
+	default:
 		if (!((irqstatus & RESZ_DONE) &&
 			CCDC_PREV_CAPTURE(isp)))
 			goto out_ignore_buff;
+	case 0:
+		break;
+	}
+
+	if (irqstatus & RESZ_DONE) {
+		if (irqdis->isp_callbk[CBK_RESZ_DONE])
+			irqdis->isp_callbk[CBK_RESZ_DONE](
+				RESZ_DONE,
+				irqdis->isp_callbk_arg1[CBK_RESZ_DONE],
+				irqdis->isp_callbk_arg2[CBK_RESZ_DONE]);
+		else if (CCDC_PREV_RESZ_CAPTURE(isp)) {
+			ispresizer_config_shadow_registers(&isp->isp_res);
+			isp_buf_process(dev, bufs);
+		}
 	}
 
 	if (irqstatus & CCDC_VD0) {
@@ -903,48 +926,18 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 				irqdis->isp_callbk_arg2[CBK_PREV_DONE]);
 		else {
 			if (CCDC_PREV_RESZ_CAPTURE(isp)) {
-				if (!ispresizer_busy(&isp->isp_res)) {
-					ispresizer_applycrop(&isp->isp_res);
-					if (!isppreview_busy(&isp->isp_prev)) {
-						ispresizer_enable(&isp->isp_res,
-								  1);
-						if (isppreview_busy(
-							&isp->isp_prev)) {
-							/* FIXME: locking! */
-							ISP_BUF_DONE \
-							(bufs)->vb_state =
-								VIDEOBUF_ERROR;
-							dev_err(dev, \
-								"%s: can't stop"
-								" preview\n",
-								__func__);
-						}
-					}
+				if (ispresizer_busy(&isp->isp_res)) {
+					ISP_BUF_DONE(bufs)->vb_state =
+						VIDEOBUF_ERROR;
+					dev_err(dev, "%s: resizer busy!\n", __func__);
+				} else {
+					ispresizer_enable(&isp->isp_res, 1);
 				}
 			}
-			if (!isppreview_busy(&isp->isp_prev)) {
-				isppreview_enable(&isp->isp_prev, 0);
-				isppreview_config_shadow_registers(&isp->isp_prev);
-				isppreview_enable(&isp->isp_prev, 1);
-			}
-			if (!isppreview_busy(&isp->isp_prev))
-				isph3a_update_wb(&isp->isp_h3a);
+			isppreview_config_shadow_registers(&isp->isp_prev);
+			isppreview_enable(&isp->isp_prev, 1);
 			if (CCDC_PREV_CAPTURE(isp))
 				isp_buf_process(dev, bufs);
-		}
-	}
-
-	if (irqstatus & RESZ_DONE) {
-		if (irqdis->isp_callbk[CBK_RESZ_DONE])
-			irqdis->isp_callbk[CBK_RESZ_DONE](
-				RESZ_DONE,
-				irqdis->isp_callbk_arg1[CBK_RESZ_DONE],
-				irqdis->isp_callbk_arg2[CBK_RESZ_DONE]);
-		else if (CCDC_PREV_RESZ_CAPTURE(isp)) {
-			if (!ispresizer_busy(&isp->isp_res))
-				ispresizer_config_shadow_registers(
-								&isp->isp_res);
-			isp_buf_process(dev, bufs);
 		}
 	}
 
@@ -954,6 +947,8 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 				H3A_AWB_DONE,
 				irqdis->isp_callbk_arg1[CBK_H3A_AWB_DONE],
 				irqdis->isp_callbk_arg2[CBK_H3A_AWB_DONE]);
+		if (!isph3a_aewb_busy(&isp->isp_h3a))
+			isph3a_update_wb(&isp->isp_h3a);
 	}
 
 	if (irqstatus & HIST_DONE) {
@@ -1559,8 +1554,6 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 		isp_enable_interrupts(dev);
 		isp_set_buf(dev, buf);
 		ispccdc_enable(&isp->isp_ccdc, 1);
-		if (CCDC_PREV_CAPTURE(isp) || CCDC_PREV_RESZ_CAPTURE(isp))
-			isppreview_enable(&isp->isp_prev, 1);
 	}
 
 	ISP_BUF_MARK_QUEUED(bufs);

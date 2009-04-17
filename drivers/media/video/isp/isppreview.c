@@ -652,7 +652,7 @@ int isppreview_config_datapath(struct isp_prev_device *isp_prev,
 	switch (input) {
 	case PRV_RAW_CCDC:
 		pcr &= ~ISPPRV_PCR_SOURCE;
-		pcr &= ~ISPPRV_PCR_ONESHOT;
+		pcr |= ISPPRV_PCR_ONESHOT;
 		isp_prev->prev_inpfmt = PRV_RAW_CCDC;
 		break;
 	case PRV_RAW_MEM:
