@@ -629,7 +629,13 @@ int ispresizer_config_size(struct isp_res_device *isp_res, u32 input_w,
 }
 EXPORT_SYMBOL(ispresizer_config_size);
 
-void __ispresizer_enable(struct isp_res_device *isp_res, int enable)
+/**
+ * ispresizer_enable - Enables the resizer module.
+ * @enable: 1 - Enable, 0 - Disable
+ *
+ * Client should configure all the sub modules in resizer before this.
+ **/
+void ispresizer_enable(struct isp_res_device *isp_res, int enable)
 {
 	int val;
 	DPRINTK_ISPRESZ("+ispresizer_enable()+\n");
@@ -645,39 +651,7 @@ void __ispresizer_enable(struct isp_res_device *isp_res, int enable)
 	isp_reg_writel(isp_res->dev, val, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR);
 	DPRINTK_ISPRESZ("+ispresizer_enable()-\n");
 }
-
-/**
- * ispresizer_enable - Enables the resizer module.
- * @enable: 1 - Enable, 0 - Disable
- *
- * Client should configure all the sub modules in resizer before this.
- **/
-void ispresizer_enable(struct isp_res_device *isp_res, int enable)
-{
-	__ispresizer_enable(isp_res, enable);
-	isp_res->pm_state = enable;
-}
 EXPORT_SYMBOL(ispresizer_enable);
-
-/**
- * ispresizer_suspend - Suspend resizer module.
- **/
-void ispresizer_suspend(struct isp_res_device *isp_res)
-{
-	if (isp_res->pm_state)
-		__ispresizer_enable(isp_res, 0);
-}
-EXPORT_SYMBOL(ispresizer_suspend);
-
-/**
- * ispresizer_resume - Resume resizer module.
- **/
-void ispresizer_resume(struct isp_res_device *isp_res)
-{
-	if (isp_res->pm_state)
-		__ispresizer_enable(isp_res, 1);
-}
-EXPORT_SYMBOL(ispresizer_resume);
 
 /**
  * ispresizer_busy - Checks if ISP resizer is busy.

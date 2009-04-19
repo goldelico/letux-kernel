@@ -128,7 +128,6 @@ struct isprsz_yenh {
  * @ispres_mutex: Mutex for isp resizer.
  */
 struct isp_res_device {
-	int pm_state;
 	u8 res_inuse;
 	u8 h_startphase;
 	u8 v_startphase;
@@ -190,10 +189,6 @@ int ispresizer_config_outlineoffset(struct isp_res_device *isp_res, u32 offset);
 int ispresizer_set_outaddr(struct isp_res_device *isp_res, u32 addr);
 
 void ispresizer_enable(struct isp_res_device *isp_res, int enable);
-
-void ispresizer_suspend(struct isp_res_device *isp_res);
-
-void ispresizer_resume(struct isp_res_device *isp_res);
 
 int ispresizer_busy(struct isp_res_device *isp_res);
 
