@@ -1761,16 +1761,6 @@ int isppreview_set_darkaddr(struct isp_prev_device *isp_prev, u32 addr)
 }
 EXPORT_SYMBOL_GPL(isppreview_set_darkaddr);
 
-void __isppreview_enable(struct isp_prev_device *isp_prev, int enable)
-{
-	if (enable)
-		isp_reg_or(isp_prev->dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
-			   ISPPRV_PCR_EN);
-	else
-		isp_reg_and(isp_prev->dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
-			    ~ISPPRV_PCR_EN);
-}
-
 /**
  * isppreview_enable - Enables the Preview module.
  * @enable: 1 - Enables the preview module.
@@ -1779,31 +1769,14 @@ void __isppreview_enable(struct isp_prev_device *isp_prev, int enable)
  **/
 void isppreview_enable(struct isp_prev_device *isp_prev, int enable)
 {
-	__isppreview_enable(isp_prev, enable);
-	isp_prev->pm_state = enable;
+	if (enable)
+		isp_reg_or(isp_prev->dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
+			   ISPPRV_PCR_EN);
+	else
+		isp_reg_and(isp_prev->dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
+			    ~ISPPRV_PCR_EN);
 }
 EXPORT_SYMBOL_GPL(isppreview_enable);
-
-/**
- * isppreview_suspend - Suspend Preview module.
- **/
-void isppreview_suspend(struct isp_prev_device *isp_prev)
-{
-	if (isp_prev->pm_state)
-		__isppreview_enable(isp_prev, 0);
-}
-EXPORT_SYMBOL_GPL(isppreview_suspend);
-
-/**
- * isppreview_resume - Resume Preview module.
- **/
-void isppreview_resume(struct isp_prev_device *isp_prev)
-{
-	if (isp_prev->pm_state)
-		__isppreview_enable(isp_prev, 1);
-}
-EXPORT_SYMBOL_GPL(isppreview_resume);
-
 
 /**
  * isppreview_busy - Gets busy state of preview module.

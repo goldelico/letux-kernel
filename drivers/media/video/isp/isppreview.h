@@ -416,10 +416,6 @@ int isppreview_set_darkaddr(struct isp_prev_device *isp_prev, u32 addr);
 
 void isppreview_enable(struct isp_prev_device *isp_prev, int enable);
 
-void isppreview_suspend(struct isp_prev_device *isp_prev);
-
-void isppreview_resume(struct isp_prev_device *isp_prev);
-
 int isppreview_busy(struct isp_prev_device *isp_prev);
 
 struct prev_params *isppreview_get_config(struct isp_prev_device *isp_prev);
