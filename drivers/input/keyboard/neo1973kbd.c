@@ -368,8 +368,7 @@ static int neo1973kbd_probe(struct platform_device *pdev)
 		goto out_device_create_file;
 
 	/* register GPIO IRQs */
-
-	for(n = 0; n < ARRAY_SIZE(keys); n++) {
+	for(n = 0; n < min(pdev->num_resources, ARRAY_SIZE(keys)); n++) {
 
 		if (!pdev->resource[0].start)
 			continue;
