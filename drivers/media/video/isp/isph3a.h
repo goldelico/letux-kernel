@@ -125,6 +125,7 @@ struct isph3a_aewb_buffer {
 	u32 config_counter;
 
 	u8 locked;
+	u8 done;
 	u16 frame_num;
 	struct isph3a_aewb_buffer *next;
 };
