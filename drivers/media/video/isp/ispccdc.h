@@ -178,7 +178,6 @@ struct isp_ccdc_device {
 	u8 ccdcslave;
 	u8 syncif_ipmod;
 	u8 obclamp_en;
-	u8 pm_state;
 	struct mutex mutexlock; /* For checking/modifying ccdc_inuse */
 	u32 wenlog;
 	struct device *dev;
@@ -265,10 +264,6 @@ int ispccdc_config_outlineoffset(struct isp_ccdc_device *isp_ccdc, u32 offset,
 int ispccdc_set_outaddr(struct isp_ccdc_device *isp_ccdc, u32 addr);
 
 void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable);
-
-void ispccdc_suspend(struct isp_ccdc_device *isp_ccdc);
-
-void ispccdc_resume(struct isp_ccdc_device *isp_ccdc);
 
 int ispccdc_sbl_busy(void *_isp_ccdc);
 
