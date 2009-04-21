@@ -190,6 +190,8 @@ int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
 				virt_to_phys(isp_ccdc->fpc_table_add),
 				fpc_t.fpnum * 4,
 				IOMMU_FLAG);
+			/* FIXME: Correct unwinding */
+			BUG_ON(IS_ERR_VALUE(isp_ccdc->fpc_table_add_m));
 
 			if (copy_from_user(isp_ccdc->fpc_table_add,
 					   (u32 *)fpc_t.fpcaddr,

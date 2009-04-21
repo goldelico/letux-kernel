@@ -306,6 +306,8 @@ int isp_af_configure(struct isp_af_device *isp_af,
 					   isp_af->af_buff[i].phy_addr,
 					   isp_af->min_buf_size,
 					   IOMMU_FLAG);
+			/* FIXME: Correct unwinding */
+			BUG_ON(IS_ERR_VALUE(isp_af->af_buff[i].ispmmu_addr));
 		}
 		isp_af_unlock_buffers(isp_af);
 		isp_af_link_buffers(isp_af);

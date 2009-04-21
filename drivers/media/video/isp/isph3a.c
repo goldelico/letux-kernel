@@ -642,6 +642,8 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 					   isp_h3a->h3a_buff[i].phy_addr,
 					   isp_h3a->min_buf_size,
 					   IOMMU_FLAG);
+			/* FIXME: Correct unwinding */
+			BUG_ON(IS_ERR_VALUE(isp_h3a->buff[i].ispmmu_addr));
 		}
 		isph3a_aewb_unlock_buffers(isp_h3a);
 		isph3a_aewb_link_buffers(isp_h3a);
