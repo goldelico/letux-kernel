@@ -262,7 +262,7 @@ int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
 	}
 
 	if (isp_ccdc->update_lsc_table || isp_ccdc->update_lsc_config) {
-		if (isp_ccdc->pm_state == 0)
+		if (isp->module.running != ISP_RUNNING)
 			ispccdc_setup_lsc(isp_ccdc);
 		else
 			isp_ccdc->lsc_defer_setup = 1;
@@ -1410,7 +1410,13 @@ int ispccdc_set_outaddr(struct isp_ccdc_device *isp_ccdc, u32 addr)
 }
 EXPORT_SYMBOL(ispccdc_set_outaddr);
 
-void __ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
+/**
+ * ispccdc_enable - Enables the CCDC module.
+ * @enable: 0 Disables CCDC, 1 Enables CCDC
+ *
+ * Client should configure all the sub modules in CCDC before this.
+ **/
+void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
 {
 	int enable_lsc;
 
@@ -1440,41 +1446,7 @@ void __ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
 	isp_reg_and_or(isp_ccdc->dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_PCR,
 		       ~ISPCCDC_PCR_EN, enable ? ISPCCDC_PCR_EN : 0);
 }
-
-/**
- * ispccdc_enable - Enables the CCDC module.
- * @enable: 0 Disables CCDC, 1 Enables CCDC
- *
- * Client should configure all the sub modules in CCDC before this.
- **/
-void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
-{
-	__ispccdc_enable(isp_ccdc, enable);
-	isp_ccdc->pm_state = enable;
-}
 EXPORT_SYMBOL(ispccdc_enable);
-
-/**
- * ispccdc_suspend - Suspend the CCDC module.
- **/
-void ispccdc_suspend(struct isp_ccdc_device *isp_ccdc)
-{
-	if (isp_ccdc->pm_state) {
-		__ispccdc_enable(isp_ccdc, 0);
-	}
-}
-EXPORT_SYMBOL(ispccdc_suspend);
-
-/**
- * ispccdc_resume - Resume the CCDC module.
- **/
-void ispccdc_resume(struct isp_ccdc_device *isp_ccdc)
-{
-	if (isp_ccdc->pm_state) {
-		__ispccdc_enable(isp_ccdc, 1);
-	}
-}
-EXPORT_SYMBOL(ispccdc_resume);
 
 /*
  * Returns zero if the CCDC is idle and the image has been written to
