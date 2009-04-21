@@ -325,6 +325,7 @@ static void isph3a_aewb_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 {
 	struct isp_h3a_device *isp_h3a = arg2;
 	u16 frame_align;
+	unsigned long irqflags;
 
 	if ((H3A_AWB_DONE & status) != H3A_AWB_DONE)
 		return;
@@ -344,6 +345,7 @@ static void isph3a_aewb_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 	}
 	isp_h3a->active_buff->frame_num = isp_h3a->frame_count;
 
+	spin_lock_irqsave(&isp_h3a->buffer_lock, irqflags);
 	if (isp_h3a->stats_req) {
 		DPRINTK_ISPH3A("waiting for frame %d\n", isp_h3a->frame_req);
 		if (frame_align >= isp_h3a->frame_req + 1) {
@@ -352,6 +354,7 @@ static void isph3a_aewb_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 			wake_up_interruptible(&isp_h3a->stats_wait);
 		}
 	}
+	spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
 
 	if (isp_h3a->update)
 		isph3a_aewb_update_regs(isp_h3a);
@@ -698,6 +701,7 @@ int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 	u16 frame_diff = 0;
 	u16 frame_cnt = isp_h3a->frame_count;
 	wait_queue_t wqt;
+	unsigned long irqflags;
 
 	if (!isp_h3a->aewb_config_local.aewb_enable) {
 		dev_err(isp_h3a->dev, "h3a: engine not enabled\n");
@@ -777,8 +781,10 @@ int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 	DPRINTK_ISPH3A("Waiting on stats IRQ for frame %d\n",
 		       aewbdata->frame_number);
 	isp_h3a->frame_req = aewbdata->frame_number;
+	spin_lock_irqsave(&isp_h3a->buffer_lock, irqflags);
 	isp_h3a->stats_req = 1;
 	isp_h3a->stats_done = 0;
+	spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
 	init_waitqueue_entry(&wqt, current);
 	ret = wait_event_interruptible(isp_h3a->stats_wait,
 				       isp_h3a->stats_done == 1);
@@ -885,11 +891,15 @@ static void isph3a_print_status(struct isp_h3a_device *isp_h3a)
  **/
 void isph3a_notify(struct isp_h3a_device *isp_h3a, int notify)
 {
+	unsigned long irqflags;
+
 	isp_h3a->camnotify = notify;
 	if (isp_h3a->camnotify && isp_h3a->initialized) {
 		dev_dbg(isp_h3a->dev, "h3a: Warning Camera Off \n");
+		spin_lock_irqsave(&isp_h3a->buffer_lock, irqflags);
 		isp_h3a->stats_req = 0;
 		isp_h3a->stats_done = 1;
+		spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
 		wake_up_interruptible(&isp_h3a->stats_wait);
 	}
 }
