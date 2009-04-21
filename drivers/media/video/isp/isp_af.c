@@ -499,11 +499,15 @@ static int isp_af_stats_available(struct isp_af_device *isp_af,
 
 void isp_af_notify(struct isp_af_device *isp_af, int notify)
 {
+	unsigned long irqflags;
+
 	isp_af->camnotify = notify;
 	if (isp_af->camnotify && isp_af->initialized) {
 		printk(KERN_DEBUG "Warning Camera Off \n");
+		spin_lock_irqsave(&isp_af->buffer_lock, irqflags);
 		isp_af->stats_req = 0;
 		isp_af->stats_done = 1;
+		spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
 		wake_up_interruptible(&isp_af->stats_wait);
 	}
 }
@@ -520,6 +524,7 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 	u16 frame_diff = 0;
 	u16 frame_cnt = isp_af->frame_count;
 	wait_queue_t wqt;
+	unsigned long irqflags;
 
 	if (!isp_af->config.af_config) {
 		dev_err(isp_af->dev, "af: engine not enabled\n");
@@ -562,8 +567,10 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 	if (!isp_af->camnotify) {
 		/* Block until frame in near future completes */
 		isp_af->frame_req = afdata->frame_number;
+		spin_lock_irqsave(&isp_af->buffer_lock, irqflags);
 		isp_af->stats_req = 1;
 		isp_af->stats_done = 0;
+		spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
 		init_waitqueue_entry(&wqt, current);
 		ret = wait_event_interruptible(isp_af->stats_wait,
 					       isp_af->stats_done == 1);
@@ -596,6 +603,7 @@ static void isp_af_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 {
 	struct isp_af_device *isp_af = (struct isp_af_device *)arg2;
 	u16 frame_align;
+	unsigned long irqflags;
 
 	if ((H3A_AF_DONE & status) != H3A_AF_DONE)
 		return;
@@ -621,6 +629,7 @@ static void isp_af_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 	isp_af->active_buff->frame_num = isp_af->frame_count;
 
 	/* Future Stats requested? */
+	spin_lock_irqsave(&isp_af->buffer_lock, irqflags);
 	if (isp_af->stats_req) {
 		/* Is the frame we want already done? */
 		if (frame_align >= isp_af->frame_req + 1) {
@@ -629,6 +638,7 @@ static void isp_af_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 			wake_up_interruptible(&isp_af->stats_wait);
 		}
 	}
+	spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
 }
 
 int __isp_af_enable(struct isp_af_device *isp_af, int enable)
