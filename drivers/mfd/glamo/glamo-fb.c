@@ -461,7 +461,7 @@ static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
 
 		orientation_changing = will_orientation_change(var);
 		/* Adjust the pitch according to new orientation to come. */
-		if (will_orientation_change(var))
+		if (orientation_changing)
 			pitch = var->yres * var->bits_per_pixel / 8;
 		else
 			pitch = var->xres * var->bits_per_pixel / 8;
@@ -493,9 +493,7 @@ static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
 			var->yres = xres;
 		} else {
 			var->xres_virtual = xres;
-			var->xres = xres; /* Unneeded. */
 			var->yres_virtual = yres;
-			var->yres = yres; /* Unneeded. */
 			var->yres_virtual *= 2;
 		}
 	}
