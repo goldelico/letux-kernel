@@ -332,6 +332,8 @@ static int will_orientation_change(struct fb_var_screeninfo *var)
 	return 0;
 }
 
+#ifdef CONFIG_MFD_GLAMO_FB_XGLAMO_WORKAROUND
+
 /*
  * See https://docs.openmoko.org/trac/ticket/2255
  * We have a hack for some Xglamo bugs in kernel code.
@@ -422,6 +424,14 @@ static void glamofb_update_lcd_controller_hack(struct glamofb_handle *glamo,
 	*xres = width;
 	*yres = height;
 }
+#else
+#define xglamo_hack_enabled 0
+static void glamofb_update_lcd_controller_hack(struct glamofb_handle *glamo,
+					       struct fb_var_screeninfo *var,
+					       int *xres, int *yres, int *pitch)
+{
+}
+#endif
 
 static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
 					  struct fb_var_screeninfo *var)
@@ -1058,12 +1068,14 @@ static int __init glamofb_probe(struct platform_device *pdev)
 	glamofb_cursor_onoff(glamofb, 1);
 #endif
 
+#ifdef CONFIG_MFD_GLAMO_FB_XGLAMO_WORKAROUND
 	/* sysfs */
 	rc = sysfs_create_group(&pdev->dev.kobj, &glamo_fb_attr_group);
 	if (rc < 0) {
 		dev_err(&pdev->dev, "cannot create sysfs group\n");
 		goto out_unmap_fb;
 	}
+#endif
 
 	rc = register_framebuffer(fbinfo);
 	if (rc < 0) {
