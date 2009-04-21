@@ -1102,16 +1102,18 @@ static void isp_tmp_buf_free(struct device *dev)
 static u32 isp_tmp_buf_alloc(struct device *dev, size_t size)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
+	u32 da;
 
 	isp_tmp_buf_free(dev);
 
 	dev_dbg(dev, "%s: allocating %d bytes\n", __func__, size);
 
-	isp->tmp_buf = iommu_vmalloc(isp->iommu, 0, size, IOMMU_FLAG);
-	if (IS_ERR((void *)isp->tmp_buf)) {
+	da = iommu_vmalloc(isp->iommu, 0, size, IOMMU_FLAG);
+	if (IS_ERR_VALUE(da)) {
 		dev_err(dev, "iommu_vmap mapping failed ");
 		return -ENOMEM;
 	}
+	isp->tmp_buf = da;
 	isp->tmp_buf_size = size;
 
 	isppreview_set_outaddr(&isp->isp_prev, isp->tmp_buf);
@@ -1590,7 +1592,7 @@ dma_addr_t ispmmu_vmap(struct device *dev, const struct scatterlist *sglist,
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	int err;
-	void *da;
+	u32 da;
 	struct sg_table *sgt;
 	unsigned int i;
 	struct scatterlist *sg, *src = (struct scatterlist *)sglist;
@@ -1610,8 +1612,8 @@ dma_addr_t ispmmu_vmap(struct device *dev, const struct scatterlist *sglist,
 		sg_set_buf(sg, phys_to_virt(sg_dma_address(src + i)),
 			   sg_dma_len(src + i));
 
-	da = (void *)iommu_vmap(isp->iommu, 0, sgt, IOMMU_FLAG);
-	if (IS_ERR(da))
+	da = iommu_vmap(isp->iommu, 0, sgt, IOMMU_FLAG);
+	if (IS_ERR_VALUE(da))
 		goto err_vmap;
 
 	return (dma_addr_t)da;
