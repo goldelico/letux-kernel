@@ -221,15 +221,16 @@ static int isph3a_aewb_stats_available(struct isp_h3a_device *isp_h3a,
 	unsigned long irqflags;
 
 	spin_lock_irqsave(&isp_h3a->buffer_lock, irqflags);
+	/* Requested frame is busy */
+	if (aewbdata->frame_number == isp_h3a->active_buff->frame_num)
+		goto out_busy;
 	for (i = 0; i < H3A_MAX_BUFF; i++) {
 		DPRINTK_ISPH3A("Checking Stats buff[%d] (%d) for %d\n",
 			       i, isp_h3a->buff[i].frame_num,
 			       aewbdata->frame_number);
-		if ((aewbdata->frame_number !=
-		     isp_h3a->buff[i].frame_num) ||
-		    (isp_h3a->buff[i].frame_num ==
-		     isp_h3a->active_buff->frame_num))
+		if (aewbdata->frame_number != isp_h3a->buff[i].frame_num)
 			continue;
+		/* Found requested frame and marked it as read-only */
 		isp_h3a->buff[i].locked = 1;
 		spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
 		isph3a_aewb_update_req_buffer(isp_h3a, &isp_h3a->buff[i]);
@@ -237,6 +238,8 @@ static int isph3a_aewb_stats_available(struct isp_h3a_device *isp_h3a,
 		ret = copy_to_user((void *)aewbdata->h3a_aewb_statistics_buf,
 				   (void *)isp_h3a->buff[i].virt_addr,
 				   isp_h3a->curr_cfg_buf_size);
+		isp_h3a->buff[i].locked = 0;
+		isp_h3a->buff[i].done = 0;
 		if (ret) {
 			dev_err(isp_h3a->dev, "h3a: Failed copy_to_user for "
 			       "H3A stats buff, %d\n", ret);
@@ -246,6 +249,7 @@ static int isph3a_aewb_stats_available(struct isp_h3a_device *isp_h3a,
 		aewbdata->field_count = isp_h3a->xtrastats[i].field_count;
 		return 0;
 	}
+out_busy:
 	spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
 
 	return -1;
@@ -278,9 +282,10 @@ static void isph3a_aewb_unlock_buffers(struct isp_h3a_device *isp_h3a)
 	unsigned long irqflags;
 
 	spin_lock_irqsave(&isp_h3a->buffer_lock, irqflags);
-	for (i = 0; i < H3A_MAX_BUFF; i++)
+	for (i = 0; i < H3A_MAX_BUFF; i++) {
 		isp_h3a->buff[i].locked = 0;
-
+		isp_h3a->buff[i].done = 0;
+	}
 	spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
 }
 
@@ -288,6 +293,7 @@ static struct isph3a_aewb_buffer *isph3a_aewb_get_next_buffer(
 					struct isp_h3a_device *isp_h3a)
 {
 	struct isph3a_aewb_buffer *buff;
+	struct isph3a_aewb_buffer *buff_done = NULL;
 	int found = 0;
 
 	if (unlikely(isp_h3a->active_buff->next == NULL))
@@ -297,18 +303,31 @@ static struct isph3a_aewb_buffer *isph3a_aewb_get_next_buffer(
 	for (buff = isp_h3a->active_buff->next; buff != isp_h3a->active_buff;
 						buff = buff->next) {
 		if (buff->locked == 0) {
-			found = 1;
-			break;
+			if (buff->done == 0) {
+				found = 1;
+				break;
+			} else if (!buff_done)
+				/* Fallback buffer */
+				buff_done = buff;
 		}
 	}
 
-	/* This should never happen, as all buffers must not be locked
-	 * at the same time */
 	if (unlikely(found == 0)) {
-		dev_dbg(isp_h3a->dev, "h3a: FIXME: no unlocked buffer "
-				      "available.\n");
-		/* FIXME: falling back to the previous approach for now */
-		buff = isp_h3a->active_buff->next->next;
+		if (buff_done) {
+			/* Falling back to the first unlocked and unrequested
+			 * buffer */
+			dev_dbg(isp_h3a->dev, "h3a: All available buffers have "
+				"data to be requested. Data for frame_num = %d "
+				"will be lost.\n", buff_done->frame_num);
+			buff = buff_done;
+		} else {
+			/* This should never happen, as all buffers must not be
+			 * locked at the same time */
+			dev_dbg(isp_h3a->dev, "h3a: FIXME: No unlocked buffer "
+					      "available.\n");
+			/* FIXME: Falling back to the previous approach */
+			buff = isp_h3a->active_buff->next->next;
+		}
 	}
 
 	return buff;
@@ -333,6 +352,7 @@ static void isph3a_aewb_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 	do_gettimeofday(&isp_h3a->active_buff->ts);
 	isp_h3a->active_buff->config_counter =
 					atomic_read(&isp_h3a->config_counter);
+	isp_h3a->active_buff->done = 1;
 	isp_h3a->active_buff = isph3a_aewb_get_next_buffer(isp_h3a);
 	isp_reg_writel(isp_h3a->dev, isp_h3a->active_buff->ispmmu_addr,
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
@@ -745,8 +765,6 @@ int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 		       aewbdata->frame_number);
 		return -EINVAL;
 	}
-
-	isph3a_aewb_unlock_buffers(isp_h3a);
 
 	DPRINTK_ISPH3A("Stats available?\n");
 	ret = isph3a_aewb_stats_available(isp_h3a, aewbdata);
