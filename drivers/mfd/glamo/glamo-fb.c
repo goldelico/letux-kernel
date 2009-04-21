@@ -259,6 +259,7 @@ static void reg_set_bit_mask(struct glamofb_handle *glamo,
 #define GLAMO_LCD_HV_RETR_DISP_START_MASK 0x03FF
 #define GLAMO_LCD_HV_RETR_DISP_END_MASK 0x03FF
 
+enum orientation {ORIENTATION_PORTRAIT, ORIENTATION_LANDSCAPE};
 
 /* the caller has to enxure lock_cmd is held and we are in cmd mode */
 static void __rotate_lcd(struct glamofb_handle *glamo, __u32 rotation)
@@ -306,34 +307,78 @@ static void __rotate_lcd(struct glamofb_handle *glamo, __u32 rotation)
 				 GLAMO_LCD_MODE1_ROTATE_EN : 0);
 }
 
-static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
-					  struct fb_var_screeninfo *var)
+static enum orientation get_orientation(struct fb_var_screeninfo *var)
 {
-	int sync, bp, disp, fp, total, pitch;
-	unsigned long flags;
-	int width, height;
+	if (var->xres <= var->yres)
+		return ORIENTATION_PORTRAIT;
 
-	if (!glamo || !var)
-		return;
+	return ORIENTATION_LANDSCAPE;
+}
 
-	if (glamo->mach_info->glamo->suspending) {
-		dev_err(&glamo->mach_info->glamo->pdev->dev,
-				"IGNORING glamofb_update_lcd_controller while "
-								 "suspended\n");
-		return;
+static int will_orientation_change(struct fb_var_screeninfo *var)
+{
+	enum orientation orient = get_orientation(var);
+
+	switch (orient) {
+	case ORIENTATION_LANDSCAPE:
+		if (var->rotate == FB_ROTATE_UR || var->rotate == FB_ROTATE_UD)
+			return 1;
+		break;
+	case ORIENTATION_PORTRAIT:
+		if (var->rotate == FB_ROTATE_CW || var->rotate == FB_ROTATE_CCW)
+			return 1;
+		break;
 	}
+	return 0;
+}
 
-	dev_dbg(&glamo->mach_info->glamo->pdev->dev,
-			  "glamofb_update_lcd_controller spin_lock_irqsave\n");
-	spin_lock_irqsave(&glamo->lock_cmd, flags);
+/*
+ * See https://docs.openmoko.org/trac/ticket/2255
+ * We have a hack for some Xglamo bugs in kernel code.
+ * If someone fixes xglamo we can remove this hack.
+ * We might make xglamo_hack_enabled 0 by default in the future.
+ */
 
-	if (glamofb_cmd_mode(glamo, 1))
-		goto out_unlock;
+static unsigned xglamo_hack_enabled = 1;
 
-	if (var->pixclock)
-		glamo_engine_reclock(glamo->mach_info->glamo,
-				     GLAMO_ENGINE_LCD,
-				     var->pixclock);
+static ssize_t xglamo_hack_read(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", xglamo_hack_enabled);
+}
+
+static ssize_t xglamo_hack_write(struct device *dev,
+				 struct device_attribute *attr, const char *buf,
+				 size_t count)
+{
+	unsigned long val;
+
+	if (!strict_strtoul(buf, 10, &val))
+		xglamo_hack_enabled = !!val;
+
+	return count;
+}
+
+static DEVICE_ATTR(xglamo_hack, S_IWUSR | S_IRUGO, xglamo_hack_read,
+		   xglamo_hack_write);
+
+static struct attribute *glamo_fb_sysfs_entries[] = {
+	&dev_attr_xglamo_hack.attr,
+	NULL
+};
+
+static struct attribute_group glamo_fb_attr_group = {
+	.name		= NULL,
+	.attrs		= glamo_fb_sysfs_entries,
+};
+
+/* This function implements the actual Xglamo hack. */
+
+static void glamofb_update_lcd_controller_hack(struct glamofb_handle *glamo,
+					       struct fb_var_screeninfo *var,
+					       int *xres, int *yres, int *pitch)
+{
+	int width, height;
 
 	if (glamo->angle == 90 || glamo->angle == 270) {
 		/*
@@ -365,23 +410,71 @@ static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
 
 		var->xres_virtual = width;
 		var->yres_virtual = height * 2;
-		pitch = width * var->bits_per_pixel / 8;
+		*pitch = width * var->bits_per_pixel / 8;
 	} else {
 		var->xres = height;
 		var->yres = width;
 		var->xres_virtual = height * 2;
 		var->yres_virtual = width;
-		pitch = height * var->bits_per_pixel / 8;
+		*pitch = height * var->bits_per_pixel / 8;
+	}
+
+	*xres = width;
+	*yres = height;
+}
+
+static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
+					  struct fb_var_screeninfo *var)
+{
+	int sync, bp, disp, fp, total, xres, yres, pitch;
+	int uninitialized_var(orientation_changing);
+	unsigned long flags;
+
+	if (!glamo || !var)
+		return;
+
+	if (glamo->mach_info->glamo->suspending) {
+		dev_err(&glamo->mach_info->glamo->pdev->dev,
+				"IGNORING glamofb_update_lcd_controller while "
+								 "suspended\n");
+		return;
+	}
+
+	dev_dbg(&glamo->mach_info->glamo->pdev->dev,
+			  "glamofb_update_lcd_controller spin_lock_irqsave\n");
+	spin_lock_irqsave(&glamo->lock_cmd, flags);
+
+	if (glamofb_cmd_mode(glamo, 1))
+		goto out_unlock;
+
+	if (var->pixclock)
+		glamo_engine_reclock(glamo->mach_info->glamo,
+				     GLAMO_ENGINE_LCD,
+				     var->pixclock);
+
+	if (xglamo_hack_enabled) {
+		glamofb_update_lcd_controller_hack(glamo, var, &xres, &yres,
+						   &pitch);
+	} else {
+		xres = var->xres;
+		yres = var->yres;
+
+		orientation_changing = will_orientation_change(var);
+		/* Adjust the pitch according to new orientation to come. */
+		if (will_orientation_change(var))
+			pitch = var->yres * var->bits_per_pixel / 8;
+		else
+			pitch = var->xres * var->bits_per_pixel / 8;
 	}
 
 	reg_set_bit_mask(glamo,
 			 GLAMO_REG_LCD_WIDTH,
 			 GLAMO_LCD_WIDTH_MASK,
-			 width);
+			 xres);
 	reg_set_bit_mask(glamo,
 			 GLAMO_REG_LCD_HEIGHT,
 			 GLAMO_LCD_HEIGHT_MASK,
-			 height);
+			 yres);
 	reg_set_bit_mask(glamo,
 			 GLAMO_REG_LCD_PITCH,
 			 GLAMO_LCD_PITCH_MASK,
@@ -390,11 +483,28 @@ static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
 	/* honour the rotation request */
 	__rotate_lcd(glamo, var->rotate);
 
+	if (!xglamo_hack_enabled) {
+		/* update the reported geometry of the framebuffer. */
+		if (orientation_changing) {
+			var->xres_virtual = yres;
+			var->xres = yres;
+			var->xres_virtual *= 2;
+			var->yres_virtual = xres;
+			var->yres = xres;
+		} else {
+			var->xres_virtual = xres;
+			var->xres = xres; /* Unneeded. */
+			var->yres_virtual = yres;
+			var->yres = yres; /* Unneeded. */
+			var->yres_virtual *= 2;
+		}
+	}
+
 	/* update scannout timings */
 	sync = 0;
 	bp = sync + var->hsync_len;
 	disp = bp + var->left_margin;
-	fp = disp + width;
+	fp = disp + xres;
 	total = fp + var->right_margin;
 
 	reg_set_bit_mask(glamo, GLAMO_REG_LCD_HORIZ_TOTAL,
@@ -411,7 +521,7 @@ static void glamofb_update_lcd_controller(struct glamofb_handle *glamo,
 	sync = 0;
 	bp = sync + var->vsync_len;
 	disp = bp + var->upper_margin;
-	fp = disp + height;
+	fp = disp + yres;
 	total = fp + var->lower_margin;
 
 	reg_set_bit_mask(glamo, GLAMO_REG_LCD_VERT_TOTAL,
@@ -949,6 +1059,13 @@ static int __init glamofb_probe(struct platform_device *pdev)
 #ifdef CONFIG_MFD_GLAMO_HWACCEL
 	glamofb_cursor_onoff(glamofb, 1);
 #endif
+
+	/* sysfs */
+	rc = sysfs_create_group(&pdev->dev.kobj, &glamo_fb_attr_group);
+	if (rc < 0) {
+		dev_err(&pdev->dev, "cannot create sysfs group\n");
+		goto out_unmap_fb;
+	}
 
 	rc = register_framebuffer(fbinfo);
 	if (rc < 0) {
