@@ -223,7 +223,7 @@ static int isp_af_register_setup(struct isp_af_device *isp_af)
 
 	/* set AFCOEF0010 Register */
 	isp_reg_writel(isp_af->dev, isp_af->config.iir_config.coeff_set0[10],
-		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF010);
+		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF0010);
 
 	/*Set IIR Filter1 Coefficients */
 
