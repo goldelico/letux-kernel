@@ -258,6 +258,7 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 			regs->xcr2	|= XFRLEN2(wpf - 1);
 		}
 	case 1:
+	case 4:
 		/* Set word per (McBSP) frame for phase1 */
 		regs->rcr1	|= RFRLEN1(wpf - 1);
 		regs->xcr1	|= XFRLEN1(wpf - 1);
@@ -495,13 +496,13 @@ static int omap_mcbsp_dai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 	.id = (link_id),					\
 	.playback = {						\
 		.channels_min = 1,				\
-		.channels_max = 2,				\
+		.channels_max = 4,				\
 		.rates = OMAP_MCBSP_RATES,			\
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,		\
 	},							\
 	.capture = {						\
 		.channels_min = 1,				\
-		.channels_max = 2,				\
+		.channels_max = 4,				\
 		.rates = OMAP_MCBSP_RATES,			\
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,		\
 	},							\
