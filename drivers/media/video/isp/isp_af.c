@@ -195,8 +195,10 @@ static void isp_af_unlock_buffers(struct isp_af_device *isp_af)
 	unsigned long irqflags;
 
 	spin_lock_irqsave(&isp_af->buffer_lock, irqflags);
-	for (i = 0; i < H3A_MAX_BUFF; i++)
+	for (i = 0; i < H3A_MAX_BUFF; i++) {
 		isp_af->af_buff[i].locked = 0;
+		isp_af->af_buff[i].done = 0;
+	}
 
 	spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
 }
@@ -480,6 +482,8 @@ static int isp_af_stats_available(struct isp_af_device *isp_af,
 			ret = copy_to_user((void *)afdata->af_statistics_buf,
 					   (void *)isp_af->af_buff[i].virt_addr,
 					   isp_af->curr_cfg_buf_size);
+			isp_af->af_buff[i].locked = 0;
+			isp_af->af_buff[i].done = 0;
 			if (ret) {
 				dev_err(isp_af->dev,
 					"af: Failed copy_to_user for "
@@ -536,7 +540,6 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 		goto out;
 	}
 
-	isp_af_unlock_buffers(isp_af);
 	/* Stats available? */
 	DPRINTK_ISP_AF("Stats available?\n");
 	ret = isp_af_stats_available(isp_af, afdata);
@@ -597,6 +600,50 @@ out:
 }
 EXPORT_SYMBOL(isp_af_request_statistics);
 
+static struct isp_af_buffer *isp_af_get_next_buffer(
+					struct isp_af_device *isp_af)
+{
+	struct isp_af_buffer *buff;
+	struct isp_af_buffer *buff_done = NULL;
+	int found = 0;
+
+	if (unlikely(isp_af->active_buff->next == NULL))
+		/* Buffers are not linked yet */
+		isp_af_link_buffers(isp_af);
+
+	for (buff = isp_af->active_buff->next; buff != isp_af->active_buff;
+						buff = buff->next) {
+		if (buff->locked == 0) {
+			if (buff->done == 0) {
+				found = 1;
+				break;
+			} else if (!buff_done)
+				/* Fallback buffer */
+				buff_done = buff;
+		}
+	}
+
+	if (unlikely(found == 0)) {
+		if (buff_done) {
+			/* Falling back to the first unlocked and unrequested
+			 * buffer */
+			dev_dbg(isp_af->dev, "af: All available buffers have "
+				"data to be requested. Data for frame_num = %d "
+				"will be lost.\n", buff_done->frame_num);
+			buff = buff_done;
+		} else {
+			/* This should never happen, as all buffers must not be
+			 * locked at the same time */
+			dev_dbg(isp_af->dev, "af: FIXME: No unlocked buffer "
+					      "available.\n");
+			/* FIXME: Falling back to the previous approach */
+			buff = isp_af->active_buff->next->next;
+		}
+	}
+
+	return buff;
+}
+
 /* This function will handle the H3A interrupt. */
 static void isp_af_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 		       void *arg2)
@@ -612,11 +659,10 @@ static void isp_af_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 	do_gettimeofday(&isp_af->active_buff->xtrastats.ts);
 	isp_af->active_buff->config_counter =
 				atomic_read(&isp_af->config_counter);
+	isp_af->active_buff->done = 1;
 
 	/* Exchange buffers */
-	isp_af->active_buff = isp_af->active_buff->next;
-	if (isp_af->active_buff->locked == 1)
-		isp_af->active_buff = isp_af->active_buff->next;
+	isp_af->active_buff = isp_af_get_next_buffer(isp_af);
 	isp_af_set_address(isp_af, isp_af->active_buff->ispmmu_addr);
 
 	/* Update frame counter */
