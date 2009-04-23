@@ -173,6 +173,7 @@ static void bq27000_battery_external_power_changed(struct power_supply *psy)
 	struct bq27000_device_info *di = container_of(psy, struct bq27000_device_info, bat);
 
 	dev_dbg(di->dev, "%s\n", __FUNCTION__);
+	schedule_delayed_work(&di->work, 0);
 }
 
 static int bq27000_battery_get_property(struct power_supply *psy,
