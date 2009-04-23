@@ -126,6 +126,7 @@ struct isp_af_buffer {
 	unsigned long mmap_addr;
 
 	u8 locked;
+	u8 done;
 	u16 frame_num;
 	u32 config_counter;
 	struct isp_af_xtrastats xtrastats;
