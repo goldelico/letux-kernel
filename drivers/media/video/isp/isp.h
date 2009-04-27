@@ -274,7 +274,7 @@ struct isp_irq {
  */
 struct isp_module {
 	u32 interrupts;
-	int enable;
+	enum isp_running running;
 	unsigned int isp_pipeline;
 	struct v4l2_pix_format pix;
 	unsigned int ccdc_input_width;

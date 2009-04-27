@@ -188,7 +188,7 @@ void ispresizer_config_crop(struct isp_res_device *isp_res,
 
 	isp_res->applycrop = 1;
 
-	if (!isp->module.enable)
+	if (isp->module.running == ISP_RUNNING)
 		ispresizer_applycrop(isp_res);
 
 	return;
