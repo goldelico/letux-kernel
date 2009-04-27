@@ -296,8 +296,6 @@ static void omap34xxcam_vbq_queue(struct videobuf_queue *vbq,
 	struct omap34xxcam_videodev *vdev = fh->vdev;
 	struct device *isp = vdev->cam->isp;
 
-	vb->state = VIDEOBUF_ACTIVE;
-
 	isp_buf_queue(isp, vb, omap34xxcam_vbq_complete, (void *)fh);
 }
 
