@@ -19,6 +19,7 @@ struct gta01_battery {
 };
 
 static enum power_supply_property gta01_bat_props[] = {
+	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
@@ -42,6 +43,9 @@ static int gta01_bat_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = bat->pdata->get_current();
+		break;
+	case POWER_SUPPLY_PROP_PRESENT:
+		val->intval = 1; /* You must never run GTA01 without battery. */
 		break;
 	default:
 		return -EINVAL;
