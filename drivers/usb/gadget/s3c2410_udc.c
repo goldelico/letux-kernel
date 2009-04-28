@@ -1713,6 +1713,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	if (driver->disconnect)
 		driver->disconnect(&udc->gadget);
 
+	driver->unbind(&udc->gadget);
 	device_del(&udc->gadget.dev);
 	udc->driver = NULL;
 
