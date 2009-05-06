@@ -371,7 +371,6 @@ static void isph3a_aewb_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 		if (frame_align >= isp_h3a->frame_req + 1) {
 			isp_h3a->stats_req = 0;
 			isp_h3a->stats_done = 1;
-			wake_up_interruptible(&isp_h3a->stats_wait);
 		}
 	}
 	spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
@@ -720,8 +719,6 @@ int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 	int ret = 0;
 	u16 frame_diff = 0;
 	u16 frame_cnt = isp_h3a->frame_count;
-	wait_queue_t wqt;
-	unsigned long irqflags;
 
 	if (!isp_h3a->aewb_config_local.aewb_enable) {
 		dev_err(isp_h3a->dev, "h3a: engine not enabled\n");
@@ -789,37 +786,9 @@ int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 			" frame stats\n");
 		aewbdata->frame_number = frame_cnt;
 	}
-	if (isp_h3a->camnotify) {
-		DPRINTK_ISPH3A("NOT Waiting on stats IRQ for frame %d "
-			       "because camnotify set\n",
-			       aewbdata->frame_number);
-		aewbdata->h3a_aewb_statistics_buf = NULL;
-		goto out;
-	}
-	DPRINTK_ISPH3A("Waiting on stats IRQ for frame %d\n",
-		       aewbdata->frame_number);
-	isp_h3a->frame_req = aewbdata->frame_number;
-	spin_lock_irqsave(&isp_h3a->buffer_lock, irqflags);
-	isp_h3a->stats_req = 1;
-	isp_h3a->stats_done = 0;
-	spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
-	init_waitqueue_entry(&wqt, current);
-	ret = wait_event_interruptible(isp_h3a->stats_wait,
-				       isp_h3a->stats_done == 1);
-	if (ret < 0) {
-		dev_err(isp_h3a->dev, "h3a: isph3a_aewb_request_statistics"
-		       " Error on wait event %d\n", ret);
-		aewbdata->h3a_aewb_statistics_buf = NULL;
-		return ret;
-	}
 
-	DPRINTK_ISPH3A("ISP AEWB request status interrupt raised\n");
-	ret = isph3a_aewb_stats_available(isp_h3a, aewbdata);
-	if (ret) {
-		DPRINTK_ISPH3A("After waiting for stats,"
-			       " stats not available!!\n");
-		aewbdata->h3a_aewb_statistics_buf = NULL;
-	}
+	aewbdata->h3a_aewb_statistics_buf = NULL;
+
 out:
 	DPRINTK_ISPH3A("isph3a_aewb_request_statistics: "
 		       "aewbdata->h3a_aewb_statistics_buf => %p\n",
@@ -841,7 +810,6 @@ int __init isph3a_aewb_init(struct device *dev)
 	struct isp_h3a_device *isp_h3a = &isp->isp_h3a;
 
 	isp_h3a->dev = dev;
-	init_waitqueue_head(&isp_h3a->stats_wait);
 	spin_lock_init(&isp_h3a->buffer_lock);
 
 	isp_h3a->aewb_config_local.saturation_limit = AEWB_SATURATION_LIMIT;
@@ -898,30 +866,6 @@ static void isph3a_print_status(struct isp_h3a_device *isp_h3a)
 	DPRINTK_ISPH3A("currently configured stats buff size = %d\n",
 		       isp_h3a->curr_cfg_buf_size);
 }
-
-/**
- * isph3a_notify - Unblocks user request for statistics when camera is off
- * @notify: 1 - Camera is turned off
- *
- * Used when the user has requested statistics about a future frame, but the
- * camera is turned off before it happens, and this function unblocks the
- * request so the user can continue in its program.
- **/
-void isph3a_notify(struct isp_h3a_device *isp_h3a, int notify)
-{
-	unsigned long irqflags;
-
-	isp_h3a->camnotify = notify;
-	if (isp_h3a->camnotify && isp_h3a->initialized) {
-		dev_dbg(isp_h3a->dev, "h3a: Warning Camera Off \n");
-		spin_lock_irqsave(&isp_h3a->buffer_lock, irqflags);
-		isp_h3a->stats_req = 0;
-		isp_h3a->stats_done = 1;
-		spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
-		wake_up_interruptible(&isp_h3a->stats_wait);
-	}
-}
-EXPORT_SYMBOL(isph3a_notify);
 
 /**
  * isph3a_save_context - Saves the values of the h3a module registers.

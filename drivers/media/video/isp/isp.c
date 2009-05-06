@@ -1134,7 +1134,6 @@ void isp_start(struct device *dev)
 
 	isp->module.running = ISP_RUNNING;
 
-	isph3a_notify(0);
 	isp_af_notify(0);
 	return;
 }
@@ -1250,7 +1249,6 @@ void isp_stop(struct device *dev)
 	struct isp_device *isp = dev_get_drvdata(dev);
 	int reset;
 
-	isph3a_notify(1);
 	isp_af_notify(1);
 	isp->module.running = ISP_STOPPING;
 	isp_disable_interrupts(dev);
@@ -2613,7 +2611,6 @@ static int isp_probe(struct platform_device *pdev)
 	isp_power_settings(&pdev->dev, 1);
 	isp_put();
 
-	isph3a_notify(&isp->isp_h3a, 1);
 	isp_af_notify(&isp->isp_af, 1);
 
 	return 0;
