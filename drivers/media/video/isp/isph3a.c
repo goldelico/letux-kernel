@@ -155,9 +155,8 @@ static void isph3a_aewb_update_regs(struct isp_h3a_device *isp_h3a)
 static void isph3a_aewb_update_req_buffer(struct isp_h3a_device *isp_h3a,
 					  struct isph3a_aewb_buffer *buffer)
 {
-	int size = isp_h3a->stats_buf_size;
+	unsigned int size = PAGE_ALIGN(isp_h3a->buf_size);
 
-	size = PAGE_ALIGN(size);
 	dmac_inv_range((void *)buffer->addr_align,
 		       (void *)buffer->addr_align + size);
 }
@@ -191,7 +190,7 @@ static int isph3a_aewb_stats_available(struct isp_h3a_device *isp_h3a,
 		isp_h3a->buff[i].frame_num = 0;
 		ret = copy_to_user((void *)aewbdata->h3a_aewb_statistics_buf,
 				   (void *)isp_h3a->buff[i].virt_addr,
-				   isp_h3a->curr_cfg_buf_size);
+				   isp_h3a->buf_size);
 		isp_h3a->buff[i].locked = 0;
 		isp_h3a->buff[i].done = 0;
 		if (ret) {
@@ -563,13 +562,13 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 	win_count += ret;
 
 	isp_h3a->win_count = win_count;
-	isp_h3a->curr_cfg_buf_size = win_count * AEWB_PACKET_SIZE;
+	isp_h3a->buf_size = win_count * AEWB_PACKET_SIZE;
 
 	for (i = 0; i < H3A_MAX_BUFF; i++)
 		isp_h3a->h3a_buff[i].frame_num = 0;
 
-	if (isp_h3a->stats_buf_size
-	    && win_count * AEWB_PACKET_SIZE > isp_h3a->stats_buf_size) {
+	if (isp_h3a->buf_alloc_size
+	    && isp_h3a->buf_size > isp_h3a->buf_alloc_size) {
 		DPRINTK_ISPH3A("There was a previous buffer... "
 			       "Freeing/unmapping current stat busffs\n");
 		isph3a_aewb_enable(isp_h3a, 0);
@@ -578,21 +577,19 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 				     isp_h3a->h3a_buff[i].ispmmu_addr);
 			free_pages_exact(
 				(void *)isp_h3a->h3a_buff[i].virt_addr,
-				isp_h3a->min_buf_size);
+				PAGE_ALIGN(isp_h3a->buf_alloc_size));
 			isp_h3a->h3a_buff[i].virt_addr = 0;
 		}
-		isp_h3a->stats_buf_size = 0;
+		isp_h3a->buf_alloc_size = 0;
 	}
 
 	if (!isp_h3a->buff[0].virt_addr) {
-		isp_h3a->stats_buf_size = win_count * AEWB_PACKET_SIZE;
-		isp_h3a->min_buf_size = PAGE_ALIGN(isp_h3a->stats_buf_size);
-
+		isp_h3a->buf_alloc_size = isp_h3a->buf_size;
 		DPRINTK_ISPH3A("Allocating/mapping new stat buffs\n");
 		for (i = 0; i < H3A_MAX_BUFF; i++) {
 			isp_h3a->h3a_buff[i].virt_addr =
 				(unsigned long)alloc_pages_exact(
-					isp_h3a->min_buf_size,
+					PAGE_ALIGN(isp_h3a->buf_alloc_size),
 					GFP_KERNEL | GFP_DMA);
 			if (isp_h3a->buff[i].virt_addr == 0) {
 				dev_err(isp_h3a->dev,
@@ -613,7 +610,7 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 				iommu_kmap(isp->iommu,
 					   0,
 					   isp_h3a->h3a_buff[i].phy_addr,
-					   isp_h3a->min_buf_size,
+					   PAGE_ALIGN(isp_h3a->buf_size),
 					   IOMMU_FLAG);
 			/* FIXME: Correct unwinding */
 			BUG_ON(IS_ERR_VALUE(isp_h3a->buff[i].ispmmu_addr));
@@ -783,7 +780,7 @@ void isph3a_aewb_cleanup(struct device *dev)
 
 		iommu_kunmap(isp->iommu, isp_h3a->buff[i].ispmmu_addr);
 		dma_free_coherent(NULL,
-				  isp_h3a->min_buf_size,
+				  PAGE_ALIGN(isp_h3a->buf_alloc_size),
 				  (void *)isp_h3a->buff[i].virt_addr,
 				  (dma_addr_t)isp_h3a->buff[i].phy_addr);
 	}
@@ -813,9 +810,7 @@ static void isph3a_print_status(struct isp_h3a_device *isp_h3a)
 		       isp_reg_readl(isp_h3a->dev, OMAP3_ISP_IOMEM_H3A,
 				     ISPH3A_AEWBUFST));
 	DPRINTK_ISPH3A("stats windows = %d\n", isp_h3a->win_count);
-	DPRINTK_ISPH3A("stats buff size = %d\n", isp_h3a->stats_buf_size);
-	DPRINTK_ISPH3A("currently configured stats buff size = %d\n",
-		       isp_h3a->curr_cfg_buf_size);
+	DPRINTK_ISPH3A("stats buff size = %d\n", isp_h3a->buf_size);
 }
 
 /**

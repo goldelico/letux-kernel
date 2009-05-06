@@ -161,9 +161,8 @@ struct isp_h3a_device {
 	int wb_update;
 
 	struct isph3a_aewb_buffer buff[H3A_MAX_BUFF];
-	unsigned int stats_buf_size;
-	unsigned int min_buf_size;
-	unsigned int curr_cfg_buf_size;
+	unsigned int buf_size;
+	unsigned int buf_alloc_size;
 	struct isph3a_aewb_buffer *active_buff;
 
 	atomic_t config_counter;
