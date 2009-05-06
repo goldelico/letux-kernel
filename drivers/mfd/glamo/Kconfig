@@ -33,18 +33,19 @@ config MFD_GLAMO_FB_XGLAMO_WORKAROUND
 
 
 config MFD_GLAMO_SPI_GPIO
-       tristate "Glamo GPIO SPI bitbang support"
-       depends on MFD_GLAMO
-       help
-         Enable a bitbanging SPI adapter driver for the Smedia Glamo.
+	tristate "Glamo GPIO SPI bitbang support"
+	depends on MFD_GLAMO
+
+	help
+          Enable a bitbanging SPI adapter driver for the Smedia Glamo.
 
 config MFD_GLAMO_SPI_FB
-       tristate "Glamo LCM control channel SPI support"
-       depends on MFD_GLAMO_FB
-       help
-         Enable a bitbanging SPI adapter driver for the Smedia Glamo LCM
-	 control channel.  This SPI interface is frequently used to
-	 interconnect the LCM control interface.
+	tristate "Glamo LCM control channel SPI support"
+	depends on MFD_GLAMO_FB
+	help
+	  Enable a bitbanging SPI adapter driver for the Smedia Glamo LCM
+	  control channel.  This SPI interface is frequently used to
+	  interconnect the LCM control interface.
 
 config MFD_GLAMO_MCI
 	tristate "Glamo S3C SD/MMC Card Interface support"
