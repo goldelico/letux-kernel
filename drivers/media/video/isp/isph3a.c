@@ -58,52 +58,6 @@ static struct isp_reg isph3a_reg_list[] = {
 
 static void isph3a_print_status(struct isp_h3a_device *isp_h3a);
 
-/**
- * isph3a_aewb_setxtrastats - Receives extra statistics from prior frames.
- * @xtrastats: Pointer to structure containing extra statistics fields like
- *             field count and timestamp of frame.
- *
- * Called from update_vbq in camera driver
- **/
-void isph3a_aewb_setxtrastats(struct isp_h3a_device *isp_h3a,
-			      struct isph3a_aewb_xtrastats *xtrastats)
-{
-	int i;
-
-	if (isp_h3a->active_buff == NULL)
-		return;
-
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		if (isp_h3a->buff[i].frame_num !=
-					isp_h3a->active_buff->frame_num)
-			continue;
-
-		if (i == 0) {
-			if (isp_h3a->buff[H3A_MAX_BUFF - 1].locked == 0) {
-				isp_h3a->xtrastats[H3A_MAX_BUFF - 1] =
-					*xtrastats;
-			} else {
-				isp_h3a->xtrastats[H3A_MAX_BUFF - 2] =
-					*xtrastats;
-			}
-		} else if (i == 1) {
-			if (isp_h3a->buff[0].locked == 0)
-				isp_h3a->xtrastats[0] = *xtrastats;
-			else {
-				isp_h3a->xtrastats[H3A_MAX_BUFF - 1] =
-					*xtrastats;
-			}
-		} else {
-			if (isp_h3a->buff[i - 1].locked == 0)
-				isp_h3a->xtrastats[i - 1] = *xtrastats;
-			else
-				isp_h3a->xtrastats[i - 2] = *xtrastats;
-		}
-		return;
-	}
-}
-EXPORT_SYMBOL(isph3a_aewb_setxtrastats);
-
 void __isph3a_aewb_enable(struct isp_h3a_device *isp_h3a, u8 enable)
 {
 	isp_reg_writel(isp_h3a->dev, IRQ0STATUS_H3A_AWB_DONE_IRQ,
@@ -246,7 +200,6 @@ static int isph3a_aewb_stats_available(struct isp_h3a_device *isp_h3a,
 		}
 		aewbdata->ts = isp_h3a->buff[i].ts;
 		aewbdata->config_counter = isp_h3a->buff[i].config_counter;
-		aewbdata->field_count = isp_h3a->xtrastats[i].field_count;
 		return 0;
 	}
 out_busy:
@@ -265,10 +218,8 @@ static void isph3a_aewb_link_buffers(struct isp_h3a_device *isp_h3a)
 	for (i = 0; i < H3A_MAX_BUFF; i++) {
 		if ((i + 1) < H3A_MAX_BUFF) {
 			isp_h3a->buff[i].next = &isp_h3a->buff[i + 1];
-			isp_h3a->xtrastats[i].next = &isp_h3a->xtrastats[i + 1];
 		} else {
 			isp_h3a->buff[i].next = &isp_h3a->buff[0];
-			isp_h3a->xtrastats[i].next = &isp_h3a->xtrastats[0];
 		}
 	}
 }

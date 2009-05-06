@@ -95,16 +95,6 @@
 	 | (((sub_hor_inc >> 1) - 1) << ISPH3A_AEWSUBWIN_AEWINCH_SHIFT))
 
 /**
- * struct isph3a_aewb_xtrastats - Structure with extra statistics sent by cam.
- * @field_count: Sequence number of returned framestats.
- * @isph3a_aewb_xtrastats: Pointer to next buffer with extra stats.
- */
-struct isph3a_aewb_xtrastats {
-	unsigned long field_count;
-	struct isph3a_aewb_xtrastats *next;
-};
-
-/**
  * struct isph3a_aewb_buffer - AE, AWB frame stats buffer.
  * @virt_addr: Virtual address to mmap the buffer.
  * @phy_addr: Physical address of the buffer.
@@ -179,7 +169,6 @@ struct isp_h3a_device {
 	atomic_t config_counter;
 	struct isph3a_aewb_regs regs;
 	struct ispprev_wbal h3awb_update;
-	struct isph3a_aewb_xtrastats xtrastats[H3A_MAX_BUFF];
 	struct isph3a_aewb_config aewb_config_local;
 	u16 win_count;
 	u32 frame_count;
@@ -187,9 +176,6 @@ struct isp_h3a_device {
 
 	struct device *dev;
 };
-
-void isph3a_aewb_setxtrastats(struct isp_h3a_device *isp_h3a,
-			      struct isph3a_aewb_xtrastats *xtrastats);
 
 int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 			  struct isph3a_aewb_config *aewbcfg);
