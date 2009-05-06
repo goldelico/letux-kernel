@@ -168,7 +168,6 @@ struct isp_h3a_device {
 	u8 stats_done;
 	u16 frame_req;
 	int pm_state;
-	int camnotify;
 	int wb_update;
 
 	struct isph3a_aewb_buffer buff[H3A_MAX_BUFF];
@@ -184,7 +183,6 @@ struct isp_h3a_device {
 	struct isph3a_aewb_config aewb_config_local;
 	u16 win_count;
 	u32 frame_count;
-	wait_queue_head_t stats_wait;
 	spinlock_t buffer_lock;		/* For stats buffers read/write sync */
 
 	struct device *dev;
