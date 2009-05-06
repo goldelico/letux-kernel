@@ -35,6 +35,7 @@ config MFD_GLAMO_FB_XGLAMO_WORKAROUND
 config MFD_GLAMO_SPI_GPIO
 	tristate "Glamo GPIO SPI bitbang support"
 	depends on MFD_GLAMO
+	select SPI_BITBANG
 
 	help
           Enable a bitbanging SPI adapter driver for the Smedia Glamo.
