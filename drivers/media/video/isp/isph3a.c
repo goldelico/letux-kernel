@@ -149,19 +149,6 @@ static void isph3a_aewb_update_regs(struct isp_h3a_device *isp_h3a)
 }
 
 /**
- * isph3a_aewb_update_req_buffer - Helper function to update buffer cache pages
- * @buffer: Pointer to structure
- **/
-static void isph3a_aewb_update_req_buffer(struct isp_h3a_device *isp_h3a,
-					  struct isph3a_aewb_buffer *buffer)
-{
-	unsigned int size = PAGE_ALIGN(isp_h3a->buf_size);
-
-	dmac_inv_range((void *)buffer->addr_align,
-		       (void *)buffer->addr_align + size);
-}
-
-/**
  * isph3a_aewb_stats_available - Check for stats available of specified frame.
  * @aewbdata: Pointer to return AE AWB statistics data
  *
@@ -186,10 +173,11 @@ static int isph3a_aewb_stats_available(struct isp_h3a_device *isp_h3a,
 		/* Found requested frame and marked it as read-only */
 		isp_h3a->buff[i].locked = 1;
 		spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
-		isph3a_aewb_update_req_buffer(isp_h3a, &isp_h3a->buff[i]);
+		/* Flush the current buffer */
+		flush_cache_all();
 		isp_h3a->buff[i].frame_num = 0;
 		ret = copy_to_user((void *)aewbdata->h3a_aewb_statistics_buf,
-				   (void *)isp_h3a->buff[i].virt_addr,
+				   isp_h3a->buff[i].virt_addr,
 				   isp_h3a->buf_size);
 		isp_h3a->buff[i].locked = 0;
 		isp_h3a->buff[i].done = 0;
@@ -304,7 +292,7 @@ static void isph3a_aewb_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 					atomic_read(&isp_h3a->config_counter);
 	isp_h3a->active_buff->done = 1;
 	isp_h3a->active_buff = isph3a_aewb_get_next_buffer(isp_h3a);
-	isp_reg_writel(isp_h3a->dev, isp_h3a->active_buff->ispmmu_addr,
+	isp_reg_writel(isp_h3a->dev, isp_h3a->active_buff->iommu_addr,
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
 
 	isp_h3a->frame_count++;
@@ -573,47 +561,31 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 			       "Freeing/unmapping current stat busffs\n");
 		isph3a_aewb_enable(isp_h3a, 0);
 		for (i = 0; i < H3A_MAX_BUFF; i++) {
-			iommu_kunmap(isp->iommu,
-				     isp_h3a->h3a_buff[i].ispmmu_addr);
-			free_pages_exact(
-				(void *)isp_h3a->h3a_buff[i].virt_addr,
-				PAGE_ALIGN(isp_h3a->buf_alloc_size));
-			isp_h3a->h3a_buff[i].virt_addr = 0;
+			iommu_vfree(isp->iommu, isp_h3a->buff[i].iommu_addr);
+			isp_h3a->buff[i].iommu_addr = 0;
 		}
 		isp_h3a->buf_alloc_size = 0;
 	}
 
-	if (!isp_h3a->buff[0].virt_addr) {
+	if (isp_h3a->buf_size > isp_h3a->buf_alloc_size) {
 		isp_h3a->buf_alloc_size = isp_h3a->buf_size;
 		DPRINTK_ISPH3A("Allocating/mapping new stat buffs\n");
 		for (i = 0; i < H3A_MAX_BUFF; i++) {
-			isp_h3a->h3a_buff[i].virt_addr =
-				(unsigned long)alloc_pages_exact(
-					PAGE_ALIGN(isp_h3a->buf_alloc_size),
-					GFP_KERNEL | GFP_DMA);
-			if (isp_h3a->buff[i].virt_addr == 0) {
+			isp_h3a->buff[i].iommu_addr =
+				iommu_vmalloc(isp->iommu,
+					      0,
+					      isp_h3a->buf_alloc_size,
+					      IOMMU_FLAG);
+			if (isp_h3a->buff[i].iommu_addr == 0) {
 				dev_err(isp_h3a->dev,
 					"h3a: Can't acquire memory for "
 					"buffer[%d]\n", i);
+				/* FIXME: error handling! */
 				return -ENOMEM;
 			}
-			isp_h3a->h3a_buff[i].phy_addr = dma_map_single(NULL,
-					(void *)isp_h3a->h3a_buff[i].virt_addr,
-					isp_h3a->min_buf_size,
-					DMA_FROM_DEVICE);
-			isp_h3a->h3a_buff[i].addr_align =
-				isp_h3a->h3a_buff[i].virt_addr;
-			while ((isp_h3a->h3a_buff[i].addr_align & 0xFFFFFFC0) !=
-			       isp_h3a->h3a_buff[i].addr_align)
-				isp_h3a->h3a_buff[i].addr_align++;
-			isp_h3a->h3a_buff[i].ispmmu_addr =
-				iommu_kmap(isp->iommu,
-					   0,
-					   isp_h3a->h3a_buff[i].phy_addr,
-					   PAGE_ALIGN(isp_h3a->buf_size),
-					   IOMMU_FLAG);
-			/* FIXME: Correct unwinding */
-			BUG_ON(IS_ERR_VALUE(isp_h3a->buff[i].ispmmu_addr));
+			isp_h3a->buff[i].virt_addr =
+				da_to_va(isp->iommu,
+					 (u32)isp_h3a->buff[i].iommu_addr);
 		}
 		isph3a_aewb_unlock_buffers(isp_h3a);
 		isph3a_aewb_link_buffers(isp_h3a);
@@ -621,21 +593,17 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 		if (isp_h3a->active_buff == NULL)
 			isp_h3a->active_buff = &isp_h3a->buff[0];
 
-		isp_reg_writel(isp_h3a->dev, isp_h3a->active_buff->ispmmu_addr,
+		isp_reg_writel(isp_h3a->dev, isp_h3a->active_buff->iommu_addr,
 			       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
 	}
 	for (i = 0; i < H3A_MAX_BUFF; i++) {
 		DPRINTK_ISPH3A("buff[%d] addr is:\n    virt    0x%lX\n"
 			       "    aligned 0x%lX\n"
-			       "    phys    0x%lX\n"
-			       "    ispmmu  0x%08lX\n"
-			       "    mmapped 0x%lX\n"
+			       "    iommu  0x%08lX\n"
 			       "    frame_num %d\n", i,
 			       isp_h3a->buff[i].virt_addr,
 			       isp_h3a->buff[i].addr_align,
-			       isp_h3a->buff[i].phy_addr,
-			       isp_h3a->buff[i].ispmmu_addr,
-			       isp_h3a->buff[i].mmap_addr,
+			       isp_h3a->buff[i].iommu_addr,
 			       isp_h3a->buff[i].frame_num);
 	}
 
@@ -775,14 +743,11 @@ void isph3a_aewb_cleanup(struct device *dev)
 	int i;
 
 	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		if (!isp_h3a->buff[i].phy_addr)
+		if (!isp_h3a->buff[i].iommu_addr)
 			continue;
 
-		iommu_kunmap(isp->iommu, isp_h3a->buff[i].ispmmu_addr);
-		dma_free_coherent(NULL,
-				  PAGE_ALIGN(isp_h3a->buf_alloc_size),
-				  (void *)isp_h3a->buff[i].virt_addr,
-				  (dma_addr_t)isp_h3a->buff[i].phy_addr);
+		iommu_vfree(isp->iommu, isp_h3a->buff[i].iommu_addr);
+		isp_h3a->buff[i].iommu_addr = 0;
 	}
 }
 

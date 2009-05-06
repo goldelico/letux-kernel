@@ -106,11 +106,8 @@
  * @next: Pointer to link next buffer.
  */
 struct isph3a_aewb_buffer {
-	unsigned long virt_addr;
-	unsigned long phy_addr;
-	unsigned long addr_align;
-	unsigned long ispmmu_addr;
-	unsigned long mmap_addr;	/* For userspace */
+	void *virt_addr;
+	unsigned long iommu_addr;
 	struct timeval ts;
 	u32 config_counter;
 
