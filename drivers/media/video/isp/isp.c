@@ -355,28 +355,25 @@ static int ispccdc_sbl_wait_idle(struct isp_ccdc_device *isp_ccdc, int max_wait)
 static void isp_enable_interrupts(struct device *dev)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
+	u32 irq0enable;
+
+	irq0enable = IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ
+		| IRQ0ENABLE_HS_VS_IRQ
+		| IRQ0ENABLE_CCDC_VD0_IRQ | IRQ0ENABLE_CCDC_VD1_IRQ
+		| isp->module.interrupts;
+
+	if (CCDC_PREV_CAPTURE(isp))
+		irq0enable |= IRQ0ENABLE_PRV_DONE_IRQ;
+
+	if (CCDC_PREV_RESZ_CAPTURE(isp))
+		irq0enable |= IRQ0ENABLE_PRV_DONE_IRQ | IRQ0ENABLE_RSZ_DONE_IRQ;
 
 	if (isp_complete_reset) {
 		isp_reg_writel(dev, -1, OMAP3_ISP_IOMEM_MAIN,
 			       ISP_IRQ0STATUS);
 		isp_complete_reset = 0;
 	}
-
-	isp_reg_writel(dev,
-		       IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ
-		       | IRQ0ENABLE_HS_VS_IRQ
-		       | IRQ0ENABLE_CCDC_VD0_IRQ | IRQ0ENABLE_CCDC_VD1_IRQ
-		       | isp->module.interrupts,
-		       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE);
-
-	if (CCDC_PREV_CAPTURE(isp))
-		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			   IRQ0ENABLE_PRV_DONE_IRQ);
-
-	if (CCDC_PREV_RESZ_CAPTURE(isp))
-		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			IRQ0ENABLE_PRV_DONE_IRQ |
-			IRQ0ENABLE_RSZ_DONE_IRQ);
+	isp_reg_writel(dev, irq0enable, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE);
 
 	return;
 }
