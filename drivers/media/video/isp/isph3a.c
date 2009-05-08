@@ -18,8 +18,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <asm/cacheflush.h>
-
 #include <linux/dma-mapping.h>
 #include <linux/uaccess.h>
 
@@ -121,6 +119,7 @@ void isph3a_update_wb(struct isp_h3a_device *isp_h3a)
 	struct isp_device *isp = dev_get_drvdata(isp_h3a->dev);
 
 	if (isp_h3a->wb_update) {
+		/* FIXME: Get the preview crap out of here!!! */
 		isppreview_config_whitebalance(&isp->isp_prev,
 					       isp_h3a->h3awb_update);
 		isp_h3a->wb_update = 0;
@@ -148,127 +147,119 @@ static void isph3a_aewb_update_regs(struct isp_h3a_device *isp_h3a)
 	isp_h3a->update = 0;
 }
 
+/* Get next free buffer to write the statistics to and mark it active. */
+static struct isph3a_aewb_buffer *isph3a_aewb_get_next_free(
+	struct isp_h3a_device *isp_h3a)
+{
+	struct isph3a_aewb_buffer *found = NULL;
+	int i;
+
+	for (i = 0; i < H3A_MAX_BUFF; i++) {
+		struct isph3a_aewb_buffer *curr = &isp_h3a->buf[i];
+
+		/*
+		 * Don't select the buffer which is being copied to
+		 * userspace.
+		 */
+		if (curr == isp_h3a->locked_buf)
+			continue;
+
+		if (!found
+		    || (curr->frame_number > found->frame_number
+			&& (curr->frame_number - found->frame_number
+			    > MAX_FRAME_COUNT / 2))
+		    || (curr->frame_number < found->frame_number
+			&& (found->frame_number - curr->frame_number
+			    < MAX_FRAME_COUNT / 2))) {
+			found = curr;
+		}
+	}
+
+	return found;
+}
+
+/* Get buffer to userspace. */
+static struct isph3a_aewb_buffer *isph3a_aewb_get_buffer(
+	struct isp_h3a_device *isp_h3a, u32 frame_number)
+{
+	struct isph3a_aewb_buffer *latest = NULL;
+	int i;
+
+	for (i = 0; i < H3A_MAX_BUFF; i++) {
+		struct isph3a_aewb_buffer *curr = &isp_h3a->buf[i];
+
+		/* We cannot deal with the active buffer. */
+		if (curr == isp_h3a->active_buf)
+			continue;
+
+		/* Don't take uninitialised buffers. */
+		if (curr->frame_number == MAX_FRAME_COUNT)
+			continue;
+
+		/* Found correct number. */
+		if (curr->frame_number == frame_number) {
+			latest = curr;
+			break;
+		}
+
+		/* Select first buffer or a better one. */
+		if (!latest
+		    || (curr->frame_number < latest->frame_number
+			&& (latest->frame_number - curr->frame_number
+			    > MAX_FRAME_COUNT / 2))
+		    || (curr->frame_number > latest->frame_number
+			&& (curr->frame_number - latest->frame_number
+			    < MAX_FRAME_COUNT / 2)))
+			latest = curr;
+	}
+
+	return latest;
+}
+
 /**
  * isph3a_aewb_stats_available - Check for stats available of specified frame.
  * @aewbdata: Pointer to return AE AWB statistics data
  *
  * Returns 0 if successful, or -1 if statistics are unavailable.
  **/
-static int isph3a_aewb_stats_available(struct isp_h3a_device *isp_h3a,
-				       struct isph3a_aewb_data *aewbdata)
+static int isph3a_aewb_get_stats(struct isp_h3a_device *isp_h3a,
+				 struct isph3a_aewb_data *aewbdata)
 {
-	int i, ret;
+	int rval = 0;
 	unsigned long irqflags;
+	struct isph3a_aewb_buffer *buf;
 
-	spin_lock_irqsave(&isp_h3a->buffer_lock, irqflags);
-	/* Requested frame is busy */
-	if (aewbdata->frame_number == isp_h3a->active_buff->frame_num)
-		goto out_busy;
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		DPRINTK_ISPH3A("Checking Stats buff[%d] (%d) for %d\n",
-			       i, isp_h3a->buff[i].frame_num,
-			       aewbdata->frame_number);
-		if (aewbdata->frame_number != isp_h3a->buff[i].frame_num)
-			continue;
-		/* Found requested frame and marked it as read-only */
-		isp_h3a->buff[i].locked = 1;
-		spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
-		/* Flush the current buffer */
-		flush_cache_all();
-		isp_h3a->buff[i].frame_num = 0;
-		ret = copy_to_user((void *)aewbdata->h3a_aewb_statistics_buf,
-				   isp_h3a->buff[i].virt_addr,
-				   isp_h3a->buf_size);
-		isp_h3a->buff[i].locked = 0;
-		isp_h3a->buff[i].done = 0;
-		if (ret) {
-			dev_err(isp_h3a->dev, "h3a: Failed copy_to_user for "
-			       "H3A stats buff, %d\n", ret);
-		}
-		aewbdata->ts = isp_h3a->buff[i].ts;
-		aewbdata->config_counter = isp_h3a->buff[i].config_counter;
-		return 0;
-	}
-out_busy:
-	spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
+	spin_lock_irqsave(&isp_h3a->lock, irqflags);
 
-	return -1;
-}
-
-/**
- * isph3a_aewb_link_buffers - Helper function to link allocated buffers.
- **/
-static void isph3a_aewb_link_buffers(struct isp_h3a_device *isp_h3a)
-{
-	int i;
-
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		if ((i + 1) < H3A_MAX_BUFF) {
-			isp_h3a->buff[i].next = &isp_h3a->buff[i + 1];
-		} else {
-			isp_h3a->buff[i].next = &isp_h3a->buff[0];
-		}
-	}
-}
-
-/**
- * isph3a_aewb_unlock_buffers - Helper function to unlock all buffers.
- **/
-static void isph3a_aewb_unlock_buffers(struct isp_h3a_device *isp_h3a)
-{
-	int i;
-	unsigned long irqflags;
-
-	spin_lock_irqsave(&isp_h3a->buffer_lock, irqflags);
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		isp_h3a->buff[i].locked = 0;
-		isp_h3a->buff[i].done = 0;
-	}
-	spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
-}
-
-static struct isph3a_aewb_buffer *isph3a_aewb_get_next_buffer(
-					struct isp_h3a_device *isp_h3a)
-{
-	struct isph3a_aewb_buffer *buff;
-	struct isph3a_aewb_buffer *buff_done = NULL;
-	int found = 0;
-
-	if (unlikely(isp_h3a->active_buff->next == NULL))
-		/* Buffers are not linked yet */
-		isph3a_aewb_link_buffers(isp_h3a);
-
-	for (buff = isp_h3a->active_buff->next; buff != isp_h3a->active_buff;
-						buff = buff->next) {
-		if (buff->locked == 0) {
-			if (buff->done == 0) {
-				found = 1;
-				break;
-			} else if (!buff_done)
-				/* Fallback buffer */
-				buff_done = buff;
-		}
+	buf = isph3a_aewb_get_buffer(isp_h3a, aewbdata->frame_number);
+	if (!buf) {
+		spin_unlock_irqrestore(&isp_h3a->lock, irqflags);
+		return -EBUSY;
 	}
 
-	if (unlikely(found == 0)) {
-		if (buff_done) {
-			/* Falling back to the first unlocked and unrequested
-			 * buffer */
-			dev_dbg(isp_h3a->dev, "h3a: All available buffers have "
-				"data to be requested. Data for frame_num = %d "
-				"will be lost.\n", buff_done->frame_num);
-			buff = buff_done;
-		} else {
-			/* This should never happen, as all buffers must not be
-			 * locked at the same time */
-			dev_dbg(isp_h3a->dev, "h3a: FIXME: No unlocked buffer "
-					      "available.\n");
-			/* FIXME: Falling back to the previous approach */
-			buff = isp_h3a->active_buff->next->next;
-		}
+	aewbdata->ts = buf->ts;
+	aewbdata->config_counter = buf->config_counter;
+	aewbdata->frame_number = buf->frame_number;
+
+	isp_h3a->locked_buf = buf;
+
+	spin_unlock_irqrestore(&isp_h3a->lock, irqflags);
+
+	rval = copy_to_user((void *)aewbdata->h3a_aewb_statistics_buf,
+			    buf->virt_addr,
+			    isp_h3a->buf_size);
+
+	spin_lock_irqsave(&isp_h3a->lock, irqflags);
+	isp_h3a->locked_buf = NULL;
+	spin_unlock_irqrestore(&isp_h3a->lock, irqflags);
+
+	if (rval) {
+		dev_info(isp_h3a->dev,
+			 "failed copying %d bytes of h3a data\n", rval);
+		rval = -EFAULT;
 	}
 
-	return buff;
+	return rval;
 }
 
 /**
@@ -281,40 +272,108 @@ static void isph3a_aewb_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 			    void *arg2)
 {
 	struct isp_h3a_device *isp_h3a = arg2;
-	u16 frame_align;
 	unsigned long irqflags;
 
-	if ((H3A_AWB_DONE & status) != H3A_AWB_DONE)
-		return;
+	do_gettimeofday(&isp_h3a->active_buf->ts);
 
-	do_gettimeofday(&isp_h3a->active_buff->ts);
-	isp_h3a->active_buff->config_counter =
-					atomic_read(&isp_h3a->config_counter);
-	isp_h3a->active_buff->done = 1;
-	isp_h3a->active_buff = isph3a_aewb_get_next_buffer(isp_h3a);
-	isp_reg_writel(isp_h3a->dev, isp_h3a->active_buff->iommu_addr,
+	spin_lock_irqsave(&isp_h3a->lock, irqflags);
+
+	isp_h3a->active_buf->config_counter = isp_h3a->config_counter;
+	isp_h3a->active_buf->frame_number = isp_h3a->frame_number;
+	isp_h3a->active_buf = isph3a_aewb_get_next_free(isp_h3a);
+
+	isp_reg_writel(isp_h3a->dev, isp_h3a->active_buf->iommu_addr,
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
 
-	isp_h3a->frame_count++;
-	frame_align = isp_h3a->frame_count;
-	if (isp_h3a->frame_count > MAX_FRAME_COUNT) {
-		isp_h3a->frame_count = 1;
-		frame_align++;
-	}
-	isp_h3a->active_buff->frame_num = isp_h3a->frame_count;
+	isp_h3a->frame_number++;
+	if (isp_h3a->frame_number == MAX_FRAME_COUNT)
+		isp_h3a->frame_number = 0;
 
-	spin_lock_irqsave(&isp_h3a->buffer_lock, irqflags);
-	if (isp_h3a->stats_req) {
-		DPRINTK_ISPH3A("waiting for frame %d\n", isp_h3a->frame_req);
-		if (frame_align >= isp_h3a->frame_req + 1) {
-			isp_h3a->stats_req = 0;
-			isp_h3a->stats_done = 1;
-		}
-	}
-	spin_unlock_irqrestore(&isp_h3a->buffer_lock, irqflags);
+	spin_unlock_irqrestore(&isp_h3a->lock, irqflags);
 
 	if (isp_h3a->update)
 		isph3a_aewb_update_regs(isp_h3a);
+}
+
+static int isph3a_aewb_validate_params(struct isp_h3a_device *isp_h3a,
+				       struct isph3a_aewb_config *user_cfg)
+{
+	if (unlikely(user_cfg->saturation_limit > MAX_SATURATION_LIM)) {
+		dev_info(isp_h3a->dev, "h3a: Invalid Saturation_limit: %d\n",
+			 user_cfg->saturation_limit);
+		return -EINVAL;
+	}
+	if (unlikely(user_cfg->win_height < MIN_WIN_H ||
+		     user_cfg->win_height > MAX_WIN_H ||
+		     user_cfg->win_height & 0x01)) {
+		dev_info(isp_h3a->dev, "h3a: Invalid window height: %d\n",
+			 user_cfg->win_height);
+		return -EINVAL;
+	}
+	if (unlikely(user_cfg->win_width < MIN_WIN_W ||
+		     user_cfg->win_width > MAX_WIN_W ||
+		     user_cfg->win_width & 0x01)) {
+		dev_info(isp_h3a->dev, "h3a: Invalid window width: %d\n",
+			 user_cfg->win_width);
+		return -EINVAL;
+	}
+	if (unlikely(user_cfg->ver_win_count < 1 ||
+		     user_cfg->ver_win_count > MAX_WINVC)) {
+		dev_info(isp_h3a->dev,
+			 "h3a: Invalid vertical window count: %d\n",
+			 user_cfg->ver_win_count);
+		return -EINVAL;
+	}
+	if (unlikely(user_cfg->hor_win_count < 1 ||
+		     user_cfg->hor_win_count > MAX_WINHC)) {
+		dev_info(isp_h3a->dev,
+			 "h3a: Invalid horizontal window count: %d\n",
+			 user_cfg->hor_win_count);
+		return -EINVAL;
+	}
+	if (unlikely(user_cfg->ver_win_start > MAX_WINSTART)) {
+		dev_info(isp_h3a->dev,
+			 "h3a: Invalid vertical window start: %d\n",
+			 user_cfg->ver_win_start);
+		return -EINVAL;
+	}
+	if (unlikely(user_cfg->hor_win_start > MAX_WINSTART)) {
+		dev_info(isp_h3a->dev,
+			 "h3a: Invalid horizontal window start: %d\n",
+			 user_cfg->hor_win_start);
+		return -EINVAL;
+	}
+	if (unlikely(user_cfg->blk_ver_win_start > MAX_WINSTART)) {
+		dev_info(isp_h3a->dev,
+			 "h3a: Invalid black vertical window start: %d\n",
+			 user_cfg->blk_ver_win_start);
+		return -EINVAL;
+	}
+	if (unlikely(user_cfg->blk_win_height < MIN_WIN_H ||
+		     user_cfg->blk_win_height > MAX_WIN_H ||
+		     user_cfg->blk_win_height & 0x01)) {
+		dev_info(isp_h3a->dev, "h3a: Invalid black window height: %d\n",
+			 user_cfg->blk_win_height);
+		return -EINVAL;
+	}
+	if (unlikely(user_cfg->subsample_ver_inc < MIN_SUB_INC ||
+		     user_cfg->subsample_ver_inc > MAX_SUB_INC ||
+		     user_cfg->subsample_ver_inc & 0x01)) {
+		dev_info(isp_h3a->dev,
+			 "h3a: Invalid vertical subsample increment: %d\n",
+			 user_cfg->subsample_ver_inc);
+		return -EINVAL;
+	}
+	if (unlikely(user_cfg->subsample_hor_inc < MIN_SUB_INC ||
+		     user_cfg->subsample_hor_inc > MAX_SUB_INC ||
+		     user_cfg->subsample_hor_inc & 0x01)) {
+		dev_info(isp_h3a->dev,
+			 "h3a: Invalid horizontal subsample increment: %d\n",
+			 user_cfg->subsample_hor_inc);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 /**
@@ -326,14 +385,9 @@ static void isph3a_aewb_isr(unsigned long status, isp_vbq_callback_ptr arg1,
  *
  * Returns 0 if successful, or -EINVAL if any of the parameters are invalid.
  **/
-static int isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
-				  struct isph3a_aewb_config *user_cfg)
+static void isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
+				   struct isph3a_aewb_config *user_cfg)
 {
-	if (unlikely(user_cfg->saturation_limit > MAX_SATURATION_LIM)) {
-		dev_err(isp_h3a->dev, "h3a: Invalid Saturation_limit: %d\n",
-		       user_cfg->saturation_limit);
-		return -EINVAL;
-	}
 	if (isp_h3a->aewb_config_local.saturation_limit !=
 						user_cfg->saturation_limit) {
 		WRITE_SAT_LIM(isp_h3a->regs.pcr, user_cfg->saturation_limit);
@@ -348,39 +402,18 @@ static int isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
 		isp_h3a->update = 1;
 	}
 
-	if (unlikely(user_cfg->win_height < MIN_WIN_H ||
-		     user_cfg->win_height > MAX_WIN_H ||
-		     user_cfg->win_height & 0x01)) {
-		dev_err(isp_h3a->dev, "h3a: Invalid window height: %d\n",
-		       user_cfg->win_height);
-		return -EINVAL;
-	}
 	if (isp_h3a->aewb_config_local.win_height != user_cfg->win_height) {
 		WRITE_WIN_H(isp_h3a->regs.win1, user_cfg->win_height);
 		isp_h3a->aewb_config_local.win_height = user_cfg->win_height;
 		isp_h3a->update = 1;
 	}
 
-	if (unlikely(user_cfg->win_width < MIN_WIN_W ||
-		     user_cfg->win_width > MAX_WIN_W ||
-		     user_cfg->win_width & 0x01)) {
-		dev_err(isp_h3a->dev, "h3a: Invalid window width: %d\n",
-		       user_cfg->win_width);
-		return -EINVAL;
-	}
 	if (isp_h3a->aewb_config_local.win_width != user_cfg->win_width) {
 		WRITE_WIN_W(isp_h3a->regs.win1, user_cfg->win_width);
 		isp_h3a->aewb_config_local.win_width = user_cfg->win_width;
 		isp_h3a->update = 1;
 	}
 
-	if (unlikely(user_cfg->ver_win_count < 1 ||
-		     user_cfg->ver_win_count > MAX_WINVC)) {
-		dev_err(isp_h3a->dev,
-			"h3a: Invalid vertical window count: %d\n",
-			user_cfg->ver_win_count);
-		return -EINVAL;
-	}
 	if (isp_h3a->aewb_config_local.ver_win_count !=
 						user_cfg->ver_win_count) {
 		WRITE_VER_C(isp_h3a->regs.win1, user_cfg->ver_win_count);
@@ -389,13 +422,6 @@ static int isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
 		isp_h3a->update = 1;
 	}
 
-	if (unlikely(user_cfg->hor_win_count < 1 ||
-		     user_cfg->hor_win_count > MAX_WINHC)) {
-		dev_err(isp_h3a->dev,
-			"h3a: Invalid horizontal window count: %d\n",
-			user_cfg->hor_win_count);
-		return -EINVAL;
-	}
 	if (isp_h3a->aewb_config_local.hor_win_count !=
 						user_cfg->hor_win_count) {
 		WRITE_HOR_C(isp_h3a->regs.win1, user_cfg->hor_win_count);
@@ -404,12 +430,6 @@ static int isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
 		isp_h3a->update = 1;
 	}
 
-	if (unlikely(user_cfg->ver_win_start > MAX_WINSTART)) {
-		dev_err(isp_h3a->dev,
-			"h3a: Invalid vertical window start: %d\n",
-			user_cfg->ver_win_start);
-		return -EINVAL;
-	}
 	if (isp_h3a->aewb_config_local.ver_win_start !=
 						user_cfg->ver_win_start) {
 		WRITE_VER_WIN_ST(isp_h3a->regs.start, user_cfg->ver_win_start);
@@ -418,12 +438,6 @@ static int isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
 		isp_h3a->update = 1;
 	}
 
-	if (unlikely(user_cfg->hor_win_start > MAX_WINSTART)) {
-		dev_err(isp_h3a->dev,
-			"h3a: Invalid horizontal window start: %d\n",
-			user_cfg->hor_win_start);
-		return -EINVAL;
-	}
 	if (isp_h3a->aewb_config_local.hor_win_start !=
 						user_cfg->hor_win_start) {
 		WRITE_HOR_WIN_ST(isp_h3a->regs.start, user_cfg->hor_win_start);
@@ -432,12 +446,6 @@ static int isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
 		isp_h3a->update = 1;
 	}
 
-	if (unlikely(user_cfg->blk_ver_win_start > MAX_WINSTART)) {
-		dev_err(isp_h3a->dev,
-			"h3a: Invalid black vertical window start: %d\n",
-			user_cfg->blk_ver_win_start);
-		return -EINVAL;
-	}
 	if (isp_h3a->aewb_config_local.blk_ver_win_start !=
 	    user_cfg->blk_ver_win_start) {
 		WRITE_BLK_VER_WIN_ST(isp_h3a->regs.blk,
@@ -447,13 +455,6 @@ static int isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
 		isp_h3a->update = 1;
 	}
 
-	if (unlikely(user_cfg->blk_win_height < MIN_WIN_H ||
-		     user_cfg->blk_win_height > MAX_WIN_H ||
-		     user_cfg->blk_win_height & 0x01)) {
-		dev_err(isp_h3a->dev, "h3a: Invalid black window height: %d\n",
-		       user_cfg->blk_win_height);
-		return -EINVAL;
-	}
 	if (isp_h3a->aewb_config_local.blk_win_height !=
 						user_cfg->blk_win_height) {
 		WRITE_BLK_WIN_H(isp_h3a->regs.blk, user_cfg->blk_win_height);
@@ -462,14 +463,6 @@ static int isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
 		isp_h3a->update = 1;
 	}
 
-	if (unlikely(user_cfg->subsample_ver_inc < MIN_SUB_INC ||
-		     user_cfg->subsample_ver_inc > MAX_SUB_INC ||
-		     user_cfg->subsample_ver_inc & 0x01)) {
-		dev_err(isp_h3a->dev,
-			"h3a: Invalid vertical subsample increment: %d\n",
-			user_cfg->subsample_ver_inc);
-		return -EINVAL;
-	}
 	if (isp_h3a->aewb_config_local.subsample_ver_inc !=
 	    user_cfg->subsample_ver_inc) {
 		WRITE_SUB_VER_INC(isp_h3a->regs.subwin,
@@ -479,14 +472,6 @@ static int isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
 		isp_h3a->update = 1;
 	}
 
-	if (unlikely(user_cfg->subsample_hor_inc < MIN_SUB_INC ||
-		     user_cfg->subsample_hor_inc > MAX_SUB_INC ||
-		     user_cfg->subsample_hor_inc & 0x01)) {
-		dev_err(isp_h3a->dev,
-			"h3a: Invalid horizontal subsample increment: %d\n",
-			user_cfg->subsample_hor_inc);
-		return -EINVAL;
-	}
 	if (isp_h3a->aewb_config_local.subsample_hor_inc !=
 	    user_cfg->subsample_hor_inc) {
 		WRITE_SUB_HOR_INC(isp_h3a->regs.subwin,
@@ -495,11 +480,70 @@ static int isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
 			user_cfg->subsample_hor_inc;
 		isp_h3a->update = 1;
 	}
+}
 
-	if (!isp_h3a->initialized || !isp_h3a->aewb_config_local.aewb_enable) {
-		isph3a_aewb_update_regs(isp_h3a);
-		isp_h3a->initialized = 1;
+static void isph3a_aewb_buffer_free(struct isp_h3a_device *isp_h3a)
+{
+	struct isp_device *isp =
+		container_of(isp_h3a, struct isp_device, isp_h3a);
+	int i;
+
+	for (i = 0; i < H3A_MAX_BUFF; i++) {
+		struct isph3a_aewb_buffer *buf = &isp_h3a->buf[i];
+
+		if (!buf->iommu_addr)
+			continue;
+
+		iommu_vfree(isp->iommu, buf->iommu_addr);
+		buf->iommu_addr = 0;
 	}
+
+	isp_h3a->buf_alloc_size = 0;
+}
+
+static int isph3a_aewb_buffer_alloc(struct isp_h3a_device *isp_h3a,
+			       unsigned int size)
+{
+	struct isp_device *isp =
+		container_of(isp_h3a, struct isp_device, isp_h3a);
+	int i;
+
+	/* Are the old buffers big enough? */
+	if (isp_h3a->buf_alloc_size >= size) {
+		for (i = 0; i < H3A_MAX_BUFF; i++)
+			isp_h3a->buf[i].frame_number = MAX_FRAME_COUNT;
+
+		return 0;
+	}
+
+	if (isp->module.running != ISP_STOPPED) {
+		dev_info(isp_h3a->dev, "h3a: trying to configure when busy\n");
+		return -EBUSY;
+	}
+
+	isph3a_aewb_buffer_free(isp_h3a);
+
+	for (i = 0; i < H3A_MAX_BUFF; i++) {
+		struct isph3a_aewb_buffer *buf = &isp_h3a->buf[i];
+
+		buf->iommu_addr = iommu_vmalloc(isp->iommu, 0, size,
+						IOMMU_FLAG);
+		if (buf->iommu_addr == 0) {
+			dev_info(isp_h3a->dev, "h3a: Can't acquire memory for "
+				 "buffer %d\n", i);
+			isph3a_aewb_buffer_free(isp_h3a);
+			return -ENOMEM;
+		}
+		buf->virt_addr = da_to_va(isp->iommu, (u32)buf->iommu_addr);
+		buf->frame_number = MAX_FRAME_COUNT;
+	}
+
+	isp_h3a->buf_alloc_size = size;
+
+	isp_h3a->active_buf = isph3a_aewb_get_next_free(isp_h3a);
+	isp_reg_writel(isp_h3a->dev, isp_h3a->active_buf->iommu_addr,
+		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
+
 	return 0;
 }
 
@@ -517,17 +561,15 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 	struct isp_device *isp =
 		container_of(isp_h3a, struct isp_device, isp_h3a);
 	int ret = 0;
-	int i;
 	int win_count = 0;
+	unsigned int buf_size;
 
 	if (NULL == aewbcfg) {
-		dev_err(isp_h3a->dev,
-			"h3a: Null argument in configuration. \n");
+		dev_info(isp_h3a->dev, "h3a: Null argument in configuration\n");
 		return -EINVAL;
 	}
 
 	if (!isp_h3a->initialized) {
-		DPRINTK_ISPH3A("Setting callback for H3A\n");
 		ret = isp_set_callback(isp_h3a->dev, CBK_H3A_AWB_DONE,
 				       isph3a_aewb_isr, (void *)NULL,
 				       isp_h3a);
@@ -537,80 +579,32 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 		}
 	}
 
-	ret = isph3a_aewb_set_params(isp_h3a, aewbcfg);
-	if (ret) {
-		dev_err(isp_h3a->dev, "h3a: Invalid parameters! \n");
+	ret = isph3a_aewb_validate_params(isp_h3a, aewbcfg);
+	if (ret)
 		return ret;
-	}
 
+	/* FIXME: This win_count handling looks really fishy. */
 	win_count = aewbcfg->ver_win_count * aewbcfg->hor_win_count;
 	win_count += aewbcfg->hor_win_count;
 	ret = win_count / 8;
 	win_count += win_count % 8 ? 1 : 0;
 	win_count += ret;
 
+	buf_size = win_count * AEWB_PACKET_SIZE;
+
+	ret = isph3a_aewb_buffer_alloc(isp_h3a, buf_size);
+	if (ret)
+		return ret;
+
 	isp_h3a->win_count = win_count;
-	isp_h3a->buf_size = win_count * AEWB_PACKET_SIZE;
+	isp_h3a->buf_size = buf_size;
 
-	for (i = 0; i < H3A_MAX_BUFF; i++)
-		isp_h3a->h3a_buff[i].frame_num = 0;
+	isph3a_aewb_set_params(isp_h3a, aewbcfg);
+	if (isp->module.running == ISP_STOPPED)
+		isph3a_aewb_update_regs(isp_h3a);
 
-	if (isp_h3a->buf_alloc_size
-	    && isp_h3a->buf_size > isp_h3a->buf_alloc_size) {
-		DPRINTK_ISPH3A("There was a previous buffer... "
-			       "Freeing/unmapping current stat busffs\n");
-		isph3a_aewb_enable(isp_h3a, 0);
-		for (i = 0; i < H3A_MAX_BUFF; i++) {
-			iommu_vfree(isp->iommu, isp_h3a->buff[i].iommu_addr);
-			isp_h3a->buff[i].iommu_addr = 0;
-		}
-		isp_h3a->buf_alloc_size = 0;
-	}
+	isp_h3a->config_counter++;
 
-	if (isp_h3a->buf_size > isp_h3a->buf_alloc_size) {
-		isp_h3a->buf_alloc_size = isp_h3a->buf_size;
-		DPRINTK_ISPH3A("Allocating/mapping new stat buffs\n");
-		for (i = 0; i < H3A_MAX_BUFF; i++) {
-			isp_h3a->buff[i].iommu_addr =
-				iommu_vmalloc(isp->iommu,
-					      0,
-					      isp_h3a->buf_alloc_size,
-					      IOMMU_FLAG);
-			if (isp_h3a->buff[i].iommu_addr == 0) {
-				dev_err(isp_h3a->dev,
-					"h3a: Can't acquire memory for "
-					"buffer[%d]\n", i);
-				/* FIXME: error handling! */
-				return -ENOMEM;
-			}
-			isp_h3a->buff[i].virt_addr =
-				da_to_va(isp->iommu,
-					 (u32)isp_h3a->buff[i].iommu_addr);
-		}
-		isph3a_aewb_unlock_buffers(isp_h3a);
-		isph3a_aewb_link_buffers(isp_h3a);
-
-		if (isp_h3a->active_buff == NULL)
-			isp_h3a->active_buff = &isp_h3a->buff[0];
-
-		isp_reg_writel(isp_h3a->dev, isp_h3a->active_buff->iommu_addr,
-			       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
-	}
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		DPRINTK_ISPH3A("buff[%d] addr is:\n    virt    0x%lX\n"
-			       "    aligned 0x%lX\n"
-			       "    iommu  0x%08lX\n"
-			       "    frame_num %d\n", i,
-			       isp_h3a->buff[i].virt_addr,
-			       isp_h3a->buff[i].addr_align,
-			       isp_h3a->buff[i].iommu_addr,
-			       isp_h3a->buff[i].frame_num);
-	}
-
-	isp_h3a->active_buff->frame_num = 1;
-	isp_h3a->frame_count = 1;
-
-	atomic_inc(&isp_h3a->config_counter);
 	isph3a_aewb_enable(isp_h3a, aewbcfg->aewb_enable);
 	isph3a_print_status(isp_h3a);
 
@@ -633,8 +627,7 @@ int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 				   struct isph3a_aewb_data *aewbdata)
 {
 	int ret = 0;
-	u16 frame_diff = 0;
-	u16 frame_cnt = isp_h3a->frame_count;
+	unsigned long irqflags;
 
 	if (!isp_h3a->aewb_config_local.aewb_enable) {
 		dev_err(isp_h3a->dev, "h3a: engine not enabled\n");
@@ -644,7 +637,8 @@ int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 	DPRINTK_ISPH3A("isph3a_aewb_request_statistics: Enter "
 		       "(frame req. => %d, current frame => %d,"
 		       "update => %d)\n",
-		       aewbdata->frame_number, frame_cnt, aewbdata->update);
+		       aewbdata->frame_number, isp_h3a->frame_number,
+		       aewbdata->update);
 	DPRINTK_ISPH3A("User data received: \n");
 	DPRINTK_ISPH3A("Digital gain = 0x%04x\n", aewbdata->dgain);
 	DPRINTK_ISPH3A("WB gain b *=   0x%04x\n", aewbdata->wb_gain_b);
@@ -652,10 +646,8 @@ int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 	DPRINTK_ISPH3A("WB gain gb =   0x%04x\n", aewbdata->wb_gain_gb);
 	DPRINTK_ISPH3A("WB gain gr =   0x%04x\n", aewbdata->wb_gain_gr);
 
-	if (!aewbdata->update) {
-		aewbdata->h3a_aewb_statistics_buf = NULL;
-		goto out;
-	}
+	spin_lock_irqsave(&isp_h3a->lock, irqflags);
+
 	if (aewbdata->update & SET_DIGITAL_GAIN)
 		isp_h3a->h3awb_update.dgain = (u16)aewbdata->dgain;
 	if (aewbdata->update & SET_COLOR_GAINS) {
@@ -667,51 +659,18 @@ int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 	if (aewbdata->update & (SET_COLOR_GAINS | SET_DIGITAL_GAIN))
 		isp_h3a->wb_update = 1;
 
-	if (!(aewbdata->update & REQUEST_STATISTICS)) {
-		aewbdata->h3a_aewb_statistics_buf = NULL;
-		goto out;
-	}
+	spin_unlock_irqrestore(&isp_h3a->lock, irqflags);
 
-	if (aewbdata->frame_number < 1) {
-		dev_err(isp_h3a->dev, "h3a: Illeagal frame number "
-		       "requested (%d)\n",
-		       aewbdata->frame_number);
-		return -EINVAL;
-	}
+	if (aewbdata->update & REQUEST_STATISTICS)
+		ret = isph3a_aewb_get_stats(isp_h3a, aewbdata);
+	else
+		aewbdata->curr_frame = isp_h3a->frame_number;
 
-	DPRINTK_ISPH3A("Stats available?\n");
-	ret = isph3a_aewb_stats_available(isp_h3a, aewbdata);
-	if (!ret)
-		goto out;
-
-	DPRINTK_ISPH3A("Stats in near future?\n");
-	if (aewbdata->frame_number > frame_cnt)
-		frame_diff = aewbdata->frame_number - frame_cnt;
-	else if (aewbdata->frame_number < frame_cnt) {
-		if ((frame_cnt > (MAX_FRAME_COUNT - MAX_FUTURE_FRAMES)) &&
-		    (aewbdata->frame_number < MAX_FRAME_COUNT)) {
-			frame_diff = aewbdata->frame_number + MAX_FRAME_COUNT -
-				frame_cnt;
-		} else
-			frame_diff = MAX_FUTURE_FRAMES + 1;
-	}
-
-	if (frame_diff > MAX_FUTURE_FRAMES) {
-		dev_err(isp_h3a->dev,
-			"h3a: Invalid frame requested, returning current"
-			" frame stats\n");
-		aewbdata->frame_number = frame_cnt;
-	}
-
-	aewbdata->h3a_aewb_statistics_buf = NULL;
-
-out:
 	DPRINTK_ISPH3A("isph3a_aewb_request_statistics: "
 		       "aewbdata->h3a_aewb_statistics_buf => %p\n",
 		       aewbdata->h3a_aewb_statistics_buf);
-	aewbdata->curr_frame = isp_h3a->frame_count;
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(isph3a_aewb_request_statistics);
 
@@ -726,8 +685,7 @@ int __init isph3a_aewb_init(struct device *dev)
 	struct isp_h3a_device *isp_h3a = &isp->isp_h3a;
 
 	isp_h3a->dev = dev;
-	spin_lock_init(&isp_h3a->buffer_lock);
-
+	spin_lock_init(&isp_h3a->lock);
 	isp_h3a->aewb_config_local.saturation_limit = AEWB_SATURATION_LIMIT;
 
 	return 0;
@@ -739,16 +697,8 @@ int __init isph3a_aewb_init(struct device *dev)
 void isph3a_aewb_cleanup(struct device *dev)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
-	struct isp_h3a_device *isp_h3a = &isp->isp_h3a;
-	int i;
 
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		if (!isp_h3a->buff[i].iommu_addr)
-			continue;
-
-		iommu_vfree(isp->iommu, isp_h3a->buff[i].iommu_addr);
-		isp_h3a->buff[i].iommu_addr = 0;
-	}
+	isph3a_aewb_buffer_free(&isp->isp_h3a);
 }
 
 /**
@@ -775,7 +725,7 @@ static void isph3a_print_status(struct isp_h3a_device *isp_h3a)
 		       isp_reg_readl(isp_h3a->dev, OMAP3_ISP_IOMEM_H3A,
 				     ISPH3A_AEWBUFST));
 	DPRINTK_ISPH3A("stats windows = %d\n", isp_h3a->win_count);
-	DPRINTK_ISPH3A("stats buff size = %d\n", isp_h3a->buf_size);
+	DPRINTK_ISPH3A("stats buf size = %d\n", isp_h3a->buf_size);
 }
 
 /**

@@ -110,11 +110,7 @@ struct isph3a_aewb_buffer {
 	unsigned long iommu_addr;
 	struct timeval ts;
 	u32 config_counter;
-
-	u8 locked;
-	u8 done;
-	u16 frame_num;
-	struct isph3a_aewb_buffer *next;
+	u32 frame_number;
 };
 
 /**
@@ -149,6 +145,8 @@ struct isph3a_aewb_regs {
  * @buffer_lock: Spinlock for statistics buffers access.
  */
 struct isp_h3a_device {
+	spinlock_t lock;		/* For stats buffers read/write sync */
+
 	u8 initialized;
 	u8 update;
 	u8 stats_req;
@@ -157,18 +155,18 @@ struct isp_h3a_device {
 	int pm_state;
 	int wb_update;
 
-	struct isph3a_aewb_buffer buff[H3A_MAX_BUFF];
+	struct isph3a_aewb_buffer buf[H3A_MAX_BUFF];
 	unsigned int buf_size;
 	unsigned int buf_alloc_size;
-	struct isph3a_aewb_buffer *active_buff;
+	struct isph3a_aewb_buffer *active_buf;
+	struct isph3a_aewb_buffer *locked_buf;
+	unsigned int frame_number;
+	unsigned int config_counter;
 
-	atomic_t config_counter;
 	struct isph3a_aewb_regs regs;
 	struct ispprev_wbal h3awb_update;
 	struct isph3a_aewb_config aewb_config_local;
 	u16 win_count;
-	u32 frame_count;
-	spinlock_t buffer_lock;		/* For stats buffers read/write sync */
 
 	struct device *dev;
 };
