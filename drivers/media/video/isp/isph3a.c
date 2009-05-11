@@ -54,13 +54,11 @@ static struct isp_reg isph3a_reg_list[] = {
 	{0, ISP_TOK_TERM, 0}
 };
 
+static void isph3a_aewb_update_regs(struct isp_h3a_device *isp_h3a);
 static void isph3a_print_status(struct isp_h3a_device *isp_h3a);
 
 void __isph3a_aewb_enable(struct isp_h3a_device *isp_h3a, u8 enable)
 {
-	isp_reg_writel(isp_h3a->dev, IRQ0STATUS_H3A_AWB_DONE_IRQ,
-		       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
-
 	if (enable) {
 		isp_h3a->regs.pcr |= ISPH3A_PCR_AEW_EN;
 		DPRINTK_ISPH3A("    H3A enabled \n");
@@ -68,8 +66,8 @@ void __isph3a_aewb_enable(struct isp_h3a_device *isp_h3a, u8 enable)
 		isp_h3a->regs.pcr &= ~ISPH3A_PCR_AEW_EN;
 		DPRINTK_ISPH3A("    H3A disabled \n");
 	}
-	isp_reg_and_or(isp_h3a->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR,
-		       ~ISPH3A_PCR_AEW_EN, (enable ? ISPH3A_PCR_AEW_EN : 0));
+	isp_h3a->update = 1;
+	isph3a_aewb_update_regs(isp_h3a);
 	isp_h3a->aewb_config_local.aewb_enable = enable;
 }
 
@@ -90,8 +88,14 @@ void isph3a_aewb_enable(struct isp_h3a_device *isp_h3a, u8 enable)
  **/
 void isph3a_aewb_suspend(struct isp_h3a_device *isp_h3a)
 {
+	unsigned long flags;
+
+	spin_lock_irqsave(&isp_h3a->lock, flags);
+
 	if (isp_h3a->pm_state)
 		__isph3a_aewb_enable(isp_h3a, 0);
+
+	spin_unlock_irqrestore(&isp_h3a->lock, flags);
 }
 
 /**
@@ -99,8 +103,14 @@ void isph3a_aewb_suspend(struct isp_h3a_device *isp_h3a)
  **/
 void isph3a_aewb_resume(struct isp_h3a_device *isp_h3a)
 {
+	unsigned long flags;
+
+	spin_lock_irqsave(&isp_h3a->lock, flags);
+
 	if (isp_h3a->pm_state)
 		__isph3a_aewb_enable(isp_h3a, 1);
+
+	spin_unlock_irqrestore(&isp_h3a->lock, flags);
 }
 
 int isph3a_aewb_busy(struct isp_h3a_device *isp_h3a)
@@ -136,8 +146,17 @@ static void isph3a_aewb_update_regs(struct isp_h3a_device *isp_h3a)
 	if (!isp_h3a->update)
 		return;
 
-	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.pcr, OMAP3_ISP_IOMEM_H3A,
-		       ISPH3A_PCR);
+	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.pcr & ~ISPH3A_PCR_AEW_EN,
+		       OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
+	if (!isp_h3a->aewb_config_local.aewb_enable)
+		return;
+
+	if (isph3a_aewb_busy(isp_h3a)) {
+		isp_reg_writel(isp_h3a->dev, isp_h3a->regs.pcr,
+			       OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
+		return;
+	}
+
 	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.win1, OMAP3_ISP_IOMEM_H3A,
 		       ISPH3A_AEWWIN1);
 	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.start, OMAP3_ISP_IOMEM_H3A,
@@ -146,6 +165,8 @@ static void isph3a_aewb_update_regs(struct isp_h3a_device *isp_h3a)
 		       ISPH3A_AEWINBLK);
 	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.subwin, OMAP3_ISP_IOMEM_H3A,
 		       ISPH3A_AEWSUBWIN);
+	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.pcr, OMAP3_ISP_IOMEM_H3A,
+		       ISPH3A_PCR);
 
 	isp_h3a->update = 0;
 }
@@ -565,6 +586,7 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 	int ret = 0;
 	int win_count = 0;
 	unsigned int buf_size;
+	unsigned long irqflags;
 
 	if (NULL == aewbcfg) {
 		dev_info(isp_h3a->dev, "h3a: Null argument in configuration\n");
@@ -588,6 +610,8 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 	if (ret)
 		return ret;
 
+	spin_lock_irqsave(&isp_h3a->lock, irqflags);
+
 	isp_h3a->win_count = win_count;
 	isp_h3a->buf_size = buf_size;
 
@@ -599,6 +623,8 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 
 	isph3a_aewb_enable(isp_h3a, aewbcfg->aewb_enable);
 	isph3a_print_status(isp_h3a);
+
+	spin_unlock_irqrestore(&isp_h3a->lock, irqflags);
 
 	return 0;
 }
