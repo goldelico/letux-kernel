@@ -133,6 +133,9 @@ EXPORT_SYMBOL(isph3a_update_wb);
  **/
 static void isph3a_aewb_update_regs(struct isp_h3a_device *isp_h3a)
 {
+	if (!isp_h3a->update)
+		return;
+
 	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.pcr, OMAP3_ISP_IOMEM_H3A,
 		       ISPH3A_PCR);
 	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.win1, OMAP3_ISP_IOMEM_H3A,
@@ -268,10 +271,8 @@ static int isph3a_aewb_get_stats(struct isp_h3a_device *isp_h3a,
  * @arg1: Not used as of now.
  * @arg2: Not used as of now.
  */
-static void isph3a_aewb_isr(unsigned long status, isp_vbq_callback_ptr arg1,
-			    void *arg2)
+void isph3a_aewb_isr(struct isp_h3a_device *isp_h3a)
 {
-	struct isp_h3a_device *isp_h3a = arg2;
 	unsigned long irqflags;
 
 	do_gettimeofday(&isp_h3a->active_buf->ts);
@@ -289,10 +290,11 @@ static void isph3a_aewb_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 	if (isp_h3a->frame_number == MAX_FRAME_COUNT)
 		isp_h3a->frame_number = 0;
 
+	isph3a_aewb_update_regs(isp_h3a);
+
 	spin_unlock_irqrestore(&isp_h3a->lock, irqflags);
 
-	if (isp_h3a->update)
-		isph3a_aewb_update_regs(isp_h3a);
+	isph3a_update_wb(isp_h3a);
 }
 
 static int isph3a_aewb_validate_params(struct isp_h3a_device *isp_h3a,
@@ -567,16 +569,6 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 	if (NULL == aewbcfg) {
 		dev_info(isp_h3a->dev, "h3a: Null argument in configuration\n");
 		return -EINVAL;
-	}
-
-	if (!isp_h3a->initialized) {
-		ret = isp_set_callback(isp_h3a->dev, CBK_H3A_AWB_DONE,
-				       isph3a_aewb_isr, (void *)NULL,
-				       isp_h3a);
-		if (ret) {
-			dev_err(isp_h3a->dev, "h3a: No callback\n");
-			return ret;
-		}
 	}
 
 	ret = isph3a_aewb_validate_params(isp_h3a, aewbcfg);

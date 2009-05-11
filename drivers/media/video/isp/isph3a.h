@@ -129,29 +129,10 @@ struct isph3a_aewb_regs {
 	u32 subwin;
 };
 
-/**
- * struct isp_h3a_device - AE, AWB status.
- * @initialized: 1 - Buffers initialized.
- * @update: 1 - Update registers.
- * @stats_req: 1 - Future stats requested.
- * @stats_done: 1 - Stats ready for user.
- * @frame_req: Number of frame requested for statistics.
- * @h3a_buff: Array of statistics buffers to access.
- * @stats_buf_size: Statistics buffer size.
- * @min_buf_size: Minimum statisitics buffer size.
- * @win_count: Window Count.
- * @frame_count: Frame Count.
- * @stats_wait: Wait primitive for locking/unlocking the stats request.
- * @buffer_lock: Spinlock for statistics buffers access.
- */
 struct isp_h3a_device {
-	spinlock_t lock;		/* For stats buffers read/write sync */
+	spinlock_t lock;		/* Lock for this struct */
 
-	u8 initialized;
 	u8 update;
-	u8 stats_req;
-	u8 stats_done;
-	u16 frame_req;
 	int pm_state;
 	int wb_update;
 
@@ -191,5 +172,6 @@ void isph3a_aewb_resume(struct isp_h3a_device *isp_h3a);
 
 void isph3a_update_wb(struct isp_h3a_device *isp_h3a);
 
-void isph3a_notify(struct isp_h3a_device *isp_h3a, int notify);
+void isph3a_aewb_isr(struct isp_h3a_device *isp_h3a);
+
 #endif		/* OMAP_ISP_H3A_H */
