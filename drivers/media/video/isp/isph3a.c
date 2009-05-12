@@ -135,21 +135,28 @@ void isph3a_update_wb(struct isp_h3a_device *isp_h3a)
 }
 EXPORT_SYMBOL(isph3a_update_wb);
 
+#define MASK (~(ISPH3A_PCR_AEW_EN | 0xffc00000 | (1 << 17)))
+
 /**
  * isph3a_aewb_update_regs - Helper function to update h3a registers.
  **/
 static void isph3a_aewb_update_regs(struct isp_h3a_device *isp_h3a)
 {
+	u32 pcr;
+
 	if (!isp_h3a->update)
 		return;
 
-	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.pcr & ~ISPH3A_PCR_AEW_EN,
+	pcr = isp_reg_readl(isp_h3a->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
+	isp_reg_writel(isp_h3a->dev, (isp_h3a->regs.pcr & ~ISPH3A_PCR_AEW_EN)
+		       | (pcr & MASK),
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 	if (!isp_h3a->aewb_config_local.aewb_enable)
 		return;
 
 	if (isph3a_aewb_busy(isp_h3a)) {
-		isp_reg_writel(isp_h3a->dev, isp_h3a->regs.pcr,
+		isp_reg_writel(isp_h3a->dev, isp_h3a->regs.pcr
+			       | (pcr & MASK),
 			       OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 		return;
 	}
@@ -162,7 +169,8 @@ static void isph3a_aewb_update_regs(struct isp_h3a_device *isp_h3a)
 		       ISPH3A_AEWINBLK);
 	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.subwin, OMAP3_ISP_IOMEM_H3A,
 		       ISPH3A_AEWSUBWIN);
-	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.pcr, OMAP3_ISP_IOMEM_H3A,
+	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.pcr
+		       | (pcr & MASK), OMAP3_ISP_IOMEM_H3A,
 		       ISPH3A_PCR);
 
 	isp_h3a->update = 0;
