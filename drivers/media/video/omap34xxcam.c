@@ -1602,14 +1602,18 @@ static int omap34xxcam_open(struct file *file)
 
 	fh->vdev = vdev;
 
+	if (vdev->vdev_sensor == v4l2_int_device_dummy())
+		goto out_no_sensor;
+
 	/* Get the format the sensor is using. */
-	if (vidioc_int_g_fmt_cap(vdev->vdev_sensor, &sensor_format)) {
+	rval = vidioc_int_g_fmt_cap(vdev->vdev_sensor, &sensor_format);
+	if (rval) {
 		dev_err(&vdev->vfd->dev,
 			"can't get current pix from sensor!\n");
 		goto out_vidioc_int_g_fmt_cap;
 	}
 
-	if (!vdev->pix.width && vdev->vdev_sensor != v4l2_int_device_dummy())
+	if (!vdev->pix.width)
 		vdev->pix = sensor_format.fmt.pix;
 
 	if (!vdev->vdev_sensor_config.sensor_isp) {
@@ -1617,14 +1621,15 @@ static int omap34xxcam_open(struct file *file)
 		struct v4l2_fract timeperframe =
 			vdev->want_timeperframe;
 
-		if (s_pix_parm(vdev, &pix, &vdev->pix,
-			       &timeperframe)) {
+		rval = s_pix_parm(vdev, &pix, &vdev->pix, &timeperframe);
+		if (rval) {
 			dev_err(&vdev->vfd->dev,
 				"isp doesn't like the sensor!\n");
 			goto out_isp_s_fmt_cap;
 		}
 	}
 
+out_no_sensor:
 	mutex_unlock(&vdev->mutex);
 
 	file->private_data = fh;
