@@ -34,6 +34,7 @@
 #include <mach/iommu.h>
 #include <mach/iovmm.h>
 
+#include "ispstat.h"
 #include "isp_af.h"
 #include "isphist.h"
 #include "ispccdc.h"

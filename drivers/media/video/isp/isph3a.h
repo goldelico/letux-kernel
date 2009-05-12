@@ -95,25 +95,6 @@
 	 | (((sub_hor_inc >> 1) - 1) << ISPH3A_AEWSUBWIN_AEWINCH_SHIFT))
 
 /**
- * struct isph3a_aewb_buffer - AE, AWB frame stats buffer.
- * @virt_addr: Virtual address to mmap the buffer.
- * @phy_addr: Physical address of the buffer.
- * @addr_align: Virtual Address 32 bytes aligned.
- * @ispmmu_addr: Address of the buffer mapped by the ISPMMU.
- * @mmap_addr: Mapped memory area of buffer. For userspace access.
- * @locked: 1 - Buffer locked from write. 0 - Buffer can be overwritten.
- * @frame_num: Frame number from which the statistics are taken.
- * @next: Pointer to link next buffer.
- */
-struct isph3a_aewb_buffer {
-	void *virt_addr;
-	unsigned long iommu_addr;
-	struct timeval ts;
-	u32 config_counter;
-	u32 frame_number;
-};
-
-/**
  * struct isph3a_aewb_regs - Current value of AE, AWB configuration registers.
  * pcr: Peripheral control register.
  * win1: Control register.
@@ -136,20 +117,14 @@ struct isp_h3a_device {
 	int pm_state;
 	int wb_update;
 
-	struct isph3a_aewb_buffer buf[H3A_MAX_BUFF];
-	unsigned int buf_size;
-	unsigned int buf_alloc_size;
-	struct isph3a_aewb_buffer *active_buf;
-	struct isph3a_aewb_buffer *locked_buf;
-	unsigned int frame_number;
-	unsigned int config_counter;
-
 	struct isph3a_aewb_regs regs;
 	struct ispprev_wbal h3awb_update;
 	struct isph3a_aewb_config aewb_config_local;
 	u16 win_count;
 
 	struct device *dev;
+
+	struct ispstat stat;
 };
 
 int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,

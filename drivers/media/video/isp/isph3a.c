@@ -22,9 +22,6 @@
 #include <linux/uaccess.h>
 
 #include "isp.h"
-#include "ispreg.h"
-#include "isph3a.h"
-#include "isppreview.h"
 
 /* Structure for saving/restoring h3a module registers */
 static struct isp_reg isph3a_reg_list[] = {
@@ -171,75 +168,6 @@ static void isph3a_aewb_update_regs(struct isp_h3a_device *isp_h3a)
 	isp_h3a->update = 0;
 }
 
-/* Get next free buffer to write the statistics to and mark it active. */
-static struct isph3a_aewb_buffer *isph3a_aewb_get_next_free(
-	struct isp_h3a_device *isp_h3a)
-{
-	struct isph3a_aewb_buffer *found = NULL;
-	int i;
-
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		struct isph3a_aewb_buffer *curr = &isp_h3a->buf[i];
-
-		/*
-		 * Don't select the buffer which is being copied to
-		 * userspace.
-		 */
-		if (curr == isp_h3a->locked_buf)
-			continue;
-
-		if (!found
-		    || (curr->frame_number > found->frame_number
-			&& (curr->frame_number - found->frame_number
-			    > MAX_FRAME_COUNT / 2))
-		    || (curr->frame_number < found->frame_number
-			&& (found->frame_number - curr->frame_number
-			    < MAX_FRAME_COUNT / 2))) {
-			found = curr;
-		}
-	}
-
-	return found;
-}
-
-/* Get buffer to userspace. */
-static struct isph3a_aewb_buffer *isph3a_aewb_get_buffer(
-	struct isp_h3a_device *isp_h3a, u32 frame_number)
-{
-	struct isph3a_aewb_buffer *latest = NULL;
-	int i;
-
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		struct isph3a_aewb_buffer *curr = &isp_h3a->buf[i];
-
-		/* We cannot deal with the active buffer. */
-		if (curr == isp_h3a->active_buf)
-			continue;
-
-		/* Don't take uninitialised buffers. */
-		if (curr->frame_number == MAX_FRAME_COUNT)
-			continue;
-
-		/* Found correct number. */
-		if (curr->frame_number == frame_number) {
-			latest = curr;
-			break;
-		}
-
-		/* Select first buffer or a better one. */
-		if (!latest
-		    || (curr->frame_number < latest->frame_number
-			&& (latest->frame_number - curr->frame_number
-			    > MAX_FRAME_COUNT / 2))
-		    || (curr->frame_number > latest->frame_number
-			&& (curr->frame_number - latest->frame_number
-			    < MAX_FRAME_COUNT / 2)))
-			latest = curr;
-	}
-
-	return latest;
-}
-
 /**
  * isph3a_aewb_stats_available - Check for stats available of specified frame.
  * @aewbdata: Pointer to return AE AWB statistics data
@@ -251,31 +179,24 @@ static int isph3a_aewb_get_stats(struct isp_h3a_device *isp_h3a,
 {
 	int rval = 0;
 	unsigned long irqflags;
-	struct isph3a_aewb_buffer *buf;
+	struct ispstat_buffer *buf;
+
+	buf = ispstat_buf_get(&isp_h3a->stat,
+			      (void *)aewbdata->h3a_aewb_statistics_buf,
+			      aewbdata->frame_number);
+
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
 
 	spin_lock_irqsave(&isp_h3a->lock, irqflags);
-
-	buf = isph3a_aewb_get_buffer(isp_h3a, aewbdata->frame_number);
-	if (!buf) {
-		spin_unlock_irqrestore(&isp_h3a->lock, irqflags);
-		return -EBUSY;
-	}
 
 	aewbdata->ts = buf->ts;
 	aewbdata->config_counter = buf->config_counter;
 	aewbdata->frame_number = buf->frame_number;
 
-	isp_h3a->locked_buf = buf;
-
 	spin_unlock_irqrestore(&isp_h3a->lock, irqflags);
 
-	rval = copy_to_user((void *)aewbdata->h3a_aewb_statistics_buf,
-			    buf->virt_addr,
-			    isp_h3a->buf_size);
-
-	spin_lock_irqsave(&isp_h3a->lock, irqflags);
-	isp_h3a->locked_buf = NULL;
-	spin_unlock_irqrestore(&isp_h3a->lock, irqflags);
+	ispstat_buf_release(&isp_h3a->stat);
 
 	if (rval) {
 		dev_info(isp_h3a->dev,
@@ -295,24 +216,15 @@ static int isph3a_aewb_get_stats(struct isp_h3a_device *isp_h3a,
 void isph3a_aewb_isr(struct isp_h3a_device *isp_h3a)
 {
 	unsigned long irqflags;
+	struct ispstat_buffer *buf;
 
-	do_gettimeofday(&isp_h3a->active_buf->ts);
+	buf = ispstat_buf_next(&isp_h3a->stat);
 
-	spin_lock_irqsave(&isp_h3a->lock, irqflags);
-
-	isp_h3a->active_buf->config_counter = isp_h3a->config_counter;
-	isp_h3a->active_buf->frame_number = isp_h3a->frame_number;
-	isp_h3a->active_buf = isph3a_aewb_get_next_free(isp_h3a);
-
-	isp_reg_writel(isp_h3a->dev, isp_h3a->active_buf->iommu_addr,
+	isp_reg_writel(isp_h3a->dev, buf->iommu_addr,
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
 
-	isp_h3a->frame_number++;
-	if (isp_h3a->frame_number == MAX_FRAME_COUNT)
-		isp_h3a->frame_number = 0;
-
+	spin_lock_irqsave(&isp_h3a->lock, irqflags);
 	isph3a_aewb_update_regs(isp_h3a);
-
 	spin_unlock_irqrestore(&isp_h3a->lock, irqflags);
 
 	isph3a_update_wb(isp_h3a);
@@ -505,71 +417,6 @@ static void isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
 	}
 }
 
-static void isph3a_aewb_buffer_free(struct isp_h3a_device *isp_h3a)
-{
-	struct isp_device *isp =
-		container_of(isp_h3a, struct isp_device, isp_h3a);
-	int i;
-
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		struct isph3a_aewb_buffer *buf = &isp_h3a->buf[i];
-
-		if (!buf->iommu_addr)
-			continue;
-
-		iommu_vfree(isp->iommu, buf->iommu_addr);
-		buf->iommu_addr = 0;
-	}
-
-	isp_h3a->buf_alloc_size = 0;
-}
-
-static int isph3a_aewb_buffer_alloc(struct isp_h3a_device *isp_h3a,
-			       unsigned int size)
-{
-	struct isp_device *isp =
-		container_of(isp_h3a, struct isp_device, isp_h3a);
-	int i;
-
-	/* Are the old buffers big enough? */
-	if (isp_h3a->buf_alloc_size >= size) {
-		for (i = 0; i < H3A_MAX_BUFF; i++)
-			isp_h3a->buf[i].frame_number = MAX_FRAME_COUNT;
-
-		return 0;
-	}
-
-	if (isp->module.running != ISP_STOPPED) {
-		dev_info(isp_h3a->dev, "h3a: trying to configure when busy\n");
-		return -EBUSY;
-	}
-
-	isph3a_aewb_buffer_free(isp_h3a);
-
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		struct isph3a_aewb_buffer *buf = &isp_h3a->buf[i];
-
-		buf->iommu_addr = iommu_vmalloc(isp->iommu, 0, size,
-						IOMMU_FLAG);
-		if (buf->iommu_addr == 0) {
-			dev_info(isp_h3a->dev, "h3a: Can't acquire memory for "
-				 "buffer %d\n", i);
-			isph3a_aewb_buffer_free(isp_h3a);
-			return -ENOMEM;
-		}
-		buf->virt_addr = da_to_va(isp->iommu, (u32)buf->iommu_addr);
-		buf->frame_number = MAX_FRAME_COUNT;
-	}
-
-	isp_h3a->buf_alloc_size = size;
-
-	isp_h3a->active_buf = isph3a_aewb_get_next_free(isp_h3a);
-	isp_reg_writel(isp_h3a->dev, isp_h3a->active_buf->iommu_addr,
-		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
-
-	return 0;
-}
-
 /**
  * isph3a_aewb_configure - Configure AEWB regs, enable/disable H3A engine.
  * @aewbcfg: Pointer to AEWB config structure.
@@ -581,12 +428,11 @@ static int isph3a_aewb_buffer_alloc(struct isp_h3a_device *isp_h3a,
 int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 			  struct isph3a_aewb_config *aewbcfg)
 {
-	struct isp_device *isp =
-		container_of(isp_h3a, struct isp_device, isp_h3a);
 	int ret = 0;
 	int win_count = 0;
 	unsigned int buf_size;
 	unsigned long irqflags;
+	struct ispstat_buffer *buf;
 
 	if (NULL == aewbcfg) {
 		dev_info(isp_h3a->dev, "h3a: Null argument in configuration\n");
@@ -606,21 +452,19 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 
 	buf_size = win_count * AEWB_PACKET_SIZE;
 
-	ret = isph3a_aewb_buffer_alloc(isp_h3a, buf_size);
+	ret = ispstat_bufs_alloc(&isp_h3a->stat, buf_size);
 	if (ret)
 		return ret;
+
+	buf = ispstat_buf_next(&isp_h3a->stat);
 
 	spin_lock_irqsave(&isp_h3a->lock, irqflags);
 
 	isp_h3a->win_count = win_count;
-	isp_h3a->buf_size = buf_size;
 
 	isph3a_aewb_set_params(isp_h3a, aewbcfg);
-	if (isp->module.running == ISP_STOPPED)
-		isph3a_aewb_update_regs(isp_h3a);
-
-	isp_h3a->config_counter++;
-
+	isp_reg_writel(isp_h3a->dev, buf->iommu_addr,
+		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
 	isph3a_aewb_enable(isp_h3a, aewbcfg->aewb_enable);
 	isph3a_print_status(isp_h3a);
 
@@ -682,7 +526,7 @@ int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 	if (aewbdata->update & REQUEST_STATISTICS)
 		ret = isph3a_aewb_get_stats(isp_h3a, aewbdata);
 	else
-		aewbdata->curr_frame = isp_h3a->frame_number;
+		aewbdata->curr_frame = isp_h3a->stat.frame_number;
 
 	DPRINTK_ISPH3A("isph3a_aewb_request_statistics: "
 		       "aewbdata->h3a_aewb_statistics_buf => %p\n",
@@ -705,6 +549,7 @@ int __init isph3a_aewb_init(struct device *dev)
 	isp_h3a->dev = dev;
 	spin_lock_init(&isp_h3a->lock);
 	isp_h3a->aewb_config_local.saturation_limit = AEWB_SATURATION_LIMIT;
+	ispstat_init(dev, &isp_h3a->stat, H3A_MAX_BUFF, MAX_FRAME_COUNT);
 
 	return 0;
 }
@@ -716,7 +561,7 @@ void isph3a_aewb_cleanup(struct device *dev)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 
-	isph3a_aewb_buffer_free(&isp->isp_h3a);
+	ispstat_free(&isp->isp_h3a.stat);
 }
 
 /**
