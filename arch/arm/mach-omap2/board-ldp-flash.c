@@ -75,34 +75,34 @@ static struct mtd_partition ldp_nand_partitions[] = {
 	},
 	{
 		.name		= "U-Boot-NAND",
-		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x80000 */
-		.size		= 4 * (64 * 2048),
+		.offset		= 0x0080000,
+		.size		= 0x0180000, /* 1.5 M */
 		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
 	},
 	{
 		.name		= "Boot Env-NAND",
-		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x100000 */
-		.size		= 2 * (64 * 2048),
+		.offset		= 0x01C0000,
+		.size		= 0x0040000,
 	},
 	{
 		.name		= "Kernel-NAND",
-		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x140000 */
-		.size		= 32 * (64 * 2048),
+		.offset		= 0x0200000,
+		.size		= 0x1C00000,   /* 30M */
 	},
 	{
 		.name		= "system",
- 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x540000 */
-		.size		= 512 * (64 * 2048),    /* 64M */
+		.offset		= 0x2000000,
+		.size		= 0xA000000,   /* 160M */
 	},
 	{
 		.name		= "userdata",
-		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x4540000 */
-		.size		= 512 * (64 * 2048),    /* 64M */
+		.offset		= 0xC000000,
+		.size		= 0x2000000,    /* 32M */
  	},
 	{
 		.name		= "cache",
-		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x8540000 */
-		.size		= 512 * (64 * 2048),    /* 64M */
+		.offset		= 0xE000000,
+		.size		= 0x2000000,    /* 32M */
  	},
 };
 
