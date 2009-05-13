@@ -64,8 +64,8 @@ void __isph3a_aewb_enable(struct isp_h3a_device *isp_h3a, u8 enable)
 		DPRINTK_ISPH3A("    H3A disabled \n");
 	}
 	isp_h3a->update = 1;
-	isph3a_aewb_update_regs(isp_h3a);
 	isp_h3a->aewb_config_local.aewb_enable = enable;
+	isph3a_aewb_update_regs(isp_h3a);
 }
 
 /**
