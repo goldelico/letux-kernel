@@ -185,7 +185,6 @@ static void isph3a_aewb_update_regs(struct isp_h3a_device *isp_h3a)
 static int isph3a_aewb_get_stats(struct isp_h3a_device *isp_h3a,
 				 struct isph3a_aewb_data *aewbdata)
 {
-	int rval = 0;
 	unsigned long irqflags;
 	struct ispstat_buffer *buf;
 
@@ -206,13 +205,7 @@ static int isph3a_aewb_get_stats(struct isp_h3a_device *isp_h3a,
 
 	ispstat_buf_release(&isp_h3a->stat);
 
-	if (rval) {
-		dev_info(isp_h3a->dev,
-			 "failed copying %d bytes of h3a data\n", rval);
-		rval = -EFAULT;
-	}
-
-	return rval;
+	return 0;
 }
 
 /**
