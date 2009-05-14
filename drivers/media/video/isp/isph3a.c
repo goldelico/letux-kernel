@@ -496,7 +496,6 @@ EXPORT_SYMBOL(isph3a_aewb_configure);
 int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 				   struct isph3a_aewb_data *aewbdata)
 {
-	int ret = 0;
 	unsigned long irqflags;
 
 	if (!isp_h3a->aewb_config_local.aewb_enable) {
@@ -531,16 +530,17 @@ int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 
 	spin_unlock_irqrestore(&isp_h3a->lock, irqflags);
 
-	if (aewbdata->update & REQUEST_STATISTICS)
-		ret = isph3a_aewb_get_stats(isp_h3a, aewbdata);
-	else
+	if (aewbdata->update & REQUEST_STATISTICS) {
+		if (isph3a_aewb_get_stats(isp_h3a, aewbdata))
+			aewbdata->curr_frame = isp_h3a->stat.max_frame;
+	} else
 		aewbdata->curr_frame = isp_h3a->stat.frame_number;
 
 	DPRINTK_ISPH3A("isph3a_aewb_request_statistics: "
 		       "aewbdata->h3a_aewb_statistics_buf => %p\n",
 		       aewbdata->h3a_aewb_statistics_buf);
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(isph3a_aewb_request_statistics);
 
