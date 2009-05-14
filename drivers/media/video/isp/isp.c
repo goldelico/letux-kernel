@@ -2565,12 +2565,13 @@ static int isp_probe(struct platform_device *pdev)
 
 	isp_get();
 	isp->iommu = iommu_get("isp");
-	isp_put();
 	if (IS_ERR(isp->iommu)) {
 		ret_err = PTR_ERR(isp->iommu);
 		isp->iommu = NULL;
-		goto out_iommu_get;
 	}
+	isp_put();
+	if (!isp->iommu)
+		goto out_iommu_get;
 
 	isp_ccdc_init(&pdev->dev);
 	isp_hist_init(&pdev->dev);
