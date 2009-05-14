@@ -476,11 +476,22 @@ static void gta02_udc_vbus_draw(unsigned int ma)
 	schedule_delayed_work(&gta02_charger_work,
 				GTA02_CHARGER_CONFIGURE_TIMEOUT);
 }
+
+static int gta02_udc_vbus_status(void)
+{
+	struct pcf50633 *pcf = gta02_pcf;
+
+        if (!gta02_pcf)
+		return -ENODEV;
+
+	return !!(pcf50633_mbc_get_status(pcf) & PCF50633_MBC_USB_ONLINE);
+}
 #else /* !CONFIG_CHARGER_PCF50633 */
 #define gta02_get_charger_online_status NULL
 #define gta02_get_charger_active_status NULL
 #define gta02_pmu_event_callback        NULL
 #define gta02_udc_vbus_draw             NULL
+#define gta02_udc_vbus_status           NULL
 #endif
 
 static struct platform_device gta01_pm_gps_dev = {
@@ -954,6 +965,7 @@ static void gta02_udc_command(enum s3c2410_udc_cmd_e cmd)
 static struct s3c2410_udc_mach_info gta02_udc_cfg = {
 	.vbus_draw	= gta02_udc_vbus_draw,
 	.udc_command	= gta02_udc_command,
+	.get_vbus_status= gta02_udc_vbus_status,
 
 };
 
