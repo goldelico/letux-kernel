@@ -414,7 +414,7 @@ int isppreview_config_darklineoffset(struct isp_prev_device *isp_prev,
 
 int isppreview_set_darkaddr(struct isp_prev_device *isp_prev, u32 addr);
 
-void isppreview_enable(struct isp_prev_device *isp_prev, int enable);
+void isppreview_enable(struct isp_prev_device *isp_prev);
 
 int isppreview_busy(struct isp_prev_device *isp_prev);
 

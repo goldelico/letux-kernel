@@ -652,17 +652,14 @@ int isppreview_config_datapath(struct isp_prev_device *isp_prev,
 	switch (input) {
 	case PRV_RAW_CCDC:
 		pcr &= ~ISPPRV_PCR_SOURCE;
-		pcr |= ISPPRV_PCR_ONESHOT;
 		isp_prev->prev_inpfmt = PRV_RAW_CCDC;
 		break;
 	case PRV_RAW_MEM:
 		pcr |= ISPPRV_PCR_SOURCE;
-		pcr |= ISPPRV_PCR_ONESHOT;
 		isp_prev->prev_inpfmt = PRV_RAW_MEM;
 		break;
 	case PRV_CCDC_DRKF:
 		pcr |= ISPPRV_PCR_DRKFCAP;
-		pcr |= ISPPRV_PCR_ONESHOT;
 		isp_prev->prev_inpfmt = PRV_CCDC_DRKF;
 		break;
 	case PRV_COMPCFA:
@@ -1767,14 +1764,10 @@ EXPORT_SYMBOL_GPL(isppreview_set_darkaddr);
  *
  * Client should configure all the sub modules in Preview before this.
  **/
-void isppreview_enable(struct isp_prev_device *isp_prev, int enable)
+void isppreview_enable(struct isp_prev_device *isp_prev)
 {
-	if (enable)
-		isp_reg_or(isp_prev->dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
-			   ISPPRV_PCR_EN);
-	else
-		isp_reg_and(isp_prev->dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
-			    ~ISPPRV_PCR_EN);
+	isp_reg_or(isp_prev->dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
+		   ISPPRV_PCR_EN | ISPPRV_PCR_ONESHOT);
 }
 EXPORT_SYMBOL_GPL(isppreview_enable);
 
