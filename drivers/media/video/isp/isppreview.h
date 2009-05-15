@@ -228,7 +228,6 @@ struct isptables_update {
 };
 /**
  * struct isp_prev_device - Structure for storing ISP Preview module information
- * @prev_inuse: Flag to determine if CCDC has been reserved or not (0 or 1).
  * @prevout_w: Preview output width.
  * @prevout_h: Preview output height.
  * @previn_w: Preview input width.
@@ -247,13 +246,11 @@ struct isptables_update {
  * @contrast: Contrast in preview module.
  * @color: Color effect in preview module.
  * @cfafmt: Color Filter Array (CFA) Format.
- * @ispprev_mutex: Mutex for isp preview.
  *
  * This structure is used to store the OMAP ISP Preview module Information.
  */
 struct isp_prev_device {
 	int pm_state;
-	u8 prev_inuse;
 	u32 prevout_w;
 	u32 prevout_h;
 	u32 previn_w;
@@ -281,7 +278,6 @@ struct isp_prev_device {
 	u8 contrast;
 	enum v4l2_colorfx color;
 	enum cfa_fmt cfafmt;
-	struct mutex ispprev_mutex; /* For checking/modifying prev_inuse */
 	struct ispprev_nf prev_nf_t;
 	struct prev_params params;
 	int shadow_update;
@@ -295,7 +291,7 @@ void isppreview_config_shadow_registers(struct isp_prev_device *isp_prev);
 
 int isppreview_request(struct isp_prev_device *isp_prev);
 
-int isppreview_free(struct isp_prev_device *isp_prev);
+void isppreview_free(struct isp_prev_device *isp_prev);
 
 int isppreview_config_datapath(struct isp_prev_device *isp_prev,
 			       enum preview_input input,
@@ -417,8 +413,6 @@ int isppreview_set_darkaddr(struct isp_prev_device *isp_prev, u32 addr);
 void isppreview_enable(struct isp_prev_device *isp_prev);
 
 int isppreview_busy(struct isp_prev_device *isp_prev);
-
-struct prev_params *isppreview_get_config(struct isp_prev_device *isp_prev);
 
 void isppreview_print_status(struct isp_prev_device *isp_prev);
 

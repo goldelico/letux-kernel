@@ -584,14 +584,6 @@ EXPORT_SYMBOL_GPL(isppreview_config_shadow_registers);
  **/
 int isppreview_request(struct isp_prev_device *isp_prev)
 {
-	mutex_lock(&isp_prev->ispprev_mutex);
-	if (isp_prev->prev_inuse) {
-		mutex_unlock(&isp_prev->ispprev_mutex);
-		dev_err(isp_prev->dev, "preview: Module Busy\n");
-		return -EBUSY;
-	}
-	isp_prev->prev_inuse = 1;
-	mutex_unlock(&isp_prev->ispprev_mutex);
 	isp_reg_or(isp_prev->dev,
 		   OMAP3_ISP_IOMEM_MAIN, ISP_CTRL, ISPCTRL_PREV_RAM_EN |
 		   ISPCTRL_PREV_CLK_EN | ISPCTRL_SBL_WR1_RAM_EN);
@@ -604,23 +596,12 @@ EXPORT_SYMBOL_GPL(isppreview_request);
  *
  * Returns 0 if successful, or -EINVAL if the module was already freed.
  **/
-int isppreview_free(struct isp_prev_device *isp_prev)
+void isppreview_free(struct isp_prev_device *isp_prev)
 {
-	mutex_lock(&isp_prev->ispprev_mutex);
-	if (isp_prev->prev_inuse) {
-		isp_prev->prev_inuse = 0;
-		mutex_unlock(&isp_prev->ispprev_mutex);
-		isp_reg_and(isp_prev->dev, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL,
+	isp_reg_and(isp_prev->dev, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL,
 			    ~(ISPCTRL_PREV_CLK_EN |
 			      ISPCTRL_PREV_RAM_EN |
 			      ISPCTRL_SBL_WR1_RAM_EN));
-		return 0;
-	} else {
-		mutex_unlock(&isp_prev->ispprev_mutex);
-		DPRINTK_ISPPREV("ISP_ERR : Preview Module already freed\n");
-		return -EINVAL;
-	}
-
 }
 EXPORT_SYMBOL_GPL(isppreview_free);
 
@@ -1782,15 +1763,6 @@ int isppreview_busy(struct isp_prev_device *isp_prev)
 EXPORT_SYMBOL_GPL(isppreview_busy);
 
 /**
- * isppreview_get_config - Gets parameters of preview module.
- **/
-struct prev_params *isppreview_get_config(struct isp_prev_device *isp_prev)
-{
-	return &isp_prev->params;
-}
-EXPORT_SYMBOL_GPL(isppreview_get_config);
-
-/**
  * isppreview_save_context - Saves the values of the preview module registers.
  **/
 void isppreview_save_context(struct device *dev)
@@ -1817,7 +1789,6 @@ EXPORT_SYMBOL_GPL(isppreview_restore_context);
  **/
 void isppreview_print_status(struct isp_prev_device *isp_prev)
 {
-	DPRINTK_ISPPREV("Module in use =%d\n", isp_prev->prev_inuse);
 	DPRINTK_ISPPREV("Preview Input format =%d, Output Format =%d\n",
 			isp_prev->prev_inpfmt,
 			isp_prev->prev_outfmt);
@@ -1931,8 +1902,6 @@ int __init isp_preview_init(struct device *dev)
 	int i = 0;
 
 	isp_prev->dev = dev;
-	isp_prev->prev_inuse = 0;
-	mutex_init(&isp_prev->ispprev_mutex);
 
 	/* Init values */
 	isp_prev->update_color_matrix = 0;
@@ -1997,9 +1966,3 @@ int __init isp_preview_init(struct device *dev)
 	return 0;
 }
 
-/**
- * isp_preview_cleanup - Module Cleanup.
- **/
-void isp_preview_cleanup(struct device *dev)
-{
-}

@@ -2372,7 +2372,6 @@ static int isp_remove(struct platform_device *pdev)
 	isp_csi2_cleanup(&pdev->dev);
 	isp_af_exit(&pdev->dev);
 	isp_resizer_cleanup(&pdev->dev);
-	isp_preview_cleanup(&pdev->dev);
 	isp_get();
 	if (isp->iommu)
 		iommu_put(isp->iommu);
