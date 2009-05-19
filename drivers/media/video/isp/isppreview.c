@@ -952,8 +952,9 @@ void isppreview_config_cfa(struct isp_prev_device *isp_prev,
 
 	isp_prev->cfafmt = prev_cfa.cfafmt;
 
-	isp_reg_or(isp_prev->dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
-		   (prev_cfa.cfafmt << ISPPRV_PCR_CFAFMT_SHIFT));
+	isp_reg_and_or(isp_prev->dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
+		       ~ISPPRV_PCR_CFAFMT_MASK,
+		       (prev_cfa.cfafmt << ISPPRV_PCR_CFAFMT_SHIFT));
 
 	isp_reg_writel(isp_prev->dev,
 		(prev_cfa.cfa_gradthrs_vert << ISPPRV_CFA_GRADTH_VER_SHIFT) |
