@@ -1,0 +1,78 @@
+/*
+ *  ipc_ioctl.h
+ *
+ *  Base file for all TI OMAP IPC ioctl's.
+ *  Linux-OMAP IPC has allocated base 0xEE with a range of 0x00-0xFF.
+ *  (need to get  the real one from open source maintainers)
+ *
+ *  Copyright (C) 2008-2009 Texas Instruments, Inc.
+ *
+ *  This package is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
+ *
+ *  THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
+ *  IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
+ *  WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR
+ *  PURPOSE.
+ */
+
+#ifndef _IPC_IOCTL_H
+#define _IPC_IOCTL_H
+
+#include <linux/ioctl.h>
+#include <linux/types.h>
+#include <linux/fs.h>
+
+#define IPC_IOC_MAGIC		0xE0
+#define IPC_IOC_BASE		0
+
+enum ipc_command_count {
+	MULTIPROC_CMD_NOS = 3,
+	NAMESERVER_CMD_NOS = 13,
+	HEAPBUF_CMD_NOS	= 13,
+	SHAREDREGION_CMD_NOS = 10,
+	GATEPETERSON_CMD_NOS = 11,
+	LISTMP_SHAREDMEMORY_CMD_NOS = 18,
+	MESSAGEQ_CMD_NOS = 17,
+	MESSAGEQ_TRANSPORTSHM_CMD_NOS = 9
+};
+
+enum ipc_command_ranges {
+	MULTIPROC_BASE_CMD = IPC_IOC_BASE,
+	MULTIPROC_END_CMD = (MULTIPROC_BASE_CMD + \
+				MULTIPROC_CMD_NOS - 1),
+
+	NAMESERVER_BASE_CMD = 10,
+	NAMESERVER_END_CMD = (NAMESERVER_BASE_CMD + \
+				NAMESERVER_CMD_NOS - 1),
+
+	HEAPBUF_BASE_CMD = 30,
+	HEAPBUF_END_CMD = (HEAPBUF_BASE_CMD + \
+				HEAPBUF_CMD_NOS - 1),
+
+	SHAREDREGION_BASE_CMD = 50,
+	SHAREDREGION_END_CMD = (SHAREDREGION_BASE_CMD + \
+				SHAREDREGION_CMD_NOS - 1),
+
+	GATEPETERSON_BASE_CMD = 70,
+	GATEPETERSON_END_CMD = (GATEPETERSON_BASE_CMD + \
+				GATEPETERSON_CMD_NOS - 1),
+
+	LISTMP_SHAREDMEMORY_BASE_CMD = 90,
+	LISTMP_SHAREDMEMORY_END_CMD = (LISTMP_SHAREDMEMORY_BASE_CMD + \
+				LISTMP_SHAREDMEMORY_CMD_NOS - 1),
+
+	MESSAGEQ_BASE_CMD = 110,
+	MESSAGEQ_END_CMD = (MESSAGEQ_BASE_CMD + \
+				MESSAGEQ_CMD_NOS - 1),
+
+	MESSAGEQ_TRANSPORTSHM_BASE_CMD = 130,
+	MESSAGEQ_TRANSPORTSHM_END_CMD = (MESSAGEQ_TRANSPORTSHM_BASE_CMD + \
+				MESSAGEQ_TRANSPORTSHM_CMD_NOS - 1)
+};
+
+int ipc_ioc_router(u32 cmd, ulong arg);
+
+#endif /* _IPC_IOCTL_H */
+

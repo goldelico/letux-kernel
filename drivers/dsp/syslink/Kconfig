@@ -1,0 +1,59 @@
+
+
+menuconfig Sys_Link
+	bool "Sys_Link"
+	default y
+
+if Sys_Link
+
+config MPU_SYSLINK_IPC
+        tristate "OMAP IPC Module"
+        default m
+        help
+          IPC Module
+
+config MPU_BRIDGE_NOTIFY
+	tristate "OMAP Notify Module"
+	default m 
+	help
+          Notify Module
+
+config NOTIFY_DISPATCHER  
+	tristate "Mailbox Dispatcher"
+	depends on MPU_BRIDGE_NOTIFY
+	default m
+	help
+ 	   MailBox Dispatcher Module 
+
+config  NOTIFY_TESLA  
+	tristate "OMAP Notify Tesla Module"
+	depends on MPU_BRIDGE_NOTIFY
+	default m
+	help
+ 	   Notify Tesla Module 
+
+config  NOTIFY_DUCATI  
+	tristate "OMAP Notify Ducati Module"
+	depends on MPU_BRIDGE_NOTIFY
+	default m
+	help
+ 	   Notify Ducati Module 
+
+config  SYSLINK_PROC
+	tristate "Syslink Procmgr"
+	default m
+	help
+	   Syslink proc manager
+
+config  SYSLINK_PROC4430
+
+        tristate "Proc 4430"
+	depends on SYSLINK_PROC
+        default m
+        help
+           Ducati proc implementation
+endif
+
+
+
+

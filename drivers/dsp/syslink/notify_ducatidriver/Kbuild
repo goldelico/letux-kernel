@@ -1,0 +1,19 @@
+
+
+omap_ducatidriver = notify_ducati.o drv_ducati.o
+
+
+obj-$(CONFIG_NOTIFY_DUCATI) += notify_ducatidriver.o 
+notify_ducatidriver-objs = $(omap_ducatidriver) 
+
+
+ccflags-y += -Wno-strict-prototypes
+
+#Machine dependent
+ccflags-y += -DCONFIG_DISABLE_BRIDGE_PM -DDSP_TRACEBUF_DISABLED \
+		-DVPOM4430_1_06
+
+#Header files
+ccflags-y += -Idrivers/dsp/syslink/inc
+ccflags-y += -Iarch/arm/plat-omap/include/
+

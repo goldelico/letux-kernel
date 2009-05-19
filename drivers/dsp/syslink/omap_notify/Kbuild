@@ -1,0 +1,19 @@
+libomap_notify = notify_driver.o notify.o drv_notify.o
+
+
+
+obj-$(CONFIG_MPU_BRIDGE_NOTIFY)        += omap_notify.o
+omap_notify-objs = $(libomap_notify) 
+
+
+ccflags-y += -Wno-strict-prototypes
+
+#Machine dependent
+ccflags-y += -D_TI_ -D_DB_TIOMAP -DTMS32060 \
+                -DTICFG_PROC_VER -DTICFG_EVM_TYPE -DCHNL_SMCLASS \
+                -DCHNL_MESSAGES -DUSE_LEVEL_1_MACROS  \
+                -DCONFIG_DISABLE_BRIDGE_PM -DDSP_TRACEBUF_DISABLED
+
+#Header files
+ccflags-y += -Iarch/arm/plat-omap/include
+

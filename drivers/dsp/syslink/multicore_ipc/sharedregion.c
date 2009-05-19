@@ -1,0 +1,711 @@
+/*
+ *  sharedregion.c
+ *
+ *  The SharedRegion module is designed to be used in a
+ *  multi-processor environment where there are memory regions
+ *  that are shared and accessed across different processors
+ *
+ *  Copyright (C) 2008-2009 Texas Instruments, Inc.
+ *
+ *  This package is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
+ *
+ *  THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
+ *  IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
+ *  WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR
+ *  PURPOSE.
+ */
+
+#include <linux/types.h>
+#include <linux/string.h>
+#include <linux/slab.h>
+
+#include <gt.h>
+#include <multiproc.h>
+#include <nameserver.h>
+#include <sharedregion.h>
+
+#define SHAREDREGION_MAX_REGIONS_DEFAULT 	256
+
+/*
+ *  Module state object
+ */
+struct sharedregion_object {
+	void *gate_handle;
+	struct sharedregion_info *table; /* Ptr to the table */
+	u32 bitOffset;  /* Index bit offset */
+	u32 region_size; /* Max size of each region */
+	struct sharedregion_config cfg;	/* Current config values */
+};
+
+/*
+ *  Shared region state object variable with default settings
+ */
+static struct sharedregion_object sharedregion_state = {
+	.cfg.heap_handle = NULL,
+	.cfg.gate_handle = NULL,
+	.cfg.max_regions = SHAREDREGION_MAX_REGIONS_DEFAULT
+};
+
+/*
+ * ======== sharedregion_get_config ========
+ *  Purpose:
+ *  This will get  sharedregion module configiguration
+ */
+int sharedregion_get_config(struct sharedregion_config *config)
+{
+	gt_1trace(sharedregion_mask, GT_ENTER,
+		"sharedregion_get_config:\n config: %x \n", config);
+	BUG_ON((config == NULL));
+
+	memcpy(config, &sharedregion_state.cfg,
+				sizeof(struct sharedregion_config));
+	return 0;
+}
+
+
+/*
+ * ======== sharedregion_get_bitoffset  ========
+ *  Purpose:
+ *  This will get get the bit offset
+ */
+static u32 sharedregion_get_bitoffset(u32 max_regions)
+{
+	u32 i;
+	u32 bitoffset = 0;
+	for (i = ((sizeof(void *) * 8) - 1); i >= 0; i--) {
+		if (max_regions > (1 << i))
+			break;
+	}
+
+	bitoffset = (((sizeof(void *) * 8) - 1) - i);
+	return bitoffset;
+}
+
+/*
+ * ======== sharedregion_setup ========
+ *  Purpose:
+ *  This will get setup the sharedregion module
+ */
+int sharedregion_setup(const struct sharedregion_config *config)
+{
+	struct sharedregion_config *tmpcfg = &sharedregion_state.cfg;
+	struct sharedregion_info *table = NULL;
+	u32 i;
+	u32 j;
+	s32 retval = 0;
+	u16 proc_count;
+
+	gt_1trace(sharedregion_mask, GT_ENTER,
+		"sharedregion_setup:\n config: %x \n", config);
+	if (config != NULL) {
+		if (WARN_ON(config->max_regions == 0)) {
+			retval = -EINVAL;
+			goto error;
+		}
+		memcpy(&sharedregion_state.cfg, config,
+					sizeof(struct sharedregion_config));
+	}
+
+	sharedregion_state.gate_handle = kmalloc(sizeof(struct mutex),
+								GFP_KERNEL);
+	if (sharedregion_state.gate_handle == NULL)
+		goto gate_create_fail;
+
+	sharedregion_state.bitOffset =
+			sharedregion_get_bitoffset(tmpcfg->max_regions);
+	sharedregion_state.region_size = (1 << sharedregion_state.bitOffset);
+	proc_count = multiproc_get_max_processors();
+	 /* TODO check heap usage & + 1 ? */
+	sharedregion_state.table = kmalloc(sizeof(struct sharedregion_info) *
+					tmpcfg->max_regions * (proc_count + 1),
+					GFP_KERNEL);
+	if (sharedregion_state.table == NULL) {
+		retval = -ENOMEM;
+		goto table_alloc_fail;
+	}
+
+	table = sharedregion_state.table;
+	for (i = 0; i < tmpcfg->max_regions; i++) {
+		for (j = 0; j < (proc_count + 1); j++) {
+			(table + (j * tmpcfg->max_regions) + i)->is_valid =
+									false;
+			(table + (j * tmpcfg->max_regions) + i)->base = 0;
+			(table + (j * tmpcfg->max_regions) + i)->len = 0;
+		}
+	}
+
+	mutex_init(sharedregion_state.gate_handle);
+	return 0;
+
+table_alloc_fail:
+	kfree(sharedregion_state.gate_handle);
+
+gate_create_fail:
+	memset(&sharedregion_state, 0, sizeof(struct sharedregion_object));
+	sharedregion_state.cfg.max_regions = SHAREDREGION_MAX_REGIONS_DEFAULT;
+
+error:
+	return retval;
+}
+
+/*
+ * ======== sharedregion_destroy ========
+ *  Purpose:
+ *  This will get destroy the sharedregion module
+ */
+int sharedregion_destroy(void)
+{
+	s32 retval = 0;
+	void *gate_handle = NULL;
+
+	gt_0trace(sharedregion_mask, GT_ENTER, "sharedregion_destroy: \n");
+	if (WARN_ON(sharedregion_state.table == NULL)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
+	if (retval)
+		goto error;
+
+	kfree(sharedregion_state.table);
+	gate_handle = sharedregion_state.gate_handle; /* backup gate handle */
+	memset(&sharedregion_state, 0, sizeof(struct sharedregion_object));
+	sharedregion_state.cfg.max_regions = SHAREDREGION_MAX_REGIONS_DEFAULT;
+	mutex_unlock(gate_handle);
+	kfree(gate_handle);
+	return 0;
+
+error:
+	return retval;
+}
+
+/*
+ * ======== sharedregion_add ========
+ *  Purpose:
+ *  This will add a memory segment to the lookup table
+ *  during runtime by base and length
+ */
+int sharedregion_add(u32 index, void *base, u32 len)
+{
+	struct sharedregion_info *entry = NULL;
+	struct sharedregion_info *table = NULL;
+	s32 retval = 0;
+	u32 i;
+	u16 myproc_id;
+	bool overlap = false;
+
+	gt_3trace(sharedregion_mask, GT_ENTER, "sharedregion_add:\n"
+		" index: %x base: %x,\n len: %x", index, base, len);
+
+	if (WARN_ON(sharedregion_state.table == NULL)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (index >= sharedregion_state.cfg.max_regions ||
+			sharedregion_state.region_size < len) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	myproc_id = multiproc_get_id(NULL);
+	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
+	if (retval)
+		goto error;
+
+
+	table = sharedregion_state.table;
+	for (i = 0; i < sharedregion_state.cfg.max_regions; i++) {
+		entry = (table
+			+ (myproc_id * sharedregion_state.cfg.max_regions)
+			+ i);
+		if (entry->is_valid) {
+			if ((base >= entry->base) &&
+			(base < (void *)((u32)entry->base + entry->len))) {
+				overlap = true;
+				break;
+			}
+
+			if ((void *)((u32)base + len) >= entry->base) {
+				overlap = true;
+				break;
+			}
+		}
+	}
+
+	if (overlap) {
+		retval = -EPERM;
+		goto mem_overlap_error;
+	}
+
+	entry = (table
+		 + (myproc_id * sharedregion_state.cfg.max_regions)
+		 + index);
+	if (entry->is_valid == false) {
+		entry->base = base;
+		entry->len = len;
+		entry->is_valid = true;
+
+	} else {
+		retval = -EEXIST;
+		goto dup_entry_error;
+	}
+
+	mutex_unlock(sharedregion_state.gate_handle);
+	return 0;
+
+dup_entry_error: /* Fall through */
+mem_overlap_error:
+	mutex_unlock(sharedregion_state.gate_handle);
+
+error:
+	return retval;
+}
+
+/*
+ * ======== sharedregion_remove ========
+ *  Purpose:
+ *  This will removes a memory segment to the lookup table
+ *  during runtime by base and length
+ */
+int sharedregion_remove(u32 index)
+{
+	struct sharedregion_info *entry = NULL;
+	struct sharedregion_info *table = NULL;
+	s32 retval = 0;
+
+	gt_1trace(sharedregion_mask, GT_ENTER,
+		"sharedregion_remove:\n index: %x \n", index);
+	if (WARN_ON(sharedregion_state.table == NULL)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (index >= sharedregion_state.cfg.max_regions) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
+	if (retval)
+		goto error;
+
+	table = sharedregion_state.table;
+	entry = (table + index);
+	entry->is_valid = false;
+	entry->base = NULL;
+	entry->len = 0;
+	mutex_unlock(sharedregion_state.gate_handle);
+	return 0;
+
+error:
+	return retval;
+}
+
+
+/*
+ * ======== sharedregion_get_index ========
+ *  Purpose:
+ *  This will return the index for the specified address pointer.
+ */
+int sharedregion_get_index(void *addr)
+{
+	struct sharedregion_info *entry = NULL;
+	struct sharedregion_info *table = NULL;
+	bool found = false;
+	u32 i;
+	u16 myproc_id;
+	s32 retval  = 0;
+
+	gt_1trace(sharedregion_mask, GT_ENTER,
+		"sharedregion_get_index:\n addr: %x \n", addr);
+	if (WARN_ON(sharedregion_state.table == NULL)) {
+		retval = -ENODEV;
+		goto exit;
+	}
+
+	myproc_id = multiproc_get_id(NULL);
+	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
+	if (retval)
+		goto exit;
+
+	table = sharedregion_state.table;
+	for (i = 0; i < sharedregion_state.cfg.max_regions; i++) {
+		entry = (table
+			+ (myproc_id * sharedregion_state.cfg.max_regions)
+			+ i);
+		if ((addr >= entry->base) &&
+		(addr < (void *)((u32)entry->base + (entry->len)))) {
+			found = true;
+			break;
+		}
+	}
+
+	if (found)
+		retval = i;
+	else
+		retval = -ENOENT; /* No entry found in the table */
+
+	mutex_unlock(sharedregion_state.gate_handle);
+
+exit:
+	return retval;
+}
+
+/*
+ * ======== sharedregion_get_ptr ========
+ *  Purpose:
+ *  This will return the address pointer associated with the
+ *  shared region pointer
+ */
+void *sharedregion_get_ptr(u32 *srptr)
+{
+	struct sharedregion_info *entry = NULL;
+	void *ptr = NULL;
+	u16 myproc_id;
+	s32 retval = 0;
+
+	gt_1trace(sharedregion_mask, GT_ENTER,
+		"sharedregion_get_ptr:\n srptr: %x \n", srptr);
+	if (WARN_ON(sharedregion_state.table == NULL))
+		goto error;
+
+	if (WARN_ON(srptr == SHAREDREGION_INVALIDSRPTR))
+		goto error;
+
+	myproc_id = multiproc_get_id(NULL);
+	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
+	if (WARN_ON(retval != 0))
+		goto error;
+
+	entry = (sharedregion_state.table
+		 + (myproc_id * sharedregion_state.cfg.max_regions)
+		 + ((u32)srptr >> sharedregion_state.bitOffset));
+	/* TO DO check:: is this correct ? */
+	ptr = ((void *)(((u32)srptr &
+		((1 << sharedregion_state.bitOffset) - 1)) + (u32)entry->base));
+	mutex_unlock(sharedregion_state.gate_handle);
+	return ptr;
+
+error:
+	return (void *)NULL;
+
+}
+
+/*
+ * ======== sharedregion_get_srptr ========
+ *  Purpose:
+ *  This will return sharedregion pointer associated with the
+ *  an address in a shared region area registered with the
+ *  sharedregion module
+ */
+u32 *sharedregion_get_srptr(void *addr, s32 index)
+{
+	struct sharedregion_info *entry = NULL;
+	u32 *ptr = SHAREDREGION_INVALIDSRPTR ;
+	u32 myproc_id;
+	s32 retval = 0;
+
+	gt_2trace(sharedregion_mask, GT_ENTER,
+		"sharedregion_get_srptr:\n"
+		"addr: %x, index: %x \n", addr, index);
+	if (WARN_ON(sharedregion_state.table == NULL))
+		goto error;
+
+	if (WARN_ON(addr == NULL))
+		goto error;
+
+	if (WARN_ON(index >= sharedregion_state.cfg.max_regions))
+		goto error;
+
+	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
+	if (WARN_ON(retval != 0))
+		goto error;
+
+	myproc_id = multiproc_get_id(NULL);
+	entry = (sharedregion_state.table
+		+ (myproc_id * sharedregion_state.cfg.max_regions)
+		+ index);
+	ptr = (u32 *) ((index << sharedregion_state.bitOffset)
+				| ((u32)addr - (u32)entry->base));
+	mutex_unlock(sharedregion_state.gate_handle);
+	return ptr;
+
+error:
+	return (u32 *)NULL;
+}
+
+/*
+ * ======== sharedregion_get_table_info ========
+ *  Purpose:
+ *  This will get the table entry information for the
+ *  specified index and id
+ */
+int sharedregion_get_table_info(u32 index, u16 proc_id,
+				struct sharedregion_info *info)
+{
+	struct sharedregion_info *entry = NULL;
+	struct sharedregion_info *table = NULL;
+	u16 proc_count;
+	s32 retval = 0;
+
+	gt_3trace(sharedregion_mask, GT_ENTER,
+		"sharedregion_get_table_info:\n"
+		"index: %x, proc_id: %x,\n info: %x \n",
+		index, proc_id, info);
+	BUG_ON(info != NULL);
+	if (WARN_ON(sharedregion_state.table == NULL)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	proc_count = multiproc_get_max_processors();
+	if (index >= sharedregion_state.cfg.max_regions ||
+						proc_id >= proc_count) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
+	if (retval)
+		goto error;
+
+	table = sharedregion_state.table;
+	entry = (table
+		+ (proc_id * sharedregion_state.cfg.max_regions)
+		+ index);
+	memcpy((void *) info, (void *) entry, sizeof(struct sharedregion_info));
+	mutex_unlock(sharedregion_state.gate_handle);
+	return 0;
+
+error:
+	return retval;
+}
+
+/*
+ * ======== sharedregion_set_table_info ========
+ *  Purpose:
+ *  This will set the table entry information for the
+ *  specified index and id
+ */
+int sharedregion_set_table_info(u32 index, u16 proc_id,
+				struct sharedregion_info *info)
+{
+	struct sharedregion_info *entry = NULL;
+	struct sharedregion_info *table = NULL;
+	u16 proc_count;
+	s32 retval = 0;
+
+	gt_3trace(sharedregion_mask, GT_ENTER,
+		"sharedregion_set_table_info:\n"
+		"index: %x, proc_id: %x,\n info: %x \n",
+		index, proc_id, info);
+	BUG_ON(info != NULL);
+	if (WARN_ON(sharedregion_state.table == NULL)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	proc_count = multiproc_get_max_processors();
+	if (index >= sharedregion_state.cfg.max_regions ||
+						proc_id >= proc_count) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
+	if (retval)
+		goto error;
+
+	table = sharedregion_state.table;
+	entry = (table
+		+ (proc_id * sharedregion_state.cfg.max_regions)
+		+ index);
+	memcpy((void *) entry, (void *) info, sizeof(struct sharedregion_info));
+	mutex_unlock(sharedregion_state.gate_handle);
+	return 0;
+
+error:
+	return retval;
+}
+
+/*
+ * ======== Sharedregion_attach ========
+ *  Purpose:
+ *  This will attachs the shared region with an proc_id
+ *
+ *  Application should call this function from the callback
+ *  function registered for device attach to the processor
+ *  manager. All modules which requires some logic setup
+ *  to be done when a device gets attach to the system,
+ *  should export API like this. Please see the below psuedo
+ *  code for example:
+ *  Example
+ *  code
+ *      void function (proc_id, config) {
+ *          NotifyDriver_attach (proc_id, config->ndParams);
+ *           SysMemMgr_attach (proc_id);
+ *           SMM_attach (proc_id);
+ *            NameServerRemoteTransport_attach(proc_id, config->nsrtParams);
+ *            SharedRegion_attach (proc_id);
+ *            SharedMemory_getConfig (&cfg);
+ *             for (i = 0u; i < cfg->maxRegions; i++) {
+ *                  SharedRegion_getTableInfo(i, &myinfo,   myProcId);
+ *                  SharedRegion_getTableInfo(i, &peerinfo, proc_id);
+ *                   DMM_map (proc_id,
+ *                           PA(myinfo->vaddr),
+ *                            peerinfo->vaddr,
+ *                            myinfo->len);
+ *               }
+ *               ...
+ *          }
+ *
+ *          main () {
+ *               # attach callback for device attach only
+ *                ProcMgr_register (function, proc_id, DEV_ATTACH);
+ *          }
+ *
+ */
+void sharedregion_attach(u16 proc_id)
+{
+	struct sharedregion_info *entry = NULL;
+	struct sharedregion_info *table = NULL;
+	char *hexstr = "0123456789ABCDEF";
+	char tname[80];
+	u16 proc_id_list[2];
+	u32 addr = 0;
+	u32 len;
+	u16 proc_count;
+	void *nshandle;
+	s32 retval = 0;
+	s32 i;
+
+	gt_1trace(sharedregion_mask, GT_ENTER,
+		"sharedregion_attach:\n proc_id: %x\n", proc_id);
+	if (WARN_ON(sharedregion_state.table == NULL))
+		goto error;
+
+	proc_count = multiproc_get_max_processors();
+	if (WARN_ON(proc_id >= proc_count))
+		goto error;
+
+	proc_id_list[0] = proc_id;
+	proc_id_list[1] = MULTIPROC_INVALIDID;
+	nshandle = nameserver_get_handle(SHAREDREGION_NAMESERVER);
+	if (nshandle == NULL)
+		goto error;
+
+	/* Get Shared region entries from the remote shared region nameserver */
+	for (i = 0u; i < sharedregion_state.cfg.max_regions; i++) {
+		memset(tname, 0, 80);
+		strcpy(tname, "SHAREDREGION:SRENTRY_ADDR_");
+		tname[strlen(tname)] = hexstr[(proc_id >> 4u) & 0xF];
+		tname[strlen(tname)] = hexstr[proc_id & 0xF];
+		tname[strlen(tname)] = '_';
+		tname[strlen(tname)] = hexstr[(i >> 28u) & 0xF];
+		tname[strlen(tname)] = hexstr[(i >> 24u) & 0xF];
+		tname[strlen(tname)] = hexstr[(i >> 20u) & 0xF];
+		tname[strlen(tname)] = hexstr[(i >> 16u) & 0xF];
+		tname[strlen(tname)] = hexstr[(i >> 12u) & 0xF];
+		tname[strlen(tname)] = hexstr[(i >>  8u) & 0xF];
+		tname[strlen(tname)] = hexstr[(i >>  4u) & 0xF];
+		tname[strlen(tname)] = hexstr[i & 0xF];
+		retval = nameserver_get(nshandle, tname,
+					&len, sizeof(u32), &proc_id_list[0]);
+		if (WARN_ON(retval))
+			;
+
+		memset(tname, 0, 80u);
+		strcpy(tname, "SHAREDREGION:SRENTRY_LEN_");
+		tname[strlen(tname)] = hexstr[(proc_id >> 4u) & 0xF];
+		tname[strlen(tname)] = hexstr[proc_id & 0xF];
+		tname[strlen(tname)] = '_';
+		tname[strlen(tname)] = hexstr[(i >> 28u) & 0xF];
+		tname[strlen(tname)] = hexstr[(i >> 24u) & 0xF];
+		tname[strlen(tname)] = hexstr[(i >> 20u) & 0xF];
+		tname[strlen(tname)] = hexstr[(i >> 16u) & 0xF];
+		tname[strlen(tname)] = hexstr[(i >> 12u) & 0xF];
+		tname[strlen(tname)] = hexstr[(i >>  8u) & 0xF];
+		tname[strlen(tname)] = hexstr[(i >>  4u) & 0xF];
+		tname[strlen(tname)] = hexstr[i & 0xF];
+
+		/* TO DO : check this */
+		retval = nameserver_get(nshandle, tname,
+					&len, sizeof(u32), &proc_id_list[0]);
+		if (WARN_ON(retval))
+			;
+
+		/* Found an entry in the remote nameserver */
+		/* Add it into the shared region table */
+		if (retval == 0) {
+			retval = mutex_lock_interruptible(
+					sharedregion_state.gate_handle);
+			if (WARN_ON(retval))
+				break;
+
+			table = sharedregion_state.table;
+			/* mark entry invalid */
+			entry = (table
+				+ (proc_id * sharedregion_state.cfg.max_regions)
+				+ i);
+			entry->base    = (void *)addr;
+			entry->len     = len;
+			entry->is_valid = false;
+			mutex_unlock(sharedregion_state.gate_handle);
+		}
+
+	}
+
+error:
+	return;
+}
+
+
+
+/*
+ * ======== Sharedregion_detach ========
+ *  Purpose:
+ *  This will detachs the shared region for an proc_id
+ *
+ *  Application should call this function from the callback
+ *  function registered for device detach to the processorl
+ *  manager. All modules which requires some logic setup
+ *  to be done when a device gets detach from the system,
+ *  should export API like this.
+ *  Please see the below psuedo code for example:
+ *  @Example
+ *  @code
+ *    void function (proc_id) {
+ *    	SharedRegion_detach (proc_id);
+ *    	SysMemMgr_detach (proc_id);
+ *     	...
+ *   	# Name server must be detached last
+ *    	nameserver_detach (proc_id);
+ *     }
+ *
+ *    main () {
+ *    	# attach callback for device detach only
+ *	Processor_register (function, proc_id, DEV_DETACH);
+ *    }
+ *
+ */
+void sharedregion_detach(u16 proc_id)
+{
+	u16 proc_count;
+
+	gt_1trace(sharedregion_mask, GT_ENTER,
+		"sharedRegion_detach:\n proc_id: %x\n", proc_id);
+	if (WARN_ON(sharedregion_state.table == NULL))
+		goto error;
+
+	proc_count = multiproc_get_max_processors();
+	if (WARN_ON(proc_id >= proc_count))
+		goto error;
+
+error:
+	return;
+}
+

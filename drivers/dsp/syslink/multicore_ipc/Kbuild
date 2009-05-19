@@ -1,0 +1,24 @@
+libomap_ipc = multiproc.o multiproc_ioctl.o nameserver.o \
+nameserver_ioctl.o heap.o heapbuf.o heapbuf_ioctl.o \
+gatepeterson.o gatepeterson_ioctl.o sharedregion.o sharedregion_ioctl.o \
+nameserver_remote.o nameserver_remotenotify.o listmp_sharedmemory.o \
+listmp.o listmp_sharedmemory_ioctl.o messageq.o messageq_ioctl.o \
+messageq_transportshm.o messageq_transportshm_ioctl.o OsalSemaphore.o \
+ipc_ioctl.o ipc_drv.o
+
+obj-$(CONFIG_MPU_SYSLINK_IPC)        += omap_ipc.o
+omap_ipc-objs = $(libservices) $(libomap_ipc)
+
+ccflags-y += -Wno-strict-prototypes
+
+#Machine dependent
+ccflags-y += -D_TI_ -D_DB_TIOMAP -DTMS32060 \
+                -DTICFG_PROC_VER -DTICFG_EVM_TYPE -DCHNL_SMCLASS \
+                -DCHNL_MESSAGES -DUSE_LEVEL_1_MACROS  \
+                -DCONFIG_DISABLE_BRIDGE_PM -DDSP_TRACEBUF_DISABLED
+
+#Header files
+ccflags-y += -Iarch/arm/plat-omap/include
+ccflags-y += -Iarch/arm/plat-omap/include/syslink
+ccflags-y += -Iarch/arm/plat-omap/include/dspbridge
+
