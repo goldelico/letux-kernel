@@ -137,7 +137,7 @@ EXPORT_SYMBOL(mqtshm_debugmask);
  * =============================================================================
  */
 /* Callback function registered with the Notify module. */
-static void _messageq_transportshm_notify_fxn(unsigned long proc_id,
+static void _messageq_transportshm_notify_fxn(u16 proc_id,
 					u32 event_no, void *arg, u32 payload);
 
 /* =============================================================================
@@ -702,7 +702,7 @@ u32 messageq_transportshm_shared_mem_req(const
  *  Purpose:
  *  Callback function registered with the Notify module.
  */
-void _messageq_transportshm_notify_fxn(unsigned long proc_id, u32 event_no,
+void _messageq_transportshm_notify_fxn(u16 proc_id, u32 event_no,
 					void *arg, u32 payload)
 {
 	struct messageq_transportshm_object *obj = NULL;

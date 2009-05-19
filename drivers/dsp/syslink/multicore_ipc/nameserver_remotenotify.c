@@ -268,7 +268,7 @@ void nameserver_remotenotify_params_init(void *handle,
  *  Purpose:
  *  This will be called when a notify event is received
  */
-void nameserver_remotenotify_callback(unsigned long int proc_id, u32 event_no,
+void nameserver_remotenotify_callback(u16 proc_id, u32 event_no,
 						void *arg, u32 payload)
 {
 	struct nameserver_remotenotify_obj *handle = NULL;
