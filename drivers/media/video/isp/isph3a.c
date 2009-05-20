@@ -506,7 +506,7 @@ int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 	DPRINTK_ISPH3A("isph3a_aewb_request_statistics: Enter "
 		       "(frame req. => %d, current frame => %d,"
 		       "update => %d)\n",
-		       aewbdata->frame_number, isp_h3a->frame_number,
+		       aewbdata->frame_number, isp_h3a->stat.frame_number,
 		       aewbdata->update);
 	DPRINTK_ISPH3A("User data received: \n");
 	DPRINTK_ISPH3A("Digital gain = 0x%04x\n", aewbdata->dgain);
@@ -596,7 +596,7 @@ static void isph3a_print_status(struct isp_h3a_device *isp_h3a)
 		       isp_reg_readl(isp_h3a->dev, OMAP3_ISP_IOMEM_H3A,
 				     ISPH3A_AEWBUFST));
 	DPRINTK_ISPH3A("stats windows = %d\n", isp_h3a->win_count);
-	DPRINTK_ISPH3A("stats buf size = %d\n", isp_h3a->buf_size);
+	DPRINTK_ISPH3A("stats buf size = %d\n", isp_h3a->stat.buf_size);
 }
 
 /**
