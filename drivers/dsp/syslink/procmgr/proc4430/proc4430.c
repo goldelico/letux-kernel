@@ -159,9 +159,9 @@ int proc4430_destroy(void)
 	 * delete them.
 	 */
 	for (i = 0; i < MULTIPROC_MAXPROCESSORS; i++) {
-		BUG_ON(proc4430_state.proc_handles[i] == NULL);
-		if (proc4430_state.proc_handles[i] != NULL)
-			proc4430_delete(&(proc4430_state.proc_handles[i]));
+		if (proc4430_state.proc_handles[i] == NULL)
+			continue;
+		proc4430_delete(&(proc4430_state.proc_handles[i]));
 	}
 
 	/* Check if the gate_handle was created internally. */
