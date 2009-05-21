@@ -25,6 +25,7 @@
 
 #include <linux/types.h>
 #include <linux/string.h>
+#include <linux/errno.h>
 
 #include <multiproc.h>
 
@@ -57,14 +58,15 @@ static char *multiproc_namelist[] = { modena, tesla, sysm3, appm3 };
  *  Purpose:
  *  This will set the processor id of local processor on run time
  */
-bool multiproc_set_local_id(u16 proc_id)
+int multiproc_set_local_id(u16 proc_id)
 {
-	bool status = true;
+	int status = 0;
 
 	if (proc_id >= MULTIPROC_MAXPROCESSORS)
-		status = false;
+		status = -EINVAL;
 	else
 		module->local_id = proc_id;
+
 	return status;
 }
 

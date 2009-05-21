@@ -311,16 +311,6 @@ int messageq_setup(const struct messageq_config *cfg)
 
 	if (cfg->name_table_gate != NULL) {
 		messageq_state.gate_handle = cfg->name_table_gate;
-		if (messageq_state.gate_handle == NULL) {
-			/*! @retval MESSAGEQ_E_FAIL Failed to create lock! */
-			status = MESSAGEQ_E_FAIL;
-			gt_2trace(messageq_dbgmask,
-					GT_4CLASS,
-					"MessageQ_setup",
-					status,
-					"Failed to create GateSpinlock!");
-			goto exit;
-		}
 	} else {
 		/* User has not provided any gate handle, so create a default
 		* handle for protecting list object */
@@ -346,8 +336,6 @@ int messageq_setup(const struct messageq_config *cfg)
 	params.max_name_len = cfg->max_name_len;
 
 	/* Create the nameserver for modules */
-	/*messageq_state.ns_handle = nameserver_create(MESSAGEQ_NAMESERVER,
-	&params);*/
 	messageq_state.ns_handle = nameserver_create(MESSAGEQ_NAMESERVER,
 								&params);
 	if (messageq_state.ns_handle == NULL) {
@@ -1103,12 +1091,17 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 				(messageq_state.queues[(u16)(queue_id)]);
 		key = mutex_lock_interruptible(messageq_state.gate_handle);
 		if ((msg->flags & MESSAGEQ_PRIORITYMASK) == \
-			MESSAGEQ_NORMALPRI) {
-			list_add_tail((struct list_head *) msg,
-				&obj->normal_list);
+			MESSAGEQ_URGENTPRI) {
+			list_add((struct list_head *) msg, &obj->high_list);
 		} else {
-			list_add_tail((struct list_head *) msg,
-				&obj->high_list);
+			if ((msg->flags & MESSAGEQ_PRIORITYMASK) == \
+				MESSAGEQ_NORMALPRI) {
+				list_add_tail((struct list_head *) msg,
+					&obj->normal_list);
+			} else {
+				list_add_tail((struct list_head *) msg,
+					&obj->high_list);
+			}
 		}
 		mutex_unlock(messageq_state.gate_handle);
 

@@ -21,9 +21,7 @@
 
 #include <linux/types.h>
 
-/*
- * Macro to define invalid processor id
-*/
+/* Macro to define invalid processor id */
 #define MULTIPROC_INVALIDID ((u16)0xFFFF)
 
 /*
@@ -32,10 +30,20 @@
  */
 #define MULTIPROC_MAXPROCESSORS 4
 
-bool multiproc_set_local_id(u16 proc_id);
+/* =============================================================================
+ *  APIs
+ * =============================================================================
+ */
+/* Function to set Local processor Id */
+int multiproc_set_local_id(u16 proc_id);
+
+/* Function to get processor id from processor name. */
 u16  multiproc_get_id(const char *proc_name);
+
+/* Function to get name from processor id. */
 char *multiproc_get_name(u16 proc_id);
+
+/* Function to get maximum proc Id in the system. */
 u16 multiproc_get_max_processors(void);
 
 #endif	/* _MULTIPROC_H_ */
-
