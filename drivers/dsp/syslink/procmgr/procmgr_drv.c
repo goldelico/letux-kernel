@@ -155,7 +155,9 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		* It must not be optimized out.
 		*/
 		if (WARN_ON(retval != 0))
-			retval = proc_mgr_setup(&cfg);
+			goto func_exit;
+
+		 retval = proc_mgr_setup(&cfg);
 	}
 	break;
 
@@ -177,6 +179,8 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 			sizeof(struct proc_mgr_cmd_args_params_init));
 
 		if (WARN_ON(retval != 0))
+			goto func_exit;
+
 			proc_mgr_params_init(src_args.handle, &params);
 
 		/* Copy only the params to user-side */
@@ -217,7 +221,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 		(const void *)(args),
 		sizeof(struct proc_mgr_cmd_args_delete));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 
 		retval = proc_mgr_delete(&(src_args.handle));
@@ -233,7 +237,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		(const void *)(args),
 		sizeof(struct proc_mgr_cmd_args_open));
 
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		retval = proc_mgr_open(&(src_args.handle),
 						src_args.proc_id);
@@ -257,7 +261,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 		(const void *)(args),
 		sizeof(struct proc_mgr_cmd_args_close));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		retval = proc_mgr_close(src_args.handle);
 	}
@@ -272,7 +276,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 		(const void *)(args),
 		sizeof(struct proc_mgr_cmd_args_get_attach_params));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		proc_mgr_get_attach_params(src_args.handle, &params);
 		retval = copy_to_user((void *)(src_args.params),
@@ -291,7 +295,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 		(const void *)(args),
 		sizeof(struct proc_mgr_cmd_args_attach));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		/* Copy params from user-side. */
 		retval = copy_from_user((void *)&params,
@@ -319,7 +323,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 		(const void *)(args),
 		sizeof(struct proc_mgr_cmd_args_detach));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		retval = proc_mgr_detach(src_args.handle);
 		if (WARN_ON(retval < 0))
@@ -336,7 +340,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 		(const void *)(args),
 		sizeof(struct proc_mgr_cmd_args_get_start_params));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		proc_mgr_get_start_params(src_args.handle, &params);
 		if (WARN_ON(retval < 0))
@@ -361,7 +365,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&params,
 			(const void *)(src_args.params),
 			sizeof(struct proc_mgr_start_params));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		retval = proc_mgr_start(src_args.handle, &params);
 		WARN_ON(retval);
@@ -377,7 +381,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 			(const void *)(args),
 			sizeof(struct proc_mgr_cmd_args_stop));
 
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		retval = proc_mgr_stop(src_args.handle);
 		WARN_ON(retval < 0);
@@ -393,7 +397,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 			(const void *)(args),
 			sizeof(struct proc_mgr_cmd_args_get_state));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		procmgrstate = proc_mgr_get_state(src_args.handle);
 		retval = copy_to_user((void *)(args), (const void *)&src_args,
@@ -410,7 +414,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 			(const void *)(args),
 			sizeof(struct proc_mgr_cmd_args_read));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		retval = proc_mgr_read(src_args.handle,
 			src_args.proc_addr, &(src_args.num_bytes),
@@ -432,7 +436,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 			(const void *)(args),
 			sizeof(struct proc_mgr_cmd_args_write));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		retval = proc_mgr_write(src_args.handle,
 			src_args.proc_addr, &(src_args.num_bytes),
@@ -454,7 +458,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 			(const void *)(args),
 			sizeof(struct proc_mgr_cmd_args_control));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		retval = proc_mgr_control(src_args.handle,
 			src_args.cmd, src_args.arg);
@@ -470,7 +474,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 		(const void *)(args),
 		sizeof(struct proc_mgr_cmd_args_translate_addr));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		retval = proc_mgr_translate_addr(src_args.handle,
 			&(src_args.dst_addr), src_args.dst_addr_type,
@@ -492,7 +496,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 		(const void *)(args),
 		sizeof(struct proc_mgr_cmd_args_map));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		retval = proc_mgr_map(src_args.handle,
 				src_args.proc_addr, src_args.size,
@@ -531,7 +535,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 		(const void *)(args),
 		sizeof(struct proc_mgr_cmd_args_register_notify));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		retval = proc_mgr_register_notify(src_args.handle,
 				src_args.callback_fxn,
@@ -549,7 +553,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 		(const void *)(args),
 		sizeof(struct proc_mgr_cmd_args_get_proc_info));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		retval = proc_mgr_get_proc_info
 			(src_args.handle, &proc_info);
