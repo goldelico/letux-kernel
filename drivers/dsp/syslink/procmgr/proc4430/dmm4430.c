@@ -65,9 +65,6 @@
 		i = (((a) - dyn_mem_map_begin) / PAGE_SIZE);		\
 	} while (0)
 
-#define DMMPOOLSIZE	0x4000000
-
-
 struct map_page {
 	u32 region_size:31;
 	u32 b_reserved:1;

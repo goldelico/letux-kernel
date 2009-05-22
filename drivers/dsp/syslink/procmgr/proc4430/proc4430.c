@@ -30,6 +30,9 @@
 #include <syslink/multiproc.h>
 #include <syslink/ducatienabler.h>
 
+#define DUCATI_DMM_START_ADDR			0x80000000
+#define DUCATI_DMM_POOL_SIZE			0x6000000
+
 /*OMAP4430 Module state object */
 struct proc4430_module_object {
 	u32 config_size;
@@ -122,7 +125,7 @@ int proc4430_setup(struct proc4430_config *cfg)
 		proc4430_get_config(&tmp_cfg);
 		cfg = &tmp_cfg;
 	}
-
+	dmm_create_tables(DUCATI_DMM_START_ADDR, DUCATI_DMM_POOL_SIZE);
 	if (cfg->gate_handle != NULL) {
 		proc4430_state.gate_handle = cfg->gate_handle;
 	} else {
@@ -521,3 +524,4 @@ error_exit:
 	printk(KERN_WARNING "proc4430_unmap failed !!!!\n");
 	return ret_val;
 }
+
