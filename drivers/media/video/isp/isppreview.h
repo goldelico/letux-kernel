@@ -423,9 +423,6 @@ void isppreview_restore_context(struct device *dev);
 int omap34xx_isp_preview_config(struct isp_prev_device *isp_prev,
 				void *userspace_add);
 
-int omap34xx_isp_tables_update(struct isp_prev_device *isp_prev,
-			       struct isptables_update *isptables_struct);
-
 void isppreview_set_skip(struct isp_prev_device *isp_prev, u32 h, u32 v);
 
 #endif/* OMAP_ISP_PREVIEW_H */
