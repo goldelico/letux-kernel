@@ -88,7 +88,7 @@ static void  __exit proc4430_drv_finalizeModule(void);
 /*
   File operations table for PROC4430.
  */
-static struct file_operations proc_4430_fops = {
+static const struct file_operations proc_4430_fops = {
 	.open = proc4430_drv_open,
 	.release = proc4430_drv_release,
 	.ioctl = proc4430_drv_ioctl,
