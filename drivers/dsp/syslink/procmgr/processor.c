@@ -315,7 +315,7 @@ inline int processor_translate_addr(void *handle, void **dst_addr,
  * and returns the mapped address and size.
  */
 inline int processor_map(void *handle, u32 proc_addr, u32 size,
-			u32 *mapped_addr, u32 *mapped_size)
+			u32 *mapped_addr, u32 *mapped_size, u32 map_attribs)
 {
 	int retval = 0;
 	struct processor_object *proc_handle =
@@ -329,10 +329,24 @@ inline int processor_map(void *handle, u32 proc_addr, u32 size,
 	BUG_ON(proc_handle->proc_fxn_table.map == NULL);
 
 	retval = proc_handle->proc_fxn_table.map(handle, proc_addr,
-			size, mapped_addr, mapped_size);
+			size, mapped_addr, mapped_size, map_attribs);
 	return retval;
 }
 
+/*
+ * Function to unmap address to slave address space.
+ *
+ * This function unmap the provided slave address
+ */
+inline int processor_unmap(void *handle, u32 mapped_addr)
+{
+	int retval = 0;
+	struct processor_object *proc_handle =
+				(struct processor_object *)handle;
+
+	retval = proc_handle->proc_fxn_table.unmap(handle, mapped_addr);
+	return retval;
+}
 
 /*
  * Function that registers for notification when the slave

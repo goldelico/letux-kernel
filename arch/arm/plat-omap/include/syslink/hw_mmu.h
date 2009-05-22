@@ -112,7 +112,7 @@ extern hw_status hw_mmu_pte_set(const u32     pg_tbl_va,
 				  u32	   page_size,
 				  struct hw_mmu_map_attrs_t *map_attrs);
 
-extern hw_status hw_mmu_pt_clear(const u32   pg_tbl_va,
+extern hw_status hw_mmu_pte_clear(const u32   pg_tbl_va,
 				    u32	 pg_size,
 				    u32	 virtual_addr);
 

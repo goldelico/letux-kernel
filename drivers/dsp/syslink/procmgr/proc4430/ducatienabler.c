@@ -22,6 +22,40 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <asm/page.h>
+#include <linux/kernel.h>
+#include <linux/pagemap.h>
+
+
+#include <linux/autoconf.h>
+#include <asm/system.h>
+#include <asm/atomic.h>
+#include <linux/semaphore.h>
+#include <linux/uaccess.h>
+#include <asm/irq.h>
+#include <linux/io.h>
+#include <linux/syscalls.h>
+#include <linux/version.h>
+#include <linux/kernel.h>
+#include <linux/string.h>
+#include <linux/stddef.h>
+#include <linux/types.h>
+#include <linux/interrupt.h>
+#include <linux/spinlock.h>
+#include <linux/sched.h>
+#include <linux/fs.h>
+#include <linux/file.h>
+#include <linux/slab.h>
+#include <linux/delay.h>
+#include <linux/ctype.h>
+#include <linux/mm.h>
+#include <linux/device.h>
+#include <linux/vmalloc.h>
+#include <linux/ioport.h>
+#include <linux/platform_device.h>
+#include <linux/clk.h>
+#include <linux/pagemap.h>
+#include <asm/cacheflush.h>
+#include <linux/dma-mapping.h>
 
 #include <syslink/ducatienabler.h>
 
@@ -43,9 +77,8 @@
  */
 #define DUCATI_BASEIMAGE_PHYSICAL_ADDRESS	0x83600000
 
-#define PG_MASK(pg_size) (~((pg_size)-1))
-#define PG_ALIGN_LOW(addr, pg_size) ((addr) & PG_MASK(pg_size))
-#define PG_ALIGN_HIGH(addr, pg_size) (((addr)+(pg_size)-1) & PG_MASK(pg_size))
+#define phys_to_page(phys)      pfn_to_page((phys) >> PAGE_SHIFT)
+
 
 /* Attributes used to manage the DSP MMU page tables */
 struct pg_table_attrs {
@@ -93,6 +126,13 @@ static u32 base_ducati_l2_mmu;
 
 static u32 shm_phys_addr;
 static u32 shm_virt_addr;
+
+static void bad_page_dump(u32 pa, struct page *pg)
+{
+	pr_emerg("DSPBRIDGE: MAP function: COUNT 0 FOR PA 0x%x\n", pa);
+	pr_emerg("Bad page state in process '%s'\n", current->comm);
+	BUG();
+}
 
 /*============================================
  * Print the DSP MMU Table Entries
@@ -344,6 +384,224 @@ static int pte_update(u32 pa, u32 va, u32 size,
 	return status;
 }
 
+/*
+ *  ======== ducati_mem_unmap ========
+ *      Invalidate the PTEs for the DSP VA block to be unmapped.
+ *
+ *      PTEs of a mapped memory block are contiguous in any page table
+ *      So, instead of looking up the PTE address for every 4K block,
+ *      we clear consecutive PTEs until we unmap all the bytes
+ */
+int ducati_mem_unmap(u32 da, u32 num_bytes)
+{
+	u32 L1_base_va;
+	u32 L2_base_va;
+	u32 L2_base_pa;
+	u32 L2_page_num;
+	u32 pte_val;
+	u32 pte_size;
+	u32 pte_count;
+	u32 pte_addr_l1;
+	u32 pte_addr_l2 = 0;
+	u32 rem_bytes;
+	u32 rem_bytes_l2;
+	u32 vaCurr;
+	struct page *pg = NULL;
+	int status = 0;
+	u32 temp;
+	u32 patemp = 0;
+	u32 pAddr;
+	u32 numof4Kpages = 0;
+
+	DPRINTK("> ducati_mem_unmap hDevContext %x, va %x, "
+		  "NumBytes %x\n", hDevContext, da, num_bytes);
+	vaCurr = da;
+	rem_bytes = num_bytes;
+	rem_bytes_l2 = 0;
+	L1_base_va = p_pt_attrs->l1_base_va;
+	pte_addr_l1 = hw_mmu_pte_addr_l1(L1_base_va, vaCurr);
+	while (rem_bytes) {
+		u32 vaCurrOrig = vaCurr;
+		/* Find whether the L1 PTE points to a valid L2 PT */
+		pte_addr_l1 = hw_mmu_pte_addr_l1(L1_base_va, vaCurr);
+		pte_val = *(u32 *)pte_addr_l1;
+		pte_size = hw_mmu_pte_sizel1(pte_val);
+		if (pte_size == HW_MMU_COARSE_PAGE_SIZE) {
+			/*
+			 * Get the L2 PA from the L1 PTE, and find
+			 * corresponding L2 VA
+			 */
+			L2_base_pa = hw_mmu_pte_sizel1(pte_val);
+			L2_base_va = L2_base_pa - p_pt_attrs->l2_base_pa
+						+ p_pt_attrs->l2_base_va;
+			L2_page_num = (L2_base_pa - p_pt_attrs->l2_base_pa) /
+				    HW_MMU_COARSE_PAGE_SIZE;
+			/*
+			 * Find the L2 PTE address from which we will start
+			 * clearing, the number of PTEs to be cleared on this
+			 * page, and the size of VA space that needs to be
+			 * cleared on this L2 page
+			 */
+			pte_addr_l2 = hw_mmu_pte_addr_l2(L2_base_va, vaCurr);
+			pte_count = pte_addr_l2 & (HW_MMU_COARSE_PAGE_SIZE - 1);
+			pte_count = (HW_MMU_COARSE_PAGE_SIZE - pte_count) /
+				    sizeof(u32);
+			if (rem_bytes < (pte_count * PAGE_SIZE))
+				pte_count = rem_bytes / PAGE_SIZE;
+
+			rem_bytes_l2 = pte_count * PAGE_SIZE;
+			DPRINTK("ducati_mem_unmap L2_base_pa %x, "
+				"L2_base_va %x pte_addr_l2 %x,"
+				"rem_bytes_l2 %x\n", L2_base_pa, L2_base_va,
+				pte_addr_l2, rem_bytes_l2);
+			/*
+			 * Unmap the VA space on this L2 PT. A quicker way
+			 * would be to clear pte_count entries starting from
+			 * pte_addr_l2. However, below code checks that we don't
+			 * clear invalid entries or less than 64KB for a 64KB
+			 * entry. Similar checking is done for L1 PTEs too
+			 * below
+			 */
+			while (rem_bytes_l2) {
+				pte_val = *(u32 *)pte_addr_l2;
+				pte_size = hw_mmu_pte_sizel2(pte_val);
+				/* vaCurr aligned to pte_size? */
+				if ((pte_size != 0) && (rem_bytes_l2
+					>= pte_size) &&
+					!(vaCurr & (pte_size - 1))) {
+					/* Collect Physical addresses from VA */
+					pAddr = (pte_val & ~(pte_size - 1));
+					if (pte_size == HW_PAGE_SIZE_64KB)
+						numof4Kpages = 16;
+					else
+						numof4Kpages = 1;
+					temp = 0;
+					while (temp++ < numof4Kpages) {
+						if (pfn_valid
+							(__phys_to_pfn
+							(patemp))) {
+							pg = phys_to_page
+								(pAddr);
+							if (page_count
+								(pg) < 1) {
+								bad_page_dump
+								(pAddr, pg);
+							}
+						SetPageDirty(pg);
+						page_cache_release(pg);
+						}
+						pAddr += HW_PAGE_SIZE_4KB;
+					}
+					if (hw_mmu_pte_clear(pte_addr_l2,
+						vaCurr, pte_size) == RET_OK) {
+						rem_bytes_l2 -= pte_size;
+						vaCurr += pte_size;
+						pte_addr_l2 += (pte_size >> 12)
+							* sizeof(u32);
+					} else {
+						status = -EFAULT;
+						goto EXIT_LOOP;
+					}
+				} else
+					status = -EFAULT;
+			}
+			if (rem_bytes_l2 != 0) {
+				status = -EFAULT;
+				goto EXIT_LOOP;
+			}
+			p_pt_attrs->pg_info[L2_page_num].num_entries -=
+						pte_count;
+			if (p_pt_attrs->pg_info[L2_page_num].num_entries
+								== 0) {
+				/*
+				 * Clear the L1 PTE pointing to the
+				 * L2 PT
+				 */
+				if (RET_OK != hw_mmu_pte_clear(L1_base_va,
+					vaCurrOrig, HW_MMU_COARSE_PAGE_SIZE)) {
+					status = -EFAULT;
+					goto EXIT_LOOP;
+				}
+			}
+			rem_bytes -= pte_count * PAGE_SIZE;
+			DPRINTK("ducati_mem_unmap L2_page_num %x, "
+				 "num_entries %x, pte_count %x, status: 0x%x\n",
+				  L2_page_num,
+				  p_pt_attrs->pg_info[L2_page_num].num_entries,
+				  pte_count, status);
+		} else
+			/* vaCurr aligned to pte_size? */
+			/* pte_size = 1 MB or 16 MB */
+			if ((pte_size != 0) && (rem_bytes >= pte_size) &&
+			   !(vaCurr & (pte_size - 1))) {
+				if (pte_size == HW_PAGE_SIZE_1MB)
+					numof4Kpages = 256;
+				else
+					numof4Kpages = 4096;
+				temp = 0;
+				/* Collect Physical addresses from VA */
+				pAddr = (pte_val & ~(pte_size - 1));
+				while (temp++ < numof4Kpages) {
+					pg = phys_to_page(pAddr);
+					if (page_count(pg) < 1)
+						bad_page_dump(pAddr, pg);
+					SetPageDirty(pg);
+					page_cache_release(pg);
+					pAddr += HW_PAGE_SIZE_4KB;
+				}
+				if (hw_mmu_pte_clear(L1_base_va, vaCurr,
+						pte_size) == RET_OK) {
+					rem_bytes -= pte_size;
+					vaCurr += pte_size;
+				} else {
+					status = -EFAULT;
+					goto EXIT_LOOP;
+				}
+		} else {
+			status = -EFAULT;
+		}
+	}
+	/*
+	 * It is better to flush the TLB here, so that any stale old entries
+	 * get flushed
+	 */
+EXIT_LOOP:
+	hw_mmu_tlb_flushAll(base_ducati_l2_mmu);
+	DPRINTK("ducati_mem_unmap vaCurr %x, pte_addr_l1 %x "
+		"pte_addr_l2 %x\n", vaCurr, pte_addr_l1, pte_addr_l2);
+	DPRINTK("< ducati_mem_unmap status %x rem_bytes %x, "
+		"rem_bytes_l2 %x\n", status, rem_bytes, rem_bytes_l2);
+	return status;
+}
+
+
+/*
+ *  ======== user_va2pa ========
+ *  Purpose:
+ *      This function walks through the Linux page tables to convert a userland
+ *      virtual address to physical address
+ */
+static u32 user_va2pa(struct mm_struct *mm, u32 address)
+{
+	pgd_t *pgd;
+	pmd_t *pmd;
+	pte_t *ptep, pte;
+
+	pgd = pgd_offset(mm, address);
+	if (!(pgd_none(*pgd) || pgd_bad(*pgd))) {
+		pmd = pmd_offset(pgd, address);
+		if (!(pmd_none(*pmd) || pmd_bad(*pmd))) {
+			ptep = pte_offset_map(pmd, address);
+			if (ptep) {
+				pte = *ptep;
+				if (pte_present(pte))
+					return pte & PAGE_MASK;
+			}
+		}
+	}
+
+	return 0;
+}
 
 /*============================================
  * This function maps MPU buffer to the DSP address space. It performs
@@ -352,15 +610,25 @@ static int pte_update(u32 pa, u32 va, u32 size,
 * All address & size arguments are assumed to be page aligned (in proc.c)
  *
  */
-static int ducati_mem_map(u32 ul_mpu_addr, u32 ul_virt_addr,
+int ducati_mem_map(u32 mpu_addr, u32 ul_virt_addr,
 				u32 num_bytes, u32 map_attr)
 {
 	u32 attrs;
 	int status = 0;
 	struct hw_mmu_map_attrs_t hw_attrs;
+	struct vm_area_struct *vma;
+	struct mm_struct *mm = current->mm;
+	struct task_struct *curr_task = current;
+	u32 write = 0;
+	u32 va = 0;
+	u32 pa = 0;
+	int pg_i = 0;
+	int pg_num = 0;
+	struct page *mappedPage, *pg;
+	int num_usr_pages = 0;
 
 	DPRINTK("> WMD_BRD_MemMap  pa %x, va %x, "
-		 "size %x, map_attr %x\n", ul_mpu_addr, ul_virt_addr,
+		 "size %x, map_attr %x\n", mpu_addr, ul_virt_addr,
 		 num_bytes, map_attr);
 	if (num_bytes == 0)
 		return -EINVAL;
@@ -399,13 +667,117 @@ static int ducati_mem_map(u32 ul_mpu_addr, u32 ul_virt_addr,
 			return -EINVAL;
 		}
 	}
-	status = pte_update(ul_mpu_addr, ul_virt_addr, num_bytes, &hw_attrs);
+	/*
+	 * Do OS-specific user-va to pa translation.
+	 * Combine physically contiguous regions to reduce TLBs.
+	 * Pass the translated pa to PteUpdate.
+	 */
+	if ((attrs & DSP_MAPPHYSICALADDR)) {
+		status = pte_update(mpu_addr, ul_virt_addr, num_bytes,
+								&hw_attrs);
+		goto func_cont;
+	}
+	/*
+	 * Important Note: mpu_addr is mapped from user application process
+	 * to current process - it must lie completely within the current
+	 * virtual memory address space in order to be of use to us here!
+	 */
+	down_read(&mm->mmap_sem);
+	vma = find_vma(mm, mpu_addr);
+	/*
+	 * It is observed that under some circumstances, the user buffer is
+	 * spread across several VMAs. So loop through and check if the entire
+	 * user buffer is covered
+	 */
+	while ((vma) && (mpu_addr + num_bytes > vma->vm_end)) {
+		/* jump to the next VMA region */
+		vma = find_vma(mm, vma->vm_end + 1);
+	}
+	if (!vma) {
+		status = -EINVAL;
+		up_read(&mm->mmap_sem);
+		goto func_cont;
+	}
+	if (vma->vm_flags & VM_IO) {
+		num_usr_pages = num_bytes / PAGE_SIZE;
+		va = mpu_addr;
+		/* Get the physical addresses for user buffer */
+		for (pg_i = 0; pg_i < num_usr_pages; pg_i++) {
+			pa = user_va2pa(mm, va);
+			if (!pa) {
+				status = -EFAULT;
+				pr_err("DSPBRIDGE: VM_IO mapping physical"
+						"address is invalid\n");
+				break;
+			}
+			if (pfn_valid(__phys_to_pfn(pa))) {
+				pg = phys_to_page(pa);
+				get_page(pg);
+				if (page_count(pg) < 1) {
+					pr_err("Bad page in VM_IO buffer\n");
+					bad_page_dump(pa, pg);
+				}
+			}
+			status = pte_set(pa, va, HW_PAGE_SIZE_4KB, &hw_attrs);
+			if (WARN_ON(status < 0))
+				break;
+			va += HW_PAGE_SIZE_4KB;
+			va += HW_PAGE_SIZE_4KB;
+			pa += HW_PAGE_SIZE_4KB;
+		}
+	} else {
+		num_usr_pages =  num_bytes / PAGE_SIZE;
+		if (vma->vm_flags & (VM_WRITE | VM_MAYWRITE))
+			write = 1;
 
+		for (pg_i = 0; pg_i < num_usr_pages; pg_i++) {
+			pg_num = get_user_pages(curr_task, mm, mpu_addr, 1,
+						write, 1, &mappedPage, NULL);
+			if (pg_num > 0) {
+				if (page_count(mappedPage) < 1) {
+					pr_err("Bad page count after doing"
+							"get_user_pages on"
+							"user buffer\n");
+					bad_page_dump(page_to_phys(mappedPage),
+								mappedPage);
+				}
+				status = pte_set(page_to_phys(mappedPage), va,
+					HW_PAGE_SIZE_4KB, &hw_attrs);
+				if (WARN_ON(status < 0))
+					break;
+				va += HW_PAGE_SIZE_4KB;
+				mpu_addr += HW_PAGE_SIZE_4KB;
+			} else {
+				pr_err("DSPBRIDGE: get_user_pages FAILED,"
+						"MPU addr = 0x%x,"
+						"vma->vm_flags = 0x%lx,"
+						"get_user_pages Err"
+						"Value = %d, Buffer"
+						"size=0x%x\n", mpu_addr,
+						vma->vm_flags, pg_num,
+						num_bytes);
+				status = -EFAULT;
+				break;
+			}
+		}
+	}
+	up_read(&mm->mmap_sem);
+func_cont:
+	/* Don't propogate Linux or HW status to upper layers */
+	if (status < 0) {
+		/*
+		 * Roll out the mapped pages incase it failed in middle of
+		 * mapping
+		 */
+		if (pg_i)
+			ducati_mem_unmap(ul_virt_addr, (pg_i * PAGE_SIZE));
+	}
 	 /* In any case, flush the TLB
 	 * This is called from here instead from pte_update to avoid unnecessary
 	 * repetition while mapping non-contiguous physical regions of a virtual
 	 * region */
 	hw_mmu_tlb_flushAll(base_ducati_l2_mmu);
+	WARN_ON(status < 0);
 	DPRINTK("< WMD_BRD_MemMap status %x\n", status);
 	return status;
 }
@@ -568,8 +940,10 @@ static int add_entry_ext(u32 *phys_addr, u32 *dsp_addr,
 	u32 entry_size = 0;
 	int status = 0;
 	u32 page_size = HW_PAGE_SIZE_1MB;
-	u32 flags = DSP_MAPELEMSIZE32;
+	u32 flags = 0;
 
+	flags = (DSP_MAPELEMSIZE32 | DSP_MAPLITTLEENDIAN |
+					DSP_MAPPHYSICALADDR);
 	while ((mapped_size < size) && (status == 0)) {
 
 		/*  get_mmu_entry_size fills the size_tlb and entry_size

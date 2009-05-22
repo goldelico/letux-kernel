@@ -64,7 +64,9 @@ int processor_translate_addr(void *handle, void **dst_addr,
 
 /* Function to map address to slave address space */
 int processor_map(void *handle, u32 proc_addr, u32 size, u32 *mapped_addr,
-						u32 *mapped_size);
+					u32 *mapped_size, u32 map_attribs);
+/* Function to unmap address to slave address space */
+int processor_unmap(void *handle, u32 mapped_addr);
 
 /* Function that registers for notification when the slave processor
  * transitions to any of the states specified.

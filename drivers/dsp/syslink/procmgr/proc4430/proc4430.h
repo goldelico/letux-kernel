@@ -101,7 +101,10 @@ int proc4430_translate_addr(void *handle, void **dst_addr,
 
 /* Function to map slave address to host address space */
 int proc4430_map(void *handle, u32 proc_addr, u32 size, u32 *mapped_addr,
-							u32 *mapped_size);
+					u32 *mapped_size, u32 map_attribs);
+
+/* Function to unmap the slave address to host address space */
+int proc4430_unmap(void *handle, u32 mapped_addr);
 
 /* =================================================
  *  APIs

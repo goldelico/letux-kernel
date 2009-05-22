@@ -104,17 +104,7 @@ enum hw_mmu_pgsiz_t {
 *       Identifier      : base_address
 *       Type            : const u32
 *       Description     : Base Address of instance of MMU module
-*
-* RETURNS:
-*
-*       Type            : hw_status
-*       Description     : RET_OK                 -- No errors occured
-*                         RET_BAD_NULL_PARAM     -- A Pointer Paramater was set to NULL
-*
-* PURPOSE:              : Flush the TLB entry pointed by the lock counter register
-*                         even if this entry is set protected
-*
-* METHOD:               : Check the Input parameter and Flush a single entry in the TLB.
+
 -------------------------------------------------------------------------
 */
 
@@ -147,15 +137,6 @@ static hw_status mmu_flsh_entry(const u32   base_address);
 *       Type            : const u32
 *       Description     : virtual Address
 *
-* RETURNS:
-*
-*       Type            : hw_status
-*       Description     : RET_OK                 -- No errors occured
-*                         RET_BAD_NULL_PARAM     -- A Pointer Paramater was set to NULL
-*                         RET_PARAM_OUT_OF_RANGE -- Input Parameter out of Range
-*
-* PURPOSE:              : Set MMU_CAM reg
-*
 * METHOD:               : Check the Input parameters and set the CAM entry.
 -------------------------------------------------------------------------
 */
@@ -179,7 +160,7 @@ static hw_status mme_set_cam_entry(const u32    base_address,
 *       Identifier      : physical_addr
 *       Type            : const u32
 *       Description     : Physical Address to which the corresponding virtual
-*                         Address should point
+*   Address should point
 *
 *       Identifier      : endianism
 *       Type            : hw_endianism_t
@@ -193,13 +174,7 @@ static hw_status mme_set_cam_entry(const u32    base_address,
 *       Type            : hw_mmu_mixed_size_t
 *       Description     : Element Size to follow CPU or TLB
 *
-* RETURNS:
-*
-*       Type            : hw_status
-*       Description     : RET_OK                 -- No errors occured
-*                         RET_BAD_NULL_PARAM     -- A Pointer Paramater was set to NULL
-*                         RET_PARAM_OUT_OF_RANGE -- Input Parameter out of Range
-*
+
 * PURPOSE:              : Set MMU_CAM reg
 *
 * METHOD:               : Check the Input parameters and set the RAM entry.
@@ -431,9 +406,9 @@ hw_status hw_mmu_tlb_flush(const u32 base_address,
 	/* Generate the 20-bit tag from virtual address */
 	virt_addr_tag = ((virtual_addr & MMU_ADDR_MASK) >> 12);
 
-	mme_set_cam_entry (base_address, pg_sizeBits, 0, 0, virt_addr_tag);
+	mme_set_cam_entry(base_address, pg_sizeBits, 0, 0, virt_addr_tag);
 
-	mmu_flsh_entry (base_address);
+	mmu_flsh_entry(base_address);
 
 	return status;
 }
@@ -502,7 +477,8 @@ hw_status hw_mmu_tlb_add(const u32        base_address,
 	/* currentVictim between lockedBaseValue and (MMU_Entries_Number - 1) */
 	mmu_lck_crnt_vctmwite32(base_address, entryNum);
 
-	/* Enable loading of an entry in TLB by writing 1 into LD_TLB_REG register */
+	/* Enable loading of an entry in TLB by writing 1 into LD_TLB_REG
+	register */
 	mmu_ld_tlbwrt_reg32(base_address, MMU_LOAD_TLB);
 
 
@@ -527,7 +503,8 @@ hw_status hw_mmu_pte_set(const u32        pg_tbl_va,
 	switch (page_size) {
 
 	case HW_PAGE_SIZE_4KB:
-	pte_addr = hw_mmu_pte_addr_l2(pg_tbl_va, virtual_addr & MMU_SMALL_PAGE_MASK);
+	pte_addr = hw_mmu_pte_addr_l2(pg_tbl_va, virtual_addr &
+		MMU_SMALL_PAGE_MASK);
 	pte_val = ((physical_addr & MMU_SMALL_PAGE_MASK) |
 	(map_attrs->endianism << 9) |
 	(map_attrs->element_size << 4) |
@@ -537,7 +514,8 @@ hw_status hw_mmu_pte_set(const u32        pg_tbl_va,
 
 	case HW_PAGE_SIZE_64KB:
 	num_entries = 16;
-	pte_addr = hw_mmu_pte_addr_l2(pg_tbl_va, virtual_addr & MMU_LARGE_PAGE_MASK);
+	pte_addr = hw_mmu_pte_addr_l2(pg_tbl_va, virtual_addr &
+		MMU_LARGE_PAGE_MASK);
 	pte_val = ((physical_addr & MMU_LARGE_PAGE_MASK) |
 	(map_attrs->endianism << 9) |
 	(map_attrs->element_size << 4) |
@@ -546,7 +524,8 @@ hw_status hw_mmu_pte_set(const u32        pg_tbl_va,
 	break;
 
 	case HW_PAGE_SIZE_1MB:
-	pte_addr = hw_mmu_pte_addr_l1(pg_tbl_va, virtual_addr & MMU_SECTION_ADDR_MASK);
+	pte_addr = hw_mmu_pte_addr_l1(pg_tbl_va, virtual_addr &
+		MMU_SECTION_ADDR_MASK);
 	pte_val = ((((physical_addr & MMU_SECTION_ADDR_MASK) |
 	(map_attrs->endianism << 15) |
 	(map_attrs->element_size << 10) |
@@ -557,7 +536,8 @@ hw_status hw_mmu_pte_set(const u32        pg_tbl_va,
 
 	case HW_PAGE_SIZE_16MB:
 	num_entries = 16;
-	pte_addr = hw_mmu_pte_addr_l1(pg_tbl_va, virtual_addr & MMU_SSECTION_ADDR_MASK);
+	pte_addr = hw_mmu_pte_addr_l1(pg_tbl_va, virtual_addr &
+		MMU_SSECTION_ADDR_MASK);
 	pte_val = (((physical_addr & MMU_SSECTION_ADDR_MASK) |
 	(map_attrs->endianism << 15) |
 	(map_attrs->element_size << 10) |
@@ -567,7 +547,8 @@ hw_status hw_mmu_pte_set(const u32        pg_tbl_va,
 	break;
 
 	case HW_MMU_COARSE_PAGE_SIZE:
-	pte_addr = hw_mmu_pte_addr_l1(pg_tbl_va, virtual_addr & MMU_SECTION_ADDR_MASK);
+	pte_addr = hw_mmu_pte_addr_l1(pg_tbl_va, virtual_addr &
+		MMU_SECTION_ADDR_MASK);
 	pte_val = (physical_addr & MMU_PAGE_TABLE_MASK) | 1;
 	break;
 
@@ -576,14 +557,14 @@ hw_status hw_mmu_pte_set(const u32        pg_tbl_va,
 	}
 
 	while (--num_entries >= 0)
-	((u32 *)pte_addr)[num_entries] = pte_val;
+		((u32 *)pte_addr)[num_entries] = pte_val;
 
 
 	return status;
 }
 EXPORT_SYMBOL(hw_mmu_pte_set);
 
-hw_status hw_mmu_pt_clear(const u32  pg_tbl_va,
+hw_status hw_mmu_pte_clear(const u32  pg_tbl_va,
 	u32        virtual_addr,
 	u32        pg_size)
 {
@@ -591,40 +572,40 @@ hw_status hw_mmu_pt_clear(const u32  pg_tbl_va,
 	u32 pte_addr;
 	long int num_entries = 1;
 
-		switch (pg_size) {
-		case HW_PAGE_SIZE_4KB:
-		pte_addr = hw_mmu_pte_addr_l2(pg_tbl_va,
-				virtual_addr & MMU_SMALL_PAGE_MASK);
-		break;
+	switch (pg_size) {
+	case HW_PAGE_SIZE_4KB:
+	pte_addr = hw_mmu_pte_addr_l2(pg_tbl_va,
+			virtual_addr & MMU_SMALL_PAGE_MASK);
+	break;
 
-		case HW_PAGE_SIZE_64KB:
-		num_entries = 16;
-		pte_addr = hw_mmu_pte_addr_l2(pg_tbl_va,
-				virtual_addr & MMU_LARGE_PAGE_MASK);
-		break;
+	case HW_PAGE_SIZE_64KB:
+	num_entries = 16;
+	pte_addr = hw_mmu_pte_addr_l2(pg_tbl_va,
+			virtual_addr & MMU_LARGE_PAGE_MASK);
+	break;
 
-		case HW_PAGE_SIZE_1MB:
-		case HW_MMU_COARSE_PAGE_SIZE:
-		pte_addr = hw_mmu_pte_addr_l1(pg_tbl_va,
-				virtual_addr & MMU_SECTION_ADDR_MASK);
-		break;
+	case HW_PAGE_SIZE_1MB:
+	case HW_MMU_COARSE_PAGE_SIZE:
+	pte_addr = hw_mmu_pte_addr_l1(pg_tbl_va,
+			virtual_addr & MMU_SECTION_ADDR_MASK);
+	break;
 
-		case HW_PAGE_SIZE_16MB:
-		num_entries = 16;
-		pte_addr = hw_mmu_pte_addr_l1(pg_tbl_va,
-				virtual_addr & MMU_SSECTION_ADDR_MASK);
-		break;
+	case HW_PAGE_SIZE_16MB:
+	num_entries = 16;
+	pte_addr = hw_mmu_pte_addr_l1(pg_tbl_va,
+			virtual_addr & MMU_SSECTION_ADDR_MASK);
+	break;
 
-		default:
-		return RET_FAIL;
-		}
+	default:
+	return RET_FAIL;
+	}
 
 	while (--num_entries >= 0)
 		((u32 *)pte_addr)[num_entries] = 0;
 
 	return status;
 }
-EXPORT_SYMBOL(hw_mmu_pt_clear);
+EXPORT_SYMBOL(hw_mmu_pte_clear);
 
 /* ============================================================================
 *  LOCAL FUNCTIONS
@@ -633,7 +614,7 @@ EXPORT_SYMBOL(hw_mmu_pt_clear);
 
   /*
 -----------------------------------------------------------------------------
- NAME        : mmu_flsh_entry                                                  -
+ NAME        : mmu_flsh_entry      -
 -----------------------------------------------------------------------------
 */
 static hw_status mmu_flsh_entry(const u32 base_address)
@@ -653,7 +634,7 @@ static hw_status mmu_flsh_entry(const u32 base_address)
 EXPORT_SYMBOL(mmu_flsh_entry);
 /*
 -----------------------------------------------------------------------------
- NAME        : mme_set_cam_entry                                                -
+ NAME        : mme_set_cam_entry
 -----------------------------------------------------
 */
 static hw_status mme_set_cam_entry(const u32    base_address,
@@ -670,7 +651,8 @@ static hw_status mme_set_cam_entry(const u32    base_address,
 				RES_MMU_BASE + RES_INVALID_INPUT_PARAM);
 
 	mmuCamReg = (virt_addr_tag << 12);
-	mmuCamReg = (mmuCamReg) | (page_size) |  (valid_bit << 2) | (preserve_bit << 3);
+	mmuCamReg = (mmuCamReg) | (page_size) |  (valid_bit << 2)
+						| (preserve_bit << 3);
 
 	/* write values to register */
 	MMUMMU_CAMWriteRegister32(base_address, mmuCamReg);
@@ -679,8 +661,8 @@ static hw_status mme_set_cam_entry(const u32    base_address,
 }
 EXPORT_SYMBOL(mme_set_cam_entry);
  /*
------------------------------------------------------------------------------
- NAME        : mmu_set_ram_entry                                                -
+----------------------------------------------------
+ NAME        : mmu_set_ram_entry
 -----------------------------------------------------
 */
 static hw_status mmu_set_ram_entry(const u32       base_address,
@@ -695,12 +677,14 @@ static hw_status mmu_set_ram_entry(const u32       base_address,
 	/*Check the input Parameters*/
 	CHECK_INPUT_PARAM(base_address, 0, RET_BAD_NULL_PARAM,
 					RES_MMU_BASE + RES_INVALID_INPUT_PARAM);
-	CHECK_INPUT_RANGE_MIN0(element_size, MMU_ELEMENTSIZE_MAX, RET_PARAM_OUT_OF_RANGE,
+	CHECK_INPUT_RANGE_MIN0(element_size, MMU_ELEMENTSIZE_MAX,
+					RET_PARAM_OUT_OF_RANGE,
 					RES_MMU_BASE + RES_INVALID_INPUT_PARAM);
 
 
 	mmuRamReg = (physical_addr & MMU_ADDR_MASK);
-	mmuRamReg = (mmuRamReg) | ((endianism << 9) |  (element_size << 7) | (mixedSize << 6));
+	mmuRamReg = (mmuRamReg) | ((endianism << 9) |  (element_size << 7)
+					| (mixedSize << 6));
 
 	/* write values to register */
 	MMUMMU_RAMWriteRegister32(base_address, mmuRamReg);
@@ -712,10 +696,10 @@ EXPORT_SYMBOL(mmu_set_ram_entry);
 
 long hw_mmu_tlb_dump(const u32 base_address, bool shw_inv_entries)
 {
-	u32                       i;
-	u32                       lockSave;
-	u32                       cam;
-	u32                       ram;
+	u32 i;
+	u32 lockSave;
+	u32 cam;
+	u32 ram;
 
 
 	/*  Save off the lock register contents,
@@ -737,12 +721,10 @@ long hw_mmu_tlb_dump(const u32 base_address, bool shw_inv_entries)
 
 	if ((cam & 0x4) != 0) {
 
-		printk(KERN_ALERT "TLB Entry [0x%x]: VA = 0x%x   PA = 0x%x\
-		Protected = 0x%x\n)",
-						i,
-		(cam & MMU_ADDR_MASK),
-		(ram & MMU_ADDR_MASK),
-		(cam & 0x8) ? 1 : 0);
+		printk(KERN_ALERT "TLB Entry [0x%x]: VA = 0x%x   PA = 0x%x"
+			"Protected = 0x%x\n)",
+			i, (cam & MMU_ADDR_MASK), (ram & MMU_ADDR_MASK),
+			(cam & 0x8) ? 1 : 0);
 
 	} else if (shw_inv_entries != false) {
 			printk(KERN_ALERT "TLB Entry [0x%x]: <INVALID>\n", i);
@@ -781,13 +763,3 @@ u32 hw_mmu_pte_phyaddr(u32 pte_val, u32 pte_size)
 	return ret_val;
 }
 EXPORT_SYMBOL(hw_mmu_pte_phyaddr);
-
-
-
-
-
-
-
-
-
-

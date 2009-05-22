@@ -154,12 +154,12 @@ struct proc_mgr_cmd_args {
 /*
  * Command for ProcMgr_getSymbolAddress
  */
-#define CMD_PROCMGR_GETSYMBOLADDRESS	(PROCMGR_BASE_CMD + 23)
+#define CMD_PROCMGR_GETSYMBOLADDRESS		(PROCMGR_BASE_CMD + 23)
 
 /*
  * Command for ProcMgr_map
  */
-#define CMD_PROCMGR_MAP			(PROCMGR_BASE_CMD + 24)
+#define CMD_PROCMGR_MAP				(PROCMGR_BASE_CMD + 24)
 
 /*
  * Command for ProcMgr_registerNotify
@@ -169,7 +169,13 @@ struct proc_mgr_cmd_args {
 /*
  * Command for ProcMgr_getProcInfo
  */
-#define CMD_PROCMGR_GETPROCINFO		(PROCMGR_BASE_CMD + 26)
+#define CMD_PROCMGR_GETPROCINFO			(PROCMGR_BASE_CMD + 26)
+
+/*
+ * Command for ProcMgr_unmap
+ */
+#define CMD_PROCMGR_UNMAP			(PROCMGR_BASE_CMD + 27)
+
 
 
 /*  ----------------------------------------------------------------------------
@@ -460,8 +466,20 @@ struct proc_mgr_cmd_args_map {
 	/*Return parameter: Mapped address in host address space */
 	u32 mapped_size;
 	/*Return parameter: Mapped size */
-	enum proc_mgr_map_type type;
+	u32 map_attribs;
 	/*Type of mapping. */
+};
+
+/*
+ * Command arguments for ProcMgr_map
+ */
+struct proc_mgr_cmd_args_unmap {
+	struct proc_mgr_cmd_args commond_args;
+	/*Common command args */
+	void *handle;
+	/*Handle to the ProcMgr object */
+	u32 mapped_addr;
+	/* Mapped address in host address space */
 };
 
 /*

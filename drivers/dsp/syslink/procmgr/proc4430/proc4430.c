@@ -26,7 +26,7 @@
 #include "../procmgr.h"
 #include "../procmgr_drvdefs.h"
 #include "proc4430.h"
-
+#include "dmm4430.h"
 #include <syslink/multiproc.h>
 #include <syslink/ducatienabler.h>
 
@@ -229,6 +229,7 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 			handle->proc_fxn_table.translateAddr =
 						 &proc4430_translate_addr;
 			handle->proc_fxn_table.map = &proc4430_map;
+			handle->proc_fxn_table.unmap = &proc4430_unmap;
 			handle->state = PROC_MGR_STATE_UNKNOWN;
 			handle->object = vmalloc
 					(sizeof(struct proc4430_object));
@@ -475,9 +476,48 @@ int proc4430_translate_addr(void *handle,
  * function also maps the specified address to slave MMU space.
  */
 int proc4430_map(void *handle, u32 proc_addr,
-	u32 size, u32 *mapped_addr, u32 *mapped_size)
+	u32 size, u32 *mapped_addr, u32 *mapped_size, u32 map_attribs)
 {
 	int retval = 0;
-	/* TODO */
+	u32 da_align;
+	u32 da;
+	u32 va_align;
+	u32 size_align;
+
+	dmm_reserve_memory(size, &da);
+	/* Calculate the page-aligned PA, VA and size */
+	da_align = PG_ALIGN_LOW((u32)da, PAGE_SIZE);
+	va_align = PG_ALIGN_LOW(proc_addr, PAGE_SIZE);
+	size_align = PG_ALIGN_HIGH(size + (u32)proc_addr - va_align, PAGE_SIZE);
+
+	retval = ducati_mem_map(va_align, da_align, size_align, map_attribs);
+
+	/* Mapped address = MSB of DA | LSB of VA */
+	*mapped_addr = (da_align | (proc_addr & (PAGE_SIZE - 1)));
 	return retval;
+}
+
+/*=================================================
+ * Function to unmap slave address to host address space
+ *
+ * UnMap the provided slave address to master address space. This
+ * function also unmaps the specified address to slave MMU space.
+ */
+int proc4430_unmap(void *handle, u32 mapped_addr)
+{
+	int da_align;
+	int ret_val = 0;
+	int size_align;
+
+	da_align = PG_ALIGN_LOW((u32)mapped_addr, PAGE_SIZE);
+	ret_val = dmm_unreserve_memory(da_align, &size_align);
+	if (WARN_ON(ret_val < 0))
+		goto error_exit;
+	ret_val = ducati_mem_unmap(da_align, size_align);
+	if (WARN_ON(ret_val < 0))
+		goto error_exit;
+	return 0;
+error_exit:
+	printk(KERN_WARNING "proc4430_unmap failed !!!!\n");
+	return ret_val;
 }

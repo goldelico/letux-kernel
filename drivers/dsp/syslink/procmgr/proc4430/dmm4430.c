@@ -225,7 +225,7 @@ func_exit:
  *  Purpose:
  *Free a chunk of reserved DSP/IVA address space.
  */
-int dmm_unreserve_memory(u32 rsv_addr)
+int dmm_unreserve_memory(u32 rsv_addr, u32 *psize)
 {
 	struct map_page *chunk;
 	int status = 0;
@@ -239,6 +239,7 @@ int dmm_unreserve_memory(u32 rsv_addr)
 	WARN_ON(status < 0);
 	if (status == 0) {
 		chunk->b_reserved = false;
+		*psize = chunk->region_size * PAGE_SIZE;
 		/* NOTE: We do NOT coalesce free regions here.
 		 * Free regions are coalesced in get_region(), as it traverses
 		 *the whole mapping table

@@ -650,7 +650,7 @@ EXPORT_SYMBOL(proc_mgr_translate_addr);
  *
  */
 int proc_mgr_map(void *handle, u32 proc_addr, u32 size, u32 *mapped_addr,
-			u32 *mapped_size, enum proc_mgr_map_type type)
+			u32 *mapped_size, u32 map_attribs)
 {
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
@@ -664,12 +664,34 @@ int proc_mgr_map(void *handle, u32 proc_addr, u32 size, u32 *mapped_addr,
 
 	/* Map to host address space. */
 	retval = processor_map(proc_mgr_handle->proc_handle, proc_addr,
-				size, mapped_addr, mapped_size);
+				size, mapped_addr, mapped_size, map_attribs);
 	WARN_ON(retval < 0);
 	mutex_unlock(proc_mgr_obj_state.gate_handle);
 	return retval;;
 }
 EXPORT_SYMBOL(proc_mgr_map);
+
+/*============================================
+ *  Function to unmap address to slave address space.
+ *
+ * This function unmaps the provided slave address to a host address
+ *
+ */
+int proc_mgr_unmap(void *handle, u32 mapped_addr)
+{
+	int retval = 0;
+	struct proc_mgr_object *proc_mgr_handle =
+				(struct proc_mgr_object *)handle;
+
+	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
+
+	/* Map to host address space. */
+	retval = processor_unmap(proc_mgr_handle->proc_handle, mapped_addr);
+	WARN_ON(retval < 0);
+	mutex_unlock(proc_mgr_obj_state.gate_handle);
+	return retval;;
+}
+EXPORT_SYMBOL(proc_mgr_unmap);
 
 /*=================================
  *  Function that registers for notification when the slave

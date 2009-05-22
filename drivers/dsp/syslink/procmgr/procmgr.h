@@ -165,10 +165,10 @@ typedef int (*proc_mgr_callback_fxn)(u16 proc_id, void *handle,
 		enum proc_mgr_state from_state, enum proc_mgr_state to_state);
 
 /* Function to get the default configuration for the ProcMgr module. */
-void proc_mgr_get_config(struct proc_mgr_config*cfg);
+void proc_mgr_get_config(struct proc_mgr_config *cfg);
 
 /* Function to setup the ProcMgr module. */
-int proc_mgr_setup(struct proc_mgr_config*cfg);
+int proc_mgr_setup(struct proc_mgr_config *cfg);
 
 /* Function to destroy the ProcMgr module. */
 int proc_mgr_destroy(void);
@@ -240,7 +240,10 @@ int proc_mgr_translate_addr(void *handle, void **dst_addr,
 
 /* Function that maps the specified slave address to master address space. */
 int proc_mgr_map(void *handle, u32 proc_addr, u32 size,
-	u32 *mappedAddr, u32 *mapped_size, enum proc_mgr_map_type type);
+	u32 *mappedAddr, u32 *mapped_size, u32 map_attribs);
+
+/* Function that unmaps the specified slave address to master address space. */
+int proc_mgr_unmap(void *handle, u32 mapped_addr);
 
 /* Function that registers for notification when the slave processor
  * transitions to any of the states specified.

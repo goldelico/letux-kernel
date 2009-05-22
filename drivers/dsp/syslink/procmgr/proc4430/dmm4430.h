@@ -32,7 +32,7 @@
 
 int dmm_reserve_memory(u32 size, u32 *p_rsv_addr);
 
-int dmm_unreserve_memory(u32 rsv_addr);
+int dmm_unreserve_memory(u32 rsv_addr, u32 *psize);
 
 void dmm_destroy(void);
 

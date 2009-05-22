@@ -116,6 +116,11 @@
 
 #define DSP_MAPVMALLOCADDR			0x00000080
 
+#define PG_MASK(pg_size) (~((pg_size)-1))
+#define PG_ALIGN_LOW(addr, pg_size) ((addr) & PG_MASK(pg_size))
+#define PG_ALIGN_HIGH(addr, pg_size) (((addr)+(pg_size)-1) & PG_MASK(pg_size))
+
+
 struct mmu_entry {
 	u32 ul_phy_addr ;
 	u32 ul_virt_addr ;
@@ -153,5 +158,6 @@ void dbg_print_ptes(bool ashow_inv_entries, bool ashow_repeat_entries);
 int ducati_setup(void);
 void ducati_destroy(void);
 u32 get_ducati_virt_mem();
-
+int ducati_mem_map(u32 va, u32 da, u32 num_bytes, u32 map_attr);
+int ducati_mem_unmap(u32 da, u32 num_bytes);
 #endif /* _DDUCATIMMU_ENABLER_H_*/

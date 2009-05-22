@@ -74,10 +74,10 @@ static void  __exit proc_mgr_drv_finalize_module(void);
 /*
  * name   DriverOps
  *
- * desc   Function to invoke the APIs through ioctl.
+ * desc   Function to invoke the APIs through ioctl
  *
  */
-static struct file_operations procmgr_fops = {
+static const struct file_operations procmgr_fops = {
 	.open  =  proc_mgr_drv_open,
 	.ioctl =  proc_mgr_drv_ioctl,
 	.release = proc_mgr_drv_release,
@@ -498,7 +498,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 				src_args.proc_addr, src_args.size,
 				&(src_args.mapped_addr),
 				&(src_args.mapped_size),
-				src_args.type);
+				src_args.map_attribs);
 		if (WARN_ON(retval < 0))
 			goto func_exit;
 		retval = copy_to_user((void *)(args),
@@ -507,6 +507,21 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		WARN_ON(retval < 0);
 	}
 	break;
+
+	case CMD_PROCMGR_UNMAP:
+	{
+		struct proc_mgr_cmd_args_unmap src_args;
+
+		 /* Copy the full args from user-side. */
+		retval = copy_from_user((void *)&src_args,
+		(const void *)(args),
+		sizeof(struct proc_mgr_cmd_args_unmap));
+		if (WARN_ON(retval < 0))
+			goto func_exit;
+		retval = proc_mgr_unmap(src_args.handle,
+						(src_args.mapped_addr));
+		WARN_ON(retval < 0);
+	}
 
 	case CMD_PROCMGR_REGISTERNOTIFY:
 	{
@@ -555,8 +570,7 @@ func_exit:
 	/* Set the retval and copy the common args to user-side. */
 	command_args.api_status = retval;
 	retval = copy_to_user((void *)cmd_args,
-		(const void *) &command_args,
-		sizeof(struct proc_mgr_cmd_args));
+		(const void *)&command_args, sizeof(struct proc_mgr_cmd_args));
 
 	WARN_ON(retval < 0);
 	return retval;
