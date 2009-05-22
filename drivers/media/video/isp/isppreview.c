@@ -184,6 +184,10 @@ static u32 luma_enhance_table[] = {
 #include "luma_enhance_table.h"
 };
 
+static int omap34xx_isp_tables_update(struct isp_prev_device *isp_prev,
+				struct isptables_update *isptables_struct);
+
+
 /**
  * omap34xx_isp_preview_config - Abstraction layer Preview configuration.
  * @userspace_add: Pointer from Userspace to structure with flags and data to
@@ -362,7 +366,7 @@ EXPORT_SYMBOL_GPL(omap34xx_isp_preview_config);
  * @isptables_struct: Pointer from Userspace to structure with flags and table
  *                 data to update.
  **/
-int omap34xx_isp_tables_update(struct isp_prev_device *isp_prev,
+static int omap34xx_isp_tables_update(struct isp_prev_device *isp_prev,
 			       struct isptables_update *isptables_struct)
 {
 	struct prev_params *params = &isp_prev->params;
