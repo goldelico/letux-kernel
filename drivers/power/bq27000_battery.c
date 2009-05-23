@@ -170,9 +170,11 @@ static int hdq_read16(struct bq27000_device_info *di, int address)
 
 static void bq27000_battery_external_power_changed(struct power_supply *psy)
 {
-	struct bq27000_device_info *di = container_of(psy, struct bq27000_device_info, bat);
+	struct bq27000_device_info *di =
+		container_of(psy, struct bq27000_device_info, bat);
 
 	dev_dbg(di->dev, "%s\n", __FUNCTION__);
+	cancel_delayed_work(&di->work);
 	schedule_delayed_work(&di->work, 0);
 }
 
