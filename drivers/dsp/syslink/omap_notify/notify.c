@@ -328,9 +328,11 @@ u32 notify_disable(u16 proc_id)
 			NOTIFY_DRIVERINITSTATUS_NOTDONE) {
 			WARN_ON(1);
 		} else {
-			drv_handle->disable_flag[notify_state.disable_depth] =
-				(u32 *)drv_handle->fn_table.disable
-						(drv_handle, proc_id);
+				if (drv_handle->fn_table.disable) {
+					drv_handle->disable_flag[notify_state.disable_depth] =
+						(u32 *)drv_handle->fn_table.disable
+								(drv_handle, proc_id);
+				}
 		}
 	}
 	notify_state.disable_depth++;
@@ -363,12 +365,8 @@ void notify_restore (u32 key, u16 proc_id)
 	notify_state.disable_depth--;
 	for (i = 0; i < notify_state.cfg.maxDrivers; i++) {
 		drv_handle = &(notify_state.drivers[i]);
-		if (drv_handle->is_init !=
-			NOTIFY_DRIVERINITSTATUS_NOTDONE) {
-			WARN_ON(1);
-		} else {
+			if (drv_handle->fn_table.restore)
 			drv_handle->fn_table.restore(drv_handle, key, proc_id);
-		}
 	}
 	mutex_unlock(notify_state.gate_handle);
 	return;
