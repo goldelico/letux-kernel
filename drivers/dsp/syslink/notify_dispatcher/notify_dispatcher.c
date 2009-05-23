@@ -193,7 +193,7 @@ int ntfy_disp_init(void)
 		(u32)ioremap(OMAP_MBOX_BASE, OMAP_MBOX_SIZE);
 	mailbx_hw_config.mbox_modules = 1;
 	mailbx_hw_config.interrupt_lines[(mailbx_hw_config.mbox_modules-1)]
-			= INT_24XX_MAIL_U0_MPU;
+			= INT_44XX_MAIL_U0_MPU;
 	mailbx_hw_config.mailboxes[(mailbx_hw_config.mbox_modules-1)]
 			= kmpu_mailboxes;
 
@@ -314,6 +314,7 @@ int ntfy_disp_register(unsigned long int mbox_module_no,
 	i_mbox_module_no =  mbox_module_no;
 	i_a_irq_bit = a_irq_bit;
 
+	
 	/*Validate the parameters */
 	if (mbox_module_no > mailbx_hw_config.mbox_modules) {
 		status = -EINVAL;
