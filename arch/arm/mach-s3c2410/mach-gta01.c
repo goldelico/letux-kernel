@@ -775,7 +775,6 @@ static struct spi_board_info gta01_spi_board_info[] = {
 		/* controller_data */
 		/* irq */
 		.max_speed_hz	= 10 * 1000 * 1000,
-		.bus_num	= 1,
 		/* chip_select */
 	},
 };
