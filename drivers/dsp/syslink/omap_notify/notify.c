@@ -324,10 +324,8 @@ u32 notify_disable(u16 proc_id)
 		drv_handle = &(notify_state.drivers[i]);
 		WARN_ON(_notify_is_support_proc(drv_handle, proc_id)
 							== false);
-		if (drv_handle->is_init !=
+		if (drv_handle->is_init ==
 			NOTIFY_DRIVERINITSTATUS_NOTDONE) {
-			WARN_ON(1);
-		} else {
 				if (drv_handle->fn_table.disable) {
 					drv_handle->disable_flag[notify_state.disable_depth] =
 						(u32 *)drv_handle->fn_table.disable
@@ -449,8 +447,10 @@ void notify_enable_event(void *notify_driver_handle, u16 proc_id, u32 event_no)
 
 	if (mutex_lock_interruptible (notify_state.gate_handle) != 0)
 		WARN_ON(1);
-	drv_handle->fn_table.enable_event(drv_handle,
-			proc_id, (event_no & NOTIFY_EVENT_MASK));
+		if(drv_handle->fn_table.enable_event) {
+			drv_handle->fn_table.enable_event(drv_handle,
+				proc_id, (event_no & NOTIFY_EVENT_MASK));
+		}
 	mutex_unlock(notify_state.gate_handle);
 func_end:
 	return;
