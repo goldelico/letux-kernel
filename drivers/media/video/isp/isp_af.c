@@ -30,20 +30,6 @@
 #include "isph3a.h"
 #include "isp_af.h"
 
-/*
- * Helper function to update buffer cache pages
- */
-static void isp_af_update_req_buffer(struct isp_af_device *isp_af,
-				     struct isp_af_buffer *buffer)
-{
-	int size = isp_af->stats_buf_size;
-
-	size = PAGE_ALIGN(size);
-	/* Update the kernel pages of the requested buffer */
-	dmac_inv_range((void *)buffer->addr_align, (void *)buffer->addr_align +
-		       size);
-}
-
 #define IS_OUT_OF_BOUNDS(value, min, max)		\
 	(((value) < (min)) || ((value) > (max)))
 
@@ -136,48 +122,16 @@ int isp_af_check_iir(struct isp_af_device *isp_af)
 
 	return 0;
 }
-/**
- * isp_af_unlock_buffers - Helper function to unlock all buffers.
- **/
-static void isp_af_unlock_buffers(struct isp_af_device *isp_af)
-{
-	int i;
-	unsigned long irqflags;
-
-	spin_lock_irqsave(&isp_af->buffer_lock, irqflags);
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		isp_af->af_buff[i].locked = 0;
-		isp_af->af_buff[i].done = 0;
-	}
-
-	spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
-}
-
-/*
- * Helper function to link allocated buffers
- */
-static void isp_af_link_buffers(struct isp_af_device *isp_af)
-{
-	int i;
-
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		if ((i + 1) < H3A_MAX_BUFF)
-			isp_af->af_buff[i].next = &isp_af->af_buff[i + 1];
-		else
-			isp_af->af_buff[i].next = &isp_af->af_buff[0];
-	}
-}
 
 /* Function to perform hardware set up */
 int isp_af_configure(struct isp_af_device *isp_af,
 		     struct af_configuration *afconfig)
 {
-	struct isp_device *isp =
-		container_of(isp_af, struct isp_device, isp_af);
 	int result;
-	int buff_size, i;
+	int buf_size;
 	unsigned int busyaf;
 	struct af_configuration *af_curr_cfg = &isp_af->config;
+	struct ispstat_buffer *buf;
 
 	if (NULL == afconfig) {
 		dev_err(isp_af->dev, "af: Null argument in configuration. \n");
@@ -211,73 +165,22 @@ int isp_af_configure(struct isp_af_device *isp_af,
 	}
 
 	/* Compute buffer size */
-	buff_size = (af_curr_cfg->paxel_config.hz_cnt + 1) *
+	buf_size = (af_curr_cfg->paxel_config.hz_cnt + 1) *
 		(af_curr_cfg->paxel_config.vt_cnt + 1) * AF_PAXEL_SIZE;
 
-	isp_af->curr_cfg_buf_size = buff_size;
-	/* Deallocate the previous buffers */
-	if (isp_af->stats_buf_size && buff_size > isp_af->stats_buf_size) {
-		isp_af_enable(isp_af, 0);
-		for (i = 0; i < H3A_MAX_BUFF; i++) {
-			iommu_kunmap(isp->iommu,
-				     isp_af->af_buff[i].ispmmu_addr);
-			free_pages_exact((void *)isp_af->af_buff[i].virt_addr,
-					isp_af->min_buf_size);
-			isp_af->af_buff[i].virt_addr = 0;
-		}
-		isp_af->stats_buf_size = 0;
-	}
-
-	if (!isp_af->af_buff[0].virt_addr) {
-		isp_af->stats_buf_size = buff_size;
-		isp_af->min_buf_size = PAGE_ALIGN(isp_af->stats_buf_size);
-
-		for (i = 0; i < H3A_MAX_BUFF; i++) {
-			isp_af->af_buff[i].virt_addr =
-				(unsigned long)alloc_pages_exact(
-					isp_af->min_buf_size,
-					GFP_KERNEL | GFP_DMA);
-			if (isp_af->af_buff[i].virt_addr == 0) {
-				dev_err(isp_af->dev,
-					"af: Can't acquire memory for "
-					"buffer[%d]\n", i);
-				return -ENOMEM;
-			}
-			isp_af->af_buff[i].phy_addr = dma_map_single(NULL,
-					(void *)isp_af->af_buff[i].virt_addr,
-					isp_af->min_buf_size,
-					DMA_FROM_DEVICE);
-			isp_af->af_buff[i].addr_align =
-				isp_af->af_buff[i].virt_addr;
-			while ((isp_af->af_buff[i].addr_align & 0xFFFFFFC0) !=
-			       isp_af->af_buff[i].addr_align)
-				isp_af->af_buff[i].addr_align++;
-			isp_af->af_buff[i].ispmmu_addr =
-				iommu_kmap(isp->iommu,
-					   0,
-					   isp_af->af_buff[i].phy_addr,
-					   isp_af->min_buf_size,
-					   IOMMU_FLAG);
-			/* FIXME: Correct unwinding */
-			BUG_ON(IS_ERR_VALUE(isp_af->af_buff[i].ispmmu_addr));
-		}
-		isp_af_unlock_buffers(isp_af);
-		isp_af_link_buffers(isp_af);
-
-		/* First active buffer */
-		if (isp_af->active_buff == NULL)
-			isp_af->active_buff = &isp_af->af_buff[0];
-		isp_af_set_address(isp_af, isp_af->active_buff->ispmmu_addr);
-	}
+	result = ispstat_bufs_alloc(&isp_af->stat, buf_size);
+	if (result)
+		return result;
 
 	result = isp_af_register_setup(isp_af);
 	if (result < 0)
 		return result;
-	isp_af->size_paxel = buff_size;
-	atomic_inc(&isp_af->config_counter);
-	isp_af->initialized = 1;
-	isp_af->frame_count = 1;
-	isp_af->active_buff->frame_num = 1;
+
+	isp_af->size_paxel = buf_size;
+
+	buf = ispstat_buf_next(&isp_af->stat);
+	isp_af_set_address(isp_af, buf->iommu_addr);
+
 	/* Set configuration flag to indicate HW setup done */
 	if (af_curr_cfg->af_config)
 		isp_af_enable(isp_af, 1);
@@ -411,43 +314,6 @@ void isp_af_set_address(struct isp_af_device *isp_af, unsigned long address)
 		       ISPH3A_AFBUFST);
 }
 
-static int isp_af_stats_available(struct isp_af_device *isp_af,
-				  struct isp_af_data *afdata)
-{
-	int i, ret;
-	unsigned long irqflags;
-
-	spin_lock_irqsave(&isp_af->buffer_lock, irqflags);
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		DPRINTK_ISP_AF("Checking Stats buff[%d] (%d) for %d\n",
-			       i, isp_af->af_buff[i].frame_num,
-			       afdata->frame_number);
-		if (afdata->frame_number == isp_af->af_buff[i].frame_num
-		    && isp_af->af_buff[i].frame_num !=
-					isp_af->active_buff->frame_num) {
-			isp_af->af_buff[i].locked = 1;
-			spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
-			isp_af_update_req_buffer(isp_af, &isp_af->af_buff[i]);
-			isp_af->af_buff[i].frame_num = 0;
-			ret = copy_to_user((void *)afdata->af_statistics_buf,
-					   (void *)isp_af->af_buff[i].virt_addr,
-					   isp_af->curr_cfg_buf_size);
-			isp_af->af_buff[i].locked = 0;
-			isp_af->af_buff[i].done = 0;
-			if (ret) {
-				dev_err(isp_af->dev,
-					"af: Failed copy_to_user for "
-					"H3A stats buff, %d\n", ret);
-			}
-			return 0;
-		}
-	}
-	spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
-	/* Stats unavailable */
-
-	return -1;
-}
-
 /*
  * This API allows the user to update White Balance gains, as well as
  * exposure time and analog gain. It is also used to request frame
@@ -456,139 +322,45 @@ static int isp_af_stats_available(struct isp_af_device *isp_af,
 int isp_af_request_statistics(struct isp_af_device *isp_af,
 			      struct isp_af_data *afdata)
 {
-	int ret = 0;
-	u16 frame_diff = 0;
-	u16 frame_cnt = isp_af->frame_count;
+	struct ispstat_buffer *buf;
 
 	if (!isp_af->config.af_config) {
 		dev_err(isp_af->dev, "af: engine not enabled\n");
 		return -EINVAL;
 	}
 
-	if (!(afdata->update & REQUEST_STATISTICS)) {
+	if (afdata->update & REQUEST_STATISTICS) {
+		buf = ispstat_buf_get(&isp_af->stat,
+			      (void *)afdata->af_statistics_buf,
+			      afdata->frame_number);
+		if (IS_ERR(buf))
+			return PTR_ERR(buf);
+
+		afdata->config_counter = buf->config_counter;
+		afdata->frame_number = buf->frame_number;
+
+		ispstat_buf_release(&isp_af->stat);
+	} else
 		afdata->af_statistics_buf = NULL;
-		goto out;
-	}
-
-	/* Stats available? */
-	DPRINTK_ISP_AF("Stats available?\n");
-	ret = isp_af_stats_available(isp_af, afdata);
-	if (!ret)
-		goto out;
-
-	/* Stats in near future? */
-	DPRINTK_ISP_AF("Stats in near future?\n");
-	if (afdata->frame_number > frame_cnt)
-		frame_diff = afdata->frame_number - frame_cnt;
-	else if (afdata->frame_number < frame_cnt) {
-		if (frame_cnt > MAX_FRAME_COUNT - MAX_FUTURE_FRAMES
-		    && afdata->frame_number < MAX_FRAME_COUNT) {
-			frame_diff = afdata->frame_number + MAX_FRAME_COUNT -
-				frame_cnt;
-		} else {
-			/* Frame unavailable */
-			frame_diff = MAX_FUTURE_FRAMES + 1;
-		}
-	}
-
-	if (frame_diff > MAX_FUTURE_FRAMES) {
-		dev_err(isp_af->dev,
-			"af: Invalid frame requested, returning current"
-			" frame stats\n");
-		afdata->frame_number = frame_cnt;
-	}
-	afdata->af_statistics_buf = NULL;
-
-out:
-	afdata->curr_frame = isp_af->frame_count;
+	afdata->curr_frame = isp_af->stat.frame_number;
 
 	return 0;
 }
 EXPORT_SYMBOL(isp_af_request_statistics);
-
-static struct isp_af_buffer *isp_af_get_next_buffer(
-					struct isp_af_device *isp_af)
-{
-	struct isp_af_buffer *buff;
-	struct isp_af_buffer *buff_done = NULL;
-	int found = 0;
-
-	if (unlikely(isp_af->active_buff->next == NULL))
-		/* Buffers are not linked yet */
-		isp_af_link_buffers(isp_af);
-
-	for (buff = isp_af->active_buff->next; buff != isp_af->active_buff;
-						buff = buff->next) {
-		if (buff->locked == 0) {
-			if (buff->done == 0) {
-				found = 1;
-				break;
-			} else if (!buff_done)
-				/* Fallback buffer */
-				buff_done = buff;
-		}
-	}
-
-	if (unlikely(found == 0)) {
-		if (buff_done) {
-			/* Falling back to the first unlocked and unrequested
-			 * buffer */
-			dev_dbg(isp_af->dev, "af: All available buffers have "
-				"data to be requested. Data for frame_num = %d "
-				"will be lost.\n", buff_done->frame_num);
-			buff = buff_done;
-		} else {
-			/* This should never happen, as all buffers must not be
-			 * locked at the same time */
-			dev_dbg(isp_af->dev, "af: FIXME: No unlocked buffer "
-					      "available.\n");
-			/* FIXME: Falling back to the previous approach */
-			buff = isp_af->active_buff->next->next;
-		}
-	}
-
-	return buff;
-}
 
 /* This function will handle the H3A interrupt. */
 static void isp_af_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 		       void *arg2)
 {
 	struct isp_af_device *isp_af = (struct isp_af_device *)arg2;
-	u16 frame_align;
-	unsigned long irqflags;
+	struct ispstat_buffer *buf;
 
 	if ((H3A_AF_DONE & status) != H3A_AF_DONE)
 		return;
 
-	/* timestamp stats buffer */
-	isp_af->active_buff->config_counter =
-				atomic_read(&isp_af->config_counter);
-	isp_af->active_buff->done = 1;
-
 	/* Exchange buffers */
-	isp_af->active_buff = isp_af_get_next_buffer(isp_af);
-	isp_af_set_address(isp_af, isp_af->active_buff->ispmmu_addr);
-
-	/* Update frame counter */
-	isp_af->frame_count++;
-	frame_align = isp_af->frame_count;
-	if (isp_af->frame_count > MAX_FRAME_COUNT) {
-		isp_af->frame_count = 1;
-		frame_align++;
-	}
-	isp_af->active_buff->frame_num = isp_af->frame_count;
-
-	/* Future Stats requested? */
-	spin_lock_irqsave(&isp_af->buffer_lock, irqflags);
-	if (isp_af->stats_req) {
-		/* Is the frame we want already done? */
-		if (frame_align >= isp_af->frame_req + 1) {
-			isp_af->stats_req = 0;
-			isp_af->stats_done = 1;
-		}
-	}
-	spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
+	buf = ispstat_buf_next(&isp_af->stat);
+	isp_af_set_address(isp_af, buf->iommu_addr);
 }
 
 int __isp_af_enable(struct isp_af_device *isp_af, int enable)
@@ -653,10 +425,8 @@ int __init isp_af_init(struct device *dev)
 	struct isp_device *isp = dev_get_drvdata(dev);
 	struct isp_af_device *isp_af = &isp->isp_af;
 
-	isp_af->active_buff = NULL;
 	isp_af->dev = dev;
-
-	spin_lock_init(&isp_af->buffer_lock);
+	ispstat_init(dev, &isp_af->stat, H3A_MAX_BUFF, MAX_FRAME_COUNT);
 
 	return 0;
 }
@@ -664,19 +434,7 @@ int __init isp_af_init(struct device *dev)
 void isp_af_exit(struct device *dev)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
-	struct isp_af_device *isp_af = &isp->isp_af;
-	int i;
 
 	/* Free buffers */
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		if (!isp_af->af_buff[i].phy_addr)
-			continue;
-
-		iommu_kunmap(isp->iommu, isp_af->af_buff[i].ispmmu_addr);
-
-		dma_free_coherent(NULL,
-				  isp_af->min_buf_size,
-				  (void *)isp_af->af_buff[i].virt_addr,
-				  (dma_addr_t)isp_af->af_buff[i].phy_addr);
-	}
+	ispstat_free(&isp->isp_af.stat);
 }

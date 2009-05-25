@@ -25,6 +25,7 @@
 #include <mach/isp_user.h>
 
 #include "isph3a.h"
+#include "ispstat.h"
 
 #define AF_MAJOR_NUMBER			0
 #define ISPAF_NAME			"OMAPISP_AF"
@@ -107,32 +108,6 @@
 #define AF_UPDATEXS_LENSPOS		(1 << 2)
 
 /**
- * struct isp_af_buffer - AF frame stats buffer.
- * @virt_addr: Virtual address to mmap the buffer.
- * @phy_addr: Physical address of the buffer.
- * @addr_align: Virtual Address 32 bytes aligned.
- * @ispmmu_addr: Address of the buffer mapped by the ISPMMU.
- * @mmap_addr: Mapped memory area of buffer. For userspace access.
- * @locked: 1 - Buffer locked from write. 0 - Buffer can be overwritten.
- * @frame_num: Frame number from which the statistics are taken.
- * @lens_position: Lens position currently set in the DW9710 Coil motor driver.
- * @next: Pointer to link next buffer.
- */
-struct isp_af_buffer {
-	unsigned long virt_addr;
-	unsigned long phy_addr;
-	unsigned long addr_align;
-	unsigned long ispmmu_addr;
-	unsigned long mmap_addr;
-
-	u8 locked;
-	u8 done;
-	u16 frame_num;
-	u32 config_counter;
-	struct isp_af_buffer *next;
-};
-
-/**
  * struct isp_af_status - AF status.
  * @initialized: 1 - Buffers initialized.
  * @update: 1 - Update registers.
@@ -148,24 +123,11 @@ struct isp_af_buffer {
  * @buffer_lock: Spinlock for statistics buffers access.
  */
 struct isp_af_device {
-	u8 initialized;
 	u8 update;
-	u8 stats_req;
-	u8 stats_done;
-	u16 frame_req;
-
-	struct isp_af_buffer af_buff[H3A_MAX_BUFF];
-	unsigned int active_buffer;
-	unsigned int stats_buf_size;
-	unsigned int min_buf_size;
-	unsigned int curr_cfg_buf_size;
-	struct isp_af_buffer *active_buff;
 
 	int pm_state;
-	u32 frame_count;
-	atomic_t config_counter;
-	spinlock_t buffer_lock;		/* For stats buffers read/write sync */
 	struct device *dev;
+	struct ispstat stat;
 
 	struct af_configuration config; /*Device configuration structure */
 	int size_paxel;         /*Paxel size in bytes */
