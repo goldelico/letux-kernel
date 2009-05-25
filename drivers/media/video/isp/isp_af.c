@@ -33,14 +33,15 @@
 #define IS_OUT_OF_BOUNDS(value, min, max)		\
 	(((value) < (min)) || ((value) > (max)))
 
-void isp_af_set_address(struct isp_af_device *isp_af, unsigned long address)
+static void isp_af_set_address(struct isp_af_device *isp_af,
+			       unsigned long address)
 {
 	isp_reg_writel(isp_af->dev, address, OMAP3_ISP_IOMEM_H3A,
 		       ISPH3A_AFBUFST);
 }
 
 /* Function to check paxel parameters */
-int isp_af_check_paxel(struct isp_af_device *isp_af)
+static int isp_af_check_paxel(struct isp_af_device *isp_af)
 {
 	struct af_paxel *paxel_cfg = &isp_af->config.paxel_config;
 	struct af_iir *iir_cfg = &isp_af->config.iir_config;
@@ -101,7 +102,7 @@ int isp_af_check_paxel(struct isp_af_device *isp_af)
 /**
  * isp_af_check_iir - Function to check IIR Coefficient.
  **/
-int isp_af_check_iir(struct isp_af_device *isp_af)
+static int isp_af_check_iir(struct isp_af_device *isp_af)
 {
 	struct af_iir *iir_cfg = &isp_af->config.iir_config;
 	int index;
@@ -129,76 +130,7 @@ int isp_af_check_iir(struct isp_af_device *isp_af)
 	return 0;
 }
 
-/* Function to perform hardware set up */
-int isp_af_configure(struct isp_af_device *isp_af,
-		     struct af_configuration *afconfig)
-{
-	int result;
-	int buf_size;
-	unsigned int busyaf;
-	struct af_configuration *af_curr_cfg = &isp_af->config;
-	struct ispstat_buffer *buf;
-
-	if (NULL == afconfig) {
-		dev_err(isp_af->dev, "af: Null argument in configuration. \n");
-		return -EINVAL;
-	}
-
-	memcpy(af_curr_cfg, afconfig, sizeof(struct af_configuration));
-	/* Get the value of PCR register */
-	busyaf = isp_reg_readl(isp_af->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
-
-	if ((busyaf & AF_BUSYAF) == AF_BUSYAF) {
-		DPRINTK_ISP_AF("AF_register_setup_ERROR : Engine Busy");
-		DPRINTK_ISP_AF("\n Configuration cannot be done ");
-		return -AF_ERR_ENGINE_BUSY;
-	}
-
-	/* Check IIR Coefficient and start Values */
-	result = isp_af_check_iir(isp_af);
-	if (result < 0)
-		return result;
-
-	/* Check Paxel Values */
-	result = isp_af_check_paxel(isp_af);
-	if (result < 0)
-		return result;
-
-	/* Check HMF Threshold Values */
-	if (af_curr_cfg->hmf_config.threshold > AF_THRESHOLD_MAX) {
-		DPRINTK_ISP_AF("Error : HMF Threshold is incorrect");
-		return -AF_ERR_THRESHOLD;
-	}
-
-	/* Compute buffer size */
-	buf_size = (af_curr_cfg->paxel_config.hz_cnt + 1) *
-		(af_curr_cfg->paxel_config.vt_cnt + 1) * AF_PAXEL_SIZE;
-
-	result = ispstat_bufs_alloc(&isp_af->stat, buf_size);
-	if (result)
-		return result;
-
-	result = isp_af_register_setup(isp_af);
-	if (result < 0)
-		return result;
-
-	isp_af->size_paxel = buf_size;
-
-	buf = ispstat_buf_next(&isp_af->stat);
-	isp_af_set_address(isp_af, buf->iommu_addr);
-
-	/* Set configuration flag to indicate HW setup done */
-	if (af_curr_cfg->af_config)
-		isp_af_enable(isp_af, 1);
-	else
-		isp_af_enable(isp_af, 0);
-
-	/* Success */
-	return 0;
-}
-EXPORT_SYMBOL(isp_af_configure);
-
-int isp_af_register_setup(struct isp_af_device *isp_af)
+static int isp_af_register_setup(struct isp_af_device *isp_af)
 {
 	unsigned int pcr = 0, pax1 = 0, pax2 = 0, paxstart = 0;
 	unsigned int coef = 0;
@@ -312,6 +244,73 @@ int isp_af_register_setup(struct isp_af_device *isp_af)
 
 	return 0;
 }
+
+/* Function to perform hardware set up */
+int isp_af_configure(struct isp_af_device *isp_af,
+		     struct af_configuration *afconfig)
+{
+	int result;
+	int buf_size;
+	unsigned int busyaf;
+	struct af_configuration *af_curr_cfg = &isp_af->config;
+	struct ispstat_buffer *buf;
+
+	if (NULL == afconfig) {
+		dev_err(isp_af->dev, "af: Null argument in configuration. \n");
+		return -EINVAL;
+	}
+
+	memcpy(af_curr_cfg, afconfig, sizeof(struct af_configuration));
+	/* Get the value of PCR register */
+	busyaf = isp_reg_readl(isp_af->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
+
+	if ((busyaf & AF_BUSYAF) == AF_BUSYAF) {
+		DPRINTK_ISP_AF("AF_register_setup_ERROR : Engine Busy");
+		DPRINTK_ISP_AF("\n Configuration cannot be done ");
+		return -AF_ERR_ENGINE_BUSY;
+	}
+
+	/* Check IIR Coefficient and start Values */
+	result = isp_af_check_iir(isp_af);
+	if (result < 0)
+		return result;
+
+	/* Check Paxel Values */
+	result = isp_af_check_paxel(isp_af);
+	if (result < 0)
+		return result;
+
+	/* Check HMF Threshold Values */
+	if (af_curr_cfg->hmf_config.threshold > AF_THRESHOLD_MAX) {
+		DPRINTK_ISP_AF("Error : HMF Threshold is incorrect");
+		return -AF_ERR_THRESHOLD;
+	}
+
+	/* Compute buffer size */
+	buf_size = (af_curr_cfg->paxel_config.hz_cnt + 1) *
+		(af_curr_cfg->paxel_config.vt_cnt + 1) * AF_PAXEL_SIZE;
+
+	result = ispstat_bufs_alloc(&isp_af->stat, buf_size);
+	if (result)
+		return result;
+
+	result = isp_af_register_setup(isp_af);
+	if (result < 0)
+		return result;
+
+	buf = ispstat_buf_next(&isp_af->stat);
+	isp_af_set_address(isp_af, buf->iommu_addr);
+
+	/* Set configuration flag to indicate HW setup done */
+	if (af_curr_cfg->af_config)
+		isp_af_enable(isp_af, 1);
+	else
+		isp_af_enable(isp_af, 0);
+
+	/* Success */
+	return 0;
+}
+EXPORT_SYMBOL(isp_af_configure);
 
 /*
  * This API allows the user to update White Balance gains, as well as

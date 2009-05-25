@@ -109,39 +109,21 @@
 
 /**
  * struct isp_af_status - AF status.
- * @initialized: 1 - Buffers initialized.
  * @update: 1 - Update registers.
- * @stats_req: 1 - Future stats requested.
- * @stats_done: 1 - Stats ready for user.
- * @frame_req: Number of frame requested for statistics.
- * @af_buff: Array of statistics buffers to access.
- * @stats_buf_size: Statistics buffer size.
- * @curr_cfg_buf_size: Current user configured stats buff size.
- * @min_buf_size: Minimum statisitics buffer size.
- * @frame_count: Frame Count.
- * @stats_wait: Wait primitive for locking/unlocking the stats request.
- * @buffer_lock: Spinlock for statistics buffers access.
  */
 struct isp_af_device {
 	u8 update;
-
 	int pm_state;
 	struct device *dev;
 	struct ispstat stat;
-
 	struct af_configuration config; /*Device configuration structure */
-	int size_paxel;         /*Paxel size in bytes */
 };
 
 void isp_af_isr(struct isp_af_device *isp_af);
-int isp_af_check_paxel(struct isp_af_device *);
-int isp_af_check_iir(struct isp_af_device *);
-int isp_af_register_setup(struct isp_af_device *);
 int isp_af_enable(struct isp_af_device *, int);
 void isp_af_suspend(struct isp_af_device *);
 void isp_af_resume(struct isp_af_device *);
 int isp_af_busy(struct isp_af_device *);
-void isp_af_notify(struct isp_af_device *, int notify);
 int isp_af_request_statistics(struct isp_af_device *,
 			      struct isp_af_data *afdata);
 int isp_af_configure(struct isp_af_device *, struct af_configuration *afconfig);
