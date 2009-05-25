@@ -125,6 +125,7 @@ int proc4430_setup(struct proc4430_config *cfg)
 		proc4430_get_config(&tmp_cfg);
 		cfg = &tmp_cfg;
 	}
+	dmm_create();
 	dmm_create_tables(DUCATI_DMM_START_ADDR, DUCATI_DMM_POOL_SIZE);
 	if (cfg->gate_handle != NULL) {
 		proc4430_state.gate_handle = cfg->gate_handle;
