@@ -30,56 +30,6 @@
 #include "isph3a.h"
 #include "isp_af.h"
 
-/**
- * isp_af_setxtrastats - Receives extra statistics from prior frames.
- * @xtrastats: Pointer to structure containing extra statistics fields like
- *             field count and timestamp of frame.
- *
- * Called from update_vbq in camera driver
- **/
-void isp_af_setxtrastats(struct isp_af_device *isp_af,
-			 struct isp_af_xtrastats *xtrastats, u8 updateflag)
-{
-	int i, past_i;
-
-	if (isp_af->active_buff == NULL)
-		return;
-
-	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		if (isp_af->af_buff[i].frame_num ==
-				isp_af->active_buff->frame_num)
-			break;
-	}
-
-	if (i == H3A_MAX_BUFF)
-		return;
-
-	if (i == 0) {
-		if (isp_af->af_buff[H3A_MAX_BUFF - 1].locked == 0)
-			past_i = H3A_MAX_BUFF - 1;
-		else
-			past_i = H3A_MAX_BUFF - 2;
-	} else if (i == 1) {
-		if (isp_af->af_buff[0].locked == 0)
-			past_i = 0;
-		else
-			past_i = H3A_MAX_BUFF - 1;
-	} else {
-		if (isp_af->af_buff[i - 1].locked == 0)
-			past_i = i - 1;
-		else
-			past_i = i - 2;
-	}
-
-	if (updateflag & AF_UPDATEXS_TS)
-		isp_af->af_buff[past_i].xtrastats.ts = xtrastats->ts;
-
-	if (updateflag & AF_UPDATEXS_FIELDCOUNT)
-		isp_af->af_buff[past_i].xtrastats.field_count =
-			xtrastats->field_count;
-}
-EXPORT_SYMBOL(isp_af_setxtrastats);
-
 /*
  * Helper function to update buffer cache pages
  */
@@ -489,9 +439,6 @@ static int isp_af_stats_available(struct isp_af_device *isp_af,
 					"af: Failed copy_to_user for "
 					"H3A stats buff, %d\n", ret);
 			}
-			afdata->xtrastats.ts = isp_af->af_buff[i].xtrastats.ts;
-			afdata->xtrastats.field_count =
-				isp_af->af_buff[i].xtrastats.field_count;
 			return 0;
 		}
 	}
@@ -656,7 +603,6 @@ static void isp_af_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 		return;
 
 	/* timestamp stats buffer */
-	do_gettimeofday(&isp_af->active_buff->xtrastats.ts);
 	isp_af->active_buff->config_counter =
 				atomic_read(&isp_af->config_counter);
 	isp_af->active_buff->done = 1;

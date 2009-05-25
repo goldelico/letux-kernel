@@ -129,7 +129,6 @@ struct isp_af_buffer {
 	u8 done;
 	u16 frame_num;
 	u32 config_counter;
-	struct isp_af_xtrastats xtrastats;
 	struct isp_af_buffer *next;
 };
 
@@ -186,6 +185,4 @@ int isp_af_request_statistics(struct isp_af_device *,
 			      struct isp_af_data *afdata);
 int isp_af_configure(struct isp_af_device *, struct af_configuration *afconfig);
 void isp_af_set_address(struct isp_af_device *, unsigned long);
-void isp_af_setxtrastats(struct isp_af_device *,
-			 struct isp_af_xtrastats *xtrastats, u8 updateflag);
 #endif	/* OMAP_ISP_AF_H */
