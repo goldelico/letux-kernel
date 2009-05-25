@@ -26,9 +26,9 @@
 #include <linux/types.h>
 #include <linux/string.h>
 
-#include <gt.h>
 #include <multiproc.h>
 
+#define MULTIPROC_MAXPROCESSORS   4
 /*
  *  Local processor's id. It has to be set before any module init.
  */
@@ -40,7 +40,7 @@ struct multiproc_module_object {
 /*  TDO:Add these back to the StateObject and configure them during Driver
   *  bootup using a Module_Init function.
  */
-static char modena[32] = "Modena";
+static char modena[32] = "MPU";
 static char tesla[32] = "Tesla";
 static char sysm3[32] = "SysM3";
 static char appm3[32] = "AppM3";
@@ -61,9 +61,6 @@ bool multiproc_set_local_id(u16 proc_id)
 {
 	bool status = true;
 
-	gt_1trace(mulproc_mask, GT_ENTER,
-		"multiProc_set_local_id: id = %d\n", proc_id);
-
 	if (proc_id >= MULTIPROC_MAXPROCESSORS)
 		status = false;
 	else
@@ -80,9 +77,6 @@ u16 multiproc_get_id(const char *proc_name)
 {
 	s32 i;
 	u16  proc_id = MULTIPROC_INVALIDID;
-
-	gt_1trace(mulproc_mask, GT_ENTER,
-		"multiproc_get_id: proc_name = %%s\n", proc_name);
 
 	/* If the name is NULL, just return the local id */
 	if (proc_name == NULL) {
@@ -107,10 +101,8 @@ u16 multiproc_get_id(const char *proc_name)
  */
 char *multiproc_get_name(u16 proc_id)
 {
-	char *proc_name = 0;
+	char *proc_name = NULL;
 
-	gt_1trace(mulproc_mask, GT_ENTER,
-			"multiproc_get_name: id = %d\n", proc_id);
 	if (proc_id >= MULTIPROC_MAXPROCESSORS)
 		goto end;
 

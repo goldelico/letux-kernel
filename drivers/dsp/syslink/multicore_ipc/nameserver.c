@@ -16,24 +16,20 @@
  *  WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR
  *  PURPOSE.
  */
-
+#include <linux/module.h>
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
 
-#include <gt.h>
 #include <nameserver.h>
 #include <multiproc.h>
 #include <nameserver_remote.h>
 
-/* Stubs for ipc dependent module functions */
-#define nameserver_remote_transport() 0
-
-#define NS_MAX_NAME_LEN  			16
-#define NS_MAX_RUNTIME_ENTRY 			0
-#define NS_MAX_VALUE_LEN			0
+#define NS_MAX_NAME_LEN  			32
+#define NS_MAX_RUNTIME_ENTRY 		(~0)
+#define NS_MAX_VALUE_LEN			4
 
 /*
  *  The dynamic name/value table looks like the following. This approach allows
@@ -228,14 +224,10 @@ int nameserver_setup(void)
 	s32 retval = 0;
 	u16 nr_procs = 0;
 
-	gt_0trace(ns_debugmask, GT_ENTER, "nameserver_setup:\n");
 	nr_procs = multiproc_get_max_processors();
 	list = kmalloc(nr_procs * sizeof(struct nameserver_remote_object *),
 					GFP_KERNEL);
 	if (list == NULL) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_setup: memory allocation"
-			" failed!\n");
 		retval = -ENOMEM;
 		goto error;
 	}
@@ -244,9 +236,6 @@ int nameserver_setup(void)
 	nameserver_state.remote_handle_list = list;
 	nameserver_state.list_lock = kmalloc(sizeof(struct mutex), GFP_KERNEL);
 	if (nameserver_state.list_lock == NULL) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_setup: memory allocation"
-			" failed!\n");
 		retval = -ENOMEM;
 		goto error;
 	}
@@ -256,9 +245,11 @@ int nameserver_setup(void)
 	return 0;
 
 error:
+	printk(KERN_ERR "nameserver_setup failed, retval: %x\n", retval);
 	kfree(list);
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_setup);
 
 /*
  * ======== nameserver_destroy ========
@@ -270,7 +261,6 @@ int nameserver_destroy(void)
 	s32 retval = 0;
 	struct mutex *lock = NULL;
 
-	gt_0trace(ns_debugmask, GT_ENTER, "nameserver_destroy:\n");
 	if (WARN_ON(nameserver_state.list_lock == NULL)) {
 		retval = -ENODEV;
 		goto exit;
@@ -278,18 +268,13 @@ int nameserver_destroy(void)
 
 	/* If a nameserver instance exist, do not proceed  */
 	if (!list_empty(&nameserver_state.obj_list)) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_destroy: nameserver in use!\n");
 		retval = -EBUSY;
 		goto exit;
 	}
 
 	retval = mutex_lock_interruptible(nameserver_state.list_lock);
-	if (retval) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_destroy: lock failed!\n");
+	if (retval)
 		goto exit;
-	}
 
 	lock = nameserver_state.list_lock;
 	nameserver_state.list_lock = NULL;
@@ -300,8 +285,10 @@ int nameserver_destroy(void)
 	return 0;
 
 exit:
+	printk(KERN_ERR "nameserver_destroy failed, retval: %x\n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_destroy);
 
 /*!
  *  Purpose:
@@ -310,10 +297,7 @@ exit:
  */
 int nameserver_params_init(struct nameserver_params *params)
 {
-	gt_1trace(ns_debugmask, GT_ENTER, "nameserver_params_init:\n"
-						"params: %x\n", params);
 	BUG_ON(params == NULL);
-
 	params->check_existing = true;
 	params->gate_handle = NULL;
 	params->max_name_len = NS_MAX_NAME_LEN;
@@ -322,6 +306,7 @@ int nameserver_params_init(struct nameserver_params *params)
 	params->table_heap = NULL;
 	return 0;
 }
+EXPORT_SYMBOL(nameserver_params_init);
 
 /*
  * ======== nameserver_get_params ========
@@ -334,10 +319,7 @@ int nameserver_get_params(void *handle,
 {
 	struct nameserver_object *nshandle = NULL;
 
-	gt_2trace(ns_debugmask, GT_ENTER, "nameserver_get_params:\n"
-			"handle: %x, params: %x\n", handle, params);
 	BUG_ON(params == NULL);
-
 	if (handle == NULL) {
 		params->check_existing       = true;
 		params->max_name_len         = NS_MAX_NAME_LEN;
@@ -357,6 +339,7 @@ int nameserver_get_params(void *handle,
 	}
 	return 0;
 }
+EXPORT_SYMBOL(nameserver_get_params);
 
 /*
  * ======== nameserver_get_params ========
@@ -368,18 +351,17 @@ void *nameserver_get_handle(const char *name)
 {
 	struct nameserver_object *obj = NULL;
 
-	gt_1trace(ns_debugmask, GT_6CLASS,
-		"nameserver_get_handle:\n name: %s\n", name);
 	BUG_ON(name == NULL);
-
 	list_for_each_entry(obj, &nameserver_state.obj_list, elem) {
 		if (strcmp(obj->name, name) == 0)
-			goto exit;
+			goto succes;
 	}
+	return NULL;
 
-exit:
+succes:
 	return (void *)obj;
 }
+EXPORT_SYMBOL(nameserver_get_handle);
 
 /*
  * ======== nameserver_create ========
@@ -393,50 +375,34 @@ void *nameserver_create(const char *name,
 	u32 name_len;
 	s32 retval = 0;
 
-	gt_2trace(ns_debugmask, GT_6CLASS, "nameserver_create:\n"
-		" name: %s,\n params: %x\n", name, params);
 	BUG_ON(name == NULL);
 	BUG_ON(params == NULL);
 
 	name_len = strlen(name) + 1;
 	if (name_len > params->max_name_len) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_create_instance: argument is too"
-			" big!\n");
 		retval = E2BIG;
 		goto exit;
 	}
 
 	retval = mutex_lock_interruptible(nameserver_state.list_lock);
-	if (retval) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_create_instance: lock failed!\n");
+	if (retval)
 		goto exit;
-	}
 
 	/* check if the name is already registered or not */
 	new_obj = nameserver_get_handle(name);
 	if (new_obj != NULL) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_create_instance: name in use!\n");
 		retval = EEXIST;
 		goto error;
 	}
 
 	new_obj = kmalloc(sizeof(struct nameserver_object), GFP_KERNEL);
 	if (new_obj == NULL) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_create_instance: memory allocation"
-			" failed!\n");
 		retval = -ENOMEM;
 		goto error;
 	}
 
 	new_obj->name = kmalloc(name_len, GFP_ATOMIC);
 	if (new_obj->name == NULL) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_create_instance: memory allocation"
-			" failed!\n");
 		retval = -ENOMEM;
 		goto error;
 	}
@@ -449,21 +415,14 @@ void *nameserver_create(const char *name,
 	else
 		new_obj->params.max_value_len = params->max_value_len;
 
-	/* Set up the gate for this instance */
-	if (params->gate_handle == NULL) {
-		new_obj->gate_handle =
+	new_obj->gate_handle =
 				kmalloc(sizeof(struct mutex), GFP_KERNEL);
-		if (new_obj->gate_handle == NULL) {
-			gt_0trace(ns_debugmask, GT_6CLASS,
-				"nameserver_create_instance: memory "
-				"allocation failed!\n");
+	if (new_obj->gate_handle == NULL) {
 			retval = -ENOMEM;
 			goto error_mutex;
-		}
-		mutex_init(new_obj->gate_handle);
-	} else
-		new_obj->gate_handle = (struct mutex *)params->gate_handle;
+	}
 
+	mutex_init(new_obj->gate_handle);
 	new_obj->count = 0;
 	/* Put in the nameserver instance to local list */
 	INIT_LIST_HEAD(&new_obj->name_list);
@@ -479,8 +438,10 @@ error:
 	kfree(new_obj);
 
 exit:
+	printk(KERN_ERR "nameserver_create failed retval:%x \n", retval);
 	return NULL;
 }
+EXPORT_SYMBOL(nameserver_create);
 
 
 /*
@@ -495,34 +456,21 @@ int nameserver_delete(void **handle)
 	bool localgate = false;
 	s32 retval = 0;
 
-	gt_2trace(ns_debugmask, GT_6CLASS,
-		"nameserver_delete:\n"
-		"handle: %x, *handle: %x\n", handle, *handle);
 	BUG_ON(handle == NULL);
-	BUG_ON(*handle == NULL);
-
 	temp_obj = (struct nameserver_object *) (*handle);
 	retval = mutex_lock_interruptible(temp_obj->gate_handle);
-	if (retval) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_delete_instance: lock failed!\n");
+	if (retval)
 		goto exit;
-	}
 
 	/* Do not proceed if an entry in the in the table */
 	if (temp_obj->count != 0) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_delete_instance: instance in use!\n");
 		retval = -EBUSY;
 		goto error;
 	}
 
 	retval = mutex_lock_interruptible(nameserver_state.list_lock);
-	if (retval) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_delete_instance: lock failed!\n");
+	if (retval)
 		goto error;
-	}
 
 	list_del(&temp_obj->elem);
 	mutex_unlock(nameserver_state.list_lock);
@@ -544,8 +492,10 @@ int nameserver_delete(void **handle)
 error:
 	mutex_unlock(temp_obj->gate_handle);
 exit:
+	printk(KERN_ERR "nameserver_delete failed retval:%x \n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_delete);
 
 /*
  * ======== nameserver_is_entry_found ========
@@ -598,11 +548,6 @@ void *nameserver_add(void *handle, const char *name,
 	u32 name_len;
 	s32 retval = 0;
 
-	gt_4trace(ns_debugmask, GT_6CLASS,
-		"nameserver_add:\n"
-		"name: %s,\n handle: %x, buffer: %x,"
-		" length: %x\n", name, handle, buffer,
-		length);
 	BUG_ON(handle == NULL);
 	BUG_ON(name == NULL);
 	BUG_ON(buffer == NULL);
@@ -613,15 +558,10 @@ void *nameserver_add(void *handle, const char *name,
 
 	temp_obj = (struct nameserver_object *)handle;
 	retval = mutex_lock_interruptible(temp_obj->gate_handle);
-	if (retval) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-				"nameserver_add: lock failed!\n");
+	if (retval)
 		goto exit;
-	}
 
 	if (temp_obj->count >= temp_obj->params.max_runtime_entries) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-				"nameserver_add: table full!)\n");
 		retval = -ENOSPC;
 		goto error;
 	}
@@ -629,8 +569,6 @@ void *nameserver_add(void *handle, const char *name,
 	/* make the null char in to account */
 	name_len = strlen(name) + 1;
 	if (name_len > temp_obj->params.max_name_len) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_add: argument too big!\n");
 		retval = -E2BIG;
 		goto error;
 	}
@@ -640,16 +578,12 @@ void *nameserver_add(void *handle, const char *name,
 	found = nameserver_is_entry_found(name, hash,
 					&temp_obj->name_list, &new_node);
 	if (found == true) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_add: entry exists!\n");
 		retval = -EEXIST;
 		goto error;
 	}
 
 	new_node = kmalloc(sizeof(struct nameserver_entry), GFP_KERNEL);
 	if (new_node == NULL) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_add: memory allocation failed!\n");
 		retval = -ENOMEM;
 		goto error;
 	}
@@ -659,17 +593,13 @@ void *nameserver_add(void *handle, const char *name,
 	new_node->len     = length;
 	new_node->next    = NULL;
 	new_node->name    = kmalloc(name_len, GFP_KERNEL);
-	if (new_node->name) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_add: memory allocation failed!\n");
+	if (new_node->name == NULL) {
 		retval = -ENOMEM;
 		goto error;
 	}
 
 	new_node->buf  = kmalloc(length, GFP_KERNEL);
-	if (new_node->buf) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_add:  memory allocation failed!\n");
+	if (new_node->buf == NULL) {
 		retval = -ENOMEM;
 		goto error1;
 	}
@@ -688,9 +618,11 @@ error:
 	mutex_unlock(temp_obj->gate_handle);
 	kfree(new_node);
 exit:
+	printk(KERN_ERR "nameserver_add failed status: %x \n", retval);
 	return NULL;
 
 }
+EXPORT_SYMBOL(nameserver_add);
 
 /*
  * ======== nameserver_add_uint32 ========
@@ -701,16 +633,13 @@ void *nameserver_add_uint32(void *handle, const char *name,
 			u32 value)
 {
 	struct nameserver_entry *new_node = NULL;
-	gt_3trace(ns_debugmask, GT_6CLASS,
-		"nameserver_add_uint32:\n"
-		"name: %s,\n handle: %x, value: %x\n",
-		name, handle, value);
 	BUG_ON(handle == NULL);
 	BUG_ON(name == NULL);
 
 	new_node = nameserver_add(handle, name, &value, sizeof(u32));
 	return new_node;
 }
+EXPORT_SYMBOL(nameserver_add_uint32);
 
 /*
  * ======== nameserver_remove ========
@@ -726,35 +655,25 @@ int nameserver_remove(void *handle, const char *name)
 	u32 name_len;
 	s32 retval = 0;
 
-	gt_2trace(ns_debugmask, GT_6CLASS,
-		"nameserver_remove:\n"
-		"name: %s, \n handle: %x \n", name, handle);
 	BUG_ON(handle == NULL);
 	BUG_ON(name == NULL);
 
 	temp_obj = (struct nameserver_object *)handle;
 	name_len = strlen(name) + 1;
 	if (name_len > temp_obj->params.max_name_len) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_remove: argument too big!)\n");
 		retval = -E2BIG;
 		goto exit;
 	}
 
 	retval = mutex_lock_interruptible(temp_obj->gate_handle);
-	if (retval) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-				"nameserver_remove: lock failed!\n");
+	if (retval)
 		goto exit;
-	}
 
 	/* TODO :check collide & hash usage */
 	hash = nameserver_string_hash(name);
 	found = nameserver_is_entry_found(name, hash,
 					&temp_obj->name_list, &entry);
 	if (found == false) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_remove: entry not exist!)\n");
 		retval = -ENOENT;
 		goto error;
 	}
@@ -771,8 +690,10 @@ error:
 	mutex_unlock(temp_obj->gate_handle);
 
 exit:
+	printk(KERN_ERR "nameserver_remove failed status:%x \n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_remove);
 
 /*
  * ======== nameserver_remove_entry ========
@@ -785,9 +706,6 @@ int nameserver_remove_entry(void *nshandle, void *nsentry)
 	struct nameserver_object *handle = NULL;
 	s32 retval = 0;
 
-	gt_2trace(ns_debugmask, GT_6CLASS,
-		"nameserver_remove_entry:\n"
-		"nshandle: %x, nsentry: %x \n", nshandle, nsentry);
 	BUG_ON(nshandle == NULL);
 	BUG_ON(nsentry == NULL);
 
@@ -806,8 +724,10 @@ int nameserver_remove_entry(void *nshandle, void *nsentry)
 	return 0;
 
 exit:
+	printk(KERN_ERR "nameserver_remove_entry failed status:%x \n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_remove_entry);
 
 
 /*
@@ -825,10 +745,6 @@ int nameserver_get_local(void *handle, const char *name,
 	u32 hash;
 	s32 retval = 0;
 
-	gt_4trace(ns_debugmask, GT_6CLASS,
-		"nameserver_get_local:\n"
-		"handle: %x, buffer: %x, length: %x, \n"
-		"name: %s\n", handle, buffer, length, name);
 	BUG_ON(handle == NULL);
 	BUG_ON(name == NULL);
 	BUG_ON(buffer == NULL);
@@ -839,19 +755,14 @@ int nameserver_get_local(void *handle, const char *name,
 
 	temp_obj = (struct nameserver_object *)handle;
 	retval = mutex_lock_interruptible(temp_obj->gate_handle);
-	if (retval) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-				"nameserver_get_local: lock failed!\n");
+	if (retval)
 		goto exit;
-	}
 
 	/* TODO :check collide & hash usage */
 	hash = nameserver_string_hash(name);
 	found = nameserver_is_entry_found(name, hash,
 					&temp_obj->name_list, &entry);
 	if (found == false) {
-		gt_0trace(ns_debugmask, GT_6CLASS,
-			"nameserver_get_local: entry not exist!\n");
 		retval = -ENOENT;
 		goto error;
 	}
@@ -868,8 +779,11 @@ error:
 	mutex_unlock(temp_obj->gate_handle);
 
 exit:
+	printk(KERN_ERR "nameserver_get_local failed status:%x \n",
+			retval);
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_get_local);
 
 /*
  * ======== nameserver_get ========
@@ -886,11 +800,6 @@ int nameserver_get(void *handle, const char *name,
 	s32 retval = -1;
 	u32 i;
 
-	gt_5trace(ns_debugmask, GT_6CLASS,
-		"nameserver_get:\n"
-		"handle: %x, buffer: %x,\n length: %x,"
-		" proc_id: %x, \n name: %s\n",
-		handle, buffer, length, proc_id, name);
 	BUG_ON(handle == NULL);
 	BUG_ON(name == NULL);
 	BUG_ON(buffer == NULL);
@@ -945,8 +854,10 @@ int nameserver_get(void *handle, const char *name,
 	retval = -ENOENT;
 
 exit:
+	printk(KERN_ERR "nameserver_get_local failed status:%x \n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_get);
 
 /*
  * ======== nameserver_get ========
@@ -968,10 +879,6 @@ int nameserver_match(void *handle, const char *name, u32 *value)
 	u32 hash;
 	bool found = false;
 
-	gt_3trace(ns_debugmask, GT_6CLASS,
-		"nameserver_match:\n"
-		"handle: %x, value: %x,\n name: %s\n",
-		handle, value, name);
 	BUG_ON(handle == NULL);
 	BUG_ON(name == NULL);
 	BUG_ON(value == NULL);
@@ -993,8 +900,10 @@ int nameserver_match(void *handle, const char *name, u32 *value)
 		retval = -ENOENT;
 
 exit:
+	printk(KERN_ERR "nameserver_match failed status:%x \n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_match);
 
 /*
  * ======== nameserver_register_remote_driver ========
@@ -1006,10 +915,6 @@ int nameserver_register_remote_driver(void *handle, u16 proc_id)
 	struct nameserver_remote_object *temp = NULL;
 	s32 retval = 0;
 	u16 proc_count;
-
-	gt_2trace(ns_debugmask, GT_6CLASS,
-		"nameserver_register_remote_driver:\n"
-		"handle: %x, proc_id: %x\n", handle, proc_id);
 
 	BUG_ON(handle == NULL);
 	proc_count = multiproc_get_max_processors();
@@ -1023,8 +928,12 @@ int nameserver_register_remote_driver(void *handle, u16 proc_id)
 	return 0;
 
 exit:
+	printk(KERN_ERR
+			"nameserver_register_remote_driver failed status:%x \n",
+			retval);
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_register_remote_driver);
 
 /*
  * ======== nameserver_unregister_remote_driver ========
@@ -1036,9 +945,6 @@ int nameserver_unregister_remote_driver(u16 proc_id)
 	s32 retval = 0;
 	u16 proc_count;
 
-	gt_1trace(ns_debugmask, GT_6CLASS,
-		"nameserver_unregister_remote_driver:\n"
-		"proc_id: %x\n", proc_id);
 	proc_count = multiproc_get_max_processors();
 	if (WARN_ON(proc_id >= proc_count)) {
 		retval = -EINVAL;
@@ -1049,6 +955,10 @@ int nameserver_unregister_remote_driver(u16 proc_id)
 	return 0;
 
 exit:
+	printk(KERN_ERR
+		"nameserver_unregister_remote_driver failed status:%x \n",
+		retval);
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_unregister_remote_driver);
 

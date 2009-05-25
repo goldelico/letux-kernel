@@ -44,16 +44,18 @@ enum CMD_NAMESERVER {
  *  IOCTL command IDs for nameserver
  *
  */
-
 /*
  *  Command for nameserver_setup
  */
-#define CMD_NAMESERVER_SETUP		_IO(IPC_IOC_MAGIC, NAMESERVER_SETUP)
+#define CMD_NAMESERVER_SETUP		_IOWR(IPC_IOC_MAGIC, NAMESERVER_SETUP, \
+					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_destroy
  */
-#define CMD_NAMESERVER_DESTROY		_IO(IPC_IOC_MAGIC, NAMESERVER_DESTROY)
+#define CMD_NAMESERVER_DESTROY		_IOWR(IPC_IOC_MAGIC,                   \
+					NAMESERVER_DESTROY,                    \
+					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_params_init
@@ -65,13 +67,15 @@ enum CMD_NAMESERVER {
 /*
  *  Command for nameserver_create
  */
-#define CMD_NAMESERVER_CREATE		_IOWR(IPC_IOC_MAGIC, NAMESERVER_CREATE,\
+#define CMD_NAMESERVER_CREATE		_IOWR(IPC_IOC_MAGIC,                   \
+					NAMESERVER_CREATE,                     \
 					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_delete
  */
-#define CMD_NAMESERVER_DELETE		_IOWR(IPC_IOC_MAGIC, NAMESERVER_DELETE,\
+#define CMD_NAMESERVER_DELETE		_IOWR(IPC_IOC_MAGIC,                   \
+					NAMESERVER_DELETE,                     \
 					struct nameserver_cmd_args)
 
 /*
@@ -108,13 +112,13 @@ enum CMD_NAMESERVER {
 /*
  *  Command for nameserver_remove
  */
-#define CMD_NAMESERVER_REMOVE		_IOW(IPC_IOC_MAGIC, NAMESERVER_REMOVE, \
+#define CMD_NAMESERVER_REMOVE		_IOWR(IPC_IOC_MAGIC, NAMESERVER_REMOVE,\
 					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_remove_entry
  */
-#define CMD_NAMESERVER_REMOVEENTRY 	_IOW(IPC_IOC_MAGIC,		       \
+#define CMD_NAMESERVER_REMOVEENTRY 	_IOWR(IPC_IOC_MAGIC,		       \
 					NAMESERVER_REMOVEENTRY,		       \
 					struct nameserver_cmd_args)
 
@@ -212,7 +216,7 @@ enum CMD_NAMESERVER {
  *  Command arguments for nameserver
  */
 struct nameserver_cmd_args {
-	union nameserver_arg cmd_arg;
+	union nameserver_arg args;
 	s32 api_status;
 };
 
