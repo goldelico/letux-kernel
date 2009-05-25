@@ -133,6 +133,7 @@ struct isp_af_device {
 	int size_paxel;         /*Paxel size in bytes */
 };
 
+void isp_af_isr(struct isp_af_device *isp_af);
 int isp_af_check_paxel(struct isp_af_device *);
 int isp_af_check_iir(struct isp_af_device *);
 int isp_af_register_setup(struct isp_af_device *);
@@ -144,5 +145,5 @@ void isp_af_notify(struct isp_af_device *, int notify);
 int isp_af_request_statistics(struct isp_af_device *,
 			      struct isp_af_data *afdata);
 int isp_af_configure(struct isp_af_device *, struct af_configuration *afconfig);
-void isp_af_set_address(struct isp_af_device *, unsigned long);
+
 #endif	/* OMAP_ISP_AF_H */

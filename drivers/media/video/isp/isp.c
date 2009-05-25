@@ -934,13 +934,8 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 				irqdis->isp_callbk_arg2[CBK_HIST_DONE]);
 	}
 
-	if (irqstatus & H3A_AF_DONE) {
-		if (irqdis->isp_callbk[CBK_H3A_AF_DONE])
-			irqdis->isp_callbk[CBK_H3A_AF_DONE](
-				H3A_AF_DONE,
-				irqdis->isp_callbk_arg1[CBK_H3A_AF_DONE],
-				irqdis->isp_callbk_arg2[CBK_H3A_AF_DONE]);
-	}
+	if (irqstatus & H3A_AF_DONE)
+		isp_af_isr(&isp->isp_af);
 
 	/* Handle shared buffer logic overflows for video buffers. */
 	/* ISPSBL_PCR_CCDCPRV_2_RSZ_OVF can be safely ignored. */
