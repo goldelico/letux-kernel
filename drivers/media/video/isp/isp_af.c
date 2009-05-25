@@ -448,21 +448,6 @@ static int isp_af_stats_available(struct isp_af_device *isp_af,
 	return -1;
 }
 
-void isp_af_notify(struct isp_af_device *isp_af, int notify)
-{
-	unsigned long irqflags;
-
-	isp_af->camnotify = notify;
-	if (isp_af->camnotify && isp_af->initialized) {
-		printk(KERN_DEBUG "Warning Camera Off \n");
-		spin_lock_irqsave(&isp_af->buffer_lock, irqflags);
-		isp_af->stats_req = 0;
-		isp_af->stats_done = 1;
-		spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
-		wake_up_interruptible(&isp_af->stats_wait);
-	}
-}
-EXPORT_SYMBOL(isp_af_notify);
 /*
  * This API allows the user to update White Balance gains, as well as
  * exposure time and analog gain. It is also used to request frame
@@ -474,8 +459,6 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 	int ret = 0;
 	u16 frame_diff = 0;
 	u16 frame_cnt = isp_af->frame_count;
-	wait_queue_t wqt;
-	unsigned long irqflags;
 
 	if (!isp_af->config.af_config) {
 		dev_err(isp_af->dev, "af: engine not enabled\n");
@@ -514,31 +497,7 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 			" frame stats\n");
 		afdata->frame_number = frame_cnt;
 	}
-	if (!isp_af->camnotify) {
-		/* Block until frame in near future completes */
-		isp_af->frame_req = afdata->frame_number;
-		spin_lock_irqsave(&isp_af->buffer_lock, irqflags);
-		isp_af->stats_req = 1;
-		isp_af->stats_done = 0;
-		spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
-		init_waitqueue_entry(&wqt, current);
-		ret = wait_event_interruptible(isp_af->stats_wait,
-					       isp_af->stats_done == 1);
-		if (ret < 0) {
-			afdata->af_statistics_buf = NULL;
-			return ret;
-		}
-		DPRINTK_ISP_AF("ISP AF request status interrupt raised\n");
-
-		/* Stats now available */
-		ret = isp_af_stats_available(isp_af, afdata);
-		if (ret) {
-			dev_err(isp_af->dev,
-				"af: After waiting for stats, stats not"
-				" available!!\n");
-			afdata->af_statistics_buf = NULL;
-		}
-	}
+	afdata->af_statistics_buf = NULL;
 
 out:
 	afdata->curr_frame = isp_af->frame_count;
@@ -627,7 +586,6 @@ static void isp_af_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 		if (frame_align >= isp_af->frame_req + 1) {
 			isp_af->stats_req = 0;
 			isp_af->stats_done = 1;
-			wake_up_interruptible(&isp_af->stats_wait);
 		}
 	}
 	spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
@@ -698,7 +656,6 @@ int __init isp_af_init(struct device *dev)
 	isp_af->active_buff = NULL;
 	isp_af->dev = dev;
 
-	init_waitqueue_head(&isp_af->stats_wait);
 	spin_lock_init(&isp_af->buffer_lock);
 
 	return 0;

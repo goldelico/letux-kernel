@@ -1109,7 +1109,6 @@ void isp_start(struct device *dev)
 
 	isp->module.running = ISP_RUNNING;
 
-	isp_af_notify(0);
 	return;
 }
 EXPORT_SYMBOL(isp_start);
@@ -1222,7 +1221,6 @@ void isp_stop(struct device *dev)
 	struct isp_device *isp = dev_get_drvdata(dev);
 	int reset;
 
-	isp_af_notify(1);
 	isp->module.running = ISP_STOPPING;
 	isp_disable_interrupts(dev);
 	synchronize_irq(((struct isp_device *)dev_get_drvdata(dev))->irq_num);
@@ -2583,8 +2581,6 @@ static int isp_probe(struct platform_device *pdev)
 	isp_get();
 	isp_power_settings(&pdev->dev, 1);
 	isp_put();
-
-	isp_af_notify(&isp->isp_af, 1);
 
 	return 0;
 

@@ -163,11 +163,9 @@ struct isp_af_device {
 
 	int pm_state;
 	u32 frame_count;
-	wait_queue_head_t stats_wait;
 	atomic_t config_counter;
 	spinlock_t buffer_lock;		/* For stats buffers read/write sync */
 	struct device *dev;
-	int camnotify;
 
 	struct af_configuration config; /*Device configuration structure */
 	int size_paxel;         /*Paxel size in bytes */
