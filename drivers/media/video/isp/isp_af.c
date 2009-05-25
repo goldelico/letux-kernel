@@ -33,6 +33,12 @@
 #define IS_OUT_OF_BOUNDS(value, min, max)		\
 	(((value) < (min)) || ((value) > (max)))
 
+void isp_af_set_address(struct isp_af_device *isp_af, unsigned long address)
+{
+	isp_reg_writel(isp_af->dev, address, OMAP3_ISP_IOMEM_H3A,
+		       ISPH3A_AFBUFST);
+}
+
 /* Function to check paxel parameters */
 int isp_af_check_paxel(struct isp_af_device *isp_af)
 {
@@ -307,13 +313,6 @@ int isp_af_register_setup(struct isp_af_device *isp_af)
 	return 0;
 }
 
-/* Function to set address */
-void isp_af_set_address(struct isp_af_device *isp_af, unsigned long address)
-{
-	isp_reg_writel(isp_af->dev, address, OMAP3_ISP_IOMEM_H3A,
-		       ISPH3A_AFBUFST);
-}
-
 /*
  * This API allows the user to update White Balance gains, as well as
  * exposure time and analog gain. It is also used to request frame
@@ -349,39 +348,27 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 EXPORT_SYMBOL(isp_af_request_statistics);
 
 /* This function will handle the H3A interrupt. */
-static void isp_af_isr(unsigned long status, isp_vbq_callback_ptr arg1,
-		       void *arg2)
+void isp_af_isr(struct isp_af_device *isp_af)
 {
-	struct isp_af_device *isp_af = (struct isp_af_device *)arg2;
 	struct ispstat_buffer *buf;
-
-	if ((H3A_AF_DONE & status) != H3A_AF_DONE)
-		return;
 
 	/* Exchange buffers */
 	buf = ispstat_buf_next(&isp_af->stat);
 	isp_af_set_address(isp_af, buf->iommu_addr);
 }
 
-int __isp_af_enable(struct isp_af_device *isp_af, int enable)
+static int __isp_af_enable(struct isp_af_device *isp_af, int enable)
 {
 	unsigned int pcr;
 
 	pcr = isp_reg_readl(isp_af->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 
 	/* Set AF_EN bit in PCR Register */
-	if (enable) {
-		if (isp_set_callback(isp_af->dev, CBK_H3A_AF_DONE, isp_af_isr,
-				     (void *)NULL, isp_af)) {
-			dev_err(isp_af->dev, "af: No callback for AF\n");
-			return -EINVAL;
-		}
-
+	if (enable)
 		pcr |= AF_EN;
-	} else {
-		isp_unset_callback(isp_af->dev, CBK_H3A_AF_DONE);
+	else
 		pcr &= ~AF_EN;
-	}
+
 	isp_reg_writel(isp_af->dev, pcr, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 	return 0;
 }
