@@ -28,6 +28,7 @@
 #include <listmp_sharedmemory_ioctl.h>
 #include <messageq_ioctl.h>
 #include <messageq_transportshm_ioctl.h>
+#include <nameserver_remotenotify_ioctl.h>
 
 /*
  * ======== ipc_ioctl_router ========
@@ -40,8 +41,9 @@ int ipc_ioc_router(u32 cmd, ulong arg)
 	s32 retval = 0;
 	u32 ioc_nr = _IOC_NR(cmd);
 
-	gt_3trace(ipcrouter_mask, GT_ENTER, "ipc_ioc_router"
-		"cmd: %x, ioc_nr: %x, \n arg: %x\n", cmd, ioc_nr, arg);
+	printk(KERN_ERR "ipc_ioc_router \n"
+		"cmd: %x, ioc_nr: %x(%d), arg: %x\n", cmd, ioc_nr, ioc_nr,
+		(unsigned int) arg);
 
 	if (ioc_nr >= MULTIPROC_BASE_CMD && ioc_nr <= MULTIPROC_END_CMD)
 		retval = multiproc_ioctl(NULL, NULL, cmd, arg);
@@ -65,6 +67,9 @@ int ipc_ioc_router(u32 cmd, ulong arg)
 	else if (ioc_nr >= MESSAGEQ_TRANSPORTSHM_BASE_CMD &&
 					ioc_nr <= MESSAGEQ_TRANSPORTSHM_END_CMD)
 		retval = messageq_transportshm_ioctl(NULL, NULL, cmd, arg);
+	else if (ioc_nr >= NAMESERVERREMOTENOTIFY_BASE_CMD &&
+				ioc_nr <= NAMESERVERREMOTENOTIFY_END_CMD)
+		retval = nameserver_remotenotify_ioctl(NULL, NULL, cmd, arg);
 	else
 		retval = -ENOTTY;
 

@@ -31,7 +31,7 @@
 #include <ipc_ioctl.h>
 #include <nameserver.h>
 
-#define IPC_NAME  		"TIOMAP_IPC"
+#define IPC_NAME  		"omap_ipc"
 #define IPC_MAJOR		0
 #define IPC_MINOR		0
 #define IPC_DEVICES 		1
@@ -48,7 +48,7 @@ s32 ipc_minor = IPC_MINOR;
 char *ipc_name = IPC_NAME;
 
 module_param(ipc_name, charp, 0);
-MODULE_PARM_DESC(ipc_name, "Device name, default = TIOMAP_IPC");
+MODULE_PARM_DESC(ipc_name, "Device name, default = omap_ipc");
 
 module_param(ipc_major, int, 0);	/* Driver's major number */
 MODULE_PARM_DESC(ipc_major, "Major device number, default = 0 (auto)");
@@ -196,9 +196,9 @@ static int __init ipc_init(void)
 		retval = PTR_ERR(ipc_class);
 		goto unreg_exit;
 	}
-	device_create(ipc_class, NULL, MKDEV(ipc_major, ipc_minor), NULL,
-								"TI_IPC");
 
+	device_create(ipc_class, NULL, MKDEV(ipc_major, ipc_minor), NULL,
+								ipc_name);
 	cdev_init(&ipc_device->cdev, &ipc_fops);
 	ipc_device->cdev.owner = THIS_MODULE;
 	retval = cdev_add(&ipc_device->cdev, dev, IPC_DEVICES);
