@@ -468,7 +468,54 @@ int proc4430_translate_addr(void *handle,
 		void *src_addr, enum proc_mgr_addr_type src_addr_type)
 {
 	int retval = 0;
-	/* TODO */
+	struct processor_object *proc_handle =
+					(struct processor_object *)handle;
+	struct proc4430_object *object = NULL;
+	struct proc4430_mem_entry *entry = NULL;
+	bool found = false;
+	u32 fm_addr_base = (u32)NULL;
+	u32 to_addr_base = (u32)NULL;
+	u32 i;
+
+	if (WARN_ON(handle == NULL))
+		goto error_exit;
+	if (WARN_ON(dst_addr == NULL))
+		goto error_exit;
+	if (WARN_ON(dst_addr_type > PROC_MGR_ADDRTYPE_ENDVALUE))
+		goto error_exit;
+	if (WARN_ON(src_addr == NULL))
+		goto error_exit;
+	if (WARN_ON(src_addr_type > PROC_MGR_ADDRTYPE_ENDVALUE))
+		goto error_exit;
+
+	object = (struct proc4430_object *)proc_handle->object;
+	*dst_addr = NULL;
+	for (i = 0 ; i < object->params.num_mem_entries ; i++) {
+		entry = &(object->params.mem_entries[i]);
+		fm_addr_base =
+			(src_addr_type == PROC_MGR_ADDRTYPE_MASTERKNLVIRT) ?
+			entry->master_virt_addr : entry->slave_virt_addr;
+		to_addr_base =
+			(dst_addr_type == PROC_MGR_ADDRTYPE_MASTERKNLVIRT) ?
+			entry->master_virt_addr : entry->slave_virt_addr;
+		/* Determine whether which way to convert */
+		if (((u32)src_addr < (fm_addr_base + entry->size)) &&
+			((u32)src_addr >= fm_addr_base)) {
+			found = true;
+			*dst_addr = (void *)(((u32)src_addr - fm_addr_base)
+				+ to_addr_base);
+			break;
+		}
+	}
+
+	/* This check must not be removed even with build optimize. */
+	if (WARN_ON(found == false)) {
+		/*Failed to translate address. */
+		retval = -ENXIO;
+		goto error_exit;
+	}
+	return 0;
+error_exit:
 	return retval;
 }
 
