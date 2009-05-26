@@ -117,7 +117,6 @@ enum isp_callback_type {
 	CBK_HIST_DONE,
 	CBK_HS_VS,
 	CBK_LSC_ISR,
-	CBK_H3A_AF_DONE,
 	CBK_CATCHALL,
 	CBK_CSIA,
 	CBK_CSIB,
