@@ -39,8 +39,8 @@ static signed long int major = 234 ;
 
 /* driver function to open the notify mailbox driver object. */
 static int drvducati_open(struct inode *inode, struct file *filp);
-static int drvducati_release(struct inode * inode, struct file * filp);
-static int drvducati_ioctl(struct inode * inode,
+static int drvducati_release(struct inode *inode, struct file *filp);
+static int drvducati_ioctl(struct inode *inode,
 			struct file *filp,
 			unsigned int cmd,
 			unsigned long args);
@@ -54,7 +54,7 @@ static void  __exit drvducati_finalize_module(void) ;
 
 
 /* Function to invoke the APIs through ioctl. */
-static struct file_operations driver_ops = {
+static const struct file_operations driver_ops = {
 	.open = drvducati_open,
 	.release = drvducati_release,
 	.ioctl = drvducati_ioctl,
@@ -85,7 +85,7 @@ static int drvducati_open(struct inode *inode, struct file *filp)
 }
 
 /*drivr close*/
-static int drvducati_release(struct inode * inode, struct file * filp)
+static int drvducati_release(struct inode *inode, struct file *filp)
 {
 	return 0;
 }
@@ -96,7 +96,7 @@ static int drvducati_release(struct inode * inode, struct file * filp)
  *  brief  linux driver function to invoke the APIs through ioctl.
  *
  */
-static int drvducati_ioctl(struct inode *    inode,
+static int drvducati_ioctl(struct inode *inode,
 			struct file *filp,
 			unsigned int cmd,
 			unsigned long args)
@@ -104,41 +104,40 @@ static int drvducati_ioctl(struct inode *    inode,
 	int  status = 0;
 	int osStatus  = 0;
 	int retVal = 0;
-	struct notify_ducatidrv_cmdargs * cmd_args = (struct notify_ducatidrv_cmdargs *) args;
+	struct notify_ducatidrv_cmdargs *cmd_args =
+				(struct notify_ducatidrv_cmdargs *) args;
 	struct notify_ducatidrv_cmdargs common_args;
 
 	switch (cmd) {
 	case CMD_NOTIFYDRIVERSHM_GETCONFIG: {
-		struct notify_ducatidrv_cmdargs_getconfig *  src_args =
+		struct notify_ducatidrv_cmdargs_getconfig *src_args =
 			(struct notify_ducatidrv_cmdargs_getconfig *) args;
 		struct notify_ducatidrv_config cfg;
 		notify_ducatidrv_getconfig(&cfg);
 
 		if (osStatus == 0) {
-			retVal = copy_to_user((void*)(src_args->cfg),
-					(const void*) &cfg,
-					sizeof(struct notify_ducatidrv_config ));
-			if (retVal != 0) {
+			retVal = copy_to_user((void *)(src_args->cfg),
+					(const void *) &cfg,
+				sizeof(struct notify_ducatidrv_config));
+			if (retVal != 0)
 				osStatus = -EFAULT;
-			}
 		}
 	}
 	break;
 
 	case CMD_NOTIFYDRIVERSHM_SETUP: {
-		struct notify_ducatidrv_cmdargs_setup* src_args =
+		struct notify_ducatidrv_cmdargs_setup *src_args =
 			(struct notify_ducatidrv_cmdargs_setup *) args;
 		struct notify_ducatidrv_config cfg;
 		retVal = copy_from_user((void *) &cfg,
-					(const void*)(src_args->cfg),
+					(const void *)(src_args->cfg),
 					sizeof(struct notify_ducatidrv_config));
 		if (retVal != 0) {
 			osStatus = -EFAULT;
 		} else {
 			status = notify_ducatidrv_setup(&cfg);
-			if (status < 0) {
-			printk("FAIL: notify_ducatidrv_setup\n" );
-			}
+			if (status < 0)
+				printk(KERN_ERR "FAIL: notify_ducatidrv_setup\n");
 		}
 	}
 	break;
@@ -146,9 +145,8 @@ static int drvducati_ioctl(struct inode *    inode,
 	case CMD_NOTIFYDRIVERSHM_DESTROY: {
 		status = notify_ducatidrv_destroy();
 
-		if (status < 0) {
-			printk("FAIL: notify_ducatidrv_destroy\n" );
-		}
+		if (status < 0)
+			printk(KERN_ERR "FAIL: notify_ducatidrv_destroy\n");
 	}
 	break;
 
@@ -156,64 +154,66 @@ static int drvducati_ioctl(struct inode *    inode,
 		struct notify_ducatidrv_cmdargs_paramsinit src_args;
 		struct notify_ducatidrv_params params;
 		retVal = copy_from_user((void *) &src_args,
-					(const void*)(args),
-					sizeof(struct notify_ducatidrv_cmdargs_paramsinit));
-		if (retVal != 0) {
+				(const void *)(args),
+				sizeof(
+				struct notify_ducatidrv_cmdargs_paramsinit));
+		if (retVal != 0)
 			osStatus = -EFAULT;
-		} else {
-			notify_ducatidrv_params_init(src_args.handle,&params);
-		}
+		else
+			notify_ducatidrv_params_init(src_args.handle, &params);
 
 		if (osStatus == 0) {
-			retVal = copy_to_user((void*)(src_args.params),
-					(const void*) &params,
+			retVal = copy_to_user((void *)(src_args.params),
+					(const void *) &params,
 					sizeof(struct notify_ducatidrv_params));
-			if (retVal != 0) {
+			if (retVal != 0)
 				osStatus = -EFAULT;
-			}
 		}
 	}
 	break;
 
 	case CMD_NOTIFYDRIVERSHM_CREATE: {
 		struct notify_ducatidrv_cmdargs_create src_args;
-		retVal = copy_from_user((void*) &src_args,
-					(const void*)(args),
-					sizeof(struct notify_ducatidrv_cmdargs_create));
-		if (retVal != 0) {
+		retVal = copy_from_user((void *) &src_args,
+					(const void *)(args),
+				sizeof(struct notify_ducatidrv_cmdargs_create));
+		if (retVal != 0)
 			osStatus = -EFAULT;
-		} else {
-			src_args.handle = notify_ducatidrv_create(src_args.driverName,
-								&(src_args.params));
+		else {
+			src_args.handle = notify_ducatidrv_create(
+							src_args.driverName,
+							&(src_args.params));
 			if (src_args.handle == NULL) {
 				status = -EFAULT;
-				printk("drvducati_ioctl:status 0x%x,NotifyDriverShm_create failed", status);
+				printk(KERN_ERR "drvducati_ioctl:status 0x%x,"
+					"NotifyDriverShm_create failed",
+					status);
 			}
 		}
 		if (osStatus == 0) {
-			retVal = copy_to_user((void*)(args),
-						(const void*) &src_args,
-						sizeof(struct notify_ducatidrv_cmdargs_create));
-			if (retVal != 0) {
+			retVal = copy_to_user((void *)(args),
+					(const void *) &src_args,
+				sizeof(struct notify_ducatidrv_cmdargs_create));
+			if (retVal != 0)
 				osStatus = -EFAULT;
-			}
 		}
 	}
 	break;
 
 	case CMD_NOTIFYDRIVERSHM_DELETE: {
 		struct notify_ducatidrv_cmdargs_delete src_args;
-		retVal = copy_from_user((void*) &src_args,
-					(const void*)(args),
-					sizeof(struct notify_ducatidrv_cmdargs_delete));
+		retVal = copy_from_user((void *) &src_args,
+				(const void *)(args),
+				sizeof(struct notify_ducatidrv_cmdargs_delete));
 
-		if (retVal != 0) {
+		if (retVal != 0)
 			osStatus = -EFAULT;
-		} else {
+		else {
 			status = notify_ducatidrv_delete(&(src_args.handle));
-			if (status < 0) {
-				printk("drvducati_ioctl: notify_ducatidrv_delete failed status = %d\n",status);
-			}
+			if (status < 0)
+				printk(KERN_ERR "drvducati_ioctl:"
+					" notify_ducatidrv_delete failed"
+					" status = %d\n", status);
 		}
 	}
 	break;
@@ -221,26 +221,27 @@ static int drvducati_ioctl(struct inode *    inode,
 	case CMD_NOTIFYDRIVERSHM_OPEN: {
 		struct notify_ducatidrv_cmdargs_open src_args;
 
-		retVal = copy_from_user((void*) &src_args,
-					(const void*)(args),
-					sizeof(struct notify_ducatidrv_cmdargs_open));
+		retVal = copy_from_user((void *) &src_args,
+				(const void *)(args),
+				sizeof(struct notify_ducatidrv_cmdargs_open));
 		if (retVal != 0) {
 			osStatus = -EFAULT;
 		} else {
 			status = notify_ducatidrv_open(src_args.driverName,
 						&(src_args.handle));
 
-			if (status < 0) {
-				printk("drvducati_ioctl: notify_ducatidrv_open failed status = %d\n",status);
-			}
+			if (status < 0)
+				printk(KERN_ERR "drvducati_ioctl:"
+					" notify_ducatidrv_open failed"
+					" status = %d\n", status);
 		}
 		if (osStatus == 0) {
-			retVal = copy_to_user((void*)(args),
-					      (const void*) &src_args,
-					      sizeof(struct notify_ducatidrv_cmdargs_open));
-			if (retVal != 0) {
+			retVal = copy_to_user((void *)(args),
+					(const void *) &src_args,
+					 sizeof(
+					struct notify_ducatidrv_cmdargs_open));
+			if (retVal != 0)
 				osStatus = -EFAULT;
-			}
 		}
 	}
 	break;
@@ -248,40 +249,41 @@ static int drvducati_ioctl(struct inode *    inode,
 	case CMD_NOTIFYDRIVERSHM_CLOSE: {
 		struct notify_ducatidrv_cmdargs_close src_args;
 
-		retVal = copy_from_user((void*) &src_args,
-					(const void*)(args),
-					sizeof(struct notify_ducatidrv_cmdargs_close));
+		retVal = copy_from_user((void *) &src_args,
+				(const void *)(args),
+				sizeof(struct notify_ducatidrv_cmdargs_close));
 		if (retVal != 0) {
 			osStatus = -EFAULT;
 		} else {
 			status = notify_ducatidrv_close(&(src_args.handle));
-			if (status < 0) {
-				printk("drvducati_ioctl: notify_ducatidrv_close failed status = %d\n",status);
+			if (status < 0)
+				printk(KERN_ERR "drvducati_ioctl:"
+					" notify_ducatidrv_close"
+					" failed status = %d\n", status);
 			}
-		}
 	}
 	break;
 
 	default: {
 		status = -EINVAL;
 		osStatus = -EINVAL;
-		printk("drivducati_ioctl:Unsupported ioctl command specified");
+		printk(KERN_ERR "drivducati_ioctl:Unsupported"
+			" ioctl command specified");
 	}
 	break;
 	}
 
 	/* Set the status and copy the common args to user-side. */
 	common_args.api_status = status;
-	retVal = copy_to_user((void*) cmd_args,
-				(const void*) &common_args,
+	retVal = copy_to_user((void *) cmd_args,
+				(const void *) &common_args,
 				sizeof(struct notify_ducatidrv_cmdargs));
 
 	if (retVal != 0) {
 		osStatus = -EFAULT;
 	} else {
-		if (status == -ERESTARTSYS) {
-		osStatus = -ERESTARTSYS;
-		}
+		if (status == -ERESTARTSYS)
+				osStatus = -ERESTARTSYS;
 	}
 
 	return osStatus;

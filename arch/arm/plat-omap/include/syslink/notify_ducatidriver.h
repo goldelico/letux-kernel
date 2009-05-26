@@ -40,9 +40,7 @@
 #define REG volatile
 
 
-
-
-
+extern u32 get_ducati_virt_mem();
 
 /*
 *  func   notify_mbxdrv_register_event

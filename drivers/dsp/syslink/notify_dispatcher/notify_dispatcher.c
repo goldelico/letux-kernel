@@ -28,7 +28,6 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Suman Anna");
 MODULE_AUTHOR("Hari Kanigeri");
 MODULE_DESCRIPTION("Dispatchers mailbox events");
-	
 
 #define OMAP_MBOX_BASE 0x4A0F4000
 #define OMAP_MBOX_SIZE 0x2000
@@ -375,7 +374,7 @@ EXPORT_SYMBOL(ntfy_disp_send);
 *
 * Remove the ISR to the HW interrupt line coming into the processor
 */
-int ntfy_disp_unbind_interrupt( int interrupt_no)
+int ntfy_disp_unbind_interrupt(int interrupt_no)
 {
 	int i;
 	short int valid_interrupt = false;
