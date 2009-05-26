@@ -229,6 +229,7 @@ void *proc_mgr_create(u16 proc_id, const struct proc_mgr_params *params)
 	handle->proc_id = proc_id;
 	handle->proc_handle = params->proc_handle;
 	mutex_unlock(proc_mgr_obj_state.gate_handle);
+	proc_mgr_obj_state.proc_handles[proc_id] = handle;
 	return handle;
 }
 EXPORT_SYMBOL(proc_mgr_create);
