@@ -360,6 +360,7 @@ static void isp_enable_interrupts(struct device *dev)
 	irq0enable = IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ
 		| IRQ0ENABLE_HS_VS_IRQ
 		| IRQ0ENABLE_CCDC_VD0_IRQ | IRQ0ENABLE_CCDC_VD1_IRQ
+		| IRQ0ENABLE_CSIB_IRQ
 		| IRQ0ENABLE_H3A_AWB_DONE_IRQ
 		| isp->module.interrupts;
 
@@ -486,12 +487,6 @@ int isp_unset_callback(struct device *dev, enum isp_callback_type type)
 		break;
 	case CBK_CSIA:
 		isp_csi2_irq_set(0);
-		break;
-	case CBK_CSIB:
-		isp_reg_writel(dev, IRQ0ENABLE_CSIB_IRQ, OMAP3_ISP_IOMEM_MAIN,
-			       ISP_IRQ0STATUS);
-		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			   IRQ0ENABLE_CSIB_IRQ);
 		break;
 	case CBK_PREV_DONE:
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
@@ -622,6 +617,13 @@ static void isp_power_settings(struct device *dev, int idle)
 			| (val << shift);	\
 	} while (0)
 
+static void isp_csi_enable(struct device *dev, u8 enable)
+{
+	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL,
+		       ~(BIT(0) | BIT(4)),
+		       enable ? (BIT(0) | BIT(4)) : 0);
+}
+
 static int isp_init_csi(struct device *dev, struct isp_interface_config *config)
 {
 	u32 i = 0, val, reg;
@@ -700,9 +702,7 @@ static int isp_init_csi(struct device *dev, struct isp_interface_config *config)
 		       ISPCSI1_LC01_IRQSTATUS);
 
 	/* Enable CSI1 */
-	val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL);
-	val |= BIT(0) | BIT(4);
-	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL);
+	isp_csi_enable(dev, 1);
 
 	if (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
 			    ISPCSI1_CTRL) & BIT(4))) {
@@ -1166,6 +1166,8 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 			"(%s) isp_complete_reset \n", __func__);
 		isp_complete_reset = 1;
 	}
+
+	isp_csi_enable(dev, 0);
 	isp_buf_init(dev);
 
 	return reset;
