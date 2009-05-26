@@ -698,8 +698,19 @@ static int isp_init_csi(struct device *dev, struct isp_interface_config *config)
 	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, reg);
 
 	/* Clear status bits for logical channel #0 */
-	isp_reg_writel(dev, 0xFFF & ~BIT(6), OMAP3_ISP_IOMEM_CCP2,
+	val = ISPCSI1_LC01_IRQSTATUS_LC0_FIFO_OVF_IRQ |
+	      ISPCSI1_LC01_IRQSTATUS_LC0_CRC_IRQ |
+	      ISPCSI1_LC01_IRQSTATUS_LC0_FSP_IRQ |
+	      ISPCSI1_LC01_IRQSTATUS_LC0_FW_IRQ |
+	      ISPCSI1_LC01_IRQSTATUS_LC0_FSC_IRQ |
+	      ISPCSI1_LC01_IRQSTATUS_LC0_SSC_IRQ;
+
+	/* Clear IRQ status bits for logical channel #0 */
+	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2,
 		       ISPCSI1_LC01_IRQSTATUS);
+
+	/* Enable IRQs for logical channel #0 */
+	isp_reg_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LC01_IRQENABLE, val);
 
 	/* Enable CSI1 */
 	isp_csi_enable(dev, 1);
@@ -707,8 +718,10 @@ static int isp_init_csi(struct device *dev, struct isp_interface_config *config)
 	if (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
 			    ISPCSI1_CTRL) & BIT(4))) {
 		dev_warn(dev, "OMAP3 CSI1 bus not available\n");
-		if (config->u.csi.signalling)	/* Strobe mode requires CSI1 */
+		if (config->u.csi.signalling) {
+			/* Strobe mode requires CCP2 */
 			return -EIO;
+		}
 	}
 
 	return 0;
@@ -972,11 +985,15 @@ out_ignore_buff:
 	}
 
 	if (irqstatus & IRQ0STATUS_CSIB_IRQ) {
+		struct isp_buf *buf = ISP_BUF_DONE(bufs);
 		u32 ispcsi1_irqstatus;
 
 		ispcsi1_irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
 						  ISPCSI1_LC01_IRQSTATUS);
-		DPRINTK_ISPCTRL("%x\n", ispcsi1_irqstatus);
+		isp_reg_writel(dev, ispcsi1_irqstatus, OMAP3_ISP_IOMEM_CCP2,
+			       ISPCSI1_LC01_IRQSTATUS);
+		buf->vb_state = VIDEOBUF_ERROR;
+		dev_err(dev, "CCP2 err:%x\n", ispcsi1_irqstatus);
 	}
 
 	if (irqdis->isp_callbk[CBK_CATCHALL]) {
