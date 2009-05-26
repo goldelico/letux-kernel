@@ -361,7 +361,7 @@ static void isp_enable_interrupts(struct device *dev)
 		| IRQ0ENABLE_HS_VS_IRQ
 		| IRQ0ENABLE_CCDC_VD0_IRQ | IRQ0ENABLE_CCDC_VD1_IRQ
 		| IRQ0ENABLE_CSIB_IRQ
-		| IRQ0ENABLE_H3A_AWB_DONE_IRQ
+		| IRQ0ENABLE_H3A_AWB_DONE_IRQ | IRQ0ENABLE_H3A_AF_DONE_IRQ
 		| isp->module.interrupts;
 
 	if (CCDC_PREV_CAPTURE(isp))
@@ -414,15 +414,6 @@ int isp_set_callback(struct device *dev, enum isp_callback_type type,
 	spin_unlock_irqrestore(&isp->lock, irqflags);
 
 	switch (type) {
-	case CBK_H3A_AF_DONE:
-		isp->module.interrupts |= IRQ0ENABLE_H3A_AF_DONE_IRQ;
-		if (isp->module.running != ISP_RUNNING)
-			break;
-		isp_reg_writel(dev, IRQ0ENABLE_H3A_AF_DONE_IRQ,
-			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
-		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			   IRQ0ENABLE_H3A_AF_DONE_IRQ);
-		break;
 	case CBK_HIST_DONE:
 		isp->module.interrupts |= IRQ0ENABLE_HIST_DONE_IRQ;
 		if (isp->module.running != ISP_RUNNING)
@@ -471,13 +462,6 @@ int isp_unset_callback(struct device *dev, enum isp_callback_type type)
 	spin_unlock_irqrestore(&isp->lock, irqflags);
 
 	switch (type) {
-	case CBK_H3A_AF_DONE:
-		isp->module.interrupts &= ~IRQ0ENABLE_H3A_AF_DONE_IRQ;
-		if (isp->module.running != ISP_RUNNING)
-			break;
-		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			    ~IRQ0ENABLE_H3A_AF_DONE_IRQ);
-		break;
 	case CBK_HIST_DONE:
 		isp->module.interrupts &= ~IRQ0ENABLE_HIST_DONE_IRQ;
 		if (isp->module.running != ISP_RUNNING)
