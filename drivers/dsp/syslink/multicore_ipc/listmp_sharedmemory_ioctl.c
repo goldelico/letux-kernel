@@ -438,7 +438,7 @@ static inline int listmp_sharedmemory_ioctl_remove(
 		goto exit;
 
 	cargs->api_status = listmp_sharedmemory_remove(
-					cargs->args.get_head.listmp_handle, elem);
+				cargs->args.get_head.listmp_handle, elem);
 
 exit:
 	return 0;

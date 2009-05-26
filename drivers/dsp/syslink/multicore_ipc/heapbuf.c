@@ -69,7 +69,7 @@ struct heapbuf_proc_attrs {
 struct heapbuf_module_object {
 	struct list_head obj_list; /* List holding created objects */
 	void *nshandle;
-	struct mutex*list_lock; /* lock for protecting obj_list */
+	struct mutex *list_lock; /* lock for protecting obj_list */
 	struct heap_config cfg;
 	struct heap_config defaultcfg; /* Default config values */
 	struct heapbuf_params default_inst_params; /* Default instance

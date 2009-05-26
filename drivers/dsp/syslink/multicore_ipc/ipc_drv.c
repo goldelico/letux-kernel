@@ -118,7 +118,7 @@ exit:
 	return retval;
 }
 
-struct file_operations ipc_fops = {
+const struct file_operations ipc_fops = {
 open: ipc_open,
 release : ipc_release,
 ioctl : ipc_ioctl,
