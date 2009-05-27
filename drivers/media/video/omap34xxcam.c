@@ -585,7 +585,7 @@ do_it_now:
 		 best_pix_in->pixelformat,
 		 best_pix_out.width, best_pix_out.height);
 
-	return isp_try_fmt_cap(isp, best_pix_in, wanted_pix_out);
+	return 0;
 }
 
 static int s_pix_parm(struct omap34xxcam_videodev *vdev,
