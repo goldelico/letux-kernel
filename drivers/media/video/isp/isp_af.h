@@ -67,6 +67,8 @@
 #define AF_MED_EN			(1 << 2)
 #define AF_ALAW_EN			(1 << 1)
 #define AF_EN				(1 << 0)
+#define AF_PCR_MASK			(FVMODE | RGBPOS | MED_TH | \
+					 AF_MED_EN | AF_ALAW_EN)
 
 /*
  * AFPAX1 fields
