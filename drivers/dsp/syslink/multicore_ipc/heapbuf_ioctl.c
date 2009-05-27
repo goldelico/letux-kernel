@@ -32,26 +32,16 @@
  *  Purpose:
  *  This ioctl interface to heapbuf_alloc function
  */
-static int heapbuf_ioctl_alloc(struct heapbuf_cmd_args *args)
+static int heapbuf_ioctl_alloc(struct heapbuf_cmd_args *cargs)
 {
-	struct heapbuf_cmd_args uarg;
-	struct heapbuf_cmd_args *cargs = &uarg;
 	u32 *block_srptr = SHAREDREGION_INVALIDSRPTR;
 	void *block;
 	s32 index;
 	s32 retval = 0;
-	u32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct heapbuf_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	block = heapbuf_alloc(cargs->cmd_arg.alloc.handle,
-				cargs->cmd_arg.alloc.size,
-				cargs->cmd_arg.alloc.align);
+	block = heapbuf_alloc(cargs->args.alloc.handle,
+				cargs->args.alloc.size,
+				cargs->args.alloc.align);
 	if (block != NULL) {
 		index = sharedregion_get_index(block);
 		if (index < 0) {
@@ -66,14 +56,8 @@ static int heapbuf_ioctl_alloc(struct heapbuf_cmd_args *args)
 	we are getting from the heapbuf module. So IOCTL will succed,
 	but the actual fn might be failed inside heapbuf
 	*/
-	size = copy_to_user(&args->cmd_arg.alloc.block_srptr,
-				&block_srptr, sizeof(u32 *));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
+	cargs->args.alloc.block_srptr = block_srptr;
 
-	return 0;
 exit:
 	return retval;
 }
@@ -83,30 +67,14 @@ exit:
  *  Purpose:
  *  This ioctl interface to heapbuf_free function
  */
-static int heapbuf_ioctl_free(struct heapbuf_cmd_args *args)
+static int heapbuf_ioctl_free(struct heapbuf_cmd_args *cargs)
 {
-	struct heapbuf_cmd_args uarg;
-	struct heapbuf_cmd_args *cargs = &uarg;
 	char *block;
 	s32 retval = 0;
-	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct heapbuf_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	block = sharedregion_get_ptr(cargs->cmd_arg.free.block_srptr);
-	retval = heapbuf_free(cargs->cmd_arg.free.handle, block,
-					cargs->cmd_arg.free.size);
-	if (retval)
-		goto exit;
-
-	return 0;
-
-exit:
+	block = sharedregion_get_ptr(cargs->args.free.block_srptr);
+	retval = heapbuf_free(cargs->args.free.handle, block,
+					cargs->args.free.size);
 	return retval;
 }
 
@@ -115,33 +83,19 @@ exit:
  *  Purpose:
  *  This ioctl interface to heapbuf_params_init function
  */
-static int heapbuf_ioctl_params_init(struct heapbuf_cmd_args *args)
+static int heapbuf_ioctl_params_init(struct heapbuf_cmd_args *cargs)
 {
-	struct heapbuf_cmd_args uarg;
-	struct heapbuf_cmd_args *cargs = &uarg;
 	struct heapbuf_params params;
 	s32 retval = 0;
 	u32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct heapbuf_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	heapbuf_params_init(cargs->cmd_arg.params_init.handle, &params);
-	size = copy_to_user(cargs->cmd_arg.params_init.params, &params,
+	heapbuf_params_init(cargs->args.params_init.handle, &params);
+	size = copy_to_user(cargs->args.params_init.params, &params,
 				sizeof(struct heapbuf_params));
-	if (size) {
+	if (size)
 		retval = -EFAULT;
-		goto exit;
-	}
 
-	return 0;
-exit:
 	return retval;
-
 }
 
 /*
@@ -149,40 +103,32 @@ exit:
  *  Purpose:
  *  This ioctl interface to heapbuf_create function
  */
-static int heapbuf_ioctl_create(struct heapbuf_cmd_args *args)
+static int heapbuf_ioctl_create(struct heapbuf_cmd_args *cargs)
 {
-	struct heapbuf_cmd_args uarg;
-	struct heapbuf_cmd_args *cargs = &uarg;
 	struct heapbuf_params params;
 	s32 retval = 0;
 	u32 size;
 	void *handle = NULL;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct heapbuf_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	size = copy_from_user(&params, cargs->cmd_arg.create.params,
+	size = copy_from_user(&params, cargs->args.create.params,
 				sizeof(struct heapbuf_params));
 	if (size) {
 		retval = -EFAULT;
 		goto exit;
 	}
 
-	if (cargs->cmd_arg.create.name_len >= 0) {
-		params.name = kmalloc(cargs->cmd_arg.create.name_len,
+	if (cargs->args.create.name_len >= 0) {
+		params.name = kmalloc(cargs->args.create.name_len + 1,
 							GFP_KERNEL);
-		if (params.name) {
+		if (params.name == NULL) {
 			retval = -ENOMEM;
 			goto exit;
 		}
 
+		params.name[cargs->args.create.name_len] = '\0';
 		size = copy_from_user(params.name,
-					cargs->cmd_arg.create.params->name,
-					cargs->cmd_arg.create.name_len);
+					cargs->args.create.params->name,
+					cargs->args.create.name_len);
 		if (size) {
 			retval = -EFAULT;
 			goto name_from_usr_error;
@@ -190,26 +136,12 @@ static int heapbuf_ioctl_create(struct heapbuf_cmd_args *args)
 	}
 
 	params.shared_addr = sharedregion_get_ptr((u32 *)
-				cargs->cmd_arg.create.params->shared_addr);
+				cargs->args.create.params->shared_addr);
 	handle = heapbuf_create(&params);
-	size = copy_to_user(&args->cmd_arg.create.handle,
-				&handle, sizeof(u32 *));
-	if (size) {
-		retval = -EFAULT;
-		goto handle_to_usr_error;
-	}
-
-	if (cargs->cmd_arg.create.name_len >= 0)
-		kfree(params.name);
-
-	return 0;
-
-handle_to_usr_error:
-	if (handle)
-		heapbuf_delete(&handle);
+	cargs->args.create.handle = handle;
 
 name_from_usr_error:
-	if (cargs->cmd_arg.open.name_len > 0)
+	if (cargs->args.open.name_len > 0)
 		kfree(params.name);
 
 exit:
@@ -222,27 +154,11 @@ exit:
  *  Purpose:
  *  This ioctl interface to heapbuf_delete function
  */
-static int heapbuf_ioctl_delete(struct heapbuf_cmd_args *args)
+static int heapbuf_ioctl_delete(struct heapbuf_cmd_args *cargs)
 {
-	struct heapbuf_cmd_args uarg;
-	struct heapbuf_cmd_args *cargs = &uarg;
 	s32 retval = 0;
-	ulong size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct heapbuf_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	retval = heapbuf_delete(cargs->cmd_arg.delete.handle);
-	if (retval)
-		goto exit;
-
-	return 0;
-
-exit:
+	retval = heapbuf_delete(cargs->args.delete.handle);
 	return retval;
 }
 
@@ -251,77 +167,62 @@ exit:
  *  Purpose:
  *  This ioctl interface to heapbuf_open function
  */
-static int heapbuf_ioctl_open(struct heapbuf_cmd_args *args)
+static int heapbuf_ioctl_open(struct heapbuf_cmd_args *cargs)
 {
-	struct heapbuf_cmd_args uarg;
-	struct heapbuf_cmd_args *cargs = &uarg;
 	struct heapbuf_params params;
 	void *handle = NULL;
 	s32 retval = 0;
 	ulong size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct heapbuf_cmd_args));
+	size = copy_from_user(&params, cargs->args.open.params,
+						sizeof(struct heapbuf_params));
 	if (size) {
 		retval = -EFAULT;
 		goto exit;
 	}
 
-	size = copy_from_user(&params, cargs->cmd_arg.open.params,
-				sizeof(struct heapbuf_params));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	if (cargs->cmd_arg.open.name_len >= 0) {
-		params.name = kmalloc(cargs->cmd_arg.open.name_len, GFP_KERNEL);
-		if (params.name) {
+	if (cargs->args.open.name_len >= 0) {
+		params.name = kmalloc(cargs->args.open.name_len + 1,
+							GFP_KERNEL);
+		if (params.name == NULL) {
 			retval = -ENOMEM;
 			goto exit;
 		}
 
+		params.name[cargs->args.create.name_len] = '\0';
 		size = copy_from_user(params.name,
-					cargs->cmd_arg.open.params->name,
-					cargs->cmd_arg.open.name_len);
+					cargs->args.open.params->name,
+					cargs->args.open.name_len);
 		if (size) {
 			retval = -EFAULT;
-			goto copy_from_usr_error;
+			goto free_name;
 		}
 	}
 
 	params.shared_addr = sharedregion_get_ptr((u32 *)
-				cargs->cmd_arg.open.params->shared_addr);
+					cargs->args.open.params->shared_addr);
 	retval = heapbuf_open(&handle, &params);
 	if (retval)
-		goto heap_open_error;
+		goto free_name;
 
-	size = copy_to_user(cargs->cmd_arg.open.params, &params,
+	cargs->args.open.handle = handle;
+	size = copy_to_user(cargs->args.open.params, &params,
 				sizeof(struct heapbuf_params));
 	if (size) {
 		retval = -EFAULT;
 		goto copy_to_usr_error;
 	}
 
-	size = copy_to_user(&args->cmd_arg.open.handle, &handle,
-						sizeof(void *));
-
-	if (size) {
-		retval = -EFAULT;
-		goto copy_to_usr_error;
-	}
-
-	if (cargs->cmd_arg.open.name_len > 0)
-		kfree(params.name);
-
-	return 0;
+	goto free_name;
 
 copy_to_usr_error:
-	heapbuf_close(handle);
+	if (handle) {
+		heapbuf_close(handle);
+		cargs->args.open.handle = NULL;
+	}
 
-heap_open_error: /* Fall through */
-copy_from_usr_error:
-	if (cargs->cmd_arg.open.name_len > 0)
+free_name:
+	if (cargs->args.open.name_len > 0)
 		kfree(params.name);
 
 exit:
@@ -334,27 +235,11 @@ exit:
  *  Purpose:
  *  This ioctl interface to heapbuf_close function
  */
-static int heapbuf_ioctl_close(struct heapbuf_cmd_args *args)
+static int heapbuf_ioctl_close(struct heapbuf_cmd_args *cargs)
 {
-	struct heapbuf_cmd_args uarg;
-	struct heapbuf_cmd_args *cargs = &uarg;
 	s32 retval = 0;
-	ulong size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct heapbuf_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	retval = heapbuf_close(cargs->cmd_arg.close.handle);
-	if (retval)
-		goto exit;
-
-	return 0;
-
-exit:
+	retval = heapbuf_close(cargs->args.close.handle);
 	return retval;
 }
 
@@ -363,38 +248,22 @@ exit:
  *  Purpose:
  *  This ioctl interface to heapbuf_shared_memreq function
  */
-static int heapbuf_ioctl_shared_memreq(struct heapbuf_cmd_args *args)
+static int heapbuf_ioctl_shared_memreq(struct heapbuf_cmd_args *cargs)
 {
-	struct heapbuf_cmd_args uarg;
-	struct heapbuf_cmd_args *cargs = &uarg;
 	struct heapbuf_params params;
 	s32 retval = 0;
 	ulong size;
 	u32 bytes;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct heapbuf_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	size = copy_from_user(&params, cargs->cmd_arg.shared_memreq.params,
-				sizeof(struct heapbuf_params));
+	size = copy_from_user(&params, cargs->args.shared_memreq.params,
+						sizeof(struct heapbuf_params));
 	if (size) {
 		retval = -EFAULT;
 		goto exit;
 	}
 
 	bytes = heapbuf_shared_memreq(&params);
-	size = copy_to_user(&args->cmd_arg.shared_memreq.bytes,
-				&bytes, sizeof(u32));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	return 0;
+	cargs->args.shared_memreq.bytes = bytes;
 
 exit:
 	return retval;
@@ -406,32 +275,18 @@ exit:
  *  Purpose:
  *  This ioctl interface to heapbuf_get_config function
  */
-static int heapbuf_ioctl_get_config(struct heapbuf_cmd_args *args)
+static int heapbuf_ioctl_get_config(struct heapbuf_cmd_args *cargs)
 {
-	struct heapbuf_cmd_args uarg;
-	struct heapbuf_cmd_args *cargs = &uarg;
 	struct heap_config config;
 	s32 retval = 0;
 	ulong size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct heapbuf_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
 	retval = heapbuf_get_config(&config);
-	size = copy_to_user(cargs->cmd_arg.get_config.config, &config,
-					sizeof(struct heap_config));
-	if (size) {
+	size = copy_to_user(cargs->args.get_config.config, &config,
+						sizeof(struct heap_config));
+	if (size)
 		retval = -EFAULT;
-		goto exit;
-	}
 
-	return 0;
-
-exit:
 	return retval;
 }
 
@@ -440,33 +295,20 @@ exit:
  *  Purpose:
  *  This ioctl interface to heapbuf_setup function
  */
-static int heapbuf_ioctl_setup(struct heapbuf_cmd_args *args)
+static int heapbuf_ioctl_setup(struct heapbuf_cmd_args *cargs)
 {
-	struct heapbuf_cmd_args uarg;
-	struct heapbuf_cmd_args *cargs = &uarg;
 	struct heap_config config;
 	s32 retval = 0;
 	ulong size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct heapbuf_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	size = copy_from_user(&config, cargs->cmd_arg.setup.config,
-					sizeof(struct heap_config));
+	size = copy_from_user(&config, cargs->args.setup.config,
+						sizeof(struct heap_config));
 	if (size) {
 		retval = -EFAULT;
 		goto exit;
 	}
 
 	retval = heapbuf_setup(&config);
-	if (retval)
-		goto exit;
-
-	return 0;
 
 exit:
 	return retval;
@@ -489,33 +331,21 @@ static int heapbuf_ioctl_destroy()
  *  Purpose:
  *  This ioctl interface to heapbuf_get_stats function
  */
-static int heapbuf_ioctl_get_stats(struct heapbuf_cmd_args *args)
+static int heapbuf_ioctl_get_stats(struct heapbuf_cmd_args *cargs)
 {
-	struct heapbuf_cmd_args uarg;
-	struct heapbuf_cmd_args *cargs = &uarg;
 	struct memory_stats stats;
 	s32 retval = 0;
 	ulong size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct heapbuf_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
 
-	retval = heapbuf_get_stats(cargs->cmd_arg.get_stats.handle, &stats);
+	retval = heapbuf_get_stats(cargs->args.get_stats.handle, &stats);
 	if (retval)
 		goto exit;
 
-	size = copy_to_user(cargs->cmd_arg.get_stats.stats, &stats,
-				sizeof(struct memory_stats));
-	if (size) {
+	size = copy_to_user(cargs->args.get_stats.stats, &stats,
+					sizeof(struct memory_stats));
+	if (size)
 		retval = -EFAULT;
-		goto exit;
-	}
-
-	return 0;
 
 exit:
 	return retval;
@@ -526,33 +356,21 @@ exit:
  *  Purpose:
  *  This ioctl interface to heapbuf_get_extended_stats function
  */
-static int heapbuf_ioctl_get_extended_stats(struct heapbuf_cmd_args *args)
+static int heapbuf_ioctl_get_extended_stats(struct heapbuf_cmd_args *cargs)
 {
-	struct heapbuf_cmd_args uarg;
-	struct heapbuf_cmd_args *cargs = &uarg;
 	struct heap_extended_stats stats;
 	s32 retval = 0;
 	ulong size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct heapbuf_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
 	retval = heapbuf_get_extended_stats(
-			cargs->cmd_arg.get_extended_stats.handle, &stats);
+			cargs->args.get_extended_stats.handle, &stats);
 	if (retval)
 		goto exit;
-	size = copy_to_user(cargs->cmd_arg.get_extended_stats.stats, &stats,
-				sizeof(struct heap_extended_stats));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
 
-	return 0;
+	size = copy_to_user(cargs->args.get_extended_stats.stats, &stats,
+				sizeof(struct heap_extended_stats));
+	if (size)
+		retval = -EFAULT;
 
 exit:
 	return retval;
@@ -566,84 +384,99 @@ exit:
 int heapbuf_ioctl(struct inode *pinode, struct file *filp,
 			unsigned int cmd, unsigned long  args)
 {
+	s32 os_status = 0;
+	s32 size = 0;
 	struct heapbuf_cmd_args __user *uarg =
 				(struct heapbuf_cmd_args __user *)args;
-	s32 retval = 0;
-
-	gt_4trace(curTrace, GT_ENTER, "heapbuf_ioctl"
-		"pinode: %x, filp: %x,\n cmd: %x, args: %x",
-		pinode, filp, cmd, args);
+	struct heapbuf_cmd_args cargs;
 
 	if (_IOC_DIR(cmd) & _IOC_READ)
-		retval = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
+		os_status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
 	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		retval = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
+		os_status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
 
-	if (retval) {
-		retval = -EFAULT;
+	if (os_status) {
+		os_status = -EFAULT;
 		goto exit;
 	}
 
+	/* Copy the full args from user-side */
+	size = copy_from_user(&cargs, uarg,
+					sizeof(struct heapbuf_cmd_args));
+	if (size) {
+		os_status = -EFAULT;
+		goto exit;
+	}
 
 	switch (cmd) {
 	case CMD_HEAPBUF_ALLOC:
-		retval = heapbuf_ioctl_alloc(uarg);
+		os_status = heapbuf_ioctl_alloc(uarg);
 		break;
 
 	case CMD_HEAPBUF_FREE:
-		retval = heapbuf_ioctl_free(uarg);
+		os_status = heapbuf_ioctl_free(uarg);
 		break;
 
 	case CMD_HEAPBUF_PARAMS_INIT:
-		retval = heapbuf_ioctl_params_init(uarg);
+		os_status = heapbuf_ioctl_params_init(uarg);
 		break;
 
 	case CMD_HEAPBUF_CREATE:
-		retval = heapbuf_ioctl_create(uarg);
+		os_status = heapbuf_ioctl_create(uarg);
 		break;
 
 	case CMD_HEAPBUF_DELETE:
-		retval  = heapbuf_ioctl_delete(uarg);
+		os_status  = heapbuf_ioctl_delete(uarg);
 		break;
 
 	case CMD_HEAPBUF_OPEN:
-		retval  = heapbuf_ioctl_open(uarg);
+		os_status  = heapbuf_ioctl_open(uarg);
 		break;
 
 	case CMD_HEAPBUF_CLOSE:
-		retval = heapbuf_ioctl_close(uarg);
+		os_status = heapbuf_ioctl_close(uarg);
 		break;
 
 	case CMD_HEAPBUF_SHAREDMEMREQ:
-		retval = heapbuf_ioctl_shared_memreq(uarg);
+		os_status = heapbuf_ioctl_shared_memreq(uarg);
 		break;
 
 	case CMD_HEAPBUF_GETCONFIG:
-		retval = heapbuf_ioctl_get_config(uarg);
+		os_status = heapbuf_ioctl_get_config(uarg);
 		break;
 
 	case CMD_HEAPBUF_SETUP:
-		retval = heapbuf_ioctl_setup(uarg);
+		os_status = heapbuf_ioctl_setup(uarg);
 		break;
 
 	case CMD_HEAPBUF_DESTROY:
-		retval = heapbuf_ioctl_destroy();
+		os_status = heapbuf_ioctl_destroy();
 		break;
 
 	case CMD_HEAPBUF_GETSTATS:
-		retval = heapbuf_ioctl_get_stats(uarg);
+		os_status = heapbuf_ioctl_get_stats(uarg);
 		break;
 
 	case CMD_HEAPBUF_GETEXTENDEDSTATS:
-		retval = heapbuf_ioctl_get_extended_stats(uarg);
+		os_status = heapbuf_ioctl_get_extended_stats(uarg);
 		break;
 
 	default:
 		WARN_ON(cmd);
-		retval = -ENOTTY;
+		os_status = -ENOTTY;
+		break;
+	}
+
+	/* Copy the full args to the user-side. */
+	size = copy_to_user(uarg, &cargs,
+				sizeof(struct heapbuf_cmd_args));
+	if (size) {
+		os_status = -EFAULT;
+		goto exit;
 	}
 
 exit:
-	return retval;
+	return os_status;
+
 }
 

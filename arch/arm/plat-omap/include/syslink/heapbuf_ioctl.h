@@ -40,7 +40,7 @@ enum CMD_HEAPBUF {
 	HEAPBUF_FREE,
 	HEAPBUF_SHAREDMEMREQ,
 	HEAPBUF_GETSTATS,
-	HEAPBUF_GETEXTENDEDSTATS,
+	HEAPBUF_GETEXTENDEDSTATS
 };
 
 /*
@@ -52,12 +52,13 @@ enum CMD_HEAPBUF {
 /*
  *  Command for heapbuf_setup
  */
-#define CMD_HEAPBUF_SETUP		_IOW(IPC_IOC_MAGIC, HEAPBUF_SETUP,     \
+#define CMD_HEAPBUF_SETUP		_IOWR(IPC_IOC_MAGIC, HEAPBUF_SETUP,    \
 					 struct heapbuf_cmd_args)
 /*
  *  Command for heapbuf_destroy
  */
-#define CMD_HEAPBUF_DESTROY 		_IO(IPC_IOC_MAGIC, HEAPBUF_DESTROY)    \
+#define CMD_HEAPBUF_DESTROY 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_DESTROY,  \
+					struct heapbuf_cmd_args)
 
 /*
  *  Command for heapbuf_prams_init
@@ -75,7 +76,7 @@ enum CMD_HEAPBUF {
 /*
  *  Command for heapbuf_delete
  */
-#define CMD_HEAPBUF_DELETE 		_IOW(IPC_IOC_MAGIC, HEAPBUF_DELETE,    \
+#define CMD_HEAPBUF_DELETE 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_DELETE,   \
 					struct heapbuf_cmd_args)
 
 /*
@@ -87,7 +88,7 @@ enum CMD_HEAPBUF {
 /*
  *  Command for heapbuf_close
  */
-#define CMD_HEAPBUF_CLOSE 		_IOW(IPC_IOC_MAGIC, HEAPBUF_CLOSE,     \
+#define CMD_HEAPBUF_CLOSE 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_CLOSE,    \
 					struct heapbuf_cmd_args)
 
 /*
@@ -99,7 +100,7 @@ enum CMD_HEAPBUF {
 /*
  *  Command for heapbuf_free
  */
-#define CMD_HEAPBUF_FREE	 	_IOW(IPC_IOC_MAGIC, HEAPBUF_FREE,      \
+#define CMD_HEAPBUF_FREE	 	_IOWR(IPC_IOC_MAGIC, HEAPBUF_FREE,     \
 					struct heapbuf_cmd_args)
 
 /*
@@ -195,7 +196,7 @@ union heapbuf_arg {
  *  Command arguments for heapbuf
  */
 struct heapbuf_cmd_args{
-	union heapbuf_arg cmd_arg;
+	union heapbuf_arg args;
 	s32 api_status;
 };
 

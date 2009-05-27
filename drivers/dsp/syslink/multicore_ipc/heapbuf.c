@@ -16,7 +16,7 @@
  *  PURPOSE.
  */
 
-
+#include <linux/module.h>
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/list.h>
@@ -126,6 +126,7 @@ int heapbuf_get_config(struct heap_config *cfgparams)
 					sizeof(struct heap_config));
 	return 0;
 }
+EXPORT_SYMBOL(heapbuf_get_config);
 
 /*
  * ======== heapbuf_setup ========
@@ -170,8 +171,10 @@ ns_create_fail:
 	kfree(heapbuf_state.list_lock);
 
 error:
+	printk(KERN_ERR "heapbuf_setup failed status: %x\n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(heapbuf_setup);
 
 /*
  * ======== heapbuf_destroy ========
@@ -221,8 +224,10 @@ int heapbuf_destroy(void)
 	return 0;
 
 error:
+	printk(KERN_ERR "heapbuf_destroy failed status: %x\n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(heapbuf_destroy);
 
 /*
  * ======== heapbuf_params_init ========
@@ -249,7 +254,7 @@ void heapbuf_params_init(void *handle,
 		memcpy(&obj->params, params, sizeof(struct heapbuf_params));
 	}
 }
-
+EXPORT_SYMBOL(heapbuf_params_init);
 
 /*
  * ======== _heapbuf_create ========
@@ -310,7 +315,7 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 		goto listmp_error;
 	}
 	obj->lock_handle = kmalloc(sizeof(struct mutex), GFP_KERNEL);
-	if (obj->lock_handle) {
+	if (obj->lock_handle == NULL) {
 		retval = -ENOMEM;
 		goto gate_create_error;
 	}
@@ -376,7 +381,7 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 		obj->remote->proc_id    = MULTIPROC_INVALIDID;
 		obj->owner->creator     = false;
 		obj->owner->open_count  = 0;
-		obj->owner->proc_id     = multiproc_get_id("Ducati");
+		obj->owner->proc_id     = multiproc_get_id("SysM3");
 		obj->top		= handle;
 	}
 
@@ -418,6 +423,7 @@ obj_alloc_error:
 	kfree(handle);
 
 error:
+	printk(KERN_ERR "_heapbuf_create failed status: %x\n", retval);
 	return NULL;
 }
 
@@ -456,8 +462,10 @@ void *heapbuf_create(const struct heapbuf_params *params)
 	return handle;
 
 error:
+	printk(KERN_ERR "heapbuf_create failed status: %x\n", retval);
 	return handle;
 }
+EXPORT_SYMBOL(heapbuf_create);
 
 /*
  * ======== heapbuf_delete ========
@@ -538,8 +546,10 @@ device_busy_error:
 	mutex_unlock(obj->lock_handle);
 
 error:
+	printk(KERN_ERR "heapbuf_delete failed status: %x\n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(heapbuf_delete);
 
 /*
  * ======== heapbuf_open  ========
@@ -609,8 +619,10 @@ int heapbuf_open(void **hphandle,
 	return 0;
 
 error:
+	printk(KERN_ERR "heapbuf_open failed status: %x\n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(heapbuf_open);
 
 /*
  * ======== heapbuf_close  ========
@@ -680,9 +692,11 @@ int heapbuf_close(void *hphandle)
 	return 0;
 
 error:
+	printk(KERN_ERR "heapbuf_close failed status: %x\n", retval);
 	return retval;
 
 }
+EXPORT_SYMBOL(heapbuf_close);
 
 /*
  * ======== heapbuf_free  ========
@@ -740,8 +754,10 @@ void *heapbuf_alloc(void *hphandle, u32 size, u32 align)
 	mutex_unlock(heapbuf_state.list_lock);
 	return block;
 error:
+	printk(KERN_ERR "heapbuf_alloc failed status: %x\n", retval);
 	return NULL;
 }
+EXPORT_SYMBOL(heapbuf_alloc);
 
 /*
  * ======== heapbuf_free  ========
@@ -786,9 +802,10 @@ int heapbuf_free(void *hphandle, void *block, u32 size)
 	return 0;
 
 error:
+	printk(KERN_ERR "heapbuf_free failed status: %x\n", retval);
 	return retval;
 }
-
+EXPORT_SYMBOL(heapbuf_free);
 
 /*
  * ======== heapbuf_get_stats  ========
@@ -836,8 +853,10 @@ int heapbuf_get_stats(void *hphandle, struct memory_stats *stats)
 	return 0;
 
 error:
+	printk(KERN_ERR "heapbuf_get_stats failed status: %x\n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(heapbuf_get_stats);
 
 /*
  * ======== heapbuf_get_extended_stats  ========
@@ -896,8 +915,11 @@ int heapbuf_get_extended_stats(void *hphandle,
 	mutex_unlock(heapbuf_state.list_lock);
 
 error:
+	printk(KERN_ERR "heapbuf_get_extended_stats failed status: %x\n",
+			retval);
 	return retval;
 }
+EXPORT_SYMBOL(heapbuf_get_extended_stats);
 
 /*
  * ======== heapbuf_shared_memreq ========
@@ -920,4 +942,5 @@ int heapbuf_shared_memreq(const struct heapbuf_params *params)
 	retval += HEAPBUF_CACHESIZE; /* Add in attrs */
 	return retval;
 }
+EXPORT_SYMBOL(heapbuf_shared_memreq);
 
