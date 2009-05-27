@@ -16,7 +16,7 @@
  *  WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR
  *  PURPOSE.
  */
-
+#include <linux/module.h>
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/slab.h>
@@ -32,7 +32,7 @@
  *  Module state object
  */
 struct sharedregion_object {
-	void *gate_handle;
+	struct mutex *gate_handle;
 	struct sharedregion_info *table; /* Ptr to the table */
 	u32 bitOffset;  /* Index bit offset */
 	u32 region_size; /* Max size of each region */
@@ -55,14 +55,12 @@ static struct sharedregion_object sharedregion_state = {
  */
 int sharedregion_get_config(struct sharedregion_config *config)
 {
-	gt_1trace(sharedregion_mask, GT_ENTER,
-		"sharedregion_get_config:\n config: %x \n", config);
 	BUG_ON((config == NULL));
-
 	memcpy(config, &sharedregion_state.cfg,
 				sizeof(struct sharedregion_config));
 	return 0;
 }
+EXPORT_SYMBOL(sharedregion_get_config);
 
 
 /*
@@ -97,8 +95,6 @@ int sharedregion_setup(const struct sharedregion_config *config)
 	s32 retval = 0;
 	u16 proc_count;
 
-	gt_1trace(sharedregion_mask, GT_ENTER,
-		"sharedregion_setup:\n config: %x \n", config);
 	if (config != NULL) {
 		if (WARN_ON(config->max_regions == 0)) {
 			retval = -EINVAL;
@@ -147,8 +143,10 @@ gate_create_fail:
 	sharedregion_state.cfg.max_regions = SHAREDREGION_MAX_REGIONS_DEFAULT;
 
 error:
+	printk(KERN_ERR "sharedregion_setup failed status:%x\n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(sharedregion_setup);
 
 /*
  * ======== sharedregion_destroy ========
@@ -160,7 +158,6 @@ int sharedregion_destroy(void)
 	s32 retval = 0;
 	void *gate_handle = NULL;
 
-	gt_0trace(sharedregion_mask, GT_ENTER, "sharedregion_destroy: \n");
 	if (WARN_ON(sharedregion_state.table == NULL)) {
 		retval = -ENODEV;
 		goto error;
@@ -179,8 +176,10 @@ int sharedregion_destroy(void)
 	return 0;
 
 error:
+	printk(KERN_ERR "sharedregion_destroy failed status:%x\n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(sharedregion_destroy);
 
 /*
  * ======== sharedregion_add ========
@@ -196,9 +195,6 @@ int sharedregion_add(u32 index, void *base, u32 len)
 	u32 i;
 	u16 myproc_id;
 	bool overlap = false;
-
-	gt_3trace(sharedregion_mask, GT_ENTER, "sharedregion_add:\n"
-		" index: %x base: %x,\n len: %x", index, base, len);
 
 	if (WARN_ON(sharedregion_state.table == NULL)) {
 		retval = -ENODEV;
@@ -262,8 +258,10 @@ mem_overlap_error:
 	mutex_unlock(sharedregion_state.gate_handle);
 
 error:
+	printk(KERN_ERR "sharedregion_add failed status:%x\n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(sharedregion_add);
 
 /*
  * ======== sharedregion_remove ========
@@ -277,8 +275,6 @@ int sharedregion_remove(u32 index)
 	struct sharedregion_info *table = NULL;
 	s32 retval = 0;
 
-	gt_1trace(sharedregion_mask, GT_ENTER,
-		"sharedregion_remove:\n index: %x \n", index);
 	if (WARN_ON(sharedregion_state.table == NULL)) {
 		retval = -ENODEV;
 		goto error;
@@ -302,9 +298,10 @@ int sharedregion_remove(u32 index)
 	return 0;
 
 error:
+	printk(KERN_ERR "sharedregion_remove failed status:%x\n", retval);
 	return retval;
 }
-
+EXPORT_SYMBOL(sharedregion_remove);
 
 /*
  * ======== sharedregion_get_index ========
@@ -320,8 +317,6 @@ int sharedregion_get_index(void *addr)
 	u16 myproc_id;
 	s32 retval  = 0;
 
-	gt_1trace(sharedregion_mask, GT_ENTER,
-		"sharedregion_get_index:\n addr: %x \n", addr);
 	if (WARN_ON(sharedregion_state.table == NULL)) {
 		retval = -ENODEV;
 		goto exit;
@@ -352,8 +347,10 @@ int sharedregion_get_index(void *addr)
 	mutex_unlock(sharedregion_state.gate_handle);
 
 exit:
+	printk(KERN_ERR "sharedregion_get_index failed status:%x\n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(sharedregion_get_index);
 
 /*
  * ======== sharedregion_get_ptr ========
@@ -368,8 +365,6 @@ void *sharedregion_get_ptr(u32 *srptr)
 	u16 myproc_id;
 	s32 retval = 0;
 
-	gt_1trace(sharedregion_mask, GT_ENTER,
-		"sharedregion_get_ptr:\n srptr: %x \n", srptr);
 	if (WARN_ON(sharedregion_state.table == NULL))
 		goto error;
 
@@ -391,9 +386,11 @@ void *sharedregion_get_ptr(u32 *srptr)
 	return ptr;
 
 error:
+	printk(KERN_ERR "sharedregion_get_ptr failed \n");
 	return (void *)NULL;
 
 }
+EXPORT_SYMBOL(sharedregion_get_ptr);
 
 /*
  * ======== sharedregion_get_srptr ========
@@ -409,9 +406,6 @@ u32 *sharedregion_get_srptr(void *addr, s32 index)
 	u32 myproc_id;
 	s32 retval = 0;
 
-	gt_2trace(sharedregion_mask, GT_ENTER,
-		"sharedregion_get_srptr:\n"
-		"addr: %x, index: %x \n", addr, index);
 	if (WARN_ON(sharedregion_state.table == NULL))
 		goto error;
 
@@ -435,8 +429,10 @@ u32 *sharedregion_get_srptr(void *addr, s32 index)
 	return ptr;
 
 error:
+	printk(KERN_ERR	"sharedregion_get_srptr failed\n");
 	return (u32 *)NULL;
 }
+EXPORT_SYMBOL(sharedregion_get_srptr);
 
 /*
  * ======== sharedregion_get_table_info ========
@@ -452,10 +448,6 @@ int sharedregion_get_table_info(u32 index, u16 proc_id,
 	u16 proc_count;
 	s32 retval = 0;
 
-	gt_3trace(sharedregion_mask, GT_ENTER,
-		"sharedregion_get_table_info:\n"
-		"index: %x, proc_id: %x,\n info: %x \n",
-		index, proc_id, info);
 	BUG_ON(info != NULL);
 	if (WARN_ON(sharedregion_state.table == NULL)) {
 		retval = -ENODEV;
@@ -482,8 +474,11 @@ int sharedregion_get_table_info(u32 index, u16 proc_id,
 	return 0;
 
 error:
+	printk(KERN_ERR "sharedregion_get_table_info failed status:%x\n",
+			retval);
 	return retval;
 }
+EXPORT_SYMBOL(sharedregion_get_table_info);
 
 /*
  * ======== sharedregion_set_table_info ========
@@ -499,10 +494,6 @@ int sharedregion_set_table_info(u32 index, u16 proc_id,
 	u16 proc_count;
 	s32 retval = 0;
 
-	gt_3trace(sharedregion_mask, GT_ENTER,
-		"sharedregion_set_table_info:\n"
-		"index: %x, proc_id: %x,\n info: %x \n",
-		index, proc_id, info);
 	BUG_ON(info != NULL);
 	if (WARN_ON(sharedregion_state.table == NULL)) {
 		retval = -ENODEV;
@@ -529,8 +520,11 @@ int sharedregion_set_table_info(u32 index, u16 proc_id,
 	return 0;
 
 error:
+	printk(KERN_ERR "sharedregion_set_table_info failed status:%x\n",
+			retval);
 	return retval;
 }
+EXPORT_SYMBOL(sharedregion_set_table_info);
 
 /*
  * ======== Sharedregion_attach ========
@@ -583,8 +577,6 @@ void sharedregion_attach(u16 proc_id)
 	s32 retval = 0;
 	s32 i;
 
-	gt_1trace(sharedregion_mask, GT_ENTER,
-		"sharedregion_attach:\n proc_id: %x\n", proc_id);
 	if (WARN_ON(sharedregion_state.table == NULL))
 		goto error;
 
@@ -662,8 +654,7 @@ void sharedregion_attach(u16 proc_id)
 error:
 	return;
 }
-
-
+EXPORT_SYMBOL(sharedregion_attach);
 
 /*
  * ======== Sharedregion_detach ========
@@ -696,8 +687,6 @@ void sharedregion_detach(u16 proc_id)
 {
 	u16 proc_count;
 
-	gt_1trace(sharedregion_mask, GT_ENTER,
-		"sharedRegion_detach:\n proc_id: %x\n", proc_id);
 	if (WARN_ON(sharedregion_state.table == NULL))
 		goto error;
 
@@ -708,4 +697,5 @@ void sharedregion_detach(u16 proc_id)
 error:
 	return;
 }
+EXPORT_SYMBOL(sharedregion_detach);
 

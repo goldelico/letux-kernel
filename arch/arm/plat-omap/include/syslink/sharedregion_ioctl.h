@@ -53,18 +53,19 @@ enum CMD_SHAREDREGION {
 /*
  *  Command for sharedregion_setup
  */
-#define CMD_SHAREDREGION_SETUP		_IOW(IPC_IOC_MAGIC,                    \
+#define CMD_SHAREDREGION_SETUP		_IOWR(IPC_IOC_MAGIC,                   \
 					SHAREDREGION_SETUP,		       \
 					struct sharedregion_cmd_args)
 /*
  *  Command for sharedregion_setup
  */
-#define CMD_SHAREDREGION_DESTROY	_IO(IPC_IOC_MAGIC,                     \
-					SHAREDREGION_DESTROY)
+#define CMD_SHAREDREGION_DESTROY	_IOWR(IPC_IOC_MAGIC,                   \
+					SHAREDREGION_DESTROY, 		       \
+					struct sharedregion_cmd_args)
 /*
  *  Command for sharedregion_ADD
  */
-#define CMD_SHAREDREGION_ADD		_IOW(IPC_IOC_MAGIC,                    \
+#define CMD_SHAREDREGION_ADD		_IOWR(IPC_IOC_MAGIC,                   \
 					SHAREDREGION_ADD,		       \
 					struct sharedregion_cmd_args)
 /*
@@ -91,13 +92,13 @@ enum CMD_SHAREDREGION {
 /*
  *  Command for sharedregion_remove
  */
-#define CMD_SHAREDREGION_REMOVE		_IOW(IPC_IOC_MAGIC,                    \
+#define CMD_SHAREDREGION_REMOVE		_IOWR(IPC_IOC_MAGIC,                   \
 					SHAREDREGION_REMOVE,		       \
 					struct sharedregion_cmd_args)
 /*
  *  Command for sharedregion_set_table_info
  */
-#define CMD_SHAREDREGION_SETTABLEINFO	_IOW(IPC_IOC_MAGIC,                    \
+#define CMD_SHAREDREGION_SETTABLEINFO	_IOWR(IPC_IOC_MAGIC,                   \
 					SHAREDREGION_SETTABLEINFO,	       \
 					struct sharedregion_cmd_args)
 
@@ -163,7 +164,7 @@ union sharedregion_arg {
  *  Command arguments for sharedregion
  */
 struct sharedregion_cmd_args {
-	union sharedregion_arg cmd_arg;
+	union sharedregion_arg args;
 	s32 api_status;
 };
 

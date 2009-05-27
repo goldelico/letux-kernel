@@ -16,6 +16,11 @@
  *  WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR
  *  PURPOSE.
  */
+#include <linux/uaccess.h>
+#include <linux/types.h>
+#include <linux/bug.h>
+#include <linux/fs.h>
+
 
 #include <linux/uaccess.h>
 #include <linux/types.h>
@@ -32,32 +37,19 @@
  *  Purpose:
  *  This ioctl interface to sharedregion_get_config function
  */
-static int sharedregion_ioctl_get_config(struct sharedregion_cmd_args *args)
+static int sharedregion_ioctl_get_config(struct sharedregion_cmd_args *cargs)
 {
-	struct sharedregion_cmd_args uarg;
-	struct sharedregion_cmd_args *cargs = &uarg;
+
 	struct sharedregion_config config;
 	s32 retval = 0;
 	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct sharedregion_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
 	retval = sharedregion_get_config(&config);
-	size = copy_to_user(cargs->cmd_arg.get_config.config, &config,
+	size = copy_to_user(cargs->args.get_config.config, &config,
 				sizeof(struct sharedregion_config));
-	if (size) {
+	if (size)
 		retval = -EFAULT;
-		goto exit;
-	}
 
-	return 0;
-
-exit:
 	return retval;
 }
 
@@ -67,22 +59,13 @@ exit:
  *  Purpose:
  *  This ioctl interface to sharedregion_setup function
  */
-static int sharedregion_ioctl_setup(struct sharedregion_cmd_args *args)
+static int sharedregion_ioctl_setup(struct sharedregion_cmd_args *cargs)
 {
-	struct sharedregion_cmd_args uarg;
-	struct sharedregion_cmd_args *cargs = &uarg;
 	struct sharedregion_config config;
 	s32 retval = 0;
 	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct sharedregion_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	size = copy_from_user(&config, cargs->cmd_arg.setup.config,
+	size = copy_from_user(&config, cargs->args.setup.config,
 				sizeof(struct sharedregion_config));
 	if (size) {
 		retval = -EFAULT;
@@ -90,10 +73,6 @@ static int sharedregion_ioctl_setup(struct sharedregion_cmd_args *args)
 	}
 
 	retval = sharedregion_setup(&config);
-	if (retval)
-		goto exit;
-
-	return 0;
 
 exit:
 	return retval;
@@ -116,29 +95,13 @@ static int sharedregion_ioctl_destroy()
  *  Purpose:
  *  This ioctl interface to sharedregion_add function
  */
-static int sharedregion_ioctl_add(struct sharedregion_cmd_args *args)
+static int sharedregion_ioctl_add(struct sharedregion_cmd_args *cargs)
 {
-	struct sharedregion_cmd_args uarg;
-	struct sharedregion_cmd_args *cargs = &uarg;
 	s32 retval = 0;
-	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct sharedregion_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	retval =  sharedregion_add(cargs->cmd_arg.add.index,
-					cargs->cmd_arg.add.base,
-					cargs->cmd_arg.add.len);
-	if (retval)
-		goto exit;
-
-	return 0;
-
-exit:
+	retval =  sharedregion_add(cargs->args.add.index,
+				cargs->args.add.base,
+				cargs->args.add.len);
 	return retval;
 }
 
@@ -149,37 +112,16 @@ exit:
  *  Purpose:
  *  This ioctl interface to sharedregion_get_index function
  */
-static int sharedregion_ioctl_get_index(struct sharedregion_cmd_args *args)
+static int sharedregion_ioctl_get_index(struct sharedregion_cmd_args *cargs)
 {
-	struct sharedregion_cmd_args uarg;
-	struct sharedregion_cmd_args *cargs = &uarg;
 	s32 retval = 0;
-	s32 size;
 	s32 index = 0;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct sharedregion_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	index = sharedregion_get_index(cargs->cmd_arg.get_index.addr);
-	if (index < 0) {
+	index = sharedregion_get_index(cargs->args.get_index.addr);
+	cargs->args.get_index.index = index;
+	if (index < 0)
 		retval = index;
-		goto exit;
-	}
 
-	size = copy_to_user(&args->cmd_arg.get_index.index, &index,
-							sizeof(s32));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	return 0;
-
-exit:
 	return retval;
 }
 
@@ -188,35 +130,16 @@ exit:
  *  Purpose:
  *  This ioctl interface to sharedregion_get_ptr function
  */
-static int sharedregion_ioctl_get_ptr(struct sharedregion_cmd_args *args)
+static int sharedregion_ioctl_get_ptr(struct sharedregion_cmd_args *cargs)
 {
-	struct sharedregion_cmd_args uarg;
-	struct sharedregion_cmd_args *cargs = &uarg;
 	s32 retval = 0;
-	s32 size;
 	void *addr = NULL;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct sharedregion_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	addr = sharedregion_get_ptr(cargs->cmd_arg.get_ptr.srptr);
+	addr = sharedregion_get_ptr(cargs->args.get_ptr.srptr);
 	/* We are not checking the return from the module, its user
 	responsibilty to pass proper value to application
 	*/
-	size = copy_to_user(&args->cmd_arg.get_ptr.addr, &addr,
-						sizeof(void *));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	return 0;
-
-exit:
+	cargs->args.get_ptr.addr = addr;
 	return retval;
 }
 
@@ -225,36 +148,17 @@ exit:
  *  Purpose:
  *  This ioctl interface to sharedregion_get_srptr function
  */
-static int sharedregion_ioctl_get_srptr(struct sharedregion_cmd_args *args)
+static int sharedregion_ioctl_get_srptr(struct sharedregion_cmd_args *cargs)
 {
-	struct sharedregion_cmd_args uarg;
-	struct sharedregion_cmd_args *cargs = &uarg;
 	s32 retval = 0;
-	s32 size;
 	u32 *srptr = NULL;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct sharedregion_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	srptr = sharedregion_get_srptr(cargs->cmd_arg.get_srptr.addr,
-					cargs->cmd_arg.get_srptr.index);
+	srptr = sharedregion_get_srptr(cargs->args.get_srptr.addr,
+					cargs->args.get_srptr.index);
 	/* We are not checking the return from the module, its user
 	responsibilty to pass proper value to application
 	*/
-	size = copy_to_user(&args->cmd_arg.get_srptr.srptr, &srptr,
-							sizeof(u32 *));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	return 0;
-
-exit:
+	cargs->args.get_srptr.srptr = srptr;
 	return retval;
 }
 
@@ -263,35 +167,23 @@ exit:
  *  Purpose:
  *  This ioctl interface to sharedregion_get_table_info function
  */
-static int sharedregion_ioctl_get_table_info(struct sharedregion_cmd_args *args)
+static int sharedregion_ioctl_get_table_info(
+				struct sharedregion_cmd_args *cargs)
 {
-	struct sharedregion_cmd_args uarg;
-	struct sharedregion_cmd_args *cargs = &uarg;
 	struct sharedregion_info info;
 	s32 retval = 0;
 	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct sharedregion_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
 	retval = sharedregion_get_table_info(
-				cargs->cmd_arg.get_table_info.index,
-				cargs->cmd_arg.get_table_info.proc_id, &info);
+				cargs->args.get_table_info.index,
+				cargs->args.get_table_info.proc_id, &info);
 	if (retval)
 		goto exit;
 
-	size = copy_to_user(cargs->cmd_arg.get_table_info.info, &info,
+	size = copy_to_user(cargs->args.get_table_info.info, &info,
 				sizeof(struct sharedregion_info));
-	if (size) {
+	if (size)
 		retval = -EFAULT;
-		goto exit;
-	}
-
-	return 0;
 
 exit:
 	return retval;
@@ -303,27 +195,11 @@ exit:
  *  Purpose:
  *  This ioctl interface to sharedregion_remove function
  */
-static int sharedregion_ioctl_remove(struct sharedregion_cmd_args *args)
+static int sharedregion_ioctl_remove(struct sharedregion_cmd_args *cargs)
 {
-	struct sharedregion_cmd_args uarg;
-	struct sharedregion_cmd_args *cargs = &uarg;
 	s32 retval = 0;
-	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct sharedregion_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	retval = sharedregion_remove(cargs->cmd_arg.remove.index);
-	if (retval)
-		goto exit;
-
-	return 0;
-
-exit:
+	retval = sharedregion_remove(cargs->args.remove.index);
 	return retval;
 }
 
@@ -332,22 +208,14 @@ exit:
  *  Purpose:
  *  This ioctl interface to sharedregion_set_table_info function
  */
-static int sharedregion_ioctl_set_table_info(struct sharedregion_cmd_args *args)
+static int sharedregion_ioctl_set_table_info(
+			struct sharedregion_cmd_args *cargs)
 {
-	struct sharedregion_cmd_args uarg;
-	struct sharedregion_cmd_args *cargs = &uarg;
 	struct sharedregion_info info;
 	s32 retval = 0;
 	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct sharedregion_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	size = copy_from_user(&info, cargs->cmd_arg.set_table_info.info,
+	size = copy_from_user(&info, cargs->args.set_table_info.info,
 				sizeof(struct sharedregion_info));
 	if (size) {
 		retval = -EFAULT;
@@ -355,12 +223,8 @@ static int sharedregion_ioctl_set_table_info(struct sharedregion_cmd_args *args)
 	}
 
 	retval = sharedregion_set_table_info(
-					cargs->cmd_arg.set_table_info.index,
-				cargs->cmd_arg.set_table_info.proc_id, &info);
-	if (retval)
-		goto exit;
-
-	return 0;
+				cargs->args.set_table_info.index,
+				cargs->args.set_table_info.proc_id, &info);
 
 exit:
 	return retval;
@@ -374,72 +238,86 @@ exit:
 int sharedregion_ioctl(struct inode *inode, struct file *filp,
 			unsigned int cmd, unsigned long args)
 {
+	s32 os_status = 0;
+	s32 size = 0;
 	struct sharedregion_cmd_args __user *uarg =
 				(struct sharedregion_cmd_args __user *)args;
-	s32 retval = 0;
-
-	gt_4trace(curTrace, GT_ENTER, "sharedregion_ioctl"
-		"inode: %x, filp: %x,\n cmd: %x, args: %x",
-		inode, filp, cmd, args);
+	struct sharedregion_cmd_args cargs;
 
 	if (_IOC_DIR(cmd) & _IOC_READ)
-		retval = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
+		os_status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
 	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		retval = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
+		os_status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
 
-	if (retval) {
-		retval = -EFAULT;
+	if (os_status) {
+		os_status = -EFAULT;
+		goto exit;
+	}
+
+	/* Copy the full args from user-side */
+	size = copy_from_user(&cargs, uarg,
+					sizeof(struct sharedregion_cmd_args));
+	if (size) {
+		os_status = -EFAULT;
 		goto exit;
 	}
 
 	switch (cmd) {
 	case CMD_SHAREDREGION_GETCONFIG:
-		retval = sharedregion_ioctl_get_config(uarg);
+		os_status = sharedregion_ioctl_get_config(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_SETUP:
-		retval = sharedregion_ioctl_setup(uarg);
+		os_status = sharedregion_ioctl_setup(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_DESTROY:
-		retval = sharedregion_ioctl_destroy();
+		os_status = sharedregion_ioctl_destroy();
 		break;
 
 	case CMD_SHAREDREGION_ADD:
-		retval = sharedregion_ioctl_add(uarg);
+		os_status = sharedregion_ioctl_add(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_GETINDEX:
-		retval = sharedregion_ioctl_get_index(uarg);
+		os_status = sharedregion_ioctl_get_index(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_GETPTR:
-		retval = sharedregion_ioctl_get_ptr(uarg);
+		os_status = sharedregion_ioctl_get_ptr(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_GETSRPTR:
-		retval = sharedregion_ioctl_get_srptr(uarg);
+		os_status = sharedregion_ioctl_get_srptr(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_GETTABLEINFO:
-		retval = sharedregion_ioctl_get_table_info(uarg);
+		os_status = sharedregion_ioctl_get_table_info(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_REMOVE:
-		retval = sharedregion_ioctl_remove(uarg);
+		os_status = sharedregion_ioctl_remove(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_SETTABLEINFO:
-		retval = sharedregion_ioctl_set_table_info(uarg);
+		os_status = sharedregion_ioctl_set_table_info(&cargs);
 		break;
 
 	default:
 		WARN_ON(cmd);
-		retval = -ENOTTY;
+		os_status = -ENOTTY;
 		break;
     }
 
+
+	/* Copy the full args to the user-side. */
+	size = copy_to_user(uarg, &cargs, sizeof(struct sharedregion_cmd_args));
+	if (size) {
+		os_status = -EFAULT;
+		goto exit;
+	}
+
 exit:
-	return retval;
+	return os_status;
 }
 
