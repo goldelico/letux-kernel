@@ -51,11 +51,11 @@ extern u32 get_ducati_virt_mem();
 */
 
 int notify_ducatidrv_register_event(
-			struct notify_driver_object *handle,
-			short int        proc_id,
-			int              event_no,
-			fn_notify_cbck        fn_notify_cbck,
-			void *cbck_arg) ;
+	struct notify_driver_object *handle,
+	short int        proc_id,
+	int              event_no,
+	fn_notify_cbck        fn_notify_cbck,
+	void *cbck_arg) ;
 
 /*
 *  func   notify_mbxdrv_unregevent
@@ -66,11 +66,11 @@ int notify_ducatidrv_register_event(
 */
 
 int notify_ducatidrv_unregister_event(
-				struct notify_driver_object *handle,
-				short int        proc_id,
-				int        event_no,
-				fn_notify_cbck        fn_notify_cbck,
-				void *cbck_arg) ;
+	struct notify_driver_object *handle,
+	short int        proc_id,
+	int        event_no,
+	fn_notify_cbck        fn_notify_cbck,
+	void *cbck_arg) ;
 
 /*
 *  func   notify_mbxdrv_sendevent
@@ -82,10 +82,10 @@ int notify_ducatidrv_unregister_event(
 */
 
 int notify_ducatidrv_sendevent(struct notify_driver_object *handle,
-			short int   proc_id,
-			int   event_no,
-			int   payload,
-			short int           wait_clear) ;
+			       short int   proc_id,
+			       int   event_no,
+			       int   payload,
+			       short int           wait_clear) ;
 
 /*
 *  func   notify_mbxdrv_disable
@@ -107,7 +107,7 @@ void *notify_ducatidrv_disable(struct notify_driver_object *handle);
 */
 
 int notify_ducatidrv_restore(struct notify_driver_object *handle,
-					void *flags) ;
+			     void *flags) ;
 
 /*
 *  func   notify_mbxdrv_disable_event
@@ -118,9 +118,9 @@ int notify_ducatidrv_restore(struct notify_driver_object *handle,
 */
 
 int notify_ducatidrv_disable_event(
-			struct notify_driver_object *handle,
-			short int       proc_id,
-			int   event_no) ;
+	struct notify_driver_object *handle,
+	short int       proc_id,
+	int   event_no) ;
 
 /*
 *  func   notify_mbxdrv_enable_event
@@ -131,9 +131,9 @@ int notify_ducatidrv_disable_event(
 */
 
 int notify_ducatidrv_enable_event(
-			struct notify_driver_object *handle,
-			short int    proc_id,
-			int    event_no) ;
+	struct notify_driver_object *handle,
+	short int    proc_id,
+	int    event_no) ;
 
 
 /*
@@ -146,7 +146,7 @@ int notify_ducatidrv_enable_event(
 
 int notify_ducatidrv_debug(struct notify_driver_object *handle) ;
 
-struct notify_ducatidrv_params{
+struct notify_ducatidrv_params {
 	int shared_addr;
 	int shared_addr_size;
 	int num_events;
@@ -161,7 +161,6 @@ struct notify_ducatidrv_params{
  *  struct   notify_ducatidrv_config
  *
  */
-
 
 struct notify_ducatidrv_config {
 	void *gate_handle;
@@ -186,14 +185,14 @@ int notify_ducatidrv_delete(struct notify_driver_object **handle_ptr);
 
 /*Function to open the ducati driver  */
 int notify_ducatidrv_open(char *driver_name,
-              struct notify_driver_object **handle_ptr);
+			  struct notify_driver_object **handle_ptr);
 
 /*Function to close the ducati driver  */
 int notify_ducatidrv_close(struct notify_driver_object **handle_ptr);
 
 /*Function to initialize the given parameters  */
 void notify_ducatidrv_params_init(struct notify_driver_object *handle,
-                struct notify_ducatidrv_params *params);
+				  struct notify_ducatidrv_params *params);
 
 #endif  /* !defined  NOTIFY_SHMDRIVER_H_ */
 

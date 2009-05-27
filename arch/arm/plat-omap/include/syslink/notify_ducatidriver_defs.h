@@ -24,7 +24,7 @@
  *  brief  Base structure for NotifyDriverShm command args. This needs to be
  *          the first field in all command args structures.
  */
-struct notify_ducatidrv_cmdargs{
+struct notify_ducatidrv_cmdargs {
 	int api_status;
 };
 
@@ -36,7 +36,7 @@ struct notify_ducatidrv_cmdargs{
 /*
  *  brief  Base command ID for NotifyDriverShm
  */
-#define NOTIFYDRIVERSHM_BASE_CMD                 0x0
+#define NOTIFYDRIVERSHM_BASE_CMD  0x0
 
 /*
  *  brief  Command for NotifyDriverShm_getConfig
@@ -82,7 +82,7 @@ struct notify_ducatidrv_cmdargs{
 /*
  *  @brief  Command arguments for NotifyDriverShm_getConfig
  */
-struct notify_ducatidrv_cmdargs_getconfig{
+struct notify_ducatidrv_cmdargs_getconfig {
 	struct notify_ducatidrv_cmdargs  common_args;
 	struct notify_ducatidrv_config  *cfg;
 };
@@ -106,7 +106,7 @@ struct notify_ducatidrv_cmdargs_destroy  {
  *  brief  Command arguments for NotifyDriverShm_Params_init
  */
 
-struct notify_ducatidrv_cmdargs_paramsinit{
+struct notify_ducatidrv_cmdargs_paramsinit {
 	struct notify_ducatidrv_cmdargs  common_args;
 	struct notify_driver_object *      handle;
 	struct notify_ducatidrv_params *    params;
@@ -148,6 +148,5 @@ struct notify_ducatidrv_cmdargs_close {
 	struct notify_driver_object *  handle;
 
 };
-
 
 #endif /*NOTIFY_DUCATIDRV_DEFS*/
