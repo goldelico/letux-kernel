@@ -36,7 +36,7 @@ enum CMD_GATEPETERSON {
 	GATEPETERSON_CLOSE,
 	GATEPETERSON_ENTER,
 	GATEPETERSON_LEAVE,
-	GATEPETERSON_SHAREDMEMREQ,
+	GATEPETERSON_SHAREDMEMREQ
 };
 
 /*
@@ -53,15 +53,16 @@ enum CMD_GATEPETERSON {
 /*
  *  Command for gatepeterson_setup
  */
-#define CMD_GATEPETERSON_SETUP		_IOW(IPC_IOC_MAGIC,                    \
+#define CMD_GATEPETERSON_SETUP		_IOWR(IPC_IOC_MAGIC,                   \
 					GATEPETERSON_SETUP,                    \
 					struct gatepeterson_cmd_args)
 
 /*
  *  Command for gatepeterson_setup
  */
-#define CMD_GATEPETERSON_DESTROY	_IO(IPC_IOC_MAGIC,                     \
-					GATEPETERSON_DESTROY)
+#define CMD_GATEPETERSON_DESTROY	_IOWR(IPC_IOC_MAGIC,                   \
+					GATEPETERSON_DESTROY,                  \
+					struct gatepeterson_cmd_args)
 
 /*
  *  Command for gatepeterson_destroy
@@ -99,14 +100,14 @@ enum CMD_GATEPETERSON {
 /*
  *  Command for gatepeterson_enter
  */
-#define CMD_GATEPETERSON_ENTER		_IOW(IPC_IOC_MAGIC,                    \
+#define CMD_GATEPETERSON_ENTER		_IOWR(IPC_IOC_MAGIC,                   \
 					GATEPETERSON_ENTER,                    \
 					struct gatepeterson_cmd_args)
 
 /*
  *  Command for gatepeterson_leave
  */
-#define CMD_GATEPETERSON_LEAVE		_IOW(IPC_IOC_MAGIC,                    \
+#define CMD_GATEPETERSON_LEAVE		_IOWR(IPC_IOC_MAGIC,                   \
 					GATEPETERSON_LEAVE,                    \
 					struct gatepeterson_cmd_args)
 
@@ -175,7 +176,7 @@ union gatepeterson_arg {
  *  Command arguments for gatepeterson
  */
 struct gatepeterson_cmd_args {
-	union gatepeterson_arg cmd_arg;
+	union gatepeterson_arg args;
 	s32 api_status;
 };
 

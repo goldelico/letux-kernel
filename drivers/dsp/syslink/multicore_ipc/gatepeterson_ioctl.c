@@ -15,6 +15,10 @@
  *  WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR
  *  PURPOSE.
  */
+#include <linux/uaccess.h>
+#include <linux/types.h>
+#include <linux/bug.h>
+#include <linux/fs.h>
 
 #include <linux/uaccess.h>
 #include <linux/types.h>
@@ -31,33 +35,20 @@
  *  Purpose:
  *  This ioctl interface to gatepeterson_get_config function
  */
-static int gatepeterson_ioctl_get_config(struct gatepeterson_cmd_args *args)
+static int gatepeterson_ioctl_get_config(struct gatepeterson_cmd_args *cargs)
 {
-	struct gatepeterson_cmd_args uarg;
-	struct gatepeterson_cmd_args *cargs = &uarg;
 	struct gatepeterson_config config;
 	s32 retval = 0;
 	s32 size;
-
-	size = copy_from_user(cargs, args,
-				sizeof(struct gatepeterson_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
 
 	retval =  gatepeterson_get_config(&config);
 	if (unlikely(retval))
 		goto exit;
 
-	size = copy_to_user(cargs->cmd_arg.get_config.config, &config,
+	size = copy_to_user(cargs->args.get_config.config, &config,
 				sizeof(struct gatepeterson_config));
-	if (size) {
+	if (size)
 		retval = -EFAULT;
-		goto exit;
-	}
-
-	return 0;
 
 exit:
 	return retval;
@@ -68,22 +59,13 @@ exit:
  *  Purpose:
  *  This ioctl interface to gatepeterson_setup function
  */
-static int gatepeterson_ioctl_setup(struct gatepeterson_cmd_args *args)
+static int gatepeterson_ioctl_setup(struct gatepeterson_cmd_args *cargs)
 {
-	struct gatepeterson_cmd_args uarg;
-	struct gatepeterson_cmd_args *cargs = &uarg;
 	struct gatepeterson_config config;
 	s32 retval = 0;
 	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct gatepeterson_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	size = copy_from_user(&config, cargs->cmd_arg.setup.config,
+	size = copy_from_user(&config, cargs->args.setup.config,
 				sizeof(struct gatepeterson_config));
 	if (size) {
 		retval = -EFAULT;
@@ -91,11 +73,6 @@ static int gatepeterson_ioctl_setup(struct gatepeterson_cmd_args *args)
 	}
 
 	retval =  gatepeterson_setup(&config);
-	if (unlikely(retval))
-		goto exit;
-
-	return 0;
-
 exit:
 	return retval;
 }
@@ -117,32 +94,18 @@ static int gatepeterson_ioctl_destroy()
  *  Purpose:
  *  This ioctl interface to gatepeterson_params_init function
  */
-static int gatepeterson_ioctl_params_init(struct gatepeterson_cmd_args *args)
+static int gatepeterson_ioctl_params_init(struct gatepeterson_cmd_args *cargs)
 {
-	struct gatepeterson_cmd_args uarg;
-	struct gatepeterson_cmd_args *cargs = &uarg;
 	struct gatepeterson_params params;
 	s32 retval = 0;
 	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct gatepeterson_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
 	retval =  gatepeterson_params_init(&params);
-	size = copy_to_user(cargs->cmd_arg.params_init.params, &params,
-				sizeof(struct gatepeterson_params));
-	if (size) {
+	size = copy_to_user(cargs->args.params_init.params, &params,
+					sizeof(struct gatepeterson_params));
+	if (size)
 		retval = -EFAULT;
-		goto exit;
-	}
 
-	return 0;
-
-exit:
 	return retval;
 }
 
@@ -151,40 +114,32 @@ exit:
  *  Purpose:
  *  This ioctl interface to gatepeterson_create function
  */
-static int gatepeterson_ioctl_create(struct gatepeterson_cmd_args *args)
+static int gatepeterson_ioctl_create(struct gatepeterson_cmd_args *cargs)
 {
-	struct gatepeterson_cmd_args uarg;
-	struct gatepeterson_cmd_args *cargs = &uarg;
 	struct gatepeterson_params params;
 	void *handle = NULL;
 	s32 retval = 0;
 	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct gatepeterson_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	size = copy_from_user(&params, cargs->cmd_arg.create.params,
+	size = copy_from_user(&params, cargs->args.create.params,
 					sizeof(struct gatepeterson_params));
 	if (size) {
 		retval = -EFAULT;
 		goto exit;
 	}
 
-	if (cargs->cmd_arg.create.name_len > 0) {
-		params.name = kmalloc(cargs->cmd_arg.create.name_len,
+	if (cargs->args.create.name_len > 0) {
+		params.name = kmalloc(cargs->args.create.name_len + 1,
 								GFP_KERNEL);
 		if (params.name == NULL) {
 			retval = -ENOMEM;
 			goto exit;
 		}
 
+		params.name[cargs->args.create.name_len] = '\0';
 		size = copy_from_user(params.name,
-					cargs->cmd_arg.create.params->name,
-					cargs->cmd_arg.create.name_len);
+					cargs->args.create.params->name,
+					cargs->args.create.name_len);
 		if (size) {
 			retval = -EFAULT;
 			goto name_from_usr_error;
@@ -198,24 +153,10 @@ static int gatepeterson_ioctl_create(struct gatepeterson_cmd_args *args)
 	Even it is nul, we pass it to user and user has to pass
 	proper return to application
 	*/
-	size = copy_to_user(&args->cmd_arg.create.handle, &handle,
-							sizeof(void *));
-	if (size) {
-		retval = -EFAULT;
-		goto handle_to_usr_error;
-	}
-
-	if (cargs->cmd_arg.create.name_len > 0)
-		kfree(params.name);
-
-	return 0;
-
-handle_to_usr_error:
-	if (handle)
-		gatepeterson_delete(&handle);
+	cargs->args.create.handle = handle;
 
 name_from_usr_error:
-	if (cargs->cmd_arg.open.name_len > 0)
+	if (cargs->args.open.name_len > 0)
 		kfree(params.name);
 
 exit:
@@ -227,34 +168,12 @@ exit:
  *  Purpose:
  *  This ioctl interface to gatepeterson_ioctl_delete function
  */
-static int gatepeterson_ioctl_delete(struct gatepeterson_cmd_args *args)
+static int gatepeterson_ioctl_delete(struct gatepeterson_cmd_args *cargs)
 
 {
-	struct gatepeterson_cmd_args uarg;
-	struct gatepeterson_cmd_args *cargs = &uarg;
 	s32 retval = 0;
-	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct gatepeterson_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	retval = gatepeterson_delete(&cargs->cmd_arg.delete.handle);
-	if (retval)
-		goto exit;
-
-	/* Clear user side memory that stored handle */
-	size = copy_to_user(&args->cmd_arg.delete.handle,
-			&cargs->cmd_arg.delete.handle, sizeof(void *));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-exit:
+	retval = gatepeterson_delete(&cargs->args.delete.handle);
 	return retval;
 }
 
@@ -263,40 +182,32 @@ exit:
  *  Purpose:
  *  This ioctl interface to gatepeterson_open function
  */
-static int gatepeterson_ioctl_open(struct gatepeterson_cmd_args *args)
+static int gatepeterson_ioctl_open(struct gatepeterson_cmd_args *cargs)
 {
-	struct gatepeterson_cmd_args uarg;
-	struct gatepeterson_cmd_args *cargs = &uarg;
 	struct gatepeterson_params params;
 	void *handle = NULL;
 	s32 retval = 0;
 	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct gatepeterson_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	size = copy_from_user(&params, cargs->cmd_arg.open.params,
+	size = copy_from_user(&params, cargs->args.open.params,
 				sizeof(struct gatepeterson_params));
-
 	if (size) {
 		retval = -EFAULT;
 		goto exit;
 	}
 
-	if (cargs->cmd_arg.open.name_len > 0) {
-		params.name = kmalloc(cargs->cmd_arg.open.name_len, GFP_KERNEL);
+	if (cargs->args.open.name_len > 0) {
+		params.name = kmalloc(cargs->args.open.name_len + 1,
+							GFP_KERNEL);
 		if (params.name != NULL) {
 			retval = -ENOMEM;
 			goto exit;
 		}
 
+		params.name[cargs->args.open.name_len] = '\0';
 		size = copy_from_user(params.name,
-					cargs->cmd_arg.open.params->name,
-					cargs->cmd_arg.open.name_len);
+					cargs->args.open.params->name,
+					cargs->args.open.name_len);
 		if (size) {
 			retval = -EFAULT;
 			goto name_from_usr_error;
@@ -305,28 +216,10 @@ static int gatepeterson_ioctl_open(struct gatepeterson_cmd_args *args)
 
 	params.shared_addr = sharedregion_get_ptr((u32 *)params.shared_addr);
 	retval = gatepeterson_open(&handle, &params);
-	if (retval)
-		goto exit;
-
-	size = copy_to_user(&args->cmd_arg.open.handle, &handle,
-						sizeof(void *));
-	if (size) {
-		retval = -EFAULT;
-		goto handle_to_usr_error;
-	}
-
-
-	if (cargs->cmd_arg.open.name_len > 0)
-		kfree(params.name);
-
-	return 0;
-
-handle_to_usr_error:
-	if (handle)
-		gatepeterson_delete(&handle);
+	cargs->args.open.handle = handle;
 
 name_from_usr_error:
-	if (cargs->cmd_arg.open.name_len > 0)
+	if (cargs->args.open.name_len > 0)
 		kfree(params.name);
 
 exit:
@@ -338,33 +231,11 @@ exit:
  *  Purpose:
  *  This ioctl interface to gatepeterson_close function
  */
-static int gatepeterson_ioctl_close(struct gatepeterson_cmd_args *args)
+static int gatepeterson_ioctl_close(struct gatepeterson_cmd_args *cargs)
 {
-	struct gatepeterson_cmd_args uarg;
-	struct gatepeterson_cmd_args *cargs = &uarg;
 	s32 retval = 0;
-	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct gatepeterson_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	retval = gatepeterson_close(&cargs->cmd_arg.close.handle);
-	if (retval)
-		goto exit;
-
-	size = copy_to_user(&args->cmd_arg.close.handle,
-				&cargs->cmd_arg.close.handle, sizeof(void *));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-
-exit:
+	retval = gatepeterson_close(&cargs->args.close.handle);
 	return retval;
 }
 
@@ -373,23 +244,11 @@ exit:
  *  Purpose:
  *  This ioctl interface to gatepeterson_enter function
  */
-static int gatepeterson_ioctl_enter(struct gatepeterson_cmd_args *args)
+static int gatepeterson_ioctl_enter(struct gatepeterson_cmd_args *cargs)
 {
-	struct gatepeterson_cmd_args uarg;
-	struct gatepeterson_cmd_args *cargs = &uarg;
 	s32 retval = 0;
-	s32 size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct gatepeterson_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	retval = gatepeterson_enter(cargs->cmd_arg.enter.handle);
-
-exit:
+	retval = gatepeterson_enter(cargs->args.enter.handle);
 	return retval;
 }
 
@@ -398,24 +257,10 @@ exit:
  *  Purpose:
  *  This ioctl interface to gatepeterson_leave function
  */
-static int gatepeterson_ioctl_leave(struct gatepeterson_cmd_args *args)
+static int gatepeterson_ioctl_leave(struct gatepeterson_cmd_args *cargs)
 {
-	struct gatepeterson_cmd_args uarg;
-	struct gatepeterson_cmd_args *cargs = &uarg;
-	s32 retval = 0;
-	s32 size;
-
-	size = copy_from_user(cargs, args,
-			sizeof(struct gatepeterson_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	gatepeterson_leave(cargs->cmd_arg.enter.handle,
-				cargs->cmd_arg.enter.flags);
-
-exit:
+	gatepeterson_leave(cargs->args.enter.handle,
+						cargs->args.enter.flags);
 	return 0;
 }
 
@@ -424,39 +269,22 @@ exit:
  *  Purpose:
  *  This ioctl interface to gatepeterson_shared_memreq function
  */
-static int gatepeterson_ioctl_shared_memreq(struct gatepeterson_cmd_args *args)
+static int gatepeterson_ioctl_shared_memreq(struct gatepeterson_cmd_args *cargs)
 {
-	struct gatepeterson_cmd_args uarg;
-	struct gatepeterson_cmd_args *cargs = &uarg;
 	struct gatepeterson_params params;
 	s32 retval = 0;
 	s32 size;
 
-	size = copy_from_user(cargs, args,
-			sizeof(struct gatepeterson_cmd_args));
+
+	size = copy_from_user(&params, cargs->args.shared_memreq.params,
+					sizeof(struct gatepeterson_params));
 	if (size) {
 		retval = -EFAULT;
 		goto exit;
 	}
 
-	size = copy_from_user(&params, cargs->cmd_arg.shared_memreq.params,
-				sizeof(struct gatepeterson_params));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	cargs->cmd_arg.shared_memreq.bytes =
-		gatepeterson_shared_memreq(cargs->cmd_arg.shared_memreq.params);
-
-	size = copy_to_user(&args->cmd_arg.shared_memreq.bytes,
-			&cargs->cmd_arg.shared_memreq.bytes, sizeof(u32));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	return 0;
+	cargs->args.shared_memreq.bytes =
+		gatepeterson_shared_memreq(cargs->args.shared_memreq.params);
 
 exit:
 	return retval;
@@ -470,76 +298,91 @@ exit:
 int gatepeterson_ioctl(struct inode *inode, struct file *filp,
 			unsigned int cmd, unsigned long args)
 {
+	s32 os_status = 0;
+	s32 size = 0;
 	struct gatepeterson_cmd_args __user *uarg =
 				(struct gatepeterson_cmd_args __user *)args;
-	s32 retval = 0;
+	struct gatepeterson_cmd_args cargs;
 
-	gt_4trace(curTrace, GT_ENTER, "gatepeterson_ioctl"
-		"inode: %x, filp: %x,\n cmd: %x, args: %x",
-		inode, filp, cmd, args);
 
 	if (_IOC_DIR(cmd) & _IOC_READ)
-		retval = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
+		os_status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
 	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		retval = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
+		os_status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
 
-	if (retval) {
-		retval = -EFAULT;
+	if (os_status) {
+		os_status = -EFAULT;
+		goto exit;
+	}
+
+	/* Copy the full args from user-side */
+	size = copy_from_user(&cargs, uarg,
+					sizeof(struct gatepeterson_cmd_args));
+	if (size) {
+		os_status = -EFAULT;
 		goto exit;
 	}
 
 	switch (cmd) {
 	case CMD_GATEPETERSON_GETCONFIG:
-		retval = gatepeterson_ioctl_get_config(uarg);
+		os_status = gatepeterson_ioctl_get_config(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_SETUP:
-		retval = gatepeterson_ioctl_setup(uarg);
+		os_status = gatepeterson_ioctl_setup(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_DESTROY:
-		retval = gatepeterson_ioctl_destroy();
+		os_status = gatepeterson_ioctl_destroy();
 		break;
 
 	case CMD_GATEPETERSON_PARAMS_INIT:
-		retval  = gatepeterson_ioctl_params_init(uarg);
+		os_status  = gatepeterson_ioctl_params_init(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_CREATE:
-		retval = gatepeterson_ioctl_create(uarg);
+		os_status = gatepeterson_ioctl_create(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_DELETE:
-		retval = gatepeterson_ioctl_delete(uarg);
+		os_status = gatepeterson_ioctl_delete(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_OPEN:
-		retval = gatepeterson_ioctl_open(uarg);
+		os_status = gatepeterson_ioctl_open(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_CLOSE:
-		retval = gatepeterson_ioctl_close(uarg);
+		os_status = gatepeterson_ioctl_close(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_ENTER:
-		retval = gatepeterson_ioctl_enter(uarg);
+		os_status = gatepeterson_ioctl_enter(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_LEAVE:
-		retval = gatepeterson_ioctl_leave(uarg);
+		os_status = gatepeterson_ioctl_leave(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_SHAREDMEMREQ:
-		retval = gatepeterson_ioctl_shared_memreq(uarg);
+		os_status = gatepeterson_ioctl_shared_memreq(&cargs);
 		break;
 
 	default:
 		WARN_ON(cmd);
-		retval = -ENOTTY;
+		os_status = -ENOTTY;
 		break;
 	}
 
+	/* Copy the full args to the user-side. */
+	size = copy_to_user(uarg, &cargs,
+			sizeof(struct gatepeterson_cmd_args));
+	if (size) {
+		os_status = -EFAULT;
+		goto exit;
+	}
+
 exit:
-	return retval;
+	return os_status;
 }
 

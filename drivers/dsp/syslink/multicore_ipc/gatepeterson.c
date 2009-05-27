@@ -16,6 +16,7 @@
  *  PURPOSE.
  */
 
+#include <linux/module.h>
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/list.h>
@@ -113,8 +114,6 @@ int gatepeterson_get_config(struct gatepeterson_config *config)
 {
 	s32 retval = 0;
 
-	gt_1trace(gatepeterson_mask, GT_ENTER,
-		"gatepeterson_get_config:\n config: %x\n", config);
 	if (WARN_ON(config == NULL)) {
 		retval = -EINVAL;
 		goto exit;
@@ -131,6 +130,7 @@ int gatepeterson_get_config(struct gatepeterson_config *config)
 exit:
 	return retval;
 }
+EXPORT_SYMBOL(gatepeterson_get_config);
 
 /*
  * ======== gatepeterson_setup ========
@@ -144,8 +144,6 @@ int gatepeterson_setup(const struct gatepeterson_config *config)
 	s32 retval = 0;
 	s32 ret;
 
-	gt_1trace(gatepeterson_mask, GT_ENTER,
-			"gatepeterson_setup:\n config: %x\n", config);
 	BUG_ON(config == NULL);
 	if (WARN_ON(config->max_name_len == 0)) {
 		retval = -EINVAL;
@@ -183,8 +181,11 @@ int gatepeterson_setup(const struct gatepeterson_config *config)
 	return 0;
 
 exit:
+	printk(KERN_ERR	"gatepeterson_setup failed status: %x\n",
+			retval);
 	return retval;
 }
+EXPORT_SYMBOL(gatepeterson_setup);
 
 /*
  * ======== gatepeterson_destroy ========
@@ -197,7 +198,6 @@ int gatepeterson_destroy(void)
 	struct mutex *lock = NULL;
 	s32 retval = 0;
 
-	gt_0trace(gatepeterson_mask, GT_ENTER, "gatepeterson_destroy:\n");
 	if (WARN_ON(gatepeterson_state.is_init != true)) {
 		retval = -ENODEV;
 		goto exit;
@@ -205,8 +205,6 @@ int gatepeterson_destroy(void)
 
 	/* If  an entry exist, do not proceed  */
 	if (!list_empty(&gatepeterson_state.obj_list)) {
-		gt_0trace(gatepeterson_mask, GT_6CLASS,
-			"gatepeterson_destroy: gatepeterson in use!\n");
 		retval = -EBUSY;
 		goto exit;
 	}
@@ -230,9 +228,11 @@ int gatepeterson_destroy(void)
 	return 0;
 
 exit:;
+	printk(KERN_ERR "gatepeterson_destroy failed status:%x\n", retval);
 	return retval;
 
 }
+EXPORT_SYMBOL(gatepeterson_destroy);
 
 /*
  * ======== gatepeterson_params_init ========
@@ -242,8 +242,6 @@ exit:;
  */
 int gatepeterson_params_init(struct gatepeterson_params *params)
 {
-	gt_1trace(gatepeterson_mask, GT_ENTER,
-			"gatepeterson_params_init:\n params: %x\n", params);
 	BUG_ON(params == NULL);
 
 	params->shared_addr = 0;
@@ -253,6 +251,7 @@ int gatepeterson_params_init(struct gatepeterson_params *params)
 	params->opener_proc_id = MULTIPROC_INVALIDID;
 	return 0;
 }
+EXPORT_SYMBOL(gatepeterson_params_init);
 
 /*
  * ======== gatepeterson_create ========
@@ -263,17 +262,13 @@ void *gatepeterson_create(const struct gatepeterson_params *params)
 {
 	struct gatepeterson_object *handle = NULL;
 	struct gatepeterson_obj *obj = NULL;
-	s32 retval;
+	s32 retval = 0;
 	u32 shaddrsize;
 	u32 len;
 	s32 status;
 	void *entry = NULL;
 
 	BUG_ON(params == NULL);
-	gt_3trace(gatepeterson_mask, GT_ENTER,
-		"gatepeterson_create:\n params: %x, shared_addr: %x,\n"
-		" shared_addr_size: %x", params,
-		params->shared_addr, params->shared_addr_size);
 	if (WARN_ON(gatepeterson_state.is_init != true)) {
 		retval = -ENODEV;
 		goto exit;
@@ -356,7 +351,7 @@ void *gatepeterson_create(const struct gatepeterson_params *params)
 	case  GATEPETERSON_PROTECT_THREAD:  /* Fall through */
 	case  GATEPETERSON_PROTECT_PROCESS:
 		obj->local_gate = kmalloc(sizeof(struct mutex),	GFP_KERNEL);
-		if (obj->local_gate) {
+		if (obj->local_gate == NULL) {
 			retval = -ENOMEM;
 			goto gate_create_fail;
 		}
@@ -396,8 +391,10 @@ obj_alloc_fail:
 
 handle_alloc_fail: /* Fall through */
 exit:
+	printk(KERN_ERR "gatepeterson_create failed status: %x\n", retval);
 	return NULL;;
 }
+EXPORT_SYMBOL(gatepeterson_create);
 
 /*
  * ======== gatepeterson_delete ========
@@ -414,9 +411,6 @@ int gatepeterson_delete(void **gphandle)
 
 	BUG_ON(gphandle == NULL);
 	BUG_ON(*gphandle == NULL);
-	gt_2trace(gatepeterson_mask, GT_ENTER,
-		"gatepeterson_create:\n gphandle: %x, *gphandle: %x,\n",
-		gphandle, *gphandle);
 	if (WARN_ON(gatepeterson_state.is_init != true)) {
 		retval = -ENODEV;
 		goto exit;
@@ -483,8 +477,11 @@ error_handle:
 	mutex_unlock(obj->local_gate);
 
 exit:
+	printk(KERN_ERR "gatepeterson_create failed status: %x\n",
+			retval);
 	return retval;
 }
+EXPORT_SYMBOL(gatepeterson_delete);
 
 /*
  * ======== gatepeterson_inc_refcount ========
@@ -552,9 +549,6 @@ int gatepeterson_open(void **gphandle,
 
 	BUG_ON(params == NULL);
 	BUG_ON(gphandle == NULL);
-	gt_3trace(gatepeterson_mask, GT_ENTER,
-		"gatepeterson_open:\n gphandle: %x, *gphandle: %x,\n"
-		"params: %x\n", gphandle, *gphandle, params);
 	if (WARN_ON(gatepeterson_state.is_init != true)) {
 		retval = -EINVAL;
 		goto exit;
@@ -600,13 +594,13 @@ int gatepeterson_open(void **gphandle,
 	}
 
 	handle = kmalloc(sizeof(struct gatepeterson_object), GFP_KERNEL);
-	if (handle) {
+	if (handle == NULL) {
 		retval = -ENOMEM;
 		goto handle_alloc_fail;
 	}
 
 	obj = kmalloc(sizeof(struct gatepeterson_obj), GFP_KERNEL);
-	if (obj) {
+	if (obj == NULL) {
 		retval = -ENOMEM; /* Not created */
 		goto obj_alloc_fail;
 	}
@@ -661,7 +655,7 @@ int gatepeterson_open(void **gphandle,
 	case  GATEPETERSON_PROTECT_THREAD:  /* Fall through */
 	case  GATEPETERSON_PROTECT_PROCESS:
 		obj->local_gate = kmalloc(sizeof(struct mutex),	GFP_KERNEL);
-		if (obj->local_gate) {
+		if (obj->local_gate == NULL) {
 			retval = -ENOMEM;
 			goto gate_create_fail;
 		}
@@ -703,9 +697,11 @@ obj_alloc_fail:
 handle_alloc_fail: /* Fall through */
 noentry_fail: /* Fall through */
 exit:
+	printk(KERN_ERR "gatepeterson_open failed status: %x\n", retval);
 	return retval;;
 
 }
+EXPORT_SYMBOL(gatepeterson_open);
 
 /*
  * ======== gatepeterson_close ========
@@ -721,9 +717,6 @@ int gatepeterson_close(void **gphandle)
 	s32 retval = 0;
 
 	BUG_ON(gphandle == NULL);
-	gt_2trace(gatepeterson_mask, GT_ENTER,
-		"gatepeterson_create:\n gphandle: %x, *gphandle: %x,\n",
-		gphandle, *gphandle);
 	if (WARN_ON(gatepeterson_state.is_init != true)) {
 		retval = -EINVAL;
 		goto exit;
@@ -790,8 +783,10 @@ error_handle:
 	mutex_unlock(obj->local_gate);
 
 exit:
+	printk(KERN_ERR "gatepeterson_close failed status: %x\n", retval);
 	return retval;
 }
+EXPORT_SYMBOL(gatepeterson_close);
 
 /*
  * ======== gatepeterson_enter ========
@@ -804,8 +799,6 @@ u32 gatepeterson_enter(void *gphandle)
 	struct gatepeterson_obj *obj = NULL;
 	s32 retval = 0;
 
-	gt_1trace(gatepeterson_mask, GT_ENTER,
-		"gatepeterson_enter:\n gphandle: %x\n", gphandle);
 	BUG_ON(gphandle == NULL);
 	if (WARN_ON(gatepeterson_state.is_init != true)) {
 		retval = -EINVAL;
@@ -838,6 +831,7 @@ u32 gatepeterson_enter(void *gphandle)
 exit:
 	return retval;
 }
+EXPORT_SYMBOL(gatepeterson_enter);
 
 /*
  * ======== gatepeterson_leave ========
@@ -849,8 +843,6 @@ void gatepeterson_leave(void *gphandle, u32 flag)
 	struct gatepeterson_object *handle = NULL;
 	struct gatepeterson_obj *obj    = NULL;
 
-	gt_1trace(gatepeterson_mask, GT_ENTER,
-		"gatepeterson_enter:\n gphandle: %x\n", gphandle);
 	BUG_ON(gatepeterson_state.is_init != true);
 	BUG_ON(gphandle == NULL);
 
@@ -864,6 +856,7 @@ void gatepeterson_leave(void *gphandle, u32 flag)
 	mutex_unlock(obj->local_gate);
 	return;
 }
+EXPORT_SYMBOL(gatepeterson_leave);
 
 /*
  * ======== gatepeterson_get_knl_handle ========
@@ -872,13 +865,10 @@ void gatepeterson_leave(void *gphandle, u32 flag)
  */
 void *gatepeterson_get_knl_handle(void **gphandle)
 {
-	gt_1trace(gatepeterson_mask, GT_ENTER,
-		"gatepeterson_get_knl_handle:\n"
-		"gphandle: %x\n", gphandle);
-
 	BUG_ON(gphandle == NULL);
 	return gphandle;
 }
+EXPORT_SYMBOL(gatepeterson_get_knl_handle);
 
 /*
  * ======== gatepeterson_shared_memreq ========
@@ -890,9 +880,6 @@ u32 gatepeterson_shared_memreq(const struct gatepeterson_params *params)
 {
 	u32 retval = 0;
 
-	gt_1trace(gatepeterson_mask, GT_ENTER,
-		"gatepeterson_shared_memreq:\n params: %x\n", params);
-
 	if (params != NULL)
 		retval = 128 * 4;
 	else
@@ -900,4 +887,5 @@ u32 gatepeterson_shared_memreq(const struct gatepeterson_params *params)
 
 	return retval;
 }
+EXPORT_SYMBOL(gatepeterson_shared_memreq);
 
