@@ -44,6 +44,8 @@
 #define ISPH3A_PCR_AEW_EN	(1 << 16)
 #define ISPH3A_PCR_AEW_ALAW_EN	(1 << 17)
 #define ISPH3A_PCR_AEW_BUSY	(1 << 18)
+#define ISPH3A_PCR_AEW_MASK 	(ISPH3A_PCR_AEW_EN | ISPH3A_PCR_AEW_ALAW_EN | \
+				 ISPH3A_PCR_AEW_AVE2LMT_MASK)
 
 #define WRITE_SAT_LIM(reg, sat_limit)			\
 	(reg = (reg & (~(ISPH3A_PCR_AEW_AVE2LMT_MASK))) \
@@ -111,7 +113,7 @@ struct isph3a_aewb_regs {
 };
 
 struct isp_h3a_device {
-	spinlock_t lock;		/* Lock for this struct */
+	spinlock_t *lock;		/* Lock for this struct */
 
 	u8 update;
 	int pm_state;

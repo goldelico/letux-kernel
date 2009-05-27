@@ -335,6 +335,7 @@ struct isp_device {
 
 	/* ISP Obj */
 	spinlock_t lock;	/* For handling registered ISP callbacks */
+	spinlock_t h3a_lock;
 	struct mutex isp_mutex;	/* For handling ref_count field */
 	int ref_count;
 	struct clk *cam_ick;

@@ -119,6 +119,7 @@ struct isp_af_device {
 	struct device *dev;
 	struct ispstat stat;
 	struct af_configuration config; /*Device configuration structure */
+	spinlock_t *lock;
 };
 
 void isp_af_isr(struct isp_af_device *isp_af);
