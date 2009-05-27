@@ -8,6 +8,7 @@
  * Contributors:
  *	Sergio Aguirre <saaguirre@ti.com>
  *	Troy Laramy
+ * 	David Cohen <david.cohen@nokia.com>
  *
  * This package is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -33,6 +34,8 @@
 #define IS_OUT_OF_BOUNDS(value, min, max)		\
 	(((value) < (min)) || ((value) > (max)))
 
+static int __isp_af_enable(struct isp_af_device *isp_af, int enable);
+
 static void isp_af_set_address(struct isp_af_device *isp_af,
 			       unsigned long address)
 {
@@ -41,10 +44,12 @@ static void isp_af_set_address(struct isp_af_device *isp_af,
 }
 
 /* Function to check paxel parameters */
-static int isp_af_check_paxel(struct isp_af_device *isp_af)
+static int isp_af_check_params(struct isp_af_device *isp_af,
+			       struct af_configuration *afconfig)
 {
-	struct af_paxel *paxel_cfg = &isp_af->config.paxel_config;
-	struct af_iir *iir_cfg = &isp_af->config.iir_config;
+	struct af_paxel *paxel_cfg = &afconfig->paxel_config;
+	struct af_iir *iir_cfg = &afconfig->iir_config;
+	int index;
 
 	/* Check horizontal Count */
 	if (IS_OUT_OF_BOUNDS(paxel_cfg->hz_cnt, AF_PAXEL_HORIZONTAL_COUNT_MIN,
@@ -53,35 +58,35 @@ static int isp_af_check_paxel(struct isp_af_device *isp_af)
 		return -AF_ERR_HZ_COUNT;
 	}
 
-	/*Check Vertical Count */
+	/* Check Vertical Count */
 	if (IS_OUT_OF_BOUNDS(paxel_cfg->vt_cnt, AF_PAXEL_VERTICAL_COUNT_MIN,
 			     AF_PAXEL_VERTICAL_COUNT_MAX)) {
 		DPRINTK_ISP_AF("Error : Vertical Count is incorrect");
 		return -AF_ERR_VT_COUNT;
 	}
 
-	/*Check Height */
+	/* Check Height */
 	if (IS_OUT_OF_BOUNDS(paxel_cfg->height, AF_PAXEL_HEIGHT_MIN,
 			     AF_PAXEL_HEIGHT_MAX)) {
 		DPRINTK_ISP_AF("Error : Height is incorrect");
 		return -AF_ERR_HEIGHT;
 	}
 
-	/*Check width */
+	/* Check width */
 	if (IS_OUT_OF_BOUNDS(paxel_cfg->width, AF_PAXEL_WIDTH_MIN,
 			     AF_PAXEL_WIDTH_MAX)) {
 		DPRINTK_ISP_AF("Error : Width is incorrect");
 		return -AF_ERR_WIDTH;
 	}
 
-	/*Check Line Increment */
+	/* Check Line Increment */
 	if (IS_OUT_OF_BOUNDS(paxel_cfg->line_incr, AF_PAXEL_INCREMENT_MIN,
 			     AF_PAXEL_INCREMENT_MAX)) {
 		DPRINTK_ISP_AF("Error : Line Increment is incorrect");
 		return -AF_ERR_INCR;
 	}
 
-	/*Check Horizontal Start */
+	/* Check Horizontal Start */
 	if ((paxel_cfg->hz_start % 2 != 0) ||
 	    (paxel_cfg->hz_start < (iir_cfg->hz_start_pos + 2)) ||
 	    IS_OUT_OF_BOUNDS(paxel_cfg->hz_start,
@@ -90,23 +95,14 @@ static int isp_af_check_paxel(struct isp_af_device *isp_af)
 		return -AF_ERR_HZ_START;
 	}
 
-	/*Check Vertical Start */
+	/* Check Vertical Start */
 	if (IS_OUT_OF_BOUNDS(paxel_cfg->vt_start, AF_PAXEL_VTSTART_MIN,
 			     AF_PAXEL_VTSTART_MAX)) {
 		DPRINTK_ISP_AF("Error : Vertical Start is incorrect");
 		return -AF_ERR_VT_START;
 	}
-	return 0;
-}
 
-/**
- * isp_af_check_iir - Function to check IIR Coefficient.
- **/
-static int isp_af_check_iir(struct isp_af_device *isp_af)
-{
-	struct af_iir *iir_cfg = &isp_af->config.iir_config;
-	int index;
-
+	/* Check IIR */
 	for (index = 0; index < AF_NUMBER_OF_COEF; index++) {
 		if ((iir_cfg->coeff_set0[index]) > AF_COEF_MAX) {
 			DPRINTK_ISP_AF("Error : Coefficient for set 0 is "
@@ -127,10 +123,16 @@ static int isp_af_check_iir(struct isp_af_device *isp_af)
 		return -AF_ERR_IIRSH;
 	}
 
+	/* Check HMF Threshold Values */
+	if (afconfig->hmf_config.threshold > AF_THRESHOLD_MAX) {
+		DPRINTK_ISP_AF("Error : HMF Threshold is incorrect");
+		return -AF_ERR_THRESHOLD;
+	}
+
 	return 0;
 }
 
-static int isp_af_register_setup(struct isp_af_device *isp_af)
+static void isp_af_register_setup(struct isp_af_device *isp_af)
 {
 	unsigned int pcr = 0, pax1 = 0, pax2 = 0, paxstart = 0;
 	unsigned int coef = 0;
@@ -138,68 +140,33 @@ static int isp_af_register_setup(struct isp_af_device *isp_af)
 	unsigned int base_coef_set1 = 0;
 	int index;
 
+	if (!isp_af->update || !isp_af->pm_state)
+		return;
+
+	if (isp_af_busy(isp_af))
+		return;
+
+	__isp_af_enable(isp_af, 0);
+
 	/* Configure Hardware Registers */
-	/* Read PCR Register */
-	pcr = isp_reg_readl(isp_af->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
-
-	/* Set Accumulator Mode */
-	if (isp_af->config.mode == ACCUMULATOR_PEAK)
-		pcr |= FVMODE;
-	else
-		pcr &= ~FVMODE;
-
-	/* Set A-law */
-	if (isp_af->config.alaw_enable == H3A_AF_ALAW_ENABLE)
-		pcr |= AF_ALAW_EN;
-	else
-		pcr &= ~AF_ALAW_EN;
-
-	/* Set RGB Position */
-	pcr &= ~RGBPOS;
-	pcr |= isp_af->config.rgb_pos << AF_RGBPOS_SHIFT;
-
-	/* HMF Configurations */
-	if (isp_af->config.hmf_config.enable == H3A_AF_HMF_ENABLE) {
-		pcr &= ~AF_MED_EN;
-		/* Enable HMF */
-		pcr |= AF_MED_EN;
-
-		/* Set Median Threshold */
-		pcr &= ~MED_TH;
-		pcr |= isp_af->config.hmf_config.threshold << AF_MED_TH_SHIFT;
-	} else
-		pcr &= ~AF_MED_EN;
-
-	/* Set PCR Register */
-	isp_reg_writel(isp_af->dev, pcr, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
-
-	pax1 &= ~PAXW;
 	pax1 |= isp_af->config.paxel_config.width << AF_PAXW_SHIFT;
-
 	/* Set height in AFPAX1 */
-	pax1 &= ~PAXH;
 	pax1 |= isp_af->config.paxel_config.height;
-
 	isp_reg_writel(isp_af->dev, pax1, OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX1);
 
 	/* Configure AFPAX2 Register */
 	/* Set Line Increment in AFPAX2 Register */
-	pax2 &= ~AFINCV;
 	pax2 |= isp_af->config.paxel_config.line_incr << AF_LINE_INCR_SHIFT;
 	/* Set Vertical Count */
-	pax2 &= ~PAXVC;
 	pax2 |= isp_af->config.paxel_config.vt_cnt << AF_VT_COUNT_SHIFT;
 	/* Set Horizontal Count */
-	pax2 &= ~PAXHC;
 	pax2 |= isp_af->config.paxel_config.hz_cnt;
 	isp_reg_writel(isp_af->dev, pax2, OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX2);
 
 	/* Configure PAXSTART Register */
 	/*Configure Horizontal Start */
-	paxstart &= ~PAXSH;
 	paxstart |= isp_af->config.paxel_config.hz_start << AF_HZ_START_SHIFT;
 	/* Configure Vertical Start */
-	paxstart &= ~PAXSV;
 	paxstart |= isp_af->config.paxel_config.vt_start;
 	isp_reg_writel(isp_af->dev, paxstart, OMAP3_ISP_IOMEM_H3A,
 		       ISPH3A_AFPAXSTART);
@@ -208,41 +175,136 @@ static int isp_af_register_setup(struct isp_af_device *isp_af)
 	isp_reg_writel(isp_af->dev, isp_af->config.iir_config.hz_start_pos,
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AFIIRSH);
 
-	/*Set IIR Filter0 Coefficients */
 	base_coef_set0 = ISPH3A_AFCOEF010;
+	base_coef_set1 = ISPH3A_AFCOEF110;
 	for (index = 0; index <= 8; index += 2) {
-		coef &= ~COEF_MASK0;
+		/*Set IIR Filter0 Coefficients */
+		coef = 0;
 		coef |= isp_af->config.iir_config.coeff_set0[index];
-		coef &= ~COEF_MASK1;
 		coef |= isp_af->config.iir_config.coeff_set0[index + 1] <<
 			AF_COEF_SHIFT;
 		isp_reg_writel(isp_af->dev, coef, OMAP3_ISP_IOMEM_H3A,
 			       base_coef_set0);
-		base_coef_set0 = base_coef_set0 + AFCOEF_OFFSET;
-	}
+		base_coef_set0 += AFCOEF_OFFSET;
 
-	/* set AFCOEF0010 Register */
-	isp_reg_writel(isp_af->dev, isp_af->config.iir_config.coeff_set0[10],
-		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF0010);
-
-	/*Set IIR Filter1 Coefficients */
-
-	base_coef_set1 = ISPH3A_AFCOEF110;
-	for (index = 0; index <= 8; index += 2) {
-		coef &= ~COEF_MASK0;
+		/*Set IIR Filter1 Coefficients */
+		coef = 0;
 		coef |= isp_af->config.iir_config.coeff_set1[index];
-		coef &= ~COEF_MASK1;
 		coef |= isp_af->config.iir_config.coeff_set1[index + 1] <<
 			AF_COEF_SHIFT;
 		isp_reg_writel(isp_af->dev, coef, OMAP3_ISP_IOMEM_H3A,
 			       base_coef_set1);
-
-		base_coef_set1 = base_coef_set1 + AFCOEF_OFFSET;
+		base_coef_set1 += AFCOEF_OFFSET;
 	}
+	/* set AFCOEF0010 Register */
+	isp_reg_writel(isp_af->dev, isp_af->config.iir_config.coeff_set0[10],
+		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF0010);
+	/* set AFCOEF1010 Register */
 	isp_reg_writel(isp_af->dev, isp_af->config.iir_config.coeff_set1[10],
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF1010);
 
-	return 0;
+	/* PCR Register */
+	/* Set Accumulator Mode */
+	if (isp_af->config.mode == ACCUMULATOR_PEAK)
+		pcr |= FVMODE;
+	/* Set A-law */
+	if (isp_af->config.alaw_enable == H3A_AF_ALAW_ENABLE)
+		pcr |= AF_ALAW_EN;
+	/* Set RGB Position */
+	pcr |= isp_af->config.rgb_pos << AF_RGBPOS_SHIFT;
+	/* HMF Configurations */
+	if (isp_af->config.hmf_config.enable == H3A_AF_HMF_ENABLE) {
+		/* Enable HMF */
+		pcr |= AF_MED_EN;
+		/* Set Median Threshold */
+		pcr |= isp_af->config.hmf_config.threshold << AF_MED_TH_SHIFT;
+	}
+	/* Set PCR Register */
+	isp_reg_and_or(isp_af->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR,
+		       ~AF_PCR_MASK, pcr);
+
+	isp_af->update = 0;
+	__isp_af_enable(isp_af, 1);
+}
+
+/* Update local parameters */
+static void isp_af_update_params(struct isp_af_device *isp_af,
+				 struct af_configuration *afconfig)
+{
+	int update = 0;
+	int index;
+
+	/* alaw */
+	if (isp_af->config.alaw_enable != afconfig->alaw_enable) {
+		update = 1;
+		goto out;
+	}
+
+	/* hmf */
+	if (isp_af->config.hmf_config.enable != afconfig->hmf_config.enable) {
+		update = 1;
+		goto out;
+	}
+	if (isp_af->config.hmf_config.threshold !=
+					afconfig->hmf_config.threshold) {
+		update = 1;
+		goto out;
+	}
+
+	/* rgbpos */
+	if (isp_af->config.rgb_pos != afconfig->rgb_pos) {
+		update = 1;
+		goto out;
+	}
+
+	/* iir */
+	if (isp_af->config.iir_config.hz_start_pos !=
+					afconfig->iir_config.hz_start_pos) {
+		update = 1;
+		goto out;
+	}
+	for (index = 0; index < AF_NUMBER_OF_COEF; index++) {
+		if (isp_af->config.iir_config.coeff_set0[index] !=
+				afconfig->iir_config.coeff_set0[index]) {
+			update = 1;
+			goto out;
+		}
+		if (isp_af->config.iir_config.coeff_set1[index] !=
+				afconfig->iir_config.coeff_set1[index]) {
+			update = 1;
+			goto out;
+		}
+	}
+
+	/* paxel */
+	if ((isp_af->config.paxel_config.width !=
+				afconfig->paxel_config.width) ||
+	    (isp_af->config.paxel_config.height !=
+				afconfig->paxel_config.height) ||
+	    (isp_af->config.paxel_config.hz_start !=
+				afconfig->paxel_config.hz_start) ||
+	    (isp_af->config.paxel_config.vt_start !=
+				afconfig->paxel_config.vt_start) ||
+	    (isp_af->config.paxel_config.hz_cnt !=
+				afconfig->paxel_config.hz_cnt) ||
+	    (isp_af->config.paxel_config.line_incr !=
+				afconfig->paxel_config.line_incr)) {
+		update = 1;
+		goto out;
+	}
+
+	/* af_mode */
+	if (isp_af->config.mode != afconfig->mode) {
+		update = 1;
+		goto out;
+	}
+
+out:
+	if (update) {
+		memcpy(&isp_af->config, afconfig, sizeof(*afconfig));
+		isp_af->update = 1;
+	}
+	isp_af->config.af_config = afconfig->af_config;
 }
 
 /* Function to perform hardware set up */
@@ -251,58 +313,34 @@ int isp_af_configure(struct isp_af_device *isp_af,
 {
 	int result;
 	int buf_size;
-	unsigned int busyaf;
-	struct af_configuration *af_curr_cfg = &isp_af->config;
 	struct ispstat_buffer *buf;
 
-	if (NULL == afconfig) {
-		dev_err(isp_af->dev, "af: Null argument in configuration. \n");
+	if (!afconfig) {
+		dev_err(isp_af->dev, "af: Null argument in configuration.\n");
 		return -EINVAL;
 	}
 
-	memcpy(af_curr_cfg, afconfig, sizeof(struct af_configuration));
-	/* Get the value of PCR register */
-	busyaf = isp_reg_readl(isp_af->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
-
-	if ((busyaf & AF_BUSYAF) == AF_BUSYAF) {
-		DPRINTK_ISP_AF("AF_register_setup_ERROR : Engine Busy");
-		DPRINTK_ISP_AF("\n Configuration cannot be done ");
-		return -AF_ERR_ENGINE_BUSY;
-	}
-
-	/* Check IIR Coefficient and start Values */
-	result = isp_af_check_iir(isp_af);
-	if (result < 0)
+	/* Check Parameters */
+	result = isp_af_check_params(isp_af, afconfig);
+	if (result) {
+		dev_dbg(isp_af->dev, "af: wrong configure params received.\n");
 		return result;
-
-	/* Check Paxel Values */
-	result = isp_af_check_paxel(isp_af);
-	if (result < 0)
-		return result;
-
-	/* Check HMF Threshold Values */
-	if (af_curr_cfg->hmf_config.threshold > AF_THRESHOLD_MAX) {
-		DPRINTK_ISP_AF("Error : HMF Threshold is incorrect");
-		return -AF_ERR_THRESHOLD;
 	}
 
 	/* Compute buffer size */
-	buf_size = (af_curr_cfg->paxel_config.hz_cnt + 1) *
-		(af_curr_cfg->paxel_config.vt_cnt + 1) * AF_PAXEL_SIZE;
+	buf_size = (afconfig->paxel_config.hz_cnt + 1) *
+		   (afconfig->paxel_config.vt_cnt + 1) * AF_PAXEL_SIZE;
 
 	result = ispstat_bufs_alloc(&isp_af->stat, buf_size);
 	if (result)
 		return result;
-
-	result = isp_af_register_setup(isp_af);
-	if (result < 0)
-		return result;
-
 	buf = ispstat_buf_next(&isp_af->stat);
 	isp_af_set_address(isp_af, buf->iommu_addr);
 
+	isp_af_update_params(isp_af, afconfig);
+
 	/* Set configuration flag to indicate HW setup done */
-	if (af_curr_cfg->af_config)
+	if (isp_af->config.af_config)
 		isp_af_enable(isp_af, 1);
 	else
 		isp_af_enable(isp_af, 0);
@@ -323,7 +361,8 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 	struct ispstat_buffer *buf;
 
 	if (!isp_af->config.af_config) {
-		dev_err(isp_af->dev, "af: engine not enabled\n");
+		dev_err(isp_af->dev, "af: statistics requested while af engine"
+				     " not enabled\n");
 		return -EINVAL;
 	}
 
@@ -354,6 +393,9 @@ void isp_af_isr(struct isp_af_device *isp_af)
 	/* Exchange buffers */
 	buf = ispstat_buf_next(&isp_af->stat);
 	isp_af_set_address(isp_af, buf->iommu_addr);
+
+	if (isp_af->update)
+		isp_af_register_setup(isp_af);
 }
 
 static int __isp_af_enable(struct isp_af_device *isp_af, int enable)
@@ -376,11 +418,20 @@ static int __isp_af_enable(struct isp_af_device *isp_af, int enable)
 int isp_af_enable(struct isp_af_device *isp_af, int enable)
 {
 	int rval;
+	int previous_state = isp_af->pm_state;
+
+	if (!isp_af->pm_state && enable)
+		isp_af->update = 1;
+
+	isp_af->pm_state = enable;
+
+	if (isp_af->update)
+		isp_af_register_setup(isp_af);
 
 	rval = __isp_af_enable(isp_af, enable);
 
 	if (!rval)
-		isp_af->pm_state = enable;
+		isp_af->pm_state = previous_state;
 
 	return rval;
 }
@@ -395,8 +446,10 @@ void isp_af_suspend(struct isp_af_device *isp_af)
 /* Function to Resume AF Engine */
 void isp_af_resume(struct isp_af_device *isp_af)
 {
-	if (isp_af->pm_state)
+	if (isp_af->pm_state) {
+		isp_af->pm_state = 0;
 		__isp_af_enable(isp_af, 1);
+	}
 }
 
 int isp_af_busy(struct isp_af_device *isp_af)
