@@ -314,6 +314,7 @@ int isp_af_configure(struct isp_af_device *isp_af,
 	int result;
 	int buf_size;
 	struct ispstat_buffer *buf;
+	unsigned long irqflags;
 
 	if (!afconfig) {
 		dev_err(isp_af->dev, "af: Null argument in configuration.\n");
@@ -335,9 +336,11 @@ int isp_af_configure(struct isp_af_device *isp_af,
 	if (result)
 		return result;
 	buf = ispstat_buf_next(&isp_af->stat);
-	isp_af_set_address(isp_af, buf->iommu_addr);
 
+	spin_lock_irqsave(isp_af->lock, irqflags);
+	isp_af_set_address(isp_af, buf->iommu_addr);
 	isp_af_update_params(isp_af, afconfig);
+	spin_unlock_irqrestore(isp_af->lock, irqflags);
 
 	/* Set configuration flag to indicate HW setup done */
 	if (isp_af->config.af_config)
@@ -379,6 +382,7 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 		ispstat_buf_release(&isp_af->stat);
 	} else
 		afdata->af_statistics_buf = NULL;
+
 	afdata->curr_frame = isp_af->stat.frame_number;
 
 	return 0;
@@ -389,13 +393,18 @@ EXPORT_SYMBOL(isp_af_request_statistics);
 void isp_af_isr(struct isp_af_device *isp_af)
 {
 	struct ispstat_buffer *buf;
+	unsigned long irqflags;
 
 	/* Exchange buffers */
 	buf = ispstat_buf_next(&isp_af->stat);
-	isp_af_set_address(isp_af, buf->iommu_addr);
 
+	spin_lock_irqsave(isp_af->lock, irqflags);
+
+	isp_af_set_address(isp_af, buf->iommu_addr);
 	if (isp_af->update)
 		isp_af_register_setup(isp_af);
+
+	spin_unlock_irqrestore(isp_af->lock, irqflags);
 }
 
 static int __isp_af_enable(struct isp_af_device *isp_af, int enable)
@@ -419,7 +428,9 @@ int isp_af_enable(struct isp_af_device *isp_af, int enable)
 {
 	int rval;
 	int previous_state = isp_af->pm_state;
+	unsigned long irqflags;
 
+	spin_lock_irqsave(isp_af->lock, irqflags);
 	if (!isp_af->pm_state && enable)
 		isp_af->update = 1;
 
@@ -432,6 +443,7 @@ int isp_af_enable(struct isp_af_device *isp_af, int enable)
 
 	if (!rval)
 		isp_af->pm_state = previous_state;
+	spin_unlock_irqrestore(isp_af->lock, irqflags);
 
 	return rval;
 }
@@ -439,17 +451,25 @@ int isp_af_enable(struct isp_af_device *isp_af, int enable)
 /* Function to Suspend AF Engine */
 void isp_af_suspend(struct isp_af_device *isp_af)
 {
+	unsigned long irqflags;
+
+	spin_lock_irqsave(isp_af->lock, irqflags);
 	if (isp_af->pm_state)
 		__isp_af_enable(isp_af, 0);
+	spin_unlock_irqrestore(isp_af->lock, irqflags);
 }
 
 /* Function to Resume AF Engine */
 void isp_af_resume(struct isp_af_device *isp_af)
 {
+	unsigned long irqflags;
+
+	spin_lock_irqsave(isp_af->lock, irqflags);
 	if (isp_af->pm_state) {
 		isp_af->pm_state = 0;
 		__isp_af_enable(isp_af, 1);
 	}
+	spin_unlock_irqrestore(isp_af->lock, irqflags);
 }
 
 int isp_af_busy(struct isp_af_device *isp_af)
@@ -465,6 +485,7 @@ int __init isp_af_init(struct device *dev)
 	struct isp_af_device *isp_af = &isp->isp_af;
 
 	isp_af->dev = dev;
+	isp_af->lock = &isp->h3a_lock;
 	ispstat_init(dev, &isp_af->stat, H3A_MAX_BUFF, MAX_FRAME_COUNT);
 
 	return 0;

@@ -2557,6 +2557,7 @@ static int isp_probe(struct platform_device *pdev)
 	mutex_init(&(isp->isp_mutex));
 	spin_lock_init(&isp->lock);
 	spin_lock_init(&isp->bufs.lock);
+	spin_lock_init(&isp->h3a_lock);
 
 	isp_get();
 	isp->iommu = iommu_get("isp");
