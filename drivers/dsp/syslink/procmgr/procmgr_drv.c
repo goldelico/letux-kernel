@@ -659,6 +659,7 @@ static void __exit proc_mgr_drv_finalize_module(void)
 {
 	dev_t devno = 0;
 
+	platform_driver_unregister(&procmgr_driver_ldm);
 	devno = MKDEV(driver_major, driver_minor);
 	if (procmgr_device) {
 		cdev_del(&procmgr_device->cdev);
