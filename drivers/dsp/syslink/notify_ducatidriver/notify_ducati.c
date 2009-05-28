@@ -23,7 +23,6 @@
 #include <linux/list.h>
 #include <linux/io.h>
 #include <linux/module.h>
-#include  <syslink/_bitops.h>
 #include <syslink/notify_driver.h>
 #include <syslink/notifydefs.h>
 #include <syslink/notify_driverdefs.h>
@@ -695,9 +694,9 @@ int notify_ducatidrv_register_event(
 		}
 
 		if (done) {
-			SET_BIT(ctrl_ptr->proc_ctrl[driver_object->self_id].
-				reg_mask.mask,
-				event_no);
+			set_bit(event_no, (unsigned long *)
+				&ctrl_ptr->proc_ctrl[driver_object->self_id].
+				reg_mask.mask);
 		} else {
 			/*retval NOTIFY_E_MAXEVENTS Maximum number of
 			supported events have already been registered. */
@@ -770,8 +769,9 @@ int notify_ducatidrv_unregister_event(
 
 	if (list_empty((struct list_head *)
 			&event_list[event_no].listeners) == true) {
-		CLEAR_BIT(ctrl_ptr->proc_ctrl[driver_object->self_id].reg_mask.
-			  mask, event_no);
+		clear_bit(event_no, (unsigned long *) 
+			&ctrl_ptr->proc_ctrl[driver_object->self_id].reg_mask.
+			  mask);
 		self_event_chart = ctrl_ptr->proc_ctrl[driver_object->self_id].
 				   self_event_chart;
 		/* Clear any pending unserviced event as there are no
@@ -853,11 +853,12 @@ int notify_ducatidrv_sendevent(struct notify_driver_object *handle,
 		*/
 	} else {
 		/* Check if other side is ready to receive this event. */
-		if ((TEST_BIT(ctrl_ptr->proc_ctrl[driver_object->other_id].
-					reg_mask.mask, event_no) == false)
-			|| (TEST_BIT(ctrl_ptr->
+		if ((test_bit(event_no, (unsigned long *)
+			&ctrl_ptr->proc_ctrl[driver_object->other_id].
+			reg_mask.mask) != 1)
+			|| (test_bit(event_no, &ctrl_ptr->
 				proc_ctrl[driver_object->other_id].reg_mask.
-				enable_mask, event_no) == false)) {
+				enable_mask) != 1)) {
 			status = -ENODEV;
 			/* This may be used for polling till other-side
 			is ready, so do not set failure reason.*/
@@ -970,8 +971,9 @@ int notify_ducatidrv_disable_event(
 					gate_handle) != 0)
 		WARN_ON(1);
 
-	CLEAR_BIT(driver_object->ctrl_ptr->proc_ctrl[driver_object->self_id].
-			reg_mask.enable_mask, event_no);
+	clear_bit(event_no,(unsigned long *)
+		&driver_object->ctrl_ptr->proc_ctrl[driver_object->self_id].
+			reg_mask.enable_mask);
 	/* Leave critical section protection. */
 	mutex_unlock(notify_ducatidriver_state.gate_handle);
 	return status;
@@ -997,8 +999,9 @@ int notify_ducatidrv_enable_event(struct notify_driver_object *handle,
 					gate_handle) != 0)
 		WARN_ON(1);
 
-	SET_BIT(driver_object->ctrl_ptr->proc_ctrl[driver_object->self_id].
-		reg_mask.enable_mask, event_no);
+	set_bit(event_no, (unsigned long *) 
+		&driver_object->ctrl_ptr->proc_ctrl[driver_object->self_id].
+		reg_mask.enable_mask);
 
 	mutex_unlock(notify_ducatidriver_state.gate_handle);
 	return status;
@@ -1049,8 +1052,9 @@ static void notify_ducatidrv_isr(void *ref_data)
 		/* Determine the current high priority event.*/
 		/* Check if the event is set and enabled.*/
 		if (self_event_chart[event_no].flag == UP &&
-			TEST_BIT(proc_ctrl_ptr->reg_mask.enable_mask,
-			event_no) && (event_no != (int) -1)) {
+			test_bit(event_no, 
+			(unsigned long *) &proc_ctrl_ptr->reg_mask.enable_mask)
+			&& (event_no != (int) -1)) {
 
 			payload = self_event_chart[event_no].
 						payload;
