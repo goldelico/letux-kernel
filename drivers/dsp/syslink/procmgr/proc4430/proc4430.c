@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/vmalloc.h>
+#include <linux/uaccess.h>
 
 /* Module level headers */
 #include "../procdefs.h"
@@ -125,24 +126,27 @@ int proc4430_setup(struct proc4430_config *cfg)
 		proc4430_get_config(&tmp_cfg);
 		cfg = &tmp_cfg;
 	}
-	dmm_create();
-	dmm_create_tables(DUCATI_DMM_START_ADDR, DUCATI_DMM_POOL_SIZE);
-	if (cfg->gate_handle != NULL) {
-		proc4430_state.gate_handle = cfg->gate_handle;
-	} else {
-		/* User has not provided any gate handle, so create a
-		* default handle. */
-		proc4430_state.gate_handle = kmalloc(sizeof(struct mutex),
-						GFP_KERNEL);
-		mutex_init(proc4430_state.gate_handle);
-		ducati_setup();
+	if (proc4430_state.is_setup == false) {
+		dmm_create();
+		dmm_create_tables(DUCATI_DMM_START_ADDR, DUCATI_DMM_POOL_SIZE);
+		if (cfg->gate_handle != NULL) {
+			proc4430_state.gate_handle = cfg->gate_handle;
+		} else {
+			/* User has not provided any gate handle, so create a
+			* default handle. */
+			proc4430_state.gate_handle =
+				kmalloc(sizeof(struct mutex), GFP_KERNEL);
+			mutex_init(proc4430_state.gate_handle);
+			ducati_setup();
+		}
+		/* Initialize the name to handles mapping array. */
+		memset(&proc4430_state.proc_handles, 0,
+			(sizeof(void *) * MULTIPROC_MAXPROCESSORS));
+		proc4430_state.is_setup = true;
 	}
 	/* Copy the user provided values into the state object. */
 	memcpy(&proc4430_state.cfg, cfg,
 				sizeof(struct proc4430_config));
-	/* Initialize the name to handles mapping array. */
-	memset(&proc4430_state.proc_handles, 0,
-			(sizeof(void *) * MULTIPROC_MAXPROCESSORS));
 	return retval;
 }
 EXPORT_SYMBOL(proc4430_setup);
@@ -218,43 +222,45 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 		printk(KERN_WARNING "Processor already exists for specified"
 			"%d  proc_id\n", proc_id);
 		WARN_ON(1);
+		handle = proc4430_state.proc_handles[proc_id];
 		goto func_end;
 	} else {
 		handle = (struct processor_object *)
 			vmalloc(sizeof(struct processor_object));
-		if (handle == NULL) {
-			handle->proc_fxn_table.attach = &proc4430_attach;
-			handle->proc_fxn_table.detach = &proc4430_detach;
-			handle->proc_fxn_table.start = &proc4430_start;
-			handle->proc_fxn_table.stop = &proc4430_stop;
-			handle->proc_fxn_table.read = &proc4430_read;
-			handle->proc_fxn_table.write = &proc4430_write;
-			handle->proc_fxn_table.control = &proc4430_control;
-			handle->proc_fxn_table.translateAddr =
-						 &proc4430_translate_addr;
-			handle->proc_fxn_table.map = &proc4430_map;
-			handle->proc_fxn_table.unmap = &proc4430_unmap;
-			handle->state = PROC_MGR_STATE_UNKNOWN;
-			handle->object = vmalloc
-					(sizeof(struct proc4430_object));
-
-			handle->proc_id = proc_id;
-			object = (struct proc4430_object *)handle->object;
-			/* Copy params into instance object. */
-			memcpy(&(object->params), (void *)params,
-				sizeof(struct proc4430_object));
-
+		if (WARN_ON(handle == NULL))
+			goto func_end;
+		handle->proc_fxn_table.attach = &proc4430_attach;
+		handle->proc_fxn_table.detach = &proc4430_detach;
+		handle->proc_fxn_table.start = &proc4430_start;
+		handle->proc_fxn_table.stop = &proc4430_stop;
+		handle->proc_fxn_table.read = &proc4430_read;
+		handle->proc_fxn_table.write = &proc4430_write;
+		handle->proc_fxn_table.control = &proc4430_control;
+		handle->proc_fxn_table.translateAddr =
+					 &proc4430_translate_addr;
+		handle->proc_fxn_table.map = &proc4430_map;
+		handle->proc_fxn_table.unmap = &proc4430_unmap;
+		handle->state = PROC_MGR_STATE_UNKNOWN;
+		handle->object = vmalloc
+				(sizeof(struct proc4430_object));
+		handle->proc_id = proc_id;
+		object = (struct proc4430_object *)handle->object;
+		/* Copy params into instance object. */
+		memcpy(&(object->params), (void *)params,
+			sizeof(struct proc4430_object));
+		if (params->mem_entries != NULL &&
+			params->num_mem_entries > 0) {
 			/* Allocate memory for, and copy memEntries table*/
 			object->params.mem_entries = vmalloc(
-			sizeof(struct proc4430_mem_entry) *
-			params->num_mem_entries);
-			memcpy(object->params.mem_entries,
+				sizeof(struct proc4430_mem_entry) *
+				params->num_mem_entries);
+			copy_from_user(object->params.mem_entries,
 				params->mem_entries,
 				(sizeof(struct proc4430_mem_entry)
 				* params->num_mem_entries));
-			/* Set the handle in the state object. */
-			proc4430_state.proc_handles[proc_id] = handle;
 		}
+		/* Set the handle in the state object. */
+		proc4430_state.proc_handles[proc_id] = handle;
 	}
 func_end:
 	mutex_unlock(proc4430_state.gate_handle);

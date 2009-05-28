@@ -59,7 +59,7 @@ struct proc4430_mem_entry {
   Configuration parameters specific to this processor.
  */
 struct proc4430_params {
-	u32 num_mem_entries;
+	int num_mem_entries;
 	/* Number of memory regions to be configured. */
 	struct proc4430_mem_entry *mem_entries;
 	/* Array of information structures for memory regions
