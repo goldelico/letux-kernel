@@ -1,31 +1,20 @@
-
 /*
  * hw_defs.h
  *
- * DSP-BIOS Bridge driver support functions for TI OMAP processors.
+ * Syslink driver support for OMAP Processors.
  *
- * Copyright (C) 2007 Texas Instruments, Inc.
+ *  Copyright (C) 2008-2009 Texas Instruments, Inc.
  *
- * This package is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ *  This package is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ *  THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
+ *  IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
+ *  WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR
+ *  PURPOSE.
  */
 
-
-/*
- *  ======== hw_defs.h ========
- *  Description:
- *      Global HW definitions
- *
- *! Revision History:
- *! ================
- *! 19 Apr 2004 sb: Added generic page size, endianness and element size defns
- *! 16 Feb 2003 sb: Initial version
- */
 #ifndef __HW_DEFS_H
 #define __HW_DEFS_H
 
@@ -42,33 +31,33 @@ typedef long hw_status;
 
 /* hw_set_clear_t:  Enumerated Type used to set and clear any bit */
 enum hw_set_clear_t {
-    HW_CLEAR,
-    HW_SET
+	HW_CLEAR,
+	HW_SET
 } ;
 
 /* hw_endianism_t:  Enumerated Type used to specify the endianism
  *		Do NOT change these values. They are used as bit fields. */
 enum hw_endianism_t {
-    HW_LITTLE_ENDIAN,
-    HW_BIG_ENDIAN
+	HW_LITTLE_ENDIAN,
+	HW_BIG_ENDIAN
 
 } ;
 
 /* hw_elemnt_siz_t:  Enumerated Type used to specify the element size
  *		Do NOT change these values. They are used as bit fields. */
 enum hw_elemnt_siz_t {
-    HW_ELEM_SIZE_8BIT,
-    HW_ELEM_SIZE_16BIT,
-    HW_ELEM_SIZE_32BIT,
-    HW_ELEM_SIZE_64BIT
+	HW_ELEM_SIZE_8BIT,
+	HW_ELEM_SIZE_16BIT,
+	HW_ELEM_SIZE_32BIT,
+	HW_ELEM_SIZE_64BIT
 
 } ;
 
 /* HW_IdleMode_t:  Enumerated Type used to specify Idle modes */
-	enum HW_IdleMode_t {
-		HW_FORCE_IDLE,
-		HW_NO_IDLE,
-		HW_SMART_IDLE
-	} ;
+enum HW_IdleMode_t {
+	HW_FORCE_IDLE,
+	HW_NO_IDLE,
+	HW_SMART_IDLE
+} ;
 
 #endif  /* __HW_DEFS_H */
