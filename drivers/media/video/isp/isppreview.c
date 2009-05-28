@@ -201,7 +201,7 @@ int omap34xx_isp_preview_config(struct isp_prev_device *isp_prev,
 	struct ispprev_blkadj prev_blkadj_t;
 	struct ispprev_yclimit yclimit_t;
 	struct ispprev_dcor prev_dcor_t;
-	struct ispprv_update_config *preview_struct;
+	struct ispprv_update_config *config;
 	struct isptables_update isp_table_update;
 	int yen_t[ISPPRV_YENH_TBL_SIZE];
 	struct prev_params *params = &isp_prev->params;
@@ -214,23 +214,23 @@ int omap34xx_isp_preview_config(struct isp_prev_device *isp_prev,
 	isp_prev->shadow_update = 1;
 	spin_unlock_irqrestore(&isp_prev->lock, flags);
 
-	preview_struct = userspace_add;
+	config = userspace_add;
 
 	if (isp_prev->pm_state)
 		goto out_config_shadow;
 
-	if (ISP_ABS_PREV_LUMAENH & preview_struct->flag) {
-		if (ISP_ABS_PREV_LUMAENH & preview_struct->update) {
-			if (copy_from_user(yen_t, preview_struct->yen,
+	if (ISP_ABS_PREV_LUMAENH & config->flag) {
+		if (ISP_ABS_PREV_LUMAENH & config->update) {
+			if (copy_from_user(yen_t, config->yen,
 					   sizeof(yen_t)))
 				goto err_copy_from_user;
 			isppreview_config_luma_enhancement(isp_prev, yen_t);
 		}
 		params->features |= PREV_LUMA_ENHANCE;
-	} else if (ISP_ABS_PREV_LUMAENH & preview_struct->update)
+	} else if (ISP_ABS_PREV_LUMAENH & config->update)
 		params->features &= ~PREV_LUMA_ENHANCE;
 
-	if (ISP_ABS_PREV_INVALAW & preview_struct->flag) {
+	if (ISP_ABS_PREV_INVALAW & config->flag) {
 		isppreview_enable_invalaw(isp_prev, 1);
 		params->features |= PREV_INVERSE_ALAW;
 	} else {
@@ -238,71 +238,71 @@ int omap34xx_isp_preview_config(struct isp_prev_device *isp_prev,
 		params->features &= ~PREV_INVERSE_ALAW;
 	}
 
-	if (ISP_ABS_PREV_HRZ_MED & preview_struct->flag) {
-		if (ISP_ABS_PREV_HRZ_MED & preview_struct->update) {
+	if (ISP_ABS_PREV_HRZ_MED & config->flag) {
+		if (ISP_ABS_PREV_HRZ_MED & config->update) {
 			if (copy_from_user(&prev_hmed_t,
 					   (struct ispprev_hmed *)
-					   preview_struct->prev_hmed,
+					   config->prev_hmed,
 					   sizeof(struct ispprev_hmed)))
 				goto err_copy_from_user;
 			isppreview_config_hmed(isp_prev, prev_hmed_t);
 		}
 		isppreview_enable_hmed(isp_prev, 1);
 		params->features |= PREV_HORZ_MEDIAN_FILTER;
-	} else if (ISP_ABS_PREV_HRZ_MED & preview_struct->update) {
+	} else if (ISP_ABS_PREV_HRZ_MED & config->update) {
 		isppreview_enable_hmed(isp_prev, 0);
 		params->features &= ~PREV_HORZ_MEDIAN_FILTER;
 	}
 
-	if (ISP_ABS_PREV_CHROMA_SUPP & preview_struct->flag) {
-		if (ISP_ABS_PREV_CHROMA_SUPP & preview_struct->update) {
+	if (ISP_ABS_PREV_CHROMA_SUPP & config->flag) {
+		if (ISP_ABS_PREV_CHROMA_SUPP & config->update) {
 			if (copy_from_user(&csup_t,
 					   (struct ispprev_csup *)
-					   preview_struct->csup,
+					   config->csup,
 					   sizeof(struct ispprev_csup)))
 				goto err_copy_from_user;
 			isppreview_config_chroma_suppression(isp_prev, csup_t);
 		}
 		isppreview_enable_chroma_suppression(isp_prev, 1);
 		params->features |= PREV_CHROMA_SUPPRESS;
-	} else if (ISP_ABS_PREV_CHROMA_SUPP & preview_struct->update) {
+	} else if (ISP_ABS_PREV_CHROMA_SUPP & config->update) {
 		isppreview_enable_chroma_suppression(isp_prev, 0);
 		params->features &= ~PREV_CHROMA_SUPPRESS;
 	}
 
-	if (ISP_ABS_PREV_BLKADJ & preview_struct->update) {
+	if (ISP_ABS_PREV_BLKADJ & config->update) {
 		if (copy_from_user(&prev_blkadj_t, (struct ispprev_blkadjl *)
-				   preview_struct->prev_blkadj,
+				   config->prev_blkadj,
 				   sizeof(struct ispprev_blkadj)))
 			goto err_copy_from_user;
 		isppreview_config_blkadj(isp_prev, prev_blkadj_t);
 	}
 
-	if (ISP_ABS_PREV_YC_LIMIT & preview_struct->update) {
+	if (ISP_ABS_PREV_YC_LIMIT & config->update) {
 		if (copy_from_user(&yclimit_t, (struct ispprev_yclimit *)
-				   preview_struct->yclimit,
+				   config->yclimit,
 				   sizeof(struct ispprev_yclimit)))
 			goto err_copy_from_user;
 		isppreview_config_yc_range(isp_prev, yclimit_t);
 	}
 
-	if (ISP_ABS_PREV_DEFECT_COR & preview_struct->flag) {
-		if (ISP_ABS_PREV_DEFECT_COR & preview_struct->update) {
+	if (ISP_ABS_PREV_DEFECT_COR & config->flag) {
+		if (ISP_ABS_PREV_DEFECT_COR & config->update) {
 			if (copy_from_user(&prev_dcor_t,
 					   (struct ispprev_dcor *)
-					   preview_struct->prev_dcor,
+					   config->prev_dcor,
 					   sizeof(struct ispprev_dcor)))
 				goto err_copy_from_user;
 			isppreview_config_dcor(isp_prev, prev_dcor_t);
 		}
 		isppreview_enable_dcor(isp_prev, 1);
 		params->features |= PREV_DEFECT_COR;
-	} else if (ISP_ABS_PREV_DEFECT_COR & preview_struct->update) {
+	} else if (ISP_ABS_PREV_DEFECT_COR & config->update) {
 		isppreview_enable_dcor(isp_prev, 0);
 		params->features &= ~PREV_DEFECT_COR;
 	}
 
-	if (ISP_ABS_PREV_GAMMABYPASS & preview_struct->flag) {
+	if (ISP_ABS_PREV_GAMMABYPASS & config->flag) {
 		isppreview_enable_gammabypass(isp_prev, 1);
 		params->features |= PREV_GAMMA_BYPASS;
 	} else {
@@ -311,10 +311,10 @@ int omap34xx_isp_preview_config(struct isp_prev_device *isp_prev,
 	}
 
 out_config_shadow:
-	if (ISP_ABS_PREV_RGB2RGB & preview_struct->update) {
+	if (ISP_ABS_PREV_RGB2RGB & config->update) {
 		if (copy_from_user(&params->rgb2rgb,
 				   (struct ispprev_rgbtorgb *)
-				   preview_struct->rgb2rgb,
+				   config->rgb2rgb,
 				   sizeof(struct ispprev_rgbtorgb)))
 			goto err_copy_from_user;
 		/* The function call above prevents compiler from reordering
@@ -323,9 +323,9 @@ out_config_shadow:
 		isp_prev->update_rgb_blending = 1;
 	}
 
-	if (ISP_ABS_PREV_COLOR_CONV & preview_struct->update) {
+	if (ISP_ABS_PREV_COLOR_CONV & config->update) {
 		if (copy_from_user(&params->rgb2ycbcr, (struct ispprev_csc *)
-				   preview_struct->prev_csc,
+				   config->prev_csc,
 				   sizeof(struct ispprev_csc)))
 			goto err_copy_from_user;
 		/* Same here... this flag has to be set after rgb2ycbcr
@@ -333,14 +333,14 @@ out_config_shadow:
 		isp_prev->update_rgb_to_ycbcr = 1;
 	}
 
-	isp_table_update.update = preview_struct->update;
-	isp_table_update.flag = preview_struct->flag;
-	isp_table_update.prev_nf = preview_struct->prev_nf;
-	isp_table_update.red_gamma = preview_struct->red_gamma;
-	isp_table_update.green_gamma = preview_struct->green_gamma;
-	isp_table_update.blue_gamma = preview_struct->blue_gamma;
-	isp_table_update.prev_cfa = preview_struct->prev_cfa;
-	isp_table_update.prev_wbal = preview_struct->prev_wbal;
+	isp_table_update.update = config->update;
+	isp_table_update.flag = config->flag;
+	isp_table_update.prev_nf = config->prev_nf;
+	isp_table_update.red_gamma = config->red_gamma;
+	isp_table_update.green_gamma = config->green_gamma;
+	isp_table_update.blue_gamma = config->blue_gamma;
+	isp_table_update.prev_cfa = config->prev_cfa;
+	isp_table_update.prev_wbal = config->prev_wbal;
 
 	if (omap34xx_isp_tables_update(isp_prev, &isp_table_update))
 		goto err_copy_from_user;
