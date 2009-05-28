@@ -41,16 +41,16 @@ static int sharedregion_ioctl_get_config(struct sharedregion_cmd_args *cargs)
 {
 
 	struct sharedregion_config config;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	s32 size;
 
-	retval = sharedregion_get_config(&config);
+	cargs->api_status = sharedregion_get_config(&config);
 	size = copy_to_user(cargs->args.get_config.config, &config,
 				sizeof(struct sharedregion_config));
 	if (size)
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 
-	return retval;
+	return osstatus;
 }
 
 
@@ -62,20 +62,20 @@ static int sharedregion_ioctl_get_config(struct sharedregion_cmd_args *cargs)
 static int sharedregion_ioctl_setup(struct sharedregion_cmd_args *cargs)
 {
 	struct sharedregion_config config;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	s32 size;
 
 	size = copy_from_user(&config, cargs->args.setup.config,
 				sizeof(struct sharedregion_config));
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto exit;
 	}
 
-	retval = sharedregion_setup(&config);
+	cargs->api_status = sharedregion_setup(&config);
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 /*
@@ -83,11 +83,11 @@ exit:
  *  Purpose:
  *  This ioctl interface to sharedregion_destroy function
  */
-static int sharedregion_ioctl_destroy()
+static int sharedregion_ioctl_destroy(
+				struct sharedregion_cmd_args *cargs)
 {
-	s32 retval = 0;
-	retval = sharedregion_destroy();
-	return retval;
+	cargs->api_status = sharedregion_destroy();
+	return 0;
 }
 
 /*
@@ -97,12 +97,10 @@ static int sharedregion_ioctl_destroy()
  */
 static int sharedregion_ioctl_add(struct sharedregion_cmd_args *cargs)
 {
-	s32 retval = 0;
-
-	retval =  sharedregion_add(cargs->args.add.index,
+	cargs->api_status = sharedregion_add(cargs->args.add.index,
 				cargs->args.add.base,
 				cargs->args.add.len);
-	return retval;
+	return 0;
 }
 
 
@@ -114,15 +112,12 @@ static int sharedregion_ioctl_add(struct sharedregion_cmd_args *cargs)
  */
 static int sharedregion_ioctl_get_index(struct sharedregion_cmd_args *cargs)
 {
-	s32 retval = 0;
 	s32 index = 0;
 
 	index = sharedregion_get_index(cargs->args.get_index.addr);
 	cargs->args.get_index.index = index;
-	if (index < 0)
-		retval = index;
-
-	return retval;
+	cargs->api_status = 0;
+	return 0;
 }
 
 /*
@@ -132,7 +127,6 @@ static int sharedregion_ioctl_get_index(struct sharedregion_cmd_args *cargs)
  */
 static int sharedregion_ioctl_get_ptr(struct sharedregion_cmd_args *cargs)
 {
-	s32 retval = 0;
 	void *addr = NULL;
 
 	addr = sharedregion_get_ptr(cargs->args.get_ptr.srptr);
@@ -140,7 +134,8 @@ static int sharedregion_ioctl_get_ptr(struct sharedregion_cmd_args *cargs)
 	responsibilty to pass proper value to application
 	*/
 	cargs->args.get_ptr.addr = addr;
-	return retval;
+	cargs->api_status = 0;
+	return 0;
 }
 
 /*
@@ -150,7 +145,6 @@ static int sharedregion_ioctl_get_ptr(struct sharedregion_cmd_args *cargs)
  */
 static int sharedregion_ioctl_get_srptr(struct sharedregion_cmd_args *cargs)
 {
-	s32 retval = 0;
 	u32 *srptr = NULL;
 
 	srptr = sharedregion_get_srptr(cargs->args.get_srptr.addr,
@@ -159,7 +153,8 @@ static int sharedregion_ioctl_get_srptr(struct sharedregion_cmd_args *cargs)
 	responsibilty to pass proper value to application
 	*/
 	cargs->args.get_srptr.srptr = srptr;
-	return retval;
+	cargs->api_status = 0;
+	return 0;
 }
 
 /*
@@ -171,22 +166,18 @@ static int sharedregion_ioctl_get_table_info(
 				struct sharedregion_cmd_args *cargs)
 {
 	struct sharedregion_info info;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	s32 size;
 
-	retval = sharedregion_get_table_info(
+	cargs->api_status = sharedregion_get_table_info(
 				cargs->args.get_table_info.index,
 				cargs->args.get_table_info.proc_id, &info);
-	if (retval)
-		goto exit;
-
 	size = copy_to_user(cargs->args.get_table_info.info, &info,
 				sizeof(struct sharedregion_info));
 	if (size)
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 
-exit:
-	return retval;
+	return osstatus;
 }
 
 
@@ -197,10 +188,8 @@ exit:
  */
 static int sharedregion_ioctl_remove(struct sharedregion_cmd_args *cargs)
 {
-	s32 retval = 0;
-
-	retval = sharedregion_remove(cargs->args.remove.index);
-	return retval;
+	cargs->api_status = sharedregion_remove(cargs->args.remove.index);
+	return 0;
 }
 
 /*
@@ -212,22 +201,22 @@ static int sharedregion_ioctl_set_table_info(
 			struct sharedregion_cmd_args *cargs)
 {
 	struct sharedregion_info info;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	s32 size;
 
 	size = copy_from_user(&info, cargs->args.set_table_info.info,
 				sizeof(struct sharedregion_info));
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto exit;
 	}
 
-	retval = sharedregion_set_table_info(
+	cargs->api_status = sharedregion_set_table_info(
 				cargs->args.set_table_info.index,
 				cargs->args.set_table_info.proc_id, &info);
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 /*
@@ -272,7 +261,7 @@ int sharedregion_ioctl(struct inode *inode, struct file *filp,
 		break;
 
 	case CMD_SHAREDREGION_DESTROY:
-		os_status = sharedregion_ioctl_destroy();
+		os_status = sharedregion_ioctl_destroy(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_ADD:

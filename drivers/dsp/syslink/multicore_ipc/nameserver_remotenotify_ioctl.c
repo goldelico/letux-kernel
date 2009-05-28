@@ -36,7 +36,7 @@
 static int nameserver_remotenotify_ioctl_get(
 		struct nameserver_remotenotify_cmd_args *cargs)
 {
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 	char *instance_name = NULL;
 	char *name = NULL;
@@ -46,7 +46,7 @@ static int nameserver_remotenotify_ioctl_get(
 		instance_name = kmalloc(cargs->args.get.instance_name_len + 1,
 								GFP_KERNEL);
 		if (instance_name == NULL) {
-			retval = ENOMEM;
+			osstatus = ENOMEM;
 			goto exit;
 		}
 
@@ -55,7 +55,7 @@ static int nameserver_remotenotify_ioctl_get(
 					cargs->args.get.instance_name,
 					cargs->args.get.instance_name_len);
 		if (size) {
-			retval = -ENOMEM;
+			osstatus = -ENOMEM;
 			goto exit;
 		}
 	}
@@ -64,7 +64,7 @@ static int nameserver_remotenotify_ioctl_get(
 		name = kmalloc(cargs->args.get.name_len + 1,
 						GFP_KERNEL);
 		if (name == NULL) {
-			retval = ENOMEM;
+			osstatus = ENOMEM;
 			goto exit;
 		}
 
@@ -72,7 +72,7 @@ static int nameserver_remotenotify_ioctl_get(
 		size = copy_from_user(name, cargs->args.get.name,
 						cargs->args.get.name_len);
 		if (size) {
-			retval = -ENOMEM;
+			osstatus = -ENOMEM;
 			goto exit;
 		}
 	}
@@ -83,7 +83,7 @@ static int nameserver_remotenotify_ioctl_get(
 		size = copy_from_user(value, cargs->args.get.value,
 					cargs->args.get.value_len);
 		if (size) {
-			retval = -ENOMEM;
+			osstatus = -ENOMEM;
 			goto exit;
 		}
 	}
@@ -95,11 +95,13 @@ static int nameserver_remotenotify_ioctl_get(
 						value,
 						cargs->args.get.value_len,
 						cargs->args.get.reserved);
+	cargs->api_status = 0;
+
 exit:
 	kfree(value);
 	kfree(name);
 	kfree(instance_name);
-	return retval;
+	return osstatus;
 }
 
 /*
@@ -111,7 +113,7 @@ static int nameserver_remotenotify_ioctl_shared_memreq(
 			struct nameserver_remotenotify_cmd_args *cargs)
 {
 	struct nameserver_remotenotify_params params;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
     /* params may be NULL. */
@@ -120,15 +122,17 @@ static int nameserver_remotenotify_ioctl_shared_memreq(
 			      cargs->args.shared_memreq.params,
 			      sizeof(struct nameserver_remotenotify_params));
 		if (size) {
-			retval = -EFAULT;
+			osstatus = -EFAULT;
 			goto exit;
 		}
     }
 
 	cargs->args.shared_memreq.shared_mem_size =
 			nameserver_remotenotify_shared_memreq(&params);
+	cargs->api_status = 0;
+
 exit:
-	return retval;
+	return osstatus;
 }
 
 /*
@@ -140,7 +144,7 @@ static int nameserver_remotenotify_ioctl_params_init(
 			struct nameserver_remotenotify_cmd_args *cargs)
 {
 	struct nameserver_remotenotify_params params;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
 	nameserver_remotenotify_params_init(cargs->args.params_init.handle,
@@ -148,9 +152,10 @@ static int nameserver_remotenotify_ioctl_params_init(
 	size = copy_to_user(cargs->args.params_init.params, &params,
 				sizeof(struct nameserver_remotenotify_params));
 	if (size)
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 
-	return retval;
+	cargs->api_status = 0;
+	return osstatus;
 }
 
 /*
@@ -162,12 +167,12 @@ static int nameserver_remotenotify_ioctl_create(
 			struct nameserver_remotenotify_cmd_args *cargs)
 {
 	struct nameserver_remotenotify_params params;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 	size = copy_from_user(&params, cargs->args.create.params,
 			sizeof(struct nameserver_remotenotify_params));
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto exit;
 	}
 
@@ -176,8 +181,9 @@ static int nameserver_remotenotify_ioctl_create(
 	cargs->args.create.handle = nameserver_remotenotify_create(
 						cargs->args.create.proc_id,
 						&params);
+	cargs->api_status = 0;
 exit:
-	return retval;
+	return osstatus;
 }
 
 /*
@@ -188,10 +194,9 @@ exit:
 static int nameserver_remotenotify_ioctl_delete(
 		struct nameserver_remotenotify_cmd_args *cargs)
 {
-	s32 retval = 0;
-	retval = nameserver_remotenotify_delete(
-				&cargs->args.delete_instance.handle);
-	return retval;
+	cargs->api_status = nameserver_remotenotify_delete(
+					&cargs->args.delete_instance.handle);
+	return 0;
 }
 
 /*
@@ -202,7 +207,7 @@ static int nameserver_remotenotify_ioctl_delete(
 static int nameserver_remotenotify_ioctl_get_config(
 			struct nameserver_remotenotify_cmd_args *cargs)
 {
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 	struct nameserver_remotenotify_config config;
 
@@ -210,9 +215,10 @@ static int nameserver_remotenotify_ioctl_get_config(
 	size = copy_to_user(cargs->args.get_config.config, &config,
 				sizeof(struct nameserver_remotenotify_config));
 	if (size)
-		retval  = -EFAULT;
+		osstatus  = -EFAULT;
 
-	return retval;
+	cargs->api_status = 0;
+	return osstatus;
 }
 
 /*
@@ -224,19 +230,19 @@ static int nameserver_remotenotify_ioctl_setup(
 			struct nameserver_remotenotify_cmd_args *cargs)
 {
 	struct nameserver_remotenotify_config config;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
 	size = copy_from_user(&config, cargs->args.setup.config,
 			sizeof(struct nameserver_remotenotify_config));
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto exit;
 	}
 
-	retval = nameserver_remotenotify_setup(&config);
+	cargs->api_status = nameserver_remotenotify_setup(&config);
 exit:
-	return retval;
+	return osstatus;
 }
 
 
@@ -245,11 +251,11 @@ exit:
  *  Purpose:
  *  This ioctl interface to nameserver_remotenotify_destroy function
  */
-static int nameserver_remotenotify_ioctl_destroy()
+static int nameserver_remotenotify_ioctl_destroy(
+			struct nameserver_remotenotify_cmd_args *cargs)
 {
-	s32 retval = 0;
-	retval = nameserver_remotenotify_destroy();
-	return retval;
+	cargs->api_status = nameserver_remotenotify_destroy();
+	return 0;
 }
 
 /*
@@ -286,43 +292,35 @@ int nameserver_remotenotify_ioctl(struct inode *inode, struct file *filp,
 
 	switch (cmd) {
 	case CMD_NAMESERVERREMOTENOTIFY_GET:
-		printk(KERN_ERR "CMD_NAMESERVERREMOTENOTIFY_GET\n");
 		os_status = nameserver_remotenotify_ioctl_get(&cargs);
 		break;
 
 	case CMD_NAMESERVERREMOTENOTIFY_SHAREDMEMREQ:
-		printk(KERN_ERR "CMD_NAMESERVERREMOTENOTIFY_SHAREDMEMREQ\n");
 		os_status = nameserver_remotenotify_ioctl_shared_memreq(&cargs);
 		break;
 
 	case CMD_NAMESERVERREMOTENOTIFY_PARAMS_INIT:
-		printk(KERN_ERR "CMD_NAMESERVERREMOTENOTIFY_PARAMS_INIT\n");
 		os_status = nameserver_remotenotify_ioctl_params_init(&cargs);
 		break;
 
 	case CMD_NAMESERVERREMOTENOTIFY_CREATE:
-		printk(KERN_ERR "CMD_NAMESERVERREMOTENOTIFY_CREATE\n");
 		os_status = nameserver_remotenotify_ioctl_create(&cargs);
 		break;
 
 	case CMD_NAMESERVERREMOTENOTIFY_DELETE:
-		printk(KERN_ERR "CMD_NAMESERVERREMOTENOTIFY_DELETE\n");
 		os_status = nameserver_remotenotify_ioctl_delete(&cargs);
 		break;
 
 	case CMD_NAMESERVERREMOTENOTIFY_GETCONFIG:
-		printk(KERN_ERR "CMD_NAMESERVERREMOTENOTIFY_GETCONFIG\n");
 		os_status = nameserver_remotenotify_ioctl_get_config(&cargs);
 		break;
 
 	case CMD_NAMESERVERREMOTENOTIFY_SETUP:
-		printk(KERN_ERR "CMD_NAMESERVERREMOTENOTIFY_SETUP\n");
 		os_status = nameserver_remotenotify_ioctl_setup(&cargs);
 		break;
 
 	case CMD_NAMESERVERREMOTENOTIFY_DESTROY:
-		printk(KERN_ERR "CMD_NAMESERVERREMOTENOTIFY_DESTROY\n");
-		os_status = nameserver_remotenotify_ioctl_destroy();
+		os_status = nameserver_remotenotify_ioctl_destroy(&cargs);
 		break;
 
 	default:

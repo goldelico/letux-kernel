@@ -32,11 +32,11 @@
  *  This wrapper function will call the nameserver function to
  *  setup nameserver module
  */
-static int nameserver_ioctl_setup(void)
+static int nameserver_ioctl_setup(
+			struct nameserver_cmd_args *cargs)
 {
-	s32 retval = 0;
-	retval = nameserver_setup();
-	return retval;
+	cargs->api_status = nameserver_setup();
+	return 0;
 }
 
 /*
@@ -45,11 +45,11 @@ static int nameserver_ioctl_setup(void)
  *  This wrapper function will call the nameserver function to
  *  destroy nameserver module
  */
-static int nameserver_ioctl_destroy(void)
+static int nameserver_ioctl_destroy(
+			struct nameserver_cmd_args *cargs)
 {
-	s32 retval = 0;
-	retval = nameserver_destroy();
-	return retval;
+	cargs->api_status = nameserver_destroy();
+	return 0;
 }
 
 /*
@@ -61,16 +61,16 @@ static int nameserver_ioctl_destroy(void)
 static int nameserver_ioctl_params_init(struct nameserver_cmd_args *cargs)
 {
 	struct nameserver_params params;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
-	retval = nameserver_params_init(&params);
+	cargs->api_status = nameserver_params_init(&params);
 	size = copy_to_user(cargs->args.params_init.params, &params,
 				sizeof(struct nameserver_params));
 	if (size)
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 
-	return retval;
+	return osstatus;
 }
 
 /*
@@ -83,12 +83,12 @@ static int nameserver_ioctl_get_handle(struct nameserver_cmd_args *cargs)
 {
 	void *handle = NULL;
 	char *name = NULL;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
 	name = kmalloc(cargs->args.get_handle.name_len + 1, GFP_KERNEL);
 	if (name == NULL) {
-		retval = -ENOMEM;
+		osstatus = -ENOMEM;
 		goto exit;
 	}
 
@@ -96,20 +96,19 @@ static int nameserver_ioctl_get_handle(struct nameserver_cmd_args *cargs)
 	size = copy_from_user(name, cargs->args.get_handle.name,
 				cargs->args.get_handle.name_len);
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto name_from_usr_error;
 	}
 
 	handle = nameserver_get_handle(name);
 	cargs->args.get_handle.handle = handle;
-	kfree(name);
-	return 0;
+	cargs->api_status = 0;
 
 name_from_usr_error:
 	kfree(name);
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 /*
@@ -123,12 +122,12 @@ static int nameserver_ioctl_create(struct nameserver_cmd_args *cargs)
 	struct nameserver_params params;
 	void *handle = NULL;
 	char *name = NULL;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
 	name = kmalloc(cargs->args.create.name_len + 1, GFP_KERNEL);
 	if (name == NULL) {
-		retval = -ENOMEM;
+		osstatus = -ENOMEM;
 		goto exit;
 	}
 
@@ -136,27 +135,26 @@ static int nameserver_ioctl_create(struct nameserver_cmd_args *cargs)
 	size = copy_from_user(name, cargs->args.create.name,
 				cargs->args.create.name_len);
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto copy_from_usr_error;
 	}
 
 	size = copy_from_user(&params, cargs->args.create.params,
 				sizeof(struct nameserver_params));
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto copy_from_usr_error;
 	}
 
 	handle = nameserver_create(name, &params);
 	cargs->args.create.handle = handle;
-	kfree(name);
-	return 0;
+	cargs->api_status = 0;
 
 copy_from_usr_error:
 	kfree(name);
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 
@@ -168,9 +166,9 @@ exit:
  */
 static int nameserver_ioctl_delete(struct nameserver_cmd_args *cargs)
 {
-	s32 retval = 0;
-	retval = nameserver_delete(&cargs->args.delete_instance.handle);
-	return retval;
+	cargs->api_status =
+		nameserver_delete(&cargs->args.delete_instance.handle);
+	return 0;
 }
 
 /*
@@ -184,12 +182,12 @@ static int nameserver_ioctl_add(struct nameserver_cmd_args *cargs)
 	char *name = NULL;
 	char *buf = NULL;
 	void *entry;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
 	name = kmalloc(cargs->args.add.name_len + 1, GFP_KERNEL);
 	if (name == NULL) {
-		retval = -ENOMEM;
+		osstatus = -ENOMEM;
 		goto exit;
 	}
 
@@ -197,20 +195,20 @@ static int nameserver_ioctl_add(struct nameserver_cmd_args *cargs)
 	size = copy_from_user(name, cargs->args.add.name,
 				cargs->args.add.name_len);
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto name_from_usr_error;
 	}
 
 	buf = kmalloc(cargs->args.add.len, GFP_KERNEL);
 	if (buf == NULL) {
-		retval = -ENOMEM;
+		osstatus = -ENOMEM;
 		goto buf_alloc_error;
 	}
 
 	size = copy_from_user(buf, cargs->args.add.buf,
 					cargs->args.add.len);
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto buf_from_usr_error;
 	}
 
@@ -218,9 +216,7 @@ static int nameserver_ioctl_add(struct nameserver_cmd_args *cargs)
 						cargs->args.add.len);
 	cargs->args.add.entry = entry;
 	cargs->args.add.node = entry;
-	kfree(name);
-	kfree(buf);
-	return 0;
+	cargs->api_status = 0;
 
 buf_from_usr_error:
 	kfree(buf);
@@ -230,7 +226,7 @@ name_from_usr_error:
 	kfree(name);
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 
@@ -244,12 +240,12 @@ static int nameserver_ioctl_add_uint32(struct nameserver_cmd_args *cargs)
 {
 	char *name = NULL;
 	void *entry;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
 	name = kmalloc(cargs->args.addu32.name_len + 1, GFP_KERNEL);
 	if (name == NULL) {
-		retval = -ENOMEM;
+		osstatus = -ENOMEM;
 		goto exit;
 	}
 
@@ -257,21 +253,20 @@ static int nameserver_ioctl_add_uint32(struct nameserver_cmd_args *cargs)
 	size = copy_from_user(name, cargs->args.addu32.name,
 				cargs->args.addu32.name_len);
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto name_from_usr_error;
 	}
 
 	entry = nameserver_add_uint32(cargs->args.addu32.handle, name,
 						cargs->args.addu32.value);
 	cargs->args.addu32.entry = entry;
-	kfree(name);
-	return 0;
+	cargs->api_status = 0;
 
 name_from_usr_error:
 	kfree(name);
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 
@@ -286,12 +281,12 @@ static int nameserver_ioctl_match(struct nameserver_cmd_args *cargs)
 {
 	char *name = NULL;
 	u32 buf;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
 	name = kmalloc(cargs->args.match.name_len + 1, GFP_KERNEL);
 	if (name == NULL) {
-		retval = -ENOMEM;
+		osstatus = -ENOMEM;
 		goto exit;
 	}
 
@@ -299,26 +294,24 @@ static int nameserver_ioctl_match(struct nameserver_cmd_args *cargs)
 	size = copy_from_user(name, cargs->args.match.name,
 				cargs->args.match.name_len);
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto name_from_usr_error;
 	}
 
-	retval = nameserver_match(cargs->args.match.handle, name, &buf);
+	cargs->api_status =
+		nameserver_match(cargs->args.match.handle, name, &buf);
 	size = copy_to_user(cargs->args.match.value, &buf, sizeof(u32 *));
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto buf_to_usr_error;
 	}
-
-	kfree(name);
-	return 0;
 
 buf_to_usr_error: /* Fall through */
 name_from_usr_error:
 	kfree(name);
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 /*
@@ -330,12 +323,12 @@ exit:
 static int nameserver_ioctl_remove(struct nameserver_cmd_args *cargs)
 {
 	char *name = NULL;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
 	name = kmalloc(cargs->args.remove.name_len + 1, GFP_KERNEL);
 	if (name == NULL) {
-		retval = -ENOMEM;
+		osstatus = -ENOMEM;
 		goto exit;
 	}
 
@@ -343,19 +336,18 @@ static int nameserver_ioctl_remove(struct nameserver_cmd_args *cargs)
 	size = copy_from_user(name, cargs->args.remove.name,
 				cargs->args.remove.name_len);
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto name_from_usr_error;
 	}
 
-	retval = nameserver_remove(cargs->args.remove.handle, name);
-	kfree(name);
-	return 0;
+	cargs->api_status =
+		nameserver_remove(cargs->args.remove.handle, name);
 
 name_from_usr_error:
 	kfree(name);
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 
@@ -367,11 +359,10 @@ exit:
  */
 static int nameserver_ioctl_remove_entry(struct nameserver_cmd_args *cargs)
 {
-	s32 retval = 0;
-
-	retval = nameserver_remove_entry(cargs->args.remove_entry.handle,
-					cargs->args.remove_entry.entry);
-	return retval;
+	cargs->api_status = nameserver_remove_entry(
+						cargs->args.remove_entry.handle,
+						cargs->args.remove_entry.entry);
+	return 0;
 }
 
 /*
@@ -384,43 +375,37 @@ static int nameserver_ioctl_get_local(struct nameserver_cmd_args *cargs)
 {
 	char *name = NULL;
 	char *buf = NULL;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
 	name = kmalloc(cargs->args.get_local.name_len + 1, GFP_KERNEL);
 	if (name == NULL) {
-		retval = -ENOMEM;
+		osstatus = -ENOMEM;
 		goto exit;
 	}
 
 	name[cargs->args.get_handle.name_len] = '\0';
 	buf = kmalloc(cargs->args.get_local.len, GFP_KERNEL);
 	if (buf == NULL) {
-		retval = -ENOMEM;
+		osstatus = -ENOMEM;
 		goto buf_alloc_error;
 	}
 
 	size = copy_from_user(name, cargs->args.get_local.name,
 				cargs->args.get_local.name_len);
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto name_from_usr_error;
 	}
 
-	retval = nameserver_get_local(cargs->args.get_local.handle, name,
+	cargs->api_status = nameserver_get_local(
+					cargs->args.get_local.handle, name,
 					buf, cargs->args.get_local.len);
 	size = copy_to_user(cargs->args.get_local.buf, buf,
 				cargs->args.get_local.len);
-	if (size) {
-		retval = -EFAULT;
-		goto buf_to_usr_error;
-	}
+	if (size)
+		osstatus = -EFAULT;
 
-	kfree(name);
-	kfree(buf);
-	return 0;
-
-buf_to_usr_error: /* Fall through */
 name_from_usr_error:
 	kfree(buf);
 
@@ -428,7 +413,7 @@ buf_alloc_error:
 	kfree(name);
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 
@@ -443,57 +428,50 @@ static int nameserver_ioctl_get(struct nameserver_cmd_args *cargs)
 	char *name = NULL;
 	char *buf = NULL;
 	u16 *proc_id = NULL;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
 	name = kmalloc(cargs->args.get.name_len + 1, GFP_KERNEL);
 	if (name == NULL) {
-		retval = -ENOMEM;
+		osstatus = -ENOMEM;
 		goto exit;
 	}
 
 	name[cargs->args.get_handle.name_len] = '\0';
 	buf = kmalloc(cargs->args.get.len, GFP_KERNEL);
 	if (buf == NULL) {
-		retval = -ENOMEM;
+		osstatus = -ENOMEM;
 		goto buf_alloc_error;
 	}
 
 	proc_id = kmalloc(cargs->args.get.proc_len, GFP_KERNEL);
 	if (proc_id == NULL) {
-		retval = -ENOMEM;
+		osstatus = -ENOMEM;
 		goto proc_alloc_error;
 	}
 
 	size = copy_from_user(name, cargs->args.get.name,
 				cargs->args.get.name_len);
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto name_from_usr_error;
 	}
 
-	retval = copy_from_user(proc_id, cargs->args.get.proc_id,
+	osstatus = copy_from_user(proc_id, cargs->args.get.proc_id,
 					cargs->args.get.proc_len);
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto proc_from_usr_error;
 	}
 
-	retval = nameserver_get(cargs->args.get.handle, name, buf,
+	cargs->api_status = nameserver_get(cargs->args.get.handle, name, buf,
 					cargs->args.get.len, proc_id);
 	size = copy_to_user(cargs->args.get.buf, buf,
 				cargs->args.get.len);
-	if (size) {
-		retval = -EFAULT;
-		goto buf_to_usr_error;
-	}
+	if (size)
+		osstatus = -EFAULT;
 
-	kfree(name);
-	kfree(buf);
-	kfree(proc_id);
-	return 0;
 
-buf_to_usr_error: /* Fall through */
 proc_from_usr_error: /* Fall through */
 name_from_usr_error:
 	kfree(proc_id);
@@ -505,7 +483,7 @@ buf_alloc_error:
 	kfree(name);
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 /*
@@ -587,11 +565,11 @@ int nameserver_ioctl(struct inode *inode, struct file *filp,
 		break;
 
 	case CMD_NAMESERVER_SETUP:
-		os_status = nameserver_ioctl_setup();
+		os_status = nameserver_ioctl_setup(&cargs);
 		break;
 
 	case CMD_NAMESERVER_DESTROY:
-		os_status = nameserver_ioctl_destroy();
+		os_status = nameserver_ioctl_destroy(&cargs);
 		break;
 
 	default:

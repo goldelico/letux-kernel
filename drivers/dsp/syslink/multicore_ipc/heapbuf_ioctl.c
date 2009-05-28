@@ -37,18 +37,13 @@ static int heapbuf_ioctl_alloc(struct heapbuf_cmd_args *cargs)
 	u32 *block_srptr = SHAREDREGION_INVALIDSRPTR;
 	void *block;
 	s32 index;
-	s32 retval = 0;
+	s32 osstatus = 0;
 
 	block = heapbuf_alloc(cargs->args.alloc.handle,
 				cargs->args.alloc.size,
 				cargs->args.alloc.align);
 	if (block != NULL) {
 		index = sharedregion_get_index(block);
-		if (index < 0) {
-			retval = index;
-			goto exit;
-		}
-
 		block_srptr = sharedregion_get_srptr(block, index);
 	}
 	/* The error on above fn will be a null ptr. We are not
@@ -57,9 +52,8 @@ static int heapbuf_ioctl_alloc(struct heapbuf_cmd_args *cargs)
 	but the actual fn might be failed inside heapbuf
 	*/
 	cargs->args.alloc.block_srptr = block_srptr;
-
-exit:
-	return retval;
+	cargs->api_status = 0;
+	return osstatus;
 }
 
 /*
@@ -70,12 +64,11 @@ exit:
 static int heapbuf_ioctl_free(struct heapbuf_cmd_args *cargs)
 {
 	char *block;
-	s32 retval = 0;
 
 	block = sharedregion_get_ptr(cargs->args.free.block_srptr);
-	retval = heapbuf_free(cargs->args.free.handle, block,
+	cargs->api_status  = heapbuf_free(cargs->args.free.handle, block,
 					cargs->args.free.size);
-	return retval;
+	return 0;
 }
 
 /*
@@ -86,16 +79,16 @@ static int heapbuf_ioctl_free(struct heapbuf_cmd_args *cargs)
 static int heapbuf_ioctl_params_init(struct heapbuf_cmd_args *cargs)
 {
 	struct heapbuf_params params;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	u32 size;
 
 	heapbuf_params_init(cargs->args.params_init.handle, &params);
 	size = copy_to_user(cargs->args.params_init.params, &params,
 				sizeof(struct heapbuf_params));
 	if (size)
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 
-	return retval;
+	return osstatus;
 }
 
 /*
@@ -106,14 +99,14 @@ static int heapbuf_ioctl_params_init(struct heapbuf_cmd_args *cargs)
 static int heapbuf_ioctl_create(struct heapbuf_cmd_args *cargs)
 {
 	struct heapbuf_params params;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	u32 size;
 	void *handle = NULL;
 
 	size = copy_from_user(&params, cargs->args.create.params,
 				sizeof(struct heapbuf_params));
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto exit;
 	}
 
@@ -121,7 +114,7 @@ static int heapbuf_ioctl_create(struct heapbuf_cmd_args *cargs)
 		params.name = kmalloc(cargs->args.create.name_len + 1,
 							GFP_KERNEL);
 		if (params.name == NULL) {
-			retval = -ENOMEM;
+			osstatus = -ENOMEM;
 			goto exit;
 		}
 
@@ -130,7 +123,7 @@ static int heapbuf_ioctl_create(struct heapbuf_cmd_args *cargs)
 					cargs->args.create.params->name,
 					cargs->args.create.name_len);
 		if (size) {
-			retval = -EFAULT;
+			osstatus = -EFAULT;
 			goto name_from_usr_error;
 		}
 	}
@@ -139,13 +132,14 @@ static int heapbuf_ioctl_create(struct heapbuf_cmd_args *cargs)
 				cargs->args.create.params->shared_addr);
 	handle = heapbuf_create(&params);
 	cargs->args.create.handle = handle;
+	cargs->api_status  = 0;
 
 name_from_usr_error:
 	if (cargs->args.open.name_len > 0)
 		kfree(params.name);
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 
@@ -156,10 +150,8 @@ exit:
  */
 static int heapbuf_ioctl_delete(struct heapbuf_cmd_args *cargs)
 {
-	s32 retval = 0;
-
-	retval = heapbuf_delete(cargs->args.delete.handle);
-	return retval;
+	cargs->api_status = heapbuf_delete(cargs->args.delete.handle);
+	return 0;
 }
 
 /*
@@ -171,13 +163,13 @@ static int heapbuf_ioctl_open(struct heapbuf_cmd_args *cargs)
 {
 	struct heapbuf_params params;
 	void *handle = NULL;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
 	size = copy_from_user(&params, cargs->args.open.params,
 						sizeof(struct heapbuf_params));
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto exit;
 	}
 
@@ -185,7 +177,7 @@ static int heapbuf_ioctl_open(struct heapbuf_cmd_args *cargs)
 		params.name = kmalloc(cargs->args.open.name_len + 1,
 							GFP_KERNEL);
 		if (params.name == NULL) {
-			retval = -ENOMEM;
+			osstatus = -ENOMEM;
 			goto exit;
 		}
 
@@ -194,22 +186,22 @@ static int heapbuf_ioctl_open(struct heapbuf_cmd_args *cargs)
 					cargs->args.open.params->name,
 					cargs->args.open.name_len);
 		if (size) {
-			retval = -EFAULT;
+			osstatus = -EFAULT;
 			goto free_name;
 		}
 	}
 
 	params.shared_addr = sharedregion_get_ptr((u32 *)
 					cargs->args.open.params->shared_addr);
-	retval = heapbuf_open(&handle, &params);
-	if (retval)
+	cargs->api_status = heapbuf_open(&handle, &params);
+	if (cargs->api_status != 0)
 		goto free_name;
 
 	cargs->args.open.handle = handle;
 	size = copy_to_user(cargs->args.open.params, &params,
 				sizeof(struct heapbuf_params));
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto copy_to_usr_error;
 	}
 
@@ -226,7 +218,7 @@ free_name:
 		kfree(params.name);
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 
@@ -237,10 +229,8 @@ exit:
  */
 static int heapbuf_ioctl_close(struct heapbuf_cmd_args *cargs)
 {
-	s32 retval = 0;
-
-	retval = heapbuf_close(cargs->args.close.handle);
-	return retval;
+	cargs->api_status = heapbuf_close(cargs->args.close.handle);
+	return 0;
 }
 
 /*
@@ -251,22 +241,23 @@ static int heapbuf_ioctl_close(struct heapbuf_cmd_args *cargs)
 static int heapbuf_ioctl_shared_memreq(struct heapbuf_cmd_args *cargs)
 {
 	struct heapbuf_params params;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 	u32 bytes;
 
 	size = copy_from_user(&params, cargs->args.shared_memreq.params,
 						sizeof(struct heapbuf_params));
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto exit;
 	}
 
 	bytes = heapbuf_shared_memreq(&params);
 	cargs->args.shared_memreq.bytes = bytes;
+	cargs->api_status = 0;
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 
@@ -278,16 +269,16 @@ exit:
 static int heapbuf_ioctl_get_config(struct heapbuf_cmd_args *cargs)
 {
 	struct heap_config config;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
-	retval = heapbuf_get_config(&config);
+	cargs->api_status = heapbuf_get_config(&config);
 	size = copy_to_user(cargs->args.get_config.config, &config,
 						sizeof(struct heap_config));
 	if (size)
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 
-	return retval;
+	return osstatus;
 }
 
 /*
@@ -298,31 +289,30 @@ static int heapbuf_ioctl_get_config(struct heapbuf_cmd_args *cargs)
 static int heapbuf_ioctl_setup(struct heapbuf_cmd_args *cargs)
 {
 	struct heap_config config;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
 	size = copy_from_user(&config, cargs->args.setup.config,
 						sizeof(struct heap_config));
 	if (size) {
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 		goto exit;
 	}
 
-	retval = heapbuf_setup(&config);
+	cargs->api_status = heapbuf_setup(&config);
 
 exit:
-	return retval;
+	return osstatus;
 }
 /*
  * ======== heapbuf_ioctl_destroy ========
  *  Purpose:
  *  This ioctl interface to heapbuf_destroy function
  */
-static int heapbuf_ioctl_destroy()
+static int heapbuf_ioctl_destroy(struct heapbuf_cmd_args *cargs)
 {
-	s32 retval = 0;
-	retval = heapbuf_destroy();
-	return retval;
+	cargs->api_status = heapbuf_destroy();
+	return 0;
 }
 
 
@@ -334,21 +324,21 @@ static int heapbuf_ioctl_destroy()
 static int heapbuf_ioctl_get_stats(struct heapbuf_cmd_args *cargs)
 {
 	struct memory_stats stats;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
-
-	retval = heapbuf_get_stats(cargs->args.get_stats.handle, &stats);
-	if (retval)
+	cargs->api_status = heapbuf_get_stats(cargs->args.get_stats.handle,
+						&stats);
+	if (osstatus)
 		goto exit;
 
 	size = copy_to_user(cargs->args.get_stats.stats, &stats,
 					sizeof(struct memory_stats));
 	if (size)
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 /*
@@ -359,21 +349,21 @@ exit:
 static int heapbuf_ioctl_get_extended_stats(struct heapbuf_cmd_args *cargs)
 {
 	struct heap_extended_stats stats;
-	s32 retval = 0;
+	s32 osstatus = 0;
 	ulong size;
 
-	retval = heapbuf_get_extended_stats(
+	cargs->api_status = heapbuf_get_extended_stats(
 			cargs->args.get_extended_stats.handle, &stats);
-	if (retval)
+	if (cargs->api_status != 0)
 		goto exit;
 
 	size = copy_to_user(cargs->args.get_extended_stats.stats, &stats,
 				sizeof(struct heap_extended_stats));
 	if (size)
-		retval = -EFAULT;
+		osstatus = -EFAULT;
 
 exit:
-	return retval;
+	return osstatus;
 }
 
 /*
@@ -410,55 +400,55 @@ int heapbuf_ioctl(struct inode *pinode, struct file *filp,
 
 	switch (cmd) {
 	case CMD_HEAPBUF_ALLOC:
-		os_status = heapbuf_ioctl_alloc(uarg);
+		os_status = heapbuf_ioctl_alloc(&cargs);
 		break;
 
 	case CMD_HEAPBUF_FREE:
-		os_status = heapbuf_ioctl_free(uarg);
+		os_status = heapbuf_ioctl_free(&cargs);
 		break;
 
 	case CMD_HEAPBUF_PARAMS_INIT:
-		os_status = heapbuf_ioctl_params_init(uarg);
+		os_status = heapbuf_ioctl_params_init(&cargs);
 		break;
 
 	case CMD_HEAPBUF_CREATE:
-		os_status = heapbuf_ioctl_create(uarg);
+		os_status = heapbuf_ioctl_create(&cargs);
 		break;
 
 	case CMD_HEAPBUF_DELETE:
-		os_status  = heapbuf_ioctl_delete(uarg);
+		os_status  = heapbuf_ioctl_delete(&cargs);
 		break;
 
 	case CMD_HEAPBUF_OPEN:
-		os_status  = heapbuf_ioctl_open(uarg);
+		os_status  = heapbuf_ioctl_open(&cargs);
 		break;
 
 	case CMD_HEAPBUF_CLOSE:
-		os_status = heapbuf_ioctl_close(uarg);
+		os_status = heapbuf_ioctl_close(&cargs);
 		break;
 
 	case CMD_HEAPBUF_SHAREDMEMREQ:
-		os_status = heapbuf_ioctl_shared_memreq(uarg);
+		os_status = heapbuf_ioctl_shared_memreq(&cargs);
 		break;
 
 	case CMD_HEAPBUF_GETCONFIG:
-		os_status = heapbuf_ioctl_get_config(uarg);
+		os_status = heapbuf_ioctl_get_config(&cargs);
 		break;
 
 	case CMD_HEAPBUF_SETUP:
-		os_status = heapbuf_ioctl_setup(uarg);
+		os_status = heapbuf_ioctl_setup(&cargs);
 		break;
 
 	case CMD_HEAPBUF_DESTROY:
-		os_status = heapbuf_ioctl_destroy();
+		os_status = heapbuf_ioctl_destroy(&cargs);
 		break;
 
 	case CMD_HEAPBUF_GETSTATS:
-		os_status = heapbuf_ioctl_get_stats(uarg);
+		os_status = heapbuf_ioctl_get_stats(&cargs);
 		break;
 
 	case CMD_HEAPBUF_GETEXTENDEDSTATS:
-		os_status = heapbuf_ioctl_get_extended_stats(uarg);
+		os_status = heapbuf_ioctl_get_extended_stats(&cargs);
 		break;
 
 	default:
