@@ -31,7 +31,7 @@
 #include <ipc_ioctl.h>
 #include <nameserver.h>
 
-#define IPC_NAME  		"omap_ipc"
+#define IPC_NAME  		"syslink_ipc"
 #define IPC_MAJOR		0
 #define IPC_MINOR		0
 #define IPC_DEVICES 		1
@@ -48,7 +48,7 @@ s32 ipc_minor = IPC_MINOR;
 char *ipc_name = IPC_NAME;
 
 module_param(ipc_name, charp, 0);
-MODULE_PARM_DESC(ipc_name, "Device name, default = omap_ipc");
+MODULE_PARM_DESC(ipc_name, "Device name, default = syslink_ipc");
 
 module_param(ipc_major, int, 0);	/* Driver's major number */
 MODULE_PARM_DESC(ipc_major, "Major device number, default = 0 (auto)");
@@ -189,7 +189,7 @@ static int __init ipc_init(void)
 
 	}
 	/* TO DO : NEED TO LOOK IN TO THIS */
-	ipc_class = class_create(THIS_MODULE, "tiomap_ipc");
+	ipc_class = class_create(THIS_MODULE, "syslink_ipc");
 	if (IS_ERR(ipc_class)) {
 		gt_0trace(ipcdrv_trace, GT_7CLASS,
 					"error creating ipc class \n");

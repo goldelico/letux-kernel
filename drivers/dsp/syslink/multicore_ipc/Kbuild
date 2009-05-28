@@ -1,4 +1,4 @@
-libomap_ipc = multiproc.o multiproc_ioctl.o nameserver.o \
+libsyslink_ipc = multiproc.o multiproc_ioctl.o nameserver.o \
 nameserver_ioctl.o heap.o heapbuf.o heapbuf_ioctl.o \
 gatepeterson.o gatepeterson_ioctl.o sharedregion.o sharedregion_ioctl.o \
 nameserver_remote.o nameserver_remotenotify.o listmp_sharedmemory.o \
@@ -6,8 +6,8 @@ listmp.o listmp_sharedmemory_ioctl.o messageq.o messageq_ioctl.o \
 messageq_transportshm.o messageq_transportshm_ioctl.o \
 nameserver_remotenotify_ioctl.o ipc_ioctl.o ipc_drv.o
 
-obj-$(CONFIG_MPU_SYSLINK_IPC)        += omap_ipc.o
-omap_ipc-objs = $(libservices) $(libomap_ipc)
+obj-$(CONFIG_MPU_SYSLINK_IPC)        += syslink_ipc.o
+syslink_ipc-objs = $(libservices) $(libsyslink_ipc)
 
 ccflags-y += -Wno-strict-prototypes
 
