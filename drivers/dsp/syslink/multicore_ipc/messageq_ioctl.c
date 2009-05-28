@@ -475,7 +475,7 @@ int messageq_ioctl(struct inode *inode, struct file *filp,
 		os_status = -ENOTTY;
 		break;
 	}
-	if (!os_status)
+	if (os_status < 0)
 		goto exit;
 
 	/* Copy the full args to the user-side. */
