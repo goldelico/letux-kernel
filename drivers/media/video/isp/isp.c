@@ -1315,7 +1315,7 @@ static int isp_try_pipeline(struct device *dev,
 
 		pipe->rsz_crop.left = pipe->rsz_crop.top = 0;
 		pipe->rsz_crop.width = pipe->prv_out_w_img;
-		pipe->rsz_crop.height = pipe->prv_out_h;
+		pipe->rsz_crop.height = pipe->prv_out_h_img;
 
 		rval = ispresizer_try_pipeline(&isp->isp_res, pipe);
 		if (rval) {

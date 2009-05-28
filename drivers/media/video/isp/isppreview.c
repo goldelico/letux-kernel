@@ -1486,8 +1486,6 @@ EXPORT_SYMBOL_GPL(isppreview_config_yc_range);
 int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
 			    struct isp_pipeline *pipe)
 {
-	u32 prevout_w = pipe->ccdc_out_w_img;
-	u32 prevout_h = pipe->ccdc_out_h;
 	u32 div = 0;
 	int max_out;
 
@@ -1501,60 +1499,60 @@ int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
 	else
 		max_out = ISPPRV_MAXOUTPUT_WIDTH_ES2;
 
+	pipe->prv_out_w = pipe->ccdc_out_w;
+	pipe->prv_out_h = pipe->ccdc_out_h;
+	pipe->prv_out_w_img = pipe->ccdc_out_w_img;
+	pipe->prv_out_h_img = pipe->ccdc_out_h;
+
 	isp_prev->fmtavg = 0;
 
 	if (pipe->ccdc_out_w_img > max_out) {
 		div = (pipe->ccdc_out_w_img/max_out);
 		if (div >= 2 && div < 4) {
 			isp_prev->fmtavg = 1;
-			prevout_w /= 2;
+			pipe->prv_out_w_img /= 2;
 		} else if (div >= 4 && div < 8) {
 			isp_prev->fmtavg = 2;
-			prevout_w /= 4;
+			pipe->prv_out_w_img /= 4;
 		} else if (div >= 8) {
 			isp_prev->fmtavg = 3;
-			prevout_w /= 8;
+			pipe->prv_out_w_img /= 8;
 		}
 	}
 
-	if (isp_prev->hmed_en)
-		prevout_w -= 4;
-	if (isp_prev->nf_en) {
-		prevout_w -= 4;
-		prevout_h -= 4;
-	}
-	if (isp_prev->cfa_en) {
-		switch (isp_prev->cfafmt) {
-		case CFAFMT_BAYER:
-		case CFAFMT_SONYVGA:
-			prevout_w -= 4;
-			prevout_h -= 4;
-			break;
-		case CFAFMT_RGBFOVEON:
-		case CFAFMT_RRGGBBFOVEON:
-		case CFAFMT_DNSPL:
-		case CFAFMT_HONEYCOMB:
-			prevout_h -= 2;
-			break;
-		};
-	}
-	if (isp_prev->yenh_en || isp_prev->csup_en)
-		prevout_w -= 2;
+/* 	if (isp_prev->hmed_en) */
+	pipe->prv_out_w_img -= 4;
+/* 	if (isp_prev->nf_en) */
+	pipe->prv_out_w_img -= 4;
+	pipe->prv_out_h_img -= 4;
+/* 	if (isp_prev->cfa_en) */
+	switch (isp_prev->cfafmt) {
+	case CFAFMT_BAYER:
+	case CFAFMT_SONYVGA:
+		pipe->prv_out_w_img -= 4;
+		pipe->prv_out_h_img -= 4;
+		break;
+	case CFAFMT_RGBFOVEON:
+	case CFAFMT_RRGGBBFOVEON:
+	case CFAFMT_DNSPL:
+	case CFAFMT_HONEYCOMB:
+		pipe->prv_out_h_img -= 2;
+		break;
+	};
+/* 	if (isp_prev->yenh_en || isp_prev->csup_en) */
+	pipe->prv_out_w_img -= 2;
 
 	/* Start at the correct row/column by skipping
 	 * a Sensor specific amount.
 	 */
-	prevout_w -= isp_prev->sph;
-	prevout_h -= isp_prev->slv;
+	pipe->prv_out_w_img -= isp_prev->sph;
+	pipe->prv_out_h_img -= isp_prev->slv;
 
+	if (pipe->prv_out_w_img % 2)
+		pipe->prv_out_w_img -= 1;
 
-	if (prevout_w % 2)
-		prevout_w -= 1;
-
-	pipe->prv_out_w_img = prevout_w;
 	/* FIXME: This doesn't apply for prv -> rsz. */
-	pipe->prv_out_w = ALIGN(prevout_w, 0x20);
-	pipe->prv_out_h = prevout_h;
+	pipe->prv_out_w = ALIGN(pipe->prv_out_w, 0x20);
 
 	return 0;
 }
