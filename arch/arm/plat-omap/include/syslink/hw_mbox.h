@@ -119,9 +119,9 @@ struct mailbox_context {
 *
 */
 extern long hw_mbox_msg_read(
-		const unsigned long         base_address,
-		const enum hw_mbox_id_t   mail_box_id,
-		unsigned long *const        p_read_value
+		const unsigned long base_address,
+		const enum hw_mbox_id_t mail_box_id,
+		unsigned long *const p_read_value
 	);
 
 /*
@@ -191,9 +191,9 @@ extern long hw_mbox_msg_write(
 *
 */
 extern long hw_mbox_is_full(
-		const unsigned long         base_address,
-		const enum hw_mbox_id_t   mail_box_id,
-		unsigned long *const        p_is_full
+		const unsigned long base_address,
+		const enum hw_mbox_id_t mail_box_id,
+		unsigned long *const p_is_full
 	);
 
 /* -----------------------------------------------------------------
@@ -228,9 +228,9 @@ extern long hw_mbox_is_full(
 *
 */
 extern long hw_mbox_nomsg_get(
-		const unsigned long         base_address,
-		const enum hw_mbox_id_t   mail_box_id,
-		unsigned long *const        p_num_msg
+		const unsigned long base_address,
+		const enum hw_mbox_id_t mail_box_id,
+		unsigned long *const p_num_msg
 	);
 
 /*
@@ -266,10 +266,10 @@ extern long hw_mbox_nomsg_get(
 *
 */
 extern long hw_mbox_event_enable(
-		const unsigned long             base_address,
-		const enum hw_mbox_id_t       mail_box_id,
-		const enum hw_mbox_userid_t   user_id,
-		const unsigned long             events
+		const unsigned long base_address,
+		const enum hw_mbox_id_t mail_box_id,
+		const enum hw_mbox_userid_t user_id,
+		const unsigned long events
 	);
 
 /*
@@ -305,10 +305,10 @@ extern long hw_mbox_event_enable(
 *
 */
 extern long hw_mbox_event_disable(
-		const unsigned long             base_address,
-		const enum hw_mbox_id_t       mail_box_id,
-		const enum hw_mbox_userid_t   user_id,
-		const unsigned long             events
+		const unsigned long base_address,
+		const enum hw_mbox_id_t mail_box_id,
+		const enum hw_mbox_userid_t user_id,
+		const unsigned long events
 	);
 
 /*
@@ -346,10 +346,10 @@ extern long hw_mbox_event_disable(
 *
 */
 extern long hw_mbox_event_status(
-		const unsigned long             base_address,
-		const enum hw_mbox_id_t       mail_box_id,
-		const enum hw_mbox_userid_t   user_id,
-		unsigned long *const            p_eventStatus
+		const unsigned long base_address,
+		const enum hw_mbox_id_t mail_box_id,
+		const enum hw_mbox_userid_t user_id,
+		unsigned long *const p_eventStatus
 	);
 
 /*
@@ -387,10 +387,10 @@ extern long hw_mbox_event_status(
 *
 */
 extern long hw_mbox_event_ack(
-		const unsigned long              base_address,
-		const enum hw_mbox_id_t        mail_box_id,
-		const enum hw_mbox_userid_t    user_id,
-		const unsigned long              event
+		const unsigned long base_address,
+		const enum hw_mbox_id_t mail_box_id,
+		const enum hw_mbox_userid_t user_id,
+		const unsigned long event
 	);
 
 #if defined(OMAP3430)
@@ -416,7 +416,7 @@ extern long hw_mbox_event_ack(
 *
 * ----------------------------------------------------------------
 */
-extern long hw_mbox_save_settings(unsigned long  baseAddres);
+extern long hw_mbox_save_settings(unsigned long baseAddres);
 
 /*
 * FUNCTION      : hw_mbox_restore_settings
@@ -440,7 +440,7 @@ extern long hw_mbox_save_settings(unsigned long  baseAddres);
 *
 *
 */
-extern long hw_mbox_restore_settings(unsigned long  baseAddres);
+extern long hw_mbox_restore_settings(unsigned long baseAddres);
 #endif/* defined(OMAP3430)*/
 
 #endif  /* __MBOX_H */
