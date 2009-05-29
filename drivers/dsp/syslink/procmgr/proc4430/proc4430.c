@@ -20,6 +20,7 @@
 #include <linux/mutex.h>
 #include <linux/vmalloc.h>
 #include <linux/uaccess.h>
+#include <linux/io.h>
 
 /* Module level headers */
 #include "../procdefs.h"
@@ -363,7 +364,40 @@ EXPORT_SYMBOL(proc4430_close);
 int proc4430_attach(void *handle, struct processor_attach_params *params)
 {
 	int retval = 0;
-	/* TODO */
+	struct processor_object *proc_handle =
+					(struct processor_object *)handle;
+	struct proc4430_object *object = NULL;
+	u32 map_count = 0;
+	u32 i;
+	u32 dst_addr;
+
+	object = (struct proc4430_object *)proc_handle->object;
+	/* Return memory information in params. */
+	for (i = 0; (i < object->params.num_mem_entries); i++) {
+		/* If the configured master virtual address is invalid, get the
+		* actual address by mapping the physical address into master
+		* kernel memory space.
+		*/
+		if ((object->params.mem_entries[i].master_virt_addr == (u32)-1)
+		&& (object->params.mem_entries[i].shared == true)) {
+			map_count++;
+			dst_addr = (u32)ioremap_nocache((dma_addr_t)
+				(object->params.mem_entries[i].phys_addr),
+				object->params.mem_entries[i].size);
+			object->params.mem_entries[i].master_virt_addr =
+								dst_addr;
+			params->mem_entries[i].
+				addr[PROC_MGR_ADDRTYPE_MASTERKNLVIRT] =
+				dst_addr;
+			params->mem_entries[i].
+				addr[PROC_MGR_ADDRTYPE_SLAVEVIRT] =
+				(object->params.mem_entries[i].phys_addr);
+			/* User virtual will be filled by user side. */
+			params->mem_entries[i].size =
+				object->params.mem_entries[i].size;
+		}
+	}
+	params->num_mem_entries = map_count;
 	return retval;
 }
 
@@ -374,10 +408,22 @@ int proc4430_attach(void *handle, struct processor_attach_params *params)
  */
 int proc4430_detach(void *handle)
 {
-	int retval = 0;
+	struct processor_object *proc_handle =
+					(struct processor_object *)handle;
+	struct proc4430_object *object = NULL;
+	u32 i;
 
-	/* TODO */
-	return retval;
+	object = (struct proc4430_object *)proc_handle->object;
+	for (i = 0; (i < object->params.num_mem_entries); i++) {
+		if ((object->params.mem_entries[i].master_virt_addr == (u32)-1)
+			&& (object->params.mem_entries[i].shared == true)) {
+			iounmap((void *)object->params.mem_entries[i].
+							master_virt_addr);
+			object->params.mem_entries[i].master_virt_addr =
+								(u32)-1;
+		}
+	}
+	return 0;
 }
 
 
@@ -393,7 +439,6 @@ int proc4430_start(void *handle, u32 entry_pt,
 			struct processor_start_params *params)
 {
 	int retval = 0;
-	/*TODO */
 	return retval;
 }
 
