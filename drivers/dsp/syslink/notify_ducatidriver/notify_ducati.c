@@ -769,7 +769,7 @@ int notify_ducatidrv_unregister_event(
 
 	if (list_empty((struct list_head *)
 			&event_list[event_no].listeners) == true) {
-		clear_bit(event_no, (unsigned long *) 
+		clear_bit(event_no, (unsigned long *)
 			&ctrl_ptr->proc_ctrl[driver_object->self_id].reg_mask.
 			  mask);
 		self_event_chart = ctrl_ptr->proc_ctrl[driver_object->self_id].
@@ -971,7 +971,7 @@ int notify_ducatidrv_disable_event(
 					gate_handle) != 0)
 		WARN_ON(1);
 
-	clear_bit(event_no,(unsigned long *)
+	clear_bit(event_no, (unsigned long *)
 		&driver_object->ctrl_ptr->proc_ctrl[driver_object->self_id].
 			reg_mask.enable_mask);
 	/* Leave critical section protection. */
@@ -999,7 +999,7 @@ int notify_ducatidrv_enable_event(struct notify_driver_object *handle,
 					gate_handle) != 0)
 		WARN_ON(1);
 
-	set_bit(event_no, (unsigned long *) 
+	set_bit(event_no, (unsigned long *)
 		&driver_object->ctrl_ptr->proc_ctrl[driver_object->self_id].
 		reg_mask.enable_mask);
 
@@ -1052,7 +1052,7 @@ static void notify_ducatidrv_isr(void *ref_data)
 		/* Determine the current high priority event.*/
 		/* Check if the event is set and enabled.*/
 		if (self_event_chart[event_no].flag == UP &&
-			test_bit(event_no, 
+			test_bit(event_no,
 			(unsigned long *) &proc_ctrl_ptr->reg_mask.enable_mask)
 			&& (event_no != (int) -1)) {
 
