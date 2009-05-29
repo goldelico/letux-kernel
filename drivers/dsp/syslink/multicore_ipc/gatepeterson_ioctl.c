@@ -15,17 +15,12 @@
  *  WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR
  *  PURPOSE.
  */
-#include <linux/uaccess.h>
-#include <linux/types.h>
-#include <linux/bug.h>
-#include <linux/fs.h>
 
 #include <linux/uaccess.h>
 #include <linux/types.h>
 #include <linux/bug.h>
 #include <linux/fs.h>
 
-#include <gt.h>
 #include <gatepeterson.h>
 #include <gatepeterson_ioctl.h>
 #include <sharedregion.h>
