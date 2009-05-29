@@ -73,4 +73,8 @@ int processor_unmap(void *handle, u32 mapped_addr);
  */
 int processor_register_notify(void *handle, proc_mgr_callback_fxn fxn,
 		void *args, enum proc_mgr_state state[]);
+
+/* Function that returns the return value of specific processor info
+ */
+int processor_get_proc_info(void *handle, struct proc_mgr_proc_info *procinfo);
 #endif

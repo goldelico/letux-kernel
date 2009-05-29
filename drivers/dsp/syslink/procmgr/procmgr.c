@@ -728,20 +728,23 @@ int proc_mgr_get_proc_info(void *handle, struct proc_mgr_proc_info *proc_info)
 {
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
-		(struct proc_mgr_object *)handle;
+					(struct proc_mgr_object *)handle;
+	struct processor_object *proc_handle;
+	int i = 0;
 
-	BUG_ON(handle == NULL);
-	BUG_ON(proc_info == NULL);
+	if (WARN_ON(handle == NULL))
+		goto error_exit;
+	if (WARN_ON(proc_info == NULL))
+		goto error_exit;
+	proc_handle = proc_mgr_handle->proc_handle;
+	if (WARN_ON(proc_handle == NULL))
+		goto error_exit;
 
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
-	/* Return boot_mode information. */
-	proc_info->boot_mode = proc_mgr_handle->attach_params.boot_mode;
-	/* Return memory information. */
-	proc_info->num_mem_entries = proc_mgr_handle->num_mem_entries;
-	memcpy(&(proc_info->mem_entries),
-		&(proc_mgr_handle->mem_entries),
-		sizeof(proc_mgr_handle->mem_entries));
+	processor_get_proc_info(proc_handle, proc_info);
 	mutex_unlock(proc_mgr_obj_state.gate_handle);
-	return retval;;
+	return 0;
+error_exit:
+	return -EFAULT;
 }
 EXPORT_SYMBOL(proc_mgr_get_proc_info);

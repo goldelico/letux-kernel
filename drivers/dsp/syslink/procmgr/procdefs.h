@@ -126,6 +126,12 @@ typedef int (*processor_map_fxn) (void *handle, u32 proc_addr, u32 size,
  */
 typedef int (*processor_unmap_fxn) (void *handle, u32 mapped_addr);
 
+/*
+ *Function pointer type for the function that returns proc info
+ */
+typedef int (*processor_proc_info) (void *handle,
+				struct  proc_mgr_proc_info *proc_info);
+
 /* =============================
  *  Function table interface
  * =============================
@@ -154,6 +160,7 @@ struct processor_fxn_table {
 	/* Function to map slave addresses to master address space */
 	processor_unmap_fxn unmap;
 	/* Function to unmap slave addresses to master address space */
+	processor_proc_info procinfo;
 };
 
 /* =============================

@@ -367,3 +367,15 @@ inline int processor_register_notify(void *handle, proc_mgr_callback_fxn fxn,
 	/* TODO: TBD: To be implemented. */
 	return retval;
 }
+
+/*
+ * Function that returns the proc instance mem info
+ */
+int processor_get_proc_info(void *handle, struct proc_mgr_proc_info *procinfo)
+{
+	struct processor_object *proc_handle =
+				(struct processor_object *)handle;
+	int retval;
+	retval = proc_handle->proc_fxn_table.procinfo(proc_handle, procinfo);
+	return retval;
+}

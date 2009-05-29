@@ -211,7 +211,7 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 {
 	struct processor_object *handle = NULL;
 	struct proc4430_object *object = NULL;
-
+	int ret_val = 0;
 
 	BUG_ON(!IS_VALID_PROCID(proc_id));
 	BUG_ON(params == NULL);
@@ -240,6 +240,7 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 					 &proc4430_translate_addr;
 		handle->proc_fxn_table.map = &proc4430_map;
 		handle->proc_fxn_table.unmap = &proc4430_unmap;
+		handle->proc_fxn_table.procinfo = &proc4430_proc_info;
 		handle->state = PROC_MGR_STATE_UNKNOWN;
 		handle->object = vmalloc
 				(sizeof(struct proc4430_object));
@@ -254,11 +255,13 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 			object->params.mem_entries = vmalloc(
 				sizeof(struct proc4430_mem_entry) *
 				params->num_mem_entries);
-			copy_from_user(object->params.mem_entries,
+			ret_val = copy_from_user(object->params.mem_entries,
 				params->mem_entries,
 				(sizeof(struct proc4430_mem_entry)
 				* params->num_mem_entries));
+			WARN_ON(ret_val < 0);
 		}
+		handle->boot_mode = PROC_MGR_BOOTMODE_NOLOAD;
 		/* Set the handle in the state object. */
 		proc4430_state.proc_handles[proc_id] = handle;
 	}
@@ -579,3 +582,39 @@ error_exit:
 	return ret_val;
 }
 
+/*=================================================
+ * Function to return PROC4430 mem_entries info
+ *
+ */
+int proc4430_proc_info(void *handle, struct proc_mgr_proc_info *procinfo)
+{
+	struct processor_object *proc_handle =
+					(struct processor_object *)handle;
+	struct proc4430_object *object = NULL;
+	struct proc4430_mem_entry *entry = NULL;
+	int i;
+	if (WARN_ON(handle == NULL))
+		goto error_exit;
+	if (WARN_ON(procinfo == NULL))
+		goto error_exit;
+
+	object = (struct proc4430_object *)proc_handle->object;
+
+	for (i = 0 ; i < object->params.num_mem_entries ; i++) {
+		entry = &(object->params.mem_entries[i]);
+		procinfo->mem_entries[i].is_init = true;
+		procinfo->mem_entries[i].addr[PROC_MGR_ADDRTYPE_MASTERKNLVIRT]
+						= entry->phys_addr;
+		procinfo->mem_entries[i].addr[PROC_MGR_ADDRTYPE_MASTERUSRVIRT]
+						= entry->master_virt_addr;
+		procinfo->mem_entries[i].addr[PROC_MGR_ADDRTYPE_SLAVEVIRT]
+						= entry->slave_virt_addr;
+		procinfo->mem_entries[i].size = entry->size;
+	}
+	procinfo->num_mem_entries = object->params.num_mem_entries;
+	procinfo->boot_mode = proc_handle->boot_mode;
+	return 0;
+error_exit:
+	printk(KERN_WARNING "proc4430_proc_info failed !!!!\n");
+	return -EFAULT;
+}

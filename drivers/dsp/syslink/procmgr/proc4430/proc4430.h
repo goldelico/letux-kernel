@@ -136,4 +136,7 @@ int proc4430_open(void **handle_ptr, u16 proc_id);
 /* Function to close an instance of this processor. */
 int proc4430_close(void *handle);
 
+/* Function to get the proc info */
+int proc4430_proc_info(void *handle, struct proc_mgr_proc_info *procinfo);
+
 #endif
