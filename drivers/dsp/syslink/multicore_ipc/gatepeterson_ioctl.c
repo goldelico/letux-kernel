@@ -38,16 +38,16 @@
 static int gatepeterson_ioctl_get_config(struct gatepeterson_cmd_args *cargs)
 {
 	struct gatepeterson_config config;
-	s32 osstatus = 0;
+	s32 status = 0;
 	s32 size;
 
 	cargs->api_status = gatepeterson_get_config(&config);
 	size = copy_to_user(cargs->args.get_config.config, &config,
 				sizeof(struct gatepeterson_config));
 	if (size)
-		osstatus = -EFAULT;
+		status = -EFAULT;
 
-	return osstatus;
+	return status;
 }
 
 /*
@@ -58,20 +58,20 @@ static int gatepeterson_ioctl_get_config(struct gatepeterson_cmd_args *cargs)
 static int gatepeterson_ioctl_setup(struct gatepeterson_cmd_args *cargs)
 {
 	struct gatepeterson_config config;
-	s32 osstatus = 0;
+	s32 status = 0;
 	s32 size;
 
 	size = copy_from_user(&config, cargs->args.setup.config,
 				sizeof(struct gatepeterson_config));
 	if (size) {
-		osstatus = -EFAULT;
+		status = -EFAULT;
 		goto exit;
 	}
 
 	cargs->api_status = gatepeterson_setup(&config);
 
 exit:
-	return osstatus;
+	return status;
 }
 
 /*
@@ -94,16 +94,16 @@ static int gatepeterson_ioctl_destroy(
 static int gatepeterson_ioctl_params_init(struct gatepeterson_cmd_args *cargs)
 {
 	struct gatepeterson_params params;
-	s32 osstatus = 0;
+	s32 status = 0;
 	s32 size;
 
 	cargs->api_status = gatepeterson_params_init(&params);
 	size = copy_to_user(cargs->args.params_init.params, &params,
 					sizeof(struct gatepeterson_params));
 	if (size)
-		osstatus = -EFAULT;
+		status = -EFAULT;
 
-	return osstatus;
+	return status;
 }
 
 /*
@@ -115,13 +115,13 @@ static int gatepeterson_ioctl_create(struct gatepeterson_cmd_args *cargs)
 {
 	struct gatepeterson_params params;
 	void *handle = NULL;
-	s32 osstatus = 0;
+	s32 status = 0;
 	s32 size;
 
 	size = copy_from_user(&params, cargs->args.create.params,
 					sizeof(struct gatepeterson_params));
 	if (size) {
-		osstatus = -EFAULT;
+		status = -EFAULT;
 		goto exit;
 	}
 
@@ -129,7 +129,7 @@ static int gatepeterson_ioctl_create(struct gatepeterson_cmd_args *cargs)
 		params.name = kmalloc(cargs->args.create.name_len + 1,
 								GFP_KERNEL);
 		if (params.name == NULL) {
-			osstatus = -ENOMEM;
+			status = -ENOMEM;
 			goto exit;
 		}
 
@@ -138,7 +138,7 @@ static int gatepeterson_ioctl_create(struct gatepeterson_cmd_args *cargs)
 					cargs->args.create.params->name,
 					cargs->args.create.name_len);
 		if (size) {
-			osstatus = -EFAULT;
+			status = -EFAULT;
 			goto name_from_usr_error;
 		}
 
@@ -158,7 +158,7 @@ name_from_usr_error:
 		kfree(params.name);
 
 exit:
-	return osstatus;
+	return status;
 }
 
 /*
@@ -182,13 +182,13 @@ static int gatepeterson_ioctl_open(struct gatepeterson_cmd_args *cargs)
 {
 	struct gatepeterson_params params;
 	void *handle = NULL;
-	s32 osstatus = 0;
+	s32 status = 0;
 	s32 size;
 
 	size = copy_from_user(&params, cargs->args.open.params,
 				sizeof(struct gatepeterson_params));
 	if (size) {
-		osstatus = -EFAULT;
+		status = -EFAULT;
 		goto exit;
 	}
 
@@ -196,7 +196,7 @@ static int gatepeterson_ioctl_open(struct gatepeterson_cmd_args *cargs)
 		params.name = kmalloc(cargs->args.open.name_len + 1,
 							GFP_KERNEL);
 		if (params.name != NULL) {
-			osstatus = -ENOMEM;
+			status = -ENOMEM;
 			goto exit;
 		}
 
@@ -205,13 +205,13 @@ static int gatepeterson_ioctl_open(struct gatepeterson_cmd_args *cargs)
 					cargs->args.open.params->name,
 					cargs->args.open.name_len);
 		if (size) {
-			osstatus = -EFAULT;
+			status = -EFAULT;
 			goto name_from_usr_error;
 		}
 	}
 
 	params.shared_addr = sharedregion_get_ptr((u32 *)params.shared_addr);
-	osstatus = gatepeterson_open(&handle, &params);
+	status = gatepeterson_open(&handle, &params);
 	cargs->args.open.handle = handle;
 	cargs->api_status = 0;
 
@@ -220,7 +220,7 @@ name_from_usr_error:
 		kfree(params.name);
 
 exit:
-	return osstatus;
+	return status;
 }
 
 /*
@@ -254,6 +254,7 @@ static int gatepeterson_ioctl_leave(struct gatepeterson_cmd_args *cargs)
 {
 	gatepeterson_leave(cargs->args.enter.handle,
 						cargs->args.enter.flags);
+	cargs->api_status = 0;
 	return 0;
 }
 
@@ -265,14 +266,14 @@ static int gatepeterson_ioctl_leave(struct gatepeterson_cmd_args *cargs)
 static int gatepeterson_ioctl_shared_memreq(struct gatepeterson_cmd_args *cargs)
 {
 	struct gatepeterson_params params;
-	s32 osstatus = 0;
+	s32 status = 0;
 	s32 size;
 
 
 	size = copy_from_user(&params, cargs->args.shared_memreq.params,
 					sizeof(struct gatepeterson_params));
 	if (size) {
-		osstatus = -EFAULT;
+		status = -EFAULT;
 		goto exit;
 	}
 
@@ -281,7 +282,7 @@ static int gatepeterson_ioctl_shared_memreq(struct gatepeterson_cmd_args *cargs)
 	cargs->api_status = 0;
 
 exit:
-	return osstatus;
+	return status;
 }
 
 /*
@@ -292,7 +293,7 @@ exit:
 int gatepeterson_ioctl(struct inode *inode, struct file *filp,
 			unsigned int cmd, unsigned long args)
 {
-	s32 os_status = 0;
+	s32 status = 0;
 	s32 size = 0;
 	struct gatepeterson_cmd_args __user *uarg =
 				(struct gatepeterson_cmd_args __user *)args;
@@ -300,12 +301,12 @@ int gatepeterson_ioctl(struct inode *inode, struct file *filp,
 
 
 	if (_IOC_DIR(cmd) & _IOC_READ)
-		os_status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
+		status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
 	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		os_status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
+		status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
 
-	if (os_status) {
-		os_status = -EFAULT;
+	if (status) {
+		status = -EFAULT;
 		goto exit;
 	}
 
@@ -313,58 +314,58 @@ int gatepeterson_ioctl(struct inode *inode, struct file *filp,
 	size = copy_from_user(&cargs, uarg,
 					sizeof(struct gatepeterson_cmd_args));
 	if (size) {
-		os_status = -EFAULT;
+		status = -EFAULT;
 		goto exit;
 	}
 
 	switch (cmd) {
 	case CMD_GATEPETERSON_GETCONFIG:
-		os_status = gatepeterson_ioctl_get_config(&cargs);
+		status = gatepeterson_ioctl_get_config(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_SETUP:
-		os_status = gatepeterson_ioctl_setup(&cargs);
+		status = gatepeterson_ioctl_setup(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_DESTROY:
-		os_status = gatepeterson_ioctl_destroy(&cargs);
+		status = gatepeterson_ioctl_destroy(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_PARAMS_INIT:
-		os_status  = gatepeterson_ioctl_params_init(&cargs);
+		status  = gatepeterson_ioctl_params_init(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_CREATE:
-		os_status = gatepeterson_ioctl_create(&cargs);
+		status = gatepeterson_ioctl_create(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_DELETE:
-		os_status = gatepeterson_ioctl_delete(&cargs);
+		status = gatepeterson_ioctl_delete(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_OPEN:
-		os_status = gatepeterson_ioctl_open(&cargs);
+		status = gatepeterson_ioctl_open(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_CLOSE:
-		os_status = gatepeterson_ioctl_close(&cargs);
+		status = gatepeterson_ioctl_close(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_ENTER:
-		os_status = gatepeterson_ioctl_enter(&cargs);
+		status = gatepeterson_ioctl_enter(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_LEAVE:
-		os_status = gatepeterson_ioctl_leave(&cargs);
+		status = gatepeterson_ioctl_leave(&cargs);
 		break;
 
 	case CMD_GATEPETERSON_SHAREDMEMREQ:
-		os_status = gatepeterson_ioctl_shared_memreq(&cargs);
+		status = gatepeterson_ioctl_shared_memreq(&cargs);
 		break;
 
 	default:
 		WARN_ON(cmd);
-		os_status = -ENOTTY;
+		status = -ENOTTY;
 		break;
 	}
 
@@ -372,11 +373,11 @@ int gatepeterson_ioctl(struct inode *inode, struct file *filp,
 	size = copy_to_user(uarg, &cargs,
 			sizeof(struct gatepeterson_cmd_args));
 	if (size) {
-		os_status = -EFAULT;
+		status = -EFAULT;
 		goto exit;
 	}
 
 exit:
-	return os_status;
+	return status;
 }
 

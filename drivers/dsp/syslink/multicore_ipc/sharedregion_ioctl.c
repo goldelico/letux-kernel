@@ -41,16 +41,16 @@ static int sharedregion_ioctl_get_config(struct sharedregion_cmd_args *cargs)
 {
 
 	struct sharedregion_config config;
-	s32 osstatus = 0;
+	s32 status = 0;
 	s32 size;
 
 	cargs->api_status = sharedregion_get_config(&config);
 	size = copy_to_user(cargs->args.get_config.config, &config,
 				sizeof(struct sharedregion_config));
 	if (size)
-		osstatus = -EFAULT;
+		status = -EFAULT;
 
-	return osstatus;
+	return status;
 }
 
 
@@ -62,20 +62,20 @@ static int sharedregion_ioctl_get_config(struct sharedregion_cmd_args *cargs)
 static int sharedregion_ioctl_setup(struct sharedregion_cmd_args *cargs)
 {
 	struct sharedregion_config config;
-	s32 osstatus = 0;
+	s32 status = 0;
 	s32 size;
 
 	size = copy_from_user(&config, cargs->args.setup.config,
 				sizeof(struct sharedregion_config));
 	if (size) {
-		osstatus = -EFAULT;
+		status = -EFAULT;
 		goto exit;
 	}
 
 	cargs->api_status = sharedregion_setup(&config);
 
 exit:
-	return osstatus;
+	return status;
 }
 
 /*
@@ -166,7 +166,7 @@ static int sharedregion_ioctl_get_table_info(
 				struct sharedregion_cmd_args *cargs)
 {
 	struct sharedregion_info info;
-	s32 osstatus = 0;
+	s32 status = 0;
 	s32 size;
 
 	cargs->api_status = sharedregion_get_table_info(
@@ -175,9 +175,9 @@ static int sharedregion_ioctl_get_table_info(
 	size = copy_to_user(cargs->args.get_table_info.info, &info,
 				sizeof(struct sharedregion_info));
 	if (size)
-		osstatus = -EFAULT;
+		status = -EFAULT;
 
-	return osstatus;
+	return status;
 }
 
 
@@ -201,13 +201,13 @@ static int sharedregion_ioctl_set_table_info(
 			struct sharedregion_cmd_args *cargs)
 {
 	struct sharedregion_info info;
-	s32 osstatus = 0;
+	s32 status = 0;
 	s32 size;
 
 	size = copy_from_user(&info, cargs->args.set_table_info.info,
 				sizeof(struct sharedregion_info));
 	if (size) {
-		osstatus = -EFAULT;
+		status = -EFAULT;
 		goto exit;
 	}
 
@@ -216,7 +216,7 @@ static int sharedregion_ioctl_set_table_info(
 				cargs->args.set_table_info.proc_id, &info);
 
 exit:
-	return osstatus;
+	return status;
 }
 
 /*
@@ -227,19 +227,19 @@ exit:
 int sharedregion_ioctl(struct inode *inode, struct file *filp,
 			unsigned int cmd, unsigned long args)
 {
-	s32 os_status = 0;
+	s32 status = 0;
 	s32 size = 0;
 	struct sharedregion_cmd_args __user *uarg =
 				(struct sharedregion_cmd_args __user *)args;
 	struct sharedregion_cmd_args cargs;
 
 	if (_IOC_DIR(cmd) & _IOC_READ)
-		os_status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
+		status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
 	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		os_status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
+		status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
 
-	if (os_status) {
-		os_status = -EFAULT;
+	if (status) {
+		status = -EFAULT;
 		goto exit;
 	}
 
@@ -247,54 +247,54 @@ int sharedregion_ioctl(struct inode *inode, struct file *filp,
 	size = copy_from_user(&cargs, uarg,
 					sizeof(struct sharedregion_cmd_args));
 	if (size) {
-		os_status = -EFAULT;
+		status = -EFAULT;
 		goto exit;
 	}
 
 	switch (cmd) {
 	case CMD_SHAREDREGION_GETCONFIG:
-		os_status = sharedregion_ioctl_get_config(&cargs);
+		status = sharedregion_ioctl_get_config(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_SETUP:
-		os_status = sharedregion_ioctl_setup(&cargs);
+		status = sharedregion_ioctl_setup(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_DESTROY:
-		os_status = sharedregion_ioctl_destroy(&cargs);
+		status = sharedregion_ioctl_destroy(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_ADD:
-		os_status = sharedregion_ioctl_add(&cargs);
+		status = sharedregion_ioctl_add(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_GETINDEX:
-		os_status = sharedregion_ioctl_get_index(&cargs);
+		status = sharedregion_ioctl_get_index(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_GETPTR:
-		os_status = sharedregion_ioctl_get_ptr(&cargs);
+		status = sharedregion_ioctl_get_ptr(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_GETSRPTR:
-		os_status = sharedregion_ioctl_get_srptr(&cargs);
+		status = sharedregion_ioctl_get_srptr(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_GETTABLEINFO:
-		os_status = sharedregion_ioctl_get_table_info(&cargs);
+		status = sharedregion_ioctl_get_table_info(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_REMOVE:
-		os_status = sharedregion_ioctl_remove(&cargs);
+		status = sharedregion_ioctl_remove(&cargs);
 		break;
 
 	case CMD_SHAREDREGION_SETTABLEINFO:
-		os_status = sharedregion_ioctl_set_table_info(&cargs);
+		status = sharedregion_ioctl_set_table_info(&cargs);
 		break;
 
 	default:
 		WARN_ON(cmd);
-		os_status = -ENOTTY;
+		status = -ENOTTY;
 		break;
     }
 
@@ -302,11 +302,11 @@ int sharedregion_ioctl(struct inode *inode, struct file *filp,
 	/* Copy the full args to the user-side. */
 	size = copy_to_user(uarg, &cargs, sizeof(struct sharedregion_cmd_args));
 	if (size) {
-		os_status = -EFAULT;
+		status = -EFAULT;
 		goto exit;
 	}
 
 exit:
-	return os_status;
+	return status;
 }
 
