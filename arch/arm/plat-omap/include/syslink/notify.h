@@ -19,13 +19,6 @@
 #define NOTIFY_H
 
 #include <syslink/host_os.h>
-/* ----------------------------------- Notify */
-//#include <syslink/notify_driverdefs.h>
-
-
-
-/* Max number of processors in the system.*/
-#define MULTIPROC_MAXPROCESSORS	2
 
 #define NOTIFY_MAX_DRIVERS		16
 
@@ -36,18 +29,17 @@
  */
 #define NOTIFY_MAX_NAMELEN		32
 
-
 #define NOTIFY_MODULEID		0x5f84
 
 /*
- Status code base for Notify module.
+ *Status code base for Notify module.
  */
 #define NOTIFY_STATUSCODEBASE		(NOTIFY_MODULEID << 12u)
 
 /*
  * Macro to make error code.
  */
-#define NOTIFY_MAKE_FAILURE(x)		((int)( 0x80000000\
+#define NOTIFY_MAKE_FAILURE(x)		((int)(0x80000000\
 					| (NOTIFY_STATUSCODEBASE + (x))))
 
 /*
@@ -66,7 +58,7 @@
 #define NOTIFY_E_TIMEOUT		NOTIFY_MAKE_FAILURE(2)
 
 /*
- Configuration failure.
+ *Configuration failure.
  */
 #define NOTIFY_E_CONFIG		NOTIFY_MAKE_FAILURE(3)
 
@@ -134,8 +126,7 @@
 #define NOTIFY_E_ALREADYEXISTS	NOTIFY_MAKE_FAILURE(16)
 
 /*
- * @def  NOTIFY_E_DRIVERINIT
- * @brief The Notify driver has not been initialized.
+ * brief The Notify driver has not been initialized.
  */
 #define NOTIFY_E_DRIVERINIT		NOTIFY_MAKE_FAILURE(17)
 
@@ -145,7 +136,6 @@
 #define NOTIFY_E_NOTREADY		NOTIFY_MAKE_FAILURE(18)
 
 /*
- * @def  NOTIFY_E_REGDRVFAILED
  * @brief Failed to register driver with Notify module.
  */
 #define NOTIFY_E_REGDRVFAILED		NOTIFY_MAKE_FAILURE(19)
@@ -227,8 +217,8 @@ struct notify_config {
 	/* Handle of gate to be used for local thread safety */
 };
 
-typedef void (*notify_callback_fxn) (u16 proc_id, u32 eventNo,void *arg,
-							u32 payload);
+typedef void (*notify_callback_fxn)(u16 proc_id, u32 eventNo, void *arg,
+					u32 payload);
 
 extern struct notify_module_object notify_state;
 
@@ -251,9 +241,9 @@ extern struct notify_module_object notify_state;
 *
 */
 struct notify_shmdrv_event_entry {
-	REG unsigned long int  flag     ;
-	REG unsigned long int  payload  ;
-	REG unsigned long int  reserved ;
+	REG unsigned long int flag;
+	REG unsigned long int payload;
+	REG unsigned long int reserved;
 	/*ADD_PADDING(padding, NOTIFYSHMDRV_EVENT_ENTRY_PADDING)*/
 };
 
@@ -272,8 +262,8 @@ struct notify_shmdrv_event_entry {
 *
 */
 struct notify_shmdrv_eventreg_mask {
-	REG unsigned long int mask ;
-	REG unsigned long int enable_mask ;
+	REG unsigned long int mask;
+	REG unsigned long int enable_mask;
 	/*ADD_PADDING (padding, IPC_64BIT_PADDING)*/
 };
 
@@ -292,8 +282,8 @@ struct notify_shmdrv_eventreg_mask {
 *
 */
 struct notify_shmdrv_eventreg {
-	unsigned long int     reg_event_no ;
-	unsigned long int     reserved ;
+	unsigned long int reg_event_no;
+	unsigned long int reserved;
 };
 
 /*
@@ -324,12 +314,12 @@ struct notify_shmdrv_eventreg {
 *
 */
 struct notify_shmdrv_proc_ctrl {
-	struct notify_shmdrv_event_entry *self_event_chart ;
-	struct notify_shmdrv_event_entry *other_event_chart ;
-	unsigned long int                        recv_init_status ;
-	unsigned long int                        send_init_status ;
+	struct notify_shmdrv_event_entry *self_event_chart;
+	struct notify_shmdrv_event_entry *other_event_chart;
+	unsigned long int recv_init_status;
+	unsigned long int send_init_status;
 	/*ADD_PADDING(padding, NOTIFYSHMDRV_CTRL_PADDING)*/
-	struct notify_shmdrv_eventreg_mask     reg_mask ;
+	struct notify_shmdrv_eventreg_mask reg_mask;
 };
 
 /*!
@@ -338,42 +328,43 @@ struct notify_shmdrv_proc_ctrl {
  *          This structure is shared between the two processors.
  */
 struct notify_shmdrv_ctrl {
-	struct notify_shmdrv_proc_ctrl proc_ctrl [2];
+	struct notify_shmdrv_proc_ctrl proc_ctrl[2];
 };
 
-
-
-
-
 /* Function to get the default configuration for the Notify module. */
-void notify_get_config (struct notify_config * cfg);
+void notify_get_config(struct notify_config *cfg);
 
 /* Function to setup the Notify Module */
-int notify_setup (struct notify_config * cfg);
+int notify_setup(struct notify_config *cfg);
 
 /* Function to destroy the Notify module */
 int notify_destroy(void);
 
 /* Function to register an event */
 int notify_register_event(void *notify_driver_handle, u16 proc_id,
-	u32 event_no, notify_callback_fxn notify_callback_fxn, void *cbck_arg);
+			u32 event_no,
+			notify_callback_fxn notify_callback_fxn,
+			void *cbck_arg);
 
 /* Function to unregister an event */
 int notify_unregister_event(void *notify_driver_handle, u16 proc_id,
-	u32 event_no, notify_callback_fxn notify_callback_fxn, void *cbck_arg);
+			u32 event_no,
+			notify_callback_fxn notify_callback_fxn,
+			void *cbck_arg);
 
 /* Function to send an event to other processor */
 int notify_sendevent(void *notify_driver_handle, u16 proc_id,
-				u32 event_no, u32 payload, bool wait_clear);
+		     u32 event_no, u32 payload, bool wait_clear);
 
 /* Function to disable Notify module */
 u32 notify_disable(u16 procId);
 
 /* Function to restore Notify module state */
-void notify_restore (u32 key, u16 proc_id);
+void notify_restore(u32 key, u16 proc_id);
 
 /* Function to disable particular event */
-void notify_disable_event(void *notify_driver_handle, u16 proc_id, u32 event_no);
+void notify_disable_event(void *notify_driver_handle, u16 proc_id,
+			u32 event_no);
 
 /* Function to enable particular event */
 void notify_enable_event(void *notify_driver_handle, u16 proc_id, u32 event_no);

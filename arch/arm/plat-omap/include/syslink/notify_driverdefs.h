@@ -268,7 +268,8 @@ struct notify_driver_attrs {
  *
  */
 typedef int(*NotifyDriver_RegisterEvent)(struct notify_driver_object *handle,
-		u16 procId, u32 eventNo, notify_callback_fxn cbckFxn, void * cbckArg);
+		u16 procId, u32 eventNo, notify_callback_fxn cbckFxn,
+		void *cbckArg);
 /*
  * This type defines the function to unregister a callback for an event
  *  with the Notify driver.
@@ -279,7 +280,7 @@ typedef int(*NotifyDriver_RegisterEvent)(struct notify_driver_object *handle,
  */
 typedef int(*NotifyDriver_UnregisterEvent) (struct notify_driver_object *handle,
 		u16 procId, u32 eventNo, notify_callback_fxn  cbckFxn,
-		void * cbckArg);
+		void *cbckArg);
 
 /*
  * This type defines the function to send a notification event to the
@@ -358,20 +359,19 @@ struct notify_interface {
 
 
 union notify_drv_procevents{
-       struct {
-               struct notify_shmdrv_attrs  attrs;
-               struct notify_shmdrv_ctrl *ctrl_ptr;
+	struct {
+		struct notify_shmdrv_attrs  attrs;
+		struct notify_shmdrv_ctrl *ctrl_ptr;
        } shm_events;
 
-       struct {
-       /*Attributes */
-       unsigned long int  num_events;
-       unsigned long int  send_event_pollcount;
-
-       /*Control Paramters */
-       unsigned long int send_init_status ;
-        struct notify_shmdrv_eventreg_mask  reg_mask ;
-       } non_shm_events;
+	struct {
+		/*Attributes */
+		unsigned long int  num_events;
+		unsigned long int  send_event_pollcount;
+		/*Control Paramters */
+		unsigned long int send_init_status ;
+		struct notify_shmdrv_eventreg_mask  reg_mask ;
+	} non_shm_events;
 };
 
 
@@ -385,32 +385,32 @@ struct notify_driver_object {
 	int is_init;
 	struct notify_interface fn_table;
 	char name[NOTIFY_MAX_NAMELEN];
-	struct notify_driver_attrs   attrs;
-	u32 *disable_flag [NOTIFY_MAXNESTDEPTH];
+	struct notify_driver_attrs attrs;
+	u32 *disable_flag[NOTIFY_MAXNESTDEPTH];
 	void *driver_object;
 };
 
 
 struct notify_drv_eventlist {
-       unsigned long int  event_handler_count;
+       unsigned long int event_handler_count;
        struct list_head listeners;
 };
 
 
 
 struct notify_drv_eventlistner{
-	struct list_head    element;
-	fn_notify_cbck   fn_notify_cbck;
+	struct list_head element;
+	fn_notify_cbck fn_notify_cbck;
 	void *cbck_arg;
 };
 
 
 struct notify_drv_proc_module {
 
-       unsigned long int  proc_id;
+       unsigned long int proc_id;
        struct notify_drv_eventlist *event_list;
        struct notify_shmdrv_eventreg *reg_chart;
-       union notify_drv_procevents  events_obj;
+       union notify_drv_procevents events_obj;
 };
 
 /*

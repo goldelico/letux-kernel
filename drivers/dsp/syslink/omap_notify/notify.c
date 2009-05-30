@@ -26,6 +26,7 @@
 #include <syslink/notify_driver.h>
 #include <syslink/GlobalTypes.h>
 #include <syslink/gt.h>
+#include <syslink/multiproc.h>
 
 /*
  * func   _notify_is_support_proc
