@@ -112,6 +112,10 @@ struct proc_mgr_config {
 struct proc_mgr_params {
 	void *proc_handle;
 	/* void * to the Processor object associated with this ProcMgr. */
+	void *loader_handle;
+    /*!< Handle to the Loader object associated with this ProcMgr. */
+	void *pwr_handle;
+    /*!< Handle to the PwrMgr object associated with this ProcMgr. */
 };
 
 /*
@@ -137,7 +141,8 @@ struct proc_mgr_start_params {
  *  the ProcMgr module.
  */
 struct  proc_mgr_addr_info {
-	bool is_init;
+/*	bool is_init;  */
+	unsigned short is_init;
 	/* Is this memory region initialized? */
 	u32 addr[PROC_MGR_ADDRTYPE_ENDVALUE];
 	/* Addresses for each type of address space */

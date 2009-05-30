@@ -59,12 +59,19 @@ struct proc_mgr_object {
 	/* Processor ID associated with this ProcMgr. */
 	struct processor_object *proc_handle;
 	/* Processor ID of the processor being represented by this instance. */
+	void *loader_handle;
+	/*!< Handle to the Loader object associated with this ProcMgr. */
+	void *pwr_handle;
+	/*!< Handle to the PwrMgr object associated with this ProcMgr. */
+	/*!< Processor ID of the processor being represented by this instance */
 	struct proc_mgr_params params;
 	/* ProcMgr instance params structure */
 	struct proc_mgr_attach_params attach_params;
 	/* ProcMgr attach params structure */
 	struct proc_mgr_start_params  start_params;
 	/* ProcMgr start params structure */
+	u32 file_id;
+	/*!< File ID of the loaded static executable */
 	u16 num_mem_entries;
 	/* Number of valid memory entries */
 	struct proc_mgr_addr_info mem_entries[PROCMGR_MAX_MEMORY_REGIONS];
@@ -228,8 +235,10 @@ void *proc_mgr_create(u16 proc_id, const struct proc_mgr_params *params)
 	memcpy(&(handle->params), params, sizeof(struct proc_mgr_params));
 	handle->proc_id = proc_id;
 	handle->proc_handle = params->proc_handle;
-	mutex_unlock(proc_mgr_obj_state.gate_handle);
+	handle->loader_handle = params->loader_handle;
+	handle->pwr_handle = params->pwr_handle;
 	proc_mgr_obj_state.proc_handles[proc_id] = handle;
+	mutex_unlock(proc_mgr_obj_state.gate_handle);
 	return handle;
 }
 EXPORT_SYMBOL(proc_mgr_create);
@@ -726,9 +735,13 @@ EXPORT_SYMBOL(proc_mgr_register_notify);
  */
 int proc_mgr_get_proc_info(void *handle, struct proc_mgr_proc_info *proc_info)
 {
+	int i;
+	int count = 0;
 	struct proc_mgr_object *proc_mgr_handle =
 					(struct proc_mgr_object *)handle;
 	struct processor_object *proc_handle;
+
+	struct proc_mgr_proc_info proc_info_test;
 
 	if (WARN_ON(handle == NULL))
 		goto error_exit;
@@ -739,7 +752,15 @@ int proc_mgr_get_proc_info(void *handle, struct proc_mgr_proc_info *proc_info)
 		goto error_exit;
 
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
-	processor_get_proc_info(proc_handle, proc_info);
+
+	processor_get_proc_info(proc_handle, &proc_info_test);
+	/* Return bootMode information. */
+	proc_info->boot_mode = proc_mgr_handle->attach_params.boot_mode;
+	/* Return memory information. */
+	proc_info->num_mem_entries = proc_mgr_handle->num_mem_entries;
+	memcpy(&(proc_info->mem_entries),
+			&(proc_mgr_handle->mem_entries),
+			sizeof(proc_mgr_handle->mem_entries));
 	mutex_unlock(proc_mgr_obj_state.gate_handle);
 	return 0;
 error_exit:

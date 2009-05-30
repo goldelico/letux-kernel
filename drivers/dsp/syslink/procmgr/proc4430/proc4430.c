@@ -212,7 +212,6 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 {
 	struct processor_object *handle = NULL;
 	struct proc4430_object *object = NULL;
-	int ret_val = 0;
 
 	BUG_ON(!IS_VALID_PROCID(proc_id));
 	BUG_ON(params == NULL);
@@ -230,6 +229,7 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 			vmalloc(sizeof(struct processor_object));
 		if (WARN_ON(handle == NULL))
 			goto func_end;
+
 		handle->proc_fxn_table.attach = &proc4430_attach;
 		handle->proc_fxn_table.detach = &proc4430_detach;
 		handle->proc_fxn_table.start = &proc4430_start;
@@ -249,23 +249,20 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 		object = (struct proc4430_object *)handle->object;
 		/* Copy params into instance object. */
 		memcpy(&(object->params), (void *)params,
-			sizeof(struct proc4430_object));
-		if (params->mem_entries != NULL &&
-			params->num_mem_entries > 0) {
-			/* Allocate memory for, and copy memEntries table*/
-			object->params.mem_entries = vmalloc(
-				sizeof(struct proc4430_mem_entry) *
-				params->num_mem_entries);
-			ret_val = copy_from_user(object->params.mem_entries,
+					sizeof(struct proc4430_params));
+		/* Allocate memory for, and copy mem_entries table*/
+		object->params.mem_entries = vmalloc(sizeof(struct
+						proc4430_mem_entry) *
+						params->num_mem_entries);
+		memcpy(object->params.mem_entries,
 				params->mem_entries,
-				(sizeof(struct proc4430_mem_entry)
-				* params->num_mem_entries));
-			WARN_ON(ret_val < 0);
-		}
+				(sizeof(struct proc4430_mem_entry) *
+				 params->num_mem_entries));
 		handle->boot_mode = PROC_MGR_BOOTMODE_NOLOAD;
 		/* Set the handle in the state object. */
 		proc4430_state.proc_handles[proc_id] = handle;
 	}
+
 func_end:
 	mutex_unlock(proc4430_state.gate_handle);
 	return handle;
@@ -386,12 +383,11 @@ int proc4430_attach(void *handle, struct processor_attach_params *params)
 				object->params.mem_entries[i].size);
 			object->params.mem_entries[i].master_virt_addr =
 								dst_addr;
-			params->mem_entries[i].
-				addr[PROC_MGR_ADDRTYPE_MASTERKNLVIRT] =
-				dst_addr;
-			params->mem_entries[i].
-				addr[PROC_MGR_ADDRTYPE_SLAVEVIRT] =
-				(object->params.mem_entries[i].phys_addr);
+			params->mem_entries[i].addr
+				[PROC_MGR_ADDRTYPE_MASTERKNLVIRT] = dst_addr;
+			params->mem_entries[i].addr
+				[PROC_MGR_ADDRTYPE_SLAVEVIRT] =
+			(object->params.mem_entries[i].slave_virt_addr);
 			/* User virtual will be filled by user side. */
 			params->mem_entries[i].size =
 				object->params.mem_entries[i].size;
