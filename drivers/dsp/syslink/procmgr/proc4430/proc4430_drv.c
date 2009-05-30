@@ -21,6 +21,7 @@
 #include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/mm.h>
+#include <linux/vmalloc.h>
 #include <linux/uaccess.h>
 #include <linux/platform_device.h>
 
@@ -183,6 +184,7 @@ static int proc4430_drv_ioctl(struct inode *inode, struct file *filp,
 	{
 		struct proc4430_cmd_args_create   src_args;
 		struct proc4430_params params;
+		struct proc4430_mem_entry *entries = NULL;
 
 		/* Copy the full args from user-side. */
 		retval = copy_from_user((void *)&src_args,
@@ -195,6 +197,22 @@ static int proc4430_drv_ioctl(struct inode *inode, struct file *filp,
 			sizeof(struct proc4430_params));
 		if (WARN_ON(retval < 0))
 			goto func_exit;
+		/* Copy the contents of mem_entries from user-side */
+		if(params.num_mem_entries) {
+			entries = vmalloc(params.num_mem_entries * \
+				sizeof(struct proc4430_mem_entry));
+			if(WARN_ON(!entries))
+				goto func_exit;
+			retval = copy_from_user((void *) (entries),
+				(const void *)(params.mem_entries),
+				params.num_mem_entries * \
+				sizeof(struct proc4430_mem_entry));
+			if (WARN_ON(retval < 0)) {
+				vfree(entries);
+				goto func_exit;
+			}
+			params.mem_entries = entries;
+		}
 		src_args.handle = proc4430_create(src_args.proc_id,
 							&params);
 		if (WARN_ON(src_args.handle == NULL))
@@ -202,6 +220,9 @@ static int proc4430_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_to_user((void *)(args),
 				(const void *)&src_args,
 				sizeof(struct proc4430_cmd_args_create));
+		/* Free the memory created */
+		if(params.num_mem_entries)
+			vfree(entries);
 	}
 	break;
 
