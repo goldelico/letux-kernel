@@ -67,7 +67,6 @@ static inline int messageq_transportshm_ioctl_setup(
 				struct messageq_transportshm_cmd_args *cargs)
 {
 	s32 retval = 0;
-	int status = 0;
 	unsigned long size;
 	struct messageq_transportshm_config config;
 
@@ -78,11 +77,8 @@ static inline int messageq_transportshm_ioctl_setup(
 		goto exit;
 	}
 
-	status = messageq_transportshm_setup(&config);
-	if (unlikely(status))
-		goto exit;
+	cargs->api_status = messageq_transportshm_setup(&config);
 
-	cargs->api_status = status;
 exit:
 	return retval;
 }

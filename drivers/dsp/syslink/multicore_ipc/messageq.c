@@ -370,7 +370,7 @@ int messageq_setup(const struct messageq_config *cfg)
 				MULTIPROC_MAXPROCESSORS * \
 				MESSAGEQ_NUM_PRIORITY_QUEUES));
 
-	BUG_ON(status >= 0);
+	BUG_ON(status < 0);
 	goto exit;
 
 queues_alloc_fail:
