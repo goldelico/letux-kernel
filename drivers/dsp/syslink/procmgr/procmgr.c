@@ -735,8 +735,6 @@ EXPORT_SYMBOL(proc_mgr_register_notify);
  */
 int proc_mgr_get_proc_info(void *handle, struct proc_mgr_proc_info *proc_info)
 {
-	int i;
-	int count = 0;
 	struct proc_mgr_object *proc_mgr_handle =
 					(struct proc_mgr_object *)handle;
 	struct processor_object *proc_handle;

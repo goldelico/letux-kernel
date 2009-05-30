@@ -247,17 +247,22 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 				(sizeof(struct proc4430_object));
 		handle->proc_id = proc_id;
 		object = (struct proc4430_object *)handle->object;
-		/* Copy params into instance object. */
-		memcpy(&(object->params), (void *)params,
+		if (params != NULL) {
+			/* Copy params into instance object. */
+			memcpy(&(object->params), (void *)params,
 					sizeof(struct proc4430_params));
-		/* Allocate memory for, and copy mem_entries table*/
-		object->params.mem_entries = vmalloc(sizeof(struct
+		}
+		if ((params != NULL) && (params->mem_entries != NULL)
+					&& (params->num_mem_entries > 0)) {
+			/* Allocate memory for, and copy mem_entries table*/
+			object->params.mem_entries = vmalloc(sizeof(struct
 						proc4430_mem_entry) *
 						params->num_mem_entries);
-		memcpy(object->params.mem_entries,
+			memcpy(object->params.mem_entries,
 				params->mem_entries,
 				(sizeof(struct proc4430_mem_entry) *
 				 params->num_mem_entries));
+		}
 		handle->boot_mode = PROC_MGR_BOOTMODE_NOLOAD;
 		/* Set the handle in the state object. */
 		proc4430_state.proc_handles[proc_id] = handle;
@@ -643,10 +648,7 @@ int proc4430_proc_info(void *handle, struct proc_mgr_proc_info *procinfo)
 
 	for (i = 0 ; i < object->params.num_mem_entries ; i++) {
 		entry = &(object->params.mem_entries[i]);
-		procinfo->mem_entries[i].is_init = true;
 		procinfo->mem_entries[i].addr[PROC_MGR_ADDRTYPE_MASTERKNLVIRT]
-						= entry->phys_addr;
-		procinfo->mem_entries[i].addr[PROC_MGR_ADDRTYPE_MASTERUSRVIRT]
 						= entry->master_virt_addr;
 		procinfo->mem_entries[i].addr[PROC_MGR_ADDRTYPE_SLAVEVIRT]
 						= entry->slave_virt_addr;
