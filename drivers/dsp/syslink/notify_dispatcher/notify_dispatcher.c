@@ -289,10 +289,10 @@ int ntfy_disp_read(unsigned long int mbox_module_no,
 	}
 	/*Read a single message */
 	hw_mbox_nomsg_get(mailbx_hw_config.mbox_linear_addr ,
-	(enum hw_mbox_id_t)a_mbox_no, num_messages);
+	(enum hw_mbox_id_t)a_mbox_no, (unsigned long *const)num_messages);
 	if (*num_messages > 0) {
 		hw_mbox_msg_read(mailbx_hw_config.mbox_linear_addr,
-		(enum hw_mbox_id_t)a_mbox_no, messages);
+		(enum hw_mbox_id_t)a_mbox_no, (unsigned long *const)messages);
 	} else
 		status = -EBUSY;
 func_end:
@@ -314,8 +314,7 @@ int ntfy_disp_register(unsigned long int mbox_module_no,
 	i_mbox_module_no =  mbox_module_no;
 	i_a_irq_bit = a_irq_bit;
 
-	
-	/*Validate the parameters */
+/*Validate the parameters */
 	if (mbox_module_no > mailbx_hw_config.mbox_modules) {
 		status = -EINVAL;
 		goto func_end;

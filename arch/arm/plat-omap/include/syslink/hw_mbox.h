@@ -154,9 +154,9 @@ extern long hw_mbox_msg_read(
 *
 */
 extern long hw_mbox_msg_write(
-		const unsigned long         base_address,
-		const enum hw_mbox_id_t   mail_box_id,
-		const unsigned long         write_value
+		const unsigned long base_address,
+		const enum hw_mbox_id_t mail_box_id,
+		const unsigned long write_value
 	);
 
 /*

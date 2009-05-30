@@ -53,7 +53,7 @@ irqreturn_t notify_mailbx0_user0_isr(int temp, void *anArg, struct pt_regs *p);
 
 /*
  *func    ntfy_disp_bind_interrupt
- * 
+ *
  * desc    Bind an ISR to the HW interrupt line coming into the processor
  */
 int ntfy_disp_bind_interrupt(int interrupt_no,
@@ -63,7 +63,7 @@ int ntfy_disp_bind_interrupt(int interrupt_no,
 
 /*
  * desc    Print the mailbox registers and other useful debug information
- * 
+ *
  */
 void ntfy_disp_debug(void);
 
@@ -148,7 +148,7 @@ int ntfy_disp_unregister(unsigned long int mbox_module_no,
 
 /*
  * func    notify_mailbx0_user0_isr
- * desc    mail ISR 
+ * desc    mail ISR
  *
  */
 
