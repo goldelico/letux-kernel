@@ -32,7 +32,8 @@
  */
 
 #define IPC_BUF_ALIGN     128
-#define IPC_ALIGN(x, y) (unsigned long int)((unsigned long int)((x + y - 1) / y) * y)
+#define IPC_ALIGN(x, y) (unsigned long int)\
+((unsigned long int)((x + y - 1) / y) * y)
 
 
 #define NOTIFYDUCATI_DRIVERNAME   "NOTIFY_DUCATIDRV"
@@ -177,10 +178,10 @@ int notify_ducatidrv_destroy(void);
 
 /* Function to create the ducati driver handle and performs initialization. */
 
-struct notify_driver_object* notify_ducatidrv_create(char *driver_name,
+struct notify_driver_object *notify_ducatidrv_create(char *driver_name,
 		const struct notify_ducatidrv_params *params);
 
-/* Function to delete the ducati driver handle and performs de initialization. */
+/* Function to delete the ducati driver handle and performs de initialization.*/
 int notify_ducatidrv_delete(struct notify_driver_object **handle_ptr);
 
 /*Function to open the ducati driver  */

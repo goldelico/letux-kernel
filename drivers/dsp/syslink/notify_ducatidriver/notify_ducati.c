@@ -28,6 +28,7 @@
 #include <syslink/notify_driverdefs.h>
 #include <syslink/notify_ducatidriver.h>
 #include <syslink/notify_dispatcher.h>
+#include <syslink/multiproc.h>
 
 
 
