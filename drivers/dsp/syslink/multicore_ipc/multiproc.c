@@ -23,10 +23,14 @@
  *  no_of_processors - 1
  */
 
+/* Standard headers */
 #include <linux/types.h>
-#include <linux/string.h>
-#include <linux/errno.h>
+#include <linux/module.h>
 
+/* Utilities headers */
+#include <linux/string.h>
+
+/* Module level headers */
 #include <multiproc.h>
 
 #define MULTIPROC_MAXPROCESSORS   4
@@ -69,6 +73,7 @@ int multiproc_set_local_id(u16 proc_id)
 
 	return status;
 }
+EXPORT_SYMBOL(multiproc_set_local_id);
 
 /*
  * ======== multiProc_set_local_id ========
@@ -95,6 +100,7 @@ u16 multiproc_get_id(const char *proc_name)
 	}
 	return proc_id;
 }
+EXPORT_SYMBOL(multiproc_get_id);
 
 /*
  * ======== multiProc_set_local_id ========
@@ -113,6 +119,7 @@ char *multiproc_get_name(u16 proc_id)
 end:
 	return proc_name;
 }
+EXPORT_SYMBOL(multiproc_get_name);
 
 /*
  * ======== multiProc_set_local_id ========
@@ -124,4 +131,4 @@ u16 multiproc_get_max_processors(void)
 	u16 proc_id = MULTIPROC_MAXPROCESSORS;
 	return proc_id;
 }
-
+EXPORT_SYMBOL(multiproc_get_max_processors);
