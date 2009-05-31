@@ -393,7 +393,12 @@ int proc4430_attach(void *handle, struct processor_attach_params *params)
 			params->mem_entries[i].addr
 				[PROC_MGR_ADDRTYPE_SLAVEVIRT] =
 			(object->params.mem_entries[i].slave_virt_addr);
-			/* User virtual will be filled by user side. */
+			/* User virtual will be filled by user side. For now,
+			fill in the physical address so that it can be used
+			by mmap to remap this region into user-space */
+			params->mem_entries[i].addr
+				[PROC_MGR_ADDRTYPE_MASTERUSRVIRT] = \
+				object->params.mem_entries[i].phys_addr;
 			params->mem_entries[i].size =
 				object->params.mem_entries[i].size;
 		}
