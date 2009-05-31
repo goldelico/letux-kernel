@@ -413,8 +413,8 @@ int ducati_mem_unmap(u32 da, u32 num_bytes)
 	u32 pAddr;
 	u32 numof4Kpages = 0;
 
-	DPRINTK("> ducati_mem_unmap hDevContext %x, va %x, "
-		  "NumBytes %x\n", hDevContext, da, num_bytes);
+	DPRINTK("> ducati_mem_unmap  da 0x%x, "
+		  "NumBytes 0x%x\n", da, num_bytes);
 	vaCurr = da;
 	rem_bytes = num_bytes;
 	rem_bytes_l2 = 0;
@@ -636,7 +636,7 @@ int ducati_mem_map(u32 mpu_addr, u32 ul_virt_addr,
 		attrs = map_attr;
 	} else {
 		/* Assign default attributes */
-		attrs = DSP_MAPVIRTUALADDR | DSP_MAPELEMSIZE16;
+		attrs = DSP_MAPVIRTUALADDR | DSP_MAPELEMSIZE32;
 	}
 	/* Take mapping properties */
 	if (attrs & DSP_MAPBIGENDIAN)

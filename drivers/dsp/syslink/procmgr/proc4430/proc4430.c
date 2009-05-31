@@ -32,8 +32,8 @@
 #include <syslink/multiproc.h>
 #include <syslink/ducatienabler.h>
 
-#define DUCATI_DMM_START_ADDR			0x80000000
-#define DUCATI_DMM_POOL_SIZE			0x6000000
+#define DUCATI_DMM_START_ADDR			0xa0000000
+#define DUCATI_DMM_POOL_SIZE			 0x6000000
 
 /*OMAP4430 Module state object */
 struct proc4430_module_object {
