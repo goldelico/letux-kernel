@@ -620,7 +620,7 @@ int ducati_mem_map(u32 mpu_addr, u32 ul_virt_addr,
 	struct mm_struct *mm = current->mm;
 	struct task_struct *curr_task = current;
 	u32 write = 0;
-	u32 va = 0;
+	u32 da = ul_virt_addr;
 	u32 pa = 0;
 	int pg_i = 0;
 	int pg_num = 0;
@@ -700,10 +700,9 @@ int ducati_mem_map(u32 mpu_addr, u32 ul_virt_addr,
 	}
 	if (vma->vm_flags & VM_IO) {
 		num_usr_pages = num_bytes / PAGE_SIZE;
-		va = mpu_addr;
 		/* Get the physical addresses for user buffer */
 		for (pg_i = 0; pg_i < num_usr_pages; pg_i++) {
-			pa = user_va2pa(mm, va);
+			pa = user_va2pa(mm, mpu_addr);
 			if (!pa) {
 				status = -EFAULT;
 				pr_err("DSPBRIDGE: VM_IO mapping physical"
@@ -718,12 +717,11 @@ int ducati_mem_map(u32 mpu_addr, u32 ul_virt_addr,
 					bad_page_dump(pa, pg);
 				}
 			}
-			status = pte_set(pa, va, HW_PAGE_SIZE_4KB, &hw_attrs);
+			status = pte_set(pa, da, HW_PAGE_SIZE_4KB, &hw_attrs);
 			if (WARN_ON(status < 0))
 				break;
-			va += HW_PAGE_SIZE_4KB;
-			va += HW_PAGE_SIZE_4KB;
-			pa += HW_PAGE_SIZE_4KB;
+			mpu_addr += HW_PAGE_SIZE_4KB;
+			da += HW_PAGE_SIZE_4KB;
 		}
 	} else {
 		num_usr_pages =  num_bytes / PAGE_SIZE;
@@ -741,11 +739,11 @@ int ducati_mem_map(u32 mpu_addr, u32 ul_virt_addr,
 					bad_page_dump(page_to_phys(mappedPage),
 								mappedPage);
 				}
-				status = pte_set(page_to_phys(mappedPage), va,
+				status = pte_set(page_to_phys(mappedPage), da,
 					HW_PAGE_SIZE_4KB, &hw_attrs);
 				if (WARN_ON(status < 0))
 					break;
-				va += HW_PAGE_SIZE_4KB;
+				da += HW_PAGE_SIZE_4KB;
 				mpu_addr += HW_PAGE_SIZE_4KB;
 			} else {
 				pr_err("DSPBRIDGE: get_user_pages FAILED,"
