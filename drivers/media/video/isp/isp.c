@@ -360,6 +360,7 @@ static void isp_enable_interrupts(struct device *dev)
 	irq0enable = IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ
 		| IRQ0ENABLE_HS_VS_IRQ
 		| IRQ0ENABLE_CCDC_VD0_IRQ | IRQ0ENABLE_CCDC_VD1_IRQ
+		| IRQ0ENABLE_CSIA_IRQ
 		| IRQ0ENABLE_CSIB_IRQ
 		| IRQ0ENABLE_H3A_AWB_DONE_IRQ | IRQ0ENABLE_H3A_AF_DONE_IRQ
 		| isp->module.interrupts;
@@ -468,9 +469,6 @@ int isp_unset_callback(struct device *dev, enum isp_callback_type type)
 			break;
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~IRQ0ENABLE_HIST_DONE_IRQ);
-		break;
-	case CBK_CSIA:
-		isp_csi2_irq_set(0);
 		break;
 	case CBK_PREV_DONE:
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
@@ -768,7 +766,6 @@ int isp_configure_interface(struct device *dev,
 
 		isp_csi2_irq_complexio1_set(1);
 		isp_csi2_irq_status_set(1);
-		isp_csi2_irq_set(1);
 
 		isp_csi2_enable(1);
 		mdelay(3);
@@ -964,8 +961,9 @@ out_ignore_buff:
 
 	if (irqstatus & CSIA) {
 		struct isp_buf *buf = ISP_BUF_DONE(bufs);
-		isp_csi2_isr();
-		buf->vb_state = VIDEOBUF_ERROR;
+		int ret = isp_csi2_isr();
+		if (ret)
+			buf->vb_state = VIDEOBUF_ERROR;
 	}
 
 	if (irqstatus & IRQ0STATUS_CSIB_IRQ) {
@@ -1169,6 +1167,7 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 	}
 
 	isp_csi_enable(dev, 0);
+	isp_csi2_enable(0);
 	isp_buf_init(dev);
 
 	return reset;
