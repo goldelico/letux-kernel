@@ -206,9 +206,8 @@ static int gatepeterson_ioctl_open(struct gatepeterson_cmd_args *cargs)
 	}
 
 	params.shared_addr = sharedregion_get_ptr((u32 *)params.shared_addr);
-	status = gatepeterson_open(&handle, &params);
+	cargs->api_status = gatepeterson_open(&handle, &params);
 	cargs->args.open.handle = handle;
-	cargs->api_status = 0;
 
 name_from_usr_error:
 	if (cargs->args.open.name_len > 0)

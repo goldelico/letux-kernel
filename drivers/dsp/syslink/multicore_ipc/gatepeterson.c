@@ -589,7 +589,7 @@ int gatepeterson_open(void **gphandle,
 
 	if (unlikely(((struct gatepeterson_attrs *)sharedaddr)->status !=
 						GATEPETERSON_CREATED)) {
-		retval = -ENOENT; /* Not created */
+		retval = -ENXIO; /* Not created */
 		goto noentry_fail;
 	}
 
@@ -698,8 +698,7 @@ handle_alloc_fail: /* Fall through */
 noentry_fail: /* Fall through */
 exit:
 	printk(KERN_ERR "gatepeterson_open failed status: %x\n", retval);
-	return retval;;
-
+	return retval;
 }
 EXPORT_SYMBOL(gatepeterson_open);
 
