@@ -1,43 +1,20 @@
 /*
- * hw_mmu.c
+ * hw_mbox.c
  *
- * DSP-BIOS Bridge driver support functions for TI OMAP processors.
+ * Syslink driver support for OMAP Processors.
  *
- * Copyright (C) 2007 Texas Instruments, Inc.
+ *  Copyright (C) 2008-2009 Texas Instruments, Inc.
  *
- * This package is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ *  This package is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ *  THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
+ *  IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
+ *  WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR
+ *  PURPOSE.
  */
 
-/*
- *  ======== hw_mmu.c ========
- *  Description:
- *      API definitions to setup MMU TLB and PTE
- *
- *! Revision History:
- *! ================
- *! 19-Apr-2004 sb  TLBAdd and TLBFlush input the page size in bytes instead
-*of an enum. TLBAdd inputs mapping attributes struct instead
-*of individual arguments.
-*Removed MMU.h and other cosmetic updates.
- *! 08-Mar-2004 sb  Added the Page Table Management APIs
- *! 16 Feb 2003 sb: Initial version
- */
-
-/* ============================================================================
-* STANDARD INCLUDE FILES
-* =============================================================================
-*/
-
-/* ============================================================================
-* PROJECT SPECIFIC INCLUDE FILES
-* =============================================================================
-*/
 #include<linux/kernel.h>
 #include<linux/module.h>
 
@@ -46,15 +23,6 @@
 #include <syslink/hw_defs.h>
 #include <syslink/hw_mmu.h>
 
-/* ============================================================================
-* GLOBAL VARIABLES DECLARATIONS
-* =============================================================================
-*/
-
-/* ============================================================================
-* LOCAL TYPES AND DEFINITIONS
-* =============================================================================
-*/
 #define MMU_BASE_VAL_MASK        0xFC00
 #define MMU_PAGE_MAX             3
 #define MMU_ELEMENTSIZE_MAX      3
@@ -71,12 +39,12 @@
 
 
 
-/* ----------------------------------------------------------------------------
-* TYPE:         hw_mmu_pgsiz_t
+/*
+* type: hw_mmu_pgsiz_t
 *
-* DESCRIPTION:  Enumerated Type used to specify the MMU Page Size(SLSS)
+* desc:  Enumerated Type used to specify the MMU Page Size(SLSS)
 *
-* -----------------------------------------------------------------------------
+*
 */
 enum hw_mmu_pgsiz_t {
 	HW_MMU_SECTION,
@@ -86,59 +54,15 @@ enum hw_mmu_pgsiz_t {
 
 };
 
-/* ============================================================================
-* LOCAL VARIABLES DECLARATIONS
-* =============================================================================
-*/
-
-/* ============================================================================
-* LOCAL FUNCTIONS PROTOTYPES
-* =============================================================================
-*/
 /*
--------------------------------------------------------------------------
-* FUNCTION              : mmu_flsh_entry
-*
-* INPUTS:
-*
-*       Identifier      : base_address
-*       Type            : const u32
-*       Description     : Base Address of instance of MMU module
-
--------------------------------------------------------------------------
+* function : mmu_flsh_entry
 */
 
 static hw_status mmu_flsh_entry(const u32   base_address);
 
  /*
--------------------------------------------------------------------------
-* FUNCTION              : mme_set_cam_entry
+* function : mme_set_cam_entry
 *
-* INPUTS:
-*
-*       Identifier      : base_address
-*       Type            : const u32
-*       Description     : Base Address of instance of MMU module
-*
-*       Identifier      : page_size
-*       Type            : const u32
-*       Description     : It indicates the page size
-*
-*       Identifier      : preserve_bit
-*       Type            : const u32
-*       Description     : It indicates the TLB entry is preserved entry or not
-*
-*       Identifier      : valid_bit
-*       Type            : const u32
-*       Description     : It indicates the TLB entry is valid entry or not
-*
-*
-*       Identifier      : virt_addr_tag
-*       Type            : const u32
-*       Description     : virtual Address
-*
-* METHOD:               : Check the Input parameters and set the CAM entry.
--------------------------------------------------------------------------
 */
 
 static hw_status mme_set_cam_entry(const u32    base_address,
@@ -148,37 +72,7 @@ static hw_status mme_set_cam_entry(const u32    base_address,
 	const u32    virt_addr_tag);
 
 /*
--------------------------------------------------------------------------
-* FUNCTION              : mmu_set_ram_entry
-*
-* INPUTS:
-*
-*       Identifier      : base_address
-*       Type            : const u32
-*       Description     : Base Address of instance of MMU module
-*
-*       Identifier      : physical_addr
-*       Type            : const u32
-*       Description     : Physical Address to which the corresponding virtual
-*   Address should point
-*
-*       Identifier      : endianism
-*       Type            : hw_endianism_t
-*       Description     : endianism for the given page
-*
-*       Identifier      : element_size
-*       Type            : hw_elemnt_siz_t
-*       Description     : The element size ( 8,16, 32 or 64 bit)
-*
-*       Identifier      : mixedSize
-*       Type            : hw_mmu_mixed_size_t
-*       Description     : Element Size to follow CPU or TLB
-*
-
-* PURPOSE:              : Set MMU_CAM reg
-*
-* METHOD:               : Check the Input parameters and set the RAM entry.
--------------------------------------------------------------------------
+* function  : mmu_set_ram_entry
 */
 static hw_status mmu_set_ram_entry(const u32        base_address,
 	const u32        physical_addr,
@@ -186,11 +80,9 @@ static hw_status mmu_set_ram_entry(const u32        base_address,
 	enum hw_elemnt_siz_t    element_size,
 	enum hw_mmu_mixed_size_t   mixedSize);
 
-
-
-/* ============================================================================
-* HW FUNCTIONS
-* =============================================================================
+/*
+* hw functions
+*
 */
 
 hw_status hw_mmu_enable(const u32 base_address)
@@ -607,15 +499,8 @@ hw_status hw_mmu_pte_clear(const u32  pg_tbl_va,
 }
 EXPORT_SYMBOL(hw_mmu_pte_clear);
 
-/* ============================================================================
-*  LOCAL FUNCTIONS
-* =============================================================================
-*/
-
-  /*
------------------------------------------------------------------------------
- NAME        : mmu_flsh_entry      -
------------------------------------------------------------------------------
+/*
+* function: mmu_flsh_entry
 */
 static hw_status mmu_flsh_entry(const u32 base_address)
 {
@@ -633,9 +518,7 @@ static hw_status mmu_flsh_entry(const u32 base_address)
 }
 EXPORT_SYMBOL(mmu_flsh_entry);
 /*
------------------------------------------------------------------------------
- NAME        : mme_set_cam_entry
------------------------------------------------------
+* function : mme_set_cam_entry
 */
 static hw_status mme_set_cam_entry(const u32    base_address,
 	const u32    page_size,
@@ -660,10 +543,8 @@ static hw_status mme_set_cam_entry(const u32    base_address,
 	return status;
 }
 EXPORT_SYMBOL(mme_set_cam_entry);
- /*
-----------------------------------------------------
- NAME        : mmu_set_ram_entry
------------------------------------------------------
+/*
+* function: mmu_set_ram_entry
 */
 static hw_status mmu_set_ram_entry(const u32       base_address,
 	const u32       physical_addr,
