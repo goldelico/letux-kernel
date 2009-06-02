@@ -107,15 +107,15 @@ returnCodeIfMismatch, spyCodeIfMisMatch) do {\
 
 /*
  * MACRO: CHECK_INPUT_RANGE_MIN0
- * 
+ *
  * DESCRIPTION:  Checks an input value and returns a
  * specified value if not in
  * specified range, also writes spy value if error found.
  * The minimum
  * value is 0.
- * 
+ *
  * NOTE:         Can be disabled to save HW cycles.
- * 
+ *
  *
  */
 #define CHECK_INPUT_RANGE_MIN0(actualValue, maxValidValue, \
