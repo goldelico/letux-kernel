@@ -34,11 +34,10 @@
  *desc   Check if specified processor ID is supported by the Notify driver.
  *
  */
-bool _notify_is_support_proc(struct notify_driver_object *drv_handle,
+static bool _notify_is_support_proc(struct notify_driver_object *drv_handle,
 							int proc_id);
 
-struct notify_module_object notify_state =
-{
+struct notify_module_object notify_state = {
 	.is_setup = false,
 	.def_cfg.gate_handle = NULL,
 	.def_cfg.maxDrivers = 2,
@@ -46,7 +45,7 @@ struct notify_module_object notify_state =
 EXPORT_SYMBOL(notify_state);
 
 
-/*==================================
+/*
  * Get the default configuration for the Notify module.
  *
  *  This function can be called by the application to get their
@@ -58,18 +57,19 @@ EXPORT_SYMBOL(notify_state);
  * param-cfg  :Pointer to the Notify module configuration
  * structure in which the default config is to be returned.
  */
-void notify_get_config (struct notify_config * cfg)
+void notify_get_config(struct notify_config *cfg)
 {
 	BUG_ON(cfg == NULL);
 
 	if (notify_state.is_setup == false)
-		memcpy(cfg, &notify_state.def_cfg, sizeof(struct notify_config));
+		memcpy(cfg, &notify_state.def_cfg,
+			sizeof(struct notify_config));
 	else
 		memcpy(cfg, &notify_state.cfg, sizeof(struct notify_config));
 }
 EXPORT_SYMBOL(notify_get_config);
 
-/*================================
+/*
  *  Setup the Notify module.
  *
  * This function sets up the Notify module. This function
@@ -87,32 +87,32 @@ EXPORT_SYMBOL(notify_get_config);
  * param -cfg   Optional Notify module configuration. If provided as
  *       NULL, default configuration is used.
  */
-int notify_setup (struct notify_config * cfg)
+int notify_setup(struct notify_config *cfg)
 {
 	int status = NOTIFY_SUCCESS;
 	struct notify_config tmpCfg;
 
 	if (cfg == NULL) {
-		notify_get_config (&tmpCfg);
+		notify_get_config(&tmpCfg);
 		cfg = &tmpCfg;
 	}
 
 	if (cfg->gate_handle != NULL) {
 		notify_state.gate_handle = cfg->gate_handle;
-	}
-	else {
+	} else {
 		notify_state.gate_handle = kmalloc(sizeof(struct mutex),
 							GFP_ATOMIC);
-		/* User has not provided any gate handle, so create a default handle. */
-		mutex_init (notify_state.gate_handle);
+		/*User has not provided any gate handle,
+		so create a default handle.*/
+		mutex_init(notify_state.gate_handle);
 	}
 	if (WARN_ON(cfg->maxDrivers > NOTIFY_MAX_DRIVERS)) {
 		status = NOTIFY_E_CONFIG;
 		goto func_end;
 	}
-	memcpy(&notify_state.cfg, cfg, sizeof (struct notify_config));
+	memcpy(&notify_state.cfg, cfg, sizeof(struct notify_config));
 	memset(&notify_state.drivers, 0,
-		(sizeof (struct notify_driver_object) * NOTIFY_MAX_DRIVERS));
+		(sizeof(struct notify_driver_object) * NOTIFY_MAX_DRIVERS));
 	notify_state.disable_depth = 0;
 	notify_state.is_setup = true;
 func_end:
@@ -120,7 +120,7 @@ func_end:
 }
 EXPORT_SYMBOL(notify_setup);
 
-/*======================================
+/*
  * Destroy the Notify module.
  *
  * Once this function is called, other Notify module APIs,
@@ -134,9 +134,9 @@ int notify_destroy(void)
 	/* Check if any Notify driver instances have not been deleted so far.
 	 * If not, assert.
 	 */
-	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++) {
+	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++)
 		WARN_ON(notify_state.drivers[i].is_init == false);
-	}
+
 	if (notify_state.cfg.gate_handle == NULL) {
 		if (notify_state.gate_handle != NULL)
 			kfree(notify_state.gate_handle);
@@ -146,7 +146,7 @@ int notify_destroy(void)
 }
 EXPORT_SYMBOL(notify_destroy);
 
-/*====================================
+/*
  * func   notify_register_event
  *
  * desc   This function registers a callback for a specific event with the
@@ -159,7 +159,7 @@ int notify_register_event(void *notify_driver_handle, u16 proc_id,
 
 	struct notify_driver_object *drv_handle =
 		(struct notify_driver_object *)notify_driver_handle;
-	
+
 	BUG_ON(drv_handle == NULL);
 	if (WARN_ON(drv_handle->is_init == false)) {
 		status = NOTIFY_E_SETUP;
@@ -174,14 +174,14 @@ int notify_register_event(void *notify_driver_handle, u16 proc_id,
 		status = NOTIFY_E_INVALIDEVENT;
 		goto func_end;
 	}
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) < 
-		drv_handle->attrs.proc_info [proc_id].reserved_events) &&
-		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof (u16)) !=
+	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) <
+		drv_handle->attrs.proc_info[proc_id].reserved_events) &&
+		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof(u16)) !=
 		NOTIFY_SYSTEM_KEY)) {
 		status = NOTIFY_E_RESERVEDEVENT;
 		goto func_end;
 	}
-	if (mutex_lock_interruptible (notify_state.gate_handle) != 0)
+	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
 		WARN_ON(1);
 
 	status = drv_handle->fn_table.register_event(drv_handle, proc_id,
@@ -204,15 +204,12 @@ EXPORT_SYMBOL(notify_register_event);
  * the Notify module.
  */
 
-int notify_unregister_event (void *notify_driver_handle, u16 proc_id,
+int notify_unregister_event(void *notify_driver_handle, u16 proc_id,
 	u32 event_no, notify_callback_fxn notify_callback_fxn, void *cbck_arg)
-	
 {
 	int status = NOTIFY_SUCCESS;
-
 	struct notify_driver_object *drv_handle =
 		(struct notify_driver_object *)notify_driver_handle;
-	
 	BUG_ON(drv_handle == NULL);
 	if (WARN_ON(drv_handle->is_init == false)) {
 		status = NOTIFY_E_SETUP;
@@ -227,24 +224,23 @@ int notify_unregister_event (void *notify_driver_handle, u16 proc_id,
 		status = NOTIFY_E_INVALIDEVENT;
 		goto func_end;
 	}
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) < 
-		drv_handle->attrs.proc_info [proc_id].reserved_events) &&
-		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof (u16)) !=
+	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) <
+		drv_handle->attrs.proc_info[proc_id].reserved_events) &&
+		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof(u16)) !=
 		NOTIFY_SYSTEM_KEY)) {
 		status = NOTIFY_E_RESERVEDEVENT;
 		goto func_end;
 	}
-	if (mutex_lock_interruptible (notify_state.gate_handle) != 0)
+	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
 		WARN_ON(1);
 	status = drv_handle->fn_table.unregister_event(drv_handle,
 			proc_id, (event_no & NOTIFY_EVENT_MASK),
 			notify_callback_fxn, cbck_arg);
 	mutex_unlock(notify_state.gate_handle);
-	if (WARN_ON(status < 0)) {
+	if (WARN_ON(status < 0))
 		status = NOTIFY_E_FAIL;
-	}else
+	else
 		status = NOTIFY_SUCCESS;
-
 
 func_end:
 	return status;
@@ -262,10 +258,8 @@ int notify_sendevent(void *notify_driver_handle, u16 proc_id,
 				u32 event_no, u32 payload, bool wait_clear)
 {
 	int status = NOTIFY_SUCCESS;
-
 	struct notify_driver_object *drv_handle =
 		(struct notify_driver_object *)notify_driver_handle;
-	
 	BUG_ON(drv_handle == NULL);
 	if (WARN_ON(drv_handle->is_init == false)) {
 		status = NOTIFY_E_SETUP;
@@ -280,14 +274,14 @@ int notify_sendevent(void *notify_driver_handle, u16 proc_id,
 		status = NOTIFY_E_INVALIDEVENT;
 		goto func_end;
 	}
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) < 
-		drv_handle->attrs.proc_info [proc_id].reserved_events) &&
-		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof (u16)) !=
+	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) <
+		drv_handle->attrs.proc_info[proc_id].reserved_events) &&
+		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof(u16)) !=
 		NOTIFY_SYSTEM_KEY)) {
 		status = NOTIFY_E_RESERVEDEVENT;
 		goto func_end;
 	}
-	if (mutex_lock_interruptible (notify_state.gate_handle) != 0)
+	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
 			WARN_ON(1);
 	status = drv_handle->fn_table.send_event
 		(drv_handle, proc_id, (event_no & NOTIFY_EVENT_MASK),
@@ -319,7 +313,7 @@ u32 notify_disable(u16 proc_id)
 
 	BUG_ON(notify_state.is_setup != true);
 
-	if (mutex_lock_interruptible (notify_state.gate_handle) != 0)
+	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
 		WARN_ON(1);
 	for (i = 0; i < notify_state.cfg.maxDrivers; i++) {
 		drv_handle = &(notify_state.drivers[i]);
@@ -328,9 +322,11 @@ u32 notify_disable(u16 proc_id)
 		if (drv_handle->is_init ==
 			NOTIFY_DRIVERINITSTATUS_NOTDONE) {
 				if (drv_handle->fn_table.disable) {
-					drv_handle->disable_flag[notify_state.disable_depth] =
-						(u32 *)drv_handle->fn_table.disable
-								(drv_handle, proc_id);
+					drv_handle->disable_flag[notify_state.
+						disable_depth] =
+						(u32 *)drv_handle->fn_table.
+							disable(drv_handle,
+								proc_id);
 				}
 		}
 	}
@@ -341,7 +337,7 @@ u32 notify_disable(u16 proc_id)
 }
 EXPORT_SYMBOL(notify_disable);
 
-/*==============================
+/*
  * notify_restore
  *
  * desc   This function restores the Notify module to the state before the
@@ -350,29 +346,30 @@ EXPORT_SYMBOL(notify_disable);
  *	the Notify module. All callbacks registered for all events as
  *	specified in the flags are enabled with this API. It is not possible
  *	to enable a specific callback.
- * 
+ *
  *
  */
-void notify_restore (u32 key, u16 proc_id)
+void notify_restore(u32 key, u16 proc_id)
 {
 	struct notify_driver_object *drv_handle;
 	int  i;
 
 	BUG_ON(notify_state.is_setup != true);
-	if (mutex_lock_interruptible (notify_state.gate_handle) != 0)
+	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
 		WARN_ON(1);
 	notify_state.disable_depth--;
 	for (i = 0; i < notify_state.cfg.maxDrivers; i++) {
 		drv_handle = &(notify_state.drivers[i]);
 			if (drv_handle->fn_table.restore)
-			drv_handle->fn_table.restore(drv_handle, key, proc_id);
+				drv_handle->fn_table.restore(drv_handle,
+							key, proc_id);
 	}
 	mutex_unlock(notify_state.gate_handle);
 	return;
 }
 EXPORT_SYMBOL(notify_restore);
 
-/*=================================
+/*
  *func   notify_disable_event
  *
  * desc   This function disables a specific event. All callbacks registered
@@ -386,7 +383,6 @@ void notify_disable_event(void *notify_driver_handle, u16 proc_id, u32 event_no)
 	int status = 0;
 	struct notify_driver_object *drv_handle =
 			(struct notify_driver_object *)notify_driver_handle;
-	
 	BUG_ON(drv_handle == NULL);
 	if (WARN_ON(drv_handle->is_init == false)) {
 		status = NOTIFY_E_SETUP;
@@ -401,14 +397,14 @@ void notify_disable_event(void *notify_driver_handle, u16 proc_id, u32 event_no)
 		status = NOTIFY_E_INVALIDEVENT;
 		goto func_end;
 	}
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) < 
-		drv_handle->attrs.proc_info [proc_id].reserved_events) &&
-		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof (u16)) !=
+	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) <
+		drv_handle->attrs.proc_info[proc_id].reserved_events) &&
+		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof(u16)) !=
 		NOTIFY_SYSTEM_KEY)) {
 		status = NOTIFY_E_RESERVEDEVENT;
 		goto func_end;
 	}
-	if (mutex_lock_interruptible (notify_state.gate_handle) != 0)
+	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
 		WARN_ON(1);
 	drv_handle->fn_table.disable_event(drv_handle,
 			proc_id, (event_no & NOTIFY_EVENT_MASK));
@@ -418,13 +414,13 @@ func_end:
 }
 EXPORT_SYMBOL(notify_disable_event);
 
-/*=================================
+/*
  * notify_enable_event
- * 
+ *
  * This function enables a specific event. All callbacks registered for
  * this specific event are enabled with this API. It is not possible to
  * enable a specific callback.
- * 
+ *
  */
 void notify_enable_event(void *notify_driver_handle, u16 proc_id, u32 event_no)
 {
@@ -440,15 +436,15 @@ void notify_enable_event(void *notify_driver_handle, u16 proc_id, u32 event_no)
 	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK)
 		>= drv_handle->attrs.proc_info[proc_id].max_events)))
 		goto func_end;
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) < 
-		drv_handle->attrs.proc_info [proc_id].reserved_events) &&
-		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof (u16)) !=
+	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) <
+		drv_handle->attrs.proc_info[proc_id].reserved_events) &&
+		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof(u16)) !=
 		NOTIFY_SYSTEM_KEY))
 		goto func_end;
 
-	if (mutex_lock_interruptible (notify_state.gate_handle) != 0)
+	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
 		WARN_ON(1);
-		if(drv_handle->fn_table.enable_event) {
+		if (drv_handle->fn_table.enable_event) {
 			drv_handle->fn_table.enable_event(drv_handle,
 				proc_id, (event_no & NOTIFY_EVENT_MASK));
 		}
@@ -458,13 +454,13 @@ func_end:
 }
 EXPORT_SYMBOL(notify_enable_event);
 
-/*===============================
+/*
  *_notify_is_support_proc
- * 
+ *
  * Check if specified processor ID is supported by the Notify driver.
  *
  */
-bool _notify_is_support_proc(struct notify_driver_object *drv_handle,
+static bool _notify_is_support_proc(struct notify_driver_object *drv_handle,
 							int proc_id)
 {
 	bool  found = false;

@@ -81,19 +81,18 @@ struct notifydrv_moduleobject{
 	struct list_head evt_cbck_list;
 	/*List containg callback arguments for all registered handlers from
 	 user mode. */
-	struct notifydrv_event_state event_state [MAX_PROCESSES];
+	struct notifydrv_event_state event_state[MAX_PROCESSES];
 	/* List for all user processes registered. */
 };
 
-struct notifydrv_moduleobject notifydrv_state =
-{
+struct notifydrv_moduleobject notifydrv_state = {
 	.is_setup = false,
 	.open_refcount = 0,
 	.gatehandle = NULL,
 };
 
 /*Major number of driver.*/
-int major = 232 ;
+int major = 232;
 
 static void notify_drv_setup(void);
 
@@ -110,10 +109,11 @@ static int notify_drv_open(struct inode *inode, struct file *filp) ;
 static int notify_drv_close(struct inode *inode, struct file *filp);
 
 /* Linux driver function to map memory regions to user space. */
-static int notify_drv_mmap(struct file * filp, struct vm_area_struct * vma);
+static int notify_drv_mmap(struct file *filp, struct vm_area_struct *vma);
 
 /* read function for of Notify driver.*/
-static int notify_drv_read(struct file *filp, char *dst, size_t size, loff_t *offset);
+static int notify_drv_read(struct file *filp, char *dst,
+				size_t size, loff_t *offset);
 
 /* ioctl function for of Linux Notify driver.*/
 static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
@@ -127,12 +127,12 @@ static void __exit notify_drv_finalize_module(void) ;
 
 static void notify_drv_destroy(void);
 
-int notify_drv_register_driver(void);
+static int notify_drv_register_driver(void);
 
-int notify_drv_unregister_driver(void);
+static int notify_drv_unregister_driver(void);
 
 /* Function to invoke the APIs through ioctl.*/
-static struct file_operations driver_ops = {
+static const struct file_operations driver_ops = {
 	.open = notify_drv_open,
 	.ioctl = notify_drv_ioctl,
 	.release = notify_drv_close,
@@ -140,22 +140,20 @@ static struct file_operations driver_ops = {
 	.mmap = notify_drv_mmap,
 };
 
-int notify_drv_register_driver(void)
+static int notify_drv_register_driver(void)
 {
 	notify_drv_setup();
 	return 0;
 }
-EXPORT_SYMBOL(notify_drv_register_driver);
 
-int notify_drv_unregister_driver(void)
+static int notify_drv_unregister_driver(void)
 {
 	notify_drv_destroy();
 	return 0;
 }
-EXPORT_SYMBOL(notify_drv_unregister_driver);
 
 
-/*==============================
+/*
 * This function implements the callback registered with IPS. Here
 * to pass event no. back to user function(so that it can do another
 * level of demultiplexing of callbacks)
@@ -175,7 +173,7 @@ func_end:
 	return;
 }
 
-/*==============================
+/*
  * Linux specific function to open the driver.
  */
 static int notify_drv_open(struct inode *inode, struct file *filp)
@@ -200,10 +198,10 @@ static int notify_drv_open(struct inode *inode, struct file *filp)
 			}
 		}
 		mutex_unlock(notifydrv_state.gatehandle);
-		if ( isinit == true)
+		if (isinit == true)
 			goto func_end;
-		sem_handle = kmalloc(sizeof (struct semaphore), GFP_ATOMIC);
-		ter_sem_handle = kmalloc(sizeof (struct semaphore), GFP_ATOMIC);
+		sem_handle = kmalloc(sizeof(struct semaphore), GFP_ATOMIC);
+		ter_sem_handle = kmalloc(sizeof(struct semaphore), GFP_ATOMIC);
 		sema_init(sem_handle, 0);
 		/* Create the termination semaphore */
 		sema_init(ter_sem_handle, 0);
@@ -225,16 +223,16 @@ static int notify_drv_open(struct inode *inode, struct file *filp)
 			}
 		}
 		mutex_unlock(notifydrv_state.gatehandle);
-		/* No free slots found. Let this check remain at 
+		/* No free slots found. Let this check remain at
 		* run-time, since it is dependent on user environment.
 		*/
 		if (WARN_ON(flag != true)) {
-		/*! @retval -1 Maximum number of supported user clients
-			have already been registered. */
+			/*! @retval -1 Maximum number of supported user
+			clients have already been registered. */
 			status = NOTIFY_E_MAXCLIENTS;
 		}
 	}
-		if(status == NOTIFY_SUCCESS)
+		if (status == NOTIFY_SUCCESS)
 			ret_val = 0;
 		else
 			ret_val = -EINVAL;
@@ -242,7 +240,7 @@ func_end:
 	return ret_val;
 }
 
-/*==============
+/*
  * close the driver
  */
 static int notify_drv_close(struct inode *inode, struct file *filp)
@@ -254,11 +252,12 @@ static int notify_drv_close(struct inode *inode, struct file *filp)
 /*
  * read data from the driver
  */
-static int notify_drv_read(struct file *filp, char *dst, size_t size, loff_t *offset)
+static int notify_drv_read(struct file *filp, char *dst, size_t size,
+		loff_t *offset)
 {
 
 	bool flag = false;
-	struct notify_drv_event_packet * u_buf= NULL;
+	struct notify_drv_event_packet *u_buf = NULL;
 	u32 pid = (u32) current->mm;
 	int ret_val = 0;
 	u32 i;
@@ -282,7 +281,7 @@ static int notify_drv_read(struct file *filp, char *dst, size_t size, loff_t *of
 		/* Wait for the event */
 		ret_val = down_interruptible(
 			notifydrv_state.event_state[i].semhandle);
-		if (ret_val <0) {
+		if (ret_val < 0) {
 			ret_val = -ERESTARTSYS;
 			goto func_end;
 		}
@@ -295,7 +294,7 @@ static int notify_drv_read(struct file *filp, char *dst, size_t size, loff_t *of
 			goto func_end;
 		}
 		ret_val = copy_to_user((void *)dst, u_buf,
-			sizeof (struct notify_drv_event_packet));
+			sizeof(struct notify_drv_event_packet));
 		if (WARN_ON(ret_val != 0))
 			ret_val = -EFAULT;
 		if (u_buf->is_exit == true)
@@ -305,18 +304,18 @@ func_end:
 	return ret_val ;
 }
 
-static int notify_drv_mmap (struct file * filp, struct vm_area_struct * vma)
+static int notify_drv_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-	vma->vm_page_prot = pgprot_noncached (vma->vm_page_prot);
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
-	if (remap_pfn_range (vma,vma->vm_start,vma->vm_pgoff,
-		vma->vm_end - vma->vm_start,vma->vm_page_prot)) {
+	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
+		vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
 		return -EAGAIN;
 	}
 	return 0;
 }
 
-/*=====================
+/*
  * name notify_drv_ioctl
  *
  * ioctl function for of Linux Notify driver.
@@ -329,32 +328,31 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 	int status = NOTIFY_SUCCESS;
 	struct notify_cmd_args *cmdArgs = (struct notify_cmd_args *)args;
 	struct notify_cmd_args commonArgs;
-	
+
 	switch (cmd) {
 	case CMD_NOTIFY_GETCONFIG:
 	{
-		struct notify_cmd_args_get_config * src_args =
+		struct notify_cmd_args_get_config *src_args =
 				(struct notify_cmd_args_get_config *)args;
 		struct notify_config cfg;
-		
-		notify_get_config (&cfg);
-		retval = copy_to_user ((void*) (src_args->cfg),
-			(const void *) &cfg, sizeof (struct notify_config));
+		notify_get_config(&cfg);
+		retval = copy_to_user((void *) (src_args->cfg),
+			(const void *) &cfg, sizeof(struct notify_config));
 	}
 	break;
 
 	case CMD_NOTIFY_SETUP:
 	{
-		struct notify_cmd_args_setup * src_args =
+		struct notify_cmd_args_setup *src_args =
 			(struct notify_cmd_args_setup *) args;
 		struct notify_config cfg;
 
-		retval = copy_from_user ((void *) &cfg,
+		retval = copy_from_user((void *) &cfg,
 					 (const void *) (src_args->cfg),
-					 sizeof (struct notify_config));
+					 sizeof(struct notify_config));
 		if (WARN_ON(retval != 0))
 			goto func_end;
-		notify_setup (&cfg);
+		notify_setup(&cfg);
 	}
 	break;
 
@@ -363,7 +361,7 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 		/* copy_from_user is not needed for Notify_getConfig, since the
 		 * user's config is not used.
 		 */
-		status = notify_destroy ();
+		status = notify_destroy();
 	}
 	break;
 
@@ -373,27 +371,26 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 		struct notify_drv_event_cbck *cbck = NULL;
 
 		/* Copy the full args from user-side. */
-		retval = copy_from_user ((void *) &src_args, (const void *) (args),
-				sizeof (struct notify_cmd_args_register_event));
+		retval = copy_from_user((void *) &src_args,
+				(const void *) (args),
+				sizeof(struct notify_cmd_args_register_event));
 
 		if (WARN_ON(retval != 0))
 			goto func_end;
-		
-		cbck = vmalloc(sizeof (struct notify_drv_event_cbck));
+		cbck = vmalloc(sizeof(struct notify_drv_event_cbck));
 		WARN_ON(cbck == NULL);
 		cbck->proc_id = src_args.procId;
 		cbck->func = src_args.fnNotifyCbck;
 		cbck->param = src_args.cbckArg;
 		cbck->pid = (u32) current->mm;
-		status = notify_register_event (src_args.handle, src_args.procId,
+		status = notify_register_event(src_args.handle, src_args.procId,
 			src_args.eventNo, notify_drv_cbck, (void *)cbck);
 		if (status < 0) {
 			/* This does not impact return status of this function,
 			 * so retval comment is not used.
 			 */
-			kfree (cbck);
-		}
-		else {
+			kfree(cbck);
+		} else {
 			WARN_ON(mutex_lock_interruptible
 					(notifydrv_state.gatehandle));
 			INIT_LIST_HEAD((struct list_head *)&(cbck->element));
@@ -408,13 +405,13 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 	{
 		bool found = false;
 		u32 pid = (u32) current->mm;
-		struct notify_drv_event_cbck * cbck = NULL;
+		struct notify_drv_event_cbck *cbck = NULL;
 		struct list_head *entry = NULL;
 		struct notify_cmd_args_unregister_event src_args;
 
 		/* Copy the full args from user-side. */
-		retval = copy_from_user ((void *)&src_args, (const void *)(args),
-			sizeof (struct notify_cmd_args_unregister_event));
+		retval = copy_from_user((void *)&src_args, (const void *)(args),
+			sizeof(struct notify_cmd_args_unregister_event));
 
 		if (WARN_ON(retval != 0))
 			goto func_end;
@@ -435,19 +432,21 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 			status = NOTIFY_E_NOTFOUND;
 			goto func_end;
 		}
-		status = notify_unregister_event(src_args.handle, src_args.procId,
-			src_args.eventNo, notify_drv_cbck, (void *) cbck);
+		status = notify_unregister_event(src_args.handle,
+				src_args.procId,
+				src_args.eventNo,
+				notify_drv_cbck, (void *) cbck);
 		/* This check is needed at run-time also to propagate the
 		 * status to user-side. This must not be optimized out.
 		 */
 		if (status < 0)
-			printk(" notify_unregister_event failed \n");
+			printk(KERN_ERR " notify_unregister_event failed \n");
 		else {
 			WARN_ON(mutex_lock_interruptible
 						(notifydrv_state.gatehandle));
 			list_del((struct list_head *)cbck);
 			mutex_unlock(notifydrv_state.gatehandle);
-			kfree (cbck);
+			kfree(cbck);
 		}
 	}
 	break;
@@ -457,14 +456,14 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 		struct notify_cmd_args_send_event src_args;
 
 		/* Copy the full args from user-side. */
-		retval = copy_from_user ((void *) &src_args,
-					(const void *) (args),
-					sizeof (struct notify_cmd_args_send_event));
+		retval = copy_from_user((void *) &src_args,
+				(const void *) (args),
+				sizeof(struct notify_cmd_args_send_event));
 		if (WARN_ON(retval != 0)) {
 			retval = -EFAULT;
 			goto func_end;
 		}
-		status = notify_sendevent (src_args.handle, src_args.procId,
+		status = notify_sendevent(src_args.handle, src_args.procId,
 				src_args.eventNo, src_args.payload,
 				src_args.waitClear);
 	}
@@ -475,9 +474,9 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 		struct notify_cmd_args_disable src_args;
 
 		/* Copy the full args from user-side. */
-		retval = copy_from_user ((void *) &src_args,
-					 (const void *) (args),
-					 sizeof (struct notify_cmd_args_disable));
+		retval = copy_from_user((void *) &src_args,
+				(const void *) (args),
+				sizeof(struct notify_cmd_args_disable));
 
 		/* This check is needed at run-time also since it depends on
 		 * run environment. It must not be optimized out.
@@ -489,9 +488,9 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 		src_args.flags = notify_disable(src_args.procId);
 
 		/* Copy the full args to user-side */
-		retval = copy_to_user ((void *) (args),
+		retval = copy_to_user((void *) (args),
 					(const void *) &src_args,
-					sizeof (struct notify_cmd_args_disable));
+					sizeof(struct notify_cmd_args_disable));
 		/* This check is needed at run-time also since it depends on
 		 * run environment. It must not be optimized out.
 		 */
@@ -505,8 +504,9 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 		struct notify_cmd_args_restore src_args;
 
 		/* Copy the full args from user-side. */
-		retval = copy_from_user((void *) &src_args,(const void *)(args),
-				sizeof (struct notify_cmd_args_restore));
+		retval = copy_from_user((void *) &src_args,
+				(const void *)(args),
+				sizeof(struct notify_cmd_args_restore));
 		if (WARN_ON(retval != 0)) {
 			retval = -EFAULT;
 			goto func_end;
@@ -520,8 +520,9 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 		struct notify_cmd_args_disable_event src_args;
 
 		/* Copy the full args from user-side. */
-		retval = copy_from_user((void *) &src_args, (const void *)(args),
-				sizeof (struct notify_cmd_args_disable_event));
+		retval = copy_from_user((void *) &src_args,
+				(const void *)(args),
+				sizeof(struct notify_cmd_args_disable_event));
 
 		/* This check is needed at run-time also since it depends on
 		 * run environment. It must not be optimized out.
@@ -540,8 +541,9 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 		struct notify_cmd_args_enable_event src_args;
 
 		/* Copy the full args from user-side. */
-		retval = copy_from_user ((void *)&src_args, (const void *)(args),
-				sizeof (struct notify_cmd_args_enable_event));
+		retval = copy_from_user((void *)&src_args,
+				(const void *)(args),
+				sizeof(struct notify_cmd_args_enable_event));
 		if (WARN_ON(retval != 0)) {
 			retval = -EFAULT;
 			goto func_end;
@@ -556,26 +558,26 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 		/* No args to be copied from user-side. */
 		status = notify_drv_exit();
 		if (status < 0)
-			printk("notify_driver_exit FAILED\n");
+			printk(KERN_ERR "notify_driver_exit FAILED\n");
 	}
 	break;
 
 	default:
 	{
-		/* This does not impact return status of this function, so retval
+		/* This does not impact return status of this function,so retval
 		 * comment is not used.
 		 */
 		status = NOTIFY_E_INVALIDARG;
-		printk("not valid command\n");
+		printk(KERN_ERR "not valid command\n");
 	}
 	break;
 	}
 func_end:
 	/* Set the status and copy the common args to user-side. */
 	commonArgs.apiStatus = status;
-	status = copy_to_user ((void *) cmdArgs,
+	status = copy_to_user((void *) cmdArgs,
 			(const void *) &commonArgs,
-			sizeof (struct notify_cmd_args));
+			sizeof(struct notify_cmd_args));
 	if (status < 0)
 		retval = -EFAULT;
 	return retval;
@@ -591,7 +593,7 @@ static int notify_drv_add_buf_by_pid(u16 proc_id, u32 pid,
 	s32 status = 0;
 	bool flag = false;
 	bool is_exit = false;
-	struct notify_drv_event_packet * u_buf = NULL;
+	struct notify_drv_event_packet *u_buf = NULL;
 	u32 i;
 
 	for (i = 0 ; (i < MAX_PROCESSES) && (flag != true) ; i++) {
@@ -604,8 +606,7 @@ static int notify_drv_add_buf_by_pid(u16 proc_id, u32 pid,
 		status = -EFAULT;
 		goto func_end;
 	}
-	u_buf = (struct notify_drv_event_packet *)kmalloc
-		(sizeof (struct notify_drv_event_packet), GFP_ATOMIC);
+	u_buf = kmalloc(sizeof(struct notify_drv_event_packet), GFP_ATOMIC);
 	if (u_buf != NULL) {
 		INIT_LIST_HEAD((struct list_head *)&u_buf->element);
 		u_buf->proc_id = proc_id;
@@ -636,7 +637,7 @@ func_end:
 	return status;
 }
 
-/*====================
+/*
  * notify_drv_exit
  *
  */
@@ -655,16 +656,16 @@ int notify_drv_exit(void)
 		status = NOTIFY_E_FAIL;
 		goto func_end;
 	}
-	if (WARN_ON(notifydrv_state.is_setup == false)){
+	if (WARN_ON(notifydrv_state.is_setup == false)) {
 		/* The Notify OS driver was not setup */
 		status = NOTIFY_E_SETUP;
 		goto func_end;
 	}
 	/* Send the termination packet to notify thread */
-	status = notify_drv_add_buf_by_pid (0, /* Ignored. */
+	status = notify_drv_add_buf_by_pid(0, /* Ignored. */
 			(u32) current->mm, (u32) -1, (u32)0, NULL, NULL);
 	if (status < 0) {
-		printk ("notify_drv_exit failed to send"
+		printk(KERN_ERR "notify_drv_exit failed to send"
 			"termination packet\n.");
 		goto func_end;
 	}
@@ -691,8 +692,7 @@ int notify_drv_exit(void)
 								NULL;
 				flag = true;
 				break;
-			}
-			else
+			} else
 				notifydrv_state.event_state[i].ref_count--;
 		}
 	}
@@ -710,7 +710,7 @@ func_end:
 	return status;
 }
 
-/*====================
+/*
  * Module setup function.
  *
  */
@@ -719,7 +719,7 @@ static void notify_drv_setup(void)
 	int i;
 
 	INIT_LIST_HEAD((struct list_head *)&(notifydrv_state.evt_cbck_list));
-	notifydrv_state.gatehandle = kmalloc(sizeof (struct mutex),
+	notifydrv_state.gatehandle = kmalloc(sizeof(struct mutex),
 						GFP_KERNEL);
 	mutex_init(notifydrv_state.gatehandle);
 	for (i = 0; i < MAX_PROCESSES ; i++) {
@@ -732,7 +732,7 @@ static void notify_drv_setup(void)
 }
 
 
-/*=====================
+/*
 * brief Module destroy function.
 */
 static void notify_drv_destroy(void)
@@ -748,7 +748,6 @@ static void notify_drv_destroy(void)
 			packet = (struct notify_drv_event_packet *)entry;
 			if (packet != NULL)
 				kfree(packet);
-			
 		}
 		INIT_LIST_HEAD(&notifydrv_state.event_state[i].buf_list);
 	}
@@ -774,7 +773,7 @@ static int __init notify_drv_init_module(void)
 	result = register_chrdev(major, "ipcnotify", &driver_ops);
 
 	if (result < 0) {
-		printk("Notify driver initialization failure - 1\n");
+		printk(KERN_ERR "Notify driver initialization failure - 1\n");
 		goto func_end;
 	}
 	result = notify_drv_register_driver();
@@ -797,7 +796,6 @@ static void __exit notify_drv_finalize_module(void)
 			packet = (struct notify_drv_event_packet *)entry;
 			if (packet != NULL)
 				kfree(packet);
-			
 		}
 	}
 	list_for_each(entry,

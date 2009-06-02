@@ -67,7 +67,8 @@ int notify_register_driver(char *driver_name,
 		}
 		 if (drv_handle->is_init == NOTIFY_DRIVERINITSTATUS_NOTDONE) {
 			/* Found an empty slot, so block it. */
-			drv_handle->is_init = NOTIFY_DRIVERINITSTATUS_INPROGRESS;
+			drv_handle->is_init =
+					NOTIFY_DRIVERINITSTATUS_INPROGRESS;
 			status = NOTIFY_SUCCESS;
 			break;
 		}
@@ -79,13 +80,11 @@ int notify_register_driver(char *driver_name,
 			driver_name, NOTIFY_MAX_NAMELEN);
 	memcpy(&(drv_handle->attrs), drv_attrs,
 				sizeof(struct notify_driver_attrs));
-	memcpy(&(drv_handle->fn_table), fn_table, sizeof(struct notify_interface));
-	
-
+	memcpy(&(drv_handle->fn_table), fn_table,
+				sizeof(struct notify_interface));
 	drv_handle->driver_object = NULL;
 	/*is_setup is set when driverInit is called. */
 	*driver_handle = drv_handle;
-		
 	return status;
 }
 EXPORT_SYMBOL(notify_register_driver);
@@ -132,7 +131,7 @@ int notify_get_driver_handle(char *driver_name,
 
 	if (WARN_ON(notify_state.is_setup == false)) {
 		status = NOTIFY_E_SETUP;
-	} else if (WARN_ON(driver_name = NULL))
+	} else if (WARN_ON(driver_name == NULL))
 		status = NOTIFY_E_INVALIDARG;
 	else {
 		if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
