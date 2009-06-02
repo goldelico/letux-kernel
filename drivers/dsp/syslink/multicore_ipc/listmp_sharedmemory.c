@@ -223,9 +223,9 @@ int listmp_sharedmemory_setup(struct listmp_config *config)
 	gt_1trace(listmpshm_debugmask, GT_ENTER, "ListMPSharedmemsetup",
 			config);
 
-	if (WARN_ON(config == NULL)) {
-		status = -EINVAL;
-		goto exit;
+	if (config == NULL) {
+		memcpy(config, &listmp_sharedmemory_state.default_cfg,
+			sizeof(struct listmp_config));
 	}
 	if (WARN_ON(config->max_name_len == 0)) {
 		status = -EINVAL;
@@ -238,8 +238,10 @@ int listmp_sharedmemory_setup(struct listmp_config *config)
 	params.max_name_len = config->max_name_len;
 	/* Create the nameserver for modules */
 	nshandle = nameserver_create(LISTMP_SHAREDMEMORY_NAMESERVER, &params);
-	if (unlikely(nshandle == NULL))
+	if (unlikely(nshandle == NULL)) {
+		status = LISTMPSHAREDMEMORY_E_FAIL;
 		goto exit;
+	}
 
 	listmp_sharedmemory_state.ns_handle = nshandle;
 	/* Construct the list object */
@@ -337,7 +339,6 @@ exit:
 void listmp_sharedmemory_params_init(listmp_sharedmemory_handle handle,
 				listmp_sharedmemory_params *params)
 {
-	int status = 0;
 	listmp_sharedmemory_object *object = NULL;
 	struct listmp_sharedmemory_obj *obj = NULL;
 
@@ -345,10 +346,8 @@ void listmp_sharedmemory_params_init(listmp_sharedmemory_handle handle,
 		"listmp_sharedmemory_params_init", handle, params);
 
 	BUG_ON(params == NULL);
-	if (WARN_ON(params == NULL)) {
-		status = -EINVAL;
+	if (WARN_ON(params == NULL))
 		goto exit;
-	}
 
 	if (handle == NULL) {
 		memcpy(params,
@@ -411,14 +410,18 @@ listmp_sharedmemory_handle listmp_sharedmemory_create(
 		_listmp_sharedmemory_create(params, true);
 
 	obj = (struct listmp_sharedmemory_obj *)handle->obj;
+	if (obj == NULL) {
+		status = LISTMPSHAREDMEMORY_E_FAIL;
+		goto exit;
+	}
 	obj->listmp_elem->next = (struct listmp_elem *) (sharedregion_get_srptr(
 				(void *)obj->listmp_elem, obj->index));
 	obj->listmp_elem->prev = (struct listmp_elem *) (sharedregion_get_srptr(
 				(void *)obj->listmp_elem, obj->index));
 
 exit:
-	gt_1trace(listmpshm_debugmask, GT_LEAVE, "listmp_sharedmemory_create",
-		handle);
+	gt_2trace(listmpshm_debugmask, GT_LEAVE, "listmp_sharedmemory_create",
+		status, handle);
 	return (listmp_sharedmemory_handle) handle;
 }
 
