@@ -35,7 +35,7 @@ do {\
 	register u32 newValue = ((u32)(value));\
 	_DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_SYSCONFIGWriteRegister32);\
 	WR_MEM_32_VOLATILE(((u32)(base_address))+offset, newValue);\
-} while(0)
+} while (0)
 
 
 #define MLBMAILBOX_SYSCONFIGSIdleModeRead32(base_address)\
@@ -58,7 +58,7 @@ do {\
 	newValue &= MLB_MAILBOX_SYSCONFIG_SIdleMode_MASK;\
 	newValue |= data;\
 	WR_MEM_32_VOLATILE((u32)(base_address)+offset, newValue);\
-} while(0)
+} while (0)
 
 
 #define MLBMAILBOX_SYSCONFIGSoftResetWrite32(base_address, value)\
@@ -79,7 +79,7 @@ do {\
 	printk(KERN_ALERT "line %i    file %s", __LINE__, __FILE__);\
 	WR_MEM_32_VOLATILE((u32)(base_address)+offset, newValue);\
 	printk(KERN_ALERT "line %i    file %s", __LINE__, __FILE__);\
-} while(0)
+} while (0)
 
 
 #define MLBMAILBOX_SYSCONFIGAutoIdleRead32(base_address)\
@@ -129,7 +129,7 @@ do {\
 	register u32 newValue = ((u32)(value));\
 	_DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_MESSAGE___0_15WriteRegister32);\
 	WR_MEM_32_VOLATILE(((u32)(base_address))+offset, newValue);\
-}while(0)
+} while (0)
 
 
 #define MLBMAILBOX_FIFOSTATUS___0_15ReadRegister32(base_address, bank)\
@@ -179,7 +179,7 @@ do {\
 	register u32 newValue = ((u32)(value));\
 	_DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_IRQSTATUS___0_3WriteRegister32);\
 	WR_MEM_32_VOLATILE(((u32)(base_address))+offset, newValue);\
-} while(0)
+} while (0)
 
 
 #define MLBMAILBOX_IRQENABLE___0_3ReadRegister32(base_address, bank)\
@@ -198,7 +198,7 @@ do {\
 	register u32 newValue = ((u32)(value));\
 	_DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_IRQENABLE___0_3WriteRegister32);\
 	WR_MEM_32_VOLATILE(((u32)(base_address))+offset, newValue);\
-} while(0)
+} while (0)
 
 
 #endif	/* USE_LEVEL_1_MACROS */
