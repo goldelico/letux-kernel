@@ -1753,7 +1753,8 @@ MLB_MAILBOX_IRQENABLE___REGSET_0_3_STEP))))
 
 #if defined(OMAP44XX) || defined(VPOM4430_1_06)
 
-#define MLBMAILBOX_IRQENABLE_SET___0_3WriteRegister32(base_address, bank, value)\
+#define MLBMAILBOX_IRQENABLE_SET___0_3WriteRegister32\
+(base_address, bank, value)\
 do {\
 	const unsigned long offset = \
 	MLB_MAILBOX_IRQENABLE_SET___REGSET_0_3_OFFSET +\
@@ -1764,7 +1765,8 @@ do {\
 	WR_MEM_32_VOLATILE(((unsigned long)(base_address))+offset, newValue);\
 } while (0)
 
-#define MLBMAILBOX_IRQENABLE_CLR___0_3WriteRegister32(base_address, bank, value)\
+#define MLBMAILBOX_IRQENABLE_CLR___0_3WriteRegister32\
+(base_address, bank, value)\
 do {\
 	const unsigned long offset = \
 	MLB_MAILBOX_IRQENABLE_CLR___REGSET_0_3_OFFSET +\
