@@ -1,9 +1,9 @@
 /*
  * MMURegAcM.h
  *
- * DSP-BIOS Bridge driver support functions for TI OMAP processors.
+ * Notify driver support for OMAP Processors.
  *
- * Copyright (C) 2007 Texas Instruments, Inc.
+ * Copyright (C) 2008-2009 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,7 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
 #ifndef _MMU_REG_ACM_H
 #define _MMU_REG_ACM_H
 
@@ -24,9 +23,9 @@
 #include "MMUAccInt.h"
 
 
-/*****************************************************************************
+/*
 * EXPORTED DEFINITIONS
-******************************************************************************
+*
 */
 
 #if defined(USE_LEVEL_1_MACROS)
@@ -36,9 +35,6 @@
 	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_SYSCONFIG_OFFSET))
 
 
-/********************************************************************/
-
-
 #define MMUMMU_SYSCONFIGWriteRegister32(base_address, value)\
 {\
 	const u32 offset = MMU_MMU_SYSCONFIG_OFFSET;\
@@ -46,13 +42,9 @@
 	WR_MEM_32_VOLATILE((base_address)+offset, newValue);\
 }
 
-
-
 #define MMUMMU_SYSCONFIGClockActivityGet32(var)\
-	((u32)(((var) & MMU_MMU_SYSCONFIG_ClockActivity_MASK) >> MMU_MMU_SYSCONFIG_ClockActivity_OFFSET))
-
-
-
+	((u32)(((var) & MMU_MMU_SYSCONFIG_ClockActivity_MASK)\
+	>> MMU_MMU_SYSCONFIG_ClockActivity_OFFSET))
 
 #define mmu_sisconf_auto_idle_set32(var, value)\
 	((((var) & ~(MMU_MMU_SYSCONFIG_AutoIdle_MASK)) |\
@@ -61,9 +53,6 @@
 
 #define MMUMMU_IRQSTATUSReadRegister32(base_address)\
 	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_IRQSTATUS_OFFSET))
-
-
-/********************************************************************/
 
 
 #define MMUMMU_IRQSTATUSWriteRegister32(base_address, value)\
@@ -78,9 +67,6 @@
 	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_IRQENABLE_OFFSET))
 
 
-/********************************************************************/
-
-
 #define MMUMMU_IRQENABLEWriteRegister32(base_address, value)\
 {\
 	const u32 offset = MMU_MMU_IRQENABLE_OFFSET;\
@@ -88,15 +74,10 @@
 	WR_MEM_32_VOLATILE((base_address)+offset, newValue);\
 }
 
-
-/********************************************************************/
-
 #define MMUMMU_IRQENABLETableWalkFaultSet32(var, value)\
 	((((var) & ~(MMU_MMU_IRQENABLE_TableWalkFault_MASK)) |\
 	(((value) << MMU_MMU_IRQENABLE_TableWalkFault_OFFSET) &\
 	MMU_MMU_IRQENABLE_TableWalkFault_MASK)))
-/********************************************************************/
-
 
 #define MMUMMU_IRQENABLETranslationFaultRead32(base_address)\
 	((((RD_MEM_32_VOLATILE(((base_address)+(MMU_MMU_IRQENABLE_OFFSET)))) &\
@@ -111,16 +92,10 @@
 	MMU_MMU_IRQENABLE_TranslationFault_MASK)))
 
 
-/********************************************************************/
-
-
 #define MMUMMU_IRQENABLETLBMissRead32(base_address)\
 	((((RD_MEM_32_VOLATILE(((base_address)+(MMU_MMU_IRQENABLE_OFFSET)))) &\
 	MMU_MMU_IRQENABLE_TLBMiss_MASK) >>\
 	MMU_MMU_IRQENABLE_TLBMiss_OFFSET))
-
-
-/********************************************************************/
 
 
 #define MMUMMU_IRQENABLETLBMissReadIsTrMissIntM32(base_address)\
@@ -130,9 +105,6 @@
 	MMU_MMU_IRQENABLE_TLBMiss_OFFSET)))
 
 
-/********************************************************************/
-
-
 #define MMUMMU_IRQENABLETLBMissReadIsTrMissGInt32(base_address)\
 	((MMUMMU_IRQENABLETLBMissTrMissGInt == (MMUMMU_IRQENABLETLBMissE)\
 	(((RD_MEM_32_VOLATILE(((base_address)+(MMU_MMU_IRQENABLE_OFFSET)))) &\
@@ -140,31 +112,20 @@
 	MMU_MMU_IRQENABLE_TLBMiss_OFFSET)))
 
 
-/********************************************************************/
-
-
 #define MMUMMU_IRQENABLETLBMissGet32(var)\
-	((u32)(((var) & MMU_MMU_IRQENABLE_TLBMiss_MASK) >> MMU_MMU_IRQENABLE_TLBMiss_OFFSET))
-
-
-/********************************************************************/
+	((u32)(((var) & MMU_MMU_IRQENABLE_TLBMiss_MASK)\
+	>> MMU_MMU_IRQENABLE_TLBMiss_OFFSET))
 
 
 #define MMUMMU_IRQENABLETLBMissIsTrMissIntM32(var)\
-	((MMUMMU_IRQENABLETLBMissTrMissIntM == (MMUMMU_IRQENABLETLBMissE)(((var) & MMU_MMU_IRQENABLE_TLBMiss_MASK) >>\
+	((MMUMMU_IRQENABLETLBMissTrMissIntM == \
+	(MMUMMU_IRQENABLETLBMissE)(((var) & MMU_MMU_IRQENABLE_TLBMiss_MASK) >>\
 	MMU_MMU_IRQENABLE_TLBMiss_OFFSET)))
-
-
-/********************************************************************/
-
 
 #define MMUMMU_IRQENABLETLBMissIsTrMissGInt32(var)\
-	((MMUMMU_IRQENABLETLBMissTrMissGInt == (MMUMMU_IRQENABLETLBMissE)(((var) & MMU_MMU_IRQENABLE_TLBMiss_MASK) >>\
+	((MMUMMU_IRQENABLETLBMissTrMissGInt ==\
+	(MMUMMU_IRQENABLETLBMissE)(((var) & MMU_MMU_IRQENABLE_TLBMiss_MASK) >>\
 	MMU_MMU_IRQENABLE_TLBMiss_OFFSET)))
-
-
-/********************************************************************/
-
 
 #define MMUMMU_IRQENABLETLBMissWrite32(base_address, value)\
 {\
@@ -179,9 +140,6 @@
 }
 
 
-/********************************************************************/
-
-
 #define MMUMMU_IRQENABLETLBMissWriteTrMissIntM32(base_address)\
 {\
 	const u32 offset = MMU_MMU_IRQENABLE_OFFSET;\
@@ -194,9 +152,6 @@
 }
 
 
-/********************************************************************/
-
-
 #define MMUMMU_IRQENABLETLBMissWriteTrMissGInt32(base_address)\
 {\
 	const u32 offset = MMU_MMU_IRQENABLE_OFFSET;\
@@ -207,9 +162,6 @@
 	data |= newValue;\
 	WR_MEM_32_VOLATILE(base_address+offset, data);\
 }
-
-
-/********************************************************************/
 
 
 #define MMUMMU_IRQENABLETLBMissSet32(var, value)\
@@ -261,31 +213,18 @@
 	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_FAULT_AD_OFFSET))
 
 
-/********************************************************************/
-
-
 #define MMUMMU_FAULT_ADFaultAddressRead32(base_address)\
 	((((RD_MEM_32_VOLATILE(((base_address)+(MMU_MMU_FAULT_AD_OFFSET)))) &\
 	MMU_MMU_FAULT_AD_FaultAddress_MASK) >>\
 	MMU_MMU_FAULT_AD_FaultAddress_OFFSET))
 
-
-/********************************************************************/
-
-
 #define MMUMMU_FAULT_ADFaultAddressGet32(var)\
-	((u32)(((var) & MMU_MMU_FAULT_AD_FaultAddress_MASK) >> MMU_MMU_FAULT_AD_FaultAddress_OFFSET))
-
-
-/********************************************************************/
+	((u32)(((var) & MMU_MMU_FAULT_AD_FaultAddress_MASK)\
+	>> MMU_MMU_FAULT_AD_FaultAddress_OFFSET))
 
 
 #define MMUMMU_TTBReadRegister32(base_address)\
 	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_TTB_OFFSET))
-
-
-/********************************************************************/
-
 
 #define MMUMMU_TTBWriteRegister32(base_address, value)\
 {\
@@ -294,24 +233,14 @@
 	WR_MEM_32_VOLATILE((base_address)+offset, newValue);\
 }
 
-
-/********************************************************************/
-
-
 #define MMUMMU_TTBTTBAddressRead32(base_address)\
 	((((RD_MEM_32_VOLATILE(((base_address)+(MMU_MMU_TTB_OFFSET)))) &\
 	MMU_MMU_TTB_TTBAddress_MASK) >>\
 	MMU_MMU_TTB_TTBAddress_OFFSET))
 
-
-/********************************************************************/
-
-
 #define MMUMMU_TTBTTBAddressGet32(var)\
-	((u32)(((var) & MMU_MMU_TTB_TTBAddress_MASK) >> MMU_MMU_TTB_TTBAddress_OFFSET))
-
-
-/********************************************************************/
+	((u32)(((var) & MMU_MMU_TTB_TTBAddress_MASK)\
+	>> MMU_MMU_TTB_TTBAddress_OFFSET))
 
 
 #define MMUMMU_TTBTTBAddressWrite32(base_address, value)\
@@ -326,25 +255,14 @@
 	WR_MEM_32_VOLATILE(base_address+offset, newValue);\
 }
 
-
-/********************************************************************/
-
-
 #define MMUMMU_TTBTTBAddressSet32(var, value)\
 	((((var) & ~(MMU_MMU_TTB_TTBAddress_MASK)) |\
 	(((value) << MMU_MMU_TTB_TTBAddress_OFFSET) &\
 	MMU_MMU_TTB_TTBAddress_MASK)))
 
 
-/********************************************************************/
-
-
 #define mmu_lckread_reg_32(base_address)\
 	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_LOCK_OFFSET))
-
-
-/********************************************************************/
-
 
 #define mmu_lck_write_reg32(base_address, value)\
 {\
@@ -354,23 +272,13 @@
 }
 
 
-/********************************************************************/
-
-
 #define MMUMMU_LOCKBaseValueRead32(base_address)\
 	((((RD_MEM_32_VOLATILE(((base_address)+(MMU_MMU_LOCK_OFFSET)))) &\
 	MMU_MMU_LOCK_BaseValue_MASK) >>\
 	MMU_MMU_LOCK_BaseValue_OFFSET))
-
-
-/********************************************************************/
-
-
 #define MMUMMU_LOCKBaseValueGet32(var)\
-	((u32)(((var) & MMU_MMU_LOCK_BaseValue_MASK) >> MMU_MMU_LOCK_BaseValue_OFFSET))
-
-
-/********************************************************************/
+	((u32)(((var) & MMU_MMU_LOCK_BaseValue_MASK)\
+	>> MMU_MMU_LOCK_BaseValue_OFFSET))
 
 
 #define MMUMMU_LOCKBaseValueWrite32(base_address, value)\
@@ -386,17 +294,10 @@
 }
 
 
-/********************************************************************/
-
-
 #define MMUMMU_LOCKBaseValueSet32(var, value)\
 	((((var) & ~(MMU_MMU_LOCK_BaseValue_MASK)) |\
 	(((value) << MMU_MMU_LOCK_BaseValue_OFFSET) &\
 	MMU_MMU_LOCK_BaseValue_MASK)))
-
-
-/********************************************************************/
-
 
 #define MMUMMU_LOCKCurrentVictimRead32(base_address)\
 	((((RD_MEM_32_VOLATILE(((base_address)+(MMU_MMU_LOCK_OFFSET)))) &\
@@ -404,14 +305,9 @@
 	MMU_MMU_LOCK_CurrentVictim_OFFSET))
 
 
-/********************************************************************/
-
-
 #define MMUMMU_LOCKCurrentVictimGet32(var)\
-	((u32)(((var) & MMU_MMU_LOCK_CurrentVictim_MASK) >> MMU_MMU_LOCK_CurrentVictim_OFFSET))
-
-
-/********************************************************************/
+	((u32)(((var) & MMU_MMU_LOCK_CurrentVictim_MASK)\
+	>> MMU_MMU_LOCK_CurrentVictim_OFFSET))
 
 
 #define mmu_lck_crnt_vctmwite32(base_address, value)\
@@ -427,24 +323,14 @@
 }
 
 
-/********************************************************************/
-
-
 #define MMUMMU_LOCKCurrentVictimSet32(var, value)\
 	((((var) & ~(MMU_MMU_LOCK_CurrentVictim_MASK)) |\
 	(((value) << MMU_MMU_LOCK_CurrentVictim_OFFSET) &\
 	MMU_MMU_LOCK_CurrentVictim_MASK)))
 
 
-/********************************************************************/
-
-
 #define MMUMMU_LD_TLBReadRegister32(base_address)\
 	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_LD_TLB_OFFSET))
-
-
-/********************************************************************/
-
 
 #define mmu_ld_tlbwrt_reg32(base_address, value)\
 {\
@@ -453,23 +339,14 @@
 	WR_MEM_32_VOLATILE((base_address)+offset, newValue);\
 }
 
-
-/********************************************************************/
-
-
 #define MMUMMU_LD_TLBLdTLBItemRead32(base_address)\
 	((((RD_MEM_32_VOLATILE(((base_address)+(MMU_MMU_LD_TLB_OFFSET)))) &\
 	MMU_MMU_LD_TLB_LdTLBItem_MASK) >>\
 	MMU_MMU_LD_TLB_LdTLBItem_OFFSET))
 
 
-
-
 #define MMUMMU_CAMReadRegister32(base_address)\
 	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_CAM_OFFSET))
-
-
-/********************************************************************/
 
 
 #define MMUMMU_CAMWriteRegister32(base_address, value)\
@@ -478,14 +355,9 @@
 	register u32 newValue = (value);\
 	WR_MEM_32_VOLATILE((base_address)+offset, newValue);\
 }
-/********************************************************************/
-
 
 #define MMUMMU_RAMReadRegister32(base_address)\
 	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_RAM_OFFSET))
-
-
-/********************************************************************/
 
 
 #define MMUMMU_RAMWriteRegister32(base_address, value)\
@@ -494,9 +366,6 @@
 	register u32 newValue = (value);\
 	WR_MEM_32_VOLATILE((base_address)+offset, newValue);\
 }
-
-
-/********************************************************************/
 
 #define MMUMMU_GFLUSHGlobalFlushWrite32(base_address, value)\
 {\
@@ -510,10 +379,6 @@
 	WR_MEM_32_VOLATILE(base_address+offset, newValue);\
 }
 
-
-/********************************************************************/
-
-
 #define MMUMMU_GFLUSHGlobalFlushWritenft_w32(base_address)\
 {\
 		const u32 offset = MMU_MMU_GFLUSH_OFFSET;\
@@ -524,10 +389,6 @@
 	data |= newValue;\
 	WR_MEM_32_VOLATILE(base_address+offset, data);\
 }
-
-
-/********************************************************************/
-
 
 #define MMUMMU_GFLUSHGlobalFlushWriteflush_w32(base_address)\
 {\
@@ -541,24 +402,13 @@
 }
 
 
-/********************************************************************/
-
-
 #define MMUMMU_GFLUSHGlobalFlushSet32(var, value)\
 	((((var) & ~(MMU_MMU_GFLUSH_GlobalFlush_MASK)) |\
 	(((value) << MMU_MMU_GFLUSH_GlobalFlush_OFFSET) &\
 	MMU_MMU_GFLUSH_GlobalFlush_MASK)))
 
-
-/********************************************************************/
-
-
 #define MMUMMU_FLUSH_ENTRYReadRegister32(base_address)\
 	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_FLUSH_ENTRY_OFFSET))
-
-
-/********************************************************************/
-
 
 
 #define MMUMMU_FLUSH_ENTRYWriteRegister32(base_address, value)\
@@ -571,8 +421,6 @@
 
 
 #endif	/* USE_LEVEL_1_MACROS */
-
-
 
 #endif /* _MMU_REG_ACM_H */
 /* EOF */
