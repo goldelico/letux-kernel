@@ -34,7 +34,7 @@
 #define IS_OUT_OF_BOUNDS(value, min, max)		\
 	(((value) < (min)) || ((value) > (max)))
 
-static int __isp_af_enable(struct isp_af_device *isp_af, int enable);
+static void __isp_af_enable(struct isp_af_device *isp_af, int enable);
 
 static void isp_af_set_address(struct isp_af_device *isp_af,
 			       unsigned long address)
@@ -140,13 +140,13 @@ static void isp_af_register_setup(struct isp_af_device *isp_af)
 	unsigned int base_coef_set1 = 0;
 	int index;
 
-	if (!isp_af->update || !isp_af->pm_state)
-		return;
-
-	if (isp_af_busy(isp_af))
+	if (!isp_af->update)
 		return;
 
 	__isp_af_enable(isp_af, 0);
+
+	if (isp_af_busy(isp_af))
+		goto out;
 
 	/* Configure Hardware Registers */
 	pax1 |= isp_af->config.paxel_config.width << AF_PAXW_SHIFT;
@@ -224,7 +224,10 @@ static void isp_af_register_setup(struct isp_af_device *isp_af)
 		       ~AF_PCR_MASK, pcr);
 
 	isp_af->update = 0;
-	__isp_af_enable(isp_af, 1);
+
+out:
+	if (isp_af->pm_state)
+		__isp_af_enable(isp_af, 1);
 }
 
 /* Update local parameters */
@@ -299,12 +302,13 @@ static void isp_af_update_params(struct isp_af_device *isp_af,
 		goto out;
 	}
 
+	isp_af->config.af_config = afconfig->af_config;
+
 out:
 	if (update) {
 		memcpy(&isp_af->config, afconfig, sizeof(*afconfig));
 		isp_af->update = 1;
 	}
-	isp_af->config.af_config = afconfig->af_config;
 }
 
 /* Function to perform hardware set up */
@@ -340,13 +344,18 @@ int isp_af_configure(struct isp_af_device *isp_af,
 	spin_lock_irqsave(isp_af->lock, irqflags);
 	isp_af_set_address(isp_af, buf->iommu_addr);
 	isp_af_update_params(isp_af, afconfig);
-	spin_unlock_irqrestore(isp_af->lock, irqflags);
 
-	/* Set configuration flag to indicate HW setup done */
-	if (isp_af->config.af_config)
-		isp_af_enable(isp_af, 1);
-	else
-		isp_af_enable(isp_af, 0);
+	if (!isp_af->pm_state)
+		isp_af_register_setup(isp_af);
+
+	if (isp_af->config.af_config) {
+		__isp_af_enable(isp_af, 1);
+		isp_af->pm_state = 1;
+	} else {
+		__isp_af_enable(isp_af, 0);
+		isp_af->pm_state = 0;
+	}
+	spin_unlock_irqrestore(isp_af->lock, irqflags);
 
 	/* Success */
 	return 0;
@@ -365,7 +374,7 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 
 	if (!isp_af->config.af_config) {
 		dev_err(isp_af->dev, "af: statistics requested while af engine"
-				     " not enabled\n");
+				     " is not configured\n");
 		return -EINVAL;
 	}
 
@@ -402,13 +411,12 @@ void isp_af_isr(struct isp_af_device *isp_af)
 	spin_lock_irqsave(isp_af->lock, irqflags);
 
 	isp_af_set_address(isp_af, buf->iommu_addr);
-	if (isp_af->update)
-		isp_af_register_setup(isp_af);
+	isp_af_register_setup(isp_af);
 
 	spin_unlock_irqrestore(isp_af->lock, irqflags);
 }
 
-static int __isp_af_enable(struct isp_af_device *isp_af, int enable)
+static void __isp_af_enable(struct isp_af_device *isp_af, int enable)
 {
 	unsigned int pcr;
 
@@ -421,29 +429,33 @@ static int __isp_af_enable(struct isp_af_device *isp_af, int enable)
 		pcr &= ~AF_EN;
 
 	isp_reg_writel(isp_af->dev, pcr, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
-	return 0;
 }
 
 /* Function to Enable/Disable AF Engine */
 int isp_af_enable(struct isp_af_device *isp_af, int enable)
 {
-	int rval;
-	int previous_state = isp_af->pm_state;
+	int rval = 0;
 	unsigned long irqflags;
 
 	spin_lock_irqsave(isp_af->lock, irqflags);
-	if (!isp_af->pm_state && enable)
-		isp_af->update = 1;
-
-	isp_af->pm_state = enable;
-
-	if (isp_af->update)
+	if (enable) {
+		if (!isp_af->config.af_config) {
+			rval = -EINVAL;
+			goto out;
+		}
+		if (isp_af->pm_state)
+			goto out;
 		isp_af_register_setup(isp_af);
+		__isp_af_enable(isp_af, 1);
+		isp_af->pm_state = 1;
+	} else {
+		if (!isp_af->pm_state)
+			goto out;
+		__isp_af_enable(isp_af, 0);
+		isp_af->pm_state = 0;
+	}
 
-	rval = __isp_af_enable(isp_af, enable);
-
-	if (!rval)
-		isp_af->pm_state = previous_state;
+out:
 	spin_unlock_irqrestore(isp_af->lock, irqflags);
 
 	return rval;
@@ -467,8 +479,8 @@ void isp_af_resume(struct isp_af_device *isp_af)
 
 	spin_lock_irqsave(isp_af->lock, irqflags);
 	if (isp_af->pm_state) {
-		isp_af->pm_state = 0;
-		__isp_af_enable(isp_af, 1);
+		isp_af->update = 1;
+		isp_af_register_setup(isp_af);
 	}
 	spin_unlock_irqrestore(isp_af->lock, irqflags);
 }
