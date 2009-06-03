@@ -841,8 +841,10 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 	irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 	isp_reg_writel(dev, irqstatus, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 
-	if (isp->running == ISP_STOPPING)
+	if (isp->running == ISP_STOPPING) {
+		isp_flush(dev);
 		return IRQ_HANDLED;
+	}
 
 	spin_lock_irqsave(&bufs->lock, flags);
 	wait_hs_vs = bufs->wait_hs_vs;
