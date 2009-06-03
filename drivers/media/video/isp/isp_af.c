@@ -376,6 +376,7 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 		if (IS_ERR(buf))
 			return PTR_ERR(buf);
 
+		afdata->xtrastats.ts = buf->ts;
 		afdata->config_counter = buf->config_counter;
 		afdata->frame_number = buf->frame_number;
 
