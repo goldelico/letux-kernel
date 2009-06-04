@@ -830,7 +830,6 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 	unsigned long flags;
 	u32 irqstatus = 0;
 	u32 sbl_pcr;
-	unsigned long irqflags = 0;
 	int wait_hs_vs = 0;
 
 	if (isp->running == ISP_STOPPED) {
@@ -846,13 +845,10 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		return IRQ_HANDLED;
 	}
 
-	spin_lock_irqsave(&bufs->lock, flags);
+	spin_lock_irqsave(&isp->lock, flags);
 	wait_hs_vs = bufs->wait_hs_vs;
 	if (irqstatus & HS_VS && bufs->wait_hs_vs)
 		bufs->wait_hs_vs--;
-	spin_unlock_irqrestore(&bufs->lock, flags);
-
-	spin_lock_irqsave(&isp->lock, irqflags);
 	/*
 	 * We need to wait for the first HS_VS interrupt from CCDC.
 	 * Otherwise our frame (and everything else) might be bad.
@@ -983,7 +979,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 	}
 
 out_ignore_buff:
-	spin_unlock_irqrestore(&isp->lock, irqflags);
+	spin_unlock_irqrestore(&isp->lock, flags);
 
 	isp_flush(dev);
 #if 1
@@ -1442,10 +1438,7 @@ static int isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	struct isp_buf *buf = NULL;
-	unsigned long flags;
 	int last;
-
-	spin_lock_irqsave(&bufs->lock, flags);
 
 	if (ISP_BUFS_IS_EMPTY(bufs))
 		goto out;
@@ -1491,8 +1484,6 @@ static int isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 				    % NUM_BUFS))->isp_addr);
 
 out:
-	spin_unlock_irqrestore(&bufs->lock, flags);
-
 	if (buf && buf->vb) {
 		/*
 		 * We want to dequeue a buffer from the video buffer
@@ -1530,7 +1521,7 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 
 	isp_vbq_sync(vb, DMA_TO_DEVICE);
 
-	spin_lock_irqsave(&bufs->lock, flags);
+	spin_lock_irqsave(&isp->lock, flags);
 
 	BUG_ON(ISP_BUFS_IS_FULL(bufs));
 
@@ -1551,7 +1542,7 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 
 	ISP_BUF_MARK_QUEUED(bufs);
 
-	spin_unlock_irqrestore(&bufs->lock, flags);
+	spin_unlock_irqrestore(&isp->lock, flags);
 
 	DPRINTK_ISPCTRL(KERN_ALERT "%s: queue %d vb %d, mmu %p\n", __func__,
 			(bufs->queue - 1 + NUM_BUFS) % NUM_BUFS, vb->i,
@@ -2422,7 +2413,6 @@ static int isp_probe(struct platform_device *pdev)
 
 	mutex_init(&(isp->isp_mutex));
 	spin_lock_init(&isp->lock);
-	spin_lock_init(&isp->bufs.lock);
 	spin_lock_init(&isp->h3a_lock);
 
 	isp_get();
