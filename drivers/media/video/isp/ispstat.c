@@ -144,6 +144,7 @@ struct ispstat_buffer *ispstat_buf_get(struct ispstat *stat,
 		dev_info(stat->dev,
 			 "failed copying %d bytes of stat data\n", rval);
 		buf = ERR_PTR(-EFAULT);
+		ispstat_buf_release(stat);
 	}
 
 	return buf;
@@ -185,6 +186,8 @@ int ispstat_bufs_alloc(struct ispstat *stat,
 
 	spin_lock_irqsave(&stat->lock, flags);
 
+	BUG_ON(stat->locked_buf != NULL);
+
 	/* Are the old buffers big enough? */
 	if (stat->buf_alloc_size >= size) {
 		for (i = 0; i < stat->nbufs; i++)
@@ -222,6 +225,7 @@ int ispstat_bufs_alloc(struct ispstat *stat,
 
 out:
 	stat->buf_size = size;
+	stat->active_buf = NULL;
 
 	return 0;
 }
