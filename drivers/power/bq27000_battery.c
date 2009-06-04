@@ -115,6 +115,7 @@ struct bq27000_bat_regs {
 	int		ai;
 	int		flags;
 	int		lmd;
+	int		nac;
 	int		rsoc;
 	int		temp;
 	int		tte;
@@ -271,6 +272,11 @@ use_bat:
 			return di->regs.lmd;
 		val->intval = (di->regs.lmd * 3570) / di->pdata->rsense_mohms;
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_NOW:
+		if (di->regs.nac < 0)
+			return di->regs.nac;
+		val->intval = (di->regs.nac * 3570) / di->pdata->rsense_mohms;
+		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		if (di->regs.temp < 0)
 			return di->regs.temp;
@@ -323,6 +329,7 @@ static void bq27000_battery_work(struct work_struct *work)
 		regs.ai    = hdq_read16(di, BQ27000_AI_L);
 		regs.flags = (di->pdata->hdq_read)(BQ27000_FLAGS);
 		regs.lmd   = hdq_read16(di, BQ27000_LMD_L);
+		regs.nac   = hdq_read16(di, BQ27000_NAC_L);
 		regs.rsoc  = (di->pdata->hdq_read)(BQ27000_RSOC);
 		regs.temp  = hdq_read16(di, BQ27000_TEMP_L);
 		regs.tte   = hdq_read16(di, BQ27000_TTE_L);
@@ -345,6 +352,7 @@ static enum power_supply_property bq27000_battery_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_CHARGE_NOW,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_PRESENT,
