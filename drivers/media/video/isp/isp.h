@@ -225,7 +225,6 @@ struct isp_buf {
 
 struct isp_bufs {
 	dma_addr_t isp_addr_capture[VIDEO_MAX_FRAME];
-	spinlock_t lock;	/* For handling current buffer */
 	/* queue full: (ispsg.queue + 1) % NUM_BUFS == ispsg.done
 	   queue empty: ispsg.queue == ispsg.done */
 	struct isp_buf buf[NUM_BUFS];
