@@ -284,6 +284,8 @@ int listmp_sharedmemory_destroy(void)
 	int status = 0;
 	int status1 = 0;
 	struct list_head *elem = NULL;
+	struct list_head *head = &listmp_sharedmemory_state.obj_list;
+	struct list_head *next;
 
 	gt_0trace(listmpshm_debugmask, GT_ENTER, "listmp_sharedmemory_destroy");
 
@@ -294,7 +296,9 @@ int listmp_sharedmemory_destroy(void)
 
 	/* Check if any listmp_sharedmemory instances have not been
 	 * deleted so far. If not, delete them. */
-	list_for_each(elem, &listmp_sharedmemory_state.obj_list) {
+	for (elem = (head)->next; elem != (head); elem = next) {
+		/* Retain the next pointer so it doesn't get overwritten */
+		next = elem->next;
 		if (((struct listmp_sharedmemory_obj *) elem)->owner
 			->proc_id == multiproc_get_id(NULL)) {
 			status1 = listmp_sharedmemory_delete(
@@ -1369,7 +1373,7 @@ listmp_sharedmemory_handle _listmp_sharedmemory_create(
 			obj->remote->proc_id = MULTIPROC_INVALIDID;
 			obj->owner->creator = false;
 			obj->owner->open_count = 0;
-			obj->owner->proc_id = multiproc_get_id("DSP");
+			obj->owner->proc_id = multiproc_get_id("SysM3");
 			/* TBD */
 			obj->top = handle;
 		}
