@@ -244,7 +244,6 @@ static inline int listmp_sharedmemory_ioctl_open(
 				(u32 *)cargs->args.open.params->shared_addr);
 	if (unlikely(params.shared_addr == NULL))
 		goto free_name;
-	cargs->args.open.listmp_handle = listmp_sharedmemory_create(&params);
 
 	status = listmp_sharedmemory_open(&listmp_handle, &params);
 	if (status)
@@ -309,6 +308,8 @@ static inline int listmp_sharedmemory_ioctl_get_head(
 	u32 *elem_srptr = SHAREDREGION_INVALIDSRPTR;
 	int index;
 
+	cargs->api_status = LISTMPSHAREDMEMORY_E_FAIL;
+
 	elem = listmp_sharedmemory_get_head(cargs->args.get_head.listmp_handle);
 	if (unlikely(elem == NULL))
 		goto exit;
@@ -337,6 +338,8 @@ static inline int listmp_sharedmemory_ioctl_get_tail(
 	u32 *elem_srptr = SHAREDREGION_INVALIDSRPTR;
 	int index;
 
+	cargs->api_status = LISTMPSHAREDMEMORY_E_FAIL;
+
 	elem = listmp_sharedmemory_get_tail(cargs->args.get_tail.listmp_handle);
 	if (unlikely(elem == NULL))
 		goto exit;
@@ -363,6 +366,8 @@ static inline int listmp_sharedmemory_ioctl_put_head(
 {
 	struct listmp_elem *elem;
 
+	cargs->api_status = LISTMPSHAREDMEMORY_E_FAIL;
+
 	elem = (struct listmp_elem *) sharedregion_get_ptr(
 					cargs->args.put_head.elem_srptr);
 	if (unlikely(elem == NULL))
@@ -383,6 +388,8 @@ static inline int listmp_sharedmemory_ioctl_put_tail(
 				struct listmp_sharedmemory_cmd_args *cargs)
 {
 	struct listmp_elem *elem;
+
+	cargs->api_status = LISTMPSHAREDMEMORY_E_FAIL;
 
 	elem = (struct listmp_elem *) sharedregion_get_ptr(
 					cargs->args.put_tail.elem_srptr);
