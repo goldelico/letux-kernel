@@ -8,6 +8,7 @@ if Sys_Link
 
 config MPU_SYSLINK_IPC
         tristate "OMAP IPC Module"
+		depends on MPU_BRIDGE_NOTIFY
         default m
         help
           IPC Module
@@ -27,7 +28,7 @@ config NOTIFY_DISPATCHER
 
 config  NOTIFY_DUCATI  
 	tristate "OMAP Notify Ducati Module"
-	depends on MPU_BRIDGE_NOTIFY
+	depends on MPU_BRIDGE_NOTIFY && SYSLINK_PROC4430
 	default m
 	help
  	   Notify Ducati Module 
