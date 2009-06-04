@@ -150,8 +150,6 @@ struct listmp_params {
 	/*!< Name of the object	*/
 	struct mutex *lock_handle;
 	/*!< Lock used for critical region management of the list */
-	void *heap_handle;
-	/*!< Handle of the heap to be used */
 	enum listmp_type list_type ;
 	/*!< Type of list */
 };

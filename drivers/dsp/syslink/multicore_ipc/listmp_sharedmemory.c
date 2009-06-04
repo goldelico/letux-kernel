@@ -125,7 +125,6 @@ struct listmp_sharedmemory_module_object listmp_sharedmemory_state = {
 			.default_inst_params.shared_addr_size = 0,
 			.default_inst_params.name = NULL,
 			.default_inst_params.lock_handle = NULL,
-			.default_inst_params.heap_handle = NULL,
 			.default_inst_params.list_type = listmp_type_SHARED};
 
 /*!
@@ -1343,9 +1342,6 @@ listmp_sharedmemory_handle _listmp_sharedmemory_create(
 		}
 
 	}
-
-	if (params->heap_handle != NULL)
-		obj->params.heap_handle = params->heap_handle;
 
 	/* Update processor information */
 	obj->owner = kmalloc(sizeof(struct listmp_proc_attrs),
