@@ -74,6 +74,7 @@
 #include <multiproc.h>
 #include "_listmp.h"
 #include <listmp.h>
+#include <gatepeterson.h>
 #include <listmp_sharedmemory.h>
 
 
@@ -989,7 +990,7 @@ int listmp_sharedmemory_put_tail(listmp_sharedmemory_handle listMPHandle,
 	struct listmp_elem *localPrevElem = NULL;
 	struct listmp_elem *sharedElem = NULL;
 	struct listmp_elem *sharedHead = NULL;
-	u32 key = 0;
+	s32 retval = 0;
 	u32 index;
 
 	gt_2trace(listmpshm_debugmask, GT_ENTER, "listmp_sharedmemory_put_tail",
@@ -1014,8 +1015,14 @@ int listmp_sharedmemory_put_tail(listmp_sharedmemory_handle listMPHandle,
 	sharedHead = (struct listmp_elem *)sharedregion_get_srptr
 				((void *)obj->listmp_elem,
 				obj->index);
-	if (obj->params.lock_handle != NULL)
-		key = mutex_lock_interruptible(obj->params.lock_handle);
+
+	if (obj->params.lock_handle != NULL) {
+		retval = gatepeterson_enter(obj->params.lock_handle);
+		if (retval < 0) {
+			status = -EINVAL;
+			goto exit;
+		}
+	}
 
 	/* Add the new elem into the list */
 	elem->next = sharedHead;
@@ -1025,7 +1032,7 @@ int listmp_sharedmemory_put_tail(listmp_sharedmemory_handle listMPHandle,
 	obj->listmp_elem->prev = sharedElem;
 
 	if (obj->params.lock_handle != NULL)
-		mutex_unlock(obj->params.lock_handle);
+		gatepeterson_leave(obj->params.lock_handle, 0);
 
 exit:
 	gt_1trace(listmpshm_debugmask, GT_LEAVE, "listmp_sharedmemory_put_tail",
