@@ -315,7 +315,7 @@ int sharedregion_get_index(void *addr)
 	bool found = false;
 	u32 i;
 	u16 myproc_id;
-	s32 retval  = 0;
+	s32 retval = 0;
 
 	if (WARN_ON(sharedregion_state.table == NULL)) {
 		retval = -ENODEV;
@@ -324,8 +324,10 @@ int sharedregion_get_index(void *addr)
 
 	myproc_id = multiproc_get_id(NULL);
 	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
-	if (retval)
+	if (retval) {
+		retval = -ENODEV;
 		goto exit;
+	}
 
 	table = sharedregion_state.table;
 	for (i = 0; i < sharedregion_state.cfg.max_regions; i++) {
@@ -345,9 +347,10 @@ int sharedregion_get_index(void *addr)
 		retval = -ENOENT; /* No entry found in the table */
 
 	mutex_unlock(sharedregion_state.gate_handle);
+	return retval;
 
 exit:
-	printk(KERN_ERR "sharedregion_get_index failed status:%x\n", retval);
+	printk(KERN_ERR "sharedregion_get_index failed index:%x\n", retval);
 	return retval;
 }
 EXPORT_SYMBOL(sharedregion_get_index);

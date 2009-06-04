@@ -392,7 +392,7 @@ obj_alloc_fail:
 handle_alloc_fail: /* Fall through */
 exit:
 	printk(KERN_ERR "gatepeterson_create failed status: %x\n", retval);
-	return NULL;;
+	return NULL;
 }
 EXPORT_SYMBOL(gatepeterson_create);
 
@@ -845,7 +845,7 @@ void gatepeterson_leave(void *gphandle, u32 flag)
 	BUG_ON(gatepeterson_state.is_init != true);
 	BUG_ON(gphandle == NULL);
 
-	handle = (struct gatepeterson_object *)gphandle;;
+	handle = (struct gatepeterson_object *)gphandle;
 	(void) flag;
 	obj = (struct gatepeterson_obj *)handle->obj;
 	obj->nested--;

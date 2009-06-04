@@ -190,7 +190,7 @@ static int gatepeterson_ioctl_open(struct gatepeterson_cmd_args *cargs)
 	if (cargs->args.open.name_len > 0) {
 		params.name = kmalloc(cargs->args.open.name_len + 1,
 							GFP_KERNEL);
-		if (params.name != NULL) {
+		if (params.name == NULL) {
 			status = -ENOMEM;
 			goto exit;
 		}
