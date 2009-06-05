@@ -103,10 +103,10 @@ static struct GT_Mask DMM_debugMask = { NULL, NULL };	/* GT trace variable */
 
 static u32 cRefs;		/* module reference count */
 struct MapPage {
-	u32   RegionSize:15;
-	u32   MappedSize:15;
-	u32   bReserved:1;
-	u32   bMapped:1;
+	u64   RegionSize:31;
+	u64   MappedSize:31;
+	u64   bReserved:1;
+	u64   bMapped:1;
 };
 
 /*  Create the free list */
