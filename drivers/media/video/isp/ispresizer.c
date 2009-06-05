@@ -119,14 +119,12 @@ static struct isp_reg isprsz_reg_list[] = {
  **/
 void ispresizer_applycrop(struct isp_res_device *isp_res)
 {
+	struct isp_device *isp =
+		container_of(isp_res, struct isp_device, isp_res);
 	if (!isp_res->applycrop)
 		return;
 
-	ispresizer_config_size(isp_res,
-			       isp_res->croprect.width,
-			       isp_res->croprect.height,
-			       isp_res->outputwidth,
-			       isp_res->outputheight);
+	ispresizer_s_pipeline(isp_res, &isp->pipeline);
 
 	isp_res->applycrop = 0;
 
@@ -144,12 +142,13 @@ void ispresizer_config_shadow_registers(struct isp_res_device *isp_res)
 }
 EXPORT_SYMBOL(ispresizer_config_shadow_registers);
 
-void ispresizer_config_crop(struct isp_res_device *isp_res,
-			    struct v4l2_crop *a)
+int ispresizer_config_crop(struct isp_res_device *isp_res,
+			   struct v4l2_crop *a)
 {
 	struct isp_device *isp =
 		container_of(isp_res, struct isp_device, isp_res);
 	struct v4l2_crop *crop = a;
+	int rval;
 
 	if (crop->c.left < 0)
 		crop->c.left = 0;
@@ -160,39 +159,38 @@ void ispresizer_config_crop(struct isp_res_device *isp_res,
 	if (crop->c.height < 0)
 		crop->c.height = 0;
 
-	if (crop->c.left >= isp->module.preview_output_width)
-		crop->c.left = isp->module.preview_output_width - 1;
-	if (crop->c.top >= isp->module.preview_output_height)
-		crop->c.top = isp->module.preview_output_height - 1;
+	if (crop->c.left >= isp->pipeline.prv_out_w_img)
+		crop->c.left = isp->pipeline.prv_out_w_img - 1;
+	if (crop->c.top >= isp->pipeline.rsz_out_h)
+		crop->c.top = isp->pipeline.rsz_out_h - 1;
 
 	/* Make sure the crop rectangle is never smaller than width
 	 * and height divided by 4, since the resizer cannot upscale it
-	 * by more than 4x.
-	 */
-	if (crop->c.width < (isp->module.resizer_output_width + 3) / 4)
-		crop->c.width = (isp->module.resizer_output_width + 3) / 4;
-	if (crop->c.height < (isp->module.resizer_output_height + 3) / 4)
-		crop->c.height = (isp->module.resizer_output_height + 3) / 4;
+	 * by more than 4x. */
 
-	if (crop->c.left + crop->c.width > isp->module.preview_output_width)
-		crop->c.width = isp->module.preview_output_width - crop->c.left;
-	if (crop->c.top + crop->c.height > isp->module.preview_output_height)
+	if (crop->c.width < (isp->pipeline.rsz_out_w + 3) / 4)
+		crop->c.width = (isp->pipeline.rsz_out_w + 3) / 4;
+	if (crop->c.height < (isp->pipeline.rsz_out_h + 3) / 4)
+		crop->c.height = (isp->pipeline.rsz_out_h + 3) / 4;
+
+	if (crop->c.left + crop->c.width > isp->pipeline.prv_out_w_img)
+		crop->c.width = isp->pipeline.prv_out_w_img - crop->c.left;
+	if (crop->c.top + crop->c.height > isp->pipeline.rsz_out_h)
 		crop->c.height =
-			isp->module.preview_output_height - crop->c.top;
+			isp->pipeline.prv_out_h - crop->c.top;
 
-	isp_res->croprect = crop->c;
+	isp->pipeline.rsz_crop = crop->c;
 
-	ispresizer_try_size(isp_res,
-			    &isp_res->croprect.width, &isp_res->croprect.height,
-			    &isp->module.resizer_output_width,
-			    &isp->module.resizer_output_height);
+	rval = ispresizer_try_pipeline(isp_res, &isp->pipeline);
+	if (rval)
+		return rval;
 
 	isp_res->applycrop = 1;
 
-	if (isp->module.running != ISP_RUNNING)
+	if (isp->running == ISP_STOPPED)
 		ispresizer_applycrop(isp_res);
 
-	return;
+	return 0;
 }
 EXPORT_SYMBOL(ispresizer_config_crop);
 
@@ -255,12 +253,13 @@ EXPORT_SYMBOL(ispresizer_free);
  * Returns 0 if successful, or -EINVAL if an unsupported input was requested.
  **/
 int ispresizer_config_datapath(struct isp_res_device *isp_res,
-			       enum ispresizer_input input)
+			       struct isp_pipeline *pipe)
 {
 	u32 cnt = 0;
+
 	DPRINTK_ISPRESZ("ispresizer_config_datapath()+\n");
-	isp_res->resinput = input;
-	switch (input) {
+
+	switch (pipe->rsz_in) {
 	case RSZ_OTFLY_YUV:
 		cnt &= ~ISPRSZ_CNT_INPTYP;
 		cnt &= ~ISPRSZ_CNT_INPSRC;
@@ -295,7 +294,8 @@ EXPORT_SYMBOL(ispresizer_config_datapath);
  * @input_h: input height for the resizer in number of lines
  * @output_w: output width from the resizer in number of pixels per line
  *            resizer when writing to memory needs this to be multiple of 16.
- * @output_h: output height for the resizer in number of lines, must be even.
+ * @pipe->rsz_out_h: output height for the resizer in number of lines, must be
+ *		     even.
  *
  * Calculates the horizontal and vertical resize ratio, number of pixels to
  * be cropped in the resizer module and checks the validity of various
@@ -324,32 +324,28 @@ EXPORT_SYMBOL(ispresizer_config_datapath);
  * Fills up the output/input widht/height, horizontal/vertical resize ratio,
  * horizontal/vertical crop variables in the isp_res structure.
  **/
-int ispresizer_try_size(struct isp_res_device *isp_res, u32 *input_width,
-			u32 *input_height, u32 *output_w, u32 *output_h)
+int ispresizer_try_pipeline(struct isp_res_device *isp_res,
+			    struct isp_pipeline *pipe)
 {
 	u32 rsz, rsz_7, rsz_4;
 	u32 sph;
-	u32 input_w, input_h;
 	int max_in_otf, max_out_7tap;
 
-	input_w = *input_width;
-	input_h = *input_height;
-
-	if (input_w < 32 || input_h < 32) {
+	if (pipe->rsz_crop.width < 32 || pipe->rsz_crop.height < 32) {
 		DPRINTK_ISPCCDC("ISP_ERR: RESIZER cannot handle input width"
 				" less than 32 pixels or height less than"
 				" 32\n");
 		return -EINVAL;
 	}
 
-	if (input_h > MAX_IN_HEIGHT)
+	if (pipe->rsz_crop.height > MAX_IN_HEIGHT)
 		return -EINVAL;
 
-	if (*output_w < 16)
-		*output_w = 16;
+	if (pipe->rsz_out_w < 16)
+		pipe->rsz_out_w = 16;
 
-	if (*output_h < 2)
-		*output_h = 2;
+	if (pipe->rsz_out_h < 2)
+		pipe->rsz_out_h = 2;
 
 	if (omap_rev() == OMAP3430_REV_ES1_0) {
 		max_in_otf = MAX_IN_WIDTH_ONTHEFLY_MODE;
@@ -359,113 +355,119 @@ int ispresizer_try_size(struct isp_res_device *isp_res, u32 *input_width,
 		max_out_7tap = MAX_7TAP_VRSZ_OUTWIDTH_ES2;
 	}
 
-	if (isp_res->resinput == RSZ_OTFLY_YUV) {
-		if (input_w > max_in_otf)
+	if (pipe->rsz_in == RSZ_OTFLY_YUV) {
+		if (pipe->rsz_crop.width > max_in_otf)
 			return -EINVAL;
 	} else {
-		if (input_w > MAX_IN_WIDTH_MEMORY_MODE)
+		if (pipe->rsz_crop.width > MAX_IN_WIDTH_MEMORY_MODE)
 			return -EINVAL;
 	}
 
-	*output_h &= 0xfffffffe;
+	pipe->rsz_out_h &= 0xfffffffe;
 	sph = DEFAULTSTPHASE;
 
-	rsz_7 = ((input_h - 7) * 256) / (*output_h - 1);
-	rsz_4 = ((input_h - 4) * 256) / (*output_h - 1);
+	rsz_7 = ((pipe->rsz_crop.height - 7) * 256) / (pipe->rsz_out_h - 1);
+	rsz_4 = ((pipe->rsz_crop.height - 4) * 256) / (pipe->rsz_out_h - 1);
 
-	rsz = (input_h * 256) / *output_h;
+	rsz = (pipe->rsz_crop.height * 256) / pipe->rsz_out_h;
 
 	if (rsz <= MID_RESIZE_VALUE) {
 		rsz = rsz_4;
 		if (rsz < MINIMUM_RESIZE_VALUE) {
 			rsz = MINIMUM_RESIZE_VALUE;
-			*output_h = (((input_h - 4) * 256) / rsz) + 1;
+			pipe->rsz_out_h =
+				(((pipe->rsz_crop.height - 4) * 256) / rsz) + 1;
 			dev_dbg(isp_res->dev,
-				"resizer: %s: using output_h %d instead\n",
-				__func__, *output_h);
+				"resizer: %s: using height %d instead\n",
+				__func__, pipe->rsz_out_h);
 		}
 	} else {
 		rsz = rsz_7;
-		if (*output_w > max_out_7tap)
-			*output_w = max_out_7tap;
+		if (pipe->rsz_out_w > max_out_7tap)
+			pipe->rsz_out_w = max_out_7tap;
 		if (rsz > MAXIMUM_RESIZE_VALUE) {
 			rsz = MAXIMUM_RESIZE_VALUE;
-			*output_h = (((input_h - 7) * 256) / rsz) + 1;
+			pipe->rsz_out_h =
+				(((pipe->rsz_crop.height - 7) * 256) / rsz) + 1;
 			dev_dbg(isp_res->dev,
-				"resizer: %s: using output_h %d instead\n",
-				__func__, *output_h);
+				"resizer: %s: using height %d instead\n",
+				__func__, pipe->rsz_out_h);
 		}
 	}
 
 	if (rsz > MID_RESIZE_VALUE) {
-		input_h =
-			(((64 * sph) + ((*output_h - 1) * rsz) + 32) / 256) + 7;
+		pipe->rsz_crop.height =
+			(((64 * sph) + ((pipe->rsz_out_h - 1) * rsz) + 32)
+			 / 256) + 7;
 	} else {
-		input_h =
-			(((32 * sph) + ((*output_h - 1) * rsz) + 16) / 256) + 4;
+		pipe->rsz_crop.height =
+			(((32 * sph) + ((pipe->rsz_out_h - 1) * rsz) + 16)
+			 / 256) + 4;
 	}
 
-	isp_res->outputheight = *output_h;
 	isp_res->v_resz = rsz;
-	/* FIXME: input_h here is the real input height! */
+	/* FIXME: pipe->rsz_crop.height here is the real input height! */
 	isp_res->v_startphase = sph;
 
-	*output_w &= 0xfffffff0;
+	pipe->rsz_out_w &= 0xfffffff0;
 	sph = DEFAULTSTPHASE;
 
-	rsz_7 = ((input_w - 7) * 256) / (*output_w - 1);
-	rsz_4 = ((input_w - 4) * 256) / (*output_w - 1);
+	rsz_7 = ((pipe->rsz_crop.width - 7) * 256) / (pipe->rsz_out_w - 1);
+	rsz_4 = ((pipe->rsz_crop.width - 4) * 256) / (pipe->rsz_out_w - 1);
 
-	rsz = (input_w * 256) / *output_w;
+	rsz = (pipe->rsz_crop.width * 256) / pipe->rsz_out_w;
 	if (rsz > MID_RESIZE_VALUE) {
 		rsz = rsz_7;
 		if (rsz > MAXIMUM_RESIZE_VALUE) {
 			rsz = MAXIMUM_RESIZE_VALUE;
-			*output_w = (((input_w - 7) * 256) / rsz) + 1;
-			*output_w = (*output_w + 0xf) & 0xfffffff0;
+			pipe->rsz_out_w =
+				(((pipe->rsz_crop.width - 7) * 256) / rsz) + 1;
+			pipe->rsz_out_w = (pipe->rsz_out_w + 0xf) & 0xfffffff0;
 			dev_dbg(isp_res->dev,
-				"resizer: %s: using output_w %d instead\n",
-				__func__, *output_w);
+				"resizer: %s: using width %d instead\n",
+				__func__, pipe->rsz_out_w);
 		}
 	} else {
 		rsz = rsz_4;
 		if (rsz < MINIMUM_RESIZE_VALUE) {
 			rsz = MINIMUM_RESIZE_VALUE;
-			*output_w = (((input_w - 4) * 256) / rsz) + 1;
-			*output_w = (*output_w + 0xf) & 0xfffffff0;
+			pipe->rsz_out_w =
+				(((pipe->rsz_crop.width - 4) * 256) / rsz) + 1;
+			pipe->rsz_out_w = (pipe->rsz_out_w + 0xf) & 0xfffffff0;
 			dev_dbg(isp_res->dev,
-				"resizer: %s: using output_w %d instead\n",
-				__func__, *output_w);
+				"resizer: %s: using width %d instead\n",
+				__func__, pipe->rsz_out_w);
 		}
 	}
 
 	/* Recalculate input based on TRM equations */
 	if (rsz > MID_RESIZE_VALUE) {
-		input_w =
-			(((64 * sph) + ((*output_w - 1) * rsz) + 32) / 256) + 7;
+		pipe->rsz_crop.width =
+			(((64 * sph) + ((pipe->rsz_out_w - 1) * rsz) + 32)
+			 / 256) + 7;
 	} else {
-		input_w =
-			(((32 * sph) + ((*output_w - 1) * rsz) + 16) / 256) + 7;
+		pipe->rsz_crop.width =
+			(((32 * sph) + ((pipe->rsz_out_w - 1) * rsz) + 16)
+			 / 256) + 7;
 	}
 
-	isp_res->outputwidth = *output_w;
 	isp_res->h_resz = rsz;
-	/* FIXME: input_w here is the real input width! */
+	/* FIXME: pipe->rsz_crop.width here is the real input width! */
 	isp_res->h_startphase = sph;
 
-	*input_height = input_h;
-	*input_width = input_w;
+	pipe->rsz_out_w_img = pipe->rsz_out_w;
 
 	return 0;
 }
-EXPORT_SYMBOL(ispresizer_try_size);
+EXPORT_SYMBOL(ispresizer_try_pipeline);
 
 /**
  * ispresizer_config_size - Configures input and output image size.
- * @input_w: input width for the resizer in number of pixels per line.
- * @input_h: input height for the resizer in number of lines.
- * @output_w: output width from the resizer in number of pixels per line.
- * @output_h: output height for the resizer in number of lines.
+ * @pipe->rsz_crop.width: input width for the resizer in number of pixels per
+ *			  line.
+ * @pipe->rsz_crop.height: input height for the resizer in number of lines.
+ * @pipe->rsz_out_w: output width from the resizer in number of pixels per line.
+ * @pipe->rsz_out_h: output height for the resizer in number of lines.
  *
  * Configures the appropriate values stored in the isp_res structure in the
  * resizer registers.
@@ -473,40 +475,20 @@ EXPORT_SYMBOL(ispresizer_try_size);
  * Returns 0 if successful, or -EINVAL if passed values haven't been verified
  * with ispresizer_try_size() previously.
  **/
-int ispresizer_config_size(struct isp_res_device *isp_res, u32 input_w,
-			   u32 input_h, u32 output_w, u32 output_h)
+int ispresizer_s_pipeline(struct isp_res_device *isp_res,
+			  struct isp_pipeline *pipe)
 {
 	int i, j;
 	u32 res;
-	DPRINTK_ISPRESZ("ispresizer_config_size()+, "
-			" output_w = %d, output_h"
-			" = %d,hresz = %d,vresz = %d,"
-			" hstph = %d, vstph = %d\n",
-			isp_res->outputwidth,
-			isp_res->outputheight,
-			isp_res->h_resz,
-			isp_res->v_resz,
-			isp_res->h_startphase,
-			isp_res->v_startphase);
-	if ((output_w != isp_res->outputwidth)
-	    || (output_h != isp_res->outputheight)) {
-		dev_err(isp_res->dev,
-			"resizer: Output parameters passed do not match the"
-			" values calculated by the trysize passed w %d, h %d"
-			" \n", output_w , output_h);
-		return -EINVAL;
-	}
+	int rval;
 
-	res = ispresizer_try_size(
-		isp_res, &input_w, &input_h, &output_w, &output_h);
-	if (res)
-		return res;
+	rval = ispresizer_config_datapath(isp_res, pipe);
+	if (rval)
+		return rval;
 
 	/* Set Resizer input address and offset adderss */
 	ispresizer_config_inlineoffset(isp_res,
-				       isp_reg_readl(isp_res->dev,
-						     OMAP3_ISP_IOMEM_PREV,
-						     ISPPRV_WADD_OFFSET));
+				       pipe->prv_out_w * ISP_BYTES_PER_PIXEL);
 
 	res = isp_reg_readl(isp_res->dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT) &
 		~(ISPRSZ_CNT_HSTPH_MASK | ISPRSZ_CNT_VSTPH_MASK);
@@ -521,21 +503,22 @@ int ispresizer_config_size(struct isp_res_device *isp_res, u32 input_w,
 			      isp_res->tmp_buf + isp_get_buf_offset(isp_res->dev));
 
 	isp_reg_writel(isp_res->dev,
-		       (isp_res->croprect.width << ISPRSZ_IN_SIZE_HORZ_SHIFT) |
-		       (isp_res->croprect.height <<
+		       (pipe->rsz_crop.width << ISPRSZ_IN_SIZE_HORZ_SHIFT) |
+		       (pipe->rsz_crop.height <<
 			ISPRSZ_IN_SIZE_VERT_SHIFT),
 		       OMAP3_ISP_IOMEM_RESZ,
 		       ISPRSZ_IN_SIZE);
 	if (!isp_res->algo) {
 		isp_reg_writel(isp_res->dev,
-			       (output_w << ISPRSZ_OUT_SIZE_HORZ_SHIFT) |
-			       (output_h << ISPRSZ_OUT_SIZE_VERT_SHIFT),
+			       (pipe->rsz_out_w << ISPRSZ_OUT_SIZE_HORZ_SHIFT) |
+			       (pipe->rsz_out_h << ISPRSZ_OUT_SIZE_VERT_SHIFT),
 			       OMAP3_ISP_IOMEM_RESZ,
 			       ISPRSZ_OUT_SIZE);
 	} else {
 		isp_reg_writel(isp_res->dev,
-			       ((output_w - 4) << ISPRSZ_OUT_SIZE_HORZ_SHIFT) |
-			       (output_h << ISPRSZ_OUT_SIZE_VERT_SHIFT),
+			       ((pipe->rsz_out_w - 4)
+				<< ISPRSZ_OUT_SIZE_HORZ_SHIFT) |
+			       (pipe->rsz_out_h << ISPRSZ_OUT_SIZE_VERT_SHIFT),
 			       OMAP3_ISP_IOMEM_RESZ,
 			       ISPRSZ_OUT_SIZE);
 	}
@@ -623,11 +606,17 @@ int ispresizer_config_size(struct isp_res_device *isp_res, u32 input_w,
 		}
 	}
 
-	ispresizer_config_outlineoffset(isp_res, output_w*2);
+	ispresizer_config_outlineoffset(isp_res, pipe->rsz_out_w*2);
+
+	if (pipe->pix.pixelformat == V4L2_PIX_FMT_UYVY)
+		ispresizer_config_ycpos(isp_res, 0);
+	else
+		ispresizer_config_ycpos(isp_res, 1);
+
 	DPRINTK_ISPRESZ("ispresizer_config_size()-\n");
 	return 0;
 }
-EXPORT_SYMBOL(ispresizer_config_size);
+EXPORT_SYMBOL(ispresizer_s_pipeline);
 
 /**
  * ispresizer_enable - Enables the resizer module.
@@ -784,6 +773,9 @@ EXPORT_SYMBOL(ispresizer_config_inlineoffset);
  **/
 int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr)
 {
+	struct isp_device *isp =
+		container_of(isp_ccdc, struct isp_device, isp_ccdc);
+
 	DPRINTK_ISPRESZ("ispresizer_set_inaddr()+\n");
 
 	if (addr % 32)
@@ -792,12 +784,12 @@ int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr)
 	/* FIXME: is this the right place to put crop-related junk? */
 	isp_reg_writel(isp_res->dev,
 		       isp_res->tmp_buf + ISP_BYTES_PER_PIXEL
-		       * ((isp_res->croprect.left & ~0xf) +
-			  isp->module.preview_output_width
-			  * isp_res->croprect.top),
+		       * ((isp->pipeline.rsz_crop.left & ~0xf) +
+			  isp->pipeline.prv_out_w
+			  * isp->pipeline.rsz_crop.top),
 		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
 	/* Set the fractional part of the starting address. Needed for crop */
-	isp_reg_writel(isp_res->dev, ((isp_res->croprect.left & 0xf) <<
+	isp_reg_writel(isp_res->dev, ((isp->pipeline.rsz_crop.left & 0xf) <<
 		       ISPRSZ_IN_START_HORZ_ST_SHIFT) |
 		       (0x00 << ISPRSZ_IN_START_VERT_ST_SHIFT),
 		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START);

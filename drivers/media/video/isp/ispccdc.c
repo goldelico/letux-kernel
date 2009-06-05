@@ -77,7 +77,8 @@ static struct isp_reg ispccdc_reg_list[] = {
 	{0, ISP_TOK_TERM, 0}
 };
 
-static void ispccdc_setup_lsc(struct isp_ccdc_device *isp_ccdc);
+static void ispccdc_setup_lsc(struct isp_ccdc_device *isp_ccdc,
+			      struct isp_pipeline *pipe);
 
 static int ispccdc_validate_config_lsc(struct isp_ccdc_device *isp_ccdc,
 				       struct ispccdc_lsc_config *lsc_cfg);
@@ -262,8 +263,8 @@ int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
 	}
 
 	if (isp_ccdc->update_lsc_table || isp_ccdc->update_lsc_config) {
-		if (isp->module.running != ISP_RUNNING)
-			ispccdc_setup_lsc(isp_ccdc);
+		if (isp->running != ISP_RUNNING)
+			ispccdc_setup_lsc(isp_ccdc, &isp->pipeline);
 		else
 			isp_ccdc->lsc_defer_setup = 1;
 	}
@@ -372,6 +373,8 @@ EXPORT_SYMBOL(ispccdc_free);
 static int ispccdc_validate_config_lsc(struct isp_ccdc_device *isp_ccdc,
 				       struct ispccdc_lsc_config *lsc_cfg)
 {
+	struct isp_device *isp =
+		container_of(isp_ccdc, struct isp_device, isp_ccdc);
 	unsigned int paxel_width, paxel_height;
 	unsigned int paxel_shift_x, paxel_shift_y;
 	unsigned int min_width, min_height, min_size;
@@ -398,8 +401,8 @@ static int ispccdc_validate_config_lsc(struct isp_ccdc_device *isp_ccdc,
 		return -EINVAL;
 	}
 
-	input_width = isp_ccdc->ccdcin_w;
-	input_height = isp_ccdc->ccdcin_h;
+	input_width = isp->pipeline.ccdc_in_w;
+	input_height = isp->pipeline.ccdc_in_h;
 
 	/* Calculate minimum bytesize for validation */
 	paxel_width = 1 << paxel_shift_x;
@@ -488,13 +491,14 @@ void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
  * and program to CCDC.  This function must be called from process context
  * before streamon when ISP is not yet running.
  */
-static void ispccdc_setup_lsc(struct isp_ccdc_device *isp_ccdc)
+static void ispccdc_setup_lsc(struct isp_ccdc_device *isp_ccdc,
+			      struct isp_pipeline *pipe)
 {
 	struct isp_device *isp =
 		container_of(isp_ccdc, struct isp_device, isp_ccdc);
 
 	ispccdc_enable_lsc(isp_ccdc, 0);	/* Disable LSC */
-	if (isp_ccdc->ccdc_inpfmt == CCDC_RAW &&
+	if (pipe->ccdc_in == CCDC_RAW &&
 	    isp_ccdc->lsc_request_enable) {
 		/* LSC is requested to be enabled, so configure it */
 		if (isp_ccdc->update_lsc_table) {
@@ -563,8 +567,8 @@ void ispccdc_config_crop(struct isp_ccdc_device *isp_ccdc, u32 left, u32 top,
  * Returns 0 if successful, or -EINVAL if wrong I/O combination or wrong input
  * or output values.
  **/
-int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
-			    enum ccdc_input input, enum ccdc_output output)
+static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
+				   struct isp_pipeline *pipe)
 {
 	u32 syn_mode = 0;
 	struct ispccdc_vp vpcfg;
@@ -588,17 +592,10 @@ int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 		ISPCCDC_COLPTN_B_Mg << ISPCCDC_COLPTN_CP3PLC2_SHIFT |
 		ISPCCDC_COLPTN_Gb_G << ISPCCDC_COLPTN_CP3PLC3_SHIFT;
 
-	/* CCDC does not convert the image format */
-	if ((input == CCDC_RAW || input == CCDC_OTHERS) &&
-	    output == CCDC_YUV_RSZ) {
-		DPRINTK_ISPCCDC("ISP_ERR: Wrong CCDC I/O Combination\n");
-		return -EINVAL;
-	}
-
 	syn_mode = isp_reg_readl(isp_ccdc->dev, OMAP3_ISP_IOMEM_CCDC,
 				 ISPCCDC_SYN_MODE);
 
-	switch (output) {
+	switch (pipe->ccdc_out) {
 	case CCDC_YUV_RSZ:
 		syn_mode |= ISPCCDC_SYN_MODE_SDR2RSZ;
 		syn_mode &= ~ISPCCDC_SYN_MODE_WEN;
@@ -655,7 +652,7 @@ int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 	isp_reg_writel(isp_ccdc->dev, syn_mode, OMAP3_ISP_IOMEM_CCDC,
 		       ISPCCDC_SYN_MODE);
 
-	switch (input) {
+	switch (pipe->ccdc_in) {
 	case CCDC_RAW:
 		syncif.ccdc_mastermode = 0;
 		syncif.datapol = 0;
@@ -697,10 +694,8 @@ int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 		return -EINVAL;
 	}
 
-	isp_ccdc->ccdc_inpfmt = input;
-	isp_ccdc->ccdc_outfmt = output;
 	ispccdc_config_crop(isp_ccdc, 0, 0, 0, 0);
-	ispccdc_print_status(isp_ccdc);
+	ispccdc_print_status(isp_ccdc, pipe);
 	isp_print_status(isp_ccdc->dev);
 	return 0;
 }
@@ -1165,26 +1160,29 @@ skip:
  *
  * Returns 0 if successful, or -EINVAL if the input width is less than 2 pixels
  **/
-int ispccdc_try_size(struct isp_ccdc_device *isp_ccdc, u32 input_w, u32 input_h,
-		     u32 *output_w, u32 *output_h)
+int ispccdc_try_pipeline(struct isp_ccdc_device *isp_ccdc,
+			 struct isp_pipeline *pipe)
 {
-	if (input_w < 32 || input_h < 32) {
+	struct isp_device *isp =
+		container_of(isp_ccdc, struct isp_device, isp_ccdc);
+
+	if (pipe->ccdc_in_w < 32 || pipe->ccdc_in_h < 32) {
 		DPRINTK_ISPCCDC("ISP_ERR: CCDC cannot handle input width less"
 				" than 32 pixels or height less than 32\n");
 		return -EINVAL;
 	}
 
-	if (isp_ccdc->crop_w)
-		*output_w = isp_ccdc->crop_w;
-	else
-		*output_w = input_w;
+	/* CCDC does not convert the image format */
+	if ((pipe->ccdc_in == CCDC_RAW || pipe->ccdc_in == CCDC_OTHERS)
+	    && pipe->ccdc_out == CCDC_YUV_RSZ) {
+		dev_info(isp->dev, "wrong CCDC I/O Combination\n");
+		return -EINVAL;
+	}
 
-	if (isp_ccdc->crop_h)
-		*output_h = isp_ccdc->crop_h;
-	else
-		*output_h = input_h;
+	pipe->ccdc_out_w = pipe->ccdc_in_w;
+	pipe->ccdc_out_h = pipe->ccdc_in_h;
 
-	if (isp_ccdc->ccdc_inpfmt == CCDC_RAW) {
+	if (pipe->ccdc_in == CCDC_RAW) {
 		switch (isp_ccdc->raw_fmt_in) {
 		case ISPCCDC_INPUT_FMT_GR_BG:
 			isp_ccdc->ccdcin_woffset = 1;
@@ -1206,37 +1204,21 @@ int ispccdc_try_size(struct isp_ccdc_device *isp_ccdc, u32 input_w, u32 input_h,
 	}
 
 	if (!isp_ccdc->refmt_en
-	    && isp_ccdc->ccdc_outfmt != CCDC_OTHERS_MEM)
-		*output_h -= 1;
+	    && pipe->ccdc_out != CCDC_OTHERS_MEM)
+		pipe->ccdc_out_h -= 1;
 
-	if (isp_ccdc->ccdc_outfmt == CCDC_OTHERS_VP) {
-		*output_h -= isp_ccdc->ccdcin_hoffset;
-		*output_w -= isp_ccdc->ccdcin_woffset;
+	if (pipe->ccdc_out == CCDC_OTHERS_VP) {
+		pipe->ccdc_out_h -= isp_ccdc->ccdcin_hoffset;
+		pipe->ccdc_out_w -= isp_ccdc->ccdcin_woffset;
 	}
 
-	if (isp_ccdc->ccdc_outfmt == CCDC_OTHERS_MEM
-	    || isp_ccdc->ccdc_outfmt == CCDC_OTHERS_VP_MEM) {
-		if (*output_w % 32) {
-			*output_w -= (*output_w % 32);
-			*output_w += 32;
-		}
-	}
-
-	isp_ccdc->ccdcout_w = *output_w;
-	isp_ccdc->ccdcout_h = *output_h;
-	isp_ccdc->ccdcin_w = input_w;
-	isp_ccdc->ccdcin_h = input_h;
-
-	DPRINTK_ISPCCDC("try size: ccdcin_w=%u,ccdcin_h=%u,ccdcout_w=%u,"
-			" ccdcout_h=%u\n",
-			isp_ccdc->ccdcin_w,
-			isp_ccdc->ccdcin_h,
-			isp_ccdc->ccdcout_w,
-			isp_ccdc->ccdcout_h);
+	pipe->ccdc_out_w_img = pipe->ccdc_out_w;
+	/* Round up to nearest 32 pixels. */
+	pipe->ccdc_out_w = ALIGN(pipe->ccdc_out_w, 0x20);
 
 	return 0;
 }
-EXPORT_SYMBOL(ispccdc_try_size);
+EXPORT_SYMBOL(ispccdc_try_pipeline);
 
 /**
  * ispccdc_config_size - Configure the dimensions of the CCDC input/output
@@ -1252,29 +1234,24 @@ EXPORT_SYMBOL(ispccdc_try_size);
  * Returns 0 if successful, or -EINVAL if try_size was not called before to
  * validate the requested dimensions.
  **/
-int ispccdc_config_size(struct isp_ccdc_device *isp_ccdc, u32 input_w,
-			u32 input_h, u32 output_w, u32 output_h)
+int ispccdc_s_pipeline(struct isp_ccdc_device *isp_ccdc,
+		       struct isp_pipeline *pipe)
 {
-	DPRINTK_ISPCCDC("config size: input_w=%u, input_h=%u, output_w=%u,"
-			" output_h=%u\n",
-			input_w, input_h,
-			output_w, output_h);
-	if (output_w != isp_ccdc->ccdcout_w
-	    || output_h != isp_ccdc->ccdcout_h) {
-		DPRINTK_ISPCCDC("ISP_ERR : ispccdc_try_size should"
-				" be called before config size\n");
-		return -EINVAL;
-	}
+	int rval;
+
+	rval = ispccdc_config_datapath(isp_ccdc, pipe);
+	if (rval)
+		return rval;
 
 	isp_reg_writel(isp_ccdc->dev, (isp_ccdc->ccdcin_woffset <<
 			ISPCCDC_FMT_HORZ_FMTSPH_SHIFT) |
-		((isp_ccdc->ccdcin_w - isp_ccdc->ccdcin_woffset) <<
+		((pipe->ccdc_in_w - isp_ccdc->ccdcin_woffset) <<
 			ISPCCDC_FMT_HORZ_FMTLNH_SHIFT),
 		       OMAP3_ISP_IOMEM_CCDC,
 		       ISPCCDC_FMT_HORZ);
 	isp_reg_writel(isp_ccdc->dev, (isp_ccdc->ccdcin_hoffset <<
 			ISPCCDC_FMT_VERT_FMTSLV_SHIFT) |
-		((isp_ccdc->ccdcin_h - isp_ccdc->ccdcin_hoffset) <<
+		((pipe->ccdc_in_h - isp_ccdc->ccdcin_hoffset) <<
 			ISPCCDC_FMT_VERT_FMTLNV_SHIFT),
 		       OMAP3_ISP_IOMEM_CCDC,
 		       ISPCCDC_FMT_VERT);
@@ -1283,46 +1260,46 @@ int ispccdc_config_size(struct isp_ccdc_device *isp_ccdc, u32 input_w,
 		       OMAP3_ISP_IOMEM_CCDC,
 		       ISPCCDC_VERT_START);
 	isp_reg_writel(isp_ccdc->dev,
-		       (isp_ccdc->ccdcout_h -
+		       (pipe->ccdc_out_h -
 			isp_ccdc->ccdcin_hoffset - 1) <<
 		       ISPCCDC_VERT_LINES_NLV_SHIFT,
 		       OMAP3_ISP_IOMEM_CCDC,
 		       ISPCCDC_VERT_LINES);
 	isp_reg_writel(isp_ccdc->dev, (isp_ccdc->ccdcin_woffset
 			<< ISPCCDC_HORZ_INFO_SPH_SHIFT) |
-		       ((isp_ccdc->ccdcout_w - isp_ccdc->ccdcin_woffset) <<
+		       ((pipe->ccdc_out_w - isp_ccdc->ccdcin_woffset) <<
 			ISPCCDC_HORZ_INFO_NPH_SHIFT),
 		       OMAP3_ISP_IOMEM_CCDC,
 		       ISPCCDC_HORZ_INFO);
-	ispccdc_config_outlineoffset(isp_ccdc, isp_ccdc->ccdcout_w * 2, 0, 0);
-	isp_reg_writel(isp_ccdc->dev, (((isp_ccdc->ccdcout_h - 2) &
+	ispccdc_config_outlineoffset(isp_ccdc, pipe->ccdc_out_w * 2, 0, 0);
+	isp_reg_writel(isp_ccdc->dev, (((pipe->ccdc_out_h - 2) &
 			 ISPCCDC_VDINT_0_MASK) <<
 			ISPCCDC_VDINT_0_SHIFT) |
-		       (((isp_ccdc->ccdcout_h / 2) &
+		       (((pipe->ccdc_out_h / 2) &
 			 ISPCCDC_VDINT_1_MASK) <<
 			ISPCCDC_VDINT_1_SHIFT),
 		       OMAP3_ISP_IOMEM_CCDC,
 		       ISPCCDC_VDINT);
 
-	if (isp_ccdc->ccdc_outfmt == CCDC_OTHERS_MEM) {
+	if (pipe->ccdc_out == CCDC_OTHERS_MEM) {
 		isp_reg_writel(isp_ccdc->dev, 0, OMAP3_ISP_IOMEM_CCDC,
 			       ISPCCDC_VP_OUT);
         } else {
-                isp_reg_writel(isp_ccdc->dev, ((isp_ccdc->ccdcout_w -
+                isp_reg_writel(isp_ccdc->dev, ((pipe->ccdc_out_w -
                                  isp_ccdc->ccdcin_woffset)
                                 << ISPCCDC_VP_OUT_HORZ_NUM_SHIFT) |
-                               ((isp_ccdc->ccdcout_h -
+                               ((pipe->ccdc_out_h -
                                  isp_ccdc->ccdcin_hoffset - 1) <<
                                 ISPCCDC_VP_OUT_VERT_NUM_SHIFT),
                                OMAP3_ISP_IOMEM_CCDC,
                                ISPCCDC_VP_OUT);
         }
 
-	ispccdc_setup_lsc(isp_ccdc);
+	ispccdc_setup_lsc(isp_ccdc, pipe);
 
 	return 0;
 }
-EXPORT_SYMBOL(ispccdc_config_size);
+EXPORT_SYMBOL(ispccdc_s_pipeline);
 
 /**
  * ispccdc_config_outlineoffset - Configures the output line offset
@@ -1418,10 +1395,12 @@ EXPORT_SYMBOL(ispccdc_set_outaddr);
  **/
 void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
 {
+	struct isp_device *isp =
+		container_of(isp_ccdc, struct isp_device, isp_ccdc);
 	int enable_lsc;
 
 	enable_lsc = enable &&
-		     isp_ccdc->ccdc_inpfmt == CCDC_RAW &&
+		     isp->pipeline.ccdc_in == CCDC_RAW &&
 		     isp_ccdc->lsc_request_enable &&
 		     ispccdc_validate_config_lsc(isp_ccdc,
 						 &isp_ccdc->lsc_config) == 0;
@@ -1508,25 +1487,26 @@ EXPORT_SYMBOL(ispccdc_restore_context);
  *
  * Also prints other debug information stored in the CCDC module.
  **/
-void ispccdc_print_status(struct isp_ccdc_device *isp_ccdc)
+void ispccdc_print_status(struct isp_ccdc_device *isp_ccdc,
+			  struct isp_pipeline *pipe)
 {
 	if (!is_ispccdc_debug_enabled())
 		return;
 
 	DPRINTK_ISPCCDC("Module in use =%d\n", isp_ccdc->ccdc_inuse);
 	DPRINTK_ISPCCDC("Accepted CCDC Input (width = %d,Height = %d)\n",
-			isp_ccdc->ccdcin_w,
-			isp_ccdc->ccdcin_h);
+			pipe->ccdc_in_w,
+			pipe->ccdc_in_h);
 	DPRINTK_ISPCCDC("Accepted CCDC Output (width = %d,Height = %d)\n",
-			isp_ccdc->ccdcout_w,
-			isp_ccdc->ccdcout_h);
+			pipe->ccdc_out_w,
+			pipe->ccdc_out_h);
 	DPRINTK_ISPCCDC("###CCDC PCR=0x%x\n",
 			isp_reg_readl(isp_ccdc->dev, OMAP3_ISP_IOMEM_CCDC,
 				      ISPCCDC_PCR));
 	DPRINTK_ISPCCDC("ISP_CTRL =0x%x\n",
 			isp_reg_readl(isp_ccdc->dev, OMAP3_ISP_IOMEM_MAIN,
 				      ISP_CTRL));
-	switch (isp_ccdc->ccdc_inpfmt) {
+	switch ((int)pipe->ccdc_in) {
 	case CCDC_RAW:
 		DPRINTK_ISPCCDC("ccdc input format is CCDC_RAW\n");
 		break;
@@ -1538,7 +1518,7 @@ void ispccdc_print_status(struct isp_ccdc_device *isp_ccdc)
 		break;
 	}
 
-	switch (isp_ccdc->ccdc_outfmt) {
+	switch ((int)pipe->ccdc_out) {
 	case CCDC_OTHERS_VP:
 		DPRINTK_ISPCCDC("ccdc output format is CCDC_OTHERS_VP\n");
 		break;
