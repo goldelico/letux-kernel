@@ -162,7 +162,6 @@ struct prev_darkfrm_params {
 /**
  * struct prev_params - Structure for all configuration
  * @features: Set of features enabled.
- * @pix_fmt: Output pixel format.
  * @cfa: CFA coefficients.
  * @csup: Chroma suppression coefficients.
  * @ytable: Pointer to Luma enhancement coefficients.
@@ -251,12 +250,6 @@ struct isptables_update {
  */
 struct isp_prev_device {
 	int pm_state;
-	u32 prevout_w;
-	u32 prevout_h;
-	u32 previn_w;
-	u32 previn_h;
-	enum preview_input prev_inpfmt;
-	enum preview_output prev_outfmt;
 	int update_color_matrix;
 	u8 update_rgb_blending;
 	u8 update_rgb_to_ycbcr;
@@ -294,8 +287,7 @@ int isppreview_request(struct isp_prev_device *isp_prev);
 void isppreview_free(struct isp_prev_device *isp_prev);
 
 int isppreview_config_datapath(struct isp_prev_device *isp_prev,
-			       enum preview_input input,
-			       enum preview_output output);
+			       struct isp_pipeline *pipe);
 
 void isppreview_config_ycpos(struct isp_prev_device *isp_prev,
 			     enum preview_ycpos_mode mode);
@@ -389,11 +381,11 @@ void isppreview_query_brightness(struct isp_prev_device *isp_prev,
 void isppreview_config_yc_range(struct isp_prev_device *isp_prev,
 				struct ispprev_yclimit yclimit);
 
-int isppreview_try_size(struct isp_prev_device *isp_prev, u32 input_w,
-			u32 input_h, u32 *output_w, u32 *output_h);
+int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
+			    struct isp_pipeline *pipe);
 
-int isppreview_config_size(struct isp_prev_device *isp_prev, u32 input_w,
-			   u32 input_h, u32 output_w, u32 output_h);
+int isppreview_s_pipeline(struct isp_prev_device *isp_prev,
+			  struct isp_pipeline *pipe);
 
 int isppreview_config_inlineoffset(struct isp_prev_device *isp_prev,
 				   u32 offset);
@@ -414,7 +406,8 @@ void isppreview_enable(struct isp_prev_device *isp_prev);
 
 int isppreview_busy(struct isp_prev_device *isp_prev);
 
-void isppreview_print_status(struct isp_prev_device *isp_prev);
+void isppreview_print_status(struct isp_prev_device *isp_prev,
+			     struct isp_pipeline *pipe);
 
 void isppreview_save_context(struct device *dev);
 

@@ -624,8 +624,7 @@ EXPORT_SYMBOL_GPL(isppreview_free);
  * specified.
  **/
 int isppreview_config_datapath(struct isp_prev_device *isp_prev,
-			       enum preview_input input,
-			       enum preview_output output)
+			       struct isp_pipeline *pipe)
 {
 	u32 pcr = 0;
 	u8 enable = 0;
@@ -634,34 +633,28 @@ int isppreview_config_datapath(struct isp_prev_device *isp_prev,
 
 	pcr = isp_reg_readl(isp_prev->dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR);
 
-	switch (input) {
+	switch (pipe->prv_in) {
 	case PRV_RAW_CCDC:
 		pcr &= ~ISPPRV_PCR_SOURCE;
-		isp_prev->prev_inpfmt = PRV_RAW_CCDC;
 		break;
 	case PRV_RAW_MEM:
 		pcr |= ISPPRV_PCR_SOURCE;
-		isp_prev->prev_inpfmt = PRV_RAW_MEM;
 		break;
 	case PRV_CCDC_DRKF:
 		pcr |= ISPPRV_PCR_DRKFCAP;
-		isp_prev->prev_inpfmt = PRV_CCDC_DRKF;
 		break;
 	case PRV_COMPCFA:
-		isp_prev->prev_inpfmt = PRV_COMPCFA;
 		break;
 	case PRV_OTHERS:
-		isp_prev->prev_inpfmt = PRV_OTHERS;
 		break;
 	case PRV_RGBBAYERCFA:
-		isp_prev->prev_inpfmt = PRV_RGBBAYERCFA;
 		break;
 	default:
 		dev_err(isp_prev->dev, "preview: Wrong Input\n");
 		return -EINVAL;
 	};
 
-	switch (output) {
+	switch (pipe->prv_out) {
 	case PREVIEW_RSZ:
 		pcr |= ISPPRV_PCR_RSZPORT;
 		pcr &= ~ISPPRV_PCR_SDRPORT;
@@ -674,11 +667,8 @@ int isppreview_config_datapath(struct isp_prev_device *isp_prev,
 		dev_err(isp_prev->dev, "preview: Wrong Output\n");
 		return -EINVAL;
 	}
-	isp_prev->prev_outfmt = output;
 
 	isp_reg_writel(isp_prev->dev, pcr, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR);
-
-	isppreview_config_ycpos(isp_prev, params->pix_fmt);
 
 	if (params->csup.hypf_en == 1)
 		isppreview_config_chroma_suppression(isp_prev, params->csup);
@@ -1493,18 +1483,15 @@ EXPORT_SYMBOL_GPL(isppreview_config_yc_range);
  * Calculates the number of pixels cropped in the submodules that are enabled,
  * Fills up the output width height variables in the isp_prev structure.
  **/
-int isppreview_try_size(struct isp_prev_device *isp_prev, u32 input_w,
-			u32 input_h, u32 *output_w, u32 *output_h)
+int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
+			    struct isp_pipeline *pipe)
 {
-	u32 prevout_w = input_w;
-	u32 prevout_h = input_h;
+	u32 prevout_w = pipe->ccdc_out_w_img;
+	u32 prevout_h = pipe->ccdc_out_h;
 	u32 div = 0;
 	int max_out;
 
-	isp_prev->previn_w = input_w;
-	isp_prev->previn_h = input_h;
-
-	if (input_w < 32 || input_h < 32) {
+	if (pipe->ccdc_out_w_img < 32 || pipe->ccdc_out_h < 32) {
 		dev_err(isp_prev->dev, "preview does not support "
 		       "width < 16 or height < 32 \n");
 		return -EINVAL;
@@ -1516,8 +1503,8 @@ int isppreview_try_size(struct isp_prev_device *isp_prev, u32 input_w,
 
 	isp_prev->fmtavg = 0;
 
-	if (input_w > max_out) {
-		div = (input_w/max_out);
+	if (pipe->ccdc_out_w_img > max_out) {
+		div = (pipe->ccdc_out_w_img/max_out);
 		if (div >= 2 && div < 4) {
 			isp_prev->fmtavg = 1;
 			prevout_w /= 2;
@@ -1564,25 +1551,19 @@ int isppreview_try_size(struct isp_prev_device *isp_prev, u32 input_w,
 	if (prevout_w % 2)
 		prevout_w -= 1;
 
-	if (isp_prev->prev_outfmt == PREVIEW_MEM) {
-		if (((prevout_w * 2) & ISP_32B_BOUNDARY_OFFSET) !=
-		    (prevout_w * 2)) {
-			prevout_w = ((prevout_w * 2) &
-				     ISP_32B_BOUNDARY_OFFSET) / 2;
-		}
-	}
-	*output_w = prevout_w;
-	isp_prev->prevout_w = prevout_w;
-	*output_h = prevout_h;
-	isp_prev->prevout_h = prevout_h;
+	pipe->prv_out_w_img = prevout_w;
+	/* FIXME: This doesn't apply for prv -> rsz. */
+	pipe->prv_out_w = ALIGN(prevout_w, 0x20);
+	pipe->prv_out_h = prevout_h;
+
 	return 0;
 }
-EXPORT_SYMBOL_GPL(isppreview_try_size);
+EXPORT_SYMBOL_GPL(isppreview_try_pipeline);
 
 /**
  * isppreview_config_size - Sets the size of ISP preview output.
- * @input_w: input width for the preview in number of pixels per line
- * @input_h: input height for the preview in number of lines
+ * @pipe->ccdc_out_w: input width for the preview in number of pixels per line
+ * @pipe->ccdc_out_h: input height for the preview in number of lines
  * @output_w: output width from the preview in number of pixels per line
  * @output_h: output height for the preview in number of lines
  *
@@ -1590,25 +1571,23 @@ EXPORT_SYMBOL_GPL(isppreview_try_size);
  * HORZ/VERT_INFO. Configures PRV_AVE if needed for downsampling as calculated
  * in trysize.
  **/
-int isppreview_config_size(struct isp_prev_device *isp_prev, u32 input_w,
-			   u32 input_h, u32 output_w, u32 output_h)
+int isppreview_s_pipeline(struct isp_prev_device *isp_prev,
+			  struct isp_pipeline *pipe)
 {
 	u32 prevsdroff;
+	int rval;
 
-	if ((output_w != isp_prev->prevout_w) ||
-	    (output_h != isp_prev->prevout_h)) {
-		dev_err(isp_prev->dev, "preview: isppreview_try_size should "
-		       "be called before config size\n");
-		return -EINVAL;
-	}
+	rval = isppreview_config_datapath(isp_prev, pipe);
+	if (rval)
+		return rval;
 
 	isp_reg_writel(isp_prev->dev,
 		       (isp_prev->sph << ISPPRV_HORZ_INFO_SPH_SHIFT) |
-		       (isp_prev->previn_w - 1),
+		       (pipe->ccdc_out_w - 1),
 		       OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO);
 	isp_reg_writel(isp_prev->dev,
 		       (isp_prev->slv << ISPPRV_VERT_INFO_SLV_SHIFT) |
-		       (isp_prev->previn_h - 1),
+		       (pipe->ccdc_out_h - 1),
 		       OMAP3_ISP_IOMEM_PREV, ISPPRV_VERT_INFO);
 
 	if (isp_prev->cfafmt == CFAFMT_BAYER)
@@ -1620,8 +1599,8 @@ int isppreview_config_size(struct isp_prev_device *isp_prev, u32 input_w,
 			       isp_prev->fmtavg,
 			       OMAP3_ISP_IOMEM_PREV, ISPPRV_AVE);
 
-	if (isp_prev->prev_outfmt == PREVIEW_MEM) {
-		prevsdroff = isp_prev->prevout_w * 2;
+	if (pipe->prv_out == PREVIEW_MEM) {
+		prevsdroff = pipe->prv_out_w * ISP_BYTES_PER_PIXEL;
 		if ((prevsdroff & ISP_32B_BOUNDARY_OFFSET) != prevsdroff) {
 			DPRINTK_ISPPREV("ISP_WARN: Preview output buffer line"
 					" size is truncated"
@@ -1630,9 +1609,15 @@ int isppreview_config_size(struct isp_prev_device *isp_prev, u32 input_w,
 		}
 		isppreview_config_outlineoffset(isp_prev, prevsdroff);
 	}
+
+	if (pipe->pix.pixelformat == V4L2_PIX_FMT_UYVY)
+		isppreview_config_ycpos(isp_prev, YCPOS_YCrYCb);
+	else
+		isppreview_config_ycpos(isp_prev, YCPOS_CrYCbY);
+
 	return 0;
 }
-EXPORT_SYMBOL_GPL(isppreview_config_size);
+EXPORT_SYMBOL_GPL(isppreview_s_pipeline);
 
 /**
  * isppreview_config_inlineoffset - Configures the Read address line offset.
@@ -1792,11 +1777,11 @@ EXPORT_SYMBOL_GPL(isppreview_restore_context);
  *
  * Also prints other debug information stored in the preview moduel.
  **/
-void isppreview_print_status(struct isp_prev_device *isp_prev)
+void isppreview_print_status(struct isp_prev_device *isp_prev,
+			     struct isp_pipeline *pipe)
 {
 	DPRINTK_ISPPREV("Preview Input format =%d, Output Format =%d\n",
-			isp_prev->prev_inpfmt,
-			isp_prev->prev_outfmt);
+			pipe->prv_inp, pipe->prv_out);
 	DPRINTK_ISPPREV("Accepted Preview Input (width = %d,Height = %d)\n",
 			isp_prev->previn_w,
 			isp_prev->previn_h);
@@ -1921,7 +1906,6 @@ int __init isp_preview_init(struct device *dev)
 	params->brightness = ISPPRV_BRIGHT_DEF;
 	params->average = NO_AVE;
 	params->lens_shading_shift = 0;
-	params->pix_fmt = YCPOS_YCrYCb;
 	params->cfa.cfafmt = CFAFMT_BAYER;
 	params->cfa.cfa_table = cfa_coef_table;
 	params->cfa.cfa_gradthrs_horz = FLR_CFA_GRADTHRS_HORZ;

@@ -34,6 +34,8 @@
 #include <mach/iommu.h>
 #include <mach/iovmm.h>
 
+struct isp_pipeline;
+
 #include "ispstat.h"
 #include "isp_af.h"
 #include "isphist.h"
@@ -61,6 +63,7 @@
 #define ISP_BYTES_PER_PIXEL		2
 #define NUM_ISP_CAPTURE_FORMATS 	(sizeof(isp_formats) /		\
 					 sizeof(isp_formats[0]))
+
 typedef int (*isp_vbq_callback_ptr) (struct videobuf_buffer *vb);
 typedef void (*isp_callback_t) (unsigned long status,
 				isp_vbq_callback_ptr arg1, void *arg2);
@@ -254,52 +257,38 @@ struct isp_irq {
 	void *isp_callbk_arg2[CBK_END];
 };
 
-/**
- * struct ispmodule - Structure for storing ISP sub-module information.
- * @isp_pipeline: Bit mask for submodules enabled within the ISP.
- * @pix: Structure containing the format and layout of the output image.
- * @ccdc_input_width: ISP CCDC module input image width.
- * @ccdc_input_height: ISP CCDC module input image height.
- * @ccdc_output_width: ISP CCDC module output image width.
- * @ccdc_output_height: ISP CCDC module output image height.
- * @preview_input_width: ISP Preview module input image width.
- * @preview_input_height: ISP Preview module input image height.
- * @preview_output_width: ISP Preview module output image width.
- * @preview_output_height: ISP Preview module output image height.
- * @resizer_input_width: ISP Resizer module input image width.
- * @resizer_input_height: ISP Resizer module input image height.
- * @resizer_output_width: ISP Resizer module output image width.
- * @resizer_output_height: ISP Resizer module output image height.
- */
-struct isp_module {
-	u32 interrupts;
-	enum isp_running running;
-	unsigned int isp_pipeline;
-	struct v4l2_pix_format pix;
-	unsigned int ccdc_input_width;
-	unsigned int ccdc_input_height;
-	unsigned int ccdc_output_width;
-	unsigned int ccdc_output_height;
-	unsigned int preview_input_width;
-	unsigned int preview_input_height;
-	unsigned int preview_output_width;
-	unsigned int preview_output_height;
-	unsigned int resizer_input_width;
-	unsigned int resizer_input_height;
-	unsigned int resizer_output_width;
-	unsigned int resizer_output_height;
+struct isp_pipeline {
+	unsigned int modules;		/* modules in use */
+	struct v4l2_pix_format pix;	/* output pix */
+	unsigned int ccdc_in_w;		/* ccdc input width */
+	unsigned int ccdc_in_h;		/* ccdc input height */
+	unsigned int ccdc_out_w;
+	unsigned int ccdc_out_h;
+	unsigned int ccdc_out_w_img;	/* ccdc output image width */
+	enum ccdc_input ccdc_in;
+	enum ccdc_output ccdc_out;
+	unsigned int prv_out_w;
+	unsigned int prv_out_h;
+	unsigned int prv_out_w_img;
+	enum preview_input prv_in;
+	enum preview_output prv_out;
+	struct v4l2_rect rsz_crop;
+	unsigned int rsz_out_w;
+	unsigned int rsz_out_h;
+	unsigned int rsz_out_w_img;
+	enum resizer_input rsz_in;
 };
 
 #define CCDC_CAPTURE(isp)					\
-	((isp)->module.isp_pipeline == OMAP_ISP_CCDC)
+	((isp)->pipeline.modules == OMAP_ISP_CCDC)
 
 #define CCDC_PREV_CAPTURE(isp)					\
-	((isp)->module.isp_pipeline == (OMAP_ISP_CCDC | OMAP_ISP_PREVIEW))
+	((isp)->pipeline.modules == (OMAP_ISP_CCDC | OMAP_ISP_PREVIEW))
 
-#define CCDC_PREV_RESZ_CAPTURE(isp)					\
-	((isp)->module.isp_pipeline == (OMAP_ISP_CCDC | \
-					OMAP_ISP_PREVIEW | \
-					OMAP_ISP_RESIZER))
+#define CCDC_PREV_RESZ_CAPTURE(isp)				\
+	((isp)->pipeline.modules == (OMAP_ISP_CCDC | \
+				     OMAP_ISP_PREVIEW | \
+				     OMAP_ISP_RESIZER))
 
 /**
  * struct isp - Structure for storing ISP Control module information
@@ -348,7 +337,9 @@ struct isp_device {
 	unsigned long tmp_buf_offset;
 	struct isp_bufs bufs;
 	struct isp_irq irq;
-	struct isp_module module;
+	struct isp_pipeline pipeline;
+	u32 interrupts;
+	enum isp_running running;
 
 	/* ISP modules */
 	struct isp_af_device isp_af;

@@ -196,7 +196,7 @@ int ispstat_bufs_alloc(struct ispstat *stat,
 		goto out;
 	}
 
-	if (isp->module.running != ISP_STOPPED) {
+	if (isp->running != ISP_STOPPED) {
 		dev_info(stat->dev, "stat: trying to configure when busy\n");
 		spin_unlock_irqrestore(&stat->lock, flags);
 		return -EBUSY;

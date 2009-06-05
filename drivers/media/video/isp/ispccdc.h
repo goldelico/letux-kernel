@@ -161,16 +161,10 @@ enum ispccdc_raw_fmt {
  */
 struct isp_ccdc_device {
 	u8 ccdc_inuse;
-	u32 ccdcout_w;
-	u32 ccdcout_h;
-	u32 ccdcin_w;
-	u32 ccdcin_h;
 	u32 ccdcin_woffset;
 	u32 ccdcin_hoffset;
 	u32 crop_w;
 	u32 crop_h;
-	u8 ccdc_inpfmt;
-	u8 ccdc_outfmt;
 	u8 vpout_en;
 	u8 wen;
 	u8 exwen;
@@ -202,9 +196,6 @@ struct isp_ccdc_device {
 int ispccdc_request(struct isp_ccdc_device *isp_ccdc);
 
 int ispccdc_free(struct isp_ccdc_device *isp_ccdc);
-
-int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
-			    enum ccdc_input input, enum ccdc_output output);
 
 void ispccdc_config_crop(struct isp_ccdc_device *isp_ccdc, u32 left, u32 top,
 			 u32 height, u32 width);
@@ -252,11 +243,11 @@ void ispccdc_config_imgattr(struct isp_ccdc_device *isp_ccdc, u32 colptn);
 
 void ispccdc_config_shadow_registers(struct isp_ccdc_device *isp_ccdc);
 
-int ispccdc_try_size(struct isp_ccdc_device *isp_ccdc, u32 input_w, u32 input_h,
-		     u32 *output_w, u32 *output_h);
+int ispccdc_try_pipeline(struct isp_ccdc_device *isp_ccdc,
+			 struct isp_pipeline *pipe);
 
-int ispccdc_config_size(struct isp_ccdc_device *isp_ccdc, u32 input_w,
-			u32 input_h, u32 output_w, u32 output_h);
+int ispccdc_s_pipeline(struct isp_ccdc_device *isp_ccdc,
+		       struct isp_pipeline *pipe);
 
 int ispccdc_config_outlineoffset(struct isp_ccdc_device *isp_ccdc, u32 offset,
 				 u8 oddeven, u8 numlines);
@@ -273,7 +264,8 @@ void ispccdc_save_context(struct device *dev);
 
 void ispccdc_restore_context(struct device *dev);
 
-void ispccdc_print_status(struct isp_ccdc_device *isp_ccdc);
+void ispccdc_print_status(struct isp_ccdc_device *isp_ccdc,
+			  struct isp_pipeline *pipe);
 
 int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
 			     void *userspace_add);
