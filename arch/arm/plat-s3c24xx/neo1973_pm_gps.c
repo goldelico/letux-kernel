@@ -305,7 +305,8 @@ static void gps_pwron_set(int on)
 			/* remove pulldown now it won't be floating any more */
 			s3c2410_gpio_pullup(S3C2410_GPH5, 0);
 
-			if (!neo1973_gps.power_was_on)
+			if (!regulator_is_enabled(neo1973_gps.regulator[
+							  GTA02_GPS_REG_RF_3V]))
 				regulator_enable(neo1973_gps.regulator[
 							  GTA02_GPS_REG_RF_3V]);
 			return;
