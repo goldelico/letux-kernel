@@ -114,8 +114,6 @@ struct heapbuf_obj {
  */
 int heapbuf_get_config(struct heap_config *cfgparams)
 {
-	gt_1trace(heapbuf_debugmask, GT_ENTER, "heapbuf_get_config:\n"
-		"cfgparams: %x \n", cfgparams);
 	BUG_ON(cfgparams == NULL);
 
 	if (heapbuf_state.nshandle == NULL)
@@ -139,8 +137,6 @@ int heapbuf_setup(const struct heap_config *config)
 	void *nshandle = NULL;
 	s32 retval  = 0;
 
-	gt_1trace(heapbuf_debugmask, GT_ENTER, "heapbuf_setup:\n"
-		"config: %x \n", config);
 	BUG_ON(config == NULL);
 
 	if (config->max_name_len == 0 ||
@@ -159,8 +155,10 @@ int heapbuf_setup(const struct heap_config *config)
 	params.max_value_len = sizeof(u32);
 	params.max_name_len = config->max_name_len;
 	nshandle  = nameserver_create(HEAPBUF_NAMESERVER, &params);
-	if (nshandle == NULL)
+	if (nshandle == NULL) {
+		retval = -EFAULT;
 		goto ns_create_fail;
+	}
 
 	heapbuf_state.nshandle = nshandle;
 	memcpy(&heapbuf_state.cfg, config, sizeof(struct heap_config));
@@ -185,8 +183,7 @@ int heapbuf_destroy(void)
 {
 	s32 retval  = 0;
 	struct mutex *lock = NULL;
-
-	gt_0trace(heapbuf_debugmask, GT_ENTER, "heapbuf_destroy:\n");
+	/*struct heapbuf_obj *obj = NULL;*/
 
 	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
 		retval = -ENODEV;
@@ -195,10 +192,13 @@ int heapbuf_destroy(void)
 
 #if 0
 	/*  Check if any heapbuf instances have not been deleted so far.
-	  *  if not, delete them IS THIS IS SYSLINK IMP ?
+	  *  if not, delete them or close
 	  */
-	List_for_each(elem, &heapbuf_state.obj_list) {
-		heapbuf_delete(((struct heapbuf_obj *)(elem))->top);
+	list_for_each_entry(obj, &heapbuf_state.obj_list, list_elem) {
+		if (obj->owner->proc_id == multiproc_get_id(NULL))
+			heapbuf_delete(&obj->free_list);
+		else
+			heapbuf_close(&obj->free_list);
 	}
 #endif
 
@@ -241,8 +241,6 @@ void heapbuf_params_init(void *handle,
 	struct heapbuf_obj *obj = NULL;
 	struct heap_object *object = NULL;
 
-	gt_2trace(heap_debugmask, GT_6CLASS, "heapbuf_params_init:\n"
-		"handle: %x, params: %x \n", handle, params);
 	BUG_ON(params == NULL);
 
 	if (handle == NULL)
@@ -262,6 +260,10 @@ EXPORT_SYMBOL(heapbuf_params_init);
  *  This will create a new instance of heapbuf module
  *  This is an internal function as both heapbuf_create
  *  and heapbuf_open use the functionality
+ *
+ *  NOTE: The lock to protect the shared memory area
+ *  used by heapbuf is provided by the consumer of
+ *  heapbuf module
  */
 static void *_heapbuf_create(const struct heapbuf_params *params,
 				u32 createflag)
@@ -277,8 +279,6 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 	u32 shared_shmbase;
 	void *entry = NULL;
 
-	gt_2trace(heap_debugmask, GT_6CLASS, "_heapbuf_create:\n"
-		"params: %x, createflag: %x \n", params, createflag);
 	BUG_ON(params == NULL);
 
 	handle = kmalloc(sizeof(struct heap_object), GFP_KERNEL);
@@ -305,6 +305,7 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 	listmp_params.shared_addr_size =
 			listmp_sharedmemory_shared_memreq(&listmp_params);
 	listmp_params.lock_handle = params->lock_handle;
+	obj->lock_handle = params->lock_handle;
 	if (createflag == true)
 		obj->free_list = listmp_sharedmemory_create(&listmp_params);
 	else
@@ -314,48 +315,48 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 		retval = -ENOMEM;
 		goto listmp_error;
 	}
-	obj->lock_handle = kmalloc(sizeof(struct mutex), GFP_KERNEL);
-	if (obj->lock_handle == NULL) {
-		retval = -ENOMEM;
-		goto gate_create_error;
-	}
 
 	/* Assign the memory with proper cache line padding */
 	obj->attrs = (struct heapbuf_attrs *) params->shared_addr;
-	obj->attrs->version = HEAPBUF_VERSION;
-	obj->attrs->num_free_blocks = params->num_blocks;
-	obj->attrs->min_free_blocks = params->num_blocks;
-	obj->attrs->block_size = params->block_size;
-	obj->attrs->align  = params->align;
-	obj->attrs->num_blocks = params->num_blocks;
-	obj->attrs->buf = (char *)((u32 *)(obj->attrs) +
+	if (createflag == true) {
+		obj->attrs->version = HEAPBUF_VERSION;
+		obj->attrs->num_free_blocks = params->num_blocks;
+		obj->attrs->min_free_blocks = params->num_blocks;
+		obj->attrs->block_size = params->block_size;
+		obj->attrs->align  = params->align;
+		obj->attrs->num_blocks = params->num_blocks;
+		obj->attrs->buf = (char *)((u32 *)(obj->attrs) +
 			HEAPBUF_CACHESIZE + listmp_params.shared_addr_size);
-	buf = obj->attrs->buf;
-	align = obj->attrs->align;
-	buf = (char *)(((u32)buf + (align - 1)) & ~(align - 1));
-	obj->attrs->buf	= buf;
-	/*
-	*  Split the buffer into blocks that are length
-	* block_size" and add into the free_list Queue
-	*/
-	for (i = 0; i < obj->attrs->num_blocks; i++) {
-		listmp_put_tail((void *)obj->free_list,
-					(struct listmp_elem *)buf);
-		buf += obj->attrs->block_size;
+		buf = obj->attrs->buf;
+		align = obj->attrs->align;
+		buf = (char *)(((u32)buf + (align - 1)) & ~(align - 1));
+		obj->attrs->buf	= buf;
+		/*
+		*  Split the buffer into blocks that are length
+		* block_size" and add into the free_list Queue
+		*/
+		for (i = 0; i < obj->attrs->num_blocks; i++) {
+			listmp_put_tail((struct listmp_object *)
+						obj->free_list,
+						(struct listmp_elem *)buf);
+			buf += obj->attrs->block_size;
+		}
 	}
 
 	/* Populate the params member */
 	memcpy(&obj->params, params, sizeof(struct heapbuf_params));
-	if (params->name != NULL) {
-		obj->params.name = kmalloc(strlen(params->name) + 1,
-							GFP_KERNEL);
-		if (obj->params.name == NULL) {
-			retval  = -ENOMEM;
-			goto name_alloc_error;
-		}
+	if (createflag == true) {
+		if (params->name != NULL) {
+			obj->params.name = kmalloc(strlen(params->name) + 1,
+								GFP_KERNEL);
+			if (obj->params.name == NULL) {
+				retval  = -ENOMEM;
+				goto name_alloc_error;
+			}
 
-		strncpy(obj->params.name, params->name,
+			strncpy(obj->params.name, params->name,
 						strlen(params->name) + 1);
+		}
 	}
 
 	/* Update processor information */
@@ -385,16 +386,20 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 		obj->top		= handle;
 	}
 
-	/* We will store a shared pointer in the nameserver */
-	shmindex = sharedregion_get_index(params->shared_addr);
-	shared_shmbase = (u32)sharedregion_get_srptr(params->shared_addr,
-								shmindex);
-	if (obj->params.name != NULL) {
-		entry = nameserver_add_uint32(heapbuf_state.nshandle,
-						params->name,
-						(u32)(params->shared_addr));
-		if (entry == NULL)
-			goto ns_add_error;
+	if (createflag == true) {
+		/* We will store a shared pointer in the nameserver */
+		shmindex = sharedregion_get_index(params->shared_addr);
+		shared_shmbase = (u32)sharedregion_get_srptr(
+					params->shared_addr, shmindex);
+		if (obj->params.name != NULL) {
+			entry = nameserver_add_uint32(heapbuf_state.nshandle,
+							params->name,
+							(u32)(shared_shmbase));
+			if (entry == NULL) {
+				retval = -EFAULT;
+				goto ns_add_error;
+			}
+		}
 	}
 
 	retval = mutex_lock_interruptible(heapbuf_state.list_lock);
@@ -415,7 +420,6 @@ proc_attr_alloc_error:
 name_alloc_error: /* Fall through */
 	listmp_sharedmemory_delete((listmp_sharedmemory_handle *)
 					&obj->free_list);
-gate_create_error: /* Fall through */
 listmp_error:
 	kfree(obj);
 
@@ -438,10 +442,7 @@ void *heapbuf_create(const struct heapbuf_params *params)
 	u32 size;
 	void *handle = NULL;
 
-	gt_1trace(heap_debugmask, GT_6CLASS, "heapbuf_create:\n"
-		"params: %x \n", params);
 	BUG_ON(params == NULL);
-
 	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
 		retval = -ENODEV;
 		goto error;
@@ -479,17 +480,12 @@ int heapbuf_delete(void **hphandle)
 	struct heapbuf_params *params = NULL;
 	s32 retval  = 0;
 	u16 myproc_id;
-	struct mutex *lock = NULL;
 
-	gt_1trace(heap_debugmask, GT_6CLASS, "heapbuf_delete:\n"
-		"params: %x \n", params);
 	BUG_ON(hphandle == NULL);
-
 	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
 		retval = -ENODEV;
 		goto error;
 	}
-
 	handle = (struct heap_object *)(*hphandle);
 	if (WARN_ON(handle == NULL)) {
 		retval = -EINVAL;
@@ -498,14 +494,11 @@ int heapbuf_delete(void **hphandle)
 
 	obj = (struct heapbuf_obj *)handle->obj;
 	myproc_id =  multiproc_get_id(NULL);
+
 	if (obj->owner->proc_id != myproc_id) {
 		retval  = -EPERM;
 		goto error;
 	}
-
-	retval = mutex_lock_interruptible(obj->lock_handle);
-	if (retval)
-		goto error;
 
 	if (obj->owner->open_count != 1 || obj->remote->open_count != 0) {
 		retval  = -EBUSY;
@@ -528,10 +521,6 @@ int heapbuf_delete(void **hphandle)
 		kfree(params->name);
 	}
 
-	lock = obj->lock_handle;
-	obj->lock_handle = NULL;
-	mutex_unlock(lock);
-	kfree(lock);
 	retval = listmp_sharedmemory_delete(&obj->free_list);
 	kfree(obj->owner);
 	kfree(obj->remote);
@@ -543,7 +532,7 @@ int heapbuf_delete(void **hphandle)
 ns_remove_error: /* Fall through */
 list_lock_error: /* Fall through */
 device_busy_error:
-	mutex_unlock(obj->lock_handle);
+/*	mutex_unlock(obj->lock_handle); */
 
 error:
 	printk(KERN_ERR "heapbuf_delete failed status: %x\n", retval);
@@ -573,11 +562,6 @@ int heapbuf_open(void **hphandle,
 
 	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
 		retval  = -ENODEV;
-		goto error;
-	}
-
-	if (*hphandle == NULL) {
-		retval  = -EINVAL;
 		goto error;
 	}
 
@@ -637,10 +621,6 @@ int heapbuf_close(void *hphandle)
 	struct heapbuf_params *params = NULL;
 	s32 retval = 0;
 	u16 myproc_id = 0;
-	struct mutex *lock = NULL;
-
-	gt_1trace(heapbuf_debugmask, GT_ENTER,
-	    "heapbuf_close:\n hphandle: %x \n", hphandle);
 
 	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
 		retval  = -EINVAL;
@@ -662,27 +642,19 @@ int heapbuf_close(void *hphandle)
 	if ((obj->remote->proc_id == myproc_id)
 			&& (obj->remote->open_count == 0)) {
 		list_del(&obj->list_elem);
-		retval = mutex_lock_interruptible(obj->lock_handle);
-		if (retval)
-			goto error;
-
 		params = (struct heapbuf_params *)&obj->params;
 		if (params->name != NULL) {
 			retval = nameserver_remove(heapbuf_state.nshandle,
 							params->name);
 			if (unlikely(retval != 0))
-				goto error;
+					goto error;
 		}
 
 		kfree(params->name);
 	}
 
-	lock = obj->lock_handle;
-	obj->lock_handle = NULL;
-	mutex_unlock(lock);
-	kfree(lock);
-	listmp_sharedmemory_delete((listmp_sharedmemory_handle *)
-				&obj->free_list);
+	listmp_sharedmemory_close((listmp_sharedmemory_handle *)
+				obj->free_list);
 	kfree(obj->owner);
 	kfree(obj->remote);
 	kfree(obj);
@@ -709,11 +681,6 @@ void *heapbuf_alloc(void *hphandle, u32 size, u32 align)
 	struct heapbuf_obj *obj = NULL;
 	char *block = NULL;
 	s32 retval  = 0;
-
-	gt_3trace(heapbuf_debugmask, GT_ENTER,
-		"heapbuf_free:\n"
-		"hphandle: %x, size: %x, align: %x\n",
-		hphandle, size, align);
 
 	if (WARN_ON(heapbuf_state.nshandle == NULL))
 		goto error;
@@ -770,11 +737,6 @@ int heapbuf_free(void *hphandle, void *block, u32 size)
 	struct heapbuf_obj *obj = NULL;
 	s32 retval  = 0;
 
-	gt_3trace(heapbuf_debugmask, GT_ENTER,
-		"heapbuf_free:\n"
-		"hphandle: %x, block: %x, size: %x\n",
-		hphandle, block, size);
-
 	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
 		retval  = -EINVAL;
 		goto error;
@@ -819,11 +781,7 @@ int heapbuf_get_stats(void *hphandle, struct memory_stats *stats)
 	u32 block_size;
 	s32 retval  = 0;
 
-	gt_2trace(heapbuf_debugmask, GT_ENTER,
-		"heapbuf_get_stats:\n"
-		"hphandle: %x, stats: %x\n", hphandle, stats);
 	BUG_ON(stats == NULL);
-
 	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
 		retval  = -EINVAL;
 		goto error;
@@ -870,11 +828,7 @@ int heapbuf_get_extended_stats(void *hphandle,
 	struct heapbuf_obj *obj = NULL;
 	s32 retval  = 0;
 
-	gt_2trace(heapbuf_debugmask, GT_ENTER,
-		"heapbuf_get_extended_stats:\n"
-		"hphandle: %x, stats: %x\n", hphandle, stats);
 	BUG_ON(stats == NULL);
-
 	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
 		retval  = -EINVAL;
 		goto error;
@@ -932,10 +886,7 @@ int heapbuf_shared_memreq(const struct heapbuf_params *params)
 	s32 retval = 0;
 	listmp_sharedmemory_params listmp_params;
 
-	gt_1trace(heapbuf_debugmask, GT_ENTER,
-			"heapbuf_sharedmemreq", params);
 	BUG_ON(params == NULL);
-
 	retval = params->num_blocks * params->block_size;
 	listmp_sharedmemory_params_init(NULL, &listmp_params);
 	retval += listmp_sharedmemory_shared_memreq(&listmp_params);

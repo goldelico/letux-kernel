@@ -82,6 +82,7 @@ static int heapbuf_ioctl_params_init(struct heapbuf_cmd_args *cargs)
 	u32 size;
 
 	heapbuf_params_init(cargs->args.params_init.handle, &params);
+	cargs->api_status = 0;
 	size = copy_to_user(cargs->args.params_init.params, &params,
 				sizeof(struct heapbuf_params));
 	if (size)
@@ -149,7 +150,7 @@ exit:
  */
 static int heapbuf_ioctl_delete(struct heapbuf_cmd_args *cargs)
 {
-	cargs->api_status = heapbuf_delete(cargs->args.delete.handle);
+	cargs->api_status = heapbuf_delete(&cargs->args.delete.handle);
 	return 0;
 }
 
