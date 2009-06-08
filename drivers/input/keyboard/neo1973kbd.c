@@ -75,7 +75,7 @@ static struct neo1973kbd_key keys[] = {
 	[NEO1973_KEY_HOLD] = {
 		.name = "Neo1973 HOLD button",
 		.isr = neo1973kbd_default_key_irq,
-		.input_key = KEY_PAUSE,
+		.input_key = KEY_PLAY,
 	},
 	[NEO1973_KEY_JACK] = {
 		.name = "Neo1973 Headphone jack",
@@ -161,7 +161,7 @@ static irqreturn_t neo1973kbd_default_key_irq(int irq, void *dev_id)
 			continue;
 
 		input_report_key(kbd->input, keys[n].input_key,
-				  gpio_get_value(kbd->pdev->resource[n].start));
+				  !gpio_get_value(kbd->pdev->resource[n].start));
 		input_sync(kbd->input);
 	}
 
@@ -346,7 +346,7 @@ static int neo1973kbd_probe(struct platform_device *pdev)
 	input_dev->evbit[0] = BIT(EV_KEY) | BIT(EV_SW);
 	set_bit(SW_HEADPHONE_INSERT, input_dev->swbit);
 	set_bit(KEY_PHONE, input_dev->keybit);
-	set_bit(KEY_PAUSE, input_dev->keybit);
+	set_bit(KEY_PLAY, input_dev->keybit);
 
 	rc = input_register_device(neo1973kbd->input);
 	if (rc)
