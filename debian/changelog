@@ -1,3 +1,10 @@
+linux-2.6-openmoko (20090303.gitb9de904e-3) UNRELEASED; urgency=low
+
+  * debian/config.gta02:
+    + CONFIG_HDQ_GPIO_BITBANG=y.
+
+ --
+
 linux-2.6-openmoko (20090303.gitb9de904e-2) pkg-fso; urgency=low
 
   * debian/rules:
