@@ -579,7 +579,6 @@ void isppreview_config_shadow_registers(struct isp_prev_device *isp_prev)
 
 	spin_unlock_irqrestore(&isp_prev->lock, flags);
 }
-EXPORT_SYMBOL_GPL(isppreview_config_shadow_registers);
 
 /**
  * isppreview_request - Reserves the preview module.
