@@ -2193,7 +2193,6 @@ void isp_save_context(struct device *dev, struct isp_reg *reg_list)
 	for (; next->reg != ISP_TOK_TERM; next++)
 		next->val = isp_reg_readl(dev, next->mmio_range, next->reg);
 }
-EXPORT_SYMBOL(isp_save_context);
 
 /**
  * isp_restore_context - Restores the values of the ISP module registers.
@@ -2207,7 +2206,6 @@ void isp_restore_context(struct device *dev, struct isp_reg *reg_list)
 	for (; next->reg != ISP_TOK_TERM; next++)
 		isp_reg_writel(dev, next->val, next->mmio_range, next->reg);
 }
-EXPORT_SYMBOL(isp_restore_context);
 
 static int isp_remove(struct platform_device *pdev)
 {
@@ -2517,7 +2515,6 @@ void isp_print_status(struct device *dev)
 			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
 				      ISP_IRQ0STATUS));
 }
-EXPORT_SYMBOL(isp_print_status);
 
 module_init(isp_init);
 module_exit(isp_cleanup);

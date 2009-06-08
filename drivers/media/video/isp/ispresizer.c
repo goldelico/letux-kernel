@@ -140,7 +140,6 @@ void ispresizer_config_shadow_registers(struct isp_res_device *isp_res)
 
 	return;
 }
-EXPORT_SYMBOL(ispresizer_config_shadow_registers);
 
 int ispresizer_config_crop(struct isp_res_device *isp_res,
 			   struct v4l2_crop *a)
@@ -192,7 +191,6 @@ int ispresizer_config_crop(struct isp_res_device *isp_res,
 
 	return 0;
 }
-EXPORT_SYMBOL(ispresizer_config_crop);
 
 /**
  * ispresizer_request - Reserves the Resizer module.
@@ -220,7 +218,6 @@ int ispresizer_request(struct isp_res_device *isp_res)
 		return -EBUSY;
 	}
 }
-EXPORT_SYMBOL(ispresizer_request);
 
 /**
  * ispresizer_free - Makes Resizer module free.
@@ -242,7 +239,6 @@ int ispresizer_free(struct isp_res_device *isp_res)
 		return -EINVAL;
 	}
 }
-EXPORT_SYMBOL(ispresizer_free);
 
 /**
  * ispresizer_config_datapath - Specifies which input to use in resizer module
@@ -286,7 +282,6 @@ int ispresizer_config_datapath(struct isp_res_device *isp_res,
 	DPRINTK_ISPRESZ("ispresizer_config_datapath()-\n");
 	return 0;
 }
-EXPORT_SYMBOL(ispresizer_config_datapath);
 
 /**
  * ispresizer_try_size - Validates input and output images size.
@@ -459,7 +454,6 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 
 	return 0;
 }
-EXPORT_SYMBOL(ispresizer_try_pipeline);
 
 /**
  * ispresizer_config_size - Configures input and output image size.
@@ -616,7 +610,6 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 	DPRINTK_ISPRESZ("ispresizer_config_size()-\n");
 	return 0;
 }
-EXPORT_SYMBOL(ispresizer_s_pipeline);
 
 /**
  * ispresizer_enable - Enables the resizer module.
@@ -640,7 +633,6 @@ void ispresizer_enable(struct isp_res_device *isp_res, int enable)
 	isp_reg_writel(isp_res->dev, val, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR);
 	DPRINTK_ISPRESZ("+ispresizer_enable()-\n");
 }
-EXPORT_SYMBOL(ispresizer_enable);
 
 /**
  * ispresizer_busy - Checks if ISP resizer is busy.
@@ -652,7 +644,6 @@ int ispresizer_busy(struct isp_res_device *isp_res)
 	return isp_reg_readl(isp_res->dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR) &
 		ISPPRV_PCR_BUSY;
 }
-EXPORT_SYMBOL(ispresizer_busy);
 
 /**
  * ispresizer_config_startphase - Sets the horizontal and vertical start phase.
@@ -670,7 +661,6 @@ void ispresizer_config_startphase(struct isp_res_device *isp_res,
 	isp_res->v_startphase = vstartphase;
 	DPRINTK_ISPRESZ("ispresizer_config_startphase()-\n");
 }
-EXPORT_SYMBOL(ispresizer_config_startphase);
 
 /**
  * ispresizer_config_ycpos - Specifies if output should be in YC or CY format.
@@ -683,7 +673,6 @@ void ispresizer_config_ycpos(struct isp_res_device *isp_res, u8 yc)
 		       ~ISPRSZ_CNT_YCPOS, (yc ? ISPRSZ_CNT_YCPOS : 0));
 	DPRINTK_ISPRESZ("ispresizer_config_ycpos()-\n");
 }
-EXPORT_SYMBOL(ispresizer_config_ycpos);
 
 /**
  * Sets the chrominance algorithm
@@ -697,7 +686,6 @@ void ispresizer_enable_cbilin(struct isp_res_device *isp_res, u8 enable)
 		       ~ISPRSZ_CNT_CBILIN, (enable ? ISPRSZ_CNT_CBILIN : 0));
 	DPRINTK_ISPRESZ("ispresizer_enable_cbilin()-\n");
 }
-EXPORT_SYMBOL(ispresizer_enable_cbilin);
 
 /**
  * ispresizer_config_luma_enhance - Configures luminance enhancer parameters.
@@ -717,7 +705,6 @@ void ispresizer_config_luma_enhance(struct isp_res_device *isp_res,
 		       ISPRSZ_YENH);
 	DPRINTK_ISPRESZ("ispresizer_config_luma_enhance()-\n");
 }
-EXPORT_SYMBOL(ispresizer_config_luma_enhance);
 
 /**
  * ispresizer_config_filter_coef - Sets filter coefficients for 4 & 7-tap mode.
@@ -745,7 +732,6 @@ void ispresizer_config_filter_coef(struct isp_res_device *isp_res,
 	}
 	DPRINTK_ISPRESZ("ispresizer_config_filter_coef()-\n");
 }
-EXPORT_SYMBOL(ispresizer_config_filter_coef);
 
 /**
  * ispresizer_config_inlineoffset - Configures the read address line offset.
@@ -763,7 +749,6 @@ int ispresizer_config_inlineoffset(struct isp_res_device *isp_res, u32 offset)
 	DPRINTK_ISPRESZ("ispresizer_config_inlineoffset()-\n");
 	return 0;
 }
-EXPORT_SYMBOL(ispresizer_config_inlineoffset);
 
 /**
  * ispresizer_set_inaddr - Sets the memory address of the input frame.
@@ -797,7 +782,6 @@ int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr)
 	DPRINTK_ISPRESZ("ispresizer_set_inaddr()-\n");
 	return 0;
 }
-EXPORT_SYMBOL(ispresizer_set_inaddr);
 
 /**
  * ispresizer_config_outlineoffset - Configures the write address line offset.
@@ -815,7 +799,6 @@ int ispresizer_config_outlineoffset(struct isp_res_device *isp_res, u32 offset)
 	DPRINTK_ISPRESZ("ispresizer_config_outlineoffset()-\n");
 	return 0;
 }
-EXPORT_SYMBOL(ispresizer_config_outlineoffset);
 
 /**
  * Configures the memory address to which the output frame is written.
@@ -831,7 +814,6 @@ int ispresizer_set_outaddr(struct isp_res_device *isp_res, u32 addr)
 	DPRINTK_ISPRESZ("ispresizer_set_outaddr()-\n");
 	return 0;
 }
-EXPORT_SYMBOL(ispresizer_set_outaddr);
 
 /**
  * ispresizer_save_context - Saves the values of the resizer module registers.
@@ -841,7 +823,6 @@ void ispresizer_save_context(struct device *dev)
 	DPRINTK_ISPRESZ("Saving context\n");
 	isp_save_context(dev, isprsz_reg_list);
 }
-EXPORT_SYMBOL(ispresizer_save_context);
 
 /**
  * ispresizer_restore_context - Restores resizer module register values.
@@ -851,7 +832,6 @@ void ispresizer_restore_context(struct device *dev)
 	DPRINTK_ISPRESZ("Restoring context\n");
 	isp_restore_context(dev, isprsz_reg_list);
 }
-EXPORT_SYMBOL(ispresizer_restore_context);
 
 /**
  * ispresizer_print_status - Prints the values of the resizer module registers.
@@ -900,7 +880,6 @@ void ispresizer_print_status(struct isp_res_device *isp_res)
 			isp_reg_readl(isp_res->dev,
 				      OMAP3_ISP_IOMEM_RESZ, ISPRSZ_YENH));
 }
-EXPORT_SYMBOL(ispresizer_print_status);
 
 /**
  * isp_resizer_init - Module Initialisation.
