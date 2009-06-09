@@ -90,6 +90,7 @@ config CHARGER_PCF50633
 
 config BATTERY_BQ27000_HDQ
 	tristate "BQ27000 HDQ battery monitor driver"
+	select HDQ_GPIO_BITBANG
 	help
 	  Say Y to enable support for the battery on the Neo Freerunner
 
