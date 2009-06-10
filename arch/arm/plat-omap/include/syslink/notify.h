@@ -136,7 +136,7 @@
 #define NOTIFY_E_NOTREADY		NOTIFY_MAKE_FAILURE(18)
 
 /*
- * @brief Failed to register driver with Notify module.
+ * brief Failed to register driver with Notify module.
  */
 #define NOTIFY_E_REGDRVFAILED		NOTIFY_MAKE_FAILURE(19)
 
@@ -221,115 +221,6 @@ typedef void (*notify_callback_fxn)(u16 proc_id, u32 eventNo, void *arg,
 					u32 payload);
 
 extern struct notify_module_object notify_state;
-
-/*
-*  name   struct notify_shmdrv_event_entry
-*
-*  desc   Defines the structure of event entry within the event chart.
-*          Each entry contains occured event-specific information.
-*          This is shared between GPP and DSP.
-*
-*  field  flag
-*              Indicating event is present or not.
-*  field  payload
-*              Variable containing data associated with each occured event.
-*  field  reserved
-*              Reserved field to contain additional information about the
-*              event entry.
-*  field  padding
-*              Padding.
-*
-*/
-struct notify_shmdrv_event_entry {
-	REG unsigned long int flag;
-	REG unsigned long int payload;
-	REG unsigned long int reserved;
-	/*ADD_PADDING(padding, NOTIFYSHMDRV_EVENT_ENTRY_PADDING)*/
-};
-
-/*
-*  name   struct notify_shmdrv_eventreg_mask
-*
-*  desc   Defines the mask indicating registered events on the processor.
-*          This is shared between GPP and DSP.
-*
-*  field  mask
-*              Indicating event is registered.
-*  field  enable_mask
-*              Indicates event is enabled.
-*  field  padding
-*              Padding.
-*
-*/
-struct notify_shmdrv_eventreg_mask {
-	REG unsigned long int mask;
-	REG unsigned long int enable_mask;
-	/*ADD_PADDING (padding, IPC_64BIT_PADDING)*/
-};
-
-/*
-*  name   notify_shmdrv_eventreg
-*
-*  desc   Defines the structure of event registration entry within the Event
-*          Registration Chart.
-*          Each entry contains registered event-specific information.
-*
-*  field  reg_event_no
-*              Index into the event chart, indicating the registered event.
-*  field  reserved
-*              Reserved field to contain additional information about the
-*              registered event.
-*
-*/
-struct notify_shmdrv_eventreg {
-	unsigned long int reg_event_no;
-	unsigned long int reserved;
-};
-
-/*
-*  name   struct NotifyShmDrv_ProcCtrl
-*
-*  desc   Defines the NotifyShmDrv control structure, which contains all
-*          information for one processor.
-*          This structure is shared between the two processors.
-*
-*  field  otherEventChart
-*              Address of event chart for the other processor.
-*  field  selfEventChart
-*              Address of event chart for this processor.
-*  field  recv_init_status
-*              Indicates whether the driver has been initialized, and is ready
-*              to receive events on this processor. If the driver does not
-*              support events from other processor to this processor, this flag
-*              will always indicate not-initialized status.
-*  field  send_init_status
-*              Indicates whether the driver has been initialized, and is ready
-*              to send events on this processor. If the driver does not
-*              support events from this processor to other processor, this flag
-*              will always indicate not-initialized status.
-*  field  padding
-*              Padding for alignment.
-*  field  selfRegMask
-*              Registration mask.
-*
-*/
-struct notify_shmdrv_proc_ctrl {
-	struct notify_shmdrv_event_entry *self_event_chart;
-	struct notify_shmdrv_event_entry *other_event_chart;
-	unsigned long int recv_init_status;
-	unsigned long int send_init_status;
-	/*ADD_PADDING(padding, NOTIFYSHMDRV_CTRL_PADDING)*/
-	struct notify_shmdrv_eventreg_mask reg_mask;
-};
-
-/*!
- *  @brief  Defines the NotifyDriverShm control structure, which contains all
- *          information shared between the two connected processors
- *          This structure is shared between the two processors.
- */
-struct notify_shmdrv_ctrl {
-	struct notify_shmdrv_proc_ctrl proc_ctrl[2];
-};
 
 /* Function to get the default configuration for the Notify module. */
 void notify_get_config(struct notify_config *cfg);

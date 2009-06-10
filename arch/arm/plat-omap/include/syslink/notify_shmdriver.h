@@ -42,38 +42,64 @@
 /*
  *  name   notify_shmdrv_attrs
  *
- *  desc   This structure defines the attributes for Notify Shared Memory
- *          Mailbox driver.
- *          These attributes are passed to the driver when notify_driver_init ()
- *          is called for this driver.
- *
- *  field  shm_base_addr
- *              Shared memory address base for the NotifyShmDrv driver. This
- *              must be the start of shared memory as used by both connected
- *              processors, and the same must be specified on both sides when
- *              initializing the NotifyShmDrv driver.
- *  field  shm_size
- *              Size of shared memory provided to the NotifyShmDrv driver. This
- *              must be the start of shared memory as used by both connected
- *              processors, and the same must be specified on both sides when
- *              initializing the NotifyShmDrv driver.
- *  field  num_events
- *              Number of events required to be supported. Must be greater than
- *              or equal to reserved events supported by the driver.
- *  field  send_event_pollcount
- *              Poll count to be used when sending event. If the count is
- *              specified as -1, the wait will be infinite. NOTIFY_sendEvent
- *              will return with timeout error if the poll count expires before
- *              the other processor acknowledges the received event.
- *
- *  see    None.
- *
  */
 struct notify_shmdrv_attrs {
 	unsigned long int    shm_base_addr ;
 	unsigned long int    shm_size ;
 	unsigned long int    num_events ;
 	unsigned long int    send_event_pollcount ;
+};
+
+
+/*
+*  name	notify_shmdrv_event_entry
+*/
+struct notify_shmdrv_event_entry {
+	REG unsigned long int flag;
+	REG unsigned long int payload;
+	REG unsigned long int reserved;
+	/*ADD_PADDING(padding, NOTIFYSHMDRV_EVENT_ENTRY_PADDING)*/
+};
+
+/*
+*  name	notify_shmdrv_eventreg_mask
+*
+*/
+struct notify_shmdrv_eventreg_mask {
+	REG unsigned long int mask;
+	REG unsigned long int enable_mask;
+	/*ADD_PADDING (padding, IPC_64BIT_PADDING)*/
+};
+
+/*
+*  name	notify_shmdrv_eventreg
+*
+*/
+struct notify_shmdrv_eventreg {
+	unsigned long int reg_event_no;
+	unsigned long int reserved;
+};
+
+/*
+*  name	notify_shmdrv_proc_ctrl
+*
+*/
+struct notify_shmdrv_proc_ctrl {
+	struct notify_shmdrv_event_entry *self_event_chart;
+	struct notify_shmdrv_event_entry *other_event_chart;
+	unsigned long int recv_init_status;
+	unsigned long int send_init_status;
+	/*ADD_PADDING(padding, NOTIFYSHMDRV_CTRL_PADDING)*/
+	struct notify_shmdrv_eventreg_mask reg_mask;
+};
+
+/*
+ *  brief  Defines the  notify_shmdrv_ctrl structure, which contains all
+ *          information shared between the two connected processors
+ *          This structure is shared between the two processors.
+ */
+struct notify_shmdrv_ctrl {
+	struct notify_shmdrv_proc_ctrl proc_ctrl[2];
 };
 
 #endif  /* !defined  NOTIFY_SHMDRIVER_H_ */
