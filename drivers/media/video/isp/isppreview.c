@@ -1503,22 +1503,6 @@ int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
 	pipe->prv_out_w_img = pipe->ccdc_out_w_img;
 	pipe->prv_out_h_img = pipe->ccdc_out_h;
 
-	isp_prev->fmtavg = 0;
-
-	if (pipe->ccdc_out_w_img > max_out) {
-		div = (pipe->ccdc_out_w_img/max_out);
-		if (div >= 2 && div < 4) {
-			isp_prev->fmtavg = 1;
-			pipe->prv_out_w_img /= 2;
-		} else if (div >= 4 && div < 8) {
-			isp_prev->fmtavg = 2;
-			pipe->prv_out_w_img /= 4;
-		} else if (div >= 8) {
-			isp_prev->fmtavg = 3;
-			pipe->prv_out_w_img /= 8;
-		}
-	}
-
 /* 	if (isp_prev->hmed_en) */
 	pipe->prv_out_w_img -= 4;
 /* 	if (isp_prev->nf_en) */
@@ -1547,8 +1531,24 @@ int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
 	pipe->prv_out_w_img -= isp_prev->sph;
 	pipe->prv_out_h_img -= isp_prev->slv;
 
-	if (pipe->prv_out_w_img % 2)
-		pipe->prv_out_w_img -= 1;
+	div = DIV_ROUND_UP(pipe->ccdc_out_w_img, max_out);
+	if (div == 1) {
+		pipe->prv_fmt_avg = 0;
+	} else if (div <= 2) {
+		pipe->prv_fmt_avg = 1;
+		pipe->prv_out_w_img /= 2;
+	} else if (div <= 4) {
+		pipe->prv_fmt_avg = 2;
+		pipe->prv_out_w_img /= 4;
+	} else if (div <= 8) {
+		pipe->prv_fmt_avg = 3;
+		pipe->prv_out_w_img /= 8;
+	} else {
+		return -EINVAL;
+	}
+
+	/* output width must be even */
+	pipe->prv_out_w_img &= ~1;
 
 	/* FIXME: This doesn't apply for prv -> rsz. */
 	pipe->prv_out_w = ALIGN(pipe->prv_out_w, 0x20);
@@ -1593,7 +1593,7 @@ int isppreview_s_pipeline(struct isp_prev_device *isp_prev,
 			       ISPPRV_AVE_EVENDIST_SHIFT |
 			       ISPPRV_AVE_ODDDIST_2 <<
 			       ISPPRV_AVE_ODDDIST_SHIFT |
-			       isp_prev->fmtavg,
+			       pipe->prv_fmt_avg,
 			       OMAP3_ISP_IOMEM_PREV, ISPPRV_AVE);
 
 	if (pipe->prv_out == PREVIEW_MEM) {
