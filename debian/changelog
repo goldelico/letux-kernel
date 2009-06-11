@@ -2,7 +2,6 @@ linux-2.6-openmoko (20090610.gitd7ac922b-1) UNRELEASED; urgency=low
 
   * New Git checkout.
   * debian/config.gta02:
-    + CONFIG_HDQ_GPIO_BITBANG=y.
     - CONFIG_POWER_SUPPLY_DEBUG is not set.
     - CONFIG_RTC_DEBUG is not set.
 
