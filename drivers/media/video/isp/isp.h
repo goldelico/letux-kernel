@@ -259,11 +259,11 @@ struct isp_irq {
 struct isp_pipeline {
 	unsigned int modules;		/* modules in use */
 	struct v4l2_pix_format pix;	/* output pix */
-	unsigned int ccdc_in_w;		/* ccdc input width */
-	unsigned int ccdc_in_h;		/* ccdc input height */
-	unsigned int ccdc_out_w;
-	unsigned int ccdc_out_h;
-	unsigned int ccdc_out_w_img;	/* ccdc output image width */
+	unsigned int ccdc_in_w;
+	unsigned int ccdc_in_h;
+	unsigned int ccdc_out_w;	/* ccdc output data width (pixels) */
+	unsigned int ccdc_out_h;	/* ccdc output data height */
+	unsigned int ccdc_out_w_img;	/* ccdc output visible image width */
 	enum ccdc_input ccdc_in;
 	enum ccdc_output ccdc_out;
 	unsigned int prv_out_w;
