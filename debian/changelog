@@ -1,4 +1,4 @@
-linux-2.6-openmoko (20090610.gitd7ac922b-1) UNRELEASED; urgency=low
+linux-2.6-openmoko (20090610.gitd7ac922b-1) pkg-fso; urgency=low
 
   * New Git checkout.
   * debian/config.gta02:
@@ -7,7 +7,7 @@ linux-2.6-openmoko (20090610.gitd7ac922b-1) UNRELEASED; urgency=low
   * debian/gbp.conf:
     + always use pristine-tar.
 
- --
+ -- Luca Capello <luca@pca.it>  Thu, 11 Jun 2009 09:40:40 +0200
 
 linux-2.6-openmoko (20090303.gitb9de904e-2) pkg-fso; urgency=low
 
