@@ -238,6 +238,8 @@ static void ar6000_tx_complete(void *Context, HTC_PACKET *pPacket);
 
 static void ar6000_tx_queue_full(void *Context, HTC_ENDPOINT_ID Endpoint);
 
+static void ar6000_tx_queue_avail(void *Context, HTC_ENDPOINT_ID Endpoint);
+
 /*
  * Static variables
  */
@@ -972,86 +974,17 @@ ar6000_destroy(struct net_device *dev, unsigned int unregister)
         return;
     }
 
-    /* Stop the transmit queues */
-    netif_stop_queue(dev);
-
-    /* Disable the target and the interrupts associated with it */
-    if (ar->arWmiReady == TRUE)
-    {
-        if (!bypasswmi)
-        {
-            if (ar->arConnected == TRUE || ar->arConnectPending == TRUE)
-            {
-                AR_DEBUG_PRINTF("%s(): Disconnect\n", __func__);
-                AR6000_SPIN_LOCK(&ar->arLock, 0);
-                ar6000_init_profile_info(ar);
-                AR6000_SPIN_UNLOCK(&ar->arLock, 0);
-                wmi_disconnect_cmd(ar->arWmi);
-            }
-
-            ar6000_dbglog_get_debug_logs(ar);
-            ar->arWmiReady  = FALSE;
-            ar->arConnected = FALSE;
-            ar->arConnectPending = FALSE;
-            wmi_shutdown(ar->arWmi);
-            ar->arWmiEnabled = FALSE;
-            ar->arWmi = NULL;
-            ar->arWlanState = WLAN_ENABLED;
-#ifdef USER_KEYS
-            ar->user_savedkeys_stat = USER_SAVEDKEYS_STAT_INIT;
-            ar->user_key_ctrl      = 0;
-#endif
-        }
-
-         AR_DEBUG_PRINTF("%s(): WMI stopped\n", __func__);
-    }
-    else
-    {
-        AR_DEBUG_PRINTF("%s(): WMI not ready 0x%08x 0x%08x\n",
-            __func__, (unsigned int) ar, (unsigned int) ar->arWmi);
-
-        /* Shut down WMI if we have started it */
-        if(ar->arWmiEnabled == TRUE)
-        {
-            AR_DEBUG_PRINTF("%s(): Shut down WMI\n", __func__);
-            wmi_shutdown(ar->arWmi);
-            ar->arWmiEnabled = FALSE;
-            ar->arWmi = NULL;
-        }
-    }
-
-    /* stop HTC */
-    HTCStop(ar->arHtcTarget);
-
-    /* set the instance to NULL so we do not get called back on remove incase we
-     * we're explicity destroyed by module unload */
-    HTCSetInstance(ar->arHtcTarget, NULL);
-
-    if (resetok) {
-        /* try to reset the device if we can
-         * The driver may have been configure NOT to reset the target during
-         * a debug session */
-        AR_DEBUG_PRINTF(" Attempting to reset target on instance destroy.... \n");
-        ar6000_reset_device(ar->arHifDevice, ar->arTargetType);
-    } else {
-        AR_DEBUG_PRINTF(" Host does not want target reset. \n");
-    }
-
-       /* Done with cookies */
-    ar6000_cookie_cleanup(ar);
-
-    /* Cleanup BMI */
-    BMIInit();
-
     /* Clear the tx counters */
     memset(tx_attempt, 0, sizeof(tx_attempt));
     memset(tx_post, 0, sizeof(tx_post));
     memset(tx_complete, 0, sizeof(tx_complete));
 
-
     /* Free up the device data structure */
-    if (unregister)
-	    unregister_netdev(dev);
+    if (unregister) {
+	unregister_netdev(dev);
+    } else {
+	ar6000_close(dev);
+    }
 
     free_raw_buffers(ar);
 
@@ -1149,7 +1082,7 @@ static int
 ar6000_open(struct net_device *dev)
 {
     /* Wake up the queues */
-    netif_wake_queue(dev);
+    netif_start_queue(dev);
 
     return 0;
 }
@@ -1157,7 +1090,78 @@ ar6000_open(struct net_device *dev)
 static int
 ar6000_close(struct net_device *dev)
 {
+    AR_SOFTC_T *ar = netdev_priv(dev);
+
+    /* Stop the transmit queues */
     netif_stop_queue(dev);
+
+    /* Disable the target and the interrupts associated with it */
+    if (ar->arWmiReady == TRUE)
+    {
+        if (!bypasswmi)
+        {
+            if (ar->arConnected == TRUE || ar->arConnectPending == TRUE)
+            {
+                AR_DEBUG_PRINTF("%s(): Disconnect\n", __func__);
+                AR6000_SPIN_LOCK(&ar->arLock, 0);
+                ar6000_init_profile_info(ar);
+                AR6000_SPIN_UNLOCK(&ar->arLock, 0);
+                wmi_disconnect_cmd(ar->arWmi);
+            }
+
+            ar6000_dbglog_get_debug_logs(ar);
+            ar->arWmiReady  = FALSE;
+            ar->arConnected = FALSE;
+            ar->arConnectPending = FALSE;
+            wmi_shutdown(ar->arWmi);
+            ar->arWmiEnabled = FALSE;
+            ar->arWmi = NULL;
+            ar->arWlanState = WLAN_ENABLED;
+#ifdef USER_KEYS
+            ar->user_savedkeys_stat = USER_SAVEDKEYS_STAT_INIT;
+            ar->user_key_ctrl      = 0;
+#endif
+        }
+
+         AR_DEBUG_PRINTF("%s(): WMI stopped\n", __func__);
+    }
+    else
+    {
+        AR_DEBUG_PRINTF("%s(): WMI not ready 0x%08x 0x%08x\n",
+            __func__, (unsigned int) ar, (unsigned int) ar->arWmi);
+
+        /* Shut down WMI if we have started it */
+        if(ar->arWmiEnabled == TRUE)
+        {
+            AR_DEBUG_PRINTF("%s(): Shut down WMI\n", __func__);
+            wmi_shutdown(ar->arWmi);
+            ar->arWmiEnabled = FALSE;
+            ar->arWmi = NULL;
+        }
+    }
+
+    /* stop HTC */
+    HTCStop(ar->arHtcTarget);
+
+    /* set the instance to NULL so we do not get called back on remove incase we
+     * we're explicity destroyed by module unload */
+    HTCSetInstance(ar->arHtcTarget, NULL);
+
+    if (resetok) {
+        /* try to reset the device if we can
+         * The driver may have been configure NOT to reset the target during
+         * a debug session */
+        AR_DEBUG_PRINTF(" Attempting to reset target on instance destroy.... \n");
+        ar6000_reset_device(ar->arHifDevice, ar->arTargetType);
+    } else {
+        AR_DEBUG_PRINTF(" Host does not want target reset. \n");
+    }
+
+       /* Done with cookies */
+    ar6000_cookie_cleanup(ar);
+
+    /* Cleanup BMI */
+    BMIInit();
 
     return 0;
 }
@@ -1278,6 +1282,7 @@ int ar6000_init(struct net_device *dev)
         connect.EpCallbacks.EpRecv = ar6000_rx;
         connect.EpCallbacks.EpRecvRefill = ar6000_rx_refill;
         connect.EpCallbacks.EpSendFull = ar6000_tx_queue_full;
+        connect.EpCallbacks.EpSendAvail = ar6000_tx_queue_avail;
             /* set the max queue depth so that our ar6000_tx_queue_full handler gets called.
              * Linux has the peculiarity of not providing flow control between the
              * NIC and the network stack. There is no API to indicate that a TX packet
@@ -1753,10 +1758,10 @@ applyAPTCHeuristics(AR_SOFTC_T *ar)
 }
 #endif /* ADAPTIVE_POWER_THROUGHPUT_CONTROL */
 
-static void ar6000_tx_queue_full(void *Context, HTC_ENDPOINT_ID Endpoint)
+static void
+ar6000_tx_queue_full(void *Context, HTC_ENDPOINT_ID Endpoint)
 {
-    AR_SOFTC_T     *ar = (AR_SOFTC_T *)Context;
-
+    AR_SOFTC_T *ar = (AR_SOFTC_T *) Context;
 
     if (Endpoint == arWMIStream2EndpointID(ar,WMI_CONTROL_PRI)) {
         if (!bypasswmi) {
@@ -1771,18 +1776,25 @@ static void ar6000_tx_queue_full(void *Context, HTC_ENDPOINT_ID Endpoint)
             AR_DEBUG_PRINTF("WMI Control Endpoint is FULL!!! \n");
         }
     } else {
-
-        AR6000_SPIN_LOCK(&ar->arLock, 0);
-        ar->arNetQueueStopped = TRUE;
-        AR6000_SPIN_UNLOCK(&ar->arLock, 0);
         /* one of the data endpoints queues is getting full..need to stop network stack
-         * the queue will resume in ar6000_tx_complete() */
+         * the queue will resume after credits received */
         netif_stop_queue(ar->arNetDev);
     }
-
-
 }
 
+static void
+ar6000_tx_queue_avail(void *Context, HTC_ENDPOINT_ID Endpoint)
+{
+    AR_SOFTC_T *ar = (AR_SOFTC_T *)Context;
+
+    if (Endpoint == arWMIStream2EndpointID(ar,WMI_CONTROL_PRI)) {
+        /* FIXME: what do for it?  */
+    } else {
+        /* Wake up interface, rescheduling prevented.  */
+        if (ar->arConnected == TRUE || bypasswmi)
+            netif_wake_queue(ar->arNetDev);
+    }
+}
 
 static void
 ar6000_tx_complete(void *Context, HTC_PACKET *pPacket)
@@ -1877,10 +1889,6 @@ ar6000_tx_complete(void *Context, HTC_PACKET *pPacket)
         ar6000_free_cookie(ar, cookie);
     }
 
-    if (ar->arNetQueueStopped) {
-        ar->arNetQueueStopped = FALSE;
-    }
-
     AR6000_SPIN_UNLOCK(&ar->arLock, 0);
 
     /* lock is released, we can freely call other kernel APIs */
@@ -1888,18 +1896,9 @@ ar6000_tx_complete(void *Context, HTC_PACKET *pPacket)
         /* this indirectly frees the HTC_PACKET */
     A_NETBUF_FREE(skb);
 
-    if ((ar->arConnected == TRUE) || (bypasswmi)) {
-        if (status != A_ECANCELED) {
-                /* don't wake the queue if we are flushing, other wise it will just
-                 * keep queueing packets, which will keep failing */
-            netif_wake_queue(ar->arNetDev);
-        }
-    }
-
     if (wakeEvent) {
         wake_up(&arEvent);
     }
-
 }
 
 /*
@@ -2317,7 +2316,7 @@ ar6000_connect_event(AR_SOFTC_T *ar, A_UINT16 channel, A_UINT8 *bssid,
         /* flush data queues */
     ar6000_TxDataCleanup(ar);
 
-    netif_wake_queue(ar->arNetDev);
+    netif_start_queue(ar->arNetDev);
 
     if ((OPEN_AUTH == ar->arDot11AuthMode) &&
         (NONE_AUTH == ar->arAuthMode)      &&

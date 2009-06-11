@@ -127,6 +127,7 @@ static A_STATUS ar6000_connect_raw_service(AR_SOFTC_T        *ar,
             /* simple interface, we don't need these optional callbacks */
         connect.EpCallbacks.EpRecvRefill = NULL;
         connect.EpCallbacks.EpSendFull = NULL;
+        connect.EpCallbacks.EpSendAvail = NULL;
         connect.MaxSendQueueDepth = RAW_HTC_WRITE_BUFFERS_NUM;
 
             /* connect to the raw streams service, we may be able to get 1 or more

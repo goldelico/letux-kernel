@@ -283,7 +283,8 @@ A_STATUS HTCWaitTarget(HTC_HANDLE HTCHandle)
         connect.EpCallbacks.EpTxComplete = HTCControlTxComplete;
         connect.EpCallbacks.EpRecv = HTCControlRecv;
         connect.EpCallbacks.EpRecvRefill = NULL;  /* not needed */
-        connect.EpCallbacks.EpSendFull = NULL;    /* not nedded */
+        connect.EpCallbacks.EpSendFull = NULL;    /* not needed */
+        connect.EpCallbacks.EpSendAvail = NULL;   /* not needed */
         connect.MaxSendQueueDepth = NUM_CONTROL_BUFFERS;
         connect.ServiceID = HTC_CTRL_RSVD_SVC;
 

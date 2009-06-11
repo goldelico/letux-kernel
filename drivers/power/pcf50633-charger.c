@@ -114,6 +114,9 @@ int pcf50633_mbc_get_status(struct pcf50633 *pcf)
 	struct pcf50633_mbc *mbc  = platform_get_drvdata(pcf->mbc_pdev);
 	int status = 0;
 
+	if (!mbc)
+		return 0;
+
 	if (mbc->usb_online)
 		status |= PCF50633_MBC_USB_ONLINE;
 	if (mbc->usb_active)

@@ -13,7 +13,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * Copyright (C) 2008 by Openmoko, Inc.
+ * Copyright (C) 2008,2009 by Openmoko, Inc.
  * Author: Nelson Castillo <arhuaco@freaks-unidos.net>
  * All rights reserved.
  *
@@ -24,14 +24,66 @@
  *
  */
 
-#include "ts_filter_linear.h"
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 
+#include "ts_filter_linear.h"
 
-/* sysfs functions */
+struct ts_filter_linear;
 
+/* Sysfs code. */
+
+struct const_obj {
+	/* The actual private object. */
+	struct ts_filter_linear *tsfl;
+	/* Our kobject. */
+	struct kobject kobj;
+};
+
+#define to_const_obj(x) container_of(x, struct const_obj, kobj)
+
+struct const_attribute {
+	struct attribute attr;
+	ssize_t (*show)(struct const_obj *const, struct const_attribute *attr,
+			char *buf);
+	ssize_t (*store)(struct const_obj *const, struct const_attribute *attr,
+			 const char *buf, size_t count);
+};
+
+#define to_const_attr(x) container_of(x, struct const_attribute, attr)
+
+
+/* Private linear filter structure. */
+
+struct ts_filter_linear {
+	/* Private configuration for this filter. */
+	struct ts_filter_linear_configuration *config;
+
+	/* Generic filter API. */
+	struct ts_filter tsf;
+
+	/* Linear constants for the transformation. */
+	int constants[TS_FILTER_LINEAR_NCONSTANTS];
+
+	/* Sysfs. */
+
+	/* Our const_object. */
+	struct const_obj c_obj;
+	/* Our type. We will stick operations to it. */
+	struct kobj_type const_ktype;
+	/* Attrs. of the virtual files. */
+	struct const_attribute kattrs[TS_FILTER_LINEAR_NCONSTANTS];
+	/* Default Attrs. Always NULL for us. */
+	struct attribute *attrs[TS_FILTER_LINEAR_NCONSTANTS + 1];
+	/* Storage for the name of the virtual files. */
+	char attr_names[TS_FILTER_LINEAR_NCONSTANTS][2];
+};
+
+#define ts_filter_to_filter_linear(f) \
+	container_of(f, struct ts_filter_linear, tsf)
+
+/* Sysfs functions. */
 
 static ssize_t const_attr_show(struct kobject *kobj,
 			       struct attribute *attr,
@@ -80,10 +132,12 @@ static ssize_t const_store(struct const_obj *obj, struct const_attribute *attr,
 	return count;
 }
 
-/* filter functions */
+/* Filter functions. */
 
-static struct ts_filter *ts_filter_linear_create(struct platform_device *pdev,
-						 void *conf, int count_coords)
+static struct ts_filter *ts_filter_linear_create(
+	struct platform_device *pdev,
+	const struct ts_filter_configuration *conf,
+	int count_coords)
 {
 	struct ts_filter_linear *tsfl;
 	int i;
@@ -93,7 +147,10 @@ static struct ts_filter *ts_filter_linear_create(struct platform_device *pdev,
 	if (!tsfl)
 		return NULL;
 
-	tsfl->config = (struct ts_filter_linear_configuration *)conf;
+	tsfl->config = container_of(conf,
+				    struct ts_filter_linear_configuration,
+				    config);
+
 	tsfl->tsf.count_coords = count_coords;
 
 	for (i = 0; i < TS_FILTER_LINEAR_NCONSTANTS; ++i) {
@@ -121,53 +178,35 @@ static struct ts_filter *ts_filter_linear_create(struct platform_device *pdev,
 		return NULL;
 	}
 
-	printk(KERN_INFO"  Created Linear ts filter depth %d\n", count_coords);
+	dev_info(&pdev->dev, "Created Linear filter coords:%d\n", count_coords);
 
 	return &tsfl->tsf;
 }
 
-static void ts_filter_linear_destroy(struct platform_device *pdev,
-				     struct ts_filter *tsf)
+static void ts_filter_linear_destroy(struct ts_filter *tsf)
 {
-	struct ts_filter_linear *tsfl = (struct ts_filter_linear *)tsf;
+	struct ts_filter_linear *tsfl = ts_filter_to_filter_linear(tsf);
 
-	/* kernel frees tsfl in const_release */
+	/* Kernel frees tsfl in const_release. */
 	kobject_put(&tsfl->c_obj.kobj);
 }
 
-static void ts_filter_linear_clear(struct ts_filter *tsf)
-{
-	if (tsf->next) /* chain */
-		(tsf->next->api->clear)(tsf->next);
-}
-
-
 static void ts_filter_linear_scale(struct ts_filter *tsf, int *coords)
 {
-	struct ts_filter_linear *tsfl = (struct ts_filter_linear *)tsf;
+	struct ts_filter_linear *tsfl = ts_filter_to_filter_linear(tsf);
+
 	int *k = tsfl->constants;
 	int c0 = coords[tsfl->config->coord0];
 	int c1 = coords[tsfl->config->coord1];
 
 	coords[tsfl->config->coord0] = (k[2] + k[0] * c0 + k[1] * c1) / k[6];
 	coords[tsfl->config->coord1] = (k[5] + k[3] * c0 + k[4] * c1) / k[6];
-
-	if (tsf->next)
-		(tsf->next->api->scale)(tsf->next, coords);
 }
 
-static int ts_filter_linear_process(struct ts_filter *tsf, int *coords)
-{
-	if (tsf->next)
-		return (tsf->next->api->process)(tsf->next, coords);
-
-	return 1;
-}
-
-struct ts_filter_api ts_filter_linear_api = {
-	.create = ts_filter_linear_create,
-	.destroy = ts_filter_linear_destroy,
-	.clear = ts_filter_linear_clear,
-	.process = ts_filter_linear_process,
-	.scale = ts_filter_linear_scale,
+const struct ts_filter_api ts_filter_linear_api = {
+	.create =	ts_filter_linear_create,
+	.destroy =	ts_filter_linear_destroy,
+	.scale =	ts_filter_linear_scale,
 };
+EXPORT_SYMBOL_GPL(ts_filter_linear_api);
+

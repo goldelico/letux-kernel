@@ -148,6 +148,7 @@
 /* compatibility for device defines */
 
 #define IRQ_IIC1		IRQ_S3C6410_IIC1
+#define IRQ_USBH		IRQ_UHOST
 
 /* Since the IRQ_EINT(x) are a linear mapping on current s3c64xx series
  * we just defined them as an IRQ_EINT(x) macro from S3C_IRQ_EINT_BASE

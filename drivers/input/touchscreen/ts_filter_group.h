@@ -6,34 +6,31 @@
 /*
  * Touchscreen group filter.
  *
- * Copyright (C) 2008 by Openmoko, Inc.
+ * Copyright (C) 2008,2009 by Openmoko, Inc.
  * Author: Nelson Castillo <arhuaco@freaks-unidos.net>
  *
  */
 
 struct ts_filter_group_configuration {
-	int extent;
+	/* Size of the filter. */
+	int length;
+	/*
+	 * If two points are separated by this distance or less they
+	 * are considered to be members of the same group.
+	 */
 	int close_enough;
+	/* Minimum allowed size for the biggest group in the sample set. */
 	int threshold;
+	/*
+	 * Number of times we try to get a group of points with at least
+	 * threshold points.
+	 */
 	int attempts;
+
+	/* Generic filter configuration. */
+	struct ts_filter_configuration config;
 };
 
-struct ts_filter_group {
-	struct ts_filter tsf;
-	struct ts_filter_group_configuration *config;
-
-	int N;		/* How many samples we have */
-	int *samples[MAX_TS_FILTER_COORDS];	/* the samples, our input */
-
-	int *group_size;	/* used for temporal computations */
-	int *sorted_samples;	/* used for temporal computations */
-
-	int range_max[MAX_TS_FILTER_COORDS];	/* max computed ranges */
-	int range_min[MAX_TS_FILTER_COORDS];	/* min computed ranges */
-
-	int tries_left;		/* We finish if we don't get enough samples */
-};
-
-extern struct ts_filter_api ts_filter_group_api;
+extern const struct ts_filter_api ts_filter_group_api;
 
 #endif

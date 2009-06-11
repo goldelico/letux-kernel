@@ -74,6 +74,7 @@ static void __iomem		*base_addr;
 static u64			rsrc_start;
 static u64			rsrc_len;
 static struct dentry		*s3c2410_udc_debugfs_root;
+static struct timer_list	vbus_poll_timer;
 
 static inline u32 udc_read(u32 reg)
 {
@@ -1526,6 +1527,20 @@ static irqreturn_t s3c2410_udc_vbus_irq(int irq, void *_dev)
 	return IRQ_HANDLED;
 }
 
+static void s3c2410_udc_vbus_poll(unsigned long _data)
+{
+	struct s3c2410_udc	*data = (struct s3c2410_udc *)_data;
+	int			v;
+
+	dprintk(DEBUG_NORMAL, "%s()\n", __func__);
+	if (udc_info && udc_info->get_vbus_status) {
+		v = udc_info->get_vbus_status();
+		if ((v > -1) && (v != data->vbus))
+			s3c2410_udc_vbus_session(&data->gadget, v);
+		mod_timer(&vbus_poll_timer, jiffies + msecs_to_jiffies(900));
+	}
+}
+
 static int s3c2410_vbus_draw(struct usb_gadget *_gadget, unsigned ma)
 {
 	dprintk(DEBUG_NORMAL, "%s()\n", __func__);
@@ -1683,6 +1698,11 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 		goto register_error;
 	}
 
+	if (udc_info && udc_info->get_vbus_status && !udc_info->vbus_pin) {
+		mod_timer(&vbus_poll_timer, jiffies + msecs_to_jiffies(50));
+		return 0; /* just return, vbus change will enable udc */
+	}
+
 	/* Enable udc */
 	s3c2410_udc_enable(udc);
 
@@ -1713,6 +1733,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	if (driver->disconnect)
 		driver->disconnect(&udc->gadget);
 
+	driver->unbind(&udc->gadget);
 	device_del(&udc->gadget.dev);
 	udc->driver = NULL;
 
@@ -1899,6 +1920,11 @@ static int s3c2410_udc_probe(struct platform_device *pdev)
 		}
 
 		dev_dbg(dev, "got irq %i\n", irq);
+	} else if (udc_info && udc_info->get_vbus_status) {
+		udc->vbus = 0;
+		init_timer(&vbus_poll_timer);
+		vbus_poll_timer.function = s3c2410_udc_vbus_poll;
+		vbus_poll_timer.data = (unsigned long) udc;
 	} else {
 		udc->vbus = 1;
 	}
@@ -1947,6 +1973,8 @@ static int s3c2410_udc_remove(struct platform_device *pdev)
 	if (udc_info && udc_info->vbus_pin > 0) {
 		irq = gpio_to_irq(udc_info->vbus_pin);
 		free_irq(irq, udc);
+	} else if (udc_info && udc_info->get_vbus_status) {
+		del_timer_sync(&vbus_poll_timer);
 	}
 
 	free_irq(IRQ_USBD, udc);

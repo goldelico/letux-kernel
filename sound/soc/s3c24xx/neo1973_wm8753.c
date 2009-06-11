@@ -353,9 +353,11 @@ static void lm4857_write_regs(void)
 static int lm4857_get_reg(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	int reg = kcontrol->private_value & 0xFF;
-	int shift = (kcontrol->private_value >> 8) & 0x0F;
-	int mask = (kcontrol->private_value >> 16) & 0xFF;
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	int reg = mc->reg;
+	int shift = mc->shift;
+	int mask = mc->max;
 
 	DBG("Entered %s\n", __func__);
 
@@ -366,9 +368,11 @@ static int lm4857_get_reg(struct snd_kcontrol *kcontrol,
 static int lm4857_set_reg(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	int reg = kcontrol->private_value & 0xFF;
-	int shift = (kcontrol->private_value >> 8) & 0x0F;
-	int mask = (kcontrol->private_value >> 16) & 0xFF;
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	int reg = mc->reg;
+	int shift = mc->shift;
+	int mask = mc->max;
 
 	if (((lm4857_regs[reg] >> shift) & mask) ==
 		ucontrol->value.integer.value[0])
@@ -646,13 +650,13 @@ static void lm4857_shutdown(struct i2c_client *dev)
 }
 
 static const struct i2c_device_id lm4857_i2c_id[] = {
-	{ "neo1973_lm4857", 0 },
+	{ "lm4857", 0 },
 	{ }
 };
 
 static struct i2c_driver lm4857_i2c_driver = {
 	.driver = {
-		.name = "LM4857 I2C Amp",
+		.name = "lm4857",
 		.owner = THIS_MODULE,
 	},
 	.suspend =        lm4857_suspend,
@@ -676,6 +680,11 @@ static int __init neo1973_init(void)
 			"Only GTA01 hardware supported by ASoC driver\n");
 		return -ENODEV;
 	}
+
+	/* register bluetooth DAI here */
+	ret = snd_soc_register_dai(&bt_dai);
+	if (ret)
+		return ret;
 
 	neo1973_snd_device = platform_device_alloc("soc-audio", -1);
 	if (!neo1973_snd_device)
@@ -702,6 +711,7 @@ static void __exit neo1973_exit(void)
 {
 	DBG("Entered %s\n", __func__);
 
+	snd_soc_unregister_dai(&bt_dai);
 	i2c_del_driver(&lm4857_i2c_driver);
 	platform_device_unregister(neo1973_snd_device);
 }

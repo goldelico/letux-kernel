@@ -35,6 +35,7 @@
 #include <linux/pcap7200.h>
 #include <linux/bq27000_battery.h>
 #include <linux/hdq.h>
+#include <linux/jbt6k74.h>
 
 #include <video/platform_lcd.h>
 
@@ -67,6 +68,7 @@
 #include <plat/devs.h>
 #include <plat/cpu.h>
 #include <plat/tzic-sp890.h>
+#include <plat/usb-control.h>
 
 /* #include <plat/udc.h> */
 #include <linux/i2c.h>
@@ -84,6 +86,8 @@
 #include <plat/regs-usb-hs-otg.h>
 
 extern struct platform_device s3c_device_usbgadget;
+extern struct platform_device s3c_device_camif; /* @@@ change plat/devs.h */
+
 
 /* -------------------------------------------------------------------------------
  * OM_3D7K FIQ related
@@ -718,6 +722,72 @@ struct pcf50633_platform_data om_3d7k_pcf_pdata = {
 	.mbc_event_callback = om_3d7k_pmu_event_callback,
 };
 
+static void om_3d7k_bl_set_intensity(int intensity)
+{
+	struct pcf50633 *pcf = om_3d7k_pcf;
+	int old_intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
+	int ret;
+
+	intensity >>= 2;
+
+	/*
+	 * One code path that leads here is from a kernel panic. Trying to turn
+	 * the backlight on just gives us a nearly endless stream of complaints
+	 * and accomplishes nothing. We can't win. Just give up.
+	 *
+	 * In the unlikely event that there's another path leading here while
+	 * we're atomic, we print at least a warning.
+	 */
+	if (in_atomic()) {
+		printk(KERN_ERR
+		    "3d7k_bl_set_intensity called while atomic\n");
+		return;
+	}
+
+	old_intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
+	if (intensity == old_intensity)
+		return;
+
+	/* We can't do this anywhere else */
+	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 5);
+
+	if (!(pcf50633_reg_read(pcf, PCF50633_REG_LEDENA) & 3))
+		old_intensity = 0;
+
+	/*
+	 * The PCF50633 cannot handle LEDOUT = 0 (datasheet p60)
+	 * if seen, you have to re-enable the LED unit
+	 */
+	if (!intensity || !old_intensity)
+		pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0);
+
+	if (!intensity) /* illegal to set LEDOUT to 0 */
+		ret = pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f,
+									     2);
+	else
+		ret = pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_LEDOUT, 0x3f,
+			       intensity);
+
+	if (intensity)
+		pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 2);
+
+}
+
+static struct generic_bl_info om_3d7k_bl_info = {
+	.name 			= "om-3d7k-bl",
+	.max_intensity 		= 0xff,
+	.default_intensity 	= 0x7f,
+	.set_bl_intensity 	= om_3d7k_bl_set_intensity,
+};
+
+static struct platform_device om_3d7k_bl_dev = {
+	.name  = "generic-bl",
+	.id  = 1,
+	.dev = {
+		.platform_data = &om_3d7k_bl_info,
+	},
+};
+
 /* BQ27000 Battery */
 static int om_3d7k_get_charger_online_status(void)
 {
@@ -843,10 +913,15 @@ struct platform_device om_3d7k_hdq_device = {
 static void om_3d7k_lp5521_chip_enable(int level)
 {
 	gpio_direction_output(OM_3D7K_GPIO_LED_EN, level);
-	mdelay(500);
+	udelay(500);
 }
 
 static struct lp5521_platform_data om_3d7k_lp5521_pdata = {
+	 .channels = {
+		[LP5521_BLUE] = LP5521_CONNECTED,
+		[LP5521_GREEN] = LP5521_CONNECTED,
+		[LP5521_RED] = LP5521_NC,
+	},
 	.ext_enable = om_3d7k_lp5521_chip_enable,
 };
 
@@ -875,7 +950,14 @@ static struct i2c_board_info om_3d7k_i2c_devs[] __initdata = {
 	},
 	{
 		I2C_BOARD_INFO("lp5521", 0x32),
+		/* mark this temporarily, since LED INT is connected
+		 * to EXT group6_9, the handling of EXT group1~group9
+		 * is not implemented. Besides, we don't need this IRQ
+		 * now
+		 */
+#if 0
 		.irq = OM_3D7K_IRQ_LED,
+#endif
 		.platform_data = &om_3d7k_lp5521_pdata,
 	},
 	{
@@ -896,6 +978,9 @@ static struct platform_device *om_3d7k_devices[] __initdata = {
 	&om_3d7k_device_spi_lcm,
 	&s3c_device_usbgadget,
 	&s3c24xx_pwm_device,
+#ifdef CONFIG_S3C_DEV_CAMIF
+	&s3c_device_camif,
+#endif
 };
 
 
@@ -926,6 +1011,7 @@ static void om_3d7k_pmu_regulator_registered(struct pcf50633 *pcf, int id)
 static struct platform_device *om_3d7k_devices_pmu_children[] = {
 	&om_3d7k_button_dev,
 //	&s3c_device_spi_acc1, /* relies on PMU reg for power */
+	&s3c_device_usb,
 };
 
 /* this is called when pc50633 is probed, unfortunately quite late in the
@@ -947,12 +1033,14 @@ static void om_3d7k_pcf50633_attach_child_devices(struct pcf50633 *pcf)
 	platform_add_devices(om_3d7k_devices_pmu_children,
 				     ARRAY_SIZE(om_3d7k_devices_pmu_children));
 
+	/* backlight device should be registered until pcf50633 probe is done */
+	om_3d7k_bl_dev.dev.parent = &om_3d7k_device_spi_lcm.dev;
+	platform_device_register(&om_3d7k_bl_dev);
+
 	/* Switch on backlight. Qi does not do it for us */
 	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x00);
 	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 0x01);
 	pcf50633_reg_write(pcf, PCF50633_REG_LEDENA, 0x01);
-	pcf50633_reg_write(pcf, PCF50633_REG_LEDOUT, 0x3f);
-
 }
 
 static void om_3d7k_l1k002_pwronoff(int level)
@@ -979,6 +1067,27 @@ static struct spi_board_info om_3d7k_spi_board_info[] = {
 	/* controller_data */
 	/* irq */
 	.max_speed_hz	= 10 * 1000 * 1000,
+	.bus_num	= 1,
+	/* chip_select */
+	},
+};
+
+static void om_3d7k_jbt6k74_probe_completed(struct device *dev)
+{
+	dev_info(dev, "device attached\n");
+}
+
+const struct jbt6k74_platform_data jbt6k74_pdata = {
+	.probe_completed = om_3d7k_jbt6k74_probe_completed,
+};
+
+static struct spi_board_info alt_om_3d7k_spi_board_info[] = {
+	{
+	.modalias	= "jbt6k74",
+	.platform_data	= &jbt6k74_pdata,
+	/* controller_data */
+	/* irq */
+	.max_speed_hz	= 100 * 1000,
 	.bus_num	= 1,
 	/* chip_select */
 	},
@@ -1013,11 +1122,16 @@ struct platform_device om_3d7k_device_spi_lcm = {
 	},
 };
 
+static int attached_lcm;
 
+static int __init om3d7k_lcm_probe(char *s)
+{
+	if (!strcmp(s, "jbt6k74"))
+		attached_lcm = 1;
 
-
-
-
+	return 1;
+}
+__setup("om_3d7k_lcm=", om3d7k_lcm_probe);
 
 extern void s3c64xx_init_io(struct map_desc *, int);
 
@@ -1025,6 +1139,15 @@ struct s3c_plat_otg_data s3c_hs_otg_plat_data = {
 	.phyclk = 0
 };
 
+/* USB */
+static struct s3c2410_hcd_info om3d7k_usb_info = {
+	.port[0]	= {
+		.flags	= S3C_HCDFLG_USED,
+	},
+	.port[1]	= {
+		.flags	= 0,
+	},
+};
 
 static void __init om_3d7k_map_io(void)
 {
@@ -1037,6 +1160,7 @@ static void __init om_3d7k_machine_init(void)
 {
 	s3c_pm_init();
 
+	s3c_device_usb.dev.platform_data = &om3d7k_usb_info;
 	s3c_device_usbgadget.dev.platform_data = &s3c_hs_otg_plat_data;
 
 	s3c_i2c0_set_platdata(NULL);
@@ -1044,8 +1168,11 @@ static void __init om_3d7k_machine_init(void)
 
 	i2c_register_board_info(0, om_3d7k_i2c_devs,
 						 ARRAY_SIZE(om_3d7k_i2c_devs));
-
-	spi_register_board_info(om_3d7k_spi_board_info,
+	if (attached_lcm)
+		spi_register_board_info(alt_om_3d7k_spi_board_info,
+					ARRAY_SIZE(alt_om_3d7k_spi_board_info));
+	else
+		spi_register_board_info(om_3d7k_spi_board_info,
 		       				ARRAY_SIZE(om_3d7k_spi_board_info));
 
 	platform_add_devices(om_3d7k_devices, ARRAY_SIZE(om_3d7k_devices));

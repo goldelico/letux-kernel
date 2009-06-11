@@ -18,6 +18,7 @@
 
 #include <mach/map.h>
 #include <mach/gpio.h>
+#include <mach/irqs.h>
 #include <mach/gpio-core.h>
 
 #include <plat/gpio-cfg.h>
@@ -321,6 +322,11 @@ static struct s3c_gpio_cfg gpio_2bit_cfg_eint11 = {
 	.get_pull	= s3c_gpio_getpull_updown,
 };
 
+static int s3c_gpiolib_bankn_toirq(struct gpio_chip *chip, unsigned offset)
+{
+	return S3C_EINT(0) + offset;
+}
+
 static struct s3c_gpio_chip gpio_2bit[] = {
 	{
 		.base	= S3C64XX_GPF_BASE,
@@ -353,6 +359,7 @@ static struct s3c_gpio_chip gpio_2bit[] = {
 			.base	= S3C64XX_GPN(0),
 			.ngpio	= S3C64XX_GPIO_N_NR,
 			.label	= "GPN",
+			.to_irq = s3c_gpiolib_bankn_toirq,
 		},
 	}, {
 		.base	= S3C64XX_GPO_BASE,

@@ -74,10 +74,10 @@
 #include <mach/ts.h>
 #include <mach/spi.h>
 #include <mach/spi-gpio.h>
-#include <mach/usb-control.h>
 #include <mach/regs-mem.h>
 #include <mach/spi-gpio.h>
 #include <plat/pwm.h>
+#include <mach/cpu.h>
 
 #include <mach/gta02.h>
 
@@ -88,6 +88,7 @@
 #include <plat/pm.h>
 #include <plat/udc.h>
 #include <plat/iic.h>
+#include <plat/usb-control.h>
 #include <asm/plat-s3c24xx/neo1973.h>
 #include <mach/neo1973-pm-gsm.h>
 #include <mach/gta02-pm-wlan.h>
@@ -102,6 +103,7 @@
 
 #include "../plat-s3c24xx/neo1973_pm_gps.h"
 
+#include <../drivers/input/touchscreen/ts_filter_chain.h>
 #ifdef CONFIG_TOUCHSCREEN_FILTER
 #include <../drivers/input/touchscreen/ts_filter_linear.h>
 #include <../drivers/input/touchscreen/ts_filter_mean.h>
@@ -127,7 +129,7 @@ static spinlock_t motion_irq_lock;
 #define DIVISOR_FROM_US(x) ((x) << 3)
 
 #ifdef CONFIG_HDQ_GPIO_BITBANG
-#define FIQ_DIVISOR_HDQ DIVISOR_FROM_US(20)
+#define FIQ_DIVISOR_HDQ DIVISOR_FROM_US(HDQ_SAMPLE_PERIOD_US)
 extern int hdq_fiq_handler(void);
 #endif
 
@@ -238,8 +240,11 @@ static int gta02_fiq_enable(void)
 
 	set_fiq_c_handler(gta02_fiq_handler);
 
+	return 0;
+
 bail:
-	printk(KERN_ERR "Count not initialize FIQ for GTA02\n");
+	printk(KERN_ERR "Could not initialize FIQ for GTA02: %d\n", rc);
+
 	return rc;
 }
 
@@ -454,6 +459,13 @@ static void gta02_pmu_event_callback(struct pcf50633 *pcf, int irq)
 	}
 }
 
+static void gta02_pmu_force_shutdown(struct pcf50633 *pcf)
+{
+	pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_OOCSHDWN,
+			PCF50633_OOCSHDWN_GOSTDBY, PCF50633_OOCSHDWN_GOSTDBY);
+}
+
+
 static void gta02_udc_vbus_draw(unsigned int ma)
 {
         if (!gta02_pcf)
@@ -464,11 +476,22 @@ static void gta02_udc_vbus_draw(unsigned int ma)
 	schedule_delayed_work(&gta02_charger_work,
 				GTA02_CHARGER_CONFIGURE_TIMEOUT);
 }
+
+static int gta02_udc_vbus_status(void)
+{
+	struct pcf50633 *pcf = gta02_pcf;
+
+        if (!gta02_pcf)
+		return -ENODEV;
+
+	return !!(pcf50633_mbc_get_status(pcf) & PCF50633_MBC_USB_ONLINE);
+}
 #else /* !CONFIG_CHARGER_PCF50633 */
 #define gta02_get_charger_online_status NULL
 #define gta02_get_charger_active_status NULL
 #define gta02_pmu_event_callback        NULL
 #define gta02_udc_vbus_draw             NULL
+#define gta02_udc_vbus_status           NULL
 #endif
 
 static struct platform_device gta01_pm_gps_dev = {
@@ -552,6 +575,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 	.reg_init_data = {
 		[PCF50633_REGULATOR_AUTO] = {
 			.constraints = {
+				.name = "IO_3V3",
 				.min_uV = 3300000,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -565,6 +589,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_DOWN1] = {
 			.constraints = {
+				.name = "CORE_1V3",
 				.min_uV = 1300000,
 				.max_uV = 1600000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -575,6 +600,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_DOWN2] = {
 			.constraints = {
+				.name = "IO_1V8",
 				.min_uV = 1800000,
 				.max_uV = 1800000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -588,6 +614,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_HCLDO] = {
 			.constraints = {
+				.name = "SD_3V3",
 				.min_uV = 2000000,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -599,6 +626,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_LDO1] = {
 			.constraints = {
+				.name = "GSENSOR_3V3",
 				.min_uV = 1300000,
 				.max_uV = 1300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -608,6 +636,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_LDO2] = {
 			.constraints = {
+				.name = "CODEC_3V3",
 				.min_uV = 3300000,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -626,6 +655,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_LDO4] = {
 			.constraints = {
+				.name = "BT_3V2",
 				.min_uV = 3200000,
 				.max_uV = 3200000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -636,6 +666,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_LDO5] = {
 			.constraints = {
+				.name = "RF_3V",
 				.min_uV = 1500000,
 				.max_uV = 1500000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -649,6 +680,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 		},
 		[PCF50633_REGULATOR_LDO6] = {
 			.constraints = {
+				.name = "LCM_3V",
 				.min_uV = 0,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
@@ -671,6 +703,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 	.probe_done = gta02_pmu_attach_child_devices,
 	.regulator_registered = gta02_pmu_regulator_registered,
 	.mbc_event_callback = gta02_pmu_event_callback,
+	.force_shutdown = gta02_pmu_force_shutdown,
 };
 
 static void mangle_pmu_pdata_by_system_rev(void)
@@ -679,7 +712,7 @@ static void mangle_pmu_pdata_by_system_rev(void)
 
 	reg_init_data = gta02_pcf_pdata.reg_init_data;
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA02v1_SYSTEM_REV:
 		/* FIXME: this is only in v1 due to wrong PMU variant */
 		reg_init_data[PCF50633_REGULATOR_DOWN2]
@@ -738,7 +771,7 @@ struct platform_device bq27000_battery_device = {
 
 static void gta02_hdq_attach_child_devices(struct device *parent_device)
 {
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA02v5_SYSTEM_REV:
 	case GTA02v6_SYSTEM_REV:
 		bq27000_battery_device.dev.parent = parent_device;
@@ -932,60 +965,57 @@ static void gta02_udc_command(enum s3c2410_udc_cmd_e cmd)
 static struct s3c2410_udc_mach_info gta02_udc_cfg = {
 	.vbus_draw	= gta02_udc_vbus_draw,
 	.udc_command	= gta02_udc_command,
+	.get_vbus_status= gta02_udc_vbus_status,
 
 };
 
 
-/* touchscreen configuration */
+/* Touchscreen configuration. */
+
 #ifdef CONFIG_TOUCHSCREEN_FILTER
-static struct ts_filter_linear_configuration gta02_ts_linear_config = {
-	.constants = {1, 0, 0, 0, 1, 0, 1},	/* don't modify coords */
-	.coord0 = 0,
-	.coord1 = 1,
-};
-
-static struct ts_filter_group_configuration gta02_ts_group_config = {
-	.extent = 12,
+const static struct ts_filter_group_configuration gta02_ts_group = {
+	.length = 12,
 	.close_enough = 10,
-	.threshold = 6,		/* at least half of the points in a group */
+	.threshold = 6,		/* At least half of the points in a group. */
 	.attempts = 10,
 };
 
-static struct ts_filter_median_configuration gta02_ts_median_config = {
+const static struct ts_filter_median_configuration gta02_ts_median = {
 	.extent = 20,
 	.decimation_below = 3,
 	.decimation_threshold = 8 * 3,
 	.decimation_above = 4,
 };
 
-static struct ts_filter_mean_configuration gta02_ts_mean_config = {
-	.bits_filter_length = 2, /* 4 points */
+const static struct ts_filter_mean_configuration gta02_ts_mean = {
+	.length = 4,
 };
 
-static struct s3c2410_ts_mach_info gta02_ts_cfg = {
-	.delay = 10000,
-	.presc = 0xff, /* slow as we can go */
-	.filter_sequence = {
-		[0] = &ts_filter_group_api,
-		[1] = &ts_filter_median_api,
-		[2] = &ts_filter_mean_api,
-		[3] = &ts_filter_linear_api,
-	},
-	.filter_config = {
-		[0] = &gta02_ts_group_config,
-		[1] = &gta02_ts_median_config,
-		[2] = &gta02_ts_mean_config,
-		[3] = &gta02_ts_linear_config,
-	},
-};
-#else /* !CONFIG_TOUCHSCREEN_FILTER */
-static struct s3c2410_ts_mach_info gta02_ts_cfg = {
-	.delay = 10000,
-	.presc = 0xff, /* slow as we can go */
-	.filter_sequence = { NULL },
-	.filter_config = { NULL },
+const static struct ts_filter_linear_configuration gta02_ts_linear = {
+	.constants = {1, 0, 0, 0, 1, 0, 1},	/* Don't modify coords. */
+	.coord0 = 0,
+	.coord1 = 1,
 };
 #endif
+
+const static struct ts_filter_chain_configuration gta02_filter_configuration[] =
+{
+#ifdef CONFIG_TOUCHSCREEN_FILTER
+	{&ts_filter_group_api,		&gta02_ts_group.config},
+	{&ts_filter_median_api,		&gta02_ts_median.config},
+	{&ts_filter_mean_api,		&gta02_ts_mean.config},
+	{&ts_filter_linear_api,		&gta02_ts_linear.config},
+#endif
+	{NULL, NULL},
+};
+
+const static struct s3c2410_ts_mach_info gta02_ts_cfg = {
+	.delay = 10000,
+	.presc = 0xff, /* slow as we can go */
+	.filter_config = gta02_filter_configuration,
+};
+
+
 
 static void gta02_bl_set_intensity(int intensity)
 {
@@ -1009,15 +1039,16 @@ static void gta02_bl_set_intensity(int intensity)
 		return;
 	}
 
-	old_intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
+	if (!(pcf50633_reg_read(pcf, PCF50633_REG_LEDENA) & 3))
+		old_intensity = 0;
+	else
+		old_intensity = pcf50633_reg_read(pcf, PCF50633_REG_LEDOUT);
+
 	if (intensity == old_intensity)
 		return;
 
 	/* We can't do this anywhere else */
 	pcf50633_reg_write(pcf, PCF50633_REG_LEDDIM, 5);
-
-	if (!(pcf50633_reg_read(pcf, PCF50633_REG_LEDENA) & 3))
-		old_intensity = 0;
 
 	/*
 	 * The PCF50633 cannot handle LEDOUT = 0 (datasheet p60)
@@ -1340,7 +1371,7 @@ static int glamo_irq_is_wired(void)
 
 static int gta02_glamo_can_set_mmc_power(void)
 {
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 		case GTA02v3_SYSTEM_REV:
 		case GTA02v4_SYSTEM_REV:
 		case GTA02v5_SYSTEM_REV:
@@ -1434,7 +1465,7 @@ static struct platform_device gta02_glamo_dev = {
 
 static void mangle_glamo_res_by_system_rev(void)
 {
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA02v1_SYSTEM_REV:
 		break;
 	default:
@@ -1443,7 +1474,7 @@ static void mangle_glamo_res_by_system_rev(void)
 		break;
 	}
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA02v1_SYSTEM_REV:
 	case GTA02v2_SYSTEM_REV:
 	case GTA02v3_SYSTEM_REV:
@@ -1579,7 +1610,7 @@ static void __init gta02_machine_init(void)
 	/* set the panic callback to make AUX blink fast */
 	panic_blink = gta02_panic_blink;
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA02v6_SYSTEM_REV:
 		/* we need push-pull interrupt from motion sensors */
 		lis302_pdata_top.open_drain = 0;

@@ -77,6 +77,12 @@
 #define I2C_DRIVERID_PCF50633 1051
 #define I2C_DRIVERID_PCA9632  1052
 
+#define	I2C_DRIVERID_S5K_3XA	1500	/* Samsung MobileAP I2C adapter */
+#define	I2C_DRIVERID_S5K_53BEA	1501	/* Samsung MobileAP I2C adapter */
+#define	I2C_DRIVERID_S5K_532	1502	/* Samsung MobileAP I2C adapter */
+#define	I2C_DRIVERID_S5K_3BA	1503	/* Samsung MobileAP I2C adapter */
+#define	I2C_DRIVERID_S5K_4XA	1504	/* Samsung MobileAP I2C adapter */
+
 /*
  * ---- Adapter types ----------------------------------------------------
  */

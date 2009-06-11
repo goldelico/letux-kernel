@@ -71,7 +71,7 @@
 #include <mach/fb.h>
 #include <mach/spi.h>
 #include <mach/spi-gpio.h>
-#include <mach/usb-control.h>
+#include <mach/cpu.h>
 
 #include <mach/gta01.h>
 
@@ -84,10 +84,12 @@
 #include <plat/iic.h>
 #include <plat/mci.h>
 #include <asm/plat-s3c24xx/neo1973.h>
+#include <plat/usb-control.h>
 #include <mach/neo1973-pm-gsm.h>
 
 #include <linux/jbt6k74.h>
 
+#include <../drivers/input/touchscreen/ts_filter_chain.h>
 #ifdef CONFIG_TOUCHSCREEN_FILTER
 #include <../drivers/input/touchscreen/ts_filter_linear.h>
 #include <../drivers/input/touchscreen/ts_filter_mean.h>
@@ -426,7 +428,7 @@ static void mangle_pmu_pdata_by_system_rev(void)
 
 	reg_init_data = gta01_pcf_pdata.reg_init_data;
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01Bv4_SYSTEM_REV:
 
 		/* FIXME : gta01_pcf_pdata.used_features |= PCF50606_FEAT_ACD; */
@@ -600,7 +602,7 @@ static void gta01_mmc_set_power(unsigned char power_mode, unsigned short vdd)
 	regulator = s3c_sdi_regulator;
 
 		return;
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 		switch (power_mode) {
 		case MMC_POWER_OFF:
@@ -674,9 +676,11 @@ static struct vbus_draw gta01_udc_vbus_drawer;
 
 static void __gta01_udc_vbus_draw(struct work_struct *work)
 {
-	/* this is a fix to work around boot-time ordering problems if the
+	/*
+	 * This is a fix to work around boot-time ordering problems if the
 	 * s3c2410_udc is initialized before the pcf50606 driver has defined
-	 * pcf50606_global */
+	 * pcf50606_global
+	 */
 	if (!gta01_pcf)
 		return;
 
@@ -687,7 +691,7 @@ static void __gta01_udc_vbus_draw(struct work_struct *work)
 	} else {
 		/* disable fast charge */
 		printk(KERN_DEBUG "udc: disabling fast charge\n");
-		pcf50606_charge_fast(gta01_pcf, 1);
+		pcf50606_charge_fast(gta01_pcf, 0);
 	}
 }
 
@@ -701,59 +705,50 @@ static struct s3c2410_udc_mach_info gta01_udc_cfg = {
 	.vbus_draw	= gta01_udc_vbus_draw,
 };
 
+/* Touchscreen configuration. */
 
-/* touchscreen configuration */
 #ifdef CONFIG_TOUCHSCREEN_FILTER
-static struct ts_filter_linear_configuration gta01_ts_linear_config = {
-	.constants = {1, 0, 0, 0, 1, 0, 1},	/* don't modify coords */
-	.coord0 = 0,
-	.coord1 = 1,
-};
-
-static struct ts_filter_group_configuration gta01_ts_group_config = {
-	.extent = 12,
+const static struct ts_filter_group_configuration gta01_ts_group = {
+	.length = 12,
 	.close_enough = 10,
-	.threshold = 6,		/* at least half of the points in a group */
+	.threshold = 6,		/* At least half of the points in a group. */
 	.attempts = 10,
 };
 
-static struct ts_filter_median_configuration gta01_ts_median_config = {
-	.extent = 31,
-	.decimation_below = 24,
+const static struct ts_filter_median_configuration gta01_ts_median = {
+	.extent = 20,
+	.decimation_below = 3,
 	.decimation_threshold = 8 * 3,
-	.decimation_above = 12,
+	.decimation_above = 4,
 };
 
-static struct ts_filter_mean_configuration gta01_ts_mean_config = {
-	.bits_filter_length = 5,
-	.averaging_threshold = 12
+const static struct ts_filter_mean_configuration gta01_ts_mean = {
+	.length = 4,
 };
 
-static struct s3c2410_ts_mach_info gta01_ts_cfg = {
-	.delay = 10000,
-	.presc = 0xff, /* slow as we can go */
-	.filter_sequence = {
-		[0] = &ts_filter_group_api,
-		[1] = &ts_filter_median_api,
-		[2] = &ts_filter_mean_api,
-		[3] = &ts_filter_linear_api,
-	},
-	.filter_config = {
-		[0] = &gta01_ts_group_config,
-		[1] = &gta01_ts_median_config,
-		[2] = &gta01_ts_mean_config,
-		[3] = &gta01_ts_linear_config,
-	},
-};
-#else /* !CONFIG_TOUCHSCREEN_FILTER */
-static struct s3c2410_ts_mach_info gta01_ts_cfg = {
-	.delay = 10000,
-	.presc = 0xff, /* slow as we can go */
-	.filter_sequence = { NULL },
-	.filter_config = { NULL },
+const static struct ts_filter_linear_configuration gta01_ts_linear = {
+	.constants = {1, 0, 0, 0, 1, 0, 1},	/* Don't modify coords. */
+	.coord0 = 0,
+	.coord1 = 1,
 };
 #endif
 
+const static struct ts_filter_chain_configuration gta01_filter_configuration[] =
+{
+#ifdef CONFIG_TOUCHSCREEN_FILTER
+	{&ts_filter_group_api,		&gta01_ts_group.config},
+	{&ts_filter_median_api,		&gta01_ts_median.config},
+	{&ts_filter_mean_api,		&gta01_ts_mean.config},
+	{&ts_filter_linear_api,		&gta01_ts_linear.config},
+#endif
+	{NULL, NULL},
+};
+
+const static struct s3c2410_ts_mach_info gta01_ts_cfg = {
+	.delay = 10000,
+	.presc = 0xff, /* slow as we can go */
+	.filter_config = gta01_filter_configuration,
+};
 
 /* SPI */
 
@@ -780,7 +775,6 @@ static struct spi_board_info gta01_spi_board_info[] = {
 		/* controller_data */
 		/* irq */
 		.max_speed_hz	= 10 * 1000 * 1000,
-		.bus_num	= 1,
 		/* chip_select */
 	},
 };
@@ -922,7 +916,7 @@ static struct i2c_board_info gta01_i2c_devs[] __initdata = {
 		.platform_data = &gta01_pcf_pdata,
 	},
 	{
-		I2C_BOARD_INFO("lm4587", 0x7c),
+		I2C_BOARD_INFO("lm4857", 0x7c),
 	},
 	{
 		I2C_BOARD_INFO("wm8753", 0x1a),
@@ -933,10 +927,10 @@ static void __init gta01_machine_init(void)
 {
 	int rc;
 
-	if (system_rev == GTA01v4_SYSTEM_REV ||
-	    system_rev == GTA01Bv2_SYSTEM_REV ||
-	    system_rev == GTA01Bv3_SYSTEM_REV ||
-	    system_rev == GTA01Bv4_SYSTEM_REV) {
+	if (S3C_SYSTEM_REV_ATAG == GTA01v4_SYSTEM_REV ||
+	    S3C_SYSTEM_REV_ATAG == GTA01Bv2_SYSTEM_REV ||
+	    S3C_SYSTEM_REV_ATAG == GTA01Bv3_SYSTEM_REV ||
+	    S3C_SYSTEM_REV_ATAG == GTA01Bv4_SYSTEM_REV) {
 		gta01_udc_cfg.udc_command = gta01_udc_command;
 		gta01_mmc_cfg.ocr_avail = MMC_VDD_32_33;
 	}
@@ -965,7 +959,7 @@ static void __init gta01_machine_init(void)
 	platform_device_register(&gta01_button_dev);
 	platform_device_register(&gta01_pm_gsm_dev);
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 	case GTA01v4_SYSTEM_REV:
 		/* just use the default (GTA01_IRQ_PCF50606) */

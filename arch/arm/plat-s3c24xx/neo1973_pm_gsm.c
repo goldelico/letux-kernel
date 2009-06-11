@@ -27,6 +27,7 @@
 #include <mach/s3c24xx-serial.h>
 
 #include <mach/hardware.h>
+#include <mach/cpu.h>
 
 /* For GTA02 */
 #include <mach/gta02.h>
@@ -95,12 +96,17 @@ out_1:
 static void gsm_on_off(struct device *dev, int on)
 {
 	if (!on) {
-		/* do not drive into powered-down GSM side */
-		s3c2410_gpio_cfgpin(S3C2410_GPH1, S3C2410_GPIO_INPUT);
-		s3c2410_gpio_cfgpin(S3C2410_GPH2, S3C2410_GPIO_INPUT);
+		if (machine_is_neo1973_gta02()) {
+			/*
+			 * Do not drive into powered-down GSM side
+			 * GTA02 only, because on GTA01 maybe serial
+			 * is used otherwise.
+			 */
+			s3c2410_gpio_cfgpin(S3C2410_GPH1, S3C2410_GPIO_INPUT);
+			s3c2410_gpio_cfgpin(S3C2410_GPH2, S3C2410_GPIO_INPUT);
 
-		if (machine_is_neo1973_gta02())
 			pcf50633_gpio_set(gta02_pcf, PCF50633_GPIO2, 0);
+		}
 
 		if (gta01_gsm.gpio_ngsm_en)
 			s3c2410_gpio_setpin(gta01_gsm.gpio_ngsm_en, 1);
@@ -281,7 +287,7 @@ static struct attribute_group gta01_gsm_attr_group = {
 
 static int __init gta01_gsm_probe(struct platform_device *pdev)
 {
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v3_SYSTEM_REV:
 		gta01_gsm.gpio_ngsm_en = GTA01v3_GPIO_nGSM_EN;
 		break;
@@ -309,7 +315,7 @@ static int __init gta01_gsm_probe(struct platform_device *pdev)
 		break;
 	}
 
-	switch (system_rev) {
+	switch (S3C_SYSTEM_REV_ATAG) {
 	case GTA01v4_SYSTEM_REV:
 	case GTA01Bv2_SYSTEM_REV:
 		gta01_gsm_sysfs_entries[ARRAY_SIZE(gta01_gsm_sysfs_entries)-2] =

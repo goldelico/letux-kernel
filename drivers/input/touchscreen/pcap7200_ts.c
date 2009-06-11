@@ -43,7 +43,7 @@
 struct pcap7200_data{
 	struct i2c_client *client;
 	struct input_dev *dev;
-	struct ts_filter *tsf[MAX_TS_FILTER_CHAIN];
+	struct ts_filter **tsf;
 	struct mutex lock;
 	int irq;
 	struct work_struct work;

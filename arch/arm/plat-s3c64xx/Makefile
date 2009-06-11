@@ -34,6 +34,8 @@ obj-$(CONFIG_PM)		+= pm.o
 obj-$(CONFIG_PM)		+= sleep.o
 obj-$(CONFIG_PM)		+= irq-pm.o
 
+obj-$(CONFIG_CPU_FREQ_S3C64XX)	+= cpufreq.o
+
 # Device setup
 
 obj-$(CONFIG_S3C64XX_SETUP_I2C0) += setup-i2c0.o

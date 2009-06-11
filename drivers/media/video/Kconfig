@@ -711,6 +711,25 @@ config VIDEO_CAFE_CCIC
 	  CMOS camera controller.  This is the controller found on first-
 	  generation OLPC systems.
 
+config VIDEO_SAMSUNG
+	bool "S3C SMDK CAMERA support"
+	depends on VIDEO_V4L2
+
+	default n
+	---help---
+	  TBA
+
+choice
+depends on VIDEO_SAMSUNG
+prompt "Select CIS module type"
+default VIDEO_SAMSUNG_S5K3BA
+
+config VIDEO_SAMSUNG_S5K4BA
+	bool "S5K4BA (2.0M CIS module, 1600x1200)"
+	---help---
+	  TBA
+endchoice
+
 config SOC_CAMERA
 	tristate "SoC camera support"
 	depends on VIDEO_V4L2 && HAS_DMA

@@ -175,7 +175,7 @@ static int adc_result(struct pcf50606 *pcf)
 	u16 ret = (pcf50606_reg_read(pcf, PCF50606_REG_ADCS1) << 2) |
 			(pcf50606_reg_read(pcf, PCF50606_REG_ADCS2) & 0x03);
 
-	dev_info(pcf->dev, "adc result = %d\n", ret);
+	dev_dbg(pcf->dev, "adc result = %d\n", ret);
 
 	return ret;
 }

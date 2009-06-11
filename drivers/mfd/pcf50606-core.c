@@ -349,7 +349,7 @@ static void pcf50606_irq_worker(struct work_struct *work)
 			pcf_int[1] &= ~(1 << PCF50606_INT2_CHGINS);
 	}
 	
-	dev_info(pcf->dev, "INT1=0x%02x INT2=0x%02x INT3=0x%02x\n",
+	dev_dbg(pcf->dev, "INT1=0x%02x INT2=0x%02x INT3=0x%02x\n",
 				pcf_int[0], pcf_int[1], pcf_int[2]);
 
 	/* Some revisions of the chip don't have a 8s standby mode on
@@ -436,7 +436,7 @@ static void
 pcf50606_client_dev_register(struct pcf50606 *pcf, const char *name,
 						struct platform_device **pdev)
 {
-	struct pcf50606_subdev_pdata *subdev_pdata;
+	struct pcf50606_subdev_pdata subdev_pdata;
 	int ret;
 
 	*pdev = platform_device_alloc(name, -1);
@@ -445,14 +445,8 @@ pcf50606_client_dev_register(struct pcf50606 *pcf, const char *name,
 		return;
 	}
 
-	subdev_pdata = kmalloc(sizeof(*subdev_pdata), GFP_KERNEL);
-	if (!subdev_pdata) {
-		dev_err(pcf->dev, "Error allocating subdev pdata\n");
-		platform_device_put(*pdev);
-	}
-
-	subdev_pdata->pcf = pcf;
-	platform_device_add_data(*pdev, subdev_pdata, sizeof(*subdev_pdata));
+	subdev_pdata.pcf = pcf;
+	platform_device_add_data(*pdev, &subdev_pdata, sizeof(subdev_pdata));
 
 	(*pdev)->dev.parent = pcf->dev;
 

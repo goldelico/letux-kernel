@@ -27,6 +27,7 @@ enum s3c2410_udc_cmd_e {
 struct s3c2410_udc_mach_info {
 	void	(*udc_command)(enum s3c2410_udc_cmd_e);
  	void	(*vbus_draw)(unsigned int ma);
+	int	(*get_vbus_status)(void);
 	unsigned int vbus_pin;
 	unsigned char vbus_pin_inverted;
 };

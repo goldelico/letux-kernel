@@ -138,36 +138,6 @@ struct platform_device *s3c24xx_uart_src[4] = {
 struct platform_device *s3c24xx_uart_devs[4] = {
 };
 
-/* USB Host Controller */
-
-static struct resource s3c_usb_resource[] = {
-	[0] = {
-		.start = S3C24XX_PA_USBHOST,
-		.end   = S3C24XX_PA_USBHOST + S3C24XX_SZ_USBHOST - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start = IRQ_USBH,
-		.end   = IRQ_USBH,
-		.flags = IORESOURCE_IRQ,
-	}
-};
-
-static u64 s3c_device_usb_dmamask = 0xffffffffUL;
-
-struct platform_device s3c_device_usb = {
-	.name		  = "s3c2410-ohci",
-	.id		  = -1,
-	.num_resources	  = ARRAY_SIZE(s3c_usb_resource),
-	.resource	  = s3c_usb_resource,
-	.dev              = {
-		.dma_mask = &s3c_device_usb_dmamask,
-		.coherent_dma_mask = 0xffffffffUL
-	}
-};
-
-EXPORT_SYMBOL(s3c_device_usb);
-
 /* LCD Controller */
 
 static struct resource s3c_lcd_resource[] = {
@@ -241,9 +211,10 @@ EXPORT_SYMBOL(s3c_device_ts);
 
 static struct s3c2410_ts_mach_info s3c2410ts_info;
 
-void set_s3c2410ts_info(struct s3c2410_ts_mach_info *hard_s3c2410ts_info)
+void set_s3c2410ts_info(const struct s3c2410_ts_mach_info *hard_s3c2410ts_info)
 {
-	memcpy(&s3c2410ts_info,hard_s3c2410ts_info,sizeof(struct s3c2410_ts_mach_info));
+	memcpy(&s3c2410ts_info, hard_s3c2410ts_info,
+	       sizeof(struct s3c2410_ts_mach_info));
 	s3c_device_ts.dev.platform_data = &s3c2410ts_info;
 }
 EXPORT_SYMBOL(set_s3c2410ts_info);

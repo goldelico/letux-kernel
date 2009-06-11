@@ -12,25 +12,21 @@
  */
 
 struct ts_filter_median_configuration {
+	/* Size of the filter. */
 	int extent;
+	/* Precomputed midpoint. */
 	int midpoint;
+	/* A reference value for us to check if we are going fast or slow. */
 	int decimation_threshold;
+	/* How many points to replace if we're going fast. */
 	int decimation_above;
+	/* How many points to replace if we're going slow. */
 	int decimation_below;
+
+	/* Generic configuration. */
+	struct ts_filter_configuration config;
 };
 
-struct ts_filter_median {
-	struct ts_filter tsf;
-	struct ts_filter_median_configuration *config;
-
-	int decimation_count;
-	int last_issued[MAX_TS_FILTER_COORDS];
-	int valid; /* how many samples in the sort buffer are valid */
-	int *sort[MAX_TS_FILTER_COORDS]; /* samples taken for median */
-	int *fifo[MAX_TS_FILTER_COORDS]; /* samples taken for median */
-	int pos; /* where we are in the fifo sample memory */
-};
-
-extern struct ts_filter_api ts_filter_median_api;
+extern const struct ts_filter_api ts_filter_median_api;
 
 #endif
