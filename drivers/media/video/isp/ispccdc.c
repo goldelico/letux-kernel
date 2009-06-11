@@ -1479,7 +1479,7 @@ void ispccdc_print_status(struct isp_ccdc_device *isp_ccdc,
 	DPRINTK_ISPCCDC("ISP_CTRL =0x%x\n",
 			isp_reg_readl(isp_ccdc->dev, OMAP3_ISP_IOMEM_MAIN,
 				      ISP_CTRL));
-	switch ((int)pipe->ccdc_in) {
+	switch (pipe->ccdc_in) {
 	case CCDC_RAW:
 		DPRINTK_ISPCCDC("ccdc input format is CCDC_RAW\n");
 		break;
@@ -1489,9 +1489,11 @@ void ispccdc_print_status(struct isp_ccdc_device *isp_ccdc,
 	case CCDC_YUV_BT:
 		DPRINTK_ISPCCDC("ccdc input format is CCDC_YUV_BT\n");
 		break;
+	default:
+		break;
 	}
 
-	switch ((int)pipe->ccdc_out) {
+	switch (pipe->ccdc_out) {
 	case CCDC_OTHERS_VP:
 		DPRINTK_ISPCCDC("ccdc output format is CCDC_OTHERS_VP\n");
 		break;
@@ -1500,6 +1502,8 @@ void ispccdc_print_status(struct isp_ccdc_device *isp_ccdc,
 		break;
 	case CCDC_YUV_RSZ:
 		DPRINTK_ISPCCDC("ccdc output format is CCDC_YUV_RSZ\n");
+		break;
+	default:
 		break;
 	}
 
