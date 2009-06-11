@@ -270,6 +270,7 @@ struct isp_pipeline {
 	unsigned int prv_out_h;
 	unsigned int prv_out_w_img;
 	unsigned int prv_out_h_img;
+	unsigned int prv_fmt_avg;
 	enum preview_input prv_in;
 	enum preview_output prv_out;
 	struct v4l2_rect rsz_crop;
