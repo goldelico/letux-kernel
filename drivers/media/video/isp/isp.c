@@ -861,7 +861,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		 */
 		if (irqstatus & HS_VS && (CCDC_PREV_CAPTURE(isp) ||
 					  CCDC_PREV_RESZ_CAPTURE(isp)))
-			isppreview_enable(&isp->isp_prev);
+			isppreview_enable(&isp->isp_prev, 1);
 	default:
 		if (!((irqstatus & RESZ_DONE) &&
 			CCDC_PREV_CAPTURE(isp)))
@@ -933,7 +933,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 				}
 			}
 			isppreview_config_shadow_registers(&isp->isp_prev);
-			isppreview_enable(&isp->isp_prev);
+			isppreview_enable(&isp->isp_prev, 1);
 			if (CCDC_PREV_CAPTURE(isp))
 				isp_buf_process(dev, bufs);
 		}
@@ -1125,6 +1125,8 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 	}
 	if (isp->pipeline.modules & OMAP_ISP_RESIZER)
 		ispresizer_enable(&isp->isp_res, 0);
+	if (isp->pipeline.modules & OMAP_ISP_PREVIEW)
+		isppreview_enable(&isp->isp_prev, 0);
 
 	timeout = jiffies + ISP_STOP_TIMEOUT;
 	while (isp_af_busy(&isp->isp_af)

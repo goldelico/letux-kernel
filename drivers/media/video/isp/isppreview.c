@@ -1732,10 +1732,14 @@ EXPORT_SYMBOL_GPL(isppreview_set_darkaddr);
  *
  * Client should configure all the sub modules in Preview before this.
  **/
-void isppreview_enable(struct isp_prev_device *isp_prev)
+void isppreview_enable(struct isp_prev_device *isp_prev, int enable)
 {
-	isp_reg_or(isp_prev->dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
-		   ISPPRV_PCR_EN | ISPPRV_PCR_ONESHOT);
+	if (enable)
+		isp_reg_or(isp_prev->dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
+			   ISPPRV_PCR_EN | ISPPRV_PCR_ONESHOT);
+	else
+		isp_reg_and(isp_prev->dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
+			    ~(ISPPRV_PCR_EN | ISPPRV_PCR_ONESHOT));
 }
 EXPORT_SYMBOL_GPL(isppreview_enable);
 
