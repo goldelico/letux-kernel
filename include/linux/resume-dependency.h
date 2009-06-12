@@ -38,7 +38,7 @@ struct resume_dependency {
  */
 
 #define init_resume_dependency_list(_head) \
-	printk(KERN_INFO "##### init_resume_dependency_list(head=%p)\n", (_head)); \
+	printk(KERN_DEBUG "##### init_resume_dependency_list(head=%p)\n", (_head)); \
 	INIT_LIST_HEAD(&(_head)->list);
 
 
@@ -52,13 +52,13 @@ struct resume_dependency {
 	struct list_head *_pos, *_q; \
 	struct resume_dependency *_d; \
 \
-	printk(KERN_ERR "##### register_resume_dependency(head=%p, dep=%p)\n", (_head), (_dep)); \
+	printk(KERN_DEBUG "##### register_resume_dependency(head=%p, dep=%p)\n", (_head), (_dep)); \
 	(_dep)->called_flag = 1; \
 	list_for_each_safe(_pos, _q, &((_head)->list)) { \
 		_d = list_entry(_pos, struct resume_dependency, list); \
 		if (_d == (_dep)) { \
 			list_del(_pos); \
-			printk(KERN_ERR "#####   duplicate dependency removed first\n"); \
+			printk(KERN_DEBUG "#####   duplicate dependency removed first\n"); \
 		} \
 	} \
 	list_add(&(_dep)->list, &(_head)->list); \
@@ -73,12 +73,12 @@ struct resume_dependency {
 	struct list_head *_pos, *_q; \
 	struct resume_dependency *_dep; \
 \
-	printk(KERN_ERR "##### callback_all_resume_dependencies(head=%p)\n", (_head)); \
+	printk(KERN_DEBUG "##### callback_all_resume_dependencies(head=%p)\n", (_head)); \
 	list_for_each_safe(_pos, _q, &((_head)->list)) { \
 		_dep = list_entry(_pos, struct resume_dependency, list); \
-		printk(KERN_ERR "#####   callback list entry (head=%p, dep=%p)\n", (_head), (_dep)); \
+		printk(KERN_DEBUG "#####   callback list entry (head=%p, dep=%p)\n", (_head), (_dep)); \
 		_dep->called_flag = 1; \
-		printk(KERN_ERR "#####      callback=%p(context=%p))\n", (_dep->callback),(_dep->context)); \
+		printk(KERN_DEBUG "#####      callback=%p(context=%p))\n", (_dep->callback),(_dep->context)); \
 		(_dep->callback)(_dep->context); \
 		list_del(_pos); \
 	} \
@@ -97,10 +97,10 @@ struct resume_dependency {
 	struct list_head *_pos, *_q; \
 	struct resume_dependency *_dep; \
 \
-	printk(KERN_ERR "##### activate_all_resume_dependencies(head=%p)\n", (_head)); \
+	printk(KERN_DEBUG "##### activate_all_resume_dependencies(head=%p)\n", (_head)); \
 	list_for_each_safe(_pos, _q, &((_head)->list)) { \
 		_dep = list_entry(_pos, struct resume_dependency, list); \
-		printk(KERN_ERR "#####   activating callback list entry (head=%p, dep=%p)\n", (_head), (_dep)); \
+		printk(KERN_DEBUG "#####   activating callback list entry (head=%p, dep=%p)\n", (_head), (_dep)); \
 		_dep->called_flag = 0; \
 	} \
 }
