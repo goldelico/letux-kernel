@@ -183,29 +183,24 @@ int heapbuf_destroy(void)
 {
 	s32 retval  = 0;
 	struct mutex *lock = NULL;
-	/*struct heapbuf_obj *obj = NULL;*/
+	struct heapbuf_obj *obj = NULL;
 
 	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
 		retval = -ENODEV;
 		goto error;
 	}
 
-#if 0
-	/*  Check if any heapbuf instances have not been deleted so far.
-	  *  if not, delete them or close
+	/*  Check if any heapbuf instances have not been deleted/closed so far.
+	  *  if there any, delete or close them
 	  */
 	list_for_each_entry(obj, &heapbuf_state.obj_list, list_elem) {
 		if (obj->owner->proc_id == multiproc_get_id(NULL))
-			heapbuf_delete(&obj->free_list);
+			heapbuf_delete(&obj->top);
 		else
-			heapbuf_close(&obj->free_list);
-	}
-#endif
+			heapbuf_close(obj->top);
 
-	/* If a heapbuf instance exist, do not proceed IS THIS OK  */
-	if (!list_empty(&heapbuf_state.obj_list)) {
-		retval = -EBUSY;
-		goto error;
+		if (list_empty(&heapbuf_state.obj_list))
+			break;
 	}
 
 	retval = nameserver_delete(&heapbuf_state.nshandle);
@@ -306,19 +301,19 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 			listmp_sharedmemory_shared_memreq(&listmp_params);
 	listmp_params.lock_handle = params->lock_handle;
 	obj->lock_handle = params->lock_handle;
-	if (createflag == true)
-		obj->free_list = listmp_sharedmemory_create(&listmp_params);
-	else
-		listmp_sharedmemory_open(&obj->free_list, &listmp_params);
-
-	if (obj->free_list == NULL) {
-		retval = -ENOMEM;
-		goto listmp_error;
-	}
-
 	/* Assign the memory with proper cache line padding */
 	obj->attrs = (struct heapbuf_attrs *) params->shared_addr;
-	if (createflag == true) {
+
+	if (createflag == false)
+		listmp_sharedmemory_open(&obj->free_list, &listmp_params);
+	else {
+		obj->free_list = listmp_sharedmemory_create(&listmp_params);
+
+		if (obj->free_list == NULL) {
+			retval = -ENOMEM;
+			goto listmp_error;
+		}
+
 		obj->attrs->version = HEAPBUF_VERSION;
 		obj->attrs->num_free_blocks = params->num_blocks;
 		obj->attrs->min_free_blocks = params->num_blocks;
@@ -333,7 +328,7 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 		obj->attrs->buf	= buf;
 		/*
 		*  Split the buffer into blocks that are length
-		* block_size" and add into the free_list Queue
+		*  block_size" and add into the free_list Queue
 		*/
 		for (i = 0; i < obj->attrs->num_blocks; i++) {
 			listmp_put_tail((struct listmp_object *)
@@ -345,18 +340,16 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 
 	/* Populate the params member */
 	memcpy(&obj->params, params, sizeof(struct heapbuf_params));
-	if (createflag == true) {
-		if (params->name != NULL) {
-			obj->params.name = kmalloc(strlen(params->name) + 1,
+	if (params->name != NULL) {
+		obj->params.name = kmalloc(strlen(params->name) + 1,
 								GFP_KERNEL);
-			if (obj->params.name == NULL) {
-				retval  = -ENOMEM;
-				goto name_alloc_error;
-			}
-
-			strncpy(obj->params.name, params->name,
-						strlen(params->name) + 1);
+		if (obj->params.name == NULL) {
+			retval  = -ENOMEM;
+			goto name_alloc_error;
 		}
+
+		strncpy(obj->params.name, params->name,
+					strlen(params->name) + 1);
 	}
 
 	/* Update processor information */
@@ -555,11 +548,8 @@ int heapbuf_open(void **hphandle,
 	s32 retval = 0;
 	u16 myproc_id;
 
-	gt_1trace(heap_debugmask, GT_ENTER,
-		"heapbuf_open:\n params: %x\n", params);
 	BUG_ON(hphandle == NULL);
 	BUG_ON(params == NULL);
-
 	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
 		retval  = -ENODEV;
 		goto error;
@@ -618,7 +608,6 @@ int heapbuf_close(void *hphandle)
 {
 	struct heap_object *handle = NULL;
 	struct heapbuf_obj *obj = NULL;
-	struct heapbuf_params *params = NULL;
 	s32 retval = 0;
 	u16 myproc_id = 0;
 
@@ -639,27 +628,27 @@ int heapbuf_close(void *hphandle)
 		goto error;
 
 	myproc_id = multiproc_get_id(NULL);
-	if ((obj->remote->proc_id == myproc_id)
-			&& (obj->remote->open_count == 0)) {
-		list_del(&obj->list_elem);
-		params = (struct heapbuf_params *)&obj->params;
-		if (params->name != NULL) {
-			retval = nameserver_remove(heapbuf_state.nshandle,
-							params->name);
-			if (unlikely(retval != 0))
-					goto error;
-		}
+	/* opening an instance created locally */
+	if (obj->owner->proc_id == myproc_id) {
+		if (obj->owner->open_count > 1)
+			obj->owner->open_count--;
 
-		kfree(params->name);
+		goto owner_close_done;
+	} else
+		obj->remote->open_count--;
+
+	if (obj->remote->open_count == 0) {
+		list_del(&obj->list_elem);
+		listmp_sharedmemory_close((listmp_sharedmemory_handle *)
+								obj->free_list);
+		kfree(obj->owner);
+		kfree(obj->remote);
+		kfree(obj);
+		kfree(handle);
+		handle = NULL;
 	}
 
-	listmp_sharedmemory_close((listmp_sharedmemory_handle *)
-				obj->free_list);
-	kfree(obj->owner);
-	kfree(obj->remote);
-	kfree(obj);
-	kfree(handle);
-	handle = NULL;
+owner_close_done:
 	mutex_unlock(heapbuf_state.list_lock);
 	return 0;
 
@@ -869,7 +858,7 @@ int heapbuf_get_extended_stats(void *hphandle,
 	mutex_unlock(heapbuf_state.list_lock);
 
 error:
-	printk(KERN_ERR "heapbuf_get_extended_stats failed status: %x\n",
+	printk(KERN_ERR "heapbuf_get_extended_stats status: %x\n",
 			retval);
 	return retval;
 }
