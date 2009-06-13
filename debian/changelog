@@ -2,6 +2,9 @@ linux-2.6-openmoko (20090610.gitd7ac922b-2) UNRELEASED; urgency=low
 
   * debian/config.gta02:
     + merge arch/arm/configs/gta02_moredrivers_defconfig.
+    - CONFIG_MTD_PHYSMAP_START, CONFIG_MTD_PHYSMAP_LEN and
+      CONFIG_MTD_PHYSMAP_BANKWIDTH removed, it is better to
+      set them at run-time.
 
  --
 
