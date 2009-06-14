@@ -12,9 +12,9 @@ Package: linux-image-2.6.29-openmoko-gta02
 Architecture: armel
 Section: admin
 Depends: module-init-tools
-Description: Linux 2.6.29 kernel image for the Openmoko Neo Freerunner
+Description: Linux 2.6.29 kernel image for Openmoko GTA02 Neo FreeRunner
  This package provides the binary image and pre-built loadable modules for
- Linux kernel 2.6.29 on the Neo Freerunner as shipped by Openmoko.  The
- kernel is based upon Openmoko's patch set and thus supports all
- hardware components in the device.
+ Linux kernel 2.6.29 on the Openmoko GTA02 Neo FreeRunner as shipped by
+ Openmoko.  The kernel is based upon Openmoko's patch set and thus
+ supports all hardware components in the device.
 

@@ -12,6 +12,8 @@ linux-2.6-openmoko (20090610.gitd7ac922b-2) UNRELEASED; urgency=low
     - CONFIG_MMC_SDHCI is not set, this kind of hardware does not
       exist on the Samsung's S3C24XX SoC CPUs.
     - remove leftover CONFIG_REISERFS_FS comment.
+  * debian/control:
+    + use the full GTA02 name in the Description:.
 
  --
 
