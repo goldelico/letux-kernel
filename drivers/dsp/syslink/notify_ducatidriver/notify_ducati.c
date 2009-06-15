@@ -1036,7 +1036,11 @@ static void notify_ducatidrv_isr(void *ref_data)
 	struct notify_ducatidrv_object *driver_obj;
 	struct notify_shmdrv_eventreg *reg_chart;
 	struct notify_shmdrv_proc_ctrl *proc_ctrl_ptr;
+	struct mbox_config *mbox_hw_config = ntfy_disp_get_config();
+	unsigned long int mbox_module_no = mbox_hw_config->mbox_modules;
 	int event_no;
+	signed long int mbx_ret_val = 0;
+	int num_messages;
 
 	driver_obj = (struct notify_ducatidrv_object *) ref_data;
 	proc_ctrl_ptr = &(driver_obj->ctrl_ptr->proc_ctrl[driver_obj->self_id]);
@@ -1060,6 +1064,10 @@ static void notify_ducatidrv_isr(void *ref_data)
 			payload = self_event_chart[event_no].
 						payload;
 			/* Acknowledge the event. */
+			 mbx_ret_val = ntfy_disp_read(mbox_module_no,
+						NOTIFYDRV_DUCATI_RECV_MBX,
+						&payload,
+						&num_messages, false);
 			self_event_chart[event_no].flag = DOWN;
 			/*Call the callbacks associated with the event*/
 			temp = driver_obj->
