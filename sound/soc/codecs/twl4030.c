@@ -1645,6 +1645,28 @@ static int twl4030_set_dai_fmt(struct snd_soc_dai *codec_dai,
 	return 0;
 }
 
+/* In case of voice mode, the RX1 L(VRX) for downlink and the TX2 L/R
+ * (VTXL, VTXR) for uplink has to be enabled/disabled. */
+static void twl4030_voice_enable(struct snd_soc_codec *codec, int direction,
+				int enable)
+{
+	u8 reg, mask;
+
+	reg = twl4030_read_reg_cache(codec, TWL4030_REG_OPTION);
+
+	if (direction == SNDRV_PCM_STREAM_PLAYBACK)
+		mask = TWL4030_ARXL1_VRX_EN;
+	else
+		mask = TWL4030_ATXL2_VTXL_EN | TWL4030_ATXR2_VTXR_EN;
+
+	if (enable)
+		reg |= mask;
+	else
+		reg &= ~mask;
+
+	twl4030_write(codec, TWL4030_REG_OPTION, reg);
+}
+
 static int twl4030_voice_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
@@ -1681,6 +1703,17 @@ static int twl4030_voice_startup(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static void twl4030_voice_shutdown(struct snd_pcm_substream *substream,
+				struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_device *socdev = rtd->socdev;
+	struct snd_soc_codec *codec = socdev->codec;
+
+	/* Enable voice digital filters */
+	twl4030_voice_enable(codec, substream->stream, 0);
+}
+
 static int twl4030_voice_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
 {
@@ -1688,6 +1721,9 @@ static int twl4030_voice_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_device *socdev = rtd->socdev;
 	struct snd_soc_codec *codec = socdev->codec;
 	u8 old_mode, mode;
+
+	/* Enable voice digital filters */
+	twl4030_voice_enable(codec, substream->stream, 1);
 
 	/* bit rate */
 	old_mode = twl4030_read_reg_cache(codec, TWL4030_REG_CODEC_MODE)
@@ -1825,6 +1861,7 @@ struct snd_soc_dai twl4030_dai[] = {
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 	.ops = {
 		.startup = twl4030_voice_startup,
+		.shutdown = twl4030_voice_shutdown,
 		.hw_params = twl4030_voice_hw_params,
 		.set_sysclk = twl4030_voice_set_dai_sysclk,
 		.set_fmt = twl4030_voice_set_dai_fmt,
