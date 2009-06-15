@@ -58,6 +58,7 @@
 #include <linux/init.h>
 #include <linux/moduleparam.h>
 #include <linux/cdev.h>
+#include <linux/kobject.h>
 
 #include <mach/board-3430sdp.h>
 
@@ -65,6 +66,7 @@
 #include <dspbridge/std.h>
 #include <dspbridge/dbdefs.h>
 #include <dspbridge/errbase.h>
+#include <_tiomap.h>
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/gt.h>
@@ -141,6 +143,9 @@ struct omap34xx_bridge_suspend_data {
 };
 
 static struct omap34xx_bridge_suspend_data bridge_suspend_data;
+
+static void bridge_create_sysfs(void);
+static void bridge_destroy_sysfs(void);
 
 static int omap34xxbridge_suspend_lockout(
 		struct omap34xx_bridge_suspend_data *s, struct file *f)
@@ -316,6 +321,8 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	device_create(bridge_class, NULL, MKDEV(driver_major, driver_minor),
 			NULL, "DspBridge");
 
+	bridge_create_sysfs();
+
 	GT_init();
 	GT_create(&driverTrace, "LD");
 
@@ -485,6 +492,8 @@ func_cont:
 	clk_put(clk_handle);
 	clk_handle = NULL;
 #endif /* #ifdef CONFIG_BRIDGE_DVFS */
+	/* Remove driver sysfs entries */
+	bridge_destroy_sysfs();
 
 	devno = MKDEV(driver_major, driver_minor);
 	if (bridge_device) {
@@ -747,6 +756,56 @@ DSP_STATUS DRV_RemoveAllResources(HANDLE hPCtxt)
 	return status;
 }
 #endif
+
+/*
+ * sysfs
+ */
+static ssize_t drv_state_show(struct kobject *kobj, struct kobj_attribute *attr,
+                        char *buf)
+{
+	struct WMD_DEV_CONTEXT *dwContext;
+	struct DEV_OBJECT *hDevObject = NULL;
+	int drv_state = 0;
+
+	for (hDevObject = (struct DEV_OBJECT *)DRV_GetFirstDevObject();
+		hDevObject != NULL;
+		hDevObject = (struct DEV_OBJECT *)DRV_GetNextDevObject
+							((u32)hDevObject)) {
+		if (DSP_FAILED(DEV_GetWMDContext(hDevObject,
+		   (struct WMD_DEV_CONTEXT **)&dwContext))) {
+			continue;
+		}
+		drv_state = dwContext->dwBrdState;
+	}
+
+        return sprintf(buf, "%d\n", drv_state);
+}
+
+static struct kobj_attribute drv_state_attr = __ATTR_RO(drv_state);
+
+static struct attribute *attrs[] = {
+        &drv_state_attr.attr,
+        NULL,
+};
+
+static struct attribute_group attr_group = {
+        .attrs = attrs,
+};
+
+static void bridge_create_sysfs(void)
+{
+	int error;
+
+	error = sysfs_create_group(&omap_dspbridge_dev->dev.kobj, &attr_group);
+
+	if (error)
+		kobject_put(&omap_dspbridge_dev->dev.kobj);
+}
+
+static void bridge_destroy_sysfs(void)
+{
+	sysfs_remove_group(&omap_dspbridge_dev->dev.kobj, &attr_group);
+}
 
 /* Bridge driver initialization and de-initialization functions */
 module_init(bridge_init);
