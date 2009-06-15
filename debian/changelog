@@ -1,4 +1,4 @@
-linux-2.6-openmoko (20090610.gitd7ac922b-2) UNRELEASED; urgency=low
+linux-2.6-openmoko (20090610.gitd7ac922b-2) pkg-fso; urgency=low
 
   * debian/config.gta02:
     + merge arch/arm/configs/gta02_moredrivers_defconfig.
@@ -15,7 +15,7 @@ linux-2.6-openmoko (20090610.gitd7ac922b-2) UNRELEASED; urgency=low
   * debian/control:
     + use the full GTA02 name in the Description:.
 
- --
+ -- Luca Capello <luca@pca.it>  Mon, 15 Jun 2009 10:26:56 +0200
 
 linux-2.6-openmoko (20090610.gitd7ac922b-1) pkg-fso; urgency=low
 
