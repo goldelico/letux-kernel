@@ -276,7 +276,6 @@ struct isp_prev_device {
 	int shadow_update;
 	u32 sph;
 	u32 slv;
-	struct device *dev;
 	spinlock_t lock;
 };
 

@@ -124,8 +124,6 @@ struct isp_h3a_device {
 	struct isph3a_aewb_config aewb_config_local;
 	u16 win_count;
 
-	struct device *dev;
-
 	struct ispstat stat;
 };
 

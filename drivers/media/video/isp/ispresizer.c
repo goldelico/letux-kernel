@@ -119,8 +119,8 @@ static struct isp_reg isprsz_reg_list[] = {
  **/
 void ispresizer_applycrop(struct isp_res_device *isp_res)
 {
-	struct isp_device *isp =
-		container_of(isp_res, struct isp_device, isp_res);
+	struct isp_device *isp = to_isp_device(isp_res, isp_res);
+
 	if (!isp_res->applycrop)
 		return;
 
@@ -144,8 +144,7 @@ void ispresizer_config_shadow_registers(struct isp_res_device *isp_res)
 int ispresizer_config_crop(struct isp_res_device *isp_res,
 			   struct v4l2_crop *a)
 {
-	struct isp_device *isp =
-		container_of(isp_res, struct isp_device, isp_res);
+	struct isp_device *isp = to_isp_device(isp_res, isp_res);
 	struct v4l2_crop *crop = a;
 	int rval;
 
@@ -201,12 +200,14 @@ int ispresizer_config_crop(struct isp_res_device *isp_res,
  **/
 int ispresizer_request(struct isp_res_device *isp_res)
 {
+	struct device *dev = to_device(isp_res, isp_res);
+
 	mutex_lock(&isp_res->ispres_mutex);
 	if (!isp_res->res_inuse) {
 		isp_res->res_inuse = 1;
 		mutex_unlock(&isp_res->ispres_mutex);
-		isp_reg_writel(isp_res->dev,
-			       isp_reg_readl(isp_res->dev,
+		isp_reg_writel(dev,
+			       isp_reg_readl(dev,
 					     OMAP3_ISP_IOMEM_MAIN, ISP_CTRL) |
 			       ISPCTRL_SBL_WR0_RAM_EN |
 			       ISPCTRL_RSZ_CLK_EN,
@@ -214,7 +215,7 @@ int ispresizer_request(struct isp_res_device *isp_res)
 		return 0;
 	} else {
 		mutex_unlock(&isp_res->ispres_mutex);
-		dev_err(isp_res->dev, "resizer: Module Busy\n");
+		dev_err(dev, "resizer: Module Busy\n");
 		return -EBUSY;
 	}
 }
@@ -226,11 +227,13 @@ int ispresizer_request(struct isp_res_device *isp_res)
  **/
 int ispresizer_free(struct isp_res_device *isp_res)
 {
+	struct device *dev = to_device(isp_res, isp_res);
+
 	mutex_lock(&isp_res->ispres_mutex);
 	if (isp_res->res_inuse) {
 		isp_res->res_inuse = 0;
 		mutex_unlock(&isp_res->ispres_mutex);
-		isp_reg_and(isp_res->dev, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL,
+		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL,
 			    ~(ISPCTRL_RSZ_CLK_EN | ISPCTRL_SBL_WR0_RAM_EN));
 		return 0;
 	} else {
@@ -251,6 +254,7 @@ int ispresizer_free(struct isp_res_device *isp_res)
 int ispresizer_config_datapath(struct isp_res_device *isp_res,
 			       struct isp_pipeline *pipe)
 {
+	struct device *dev = to_device(isp_res, isp_res);
 	u32 cnt = 0;
 
 	DPRINTK_ISPRESZ("ispresizer_config_datapath()+\n");
@@ -271,10 +275,10 @@ int ispresizer_config_datapath(struct isp_res_device *isp_res,
 		cnt |= ISPRSZ_CNT_INPTYP;
 		break;
 	default:
-		dev_err(isp_res->dev, "resizer: Wrong Input\n");
+		dev_err(dev, "resizer: Wrong Input\n");
 		return -EINVAL;
 	}
-	isp_reg_or(isp_res->dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT, cnt);
+	isp_reg_or(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT, cnt);
 	ispresizer_config_ycpos(isp_res, 0);
 	ispresizer_config_filter_coef(isp_res, &ispreszdefcoef);
 	ispresizer_enable_cbilin(isp_res, 0);
@@ -322,6 +326,7 @@ int ispresizer_config_datapath(struct isp_res_device *isp_res,
 int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 			    struct isp_pipeline *pipe)
 {
+	struct device *dev = to_device(isp_res, isp_res);
 	u32 rsz, rsz_7, rsz_4;
 	u32 sph;
 	int max_in_otf, max_out_7tap;
@@ -372,7 +377,7 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 			rsz = MINIMUM_RESIZE_VALUE;
 			pipe->rsz_out_h =
 				(((pipe->rsz_crop.height - 4) * 256) / rsz) + 1;
-			dev_dbg(isp_res->dev,
+			dev_dbg(dev,
 				"resizer: %s: using height %d instead\n",
 				__func__, pipe->rsz_out_h);
 		}
@@ -384,7 +389,7 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 			rsz = MAXIMUM_RESIZE_VALUE;
 			pipe->rsz_out_h =
 				(((pipe->rsz_crop.height - 7) * 256) / rsz) + 1;
-			dev_dbg(isp_res->dev,
+			dev_dbg(dev,
 				"resizer: %s: using height %d instead\n",
 				__func__, pipe->rsz_out_h);
 		}
@@ -418,7 +423,7 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 			pipe->rsz_out_w =
 				(((pipe->rsz_crop.width - 7) * 256) / rsz) + 1;
 			pipe->rsz_out_w = (pipe->rsz_out_w + 0xf) & 0xfffffff0;
-			dev_dbg(isp_res->dev,
+			dev_dbg(dev,
 				"resizer: %s: using width %d instead\n",
 				__func__, pipe->rsz_out_w);
 		}
@@ -429,7 +434,7 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 			pipe->rsz_out_w =
 				(((pipe->rsz_crop.width - 4) * 256) / rsz) + 1;
 			pipe->rsz_out_w = (pipe->rsz_out_w + 0xf) & 0xfffffff0;
-			dev_dbg(isp_res->dev,
+			dev_dbg(dev,
 				"resizer: %s: using width %d instead\n",
 				__func__, pipe->rsz_out_w);
 		}
@@ -472,6 +477,7 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 			  struct isp_pipeline *pipe)
 {
+	struct device *dev = to_device(isp_res, isp_res);
 	int i, j;
 	u32 res;
 	int rval;
@@ -484,9 +490,9 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 	ispresizer_config_inlineoffset(isp_res,
 				       pipe->prv_out_w * ISP_BYTES_PER_PIXEL);
 
-	res = isp_reg_readl(isp_res->dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT) &
+	res = isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT) &
 		~(ISPRSZ_CNT_HSTPH_MASK | ISPRSZ_CNT_VSTPH_MASK);
-	isp_reg_writel(isp_res->dev, res |
+	isp_reg_writel(dev, res |
 		       (isp_res->h_startphase << ISPRSZ_CNT_HSTPH_SHIFT) |
 		       (isp_res->v_startphase << ISPRSZ_CNT_VSTPH_SHIFT),
 		       OMAP3_ISP_IOMEM_RESZ,
@@ -494,22 +500,22 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 
 	/* Set start address for cropping */
 	ispresizer_set_inaddr(isp_res,
-			      isp_res->tmp_buf + isp_get_buf_offset(isp_res->dev));
+			      isp_res->tmp_buf + isp_get_buf_offset(dev));
 
-	isp_reg_writel(isp_res->dev,
+	isp_reg_writel(dev,
 		       (pipe->rsz_crop.width << ISPRSZ_IN_SIZE_HORZ_SHIFT) |
 		       (pipe->rsz_crop.height <<
 			ISPRSZ_IN_SIZE_VERT_SHIFT),
 		       OMAP3_ISP_IOMEM_RESZ,
 		       ISPRSZ_IN_SIZE);
 	if (!isp_res->algo) {
-		isp_reg_writel(isp_res->dev,
+		isp_reg_writel(dev,
 			       (pipe->rsz_out_w << ISPRSZ_OUT_SIZE_HORZ_SHIFT) |
 			       (pipe->rsz_out_h << ISPRSZ_OUT_SIZE_VERT_SHIFT),
 			       OMAP3_ISP_IOMEM_RESZ,
 			       ISPRSZ_OUT_SIZE);
 	} else {
-		isp_reg_writel(isp_res->dev,
+		isp_reg_writel(dev,
 			       ((pipe->rsz_out_w - 4)
 				<< ISPRSZ_OUT_SIZE_HORZ_SHIFT) |
 			       (pipe->rsz_out_h << ISPRSZ_OUT_SIZE_VERT_SHIFT),
@@ -517,9 +523,9 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 			       ISPRSZ_OUT_SIZE);
 	}
 
-	res = isp_reg_readl(isp_res->dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT) &
+	res = isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT) &
 		~(ISPRSZ_CNT_HRSZ_MASK | ISPRSZ_CNT_VRSZ_MASK);
-	isp_reg_writel(isp_res->dev, res |
+	isp_reg_writel(dev, res |
 		       ((isp_res->h_resz - 1) << ISPRSZ_CNT_HRSZ_SHIFT) |
 		       ((isp_res->v_resz - 1) << ISPRSZ_CNT_VRSZ_SHIFT),
 		       OMAP3_ISP_IOMEM_RESZ,
@@ -527,7 +533,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 	if (isp_res->h_resz <= MID_RESIZE_VALUE) {
 		j = 0;
 		for (i = 0; i < 16; i++) {
-			isp_reg_writel(isp_res->dev,
+			isp_reg_writel(dev,
 				(isp_res->coeflist.h_filter_coef_4tap[j]
 				 << ISPRSZ_HFILT10_COEF0_SHIFT) |
 				(isp_res->coeflist.h_filter_coef_4tap[j + 1]
@@ -540,7 +546,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 		j = 0;
 		for (i = 0; i < 16; i++) {
 			if ((i + 1) % 4 == 0) {
-				isp_reg_writel(isp_res->dev,
+				isp_reg_writel(dev,
 					       (isp_res->coeflist.
 						h_filter_coef_7tap[j] <<
 						ISPRSZ_HFILT10_COEF0_SHIFT),
@@ -548,7 +554,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 					       ISPRSZ_HFILT10 + (i * 0x04));
 				j += 1;
 			} else {
-				isp_reg_writel(isp_res->dev,
+				isp_reg_writel(dev,
 					       (isp_res->coeflist.
 						h_filter_coef_7tap[j] <<
 						ISPRSZ_HFILT10_COEF0_SHIFT) |
@@ -564,7 +570,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 	if (isp_res->v_resz <= MID_RESIZE_VALUE) {
 		j = 0;
 		for (i = 0; i < 16; i++) {
-			isp_reg_writel(isp_res->dev, (isp_res->coeflist.
+			isp_reg_writel(dev, (isp_res->coeflist.
 					v_filter_coef_4tap[j] <<
 					ISPRSZ_VFILT10_COEF0_SHIFT) |
 				       (isp_res->coeflist.
@@ -578,7 +584,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 		j = 0;
 		for (i = 0; i < 16; i++) {
 			if ((i + 1) % 4 == 0) {
-				isp_reg_writel(isp_res->dev,
+				isp_reg_writel(dev,
 					       (isp_res->coeflist.
 						v_filter_coef_7tap[j] <<
 						ISPRSZ_VFILT10_COEF0_SHIFT),
@@ -586,7 +592,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 					       ISPRSZ_VFILT10 + (i * 0x04));
 				j += 1;
 			} else {
-				isp_reg_writel(isp_res->dev,
+				isp_reg_writel(dev,
 					       (isp_res->coeflist.
 						v_filter_coef_7tap[j] <<
 						ISPRSZ_VFILT10_COEF0_SHIFT) |
@@ -619,18 +625,20 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
  **/
 void ispresizer_enable(struct isp_res_device *isp_res, int enable)
 {
+	struct device *dev = to_device(isp_res, isp_res);
 	int val;
+
 	DPRINTK_ISPRESZ("+ispresizer_enable()+\n");
 	if (enable) {
-		val = (isp_reg_readl(isp_res->dev,
+		val = (isp_reg_readl(dev,
 				     OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR) & 0x2) |
 			ISPRSZ_PCR_ENABLE;
 	} else {
-		val = isp_reg_readl(isp_res->dev,
+		val = isp_reg_readl(dev,
 				    OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR) &
 			~ISPRSZ_PCR_ENABLE;
 	}
-	isp_reg_writel(isp_res->dev, val, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR);
+	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR);
 	DPRINTK_ISPRESZ("+ispresizer_enable()-\n");
 }
 
@@ -641,7 +649,9 @@ void ispresizer_enable(struct isp_res_device *isp_res, int enable)
  **/
 int ispresizer_busy(struct isp_res_device *isp_res)
 {
-	return isp_reg_readl(isp_res->dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR) &
+	struct device *dev = to_device(isp_res, isp_res);
+
+	return isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR) &
 		ISPPRV_PCR_BUSY;
 }
 
@@ -668,8 +678,10 @@ void ispresizer_config_startphase(struct isp_res_device *isp_res,
  **/
 void ispresizer_config_ycpos(struct isp_res_device *isp_res, u8 yc)
 {
+	struct device *dev = to_device(isp_res, isp_res);
+
 	DPRINTK_ISPRESZ("ispresizer_config_ycpos()+\n");
-	isp_reg_and_or(isp_res->dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT,
+	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT,
 		       ~ISPRSZ_CNT_YCPOS, (yc ? ISPRSZ_CNT_YCPOS : 0));
 	DPRINTK_ISPRESZ("ispresizer_config_ycpos()-\n");
 }
@@ -681,8 +693,10 @@ void ispresizer_config_ycpos(struct isp_res_device *isp_res, u8 yc)
  **/
 void ispresizer_enable_cbilin(struct isp_res_device *isp_res, u8 enable)
 {
+	struct device *dev = to_device(isp_res, isp_res);
+
 	DPRINTK_ISPRESZ("ispresizer_enable_cbilin()+\n");
-	isp_reg_and_or(isp_res->dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT,
+	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT,
 		       ~ISPRSZ_CNT_CBILIN, (enable ? ISPRSZ_CNT_CBILIN : 0));
 	DPRINTK_ISPRESZ("ispresizer_enable_cbilin()-\n");
 }
@@ -695,9 +709,11 @@ void ispresizer_enable_cbilin(struct isp_res_device *isp_res, u8 enable)
 void ispresizer_config_luma_enhance(struct isp_res_device *isp_res,
 				    struct isprsz_yenh *yenh)
 {
+	struct device *dev = to_device(isp_res, isp_res);
+
 	DPRINTK_ISPRESZ("ispresizer_config_luma_enhance()+\n");
 	isp_res->algo = yenh->algo;
-	isp_reg_writel(isp_res->dev, (yenh->algo << ISPRSZ_YENH_ALGO_SHIFT) |
+	isp_reg_writel(dev, (yenh->algo << ISPRSZ_YENH_ALGO_SHIFT) |
 		       (yenh->gain << ISPRSZ_YENH_GAIN_SHIFT) |
 		       (yenh->slope << ISPRSZ_YENH_SLOP_SHIFT) |
 		       (yenh->coreoffset << ISPRSZ_YENH_CORE_SHIFT),
@@ -741,10 +757,12 @@ void ispresizer_config_filter_coef(struct isp_res_device *isp_res,
  **/
 int ispresizer_config_inlineoffset(struct isp_res_device *isp_res, u32 offset)
 {
+	struct device *dev = to_device(isp_res, isp_res);
+
 	DPRINTK_ISPRESZ("ispresizer_config_inlineoffset()+\n");
 	if (offset % 32)
 		return -EINVAL;
-	isp_reg_writel(isp_res->dev, offset << ISPRSZ_SDR_INOFF_OFFSET_SHIFT,
+	isp_reg_writel(dev, offset << ISPRSZ_SDR_INOFF_OFFSET_SHIFT,
 		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INOFF);
 	DPRINTK_ISPRESZ("ispresizer_config_inlineoffset()-\n");
 	return 0;
@@ -758,8 +776,8 @@ int ispresizer_config_inlineoffset(struct isp_res_device *isp_res, u32 offset)
  **/
 int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr)
 {
-	struct isp_device *isp =
-		container_of(isp_ccdc, struct isp_device, isp_ccdc);
+	struct isp_device *isp = to_isp_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res, isp_res);
 
 	DPRINTK_ISPRESZ("ispresizer_set_inaddr()+\n");
 
@@ -767,14 +785,14 @@ int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr)
 		return -EINVAL;
 	isp_res->tmp_buf = addr;
 	/* FIXME: is this the right place to put crop-related junk? */
-	isp_reg_writel(isp_res->dev,
+	isp_reg_writel(dev,
 		       isp_res->tmp_buf + ISP_BYTES_PER_PIXEL
 		       * ((isp->pipeline.rsz_crop.left & ~0xf) +
 			  isp->pipeline.prv_out_w
 			  * isp->pipeline.rsz_crop.top),
 		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
 	/* Set the fractional part of the starting address. Needed for crop */
-	isp_reg_writel(isp_res->dev, ((isp->pipeline.rsz_crop.left & 0xf) <<
+	isp_reg_writel(dev, ((isp->pipeline.rsz_crop.left & 0xf) <<
 		       ISPRSZ_IN_START_HORZ_ST_SHIFT) |
 		       (0x00 << ISPRSZ_IN_START_VERT_ST_SHIFT),
 		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START);
@@ -791,10 +809,12 @@ int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr)
  **/
 int ispresizer_config_outlineoffset(struct isp_res_device *isp_res, u32 offset)
 {
+	struct device *dev = to_device(isp_res, isp_res);
+
 	DPRINTK_ISPRESZ("ispresizer_config_outlineoffset()+\n");
 	if (offset % 32)
 		return -EINVAL;
-	isp_reg_writel(isp_res->dev, offset << ISPRSZ_SDR_OUTOFF_OFFSET_SHIFT,
+	isp_reg_writel(dev, offset << ISPRSZ_SDR_OUTOFF_OFFSET_SHIFT,
 		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTOFF);
 	DPRINTK_ISPRESZ("ispresizer_config_outlineoffset()-\n");
 	return 0;
@@ -806,10 +826,12 @@ int ispresizer_config_outlineoffset(struct isp_res_device *isp_res, u32 offset)
  **/
 int ispresizer_set_outaddr(struct isp_res_device *isp_res, u32 addr)
 {
+	struct device *dev = to_device(isp_res, isp_res);
+
 	DPRINTK_ISPRESZ("ispresizer_set_outaddr()+\n");
 	if (addr % 32)
 		return -EINVAL;
-	isp_reg_writel(isp_res->dev, addr << ISPRSZ_SDR_OUTADD_ADDR_SHIFT,
+	isp_reg_writel(dev, addr << ISPRSZ_SDR_OUTADD_ADDR_SHIFT,
 		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTADD);
 	DPRINTK_ISPRESZ("ispresizer_set_outaddr()-\n");
 	return 0;
@@ -838,46 +860,50 @@ void ispresizer_restore_context(struct device *dev)
  **/
 void ispresizer_print_status(struct isp_res_device *isp_res)
 {
+#ifdef OMAP_ISPRESZ_DEBUG
+	struct device *dev = to_device(isp_res, isp_res);
+#endif
+
 	if (!is_ispresz_debug_enabled())
 		return;
 	DPRINTK_ISPRESZ("###ISP_CTRL inresizer =0x%x\n",
-			isp_reg_readl(isp_res->dev,
+			isp_reg_readl(dev,
 				      OMAP3_ISP_IOMEM_MAIN, ISP_CTRL));
 	DPRINTK_ISPRESZ("###ISP_IRQ0ENABLE in resizer =0x%x\n",
-			isp_reg_readl(isp_res->dev,
+			isp_reg_readl(dev,
 				      OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE));
 	DPRINTK_ISPRESZ("###ISP_IRQ0STATUS in resizer =0x%x\n",
-			isp_reg_readl(isp_res->dev,
+			isp_reg_readl(dev,
 				      OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS));
 	DPRINTK_ISPRESZ("###RSZ PCR =0x%x\n",
-			isp_reg_readl(isp_res->dev,
+			isp_reg_readl(dev,
 				      OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR));
 	DPRINTK_ISPRESZ("###RSZ CNT =0x%x\n",
-			isp_reg_readl(isp_res->dev,
+			isp_reg_readl(dev,
 				      OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT));
 	DPRINTK_ISPRESZ("###RSZ OUT SIZE =0x%x\n",
-			isp_reg_readl(isp_res->dev,
+			isp_reg_readl(dev,
 				      OMAP3_ISP_IOMEM_RESZ, ISPRSZ_OUT_SIZE));
 	DPRINTK_ISPRESZ("###RSZ IN START =0x%x\n",
-			isp_reg_readl(isp_res->dev,
+			isp_reg_readl(dev,
 				      OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START));
 	DPRINTK_ISPRESZ("###RSZ IN SIZE =0x%x\n",
-			isp_reg_readl(isp_res->dev,
+			isp_reg_readl(dev,
 				      OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_SIZE));
 	DPRINTK_ISPRESZ("###RSZ SDR INADD =0x%x\n",
-			isp_reg_readl(isp_res->dev,
+			isp_reg_readl(dev,
 				      OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD));
 	DPRINTK_ISPRESZ("###RSZ SDR INOFF =0x%x\n",
-			isp_reg_readl(isp_res->dev,
+			isp_reg_readl(dev,
 				      OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INOFF));
 	DPRINTK_ISPRESZ("###RSZ SDR OUTADD =0x%x\n",
-			isp_reg_readl(isp_res->dev,
+			isp_reg_readl(dev,
 				      OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTADD));
 	DPRINTK_ISPRESZ("###RSZ SDR OTOFF =0x%x\n",
-			isp_reg_readl(isp_res->dev,
+			isp_reg_readl(dev,
 				      OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTOFF));
 	DPRINTK_ISPRESZ("###RSZ YENH =0x%x\n",
-			isp_reg_readl(isp_res->dev,
+			isp_reg_readl(dev,
 				      OMAP3_ISP_IOMEM_RESZ, ISPRSZ_YENH));
 }
 
@@ -892,7 +918,6 @@ int __init isp_resizer_init(struct device *dev)
 	struct isp_res_device *isp_res = &isp->isp_res;
 
 	mutex_init(&isp_res->ispres_mutex);
-	isp_res->dev = dev;
 
 	return 0;
 }

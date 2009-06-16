@@ -116,7 +116,6 @@
 struct isp_af_device {
 	u8 update;
 	int pm_state;
-	struct device *dev;
 	struct ispstat stat;
 	struct af_configuration config; /*Device configuration structure */
 	spinlock_t *lock;

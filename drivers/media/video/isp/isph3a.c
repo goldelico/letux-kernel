@@ -118,7 +118,9 @@ void isph3a_aewb_resume(struct isp_h3a_device *isp_h3a)
 
 int isph3a_aewb_busy(struct isp_h3a_device *isp_h3a)
 {
-	return isp_reg_readl(isp_h3a->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR)
+	struct device *dev = to_device(isp_h3a, isp_h3a);
+
+	return isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR)
 		& ISPH3A_PCR_BUSYAEAWB;
 }
 
@@ -129,7 +131,7 @@ int isph3a_aewb_busy(struct isp_h3a_device *isp_h3a)
  **/
 void isph3a_update_wb(struct isp_h3a_device *isp_h3a)
 {
-	struct isp_device *isp = dev_get_drvdata(isp_h3a->dev);
+	struct isp_device *isp = to_isp_device(isp_h3a, isp_h3a);
 
 	if (isp_h3a->wb_update) {
 		/* FIXME: Get the preview crap out of here!!! */
@@ -146,34 +148,35 @@ EXPORT_SYMBOL(isph3a_update_wb);
  **/
 static void isph3a_aewb_update_regs(struct isp_h3a_device *isp_h3a)
 {
+	struct device *dev = to_device(isp_h3a, isp_h3a);
 	u32 pcr;
 
 	if (!isp_h3a->update)
 		return;
 
-	pcr = isp_reg_readl(isp_h3a->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
-	isp_reg_writel(isp_h3a->dev, (pcr & ~ISPH3A_PCR_AEW_MASK) |
+	pcr = isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
+	isp_reg_writel(dev, (pcr & ~ISPH3A_PCR_AEW_MASK) |
 				     (isp_h3a->regs.pcr & ~ISPH3A_PCR_AEW_EN),
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 	if (!isp_h3a->aewb_config_local.aewb_enable)
 		return;
 
 	if (isph3a_aewb_busy(isp_h3a)) {
-		isp_reg_writel(isp_h3a->dev, (pcr & ~ISPH3A_PCR_AEW_MASK) |
+		isp_reg_writel(dev, (pcr & ~ISPH3A_PCR_AEW_MASK) |
 					     isp_h3a->regs.pcr,
 			       OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 		return;
 	}
 
-	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.win1, OMAP3_ISP_IOMEM_H3A,
+	isp_reg_writel(dev, isp_h3a->regs.win1, OMAP3_ISP_IOMEM_H3A,
 		       ISPH3A_AEWWIN1);
-	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.start, OMAP3_ISP_IOMEM_H3A,
+	isp_reg_writel(dev, isp_h3a->regs.start, OMAP3_ISP_IOMEM_H3A,
 		       ISPH3A_AEWINSTART);
-	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.blk, OMAP3_ISP_IOMEM_H3A,
+	isp_reg_writel(dev, isp_h3a->regs.blk, OMAP3_ISP_IOMEM_H3A,
 		       ISPH3A_AEWINBLK);
-	isp_reg_writel(isp_h3a->dev, isp_h3a->regs.subwin, OMAP3_ISP_IOMEM_H3A,
+	isp_reg_writel(dev, isp_h3a->regs.subwin, OMAP3_ISP_IOMEM_H3A,
 		       ISPH3A_AEWSUBWIN);
-	isp_reg_writel(isp_h3a->dev, (pcr & ~ISPH3A_PCR_AEW_MASK) |
+	isp_reg_writel(dev, (pcr & ~ISPH3A_PCR_AEW_MASK) |
 				     isp_h3a->regs.pcr,
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 
@@ -220,12 +223,13 @@ static int isph3a_aewb_get_stats(struct isp_h3a_device *isp_h3a,
  */
 void isph3a_aewb_isr(struct isp_h3a_device *isp_h3a)
 {
+	struct device *dev = to_device(isp_h3a, isp_h3a);
 	unsigned long irqflags;
 	struct ispstat_buffer *buf;
 
 	buf = ispstat_buf_next(&isp_h3a->stat);
 
-	isp_reg_writel(isp_h3a->dev, buf->iommu_addr,
+	isp_reg_writel(dev, buf->iommu_addr,
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
 
 	spin_lock_irqsave(isp_h3a->lock, irqflags);
@@ -238,53 +242,55 @@ void isph3a_aewb_isr(struct isp_h3a_device *isp_h3a)
 static int isph3a_aewb_validate_params(struct isp_h3a_device *isp_h3a,
 				       struct isph3a_aewb_config *user_cfg)
 {
+	struct device *dev = to_device(isp_h3a, isp_h3a);
+
 	if (unlikely(user_cfg->saturation_limit > MAX_SATURATION_LIM)) {
-		dev_info(isp_h3a->dev, "h3a: Invalid Saturation_limit: %d\n",
+		dev_info(dev, "h3a: Invalid Saturation_limit: %d\n",
 			 user_cfg->saturation_limit);
 		return -EINVAL;
 	}
 	if (unlikely(user_cfg->win_height < MIN_WIN_H ||
 		     user_cfg->win_height > MAX_WIN_H ||
 		     user_cfg->win_height & 0x01)) {
-		dev_info(isp_h3a->dev, "h3a: Invalid window height: %d\n",
+		dev_info(dev, "h3a: Invalid window height: %d\n",
 			 user_cfg->win_height);
 		return -EINVAL;
 	}
 	if (unlikely(user_cfg->win_width < MIN_WIN_W ||
 		     user_cfg->win_width > MAX_WIN_W ||
 		     user_cfg->win_width & 0x01)) {
-		dev_info(isp_h3a->dev, "h3a: Invalid window width: %d\n",
+		dev_info(dev, "h3a: Invalid window width: %d\n",
 			 user_cfg->win_width);
 		return -EINVAL;
 	}
 	if (unlikely(user_cfg->ver_win_count < 1 ||
 		     user_cfg->ver_win_count > MAX_WINVC)) {
-		dev_info(isp_h3a->dev,
+		dev_info(dev,
 			 "h3a: Invalid vertical window count: %d\n",
 			 user_cfg->ver_win_count);
 		return -EINVAL;
 	}
 	if (unlikely(user_cfg->hor_win_count < 1 ||
 		     user_cfg->hor_win_count > MAX_WINHC)) {
-		dev_info(isp_h3a->dev,
+		dev_info(dev,
 			 "h3a: Invalid horizontal window count: %d\n",
 			 user_cfg->hor_win_count);
 		return -EINVAL;
 	}
 	if (unlikely(user_cfg->ver_win_start > MAX_WINSTART)) {
-		dev_info(isp_h3a->dev,
+		dev_info(dev,
 			 "h3a: Invalid vertical window start: %d\n",
 			 user_cfg->ver_win_start);
 		return -EINVAL;
 	}
 	if (unlikely(user_cfg->hor_win_start > MAX_WINSTART)) {
-		dev_info(isp_h3a->dev,
+		dev_info(dev,
 			 "h3a: Invalid horizontal window start: %d\n",
 			 user_cfg->hor_win_start);
 		return -EINVAL;
 	}
 	if (unlikely(user_cfg->blk_ver_win_start > MAX_WINSTART)) {
-		dev_info(isp_h3a->dev,
+		dev_info(dev,
 			 "h3a: Invalid black vertical window start: %d\n",
 			 user_cfg->blk_ver_win_start);
 		return -EINVAL;
@@ -292,14 +298,14 @@ static int isph3a_aewb_validate_params(struct isp_h3a_device *isp_h3a,
 	if (unlikely(user_cfg->blk_win_height < MIN_WIN_H ||
 		     user_cfg->blk_win_height > MAX_WIN_H ||
 		     user_cfg->blk_win_height & 0x01)) {
-		dev_info(isp_h3a->dev, "h3a: Invalid black window height: %d\n",
+		dev_info(dev, "h3a: Invalid black window height: %d\n",
 			 user_cfg->blk_win_height);
 		return -EINVAL;
 	}
 	if (unlikely(user_cfg->subsample_ver_inc < MIN_SUB_INC ||
 		     user_cfg->subsample_ver_inc > MAX_SUB_INC ||
 		     user_cfg->subsample_ver_inc & 0x01)) {
-		dev_info(isp_h3a->dev,
+		dev_info(dev,
 			 "h3a: Invalid vertical subsample increment: %d\n",
 			 user_cfg->subsample_ver_inc);
 		return -EINVAL;
@@ -307,7 +313,7 @@ static int isph3a_aewb_validate_params(struct isp_h3a_device *isp_h3a,
 	if (unlikely(user_cfg->subsample_hor_inc < MIN_SUB_INC ||
 		     user_cfg->subsample_hor_inc > MAX_SUB_INC ||
 		     user_cfg->subsample_hor_inc & 0x01)) {
-		dev_info(isp_h3a->dev,
+		dev_info(dev,
 			 "h3a: Invalid horizontal subsample increment: %d\n",
 			 user_cfg->subsample_hor_inc);
 		return -EINVAL;
@@ -438,10 +444,11 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 	unsigned int buf_size;
 	unsigned long irqflags;
 	struct ispstat_buffer *buf = NULL;
-	struct isp_device *isp = dev_get_drvdata(isp_h3a->dev);
+	struct isp_device *isp = to_isp_device(isp_h3a, isp_h3a);
+	struct device *dev = to_device(isp_h3a, isp_h3a);
 
 	if (NULL == aewbcfg) {
-		dev_info(isp_h3a->dev, "h3a: Null argument in configuration\n");
+		dev_info(dev, "h3a: Null argument in configuration\n");
 		return -EINVAL;
 	}
 
@@ -472,7 +479,7 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 	isph3a_aewb_set_params(isp_h3a, aewbcfg);
 
 	if (buf)
-		isp_reg_writel(isp_h3a->dev, buf->iommu_addr,
+		isp_reg_writel(dev, buf->iommu_addr,
 			       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
 
 	spin_unlock_irqrestore(isp_h3a->lock, irqflags);
@@ -498,11 +505,12 @@ EXPORT_SYMBOL(isph3a_aewb_configure);
 int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 				   struct isph3a_aewb_data *aewbdata)
 {
+	struct device *dev = to_device(isp_h3a, isp_h3a);
 	unsigned long irqflags;
 	int ret = 0;
 
 	if (!isp_h3a->aewb_config_local.aewb_enable) {
-		dev_err(isp_h3a->dev, "h3a: engine not enabled\n");
+		dev_err(dev, "h3a: engine not enabled\n");
 		return -EINVAL;
 	}
 
@@ -555,7 +563,6 @@ int __init isph3a_aewb_init(struct device *dev)
 	struct isp_device *isp = dev_get_drvdata(dev);
 	struct isp_h3a_device *isp_h3a = &isp->isp_h3a;
 
-	isp_h3a->dev = dev;
 	isp_h3a->lock = &isp->h3a_lock;
 	isp_h3a->aewb_config_local.saturation_limit = AEWB_SATURATION_LIMIT;
 	ispstat_init(dev, "H3A", &isp_h3a->stat, H3A_MAX_BUFF, MAX_FRAME_COUNT);
@@ -578,23 +585,27 @@ void isph3a_aewb_cleanup(struct device *dev)
  **/
 static void isph3a_print_status(struct isp_h3a_device *isp_h3a)
 {
+#ifdef OMAP_ISPH3A_DEBUG
+	struct device *dev = to_device(isp_h3a, isp_h3a);
+#endif
+
 	DPRINTK_ISPH3A("ISPH3A_PCR = 0x%08x\n",
-		       isp_reg_readl(isp_h3a->dev, OMAP3_ISP_IOMEM_H3A,
+		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A,
 				     ISPH3A_PCR));
 	DPRINTK_ISPH3A("ISPH3A_AEWWIN1 = 0x%08x\n",
-		       isp_reg_readl(isp_h3a->dev, OMAP3_ISP_IOMEM_H3A,
+		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A,
 				     ISPH3A_AEWWIN1));
 	DPRINTK_ISPH3A("ISPH3A_AEWINSTART = 0x%08x\n",
-		       isp_reg_readl(isp_h3a->dev, OMAP3_ISP_IOMEM_H3A,
+		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A,
 				     ISPH3A_AEWINSTART));
 	DPRINTK_ISPH3A("ISPH3A_AEWINBLK = 0x%08x\n",
-		       isp_reg_readl(isp_h3a->dev, OMAP3_ISP_IOMEM_H3A,
+		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A,
 				     ISPH3A_AEWINBLK));
 	DPRINTK_ISPH3A("ISPH3A_AEWSUBWIN = 0x%08x\n",
-		       isp_reg_readl(isp_h3a->dev, OMAP3_ISP_IOMEM_H3A,
+		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A,
 				     ISPH3A_AEWSUBWIN));
 	DPRINTK_ISPH3A("ISPH3A_AEWBUFST = 0x%08x\n",
-		       isp_reg_readl(isp_h3a->dev, OMAP3_ISP_IOMEM_H3A,
+		       isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A,
 				     ISPH3A_AEWBUFST));
 	DPRINTK_ISPH3A("stats windows = %d\n", isp_h3a->win_count);
 	DPRINTK_ISPH3A("stats buf size = %d\n", isp_h3a->stat.buf_size);
