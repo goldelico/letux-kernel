@@ -64,6 +64,11 @@ struct isp_pipeline;
 #define NUM_ISP_CAPTURE_FORMATS 	(sizeof(isp_formats) /		\
 					 sizeof(isp_formats[0]))
 
+#define to_isp_device(ptr, module)				\
+	container_of(ptr, struct isp_device, module)
+#define to_device(ptr, module)					\
+	(container_of(ptr, struct isp_device, module)->dev)
+
 typedef int (*isp_vbq_callback_ptr) (struct videobuf_buffer *vb);
 typedef void (*isp_callback_t) (unsigned long status,
 				isp_vbq_callback_ptr arg1, void *arg2);
