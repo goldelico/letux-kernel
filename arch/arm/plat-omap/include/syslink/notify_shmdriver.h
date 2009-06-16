@@ -44,10 +44,10 @@
  *
  */
 struct notify_shmdrv_attrs {
-	unsigned long int    shm_base_addr ;
-	unsigned long int    shm_size ;
-	unsigned long int    num_events ;
-	unsigned long int    send_event_pollcount ;
+	unsigned long int shm_base_addr;
+	unsigned long int shm_size;
+	unsigned long int num_events;
+	unsigned long int send_event_pollcount;
 };
 
 
@@ -58,7 +58,7 @@ struct notify_shmdrv_event_entry {
 	REG unsigned long int flag;
 	REG unsigned long int payload;
 	REG unsigned long int reserved;
-	/*ADD_PADDING(padding, NOTIFYSHMDRV_EVENT_ENTRY_PADDING)*/
+	unsigned long int padding[29];
 };
 
 /*
@@ -68,7 +68,7 @@ struct notify_shmdrv_event_entry {
 struct notify_shmdrv_eventreg_mask {
 	REG unsigned long int mask;
 	REG unsigned long int enable_mask;
-	/*ADD_PADDING (padding, IPC_64BIT_PADDING)*/
+	unsigned long int padding[30];
 };
 
 /*
@@ -89,7 +89,7 @@ struct notify_shmdrv_proc_ctrl {
 	struct notify_shmdrv_event_entry *other_event_chart;
 	unsigned long int recv_init_status;
 	unsigned long int send_init_status;
-	/*ADD_PADDING(padding, NOTIFYSHMDRV_CTRL_PADDING)*/
+	unsigned long int padding[28];
 	struct notify_shmdrv_eventreg_mask reg_mask;
 };
 
