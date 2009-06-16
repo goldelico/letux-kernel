@@ -346,7 +346,9 @@ static int isp_wait(struct device *dev, int (*busy)(void *), int wait_for_busy,
 
 static int ispccdc_sbl_wait_idle(struct isp_ccdc_device *isp_ccdc, int max_wait)
 {
-	return isp_wait(isp_ccdc->dev, ispccdc_sbl_busy, 0, max_wait, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+
+	return isp_wait(dev, ispccdc_sbl_busy, 0, max_wait, isp_ccdc);
 }
 
 static void isp_enable_interrupts(struct device *dev)

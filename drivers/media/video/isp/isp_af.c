@@ -39,7 +39,9 @@ static void __isp_af_enable(struct isp_af_device *isp_af, int enable);
 static void isp_af_set_address(struct isp_af_device *isp_af,
 			       unsigned long address)
 {
-	isp_reg_writel(isp_af->dev, address, OMAP3_ISP_IOMEM_H3A,
+	struct device *dev = to_device(isp_af, isp_af);
+
+	isp_reg_writel(dev, address, OMAP3_ISP_IOMEM_H3A,
 		       ISPH3A_AFBUFST);
 }
 
@@ -134,6 +136,7 @@ static int isp_af_check_params(struct isp_af_device *isp_af,
 
 static void isp_af_register_setup(struct isp_af_device *isp_af)
 {
+	struct device *dev = to_device(isp_af, isp_af);
 	unsigned int pcr = 0, pax1 = 0, pax2 = 0, paxstart = 0;
 	unsigned int coef = 0;
 	unsigned int base_coef_set0 = 0;
@@ -152,7 +155,7 @@ static void isp_af_register_setup(struct isp_af_device *isp_af)
 	pax1 |= isp_af->config.paxel_config.width << AF_PAXW_SHIFT;
 	/* Set height in AFPAX1 */
 	pax1 |= isp_af->config.paxel_config.height;
-	isp_reg_writel(isp_af->dev, pax1, OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX1);
+	isp_reg_writel(dev, pax1, OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX1);
 
 	/* Configure AFPAX2 Register */
 	/* Set Line Increment in AFPAX2 Register */
@@ -161,18 +164,18 @@ static void isp_af_register_setup(struct isp_af_device *isp_af)
 	pax2 |= isp_af->config.paxel_config.vt_cnt << AF_VT_COUNT_SHIFT;
 	/* Set Horizontal Count */
 	pax2 |= isp_af->config.paxel_config.hz_cnt;
-	isp_reg_writel(isp_af->dev, pax2, OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX2);
+	isp_reg_writel(dev, pax2, OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX2);
 
 	/* Configure PAXSTART Register */
 	/*Configure Horizontal Start */
 	paxstart |= isp_af->config.paxel_config.hz_start << AF_HZ_START_SHIFT;
 	/* Configure Vertical Start */
 	paxstart |= isp_af->config.paxel_config.vt_start;
-	isp_reg_writel(isp_af->dev, paxstart, OMAP3_ISP_IOMEM_H3A,
+	isp_reg_writel(dev, paxstart, OMAP3_ISP_IOMEM_H3A,
 		       ISPH3A_AFPAXSTART);
 
 	/*SetIIRSH Register */
-	isp_reg_writel(isp_af->dev, isp_af->config.iir_config.hz_start_pos,
+	isp_reg_writel(dev, isp_af->config.iir_config.hz_start_pos,
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AFIIRSH);
 
 	base_coef_set0 = ISPH3A_AFCOEF010;
@@ -183,7 +186,7 @@ static void isp_af_register_setup(struct isp_af_device *isp_af)
 		coef |= isp_af->config.iir_config.coeff_set0[index];
 		coef |= isp_af->config.iir_config.coeff_set0[index + 1] <<
 			AF_COEF_SHIFT;
-		isp_reg_writel(isp_af->dev, coef, OMAP3_ISP_IOMEM_H3A,
+		isp_reg_writel(dev, coef, OMAP3_ISP_IOMEM_H3A,
 			       base_coef_set0);
 		base_coef_set0 += AFCOEF_OFFSET;
 
@@ -192,15 +195,15 @@ static void isp_af_register_setup(struct isp_af_device *isp_af)
 		coef |= isp_af->config.iir_config.coeff_set1[index];
 		coef |= isp_af->config.iir_config.coeff_set1[index + 1] <<
 			AF_COEF_SHIFT;
-		isp_reg_writel(isp_af->dev, coef, OMAP3_ISP_IOMEM_H3A,
+		isp_reg_writel(dev, coef, OMAP3_ISP_IOMEM_H3A,
 			       base_coef_set1);
 		base_coef_set1 += AFCOEF_OFFSET;
 	}
 	/* set AFCOEF0010 Register */
-	isp_reg_writel(isp_af->dev, isp_af->config.iir_config.coeff_set0[10],
+	isp_reg_writel(dev, isp_af->config.iir_config.coeff_set0[10],
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF0010);
 	/* set AFCOEF1010 Register */
-	isp_reg_writel(isp_af->dev, isp_af->config.iir_config.coeff_set1[10],
+	isp_reg_writel(dev, isp_af->config.iir_config.coeff_set1[10],
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF1010);
 
 	/* PCR Register */
@@ -220,7 +223,7 @@ static void isp_af_register_setup(struct isp_af_device *isp_af)
 		pcr |= isp_af->config.hmf_config.threshold << AF_MED_TH_SHIFT;
 	}
 	/* Set PCR Register */
-	isp_reg_and_or(isp_af->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR,
+	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR,
 		       ~AF_PCR_MASK, pcr);
 
 	isp_af->update = 0;
@@ -315,20 +318,21 @@ out:
 int isp_af_configure(struct isp_af_device *isp_af,
 		     struct af_configuration *afconfig)
 {
+	struct device *dev = to_device(isp_af, isp_af);
 	int result;
 	int buf_size;
 	struct ispstat_buffer *buf;
 	unsigned long irqflags;
 
 	if (!afconfig) {
-		dev_err(isp_af->dev, "af: Null argument in configuration.\n");
+		dev_err(dev, "af: Null argument in configuration.\n");
 		return -EINVAL;
 	}
 
 	/* Check Parameters */
 	result = isp_af_check_params(isp_af, afconfig);
 	if (result) {
-		dev_dbg(isp_af->dev, "af: wrong configure params received.\n");
+		dev_dbg(dev, "af: wrong configure params received.\n");
 		return result;
 	}
 
@@ -370,10 +374,11 @@ EXPORT_SYMBOL(isp_af_configure);
 int isp_af_request_statistics(struct isp_af_device *isp_af,
 			      struct isp_af_data *afdata)
 {
+	struct device *dev = to_device(isp_af, isp_af);
 	struct ispstat_buffer *buf;
 
 	if (!isp_af->config.af_config) {
-		dev_err(isp_af->dev, "af: statistics requested while af engine"
+		dev_err(dev, "af: statistics requested while af engine"
 				     " is not configured\n");
 		return -EINVAL;
 	}
@@ -418,9 +423,10 @@ void isp_af_isr(struct isp_af_device *isp_af)
 
 static void __isp_af_enable(struct isp_af_device *isp_af, int enable)
 {
+	struct device *dev = to_device(isp_af, isp_af);
 	unsigned int pcr;
 
-	pcr = isp_reg_readl(isp_af->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
+	pcr = isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 
 	/* Set AF_EN bit in PCR Register */
 	if (enable)
@@ -428,7 +434,7 @@ static void __isp_af_enable(struct isp_af_device *isp_af, int enable)
 	else
 		pcr &= ~AF_EN;
 
-	isp_reg_writel(isp_af->dev, pcr, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
+	isp_reg_writel(dev, pcr, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 }
 
 /* Function to Enable/Disable AF Engine */
@@ -487,7 +493,9 @@ void isp_af_resume(struct isp_af_device *isp_af)
 
 int isp_af_busy(struct isp_af_device *isp_af)
 {
-	return isp_reg_readl(isp_af->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR)
+	struct device *dev = to_device(isp_af, isp_af);
+
+	return isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR)
 		& ISPH3A_PCR_BUSYAF;
 }
 
@@ -497,7 +505,6 @@ int __init isp_af_init(struct device *dev)
 	struct isp_device *isp = dev_get_drvdata(dev);
 	struct isp_af_device *isp_af = &isp->isp_af;
 
-	isp_af->dev = dev;
 	isp_af->lock = &isp->h3a_lock;
 	ispstat_init(dev, "AF", &isp_af->stat, H3A_MAX_BUFF, MAX_FRAME_COUNT);
 

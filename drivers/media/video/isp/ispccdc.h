@@ -174,7 +174,6 @@ struct isp_ccdc_device {
 	u8 obclamp_en;
 	struct mutex mutexlock; /* For checking/modifying ccdc_inuse */
 	u32 wenlog;
-	struct device *dev;
 	enum ispccdc_raw_fmt raw_fmt_in;
 
 	/* LSC related fields */

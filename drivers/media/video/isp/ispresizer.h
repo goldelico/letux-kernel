@@ -138,7 +138,6 @@ struct isp_res_device {
 	struct isprsz_coef coeflist;
 	struct mutex ispres_mutex; /* For checking/modifying res_inuse */
 	struct isprsz_yenh defaultyenh;
-	struct device *dev;
 	int applycrop;
 };
 
