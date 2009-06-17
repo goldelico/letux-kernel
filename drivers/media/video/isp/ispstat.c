@@ -23,6 +23,18 @@
 
 #include "isp.h"
 
+inline int greater_overflow(int a, int b, int limit)
+{
+	int limit2 = limit / 2;
+
+	if (b - a > limit2)
+		return 1;
+	else if (a - b > limit2)
+		return 0;
+	else
+		return a > b;
+}
+
 /* Get next free buffer to write the statistics to and mark it active. */
 struct ispstat_buffer *ispstat_buf_next(struct ispstat *stat)
 {
@@ -50,15 +62,16 @@ struct ispstat_buffer *ispstat_buf_next(struct ispstat *stat)
 		if (curr == stat->locked_buf)
 			continue;
 
-		if (!found
-		    || (curr->frame_number > found->frame_number
-			&& (curr->frame_number - found->frame_number
-			    > stat->max_frame / 2))
-		    || (curr->frame_number < found->frame_number
-			&& (found->frame_number - curr->frame_number
-			    < stat->max_frame / 2))) {
+		/* Uninitialised buffer -- pick that one over anything else. */
+		if (curr->frame_number == stat->max_frame) {
 			found = curr;
+			break;
 		}
+
+		if (!found ||
+		    !greater_overflow(curr->frame_number, found->frame_number,
+				      stat->max_frame))
+			found = curr;
 	}
 
 	stat->active_buf = found;
@@ -76,7 +89,6 @@ struct ispstat_buffer *ispstat_buf_next(struct ispstat *stat)
 static struct ispstat_buffer *ispstat_buf_find(
 	struct ispstat *stat, u32 frame_number)
 {
-	struct ispstat_buffer *latest = NULL;
 	int i;
 
 	for (i = 0; i < stat->nbufs; i++) {
@@ -91,23 +103,11 @@ static struct ispstat_buffer *ispstat_buf_find(
 			continue;
 
 		/* Found correct number. */
-		if (curr->frame_number == frame_number) {
-			latest = curr;
-			break;
-		}
-
-		/* Select first buffer or a better one. */
-		if (!latest
-		    || (curr->frame_number < latest->frame_number
-			&& (latest->frame_number - curr->frame_number
-			    > stat->max_frame / 2))
-		    || (curr->frame_number > latest->frame_number
-			&& (curr->frame_number - latest->frame_number
-			    < stat->max_frame / 2)))
-			latest = curr;
+		if (curr->frame_number == frame_number)
+			return curr;
 	}
 
-	return latest;
+	return NULL;
 }
 
 /**
