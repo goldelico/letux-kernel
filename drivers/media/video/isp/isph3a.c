@@ -437,7 +437,8 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 	int win_count = 0;
 	unsigned int buf_size;
 	unsigned long irqflags;
-	struct ispstat_buffer *buf;
+	struct ispstat_buffer *buf = NULL;
+	struct isp_device *isp = dev_get_drvdata(isp_h3a->dev);
 
 	if (NULL == aewbcfg) {
 		dev_info(isp_h3a->dev, "h3a: Null argument in configuration\n");
@@ -461,15 +462,19 @@ int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
 	if (ret)
 		return ret;
 
-	buf = ispstat_buf_next(&isp_h3a->stat);
+	if (!(isp->running == ISP_RUNNING &&
+	      isp_h3a->aewb_config_local.aewb_enable))
+		buf = ispstat_buf_next(&isp_h3a->stat);
 
 	spin_lock_irqsave(isp_h3a->lock, irqflags);
 
 	isp_h3a->win_count = win_count;
-
 	isph3a_aewb_set_params(isp_h3a, aewbcfg);
-	isp_reg_writel(isp_h3a->dev, buf->iommu_addr,
-		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
+
+	if (buf)
+		isp_reg_writel(isp_h3a->dev, buf->iommu_addr,
+			       OMAP3_ISP_IOMEM_H3A, ISPH3A_AEWBUFST);
+
 	spin_unlock_irqrestore(isp_h3a->lock, irqflags);
 	isph3a_aewb_enable(isp_h3a, aewbcfg->aewb_enable);
 	isph3a_print_status(isp_h3a);
