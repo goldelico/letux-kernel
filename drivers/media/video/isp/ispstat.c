@@ -142,7 +142,8 @@ struct ispstat_buffer *ispstat_buf_get(struct ispstat *stat,
 
 	if (rval) {
 		dev_info(stat->dev,
-			 "failed copying %d bytes of stat data\n", rval);
+			 "%s: failed copying %d bytes of stat data\n",
+			 stat->tag, rval);
 		buf = ERR_PTR(-EFAULT);
 		ispstat_buf_release(stat);
 	}
@@ -197,7 +198,9 @@ int ispstat_bufs_alloc(struct ispstat *stat,
 	}
 
 	if (isp->running != ISP_STOPPED) {
-		dev_info(stat->dev, "stat: trying to configure when busy\n");
+		dev_info(stat->dev,
+			 "%s stat: trying to configure when busy\n",
+			 stat->tag);
 		spin_unlock_irqrestore(&stat->lock, flags);
 		return -EBUSY;
 	}
@@ -212,8 +215,9 @@ int ispstat_bufs_alloc(struct ispstat *stat,
 		buf->iommu_addr = iommu_vmalloc(isp->iommu, 0, size,
 						IOMMU_FLAG);
 		if (buf->iommu_addr == 0) {
-			dev_info(stat->dev, "stat: Can't acquire memory for "
-				 "buffer %d\n", i);
+			dev_info(stat->dev,
+				 "%s stat: Can't acquire memory for "
+				 "buffer %d\n", stat->tag, i);
 			ispstat_bufs_free(stat);
 			return -ENOMEM;
 		}
@@ -230,7 +234,7 @@ out:
 	return 0;
 }
 
-int ispstat_init(struct device *dev, struct ispstat *stat,
+int ispstat_init(struct device *dev, char *tag, struct ispstat *stat,
 		 unsigned int nbufs, unsigned int max_frame)
 {
 	BUG_ON(nbufs < 2);
@@ -246,6 +250,7 @@ int ispstat_init(struct device *dev, struct ispstat *stat,
 	spin_lock_init(&stat->lock);
 	stat->nbufs = nbufs;
 	stat->dev = dev;
+	stat->tag = tag;
 	stat->max_frame = max_frame;
 
 	return 0;

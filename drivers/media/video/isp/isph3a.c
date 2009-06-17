@@ -553,7 +553,7 @@ int __init isph3a_aewb_init(struct device *dev)
 	isp_h3a->dev = dev;
 	isp_h3a->lock = &isp->h3a_lock;
 	isp_h3a->aewb_config_local.saturation_limit = AEWB_SATURATION_LIMIT;
-	ispstat_init(dev, &isp_h3a->stat, H3A_MAX_BUFF, MAX_FRAME_COUNT);
+	ispstat_init(dev, "H3A", &isp_h3a->stat, H3A_MAX_BUFF, MAX_FRAME_COUNT);
 
 	return 0;
 }
