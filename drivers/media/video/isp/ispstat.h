@@ -48,6 +48,7 @@ struct ispstat {
 	unsigned int config_counter;
 
 	struct device *dev;
+	char *tag;		/* ispstat instantiation tag */
 };
 
 struct ispstat_buffer *ispstat_buf_next(struct ispstat *stat);
@@ -58,7 +59,7 @@ void ispstat_buf_release(struct ispstat *stat);
 void ispstat_bufs_free(struct ispstat *stat);
 int ispstat_bufs_alloc(struct ispstat *stat,
 		       unsigned int size);
-int ispstat_init(struct device *dev, struct ispstat *stat,
+int ispstat_init(struct device *dev, char *tag, struct ispstat *stat,
 		 unsigned int nbufs, unsigned int max_frame);
 void ispstat_free(struct ispstat *stat);
 

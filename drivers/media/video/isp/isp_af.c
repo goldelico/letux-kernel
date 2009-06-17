@@ -499,7 +499,7 @@ int __init isp_af_init(struct device *dev)
 
 	isp_af->dev = dev;
 	isp_af->lock = &isp->h3a_lock;
-	ispstat_init(dev, &isp_af->stat, H3A_MAX_BUFF, MAX_FRAME_COUNT);
+	ispstat_init(dev, "AF", &isp_af->stat, H3A_MAX_BUFF, MAX_FRAME_COUNT);
 
 	return 0;
 }
