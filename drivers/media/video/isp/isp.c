@@ -1472,8 +1472,6 @@ static int isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 		isp_disable_interrupts(dev);
 		if (CCDC_PREV_CAPTURE(isp))
 			isppreview_enable(&isp->isp_prev, 0);
-		else if (CCDC_PREV_RESZ_CAPTURE(isp))
-			ispresizer_enable(&isp->isp_res, 0);
 		/*
 		 * We must wait for the HS_VS since before that the
 		 * CCDC may trigger interrupts even if it's not
