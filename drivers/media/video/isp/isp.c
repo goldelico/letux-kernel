@@ -826,6 +826,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 	struct isp_device *isp = dev_get_drvdata(dev);
 	struct isp_irq *irqdis = &isp->irq;
 	struct isp_bufs *bufs = &isp->bufs;
+	struct isp_buf *buf;
 	unsigned long flags;
 	u32 irqstatus = 0;
 	u32 sbl_pcr;
@@ -871,6 +872,32 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		break;
 	}
 
+	buf = ISP_BUF_DONE(bufs);
+
+	if (irqstatus & LSC_PRE_ERR) {
+		/* Mark buffer faulty. */
+		buf->vb_state = VIDEOBUF_ERROR;
+		ispccdc_lsc_error_handler(&isp->isp_ccdc);
+		dev_err(dev, "%s: lsc prefetch error\n", __func__);
+	}
+
+	if (irqstatus & CSIA) {
+		int ret = isp_csi2_isr();
+		if (ret)
+			buf->vb_state = VIDEOBUF_ERROR;
+	}
+
+	if (irqstatus & IRQ0STATUS_CSIB_IRQ) {
+		u32 ispcsi1_irqstatus;
+
+		ispcsi1_irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
+						  ISPCSI1_LC01_IRQSTATUS);
+		isp_reg_writel(dev, ispcsi1_irqstatus, OMAP3_ISP_IOMEM_CCP2,
+			       ISPCSI1_LC01_IRQSTATUS);
+		buf->vb_state = VIDEOBUF_ERROR;
+		dev_err(dev, "CCP2 err:%x\n", ispcsi1_irqstatus);
+	}
+
 	if (irqstatus & RESZ_DONE) {
 		if (irqdis->isp_callbk[CBK_RESZ_DONE])
 			irqdis->isp_callbk[CBK_RESZ_DONE](
@@ -900,8 +927,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		else {
 			if (CCDC_PREV_RESZ_CAPTURE(isp)) {
 				if (ispresizer_busy(&isp->isp_res)) {
-					ISP_BUF_DONE(bufs)->vb_state =
-						VIDEOBUF_ERROR;
+					buf->vb_state = VIDEOBUF_ERROR;
 					dev_err(dev, "%s: resizer busy!\n", __func__);
 				} else {
 					ispresizer_enable(&isp->isp_res, 1);
@@ -941,38 +967,9 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		       | ISPSBL_PCR_CCDC_WBL_OVF
 		       | ISPSBL_PCR_CSIA_WBL_OVF
 		       | ISPSBL_PCR_CSIB_WBL_OVF)) {
-		struct isp_buf *buf = ISP_BUF_DONE(bufs);
 		buf->vb_state = VIDEOBUF_ERROR;
 		dev_info(dev, "%s: sbl overflow, sbl_pcr = %8.8x\n",
 		       __func__, sbl_pcr);
-	}
-
-out_ignore_buff:
-	if (irqstatus & LSC_PRE_ERR) {
-		struct isp_buf *buf = ISP_BUF_DONE(bufs);
-		/* Mark buffer faulty. */
-		buf->vb_state = VIDEOBUF_ERROR;
-		ispccdc_lsc_error_handler(&isp->isp_ccdc);
-		dev_err(dev, "%s: lsc prefetch error\n", __func__);
-	}
-
-	if (irqstatus & CSIA) {
-		struct isp_buf *buf = ISP_BUF_DONE(bufs);
-		int ret = isp_csi2_isr();
-		if (ret)
-			buf->vb_state = VIDEOBUF_ERROR;
-	}
-
-	if (irqstatus & IRQ0STATUS_CSIB_IRQ) {
-		struct isp_buf *buf = ISP_BUF_DONE(bufs);
-		u32 ispcsi1_irqstatus;
-
-		ispcsi1_irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-						  ISPCSI1_LC01_IRQSTATUS);
-		isp_reg_writel(dev, ispcsi1_irqstatus, OMAP3_ISP_IOMEM_CCP2,
-			       ISPCSI1_LC01_IRQSTATUS);
-		buf->vb_state = VIDEOBUF_ERROR;
-		dev_err(dev, "CCP2 err:%x\n", ispcsi1_irqstatus);
 	}
 
 	if (irqdis->isp_callbk[CBK_CATCHALL]) {
@@ -982,6 +979,7 @@ out_ignore_buff:
 			irqdis->isp_callbk_arg2[CBK_CATCHALL]);
 	}
 
+out_ignore_buff:
 	spin_unlock_irqrestore(&isp->lock, irqflags);
 
 	isp_flush(dev);
