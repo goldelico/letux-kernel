@@ -1479,28 +1479,6 @@ static int isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 		 */
 		bufs->wait_hs_vs = isp->config->wait_hs_vs;
 	}
-	if ((CCDC_CAPTURE(isp) && ispccdc_busy(&isp->isp_ccdc))
-	    || (CCDC_PREV_RESZ_CAPTURE(isp) && ispresizer_busy(&isp->isp_res))
-	    || (CCDC_PREV_CAPTURE(isp) && isppreview_busy(&isp->isp_prev))) {
-		/*
-		 * Next buffer available: for the transfer to succeed, the
-		 * CCDC (RAW capture) or resizer (YUV capture) must be idle
-		 * for the duration of transfer setup. Bad things happen
-		 * otherwise!
-		 *
-		 * Next buffer not available: if we fail to stop the
-		 * ISP the buffer is probably going to be bad.
-		 */
-		/* Mark this buffer faulty. */
-		buf->vb_state = VIDEOBUF_ERROR;
-		/* Mark next faulty, too, in case we have one. */
-		if (!last) {
-			ISP_BUF_NEXT_DONE(bufs)->vb_state = VIDEOBUF_ERROR;
-			dev_alert(dev, "OUCH!!!\n");
-		} else {
-			dev_alert(dev, "Ouch!\n");
-		}
-	}
 
 	/* Mark the current buffer as done. */
 	ISP_BUF_MARK_DONE(bufs);
