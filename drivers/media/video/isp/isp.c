@@ -806,7 +806,7 @@ int isp_configure_interface(struct device *dev,
 }
 EXPORT_SYMBOL(isp_configure_interface);
 
-static int isp_buf_process(struct device *dev, struct isp_bufs *bufs);
+static void isp_buf_process(struct device *dev, struct isp_bufs *bufs);
 
 /**
  * omap34xx_isp_isr - Interrupt Service Routine for Camera ISP module.
@@ -1434,14 +1434,14 @@ static void isp_buf_init(struct device *dev)
 	}
 }
 
-static int isp_buf_process(struct device *dev, struct isp_bufs *bufs)
+static void isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
-	struct isp_buf *buf = NULL;
+	struct isp_buf *buf;
 	int last;
 
 	if (ISP_BUFS_IS_EMPTY(bufs))
-		goto out;
+		return;
 
 	if (CCDC_CAPTURE(isp)) {
 		ispccdc_enable(&isp->isp_ccdc, 0);
@@ -1449,7 +1449,7 @@ static int isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 			ispccdc_enable(&isp->isp_ccdc, 1);
 			dev_err(dev, "ccdc %d won't become idle!\n",
 				CCDC_CAPTURE(isp));
-			goto out;
+			return;
 		}
 	}
 
@@ -1483,19 +1483,14 @@ static int isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 			(bufs->buf+((bufs->done - 1 + NUM_BUFS)
 				    % NUM_BUFS))->isp_addr);
 
-out:
-	if (buf && buf->vb) {
-		/*
-		 * We want to dequeue a buffer from the video buffer
-		 * queue. Let's do it!
-		 */
-		isp_vbq_sync(buf->vb, DMA_FROM_DEVICE);
-		buf->vb->state = buf->vb_state;
-		buf->complete(buf->vb, buf->priv);
-		buf->vb = NULL;
-	}
-
-	return 0;
+	/*
+	 * We want to dequeue a buffer from the video buffer
+	 * queue. Let's do it!
+	 */
+	isp_vbq_sync(buf->vb, DMA_FROM_DEVICE);
+	buf->vb->state = buf->vb_state;
+	buf->complete(buf->vb, buf->priv);
+	buf->vb = NULL;
 }
 
 int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
