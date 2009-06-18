@@ -905,7 +905,6 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 				irqdis->isp_callbk_arg1[CBK_RESZ_DONE],
 				irqdis->isp_callbk_arg2[CBK_RESZ_DONE]);
 		else if (CCDC_PREV_RESZ_CAPTURE(isp)) {
-			ispresizer_config_shadow_registers(&isp->isp_res);
 			isp_buf_process(dev, bufs);
 		}
 	}
@@ -930,6 +929,8 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 					buf->vb_state = VIDEOBUF_ERROR;
 					dev_err(dev, "%s: resizer busy!\n", __func__);
 				} else {
+					ispresizer_config_shadow_registers(
+						&isp->isp_res);
 					ispresizer_enable(&isp->isp_res, 1);
 				}
 			}
