@@ -666,6 +666,7 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 		syncif.vdpol = 0;
 		ispccdc_config_sync_if(isp_ccdc, syncif);
 		ispccdc_config_imgattr(isp_ccdc, colptn);
+		blkcfg.oblen = 0;
 		blkcfg.dcsubval = 64;
 		ispccdc_config_black_clamp(isp_ccdc, blkcfg);
 		break;
@@ -682,6 +683,7 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 		syncif.vdpol = 1;
 		ispccdc_config_imgattr(isp_ccdc, 0);
 		ispccdc_config_sync_if(isp_ccdc, syncif);
+		blkcfg.oblen = 0;
 		blkcfg.dcsubval = 0;
 		ispccdc_config_black_clamp(isp_ccdc, blkcfg);
 		break;
