@@ -1490,10 +1490,14 @@ static int isp_buf_process(struct isp_bufs *bufs)
 	if (ISP_BUFS_IS_EMPTY(bufs))
 		goto out;
 
-	if (CCDC_CAPTURE(&isp_obj) && ispccdc_sbl_wait_idle(1000)) {
-		printk(KERN_ERR "ccdc %d won't become idle!\n",
-		       CCDC_CAPTURE(&isp_obj));
-		goto out;
+	if (CCDC_CAPTURE(&isp_obj)) {
+		ispccdc_enable(0);
+		if (ispccdc_sbl_wait_idle(1000)) {
+			ispccdc_enable(1);
+			printk(KERN_ERR "ccdc %d won't become idle!\n",
+			       CCDC_CAPTURE(&isp_obj));
+			goto out;
+		}
 	}
 
 	/* We had at least one buffer in queue. */
@@ -1503,12 +1507,12 @@ static int isp_buf_process(struct isp_bufs *bufs)
 	if (!last) {
 		/* Set new buffer address. */
 		isp_set_buf(ISP_BUF_NEXT_DONE(bufs));
+		if (CCDC_CAPTURE(&isp_obj))
+			ispccdc_enable(1);
 	} else {
 		/* Tell ISP not to write any of our buffers. */
 		isp_disable_interrupts();
-		if (CCDC_CAPTURE(&isp_obj))
-			ispccdc_enable(0);
-		else if (CCDC_PREV_CAPTURE(&isp_obj))
+		if (CCDC_PREV_CAPTURE(&isp_obj))
 			isppreview_enable(0);
 		else if (CCDC_PREV_RESZ_CAPTURE(&isp_obj))
 			ispresizer_enable(0);
