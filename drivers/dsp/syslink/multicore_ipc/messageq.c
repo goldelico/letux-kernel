@@ -421,7 +421,6 @@ int messageq_destroy(void)
 
 	/* Delete any Message Queues that have not been deleted so far. */
 	for (i = 0; i < messageq_state.num_queues; i++) {
-		BUG_ON(messageq_state.queues[i] == NULL);
 		if (messageq_state.queues[i] != NULL)
 			messageq_delete(&(messageq_state.queues[i]));
 	}
@@ -604,13 +603,14 @@ void *messageq_create(char *name, const struct messageq_params *params)
 			status, "Failed to create synchronizer semaphore");
 		goto semaphore_create_fail;
 	} else {
-		sema_init(handle->synchronizer, 1);
+		sema_init(handle->synchronizer, 0);
 	}
 
 	if (name != NULL) {
 		nameserver_add_uint32(messageq_state.ns_handle, name,
 						handle->queue);
 	}
+	goto exit;
 
 semaphore_create_fail:
 	if (handle->name != NULL)
@@ -946,7 +946,7 @@ messageq_msg messageq_alloc(u16 heap_id, u32 size)
 				"Module was not initialized!");
 		goto exit;
 	}
-	if (WARN_ON(heap_id < messageq_state.num_heaps)) {
+	if (WARN_ON(heap_id >= messageq_state.num_heaps)) {
 		/*! @retval NULL Heap id is invalid */
 		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_alloc",
 				MESSAGEQ_E_INVALIDHEAPID,
@@ -1008,7 +1008,7 @@ int messageq_free(messageq_msg msg)
 		status = -EINVAL;
 		goto exit;
 	}
-	if (msg->heap_id < messageq_state.num_heaps) {
+	if (msg->heap_id >= messageq_state.num_heaps) {
 		status = MESSAGEQ_E_INVALIDHEAPID;
 		/*! @retval MESSAGEQ_E_INVALIDHEAPID
 		 *  Heap id is invalid */
@@ -1050,6 +1050,11 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 	u32 priority;
 	int key;
 
+	/* FIXME: Remove the SysM3 & AppM3 workaround */
+	if (dst_proc_id == 2 || dst_proc_id == 3)
+		dst_proc_id = 1;
+	else
+		dst_proc_id = 0;
 	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_put", queue_id, msg);
 
 	BUG_ON(msg == NULL);
@@ -1064,6 +1069,11 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 
 	msg->dst_id = (u16)(queue_id);
 	msg->dst_proc = (u16)(queue_id >> 16);
+	/* FIXME: Remove the SysM3 & AppM3 workaround */
+	if (msg->dst_proc == 2 || msg->dst_proc == 3)
+		msg->dst_proc = 1;
+	else
+		msg->dst_proc = 0;
 	if (dst_proc_id != multiproc_get_id(NULL)) {
 		if (dst_proc_id >= multiproc_get_max_processors()) {
 			/*! @retval MESSAGEQ_E_INVALIDPROCID
