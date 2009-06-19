@@ -489,8 +489,7 @@ int notify_ducatidrv_delete(struct notify_driver_object **handle_ptr)
 		if (event_list != NULL) {
 			/* Check if lists were created. */
 			for (i = 0 ; i < driver_obj->params.num_events ; i++) {
-				WARN_ON(event_list[i].
-						event_handler_count != 0);
+				WARN_ON(event_list[i].event_handler_count != 0);
 				event_list[i].event_handler_count = 0;
 				list_del((struct list_head *)
 					&event_list[i].listeners);
@@ -1116,10 +1115,8 @@ static void notify_ducatidrv_qsearch_elem(struct list_head *list,
 
 	BUG_ON(list ==  NULL);
 	BUG_ON(check_obj == NULL);
-	WARN_ON(listener == NULL);
+	BUG_ON(listener == NULL);
 
-	if (listener != NULL)
-		return;
 	*listener = NULL;
 	if ((list !=  NULL) && (check_obj != NULL)) {
 		if (list_empty((struct list_head *)list) == false) {

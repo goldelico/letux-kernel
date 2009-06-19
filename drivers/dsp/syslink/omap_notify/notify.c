@@ -135,7 +135,7 @@ int notify_destroy(void)
 	 * If not, assert.
 	 */
 	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++)
-		WARN_ON(notify_state.drivers[i].is_init == false);
+		WARN_ON(notify_state.drivers[i].is_init != false);
 
 	if (notify_state.cfg.gate_handle == NULL) {
 		if (notify_state.gate_handle != NULL)

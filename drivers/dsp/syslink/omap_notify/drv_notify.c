@@ -261,6 +261,7 @@ static int notify_drv_read(struct file *filp, char *dst, size_t size,
 	u32 pid = (u32) current->mm;
 	int ret_val = 0;
 	u32 i;
+	struct list_head *elem;
 
 	if (WARN_ON(notifydrv_state.is_setup == false)) {
 		ret_val = -EFAULT;
@@ -286,8 +287,11 @@ static int notify_drv_read(struct file *filp, char *dst, size_t size,
 			goto func_end;
 		}
 		WARN_ON(mutex_lock_interruptible(notifydrv_state.gatehandle));
-		u_buf = (struct notify_drv_event_packet *)
-				&(notifydrv_state.event_state[i].buf_list);
+		elem = ((struct list_head *)&(notifydrv_state.event_state[i]. \
+							buf_list))->next;
+		u_buf = container_of(elem, struct notify_drv_event_packet,
+				    element);
+		list_del(elem);
 		mutex_unlock(notifydrv_state.gatehandle);
 		if (u_buf == NULL) {
 			ret_val = -EFAULT;
@@ -295,6 +299,8 @@ static int notify_drv_read(struct file *filp, char *dst, size_t size,
 		}
 		ret_val = copy_to_user((void *)dst, u_buf,
 			sizeof(struct notify_drv_event_packet));
+		kfree(u_buf);
+
 		if (WARN_ON(ret_val != 0))
 			ret_val = -EFAULT;
 		if (u_buf->is_exit == true)
@@ -377,7 +383,8 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 
 		if (WARN_ON(retval != 0))
 			goto func_end;
-		cbck = vmalloc(sizeof(struct notify_drv_event_cbck));
+		cbck = kmalloc(sizeof(struct notify_drv_event_cbck),
+					GFP_ATOMIC);
 		WARN_ON(cbck == NULL);
 		cbck->proc_id = src_args.procId;
 		cbck->func = src_args.fnNotifyCbck;
@@ -784,29 +791,9 @@ func_end:
 /* Module finalization function for Notify driver.*/
 static void __exit notify_drv_finalize_module(void)
 {
-	struct notify_drv_event_packet *packet;
-	struct notify_drv_event_cbck *cbck;
-	u32 i ;
-	struct list_head *entry;
 	unregister_chrdev(major, "ipcnotify") ;
+	notify_drv_unregister_driver();
 
-	for (i = 0 ; i < MAX_PROCESSES ; i++) {
-		list_for_each(entry, (struct list_head *)
-			&notifydrv_state.event_state[i].buf_list) {
-			packet = (struct notify_drv_event_packet *)entry;
-			if (packet != NULL)
-				kfree(packet);
-		}
-	}
-	list_for_each(entry,
-			(struct list_head *)&(notifydrv_state.evt_cbck_list)) {
-		cbck = (struct notify_drv_event_cbck *)(entry);
-		if (cbck != NULL)
-			kfree(cbck) ;
-	}
-	mutex_destroy(notifydrv_state.gatehandle);
-	kfree(notifydrv_state.gatehandle);
-	notifydrv_state.is_setup = false;
 	return;
 }
 
