@@ -350,7 +350,7 @@ int nameserver_remotenotify_get(void *rhandle,
 	BUG_ON(name == NULL);
 	BUG_ON(value == NULL);
 
-	if (WARN_ON(handle == NULL)) {
+	if (WARN_ON(rhandle == NULL)) {
 		retval = -EINVAL;
 		goto exit;
 	}
@@ -513,7 +513,7 @@ void *nameserver_remotenotify_create(u16 proc_id,
 					params->notify_event_no,
 					nameserver_remotenotify_callback,
 					(void *)obj);
-	if (retval) {
+	if (retval < 0) {
 		gt_0trace(nameserver_remotenotify_mask, GT_6CLASS,
 			"nameserver_remotenotify_create: notify register"
 			"events failed!\n");
@@ -527,7 +527,7 @@ void *nameserver_remotenotify_create(u16 proc_id,
 		goto sem_alloc_error;
 	}
 
-	sema_init(obj->sem_handle, 1);
+	sema_init(obj->sem_handle, 0);
 
 	/* its is at the end since its init state = unlocked? */
 	mutex_init(obj->local_gate);

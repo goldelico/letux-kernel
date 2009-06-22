@@ -721,8 +721,8 @@ int messageq_open(char *name, u32 *queue_id)
 
 	len = nameserver_get(messageq_state.ns_handle, name, queue_id,
 					sizeof(u32), NULL);
-	if (len <= 0) {
-		/* Name found */
+	if (len < 0) {
+		/* Name not found */
 		status = MESSAGEQ_E_FAIL;
 	}
 

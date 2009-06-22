@@ -797,13 +797,12 @@ int nameserver_get(void *handle, const char *name,
 	struct nameserver_object *temp_obj = NULL;
 	u16 max_proc_id;
 	u16 local_proc_id;
-	s32 retval = -1;
+	s32 retval = -ENOENT;
 	u32 i;
 
 	BUG_ON(handle == NULL);
 	BUG_ON(name == NULL);
 	BUG_ON(buffer == NULL);
-	BUG_ON(proc_id == NULL);
 	if (WARN_ON(length == 0)) {
 		retval = -EINVAL;
 		goto exit;
@@ -823,7 +822,7 @@ int nameserver_get(void *handle, const char *name,
 			if (i == local_proc_id)
 				continue;
 			retval = nameserver_remote_get(
-				nameserver_state.remote_handle_list[proc_id[i]],
+				nameserver_state.remote_handle_list[i],
 				temp_obj->name,	name, buffer, length);
 			if (retval == 0) /* Got the value */
 				break;
@@ -846,12 +845,10 @@ int nameserver_get(void *handle, const char *name,
 			retval = nameserver_remote_get(
 				nameserver_state.remote_handle_list[proc_id[i]],
 				temp_obj->name,	name, buffer, length);
-			/* A count of non-zero means it was found */
 			if (retval == 0)
 				break;
 		}
 	}
-	retval = -ENOENT;
 
 exit:
 	printk(KERN_ERR "nameserver_get_local failed status:%x \n", retval);

@@ -30,7 +30,7 @@ int nameserver_remote_get(const struct nameserver_remote_object *handle,
 				void *value, u32 value_len)
 {
 	s32 retval = 0;
-	s32 count = 0;
+
 
 	gt_0trace(ns_debugmask, GT_ENTER, "nameserver_remote_get\n");
 	if (handle == NULL || instance_name == NULL ||
@@ -44,8 +44,7 @@ int nameserver_remote_get(const struct nameserver_remote_object *handle,
 		goto exit;
 	}
 
-	count = handle->get(handle, instance_name, name, value, value_len);
-	return count;
+	retval = handle->get(handle, instance_name, name, value, value_len);
 
 exit:
 	return retval;
