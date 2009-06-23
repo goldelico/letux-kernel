@@ -520,7 +520,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		retval = copy_from_user((void *)&src_args,
 		(const void *)(args),
 		sizeof(struct proc_mgr_cmd_args_unmap));
-		if (WARN_ON(retval < 0))
+		if (WARN_ON(retval != 0))
 			goto func_exit;
 		retval = proc_mgr_unmap(src_args.handle,
 						(src_args.mapped_addr));

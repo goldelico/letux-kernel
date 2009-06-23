@@ -431,7 +431,7 @@ int ducati_mem_unmap(u32 da, u32 num_bytes)
 			 * Get the L2 PA from the L1 PTE, and find
 			 * corresponding L2 VA
 			 */
-			L2_base_pa = hw_mmu_pte_sizel1(pte_val);
+			L2_base_pa = hw_mmu_pte_coarsel1(pte_val);
 			L2_base_va = L2_base_pa - p_pt_attrs->l2_base_pa
 						+ p_pt_attrs->l2_base_va;
 			L2_page_num = (L2_base_pa - p_pt_attrs->l2_base_pa) /
