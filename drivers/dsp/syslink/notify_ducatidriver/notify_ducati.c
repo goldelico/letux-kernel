@@ -58,6 +58,9 @@
 #define PROC_TESLA	0
 #define PROC_DUCATI	1
 #define PROC_GPP	2
+#define PROCSYSM3	2
+#define PROCAPPM3	3
+#define MAX_SUBPROC_EVENTS	15
 
 static void notify_ducatidrv_isr(void *ref_data);
 
@@ -249,18 +252,21 @@ struct notify_driver_object *notify_ducatidrv_create(char *driver_name,
 		/* Initialize all to invalid. */
 		drv_attrs.proc_info[i].proc_id = (u16)0xFFFF;
 	}
-	drv_attrs.numProc = 1;
-	drv_attrs.proc_info[params->remote_proc_id].max_events =
-		params->num_events;
-	drv_attrs.proc_info[params->remote_proc_id].reserved_events =
-		params->num_reserved_events;
-	/* Events are prioritized. */
-	drv_attrs.proc_info[params->remote_proc_id].event_priority = true;
-	/* 32-bit payload supported. */
-	drv_attrs.proc_info[params->remote_proc_id].payload_size =
-			sizeof(int);
-	drv_attrs.proc_info[params->remote_proc_id].proc_id =
-				params->remote_proc_id;
+
+	/*FIXME: Hack to allow SYSM3 and APPM3 events. Re-visit later */
+	if (params->remote_proc_id >= PROCSYSM3) {
+		for (i = PROCSYSM3; i <= PROCAPPM3; i++) {
+			drv_attrs.numProc = 1;
+			drv_attrs.proc_info[i].max_events = params->num_events;
+			drv_attrs.proc_info[i].reserved_events =
+				params->num_reserved_events;
+			/* Events are prioritized. */
+			drv_attrs.proc_info[i].event_priority = true;
+			/* 32-bit payload supported. */
+			drv_attrs.proc_info[i].payload_size = sizeof(int);
+			drv_attrs.proc_info[i].proc_id = i;
+		}
+	}
 
 	/* Function table information */
 	fxn_table.register_event = (void *)&notify_ducatidrv_register_event;
@@ -1080,6 +1086,16 @@ static void notify_ducatidrv_isr(void *ref_data)
 					/* Check for empty list. */
 					if (temp == NULL)
 						continue;
+					/*FIXME: Hack to support SYSM3 and
+						 APPM3 */
+					if ((driver_obj->proc_id == PROCAPPM3)
+					&& (event_no <= MAX_SUBPROC_EVENTS)) {
+						driver_obj->proc_id = PROCSYSM3;
+					}
+					if ((driver_obj->proc_id == PROCSYSM3)
+					&& (event_no > MAX_SUBPROC_EVENTS)) {
+						driver_obj->proc_id = PROCAPPM3;
+					}
 					((struct notify_drv_eventlistner *)
 						temp)->fn_notify_cbck(
 					driver_obj->proc_id,
