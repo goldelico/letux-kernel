@@ -25,7 +25,7 @@
 #include <syslink/notify.h>
 #include <syslink/notify_shmdriver.h>
 #include <syslink/notifydefs.h>
-
+#include <syslink/multiproc.h>
 
 #define NOTIFY_BASE_CMD		(0x100)
 
@@ -83,8 +83,6 @@
  *  Command for Notify_exit
  */
 #define CMD_NOTIFY_EXIT		(NOTIFY_BASE_CMD + 11u)
-
-#define MAX_PROCESSORS			2
 
 /*
  *  const  NOTIFY_SYSTEM_KEY_MASK
@@ -251,7 +249,8 @@ struct notify_driver_proc_info {
  */
 struct notify_driver_attrs {
 	u32 numProc;
-	struct notify_driver_proc_info proc_info[MAX_PROCESSORS];
+	struct notify_driver_proc_info
+				proc_info[MULTIPROC_MAXPROCESSORS];
 };
 
 

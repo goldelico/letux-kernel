@@ -1050,11 +1050,6 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 	u32 priority;
 	int key;
 
-	/* FIXME: Remove the SysM3 & AppM3 workaround */
-	if (dst_proc_id == 2 || dst_proc_id == 3)
-		dst_proc_id = 1;
-	else
-		dst_proc_id = 0;
 	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_put", queue_id, msg);
 
 	BUG_ON(msg == NULL);
@@ -1069,11 +1064,6 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 
 	msg->dst_id = (u16)(queue_id);
 	msg->dst_proc = (u16)(queue_id >> 16);
-	/* FIXME: Remove the SysM3 & AppM3 workaround */
-	if (msg->dst_proc == 2 || msg->dst_proc == 3)
-		msg->dst_proc = 1;
-	else
-		msg->dst_proc = 0;
 	if (dst_proc_id != multiproc_get_id(NULL)) {
 		if (dst_proc_id >= multiproc_get_max_processors()) {
 			/*! @retval MESSAGEQ_E_INVALIDPROCID
