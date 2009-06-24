@@ -467,6 +467,7 @@ static int zoom2_batt_table[] = {
 static struct twl4030_bci_platform_data zoom2_bci_data = {
 	.battery_tmp_tbl	= zoom2_batt_table,
 	.tblsize		= ARRAY_SIZE(zoom2_batt_table),
+	.twl4030_bci_charging_current	= 1100, /* 1.1A for Zoom2 */
 };
 
 static struct twl4030_usb_data zoom2_usb_data = {

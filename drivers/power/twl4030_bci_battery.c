@@ -68,6 +68,9 @@
 #define STS_CHG			0x02
 #define REG_BCIMSTATEC		0x02
 #define REG_BCIMFSTS4		0x010
+#define REG_BCIMFKEY		0x011
+#define REG_BCIIREF1		0x027
+#define REG_BCIIREF2		0x028
 #define REG_BCIMFSTS2		0x00E
 #define REG_BCIMFSTS3		0x00F
 #define REG_BCIMFSTS1		0x001
@@ -139,6 +142,9 @@
 #define BK_VOLT_STEP_SIZE	441
 #define BK_VOLT_PSR_R		100
 
+#define AC_CURRENT		1
+#define USB_CURRENT		2
+
 #define ENABLE		1
 #define DISABLE		1
 
@@ -168,6 +174,7 @@ static int LVL_1, LVL_2, LVL_3, LVL_4;
 static int read_bci_val(u8 reg_1);
 static inline int clear_n_set(u8 mod_no, u8 clear, u8 set, u8 reg);
 static int twl4030charger_presence(void);
+static int bci_charging_current;
 
 /*
  * Report and clear the charger presence event.
@@ -422,6 +429,89 @@ static int twl4030battery_hw_presence_en(int enable)
 	return 0;
 }
 
+static int twl4030charger_cur_setup(int charging_source,
+	int bci_charging_current)
+{
+	int ret;
+	u8 cgain = 0, bciref1 = 0, bciref2 = 0, value = 0;
+
+	if (charging_source == AC_CURRENT) {
+		/* Disable AutoAC till the CGAIN is setup */
+		ret = clear_n_set(TWL4030_MODULE_PM_MASTER, BCIAUTOAC,
+			(CONFIG_DONE | BCIAUTOWEN),
+			REG_BOOT_BCI);
+		if (ret)
+			return ret;
+	} else {
+		/* Disable AutoUSB till CGAIN is setup */
+		ret = clear_n_set(TWL4030_MODULE_PM_MASTER, BCIAUTOUSB,
+			(CONFIG_DONE | BCIAUTOWEN), REG_BOOT_BCI);
+		if (ret)
+			return ret;
+	}
+
+	switch (bci_charging_current) {
+	case 1100: /* 1100 mA */
+		bciref1 = 0x58;
+		bciref2 = 0x03;
+		cgain	= 1;
+		break;
+	case 852: /* 852 mA */
+		bciref1 = 0xFF;
+		bciref2 = 0x03;
+		cgain	= 0;
+		break;
+	case 100: /* 100 mA */
+		bciref1 = 0x3C;
+		bciref2 = 0x02;
+		cgain	= 0;
+		break;
+	default:
+		/* Charging current as per reset values i,e 600mA */
+		printk(KERN_INFO "Unsupported charging current\n");
+	}
+
+	/* enable access to BCIIREF1 */
+	ret = twl4030_i2c_write_u8(TWL4030_MODULE_MAIN_CHARGE,
+		0xE7, REG_BCIMFKEY);
+	if (ret)
+		return ret;
+
+	ret = twl4030_i2c_write_u8(TWL4030_MODULE_MAIN_CHARGE,
+		bciref1, REG_BCIIREF1);
+	if (ret)
+		return ret;
+
+	/* enable access to BCIIREF2 */
+	ret = twl4030_i2c_write_u8(TWL4030_MODULE_MAIN_CHARGE,
+		0xE7, REG_BCIMFKEY);
+	if (ret)
+		return ret;
+
+	ret = twl4030_i2c_write_u8(TWL4030_MODULE_MAIN_CHARGE,
+		bciref2, REG_BCIIREF2);
+	if (ret)
+		return ret;
+
+	ret = twl4030_i2c_read_u8(TWL4030_MODULE_MAIN_CHARGE, &value,
+		REG_BCICTL1);
+	if (ret)
+		return ret;
+
+	if (cgain == 0)
+		value = value & ~(CGAIN);
+	else
+		value = value | CGAIN;
+
+	ret = twl4030_i2c_write_u8(TWL4030_MODULE_MAIN_CHARGE,
+		value, REG_BCICTL1);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+
 /*
  * Enable/Disable AC Charge funtionality.
  */
@@ -430,6 +520,11 @@ static int twl4030charger_ac_en(int enable)
 	int ret;
 
 	if (enable) {
+		/* Set the charging current for AC */
+		ret = twl4030charger_cur_setup(AC_CURRENT,
+			bci_charging_current);
+		if (ret)
+			return ret;
 		/* forcing the field BCIAUTOAC (BOOT_BCI[0) to 1 */
 		ret = clear_n_set(TWL4030_MODULE_PM_MASTER, 0,
 			(CONFIG_DONE | BCIAUTOWEN | BCIAUTOAC),
@@ -465,6 +560,12 @@ int twl4030charger_usb_en(int enable)
 
 		if (!(ret & USB_PW_CONN))
 			return -ENXIO;
+
+		/* Set the charging current for USB */
+		ret = twl4030charger_cur_setup(USB_CURRENT,
+			bci_charging_current);
+		if (ret)
+			return ret;
 
 		/* forcing the field BCIAUTOUSB (BOOT_BCI[1]) to 1 */
 		ret = clear_n_set(TWL4030_MODULE_PM_MASTER, 0,
@@ -913,6 +1014,7 @@ static int __init twl4030_bci_battery_probe(struct platform_device *pdev)
 	int ret;
 
 	therm_tbl = pdata->battery_tmp_tbl;
+	bci_charging_current = pdata->twl4030_bci_charging_current;
 
 	di = kzalloc(sizeof(*di), GFP_KERNEL);
 	if (!di)
