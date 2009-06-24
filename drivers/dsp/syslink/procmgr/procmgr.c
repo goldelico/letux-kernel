@@ -84,7 +84,7 @@ struct proc_mgr_module_object proc_mgr_obj_state = {
 	.gate_handle = NULL,
 	.def_inst_params.proc_handle   = NULL,
 	.def_attach_params.boot_mode = PROC_MGR_BOOTMODE_BOOT,
-	.def_start_params.reserved = 0
+	.def_start_params.proc_id = 0
 };
 
 

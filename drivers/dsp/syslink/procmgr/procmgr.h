@@ -131,8 +131,7 @@ struct proc_mgr_attach_params {
  *  processor.
  */
 struct proc_mgr_start_params {
-	u32 reserved;
-	/* Reserved for future params. */
+	u32 proc_id;
 };
 
 

@@ -33,7 +33,17 @@
 #include <syslink/ducatienabler.h>
 
 #define DUCATI_DMM_START_ADDR			0xa0000000
-#define DUCATI_DMM_POOL_SIZE			 0x6000000
+#define DUCATI_DMM_POOL_SIZE			0x6000000
+
+#define SYS_M3					2
+#define APP_M3					3
+#define CORE_PRM_BASE				IO_ADDRESS(0x4a306700)
+#define RM_MPU_M3_RSTCTRL_OFFSET		0x210
+#define RM_MPU_M3_RSTST_OFFSET			0x214
+#define RM_MPU_M3_RST1				0x1
+#define RM_MPU_M3_RST2				0x2
+#define RM_MPU_M3_RST3				0x4
+
 
 /*OMAP4430 Module state object */
 struct proc4430_module_object {
@@ -127,6 +137,8 @@ int proc4430_setup(struct proc4430_config *cfg)
 		proc4430_get_config(&tmp_cfg);
 		cfg = &tmp_cfg;
 	}
+	/* Put SYS-M3 and APP M3 in reset */
+	__raw_writel(0x03, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
 	if (proc4430_state.is_setup == false) {
 		dmm_create();
 		dmm_create_tables(DUCATI_DMM_START_ADDR, DUCATI_DMM_POOL_SIZE);
@@ -442,10 +454,28 @@ int proc4430_detach(void *handle)
  *
  */
 int proc4430_start(void *handle, u32 entry_pt,
-			struct processor_start_params *params)
+			struct processor_start_params *start_params)
 {
-	int retval = 0;
-	return retval;
+	int i;
+
+	switch (start_params->params->proc_id) {
+	case SYS_M3:
+		__raw_writel(0x02, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		break;
+	case APP_M3:
+		i = __raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		if (i & RM_MPU_M3_RST1) {
+			printk(KERN_ALERT"ERROR: proc4430Start: SYS M3 is in"
+				"reset cannot start APP M3\n");
+			return -EFAULT;
+		}
+		__raw_writel(0x0, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		break;
+	default:
+		printk("proc4430_start: ERROR input\n");
+		break;
+	}
+	return 0;
 }
 
 
@@ -462,12 +492,12 @@ int proc4430_start(void *handle, u32 entry_pt,
 int
 proc4430_stop(void *handle)
 {
-	int retval = 0;
-
-	BUG_ON(handle == NULL);
-
-	/* TODO*/
-	return retval;
+	/* Stoppping both SYS M3 and APP M3 */
+	/* FIX ME: this needs to be changed to handle reset
+	* of only APPM3 case too
+	*/
+	__raw_writel(0x3, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+	return 0;
 }
 
 
