@@ -102,7 +102,6 @@ obj-$(CONFIG_MACH_NOKIA_N8X0)		+= board-n8x0.o
 obj-$(CONFIG_MACH_OMAP_ZOOM2)		+= board-zoom2.o \
 					   mmc-twl4030.o \
 					   board-ldp-flash.o \
-					   board-zoom2-camera.o \
 					   board-zoom2-wifi.o
 obj-$(CONFIG_MACH_SHOLES)		+= board-sholes.o \
 					   board-sholes-camera.o \
@@ -124,15 +123,18 @@ obj-$(CONFIG_MACH_NOKIA_RX51)		+= board-rx51.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP_ZOOM2)		+= board-zoom2.o \
 					   board-zoom-peripherals.o \
+					   board-zoom2-camera.o \
 					   mmc-twl4030.o \
 					   board-zoom-debugboard.o
 obj-$(CONFIG_MACH_OMAP_ZOOM3)		+= board-zoom3.o \
 					   board-zoom-peripherals.o \
+					   board-zoom2-camera.o \
 					   board-zoom-panel.o \
 					   mmc-twl4030.o \
 					   board-zoom-debugboard.o
 obj-$(CONFIG_MACH_OMAP_3630SDP)		+= board-3630sdp.o \
 					   board-zoom-peripherals.o \
+					   board-zoom2-camera.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_CM_T35)		+= board-cm-t35.o \
 					   mmc-twl4030.o
