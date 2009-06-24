@@ -198,10 +198,10 @@ static int proc4430_drv_ioctl(struct inode *inode, struct file *filp,
 		if (WARN_ON(retval < 0))
 			goto func_exit;
 		/* Copy the contents of mem_entries from user-side */
-		if(params.num_mem_entries) {
+		if (params.num_mem_entries) {
 			entries = vmalloc(params.num_mem_entries * \
 				sizeof(struct proc4430_mem_entry));
-			if(WARN_ON(!entries))
+			if (WARN_ON(!entries))
 				goto func_exit;
 			retval = copy_from_user((void *) (entries),
 				(const void *)(params.mem_entries),
@@ -221,7 +221,7 @@ static int proc4430_drv_ioctl(struct inode *inode, struct file *filp,
 				(const void *)&src_args,
 				sizeof(struct proc4430_cmd_args_create));
 		/* Free the memory created */
-		if(params.num_mem_entries)
+		if (params.num_mem_entries)
 			vfree(entries);
 	}
 	break;

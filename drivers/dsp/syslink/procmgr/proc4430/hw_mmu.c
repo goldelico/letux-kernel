@@ -595,21 +595,18 @@ long hw_mmu_tlb_dump(const u32 base_address, bool shw_inv_entries)
 		>> MMU_MMU_LOCK_CurrentVictim_OFFSET));
 
 	for (i = 0; i < NUM_TLB_ENTRIES; i++) {
-
 		mmu_lck_crnt_vctmwite32(base_address, i);
 		cam = MMUMMU_CAMReadRegister32(base_address);
 		ram = MMUMMU_RAMReadRegister32(base_address);
 
-	if ((cam & 0x4) != 0) {
+		if ((cam & 0x4) != 0) {
+			printk(KERN_ALERT "TLB Entry [0x%x]: VA = 0x%x"
+				"PA = 0x%x Protected = 0x%x\n)",
+				i, (cam & MMU_ADDR_MASK), (ram & MMU_ADDR_MASK),
+				(cam & 0x8) ? 1 : 0);
 
-		printk(KERN_ALERT "TLB Entry [0x%x]: VA = 0x%x   PA = 0x%x"
-			"Protected = 0x%x\n)",
-			i, (cam & MMU_ADDR_MASK), (ram & MMU_ADDR_MASK),
-			(cam & 0x8) ? 1 : 0);
-
-	} else if (shw_inv_entries != false) {
+		} else if (shw_inv_entries != false)
 			printk(KERN_ALERT "TLB Entry [0x%x]: <INVALID>\n", i);
-		}
 	}
 	mmu_lck_write_reg32(base_address, lockSave);
 	return RET_OK;
