@@ -26,11 +26,34 @@
 #include <linux/io.h>
 #include <asm/pgtable.h>
 #include <linux/types.h>
+#include <linux/cdev.h>
 
 #include <syslink/gt.h>
 #include <syslink/notify_driver.h>
 #include <syslink/notify.h>
 #include <syslink/GlobalTypes.h>
+
+
+/** ============================================================================
+ *  Macros and types
+ *  ============================================================================
+ */
+#define IPCNOTIFY_NAME "ipcnotify"
+
+static char *driver_name =  IPCNOTIFY_NAME;
+
+static s32 driver_major;
+
+static s32 driver_minor;
+
+struct ipcnotify_dev {
+	struct cdev cdev;
+};
+
+static struct ipcnotify_dev *ipcnotify_device;
+
+static struct class *ipcnotify_class;
+
 
 /*
  * Maximum number of user supported.
@@ -776,13 +799,44 @@ static void notify_drv_destroy(void)
 static int __init notify_drv_init_module(void)
 {
 	int result = 0 ;
+	dev_t dev;
 
-	result = register_chrdev(major, "ipcnotify", &driver_ops);
+	if (driver_major) {
+		dev = MKDEV(driver_major, driver_minor);
+		result = register_chrdev_region(dev, 1, driver_name);
+	} else {
+		result = alloc_chrdev_region(&dev, driver_minor, 1,
+				 driver_name);
+		driver_major = MAJOR(dev);
+	}
 
-	if (result < 0) {
-		printk(KERN_ERR "Notify driver initialization failure - 1\n");
+	ipcnotify_device = kmalloc(sizeof(struct ipcnotify_dev), GFP_KERNEL);
+	if (!ipcnotify_device) {
+		result = -ENOMEM;
+		unregister_chrdev_region(dev, 1);
 		goto func_end;
 	}
+	memset(ipcnotify_device, 0, sizeof(struct ipcnotify_dev));
+	cdev_init(&ipcnotify_device->cdev, &driver_ops);
+	ipcnotify_device->cdev.owner = THIS_MODULE;
+	ipcnotify_device->cdev.ops = &driver_ops;
+
+	result = cdev_add(&ipcnotify_device->cdev, dev, 1);
+
+	if (result) {
+		printk(KERN_ERR "Failed to add the syslink ipcnotify device \n");
+		goto func_end;
+	}
+
+	/* udev support */
+	ipcnotify_class = class_create(THIS_MODULE, "syslink-ipcnotify");
+
+	if (IS_ERR(ipcnotify_class)) {
+		printk(KERN_ERR "Error creating ipcnotify class \n");
+		goto func_end;
+	}
+	device_create(ipcnotify_class, NULL, MKDEV(driver_major, driver_minor),
+			NULL, IPCNOTIFY_NAME);
 	result = notify_drv_register_driver();
 func_end:
 	return result ;
@@ -791,9 +845,22 @@ func_end:
 /* Module finalization function for Notify driver.*/
 static void __exit notify_drv_finalize_module(void)
 {
-	unregister_chrdev(major, "ipcnotify") ;
+	dev_t dev_no;
+
 	notify_drv_unregister_driver();
 
+	dev_no = MKDEV(driver_major, driver_minor);
+	if (ipcnotify_device) {
+		cdev_del(&ipcnotify_device->cdev);
+		kfree(ipcnotify_device);
+	}
+	unregister_chrdev_region(dev_no, 1);
+	if (ipcnotify_class) {
+		/* remove the device from sysfs */
+		device_destroy(ipcnotify_class, MKDEV(driver_major,
+						driver_minor));
+		class_destroy(ipcnotify_class);
+	}
 	return;
 }
 

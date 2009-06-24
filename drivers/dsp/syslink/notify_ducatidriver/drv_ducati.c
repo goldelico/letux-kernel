@@ -24,6 +24,7 @@
 #include <linux/mm.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
+#include <linux/cdev.h>
 
 #include <linux/io.h>
 #include <asm/pgtable.h>
@@ -33,8 +34,28 @@
 #include <syslink/GlobalTypes.h>
 
 
-/* Major number of driver */
-static signed long int major = 234 ;
+/** ============================================================================
+ *  Macros and types
+ *  ============================================================================
+ */
+#define NOTIFYDUCATI_NAME "notifyducatidrv"
+
+static char *driver_name =  NOTIFYDUCATI_NAME;
+
+static s32 driver_major;
+
+static s32 driver_minor;
+
+struct notifyducati_dev {
+	struct cdev cdev;
+};
+
+static struct notifyducati_dev *notifyducati_device;
+
+static struct class *notifyducati_class;
+
+
+
 
 
 /* driver function to open the notify mailbox driver object. */
@@ -64,19 +85,70 @@ static const struct file_operations driver_ops = {
 /* Initialization function */
 static int __init drvducati_initialize_module(void)
 {
-	int result = 0;
+	int result = 0 ;
+	dev_t dev;
 
-	result = register_chrdev(major, "notifyducatidrv", &driver_ops);
-	if (result < 0)
-		pr_err("Notify ducati driver initialization file\n");
+	if (driver_major) {
+		dev = MKDEV(driver_major, driver_minor);
+		result = register_chrdev_region(dev, 1, driver_name);
+	} else {
+		result = alloc_chrdev_region(&dev, driver_minor, 1,
+				 driver_name);
+		driver_major = MAJOR(dev);
+	}
 
+	notifyducati_device = kmalloc(sizeof(struct notifyducati_dev),
+					GFP_KERNEL);
+	if (!notifyducati_device) {
+		result = -ENOMEM;
+		unregister_chrdev_region(dev, 1);
+		goto func_end;
+	}
+	memset(notifyducati_device, 0, sizeof(struct notifyducati_dev));
+	cdev_init(&notifyducati_device->cdev, &driver_ops);
+	notifyducati_device->cdev.owner = THIS_MODULE;
+	notifyducati_device->cdev.ops = &driver_ops;
+
+	result = cdev_add(&notifyducati_device->cdev, dev, 1);
+
+	if (result) {
+		printk(KERN_ERR "Failed to add the syslink notify ducati device \n");
+		goto func_end;
+	}
+
+	/* udev support */
+	notifyducati_class = class_create(THIS_MODULE, "syslink-notifyducati");
+
+	if (IS_ERR(notifyducati_class)) {
+		printk(KERN_ERR "Error creating notifyducati class \n");
+		goto func_end;
+	}
+	device_create(notifyducati_class, NULL,
+			MKDEV(driver_major, driver_minor), NULL,
+			NOTIFYDUCATI_NAME);
+
+func_end:
 	return result ;
 }
 
 /* Finalization function */
 static void __exit drvducati_finalize_module(void)
 {
-	unregister_chrdev(major, "notifyducatidrv");
+	dev_t dev_no;
+
+	dev_no = MKDEV(driver_major, driver_minor);
+	if (notifyducati_device) {
+		cdev_del(&notifyducati_device->cdev);
+		kfree(notifyducati_device);
+	}
+	unregister_chrdev_region(dev_no, 1);
+	if (notifyducati_class) {
+		/* remove the device from sysfs */
+		device_destroy(notifyducati_class, MKDEV(driver_major,
+						driver_minor));
+		class_destroy(notifyducati_class);
+	}
+
 }
 /* driver open*/
 static int drvducati_open(struct inode *inode, struct file *filp)
