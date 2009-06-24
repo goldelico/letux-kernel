@@ -300,9 +300,14 @@ struct notify_driver_object *notify_ducatidrv_create(char *driver_name,
 		}
 	}
 	if (status >= 0) {
-		/*FIX ME Need to use MultiProc*/
-		driver_obj->self_id  = SELF_ID;
-		driver_obj->other_id = OTHER_ID;
+
+		if (params->remote_proc_id > multiproc_get_id(NULL)) {
+			driver_obj->self_id  = SELF_ID;
+			driver_obj->other_id = OTHER_ID;
+		} else {
+			driver_obj->self_id  = OTHER_ID;
+			driver_obj->other_id = SELF_ID;
+		}
 		shm_va = get_ducati_virt_mem();
 		driver_obj->ctrl_ptr = (struct notify_shmdrv_ctrl *) shm_va;
 		ctrl_ptr = &(driver_obj->ctrl_ptr->
