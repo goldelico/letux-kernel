@@ -225,7 +225,8 @@ int sharedregion_add(u32 index, void *base, u32 len)
 				break;
 			}
 
-			if ((void *)((u32)base + len) >= entry->base) {
+			if ((base < entry->base) &&
+			(void *)((u32)base + len) >= entry->base) {
 				overlap = true;
 				break;
 			}

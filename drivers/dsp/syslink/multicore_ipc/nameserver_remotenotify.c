@@ -598,6 +598,8 @@ int nameserver_remotenotify_delete(void **rhandle)
 				obj->params.notify_event_no,
 				nameserver_remotenotify_callback,
 				(void *)obj);
+	if (retval == NOTIFY_SUCCESS)
+		retval = 0;
 	gate = obj->local_gate;
 	kfree(obj);
 	kfree(handle);
