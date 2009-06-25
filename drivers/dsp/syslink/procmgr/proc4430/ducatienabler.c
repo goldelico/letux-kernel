@@ -1022,7 +1022,7 @@ int  ducati_mmu_init(u32 a_phy_addr)
 	hw_mmu_victim_numset(ducati_mmu_linear_addr,
 						mmu_index_next);
 	printk(KERN_ALERT "  Programming Ducati memory regions\n");
-	printk(KERN_ALERT "================================\n");
+	printk(KERN_ALERT "=========================================\n");
 	for (i = 0; i < num_l3_mem_entries; i++) {
 		printk(KERN_ALERT "VA = [0x%x] of size [0x%x] at PA = [0x%x]\n",
 				l3_memory_regions[i].ul_virt_addr,
@@ -1051,8 +1051,12 @@ int  ducati_mmu_init(u32 a_phy_addr)
 	map_attrs |= DSP_MAPLITTLEENDIAN;
 	map_attrs |= DSP_MAPPHYSICALADDR;
 	map_attrs |= DSP_MAPELEMSIZE32;
-
+	printk(KERN_ALERT "  Programming Ducati L4 peripherals\n");
+	printk(KERN_ALERT "=========================================\n");
 	for (i = 0; i < num_l4_entries; i++) {
+		printk(KERN_INFO "PA [0x%x] VA [0x%x] size [0x%x]\n",
+				l4_map[i].ul_phy_addr, l4_map[i].ul_virt_addr,
+				l4_map[i].ul_size);
 		ret_val = ducati_mem_map(l4_map[i].ul_phy_addr,
 			l4_map[i].ul_virt_addr, l4_map[i].ul_size, map_attrs);
 		if (WARN_ON(ret_val < 0)) {
@@ -1210,7 +1214,7 @@ error_exit:
 				get_order(p_pt_attrs->ls_tbl_alloc_sz));
 	}
 	WARN_ON(1);
-	printk("init_mmu_page_attribs FAILED !!!!!\n");
+	printk(KERN_ALERT "init_mmu_page_attribs FAILED !!!!!\n");
 	return status;
 }
 

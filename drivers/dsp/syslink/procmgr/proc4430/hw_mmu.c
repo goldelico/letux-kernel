@@ -588,19 +588,19 @@ long hw_mmu_tlb_dump(const u32 base_address, bool shw_inv_entries)
 
 	lockSave = mmu_lckread_reg_32(base_address);
 
-	printk(KERN_ALERT "TLB locked entries = %u, current victim = %u\n",
+	printk(KERN_INFO "TLB locked entries = %u, current victim = %u\n",
 		((lockSave & MMU_MMU_LOCK_BaseValue_MASK)
 		>> MMU_MMU_LOCK_BaseValue_OFFSET),
 		((lockSave & MMU_MMU_LOCK_CurrentVictim_MASK)
 		>> MMU_MMU_LOCK_CurrentVictim_OFFSET));
-
+	printk(KERN_INFO "=============================================\n");
 	for (i = 0; i < NUM_TLB_ENTRIES; i++) {
 		mmu_lck_crnt_vctmwite32(base_address, i);
 		cam = MMUMMU_CAMReadRegister32(base_address);
 		ram = MMUMMU_RAMReadRegister32(base_address);
 
 		if ((cam & 0x4) != 0) {
-			printk(KERN_ALERT "TLB Entry [0x%x]: VA = 0x%x"
+			printk(KERN_INFO "TLB Entry [0x%x]: VA = 0x%x"
 				"PA = 0x%x Protected = 0x%x\n)",
 				i, (cam & MMU_ADDR_MASK), (ram & MMU_ADDR_MASK),
 				(cam & 0x8) ? 1 : 0);

@@ -346,7 +346,7 @@
 
 
 #define MMUMMU_CAMReadRegister32(base_address)\
-	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_CAM_OFFSET))
+	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_READ_CAM_OFFSET))
 
 
 #define MMUMMU_CAMWriteRegister32(base_address, value)\
@@ -357,7 +357,7 @@
 }
 
 #define MMUMMU_RAMReadRegister32(base_address)\
-	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_RAM_OFFSET))
+	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_READ_RAM_OFFSET))
 
 
 #define MMUMMU_RAMWriteRegister32(base_address, value)\
