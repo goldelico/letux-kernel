@@ -22,7 +22,7 @@
 #include <linux/uaccess.h>
 #include <linux/bug.h>
 #include <linux/fs.h>
-
+#include <linux/mm.h>
 /* Syslink headers */
 #include <gt.h>
 

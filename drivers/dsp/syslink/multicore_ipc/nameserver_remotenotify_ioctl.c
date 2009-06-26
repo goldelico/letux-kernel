@@ -20,7 +20,7 @@
 #include <linux/types.h>
 #include <linux/bug.h>
 #include <linux/fs.h>
-
+#include <linux/mm.h>
 #include <sharedregion.h>
 #include <nameserver_remotenotify_ioctl.h>
 
