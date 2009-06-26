@@ -278,7 +278,6 @@ void nameserver_remotenotify_callback(u16 proc_id, u32 event_no,
 	u32 value;
 	u32 key;
 	s32 retval;
-	void *entry = NULL;
 
 	BUG_ON(arg == NULL);
 	proc_count = multiproc_get_max_processors();
@@ -293,8 +292,9 @@ void nameserver_remotenotify_callback(u16 proc_id, u32 event_no,
 		goto exit;
 
 	/* This is a request */
-	entry = nameserver_get_handle(handle->msg[1 - offset]->instance_name);
-	if (entry == NULL)
+	nshandle = nameserver_get_handle(
+				handle->msg[1 - offset]->instance_name);
+	if (nshandle == NULL)
 		goto exit;
 
 	/* Search for the NameServer entry */

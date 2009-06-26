@@ -281,11 +281,6 @@ void *gatepeterson_create(const struct gatepeterson_params *params)
 		goto exit;
 	}
 
-	if (WARN_ON(params->name == NULL)) {
-		retval = -EINVAL;
-		goto exit;
-	}
-
 	handle = kmalloc(sizeof(struct gatepeterson_object), GFP_KERNEL);
 	if (handle == NULL) {
 		retval = -ENOMEM;
