@@ -767,13 +767,16 @@ int nameserver_get_local(void *handle, const char *name,
 		goto error;
 	}
 
-	if (entry->len >= length)
+	if (entry->len >= length) {
 		memcpy(buffer, entry->buf, length);
-	else
+		retval = length;
+	} else {
 		memcpy(buffer, entry->buf, entry->len);
+		retval = entry->len;
+	}
 
 	mutex_unlock(temp_obj->gate_handle);
-	return 0;
+	return retval;
 
 error:
 	mutex_unlock(temp_obj->gate_handle);
