@@ -233,7 +233,6 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 	if (proc4430_state.proc_handles[proc_id] != NULL) {
 		printk(KERN_WARNING "Processor already exists for specified"
 			"%d  proc_id\n", proc_id);
-		WARN_ON(1);
 		handle = proc4430_state.proc_handles[proc_id];
 		goto func_end;
 	} else {
