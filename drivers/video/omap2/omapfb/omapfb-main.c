@@ -928,7 +928,7 @@ static int omapfb_mmap(struct fb_info *fbi, struct vm_area_struct *vma)
 
 	vma->vm_pgoff = off >> PAGE_SHIFT;
 	vma->vm_flags |= VM_IO | VM_RESERVED;
-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 	vma->vm_ops = &mmap_user_ops;
 	vma->vm_private_data = ofbi;
 	if (io_remap_pfn_range(vma, vma->vm_start, off >> PAGE_SHIFT,
