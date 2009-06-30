@@ -817,7 +817,7 @@ int nameserver_get(void *handle, const char *name,
 	if (proc_id == NULL) {
 		retval = nameserver_get_local(temp_obj, name,
 						buffer, length);
-		if (retval == 0) /* Got the value */
+		if (retval > 0) /* Got the value */
 			goto exit;
 
 		for (i = 0; i < max_proc_id; i++) {
@@ -841,7 +841,7 @@ int nameserver_get(void *handle, const char *name,
 		if (i == local_proc_id) {
 			retval = nameserver_get_local(temp_obj,
 							name, buffer, length);
-			if (retval == 0)
+			if (retval > 0)
 				break;
 
 		} else {
@@ -854,7 +854,7 @@ int nameserver_get(void *handle, const char *name,
 	}
 
 exit:
-	printk(KERN_ERR "nameserver_get_local failed status:%x \n", retval);
+	printk(KERN_ERR "nameserver_get status:%x \n", retval);
 	return retval;
 }
 EXPORT_SYMBOL(nameserver_get);
