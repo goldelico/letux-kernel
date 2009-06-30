@@ -333,8 +333,6 @@ int nameserver_remotenotify_ioctl(struct inode *inode, struct file *filp,
 		goto exit;
 	}
 
-	printk(KERN_ERR "\n");
-
 exit:
 	return status;
 }

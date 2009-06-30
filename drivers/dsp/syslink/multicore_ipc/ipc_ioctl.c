@@ -41,7 +41,7 @@ int ipc_ioc_router(u32 cmd, ulong arg)
 	s32 retval = 0;
 	u32 ioc_nr = _IOC_NR(cmd);
 
-	printk(KERN_ERR "ipc_ioc_router \n"
+	gt_4trace(ipcdrv_trace, GT_ENTER, "ipc_ioc_router \n"
 		"cmd: %x, ioc_nr: %x(%d), arg: %x\n", cmd, ioc_nr, ioc_nr,
 		(unsigned int) arg);
 
