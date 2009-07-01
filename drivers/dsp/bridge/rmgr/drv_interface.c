@@ -459,6 +459,17 @@ static int __devexit omap34xx_bridge_remove(struct platform_device *pdev)
 	dsp_status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
 	if (DSP_FAILED(dsp_status))
 		goto func_cont;
+
+#ifdef CONFIG_BRIDGE_DVFS
+	if (!clk_notifier_unregister(clk_handle, &iva_clk_notifier)) {
+		GT_0trace(driverTrace, GT_7CLASS,
+		"clk_notifier_unregister PASS for iva2_ck \n");
+	} else {
+		GT_0trace(driverTrace, GT_7CLASS,
+		"clk_notifier_unregister FAILED for iva2_ck \n");
+	}
+#endif /* #ifdef CONFIG_BRIDGE_DVFS */
+
 	DRV_GetProcCtxtList(&pCtxtclosed, (struct DRV_OBJECT *)hDrvObject);
 	while (pCtxtclosed != NULL) {
 		GT_1trace(driverTrace, GT_5CLASS, "***Cleanup of "
@@ -470,28 +481,21 @@ static int __devexit omap34xx_bridge_remove(struct platform_device *pdev)
 				     pCtxtclosed, (void *)pCtxtclosed->pid);
 		pCtxtclosed = pTmp;
 	}
-func_cont:
+
 	if (driverContext) {
 		/* Put the DSP in reset state */
 		ret = DSP_Deinit(driverContext);
 		driverContext = 0;
 		DBC_Assert(ret == true);
 	}
-	SERVICES_Exit();
-	GT_exit();
-	/* unregister the clock notifier */
-#ifdef CONFIG_BRIDGE_DVFS
-	if (!clk_notifier_unregister(clk_handle, &iva_clk_notifier)) {
-		GT_0trace(driverTrace, GT_7CLASS,
-		"clk_notifier_unregister PASS for iva2_ck \n");
-	} else {
-		GT_0trace(driverTrace, GT_7CLASS,
-		"clk_notifier_unregister PASS for iva2_ck \n");
-	}
 
 	clk_put(clk_handle);
 	clk_handle = NULL;
-#endif /* #ifdef CONFIG_BRIDGE_DVFS */
+
+func_cont:
+	SERVICES_Exit();
+	GT_exit();
+
 	/* Remove driver sysfs entries */
 	bridge_destroy_sysfs();
 
