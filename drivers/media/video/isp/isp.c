@@ -505,6 +505,12 @@ int isp_set_callback(enum isp_callback_type type, isp_callback_t callback,
 		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			   IRQ0ENABLE_PRV_DONE_IRQ);
 		break;
+	case CBK_RESZ_DONE:
+		isp_reg_writel(IRQ0ENABLE_RSZ_DONE_IRQ,
+			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			   IRQ0ENABLE_RSZ_DONE_IRQ);
+		break;
 	default:
 		break;
 	}
@@ -555,6 +561,10 @@ int isp_unset_callback(enum isp_callback_type type)
 	case CBK_PREV_DONE:
 		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~IRQ0ENABLE_PRV_DONE_IRQ);
+		break;
+	case CBK_RESZ_DONE:
+		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			    ~IRQ0ENABLE_RSZ_DONE_IRQ);
 		break;
 	default:
 		break;
@@ -934,7 +944,12 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 	}
 
 	if (irqstatus & RESZ_DONE) {
-		if (!RAW_CAPTURE(&isp_obj)) {
+		if (irqdis->isp_callbk[CBK_RESZ_DONE])
+			irqdis->isp_callbk[CBK_RESZ_DONE](
+				RESZ_DONE,
+				irqdis->isp_callbk_arg1[CBK_RESZ_DONE],
+				irqdis->isp_callbk_arg2[CBK_RESZ_DONE]);
+		else if (!RAW_CAPTURE(&isp_obj)) {
 			if (!ispresizer_busy())
 				ispresizer_config_shadow_registers();
 			isp_buf_process(bufs);
