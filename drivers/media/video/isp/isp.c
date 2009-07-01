@@ -866,6 +866,24 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 			isppreview_enable(&isp->isp_prev, 1);
 		}
 	default:
+		/*
+		 * For some sensors (like stingray), after a _restart_
+		 * from sw standby state, starting couple of frames
+		 * are erroneous. From stingray datasheet:
+		 *  "When sensor restarts, Normal image can get 2 frames after"
+		 *
+		 * So while we wait for HS_VS, check cnd clear the CSIB
+		 * error interrupts, if any
+		 */
+		if (irqstatus & IRQ0STATUS_CSIB_IRQ) {
+			u32 csib;
+
+			csib = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
+					     ISPCSI1_LC01_IRQSTATUS);
+			isp_reg_writel(dev, csib, OMAP3_ISP_IOMEM_CCP2,
+				       ISPCSI1_LC01_IRQSTATUS);
+		}
+
 		if (!((irqstatus & RESZ_DONE) &&
 			CCDC_PREV_CAPTURE(isp)))
 			goto out_ignore_buff;
