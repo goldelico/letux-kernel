@@ -173,9 +173,8 @@ int ispresizer_config_crop(struct isp_res_device *isp_res,
 
 	if (crop->c.left + crop->c.width > isp->pipeline.prv_out_w_img)
 		crop->c.width = isp->pipeline.prv_out_w_img - crop->c.left;
-	if (crop->c.top + crop->c.height > isp->pipeline.rsz_out_h)
-		crop->c.height =
-			isp->pipeline.prv_out_h - crop->c.top;
+	if (crop->c.top + crop->c.height > isp->pipeline.prv_out_h_img)
+		crop->c.height = isp->pipeline.prv_out_h_img - crop->c.top;
 
 	isp->pipeline.rsz_crop = crop->c;
 
