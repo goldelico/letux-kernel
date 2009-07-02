@@ -335,6 +335,7 @@ struct isp_device {
 	int ref_count;
 	struct clk *cam_ick;
 	struct clk *cam_mclk;
+	struct clk *dpll4_m5_ck;
 	struct clk *csi2_fck;
 	struct clk *l3_ick;
 	struct isp_interface_config *config;
