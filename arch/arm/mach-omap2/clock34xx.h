@@ -836,6 +836,8 @@ static struct clk dpll4_m5_ck = {
 					| CLOCK_IN_OMAP363X,
 	.clkdm		= { .name = "dpll4_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
+	.set_rate	= &omap2_clksel_set_rate,
+	.round_rate	= &omap2_clksel_round_rate,
 };
 
 /* The PWRDN bit is apparently only available on 3430ES2 and above */
