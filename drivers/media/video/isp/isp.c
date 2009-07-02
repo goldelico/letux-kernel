@@ -2102,6 +2102,11 @@ static int isp_enable_clocks(struct device *dev)
 		dev_err(dev, "clk_enable cam_ick failed\n");
 		goto out_clk_enable_ick;
 	}
+	r = clk_set_rate(isp->dpll4_m5_ck, CM_CAM_MCLK_HZ/2);
+	if (r) {
+		dev_err(dev, "clk_set_rate for dpll4_m5_ck failed\n");
+		goto out_clk_enable_mclk;
+	}
 	r = clk_enable(isp->cam_mclk);
 	if (r) {
 		dev_err(dev, "clk_enable cam_mclk failed\n");
@@ -2254,6 +2259,7 @@ static int isp_remove(struct platform_device *pdev)
 
 	clk_put(isp->cam_ick);
 	clk_put(isp->cam_mclk);
+	clk_put(isp->dpll4_m5_ck);
 	clk_put(isp->csi2_fck);
 	clk_put(isp->l3_ick);
 
@@ -2407,6 +2413,12 @@ static int isp_probe(struct platform_device *pdev)
 		ret_err = PTR_ERR(isp->cam_mclk);
 		goto out_clk_get_mclk;
 	}
+	isp->dpll4_m5_ck = clk_get(&camera_dev, "dpll4_m5_ck");
+	if (IS_ERR(isp->dpll4_m5_ck)) {
+		dev_err(isp->dev, "clk_get dpll4_m5_ck failed\n");
+		ret_err = PTR_ERR(isp->dpll4_m5_ck);
+		goto out_clk_get_dpll4_m5_ck;
+	}
 	isp->csi2_fck = clk_get(&camera_dev, "csi2_96m_fck");
 	if (IS_ERR(isp->csi2_fck)) {
 		dev_err(isp->dev, "clk_get csi2_96m_fck failed\n");
@@ -2466,6 +2478,8 @@ out_request_irq:
 out_clk_get_l3_ick:
 	clk_put(isp->csi2_fck);
 out_clk_get_csi2_fclk:
+	clk_put(isp->dpll4_m5_ck);
+out_clk_get_dpll4_m5_ck:
 	clk_put(isp->cam_mclk);
 out_clk_get_mclk:
 	clk_put(isp->cam_ick);
