@@ -372,7 +372,7 @@ void *sharedregion_get_ptr(u32 *srptr)
 	if (WARN_ON(sharedregion_state.table == NULL))
 		goto error;
 
-	if (WARN_ON(srptr == SHAREDREGION_INVALIDSRPTR))
+	if (srptr == SHAREDREGION_INVALIDSRPTR)
 		goto error;
 
 	myproc_id = multiproc_get_id(NULL);
