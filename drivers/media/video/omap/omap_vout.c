@@ -1114,14 +1114,18 @@ static int omap_vout_buffer_setup(struct videobuf_queue *q, unsigned int *count,
 #endif /* CONFIG_ARCH_OMAP4 */
 
 	/* Now allocated the V4L2 buffers */
-	*size = vout->buffer_size;
+
+	*size = vout->pix.width * vout->pix.height * vout->bpp;
+	*size = PAGE_ALIGN(*size);
+
 #ifdef CONFIG_ARCH_OMAP4
 	if (OMAP_VIDEO3 == vout->vid)
 		startindex = video3_numbuffers;
 	else
 #endif
-		startindex = (vout->vid == OMAP_VIDEO1) ?
-			video1_numbuffers : video2_numbuffers;
+	startindex = (vout->vid == OMAP_VIDEO1) ?
+		video1_numbuffers : video2_numbuffers;
+
 	for (i = startindex; i < *count; i++) {
 		vout->buffer_size = *size;
 
