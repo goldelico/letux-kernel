@@ -237,7 +237,7 @@ static int gta01_bat_get_voltage(void)
 	adc = pcf50606_adc_sync_read(pcf, PCF50606_ADCMUX_BATVOLT_RES);
 	mv = (adc * 6000) / 1024;
 	
-	return mv;
+	return mv * 1000;
 }
 
 static int gta01_bat_get_current(void)
@@ -251,7 +251,7 @@ static int gta01_bat_get_current(void)
 	res = (adc_adcin1 - adc_battvolt) * 2400;
 
 	/*rsense is 220 milli */
-	return (res * 1000) / (220 * 1024);
+	return (res * 1000) / (220 * 1024) * 1000;
 }
 
 static struct gta01_bat_platform_data gta01_bat_pdata = {
