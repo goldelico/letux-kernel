@@ -115,19 +115,23 @@
  */
 struct isp_af_device {
 	u8 update;
-	int pm_state;
+	int enabled;
 	struct ispstat stat;
 	struct af_configuration config; /*Device configuration structure */
+	struct ispstat_buffer *buf_next;
 	spinlock_t *lock;
 };
 
-void isp_af_isr(struct isp_af_device *isp_af);
-int isp_af_enable(struct isp_af_device *, int);
+void isp_af_buf_process(struct isp_af_device *isp_af);
+void isp_af_enable(struct isp_af_device *, int);
+void isp_af_try_enable(struct isp_af_device *isp_af);
 void isp_af_suspend(struct isp_af_device *);
 void isp_af_resume(struct isp_af_device *);
 int isp_af_busy(struct isp_af_device *);
-int isp_af_request_statistics(struct isp_af_device *,
-			      struct isp_af_data *afdata);
-int isp_af_configure(struct isp_af_device *, struct af_configuration *afconfig);
+void isp_af_config_registers(struct isp_af_device *isp_af);
+int omap34xx_isp_af_request_statistics(struct isp_af_device *,
+				       struct isp_af_data *afdata);
+int omap34xx_isp_af_config(struct isp_af_device *,
+			   struct af_configuration *afconfig);
 
 #endif	/* OMAP_ISP_AF_H */

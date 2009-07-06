@@ -931,6 +931,10 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 	if (irqstatus & CCDC_VD0) {
 		if (CCDC_CAPTURE(isp))
 			isp_buf_process(dev, bufs);
+
+		/* Enabling configured statistic modules */
+		if (!(irqstatus & H3A_AF_DONE))
+			isp_af_try_enable(&isp->isp_af);
 	}
 
 	if (irqstatus & CCDC_VD1)
@@ -974,8 +978,19 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 				irqdis->isp_callbk_arg2[CBK_HIST_DONE]);
 	}
 
-	if (irqstatus & H3A_AF_DONE)
-		isp_af_isr(&isp->isp_af);
+	if (irqstatus & H3A_AF_DONE) {
+		isp_af_enable(&isp->isp_af, 0);
+		/* If it's busy we can't process this buffer anymore */
+		if (!isp_af_busy(&isp->isp_af)) {
+			isp_af_buf_process(&isp->isp_af);
+			isp_af_config_registers(&isp->isp_af);
+		} else {
+			dev_dbg(dev, "af: cannot process buffer, device is "
+				     "busy.\n");
+			irqstatus &= ~H3A_AF_DONE;
+		}
+		isp_af_enable(&isp->isp_af, 1);
+	}
 
 	/* Handle shared buffer logic overflows for video buffers. */
 	/* ISPSBL_PCR_CCDCPRV_2_RSZ_OVF can be safely ignored. */
@@ -1558,6 +1573,7 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 	if (ISP_BUFS_IS_EMPTY(bufs)) {
 		isp_enable_interrupts(dev);
 		isp_set_buf(dev, buf);
+		isp_af_try_enable(&isp->isp_af);
 		ispccdc_enable(&isp->isp_ccdc, 1);
 	}
 
@@ -1883,14 +1899,14 @@ int isp_handle_private(struct device *dev, struct mutex *vdev_mutex, int cmd,
 		struct af_configuration *params;
 		params = (struct af_configuration *)arg;
 		mutex_lock(vdev_mutex);
-		rval = isp_af_configure(&isp->isp_af, params);
+		rval = omap34xx_isp_af_config(&isp->isp_af, params);
 		mutex_unlock(vdev_mutex);
 	}
 		break;
 	case VIDIOC_PRIVATE_ISP_AF_REQ: {
 		struct isp_af_data *data;
 		data = (struct isp_af_data *)arg;
-		rval = isp_af_request_statistics(&isp->isp_af, data);
+		rval = omap34xx_isp_af_request_statistics(&isp->isp_af, data);
 	}
 		break;
 	default:

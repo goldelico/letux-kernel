@@ -20,11 +20,7 @@
  */
 
 /* Linux specific include files */
-#include <asm/cacheflush.h>
-
-#include <linux/uaccess.h>
-#include <linux/dma-mapping.h>
-#include <asm/atomic.h>
+#include <linux/device.h>
 
 #include "isp.h"
 #include "ispreg.h"
@@ -33,17 +29,6 @@
 
 #define IS_OUT_OF_BOUNDS(value, min, max)		\
 	(((value) < (min)) || ((value) > (max)))
-
-static void __isp_af_enable(struct isp_af_device *isp_af, int enable);
-
-static void isp_af_set_address(struct isp_af_device *isp_af,
-			       unsigned long address)
-{
-	struct device *dev = to_device(isp_af, isp_af);
-
-	isp_reg_writel(dev, address, OMAP3_ISP_IOMEM_H3A,
-		       ISPH3A_AFBUFST);
-}
 
 /* Function to check paxel parameters */
 static int isp_af_check_params(struct isp_af_device *isp_af,
@@ -134,7 +119,7 @@ static int isp_af_check_params(struct isp_af_device *isp_af,
 	return 0;
 }
 
-static void isp_af_register_setup(struct isp_af_device *isp_af)
+void isp_af_config_registers(struct isp_af_device *isp_af)
 {
 	struct device *dev = to_device(isp_af, isp_af);
 	unsigned int pcr = 0, pax1 = 0, pax2 = 0, paxstart = 0;
@@ -142,14 +127,20 @@ static void isp_af_register_setup(struct isp_af_device *isp_af)
 	unsigned int base_coef_set0 = 0;
 	unsigned int base_coef_set1 = 0;
 	int index;
+	unsigned long irqflags;
 
-	if (!isp_af->update)
+	if (!isp_af->config.af_config)
 		return;
 
-	__isp_af_enable(isp_af, 0);
+	spin_lock_irqsave(isp_af->lock, irqflags);
 
-	if (isp_af_busy(isp_af))
-		goto out;
+	isp_reg_writel(dev, isp_af->buf_next->iommu_addr, OMAP3_ISP_IOMEM_H3A,
+		       ISPH3A_AFBUFST);
+
+	if (!isp_af->update) {
+		spin_unlock_irqrestore(isp_af->lock, irqflags);
+		return;
+	}
 
 	/* Configure Hardware Registers */
 	pax1 |= isp_af->config.paxel_config.width << AF_PAXW_SHIFT;
@@ -228,9 +219,7 @@ static void isp_af_register_setup(struct isp_af_device *isp_af)
 
 	isp_af->update = 0;
 
-out:
-	if (isp_af->pm_state)
-		__isp_af_enable(isp_af, 1);
+	spin_unlock_irqrestore(isp_af->lock, irqflags);
 }
 
 /* Update local parameters */
@@ -314,14 +303,31 @@ out:
 	}
 }
 
+void isp_af_try_enable(struct isp_af_device *isp_af)
+{
+	unsigned long irqflags;
+
+	if (!isp_af->config.af_config)
+		return;
+
+	spin_lock_irqsave(isp_af->lock, irqflags);
+	if (unlikely(!isp_af->enabled && isp_af->config.af_config)) {
+		isp_af->update = 1;
+		spin_unlock_irqrestore(isp_af->lock, irqflags);
+		isp_af_config_registers(isp_af);
+		isp_af_enable(isp_af, 1);
+	} else
+		spin_unlock_irqrestore(isp_af->lock, irqflags);
+}
+
 /* Function to perform hardware set up */
-int isp_af_configure(struct isp_af_device *isp_af,
-		     struct af_configuration *afconfig)
+int omap34xx_isp_af_config(struct isp_af_device *isp_af,
+			   struct af_configuration *afconfig)
 {
 	struct device *dev = to_device(isp_af, isp_af);
+	struct isp_device *isp = to_isp_device(isp_af, isp_af);
 	int result;
 	int buf_size;
-	struct ispstat_buffer *buf;
 	unsigned long irqflags;
 
 	if (!afconfig) {
@@ -330,7 +336,9 @@ int isp_af_configure(struct isp_af_device *isp_af,
 	}
 
 	/* Check Parameters */
+	spin_lock_irqsave(isp_af->lock, irqflags);
 	result = isp_af_check_params(isp_af, afconfig);
+	spin_unlock_irqrestore(isp_af->lock, irqflags);
 	if (result) {
 		dev_dbg(dev, "af: wrong configure params received.\n");
 		return result;
@@ -343,35 +351,25 @@ int isp_af_configure(struct isp_af_device *isp_af,
 	result = ispstat_bufs_alloc(&isp_af->stat, buf_size);
 	if (result)
 		return result;
-	buf = ispstat_buf_next(&isp_af->stat);
+
+	if (!(isp->running == ISP_RUNNING && isp_af->config.af_config))
+		isp_af->buf_next = ispstat_buf_next(&isp_af->stat);
 
 	spin_lock_irqsave(isp_af->lock, irqflags);
-	isp_af_set_address(isp_af, buf->iommu_addr);
 	isp_af_update_params(isp_af, afconfig);
-
-	if (!isp_af->pm_state)
-		isp_af_register_setup(isp_af);
-
-	if (isp_af->config.af_config) {
-		__isp_af_enable(isp_af, 1);
-		isp_af->pm_state = 1;
-	} else {
-		__isp_af_enable(isp_af, 0);
-		isp_af->pm_state = 0;
-	}
 	spin_unlock_irqrestore(isp_af->lock, irqflags);
 
 	/* Success */
 	return 0;
 }
-EXPORT_SYMBOL(isp_af_configure);
+EXPORT_SYMBOL(omap34xx_isp_af_config);
 
 /*
  * This API allows the user to update White Balance gains, as well as
  * exposure time and analog gain. It is also used to request frame
  * statistics.
  */
-int isp_af_request_statistics(struct isp_af_device *isp_af,
+int omap34xx_isp_af_request_statistics(struct isp_af_device *isp_af,
 			      struct isp_af_data *afdata)
 {
 	struct device *dev = to_device(isp_af, isp_af);
@@ -395,30 +393,18 @@ int isp_af_request_statistics(struct isp_af_device *isp_af,
 		afdata->frame_number = buf->frame_number;
 
 		ispstat_buf_release(&isp_af->stat);
-	} else
-		afdata->af_statistics_buf = NULL;
+	}
 
 	afdata->curr_frame = isp_af->stat.frame_number;
 
 	return 0;
 }
-EXPORT_SYMBOL(isp_af_request_statistics);
+EXPORT_SYMBOL(omap34xx_isp_af_request_statistics);
 
-/* This function will handle the H3A interrupt. */
-void isp_af_isr(struct isp_af_device *isp_af)
+/* This function will handle the AF buffer. */
+void isp_af_buf_process(struct isp_af_device *isp_af)
 {
-	struct ispstat_buffer *buf;
-	unsigned long irqflags;
-
-	/* Exchange buffers */
-	buf = ispstat_buf_next(&isp_af->stat);
-
-	spin_lock_irqsave(isp_af->lock, irqflags);
-
-	isp_af_set_address(isp_af, buf->iommu_addr);
-	isp_af_register_setup(isp_af);
-
-	spin_unlock_irqrestore(isp_af->lock, irqflags);
+	isp_af->buf_next = ispstat_buf_next(&isp_af->stat);
 }
 
 static void __isp_af_enable(struct isp_af_device *isp_af, int enable)
@@ -438,33 +424,21 @@ static void __isp_af_enable(struct isp_af_device *isp_af, int enable)
 }
 
 /* Function to Enable/Disable AF Engine */
-int isp_af_enable(struct isp_af_device *isp_af, int enable)
+void isp_af_enable(struct isp_af_device *isp_af, int enable)
 {
-	int rval = 0;
 	unsigned long irqflags;
 
 	spin_lock_irqsave(isp_af->lock, irqflags);
-	if (enable) {
-		if (!isp_af->config.af_config) {
-			rval = -EINVAL;
-			goto out;
-		}
-		if (isp_af->pm_state)
-			goto out;
-		isp_af_register_setup(isp_af);
-		__isp_af_enable(isp_af, 1);
-		isp_af->pm_state = 1;
-	} else {
-		if (!isp_af->pm_state)
-			goto out;
-		__isp_af_enable(isp_af, 0);
-		isp_af->pm_state = 0;
+
+	if (!isp_af->config.af_config && enable) {
+		spin_unlock_irqrestore(isp_af->lock, irqflags);
+		return;
 	}
 
-out:
-	spin_unlock_irqrestore(isp_af->lock, irqflags);
+	__isp_af_enable(isp_af, enable);
+	isp_af->enabled = enable;
 
-	return rval;
+	spin_unlock_irqrestore(isp_af->lock, irqflags);
 }
 
 /* Function to Suspend AF Engine */
@@ -473,7 +447,7 @@ void isp_af_suspend(struct isp_af_device *isp_af)
 	unsigned long irqflags;
 
 	spin_lock_irqsave(isp_af->lock, irqflags);
-	if (isp_af->pm_state)
+	if (isp_af->enabled)
 		__isp_af_enable(isp_af, 0);
 	spin_unlock_irqrestore(isp_af->lock, irqflags);
 }
@@ -484,10 +458,8 @@ void isp_af_resume(struct isp_af_device *isp_af)
 	unsigned long irqflags;
 
 	spin_lock_irqsave(isp_af->lock, irqflags);
-	if (isp_af->pm_state) {
-		isp_af->update = 1;
-		isp_af_register_setup(isp_af);
-	}
+	if (isp_af->enabled)
+		__isp_af_enable(isp_af, 1);
 	spin_unlock_irqrestore(isp_af->lock, irqflags);
 }
 
