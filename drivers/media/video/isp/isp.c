@@ -2017,6 +2017,20 @@ EXPORT_SYMBOL(isp_g_crop);
 int isp_s_crop(struct device *dev, struct v4l2_crop *a)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
+	struct isp_pipeline *pipe = &isp->pipeline;
+
+	/*
+	 * Reset resizer output size.
+	 * FIXME: resizer should not touch the output size in the first place,
+	 * it should always correspond to the size set by S_FMT or S_FMT
+	 * should fail if not possible. If necessary, resizer should adjust
+	 * the source rectangle in ispresizer_try_pipeline instead.
+	 * When the resizer is fixed, its output size does not need to be
+	 * adjusted anymore here.
+	 */
+	pipe->rsz_out_w_img = pipe->pix.width;
+	pipe->rsz_out_w = pipe->pix.width;
+	pipe->rsz_out_h = pipe->pix.height;
 
 	ispresizer_config_crop(&isp->isp_res, a);
 
