@@ -44,7 +44,7 @@
 #define ISPH3A_PCR_AEW_EN	(1 << 16)
 #define ISPH3A_PCR_AEW_ALAW_EN	(1 << 17)
 #define ISPH3A_PCR_AEW_BUSY	(1 << 18)
-#define ISPH3A_PCR_AEW_MASK 	(ISPH3A_PCR_AEW_EN | ISPH3A_PCR_AEW_ALAW_EN | \
+#define ISPH3A_PCR_AEW_MASK 	(ISPH3A_PCR_AEW_ALAW_EN | \
 				 ISPH3A_PCR_AEW_AVE2LMT_MASK)
 
 #define WRITE_SAT_LIM(reg, sat_limit)			\
@@ -116,28 +116,31 @@ struct isp_h3a_device {
 	spinlock_t *lock;		/* Lock for this struct */
 
 	u8 update;
-	int pm_state;
+	int enabled;
 	int wb_update;
 
 	struct isph3a_aewb_regs regs;
 	struct ispprev_wbal h3awb_update;
 	struct isph3a_aewb_config aewb_config_local;
+	struct ispstat_buffer *buf_next;
 	u16 win_count;
 
 	struct ispstat stat;
 };
 
-int isph3a_aewb_configure(struct isp_h3a_device *isp_h3a,
-			  struct isph3a_aewb_config *aewbcfg);
+int omap34xx_isph3a_aewb_config(struct isp_h3a_device *isp_h3a,
+				struct isph3a_aewb_config *aewbcfg);
 
-int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
-				   struct isph3a_aewb_data *aewbdata);
+int omap34xx_isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
+					    struct isph3a_aewb_data *aewbdata);
 
 void isph3a_save_context(struct device *dev);
 
 void isph3a_restore_context(struct device *dev);
 
 void isph3a_aewb_enable(struct isp_h3a_device *isp_h3a, u8 enable);
+
+void isph3a_aewb_try_enable(struct isp_h3a_device *isp_h3a);
 
 int isph3a_aewb_busy(struct isp_h3a_device *isp_h3a);
 
@@ -147,6 +150,8 @@ void isph3a_aewb_resume(struct isp_h3a_device *isp_h3a);
 
 void isph3a_update_wb(struct isp_h3a_device *isp_h3a);
 
-void isph3a_aewb_isr(struct isp_h3a_device *isp_h3a);
+void isph3a_aewb_buf_process(struct isp_h3a_device *isp_h3a);
+
+void isph3a_aewb_config_registers(struct isp_h3a_device *isp_h3a);
 
 #endif		/* OMAP_ISP_H3A_H */
