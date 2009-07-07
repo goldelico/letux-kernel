@@ -661,18 +661,19 @@ DSP_STATUS PROC_EnumNodes(DSP_HPROCESSOR hProcessor, OUT DSP_HNODE *aNodeTab,
 	return status;
 }
 
-/*
- *  ======== PROC_FlushMemory ========
- *  Purpose:
- *     Flush cache
- */
-DSP_STATUS PROC_FlushMemory(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
-			   u32 ulSize, u32 ulFlags)
+
+static DSP_STATUS proc_memory_sync(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
+				   u32 ulSize, u32 ulFlags)
 {
 	/* Keep STATUS here for future additions to this function */
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
+
 	DBC_Require(cRefs > 0);
+	GT_5trace(PROC_DebugMask, GT_ENTER,
+		  "Entered %s, args:\n\t"
+		  "hProcessor: 0x%x pMpuAddr: 0x%x ulSize 0x%x, ulFlags 0x%x\n",
+		  __func__, hProcessor, pMpuAddr, ulSize, ulFlags);
 
 #ifdef CONFIG_BRIDGE_CHECK_ALIGN_128
 	if (!IS_ALIGNED((u32)pMpuAddr, DSP_CACHE_SIZE) ||
@@ -683,25 +684,34 @@ DSP_STATUS PROC_FlushMemory(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
 	}
 #endif /* CONFIG_BRIDGE_CHECK_ALIGN_128 */
 
-	GT_4trace(PROC_DebugMask, GT_ENTER,
-		 "Entered PROC_FlushMemory, args:\n\t"
-		 "hProcessor: 0x%x pMpuAddr: 0x%x ulSize 0x%x, ulFlags 0x%x\n",
-		 hProcessor, pMpuAddr, ulSize, ulFlags);
-	if (MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		/* Critical section */
-		(void)SYNC_EnterCS(hProcLock);
-		MEM_FlushCache(pMpuAddr, ulSize, ulFlags);
-		(void)SYNC_LeaveCS(hProcLock);
-	} else {
+	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
+		GT_1trace(PROC_DebugMask, GT_7CLASS,
+			  "%s: InValid Processor Handle\n", __func__);
 		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_FlushMemory: "
-			 "InValid Processor Handle \n");
+		goto err_out;
 	}
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Leaving PROC_FlushMemory [0x%x]",
-		 status);
+
+	(void)SYNC_EnterCS(hProcLock);
+	MEM_FlushCache(pMpuAddr, ulSize, ulFlags);
+	(void)SYNC_LeaveCS(hProcLock);
+
+err_out:
+	GT_2trace(PROC_DebugMask, GT_ENTER,
+		  "Leaving %s [0x%x]", __func__, status);
+
 	return status;
 }
 
+/*
+ *  ======== PROC_FlushMemory ========
+ *  Purpose:
+ *     Flush cache
+ */
+DSP_STATUS PROC_FlushMemory(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
+			    u32 ulSize, u32 ulFlags)
+{
+	return proc_memory_sync(hProcessor, pMpuAddr, ulSize, ulFlags);
+}
 
 /*
  *  ======== PROC_InvalidateMemory ========
@@ -709,39 +719,11 @@ DSP_STATUS PROC_FlushMemory(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
  *     Invalidates the memory specified
  */
 DSP_STATUS PROC_InvalidateMemory(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
-				u32 ulSize)
+				 u32 ulSize)
 {
-	/* Keep STATUS here for future additions to this function */
-	DSP_STATUS status = DSP_SOK;
-	enum DSP_FLUSHTYPE FlushMemType = PROC_INVALIDATE_MEM;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
-	DBC_Require(cRefs > 0);
-	GT_3trace(PROC_DebugMask, GT_ENTER,
-		 "Entered PROC_InvalidateMemory, args:\n\t"
-		 "hProcessor: 0x%x pMpuAddr: 0x%x ulSize 0x%x\n", hProcessor,
-		 pMpuAddr, ulSize);
+	enum DSP_FLUSHTYPE mtype = PROC_INVALIDATE_MEM;
 
-#ifdef CONFIG_BRIDGE_CHECK_ALIGN_128
-	if (!IS_ALIGNED((u32)pMpuAddr, DSP_CACHE_SIZE) ||
-	    !IS_ALIGNED(ulSize, DSP_CACHE_SIZE)) {
-		pr_err("%s: Invalid alignment %p %x\n",
-			__func__, pMpuAddr, ulSize);
-		return DSP_EALIGNMENT;
-	}
-#endif /* CONFIG_BRIDGE_CHECK_ALIGN_128 */
-
-	if (MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		(void)SYNC_EnterCS(hProcLock);
-		MEM_FlushCache(pMpuAddr, ulSize, FlushMemType);
-		(void)SYNC_LeaveCS(hProcLock);
-	} else {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_InvalidateMemory: "
-			 "InValid Processor Handle \n");
-	}
-	GT_1trace(PROC_DebugMask, GT_ENTER,
-		 "Leaving PROC_InvalidateMemory [0x%x]", status);
-	return status;
+	return proc_memory_sync(hProcessor, pMpuAddr, ulSize, mtype);
 }
 
 /*
