@@ -661,6 +661,30 @@ DSP_STATUS PROC_EnumNodes(DSP_HPROCESSOR hProcessor, OUT DSP_HNODE *aNodeTab,
 	return status;
 }
 
+/* Check if the given area blongs to process virtul memory address space */
+static int memory_check_vma(unsigned long start, u32 len)
+{
+	int err = 0;
+	unsigned long end;
+	struct vm_area_struct *vma;
+
+	len = PAGE_ALIGN(len);
+	end = start + len;
+	if (end <= start)
+		return -EINVAL;
+
+	down_read(&current->mm->mmap_sem);
+
+	vma = find_vma(current->mm, start);
+	if (!vma || start < vma->vm_start) {
+		pr_err("%s: no vma for %08lx %08lx\n", __func__, start, end);
+		err = -EINVAL;
+	}
+
+	up_read(&current->mm->mmap_sem);
+
+	return err;
+}
 
 static DSP_STATUS proc_memory_sync(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
 				   u32 ulSize, u32 ulFlags)
@@ -687,6 +711,14 @@ static DSP_STATUS proc_memory_sync(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
 	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
 		GT_1trace(PROC_DebugMask, GT_7CLASS,
 			  "%s: InValid Processor Handle\n", __func__);
+		status = DSP_EHANDLE;
+		goto err_out;
+	}
+
+	if (memory_check_vma((u32)pMpuAddr, ulSize)) {
+		GT_3trace(PROC_DebugMask, GT_7CLASS,
+			  "%s: InValid address parameters\n",
+			  __func__, pMpuAddr, ulSize);
 		status = DSP_EHANDLE;
 		goto err_out;
 	}
