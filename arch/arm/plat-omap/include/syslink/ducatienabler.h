@@ -89,7 +89,7 @@
 #define DUCATI_SHARED_IPC_LEN			0x100000
 
 #define DUCATI_SW_DMM_ADDR			0x80000000
-#define DUCATI_SW_DMM_LEN			0x4000000
+#define DUCATI_SW_DMM_LEN			0x2C00000
 
 
 /* Types of mapping attributes */
@@ -168,6 +168,8 @@ static const struct  memory_entry l3_memory_regions[] = {
 	{DUCATI_SHARED_M3_DATA_ADDR, DUCATI_SHARED_M3_DATA_LEN},
 	/*  IPC*/
 	{DUCATI_SHARED_IPC_ADDR, DUCATI_SHARED_IPC_LEN},
+	/*  DMM*/
+	{DUCATI_SW_DMM_ADDR, DUCATI_SW_DMM_LEN},
 };
 
 void dbg_print_ptes(bool ashow_inv_entries, bool ashow_repeat_entries);
