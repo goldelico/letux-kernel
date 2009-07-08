@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.29-omap1
-# Tue Jun 23 22:21:53 2009
+# Wed Jul  8 14:46:20 2009
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1497,6 +1497,9 @@ CONFIG_ANDROID_LOW_MEMORY_KILLER=y
 # CBUS support
 #
 # CONFIG_CBUS is not set
+CONFIG_MPU_BRIDGE=y
+CONFIG_BRIDGE_MEMPOOL_SIZE=0x600000
+# CONFIG_BRIDGE_DEBUG is not set
 
 #
 # File systems
