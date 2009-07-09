@@ -526,6 +526,11 @@ void omap3_prcm_restore_context(void)
 	prm_write_mod_reg(prcm_context.per_pm_ivagrpsel, OMAP3430_PER_MOD,
 					 OMAP3430_PM_IVAGRPSEL);
 	prm_write_mod_reg(prcm_context.wkup_pm_wken, WKUP_MOD, PM_WKEN);
+	/* Relock DPLL5 and enable autoidle */
+
+	if (omap_rev() >= OMAP3430_REV_ES2_0)
+		omap3_lock_dpll5();
+
 	return;
 }
 #endif
