@@ -34,6 +34,7 @@
 
 #include <linux/videodev2.h>
 #include <linux/version.h>
+#include <asm/pgalloc.h>
 
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
@@ -196,6 +197,47 @@ static int omap34xxcam_vbq_setup(struct videobuf_queue *vbq, unsigned int *cnt,
 	return isp_vbq_setup(vdev->cam->isp, vbq, cnt, size);
 }
 
+static int omap34xxcam_vb_lock_vma(struct videobuf_buffer *vb, int lock)
+{
+	unsigned long start, end;
+	struct vm_area_struct *vma;
+	int rval = 0;
+
+	if (vb->memory == V4L2_MEMORY_MMAP)
+		return 0;
+
+	end = vb->baddr + vb->bsize;
+
+	down_write(&current->mm->mmap_sem);
+	spin_lock(&current->mm->page_table_lock);
+
+	for (start = vb->baddr; ; ) {
+		unsigned int newflags;
+
+		vma = find_vma(current->mm, start);
+		if (!vma || vma->vm_start > start) {
+				rval = -ENOMEM;
+			goto out;
+		}
+
+		newflags = vma->vm_flags | VM_LOCKED;
+		if (!lock)
+			newflags &= ~VM_LOCKED;
+
+		vma->vm_flags = newflags;
+
+		if (vma->vm_end >= end)
+			break;
+
+		start = vma->vm_end;
+	}
+
+out:
+	spin_unlock(&current->mm->page_table_lock);
+	up_write(&current->mm->mmap_sem);
+	return rval;
+}
+
 /**
  * omap34xxcam_vbq_release - Free resources for input VBQ and VB
  * @vbq: ptr. to standard V4L2 video buffer queue structure
@@ -213,6 +255,7 @@ static void omap34xxcam_vbq_release(struct videobuf_queue *vbq,
 
 	if (!vbq->streaming) {
 		isp_vbq_release(isp, vbq, vb);
+		omap34xxcam_vb_lock_vma(vb, 0);
 		videobuf_dma_unmap(vbq, videobuf_to_dma(vb));
 		videobuf_dma_free(videobuf_to_dma(vb));
 		vb->state = VIDEOBUF_NEEDS_INIT;
@@ -265,13 +308,19 @@ static int omap34xxcam_vbq_prepare(struct videobuf_queue *vbq,
 	vb->field = field;
 
 	if (vb->state == VIDEOBUF_NEEDS_INIT) {
+		err = omap34xxcam_vb_lock_vma(vb, 1);
+		if (err)
+			goto buf_init_err;
+
 		err = videobuf_iolock(vbq, vb, NULL);
-		if (!err) {
-			/* isp_addr will be stored locally inside isp code */
-			err = isp_vbq_prepare(isp, vbq, vb, field);
-		}
+		if (err)
+			goto buf_init_err;
+
+		/* isp_addr will be stored locally inside isp code */
+		err = isp_vbq_prepare(isp, vbq, vb, field);
 	}
 
+buf_init_err:
 	if (!err)
 		vb->state = VIDEOBUF_PREPARED;
 	else
