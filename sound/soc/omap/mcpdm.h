@@ -20,6 +20,7 @@
  */
 
 #define OMAP44XX_MCPDM_BASE	0x40132000
+#define OMAP44XX_MCPDM_L3_BASE	0x49032000
 
 /* McPDM registers */
 
