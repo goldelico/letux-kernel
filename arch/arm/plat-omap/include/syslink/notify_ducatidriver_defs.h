@@ -36,7 +36,7 @@ struct notify_ducatidrv_cmdargs {
 /*
  *  brief  Base command ID for NotifyDriverShm
  */
-#define NOTIFYDRIVERSHM_BASE_CMD  0x0
+#define NOTIFYDRIVERSHM_BASE_CMD  0x100
 
 /*
  *  brief  Command for NotifyDriverShm_getConfig
