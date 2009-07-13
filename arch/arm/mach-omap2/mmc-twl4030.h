@@ -19,6 +19,8 @@ struct twl4030_hsmmc_info {
 	int	ocr_mask;	/* temporary HACK */
 };
 
+extern unsigned get_last_off_on_transaction_id(struct device *dev);
+
 #if defined(CONFIG_REGULATOR) && \
 	(defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE) || \
 	 defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE))

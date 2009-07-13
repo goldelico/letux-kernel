@@ -250,7 +250,7 @@ static struct omapdev mcbsp5_3xxx_omapdev = {
 static struct omapdev hsmmc1_3xxx_omapdev = {
 	.name		= "hsmmc1_omapdev",
 	.pwrdm		= { .name = "core_pwrdm" },
-	.pdev_name	= "mmci-omap",
+	.pdev_name	= "mmci-omap-hs",
 	.pdev_id	= 0,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 };
@@ -258,7 +258,7 @@ static struct omapdev hsmmc1_3xxx_omapdev = {
 static struct omapdev hsmmc2_3xxx_omapdev = {
 	.name		= "hsmmc2_omapdev",
 	.pwrdm		= { .name = "core_pwrdm" },
-	.pdev_name	= "mmci-omap",
+	.pdev_name	= "mmci-omap-hs",
 	.pdev_id	= 1,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 };
@@ -433,7 +433,7 @@ static struct omapdev i2c3_3xxx_omapdev = {
 static struct omapdev hsmmc3_3xxx_omapdev = {
 	.name		= "hsmmc3_omapdev",
 	.pwrdm		= { .name = "core_pwrdm" },
-	.pdev_name	= "mmci-omap",
+	.pdev_name	= "mmci-omap-hs",
 	.pdev_id	= 2,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_GE_OMAP3430ES2),
 };
