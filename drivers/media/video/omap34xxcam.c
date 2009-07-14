@@ -66,10 +66,6 @@ static int omap34xxcam_slave_power_set(struct omap34xxcam_videodev *vdev,
 
 	BUG_ON(!mutex_is_locked(&vdev->mutex));
 
-#ifdef OMAP34XXCAM_POWEROFF_DELAY
-	vdev->power_state_wish = -1;
-#endif
-
 	for (i = 0; i <= OMAP34XXCAM_SLAVE_FLASH; i++) {
 		if (vdev->slave[i] == v4l2_int_device_dummy())
 			continue;
@@ -104,51 +100,6 @@ out:
 
 	return rval;
 }
-
-#ifdef OMAP34XXCAM_POWEROFF_DELAY
-static void omap34xxcam_slave_power_work(struct work_struct *work)
-{
-	struct omap34xxcam_videodev *vdev =
-		container_of(work, struct omap34xxcam_videodev, poweroff_work);
-
-	mutex_lock(&vdev->mutex);
-
-	if (vdev->power_state_wish != -1)
-		omap34xxcam_slave_power_set(vdev, vdev->power_state_wish,
-					    vdev->power_state_mask);
-
-	mutex_unlock(&vdev->mutex);
-}
-
-static void omap34xxcam_slave_power_timer(unsigned long ptr)
-{
-	struct omap34xxcam_videodev *vdev = (void *)ptr;
-
-	schedule_work(&vdev->poweroff_work);
-}
-
-/**
- * omap34xxcam_slave_power_suggest - delayed power state change
- *
- * @vdev: per-video device data structure
- * @power: new power state
- */
-static void omap34xxcam_slave_power_suggest(struct omap34xxcam_videodev *vdev,
-					    enum v4l2_power power,
-					    int mask)
-{
-	BUG_ON(!mutex_is_locked(&vdev->mutex));
-
-	del_timer(&vdev->poweroff_timer);
-
-	vdev->power_state_wish = power;
-	vdev->power_state_mask = mask;
-
-	mod_timer(&vdev->poweroff_timer, jiffies + OMAP34XXCAM_POWEROFF_DELAY);
-}
-#else /* OMAP34XXCAM_POWEROFF_DELAY */
-#define omap34xxcam_slave_power_suggest(a, b, c) do {} while (0)
-#endif /* OMAP34XXCAM_POWEROFF_DELAY */
 
 /**
  * omap34xxcam_update_vbq - Updates VBQ with completed input buffer
@@ -934,8 +885,6 @@ static int vidioc_streamoff(struct file *file, void *fh, enum v4l2_buf_type i)
 
 		omap34xxcam_slave_power_set(vdev, V4L2_POWER_STANDBY,
 					    OMAP34XXCAM_SLAVE_POWER_SENSOR);
-		omap34xxcam_slave_power_suggest(vdev, V4L2_POWER_STANDBY,
-						OMAP34XXCAM_SLAVE_POWER_LENS);
 	}
 
 	mutex_unlock(&vdev->mutex);
@@ -1646,9 +1595,6 @@ static int omap34xxcam_open(struct file *file)
 		omap34xxcam_slave_power_set(
 			vdev, V4L2_POWER_STANDBY,
 			OMAP34XXCAM_SLAVE_POWER_SENSOR);
-		omap34xxcam_slave_power_suggest(
-			vdev, V4L2_POWER_STANDBY,
-			OMAP34XXCAM_SLAVE_POWER_LENS);
 	}
 
 	if (vdev->vdev_sensor == v4l2_int_device_dummy() || !first_user)
@@ -1740,9 +1686,6 @@ static int omap34xxcam_release(struct file *file)
 		omap34xxcam_slave_power_set(
 			vdev, V4L2_POWER_STANDBY,
 			OMAP34XXCAM_SLAVE_POWER_SENSOR);
-		omap34xxcam_slave_power_suggest(
-			vdev, V4L2_POWER_STANDBY,
-			OMAP34XXCAM_SLAVE_POWER_LENS);
 		vdev->streaming = NULL;
 	}
 
@@ -2043,11 +1986,6 @@ static int __init omap34xxcam_init(void)
 		vdev->vdev_sensor =
 			vdev->vdev_lens =
 			vdev->vdev_flash = v4l2_int_device_dummy();
-#ifdef OMAP34XXCAM_POWEROFF_DELAY
-		setup_timer(&vdev->poweroff_timer,
-			    omap34xxcam_slave_power_timer, (unsigned long)vdev);
-		INIT_WORK(&vdev->poweroff_work, omap34xxcam_slave_power_work);
-#endif /* OMAP34XXCAM_POWEROFF_DELAY */
 
 		if (v4l2_int_device_register(m))
 			goto err;
