@@ -1870,9 +1870,6 @@ static int omap34xxcam_device_register(struct v4l2_int_device *s)
 	if (hwc.dev_type == OMAP34XXCAM_SLAVE_SENSOR)
 		isp_put();
 
-	if (rval)
-		goto err;
-
 	/* Are we the first slave? */
 	if (vdev->slaves == 1) {
 		/* initialize the video_device struct */
