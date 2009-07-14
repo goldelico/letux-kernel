@@ -831,7 +831,7 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type i)
 	}
 
 	rval = omap34xxcam_slave_power_set(vdev, V4L2_POWER_ON,
-					   OMAP34XXCAM_SLAVE_POWER_SENSOR_LENS);
+					   OMAP34XXCAM_SLAVE_POWER_ALL);
 	if (rval) {
 		dev_dbg(&vdev->vfd->dev,
 			"omap34xxcam_slave_power_set failed\n");
@@ -844,8 +844,8 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type i)
 	if (rval) {
 		isp_stop(isp);
 		omap34xxcam_slave_power_set(
-			vdev, V4L2_POWER_OFF,
-			OMAP34XXCAM_SLAVE_POWER_SENSOR_LENS);
+			vdev, V4L2_POWER_STANDBY,
+			OMAP34XXCAM_SLAVE_POWER_ALL);
 	} else
 		vdev->streaming = file;
 
@@ -884,7 +884,7 @@ static int vidioc_streamoff(struct file *file, void *fh, enum v4l2_buf_type i)
 		vdev->streaming = NULL;
 
 		omap34xxcam_slave_power_set(vdev, V4L2_POWER_STANDBY,
-					    OMAP34XXCAM_SLAVE_POWER_SENSOR);
+					    OMAP34XXCAM_SLAVE_POWER_ALL);
 	}
 
 	mutex_unlock(&vdev->mutex);
@@ -1586,15 +1586,12 @@ static int omap34xxcam_open(struct file *file)
 			goto out_isp_get;
 		}
 		cam->isp = isp;
-		if (omap34xxcam_slave_power_set(vdev, V4L2_POWER_ON,
+		if (omap34xxcam_slave_power_set(vdev, V4L2_POWER_STANDBY,
 						OMAP34XXCAM_SLAVE_POWER_ALL)) {
 			dev_err(&vdev->vfd->dev, "can't power up slaves\n");
 			rval = -EBUSY;
 			goto out_slave_power_set_standby;
 		}
-		omap34xxcam_slave_power_set(
-			vdev, V4L2_POWER_STANDBY,
-			OMAP34XXCAM_SLAVE_POWER_SENSOR);
 	}
 
 	if (vdev->vdev_sensor == v4l2_int_device_dummy() || !first_user)
@@ -1683,9 +1680,8 @@ static int omap34xxcam_release(struct file *file)
 	if (vdev->streaming == file) {
 		isp_stop(isp);
 		videobuf_streamoff(&fh->vbq);
-		omap34xxcam_slave_power_set(
-			vdev, V4L2_POWER_STANDBY,
-			OMAP34XXCAM_SLAVE_POWER_SENSOR);
+		omap34xxcam_slave_power_set(vdev, V4L2_POWER_STANDBY,
+					    OMAP34XXCAM_SLAVE_POWER_ALL);
 		vdev->streaming = NULL;
 	}
 
