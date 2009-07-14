@@ -1852,10 +1852,9 @@ static int omap34xxcam_device_register(struct v4l2_int_device *s)
 		}
 		vdev->cam->isp = isp;
 	}
-	rval = omap34xxcam_slave_power_set(vdev, V4L2_POWER_ON,
-					   1 << hwc.dev_type);
+	rval = vidioc_int_dev_init(s);
 	if (rval)
-		goto err_omap34xxcam_slave_power_set;
+		goto err_omap34xxcam_slave_init;
 	if (hwc.dev_type == OMAP34XXCAM_SLAVE_SENSOR) {
 		struct v4l2_format format;
 
@@ -1902,7 +1901,7 @@ static int omap34xxcam_device_register(struct v4l2_int_device *s)
 
 	return 0;
 
-err_omap34xxcam_slave_power_set:
+err_omap34xxcam_slave_init:
 	if (hwc.dev_type == OMAP34XXCAM_SLAVE_SENSOR)
 		isp_put();
 
