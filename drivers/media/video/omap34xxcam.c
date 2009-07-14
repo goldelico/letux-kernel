@@ -63,10 +63,23 @@ static int omap34xxcam_slave_power_set(struct omap34xxcam_videodev *vdev,
 				       int mask)
 {
 	int rval = 0, i = 0;
+	int start, end, dir;
 
 	BUG_ON(!mutex_is_locked(&vdev->mutex));
 
-	for (i = 0; i <= OMAP34XXCAM_SLAVE_FLASH; i++) {
+	if (power != V4L2_POWER_OFF) {
+		/* Sensor has to be powered on first */
+		start = 0;
+		end = OMAP34XXCAM_SLAVE_FLASH;
+		dir = 1;
+	} else {
+		/* Sensor has to be powered off last */
+		start = OMAP34XXCAM_SLAVE_FLASH;
+		end = 0;
+		dir = -1;
+	}
+
+	for (i = start; i != end + dir; i += dir) {
 		if (vdev->slave[i] == v4l2_int_device_dummy())
 			continue;
 
@@ -87,7 +100,7 @@ static int omap34xxcam_slave_power_set(struct omap34xxcam_videodev *vdev,
 	return 0;
 
 out:
-	for (i--; i >= 0; i--) {
+	for (i -= dir; i != start - dir; i -= dir) {
 		if (vdev->slave[i] == v4l2_int_device_dummy())
 			continue;
 
