@@ -81,11 +81,16 @@ static int omap2_iommu_enable(struct iommu *obj)
 			break;
 	} while (!time_after(jiffies, timeout));
 
+/* FIXME: Hack till the reading the MMU status register
+ * is resolved in Simulator. Simulator doesn't update
+ * the STATUS register.
+ */
+#ifndef CONFIG_ARCH_OMAP4
 	if (!(l & MMU_SYS_RESETDONE)) {
 		dev_err(obj->dev, "can't take mmu out of reset\n");
 		return -ENODEV;
 	}
-
+#endif
 	l = iommu_read_reg(obj, MMU_REVISION);
 	dev_info(obj->dev, "%s: version %d.%d\n", obj->name,
 		 (l >> 4) & 0xf, l & 0xf);
