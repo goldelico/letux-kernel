@@ -74,7 +74,7 @@
 #define NUM_OF_VIDEO_CHANNELS	2
 
 #define VID_MAX_WIDTH		1280	/* Largest width */
-#define VID_MAX_HEIGHT		720/* Largest height */
+#define VID_MAX_HEIGHT		800	/* Largest height */
 
 /* Mimimum requirement is 2x2 for DSS */
 #define VID_MIN_WIDTH		2
