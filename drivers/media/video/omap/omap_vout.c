@@ -196,13 +196,11 @@ const static struct v4l2_fmtdesc omap_formats[] = {
 static unsigned long omap_vout_alloc_buffer(u32 buf_size, u32 *phys_addr)
 {
 	unsigned long virt_addr, addr;
-	u32 order, size;
+	u32 size;
 
 	size = PAGE_ALIGN(buf_size);
-	order = get_order(size);
-	virt_addr = __get_free_pages(GFP_KERNEL | GFP_DMA, order);
+	virt_addr = (u32) alloc_pages_exact(size, GFP_KERNEL | GFP_DMA);
 	addr = virt_addr;
-
 	if (virt_addr) {
 		while (size > 0) {
 			SetPageReserved(virt_to_page(addr));
@@ -219,17 +217,15 @@ static void omap_vout_free_buffer(unsigned long virtaddr, u32 phys_addr,
 			 u32 buf_size)
 {
 	unsigned long addr = virtaddr;
-	u32 order, size;
+	u32 size;
 
 	size = PAGE_ALIGN(buf_size);
-	order = get_order(size);
-
 	while (size > 0) {
 		ClearPageReserved(virt_to_page(addr));
 		addr += PAGE_SIZE;
 		size -= PAGE_SIZE;
 	}
-	free_pages((unsigned long) virtaddr, order);
+	free_pages_exact((void *) virtaddr, size);
 }
 
 /* Function for allocating video buffers */
@@ -1128,6 +1124,7 @@ static int omap_vout_mmap(struct file *file, struct vm_area_struct *vma)
 	struct videobuf_queue *q = &vout->vbq;
 	unsigned long size = (vma->vm_end - vma->vm_start);
 	unsigned long start = vma->vm_start;
+	struct page *cpage;
 	int i;
 	void *pos;
 	struct videobuf_dmabuf *dmabuf = NULL;
@@ -1159,17 +1156,21 @@ static int omap_vout_mmap(struct file *file, struct vm_area_struct *vma)
 	vma->vm_ops = &omap_vout_vm_ops;
 	vma->vm_private_data = (void *) vout;
 	dmabuf = videobuf_to_dma(q->bufs[i]);
-	pos = dmabuf->vmalloc;
-	vma->vm_pgoff = virt_to_phys((void *)pos) >> PAGE_SHIFT;
+
+	pos = (void *)(dmabuf->bus_addr);
+
 	while (size > 0) {
-		unsigned long pfn;
-		pfn = virt_to_phys((void *) pos) >> PAGE_SHIFT;
-		if (remap_pfn_range(vma, start, pfn, PAGE_SIZE, PAGE_SHARED))
+		cpage = pfn_to_page(((unsigned int) pos) >> PAGE_SHIFT);
+		if (vm_insert_page(vma, start, cpage)) {
+			printk(KERN_ERR "vout_mmap: Failed to insert bus_addr"
+							"page to VMA \n");
 			return -EAGAIN;
+			}
 		start += PAGE_SIZE;
 		pos += PAGE_SIZE;
 		size -= PAGE_SIZE;
 	}
+	vma->vm_flags &= ~VM_IO; /* using shared anonymous pages */
 	vout->mmap_count++;
 	v4l2_dbg(1, debug, vout->dev->driver, "Exiting %s\n", __func__);
 	return 0;
