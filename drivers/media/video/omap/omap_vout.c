@@ -2260,6 +2260,9 @@ static int vidioc_streamon(struct file *file, void *fh,
 	int t;
 	struct omapvideo_info *ovid = &vout->vid_info;
 	u32 mask = 0;
+#ifndef CONFIG_ARCH_OMAP4
+	unsigned int count;
+#endif
 
 	mutex_lock(&vout->lock);
 
@@ -2302,6 +2305,9 @@ static int vidioc_streamon(struct file *file, void *fh,
 #ifdef CONFIG_ARCH_OMAP4
 	uv_addr = (unsigned long) vout->queued_buf_uv_addr[vout->cur_frm->i] +
 		vout->cropped_uv_offset;
+#else
+	count = vout->buffer_allocated;
+	omap_vout_vrfb_buffer_setup(vout, &count, 0);
 #endif
 
 	mask = DISPC_IRQ_VSYNC | DISPC_IRQ_EVSYNC_EVEN |
