@@ -18,135 +18,74 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/fs.h>
-
-#include <gt.h>
+#include <linux/mm.h>
 #include <multiproc.h>
 #include <multiproc_ioctl.h>
 
-
 /*
- * ======== mproc_ioctl_get_id ========
+ * ======== mproc_ioctl_setup ========
  *  Purpose:
  *  This wrapper function will call the multproc function
- *  to get proccesor Id from proccessor name
+ *  to setup the module
  */
-static int mproc_ioctl_get_id(struct multiproc_cmd_args *args)
+static int mproc_ioctl_setup(struct multiproc_cmd_args *cargs)
 {
-	struct multiproc_cmd_args uarg;
-	struct multiproc_cmd_args *cargs = &uarg;
-	char *name = NULL;
-	s32 retval = 0;
-	ulong size = 0;
-	u16 proc_id;
+	struct multiproc_config config;
+	s32 status = 0;
+	ulong size;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct multiproc_cmd_args));
+	size = copy_from_user(&config,
+				cargs->args.setup.config,
+				sizeof(struct multiproc_config));
 	if (size) {
-		retval = -EFAULT;
+		status = -EFAULT;
 		goto exit;
 	}
 
-	name = kmalloc(cargs->cmd_arg.get_id.name_len, GFP_KERNEL);
-	if (name == NULL) {
-		retval = -ENOMEM;
-		goto exit;
-	}
-
-	size = copy_from_user(name, cargs->cmd_arg.get_id.name,
-				cargs->cmd_arg.get_id.name_len);
-	/* Handle partial copy */
-	if (size) {
-		retval = -EFAULT;
-		goto name_from_usr_error;
-	}
-	proc_id = multiproc_get_id(name);
-	size = copy_to_user(cargs->cmd_arg.get_id.proc_id,
-						&proc_id, sizeof(u16));
-	if (size) {
-		retval = -EFAULT;
-		goto proc_id_to_usr_error;
-	}
-
-	kfree(name);
-	return 0;
-
-proc_id_to_usr_error: /* Fall through */
-name_from_usr_error:
-	kfree(name);
+	cargs->api_status = multiproc_setup(&config);
 
 exit:
-	return retval;
+	return status;
 }
 
 /*
- * ======== mproc_ioctl_get_name ========
- *  Purpose:
- *  This wrapper function will call the multproc function
- *  to get get name from processor id
+ * ======== mproc_ioctl_destroy ========
+ *	Purpose:
+ *	This wrapper function will call the multproc function
+ *	to destroy the module
  */
-static int mproc_ioctl_get_name(struct multiproc_cmd_args *args)
+static int mproc_ioctl_destroy(struct multiproc_cmd_args *cargs)
 {
-	struct multiproc_cmd_args uarg;
-	struct multiproc_cmd_args *cargs = &uarg;
-	s32 retval = 0;
-	char *name = NULL;
-	ulong size = 0;
-
-	size = copy_from_user(cargs, args,
-				sizeof(struct multiproc_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	name = multiproc_get_name(cargs->cmd_arg.get_name.proc_id);
-
-	size = copy_to_user(cargs->cmd_arg.get_name.name, name,
-						strlen(name));
-	/* Handle partial copy */
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
+	cargs->api_status = multiproc_destroy();
 	return 0;
-
-exit:
-	return retval;
-
 }
 
-/* ======== mproc_ioctl_get_max_processors ========
- *  Purpose:
- *  This wrapper function will call the multproc function
- *  to get maximum proc Id in the system.
+/*
+ * ======== mproc_ioctl_get_config ========
+ *	Purpose:
+ *	This wrapper function will call the multproc function
+ *	to get the default configuration the module
  */
-static int mproc_ioctl_get_max_processors(struct multiproc_cmd_args *args)
+static int mproc_ioctl_get_config(struct multiproc_cmd_args *cargs)
 {
-	struct multiproc_cmd_args uarg;
-	struct multiproc_cmd_args *cargs = &uarg;
-	u16 max_id;
-	s32 size = 0;
-	s32 retval = 0;
+	struct multiproc_config config;
 
-	size = copy_from_user(cargs, args,
-				sizeof(struct multiproc_cmd_args));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-	max_id = multiproc_get_max_processors();
-	size = copy_to_user(cargs->cmd_arg.get_max_id.max_id,
-						&max_id, sizeof(u16));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
-	}
-
-exit:
-	return retval;
+	multiproc_get_config(&config);
+	cargs->api_status = 0;
+	return 0;
 }
 
+/*
+ * ======== mproc_ioctl_setup ========
+ *	Purpose:
+ *	This wrapper function will call the multproc function
+ *	to setup the module
+ */
+static int multiproc_ioctl_set_local_id(struct multiproc_cmd_args *cargs)
+{
+	cargs->api_status = multiproc_set_local_id(cargs->args.set_local_id.id);
+	return 0;
+}
 
 /*
  * ======== multiproc_ioctl ========
@@ -156,43 +95,63 @@ exit:
 int multiproc_ioctl(struct inode *inode, struct file *filp,
 			unsigned int cmd, unsigned long args)
 {
+	s32 status = 0;
+	s32 size = 0;
 	struct multiproc_cmd_args __user *uarg =
 				(struct multiproc_cmd_args __user *)args;
-	s32 retval = 0;
+	struct multiproc_cmd_args cargs;
 
-	gt_4trace(curTrace, GT_ENTER, "multiproc_ioctl"
-		"inode: %x, filp: %x,\n cmd: %x, args: %x",
-		inode, filp, cmd, args);
 
 	if (_IOC_DIR(cmd) & _IOC_READ)
-		retval = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
+		status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
 	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		retval = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
+		status = !access_ok(VERIFY_READ, uarg, _IOC_SIZE(cmd));
 
-	if (retval) {
-		retval = -EFAULT;
+	if (status) {
+		status = -EFAULT;
 		goto exit;
 	}
+
+	/* Copy the full args from user-side */
+	size = copy_from_user(&cargs, uarg,
+					sizeof(struct multiproc_cmd_args));
+	if (size) {
+		status = -EFAULT;
+		goto exit;
+	}
+
 	switch (cmd) {
-	case CMD_MULTIPROC_GETID:
-		retval = mproc_ioctl_get_id(uarg);
+	case CMD_MULTIPROC_SETUP:
+		status = mproc_ioctl_setup(uarg);
 		break;
 
-	case CMD_MULTIPROC_GETNAME:
-		retval = mproc_ioctl_get_name(uarg);
+	case CMD_MULTIPROC_DESTROY:
+		status = mproc_ioctl_destroy(uarg);
 		break;
 
-	case CMD_MULTIPROC_GETMAXID:
-		retval = mproc_ioctl_get_max_processors(uarg);
+	case CMD_MULTIPROC_GETCONFIG:
+		status = mproc_ioctl_get_config(uarg);
+		break;
+
+	case CMD_MULTIPROC_SETLOCALID:
+		status = multiproc_ioctl_set_local_id(uarg);
 		break;
 
 	default:
 		WARN_ON(cmd);
-		retval = -ENOTTY;
+		status = -ENOTTY;
 		break;
 	}
 
+	/* Copy the full args to the user-side. */
+	size = copy_to_user(uarg, &cargs, sizeof(struct multiproc_cmd_args));
+	if (size) {
+		status = -EFAULT;
+		goto exit;
+	}
+
 exit:
-	return retval;
+	return status;
+
 }
 

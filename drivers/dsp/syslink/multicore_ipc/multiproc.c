@@ -26,36 +26,112 @@
 /* Standard headers */
 #include <linux/types.h>
 #include <linux/module.h>
-
+#include <syslink/atomic_linux.h>
 /* Utilities headers */
 #include <linux/string.h>
 
 /* Module level headers */
 #include <multiproc.h>
 
-#define MULTIPROC_MAXPROCESSORS   4
-/*
- *  Local processor's id. It has to be set before any module init.
- */
+/* Macro to make a correct module magic number with ref_count */
+#define MULTIPROC_MAKE_MAGICSTAMP(x) ((MULTIPROC_MODULEID << 12u) | (x))
 
+/*
+ *  multiproc module state object
+ */
 struct multiproc_module_object {
-	u16 local_id;
+	struct multiproc_config cfg; /*  Module configuration structure */
+	struct multiproc_config def_cfg; /* Default module configuration */
+	atomic_t ref_count; /* Reference count */
 };
 
-/*  TDO:Add these back to the StateObject and configure them during Driver
-  *  bootup using a Module_Init function.
+static struct multiproc_module_object multiproc_state;
+
+
+/*
+ * ======== multiproc_get_config ========
+ *  Purpose:
+ *  This will get the default configuration for the multiproc module
  */
-static char modena[32] = "MPU";
-static char tesla[32] = "Tesla";
-static char sysm3[32] = "SysM3";
-static char appm3[32] = "AppM3";
+void multiproc_get_config(struct multiproc_config *cfg)
+{
+	BUG_ON(cfg == NULL);
+	if (atomic_cmpmask_and_lt(
+			&(multiproc_state.ref_count),
+			MULTIPROC_MAKE_MAGICSTAMP(0),
+			MULTIPROC_MAKE_MAGICSTAMP(1)) == true) {
+			/* (If setup has not yet been called) */
+		memcpy(cfg, &multiproc_state.def_cfg,
+				sizeof(struct multiproc_config));
+	} else {
+		memcpy(cfg, &multiproc_state.cfg,
+				sizeof(struct multiproc_config));
+	}
+}
+EXPORT_SYMBOL(multiproc_get_config);
 
-static struct multiproc_module_object multiproc_local_state
-				= { MULTIPROC_INVALIDID };
-static struct multiproc_module_object *module = &multiproc_local_state;
-static char *multiproc_namelist[] = { modena, tesla, sysm3, appm3 };
+/*
+ * ======== multiproc_setup ========
+ *  Purpose:
+ *  This function sets up the multiproc module. This function
+ *  must be called before any other instance-level APIs can be
+ *  invoked
+ */
+s32 multiproc_setup(struct multiproc_config *cfg)
+{
+	s32	status = 0;
+	struct multiproc_config tmp_cfg;
 
+	/* This sets the ref_count variable is not initialized, upper 16 bits is
+	* written with module Id to ensure correctness of ref_count variable.
+	*/
+	atomic_cmpmask_and_set(&multiproc_state.ref_count,
+				MULTIPROC_MAKE_MAGICSTAMP(0),
+				MULTIPROC_MAKE_MAGICSTAMP(0));
 
+	if (atomic_inc_return(&multiproc_state.ref_count)
+					!= MULTIPROC_MAKE_MAGICSTAMP(1u)) {
+		status = -EEXIST;
+	} else {
+		if (cfg == NULL) {
+			multiproc_get_config(&tmp_cfg);
+			cfg = &tmp_cfg;
+		}
+
+		memcpy(&multiproc_state.cfg, cfg,
+				sizeof(struct multiproc_config));
+	}
+
+	return status;
+}
+EXPORT_SYMBOL(multiproc_setup);
+
+/*
+ * ======== multiproc_setup ========
+ *  Purpose:
+ *  This function destroy the multiproc module.
+ *  Once this function is called, other multiproc module APIs,
+ *  except for the multiproc_get_config API cannot be called
+ *  anymore.
+ */
+s32 multiproc_destroy(void)
+{
+	int status = 0;
+
+	if (atomic_cmpmask_and_lt(
+			&(multiproc_state.ref_count),
+			MULTIPROC_MAKE_MAGICSTAMP(0),
+			MULTIPROC_MAKE_MAGICSTAMP(1)) == true) {
+		status = -ENODEV;
+		goto exit;
+	}
+
+	atomic_dec_return(&multiproc_state.ref_count);
+
+exit:
+	return status;
+}
+EXPORT_SYMBOL(multiproc_destroy);
 
 /*
  * ======== multiProc_set_local_id ========
@@ -66,38 +142,56 @@ int multiproc_set_local_id(u16 proc_id)
 {
 	int status = 0;
 
-	if (proc_id >= MULTIPROC_MAXPROCESSORS)
-		status = -EINVAL;
-	else
-		module->local_id = proc_id;
+	if (WARN_ON(atomic_cmpmask_and_lt(
+			&(multiproc_state.ref_count),
+			MULTIPROC_MAKE_MAGICSTAMP(0),
+			MULTIPROC_MAKE_MAGICSTAMP(1)) == true)) {
+		status = -ENODEV;
+		goto exit;
+	}
 
+	if (WARN_ON(proc_id >= MULTIPROC_MAXPROCESSORS)) {
+		status = -EINVAL;
+		goto exit;
+	}
+
+	multiproc_state.cfg.id = proc_id;
+
+exit:
 	return status;
 }
 EXPORT_SYMBOL(multiproc_set_local_id);
 
 /*
- * ======== multiProc_set_local_id ========
+ * ======== multiProc_get_local_id ========
  *  Purpose:
  *  This will get the processor id from proccessor name
  */
 u16 multiproc_get_id(const char *proc_name)
 {
 	s32 i;
-	u16  proc_id = MULTIPROC_INVALIDID;
+	u16 proc_id = MULTIPROC_INVALIDID;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(
+			&(multiproc_state.ref_count),
+			MULTIPROC_MAKE_MAGICSTAMP(0),
+			MULTIPROC_MAKE_MAGICSTAMP(1)) == true))
+		goto exit;
 
 	/* If the name is NULL, just return the local id */
-	if (proc_name == NULL) {
-		proc_id = module->local_id;
-	} else {
-		for (i = 0; i < MULTIPROC_MAXPROCESSORS; i++) {
-			if ((multiproc_namelist[i] != NULL) &&
-					(strcmp(proc_name,
-					multiproc_namelist[i]) == 0)) {
+	if (proc_name == NULL)
+		proc_id = multiproc_state.cfg.id;
+	else {
+		for (i = 0; i < multiproc_state.cfg.max_processors ; i++) {
+			if (strcmp(proc_name,
+				&multiproc_state.cfg.name_list[i][0]) == 0) {
 				proc_id = i;
 				break;
 			}
 		}
 	}
+
+exit:
 	return proc_id;
 }
 EXPORT_SYMBOL(multiproc_get_id);
@@ -111,12 +205,19 @@ char *multiproc_get_name(u16 proc_id)
 {
 	char *proc_name = NULL;
 
-	if (proc_id >= MULTIPROC_MAXPROCESSORS)
-		goto end;
+	/* On error condition return NULL pointer, else entry from name list */
+	if (WARN_ON(atomic_cmpmask_and_lt(
+			&(multiproc_state.ref_count),
+			MULTIPROC_MAKE_MAGICSTAMP(0),
+			MULTIPROC_MAKE_MAGICSTAMP(1)) == true))
+		goto exit;
 
-	proc_name = multiproc_namelist[proc_id];
+	if (WARN_ON(proc_id >= MULTIPROC_MAXPROCESSORS))
+		goto exit;
 
-end:
+	proc_name = multiproc_state.cfg.name_list[proc_id];
+
+exit:
 	return proc_name;
 }
 EXPORT_SYMBOL(multiproc_get_name);
@@ -128,7 +229,8 @@ EXPORT_SYMBOL(multiproc_get_name);
  */
 u16 multiproc_get_max_processors(void)
 {
-	u16 proc_id = MULTIPROC_MAXPROCESSORS;
-	return proc_id;
+	return multiproc_state.cfg.max_processors;
+
 }
 EXPORT_SYMBOL(multiproc_get_max_processors);
+

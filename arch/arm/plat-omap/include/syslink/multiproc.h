@@ -1,7 +1,7 @@
 /*
 * multiproc.h
 *
-* Many multi-processor modules have the concept of processor id. MultiProc
+* Many multi-processor modules have the concept of processor id. multiproc
 * centeralizes the processor id management.
 *
 * Copyright (C) 2008-2009 Texas Instruments, Inc.
@@ -21,8 +21,13 @@
 
 #include <linux/types.h>
 
+/*
+ *  Unique module ID
+ */
+#define MULTIPROC_MODULEID		(u16)0xB522
+
 /* Macro to define invalid processor id */
-#define MULTIPROC_INVALIDID ((u16)0xFFFF)
+#define MULTIPROC_INVALIDID		((u16)0xFFFF)
 
 /*
  *  Maximum number of processors in the system
@@ -30,11 +35,37 @@
  */
 #define MULTIPROC_MAXPROCESSORS 4
 
+/*
+ *  Max name length for a processor name
+ */
+#define MULTIPROC_MAXNAMELENGTH 32
+
+/*
+ *  Configuration structure for multiproc module
+ */
+struct multiproc_config {
+	s32 max_processors; /* Max number of procs for particular system */
+	char name_list[MULTIPROC_MAXPROCESSORS][MULTIPROC_MAXNAMELENGTH];
+	/* Name List for processors in the system */
+	u16 id; /* Local Proc ID. This needs to be set before calling any
+			other APIs */
+};
+
 /* =============================================================================
  *  APIs
  * =============================================================================
  */
-/* Function to set Local processor Id */
+
+/* Function to get the default configuration for the multiproc module. */
+void multiproc_get_config(struct multiproc_config *cfg);
+
+/* Function to setup the multiproc Module */
+s32 multiproc_setup(struct multiproc_config *cfg);
+
+/* Function to destroy the multiproc module */
+s32 multiproc_destroy(void);
+
+/* Function to set local processor Id */
 int multiproc_set_local_id(u16 proc_id);
 
 /* Function to get processor id from processor name. */

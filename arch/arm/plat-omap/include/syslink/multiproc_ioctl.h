@@ -25,56 +25,63 @@
 #include <multiproc.h>
 
 enum CMD_MULTIPROC {
-	MULTIPROC_GETID = MULTIPROC_BASE_CMD,
-	MULTIPROC_GETNAME,
-	MULTIPROC_GETMAXID,
+	MULTIPROC_SETUP = MULTIPROC_BASE_CMD,
+	MULTIPROC_DESTROY,
+	MULTIPROC_GETCONFIG,
+	MULTIPROC_SETLOCALID
 };
 
-/*
- *  Command for multiproc_get_id
+/*  ----------------------------------------------------------------------------
+ *  IOCTL command IDs for MultiProc
+ *  ----------------------------------------------------------------------------
  */
-#define CMD_MULTIPROC_GETID	_IOWR(IPC_IOC_MAGIC, MULTIPROC_GETID,          \
+
+/*
+ *  Command for multiproc_setup
+ */
+#define CMD_MULTIPROC_SETUP	_IOWR(IPC_IOC_MAGIC, MULTIPROC_SETUP,          \
 				struct multiproc_cmd_args)
 
 /*
- *  Command for multiproc_get_name
+ *  Command for multiproc_destroy
  */
-#define CMD_MULTIPROC_GETNAME	_IOWR(IPC_IOC_MAGIC, MULTIPROC_GETNAME,        \
+#define CMD_MULTIPROC_DESTROY	_IOWR(IPC_IOC_MAGIC, MULTIPROC_DESTROY,        \
 				struct multiproc_cmd_args)
 
 /*
- *  Command for multiproc_get_max_processors
+ *  Command for multiproc_get_config
  */
-#define CMD_MULTIPROC_GETMAXID _IOWR(IPC_IOC_MAGIC, MULTIPROC_GETMAXID,        \
+#define CMD_MULTIPROC_GETCONFIG _IOWR(IPC_IOC_MAGIC, MULTIPROC_GETCONFIG,      \
 				struct multiproc_cmd_args)
 
+/*
+ *  Command for multiproc_set_local_id
+ */
+#define CMD_MULTIPROC_SETLOCALID _IOWR(IPC_IOC_MAGIC, MULTIPROC_SETLOCALID,    \
+				struct multiproc_cmd_args)
 
 /*
  *  Command arguments for multiproc
  */
 union multiproc_arg {
+	struct {
+		struct multiproc_config *config;
+	} get_config;
 
 	struct {
-		u16 *proc_id;
-		char *name;
-		u32 name_len;
-	} get_id;
+		struct multiproc_config *config;
+	} setup;
 
 	struct {
-		u16 proc_id;
-		char *name;
-	} get_name;
-
-	struct {
-		u16 *max_id;
-	} get_max_id;
+		u16 id;
+	} set_local_id;
 };
 
 /*
  *  Command arguments for multiproc
  */
 struct multiproc_cmd_args {
-	union multiproc_arg cmd_arg;
+	union multiproc_arg args;
 	s32 api_status;
 };
 
