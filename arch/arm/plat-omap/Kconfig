@@ -163,7 +163,8 @@ config OMAP_MBOX_FWK
 	  DSP, IVA1.0 and IVA2 in OMAP1/2/3.
 
 config OMAP_IOMMU
-	tristate
+	tristate "iommu"
+	depends on ARCH_OMAP
 
 config OMAP_IOMMU_DEBUG
 	depends on OMAP_IOMMU
