@@ -30,10 +30,6 @@
 #include <nameserver_remotenotify.h>
 #include <notify.h>
 
-
-#define NAMESERVER_APPLICATION 	"Nameserver_Application"
-#define NAMESERVER_MODULES 	"Nameserver_Modules"
-
 /*
  *  Cache line length
  *  TODO: Short-term hack. Make parameter or figure out some other way!
@@ -52,19 +48,6 @@ struct nameserver_remotenotify_module_object {
 };
 
 /*
- *  Namseserver remote transport state object definition
- */
-struct nameserver_remotenotify_slave_info {
-	int *nd_handle; /* List of notify driver handles for each slave */
-	int *sem_handle; /* Handle to the semaphore */
-	int *gate_handle; /* Slave transport Gate handle */
-	char *name; /* Pointer to the name sent from other side */
-	int *value; /* Pointer to the value sent from other side */
-	u32 name_len; /* Length of name pointer */
-	u32 value_len; /* Length of value pointer */
-};
-
-/*
  *  NameServer remote transport state attributes
  */
 struct nameserver_remotenotify_attrs {
@@ -73,6 +56,8 @@ struct nameserver_remotenotify_attrs {
 	u32 shared_addr_size;
 };
 
+#define MAX_VALUE_LEN 300 /* This should be actually sync with
+			nameserver value or user configured value */
 /*
  *  NameServer remote transport packet definition
  */
@@ -84,7 +69,8 @@ struct nameserver_remotenotify_message {
 	u32 value;
 	u32 value_len;
 	char instance_name[32];
-	char name[72];
+	char name[32];
+	char value_buf[MAX_VALUE_LEN];
 };
 
 /*
@@ -105,7 +91,7 @@ struct nameserver_remotenotify_obj {
 struct nameserver_remotenotify_object {
 	int (*get)(void *,
 		const char *instance_name, const char *name,
-		u8 *value, u32 value_len, void *reserved);
+		void *value, u32 value_len, void *reserved);
 	void *obj; /* Implementation specific object */
 };
 
@@ -116,7 +102,7 @@ static struct nameserver_remotenotify_module_object
 				nameserver_remotenotify_state = {
 	.is_setup = false,
 	.gate_handle = NULL,
-	.def_cfg.gate_handle = NULL,
+	.def_cfg.reserved = 0,
 	.def_inst_params.gate = NULL,
 	.def_inst_params.shared_addr = 0x0,
 	.def_inst_params.shared_addr_size = 0x0,
@@ -138,10 +124,7 @@ static struct nameserver_remotenotify_module_object
 void nameserver_remotenotify_get_config(
 			struct nameserver_remotenotify_config *cfg)
 {
-	gt_1trace(nameserver_remotenotify_mask, GT_ENTER,
-		"nameserver_remotenotify_get_config:\n cfg: %x\n", cfg);
 	BUG_ON(cfg == NULL);
-
 	if (nameserver_remotenotify_state.is_setup == false)
 		memcpy(cfg, &(nameserver_remotenotify_state.def_cfg),
 			sizeof(struct nameserver_remotenotify_config));
@@ -176,28 +159,21 @@ int nameserver_remotenotify_setup(
 	struct mutex *lock = NULL;
 	bool user_cfg = true;
 
-	gt_1trace(nameserver_remotenotify_mask, GT_ENTER,
-		"nameserver_remotenotify_setup:\n cfg: %x\n", cfg);
-
 	if (cfg == NULL) {
 		nameserver_remotenotify_get_config(&tmp_cfg);
 		cfg = &tmp_cfg;
 		user_cfg = false;
 	}
 
-	if (cfg->gate_handle != NULL)
-		nameserver_remotenotify_state.gate_handle = cfg->gate_handle;
-	else {
-		lock = kmalloc(sizeof(struct mutex), GFP_KERNEL);
-		if (lock == NULL) {
-			retval = -ENOMEM;
-			goto exit;
-		}
-
-		mutex_init(lock);
-		nameserver_remotenotify_state.gate_handle = lock;
+	/* Create a default gate handle for local module protection */
+	lock = kmalloc(sizeof(struct mutex), GFP_KERNEL);
+	if (lock == NULL) {
+		retval = -ENOMEM;
+		goto exit;
 	}
 
+	mutex_init(lock);
+	nameserver_remotenotify_state.gate_handle = lock;
 	if (user_cfg)
 		memcpy(&nameserver_remotenotify_state.cfg,  cfg,
 			sizeof(struct nameserver_remotenotify_config));
@@ -218,14 +194,9 @@ exit:
  */
 int nameserver_remotenotify_destroy(void)
 {
-	gt_0trace(nameserver_remotenotify_mask, GT_ENTER,
-		"nameserver_remotenotify_destroy:\n");
 
-	/* Check if the gate_handle was created internally. */
-	if (nameserver_remotenotify_state.cfg.gate_handle == NULL) {
-		if (nameserver_remotenotify_state.gate_handle != NULL)
-			kfree(nameserver_remotenotify_state.gate_handle);
-	}
+	if (nameserver_remotenotify_state.gate_handle != NULL)
+		kfree(nameserver_remotenotify_state.gate_handle);
 
 	nameserver_remotenotify_state.is_setup = false;
 	return 0;
@@ -242,11 +213,7 @@ void nameserver_remotenotify_params_init(void *handle,
 	struct nameserver_remotenotify_object *object = NULL;
 	struct nameserver_remotenotify_obj *obj = NULL;
 
-	gt_2trace(nameserver_remotenotify_mask, GT_ENTER,
-		"nameserver_remotenotify_params_init:\n"
-		" handle: %x, params: %x\n", handle, params);
 	BUG_ON(params == NULL);
-
 	object = (struct nameserver_remotenotify_object *)handle;
 	if (handle == NULL)
 		memcpy(params,
@@ -275,11 +242,14 @@ void nameserver_remotenotify_callback(u16 proc_id, u32 event_no,
 	u32 proc_count;
 	u16  offset = 0;
 	void *nshandle = NULL;
-	u32 value;
+	char value[MAX_VALUE_LEN] = { 0 }; /* To take care of value len > 4,
+					do we need to make it  global? */
 	u32 key;
 	s32 retval = 0;
 
-	BUG_ON(arg == NULL);
+	if (WARN_ON(arg == NULL))
+		return;
+
 	proc_count = multiproc_get_max_processors();
 	if (WARN_ON(proc_id >= proc_count))
 		return;
@@ -301,10 +271,15 @@ void nameserver_remotenotify_callback(u16 proc_id, u32 event_no,
 				handle->msg[1 - offset]->value_len);
 
 	key = gatepeterson_enter(handle->params.gate);
-	/* If retval != 0 then an entry was found */
+	/* If retval > 0 then an entry found */
 	if (retval > 0) {
 		handle->msg[1 - offset]->request_status = true;
-		handle->msg[1 - offset]->value = value;
+		if (handle->msg[1 - offset]->value_len == sizeof(u32))
+			memcpy(&(handle->msg[1 - offset]->value), &value,
+				sizeof(u32));
+		else
+			memcpy(&(handle->msg[1 - offset]->value_buf), &value,
+					handle->msg[1 - offset]->value_len);
 	}
 	/* Send a response back */
 	handle->msg[1 - offset]->response = true;
@@ -332,7 +307,7 @@ exit:
  */
 int nameserver_remotenotify_get(void *rhandle,
 				const char *instance_name, const char *name,
-				u8 *value, u32 value_len, void *reserved)
+				void *value, u32 value_len, void *reserved)
 {
 	struct nameserver_remotenotify_object *handle = NULL;
 	struct nameserver_remotenotify_obj *obj = NULL;
@@ -341,11 +316,6 @@ int nameserver_remotenotify_get(void *rhandle,
 	u32 key;
 	s32 retval = 0;
 
-	gt_5trace(nameserver_remotenotify_mask, GT_6CLASS,
-		"nameserver_remotenotify_get:\n instance_name: %s,\n"
-		" name: %s,\n handle = %x, value:"
-		" %x,\n value_len: %x \n", instance_name, name, rhandle,
-		value, value_len);
 	BUG_ON(instance_name == NULL);
 	BUG_ON(name == NULL);
 	BUG_ON(value == NULL);
@@ -371,7 +341,7 @@ int nameserver_remotenotify_get(void *rhandle,
 	obj->msg[offset]->response = 0;
 	obj->msg[offset]->request_status = 0;
 	obj->msg[offset]->value_len = value_len;
-	len = strlen(instance_name);
+	len = strlen(instance_name) + 1; /* Take termination null char */
 	strncpy(obj->msg[offset]->instance_name, instance_name, len);
 	len = strlen(name);
 	strncpy(obj->msg[offset]->name, name, len);
@@ -380,8 +350,8 @@ int nameserver_remotenotify_get(void *rhandle,
 	retval = notify_sendevent(obj->params.notify_driver,
 			obj->remote_proc_id,
 			obj->params.notify_event_no,
-			0,
-			true);
+			0, /* Payload */
+			false); /* Not sending a payload */
 	if (retval < 0)
 		goto notify_error;
 
@@ -405,14 +375,13 @@ int nameserver_remotenotify_get(void *rhandle,
 			sizeof(u32));
 	else
 		memcpy((void *)value,
-			(void *)&(obj->msg[offset]->value),
+			(void *)&(obj->msg[offset]->value_buf),
 			value_len);
 
 	obj->msg[offset]->request_status = false;
 	obj->msg[offset]->request = 0;
 	obj->msg[offset]->response = 0;
-	gatepeterson_leave(obj->params.gate, key);
-	return 0;
+	retval = value_len;
 
 notify_error:
 	gatepeterson_leave(obj->params.gate, key);
@@ -429,8 +398,6 @@ exit:
 int nameServer_remote_notify_params_init(
 			struct nameserver_remotenotify_params *params)
 {
-	gt_1trace(nameserver_remotenotify_mask, GT_ENTER,
-		"nameserver_remote_get_config:\n params: %x\n", params);
 	BUG_ON(params == NULL);
 
 	params->notify_event_no = 0;
@@ -456,14 +423,6 @@ void *nameserver_remotenotify_create(u16 proc_id,
 	u32 offset = 0;
 
 	BUG_ON(params == NULL);
-	gt_5trace(nameserver_remotenotify_mask, GT_6CLASS,
-		"nameserver_remotenotify_create:\n"
-		"params: %x, shared_addr: %x, \n"
-		"shared_addr_size: %x, notify_driver: %x,\n"
-		"proc_id: %x\n", params, params->shared_addr,
-		params->shared_addr_size, params->notify_driver,
-		proc_id);
-
 	if (WARN_ON(params->notify_driver == NULL ||
 		params->shared_addr == NULL ||
 		params->shared_addr_size == 0)) {
@@ -504,21 +463,19 @@ void *nameserver_remotenotify_create(u16 proc_id,
 					NAMESERVERREMOTENOTIFY_CACHESIZE);
 	obj->msg[1] = (struct nameserver_remotenotify_message *)
 					((u32)obj->msg[0] +
-					NAMESERVERREMOTENOTIFY_CACHESIZE);
+					sizeof(struct
+					nameserver_remotenotify_message));
 	/* Clear out self shared structures */
-	memset(obj->msg[offset], 0, NAMESERVERREMOTENOTIFY_CACHESIZE);
+	memset(obj->msg[offset], 0,
+			sizeof(struct nameserver_remotenotify_message));
 	memcpy(&obj->params, params,
 				sizeof(struct nameserver_remotenotify_params));
 	retval = notify_register_event(params->notify_driver, proc_id,
 					params->notify_event_no,
 					nameserver_remotenotify_callback,
 					(void *)obj);
-	if (retval < 0) {
-		gt_0trace(nameserver_remotenotify_mask, GT_6CLASS,
-			"nameserver_remotenotify_create: notify register"
-			"events failed!\n");
+	if (retval < 0)
 		goto notify_error;
-	}
 
 	retval = nameserver_register_remote_driver((void *)handle, proc_id);
 	obj->sem_handle = kmalloc(sizeof(struct semaphore), GFP_KERNEL);
@@ -528,7 +485,6 @@ void *nameserver_remotenotify_create(u16 proc_id,
 	}
 
 	sema_init(obj->sem_handle, 0);
-
 	/* its is at the end since its init state = unlocked? */
 	mutex_init(obj->local_gate);
 	return (void *)handle;
@@ -566,10 +522,7 @@ int nameserver_remotenotify_delete(void **rhandle)
 	s32 retval = 0;
 	struct mutex *gate = NULL;
 
-	gt_1trace(nameserver_remotenotify_mask, GT_ENTER,
-		"nameserver_remotenotify_delete:\n rhandle: %x\n", rhandle);
 	BUG_ON(rhandle == NULL);
-
 	if (WARN_ON(*rhandle == NULL)) {
 		retval = -EINVAL;
 		goto exit;
@@ -579,11 +532,8 @@ int nameserver_remotenotify_delete(void **rhandle)
 	obj = (struct nameserver_remotenotify_obj *)handle->obj;
 
 	retval = mutex_lock_interruptible(obj->local_gate);
-	if (retval) {
-		gt_0trace(nameserver_remotenotify_mask, GT_6CLASS,
-			"nameserver_remotenotify_delete: lock failed!\n");
+	if (retval)
 		goto exit;
-	}
 
 	retval = nameserver_unregister_remote_driver(obj->remote_proc_id);
 	/* Do we have to bug_on/warn_on oops here intead of exit ?*/
@@ -625,9 +575,6 @@ u32 nameserver_remotenotify_shared_memreq(const
 	/* params is not used- to remove warning. */
 	(void)params;
 
-	gt_1trace(nameserver_remotenotify_mask, GT_ENTER,
-		"nameserver_remotenotify_shared_memreq:\n"
-		" params: %x\n", params);
 	BUG_ON(params == NULL);
 	/*
 	 *  The attrs takes a Ipc_cacheSize plus 2 Message structs are required.

@@ -17,7 +17,6 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 
-#include <gt.h>
 #include <nameserver_remote.h>
 
 /*
@@ -31,20 +30,13 @@ int nameserver_remote_get(const struct nameserver_remote_object *handle,
 {
 	s32 retval = 0;
 
-
-	gt_0trace(ns_debugmask, GT_ENTER, "nameserver_remote_get\n");
-	if (handle == NULL || instance_name == NULL ||
-				name == NULL || value == NULL) {
-		gt_5trace(ns_debugmask, GT_6CLASS,
-			"nameserver_remote_get: invalid argument!\n"
-			"instance_name: %s,\n name: %s,\n"
-			"handle: %x, value: %x, value_len: %x\n",
-			instance_name, name, handle, value, value_len);
+	if (WARN_ON(instance_name == NULL)) {
 		retval = -EINVAL;
 		goto exit;
 	}
 
-	retval = handle->get(handle, instance_name, name, value, value_len);
+	retval = handle->get(handle, instance_name,
+						name, value, value_len, NULL);
 
 exit:
 	return retval;

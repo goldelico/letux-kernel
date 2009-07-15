@@ -22,6 +22,7 @@
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
+#include <syslink/atomic_linux.h>
 
 #include <nameserver.h>
 #include <multiproc.h>
@@ -103,6 +104,9 @@
  *
  */
 
+/* Macro to make a correct module magic number with refCount */
+#define NAMESERVER_MAKE_MAGICSTAMP(x) ((NAMESERVER_MODULEID << 12u) | (x))
+
 /*
  *  A name/value table entry
  */
@@ -135,6 +139,7 @@ struct nameserver_module_object {
 	struct list_head obj_list;
 	struct mutex *list_lock;
 	struct nameserver_remote_object **remote_handle_list;
+	atomic_t ref_count;
 };
 
 /*
@@ -224,6 +229,19 @@ int nameserver_setup(void)
 	s32 retval = 0;
 	u16 nr_procs = 0;
 
+	/* This sets the ref_count variable if not initialized, upper 16 bits is
+	*   written with module Id to ensure correctness of refCount variable
+	*/
+	atomic_cmpmask_and_set(&nameserver_state.ref_count,
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(0));
+
+	if (atomic_inc_return(&nameserver_state.ref_count)
+				!= NAMESERVER_MAKE_MAGICSTAMP(1)) {
+		retval = -EEXIST;
+		goto error;
+	}
+
 	nr_procs = multiproc_get_max_processors();
 	list = kmalloc(nr_procs * sizeof(struct nameserver_remote_object *),
 					GFP_KERNEL);
@@ -245,8 +263,8 @@ int nameserver_setup(void)
 	return 0;
 
 error:
-	printk(KERN_ERR "nameserver_setup failed, retval: %x\n", retval);
 	kfree(list);
+	printk(KERN_ERR "nameserver_setup failed, retval: %x\n", retval);
 	return retval;
 }
 EXPORT_SYMBOL(nameserver_setup);
@@ -260,6 +278,13 @@ int nameserver_destroy(void)
 {
 	s32 retval = 0;
 	struct mutex *lock = NULL;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(nameserver_state.ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto exit;
+    }
 
 	if (WARN_ON(nameserver_state.list_lock == NULL)) {
 		retval = -ENODEV;
@@ -782,8 +807,7 @@ error:
 	mutex_unlock(temp_obj->gate_handle);
 
 exit:
-	printk(KERN_ERR "nameserver_get_local failed status:%x \n",
-			retval);
+	printk(KERN_ERR "nameserver_get_local entry not found!\n");
 	return retval;
 }
 EXPORT_SYMBOL(nameserver_get_local);
@@ -824,10 +848,12 @@ int nameserver_get(void *handle, const char *name,
 			/* Skip current processor */
 			if (i == local_proc_id)
 				continue;
+
 			retval = nameserver_remote_get(
 				nameserver_state.remote_handle_list[i],
 				temp_obj->name,	name, buffer, length);
-			if (retval == 0) /* Got the value */
+			if (retval > 0 || ((retval < 0) &&
+				(retval != -ENOENT))) /* Got the value */
 				break;
 		}
 		goto exit;
@@ -848,7 +874,8 @@ int nameserver_get(void *handle, const char *name,
 			retval = nameserver_remote_get(
 				nameserver_state.remote_handle_list[proc_id[i]],
 				temp_obj->name,	name, buffer, length);
-			if (retval == 0)
+			if (retval > 0 || ((retval < 0) &&
+				(retval != -ENOENT))) /* Got the value */
 				break;
 		}
 	}

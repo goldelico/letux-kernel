@@ -24,6 +24,12 @@
 #include <linux/list.h>
 
 /*
+ *  NAMESERVER_MODULEID
+ *  Unique module ID
+ */
+#define NAMESERVER_MODULEID      (0xF414)
+
+/*
  *  Instance config-params object.
  */
 struct nameserver_params {

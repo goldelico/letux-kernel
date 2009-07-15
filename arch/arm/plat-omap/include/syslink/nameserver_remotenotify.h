@@ -22,12 +22,17 @@
 #include <linux/types.h>
 
 /*
+ *  NAMESERVERREMOTENOTIFY_MODULEID
+ *  Unique module ID
+ */
+#define NAMESERVERREMOTENOTIFY_MODULEID      (0x08FD)
+
+/*
  *  Module configuration structure
  */
 struct nameserver_remotenotify_config {
-	void *gate_handle;
-	/* Handle of gate to be used for local thread safety.
-	If provided as NULL, gate handle is created internally. */
+	u32 reserved;
+	/* Reserved value (not currently used) */
 };
 
 /*
@@ -82,7 +87,7 @@ int nameserver_remotenotify_delete(void **handle);
  */
 int nameserver_remotenotify_get(void *handle,
 				const char *instance_name, const char *name,
-				u8 *value, u32 value_len, void *reserved);
+				void *value, u32 value_len, void *reserved);
 
 /*
  *  Get the shared memory requirements for the nameserver_remotenotify
