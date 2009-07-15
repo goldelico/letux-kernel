@@ -20,18 +20,23 @@
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/slab.h>
+#include <syslink/atomic_linux.h>
 
 #include <gt.h>
 #include <multiproc.h>
 #include <nameserver.h>
 #include <sharedregion.h>
 
-#define SHAREDREGION_MAX_REGIONS_DEFAULT 	256
+/* Macro to make a correct module magic number with refCount */
+#define SHAREDREGION_MAKE_MAGICSTAMP(x)   ((SHAREDREGION_MODULEID << 16u) | (x))
+
+#define SHAREDREGION_MAX_REGIONS_DEFAULT  256
 
 /*
  *  Module state object
  */
-struct sharedregion_object {
+struct sharedregion_module_object {
+	atomic_t ref_count;   /* Reference count */
 	struct mutex *gate_handle;
 	struct sharedregion_info *table; /* Ptr to the table */
 	u32 bitOffset;  /* Index bit offset */
@@ -42,7 +47,7 @@ struct sharedregion_object {
 /*
  *  Shared region state object variable with default settings
  */
-static struct sharedregion_object sharedregion_state = {
+static struct sharedregion_module_object sharedregion_state = {
 	.cfg.heap_handle = NULL,
 	.cfg.gate_handle = NULL,
 	.cfg.max_regions = SHAREDREGION_MAX_REGIONS_DEFAULT
@@ -95,17 +100,30 @@ int sharedregion_setup(const struct sharedregion_config *config)
 	s32 retval = 0;
 	u16 proc_count;
 
+	/* This sets the refCount variable is not initialized, upper 16 bits is
+	* written with module Id to ensure correctness of refCount variable
+	*/
+	atomic_cmpmask_and_set(&sharedregion_state.ref_count,
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(0));
+
+	if (atomic_inc_return(&sharedregion_state.ref_count)
+				!= SHAREDREGION_MAKE_MAGICSTAMP(1)) {
+		retval = -EEXIST;
+		goto error;
+	}
+
 	if (config != NULL) {
 		if (WARN_ON(config->max_regions == 0)) {
 			retval = -EINVAL;
 			goto error;
 		}
 		memcpy(&sharedregion_state.cfg, config,
-					sizeof(struct sharedregion_config));
+				sizeof(struct sharedregion_config));
 	}
 
 	sharedregion_state.gate_handle = kmalloc(sizeof(struct mutex),
-								GFP_KERNEL);
+							GFP_KERNEL);
 	if (sharedregion_state.gate_handle == NULL)
 		goto gate_create_fail;
 
@@ -139,7 +157,8 @@ table_alloc_fail:
 	kfree(sharedregion_state.gate_handle);
 
 gate_create_fail:
-	memset(&sharedregion_state, 0, sizeof(struct sharedregion_object));
+	memset(&sharedregion_state, 0,
+		sizeof(struct sharedregion_module_object));
 	sharedregion_state.cfg.max_regions = SHAREDREGION_MAX_REGIONS_DEFAULT;
 
 error:
@@ -158,8 +177,16 @@ int sharedregion_destroy(void)
 	s32 retval = 0;
 	void *gate_handle = NULL;
 
-	if (WARN_ON(sharedregion_state.table == NULL)) {
+	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
 		retval = -ENODEV;
+		goto error;
+	}
+
+	if (!(atomic_dec_return(&sharedregion_state.ref_count)
+					== SHAREDREGION_MAKE_MAGICSTAMP(0))) {
+		retval = -EBUSY; /* Syslink is not handling this on 2.0.0.06 */
 		goto error;
 	}
 
@@ -169,7 +196,8 @@ int sharedregion_destroy(void)
 
 	kfree(sharedregion_state.table);
 	gate_handle = sharedregion_state.gate_handle; /* backup gate handle */
-	memset(&sharedregion_state, 0, sizeof(struct sharedregion_object));
+	memset(&sharedregion_state, 0,
+		sizeof(struct sharedregion_module_object));
 	sharedregion_state.cfg.max_regions = SHAREDREGION_MAX_REGIONS_DEFAULT;
 	mutex_unlock(gate_handle);
 	kfree(gate_handle);
@@ -196,7 +224,9 @@ int sharedregion_add(u32 index, void *base, u32 len)
 	u16 myproc_id;
 	bool overlap = false;
 
-	if (WARN_ON(sharedregion_state.table == NULL)) {
+	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
 		retval = -ENODEV;
 		goto error;
 	}
@@ -276,7 +306,9 @@ int sharedregion_remove(u32 index)
 	struct sharedregion_info *table = NULL;
 	s32 retval = 0;
 
-	if (WARN_ON(sharedregion_state.table == NULL)) {
+	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
 		retval = -ENODEV;
 		goto error;
 	}
@@ -318,7 +350,9 @@ int sharedregion_get_index(void *addr)
 	u16 myproc_id;
 	s32 retval = 0;
 
-	if (WARN_ON(sharedregion_state.table == NULL)) {
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
 		retval = -ENODEV;
 		goto exit;
 	}
@@ -369,8 +403,12 @@ void *sharedregion_get_ptr(u32 *srptr)
 	u16 myproc_id;
 	s32 retval = 0;
 
-	if (WARN_ON(sharedregion_state.table == NULL))
+	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
 		goto error;
+	}
 
 	if (srptr == SHAREDREGION_INVALIDSRPTR)
 		goto error;
@@ -410,8 +448,12 @@ u32 *sharedregion_get_srptr(void *addr, s32 index)
 	u32 myproc_id;
 	s32 retval = 0;
 
-	if (WARN_ON(sharedregion_state.table == NULL))
+	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
 		goto error;
+	}
 
 	if (WARN_ON(addr == NULL))
 		goto error;
@@ -453,7 +495,9 @@ int sharedregion_get_table_info(u32 index, u16 proc_id,
 	s32 retval = 0;
 
 	BUG_ON(info != NULL);
-	if (WARN_ON(sharedregion_state.table == NULL)) {
+	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
 		retval = -ENODEV;
 		goto error;
 	}
@@ -499,7 +543,9 @@ int sharedregion_set_table_info(u32 index, u16 proc_id,
 	s32 retval = 0;
 
 	BUG_ON(info != NULL);
-	if (WARN_ON(sharedregion_state.table == NULL)) {
+	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
 		retval = -ENODEV;
 		goto error;
 	}

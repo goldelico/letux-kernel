@@ -23,6 +23,12 @@
 #include <linux/types.h>
 
 /*
+ *  SHAREDREGION_MODULEID
+ *  Module ID for Shared region manager
+ */
+#define SHAREDREGION_MODULEID          (0x5D8A)
+
+/*
  *  Name of the reserved nameserver used for application
  */
 #define SHAREDREGION_NAMESERVER        "SHAREDREGION"

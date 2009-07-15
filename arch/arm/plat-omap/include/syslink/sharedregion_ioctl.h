@@ -119,6 +119,8 @@ union sharedregion_arg {
 
 	struct {
 	    struct sharedregion_config *config;
+	    struct sharedregion_config *default_cfg;
+	    struct sharedregion_info *table;
 	} setup;
 
 	struct {

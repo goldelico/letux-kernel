@@ -22,9 +22,17 @@
 #include <linux/bug.h>
 #include <linux/fs.h>
 
+#include <multiproc.h>
+
 #include <sharedregion.h>
 #include <sharedregion_ioctl.h>
 
+#define memory_translate(x, y)	  0 /* To avoid comp error, remove when
+					memory module is ready */
+#define Memory_XltFlags_Phys2Virt 0 /* To avoid comp error, remove when
+					memory module is ready */
+#define memoryos_translate(x, y) 	  0
+#define Memory_XltFlags_Virt2Phys 0
 
 /*
  * ======== sharedregion_ioctl_get_config ========
@@ -56,6 +64,12 @@ static int sharedregion_ioctl_get_config(struct sharedregion_cmd_args *cargs)
 static int sharedregion_ioctl_setup(struct sharedregion_cmd_args *cargs)
 {
 	struct sharedregion_config config;
+	struct sharedregion_config defaultcfg;
+	struct sharedregion_info info;
+	struct sharedregion_info *table;
+	u32 proc_count = 0;
+	u32 i;
+	u32	j;
 	s32 status = 0;
 	s32 size;
 
@@ -67,6 +81,41 @@ static int sharedregion_ioctl_setup(struct sharedregion_cmd_args *cargs)
 	}
 
 	cargs->api_status = sharedregion_setup(&config);
+	if (cargs->api_status != 0)
+		goto exit;
+
+	cargs->api_status = sharedregion_get_config(&defaultcfg);
+	size = copy_to_user(cargs->args.setup.default_cfg,
+			&defaultcfg,
+			sizeof(struct sharedregion_config));
+	if (size) {
+		status = -EFAULT;
+		goto exit;
+	}
+
+	proc_count = multiproc_get_max_processors();
+	table = cargs->args.setup.table;
+	for (i = 0; i < config.max_regions; i++) {
+		for (j = 0; j < (proc_count + 1); j++) {
+			sharedregion_get_table_info(i, j, &info);
+			if (info.is_valid == true) {
+				/* Convert kernel virtual address to physical
+				 * addresses */
+				info.base = memoryos_translate(info.base,
+						Memory_XltFlags_Virt2Phys);
+				size = copy_to_user((void *) (table
+						+ (j * config.max_regions)
+						+ i),
+						(void *) &info,
+						sizeof(
+						struct sharedregion_info));
+				if (size) {
+					status = -EFAULT;
+					goto exit;
+				} /* End of inner if */
+			} /* End of outer if */
+		} /* End of inner for loop */
+	}
 
 exit:
 	return status;
@@ -91,9 +140,10 @@ static int sharedregion_ioctl_destroy(
  */
 static int sharedregion_ioctl_add(struct sharedregion_cmd_args *cargs)
 {
+	u32 base = (u32)memory_translate(cargs->args.add.base,
+					Memory_XltFlags_Phys2Virt);
 	cargs->api_status = sharedregion_add(cargs->args.add.index,
-				cargs->args.add.base,
-				cargs->args.add.len);
+					(void *)base, cargs->args.add.len);
 	return 0;
 }
 
@@ -290,7 +340,7 @@ int sharedregion_ioctl(struct inode *inode, struct file *filp,
 		WARN_ON(cmd);
 		status = -ENOTTY;
 		break;
-    }
+	}
 
 
 	/* Copy the full args to the user-side. */
