@@ -1837,6 +1837,7 @@ static int vidioc_streamon(struct file *file, void *fh,
 {
 	struct omap_vout_device *vout = fh;
 	struct videobuf_queue *q = &vout->vbq;
+	unsigned int count ;
 	u32 addr = 0;
 	int r = 0;
 	int t;
@@ -1880,6 +1881,9 @@ static int vidioc_streamon(struct file *file, void *fh,
 	}
 	addr = (unsigned long) vout->queued_buf_addr[vout->cur_frm->i]
 	+ vout->cropped_offset;
+
+	count = vout->buffer_allocated;
+	omap_vout_vrfb_buffer_setup(vout, &count, 0);
 
 	omap_dispc_register_isr(omap_vout_isr, vout, OMAP_VOUT_IRQ_MASK);
 
