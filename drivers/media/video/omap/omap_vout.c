@@ -1936,7 +1936,12 @@ static int vidioc_streamoff(struct file *file, void *fh,
 
 				ovl->get_overlay_info(ovl, &info);
 				info.enabled = 0;
-				return ovl->set_overlay_info(ovl, &info);
+				r = ovl->set_overlay_info(ovl, &info);
+				if (r) {
+					printk(KERN_ERR VOUT_NAME "failed to \
+						update overlay info\n");
+					return r;
+				}
 			}
 		}
 
