@@ -367,6 +367,8 @@ DSP_STATUS DSPPeripheralClkCtrl(struct WMD_DEV_CONTEXT *pDevContext,
 	u32 dspPerClksBefore;
 	DSP_STATUS status = DSP_SOK;
 	DSP_STATUS status1 = DSP_SOK;
+	struct CFG_HOSTRES resources;
+	u32 value;
 
 	DBG_Trace(DBG_ENTER, "Entering DSPPeripheralClkCtrl \n");
 	dspPerClksBefore = pDevContext->uDspPerClks;
@@ -374,6 +376,13 @@ DSP_STATUS DSPPeripheralClkCtrl(struct WMD_DEV_CONTEXT *pDevContext,
 		  dspPerClksBefore);
 
 	extClk = (u32)*((u32 *)pArgs);
+
+	status = CFG_GetHostResources(
+			(struct CFG_DEVNODE *)DRV_GetFirstDevExtension(),
+			&resources);
+
+	if (DSP_FAILED(status))
+		return DSP_EFAIL;
 
 	DBG_Trace(DBG_LEVEL3, "DSPPeripheralClkCtrl : extClk+Cmd = 0x%x \n",
 		 extClk);
@@ -405,6 +414,17 @@ DSP_STATUS DSPPeripheralClkCtrl(struct WMD_DEV_CONTEXT *pDevContext,
 			 "DSPPeripheralClkCtrl : Disable CLK for \n");
 		status1 = CLK_Disable(BPWR_Clks[clkIdIndex].intClk);
 		status = CLK_Disable(BPWR_Clks[clkIdIndex].funClk);
+		if (BPWR_CLKID[clkIdIndex] == BPWR_MCBSP1) {
+			/* clear MCBSP1_CLKS, on McBSP1 OFF */
+			value = __raw_readl(resources.dwSysCtrlBase + 0x274);
+			value &= ~(1 << 2);
+			__raw_writel(value, resources.dwSysCtrlBase + 0x274);
+		} else if (BPWR_CLKID[clkIdIndex] == BPWR_MCBSP2) {
+			/* clear MCBSP2_CLKS, on McBSP2 OFF */
+			value = __raw_readl(resources.dwSysCtrlBase + 0x274);
+			value &= ~(1 << 6);
+			__raw_writel(value, resources.dwSysCtrlBase + 0x274);
+		}
 		DSPClkWakeupEventCtrl(BPWR_Clks[clkIdIndex].clkId, false);
 		if ((DSP_SUCCEEDED(status)) && (DSP_SUCCEEDED(status1))) {
 			(pDevContext->uDspPerClks) &=
@@ -419,6 +439,17 @@ DSP_STATUS DSPPeripheralClkCtrl(struct WMD_DEV_CONTEXT *pDevContext,
 			 "DSPPeripheralClkCtrl : Enable CLK for \n");
 		status1 = CLK_Enable(BPWR_Clks[clkIdIndex].intClk);
 		status = CLK_Enable(BPWR_Clks[clkIdIndex].funClk);
+		if (BPWR_CLKID[clkIdIndex] == BPWR_MCBSP1) {
+			/* set MCBSP1_CLKS, on McBSP1 ON */
+			value = __raw_readl(resources.dwSysCtrlBase + 0x274);
+			value |= 1 << 2;
+			__raw_writel(value, resources.dwSysCtrlBase + 0x274);
+		} else if (BPWR_CLKID[clkIdIndex] == BPWR_MCBSP2) {
+			/* set MCBSP2_CLKS, on McBSP2 ON */
+			value = __raw_readl(resources.dwSysCtrlBase + 0x274);
+			value |= 1 << 6;
+			__raw_writel(value, resources.dwSysCtrlBase + 0x274);
+		}
 		DSPClkWakeupEventCtrl(BPWR_Clks[clkIdIndex].clkId, true);
 		if ((DSP_SUCCEEDED(status)) && (DSP_SUCCEEDED(status1))) {
 			(pDevContext->uDspPerClks) |= (1 << clkIdIndex);
@@ -528,14 +559,34 @@ DSP_STATUS PostScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 DSP_STATUS DSP_PeripheralClocks_Disable(struct WMD_DEV_CONTEXT *pDevContext,
 					IN void *pArgs)
 {
-
 	u32 clkIdx;
 	DSP_STATUS status = DSP_SOK;
+	struct CFG_HOSTRES resources;
+	u32 value;
+
+	status = CFG_GetHostResources(
+			(struct CFG_DEVNODE *)DRV_GetFirstDevExtension(),
+			&resources);
 
 	for (clkIdx = 0; clkIdx < MBX_PM_MAX_RESOURCES; clkIdx++) {
 		if (((pDevContext->uDspPerClks) >> clkIdx) & 0x01) {
 			/* Disables the interface clock of the peripheral */
 			status = CLK_Disable(BPWR_Clks[clkIdx].intClk);
+			if (BPWR_CLKID[clkIdx] == BPWR_MCBSP1) {
+				/* clear MCBSP1_CLKS, on McBSP1 OFF */
+				value = __raw_readl(resources.dwSysCtrlBase
+								+ 0x274);
+				value &= ~(1 << 2);
+				__raw_writel(value, resources.dwSysCtrlBase
+								+ 0x274);
+			} else if (BPWR_CLKID[clkIdx] == BPWR_MCBSP2) {
+				/* clear MCBSP2_CLKS, on McBSP2 OFF */
+				value = __raw_readl(resources.dwSysCtrlBase
+								+ 0x274);
+				value &= ~(1 << 6);
+				__raw_writel(value, resources.dwSysCtrlBase
+								+ 0x274);
+			}
 			if (DSP_FAILED(status)) {
 				DBG_Trace(DBG_LEVEL7,
 					 "Failed to Enable the DSP Peripheral"
@@ -562,11 +613,31 @@ DSP_STATUS DSP_PeripheralClocks_Enable(struct WMD_DEV_CONTEXT *pDevContext,
 {
 	u32 clkIdx;
 	DSP_STATUS int_clk_status = DSP_EFAIL, fun_clk_status = DSP_EFAIL;
+	struct CFG_HOSTRES resources;
+	u32 value;
+
+	CFG_GetHostResources((struct CFG_DEVNODE *)DRV_GetFirstDevExtension(),
+			&resources);
 
 	for (clkIdx = 0; clkIdx < MBX_PM_MAX_RESOURCES; clkIdx++) {
 		if (((pDevContext->uDspPerClks) >> clkIdx) & 0x01) {
 			/* Enable the interface clock of the peripheral */
 			int_clk_status = CLK_Enable(BPWR_Clks[clkIdx].intClk);
+			if (BPWR_CLKID[clkIdx] == BPWR_MCBSP1) {
+				/* set MCBSP1_CLKS, on McBSP1 ON */
+				value = __raw_readl(resources.dwSysCtrlBase
+								+ 0x274);
+				value |= 1 << 2;
+				__raw_writel(value, resources.dwSysCtrlBase
+								+ 0x274);
+			} else if (BPWR_CLKID[clkIdx] == BPWR_MCBSP2) {
+				/* set MCBSP2_CLKS, on McBSP2 ON */
+				value = __raw_readl(resources.dwSysCtrlBase
+								+ 0x274);
+				value |= 1 << 6;
+				__raw_writel(value, resources.dwSysCtrlBase
+								+ 0x274);
+			}
 			/* Enable the functional clock of the periphearl */
 			fun_clk_status = CLK_Enable(BPWR_Clks[clkIdx].funClk);
 		}
