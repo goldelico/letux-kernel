@@ -44,7 +44,7 @@ struct proc_mgr_cmd_args {
 /*
  * Base command ID for ProcMgr
  */
-#define PROCMGR_BASE_CMD			0x0
+#define PROCMGR_BASE_CMD			0x100
 
 /*
  * Command for ProcMgr_getConfig
