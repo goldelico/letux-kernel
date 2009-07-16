@@ -163,51 +163,6 @@ static struct isp_reg isp_reg_list[] = {
 	{0, ISP_TOK_TERM, 0}
 };
 
-u32 isp_reg_readl(struct device *dev, enum isp_mem_resources isp_mmio_range,
-		  u32 reg_offset)
-{
-	struct isp_device *isp = dev_get_drvdata(dev);
-
-	return __raw_readl(isp->mmio_base[isp_mmio_range] + reg_offset);
-}
-EXPORT_SYMBOL(isp_reg_readl);
-
-void isp_reg_writel(struct device *dev, u32 reg_value,
-		    enum isp_mem_resources isp_mmio_range, u32 reg_offset)
-{
-	struct isp_device *isp = dev_get_drvdata(dev);
-
-	__raw_writel(reg_value, isp->mmio_base[isp_mmio_range] + reg_offset);
-}
-EXPORT_SYMBOL(isp_reg_writel);
-
-void isp_reg_and(struct device *dev, enum isp_mem_resources mmio_range, u32 reg,
-		 u32 and_bits)
-{
-	u32 v = isp_reg_readl(dev, mmio_range, reg);
-
-	isp_reg_writel(dev, v & and_bits, mmio_range, reg);
-}
-EXPORT_SYMBOL(isp_reg_and);
-
-void isp_reg_or(struct device *dev, enum isp_mem_resources mmio_range, u32 reg,
-		u32 or_bits)
-{
-	u32 v = isp_reg_readl(dev, mmio_range, reg);
-
-	isp_reg_writel(dev, v | or_bits, mmio_range, reg);
-}
-EXPORT_SYMBOL(isp_reg_or);
-
-void isp_reg_and_or(struct device *dev, enum isp_mem_resources mmio_range,
-		    u32 reg, u32 and_bits, u32 or_bits)
-{
-	u32 v = isp_reg_readl(dev, mmio_range, reg);
-
-	isp_reg_writel(dev, (v & and_bits) | or_bits, mmio_range, reg);
-}
-EXPORT_SYMBOL(isp_reg_and_or);
-
 void isp_flush(struct device *dev)
 {
 	isp_reg_writel(dev, 0, OMAP3_ISP_IOMEM_MAIN, ISP_REVISION);
