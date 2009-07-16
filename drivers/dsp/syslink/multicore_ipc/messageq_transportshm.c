@@ -24,7 +24,7 @@
 
 /* Syslink headers */
 #include <gt.h>
-
+#include <syslink/atomic_linux.h>
 /* Module level headers */
 #include <multiproc.h>
 #include <nameserver.h>
@@ -48,6 +48,12 @@
 /* messageq_transportshm Version. */
 #define MESSAGEQ_TRANSPORTSHM_VERSION	1
 
+/*!
+ *  @brief  Macro to make a correct module magic number with refCount
+ */
+#define MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(x)                                \
+				((MESSAGEQ_TRANSPORTSHM_MODULEID << 12u) | (x))
+
 /* =============================================================================
  * Structures & Enums
  * =============================================================================
@@ -57,14 +63,13 @@
  *           module specific information.
  */
 struct messageq_transportshm_moduleobject {
+	atomic_t ref_count;
 	struct messageq_transportshm_config cfg;
 	/*< messageq_transportshm configuration structure */
 	struct messageq_transportshm_config def_cfg;
 	/*< Default module configuration */
 	struct messageq_transportshm_params def_inst_params;
 	/*< Default instance parameters */
-	bool is_setup;
-	/*< Indicates whether the messageq_transportshm module is setup. */
 	void *gate_handle;
 	/*< Handle to the gate for local thread safety */
 };
@@ -73,8 +78,8 @@ struct messageq_transportshm_moduleobject {
  * Structure of attributes in shared memory
  */
 struct messageq_transportshm_attrs {
-	u32 version;
-	u32 flag;
+	volatile u32 version;
+	volatile u32 flag;
 };
 
 /*
@@ -82,13 +87,13 @@ struct messageq_transportshm_attrs {
  *  instances.
  */
 struct messageq_transportshm_object {
-	struct messageq_transportshm_attrs *attrs[2];
+	volatile struct messageq_transportshm_attrs *attrs[2];
 	/* Attributes for both processors */
 	void *my_listmp_handle;
 	/* List for this processor	*/
 	void *remote_listmp_handle;
 	/* List for remote processor	*/
-	int status;
+	volatile int status;
 	/* Current status		 */
 	int my_index;
 	/* 0 | 1			  */
@@ -104,6 +109,8 @@ struct messageq_transportshm_object {
 	/* Gate for critical regions	*/
 	struct messageq_transportshm_params params;
 	/* Instance specific parameters  */
+	u32 priority;
+	/*!<  Priority of messages supported by this transport */
 };
 
 /* =============================================================================
@@ -116,9 +123,8 @@ struct messageq_transportshm_object {
  * messageq_transportshm state object variable
  */
 static struct messageq_transportshm_moduleobject messageq_transportshm_state = {
-	.is_setup = false,
 	.gate_handle = NULL,
-	.def_cfg.gate_handle = NULL,
+	.def_cfg.reserved = 0,
 	.def_inst_params.gate = NULL,
 	.def_inst_params.shared_addr = 0x0,
 	.def_inst_params.shared_addr_size = 0x0,
@@ -166,7 +172,9 @@ void messageq_transportshm_get_config(
 	if (WARN_ON(cfg == NULL))
 		goto exit;
 
-	if (messageq_transportshm_state.is_setup == false) {
+	if (atomic_cmpmask_and_lt(&(messageq_transportshm_state.ref_count),
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0),
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(1)) == true) {
 		memcpy(cfg, &(messageq_transportshm_state.def_cfg),
 			sizeof(struct messageq_transportshm_config));
 	} else {
@@ -206,20 +214,27 @@ int messageq_transportshm_setup(struct messageq_transportshm_config *cfg)
 	gt_1trace(mqtshm_debugmask, GT_ENTER,
 			"messageq_transportshm_setup", cfg);
 
+	/* This sets the refCount variable is not initialized, upper 16 bits is
+	* written with module Id to ensure correctness of refCount variable.
+	*/
+    atomic_cmpmask_and_set(&messageq_transportshm_state.ref_count,
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0),
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0));
+
+	if (atomic_inc_return(&messageq_transportshm_state.ref_count)
+		!= MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(1u)) {
+		status = -EEXIST;;
+		goto exit;
+	}
+
 	if (cfg == NULL) {
 		messageq_transportshm_get_config(&tmpCfg);
 		cfg = &tmpCfg;
 	}
 
-	if (cfg->gate_handle != NULL) {
-		messageq_transportshm_state.gate_handle = cfg->gate_handle;
-	} else {
-		/* User has not provided any gate handle, so create a
-		default handle. */
-		messageq_transportshm_state.gate_handle = \
-			kmalloc(sizeof(struct mutex), GFP_KERNEL);
-		mutex_init(messageq_transportshm_state.gate_handle);
-	}
+	messageq_transportshm_state.gate_handle = \
+				kmalloc(sizeof(struct mutex), GFP_KERNEL);
+	mutex_init(messageq_transportshm_state.gate_handle);
 
 	if (messageq_transportshm_state.gate_handle == NULL) {
 		/* @retval MESSAGEQTRANSPORTSHM_E_FAIL Failed to create
@@ -230,13 +245,14 @@ int messageq_transportshm_setup(struct messageq_transportshm_config *cfg)
 				"messageq_transportshm_setup",
 				status,
 				"Failed to create GateMutex!");
+		atomic_set(&messageq_transportshm_state.ref_count,
+				MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0));
 		goto exit;
 	}
 
 	/* Copy the user provided values into the state object. */
 	memcpy(&messageq_transportshm_state.cfg, cfg,
 			sizeof(struct messageq_transportshm_config));
-	messageq_transportshm_state.is_setup = true;
 
 exit:
 	gt_1trace(mqtshm_debugmask, GT_LEAVE,
@@ -261,18 +277,26 @@ int messageq_transportshm_destroy(void)
 
 	gt_0trace(mqtshm_debugmask, GT_ENTER, "messageq_transportshm_destroy");
 
-	/* Check if the gate_handle was created internally. */
-	if (messageq_transportshm_state.cfg.gate_handle == NULL) {
+	if (WARN_ON(atomic_cmpmask_and_lt(
+			&(messageq_transportshm_state.ref_count),
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0),
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(1)) == true)) {
+		status = -ENODEV;
+		goto exit;
+	}
+
+	if (atomic_dec_return(&messageq_transportshm_state.ref_count)
+				== MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0)) {
 		if (messageq_transportshm_state.gate_handle != NULL) {
 			kfree(messageq_transportshm_state.gate_handle);
 			messageq_transportshm_state.gate_handle = NULL;
 		}
+		/* Decrease the ref_count */
+		atomic_set(&messageq_transportshm_state.ref_count,
+				MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0));
 	}
 
-	messageq_transportshm_state.is_setup = false;
-
-	gt_1trace(mqtshm_debugmask, GT_LEAVE,
-			"messageq_transportshm_destroy", status);
+exit:
 	return status;
 }
 
@@ -290,6 +314,12 @@ void messageq_transportshm_params_init(void *mqtshm_handle,
 	gt_2trace(mqtshm_debugmask, GT_ENTER,
 			"messageq_transportshm_params_init", mqtshm_handle,
 			params);
+
+	if (WARN_ON(atomic_cmpmask_and_lt(
+			&(messageq_transportshm_state.ref_count),
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0),
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(1)) == true))
+		goto exit;
 
 	BUG_ON(params == NULL);
 	if (WARN_ON(params == NULL)) {
@@ -337,10 +367,16 @@ void *messageq_transportshm_create(u16 proc_id,
 	int my_index;
 	int remote_index;
 	listmp_sharedmemory_params listmp_params[2];
-	u32 *volatile otherflag;
+	volatile u32 *otherflag;
 
 	gt_2trace(mqtshm_debugmask, GT_ENTER, "messageq_transportshm_create",
 			proc_id, params);
+
+	if (WARN_ON(atomic_cmpmask_and_lt(
+			&(messageq_transportshm_state.ref_count),
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0),
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(1)) == true))
+		goto exit;
 
 	BUG_ON(params == NULL);
 	if (WARN_ON(params == NULL)) {
@@ -398,6 +434,7 @@ void *messageq_transportshm_create(u16 proc_id,
 
 	handle->notify_driver = params->notify_driver;
 	handle->notify_event_no = params->notify_event_no;
+	handle->priority	  = params->priority;
 	handle->proc_id = proc_id;
 	handle->my_index = my_index;
 	handle->remote_index = remote_index;
@@ -424,8 +461,8 @@ void *messageq_transportshm_create(u16 proc_id,
 
 	handle->my_listmp_handle = listmp_sharedmemory_create
 					(&(listmp_params[my_index]));
-	handle->attrs[my_index]->flag = MESSAGEQ_TRANSPORTSHM_UP;
 	handle->attrs[my_index]->version = MESSAGEQ_TRANSPORTSHM_VERSION;
+	handle->attrs[my_index]->flag = MESSAGEQ_TRANSPORTSHM_UP;
 
 	/* Store in volatile to make sure it is not compiled out... */
 	otherflag = &(handle->attrs[remote_index]->flag);
@@ -442,7 +479,7 @@ void *messageq_transportshm_create(u16 proc_id,
 		gt_2trace(mqtshm_debugmask, GT_4CLASS,
 				"messageq_transportshm_create",
 				MESSAGEQ_TRANSPORTSHM_E_BADVERSION,
-				"Notify register failed!");
+				"Incorrect version of remote transport!");
 		goto exit;
 	}
 
@@ -495,6 +532,14 @@ int messageq_transportshm_delete(void **mqtshm_handleptr)
 
 	gt_1trace(mqtshm_debugmask, GT_ENTER, "messageq_transportshm_delete",
 			mqtshm_handleptr);
+
+	if (WARN_ON(atomic_cmpmask_and_lt(
+			&(messageq_transportshm_state.ref_count),
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0),
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(1)) == true)) {
+		status = -ENODEV;
+		goto exit;
+	}
 
 	BUG_ON(mqtshm_handleptr == NULL);
 	if (WARN_ON(mqtshm_handleptr == NULL)) {
@@ -575,9 +620,17 @@ int  messageq_transportshm_put(void *mqtshm_handle,
 
 	gt_2trace(mqtshm_debugmask, GT_ENTER, "messageq_transportshm_put",
 		obj, msg);
+	if (WARN_ON(atomic_cmpmask_and_lt(
+			&(messageq_transportshm_state.ref_count),
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0),
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(1)) == true)) {
+		status = -ENODEV;
+		goto exit;
+	}
 
+	BUG_ON(mqtshm_handle == NULL);
 	BUG_ON(msg == NULL);
-	BUG_ON(obj == NULL);
+
 	if (WARN_ON(msg == NULL)) {
 		status = -EINVAL;
 		goto exit;

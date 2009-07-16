@@ -144,9 +144,8 @@
  *  @brief  Module configuration structure.
  */
 struct  messageq_transportshm_config {
-	void *gate_handle;
-	/*!< Handle of gate to be used for local thread safety. If provided as
-	 NULL, gate handle is created internally. */
+	u32 reserved;
+	/*!< Reserved value */
 };
 
 /*!

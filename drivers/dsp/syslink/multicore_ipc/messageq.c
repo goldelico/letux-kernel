@@ -107,6 +107,7 @@
 /* Syslink Trace header */
 #include <gt.h>
 
+#include <syslink/atomic_linux.h>
 /* Module level headers */
 #include <nameserver.h>
 #include <multiproc.h>
@@ -115,6 +116,9 @@
 #include <messageq.h>
 /* #include <OsalSemaphore.h>*/
 
+
+/*! @brief Macro to make a correct module magic number with refCount */
+#define MESSAGEQ_MAKE_MAGICSTAMP(x) ((MESSAGEQ_MODULEID << 12u) | (x))
 
 /* =============================================================================
  * Globals
@@ -137,6 +141,8 @@
  */
 /* structure for MessageQ module state */
 struct messageq_module_object {
+	atomic_t ref_count;
+	/*!< Reference count */
 	void *ns_handle;
 	/*!< Handle to the local NameServer used for storing GP objects */
 	struct mutex *gate_handle;
@@ -257,7 +263,9 @@ void messageq_get_config(struct messageq_config *cfg)
 		goto exit;
 	}
 
-	if (messageq_state.ns_handle == NULL) {
+	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true) {
 		/* (If setup has not yet been called) */
 		memcpy(cfg, &messageq_state.default_cfg,
 			sizeof(struct messageq_config));
@@ -294,6 +302,18 @@ int messageq_setup(const struct messageq_config *cfg)
 	struct messageq_config tmpcfg;
 
 	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_setup", cfg);
+
+	/* This sets the ref_count variable is not initialized, upper 16 bits is
+	* written with module Id to ensure correctness of refCount variable.
+	*/
+	atomic_cmpmask_and_set(&messageq_state.ref_count,
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(0));
+	if (atomic_inc_return(&messageq_state.ref_count)
+				!= MESSAGEQ_MAKE_MAGICSTAMP(1)) {
+		status = -EEXIST;
+		goto exit;
+	}
 
 	if (cfg == NULL) {
 		messageq_get_config(&tmpcfg);
@@ -397,6 +417,9 @@ nameserver_create_fail:
 	messageq_state.can_free_queues = true;
 
 exit:
+	if (status < 0)
+		atomic_set(&messageq_state.ref_count,
+					MESSAGEQ_MAKE_MAGICSTAMP(0));
 	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_setup", status);
 	return status;
 }
@@ -413,6 +436,19 @@ int messageq_destroy(void)
 	u32 i;
 
 	gt_0trace(messageq_dbgmask, GT_ENTER, "messageq_destroy");
+
+	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true) {
+		status = -ENODEV;
+		goto exit;
+	}
+
+	if (!(atomic_dec_return(&messageq_state.ref_count)
+					== MESSAGEQ_MAKE_MAGICSTAMP(0))) {
+		status = -EBUSY;
+		goto exit;
+	}
 
 	if (WARN_ON(messageq_state.ns_handle == NULL)) {
 		status = -ENODEV;
@@ -451,6 +487,8 @@ int messageq_destroy(void)
 	messageq_state.num_queues = 0;
 	messageq_state.num_heaps = 1;
 	messageq_state.can_free_queues = true;
+	atomic_set(&messageq_state.ref_count,
+				MESSAGEQ_MAKE_MAGICSTAMP(0));
 
 exit:
 	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_destroy", status);
@@ -472,7 +510,11 @@ void messageq_params_init(void *messageq_handle,
 	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_params_init",
 			messageq_handle, params);
 
-	BUG_ON(params == NULL);
+	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)
+		goto exit;
+
 	if (WARN_ON(params == NULL)) {
 		/*! @retval None */
 		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_params_init",
@@ -517,7 +559,9 @@ void *messageq_create(char *name, const struct messageq_params *params)
 
 	BUG_ON(name == NULL);
 	BUG_ON(params == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
@@ -648,7 +692,9 @@ int messageq_delete(void **msg_handleptr)
 			*msg_handleptr);
 
 	BUG_ON(msg_handleptr == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
@@ -710,7 +756,9 @@ int messageq_open(char *name, u32 *queue_id)
 	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_open", name, queue_id);
 
 	BUG_ON(queue_id == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
@@ -719,11 +767,17 @@ int messageq_open(char *name, u32 *queue_id)
 		goto exit;
 	}
 
+	/* Initialize return queue ID to invalid. */
+	*queue_id = MESSAGEQ_INVALIDMESSAGEQ;
 	len = nameserver_get(messageq_state.ns_handle, name, queue_id,
 					sizeof(u32), NULL);
 	if (len < 0) {
-		/* Name not found */
-		status = MESSAGEQ_E_FAIL;
+		if (len == -ENOENT)
+			/* Name not found */
+			status = MESSAGEQ_E_NOTFOUND;
+		else
+			/* Any other error from nameserver */
+			status = len;
 	}
 
 exit:
@@ -742,13 +796,11 @@ void messageq_close(u32 *queue_id)
 	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_close", queue_id);
 
 	BUG_ON(queue_id == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDSTATE Module was not initialized*/
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_close",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(queue_id == NULL)) {
 		/*! @retval MESSAGEQ_E_INVALIDARG queue_id passed is null */
 		gt_2trace(messageq_dbgmask,
@@ -769,22 +821,27 @@ EXPORT_SYMBOL(messageq_close);
 /*
  *  ======== messageq_get ========
  */
-messageq_msg messageq_get(void *messageq_handle, u32 timeout)
+int messageq_get(void *messageq_handle, messageq_msg *msg,
+							u32 timeout)
 {
 	int status = 0;
-	messageq_msg msg = NULL;
 	struct messageq_object *obj = (struct messageq_object *)messageq_handle;
 	int key;
 
 	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get", obj);
 
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval NULL Module was not initialized */
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_count",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+					MESSAGEQ_MAKE_MAGICSTAMP(0),
+					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
+		status = -ENODEV;
 		goto exit;
 	}
+
+	if (WARN_ON(msg == NULL)) {
+		status = -EINVAL;
+		goto exit;
+	}
+
 	if (WARN_ON(obj == NULL)) {
 		/*! @retval NULL Invalid NULL obj pointer specified */
 		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_count",
@@ -797,20 +854,20 @@ messageq_msg messageq_get(void *messageq_handle, u32 timeout)
 	/* Take the local lock */
 	key = mutex_lock_interruptible(messageq_state.gate_handle);
 	if (!list_empty(&obj->high_list)) {
-		msg = (messageq_msg) (obj->high_list.next);
+		*msg = (messageq_msg) (obj->high_list.next);
 		list_del_init(obj->high_list.next);
 	}
 	/* Leave the local lock */
 	mutex_unlock(messageq_state.gate_handle);
-	while (msg == NULL) {
+	while (*msg == NULL) {
 		key = mutex_lock_interruptible(messageq_state.gate_handle);
 		if (!list_empty(&obj->normal_list)) {
-			msg = (messageq_msg) (obj->normal_list.next);
+			*msg = (messageq_msg) (obj->normal_list.next);
 			list_del_init(obj->normal_list.next);
 		}
 		mutex_unlock(messageq_state.gate_handle);
 
-		if (msg == NULL) {
+		if (*msg == NULL) {
 			/*
 			 *  Block until notified.  If pend times-out, no message
 			 *  should be returned to the caller
@@ -823,14 +880,14 @@ messageq_msg messageq_get(void *messageq_handle, u32 timeout)
 				status = down_timeout(obj->synchronizer,
 						msecs_to_jiffies(timeout));
 				if (status < 0) {
-					msg = NULL;
+					*msg = NULL;
 					break;
 				}
 			}
 			key = mutex_lock_interruptible(
 					messageq_state.gate_handle);
 			if (!list_empty(&obj->high_list)) {
-				msg = (messageq_msg) (obj->high_list.next);
+				*msg = (messageq_msg) (obj->high_list.next);
 				list_del_init(obj->high_list.next);
 			}
 			mutex_unlock(messageq_state.gate_handle);
@@ -839,7 +896,7 @@ messageq_msg messageq_get(void *messageq_handle, u32 timeout)
 
 exit:
 	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_get", msg);
-	return msg;
+	return status;
 }
 EXPORT_SYMBOL(messageq_get);
 
@@ -857,13 +914,11 @@ int messageq_count(void *messageq_handle)
 
 	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_count", obj);
 
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDSTATE Module was not initialized*/
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_count",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+					MESSAGEQ_MAKE_MAGICSTAMP(0),
+					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(obj == NULL)) {
 		/*! @retval MESSAGEQ_E_INVALIMSG obj passed is null */
 		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_count",
@@ -896,13 +951,11 @@ void messageq_static_msg_init(messageq_msg msg, u32 size)
 	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_static_msg_init",
 			msg, size);
 
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_static_msg_init",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+					MESSAGEQ_MAKE_MAGICSTAMP(0),
+					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(msg == NULL)) {
 		/*! @retval None */
 		gt_2trace(messageq_dbgmask, GT_4CLASS,
@@ -918,7 +971,7 @@ void messageq_static_msg_init(messageq_msg msg, u32 size)
 	msg->reply_id = (u16)MESSAGEQ_INVALIDMESSAGEQ;
 	msg->msg_id = MESSAGEQ_INVALIDMSGID;
 	msg->dst_id = (u16)MESSAGEQ_INVALIDMESSAGEQ;
-	msg->flags = 0x0;
+	msg->flags = MESSAGEQ_HEADERVERSION | MESSAGEQ_NORMALPRI;
 
 exit:
 	gt_0trace(messageq_dbgmask, GT_LEAVE, "messageq_static_msg_init");
@@ -939,13 +992,11 @@ messageq_msg messageq_alloc(u16 heap_id, u32 size)
 	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_alloc", heap_id, size);
 
 	BUG_ON(heap_id >= messageq_state.num_heaps);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval NULL Module was not initialized */
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_alloc",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+					MESSAGEQ_MAKE_MAGICSTAMP(0),
+					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(heap_id >= messageq_state.num_heaps)) {
 		/*! @retval NULL Heap id is invalid */
 		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_alloc",
@@ -971,7 +1022,7 @@ messageq_msg messageq_alloc(u16 heap_id, u32 size)
 		msg->reply_id = (u16)MESSAGEQ_INVALIDMESSAGEQ;
 		msg->dst_id = (u16)MESSAGEQ_INVALIDMESSAGEQ;
 		msg->msg_id = MESSAGEQ_INVALIDMSGID;
-		msg->flags = 0x0;
+		msg->flags = MESSAGEQ_HEADERVERSION | MESSAGEQ_NORMALPRI;
 	} else {
 		/*! @retval NULL Heap was not registered */
 		gt_2trace(messageq_dbgmask,
@@ -1000,10 +1051,13 @@ int messageq_free(messageq_msg msg)
 	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_free", msg);
 
 	BUG_ON(msg == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+					MESSAGEQ_MAKE_MAGICSTAMP(0),
+					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
 		status = -ENODEV;
 		goto exit;
 	}
+
 	if (WARN_ON(msg == NULL)) {
 		status = -EINVAL;
 		goto exit;
@@ -1053,7 +1107,9 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_put", queue_id, msg);
 
 	BUG_ON(msg == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+					MESSAGEQ_MAKE_MAGICSTAMP(0),
+					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
 		status = -ENODEV;
 		goto exit;
 	}
@@ -1076,9 +1132,16 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 			goto exit;
 		}
 
-		priority = (u32)((msg->flags) & MESSAGEQ_PRIORITYMASK);
+		priority = (u32)((msg->flags) & MESSAGEQ_TRANSPORTPRIORITYMASK);
 		/* Call the transport associated with this message queue */
 		transport = messageq_state.transports[dst_proc_id][priority];
+		if (transport == NULL) {
+			/* Try the other transport */
+			priority = !priority;
+			transport =
+			messageq_state.transports[dst_proc_id][priority];
+		}
+
 		if (transport != NULL)
 			status = messageq_transportshm_put(transport, msg);
 		else {
@@ -1133,7 +1196,9 @@ int  messageq_register_heap(void *heap_handle, u16 heap_id)
 
 	/* Make sure the heap_id is valid */
 	BUG_ON((heap_id >= messageq_state.num_heaps));
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
 		status = -ENODEV;
 		goto exit;
 	}
@@ -1179,10 +1244,13 @@ int  messageq_unregister_heap(u16 heap_id)
 
 	/* Make sure the heap_id is valid */
 	BUG_ON((heap_id >= messageq_state.num_heaps));
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
 		status = -ENODEV;
 		goto exit;
 	}
+
 	if (heap_id > messageq_state.num_heaps) {
 		/*! @retval MESSAGEQ_E_HEAPIDINVALID Invalid heap_id */
 		status = MESSAGEQ_E_HEAPIDINVALID;
@@ -1221,10 +1289,13 @@ int  messageq_register_transport(void *messageq_transportshm_handle,
 	BUG_ON(messageq_transportshm_handle == NULL);
 	/* Make sure the proc_id is valid */
 	BUG_ON((proc_id >= multiproc_get_max_processors()));
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
 		status = -ENODEV;
 		goto exit;
 	}
+
 	if (proc_id > multiproc_get_max_processors()) {
 		/*! @retval MESSAGEQ_E_PROCIDINVALID Invalid proc_id */
 		status = MESSAGEQ_E_PROCIDINVALID;
@@ -1270,10 +1341,13 @@ int  messageq_unregister_transport(u16 proc_id, u32 priority)
 
 	/* Make sure the proc_id is valid */
 	BUG_ON((proc_id >= multiproc_get_max_processors()));
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+					MESSAGEQ_MAKE_MAGICSTAMP(0),
+					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
 		status = -ENODEV;
 		goto exit;
 	}
+
 	if (proc_id > multiproc_get_max_processors()) {
 		/*! @retval MESSAGEQ_E_PROCIDINVALID Invalid proc_id */
 		status = MESSAGEQ_E_PROCIDINVALID;
@@ -1310,16 +1384,13 @@ void messageq_set_reply_queue(void *messageq_handle, messageq_msg msg)
 	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_set_reply_queue",
 			obj, msg);
 
-	BUG_ON(obj == NULL);
+	BUG_ON(messageq_handle == NULL);
 	BUG_ON(msg == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDSTATE Module was not initialized*/
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_set_reply_queue",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+					MESSAGEQ_MAKE_MAGICSTAMP(0),
+					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(msg == NULL)) {
 		/*! @retval MESSAGEQ_E_INVALIDARG hpHandle passed is null */
 		gt_2trace(messageq_dbgmask, GT_4CLASS,
@@ -1351,14 +1422,11 @@ u32 messageq_get_queue_id(void *messageq_handle)
 	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_queue_id", obj);
 
 	BUG_ON(obj == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDSTATE Module was not initialized*/
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_queue_id",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+					MESSAGEQ_MAKE_MAGICSTAMP(0),
+					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(obj == NULL)) {
 		/*! @retval MESSAGEQ_E_INVALIMSG obj passed is null */
 		gt_2trace(messageq_dbgmask, GT_4CLASS,
@@ -1391,14 +1459,11 @@ u16 messageq_get_proc_id(void *messageq_handle)
 	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_proc_id", obj);
 
 	BUG_ON(obj == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDSTATE Module was not initialized*/
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_proc_id",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(obj == NULL)) {
 		/*! @retval MESSAGEQ_E_INVALIMSG obj passed is null */
 		gt_2trace(messageq_dbgmask, GT_4CLASS,
@@ -1428,14 +1493,11 @@ u32 messageq_get_dst_queue(messageq_msg msg)
 	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_dst_queue", msg);
 
 	BUG_ON(msg == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDSTATE Module was not initialized*/
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_dst_queue",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(msg == NULL)) {
 		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
 		gt_2trace(messageq_dbgmask, GT_4CLASS,
@@ -1468,14 +1530,11 @@ u16 messageq_get_msg_id(messageq_msg msg)
 	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_msg_id", msg);
 
 	BUG_ON(msg == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDSTATE Module was not initialized*/
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_msg_id",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(msg == NULL)) {
 		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
 		gt_2trace(messageq_dbgmask, GT_4CLASS,
@@ -1505,14 +1564,11 @@ u32 messageq_get_msg_size(messageq_msg msg)
 	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_msg_size", msg);
 
 	BUG_ON(msg == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDSTATE Module was not initialized*/
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_msg_size",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(msg == NULL)) {
 		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
 		gt_2trace(messageq_dbgmask, GT_4CLASS,
@@ -1542,14 +1598,11 @@ u32 messageq_get_msg_pri(messageq_msg msg)
 	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_msg_pri", msg);
 
 	BUG_ON(msg == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDSTATE Module was not initialized*/
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_msg_pri",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(msg == NULL)) {
 		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
 		gt_2trace(messageq_dbgmask, GT_4CLASS,
@@ -1579,14 +1632,11 @@ u32 messageq_get_reply_queue(messageq_msg msg)
 	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_reply_queue", msg);
 
 	BUG_ON(msg == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDSTATE Module was not initialized*/
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_reply_queue",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(msg == NULL)) {
 		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
 		gt_2trace(messageq_dbgmask, GT_4CLASS,
@@ -1617,14 +1667,11 @@ void messageq_set_msg_id(messageq_msg msg, u16 msg_id)
 			msg, msg_id);
 
 	BUG_ON(msg == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDSTATE Module was not initialized*/
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_set_msg_id",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(msg == NULL)) {
 		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
 		gt_2trace(messageq_dbgmask, GT_4CLASS,
@@ -1653,14 +1700,11 @@ void messageq_set_msg_pri(messageq_msg msg, u32 priority)
 			msg, priority);
 
 	BUG_ON(msg == NULL);
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDSTATE Module was not initialized*/
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_set_msg_pri",
-				MESSAGEQ_E_INVALIDSTATE,
-				"Module was not initialized!");
+	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-	}
+
 	if (WARN_ON(msg == NULL)) {
 		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
 		gt_2trace(messageq_dbgmask, GT_4CLASS,
@@ -1712,7 +1756,7 @@ u16 _messageq_grow(struct messageq_object *obj)
 		/*! @retval Queue-index-greater-than-valid Growing the
 		MessageQ failed */
 		gt_2trace(messageq_dbgmask, GT_4CLASS, "_messageq_grow",
-				MESSAGEQ_E_FAIL,
+				MESSAGEQ_INVALIDMESSAGEQ,
 				"Growing the MessageQ failed!");
 		goto exit;
 	}

@@ -60,22 +60,24 @@ exit:
  */
 static inline int messageq_ioctl_get(struct messageq_cmd_args *cargs)
 {
-	messageq_msg msg;
+	messageq_msg msg = NULL;
 	u32 *msg_srptr = SHAREDREGION_INVALIDSRPTR;
 	int index;
 
-	msg = messageq_get(cargs->args.get.messageq_handle,
-				cargs->args.get.timeout);
-	if (unlikely(msg == NULL))
+	cargs->api_status = messageq_get(cargs->args.get.messageq_handle,
+					&msg,
+					cargs->args.get.timeout);
+	if (unlikely(cargs->api_status < 0))
 		goto exit;
 
 	index = sharedregion_get_index(msg);
-	if (unlikely(index < 0))
+	if (unlikely(index < 0)) {
+		cargs->api_status = index;
 		goto exit;
+	}
 
 	msg_srptr = sharedregion_get_srptr(msg, index);
 
-	cargs->api_status = 0;
 exit:
 	cargs->args.get.msg_srptr = msg_srptr;
 	return 0;

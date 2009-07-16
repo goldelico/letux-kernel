@@ -119,6 +119,9 @@ struct messageq_transportshm_cmd_args {
 			void *messageq_transportshm_handle;
 			u16 proc_id;
 			struct messageq_transportshm_params *params;
+			u32 shared_addr_srptr;
+			void *knl_lock_handle;
+			void *knl_notify_driver;
 		} create;
 
 		struct {

@@ -184,6 +184,12 @@
 #define MESSAGEQ_E_ALREADYEXISTS		MESSAGEQ_MAKE_FAILURE(20)
 
 /*!
+ *  @def    MESSAGEQ_E_TIMEOUT
+ *  @brief  Timeout while attempting to get a message
+ */
+#define MESSAGEQ_E_TIMEOUT          MESSAGEQ_MAKE_FAILURE(21)
+
+/*!
  *  @def	MESSAGEQ_SUCCESS
  *  @brief	Operation successful.
  */
@@ -201,9 +207,19 @@
  * =============================================================================
  */
 /*!
- *  Mask to extract priority setting
+ *	@brief	Mask to extract version setting
  */
-#define MESSAGEQ_PRIORITYMASK			0x3
+#define MESSAGEQ_HEADERVERSION         0x2000u
+
+/*!
+ *	@brief	Mask to extract priority setting
+ */
+#define MESSAGEQ_PRIORITYMASK          0x3u
+
+/*!
+ *	@brief	Mask to extract priority setting
+ */
+#define MESSAGEQ_TRANSPORTPRIORITYMASK 0x01u
 
 /*!
  *  Mask to extract version setting
@@ -243,10 +259,10 @@ enum messageq_priority {
 	/*!< Normal priority message */
 	MESSAGEQ_HIGHPRI = 1,
 	/*!< High priority message */
-	MESSAGEQ_URGENTPRI = 2,
-	/*!< Urgent priority message */
-	MESSAGEQ_RESERVEDPRI = 3
+	MESSAGEQ_RESERVEDPRI = 2,
 	/*!< Reserved value for message priority */
+	MESSAGEQ_URGENTPRI = 3
+	/*!< Urgent priority message */
 };
 
 /*! Structure which defines the first field in every message */
@@ -273,6 +289,8 @@ struct msgheader {
 	/*!< Maximum length for Message queue names */
 	u16 heap_id;
 	/*!< Maximum length for Message queue names */
+	u32       reserved;
+	/*!< Reserved field */
 };
 /*! Structure which defines the first field in every message */
 #define messageq_msg	struct msgheader *
@@ -317,6 +335,8 @@ struct messageq_config {
 struct messageq_params {
 	u32 reserved;
 	/*!< No parameters required currently. Reserved field. */
+	u32 max_name_len;
+	/*!< Maximum length for Message queue names */
 };
 
 /* =============================================================================
@@ -363,7 +383,8 @@ void messageq_static_msg_init(messageq_msg msg, u32 size);
 int messageq_put(u32 queueId, messageq_msg msg);
 
 /* Gets a message for a message queue and blocks if the queue is empty */
-messageq_msg messageq_get(void *messageq_handle, u32 timeout);
+int messageq_get(void *messageq_handle, messageq_msg *msg,
+							u32 timeout);
 
 /* Register a heap with MessageQ */
 int messageq_register_heap(void *heap_handle, u16 heap_id);

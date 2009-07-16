@@ -141,10 +141,13 @@ static inline int messageq_transportshm_ioctl_create(
 		goto exit;
 	}
 
-	params.shared_addr = sharedregion_get_ptr((u32 *)params.shared_addr);
+	params.shared_addr = sharedregion_get_ptr(
+				(u32 *)cargs->args.create.shared_addr_srptr);
 	if (unlikely(params.shared_addr == NULL))
 		goto exit;
 
+	params.gate = cargs->args.create.knl_lock_handle;
+	params.notify_driver = cargs->args.create.knl_notify_driver;
 	cargs->args.create.messageq_transportshm_handle = \
 		messageq_transportshm_create(cargs->args.create.proc_id,
 						&params);
