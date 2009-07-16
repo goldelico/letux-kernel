@@ -1592,16 +1592,12 @@ static DSP_STATUS WMD_BRD_MemUnMap(struct WMD_DEV_CONTEXT *hDevContext,
 	DSP_STATUS status = DSP_SOK;
 	struct WMD_DEV_CONTEXT *pDevContext = hDevContext;
 	struct PgTableAttrs *pt = pDevContext->pPtAttrs;
-	u32 pacount = 0;
-	u32 *pPhysAddrPageTbl = NULL;
 	u32 temp;
-	u32 patemp = 0;
 	u32 pAddr;
 	u32 numof4KPages = 0;
 
 	DBG_Trace(DBG_ENTER, "> WMD_BRD_MemUnMap hDevContext %x, va %x, "
 		  "NumBytes %x\n", hDevContext, ulVirtAddr, ulNumBytes);
-	pPhysAddrPageTbl = DMM_GetPhysicalAddrTable();
 	vaCurr = ulVirtAddr;
 	remBytes = ulNumBytes;
 	remBytesL2 = 0;
@@ -1664,8 +1660,25 @@ static DSP_STATUS WMD_BRD_MemUnMap(struct WMD_DEV_CONTEXT *hDevContext,
 						numof4KPages = 1;
 					temp = 0;
 					while (temp++ < numof4KPages) {
-						pPhysAddrPageTbl[pacount++] =
-									pAddr;
+						if (!pfn_valid(__phys_to_pfn(
+								pAddr))) {
+							pAddr +=
+							    HW_PAGE_SIZE_4KB;
+							continue;
+						}
+						pg = phys_to_page(pAddr);
+						if (page_count(pg) < 1) {
+							pr_info("DSPBRIDGE:"
+							    "UNMAP function: "
+							    "COUNT 0 FOR PA "
+							    "0x%x, size = "
+							    "0x%x\n", pAddr,
+							    ulNumBytes);
+							bad_page_dump(pAddr,
+									pg);
+						}
+						SetPageDirty(pg);
+						page_cache_release(pg);
 						pAddr += HW_PAGE_SIZE_4KB;
 					}
 					if (HW_MMU_PteClear(pteAddrL2,
@@ -1722,7 +1735,21 @@ static DSP_STATUS WMD_BRD_MemUnMap(struct WMD_DEV_CONTEXT *hDevContext,
 				/* Collect Physical addresses from VA */
 				pAddr = (pteVal & ~(pteSize - 1));
 				while (temp++ < numof4KPages) {
-					pPhysAddrPageTbl[pacount++] = pAddr;
+					if (pfn_valid(__phys_to_pfn(pAddr))) {
+						pg = phys_to_page(pAddr);
+						if (page_count(pg) < 1) {
+							pr_info("DSPBRIDGE:"
+							    "UNMAP function: "
+							    "COUNT 0 FOR PA"
+							    " 0x%x, size = "
+							    "0x%x\n",
+							    pAddr, ulNumBytes);
+							bad_page_dump(pAddr,
+									pg);
+						}
+						SetPageDirty(pg);
+						page_cache_release(pg);
+					}
 					pAddr += HW_PAGE_SIZE_4KB;
 				}
 				if (HW_MMU_PteClear(L1BaseVa, vaCurr, pteSize)
@@ -1744,20 +1771,6 @@ static DSP_STATUS WMD_BRD_MemUnMap(struct WMD_DEV_CONTEXT *hDevContext,
 	 */
 EXIT_LOOP:
 	flush_all(pDevContext);
-	for (temp = 0; temp < pacount; temp++) {
-		patemp = pPhysAddrPageTbl[temp];
-		if (pfn_valid(__phys_to_pfn(patemp))) {
-			pg = phys_to_page(patemp);
-			if (page_count(pg) < 1) {
-				pr_info("DSPBRIDGE:UNMAP function: COUNT 0"
-						"FOR PA 0x%x, size = 0x%x\n",
-						patemp, ulNumBytes);
-				bad_page_dump(patemp, pg);
-			}
-			SetPageDirty(pg);
-			page_cache_release(pg);
-		}
-	}
 	DBG_Trace(DBG_LEVEL1, "WMD_BRD_MemUnMap vaCurr %x, pteAddrL1 %x "
 		  "pteAddrL2 %x\n", vaCurr, pteAddrL1, pteAddrL2);
 	DBG_Trace(DBG_ENTER, "< WMD_BRD_MemUnMap status %x remBytes %x, "

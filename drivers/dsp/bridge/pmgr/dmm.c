@@ -113,7 +113,6 @@ struct MapPage {
 static struct MapPage *pVirtualMappingTable;
 static u32  iFreeRegion;	/* The index of free region */
 static u32  iFreeSize;
-static u32  *pPhysicalAddrTable;	/* Physical address of MPU buffer */
 static u32  dynMemMapBeg;	/* The Beginning of dynamic memory mapping */
 static u32  TableSize;/* The size of virtual and physical pages tables */
 
@@ -151,28 +150,11 @@ DSP_STATUS DMM_CreateTables(struct DMM_OBJECT *hDmmMgr, u32 addr, u32 size)
 		if (pVirtualMappingTable == NULL)
 			status = DSP_EMEMORY;
 		else {
-			/* This table will be used
-			* to store the virtual to physical
-			* address translations
-			*/
-			pPhysicalAddrTable = (u32 *)MEM_Calloc
-				(TableSize*sizeof(u32), MEM_NONPAGED);
-			GT_1trace(DMM_debugMask, GT_4CLASS,
-			"DMM_CreateTables: Allocate"
-			"memory for pPhysicalAddrTable=%d entries\n",
-			TableSize);
-			if (pPhysicalAddrTable == NULL) {
-				status = DSP_EMEMORY;
-				GT_0trace(DMM_debugMask, GT_7CLASS,
-				    "DMM_CreateTables: Memory allocation for "
-				    "pPhysicalAddrTable failed\n");
-			} else {
 			/* On successful allocation,
 			* all entries are zero ('free') */
 			iFreeRegion = 0;
 			iFreeSize = TableSize*PG_SIZE_4K;
 			pVirtualMappingTable[0].RegionSize = TableSize;
-			}
 		}
 		SYNC_LeaveCS(pDmmObj->hDmmLock);
 	} else
@@ -275,9 +257,6 @@ DSP_STATUS DMM_DeleteTables(struct DMM_OBJECT *hDmmMgr)
 		if (pVirtualMappingTable != NULL)
 			MEM_Free(pVirtualMappingTable);
 
-		if (pPhysicalAddrTable != NULL)
-			MEM_Free(pPhysicalAddrTable);
-
 		SYNC_LeaveCS(pDmmObj->hDmmLock);
 	} else
 		status = DSP_EHANDLE;
@@ -361,7 +340,6 @@ bool DMM_Init(void)
 	DBC_Ensure((fRetval && (cRefs > 0)) || (!fRetval && (cRefs >= 0)));
 
 	pVirtualMappingTable = NULL ;
-	pPhysicalAddrTable = NULL ;
 	TableSize = 0;
 
 	return fRetval;
@@ -633,19 +611,6 @@ static struct MapPage *GetMappedRegion(u32 aAddr)
 			pVirtualMappingTable[i].bReserved))
 		currRegion = pVirtualMappingTable + i;
 	return currRegion;
-}
-
-/*
- *  ======== DMM_GetPhysicalAddrTable ========
- *  Purpose:
- *  Returns the physical table address
- */
-u32 *DMM_GetPhysicalAddrTable(void)
-{
-	GT_1trace(DMM_debugMask, GT_ENTER, "Entered "
-			"DMM_GetPhysicalAddrTable()- pPhysicalAddrTable 0x%x\n",
-			pPhysicalAddrTable);
-	return pPhysicalAddrTable;
 }
 
 #ifdef DSP_DMM_DEBUG
