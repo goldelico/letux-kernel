@@ -442,6 +442,8 @@ int __init omap1_mux_init(void)
 		arch_mux_cfg.cfg_reg	= omap1_cfg_reg;
 	}
 
+	arch_mux_cfg.legacy = 1;
+
 	return omap_mux_register(&arch_mux_cfg);
 }
 
