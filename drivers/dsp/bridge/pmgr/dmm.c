@@ -143,10 +143,10 @@ DSP_STATUS DMM_CreateTables(struct DMM_OBJECT *hDmmMgr, u32 addr, u32 size)
 	if (DSP_SUCCEEDED(status)) {
 		SYNC_EnterCS(pDmmObj->hDmmLock);
 		dynMemMapBeg = addr;
-		TableSize = (size/PG_SIZE_4K) + 1;
+		TableSize = PG_ALIGN_HIGH(size, PG_SIZE_4K)/PG_SIZE_4K;
 		/*  Create the free list */
 		pVirtualMappingTable = (struct MapPage *) MEM_Calloc
-		(TableSize*sizeof(struct MapPage), MEM_NONPAGED);
+			(TableSize * sizeof(struct MapPage), MEM_LARGEVIRTMEM);
 		if (pVirtualMappingTable == NULL)
 			status = DSP_EMEMORY;
 		else {
@@ -255,7 +255,7 @@ DSP_STATUS DMM_DeleteTables(struct DMM_OBJECT *hDmmMgr)
 		SYNC_EnterCS(pDmmObj->hDmmLock);
 
 		if (pVirtualMappingTable != NULL)
-			MEM_Free(pVirtualMappingTable);
+			MEM_VFree(pVirtualMappingTable);
 
 		SYNC_LeaveCS(pDmmObj->hDmmLock);
 	} else
