@@ -748,6 +748,8 @@ config VIDEO_OMAP3_V4L2
 
 source "drivers/media/video/omap/Kconfig"
 
+source "drivers/media/video/isp/Kconfig"
+
 config SOC_CAMERA
 	tristate "SoC camera support"
 	depends on VIDEO_V4L2 && HAS_DMA
