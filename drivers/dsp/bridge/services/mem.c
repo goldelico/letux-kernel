@@ -471,7 +471,8 @@ void MEM_Exit(void)
  */
 void MEM_FlushCache(void *pMemBuf, u32 cBytes, s32 FlushType)
 {
-	DBC_Require(cRefs > 0);
+	if (cRefs <= 0 || !pMemBuf)
+		return;
 
 	switch (FlushType) {
 	/* invalidate only */
