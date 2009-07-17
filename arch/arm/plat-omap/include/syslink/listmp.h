@@ -128,6 +128,12 @@ enum listmp_type {
 struct listmp_config {
 	u32 max_name_len;
 	/*!< Maximum length of name */
+	bool use_name_server;
+	/*!< Whether to have this module use the NameServer or not. If the
+	*   NameServer is not needed, set this configuration parameter to false.
+	*   This informs ListMPSharedMemory not to pull in the NameServer module
+	*   In this case, all names passed into create and open are ignored.
+	*/
 };
 
 /*!
@@ -142,14 +148,21 @@ struct listmp_elem {
  *  @brief  Structure defining config parameters for the ListMP instances.
  */
 struct listmp_params {
+	bool cache_flag;
+	/*!< Set to 1 by the open() call. No one else should touch this!   */
+	struct mutex *lock_handle;
+	/*!< Lock used for critical region management of the list */
 	void *shared_addr;
 	/*!< shared memory address */
 	u32 shared_addr_size;
 	/*!< shared memory size */
 	char *name;
 	/*!< Name of the object	*/
-	struct mutex *lock_handle;
-	/*!< Lock used for critical region management of the list */
+	int resourceId;
+	/*!<
+	*  resourceId  Specifies the resource id number.
+	*  Parameter is used only when type is set to Fast List
+	*/
 	enum listmp_type list_type ;
 	/*!< Type of list */
 };
@@ -188,9 +201,16 @@ struct listmp_object {
 	/* Type of list */
 };
 
-/* TBD: To be replaced by Function */
-#define listmp_shared_memreq	listmp_sharedmemory_shared_memreq
-#define listmp_params_init	listmp_sharedmemory_params_init
+/*
+ *  Function initializes listmp parameters
+ */
+void listmp_params_init(void *listmp_handle,
+						struct listmp_params *params);
+
+/*
+ *  Function to get shared memory requirement for the module
+ */
+int listmp_shared_memreq(struct listmp_params *params);
 
 /* =============================================================================
  *  Functions to create instance of a list

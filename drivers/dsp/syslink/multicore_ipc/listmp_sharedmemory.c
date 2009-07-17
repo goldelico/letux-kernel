@@ -67,7 +67,7 @@
 
 /* Syslink headers */
 #include <gt.h>
-
+#include <syslink/atomic_linux.h>
 /* Module level headers */
 #include <nameserver.h>
 #include <sharedregion.h>
@@ -82,6 +82,10 @@
  * Globals
  * =============================================================================
  */
+/*! @brief Macro to make a correct module magic number with refCount */
+#define LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(x)                                  \
+				((LISTMPSHAREDMEMORY_MODULEID << 12u) | (x))
+
 /*!
  *  @brief  Name of the reserved NameServer used for listmp_sharedmemory.
  */
@@ -99,6 +103,8 @@
  */
 /*! @brief structure for listmp_sharedmemory module state */
 struct listmp_sharedmemory_module_object {
+	atomic_t              ref_count;
+	/*!< Reference count */
 	void *ns_handle;
 	/*!< Handle to the local NameServer used for storing GP objects */
 	struct list_head obj_list;
@@ -121,6 +127,7 @@ struct listmp_sharedmemory_module_object {
 static
 struct listmp_sharedmemory_module_object listmp_sharedmemory_state = {
 			.default_cfg.max_name_len = 32,
+			.default_cfg.use_name_server = true,
 			.default_inst_params.shared_addr = 0,
 			.default_inst_params.shared_addr_size = 0,
 			.default_inst_params.name = NULL,
@@ -133,17 +140,16 @@ struct listmp_sharedmemory_module_object listmp_sharedmemory_state = {
 struct listmp_sharedmemory_obj{
 	struct list_head list_elem;
 	/*!< Used for creating a linked list */
-	struct listmp_elem *listmp_elem;
+	volatile struct listmp_elem *listmp_elem;
 	/*!< Used for storing listmp_sharedmemory element */
 	struct listmp_proc_attrs *owner;
 	/*!< Creator's attributes associated with an instance */
-	struct listmp_proc_attrs *remote;
-	/*!< Peer's attributes assoicated with an instance */
 	listmp_sharedmemory_params params;
 	/*!< the parameter structure */
+	void *ns_key;
 	u32 index;
 	/*!< the index for SrPtr */
-	struct listmp_attrs *attrs;
+	volatile struct listmp_attrs *attrs;
 	/*!< Shared memory attributes */
 	void *top;
 	/*!< Pointer to the top Object */
@@ -194,7 +200,9 @@ int listmp_sharedmemory_get_config(struct listmp_config *cfgParams)
 		goto exit;
 	}
 
-	if (listmp_sharedmemory_state.ns_handle == NULL)
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true)
 		/* If setup has not yet been called) */
 		memcpy(cfgParams, &listmp_sharedmemory_state.default_cfg,
 			sizeof(struct listmp_config));
@@ -219,28 +227,45 @@ int listmp_sharedmemory_setup(struct listmp_config *config)
 	int status1 = 0;
 	void *nshandle = NULL;
 	struct nameserver_params params;
+	struct listmp_config tmp_cfg;
 
 	gt_1trace(listmpshm_debugmask, GT_ENTER, "ListMPSharedmemsetup",
 			config);
+	/* This sets the refCount variable is not initialized, upper 16 bits is
+	* written with module Id to ensure correctness of refCount variable.
+	*/
+	atomic_cmpmask_and_set(&listmp_sharedmemory_state.ref_count,
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0));
+
+	if (atomic_inc_return(&listmp_sharedmemory_state.ref_count)
+				!= LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) {
+		status = -EEXIST;
+		goto exit;
+	}
 
 	if (config == NULL) {
-		memcpy(config, &listmp_sharedmemory_state.default_cfg,
-			sizeof(struct listmp_config));
+		listmp_sharedmemory_get_config(&tmp_cfg);
+		config = &tmp_cfg;
 	}
+
 	if (WARN_ON(config->max_name_len == 0)) {
 		status = -EINVAL;
 		goto exit;
 	}
 
-	/* Initialize the parameters */
-	nameserver_params_init(&params);
-	params.max_value_len = 4;
-	params.max_name_len = config->max_name_len;
-	/* Create the nameserver for modules */
-	nshandle = nameserver_create(LISTMP_SHAREDMEMORY_NAMESERVER, &params);
-	if (unlikely(nshandle == NULL)) {
-		status = LISTMPSHAREDMEMORY_E_FAIL;
-		goto exit;
+	if (likely((config->use_name_server == true))) {
+		/* Initialize the parameters */
+		nameserver_params_init(&params);
+		params.max_value_len = 4;
+		params.max_name_len = config->max_name_len;
+		/* Create the nameserver for modules */
+		nshandle = nameserver_create(
+				LISTMP_SHAREDMEMORY_NAMESERVER, &params);
+		if (unlikely(nshandle == NULL)) {
+			status = LISTMPSHAREDMEMORY_E_FAIL;
+			goto exit;
+		}
 	}
 
 	listmp_sharedmemory_state.ns_handle = nshandle;
@@ -260,10 +285,14 @@ int listmp_sharedmemory_setup(struct listmp_config *config)
 	}
 
 	mutex_init(listmp_sharedmemory_state.lock_handle);
-	memset(&listmp_sharedmemory_state.cfg, 0, sizeof(struct listmp_config));
+	/* Copy the cfg */
+	memcpy(&listmp_sharedmemory_state.cfg, config,
+			sizeof(struct listmp_config));
 	goto exit;
 
 clean_nameserver:
+	atomic_set(&listmp_sharedmemory_state.ref_count,
+					LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0));
 	status1 = nameserver_delete
 		(&(listmp_sharedmemory_state.ns_handle));
 	BUG_ON(status1 < 0);
@@ -289,42 +318,62 @@ int listmp_sharedmemory_destroy(void)
 
 	gt_0trace(listmpshm_debugmask, GT_ENTER, "listmp_sharedmemory_destroy");
 
-	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
 
-	/* Check if any listmp_sharedmemory instances have not been
-	 * deleted so far. If not, delete them. */
-	for (elem = (head)->next; elem != (head); elem = next) {
-		/* Retain the next pointer so it doesn't get overwritten */
-		next = elem->next;
-		if (((struct listmp_sharedmemory_obj *) elem)->owner
-			->proc_id == multiproc_get_id(NULL)) {
-			status1 = listmp_sharedmemory_delete(
-			(listmp_sharedmemory_handle *)
-			&(((struct listmp_sharedmemory_obj *) elem)->top));
-			WARN_ON(status1 < 0);
-		} else {
-			status1 = listmp_sharedmemory_close(
-			(listmp_sharedmemory_handle)
-			(((struct listmp_sharedmemory_obj *) elem)->top));
-			WARN_ON(status1 < 0);
+	if (atomic_dec_return(&listmp_sharedmemory_state.ref_count)
+			== LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0)) {
+		/* Temporarily increment refCount here. */
+		atomic_set(&listmp_sharedmemory_state.ref_count,
+				LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1));
+		/* Check if any listmp_sharedmemory instances have not been
+		 * deleted so far. If not, delete them. */
+		for (elem = (head)->next; elem != (head); elem = next) {
+			/* Retain the next pointer so it doesn't
+			   get overwritten */
+			next = elem->next;
+			if (((struct listmp_sharedmemory_obj *) elem)->owner
+				->proc_id == multiproc_get_id(NULL)) {
+				status1 = listmp_sharedmemory_delete(
+				(listmp_sharedmemory_handle *)
+				&(((struct listmp_sharedmemory_obj *) \
+							elem)->top));
+				WARN_ON(status1 < 0);
+			} else {
+				status1 = listmp_sharedmemory_close(
+				(listmp_sharedmemory_handle)
+				(((struct listmp_sharedmemory_obj *) \
+							elem)->top));
+				WARN_ON(status1 < 0);
+			}
 		}
+
+		/* Again reset refCount. */
+		atomic_set(&listmp_sharedmemory_state.ref_count,
+				LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0));
+		if (likely(listmp_sharedmemory_state.cfg.use_name_server
+								== true)) {
+			/* Delete the nameserver for modules */
+			status = nameserver_delete(
+				&(listmp_sharedmemory_state.ns_handle));
+			BUG_ON(status < 0);
+		}
+
+		/* Destruct the list object */
+		list_del(&listmp_sharedmemory_state.obj_list);
+		/* Delete the list lock */
+		kfree(listmp_sharedmemory_state.lock_handle);
+		listmp_sharedmemory_state.lock_handle = NULL;
+		memset(&listmp_sharedmemory_state.cfg, 0,
+			sizeof(struct listmp_config));
+		/* Decrease the refCount */
+		atomic_set(&listmp_sharedmemory_state.ref_count,
+				LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0));
 	}
-
-	/* Delete the nameserver for modules */
-	status = nameserver_delete(
-			&(listmp_sharedmemory_state.ns_handle));
-	BUG_ON(status < 0);
-
-	/* Destruct the list object */
-	list_del(&listmp_sharedmemory_state.obj_list);
-	/* Delete the list lock */
-	kfree(listmp_sharedmemory_state.lock_handle);
-	listmp_sharedmemory_state.lock_handle = NULL;
-	memset(&listmp_sharedmemory_state.cfg, 0, sizeof(struct listmp_config));
-
 exit:
 	gt_1trace(listmpshm_debugmask, GT_LEAVE, "listmp_sharedmemory_destroy",
 		status);
@@ -343,11 +392,15 @@ exit:
 void listmp_sharedmemory_params_init(listmp_sharedmemory_handle handle,
 				listmp_sharedmemory_params *params)
 {
-	listmp_sharedmemory_object *object = NULL;
 	struct listmp_sharedmemory_obj *obj = NULL;
 
 	gt_2trace(listmpshm_debugmask, GT_ENTER,
 		"listmp_sharedmemory_params_init", handle, params);
+
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true)
+		goto exit;
 
 	BUG_ON(params == NULL);
 	if (WARN_ON(params == NULL))
@@ -358,9 +411,10 @@ void listmp_sharedmemory_params_init(listmp_sharedmemory_handle handle,
 		&(listmp_sharedmemory_state.default_inst_params),
 		sizeof(listmp_sharedmemory_params));
 	} else {
-		object = (listmp_sharedmemory_object *) handle;
-		obj = (struct listmp_sharedmemory_obj *) object->obj;
-		memcpy((void *)&obj->params,
+		obj = (struct listmp_sharedmemory_obj *)
+				(((listmp_sharedmemory_object *) handle)->obj);
+
+			memcpy((void *)&obj->params,
 			(void *)params,
 			 sizeof(listmp_sharedmemory_params));
 	}
@@ -381,24 +435,23 @@ listmp_sharedmemory_handle listmp_sharedmemory_create(
 {
 	s32 status = 0;
 	listmp_sharedmemory_object *handle = NULL;
-	struct listmp_sharedmemory_obj	*obj = NULL;
 
 	gt_1trace(listmpshm_debugmask, GT_ENTER, "listmp_sharedmemory_create",
 		params);
 
 	BUG_ON(params == NULL);
-	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
+
 	if (WARN_ON(params == NULL)) {
 		status = -EINVAL;
 		goto exit;
 	}
-	if (WARN_ON((params->name == NULL) && (params->shared_addr == NULL))) {
-		status = -EINVAL;
-		goto exit;
-	}
+
 	if (WARN_ON((params->shared_addr == (u32)NULL)
 		&& (params->list_type != listmp_type_FAST))) {
 		status = -EINVAL;
@@ -412,16 +465,6 @@ listmp_sharedmemory_handle listmp_sharedmemory_create(
 
 	handle = (listmp_sharedmemory_object *)
 		_listmp_sharedmemory_create(params, true);
-
-	obj = (struct listmp_sharedmemory_obj *)handle->obj;
-	if (obj == NULL) {
-		status = LISTMPSHAREDMEMORY_E_FAIL;
-		goto exit;
-	}
-	obj->listmp_elem->next = (struct listmp_elem *) (sharedregion_get_srptr(
-				(void *)obj->listmp_elem, obj->index));
-	obj->listmp_elem->prev = (struct listmp_elem *) (sharedregion_get_srptr(
-				(void *)obj->listmp_elem, obj->index));
 
 exit:
 	gt_2trace(listmpshm_debugmask, GT_LEAVE, "listmp_sharedmemory_create",
@@ -446,7 +489,9 @@ int listmp_sharedmemory_delete(listmp_sharedmemory_handle *listmp_handleptr)
 		listmp_handleptr);
 
 	BUG_ON(listmp_handleptr == NULL);
-	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
@@ -461,72 +506,59 @@ int listmp_sharedmemory_delete(listmp_sharedmemory_handle *listmp_handleptr)
 
 	handle = (listmp_sharedmemory_object *) (*listmp_handleptr);
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
-
 	params = (listmp_sharedmemory_params *) &obj->params;
 
 	if (obj->owner->proc_id == multiproc_get_id(NULL)) {
-		/* Remove from  the local list */
-		key = mutex_lock_interruptible(
-				listmp_sharedmemory_state.lock_handle);
-		list_del(&obj->list_elem);
-		mutex_unlock(listmp_sharedmemory_state.lock_handle);
-
-		if ((obj->owner->open_count == 1)
-		&& (obj->remote->open_count == 0)) {
-			/* Remove from the name server */
-			if (params->name != NULL) {
-				nameserver_remove(
-					listmp_sharedmemory_state.ns_handle,
-					params->name);
-
-				/* Free memory for the name */
-				kfree(params->name);
-			}
-
-			/* Free memory for the processor info's */
-			kfree(obj->owner);
-			kfree(obj->remote);
-
-			/* Now free the handle */
-			kfree(obj);
-			obj = NULL;
-
-			/* Now free the handle */
-			kfree(handle);
-			handle = NULL;
-		} else if (obj->owner->open_count > 1) {
-			gt_2trace(listmpshm_debugmask,
-					GT_4CLASS,
-					"ListMP_delete",
-					status,
-					"Unmatched open/close calls!");
-			status = -EBUSY;
-		} else {
-			gt_2trace(listmpshm_debugmask,
-					GT_4CLASS,
-					"ListMP_delete",
-					status,
-					"Opener of the instance has not closed"
-					" the instance!");
-			status = -EBUSY;
-		}
-	} else {
-		/*! @retval LISTMPSHAREDMEMORY_E_NOTONWER
-		* Instance was not created on this processor
-		*/
-		status = LISTMPSHAREDMEMORY_E_NOTOWNER;
-		gt_2trace(listmpshm_debugmask,
-			GT_4CLASS,
-			"ListMP_delete",
-			status,
-			"Instance was not created on this processor!");
+		status = -EPERM;
+		goto exit;
 	}
 
+	if (obj->owner->open_count > 1) {
+		status = -EBUSY;
+		goto exit;
+	}
+
+	if (obj->owner->open_count != 1) {
+		status = -EBUSY;
+		goto exit;
+	}
+
+	/* Remove from  the local list */
+	key = mutex_lock_interruptible(
+				listmp_sharedmemory_state.lock_handle);
+	list_del(&obj->list_elem);
+	mutex_unlock(listmp_sharedmemory_state.lock_handle);
+
+	if (likely(params->name != NULL)) {
+		/* Free memory for the name */
+		kfree(params->name);
+		/* Remove from the name server */
+		if (likely(listmp_sharedmemory_state.cfg.use_name_server)) {
+			if (obj->ns_key != NULL) {
+				nameserver_remove_entry(
+					listmp_sharedmemory_state.ns_handle,
+					obj->ns_key);
+				obj->ns_key = NULL;
+			}
+		}
+	}
+
+	/* Free memory for the processor info's */
+	kfree(obj->owner);
+	/* Now free the handle */
+	kfree(obj);
+	obj = NULL;
+
+	/* Now free the handle */
+	kfree(handle);
+	handle = NULL;
+	*listmp_handleptr = NULL;
+
 exit:
-	gt_1trace(listmpshm_debugmask, GT_LEAVE,
-		"listmp_sharedmemory_delete", status);
 	return status;
+
 }
+
 
 /*
  * ======== listmp_sharedmemory_shared_memreq ========
@@ -541,16 +573,13 @@ int listmp_sharedmemory_shared_memreq(listmp_sharedmemory_params *params)
 	gt_1trace(listmpshm_debugmask, GT_ENTER,
 			"listmp_sharedmemory_sharedMemReq", params);
 
-	BUG_ON(params == NULL);
 	if (WARN_ON(params == NULL)) {
 		retval = -EINVAL;
 		goto exit;
 	}
 
-	if (params->list_type == listmp_type_SHARED) {
-		if (params != NULL)
-			retval = (LISTMP_SHAREDMEMORY_CACHESIZE * 2);
-	}
+	if (params->list_type == listmp_type_SHARED)
+		retval = (LISTMP_SHAREDMEMORY_CACHESIZE * 2);
 
 exit:
 	gt_1trace(listmpshm_debugmask, GT_LEAVE,
@@ -574,13 +603,17 @@ int listmp_sharedmemory_open(listmp_sharedmemory_handle *listmp_handleptr,
 	bool done_flag = false;
 	struct list_head *elem;
 	u32 key;
+	u32 shared_shm_base;
+	struct listmp_attrs *attrs;
 
 	gt_1trace(listmpshm_debugmask, GT_ENTER,
 			"listmp_sharedmemory_open", params);
 
 	BUG_ON(listmp_handleptr == NULL);
 	BUG_ON(params == NULL);
-	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
@@ -592,20 +625,41 @@ int listmp_sharedmemory_open(listmp_sharedmemory_handle *listmp_handleptr,
 		status = -EINVAL;
 		goto exit;
 	}
-	if (WARN_ON((params->name == NULL)
-		&& (params->shared_addr == (u32)NULL))) {
+
+	if (WARN_ON((listmp_sharedmemory_state.cfg.use_name_server == false)
+				&& (params->shared_addr == (u32)NULL))) {
 		status = -EINVAL;
 		goto exit;
 	}
-	if (WARN_ON(params->shared_addr_size
-		 < listmp_sharedmemory_shared_memreq(params))) {
+
+	if (WARN_ON((listmp_sharedmemory_state.cfg.use_name_server == true)
+					&& (params->shared_addr == (u32)NULL))
+						&& (params->name == NULL)) {
 		status = -EINVAL;
 		goto exit;
 	}
 
 	/* First check in the local list */
 	list_for_each(elem, &listmp_sharedmemory_state.obj_list) {
-		if (params->name != NULL) {
+		if (((struct listmp_sharedmemory_obj *)elem)->params.shared_addr
+						== params->shared_addr) {
+			key = mutex_lock_interruptible(
+				listmp_sharedmemory_state.lock_handle);
+			if (((struct listmp_sharedmemory_obj *)elem)
+				->owner->proc_id
+				== multiproc_get_id(NULL))
+				((struct listmp_sharedmemory_obj *)elem)
+					->owner->open_count++;
+			mutex_unlock(
+				listmp_sharedmemory_state.lock_handle);
+			*listmp_handleptr = \
+				(((struct listmp_sharedmemory_obj *)
+				elem)->top);
+			done_flag = true;
+			break;
+		} else if ((params->name != NULL)
+			&& (((struct listmp_sharedmemory_obj *)elem) \
+						->params.name != NULL)){
 			if (strcmp(((struct listmp_sharedmemory_obj *)elem)
 				->params.name, params->name) == 0) {
 				key = mutex_lock_interruptible(
@@ -615,9 +669,6 @@ int listmp_sharedmemory_open(listmp_sharedmemory_handle *listmp_handleptr,
 					== multiproc_get_id(NULL))
 					((struct listmp_sharedmemory_obj *)elem)
 						->owner->open_count++;
-				else
-					((struct listmp_sharedmemory_obj *)elem)
-					->remote->open_count++;
 				mutex_unlock(
 					listmp_sharedmemory_state.lock_handle);
 				*listmp_handleptr = \
@@ -626,37 +677,41 @@ int listmp_sharedmemory_open(listmp_sharedmemory_handle *listmp_handleptr,
 				done_flag = true;
 				break;
 			}
-		} else {
-			if (((struct listmp_sharedmemory_obj *)elem)
-				->params.shared_addr == params->shared_addr) {
-				key = mutex_lock_interruptible(
-					listmp_sharedmemory_state.lock_handle);
-				if (((struct listmp_sharedmemory_obj *)elem)
-					->owner->proc_id == \
-					multiproc_get_id(NULL))
-					((struct listmp_sharedmemory_obj *)elem)
-						->owner->open_count++;
-				else
-					((struct listmp_sharedmemory_obj *)elem)
-						->remote->open_count++;
+		}
+	}
 
-				mutex_unlock(
-					listmp_sharedmemory_state.lock_handle);
-				*listmp_handleptr = (
-					((struct listmp_sharedmemory_obj *)elem)
-					->top);
-				done_flag = true;
-				break;
+	if (likely(done_flag == false)) {
+		if (unlikely(params->shared_addr == NULL)) {
+			if (likely(listmp_sharedmemory_state.cfg.use_name_server
+								 == true)){
+				/* Find in name server */
+				status =
+				nameserver_get(
+					listmp_sharedmemory_state.ns_handle,
+					params->name,
+					&shared_shm_base,
+					sizeof(u32),
+					NULL);
+				if (status >= 0)
+					params->shared_addr =
+						sharedregion_get_ptr(
+						(u32 *)shared_shm_base);
 			}
 		}
 	}
 
-	/* Not found in local list */
-	if (done_flag == false) {
-		*listmp_handleptr = (listmp_sharedmemory_handle)
-				_listmp_sharedmemory_create(params, false);
+	if (status >= 0) {
+		attrs = (struct listmp_attrs *) (params->shared_addr);
+		if (unlikely(attrs->status != (LISTMP_SHAREDMEMORY_CREATED)))
+				status = LISTMPSHAREDMEMORY_E_NOTCREATED;
+		else if (unlikely(attrs->version !=
+					(LISTMP_SHAREDMEMORY_VERSION)))
+				status = LISTMPSHAREDMEMORY_E_VERSION;
 	}
 
+	if (likely(status >= 0))
+		*listmp_handleptr = (listmp_sharedmemory_handle)
+				_listmp_sharedmemory_create(params, false);
 exit:
 	gt_1trace(listmpshm_debugmask, GT_LEAVE, "listmp_sharedmemory_open",
 		status);
@@ -669,7 +724,7 @@ exit:
  *  Purpose:
  *  Function to close a previously opened instance
  */
-int listmp_sharedmemory_close(listmp_sharedmemory_handle  listMPHandle)
+int listmp_sharedmemory_close(listmp_sharedmemory_handle  listmp_handle)
 {
 	int status = 0;
 	listmp_sharedmemory_object *handle = NULL;
@@ -678,63 +733,50 @@ int listmp_sharedmemory_close(listmp_sharedmemory_handle  listMPHandle)
 	u32		key;
 
 	gt_1trace(listmpshm_debugmask, GT_ENTER, "listmp_sharedmemory_close",
-			listMPHandle);
+			listmp_handle);
 
-	BUG_ON(listMPHandle == NULL);
-	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
+	BUG_ON(listmp_handle == NULL);
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
-	if (listMPHandle == NULL) {
+
+	if (listmp_handle == NULL) {
 		status = -EINVAL;
 		goto exit;
 	}
 
-	handle = (listmp_sharedmemory_object *)listMPHandle;
+	handle = (listmp_sharedmemory_object *)listmp_handle;
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
+	if (obj == NULL) {
+		status = -EINVAL;
+		goto exit;
+	}
 
 	key = mutex_lock_interruptible(
 		listmp_sharedmemory_state.lock_handle);
 	if (obj->owner->proc_id == multiproc_get_id(NULL))
 		(obj)->owner->open_count--;
-	else
-		(obj)->remote->open_count--;
-	mutex_unlock(listmp_sharedmemory_state.lock_handle);
 
 	params = (listmp_sharedmemory_params *) &obj->params;
-
-	key = mutex_lock_interruptible(
-		listmp_sharedmemory_state.lock_handle);
-	if ((((struct listmp_sharedmemory_obj *)obj)->remote->proc_id == \
-		multiproc_get_id(NULL)) && \
-		(((struct listmp_sharedmemory_obj *)obj)
-			->remote->open_count == 0)) {
+	/* Check if ListMP is opened on same processor*/
+	if (((struct listmp_sharedmemory_obj *)obj)->owner->creator == false) {
 		list_del(&obj->list_elem);
-
-		/* remove from the name server */
-		if (params->name != NULL)
-			nameserver_remove(
-				listmp_sharedmemory_state.ns_handle,
-				params->name);
-
-		mutex_unlock(listmp_sharedmemory_state.lock_handle);
-
 		/* remove from the name server */
 		if (params->name != NULL)
 			/* Free memory for the name */
 			kfree(params->name);
 
-		/* Now free the obj */
-		kfree(obj->params.name);
 		kfree(obj->owner);
-		kfree(obj->remote);
 		kfree(obj);
 		obj = NULL;
 		kfree(handle);
 		handle = NULL;
-	} else {
-		mutex_unlock(listmp_sharedmemory_state.lock_handle);
 	}
+
+	mutex_unlock(listmp_sharedmemory_state.lock_handle);
 
 exit:
 	gt_1trace(listmpshm_debugmask, GT_LEAVE, "listmp_sharedmemory_close",
@@ -747,29 +789,32 @@ exit:
  *  Purpose:
  *  Function to check if the shared memory list is empty
  */
-bool listmp_sharedmemory_empty(listmp_sharedmemory_handle listMPHandle)
+bool listmp_sharedmemory_empty(listmp_sharedmemory_handle listmp_handle)
 {
 
 	int status = 0;
-	bool isEmpty = false;
+	bool is_empty = false;
 	listmp_sharedmemory_object *handle = NULL;
 	struct listmp_sharedmemory_obj *obj = NULL;
 	s32 retval = 0;
 	struct listmp_elem *sharedHead;
 
 	gt_1trace(listmpshm_debugmask, GT_ENTER, "listmp_sharedmemory_empty",
-			listMPHandle);
+			listmp_handle);
 
-	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
-	if (WARN_ON(listMPHandle == NULL)) {
+
+	if (WARN_ON(listmp_handle == NULL)) {
 		status = -EINVAL;
 		goto exit;
 	}
 
-	handle = (listmp_sharedmemory_object *)listMPHandle;
+	handle = (listmp_sharedmemory_object *)listmp_handle;
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
 
 	if (obj->params.lock_handle != NULL) {
@@ -785,15 +830,15 @@ bool listmp_sharedmemory_empty(listmp_sharedmemory_handle listMPHandle)
 				(void *)obj->listmp_elem, obj->index));
 
 	if (obj->listmp_elem->next == sharedHead)
-		isEmpty = true;
+		is_empty = true;
 
 	if (obj->params.lock_handle != NULL)
 		gatepeterson_leave(obj->params.lock_handle, 0);
 
 exit:
 	gt_1trace(listmpshm_debugmask, GT_LEAVE, "listmp_sharedmemory_empty",
-			isEmpty);
-	return isEmpty;
+			is_empty);
+	return is_empty;
 }
 
 /*
@@ -801,7 +846,7 @@ exit:
  *  Purpose:
  *  Function to get head element from a shared memory list
  */
-void *listmp_sharedmemory_get_head(listmp_sharedmemory_handle listMPHandle)
+void *listmp_sharedmemory_get_head(listmp_sharedmemory_handle listmp_handle)
 {
 	listmp_sharedmemory_object *handle = NULL;
 	struct listmp_sharedmemory_obj *obj = NULL;
@@ -812,20 +857,20 @@ void *listmp_sharedmemory_get_head(listmp_sharedmemory_handle listMPHandle)
 	s32 retval = 0;
 
 	gt_1trace(listmpshm_debugmask, GT_ENTER, "listmp_sharedmemory_get_head",
-			listMPHandle);
+			listmp_handle);
 
-	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
-		/*! @retval NULL if Module was not initialized */
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true)
+		goto exit;
+
+	if (WARN_ON(listmp_handle == NULL)) {
+		/*! @retval  NULL if listmp_handle passed is NULL */
 		elem = NULL;
 		goto exit;
 	}
-	if (WARN_ON(listMPHandle == NULL)) {
-		/*! @retval  NULL if listMPHandle passed is NULL */
-		elem = NULL;
-		goto exit;
-	}
 
-	handle = (listmp_sharedmemory_object *)listMPHandle;
+	handle = (listmp_sharedmemory_object *)listmp_handle;
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
 
 	if (obj->params.lock_handle != NULL) {
@@ -845,7 +890,7 @@ void *listmp_sharedmemory_get_head(listmp_sharedmemory_handle listMPHandle)
 
 		localNext = sharedregion_get_ptr((u32 *)elem->next);
 		sharedHead = (struct listmp_elem *) sharedregion_get_srptr(
-				obj->listmp_elem, obj->index);
+				(void *)obj->listmp_elem, obj->index);
 
 		/* Fix the head of the list next pointer */
 		obj->listmp_elem->next = elem->next;
@@ -869,7 +914,7 @@ exit:
  *  Purpose:
  *  Function to get tail element from a shared memory list
  */
-void *listmp_sharedmemory_get_tail(listmp_sharedmemory_handle listMPHandle)
+void *listmp_sharedmemory_get_tail(listmp_sharedmemory_handle listmp_handle)
 {
 	listmp_sharedmemory_object *handle = NULL;
 	struct listmp_sharedmemory_obj *obj = NULL;
@@ -881,20 +926,25 @@ void *listmp_sharedmemory_get_tail(listmp_sharedmemory_handle listMPHandle)
 	s32 retval = 0;
 
 	gt_1trace(listmpshm_debugmask, GT_ENTER,
-			"listmp_sharedmemory_get_tail", listMPHandle);
+			"listmp_sharedmemory_get_tail", listmp_handle);
+
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true)
+		goto exit;
 
 	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
 		/*! @retval NULL if Module was not initialized */
 		elem = NULL;
 		goto exit;
 	}
-	if (WARN_ON(listMPHandle == NULL)) {
-		/*! @retval NULL if listMPHandle passed is NULL */
+	if (WARN_ON(listmp_handle == NULL)) {
+		/*! @retval NULL if listmp_handle passed is NULL */
 		elem = NULL;
 		goto exit;
 	}
 
-	handle = (listmp_sharedmemory_object *)listMPHandle;
+	handle = (listmp_sharedmemory_object *)listmp_handle;
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
 
 	if (obj->params.lock_handle != NULL) {
@@ -915,7 +965,7 @@ void *listmp_sharedmemory_get_tail(listmp_sharedmemory_handle listMPHandle)
 		elem = localHeadPrev;
 		localPrev = sharedregion_get_ptr((u32 *)elem->prev);
 		sharedHead = (struct listmp_elem *) sharedregion_get_srptr(
-					obj->listmp_elem, 	obj->index);
+					(void *)obj->listmp_elem, obj->index);
 		obj->listmp_elem->prev = elem->prev;
 		localPrev->next = sharedHead;
 	}
@@ -934,7 +984,7 @@ exit:
  *  Purpose:
  *  Function to put head element into a shared memory list
  */
-int listmp_sharedmemory_put_head(listmp_sharedmemory_handle listMPHandle,
+int listmp_sharedmemory_put_head(listmp_sharedmemory_handle listmp_handle,
 				struct listmp_elem *elem)
 {
 	int status = 0;
@@ -947,18 +997,21 @@ int listmp_sharedmemory_put_head(listmp_sharedmemory_handle listMPHandle,
 	u32 index;
 
 	gt_1trace(listmpshm_debugmask, GT_ENTER,
-			"listmp_sharedmemory_put_head", listMPHandle);
+			"listmp_sharedmemory_put_head", listmp_handle);
 
-	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
-	if (WARN_ON(listMPHandle == NULL)) {
+
+	if (WARN_ON(listmp_handle == NULL)) {
 		status = -EINVAL;
 		goto exit;
 	}
 
-	handle = (listmp_sharedmemory_object *)listMPHandle;
+	handle = (listmp_sharedmemory_object *)listmp_handle;
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
 
 	index = sharedregion_get_index(elem);
@@ -996,7 +1049,7 @@ exit:
  *  Purpose:
  *  Function to put tail element into a shared memory list
  */
-int listmp_sharedmemory_put_tail(listmp_sharedmemory_handle listMPHandle,
+int listmp_sharedmemory_put_tail(listmp_sharedmemory_handle listmp_handle,
 				struct listmp_elem *elem)
 {
 	int status = 0;
@@ -1009,18 +1062,21 @@ int listmp_sharedmemory_put_tail(listmp_sharedmemory_handle listMPHandle,
 	u32 index;
 
 	gt_2trace(listmpshm_debugmask, GT_ENTER, "listmp_sharedmemory_put_tail",
-					listMPHandle, elem);
+					listmp_handle, elem);
 
-	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
+
 	if (WARN_ON(elem == NULL)) {
 		status = -EINVAL;
 		goto exit;
 	}
 
-	handle = (listmp_sharedmemory_object *)listMPHandle;
+	handle = (listmp_sharedmemory_object *)listmp_handle;
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
 
 	/* Safe to do outside the gate */
@@ -1060,7 +1116,7 @@ exit:
  *  Purpose:
  *  Function to insert an element into a shared memory list
  */
-int listmp_sharedmemory_insert(listmp_sharedmemory_handle  listMPHandle,
+int listmp_sharedmemory_insert(listmp_sharedmemory_handle  listmp_handle,
 				struct listmp_elem *new_elem,
 				struct listmp_elem *cur_elem)
 {
@@ -1074,19 +1130,22 @@ int listmp_sharedmemory_insert(listmp_sharedmemory_handle  listMPHandle,
 	u32 index;
 
 	gt_3trace(listmpshm_debugmask, GT_ENTER, "listmp_sharedmemory_insert",
-				listMPHandle, new_elem, cur_elem);
+				listmp_handle, new_elem, cur_elem);
 
 
-	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
+
 	if (WARN_ON(new_elem == NULL)) {
 		status = -EINVAL;
 		goto exit;
 	}
 
-	handle = (listmp_sharedmemory_object *)listMPHandle;
+	handle = (listmp_sharedmemory_object *)listmp_handle;
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
 
 	if (obj->params.lock_handle != NULL) {
@@ -1133,7 +1192,7 @@ exit:
  *  Purpose:
  *  Function to remove a element from a shared memory list
  */
-int listmp_sharedmemory_remove(listmp_sharedmemory_handle  listMPHandle,
+int listmp_sharedmemory_remove(listmp_sharedmemory_handle  listmp_handle,
 				struct listmp_elem *elem)
 {
 	int status = 0;
@@ -1144,19 +1203,22 @@ int listmp_sharedmemory_remove(listmp_sharedmemory_handle  listMPHandle,
 	s32 retval = 0;
 
 	gt_2trace(listmpshm_debugmask, GT_ENTER, "listmp_sharedmemory_remove",
-					listMPHandle,
+					listmp_handle,
 					elem);
 
-	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+			LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
+
 	if (WARN_ON(elem == NULL)) {
 		status = -EINVAL;
 		goto exit;
 	}
 
-	handle = (listmp_sharedmemory_object *)listMPHandle;
+	handle = (listmp_sharedmemory_object *)listmp_handle;
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
 
 	if (obj->params.lock_handle != NULL) {
@@ -1187,7 +1249,7 @@ exit:
  *  Purpose:
  *  Function to traverse to next element in shared memory list
  */
-void *listmp_sharedmemory_next(listmp_sharedmemory_handle listMPHandle,
+void *listmp_sharedmemory_next(listmp_sharedmemory_handle listmp_handle,
 				struct listmp_elem *elem)
 {
 	listmp_sharedmemory_object *handle = NULL;
@@ -1198,16 +1260,15 @@ void *listmp_sharedmemory_next(listmp_sharedmemory_handle listMPHandle,
 
 
 	gt_2trace(listmpshm_debugmask, GT_ENTER, "listmp_sharedmemory_next",
-				   listMPHandle,
+				   listmp_handle,
 				   elem);
 
-	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
-		/*! @retval NULL if Module was not initialized */
-		retElem = NULL;
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+				LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+				LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true)
 		goto exit;
-	}
 
-	handle = (listmp_sharedmemory_object *)listMPHandle;
+	handle = (listmp_sharedmemory_object *)listmp_handle;
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
 
 	if (obj->params.lock_handle != NULL) {
@@ -1241,7 +1302,7 @@ exit:
  *  Purpose:
  *  Function to traverse to prev element in shared memory list
  */
-void *listmp_sharedmemory_prev(listmp_sharedmemory_handle listMPHandle,
+void *listmp_sharedmemory_prev(listmp_sharedmemory_handle listmp_handle,
 				struct listmp_elem *elem)
 {
 	listmp_sharedmemory_object *handle = NULL;
@@ -1251,16 +1312,15 @@ void *listmp_sharedmemory_prev(listmp_sharedmemory_handle listMPHandle,
 	s32 retval = 0;
 
 	gt_2trace(listmpshm_debugmask, GT_ENTER, "listmp_sharedmemory_prev",
-				   listMPHandle,
+				   listmp_handle,
 				   elem);
 
-	if (WARN_ON(listmp_sharedmemory_state.ns_handle == NULL)) {
-		/*! @retval NULL if Module was not initialized */
-		retElem = NULL;
+	if (atomic_cmpmask_and_lt(&(listmp_sharedmemory_state.ref_count),
+				LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(0),
+				LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) == true)
 		goto exit;
-	}
 
-	handle = (listmp_sharedmemory_object *)listMPHandle;
+	handle = (listmp_sharedmemory_object *)listmp_handle;
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
 
 	if (obj->params.lock_handle != NULL) {
@@ -1347,41 +1407,49 @@ listmp_sharedmemory_handle _listmp_sharedmemory_create(
 	/* Update attrs */
 	obj->attrs = (struct listmp_attrs *)
 					params->shared_addr;
-	obj->attrs->shared_addr_size = params->shared_addr_size;
-	obj->attrs->version = LISTMP_SHAREDMEMORY_VERSION;
-	obj->index = sharedregion_get_index(params->shared_addr);
 	/* Assign the memory with proper cache line padding */
 	obj->listmp_elem = (void *) ((u32)obj->attrs + \
 			LISTMP_SHAREDMEMORY_CACHESIZE);
+
+	if (create_flag == true) {
+		obj->attrs->shared_addr_size = params->shared_addr_size;
+		obj->attrs->version = LISTMP_SHAREDMEMORY_VERSION;
+		obj->listmp_elem->next = obj->listmp_elem->prev =
+			(struct listmp_elem *)
+			(sharedregion_get_srptr((void *)obj->listmp_elem,
+							obj->index));
+	}
+
+	obj->index = sharedregion_get_index(params->shared_addr);
+
 
 	/* Populate the params member */
 	memcpy((void *)&obj->params,
 		(void *)params,
 		 sizeof(listmp_sharedmemory_params));
 
-	if (obj->params.name != NULL) {
-		/* Copy the name */
-		obj->params.name = kmalloc(strlen(params->name) + 1,
-						GFP_KERNEL);
+	if (likely(listmp_sharedmemory_state.cfg.use_name_server
+							== true)) {
+		if (obj->params.name != NULL) {
+			/* Copy the name */
+			obj->params.name = kmalloc(strlen(params->name) + 1,
+								GFP_KERNEL);
 
-		if (obj->params.name == NULL) {
-			/*! @retval NULL if Memory allocation failed for
-			name */
-			status = -ENOMEM;
-		} else {
-			strncpy(obj->params.name, params->name,
-				strlen(params->name) + 1);
+			if (obj->params.name == NULL) {
+				/*! @retval NULL if Memory allocation failed for
+				name */
+				status = -ENOMEM;
+			} else {
+				strncpy(obj->params.name, params->name,
+						strlen(params->name) + 1);
+			}
 		}
-
 	}
 
 	/* Update processor information */
 	obj->owner = kmalloc(sizeof(struct listmp_proc_attrs),
 							GFP_KERNEL);
-	obj->remote = kmalloc(sizeof(struct listmp_proc_attrs),
-							GFP_KERNEL);
-
-	if ((obj->owner == NULL) || (obj->remote == NULL)) {
+	if (obj->owner == NULL) {
 		gt_2trace(listmpshm_debugmask,
 					GT_4CLASS,
 					"_listmp_sharedmemory_create",
@@ -1393,9 +1461,6 @@ listmp_sharedmemory_handle _listmp_sharedmemory_create(
 
 		/* Update owner and opener details */
 		if (create_flag == true) {
-			obj->remote->creator = false;
-			obj->remote->open_count = 0;
-			obj->remote->proc_id = MULTIPROC_INVALIDID;
 			obj->owner->creator = true;
 			obj->owner->open_count = 1;
 			obj->owner->proc_id = multiproc_get_id(NULL);
@@ -1403,13 +1468,9 @@ listmp_sharedmemory_handle _listmp_sharedmemory_create(
 			obj->attrs->status = \
 				LISTMP_SHAREDMEMORY_CREATED;
 		} else {
-			obj->remote->creator = true;
-			obj->remote->open_count = 1;
-			obj->remote->proc_id = MULTIPROC_INVALIDID;
 			obj->owner->creator = false;
 			obj->owner->open_count = 0;
-			obj->owner->proc_id = multiproc_get_id("SysM3");
-			/* TBD */
+			obj->owner->proc_id = MULTIPROC_INVALIDID;
 			obj->top = handle;
 		}
 
@@ -1421,18 +1482,23 @@ listmp_sharedmemory_handle _listmp_sharedmemory_create(
 			&listmp_sharedmemory_state.obj_list);
 		mutex_unlock(listmp_sharedmemory_state.lock_handle);
 
-		/* We will store a shared pointer in the
-		 * NameServer
-		 */
-		shmIndex = sharedregion_get_index(params->shared_addr);
-		sharedShmBase = sharedregion_get_srptr(
-					params->shared_addr, shmIndex);
-		/* Add list instance to name server */
-		if (obj->params.name != NULL) {
-			nameserver_add_uint32(
-				listmp_sharedmemory_state.ns_handle,
-				params->name,
-				(u32) (params->shared_addr));
+		if (create_flag == true) {
+
+			/* We will store a shared pointer in the
+			 * NameServer
+			 */
+			shmIndex = sharedregion_get_index(params->shared_addr);
+			sharedShmBase = sharedregion_get_srptr(
+						params->shared_addr, shmIndex);
+			/* Add list instance to name server */
+			if (obj->params.name != NULL) {
+				obj->ns_key = nameserver_add_uint32(
+					listmp_sharedmemory_state.ns_handle,
+					params->name,
+					(u32) (params->shared_addr));
+				if (obj->ns_key == NULL)
+					status = -EFAULT;
+			}
 		}
 	}
 
@@ -1443,13 +1509,16 @@ listmp_sharedmemory_handle _listmp_sharedmemory_create(
 		list_del(&obj->list_elem);
 		mutex_unlock(listmp_sharedmemory_state.lock_handle);
 
-		if (obj->params.name != NULL)
-			nameserver_remove(listmp_sharedmemory_state.ns_handle,
-				params->name);
+		if (likely(listmp_sharedmemory_state.cfg.use_name_server
+								== true)) {
+			if ((obj->params.name != NULL) && (status != -EFAULT))
+				nameserver_remove_entry(
+					listmp_sharedmemory_state.ns_handle,
+					obj->ns_key);
+		}
 		if (obj->owner != NULL)
 			kfree(obj->owner);
-		if (obj->remote != NULL)
-			kfree(obj->remote);
+
 		if (obj->params.name != NULL)
 			kfree(obj->params.name);
 

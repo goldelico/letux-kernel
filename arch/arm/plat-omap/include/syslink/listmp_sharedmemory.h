@@ -76,60 +76,75 @@
 				LISTMPSHAREDMEMORY_MAKE_FAILURE(2)
 
 /*!
- *  @def	LISTMPSHAREDMEMORY_E_BUSY
- *  @brief  the name is already registered or not.
- */
-#define LISTMPSHAREDMEMORY_E_BUSY \
-				LISTMPSHAREDMEMORY_MAKE_FAILURE(3)
-
-/*!
  *  @def	LISTMPSHAREDMEMORY_E_FAIL
  *  @brief  Generic failure.
  */
 #define LISTMPSHAREDMEMORY_E_FAIL \
-				LISTMPSHAREDMEMORY_MAKE_FAILURE(4)
-
-/*!
- *  @def	LISTMPSHAREDMEMORY_E_NOTFOUND
- *  @brief  name not found in the nameserver.
- */
-#define LISTMPSHAREDMEMORY_E_NOTFOUND \
-				LISTMPSHAREDMEMORY_MAKE_FAILURE(5)
+				LISTMPSHAREDMEMORY_MAKE_FAILURE(3)
 
 /*!
  *  @def	LISTMPSHAREDMEMORY_E_INVALIDSTATE
  *  @brief  Module is not initialized.
  */
 #define LISTMPSHAREDMEMORY_E_INVALIDSTATE \
-				LISTMPSHAREDMEMORY_MAKE_FAILURE(6)
-
-/*!
- *  @def	LISTMPSHAREDMEMORY_E_NOTONWER
- *  @brief  Instance is not created on this processor.
- */
-#define LISTMPSHAREDMEMORY_E_NOTOWNER \
-				LISTMPSHAREDMEMORY_MAKE_FAILURE(7)
-
-/*!
- *  @def	LISTMPSHAREDMEMORY_E_REMOTEACTIVE
- *  @brief  Remote opener of the instance has not closed the instance.
- */
-#define LISTMPSHAREDMEMORY_E_REMOTEACTIVE \
-				LISTMPSHAREDMEMORY_MAKE_FAILURE(8)
-
-/*!
- *  @def	LISTMPSHAREDMEMORY_E_INUSE
- *  @brief  Indicates that the instance is in use..
- */
-#define LISTMPSHAREDMEMORY_E_INUSE \
-				LISTMPSHAREDMEMORY_MAKE_FAILURE(9)
+				LISTMPSHAREDMEMORY_MAKE_FAILURE(4)
 
 /*!
  *  @def	LISTMPSHAREDMEMORY_E_OSFAILURE
  *  @brief  Failure in OS call.
  */
 #define LISTMPSHAREDMEMORY_E_OSFAILURE \
+				LISTMPSHAREDMEMORY_MAKE_FAILURE(5)
+
+/*!
+ *  @def	LISTMPSHAREDMEMORY_E_NOTONWER
+ *  @brief  Instance is not created on this processor.
+ */
+#define LISTMPSHAREDMEMORY_E_NOTOWNER \
+				LISTMPSHAREDMEMORY_MAKE_FAILURE(6)
+
+/*!
+ *  @def	LISTMPSHAREDMEMORY_E_REMOTEACTIVE
+ *  @brief  Remote opener of the instance has not closed the instance.
+ */
+#define LISTMPSHAREDMEMORY_E_REMOTEACTIVE \
+				LISTMPSHAREDMEMORY_MAKE_FAILURE(7)
+
+/*!
+ *  @def	LISTMPSHAREDMEMORY_E_INUSE
+ *  @brief  Indicates that the instance is in use..
+ */
+#define LISTMPSHAREDMEMORY_E_INUSE \
+				LISTMPSHAREDMEMORY_MAKE_FAILURE(8)
+
+/*!
+ *  @def	LISTMPSHAREDMEMORY_E_NOTFOUND
+ *  @brief  name not found in the nameserver.
+ */
+#define LISTMPSHAREDMEMORY_E_NOTFOUND \
+				LISTMPSHAREDMEMORY_MAKE_FAILURE(9)
+
+/*!
+ *  @def    LISTMPSHAREDMEMORY_E_NOTCREATED
+ *  @brief  Instance is not created yet
+ */
+#define LISTMPSHAREDMEMORY_E_NOTCREATED \
 				LISTMPSHAREDMEMORY_MAKE_FAILURE(10)
+
+/*!
+ *  @def    LISTMPSHAREDMEMORY_E_VERSION
+ *  @brief  Version mismatch error.
+ */
+#define LISTMPSHAREDMEMORY_E_VERSION \
+				LISTMPSHAREDMEMORY_MAKE_FAILURE(11)
+
+/*!
+ *  @def	LISTMPSHAREDMEMORY_E_BUSY
+ *  @brief  the name is already registered or not.
+ */
+#define LISTMPSHAREDMEMORY_E_BUSY \
+				LISTMPSHAREDMEMORY_MAKE_FAILURE(12)
+
 
 /*!
  *  @def	LISTMPSHAREDMEMORY_SUCCESS

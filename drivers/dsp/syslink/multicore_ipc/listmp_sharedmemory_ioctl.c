@@ -115,6 +115,14 @@ static inline int listmp_sharedmemory_ioctl_params_init(
 	unsigned long size;
 	listmp_sharedmemory_params params;
 
+	size = copy_from_user(&params,
+				cargs->args.params_init.params,
+				sizeof(listmp_sharedmemory_params));
+	if (size) {
+		retval = -EFAULT;
+		goto exit;
+	}
+
 	listmp_sharedmemory_params_init(
 		cargs->args.params_init.listmp_handle, &params);
 	size = copy_to_user(cargs->args.params_init.params, &params,
@@ -124,8 +132,8 @@ static inline int listmp_sharedmemory_ioctl_params_init(
 		goto exit;
 	}
 
-	cargs->api_status = status;
 exit:
+	cargs->api_status = status;
 	return retval;
 }
 
@@ -166,9 +174,12 @@ static inline int listmp_sharedmemory_ioctl_create(
 	}
 
 	params.shared_addr = sharedregion_get_ptr(
-				(u32 *)cargs->args.create.params->shared_addr);
+				(u32 *)cargs->args.create.shared_addr_srptr);
 	if (unlikely(params.shared_addr == NULL))
 		goto free_name;
+
+	/* Update lock_handle in params. */
+	params.lock_handle = cargs->args.create.knl_lock_handle;
 	cargs->args.create.listmp_handle = listmp_sharedmemory_create(&params);
 
 	size = copy_to_user(cargs->args.create.params, &params,
@@ -241,10 +252,12 @@ static inline int listmp_sharedmemory_ioctl_open(
 	}
 
 	params.shared_addr = sharedregion_get_ptr(
-				(u32 *)cargs->args.open.params->shared_addr);
+				(u32 *)cargs->args.open.shared_addr_srptr);
 	if (unlikely(params.shared_addr == NULL))
 		goto free_name;
 
+	/* Update lock_handle in params. */
+	params.lock_handle = cargs->args.open.knl_lock_handle;
 	status = listmp_sharedmemory_open(&listmp_handle, &params);
 	if (status)
 		goto free_name;

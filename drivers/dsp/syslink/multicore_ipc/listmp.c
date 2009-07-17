@@ -78,6 +78,35 @@ EXPORT_SYMBOL(listmp_debugmask);
 #endif
 
 /*
+ * ======== listmp_params_init ========
+ *  Purpose:
+ *  Function initializes listmp parameters
+ */
+void listmp_params_init(void *listmp_handle,
+						struct listmp_params *params)
+{
+	BUG_ON(params == NULL);
+	listmp_sharedmemory_params_init(listmp_handle, params);
+}
+
+/*
+ * ======== listmp_shared_memreq ========
+ *  Purpose:
+ *  Function to get shared memory requirement for the module
+ */
+int listmp_shared_memreq(struct listmp_params *params)
+{
+	int shared_memreq = 0;
+
+	if (WARN_ON(params == NULL))
+		goto exit;
+
+	shared_memreq = listmp_sharedmemory_shared_memreq(params);
+exit:
+	return shared_memreq;
+}
+
+/*
  * ======== listmp_create ========
  *  Purpose:
  *  Creates a new instance of listmp_sharedmemory module.
@@ -455,3 +484,4 @@ exit:
 	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_prev", prevElem);
 	return prevElem;
 }
+
