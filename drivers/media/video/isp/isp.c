@@ -1314,6 +1314,15 @@ static void isp_config_pipeline(struct v4l2_pix_format *pix_input,
 	return;
 }
 
+void isp_set_hs_vs(int hs_vs)
+{
+	struct isp_bufs *bufs = &isp_obj.bufs;
+
+	bufs->wait_hs_vs = hs_vs;
+	return;
+}
+EXPORT_SYMBOL(isp_set_hs_vs);
+
 static void isp_buf_init(void)
 {
 	struct isp_bufs *bufs = &isp_obj.bufs;
