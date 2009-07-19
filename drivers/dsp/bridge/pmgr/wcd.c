@@ -899,7 +899,7 @@ u32 PROCWRAP_Load(union Trapped_Args *args)
 		goto func_cont;
 	}
 
-	for (i = 0; DSP_SUCCEEDED(status) && (i < count); i++) {
+	for (i = 0; i < count; i++) {
 		if (argv[i]) {
 			/* User space pointer to argument */
 			temp = (char *) argv[i];
@@ -940,7 +940,7 @@ u32 PROCWRAP_Load(union Trapped_Args *args)
 			envp = NULL;
 			goto func_cont;
 		}
-		for (i = 0; DSP_SUCCEEDED(status) && envp[i]; i++) {
+		for (i = 0; envp[i]; i++) {
 			/* User space pointer to argument */
 			temp = (char *)envp[i];
 			/* len is increased by 1 to accommodate NULL */
