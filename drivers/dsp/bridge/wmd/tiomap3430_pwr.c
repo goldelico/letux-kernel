@@ -289,57 +289,38 @@ DSP_STATUS WakeDSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 {
 	DSP_STATUS status = DSP_SOK;
 #ifdef CONFIG_PM
-	struct CFG_HOSTRES resources;
+#ifdef CONFIG_BRIDGE_DEBUG
 	enum HW_PwrState_t pwrState;
-	u32 temp;
+	struct CFG_HOSTRES resources;
 
 	status = CFG_GetHostResources(
 		 (struct CFG_DEVNODE *)DRV_GetFirstDevExtension(), &resources);
 	if (DSP_FAILED(status))
 		return status;
-	/* check the BRD/WMD state, if it is not 'SLEEP' then return failure */
+#endif /* CONFIG_BRIDGE_DEBUG */
+
+	/* Check the BRD/WMD state, if it is not 'SLEEP' then return failure */
 	if (pDevContext->dwBrdState == BRD_RUNNING ||
-		pDevContext->dwBrdState == BRD_STOPPED ||
-		pDevContext->dwBrdState == BRD_DSP_HIBERNATION) {
+	    pDevContext->dwBrdState == BRD_STOPPED) {
 		/* The Device is in 'RET' or 'OFF' state and WMD state is not
 		 * 'SLEEP', this means state inconsistency, so return  */
-		status = DSP_SOK;
-		return status;
+		return DSP_SOK;
 	}
-	/* Enable the DSP peripheral clocks and load monitor timer
-	 * before waking the DSP */
-	DBG_Trace(DBG_LEVEL6, "WakeDSP: enable DSP Peripheral Clks = 0x%x \n",
-		 pDevContext->uDspPerClks);
-	status = DSP_PeripheralClocks_Enable(pDevContext, NULL);
 
-	/* Enabling Dppll in lock mode */
-		temp = (u32) *((REG_UWORD32 *)
-			((u32) (resources.dwCmBase) + 0x34));
-		temp = (temp & 0xFFFFFFFE) | 0x1;
-		*((REG_UWORD32 *) ((u32) (resources.dwCmBase) + 0x34)) =
-						(u32) temp;
-		temp = (u32) *((REG_UWORD32 *)
-			((u32) (resources.dwCmBase) + 0x4));
-		temp = (temp & 0xFFFFFC8) | 0x37;
+	/* Send a wakeup message to DSP */
+	CHNLSM_InterruptDSP2(pDevContext, MBX_PM_DSPWAKEUP);
 
-		*((REG_UWORD32 *) ((u32) (resources.dwCmBase) + 0x4)) =
-						(u32) temp;
+#ifdef CONFIG_BRIDGE_DEBUG
+	HW_PWR_IVA2StateGet(resources.dwPrmBase, HW_PWR_DOMAIN_DSP,
+			&pwrState);
+	DBG_Trace(DBG_LEVEL7,
+			"\nWakeDSP: Power State After sending Interrupt "
+			"to DSP %x\n", pwrState);
+#endif /* CONFIG_BRIDGE_DEBUG */
 
-	udelay(10);
-	if (DSP_SUCCEEDED(status)) {
-		/* Send a message to DSP to wake up */
-		CHNLSM_InterruptDSP2(pDevContext, MBX_PM_DSPWAKEUP);
-		HW_PWR_IVA2StateGet(resources.dwPrmBase, HW_PWR_DOMAIN_DSP,
-				    &pwrState);
-		DBG_Trace(DBG_LEVEL7,
-			 "\nWakeDSP: Power State After sending Interrupt "
-			 "to DSP %x\n", pwrState);
-		/* set the device state to RUNNIG */
-		pDevContext->dwBrdState = BRD_RUNNING;
-	} else {
-		DBG_Trace(DBG_LEVEL6, "WakeDSP: FAILED\n");
-	}
-#endif
+	/* Set the device state to RUNNIG */
+	pDevContext->dwBrdState = BRD_RUNNING;
+#endif /* CONFIG_PM */
 	return status;
 }
 
