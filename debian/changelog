@@ -1,3 +1,9 @@
+linux-2.6-openmoko (20090702.gitd1c828aa-1) UNRELEASED; urgency=low
+
+  * New Git checkout.
+
+ --
+
 linux-2.6-openmoko (20090610.gitd7ac922b-2) pkg-fso; urgency=low
 
   * debian/config.gta02:
