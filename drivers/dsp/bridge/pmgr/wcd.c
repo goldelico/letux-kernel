@@ -527,8 +527,9 @@ u32 MGRWRAP_RegisterObject(union Trapped_Args *args)
 	cp_fm_usr(&pUuid, args->ARGS_MGR_REGISTEROBJECT.pUuid, status, 1);
 	if (DSP_FAILED(status))
 		goto func_end;
+	/* pathSize is increased by 1 to accommodate NULL */
 	pathSize = strlen_user((char *)
-				args->ARGS_MGR_REGISTEROBJECT.pszPathName);
+			args->ARGS_MGR_REGISTEROBJECT.pszPathName) + 1;
 	pszPathName = MEM_Alloc(pathSize, MEM_NONPAGED);
 	if (!pszPathName)
 		goto func_end;
@@ -539,7 +540,6 @@ u32 MGRWRAP_RegisterObject(union Trapped_Args *args)
 		status = DSP_EPOINTER;
 		goto func_end;
 	}
-	pszPathName[pathSize] = '\0';
 
 	GT_1trace(WCD_debugMask, GT_ENTER,
 		 "MGRWRAP_RegisterObject: entered pg2hMsg "
@@ -899,7 +899,8 @@ u32 PROCWRAP_Load(union Trapped_Args *args)
 		if (argv[i] != NULL) {
 			/* User space pointer to argument */
 			temp = (char *) argv[i];
-			len = strlen_user((char *)temp);
+			/* len is increased by 1 to accommodate NULL */
+			len = strlen_user((char *)temp) + 1;
 			/* Kernel space pointer to argument */
 			argv[i] = MEM_Alloc(len, MEM_NONPAGED);
 			if (argv[i] == NULL) {
@@ -909,7 +910,6 @@ u32 PROCWRAP_Load(union Trapped_Args *args)
 			cp_fm_usr(argv[i], temp, status, len);
 			if (DSP_FAILED(status))
 				goto func_cont;
-
 		}
 	}
 	/* TODO: validate this */
@@ -932,7 +932,8 @@ u32 PROCWRAP_Load(union Trapped_Args *args)
 		for (i = 0; DSP_SUCCEEDED(status) && (envp[i] != NULL); i++) {
 			/* User space pointer to argument */
 			temp = (char *)envp[i];
-			len = strlen_user((char *)temp);
+			/* len is increased by 1 to accommodate NULL */
+			len = strlen_user((char *)temp) + 1;
 			/* Kernel space pointer to argument */
 			envp[i] = MEM_Alloc(len, MEM_NONPAGED);
 			if (envp[i] == NULL) {
