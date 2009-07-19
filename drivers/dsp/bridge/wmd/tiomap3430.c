@@ -140,7 +140,37 @@ static DSP_STATUS PteSet(struct PgTableAttrs *pt, u32 pa, u32 va,
 static DSP_STATUS MemMapVmalloc(struct WMD_DEV_CONTEXT *hDevContext,
 			u32 ulMpuAddr, u32 ulVirtAddr,
 			u32 ulNumBytes, struct HW_MMUMapAttrs_t *hwAttrs);
-static void GetHWRegs(void __iomem *prcm_base, void __iomem *cm_base);
+
+#ifdef CONFIG_BRIDGE_DEBUG
+static void GetHWRegs(void __iomem *prm_base, void __iomem *cm_base)
+{
+	u32 temp;
+	temp = __raw_readl((cm_base) + 0x00);
+	DBG_Trace(DBG_LEVEL6, "CM_FCLKEN_IVA2 = 0x%x \n", temp);
+	temp = __raw_readl((cm_base) + 0x10);
+	DBG_Trace(DBG_LEVEL6, "CM_ICLKEN1_IVA2 = 0x%x \n", temp);
+	temp = __raw_readl((cm_base) + 0x20);
+	DBG_Trace(DBG_LEVEL6, "CM_IDLEST_IVA2 = 0x%x \n", temp);
+	temp = __raw_readl((cm_base) + 0x48);
+	DBG_Trace(DBG_LEVEL6, "CM_CLKSTCTRL_IVA2 = 0x%x \n", temp);
+	temp = __raw_readl((cm_base) + 0x4c);
+	DBG_Trace(DBG_LEVEL6, "CM_CLKSTST_IVA2 = 0x%x \n", temp);
+	temp = __raw_readl((prm_base) + 0x50);
+	DBG_Trace(DBG_LEVEL6, "RM_RSTCTRL_IVA2 = 0x%x \n", temp);
+	temp = __raw_readl((prm_base) + 0x58);
+	DBG_Trace(DBG_LEVEL6, "RM_RSTST_IVA2 = 0x%x \n", temp);
+	temp = __raw_readl((prm_base) + 0xE0);
+	DBG_Trace(DBG_LEVEL6, "PM_PWSTCTRL_IVA2 = 0x%x \n", temp);
+	temp = __raw_readl((prm_base) + 0xE4);
+	DBG_Trace(DBG_LEVEL6, "PM_PWSTST_IVA2 = 0x%x \n", temp);
+	temp = __raw_readl((cm_base) + 0xA10);
+	DBG_Trace(DBG_LEVEL6, "CM_ICLKEN1_CORE = 0x%x \n", temp);
+}
+#else
+static inline void GetHWRegs(void __iomem *prm_base, void __iomem *cm_base)
+{
+}
+#endif
 
 /*  ----------------------------------- Globals */
 
@@ -2022,31 +2052,6 @@ static DSP_STATUS MemMapVmalloc(struct WMD_DEV_CONTEXT *pDevContext,
 	flush_all(pDevContext);
 	DBG_Trace(DBG_LEVEL7, "< WMD_BRD_MemMap at end status %x\n", status);
 	return status;
-}
-
-static void GetHWRegs(void __iomem *prm_base, void __iomem *cm_base)
-{
-	u32 temp;
-	temp = __raw_readl((cm_base) + 0x00);
-	DBG_Trace(DBG_LEVEL6, "CM_FCLKEN_IVA2 = 0x%x \n", temp);
-	temp = __raw_readl((cm_base) + 0x10);
-	DBG_Trace(DBG_LEVEL6, "CM_ICLKEN1_IVA2 = 0x%x \n", temp);
-	temp = __raw_readl((cm_base) + 0x20);
-	DBG_Trace(DBG_LEVEL6, "CM_IDLEST_IVA2 = 0x%x \n", temp);
-	temp = __raw_readl((cm_base) + 0x48);
-	DBG_Trace(DBG_LEVEL6, "CM_CLKSTCTRL_IVA2 = 0x%x \n", temp);
-	temp = __raw_readl((cm_base) + 0x4c);
-	DBG_Trace(DBG_LEVEL6, "CM_CLKSTST_IVA2 = 0x%x \n", temp);
-	temp = __raw_readl((prm_base) + 0x50);
-	DBG_Trace(DBG_LEVEL6, "RM_RSTCTRL_IVA2 = 0x%x \n", temp);
-	temp = __raw_readl((prm_base) + 0x58);
-	DBG_Trace(DBG_LEVEL6, "RM_RSTST_IVA2 = 0x%x \n", temp);
-	temp = __raw_readl((prm_base) + 0xE0);
-	DBG_Trace(DBG_LEVEL6, "PM_PWSTCTRL_IVA2 = 0x%x \n", temp);
-	temp = __raw_readl((prm_base) + 0xE4);
-	DBG_Trace(DBG_LEVEL6, "PM_PWSTST_IVA2 = 0x%x \n", temp);
-	temp = __raw_readl((cm_base) + 0xA10);
-	DBG_Trace(DBG_LEVEL6, "CM_ICLKEN1_CORE = 0x%x \n", temp);
 }
 
 /*
