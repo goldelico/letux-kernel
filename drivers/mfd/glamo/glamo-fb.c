@@ -1061,7 +1061,7 @@ static int __init glamofb_probe(struct platform_device *pdev)
 	glamo_engine_enable(mach_info->glamo, GLAMO_ENGINE_LCD);
 	glamo_engine_reset(mach_info->glamo, GLAMO_ENGINE_LCD);
 
-	dev_info(&pdev->dev, "spin_lock_init\n");
+	dev_dbg(&pdev->dev, "spin_lock_init\n");
 	spin_lock_init(&glamofb->lock_cmd);
 	glamofb_init_regs(glamofb);
 #ifdef CONFIG_MFD_GLAMO_HWACCEL
@@ -1148,7 +1148,7 @@ static int glamofb_resume(struct platform_device *pdev)
 	glamo_engine_enable(mach_info->glamo, GLAMO_ENGINE_LCD);
 	glamo_engine_reset(mach_info->glamo, GLAMO_ENGINE_LCD);
 
-	printk(KERN_ERR"spin_lock_init\n");
+	dev_dbg(&pdev->dev, "spin_lock_init\n");
 	spin_lock_init(&gfb->lock_cmd);
 	glamofb_init_regs(gfb);
 #ifdef CONFIG_MFD_GLAMO_HWACCEL
