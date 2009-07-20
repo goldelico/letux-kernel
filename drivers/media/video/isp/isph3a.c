@@ -748,10 +748,10 @@ int isph3a_aewb_request_statistics(struct isph3a_aewb_data *aewbdata)
 	if (aewbdata->update & SET_DIGITAL_GAIN)
 		h3awb_update.dgain = (u16)aewbdata->dgain;
 	if (aewbdata->update & SET_COLOR_GAINS) {
-		h3awb_update.coef0 = (u8)aewbdata->wb_gain_gr;
-		h3awb_update.coef1 = (u8)aewbdata->wb_gain_r;
-		h3awb_update.coef2 = (u8)aewbdata->wb_gain_b;
-		h3awb_update.coef3 = (u8)aewbdata->wb_gain_gb;
+		h3awb_update.coef0 = (u8)aewbdata->wb_gain_r;
+		h3awb_update.coef1 = (u8)aewbdata->wb_gain_gr;
+		h3awb_update.coef2 = (u8)aewbdata->wb_gain_gb;
+		h3awb_update.coef3 = (u8)aewbdata->wb_gain_b;
 	}
 	if (aewbdata->update & (SET_COLOR_GAINS | SET_DIGITAL_GAIN))
 		wb_update = 1;
