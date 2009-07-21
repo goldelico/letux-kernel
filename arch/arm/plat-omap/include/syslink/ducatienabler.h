@@ -89,7 +89,7 @@
 #define DUCATI_SHARED_IPC_LEN			0x100000
 
 #define DUCATI_SW_DMM_ADDR			0x80000000
-#define DUCATI_SW_DMM_LEN			0x2C00000
+#define DUCATI_SW_DMM_LEN			0x400000
 
 
 /* Types of mapping attributes */
