@@ -64,6 +64,7 @@ static struct class *ipcnotify_class;
 /*Structure of Event Packet read from notify kernel-side..*/
 struct notify_drv_event_packet {
 	struct list_head element;
+	u32 pid;
 	u32 proc_id;
 	u32 event_no;
 	u32 data;
@@ -119,9 +120,6 @@ int major = 232;
 
 static void notify_drv_setup(void);
 
-/* exit function */
-static int notify_drv_exit(void);
-
 static int notify_drv_add_buf_by_pid(u16 procId, u32 pid,
 		u32 eventNo, u32 data, notify_callback_fxn cbFxn, void *param);
 
@@ -153,6 +151,13 @@ static void notify_drv_destroy(void);
 static int notify_drv_register_driver(void);
 
 static int notify_drv_unregister_driver(void);
+
+/* Attach a process to notify user support framework. */
+static int notify_drv_attach(u32 pid);
+
+/* Detach a process from notify user support framework. */
+static int notify_drv_detach(u32 pid);
+
 
 /* Function to invoke the APIs through ioctl.*/
 static const struct file_operations driver_ops = {
@@ -201,66 +206,7 @@ func_end:
  */
 static int notify_drv_open(struct inode *inode, struct file *filp)
 {
-	u32 status = NOTIFY_SUCCESS;
-	short int flag = false ;
-	u32 pid = (u32) current->mm ;
-	u32 i;
-	bool isinit = false;
-	struct semaphore *sem_handle;
-	struct semaphore *ter_sem_handle;
-	int ret_val = 0;
-
-	notifydrv_state.open_refcount += 2;
-	if (notifydrv_state.open_refcount == 2) {
-		WARN_ON(mutex_lock_interruptible(notifydrv_state.gatehandle));
-		for (i = 0 ; (i < MAX_PROCESSES) ; i++) {
-			if (notifydrv_state.event_state[i].pid == pid) {
-				notifydrv_state.event_state[i].ref_count++;
-				isinit = true;
-				break;
-			}
-		}
-		mutex_unlock(notifydrv_state.gatehandle);
-		if (isinit == true)
-			goto func_end;
-		sem_handle = kmalloc(sizeof(struct semaphore), GFP_ATOMIC);
-		ter_sem_handle = kmalloc(sizeof(struct semaphore), GFP_ATOMIC);
-		sema_init(sem_handle, 0);
-		/* Create the termination semaphore */
-		sema_init(ter_sem_handle, 0);
-		WARN_ON(mutex_lock_interruptible(notifydrv_state.gatehandle));
-		/* Search for an available slot for user process. */
-		for (i = 0 ; i < MAX_PROCESSES ; i++) {
-			if (notifydrv_state.event_state[i].pid == -1) {
-				notifydrv_state.event_state[i].semhandle =
-							sem_handle;
-				notifydrv_state.event_state[i].tersemhandle =
-							ter_sem_handle;
-				notifydrv_state.event_state[i].pid = pid;
-				notifydrv_state.event_state[i].ref_count
-								= 1;
-				INIT_LIST_HEAD(&(notifydrv_state.event_state[i].
-								buf_list));
-				flag = true;
-				break;
-			}
-		}
-		mutex_unlock(notifydrv_state.gatehandle);
-		/* No free slots found. Let this check remain at
-		* run-time, since it is dependent on user environment.
-		*/
-		if (WARN_ON(flag != true)) {
-			/*! @retval -1 Maximum number of supported user
-			clients have already been registered. */
-			status = NOTIFY_E_MAXCLIENTS;
-		}
-	}
-		if (status == NOTIFY_SUCCESS)
-			ret_val = 0;
-		else
-			ret_val = -EINVAL;
-func_end:
-	return ret_val;
+	return 0;
 }
 
 /*
@@ -268,7 +214,6 @@ func_end:
  */
 static int notify_drv_close(struct inode *inode, struct file *filp)
 {
-	notifydrv_state.open_refcount--;
 	return 0 ;
 }
 
@@ -281,18 +226,24 @@ static int notify_drv_read(struct file *filp, char *dst, size_t size,
 
 	bool flag = false;
 	struct notify_drv_event_packet *u_buf = NULL;
-	u32 pid = (u32) current->mm;
 	int ret_val = 0;
 	u32 i;
 	struct list_head *elem;
+	struct notify_drv_event_packet t_buf;
 
 	if (WARN_ON(notifydrv_state.is_setup == false)) {
 		ret_val = -EFAULT;
 		goto func_end;
 	}
 
+	ret_val = copy_from_user((void *)&t_buf,
+				(void *)dst,
+				sizeof(struct notify_drv_event_packet));
+	WARN_ON(ret_val != 0);
+
+
 	for (i = 0 ; i < MAX_PROCESSES ; i++) {
-		if (notifydrv_state.event_state[i].pid == pid) {
+		if (notifydrv_state.event_state[i].pid == t_buf.pid) {
 			flag = true;
 			break;
 		}
@@ -412,7 +363,7 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 		cbck->proc_id = src_args.procId;
 		cbck->func = src_args.fnNotifyCbck;
 		cbck->param = src_args.cbckArg;
-		cbck->pid = (u32) current->mm;
+		cbck->pid = src_args.pid;
 		status = notify_register_event(src_args.handle, src_args.procId,
 			src_args.eventNo, notify_drv_cbck, (void *)cbck);
 		if (status < 0) {
@@ -434,7 +385,7 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 	case CMD_NOTIFY_UNREGISTEREVENT:
 	{
 		bool found = false;
-		u32 pid = (u32) current->mm;
+		u32 pid;
 		struct notify_drv_event_cbck *cbck = NULL;
 		struct list_head *entry = NULL;
 		struct notify_cmd_args_unregister_event src_args;
@@ -445,6 +396,8 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 
 		if (WARN_ON(retval != 0))
 			goto func_end;
+
+		pid = src_args.pid;
 		WARN_ON(mutex_lock_interruptible(notifydrv_state.gatehandle));
 		list_for_each(entry,
 			(struct list_head *)&(notifydrv_state.evt_cbck_list)) {
@@ -583,12 +536,25 @@ static int notify_drv_ioctl(struct inode *inode, struct file *filp, u32 cmd,
 	}
 	break;
 
-	case CMD_NOTIFY_EXIT:
+	case CMD_NOTIFY_ATTACH:
 	{
-		/* No args to be copied from user-side. */
-		status = notify_drv_exit();
+		/* FIXME: User copy_from_user */
+		u32 pid = *((u32 *)args);
+		status = notify_drv_attach(pid);
+
 		if (status < 0)
-			printk(KERN_ERR "notify_driver_exit FAILED\n");
+			printk(KERN_ERR "NOTIFY_ATTACH FAILED\n");
+	}
+	break;
+
+	case CMD_NOTIFY_DETACH:
+	{
+		/* FIXME: User copy_from_user */
+		u32 pid = *((u32 *)args);
+		status = notify_drv_detach(pid);
+
+		if (status < 0)
+			printk(KERN_ERR "NOTIFY_DETACH FAILED\n");
 	}
 	break;
 
@@ -668,79 +634,6 @@ func_end:
 }
 
 /*
- * notify_drv_exit
- *
- */
-int notify_drv_exit(void)
-{
-	int status = NOTIFY_SUCCESS;
-	bool flag = false;
-	u32 pid = (u32) current->mm;
-	int i;
-	struct semaphore *sem_handle;
-	struct semaphore *ter_sem_handle;
-
-	notifydrv_state.open_refcount--;
-	/* Last dummy close will make the ref_count 0. */
-	if (notifydrv_state.open_refcount != 1) {
-		status = NOTIFY_E_FAIL;
-		goto func_end;
-	}
-	if (WARN_ON(notifydrv_state.is_setup == false)) {
-		/* The Notify OS driver was not setup */
-		status = NOTIFY_E_SETUP;
-		goto func_end;
-	}
-	/* Send the termination packet to notify thread */
-	status = notify_drv_add_buf_by_pid(0, /* Ignored. */
-			(u32) current->mm, (u32) -1, (u32)0, NULL, NULL);
-	if (status < 0) {
-		printk(KERN_ERR "notify_drv_exit failed to send"
-			"termination packet\n.");
-		goto func_end;
-	}
-	if (mutex_lock_interruptible(notifydrv_state.gatehandle)) {
-		status = NOTIFY_E_OSFAILURE;
-		goto func_end;
-	}
-	for (i = 0; i < MAX_PROCESSES; i++) {
-		if (notifydrv_state.event_state[i].pid == pid) {
-			if (notifydrv_state.event_state[i].ref_count == 1) {
-				/* Last client being unregistered for this
-				* process*/
-				notifydrv_state.event_state[i].pid = -1;
-				notifydrv_state.event_state[i].ref_count = 0;
-				sem_handle =
-				notifydrv_state.event_state[i].semhandle;
-				ter_sem_handle =
-				notifydrv_state.event_state[i].tersemhandle;
-				INIT_LIST_HEAD((struct list_head *)
-				&(notifydrv_state.event_state[i].buf_list));
-				notifydrv_state.event_state[i].semhandle =
-								NULL;
-				notifydrv_state.event_state[i].tersemhandle =
-								NULL;
-				flag = true;
-				break;
-			} else
-				notifydrv_state.event_state[i].ref_count--;
-		}
-	}
-	mutex_unlock(notifydrv_state.gatehandle);
-
-	if ((flag == false) && (i == MAX_PROCESSES)) {
-		/*retval NOTIFY_E_NOTFOUND The specified user process was
-			 not found registered with Notify Driver module. */
-		status = NOTIFY_E_NOTFOUND;
-	} else {
-		kfree(sem_handle);
-		kfree(ter_sem_handle);
-	}
-func_end:
-	return status;
-}
-
-/*
  * Module setup function.
  *
  */
@@ -792,6 +685,152 @@ static void notify_drv_destroy(void)
 	kfree(notifydrv_state.gatehandle);
 	notifydrv_state.is_setup = false;
 	return;
+}
+
+
+
+
+/*
+ *  brief      Attach a process to notify user support framework.
+ */
+static int notify_drv_attach(u32 pid)
+{
+	s32 status = NOTIFY_SUCCESS;
+	bool flag = false;
+	bool is_init = false;
+	u32 i;
+	struct semaphore *sem_handle;
+	struct semaphore *ter_sem_handle;
+	int ret_val = 0;
+
+	if (notifydrv_state.is_setup == false) {
+		status = NOTIFY_E_FAIL;
+	} else {
+		WARN_ON(mutex_lock_interruptible(notifydrv_state.gatehandle));
+
+		for (i = 0 ; (i < MAX_PROCESSES) ; i++) {
+			if (notifydrv_state.event_state[i].pid == pid) {
+				notifydrv_state.event_state[i].ref_count++;
+				is_init = true;
+				break;
+			}
+		}
+		mutex_unlock(notifydrv_state.gatehandle);
+
+		if (is_init == true)
+			goto func_end;
+
+		sem_handle = kmalloc(sizeof(struct semaphore), GFP_ATOMIC);
+		ter_sem_handle = kmalloc(sizeof(struct semaphore), GFP_ATOMIC);
+
+		sema_init(sem_handle, 0);
+		/* Create the termination semaphore */
+		sema_init(ter_sem_handle, 0);
+
+		WARN_ON(mutex_lock_interruptible(notifydrv_state.gatehandle));
+		/* Search for an available slot for user process. */
+		for (i = 0 ; i < MAX_PROCESSES ; i++) {
+			if (notifydrv_state.event_state[i].pid == -1) {
+				notifydrv_state.event_state[i].semhandle =
+							sem_handle;
+				notifydrv_state.event_state[i].tersemhandle =
+							ter_sem_handle;
+				notifydrv_state.event_state[i].pid = pid;
+				notifydrv_state.event_state[i].ref_count
+								= 1;
+				INIT_LIST_HEAD(&(notifydrv_state.event_state[i].
+								buf_list));
+				flag = true;
+				break;
+			}
+		}
+		mutex_unlock(notifydrv_state.gatehandle);
+
+		if (WARN_ON(flag != true)) {
+			/* Max users have registered. No more clients
+			 * can be supported */
+			status = NOTIFY_E_MAXCLIENTS;
+		}
+
+		if (status == NOTIFY_SUCCESS)
+			ret_val = 0;
+		else {
+			kfree(ter_sem_handle);
+			kfree(sem_handle);
+			ret_val = -EINVAL;
+		}
+
+	}
+func_end:
+    return ret_val;
+}
+
+
+/*
+ *  brief      Detach a process from notify user support framework.
+ */
+static int notify_drv_detach(u32 pid)
+{
+	s32 status = NOTIFY_SUCCESS;
+	bool flag = false;
+	u32 i;
+	struct semaphore *sem_handle;
+	struct semaphore *ter_sem_handle;
+
+	if (notifydrv_state.is_setup == false) {
+		status = NOTIFY_E_FAIL;
+		goto func_end;
+	}
+
+	/* Send the termination packet to notify thread */
+	status = notify_drv_add_buf_by_pid(0, pid, (u32)-1, (u32)0,
+					NULL, NULL);
+
+	if (status < 0)
+		goto func_end;
+
+	if (mutex_lock_interruptible(notifydrv_state.gatehandle)) {
+		status = NOTIFY_E_OSFAILURE;
+		goto func_end;
+	}
+	for (i = 0; i < MAX_PROCESSES; i++) {
+		if (notifydrv_state.event_state[i].pid == pid) {
+			if (notifydrv_state.event_state[i].ref_count == 1) {
+				/* Last client being unregistered for this
+				* process*/
+				notifydrv_state.event_state[i].pid = -1;
+				notifydrv_state.event_state[i].ref_count = 0;
+				sem_handle =
+				notifydrv_state.event_state[i].semhandle;
+				ter_sem_handle =
+				notifydrv_state.event_state[i].tersemhandle;
+				INIT_LIST_HEAD((struct list_head *)
+				&(notifydrv_state.event_state[i].buf_list));
+				notifydrv_state.event_state[i].semhandle =
+								NULL;
+				notifydrv_state.event_state[i].tersemhandle =
+								NULL;
+				flag = true;
+				break;
+			} else
+				notifydrv_state.event_state[i].ref_count--;
+		}
+	}
+	mutex_unlock(notifydrv_state.gatehandle);
+
+	if ((flag == false) && (i == MAX_PROCESSES)) {
+		/*retval NOTIFY_E_NOTFOUND The specified user process was
+		 * not found registered with Notify Driver module. */
+	    status = NOTIFY_E_NOTFOUND;
+	} else {
+	    kfree(sem_handle);
+	    kfree(ter_sem_handle);
+	}
+func_end:
+	    return status;
+
+    /*! @retval NOTIFY_SUCCESS Operation successfully completed */
+    return status;
 }
 
 
