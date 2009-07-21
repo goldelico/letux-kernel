@@ -108,7 +108,7 @@
 /*
  * The module has not been setup.
  */
-#define NOTIFY_E_SETUP			NOTIFY_MAKE_FAILURE(13)
+#define NOTIFY_E_INVALIDSTATE	NOTIFY_MAKE_FAILURE(13)
 
 /*
  *  Maximum number of supported drivers have already been registered.
@@ -184,6 +184,11 @@
  */
 #define NOTIFY_MAXNESTDEPTH		2
 
+
+/* brief Macro to make a correct module magic number with refCount */
+#define NOTIFY_MAKE_MAGICSTAMP(x) ((NOTIFY_MODULEID << 12u) | (x))
+
+
 /*
  *  const  NOTIFYSHMDRV_DRIVERNAME
  *
@@ -213,8 +218,6 @@
 struct notify_config {
 	u32 maxDrivers;
 	/* Maximum number of drivers that can be created for Notify at a time */
-	struct mutex *gate_handle;
-	/* Handle of gate to be used for local thread safety */
 };
 
 typedef void (*notify_callback_fxn)(u16 proc_id, u32 eventNo, void *arg,

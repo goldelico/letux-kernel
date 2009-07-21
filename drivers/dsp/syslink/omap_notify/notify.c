@@ -27,6 +27,7 @@
 #include <syslink/GlobalTypes.h>
 #include <syslink/gt.h>
 #include <syslink/multiproc.h>
+#include <syslink/atomic_linux.h>
 
 /*
  * func   _notify_is_support_proc
@@ -38,8 +39,6 @@ static bool _notify_is_support_proc(struct notify_driver_object *drv_handle,
 							int proc_id);
 
 struct notify_module_object notify_state = {
-	.is_setup = false,
-	.def_cfg.gate_handle = NULL,
 	.def_cfg.maxDrivers = 2,
 };
 EXPORT_SYMBOL(notify_state);
@@ -61,7 +60,9 @@ void notify_get_config(struct notify_config *cfg)
 {
 	BUG_ON(cfg == NULL);
 
-	if (notify_state.is_setup == false)
+	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+			NOTIFY_MAKE_MAGICSTAMP(0),
+			NOTIFY_MAKE_MAGICSTAMP(1)) == false)
 		memcpy(cfg, &notify_state.def_cfg,
 			sizeof(struct notify_config));
 	else
@@ -92,29 +93,40 @@ int notify_setup(struct notify_config *cfg)
 	int status = NOTIFY_SUCCESS;
 	struct notify_config tmpCfg;
 
-	if (cfg == NULL) {
-		notify_get_config(&tmpCfg);
-		cfg = &tmpCfg;
-	}
+	atomic_cmpmask_and_set(&notify_state.ref_count,
+				    NOTIFY_MAKE_MAGICSTAMP(0),
+				    NOTIFY_MAKE_MAGICSTAMP(0));
 
-	if (cfg->gate_handle != NULL) {
-		notify_state.gate_handle = cfg->gate_handle;
+	if (atomic_inc_return(&notify_state.ref_count)
+				!= NOTIFY_MAKE_MAGICSTAMP(1u)) {
+		status = NOTIFY_S_ALREADYSETUP;
 	} else {
+		if (cfg == NULL) {
+			notify_get_config(&tmpCfg);
+			cfg = &tmpCfg;
+		}
+
 		notify_state.gate_handle = kmalloc(sizeof(struct mutex),
 							GFP_ATOMIC);
 		/*User has not provided any gate handle,
 		so create a default handle.*/
 		mutex_init(notify_state.gate_handle);
+
+		if (WARN_ON(cfg->maxDrivers > NOTIFY_MAX_DRIVERS)) {
+			status = NOTIFY_E_CONFIG;
+			kfree(notify_state.gate_handle);
+			atomic_set(&notify_state.ref_count,
+				NOTIFY_MAKE_MAGICSTAMP(0));
+			goto func_end;
+		}
+		memcpy(&notify_state.cfg, cfg, sizeof(struct notify_config));
+		memset(&notify_state.drivers, 0,
+			(sizeof(struct notify_driver_object) *
+						NOTIFY_MAX_DRIVERS));
+
+		notify_state.disable_depth = 0;
+
 	}
-	if (WARN_ON(cfg->maxDrivers > NOTIFY_MAX_DRIVERS)) {
-		status = NOTIFY_E_CONFIG;
-		goto func_end;
-	}
-	memcpy(&notify_state.cfg, cfg, sizeof(struct notify_config));
-	memset(&notify_state.drivers, 0,
-		(sizeof(struct notify_driver_object) * NOTIFY_MAX_DRIVERS));
-	notify_state.disable_depth = 0;
-	notify_state.is_setup = true;
 func_end:
 	return status;
 }
@@ -130,19 +142,31 @@ EXPORT_SYMBOL(notify_setup);
 int notify_destroy(void)
 {
 	int i;
+	int status = NOTIFY_SUCCESS;
 
-	/* Check if any Notify driver instances have not been deleted so far.
-	 * If not, assert.
-	 */
-	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++)
-		WARN_ON(notify_state.drivers[i].is_init != false);
+	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+			NOTIFY_MAKE_MAGICSTAMP(0),
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+			status = NOTIFY_E_INVALIDSTATE;
+	} else {
+		if (atomic_dec_return(&(notify_state.ref_count)) ==
+					NOTIFY_MAKE_MAGICSTAMP(0)) {
 
-	if (notify_state.cfg.gate_handle == NULL) {
-		if (notify_state.gate_handle != NULL)
-			kfree(notify_state.gate_handle);
+			/* Check if any Notify driver instances have
+			 * not been deleted so far. If not, assert.
+			 */
+			for (i = 0; i < NOTIFY_MAX_DRIVERS; i++)
+				WARN_ON(notify_state.drivers[i].is_init
+								!= false);
+
+			if (notify_state.gate_handle != NULL)
+				kfree(notify_state.gate_handle);
+
+			atomic_set(&notify_state.ref_count,
+				NOTIFY_MAKE_MAGICSTAMP(0));
+		}
 	}
-	notify_state.is_setup = false;
-	return NOTIFY_SUCCESS;
+	return status;
 }
 EXPORT_SYMBOL(notify_destroy);
 
@@ -161,8 +185,15 @@ int notify_register_event(void *notify_driver_handle, u16 proc_id,
 		(struct notify_driver_object *)notify_driver_handle;
 
 	BUG_ON(drv_handle == NULL);
+
+	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+			NOTIFY_MAKE_MAGICSTAMP(0),
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto func_end;
+	}
 	if (WARN_ON(drv_handle->is_init == false)) {
-		status = NOTIFY_E_SETUP;
+		status = NOTIFY_E_INVALIDSTATE;
 		goto func_end;
 	}
 	if (WARN_ON(_notify_is_support_proc(drv_handle, proc_id) != true)) {
@@ -211,8 +242,15 @@ int notify_unregister_event(void *notify_driver_handle, u16 proc_id,
 	struct notify_driver_object *drv_handle =
 		(struct notify_driver_object *)notify_driver_handle;
 	BUG_ON(drv_handle == NULL);
+
+	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+			NOTIFY_MAKE_MAGICSTAMP(0),
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto func_end;
+	}
 	if (WARN_ON(drv_handle->is_init == false)) {
-		status = NOTIFY_E_SETUP;
+		status = NOTIFY_E_INVALIDSTATE;
 		goto func_end;
 	}
 	if (WARN_ON(_notify_is_support_proc(drv_handle, proc_id) != true)) {
@@ -261,8 +299,15 @@ int notify_sendevent(void *notify_driver_handle, u16 proc_id,
 	struct notify_driver_object *drv_handle =
 		(struct notify_driver_object *)notify_driver_handle;
 	BUG_ON(drv_handle == NULL);
+
+	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+			NOTIFY_MAKE_MAGICSTAMP(0),
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto func_end;
+	}
 	if (WARN_ON(drv_handle->is_init == false)) {
-		status = NOTIFY_E_SETUP;
+		status = NOTIFY_E_INVALIDSTATE;
 		goto func_end;
 	}
 	if (WARN_ON(_notify_is_support_proc(drv_handle, proc_id) != true)) {
@@ -311,10 +356,15 @@ u32 notify_disable(u16 proc_id)
 	struct notify_driver_object *drv_handle;
 	int i;
 
-	BUG_ON(notify_state.is_setup != true);
+	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+			NOTIFY_MAKE_MAGICSTAMP(0),
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true)
+			WARN_ON(1);
+
 
 	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
 		WARN_ON(1);
+
 	for (i = 0; i < notify_state.cfg.maxDrivers; i++) {
 		drv_handle = &(notify_state.drivers[i]);
 		WARN_ON(_notify_is_support_proc(drv_handle, proc_id)
@@ -354,7 +404,11 @@ void notify_restore(u32 key, u16 proc_id)
 	struct notify_driver_object *drv_handle;
 	int  i;
 
-	BUG_ON(notify_state.is_setup != true);
+	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+			NOTIFY_MAKE_MAGICSTAMP(0),
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true)
+			WARN_ON(1);
+
 	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
 		WARN_ON(1);
 	notify_state.disable_depth--;
@@ -384,8 +438,16 @@ void notify_disable_event(void *notify_driver_handle, u16 proc_id, u32 event_no)
 	struct notify_driver_object *drv_handle =
 			(struct notify_driver_object *)notify_driver_handle;
 	BUG_ON(drv_handle == NULL);
+
+	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+			NOTIFY_MAKE_MAGICSTAMP(0),
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto func_end;
+	}
+
 	if (WARN_ON(drv_handle->is_init == false)) {
-		status = NOTIFY_E_SETUP;
+		status = NOTIFY_E_INVALIDSTATE;
 		goto func_end;
 	}
 	if (WARN_ON(_notify_is_support_proc(drv_handle, proc_id) != true)) {
@@ -429,6 +491,13 @@ void notify_enable_event(void *notify_driver_handle, u16 proc_id, u32 event_no)
 			(struct notify_driver_object *) notify_driver_handle;
 
 	BUG_ON(drv_handle == NULL);
+
+	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+			NOTIFY_MAKE_MAGICSTAMP(0),
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+		goto func_end;
+	}
+
 	if (WARN_ON(drv_handle->is_init == false))
 		goto func_end;
 	if (WARN_ON(_notify_is_support_proc(drv_handle, proc_id) != true))

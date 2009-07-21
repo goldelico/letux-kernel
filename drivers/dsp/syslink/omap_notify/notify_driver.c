@@ -27,6 +27,7 @@
 
 #include <syslink/notify.h>
 #include <syslink/notify_driver.h>
+#include <syslink/atomic_linux.h>
 
 /*
  *func   notify_register_driver
@@ -43,11 +44,17 @@ int notify_register_driver(char *driver_name,
 	struct notify_driver_object *drv_handle = NULL;
 	int i;
 
-	BUG_ON(notify_state.is_setup == false);
 	BUG_ON(driver_name == NULL);
 	BUG_ON(fn_table == NULL);
 	BUG_ON(drv_attrs == NULL);
 	BUG_ON(driver_handle == NULL);
+
+	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+			NOTIFY_MAKE_MAGICSTAMP(0),
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto func_end;
+	}
 
 	/*Initialize to status that indicates that an empty slot was not
 	  *found for the driver.
@@ -85,6 +92,8 @@ int notify_register_driver(char *driver_name,
 	drv_handle->driver_object = NULL;
 	/*is_setup is set when driverInit is called. */
 	*driver_handle = drv_handle;
+
+func_end:
 	return status;
 }
 EXPORT_SYMBOL(notify_register_driver);
@@ -100,8 +109,11 @@ int notify_unregister_driver(struct notify_driver_object  *drv_handle)
 
 	BUG_ON(drv_handle == NULL);
 
-	if (WARN_ON(notify_state.is_setup == false)) {
-		status = NOTIFY_E_SETUP;
+
+	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+			NOTIFY_MAKE_MAGICSTAMP(0),
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+		status = NOTIFY_E_INVALIDSTATE;
 	} else {
 		/* Unregister the driver. */
 		drv_handle->is_init = NOTIFY_DRIVERINITSTATUS_NOTDONE;
@@ -129,8 +141,10 @@ int notify_get_driver_handle(char *driver_name,
 
 	BUG_ON(handle == NULL);
 
-	if (WARN_ON(notify_state.is_setup == false)) {
-		status = NOTIFY_E_SETUP;
+	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+			NOTIFY_MAKE_MAGICSTAMP(0),
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+		status = NOTIFY_E_INVALIDSTATE;
 	} else if (WARN_ON(driver_name == NULL))
 		status = NOTIFY_E_INVALIDARG;
 	else {

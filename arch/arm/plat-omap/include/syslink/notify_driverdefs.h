@@ -79,10 +79,15 @@
  */
 #define CMD_NOTIFY_ENABLEEVENT	(NOTIFY_BASE_CMD + 10u)
 
-/*
- *  Command for Notify_exit
+/*!
+ *  @brief  Command for Notify_attach
  */
-#define CMD_NOTIFY_EXIT		(NOTIFY_BASE_CMD + 11u)
+#define CMD_NOTIFY_ATTACH                    (NOTIFY_BASE_CMD + 11u)
+
+/*!
+ *  @brief  Command for Notify_detach
+ */
+#define CMD_NOTIFY_DETACH                    (NOTIFY_BASE_CMD + 12u)
 
 /*
  *  const  NOTIFY_SYSTEM_KEY_MASK
@@ -140,6 +145,7 @@ struct notify_cmd_args_register_event {
 	u32 eventNo;
 	notify_callback_fxn fnNotifyCbck;
 	void *cbckArg;
+	u32 pid;
 };
 
 /*
@@ -152,6 +158,7 @@ struct notify_cmd_args_unregister_event {
 	u32 eventNo;
 	notify_callback_fxn fnNotifyCbck;
 	void *cbckArg;
+	u32 pid;
 };
 
 /*
@@ -417,6 +424,7 @@ struct notify_drv_proc_module {
  *  specific information.
  */
 struct notify_module_object {
+	atomic_t ref_count;
 	struct notify_config cfg;
 	/* Notify configuration structure */
 	struct notify_config def_cfg;
@@ -427,8 +435,6 @@ struct notify_module_object {
 	/* Array of configured drivers. */
 	u32 disable_depth;
 	/* Current disable depth for Notify module. */
-	bool is_setup;
-	/* Indicates whether the Notify module is setup. */
 };
 #endif  /* !defined (NOTIFYDRIVERDEFS_H) */
 
