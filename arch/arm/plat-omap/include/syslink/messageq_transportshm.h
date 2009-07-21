@@ -121,6 +121,13 @@
 				MESSAGEQ_TRANSPORTSHM_MAKE_FAILURE(8)
 
 /*!
+ *  @def    MESSAGEQTRANSPORTSHM_E_NOTSUPPORTED
+ *  @brief  The specified operation is not supported.
+ */
+#define MESSAGEQTRANSPORTSHM_E_NOTSUPPORTED \
+				MESSAGEQ_TRANSPORTSHM_MAKE_FAILURE(9)
+
+/*!
  *  @def	MESSAGEQ_TRANSPORTSHM_SUCCESS
  *  @brief  Operation successful.
  */
@@ -140,12 +147,45 @@
  * Structures & Enums
  * =============================================================================
  */
+
+/*!
+ *  @brief  Structure defining the reason for error function being called
+ */
+enum  MessageQTransportShm_Reason {
+    MessageQTransportShm_Reason_FAILEDPUT,
+    /*!< Failed to send the message. */
+    MessageQTransportShm_Reason_INTERNALERR,
+    /*!< An internal error occurred in the transport */
+    MessageQTransportShm_Reason_PHYSICALERR,
+    /*!<  An error occurred in the physical link in the transport */
+    MessageQTransportShm_Reason_FAILEDALLOC
+    /*!<  Failed to allocate a message. */
+};
+
+/*!
+ *  @brief   transport error callback function.
+ *
+ *  First parameter: Why the error function is being called.
+ *
+ *  Second parameter: Handle of transport that had the error. NULL denotes
+ *  that it is a system error, not a specific transport.
+ *
+ *  Third parameter: Pointer to the message. This is only valid for
+ *  #MessageQTransportShm_Reason_FAILEDPUT.
+ *
+ *  Fourth parameter: Transport specific information. Refer to individual
+ *  transports for more details.
+ */
+
 /*!
  *  @brief  Module configuration structure.
  */
-struct  messageq_transportshm_config {
-	u32 reserved;
-	/*!< Reserved value */
+struct messageq_transportshm_config {
+	void (*err_fxn)(enum MessageQTransportShm_Reason reason,
+				void *handle,
+				void *msg,
+				u32 info);
+	/*!< Asynchronous error function for the transport module */
 };
 
 /*!
@@ -153,6 +193,8 @@ struct  messageq_transportshm_config {
  *  instances.
  */
 struct messageq_transportshm_params {
+	u32 priority;
+	/*!<  Priority of messages supported by this transport */
 	void *gate;
 	/*!< Gate used for critical region management of the shared memory */
 	void *shared_addr;
@@ -165,8 +207,6 @@ struct messageq_transportshm_params {
 	/*!<  Notify event number to be used by the transport */
 	void *notify_driver;
 	/*!<  Notify driver to be used by the transport */
-	u32 priority;
-	/*!<  Priority of messages supported by this transport */
 };
 
 /*!
@@ -186,6 +226,7 @@ enum messageq_transportshm_status {
 	*/
 };
 
+
 /* =============================================================================
  *  APIs called by applications
  * =============================================================================
@@ -195,7 +236,7 @@ enum messageq_transportshm_status {
 void messageq_transportshm_get_config(struct messageq_transportshm_config *cfg);
 
 /* Function to setup the MessageQTransportShm module. */
-int messageq_transportshm_setup(struct messageq_transportshm_config *cfg);
+int messageq_transportshm_setup(const struct messageq_transportshm_config *cfg);
 
 /* Function to destroy the MessageQTransportShm module. */
 int messageq_transportshm_destroy(void);
@@ -215,6 +256,15 @@ int messageq_transportshm_delete(void **mqtshm_handleptr);
 u32 messageq_transportshm_shared_mem_req(const
 				struct messageq_transportshm_params *params);
 
+/* Set the asynchronous error function for the transport module */
+void messageq_transportshm_set_err_fxn(
+				void (*err_fxn)(
+				enum MessageQTransportShm_Reason reason,
+				void *handle,
+				void *msg,
+				u32 info));
+
+
 /* =============================================================================
  *  APIs called internally by MessageQ module.
  * =============================================================================
@@ -223,7 +273,7 @@ u32 messageq_transportshm_shared_mem_req(const
 int messageq_transportshm_put(void *mqtshm_handle, void *msg);
 
 /* Control Function */
-bool messageq_transportshm_control(void *mqtshm_handle, u32 cmd,
+int messageq_transportshm_control(void *mqtshm_handle, u32 cmd,
 					u32 *cmd_arg);
 
 /* Get current status of the MessageQTransportShm */

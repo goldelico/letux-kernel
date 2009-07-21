@@ -150,7 +150,7 @@ struct listmp_elem {
 struct listmp_params {
 	bool cache_flag;
 	/*!< Set to 1 by the open() call. No one else should touch this!   */
-	struct mutex *lock_handle;
+	struct mutex *gate;
 	/*!< Lock used for critical region management of the list */
 	void *shared_addr;
 	/*!< shared memory address */
@@ -158,7 +158,7 @@ struct listmp_params {
 	/*!< shared memory size */
 	char *name;
 	/*!< Name of the object	*/
-	int resourceId;
+	int resource_id;
 	/*!<
 	*  resourceId  Specifies the resource id number.
 	*  Parameter is used only when type is set to Fast List

@@ -124,7 +124,7 @@ struct messageq_transportshm_object {
  */
 static struct messageq_transportshm_moduleobject messageq_transportshm_state = {
 	.gate_handle = NULL,
-	.def_cfg.reserved = 0,
+	.def_cfg.err_fxn = 0,
 	.def_inst_params.gate = NULL,
 	.def_inst_params.shared_addr = 0x0,
 	.def_inst_params.shared_addr_size = 0x0,
@@ -206,7 +206,7 @@ exit:
  *  messageq_transportshm_setup with NULL parameters. The default
  *  parameters would get automatically used.
  */
-int messageq_transportshm_setup(struct messageq_transportshm_config *cfg)
+int messageq_transportshm_setup(const struct messageq_transportshm_config *cfg)
 {
 	int status = MESSAGEQ_TRANSPORTSHM_SUCCESS;
 	struct messageq_transportshm_config tmpCfg;
@@ -445,7 +445,7 @@ void *messageq_transportshm_create(u16 proc_id,
 			(2 * MESSAGEQ_TRANSPORTSHM_CACHESIZE));
 	listmp_params[0].shared_addr_size = \
 			listmp_sharedmemory_shared_memreq(&(listmp_params[0]));
-	listmp_params[0].lock_handle = params->gate;
+	listmp_params[0].gate = params->gate;
 	listmp_params[0].name = NULL;
 	listmp_params[0].list_type = listmp_type_SHARED;
 
@@ -457,7 +457,7 @@ void *messageq_transportshm_create(u16 proc_id,
 		listmp_sharedmemory_shared_memreq(&(listmp_params[1]));
 	listmp_params[1].name = NULL;
 	listmp_params[1].list_type = listmp_type_SHARED;
-	listmp_params[1].lock_handle = params->gate;
+	listmp_params[1].gate = params->gate;
 
 	handle->my_listmp_handle = listmp_sharedmemory_create
 					(&(listmp_params[my_index]));
@@ -680,7 +680,7 @@ exit:
  *  Purpose:
  *  Control Function
 */
-bool messageq_transportshm_control(void *mqtshm_handle, u32 cmd, u32 *cmdArg)
+int messageq_transportshm_control(void *mqtshm_handle, u32 cmd, u32 *cmdArg)
 {
 	gt_3trace(mqtshm_debugmask, GT_ENTER, "messageq_transportshm_control",
 			mqtshm_handle, cmd, cmdArg);
@@ -688,8 +688,8 @@ bool messageq_transportshm_control(void *mqtshm_handle, u32 cmd, u32 *cmdArg)
 	BUG_ON(mqtshm_handle == NULL);
 
 	gt_1trace(mqtshm_debugmask, GT_LEAVE, "messageq_transportshm_control",
-			false);
-	return false;
+			MESSAGEQTRANSPORTSHM_E_NOTSUPPORTED);
+	return MESSAGEQTRANSPORTSHM_E_NOTSUPPORTED;
 }
 
 /*
@@ -784,3 +784,31 @@ exit:
 	gt_0trace(mqtshm_debugmask, GT_LEAVE,
 		"messageq_transportshm_notifyFxn");
 }
+
+
+/*
+ * ======== messageq_transportshm_delete ========
+ *  Purpose:
+ *  This will set the asynchronous error function for the transport module
+ */
+void messageq_transportshm_set_err_fxn(
+				void (*err_fxn)(
+				enum MessageQTransportShm_Reason reason,
+				void *handle,
+				void *msg,
+				u32 info))
+{
+	u32 key;
+
+    key = mutex_lock_interruptible(messageq_transportshm_state.gate_handle);
+	if (key < 0)
+		goto exit;
+
+    messageq_transportshm_state.cfg.err_fxn = err_fxn;
+    mutex_unlock(messageq_transportshm_state.gate_handle);
+
+exit:
+	return;
+}
+
+

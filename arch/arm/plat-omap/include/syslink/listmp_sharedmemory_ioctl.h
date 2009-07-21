@@ -168,7 +168,7 @@ struct listmp_sharedmemory_cmd_args {
 			struct listmp_params *params;
 			u32 name_len;
 			u32 shared_addr_srptr;
-			void *knl_lock_handle;
+			void *knl_gate;
 		} create;
 
 		struct {
@@ -180,7 +180,7 @@ struct listmp_sharedmemory_cmd_args {
 			struct listmp_params *params;
 			u32 name_len;
 			u32 shared_addr_srptr;
-			void *knl_lock_handle;
+			void *knl_gate;
 		} open;
 
 		struct {

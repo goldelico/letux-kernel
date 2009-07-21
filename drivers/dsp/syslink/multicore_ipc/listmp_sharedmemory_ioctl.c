@@ -178,8 +178,8 @@ static inline int listmp_sharedmemory_ioctl_create(
 	if (unlikely(params.shared_addr == NULL))
 		goto free_name;
 
-	/* Update lock_handle in params. */
-	params.lock_handle = cargs->args.create.knl_lock_handle;
+	/* Update gate in params. */
+	params.gate = cargs->args.create.knl_gate;
 	cargs->args.create.listmp_handle = listmp_sharedmemory_create(&params);
 
 	size = copy_to_user(cargs->args.create.params, &params,
@@ -256,8 +256,8 @@ static inline int listmp_sharedmemory_ioctl_open(
 	if (unlikely(params.shared_addr == NULL))
 		goto free_name;
 
-	/* Update lock_handle in params. */
-	params.lock_handle = cargs->args.open.knl_lock_handle;
+	/* Update gate in params. */
+	params.gate = cargs->args.open.knl_gate;
 	status = listmp_sharedmemory_open(&listmp_handle, &params);
 	if (status)
 		goto free_name;
