@@ -555,13 +555,12 @@ EXPORT_SYMBOL(proc_mgr_get_start_params);
  * After successful completion of this function, the ProcMgr
  * instance is expected to be in the proc_mgr_State_Running state.
  */
-int
-proc_mgr_start(void *handle, struct proc_mgr_start_params *params)
+int proc_mgr_start(void *handle, u32 entry_point,
+			struct proc_mgr_start_params *params)
 {
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
 					(struct proc_mgr_object *)handle;
-	u32 entryPt = 0;
 	struct proc_mgr_start_params   tmp_params;
 	struct processor_start_params proc_params;
 
@@ -584,7 +583,8 @@ proc_mgr_start(void *handle, struct proc_mgr_start_params *params)
 	/* Start the slave processor running. */
 	proc_params.params = params;
 	retval = processor_start(proc_mgr_handle->proc_handle,
-						entryPt, &proc_params);
+						entry_point, &proc_params);
+
 	mutex_unlock(proc_mgr_obj_state.gate_handle);
 #if defined SYSLINK_USE_SYSMGR
 	if (retval == 0) {

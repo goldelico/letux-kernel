@@ -218,7 +218,8 @@ void proc_mgr_get_start_params(void *handle,
  * starting point specified in the slave executable loaded earlier by call to
  * proc_mgr_load().
  */
-int proc_mgr_start(void *handle, struct proc_mgr_start_params *params);
+int proc_mgr_start(void *handle, u32 entry_point,
+				struct proc_mgr_start_params *params);
 
 /* Function to stop execution of the slave Processor. */
 int proc_mgr_stop(void *handle);

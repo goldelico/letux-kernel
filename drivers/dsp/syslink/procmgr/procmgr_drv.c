@@ -367,7 +367,9 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 			sizeof(struct proc_mgr_start_params));
 		if (WARN_ON(retval != 0))
 			goto func_exit;
-		retval = proc_mgr_start(src_args.handle, &params);
+		retval = proc_mgr_start(src_args.handle,
+				src_args.entry_point, &params);
+
 		WARN_ON(retval);
 	}
 	break;

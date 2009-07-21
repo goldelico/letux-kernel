@@ -322,6 +322,8 @@ struct proc_mgr_cmd_args_get_start_params {
 	struct proc_mgr_cmd_args commond_args;
 	/*Common command args */
 	void *handle;
+	/*Entry point for the image*/
+	u32 entry_point;
 	/*Handle to the ProcMgr object */
 	struct proc_mgr_start_params *params;
 	/*Pointer to the ProcMgr start params structure in which the default
@@ -335,6 +337,8 @@ struct proc_mgr_cmd_args_start {
 	struct proc_mgr_cmd_args commond_args;
 	/*Common command args */
 	void *handle;
+	/*Entry point for the image*/
+	u32 entry_point;
 	/*Handle to the ProcMgr object */
 	struct proc_mgr_start_params *params;
 	/*Optional ProcMgr start parameters. */

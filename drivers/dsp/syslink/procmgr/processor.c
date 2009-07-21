@@ -117,6 +117,7 @@ inline int processor_start(void *handle, u32 entry_pt,
 	/* entryPt may be 0 for some devices. Cannot check for valid/invalid. */
 	BUG_ON(params == NULL);
 	BUG_ON(proc_handle->proc_fxn_table.start == NULL);
+	retval = proc_handle->proc_fxn_table.start(handle, entry_pt, params);
 
 	if ((proc_handle->boot_mode == PROC_MGR_BOOTMODE_BOOT)
 		|| (proc_handle->boot_mode == PROC_MGR_BOOTMODE_NOLOAD))
