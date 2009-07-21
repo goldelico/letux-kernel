@@ -164,7 +164,7 @@ struct notify_ducatidrv_params {
  */
 
 struct notify_ducatidrv_config {
-	void *gate_handle;
+	u32 reserved;
 };
 
 /* Function to get the default configuration for the Notify module. */
