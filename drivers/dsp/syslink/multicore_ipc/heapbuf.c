@@ -1,5 +1,5 @@
 /*
- *  heapbuf.h
+ *  heapbuf.c
  *
  *  Heap module manages fixed size buffers that can be used
  *  in a multiprocessor system with shared memory.
@@ -24,6 +24,7 @@
 #include <linux/slab.h>
 
 #include <gt.h>
+#include <atomic_linux.h>
 #include <multiproc.h>
 #include <nameserver.h>
 #include <sharedregion.h>
@@ -31,26 +32,28 @@
 #include <listmp.h>
 #include <listmp_sharedmemory.h>
 
-
 /*
  *  Name of the reserved nameserver used for heapbuf.
  */
 #define HEAPBUF_NAMESERVER  "HeapBuf"
 #define HEAPBUF_MAX_NAME_LEN   32
 #define HEAPBUF_CACHESIZE              128
+/* brief Macro to make a correct module magic number with refCount */
+#define HEAPBUF_MAKE_MAGICSTAMP(x) ((HEAPBUF_MODULEID << 12) | (x))
 
 /*
  *  Structure defining attribute parameters for the heapbuf module
  */
 struct heapbuf_attrs {
-	u32 version;
-	u32 status;
-	u32 num_free_blocks;
-	u32 min_free_blocks;
-	u32 block_size;
-	u32 align;
-	u32 num_blocks;
-	char *buf;
+	volatile u32 version;
+	volatile u32 status;
+	volatile u32 num_free_blocks;
+	volatile u32 min_free_blocks;
+	volatile u32 block_size;
+	volatile u32 align;
+	volatile u32 num_blocks;
+	volatile u32 buf_size;
+	volatile char *buf;
 };
 
 /*
@@ -67,29 +70,34 @@ struct heapbuf_proc_attrs {
  *  Structure for heapbuf module state
  */
 struct heapbuf_module_object {
+	atomic_t ref_count; /* Reference count */
+	void *ns_handle;
 	struct list_head obj_list; /* List holding created objects */
-	void *nshandle;
-	struct mutex *list_lock; /* lock for protecting obj_list */
-	struct heap_config cfg;
-	struct heap_config defaultcfg; /* Default config values */
+	struct mutex *local_lock; /* lock for protecting obj_list */
+	struct heapbuf_config cfg;
+	struct heapbuf_config default_cfg; /* Default config values */
 	struct heapbuf_params default_inst_params; /* Default instance
 						creation parameters */
 };
 
 struct heapbuf_module_object heapbuf_state = {
 	.obj_list = LIST_HEAD_INIT(heapbuf_state.obj_list),
-	.defaultcfg.max_name_len = HEAPBUF_MAX_NAME_LEN,
-	.defaultcfg.track_max_allocs = false,
-	.default_inst_params.lock_handle = NULL,
+	.default_cfg.max_name_len = HEAPBUF_MAX_NAME_LEN,
+	.default_cfg.use_nameserver = true,
+	.default_cfg.track_max_allocs = false,
+	.default_inst_params.gate = NULL,
 	.default_inst_params.exact = false,
 	.default_inst_params.name = NULL,
+	.default_inst_params.resource_id = 0,
+	.default_inst_params.cache_flag = false,
 	.default_inst_params.align = 1,
 	.default_inst_params.num_blocks = 0,
 	.default_inst_params.block_size = 0,
 	.default_inst_params.shared_addr = NULL,
-	.default_inst_params.shared_addr_size = 0
+	.default_inst_params.shared_addr_size = 0,
+	.default_inst_params.shared_buf = NULL,
+	.default_inst_params.shared_buf_size = 0
 };
-
 
 /*
  *  Structure for the handle for the heapbuf
@@ -99,11 +107,11 @@ struct heapbuf_obj {
 	struct heapbuf_params params; /* The creation parameter structure */
 	struct heapbuf_attrs *attrs; /* The shared attributes structure */
 	void *free_list; /* List of free buffers */
-	struct mutex *lock_handle; /* Lock used for list */
-	void *nskey; /*! nameserver key required for remove */
-	struct heapbuf_proc_attrs *owner; /* owner processor info */
-	struct heapbuf_proc_attrs *remote; /* Remote processor info */
-	void *top;
+	struct mutex *gate; /* Lock used for critical region management */
+	void *ns_key; /* nameserver key required for remove */
+	struct heapbuf_proc_attrs owner; /* owner processor info */
+	void *top; /* Pointer to the top object */
+    bool cacheFlag; /* added for future use */
 };
 
 /*
@@ -112,16 +120,18 @@ struct heapbuf_obj {
  *  This will get default configuration for the
  *  heapbuf module
  */
-int heapbuf_get_config(struct heap_config *cfgparams)
+int heapbuf_get_config(struct heapbuf_config *cfgparams)
 {
 	BUG_ON(cfgparams == NULL);
 
-	if (heapbuf_state.nshandle == NULL)
-		memcpy(cfgparams, &heapbuf_state.defaultcfg,
-					sizeof(struct heap_config));
+	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
+				HEAPBUF_MAKE_MAGICSTAMP(0),
+				HEAPBUF_MAKE_MAGICSTAMP(1)) == true)
+		memcpy(cfgparams, &heapbuf_state.default_cfg,
+					sizeof(struct heapbuf_config));
 	else
 		memcpy(cfgparams, &heapbuf_state.cfg,
-					sizeof(struct heap_config));
+					sizeof(struct heapbuf_config));
 	return 0;
 }
 EXPORT_SYMBOL(heapbuf_get_config);
@@ -130,45 +140,79 @@ EXPORT_SYMBOL(heapbuf_get_config);
  * ======== heapbuf_setup ========
  *  Purpose:
  *  This will setup the heapbuf module
+ *
+ *  This function sets up the HeapBuf module. This function
+ *  must be called before any other instance-level APIs can be
+ *  invoked.
+ *  Module-level configuration needs to be provided to this
+ *  function. If the user wishes to change some specific config
+ *  parameters, then heapbuf_getconfig can be called to get
+ *  the configuration filled with the default values. After this,
+ *  only the required configuration values can be changed. If the
+ *  user does not wish to make any change in the default parameters,
+ *  the application can simply call HeapBuf_setup with NULL
+ *  parameters. The default parameters would get automatically used.
  */
-int heapbuf_setup(const struct heap_config *config)
+int heapbuf_setup(const struct heapbuf_config *cfg)
 {
 	struct nameserver_params params;
-	void *nshandle = NULL;
+	struct heapbuf_config tmp_cfg;
+	void *ns_handle = NULL;
 	s32 retval  = 0;
 
-	BUG_ON(config == NULL);
+	/* This sets the ref_count variable  not initialized, upper 16 bits is
+	* written with module Id to ensure correctness of ref_count variable
+	*/
+	atomic_cmpmask_and_set(&heapbuf_state.ref_count,
+					HEAPBUF_MAKE_MAGICSTAMP(0),
+					HEAPBUF_MAKE_MAGICSTAMP(0));
 
-	if (config->max_name_len == 0 ||
-		config->max_name_len > HEAPBUF_MAX_NAME_LEN) {
+	if (atomic_inc_return(&heapbuf_state.ref_count)
+					!= HEAPBUF_MAKE_MAGICSTAMP(1)) {
+		retval = -EEXIST;
+		goto error;
+	}
+
+	if (cfg == NULL) {
+		heapbuf_get_config(&tmp_cfg);
+		cfg = &tmp_cfg;
+	}
+
+	if (cfg->max_name_len == 0 ||
+		cfg->max_name_len > HEAPBUF_MAX_NAME_LEN) {
 		retval = -EINVAL;
 		goto error;
 	}
 
-	heapbuf_state.list_lock = kmalloc(sizeof(struct mutex), GFP_KERNEL);
-	if (heapbuf_state.list_lock == NULL) {
+	heapbuf_state.local_lock = kmalloc(sizeof(struct mutex), GFP_KERNEL);
+	if (heapbuf_state.local_lock == NULL) {
 		retval = -ENOMEM;
 		goto error;
 	}
 
-	nameserver_params_init(&params);
-	params.max_value_len = sizeof(u32);
-	params.max_name_len = config->max_name_len;
-	nshandle  = nameserver_create(HEAPBUF_NAMESERVER, &params);
-	if (nshandle == NULL) {
-		retval = -EFAULT;
-		goto ns_create_fail;
+	if (likely((cfg->use_nameserver == true))) {
+		retval = nameserver_get_params(NULL, &params);
+		params.max_value_len = sizeof(u32);
+		params.max_name_len = cfg->max_name_len;
+		ns_handle  = nameserver_create(HEAPBUF_NAMESERVER, &params);
+		if (ns_handle == NULL) {
+			retval = -EFAULT;
+			goto ns_create_fail;
+		}
+		heapbuf_state.ns_handle = ns_handle;
 	}
 
-	heapbuf_state.nshandle = nshandle;
-	memcpy(&heapbuf_state.cfg, config, sizeof(struct heap_config));
-	mutex_init(heapbuf_state.list_lock);
+	memcpy(&heapbuf_state.cfg, cfg, sizeof(struct heapbuf_config));
+	mutex_init(heapbuf_state.local_lock);
 	return 0;
 
 ns_create_fail:
-	kfree(heapbuf_state.list_lock);
+	kfree(heapbuf_state.local_lock);
 
 error:
+	atomic_set(&heapbuf_state.ref_count,
+				HEAPBUF_MAKE_MAGICSTAMP(0));
+
 	printk(KERN_ERR "heapbuf_setup failed status: %x\n", retval);
 	return retval;
 }
@@ -185,37 +229,56 @@ int heapbuf_destroy(void)
 	struct mutex *lock = NULL;
 	struct heapbuf_obj *obj = NULL;
 
-	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
+				HEAPBUF_MAKE_MAGICSTAMP(0),
+				HEAPBUF_MAKE_MAGICSTAMP(1)) == true) {
 		retval = -ENODEV;
 		goto error;
 	}
 
-	/*  Check if any heapbuf instances have not been deleted/closed so far.
-	  *  if there any, delete or close them
-	  */
-	list_for_each_entry(obj, &heapbuf_state.obj_list, list_elem) {
-		if (obj->owner->proc_id == multiproc_get_id(NULL))
-			heapbuf_delete(&obj->top);
-		else
-			heapbuf_close(obj->top);
+	if (atomic_dec_return(&heapbuf_state.ref_count)
+				== HEAPBUF_MAKE_MAGICSTAMP(0)) {
+		/* Temporarily increment ref_count here. */
+		atomic_set(&heapbuf_state.ref_count,
+					HEAPBUF_MAKE_MAGICSTAMP(1));
 
-		if (list_empty(&heapbuf_state.obj_list))
-			break;
+		/*  Check if any heapbuf instances have not been deleted/closed
+		 *   so far. if there any, delete or close them
+		 */
+		list_for_each_entry(obj, &heapbuf_state.obj_list, list_elem) {
+			if (obj->owner.proc_id == multiproc_get_id(NULL))
+				heapbuf_delete(&obj->top);
+			else
+				heapbuf_close(obj->top);
+
+			if (list_empty(&heapbuf_state.obj_list))
+				break;
+		}
+
+		/* Again reset ref_count. */
+		atomic_set(&heapbuf_state.ref_count,
+					HEAPBUF_MAKE_MAGICSTAMP(0));
+
+		if (likely(heapbuf_state.cfg.use_nameserver == true)) {
+			retval = nameserver_delete(&heapbuf_state.ns_handle);
+			if (unlikely(retval != 0))
+				goto error;
+		}
+
+		retval = mutex_lock_interruptible(heapbuf_state.local_lock);
+		if (retval)
+			goto error;
+
+		lock = heapbuf_state.local_lock;
+		heapbuf_state.local_lock = NULL;
+		mutex_unlock(lock);
+		kfree(lock);
+		memset(&heapbuf_state.cfg, 0, sizeof(struct heap_config));
+
+		atomic_set(&heapbuf_state.ref_count,
+					HEAPBUF_MAKE_MAGICSTAMP(0));
 	}
 
-	retval = nameserver_delete(&heapbuf_state.nshandle);
-	if (unlikely(retval != 0))
-		goto error;
-
-	retval = mutex_lock_interruptible(heapbuf_state.list_lock);
-	if (retval)
-		goto error;
-
-	lock = heapbuf_state.list_lock;
-	heapbuf_state.list_lock = NULL;
-	mutex_unlock(lock);
-	kfree(lock);
-	memset(&heapbuf_state.cfg, 0, sizeof(struct heap_config));
 	return 0;
 
 error:
@@ -234,7 +297,14 @@ void heapbuf_params_init(void *handle,
 				struct heapbuf_params *params)
 {
 	struct heapbuf_obj *obj = NULL;
-	struct heap_object *object = NULL;
+	s32 retval  = 0;
+
+	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
+				HEAPBUF_MAKE_MAGICSTAMP(0),
+				HEAPBUF_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
+		goto error;
+	}
 
 	BUG_ON(params == NULL);
 
@@ -242,10 +312,12 @@ void heapbuf_params_init(void *handle,
 		memcpy(params, &heapbuf_state.default_inst_params,
 					sizeof(struct heapbuf_params));
 	else {
-		object = (struct heap_object *)handle;
-		obj = (struct heapbuf_obj *)object->obj;
-		memcpy(&obj->params, params, sizeof(struct heapbuf_params));
+		obj = (struct heapbuf_obj *)handle;
+		memcpy(params, (void *)&obj->params,
+		       sizeof(struct heapbuf_params));
 	}
+error:
+	printk(KERN_ERR "heapbuf_params_init failed status: %x\n", retval);
 }
 EXPORT_SYMBOL(heapbuf_params_init);
 
@@ -260,8 +332,8 @@ EXPORT_SYMBOL(heapbuf_params_init);
  *  used by heapbuf is provided by the consumer of
  *  heapbuf module
  */
-static void *_heapbuf_create(const struct heapbuf_params *params,
-				u32 createflag)
+int _heapbuf_create(void **handle_ptr, const struct heapbuf_params *params,
+				u32 create_flag)
 {
 	struct heap_object *handle = NULL;
 	struct heapbuf_obj *obj = NULL;
@@ -274,7 +346,21 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 	u32 shared_shmbase;
 	void *entry = NULL;
 
+	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
+				HEAPBUF_MAKE_MAGICSTAMP(0),
+				HEAPBUF_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	BUG_ON(handle_ptr == NULL);
+
 	BUG_ON(params == NULL);
+
+    /* No need for parameter checks, since this is an internal function. */
+
+    /* Initialize return parameter. */
+    *handle_ptr = NULL;
 
 	handle = kmalloc(sizeof(struct heap_object), GFP_KERNEL);
 	if (handle == NULL) {
@@ -292,19 +378,19 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 	handle->alloc = &heapbuf_alloc;
 	handle->free  = &heapbuf_free;
 	handle->get_stats = &heapbuf_get_stats;
-	handle->get_extended_stats = &heapbuf_get_extended_stats;
 	/* Create the shared list */
 	listmp_sharedmemory_params_init(NULL, &listmp_params);
 	listmp_params.shared_addr = (u32 *)((u32) (params->shared_addr)
-						+ HEAPBUF_CACHESIZE);
+					+ ((sizeof(struct heapbuf_attrs)
+					+ (HEAPBUF_CACHESIZE - 1))
+					& ~(HEAPBUF_CACHESIZE - 1)));
 	listmp_params.shared_addr_size =
 			listmp_sharedmemory_shared_memreq(&listmp_params);
-	listmp_params.lock_handle = params->lock_handle;
-	obj->lock_handle = params->lock_handle;
+	listmp_params.gate = NULL;
 	/* Assign the memory with proper cache line padding */
 	obj->attrs = (struct heapbuf_attrs *) params->shared_addr;
 
-	if (createflag == false)
+	if (create_flag == false)
 		listmp_sharedmemory_open(&obj->free_list, &listmp_params);
 	else {
 		obj->free_list = listmp_sharedmemory_create(&listmp_params);
@@ -320,12 +406,12 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 		obj->attrs->block_size = params->block_size;
 		obj->attrs->align  = params->align;
 		obj->attrs->num_blocks = params->num_blocks;
-		obj->attrs->buf = (char *)((u32 *)(obj->attrs) +
-			HEAPBUF_CACHESIZE + listmp_params.shared_addr_size);
-		buf = obj->attrs->buf;
+		obj->attrs->buf_size = params->shared_buf_size;
+		buf = params->shared_buf;
 		align = obj->attrs->align;
 		buf = (char *)(((u32)buf + (align - 1)) & ~(align - 1));
 		obj->attrs->buf	= buf;
+
 		/*
 		*  Split the buffer into blocks that are length
 		*  block_size" and add into the free_list Queue
@@ -337,6 +423,8 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 			buf += obj->attrs->block_size;
 		}
 	}
+
+	obj->gate = params->gate;
 
 	/* Populate the params member */
 	memcpy(&obj->params, params, sizeof(struct heapbuf_params));
@@ -352,40 +440,35 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 					strlen(params->name) + 1);
 	}
 
-	/* Update processor information */
-	obj->owner   =  kmalloc(sizeof(struct heapbuf_proc_attrs), GFP_KERNEL);
-	obj->remote  =  kmalloc(sizeof(struct heapbuf_proc_attrs), GFP_KERNEL);
-	if (obj->owner == NULL || obj->remote == NULL) {
-		retval = -ENOMEM;
-		goto proc_attr_alloc_error;
-	}
-
-	if (createflag == true) {
-		obj->remote->creator    = false;
-		obj->remote->open_count = 0;
-		obj->remote->proc_id    = MULTIPROC_INVALIDID;
-		obj->owner->creator     = true;
-		obj->owner->open_count  = 1;
-		obj->owner->proc_id     = multiproc_get_id(NULL);
-		obj->top		= handle;
-		obj->attrs->status      = HEAPBUF_CREATED;
+	if (create_flag == true) {
+		obj->owner.creator = true;
+		obj->owner.open_count = 1;
+		obj->owner.proc_id = multiproc_get_id(NULL);
+		obj->top = handle;
+		obj->attrs->status = HEAPBUF_CREATED;
 	} else {
-		obj->remote->creator    = true;
-		obj->remote->open_count = 1;
-		obj->remote->proc_id    = MULTIPROC_INVALIDID;
-		obj->owner->creator     = false;
-		obj->owner->open_count  = 0;
-		obj->owner->proc_id     = multiproc_get_id("SysM3");
-		obj->top		= handle;
+		obj->owner.creator = false;
+		obj->owner.open_count = 0;
+		obj->owner.proc_id = MULTIPROC_INVALIDID;
+		obj->top = handle;
 	}
 
-	if (createflag == true) {
+	retval = mutex_lock_interruptible(heapbuf_state.local_lock);
+	if (retval)
+		goto lock_error;
+
+	INIT_LIST_HEAD(&obj->list_elem);
+	list_add_tail(&obj->list_elem, &heapbuf_state.obj_list);
+	mutex_unlock(heapbuf_state.local_lock);
+
+	if ((likely(heapbuf_state.cfg.use_nameserver == true))
+			&& (create_flag == true)) {
 		/* We will store a shared pointer in the nameserver */
 		shmindex = sharedregion_get_index(params->shared_addr);
 		shared_shmbase = (u32)sharedregion_get_srptr(
 					params->shared_addr, shmindex);
 		if (obj->params.name != NULL) {
-			entry = nameserver_add_uint32(heapbuf_state.nshandle,
+			entry = nameserver_add_uint32(heapbuf_state.ns_handle,
 							params->name,
 							(u32)(shared_shmbase));
 			if (entry == NULL) {
@@ -395,24 +478,32 @@ static void *_heapbuf_create(const struct heapbuf_params *params,
 		}
 	}
 
-	retval = mutex_lock_interruptible(heapbuf_state.list_lock);
-	if (retval)
-		goto lock_error;
+	*handle_ptr = (void *)handle;
+	return retval;
 
-	INIT_LIST_HEAD(&obj->list_elem);
-	list_add_tail(&obj->list_elem, &heapbuf_state.obj_list);
-	mutex_unlock(heapbuf_state.list_lock);
-	return (void *)handle;
+ns_add_error:
+	retval = mutex_lock_interruptible(heapbuf_state.local_lock);
+	list_del(&obj->list_elem);
+	mutex_unlock(heapbuf_state.local_lock);
 
-ns_add_error:  /* Fall through */
-lock_error: /* Fall through */
-proc_attr_alloc_error:
-	kfree(obj->owner);
-	kfree(obj->remote);
+lock_error:
+	if (obj->params.name != NULL) {
+		if (obj->ns_key != NULL) {
+			nameserver_remove_entry(heapbuf_state.ns_handle,
+						obj->ns_key);
+			obj->ns_key = NULL;
+		}
+		kfree(obj->params.name);
+	}
 
 name_alloc_error: /* Fall through */
-	listmp_sharedmemory_delete((listmp_sharedmemory_handle *)
-					&obj->free_list);
+	if (create_flag == true)
+		listmp_sharedmemory_delete((listmp_sharedmemory_handle *)
+					   &obj->free_list);
+	else
+		listmp_sharedmemory_close((listmp_sharedmemory_handle *)
+					   &obj->free_list);
+
 listmp_error:
 	kfree(obj);
 
@@ -421,7 +512,7 @@ obj_alloc_error:
 
 error:
 	printk(KERN_ERR "_heapbuf_create failed status: %x\n", retval);
-	return NULL;
+	return retval;
 }
 
 /*
@@ -431,33 +522,47 @@ error:
  */
 void *heapbuf_create(const struct heapbuf_params *params)
 {
-	s32 retval  = 0;
-	u32 size;
+	s32 retval = 0;
 	void *handle = NULL;
+    u32 buf_size;
 
-	BUG_ON(params == NULL);
-	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
+				HEAPBUF_MAKE_MAGICSTAMP(0),
+				HEAPBUF_MAKE_MAGICSTAMP(1)) == true) {
 		retval = -ENODEV;
 		goto error;
 	}
 
-	if (params->shared_addr == NULL) {
+	BUG_ON(params == NULL);
+
+	if ((params->shared_addr) == NULL ||
+		params->shared_buf == NULL) {
 		retval = -EINVAL;
 		goto error;
 	}
 
-	size = heapbuf_shared_memreq(params);
-	if (params->shared_addr_size < size) {
+	if ((params->shared_addr_size)
+		< heapbuf_shared_memreq(params, &buf_size)) {
+		/* if Shared memory size is less than required */
 		retval = -EINVAL;
 		goto error;
 	}
 
-	handle = _heapbuf_create(params, true);
-	return handle;
+	if (params->shared_buf_size < buf_size) {
+		/* if shared memory size is less than required */
+		retval = -EINVAL;
+		goto error;
+	}
+
+	retval = _heapbuf_create((void **)&handle, params, true);
+	if (retval < 0)
+		goto error;
+
+	return (void *)handle;
 
 error:
 	printk(KERN_ERR "heapbuf_create failed status: %x\n", retval);
-	return handle;
+	return (void *)handle;
 }
 EXPORT_SYMBOL(heapbuf_create);
 
@@ -466,7 +571,7 @@ EXPORT_SYMBOL(heapbuf_create);
  *  Purpose:
  *  This will delete an instance of heapbuf module
  */
-int heapbuf_delete(void **hphandle)
+int heapbuf_delete(void **handle_ptr)
 {
 	struct heap_object *handle = NULL;
 	struct heapbuf_obj *obj = NULL;
@@ -474,58 +579,79 @@ int heapbuf_delete(void **hphandle)
 	s32 retval  = 0;
 	u16 myproc_id;
 
-	BUG_ON(hphandle == NULL);
-	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
-		retval = -ENODEV;
-		goto error;
-	}
-	handle = (struct heap_object *)(*hphandle);
+	BUG_ON(handle_ptr == NULL);
+	handle = (struct heap_object *)(*handle_ptr);
 	if (WARN_ON(handle == NULL)) {
 		retval = -EINVAL;
 		goto error;
 	}
 
+	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
+				HEAPBUF_MAKE_MAGICSTAMP(0),
+				HEAPBUF_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
+		goto error;
+	}
+
 	obj = (struct heapbuf_obj *)handle->obj;
+	if (obj == NULL)
+		goto error;
+
 	myproc_id =  multiproc_get_id(NULL);
 
-	if (obj->owner->proc_id != myproc_id) {
+	if (obj->owner.proc_id != myproc_id) {
 		retval  = -EPERM;
 		goto error;
 	}
 
-	if (obj->owner->open_count != 1 || obj->remote->open_count != 0) {
+	if (likely(obj->gate != NULL)) {
+		retval = mutex_lock_interruptible(obj->gate);
+		if (retval)
+			goto gate_error;
+	}
+
+	if (obj->owner.open_count > 1) {
 		retval  = -EBUSY;
 		goto device_busy_error;;
 	}
 
-	retval = mutex_lock_interruptible(heapbuf_state.list_lock);
-	if (retval)
-		goto list_lock_error;
-
-	list_del(&obj->list_elem);
-	mutex_unlock(heapbuf_state.list_lock);
-	params = (struct heapbuf_params *) &obj->params;
-	if (params->name != NULL) {
-		retval = nameserver_remove(heapbuf_state.nshandle,
-						params->name);
-		if (retval != 0)
-			goto ns_remove_error;
-
-		kfree(params->name);
+	if (obj->owner.open_count != 1) {
+		retval  = -EBUSY;
+		goto device_busy_error;;
 	}
 
+	retval = mutex_lock_interruptible(heapbuf_state.local_lock);
+	if (retval)
+		goto local_lock_error;
+
+	list_del(&obj->list_elem);
+	mutex_unlock(heapbuf_state.local_lock);
+	params = (struct heapbuf_params *) &obj->params;
+	if (likely(params->name != NULL)) {
+		kfree(params->name);
+		if (likely(heapbuf_state.cfg.use_nameserver == true)) {
+			retval = nameserver_remove(heapbuf_state.ns_handle,
+							params->name);
+			if (retval != 0)
+				goto ns_remove_error;
+			obj->ns_key = NULL;
+		}
+	}
+
+	if (likely(obj->gate != NULL))
+		mutex_unlock(obj->gate);
 	retval = listmp_sharedmemory_delete(&obj->free_list);
-	kfree(obj->owner);
-	kfree(obj->remote);
 	kfree(obj);
 	kfree(handle);
-	*hphandle = NULL;
+	*handle_ptr = NULL;
 	return 0;
 
 ns_remove_error: /* Fall through */
-list_lock_error: /* Fall through */
+gate_error: /* Fall through */
+local_lock_error: /* Fall through */
 device_busy_error:
-/*	mutex_unlock(obj->lock_handle); */
+	if (likely(obj->gate != NULL))
+		mutex_unlock(obj->gate);
 
 error:
 	printk(KERN_ERR "heapbuf_delete failed status: %x\n", retval);
@@ -539,29 +665,35 @@ EXPORT_SYMBOL(heapbuf_delete);
  *  This will opens a created instance of heapbuf
  *  module
  */
-int heapbuf_open(void **hphandle,
-			const struct heapbuf_params *params)
+int heapbuf_open(void **handle_ptr,
+				struct heapbuf_params *params)
 {
 	struct heapbuf_obj *obj = NULL;
 	bool found = false;
-	u32 size;
 	s32 retval = 0;
 	u16 myproc_id;
+	u32 shared_shm_base;
+	struct heapbuf_attrs *attrs;
 
-	BUG_ON(hphandle == NULL);
+	BUG_ON(handle_ptr == NULL);
 	BUG_ON(params == NULL);
-	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
-		retval  = -ENODEV;
+
+	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
+				HEAPBUF_MAKE_MAGICSTAMP(0),
+				HEAPBUF_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
 		goto error;
 	}
 
-	if ((params->name == NULL) && (params->shared_addr == (u32)NULL)) {
+	if ((heapbuf_state.cfg.use_nameserver == false)
+			&& (params->shared_addr == (u32)NULL)) {
 		retval = -EINVAL;
 		goto error;
 	}
 
-	size = heapbuf_shared_memreq(params);
-	if (params->shared_addr != NULL && params->shared_addr_size < size) {
+	if ((heapbuf_state.cfg.use_nameserver == true)
+			&& (params->shared_addr == (u32)NULL)
+			&& (params->name == NULL)) {
 		retval = -EINVAL;
 		goto error;
 	}
@@ -577,18 +709,52 @@ int heapbuf_open(void **hphandle,
 
 		if (found == true) {
 			retval = mutex_lock_interruptible(
-						heapbuf_state.list_lock);
-			if (obj->owner->proc_id == myproc_id)
-				obj->owner->open_count++;
-			else
-				obj->remote->open_count++;
-			*hphandle = obj->top;
-			mutex_unlock(heapbuf_state.list_lock);
+						heapbuf_state.local_lock);
+			if (obj->owner.proc_id == myproc_id)
+				obj->owner.open_count++;
+			*handle_ptr = obj->top;
+			mutex_unlock(heapbuf_state.local_lock);
 		}
 	}
 
-	if (found == false)
-		*hphandle = (void *)_heapbuf_create(params, false);
+	if (likely(found == false)) {
+		if (unlikely(params->shared_addr == NULL)) {
+			if (likely(heapbuf_state.cfg.use_nameserver == true)) {
+				/* Find in name server */
+				retval = nameserver_get(heapbuf_state.ns_handle,
+							params->name,
+							&shared_shm_base,
+							sizeof(u32),
+							NULL);
+				if (retval < 0)
+					goto error;
+
+				/*
+				 * Convert from shared region pointer
+				 * to local address
+				 */
+				params->shared_addr = sharedregion_get_ptr
+							(&shared_shm_base);
+				if (params->shared_addr == NULL) {
+					retval = -EINVAL;
+					goto error;
+				}
+			}
+		}
+
+		attrs = (struct heapbuf_attrs *)(params->shared_addr);
+		if (unlikely(attrs->status != (HEAPBUF_CREATED)))
+			retval = -ENXIO; /* Not created */
+		else if (unlikely(attrs->version != (HEAPBUF_VERSION))) {
+			retval = -EINVAL;
+			goto error;
+		}
+
+		retval = _heapbuf_create((void **)handle_ptr, params, false);
+		if (retval < 0)
+			goto error;
+
+	}
 
 	return 0;
 
@@ -604,63 +770,79 @@ EXPORT_SYMBOL(heapbuf_open);
  *  This will closes previously opened/created instance
  *  of heapbuf module
  */
-int heapbuf_close(void *hphandle)
+int heapbuf_close(void *handle_ptr)
 {
 	struct heap_object *handle = NULL;
 	struct heapbuf_obj *obj = NULL;
+	struct heapbuf_params *params = NULL;
 	s32 retval = 0;
 	u16 myproc_id = 0;
 
-	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
+				HEAPBUF_MAKE_MAGICSTAMP(0),
+				HEAPBUF_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON(handle_ptr == NULL)) {
 		retval  = -EINVAL;
 		goto error;
 	}
 
-	if (WARN_ON(hphandle == NULL)) {
-		retval  = -EINVAL;
-		goto error;
-	}
-
-	handle = (struct heap_object *)(hphandle);
+	handle = (struct heap_object *)(handle_ptr);
 	obj = (struct heapbuf_obj *)handle->obj;
-	retval = mutex_lock_interruptible(heapbuf_state.list_lock);
-	if (retval)
-		goto error;
 
-	myproc_id = multiproc_get_id(NULL);
-	/* opening an instance created locally */
-	if (obj->owner->proc_id == myproc_id) {
-		if (obj->owner->open_count > 1)
-			obj->owner->open_count--;
+	if (obj != NULL) {
+		retval = mutex_lock_interruptible(heapbuf_state.local_lock);
+		if (retval)
+			goto error;
 
-		goto owner_close_done;
-	} else
-		obj->remote->open_count--;
+		myproc_id = multiproc_get_id(NULL);
+		/* opening an instance created locally */
+		if (obj->owner.proc_id == myproc_id) {
+			if (obj->owner.open_count > 1)
+				obj->owner.open_count--;
+		}
 
-	if (obj->remote->open_count == 0) {
-		list_del(&obj->list_elem);
-		listmp_sharedmemory_close((listmp_sharedmemory_handle *)
-								obj->free_list);
-		kfree(obj->owner);
-		kfree(obj->remote);
-		kfree(obj);
-		kfree(handle);
-		handle = NULL;
+		/* Check if HeapBuf is opened on same processor*/
+		if ((((struct heapbuf_obj *)obj)->owner.creator == false)
+				&&  (obj->owner.open_count == 0)) {
+			list_del(&obj->list_elem);
+
+			/* Take the local lock */
+			if (likely(obj->gate != NULL)) {
+				retval = mutex_lock_interruptible(obj->gate);
+				if (retval)
+					goto error;
+			}
+
+			params = (struct heapbuf_params *)&obj->params;
+			if (likely((params->name) != NULL))
+				kfree(params->name); /* Free memory */
+
+			/* Release the local lock */
+			if (likely(obj->gate != NULL))
+				mutex_unlock(obj->gate);
+
+			/* Delete the list */
+			listmp_sharedmemory_close((listmp_sharedmemory_handle *)
+				obj->free_list);
+			kfree(handle);
+			handle = NULL;
+		}
+		mutex_unlock(heapbuf_state.local_lock);
 	}
-
-owner_close_done:
-	mutex_unlock(heapbuf_state.list_lock);
 	return 0;
 
 error:
 	printk(KERN_ERR "heapbuf_close failed status: %x\n", retval);
 	return retval;
-
 }
 EXPORT_SYMBOL(heapbuf_close);
 
 /*
- * ======== heapbuf_free  ========
+ * ======== heapbuf_alloc  ========
  *  Purpose:
  *  This will allocs a block of memory
  */
@@ -671,8 +853,12 @@ void *heapbuf_alloc(void *hphandle, u32 size, u32 align)
 	char *block = NULL;
 	s32 retval  = 0;
 
-	if (WARN_ON(heapbuf_state.nshandle == NULL))
+	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
+				HEAPBUF_MAKE_MAGICSTAMP(0),
+				HEAPBUF_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
 		goto error;
+	}
 
 	if (WARN_ON(hphandle == NULL))
 		goto error;
@@ -683,14 +869,26 @@ void *heapbuf_alloc(void *hphandle, u32 size, u32 align)
 
 	handle = (struct heap_object *)(hphandle);
 	obj = (struct heapbuf_obj *)handle->obj;
+
+	if ((obj->params.exact == true)
+			&& (size != obj->attrs->block_size))
+		goto error;
+
 	if (size > obj->attrs->block_size)
 		goto error;
 
-	retval = mutex_lock_interruptible(heapbuf_state.list_lock);
-	if (retval)
-		goto error;
+	if (likely(obj->gate != NULL)) {
+		retval = mutex_lock_interruptible(obj->gate);
+		if (retval)
+			goto error;
+	}
 
 	block = listmp_get_head((void *)obj->free_list);
+	if (block == NULL) {
+		retval = -ENOMEM;
+		goto error;
+	}
+
 	obj->attrs->num_free_blocks--;
 	/*
 	*  Keep track of the min number of free for this heapbuf, if user
@@ -707,7 +905,8 @@ void *heapbuf_alloc(void *hphandle, u32 size, u32 align)
 						obj->attrs->num_free_blocks;
 	}
 
-	mutex_unlock(heapbuf_state.list_lock);
+	if (likely(obj->gate != NULL))
+		mutex_unlock(obj->gate);
 	return block;
 error:
 	printk(KERN_ERR "heapbuf_alloc failed status: %x\n", retval);
@@ -726,8 +925,10 @@ int heapbuf_free(void *hphandle, void *block, u32 size)
 	struct heapbuf_obj *obj = NULL;
 	s32 retval  = 0;
 
-	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
-		retval  = -EINVAL;
+	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
+				HEAPBUF_MAKE_MAGICSTAMP(0),
+				HEAPBUF_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
 		goto error;
 	}
 
@@ -743,13 +944,15 @@ int heapbuf_free(void *hphandle, void *block, u32 size)
 
 	handle = (struct heap_object *)(hphandle);
 	obj = (struct heapbuf_obj *)handle->obj;
-	retval = mutex_lock_interruptible(heapbuf_state.list_lock);
-	if (retval)
-		goto error;
-
+	if (likely(obj->gate != NULL)) {
+		retval = mutex_lock_interruptible(obj->gate);
+		if (retval)
+			goto error;
+	}
 	retval = listmp_put_tail((void *)obj->free_list, block);
 	obj->attrs->num_free_blocks++;
-	mutex_unlock(heapbuf_state.list_lock);
+	if (likely(obj->gate != NULL))
+		mutex_unlock(obj->gate);
 	return 0;
 
 error:
@@ -770,11 +973,14 @@ int heapbuf_get_stats(void *hphandle, struct memory_stats *stats)
 	u32 block_size;
 	s32 retval  = 0;
 
-	BUG_ON(stats == NULL);
-	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
-		retval  = -EINVAL;
+	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
+				HEAPBUF_MAKE_MAGICSTAMP(0),
+				HEAPBUF_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
 		goto error;
 	}
+
+	BUG_ON(stats == NULL);
 
 	if (WARN_ON(hphandle == NULL)) {
 		retval  = -EINVAL;
@@ -783,12 +989,15 @@ int heapbuf_get_stats(void *hphandle, struct memory_stats *stats)
 
 	object = (struct heap_object *)(hphandle);
 	obj = (struct heapbuf_obj *)object->obj;
+
+	if (likely(obj->gate != NULL)) {
+		retval = mutex_lock_interruptible(obj->gate);
+		if (retval)
+			goto error;
+	}
+
 	block_size = obj->attrs->block_size;
 	stats->total_size = (u32 *)(block_size * obj->attrs->num_blocks);
-	retval = mutex_lock_interruptible(heapbuf_state.list_lock);
-	if (retval)
-		goto error;
-
 	stats->total_free_size = (u32 *)(block_size *
 						obj->attrs->num_free_blocks);
 	if (obj->attrs->num_free_blocks)
@@ -796,7 +1005,8 @@ int heapbuf_get_stats(void *hphandle, struct memory_stats *stats)
 	else
 		stats->largest_free_size =  (u32 *)0;
 
-	mutex_unlock(heapbuf_state.list_lock);
+	if (likely(obj->gate != NULL))
+		mutex_unlock(obj->gate);
 	return 0;
 
 error:
@@ -806,19 +1016,53 @@ error:
 EXPORT_SYMBOL(heapbuf_get_stats);
 
 /*
+ * ======== heapbuf_isblocking  ========
+ *  Purpose:
+ *  Indicate whether the heap may block during an alloc or free call
+ */
+bool heapbuf_isblocking(void *handle)
+{
+    bool isblocking = false;
+	s32 retval  = 0;
+
+	if (WARN_ON(handle == NULL)) {
+		retval  = -EINVAL;
+		goto error;
+	}
+
+	/* TBD: Figure out how to determine whether the gate is blocking */
+	isblocking = true;
+
+    /* retval true  Heap blocks during alloc/free calls */
+    /* retval false Heap does not block during alloc/free calls */
+    return isblocking;
+error:
+	printk(KERN_ERR "heapbuf_isblocking status: %x\n", retval);
+    return isblocking;
+}
+EXPORT_SYMBOL(heapbuf_isblocking);
+
+/*
  * ======== heapbuf_get_extended_stats  ========
  *  Purpose:
  *  This will get extended statistics
  */
 int heapbuf_get_extended_stats(void *hphandle,
-				struct heap_extended_stats *stats)
+				struct heapbuf_extended_stats *stats)
 {
 	struct heap_object *object = NULL;
 	struct heapbuf_obj *obj = NULL;
 	s32 retval  = 0;
 
+	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
+				HEAPBUF_MAKE_MAGICSTAMP(0),
+				HEAPBUF_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
+		goto error;
+	}
+
 	BUG_ON(stats == NULL);
-	if (WARN_ON(heapbuf_state.nshandle == NULL)) {
+	if (WARN_ON(heapbuf_state.ns_handle == NULL)) {
 		retval  = -EINVAL;
 		goto error;
 	}
@@ -830,9 +1074,11 @@ int heapbuf_get_extended_stats(void *hphandle,
 
 	object = (struct heap_object *)(hphandle);
 	obj = (struct heapbuf_obj *)object->obj;
-	retval = mutex_lock_interruptible(heapbuf_state.list_lock);
-	if (retval)
-		goto error;
+	if (likely(obj->gate != NULL)) {
+		retval = mutex_lock_interruptible(obj->gate);
+		if (retval)
+			goto error;
+	}
 
 	/*
 	*  The maximum number of allocations for this heapbuf (for any given
@@ -855,7 +1101,8 @@ int heapbuf_get_extended_stats(void *hphandle,
 	*/
 	stats->num_allocated_blocks = obj->attrs->num_blocks
 				-  obj->attrs->num_free_blocks;
-	mutex_unlock(heapbuf_state.list_lock);
+	if (likely(obj->gate != NULL))
+		mutex_unlock(obj->gate);
 
 error:
 	printk(KERN_ERR "heapbuf_get_extended_stats status: %x\n",
@@ -870,17 +1117,25 @@ EXPORT_SYMBOL(heapbuf_get_extended_stats);
  *  This will get amount of shared memory required for
  *  creation of each instance
  */
-int heapbuf_shared_memreq(const struct heapbuf_params *params)
+int heapbuf_shared_memreq(const struct heapbuf_params *params, u32 *buf_size)
 {
-	s32 retval = 0;
+    int state_size = 0;
 	listmp_sharedmemory_params listmp_params;
 
 	BUG_ON(params == NULL);
-	retval = params->num_blocks * params->block_size;
-	listmp_sharedmemory_params_init(NULL, &listmp_params);
-	retval += listmp_sharedmemory_shared_memreq(&listmp_params);
-	retval += HEAPBUF_CACHESIZE; /* Add in attrs */
-	return retval;
+
+	/* Size for attrs */
+	state_size = (sizeof(struct heapbuf_attrs) + (HEAPBUF_CACHESIZE - 1))
+				& ~(HEAPBUF_CACHESIZE - 1);
+
+	listmp_params_init(NULL, &listmp_params);
+	listmp_params.resource_id = params->resource_id;
+	state_size += listmp_shared_memreq(&listmp_params);
+
+	/* Determine size for the buffer */
+	*buf_size = params->num_blocks * params->block_size;
+
+	return state_size;
 }
 EXPORT_SYMBOL(heapbuf_shared_memreq);
 

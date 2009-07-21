@@ -252,7 +252,8 @@ static int heapbuf_ioctl_shared_memreq(struct heapbuf_cmd_args *cargs)
 		goto exit;
 	}
 
-	bytes = heapbuf_shared_memreq(&params);
+	bytes = heapbuf_shared_memreq(&params,
+				      &cargs->args.shared_memreq.buf_size);
 	cargs->args.shared_memreq.bytes = bytes;
 	cargs->api_status = 0;
 
@@ -268,13 +269,13 @@ exit:
  */
 static int heapbuf_ioctl_get_config(struct heapbuf_cmd_args *cargs)
 {
-	struct heap_config config;
+	struct heapbuf_config config;
 	s32 status = 0;
 	ulong size;
 
 	cargs->api_status = heapbuf_get_config(&config);
 	size = copy_to_user(cargs->args.get_config.config, &config,
-						sizeof(struct heap_config));
+						sizeof(struct heapbuf_config));
 	if (size)
 		status = -EFAULT;
 
@@ -288,12 +289,12 @@ static int heapbuf_ioctl_get_config(struct heapbuf_cmd_args *cargs)
  */
 static int heapbuf_ioctl_setup(struct heapbuf_cmd_args *cargs)
 {
-	struct heap_config config;
+	struct heapbuf_config config;
 	s32 status = 0;
 	ulong size;
 
 	size = copy_from_user(&config, cargs->args.setup.config,
-						sizeof(struct heap_config));
+						sizeof(struct heapbuf_config));
 	if (size) {
 		status = -EFAULT;
 		goto exit;
@@ -348,7 +349,7 @@ exit:
  */
 static int heapbuf_ioctl_get_extended_stats(struct heapbuf_cmd_args *cargs)
 {
-	struct heap_extended_stats stats;
+	struct heapbuf_extended_stats stats;
 	s32 status = 0;
 	ulong size;
 
@@ -358,7 +359,7 @@ static int heapbuf_ioctl_get_extended_stats(struct heapbuf_cmd_args *cargs)
 		goto exit;
 
 	size = copy_to_user(cargs->args.get_extended_stats.stats, &stats,
-				sizeof(struct heap_extended_stats));
+				sizeof(struct heapbuf_extended_stats));
 	if (size)
 		status = -EFAULT;
 

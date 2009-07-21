@@ -135,11 +135,11 @@ union heapbuf_arg {
 	} params_init;
 
 	struct  {
-		struct heap_config *config;
+		struct heapbuf_config *config;
 	} get_config;
 
 	struct {
-		struct heap_config *config;
+		struct heapbuf_config *config;
 	} setup;
 
 	struct {
@@ -182,12 +182,13 @@ union heapbuf_arg {
 
 	struct {
 		void *handle;
-		struct heap_extended_stats *stats;
+		struct heapbuf_extended_stats *stats;
 	} get_extended_stats;
 
 	struct {
 		void *handle;
 		struct heapbuf_params *params;
+		u32 buf_size;
 		u32 bytes;
 	} shared_memreq;
 };
