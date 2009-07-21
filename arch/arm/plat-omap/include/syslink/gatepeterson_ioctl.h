@@ -123,6 +123,7 @@ enum CMD_GATEPETERSON {
  */
 union gatepeterson_arg {
 	struct {
+		void *handle;
 		struct gatepeterson_params *params;
 	} params_init;
 
@@ -138,6 +139,7 @@ union gatepeterson_arg {
 		void *handle;
 		struct gatepeterson_params *params;
 		u32 name_len;
+		u32 shared_addr_srptr;
 	} create;
 
 	struct {
@@ -148,6 +150,7 @@ union gatepeterson_arg {
 		void *handle;
 		struct gatepeterson_params *params;
 		u32 name_len;
+		u32 shared_addr_srptr;
 	} open;
 
 	struct {

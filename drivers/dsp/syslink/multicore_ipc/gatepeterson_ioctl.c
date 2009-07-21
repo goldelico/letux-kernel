@@ -36,12 +36,13 @@ static int gatepeterson_ioctl_get_config(struct gatepeterson_cmd_args *cargs)
 	s32 status = 0;
 	s32 size;
 
-	cargs->api_status = gatepeterson_get_config(&config);
+	gatepeterson_get_config(&config);
 	size = copy_to_user(cargs->args.get_config.config, &config,
 				sizeof(struct gatepeterson_config));
 	if (size)
 		status = -EFAULT;
 
+	cargs->api_status = 0;
 	return status;
 }
 
@@ -92,12 +93,14 @@ static int gatepeterson_ioctl_params_init(struct gatepeterson_cmd_args *cargs)
 	s32 status = 0;
 	s32 size;
 
-	cargs->api_status = gatepeterson_params_init(&params);
+	gatepeterson_params_init(cargs->args.params_init.handle,
+							&params);
 	size = copy_to_user(cargs->args.params_init.params, &params,
 					sizeof(struct gatepeterson_params));
 	if (size)
 		status = -EFAULT;
 
+	cargs->api_status = 0;
 	return status;
 }
 
@@ -139,7 +142,8 @@ static int gatepeterson_ioctl_create(struct gatepeterson_cmd_args *cargs)
 
 	}
 
-	params.shared_addr = sharedregion_get_ptr((u32 *)params.shared_addr);
+	params.shared_addr = sharedregion_get_ptr(
+				(u32 *)cargs->args.create.shared_addr_srptr);
 	handle =  gatepeterson_create(&params);
 	/* Here we are not validating the return from the module.
 	Even it is nul, we pass it to user and user has to pass
@@ -205,7 +209,8 @@ static int gatepeterson_ioctl_open(struct gatepeterson_cmd_args *cargs)
 		}
 	}
 
-	params.shared_addr = sharedregion_get_ptr((u32 *)params.shared_addr);
+	params.shared_addr = sharedregion_get_ptr(
+			(u32 *)cargs->args.create.shared_addr_srptr);
 	cargs->api_status = gatepeterson_open(&handle, &params);
 	cargs->args.open.handle = handle;
 
