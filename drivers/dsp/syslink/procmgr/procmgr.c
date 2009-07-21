@@ -18,21 +18,38 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/vmalloc.h>
+#include <asm/atomic.h>
 
 /* Module level headers */
 #include "procmgr.h"
 #include "procdefs.h"
 #include "processor.h"
+#include <syslink/atomic_linux.h>
+#if defined SYSLINK_USE_SYSMGR
+#include <sysmgr.h>
+#include <platform.h>
+#endif /* if defined (SYSLINK_USE_SYSMGR) */
 
 
 /* ================================
  *  Macros and types
  * ================================
  */
+/*! @brief Macro to make a correct module magic number with refCount */
+#define PROCMGR_MAKE_MAGICSTAMP(x) ((PROCMGR_MODULEID << 12u) | (x))
+
+#if defined SYSLINK_USE_SYSMGR
+/* HACK - replace once the platform.c file is ready */
+int dummy() {return 0; };
+#define platform_start_callback(pid) dummy()
+#define platform_stop_callback(pid) dummy()
+#endif /* if defined (SYSLINK_USE_SYSMGR) */
+
 /*
  *  ProcMgr Module state object
  */
 struct proc_mgr_module_object {
+	atomic_t ref_count;
 	u32 config_size;
 	/* Size of configuration structure */
 	struct proc_mgr_config cfg;
@@ -126,8 +143,15 @@ int proc_mgr_setup(struct proc_mgr_config *cfg)
 	int retval = 0;
 	struct proc_mgr_config tmp_cfg;
 
-	BUG_ON(cfg == NULL);
+	/* This sets the refCount variable is not initialized, upper 16 bits is
+	* written with module Id to ensure correctness of refCount variable.
+	*/
+	atomic_cmpmask_and_set(&proc_mgr_obj_state.ref_count,
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(0));
 
+	if (atomic_inc_return(&proc_mgr_obj_state.ref_count)
+		!= PROCMGR_MAKE_MAGICSTAMP(1u))
+		return 0;
 	if (cfg == NULL) {
 		proc_mgr_get_config(&tmp_cfg);
 		cfg = &tmp_cfg;
@@ -161,16 +185,30 @@ int proc_mgr_destroy(void)
 	int retval = 0;
 	int i;
 
-	/* Check if any ProcMgr instances have not been deleted so far. If not,
-	 * delete them.
-	 */
-	for (i = 0 ; i < MULTIPROC_MAXPROCESSORS; i++) {
-		if (proc_mgr_obj_state.proc_handles[i] != NULL)
-			proc_mgr_delete(&(proc_mgr_obj_state.proc_handles[i]));
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_destroy: Error - module not initialized\n");
+		return -EFAULT;
 	}
+	if (atomic_dec_return(&proc_mgr_obj_state.ref_count)
+		 == PROCMGR_MAKE_MAGICSTAMP(0)) {
 
-	mutex_destroy(proc_mgr_obj_state.gate_handle);
-	kfree(proc_mgr_obj_state.gate_handle);
+		/* Check if any ProcMgr instances have not been deleted so far
+		*. If not,delete them
+		*/
+		for (i = 0 ; i < MULTIPROC_MAXPROCESSORS; i++) {
+			if (proc_mgr_obj_state.proc_handles[i] != NULL)
+				proc_mgr_delete
+				(&(proc_mgr_obj_state.proc_handles[i]));
+		}
+
+		mutex_destroy(proc_mgr_obj_state.gate_handle);
+		kfree(proc_mgr_obj_state.gate_handle);
+		/* Decrease the refCount */
+		atomic_set(&proc_mgr_obj_state.ref_count,
+			PROCMGR_MAKE_MAGICSTAMP(0));
+	}
 	return retval;;
 }
 EXPORT_SYMBOL(proc_mgr_destroy);
@@ -188,6 +226,11 @@ void proc_mgr_params_init(void *handle, struct proc_mgr_params *params)
 
 	if (WARN_ON(params == NULL))
 		goto exit;
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_params_init: Error - module not initialized\n");
+	}
 	if (handle == NULL) {
 		memcpy(params, &(proc_mgr_obj_state.def_inst_params),
 				sizeof(struct proc_mgr_params));
@@ -226,7 +269,12 @@ void *proc_mgr_create(u16 proc_id, const struct proc_mgr_params *params)
 	BUG_ON(!IS_VALID_PROCID(proc_id));
 	BUG_ON(params == NULL);
 	BUG_ON(params->proc_handle == NULL);
-
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_create: Error - module not initialized\n");
+		return NULL;
+	}
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
 	handle = (struct proc_mgr_object *)
 				vmalloc(sizeof(struct proc_mgr_object));
@@ -258,6 +306,12 @@ proc_mgr_delete(void **handle_ptr)
 	struct proc_mgr_object *handle;
 
 	BUG_ON(handle_ptr == NULL);
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_delete: Error - module not initialized\n");
+		return -EFAULT;
+	}
 
 	handle = (struct proc_mgr_object *)(*handle_ptr);
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
@@ -283,6 +337,12 @@ int proc_mgr_open(void **handle_ptr, u16 proc_id)
 
 	BUG_ON(handle_ptr == NULL);
 	BUG_ON(!IS_VALID_PROCID(proc_id));
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_open: Error - module not initialized\n");
+		return -EFAULT;
+	}
 
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
 	*handle_ptr = proc_mgr_obj_state.proc_handles[proc_id];
@@ -302,6 +362,12 @@ int proc_mgr_close(void *handle)
 	int retval = 0;
 
 	BUG_ON(handle == NULL);
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_close: Error - module not initialized\n");
+		return -EFAULT;
+	}
 	/* Nothing to be done for closing the handle. */
 	return retval;
 }
@@ -323,7 +389,12 @@ void proc_mgr_get_attach_params(void *handle,
 	struct proc_mgr_object *proc_mgr_handle =
 				(struct proc_mgr_object *)handle;
 	BUG_ON(params == NULL);
-
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_get_attach_params:"
+			"Error - module not initialized\n");
+	}
 	if (handle == NULL) {
 		memcpy(params, &(proc_mgr_obj_state.def_attach_params),
 				sizeof(struct proc_mgr_attach_params));
@@ -370,7 +441,13 @@ int proc_mgr_attach(void *handle, struct proc_mgr_attach_params *params)
 		proc_mgr_get_attach_params(handle, &tmp_params);
 		params = &tmp_params;
 	}
-
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_attach:"
+			"Error - module not initialized\n");
+		return -EFAULT;
+	}
 	if (WARN_ON(handle == NULL)) {
 		retval = -EFAULT;
 		goto exit;
@@ -417,7 +494,13 @@ int proc_mgr_detach(void *handle)
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
 				(struct proc_mgr_object *)handle;
-
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_detach:"
+			"Error - module not initialized\n");
+		return -EFAULT;
+	}
 	BUG_ON(handle == NULL);
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
 	/* Detach from the Processor. */
@@ -443,6 +526,12 @@ void proc_mgr_get_start_params(void *handle,
 {
 	struct proc_mgr_object *proc_mgr_handle =
 					(struct proc_mgr_object *)handle;
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_get_start_params:"
+			"Error - module not initialized\n");
+	}
 	BUG_ON(params == NULL);
 
 	if (handle == NULL) {
@@ -476,6 +565,13 @@ proc_mgr_start(void *handle, struct proc_mgr_start_params *params)
 	struct proc_mgr_start_params   tmp_params;
 	struct processor_start_params proc_params;
 
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_start:"
+			"Error - module not initialized\n");
+		return -EFAULT;
+	}
 	BUG_ON(handle == NULL);
 
 	if (params == NULL) {
@@ -490,6 +586,13 @@ proc_mgr_start(void *handle, struct proc_mgr_start_params *params)
 	retval = processor_start(proc_mgr_handle->proc_handle,
 						entryPt, &proc_params);
 	mutex_unlock(proc_mgr_obj_state.gate_handle);
+#if defined SYSLINK_USE_SYSMGR
+	if (retval == 0) {
+		/* TBD: should be removed when notify local is implemepented */
+		platform_start_callback(proc_mgr_handle->proc_id);
+	}
+#endif /* defined (SYSLINK_USE_SYSMGR)*/
+
 	return retval;;
 }
 EXPORT_SYMBOL(proc_mgr_start);
@@ -508,7 +611,19 @@ int proc_mgr_stop(void *handle)
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
 				(struct proc_mgr_object *)handle;
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_stop:"
+			"Error - module not initialized\n");
+		return -EFAULT;
+	}
 	BUG_ON(handle == NULL);
+#if defined SYSLINK_USE_SYSMGR
+	/* TBD: should be removed when notify local is implemepented */
+	platform_stop_callback(proc_mgr_handle->proc_id);
+#endif /* #if defined (SYSLINK_USE_SYSMGR) */
+
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
 	retval = processor_stop(proc_mgr_handle->proc_handle);
 	mutex_unlock(proc_mgr_obj_state.gate_handle);
@@ -530,6 +645,13 @@ enum proc_mgr_state proc_mgr_get_state(void *handle)
 	struct proc_mgr_object *proc_mgr_handle =
 				(struct proc_mgr_object *)handle;
 	enum proc_mgr_state state = PROC_MGR_STATE_UNKNOWN;
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_get_state:"
+			"Error - module not initialized\n");
+		return -EFAULT;
+	}
 	BUG_ON(handle == NULL);
 
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
@@ -553,7 +675,13 @@ int proc_mgr_read(void *handle, u32 proc_addr, u32 *num_bytes, void *buffer)
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
 					(struct proc_mgr_object *)handle;
-
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_read:"
+			"Error - module not initialized\n");
+		return -EFAULT;
+	}
 	BUG_ON(handle == NULL);
 	BUG_ON(proc_addr == 0);
 	BUG_ON(num_bytes == NULL);
@@ -583,7 +711,13 @@ int proc_mgr_write(void *handle, u32 proc_addr, u32 *num_bytes, void *buffer)
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
 					(struct proc_mgr_object *)handle;
-
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_write:"
+			"Error - module not initialized\n");
+		return -EFAULT;
+	}
 	BUG_ON(proc_addr == 0);
 	BUG_ON(num_bytes == NULL);
 	BUG_ON(buffer == NULL);
@@ -611,7 +745,13 @@ int proc_mgr_control(void *handle, int cmd, void *arg)
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle
 					= (struct proc_mgr_object *)handle;
-
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_control:"
+			"Error - module not initialized\n");
+		return -EFAULT;
+	}
 	BUG_ON(handle == NULL);
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
 	/* Perform device-dependent control operation. */
@@ -636,6 +776,13 @@ int proc_mgr_translate_addr(void *handle, void **dst_addr,
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
 					(struct proc_mgr_object *)handle;
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_translate_addr:"
+			"Error - module not initialized\n");
+		return -EFAULT;
+	}
 	BUG_ON(dst_addr == NULL);
 	BUG_ON(handle == NULL);
 	BUG_ON(dst_addr_type > PROC_MGR_ADDRTYPE_ENDVALUE);
@@ -665,6 +812,13 @@ int proc_mgr_map(void *handle, u32 proc_addr, u32 size, u32 *mapped_addr,
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
 				(struct proc_mgr_object *)handle;
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_map:"
+			"Error - module not initialized\n");
+		return -EFAULT;
+	}
 	BUG_ON(handle == NULL);
 	BUG_ON(proc_addr == 0);
 	BUG_ON(mapped_addr == NULL);
@@ -692,7 +846,13 @@ int proc_mgr_unmap(void *handle, u32 mapped_addr)
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
 				(struct proc_mgr_object *)handle;
-
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_unmap:"
+			"Error - module not initialized\n");
+		return -EFAULT;
+	}
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
 
 	/* Map to host address space. */
@@ -717,7 +877,13 @@ int proc_mgr_register_notify(void *handle, proc_mgr_callback_fxn fxn,
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle
 				= (struct proc_mgr_object *)handle;
-
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_register_notify:"
+			"Error - module not initialized\n");
+		return -EFAULT;
+	}
 	BUG_ON(handle == NULL);
 	BUG_ON(fxn == NULL);
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
@@ -741,6 +907,13 @@ int proc_mgr_get_proc_info(void *handle, struct proc_mgr_proc_info *proc_info)
 
 	struct proc_mgr_proc_info proc_info_test;
 
+	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
+		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
+		 == true) {
+		printk(KERN_ERR "proc_mgr_get_proc_info:"
+			"Error - module not initialized\n");
+		return -EFAULT;
+	}
 	if (WARN_ON(handle == NULL))
 		goto error_exit;
 	if (WARN_ON(proc_info == NULL))

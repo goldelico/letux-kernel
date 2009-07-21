@@ -83,9 +83,10 @@ inline int processor_detach(void *handle)
 	BUG_ON(proc_handle->proc_fxn_table.detach == NULL);
 
 	retval = proc_handle->proc_fxn_table.detach(handle);
-	if ((proc_handle->boot_mode == PROC_MGR_BOOTMODE_BOOT)
-		|| (proc_handle->boot_mode == PROC_MGR_BOOTMODE_NOLOAD))
-		proc_handle->state = PROC_MGR_STATE_RESET;
+	/* For all boot modes, at the end of detach, the Processor is in
+	* unknown state.
+	*/
+	proc_handle->state = PROC_MGR_STATE_UNKNOWN;
 	return retval;
 }
 

@@ -31,6 +31,7 @@
 #include "dmm4430.h"
 #include <syslink/multiproc.h>
 #include <syslink/ducatienabler.h>
+#include <syslink/platform_mem.h>
 
 #define DUCATI_DMM_START_ADDR			0xa0000000
 #define DUCATI_DMM_POOL_SIZE			0x6000000
@@ -83,7 +84,6 @@ struct proc4430_object {
 static struct proc4430_module_object proc4430_state = {
 	.is_setup = false,
 	.config_size = sizeof(struct proc4430_config),
-	.def_cfg.gate_handle = NULL,
 	.gate_handle = NULL,
 	.def_inst_params.num_mem_entries = 0u,
 	.def_inst_params.mem_entries = NULL,
@@ -142,16 +142,13 @@ int proc4430_setup(struct proc4430_config *cfg)
 	if (proc4430_state.is_setup == false) {
 		dmm_create();
 		dmm_create_tables(DUCATI_DMM_START_ADDR, DUCATI_DMM_POOL_SIZE);
-		if (cfg->gate_handle != NULL) {
-			proc4430_state.gate_handle = cfg->gate_handle;
-		} else {
-			/* User has not provided any gate handle, so create a
-			* default handle. */
-			proc4430_state.gate_handle =
-				kmalloc(sizeof(struct mutex), GFP_KERNEL);
-			mutex_init(proc4430_state.gate_handle);
-			ducati_setup();
-		}
+
+		/* Create a default gate handle for local module protection. */
+		proc4430_state.gate_handle =
+			kmalloc(sizeof(struct mutex), GFP_KERNEL);
+		mutex_init(proc4430_state.gate_handle);
+		ducati_setup();
+
 		/* Initialize the name to handles mapping array. */
 		memset(&proc4430_state.proc_handles, 0,
 			(sizeof(void *) * MULTIPROC_MAXPROCESSORS));
@@ -186,12 +183,11 @@ int proc4430_destroy(void)
 	}
 
 	/* Check if the gate_handle was created internally. */
-	if (proc4430_state.cfg.gate_handle == NULL) {
-		if (proc4430_state.gate_handle != NULL) {
-			mutex_destroy(proc4430_state.gate_handle);
-			kfree(proc4430_state.gate_handle);
-		}
+	if (proc4430_state.gate_handle != NULL) {
+		mutex_destroy(proc4430_state.gate_handle);
+		kfree(proc4430_state.gate_handle);
 	}
+
 	ducati_destroy();
 	proc4430_state.is_setup = false;
 	return retval;
@@ -382,7 +378,7 @@ int proc4430_attach(void *handle, struct processor_attach_params *params)
 	struct proc4430_object *object = NULL;
 	u32 map_count = 0;
 	u32 i;
-	u32 dst_addr;
+	memory_map_info map_info;
 
 	object = (struct proc4430_object *)proc_handle->object;
 	/* Return memory information in params. */
@@ -394,13 +390,19 @@ int proc4430_attach(void *handle, struct processor_attach_params *params)
 		if ((object->params.mem_entries[i].master_virt_addr == (u32)-1)
 		&& (object->params.mem_entries[i].shared == true)) {
 			map_count++;
-			dst_addr = (u32)ioremap_nocache((dma_addr_t)
-				(object->params.mem_entries[i].phys_addr),
-				object->params.mem_entries[i].size);
+			map_info.src = object->params.mem_entries[i].phys_addr;
+			map_info.size = object->params.mem_entries[i].size;
+			map_info.is_cached = false;
+			retval = platform_mem_map(&map_info);
+			if (retval != 0) {
+				printk(KERN_ERR "proc4430_attach failed\n");
+				return -EFAULT;
+			}
 			object->params.mem_entries[i].master_virt_addr =
-								dst_addr;
+								map_info.dst;
 			params->mem_entries[i].addr
-				[PROC_MGR_ADDRTYPE_MASTERKNLVIRT] = dst_addr;
+				[PROC_MGR_ADDRTYPE_MASTERKNLVIRT] =
+								map_info.dst;
 			params->mem_entries[i].addr
 				[PROC_MGR_ADDRTYPE_SLAVEVIRT] =
 			(object->params.mem_entries[i].slave_virt_addr);
@@ -429,13 +431,17 @@ int proc4430_detach(void *handle)
 					(struct processor_object *)handle;
 	struct proc4430_object *object = NULL;
 	u32 i;
+	memory_unmap_info unmap_info;
 
 	object = (struct proc4430_object *)proc_handle->object;
 	for (i = 0; (i < object->params.num_mem_entries); i++) {
 		if ((object->params.mem_entries[i].master_virt_addr == (u32)-1)
 			&& (object->params.mem_entries[i].shared == true)) {
-			iounmap((void *)object->params.mem_entries[i].
-							master_virt_addr);
+			unmap_info.addr =
+				object->params.mem_entries[i].master_virt_addr;
+			unmap_info.size = object->params.mem_entries[i].size;
+			if (unmap_info.addr != 0)
+				platform_mem_unmap(&unmap_info);
 			object->params.mem_entries[i].master_virt_addr =
 								(u32)-1;
 		}

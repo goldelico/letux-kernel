@@ -263,7 +263,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		sizeof(struct proc_mgr_cmd_args_close));
 		if (WARN_ON(retval != 0))
 			goto func_exit;
-		retval = proc_mgr_close(src_args.handle);
+		retval = proc_mgr_close(&(src_args.handle));
 	}
 	break;
 
@@ -400,6 +400,7 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 		if (WARN_ON(retval != 0))
 			goto func_exit;
 		procmgrstate = proc_mgr_get_state(src_args.handle);
+		src_args.proc_mgr_state = procmgrstate;
 		retval = copy_to_user((void *)(args), (const void *)&src_args,
 			sizeof(struct proc_mgr_cmd_args_get_state));
 		WARN_ON(retval < 0);
