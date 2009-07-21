@@ -4,7 +4,7 @@ gatepeterson.o gatepeterson_ioctl.o sharedregion.o sharedregion_ioctl.o \
 nameserver_remote.o nameserver_remotenotify.o listmp_sharedmemory.o \
 listmp.o listmp_sharedmemory_ioctl.o messageq.o messageq_ioctl.o \
 messageq_transportshm.o messageq_transportshm_ioctl.o \
-nameserver_remotenotify_ioctl.o ipc_ioctl.o ipc_drv.o
+nameserver_remotenotify_ioctl.o platform_mem.o ipc_ioctl.o ipc_drv.o
 
 obj-$(CONFIG_MPU_SYSLINK_IPC)        += syslink_ipc.o
 syslink_ipc-objs = $(libservices) $(libsyslink_ipc)
