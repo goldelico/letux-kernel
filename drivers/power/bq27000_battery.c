@@ -186,6 +186,9 @@ static int bq27000_battery_get_property(struct power_supply *psy,
 	int n;
 	struct bq27000_device_info *di = container_of(psy, struct bq27000_device_info, bat);
 
+	if (di->regs.rsoc < 0 && psp != POWER_SUPPLY_PROP_PRESENT)
+		return -ENODEV;
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
