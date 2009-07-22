@@ -9,6 +9,8 @@ linux-2.6-openmoko (20090702.gitd1c828aa-2) UNRELEASED; urgency=low
     + generate the depmod modules.* files when configuring.
   * debian/prerm.in:
     - remove the depmod modules.* files when removing or upgrading.
+  * debian/rules:
+    + install the System.map.
 
  --
 

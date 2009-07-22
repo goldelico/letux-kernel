@@ -14,5 +14,5 @@ fi
 
 # Generate the depmod modules.* files
 if [ "$1" = "configure" ]; then
-    depmod -a "$VERSION"
+    depmod -a -F "/boot/System.map-$VERSION" "$VERSION"
 fi

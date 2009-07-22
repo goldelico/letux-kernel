@@ -57,6 +57,9 @@ install-stamp: build
 	mkdir `pwd`/debian/`dh_listpackages`/boot/
 	cp uImage.bin-$(VERSION_FULL) `pwd`/debian/`dh_listpackages`/boot/
 
+	# Install the System.map
+	cp System.map `pwd`/debian/`dh_listpackages`/boot/System.map-$(VERSION_FULL)
+
 	# Install the modules.
 	$(MAKE) INSTALL_MOD_STRIP=1 \
 		INSTALL_MOD_PATH=`pwd`/debian/`dh_listpackages`/ \
