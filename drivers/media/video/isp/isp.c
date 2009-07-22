@@ -788,10 +788,8 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 	u32 sbl_pcr;
 	int wait_hs_vs = 0;
 
-	if (isp->running == ISP_STOPPED) {
-		dev_err(dev, "ouch %8.8x!\n",isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS));
+	if (isp->running == ISP_STOPPED)
 		return IRQ_NONE;
-	}
 
 	irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 	isp_reg_writel(dev, irqstatus, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
