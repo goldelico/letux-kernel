@@ -26,7 +26,7 @@
 #include <linux/platform_device.h>
 
 /* Module headers */
-#include "procmgr.h"
+#include <procmgr.h>
 #include "procmgr_drvdefs.h"
 
 #define PROCMGR_NAME "syslink-procmgr"

@@ -21,7 +21,7 @@
 #include <asm/atomic.h>
 
 /* Module level headers */
-#include "procmgr.h"
+#include <procmgr.h>
 #include "procdefs.h"
 #include "processor.h"
 #include <syslink/atomic_linux.h>

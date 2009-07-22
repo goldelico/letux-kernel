@@ -22,7 +22,7 @@
 
 
 /* Module headers */
-#include "../procmgr.h"
+#include <procmgr.h>
 #include "../procdefs.h"
 #include <linux/types.h>
 

@@ -21,7 +21,7 @@
 #include <linux/types.h>
 
 /* Module headers */
-#include "procmgr.h"
+#include <procmgr.h>
 
 
 /* =================================

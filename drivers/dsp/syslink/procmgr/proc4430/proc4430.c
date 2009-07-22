@@ -25,7 +25,7 @@
 /* Module level headers */
 #include "../procdefs.h"
 #include "../processor.h"
-#include "../procmgr.h"
+#include <procmgr.h>
 #include "../procmgr_drvdefs.h"
 #include "proc4430.h"
 #include "dmm4430.h"
