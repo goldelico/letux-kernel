@@ -6,6 +6,7 @@ linux-2.6-openmoko (20090702.gitd1c828aa-2) UNRELEASED; urgency=low
     + CONFIG_MFD_GLAMO_FB_XGLAMO_WORKAROUND is not set.
     + CONFIG_INPUT_EVDEV=m.
     + CONFIG_USB_USBNET=m.
+    + CONFIG_RFKILL=m and CONFIG_RFKILL_INPUT=m.
   * debian/postinst.in:
     + generate the depmod modules.* files when configuring.
   * debian/prerm.in:
