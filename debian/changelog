@@ -4,6 +4,7 @@ linux-2.6-openmoko (20090702.gitd1c828aa-2) UNRELEASED; urgency=low
     + CONFIG_TASKSTAT=y, CONFIG_TASK_DELAY_ACCT=y, CONFIG_TASK_XACCT=y
       and CONFIG_TASK_IO_ACCOUNTING=y.
     + CONFIG_MFD_GLAMO_FB_XGLAMO_WORKAROUND is not set.
+    + CONFIG_INPUT_EVDEV=m.
   * debian/postinst.in:
     + generate the depmod modules.* files when configuring.
   * debian/prerm.in:
