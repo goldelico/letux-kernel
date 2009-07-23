@@ -1,4 +1,4 @@
-linux-2.6-openmoko (20090702.gitd1c828aa-2) UNRELEASED; urgency=low
+linux-2.6-openmoko (20090702.gitd1c828aa-2) pkg-fso; urgency=low
 
   * debian/config.gta02:
     + CONFIG_TASKSTAT=y, CONFIG_TASK_DELAY_ACCT=y, CONFIG_TASK_XACCT=y
@@ -15,7 +15,7 @@ linux-2.6-openmoko (20090702.gitd1c828aa-2) UNRELEASED; urgency=low
   * debian/rules:
     + install the System.map.
 
- --
+ -- Luca Capello <luca@pca.it>  Thu, 23 Jul 2009 13:59:23 +0200
 
 linux-2.6-openmoko (20090702.gitd1c828aa-1) pkg-fso; urgency=low
 
