@@ -122,19 +122,19 @@ int multiproc_ioctl(struct inode *inode, struct file *filp,
 
 	switch (cmd) {
 	case CMD_MULTIPROC_SETUP:
-		status = mproc_ioctl_setup(uarg);
+		status = mproc_ioctl_setup(&cargs);
 		break;
 
 	case CMD_MULTIPROC_DESTROY:
-		status = mproc_ioctl_destroy(uarg);
+		status = mproc_ioctl_destroy(&cargs);
 		break;
 
 	case CMD_MULTIPROC_GETCONFIG:
-		status = mproc_ioctl_get_config(uarg);
+		status = mproc_ioctl_get_config(&cargs);
 		break;
 
 	case CMD_MULTIPROC_SETLOCALID:
-		status = multiproc_ioctl_set_local_id(uarg);
+		status = multiproc_ioctl_set_local_id(&cargs);
 		break;
 
 	default:

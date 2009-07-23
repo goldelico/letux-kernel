@@ -45,8 +45,14 @@ struct multiproc_module_object {
 	atomic_t ref_count; /* Reference count */
 };
 
-static struct multiproc_module_object multiproc_state;
-
+static struct multiproc_module_object multiproc_state = {
+	.def_cfg.max_processors = 4,
+	.def_cfg.name_list[0][0] = "MPU",
+	.def_cfg.name_list[1][0] = "Tesla",
+	.def_cfg.name_list[2][0] = "SysM3",
+	.def_cfg.name_list[3][0] = "AppM3",
+	.def_cfg.id = 0
+};
 
 /*
  * ======== multiproc_get_config ========

@@ -25,10 +25,10 @@
 #include <linux/fs.h>
 
 #define IPC_IOC_MAGIC		0xE0
-#define IPC_IOC_BASE		0
+#define IPC_IOC_BASE		2
 
 enum ipc_command_count {
-	MULTIPROC_CMD_NOS = 3,
+	MULTIPROC_CMD_NOS = 4,
 	NAMESERVER_CMD_NOS = 13,
 	HEAPBUF_CMD_NOS	= 13,
 	SHAREDREGION_CMD_NOS = 10,
