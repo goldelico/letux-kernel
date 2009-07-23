@@ -62,7 +62,7 @@ void notify_get_config(struct notify_config *cfg)
 
 	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
 			NOTIFY_MAKE_MAGICSTAMP(0),
-			NOTIFY_MAKE_MAGICSTAMP(1)) == false)
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true)
 		memcpy(cfg, &notify_state.def_cfg,
 			sizeof(struct notify_config));
 	else
