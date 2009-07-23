@@ -3,6 +3,7 @@ linux-2.6-openmoko (20090702.gitd1c828aa-3) UNRELEASED; urgency=low
   * debian/config.gta02:
     + CONFIG_NLS*=m and CONFIG_NLS_DEFAULT="utf8".
     + CONFIG_BLK_DEV_MD=m, CONFIG_MD*=m and CONFIG_XOR_BLOCKS=m.
+    + CONFIG_DM_*=m.
 
  --
 
