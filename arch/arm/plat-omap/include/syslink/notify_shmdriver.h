@@ -91,6 +91,7 @@ struct notify_shmdrv_proc_ctrl {
 	unsigned long int send_init_status;
 	unsigned long int padding[28];
 	struct notify_shmdrv_eventreg_mask reg_mask;
+	struct notify_shmdrv_eventreg	*reg_chart;
 };
 
 /*
