@@ -196,7 +196,7 @@ static int omap34xx_isp_tables_update(struct isp_prev_device *isp_prev,
 int omap34xx_isp_preview_config(struct isp_prev_device *isp_prev,
 				void *userspace_add)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	struct ispprev_hmed prev_hmed_t;
 	struct ispprev_csup csup_t;
 	struct ispprev_blkadj prev_blkadj_t;
@@ -370,7 +370,7 @@ EXPORT_SYMBOL_GPL(omap34xx_isp_preview_config);
 static int omap34xx_isp_tables_update(struct isp_prev_device *isp_prev,
 			       struct isptables_update *isptables_struct)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	struct prev_params *params = &isp_prev->params;
 
 	if (ISP_ABS_PREV_WB & isptables_struct->update) {
@@ -472,7 +472,7 @@ err_copy_from_user:
  **/
 void isppreview_config_shadow_registers(struct isp_prev_device *isp_prev)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u8 current_brightness_contrast;
 	int ctr;
 	unsigned long flags;
@@ -590,7 +590,7 @@ void isppreview_config_shadow_registers(struct isp_prev_device *isp_prev)
  **/
 int isppreview_request(struct isp_prev_device *isp_prev)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	isp_reg_or(dev,
 		   OMAP3_ISP_IOMEM_MAIN, ISP_CTRL, ISPCTRL_PREV_RAM_EN |
@@ -606,7 +606,7 @@ EXPORT_SYMBOL_GPL(isppreview_request);
  **/
 void isppreview_free(struct isp_prev_device *isp_prev)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL,
 			    ~(ISPCTRL_PREV_CLK_EN |
@@ -632,7 +632,7 @@ EXPORT_SYMBOL_GPL(isppreview_free);
 int isppreview_config_datapath(struct isp_prev_device *isp_prev,
 			       struct isp_pipeline *pipe)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u32 pcr = 0;
 	u8 enable = 0;
 	struct prev_params *params = &isp_prev->params;
@@ -749,7 +749,7 @@ EXPORT_SYMBOL_GPL(isppreview_set_skip);
 void isppreview_config_ycpos(struct isp_prev_device *isp_prev,
 			     enum preview_ycpos_mode mode)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u32 pcr = isp_reg_readl(dev,
 				OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR);
 
@@ -765,7 +765,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_ycpos);
  **/
 void isppreview_config_averager(struct isp_prev_device *isp_prev, u8 average)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	int reg = 0;
 
 	reg = AVE_ODD_PIXEL_DIST | AVE_EVEN_PIXEL_DIST | average;
@@ -779,7 +779,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_averager);
  **/
 void isppreview_enable_invalaw(struct isp_prev_device *isp_prev, u8 enable)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u32 pcr_val = 0;
 	pcr_val = isp_reg_readl(dev,
 				OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR);
@@ -805,7 +805,7 @@ EXPORT_SYMBOL_GPL(isppreview_enable_invalaw);
  **/
 void isppreview_enable_drkframe(struct isp_prev_device *isp_prev, u8 enable)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if (enable)
 		isp_reg_or(dev,
@@ -826,7 +826,7 @@ EXPORT_SYMBOL_GPL(isppreview_enable_drkframe);
  **/
 void isppreview_enable_shadcomp(struct isp_prev_device *isp_prev, u8 enable)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if (enable) {
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
@@ -846,7 +846,7 @@ EXPORT_SYMBOL_GPL(isppreview_enable_shadcomp);
 void isppreview_config_drkf_shadcomp(struct isp_prev_device *isp_prev,
 				     u8 scomp_shtval)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u32 pcr_val = isp_reg_readl(dev,
 				    OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR);
 
@@ -863,7 +863,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_drkf_shadcomp);
  **/
 void isppreview_enable_hmed(struct isp_prev_device *isp_prev, u8 enable)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if (enable)
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
@@ -884,8 +884,7 @@ EXPORT_SYMBOL_GPL(isppreview_enable_hmed);
 void isppreview_config_hmed(struct isp_prev_device *isp_prev,
 			    struct ispprev_hmed prev_hmed)
 {
-
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u32 odddist = 0;
 	u32 evendist = 0;
 
@@ -914,7 +913,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_hmed);
 void isppreview_config_noisefilter(struct isp_prev_device *isp_prev,
 				   struct ispprev_nf prev_nf)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	int i = 0;
 
 	isp_reg_writel(dev, prev_nf.spread, OMAP3_ISP_IOMEM_PREV,
@@ -935,7 +934,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_noisefilter);
 void isppreview_config_dcor(struct isp_prev_device *isp_prev,
 			    struct ispprev_dcor prev_dcor)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if (prev_dcor.couplet_mode_en) {
 		isp_reg_writel(dev, prev_dcor.detect_correct[0],
@@ -963,7 +962,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_dcor);
 void isppreview_config_cfa(struct isp_prev_device *isp_prev,
 			   struct ispprev_cfa prev_cfa)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	int i = 0;
 
 	isp_prev->cfafmt = prev_cfa.cfafmt;
@@ -994,7 +993,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_cfa);
 void isppreview_config_gammacorrn(struct isp_prev_device *isp_prev,
 				  struct ispprev_gtable gtable)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	int i = 0;
 
 	isp_reg_writel(dev, ISPPRV_REDGAMMA_TABLE_ADDR,
@@ -1040,7 +1039,7 @@ EXPORT_SYMBOL_GPL(isppreview_set_luma_enhancement);
 void isppreview_config_luma_enhancement(struct isp_prev_device *isp_prev,
 					u32 *ytable)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	int i = 0;
 
 	isp_reg_writel(dev, ISPPRV_YENH_TABLE_ADDR,
@@ -1060,7 +1059,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_luma_enhancement);
 void isppreview_config_chroma_suppression(struct isp_prev_device *isp_prev,
 					  struct ispprev_csup csup)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	isp_reg_writel(dev,
 		       csup.gain | (csup.thres << ISPPRV_CSUP_THRES_SHIFT) |
@@ -1075,7 +1074,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_chroma_suppression);
  **/
 void isppreview_enable_noisefilter(struct isp_prev_device *isp_prev, u8 enable)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if (enable)
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
@@ -1093,7 +1092,7 @@ EXPORT_SYMBOL_GPL(isppreview_enable_noisefilter);
  **/
 void isppreview_enable_dcor(struct isp_prev_device *isp_prev, u8 enable)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if (enable)
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
@@ -1112,7 +1111,7 @@ EXPORT_SYMBOL_GPL(isppreview_enable_dcor);
  **/
 void isppreview_enable_cfa(struct isp_prev_device *isp_prev, u8 enable)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if (enable)
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
@@ -1132,7 +1131,7 @@ EXPORT_SYMBOL_GPL(isppreview_enable_cfa);
  **/
 void isppreview_enable_gammabypass(struct isp_prev_device *isp_prev, u8 enable)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if (enable) {
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
@@ -1151,7 +1150,7 @@ EXPORT_SYMBOL_GPL(isppreview_enable_gammabypass);
 void isppreview_enable_luma_enhancement(struct isp_prev_device *isp_prev,
 					u8 enable)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if (enable) {
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
@@ -1171,7 +1170,7 @@ EXPORT_SYMBOL_GPL(isppreview_enable_luma_enhancement);
 void isppreview_enable_chroma_suppression(struct isp_prev_device *isp_prev,
 					  u8 enable)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if (enable)
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
@@ -1194,7 +1193,7 @@ EXPORT_SYMBOL_GPL(isppreview_enable_chroma_suppression);
 void isppreview_config_whitebalance(struct isp_prev_device *isp_prev,
 				    struct ispprev_wbal prev_wbal)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u32 val;
 
 	isp_reg_writel(dev, prev_wbal.dgain, OMAP3_ISP_IOMEM_PREV,
@@ -1238,7 +1237,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_whitebalance);
 void isppreview_config_whitebalance2(struct isp_prev_device *isp_prev,
 				     struct prev_white_balance prev_wbal)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	isp_reg_writel(dev, prev_wbal.wb_dgain,
 		       OMAP3_ISP_IOMEM_PREV, ISPPRV_WB_DGAIN);
@@ -1277,7 +1276,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_whitebalance2);
 void isppreview_config_blkadj(struct isp_prev_device *isp_prev,
 			      struct ispprev_blkadj prev_blkadj)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	isp_reg_writel(dev, prev_blkadj.blue |
 		       (prev_blkadj.green << ISPPRV_BLKADJOFF_G_SHIFT) |
@@ -1294,7 +1293,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_blkadj);
 void isppreview_config_rgb_blending(struct isp_prev_device *isp_prev,
 				    struct ispprev_rgbtorgb rgb2rgb)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u32 val = 0;
 
 	val = (rgb2rgb.matrix[0][0] & 0xfff) << ISPPRV_RGB_MAT1_MTX_RR_SHIFT;
@@ -1340,7 +1339,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_rgb_blending);
 void isppreview_config_rgb_to_ycbcr(struct isp_prev_device *isp_prev,
 				    struct ispprev_csc prev_csc)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u32 val = 0;
 
 	val = (prev_csc.matrix[0][0] & 0x3ff) << ISPPRV_CSC0_RY_SHIFT;
@@ -1372,7 +1371,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_rgb_to_ycbcr);
  **/
 void isppreview_query_contrast(struct isp_prev_device *isp_prev, u8 *contrast)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u32 brt_cnt_val = 0;
 
 	brt_cnt_val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
@@ -1402,7 +1401,7 @@ EXPORT_SYMBOL_GPL(isppreview_update_contrast);
  **/
 void isppreview_config_contrast(struct isp_prev_device *isp_prev, u8 contrast)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u32 brt_cnt_val = 0;
 
 	brt_cnt_val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
@@ -1446,7 +1445,7 @@ EXPORT_SYMBOL_GPL(isppreview_update_brightness);
 void isppreview_config_brightness(struct isp_prev_device *isp_prev,
 				  u8 brightness)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u32 brt_cnt_val = 0;
 
 	DPRINTK_ISPPREV("\tConfiguring brightness in ISP: %d\n", brightness);
@@ -1467,7 +1466,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_brightness);
 void isppreview_query_brightness(struct isp_prev_device *isp_prev,
 				 u8 *brightness)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	*brightness = isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
 				    ISPPRV_CNT_BRT);
@@ -1514,7 +1513,7 @@ EXPORT_SYMBOL_GPL(isppreview_get_color);
 void isppreview_config_yc_range(struct isp_prev_device *isp_prev,
 				struct ispprev_yclimit yclimit)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	isp_reg_writel(dev,
 		       yclimit.maxC << ISPPRV_SETUP_YC_MAXC_SHIFT |
@@ -1538,7 +1537,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_yc_range);
 int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
 			    struct isp_pipeline *pipe)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u32 div = 0;
 	int max_out;
 
@@ -1625,7 +1624,7 @@ EXPORT_SYMBOL_GPL(isppreview_try_pipeline);
 int isppreview_s_pipeline(struct isp_prev_device *isp_prev,
 			  struct isp_pipeline *pipe)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 	u32 prevsdroff;
 	int rval;
 
@@ -1677,7 +1676,7 @@ EXPORT_SYMBOL_GPL(isppreview_s_pipeline);
  **/
 int isppreview_config_inlineoffset(struct isp_prev_device *isp_prev, u32 offset)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if ((offset & ISP_32B_BOUNDARY_OFFSET) == offset) {
 		isp_reg_writel(dev, offset & 0xffff,
@@ -1699,7 +1698,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_inlineoffset);
  **/
 int isppreview_set_inaddr(struct isp_prev_device *isp_prev, u32 addr)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if ((addr & ISP_32B_BOUNDARY_BUF) == addr)
 		isp_reg_writel(dev, addr,
@@ -1720,7 +1719,7 @@ EXPORT_SYMBOL_GPL(isppreview_set_inaddr);
 int isppreview_config_outlineoffset(struct isp_prev_device *isp_prev,
 				    u32 offset)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if ((offset & ISP_32B_BOUNDARY_OFFSET) != offset) {
 		dev_err(dev, "preview: Offset should be in 32 byte "
@@ -1741,7 +1740,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_outlineoffset);
  **/
 int isppreview_set_outaddr(struct isp_prev_device *isp_prev, u32 addr)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if ((addr & ISP_32B_BOUNDARY_BUF) != addr) {
 		dev_err(dev, "preview: Address should be in 32 byte "
@@ -1761,7 +1760,7 @@ EXPORT_SYMBOL_GPL(isppreview_set_outaddr);
 int isppreview_config_darklineoffset(struct isp_prev_device *isp_prev,
 				     u32 offset)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if ((offset & ISP_32B_BOUNDARY_OFFSET) != offset) {
 		dev_err(dev, "preview: Offset should be in 32 byte "
@@ -1780,7 +1779,7 @@ EXPORT_SYMBOL_GPL(isppreview_config_darklineoffset);
  **/
 int isppreview_set_darkaddr(struct isp_prev_device *isp_prev, u32 addr)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if ((addr & ISP_32B_BOUNDARY_BUF) != addr) {
 		dev_err(dev, "preview: Address should be in 32 byte "
@@ -1801,7 +1800,7 @@ EXPORT_SYMBOL_GPL(isppreview_set_darkaddr);
  **/
 void isppreview_enable(struct isp_prev_device *isp_prev, int enable)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	if (enable)
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR,
@@ -1817,7 +1816,7 @@ EXPORT_SYMBOL_GPL(isppreview_enable);
  **/
 int isppreview_busy(struct isp_prev_device *isp_prev)
 {
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 
 	return isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR)
 		& ISPPRV_PCR_BUSY;
@@ -1853,7 +1852,7 @@ void isppreview_print_status(struct isp_prev_device *isp_prev,
 			     struct isp_pipeline *pipe)
 {
 #ifdef OMAP_ISPPREV_DEBUG
-	struct device *dev = to_device(isp_prev, isp_prev);
+	struct device *dev = to_device(isp_prev);
 #endif
 
 	DPRINTK_ISPPREV("Preview Input format =%d, Output Format =%d\n",

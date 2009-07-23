@@ -94,8 +94,8 @@ static int ispccdc_validate_config_lsc(struct isp_ccdc_device *isp_ccdc,
 int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
 			     void *userspace_add)
 {
-	struct isp_device *isp = to_isp_device(isp_ccdc, isp_ccdc);
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct isp_device *isp = to_isp_device(isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 	struct ispccdc_bclamp bclamp_t;
 	struct ispccdc_blcomp blcomp_t;
 	struct ispccdc_fpc fpc_t;
@@ -317,7 +317,7 @@ EXPORT_SYMBOL(ispccdc_set_raw_offset);
  **/
 int ispccdc_request(struct isp_ccdc_device *isp_ccdc)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	mutex_lock(&isp_ccdc->mutexlock);
 	if (isp_ccdc->ccdc_inuse) {
@@ -345,7 +345,7 @@ int ispccdc_request(struct isp_ccdc_device *isp_ccdc)
  **/
 int ispccdc_free(struct isp_ccdc_device *isp_ccdc)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	mutex_lock(&isp_ccdc->mutexlock);
 	if (!isp_ccdc->ccdc_inuse) {
@@ -373,8 +373,8 @@ int ispccdc_free(struct isp_ccdc_device *isp_ccdc)
 static int ispccdc_validate_config_lsc(struct isp_ccdc_device *isp_ccdc,
 				       struct ispccdc_lsc_config *lsc_cfg)
 {
-	struct isp_device *isp = to_isp_device(isp_ccdc, isp_ccdc);
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct isp_device *isp = to_isp_device(isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 	unsigned int paxel_width, paxel_height;
 	unsigned int paxel_shift_x, paxel_shift_y;
 	unsigned int min_width, min_height, min_size;
@@ -434,7 +434,7 @@ static int ispccdc_validate_config_lsc(struct isp_ccdc_device *isp_ccdc,
  **/
 static void ispccdc_program_lsc(struct isp_ccdc_device *isp_ccdc)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	isp_reg_writel(dev, isp_ccdc->lsc_table_inuse,
 		       OMAP3_ISP_IOMEM_CCDC, ISPCCDC_LSC_TABLE_BASE);
@@ -445,7 +445,7 @@ static void ispccdc_program_lsc(struct isp_ccdc_device *isp_ccdc)
  **/
 static void ispccdc_config_lsc(struct isp_ccdc_device *isp_ccdc)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 	struct ispccdc_lsc_config *lsc_cfg = &isp_ccdc->lsc_config;
 	int reg;
 
@@ -474,7 +474,7 @@ static void ispccdc_config_lsc(struct isp_ccdc_device *isp_ccdc)
  **/
 void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	if (enable) {
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN,
@@ -499,7 +499,7 @@ void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 static void ispccdc_setup_lsc(struct isp_ccdc_device *isp_ccdc,
 			      struct isp_pipeline *pipe)
 {
-	struct isp_device *isp = to_isp_device(isp_ccdc, isp_ccdc);
+	struct isp_device *isp = to_isp_device(isp_ccdc);
 
 	ispccdc_enable_lsc(isp_ccdc, 0);	/* Disable LSC */
 	if (pipe->ccdc_in == CCDC_RAW &&
@@ -574,7 +574,7 @@ void ispccdc_config_crop(struct isp_ccdc_device *isp_ccdc, u32 left, u32 top,
 static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 				   struct isp_pipeline *pipe)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 	u32 syn_mode = 0;
 	struct ispccdc_vp vpcfg;
 	struct ispccdc_syncif syncif;
@@ -716,7 +716,7 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 void ispccdc_config_sync_if(struct isp_ccdc_device *isp_ccdc,
 			    struct ispccdc_syncif syncif)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 	u32 syn_mode = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
 				     ISPCCDC_SYN_MODE);
 
@@ -822,7 +822,7 @@ void ispccdc_config_sync_if(struct isp_ccdc_device *isp_ccdc,
 int ispccdc_config_black_clamp(struct isp_ccdc_device *isp_ccdc,
 			       struct ispccdc_bclamp bclamp)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 	u32 bclamp_val = 0;
 
 	if (isp_ccdc->obclamp_en) {
@@ -855,7 +855,7 @@ int ispccdc_config_black_clamp(struct isp_ccdc_device *isp_ccdc,
  **/
 void ispccdc_enable_black_clamp(struct isp_ccdc_device *isp_ccdc, u8 enable)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_CLAMP,
 		       ~ISPCCDC_CLAMP_CLAMPEN,
@@ -873,7 +873,7 @@ void ispccdc_enable_black_clamp(struct isp_ccdc_device *isp_ccdc, u8 enable)
  **/
 int ispccdc_config_fpc(struct isp_ccdc_device *isp_ccdc, struct ispccdc_fpc fpc)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 	u32 fpc_val = 0;
 
 	fpc_val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
@@ -900,7 +900,7 @@ int ispccdc_config_fpc(struct isp_ccdc_device *isp_ccdc, struct ispccdc_fpc fpc)
  **/
 void ispccdc_enable_fpc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_FPC,
 		       ~ISPCCDC_FPC_FPCEN,
@@ -915,7 +915,7 @@ void ispccdc_enable_fpc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 void ispccdc_config_black_comp(struct isp_ccdc_device *isp_ccdc,
 			       struct ispccdc_blcomp blcomp)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 	u32 blcomp_val = 0;
 
 	blcomp_val |= blcomp.b_mg << ISPCCDC_BLKCMP_B_MG_SHIFT;
@@ -935,7 +935,7 @@ void ispccdc_config_black_comp(struct isp_ccdc_device *isp_ccdc,
 void ispccdc_config_vp(struct isp_ccdc_device *isp_ccdc,
 		       struct ispccdc_vp vpcfg)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 	u32 fmtcfg_vp = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
 				      ISPCCDC_FMTCFG);
 
@@ -982,7 +982,7 @@ void ispccdc_config_vp(struct isp_ccdc_device *isp_ccdc,
  **/
 void ispccdc_enable_vp(struct isp_ccdc_device *isp_ccdc, u8 enable)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_FMTCFG,
 		       ~ISPCCDC_FMTCFG_VPEN,
@@ -1000,7 +1000,7 @@ void ispccdc_enable_vp(struct isp_ccdc_device *isp_ccdc, u8 enable)
 void ispccdc_config_reformatter(struct isp_ccdc_device *isp_ccdc,
 				struct ispccdc_refmt refmt)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 	u32 fmtcfg_val = 0;
 
 	fmtcfg_val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
@@ -1051,7 +1051,7 @@ void ispccdc_config_reformatter(struct isp_ccdc_device *isp_ccdc,
  **/
 void ispccdc_enable_reformatter(struct isp_ccdc_device *isp_ccdc, u8 enable)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_FMTCFG,
 		       ~ISPCCDC_FMTCFG_FMTEN,
@@ -1067,7 +1067,7 @@ void ispccdc_enable_reformatter(struct isp_ccdc_device *isp_ccdc, u8 enable)
 void ispccdc_config_culling(struct isp_ccdc_device *isp_ccdc,
 			    struct ispccdc_culling cull)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 	u32 culling_val = 0;
 
 	culling_val |= cull.v_pattern << ISPCCDC_CULLING_CULV_SHIFT;
@@ -1084,7 +1084,7 @@ void ispccdc_config_culling(struct isp_ccdc_device *isp_ccdc,
  **/
 void ispccdc_enable_lpf(struct isp_ccdc_device *isp_ccdc, u8 enable)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_SYN_MODE,
 		       ~ISPCCDC_SYN_MODE_LPF,
@@ -1098,7 +1098,7 @@ void ispccdc_enable_lpf(struct isp_ccdc_device *isp_ccdc, u8 enable)
 void ispccdc_config_alaw(struct isp_ccdc_device *isp_ccdc,
 			 enum alaw_ipwidth ipwidth)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	isp_reg_writel(dev, ipwidth << ISPCCDC_ALAW_GWDI_SHIFT,
 		       OMAP3_ISP_IOMEM_CCDC, ISPCCDC_ALAW);
@@ -1110,7 +1110,7 @@ void ispccdc_config_alaw(struct isp_ccdc_device *isp_ccdc,
  **/
 void ispccdc_enable_alaw(struct isp_ccdc_device *isp_ccdc, u8 enable)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_ALAW,
 		       ~ISPCCDC_ALAW_CCDTBL,
@@ -1123,7 +1123,7 @@ void ispccdc_enable_alaw(struct isp_ccdc_device *isp_ccdc, u8 enable)
  **/
 void ispccdc_config_imgattr(struct isp_ccdc_device *isp_ccdc, u32 colptn)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	isp_reg_writel(dev, colptn, OMAP3_ISP_IOMEM_CCDC,
 		       ISPCCDC_COLPTN);
@@ -1177,7 +1177,7 @@ skip:
 int ispccdc_try_pipeline(struct isp_ccdc_device *isp_ccdc,
 			 struct isp_pipeline *pipe)
 {
-	struct isp_device *isp = to_isp_device(isp_ccdc, isp_ccdc);
+	struct isp_device *isp = to_isp_device(isp_ccdc);
 
 	if (pipe->ccdc_in_w < 32 || pipe->ccdc_in_h < 32) {
 		DPRINTK_ISPCCDC("ISP_ERR: CCDC cannot handle input width less"
@@ -1249,7 +1249,7 @@ int ispccdc_try_pipeline(struct isp_ccdc_device *isp_ccdc,
 int ispccdc_s_pipeline(struct isp_ccdc_device *isp_ccdc,
 		       struct isp_pipeline *pipe)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 	int rval;
 
 	rval = ispccdc_config_datapath(isp_ccdc, pipe);
@@ -1332,7 +1332,7 @@ int ispccdc_s_pipeline(struct isp_ccdc_device *isp_ccdc,
 int ispccdc_config_outlineoffset(struct isp_ccdc_device *isp_ccdc, u32 offset,
 				 u8 oddeven, u8 numlines)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	if ((offset & ISP_32B_BOUNDARY_OFFSET) == offset) {
 		isp_reg_writel(dev, (offset & 0xFFFF),
@@ -1387,7 +1387,7 @@ int ispccdc_config_outlineoffset(struct isp_ccdc_device *isp_ccdc, u32 offset,
  **/
 int ispccdc_set_outaddr(struct isp_ccdc_device *isp_ccdc, u32 addr)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	if ((addr & ISP_32B_BOUNDARY_BUF) == addr) {
 		isp_reg_writel(dev, addr, OMAP3_ISP_IOMEM_CCDC,
@@ -1409,8 +1409,8 @@ int ispccdc_set_outaddr(struct isp_ccdc_device *isp_ccdc, u32 addr)
  **/
 void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
 {
-	struct isp_device *isp = to_isp_device(isp_ccdc, isp_ccdc);
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct isp_device *isp = to_isp_device(isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 	int enable_lsc;
 
 	enable_lsc = enable &&
@@ -1447,7 +1447,7 @@ void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
 int ispccdc_sbl_busy(void *_isp_ccdc)
 {
 	struct isp_ccdc_device *isp_ccdc = _isp_ccdc;
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	return ispccdc_busy(isp_ccdc)
 		| (isp_reg_readl(dev, OMAP3_ISP_IOMEM_SBL,
@@ -1469,7 +1469,7 @@ int ispccdc_sbl_busy(void *_isp_ccdc)
  **/
 int ispccdc_busy(struct isp_ccdc_device *isp_ccdc)
 {
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 
 	return isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
 			     ISPCCDC_PCR) &
@@ -1503,7 +1503,7 @@ void ispccdc_print_status(struct isp_ccdc_device *isp_ccdc,
 			  struct isp_pipeline *pipe)
 {
 #ifdef OMAP_ISPCCDC_DEBUG
-	struct device *dev = to_device(isp_ccdc, isp_ccdc);
+	struct device *dev = to_device(isp_ccdc);
 #endif
 
 	if (!is_ispccdc_debug_enabled())
