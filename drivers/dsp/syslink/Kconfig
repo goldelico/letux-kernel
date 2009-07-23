@@ -25,12 +25,6 @@ config MPU_BRIDGE_NOTIFY
 	help
           Notify Module
 
-config NOTIFY_DISPATCHER  
-	tristate "Mailbox Dispatcher"
-	depends on MPU_BRIDGE_NOTIFY
-	default m
-	help
- 	   MailBox Dispatcher Module 
 
 config  NOTIFY_DUCATI  
 	tristate "OMAP Notify Ducati Module"
