@@ -55,7 +55,7 @@ static void isph3a_print_status(struct isp_h3a_device *isp_h3a);
 
 void __isph3a_aewb_enable(struct isp_h3a_device *isp_h3a, u8 enable)
 {
-	struct device *dev = to_device(isp_h3a, isp_h3a);
+	struct device *dev = to_device(isp_h3a);
 	u32 pcr = isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 
 	if (enable) {
@@ -123,7 +123,7 @@ void isph3a_aewb_resume(struct isp_h3a_device *isp_h3a)
 
 int isph3a_aewb_busy(struct isp_h3a_device *isp_h3a)
 {
-	struct device *dev = to_device(isp_h3a, isp_h3a);
+	struct device *dev = to_device(isp_h3a);
 
 	return isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR)
 		& ISPH3A_PCR_BUSYAEAWB;
@@ -150,7 +150,7 @@ void isph3a_aewb_try_enable(struct isp_h3a_device *isp_h3a)
  **/
 void isph3a_update_wb(struct isp_h3a_device *isp_h3a)
 {
-	struct isp_device *isp = to_isp_device(isp_h3a, isp_h3a);
+	struct isp_device *isp = to_isp_device(isp_h3a);
 
 	if (isp_h3a->wb_update) {
 		/* FIXME: Get the preview crap out of here!!! */
@@ -167,7 +167,7 @@ EXPORT_SYMBOL(isph3a_update_wb);
  **/
 void isph3a_aewb_config_registers(struct isp_h3a_device *isp_h3a)
 {
-	struct device *dev = to_device(isp_h3a, isp_h3a);
+	struct device *dev = to_device(isp_h3a);
 	unsigned long irqflags;
 
 	if (!isp_h3a->aewb_config_local.aewb_enable)
@@ -238,7 +238,7 @@ void isph3a_aewb_buf_process(struct isp_h3a_device *isp_h3a)
 static int isph3a_aewb_validate_params(struct isp_h3a_device *isp_h3a,
 				       struct isph3a_aewb_config *user_cfg)
 {
-	struct device *dev = to_device(isp_h3a, isp_h3a);
+	struct device *dev = to_device(isp_h3a);
 
 	if (unlikely(user_cfg->saturation_limit > MAX_SATURATION_LIM)) {
 		dev_info(dev, "h3a: Invalid Saturation_limit: %d\n",
@@ -437,8 +437,8 @@ static void isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
 int omap34xx_isph3a_aewb_config(struct isp_h3a_device *isp_h3a,
 				struct isph3a_aewb_config *aewbcfg)
 {
-	struct device *dev = to_device(isp_h3a, isp_h3a);
-	struct isp_device *isp = to_isp_device(isp_h3a, isp_h3a);
+	struct device *dev = to_device(isp_h3a);
+	struct isp_device *isp = to_isp_device(isp_h3a);
 	int ret = 0;
 	int win_count = 0;
 	unsigned int buf_size;
@@ -497,7 +497,7 @@ EXPORT_SYMBOL(omap34xx_isph3a_aewb_config);
 int omap34xx_isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 					    struct isph3a_aewb_data *aewbdata)
 {
-	struct device *dev = to_device(isp_h3a, isp_h3a);
+	struct device *dev = to_device(isp_h3a);
 	unsigned long irqflags;
 	int ret = 0;
 
@@ -579,7 +579,7 @@ void isph3a_aewb_cleanup(struct device *dev)
 static void isph3a_print_status(struct isp_h3a_device *isp_h3a)
 {
 #ifdef OMAP_ISPH3A_DEBUG
-	struct device *dev = to_device(isp_h3a, isp_h3a);
+	struct device *dev = to_device(isp_h3a);
 #endif
 
 	DPRINTK_ISPH3A("ISPH3A_PCR = 0x%08x\n",

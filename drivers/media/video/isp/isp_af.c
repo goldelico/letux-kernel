@@ -121,7 +121,7 @@ static int isp_af_check_params(struct isp_af_device *isp_af,
 
 void isp_af_config_registers(struct isp_af_device *isp_af)
 {
-	struct device *dev = to_device(isp_af, isp_af);
+	struct device *dev = to_device(isp_af);
 	unsigned int pcr = 0, pax1 = 0, pax2 = 0, paxstart = 0;
 	unsigned int coef = 0;
 	unsigned int base_coef_set0 = 0;
@@ -324,8 +324,8 @@ void isp_af_try_enable(struct isp_af_device *isp_af)
 int omap34xx_isp_af_config(struct isp_af_device *isp_af,
 			   struct af_configuration *afconfig)
 {
-	struct device *dev = to_device(isp_af, isp_af);
-	struct isp_device *isp = to_isp_device(isp_af, isp_af);
+	struct device *dev = to_device(isp_af);
+	struct isp_device *isp = to_isp_device(isp_af);
 	int result;
 	int buf_size;
 	unsigned long irqflags;
@@ -372,7 +372,7 @@ EXPORT_SYMBOL(omap34xx_isp_af_config);
 int omap34xx_isp_af_request_statistics(struct isp_af_device *isp_af,
 			      struct isp_af_data *afdata)
 {
-	struct device *dev = to_device(isp_af, isp_af);
+	struct device *dev = to_device(isp_af);
 	struct ispstat_buffer *buf;
 
 	if (!isp_af->config.af_config) {
@@ -409,7 +409,7 @@ void isp_af_buf_process(struct isp_af_device *isp_af)
 
 static void __isp_af_enable(struct isp_af_device *isp_af, int enable)
 {
-	struct device *dev = to_device(isp_af, isp_af);
+	struct device *dev = to_device(isp_af);
 	unsigned int pcr;
 
 	pcr = isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
@@ -465,7 +465,7 @@ void isp_af_resume(struct isp_af_device *isp_af)
 
 int isp_af_busy(struct isp_af_device *isp_af)
 {
-	struct device *dev = to_device(isp_af, isp_af);
+	struct device *dev = to_device(isp_af);
 
 	return isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR)
 		& ISPH3A_PCR_BUSYAF;

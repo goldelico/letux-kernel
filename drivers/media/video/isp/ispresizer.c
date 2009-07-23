@@ -119,7 +119,7 @@ static struct isp_reg isprsz_reg_list[] = {
  **/
 void ispresizer_applycrop(struct isp_res_device *isp_res)
 {
-	struct isp_device *isp = to_isp_device(isp_res, isp_res);
+	struct isp_device *isp = to_isp_device(isp_res);
 
 	if (!isp_res->applycrop)
 		return;
@@ -144,7 +144,7 @@ void ispresizer_config_shadow_registers(struct isp_res_device *isp_res)
 int ispresizer_config_crop(struct isp_res_device *isp_res,
 			   struct v4l2_crop *a)
 {
-	struct isp_device *isp = to_isp_device(isp_res, isp_res);
+	struct isp_device *isp = to_isp_device(isp_res);
 	struct v4l2_crop *crop = a;
 	int rval;
 
@@ -199,7 +199,7 @@ int ispresizer_config_crop(struct isp_res_device *isp_res,
  **/
 int ispresizer_request(struct isp_res_device *isp_res)
 {
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 
 	mutex_lock(&isp_res->ispres_mutex);
 	if (!isp_res->res_inuse) {
@@ -226,7 +226,7 @@ int ispresizer_request(struct isp_res_device *isp_res)
  **/
 int ispresizer_free(struct isp_res_device *isp_res)
 {
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 
 	mutex_lock(&isp_res->ispres_mutex);
 	if (isp_res->res_inuse) {
@@ -253,7 +253,7 @@ int ispresizer_free(struct isp_res_device *isp_res)
 int ispresizer_config_datapath(struct isp_res_device *isp_res,
 			       struct isp_pipeline *pipe)
 {
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 	u32 cnt = 0;
 
 	DPRINTK_ISPRESZ("ispresizer_config_datapath()+\n");
@@ -325,7 +325,7 @@ int ispresizer_config_datapath(struct isp_res_device *isp_res,
 int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 			    struct isp_pipeline *pipe)
 {
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 	u32 rsz, rsz_7, rsz_4;
 	u32 sph;
 	int max_in_otf, max_out_7tap;
@@ -476,7 +476,7 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 			  struct isp_pipeline *pipe)
 {
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 	int i, j;
 	u32 res;
 	int rval;
@@ -624,7 +624,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
  **/
 void ispresizer_enable(struct isp_res_device *isp_res, int enable)
 {
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 	int val;
 
 	DPRINTK_ISPRESZ("+ispresizer_enable()+\n");
@@ -648,7 +648,7 @@ void ispresizer_enable(struct isp_res_device *isp_res, int enable)
  **/
 int ispresizer_busy(struct isp_res_device *isp_res)
 {
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 
 	return isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR) &
 		ISPPRV_PCR_BUSY;
@@ -677,7 +677,7 @@ void ispresizer_config_startphase(struct isp_res_device *isp_res,
  **/
 void ispresizer_config_ycpos(struct isp_res_device *isp_res, u8 yc)
 {
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 
 	DPRINTK_ISPRESZ("ispresizer_config_ycpos()+\n");
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT,
@@ -692,7 +692,7 @@ void ispresizer_config_ycpos(struct isp_res_device *isp_res, u8 yc)
  **/
 void ispresizer_enable_cbilin(struct isp_res_device *isp_res, u8 enable)
 {
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 
 	DPRINTK_ISPRESZ("ispresizer_enable_cbilin()+\n");
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT,
@@ -708,7 +708,7 @@ void ispresizer_enable_cbilin(struct isp_res_device *isp_res, u8 enable)
 void ispresizer_config_luma_enhance(struct isp_res_device *isp_res,
 				    struct isprsz_yenh *yenh)
 {
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 
 	DPRINTK_ISPRESZ("ispresizer_config_luma_enhance()+\n");
 	isp_res->algo = yenh->algo;
@@ -756,7 +756,7 @@ void ispresizer_config_filter_coef(struct isp_res_device *isp_res,
  **/
 int ispresizer_config_inlineoffset(struct isp_res_device *isp_res, u32 offset)
 {
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 
 	DPRINTK_ISPRESZ("ispresizer_config_inlineoffset()+\n");
 	if (offset % 32)
@@ -775,8 +775,8 @@ int ispresizer_config_inlineoffset(struct isp_res_device *isp_res, u32 offset)
  **/
 int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr)
 {
-	struct isp_device *isp = to_isp_device(isp_res, isp_res);
-	struct device *dev = to_device(isp_res, isp_res);
+	struct isp_device *isp = to_isp_device(isp_res);
+	struct device *dev = to_device(isp_res);
 
 	DPRINTK_ISPRESZ("ispresizer_set_inaddr()+\n");
 
@@ -808,7 +808,7 @@ int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr)
  **/
 int ispresizer_config_outlineoffset(struct isp_res_device *isp_res, u32 offset)
 {
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 
 	DPRINTK_ISPRESZ("ispresizer_config_outlineoffset()+\n");
 	if (offset % 32)
@@ -825,7 +825,7 @@ int ispresizer_config_outlineoffset(struct isp_res_device *isp_res, u32 offset)
  **/
 int ispresizer_set_outaddr(struct isp_res_device *isp_res, u32 addr)
 {
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 
 	DPRINTK_ISPRESZ("ispresizer_set_outaddr()+\n");
 	if (addr % 32)
@@ -860,7 +860,7 @@ void ispresizer_restore_context(struct device *dev)
 void ispresizer_print_status(struct isp_res_device *isp_res)
 {
 #ifdef OMAP_ISPRESZ_DEBUG
-	struct device *dev = to_device(isp_res, isp_res);
+	struct device *dev = to_device(isp_res);
 #endif
 
 	if (!is_ispresz_debug_enabled())
