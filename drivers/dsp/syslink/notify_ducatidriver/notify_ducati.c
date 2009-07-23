@@ -23,11 +23,12 @@
 #include <linux/list.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <mach/mailbox.h>
+
 #include <syslink/notify_driver.h>
 #include <syslink/notifydefs.h>
 #include <syslink/notify_driverdefs.h>
 #include <syslink/notify_ducatidriver.h>
-#include <syslink/notify_dispatcher.h>
 #include <syslink/multiproc.h>
 #include <syslink/atomic_linux.h>
 
@@ -70,7 +71,10 @@
 #define NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(x) \
 				((NOTIFYDRIVERSHM_MODULEID << 12u) | (x))
 
-static void notify_ducatidrv_isr(void *ref_data);
+struct omap_mbox *ducati_mbox;
+static struct notify_ducatidrv_object *ducati_isr_params[NOTIFY_MAX_DRIVERS];
+static void notify_ducatidrv_isr(void *ntfy_msg);
+static void notify_ducatidrv_isr_callback(void *ref_data, void* ntfy_msg);
 
 
 /*
@@ -247,10 +251,7 @@ struct notify_driver_object *notify_ducatidrv_create(char *driver_name,
 	int i;
 	u32 shm_va;
 
-	struct mbox_config *mbox_hw_config;
-	int mbox_module_no;
-	int interrupt_no;
-	int mbx_ret_val;
+	int slot = false;
 
 	BUG_ON(driver_name == NULL);
 	BUG_ON(params == NULL);
@@ -394,32 +395,30 @@ struct notify_driver_object *notify_ducatidrv_create(char *driver_name,
 		}
 	}
 
-	mbox_hw_config = ntfy_disp_get_config();
-	mbox_module_no = mbox_hw_config->mbox_modules;
-	interrupt_no = mbox_hw_config->interrupt_lines[mbox_module_no-1];
-	mbx_ret_val = ntfy_disp_bind_interrupt(interrupt_no,
-					(void *)
-					notify_mailbx0_user0_isr, NULL);
-	/*Set up the ISR on the Modena-ducati FIFO */
-	if (mbx_ret_val == 0) {
-		proc_id = PROC_DUCATI;
-		mbx_ret_val = ntfy_disp_register(mbox_module_no,
-					(NOTIFYDRV_DUCATI_RECV_MBX * 2),
-					(void *)notify_ducatidrv_isr,
-					(void *)driver_obj);
 
-		if (mbx_ret_val == 0) {
-			mbx_ret_val = ntfy_disp_interrupt_enable(
-					mbox_module_no,
-					(NOTIFYDRV_DUCATI_RECV_MBX * 2));
+	ducati_mbox = omap_mbox_get("mailbox-2");
+	if (ducati_mbox == NULL) {
+		status = -ENODEV;
+		goto func_end;
+	}
+	ducati_mbox->rxq->callback = (int (*)(void *))notify_ducatidrv_isr;
+
+	/*Set up the ISR on the Modena-ducati FIFO */
+	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++) {
+		if (ducati_isr_params[i] == NULL) {
+			slot = true;
+			break;
 		}
 	}
-		/*Set up the ISR on the Modena-Ducati FIFO */
-		if (mbx_ret_val != 0) {
-			status = -ENODEV;
-			WARN_ON(1);
-			goto func_end;
-		} else
+	if ((!slot) || (i == NOTIFY_MAX_DRIVERS)) {
+		/*FIXME: set a proper error value exit gracefully */
+		printk(KERN_ERR "Error: no free slots\n");
+		status = -ENODEV;
+		goto func_end;
+	}
+	ducati_isr_params[i] = (void *)driver_obj;
+	mutex_unlock(notify_ducatidriver_state.gate_handle);
+	omap_mbox_enable_irq(ducati_mbox, IRQ_RX);
 			status = 0;
 		if (status == 0) {
 			driver_obj = drv_handle->driver_object;
@@ -491,10 +490,6 @@ int notify_ducatidrv_delete(struct notify_driver_object **handle_ptr)
 	struct notify_drv_eventlist *event_list;
 	short int i;
 	int proc_id;
-	struct mbox_config *mbox_hw_config;
-	int mbox_module_no;
-	int interrupt_no;
-	int mbx_ret_val = 0;
 
 	if (atomic_cmpmask_and_lt(&(notify_ducatidriver_state.ref_count),
 					NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(0),
@@ -513,9 +508,6 @@ int notify_ducatidrv_delete(struct notify_driver_object **handle_ptr)
 	WARN_ON((*handle_ptr)->driver_object == NULL);
 
 	/*Uninstall the ISRs & Disable the Mailbox interrupt.*/
-	mbox_hw_config = ntfy_disp_get_config();
-	mbox_module_no = mbox_hw_config->mbox_modules;
-	interrupt_no = mbox_hw_config->interrupt_lines[mbox_module_no-1];
 
 	if (drv_handle != NULL) {
 		status = notify_unregister_driver(drv_handle);
@@ -558,16 +550,29 @@ int notify_ducatidrv_delete(struct notify_driver_object **handle_ptr)
 		/* Check if ISR was created. */
 		/*Remove the ISR on the Modena-ducati FIFO */
 		proc_id = PROC_DUCATI;
-		ntfy_disp_interrupt_disable(mbox_module_no,
-					(NOTIFYDRV_DUCATI_RECV_MBX * 2));
-		ntfy_disp_unregister(mbox_module_no,
-				(NOTIFYDRV_DUCATI_RECV_MBX * 2));
 
-		/*Remove the generic ISR */
-		mbx_ret_val = ntfy_disp_unbind_interrupt(interrupt_no);
+		omap_mbox_disable_irq(ducati_mbox, IRQ_RX);
 
-		if (mbx_ret_val != 0)
+		/*FIXME: Exit gracefully */
+		if (mutex_lock_interruptible(
+			notify_ducatidriver_state.gate_handle) != 0)
 			WARN_ON(1);
+
+		for (i = 0; i < NOTIFY_MAX_DRIVERS; i++) {
+			if (ducati_isr_params[i] == (void *)driver_obj) {
+				ducati_isr_params[i] = NULL;
+				break;
+			}
+		}
+		mutex_unlock(notify_ducatidriver_state.gate_handle);
+
+		if (i == NOTIFY_MAX_DRIVERS) {
+			printk(KERN_ERR "Error: No handle to delete\n");
+			WARN_ON(1);
+			/*FIXME: Exit gracefully */
+		}
+		omap_mbox_put(ducati_mbox);
+		ducati_mbox = NULL;
 
 		kfree(driver_obj);
 		driver_obj = NULL;
@@ -633,6 +638,7 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 {
 	int status = 0;
 	struct notify_ducatidrv_config tmp_cfg;
+	int i = 0;
 
 	if (cfg == NULL) {
 		notify_ducatidrv_getconfig(&tmp_cfg);
@@ -665,7 +671,8 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 		cfg, sizeof(struct notify_ducatidrv_config));
 	}
 
-
+	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++)
+		ducati_isr_params[i] = NULL;
 	return status;
 }
 EXPORT_SYMBOL(notify_ducatidrv_setup);
@@ -897,16 +904,13 @@ int notify_ducatidrv_sendevent(struct notify_driver_object *handle,
 	volatile struct notify_shmdrv_ctrl *ctrl_ptr;
 	int max_poll_count;
 	volatile struct notify_shmdrv_event_entry *other_event_chart;
-	struct mbox_config *mbox_hw_config;
-	int mbox_module_no;
-	int mbx_ret_val = 0;
+
 	int i = 0;
 
 	BUG_ON(handle ==  NULL);
 	BUG_ON(handle->driver_object == NULL);
 
-	mbox_hw_config = ntfy_disp_get_config();
-	mbox_module_no = mbox_hw_config->mbox_modules;
+
 	driver_object = (struct notify_ducatidrv_object *)
 				handle->driver_object;
 
@@ -972,15 +976,8 @@ int notify_ducatidrv_sendevent(struct notify_driver_object *handle,
 				other_event_chart[event_no].flag = UP;
 				/* Send an interrupt with the event
 				information to theremote processor */
-				mbx_ret_val = ntfy_disp_send(mbox_module_no,
-						NOTIFYDRV_DUCATI_SEND_MBX,
-						event_no);
-				if (mbx_ret_val == 0) {
-					status = 0;
-				} else {
-					status = -EINVAL;
-					WARN_ON(1);
-				}
+				status = omap_mbox_msg_send(ducati_mbox,
+								payload);
 			}
 			/* Leave critical section protection. */
 			mutex_unlock(notify_ducatidriver_state.gate_handle);
@@ -996,11 +993,9 @@ int notify_ducatidrv_sendevent(struct notify_driver_object *handle,
 */
 void *notify_ducatidrv_disable(struct notify_driver_object *handle)
 {
-	int mbx_ret_val = 0;
-	struct mbox_config *mbox_hw_config = ntfy_disp_get_config();
-	int mbox_module_no = mbox_hw_config->mbox_modules;
-	mbx_ret_val = ntfy_disp_interrupt_disable(mbox_module_no,
-			(NOTIFYDRV_DUCATI_RECV_MBX * 2));
+
+	omap_mbox_disable_irq(ducati_mbox, IRQ_RX);
+
 	return NULL; /*No flags to be returned. */
 }
 
@@ -1012,16 +1007,11 @@ void *notify_ducatidrv_disable(struct notify_driver_object *handle)
 int notify_ducatidrv_restore(struct notify_driver_object *handle,
 		void *flags)
 {
-	int mbx_ret_val = 0;
-	struct mbox_config *mbox_hw_config = ntfy_disp_get_config();
-	int mbox_module_no = mbox_hw_config->mbox_modules;
-
 	(void) handle;
 	(void) flags;
 	/*Enable the receive interrupt for ducati */
-	mbx_ret_val = ntfy_disp_interrupt_enable(mbox_module_no,
-			(NOTIFYDRV_DUCATI_RECV_MBX * 2));
-	return mbx_ret_val;
+	omap_mbox_enable_irq(ducati_mbox, IRQ_RX);
+	return 0;
 }
 
 /*
@@ -1100,7 +1090,20 @@ int notify_ducatidrv_debug(struct notify_driver_object *handle)
  *		interrupt received from the Ducati processor.
  *
  */
-static void notify_ducatidrv_isr(void *ref_data)
+static void notify_ducatidrv_isr(void *ntfy_msg)
+{
+	int i = 0;
+	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++) {
+		if (ducati_isr_params[i] != NULL) {
+			notify_ducatidrv_isr_callback(ducati_isr_params[i],
+							ntfy_msg);
+		}
+	}
+}
+EXPORT_SYMBOL(notify_ducatidrv_isr);
+
+
+static void notify_ducatidrv_isr_callback(void *ref_data, void* ntfy_msg)
 {
 	int payload   = 0;
 	int i = 0;
@@ -1110,11 +1113,7 @@ static void notify_ducatidrv_isr(void *ref_data)
 	struct notify_ducatidrv_object *driver_obj;
 	struct notify_shmdrv_eventreg *reg_chart;
 	volatile struct notify_shmdrv_proc_ctrl *proc_ctrl_ptr;
-	struct mbox_config *mbox_hw_config = ntfy_disp_get_config();
-	unsigned long int mbox_module_no = mbox_hw_config->mbox_modules;
 	int event_no;
-	signed long int mbx_ret_val = 0;
-	int num_messages;
 
 	driver_obj = (struct notify_ducatidrv_object *) ref_data;
 	proc_ctrl_ptr = &(driver_obj->ctrl_ptr->proc_ctrl[driver_obj->self_id]);
@@ -1138,10 +1137,7 @@ static void notify_ducatidrv_isr(void *ref_data)
 			payload = self_event_chart[event_no].
 						payload;
 			/* Acknowledge the event. */
-			 mbx_ret_val = ntfy_disp_read(mbox_module_no,
-						NOTIFYDRV_DUCATI_RECV_MBX,
-						&payload,
-						&num_messages, false);
+			payload = (int)ntfy_msg;
 			self_event_chart[event_no].flag = DOWN;
 			/*Call the callbacks associated with the event*/
 			temp = driver_obj->
@@ -1184,7 +1180,6 @@ static void notify_ducatidrv_isr(void *ref_data)
 	} while ((event_no != (int) -1)
 	&& (i < driver_obj->params.num_events));
 }
-EXPORT_SYMBOL(notify_ducatidrv_isr);
 
 /*
 *	brief	This function searchs for a element the List.
