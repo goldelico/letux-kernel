@@ -494,7 +494,7 @@ int sharedregion_get_table_info(u32 index, u16 proc_id,
 	u16 proc_count;
 	s32 retval = 0;
 
-	BUG_ON(info != NULL);
+	BUG_ON(info == NULL);
 	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
 				SHAREDREGION_MAKE_MAGICSTAMP(0),
 				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {

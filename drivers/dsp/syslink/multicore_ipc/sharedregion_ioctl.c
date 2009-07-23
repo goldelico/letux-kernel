@@ -96,7 +96,7 @@ static int sharedregion_ioctl_setup(struct sharedregion_cmd_args *cargs)
 	proc_count = multiproc_get_max_processors();
 	table = cargs->args.setup.table;
 	for (i = 0; i < config.max_regions; i++) {
-		for (j = 0; j < (proc_count + 1); j++) {
+		for (j = 0; j < (proc_count); j++) {
 			sharedregion_get_table_info(i, j, &info);
 			if (info.is_valid == true) {
 				/* Convert kernel virtual address to physical
