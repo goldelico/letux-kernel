@@ -239,7 +239,7 @@ int nameserver_setup(void)
 	if (atomic_inc_return(&nameserver_state.ref_count)
 				!= NAMESERVER_MAKE_MAGICSTAMP(1)) {
 		retval = -EEXIST;
-		goto error;
+		goto exit;
 	}
 
 	nr_procs = multiproc_get_max_processors();
@@ -265,6 +265,7 @@ int nameserver_setup(void)
 error:
 	kfree(list);
 	printk(KERN_ERR "nameserver_setup failed, retval: %x\n", retval);
+exit:
 	return retval;
 }
 EXPORT_SYMBOL(nameserver_setup);
@@ -284,7 +285,7 @@ int nameserver_destroy(void)
 				NAMESERVER_MAKE_MAGICSTAMP(1)) == true)) {
 		retval = -ENODEV;
 		goto exit;
-    }
+	}
 
 	if (WARN_ON(nameserver_state.list_lock == NULL)) {
 		retval = -ENODEV;
@@ -293,6 +294,12 @@ int nameserver_destroy(void)
 
 	/* If a nameserver instance exist, do not proceed  */
 	if (!list_empty(&nameserver_state.obj_list)) {
+		retval = -EBUSY;
+		goto exit;
+	}
+
+	if (!(atomic_dec_return(&nameserver_state.ref_count)
+					== NAMESERVER_MAKE_MAGICSTAMP(0))) {
 		retval = -EBUSY;
 		goto exit;
 	}
