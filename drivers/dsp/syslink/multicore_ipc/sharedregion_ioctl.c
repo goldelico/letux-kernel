@@ -23,16 +23,9 @@
 #include <linux/fs.h>
 
 #include <multiproc.h>
-
 #include <sharedregion.h>
 #include <sharedregion_ioctl.h>
-
-#define memory_translate(x, y)	  0 /* To avoid comp error, remove when
-					memory module is ready */
-#define Memory_XltFlags_Phys2Virt 0 /* To avoid comp error, remove when
-					memory module is ready */
-#define memoryos_translate(x, y) 	  0
-#define Memory_XltFlags_Virt2Phys 0
+#include <platform_mem.h>
 
 /*
  * ======== sharedregion_ioctl_get_config ========
@@ -101,8 +94,8 @@ static int sharedregion_ioctl_setup(struct sharedregion_cmd_args *cargs)
 			if (info.is_valid == true) {
 				/* Convert kernel virtual address to physical
 				 * addresses */
-				info.base = memoryos_translate(info.base,
-						Memory_XltFlags_Virt2Phys);
+				info.base = platform_mem_translate(info.base,
+					PLATFORM_MEM_XLT_FLAGS_VIRT2PHYS);
 				size = copy_to_user((void *) (table
 						+ (j * config.max_regions)
 						+ i),
@@ -140,8 +133,8 @@ static int sharedregion_ioctl_destroy(
  */
 static int sharedregion_ioctl_add(struct sharedregion_cmd_args *cargs)
 {
-	u32 base = (u32)memory_translate(cargs->args.add.base,
-					Memory_XltFlags_Phys2Virt);
+	u32 base = (u32)platform_mem_translate(cargs->args.add.base,
+					PLATFORM_MEM_XLT_FLAGS_PHYS2VIRT);
 	cargs->api_status = sharedregion_add(cargs->args.add.index,
 					(void *)base, cargs->args.add.len);
 	return 0;
