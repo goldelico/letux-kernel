@@ -74,6 +74,8 @@ static int dpi_set_dispc_clk(bool is_tft, unsigned long pck_req,
 	struct dispc_clock_info dispc_cinfo;
 	int r;
 
+/*OMAP4: check this later?*/
+	return 0;
 	r = dss_calc_clock_div(is_tft, pck_req, &dss_cinfo, &dispc_cinfo);
 	if (r)
 		return r;

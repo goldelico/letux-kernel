@@ -1085,7 +1085,6 @@ static void dss_apply_irq_handler(void *data, u32 mask)
 		oc = &dss_cache.overlay_cache[i];
 		if (!mgr_busy[oc->channel])
 			oc->shadow_dirty = false;
-	}
 
 	for (i = 0; i < num_mgrs; ++i) {
 		mc = &dss_cache.manager_cache[i];
@@ -1103,7 +1102,7 @@ static void dss_apply_irq_handler(void *data, u32 mask)
 
 	/* keep running as long as there are busy managers, so that
 	 * we can collect overlay-applied information */
-	for (i = 0; i < num_mgrs; ++i) {
+	for (i = 0; i < num_mgrs; ++i)
 		if (mgr_busy[i])
 			goto end;
 	}
