@@ -1,4 +1,4 @@
-linux-2.6-openmoko (20090702.gitd1c828aa-3) UNRELEASED; urgency=low
+linux-2.6-openmoko (20090702.gitd1c828aa-3) pkg-fso; urgency=low
 
   * debian/config.gta02:
     + CONFIG_NLS*=m and CONFIG_NLS_DEFAULT="utf8".
@@ -9,7 +9,7 @@ linux-2.6-openmoko (20090702.gitd1c828aa-3) UNRELEASED; urgency=low
     + CONFIG_BLK_DEV_NBD=m.
     + CONFIG_BLK_DEV_CRYPTOLOOP=m.
 
- --
+ -- Luca Capello <luca@pca.it>  Fri, 24 Jul 2009 19:04:49 +0200
 
 linux-2.6-openmoko (20090702.gitd1c828aa-2) pkg-fso; urgency=low
 
