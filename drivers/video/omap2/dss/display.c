@@ -343,6 +343,7 @@ static int default_get_recommended_bpp(struct omap_dss_device *dssdev)
 
 	switch (dssdev->type) {
 	case OMAP_DISPLAY_TYPE_DPI:
+	case OMAP_DISPLAY_TYPE_HDMI:
 		if (dssdev->phy.dpi.data_lines == 24)
 			return 24;
 		else
@@ -418,6 +419,9 @@ void dss_init_device(struct platform_device *pdev,
 #ifdef CONFIG_OMAP2_DSS_VENC
 	case OMAP_DISPLAY_TYPE_VENC:
 #endif
+#ifdef CONFIG_SIL9022
+	case OMAP_DISPLAY_TYPE_HDMI:
+#endif
 		break;
 	default:
 		DSSERR("Support for display '%s' not compiled in.\n",
@@ -453,6 +457,12 @@ void dss_init_device(struct platform_device *pdev,
 		r = dsi_init_display(dssdev);
 		break;
 #endif
+#ifdef CONFIG_SIL9022
+	case OMAP_DISPLAY_TYPE_HDMI:
+		r = hdmi_init_display(dssdev);
+		break;
+#endif
+
 	default:
 		BUG();
 	}

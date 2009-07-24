@@ -1274,6 +1274,7 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 		case OMAP_DISPLAY_TYPE_DBI:
 		case OMAP_DISPLAY_TYPE_SDI:
 		case OMAP_DISPLAY_TYPE_VENC:
+		case OMAP_DISPLAY_TYPE_HDMI:
 			default_get_overlay_fifo_thresholds(ovl->id, size,
 					&oc->burst_size, &oc->fifo_low,
 					&oc->fifo_high);
@@ -1372,7 +1373,8 @@ int dss_init_overlay_managers(struct platform_device *pdev)
 			mgr->id = OMAP_DSS_CHANNEL_LCD;
 			mgr->supported_displays =
 				OMAP_DISPLAY_TYPE_DPI | OMAP_DISPLAY_TYPE_DBI |
-				OMAP_DISPLAY_TYPE_SDI | OMAP_DISPLAY_TYPE_DSI;
+				OMAP_DISPLAY_TYPE_SDI | OMAP_DISPLAY_TYPE_DSI |
+				OMAP_DISPLAY_TYPE_HDMI;
 			break;
 		case 1:
 			mgr->name = "tv";
