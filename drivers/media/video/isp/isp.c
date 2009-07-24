@@ -2221,9 +2221,12 @@ int isp_get(void)
 			isp_restore_ctx();
 		else
 			has_context = 1;
-	} else {
+		/* HACK: Allow multiple opens meanwhile a better solution is
+		 *       found for the case of different devices sharing ISP
+		 *       settings. */
+/*	} else {
 		mutex_unlock(&isp_obj.isp_mutex);
-		return -EBUSY;
+		return -EBUSY; */
 	}
 	isp_obj.ref_count++;
 	mutex_unlock(&(isp_obj.isp_mutex));
