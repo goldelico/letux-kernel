@@ -65,7 +65,6 @@ struct nameserver_remotenotify_message {
 	u32 request;
 	u32 response;
 	u32 request_status;
-	u32 response_status;
 	u32 value;
 	u32 value_len;
 	char instance_name[32];
@@ -369,13 +368,16 @@ int nameserver_remotenotify_get(void *rhandle,
 		goto exit;
 	}
 
+	if (!value_len) {
+		retval = -ENOENT;
+		goto exit;
+	}
+
 	if (value_len == sizeof(u32))
-		memcpy((void *)value,
-			(void *) &(obj->msg[offset]->value),
+		memcpy((void *)value, (void *) &(obj->msg[offset]->value),
 			sizeof(u32));
 	else
-		memcpy((void *)value,
-			(void *)&(obj->msg[offset]->value_buf),
+		memcpy((void *)value, (void *)&(obj->msg[offset]->value_buf),
 			value_len);
 
 	obj->msg[offset]->request_status = false;

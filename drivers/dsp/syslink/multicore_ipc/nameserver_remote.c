@@ -30,7 +30,13 @@ int nameserver_remote_get(const struct nameserver_remote_object *handle,
 {
 	s32 retval = 0;
 
-	if (WARN_ON(instance_name == NULL)) {
+	if (handle == NULL) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	if (WARN_ON((instance_name == NULL) || (name == NULL)
+		|| (value == NULL))) {
 		retval = -EINVAL;
 		goto exit;
 	}

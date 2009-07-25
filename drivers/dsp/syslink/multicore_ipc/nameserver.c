@@ -856,9 +856,12 @@ int nameserver_get(void *handle, const char *name,
 			if (i == local_proc_id)
 				continue;
 
+			if (nameserver_state.remote_handle_list[i] == NULL)
+				continue;
+
 			retval = nameserver_remote_get(
-				nameserver_state.remote_handle_list[i],
-				temp_obj->name,	name, buffer, length);
+					nameserver_state.remote_handle_list[i],
+					temp_obj->name, name, buffer, length);
 			if (retval > 0 || ((retval < 0) &&
 				(retval != -ENOENT))) /* Got the value */
 				break;
@@ -888,7 +891,8 @@ int nameserver_get(void *handle, const char *name,
 	}
 
 exit:
-	printk(KERN_ERR "nameserver_get status:%x \n", retval);
+	if (retval < 0)
+		printk(KERN_ERR "nameserver_get failed: status=%x \n", retval);
 	return retval;
 }
 EXPORT_SYMBOL(nameserver_get);
