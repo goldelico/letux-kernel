@@ -28,6 +28,7 @@
 #include <multiproc.h>
 #include <nameserver.h>
 #include <sharedregion.h>
+#include <gatepeterson.h>
 #include <heapbuf.h>
 #include <listmp.h>
 #include <listmp_sharedmemory.h>
@@ -35,25 +36,27 @@
 /*
  *  Name of the reserved nameserver used for heapbuf.
  */
-#define HEAPBUF_NAMESERVER  "HeapBuf"
-#define HEAPBUF_MAX_NAME_LEN   32
-#define HEAPBUF_CACHESIZE              128
+#define HEAPBUF_NAMESERVER		"HeapBuf"
+#define HEAPBUF_MAX_NAME_LEN		32
+#define HEAPBUF_CACHESIZE		128
 /* brief Macro to make a correct module magic number with refCount */
-#define HEAPBUF_MAKE_MAGICSTAMP(x) ((HEAPBUF_MODULEID << 12) | (x))
+#define HEAPBUF_MAKE_MAGICSTAMP(x)	((HEAPBUF_MODULEID << 12) | (x))
+
+#define VOLATILE volatile
 
 /*
  *  Structure defining attribute parameters for the heapbuf module
  */
 struct heapbuf_attrs {
-	volatile u32 version;
-	volatile u32 status;
-	volatile u32 num_free_blocks;
-	volatile u32 min_free_blocks;
-	volatile u32 block_size;
-	volatile u32 align;
-	volatile u32 num_blocks;
-	volatile u32 buf_size;
-	volatile char *buf;
+	VOLATILE u32 version;
+	VOLATILE u32 status;
+	VOLATILE u32 num_free_blocks;
+	VOLATILE u32 min_free_blocks;
+	VOLATILE u32 block_size;
+	VOLATILE u32 align;
+	VOLATILE u32 num_blocks;
+	VOLATILE u32 buf_size;
+	VOLATILE char *buf;
 };
 
 /*
@@ -111,7 +114,7 @@ struct heapbuf_obj {
 	void *ns_key; /* nameserver key required for remove */
 	struct heapbuf_proc_attrs owner; /* owner processor info */
 	void *top; /* Pointer to the top object */
-    bool cacheFlag; /* added for future use */
+	bool cacheFlag; /* added for future use */
 };
 
 /*
@@ -314,8 +317,9 @@ void heapbuf_params_init(void *handle,
 	else {
 		obj = (struct heapbuf_obj *)handle;
 		memcpy(params, (void *)&obj->params,
-		       sizeof(struct heapbuf_params));
+				sizeof(struct heapbuf_params));
 	}
+	return;
 error:
 	printk(KERN_ERR "heapbuf_params_init failed status: %x\n", retval);
 }
@@ -357,10 +361,10 @@ int _heapbuf_create(void **handle_ptr, const struct heapbuf_params *params,
 
 	BUG_ON(params == NULL);
 
-    /* No need for parameter checks, since this is an internal function. */
+	/* No need for parameter checks, since this is an internal function. */
 
-    /* Initialize return parameter. */
-    *handle_ptr = NULL;
+	/* Initialize return parameter. */
+	*handle_ptr = NULL;
 
 	handle = kmalloc(sizeof(struct heap_object), GFP_KERNEL);
 	if (handle == NULL) {
@@ -435,7 +439,6 @@ int _heapbuf_create(void **handle_ptr, const struct heapbuf_params *params,
 			retval  = -ENOMEM;
 			goto name_alloc_error;
 		}
-
 		strncpy(obj->params.name, params->name,
 					strlen(params->name) + 1);
 	}
@@ -524,7 +527,7 @@ void *heapbuf_create(const struct heapbuf_params *params)
 {
 	s32 retval = 0;
 	void *handle = NULL;
-    u32 buf_size;
+	u32 buf_size;
 
 	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
 				HEAPBUF_MAKE_MAGICSTAMP(0),
@@ -573,10 +576,11 @@ EXPORT_SYMBOL(heapbuf_create);
  */
 int heapbuf_delete(void **handle_ptr)
 {
+	int status = 0;
 	struct heap_object *handle = NULL;
 	struct heapbuf_obj *obj = NULL;
 	struct heapbuf_params *params = NULL;
-	s32 retval  = 0;
+	s32 retval = 0;
 	u16 myproc_id;
 
 	BUG_ON(handle_ptr == NULL);
@@ -605,9 +609,11 @@ int heapbuf_delete(void **handle_ptr)
 	}
 
 	if (likely(obj->gate != NULL)) {
-		retval = mutex_lock_interruptible(obj->gate);
-		if (retval)
+		status = gatepeterson_enter(obj->gate);
+		if (status < 0) {
+			retval = -EINVAL;
 			goto gate_error;
+		}
 	}
 
 	if (obj->owner.open_count > 1) {
@@ -628,7 +634,6 @@ int heapbuf_delete(void **handle_ptr)
 	mutex_unlock(heapbuf_state.local_lock);
 	params = (struct heapbuf_params *) &obj->params;
 	if (likely(params->name != NULL)) {
-		kfree(params->name);
 		if (likely(heapbuf_state.cfg.use_nameserver == true)) {
 			retval = nameserver_remove(heapbuf_state.ns_handle,
 							params->name);
@@ -636,10 +641,11 @@ int heapbuf_delete(void **handle_ptr)
 				goto ns_remove_error;
 			obj->ns_key = NULL;
 		}
+		kfree(params->name);
 	}
 
 	if (likely(obj->gate != NULL))
-		mutex_unlock(obj->gate);
+		gatepeterson_leave(obj->gate, 0);
 	retval = listmp_sharedmemory_delete(&obj->free_list);
 	kfree(obj);
 	kfree(handle);
@@ -651,7 +657,7 @@ gate_error: /* Fall through */
 local_lock_error: /* Fall through */
 device_busy_error:
 	if (likely(obj->gate != NULL))
-		mutex_unlock(obj->gate);
+		gatepeterson_leave(obj->gate, 0);
 
 error:
 	printk(KERN_ERR "heapbuf_delete failed status: %x\n", retval);
@@ -772,6 +778,7 @@ EXPORT_SYMBOL(heapbuf_open);
  */
 int heapbuf_close(void *handle_ptr)
 {
+	int status = 0;
 	struct heap_object *handle = NULL;
 	struct heapbuf_obj *obj = NULL;
 	struct heapbuf_params *params = NULL;
@@ -812,9 +819,11 @@ int heapbuf_close(void *handle_ptr)
 
 			/* Take the local lock */
 			if (likely(obj->gate != NULL)) {
-				retval = mutex_lock_interruptible(obj->gate);
-				if (retval)
+				status = gatepeterson_enter(obj->gate);
+				if (status < 0) {
+					retval = -EINVAL;
 					goto error;
+				}
 			}
 
 			params = (struct heapbuf_params *)&obj->params;
@@ -823,7 +832,7 @@ int heapbuf_close(void *handle_ptr)
 
 			/* Release the local lock */
 			if (likely(obj->gate != NULL))
-				mutex_unlock(obj->gate);
+				gatepeterson_leave(obj->gate, 0);
 
 			/* Delete the list */
 			listmp_sharedmemory_close((listmp_sharedmemory_handle *)
@@ -848,6 +857,7 @@ EXPORT_SYMBOL(heapbuf_close);
  */
 void *heapbuf_alloc(void *hphandle, u32 size, u32 align)
 {
+	int status = 0;
 	struct heap_object *handle = NULL;
 	struct heapbuf_obj *obj = NULL;
 	char *block = NULL;
@@ -878,9 +888,11 @@ void *heapbuf_alloc(void *hphandle, u32 size, u32 align)
 		goto error;
 
 	if (likely(obj->gate != NULL)) {
-		retval = mutex_lock_interruptible(obj->gate);
-		if (retval)
+		status = gatepeterson_enter(obj->gate);
+		if (status < 0) {
+			retval = -EINVAL;
 			goto error;
+		}
 	}
 
 	block = listmp_get_head((void *)obj->free_list);
@@ -906,7 +918,7 @@ void *heapbuf_alloc(void *hphandle, u32 size, u32 align)
 	}
 
 	if (likely(obj->gate != NULL))
-		mutex_unlock(obj->gate);
+		gatepeterson_leave(obj->gate, 0);
 	return block;
 error:
 	printk(KERN_ERR "heapbuf_alloc failed status: %x\n", retval);
@@ -921,6 +933,7 @@ EXPORT_SYMBOL(heapbuf_alloc);
  */
 int heapbuf_free(void *hphandle, void *block, u32 size)
 {
+	int status = 0;
 	struct heap_object *handle = NULL;
 	struct heapbuf_obj *obj = NULL;
 	s32 retval  = 0;
@@ -945,14 +958,17 @@ int heapbuf_free(void *hphandle, void *block, u32 size)
 	handle = (struct heap_object *)(hphandle);
 	obj = (struct heapbuf_obj *)handle->obj;
 	if (likely(obj->gate != NULL)) {
-		retval = mutex_lock_interruptible(obj->gate);
-		if (retval)
+		status = gatepeterson_enter(obj->gate);
+		if (status < 0) {
+			retval = -EINVAL;
 			goto error;
+		}
 	}
+
 	retval = listmp_put_tail((void *)obj->free_list, block);
 	obj->attrs->num_free_blocks++;
 	if (likely(obj->gate != NULL))
-		mutex_unlock(obj->gate);
+		gatepeterson_leave(obj->gate, 0);
 	return 0;
 
 error:
@@ -968,6 +984,7 @@ EXPORT_SYMBOL(heapbuf_free);
  */
 int heapbuf_get_stats(void *hphandle, struct memory_stats *stats)
 {
+	int status = 0;
 	struct heap_object *object = NULL;
 	struct heapbuf_obj *obj = NULL;
 	u32 block_size;
@@ -991,9 +1008,11 @@ int heapbuf_get_stats(void *hphandle, struct memory_stats *stats)
 	obj = (struct heapbuf_obj *)object->obj;
 
 	if (likely(obj->gate != NULL)) {
-		retval = mutex_lock_interruptible(obj->gate);
-		if (retval)
+		status = gatepeterson_enter(obj->gate);
+		if (status < 0) {
+			retval = -EINVAL;
 			goto error;
+		}
 	}
 
 	block_size = obj->attrs->block_size;
@@ -1006,7 +1025,7 @@ int heapbuf_get_stats(void *hphandle, struct memory_stats *stats)
 		stats->largest_free_size =  (u32 *)0;
 
 	if (likely(obj->gate != NULL))
-		mutex_unlock(obj->gate);
+		gatepeterson_leave(obj->gate, 0);
 	return 0;
 
 error:
@@ -1022,7 +1041,7 @@ EXPORT_SYMBOL(heapbuf_get_stats);
  */
 bool heapbuf_isblocking(void *handle)
 {
-    bool isblocking = false;
+	bool isblocking = false;
 	s32 retval  = 0;
 
 	if (WARN_ON(handle == NULL)) {
@@ -1033,12 +1052,13 @@ bool heapbuf_isblocking(void *handle)
 	/* TBD: Figure out how to determine whether the gate is blocking */
 	isblocking = true;
 
-    /* retval true  Heap blocks during alloc/free calls */
-    /* retval false Heap does not block during alloc/free calls */
-    return isblocking;
+	/* retval true  Heap blocks during alloc/free calls */
+	/* retval false Heap does not block during alloc/free calls */
+	return isblocking;
+
 error:
 	printk(KERN_ERR "heapbuf_isblocking status: %x\n", retval);
-    return isblocking;
+	return isblocking;
 }
 EXPORT_SYMBOL(heapbuf_isblocking);
 
@@ -1050,6 +1070,7 @@ EXPORT_SYMBOL(heapbuf_isblocking);
 int heapbuf_get_extended_stats(void *hphandle,
 				struct heapbuf_extended_stats *stats)
 {
+	int status = 0;
 	struct heap_object *object = NULL;
 	struct heapbuf_obj *obj = NULL;
 	s32 retval  = 0;
@@ -1075,9 +1096,11 @@ int heapbuf_get_extended_stats(void *hphandle,
 	object = (struct heap_object *)(hphandle);
 	obj = (struct heapbuf_obj *)object->obj;
 	if (likely(obj->gate != NULL)) {
-		retval = mutex_lock_interruptible(obj->gate);
-		if (retval)
+		status = gatepeterson_enter(obj->gate);
+		if (status < 0) {
+			retval = -EINVAL;
 			goto error;
+		}
 	}
 
 	/*
@@ -1102,7 +1125,7 @@ int heapbuf_get_extended_stats(void *hphandle,
 	stats->num_allocated_blocks = obj->attrs->num_blocks
 				-  obj->attrs->num_free_blocks;
 	if (likely(obj->gate != NULL))
-		mutex_unlock(obj->gate);
+		gatepeterson_leave(obj->gate, 0);
 
 error:
 	printk(KERN_ERR "heapbuf_get_extended_stats status: %x\n",
@@ -1119,7 +1142,7 @@ EXPORT_SYMBOL(heapbuf_get_extended_stats);
  */
 int heapbuf_shared_memreq(const struct heapbuf_params *params, u32 *buf_size)
 {
-    int state_size = 0;
+	int state_size = 0;
 	listmp_sharedmemory_params listmp_params;
 
 	BUG_ON(params == NULL);
@@ -1138,4 +1161,3 @@ int heapbuf_shared_memreq(const struct heapbuf_params *params, u32 *buf_size)
 	return state_size;
 }
 EXPORT_SYMBOL(heapbuf_shared_memreq);
-

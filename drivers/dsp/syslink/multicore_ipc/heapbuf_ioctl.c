@@ -110,9 +110,8 @@ static int heapbuf_ioctl_create(struct heapbuf_cmd_args *cargs)
 		goto exit;
 	}
 
-	if (cargs->args.create.name_len >= 0) {
-		params.name = kmalloc(cargs->args.create.name_len + 1,
-							GFP_KERNEL);
+	if (cargs->args.create.name_len > 0) {
+		params.name = kmalloc(cargs->args.create.name_len, GFP_KERNEL);
 		if (params.name == NULL) {
 			status = -ENOMEM;
 			goto exit;
@@ -129,7 +128,10 @@ static int heapbuf_ioctl_create(struct heapbuf_cmd_args *cargs)
 	}
 
 	params.shared_addr = sharedregion_get_ptr((u32 *)
-				cargs->args.create.params->shared_addr);
+				cargs->args.create.shared_addr_srptr);
+	params.shared_buf = sharedregion_get_ptr((u32 *)
+				cargs->args.create.shared_buf_srptr);
+	params.gate = cargs->args.create.knl_gate;
 	handle = heapbuf_create(&params);
 	cargs->args.create.handle = handle;
 	cargs->api_status  = 0;
@@ -173,9 +175,8 @@ static int heapbuf_ioctl_open(struct heapbuf_cmd_args *cargs)
 		goto exit;
 	}
 
-	if (cargs->args.open.name_len >= 0) {
-		params.name = kmalloc(cargs->args.open.name_len + 1,
-							GFP_KERNEL);
+	if (cargs->args.open.name_len > 0) {
+		params.name = kmalloc(cargs->args.open.name_len, GFP_KERNEL);
 		if (params.name == NULL) {
 			status = -ENOMEM;
 			goto exit;
@@ -192,7 +193,9 @@ static int heapbuf_ioctl_open(struct heapbuf_cmd_args *cargs)
 	}
 
 	params.shared_addr = sharedregion_get_ptr((u32 *)
-					cargs->args.open.params->shared_addr);
+				cargs->args.open.shared_addr_srptr);
+	params.gate = cargs->args.open.knl_gate;
+
 	cargs->api_status = heapbuf_open(&handle, &params);
 	if (cargs->api_status != 0)
 		goto free_name;
@@ -253,7 +256,7 @@ static int heapbuf_ioctl_shared_memreq(struct heapbuf_cmd_args *cargs)
 	}
 
 	bytes = heapbuf_shared_memreq(&params,
-				      &cargs->args.shared_memreq.buf_size);
+					&cargs->args.shared_memreq.buf_size);
 	cargs->args.shared_memreq.bytes = bytes;
 	cargs->api_status = 0;
 

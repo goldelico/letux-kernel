@@ -567,7 +567,7 @@ int gatepeterson_open(void **gphandle,
 				goto noentry_fail;
 		}
 	} else
-		sharedaddr = params->shared_addr;
+		sharedaddr = (u32) params->shared_addr;
 
 	if (unlikely(((struct gatepeterson_attrs *)sharedaddr)->status !=
 						GATEPETERSON_CREATED)) {

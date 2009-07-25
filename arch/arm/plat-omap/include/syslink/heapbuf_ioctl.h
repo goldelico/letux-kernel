@@ -47,81 +47,81 @@ enum CMD_HEAPBUF {
  *  Command for heapbuf_get_config
  */
 #define CMD_HEAPBUF_GETCONFIG		_IOWR(IPC_IOC_MAGIC, HEAPBUF_GETCONFIG,\
-					 struct heapbuf_cmd_args)
+					struct heapbuf_cmd_args)
 
 /*
  *  Command for heapbuf_setup
  */
-#define CMD_HEAPBUF_SETUP		_IOWR(IPC_IOC_MAGIC, HEAPBUF_SETUP,    \
-					 struct heapbuf_cmd_args)
+#define CMD_HEAPBUF_SETUP		_IOWR(IPC_IOC_MAGIC, HEAPBUF_SETUP, \
+					struct heapbuf_cmd_args)
 /*
  *  Command for heapbuf_destroy
  */
-#define CMD_HEAPBUF_DESTROY 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_DESTROY,  \
+#define CMD_HEAPBUF_DESTROY 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_DESTROY, \
 					struct heapbuf_cmd_args)
 
 /*
  *  Command for heapbuf_prams_init
  */
-#define CMD_HEAPBUF_PARAMS_INIT 	_IOWR(IPC_IOC_MAGIC,                   \
-					HEAPBUF_PARAMS_INIT,                   \
+#define CMD_HEAPBUF_PARAMS_INIT 	_IOWR(IPC_IOC_MAGIC, \
+					HEAPBUF_PARAMS_INIT, \
 					struct heapbuf_cmd_args)
 
 /*
  *  Command for heapbuf_create
  */
-#define CMD_HEAPBUF_CREATE 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_CREATE,   \
+#define CMD_HEAPBUF_CREATE 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_CREATE, \
 					struct heapbuf_cmd_args)
 
 /*
  *  Command for heapbuf_delete
  */
-#define CMD_HEAPBUF_DELETE 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_DELETE,   \
+#define CMD_HEAPBUF_DELETE 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_DELETE, \
 					struct heapbuf_cmd_args)
 
 /*
  *  Command for heapbuf_open
  */
-#define CMD_HEAPBUF_OPEN 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_OPEN,     \
+#define CMD_HEAPBUF_OPEN 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_OPEN, \
 					struct heapbuf_cmd_args)
 
 /*
  *  Command for heapbuf_close
  */
-#define CMD_HEAPBUF_CLOSE 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_CLOSE,    \
+#define CMD_HEAPBUF_CLOSE 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_CLOSE, \
 					struct heapbuf_cmd_args)
 
 /*
  *  Command for heapbuf_alloc
  */
-#define CMD_HEAPBUF_ALLOC 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_ALLOC,    \
+#define CMD_HEAPBUF_ALLOC 		_IOWR(IPC_IOC_MAGIC, HEAPBUF_ALLOC, \
 					struct heapbuf_cmd_args)
 
 /*
  *  Command for heapbuf_free
  */
-#define CMD_HEAPBUF_FREE	 	_IOWR(IPC_IOC_MAGIC, HEAPBUF_FREE,     \
+#define CMD_HEAPBUF_FREE		_IOWR(IPC_IOC_MAGIC, HEAPBUF_FREE, \
 					struct heapbuf_cmd_args)
 
 /*
  *  Command for heapbuf_shared_memreq
  */
-#define CMD_HEAPBUF_SHAREDMEMREQ	_IOWR(IPC_IOC_MAGIC,                   \
-					HEAPBUF_SHAREDMEMREQ,                  \
+#define CMD_HEAPBUF_SHAREDMEMREQ	_IOWR(IPC_IOC_MAGIC, \
+					HEAPBUF_SHAREDMEMREQ, \
 					struct heapbuf_cmd_args)
 
 /*
  *  Command for heapbuf_get_stats
  */
-#define CMD_HEAPBUF_GETSTATS		_IOWR(IPC_IOC_MAGIC,                   \
-					HEAPBUF_GETSTATS,                      \
+#define CMD_HEAPBUF_GETSTATS		_IOWR(IPC_IOC_MAGIC, \
+					HEAPBUF_GETSTATS, \
 					struct heapbuf_cmd_args)
 
 /*
  *  Command for heapbuf_get_extended_stats
  */
-#define CMD_HEAPBUF_GETEXTENDEDSTATS	_IOWR(IPC_IOC_MAGIC,                   \
-					HEAPBUF_GETEXTENDEDSTATS,              \
+#define CMD_HEAPBUF_GETEXTENDEDSTATS	_IOWR(IPC_IOC_MAGIC, \
+					HEAPBUF_GETEXTENDEDSTATS, \
 					struct heapbuf_cmd_args)
 
 
@@ -146,6 +146,9 @@ union heapbuf_arg {
 		void *handle;
 		struct heapbuf_params *params;
 		u32 name_len;
+		u32 *shared_addr_srptr;
+		u32 *shared_buf_srptr;
+		void *knl_gate;
 	} create;
 
 	struct {
@@ -156,6 +159,8 @@ union heapbuf_arg {
 		void *handle;
 		struct heapbuf_params *params;
 		u32 name_len;
+		u32 *shared_addr_srptr;
+		void *knl_gate;
 	} open;
 
 	struct {
@@ -208,4 +213,3 @@ int heapbuf_ioctl(struct inode *pinode, struct file *filp,
 			unsigned int cmd, unsigned long  args);
 
 #endif /* _HEAPBUF_IOCTL_ */
-
