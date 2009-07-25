@@ -73,7 +73,7 @@
  * during the make menuconfig.
  *
  */
-#define DUCATI_BASEIMAGE_PHYSICAL_ADDRESS	0x86800000
+#define DUCATI_BASEIMAGE_PHYSICAL_ADDRESS	0x87200000
 
 #define phys_to_page(phys)      pfn_to_page((phys) >> PAGE_SHIFT)
 
