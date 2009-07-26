@@ -76,6 +76,7 @@ static int gta01_battery_probe(struct platform_device *pdev)
 	gta01_bat->psy.external_power_changed = gta01_bat_ext_changed;
 
 	gta01_bat->pdata = pdev->dev.platform_data;
+	platform_set_drvdata(pdev, gta01_bat);
 	power_supply_register(&pdev->dev, &gta01_bat->psy);
 
 	return 0;
