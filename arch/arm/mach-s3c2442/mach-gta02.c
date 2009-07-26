@@ -100,6 +100,7 @@
 
 #include <linux/hdq.h>
 #include <linux/bq27000_battery.h>
+#include <linux/gta01_battery.h>
 
 #include "../plat-s3c24xx/neo1973_pm_gps.h"
 
@@ -746,6 +747,34 @@ static void mangle_pmu_pdata_by_system_rev(void)
 		break;
 	}
 }
+
+static int gta02_bat_get_voltage(void)
+{
+	struct pcf50633 *pcf = gta02_pcf;
+	u16 adc, mv = 0;
+	adc = pcf50633_adc_sync_read(pcf,
+		PCF50633_ADCC1_MUX_BATSNS_RES,
+		PCF50633_ADCC1_AVERAGE_16);
+	/* The formula from DS is for divide-by-two mode, current driver uses
+	divide-by-three */
+	mv = (adc * 6000) / 1023;
+	return mv * 1000;
+}
+
+static struct gta01_bat_platform_data gta01_bat_pdata = {
+#ifdef CONFIG_CHARGER_PCF50633
+	.get_charging_status = gta02_get_charger_active_status,
+#endif
+	.get_voltage = gta02_bat_get_voltage,
+};
+
+struct platform_device gta01_bat = {
+	.name = "gta01_battery",
+	.id = -1,
+	.dev = {
+		.platform_data = &gta01_bat_pdata,
+	}
+};
 
 #ifdef CONFIG_HDQ_GPIO_BITBANG
 /* BQ27000 Battery */
@@ -1550,6 +1579,7 @@ static struct platform_device *gta02_devices_pmu_children[] = {
 	&gta02_spi_gpio_dev, /* input 2 and 3 */
 	&gta02_button_dev, /* input 4 */
 	&gta02_resume_reason_device,
+	&gta01_bat,
 };
 
 static void gta02_pmu_regulator_registered(struct pcf50633 *pcf, int id)
