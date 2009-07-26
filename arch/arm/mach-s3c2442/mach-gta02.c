@@ -490,6 +490,7 @@ static int gta02_udc_vbus_status(void)
 #define gta02_get_charger_online_status NULL
 #define gta02_get_charger_active_status NULL
 #define gta02_pmu_event_callback        NULL
+#define gta02_pmu_force_shutdown        NULL
 #define gta02_udc_vbus_draw             NULL
 #define gta02_udc_vbus_status           NULL
 #endif
