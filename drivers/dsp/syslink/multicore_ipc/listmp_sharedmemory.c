@@ -97,6 +97,9 @@
 #define LISTMP_SHAREDMEMORY_CACHESIZE	128
 
 
+#define VOLATILE volatile
+
+
 /* =============================================================================
  * Structures and Enums
  * =============================================================================
@@ -140,7 +143,7 @@ struct listmp_sharedmemory_module_object listmp_sharedmemory_state = {
 struct listmp_sharedmemory_obj{
 	struct list_head list_elem;
 	/*!< Used for creating a linked list */
-	volatile struct listmp_elem *listmp_elem;
+	VOLATILE struct listmp_elem *listmp_elem;
 	/*!< Used for storing listmp_sharedmemory element */
 	struct listmp_proc_attrs *owner;
 	/*!< Creator's attributes associated with an instance */
@@ -149,7 +152,7 @@ struct listmp_sharedmemory_obj{
 	void *ns_key;
 	u32 index;
 	/*!< the index for SrPtr */
-	volatile struct listmp_attrs *attrs;
+	VOLATILE struct listmp_attrs *attrs;
 	/*!< Shared memory attributes */
 	void *top;
 	/*!< Pointer to the top Object */
@@ -1405,11 +1408,11 @@ listmp_sharedmemory_handle _listmp_sharedmemory_create(
 	handle->prev = &listmp_sharedmemory_prev;
 
 	/* Update attrs */
-	obj->attrs = (struct listmp_attrs *)
-					params->shared_addr;
+	obj->attrs = (struct listmp_attrs *) params->shared_addr;
 	/* Assign the memory with proper cache line padding */
 	obj->listmp_elem = (void *) ((u32)obj->attrs + \
 			LISTMP_SHAREDMEMORY_CACHESIZE);
+	obj->index = sharedregion_get_index(params->shared_addr);
 
 	if (create_flag == true) {
 		obj->attrs->shared_addr_size = params->shared_addr_size;
@@ -1420,13 +1423,9 @@ listmp_sharedmemory_handle _listmp_sharedmemory_create(
 							obj->index));
 	}
 
-	obj->index = sharedregion_get_index(params->shared_addr);
-
-
 	/* Populate the params member */
-	memcpy((void *)&obj->params,
-		(void *)params,
-		 sizeof(listmp_sharedmemory_params));
+	memcpy((void *)&obj->params, (void *)params,
+			sizeof(listmp_sharedmemory_params));
 
 	if (likely(listmp_sharedmemory_state.cfg.use_name_server
 							== true)) {
