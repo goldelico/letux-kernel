@@ -459,6 +459,8 @@ DSP_STATUS DBLL_getSect(struct DBLL_LibraryObj *lib, char *name, u32 *pAddr,
 			(*(zlLib->pTarget->attrs.fseek))(zlLib->fp,
 			 zlLib->ulPos, SEEK_SET);
 		}
+	} else {
+		status = DSP_EHANDLE;
 	}
 	if (DSP_SUCCEEDED(status)) {
 		uByteSize = 1;
@@ -834,8 +836,9 @@ DSP_STATUS DBLL_readSect(struct DBLL_LibraryObj *lib, char *name,
 			(*(zlLib->pTarget->attrs.fseek))(zlLib->fp,
 				zlLib->ulPos, SEEK_SET);
 		}
+	} else {
+		status = DSP_EHANDLE;
 	}
-
 	if (DSP_FAILED(status))
 		goto func_cont;
 
