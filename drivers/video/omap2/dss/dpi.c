@@ -122,7 +122,11 @@ static int dpi_set_mode(struct omap_dss_device *dssdev)
 	if (r)
 		goto err0;
 
+#ifndef CONFIG_ARCH_OMAP4
 	pck = fck / lck_div / pck_div / 1000;
+#else
+       	pck = 0;
+#endif
 
 	if (pck != t->pixel_clock) {
 		DSSWARN("Could not find exact pixel clock. "

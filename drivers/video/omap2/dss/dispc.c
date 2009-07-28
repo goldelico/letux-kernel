@@ -41,9 +41,9 @@
 
 #ifndef CONFIG_ARCH_OMAP4
        	/* DSS */
-       	#define DSS_BASE                0x48042000
+       	#define DSS_BASE                0x48050000
        	/* DISPLAY CONTROLLER */
-       	#define DISPC_BASE              0x48043000
+       	#define DISPC_BASE              0x48050400
 #else
        	/* DSS */
        	#define DSS_BASE      	      	0x48042000
