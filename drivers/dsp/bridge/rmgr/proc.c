@@ -668,7 +668,6 @@ static int memory_check_vma(unsigned long start, u32 len)
 	unsigned long end;
 	struct vm_area_struct *vma;
 
-	len = PAGE_ALIGN(len);
 	end = start + len;
 	if (end <= start)
 		return -EINVAL;
@@ -676,8 +675,9 @@ static int memory_check_vma(unsigned long start, u32 len)
 	down_read(&current->mm->mmap_sem);
 
 	vma = find_vma(current->mm, start);
-	if (!vma || start < vma->vm_start) {
-		pr_err("%s: no vma for %08lx %08lx\n", __func__, start, end);
+	if (!vma || start < vma->vm_start || end > vma->vm_end) {
+		pr_err("%s: no vma for %08lx-%08lx (%08lx-%08lx)\n", __func__,
+		       start, end, vma->vm_start, vma->vm_end);
 		err = -EINVAL;
 	}
 
