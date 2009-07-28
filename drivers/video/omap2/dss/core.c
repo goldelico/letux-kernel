@@ -436,9 +436,15 @@ static int omap_dss_probe(struct platform_device *pdev)
 	dss_init_overlay_managers(pdev);
 	dss_init_overlays(pdev);
 
-	r = dss_get_clocks();
-	if (r)
-		goto fail0;
+	/*
+	 * FIX-ME: Replace with correct clk node when clk
+	 * framework is available
+	 */
+	if (!cpu_is_omap44xx()) {
+		r = dss_get_clocks();
+		if (r)
+			goto fail0;
+	}
 
 	dss_clk_enable_all_no_ctx();
 
