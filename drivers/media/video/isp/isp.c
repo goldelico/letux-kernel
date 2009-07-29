@@ -813,8 +813,10 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		 * Enable preview for the first time. We just have
 		 * missed the start-of-frame so we can do it now.
 		 */
-		if (irqstatus & CCDC_VD0 && (CCDC_PREV_CAPTURE(isp) ||
-					  CCDC_PREV_RESZ_CAPTURE(isp)))
+		if (irqstatus & CCDC_VD0 &&
+		    (CCDC_PREV_CAPTURE(isp) || CCDC_PREV_RESZ_CAPTURE(isp)) &&
+		    !(isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR) &
+		      (ISPPRV_PCR_BUSY | ISPPRV_PCR_EN))) {
 			isppreview_config_shadow_registers(&isp->isp_prev);
 			isppreview_enable(&isp->isp_prev, 1);
 		}
