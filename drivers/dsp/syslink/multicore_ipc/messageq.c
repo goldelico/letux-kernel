@@ -557,7 +557,6 @@ void *messageq_create(char *name, const struct messageq_params *params)
 
 	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_create", name, params);
 
-	BUG_ON(name == NULL);
 	BUG_ON(params == NULL);
 	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
@@ -711,12 +710,14 @@ int messageq_delete(void **msg_handleptr)
 
 	/* Take the local lock */
 	key = mutex_lock_interruptible(messageq_state.gate_handle);
-	/* remove from the name serve */
-	nameserver_remove(messageq_state.ns_handle, handle->name);
+
 	if (handle->name != NULL) {
+		/* remove from the name serve */
+		nameserver_remove(messageq_state.ns_handle, handle->name);
 		/* Free memory for the name */
 		kfree(handle->name);
 	}
+
 	/* Release the local lock */
 	mutex_unlock(messageq_state.gate_handle);
 
