@@ -348,7 +348,7 @@ int omap34xx_isp_af_config(struct isp_af_device *isp_af,
 	buf_size = (afconfig->paxel_config.hz_cnt + 1) *
 		   (afconfig->paxel_config.vt_cnt + 1) * AF_PAXEL_SIZE;
 
-	result = ispstat_bufs_alloc(&isp_af->stat, buf_size);
+	result = ispstat_bufs_alloc(&isp_af->stat, buf_size, 0);
 	if (result)
 		return result;
 

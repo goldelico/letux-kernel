@@ -462,7 +462,7 @@ int omap34xx_isph3a_aewb_config(struct isp_h3a_device *isp_h3a,
 
 	buf_size = win_count * AEWB_PACKET_SIZE;
 
-	ret = ispstat_bufs_alloc(&isp_h3a->stat, buf_size);
+	ret = ispstat_bufs_alloc(&isp_h3a->stat, buf_size, 0);
 	if (ret)
 		return ret;
 
