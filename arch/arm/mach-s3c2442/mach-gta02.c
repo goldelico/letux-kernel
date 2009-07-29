@@ -391,7 +391,7 @@ static int gta02_get_charger_online_status(void)
 {
 	struct pcf50633 *pcf = gta02_pcf;
 
-	return pcf50633_mbc_get_status(pcf) & PCF50633_MBC_USB_ONLINE;
+	return pcf50633_mbc_get_usb_online_status(pcf);
 }
 
 static int gta02_get_charger_active_status(void)
@@ -484,7 +484,7 @@ static int gta02_udc_vbus_status(void)
         if (!gta02_pcf)
 		return -ENODEV;
 
-	return !!(pcf50633_mbc_get_status(pcf) & PCF50633_MBC_USB_ONLINE);
+	return pcf50633_mbc_get_usb_online_status(pcf);
 }
 #else /* !CONFIG_CHARGER_PCF50633 */
 #define gta02_get_charger_online_status NULL
