@@ -314,7 +314,7 @@ static void isp_enable_interrupts(struct device *dev)
 	irq0enable = IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ
 		| IRQ0ENABLE_CCDC_VD0_IRQ
 		| IRQ0ENABLE_CSIA_IRQ
-		| IRQ0ENABLE_CSIB_IRQ
+		| IRQ0ENABLE_CSIB_IRQ | IRQ0ENABLE_HIST_DONE_IRQ
 		| IRQ0ENABLE_H3A_AWB_DONE_IRQ | IRQ0ENABLE_H3A_AF_DONE_IRQ
 		| isp->interrupts;
 
@@ -368,15 +368,6 @@ int isp_set_callback(struct device *dev, enum isp_callback_type type,
 	spin_unlock_irqrestore(&isp->lock, irqflags);
 
 	switch (type) {
-	case CBK_HIST_DONE:
-		isp->interrupts |= IRQ0ENABLE_HIST_DONE_IRQ;
-		if (isp->running != ISP_RUNNING)
-			break;
-		isp_reg_writel(dev, IRQ0ENABLE_HIST_DONE_IRQ,
-			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
-		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			   IRQ0ENABLE_HIST_DONE_IRQ);
-		break;
 	case CBK_PREV_DONE:
 		isp_reg_writel(dev, IRQ0ENABLE_PRV_DONE_IRQ,
 			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
@@ -416,13 +407,6 @@ int isp_unset_callback(struct device *dev, enum isp_callback_type type)
 	spin_unlock_irqrestore(&isp->lock, irqflags);
 
 	switch (type) {
-	case CBK_HIST_DONE:
-		isp->interrupts &= ~IRQ0ENABLE_HIST_DONE_IRQ;
-		if (isp->running != ISP_RUNNING)
-			break;
-		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			    ~IRQ0ENABLE_HIST_DONE_IRQ);
-		break;
 	case CBK_PREV_DONE:
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~IRQ0ENABLE_PRV_DONE_IRQ);
@@ -892,6 +876,8 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 			isph3a_aewb_try_enable(&isp->isp_h3a);
 		if (!(irqstatus & H3A_AF_DONE))
 			isp_af_try_enable(&isp->isp_af);
+		if (!(irqstatus & HIST_DONE))
+			isp_hist_try_enable(&isp->isp_hist);
 	}
 
 	if (irqstatus & CCDC_VD1)
@@ -938,14 +924,6 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		isph3a_aewb_enable(&isp->isp_h3a, 1);
 	}
 
-	if (irqstatus & HIST_DONE) {
-		if (irqdis->isp_callbk[CBK_HIST_DONE])
-			irqdis->isp_callbk[CBK_HIST_DONE](
-				HIST_DONE,
-				irqdis->isp_callbk_arg1[CBK_HIST_DONE],
-				irqdis->isp_callbk_arg2[CBK_HIST_DONE]);
-	}
-
 	if (irqstatus & H3A_AF_DONE) {
 		isp_af_enable(&isp->isp_af, 0);
 		/* If it's busy we can't process this buffer anymore */
@@ -958,6 +936,21 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 			irqstatus &= ~H3A_AF_DONE;
 		}
 		isp_af_enable(&isp->isp_af, 1);
+	}
+
+	if (irqstatus & HIST_DONE) {
+		isp_hist_enable(&isp->isp_hist, 0);
+		/* If it's busy we can't process this buffer anymore */
+		if (!isp_hist_busy(&isp->isp_hist)) {
+			isp_hist_buf_process(&isp->isp_hist);
+			isp_hist_config_registers(&isp->isp_hist);
+		} else {
+			/* FIXME: must warn histogram somehow */
+			dev_dbg(dev, "hist: cannot process buffer, device is "
+				     "busy.\n");
+			irqstatus &= ~HIST_DONE;
+		}
+		isp_hist_enable(&isp->isp_hist, 1);
 	}
 
 	/* Handle shared buffer logic overflows for video buffers. */
@@ -1543,6 +1536,7 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 		isp_set_buf(dev, buf);
 		isp_af_try_enable(&isp->isp_af);
 		isph3a_aewb_try_enable(&isp->isp_h3a);
+		isp_hist_try_enable(&isp->isp_hist);
 		ispccdc_enable(&isp->isp_ccdc, 1);
 	}
 
@@ -1853,7 +1847,7 @@ int isp_handle_private(struct device *dev, struct mutex *vdev_mutex, int cmd,
 		struct isp_hist_config *params;
 		params = (struct isp_hist_config *)arg;
 		mutex_lock(vdev_mutex);
-		rval = isp_hist_configure(&isp->isp_hist, params);
+		rval = omap34xx_isp_hist_config(&isp->isp_hist, params);
 		mutex_unlock(vdev_mutex);
 	}
 		break;
@@ -1861,7 +1855,8 @@ int isp_handle_private(struct device *dev, struct mutex *vdev_mutex, int cmd,
 		struct isp_hist_data *data;
 		data = (struct isp_hist_data *)arg;
 		mutex_lock(vdev_mutex);
-		rval = isp_hist_request_statistics(&isp->isp_hist, data);
+		rval = omap34xx_isp_hist_request_statistics(&isp->isp_hist,
+							    data);
 		mutex_unlock(vdev_mutex);
 	}
 		break;
