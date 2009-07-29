@@ -23,6 +23,7 @@
 #define OMAP_ISP_HIST_H
 
 #include <mach/isp_user.h>
+#include <mach/dma.h>
 
 #include "ispstat.h"
 
@@ -119,8 +120,13 @@ struct isp_hist_device {
 	u8 enabled;
 	u8 update;
 	u8 num_acc_frames;
+	u8 waiting_dma;
+	u8 invalid_buf;
+	u8 use_dma;
+	int dma_ch;
 	struct timeval ts;
 
+	struct omap_dma_channel_params dma_config;
 	struct isp_hist_regs regs;
 	struct isp_hist_config config;
 	struct ispstat_buffer *active_buf;
@@ -130,11 +136,16 @@ struct isp_hist_device {
 	spinlock_t lock;	/* serialize access to hist device's fields */
 };
 
+#define HIST_BUF_DONE		0
+#define HIST_NO_BUF		1
+#define HIST_BUF_WAITING_DMA	2
+
 int isp_hist_busy(struct isp_hist_device *isp_hist);
 void isp_hist_enable(struct isp_hist_device *isp_hist, u8 enable);
 void isp_hist_try_enable(struct isp_hist_device *isp_hist);
 int isp_hist_busy(struct isp_hist_device *isp_hist);
-void isp_hist_buf_process(struct isp_hist_device *isp_hist);
+int isp_hist_buf_process(struct isp_hist_device *isp_hist);
+void isp_hist_mark_invalid_buf(struct isp_hist_device *isp_hist);
 void isp_hist_config_registers(struct isp_hist_device *isp_hist);
 void isp_hist_suspend(struct isp_hist_device *isp_hist);
 void isp_hist_resume(struct isp_hist_device *isp_hist);

@@ -746,6 +746,26 @@ int isp_configure_interface(struct device *dev,
 }
 EXPORT_SYMBOL(isp_configure_interface);
 
+void omap34xx_isp_hist_dma_done(struct device *dev)
+{
+	struct isp_device *isp = dev_get_drvdata(dev);
+	struct isp_irq *irqdis = &isp->irq;
+
+	isp_hist_enable(&isp->isp_hist, 1);
+	if (ispccdc_busy(&isp->isp_ccdc)) {
+		/* Histogram cannot be enabled in this frame anymore */
+		isp_hist_enable(&isp->isp_hist, 0);
+		if (isp_hist_busy(&isp->isp_hist))
+			isp_hist_mark_invalid_buf(&isp->isp_hist);
+	}
+	if (irqdis->isp_callbk[CBK_CATCHALL]) {
+		irqdis->isp_callbk[CBK_CATCHALL](
+			HIST_DONE,
+			irqdis->isp_callbk_arg1[CBK_CATCHALL],
+			irqdis->isp_callbk_arg2[CBK_CATCHALL]);
+	}
+}
+
 static void isp_buf_process(struct device *dev, struct isp_bufs *bufs);
 
 /**
@@ -939,18 +959,24 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 	}
 
 	if (irqstatus & HIST_DONE) {
+		int ret = HIST_NO_BUF;
+
 		isp_hist_enable(&isp->isp_hist, 0);
 		/* If it's busy we can't process this buffer anymore */
 		if (!isp_hist_busy(&isp->isp_hist)) {
-			isp_hist_buf_process(&isp->isp_hist);
+			ret = isp_hist_buf_process(&isp->isp_hist);
 			isp_hist_config_registers(&isp->isp_hist);
 		} else {
-			/* FIXME: must warn histogram somehow */
 			dev_dbg(dev, "hist: cannot process buffer, device is "
 				     "busy.\n");
+			/* current and next buffer might have invalid data */
+			isp_hist_mark_invalid_buf(&isp->isp_hist);
 			irqstatus &= ~HIST_DONE;
 		}
-		isp_hist_enable(&isp->isp_hist, 1);
+		if (ret != HIST_BUF_WAITING_DMA)
+			isp_hist_enable(&isp->isp_hist, 1);
+		if (ret != HIST_BUF_DONE)
+			irqstatus &= ~HIST_DONE;
 	}
 
 	/* Handle shared buffer logic overflows for video buffers. */
@@ -2340,6 +2366,7 @@ out:
 
 #endif /* CONFIG_PM */
 
+static u64 raw_dmamask = DMA_32BIT_MASK;
 
 static int isp_probe(struct platform_device *pdev)
 {
@@ -2440,6 +2467,9 @@ static int isp_probe(struct platform_device *pdev)
 	mutex_init(&(isp->isp_mutex));
 	spin_lock_init(&isp->lock);
 	spin_lock_init(&isp->h3a_lock);
+
+	isp->dev->dma_mask = &raw_dmamask;
+	isp->dev->coherent_dma_mask = DMA_32BIT_MASK;
 
 	isp_get();
 	isp->iommu = iommu_get("isp");

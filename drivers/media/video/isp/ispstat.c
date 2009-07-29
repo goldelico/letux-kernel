@@ -168,29 +168,99 @@ void ispstat_bufs_free(struct ispstat *stat)
 	for (i = 0; i < stat->nbufs; i++) {
 		struct ispstat_buffer *buf = &stat->buf[i];
 
-		if (!buf->iommu_addr)
-			continue;
+		if (!stat->dma_buf) {
+			if (!buf->iommu_addr)
+				continue;
 
-		iommu_vfree(isp->iommu, buf->iommu_addr);
+			iommu_vfree(isp->iommu, buf->iommu_addr);
+		} else {
+			if (!buf->virt_addr)
+				continue;
+
+			dma_free_coherent(stat->dev, stat->buf_alloc_size,
+					  buf->virt_addr, buf->dma_addr);
+		}
 		buf->iommu_addr = 0;
+		buf->dma_addr = 0;
+		buf->virt_addr = NULL;
 	}
 
 	stat->buf_alloc_size = 0;
 }
 
+static int ispstat_bufs_alloc_iommu(struct ispstat *stat, unsigned int size)
+{
+	struct isp_device *isp = dev_get_drvdata(stat->dev);
+	int i;
+
+	stat->buf_alloc_size = size;
+
+	for (i = 0; i < stat->nbufs; i++) {
+		struct ispstat_buffer *buf = &stat->buf[i];
+
+		WARN_ON(buf->dma_addr);
+		buf->iommu_addr = iommu_vmalloc(isp->iommu, 0, size,
+						IOMMU_FLAG);
+		if (buf->iommu_addr == 0) {
+			dev_err(stat->dev,
+				 "%s stat: Can't acquire memory for "
+				 "buffer %d\n", stat->tag, i);
+			ispstat_bufs_free(stat);
+			return -ENOMEM;
+		}
+		buf->virt_addr = da_to_va(isp->iommu, (u32)buf->iommu_addr);
+		buf->frame_number = stat->max_frame;
+	}
+	stat->dma_buf = 0;
+
+	return 0;
+}
+
+static int ispstat_bufs_alloc_dma(struct ispstat *stat, unsigned int size)
+{
+	int i;
+
+	/* dma_alloc_coherent() size is PAGE_ALIGNED */
+	size = PAGE_ALIGN(size);
+	stat->buf_alloc_size = size;
+
+	for (i = 0; i < stat->nbufs; i++) {
+		struct ispstat_buffer *buf = &stat->buf[i];
+
+		WARN_ON(buf->iommu_addr);
+		buf->virt_addr = dma_alloc_coherent(stat->dev, size,
+					&buf->dma_addr, GFP_KERNEL | GFP_DMA);
+
+		if (!buf->virt_addr || !buf->dma_addr) {
+			dev_info(stat->dev,
+				 "%s stat: Can't acquire memory for "
+				 "DMA buffer %d\n", stat->tag, i);
+			ispstat_bufs_free(stat);
+			return -ENOMEM;
+		}
+		buf->frame_number = stat->max_frame;
+	}
+	stat->dma_buf = 1;
+
+	return 0;
+}
+
 int ispstat_bufs_alloc(struct ispstat *stat,
-		       unsigned int size)
+		       unsigned int size, int dma_buf)
 {
 	struct isp_device *isp = dev_get_drvdata(stat->dev);
 	unsigned long flags;
+	int ret = 0;
 	int i;
 
 	spin_lock_irqsave(&stat->lock, flags);
 
 	BUG_ON(stat->locked_buf != NULL);
 
+	dma_buf = dma_buf ? 1 : 0;
+
 	/* Are the old buffers big enough? */
-	if (stat->buf_alloc_size >= size) {
+	if ((stat->buf_alloc_size >= size) && (stat->dma_buf == dma_buf)) {
 		for (i = 0; i < stat->nbufs; i++)
 			stat->buf[i].frame_number = stat->max_frame;
 		spin_unlock_irqrestore(&stat->lock, flags);
@@ -209,29 +279,18 @@ int ispstat_bufs_alloc(struct ispstat *stat,
 
 	ispstat_bufs_free(stat);
 
-	for (i = 0; i < stat->nbufs; i++) {
-		struct ispstat_buffer *buf = &stat->buf[i];
-
-		buf->iommu_addr = iommu_vmalloc(isp->iommu, 0, size,
-						IOMMU_FLAG);
-		if (buf->iommu_addr == 0) {
-			dev_info(stat->dev,
-				 "%s stat: Can't acquire memory for "
-				 "buffer %d\n", stat->tag, i);
-			ispstat_bufs_free(stat);
-			return -ENOMEM;
-		}
-		buf->virt_addr = da_to_va(isp->iommu, (u32)buf->iommu_addr);
-		buf->frame_number = stat->max_frame;
-	}
-
-	stat->buf_alloc_size = size;
+	if (dma_buf)
+		ret = ispstat_bufs_alloc_dma(stat, size);
+	else
+		ret = ispstat_bufs_alloc_iommu(stat, size);
+	if (ret)
+		size = 0;
 
 out:
 	stat->buf_size = size;
 	stat->active_buf = NULL;
 
-	return 0;
+	return ret;
 }
 
 int ispstat_init(struct device *dev, char *tag, struct ispstat *stat,

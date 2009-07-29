@@ -29,6 +29,7 @@
 struct ispstat_buffer {
 	unsigned long iommu_addr;
 	void *virt_addr;
+	dma_addr_t dma_addr;
 	struct timeval ts;
 	u32 config_counter;
 	u32 frame_number;
@@ -37,6 +38,7 @@ struct ispstat_buffer {
 struct ispstat {
 	spinlock_t lock;		/* Lock for this struct */
 
+	u8 dma_buf;
 	unsigned int nbufs;
 	struct ispstat_buffer *buf;
 	unsigned int buf_size;
@@ -58,7 +60,7 @@ struct ispstat_buffer *ispstat_buf_get(struct ispstat *stat,
 void ispstat_buf_release(struct ispstat *stat);
 void ispstat_bufs_free(struct ispstat *stat);
 int ispstat_bufs_alloc(struct ispstat *stat,
-		       unsigned int size);
+		       unsigned int size, int dma_buf);
 int ispstat_init(struct device *dev, char *tag, struct ispstat *stat,
 		 unsigned int nbufs, unsigned int max_frame);
 void ispstat_free(struct ispstat *stat);
