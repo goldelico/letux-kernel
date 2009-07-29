@@ -91,13 +91,15 @@ static int omap2_mbox_startup(struct omap_mbox *mbox)
 	u32 l;
 	unsigned long timeout;
 
-	mbox_ick_handle = clk_get(NULL, "mailboxes_ick");
-	if (IS_ERR(mbox_ick_handle)) {
-		printk(KERN_ERR "Could not get mailboxes_ick: %d\n",
-			PTR_ERR(mbox_ick_handle));
-		return PTR_ERR(mbox_ick_handle);
+	if (!cpu_is_omap44xx()) {
+		mbox_ick_handle = clk_get(NULL, "mailboxes_ick");
+		if (IS_ERR(mbox_ick_handle)) {
+			printk(KERN_ERR "Could not get mailboxes_ick: %d\n",
+				PTR_ERR(mbox_ick_handle));
+			return PTR_ERR(mbox_ick_handle);
+		}
+		clk_enable(mbox_ick_handle);
 	}
-	clk_enable(mbox_ick_handle);
 
 	mbox_write_reg(SOFTRESET, MAILBOX_SYSCONFIG);
 	timeout = jiffies + msecs_to_jiffies(20);
@@ -125,9 +127,11 @@ static int omap2_mbox_startup(struct omap_mbox *mbox)
 
 static void omap2_mbox_shutdown(struct omap_mbox *mbox)
 {
-	clk_disable(mbox_ick_handle);
-	clk_put(mbox_ick_handle);
-	mbox_ick_handle = NULL;
+	if (!cpu_is_omap44xx()) {
+		clk_disable(mbox_ick_handle);
+		clk_put(mbox_ick_handle);
+		mbox_ick_handle = NULL;
+	}
 }
 
 /* Mailbox FIFO handle functions */
