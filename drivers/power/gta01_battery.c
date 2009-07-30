@@ -24,7 +24,12 @@ static enum power_supply_property gta01_bat_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_CHARGE_NOW,
 };
+
+/* Capacity of typical BL-5C dumb battery */
+#define GTA01_BAT_CHARGE_FULL	850000
 
 static int gta01_bat_voltscale(int volt)
 {
@@ -83,12 +88,23 @@ static int gta01_bat_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = 1; /* You must never run GTA01 without battery. */
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_NOW:
+		if (bat->pdata->get_voltage) {
+			int perc = gta01_bat_voltscale(
+					bat->pdata->get_voltage()/1000);
+			val->intval = perc * GTA01_BAT_CHARGE_FULL / 100;
+		} else
+			val->intval = 0;
+		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		if (bat->pdata->get_voltage)
 			val->intval = gta01_bat_voltscale(
 					bat->pdata->get_voltage()/1000);
 		else
 			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		val->intval = GTA01_BAT_CHARGE_FULL;
 		break;
 
 	default:
