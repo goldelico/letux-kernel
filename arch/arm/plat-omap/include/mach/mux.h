@@ -940,6 +940,8 @@ enum omap34xx_index {
 	D25_34XX_CAM_STROBE,
 	K8_34XX_GPMC_WAIT2,
 
+	/* SYS_NIRQ T2 INT1 */
+	AF26_34XX_SYS_NIRQ,
 };
 
 struct omap_mux_cfg {
