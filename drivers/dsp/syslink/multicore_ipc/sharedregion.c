@@ -275,7 +275,8 @@ int sharedregion_add(u32 index, void *base, u32 len)
 	}
 
 	if (overlap) {
-		retval = -EPERM;
+		/* FHACK: FIX ME */
+		retval =1;
 		goto mem_overlap_error;
 	}
 
@@ -288,7 +289,8 @@ int sharedregion_add(u32 index, void *base, u32 len)
 		entry->is_valid = true;
 
 	} else {
-		retval = -EEXIST;
+		/* FHACK: FIX ME */
+		retval = 1;
 		goto dup_entry_error;
 	}
 

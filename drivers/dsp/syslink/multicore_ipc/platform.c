@@ -259,7 +259,8 @@ struct platform_proc_config_params {
  */
 #define RESET_VECTOR_ENTRY_ID		0
 
-
+#define DUCATI_SHM_VA			0x98000000
+#define DUCATI_SHM_1_VA		0x98080000
 /** ============================================================================
  *  Globals
  *  ============================================================================
@@ -272,7 +273,7 @@ static struct proc4430_mem_entry mem_entries[NUM_MEM_ENTRIES] = {
 		"DUCATI_SHM",	/* NAME	     : Name of the memory region */
 		SHAREDMEMORY_BASEADDR,
 		/* PHYSADDR	     : Physical address */
-		0x98000000,	/* SLAVEVIRTADDR  : Slave virtual address */
+		DUCATI_SHM_VA,	/* SLAVEVIRTADDR  : Slave virtual address */
 		(u32) -1u,
 			/* MASTERVIRTADDR : Master virtual address (if known) */
 		0x80000,	/* SIZE	     : Size of the memory region */
@@ -282,7 +283,7 @@ static struct proc4430_mem_entry mem_entries[NUM_MEM_ENTRIES] = {
 		"DUCATI_SHM1",	/* NAME	     : Name of the memory region */
 		SHAREDMEMORY_BASEADDR_APPM3,
 		/* PHYSADDR	     : Physical address */
-		0x98080000,	/* SLAVEVIRTADDR  : Slave virtual address */
+		DUCATI_SHM_1_VA,	/* SLAVEVIRTADDR  : Slave virtual address */
 		(u32) -1u,
 			/* MASTERVIRTADDR : Master virtual address (if known) */
 		0x80000,	/* SIZE	     : Size of the memory region */
@@ -503,7 +504,7 @@ void platform_load_callback(void *arg)
 	} else {
 		/* Zero out the boot load page */
 		memset((void *) sh_addr_base, 0, BOOTLOADPAGE_BASESIZE);
-		sharedregion_add(BOOTLOADPAGE_SRINDEX, sh_addr_base,
+		sharedregion_add(BOOTLOADPAGE_SRINDEX, (void *)sh_addr_base,
 						BOOTLOADPAGE_BASESIZE);
 
 
@@ -516,7 +517,7 @@ void platform_load_callback(void *arg)
 		platform_sm_heap_phys_addr = sysmemmgr_translate(
 						platform_sm_heap_virt_addr,
 						sysmemmgr_xltflag_kvirt2phys);
-		info.base = (void *) 0x98000000;
+		info.base = (void *) DUCATI_SHM_VA;
 
 		/* Write info the boot load page */
 		nwrite = sysmgr_put_object_config(proc_id,
@@ -568,8 +569,8 @@ void platform_start_callback(void *arg)
 	do {
 		nread = sysmgr_get_object_config(proc_id, (void *) &pc_params,
 				SYSMGR_CMD_SCALABILITY,
-				sizeof(struct platform_proc_config_params));
-	} while (nread != sizeof(struct platform_proc_config_params));
+				sizeof(struct sysmgr_proc_config));
+	} while (nread != sizeof(struct sysmgr_proc_config));
 
 	if (status >= 0) {
 		local_id = multiproc_get_id(NULL);
