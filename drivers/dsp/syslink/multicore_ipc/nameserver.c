@@ -264,7 +264,6 @@ int nameserver_setup(void)
 error:
 	kfree(list);
 	printk(KERN_ERR "nameserver_setup failed, retval: %x\n", retval);
-exit:
 	return retval;
 }
 EXPORT_SYMBOL(nameserver_setup);

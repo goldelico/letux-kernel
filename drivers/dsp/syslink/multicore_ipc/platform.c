@@ -236,7 +236,6 @@ struct platform_messageq_transportshm_params {
 };
 
 struct platform_proc_config_params {
-	u32 reserved1;
 	u32 use_notify;
 	u32 use_messageq;
 	u32 use_heapbuf;
@@ -244,7 +243,6 @@ struct platform_proc_config_params {
 	u32 use_ring_io;
 	u32 use_listmp;
 	u32 use_nameserver;
-	u32 reserved2;
 };
 
 /** ============================================================================
@@ -321,7 +319,7 @@ void *platform_sm_heap_phys_addr;
 /*!
  *  @brief  Scalability info
  */
-struct platform_proc_config_params pc_params;
+struct sysmgr_proc_config pc_params;
 
 /* =============================================================================
  * APIS

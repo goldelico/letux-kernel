@@ -18,6 +18,18 @@
 #ifndef __SYSMGR_H_
 #define __SYSMGR_H_
 
+/* Structure to retrieve the scalability proc info from the slave */
+struct sysmgr_proc_config {
+	u32 proc_id;
+	u32 use_notify;
+	u32 use_messageq;
+	u32 use_heapbuf;
+	u32 use_frameq;
+	u32 use_ringio;
+	u32 use_listmp;
+	u32 use_nameserver;
+	u32 boot_mode;
+};
 
 /* Function to set the boot load page address for a slave */
 void sysmgr_set_boot_load_page(u16 proc_id, u32 boot_load_page);
