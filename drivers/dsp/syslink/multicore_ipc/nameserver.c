@@ -285,6 +285,12 @@ int nameserver_destroy(void)
 		goto exit;
 	}
 
+	if (!(atomic_dec_return(&nameserver_state.ref_count)
+					== NAMESERVER_MAKE_MAGICSTAMP(0))) {
+		retval = 1;
+		goto exit;
+	}
+
 	if (WARN_ON(nameserver_state.list_lock == NULL)) {
 		retval = -ENODEV;
 		goto exit;
@@ -292,12 +298,6 @@ int nameserver_destroy(void)
 
 	/* If a nameserver instance exist, do not proceed  */
 	if (!list_empty(&nameserver_state.obj_list)) {
-		retval = -EBUSY;
-		goto exit;
-	}
-
-	if (!(atomic_dec_return(&nameserver_state.ref_count)
-					== NAMESERVER_MAKE_MAGICSTAMP(0))) {
 		retval = -EBUSY;
 		goto exit;
 	}

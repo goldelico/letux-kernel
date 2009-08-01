@@ -578,8 +578,11 @@ s32 sysmgr_destroy(void)
 	}
 
 	if (atomic_dec_return(&sysmgr_state.ref_count)
-			== SYSMGR_MAKE_MAGICSTAMP(0))
-			goto exit;
+			!= SYSMGR_MAKE_MAGICSTAMP(0))
+    {
+		status = 1;
+		goto exit;
+    }
 
 	/* Finalize Platform module*/
 	if (sysmgr_state.platform_init_flag == true) {

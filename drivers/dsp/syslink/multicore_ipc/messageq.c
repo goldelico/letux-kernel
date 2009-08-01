@@ -445,7 +445,7 @@ int messageq_destroy(void)
 
 	if (!(atomic_dec_return(&messageq_state.ref_count)
 					== MESSAGEQ_MAKE_MAGICSTAMP(0))) {
-		status = -EBUSY;
+		status = 1;
 		goto exit;
 	}
 

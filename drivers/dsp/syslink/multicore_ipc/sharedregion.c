@@ -185,7 +185,7 @@ int sharedregion_destroy(void)
 
 	if (!(atomic_dec_return(&sharedregion_state.ref_count)
 					== SHAREDREGION_MAKE_MAGICSTAMP(0))) {
-		retval = -EBUSY; /* Syslink is not handling this on 2.0.0.06 */
+		retval = 1; /* Syslink is not handling this on 2.0.0.06 */
 		goto error;
 	}
 
