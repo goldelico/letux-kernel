@@ -82,10 +82,9 @@ static inline int listmp_sharedmemory_ioctl_setup(
 	}
 
 	status = listmp_sharedmemory_setup(&config);
+	cargs->api_status = status;
 	if (unlikely(status))
 		goto exit;
-
-	cargs->api_status = status;
 exit:
 	return retval;
 }

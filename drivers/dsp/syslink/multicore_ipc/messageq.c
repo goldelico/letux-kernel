@@ -311,8 +311,7 @@ int messageq_setup(const struct messageq_config *cfg)
 				MESSAGEQ_MAKE_MAGICSTAMP(0));
 	if (atomic_inc_return(&messageq_state.ref_count)
 				!= MESSAGEQ_MAKE_MAGICSTAMP(1)) {
-		status = -EEXIST;
-		goto exit;
+		return 1;
 	}
 
 	if (cfg == NULL) {

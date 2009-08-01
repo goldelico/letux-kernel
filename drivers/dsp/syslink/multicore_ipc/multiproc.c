@@ -97,7 +97,7 @@ s32 multiproc_setup(struct multiproc_config *cfg)
 
 	if (atomic_inc_return(&multiproc_state.ref_count)
 					!= MULTIPROC_MAKE_MAGICSTAMP(1u)) {
-		status = -EEXIST;
+		status = 1;
 	} else {
 		if (cfg == NULL) {
 			multiproc_get_config(&tmp_cfg);

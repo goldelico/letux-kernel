@@ -73,8 +73,7 @@ int platform_mem_setup(void)
 				PLATFORM_MEM_MAKE_MAGICSTAMP(0));
 	if (atomic_inc_return(&platform_mem_state.ref_count)
 				!= PLATFORM_MEM_MAKE_MAGICSTAMP(1)) {
-		retval = -EEXIST;
-		goto exit;
+		return 1;
 	}
 
 	/* Create the Gate handle */

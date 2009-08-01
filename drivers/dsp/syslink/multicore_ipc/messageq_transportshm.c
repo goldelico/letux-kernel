@@ -34,7 +34,6 @@
 #include <listmp_sharedmemory.h>
 #include <messageq_transportshm.h>
 
-
 /* =============================================================================
  * Globals
  * =============================================================================
@@ -78,8 +77,8 @@ struct messageq_transportshm_moduleobject {
  * Structure of attributes in shared memory
  */
 struct messageq_transportshm_attrs {
-	volatile u32 version;
-	volatile u32 flag;
+	VOLATILE u32 version;
+	VOLATILE u32 flag;
 };
 
 /*
@@ -87,13 +86,13 @@ struct messageq_transportshm_attrs {
  *  instances.
  */
 struct messageq_transportshm_object {
-	volatile struct messageq_transportshm_attrs *attrs[2];
+	VOLATILE struct messageq_transportshm_attrs *attrs[2];
 	/* Attributes for both processors */
 	void *my_listmp_handle;
 	/* List for this processor	*/
 	void *remote_listmp_handle;
 	/* List for remote processor	*/
-	volatile int status;
+	VOLATILE int status;
 	/* Current status		 */
 	int my_index;
 	/* 0 | 1			  */
@@ -217,14 +216,13 @@ int messageq_transportshm_setup(const struct messageq_transportshm_config *cfg)
 	/* This sets the refCount variable is not initialized, upper 16 bits is
 	* written with module Id to ensure correctness of refCount variable.
 	*/
-    atomic_cmpmask_and_set(&messageq_transportshm_state.ref_count,
+	atomic_cmpmask_and_set(&messageq_transportshm_state.ref_count,
 			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0),
 			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0));
 
 	if (atomic_inc_return(&messageq_transportshm_state.ref_count)
 		!= MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(1u)) {
-		status = -EEXIST;;
-		goto exit;
+		return 1;
 	}
 
 	if (cfg == NULL) {
@@ -367,7 +365,7 @@ void *messageq_transportshm_create(u16 proc_id,
 	int my_index;
 	int remote_index;
 	listmp_sharedmemory_params listmp_params[2];
-	volatile u32 *otherflag;
+	VOLATILE u32 *otherflag;
 
 	gt_2trace(mqtshm_debugmask, GT_ENTER, "messageq_transportshm_create",
 			proc_id, params);
@@ -464,7 +462,7 @@ void *messageq_transportshm_create(u16 proc_id,
 	handle->attrs[my_index]->version = MESSAGEQ_TRANSPORTSHM_VERSION;
 	handle->attrs[my_index]->flag = MESSAGEQ_TRANSPORTSHM_UP;
 
-	/* Store in volatile to make sure it is not compiled out... */
+	/* Store in VOLATILE to make sure it is not compiled out... */
 	otherflag = &(handle->attrs[remote_index]->flag);
 	gt_1trace(mqtshm_debugmask, GT_1CLASS, "messageq_transportshm_create\n"
 		"Synchronization flag addr [0x%x]", otherflag);

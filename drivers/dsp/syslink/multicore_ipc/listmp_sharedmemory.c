@@ -243,8 +243,7 @@ int listmp_sharedmemory_setup(struct listmp_config *config)
 
 	if (atomic_inc_return(&listmp_sharedmemory_state.ref_count)
 				!= LISTMPSHAREDMEMORY_MAKE_MAGICSTAMP(1)) {
-		status = -EEXIST;
-		goto exit;
+		return 1;
 	}
 
 	if (config == NULL) {

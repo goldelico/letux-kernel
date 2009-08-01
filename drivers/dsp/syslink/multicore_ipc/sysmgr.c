@@ -20,15 +20,6 @@
 #include <linux/types.h>
 #include <linux/module.h>
 
-/* Utilities headers */
-/*#include <linux/string.h>
-#include <linux/list.h>
-#include <linux/slab.h>
-#include <linux/semaphore.h>*/
-
-/* Utilities & Osal headers */
-/*#include <Gate.h>
-#include <GateMutex.h>*/
 #include <syslink/atomic_linux.h>
 
 /* Module headers */
@@ -37,6 +28,7 @@
 #include <sysmgr.h>
 #include <_sysmgr.h>
 #include <platform.h>
+#include <platform_mem.h>
 
 #include <gatepeterson.h>
 #include <sharedregion.h>
@@ -103,8 +95,6 @@
 /* Macro to make a correct module magic number with ref_count */
 #define SYSMGR_MAKE_MAGICSTAMP(x)		((SYSMGR_MODULEID << 12) | (x))
 
-/* FIXME: Using macro for minimum checkpatch errors */
-#define VOLATILE volatile
 
 /* =============================================================================
  * Structures & Enums
@@ -245,7 +235,7 @@ void sysmgr_get_config(struct sysmgr_config *config)
 	nameserver_remotenotify_get_config(
 		&config->nameserver_remotenotify_cfg);
 }
-
+EXPORT_SYMBOL(sysmgr_get_config);
 
 /*
  * ======== sysmgr_get_object_config ========
@@ -364,7 +354,7 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 
 	if (atomic_inc_return(&sysmgr_state.ref_count)
 			!= SYSMGR_MAKE_MAGICSTAMP(1)) {
-		status = SYSMGR_S_ALREADYSETUP;
+		status = 1;
 		goto exit;
 	}
 
@@ -377,14 +367,25 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 		config = (struct sysmgr_config *) cfg;
 	}
 
+	/* Initialize PlatformMem */
+	status = platform_mem_setup();
+	if (status < 0) {
+		printk(KERN_ERR "sysmgr_setup : platform_mem_setup "
+			"failed [0x%x]\n", status);
+	} else {
+		printk(KERN_ERR "platform_mem_setup_setup : status [0x%x]\n" ,
+			status);
+	}
+
 	/* Override the platform specific configuration */
 	platform_override_config(config);
 
 	status = multiproc_setup(&(config->multiproc_cfg));
 	if (status < 0) {
 		printk(KERN_ERR "sysmgr_setup : multiproc_setup "
-			"failed [0x%x]", status);
+			"failed [0x%x]\n", status);
 	} else {
+		printk(KERN_ERR "sysmgr_setup : status [0x%x]\n" , status);
 		sysmgr_state.multiproc_init_flag = true;
 	}
 
@@ -393,8 +394,10 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 		status = proc_mgr_setup(&(config->proc_mgr_cfg));
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_setup : proc_mgr_setup "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
+			printk(KERN_ERR "proc_mgr_setup : status [0x%x]\n" ,
+				status);
 			sysmgr_state.proc_mgr_init_flag = true;
 		}
 	}
@@ -404,8 +407,10 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 		status = sharedregion_setup(&config->sharedregion_cfg);
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_setup : sharedregion_setup "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
+			printk(KERN_ERR "sharedregion_setup : status [0x%x]\n" ,
+				status);
 			sysmgr_state.sharedregion_init_flag = true;
 		}
 	}
@@ -415,8 +420,10 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 		status = notify_setup(&config->notify_cfg);
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_setup : notify_setup "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
+			printk(KERN_ERR "notify_setup : status [0x%x]\n" ,
+				status);
 			sysmgr_state.notify_init_flag = true;
 		}
 	}
@@ -426,8 +433,10 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 		status = nameserver_setup();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_setup : nameserver_setup "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
+			printk(KERN_ERR "nameserver_setup : status [0x%x]\n" ,
+				status);
 			sysmgr_state.nameserver_init_flag = true;
 		}
 	}
@@ -437,8 +446,10 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 		status = gatepeterson_setup(&config->gatepeterson_cfg);
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_setup : gatepeterson_setup "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
+			printk(KERN_ERR "gatepeterson_setup : status [0x%x]\n" ,
+				status);
 			sysmgr_state.gatepeterson_init_flag = true;
 		}
 	}
@@ -448,8 +459,10 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 		status = messageq_setup(&config->messageq_cfg);
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_setup : messageq_setup "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
+			printk(KERN_ERR "messageq_setup : status [0x%x]\n" ,
+				status);
 			sysmgr_state.messageq_init_flag = true;
 		}
 	}
@@ -459,8 +472,10 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 		status = heapbuf_setup(&config->heapbuf_cfg);
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_setup : heapbuf_setup "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
+			printk(KERN_ERR "heapbuf_setup : status [0x%x]\n" ,
+				status);
 			sysmgr_state.heapbuf_init_flag = true;
 		}
 	}
@@ -471,9 +486,11 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 				&config->listmp_sharedmemory_cfg);
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_setup : "
-				"listmp_sharedmemory_setup failed [0x%x]",
+				"listmp_sharedmemory_setup failed [0x%x]\n",
 				status);
 		} else {
+			printk(KERN_ERR "listmp_sharedmemory_setup : "
+				"status [0x%x]\n" , status);
 			sysmgr_state.listmp_sharedmemory_init_flag = true;
 		}
 	}
@@ -484,9 +501,11 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 				 &config->messageq_transportshm_cfg);
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_setup : "
-				"messageq_transportshm_setup failed [0x%x]",
+				"messageq_transportshm_setup failed [0x%x]\n",
 				status);
 		} else {
+			printk(KERN_ERR "messageq_transportshm_setup : "
+				"status [0x%x]\n", status);
 			sysmgr_state.messageq_transportshm_init_flag = true;
 		}
 	}
@@ -496,9 +515,11 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 		status = notify_ducatidrv_setup(&config->notify_ducatidrv_cfg);
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_setup : "
-				"notify_ducatidrv_setup failed [0x%x]",
+				"notify_ducatidrv_setup failed [0x%x]\n",
 				status);
 		} else {
+			printk(KERN_ERR "notify_ducatidrv_setup : "
+				"status [0x%x]\n" , status);
 			sysmgr_state.notify_ducatidrv_init_flag = true;
 		}
 	}
@@ -509,9 +530,11 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 				 &config->nameserver_remotenotify_cfg);
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_setup : "
-				"nameserver_remotenotify_setup failed [0x%x]",
+				"nameserver_remotenotify_setup failed [0x%x]\n",
 				status);
 		} else {
+			printk(KERN_ERR "nameserver_remotenotify_setup : "
+				"status [0x%x]\n" , status);
 			sysmgr_state.nameserver_remotenotify_init_flag = true;
 		}
 	}
@@ -521,8 +544,10 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 		status = platform_setup(config);
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_setup : platform_setup "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
+			printk(KERN_ERR "platform_setup : status [0x%x]\n" ,
+				status);
 			sysmgr_state.platform_init_flag = true;
 		}
 	}
@@ -533,7 +558,7 @@ exit:
 
 	return status;
 }
-
+EXPORT_SYMBOL(sysmgr_setup);
 
 /*
  * ======== sysmgr_setup ========
@@ -553,7 +578,7 @@ s32 sysmgr_destroy(void)
 	}
 
 	if (atomic_dec_return(&sysmgr_state.ref_count)
-			!= SYSMGR_MAKE_MAGICSTAMP(0))
+			== SYSMGR_MAKE_MAGICSTAMP(0))
 			goto exit;
 
 	/* Finalize Platform module*/
@@ -715,7 +740,7 @@ exit:
 	}
 	return status;
 }
-
+EXPORT_SYMBOL(sysmgr_destroy);
 
 /*
  * ======== sysmgr_set_boot_load_page ========
@@ -745,8 +770,15 @@ void sysmgr_wait_for_scalability_info(u16 proc_id)
 	VOLATILE struct sysmgr_boot_load_page *temp = \
 		sysmgr_state.boot_load_page[proc_id];
 
+	printk(KERN_ERR "sysmgr_wait_for_scalability_info: BF while temp->handshake:%x\n",
+		temp->handshake);
+
 	while (temp->handshake != SYSMGR_SCALABILITYHANDSHAKESTAMP)
 		;
+
+	printk(KERN_ERR "sysmgr_wait_for_scalability_info:AF while temp->handshake:%x\n",
+		temp->handshake);
+
 }
 
 

@@ -238,8 +238,7 @@ int nameserver_setup(void)
 
 	if (atomic_inc_return(&nameserver_state.ref_count)
 				!= NAMESERVER_MAKE_MAGICSTAMP(1)) {
-		retval = -EEXIST;
-		goto exit;
+		return 1;
 	}
 
 	nr_procs = multiproc_get_max_processors();

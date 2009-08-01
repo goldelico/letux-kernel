@@ -227,8 +227,6 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 	/* Enter critical section protection. */
 	WARN_ON(mutex_lock_interruptible(proc4430_state.gate_handle));
 	if (proc4430_state.proc_handles[proc_id] != NULL) {
-		printk(KERN_WARNING "Processor already exists for specified"
-			"%d  proc_id\n", proc_id);
 		handle = proc4430_state.proc_handles[proc_id];
 		goto func_end;
 	} else {
@@ -277,7 +275,7 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 
 func_end:
 	mutex_unlock(proc4430_state.gate_handle);
-	return handle;
+	return (void *)handle;
 }
 EXPORT_SYMBOL(proc4430_create);
 
@@ -461,19 +459,11 @@ int proc4430_detach(void *handle)
 int proc4430_start(void *handle, u32 entry_pt,
 			struct processor_start_params *start_params)
 {
-	int i;
-
 	switch (start_params->params->proc_id) {
 	case SYS_M3:
 		__raw_writel(0x02, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
 		break;
 	case APP_M3:
-		i = __raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
-		if (i & RM_MPU_M3_RST1) {
-			printk(KERN_ALERT"ERROR: proc4430Start: SYS M3 is in"
-				"reset cannot start APP M3\n");
-			return -EFAULT;
-		}
 		__raw_writel(0x0, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
 		break;
 	default:

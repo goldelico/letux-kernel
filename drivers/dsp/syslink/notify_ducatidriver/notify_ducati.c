@@ -652,8 +652,7 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 
 	if (atomic_inc_return(&(notify_ducatidriver_state.ref_count)) !=
 		NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(1u)) {
-		/* FIXME Already exists status to be returned. */
-		return -1;
+		return 1;
 	}
 
 

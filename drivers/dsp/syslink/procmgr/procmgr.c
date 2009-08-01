@@ -38,13 +38,6 @@
 /*! @brief Macro to make a correct module magic number with refCount */
 #define PROCMGR_MAKE_MAGICSTAMP(x) ((PROCMGR_MODULEID << 12u) | (x))
 
-#if defined SYSLINK_USE_SYSMGR
-/* HACK - replace once the platform.c file is ready */
-int dummy() {return 0; };
-#define platform_start_callback(pid) dummy()
-#define platform_stop_callback(pid) dummy()
-#endif /* if defined (SYSLINK_USE_SYSMGR) */
-
 /*
  *  ProcMgr Module state object
  */
@@ -275,6 +268,13 @@ void *proc_mgr_create(u16 proc_id, const struct proc_mgr_params *params)
 		printk(KERN_ERR "proc_mgr_create: Error - module not initialized\n");
 		return NULL;
 	}
+	if (proc_mgr_obj_state.proc_handles[proc_id] != NULL) {
+		handle = proc_mgr_obj_state.proc_handles[proc_id];
+		printk(KERN_WARNING "proc_mgr_create:"
+			"Processor already exists for specified"
+			"%d  proc_id, handle = 0x%x\n", proc_id, (u32)handle);
+		return handle;
+	}
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
 	handle = (struct proc_mgr_object *)
 				vmalloc(sizeof(struct proc_mgr_object));
@@ -466,6 +466,8 @@ int proc_mgr_attach(void *handle, struct proc_mgr_attach_params *params)
 	retval = processor_attach(proc_mgr_handle->proc_handle,
 					&proc_attach_params);
 	proc_mgr_handle->num_mem_entries = proc_attach_params.num_mem_entries;
+	printk(KERN_INFO "proc_mgr_attach:proc_mgr_handle->num_mem_entries = %d\n",
+			proc_mgr_handle->num_mem_entries);
 	/* Store memory information in local object.*/
 	memcpy(&(proc_mgr_handle->mem_entries),
 		&(proc_attach_params.mem_entries),
@@ -577,6 +579,9 @@ int proc_mgr_start(void *handle, u32 entry_point,
 		proc_mgr_get_start_params(handle, &tmp_params);
 		params = &tmp_params;
 	}
+#if defined SYSLINK_USE_SYSMGR
+	platform_load_callback((void *)params->proc_id); /*  FIXME */
+#endif
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
 	memcpy(&(proc_mgr_handle->start_params), params,
 					sizeof(struct proc_mgr_start_params));

@@ -105,31 +105,38 @@
 #define HEAPBUF_BLOCKSIZE		256
 
 /*! @brief Start of shared memory */
-#define SHAREDMEMORY_BASEADDR		0x87100000
+#define SHAREDMEMORY_BASEADDR		0x87B00000
 #define SHAREDMEMORY_BASESIZE		0x0007F000
 
 /*! @brief Start of Boot load page  */
-#define BOOTLOADPAGE_BASEADDR		0x8717F000
+#define BOOTLOADPAGE_BASEADDR		0x9807F000
 #define BOOTLOADPAGE_BASESIZE		0x00001000
 
 /*! @brief Start of shared memory */
-#define SHAREDMEMORY_BASEADDR_APPM3		0x87180000
+#define SHAREDMEMORY_BASEADDR_APPM3		0x87B80000
 #define SHAREDMEMORY_BASESIZE_APPM3		0x0007F000
 
 /*! @brief Start of Boot load page  */
 #define BOOTLOADPAGE_BASEADDR_APPM3		0x8718F000
 #define BOOTLOADPAGE_BASESIZE_APPM3		0x0000F000
 
+
 /*!
  *  @brief  Size of the shared memory heap, this heap is used for providing
  * shared memory to drivers/instances. Should not be used for any other purpose.
  */
-#define SMHEAP_SIZE			0x10000
+#define SMHEAP_SIZE			0x7F000
 
 /*!
  *  @brief  Shared region index for Shared memory heap.
  */
 #define SMHEAP_SRINDEX			0
+
+/*!
+ *  @brief  Shared region index for SysM3 boot load page
+ */
+#define BOOTLOADPAGE_SRINDEX    1
+
 
 /*!
  *  @brief Event no used by sysmemmgr
@@ -233,11 +240,12 @@ struct platform_proc_config_params {
 	u32 use_notify;
 	u32 use_messageq;
 	u32 use_heapbuf;
+	u32 use_frameq;
+	u32 use_ring_io;
 	u32 use_listmp;
 	u32 use_nameserver;
 	u32 reserved2;
 };
-
 
 /** ============================================================================
  *  Macros and types
@@ -264,7 +272,8 @@ struct platform_proc_config_params {
 static struct proc4430_mem_entry mem_entries[NUM_MEM_ENTRIES] = {
 	{
 		"DUCATI_SHM",	/* NAME	     : Name of the memory region */
-		0x87100000,	/* PHYSADDR	     : Physical address */
+		SHAREDMEMORY_BASEADDR,
+		/* PHYSADDR	     : Physical address */
 		0x98000000,	/* SLAVEVIRTADDR  : Slave virtual address */
 		(u32) -1u,
 			/* MASTERVIRTADDR : Master virtual address (if known) */
@@ -273,7 +282,8 @@ static struct proc4430_mem_entry mem_entries[NUM_MEM_ENTRIES] = {
 	},
 	{
 		"DUCATI_SHM1",	/* NAME	     : Name of the memory region */
-		0x87180000,	/* PHYSADDR	     : Physical address */
+		SHAREDMEMORY_BASEADDR_APPM3,
+		/* PHYSADDR	     : Physical address */
 		0x98080000,	/* SLAVEVIRTADDR  : Slave virtual address */
 		(u32) -1u,
 			/* MASTERVIRTADDR : Master virtual address (if known) */
@@ -397,7 +407,7 @@ s32 platform_setup(struct sysmgr_config *config)
 		status = SYSMGR_E_FAIL;
 		goto proc_mgr_create_fail;
 	}
-
+	goto exit;
 proc_mgr_create_fail:
 	printk(KERN_ERR "platform_setup: proc_mgr_create failed [0x%x]",
 		status);
@@ -495,6 +505,9 @@ void platform_load_callback(void *arg)
 	} else {
 		/* Zero out the boot load page */
 		memset((void *) sh_addr_base, 0, BOOTLOADPAGE_BASESIZE);
+		sharedregion_add(BOOTLOADPAGE_SRINDEX, sh_addr_base,
+						BOOTLOADPAGE_BASESIZE);
+
 
 		/* Set the boot load page address */
 		sysmgr_set_boot_load_page(proc_id, sh_addr_base);
@@ -505,7 +518,7 @@ void platform_load_callback(void *arg)
 		platform_sm_heap_phys_addr = sysmemmgr_translate(
 						platform_sm_heap_virt_addr,
 						sysmemmgr_xltflag_kvirt2phys);
-		info.base = (void *) platform_sm_heap_phys_addr;
+		info.base = (void *) 0x98000000;
 
 		/* Write info the boot load page */
 		nwrite = sysmgr_put_object_config(proc_id,
@@ -549,6 +562,8 @@ void platform_start_callback(void *arg)
 	struct platform_messageq_transportshm_params pmqt_params;
 	/*u32 proc_ids[2];*/
 
+	printk(KERN_ERR "platform_start_callback\n");
+
 	/* Wait for slave to write the scalability info */
 	sysmgr_wait_for_scalability_info(proc_id);
 	/* Read the scalability info */
@@ -576,6 +591,7 @@ void platform_start_callback(void *arg)
 					platform_notify_ducatidrv_params));
 		} while (nread != \
 			sizeof(struct platform_notify_ducatidrv_params));
+
 		sh_addr = (u32)sharedregion_get_ptr((u32 *)
 						pnds_params.shared_mem_addr);
 		if (sh_addr == (u32)NULL) {
@@ -808,6 +824,7 @@ void platform_start_callback(void *arg)
 			}
 		}
 	}
+	goto exit;
 
 messageq_transportshm_create_fail:
 	printk(KERN_ERR "platform_start_callback: "
@@ -899,7 +916,7 @@ void platform_stop_callback(void *arg)
 				"gatepeterson_close failed [0x%x]", status);
 		}
 
-		status = heapbuf_close(&platform_heap_handle);
+		status = heapbuf_close(platform_heap_handle);
 		if (status < 0) {
 			printk(KERN_ERR "platform_stop_callback : "
 				"heapbuf_close failed [0x%x]", status);
@@ -918,6 +935,12 @@ void platform_stop_callback(void *arg)
 	}
 
 	status = sharedregion_remove(0);
+	if (status < 0) {
+		printk(KERN_ERR "platform_stop_callback : "
+			"sharedregion_remove failed [0x%x]", status);
+	}
+
+	status = sharedregion_remove(1);
 	if (status < 0) {
 		printk(KERN_ERR "platform_stop_callback : "
 			"sharedregion_remove failed [0x%x]", status);

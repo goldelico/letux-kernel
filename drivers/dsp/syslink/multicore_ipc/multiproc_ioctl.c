@@ -69,8 +69,15 @@ static int mproc_ioctl_destroy(struct multiproc_cmd_args *cargs)
 static int mproc_ioctl_get_config(struct multiproc_cmd_args *cargs)
 {
 	struct multiproc_config config;
+	u32 size;
 
 	multiproc_get_config(&config);
+	size = copy_to_user(cargs->args.get_config.config, &config,
+				sizeof(struct multiproc_config));
+	if (size) {
+		cargs->api_status = -EFAULT;
+		return 0;
+	}
 	cargs->api_status = 0;
 	return 0;
 }

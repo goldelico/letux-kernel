@@ -21,6 +21,9 @@
 
 #include <linux/types.h>
 
+
+#define VOLATILE volatile
+
 /*
  *  Unique module ID
  */

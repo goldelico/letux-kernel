@@ -29,6 +29,8 @@
 #include <messageq_ioctl.h>
 #include <messageq_transportshm_ioctl.h>
 #include <nameserver_remotenotify_ioctl.h>
+#include <sysmgr_ioctl.h>
+#include <sysmemmgr_ioctl.h>
 
 /*
  * ======== ipc_ioctl_router ========
@@ -70,9 +72,14 @@ int ipc_ioc_router(u32 cmd, ulong arg)
 	else if (ioc_nr >= NAMESERVERREMOTENOTIFY_BASE_CMD &&
 				ioc_nr <= NAMESERVERREMOTENOTIFY_END_CMD)
 		retval = nameserver_remotenotify_ioctl(NULL, NULL, cmd, arg);
+	else if (ioc_nr >= SYSMGR_BASE_CMD &&
+				ioc_nr <= SYSMGR_END_CMD)
+		retval = sysmgr_ioctl(NULL, NULL, cmd, arg);
+	else if (ioc_nr >= SYSMEMMGR_BASE_CMD &&
+				ioc_nr <= SYSMEMMGR_END_CMD)
+		retval = sysmemmgr_ioctl(NULL, NULL, cmd, arg);
 	else
 		retval = -ENOTTY;
 
 	return retval;
 }
-

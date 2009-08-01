@@ -29,6 +29,7 @@
 #include <sharedregion.h>
 #include <gatepeterson.h>
 
+
 /* IPC stubs */
 
 /*
@@ -66,10 +67,10 @@ struct gatepeterson_moduleobject {
  *  Structure defining attribute parameters for the Gate Peterson module
  */
 struct gatepeterson_attrs {
-	volatile u32 version;
-	volatile u32 status;
-	volatile u16 creator_proc_id;
-	volatile  u16 opener_proc_id;
+	VOLATILE u32 version;
+	VOLATILE u32 status;
+	VOLATILE u16 creator_proc_id;
+	VOLATILE  u16 opener_proc_id;
 };
 
 /*
@@ -77,9 +78,9 @@ struct gatepeterson_attrs {
  */
 struct gatepeterson_obj {
 	struct list_head elem;
-	volatile struct gatepeterson_attrs *attrs; /* Instance attr */
-	volatile u32 *flag[2]; /* Falgs for processors */
-	volatile u32 *turn; /* Indicates whoes turn it is now? */
+	VOLATILE struct gatepeterson_attrs *attrs; /* Instance attr */
+	VOLATILE u32 *flag[2]; /* Falgs for processors */
+	VOLATILE u32 *turn; /* Indicates whoes turn it is now? */
 	u8 self_id; /* Self identifier */
 	u8 other_id; /* Other's identifier */
 	u32 nested; /* Counter to track nesting */
@@ -168,8 +169,7 @@ int gatepeterson_setup(const struct gatepeterson_config *config)
 
 	if (atomic_inc_return(&gatepeterson_state.ref_count)
 					!= GATEPETERSON_MAKE_MAGICSTAMP(1)) {
-		retval = -EEXIST;
-		goto exit;
+		return 1;
 	}
 
 	if (config == NULL) {
@@ -707,9 +707,9 @@ u32 gatepeterson_enter(void *gphandle)
 		/* Wait while other processor is using the resource and has
 		 *  the turn
 		 */
-		while ((*((volatile u32 *) obj->flag[obj->other_id])
+		while ((*((VOLATILE u32 *) obj->flag[obj->other_id])
 			== GATEPETERSON_BUSY) &&
-			(*((volatile u32  *)obj->turn) == obj->other_id))
+			(*((VOLATILE u32  *)obj->turn) == obj->other_id))
 			; /* Empty body loop */
 	}
 
@@ -742,7 +742,7 @@ void gatepeterson_leave(void *gphandle, u32 flag)
 	obj = (struct gatepeterson_obj *)handle->obj;
 	obj->nested--;
 	if (obj->nested == 0)
-		*((volatile u32 *)obj->flag[obj->self_id]) = GATEPETERSON_FREE;
+		*((VOLATILE u32 *)obj->flag[obj->self_id]) = GATEPETERSON_FREE;
 
 	if (obj->local_gate != NULL)
 		mutex_unlock(obj->local_gate);

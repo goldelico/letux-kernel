@@ -42,7 +42,6 @@
 /* brief Macro to make a correct module magic number with refCount */
 #define HEAPBUF_MAKE_MAGICSTAMP(x)	((HEAPBUF_MODULEID << 12) | (x))
 
-#define VOLATILE volatile
 
 /*
  *  Structure defining attribute parameters for the heapbuf module
@@ -172,8 +171,7 @@ int heapbuf_setup(const struct heapbuf_config *cfg)
 
 	if (atomic_inc_return(&heapbuf_state.ref_count)
 					!= HEAPBUF_MAKE_MAGICSTAMP(1)) {
-		retval = -EEXIST;
-		goto error;
+		return 1;
 	}
 
 	if (cfg == NULL) {
