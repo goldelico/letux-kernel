@@ -30,7 +30,7 @@
 /* Macro to make a correct module magic number with refCount */
 #define SHAREDREGION_MAKE_MAGICSTAMP(x)   ((SHAREDREGION_MODULEID << 16u) | (x))
 
-#define SHAREDREGION_MAX_REGIONS_DEFAULT  256
+#define SHAREDREGION_MAX_REGIONS_DEFAULT  4
 
 /*
  *  Module state object
@@ -109,8 +109,7 @@ int sharedregion_setup(const struct sharedregion_config *config)
 
 	if (atomic_inc_return(&sharedregion_state.ref_count)
 				!= SHAREDREGION_MAKE_MAGICSTAMP(1)) {
-		retval = -EEXIST;
-		goto error;
+		return 1;
 	}
 
 	if (config != NULL) {
@@ -223,6 +222,7 @@ int sharedregion_add(u32 index, void *base, u32 len)
 	u32 i;
 	u16 myproc_id;
 	bool overlap = false;
+	bool same = false;
 
 	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
 				SHAREDREGION_MAKE_MAGICSTAMP(0),
@@ -249,6 +249,12 @@ int sharedregion_add(u32 index, void *base, u32 len)
 			+ (myproc_id * sharedregion_state.cfg.max_regions)
 			+ i);
 		if (entry->is_valid) {
+			/* Handle duplicate entry */
+			if((base == entry->base) && (len == entry->len)) {
+				same = true;
+				break;
+			}
+
 			if ((base >= entry->base) &&
 			(base < (void *)((u32)entry->base + entry->len))) {
 				overlap = true;
@@ -261,6 +267,11 @@ int sharedregion_add(u32 index, void *base, u32 len)
 				break;
 			}
 		}
+	}
+
+	if (same) {
+		retval = 1;
+		goto success;
 	}
 
 	if (overlap) {
@@ -281,6 +292,7 @@ int sharedregion_add(u32 index, void *base, u32 len)
 		goto dup_entry_error;
 	}
 
+success:
 	mutex_unlock(sharedregion_state.gate_handle);
 	return 0;
 
