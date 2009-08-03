@@ -2113,6 +2113,7 @@ static void isp_save_ctx(void)
 	isph3a_save_context();
 	isppreview_save_context();
 	ispresizer_save_context();
+	ispcsi2_save_context();
 }
 
 /**
@@ -2130,6 +2131,7 @@ static void isp_restore_ctx(void)
 	isph3a_restore_context();
 	isppreview_restore_context();
 	ispresizer_restore_context();
+	ispcsi2_restore_context();
 }
 
 static int isp_enable_clocks(void)
