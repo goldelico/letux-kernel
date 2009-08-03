@@ -233,5 +233,8 @@ int isp_csi2_reset(void);
 void isp_csi2_enable(int enable);
 void isp_csi2_regdump(void);
 
+void ispcsi2_save_context(void);
+void ispcsi2_restore_context(void);
+
 #endif	/* OMAP_ISP_CSI2_H */
 
