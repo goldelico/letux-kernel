@@ -271,9 +271,11 @@ static int omap_vout_allocate_vrfb_buffers(struct omap_vout_device *vout,
 		unsigned int *count, int startindex)
 {
 	int i, j;
+	int buffer_set;
 
 	for (i = 0; i < *count; i++) {
-		if (!vout->smsshado_virt_addr[i]) {
+		buffer_set = vout->smsshado_virt_addr[i];
+		if (!buffer_set) {
 			vout->smsshado_virt_addr[i] =
 				omap_vout_alloc_buffer(vout->smsshado_size,
 						&vout->smsshado_phy_addr[i]);
@@ -295,8 +297,10 @@ static int omap_vout_allocate_vrfb_buffers(struct omap_vout_device *vout,
 			*count = 0;
 			return -ENOMEM;
 		}
-		memset((void *) vout->smsshado_virt_addr[i], 0,
+		if (!buffer_set) {
+			memset((void *) vout->smsshado_virt_addr[i], 0,
 				vout->smsshado_size);
+		}
 	}
 	return 0;
 }
