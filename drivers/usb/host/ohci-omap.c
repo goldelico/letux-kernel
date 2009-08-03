@@ -86,6 +86,20 @@ static void omap_ohci_clock_power(int on)
 		clk_disable(usb_host_ck);
 		clk_disable(usb_dc_ck);
 	}
+#else
+	if (on) {
+		clk_enable(clk_get(NULL, "usbtll_ick"));
+		clk_enable(clk_get(NULL, "usbtll_fck"));
+		clk_enable(clk_get(NULL, "usbhost_ick"));
+		clk_enable(clk_get(NULL, "usbhost_120m_fck"));
+		clk_enable(clk_get(NULL, "usbhost_48m_fck"));
+	} else {
+		clk_disable(clk_get(NULL, "usbhost_ick"));
+		clk_disable(clk_get(NULL, "usbhost_48m_fck"));
+		clk_disable(clk_get(NULL, "usbhost_120m_fck"));
+		clk_disable(clk_get(NULL, "usbtll_ick"));
+		clk_disable(clk_get(NULL, "usbtll_fck"));
+	}
 #endif
 }
 
