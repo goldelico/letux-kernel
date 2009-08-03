@@ -1429,12 +1429,38 @@ void isp_set_hs_vs(struct device *dev, int hs_vs)
 EXPORT_SYMBOL(isp_set_hs_vs);
 
 /**
- * isp_vbq_sync - Walks the pages table and flushes the cache for
- *                each page.
+ * isp_vbq_sync - keep the video buffers coherent between cpu and isp
+ *
+ * The typical operation required here is Cache Invalidation across
+ * the (user space) buffer address range. And this _must_ be done
+ * at QBUF stage (and *only* at QBUF).
+ *
+ * We try to use optimal cache invalidation function:
+ * - dmac_inv_range:
+ *    - used when the number of pages are _low_.
+ *    - it becomes quite slow as the number of pages increase.
+ *       - for 648x492 viewfinder (150 pages) it takes 1.3 ms.
+ *       - for 5 Mpix buffer (2491 pages) it takes between 25-50 ms.
+ *
+ * - flush_cache_all:
+ *    - used when the number of pages are _high_.
+ *    - time taken in the range of 500-900 us.
+ *    - has a higher penalty but, as whole dcache + icache is invalidated
  **/
-static int isp_vbq_sync(struct videobuf_buffer *vb, int when)
+#define ISP_CACHE_FLUSH_PAGES_MAX	(PAGE_ALIGN(864*656*2) >> PAGE_SHIFT)
+
+static int isp_vbq_sync(struct videobuf_buffer *vb)
 {
-	flush_cache_all();
+	struct videobuf_dmabuf *dma = videobuf_to_dma(vb);
+
+	if (!vb->baddr || !dma || !dma->nr_pages ||
+	    dma->nr_pages > ISP_CACHE_FLUSH_PAGES_MAX)
+		flush_cache_all();
+	else {
+		dmac_inv_range((void *)vb->baddr,
+			       (void *)vb->baddr + vb->bsize);
+		outer_inv_range(vb->baddr, vb->baddr + vb->bsize);
+	}
 
 	return 0;
 }
@@ -1451,7 +1477,6 @@ static void isp_buf_init(struct device *dev)
 	bufs->wait_hs_vs = isp->config->wait_hs_vs;
 	for (sg = 0; sg < NUM_BUFS; sg++) {
 		if (bufs->buf[sg].vb) {
-			isp_vbq_sync(bufs->buf[sg].vb, DMA_FROM_DEVICE);
 			bufs->buf[sg].vb->state = VIDEOBUF_ERROR;
 			bufs->buf[sg].complete(bufs->buf[sg].vb,
 					       bufs->buf[sg].priv);
@@ -1515,7 +1540,6 @@ static void isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 	 * We want to dequeue a buffer from the video buffer
 	 * queue. Let's do it!
 	 */
-	isp_vbq_sync(buf->vb, DMA_FROM_DEVICE);
 	buf->vb->state = buf->vb_state;
 	buf->complete(buf->vb, buf->priv);
 	buf->vb = NULL;
@@ -1542,7 +1566,7 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 
 	BUG_ON(sglen < 0 || !sglist);
 
-	isp_vbq_sync(vb, DMA_TO_DEVICE);
+	isp_vbq_sync(vb);
 
 	spin_lock_irqsave(&isp->lock, flags);
 
