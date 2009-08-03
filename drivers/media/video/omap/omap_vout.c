@@ -438,6 +438,7 @@ static int omap_vout_vrfb_buffer_setup(struct omap_vout_device *vout,
 			  unsigned int *count, unsigned int startindex)
 {
 	int i, j;
+	int buffer_set;
 
 	/* Allocate the VRFB buffers only if the buffers are not
 	 * allocated during init time.
@@ -445,7 +446,8 @@ static int omap_vout_vrfb_buffer_setup(struct omap_vout_device *vout,
 	if ((rotation_enabled(vout->rotation)) &&
 			!vout->vrfb_static_allocation) {
 		for (i = 0; i < *count; i++) {
-			if (!vout->smsshado_virt_addr[i]) {
+			buffer_set = vout->smsshado_virt_addr[i];
+			if (!buffer_set) {
 				vout->smsshado_virt_addr[i] =
 					omap_vout_alloc_buffer(
 						vout->smsshado_size,
@@ -466,9 +468,10 @@ static int omap_vout_vrfb_buffer_setup(struct omap_vout_device *vout,
 				*count = 0;
 				return -ENOMEM;
 			}
-
-			memset((void *) vout->smsshado_virt_addr[i], 0,
+			if (!buffer_set) {
+				memset((void *) vout->smsshado_virt_addr[i], 0,
 					vout->smsshado_size);
+			}
 		}
 	}
 	for (i = 0; i < *count; i++) {
@@ -497,10 +500,7 @@ static int v4l2_rot_to_dss_rot(int v4l2_rotation, int *dss_rotation,
 		*dss_rotation = 3;
 		return 0;
 	case 0:
-		if (mirror)
-			*dss_rotation = 0;
-		else
-			*dss_rotation = -1;
+		*dss_rotation = 0;
 		return 0;
 	default:
 		return -EINVAL;
