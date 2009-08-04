@@ -487,7 +487,7 @@ EXPORT_SYMBOL(isp_set_xclk);
 static void isp_power_settings(struct device *dev, int idle)
 {
 	if (idle) {
-		isp_reg_writel(dev, ISP_SYSCONFIG_AUTOIDLE |
+		isp_reg_writel(dev,
 			       (ISP_SYSCONFIG_MIDLEMODE_SMARTSTANDBY <<
 				ISP_SYSCONFIG_MIDLEMODE_SHIFT),
 			       OMAP3_ISP_IOMEM_MAIN, ISP_SYSCONFIG);
@@ -507,7 +507,7 @@ static void isp_power_settings(struct device *dev, int idle)
 			       ISP_CTRL);
 
 	} else {
-		isp_reg_writel(dev, ISP_SYSCONFIG_AUTOIDLE |
+		isp_reg_writel(dev,
 			       (ISP_SYSCONFIG_MIDLEMODE_FORCESTANDBY <<
 				ISP_SYSCONFIG_MIDLEMODE_SHIFT),
 			       OMAP3_ISP_IOMEM_MAIN, ISP_SYSCONFIG);
