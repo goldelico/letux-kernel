@@ -527,6 +527,9 @@ extern void musb_load_testpacket(struct musb *);
 
 extern irqreturn_t musb_interrupt(struct musb *);
 
+extern void musb_save_context(struct musb *musb);
+extern void musb_restore_context(struct musb *musb);
+
 extern void musb_platform_enable(struct musb *musb);
 extern void musb_platform_disable(struct musb *musb);
 
