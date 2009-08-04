@@ -73,6 +73,7 @@ static struct clk *usb_dc_ck;
 
 static int host_enabled;
 static int host_initialized;
+static int usb_clocks_enabled;
 
 static void omap_ohci_clock_power(int on)
 {
@@ -93,12 +94,14 @@ static void omap_ohci_clock_power(int on)
 		clk_enable(clk_get(NULL, "usbhost_ick"));
 		clk_enable(clk_get(NULL, "usbhost_120m_fck"));
 		clk_enable(clk_get(NULL, "usbhost_48m_fck"));
+		usb_clocks_enabled = 1;
 	} else {
 		clk_disable(clk_get(NULL, "usbhost_ick"));
 		clk_disable(clk_get(NULL, "usbhost_48m_fck"));
 		clk_disable(clk_get(NULL, "usbhost_120m_fck"));
 		clk_disable(clk_get(NULL, "usbtll_ick"));
 		clk_disable(clk_get(NULL, "usbtll_fck"));
+		usb_clocks_enabled = 0;
 	}
 #endif
 }
@@ -305,7 +308,6 @@ static void ohci_omap_stop(struct usb_hcd *hcd)
 {
 	dev_dbg(hcd->self.controller, "stopping USB Controller\n");
 	ohci_stop(hcd);
-	omap_ohci_clock_power(0);
 }
 
 
@@ -554,7 +556,10 @@ static int ohci_hcd_omap_drv_remove(struct platform_device *dev)
 {
 	struct usb_hcd		*hcd = platform_get_drvdata(dev);
 
+	if (!usb_clocks_enabled)
+		omap_ohci_clock_power(1);
 	usb_hcd_omap_remove(hcd, dev);
+	omap_ohci_clock_power(0);
 	platform_set_drvdata(dev, NULL);
 
 	return 0;
