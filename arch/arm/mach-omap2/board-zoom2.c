@@ -78,10 +78,6 @@ extern struct imx046_platform_data zoom2_lv8093_platform_data;
 #include <linux/wl127x-rfkill.h>
 #endif
 
-#define ZOOM2_QUART_PHYS        0x10000000
-#define ZOOM2_QUART_VIRT        0xFB000000
-#define ZOOM2_QUART_SIZE        SZ_1M
-
 #define OMAP_SYNAPTICS_GPIO		163
 
 #define SDP3430_SMC91X_CS	3
