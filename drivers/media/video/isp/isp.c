@@ -1445,7 +1445,11 @@ EXPORT_SYMBOL(isp_set_hs_vs);
  *    - time taken in the range of 500-900 us.
  *    - has a higher penalty but, as whole dcache + icache is invalidated
  **/
-#define ISP_CACHE_FLUSH_PAGES_MAX	(PAGE_ALIGN(864*656*2) >> PAGE_SHIFT)
+/**
+ * FIXME: dmac_inv_range crashes randomly on the user space buffer
+ *        address. Fall back to flush_cache_all for now.
+ */
+#define ISP_CACHE_FLUSH_PAGES_MAX       0
 
 static int isp_vbq_sync(struct videobuf_buffer *vb)
 {
