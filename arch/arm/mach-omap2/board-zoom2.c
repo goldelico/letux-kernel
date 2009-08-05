@@ -785,6 +785,11 @@ static void config_wlan_gpio(void)
 	omap_cfg_reg(W21_34XX_GPIO162);
 }
 
+static void enable_board_wakeup_source(void)
+{
+	omap_cfg_reg(AF26_34XX_SYS_NIRQ);
+}
+
 static void __init omap_zoom2_init(void)
 {
 	omap_i2c_init();
@@ -805,6 +810,7 @@ static void __init omap_zoom2_init(void)
 #ifdef CONFIG_SIL9022
 	zoom2_hdmi_reset_enable(1);
 #endif
+	enable_board_wakeup_source();
 }
 
 static struct map_desc zoom2_io_desc[] __initdata = {
