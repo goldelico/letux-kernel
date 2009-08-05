@@ -412,6 +412,7 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 		mmc->slots[0].internal_clock = !c->ext_clock;
 		mmc->dma_mask = 0xffffffff;
 		mmc->init = twl_mmc_late_init;
+		mmc->context_loss = get_last_off_on_transaction_id;
 
 		/* note: twl4030 card detect GPIOs can disable VMMCx ... */
 		if (gpio_is_valid(c->gpio_cd)) {

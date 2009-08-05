@@ -62,6 +62,9 @@ struct omap_mmc_platform_data {
 	int (*suspend)(struct device *dev, int slot);
 	int (*resume)(struct device *dev, int slot);
 
+	/* To get the OFF mode counter */
+	unsigned (*context_loss) (struct device *dev);
+
 	u64 dma_mask;
 
 	/* To identify device name */
