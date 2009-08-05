@@ -790,6 +790,12 @@ static void enable_board_wakeup_source(void)
 	omap_cfg_reg(AF26_34XX_SYS_NIRQ);
 }
 
+static void config_hdmi_gpio(void)
+{
+	/* HDMI_RESET uses CAM_PCLK mode 4*/
+	omap_cfg_reg(C27_34XX_CAM_PCLK);
+}
+
 static void __init omap_zoom2_init(void)
 {
 	omap_i2c_init();
@@ -808,6 +814,7 @@ static void __init omap_zoom2_init(void)
 	zoom2_cam_init();
 	zoom2_lcd_tv_panel_init();
 #ifdef CONFIG_SIL9022
+	config_hdmi_gpio();
 	zoom2_hdmi_reset_enable(1);
 #endif
 	enable_board_wakeup_source();
