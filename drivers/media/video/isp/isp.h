@@ -304,6 +304,8 @@ void isp_restore_context(struct isp_reg *);
 
 void isp_print_status(void);
 
+void isp_set_hs_vs(int);
+
 int __init isp_ccdc_init(void);
 int __init isp_hist_init(void);
 int __init isph3a_aewb_init(void);
