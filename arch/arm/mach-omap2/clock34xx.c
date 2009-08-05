@@ -726,6 +726,24 @@ void omap2_clk_prepare_for_reboot(void)
 #endif
 }
 
+void omap3_lock_dpll5()
+{
+	struct clk *dpll5_clk;
+	struct clk *dpll5_m2_clk;
+
+	dpll5_clk = clk_get(NULL, "dpll5_ck");
+	clk_set_rate(dpll5_clk, 120000000);
+	clk_enable(dpll5_clk);
+	/* Enable autoidle to allow it to enter low power bypass */
+	omap3_dpll_allow_idle(dpll5_clk);
+
+	/* Program dpll5_m2_clk divider for no division */
+	dpll5_m2_clk = clk_get(NULL, "dpll5_m2_ck");
+	clk_enable(dpll5_m2_clk);
+	clk_set_rate(dpll5_m2_clk, 120000000);
+	return;
+}
+
 /* REVISIT: Move this init stuff out into clock.c */
 
 /*
@@ -827,6 +845,12 @@ int __init omap2_clk_init(void)
 	 * enable other clocks as necessary
 	 */
 	clk_enable_init_clocks();
+
+	/*
+	 * Lock DPLL5 and put it in autoidle.
+	 */
+	if (omap_rev() >= OMAP3430_REV_ES2_0)
+		omap3_lock_dpll5();
 
 	return 0;
 }
