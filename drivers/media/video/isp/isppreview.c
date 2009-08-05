@@ -30,6 +30,7 @@
 
 /* Structure for saving/restoring preview module registers */
 static struct isp_reg ispprev_reg_list[] = {
+	{OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR, 0x0000}, /* See context saving. */
 	{OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO, 0x0000},
 	{OMAP3_ISP_IOMEM_PREV, ISPPRV_VERT_INFO, 0x0000},
 	{OMAP3_ISP_IOMEM_PREV, ISPPRV_RSDR_ADDR, 0x0000},
@@ -64,7 +65,6 @@ static struct isp_reg ispprev_reg_list[] = {
 	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR1, 0x0000},
 	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR2, 0x0000},
 	{OMAP3_ISP_IOMEM_PREV, ISPPRV_CDC_THR3, 0x0000},
-	{OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR, 0x0000},
 	{0, ISP_TOK_TERM, 0x0000}
 };
 
@@ -1830,6 +1830,8 @@ void isppreview_save_context(struct device *dev)
 {
 	DPRINTK_ISPPREV("Saving context\n");
 	isp_save_context(dev, ispprev_reg_list);
+	/* Avoid unwanted enabling when restoring the context. */
+	ispprev_reg_list[0].val &= ~ISPPRV_PCR_EN;
 }
 EXPORT_SYMBOL_GPL(isppreview_save_context);
 
