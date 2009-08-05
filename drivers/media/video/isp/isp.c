@@ -289,10 +289,8 @@ static int isp_wait(struct device *dev, int (*busy)(void *), int wait_for_busy,
 		rmb();
 		udelay(1);
 		wait++;
-		if (wait > max_wait) {
-			dev_alert(dev, "%s: wait is too much\n", __func__);
+		if (wait > max_wait)
 			return -EBUSY;
-		}
 	}
 	DPRINTK_ISPCTRL(KERN_ALERT "%s: wait %d\n", __func__, wait);
 
@@ -1500,8 +1498,7 @@ static void isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 		ispccdc_enable(&isp->isp_ccdc, 0);
 		if (ispccdc_sbl_wait_idle(&isp->isp_ccdc, 1000)) {
 			ispccdc_enable(&isp->isp_ccdc, 1);
-			dev_err(dev, "ccdc %d won't become idle!\n",
-				CCDC_CAPTURE(isp));
+			dev_info(dev, "ccdc won't become idle!\n");
 			return;
 		}
 	}
