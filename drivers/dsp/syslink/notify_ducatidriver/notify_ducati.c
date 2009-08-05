@@ -71,7 +71,7 @@
 #define NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(x) \
 				((NOTIFYDRIVERSHM_MODULEID << 12u) | (x))
 
-struct omap_mbox *ducati_mbox;
+static struct omap_mbox *ducati_mbox;
 static struct notify_ducatidrv_object *ducati_isr_params[NOTIFY_MAX_DRIVERS];
 static void notify_ducatidrv_isr(void *ntfy_msg);
 static void notify_ducatidrv_isr_callback(void *ref_data, void* ntfy_msg);
@@ -395,14 +395,6 @@ struct notify_driver_object *notify_ducatidrv_create(char *driver_name,
 		}
 	}
 
-
-	ducati_mbox = omap_mbox_get("mailbox-2");
-	if (ducati_mbox == NULL) {
-		status = -ENODEV;
-		goto func_end;
-	}
-	ducati_mbox->rxq->callback = (int (*)(void *))notify_ducatidrv_isr;
-
 	/*Set up the ISR on the Modena-ducati FIFO */
 	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++) {
 		if (ducati_isr_params[i] == NULL) {
@@ -665,6 +657,7 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 		atomic_set(&(notify_ducatidriver_state.ref_count),
 				NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(0));
 		status = -ENOMEM;
+		goto error_exit;
 	} else {
 		memcpy(&notify_ducatidriver_state.cfg,
 		cfg, sizeof(struct notify_ducatidrv_config));
@@ -672,6 +665,18 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 
 	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++)
 		ducati_isr_params[i] = NULL;
+	/* Initialize the maibox modulde for ducati */
+	if (ducati_mbox != NULL) {
+		ducati_mbox = omap_mbox_get("mailbox-2");
+		if (ducati_mbox == NULL) {
+			status = -ENODEV;
+			goto error_exit;
+		}
+		ducati_mbox->rxq->callback =
+				(int (*)(void *))notify_ducatidrv_isr;
+	}
+	return 0;
+error_exit:
 	return status;
 }
 EXPORT_SYMBOL(notify_ducatidrv_setup);
