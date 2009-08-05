@@ -49,7 +49,6 @@ config VIDEO_TUNER
 	tristate
 	depends on MEDIA_TUNER
 
-source "drivers/media/video/omap-vout/Kconfig"
 #
 # Multimedia Video device configuration
 #
