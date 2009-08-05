@@ -447,11 +447,6 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 			pix_tmp_in.width = frms.discrete.width;
 			pix_tmp_in.height = frms.discrete.height;
 			pix_tmp_out = *wanted_pix_out;
-			/* Don't do upscaling. */
-			if (pix_tmp_out.width > pix_tmp_in.width)
-				pix_tmp_out.width = pix_tmp_in.width;
-			if (pix_tmp_out.height > pix_tmp_in.height)
-				pix_tmp_out.height = pix_tmp_in.height;
 			rval = isp_try_fmt_cap(&pix_tmp_in, &pix_tmp_out);
 			if (rval)
 				return rval;
