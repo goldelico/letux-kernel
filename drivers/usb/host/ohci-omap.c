@@ -30,6 +30,8 @@
 #include <mach/fpga.h>
 #include <mach/usb.h>
 
+#include "ehci-omap.h"
+
 
 /* OMAP-1510 OHCI has its own MMU for DMA */
 #define OMAP1510_LB_MEMSIZE	32	/* Should be same as SDRAM size */
@@ -436,6 +438,13 @@ usb_hcd_omap_remove (struct usb_hcd *hcd, struct platform_device *pdev)
 		(void) otg_set_host(ohci->transceiver, 0);
 		put_device(ohci->transceiver->dev);
 	}
+
+	/* Reset the USB Host controller to allow rmmod to work */
+	omap_writel(1 << 1, OMAP_UHH_SYSCONFIG);
+	while (!(omap_readl(OMAP_UHH_SYSSTATUS) & (1 << 0)));
+	while (!(omap_readl(OMAP_UHH_SYSSTATUS) & (1 << 1)));
+	while (!(omap_readl(OMAP_UHH_SYSSTATUS) & (1 << 2)));
+
 #ifndef CONFIG_ARCH_OMAP34XX
 	if (machine_is_omap_osk())
 		gpio_free(9);
