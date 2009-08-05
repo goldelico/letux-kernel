@@ -283,7 +283,6 @@ static void isph3a_aewb_update_regs(void)
 		       ISPH3A_AEWSUBWIN);
 
 	aewbstat.update = 0;
-	aewbstat.frame_count = 1;
 }
 
 /**
@@ -651,6 +650,7 @@ int isph3a_aewb_configure(struct isph3a_aewb_config *aewbcfg)
 
 		DPRINTK_ISPH3A("Allocating/mapping new stat buffs\n");
 		for (i = 0; i < H3A_MAX_BUFF; i++) {
+			aewbstat.h3a_buff[i].frame_num = 0;
 			aewbstat.h3a_buff[i].virt_addr =
 				(unsigned long)dma_alloc_coherent(
 					NULL,
@@ -697,6 +697,7 @@ int isph3a_aewb_configure(struct isph3a_aewb_config *aewbcfg)
 	}
 
 	active_buff->frame_num = 1;
+	aewbstat.frame_count = 1;
 
 	atomic_inc(&aewbstat.config_counter);
 	isph3a_aewb_enable(aewbcfg->aewb_enable);
