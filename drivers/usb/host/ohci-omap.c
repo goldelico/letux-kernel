@@ -76,6 +76,7 @@ static struct clk *usb_dc_ck;
 static int host_enabled;
 static int host_initialized;
 static int usb_clocks_enabled;
+static int usb_bus_suspended;
 
 static void omap_ohci_clock_power(int on)
 {
@@ -494,6 +495,7 @@ static int omap_ohci_bus_suspend(struct usb_hcd *hcd)
 	ret = ohci_bus_suspend(hcd);
 	mdelay(8);
 	omap_ohci_clock_power(0);
+	usb_bus_suspended = 1;
 	clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
 
 	return ret;
@@ -503,9 +505,11 @@ static int omap_ohci_bus_resume(struct usb_hcd *hcd)
 {
 	int ret = 0;
 
-	omap_ohci_clock_power(1);
+	if (!usb_clocks_enabled)
+		omap_ohci_clock_power(1);
 	set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
 	ret = ohci_bus_resume(hcd);
+	usb_bus_suspended = 1;
 
 	return ret;
 }
@@ -586,7 +590,8 @@ static int ohci_omap_suspend(struct platform_device *dev, pm_message_t message)
 		msleep(5);
 	ohci->next_statechange = jiffies;
 
-	omap_ohci_clock_power(0);
+	if (usb_clocks_enabled)
+		omap_ohci_clock_power(0);
 	ohci_to_hcd(ohci)->state = HC_STATE_SUSPENDED;
 	return 0;
 }
@@ -602,6 +607,10 @@ static int ohci_omap_resume(struct platform_device *dev)
 
 	omap_ohci_clock_power(1);
 	ohci_finish_controller_resume(hcd);
+
+	if (usb_bus_suspended)
+		omap_ohci_clock_power(0);
+
 	return 0;
 }
 
