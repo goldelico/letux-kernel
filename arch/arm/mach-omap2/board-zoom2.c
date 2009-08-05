@@ -25,7 +25,9 @@
 #include <linux/i2c/twl4030.h>
 #include <linux/interrupt.h>
 #include <linux/regulator/machine.h>
-
+#ifdef CONFIG_SIL9022
+#include <linux/sil9022.h>
+#endif
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -264,6 +266,8 @@ static struct spi_board_info zoom2_spi_board_info[] __initdata = {
 #define TWL4030_VPLL2_DEV_GRP           0x33
 #define TWL4030_VPLL2_DEDICATED         0x36
 
+#define SIL9022_RESET_GPIO 		97
+
 #define t2_out(c, r, v) twl4030_i2c_write_u8(c, r, v)
 
 static void zoom2_lcd_tv_panel_init(void)
@@ -306,14 +310,20 @@ static void zoom2_lcd_tv_panel_init(void)
 	gpio_direction_output(LCD_PANEL_QVGA_GPIO, 1);
 	gpio_direction_output(lcd_panel_reset_gpio, 1);
 }
-static int zoom2_panel_enable_lcd(struct omap_dss_device *dssdev)
+static int zoom2_panel_power_enable(int enable)
 {
 	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
-				ENABLE_VPLL2_DEDICATED,
+				(enable) ? ENABLE_VPLL2_DEDICATED : 0,
 				TWL4030_VPLL2_DEDICATED);
 	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
-				ENABLE_VPLL2_DEV_GRP,
+				(enable) ? ENABLE_VPLL2_DEV_GRP : 0,
 				TWL4030_VPLL2_DEV_GRP);
+	return 0;
+}
+
+static int zoom2_panel_enable_lcd(struct omap_dss_device *dssdev)
+{
+	zoom2_panel_power_enable(1);
 
 	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 1);
 	gpio_direction_output(LCD_PANEL_BACKLIGHT_GPIO, 1);
@@ -323,10 +333,7 @@ static int zoom2_panel_enable_lcd(struct omap_dss_device *dssdev)
 
 static void zoom2_panel_disable_lcd(struct omap_dss_device *dssdev)
 {
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0,
-				TWL4030_VPLL2_DEDICATED);
-	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0,
-				TWL4030_VPLL2_DEV_GRP);
+	zoom2_panel_power_enable(0);
 
 	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 0);
 	gpio_direction_output(LCD_PANEL_BACKLIGHT_GPIO, 0);
@@ -341,6 +348,40 @@ static struct omap_dss_device zoom2_lcd_device = {
 	.platform_enable = zoom2_panel_enable_lcd,
 	.platform_disable = zoom2_panel_disable_lcd,
  };
+
+#ifdef CONFIG_SIL9022
+static void zoom2_hdmi_reset_enable(int level)
+{
+	/* Set GPIO_97 to high to pull SiI9022 HDMI transmitter out of reset
+	* and low to disable it.
+	*/
+	gpio_request(SIL9022_RESET_GPIO, "hdmi reset");
+	gpio_direction_output(SIL9022_RESET_GPIO, level);
+}
+
+static int zoom2_panel_enable_hdmi(struct omap_dss_device *dssdev)
+{
+	zoom2_panel_power_enable(1);
+	zoom2_hdmi_reset_enable(1);
+
+	return 0;
+}
+
+static void zoom2_panel_disable_hdmi(struct omap_dss_device *dssdev)
+{
+	zoom2_hdmi_reset_enable(0);
+	zoom2_panel_power_enable(0);
+}
+
+static struct omap_dss_device zoom2_hdmi_device = {
+	.name = "hdmi",
+	.driver_name = "hdmi_panel",
+	.type = OMAP_DISPLAY_TYPE_HDMI,
+	.phy.dpi.data_lines = 24,
+	.platform_enable = zoom2_panel_enable_hdmi,
+	.platform_disable = zoom2_panel_disable_hdmi,
+};
+#endif
 
 
 static int zoom2_panel_enable_tv(struct omap_dss_device *dssdev)
@@ -376,6 +417,9 @@ static struct omap_dss_device zoom2_tv_device = {
 static struct omap_dss_device *zoom2_dss_devices[] = {
 	&zoom2_lcd_device,
 	&zoom2_tv_device,
+#ifdef CONFIG_SIL9022
+	&zoom2_hdmi_device,
+#endif
 };
 
 static struct omap_dss_board_info zoom2_dss_data = {
@@ -714,13 +758,23 @@ static struct i2c_board_info __initdata zoom2_i2c_bus2_info[] = {
 #endif
 };
 
+static struct i2c_board_info __initdata zoom2_i2c_bus3_info[] = {
+#ifdef CONFIG_SIL9022
+	{
+		I2C_BOARD_INFO(SIL9022_DRV_NAME,  SI9022_I2CSLAVEADDRESS),
+	},
+#endif
+};
+
+
 static int __init omap_i2c_init(void)
 {
 	omap_register_i2c_bus(1, 100, zoom2_i2c_bus1_info,
 			ARRAY_SIZE(zoom2_i2c_bus1_info));
 	omap_register_i2c_bus(2, 100, zoom2_i2c_bus2_info,
 			ARRAY_SIZE(zoom2_i2c_bus2_info));
-	omap_register_i2c_bus(3, 400, NULL, 0);
+	omap_register_i2c_bus(3, 400, zoom2_i2c_bus3_info,
+			ARRAY_SIZE(zoom2_i2c_bus3_info));
 	return 0;
 }
 
@@ -748,6 +802,9 @@ static void __init omap_zoom2_init(void)
 	config_wlan_gpio();
 	zoom2_cam_init();
 	zoom2_lcd_tv_panel_init();
+#ifdef CONFIG_SIL9022
+	zoom2_hdmi_reset_enable(1);
+#endif
 }
 
 static struct map_desc zoom2_io_desc[] __initdata = {

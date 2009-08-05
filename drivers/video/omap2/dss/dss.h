@@ -353,4 +353,8 @@ void rfbi_set_timings(int rfbi_module, struct rfbi_timings *t);
 unsigned long rfbi_get_max_tx_rate(void);
 int rfbi_init_display(struct omap_dss_device *display);
 
+/* HDMI */
+void hdmi_exit(void);
+int hdmi_init_display(struct omap_dss_device *display);
+
 #endif
