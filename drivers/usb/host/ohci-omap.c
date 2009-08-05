@@ -475,6 +475,31 @@ ohci_omap_start (struct usb_hcd *hcd)
 
 /*-------------------------------------------------------------------------*/
 
+#ifdef CONFIG_PM
+static int omap_ohci_bus_suspend(struct usb_hcd *hcd)
+{
+	int ret = 0;
+
+	ret = ohci_bus_suspend(hcd);
+	mdelay(8);
+	omap_ohci_clock_power(0);
+	clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+
+	return ret;
+}
+
+static int omap_ohci_bus_resume(struct usb_hcd *hcd)
+{
+	int ret = 0;
+
+	omap_ohci_clock_power(1);
+	set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+	ret = ohci_bus_resume(hcd);
+
+	return ret;
+}
+#endif
+
 static const struct hc_driver ohci_omap_hc_driver = {
 	.description =		hcd_name,
 	.product_desc =		"OMAP OHCI",
@@ -512,8 +537,8 @@ static const struct hc_driver ohci_omap_hc_driver = {
 	.hub_status_data =	ohci_hub_status_data,
 	.hub_control =		ohci_hub_control,
 #ifdef	CONFIG_PM
-	.bus_suspend =		ohci_bus_suspend,
-	.bus_resume =		ohci_bus_resume,
+	.bus_suspend =		omap_ohci_bus_suspend,
+	.bus_resume =		omap_ohci_bus_resume,
 #endif
 	.start_port_reset =	ohci_start_port_reset,
 };
