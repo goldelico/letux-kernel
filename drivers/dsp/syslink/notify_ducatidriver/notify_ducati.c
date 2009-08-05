@@ -84,7 +84,7 @@ struct notify_ducatidrv_object {
 	struct notify_ducatidrv_params params;
 	short int  proc_id;
 	struct notify_drv_eventlist *event_list;
-	volatile struct notify_shmdrv_ctrl *ctrl_ptr;
+	VOLATILE struct notify_shmdrv_ctrl *ctrl_ptr;
 	struct notify_shmdrv_eventreg *reg_chart;
 	struct notify_driver_object *drv_handle;
 	short int  self_id;
@@ -244,7 +244,7 @@ struct notify_driver_object *notify_ducatidrv_create(char *driver_name,
 	struct notify_ducatidrv_object *driver_obj = NULL;
 	struct notify_driver_object *drv_handle = NULL;
 	struct notify_drv_eventlist *event_list = NULL;
-	volatile struct notify_shmdrv_proc_ctrl *ctrl_ptr = NULL;
+	VOLATILE struct notify_shmdrv_proc_ctrl *ctrl_ptr = NULL;
 	struct notify_driver_attrs drv_attrs;
 	struct notify_interface fxn_table;
 	int proc_id;
@@ -700,8 +700,8 @@ int notify_ducatidrv_register_event(
 	struct notify_drv_eventlist *event_list;
 	struct notify_ducatidrv_object *driver_object;
 	struct notify_shmdrv_eventreg *reg_chart;
-	volatile struct notify_shmdrv_ctrl *ctrl_ptr;
-	volatile struct notify_shmdrv_event_entry *self_event_chart;
+	VOLATILE struct notify_shmdrv_ctrl *ctrl_ptr;
+	VOLATILE struct notify_shmdrv_event_entry *self_event_chart;
 	int i;
 	int j;
 	BUG_ON(handle == NULL);
@@ -816,9 +816,9 @@ int notify_ducatidrv_unregister_event(
 	struct notify_ducatidrv_object *driver_object;
 	struct notify_drv_eventlist *event_list;
 	struct notify_shmdrv_eventreg *reg_chart;
-	volatile struct notify_shmdrv_ctrl *ctrl_ptr = NULL;
+	VOLATILE struct notify_shmdrv_ctrl *ctrl_ptr = NULL;
 	struct notify_drv_eventlistner   unreg_info;
-	volatile struct notify_shmdrv_event_entry *self_event_chart;
+	VOLATILE struct notify_shmdrv_event_entry *self_event_chart;
 	int i;
 	int j;
 
@@ -905,9 +905,9 @@ int notify_ducatidrv_sendevent(struct notify_driver_object *handle,
 {
 	int status = 0;
 	struct notify_ducatidrv_object *driver_object;
-	volatile struct notify_shmdrv_ctrl *ctrl_ptr;
+	VOLATILE struct notify_shmdrv_ctrl *ctrl_ptr;
 	int max_poll_count;
-	volatile struct notify_shmdrv_event_entry *other_event_chart;
+	VOLATILE struct notify_shmdrv_event_entry *other_event_chart;
 
 	int i = 0;
 
@@ -1113,10 +1113,10 @@ static void notify_ducatidrv_isr_callback(void *ref_data, void* ntfy_msg)
 	int i = 0;
 	struct list_head *temp;
 	int j = 0;
-	volatile struct notify_shmdrv_event_entry  *self_event_chart;
+	VOLATILE struct notify_shmdrv_event_entry  *self_event_chart;
 	struct notify_ducatidrv_object *driver_obj;
 	struct notify_shmdrv_eventreg *reg_chart;
-	volatile struct notify_shmdrv_proc_ctrl *proc_ctrl_ptr;
+	VOLATILE struct notify_shmdrv_proc_ctrl *proc_ctrl_ptr;
 	int event_no;
 
 	driver_obj = (struct notify_ducatidrv_object *) ref_data;
