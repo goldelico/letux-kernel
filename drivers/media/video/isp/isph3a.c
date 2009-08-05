@@ -612,7 +612,7 @@ void isph3a_save_context(struct device *dev)
 	DPRINTK_ISPH3A(" Saving context\n");
 	isp_save_context(dev, isph3a_reg_list);
 	/* Avoid enable during restore ctx */
-	isph3a_reg_list[0].val &= ~ISPH3A_PCR_AEW_EN;
+	isph3a_reg_list[0].val &= ~(ISPH3A_PCR_AEW_EN | ISPH3A_PCR_AF_EN);
 }
 EXPORT_SYMBOL(isph3a_save_context);
 
