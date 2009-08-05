@@ -1128,6 +1128,7 @@ static int twl4030_set_dai_fmt(struct snd_soc_dai *codec_dai,
 
 	/* interface format */
 	format &= ~TWL4030_AIF_FORMAT;
+	format |= TWL4030_CLK256FS_EN;
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
 		format |= TWL4030_AIF_FORMAT_CODEC;

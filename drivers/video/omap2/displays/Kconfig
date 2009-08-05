@@ -41,4 +41,8 @@ config PANEL_ACX565AKM
         help
           LCD Panel used in RX51
 
+config SIL9022
+        tristate "SIL9022 HDMI driver"
+        help
+          HDMI Driver used in the TI Zoom2
 endmenu
