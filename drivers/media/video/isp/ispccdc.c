@@ -1187,10 +1187,8 @@ int ispccdc_try_size(u32 input_w, u32 input_h, u32 *output_w, u32 *output_h)
 
 	if (ispccdc_obj.ccdc_outfmt == CCDC_OTHERS_MEM
 	    || ispccdc_obj.ccdc_outfmt == CCDC_OTHERS_VP_MEM) {
-		if (*output_w % 16) {
-			*output_w -= (*output_w % 16);
-			*output_w += 16;
-		}
+		if (*output_w % 32)
+			*output_w -= (*output_w % 32);
 	}
 
 	ispccdc_obj.ccdcout_w = *output_w;
