@@ -70,6 +70,7 @@ static struct platform_driver omap_previewer_driver;
 
 static u32 prev_bufsize;
 static u32 lsc_bufsize;
+static u32 ytable[ISPPRV_YENH_TBL_SIZE];
 
 /**
  * prev_calculate_crop - Calculate crop size according to device parameters
@@ -165,6 +166,9 @@ static int prev_hw_setup(struct prev_params *config)
 		isppreview_enable_shadcomp(1);
 	} else
 		isppreview_enable_shadcomp(0);
+
+	if (config->ytable)
+		isppreview_set_luma_enhancement(config->ytable);
 
 	dev_dbg(prev_dev, "prev_hw_setup L\n");
 	return 0;
@@ -893,6 +897,12 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 			return -EFAULT;
 		}
 
+		if (params.ytable && copy_from_user(ytable, params.ytable,
+				ISPPRV_YENH_TBL_SIZE*sizeof(u32))) {
+			mutex_unlock(&device->prevwrap_mutex);
+			return -EFAULT;
+		}
+
 		ret = prev_validate_params(&params);
 		if (ret < 0) {
 			dev_err(prev_dev, "Error validating parameters!\n");
@@ -900,10 +910,13 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 			goto out;
 		}
 
-		if (device->params)
+		if (device->params) {
 			memcpy(device->params, &params,
 						sizeof(struct prev_params));
-		else {
+
+			if (params.ytable)
+				device->params->ytable = ytable;
+		} else {
 			mutex_unlock(&device->prevwrap_mutex);
 			return -EINVAL;
 		}

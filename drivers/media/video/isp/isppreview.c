@@ -1006,7 +1006,20 @@ void isppreview_config_gammacorrn(struct ispprev_gtable gtable)
 EXPORT_SYMBOL_GPL(isppreview_config_gammacorrn);
 
 /**
- * isppreview_config_luma_enhancement - Sets the Luminance Enhancement table.
+ * isppreview_set_luma_enhancement - Stores the Luminance Enhancement table.
+ * @ytable: Structure containing the table for Luminance Enhancement table.
+ **/
+void isppreview_set_luma_enhancement(u32 *ytable)
+{
+	int i;
+
+	for (i = 0; i < ISPPRV_YENH_TBL_SIZE; i++)
+		params->ytable[i] = ytable[i];
+}
+EXPORT_SYMBOL_GPL(isppreview_set_luma_enhancement);
+
+/**
+ * isppreview_config_luma_enhancement - Writes the Luminance Enhancement table.
  * @ytable: Structure containing the table for Luminance Enhancement table.
  **/
 void isppreview_config_luma_enhancement(u32 *ytable)
@@ -1856,8 +1869,17 @@ int __init isp_preview_init(void)
 		printk(KERN_ERR "Can't get memory for isp_preview params!\n");
 		return -ENOMEM;
 	}
-	params = prev_config_params;
 
+	/* Dynamically allocate luma table */
+	prev_config_params->ytable = kmalloc(ISPPRV_YENH_TBL_SIZE*sizeof(u32),
+					GFP_KERNEL);
+	if (!prev_config_params->ytable) {
+		printk(KERN_ERR "Can't get memory for preview luna table!\n");
+		kfree(prev_config_params);
+		return -ENOMEM;
+	}
+
+	params = prev_config_params;
 	ispprev_obj.prev_inuse = 0;
 	mutex_init(&ispprev_obj.ispprev_mutex);
 
@@ -1879,7 +1901,7 @@ int __init isp_preview_init(void)
 	params->csup.gain = FLR_CSUP_GAIN;
 	params->csup.thres = FLR_CSUP_THRES;
 	params->csup.hypf_en = 0;
-	params->ytable = luma_enhance_table;
+	isppreview_set_luma_enhancement(luma_enhance_table);
 	params->nf.spread = FLR_NF_STRGTH;
 	memcpy(params->nf.table, noise_filter_table, sizeof(params->nf.table));
 	params->dcor.couplet_mode_en = 1;
@@ -1923,5 +1945,6 @@ int __init isp_preview_init(void)
  **/
 void isp_preview_cleanup(void)
 {
+	kfree(prev_config_params->ytable);
 	kfree(prev_config_params);
 }
