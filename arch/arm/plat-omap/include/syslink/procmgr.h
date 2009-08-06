@@ -138,6 +138,13 @@ struct proc_mgr_start_params {
 	u32 proc_id;
 };
 
+/*
+ *   Configuration parameters to be provided while stopping the slave
+ *  processor.
+ */
+struct proc_mgr_stop_params {
+	u32 proc_id;
+};
 
 /*
  *   This structure defines information about memory regions mapped by
@@ -224,7 +231,7 @@ int proc_mgr_start(void *handle, u32 entry_point,
 				struct proc_mgr_start_params *params);
 
 /* Function to stop execution of the slave Processor. */
-int proc_mgr_stop(void *handle);
+int proc_mgr_stop(void *handle, struct proc_mgr_stop_params *params);
 
 /* Function to get the current state of the slave Processor as maintained on
  * the master Processor state machine.

@@ -352,6 +352,8 @@ struct proc_mgr_cmd_args_stop {
 	/*Common command args */
 	void *handle;
 	/*Handle to the ProcMgr object */
+	struct proc_mgr_stop_params *params;
+	/*Optional ProcMgr stop parameters. */
 };
 
 /*

@@ -63,6 +63,13 @@ struct processor_start_params {
 };
 
 /*
+ *Configuration parameters for stopping the slave Processor
+ */
+struct processor_stop_params {
+	struct proc_mgr_stop_params *params;
+	/* Common start parameters for ProcMgr */
+};
+/*
  * Function pointer type for the function to attach to the processor.
  */
 typedef int (*processor_attach_fxn) (void *handle,

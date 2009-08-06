@@ -55,6 +55,8 @@ struct proc_mgr_module_object {
 	/* Default parameters for the ProcMgr attach function */
 	struct proc_mgr_start_params  def_start_params;
 	/* Default parameters for the ProcMgr start function */
+	struct proc_mgr_stop_params  def_stop_params;
+	/* Default parameters for the ProcMgr stop function */
 	struct mutex *gate_handle;
 	/* handle of gate to be used for local thread safety */
 	void *proc_handles[MULTIPROC_MAXPROCESSORS];
@@ -79,6 +81,8 @@ struct proc_mgr_object {
 	struct proc_mgr_attach_params attach_params;
 	/* ProcMgr attach params structure */
 	struct proc_mgr_start_params  start_params;
+	/* ProcMgr start params structure */
+	struct proc_mgr_stop_params  stop_params;
 	/* ProcMgr start params structure */
 	u32 file_id;
 	/*!< File ID of the loaded static executable */
@@ -611,7 +615,7 @@ EXPORT_SYMBOL(proc_mgr_start);
  * state.
  *
  */
-int proc_mgr_stop(void *handle)
+int proc_mgr_stop(void *handle, struct proc_mgr_stop_params *params)
 {
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
@@ -626,7 +630,7 @@ int proc_mgr_stop(void *handle)
 	BUG_ON(handle == NULL);
 #if defined CONFIG_SYSLINK_USE_SYSMGR
 	/* TBD: should be removed when notify local is implemepented */
-	platform_stop_callback(proc_mgr_handle->proc_id);
+	platform_stop_callback((void *)params->proc_id);
 #endif /* #if defined (CONFIG_SYSLINK_USE_SYSMGR) */
 
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));

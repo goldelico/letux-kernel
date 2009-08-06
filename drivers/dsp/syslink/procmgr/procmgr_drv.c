@@ -378,14 +378,19 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 	{
 		struct proc_mgr_cmd_args_stop src_args;
 
+		struct proc_mgr_stop_params   params;
 		 /* Copy the full args from user-side. */
 		retval = copy_from_user((void *)&src_args,
 			(const void *)(args),
 			sizeof(struct proc_mgr_cmd_args_stop));
+		/* Copy params from user-side. */
+		retval = copy_from_user((void *)&params,
+			(const void *)(src_args.params),
+			sizeof(struct proc_mgr_stop_params));
 
 		if (WARN_ON(retval != 0))
 			goto func_exit;
-		retval = proc_mgr_stop(src_args.handle);
+		retval = proc_mgr_stop(src_args.handle, &params);
 		WARN_ON(retval < 0);
 	}
 	break;
