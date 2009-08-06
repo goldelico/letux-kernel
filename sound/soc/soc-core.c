@@ -1324,6 +1324,7 @@ int snd_soc_new_pcms(struct snd_soc_device *socdev, int idx, const char *xid)
 		return -ENODEV;
 	}
 
+	codec->socdev = socdev;
 	codec->card->dev = socdev->dev;
 	codec->card->private_data = codec;
 	strncpy(codec->card->driver, codec->name, sizeof(codec->card->driver));

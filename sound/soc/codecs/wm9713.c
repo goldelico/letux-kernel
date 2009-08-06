@@ -636,7 +636,7 @@ static unsigned int ac97_read(struct snd_soc_codec *codec,
 	else {
 		reg = reg >> 1;
 
-		if (reg > (ARRAY_SIZE(wm9713_reg)))
+		if (reg >= (ARRAY_SIZE(wm9713_reg)))
 			return -EIO;
 
 		return cache[reg];
@@ -650,7 +650,7 @@ static int ac97_write(struct snd_soc_codec *codec, unsigned int reg,
 	if (reg < 0x7c)
 		soc_ac97_ops.write(codec->ac97, reg, val);
 	reg = reg >> 1;
-	if (reg <= (ARRAY_SIZE(wm9713_reg)))
+	if (reg < (ARRAY_SIZE(wm9713_reg)))
 		cache[reg] = val;
 
 	return 0;

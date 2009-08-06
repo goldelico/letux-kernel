@@ -814,6 +814,17 @@ static int __init_or_module omap34xx_cfg_reg(const struct pin_config *cfg)
 #define omap34xx_cfg_reg	NULL
 #endif
 
+int __init omap2_mux_register(struct omap_mux_cfg *mux_cfg)
+{
+	if (cpu_is_omap24xx()) {
+		mux_cfg->cfg_reg	= omap24xx_cfg_reg;
+	} else if (cpu_is_omap34xx()) {
+		mux_cfg->cfg_reg	= omap34xx_cfg_reg;
+	}
+
+	return omap_mux_register(mux_cfg);
+}
+
 int __init omap2_mux_init(void)
 {
 	if (cpu_is_omap24xx()) {
@@ -825,6 +836,8 @@ int __init omap2_mux_init(void)
 		arch_mux_cfg.size	= OMAP34XX_PINS_SZ;
 		arch_mux_cfg.cfg_reg	= omap34xx_cfg_reg;
 	}
+
+	arch_mux_cfg.legacy = 1;
 
 	return omap_mux_register(&arch_mux_cfg);
 }

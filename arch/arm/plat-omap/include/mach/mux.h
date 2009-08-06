@@ -174,6 +174,8 @@
 	.mux_val	= mux_value				\
 },
 
+#define MUX_INITIALIZE	"MUX_INITIALIZE"
+
 struct pin_config {
 	char 			*name;
 	const unsigned int 	mux_reg;
@@ -945,8 +947,10 @@ enum omap34xx_index {
 };
 
 struct omap_mux_cfg {
+	struct list_head	list;
 	struct pin_config	*pins;
 	unsigned long		size;
+	unsigned int		legacy;
 	int			(*cfg_reg)(const struct pin_config *cfg);
 };
 
@@ -955,12 +959,16 @@ struct omap_mux_cfg {
 extern int omap1_mux_init(void);
 extern int omap2_mux_init(void);
 extern int omap_mux_register(struct omap_mux_cfg *);
+extern int omap2_mux_register(struct omap_mux_cfg *);
 extern int omap_cfg_reg(unsigned long reg_cfg);
+extern int omap_mux_config(const char *group);
 #else
 /* boot loader does it all (no warnings from CONFIG_OMAP_MUX_WARNINGS) */
 static inline int omap1_mux_init(void) { return 0; }
 static inline int omap2_mux_init(void) { return 0; }
+static inline int omap2_mux_register(struct omap_mux_cfg *) { return 0; }
 static inline int omap_cfg_reg(unsigned long reg_cfg) { return 0; }
+static inline int omap_mux_config(const char *group) { return 0; }
 #endif
 
 #endif
