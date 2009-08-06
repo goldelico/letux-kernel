@@ -855,7 +855,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		/* Mark buffer faulty. */
 		buf->vb_state = VIDEOBUF_ERROR;
 		ispccdc_lsc_error_handler(&isp->isp_ccdc);
-		dev_err(dev, "%s: lsc prefetch error\n", __func__);
+		dev_dbg(dev, "lsc prefetch error\n");
 	}
 
 	if (irqstatus & CSIA) {
@@ -872,7 +872,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		isp_reg_writel(dev, ispcsi1_irqstatus, OMAP3_ISP_IOMEM_CCP2,
 			       ISPCSI1_LC01_IRQSTATUS);
 		buf->vb_state = VIDEOBUF_ERROR;
-		dev_err(dev, "CCP2 err:%x\n", ispcsi1_irqstatus);
+		dev_dbg(dev, "CCP2 err:%x\n", ispcsi1_irqstatus);
 	}
 
 	if (irqstatus & RESZ_DONE) {
@@ -912,7 +912,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 			if (CCDC_PREV_RESZ_CAPTURE(isp)) {
 				if (ispresizer_busy(&isp->isp_res)) {
 					buf->vb_state = VIDEOBUF_ERROR;
-					dev_err(dev, "%s: resizer busy!\n", __func__);
+					dev_dbg(dev, "resizer busy.\n");
 				} else {
 					ispresizer_config_shadow_registers(
 						&isp->isp_res);
@@ -948,7 +948,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		isp->isp_af.buf_err = 1;
 		isp->isp_h3a.buf_err = 1;
 		isp_hist_mark_invalid_buf(&isp->isp_hist);
-		dev_info(dev, "sbl overflow, sbl_pcr = %8.8x\n", sbl_pcr);
+		dev_dbg(dev, "sbl overflow, sbl_pcr = %8.8x\n", sbl_pcr);
 	}
 
 	if (sbl_pcr & ISPSBL_PCR_H3A_AF_WBL_OVF) {
@@ -1111,11 +1111,9 @@ static u32 isp_tmp_buf_alloc(struct device *dev, size_t size)
 
 	isp_tmp_buf_free(dev);
 
-	dev_dbg(dev, "%s: allocating %d bytes\n", __func__, size);
-
 	da = iommu_vmalloc(isp->iommu, 0, size, IOMMU_FLAG);
 	if (IS_ERR_VALUE(da)) {
-		dev_err(dev, "iommu_vmap mapping failed ");
+		dev_err(dev, "iommu_vmap mapping failed\n");
 		return -ENOMEM;
 	}
 	isp->tmp_buf = da;
@@ -1177,8 +1175,7 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 	       || isppreview_busy(&isp->isp_prev)
 	       || ispresizer_busy(&isp->isp_res)) {
 		if (time_after(jiffies, timeout)) {
-			dev_err(dev, "%s: can't stop non-ccdc modules\n",
-			       __func__);
+			dev_info(dev, "can't stop non-ccdc modules.\n");
 			reset = 1;
 			break;
 		}
@@ -1191,7 +1188,7 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 	timeout = jiffies + ISP_STOP_TIMEOUT;
 	while (ispccdc_busy(&isp->isp_ccdc)) {
 		if (time_after(jiffies, timeout)) {
-			dev_err(dev, "%s: can't stop ccdc\n", __func__);
+			dev_info(dev, "can't stop ccdc module.\n");
 			reset = 1;
 			break;
 		}
@@ -1241,7 +1238,7 @@ static void isp_reset(struct device *dev)
 	while (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
 			       ISP_SYSSTATUS) & 0x1)) {
 		if (timeout++ > 10000) {
-			dev_alert(dev, "%s: cannot reset ISP\n", __func__);
+			dev_alert(dev, "cannot reset ISP\n");
 			break;
 		}
 		udelay(1);
@@ -1327,9 +1324,9 @@ static int isp_try_pipeline(struct device *dev,
 		pipe->ccdc_in_h = pix_input->height;
 		rval = ispccdc_try_pipeline(&isp->isp_ccdc, pipe);
 		if (rval) {
-			dev_err(dev, "the dimensions %dx%d are not"
-			       " supported\n", pix_input->width,
-			       pix_input->height);
+			dev_dbg(dev, "the dimensions %dx%d are not"
+				" supported\n", pix_input->width,
+				pix_input->height);
 			return rval;
 		}
 		pix_output->width = pipe->ccdc_out_w_img;
@@ -1341,9 +1338,9 @@ static int isp_try_pipeline(struct device *dev,
 	if (pipe->modules & OMAP_ISP_PREVIEW) {
 		rval = isppreview_try_pipeline(&isp->isp_prev, pipe);
 		if (rval) {
-			dev_err(dev, "the dimensions %dx%d are not"
-			       " supported\n", pix_input->width,
-			       pix_input->height);
+			dev_dbg(dev, "the dimensions %dx%d are not"
+				" supported\n", pix_input->width,
+				pix_input->height);
 			return rval;
 		}
 		pix_output->width = pipe->prv_out_w;
@@ -1360,9 +1357,9 @@ static int isp_try_pipeline(struct device *dev,
 
 		rval = ispresizer_try_pipeline(&isp->isp_res, pipe);
 		if (rval) {
-			dev_err(dev, "The dimensions %dx%d are not"
-			       " supported\n", pix_input->width,
-			       pix_input->height);
+			dev_dbg(dev, "The dimensions %dx%d are not"
+				" supported\n", pix_input->width,
+				pix_input->height);
 			return rval;
 		}
 
@@ -2357,8 +2354,7 @@ static int isp_suspend(struct platform_device *pdev, pm_message_t state)
 
 	DPRINTK_ISPCTRL("isp_suspend: starting\n");
 
-	if (mutex_is_locked(&isp->isp_mutex))
-		dev_err(&pdev->dev, "%s: bug: isp_mutex is locked\n", __func__);
+	WARN_ON(mutex_is_locked(&isp->isp_mutex));
 
 	if (isp->ref_count == 0)
 		goto out;
@@ -2383,9 +2379,6 @@ static int isp_resume(struct platform_device *pdev)
 	int ret_err = 0;
 
 	DPRINTK_ISPCTRL("isp_resume: starting\n");
-
-	if (mutex_is_locked(&isp->isp_mutex))
-		dev_err(&pdev->dev, "%s: bug: isp_mutex is locked\n", __func__);
 
 	if (isp->ref_count == 0)
 		goto out;
