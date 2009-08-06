@@ -299,7 +299,7 @@ u32 sysmgr_put_object_config(u16 proc_id, void *config, u32 cmd_id, u32 size)
 		if (entry->offset != -1) {
 			offset += entry->offset;
 			entry = (struct sysmgr_bootload_page_entry *)
-				((u32) &blp->slave_config + entry->offset);
+				((u32) &blp->host_config + entry->offset);
 		} else {
 			break;
 		}
@@ -327,7 +327,7 @@ u32 sysmgr_put_object_config(u16 proc_id, void *config, u32 cmd_id, u32 size)
 		entry->valid = SYSMGR_ENTRYVALIDSTAMP;
 
 		/* Attach the new created entry */
-		prev->offset = ((u32) entry - (u32) &blp->slave_config);
+		prev->offset = ((u32) entry - (u32) &blp->host_config);
 	}
 
 	/* return number of bytes wrote to the boot load page */
@@ -578,8 +578,7 @@ s32 sysmgr_destroy(void)
 	}
 
 	if (atomic_dec_return(&sysmgr_state.ref_count)
-			!= SYSMGR_MAKE_MAGICSTAMP(0))
-    {
+			!= SYSMGR_MAKE_MAGICSTAMP(0)) {
 		status = 1;
 		goto exit;
     }
@@ -775,6 +774,8 @@ void sysmgr_wait_for_scalability_info(u16 proc_id)
 
 	printk(KERN_ERR "sysmgr_wait_for_scalability_info: BF while temp->handshake:%x\n",
 		temp->handshake);
+
+	printk(KERN_ERR "Please break the platform and load Ducati image.\n");
 
 	while (temp->handshake != SYSMGR_SCALABILITYHANDSHAKESTAMP)
 		;

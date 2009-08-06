@@ -598,7 +598,7 @@ int proc_mgr_start(void *handle, u32 entry_point,
 #if defined CONFIG_SYSLINK_USE_SYSMGR
 	if (retval == 0) {
 		/* TBD: should be removed when notify local is implemepented */
-		platform_start_callback(proc_mgr_handle->proc_id);
+		platform_start_callback((void *)params->proc_id);
 	}
 #endif /* defined (CONFIG_SYSLINK_USE_SYSMGR)*/
 
