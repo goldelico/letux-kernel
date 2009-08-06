@@ -92,6 +92,7 @@ extern struct imx046_platform_data zoom2_lv8093_platform_data;
 #define ENABLE_VAUX3_DEDICATED  0x03
 #define ENABLE_VAUX3_DEV_GRP  	0x20
 #define TWL4030_MSECURE_GPIO	22
+#define WL127X_BTEN_GPIO	109
 
 static struct pin_config zoom2_mux_pins[] = {
 /*
@@ -859,9 +860,33 @@ static void config_hdmi_gpio(void)
 	omap_cfg_reg(C27_34XX_CAM_PCLK);
 }
 
+static int __init wl127x_vio_leakage_fix(void)
+{
+	int ret = 0;
+
+	ret = gpio_request(WL127X_BTEN_GPIO, "wl127x_bten");
+	if (ret < 0) {
+		printk(KERN_ERR "wl127x_bten gpio_%d request fail",
+						WL127X_BTEN_GPIO);
+		goto fail;
+	}
+
+	gpio_direction_output(WL127X_BTEN_GPIO, 1);
+	mdelay(10);
+	gpio_direction_output(WL127X_BTEN_GPIO, 0);
+	udelay(64);
+
+	gpio_free(WL127X_BTEN_GPIO);
+fail:
+	return ret;
+}
+
 static void __init omap_zoom2_init(void)
 {
 	omap_i2c_init();
+	/* Fix to prevent VIO leakage on wl127x */
+	wl127x_vio_leakage_fix();
+
 	platform_add_devices(zoom2_devices, ARRAY_SIZE(zoom2_devices));
 	omap_board_config = zoom2_config;
 	omap_board_config_size = ARRAY_SIZE(zoom2_config);
