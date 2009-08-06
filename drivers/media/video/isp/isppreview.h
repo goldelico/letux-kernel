@@ -267,6 +267,8 @@ void isppreview_config_chroma_suppression(struct ispprev_csup csup);
 
 void isppreview_enable_cfa(u8 enable);
 
+void isppreview_set_luma_enhancement(u32 *ytable);
+
 void isppreview_config_luma_enhancement(u32 *ytable);
 
 void isppreview_enable_luma_enhancement(u8 enable);
