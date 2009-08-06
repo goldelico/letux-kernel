@@ -423,6 +423,7 @@ s32 platform_setup(struct sysmgr_config *config)
 	struct proc4430_config proc_config;
 	struct proc_mgr_params params;
 	struct proc4430_params proc_params;
+	struct proc_mgr_attach_params attach_params;
 	u16 proc_id;
 	struct sysmemmgr_config sysmemmgr_cfg;
 	struct platform_mem_map_info info;
@@ -513,12 +514,63 @@ s32 platform_setup(struct sysmgr_config *config)
 		goto proc_mgr_create_fail;
 	}
 
+	proc_mgr_get_attach_params(NULL, &attach_params);
+	/* Default params will be used if NULL is passed. */
+	status = proc_mgr_attach(procmgr_handle, &attach_params);
+	if (status < 0) {
+		status = SYSMGR_E_FAIL;
+		goto proc_mgr_attach_fail;
+	}
+
+
 	/* SysM3 and AppM3 use the same handle */
 	procmgr_handle_sysm3 = procmgr_handle;
 	procmgr_proc_handle_sysm3 = procmgr_proc_handle;
 
+	procmgr_handle = NULL;
+	procmgr_proc_handle = NULL;
+
+
+
+	/* Get MultiProc ID by name. */
+	proc_id = multiproc_get_id("AppM3");
+
+	/* Create an instance of the Processor object for OMAP4430 */
+	proc4430_params_init(NULL, &proc_params);
+	proc_params.num_mem_entries = NUM_MEM_ENTRIES;
+	proc_params.mem_entries = mem_entries;
+	proc_params.reset_vector_mem_entry = RESET_VECTOR_ENTRY_ID;
+	procmgr_proc_handle = proc4430_create(proc_id, &proc_params);
+	if (procmgr_proc_handle == NULL) {
+		status = SYSMGR_E_FAIL;
+		goto proc_create_fail;
+	}
+
+	/* Initialize parameters */
+	proc_mgr_params_init(NULL, &params);
+	params.proc_handle = procmgr_proc_handle;
+	procmgr_handle = proc_mgr_create(proc_id, &params);
+	if (procmgr_handle == NULL) {
+		status = SYSMGR_E_FAIL;
+		goto proc_mgr_create_fail;
+	}
+
+	proc_mgr_get_attach_params(NULL, &attach_params);
+	/* Default params will be used if NULL is passed. */
+	status = proc_mgr_attach(procmgr_handle, &attach_params);
+	if (status < 0) {
+		status = SYSMGR_E_FAIL;
+		goto proc_mgr_attach_fail;
+	}
+
 	procmgr_handle_appm3 = procmgr_handle;
 	procmgr_proc_handle_appm3 = procmgr_proc_handle;
+	goto exit;
+
+proc_mgr_attach_fail:
+	printk(KERN_ERR "platform_setup: proc_mgr_attach failed [0x%x]"
+		" for processor [0x%x]\n", status, proc_id);
+	goto exit;
 
 proc_mgr_create_fail:
 	printk(KERN_ERR "platform_setup: proc_mgr_create failed [0x%x]",
@@ -1250,19 +1302,16 @@ void platform_stop_callback(void *arg)
 		}
 	}
 
-	if (index == SMHEAP_SRINDEX_APPM3) {
-		status = sharedregion_remove(SMHEAP_SRINDEX_APPM3);
-		if (status < 0) {
-			printk(KERN_ERR "platform_stop_callback : "
-				"sharedregion_remove failed [0x%x]", status);
-		}
+	status = sharedregion_remove(SMHEAP_SRINDEX_APPM3);
+	if (status < 0) {
+		printk(KERN_ERR "platform_stop_callback : "
+			"sharedregion_remove failed [0x%x]", status);
+	}
 
-	} else {
-		status = sharedregion_remove(SMHEAP_SRINDEX_SYSM3);
-		if (status < 0) {
-			printk(KERN_ERR "platform_stop_callback : "
-				"sharedregion_remove failed [0x%x]", status);
-		}
+	status = sharedregion_remove(SMHEAP_SRINDEX_SYSM3);
+	if (status < 0) {
+		printk(KERN_ERR "platform_stop_callback : "
+			"sharedregion_remove failed [0x%x]", status);
 	}
 
 	goto exit;
