@@ -402,9 +402,15 @@ int omap34xx_isp_af_request_statistics(struct isp_af_device *isp_af,
 EXPORT_SYMBOL(omap34xx_isp_af_request_statistics);
 
 /* This function will handle the AF buffer. */
-void isp_af_buf_process(struct isp_af_device *isp_af)
+int isp_af_buf_process(struct isp_af_device *isp_af)
 {
-	isp_af->buf_next = ispstat_buf_next(&isp_af->stat);
+	if (likely(!isp_af->buf_err)) {
+		isp_af->buf_next = ispstat_buf_next(&isp_af->stat);
+		return 0;
+	} else {
+		isp_af->buf_err = 0;
+		return -1;
+	}
 }
 
 static void __isp_af_enable(struct isp_af_device *isp_af, int enable)

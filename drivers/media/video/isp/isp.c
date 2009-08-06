@@ -789,6 +789,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 	u32 irqstatus = 0;
 	u32 sbl_pcr;
 	int wait_hs_vs = 0;
+	int ret;
 
 	if (isp->running == ISP_STOPPED)
 		return IRQ_NONE;
@@ -928,57 +929,10 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		}
 	}
 
-	if (irqstatus & H3A_AWB_DONE) {
-		isph3a_aewb_enable(&isp->isp_h3a, 0);
-		/* If it's busy we can't process this buffer anymore */
-		if (!isph3a_aewb_busy(&isp->isp_h3a)) {
-			isph3a_aewb_buf_process(&isp->isp_h3a);
-			isph3a_aewb_config_registers(&isp->isp_h3a);
-		} else {
-			dev_dbg(dev, "h3a: cannot process buffer, device is "
-				     "busy.\n");
-			irqstatus &= ~H3A_AWB_DONE;
-		}
-		isph3a_aewb_enable(&isp->isp_h3a, 1);
-	}
-
-	if (irqstatus & H3A_AF_DONE) {
-		isp_af_enable(&isp->isp_af, 0);
-		/* If it's busy we can't process this buffer anymore */
-		if (!isp_af_busy(&isp->isp_af)) {
-			isp_af_buf_process(&isp->isp_af);
-			isp_af_config_registers(&isp->isp_af);
-		} else {
-			dev_dbg(dev, "af: cannot process buffer, device is "
-				     "busy.\n");
-			irqstatus &= ~H3A_AF_DONE;
-		}
-		isp_af_enable(&isp->isp_af, 1);
-	}
-
-	if (irqstatus & HIST_DONE) {
-		int ret = HIST_NO_BUF;
-
-		isp_hist_enable(&isp->isp_hist, 0);
-		/* If it's busy we can't process this buffer anymore */
-		if (!isp_hist_busy(&isp->isp_hist)) {
-			ret = isp_hist_buf_process(&isp->isp_hist);
-			isp_hist_config_registers(&isp->isp_hist);
-		} else {
-			dev_dbg(dev, "hist: cannot process buffer, device is "
-				     "busy.\n");
-			/* current and next buffer might have invalid data */
-			isp_hist_mark_invalid_buf(&isp->isp_hist);
-			irqstatus &= ~HIST_DONE;
-		}
-		if (ret != HIST_BUF_WAITING_DMA)
-			isp_hist_enable(&isp->isp_hist, 1);
-		if (ret != HIST_BUF_DONE)
-			irqstatus &= ~HIST_DONE;
-	}
-
-	/* Handle shared buffer logic overflows for video buffers. */
-	/* ISPSBL_PCR_CCDCPRV_2_RSZ_OVF can be safely ignored. */
+	/*
+	 * Handle shared buffer logic overflows for video buffers.
+	 * ISPSBL_PCR_CCDCPRV_2_RSZ_OVF can be safely ignored.
+	 */
 	sbl_pcr = isp_reg_readl(dev, OMAP3_ISP_IOMEM_SBL, ISPSBL_PCR) &
 		~ISPSBL_PCR_CCDCPRV_2_RSZ_OVF;
 	isp_reg_writel(dev, sbl_pcr, OMAP3_ISP_IOMEM_SBL, ISPSBL_PCR);
@@ -991,8 +945,72 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 		       | ISPSBL_PCR_CSIA_WBL_OVF
 		       | ISPSBL_PCR_CSIB_WBL_OVF)) {
 		buf->vb_state = VIDEOBUF_ERROR;
-		dev_info(dev, "%s: sbl overflow, sbl_pcr = %8.8x\n",
-		       __func__, sbl_pcr);
+		isp->isp_af.buf_err = 1;
+		isp->isp_h3a.buf_err = 1;
+		isp_hist_mark_invalid_buf(&isp->isp_hist);
+		dev_info(dev, "sbl overflow, sbl_pcr = %8.8x\n", sbl_pcr);
+	}
+
+	if (sbl_pcr & ISPSBL_PCR_H3A_AF_WBL_OVF) {
+		dev_dbg(dev, "af: sbl overflow detected.\n");
+		isp->isp_af.buf_err = 1;
+	}
+
+	if (sbl_pcr & ISPSBL_PCR_H3A_AEAWB_WBL_OVF) {
+		dev_dbg(dev, "h3a: sbl overflow detected.\n");
+		isp->isp_h3a.buf_err = 1;
+	}
+
+	if (irqstatus & H3A_AWB_DONE) {
+		isph3a_aewb_enable(&isp->isp_h3a, 0);
+		/* If it's busy we can't process this buffer anymore */
+		if (!isph3a_aewb_busy(&isp->isp_h3a)) {
+			ret = isph3a_aewb_buf_process(&isp->isp_h3a);
+			isph3a_aewb_config_registers(&isp->isp_h3a);
+		} else {
+			ret = -1;
+			dev_dbg(dev, "h3a: cannot process buffer, device is "
+				     "busy.\n");
+		}
+		if (ret)
+			irqstatus &= ~H3A_AWB_DONE;
+		isph3a_aewb_enable(&isp->isp_h3a, 1);
+	}
+
+	if (irqstatus & H3A_AF_DONE) {
+		isp_af_enable(&isp->isp_af, 0);
+		/* If it's busy we can't process this buffer anymore */
+		if (!isp_af_busy(&isp->isp_af)) {
+			ret = isp_af_buf_process(&isp->isp_af);
+			isp_af_config_registers(&isp->isp_af);
+		} else {
+			ret = -1;
+			dev_dbg(dev, "af: cannot process buffer, device is "
+				     "busy.\n");
+		}
+		if (ret)
+			irqstatus &= ~H3A_AF_DONE;
+		isp_af_enable(&isp->isp_af, 1);
+	}
+
+	if (irqstatus & HIST_DONE) {
+		isp_hist_enable(&isp->isp_hist, 0);
+		/* If it's busy we can't process this buffer anymore */
+		if (!isp_hist_busy(&isp->isp_hist)) {
+			ret = isp_hist_buf_process(&isp->isp_hist);
+			isp_hist_config_registers(&isp->isp_hist);
+		} else {
+			dev_dbg(dev, "hist: cannot process buffer, device is "
+				     "busy.\n");
+			/* current and next buffer might have invalid data */
+			isp_hist_mark_invalid_buf(&isp->isp_hist);
+			irqstatus &= ~HIST_DONE;
+			ret = HIST_NO_BUF;
+		}
+		if (ret != HIST_BUF_WAITING_DMA)
+			isp_hist_enable(&isp->isp_hist, 1);
+		if (ret != HIST_BUF_DONE)
+			irqstatus &= ~HIST_DONE;
 	}
 
 	if (irqdis->isp_callbk[CBK_CATCHALL]) {

@@ -229,10 +229,16 @@ static int isph3a_aewb_get_stats(struct isp_h3a_device *isp_h3a,
 /**
  * isph3a_aewb_buf_process - Process H3A AEWB buffer.
  */
-void isph3a_aewb_buf_process(struct isp_h3a_device *isp_h3a)
+int isph3a_aewb_buf_process(struct isp_h3a_device *isp_h3a)
 {
 	isph3a_update_wb(isp_h3a);
-	isp_h3a->buf_next = ispstat_buf_next(&isp_h3a->stat);
+	if (likely(!isp_h3a->buf_err)) {
+		isp_h3a->buf_next = ispstat_buf_next(&isp_h3a->stat);
+		return 0;
+	} else {
+		isp_h3a->buf_err = 0;
+		return -1;
+	}
 }
 
 static int isph3a_aewb_validate_params(struct isp_h3a_device *isp_h3a,

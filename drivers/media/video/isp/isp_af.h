@@ -115,6 +115,7 @@
  */
 struct isp_af_device {
 	u8 update;
+	u8 buf_err;
 	int enabled;
 	struct ispstat stat;
 	struct af_configuration config; /*Device configuration structure */
@@ -122,7 +123,7 @@ struct isp_af_device {
 	spinlock_t *lock;
 };
 
-void isp_af_buf_process(struct isp_af_device *isp_af);
+int isp_af_buf_process(struct isp_af_device *isp_af);
 void isp_af_enable(struct isp_af_device *, int);
 void isp_af_try_enable(struct isp_af_device *isp_af);
 void isp_af_suspend(struct isp_af_device *);

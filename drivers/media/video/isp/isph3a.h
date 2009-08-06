@@ -116,6 +116,7 @@ struct isp_h3a_device {
 	spinlock_t *lock;		/* Lock for this struct */
 
 	u8 update;
+	u8 buf_err;
 	int enabled;
 	int wb_update;
 
@@ -150,7 +151,7 @@ void isph3a_aewb_resume(struct isp_h3a_device *isp_h3a);
 
 void isph3a_update_wb(struct isp_h3a_device *isp_h3a);
 
-void isph3a_aewb_buf_process(struct isp_h3a_device *isp_h3a);
+int isph3a_aewb_buf_process(struct isp_h3a_device *isp_h3a);
 
 void isph3a_aewb_config_registers(struct isp_h3a_device *isp_h3a);
 
