@@ -666,7 +666,7 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++)
 		ducati_isr_params[i] = NULL;
 	/* Initialize the maibox modulde for ducati */
-	if (ducati_mbox != NULL) {
+	if (ducati_mbox == NULL) {
 		ducati_mbox = omap_mbox_get("mailbox-2");
 		if (ducati_mbox == NULL) {
 			status = -ENODEV;
