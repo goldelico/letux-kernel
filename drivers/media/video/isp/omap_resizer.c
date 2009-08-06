@@ -280,7 +280,6 @@ static void rsz_hardware_setup(struct channel_config *rsz_conf_chan)
 
 /**
  * rsz_start - Enables Resizer Wrapper
- * @arg: Currently not used.
  * @device: Structure containing ISP resizer wrapper global information
  *
  * Submits a resizing task specified by the rsz_resize structure. The call can
@@ -292,7 +291,7 @@ static void rsz_hardware_setup(struct channel_config *rsz_conf_chan)
  * Returns 0 if successful, or -EINVAL if could not set callback for RSZR IRQ
  * event or the state of the channel is not configured.
  **/
-int rsz_start(int *arg, struct rsz_fh *fh)
+int rsz_start(struct rsz_fh *fh)
 {
 	struct channel_config *rsz_conf_chan = fh->config;
 	struct rsz_mult *multipass = fh->multipass;
@@ -1409,19 +1408,33 @@ static long rsz_unlocked_ioctl(struct file *file, unsigned int cmd,
 		mutex_unlock(&rsz_conf_chan->chanprotection_mutex);
 		break;
 	}
+
 	case RSZ_G_PARAM:
-		ret = rsz_get_params((struct rsz_params *)arg, rsz_conf_chan);
+	{
+		struct rsz_params params;
+
+		ret = rsz_get_params(&params, rsz_conf_chan);
+
+		if (copy_to_user((struct rsz_params *)arg, &params,
+					sizeof(struct rsz_params)))
+			ret = -EFAULT;
 		break;
+	}
 
 	case RSZ_G_STATUS:
 	{
-		struct rsz_status *status;
-		status = (struct rsz_status *)arg;
-		status->chan_busy = rsz_conf_chan->status;
-		status->hw_busy = ispresizer_busy();
-		status->src = INPUT_RAM;
+		struct rsz_status status;
+
+		status.chan_busy = rsz_conf_chan->status;
+		status.hw_busy = ispresizer_busy();
+		status.src = INPUT_RAM;
+
+		if (copy_to_user((struct rsz_status *)arg, &status,
+						sizeof(struct rsz_status)))
+			ret = -EFAULT;
 		break;
 	}
+
 	case RSZ_RESIZE:
 		if (file->f_flags & O_NONBLOCK) {
 			if (ispresizer_busy())
@@ -1434,12 +1447,21 @@ static long rsz_unlocked_ioctl(struct file *file, unsigned int cmd,
 			if (mutex_lock_interruptible(&device->reszwrap_mutex))
 				goto err_eintr;
 		}
-		ret = rsz_start((int *)arg, fh);
+		ret = rsz_start(fh);
 		mutex_unlock(&device->reszwrap_mutex);
 		break;
+
 	case RSZ_GET_CROPSIZE:
-		rsz_calculate_crop(rsz_conf_chan, (struct rsz_cropsize *)arg);
+	{
+		struct rsz_cropsize sz;
+
+		rsz_calculate_crop(rsz_conf_chan, &sz);
+
+		if (copy_to_user((struct rsz_cropsize *)arg, &sz,
+						sizeof(struct rsz_cropsize)))
+			ret = -EFAULT;
 		break;
+	}
 
 	default:
 		dev_err(rsz_device, "resizer_ioctl: Invalid Command Value");
