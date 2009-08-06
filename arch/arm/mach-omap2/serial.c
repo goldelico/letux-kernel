@@ -113,7 +113,7 @@ static struct plat_serial8250_port serial_platform_data[] = {
 #define QUART_CLK (1843200)
 #ifdef CONFIG_MACH_OMAP_ZOOM2
 	{
-		.membase        = 0,
+		.membase	= ZOOM2_QUART_VIRT,
 		.mapbase        = 0x10000000,
 		.irq            = OMAP_GPIO_IRQ(102),
 		.flags          = UPF_BOOT_AUTOCONF|UPF_IOREMAP|UPF_SHARE_IRQ|
@@ -342,6 +342,9 @@ static inline void omap_uart_disable_clocks(struct omap_uart_state *uart)
 	if (!uart->clocked)
 		return;
 
+	if (uart->num == 3)
+		return;
+
 	omap_uart_save_context(uart);
 	uart->clocked = 0;
 	clk_disable(uart->ick);
@@ -468,7 +471,7 @@ static void omap_uart_idle_init(struct omap_uart_state *uart)
 {
 	u32 v;
 	struct plat_serial8250_port *p = uart->p;
-	int ret;
+	int ret, irq_flags = 0;
 
 	uart->can_sleep = 0;
 	uart->timeout = sleep_timeout;
@@ -478,7 +481,8 @@ static void omap_uart_idle_init(struct omap_uart_state *uart)
 	omap_uart_smart_idle_enable(uart, 0);
 
 	if (cpu_is_omap34xx()) {
-		u32 mod = (uart->num == 2) ? OMAP3430_PER_MOD : CORE_MOD;
+		u32 mod = (uart->num == 2 || uart->num == 3) ?
+			OMAP3430_PER_MOD : CORE_MOD;
 		u32 wk_mask = 0;
 		u32 padconf = 0;
 
@@ -496,6 +500,11 @@ static void omap_uart_idle_init(struct omap_uart_state *uart)
 		case 2:
 			wk_mask = OMAP3430_ST_UART3_MASK;
 			padconf = 0x19e;
+			break;
+		case 3:
+			/* Revisit: Wakeup from EXT_UART not working yet */
+			wk_mask = OMAP3430_ST_GPIO4_MASK;
+			padconf = 0x11c;
 			break;
 		}
 		uart->wk_mask = wk_mask;
@@ -546,8 +555,15 @@ static void omap_uart_idle_init(struct omap_uart_state *uart)
 	}
 
 	p->flags |= UPF_SHARE_IRQ;
-	ret = request_irq(p->irq, omap_uart_interrupt, IRQF_SHARED,
+
+	if (p->flags & UPF_SHARE_IRQ)
+		irq_flags |= IRQF_SHARED;
+	if (p->flags & UPF_TRIGGER_HIGH)
+		irq_flags |= IRQF_TRIGGER_HIGH;
+
+	ret = request_irq(p->irq, omap_uart_interrupt, irq_flags,
 			  "serial idle", (void *)uart);
+
 	WARN_ON(ret);
 }
 
@@ -629,24 +645,31 @@ void __init omap_serial_init(void)
 			continue;
 		}
 
-		sprintf(name, "uart%d_ick", i+1);
-		uart->ick = clk_get(NULL, name);
-		if (IS_ERR(uart->ick)) {
-			printk(KERN_ERR "Could not get uart%d_ick\n", i+1);
-			uart->ick = NULL;
-		}
-
-		sprintf(name, "uart%d_fck", i+1);
-		uart->fck = clk_get(NULL, name);
-		if (IS_ERR(uart->fck)) {
-			printk(KERN_ERR "Could not get uart%d_fck\n", i+1);
-			uart->fck = NULL;
-		}
-
-		if (!uart->ick || !uart->fck)
-			continue;
-
 		uart->num = i;
+
+		if (uart->num < 3) {
+			sprintf(name, "uart%d_ick", i+1);
+			uart->ick = clk_get(NULL, name);
+			if (IS_ERR(uart->ick)) {
+				printk(KERN_ERR
+					"Could not get uart%d_ick\n", i+1);
+				uart->ick = NULL;
+			}
+
+			sprintf(name, "uart%d_fck", i+1);
+			uart->fck = clk_get(NULL, name);
+			if (IS_ERR(uart->fck)) {
+				printk(KERN_ERR
+					"Could not get uart%d_fck\n", i+1);
+				uart->fck = NULL;
+			}
+
+			if (!uart->ick || !uart->fck)
+				continue;
+		} else
+			/* EXT_UART clocks are free running */
+			uart->clocked = 1;
+
 		p->private_data = uart;
 		uart->p = p;
 		list_add(&uart->node, &uart_list);
