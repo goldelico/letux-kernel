@@ -489,8 +489,10 @@ static int __devexit omap34xx_bridge_remove(struct platform_device *pdev)
 		DBC_Assert(ret == true);
 	}
 
+#ifdef CONFIG_BRIDGE_DVFS
 	clk_put(clk_handle);
 	clk_handle = NULL;
+#endif
 
 func_cont:
 	SERVICES_Exit();
