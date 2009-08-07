@@ -540,6 +540,9 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 			goto out_release_mem_region;
 		}
 	}
+	/* If the board has an unlock function, use it */
+	if (pdata->unlock != NULL)
+	info->mtd.unlock	= pdata->unlock;
 
 #ifdef CONFIG_MTD_PARTITIONS
 	err = parse_mtd_partitions(&info->mtd, part_probes, &info->parts, 0);
