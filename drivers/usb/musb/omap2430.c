@@ -49,6 +49,9 @@
 
 static struct timer_list musb_idle_timer;
 
+void musb_link_save_context(struct otg_transceiver *xceiv);
+void musb_link_restore_context(struct otg_transceiver *xceiv);
+
 static void musb_do_idle(unsigned long _musb)
 {
 	struct musb	*musb = (void *)_musb;
@@ -280,6 +283,12 @@ int __init musb_platform_init(struct musb *musb)
 		musb->xceiv.set_power = omap_set_power;
 	musb->a_wait_bcon = MUSB_TIMEOUT_A_WAIT_BCON;
 
+	x->link_save_context = musb_link_save_context;
+	x->link_restore_context = musb_link_restore_context;
+	x->link = musb;
+
+	otg_put_transceiver(x);
+
 	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long) musb);
 
 	return 0;
@@ -439,10 +448,22 @@ void musb_platform_restore_context(struct musb *musb)
 
 }
 
+void musb_link_save_context(struct otg_transceiver *xceiv)
+{
+	musb_platform_save_context(xceiv->link);
+}
+
+void musb_link_restore_context(struct otg_transceiver *xceiv)
+{
+	musb_platform_restore_context(musb);
+}
+
 #else
 
 #define musb_platform_save_context	do {} while (0)
 #define musb_platform_restore_context	do {} while (0)
+#define musb_link_save_context	do {} while (0)
+#define musb_link_restore_context	do {} while (0)
 
 #endif
 
@@ -502,6 +523,7 @@ static int musb_platform_resume(struct musb *musb)
 
 int musb_platform_exit(struct musb *musb)
 {
+	struct otg_transceiver *x = otg_get_transceiver();
 
 	omap_vbus_power(musb, 0 /*off*/, 1);
 
@@ -509,6 +531,12 @@ int musb_platform_exit(struct musb *musb)
 
 	clk_put(musb->clock);
 	musb->clock = 0;
+
+	x->link_save_context = NULL;
+	x->link_restore_context = NULL;
+	x->link = NULL;
+
+	otg_put_transceiver(x);
 
 	return 0;
 }
