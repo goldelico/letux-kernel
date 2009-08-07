@@ -126,30 +126,22 @@ DSP_STATUS CHNLSM_InterruptDSP2(struct WMD_DEV_CONTEXT *pDevContext,
 
 	if (pDevContext->dwBrdState == BRD_DSP_HIBERNATION ||
 	    pDevContext->dwBrdState == BRD_HIBERNATION) {
-		/* Restart the IVA clock that was disabled while
-		 * the DSP initiated Hibernation. */
-			status = CLK_Enable(SERVICESCLK_iva2_ck);
-			if (DSP_FAILED(status))
-				return status;
+		/* Restart the peripheral clocks */
+		DSP_PeripheralClocks_Enable(pDevContext, NULL);
 
 		/* Restore mailbox settings */
-		/* Restart the peripheral clocks that were disabled only
-		 * in DSP initiated Hibernation case.*/
-		if (pDevContext->dwBrdState == BRD_DSP_HIBERNATION) {
-			DSP_PeripheralClocks_Enable(pDevContext, NULL);
-			/* Enabling Dpll in lock mode*/
-			temp = (u32) *((REG_UWORD32 *)
-				       ((u32) (resources.dwCmBase) + 0x34));
-			temp = (temp & 0xFFFFFFFE) | 0x1;
-			*((REG_UWORD32 *) ((u32) (resources.dwCmBase) + 0x34)) =
-				(u32) temp;
-			temp = (u32) *((REG_UWORD32 *)
-				       ((u32) (resources.dwCmBase) + 0x4));
-			temp = (temp & 0xFFFFFC8) | 0x37;
+		/* Enabling Dpll in lock mode*/
+		temp = (u32) *((REG_UWORD32 *)
+				((u32) (resources.dwCmBase) + 0x34));
+		temp = (temp & 0xFFFFFFFE) | 0x1;
+		*((REG_UWORD32 *) ((u32) (resources.dwCmBase) + 0x34)) =
+			(u32) temp;
+		temp = (u32) *((REG_UWORD32 *)
+				((u32) (resources.dwCmBase) + 0x4));
+		temp = (temp & 0xFFFFFC8) | 0x37;
 
-			*((REG_UWORD32 *) ((u32) (resources.dwCmBase) + 0x4)) =
-				(u32) temp;
-		}
+		*((REG_UWORD32 *) ((u32) (resources.dwCmBase) + 0x4)) =
+			(u32) temp;
 		HW_MBOX_restoreSettings(resources.dwMboxBase);
 
 		/*  Access MMU SYS CONFIG register to generate a short wakeup */

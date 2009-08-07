@@ -144,27 +144,11 @@
 #define MAX_STREAMS     16
 #define MAX_BUFS	64
 
-/* Following two macros should ideally have do{}while(0) */
+#define cp_fm_usr(to, from, err, n)				\
+	__cp_fm_usr(to, from, &(err), (n) * sizeof(*(to)))
 
-#define cp_fm_usr(dest, src, status, elements)    \
-    if (DSP_SUCCEEDED(status)) {\
-	    if (unlikely(src == NULL) ||				\
-		unlikely(copy_from_user(dest, src, elements * sizeof(*(dest))))) { \
-		GT_1trace(WCD_debugMask, GT_7CLASS, \
-		"copy_from_user failed, src=0x%x\n", src);  \
-		status = DSP_EPOINTER ; \
-	} \
-    }
-
-#define cp_to_usr(dest, src, status, elements)    \
-    if (DSP_SUCCEEDED(status)) {\
-	    if (unlikely(dest == NULL) ||				\
-		unlikely(copy_to_user(dest, src, elements * sizeof(*(src))))) { \
-		GT_1trace(WCD_debugMask, GT_7CLASS, \
-		"copy_to_user failed, dest=0x%x\n", dest); \
-		status = DSP_EPOINTER ;\
-	} \
-    }
+#define cp_to_usr(to, from, err, n)				\
+	__cp_to_usr(to, from, &(err), (n) * sizeof(*(from)))
 
 /* Device IOCtl function pointer */
 struct WCD_Cmd {
@@ -246,6 +230,43 @@ static struct WCD_Cmd WCD_cmdTable[] = {
 	{CMMWRAP_GetHandle, CMD_CMM_GETHANDLE_OFFSET},
 	{CMMWRAP_GetInfo, CMD_CMM_GETINFO_OFFSET}
 };
+
+static inline void __cp_fm_usr(void *to, const void __user *from,
+			       DSP_STATUS *err, unsigned long bytes)
+{
+	if (DSP_FAILED(*err))
+		return;
+
+	if (unlikely(!from)) {
+		*err = DSP_EPOINTER;
+		return;
+	}
+
+	if (unlikely(copy_from_user(to, from, bytes))) {
+		GT_2trace(WCD_debugMask, GT_7CLASS,
+			  "%s failed, from=0x%08x\n", __func__, from);
+		*err = DSP_EPOINTER;
+	}
+}
+
+
+static inline void __cp_to_usr(void __user *to, const void *from,
+			       DSP_STATUS *err, unsigned long bytes)
+{
+	if (DSP_FAILED(*err))
+		return;
+
+	if (unlikely(!to)) {
+		*err = DSP_EPOINTER;
+		return;
+	}
+
+	if (unlikely(copy_to_user(to, from, bytes))) {
+		GT_2trace(WCD_debugMask, GT_7CLASS,
+			  "%s failed, to=0x%08x\n", __func__, to);
+		*err = DSP_EPOINTER;
+	}
+}
 
 /*
  *  ======== WCD_CallDevIOCtl ========
@@ -527,8 +548,9 @@ u32 MGRWRAP_RegisterObject(union Trapped_Args *args)
 	cp_fm_usr(&pUuid, args->ARGS_MGR_REGISTEROBJECT.pUuid, status, 1);
 	if (DSP_FAILED(status))
 		goto func_end;
+	/* pathSize is increased by 1 to accommodate NULL */
 	pathSize = strlen_user((char *)
-				args->ARGS_MGR_REGISTEROBJECT.pszPathName);
+			args->ARGS_MGR_REGISTEROBJECT.pszPathName) + 1;
 	pszPathName = MEM_Alloc(pathSize, MEM_NONPAGED);
 	if (!pszPathName)
 		goto func_end;
@@ -539,7 +561,6 @@ u32 MGRWRAP_RegisterObject(union Trapped_Args *args)
 		status = DSP_EPOINTER;
 		goto func_end;
 	}
-	pszPathName[pathSize] = '\0';
 
 	GT_1trace(WCD_debugMask, GT_ENTER,
 		 "MGRWRAP_RegisterObject: entered pg2hMsg "
@@ -879,98 +900,115 @@ u32 PROCWRAP_Load(union Trapped_Args *args)
 {
 	s32 i, len;
 	DSP_STATUS status = DSP_SOK;
-       char *temp;
-	s32 argc = args->ARGS_PROC_LOAD.iArgc;
+	char *temp;
+	s32 count = args->ARGS_PROC_LOAD.iArgc;
 	u8 **argv, **envp = NULL;
 
+	DBC_Require(count > 0);
+	DBC_Require(count <= MAX_LOADARGS);
 
-	DBC_Require(argc > 0);
-	DBC_Require(argc <= MAX_LOADARGS);
-
-	argv = MEM_Alloc(argc * sizeof(u8 *), MEM_NONPAGED);
-	if (argv == NULL)
+	argv = MEM_Alloc(count * sizeof(u8 *), MEM_NONPAGED);
+	if (!argv) {
 		status = DSP_EMEMORY;
-
-	cp_fm_usr(argv, args->ARGS_PROC_LOAD.aArgv, status, argc);
-	if (DSP_FAILED(status))
 		goto func_cont;
+	}
 
-	for (i = 0; DSP_SUCCEEDED(status) && (i < argc); i++) {
-		if (argv[i] != NULL) {
+	cp_fm_usr(argv, args->ARGS_PROC_LOAD.aArgv, status, count);
+	if (DSP_FAILED(status)) {
+		MEM_Free(argv);
+		argv = NULL;
+		goto func_cont;
+	}
+
+	for (i = 0; i < count; i++) {
+		if (argv[i]) {
 			/* User space pointer to argument */
 			temp = (char *) argv[i];
-			len = strlen_user((char *)temp);
+			/* len is increased by 1 to accommodate NULL */
+			len = strlen_user((char *)temp) + 1;
 			/* Kernel space pointer to argument */
 			argv[i] = MEM_Alloc(len, MEM_NONPAGED);
-			if (argv[i] == NULL) {
+			if (argv[i]) {
+				cp_fm_usr(argv[i], temp, status, len);
+				if (DSP_FAILED(status)) {
+					MEM_Free(argv[i]);
+					argv[i] = NULL;
+					goto func_cont;
+				}
+			} else {
 				status = DSP_EMEMORY;
-				break;
-			}
-			cp_fm_usr(argv[i], temp, status, len);
-			if (DSP_FAILED(status))
 				goto func_cont;
-
+			}
 		}
 	}
 	/* TODO: validate this */
-	if (args->ARGS_PROC_LOAD.aEnvp != NULL) {
+	if (args->ARGS_PROC_LOAD.aEnvp) {
 		/* number of elements in the envp array including NULL */
-		len = 0;
+		count = 0;
 		do {
-			len++;
-			get_user(temp, args->ARGS_PROC_LOAD.aEnvp);
+			get_user(temp, args->ARGS_PROC_LOAD.aEnvp + count);
+			count++;
 		} while (temp);
-		envp = MEM_Alloc(len * sizeof(u8 *), MEM_NONPAGED);
-		if (envp == NULL) {
+		envp = MEM_Alloc(count * sizeof(u8 *), MEM_NONPAGED);
+		if (!envp) {
 			status = DSP_EMEMORY;
 			goto func_cont;
 		}
 
-		cp_fm_usr(envp, args->ARGS_PROC_LOAD.aEnvp, status, len);
-		if (DSP_FAILED(status))
+		cp_fm_usr(envp, args->ARGS_PROC_LOAD.aEnvp, status, count);
+		if (DSP_FAILED(status)) {
+			MEM_Free(envp);
+			envp = NULL;
 			goto func_cont;
-		for (i = 0; DSP_SUCCEEDED(status) && (envp[i] != NULL); i++) {
+		}
+		for (i = 0; envp[i]; i++) {
 			/* User space pointer to argument */
 			temp = (char *)envp[i];
-			len = strlen_user((char *)temp);
+			/* len is increased by 1 to accommodate NULL */
+			len = strlen_user((char *)temp) + 1;
 			/* Kernel space pointer to argument */
 			envp[i] = MEM_Alloc(len, MEM_NONPAGED);
-			if (envp[i] == NULL) {
+			if (envp[i]) {
+				cp_fm_usr(envp[i], temp, status, len);
+				if (DSP_FAILED(status)) {
+					MEM_Free(envp[i]);
+					envp[i] = NULL;
+					goto func_cont;
+				}
+			} else {
 				status = DSP_EMEMORY;
-				break;
-			}
-			cp_fm_usr(envp[i], temp, status, len);
-			if (DSP_FAILED(status))
 				goto func_cont;
+			}
 		}
 	}
 	GT_5trace(WCD_debugMask, GT_ENTER,
-		 "PROCWRAP_Load, hProcessor: 0x%x\n\tiArgc:"
-		 "0x%x\n\taArgv: 0x%x\n\taArgv[0]: %s\n\taEnvp: 0x%0x\n",
-		 args->ARGS_PROC_LOAD.hProcessor,
-		 args->ARGS_PROC_LOAD.iArgc, args->ARGS_PROC_LOAD.aArgv,
-		 argv[0], args->ARGS_PROC_LOAD.aEnvp);
+		"PROCWRAP_Load, hProcessor: 0x%x\n\tiArgc:"
+		"0x%x\n\taArgv: 0x%x\n\taArgv[0]: %s\n\taEnvp: 0x%0x\n",
+		args->ARGS_PROC_LOAD.hProcessor,
+		args->ARGS_PROC_LOAD.iArgc, args->ARGS_PROC_LOAD.aArgv,
+		argv[0], args->ARGS_PROC_LOAD.aEnvp);
 	if (DSP_SUCCEEDED(status)) {
 		status = PROC_Load(args->ARGS_PROC_LOAD.hProcessor,
-				  args->ARGS_PROC_LOAD.iArgc,
-				  (CONST char **)argv, (CONST char **)envp);
+				args->ARGS_PROC_LOAD.iArgc,
+				(CONST char **)argv, (CONST char **)envp);
 	}
 func_cont:
-	if (envp != NULL) {
+	if (envp) {
 		i = 0;
-		while (envp[i] != NULL)
+		while (envp[i])
 			MEM_Free(envp[i++]);
 
 		MEM_Free(envp);
 	}
-	if (argv != NULL) {
-		for (i = 0; i < argc; i++) {
-			if (argv[i] != NULL)
-				MEM_Free(argv[i]);
 
-		}
+	if (argv) {
+		count = args->ARGS_PROC_LOAD.iArgc;
+		for (i = 0; (i < count) && argv[i]; i++)
+			MEM_Free(argv[i]);
+
 		MEM_Free(argv);
 	}
+
 	return status;
 }
 

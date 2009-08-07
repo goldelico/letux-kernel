@@ -2032,15 +2032,21 @@ DSP_STATUS PROC_NotifyAllClients(DSP_HPROCESSOR hProc, u32 uEvents)
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProc;
 
-	DBC_Require(MEM_IsValidHandle(pProcObject, PROC_SIGNATURE));
 	DBC_Require(IsValidProcEvent(uEvents));
 	DBC_Require(cRefs > 0);
+
+	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
+		status = DSP_EHANDLE;
+		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_NotifyAllClients: "
+			 "InValid Processor Handle \n");
+		goto func_end;
+	}
 
 	DEV_NotifyClients(pProcObject->hDevObject, uEvents);
 
 	GT_0trace(PROC_DebugMask, GT_1CLASS,
 		 "PROC_NotifyAllClients :Signaled. \n");
-
+func_end:
 	return status;
 }
 

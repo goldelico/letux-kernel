@@ -86,11 +86,15 @@ DSP_STATUS WMD_MSG_Create(OUT struct MSG_MGR **phMsgMgr,
 	struct IO_MGR *hIOMgr;
 	DSP_STATUS status = DSP_SOK;
 
-	DBC_Require(phMsgMgr != NULL);
-	DBC_Require(msgCallback != NULL);
-	DBC_Require(hDevObject != NULL);
+	if (!phMsgMgr || !msgCallback || !hDevObject) {
+		status = DSP_EPOINTER;
+		goto func_end;
+	}
 	DEV_GetIOMgr(hDevObject, &hIOMgr);
-	DBC_Assert(hIOMgr != NULL);
+	if(!hIOMgr) {
+		status = DSP_EPOINTER;
+		goto func_end;
+	}
 	*phMsgMgr = NULL;
 	/* Allocate MSG manager object */
 	MEM_AllocObject(pMsgMgr, struct MSG_MGR, MSGMGR_SIGNATURE);
@@ -125,6 +129,7 @@ DSP_STATUS WMD_MSG_Create(OUT struct MSG_MGR **phMsgMgr,
 	} else {
 		status = DSP_EMEMORY;
 	}
+func_end:
 	return status;
 }
 
@@ -142,8 +147,11 @@ DSP_STATUS WMD_MSG_CreateQueue(struct MSG_MGR *hMsgMgr,
 	struct MSG_QUEUE *pMsgQ;
 	DSP_STATUS status = DSP_SOK;
 
-	DBC_Require(MEM_IsValidHandle(hMsgMgr, MSGMGR_SIGNATURE));
-	DBC_Require(phMsgQueue != NULL);
+	if (!MEM_IsValidHandle(hMsgMgr, MSGMGR_SIGNATURE) ||
+	   phMsgQueue == NULL) {
+		status = DSP_EMEMORY;
+		goto func_end;
+	}
 
 	*phMsgQueue = NULL;
 	/* Allocate MSG_QUEUE object */
@@ -226,9 +234,8 @@ func_end:
  */
 void WMD_MSG_Delete(struct MSG_MGR *hMsgMgr)
 {
-	DBC_Require(MEM_IsValidHandle(hMsgMgr, MSGMGR_SIGNATURE));
-
-	DeleteMsgMgr(hMsgMgr);
+	if (MEM_IsValidHandle(hMsgMgr, MSGMGR_SIGNATURE))
+		DeleteMsgMgr(hMsgMgr);
 }
 
 /*
@@ -237,10 +244,14 @@ void WMD_MSG_Delete(struct MSG_MGR *hMsgMgr)
  */
 void WMD_MSG_DeleteQueue(struct MSG_QUEUE *hMsgQueue)
 {
-	struct MSG_MGR *hMsgMgr = hMsgQueue->hMsgMgr;
+	struct MSG_MGR *hMsgMgr;
 	u32 refCount;
 
-	DBC_Require(MEM_IsValidHandle(hMsgQueue, MSGQ_SIGNATURE));
+	if (!MEM_IsValidHandle(hMsgQueue, MSGQ_SIGNATURE) ||
+			!hMsgQueue->hMsgMgr)
+		goto func_end;
+
+	hMsgMgr = hMsgQueue->hMsgMgr;
 	hMsgQueue->fDone = true;
 	 /*  Unblock all threads blocked in MSG_Get() or MSG_Put().  */
 	refCount = hMsgQueue->refCount;
@@ -262,6 +273,8 @@ void WMD_MSG_DeleteQueue(struct MSG_QUEUE *hMsgQueue)
 		SYNC_ResetEvent(hMsgMgr->hSyncEvent);
 func_cont:
 	(void)SYNC_LeaveCS(hMsgMgr->hSyncCS);
+func_end:
+	return;
 }
 
 /*
@@ -278,8 +291,10 @@ DSP_STATUS WMD_MSG_Get(struct MSG_QUEUE *hMsgQueue,
 	u32 uIndex;
 	DSP_STATUS status = DSP_SOK;
 
-	DBC_Require(MEM_IsValidHandle(hMsgQueue, MSGQ_SIGNATURE));
-	DBC_Require(pMsg != NULL);
+	if (!MEM_IsValidHandle(hMsgQueue, MSGQ_SIGNATURE) || pMsg == NULL) {
+		status = DSP_EMEMORY;
+		goto func_end;
+	}
 
 	hMsgMgr = hMsgQueue->hMsgMgr;
        if (!hMsgQueue->msgUsedList) {
@@ -371,11 +386,12 @@ DSP_STATUS WMD_MSG_Put(struct MSG_QUEUE *hMsgQueue,
 	u32 uIndex;
 	DSP_STATUS status = DSP_SOK;
 
-	DBC_Require(MEM_IsValidHandle(hMsgQueue, MSGQ_SIGNATURE));
-	DBC_Require(pMsg != NULL);
-
+	if (!MEM_IsValidHandle(hMsgQueue, MSGQ_SIGNATURE) || !pMsg ||
+						!hMsgQueue->hMsgMgr) {
+		status = DSP_EMEMORY;
+		goto func_end;
+	}
 	hMsgMgr = hMsgQueue->hMsgMgr;
-
        if (!hMsgMgr->msgFreeList) {
                status = DSP_EHANDLE;
                goto func_end;
@@ -474,10 +490,20 @@ DSP_STATUS WMD_MSG_RegisterNotify(struct MSG_QUEUE *hMsgQueue, u32 uEventMask,
 {
 	DSP_STATUS status = DSP_SOK;
 
-	DBC_Require(MEM_IsValidHandle(hMsgQueue, MSGQ_SIGNATURE));
-	DBC_Require(hNotification != NULL);
-	DBC_Require(uEventMask == DSP_NODEMESSAGEREADY || uEventMask == 0);
-	DBC_Require(uNotifyType == DSP_SIGNALEVENT);
+	if (!MEM_IsValidHandle(hMsgQueue, MSGQ_SIGNATURE) || !hNotification) {
+		status = DSP_EMEMORY;
+		goto func_end;
+	}
+
+	if (!(uEventMask == DSP_NODEMESSAGEREADY || uEventMask == 0)) {
+		status = DSP_ENODETYPE;
+		goto func_end;
+	}
+
+	if (uNotifyType != DSP_SIGNALEVENT) {
+		status = DSP_EWRONGSTATE;
+		goto func_end;
+	}
 
 	status = NTFY_Register(hMsgQueue->hNtfy, hNotification, uEventMask,
 			      uNotifyType);
@@ -488,7 +514,7 @@ DSP_STATUS WMD_MSG_RegisterNotify(struct MSG_QUEUE *hMsgQueue, u32 uEventMask,
 		 *  by NODE, and message ready handled by MSG.  */
 		status = DSP_SOK;
 	}
-
+func_end:
 	return status;
 }
 
@@ -497,9 +523,6 @@ DSP_STATUS WMD_MSG_RegisterNotify(struct MSG_QUEUE *hMsgQueue, u32 uEventMask,
  */
 void WMD_MSG_SetQueueId(struct MSG_QUEUE *hMsgQueue, u32 dwId)
 {
-	DBC_Require(MEM_IsValidHandle(hMsgQueue, MSGQ_SIGNATURE));
-	/* DBC_Require(dwId != 0); */
-
 	/*
 	 *  A message queue must be created when a node is allocated,
 	 *  so that NODE_RegisterNotify() can be called before the node
@@ -507,7 +530,8 @@ void WMD_MSG_SetQueueId(struct MSG_QUEUE *hMsgQueue, u32 dwId)
 	 *  node is created, we need this function to set hMsgQueue->dwId
 	 *  to the node environment, after the node is created.
 	 */
-	hMsgQueue->dwId = dwId;
+	if (MEM_IsValidHandle(hMsgQueue, MSGQ_SIGNATURE))
+		hMsgQueue->dwId = dwId;
 }
 
 /*
@@ -536,7 +560,8 @@ static DSP_STATUS AddNewMsg(struct LST_LIST *msgList)
  */
 static void DeleteMsgMgr(struct MSG_MGR *hMsgMgr)
 {
-	DBC_Require(MEM_IsValidHandle(hMsgMgr, MSGMGR_SIGNATURE));
+	if (!MEM_IsValidHandle(hMsgMgr, MSGMGR_SIGNATURE))
+		goto func_end;
 
 	if (hMsgMgr->queueList) {
                if (LST_IsEmpty(hMsgMgr->queueList)) {
@@ -562,6 +587,8 @@ static void DeleteMsgMgr(struct MSG_MGR *hMsgMgr)
 		SYNC_DeleteCS(hMsgMgr->hSyncCS);
 
 	MEM_FreeObject(hMsgMgr);
+func_end:
+	return;
 }
 
 /*

@@ -1833,11 +1833,13 @@ DSP_STATUS NODE_DeleteMgr(struct NODE_MGR *hNodeMgr)
 	DSP_STATUS status = DSP_SOK;
 
 	DBC_Require(cRefs > 0);
-	DBC_Require(MEM_IsValidHandle(hNodeMgr, NODEMGR_SIGNATURE));
 
 	GT_1trace(NODE_debugMask, GT_ENTER, "NODE_DeleteMgr: hNodeMgr: 0x%x\n",
 		 hNodeMgr);
-	DeleteNodeMgr(hNodeMgr);
+	if (MEM_IsValidHandle(hNodeMgr, NODEMGR_SIGNATURE))
+		DeleteNodeMgr(hNodeMgr);
+	else
+		status = DSP_EHANDLE;
 
 	return status;
 }
@@ -1855,7 +1857,6 @@ DSP_STATUS NODE_EnumNodes(struct NODE_MGR *hNodeMgr, IN DSP_HNODE *aNodeTab,
 	u32 i;
 	DSP_STATUS status = DSP_SOK;
 	DBC_Require(cRefs > 0);
-	DBC_Require(MEM_IsValidHandle(hNodeMgr, NODEMGR_SIGNATURE));
 	DBC_Require(aNodeTab != NULL || uNodeTabSize == 0);
 	DBC_Require(puNumNodes != NULL);
 	DBC_Require(puAllocated != NULL);
@@ -1863,6 +1864,10 @@ DSP_STATUS NODE_EnumNodes(struct NODE_MGR *hNodeMgr, IN DSP_HNODE *aNodeTab,
 		 "aNodeTab: %d\tuNodeTabSize: 0x%x\tpuNumNodes: 0x%x\t"
 		 "puAllocated\n", hNodeMgr, aNodeTab, uNodeTabSize, puNumNodes,
 		 puAllocated);
+	if (!MEM_IsValidHandle(hNodeMgr, NODEMGR_SIGNATURE)) {
+		status = DSP_EHANDLE;
+		goto func_end;
+	}
 	/* Enter critical section */
 	status = SYNC_EnterCS(hNodeMgr->hSync);
 	if (DSP_SUCCEEDED(status)) {
@@ -1887,6 +1892,7 @@ DSP_STATUS NODE_EnumNodes(struct NODE_MGR *hNodeMgr, IN DSP_HNODE *aNodeTab,
 	/* end of SYNC_EnterCS */
 	/* Exit critical section */
 	(void)SYNC_LeaveCS(hNodeMgr->hSync);
+func_end:
 	return status;
 }
 
@@ -2262,7 +2268,9 @@ bool NODE_Init(void)
  */
 void NODE_OnExit(struct NODE_OBJECT *hNode, s32 nStatus)
 {
-	DBC_Assert(MEM_IsValidHandle(hNode, NODE_SIGNATURE));
+	if (!MEM_IsValidHandle(hNode, NODE_SIGNATURE)) {
+		return;
+	}
 	/* Set node state to done */
 	NODE_SetState(hNode, NODE_DONE);
 	hNode->nExitStatus = nStatus;
@@ -2576,6 +2584,10 @@ DSP_STATUS NODE_Run(struct NODE_OBJECT *hNode)
 		goto func_end;
 
 	hNodeMgr = hNode->hNodeMgr;
+	if (!MEM_IsValidHandle(hNodeMgr, NODEMGR_SIGNATURE)) {
+		status = DSP_EHANDLE;
+		goto func_end;
+	}
 	pIntfFxns = hNodeMgr->pIntfFxns;
 	/* Enter critical section */
 	status = SYNC_EnterCS(hNodeMgr->hSync);
@@ -2825,10 +2837,11 @@ static void DeleteNode(struct NODE_OBJECT *hNode)
 			(struct PROC_OBJECT *)hNode->hProcessor;
 #endif
 	DSP_STATUS status;
-	DBC_Require(MEM_IsValidHandle(hNode, NODE_SIGNATURE));
+	if (!MEM_IsValidHandle(hNode, NODE_SIGNATURE))
+		goto func_end;
 	hNodeMgr = hNode->hNodeMgr;
-       if (!MEM_IsValidHandle(hNodeMgr, NODEMGR_SIGNATURE))
-               return;
+	if (!MEM_IsValidHandle(hNodeMgr, NODEMGR_SIGNATURE))
+		goto func_end;
 	hXlator = hNode->hXlator;
 	nodeType = NODE_GetType(hNode);
 	if (nodeType != NODE_DEVICE) {
@@ -2963,9 +2976,11 @@ static void DeleteNode(struct NODE_OBJECT *hNode)
 		hNodeMgr->nldrFxns.pfnFree(hNode->hNldrNode);
                hNode->hNldrNode = NULL;
        }
-
+	hNode->hNodeMgr = NULL;
 	MEM_FreeObject(hNode);
-       hNode = NULL;
+	hNode = NULL;
+func_end:
+	return;
 }
 
 /*
