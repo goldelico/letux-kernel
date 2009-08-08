@@ -257,7 +257,7 @@ static int isp_hist_buf_dma(struct isp_hist_device *isp_hist)
 	dma_addr_t dma_addr = isp_hist->active_buf->dma_addr;
 
 	if (!dma_addr) {
-		dev_info(dev, "hist: invalid DMA buffer address\n");
+		dev_dbg(dev, "hist: invalid DMA buffer address\n");
 		isp_hist_reset_mem(isp_hist);
 		return HIST_NO_BUF;
 	}
@@ -281,7 +281,7 @@ static int isp_hist_buf_pio(struct isp_hist_device *isp_hist)
 	unsigned int i;
 
 	if (!buf) {
-		dev_info(dev, "hist: invalid PIO buffer address\n");
+		dev_dbg(dev, "hist: invalid PIO buffer address\n");
 		isp_hist_reset_mem(isp_hist);
 		return HIST_NO_BUF;
 	}
@@ -572,16 +572,14 @@ int omap34xx_isp_hist_config(struct isp_hist_device *isp_hist,
 			  HIST_MEM_SIZE_BINS(128), HIST_MEM_SIZE_BINS(256) };
 
 	if (!histcfg) {
-		dev_info(dev,
-			"hist: Null argument in configuration.\n");
+		dev_dbg(dev, "hist: Null argument in configuration.\n");
 		return -EINVAL;
 	}
 
 	/* Check Parameters */
 	ret = isp_hist_validate_params(histcfg);
 	if (ret) {
-		dev_dbg(dev, "hist: wrong configure params "
-				       "received.\n");
+		dev_dbg(dev, "hist: wrong configure params received.\n");
 		return ret;
 	}
 
@@ -610,7 +608,7 @@ int omap34xx_isp_hist_config(struct isp_hist_device *isp_hist,
 			return ret;
 		} else {
 			use_dma = 0;
-			dev_info(dev, "hist: unable to alloc buffers for DMA. "
+			dev_dbg(dev, "hist: unable to alloc buffers for DMA. "
 				      "PIO will be used.\n");
 		}
 	}
@@ -642,7 +640,7 @@ int omap34xx_isp_hist_request_statistics(struct isp_hist_device *isp_hist,
 	struct ispstat_buffer *buf;
 
 	if (!isp_hist->config.enable) {
-		dev_info(dev, "hist: statistics requested while engine is not "
+		dev_dbg(dev, "hist: statistics requested while engine is not "
 			     "configured\n");
 		return -EINVAL;
 	}
@@ -718,7 +716,6 @@ void isp_hist_cleanup(struct device *dev)
  **/
 void isphist_save_context(struct device *dev)
 {
-	dev_dbg(dev, "hist: Saving context\n");
 	isp_save_context(dev, isphist_reg_list);
 }
 
@@ -727,7 +724,6 @@ void isphist_save_context(struct device *dev)
  **/
 void isphist_restore_context(struct device *dev)
 {
-	dev_dbg(dev, "hist: Restoring context\n");
 	isp_restore_context(dev, isphist_reg_list);
 }
 
@@ -736,6 +732,7 @@ void isphist_restore_context(struct device *dev)
  **/
 static void isp_hist_print_status(struct isp_hist_device *isp_hist)
 {
+#ifdef ISP_HIST_DEBUG
 	struct device *dev = to_device(isp_hist);
 
 	dev_dbg(dev, "hist: ISPHIST_PCR = 0x%08x\n",
@@ -766,4 +763,5 @@ static void isp_hist_print_status(struct isp_hist_device *isp_hist)
 		isp_reg_readl(dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_RADD_OFF));
 	dev_dbg(dev, "hist: ISPHIST_H_V_INFO = 0x%08x\n",
 		isp_reg_readl(dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_H_V_INFO));
+#endif
 }

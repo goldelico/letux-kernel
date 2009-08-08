@@ -40,81 +40,57 @@ static int isp_af_check_params(struct isp_af_device *isp_af,
 
 	/* Check horizontal Count */
 	if (IS_OUT_OF_BOUNDS(paxel_cfg->hz_cnt, AF_PAXEL_HORIZONTAL_COUNT_MIN,
-			     AF_PAXEL_HORIZONTAL_COUNT_MAX)) {
-		DPRINTK_ISP_AF("Error : Horizontal Count is incorrect");
+			     AF_PAXEL_HORIZONTAL_COUNT_MAX))
 		return -AF_ERR_HZ_COUNT;
-	}
 
 	/* Check Vertical Count */
 	if (IS_OUT_OF_BOUNDS(paxel_cfg->vt_cnt, AF_PAXEL_VERTICAL_COUNT_MIN,
-			     AF_PAXEL_VERTICAL_COUNT_MAX)) {
-		DPRINTK_ISP_AF("Error : Vertical Count is incorrect");
+			     AF_PAXEL_VERTICAL_COUNT_MAX))
 		return -AF_ERR_VT_COUNT;
-	}
 
 	/* Check Height */
 	if (IS_OUT_OF_BOUNDS(paxel_cfg->height, AF_PAXEL_HEIGHT_MIN,
-			     AF_PAXEL_HEIGHT_MAX)) {
-		DPRINTK_ISP_AF("Error : Height is incorrect");
+			     AF_PAXEL_HEIGHT_MAX))
 		return -AF_ERR_HEIGHT;
-	}
 
 	/* Check width */
 	if (IS_OUT_OF_BOUNDS(paxel_cfg->width, AF_PAXEL_WIDTH_MIN,
-			     AF_PAXEL_WIDTH_MAX)) {
-		DPRINTK_ISP_AF("Error : Width is incorrect");
+			     AF_PAXEL_WIDTH_MAX))
 		return -AF_ERR_WIDTH;
-	}
 
 	/* Check Line Increment */
 	if (IS_OUT_OF_BOUNDS(paxel_cfg->line_incr, AF_PAXEL_INCREMENT_MIN,
-			     AF_PAXEL_INCREMENT_MAX)) {
-		DPRINTK_ISP_AF("Error : Line Increment is incorrect");
+			     AF_PAXEL_INCREMENT_MAX))
 		return -AF_ERR_INCR;
-	}
 
 	/* Check Horizontal Start */
 	if ((paxel_cfg->hz_start % 2 != 0) ||
 	    (paxel_cfg->hz_start < (iir_cfg->hz_start_pos + 2)) ||
 	    IS_OUT_OF_BOUNDS(paxel_cfg->hz_start,
-			     AF_PAXEL_HZSTART_MIN, AF_PAXEL_HZSTART_MAX)) {
-		DPRINTK_ISP_AF("Error : Horizontal Start is incorrect");
+			     AF_PAXEL_HZSTART_MIN, AF_PAXEL_HZSTART_MAX))
 		return -AF_ERR_HZ_START;
-	}
 
 	/* Check Vertical Start */
 	if (IS_OUT_OF_BOUNDS(paxel_cfg->vt_start, AF_PAXEL_VTSTART_MIN,
-			     AF_PAXEL_VTSTART_MAX)) {
-		DPRINTK_ISP_AF("Error : Vertical Start is incorrect");
+			     AF_PAXEL_VTSTART_MAX))
 		return -AF_ERR_VT_START;
-	}
 
 	/* Check IIR */
 	for (index = 0; index < AF_NUMBER_OF_COEF; index++) {
-		if ((iir_cfg->coeff_set0[index]) > AF_COEF_MAX) {
-			DPRINTK_ISP_AF("Error : Coefficient for set 0 is "
-				       "incorrect");
+		if ((iir_cfg->coeff_set0[index]) > AF_COEF_MAX)
 			return -AF_ERR_IIR_COEF;
-		}
 
-		if ((iir_cfg->coeff_set1[index]) > AF_COEF_MAX) {
-			DPRINTK_ISP_AF("Error : Coefficient for set 1 is "
-				       "incorrect");
+		if ((iir_cfg->coeff_set1[index]) > AF_COEF_MAX)
 			return -AF_ERR_IIR_COEF;
-		}
 	}
 
 	if (IS_OUT_OF_BOUNDS(iir_cfg->hz_start_pos, AF_IIRSH_MIN,
-			     AF_IIRSH_MAX)) {
-		DPRINTK_ISP_AF("Error : IIRSH is incorrect");
+			     AF_IIRSH_MAX))
 		return -AF_ERR_IIRSH;
-	}
 
 	/* Check HMF Threshold Values */
-	if (afconfig->hmf_config.threshold > AF_THRESHOLD_MAX) {
-		DPRINTK_ISP_AF("Error : HMF Threshold is incorrect");
+	if (afconfig->hmf_config.threshold > AF_THRESHOLD_MAX)
 		return -AF_ERR_THRESHOLD;
-	}
 
 	return 0;
 }
@@ -331,7 +307,7 @@ int omap34xx_isp_af_config(struct isp_af_device *isp_af,
 	unsigned long irqflags;
 
 	if (!afconfig) {
-		dev_err(dev, "af: Null argument in configuration.\n");
+		dev_dbg(dev, "af: Null argument in configuration.\n");
 		return -EINVAL;
 	}
 
@@ -376,8 +352,8 @@ int omap34xx_isp_af_request_statistics(struct isp_af_device *isp_af,
 	struct ispstat_buffer *buf;
 
 	if (!isp_af->config.af_config) {
-		dev_err(dev, "af: statistics requested while af engine"
-				     " is not configured\n");
+		dev_dbg(dev, "af: statistics requested while af engine"
+			     " is not configured\n");
 		return -EINVAL;
 	}
 
