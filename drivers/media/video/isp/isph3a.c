@@ -58,13 +58,10 @@ void __isph3a_aewb_enable(struct isp_h3a_device *isp_h3a, u8 enable)
 	struct device *dev = to_device(isp_h3a);
 	u32 pcr = isp_reg_readl(dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 
-	if (enable) {
+	if (enable)
 		pcr |= ISPH3A_PCR_AEW_EN;
-		DPRINTK_ISPH3A("    H3A enabled \n");
-	} else {
+	else
 		pcr &= ~ISPH3A_PCR_AEW_EN;
-		DPRINTK_ISPH3A("    H3A disabled \n");
-	}
 	isp_reg_writel(dev, pcr, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 }
 
@@ -244,82 +241,50 @@ int isph3a_aewb_buf_process(struct isp_h3a_device *isp_h3a)
 static int isph3a_aewb_validate_params(struct isp_h3a_device *isp_h3a,
 				       struct isph3a_aewb_config *user_cfg)
 {
-	struct device *dev = to_device(isp_h3a);
-
-	if (unlikely(user_cfg->saturation_limit > MAX_SATURATION_LIM)) {
-		dev_info(dev, "h3a: Invalid Saturation_limit: %d\n",
-			 user_cfg->saturation_limit);
+	if (unlikely(user_cfg->saturation_limit > MAX_SATURATION_LIM))
 		return -EINVAL;
-	}
+
 	if (unlikely(user_cfg->win_height < MIN_WIN_H ||
 		     user_cfg->win_height > MAX_WIN_H ||
-		     user_cfg->win_height & 0x01)) {
-		dev_info(dev, "h3a: Invalid window height: %d\n",
-			 user_cfg->win_height);
+		     user_cfg->win_height & 0x01))
 		return -EINVAL;
-	}
+
 	if (unlikely(user_cfg->win_width < MIN_WIN_W ||
 		     user_cfg->win_width > MAX_WIN_W ||
-		     user_cfg->win_width & 0x01)) {
-		dev_info(dev, "h3a: Invalid window width: %d\n",
-			 user_cfg->win_width);
+		     user_cfg->win_width & 0x01))
 		return -EINVAL;
-	}
+
 	if (unlikely(user_cfg->ver_win_count < 1 ||
-		     user_cfg->ver_win_count > MAX_WINVC)) {
-		dev_info(dev,
-			 "h3a: Invalid vertical window count: %d\n",
-			 user_cfg->ver_win_count);
+		     user_cfg->ver_win_count > MAX_WINVC))
 		return -EINVAL;
-	}
+
 	if (unlikely(user_cfg->hor_win_count < 1 ||
-		     user_cfg->hor_win_count > MAX_WINHC)) {
-		dev_info(dev,
-			 "h3a: Invalid horizontal window count: %d\n",
-			 user_cfg->hor_win_count);
+		     user_cfg->hor_win_count > MAX_WINHC))
 		return -EINVAL;
-	}
-	if (unlikely(user_cfg->ver_win_start > MAX_WINSTART)) {
-		dev_info(dev,
-			 "h3a: Invalid vertical window start: %d\n",
-			 user_cfg->ver_win_start);
+
+	if (unlikely(user_cfg->ver_win_start > MAX_WINSTART))
 		return -EINVAL;
-	}
-	if (unlikely(user_cfg->hor_win_start > MAX_WINSTART)) {
-		dev_info(dev,
-			 "h3a: Invalid horizontal window start: %d\n",
-			 user_cfg->hor_win_start);
+
+	if (unlikely(user_cfg->hor_win_start > MAX_WINSTART))
 		return -EINVAL;
-	}
-	if (unlikely(user_cfg->blk_ver_win_start > MAX_WINSTART)) {
-		dev_info(dev,
-			 "h3a: Invalid black vertical window start: %d\n",
-			 user_cfg->blk_ver_win_start);
+
+	if (unlikely(user_cfg->blk_ver_win_start > MAX_WINSTART))
 		return -EINVAL;
-	}
+
 	if (unlikely(user_cfg->blk_win_height < MIN_WIN_H ||
 		     user_cfg->blk_win_height > MAX_WIN_H ||
-		     user_cfg->blk_win_height & 0x01)) {
-		dev_info(dev, "h3a: Invalid black window height: %d\n",
-			 user_cfg->blk_win_height);
+		     user_cfg->blk_win_height & 0x01))
 		return -EINVAL;
-	}
+
 	if (unlikely(user_cfg->subsample_ver_inc < MIN_SUB_INC ||
 		     user_cfg->subsample_ver_inc > MAX_SUB_INC ||
-		     user_cfg->subsample_ver_inc & 0x01)) {
-		dev_info(dev,
-			 "h3a: Invalid vertical subsample increment: %d\n",
-			 user_cfg->subsample_ver_inc);
+		     user_cfg->subsample_ver_inc & 0x01))
 		return -EINVAL;
-	}
+
 	if (unlikely(user_cfg->subsample_hor_inc < MIN_SUB_INC ||
 		     user_cfg->subsample_hor_inc > MAX_SUB_INC ||
-		     user_cfg->subsample_hor_inc & 0x01)) {
-		dev_info(dev,
-			 "h3a: Invalid horizontal subsample increment: %d\n",
-			 user_cfg->subsample_hor_inc);
+		     user_cfg->subsample_hor_inc & 0x01))
 		return -EINVAL;
-	}
 
 	return 0;
 }
@@ -451,7 +416,7 @@ int omap34xx_isph3a_aewb_config(struct isp_h3a_device *isp_h3a,
 	unsigned long irqflags;
 
 	if (NULL == aewbcfg) {
-		dev_info(dev, "h3a: Null argument in configuration\n");
+		dev_dbg(dev, "h3a: Null argument in configuration\n");
 		return -EINVAL;
 	}
 
@@ -508,7 +473,7 @@ int omap34xx_isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 	int ret = 0;
 
 	if (!isp_h3a->aewb_config_local.aewb_enable) {
-		dev_err(dev, "h3a: engine not enabled\n");
+		dev_dbg(dev, "h3a: engine not enabled\n");
 		return -EINVAL;
 	}
 
