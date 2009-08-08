@@ -1329,20 +1329,45 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 {
 	struct omap34xxcam_fh *ofh = fh;
 	struct omap34xxcam_videodev *vdev = ofh->vdev;
+	struct v4l2_pix_format pix_in;
+	struct v4l2_pix_format pix_out;
+	struct v4l2_fract ival;
 	u32 pixel_format;
 	int rval;
+
+	if (vdev->vdev_sensor == v4l2_int_device_dummy())
+		return -EINVAL;
 
 	mutex_lock(&vdev->mutex);
 
 	if (vdev->vdev_sensor_config.sensor_isp) {
 		rval = vidioc_int_enum_framesizes(vdev->vdev_sensor, frms);
-	} else {
-		pixel_format = frms->pixel_format;
-		frms->pixel_format = -1;	/* ISP does format conversion */
-		rval = vidioc_int_enum_framesizes(vdev->vdev_sensor, frms);
-		frms->pixel_format = pixel_format;
+		goto done;
 	}
 
+	pixel_format = frms->pixel_format;
+	frms->pixel_format = -1;	/* ISP does format conversion */
+	rval = vidioc_int_enum_framesizes(vdev->vdev_sensor, frms);
+	frms->pixel_format = pixel_format;
+
+	if (rval < 0)
+		goto done;
+
+	/* Let the ISP pipeline mangle the frame size as it sees fit. */
+	memset(&pix_out, 0, sizeof(pix_out));
+	pix_out.width = frms->discrete.width;
+	pix_out.height = frms->discrete.height;
+	pix_out.pixelformat = frms->pixel_format;
+
+	ival = vdev->want_timeperframe;
+	rval = try_pix_parm(vdev, &pix_in, &pix_out, &ival);
+	if (rval < 0)
+		goto done;
+
+	frms->discrete.width = pix_out.width;
+	frms->discrete.height = pix_out.height;
+
+done:
 	mutex_unlock(&vdev->mutex);
 	return rval;
 }
@@ -1352,20 +1377,76 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 {
 	struct omap34xxcam_fh *ofh = fh;
 	struct omap34xxcam_videodev *vdev = ofh->vdev;
+	struct v4l2_frmsizeenum frms;
+	unsigned int frmi_width;
+	unsigned int frmi_height;
+	unsigned int width;
+	unsigned int height;
+	unsigned int max_dist;
+	unsigned int dist;
 	u32 pixel_format;
+	unsigned int i;
 	int rval;
 
 	mutex_lock(&vdev->mutex);
 
 	if (vdev->vdev_sensor_config.sensor_isp) {
 		rval = vidioc_int_enum_frameintervals(vdev->vdev_sensor, frmi);
-	} else {
-		pixel_format = frmi->pixel_format;
-		frmi->pixel_format = -1;	/* ISP does format conversion */
-		rval = vidioc_int_enum_frameintervals(vdev->vdev_sensor, frmi);
-		frmi->pixel_format = pixel_format;
+		goto done;
 	}
 
+	/*
+	 * Frame size enumeration returned sizes mangled by the ISP.
+	 * We can't pass the size directly to the sensor for frame
+	 * interval enumeration, as they will not be recognized by the
+	 * sensor driver. Enumerate the native sensor sizes and select
+	 * the one closest to the requested size.
+	 */
+
+	for (i = 0, max_dist = (unsigned int)-1; ; ++i) {
+		frms.index = i;
+		frms.pixel_format = -1;
+		rval = vidioc_int_enum_framesizes(vdev->vdev_sensor,
+			&frms);
+		if (rval < 0)
+			break;
+
+		/*
+		 * The distance between frame sizes is the size in
+		 * pixels of the non-overlapping regions.
+		 */
+		dist = min(frms.discrete.width, frmi->width)
+		     * min(frms.discrete.height, frmi->height);
+		dist = frms.discrete.width * frms.discrete.width
+		     + frmi->width * frmi->height
+		     - 2*dist;
+
+		if (dist < max_dist) {
+			width = frms.discrete.width;
+			height = frms.discrete.height;
+			max_dist = dist;
+		}
+	}
+
+	if (max_dist == (unsigned int)-1) {
+		rval = -EINVAL;
+		goto done;
+	}
+
+	pixel_format = frmi->pixel_format;
+	frmi_width = frmi->width;
+	frmi_height = frmi->height;
+
+	frmi->pixel_format = -1;	/* ISP does format conversion */
+	frmi->width = width;
+	frmi->height = height;
+	rval = vidioc_int_enum_frameintervals(vdev->vdev_sensor, frmi);
+
+	frmi->pixel_format = pixel_format;
+	frmi->height = frmi_height;
+	frmi->width = frmi_width;
+
+done:
 	mutex_unlock(&vdev->mutex);
 	return rval;
 }
