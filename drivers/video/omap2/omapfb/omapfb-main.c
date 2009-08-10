@@ -1565,6 +1565,22 @@ err:
 	return r;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+void omapfb_suspend(struct early_suspend *h)
+{
+	struct omapfb_info *fbinfo = container_of(h, struct omapfb_info,
+						early_suspend);
+	omapfb_blank(FB_BLANK_POWERDOWN, fbinfo->fbdev->fbs[fbinfo->id]);
+}
+
+void omapfb_resume(struct early_suspend *h)
+{
+	struct omapfb_info *fbinfo = container_of(h, struct omapfb_info,
+						early_suspend);
+	omapfb_blank(FB_BLANK_UNBLANK, fbinfo->fbdev->fbs[fbinfo->id]);
+}
+#endif
+
 /* initialize fb_info, var, fix to something sane based on the display */
 int omapfb_fb_init(struct omapfb2_device *fbdev, struct fb_info *fbi)
 {
@@ -1664,6 +1680,12 @@ int omapfb_fb_init(struct omapfb2_device *fbdev, struct fb_info *fbi)
 	r = fb_alloc_cmap(&fbi->cmap, 256, 0);
 	if (r)
 		dev_err(fbdev->dev, "unable to allocate color map memory\n");
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	ofbi->early_suspend.suspend = omapfb_suspend;
+	ofbi->early_suspend.resume = omapfb_resume;
+	ofbi->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+	register_early_suspend(&ofbi->early_suspend);
+#endif
 
 err:
 	return r;

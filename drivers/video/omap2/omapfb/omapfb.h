@@ -28,6 +28,7 @@
 #endif
 
 #include <mach/display.h>
+#include <linux/earlysuspend.h>
 
 #ifdef DEBUG
 extern unsigned int omapfb_debug;
@@ -64,6 +65,9 @@ struct omapfb_info {
 	enum omap_dss_rotation_type rotation_type;
 	u8 rotation[OMAPFB_MAX_OVL_PER_FB];
 	bool mirror;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend early_suspend;
+#endif
 };
 
 struct omapfb2_device {
