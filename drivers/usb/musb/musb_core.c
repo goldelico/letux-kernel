@@ -2152,8 +2152,6 @@ static int musb_suspend(struct platform_device *pdev, pm_message_t message)
 
 	spin_lock_irqsave(&musb->lock, flags);
 
-	musb_save_context(musb);
-
 	if (is_peripheral_active(musb)) {
 		/* FIXME force disconnect unless we know USB will wake
 		 * the system up quickly enough to respond ...
@@ -2186,8 +2184,6 @@ static int musb_resume(struct platform_device *pdev)
 		musb->set_clock(musb->clock, 1);
 	else
 		clk_enable(musb->clock);
-
-	musb_restore_context(musb);
 
 	/* for static cmos like DaVinci, register values were preserved
 	 * unless for some reason the whole soc powered down and we're
