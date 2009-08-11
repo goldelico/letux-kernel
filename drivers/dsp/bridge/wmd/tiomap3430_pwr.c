@@ -190,7 +190,9 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 	DSP_STATUS status = DSP_SOK;
 #ifdef CONFIG_PM
 	struct CFG_HOSTRES resources;
+#ifdef CONFIG_BRIDGE_NTFY_PWRERR
 	struct DEH_MGR *hDehMgr;
+#endif /* CONFIG_BRIDGE_NTFY_PWRERR */
 	u16 usCount = TIHELEN_ACKTIMEOUT;
 	enum HW_PwrState_t pwrState;
 	enum HW_PwrState_t targetPwrState;
@@ -260,8 +262,10 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 	if (usCount == 0) {
 		DBG_Trace(DBG_LEVEL7, "SleepDSP: Timed out Waiting for DSP"
 			 " STANDBY %x \n", pwrState);
+#ifdef CONFIG_BRIDGE_NTFY_PWRERR
 		DEV_GetDehMgr(pDevContext->hDevObject, &hDehMgr);
 		WMD_DEH_Notify(hDehMgr, DSP_PWRERROR, 0);
+#endif /* CONFIG_BRIDGE_NTFY_PWRERR */
 		return WMD_E_TIMEOUT;
 	} else {
 		DBG_Trace(DBG_LEVEL7, "SleepDSP: DSP STANDBY Pwr state %x \n",
