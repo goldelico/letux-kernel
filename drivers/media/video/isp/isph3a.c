@@ -229,7 +229,8 @@ static int isph3a_aewb_get_stats(struct isp_h3a_device *isp_h3a,
 int isph3a_aewb_buf_process(struct isp_h3a_device *isp_h3a)
 {
 	isph3a_update_wb(isp_h3a);
-	if (likely(!isp_h3a->buf_err)) {
+	if (likely(!isp_h3a->buf_err &&
+				isp_h3a->aewb_config_local.aewb_enable)) {
 		isp_h3a->buf_next = ispstat_buf_next(&isp_h3a->stat);
 		return 0;
 	} else {

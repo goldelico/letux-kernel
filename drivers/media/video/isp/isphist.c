@@ -325,7 +325,7 @@ int isp_hist_buf_process(struct isp_hist_device *isp_hist)
 
 	spin_lock_irqsave(&isp_hist->lock, irqflags);
 
-	if (isp_hist->invalid_buf) {
+	if (isp_hist->invalid_buf || !isp_hist->config.enable) {
 		isp_hist->invalid_buf = 0;
 		isp_hist_reset_mem(isp_hist);
 		goto out_invalid;
