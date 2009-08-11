@@ -34,3 +34,14 @@ config BRIDGE_DEBUG
 	depends on MPU_BRIDGE
 	help
 	  Say Y to enable Bridge debugging capabilities
+
+comment "Bridge Notifications"
+	depends on MPU_BRIDGE
+
+config BRIDGE_NTFY_PWRERR
+	bool "Notify DSP Power Error"
+	depends on MPU_BRIDGE
+	help
+	  Enable notifications to registered clients on the event of power errror
+	  trying to suspend bridge driver. Say Y, to signal this event as a fatal
+	  error, this will require a bridge restart to recover.
