@@ -129,6 +129,8 @@ struct ispstat_buffer *ispstat_buf_get(struct ispstat *stat,
 	buf = ispstat_buf_find(stat, frame_number);
 	if (!buf) {
 		spin_unlock_irqrestore(&stat->lock, flags);
+		dev_dbg(stat->dev, "%s: cannot find requested buffer. "
+				"frame_number = %d\n", stat->tag, frame_number);
 		return ERR_PTR(-EBUSY);
 	}
 
