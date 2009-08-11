@@ -380,7 +380,7 @@ EXPORT_SYMBOL(omap34xx_isp_af_request_statistics);
 /* This function will handle the AF buffer. */
 int isp_af_buf_process(struct isp_af_device *isp_af)
 {
-	if (likely(!isp_af->buf_err)) {
+	if (likely(!isp_af->buf_err && isp_af->config.af_config)) {
 		isp_af->buf_next = ispstat_buf_next(&isp_af->stat);
 		return 0;
 	} else {
