@@ -214,6 +214,8 @@ out:
  */
 void __init omap2_check_revision(void)
 {
+	u32 l2_val;
+
 	/*
 	 * At this point we have an idea about the processor revision set
 	 * earlier with omap2_set_globals_tap().
@@ -249,6 +251,22 @@ void __init omap2_check_revision(void)
 	} else {
 		pr_err("Uninitialized omap_chip, please fix!\n");
 	}
+
+	/*
+	 * Check L2EN bit in Aux Cntrl Reg is set by bootloader, if not, set it
+	 * here. CONFIG_CPU_L2CACHE_DISABLE should be unset in config.
+	 */
+	asm volatile("mrc p15, 0, %0, c1, c0, 1":"=r" (l2_val));
+	if ((l2_val & 0x2) == 0) {
+		printk(KERN_WARNING "L2 CACHE is not enabled in bootloader\n"
+				"Enable the L2 Cache here\n");
+#ifndef CONFIG_L2CACHE_OMAP3_DISABLE
+		l2_val |= 0x2;
+		asm volatile("mcr p15, 0, %0, c1, c0, 1"::"r" (l2_val));
+#endif
+	} else
+		printk(KERN_WARNING "L2 CACHE is enabled in bootloader\n");
+
 }
 
 /*
