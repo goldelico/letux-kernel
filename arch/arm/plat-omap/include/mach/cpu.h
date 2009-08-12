@@ -391,6 +391,8 @@ int omap_type(void);
 
 void omap2_check_revision(void);
 
+void omap_l2cache_enable(void);
+
 #endif    /* defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3) */
 
 #endif
