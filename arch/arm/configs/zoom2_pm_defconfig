@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.29-omap1
-# Fri Aug  7 10:36:27 2009
+# Wed Aug 12 17:20:09 2009
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -223,6 +223,7 @@ CONFIG_ARCH_OMAP3430=y
 # CONFIG_MACH_NOKIA_RX51 is not set
 # CONFIG_MACH_OMAP_LDP is not set
 CONFIG_MACH_OMAP_ZOOM2=y
+# CONFIG_L2CACHE_OMAP3_DISABLE is not set
 CONFIG_WIFI_CONTROL_FUNC=y
 # CONFIG_TIWLAN_SDIO is not set
 # CONFIG_MACH_OMAP_3430SDP is not set
