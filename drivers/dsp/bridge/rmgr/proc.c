@@ -159,6 +159,8 @@
 #define PWR_TIMEOUT	 500	/* Sleep/wake timout in msec */
 #define EXTEND	      "_EXT_END"	/* Extmem end addr in DSP binary */
 
+#define DSP_CACHE_SIZE 128 /* DSP cacheline size */
+
 extern char *iva_img;
 /* The PROC_OBJECT structure.   */
 struct PROC_OBJECT {
@@ -749,6 +751,15 @@ DSP_STATUS PROC_FlushMemory(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
 	DBC_Require(cRefs > 0);
 
+#ifdef CONFIG_BRIDGE_CHECK_ALIGN_128
+	if (!IS_ALIGNED((u32)pMpuAddr, DSP_CACHE_SIZE) ||
+	    !IS_ALIGNED(ulSize, DSP_CACHE_SIZE)) {
+		pr_err("%s: Invalid alignment %p %x\n",
+			__func__, pMpuAddr, ulSize);
+		return DSP_EALIGNMENT;
+	}
+#endif /* CONFIG_BRIDGE_CHECK_ALIGN_128 */
+
 	GT_4trace(PROC_DebugMask, GT_ENTER,
 		 "Entered PROC_FlushMemory, args:\n\t"
 		 "hProcessor: 0x%x pMpuAddr: 0x%x ulSize 0x%x, ulFlags 0x%x\n",
@@ -786,6 +797,16 @@ DSP_STATUS PROC_InvalidateMemory(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
 		 "Entered PROC_InvalidateMemory, args:\n\t"
 		 "hProcessor: 0x%x pMpuAddr: 0x%x ulSize 0x%x\n", hProcessor,
 		 pMpuAddr, ulSize);
+
+#ifdef CONFIG_BRIDGE_CHECK_ALIGN_128
+	if (!IS_ALIGNED((u32)pMpuAddr, DSP_CACHE_SIZE) ||
+	    !IS_ALIGNED(ulSize, DSP_CACHE_SIZE)) {
+		pr_err("%s: Invalid alignment %p %x\n",
+			__func__, pMpuAddr, ulSize);
+		return DSP_EALIGNMENT;
+	}
+#endif /* CONFIG_BRIDGE_CHECK_ALIGN_128 */
+
 	if (MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
 		(void)SYNC_EnterCS(hProcLock);
 		MEM_FlushCache(pMpuAddr, ulSize, FlushMemType);
@@ -1398,6 +1419,16 @@ DSP_STATUS PROC_Map(DSP_HPROCESSOR hProcessor, void *pMpuAddr, u32 ulSize,
 		 "hProcessor %x, pMpuAddr %x, ulSize %x, pReqAddr %x, "
 		 "ulMapAttr %x, ppMapAddr %x\n", hProcessor, pMpuAddr, ulSize,
 		 pReqAddr, ulMapAttr, ppMapAddr);
+
+#ifdef CONFIG_BRIDGE_CHECK_ALIGN_128
+	if (!IS_ALIGNED((u32)pMpuAddr, DSP_CACHE_SIZE) ||
+	    !IS_ALIGNED(ulSize, DSP_CACHE_SIZE)) {
+		pr_err("%s: Invalid alignment %p %x\n",
+			__func__, pMpuAddr, ulSize);
+		return DSP_EALIGNMENT;
+	}
+#endif /* CONFIG_BRIDGE_CHECK_ALIGN_128 */
+
 	/* Calculate the page-aligned PA, VA and size */
 	vaAlign = PG_ALIGN_LOW((u32) pReqAddr, PG_SIZE_4K);
 	paAlign = PG_ALIGN_LOW((u32) pMpuAddr, PG_SIZE_4K);
