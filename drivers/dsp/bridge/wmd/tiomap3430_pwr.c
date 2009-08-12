@@ -92,7 +92,6 @@ DSP_STATUS handle_constraints_set(struct WMD_DEV_CONTEXT *pDevContext,
 	/* Read the target value requested by DSP  */
 	DBG_Trace(DBG_LEVEL7, "handle_constraints_set:"
 		"opp requested = 0x%x\n", (u32)*(pConstraintVal+1));
-	status = HW_MBOX_saveSettings(resources.dwMboxBase);
 
 	/* Set the new opp value */
 	if (pdata->dsp_set_min_opp)
@@ -194,20 +193,21 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 	struct DEH_MGR *hDehMgr;
 #endif /* CONFIG_BRIDGE_NTFY_PWRERR */
 	u16 usCount = TIHELEN_ACKTIMEOUT;
-	enum HW_PwrState_t pwrState;
-	enum HW_PwrState_t targetPwrState;
+	enum HW_PwrState_t pwrState, targetPwrState;
+
+	DBG_Trace(DBG_LEVEL7, "SleepDSP- Enter function \n");
+
+	/* Check if sleep code is valid */
+	if ((dwCmd != PWR_DEEPSLEEP) && (dwCmd != PWR_EMERGENCYDEEPSLEEP)) {
+		DBG_Trace(DBG_LEVEL7, "SleepDSP- Illegal sleep command\n");
+		return DSP_EINVALIDARG;
+	}
 
 	status = CFG_GetHostResources(
 		 (struct CFG_DEVNODE *)DRV_GetFirstDevExtension(), &resources);
 	if (DSP_FAILED(status))
 		return status;
-	DBG_Trace(DBG_LEVEL7, "SleepDSP- Enter function \n");
 
-		/* next, check if sleep code is valid... */
-	if ((dwCmd != PWR_DEEPSLEEP) && (dwCmd != PWR_EMERGENCYDEEPSLEEP)) {
-		DBG_Trace(DBG_LEVEL7, "SleepDSP- Illegal sleep command\n");
-		return DSP_EINVALIDARG;
-	}
 	switch (pDevContext->dwBrdState) {
 	case BRD_RUNNING:
 		status = HW_MBOX_saveSettings(resources.dwMboxBase);
@@ -235,7 +235,6 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 		break;
 	case BRD_HIBERNATION:
 	case BRD_DSP_HIBERNATION:
-		status = HW_MBOX_saveSettings(resources.dwMboxBase);
 		/* Already in Hibernation, so just return */
 		DBG_Trace(DBG_LEVEL7, "SleepDSP- DSP already in "
 			 "hibernation\n");
@@ -249,17 +248,22 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 			 "SleepDSP- Bridge in Illegal state\n");
 			return DSP_EFAIL;
 	}
+
 	/* Get the PRCM DSP power domain status */
 	HW_PWR_IVA2StateGet(resources.dwPrmBase, HW_PWR_DOMAIN_DSP,
-			    &pwrState);
-	/* Wait for DSP to move into Standby state,  how much time
-	 * should we wait?*/
+			&pwrState);
+
+	/*
+	 * Wait for DSP to move into Standby state,  how much time
+	 * should we wait?
+	 */
 	while ((pwrState != targetPwrState) && --usCount) {
 		udelay(500);
 		HW_PWR_IVA2StateGet(resources.dwPrmBase, HW_PWR_DOMAIN_DSP,
 				    &pwrState);
 	}
-	if (usCount == 0) {
+
+	if (!usCount) {
 		DBG_Trace(DBG_LEVEL7, "SleepDSP: Timed out Waiting for DSP"
 			 " STANDBY %x \n", pwrState);
 #ifdef CONFIG_BRIDGE_NTFY_PWRERR
@@ -270,17 +274,19 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 	} else {
 		DBG_Trace(DBG_LEVEL7, "SleepDSP: DSP STANDBY Pwr state %x \n",
 			 pwrState);
+
 		/* Update the Bridger Driver state */
 		if (enable_off_mode)
 			pDevContext->dwBrdState = BRD_HIBERNATION;
 		else
 			pDevContext->dwBrdState = BRD_RETENTION;
+
 		/* Turn off DSP Peripheral clocks  */
 		status = DSP_PeripheralClocks_Disable(pDevContext, NULL);
 		if (DSP_FAILED(status))
 			DBG_Trace(DBG_LEVEL7, "SleepDSP- FAILED\n");
 	}
-#endif
+#endif /* CONFIG_PM */
 	return status;
 }
 
