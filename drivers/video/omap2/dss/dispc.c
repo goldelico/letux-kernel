@@ -2056,10 +2056,14 @@ void dispc_set_parallel_interface_mode(enum omap_parallel_interface_mode mode)
 	int stallmode;
 	int gpout0 = 1;
 	int gpout1;
-
+#define VIRTIO_OMAP4
 	switch (mode) {
 	case OMAP_DSS_PARALLELMODE_BYPASS:
+#ifndef VIRTIO_OMAP4
 		stallmode = 0;
+#else /* This is needed for a quirk with virtio, to have RFBI enabled */
+		stallmode = 1;
+#endif
 		gpout1 = 1;
 		break;
 
@@ -2081,6 +2085,14 @@ void dispc_set_parallel_interface_mode(enum omap_parallel_interface_mode mode)
 	enable_clocks(1);
 
 	l = dispc_read_reg(DISPC_CONTROL);
+
+	printk(KERN_INFO "OMAP DISPCONTROL read (stallmode)%d\n",
+		FLD_GET(l, 11, 11));
+	printk(KERN_INFO "OMAP DISPCONTROL read (gpout)%d\n",
+		FLD_GET(l, 15, 15));
+	printk(KERN_INFO "OMAP DISPCONTROL read (stallmode)%d\n",
+		FLD_GET(l, 16, 16));
+
 
 	l = FLD_MOD(l, stallmode, 11, 11);
 	l = FLD_MOD(l, gpout0, 15, 15);

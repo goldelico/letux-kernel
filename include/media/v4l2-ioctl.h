@@ -242,6 +242,11 @@ struct v4l2_ioctl_ops {
 	/* For other private ioctls */
 	long (*vidioc_default)	       (struct file *file, void *fh,
 					int cmd, void *arg);
+
+	int (*vidioc_s_color_space_conv)(struct file *file, void *fh,
+					struct v4l2_color_space_conversion *a);
+	int (*vidioc_g_color_space_conv)(struct file *file, void *fh,
+					struct v4l2_color_space_conversion *a);
 };
 
 

@@ -1286,6 +1286,18 @@ struct v4l2_rds_data {
 #define V4L2_RDS_BLOCK_ERROR 	 0x80
 
 /*
+ * Color conversion
+ * User needs to pass pointer to color conversion matrix
+ * defined by hardware
+ */
+struct v4l2_color_space_conversion {
+	__s32 coefficients[3][3];
+	__s32 const_factor;
+	__s32 input_offs[3];
+	__s32 output_offs[3];
+};
+
+/*
  *	A U D I O
  */
 struct v4l2_audio {
@@ -1626,6 +1638,9 @@ struct v4l2_dbg_chip_ident {
 #define VIDIOC_S_HW_FREQ_SEEK	 _IOW('V', 82, struct v4l2_hw_freq_seek)
 /* Reminder: when adding new ioctls please add support for them to
    drivers/media/video/v4l2-compat-ioctl32.c as well! */
+
+#define VIDIOC_S_COL_SPC_CONV  _IOW('V', 89, struct v4l2_color_space_conversion)
+#define VIDIOC_G_COL_SPC_CONV  _IOR('V', 90, struct v4l2_color_space_conversion)
 
 #ifdef __OLD_VIDIOC_
 /* for compatibility, will go away some day */

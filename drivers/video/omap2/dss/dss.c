@@ -33,10 +33,17 @@
 #include <plat/display.h>
 #include "dss.h"
 
+#ifndef CONFIG_ARCH_OMAP4
 /* DSS */
-#define DSS_BASE                        0x48042000
+#define DSS_BASE                        0x48050000
 /* DISPLAY CONTROLLER */
-#define DISPC_BASE                      0x48041000
+#define DISPC_BASE                      0x48050400
+#else
+/* DSS */
+#define DSS_BASE			0x48042000
+/* DISPLAY CONTROLLER */
+#define DISPC_BASE			0x48043000
+#endif
 
 #define DSS_SZ_REGS			SZ_512
 
@@ -550,13 +557,17 @@ int dss_init(bool skip_init)
 	REG_FLD_MOD(DSS_CONTROL, 1, 3, 3);	/* venc clock 4x enable */
 	REG_FLD_MOD(DSS_CONTROL, 0, 2, 2);	/* venc clock mode = normal */
 #endif
-/*
+#ifndef CONFIG_ARCH_OMAP4
 	r = request_irq(INT_24XX_DSS_IRQ,
 			cpu_is_omap24xx()
 			? dss_irq_handler_omap2
 			: dss_irq_handler_omap3,
 			0, "OMAP DSS", NULL);
-
+#else
+	r = request_irq(INT_44XX_DSS_IRQ,
+			dss_irq_handler_omap3,
+			0, "OMAP DSS", (void *)1);
+#endif
 	if (r < 0) {
 		DSSERR("omap2 dss: request_irq failed\n");
 		goto fail1;
@@ -570,7 +581,7 @@ int dss_init(bool skip_init)
 			goto fail2;
 		}
 	}
-*/
+
 	dss_save_context();
 
 	rev = dss_read_reg(DSS_REVISION);
