@@ -175,6 +175,8 @@ static struct map_desc omap34xx_io_desc[] __initdata = {
 
 void __init omap2_map_common_io(void)
 {
+	omap_l2cache_enable();
+
 #if defined(CONFIG_ARCH_OMAP2420)
 	iotable_init(omap24xx_io_desc, ARRAY_SIZE(omap24xx_io_desc));
 	iotable_init(omap242x_io_desc, ARRAY_SIZE(omap242x_io_desc));
