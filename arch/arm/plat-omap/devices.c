@@ -385,6 +385,34 @@ static void omap_init_wdt(void)
 static inline void omap_init_wdt(void) {}
 #endif
 
+/*---------------------------------------------------------------------------*/
+
+#if defined(CONFIG_VIDEO_OMAP3_OUT) || \
+	defined(CONFIG_VIDEO_OMAP3_OUT_MODULE)
+#ifdef CONFIG_FB_OMAP2
+static struct resource omap3evm_vout_resource[3 - CONFIG_FB_OMAP2_NUM_FBS] = {
+};
+#else
+static struct resource omap3evm_vout_resource[2] = {
+};
+#endif
+
+static struct platform_device omap3evm_vout_device = {
+	.name			= "omap_vout",
+	.num_resources	= ARRAY_SIZE(omap3evm_vout_resource),
+	.resource 		= &omap3evm_vout_resource[0],
+	.id		= -1,
+};
+static void omap_init_vout(void)
+{
+	(void) platform_device_register(&omap3evm_vout_device);
+}
+#else
+static inline void omap_init_vout(void) {}
+#endif
+
+/*---------------------------------------------------------------------------*/
+
 /*
  * This gets called after board-specific INIT_MACHINE, and initializes most
  * on-chip peripherals accessible on this board (except for few like USB):
@@ -414,6 +442,7 @@ static int __init omap_init_devices(void)
 	omap_init_kp();
 	omap_init_rng();
 	omap_init_uwire();
+	omap_init_vout();
 	omap_init_wdt();
 	return 0;
 }
