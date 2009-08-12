@@ -102,6 +102,7 @@ static u32 video2_bufsize = OMAP_VOUT_MAX_BUF_SIZE;
 static u32 vid1_static_vrfb_alloc;
 static u32 vid2_static_vrfb_alloc;
 static int debug;
+struct vout_platform_data *pdata;
 
 /* Module parameters */
 module_param(video1_numbuffers, uint, S_IRUGO);
@@ -1837,6 +1838,7 @@ static int vidioc_streamon(struct file *file, void *fh,
 {
 	struct omap_vout_device *vout = fh;
 	struct videobuf_queue *q = &vout->vbq;
+	struct vout_platform_data *pdata = (vout->dev)->platform_data;
 	unsigned int count ;
 	u32 addr = 0;
 	int r = 0;
@@ -1885,6 +1887,13 @@ static int vidioc_streamon(struct file *file, void *fh,
 	count = vout->buffer_allocated;
 	omap_vout_vrfb_buffer_setup(vout, &count, 0);
 
+#ifdef CONFIG_PM
+	if (pdata->set_min_bus_tput)
+		pdata->set_min_bus_tput(vout->dev , OCP_INITIATOR_AGENT,
+							166 * 1000 * 4);
+	if (pdata->set_cpu_freq)
+		pdata->set_cpu_freq(500000000);
+#endif
 	omap_dispc_register_isr(omap_vout_isr, vout, OMAP_VOUT_IRQ_MASK);
 
 	for (t = 0; t < ovid->num_overlays; t++) {
@@ -1920,6 +1929,7 @@ static int vidioc_streamoff(struct file *file, void *fh,
 	struct omap_vout_device *vout = fh;
 	int t, r = 0;
 	struct omapvideo_info *ovid = &(vout->vid_info);
+	struct vout_platform_data *pdata = (vout->dev)->platform_data;
 
 	if (!vout->streaming)
 		return -EINVAL;
@@ -1929,6 +1939,13 @@ static int vidioc_streamoff(struct file *file, void *fh,
 		omap_dispc_unregister_isr(omap_vout_isr, vout,
 					  OMAP_VOUT_IRQ_MASK);
 
+#ifdef CONFIG_PM
+		if (pdata->set_min_bus_tput)
+			pdata->set_min_bus_tput(vout->dev, OCP_INITIATOR_AGENT,
+								0);
+		if (pdata->set_cpu_freq)
+			pdata->set_cpu_freq(125000000);
+#endif
 		for (t = 0; t < ovid->num_overlays; t++) {
 			struct omap_overlay *ovl = ovid->overlays[t];
 			if (ovl->manager && ovl->manager->device) {
