@@ -135,7 +135,7 @@ struct notify_ducatidrv_cmdargs_delete {
  */
 struct notify_ducatidrv_cmdargs_open {
 	struct notify_ducatidrv_cmdargs common_args;
-	char *driverName;
+	char  driverName[NOTIFY_MAX_NAMELEN];
 	struct notify_driver_object *handle;
 
 };
