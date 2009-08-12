@@ -283,8 +283,21 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 
 		/* Turn off DSP Peripheral clocks  */
 		status = DSP_PeripheralClocks_Disable(pDevContext, NULL);
-		if (DSP_FAILED(status))
+		if (DSP_FAILED(status)) {
 			DBG_Trace(DBG_LEVEL7, "SleepDSP- FAILED\n");
+			return status;
+		}
+#ifdef CONFIG_BRIDGE_DVFS
+		else if (enable_off_mode) {
+			struct dspbridge_platform_data *pdata =
+				omap_dspbridge_dev->dev.platform_data;
+			/*
+			 * Set the OPP to low level before moving to OFF mode
+			 */
+			if (pdata->dsp_set_min_opp)
+				(*pdata->dsp_set_min_opp)(VDD1_OPP1);
+		}
+#endif /* CONFIG_BRIDGE_DVFS */
 	}
 #endif /* CONFIG_PM */
 	return status;
