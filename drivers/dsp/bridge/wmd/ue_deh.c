@@ -281,6 +281,7 @@ DBG_Trace(DBG_LEVEL6, "WMD_DEH_Notify: DSP_MMUFAULT, "
 			HW_MMU_EventAck(resources.dwDmmuBase,
 					 HW_MMU_TRANSLATION_FAULT);
 			break;
+#ifdef CONFIG_BRIDGE_NTFY_PWRERR
 		case DSP_PWRERROR:
 			/* reset errInfo structure before use */
 			pDehMgr->errInfo.dwErrMask = DSP_PWRERROR;
@@ -291,6 +292,7 @@ DBG_Trace(DBG_LEVEL6, "WMD_DEH_Notify: DSP_MMUFAULT, "
 			printk(KERN_ERR "WMD_DEH_Notify: DSP_PWRERROR, errInfo "
 					"= 0x%x\n", dwErrInfo);
 			break;
+#endif /* CONFIG_BRIDGE_NTFY_PWRERR */
 		default:
 			DBG_Trace(DBG_LEVEL6,
 				 "WMD_DEH_Notify: Unknown Error, errInfo = "
