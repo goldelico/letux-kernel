@@ -1979,7 +1979,7 @@ static int twl4030_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 	return 0;
 }
 
-static int twl4030_set_ext_clock(struct snd_soc_codec *codec, int enable)
+int twl4030_set_ext_clock(struct snd_soc_codec *codec, int enable)
 {
 	u8 old_format, format;
 
@@ -2005,6 +2005,7 @@ static int twl4030_set_ext_clock(struct snd_soc_codec *codec, int enable)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(twl4030_set_ext_clock);
 
 static int twl4030_set_dai_fmt(struct snd_soc_dai *codec_dai,
 			     unsigned int fmt)

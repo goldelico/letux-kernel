@@ -78,6 +78,13 @@ static int zoom2_i2s_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
+	/* enable 256 FS clk for HDMI */
+	ret = twl4030_set_ext_clock(codec_dai->codec, 1);
+	if (ret < 0) {
+		printk(KERN_ERR "can't set 256 FS clock\n");
+		return ret;
+	}
+
 	return 0;
 }
 
