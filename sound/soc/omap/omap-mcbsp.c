@@ -153,8 +153,12 @@ static int omap_mcbsp_dai_startup(struct snd_pcm_substream *substream,
 		 * size in order to avoid underruns in playback startup because
 		 * HW is keeping the DMA request active until FIFO is filled.
 		 */
-		snd_pcm_hw_constraint_minmax(substream->runtime,
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			snd_pcm_hw_constraint_minmax(substream->runtime,
 			SNDRV_PCM_HW_PARAM_BUFFER_BYTES, 4096, UINT_MAX);
+		else
+			snd_pcm_hw_constraint_minmax(substream->runtime,
+			SNDRV_PCM_HW_PARAM_BUFFER_BYTES, 1024, UINT_MAX);
 	}
 
 	if (!cpu_dai->active)
@@ -217,6 +221,7 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 	int wlen, channels, wpf;
 	unsigned long port;
 	unsigned int format;
+	int xfer_size = 0;
 
 	if (cpu_class_is_omap1()) {
 		dma = omap1_dma_reqs[bus_id][substream->stream];
@@ -230,6 +235,25 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 	} else if (cpu_is_omap343x()) {
 		dma = omap24xx_dma_reqs[bus_id][substream->stream];
 		port = omap34xx_mcbsp_port[bus_id][substream->stream];
+		xfer_size = omap34xx_mcbsp_thresholds[bus_id]
+							[substream->stream];
+		/* reset the xfer_size to the integral multiple of
+		the buffer size. This is for DMA packet mode transfer */
+		if (xfer_size) {
+			struct snd_pcm_runtime *runtime = substream->runtime;
+			int buffer_size = params_buffer_size(params);
+			if (xfer_size > buffer_size) {
+				printk(KERN_DEBUG "buffer_size is %d \n",
+					buffer_size);
+				xfer_size = 0;
+			} else {
+				int temp =  buffer_size / xfer_size;
+				while (buffer_size % xfer_size) {
+					temp++;
+					xfer_size = buffer_size / (temp);
+				}
+			}
+		}
 	} else {
 		return -ENODEV;
 	}
@@ -237,6 +261,7 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 		substream->stream ? "Audio Capture" : "Audio Playback";
 	omap_mcbsp_dai_dma_params[id][substream->stream].dma_req = dma;
 	omap_mcbsp_dai_dma_params[id][substream->stream].port_addr = port;
+	omap_mcbsp_dai_dma_params[id][substream->stream].xfer_size = xfer_size;
 	cpu_dai->dma_data = &omap_mcbsp_dai_dma_params[id][substream->stream];
 
 	if (mcbsp_data->configured) {
@@ -256,6 +281,11 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 			wpf--;
 			regs->rcr2	|= RFRLEN2(wpf - 1);
 			regs->xcr2	|= XFRLEN2(wpf - 1);
+		} else if (format == SND_SOC_DAIFMT_I2S_1PHASE) {
+			printk(KERN_DEBUG "Configure McBSP for 1 phase\n");
+			regs->xcr2	&= ~(XPHASE);
+			regs->rcr2	&= ~(RPHASE);
+			wpf--;
 		}
 	case 1:
 	case 4:
@@ -271,11 +301,22 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
 		/* Set word lengths */
-		wlen = 16;
-		regs->rcr2	|= RWDLEN2(OMAP_MCBSP_WORD_16);
-		regs->rcr1	|= RWDLEN1(OMAP_MCBSP_WORD_16);
-		regs->xcr2	|= XWDLEN2(OMAP_MCBSP_WORD_16);
-		regs->xcr1	|= XWDLEN1(OMAP_MCBSP_WORD_16);
+		if (format == SND_SOC_DAIFMT_I2S) {
+			wlen = 16;
+			regs->rcr2	|= RWDLEN2(OMAP_MCBSP_WORD_16);
+			regs->rcr1	|= RWDLEN1(OMAP_MCBSP_WORD_16);
+			regs->xcr2	|= XWDLEN2(OMAP_MCBSP_WORD_16);
+			regs->xcr1	|= XWDLEN1(OMAP_MCBSP_WORD_16);
+			omap_mcbsp_dai_dma_params[id]
+			[substream->stream].dma_word_size = 16;
+		} else if (format == SND_SOC_DAIFMT_I2S_1PHASE) {
+			regs->xcr1	|= XWDLEN1(OMAP_MCBSP_WORD_32);
+			regs->rcr1	|= RWDLEN1(OMAP_MCBSP_WORD_32);
+			omap_mcbsp_dai_dma_params[id]
+			[SNDRV_PCM_STREAM_PLAYBACK].dma_word_size = 32;
+			omap_mcbsp_dai_dma_params[id]
+			[SNDRV_PCM_STREAM_CAPTURE].dma_word_size = 32;
+		}
 		break;
 	default:
 		/* Unsupported PCM format */
@@ -285,6 +326,7 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 	/* Set FS period and length in terms of bit clock periods */
 	switch (format) {
 	case SND_SOC_DAIFMT_I2S:
+	case SND_SOC_DAIFMT_I2S_1PHASE:
 		regs->srgr2	|= FPER(wlen * channels - 1);
 		regs->srgr1	|= FWID(wlen - 1);
 		break;
@@ -295,7 +337,18 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 		break;
 	}
 
+	regs->xccr |= XDMAEN;
+	regs->wken = XRDYEN;
+	regs->rccr |= RDMAEN;
+
 	omap_mcbsp_config(bus_id, &mcbsp_data->regs);
+
+	if ((bus_id == 1) && (xfer_size != 0)) {
+		printk(KERN_DEBUG "Configure McBSP TX FIFO threshold to %d\n",
+			xfer_size);
+		omap_mcbsp_set_tx_threshold(bus_id, xfer_size);
+	}
+
 	mcbsp_data->configured = 1;
 
 	return 0;
@@ -323,12 +376,13 @@ static int omap_mcbsp_dai_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 	regs->rcr2	|= RFIG;
 	regs->xcr2	|= XFIG;
 	if (cpu_is_omap2430() || cpu_is_omap34xx()) {
-		regs->xccr = DXENDLY(1) | XDMAEN;
-		regs->rccr = RFULL_CYCLE | RDMAEN;
+		regs->xccr = DXENDLY(1);
+		regs->rccr = RFULL_CYCLE;
 	}
 
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
+	case SND_SOC_DAIFMT_I2S_1PHASE:
 		/* 1-bit data delay */
 		regs->rcr2	|= RDATDLY(1);
 		regs->xcr2	|= XDATDLY(1);

@@ -62,7 +62,7 @@ static int zoom2_i2s_hw_params(struct snd_pcm_substream *substream,
 
 	/* Set cpu DAI configuration */
 	ret = snd_soc_dai_set_fmt(cpu_dai,
-				  SND_SOC_DAIFMT_I2S |
+				  SND_SOC_DAIFMT_I2S_1PHASE |
 				  SND_SOC_DAIFMT_NB_NF |
 				  SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0) {
@@ -75,6 +75,13 @@ static int zoom2_i2s_hw_params(struct snd_pcm_substream *substream,
 					SND_SOC_CLOCK_IN);
 	if (ret < 0) {
 		printk(KERN_ERR "can't set codec system clock\n");
+		return ret;
+	}
+
+	/* enable 256 FS clk for HDMI */
+	ret = twl4030_set_ext_clock(codec_dai->codec, 1);
+	if (ret < 0) {
+		printk(KERN_ERR "can't set 256 FS clock\n");
 		return ret;
 	}
 
