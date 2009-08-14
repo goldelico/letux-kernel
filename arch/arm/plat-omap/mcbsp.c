@@ -176,6 +176,7 @@ void omap_mcbsp_config(unsigned int id, const struct omap_mcbsp_reg_cfg *config)
 	if (cpu_is_omap2430() || cpu_is_omap34xx()) {
 		OMAP_MCBSP_WRITE(io_base, XCCR, config->xccr);
 		OMAP_MCBSP_WRITE(io_base, RCCR, config->rccr);
+		OMAP_MCBSP_WRITE(io_base, WAKEUPEN, config->wken);
 	}
 }
 EXPORT_SYMBOL(omap_mcbsp_config);
@@ -898,6 +899,21 @@ void omap_mcbsp_set_spi_mode(unsigned int id,
 	omap_mcbsp_config(id, &mcbsp_cfg);
 }
 EXPORT_SYMBOL(omap_mcbsp_set_spi_mode);
+
+void omap_mcbsp_set_tx_threshold(unsigned int id, u16 threshold)
+{
+	struct omap_mcbsp       *mcbsp;
+	void __iomem            *io_base;
+	u16                     w;
+
+	mcbsp = id_to_mcbsp_ptr(id);
+	io_base = mcbsp->io_base;
+
+
+	OMAP_MCBSP_WRITE(io_base, THRSH2, threshold-1);
+	w = OMAP_MCBSP_READ(io_base, THRSH2);
+}
+EXPORT_SYMBOL(omap_mcbsp_set_tx_threshold);
 
 /*
  * McBSP1 and McBSP3 are directly mapped on 1610 and 1510.

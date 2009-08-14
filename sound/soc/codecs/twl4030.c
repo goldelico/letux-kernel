@@ -1899,12 +1899,15 @@ static int twl4030_hw_params(struct snd_pcm_substream *substream,
 	rval = twl4030_set_rate(codec, params);
 	if (rval < 0) {
 		mutex_unlock(&twl4030->mutex);
+		printk(KERN_ERR "twl4030_hw_params: set rate failed, rate = %d\n",
+			params_rate(params));
 		return rval;
 	}
 
 	rval = twl4030_set_format(codec, params);
 	if (rval < 0) {
 		mutex_unlock(&twl4030->mutex);
+		printk(KERN_ERR "twl4030_hw_params: set format failed %d\n");
 		return rval;
 	}
 
@@ -2328,15 +2331,17 @@ struct snd_soc_dai twl4030_dai[] = {
 	.name = "twl4030",
 	.playback = {
 		.stream_name = "HiFi Playback",
-		.channels_min = 1,
+		.channels_min = 2,
 		.channels_max = 4,
-		.rates = TWL4030_RATES | SNDRV_PCM_RATE_96000,
+		/*.rates = TWL4030_RATES | SNDRV_PCM_RATE_96000, */
+		.rates = SNDRV_PCM_RATE_44100,
 		.formats = TWL4030_FORMATS,},
 	.capture = {
 		.stream_name = "Capture",
-		.channels_min = 1,
+		.channels_min = 2,
 		.channels_max = 4,
-		.rates = TWL4030_RATES,
+		/*.rates = TWL4030_RATES, */
+		.rates = SNDRV_PCM_RATE_44100,
 		.formats = TWL4030_FORMATS,},
 	.ops = {
 		.startup = twl4030_startup,

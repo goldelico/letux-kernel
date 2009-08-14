@@ -28,6 +28,8 @@ struct omap_pcm_dma_data {
 	char		*name;		/* stream identifier */
 	int		dma_req;	/* DMA request line */
 	unsigned long	port_addr;	/* transmit/receive register */
+	int		xfer_size;	/* DMA transfer size */
+	int 		dma_word_size;	/* DMA word size 32/16 */
 };
 
 extern struct snd_soc_platform omap_soc_platform;

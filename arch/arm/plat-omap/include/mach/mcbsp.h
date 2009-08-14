@@ -136,6 +136,7 @@
 #define OMAP_MCBSP_REG_XCERG	0x74
 #define OMAP_MCBSP_REG_XCERH	0x78
 #define OMAP_MCBSP_REG_SYSCON	0x8C
+#define OMAP_MCBSP_REG_THRSH2	0x90
 #define OMAP_MCBSP_REG_WAKEUPEN	0xA8
 #define OMAP_MCBSP_REG_XCCR	0xAC
 #define OMAP_MCBSP_REG_RCCR	0xB0
@@ -298,6 +299,7 @@ struct omap_mcbsp_reg_cfg {
 	u16 xcerh;
 	u16 xccr;
 	u16 rccr;
+	u16 wken;
 };
 
 typedef enum {
@@ -307,6 +309,20 @@ typedef enum {
 	OMAP_MCBSP4,
 	OMAP_MCBSP5
 } omap_mcbsp_id;
+
+/* McBSP threshold */
+#if defined(CONFIG_ARCH_OMAP34XX)
+static const int omap34xx_mcbsp_thresholds[][2] = {
+	{ 0, 0 },
+	{ 1260, 0},
+	{ 0, 0},
+	{ 0, 0},
+	{ 0, 0},
+};
+#else
+static const int omap34xx_mcbsp_thresholds[][2] = {};
+#endif
+
 
 typedef int __bitwise omap_mcbsp_io_type_t;
 #define OMAP_MCBSP_IRQ_IO ((__force omap_mcbsp_io_type_t) 1)
@@ -418,6 +434,7 @@ int omap_mcbsp_xmit_buffer(unsigned int id, dma_addr_t buffer, unsigned int leng
 int omap_mcbsp_recv_buffer(unsigned int id, dma_addr_t buffer, unsigned int length);
 int omap_mcbsp_spi_master_xmit_word_poll(unsigned int id, u32 word);
 int omap_mcbsp_spi_master_recv_word_poll(unsigned int id, u32 * word);
+void omap_mcbsp_set_tx_threshold(unsigned int id, u16 threshold);
 
 
 /* SPI specific API */

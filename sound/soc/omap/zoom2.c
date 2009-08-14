@@ -62,7 +62,7 @@ static int zoom2_i2s_hw_params(struct snd_pcm_substream *substream,
 
 	/* Set cpu DAI configuration */
 	ret = snd_soc_dai_set_fmt(cpu_dai,
-				  SND_SOC_DAIFMT_I2S |
+				  SND_SOC_DAIFMT_I2S_1PHASE |
 				  SND_SOC_DAIFMT_NB_NF |
 				  SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0) {
