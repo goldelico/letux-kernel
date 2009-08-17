@@ -111,6 +111,7 @@ void isp_hist_try_enable(struct isp_hist_device *isp_hist)
 	if (unlikely(!isp_hist->enabled && isp_hist->config.enable &&
 						!isp_hist->waiting_dma)) {
 		isp_hist->update = 1;
+		isp_hist->active_buf = ispstat_buf_next(&isp_hist->stat);
 		spin_unlock_irqrestore(&isp_hist->lock, irqflags);
 		isp_hist_config_registers(isp_hist);
 		isp_hist_enable(isp_hist, 1);
@@ -243,6 +244,7 @@ static void isp_hist_dma_cb(int lch, u16 ch_status, void *data)
 		omap_stop_dma(lch);
 		isp_hist_reset_mem(isp_hist);
 	} else {
+		ispstat_buf_queue(&isp_hist->stat);
 		isp_hist->active_buf = ispstat_buf_next(&isp_hist->stat);
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
 			    ~ISPHIST_CNT_CLR_EN);
@@ -310,6 +312,7 @@ static int isp_hist_buf_pio(struct isp_hist_device *isp_hist)
 	isp_reg_and(dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
 		    ~ISPHIST_CNT_CLR_EN);
 
+	ispstat_buf_queue(&isp_hist->stat);
 	isp_hist->active_buf = ispstat_buf_next(&isp_hist->stat);
 
 	return HIST_BUF_DONE;
@@ -562,7 +565,6 @@ int omap34xx_isp_hist_config(struct isp_hist_device *isp_hist,
 			     struct isp_hist_config *histcfg)
 {
 	struct device *dev = to_device(isp_hist);
-	struct isp_device *isp = to_isp_device(isp_hist);
 	unsigned long irqflags;
 	int ret = 0;
 	unsigned int size;
@@ -612,9 +614,6 @@ int omap34xx_isp_hist_config(struct isp_hist_device *isp_hist,
 				      "PIO will be used.\n");
 		}
 	}
-
-	if (!(isp->running == ISP_RUNNING && isp_hist->config.enable))
-		isp_hist->active_buf = ispstat_buf_next(&isp_hist->stat);
 
 	spin_lock_irqsave(&isp_hist->lock, irqflags);
 	isp_hist->buf_size = size;

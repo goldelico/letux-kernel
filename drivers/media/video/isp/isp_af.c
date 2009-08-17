@@ -289,6 +289,7 @@ void isp_af_try_enable(struct isp_af_device *isp_af)
 	spin_lock_irqsave(isp_af->lock, irqflags);
 	if (unlikely(!isp_af->enabled && isp_af->config.af_config)) {
 		isp_af->update = 1;
+		isp_af->buf_next = ispstat_buf_next(&isp_af->stat);
 		spin_unlock_irqrestore(isp_af->lock, irqflags);
 		isp_af_config_registers(isp_af);
 		isp_af_enable(isp_af, 1);
@@ -301,7 +302,6 @@ int omap34xx_isp_af_config(struct isp_af_device *isp_af,
 			   struct af_configuration *afconfig)
 {
 	struct device *dev = to_device(isp_af);
-	struct isp_device *isp = to_isp_device(isp_af);
 	int result;
 	int buf_size;
 	unsigned long irqflags;
@@ -327,9 +327,6 @@ int omap34xx_isp_af_config(struct isp_af_device *isp_af,
 	result = ispstat_bufs_alloc(&isp_af->stat, buf_size, 0);
 	if (result)
 		return result;
-
-	if (!(isp->running == ISP_RUNNING && isp_af->config.af_config))
-		isp_af->buf_next = ispstat_buf_next(&isp_af->stat);
 
 	spin_lock_irqsave(isp_af->lock, irqflags);
 	isp_af_update_params(isp_af, afconfig);
@@ -381,6 +378,7 @@ EXPORT_SYMBOL(omap34xx_isp_af_request_statistics);
 int isp_af_buf_process(struct isp_af_device *isp_af)
 {
 	if (likely(!isp_af->buf_err && isp_af->config.af_config)) {
+		ispstat_buf_queue(&isp_af->stat);
 		isp_af->buf_next = ispstat_buf_next(&isp_af->stat);
 		return 0;
 	} else {
