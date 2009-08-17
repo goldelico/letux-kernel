@@ -71,20 +71,15 @@ static u32 ytable[ISPPRV_YENH_TBL_SIZE];
 static int prev_calculate_crop(struct prev_device *device,
 						struct prev_cropsize *crop)
 {
-	int ret;
-
-	dev_dbg(prev_dev, "prev_calculate_crop E\n");
+	int ret = 0;
 
 	if (!device || !crop) {
 		dev_err(prev_dev, "%s: invalid argument\n", __func__);
 		return -EINVAL;
 	}
 
-	ret = isppreview_try_size(device->params->size_params.hsize,
-					device->params->size_params.vsize,
-						&crop->hcrop, &crop->vcrop);
-
-	crop->hcrop &= PREV_16PIX_ALIGN_MASK;
+	crop->hcrop = device->out_hsize;
+	crop->vcrop = device->out_vsize;
 
 	dev_dbg(prev_dev, "%s: Exit (%dx%d -> %dx%d)\n", __func__,
 		device->params->size_params.hsize,
@@ -234,10 +229,15 @@ static int prev_validate_params(struct prev_params *params)
 	}
 
 	if ((params->size_params.in_pitch <= 0)
-				|| (params->size_params.in_pitch % 32)) {
-		params->size_params.in_pitch =
-				(params->size_params.hsize * 2) & 0xFFE0;
+			|| (params->size_params.in_pitch % 32)) {
 		dev_err(prev_dev, "%s: invalid input pitch\n", __func__);
+		goto err_einval;
+	}
+
+	if ((params->size_params.out_pitch <= 0)
+			|| (params->size_params.out_pitch % 32)) {
+		dev_err(prev_dev, "%s: invalid output pitch\n", __func__);
+		goto err_einval;
 	}
 
 	return 0;
@@ -319,6 +319,75 @@ static void prev_unset_isp_ctrl(void)
 }
 
 /**
+ * prev_config_size - Set input width and height in previewer registers
+ * @input_w: input width
+ * @inout_h: input height
+ *
+ * Returns 0 if successful, or -EINVAL if the sent parameters are invalid.
+ **/
+static void prev_config_size(u32 input_w, u32 input_h)
+{
+	isp_reg_writel((0 << ISPPRV_HORZ_INFO_SPH_SHIFT) | (input_w - 1),
+		OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO);
+
+	isp_reg_writel((0 << ISPPRV_VERT_INFO_SLV_SHIFT) | (input_h - 1),
+		OMAP3_ISP_IOMEM_PREV, ISPPRV_VERT_INFO);
+
+	isp_reg_writel((ISPPRV_AVE_EVENDIST_2 << ISPPRV_AVE_EVENDIST_SHIFT) |
+		(ISPPRV_AVE_ODDDIST_2 << ISPPRV_AVE_ODDDIST_SHIFT),
+		OMAP3_ISP_IOMEM_PREV, ISPPRV_AVE);
+}
+
+/**
+ * prev_negotiate_output_size - Calculate previewer engine output size
+ * @device: Structure containing ISP preview wrapper global information
+ * @out_hsize: Return horizontal size
+ * @out_vsize: Return vertical size
+ *
+ * Returns 0 if successful, or -EINVAL if the sent parameters are invalid.
+ **/
+static int prev_negotiate_output_size(struct prev_device *prvdev,
+				u32 *out_hsize, u32 *out_vsize)
+{
+	int bpp, ret, outh, outv;
+
+	if (prvdev->params->size_params.pixsize == PREV_INWIDTH_8BIT)
+		bpp = 1;
+	else
+		bpp = 2;
+
+	ret = isppreview_config_datapath(PRV_RAW_MEM, PREVIEW_MEM);
+	if (ret) {
+		dev_err(prev_dev, "%s: ERROR while configure isp "
+			"preview datapath!\n", __func__);
+		return ret;
+	}
+
+	ret = isppreview_try_size(prvdev->params->size_params.hsize,
+			prvdev->params->size_params.vsize, &outh, &outv);
+	if (ret) {
+		dev_err(prev_dev, "%s: ERROR while try isp preview size!\n",
+			__func__);
+		return ret;
+	}
+
+	dev_dbg(prev_dev, "%s: try size %dx%d -> %dx%d\n", __func__,
+		prvdev->params->size_params.hsize,
+		prvdev->params->size_params.vsize, outh, outv);
+
+	dev_dbg(prev_dev, "%s: out_pitch %d, output width %d, out_hsize %d\n",
+		__func__, prvdev->params->size_params.out_pitch,
+		prvdev->params->size_params.out_pitch / bpp, outh);
+
+	if (outh > (prvdev->params->size_params.out_pitch / bpp))
+		outh = prvdev->params->size_params.out_pitch / bpp;
+
+	*out_hsize = outh;
+	*out_vsize = outv;
+	return 0;
+}
+
+/**
  * prev_do_preview - Performs the Preview process
  * @device: Structure containing ISP preview wrapper global information
  *
@@ -326,9 +395,8 @@ static void prev_unset_isp_ctrl(void)
  **/
 static int prev_do_preview(struct prev_device *device)
 {
-	int bpp, size;
-	int ret = 0;
-	u32 out_hsize, out_vsize, out_line_offset;
+	u32 out_hsize, out_vsize, out_line_offset, in_line_offset;
+	int ret = 0, bpp;
 
 	dev_dbg(prev_dev, "%s: Enter\n", __func__);
 
@@ -338,31 +406,26 @@ static int prev_do_preview(struct prev_device *device)
 	}
 
 	prev_set_isp_ctrl(device->params->features);
-	isppreview_set_skip(2, 0);
 
 	if (device->params->size_params.pixsize == PREV_INWIDTH_8BIT)
 		bpp = 1;
 	else
 		bpp = 2;
 
-	size = device->params->size_params.hsize *
-		   device->params->size_params.vsize * bpp;
+	out_hsize = device->out_hsize;
+	out_vsize = device->out_vsize;
 
-	isppreview_config_datapath(PRV_RAW_MEM, PREVIEW_MEM);
+	in_line_offset = device->params->size_params.hsize * bpp;
 
-	ret = isppreview_try_size(device->params->size_params.hsize,
-					device->params->size_params.vsize,
-						&out_hsize, &out_vsize);
-
-	if (ret) {
-		dev_err(prev_dev, "ERROR while try size!\n");
-		goto out;
-	}
-
-	ret = isppreview_config_inlineoffset(device->params->size_params.hsize
-						* bpp);
+	ret = isppreview_config_inlineoffset(in_line_offset);
 	if (ret)
 		goto out;
+
+	dev_dbg(prev_dev, "%s: out_pitch %d, output width %d, out_hsize %d, "
+						"out_vsize %d\n", __func__,
+		device->params->size_params.out_pitch,
+		device->params->size_params.out_pitch / bpp,
+		out_hsize, out_vsize);
 
 	out_line_offset = (out_hsize * bpp) & PREV_32BYTES_ALIGN_MASK;
 
@@ -370,11 +433,8 @@ static int prev_do_preview(struct prev_device *device)
 	if (ret)
 		goto out;
 
-	ret = isppreview_config_size(device->params->size_params.hsize,
-					device->params->size_params.vsize,
-					out_hsize, out_vsize);
-	if (ret)
-		goto out;
+	prev_config_size(device->params->size_params.hsize,
+					device->params->size_params.vsize);
 
 	device->params->drkf_params.addr = device->isp_addr_lsc;
 
@@ -387,28 +447,6 @@ static int prev_do_preview(struct prev_device *device)
 	ret = isppreview_set_outaddr(device->isp_addr_read);
 	if (ret)
 		goto out;
-
-	isppreview_config_datapath(PRV_RAW_MEM, PREVIEW_MEM);
-
-	isppreview_try_size(device->params->size_params.hsize,
-					device->params->size_params.vsize,
-					    &out_hsize,
-					    &out_vsize);
-
-	ret = isppreview_config_inlineoffset(device->params->size_params.hsize
-						* bpp);
-	if (ret)
-		goto out;
-
-	out_line_offset = (out_hsize * bpp) & PREV_32BYTES_ALIGN_MASK;
-
-	ret = isppreview_config_outlineoffset(out_line_offset);
-	if (ret)
-		goto out;
-
-	ret = isppreview_config_size(device->params->size_params.hsize,
-					device->params->size_params.vsize,
-							out_hsize, out_vsize);
 
 	ret = isp_set_callback(CBK_PREV_DONE, prev_isr, (void *) device,
 								(void *) NULL);
@@ -740,6 +778,7 @@ static int previewer_open(struct inode *inode, struct file *filp)
 
 	init_completion(&device->wfc);
 	device->wfc.done = 0;
+	device->configured = false;
 	mutex_init(&device->prevwrap_mutex);
 
 	return 0;
@@ -920,17 +959,22 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 
 			if (params.ytable)
 				device->params->ytable = ytable;
+			device->configured = true;
 		} else {
 			mutex_unlock(&device->prevwrap_mutex);
 			return -EINVAL;
 		}
 
-		/* Update the values in Preview module now b/c otherwise when
-		 * isppreview_try_size() is next called it won't update the
-		 * output size correctly.
-		 */
-		ret = prev_hw_setup(device->params);
-		isppreview_config_datapath(PRV_RAW_MEM, PREVIEW_MEM);
+		ret = prev_negotiate_output_size(device, &device->out_hsize,
+					&device->out_vsize);
+		if (ret) {
+			dev_err(prev_dev, "%s: negotiate output size fail\n",
+				 __func__);
+			ret = -EINVAL;
+			goto out;
+		}
+		dev_dbg(prev_dev, "%s: out_hsize %d, out_vsize %d\n", __func__,
+			device->out_hsize, device->out_vsize);
 
 		mutex_unlock(&device->prevwrap_mutex);
 		break;
@@ -965,6 +1009,12 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 	case PREV_GET_CROPSIZE:
 	{
 		struct prev_cropsize outputsize;
+
+		if (device->configured == false) {
+			ret = -EPERM;
+			dev_err(prev_dev, "%s: not configured yet\n", __func__);
+			break;
+		}
 
 		ret = prev_calculate_crop(device, &outputsize);
 		if (ret)
