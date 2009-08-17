@@ -153,6 +153,7 @@ struct prev_device {
 	dma_addr_t isp_addr_lsc;
 	u32 out_hsize;
 	u32 out_vsize;
+	struct device *isp;
 };
 
 /**
