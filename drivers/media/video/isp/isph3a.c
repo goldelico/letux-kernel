@@ -133,6 +133,7 @@ void isph3a_aewb_try_enable(struct isp_h3a_device *isp_h3a)
 	spin_lock_irqsave(isp_h3a->lock, irqflags);
 	if (!isp_h3a->enabled && isp_h3a->aewb_config_local.aewb_enable) {
 		isp_h3a->update = 1;
+		isp_h3a->buf_next = ispstat_buf_next(&isp_h3a->stat);
 		spin_unlock_irqrestore(isp_h3a->lock, irqflags);
 		isph3a_aewb_config_registers(isp_h3a);
 		isph3a_aewb_enable(isp_h3a, 1);
@@ -231,6 +232,7 @@ int isph3a_aewb_buf_process(struct isp_h3a_device *isp_h3a)
 	isph3a_update_wb(isp_h3a);
 	if (likely(!isp_h3a->buf_err &&
 				isp_h3a->aewb_config_local.aewb_enable)) {
+		ispstat_buf_queue(&isp_h3a->stat);
 		isp_h3a->buf_next = ispstat_buf_next(&isp_h3a->stat);
 		return 0;
 	} else {
@@ -410,7 +412,6 @@ int omap34xx_isph3a_aewb_config(struct isp_h3a_device *isp_h3a,
 				struct isph3a_aewb_config *aewbcfg)
 {
 	struct device *dev = to_device(isp_h3a);
-	struct isp_device *isp = to_isp_device(isp_h3a);
 	int ret = 0;
 	int win_count = 0;
 	unsigned int buf_size;
@@ -437,10 +438,6 @@ int omap34xx_isph3a_aewb_config(struct isp_h3a_device *isp_h3a,
 	ret = ispstat_bufs_alloc(&isp_h3a->stat, buf_size, 0);
 	if (ret)
 		return ret;
-
-	if (!(isp->running == ISP_RUNNING &&
-		isp_h3a->aewb_config_local.aewb_enable))
-		isp_h3a->buf_next = ispstat_buf_next(&isp_h3a->stat);
 
 	spin_lock_irqsave(isp_h3a->lock, irqflags);
 

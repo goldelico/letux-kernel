@@ -35,6 +35,29 @@ inline int greater_overflow(int a, int b, int limit)
 		return a > b;
 }
 
+void ispstat_buf_queue(struct ispstat *stat)
+{
+	unsigned long flags;
+
+	if (!stat->active_buf)
+		return;
+
+	do_gettimeofday(&stat->active_buf->ts);
+
+	spin_lock_irqsave(&stat->lock, flags);
+
+	stat->active_buf->config_counter = stat->config_counter;
+	stat->active_buf->frame_number = stat->frame_number;
+
+	stat->frame_number++;
+	if (stat->frame_number == stat->max_frame)
+		stat->frame_number = 0;
+
+	stat->active_buf = NULL;
+
+	spin_unlock_irqrestore(&stat->lock, flags);
+}
+
 /* Get next free buffer to write the statistics to and mark it active. */
 struct ispstat_buffer *ispstat_buf_next(struct ispstat *stat)
 {
@@ -42,15 +65,11 @@ struct ispstat_buffer *ispstat_buf_next(struct ispstat *stat)
 	struct ispstat_buffer *found = NULL;
 	int i;
 
-	if (stat->active_buf)
-		do_gettimeofday(&stat->active_buf->ts);
-
 	spin_lock_irqsave(&stat->lock, flags);
 
-	if (stat->active_buf) {
-		stat->active_buf->config_counter = stat->config_counter;
-		stat->active_buf->frame_number = stat->frame_number;
-	}
+	if (stat->active_buf)
+		dev_dbg(stat->dev, "%s: new buffer requested without queuing "
+				   "active one.\n", stat->tag);
 
 	for (i = 0; i < stat->nbufs; i++) {
 		struct ispstat_buffer *curr = &stat->buf[i];
@@ -75,10 +94,6 @@ struct ispstat_buffer *ispstat_buf_next(struct ispstat *stat)
 	}
 
 	stat->active_buf = found;
-
-	stat->frame_number++;
-	if (stat->frame_number == stat->max_frame)
-		stat->frame_number = 0;
 
 	spin_unlock_irqrestore(&stat->lock, flags);
 
@@ -313,6 +328,7 @@ int ispstat_init(struct device *dev, char *tag, struct ispstat *stat,
 	stat->dev = dev;
 	stat->tag = tag;
 	stat->max_frame = max_frame;
+	stat->frame_number = 1;
 
 	return 0;
 }
