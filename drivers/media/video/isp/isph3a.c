@@ -627,6 +627,9 @@ int isph3a_aewb_configure(struct isph3a_aewb_config *aewbcfg)
 	aewbstat.win_count = win_count;
 	aewbstat.curr_cfg_buf_size = win_count * AEWB_PACKET_SIZE;
 
+	for (i = 0; i < H3A_MAX_BUFF; i++)
+		aewbstat.h3a_buff[i].frame_num = 0;
+
 	if (aewbstat.stats_buf_size
 	    && win_count * AEWB_PACKET_SIZE > aewbstat.stats_buf_size) {
 		DPRINTK_ISPH3A("There was a previous buffer... "
@@ -650,7 +653,6 @@ int isph3a_aewb_configure(struct isph3a_aewb_config *aewbcfg)
 
 		DPRINTK_ISPH3A("Allocating/mapping new stat buffs\n");
 		for (i = 0; i < H3A_MAX_BUFF; i++) {
-			aewbstat.h3a_buff[i].frame_num = 0;
 			aewbstat.h3a_buff[i].virt_addr =
 				(unsigned long)dma_alloc_coherent(
 					NULL,
