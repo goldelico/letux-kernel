@@ -1356,6 +1356,38 @@ static long vidioc_default(struct file *file, void *fh, int cmd, void *arg)
 	struct omap34xxcam_videodev *vdev = ofh->vdev;
 	int rval;
 
+	if (cmd == VIDIOC_PRIVATE_OMAP34XXCAM_SENSOR_INFO) {
+		u32 pixclk;
+		struct v4l2_pix_format active_size, full_size;
+		struct omap34xxcam_sensor_info *ret_sensor_info;
+
+		ret_sensor_info = (struct omap34xxcam_sensor_info *)arg;
+		mutex_lock(&vdev->mutex);
+		rval = vidioc_int_priv_g_pixclk(vdev->vdev_sensor, &pixclk);
+		mutex_unlock(&vdev->mutex);
+		if (rval)
+			goto out;
+		mutex_lock(&vdev->mutex);
+		rval = vidioc_int_priv_g_activesize(vdev->vdev_sensor,
+					    &active_size);
+		mutex_unlock(&vdev->mutex);
+		if (rval)
+			goto out;
+		mutex_lock(&vdev->mutex);
+		rval = vidioc_int_priv_g_fullsize(vdev->vdev_sensor,
+						  &full_size);
+		mutex_unlock(&vdev->mutex);
+		if (rval)
+			goto out;
+		ret_sensor_info->current_xclk = pixclk;
+		memcpy(&ret_sensor_info->active_size, &active_size,
+			sizeof(struct v4l2_pix_format));
+		memcpy(&ret_sensor_info->full_size, &full_size,
+			sizeof(struct v4l2_pix_format));
+		rval = 0;
+		goto out;
+	}
+
 	if (vdev->vdev_sensor_config.sensor_isp) {
 		rval = -EINVAL;
 	} else {

@@ -1346,6 +1346,54 @@ static int ioctl_g_fmt_cap(struct v4l2_int_device *s,
 }
 
 /**
+ * ioctl_g_pixclk - V4L2 sensor interface handler for ioctl_g_pixclk
+ * @s: pointer to standard V4L2 device structure
+ * @pixclk: pointer to unsigned 32 var to store pixelclk in HZ
+ *
+ * Returns the sensor's current pixel clock in HZ
+ */
+static int ioctl_priv_g_pixclk(struct v4l2_int_device *s, u32 *pixclk)
+{
+	*pixclk = xclk_current;
+
+	return 0;
+}
+
+/**
+ * ioctl_g_activesize - V4L2 sensor interface handler for ioctl_g_activesize
+ * @s: pointer to standard V4L2 device structure
+ * @pix: pointer to standard V4L2 v4l2_pix_format structure
+ *
+ * Returns the sensor's current active image basesize.
+ */
+static int ioctl_priv_g_activesize(struct v4l2_int_device *s,
+			      struct v4l2_pix_format *pix)
+{
+	struct imx046_sensor *sensor = s->priv;
+
+	pix->width = sensor->pix.width;
+	pix->height = sensor->pix.height;
+
+	return 0;
+}
+
+/**
+ * ioctl_g_fullsize - V4L2 sensor interface handler for ioctl_g_fullsize
+ * @s: pointer to standard V4L2 device structure
+ * @pix: pointer to standard V4L2 v4l2_pix_format structure
+ *
+ * Returns the sensor's biggest image basesize.
+ */
+static int ioctl_priv_g_fullsize(struct v4l2_int_device *s,
+			    struct v4l2_pix_format *pix)
+{
+	pix->width = imx046_sizes[NUM_IMAGE_SIZES - 1].width;
+	pix->height = imx046_sizes[NUM_IMAGE_SIZES - 1].height;
+
+	return 0;
+}
+
+/**
  * ioctl_g_parm - V4L2 sensor interface handler for VIDIOC_G_PARM ioctl
  * @s: pointer to standard V4L2 device structure
  * @a: pointer to standard V4L2 VIDIOC_G_PARM ioctl structure
@@ -1645,6 +1693,12 @@ static struct v4l2_int_ioctl_desc imx046_ioctl_desc[] = {
 	  .func = (v4l2_int_ioctl_func *)ioctl_g_ctrl },
 	{ .num = vidioc_int_s_ctrl_num,
 	  .func = (v4l2_int_ioctl_func *)ioctl_s_ctrl },
+	{ .num = vidioc_int_priv_g_pixclk_num,
+	  .func = (v4l2_int_ioctl_func *)ioctl_priv_g_pixclk },
+	{ .num = vidioc_int_priv_g_activesize_num,
+	  .func = (v4l2_int_ioctl_func *)ioctl_priv_g_activesize },
+	{ .num = vidioc_int_priv_g_fullsize_num,
+	  .func = (v4l2_int_ioctl_func *)ioctl_priv_g_fullsize },
 };
 
 static struct v4l2_int_slave imx046_slave = {

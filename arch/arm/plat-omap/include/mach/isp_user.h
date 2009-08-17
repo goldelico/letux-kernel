@@ -38,6 +38,15 @@
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct af_configuration)
 #define VIDIOC_PRIVATE_ISP_AF_REQ \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 9, struct isp_af_data)
+#define VIDIOC_PRIVATE_OMAP34XXCAM_SENSOR_INFO	\
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 10, struct omap34xxcam_sensor_info)
+
+/* Structre for getting Sensor Information*/
+struct omap34xxcam_sensor_info {
+	__u32 current_xclk;
+	struct v4l2_pix_format active_size;
+	struct v4l2_pix_format full_size;
+};
 
 /* AE/AWB related structures and flags*/
 
