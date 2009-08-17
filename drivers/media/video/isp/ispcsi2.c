@@ -39,6 +39,32 @@ static bool update_timing;
 static bool update_ctrl;
 static bool uses_videoport;
 
+/* Structure for saving/restoring CSI2 module registers*/
+static struct isp_reg ispcsi2_reg_list[] = {
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSCONFIG, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSSTATUS, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_IRQSTATUS, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_IRQENABLE, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTRL, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_DBG_H, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_GNQ, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_COMPLEXIO_CFG1, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_COMPLEXIO1_IRQSTATUS, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SHORT_PACKET, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_COMPLEXIO1_IRQENABLE, 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_CTRL1(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_CTRL2(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_DAT_OFST(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_DAT_PING_ADDR(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_DAT_PONG_ADDR(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_IRQENABLE(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_IRQSTATUS(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_CTRL3(0), 0},
+	{OMAP3_ISP_IOMEM_CSI2PHY, ISPCSI2PHY_CFG0, 0},
+	{OMAP3_ISP_IOMEM_CSI2PHY, ISPCSI2PHY_CFG1, 0},
+	{0, ISP_TOK_TERM, 0}
+};
+
 /**
  * isp_csi2_complexio_lanes_config - Configuration of CSI2 ComplexIO lanes.
  * @reqcfg: Pointer to structure containing desired lane configuration
@@ -2117,6 +2143,26 @@ void isp_csi2_regdump(void)
 	       isp_reg_readl(OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTRL));
 	printk(KERN_DEBUG "---------------------------------------\n");
 }
+
+/**
+ * ispcsi2_save_context - Saves the values of the CSI1 module registers
+ **/
+void ispcsi2_save_context(void)
+{
+	printk(KERN_DEBUG "Saving csi2 context\n");
+	isp_save_context(ispcsi2_reg_list);
+}
+EXPORT_SYMBOL(ispcsi2_save_context);
+
+/**
+ * ispcsi2_restore_context - Restores the values of the CSI2 module registers
+ **/
+void ispcsi2_restore_context(void)
+{
+	printk(KERN_DEBUG "Restoring csi2 context\n");
+	isp_restore_context(ispcsi2_reg_list);
+}
+EXPORT_SYMBOL(ispcsi2_restore_context);
 
 /**
  * isp_csi2_cleanup - Routine for module driver cleanup
