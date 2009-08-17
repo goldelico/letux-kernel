@@ -55,9 +55,9 @@ static struct device *prev_dev;
 static struct class *prev_class;
 static struct prev_device *prevdevice;
 static struct platform_driver omap_previewer_driver;
-
 static u32 prev_bufsize;
 static u32 lsc_bufsize;
+static struct prev_params isppreview_tmp;
 
 /**
  * prev_calculate_crop - Calculate crop size according to device parameters
@@ -826,6 +826,104 @@ static int previewer_mmap(struct file *file, struct vm_area_struct *vma)
 }
 
 /**
+ * prev_copy_params - Copy usermode params to kernel.
+ * @usr_params: Pointer to usermode structure
+ * @isp_params: Pointer to kernel structure
+ *
+ * Returns 0 if successful, or negative on fail
+ **/
+static int prev_copy_params(struct prev_params *usr_params,
+				struct prev_params *isp_params)
+{
+	isp_params->features = usr_params->features;
+	isp_params->pix_fmt = usr_params->pix_fmt;
+	isp_params->cfa.cfafmt = usr_params->cfa.cfafmt;
+	isp_params->cfa.cfa_gradthrs_vert = usr_params->cfa.cfa_gradthrs_vert;
+	isp_params->cfa.cfa_gradthrs_horz = usr_params->cfa.cfa_gradthrs_horz;
+
+	if (usr_params->cfa.cfa_table && isp_params->cfa.cfa_table) {
+		if (copy_from_user(isp_params->cfa.cfa_table,
+				usr_params->cfa.cfa_table, ISPPRV_CFA_TBL_SIZE))
+			return -EFAULT;
+	} else {
+		dev_warn(prev_dev,
+			"%s: invalid cfa table pointer (usr: %08x,"
+			" krn: %08x)\n", __func__,
+			(int)usr_params->cfa.cfa_table,
+			(int)isp_params->cfa.cfa_table);
+	}
+
+	isp_params->csup = usr_params->csup;
+
+	if (usr_params->ytable && isp_params->ytable) {
+		if (copy_from_user(isp_params->ytable,
+				usr_params->ytable, ISPPRV_YENH_TBL_SIZE))
+			return -EFAULT;
+	} else {
+		dev_warn(prev_dev,
+			"%s: invalid ytable pointer (usr: %08x, krn: %08x)\n",
+			__func__,
+			(int)usr_params->ytable, (int)isp_params->ytable);
+	}
+
+	isp_params->nf = usr_params->nf;
+	isp_params->dcor = usr_params->dcor;
+
+	if (usr_params->gtable.redtable && isp_params->gtable.redtable) {
+		if (copy_from_user(isp_params->gtable.redtable,
+				usr_params->gtable.redtable,
+				ISPPRV_GAMMA_TBL_SIZE))
+			return -EFAULT;
+	} else {
+		dev_warn(prev_dev,
+			"%s: invalid gtable red pointer (usr: %08x, "
+			"krn: %08x)\n", __func__,
+			(int)usr_params->gtable.redtable,
+			(int)isp_params->gtable.redtable);
+	}
+
+	if (usr_params->gtable.greentable && isp_params->gtable.greentable) {
+		if (copy_from_user(isp_params->gtable.greentable,
+				usr_params->gtable.greentable,
+				ISPPRV_GAMMA_TBL_SIZE))
+			return -EFAULT;
+	} else {
+		dev_warn(prev_dev,
+			"%s: invalid gtable green pointer (usr: %08x,"
+			"krn: %08x)\n", __func__,
+			(int)usr_params->gtable.greentable,
+			(int)isp_params->gtable.greentable);
+	}
+
+	if (usr_params->gtable.bluetable && isp_params->gtable.bluetable) {
+		if (copy_from_user(isp_params->gtable.bluetable,
+				usr_params->gtable.bluetable,
+				ISPPRV_GAMMA_TBL_SIZE))
+			return -EFAULT;
+	} else {
+		dev_warn(prev_dev,
+			"%s: invalid gtable blue pointer (usr: %08x,"
+			" krn: %08x)\n", __func__,
+			(int)usr_params->gtable.bluetable,
+			(int)isp_params->gtable.bluetable);
+	}
+
+	isp_params->wbal = usr_params->wbal;
+	isp_params->blk_adj = usr_params->blk_adj;
+	isp_params->rgb2rgb = usr_params->rgb2rgb;
+	isp_params->rgb2ycbcr = usr_params->rgb2ycbcr;
+	isp_params->hmf_params = usr_params->hmf_params;
+	isp_params->size_params = usr_params->size_params;
+	isp_params->drkf_params = usr_params->drkf_params;
+	isp_params->lens_shading_shift = usr_params->lens_shading_shift;
+	isp_params->average = usr_params->average;
+	isp_params->contrast = usr_params->contrast;
+	isp_params->brightness = usr_params->brightness;
+
+	return 0;
+}
+
+/**
  * previewer_ioctl - I/O control function for Preview Wrapper
  * @inode: Inode structure associated with the Preview Wrapper.
  * @file: File structure associated with the Preview Wrapper.
@@ -930,22 +1028,29 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 			return -EFAULT;
 		}
 
-		ret = prev_validate_params(&params);
+		memcpy(&isppreview_tmp, device->params,
+			sizeof(isppreview_tmp));
+
+		ret = prev_copy_params(&params, device->params);
+		if (ret) {
+			memcpy(device->params, &isppreview_tmp,
+				sizeof(isppreview_tmp));
+			dev_err(prev_dev, "%s: copy parameters fail\n",
+				__func__);
+			goto out;
+		}
+
+		ret = prev_validate_params(device->params);
 		if (ret < 0) {
+			memcpy(device->params, &isppreview_tmp,
+				sizeof(isppreview_tmp));
 			dev_err(prev_dev, "%s: validating parameters fail!\n",
 				 __func__);
 			mutex_unlock(&device->prevwrap_mutex);
 			goto out;
 		}
 
-		if (device->params)
-			memcpy(device->params, &params,
-						sizeof(struct prev_params));
-			device->configured = true;
-		else {
-			mutex_unlock(&device->prevwrap_mutex);
-			return -EINVAL;
-		}
+		device->configured = true;
 
 		ret = prev_negotiate_output_size(device, &device->out_hsize,
 					&device->out_vsize);
@@ -984,7 +1089,8 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 
 		if (device->configured == false) {
 			ret = -EPERM;
-			dev_err(prev_dev, "%s: not configured yet\n", __func__);
+			dev_err(prev_dev, "%s: not configured yet\n",
+				__func__);
 			break;
 		}
 
@@ -993,7 +1099,7 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 			break;
 
 		if (copy_to_user((struct prev_cropsize *)arg, &outputsize,
-						sizeof(struct prev_cropsize)))
+					sizeof(struct prev_cropsize)))
 			ret = -EFAULT;
 		break;
 	}
