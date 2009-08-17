@@ -516,6 +516,17 @@ int set_pwrdm_state(struct powerdomain *pwrdm, u32 state)
 	if (cur_state == state)
 		return ret;
 
+	/*
+	 * check if bridge has hibernated? if yes then just return success
+	 * If OFF mode is not enabled, sleep switch is performed for IVA which is not
+	 * necessary.
+	 * REVISIT: Bridge has to set powerstate based on enable_off_mode state.
+	 */
+	if (!strcmp(pwrdm->name, "iva2_pwrdm")) {
+		if (cur_state == PWRDM_POWER_OFF)
+			return 0;
+	}
+
 	if (pwrdm_read_pwrst(pwrdm) < PWRDM_POWER_ON) {
 		omap2_clkdm_wakeup(pwrdm->pwrdm_clkdms[0]);
 		sleep_switch = 1;
