@@ -48,6 +48,7 @@ enum config_done {
 						 */
 };
 
+typedef void (*rsz_callback) (void *arg1);
 /* Structure Definitions */
 
 /* used to luma enhancement options */
@@ -134,3 +135,14 @@ struct rsz_cropsize {
 };
 
 #endif
+
+int rsz_get_resource(void);
+void rsz_put_resource(void);
+int rsz_configure(struct rsz_params *params, rsz_callback callback,
+						void *arg1);
+int rsz_begin(u32 slot,
+			int output_buffer_index, u32 out_off, u32 out_phy_add);
+int rsz_map_input_dss_buffers(u32 physical_address,
+						unsigned int slot, u32 size);
+void rsz_unmap_input_dss_buffers(unsigned int slot);
+

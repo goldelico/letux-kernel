@@ -78,17 +78,6 @@
 
 static DECLARE_MUTEX(resz_wrapper_mutex);
 
-/* Global structure which contains information about number of channels
-   and protection variables */
-struct device_params {
-
-	unsigned char opened;			/* state of the device */
-	struct completion compl_isr;		/* Completion for interrupt */
-	struct mutex reszwrap_mutex;		/* Semaphore for array */
-
-	struct videobuf_queue_ops vbq_ops;	/* videobuf queue operations */
-};
-
 /* Register mapped structure which contains the every register
    information */
 struct resizer_config {
@@ -184,6 +173,28 @@ struct channel_config {
 	enum config_done config_state;
 	u8 input_buf_index;
 	u8 output_buf_index;
+
+};
+/* Global structure which contains information about number of channels
+   and protection variables */
+struct device_params {
+
+	struct rsz_params *params;
+	struct channel_config *config;		/* Pointer to channel */
+	struct rsz_mult *multipass;		/* Multipass to support */
+	unsigned char opened;			/* state of the device */
+	struct completion compl_isr;		/* Completion for interrupt */
+	struct mutex reszwrap_mutex;		/* Semaphore for array */
+
+	struct videobuf_queue_ops vbq_ops;	/* videobuf queue operations */
+	rsz_callback 	callback;		/* callback function which gets
+						 * called when Resizer
+						 * finishes resizing
+						 */
+	void *callback_arg;
+	u32 *in_buf_virt_addr[32];
+	u32 *out_buf_phy_addr[2];
+	u32 *out_buf_virt_addr[2];
 
 };
 
@@ -1490,7 +1501,269 @@ static const struct file_operations rsz_fops = {
 };
 
 /**
- * rsz_isr - Interrupt Service Routine for Resizer wrapper
+ * rsz_get_resource - get the Resizer module from the kernel space.
+ * This function will make sure that Resizer module is not used by any other
+ * application. It is equivalent of open() call from user space.
+ * It returns busy if the device is already opened by other application
+ * or ENOMEM if it fails to allocate memory for structures
+ * or 0 if the call is successful.
+ **/
+
+int rsz_get_resource(void)
+{
+
+
+	struct channel_config *rsz_conf_chan;
+	struct device_params *device = device_config;
+	struct rsz_params *params;
+	struct rsz_mult *multipass;
+
+	if (device->opened) {
+		dev_err(rsz_device, "rsz_get_resource: device is "
+						"already opened\n");
+		return -EBUSY;
+	}
+
+	rsz_conf_chan = kzalloc(sizeof(struct channel_config), GFP_KERNEL);
+
+	if (rsz_conf_chan == NULL) {
+		dev_err(rsz_device, "\n Can not allocate memory to config");
+		return -ENOMEM;
+	}
+
+	params = kzalloc(sizeof(struct rsz_params), GFP_KERNEL);
+	if (params == NULL) {
+		dev_warn(rsz_device, "\n Can not allocate memory to params");
+		kfree(rsz_conf_chan);
+		return -ENOMEM;
+	}
+
+	multipass = kzalloc(sizeof(struct rsz_mult), GFP_KERNEL);
+	if (multipass == NULL) {
+		dev_err(rsz_device, "\n cannot allocate memory to multipass");
+		kfree(rsz_conf_chan);
+		kfree(params);
+		return -ENOMEM;
+	}
+
+	device->params = params;
+	device->config = rsz_conf_chan;
+	device->multipass = multipass;
+	device->opened = 1;
+
+	rsz_conf_chan->config_state = STATE_NOT_CONFIGURED;
+
+	init_completion(&device->compl_isr);
+	mutex_init(&device->reszwrap_mutex);
+
+	isp_get();
+
+	return 0;
+}
+EXPORT_SYMBOL(rsz_get_resource);
+
+void rsz_unmap_input_dss_buffers(unsigned int slot)
+{
+	/* Get ISP resource */
+	isp_get();
+	if (device_config->in_buf_virt_addr[slot]) {
+		ispmmu_kunmap \
+		((dma_addr_t)device_config->in_buf_virt_addr[slot]);
+		device_config->in_buf_virt_addr[slot] = NULL;
+	}
+	/* Release isp resource*/
+	isp_put();
+}
+EXPORT_SYMBOL(rsz_unmap_input_dss_buffers);
+/**
+ * rsz_put_resource - release all the resource which were acquired during
+ * rsz_get_resource() call.
+ **/
+void rsz_put_resource(void)
+{
+	struct device_params *device = device_config;
+	struct channel_config *rsz_conf_chan = device->config;
+	struct rsz_params *params = device->params;
+	struct rsz_mult *multipass = device->multipass;
+	int i = 0;
+
+	if (device->opened != 1)
+		return;
+
+	/* unmap output buffers if allocated */
+	for (i = 0; i < 2; ++i) {
+		if (device->out_buf_virt_addr[i]) {
+			ispmmu_kunmap((dma_addr_t)device->out_buf_virt_addr[i]);
+			device_config->out_buf_virt_addr[i] = NULL;
+		}
+	}
+
+	/* free all memory which was allocate during get() */
+	kfree(rsz_conf_chan);
+	kfree(params);
+	kfree(multipass);
+
+	/* make device available */
+	device->opened = 0;
+	device->params = NULL;
+	device->config = NULL;
+	device->multipass = NULL;
+
+	/* release isp resource*/
+	isp_put();
+
+	return ;
+}
+EXPORT_SYMBOL(rsz_put_resource);
+
+/**
+  * rsz_configure - configure the Resizer parameters
+  * @params: Structure containing the Resizer Wrapper parameters
+  * @callback: callback function to call after resizing is over
+  * @arg1: argument to callback function
+  *
+  * This function can be called from DSS to set the parameter of resizer
+  * in case there is need to downsize the input image through resizer
+  * before calling this function calling driver must already have called
+  * rsz_get_resource() function so that necessory initialization is over.
+  * Returns 0 if successful,
+  **/
+int rsz_configure(struct rsz_params *params, rsz_callback callback,
+					void *arg1)
+{
+	int retval;
+	struct channel_config *rsz_conf_chan = device_config->config;
+	struct rsz_mult *multipass = device_config->multipass;
+
+	retval = rsz_set_params(multipass, params, rsz_conf_chan);
+	if (retval != 0)
+		return retval;
+
+	rsz_hardware_setup(rsz_conf_chan);
+	device_config->callback = callback;
+	device_config->callback_arg = arg1;
+
+	return 0;
+}
+EXPORT_SYMBOL(rsz_configure);
+
+/**
+  * rsz_map_input_dss_buffers - maps the input buffer of DSS in isp address
+  * space
+  * @physical_address: physical address of the buffer which needs to be mapped
+  * @slot: This is the buffer index for which this physical address is valid
+  * @size: size to be mapped in (buffer size)
+  * This function maps the buffers provided by the DSS as input image.
+  **/
+int rsz_map_input_dss_buffers(u32 physical_address,
+					unsigned int slot, u32 size)
+{
+	DPRINTK_ISPRESZ("input_dss_buffer map physical address = 0x%x,"
+			"slot=%d, size = %d\n", physical_address, slot, size);
+	if (device_config->in_buf_virt_addr[slot])
+		rsz_unmap_input_dss_buffers(slot);
+	isp_get();
+	device_config->in_buf_virt_addr[slot] =
+				(u32 *) ispmmu_kmap(physical_address, size);
+	isp_put();
+	if (device_config->in_buf_virt_addr[slot])
+		return 0;
+	else {
+		dev_err(rsz_device, "Mapping of input buffer in ISP"
+				"failed for buffer index %d", slot);
+		return -1;
+	}
+}
+EXPORT_SYMBOL(rsz_map_input_dss_buffers);
+
+/** rsz_begin - Function to be called by DSS when resizing of the input image/
+  * buffer is needed
+  * @slot: buffer index where the input image is stored
+  * @output_buffer_index: output buffer index where output of resizer will
+  * be stored
+  * @out_off: The line size in bytes for output buffer. as most probably
+  * this will be VRFB with YUV422 data, it should come 0x2000 as input
+  * @out_phy_add: physical address of the start of output memory area for this
+  *
+  * rsz_begin()  takes the input buffer index and output buffer index
+  * to start the process of resizing. after resizing is complete,
+  * the callback function will be called with the argument.
+  * Indexes of the input and output buffers are used so that it is faster
+  * and easier to configure the input and output address for the ISP resizer.
+  * As per the current implementation, DSS uses two VRFB contexts for rotation.
+  * The input buffers are already mapped by rsz_map_input_dss_buffers() api, so
+  * only index has been taken as the parameter, however for output buffers
+  * index and physical address has been taken as argument. if this buffer is
+  * not already mapped to ISP address space we use physical address to map it,
+  * otherwise only the index is used.
+  **/
+int rsz_begin(u32 slot, int output_buffer_index,
+					u32 out_off, u32 out_phy_add)
+{
+	unsigned int output_size;
+	struct channel_config *rsz_conf_chan = device_config->config;
+	if (output_buffer_index > 1) {
+		dev_err(rsz_device,
+		"ouput buffer index is out of range %d", output_buffer_index);
+		return -EINVAL;
+	}
+	/* If this output buffer has not been mapped till now then map it */
+	if (device_config->out_buf_virt_addr[output_buffer_index] == NULL) {
+		device_config->out_buf_phy_addr[output_buffer_index] =
+							(u32 *)out_phy_add;
+		output_size =
+			(rsz_conf_chan->register_config.rsz_out_size >>
+			ISPRSZ_OUT_SIZE_VERT_SHIFT) * out_off;
+			rsz_conf_chan->register_config.rsz_sdr_outadd =
+				(u32)ispmmu_kmap(out_phy_add, output_size);
+		if (!(rsz_conf_chan->register_config.rsz_sdr_outadd)) {
+			dev_err(rsz_device, "Mapping of output buffer failed"
+						"for index \n");
+		}
+		device_config->out_buf_virt_addr[output_buffer_index] =
+			(u32 *) rsz_conf_chan->register_config.rsz_sdr_outadd;
+	}
+
+	/* Configure the input and output address with output line size
+	in resizer hardware */
+	down(&resz_wrapper_mutex);
+	isp_reg_writel \
+		((u32)device_config->out_buf_virt_addr[output_buffer_index],
+			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTADD);
+	rsz_conf_chan->register_config.rsz_sdr_inadd =
+				(u32)device_config->in_buf_virt_addr[slot];
+	rsz_conf_chan->register_config.rsz_sdr_outoff = out_off;
+	isp_reg_writel(rsz_conf_chan->register_config.rsz_sdr_inadd,
+			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
+	isp_reg_writel(rsz_conf_chan->register_config.rsz_sdr_outoff,
+			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTOFF);
+	up(&resz_wrapper_mutex);
+
+	/* Set ISP callback for the resizing complete even */
+	if (isp_set_callback(CBK_RESZ_DONE, rsz_isr, (void *) NULL,
+							(void *)NULL)) {
+		dev_err(rsz_device, "No callback for RSZR\n");
+		return -1;
+	}
+	device_config->compl_isr.done = 0;
+
+	/* All settings are done.Enable the resizer */
+	ispresizer_enable(1);
+	/* Wait for resizing complete event */
+	wait_for_completion_interruptible(&device_config->compl_isr);
+
+	/* Unset the ISP callback function */
+	isp_unset_callback(CBK_RESZ_DONE);
+
+	/* Callback function for DSS driver */
+	if (device_config->callback)
+		device_config->callback(device_config->callback_arg);
+
+	return 0;
+}
+EXPORT_SYMBOL(rsz_begin);
+
+ /* rsz_isr - Interrupt Service Routine for Resizer wrapper
  * @status: ISP IRQ0STATUS register value
  * @arg1: Currently not used
  * @arg2: Currently not used

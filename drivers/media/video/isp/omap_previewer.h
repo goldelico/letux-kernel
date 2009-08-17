@@ -143,6 +143,7 @@ struct prev_cropsize {
 struct prev_device {
 	struct prev_params *params;
 	unsigned char opened;
+	unsigned char configured;
 	struct completion wfc;
 	struct mutex prevwrap_mutex;
 	spinlock_t inout_vbq_lock; /* Spinlock for in/out videobuf queues. */
@@ -150,6 +151,8 @@ struct prev_device {
 	struct videobuf_queue_ops vbq_ops;
 	dma_addr_t isp_addr_read;
 	dma_addr_t isp_addr_lsc;
+	u32 out_hsize;
+	u32 out_vsize;
 };
 
 /**

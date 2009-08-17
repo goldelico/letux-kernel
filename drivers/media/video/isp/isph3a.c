@@ -627,6 +627,9 @@ int isph3a_aewb_configure(struct isph3a_aewb_config *aewbcfg)
 	aewbstat.win_count = win_count;
 	aewbstat.curr_cfg_buf_size = win_count * AEWB_PACKET_SIZE;
 
+	for (i = 0; i < H3A_MAX_BUFF; i++)
+		aewbstat.h3a_buff[i].frame_num = 0;
+
 	if (aewbstat.stats_buf_size
 	    && win_count * AEWB_PACKET_SIZE > aewbstat.stats_buf_size) {
 		DPRINTK_ISPH3A("There was a previous buffer... "
@@ -634,11 +637,9 @@ int isph3a_aewb_configure(struct isph3a_aewb_config *aewbcfg)
 		isph3a_aewb_enable(0);
 		for (i = 0; i < H3A_MAX_BUFF; i++) {
 			ispmmu_kunmap(aewbstat.h3a_buff[i].ispmmu_addr);
-			dma_free_coherent(
-				NULL,
-				aewbstat.min_buf_size,
+			free_pages_exact(
 				(void *)aewbstat.h3a_buff[i].virt_addr,
-				(dma_addr_t)aewbstat.h3a_buff[i].phy_addr);
+				aewbstat.min_buf_size);
 			aewbstat.h3a_buff[i].virt_addr = 0;
 		}
 		aewbstat.stats_buf_size = 0;
@@ -652,17 +653,18 @@ int isph3a_aewb_configure(struct isph3a_aewb_config *aewbcfg)
 		for (i = 0; i < H3A_MAX_BUFF; i++) {
 			aewbstat.h3a_buff[i].frame_num = 0;
 			aewbstat.h3a_buff[i].virt_addr =
-				(unsigned long)dma_alloc_coherent(
-					NULL,
+				(unsigned long)alloc_pages_exact(
 					aewbstat.min_buf_size,
-					(dma_addr_t *)
-					&aewbstat.h3a_buff[i].phy_addr,
 					GFP_KERNEL | GFP_DMA);
 			if (aewbstat.h3a_buff[i].virt_addr == 0) {
 				printk(KERN_ERR "Can't acquire memory for "
 				       "buffer[%d]\n", i);
 				return -ENOMEM;
 			}
+			aewbstat.h3a_buff[i].phy_addr = dma_map_single(NULL,
+					(void *)aewbstat.h3a_buff[i].virt_addr,
+					aewbstat.min_buf_size,
+					DMA_FROM_DEVICE);
 			aewbstat.h3a_buff[i].addr_align =
 				aewbstat.h3a_buff[i].virt_addr;
 			while ((aewbstat.h3a_buff[i].addr_align & 0xFFFFFFC0) !=

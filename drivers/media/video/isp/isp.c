@@ -24,8 +24,8 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <asm/cacheflush.h>
 
+#include <asm/cacheflush.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/clk.h>
@@ -45,6 +45,7 @@
 #include "ispcsi2.h"
 
 static struct isp_device *omap3isp;
+static int flag_720p;
 
 static int isp_try_size(struct v4l2_pix_format *pix_input,
 			struct v4l2_pix_format *pix_output);
@@ -54,6 +55,7 @@ static void isp_save_ctx(void);
 static void isp_restore_ctx(void);
 
 static void isp_buf_init(void);
+
 
 /* List of image formats supported via OMAP ISP */
 const static struct v4l2_fmtdesc isp_formats[] = {
@@ -1269,14 +1271,24 @@ static u32 isp_calc_pipeline(struct v4l2_pix_format *pix_input,
 	if ((pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10
 	     || pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8)
 	    && pix_output->pixelformat != V4L2_PIX_FMT_SGRBG10) {
-		isp_obj.module.isp_pipeline =
-			OMAP_ISP_CCDC | OMAP_ISP_PREVIEW | OMAP_ISP_RESIZER;
+
+		if (!flag_720p)
+				isp_obj.module.isp_pipeline = OMAP_ISP_PREVIEW |
+						OMAP_ISP_RESIZER |
+						OMAP_ISP_CCDC;
+			else
+				isp_obj.module.isp_pipeline = OMAP_ISP_PREVIEW |
+						OMAP_ISP_CCDC;
+
 		ispccdc_request();
 		isppreview_request();
-		ispresizer_request();
+		if (!flag_720p)
+			ispresizer_request();
 		ispccdc_config_datapath(CCDC_RAW, CCDC_OTHERS_VP);
 		isppreview_config_datapath(PRV_RAW_CCDC, PREVIEW_MEM);
-		ispresizer_config_datapath(RSZ_MEM_YUV);
+		if (!flag_720p)
+				ispresizer_config_datapath(RSZ_MEM_YUV);
+
 	} else {
 		isp_obj.module.isp_pipeline = OMAP_ISP_CCDC;
 		ispccdc_request();
@@ -1322,12 +1334,17 @@ static void isp_config_pipeline(struct v4l2_pix_format *pix_input,
 
 	if (pix_output->pixelformat == V4L2_PIX_FMT_UYVY) {
 		isppreview_config_ycpos(YCPOS_YCrYCb);
-		if (is_ispresizer_enabled())
-			ispresizer_config_ycpos(0);
+		if (!flag_720p) {
+			if (is_ispresizer_enabled())
+				ispresizer_config_ycpos(0);
+		}
+
 	} else {
 		isppreview_config_ycpos(YCPOS_CrYCbY);
-		if (is_ispresizer_enabled())
-			ispresizer_config_ycpos(1);
+		if (!flag_720p) {
+			if (is_ispresizer_enabled())
+				ispresizer_config_ycpos(1);
+		}
 	}
 
 	return;
@@ -1816,6 +1833,12 @@ int isp_s_fmt_cap(struct v4l2_pix_format *pix_input,
 	int crop_scaling_w = 0, crop_scaling_h = 0;
 	int rval = 0;
 
+
+	if ((pix_output->width == 1280) && (pix_output->height == 720))
+		flag_720p = 1;
+	else
+		flag_720p = 0;
+
 	if (!isp_obj.ref_count)
 		return -EINVAL;
 
@@ -1844,7 +1867,6 @@ int isp_s_fmt_cap(struct v4l2_pix_format *pix_input,
 	}
 
 	isp_config_pipeline(pix_input, pix_output);
-
 	if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER
 	    && (crop_scaling_h || crop_scaling_w))
 		isp_config_crop(pix_output);
@@ -2009,18 +2031,21 @@ static int isp_try_size(struct v4l2_pix_format *pix_input,
 {
 	int rval = 0;
 
+
 	if (pix_output->width <= ISPRSZ_MIN_OUTPUT
 	    || pix_output->height <= ISPRSZ_MIN_OUTPUT)
 		return -EINVAL;
-
 	if (pix_output->width >= ISPRSZ_MAX_OUTPUT
 	    || pix_output->height > ISPRSZ_MAX_OUTPUT)
 		return -EINVAL;
 
 	isp_obj.module.ccdc_input_width = pix_input->width;
 	isp_obj.module.ccdc_input_height = pix_input->height;
-	isp_obj.module.resizer_output_width = pix_output->width;
-	isp_obj.module.resizer_output_height = pix_output->height;
+
+	if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER) {
+		isp_obj.module.resizer_output_width = pix_output->width;
+		isp_obj.module.resizer_output_height = pix_output->height;
+	}
 
 	if (isp_obj.module.isp_pipeline & OMAP_ISP_CCDC) {
 		rval = ispccdc_try_size(isp_obj.module.ccdc_input_width,
@@ -2223,12 +2248,6 @@ int isp_get(void)
 			isp_restore_ctx();
 		else
 			has_context = 1;
-		/* HACK: Allow multiple opens meanwhile a better solution is
-		 *       found for the case of different devices sharing ISP
-		 *       settings. */
-/*	} else {
-		mutex_unlock(&isp_obj.isp_mutex);
-		return -EBUSY; */
 	}
 	isp_obj.ref_count++;
 	mutex_unlock(&(isp_obj.isp_mutex));
