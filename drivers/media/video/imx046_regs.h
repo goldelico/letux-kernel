@@ -213,6 +213,7 @@ enum imx046_image_size {
 	EIGHT_MP
 };
 
+#define NUM_IMAGE_SIZES ARRAY_SIZE(imx046_sizes)
 /**
  * struct imx046_capture_size - image capture size information
  * @width: image width in pixels
