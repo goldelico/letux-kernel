@@ -24,6 +24,7 @@
 #include <asm/io.h>
 
 #include <mach/gpio.h>
+#include <mach/omap-pm.h>
 
 static int cam_inited;
 #include <media/v4l2-int-device.h>
@@ -165,7 +166,7 @@ static struct isp_interface_config imx046_if_config = {
 };
 
 
-static int imx046_sensor_power_set(enum v4l2_power power)
+static int imx046_sensor_power_set(struct device *dev, enum v4l2_power power)
 {
 	struct isp_csi2_lanes_cfg lanecfg;
 	struct isp_csi2_phy_cfg phyconfig;
@@ -176,6 +177,12 @@ static int imx046_sensor_power_set(enum v4l2_power power)
 	case V4L2_POWER_ON:
 		/* Power Up Sequence */
 		printk(KERN_DEBUG "imx046_sensor_power_set(ON)\n");
+
+		/* Through-put requirement:
+		 * 3280 x 2464 x 2Bpp x 7.5fps x 3 memory ops = 355163 KByte/s
+		 */
+		omap_pm_set_min_bus_tput(dev, OCP_INITIATOR_AGENT, 355163);
+
 		isp_csi2_reset();
 
 		lanecfg.clk.pol = IMX046_CSI2_CLOCK_POLARITY;
@@ -245,10 +252,13 @@ static int imx046_sensor_power_set(enum v4l2_power power)
 		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 				VAUX_DEV_GRP_NONE, TWL4030_VAUX2_DEV_GRP);
 		gpio_free(IMX046_RESET_GPIO);
+
+		omap_pm_set_min_bus_tput(dev, OCP_INITIATOR_AGENT, 0);
 		break;
 	case V4L2_POWER_STANDBY:
 		printk(KERN_DEBUG "imx046_sensor_power_set(STANDBY)\n");
 		/*TODO*/
+		omap_pm_set_min_bus_tput(dev, OCP_INITIATOR_AGENT, 0);
 		break;
 	}
 

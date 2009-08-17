@@ -1439,7 +1439,7 @@ static int ioctl_s_power(struct v4l2_int_device *s, enum v4l2_power on)
 	else
 		sensor->pdata->set_xclk(xclk_current, hw_config.u.sensor.xclk);
 
-	rval = sensor->pdata->power_set(on);
+	rval = sensor->pdata->power_set(&client->dev, on);
 	if (rval < 0) {
 		v4l_err(client, "Unable to set the power state: "
 			IMX046_DRIVER_NAME " sensor\n");
