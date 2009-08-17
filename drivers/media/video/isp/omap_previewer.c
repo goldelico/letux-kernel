@@ -718,16 +718,19 @@ static void previewer_vbq_queue(struct videobuf_queue *q,
  **/
 static int previewer_open(struct inode *inode, struct file *filp)
 {
-	int ret = 0;
 	struct prev_device *device = prevdevice;
 	struct prev_params *config = isppreview_get_config();
 	struct prev_fh *fh;
+	int ret = 0;
 
 	if (config == NULL) {
 		dev_err(prev_dev, "%s: Unable to get default config "
 			"from isp preview\n", __func__);
 		return -EACCES;
 	}
+
+	if (mutex_lock_interruptible(&device->prevwrap_mutex))
+		return -EINTR;
 
 	if (device->opened || (filp->f_flags & O_NONBLOCK)) {
 		dev_err(prev_dev, "%s: Device is already opened\n", __func__);
@@ -739,16 +742,14 @@ static int previewer_open(struct inode *inode, struct file *filp)
 		return -ENOMEM;
 
 	ret = isp_get();
-
 	if (ret < 0) {
 		kfree(fh);
-		printk(KERN_ERR "Can't enable ISP clocks (ret %d)\n", ret);
-		return -EACCES;
+		dev_err(prev_dev, "%s: Can't acquire isp core\n", __func__);
+		return ret;
 	}
 
 	ret = isppreview_request();
-
-	if (ret) {
+	if (ret < 0) {
 		kfree(fh);
 		isp_put();
 		dev_err(prev_dev, "%s: Can't acquire isp preview\n", __func__);
@@ -756,7 +757,7 @@ static int previewer_open(struct inode *inode, struct file *filp)
 	}
 
 	device->params = config;
-	device->opened = 1;
+	device->opened = true;
 
 	filp->private_data = fh;
 	fh->inout_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -774,10 +775,8 @@ static int previewer_open(struct inode *inode, struct file *filp)
 			sizeof(struct videobuf_buffer), fh);
 
 	init_completion(&device->wfc);
-	device->wfc.done = 0;
 	device->configured = false;
-	mutex_init(&device->prevwrap_mutex);
-
+	mutex_unlock(&device->prevwrap_mutex);
 	return 0;
 }
 
@@ -795,7 +794,9 @@ static int previewer_release(struct inode *inode, struct file *filp)
 	struct videobuf_queue *q1 = &fh->inout_vbq;
 	struct videobuf_queue *q2 = &fh->lsc_vbq;
 
-	device->opened = 0;
+	if (mutex_lock_interruptible(&device->prevwrap_mutex))
+		return -EINTR;
+	device->opened = false;
 	device->params = NULL;
 	videobuf_mmap_free(q1);
 	videobuf_mmap_free(q2);
@@ -806,8 +807,8 @@ static int previewer_release(struct inode *inode, struct file *filp)
 	prev_bufsize = 0;
 	lsc_bufsize = 0;
 	filp->private_data = NULL;
+	mutex_unlock(&device->prevwrap_mutex);
 	kfree(fh);
-
 	dev_dbg(prev_dev, "%s: Exit\n", __func__);
 	return 0;
 }
@@ -1227,6 +1228,7 @@ static int __init omap_previewer_init(void)
 	device->vbq_ops.buf_prepare = previewer_vbq_prepare;
 	device->vbq_ops.buf_release = previewer_vbq_release;
 	device->vbq_ops.buf_queue = previewer_vbq_queue;
+	mutex_init(&device->prevwrap_mutex);
 	spin_lock_init(&device->inout_vbq_lock);
 	spin_lock_init(&device->lsc_vbq_lock);
 	prevdevice = device;
