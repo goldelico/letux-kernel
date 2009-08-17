@@ -328,10 +328,8 @@ int isp_af_configure(struct af_configuration *afconfig)
 		isp_af_enable(0);
 		for (i = 0; i < H3A_MAX_BUFF; i++) {
 			ispmmu_kunmap(afstat.af_buff[i].ispmmu_addr);
-			dma_free_coherent(
-				NULL, afstat.min_buf_size,
-				(void *)afstat.af_buff[i].virt_addr,
-				(dma_addr_t)afstat.af_buff[i].phy_addr);
+			free_pages_exact((void *)afstat.af_buff[i].virt_addr,
+					afstat.min_buf_size);
 			afstat.af_buff[i].virt_addr = 0;
 		}
 		afstat.stats_buf_size = 0;
@@ -343,17 +341,18 @@ int isp_af_configure(struct af_configuration *afconfig)
 
 		for (i = 0; i < H3A_MAX_BUFF; i++) {
 			afstat.af_buff[i].virt_addr =
-				(unsigned long)dma_alloc_coherent(
-					NULL,
+				(unsigned long)alloc_pages_exact(
 					afstat.min_buf_size,
-					(dma_addr_t *)
-					&afstat.af_buff[i].phy_addr,
 					GFP_KERNEL | GFP_DMA);
 			if (afstat.af_buff[i].virt_addr == 0) {
 				printk(KERN_ERR "Can't acquire memory for "
 				       "buffer[%d]\n", i);
 				return -ENOMEM;
 			}
+			afstat.af_buff[i].phy_addr = dma_map_single(NULL,
+					(void *)afstat.af_buff[i].virt_addr,
+					afstat.min_buf_size,
+					DMA_FROM_DEVICE);
 			afstat.af_buff[i].addr_align =
 				afstat.af_buff[i].virt_addr;
 			while ((afstat.af_buff[i].addr_align & 0xFFFFFFC0) !=
