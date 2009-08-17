@@ -45,7 +45,7 @@
 	} while (0)
 
 #define ISP_CTRL_SBL_SHARED_RPORTB	(1 << 28)
-#define ISP_CTRL_SBL_SHARED_RPORTA 	(1 << 27)
+#define ISP_CTRL_SBL_SHARED_RPORTA	(1 << 27)
 #define SBL_RD_RAM_EN				18
 
 static u32 isp_ctrl;
@@ -173,17 +173,17 @@ static int prev_validate_params(struct prev_params *params)
 
 	if ((params->features & PREV_AVERAGER) == PREV_AVERAGER) {
 		if ((params->average != NO_AVE)
-					&& (params->average != AVE_2_PIX)
-					&& (params->average != AVE_4_PIX)
-					&& (params->average != AVE_8_PIX)) {
+				&& (params->average != AVE_2_PIX)
+				&& (params->average != AVE_4_PIX)
+				&& (params->average != AVE_8_PIX)) {
 			dev_err(prev_dev, "%s: wrong pix average\n", __func__);
 			goto err_einval;
 		} else if (((params->average == AVE_2_PIX)
-					&& (params->size_params.hsize % 2))
-					|| ((params->average == AVE_4_PIX)
-					&& (params->size_params.hsize % 4))
-					|| ((params->average == AVE_8_PIX)
-					&& (params->size_params.hsize % 8))) {
+				&& (params->size_params.hsize % 2))
+				|| ((params->average == AVE_4_PIX)
+				&& (params->size_params.hsize % 4))
+				|| ((params->average == AVE_8_PIX)
+				&& (params->size_params.hsize % 8))) {
 			dev_err(prev_dev, "%s: wrong pix average for input"
 				" size\n", __func__);
 			goto err_einval;
@@ -446,7 +446,7 @@ static int prev_do_preview(struct prev_device *device, int *arg)
 		goto out;
 
 	ret = isp_set_callback(CBK_PREV_DONE, prev_isr, (void *) device,
-								(void *) NULL);
+							(void *) NULL);
 	if (ret) {
 		dev_err(prev_dev,
 			"%s: setting previewer callback failed\n", __func__);
