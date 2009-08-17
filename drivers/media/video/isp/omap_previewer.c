@@ -386,11 +386,10 @@ static int prev_negotiate_output_size(struct prev_device *prvdev,
 /**
  * prev_do_preview - Performs the Preview process
  * @device: Structure containing ISP preview wrapper global information
- * @arg: Currently not used
  *
  * Returns 0 if successful, or -EINVAL if the sent parameters are invalid.
  **/
-static int prev_do_preview(struct prev_device *device, int *arg)
+static int prev_do_preview(struct prev_device *device)
 {
 	u32 out_hsize, out_vsize, out_line_offset, in_line_offset;
 	int ret = 0, bpp;
@@ -942,6 +941,8 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 	struct prev_params params;
 	struct prev_fh *fh = file->private_data;
 	struct prev_device *device = fh->device;
+	struct v4l2_buffer b;
+	struct v4l2_requestbuffers req;
 
 	dev_dbg(prev_dev, "%s: Enter\n", __func__);
 
@@ -962,62 +963,66 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 
 	switch (cmd) {
 	case PREV_REQBUF:
-	{
-		struct v4l2_requestbuffers *req;
+		if (copy_from_user(&req, (struct v4l2_requestbuffers *)arg,
+					sizeof(struct v4l2_requestbuffers)))
+			return -EFAULT;
 
 		if (mutex_lock_interruptible(&device->prevwrap_mutex))
 			goto err_eintr;
 
-		req = (struct v4l2_requestbuffers *) arg;
-
-		if (req->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
-			ret = videobuf_reqbufs(&fh->inout_vbq, (void *) arg);
-		else if (req->type == V4L2_BUF_TYPE_PRIVATE)
-			ret = videobuf_reqbufs(&fh->lsc_vbq, (void *) arg);
+		if (req.type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
+			ret = videobuf_reqbufs(&fh->inout_vbq, &req);
+		else if (req.type == V4L2_BUF_TYPE_PRIVATE)
+			ret = videobuf_reqbufs(&fh->lsc_vbq, &req);
 		else
 			ret = -EINVAL;
 
+		if (!ret && copy_to_user((struct v4l2_requestbuffers *)arg,
+				&req, sizeof(struct v4l2_requestbuffers)))
+			ret = -EFAULT;
+
 		mutex_unlock(&device->prevwrap_mutex);
 		break;
-	}
 
 	case PREV_QUERYBUF:
-	{
-		struct v4l2_buffer *b;
+		if (copy_from_user(&b, (struct v4l2_buffer *)arg,
+					sizeof(struct v4l2_buffer)))
+			return -EFAULT;
 
 		if (mutex_lock_interruptible(&device->prevwrap_mutex))
 			goto err_eintr;
-		b = (struct v4l2_buffer *) arg;
 
-		if (b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
-			ret = videobuf_querybuf(&fh->inout_vbq, (void *) arg);
-		else if (b->type == V4L2_BUF_TYPE_PRIVATE)
-			ret = videobuf_querybuf(&fh->lsc_vbq, (void *) arg);
+		if (b.type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
+			ret = videobuf_querybuf(&fh->inout_vbq, &b);
+		else if (b.type == V4L2_BUF_TYPE_PRIVATE)
+			ret = videobuf_querybuf(&fh->lsc_vbq, &b);
 		else
 			ret = -EINVAL;
 
+		if (!ret && copy_to_user((struct v4l2_buffer *)arg, &b,
+					sizeof(struct v4l2_buffer)))
+			ret = -EFAULT;
+
 		mutex_unlock(&device->prevwrap_mutex);
 		break;
-	}
 
 	case PREV_QUEUEBUF:
-	{
-		struct v4l2_buffer *b;
+		if (copy_from_user(&b, (struct v4l2_buffer *)arg,
+					sizeof(struct v4l2_buffer)))
+			return -EFAULT;
 
 		if (mutex_lock_interruptible(&device->prevwrap_mutex))
 			goto err_eintr;
 
-		b = (struct v4l2_buffer *) arg;
-		if (b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
-			ret = videobuf_qbuf(&fh->inout_vbq, (void *) arg);
-		else if (b->type == V4L2_BUF_TYPE_PRIVATE)
-			ret = videobuf_qbuf(&fh->lsc_vbq, (void *) arg);
+		if (b.type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
+			ret = videobuf_qbuf(&fh->inout_vbq, &b);
+		else if (b.type == V4L2_BUF_TYPE_PRIVATE)
+			ret = videobuf_qbuf(&fh->lsc_vbq, &b);
 		else
 			ret = -EINVAL;
 
 		mutex_unlock(&device->prevwrap_mutex);
 		break;
-	}
 
 	case PREV_SET_PARAM:
 		if (mutex_lock_interruptible(&device->prevwrap_mutex))
@@ -1074,13 +1079,23 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 		break;
 
 	case PREV_GET_STATUS:
-		ret = prev_get_status((struct prev_status *)arg);
+	{
+		struct prev_status status;
+
+		ret = prev_get_status(&status);
+		if (ret)
+			break;
+
+		if (copy_to_user((struct prev_status *)arg, &status,
+						sizeof(struct prev_status)))
+			ret = -EFAULT;
 		break;
+	}
 
 	case PREV_PREVIEW:
 		if (mutex_lock_interruptible(&device->prevwrap_mutex))
 			goto err_eintr;
-		ret = prev_do_preview(device, (int *)arg);
+		ret = prev_do_preview(device);
 		mutex_unlock(&device->prevwrap_mutex);
 		break;
 
