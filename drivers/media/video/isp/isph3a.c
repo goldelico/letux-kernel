@@ -232,9 +232,11 @@ int isph3a_aewb_buf_process(struct isp_h3a_device *isp_h3a)
 	isph3a_update_wb(isp_h3a);
 	if (likely(!isp_h3a->buf_err &&
 				isp_h3a->aewb_config_local.aewb_enable)) {
-		ispstat_buf_queue(&isp_h3a->stat);
+		int ret;
+
+		ret = ispstat_buf_queue(&isp_h3a->stat);
 		isp_h3a->buf_next = ispstat_buf_next(&isp_h3a->stat);
-		return 0;
+		return ret;
 	} else {
 		isp_h3a->buf_err = 0;
 		return -1;

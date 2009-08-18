@@ -244,11 +244,14 @@ static void isp_hist_dma_cb(int lch, u16 ch_status, void *data)
 		omap_stop_dma(lch);
 		isp_hist_reset_mem(isp_hist);
 	} else {
-		ispstat_buf_queue(&isp_hist->stat);
+		int ret;
+
+		ret = ispstat_buf_queue(&isp_hist->stat);
 		isp_hist->active_buf = ispstat_buf_next(&isp_hist->stat);
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
 			    ~ISPHIST_CNT_CLR_EN);
-		omap34xx_isp_hist_dma_done(dev);
+		if (!ret)
+			omap34xx_isp_hist_dma_done(dev);
 	}
 	isp_hist->waiting_dma = 0;
 }
@@ -281,6 +284,7 @@ static int isp_hist_buf_pio(struct isp_hist_device *isp_hist)
 	struct device *dev = to_device(isp_hist);
 	u32 *buf = isp_hist->active_buf->virt_addr;
 	unsigned int i;
+	int ret;
 
 	if (!buf) {
 		dev_dbg(dev, "hist: invalid PIO buffer address\n");
@@ -312,10 +316,13 @@ static int isp_hist_buf_pio(struct isp_hist_device *isp_hist)
 	isp_reg_and(dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
 		    ~ISPHIST_CNT_CLR_EN);
 
-	ispstat_buf_queue(&isp_hist->stat);
+	ret = ispstat_buf_queue(&isp_hist->stat);
 	isp_hist->active_buf = ispstat_buf_next(&isp_hist->stat);
 
-	return HIST_BUF_DONE;
+	if (ret)
+		return HIST_NO_BUF;
+	else
+		return HIST_BUF_DONE;
 }
 
 /**
