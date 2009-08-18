@@ -35,12 +35,12 @@ inline int greater_overflow(int a, int b, int limit)
 		return a > b;
 }
 
-void ispstat_buf_queue(struct ispstat *stat)
+int ispstat_buf_queue(struct ispstat *stat)
 {
 	unsigned long flags;
 
 	if (!stat->active_buf)
-		return;
+		return -1;
 
 	do_gettimeofday(&stat->active_buf->ts);
 
@@ -56,6 +56,8 @@ void ispstat_buf_queue(struct ispstat *stat)
 	stat->active_buf = NULL;
 
 	spin_unlock_irqrestore(&stat->lock, flags);
+
+	return 0;
 }
 
 /* Get next free buffer to write the statistics to and mark it active. */

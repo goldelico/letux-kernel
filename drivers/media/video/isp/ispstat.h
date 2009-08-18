@@ -53,7 +53,7 @@ struct ispstat {
 	char *tag;		/* ispstat instantiation tag */
 };
 
-void ispstat_buf_queue(struct ispstat *stat);
+int ispstat_buf_queue(struct ispstat *stat);
 struct ispstat_buffer *ispstat_buf_next(struct ispstat *stat);
 struct ispstat_buffer *ispstat_buf_get(struct ispstat *stat,
 				       void __user *ptr,
