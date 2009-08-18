@@ -865,14 +865,23 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_pdev)
 	}
 
 	if (irqstatus & IRQ0STATUS_CSIB_IRQ) {
+		static const u32 ISPCSI1_LC01_ERROR =
+			ISPCSI1_LC01_IRQSTATUS_LC0_FIFO_OVF_IRQ |
+			ISPCSI1_LC01_IRQSTATUS_LC0_CRC_IRQ |
+			ISPCSI1_LC01_IRQSTATUS_LC0_FSP_IRQ |
+			ISPCSI1_LC01_IRQSTATUS_LC0_FW_IRQ |
+			ISPCSI1_LC01_IRQSTATUS_LC0_FSC_IRQ |
+			ISPCSI1_LC01_IRQSTATUS_LC0_SSC_IRQ;
 		u32 ispcsi1_irqstatus;
 
 		ispcsi1_irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
 						  ISPCSI1_LC01_IRQSTATUS);
 		isp_reg_writel(dev, ispcsi1_irqstatus, OMAP3_ISP_IOMEM_CCP2,
 			       ISPCSI1_LC01_IRQSTATUS);
-		buf->vb_state = VIDEOBUF_ERROR;
-		dev_dbg(dev, "CCP2 err:%x\n", ispcsi1_irqstatus);
+		if (ispcsi1_irqstatus & ISPCSI1_LC01_ERROR) {
+			buf->vb_state = VIDEOBUF_ERROR;
+			dev_dbg(dev, "CCP2 err:%x\n", ispcsi1_irqstatus);
+		}
 	}
 
 	if (irqstatus & RESZ_DONE) {
