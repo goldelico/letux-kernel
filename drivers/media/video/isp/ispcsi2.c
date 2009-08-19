@@ -1978,6 +1978,9 @@ int isp_csi2_reset(void)
 	u8 soft_reset_retries = 0;
 	int i;
 
+	memset(&current_csi2_cfg, 0, sizeof(current_csi2_cfg));
+	memset(&current_csi2_cfg_update, 0, sizeof(current_csi2_cfg_update));
+
 	reg = isp_reg_readl(OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSCONFIG);
 	reg |= ISPCSI2_SYSCONFIG_SOFT_RESET_RESET;
 	isp_reg_writel(reg, OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSCONFIG);
@@ -1994,6 +1997,21 @@ int isp_csi2_reset(void)
 
 	if (soft_reset_retries == 5) {
 		printk(KERN_ERR "CSI2: Soft reset try count exceeded!\n");
+		return -EBUSY;
+	}
+
+	i = 100;
+	do {
+		reg = isp_reg_readl(OMAP3_ISP_IOMEM_CSI2PHY, ISPCSI2PHY_CFG1) &
+		      ISPCSI2PHY_CFG1_RESETDONECTRLCLK_MASK;
+		if (reg == ISPCSI2PHY_CFG1_RESETDONECTRLCLK_MASK)
+			break;
+		udelay(100);
+	} while (--i > 0);
+
+	if (i == 0) {
+		printk(KERN_ERR
+			"CSI2: Reset for CSI2_96M_FCLK domain Failed!\n");
 		return -EBUSY;
 	}
 
@@ -2022,8 +2040,8 @@ int isp_csi2_reset(void)
 	isp_csi2_phy_get();
 	isp_csi2_timings_get_all();
 
-	isp_csi2_complexio_power_autoswitch(true);
 	isp_csi2_complexio_power(ISP_CSI2_POWER_ON);
+	isp_csi2_complexio_power_autoswitch(true);
 
 	isp_csi2_timings_config_forcerxmode(1, true);
 	isp_csi2_timings_config_stopstate_cnt(1, 0x1FF);
