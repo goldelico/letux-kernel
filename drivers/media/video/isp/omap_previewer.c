@@ -733,26 +733,26 @@ static int previewer_open(struct inode *inode, struct file *filp)
 
 	if (device->opened || (filp->f_flags & O_NONBLOCK)) {
 		dev_err(prev_dev, "%s: Device is already opened\n", __func__);
-		return -EBUSY;
+		ret = -EBUSY;
+		goto err_open_fh;
 	}
 
 	fh = kzalloc(sizeof(struct prev_fh), GFP_KERNEL);
-	if (NULL == fh)
-		return -ENOMEM;
+	if (NULL == fh) {
+		ret = -ENOMEM;
+		goto err_open_fh;
+	}
 
 	ret = isp_get();
 	if (ret < 0) {
-		kfree(fh);
 		dev_err(prev_dev, "%s: Can't acquire isp core\n", __func__);
-		return ret;
+		goto err_isp;
 	}
 
 	ret = isppreview_request();
 	if (ret < 0) {
-		kfree(fh);
-		isp_put();
 		dev_err(prev_dev, "%s: Can't acquire isp preview\n", __func__);
-		return ret;
+		goto err_prev;
 	}
 
 	device->params = config;
@@ -777,6 +777,14 @@ static int previewer_open(struct inode *inode, struct file *filp)
 	device->configured = false;
 	mutex_unlock(&device->prevwrap_mutex);
 	return 0;
+
+err_prev:
+	isp_put();
+err_isp:
+	kfree(fh);
+err_open_fh:
+	mutex_unlock(&device->prevwrap_mutex);
+	return ret;
 }
 
 /**
@@ -1213,7 +1221,8 @@ static int __init omap_previewer_init(void)
 	if (prev_major < 0) {
 		dev_err(prev_dev, OMAP_PREV_NAME ": Initialization "
 			"failed. Could not register character device\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto fail1;
 	}
 
 	ret = platform_driver_register(&omap_previewer_driver);
@@ -1255,7 +1264,8 @@ fail3:
 	platform_driver_unregister(&omap_previewer_driver);
 fail2:
 	unregister_chrdev(prev_major, OMAP_PREV_NAME);
-
+fail1:
+	kfree(device);
 	return ret;
 }
 
