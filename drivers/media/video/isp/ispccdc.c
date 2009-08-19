@@ -1234,109 +1234,54 @@ int ispccdc_config_size(u32 input_w, u32 input_h, u32 output_w, u32 output_h)
 		return -EINVAL;
 	}
 
-	if (ispccdc_obj.ccdc_outfmt == CCDC_OTHERS_VP) {
-		isp_reg_writel((ispccdc_obj.ccdcin_woffset <<
-				ISPCCDC_FMT_HORZ_FMTSPH_SHIFT) |
-			((ispccdc_obj.ccdcin_w-ispccdc_obj.ccdcin_woffset) <<
-				ISPCCDC_FMT_HORZ_FMTLNH_SHIFT),
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_FMT_HORZ);
-		isp_reg_writel((ispccdc_obj.ccdcin_hoffset <<
-				ISPCCDC_FMT_VERT_FMTSLV_SHIFT) |
-			((ispccdc_obj.ccdcin_h-ispccdc_obj.ccdcin_hoffset) <<
-				ISPCCDC_FMT_VERT_FMTLNV_SHIFT),
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_FMT_VERT);
-		isp_reg_writel((ispccdc_obj.ccdcout_w <<
-				ISPCCDC_VP_OUT_HORZ_NUM_SHIFT) |
-			       (ispccdc_obj.ccdcout_h <<
-					ISPCCDC_VP_OUT_VERT_NUM_SHIFT),
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_VP_OUT);
-		isp_reg_writel((((ispccdc_obj.ccdcout_h - 25) &
-				 ISPCCDC_VDINT_0_MASK) <<
-				ISPCCDC_VDINT_0_SHIFT) |
-			       ((50 & ISPCCDC_VDINT_1_MASK) <<
-				ISPCCDC_VDINT_1_SHIFT),
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_VDINT);
+	isp_reg_writel((ispccdc_obj.ccdcin_woffset <<
+			ISPCCDC_FMT_HORZ_FMTSPH_SHIFT) |
+		((ispccdc_obj.ccdcin_w - ispccdc_obj.ccdcin_woffset) <<
+			ISPCCDC_FMT_HORZ_FMTLNH_SHIFT),
+		       OMAP3_ISP_IOMEM_CCDC,
+		       ISPCCDC_FMT_HORZ);
+	isp_reg_writel((ispccdc_obj.ccdcin_hoffset <<
+			ISPCCDC_FMT_VERT_FMTSLV_SHIFT) |
+		((ispccdc_obj.ccdcin_h - ispccdc_obj.ccdcin_hoffset) <<
+			ISPCCDC_FMT_VERT_FMTLNV_SHIFT),
+		       OMAP3_ISP_IOMEM_CCDC,
+		       ISPCCDC_FMT_VERT);
+	isp_reg_writel(ispccdc_obj.ccdcin_hoffset
+			<< ISPCCDC_VERT_START_SLV0_SHIFT,
+		       OMAP3_ISP_IOMEM_CCDC,
+		       ISPCCDC_VERT_START);
+	isp_reg_writel((ispccdc_obj.ccdcout_h - ispccdc_obj.ccdcin_hoffset - 1) <<
+		       ISPCCDC_VERT_LINES_NLV_SHIFT,
+		       OMAP3_ISP_IOMEM_CCDC,
+		       ISPCCDC_VERT_LINES);
+	isp_reg_writel((ispccdc_obj.ccdcin_woffset
+			<< ISPCCDC_HORZ_INFO_SPH_SHIFT) |
+		       ((ispccdc_obj.ccdcout_w - ispccdc_obj.ccdcin_woffset - 1) <<
+			ISPCCDC_HORZ_INFO_NPH_SHIFT),
+		       OMAP3_ISP_IOMEM_CCDC,
+		       ISPCCDC_HORZ_INFO);
+	ispccdc_config_outlineoffset(ispccdc_obj.ccdcout_w * 2, 0, 0);
+	isp_reg_writel((((ispccdc_obj.ccdcout_h - 25) &
+			 ISPCCDC_VDINT_0_MASK) <<
+			ISPCCDC_VDINT_0_SHIFT) |
+		       (((ispccdc_obj.ccdcout_h / 2) &
+			 ISPCCDC_VDINT_1_MASK) <<
+			ISPCCDC_VDINT_1_SHIFT),
+		       OMAP3_ISP_IOMEM_CCDC,
+		       ISPCCDC_VDINT);
 
-	} else if (ispccdc_obj.ccdc_outfmt == CCDC_OTHERS_MEM) {
+	if (ispccdc_obj.ccdc_outfmt == CCDC_OTHERS_MEM) {
 		isp_reg_writel(0, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_VP_OUT);
-		if (ispccdc_obj.ccdc_inpfmt == CCDC_RAW) {
-			isp_reg_writel(ispccdc_obj.ccdcin_woffset <<
-					ISPCCDC_HORZ_INFO_SPH_SHIFT
-				       | ((ispccdc_obj.ccdcout_w - 1)
-					  << ISPCCDC_HORZ_INFO_NPH_SHIFT),
-				       OMAP3_ISP_IOMEM_CCDC,
-				       ISPCCDC_HORZ_INFO);
-		} else {
-			isp_reg_writel(0 << ISPCCDC_HORZ_INFO_SPH_SHIFT
-				       | ((ispccdc_obj.ccdcout_w - 1)
-					  << ISPCCDC_HORZ_INFO_NPH_SHIFT),
-				       OMAP3_ISP_IOMEM_CCDC,
-				       ISPCCDC_HORZ_INFO);
-		}
-		isp_reg_writel(ispccdc_obj.ccdcin_hoffset <<
-				ISPCCDC_VERT_START_SLV0_SHIFT,
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_VERT_START);
-		isp_reg_writel((ispccdc_obj.ccdcout_h - 1) <<
-			       ISPCCDC_VERT_LINES_NLV_SHIFT,
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_VERT_LINES);
-
-		ispccdc_config_outlineoffset(ispccdc_obj.ccdcout_w * 2, 0, 0);
-		isp_reg_writel((((ispccdc_obj.ccdcout_h - 2) &
-				 ISPCCDC_VDINT_0_MASK) <<
-				ISPCCDC_VDINT_0_SHIFT) |
-			       ((100 & ISPCCDC_VDINT_1_MASK) <<
-				ISPCCDC_VDINT_1_SHIFT),
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_VDINT);
-	} else if (ispccdc_obj.ccdc_outfmt == CCDC_OTHERS_VP_MEM) {
-		isp_reg_writel((ispccdc_obj.ccdcin_woffset <<
-				ISPCCDC_FMT_HORZ_FMTSPH_SHIFT) |
-			((ispccdc_obj.ccdcin_w - ispccdc_obj.ccdcin_woffset) <<
-				ISPCCDC_FMT_HORZ_FMTLNH_SHIFT),
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_FMT_HORZ);
-		isp_reg_writel((ispccdc_obj.ccdcin_hoffset <<
-				ISPCCDC_FMT_VERT_FMTSLV_SHIFT) |
-			((ispccdc_obj.ccdcin_h - ispccdc_obj.ccdcin_hoffset) <<
-				ISPCCDC_FMT_VERT_FMTLNV_SHIFT),
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_FMT_VERT);
-
-		isp_reg_writel((ispccdc_obj.ccdcout_w
-				<< ISPCCDC_VP_OUT_HORZ_NUM_SHIFT) |
-			       ((ispccdc_obj.ccdcout_h - 1) <<
-				ISPCCDC_VP_OUT_VERT_NUM_SHIFT),
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_VP_OUT);
-		isp_reg_writel((ispccdc_obj.ccdcin_woffset
-				<< ISPCCDC_HORZ_INFO_SPH_SHIFT) |
-			       ((ispccdc_obj.ccdcout_w - 1) <<
-				ISPCCDC_HORZ_INFO_NPH_SHIFT),
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_HORZ_INFO);
-		isp_reg_writel(ispccdc_obj.ccdcin_hoffset
-				<< ISPCCDC_VERT_START_SLV0_SHIFT,
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_VERT_START);
-		isp_reg_writel((ispccdc_obj.ccdcout_h - 1) <<
-			       ISPCCDC_VERT_LINES_NLV_SHIFT,
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_VERT_LINES);
-		ispccdc_config_outlineoffset(ispccdc_obj.ccdcout_w * 2, 0, 0);
-		isp_reg_writel((((ispccdc_obj.ccdcout_h - 2) &
-				 ISPCCDC_VDINT_0_MASK) <<
-				ISPCCDC_VDINT_0_SHIFT) |
-			       ((100 & ISPCCDC_VDINT_1_MASK) <<
-				ISPCCDC_VDINT_1_SHIFT),
-			       OMAP3_ISP_IOMEM_CCDC,
-			       ISPCCDC_VDINT);
-	}
+        } else {
+                isp_reg_writel(((ispccdc_obj.ccdcout_w -
+                                 ispccdc_obj.ccdcin_woffset)
+                                << ISPCCDC_VP_OUT_HORZ_NUM_SHIFT) |
+                               ((ispccdc_obj.ccdcout_h -
+                                 ispccdc_obj.ccdcin_hoffset - 1) <<
+                                ISPCCDC_VP_OUT_VERT_NUM_SHIFT),
+                               OMAP3_ISP_IOMEM_CCDC,
+                               ISPCCDC_VP_OUT);
+        }
 
 	if (is_isplsc_activated()) {
 		if (ispccdc_obj.ccdc_inpfmt == CCDC_RAW) {
