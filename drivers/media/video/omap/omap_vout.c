@@ -1892,8 +1892,6 @@ static int vidioc_streamon(struct file *file, void *fh,
 	if (pdata->set_min_bus_tput)
 		pdata->set_min_bus_tput(vout->dev , OCP_INITIATOR_AGENT,
 							166 * 1000 * 4);
-	if (pdata->set_cpu_freq)
-		pdata->set_cpu_freq(500000000);
 #endif
 	omap_dispc_register_isr(omap_vout_isr, vout, OMAP_VOUT_IRQ_MASK);
 
@@ -1944,8 +1942,6 @@ static int vidioc_streamoff(struct file *file, void *fh,
 		if (pdata->set_min_bus_tput)
 			pdata->set_min_bus_tput(vout->dev, OCP_INITIATOR_AGENT,
 								0);
-		if (pdata->set_cpu_freq)
-			pdata->set_cpu_freq(125000000);
 #endif
 		for (t = 0; t < ovid->num_overlays; t++) {
 			struct omap_overlay *ovl = ovid->overlays[t];
