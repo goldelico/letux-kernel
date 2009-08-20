@@ -301,7 +301,14 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
 		/* Set word lengths */
-		if (format == SND_SOC_DAIFMT_I2S) {
+		if (format == SND_SOC_DAIFMT_I2S_1PHASE) {
+			regs->xcr1	|= XWDLEN1(OMAP_MCBSP_WORD_32);
+			regs->rcr1	|= RWDLEN1(OMAP_MCBSP_WORD_32);
+			omap_mcbsp_dai_dma_params[id]
+			[SNDRV_PCM_STREAM_PLAYBACK].dma_word_size = 32;
+			omap_mcbsp_dai_dma_params[id]
+			[SNDRV_PCM_STREAM_CAPTURE].dma_word_size = 32;
+		} else {
 			wlen = 16;
 			regs->rcr2	|= RWDLEN2(OMAP_MCBSP_WORD_16);
 			regs->rcr1	|= RWDLEN1(OMAP_MCBSP_WORD_16);
@@ -309,13 +316,6 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 			regs->xcr1	|= XWDLEN1(OMAP_MCBSP_WORD_16);
 			omap_mcbsp_dai_dma_params[id]
 			[substream->stream].dma_word_size = 16;
-		} else if (format == SND_SOC_DAIFMT_I2S_1PHASE) {
-			regs->xcr1	|= XWDLEN1(OMAP_MCBSP_WORD_32);
-			regs->rcr1	|= RWDLEN1(OMAP_MCBSP_WORD_32);
-			omap_mcbsp_dai_dma_params[id]
-			[SNDRV_PCM_STREAM_PLAYBACK].dma_word_size = 32;
-			omap_mcbsp_dai_dma_params[id]
-			[SNDRV_PCM_STREAM_CAPTURE].dma_word_size = 32;
 		}
 		break;
 	default:
