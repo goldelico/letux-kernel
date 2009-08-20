@@ -237,6 +237,7 @@ int omap34xx_isp_ccdc_config(void *userspace_add)
 		ispccdc_config_culling(cull_t);
 	}
 
+#if 0 /* FIXME: LSC Dynamic loading is broken, holding this for now. */
 	if (is_isplsc_activated()) {
 		if (ISP_ABS_CCDC_CONFIG_LSC & ccdc_struct->flag) {
 			if (ISP_ABS_CCDC_CONFIG_LSC & ccdc_struct->update) {
@@ -259,6 +260,7 @@ int omap34xx_isp_ccdc_config(void *userspace_add)
 			ispccdc_load_lsc(lsc_gain_table, lsc_config.size);
 		}
 	}
+#endif
 
 	if (ISP_ABS_CCDC_COLPTN & ccdc_struct->update)
 		ispccdc_config_imgattr(ccdc_struct->colptn);
