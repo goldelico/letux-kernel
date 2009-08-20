@@ -772,12 +772,13 @@ int messageq_open(char *name, u32 *queue_id)
 	len = nameserver_get(messageq_state.ns_handle, name, queue_id,
 					sizeof(u32), NULL);
 	if (len < 0) {
-		if (len == -ENOENT)
+		if (len == -ENOENT) {
 			/* Name not found */
-			status = MESSAGEQ_E_NOTFOUND;
-		else
+			status = -ENOENT;
+		} else {
 			/* Any other error from nameserver */
 			status = len;
+		}
 	}
 
 exit:

@@ -280,6 +280,7 @@ void nameserver_remotenotify_callback(u16 proc_id, u32 event_no,
 			memcpy(&(handle->msg[1 - offset]->value_buf), &value,
 					handle->msg[1 - offset]->value_len);
 	}
+
 	/* Send a response back */
 	handle->msg[1 - offset]->response = true;
 	handle->msg[1 - offset]->request = false;
@@ -355,6 +356,7 @@ int nameserver_remotenotify_get(void *rhandle,
 		goto notify_error;
 
 	gatepeterson_leave(obj->params.gate, key);
+
 	/* Pend on the semaphore */
 	retval = down_interruptible(obj->sem_handle);
 	if (retval) {
@@ -365,12 +367,12 @@ int nameserver_remotenotify_get(void *rhandle,
 	key = gatepeterson_enter(obj->params.gate);
 	if (obj->msg[offset]->request_status != true) {
 		retval = -ENOENT;
-		goto exit;
+		goto request_error;
 	}
 
 	if (!value_len) {
 		retval = -ENOENT;
-		goto exit;
+		goto request_error;
 	}
 
 	if (value_len == sizeof(u32))
@@ -386,8 +388,8 @@ int nameserver_remotenotify_get(void *rhandle,
 	retval = value_len;
 
 notify_error:
+request_error:
 	gatepeterson_leave(obj->params.gate, key);
-
 exit:
 	return retval;
 }
