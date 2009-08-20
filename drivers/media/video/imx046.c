@@ -190,6 +190,8 @@ static struct imx046_sensor_settings sensor_settings[] = {
 		},
 	},
 
+	/* FIXME: Apparently 720P size gives a different pixel order */
+#if 0
 	/* 720p_MP */
 	{
 		.clk = {
@@ -224,6 +226,7 @@ static struct imx046_sensor_settings sensor_settings[] = {
 			.h_add_ave = 134,
 		},
 	},
+#endif
 	/* TWO_MP */
 	{
 		.clk = {
