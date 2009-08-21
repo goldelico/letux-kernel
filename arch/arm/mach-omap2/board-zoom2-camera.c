@@ -41,6 +41,8 @@ static int cam_inited;
 #define VAUX_DEV_GRP_P1		0x20
 #define VAUX_DEV_GRP_NONE	0x00
 
+#define CAMZOOM2_USE_XCLKB  	1
+
 /* Sensor specific GPIO signals */
 #define IMX046_RESET_GPIO  	98
 #define IMX046_STANDBY_GPIO	58
@@ -124,7 +126,6 @@ struct lv8093_platform_data zoom2_lv8093_platform_data = {
 
 static struct omap34xxcam_sensor_config imx046_hwc = {
 	.sensor_isp  = 0,
-	.xclk        = OMAP34XXCAM_XCLK_B,
 	.capture_mem = IMX046_BIGGEST_FRAME_BYTE_SIZE * 2,
 	.ival_default	= { 1, 10 },
 };
@@ -133,7 +134,6 @@ static int imx046_sensor_set_prv_data(void *priv)
 {
 	struct omap34xxcam_hw_config *hwc = priv;
 
-	hwc->u.sensor.xclk	= imx046_hwc.xclk;
 	hwc->u.sensor.sensor_isp = imx046_hwc.sensor_isp;
 	hwc->dev_index		= 2;
 	hwc->dev_minor		= 5;
@@ -268,10 +268,17 @@ static int imx046_sensor_power_set(struct device *dev, enum v4l2_power power)
 	return err;
 }
 
+static u32 imx046_sensor_set_xclk(struct v4l2_int_device *s, u32 xclkfreq)
+{
+	struct omap34xxcam_videodev *vdev = s->u.slave->master->priv;
+
+	return isp_set_xclk(vdev->cam->isp, xclkfreq, CAMZOOM2_USE_XCLKB);
+}
+
 struct imx046_platform_data zoom2_imx046_platform_data = {
 	.power_set            = imx046_sensor_power_set,
 	.priv_data_set        = imx046_sensor_set_prv_data,
-	.set_xclk             = isp_set_xclk,
+	.set_xclk             = imx046_sensor_set_xclk,
 	.csi2_lane_count      = isp_csi2_complexio_lanes_count,
 	.csi2_cfg_vp_out_ctrl = isp_csi2_ctrl_config_vp_out_ctrl,
 	.csi2_ctrl_update     = isp_csi2_ctrl_update,
