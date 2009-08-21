@@ -43,7 +43,7 @@ config MPU_SYSLINK_IPC
 config SYSLINK_USE_SYSMGR
         bool "Enable SYS MGR setup"
         depends on MPU_SYSLINK_IPC && SYSLINK_PROC
-        default n
+        default y
         help
           This is the experimental option to enable SYS manager setup
 endif
