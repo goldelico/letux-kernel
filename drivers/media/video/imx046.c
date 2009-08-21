@@ -1501,7 +1501,7 @@ static int ioctl_g_priv(struct v4l2_int_device *s, void *p)
 {
 	struct imx046_sensor *sensor = s->priv;
 
-	return sensor->pdata->priv_data_set(p);
+	return sensor->pdata->priv_data_set(s, p);
 
 }
 
@@ -1529,7 +1529,7 @@ static int ioctl_s_power(struct v4l2_int_device *s, enum v4l2_power on)
 	else
 		sensor->pdata->set_xclk(s, xclk_current);
 
-	rval = sensor->pdata->power_set(&client->dev, on);
+	rval = sensor->pdata->power_set(s, on);
 	if (rval < 0) {
 		v4l_err(client, "Unable to set the power state: "
 			IMX046_DRIVER_NAME " sensor\n");
