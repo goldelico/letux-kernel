@@ -28,9 +28,9 @@
  * @priv_data_set: device private data (pointer) access function
  */
 struct imx046_platform_data {
-	int (*power_set)(struct device*, enum v4l2_power power);
+	int (*power_set)(struct v4l2_int_device *s, enum v4l2_power power);
 	int (*ifparm)(struct v4l2_ifparm *p);
-	int (*priv_data_set)(void *);
+	int (*priv_data_set)(struct v4l2_int_device *s, void *);
 	u32 (*set_xclk)(struct v4l2_int_device *s, u32 xclkfreq);
 	int (*cfg_interface_bridge)(u32);
 	int (*csi2_lane_count)(int count);
