@@ -1516,15 +1516,8 @@ static int ioctl_s_power(struct v4l2_int_device *s, enum v4l2_power on)
 {
 	struct imx046_sensor *sensor = s->priv;
 	struct i2c_client *client = sensor->i2c_client;
-	struct omap34xxcam_hw_config hw_config;
 	struct vcontrol *lvc;
 	int rval, i;
-
-	rval = ioctl_g_priv(s, &hw_config);
-	if (rval) {
-		v4l_err(client, "Unable to get hw params\n");
-		return rval;
-	}
 
 	if ((on == V4L2_POWER_STANDBY) && (sensor->state == SENSOR_DETECTED)) {
 		/* imx046_write_regs(c, stream_off_list,
@@ -1532,15 +1525,15 @@ static int ioctl_s_power(struct v4l2_int_device *s, enum v4l2_power on)
 	}
 
 	if (on != V4L2_POWER_ON)
-		sensor->pdata->set_xclk(0, hw_config.u.sensor.xclk);
+		sensor->pdata->set_xclk(s, 0);
 	else
-		sensor->pdata->set_xclk(xclk_current, hw_config.u.sensor.xclk);
+		sensor->pdata->set_xclk(s, xclk_current);
 
 	rval = sensor->pdata->power_set(&client->dev, on);
 	if (rval < 0) {
 		v4l_err(client, "Unable to set the power state: "
 			IMX046_DRIVER_NAME " sensor\n");
-		sensor->pdata->set_xclk(0, hw_config.u.sensor.xclk);
+		sensor->pdata->set_xclk(s, 0);
 		return rval;
 	}
 

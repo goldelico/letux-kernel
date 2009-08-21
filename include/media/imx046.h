@@ -31,7 +31,7 @@ struct imx046_platform_data {
 	int (*power_set)(struct device*, enum v4l2_power power);
 	int (*ifparm)(struct v4l2_ifparm *p);
 	int (*priv_data_set)(void *);
-	u32 (*set_xclk)(u32 xclk, u8 xclksel);
+	u32 (*set_xclk)(struct v4l2_int_device *s, u32 xclkfreq);
 	int (*cfg_interface_bridge)(u32);
 	int (*csi2_lane_count)(int count);
 	int (*csi2_cfg_vp_out_ctrl)(u8 vp_out_ctrl);
