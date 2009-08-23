@@ -727,7 +727,7 @@ static void mangle_pmu_pdata_by_system_rev(void)
 		reg_init_data[PCF50633_REGULATOR_LDO1]
 					.constraints.min_uV = 3300000;
 		reg_init_data[PCF50633_REGULATOR_LDO1]
-					.constraints.min_uV = 3300000;
+					.constraints.max_uV = 3300000;
 		reg_init_data[PCF50633_REGULATOR_LDO1]
 					.constraints.state_mem.enabled = 0;
 
