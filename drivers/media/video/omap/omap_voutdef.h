@@ -22,8 +22,14 @@
 #define RGB_VRFB_BPP    1
 #define MAX_CID		3
 #define MAC_VRFB_CTXS	4
+
+#ifdef CONFIG_ARCH_OMAP4 /* TODO: OMAP4 update displays and managers */
+#define MAX_VOUT_DEV   3
+#define MAX_OVLS       4
+#else
 #define MAX_VOUT_DEV	2
 #define MAX_OVLS	3
+#endif
 #define MAX_DISPLAYS	3
 #define MAX_MANAGERS	3
 
