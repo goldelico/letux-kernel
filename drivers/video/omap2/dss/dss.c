@@ -62,6 +62,12 @@ struct dss_reg {
 #define DSS_PLL_CONTROL			DSS_REG(0x0048)
 #define DSS_SDI_STATUS			DSS_REG(0x005C)
 
+#ifdef CONFIG_ARCH_OMAP4
+#define DSS_STATUS				DSS_REG(0x005C)
+#endif
+
+
+
 #define REG_GET(idx, start, end) \
 	FLD_GET(dss_read_reg(idx), start, end)
 
@@ -263,6 +269,7 @@ void dss_select_clk_source(bool dsi, bool dispc)
 	r = dss_read_reg(DSS_CONTROL);
 	r = FLD_MOD(r, dsi, 1, 1);	/* DSI_CLK_SWITCH */
 	r = FLD_MOD(r, dispc, 0, 0);	/* DISPC_CLK_SWITCH */
+	/* TODO: extend for LCD2 and HDMI */
 	dss_write_reg(DSS_CONTROL, r);
 }
 
@@ -602,8 +609,11 @@ void dss_exit(void)
 {
 	if (cpu_is_omap34xx())
 		clk_put(dss.dpll4_m4_ck);
-
+#ifndef CONFIG_ARCH_OMAP4
 	free_irq(INT_24XX_DSS_IRQ, NULL);
+#else
+	free_irq(INT_44XX_DSS_IRQ, NULL);
+#endif
 
 	iounmap(dss.base);
 }

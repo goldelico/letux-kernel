@@ -64,7 +64,9 @@ struct dispc_reg { u16 idx; };
 #define DISPC_IRQSTATUS			DISPC_REG(0x0018)
 #define DISPC_IRQENABLE			DISPC_REG(0x001C)
 #define DISPC_CONTROL			DISPC_REG(0x0040)
+	/* DISPC_CONTROL1 in OMAP4 */
 #define DISPC_CONFIG			DISPC_REG(0x0044)
+	/* DISPC_CONFIG1 in OMAP4 */
 #define DISPC_CAPABLE			DISPC_REG(0x0048)
 #define DISPC_DEFAULT_COLOR0		DISPC_REG(0x004C)
 #define DISPC_DEFAULT_COLOR1		DISPC_REG(0x0050)
@@ -73,12 +75,28 @@ struct dispc_reg { u16 idx; };
 #define DISPC_LINE_STATUS		DISPC_REG(0x005C)
 #define DISPC_LINE_NUMBER		DISPC_REG(0x0060)
 #define DISPC_TIMING_H			DISPC_REG(0x0064)
+	/* DISPC_TIMING_H1 in OMAP4 */
 #define DISPC_TIMING_V			DISPC_REG(0x0068)
+	/* DISPC_TIMING_V1 in OMAP4 */
 #define DISPC_POL_FREQ			DISPC_REG(0x006C)
+	/* DISPC_POL_FREQ1 in OMAP4 */
+
+#ifndef CONFIG_ARCH_OMAP4
 #define DISPC_DIVISOR			DISPC_REG(0x0070)
+#else
+#define DISPC_DIVISOR			DISPC_REG(0x0804)
+#define DISPC_DIVISOR1			DISPC_REG(0x0070)
+#endif
+
 #define DISPC_GLOBAL_ALPHA		DISPC_REG(0x0074)
 #define DISPC_SIZE_DIG			DISPC_REG(0x0078)
+	/* DISPC_SIZE_TV in OMAP4 */
 #define DISPC_SIZE_LCD			DISPC_REG(0x007C)
+	/* DISPC_SIZE_LCD1 in OMAP4 */
+
+#ifdef CONFIG_ARCH_OMAP4
+#define DISPC_GLOBAL_BUFFER		DISPC_REG(0x0800)
+#endif
 
 /* DISPC GFX plane */
 #define DISPC_GFX_BA0			DISPC_REG(0x0080)
@@ -87,19 +105,27 @@ struct dispc_reg { u16 idx; };
 #define DISPC_GFX_SIZE			DISPC_REG(0x008C)
 #define DISPC_GFX_ATTRIBUTES		DISPC_REG(0x00A0)
 #define DISPC_GFX_FIFO_THRESHOLD	DISPC_REG(0x00A4)
+	/* DISPC_GFX_BUF_THRESHOLD in OMAP4 */
 #define DISPC_GFX_FIFO_SIZE_STATUS	DISPC_REG(0x00A8)
+	/* DISPC_GFX_BUF_SIZE_STATUS in OMAP4 */
 #define DISPC_GFX_ROW_INC		DISPC_REG(0x00AC)
 #define DISPC_GFX_PIXEL_INC		DISPC_REG(0x00B0)
-#define DISPC_GFX_WINDOW_SKIP		DISPC_REG(0x00B4)
+#define DISPC_GFX_WINDOW_SKIP	DISPC_REG(0x00B4)
 #define DISPC_GFX_TABLE_BA		DISPC_REG(0x00B8)
 
 #define DISPC_DATA_CYCLE1		DISPC_REG(0x01D4)
+	/* DISPC_DATA1_CYCLE1 in OMAP4 */
 #define DISPC_DATA_CYCLE2		DISPC_REG(0x01D8)
+	/* DISPC_DATA1_CYCLE2 in OMAP4 */
 #define DISPC_DATA_CYCLE3		DISPC_REG(0x01DC)
+	/* DISPC_DATA1_CYCLE3 in OMAP4 */
 
 #define DISPC_CPR_COEF_R		DISPC_REG(0x0220)
+	/* DISPC_CPR1_COEFF_R in OMAP4 */
 #define DISPC_CPR_COEF_G		DISPC_REG(0x0224)
+	/* DISPC_CPR1_COEFF_G in OMAP4 */
 #define DISPC_CPR_COEF_B		DISPC_REG(0x0228)
+	/* DISPC_CPR1_COEFF_B in OMAP4 */
 
 #define DISPC_GFX_PRELOAD		DISPC_REG(0x022C)
 
@@ -108,6 +134,7 @@ struct dispc_reg { u16 idx; };
 
 #define DISPC_VID_BA0(n)		DISPC_VID_REG(n, 0x0000)
 #define DISPC_VID_BA1(n)		DISPC_VID_REG(n, 0x0004)
+
 #define DISPC_VID_POSITION(n)		DISPC_VID_REG(n, 0x0008)
 #define DISPC_VID_SIZE(n)		DISPC_VID_REG(n, 0x000C)
 #define DISPC_VID_ATTRIBUTES(n)		DISPC_VID_REG(n, 0x0010)
@@ -130,6 +157,124 @@ struct dispc_reg { u16 idx; };
 #define DISPC_VID_FIR_COEF_V(n, i)	DISPC_REG(0x01E0 + (n)*0x20 + (i)*0x4)
 
 #define DISPC_VID_PRELOAD(n)		DISPC_REG(0x230 + (n)*0x04)
+
+#ifdef CONFIG_ARCH_OMAP4
+
+#define DISPC_CONTROL2				DISPC_REG(0x0238)
+
+/******** registers related to VID3 and WB pipelines ****/
+/* DISPC Video plane, n = 0 for VID3, n = 1 for WB _VID_V3_WB_ */
+#define DISPC_VID_V3_WB_REG(n, idx) DISPC_REG(0x0300 + (n)*0x200 + idx)
+
+#define DISPC_VID_V3_WB_ACCU0(n)		DISPC_VID_V3_WB_REG(n, 0x0000)
+#define DISPC_VID_V3_WB_ACCU1(n)		DISPC_VID_V3_WB_REG(n, 0x0004)
+
+#define DISPC_VID_V3_WB_BA0(n)		DISPC_VID_V3_WB_REG(n, 0x0008)
+#define DISPC_VID_V3_WB_BA1(n)		DISPC_VID_V3_WB_REG(n, 0x000C)
+
+/* coef index i = {0, 1, 2, 3, 4, 5, 6, 7} */
+#define DISPC_VID_V3_WB_FIR_COEF_H(n, i) DISPC_REG(0x0310+(n)*0x200+(i)*0x8)
+
+/* coef index i = {0, 1, 2, 3, 4, 5, 6, 7} */
+#define DISPC_VID_V3_WB_FIR_COEF_HV(n, i) DISPC_REG(0x0314+(n)*0x200+(i)*0x8)
+
+/* coef index i = {0, 1, 2, 3, 4, 5, 6, 7} */
+#define DISPC_VID_V3_WB_FIR_COEF_V(n, i) DISPC_REG(0x0350+(n)*0x200+(i)*0x4)
+
+#define DISPC_VID_V3_WB_ATTRIBUTES(n)		DISPC_VID_V3_WB_REG(n, 0x0070)
+
+/* coef index i = {0, 1, 2, 3, 4} */
+#define DISPC_VID_V3_WB_CONV_COEF(n, i)	DISPC_REG(0x0374 + (n)*0x200 + (i)*0x4)
+
+#define DISPC_VID_V3_WB_BUF_SIZE_STATUS(n)	DISPC_VID_V3_WB_REG(n, 0x0088)
+#define DISPC_VID_V3_WB_BUF_THRESHOLD(n)	DISPC_VID_V3_WB_REG(n, 0x008C)
+#define DISPC_VID_V3_WB_FIR(n)		DISPC_VID_V3_WB_REG(n, 0x0090)
+#define DISPC_VID_V3_WB_PICTURE_SIZE(n)	DISPC_VID_V3_WB_REG(n, 0x0094)
+#define DISPC_VID_V3_WB_PIXEL_INC(n)		DISPC_VID_V3_WB_REG(n, 0x0098)
+
+#define DISPC_VID_VID3_POSITION		DISPC_REG(0x039C)
+#define DISPC_VID_VID3_PRELOAD		DISPC_REG(0x03A0)
+
+#define DISPC_VID_V3_WB_ROW_INC(n)		DISPC_VID_V3_WB_REG(n, 0x00A4)
+#define DISPC_VID_V3_WB_SIZE(n)		DISPC_VID_V3_WB_REG(n, 0x00A8)
+
+#define DISPC_VID_V3_WB_FIR2(n)		DISPC_REG(0x0724 + (n)*0x6C)
+					/* n=0: VID3, n=1: WB*/
+
+#define DISPC_VID_V3_WB_ACCU2_0(n)	DISPC_REG(0x0728 + (n)*0x6C)
+					/* n=0: VID3, n=1: WB*/
+#define DISPC_VID_V3_WB_ACCU2_1(n)	DISPC_REG(0x072C + (n)*0x6C)
+					/* n=0: VID3, n=1: WB*/
+
+/* coef index i = {0, 1, 2, 3, 4, 5, 6, 7}  n=0: VID3, n=1: WB */
+#define DISPC_VID_V3_WB_FIR_COEF_H2(n, i) DISPC_REG(0x0730+(n)*0x6C+(i)*0x8)
+
+/* coef index i = {0, 1, 2, 3, 4, 5, 6, 7} */
+#define DISPC_VID_V3_WB_FIR_COEF_HV2(n, i) DISPC_REG(0x0734+(n)*0x6C+(i)*0x8)
+
+/* coef index i = {0, 1, 2, 3, 4, 5, 6, 7} */
+#define DISPC_VID_V3_WB_FIR_COEF_V2(n, i) DISPC_REG(0x0770+(n)*0x6C+(i)*0x4)
+
+
+/*********End Vid3 and WB Registers ***************/
+
+/********** OMAP4 new global registers  **/
+#define DISPC_DEFAULT_COLOR2		DISPC_REG(0x03AC)
+#define DISPC_TRANS_COLOR2			DISPC_REG(0x03B0)
+#define DISPC_CPR2_COEF_B			DISPC_REG(0x03B4)
+#define DISPC_CPR2_COEF_G			DISPC_REG(0x03B8)
+#define DISPC_CPR2_COEF_R			DISPC_REG(0x03BC)
+#define DISPC_DATA2_CYCLE1			DISPC_REG(0x03C0)
+#define DISPC_DATA2_CYCLE2			DISPC_REG(0x03C4)
+#define DISPC_DATA2_CYCLE3			DISPC_REG(0x03C8)
+#define DISPC_SIZE_LCD2				DISPC_REG(0x03CC)
+#define DISPC_TIMING_H2				DISPC_REG(0x0400)
+#define DISPC_TIMING_V2				DISPC_REG(0x0404)
+#define DISPC_POL_FREQ2				DISPC_REG(0x0408)
+#define DISPC_DIVISOR2				DISPC_REG(0x040C)
+
+
+
+/* DISPC Video plane,
+		n = 0 for VID1
+		n = 1 for VID2
+		and n = 2 for VID3,
+		n = 3 for WB*/
+
+#define DISPC_VID_OMAP4_REG(n, idx) DISPC_REG(0x0600 + (n)*0x04 + idx)
+
+#define DISPC_VID_BA_UV0(n)		DISPC_VID_OMAP4_REG((n)*2, 0x0000)
+#define DISPC_VID_BA_UV1(n)		DISPC_VID_OMAP4_REG((n)*2, 0x0004)
+
+#define DISPC_CONFIG2			DISPC_REG(0x0620)
+
+#define DISPC_VID_ATTRIBUTES2(n)	DISPC_VID_OMAP4_REG(n, 0x0024)
+					/* n = {0,1,2,3} */
+#define DISPC_GAMMA_TABLE(n)		DISPC_VID_OMAP4_REG(n, 0x0030)
+					/* n = {0,1,2,3} */
+
+/* VID1/VID2 specific new registers */
+#define DISPC_VID_FIR2(n)		DISPC_REG(0x063C + (n)*0x6C)
+					/* n=0: VID1, n=1: VID2*/
+
+#define DISPC_VID_ACCU2_0(n)		DISPC_REG(0x0640 + (n)*0x6C)
+					/* n=0: VID1, n=1: VID2*/
+#define DISPC_VID_ACCU2_1(n)		DISPC_REG(0x0644 + (n)*0x6C)
+					/* n=0: VID1, n=1: VID2*/
+
+/* coef index i = {0, 1, 2, 3, 4, 5, 6, 7}  n=0: VID1, n=1: VID2 */
+#define DISPC_VID_FIR_COEF_H2(n, i)	DISPC_REG(0x0648 + (n)*0x6C + (i)*0x8)
+
+/* coef index i = {0, 1, 2, 3, 4, 5, 6, 7} */
+#define DISPC_VID_FIR_COEF_HV2(n, i)	DISPC_REG(0x064C + (n)*0x6C + (i)*0x8)
+
+/* coef index i = {0, 1, 2, 3, 4, 5, 6, 7} */
+#define DISPC_VID_FIR_COEF_V2(n, i)	DISPC_REG(0x0688 + (n)*0x6C + (i)*0x4)
+
+/*end of VID1/VID2 specific new registers*/
+
+
+#endif
 
 
 #define DISPC_IRQ_MASK_ERROR            (DISPC_IRQ_GFX_FIFO_UNDERFLOW | \
@@ -155,7 +300,12 @@ struct omap_dispc_isr_data {
 
 static const struct dispc_reg dispc_reg_att[] = { DISPC_GFX_ATTRIBUTES,
 	DISPC_VID_ATTRIBUTES(0),
-	DISPC_VID_ATTRIBUTES(1) };
+	DISPC_VID_ATTRIBUTES(1)
+#ifdef CONFIG_ARCH_OMAP4
+	, DISPC_VID_V3_WB_ATTRIBUTES(0)/* VID 3 pipeline */
+#endif
+
+};
 
 static struct {
 	void __iomem    *base;
@@ -230,6 +380,10 @@ void dispc_save_context(void)
 	SR(CPR_COEF_B);
 
 	SR(GFX_PRELOAD);
+
+#ifdef CONFIG_ARCH_OMAP4
+/* TODO: find out what needs to be saved */
+#endif
 
 	/* VID1 */
 	SR(VID_BA0(0));
@@ -348,6 +502,10 @@ void dispc_restore_context(void)
 	RR(GLOBAL_ALPHA);
 	RR(SIZE_DIG);
 	RR(SIZE_LCD);
+
+#ifdef CONFIG_ARCH_OMAP4
+	/* TODO: find out what needs to be saved/restored */
+#endif
 
 	RR(GFX_BA0);
 	RR(GFX_BA1);
@@ -507,6 +665,10 @@ void dispc_go(enum omap_channel channel)
 		bit = 1; /* DIGITALENABLE */
 	 REG_FLD_MOD(DISPC_CONTROL, 1, 0, 0);
 
+#ifdef CONFIG_ARCH_OMAP4
+	/* TODO: Check for LCD2 here*/
+#endif
+
 	/* if the channel is not enabled, we don't need GO
 	//CLEAN UP: REMOVE THIS IF NOT NEEDED
 	if (REG_GET(DISPC_CONTROL, bit, bit) == 0)
@@ -534,21 +696,44 @@ static void _dispc_write_firh_reg(enum omap_plane plane, int reg, u32 value)
 {
 	BUG_ON(plane == OMAP_DSS_GFX);
 
-	dispc_write_reg(DISPC_VID_FIR_COEF_H(plane-1, reg), value);
+#ifdef CONFIG_ARCH_OMAP4
+	if ((OMAP_DSS_VIDEO1 == plane) || (OMAP_DSS_VIDEO2 == plane))
+#endif
+		dispc_write_reg(DISPC_VID_FIR_COEF_H(plane-1, reg), value);
+#ifdef CONFIG_ARCH_OMAP4
+	else if (OMAP_DSS_VIDEO3 == plane)
+		dispc_write_reg(DISPC_VID_V3_WB_FIR_COEF_H(0, reg), value);
+#endif
+
 }
 
 static void _dispc_write_firhv_reg(enum omap_plane plane, int reg, u32 value)
 {
 	BUG_ON(plane == OMAP_DSS_GFX);
 
-	dispc_write_reg(DISPC_VID_FIR_COEF_HV(plane-1, reg), value);
+#ifdef CONFIG_ARCH_OMAP4
+	if ((OMAP_DSS_VIDEO1 == plane) || (OMAP_DSS_VIDEO2 == plane))
+#endif
+		dispc_write_reg(DISPC_VID_FIR_COEF_HV(plane-1, reg), value);
+#ifdef CONFIG_ARCH_OMAP4
+	else if (OMAP_DSS_VIDEO3 == plane)
+		dispc_write_reg(DISPC_VID_V3_WB_FIR_COEF_HV(0, reg), value);
+#endif
 }
 
 static void _dispc_write_firv_reg(enum omap_plane plane, int reg, u32 value)
 {
 	BUG_ON(plane == OMAP_DSS_GFX);
 
-	dispc_write_reg(DISPC_VID_FIR_COEF_V(plane-1, reg), value);
+#ifdef CONFIG_ARCH_OMAP4
+	if ((OMAP_DSS_VIDEO1 == plane) || (OMAP_DSS_VIDEO2 == plane))
+#endif
+
+		dispc_write_reg(DISPC_VID_FIR_COEF_V(plane-1, reg), value);
+#ifdef CONFIG_ARCH_OMAP4
+	else if (OMAP_DSS_VIDEO3 == plane)
+		dispc_write_reg(DISPC_VID_V3_WB_FIR_COEF_V(0, reg), value);
+#endif
 }
 
 static void _dispc_set_scale_coef(enum omap_plane plane, int hscaleup,
@@ -733,6 +918,21 @@ static void _dispc_setup_color_conv_coef(void)
 	dispc_write_reg(DISPC_VID_CONV_COEF(1, 3), CVAL(ct->bcr, ct->by));
 	dispc_write_reg(DISPC_VID_CONV_COEF(1, 4), CVAL(0,       ct->bcb));
 
+#ifdef CONFIG_ARCH_OMAP4
+	dispc_write_reg(DISPC_VID_V3_WB_CONV_COEF(0, 0),
+			CVAL(ct->rcr, ct->ry));
+	dispc_write_reg(DISPC_VID_V3_WB_CONV_COEF(0, 1),
+			CVAL(ct->gy,  ct->rcb));
+	dispc_write_reg(DISPC_VID_V3_WB_CONV_COEF(0, 2),
+			CVAL(ct->gcb, ct->gcr));
+	dispc_write_reg(DISPC_VID_V3_WB_CONV_COEF(0, 3),
+			CVAL(ct->bcr, ct->by));
+	dispc_write_reg(DISPC_VID_V3_WB_CONV_COEF(0, 4),
+			CVAL(0,	ct->bcb));
+
+	REG_FLD_MOD(DISPC_VID_V3_WB_ATTRIBUTES(0), ct->full_range, 11, 11);
+#endif
+
 #undef CVAL
 
 	REG_FLD_MOD(DISPC_VID_ATTRIBUTES(0), ct->full_range, 11, 11);
@@ -744,7 +944,11 @@ static void _dispc_set_plane_ba0(enum omap_plane plane, u32 paddr)
 {
 	const struct dispc_reg ba0_reg[] = { DISPC_GFX_BA0,
 		DISPC_VID_BA0(0),
-		DISPC_VID_BA0(1) };
+		DISPC_VID_BA0(1)
+#ifdef CONFIG_ARCH_OMAP4
+		, DISPC_VID_V3_WB_BA0(0) /* VID 3 pipeline*/
+#endif
+	};
 
 	dispc_write_reg(ba0_reg[plane], paddr);
 }
@@ -753,7 +957,12 @@ static void _dispc_set_plane_ba1(enum omap_plane plane, u32 paddr)
 {
 	const struct dispc_reg ba1_reg[] = { DISPC_GFX_BA1,
 				      DISPC_VID_BA1(0),
-				      DISPC_VID_BA1(1) };
+				      DISPC_VID_BA1(1)
+#ifdef CONFIG_ARCH_OMAP4
+				, DISPC_VID_V3_WB_BA1(0) /* VID 3 pipeline*/
+#endif
+
+	};
 
 	dispc_write_reg(ba1_reg[plane], paddr);
 }
@@ -762,7 +971,12 @@ static void _dispc_set_plane_pos(enum omap_plane plane, int x, int y)
 {
 	const struct dispc_reg pos_reg[] = { DISPC_GFX_POSITION,
 				      DISPC_VID_POSITION(0),
-				      DISPC_VID_POSITION(1) };
+				      DISPC_VID_POSITION(1)
+#ifdef CONFIG_ARCH_OMAP4
+				, DISPC_VID_VID3_POSITION /* VID 3 pipeline*/
+#endif
+
+	};
 
 	u32 val = FLD_VAL(y, 26, 16) | FLD_VAL(x, 10, 0);
 	dispc_write_reg(pos_reg[plane], val);
@@ -772,7 +986,12 @@ static void _dispc_set_pic_size(enum omap_plane plane, int width, int height)
 {
 	const struct dispc_reg siz_reg[] = { DISPC_GFX_SIZE,
 				      DISPC_VID_PICTURE_SIZE(0),
-				      DISPC_VID_PICTURE_SIZE(1) };
+				      DISPC_VID_PICTURE_SIZE(1)
+#ifdef CONFIG_ARCH_OMAP4
+			, DISPC_VID_V3_WB_PICTURE_SIZE(0) /* VID 3 pipeline*/
+#endif
+
+	};
 	u32 val = FLD_VAL(height - 1, 26, 16) | FLD_VAL(width - 1, 10, 0);
 	dispc_write_reg(siz_reg[plane], val);
 }
@@ -781,7 +1000,12 @@ static void _dispc_set_vid_size(enum omap_plane plane, int width, int height)
 {
 	u32 val;
 	const struct dispc_reg vsi_reg[] = { DISPC_VID_SIZE(0),
-				      DISPC_VID_SIZE(1) };
+				      DISPC_VID_SIZE(1)
+#ifdef CONFIG_ARCH_OMAP4
+				, DISPC_VID_V3_WB_SIZE(0) /* VID 3 pipeline*/
+#endif
+
+	};
 
 	BUG_ON(plane == OMAP_DSS_GFX);
 
@@ -792,8 +1016,9 @@ static void _dispc_set_vid_size(enum omap_plane plane, int width, int height)
 static void _dispc_setup_global_alpha(enum omap_plane plane, u8 global_alpha)
 {
 
+#ifndef CONFIG_ARCH_OMAP4      /* all pipelines have alpha coeff in OMAP4 */
 	BUG_ON(plane == OMAP_DSS_VIDEO1);
-
+#endif
 	if (cpu_is_omap24xx())
 		return;
 
@@ -801,6 +1026,13 @@ static void _dispc_setup_global_alpha(enum omap_plane plane, u8 global_alpha)
 		REG_FLD_MOD(DISPC_GLOBAL_ALPHA, global_alpha, 7, 0);
 	else if (plane == OMAP_DSS_VIDEO2)
 		REG_FLD_MOD(DISPC_GLOBAL_ALPHA, global_alpha, 23, 16);
+#ifdef CONFIG_ARCH_OMAP4
+	else if (plane == OMAP_DSS_VIDEO1)
+		REG_FLD_MOD(DISPC_GLOBAL_ALPHA, global_alpha, 15, 8);
+	else if (plane == OMAP_DSS_VIDEO3)
+		REG_FLD_MOD(DISPC_GLOBAL_ALPHA, global_alpha, 31, 24);
+#endif
+
 }
 
 static void _dispc_set_pix_inc(enum omap_plane plane, s32 inc)
@@ -816,7 +1048,12 @@ static void _dispc_set_row_inc(enum omap_plane plane, s32 inc)
 {
 	const struct dispc_reg ri_reg[] = { DISPC_GFX_ROW_INC,
 				     DISPC_VID_ROW_INC(0),
-				     DISPC_VID_ROW_INC(1) };
+				     DISPC_VID_ROW_INC(1)
+#ifdef CONFIG_ARCH_OMAP4
+				, DISPC_VID_V3_WB_ROW_INC(0) /* VID 3 pipeline*/
+#endif
+
+	};
 
 	dispc_write_reg(ri_reg[plane], inc);
 }
@@ -874,6 +1111,9 @@ static void _dispc_set_channel_out(enum omap_plane plane,
 		break;
 	case OMAP_DSS_VIDEO1:
 	case OMAP_DSS_VIDEO2:
+#ifdef CONFIG_ARCH_OMAP4
+	case OMAP_DSS_VIDEO3: /* VID 3 pipeline*/
+#endif
 		shift = 16;
 		break;
 	default:
@@ -900,6 +1140,9 @@ void dispc_set_burst_size(enum omap_plane plane,
 		break;
 	case OMAP_DSS_VIDEO1:
 	case OMAP_DSS_VIDEO2:
+#ifdef CONFIG_ARCH_OMAP4
+	case OMAP_DSS_VIDEO3: /* VID 3 pipeline*/
+#endif
 		shift = 14;
 		break;
 	default:
@@ -963,7 +1206,13 @@ static void dispc_read_plane_fifo_sizes(void)
 {
 	const struct dispc_reg fsz_reg[] = { DISPC_GFX_FIFO_SIZE_STATUS,
 				      DISPC_VID_FIFO_SIZE_STATUS(0),
-				      DISPC_VID_FIFO_SIZE_STATUS(1) };
+				      DISPC_VID_FIFO_SIZE_STATUS(1)
+#ifdef CONFIG_ARCH_OMAP4
+				, DISPC_VID_V3_WB_BUF_SIZE_STATUS(0)
+					/* VID 3 pipeline*/
+#endif
+
+	};
 	u32 size;
 	int plane;
 
@@ -994,7 +1243,13 @@ void dispc_setup_plane_fifo(enum omap_plane plane, u32 low, u32 high)
 {
 	const struct dispc_reg ftrs_reg[] = { DISPC_GFX_FIFO_THRESHOLD,
 				       DISPC_VID_FIFO_THRESHOLD(0),
-				       DISPC_VID_FIFO_THRESHOLD(1) };
+				       DISPC_VID_FIFO_THRESHOLD(1)
+#ifdef CONFIG_ARCH_OMAP4
+				, DISPC_VID_V3_WB_BUF_THRESHOLD(0)
+				/* VID 3 pipeline*/
+#endif
+
+	};
 	enable_clocks(1);
 
 	DSSDBG("fifo(%d) low/high old %u/%u, new %u/%u\n",
@@ -1030,7 +1285,13 @@ static void _dispc_set_fir(enum omap_plane plane, int hinc, int vinc)
 {
 	u32 val;
 	const struct dispc_reg fir_reg[] = { DISPC_VID_FIR(0),
-				      DISPC_VID_FIR(1) };
+				      DISPC_VID_FIR(1)
+#ifdef CONFIG_ARCH_OMAP4
+				, DISPC_VID_V3_WB_FIR(0)
+				/* VID 3 pipeline*/
+#endif
+
+	};
 
 	BUG_ON(plane == OMAP_DSS_GFX);
 
@@ -1045,11 +1306,19 @@ static void _dispc_set_vid_accu0(enum omap_plane plane, int haccu, int vaccu)
 {
 	u32 val;
 	const struct dispc_reg ac0_reg[] = { DISPC_VID_ACCU0(0),
-				      DISPC_VID_ACCU0(1) };
+				      DISPC_VID_ACCU0(1)
+#ifdef CONFIG_ARCH_OMAP4
+				, DISPC_VID_V3_WB_ACCU0(0)
+				/* VID 3 pipeline*/
+#endif
+
+	};
 
 	BUG_ON(plane == OMAP_DSS_GFX);
-
-	val = FLD_VAL(vaccu, 25, 16) | FLD_VAL(haccu, 9, 0);
+	if (cpu_is_omap44xx())
+		val = FLD_VAL(vaccu, 26, 16) | FLD_VAL(haccu, 10, 0);
+	else
+		val = FLD_VAL(vaccu, 25, 16) | FLD_VAL(haccu, 9, 0);
 	dispc_write_reg(ac0_reg[plane-1], val);
 }
 
@@ -1057,11 +1326,18 @@ static void _dispc_set_vid_accu1(enum omap_plane plane, int haccu, int vaccu)
 {
 	u32 val;
 	const struct dispc_reg ac1_reg[] = { DISPC_VID_ACCU1(0),
-				      DISPC_VID_ACCU1(1) };
+				      DISPC_VID_ACCU1(1)
+#ifdef CONFIG_ARCH_OMAP4
+				, DISPC_VID_V3_WB_ACCU1(0) /* VID 3 pipeline*/
+#endif
+
+	};
 
 	BUG_ON(plane == OMAP_DSS_GFX);
-
-	val = FLD_VAL(vaccu, 25, 16) | FLD_VAL(haccu, 9, 0);
+	if (cpu_is_omap44xx())
+		val = FLD_VAL(vaccu, 26, 16) | FLD_VAL(haccu, 10, 0);
+	else
+		val = FLD_VAL(vaccu, 25, 16) | FLD_VAL(haccu, 9, 0);
 	dispc_write_reg(ac1_reg[plane-1], val);
 }
 
@@ -1706,7 +1982,9 @@ static int _dispc_setup_plane(enum omap_plane plane,
 
 	_dispc_set_rotation_attrs(plane, rotation, mirror, color_mode);
 
+#ifndef CONFIG_ARCH_OMAP4
 	if (plane != OMAP_DSS_VIDEO1)
+#endif
 		_dispc_setup_global_alpha(plane, global_alpha);
 
 	return 0;
@@ -1726,6 +2004,7 @@ static void dispc_disable_isr(void *data, u32 mask)
 static void _enable_lcd_out(bool enable)
 {
 	REG_FLD_MOD(DISPC_CONTROL, enable ? 1 : 0, 0, 0);
+	/* TODO: check for 2nd LCD*/
 }
 
 void dispc_enable_lcd_out(bool enable)
@@ -1735,7 +2014,7 @@ void dispc_enable_lcd_out(bool enable)
 	int r;
 
 	enable_clocks(1);
-
+/* TODO: Add LCD 2 handling */
 	/* When we disable LCD output, we need to wait until frame is done.
 	 * Otherwise the DSS is still working, and turning off the clocks
 	 * prevents DSS from going to OFF mode */
@@ -1898,7 +2177,7 @@ void dispc_set_loadmode(enum omap_dss_load_mode mode)
 	enable_clocks(0);
 }
 
-
+/* TODO: OMAP4: add color / transparency for LCD2 */
 void dispc_set_default_color(enum omap_channel channel, u32 color)
 {
 	const struct dispc_reg def_reg[] = { DISPC_DEFAULT_COLOR0,
@@ -2196,15 +2475,24 @@ static void dispc_set_lcd_divisor(u16 lck_div, u16 pck_div)
 	BUG_ON(pck_div < 2);
 
 	enable_clocks(1);
+#ifdef CONFIG_ARCH_OMAP4
+	dispc_write_reg(DISPC_DIVISOR1,
+		FLD_VAL(lck_div, 23, 16) | FLD_VAL(pck_div, 7, 0));
+#else
 	dispc_write_reg(DISPC_DIVISOR,
 			FLD_VAL(lck_div, 23, 16) | FLD_VAL(pck_div, 7, 0));
+#endif
 	enable_clocks(0);
 }
 
 static void dispc_get_lcd_divisor(int *lck_div, int *pck_div)
 {
 	u32 l;
+#ifdef CONFIG_ARCH_OMAP4
+	l = dispc_read_reg(DISPC_DIVISOR1);
+#else
 	l = dispc_read_reg(DISPC_DIVISOR);
+#endif
 	*lck_div = FLD_GET(l, 23, 16);
 	*pck_div = FLD_GET(l, 7, 0);
 }
@@ -2229,9 +2517,11 @@ unsigned long dispc_lclk_rate(void)
 	int lcd;
 	unsigned long r;
 	u32 l;
-
+#ifdef CONFIG_ARCH_OMAP4
+	l = dispc_read_reg(DISPC_DIVISOR1);
+#else
 	l = dispc_read_reg(DISPC_DIVISOR);
-
+#endif
 	lcd = FLD_GET(l, 23, 16);
 
 	r = dispc_fclk_rate();
@@ -2244,9 +2534,11 @@ unsigned long dispc_pclk_rate(void)
 	int lcd, pcd;
 	unsigned long r;
 	u32 l;
-
+#ifdef CONFIG_ARCH_OMAP4
+	l = dispc_read_reg(DISPC_DIVISOR1);
+#else
 	l = dispc_read_reg(DISPC_DIVISOR);
-
+#endif
 	lcd = FLD_GET(l, 23, 16);
 	pcd = FLD_GET(l, 7, 0);
 
@@ -2299,7 +2591,11 @@ void dispc_dump_regs(struct seq_file *s)
 	DUMPREG(DISPC_TIMING_H);
 	DUMPREG(DISPC_TIMING_V);
 	DUMPREG(DISPC_POL_FREQ);
+#ifdef CONFIG_ARCH_OMAP4
+	DUMPREG(DISPC_DIVISOR1);
+#else
 	DUMPREG(DISPC_DIVISOR);
+#endif
 	DUMPREG(DISPC_GLOBAL_ALPHA);
 	DUMPREG(DISPC_SIZE_DIG);
 	DUMPREG(DISPC_SIZE_LCD);
@@ -2416,6 +2712,7 @@ void dispc_dump_regs(struct seq_file *s)
 
 	DUMPREG(DISPC_VID_PRELOAD(0));
 	DUMPREG(DISPC_VID_PRELOAD(1));
+/* TODO: OMAP4: add new registers here */
 
 	dss_clk_disable(DSS_CLK_ICK | DSS_CLK_FCK1);
 #undef DUMPREG
@@ -2530,9 +2827,13 @@ int dispc_get_clock_div(struct dispc_clock_info *cinfo)
 
 	fck = dispc_fclk_rate();
 
+#ifdef CONFIG_ARCH_OMAP4
+	cinfo->lck_div = REG_GET(DISPC_DIVISOR1, 23, 16);
+	cinfo->pck_div = REG_GET(DISPC_DIVISOR1, 7, 0);
+#else
 	cinfo->lck_div = REG_GET(DISPC_DIVISOR, 23, 16);
 	cinfo->pck_div = REG_GET(DISPC_DIVISOR, 7, 0);
-
+#endif
 	cinfo->lck = fck / cinfo->lck_div;
 	cinfo->pck = cinfo->lck / cinfo->pck_div;
 

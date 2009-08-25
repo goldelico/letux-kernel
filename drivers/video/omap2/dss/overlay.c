@@ -35,6 +35,12 @@
 
 #include "dss.h"
 
+#ifdef CONFIG_ARCH_OMAP4
+#define MAX_DSS_OVERLAYS	4
+#else
+#define MAX_DSS_OVERLAYS	3
+#endif
+
 static int num_overlays;
 static struct list_head overlay_list;
 
@@ -233,12 +239,14 @@ static ssize_t overlay_global_alpha_store(struct omap_overlay *ovl,
 
 	ovl->get_overlay_info(ovl, &info);
 
-	/* Video1 plane does not support global alpha
+#ifndef CONFIG_ARCH_OMAP4
+	/* In OMAP2/3: Video1 plane does not support global alpha
 	 * to always make it 255 completely opaque
 	 */
 	if (ovl->id == OMAP_DSS_VIDEO1)
 		info.global_alpha = 255;
 	else
+#endif
 		info.global_alpha = simple_strtoul(buf, NULL, 10);
 
 	r = ovl->set_overlay_info(ovl, &info);
@@ -509,11 +517,11 @@ static void omap_dss_add_overlay(struct omap_overlay *overlay)
 	list_add_tail(&overlay->list, &overlay_list);
 }
 
-static struct omap_overlay *dispc_overlays[3];
+static struct omap_overlay *dispc_overlays[MAX_DSS_OVERLAYS];
 
 void dss_overlay_setup_dispc_manager(struct omap_overlay_manager *mgr)
 {
-	mgr->num_overlays = 3;
+	mgr->num_overlays = MAX_DSS_OVERLAYS;
 	mgr->overlays = dispc_overlays;
 }
 
@@ -534,7 +542,7 @@ void dss_init_overlays(struct platform_device *pdev)
 
 	num_overlays = 0;
 
-	for (i = 0; i < 3; ++i) {
+	for (i = 0; i < MAX_DSS_OVERLAYS; ++i) {
 		struct omap_overlay *ovl;
 		ovl = kzalloc(sizeof(*ovl), GFP_KERNEL);
 
@@ -570,6 +578,16 @@ void dss_init_overlays(struct platform_device *pdev)
 				OMAP_DSS_OVL_CAP_DISPC;
 			ovl->info.global_alpha = 255;
 			break;
+#ifdef CONFIG_ARCH_OMAP4
+		case 3:
+			ovl->name = "vid3";
+			ovl->id = OMAP_DSS_VIDEO3;
+			ovl->supported_modes = OMAP_DSS_COLOR_VID3_OMAP3;
+			ovl->caps = OMAP_DSS_OVL_CAP_SCALE |
+				OMAP_DSS_OVL_CAP_DISPC;
+			ovl->info.global_alpha = 255;
+			break;
+#endif
 		}
 
 		ovl->set_manager = &omap_dss_set_manager;
@@ -650,7 +668,7 @@ void dss_recheck_connections(struct omap_dss_device *dssdev, bool force)
 	}
 
 	if (mgr) {
-		for (i = 0; i < 3; i++) {
+		for (i = 0; i < MAX_DSS_OVERLAYS; i++) {
 			struct omap_overlay *ovl;
 			ovl = omap_dss_get_overlay(i);
 			if (!ovl->manager || force) {

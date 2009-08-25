@@ -26,10 +26,13 @@
 #include <asm/atomic.h>
 
 #define DISPC_IRQ_FRAMEDONE		(1 << 0)
+			/* OMAP4: FRAMEDONE1: for prim LCD*/
 #define DISPC_IRQ_VSYNC			(1 << 1)
+			/* OMAP4: VSYNC1: for prim LCD*/
 #define DISPC_IRQ_EVSYNC_EVEN		(1 << 2)
 #define DISPC_IRQ_EVSYNC_ODD		(1 << 3)
 #define DISPC_IRQ_ACBIAS_COUNT_STAT	(1 << 4)
+			/* OMAP4: ACBIAS1: for prim LCD*/
 #define DISPC_IRQ_PROG_LINE_NUM		(1 << 5)
 #define DISPC_IRQ_GFX_FIFO_UNDERFLOW	(1 << 6)
 #define DISPC_IRQ_GFX_END_WIN		(1 << 7)
@@ -40,8 +43,22 @@
 #define DISPC_IRQ_VID2_FIFO_UNDERFLOW	(1 << 12)
 #define DISPC_IRQ_VID2_END_WIN		(1 << 13)
 #define DISPC_IRQ_SYNC_LOST		(1 << 14)
+			/* OMAP4: SYNCLOST1: for prim LCD*/
 #define DISPC_IRQ_SYNC_LOST_DIGIT	(1 << 15)
 #define DISPC_IRQ_WAKEUP		(1 << 16)
+
+#ifdef CONFIG_ARCH_OMAP4
+#define DISPC_IRQ_SYNC_LOST_2	(1 << 17)
+#define DISPC_IRQ_VSYNC2		(1 << 18)
+#define DISPC_IRQ_VID3_END_WIN		(1 << 19)
+#define DISPC_IRQ_VID3_FIFO_UNDERFLOW	(1 << 20)
+				/* VID3_BUF_UNDERFLOW*/
+#define DISPC_IRQ_ACBIAS_COUNT_STAT2	(1 << 21)
+#define DISPC_IRQ_FRAMEDONE2		(1 << 22)
+#define DISPC_IRQ_FRAMEDONE_WB		(1 << 23)
+#define DISPC_IRQ_FRAMEDONE_DIG		(1 << 24) /* FRAMEDONE_TV*/
+#define DISPC_IRQ_WB_BUF_OVERFLOW	(1 << 25)
+#endif
 
 struct omap_dss_device;
 struct omap_overlay_manager;
@@ -59,11 +76,17 @@ enum omap_plane {
 	OMAP_DSS_GFX	= 0,
 	OMAP_DSS_VIDEO1	= 1,
 	OMAP_DSS_VIDEO2	= 2
+#ifdef CONFIG_ARCH_OMAP4
+	, OMAP_DSS_VIDEO3 = 3
+#endif
 };
 
 enum omap_channel {
 	OMAP_DSS_CHANNEL_LCD	= 0,
 	OMAP_DSS_CHANNEL_DIGIT	= 1,
+#ifdef CONFIG_ARCH_OMAP4
+	OMAP_DSS_CHANNEL_LCD2	= 2,
+#endif
 };
 
 enum omap_color_mode {
@@ -112,6 +135,8 @@ enum omap_color_mode {
 		OMAP_DSS_COLOR_RGB24P | OMAP_DSS_COLOR_YUV2 |
 		OMAP_DSS_COLOR_UYVY | OMAP_DSS_COLOR_ARGB32 |
 		OMAP_DSS_COLOR_RGBA32 | OMAP_DSS_COLOR_RGBX32,
+
+	OMAP_DSS_COLOR_VID3_OMAP3 = OMAP_DSS_COLOR_VID2_OMAP3,
 };
 
 enum omap_lcd_display_type {
@@ -173,6 +198,9 @@ enum omap_dss_display_state {
 enum omap_dss_overlay_managers {
 	OMAP_DSS_OVL_MGR_LCD,
 	OMAP_DSS_OVL_MGR_TV,
+#ifdef CONFIG_ARCH_OMAP4
+	OMAP_DSS_OVL_MGR_LCD2,
+#endif
 };
 
 enum omap_dss_rotation_type {

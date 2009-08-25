@@ -443,7 +443,12 @@ struct manager_cache_data {
 
 static struct {
 	spinlock_t lock;
+/* TODO: change manager_cache size to 3: include LCD 2 Manager */
+#ifdef CONFIG_ARCH_OMAP4
+	struct overlay_cache_data overlay_cache[4];
+#else
 	struct overlay_cache_data overlay_cache[3];
+#endif
 	struct manager_cache_data manager_cache[2];
 
 	bool irq_enabled;

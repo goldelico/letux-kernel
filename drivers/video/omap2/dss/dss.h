@@ -100,9 +100,9 @@ extern unsigned int dss_debug;
 #define DISPC_MAX_FCK 173000000
 
 enum omap_burst_size {
-	OMAP_DSS_BURST_4x32 = 0,
-	OMAP_DSS_BURST_8x32 = 1,
-	OMAP_DSS_BURST_16x32 = 2,
+	OMAP_DSS_BURST_4x32	= 0, /*OMAP_DSS_BURST_2x128 in OMAP4*/
+	OMAP_DSS_BURST_8x32	= 1, /*OMAP_DSS_BURST_4x128 in OMAP4*/
+	OMAP_DSS_BURST_16x32	= 2, /*OMAP_DSS_BURST_8x128 in OMAP4*/
 };
 
 enum omap_parallel_interface_mode {
