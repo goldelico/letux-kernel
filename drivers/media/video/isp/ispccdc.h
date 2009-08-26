@@ -158,6 +158,8 @@ enum ispccdc_raw_fmt {
  * @syncif_ipmod: Image
  * @obclamp_en: Data input format.
  * @mutexlock: Mutex used to get access to the CCDC.
+ * @shadow_update: non-zero when user is updating CCDC configuration
+ * @lock: serializes shadow_update with interrupt handler
  */
 struct isp_ccdc_device {
 	u8 ccdc_inuse;
