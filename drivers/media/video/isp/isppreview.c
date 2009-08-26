@@ -345,17 +345,11 @@ out_config_shadow:
 	if (isppreview_tables_update(isp_prev, &isp_table_update))
 		goto err_copy_from_user;
 
-	spin_lock_irqsave(&isp_prev->lock, flags);
 	isp_prev->shadow_update = 0;
-	spin_unlock_irqrestore(&isp_prev->lock, flags);
-
 	return 0;
 
 err_copy_from_user:
-	spin_lock_irqsave(&isp_prev->lock, flags);
 	isp_prev->shadow_update = 0;
-	spin_unlock_irqrestore(&isp_prev->lock, flags);
-
 	dev_err(dev, "preview: Config: Copy From User Error\n");
 	return -EFAULT;
 }
