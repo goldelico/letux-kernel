@@ -868,22 +868,29 @@ void *heapbuf_alloc(void *hphandle, u32 size, u32 align)
 		goto error;
 	}
 
-	if (WARN_ON(hphandle == NULL))
+	if (WARN_ON(hphandle == NULL)) {
+		retval  = -EINVAL;
 		goto error;
+	}
 
-	if (WARN_ON(size == 0))
+	if (WARN_ON(size == 0)) {
+		retval  = -EINVAL;
 		goto error;
-
+	}
 
 	handle = (struct heap_object *)(hphandle);
 	obj = (struct heapbuf_obj *)handle->obj;
 
 	if ((obj->params.exact == true)
-			&& (size != obj->attrs->block_size))
+			&& (size != obj->attrs->block_size)) {
+		retval  = -EINVAL;
 		goto error;
+	}
 
-	if (size > obj->attrs->block_size)
+	if (size > obj->attrs->block_size) {
+		retval  = -EINVAL;
 		goto error;
+	}
 
 	if (likely(obj->gate != NULL)) {
 		status = gatepeterson_enter(obj->gate);
