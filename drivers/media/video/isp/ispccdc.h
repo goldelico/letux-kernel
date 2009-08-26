@@ -207,7 +207,7 @@ void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable);
 int ispccdc_sbl_busy(void *_isp_ccdc);
 int ispccdc_busy(struct isp_ccdc_device *isp_ccdc);
 void ispccdc_config_shadow_registers(struct isp_ccdc_device *isp_ccdc);
-int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
+int ispccdc_config(struct isp_ccdc_device *isp_ccdc,
 			     void *userspace_add);
 int ispccdc_request(struct isp_ccdc_device *isp_ccdc);
 int ispccdc_free(struct isp_ccdc_device *isp_ccdc);

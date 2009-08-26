@@ -403,14 +403,14 @@ static void isph3a_aewb_set_params(struct isp_h3a_device *isp_h3a,
 }
 
 /**
- * omap34xx_isph3a_aewb_config - Configure AEWB regs, enable/disable H3A engine.
+ * isph3a_aewb_config - Configure AEWB regs, enable/disable H3A engine.
  * @aewbcfg: Pointer to AEWB config structure.
  *
  * Returns 0 if successful, -EINVAL if aewbcfg pointer is NULL, -ENOMEM if
  * was unable to allocate memory for the buffer, of other errors if H3A
  * callback is not set or the parameters for AEWB are invalid.
  **/
-int omap34xx_isph3a_aewb_config(struct isp_h3a_device *isp_h3a,
+int isph3a_aewb_config(struct isp_h3a_device *isp_h3a,
 				struct isph3a_aewb_config *aewbcfg)
 {
 	struct device *dev = to_device(isp_h3a);
@@ -452,7 +452,7 @@ int omap34xx_isph3a_aewb_config(struct isp_h3a_device *isp_h3a,
 
 	return 0;
 }
-EXPORT_SYMBOL(omap34xx_isph3a_aewb_config);
+EXPORT_SYMBOL(isph3a_aewb_config);
 
 /**
  * isph3a_aewb_request_statistics - REquest statistics and update gains in AEWB
@@ -465,8 +465,8 @@ EXPORT_SYMBOL(omap34xx_isph3a_aewb_config);
  * Returns 0 if successful, -EINVAL when H3A engine is not enabled, or other
  * errors when setting gains.
  **/
-int omap34xx_isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
-					    struct isph3a_aewb_data *aewbdata)
+int isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
+				   struct isph3a_aewb_data *aewbdata)
 {
 	struct device *dev = to_device(isp_h3a);
 	unsigned long irqflags;
@@ -515,7 +515,7 @@ int omap34xx_isph3a_aewb_request_statistics(struct isp_h3a_device *isp_h3a,
 
 	return ret;
 }
-EXPORT_SYMBOL(omap34xx_isph3a_aewb_request_statistics);
+EXPORT_SYMBOL(isph3a_aewb_request_statistics);
 
 /**
  * isph3a_aewb_init - Module Initialisation.
