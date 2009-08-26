@@ -1345,14 +1345,14 @@ skip:
 }
 
 /**
- * omap34xx_isp_ccdc_config - Sets CCDC configuration from userspace
+ * ispccdc_config - Sets CCDC configuration from userspace
  * @userspace_add: Structure containing CCDC configuration sent from userspace.
  *
  * Returns 0 if successful, -EINVAL if the pointer to the configuration
  * structure is null, or the copy_from_user function fails to copy user space
  * memory to kernel space memory.
  **/
-int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
+int ispccdc_config(struct isp_ccdc_device *isp_ccdc,
 			     void *userspace_add)
 {
 	struct isp_device *isp = to_isp_device(isp_ccdc);
