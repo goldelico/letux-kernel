@@ -109,9 +109,9 @@ int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
 
 	ccdc_struct = userspace_add;
 
-	spin_lock_irqsave(&ispccdc_obj.lock, flags);
-	ispccdc_obj.shadow_update = 1;
-	spin_unlock_irqrestore(&ispccdc_obj.lock, flags);
+	spin_lock_irqsave(&isp_ccdc->lock, flags);
+	isp_ccdc->shadow_update = 1;
+	spin_unlock_irqrestore(&isp_ccdc->lock, flags);
 
 	if (ISP_ABS_CCDC_ALAW & ccdc_struct->flag) {
 		if (ISP_ABS_CCDC_ALAW & ccdc_struct->update)
@@ -174,9 +174,6 @@ int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
 			isp_ccdc->fpc_table_add = kmalloc(64 + fpc_t.fpnum * 4,
 						GFP_KERNEL | GFP_DMA);
 			if (!isp_ccdc->fpc_table_add) {
-				dev_err(dev,
-					"ccdc: Cannot allocate memory for"
-					" FPC table");
 				ret = -ENOMEM;
 				goto out;
 			}
