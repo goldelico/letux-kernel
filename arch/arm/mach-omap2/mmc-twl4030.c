@@ -272,16 +272,20 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 		reg &= ~OMAP2_PBIASLITEPWRDNZ0;
 		omap_ctrl_writel(reg, control_pbias_offset);
 
-		ret = mmc_regulator_set_ocr(c->vcc, vdd);
-
-		/* 100ms delay required for PBIAS configuration */
-		msleep(100);
 		reg = omap_ctrl_readl(control_pbias_offset);
-		reg |= (OMAP2_PBIASLITEPWRDNZ0 | OMAP2_PBIASSPEEDCTRL0);
 		if ((1 << vdd) <= MMC_VDD_165_195)
 			reg &= ~OMAP2_PBIASLITEVMODE0;
 		else
 			reg |= OMAP2_PBIASLITEVMODE0;
+		omap_ctrl_writel(reg, control_pbias_offset);
+
+		mmc_regulator_set_ocr(c->vcc, vdd);
+
+		/* 400uS required for VDDS to stable */
+		udelay(400);
+
+		reg = omap_ctrl_readl(control_pbias_offset);
+		reg |= OMAP2_PBIASLITEPWRDNZ0;
 		omap_ctrl_writel(reg, control_pbias_offset);
 	} else {
 		reg = omap_ctrl_readl(control_pbias_offset);
@@ -289,13 +293,6 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 		omap_ctrl_writel(reg, control_pbias_offset);
 
 		ret = mmc_regulator_set_ocr(c->vcc, 0);
-
-		/* 100ms delay required for PBIAS configuration */
-		msleep(100);
-		reg = omap_ctrl_readl(control_pbias_offset);
-		reg |= (OMAP2_PBIASSPEEDCTRL0 | OMAP2_PBIASLITEPWRDNZ0 |
-			OMAP2_PBIASLITEVMODE0);
-		omap_ctrl_writel(reg, control_pbias_offset);
 	}
 
 	return ret;
