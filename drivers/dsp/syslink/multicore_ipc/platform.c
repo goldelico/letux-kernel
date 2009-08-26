@@ -59,8 +59,15 @@
  *  ============================================================================
  */
 /* App defines */
-#define HEAPID				0
-#define HEAPNAME			"myHeap"
+
+/* SYSM3 Heap */
+#define SYSM3HEAPID				0
+#define SYSM3HEAPNAME			"myHeap" /*FIXME "SYSM3Heap" */
+
+/* APPM3 Heap */
+#define APPM3HEAPID				0 /*FIXME 1 */
+#define APPM3HEAPNAME			"myHeap" /*FIXME "APPM3Heap" */
+
 
 /*!
  *  @brief  Interrupt ID of physical interrupt handled by the Notify driver to
@@ -211,14 +218,8 @@
  * Handles used by platform logic
  *  ============================================================================
  */
-void *platform_nsrn_gate_handle;
-void *platform_nsrn_handle;
 void *platform_notifydrv_handle;
-void *platform_heap_gate_handle;
-void *platform_heap_handle;
-void *platform_mqt_gate_handle;
-void *platform_transport_shm_handle;
-void *platform_messageq;
+
 /* Handles for SysM3 */
 void *platform_nsrn_gate_handle_sysm3;
 void *platform_nsrn_handle_sysm3;
@@ -228,7 +229,6 @@ void *platform_heap_handle_sysm3;
 void *platform_mqt_gate_handle_sysm3;
 void *platform_transport_shm_handle_sysm3;
 void *platform_messageq_sysm3;
-void *platform_notifydrv_handle;
 
 /* Handles for AppM3 */
 void *platform_nsrn_gate_handle_appm3;
@@ -464,7 +464,7 @@ s32 platform_setup(struct sysmgr_config *config)
 	/* The AppM3 shared area is after SysM3 heap + boot load page */
 	platform_sm_heap_virt_addr_appm3 = (platform_sm_heap_virt_addr_sysm3 +
 					SHAREDMEMORY_PHY_BASESIZE_SYSM3 +
-					BOOTLOADPAGE_SLV_VRT_BASESIZE_APPM3);
+					BOOTLOADPAGE_SLV_VRT_BASESIZE_SYSM3);
 
 
 	/* Create the shared region entry for the SysM3 heap */
@@ -615,25 +615,43 @@ s32 platform_destroy(void)
 	struct platform_mem_unmap_info u_info;
 	/* Delete the Processor instances */
 
-	if (procmgr_proc_handle != NULL) {
-		status = proc4430_delete(&procmgr_proc_handle);
+	if (procmgr_proc_handle_appm3 != NULL) {
+		status = proc4430_delete(&procmgr_proc_handle_appm3);
 		WARN_ON(status < 0);
 	}
 
-	if (procmgr_handle != NULL) {
-		status = proc_mgr_delete(&procmgr_handle);
+	if (procmgr_handle_appm3 != NULL) {
+		status = proc_mgr_delete(&procmgr_handle_appm3);
+		WARN_ON(status < 0);
+	}
+
+	if (procmgr_proc_handle_sysm3 != NULL) {
+		status = proc4430_delete(&procmgr_proc_handle_sysm3);
+		WARN_ON(status < 0);
+	}
+
+	if (procmgr_handle_sysm3 != NULL) {
+		status = proc_mgr_delete(&procmgr_handle_sysm3);
 		WARN_ON(status < 0);
 	}
 
 	status = proc4430_destroy();
 	WARN_ON(status < 0);
 
+
+	sharedregion_remove(SMHEAP_SRINDEX_APPM3);
+	sharedregion_remove(SMHEAP_SRINDEX_SYSM3);
+
+	sysmemmgr_free(platform_sm_heap_virt_addr, SMHEAP_SIZE,
+					sysmemmgr_allocflag_physical);
+
+	status = sysmemmgr_destroy();
+	WARN_ON(status < 0);
+
 	/* Delete the memory map */
 	u_info.addr = (u32) platform_sm_heap_virt_addr;
 	platform_mem_unmap(&u_info);
 
-	status = sysmemmgr_destroy();
-	WARN_ON(status < 0);
 
 	return status;
 }
@@ -1000,7 +1018,6 @@ void platform_start_callback(void *arg)
 			goto sharedregion_getptr_fail;
 		}
 		heapbuf_params_init(NULL, &heap_params);
-		heap_params.name = HEAPNAME;
 		heap_params.shared_addr = (void *) sh_addr;
 		heap_params.align = HEAPBUF_ALIGN;
 		heap_params.num_blocks = phb_params.num_blocks;
@@ -1013,10 +1030,13 @@ void platform_start_callback(void *arg)
 		}
 		heap_params.shared_buf_size = phb_params.shared_buf_size;
 		heap_params.shared_buf = (void *) sh_addr;
-		if (index == SMHEAP_SRINDEX_APPM3)
+		if (index == SMHEAP_SRINDEX_APPM3) {
+			heap_params.name = APPM3HEAPNAME;
 			heap_params.gate = platform_heap_gate_handle_appm3;
-		else
+		} else {
+			heap_params.name = SYSM3HEAPNAME;
 			heap_params.gate = platform_heap_gate_handle_sysm3;
+		}
 		heap_params.shared_addr_size = phb_params.shared_mem_size;
 		do {
 			if (index == SMHEAP_SRINDEX_APPM3)
@@ -1076,10 +1096,10 @@ void platform_start_callback(void *arg)
 		/* Register this heap with platform_messageq */
 		if (index == SMHEAP_SRINDEX_APPM3)
 			messageq_register_heap(platform_heap_handle_appm3,
-						HEAPID);
+						APPM3HEAPID);
 		else
 			messageq_register_heap(platform_heap_handle_sysm3,
-						HEAPID);
+						SYSM3HEAPID);
 		sh_addr = (u32) sharedregion_get_ptr((u32 *)
 						pmqt_params.shared_mem_addr);
 		if (sh_addr == (u32)NULL) {
@@ -1249,10 +1269,10 @@ void platform_stop_callback(void *arg)
 
 	if (pc_params.use_heapbuf) {
 		if (index == SMHEAP_SRINDEX_APPM3)
-			status = messageq_unregister_heap(HEAPID);
+			status = messageq_unregister_heap(APPM3HEAPID);
 						/* FIXME HEAPID?? */
 		else
-			status = messageq_unregister_heap(HEAPID);
+			status = messageq_unregister_heap(SYSM3HEAPID);
 						/* FIXME HEAPID?? */
 		if (status < 0) {
 			printk(KERN_ERR "platform_stop_callback : "
@@ -1292,8 +1312,7 @@ void platform_stop_callback(void *arg)
 			status = notify_ducatidrv_delete(
 					(struct notify_driver_object **)
 					&platform_notifydrv_handle);
-			platform_notifydrv_handle_sysm3 = NULL;
-			platform_notifydrv_handle_appm3 = NULL;
+			platform_notifydrv_handle = NULL;
 		}
 		if (status < 0) {
 			printk(KERN_ERR "platform_stop_callback : "
