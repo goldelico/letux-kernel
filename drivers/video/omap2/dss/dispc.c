@@ -555,158 +555,272 @@ static void _dispc_write_firv_reg(enum omap_plane plane, int reg, u32 value)
 	dispc_write_reg(DISPC_VID_FIR_COEF_V(plane-1, reg), value);
 }
 
-static void _dispc_set_scale_coef(enum omap_plane plane, int hscaleup,
-		int vscaleup, int five_taps)
+/* New coefficients Begin */
+static void _dispc_set_scale_coef(enum omap_plane plane,
+			u16 orig_width, u16 out_width,
+			u16 orig_height, u16 out_height,
+			int five_taps)
 {
-	/* Coefficients for horizontal up-sampling */
-	static const u32 coef_hup[8] = {
-		0x00800000,
-		0x0D7CF800,
-		0x1E70F5FF,
-		0x335FF5FE,
-		0xF74949F7,
-		0xF55F33FB,
-		0xF5701EFE,
-		0xF87C0DFF,
-	};
+	unsigned long reg, mval, rem_ratio;
+	short int vc[5][8];
+	short int hc[5][8];
+	int i = 0;
 
-	/* Coefficients for horizontal down-sampling */
-	static const u32 coef_hdown[8] = {
-		0x24382400,
-		0x28371FFE,
-		0x2C361BFB,
-		0x303516F9,
-		0x11343311,
-		0x1635300C,
-		0x1B362C08,
-		0x1F372804,
-	};
+	/* Filter coefficients designed for various scaling ratios */
+	/* Below Co-effients are defined for 5 taps as
+	* [0] = VCC22
+	* [1] = VC2
+	* [2] = VC1
+	* [3] = VC0
+	* [4] = VC00
+	*/
+	const static short int filter_coeff_M8[5][8] = {
+		{17,	14,	5,	-6,	2,	9,	15,	19},
+		{-20,	-4,	17,	47,	-18,	-27,	-30,	-27},
+		{134,	127,	121,	105,	81,	105,	121,	127},
+		{-20,	-27,	-30,	-27,	81,	47,	17,	-4},
+		{17,	18,	15,	9,	-18,	-6,	5,	13 } };
 
-	/* Coefficients for horizontal and vertical up-sampling */
-	static const u32 coef_hvup[2][8] = {
-		{
-		0x00800000,
-		0x037B02FF,
-		0x0C6F05FE,
-		0x205907FB,
-		0x00404000,
-		0x075920FE,
-		0x056F0CFF,
-		0x027B0300,
-		},
-		{
-		0x00800000,
-		0x0D7CF8FF,
-		0x1E70F5FE,
-		0x335FF5FB,
-		0xF7404000,
-		0xF55F33FE,
-		0xF5701EFF,
-		0xF87C0D00,
-		},
-	};
+	const static short int filter_coeff_M9[5][8] = {
+		{8,	1,	-9,	-18,	14,	17,	17,	14},
+		{-8,	8,	30,	56,	-26,	-30,	-27,	-21},
+		{128,	126,	117,	103,	83,	103,	117,	126},
+		{-8,	-21,	-27,	-30,	83,	56,	30,	8},
+		{8,	14,	17,	17,	-26,	-18,	-9,	1} };
 
-	/* Coefficients for horizontal and vertical down-sampling */
-	static const u32 coef_hvdown[2][8] = {
-		{
-		0x24382400,
-		0x28391F04,
-		0x2D381B08,
-		0x3237170C,
-		0x123737F7,
-		0x173732F9,
-		0x1B382DFB,
-		0x1F3928FE,
-		},
-		{
-		0x24382400,
-		0x28371F04,
-		0x2C361B08,
-		0x3035160C,
-		0x113433F7,
-		0x163530F9,
-		0x1B362CFB,
-		0x1F3728FE,
-		},
-	};
+	const static short int filter_coeff_M10[5][8] = {
+		{-2,	-10,	-18,	-24,	18,	15,	11,	5},
+		{2,	20,	41,	62,	-28,	-27,	-22,	-12},
+		{128,	125,	116,	102,	83,	102,	116,	125},
+		{2,	-12,	-22,	-27,	83,	62,	41,	20},
+		{-2,	5,	11,	15,	-28,	-24,	-18,	-10} };
 
-	/* Coefficients for vertical up-sampling */
-	static const u32 coef_vup[8] = {
-		0x00000000,
-		0x0000FF00,
-		0x0000FEFF,
-		0x0000FBFE,
-		0x000000F7,
-		0x0000FEFB,
-		0x0000FFFE,
-		0x000000FF,
-	};
+	const static short int filter_coeff_M11[5][8] = {
+		{-12,	-19,	-24,	-27,	14,	9,	3,	-4},
+		{12,	30,	49,	67,	-26,	-22,	-15,	-3},
+		{128,	124,	115,	101,	83,	101,	115,	124},
+		{12,	-3,	-15,	-22,	83,	67,	49,	30},
+		{-12,	-4,	3,	9,	-26,	-27,	-24,	-19} };
 
+	const static short int filter_coeff_M12[5][8] = {
+		{-19,	-24,	-26,	-25,	6,	1,	-6,	-12},
+		{21,	38,	55,	70,	-21,	-16,	-7,	6},
+		{124,	120,	112,	98,	82,	98,	112,	120},
+		{21,	6,	-7,	-16,	82,	70,	55,	38},
+		{-19,	-12,	-6,	1,	-21,	-25,	-26,	-24} };
 
-	/* Coefficients for vertical down-sampling */
-	static const u32 coef_vdown[8] = {
-		0x00000000,
-		0x000004FE,
-		0x000008FB,
-		0x00000CF9,
-		0x0000F711,
-		0x0000F90C,
-		0x0000FB08,
-		0x0000FE04,
-	};
+	const static short int filter_coeff_M13[5][8] = {
+		{-22,	-25,	-25,	-22,	0,	-6,	-12,	-18 },
+		{27,	43,	58,	71,	-17,	-10,	0,	13 },
+		{118,	115,	107,	95,	81,	95,	107,	115 },
+		{27,	13,	0,	-10,	81,	71,	58,	43 },
+		{-22,	-18,	-12,	-6,	-17,	-22,	-25,	-25} };
 
-	const u32 *h_coef;
-	const u32 *hv_coef;
-	const u32 *hv_coef_mod;
-	const u32 *v_coef;
-	int i;
+	const static short int filter_coeff_M14[5][8] = {
+		{-23,	-24,	-22,	-18,	-6,	-11,	-16,	-20 },
+		{32,	46,	59,	70,	-11,	-4,	6,	18 },
+		{110,	108,	101,	91,	78,	91,	101,	108 },
+		{32,	18,	6,	-4,	78,	70,	59,	46 },
+		{-23,	-20,	-16,	-11,	-11,	-18,	-22,	-24} };
 
-	if (hscaleup)
-		h_coef = coef_hup;
-	else
-		h_coef = coef_hdown;
+	const static short int filter_coeff_M16[5][8] = {
+		{-20,	-18,	-14,	-9,	-14,	-17,	-19,	-21},
+		{37,	48,	58,	66,	-2,	6,	15,	26},
+		{94,	93,	88,	82,	73,	82,	88,	93},
+		{37,	26,	15,	6,	73,	66,	58,	48},
+		{-20,	-21,	-19,	-17,	-2,	-9,	-14,	-18} };
 
-	if (vscaleup) {
-		hv_coef = coef_hvup[five_taps];
-		v_coef = coef_vup;
+	const static short int filter_coeff_M19[5][8] = {
+		{-12,	-8,	-4,	1,	-16,	-16,	-16,	-13},
+		{38,	47,	53,	59,	8,	15,	22,	31},
+		{76,	72,	73,	69,	64,	69,	73,	72},
+		{38,	31,	22,	15,	64,	59,	53,	47},
+		{-12,	-14,	-16,	-16,	8,	1,	-4,	-9} };
 
-		if (hscaleup)
-			hv_coef_mod = NULL;
-		else
-			hv_coef_mod = coef_hvdown[five_taps];
-	} else {
-		hv_coef = coef_hvdown[five_taps];
-		v_coef = coef_vdown;
+	const static short int filter_coeff_M22[5][8] = {
+		{-6,	-1,	3,	8,	-14,	-13,	-11,	-7},
+		{37,	44,	48,	53,	13,	19,	25,	32},
+		{66,	61,	63,	61,	58,	61,	63,	61},
+		{37,	32,	25,	19,	58,	53,	48,	44},
+		{-6,	-8,	-11,	-13,	13,	8,	3,	-2} };
 
-		if (hscaleup)
-			hv_coef_mod = coef_hvup[five_taps];
-		else
-			hv_coef_mod = NULL;
-	}
+	const static short int filter_coeff_M26[5][8] = {
+		{1,	4,	8,	13,	-10,	-8,	-5,	-2},
+		{36,	40,	44,	48,	18,	22,	27,	31},
+		{54,	55,	54,	53,	51,	53,	54,	55},
+		{36,	31,	27,	22,	51,	48,	44,	40},
+		{1,	-2,	-5,	-8,	18,	13,	8,	4 } };
 
-	for (i = 0; i < 8; i++) {
-		u32 h, hv;
+	const static short int filter_coeff_M32[5][8] =	{
+		{7,	10,	14,	17,	-4,	-1,	1,	4},
+		{34,	37,	39,	42,	21,	24,	28,	31},
+		{46,	46,	46,	46,	45,	46,	46,	46},
+		{34,	31,	27,	24,	45,	42,	39,	37},
+		{7,	4,	1,	-1,	21,	17,	14,	10} };
 
-		h = h_coef[i];
+	/* Select the coefficients based on the ratio - height/vertical */
+	if (out_height != 0) {
+		if (out_height != orig_height) {
+			rem_ratio = 0;
+			mval = 8; /* default */
+			rem_ratio =  out_height / orig_height ;
+			if (rem_ratio > 1) {
+				mval = 8;
+				DSSDBG("Coefficient class mval = %d \n", mval);
+			} else {
+				mval = (8 * orig_height) / out_height;
+			}
 
-		hv = hv_coef[i];
-
-		if (hv_coef_mod) {
-			hv &= 0xffffff00;
-			hv |= (hv_coef_mod[i] & 0xff);
+			switch (mval) {
+			case 8:
+				memcpy(vc, filter_coeff_M8, sizeof(vc));
+				break;
+			case 9:
+				memcpy(vc, filter_coeff_M9, sizeof(vc));
+				break;
+			case 10:
+				memcpy(vc, filter_coeff_M10, sizeof(vc));
+				break;
+			case 11:
+				memcpy(vc, filter_coeff_M11, sizeof(vc));
+				break;
+			case 12:
+				memcpy(vc, filter_coeff_M12, sizeof(vc));
+				break;
+			case 13:
+				memcpy(vc, filter_coeff_M13, sizeof(vc));
+				break;
+			case 14:
+				memcpy(vc, filter_coeff_M14, sizeof(vc));
+				break;
+			case 15:
+			case 16:
+				memcpy(vc, filter_coeff_M16, sizeof(vc));
+				break;
+			case 17:
+			case 18:
+			case 19:
+				memcpy(vc, filter_coeff_M19, sizeof(vc));
+				break;
+			case 20:
+			case 21:
+			case 22:
+				memcpy(vc, filter_coeff_M22, sizeof(vc));
+				break;
+			case 23:
+			case 24:
+			case 25:
+			case 26:
+				memcpy(vc, filter_coeff_M26, sizeof(vc));
+				break;
+			case 27:
+			case 28:
+			case 29:
+			case 30:
+			case 31:
+			case 32:
+				memcpy(vc, filter_coeff_M32, sizeof(vc));
+				break;
+			default:
+				DSSDBG("Chosing default M val = 8 \n");
+				memcpy(vc, filter_coeff_M8, sizeof(vc));
+				break;
+			};
 		}
-
-		_dispc_write_firh_reg(plane, i, h);
-		_dispc_write_firhv_reg(plane, i, hv);
 	}
 
-	if (!five_taps)
-		return;
+	/* Select the coefficients based on the ratio - width / horizontal */
+	if (out_width != 0) {
+		if (out_width != orig_width) {
+			rem_ratio = 0;
+			mval = 8; /* default */
+			rem_ratio =  out_width / orig_width ;
+			if (rem_ratio > 1)
+				mval = 8;
+			else
+				mval = (8 * orig_width) / out_width;
 
+			switch (mval) {
+			case 8:
+				memcpy(hc, filter_coeff_M8, sizeof(hc));
+				break;
+			case 9:
+				memcpy(hc, filter_coeff_M9, sizeof(hc));
+				break;
+			case 10:
+				memcpy(hc, filter_coeff_M10, sizeof(hc));
+				break;
+			case 11:
+				memcpy(hc, filter_coeff_M11, sizeof(hc));
+				break;
+			case 12:
+				memcpy(hc, filter_coeff_M12, sizeof(hc));
+				break;
+			case 13:
+				memcpy(hc, filter_coeff_M13, sizeof(hc));
+				break;
+			case 14:
+				memcpy(hc, filter_coeff_M14, sizeof(hc));
+				break;
+			case 15:
+			case 16:
+				memcpy(hc, filter_coeff_M16, sizeof(hc));
+				break;
+			case 17:
+			case 18:
+			case 19:
+				memcpy(hc, filter_coeff_M19, sizeof(hc));
+				break;
+			case 20:
+			case 21:
+			case 22:
+				memcpy(hc, filter_coeff_M22, sizeof(hc));
+				break;
+			case 23:
+			case 24:
+			case 25:
+			case 26:
+				memcpy(hc, filter_coeff_M26, sizeof(hc));
+				break;
+			case 27:
+			case 28:
+			case 29:
+			case 30:
+			case 31:
+			case 32:
+				memcpy(hc, filter_coeff_M32, sizeof(hc));
+				break;
+			default:
+				DSSDBG("Chosing default M val = 8 \n");
+				memcpy(hc, filter_coeff_M8, sizeof(hc));
+				break;
+			};
+		}
+	}
+
+	/* Pack the coefficients - use fivetaps for all ratios */
 	for (i = 0; i < 8; i++) {
-		u32 v;
-		v = v_coef[i];
-		_dispc_write_firv_reg(plane, i, v);
+		reg = 0;
+		DSSDBG("Phase i = %d \n", (int)i);
+		reg = ((hc[1][i] & 0xff) << 24)
+			| ((hc[2][i] & 0xff) << 16)
+			| ((hc[3][i] & 0xff) << 8)
+			| (hc[4][i] & 0xff);
+		_dispc_write_firh_reg(plane, i, reg);
+		DSSDBG("H coefficients = 0x%x\n", (int)reg);
+
+		reg = 0;
+		reg = (hc[0][i] & 0xff)
+			| ((vc[3][i] & 0xff) << 8)
+			| ((vc[2][i] & 0xff) << 16)
+			| ((vc[1][i] & 0xff) << 24);
+		_dispc_write_firhv_reg(plane, i, reg);
+		DSSDBG("HV coefficients = 0x%x\n", (int)reg);
+
+		reg = 0;
+		reg =  ((vc[0][i] & 0xff) << 8) | (vc[4][i] & 0xff);
+		_dispc_write_firv_reg(plane, i, reg);
+		DSSDBG("V coefficients = 0x%x\n", (int)reg);
 	}
 }
 
@@ -1080,7 +1194,9 @@ static void _dispc_set_scaling(enum omap_plane plane,
 	hscaleup = orig_width <= out_width;
 	vscaleup = orig_height <= out_height;
 
-	_dispc_set_scale_coef(plane, hscaleup, vscaleup, five_taps);
+	/* New filter coefficients integration */
+	_dispc_set_scale_coef(plane, orig_width, out_width,
+			orig_height, out_height, five_taps);
 
 	if (!orig_width || orig_width == out_width)
 		fir_hinc = 0;
