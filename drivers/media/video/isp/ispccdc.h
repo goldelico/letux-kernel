@@ -194,86 +194,24 @@ struct isp_ccdc_device {
 	spinlock_t lock;
 };
 
-int ispccdc_request(struct isp_ccdc_device *isp_ccdc);
-
-int ispccdc_free(struct isp_ccdc_device *isp_ccdc);
-
-void ispccdc_config_crop(struct isp_ccdc_device *isp_ccdc, u32 left, u32 top,
-			 u32 height, u32 width);
-
-void ispccdc_config_sync_if(struct isp_ccdc_device *isp_ccdc,
-			    struct ispccdc_syncif syncif);
-
-int ispccdc_config_black_clamp(struct isp_ccdc_device *isp_ccdc,
-			       struct ispccdc_bclamp bclamp);
-
-void ispccdc_enable_black_clamp(struct isp_ccdc_device *isp_ccdc, u8 enable);
-
-int ispccdc_config_fpc(struct isp_ccdc_device *isp_ccdc,
-		       struct ispccdc_fpc fpc);
-
-void ispccdc_enable_fpc(struct isp_ccdc_device *isp_ccdc, u8 enable);
-
-void ispccdc_config_black_comp(struct isp_ccdc_device *isp_ccdc,
-			       struct ispccdc_blcomp blcomp);
-
-void ispccdc_config_vp(struct isp_ccdc_device *isp_ccdc, struct ispccdc_vp vp);
-
-void ispccdc_enable_vp(struct isp_ccdc_device *isp_ccdc, u8 enable);
-
-void ispccdc_config_reformatter(struct isp_ccdc_device *isp_ccdc,
-				struct ispccdc_refmt refmt);
-
-void ispccdc_enable_reformatter(struct isp_ccdc_device *isp_ccdc, u8 enable);
-
-void ispccdc_config_culling(struct isp_ccdc_device *isp_ccdc,
-			    struct ispccdc_culling culling);
-
-void ispccdc_enable_lpf(struct isp_ccdc_device *isp_ccdc, u8 enable);
-
-void ispccdc_config_alaw(struct isp_ccdc_device *isp_ccdc,
-			 enum alaw_ipwidth ipwidth);
-
-void ispccdc_enable_alaw(struct isp_ccdc_device *isp_ccdc, u8 enable);
-
-void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable);
-
 void ispccdc_lsc_error_handler(struct isp_ccdc_device *isp_ccdc);
-
-void ispccdc_config_imgattr(struct isp_ccdc_device *isp_ccdc, u32 colptn);
-
-void ispccdc_config_shadow_registers(struct isp_ccdc_device *isp_ccdc);
-
+int ispccdc_set_outaddr(struct isp_ccdc_device *isp_ccdc, u32 addr);
+void ispccdc_set_wenlog(struct isp_ccdc_device *isp_ccdc, u32 wenlog);
 int ispccdc_try_pipeline(struct isp_ccdc_device *isp_ccdc,
 			 struct isp_pipeline *pipe);
-
 int ispccdc_s_pipeline(struct isp_ccdc_device *isp_ccdc,
 		       struct isp_pipeline *pipe);
-
-int ispccdc_config_outlineoffset(struct isp_ccdc_device *isp_ccdc, u32 offset,
-				 u8 oddeven, u8 numlines);
-
-int ispccdc_set_outaddr(struct isp_ccdc_device *isp_ccdc, u32 addr);
-
-void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable);
-
-int ispccdc_sbl_busy(void *_isp_ccdc);
-
-int ispccdc_busy(struct isp_ccdc_device *isp_ccdc);
-
-void ispccdc_save_context(struct device *dev);
-
-void ispccdc_restore_context(struct device *dev);
-
-void ispccdc_print_status(struct isp_ccdc_device *isp_ccdc,
-			  struct isp_pipeline *pipe);
-
-int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
-			     void *userspace_add);
-
-void ispccdc_set_wenlog(struct isp_ccdc_device *isp_ccdc, u32 wenlog);
-
 void ispccdc_set_raw_offset(struct isp_ccdc_device *isp_ccdc,
 			    enum ispccdc_raw_fmt raw_fmt);
+void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable);
+int ispccdc_sbl_busy(void *_isp_ccdc);
+int ispccdc_busy(struct isp_ccdc_device *isp_ccdc);
+void ispccdc_config_shadow_registers(struct isp_ccdc_device *isp_ccdc);
+int omap34xx_isp_ccdc_config(struct isp_ccdc_device *isp_ccdc,
+			     void *userspace_add);
+int ispccdc_request(struct isp_ccdc_device *isp_ccdc);
+int ispccdc_free(struct isp_ccdc_device *isp_ccdc);
+void ispccdc_save_context(struct device *dev);
+void ispccdc_restore_context(struct device *dev);
 
 #endif		/* OMAP_ISP_CCDC_H */
