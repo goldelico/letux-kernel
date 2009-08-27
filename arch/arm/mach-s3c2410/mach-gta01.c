@@ -248,7 +248,7 @@ static int gta01_bat_get_current(void)
 	
 	adc_battvolt = pcf50606_adc_sync_read(pcf, PCF50606_ADCMUX_BATVOLT_SUBTR);
 	adc_adcin1 = pcf50606_adc_sync_read(pcf, PCF50606_ADCMUX_ADCIN1_SUBTR);
-	res = (adc_adcin1 - adc_battvolt) * 2400;
+	res = (adc_battvolt - adc_adcin1) * 2400;
 
 	/*rsense is 220 milli */
 	return (res * 1000) / (220 * 1024) * 1000;
