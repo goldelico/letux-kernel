@@ -229,7 +229,7 @@ struct snd_soc_dai omap_abe_dai[] = {
 		.playback = {
 			.channels_min = 1,
 			.channels_max = 2,
-			.rates = SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000,
+			.rates = SNDRV_PCM_RATE_48000,
 			.formats = OMAP_ABE_FORMATS,
 		},
 		.capture = {
@@ -247,7 +247,7 @@ struct snd_soc_dai omap_abe_dai[] = {
 		.playback = {
 			.channels_min = 2,
 			.channels_max = 2,
-			.rates = SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000,
+			.rates = SNDRV_PCM_RATE_48000,
 			.formats = OMAP_ABE_FORMATS,
 		},
 		.ops = &omap_abe_dai_ops,
