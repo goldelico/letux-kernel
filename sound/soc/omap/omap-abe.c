@@ -72,13 +72,11 @@ static struct omap_mcpdm_data mcpdm_data = {
 static struct omap_pcm_dma_data omap_abe_dai_dma_params[] = {
 	{
 		.name = "Audio downlink",
-		.dma_req = OMAP44XX_DMA_ABE_REQ0,
 		.data_type = OMAP_DMA_DATA_TYPE_S32,
 		.sync_mode = OMAP_DMA_SYNC_PACKET,
 	},
 	{
 		.name = "Audio uplink",
-		.dma_req = OMAP44XX_DMA_ABE_REQ2,
 		.data_type = OMAP_DMA_DATA_TYPE_S32,
 		.sync_mode = OMAP_DMA_SYNC_PACKET,
 	},
@@ -145,45 +143,58 @@ static int omap_abe_dai_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
 	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
 	struct omap_mcpdm_link *mcpdm_links = mcpdm_priv->links;
-	int err, stream = substream->stream;
+	int err, stream = substream->stream, dma_req;
 	abe_dma_t dma_params;
 
 	/* get abe dma data */
 	switch (cpu_dai->id) {
 	case OMAP_ABE_MM_DAI:
-		if (stream)
+		if (stream) {
 			abe_read_port_address(MM_UL2_PORT, &dma_params);
-		else
+			dma_req = OMAP44XX_DMA_ABE_REQ4;
+		} else {
 			abe_read_port_address(MM_DL_PORT, &dma_params);
+			dma_req = OMAP44XX_DMA_ABE_REQ0;
+		}
 		break;
 	case OMAP_ABE_TONES_DL_DAI:
 		if (stream)
 			return -EINVAL;
-		else
+		else {
 			abe_read_port_address(TONES_DL_PORT, &dma_params);
+			dma_req = OMAP44XX_DMA_ABE_REQ5;
+		}
 		break;
 	case OMAP_ABE_VOICE_DAI:
-		if (stream)
+		if (stream) {
 			abe_read_port_address(VX_UL_PORT, &dma_params);
-		else
+			dma_req = OMAP44XX_DMA_ABE_REQ2;
+		} else {
 			abe_read_port_address(VX_DL_PORT, &dma_params);
+			dma_req = OMAP44XX_DMA_ABE_REQ1;
+		}
 		break;
 	case OMAP_ABE_DIG_UPLINK_DAI:
-		if (stream)
+		if (stream) {
 			abe_read_port_address(MM_UL_PORT, &dma_params);
-		else
+			dma_req = OMAP44XX_DMA_ABE_REQ3;
+
+		} else
 			return -EINVAL;
 		break;
 	case OMAP_ABE_VIB_DAI:
 		if (stream)
 			return -EINVAL;
-		else
+		else {
 			abe_read_port_address(VIB_DL_PORT, &dma_params);
+                        dma_req = OMAP44XX_DMA_ABE_REQ6;
+		}
 		break;
 	default:
 		return -EINVAL;
 	}
 
+	omap_abe_dai_dma_params[stream].dma_req = dma_req;
 	omap_abe_dai_dma_params[stream].port_addr =
 					(unsigned long)dma_params.data;
 	omap_abe_dai_dma_params[stream].packet_size = dma_params.iter;
