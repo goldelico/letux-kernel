@@ -42,6 +42,7 @@
 struct omap_mcpdm_data {
 	struct omap_mcpdm_link *links;
 	int active;
+	int requested;
 };
 
 static struct omap_mcpdm_link omap_mcpdm_links[] = {
@@ -64,6 +65,7 @@ static struct omap_mcpdm_link omap_mcpdm_links[] = {
 static struct omap_mcpdm_data mcpdm_data = {
 	.links = omap_mcpdm_links,
 	.active = 0,
+	.requested = 0,
 };
 
 /*
@@ -87,9 +89,10 @@ static int omap_abe_dai_startup(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
+	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
 	int err = 0;
 
-	if (!cpu_dai->active)
+	if (!mcpdm_priv->requested++)
 		err = omap_mcpdm_request();
 
 	return err;
@@ -100,8 +103,9 @@ static void omap_abe_dai_shutdown(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
+	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
 
-	if (!cpu_dai->active)
+	if (!--mcpdm_priv->requested)
 		omap_mcpdm_free();
 }
 
