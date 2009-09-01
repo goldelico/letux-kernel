@@ -63,27 +63,18 @@
 #include <linux/string.h>
 #include <linux/list.h>
 
-/* Syslink headers */
-#include <gt.h>
-
 /* Module level headers */
 #include <nameserver.h>
 #include <listmp.h>
 #include <listmp_sharedmemory.h>
 
 
-#if GT_TRACE
-static struct GT_Mask listmp_debugmask = { NULL, NULL }; /* GT trace variable */
-EXPORT_SYMBOL(listmp_debugmask);
-#endif
-
 /*
  * ======== listmp_params_init ========
  *  Purpose:
  *  Function initializes listmp parameters
  */
-void listmp_params_init(void *listmp_handle,
-						struct listmp_params *params)
+void listmp_params_init(void *listmp_handle, struct listmp_params *params)
 {
 	BUG_ON(params == NULL);
 	listmp_sharedmemory_params_init(listmp_handle, params);
@@ -115,20 +106,17 @@ void *listmp_create(struct listmp_params *params)
 {
 	struct listmp_object *handle = NULL;
 
-	gt_1trace(listmp_debugmask, GT_ENTER, "listmp_create", params);
-
-	BUG_ON(params == NULL);
 	if (WARN_ON(params == NULL))
 		goto exit;
 
 	if (params->list_type == listmp_type_SHARED)
 		handle = (struct listmp_object *)
 				listmp_sharedmemory_create(params);
-
+	return (void *)handle;
 
 exit:
-	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_create", handle);
-	return (void *)handle;
+	printk(KERN_ERR "listmp_create: listmp_params passed are NULL!\n");
+	return NULL;
 }
 
 /*
@@ -140,10 +128,6 @@ int listmp_delete(void **listmp_handle_ptr)
 {
 	int status = 0;
 
-	gt_1trace(listmp_debugmask, GT_ENTER, "listmp_delete",
-				listmp_handle_ptr);
-
-	BUG_ON(*listmp_handle_ptr == NULL);
 	if (WARN_ON(*listmp_handle_ptr == NULL)) {
 		status = -EINVAL;
 		goto exit;
@@ -154,7 +138,10 @@ int listmp_delete(void **listmp_handle_ptr)
 		status = listmp_sharedmemory_delete(listmp_handle_ptr);
 
 exit:
-	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_delete", status);
+	if (status < 0) {
+		printk(KERN_ERR "listmp_delete failed! status = 0x%x\n",
+			status);
+	}
 	return status;
 }
 
@@ -167,11 +154,6 @@ int listmp_open(void **listmp_handle_ptr, struct listmp_params *params)
 {
 	int  status = 0;
 
-	gt_2trace(listmp_debugmask, GT_ENTER, "listmp_open", listmp_handle_ptr,
-		params);
-
-	BUG_ON(listmp_handle_ptr == NULL);
-	BUG_ON(params == NULL);
 	if (WARN_ON(listmp_handle_ptr == NULL)) {
 		status = -EINVAL;
 		goto exit;
@@ -185,7 +167,8 @@ int listmp_open(void **listmp_handle_ptr, struct listmp_params *params)
 		status = listmp_sharedmemory_open(listmp_handle_ptr, params);
 
 exit:
-	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_open", status);
+	if (status < 0)
+		printk(KERN_ERR "listmp_open failed! status = 0x%x\n", status);
 	return status;
 }
 
@@ -198,9 +181,6 @@ int listmp_close(void *listmp_handle)
 {
 	int status = 0;
 
-	gt_1trace(listmp_debugmask, GT_ENTER, "listmp_close", listmp_handle);
-
-	BUG_ON(listmp_handle == NULL);
 	if (WARN_ON(listmp_handle == NULL)) {
 		status = -EINVAL;
 		goto exit;
@@ -211,7 +191,8 @@ int listmp_close(void *listmp_handle)
 		status = listmp_sharedmemory_close(listmp_handle);
 
 exit:
-	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_close", status);
+	if (status < 0)
+		printk(KERN_ERR "listmp_close failed! status = 0x%x\n", status);
 	return status;
 }
 
@@ -225,9 +206,6 @@ bool listmp_empty(void *listmp_handle)
 	bool isEmpty = false;
 	struct listmp_object *handle = NULL;
 
-	gt_1trace(listmp_debugmask, GT_ENTER, "listmp_empty", listmp_handle);
-
-	BUG_ON(listmp_handle == NULL);
 	if (WARN_ON(listmp_handle == NULL))
 		goto exit;
 
@@ -237,7 +215,6 @@ bool listmp_empty(void *listmp_handle)
 	isEmpty = handle->empty(listmp_handle);
 
 exit:
-	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_empty", isEmpty);
 	return isEmpty;
 }
 
@@ -251,9 +228,6 @@ void *listmp_get_head(void *listmp_handle)
 	struct listmp_object *handle = NULL;
 	struct listmp_elem *elem = NULL;
 
-	gt_1trace(listmp_debugmask, GT_ENTER, "listmp_get_head", listmp_handle);
-
-	BUG_ON(listmp_handle == NULL);
 	if (WARN_ON(listmp_handle == NULL))
 		goto exit;
 
@@ -263,7 +237,6 @@ void *listmp_get_head(void *listmp_handle)
 	elem = handle->get_head(listmp_handle);
 
 exit:
-	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_get_head", elem);
 	return elem;
 }
 
@@ -277,9 +250,6 @@ void *listmp_get_tail(void *listmp_handle)
 	struct listmp_object *handle = NULL;
 	struct listmp_elem *elem = NULL;
 
-	gt_1trace(listmp_debugmask, GT_ENTER, "listmp_get_tail", listmp_handle);
-
-	BUG_ON(listmp_handle == NULL);
 	if (WARN_ON(listmp_handle == NULL))
 		goto exit;
 
@@ -289,7 +259,6 @@ void *listmp_get_tail(void *listmp_handle)
 	elem = handle->get_tail(listmp_handle);
 
 exit:
-	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_get_tail", elem);
 	return elem;
 }
 
@@ -303,11 +272,6 @@ int listmp_put_head(void *listmp_handle, struct listmp_elem *elem)
 	int status = 0;
 	struct listmp_object *handle = NULL;
 
-	gt_2trace(listmp_debugmask, GT_ENTER, "listmp_put_head",
-					listmp_handle,
-					elem);
-
-	BUG_ON(listmp_handle == NULL);
 	if (WARN_ON(listmp_handle == NULL)) {
 		status = -EINVAL;
 		goto exit;
@@ -323,7 +287,10 @@ int listmp_put_head(void *listmp_handle, struct listmp_elem *elem)
 	status = handle->put_head(listmp_handle, elem);
 
 exit:
-	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_put_head", status);
+	if (status < 0) {
+		printk(KERN_ERR "listmp_put_head failed! status = 0x%x\n",
+			status);
+	}
 	return status;
 }
 
@@ -337,10 +304,6 @@ int listmp_put_tail(void *listmp_handle, struct listmp_elem *elem)
 	int status = 0;
 	struct listmp_object *handle = NULL;
 
-	gt_2trace(listmp_debugmask, GT_ENTER, "listmp_put_tail", listmp_handle,
-							elem);
-
-	BUG_ON(listmp_handle == NULL);
 	if (WARN_ON(listmp_handle == NULL)) {
 		status = -EINVAL;
 		goto exit;
@@ -356,7 +319,10 @@ int listmp_put_tail(void *listmp_handle, struct listmp_elem *elem)
 	status = handle->put_tail(listmp_handle, elem);
 
 exit:
-	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_put_tail", status);
+	if (status < 0) {
+		printk(KERN_ERR "listmp_put_tail failed! status = 0x%x\n",
+			status);
+	}
 	return status;
 }
 
@@ -371,12 +337,6 @@ int listmp_insert(void *listmp_handle, struct listmp_elem *elem,
 	int status = 0;
 	struct listmp_object *handle = NULL;
 
-	gt_3trace(listmp_debugmask, GT_ENTER, "listmp_insert",
-				   listmp_handle,
-				   elem,
-				   curElem);
-
-	BUG_ON(listmp_handle == NULL);
 	if (WARN_ON(listmp_handle == NULL)) {
 		status = -EINVAL;
 		goto exit;
@@ -396,7 +356,10 @@ int listmp_insert(void *listmp_handle, struct listmp_elem *elem,
 	status = handle->insert(listmp_handle, elem, curElem);
 
 exit:
-	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_insert", status);
+	if (status < 0) {
+		printk(KERN_ERR "listmp_insert failed! status = 0x%x\n",
+			status);
+	}
 	return status;
 }
 
@@ -410,10 +373,6 @@ int listmp_remove(void *listmp_handle, struct listmp_elem *elem)
 	int status = LISTMP_SUCCESS;
 	struct listmp_object *handle = NULL;
 
-	gt_2trace(listmp_debugmask, GT_ENTER, "listmp_remove", listmp_handle,
-			elem);
-
-	BUG_ON(listmp_handle == NULL);
 	if (WARN_ON(listmp_handle == NULL)) {
 		status = -EINVAL;
 		goto exit;
@@ -429,7 +388,10 @@ int listmp_remove(void *listmp_handle, struct listmp_elem *elem)
 	status = handle->remove(listmp_handle, elem);
 
 exit:
-	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_remove", status);
+	if (status < 0) {
+		printk(KERN_ERR "listmp_remove failed! status = 0x%x\n",
+			status);
+	}
 	return status ;
 }
 
@@ -443,9 +405,6 @@ void *listmp_next(void *listmp_handle, struct listmp_elem *elem)
 	struct listmp_object *handle = NULL;
 	struct listmp_elem *nextElem = NULL;
 
-	gt_1trace(listmp_debugmask, GT_ENTER, "listmp_next", listmp_handle);
-
-	BUG_ON(listmp_handle == NULL);
 	if (WARN_ON(listmp_handle == NULL))
 		goto exit;
 
@@ -455,7 +414,6 @@ void *listmp_next(void *listmp_handle, struct listmp_elem *elem)
 	nextElem = handle->next(listmp_handle, elem);
 
 exit:
-	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_next", nextElem);
 	return nextElem;
 }
 
@@ -469,9 +427,6 @@ void *listmp_prev(void *listmp_handle, struct listmp_elem *elem)
 	struct listmp_object *handle = NULL;
 	struct listmp_elem *prevElem = NULL;
 
-	gt_1trace(listmp_debugmask, GT_ENTER, "listmp_prev", listmp_handle);
-
-	BUG_ON(listmp_handle == NULL);
 	if (WARN_ON(listmp_handle == NULL))
 		goto exit;
 
@@ -481,7 +436,5 @@ void *listmp_prev(void *listmp_handle, struct listmp_elem *elem)
 	prevElem = handle->prev(listmp_handle, elem);
 
 exit:
-	gt_1trace(listmp_debugmask, GT_LEAVE, "listmp_prev", prevElem);
 	return prevElem;
 }
-
