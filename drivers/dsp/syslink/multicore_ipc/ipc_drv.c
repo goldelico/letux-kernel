@@ -27,7 +27,6 @@
 #include <linux/cdev.h>
 #include <linux/uaccess.h>
 
-#include <gt.h>
 #include <ipc_ioctl.h>
 #include <nameserver.h>
 
@@ -69,7 +68,6 @@ int ipc_open(struct inode *inode, struct file *filp)
 	s32 retval = 0;
 	struct ipc_device *dev;
 
-	gt_0trace(ipcdrv_trace, GT_ENTER, " <- driver_open\n");
 	dev = container_of(inode->i_cdev, struct ipc_device, cdev);
 	filp->private_data = dev;
 	return retval;
@@ -82,7 +80,6 @@ int ipc_open(struct inode *inode, struct file *filp)
  */
 int ipc_release(struct inode *inode, struct file *filp)
 {
-	gt_0trace(ipcdrv_trace, GT_ENTER, "-> driver_release\n");
 	return 0;
 }
 
@@ -95,8 +92,6 @@ int ipc_ioctl(struct inode *ip, struct file *filp, u32 cmd, ulong arg)
 {
 	s32 retval = 0;
 	void __user *argp = (void __user *)arg;
-
-	gt_0trace(ipcdrv_trace, GT_ENTER, " -> driver_ioctl\n");
 
 	/* Verify the memory and ensure that it is not is kernel
 	     address space
@@ -167,15 +162,14 @@ static int __init ipc_init(void)
 	}
 
 	if (retval < 0) {
-		gt_1trace(ipcdrv_trace, GT_7CLASS, "ipc_init: "
-					"can't get major %x \n", ipc_major);
+		printk(KERN_ERR "ipc_init: can't get major %x \n", ipc_major);
 		goto exit;
 	}
 
 	ipc_device = kmalloc(sizeof(struct ipc_device), GFP_KERNEL);
 	if (!ipc_device) {
-		gt_0trace(ipcdrv_trace, GT_7CLASS,
-				"memory allocation failed for ipc_device \n");
+		printk(KERN_ERR "ipc_init: memory allocation failed for "
+			"ipc_device \n");
 		retval = -ENOMEM;
 		goto unreg_exit;
 	}
@@ -183,16 +177,14 @@ static int __init ipc_init(void)
 	memset(ipc_device, 0, sizeof(struct ipc_device));
 	retval = ipc_modules_init();
 	if (retval) {
-		gt_0trace(ipcdrv_trace, GT_7CLASS,
-				"ipc initialization failed \n");
+		printk(KERN_ERR "ipc_init: ipc initialization failed \n");
 		goto unreg_exit;
 
 	}
 	/* TO DO : NEED TO LOOK IN TO THIS */
 	ipc_class = class_create(THIS_MODULE, "syslink_ipc");
 	if (IS_ERR(ipc_class)) {
-		gt_0trace(ipcdrv_trace, GT_7CLASS,
-					"error creating ipc class \n");
+		printk(KERN_ERR "ipc_init: error creating ipc class \n");
 		retval = PTR_ERR(ipc_class);
 		goto unreg_exit;
 	}
@@ -203,8 +195,7 @@ static int __init ipc_init(void)
 	ipc_device->cdev.owner = THIS_MODULE;
 	retval = cdev_add(&ipc_device->cdev, dev, IPC_DEVICES);
 	if (retval) {
-		gt_0trace(ipcdrv_trace, GT_7CLASS,
-				"Failed to add the ipc device \n");
+		printk(KERN_ERR "ipc_init: failed to add the ipc device \n");
 		goto class_exit;
 	}
 	return retval;
@@ -230,7 +221,6 @@ static void __exit ipc_exit(void)
 {
 	dev_t devno;
 
-	gt_0trace(ipcdrv_trace, GT_ENTER, "-> driver_exit\n");
 	ipc_modules_exit();
 	devno = MKDEV(ipc_major, ipc_minor);
 	if (ipc_device) {
@@ -250,4 +240,3 @@ static void __exit ipc_exit(void)
  */
 module_init(ipc_init);
 module_exit(ipc_exit);
-

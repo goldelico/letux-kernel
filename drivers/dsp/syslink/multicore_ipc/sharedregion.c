@@ -22,7 +22,6 @@
 #include <linux/slab.h>
 #include <syslink/atomic_linux.h>
 
-#include <gt.h>
 #include <multiproc.h>
 #include <nameserver.h>
 #include <sharedregion.h>
@@ -250,7 +249,7 @@ int sharedregion_add(u32 index, void *base, u32 len)
 			+ i);
 		if (entry->is_valid) {
 			/* Handle duplicate entry */
-			if((base == entry->base) && (len == entry->len)) {
+			if ((base == entry->base) && (len == entry->len)) {
 				same = true;
 				break;
 			}
@@ -276,7 +275,7 @@ int sharedregion_add(u32 index, void *base, u32 len)
 
 	if (overlap) {
 		/* FHACK: FIX ME */
-		retval =1;
+		retval = 1;
 		goto mem_overlap_error;
 	}
 

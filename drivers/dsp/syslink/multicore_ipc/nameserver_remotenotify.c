@@ -22,7 +22,6 @@
 #include <linux/slab.h>
 #include <linux/semaphore.h>
 
-#include <gt.h>
 #include <gate_remote.h>
 #include <gatepeterson.h>
 #include <nameserver.h>
