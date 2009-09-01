@@ -104,17 +104,15 @@
 #include <linux/slab.h>
 #include <linux/semaphore.h>
 
-/* Syslink Trace header */
-#include <gt.h>
-
+/* Syslink headers */
 #include <syslink/atomic_linux.h>
+
 /* Module level headers */
 #include <nameserver.h>
 #include <multiproc.h>
 #include <messageq_transportshm.h>
 #include <heap.h>
 #include <messageq.h>
-/* #include <OsalSemaphore.h>*/
 
 
 /*! @brief Macro to make a correct module magic number with refCount */
@@ -202,12 +200,6 @@ static struct messageq_module_object messageq_state = {
 				.default_inst_params.reserved = 0
 };
 
-#if GT_TRACE
-/* GT trace variable */
-static struct GT_Mask messageq_dbgmask = { NULL, NULL };
-EXPORT_SYMBOL(messageq_dbgmask);
-#endif
-
 
 /* =============================================================================
  * Constants
@@ -250,18 +242,8 @@ static u16 _messageq_grow(struct messageq_object *obj);
  */
 void messageq_get_config(struct messageq_config *cfg)
 {
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_getConfig", cfg);
-
-	BUG_ON(cfg == NULL);
-	if (WARN_ON(cfg == NULL)) {
-		gt_2trace(messageq_dbgmask,
-				GT_4CLASS,
-				"messageq_getConfig",
-				MESSAGEQ_E_INVALIDARG,
-				"Argument of type(struct messageq_config *) "
-				"passed is null!");
+	if (WARN_ON(cfg == NULL))
 		goto exit;
-	}
 
 	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
@@ -273,9 +255,11 @@ void messageq_get_config(struct messageq_config *cfg)
 		memcpy(cfg, &messageq_state.cfg,
 			sizeof(struct messageq_config));
 	}
+	return;
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_getConfig", status);
+	printk(KERN_ERR "messageq_get_config: Argument of type "
+		"(struct messageq_config *) passed is null!\n");
 }
 EXPORT_SYMBOL(messageq_get_config);
 
@@ -300,8 +284,6 @@ int messageq_setup(const struct messageq_config *cfg)
 	int status = MESSAGEQ_SUCCESS;
 	struct nameserver_params params;
 	struct messageq_config tmpcfg;
-
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_setup", cfg);
 
 	/* This sets the ref_count variable is not initialized, upper 16 bits is
 	* written with module Id to ensure correctness of refCount variable.
@@ -338,11 +320,8 @@ int messageq_setup(const struct messageq_config *cfg)
 		if (messageq_state.gate_handle == NULL) {
 			/*! @retval MESSAGEQ_E_FAIL Failed to create lock! */
 			status = MESSAGEQ_E_FAIL;
-			gt_2trace(messageq_dbgmask,
-					GT_4CLASS,
-					"MessageQ_setup",
-					status,
-					"Failed to create GateSpinlock!");
+			printk(KERN_ERR "messageq_setup: Failed to create a "
+				"mutex.\n");
 			status = -ENOMEM;
 			goto exit;
 		}
@@ -361,12 +340,8 @@ int messageq_setup(const struct messageq_config *cfg)
 		/*! @retval MESSAGEQ_E_FAIL Failed to create the
 		 * MessageQ nameserver*/
 		status = MESSAGEQ_E_FAIL;
-		gt_2trace(messageq_dbgmask,
-				GT_4CLASS,
-				"messageq_setup",
-				MESSAGEQ_E_FAIL,
-				"Failed to create the MessageQ "
-				"nameserver!");
+		printk(KERN_ERR "messageq_setup: Failed to create the messageq"
+			"nameserver!\n");
 		goto nameserver_create_fail;
 	}
 
@@ -390,7 +365,7 @@ int messageq_setup(const struct messageq_config *cfg)
 				MESSAGEQ_NUM_PRIORITY_QUEUES));
 
 	BUG_ON(status < 0);
-	goto exit;
+	return status;
 
 queues_alloc_fail:
 	if (messageq_state.queues != NULL)
@@ -416,10 +391,12 @@ nameserver_create_fail:
 	messageq_state.can_free_queues = true;
 
 exit:
-	if (status < 0)
+	if (status < 0) {
 		atomic_set(&messageq_state.ref_count,
 					MESSAGEQ_MAKE_MAGICSTAMP(0));
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_setup", status);
+		printk(KERN_ERR "messageq_setup failed! status = 0x%x\n",
+			status);
+	}
 	return status;
 }
 EXPORT_SYMBOL(messageq_setup);
@@ -433,8 +410,6 @@ int messageq_destroy(void)
 {
 	int status = MESSAGEQ_SUCCESS;
 	u32 i;
-
-	gt_0trace(messageq_dbgmask, GT_ENTER, "messageq_destroy");
 
 	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
@@ -490,7 +465,10 @@ int messageq_destroy(void)
 				MESSAGEQ_MAKE_MAGICSTAMP(0));
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_destroy", status);
+	if (status < 0) {
+		printk(KERN_ERR "messageq_destroy failed! status = 0x%x\n",
+			status);
+	}
 	return status;
 }
 EXPORT_SYMBOL(messageq_destroy);
@@ -506,19 +484,14 @@ void messageq_params_init(void *messageq_handle,
 {
 	struct messageq_object *object = NULL;
 
-	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_params_init",
-			messageq_handle, params);
-
 	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)
 		goto exit;
 
 	if (WARN_ON(params == NULL)) {
-		/*! @retval None */
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_params_init",
-				MESSAGEQ_E_INVALIDARG,
-				"Argument of type(messageq_params *) is NULL!");
+		printk(KERN_ERR "messageq_params_init failed:Argument of "
+			"type(messageq_params *) is NULL!\n");
 		goto exit;
 	}
 
@@ -532,8 +505,6 @@ void messageq_params_init(void *messageq_handle,
 	}
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_params_init", status);
-	/*! @retval None */
 	return;
 }
 EXPORT_SYMBOL(messageq_params_init);
@@ -554,9 +525,6 @@ void *messageq_create(char *name, const struct messageq_params *params)
 	int key;
 	u16 queueIndex = 0;
 
-	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_create", name, params);
-
-	BUG_ON(params == NULL);
 	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true) {
@@ -578,9 +546,6 @@ void *messageq_create(char *name, const struct messageq_params *params)
 	key = mutex_lock_interruptible(messageq_state.gate_handle);
 	start = 0; /* Statically allocated objects not supported */
 	count = messageq_state.num_queues;
-	gt_1trace(messageq_dbgmask, GT_1CLASS,
-		"    messageq_create: Max number of queues %d",
-		messageq_state.num_queues);
 	/* Search the dynamic array for any holes */
 	for (i = start; i < count ; i++) {
 		if (messageq_state.queues[i] == NULL) {
@@ -600,19 +565,17 @@ void *messageq_create(char *name, const struct messageq_params *params)
 			!= MESSAGEQ_ALLOWGROWTH) {
 			mutex_unlock(messageq_state.gate_handle);
 			status = MESSAGEQ_E_MAXREACHED;
-			gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_create", status,
-				"All message queues are full");
+			printk(KERN_ERR "messageq_create: All message queues "
+				"are full!\n");
 			goto free_slot_fail;
 		} else {
 			queueIndex = _messageq_grow(handle);
 			if (queueIndex == MESSAGEQ_INVALIDMESSAGEQ) {
 				mutex_unlock(messageq_state.gate_handle);
 				status = MESSAGEQ_E_MAXREACHED;
-				gt_2trace(messageq_dbgmask, GT_4CLASS,
-					"messageq_create", status,
-					"All message queues are full");
-					goto free_slot_fail;
+				printk(KERN_ERR "messageq_create: All message "
+					"queues are full!\n");
+				goto free_slot_fail;
 			}
 		}
 	}
@@ -641,8 +604,8 @@ void *messageq_create(char *name, const struct messageq_params *params)
 	handle->synchronizer = kzalloc(sizeof(struct semaphore), GFP_KERNEL);
 	if (handle->synchronizer == NULL) {
 		status = MESSAGEQ_E_FAIL;
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "MessageQ_create",
-			status, "Failed to create synchronizer semaphore");
+		printk(KERN_ERR "messageq_create: Failed to create "
+			"synchronizer semaphore!\n");
 		goto semaphore_create_fail;
 	} else {
 		sema_init(handle->synchronizer, 0);
@@ -670,7 +633,10 @@ free_slot_fail:
 	}
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_create", handle);
+	if (status < 0) {
+		printk(KERN_ERR "messageq_create failed! status = 0x%x\n",
+			status);
+	}
 	return (void *) handle;
 }
 EXPORT_SYMBOL(messageq_create);
@@ -686,10 +652,6 @@ int messageq_delete(void **msg_handleptr)
 	struct messageq_object *handle = NULL;
 	int key;
 
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_delete",
-			*msg_handleptr);
-
-	BUG_ON(msg_handleptr == NULL);
 	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true) {
@@ -738,7 +700,10 @@ int messageq_delete(void **msg_handleptr)
 	*msg_handleptr = NULL;
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_delete", status);
+	if (status < 0) {
+		printk(KERN_ERR "messageq_delete failed! status = 0x%x\n",
+			status);;
+	}
 	return status;
 }
 EXPORT_SYMBOL(messageq_delete);
@@ -753,9 +718,6 @@ int messageq_open(char *name, u32 *queue_id)
 	int status = 0;
 	int len = 0;
 
-	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_open", name, queue_id);
-
-	BUG_ON(queue_id == NULL);
 	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true) {
@@ -782,7 +744,10 @@ int messageq_open(char *name, u32 *queue_id)
 	}
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_open", status);
+	if (status < 0) {
+		printk(KERN_ERR "messageq_open failed! status = 0x%x\n",
+			status);
+	}
 	return status;
 }
 EXPORT_SYMBOL(messageq_open);
@@ -794,28 +759,20 @@ EXPORT_SYMBOL(messageq_open);
  */
 void messageq_close(u32 *queue_id)
 {
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_close", queue_id);
-
-	BUG_ON(queue_id == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	if (WARN_ON(queue_id == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDARG queue_id passed is null */
-		gt_2trace(messageq_dbgmask,
-				GT_4CLASS,
-				"messageq_close",
-				MESSAGEQ_E_INVALIDARG,
-				"queue_id passed is null!");
+		printk(KERN_ERR "messageq_close: queue_id passed is NULL!\n");
 		goto exit;
 	}
 
 	*queue_id = MESSAGEQ_INVALIDMESSAGEQ;
 
 exit:
-	gt_0trace(messageq_dbgmask, GT_LEAVE, "messageq_close");
+	return;
 }
 EXPORT_SYMBOL(messageq_close);
 
@@ -828,8 +785,6 @@ int messageq_get(void *messageq_handle, messageq_msg *msg,
 	int status = 0;
 	struct messageq_object *obj = (struct messageq_object *)messageq_handle;
 	int key;
-
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get", obj);
 
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 					MESSAGEQ_MAKE_MAGICSTAMP(0),
@@ -844,10 +799,7 @@ int messageq_get(void *messageq_handle, messageq_msg *msg,
 	}
 
 	if (WARN_ON(obj == NULL)) {
-		/*! @retval NULL Invalid NULL obj pointer specified */
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_count",
-				MESSAGEQ_E_INVALIDMSG,
-				"obj passed is null!");
+		status = -EINVAL;
 		goto exit;
 	}
 
@@ -896,7 +848,8 @@ int messageq_get(void *messageq_handle, messageq_msg *msg,
 	}
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_get", msg);
+	if (status < 0)
+		printk(KERN_ERR "messageq_get failed! status = 0x%x\n", status);
 	return status;
 }
 EXPORT_SYMBOL(messageq_get);
@@ -913,17 +866,13 @@ int messageq_count(void *messageq_handle)
 	struct list_head *elem;
 	int key;
 
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_count", obj);
-
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 					MESSAGEQ_MAKE_MAGICSTAMP(0),
 					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	if (WARN_ON(obj == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIMSG obj passed is null */
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_count",
-				MESSAGEQ_E_INVALIDMSG, "obj passed is null!");
+		printk(KERN_ERR "messageq_count: obj passed is NULL!\n");
 		goto exit;
 	}
 
@@ -937,7 +886,6 @@ int messageq_count(void *messageq_handle)
 	mutex_unlock(messageq_state.gate_handle);
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_count", count);
 	return count;
 }
 EXPORT_SYMBOL(messageq_count);
@@ -949,20 +897,13 @@ EXPORT_SYMBOL(messageq_count);
  */
 void messageq_static_msg_init(messageq_msg msg, u32 size)
 {
-	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_static_msg_init",
-			msg, size);
-
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 					MESSAGEQ_MAKE_MAGICSTAMP(0),
 					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	if (WARN_ON(msg == NULL)) {
-		/*! @retval None */
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_static_msg_init",
-				 MESSAGEQ_E_INVALIDMSG,
-				 "Msg is invalid!");
+		printk(KERN_ERR "messageq_static_msg_init: msg is invalid!\n");
 		goto exit;
 	}
 
@@ -975,7 +916,7 @@ void messageq_static_msg_init(messageq_msg msg, u32 size)
 	msg->flags = MESSAGEQ_HEADERVERSION | MESSAGEQ_NORMALPRI;
 
 exit:
-	gt_0trace(messageq_dbgmask, GT_LEAVE, "messageq_static_msg_init");
+	return;
 }
 EXPORT_SYMBOL(messageq_static_msg_init);
 
@@ -990,19 +931,13 @@ messageq_msg messageq_alloc(u16 heap_id, u32 size)
 {
 	messageq_msg msg = NULL;
 
-	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_alloc", heap_id, size);
-
-	BUG_ON(heap_id >= messageq_state.num_heaps);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 					MESSAGEQ_MAKE_MAGICSTAMP(0),
 					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	if (WARN_ON(heap_id >= messageq_state.num_heaps)) {
-		/*! @retval NULL Heap id is invalid */
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_alloc",
-				MESSAGEQ_E_INVALIDHEAPID,
-				"Heap id is invalid!");
+		printk(KERN_ERR "messageq_alloc: heap_id is invalid!\n");
 		goto exit;
 	}
 
@@ -1010,10 +945,8 @@ messageq_msg messageq_alloc(u16 heap_id, u32 size)
 		/* Allocate the message. No alignment requested */
 		msg = heap_alloc(messageq_state.heaps[heap_id], size, 0);
 		if (msg == NULL) {
-			/*! @retval NULL Message allocation failed */
-			gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_alloc", MESSAGEQ_E_MEMORY,
-				"Message allocation failed!");
+			printk(KERN_ERR "messageq_alloc: message allocation "
+				"failed!\n");
 			goto exit;
 		}
 
@@ -1025,16 +958,11 @@ messageq_msg messageq_alloc(u16 heap_id, u32 size)
 		msg->msg_id = MESSAGEQ_INVALIDMSGID;
 		msg->flags = MESSAGEQ_HEADERVERSION | MESSAGEQ_NORMALPRI;
 	} else {
-		/*! @retval NULL Heap was not registered */
-		gt_2trace(messageq_dbgmask,
-				GT_4CLASS,
-				 "messageq_alloc",
-				 MESSAGEQ_E_UNREGISTERHEAPID,
-				 "Heap was not registered!");
+		printk(KERN_ERR "messageq_alloc: heap_id was not "
+			"registered!\n");
 	}
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_alloc", msg);
 	return msg;
 }
 EXPORT_SYMBOL(messageq_alloc);
@@ -1049,9 +977,6 @@ int messageq_free(messageq_msg msg)
 	u32 status = 0;
 	void *heap = NULL;
 
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_free", msg);
-
-	BUG_ON(msg == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 					MESSAGEQ_MAKE_MAGICSTAMP(0),
 					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
@@ -1065,20 +990,10 @@ int messageq_free(messageq_msg msg)
 	}
 	if (msg->heap_id >= messageq_state.num_heaps) {
 		status = MESSAGEQ_E_INVALIDHEAPID;
-		/*! @retval MESSAGEQ_E_INVALIDHEAPID
-		 *  Heap id is invalid */
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_free",
-				MESSAGEQ_E_INVALIDHEAPID,
-				"Heap id is invalid!");
 		goto exit;
 	}
-	if (msg->heap_id ==  MESSAGEQ_STATICMSG) {
+	if (msg->heap_id == MESSAGEQ_STATICMSG) {
 		status = MESSAGEQ_E_CANNOTFREESTATICMSG;
-		/*! @retval MESSAGEQ_E_CANNOTFREESTATICMSG
-		 *  Static message has been passed  */
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_free",
-				MESSAGEQ_E_CANNOTFREESTATICMSG,
-				"Static message has been passed!");
 		goto exit;
 	}
 
@@ -1086,7 +1001,10 @@ int messageq_free(messageq_msg msg)
 	heap_free(heap, msg, msg->msg_size);
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_free", status);
+	if (status < 0) {
+		printk(KERN_ERR "messageq_free failed! status = 0x%x\n",
+			status);
+	}
 	return status;
 }
 EXPORT_SYMBOL(messageq_free);
@@ -1105,9 +1023,6 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 	u32 priority;
 	int key;
 
-	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_put", queue_id, msg);
-
-	BUG_ON(msg == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 					MESSAGEQ_MAKE_MAGICSTAMP(0),
 					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
@@ -1123,13 +1038,8 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 	msg->dst_proc = (u16)(queue_id >> 16);
 	if (dst_proc_id != multiproc_get_id(NULL)) {
 		if (dst_proc_id >= multiproc_get_max_processors()) {
-			/*! @retval MESSAGEQ_E_INVALIDPROCID
-			 *  Invalid destination processor id */
+			/* Invalid destination processor id */
 			status = MESSAGEQ_E_INVALIDPROCID;
-			gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_put",
-				MESSAGEQ_E_INVALIDPROCID,
-				"Proc_id invalid!");
 			goto exit;
 		}
 
@@ -1177,7 +1087,8 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 	}
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_put", status);
+	if (status < 0)
+		printk(KERN_ERR "messageq_put failed! status = 0x%x\n", status);
 	return status;
 }
 EXPORT_SYMBOL(messageq_put);
@@ -1187,27 +1098,21 @@ EXPORT_SYMBOL(messageq_put);
  *  Purpose:
  *  register a heap
  */
-int  messageq_register_heap(void *heap_handle, u16 heap_id)
+int messageq_register_heap(void *heap_handle, u16 heap_id)
 {
 	int  status = 0;
 	int key;
 
-	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_register_heap",
-			heap_handle, heap_id);
-
-	/* Make sure the heap_id is valid */
-	BUG_ON((heap_id >= messageq_state.num_heaps));
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
 		status = -ENODEV;
 		goto exit;
 	}
-	if (heap_id > messageq_state.num_heaps) {
+	/* Make sure the heap_id is valid */
+	if (WARN_ON(heap_id >= messageq_state.num_heaps)) {
 		/*! @retval MESSAGEQ_E_HEAPIDINVALID Invalid heap_id */
 		status = MESSAGEQ_E_HEAPIDINVALID;
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_register_heap",
-				status, "Invalid heap_id!");
 		goto exit;
 	}
 
@@ -1218,14 +1123,14 @@ int  messageq_register_heap(void *heap_handle, u16 heap_id)
 		/*! @retval MESSAGEQ_E_ALREADYEXISTS Specified heap is
 		already registered. */
 		status = MESSAGEQ_E_ALREADYEXISTS;
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "messageq_register_heap",
-				status,
-				"Specified heap is already registered.!");
 	}
 	mutex_unlock(messageq_state.gate_handle);
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_register_heap", status);
+	if (status < 0) {
+		printk(KERN_ERR "messageq_register_heap failed! "
+			"status = 0x%x\n", status);
+	}
 	return status;
 }
 EXPORT_SYMBOL(messageq_register_heap);
@@ -1235,16 +1140,11 @@ EXPORT_SYMBOL(messageq_register_heap);
  *  Purpose:
  *  Unregister a heap
  */
-int  messageq_unregister_heap(u16 heap_id)
+int messageq_unregister_heap(u16 heap_id)
 {
 	int  status = 0;
 	int key;
 
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_unregister_heap",
-			heap_id);
-
-	/* Make sure the heap_id is valid */
-	BUG_ON((heap_id >= messageq_state.num_heaps));
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
@@ -1252,12 +1152,10 @@ int  messageq_unregister_heap(u16 heap_id)
 		goto exit;
 	}
 
-	if (heap_id > messageq_state.num_heaps) {
+	/* Make sure the heap_id is valid */
+	if (WARN_ON(heap_id > messageq_state.num_heaps)) {
 		/*! @retval MESSAGEQ_E_HEAPIDINVALID Invalid heap_id */
 		status = MESSAGEQ_E_HEAPIDINVALID;
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_unregister_heap", status,
-				"Invalid heap_id!");
 		goto exit;
 	}
 
@@ -1267,8 +1165,10 @@ int  messageq_unregister_heap(u16 heap_id)
 	mutex_unlock(messageq_state.gate_handle);
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_unregister_heap",
-			status);
+	if (status < 0) {
+		printk(KERN_ERR "messageq_unregister_heap failed! "
+			"status = 0x%x\n", status);
+	}
 	return status;
 }
 EXPORT_SYMBOL(messageq_unregister_heap);
@@ -1278,18 +1178,13 @@ EXPORT_SYMBOL(messageq_unregister_heap);
  *  Purpose:
  *  register a transport
  */
-int  messageq_register_transport(void *messageq_transportshm_handle,
+int messageq_register_transport(void *messageq_transportshm_handle,
 				 u16 proc_id, u32 priority)
 {
 	int  status = 0;
 	int key;
 
-	gt_3trace(messageq_dbgmask, GT_ENTER, "messageq_register_transport",
-		messageq_transportshm_handle, proc_id, priority);
-
 	BUG_ON(messageq_transportshm_handle == NULL);
-	/* Make sure the proc_id is valid */
-	BUG_ON((proc_id >= multiproc_get_max_processors()));
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
@@ -1297,12 +1192,10 @@ int  messageq_register_transport(void *messageq_transportshm_handle,
 		goto exit;
 	}
 
-	if (proc_id > multiproc_get_max_processors()) {
+	/* Make sure the proc_id is valid */
+	if (WARN_ON(proc_id >= multiproc_get_max_processors())) {
 		/*! @retval MESSAGEQ_E_PROCIDINVALID Invalid proc_id */
 		status = MESSAGEQ_E_PROCIDINVALID;
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_register_transport",
-				status, "Invalid proc_id!");
 		goto exit;
 	}
 
@@ -1314,15 +1207,14 @@ int  messageq_register_transport(void *messageq_transportshm_handle,
 		/*! @retval MESSAGEQ_E_ALREADYEXISTS Specified transport is
 		already registered. */
 		status = MESSAGEQ_E_ALREADYEXISTS;
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_register_transport", status,
-				"Specified transport is already registered.!");
 	}
 	mutex_unlock(messageq_state.gate_handle);
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_register_transport",
-			status);
+	if (status < 0) {
+		printk(KERN_ERR "messageq_register_transport failed! "
+			"status = 0x%x\n", status);
+	}
 	return status;
 }
 EXPORT_SYMBOL(messageq_register_transport);
@@ -1332,16 +1224,11 @@ EXPORT_SYMBOL(messageq_register_transport);
  *  Purpose:
  *  Unregister a transport
  */
-int  messageq_unregister_transport(u16 proc_id, u32 priority)
+int messageq_unregister_transport(u16 proc_id, u32 priority)
 {
 	int  status = 0;
 	int key;
 
-	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_unregister_transport",
-			proc_id, priority);
-
-	/* Make sure the proc_id is valid */
-	BUG_ON((proc_id >= multiproc_get_max_processors()));
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 					MESSAGEQ_MAKE_MAGICSTAMP(0),
 					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
@@ -1349,14 +1236,10 @@ int  messageq_unregister_transport(u16 proc_id, u32 priority)
 		goto exit;
 	}
 
-	if (proc_id > multiproc_get_max_processors()) {
+	/* Make sure the proc_id is valid */
+	if (WARN_ON(proc_id >= multiproc_get_max_processors())) {
 		/*! @retval MESSAGEQ_E_PROCIDINVALID Invalid proc_id */
 		status = MESSAGEQ_E_PROCIDINVALID;
-		gt_2trace(messageq_dbgmask,
-				GT_4CLASS,
-				 "messageq_unregister_transport",
-				 status,
-				 "Invalid proc_id!");
 		goto exit;
 	}
 
@@ -1366,8 +1249,10 @@ int  messageq_unregister_transport(u16 proc_id, u32 priority)
 	mutex_unlock(messageq_state.gate_handle);
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_unregister_transport",
-			status);
+	if (status < 0) {
+		printk(KERN_ERR "messageq_unregister_transport failed! "
+			"status = 0x%x\n", status);
+	}
 	return status;
 }
 EXPORT_SYMBOL(messageq_unregister_transport);
@@ -1382,22 +1267,15 @@ void messageq_set_reply_queue(void *messageq_handle, messageq_msg msg)
 	struct messageq_object *obj = \
 			(struct messageq_object *) messageq_handle;
 
-	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_set_reply_queue",
-			obj, msg);
-
 	BUG_ON(messageq_handle == NULL);
-	BUG_ON(msg == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 					MESSAGEQ_MAKE_MAGICSTAMP(0),
 					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	if (WARN_ON(msg == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDARG hpHandle passed is null */
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_set_reply_queue",
-				MESSAGEQ_E_INVALIDMSG,
-				"msg passed is null!");
+		printk(KERN_ERR "messageq_set_reply_queue: msg passed is "
+			"NULL!\n");
 		goto exit;
 	}
 
@@ -1405,7 +1283,7 @@ void messageq_set_reply_queue(void *messageq_handle, messageq_msg msg)
 	msg->reply_proc = (u16)(obj->queue >> 16);
 
 exit:
-	gt_0trace(messageq_dbgmask, GT_LEAVE, "messageq_set_reply_queue");
+	return;
 }
 EXPORT_SYMBOL(messageq_set_reply_queue);
 
@@ -1420,28 +1298,19 @@ u32 messageq_get_queue_id(void *messageq_handle)
 			(struct messageq_object *) messageq_handle;
 	u32 queue_id = MESSAGEQ_INVALIDMESSAGEQ;
 
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_queue_id", obj);
-
-	BUG_ON(obj == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 					MESSAGEQ_MAKE_MAGICSTAMP(0),
 					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	if (WARN_ON(obj == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIMSG obj passed is null */
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_queue_id",
-				MESSAGEQ_E_INVALIDMSG,
-				"obj passed is null!");
+		printk(KERN_ERR "messageq_get_queue_id: obj passed is NULL!\n");
 		goto exit;
 	}
 
 	queue_id = (obj->queue);
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_get_queue_id",
-			queue_id);
 	return queue_id;
 }
 EXPORT_SYMBOL(messageq_get_queue_id);
@@ -1457,27 +1326,19 @@ u16 messageq_get_proc_id(void *messageq_handle)
 			(struct messageq_object *) messageq_handle;
 	u16 proc_id = MULTIPROC_INVALIDID;
 
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_proc_id", obj);
-
-	BUG_ON(obj == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	if (WARN_ON(obj == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIMSG obj passed is null */
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_proc_id",
-				MESSAGEQ_E_INVALIDMSG,
-				"obj passed is null!");
+		printk(KERN_ERR "messageq_get_proc_id: obj passed is NULL!\n");
 		goto exit;
 	}
 
 	proc_id = (u16)(obj->queue >> 16);
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_get_proc_id", flag);
 	return proc_id;
 }
 EXPORT_SYMBOL(messageq_get_proc_id);
@@ -1491,20 +1352,14 @@ u32 messageq_get_dst_queue(messageq_msg msg)
 {
 	u32 queue_id = MESSAGEQ_INVALIDMESSAGEQ;
 
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_dst_queue", msg);
-
-	BUG_ON(msg == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	if (WARN_ON(msg == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_dst_queue",
-				MESSAGEQ_E_INVALIDMSG,
-				"msg passed is null!");
+		printk(KERN_ERR "messageq_get_dst_queue: msg passed is "
+			"NULL!\n");
 		goto exit;
 	}
 
@@ -1513,8 +1368,6 @@ u32 messageq_get_dst_queue(messageq_msg msg)
 		queue_id = ((u32) multiproc_get_id(NULL) << 16) | msg->dst_id;
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_get_dst_queue",
-			queue_id);
 	return queue_id;
 }
 EXPORT_SYMBOL(messageq_get_dst_queue);
@@ -1528,27 +1381,19 @@ u16 messageq_get_msg_id(messageq_msg msg)
 {
 	u16 id = MESSAGEQ_INVALIDMSGID;
 
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_msg_id", msg);
-
-	BUG_ON(msg == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	if (WARN_ON(msg == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_msg_id",
-				MESSAGEQ_E_INVALIDMSG,
-				"msg passed is null!");
+		printk(KERN_ERR "messageq_get_msg_id: msg passed is NULL!\n");
 		goto exit;
 	}
 
 	id = msg->msg_id;
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_get_msg_id", id);
 	return id;
 }
 EXPORT_SYMBOL(messageq_get_msg_id);
@@ -1562,27 +1407,19 @@ u32 messageq_get_msg_size(messageq_msg msg)
 {
 	u32 size = 0;
 
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_msg_size", msg);
-
-	BUG_ON(msg == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	if (WARN_ON(msg == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_msg_size",
-				MESSAGEQ_E_INVALIDMSG,
-				"msg passed is null!");
+		printk(KERN_ERR "messageq_get_msg_size: msg passed is NULL!\n");
 		goto exit;
 	}
 
 	size = msg->msg_size;
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_get_msg_size", size);
 	return size;
 }
 EXPORT_SYMBOL(messageq_get_msg_size);
@@ -1596,8 +1433,6 @@ u32 messageq_get_msg_pri(messageq_msg msg)
 {
 	u32 priority = MESSAGEQ_NORMALPRI;
 
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_msg_pri", msg);
-
 	BUG_ON(msg == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
@@ -1605,18 +1440,13 @@ u32 messageq_get_msg_pri(messageq_msg msg)
 		goto exit;
 
 	if (WARN_ON(msg == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_msg_pri",
-				MESSAGEQ_E_INVALIDMSG,
-				"msg passed is null!");
+		printk(KERN_ERR "messageq_get_msg_pri: msg passed is NULL!\n");
 		goto exit;
 	}
 
 	priority = ((u32)(msg->flags & MESSAGEQ_PRIORITYMASK));
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_get_msg_pri", priority);
 	return priority;
 }
 EXPORT_SYMBOL(messageq_get_msg_pri);
@@ -1630,20 +1460,14 @@ u32 messageq_get_reply_queue(messageq_msg msg)
 {
 	u32 queue = MESSAGEQ_INVALIDMESSAGEQ;
 
-	gt_1trace(messageq_dbgmask, GT_ENTER, "messageq_get_reply_queue", msg);
-
-	BUG_ON(msg == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	if (WARN_ON(msg == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_get_reply_queue",
-				MESSAGEQ_E_INVALIDMSG,
-				"msg passed is null!");
+		printk(KERN_ERR "messageq_get_reply_queue: msg passed is "
+			"NULL!\n");
 		goto exit;
 	}
 
@@ -1651,8 +1475,6 @@ u32 messageq_get_reply_queue(messageq_msg msg)
 		queue = ((u32)(msg->reply_proc) << 16) | msg->reply_id;
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "messageq_get_reply_queue",
-			queue);
 	return queue;
 }
 EXPORT_SYMBOL(messageq_get_reply_queue);
@@ -1664,28 +1486,19 @@ EXPORT_SYMBOL(messageq_get_reply_queue);
  */
 void messageq_set_msg_id(messageq_msg msg, u16 msg_id)
 {
-	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_set_msg_id",
-			msg, msg_id);
-
-	BUG_ON(msg == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	if (WARN_ON(msg == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_set_msg_id",
-				MESSAGEQ_E_INVALIDMSG,
-				"msg passed is null!");
+		printk(KERN_ERR "messageq_set_msg_id: msg passed is NULL!\n");
 		goto exit;
 	}
 
 	msg->msg_id = msg_id;
 
 exit:
-	gt_0trace(messageq_dbgmask, GT_LEAVE, "messageq_set_msg_id");
 	return;
 }
 EXPORT_SYMBOL(messageq_set_msg_id);
@@ -1697,28 +1510,19 @@ EXPORT_SYMBOL(messageq_set_msg_id);
  */
 void messageq_set_msg_pri(messageq_msg msg, u32 priority)
 {
-	gt_2trace(messageq_dbgmask, GT_ENTER, "messageq_set_msg_pri",
-			msg, priority);
-
-	BUG_ON(msg == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	if (WARN_ON(msg == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDMSG msg passed is null */
-		gt_2trace(messageq_dbgmask, GT_4CLASS,
-				"messageq_set_msg_pri",
-				MESSAGEQ_E_INVALIDMSG,
-				"msg passed is null!");
+		printk(KERN_ERR "messageq_set_msg_pri: msg passed is NULL!\n");
 		goto exit;
 	}
 
 	msg->flags = priority & MESSAGEQ_PRIORITYMASK;
 
 exit:
-	gt_0trace(messageq_dbgmask, GT_LEAVE, "messageq_set_msg_pri");
 	return;
 }
 EXPORT_SYMBOL(messageq_set_msg_pri);
@@ -1739,13 +1543,8 @@ u16 _messageq_grow(struct messageq_object *obj)
 	void **queues;
 	void **oldqueues;
 
-	gt_1trace(messageq_dbgmask, GT_ENTER, "_messageq_grow", obj);
-
-	BUG_ON(obj == NULL);
 	if (WARN_ON(obj == NULL)) {
-		/*! @retval MESSAGEQ_E_INVALIDMSG obj passed is null */
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "_messageq_grow",
-				MESSAGEQ_E_INVALIDARG, "obj passed is null!");
+		printk(KERN_ERR "_messageq_grow: obj passed is NULL!\n");
 		goto exit;
 	}
 
@@ -1754,11 +1553,8 @@ u16 _messageq_grow(struct messageq_object *obj)
 	queues = kmalloc(oldSize + sizeof(struct messageq_object *),
 				GFP_KERNEL);
 	if (queues == NULL) {
-		/*! @retval Queue-index-greater-than-valid Growing the
-		MessageQ failed */
-		gt_2trace(messageq_dbgmask, GT_4CLASS, "_messageq_grow",
-				MESSAGEQ_INVALIDMESSAGEQ,
-				"Growing the MessageQ failed!");
+		printk(KERN_ERR "_messageq_grow: Growing the messageq "
+			"failed!\n");
 		goto exit;
 	}
 
@@ -1778,6 +1574,5 @@ u16 _messageq_grow(struct messageq_object *obj)
 		messageq_state.can_free_queues = true;
 
 exit:
-	gt_1trace(messageq_dbgmask, GT_LEAVE, "_messageq_grow", queueIndex);
 	return queue_index;
 }
