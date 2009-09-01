@@ -23,7 +23,6 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 
-#include <gt.h>
 #include <atomic_linux.h>
 #include <multiproc.h>
 #include <nameserver.h>

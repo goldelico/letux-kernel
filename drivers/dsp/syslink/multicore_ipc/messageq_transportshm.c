@@ -23,7 +23,6 @@
 #include <linux/slab.h>
 
 /* Syslink headers */
-#include <gt.h>
 #include <syslink/atomic_linux.h>
 /* Module level headers */
 #include <multiproc.h>
@@ -132,10 +131,6 @@ static struct messageq_transportshm_moduleobject messageq_transportshm_state = {
 	.def_inst_params.priority = MESSAGEQ_NORMALPRI
 };
 
-#if GT_TRACE
-static struct GT_Mask mqtshm_debugmask = { NULL, NULL }; /* GT trace variable */
-EXPORT_SYMBOL(mqtshm_debugmask);
-#endif
 
 /* =============================================================================
  * Forward declarations of internal functions
@@ -164,10 +159,6 @@ static void _messageq_transportshm_notify_fxn(u16 proc_id,
 void messageq_transportshm_get_config(
 				struct messageq_transportshm_config *cfg)
 {
-	gt_1trace(mqtshm_debugmask, GT_ENTER,
-			"messageq_transportshm_getConfig", cfg);
-
-	BUG_ON(cfg == NULL);
 	if (WARN_ON(cfg == NULL))
 		goto exit;
 
@@ -180,10 +171,11 @@ void messageq_transportshm_get_config(
 		memcpy(cfg, &(messageq_transportshm_state.cfg),
 			sizeof(struct messageq_transportshm_config));
 	}
+	return;
 
 exit:
-	gt_0trace(mqtshm_debugmask, GT_LEAVE,
-			"messageq_transportshm_getConfig");
+	printk(KERN_ERR "messageq_transportshm_get_config: Argument of type"
+		"(struct messageq_transportshm_config *) passed is null!\n");
 }
 
 
@@ -210,9 +202,6 @@ int messageq_transportshm_setup(const struct messageq_transportshm_config *cfg)
 	int status = MESSAGEQ_TRANSPORTSHM_SUCCESS;
 	struct messageq_transportshm_config tmpCfg;
 
-	gt_1trace(mqtshm_debugmask, GT_ENTER,
-			"messageq_transportshm_setup", cfg);
-
 	/* This sets the refCount variable is not initialized, upper 16 bits is
 	* written with module Id to ensure correctness of refCount variable.
 	*/
@@ -233,16 +222,12 @@ int messageq_transportshm_setup(const struct messageq_transportshm_config *cfg)
 	messageq_transportshm_state.gate_handle = \
 				kmalloc(sizeof(struct mutex), GFP_KERNEL);
 	mutex_init(messageq_transportshm_state.gate_handle);
-
 	if (messageq_transportshm_state.gate_handle == NULL) {
 		/* @retval MESSAGEQTRANSPORTSHM_E_FAIL Failed to create
 		GateMutex! */
 		status = MESSAGEQ_TRANSPORTSHM_E_FAIL;
-		gt_2trace(mqtshm_debugmask,
-				GT_4CLASS,
-				"messageq_transportshm_setup",
-				status,
-				"Failed to create GateMutex!");
+		printk(KERN_ERR "messageq_transportshm_setup: Failed to create "
+			"mutex!\n");
 		atomic_set(&messageq_transportshm_state.ref_count,
 				MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0));
 		goto exit;
@@ -251,11 +236,11 @@ int messageq_transportshm_setup(const struct messageq_transportshm_config *cfg)
 	/* Copy the user provided values into the state object. */
 	memcpy(&messageq_transportshm_state.cfg, cfg,
 			sizeof(struct messageq_transportshm_config));
+	return status;
 
 exit:
-	gt_1trace(mqtshm_debugmask, GT_LEAVE,
-			"messageq_transportshm_setup", status);
-	/* @retval MESSAGEQTRANSPORTSHM_SUCCESS Operation successful */
+	printk(KERN_ERR "messageq_transportshm_setup failed: status = 0x%x",
+		status);
 	return status;
 }
 
@@ -272,8 +257,6 @@ exit:
 int messageq_transportshm_destroy(void)
 {
 	int status = 0;
-
-	gt_0trace(mqtshm_debugmask, GT_ENTER, "messageq_transportshm_destroy");
 
 	if (WARN_ON(atomic_cmpmask_and_lt(
 			&(messageq_transportshm_state.ref_count),
@@ -293,8 +276,11 @@ int messageq_transportshm_destroy(void)
 		atomic_set(&messageq_transportshm_state.ref_count,
 				MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0));
 	}
+	return 0;
 
 exit:
+	printk(KERN_ERR "messageq_transportshm_destroy failed: status = 0x%x\n",
+		status);
 	return status;
 }
 
@@ -309,26 +295,19 @@ void messageq_transportshm_params_init(void *mqtshm_handle,
 {
 	struct messageq_transportshm_object *object = NULL;
 
-	gt_2trace(mqtshm_debugmask, GT_ENTER,
-			"messageq_transportshm_params_init", mqtshm_handle,
-			params);
-
 	if (WARN_ON(atomic_cmpmask_and_lt(
 			&(messageq_transportshm_state.ref_count),
 			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0),
-			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(1)) == true))
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(1)) == true)) {
+		printk(KERN_ERR "messageq_transportshm_params_init: Module was "
+				" not initialized\n");
 		goto exit;
+	}
 
-	BUG_ON(params == NULL);
 	if (WARN_ON(params == NULL)) {
-		/* @retval None */
-		gt_2trace(mqtshm_debugmask,
-				GT_4CLASS,
-				"messageq_transportshm_params_init",
-				MESSAGEQ_TRANSPORTSHM_E_INVALIDARG,
-				"Argument of type "
-				"(messageq_transportshm_params *) is "
-				"NULL!");
+		printk(KERN_ERR "messageq_transportshm_params_init: Argument of"
+				" type (struct messageq_transportshm_params *) "
+				"is NULL!");
 		goto exit;
 	}
 
@@ -344,9 +323,6 @@ void messageq_transportshm_params_init(void *mqtshm_handle,
 	}
 
 exit:
-	gt_0trace(mqtshm_debugmask, GT_LEAVE,
-		"messageq_transportshm_params_init");
-	/* @retval None */
 	return;
 }
 
@@ -367,16 +343,14 @@ void *messageq_transportshm_create(u16 proc_id,
 	listmp_sharedmemory_params listmp_params[2];
 	VOLATILE u32 *otherflag;
 
-	gt_2trace(mqtshm_debugmask, GT_ENTER, "messageq_transportshm_create",
-			proc_id, params);
-
 	if (WARN_ON(atomic_cmpmask_and_lt(
 			&(messageq_transportshm_state.ref_count),
 			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0),
-			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(1)) == true))
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(1)) == true)) {
+		status = -ENODEV;
 		goto exit;
+	}
 
-	BUG_ON(params == NULL);
 	if (WARN_ON(params == NULL)) {
 		status = -EINVAL;
 		goto exit;
@@ -422,11 +396,8 @@ void *messageq_transportshm_create(u16 proc_id,
 					(void *)handle);
 	if (status < 0) {
 		/* @retval NULL Notify register failed */
-		gt_2trace(mqtshm_debugmask,
-					GT_4CLASS,
-					"messageq_transportshm_create",
-					MESSAGEQ_TRANSPORTSHM_E_FAIL,
-					"Notify register failed!");
+		printk(KERN_ERR "messageq_transportshm_create: "
+				"notify_register_event failed!\n");
 		goto notify_register_fail;
 	}
 
@@ -464,8 +435,6 @@ void *messageq_transportshm_create(u16 proc_id,
 
 	/* Store in VOLATILE to make sure it is not compiled out... */
 	otherflag = &(handle->attrs[remote_index]->flag);
-	gt_1trace(mqtshm_debugmask, GT_1CLASS, "messageq_transportshm_create\n"
-		"Synchronization flag addr [0x%x]", otherflag);
 
 	/* Loop until the other side is up */
 	while (*otherflag != MESSAGEQ_TRANSPORTSHM_UP)
@@ -474,10 +443,8 @@ void *messageq_transportshm_create(u16 proc_id,
 	if (handle->attrs[remote_index]->version
 		!= MESSAGEQ_TRANSPORTSHM_VERSION) {
 		/* @retval NULL Versions do not match */
-		gt_2trace(mqtshm_debugmask, GT_4CLASS,
-				"messageq_transportshm_create",
-				MESSAGEQ_TRANSPORTSHM_E_BADVERSION,
-				"Incorrect version of remote transport!");
+		printk(KERN_ERR "messageq_transportshm_create: "
+				"Incorrect version of remote transport!\n");
 		goto exit;
 	}
 
@@ -486,11 +453,6 @@ void *messageq_transportshm_create(u16 proc_id,
 		&listmp_params[remote_index]);
 	if (status < 0) {
 		/* @retval NULL List creation failed */
-		gt_2trace(mqtshm_debugmask,
-			GT_4CLASS,
-			"messageq_transportshm_create",
-			status,
-			"List creation failed!");
 		goto listmp_open_fail;
 	}
 
@@ -499,8 +461,11 @@ void *messageq_transportshm_create(u16 proc_id,
 			(u32)params->priority);
 	if (status >= 0)
 		handle->status = messageq_transportshm_status_UP;
+	return handle;
 
 listmp_open_fail:
+	printk(KERN_ERR "messageq_transportshm_create: "
+			"listmp_sharedmemory_open failed!\n");
 notify_register_fail:
 	if (status < 0) {
 		if (handle != NULL) {
@@ -510,10 +475,8 @@ notify_register_fail:
 	}
 
 exit:
-	gt_1trace(mqtshm_debugmask, GT_LEAVE, "messageq_transportshm_create",
-		handle);
-	/* @retval Valid handle of type messageq_transportshm_handle
-	 Operation successful */
+	printk(KERN_ERR "messageq_transportshm_create failed: status = 0x%x\n",
+		status);
 	return handle;
 }
 
@@ -528,9 +491,6 @@ int messageq_transportshm_delete(void **mqtshm_handleptr)
 	int tmpstatus = 0;
 	struct messageq_transportshm_object *obj;
 
-	gt_1trace(mqtshm_debugmask, GT_ENTER, "messageq_transportshm_delete",
-			mqtshm_handleptr);
-
 	if (WARN_ON(atomic_cmpmask_and_lt(
 			&(messageq_transportshm_state.ref_count),
 			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0),
@@ -539,7 +499,6 @@ int messageq_transportshm_delete(void **mqtshm_handleptr)
 		goto exit;
 	}
 
-	BUG_ON(mqtshm_handleptr == NULL);
 	if (WARN_ON(mqtshm_handleptr == NULL)) {
 		status = -EINVAL;
 		goto exit;
@@ -548,11 +507,8 @@ int messageq_transportshm_delete(void **mqtshm_handleptr)
 		/* @retval MESSAGEQTRANSPORTSHM_E_HANDLE Invalid NULL handle
 		specified */
 		status = MESSAGEQ_TRANSPORTSHM_E_HANDLE;
-		gt_2trace(mqtshm_debugmask,
-				GT_4CLASS,
-				"messageq_transportshm_delete",
-				MESSAGEQ_TRANSPORTSHM_E_HANDLE,
-				"Invalid NULL mqtshm_handle specified");
+		printk(KERN_WARNING "messageq_transportshm_delete: Invalid NULL"
+			" mqtshm_handle specified! status = 0x%x\n", status);
 		goto exit;
 	}
 
@@ -561,28 +517,24 @@ int messageq_transportshm_delete(void **mqtshm_handleptr)
 	status = listmp_sharedmemory_delete(
 			(listmp_sharedmemory_handle *)&obj->my_listmp_handle);
 	if (status < 0) {
-		gt_2trace(mqtshm_debugmask, GT_4CLASS,
-				"MessageQTransportShm_delete", status,
-				"Failed to delete ListMPSharedMemory"
-				" instance!");
+		printk(KERN_WARNING "messageq_transportshm_delete: Failed to "
+			"delete listmp_sharedmemory instance!\n");
 	}
 
 	tmpstatus = listmp_sharedmemory_close(
 			(listmp_sharedmemory_handle) obj->remote_listmp_handle);
 	if ((tmpstatus < 0) && (status >= 0)) {
 		status = tmpstatus;
-		gt_2trace(mqtshm_debugmask, GT_4CLASS,
-			"MessageQTransportShm_delete",
-			status, "Failed to close ListMPSharedMemory instance!");
+		printk(KERN_WARNING "messageq_transportshm_delete: Failed to "
+			"close listmp_sharedmemory instance!\n");
 	}
 
 	tmpstatus = messageq_unregister_transport(obj->proc_id,
 							obj->params.priority);
 	if ((tmpstatus < 0) && (status >= 0)) {
 		status = tmpstatus;
-		gt_2trace(mqtshm_debugmask, GT_4CLASS,
-				"MessageQTransportShm_delete", status,
-				"Failed to unregister transport");
+		printk(KERN_WARNING "messageq_transportshm_delete: Failed to "
+			"unregister transport!\n");
 	}
 
 	tmpstatus = notify_unregister_event(obj->notify_driver, obj->proc_id,
@@ -591,16 +543,17 @@ int messageq_transportshm_delete(void **mqtshm_handleptr)
 					(void *)obj);
 	if ((tmpstatus < 0) && (status >= 0)) {
 		status = tmpstatus;
-		gt_2trace(mqtshm_debugmask, GT_4CLASS,
-				"MessageQTransportShm_delete",
-				status, "Failed to unregister Notify event");
+		printk(KERN_WARNING "messageq_transportshm_delete: Failed to "
+			"unregister notify event!\n");
 	}
 
 	kfree(obj);
 	*mqtshm_handleptr = NULL;
 
 exit:
-	gt_0trace(mqtshm_debugmask, GT_LEAVE, "messageq_transportshm_delete");
+	if (status < 0)
+		printk(KERN_ERR "messageq_transportshm_delete failed: "
+			"status = 0x%x\n", status);
 	return status;
 }
 
@@ -616,8 +569,6 @@ int  messageq_transportshm_put(void *mqtshm_handle,
 	struct messageq_transportshm_object *obj = \
 			(struct messageq_transportshm_object *) mqtshm_handle;
 
-	gt_2trace(mqtshm_debugmask, GT_ENTER, "messageq_transportshm_put",
-		obj, msg);
 	if (WARN_ON(atomic_cmpmask_and_lt(
 			&(messageq_transportshm_state.ref_count),
 			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0),
@@ -627,8 +578,6 @@ int  messageq_transportshm_put(void *mqtshm_handle,
 	}
 
 	BUG_ON(mqtshm_handle == NULL);
-	BUG_ON(msg == NULL);
-
 	if (WARN_ON(msg == NULL)) {
 		status = -EINVAL;
 		goto exit;
@@ -645,11 +594,8 @@ int  messageq_transportshm_put(void *mqtshm_handle,
 		*	  Notification to remote processor failed!
 		*/
 		status = MESSAGEQ_TRANSPORTSHM_E_FAIL;
-		gt_2trace(mqtshm_debugmask,
-				GT_4CLASS,
-				"messageq_transportshm_put",
-				status,
-				"Failed to put message in the shared list!");
+		printk(KERN_ERR "messageq_transportshm_put: Failed to put "
+			"message in the shared list! status = 0x%x\n", status);
 		goto exit;
 	}
 
@@ -661,15 +607,16 @@ int  messageq_transportshm_put(void *mqtshm_handle,
 		goto exit;
 
 notify_send_fail:
-	gt_2trace(mqtshm_debugmask, GT_4CLASS, "messageq_transportshm_put",
-		status, "Notification to remote processor failed!");
+	printk(KERN_ERR "messageq_transportshm_put: Notification to remote "
+		"processor failed, status = 0x%x\n", status);
 	/* If sending the event failed, then remove the element from the list.*/
 	/* Ignore the status of remove. */
 	listmp_remove(obj->remote_listmp_handle, (struct listmp_elem *) msg);
 
 exit:
-	gt_1trace(mqtshm_debugmask, GT_LEAVE, "messageq_transportshm_put",
-			status);
+	if (status < 0)
+		printk(KERN_ERR "messageq_transportshm_put failed: "
+			"status = 0x%x\n", status);
 	return status;
 }
 
@@ -680,13 +627,9 @@ exit:
 */
 int messageq_transportshm_control(void *mqtshm_handle, u32 cmd, u32 *cmdArg)
 {
-	gt_3trace(mqtshm_debugmask, GT_ENTER, "messageq_transportshm_control",
-			mqtshm_handle, cmd, cmdArg);
-
 	BUG_ON(mqtshm_handle == NULL);
 
-	gt_1trace(mqtshm_debugmask, GT_LEAVE, "messageq_transportshm_control",
-			MESSAGEQTRANSPORTSHM_E_NOTSUPPORTED);
+	printk(KERN_ALERT "messageq_transportshm_control not supported!\n");
 	return MESSAGEQTRANSPORTSHM_E_NOTSUPPORTED;
 }
 
@@ -701,13 +644,8 @@ enum messageq_transportshm_status messageq_transportshm_get_status(
 	struct messageq_transportshm_object *obj = \
 			(struct messageq_transportshm_object *) mqtshm_handle;
 
-	gt_1trace(mqtshm_debugmask, GT_ENTER,
-		"messageq_transportshm_getStatus", obj);
-
 	BUG_ON(obj == NULL);
 
-	gt_1trace(mqtshm_debugmask, GT_LEAVE, "messageq_transportshm_getStatus",
-			obj->status);
 	return obj->status;
 }
 
@@ -723,9 +661,6 @@ u32 messageq_transportshm_shared_mem_req(const
 	listmp_sharedmemory_params listmp_params;
 	u32 listmp_size;
 
-	gt_1trace(mqtshm_debugmask, GT_ENTER,
-		"messageq_transportshm_sharedMemReq", params);
-
 	/* There are two transport flags in shared memory */
 	totalSize = 2 * MESSAGEQ_TRANSPORTSHM_CACHESIZE;
 
@@ -738,8 +673,6 @@ u32 messageq_transportshm_shared_mem_req(const
 	/* RemoteList */
 	totalSize += listmp_size;
 
-	gt_1trace(mqtshm_debugmask, GT_LEAVE,
-		"messageq_transportshm_sharedMemReq", totalSize);
 	return totalSize;
 }
 
@@ -760,11 +693,6 @@ void _messageq_transportshm_notify_fxn(u16 proc_id, u32 event_no,
 	messageq_msg msg = NULL;
 	u32 queue_id;
 
-	gt_4trace(mqtshm_debugmask, GT_ENTER,
-			"_messageq_transportshm_notify_fxn",
-			proc_id, event_no, arg, payload);
-
-	BUG_ON(arg == NULL);
 	if (WARN_ON(arg == NULL))
 		goto exit;
 
@@ -777,10 +705,11 @@ void _messageq_transportshm_notify_fxn(u16 proc_id, u32 event_no,
 		queue_id = messageq_get_dst_queue(msg);
 		messageq_put(queue_id, msg);
 	}
+	return;
 
 exit:
-	gt_0trace(mqtshm_debugmask, GT_LEAVE,
-		"messageq_transportshm_notifyFxn");
+	printk(KERN_ERR "messageq_transportshm_notify_fxn: argument passed is "
+		"NULL!\n");
 }
 
 
@@ -798,12 +727,12 @@ void messageq_transportshm_set_err_fxn(
 {
 	u32 key;
 
-    key = mutex_lock_interruptible(messageq_transportshm_state.gate_handle);
+	key = mutex_lock_interruptible(messageq_transportshm_state.gate_handle);
 	if (key < 0)
 		goto exit;
 
-    messageq_transportshm_state.cfg.err_fxn = err_fxn;
-    mutex_unlock(messageq_transportshm_state.gate_handle);
+	messageq_transportshm_state.cfg.err_fxn = err_fxn;
+	mutex_unlock(messageq_transportshm_state.gate_handle);
 
 exit:
 	return;

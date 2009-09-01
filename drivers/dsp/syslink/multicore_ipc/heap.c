@@ -18,7 +18,7 @@
 #include <linux/types.h>
 #include <linux/bug.h>
 
-#include <gt.h>
+
 #include <heap.h>
 
 
@@ -33,9 +33,6 @@ void *heap_alloc(void *hphandle, u32 size, u32 align)
 	char *block = NULL;
 	struct heap_object *obj = NULL;
 
-	gt_3trace(heap_debugmask, GT_6CLASS, "heap_alloc:\n"
-		"hphandle: %x, size: %x, align: %x \n",
-		hphandle, size, align);
 	BUG_ON(hphandle == NULL);
 
 	obj = (struct heap_object *)hphandle;
@@ -55,9 +52,6 @@ int heap_free(void *hphandle, void *block, u32 size)
 	struct heap_object *obj = NULL;
 	s32 retval  = 0;
 
-	gt_3trace(heap_debugmask, GT_6CLASS, "heap_free:\n"
-		"hphandle: %x, block: %x, size: %x \n",
-		hphandle, block, size);
 	BUG_ON(hphandle == NULL);
 
 	obj = (struct heap_object *)hphandle;
@@ -76,8 +70,6 @@ int heap_get_stats(void *hphandle, struct memory_stats *stats)
 	struct heap_object *obj = NULL;
 	s32 retval  = 0;
 
-	gt_2trace(heap_debugmask, GT_6CLASS, "heap_get_stats:\n"
-		"hphandle: %x, stats: %x \n", hphandle, stats);
 	BUG_ON(hphandle == NULL);
 	BUG_ON(stats == NULL);
 
@@ -98,9 +90,6 @@ int heap_get_extended_stats(void *hphandle,
 	struct heap_object *obj = NULL;
 	s32 retval  = 0;
 
-	gt_2trace(heap_debugmask, GT_6CLASS,
-		"heap_get_extended_stats:\n"
-		"hphandle: %x, stats: %x \n", hphandle, stats);
 	BUG_ON(hphandle == NULL);
 	BUG_ON(stats == NULL);
 

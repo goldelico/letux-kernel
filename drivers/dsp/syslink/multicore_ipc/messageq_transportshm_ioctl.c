@@ -24,9 +24,6 @@
 #include <linux/bug.h>
 #include <linux/fs.h>
 
-/* Syslink headers */
-#include <gt.h>
-
 /* Module Headers */
 #include <messageq.h>
 #include <messageq_transportshm.h>
@@ -255,10 +252,6 @@ int messageq_transportshm_ioctl(struct inode *inode, struct file *filp,
 	struct messageq_transportshm_cmd_args cargs;
 	unsigned long size;
 
-	gt_4trace(curTrace, GT_ENTER, "messageq_transportshm_ioctl"
-		"inode: %x, filp: %x,\n cmd: %x, args: %x",
-		inode, filp, cmd, args);
-
 	if (_IOC_DIR(cmd) & _IOC_READ)
 		os_status = !access_ok(VERIFY_WRITE, uarg, _IOC_SIZE(cmd));
 	else if (_IOC_DIR(cmd) & _IOC_WRITE)
@@ -328,8 +321,10 @@ int messageq_transportshm_ioctl(struct inode *inode, struct file *filp,
 		os_status = -EFAULT;
 		goto exit;
 	}
+	return os_status;
 
 exit:
-	gt_1trace(curTrace, GT_LEAVE, "messageq_transportshm_ioctl", os_status);
+	printk(KERN_ERR "messageq_transportshm_ioctl failed: status = 0x%x\n",
+		os_status);
 	return os_status;
 }
