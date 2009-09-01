@@ -703,7 +703,8 @@ static long bridge_ioctl(struct file *filp, unsigned int code,
 				sizeof(union Trapped_Args));
 
 	if (status >= 0) {
-		status = WCD_CallDevIOCtl(code, &pBufIn, &retval);
+		status = WCD_CallDevIOCtl(code, &pBufIn, &retval,
+				filp->private_data);
 
 		if (DSP_SUCCEEDED(status)) {
 			status = retval;
