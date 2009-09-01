@@ -322,7 +322,8 @@ static struct DSP_BUFFERATTR NODE_DFLTBUFATTRS = {
 	0, 			/* uAlignment */
 };
 
-static void DeleteNode(struct NODE_OBJECT *hNode);
+static void DeleteNode(struct NODE_OBJECT *hNode,
+		struct PROCESS_CONTEXT *pr_ctxt);
 static void DeleteNodeMgr(struct NODE_MGR *hNodeMgr);
 static void FillStreamConnect(struct NODE_OBJECT *hNode1,
 			     struct NODE_OBJECT *hNode2, u32 uStream1,
@@ -389,7 +390,8 @@ DSP_STATUS NODE_Allocate(struct PROC_OBJECT *hProcessor,
 			IN CONST struct DSP_UUID *pNodeId,
 			OPTIONAL IN CONST struct DSP_CBDATA *pArgs,
 			OPTIONAL IN CONST struct DSP_NODEATTRIN *pAttrIn,
-			OUT struct NODE_OBJECT **phNode)
+			OUT struct NODE_OBJECT **phNode,
+			struct PROCESS_CONTEXT *pr_ctxt)
 {
 	struct NODE_MGR *hNodeMgr;
 	struct DEV_OBJECT *hDevObject;
@@ -564,7 +566,7 @@ func_cont:
 	status = PROC_Map(hProcessor, (void *)pAttrIn->pGPPVirtAddr,
 			pNode->createArgs.asa.taskArgs.uHeapSize,
 			(void *)pNode->createArgs.asa.taskArgs.uDSPHeapResAddr,
-			(void **)&pMappedAddr, mapAttrs);
+			(void **)&pMappedAddr, mapAttrs, pr_ctxt);
 	if (DSP_FAILED(status)) {
 		GT_1trace(NODE_debugMask, GT_5CLASS,
 			 "NODE_Allocate: Failed to map memory"
@@ -783,7 +785,7 @@ func_cont2:
 	} else {
 		/* Cleanup */
 		if (pNode)
-			DeleteNode(pNode);
+			DeleteNode(pNode, pr_ctxt);
 
 	}
 
@@ -1647,7 +1649,8 @@ DSP_STATUS NODE_CreateMgr(OUT struct NODE_MGR **phNodeMgr,
  *      Loads the node's delete function if necessary. Free GPP side resources
  *      after node's delete function returns.
  */
-DSP_STATUS NODE_Delete(struct NODE_OBJECT *hNode)
+DSP_STATUS NODE_Delete(struct NODE_OBJECT *hNode,
+		struct PROCESS_CONTEXT *pr_ctxt)
 {
 	struct NODE_OBJECT *pNode = (struct NODE_OBJECT *)hNode;
 	struct NODE_MGR *hNodeMgr;
@@ -1809,7 +1812,7 @@ func_cont1:
 #endif
 func_cont:
 	GT_0trace(NODE_debugMask, GT_ENTER, "\nNODE_Delete13:\n ");
-	DeleteNode(hNode);
+	DeleteNode(hNode, pr_ctxt);
 #ifndef RES_CLEANUP_DISABLE
 	GT_0trace(NODE_debugMask, GT_5CLASS, "\nNODE_Delete2:\n ");
 	if (pCtxt != NULL)
@@ -2821,7 +2824,8 @@ func_end:
  *  Purpose:
  *      Free GPP resources allocated in NODE_Allocate() or NODE_Connect().
  */
-static void DeleteNode(struct NODE_OBJECT *hNode)
+static void DeleteNode(struct NODE_OBJECT *hNode,
+		struct PROCESS_CONTEXT *pr_ctxt)
 {
 	struct NODE_MGR *hNodeMgr;
 	struct CMM_XLATOROBJECT *hXlator;
@@ -2901,7 +2905,8 @@ static void DeleteNode(struct NODE_OBJECT *hNode)
 		}
 		if (taskArgs.uDSPHeapResAddr) {
 			status = PROC_UnMap(hNode->hProcessor,
-					   (void *)taskArgs.uDSPHeapAddr);
+					   (void *)taskArgs.uDSPHeapAddr,
+					   pr_ctxt);
 			if (DSP_SUCCEEDED(status)) {
 				GT_0trace(NODE_debugMask, GT_5CLASS,
 					 "DSPProcessor_UnMap succeeded.\n");
@@ -3002,7 +3007,7 @@ static void DeleteNodeMgr(struct NODE_MGR *hNodeMgr)
 			while ((hNode =
 				(struct NODE_OBJECT *)LST_GetHead(hNodeMgr->
 				nodeList)))
-					DeleteNode(hNode);
+					DeleteNode(hNode, NULL);
 
 			DBC_Assert(LST_IsEmpty(hNodeMgr->nodeList));
 			LST_Delete(hNodeMgr->nodeList);

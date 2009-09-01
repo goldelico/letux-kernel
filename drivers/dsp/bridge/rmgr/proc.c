@@ -222,7 +222,8 @@ DSP_STATUS PROC_CleanupAllResources(void)
 				 "***Cleanup of "
 				 "process***%d\n", pCtxtclosed->pid);
 			if (pCtxtclosed->hProcessor)
-				PROC_Detach(pCtxtclosed->hProcessor);
+				PROC_Detach(pCtxtclosed->hProcessor,
+						pCtxtclosed);
 		}
 		pCtxtclosed = pCtxtclosed->next;
 	}
@@ -239,7 +240,7 @@ func_end:
  */
 DSP_STATUS
 PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
-       OUT DSP_HPROCESSOR *phProcessor)
+       OUT DSP_HPROCESSOR *phProcessor, struct PROCESS_CONTEXT *pr_ctxt)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct DEV_OBJECT *hDevObject;
@@ -637,7 +638,8 @@ DSP_STATUS PROC_Ctrl(DSP_HPROCESSOR hProcessor, u32 dwCmd,
  *      Destroys the  Processor Object. Removes the notification from the Dev
  *      List.
  */
-DSP_STATUS PROC_Detach(DSP_HPROCESSOR hProcessor)
+DSP_STATUS PROC_Detach(DSP_HPROCESSOR hProcessor,
+		struct PROCESS_CONTEXT *pr_ctxt)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
@@ -1397,7 +1399,8 @@ func_end:
  *      Maps a MPU buffer to DSP address space.
  */
 DSP_STATUS PROC_Map(DSP_HPROCESSOR hProcessor, void *pMpuAddr, u32 ulSize,
-		   void *pReqAddr, void **ppMapAddr, u32 ulMapAttr)
+		   void *pReqAddr, void **ppMapAddr, u32 ulMapAttr,
+		   struct PROCESS_CONTEXT *pr_ctxt)
 {
 	u32 vaAlign;
 	u32 paAlign;
@@ -1800,7 +1803,8 @@ func_end:
  *  Purpose:
  *      Removes a MPU buffer mapping from the DSP address space.
  */
-DSP_STATUS PROC_UnMap(DSP_HPROCESSOR hProcessor, void *pMapAddr)
+DSP_STATUS PROC_UnMap(DSP_HPROCESSOR hProcessor, void *pMapAddr,
+		struct PROCESS_CONTEXT *pr_ctxt)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;

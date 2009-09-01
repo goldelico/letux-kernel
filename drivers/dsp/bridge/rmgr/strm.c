@@ -154,7 +154,8 @@ static void DeleteStrmMgr(struct STRM_MGR *hStrmMgr);
  *      Allocates buffers for a stream.
  */
 DSP_STATUS STRM_AllocateBuffer(struct STRM_OBJECT *hStrm, u32 uSize,
-				OUT u8 **apBuffer, u32 uNumBufs)
+				OUT u8 **apBuffer, u32 uNumBufs,
+				struct PROCESS_CONTEXT *pr_ctxt)
 {
 	DSP_STATUS status = DSP_SOK;
 	u32 uAllocated = 0;
@@ -197,7 +198,7 @@ DSP_STATUS STRM_AllocateBuffer(struct STRM_OBJECT *hStrm, u32 uSize,
 		}
 	}
 	if (DSP_FAILED(status))
-		STRM_FreeBuffer(hStrm, apBuffer, uAllocated);
+		STRM_FreeBuffer(hStrm, apBuffer, uAllocated, pr_ctxt);
 
 #ifndef RES_CLEANUP_DISABLE
 	if (DSP_FAILED(status))
@@ -228,7 +229,8 @@ func_end:
  *  Purpose:
  *      Close a stream opened with STRM_Open().
  */
-DSP_STATUS STRM_Close(struct STRM_OBJECT *hStrm)
+DSP_STATUS STRM_Close(struct STRM_OBJECT *hStrm,
+		struct PROCESS_CONTEXT *pr_ctxt)
 {
 	struct WMD_DRV_INTERFACE *pIntfFxns;
 	struct CHNL_INFO chnlInfo;
@@ -394,7 +396,7 @@ void STRM_Exit(void)
  *      Frees the buffers allocated for a stream.
  */
 DSP_STATUS STRM_FreeBuffer(struct STRM_OBJECT *hStrm, u8 **apBuffer,
-			  u32 uNumBufs)
+		u32 uNumBufs, struct PROCESS_CONTEXT *pr_ctxt)
 {
 	DSP_STATUS status = DSP_SOK;
 	u32 i = 0;
@@ -626,7 +628,9 @@ DSP_STATUS STRM_Issue(struct STRM_OBJECT *hStrm, IN u8 *pBuf, u32 ulBytes,
  *      XDAIS socket node on the DSP.
  */
 DSP_STATUS STRM_Open(struct NODE_OBJECT *hNode, u32 uDir, u32 uIndex,
-		    IN struct STRM_ATTR *pAttr, OUT struct STRM_OBJECT **phStrm)
+		IN struct STRM_ATTR *pAttr,
+		OUT struct STRM_OBJECT **phStrm,
+		struct PROCESS_CONTEXT *pr_ctxt)
 {
 	struct STRM_MGR *hStrmMgr;
 	struct WMD_DRV_INTERFACE *pIntfFxns;
