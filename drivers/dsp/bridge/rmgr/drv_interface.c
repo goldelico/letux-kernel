@@ -453,6 +453,7 @@ static int __devexit omap34xx_bridge_remove(struct platform_device *pdev)
 	HANDLE	     hDrvObject = NULL;
 	struct PROCESS_CONTEXT	*pTmp = NULL;
 	struct PROCESS_CONTEXT    *pCtxtclosed = NULL;
+	struct PROC_OBJECT *proc_obj_ptr, *temp;
 
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_exit\n");
 
@@ -475,10 +476,13 @@ static int __devexit omap34xx_bridge_remove(struct platform_device *pdev)
 		GT_1trace(driverTrace, GT_5CLASS, "***Cleanup of "
 			 "process***%d\n", pCtxtclosed->pid);
 		DRV_RemoveAllResources(pCtxtclosed);
-		PROC_Detach(pCtxtclosed->hProcessor, pCtxtclosed);
+		list_for_each_entry_safe(proc_obj_ptr, temp,
+				&pCtxtclosed->processor_list, proc_object) {
+			PROC_Detach(proc_obj_ptr, pCtxtclosed);
+		}
 		pTmp = pCtxtclosed->next;
 		DRV_RemoveProcContext((struct DRV_OBJECT *)hDrvObject,
-				     pCtxtclosed, (void *)pCtxtclosed->pid);
+				     pCtxtclosed);
 		pCtxtclosed = pTmp;
 	}
 
@@ -570,88 +574,28 @@ static void __exit bridge_exit(void)
 
 /* This function is called when an application opens handle to the
  * bridge driver. */
-
 static int bridge_open(struct inode *ip, struct file *filp)
 {
 	int status = 0;
 #ifndef RES_CLEANUP_DISABLE
-       u32     hProcess;
+	u32 hProcess;
 	DSP_STATUS dsp_status = DSP_SOK;
-	HANDLE	     hDrvObject = NULL;
-	struct PROCESS_CONTEXT    *pPctxt = NULL;
-	struct PROCESS_CONTEXT	*next_node = NULL;
-	struct PROCESS_CONTEXT    *pCtxtclosed = NULL;
-	struct PROCESS_CONTEXT    *pCtxttraverse = NULL;
-	struct task_struct *tsk = NULL;
+	HANDLE hDrvObject = NULL;
+	struct PROCESS_CONTEXT *pPctxt = NULL;
+
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_open\n");
-	dsp_status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
 
-	/* Checking weather task structure for all process existing
-	 * in the process context list If not removing those processes*/
-	if (DSP_FAILED(dsp_status))
-		goto func_cont;
-
-	DRV_GetProcCtxtList(&pCtxtclosed, (struct DRV_OBJECT *)hDrvObject);
-	while (pCtxtclosed != NULL) {
-		tsk = find_task_by_vpid(pCtxtclosed->pid);
-		next_node = pCtxtclosed->next;
-
-		if ((tsk == NULL) || (tsk->exit_state == EXIT_ZOMBIE)) {
-
-			GT_1trace(driverTrace, GT_5CLASS,
-				 "***Task structure not existing for "
-				 "process***%d\n", pCtxtclosed->pid);
-			DRV_RemoveAllResources(pCtxtclosed);
-			if (pCtxtclosed->hProcessor != NULL) {
-				DRV_GetProcCtxtList(&pCtxttraverse,
-					    (struct DRV_OBJECT *)hDrvObject);
-				if (pCtxttraverse->next == NULL) {
-					PROC_Detach(pCtxtclosed->hProcessor,
-						pCtxtclosed);
-				} else {
-					if ((pCtxtclosed->pid ==
-					  pCtxttraverse->pid) &&
-					  (pCtxttraverse->next != NULL)) {
-						pCtxttraverse =
-							pCtxttraverse->next;
-					}
-					while ((pCtxttraverse != NULL) &&
-					     (pCtxtclosed->hProcessor
-					     != pCtxttraverse->hProcessor)) {
-						pCtxttraverse =
-							pCtxttraverse->next;
-						if ((pCtxttraverse != NULL) &&
-						  (pCtxtclosed->pid ==
-						  pCtxttraverse->pid)) {
-							pCtxttraverse =
-							   pCtxttraverse->next;
-						}
-					}
-					if (pCtxttraverse == NULL) {
-						PROC_Detach
-						     (pCtxtclosed->hProcessor,
-						     pCtxtclosed);
-					}
-				}
-			}
-			DRV_RemoveProcContext((struct DRV_OBJECT *)hDrvObject,
-					     pCtxtclosed,
-					     (void *)pCtxtclosed->pid);
-		}
-		pCtxtclosed = next_node;
-	}
-func_cont:
 	dsp_status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
 	if (DSP_SUCCEEDED(dsp_status))
 		dsp_status = DRV_InsertProcContext(
 				(struct DRV_OBJECT *)hDrvObject, &pPctxt);
 
 	if (pPctxt != NULL) {
-			/* Return PID instead of process handle */
-			hProcess = current->pid;
-
+		/* Return PID instead of process handle */
+		hProcess = current->pid;
 		DRV_ProcUpdatestate(pPctxt, PROC_RES_ALLOCATED);
-			DRV_ProcSetPID(pPctxt, hProcess);
+		DRV_ProcSetPID(pPctxt, hProcess);
+		filp->private_data = pPctxt;
 	}
 #endif
 
@@ -664,16 +608,33 @@ func_cont:
 static int bridge_release(struct inode *ip, struct file *filp)
 {
 	int status;
-       u32 pid;
+	HANDLE hDrvObject = NULL;
+	struct PROCESS_CONTEXT *pr_ctxt;
+	struct PROC_OBJECT *proc_obj_ptr, *temp;
 
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_release\n");
 
-       /* Return PID instead of process handle */
-       pid = current->pid;
+	status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
 
-       status = DSP_Close(pid);
+	/* Checking weather task structure for all process existing
+	 * in the process context list If not removing those processes*/
+	if (DSP_FAILED(status))
+		goto func_end;
 
+	pr_ctxt = filp->private_data;
 
+	if (pr_ctxt) {
+		flush_signals(current);
+		DRV_RemoveAllResources(pr_ctxt);
+		list_for_each_entry_safe(proc_obj_ptr, temp,
+				&pr_ctxt->processor_list,
+				proc_object) {
+			PROC_Detach(proc_obj_ptr, pr_ctxt);
+		}
+		DRV_RemoveProcContext((struct DRV_OBJECT *)hDrvObject,
+					pr_ctxt);
+	}
+func_end:
 	(status == true) ? (status = 0) : (status = -1);
 
 	GT_0trace(driverTrace, GT_ENTER, " <- driver_release\n");

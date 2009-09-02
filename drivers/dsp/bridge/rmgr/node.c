@@ -420,11 +420,7 @@ DSP_STATUS NODE_Allocate(struct PROC_OBJECT *hProcessor,
 #endif
 
 #ifndef RES_CLEANUP_DISABLE
-	HANDLE	     hDrvObject;
 	HANDLE	     nodeRes;
-       u32                  hProcess;
-	struct PROCESS_CONTEXT   *pPctxt = NULL;
-	DSP_STATUS res_status = DSP_SOK;
 #endif
 
 	DBC_Require(cRefs > 0);
@@ -791,45 +787,9 @@ func_cont2:
 
 #ifndef RES_CLEANUP_DISABLE
 	if (DSP_SUCCEEDED(status)) {
-               /* Return PID instead of process handle */
-               hProcess = current->pid;
-
-		res_status = CFG_GetObject((u32 *)&hDrvObject,
-					  REG_DRV_OBJECT);
-		if (DSP_SUCCEEDED(res_status)) {
-                       DRV_GetProcContext(hProcess,
-					 (struct DRV_OBJECT *)hDrvObject,
-					 &pPctxt, *phNode, 0);
-			if (pPctxt == NULL) {
-				DRV_InsertProcContext(
-					(struct DRV_OBJECT *)hDrvObject,
-					&pPctxt);
-				if (pPctxt != NULL) {
-					DRV_ProcUpdatestate(pPctxt,
-							PROC_RES_ALLOCATED);
-                                       DRV_ProcSetPID(pPctxt, hProcess);
-					pPctxt->hProcessor =
-						 (DSP_HPROCESSOR)hProcessor;
-				}
-			}
-		}
-	}
-	if (DSP_SUCCEEDED(status)) {
-               /* Return PID instead of process handle */
-               hProcess = current->pid;
-		res_status = CFG_GetObject((u32 *)&hDrvObject,
-					REG_DRV_OBJECT);
-		if (DSP_SUCCEEDED(res_status)) {
-                       DRV_GetProcContext(hProcess,
-					 (struct DRV_OBJECT *)hDrvObject,
-					 &pPctxt, *phNode, 0);
-			if (pPctxt != NULL) {
-				DRV_InsertNodeResElement(*phNode, &nodeRes,
-							 pPctxt);
-				DRV_ProcNodeUpdateHeapStatus(nodeRes, true);
-				DRV_ProcNodeUpdateStatus(nodeRes, true);
-			}
-		}
+		DRV_InsertNodeResElement(*phNode, &nodeRes, pr_ctxt);
+		DRV_ProcNodeUpdateHeapStatus(nodeRes, true);
+		DRV_ProcNodeUpdateStatus(nodeRes, true);
 	}
 #endif
 	DBC_Ensure((DSP_FAILED(status) && (*phNode == NULL)) ||
@@ -1666,11 +1626,7 @@ DSP_STATUS NODE_Delete(struct NODE_OBJECT *hNode,
 	struct WMD_DRV_INTERFACE *pIntfFxns;
 
 #ifndef RES_CLEANUP_DISABLE
-       u32                     hProcess;
 	HANDLE		nodeRes;
-	HANDLE		hDrvObject;
-	struct PROCESS_CONTEXT *pCtxt = NULL;
-	DSP_STATUS res_status = DSP_SOK;
 #endif
 	struct DSP_PROCESSORSTATE procStatus;
 	DBC_Require(cRefs > 0);
@@ -1796,16 +1752,9 @@ func_cont1:
 	 /*  Free host-side resources allocated by NODE_Create()
 	 *  DeleteNode() fails if SM buffers not freed by client!  */
 #ifndef RES_CLEANUP_DISABLE
-       /* Return PID instead of process handle */
-       hProcess = current->pid;
-	res_status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
-	if (DSP_FAILED(res_status))
+	if (!pr_ctxt)
 		goto func_cont;
-	DRV_GetProcContext(0, (struct DRV_OBJECT *)hDrvObject,
-						&pCtxt, hNode, 0);
-	if (pCtxt == NULL)
-		goto func_cont;
-	if (DRV_GetNodeResElement(hNode, &nodeRes, pCtxt) != DSP_ENOTFOUND) {
+	if (DRV_GetNodeResElement(hNode, &nodeRes, pr_ctxt) != DSP_ENOTFOUND) {
 		GT_0trace(NODE_debugMask, GT_5CLASS, "\nNODE_Delete12:\n");
 		DRV_ProcNodeUpdateStatus(nodeRes, false);
 	}
@@ -1815,8 +1764,8 @@ func_cont:
 	DeleteNode(hNode, pr_ctxt);
 #ifndef RES_CLEANUP_DISABLE
 	GT_0trace(NODE_debugMask, GT_5CLASS, "\nNODE_Delete2:\n ");
-	if (pCtxt != NULL)
-		DRV_RemoveNodeResElement(nodeRes, (HANDLE)pCtxt);
+	if (pr_ctxt)
+		DRV_RemoveNodeResElement(nodeRes, pr_ctxt);
 #endif
 	GT_0trace(NODE_debugMask, GT_ENTER, "\nNODE_Delete3:\n ");
 	/* Exit critical section */

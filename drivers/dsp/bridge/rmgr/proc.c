@@ -162,27 +162,6 @@
 #define DSP_CACHE_SIZE 128 /* DSP cacheline size */
 
 extern char *iva_img;
-/* The PROC_OBJECT structure.   */
-struct PROC_OBJECT {
-	struct LST_ELEM link;		/* Link to next PROC_OBJECT */
-	u32 dwSignature;	/* Used for object validation */
-	struct DEV_OBJECT *hDevObject;	/* Device this PROC represents */
-	u32 hProcess;   /* Process owning this Processor */
-	struct MGR_OBJECT *hMgrObject;	/* Manager Object Handle */
-	u32 uAttachCount;	/* Processor attach count */
-	u32 uProcessor;	/* Processor number */
-	u32 uTimeout;		/* Time out count */
-	enum DSP_PROCSTATE sState;	/* Processor state */
-	u32 ulUnit;		/* DDSP unit number */
-	bool bIsAlreadyAttached;	/*
-					 * True if the Device below has
-					 * GPP Client attached
-					 */
-	struct NTFY_OBJECT *hNtfy;	/* Manages  notifications */
-	struct WMD_DEV_CONTEXT *hWmdContext;	/* WMD Context Handle */
-	struct WMD_DRV_INTERFACE *pIntfFxns;	/* Function interface to WMD */
-	char *g_pszLastCoff;
-} ;
 
 /*  ----------------------------------- Globals */
 #if GT_TRACE
@@ -209,24 +188,32 @@ static char **PrependEnvp(char **newEnvp, char **envp, s32 cEnvp, s32 cNewEnvp,
 DSP_STATUS PROC_CleanupAllResources(void)
 {
 	DSP_STATUS dsp_status = DSP_SOK;
-	HANDLE	     hDrvObject = NULL;
-	struct PROCESS_CONTEXT    *pCtxtclosed = NULL;
+	HANDLE hDrvObject = NULL;
+	struct PROCESS_CONTEXT *pCtxtclosed = NULL;
+	struct PROC_OBJECT *proc_obj_ptr, *temp;
+
 	GT_0trace(PROC_DebugMask, GT_ENTER, "PROC_CleanupAllResources\n");
+
 	dsp_status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
 	if (DSP_FAILED(dsp_status))
 		goto func_end;
+
 	DRV_GetProcCtxtList(&pCtxtclosed, (struct DRV_OBJECT *)hDrvObject);
+
 	while (pCtxtclosed != NULL) {
 		if (current->pid != pCtxtclosed->pid) {
 			GT_1trace(PROC_DebugMask, GT_5CLASS,
 				 "***Cleanup of "
 				 "process***%d\n", pCtxtclosed->pid);
-			if (pCtxtclosed->hProcessor)
-				PROC_Detach(pCtxtclosed->hProcessor,
-						pCtxtclosed);
+			list_for_each_entry_safe(proc_obj_ptr, temp,
+					&pCtxtclosed->processor_list,
+					proc_object) {
+				PROC_Detach(proc_obj_ptr, pCtxtclosed);
+			}
 		}
 		pCtxtclosed = pCtxtclosed->next;
 	}
+
 	WMD_DEH_ReleaseDummyMem();
 func_end:
 	return dsp_status;
@@ -249,19 +236,13 @@ PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
 	struct DRV_OBJECT *hDrvObject = NULL;
 	u32 devType;
 
-#ifndef RES_CLEANUP_DISABLE
-	HANDLE	     hDRVObject;
-       u32                  hProcess;
-	DSP_STATUS res_status = DSP_SOK;
-	struct PROCESS_CONTEXT   *pPctxt = NULL;
-#endif
-
 	DBC_Require(cRefs > 0);
 	DBC_Require(phProcessor != NULL);
 
 	GT_3trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Attach, args:\n\t"
 		 "uProcessor:  0x%x\n\tpAttrIn:  0x%x\n\tphProcessor:"
 		 "0x%x\n", uProcessor, pAttrIn, phProcessor);
+
 	/* Get the Driver and Manager Object Handles */
 	status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
 	if (DSP_SUCCEEDED(status)) {
@@ -310,9 +291,10 @@ PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
 	pProcObject->hDevObject = hDevObject;
 	pProcObject->hMgrObject = hMgrObject;
 	pProcObject->uProcessor = devType;
-	/* Get Caller Process and store it */
-       /* Return PID instead of process handle */
-       pProcObject->hProcess = current->pid;
+	/* Store PID of Caller Process */
+	pProcObject->hProcess = current->pid;
+
+	INIT_LIST_HEAD(&pProcObject->proc_object);
 
 	if (pAttrIn)
 		pProcObject->uTimeout = pAttrIn->uTimeout;
@@ -383,41 +365,12 @@ PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
 			 "storage for notification \n");
 		MEM_FreeObject(pProcObject);
 	}
-func_end:
 #ifndef RES_CLEANUP_DISABLE
-	if (DSP_FAILED(status))
-		goto func_cont;
-
-       /* Return PID instead of process handle */
-       hProcess = current->pid;
-
-	res_status = CFG_GetObject((u32 *)&hDRVObject, REG_DRV_OBJECT);
-	if (DSP_FAILED(res_status))
-		goto func_cont;
-
-       DRV_GetProcContext(hProcess, (struct DRV_OBJECT *)hDRVObject,
-			 &pPctxt, NULL, 0);
-	if (pPctxt == NULL) {
-		DRV_InsertProcContext((struct DRV_OBJECT *)hDRVObject, &pPctxt);
-		if (pPctxt != NULL) {
-			DRV_ProcUpdatestate(pPctxt, PROC_RES_ALLOCATED);
-                       DRV_ProcSetPID(pPctxt, hProcess);
-		}
-	}
-func_cont:
-       /* Return PID instead of process handle */
-       hProcess = current->pid;
-
-	res_status = CFG_GetObject((u32 *)&hDRVObject, REG_DRV_OBJECT);
-	if (DSP_SUCCEEDED(res_status)) {
-                       DRV_GetProcContext(hProcess,
-				 (struct DRV_OBJECT *)hDRVObject, &pPctxt,
-				 NULL, 0);
-		if (pPctxt != NULL)
-			pPctxt->hProcessor = (DSP_HPROCESSOR)*phProcessor;
-
-	}
+	spin_lock(&pr_ctxt->proc_list_lock);
+	list_add(&pProcObject->proc_object, &pr_ctxt->processor_list);
+	spin_unlock(&pr_ctxt->proc_list_lock);
 #endif
+func_end:
 	DBC_Ensure((status == DSP_EFAIL && *phProcessor == NULL) ||
 		  (DSP_SUCCEEDED(status) &&
 		  MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) ||
@@ -643,27 +596,17 @@ DSP_STATUS PROC_Detach(DSP_HPROCESSOR hProcessor,
 {
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
-#ifndef RES_CLEANUP_DISABLE
-	HANDLE hDRVObject;
-       u32 hProcess;
-	DSP_STATUS res_status = DSP_SOK;
-	struct PROCESS_CONTEXT   *pPctxt = NULL;
-#endif
+
 	DBC_Require(cRefs > 0);
 	GT_1trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Detach, args:\n\t"
 		 "hProcessor:  0x%x\n", hProcessor);
 
 	if (MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
 #ifndef RES_CLEANUP_DISABLE
-		/* Return PID instead of process handle */
-		hProcess = pProcObject->hProcess;
-		res_status = CFG_GetObject((u32 *)&hDRVObject, REG_DRV_OBJECT);
-		if (DSP_SUCCEEDED(res_status)) {
-			DRV_GetProcContext(hProcess,
-				(struct DRV_OBJECT *)hDRVObject, &pPctxt,
-					 NULL, 0);
-			if (pPctxt != NULL)
-				pPctxt->hProcessor = NULL;
+		if (pr_ctxt) {
+			spin_lock(&pr_ctxt->proc_list_lock);
+			list_del(&pProcObject->proc_object);
+			spin_unlock(&pr_ctxt->proc_list_lock);
 		}
 #endif
 		/* Notify the Client */
@@ -1410,11 +1353,7 @@ DSP_STATUS PROC_Map(DSP_HPROCESSOR hProcessor, void *pMpuAddr, u32 ulSize,
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
 
 #ifndef RES_CLEANUP_DISABLE
-       u32               hProcess;
-       HANDLE        pCtxt = NULL;
-       HANDLE        hDrvObject;
        HANDLE        dmmRes;
-       DSP_STATUS res_status = DSP_SOK;
 #endif
 
 	GT_6trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Map, args:\n\t"
@@ -1474,22 +1413,9 @@ DSP_STATUS PROC_Map(DSP_HPROCESSOR hProcessor, void *pMpuAddr, u32 ulSize,
 
 #ifndef RES_CLEANUP_DISABLE
 	if (DSP_SUCCEEDED(status)) {
-		/* Update the node and stream resource status */
-               /* Return PID instead of process handle */
-               hProcess = current->pid;
-
-		res_status = CFG_GetObject((u32 *)&hDrvObject,
-					  REG_DRV_OBJECT);
-		if (DSP_SUCCEEDED(res_status)) {
-                       if (DRV_GetProcContext(hProcess,
-                               (struct DRV_OBJECT *)hDrvObject, &pCtxt, NULL,
-                                       (u32)pMpuAddr) != DSP_ENOTFOUND) {
-				DRV_InsertDMMResElement(&dmmRes, pCtxt);
-				DRV_UpdateDMMResElement(dmmRes, (u32)pMpuAddr,
-						ulSize, (u32)pReqAddr,
-						(u32)*ppMapAddr, hProcessor);
-			}
-		}
+		DRV_InsertDMMResElement(&dmmRes, pr_ctxt);
+		DRV_UpdateDMMResElement(dmmRes, (u32)pMpuAddr, ulSize,
+				(u32)pReqAddr, (u32)*ppMapAddr, hProcessor);
 	}
 #endif
 func_end:
@@ -1812,11 +1738,7 @@ DSP_STATUS PROC_UnMap(DSP_HPROCESSOR hProcessor, void *pMapAddr,
 	u32 vaAlign;
 	u32 sizeAlign;
 #ifndef RES_CLEANUP_DISABLE
-       u32                   hProcess;
-	HANDLE	      pCtxt = NULL;
-	HANDLE	      hDrvObject;
 	HANDLE	      dmmRes;
-	DSP_STATUS res_status = DSP_SOK;
 #endif
 	GT_2trace(PROC_DebugMask, GT_ENTER,
 		 "Entered PROC_UnMap, args:\n\thProcessor:"
@@ -1854,23 +1776,11 @@ DSP_STATUS PROC_UnMap(DSP_HPROCESSOR hProcessor, void *pMapAddr,
 	if (DSP_FAILED(status))
 		goto func_end;
 
-	/* Update the node and stream resource status */
-       /* Return PID instead of process handle */
-       hProcess = current->pid;
-
-	res_status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
-	if (DSP_FAILED(res_status))
-		goto func_end;
-
-       DRV_GetProcContext(hProcess, (struct DRV_OBJECT *)hDrvObject,
-			 &pCtxt, NULL, (u32)pMapAddr);
-	if (pCtxt != NULL) {
-		if (DRV_GetDMMResElement((u32)pMapAddr, &dmmRes, pCtxt) !=
-		   DSP_ENOTFOUND)
-			DRV_RemoveDMMResElement(dmmRes, pCtxt);
-	}
-func_end:
+	if (pr_ctxt && DRV_GetDMMResElement((u32)pMapAddr, &dmmRes, pr_ctxt)
+							!= DSP_ENOTFOUND)
+		DRV_RemoveDMMResElement(dmmRes, pr_ctxt);
 #endif
+func_end:
 	GT_1trace(PROC_DebugMask, GT_ENTER,
 		 "Leaving PROC_UnMap [0x%x]", status);
 	return status;

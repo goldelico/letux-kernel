@@ -198,77 +198,6 @@ DSP_STATUS DRV_GetProcCtxtList(struct PROCESS_CONTEXT **pPctxt,
 	return status;
 }
 
-
-
-/* Get a particular process context based on process handle (phProcess) */
-DSP_STATUS DRV_GetProcContext(u32 phProcess,
-				struct DRV_OBJECT *hDrvObject,
-				HANDLE hPCtxt, DSP_HNODE hNode,
-				u32 pMapAddr)
-{
-	struct PROCESS_CONTEXT **pCtxt = (struct PROCESS_CONTEXT **)hPCtxt;
-	DSP_STATUS status = DSP_SOK;
-	struct PROCESS_CONTEXT *pCtxtList = NULL;
-	struct DRV_OBJECT *pDrvObject = (struct DRV_OBJECT *)hDrvObject;
-	struct NODE_RES_OBJECT *pTempNode2 = NULL;
-	struct NODE_RES_OBJECT *pTempNode = NULL;
-	struct DMM_RES_OBJECT *pTempDMM2 = NULL;
-	struct DMM_RES_OBJECT *pTempDMM = NULL;
-	s32 pCtxtFound = 0;
-
-	DBC_Assert(pDrvObject != NULL);
-	pCtxtList = pDrvObject->procCtxtList;
-	GT_0trace(curTrace, GT_ENTER, "2DRV_GetProcContext: 2");
-	while ((pCtxtList != NULL) && (pCtxtList->pid != phProcess)) {
-		pCtxtList = pCtxtList->next;
-		GT_0trace(curTrace, GT_ENTER, "2DRV_GetProcContext: 3");
-	}
-	if (pCtxtList == NULL) {
-		if (hNode != NULL) {
-			pCtxtList = pDrvObject->procCtxtList;
-			while ((pCtxtList != NULL) && (pCtxtFound == 0)) {
-				pTempNode = pCtxtList->pNodeList;
-				while ((pTempNode != NULL) &&
-				      (pTempNode->hNode != hNode)) {
-					pTempNode2 = pTempNode;
-					pTempNode = pTempNode->next;
-				}
-				if (pTempNode != NULL) {
-					pCtxtFound = 1;
-					status = DSP_SOK;
-				} else {
-					pCtxtList = pCtxtList->next;
-				}
-			}
-		} else if ((pMapAddr != 0) && (pCtxtFound == 0)) {
-			pCtxtList = pDrvObject->procCtxtList;
-			while ((pCtxtList != NULL) && (pCtxtFound == 0)) {
-				pTempDMM = pCtxtList->pDMMList;
-				while ((pTempDMM != NULL) &&
-				     (pTempDMM->ulDSPAddr != pMapAddr)) {
-					pTempDMM2 = pTempDMM;
-					pTempDMM = pTempDMM->next;
-				}
-				if (pTempDMM != NULL) {
-					pCtxtFound = 1;
-					status = DSP_SOK;
-				} else {
-					pCtxtList = pCtxtList->next;
-				}
-			}
-			if (pCtxtList == NULL)
-				status = DSP_ENOTFOUND;
-
-		}
-	} else{
-		status = DSP_SOK;
-	}
-	GT_0trace(curTrace, GT_ENTER, "2DRV_GetProcContext: 4");
-	*pCtxt = pCtxtList;
-	return status;
-}
-
-
 /* Add a new process context to process context list */
 DSP_STATUS DRV_InsertProcContext(struct DRV_OBJECT *hDrVObject, HANDLE hPCtxt)
 {
@@ -278,9 +207,19 @@ DSP_STATUS DRV_InsertProcContext(struct DRV_OBJECT *hDrVObject, HANDLE hPCtxt)
 	struct DRV_OBJECT	     *hDRVObject;
 
 	GT_0trace(curTrace, GT_ENTER, "\n In DRV_InsertProcContext\n");
+
 	status = CFG_GetObject((u32 *)&hDRVObject, REG_DRV_OBJECT);
 	DBC_Assert(hDRVObject != NULL);
+
 	*pCtxt = MEM_Calloc(1 * sizeof(struct PROCESS_CONTEXT), MEM_PAGED);
+	if (!*pCtxt) {
+		pr_err("DSP: MEM_Calloc failed in DRV_InsertProcContext\n");
+		return DSP_EMEMORY;
+	}
+
+	spin_lock_init(&(*pCtxt)->proc_list_lock);
+	INIT_LIST_HEAD(&(*pCtxt)->processor_list);
+
 	GT_0trace(curTrace, GT_ENTER,
 		 "\n In DRV_InsertProcContext Calling "
 		 "DRV_GetProcCtxtList\n");
@@ -307,36 +246,36 @@ DSP_STATUS DRV_InsertProcContext(struct DRV_OBJECT *hDrVObject, HANDLE hPCtxt)
 
 /* Delete a process context from process resource context list */
 DSP_STATUS DRV_RemoveProcContext(struct DRV_OBJECT *hDRVObject,
-				     HANDLE hPCtxt, HANDLE hProcess)
+		HANDLE pr_ctxt)
 {
 	DSP_STATUS status = DSP_SOK;
-	struct PROCESS_CONTEXT    *pCtxt2 = NULL;
-	struct PROCESS_CONTEXT    *pTmp = NULL;
-	struct PROCESS_CONTEXT    *pCtxtList = NULL;
+	struct PROCESS_CONTEXT *pr_ctxt_list = NULL;
+	struct PROCESS_CONTEXT *ptr_prev;
 
 	DBC_Assert(hDRVObject != NULL);
-	DRV_GetProcContext((u32)hProcess, hDRVObject, &pCtxt2, NULL, 0);
 
 	GT_0trace(curTrace, GT_ENTER, "DRV_RemoveProcContext: 12");
-	DRV_GetProcCtxtList(&pCtxtList, hDRVObject);
+	DRV_GetProcCtxtList(&pr_ctxt_list, hDRVObject);
+	ptr_prev = pr_ctxt_list;
+
 	GT_0trace(curTrace, GT_ENTER, "DRV_RemoveProcContext: 13");
-	pTmp = pCtxtList;
-	while ((pCtxtList != NULL) && (pCtxtList != pCtxt2)) {
-		pTmp = pCtxtList;
-		pCtxtList = pCtxtList->next;
+	while (pr_ctxt_list && (pr_ctxt_list != pr_ctxt)) {
+		ptr_prev = pr_ctxt_list;
+		pr_ctxt_list = pr_ctxt_list->next;
 		GT_0trace(curTrace, GT_ENTER,
 			 "DRV_RemoveProcContext: 2");
 	}
+
 	GT_0trace(curTrace, GT_ENTER, "DRV_RemoveProcContext: 3");
-	if (hDRVObject->procCtxtList == pCtxt2)
-		hDRVObject->procCtxtList = pCtxt2->next;
 
-	if (pCtxtList == NULL)
+	if (!pr_ctxt_list)
 		return DSP_ENOTFOUND;
-	else if (pTmp->next != NULL)
-		pTmp->next = pTmp->next->next;
+	else if (hDRVObject->procCtxtList == pr_ctxt_list)
+		hDRVObject->procCtxtList = pr_ctxt_list->next;
+	else
+		ptr_prev->next = pr_ctxt_list->next;
 
-	MEM_Free(pCtxt2);
+	MEM_Free(pr_ctxt);
 	GT_0trace(curTrace, GT_ENTER, "DRV_RemoveProcContext: 7");
 
 	return status;
@@ -1004,6 +943,7 @@ static DSP_STATUS PrintProcessInformation(void)
 	struct PROCESS_CONTEXT *pCtxtList = NULL;
 	struct NODE_RES_OBJECT *pNodeRes = NULL;
 	struct DMM_RES_OBJECT *pDMMRes = NULL;
+	struct PROC_OBJECT *proc_obj_ptr;
 	struct STRM_RES_OBJECT *pSTRMRes = NULL;
 	struct DSPHEAP_RES_OBJECT *pDSPHEAPRes = NULL;
 	DSP_STATUS status = DSP_SOK;
@@ -1032,11 +972,11 @@ static DSP_STATUS PrintProcessInformation(void)
 			GT_0trace(curTrace, GT_4CLASS, "\nThe Process"
 					" is in DeAllocated state\n");
 		}
-		GT_1trace(curTrace, GT_4CLASS, "\nThe  hProcessor"
-				" handle is: 0X%x\n",
-				(u32)pCtxtList->hProcessor);
-		if (pCtxtList->hProcessor != NULL) {
-			PROC_GetProcessorId(pCtxtList->hProcessor, &procID);
+
+		spin_lock(&pCtxtList->proc_list_lock);
+		list_for_each_entry(proc_obj_ptr, &pCtxtList->processor_list,
+				proc_object) {
+			PROC_GetProcessorId(proc_obj_ptr, &procID);
 			if (procID == DSP_UNIT) {
 				GT_0trace(curTrace, GT_4CLASS,
 					"\nProcess connected to"
@@ -1050,6 +990,8 @@ static DSP_STATUS PrintProcessInformation(void)
 					"\n***ERROR:Invalid Processor Id***\n");
 			}
 		}
+		spin_unlock(&pCtxtList->proc_list_lock);
+
 		pNodeRes = pCtxtList->pNodeList;
 		tempCount = 1;
 		while (pNodeRes != NULL) {
