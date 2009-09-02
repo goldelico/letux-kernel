@@ -642,7 +642,6 @@ u32 MGRWRAP_GetProcessResourcesInfo(union Trapped_Args *args, void *pr_ctxt)
     DSP_STATUS status = DSP_SOK;
     u32 uSize = 0;
     u8 *pBuf = MEM_Alloc(8092, MEM_NONPAGED);
-    status = DRV_ProcDisplayResInfo(pBuf, &uSize);
     GT_1trace(WCD_debugMask, GT_ENTER,
 	     "MGRWRAP_GetProcessResourcesInfo:uSize=%d :\n", uSize);
     cp_to_usr(args->ARGS_PROC_GETTRACE.pBuf, pBuf, status, uSize);

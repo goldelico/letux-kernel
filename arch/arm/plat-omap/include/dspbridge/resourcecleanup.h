@@ -76,8 +76,6 @@ extern DSP_STATUS DRV_ProcRemoveSTRMResElement(HANDLE STRMRes, HANDLE pCtxt);
 
 extern DSP_STATUS DRV_RemoveAllSTRMResElements(HANDLE pCtxt);
 
-extern DSP_STATUS DRV_ProcDisplayResInfo(u8 *pBuf, u32 *pSize);
-
 extern enum NODE_STATE NODE_GetState(HANDLE hNode);
 
 #endif

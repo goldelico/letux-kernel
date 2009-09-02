@@ -179,47 +179,6 @@ static char **PrependEnvp(char **newEnvp, char **envp, s32 cEnvp, s32 cNewEnvp,
 			 char *szVar);
 
 /*
- *  ======== PROC_CleanupAllResources =====
- *  Purpose:
- *      Funtion to clean the process resources.
- *      This function is intended to be called when the
- *       processor is in error state
- */
-DSP_STATUS PROC_CleanupAllResources(void)
-{
-	DSP_STATUS dsp_status = DSP_SOK;
-	HANDLE hDrvObject = NULL;
-	struct PROCESS_CONTEXT *pCtxtclosed = NULL;
-	struct PROC_OBJECT *proc_obj_ptr, *temp;
-
-	GT_0trace(PROC_DebugMask, GT_ENTER, "PROC_CleanupAllResources\n");
-
-	dsp_status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
-	if (DSP_FAILED(dsp_status))
-		goto func_end;
-
-	DRV_GetProcCtxtList(&pCtxtclosed, (struct DRV_OBJECT *)hDrvObject);
-
-	while (pCtxtclosed != NULL) {
-		if (current->pid != pCtxtclosed->pid) {
-			GT_1trace(PROC_DebugMask, GT_5CLASS,
-				 "***Cleanup of "
-				 "process***%d\n", pCtxtclosed->pid);
-			list_for_each_entry_safe(proc_obj_ptr, temp,
-					&pCtxtclosed->processor_list,
-					proc_object) {
-				PROC_Detach(proc_obj_ptr, pCtxtclosed);
-			}
-		}
-		pCtxtclosed = pCtxtclosed->next;
-	}
-
-	WMD_DEH_ReleaseDummyMem();
-func_end:
-	return dsp_status;
-}
-
-/*
  *  ======== PROC_Attach ========
  *  Purpose:
  *      Prepare for communication with a particular DSP processor, and return
@@ -1669,7 +1628,7 @@ DSP_STATUS PROC_Stop(DSP_HPROCESSOR hProcessor)
 		/* Clean up all the resources except the current running
 		 * process resources */
 		if (uBrdState == BRD_ERROR)
-			PROC_CleanupAllResources();
+			WMD_DEH_ReleaseDummyMem();
 	}
 	/* check if there are any running nodes */
 	status = DEV_GetNodeManager(pProcObject->hDevObject, &hNodeMgr);
