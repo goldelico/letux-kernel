@@ -175,6 +175,7 @@ int cpuidle_enable_device(struct cpuidle_device *dev)
 	}
 	dev->last_residency = 0;
 	dev->last_state = NULL;
+	dev->max_state = dev->state_count;
 
 	smp_wmb();
 

@@ -56,7 +56,7 @@ static int menu_select(struct cpuidle_device *dev)
 	data->predicted_us /= 100;
 
 	/* find the deepest idle state that satisfies our constraints */
-	for (i = CPUIDLE_DRIVER_STATE_START + 1; i < dev->state_count; i++) {
+	for (i = CPUIDLE_DRIVER_STATE_START + 1; i < dev->max_state; i++) {
 		struct cpuidle_state *s = &dev->states[i];
 
 		if (s->target_residency > data->expected_us)
