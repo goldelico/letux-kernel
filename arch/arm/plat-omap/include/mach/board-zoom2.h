@@ -31,6 +31,7 @@
 
 extern void ldp_flash_init(void);
 extern void twl4030_bci_battery_init(void);
+extern unsigned get_last_off_on_transaction_id(struct device *dev);
 
 #define TWL4030_IRQNUM		INT_34XX_SYS_NIRQ
 #define LDP3430_NAND_CS		0 

@@ -682,7 +682,7 @@ static struct omapdev usbtll_3xxx_omapdev = {
 static struct omapdev dsi_3xxx_omapdev = {
 	.name		= "dsi_omapdev",
 	.pwrdm		= { .name = "dss_pwrdm" },
-	.pdev_name	= "omapfb",
+	.pdev_name	= "omapdss",
 	.pdev_id	= -1,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 };
@@ -690,7 +690,7 @@ static struct omapdev dsi_3xxx_omapdev = {
 static struct omapdev dsi_phy_3xxx_omapdev = {
 	.name		= "dsi_phy_omapdev",
 	.pwrdm		= { .name = "dss_pwrdm" },
-	.pdev_name	= "omapfb",
+	.pdev_name	= "omapdss",
 	.pdev_id	= -1,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 };
@@ -698,7 +698,7 @@ static struct omapdev dsi_phy_3xxx_omapdev = {
 static struct omapdev dsi_pll_3xxx_omapdev = {
 	.name		= "dsi_pll_omapdev",
 	.pwrdm		= { .name = "dss_pwrdm" },
-	.pdev_name	= "omapfb",
+	.pdev_name	= "omapdss",
 	.pdev_id	= -1,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 };
@@ -706,7 +706,7 @@ static struct omapdev dsi_pll_3xxx_omapdev = {
 static struct omapdev dss_3xxx_omapdev = {
 	.name		= "dss_omapdev",
 	.pwrdm		= { .name = "dss_pwrdm" },
-	.pdev_name	= "omapfb",
+	.pdev_name	= "omapdss",
 	.pdev_id	= -1,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 };
@@ -714,7 +714,7 @@ static struct omapdev dss_3xxx_omapdev = {
 static struct omapdev dispc_3xxx_omapdev = {
 	.name		= "dispc_omapdev",
 	.pwrdm		= { .name = "dss_pwrdm" },
-	.pdev_name	= "omapfb",
+	.pdev_name	= "omapdss",
 	.pdev_id	= -1,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 };
@@ -722,7 +722,7 @@ static struct omapdev dispc_3xxx_omapdev = {
 static struct omapdev rfbi_3xxx_omapdev = {
 	.name		= "rfbi_omapdev",
 	.pwrdm		= { .name = "dss_pwrdm" },
-	.pdev_name	= "omapfb",
+	.pdev_name	= "omapdss",
 	.pdev_id	= -1,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 };
@@ -730,7 +730,7 @@ static struct omapdev rfbi_3xxx_omapdev = {
 static struct omapdev venc_3xxx_omapdev = {
 	.name		= "venc_omapdev",
 	.pwrdm		= { .name = "dss_pwrdm" },
-	.pdev_name	= "omapfb",
+	.pdev_name	= "omapdss",
 	.pdev_id	= -1,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 };

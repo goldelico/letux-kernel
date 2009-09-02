@@ -490,6 +490,7 @@ static struct omap_dss_device *zoom2_dss_devices[] = {
 };
 
 static struct omap_dss_board_info zoom2_dss_data = {
+	.get_last_off_on_transaction_id = get_last_off_on_transaction_id,
 	.num_devices = ARRAY_SIZE(zoom2_dss_devices),
 	.devices = zoom2_dss_devices,
 	.default_device = &zoom2_lcd_device,
