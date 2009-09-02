@@ -198,6 +198,11 @@ const static struct v4l2_fmtdesc omap_formats[] = {
 	 .description = "UYVY, packed",
 	 .pixelformat = V4L2_PIX_FMT_UYVY,
 	 },
+	{
+	 .description = "NV12 - YUV420 format",
+	 .pixelformat = V4L2_PIX_FMT_NV12,
+	},
+
 };
 
 #define NUM_OUTPUT_FORMATS (ARRAY_SIZE(omap_formats))
@@ -315,9 +320,18 @@ static int omap_vout_try_format(struct v4l2_pix_format *pix)
 		pix->colorspace = V4L2_COLORSPACE_SRGB;
 		bpp = RGB32_BPP;
 		break;
+	case V4L2_PIX_FMT_NV12:
+		pix->colorspace = V4L2_COLORSPACE_JPEG;
+		bpp = 3/2; /* TODO: check this? */
+		break;
 	}
-	pix->bytesperline = pix->width * bpp;
+	if (V4L2_PIX_FMT_NV12 == pix->pixelformat)
+		pix->bytesperline = pix->width * 3/2;
+	else
+		pix->bytesperline = pix->width * bpp;
+
 	pix->sizeimage = pix->bytesperline * pix->height;
+
 	return bpp;
 }
 
@@ -655,6 +669,10 @@ static enum omap_color_mode video_mode_to_dss_mode(struct omap_vout_device
 	ovl = ovid->overlays[0];
 
 	switch (pix->pixelformat) {
+#ifdef CONFIG_ARCH_OMAP4
+	case V4L2_PIX_FMT_NV12:
+		return OMAP_DSS_COLOR_NV12;
+#endif
 	case 0:
 		break;
 	case V4L2_PIX_FMT_YUYV:
@@ -681,13 +699,24 @@ static enum omap_color_mode video_mode_to_dss_mode(struct omap_vout_device
 	return -EINVAL;
 }
 
+/* helper function: for NV12, returns uv buffer address given single buffer
+ * for yuv - y buffer will still be in the input.
+*/
+u32 omapvid_get_uvbase_nv12(u32 paddr, int height, int width)
+{
+	u32 puv_addr = 0;
+
+	puv_addr = (paddr + (height * width));
+		/* TODO: CHECK this for Tiler */
+	return puv_addr;
+}
+
 /* Setup the overlay */
 int omapvid_setup_overlay(struct omap_vout_device *vout,
 		struct omap_overlay *ovl, int posx, int posy, int outw,
 		int outh, u32 addr)
 {
 	int r = 0;
-	enum omap_color_mode mode = 0;
 	enum dss_rotation rotation;
 	bool mirror;
 	int cropheight, cropwidth, pixheight, pixwidth;
@@ -701,7 +730,7 @@ int omapvid_setup_overlay(struct omap_vout_device *vout,
 
 	vout->dss_mode = video_mode_to_dss_mode(vout);
 
-	if (mode == -EINVAL) {
+	if (vout->dss_mode == -EINVAL) {
 		r = -EINVAL;
 		goto err;
 	}
@@ -726,6 +755,14 @@ int omapvid_setup_overlay(struct omap_vout_device *vout,
 
 	ovl->get_overlay_info(ovl, &info);
 	info.paddr = addr;
+#ifdef CONFIG_ARCH_OMAP4
+	if (OMAP_DSS_COLOR_NV12 == vout->dss_mode)
+		info.p_uv_addr = omapvid_get_uvbase_nv12(info.paddr,
+							vout->pix.height,
+							vout->pix.width);
+	else
+		info.p_uv_addr = NULL;
+#endif
 	info.vaddr = NULL;
 	info.width = cropwidth;
 	info.height = cropheight;
@@ -755,6 +792,10 @@ int omapvid_setup_overlay(struct omap_vout_device *vout,
 	info.mirror, info.pos_x, info.pos_y, info.out_width, info.out_height,
 	info.rotation_type, info.screen_width);
 
+#ifdef CONFIG_ARCH_OMAP4
+	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev, "%s info.puvaddr=%x\n",
+			info.p_uv_addr);
+#endif
 	r = ovl->set_overlay_info(ovl, &info);
 	if (r)
 		goto err;
@@ -1413,7 +1454,12 @@ static int vidioc_s_fmt_vid_out(struct file *file, void *fh,
 	/* change to samller size is OK */
 
 	bpp = omap_vout_try_format(&f->fmt.pix);
-	f->fmt.pix.sizeimage = f->fmt.pix.width * f->fmt.pix.height * bpp;
+	if (V4L2_PIX_FMT_NV12 == f->fmt.pix.pixelformat)
+		f->fmt.pix.sizeimage = f->fmt.pix.width *
+					f->fmt.pix.height * 3/2;
+	else
+		f->fmt.pix.sizeimage = f->fmt.pix.width *
+					f->fmt.pix.height * bpp;
 
 	/* try & set the new output format */
 	vout->bpp = bpp;
