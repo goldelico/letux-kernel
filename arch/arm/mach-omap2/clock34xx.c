@@ -522,7 +522,7 @@ static int omap3_core_dpll_m2_set_rate(struct clk *clk, unsigned long rate)
 		 sp->rfr_ctrl, sp->actim_ctrla, sp->actim_ctrlb);
 
 	omap3_configure_core_dpll(sp->rfr_ctrl, sp->actim_ctrla,
-				  sp->actim_ctrlb, new_div, unlock_dll, c,
+				  sp->actim_ctrlb, new_div, unlock_dll, 1,
 				  sp->mr, rate > clk->rate);
 
 	return 0;
