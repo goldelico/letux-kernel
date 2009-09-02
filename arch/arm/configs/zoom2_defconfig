@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.29-omap1
-# Wed Aug 12 19:24:25 2009
+# Wed Sep  2 17:07:46 2009
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -990,7 +990,7 @@ CONFIG_SSB_POSSIBLE=y
 # CONFIG_HTC_PASIC3 is not set
 # CONFIG_TPS65010 is not set
 CONFIG_TWL4030_CORE=y
-# CONFIG_TWL4030_POWER is not set
+CONFIG_TWL4030_POWER=y
 # CONFIG_MFD_TMIO is not set
 # CONFIG_MFD_T7L66XB is not set
 # CONFIG_MFD_TC6387XB is not set
