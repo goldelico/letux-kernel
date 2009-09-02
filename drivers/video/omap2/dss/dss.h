@@ -293,6 +293,10 @@ void dispc_set_burst_size(enum omap_plane plane,
 
 void dispc_set_plane_ba0(enum omap_plane plane, u32 paddr);
 void dispc_set_plane_ba1(enum omap_plane plane, u32 paddr);
+#ifdef CONFIG_ARCH_OMAP4
+void dispc_set_plane_ba_uv0(enum omap_plane plane, u32 paddr);
+void dispc_set_plane_ba_uv1(enum omap_plane plane, u32 paddr);
+#endif
 void dispc_set_plane_pos(enum omap_plane plane, u16 x, u16 y);
 void dispc_set_plane_size(enum omap_plane plane, u16 width, u16 height);
 void dispc_set_channel_out(enum omap_plane plane,
@@ -307,7 +311,11 @@ int dispc_setup_plane(enum omap_plane plane,
 		      bool ilace,
 		      enum omap_dss_rotation_type rotation_type,
 		      u8 rotation, bool mirror,
-		      u8 global_alpha);
+			u8 global_alpha
+#ifdef CONFIG_ARCH_OMAP4
+			, u32 p_uv_addr
+#endif
+		);
 
 bool dispc_go_busy(enum omap_channel channel);
 void dispc_go(enum omap_channel channel);

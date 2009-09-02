@@ -414,6 +414,10 @@ struct overlay_cache_data {
 	u32 fifo_high;
 
 	bool manual_update;
+
+#ifdef CONFIG_ARCH_OMAP4
+	u32 p_uv_addr; /* relevant for NV12 format only */
+#endif
 };
 
 struct manager_cache_data {
@@ -727,7 +731,7 @@ static int configure_overlay(enum omap_plane plane)
 	outw = c->out_width == 0 ? c->width : c->out_width;
 	outh = c->out_height == 0 ? c->height : c->out_height;
 	paddr = c->paddr;
-
+/* TODO: OMAP4: check if changes are needed here for NV12 ?*/
 	if (c->manual_update && mc->do_manual_update) {
 		unsigned bpp;
 		/* If the overlay is outside the update region, disable it */
@@ -806,7 +810,11 @@ static int configure_overlay(enum omap_plane plane)
 			c->rotation_type,
 			c->rotation,
 			c->mirror,
-			c->global_alpha);
+			c->global_alpha
+#ifdef CONFIG_ARCH_OMAP4
+			, c->p_uv_addr
+#endif
+			);
 
 	if (r) {
 		/* this shouldn't happen */
@@ -1175,6 +1183,9 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 		oc->dirty = true;
 
 		oc->paddr = ovl->info.paddr;
+#ifdef CONFIG_ARCH_OMAP4
+		oc->p_uv_addr = ovl->info.p_uv_addr;
+#endif
 		oc->vaddr = ovl->info.vaddr;
 		oc->screen_width = ovl->info.screen_width;
 		oc->width = ovl->info.width;

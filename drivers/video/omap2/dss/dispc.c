@@ -967,6 +967,49 @@ static void _dispc_set_plane_ba1(enum omap_plane plane, u32 paddr)
 	dispc_write_reg(ba1_reg[plane], paddr);
 }
 
+#ifdef CONFIG_ARCH_OMAP4
+static void _dispc_set_plane_ba_uv0(enum omap_plane plane, u32 paddr)
+{
+	const struct dispc_reg ba_uv0_reg[] = { DISPC_VID_BA_UV0(0),
+				DISPC_VID_BA_UV0(1),
+				DISPC_VID_BA_UV0(2) /* VID 3 pipeline*/
+	};
+
+	u32 val = 0;
+	BUG_ON(plane == OMAP_DSS_GFX);
+
+	dispc_write_reg(ba_uv0_reg[plane - 1], paddr);
+	/* plane - 1 => no UV_BA for GFX*/
+
+	DSSDBG("puv_addr = %x\n", paddr);
+
+	/* since NV12 is set, set DOUBLESTRIDE in attributes reg*/
+	val = dispc_read_reg(dispc_reg_att[plane]);
+	val = FLD_MOD(val, 1, 22, 22);
+	dispc_write_reg(dispc_reg_att[plane], val);
+
+	DSSDBG("val = %x\n", val);
+
+	val = dispc_read_reg(dispc_reg_att[plane]);
+	DSSDBG("vid[%d] attributes = %x\n", plane, val);
+
+}
+
+static void _dispc_set_plane_ba_uv1(enum omap_plane plane, u32 paddr)
+{
+	const struct dispc_reg ba_uv1_reg[] = { DISPC_VID_BA_UV1(0),
+				DISPC_VID_BA_UV1(1),
+				DISPC_VID_BA_UV1(2)
+	};
+
+	BUG_ON(plane == OMAP_DSS_GFX);
+
+	dispc_write_reg(ba_uv1_reg[plane - 1], paddr);
+	/* plane - 1 => no UV_BA for GFX*/
+}
+
+#endif
+
 static void _dispc_set_plane_pos(enum omap_plane plane, int x, int y)
 {
 	const struct dispc_reg pos_reg[] = { DISPC_GFX_POSITION,
@@ -1063,39 +1106,80 @@ static void _dispc_set_color_mode(enum omap_plane plane,
 {
 	u32 m = 0;
 
-	switch (color_mode) {
-	case OMAP_DSS_COLOR_CLUT1:
-		m = 0x0; break;
-	case OMAP_DSS_COLOR_CLUT2:
-		m = 0x1; break;
-	case OMAP_DSS_COLOR_CLUT4:
-		m = 0x2; break;
-	case OMAP_DSS_COLOR_CLUT8:
-		m = 0x3; break;
-	case OMAP_DSS_COLOR_RGB12U:
-		m = 0x4; break;
-	case OMAP_DSS_COLOR_ARGB16:
-		m = 0x5; break;
-	case OMAP_DSS_COLOR_RGB16:
-		m = 0x6; break;
-	case OMAP_DSS_COLOR_RGB24U:
-		m = 0x8; break;
-	case OMAP_DSS_COLOR_RGB24P:
-		m = 0x9; break;
-	case OMAP_DSS_COLOR_YUV2:
-		m = 0xa; break;
-	case OMAP_DSS_COLOR_UYVY:
-		m = 0xb; break;
-	case OMAP_DSS_COLOR_ARGB32:
-		m = 0xc; break;
-	case OMAP_DSS_COLOR_RGBA32:
-		m = 0xd; break;
-	case OMAP_DSS_COLOR_RGBX32:
-		m = 0xe; break;
-	default:
-		BUG(); break;
-	}
+#ifdef CONFIG_ARCH_OMAP4
+	if (OMAP_DSS_GFX == plane) {
+#endif
+		switch (color_mode) {
+		case OMAP_DSS_COLOR_CLUT1:
+			m = 0x0; break;
+		case OMAP_DSS_COLOR_CLUT2:
+			m = 0x1; break;
+		case OMAP_DSS_COLOR_CLUT4:
+			m = 0x2; break;
+		case OMAP_DSS_COLOR_CLUT8:
+			m = 0x3; break;
+		case OMAP_DSS_COLOR_RGB12U:
+			m = 0x4; break;
+		case OMAP_DSS_COLOR_ARGB16:
+			m = 0x5; break;
+		case OMAP_DSS_COLOR_RGB16:
+			m = 0x6; break;
+		case OMAP_DSS_COLOR_RGB24U:
+			m = 0x8; break;
+		case OMAP_DSS_COLOR_RGB24P:
+			m = 0x9; break;
+		case OMAP_DSS_COLOR_YUV2:
+			m = 0xa; break;
+		case OMAP_DSS_COLOR_UYVY:
+			m = 0xb; break;
+		case OMAP_DSS_COLOR_ARGB32:
+			m = 0xc; break;
+		case OMAP_DSS_COLOR_RGBA32:
+			m = 0xd; break;
+		case OMAP_DSS_COLOR_RGBX32:
+			m = 0xe; break;
 
+		default:
+			BUG(); break;
+		}
+#ifdef CONFIG_ARCH_OMAP4
+	} else {
+		switch (color_mode) {
+		case OMAP_DSS_COLOR_NV12:
+			m = 0x0; break;
+		case OMAP_DSS_COLOR_RGB12U:
+			m = 0x1; break;
+		case OMAP_DSS_COLOR_RGBA12:
+			m = 0x2; break;
+		case OMAP_DSS_COLOR_XRGB12:
+			m = 0x4; break;
+		case OMAP_DSS_COLOR_ARGB16:
+			m = 0x5; break;
+		case OMAP_DSS_COLOR_RGB16:
+			m = 0x6; break;
+		case OMAP_DSS_COLOR_ARGB16_1555:
+			m = 0x7; break;
+		case OMAP_DSS_COLOR_RGB24U:
+			m = 0x8; break;
+		case OMAP_DSS_COLOR_RGB24P:
+			m = 0x9; break;
+		case OMAP_DSS_COLOR_YUV2:
+			m = 0xA; break;
+		case OMAP_DSS_COLOR_UYVY:
+			m = 0xB; break;
+		case OMAP_DSS_COLOR_ARGB32:
+			m = 0xC; break;
+		case OMAP_DSS_COLOR_RGBA32:
+			m = 0xD; break;
+		case OMAP_DSS_COLOR_RGBX24_32_ALGN:
+			m = 0xE; break;
+		case OMAP_DSS_COLOR_XRGB15:
+			m = 0xF; break;
+		default:
+			BUG(); break;
+		}
+	}
+#endif
 	REG_FLD_MOD(dispc_reg_att[plane], m, 4, 1);
 }
 
@@ -1375,7 +1459,7 @@ static void _dispc_set_scaling(enum omap_plane plane,
 	_dispc_set_fir(plane, fir_hinc, fir_vinc);
 
 	l = dispc_read_reg(dispc_reg_att[plane]);
-	l &= ~((0x0f << 5) | (0x3 << 21));
+	l &= ~((0x0f << 5) | (0x1 << 21));
 
 	l |= fir_hinc ? (1 << 5) : 0;
 	l |= fir_vinc ? (1 << 6) : 0;
@@ -1384,7 +1468,6 @@ static void _dispc_set_scaling(enum omap_plane plane,
 	l |= vscaleup ? 0 : (1 << 8);
 
 	l |= five_taps ? (1 << 21) : 0;
-	l |= five_taps ? (1 << 22) : 0;
 
 	dispc_write_reg(dispc_reg_att[plane], l);
 
@@ -1799,7 +1882,11 @@ static int _dispc_setup_plane(enum omap_plane plane,
 		bool ilace,
 		enum omap_dss_rotation_type rotation_type,
 		u8 rotation, int mirror,
-		u8 global_alpha)
+		u8 global_alpha
+#ifdef CONFIG_ARCH_OMAP4
+		, u32 puv_addr
+#endif
+		)
 {
 	const int maxdownscale = cpu_is_omap34xx() ? 4 : 2;
 	bool five_taps = 0;
@@ -1876,12 +1963,23 @@ static int _dispc_setup_plane(enum omap_plane plane,
 		case OMAP_DSS_COLOR_ARGB16:
 		case OMAP_DSS_COLOR_ARGB32:
 		case OMAP_DSS_COLOR_RGBA32:
+#ifdef CONFIG_ARCH_OMAP4
+		case OMAP_DSS_COLOR_RGBA12:
+		case OMAP_DSS_COLOR_XRGB12:
+		case OMAP_DSS_COLOR_ARGB16_1555:
+		case OMAP_DSS_COLOR_RGBX24_32_ALGN:
+		case OMAP_DSS_COLOR_XRGB15:
+#else
 			if (cpu_is_omap24xx())
 				return -EINVAL;
 			if (plane == OMAP_DSS_VIDEO1)
 				return -EINVAL;
+#endif
 			break;
 
+#ifdef CONFIG_ARCH_OMAP4
+		case OMAP_DSS_COLOR_NV12:
+#endif
 		case OMAP_DSS_COLOR_YUV2:
 		case OMAP_DSS_COLOR_UYVY:
 			cconv = 1;
@@ -1942,7 +2040,14 @@ static int _dispc_setup_plane(enum omap_plane plane,
 	/* Fields are independent but interleaved in memory. */
 	if (fieldmode)
 		field_offset = 1;
-
+#ifdef CONFIG_ARCH_OMAP4 /*TODO: OMAP4: check ?! */
+	if (OMAP_DSS_COLOR_NV12 == color_mode) {
+		row_inc = 0x1;
+		pix_inc = 0x1;
+		offset0 = 0x0;
+		offset1 = 0x0;
+	} else
+#else
 	if (rotation_type == OMAP_DSS_ROT_DMA)
 		calc_dma_rotation_offset(rotation, mirror,
 				screen_width, width, frame_height, color_mode,
@@ -1953,7 +2058,7 @@ static int _dispc_setup_plane(enum omap_plane plane,
 				screen_width, width, frame_height, color_mode,
 				fieldmode, field_offset,
 				&offset0, &offset1, &row_inc, &pix_inc);
-
+#endif
 	DSSDBG("offset0 %u, offset1 %u, row_inc %d, pix_inc %d\n",
 			offset0, offset1, row_inc, pix_inc);
 
@@ -1961,7 +2066,13 @@ static int _dispc_setup_plane(enum omap_plane plane,
 
 	_dispc_set_plane_ba0(plane, paddr + offset0);
 	_dispc_set_plane_ba1(plane, paddr + offset1);
-
+#ifdef CONFIG_ARCH_OMAP4
+	/* TODO: check the offset calculations? */
+	if (OMAP_DSS_COLOR_NV12 == color_mode) {
+		_dispc_set_plane_ba_uv0(plane, puv_addr + offset0);
+		_dispc_set_plane_ba_uv1(plane, puv_addr + offset1);
+	}
+#endif
 	_dispc_set_row_inc(plane, row_inc);
 	_dispc_set_pix_inc(plane, pix_inc);
 
@@ -1986,6 +2097,9 @@ static int _dispc_setup_plane(enum omap_plane plane,
 	if (plane != OMAP_DSS_VIDEO1)
 #endif
 		_dispc_setup_global_alpha(plane, global_alpha);
+
+	pix_inc = dispc_read_reg(dispc_reg_att[plane]);
+	DSSDBG("vid[%d] attributes = %x\n", plane, pix_inc);
 
 	return 0;
 }
@@ -3104,7 +3218,26 @@ static void dispc_error_worker(struct work_struct *work)
 			}
 		}
 	}
+#ifdef CONFIG_ARCH_OMAP4
+	if (errors & DISPC_IRQ_VID3_FIFO_UNDERFLOW) {
+		DSSERR("VID3_FIFO_UNDERFLOW, disabling VID2\n");
+		for (i = 0; i < omap_dss_get_num_overlays(); ++i) {
+			struct omap_overlay *ovl;
+			ovl = omap_dss_get_overlay(i);
 
+			if (!(ovl->caps & OMAP_DSS_OVL_CAP_DISPC))
+				continue;
+
+			if (ovl->id == 3) {
+				dispc_enable_plane(ovl->id, 0);
+				dispc_go(ovl->manager->id);
+				mdelay(50);
+				break;
+			}
+		}
+	}
+
+#endif
 	if (errors & DISPC_IRQ_SYNC_LOST) {
 		struct omap_overlay_manager *manager = NULL;
 		bool enable = false;
@@ -3285,6 +3418,8 @@ static void _omap_dispc_initialize_irq(void)
 {
 	unsigned long flags;
 
+	dss_debug = 1;
+
 	spin_lock_irqsave(&dispc.irq_lock, flags);
 
 	memset(dispc.registered_isr, 0, sizeof(dispc.registered_isr));
@@ -3391,7 +3526,11 @@ int dispc_setup_plane(enum omap_plane plane,
 		       enum omap_color_mode color_mode,
 		       bool ilace,
 		       enum omap_dss_rotation_type rotation_type,
-		       u8 rotation, bool mirror, u8 global_alpha)
+		       u8 rotation, bool mirror, u8 global_alpha
+#ifdef CONFIG_ARCH_OMAP4
+			, u32 puv_addr
+#endif
+		)
 {
 	int r = 0;
 
@@ -3413,7 +3552,11 @@ int dispc_setup_plane(enum omap_plane plane,
 			   color_mode, ilace,
 			   rotation_type,
 			   rotation, mirror,
-			   global_alpha);
+			   global_alpha
+#ifdef CONFIG_ARCH_OMAP4
+				, puv_addr
+#endif
+			);
 
 	enable_clocks(0);
 
