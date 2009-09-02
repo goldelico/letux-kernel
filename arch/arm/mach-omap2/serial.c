@@ -567,18 +567,24 @@ static void omap_uart_idle_init(struct omap_uart_state *uart)
 	WARN_ON(ret);
 }
 
-void omap_uart_enable_irqs(int enable)
+int omap_uart_enable_irqs(int enable)
 {
-	int ret;
+	int ret = 0;
 	struct omap_uart_state *uart;
 
 	list_for_each_entry(uart, &uart_list, node) {
-		if (enable)
-			ret = request_irq(uart->p->irq, omap_uart_interrupt,
-				IRQF_SHARED, "serial idle", (void *)uart);
-		else
+		if (enable) {
+			int irq_flags = 0;
+			if (uart->p->flags & UPF_SHARE_IRQ)
+				irq_flags |= IRQF_SHARED;
+			if (uart->p->flags & UPF_TRIGGER_HIGH)
+				irq_flags |= IRQF_TRIGGER_HIGH;
+			ret += request_irq(uart->p->irq, omap_uart_interrupt,
+				irq_flags, "serial idle", (void *)uart);
+		} else
 			free_irq(uart->p->irq, (void *)uart);
 	}
+	return ret;
 }
 
 static ssize_t sleep_timeout_show(struct kobject *kobj,

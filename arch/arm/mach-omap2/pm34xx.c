@@ -655,8 +655,7 @@ static void omap3_pm_finish(void)
 static int omap3_pm_begin(suspend_state_t state)
 {
 	suspend_state = state;
-	omap_uart_enable_irqs(0);
-	return 0;
+	return omap_uart_enable_irqs(0);
 }
 
 static void omap3_pm_end(void)
