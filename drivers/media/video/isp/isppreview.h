@@ -335,17 +335,9 @@ struct prev_params *isppreview_get_config(void);
 
 void isppreview_print_status(void);
 
-#ifndef CONFIG_ARCH_OMAP3410
 void isppreview_save_context(void);
-#else
-static inline void isppreview_save_context(void) {}
-#endif
 
-#ifndef CONFIG_ARCH_OMAP3410
 void isppreview_restore_context(void);
-#else
-static inline void isppreview_restore_context(void) {}
-#endif
 
 int omap34xx_isp_preview_config(void *userspace_add);
 
