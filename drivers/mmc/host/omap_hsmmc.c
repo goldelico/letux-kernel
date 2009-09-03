@@ -382,6 +382,18 @@ mmc_omap_start_command(struct mmc_omap_host *host, struct mmc_command *cmd,
 			resptype = 2;
 	}
 
+#ifdef CONFIG_HC_Broken_eMMC_ZOOM2
+	if (host->id == OMAP_MMC2_DEVID) {
+		/*
+		 * HACK:
+		 * eMMC on Zoom2 seems fail init sequence without this
+		 * delay on SWITCH CMD.
+		 */
+		if (cmd->opcode == 6)
+			msleep(200);
+	}
+#endif
+
 	/*
 	 * Unlike OMAP1 controller, the cmdtype does not seem to be based on
 	 * ac, bc, adtc, bcr. Only commands ending an open ended transfer need
@@ -1130,6 +1142,21 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	host->slot_id	= 0;
 	host->mapbase	= res->start;
 	host->base	= ioremap(host->mapbase, SZ_4K);
+
+#ifdef CONFIG_HC_Broken_eMMC_ZOOM2
+	/*
+	 * HACK:
+	 * The HC eMMC card on Zoom2 is broken. It reports wrong ext_csd
+	 * version. This is a hack to make the eMMC card useble on Zoom2.
+	 * Without this hack the MMC core fails to detect the correct size
+	 * of the card and hence accesses beyond the detected boundary results
+	 * in DATA CRC errors.
+	 * Make use of the unused bit to indicate the host controller ID to
+	 * the MMC core.
+	 */
+	if (host->id == OMAP_MMC2_DEVID)
+		host->mmc->unused = 1;
+#endif
 
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
 	if (pdata->slots[0].embedded_sdio)

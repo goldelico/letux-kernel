@@ -216,6 +216,24 @@ static int mmc_read_ext_csd(struct mmc_card *card)
 		goto out;
 	}
 
+#ifdef CONFIG_HC_Broken_eMMC_ZOOM2
+	/*
+	 * Hack: eMMC on Zoom2 seems to have a lower EXT_CSD Rev.
+	 * This is incorrect as it is an HC card. The card becomes
+	 * unusable if not set to blockaddr mode.
+	 * The low level driver sets up the unused bit for MMC2 on Zoom2.
+	 * Revert this hack once it is fixed in the card.
+	 */
+	if (card->host->unused) {
+		card->ext_csd.sectors =
+			ext_csd[EXT_CSD_SEC_CNT + 0] << 0 |
+			ext_csd[EXT_CSD_SEC_CNT + 1] << 8 |
+			ext_csd[EXT_CSD_SEC_CNT + 2] << 16 |
+			ext_csd[EXT_CSD_SEC_CNT + 3] << 24;
+		if (card->ext_csd.sectors)
+			mmc_card_set_blockaddr(card);
+	} else
+#endif
 	if (ext_csd_struct >= 2) {
 		card->ext_csd.sectors =
 			ext_csd[EXT_CSD_SEC_CNT + 0] << 0 |

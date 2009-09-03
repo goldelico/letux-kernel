@@ -109,6 +109,17 @@ config OMAP_HS_MMC3
 
           If unsure, say N.
 
+config HC_Broken_eMMC_ZOOM2
+        bool "HC_Broken_eMMC support for Zoom2"
+	depends on MMC_OMAP_HS && MACH_OMAP_ZOOM2
+	default n
+	help
+	  This selects High capacity eMMC support for Zoom2.
+	  If you have a Zoom2 board with a broken high capacity eMMC device,
+	  say Y here.
+
+	  If unsure, say N.
+
 config MMC_WBSD
 	tristate "Winbond W83L51xD SD/MMC Card Interface support"
 	depends on ISA_DMA_API
