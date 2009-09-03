@@ -62,11 +62,11 @@
 
 /* SYSM3 Heap */
 #define SYSM3HEAPID				0
-#define SYSM3HEAPNAME			"myHeap" /*FIXME "SYSM3Heap" */
+#define SYSM3HEAPNAME			"SysMgrHeap0"
 
 /* APPM3 Heap */
-#define APPM3HEAPID				0 /*FIXME 1 */
-#define APPM3HEAPNAME			"myHeap" /*FIXME "APPM3Heap" */
+#define APPM3HEAPID				1
+#define APPM3HEAPNAME			"SysMgrHeap1"
 
 
 /*!
@@ -1270,10 +1270,8 @@ void platform_stop_callback(void *arg)
 	if (pc_params.use_heapbuf) {
 		if (index == SMHEAP_SRINDEX_APPM3)
 			status = messageq_unregister_heap(APPM3HEAPID);
-						/* FIXME HEAPID?? */
 		else
 			status = messageq_unregister_heap(SYSM3HEAPID);
-						/* FIXME HEAPID?? */
 		if (status < 0) {
 			printk(KERN_ERR "platform_stop_callback : "
 				"messageq_unregister_heap failed [0x%x]",

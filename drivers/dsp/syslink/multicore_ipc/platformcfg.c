@@ -63,6 +63,9 @@ int platform_override_config(struct sysmgr_config *config)
 	/* Override the listmp default config */
 
 	/* Override the messageq default config */
+	/* We use 2 heaps, 1 for APPM3 and 1 for SYSM3 */
+	if (config->messageq_cfg.num_heaps < 2)
+		config->messageq_cfg.num_heaps = 2;
 
 	/* Override the notify default config */
 	config->notify_cfg.maxDrivers = 2;

@@ -345,6 +345,7 @@ int messageq_setup(const struct messageq_config *cfg)
 		goto nameserver_create_fail;
 	}
 
+	messageq_state.num_heaps = cfg->num_heaps;
 	messageq_state.heaps = kzalloc(sizeof(void *) * \
 				messageq_state.num_heaps, GFP_KERNEL);
 	if (messageq_state.heaps == NULL) {
