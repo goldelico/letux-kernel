@@ -296,6 +296,8 @@ void isp_print_status(void);
 
 void isp_set_hs_vs(int);
 
+unsigned long isp_get_buf_offset(void);
+
 int __init isp_ccdc_init(void);
 int __init isp_hist_init(void);
 int __init isph3a_aewb_init(void);

@@ -513,10 +513,9 @@ int ispresizer_config_size(u32 input_w, u32 input_h, u32 output_w,
 		       (ispres_obj.v_startphase << ISPRSZ_CNT_VSTPH_SHIFT),
 		       OMAP3_ISP_IOMEM_RESZ,
 		       ISPRSZ_CNT);
+
 	/* Set start address for cropping */
-	isp_reg_writel(ispres_obj.tmp_buf + 2 *
-		       (ispres_obj.ipht_crop * ispres_obj.inputwidth +
-			(ispres_obj.ipwd_crop & ~15)),
+	isp_reg_writel(ispres_obj.tmp_buf + isp_get_buf_offset(),
 		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
 
 	isp_reg_writel(

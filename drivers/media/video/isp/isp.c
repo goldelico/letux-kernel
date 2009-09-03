@@ -1921,6 +1921,17 @@ void isp_config_crop(struct v4l2_pix_format *croppix)
 EXPORT_SYMBOL(isp_config_crop);
 
 /**
+ * isp_get_buf_offset - Gets offset of start of crop.
+ *
+ * Returns the offset (in bytes) of the start of the crop rectangle.
+ **/
+unsigned long isp_get_buf_offset()
+{
+	return isp_obj.tmp_buf_offset;
+}
+EXPORT_SYMBOL(isp_get_buf_offset);
+
+/**
  * isp_g_crop - Gets crop rectangle size and position.
  * @a: Pointer to V4L2 crop structure to be filled.
  *
