@@ -109,7 +109,7 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 {
 	DSP_STATUS status = DSP_SOK;
 #ifdef CONFIG_PM
-	u16 usCount = PWRSTST_TIMEOUT / 10;
+	u16 timeout = PWRSTST_TIMEOUT / 10;
 	struct CFG_HOSTRES resources;
 	enum HW_PwrState_t pwrState;
 #ifdef CONFIG_BRIDGE_DVFS
@@ -127,7 +127,7 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 	HW_PWR_IVA2StateGet(resources.dwPrmBase, HW_PWR_DOMAIN_DSP,
 			    &pwrState);
 	/* Wait for DSP to move into OFF state */
-	while ((pwrState != HW_PWR_STATE_OFF) && --usCount) {
+	while ((pwrState != HW_PWR_STATE_OFF) && --timeout) {
 		if (msleep_interruptible(10)) {
 			pr_err("Waiting for DSP OFF mode interrupted\n");
 			return DSP_EFAIL;
@@ -135,7 +135,7 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 		HW_PWR_IVA2StateGet(resources.dwPrmBase, HW_PWR_DOMAIN_DSP,
 				    &pwrState);
 	}
-	if (usCount == 0) {
+	if (timeout == 0) {
 		DBG_Trace(DBG_LEVEL7, "Timed out Waiting for DSP Off mode \n");
 		status = WMD_E_TIMEOUT;
 		return status;
@@ -194,7 +194,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 #ifdef CONFIG_BRIDGE_NTFY_PWRERR
 	struct DEH_MGR *hDehMgr;
 #endif /* CONFIG_BRIDGE_NTFY_PWRERR */
-	u16 usCount = PWRSTST_TIMEOUT / 10;
+	u16 timeout = PWRSTST_TIMEOUT / 10;
 	enum HW_PwrState_t pwrState, targetPwrState;
 
 	DBG_Trace(DBG_LEVEL7, "SleepDSP- Enter function \n");
@@ -256,7 +256,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 			&pwrState);
 
 	/* Wait for DSP to move into target power state */
-	while ((pwrState != targetPwrState) && --usCount) {
+	while ((pwrState != targetPwrState) && --timeout) {
 		if (msleep_interruptible(10)) {
 			pr_err("Waiting for DSP to Suspend interrupted\n");
 			return DSP_EFAIL;
@@ -265,7 +265,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 				    &pwrState);
 	}
 
-	if (!usCount) {
+	if (!timeout) {
 		DBG_Trace(DBG_LEVEL7, "SleepDSP: Timed out Waiting for DSP"
 			 " STANDBY %x \n", pwrState);
 #ifdef CONFIG_BRIDGE_NTFY_PWRERR
