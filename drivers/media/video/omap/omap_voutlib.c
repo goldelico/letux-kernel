@@ -32,6 +32,7 @@
 #include <linux/wait.h>
 #include <linux/videodev2.h>
 #include <linux/semaphore.h>
+#include <mach/cpu.h>
 
 /* Return the default overlay cropping rectangle in crop given the image
  * size in pix and the video display size in fbuf.  The default
@@ -122,14 +123,38 @@ int omap_vout_new_window(struct v4l2_rect *crop,
 	win->field = new_win->field;
 	win->chromakey = new_win->chromakey;
 
-	/* adjust the cropping window to allow for resizing limitations */
-	if ((crop->height/win->w.height) >= 4) {
-		/* The maximum vertical downsizing ratio is 4:1 */
-		crop->height = win->w.height * 4;
-	}
-	if ((crop->width/win->w.width) >= 4) {
-		/* The maximum horizontal downsizing ratio is 4:1 */
-		crop->width = win->w.width * 4;
+	if (cpu_is_omap24xx()) {
+		/* adjust the cropping window to allow for resizing
+		 * limitations. 24xx allow 8x to 1/2x scaling.
+		 */
+		if ((crop->height/win->w.height) >= 2) {
+			/* The maximum vertical downsizing ratio is 2:1 */
+			crop->height = win->w.height * 2;
+		}
+		if ((crop->width/win->w.width) >= 2) {
+			/* The maximum horizontal downsizing ratio is 2:1 */
+			crop->width = win->w.width * 2;
+		}
+		if (crop->width > 768) {
+			/* The OMAP2420 vertical resizing line buffer is 768
+			 * pixels  wide.  If the cropped image is wider than
+			 * 768 pixels then it cannot be vertically resized.
+			 */
+			if (crop->height != win->w.height)
+				crop->width = 768;
+		}
+	} else if (cpu_is_omap34xx()) {
+		/* adjust the cropping window to allow for resizing
+		 * limitations 34xx allow 8x to 1/4x scaling.
+		 */
+		if ((crop->height/win->w.height) >= 4) {
+			/* The maximum vertical downsizing ratio is 4:1 */
+			crop->height = win->w.height * 4;
+		}
+		if ((crop->width/win->w.width) >= 4) {
+			/* The maximum horizontal downsizing ratio is 4:1 */
+			crop->width = win->w.width * 4;
+		}
 	}
 	return 0;
 }
@@ -176,20 +201,24 @@ int omap_vout_new_crop(struct v4l2_pix_format *pix,
 	try_crop.height &= ~1;
 	if (try_crop.width <= 0 || try_crop.height <= 0)
 		return -EINVAL;
-
-	if (crop->height != win->w.height) {
-		/* If we're resizing vertically, we can't support a crop width
-		 * wider than 768 pixels.
-		 */
-		if (try_crop.width > 768)
-			try_crop.width = 768;
+	if (cpu_is_omap24xx()) {
+		if (crop->height != win->w.height) {
+			/* If we're resizing vertically, we can't support a
+			 * crop width wider than 768 pixels.
+			 */
+			if (try_crop.width > 768)
+				try_crop.width = 768;
+		}
 	}
 	/* vertical resizing */
 	vresize = (1024 * crop->height) / win->w.height;
-	if (vresize > 4096)
-		vresize = 4096;
-	else if (vresize == 0)
-		vresize = 1;
+	if (cpu_is_omap24xx()) {
+		if (vresize > 2048)
+			vresize = 2048;
+	} else if (cpu_is_omap34xx()) {
+		if (vresize > 4096)
+			vresize = 4096;
+	}
 	win->w.height = ((1024 * try_crop.height) / vresize) & ~1;
 	if (win->w.height == 0)
 		win->w.height = 2;
@@ -204,10 +233,13 @@ int omap_vout_new_crop(struct v4l2_pix_format *pix,
 	}
 	/* horizontal resizing */
 	hresize = (1024 * crop->width) / win->w.width;
-	if (hresize > 4096)
-		hresize = 4096;
-	else if (hresize == 0)
-		hresize = 1;
+	if (cpu_is_omap24xx()) {
+		if (hresize > 2048)
+			hresize = 2048;
+	} else if (cpu_is_omap34xx()) {
+		if (hresize > 4096)
+			hresize = 4096;
+	}
 	win->w.width = ((1024 * try_crop.width) / hresize) & ~1;
 	if (win->w.width == 0)
 		win->w.width = 2;
@@ -220,17 +252,39 @@ int omap_vout_new_crop(struct v4l2_pix_format *pix,
 		if (try_crop.width == 0)
 			try_crop.width = 2;
 	}
-
-	/* Check for resizing constraints */
-	if ((try_crop.height/win->w.height) >= 4) {
-		/* The maximum vertical downsizing ratio is 4:1 */
-		try_crop.height = win->w.height * 4;
+	if (cpu_is_omap24xx()) {
+		/* Check for resizing constraints
+		 * 24xx allow 8x to 1/2x scaling.
+		 */
+		if ((try_crop.height/win->w.height) >= 2) {
+			/* The maximum vertical downsizing ratio is 2:1 */
+			try_crop.height = win->w.height * 2;
+		}
+		if ((try_crop.width/win->w.width) >= 2) {
+			/* The maximum horizontal downsizing ratio is 2:1 */
+			try_crop.width = win->w.width * 2;
+		}
+		if (try_crop.width > 768) {
+			/* The OMAP2420 vertical resizing line buffer is
+			 * 768 pixels wide.  If the cropped image is wider
+			 * than 768 pixels then it cannot be vertically resized.
+			 */
+			if (try_crop.height != win->w.height)
+				try_crop.width = 768;
+		}
+	} else if (cpu_is_omap34xx()) {
+		/* Check for resizing constraints
+		 * 34xx allow 8x to 1/4x scaling.
+		 */
+		if ((try_crop.height/win->w.height) >= 4) {
+			/* The maximum vertical downsizing ratio is 4:1 */
+			try_crop.height = win->w.height * 4;
+		}
+		if ((try_crop.width/win->w.width) >= 4) {
+			/* The maximum horizontal downsizing ratio is 4:1 */
+			try_crop.width = win->w.width * 4;
+		}
 	}
-	if ((try_crop.width/win->w.width) >= 4) {
-		/* The maximum horizontal downsizing ratio is 4:1 */
-		try_crop.width = win->w.width * 4;
-	}
-
 	/* update our cropping rectangle and we're done */
 	*crop = try_crop;
 	return 0;
