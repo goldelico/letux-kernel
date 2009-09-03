@@ -49,9 +49,6 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 
-#ifdef CONFIG_SERIAL_OMAP
-#include <mach/omap-serial.h>
-#endif
 
 #include "hci_uart.h"
 
@@ -530,16 +527,10 @@ int ll_init(void)
 	else
 		BT_ERR("HCILL protocol registration failed");
 
-#ifdef CONFIG_SERIAL_OMAP
-	omap24xx_uart_cts_wakeup(1, 1);
-#endif
 	return err;
 }
 
 int ll_deinit(void)
 {
-#ifdef CONFIG_SERIAL_OMAP
-	omap24xx_uart_cts_wakeup(1, 0);
-#endif
 	return hci_uart_unregister_proto(&llp);
 }
