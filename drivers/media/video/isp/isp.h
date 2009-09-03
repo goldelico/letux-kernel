@@ -308,7 +308,6 @@ struct isp_pipeline {
  */
 struct isp_device {
 	struct device *dev;
-	struct isp *isp_obj;
 
 	/*** platform HW resources ***/
 	unsigned int irq_num;
