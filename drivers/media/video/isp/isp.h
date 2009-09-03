@@ -41,16 +41,6 @@
 						 */
 #define NUM_BUFS		VIDEO_MAX_FRAME
 
-#ifndef CONFIG_ARCH_OMAP3410
-#define USE_ISP_PREVIEW
-#define USE_ISP_RESZ
-#define is_isppreview_enabled()		1
-#define is_ispresizer_enabled()		1
-#else
-#define is_isppreview_enabled()		0
-#define is_ispresizer_enabled()		0
-#endif
-
 #define ISP_BYTES_PER_PIXEL		2
 #define NUM_ISP_CAPTURE_FORMATS 	(sizeof(isp_formats) /		\
 					 sizeof(isp_formats[0]))
