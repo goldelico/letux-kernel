@@ -2425,15 +2425,16 @@ static int isp_resume(struct platform_device *pdev)
 	if (omap3isp == NULL)
 		goto out;
 
-	if (isp_obj.ref_count >= 0) {
-		ret_err = isp_enable_clocks();
-		if (ret_err)
-			goto out;
-		isp_restore_ctx();
-		isp_resume_modules();
-		isp_enable_interrupts();
-		isp_start();
-	}
+	if (isp_obj.ref_count == 0)
+		goto out;
+
+	ret_err = isp_enable_clocks();
+	if (ret_err)
+		goto out;
+	isp_restore_ctx();
+	isp_resume_modules();
+	isp_enable_interrupts();
+	isp_start();
 
 out:
 	DPRINTK_ISPCTRL("isp_resume: done \n");
