@@ -41,16 +41,6 @@
 						 */
 #define NUM_BUFS		VIDEO_MAX_FRAME
 
-#ifndef CONFIG_ARCH_OMAP3410
-#define USE_ISP_PREVIEW
-#define USE_ISP_RESZ
-#define is_isppreview_enabled()		1
-#define is_ispresizer_enabled()		1
-#else
-#define is_isppreview_enabled()		0
-#define is_ispresizer_enabled()		0
-#endif
-
 #define ISP_BYTES_PER_PIXEL		2
 #define NUM_ISP_CAPTURE_FORMATS 	(sizeof(isp_formats) /		\
 					 sizeof(isp_formats[0]))
@@ -305,6 +295,8 @@ void isp_restore_context(struct isp_reg *);
 void isp_print_status(void);
 
 void isp_set_hs_vs(int);
+
+unsigned long isp_get_buf_offset(void);
 
 int __init isp_ccdc_init(void);
 int __init isp_hist_init(void);

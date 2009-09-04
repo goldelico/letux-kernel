@@ -209,8 +209,8 @@ struct imx046_reg {
 enum imx046_image_size {
 	QUART_MP,
 	HALF_MP,
-	/* FIXME: Apparently 720P size gives a different pixel order */
-	/* p720p_MP, */
+	p720p_MP,
+	p729p_Mp,
 	TWO_MP,
 	EIGHT_MP
 };
@@ -301,7 +301,8 @@ struct imx046_clock_freq {
 const static struct imx046_capture_size imx046_sizes[] = {
 	{ 410, 308 },	/* QUART_MP - 1/8 Vertical Elim */
 	{ 820, 616 },		/* 0.5Mp - 4X Horizontal & Vertical Elim. */
-	/* { 1292, 729}, */ /* FIXME: Apparently 720P size gives a different pixel order */
+	{ 1280, 720},		/*720p - 1/2 vertical & horizontal Elim. */
+	{ 1292, 729},		/*1292x729 - 1/2 vertical & horizontal Elim. */
 	{ 3280, 616 },	/* 2Mp - 4X Vertical Elim. */
 	{ 3280, 2464},	/* 8MP - Full Resolution */
 };
@@ -310,8 +311,8 @@ const static struct imx046_capture_size imx046_sizes[] = {
 enum imx046_pll_type {
 	PLL_QUART_MP = 0,
 	PLL_0_5MP,
-	/* PLL_720p, */ /* FIXME: Apparently 720P size gives a different pixel order */
-	PLL_2MP,
+	PLL_720p,
+	PLL_729p,
 	PLL_8MP,
 };
 

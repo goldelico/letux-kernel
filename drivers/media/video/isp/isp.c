@@ -45,7 +45,6 @@
 #include "ispcsi2.h"
 
 static struct isp_device *omap3isp;
-static int flag_720p;
 
 static int isp_try_size(struct v4l2_pix_format *pix_input,
 			struct v4l2_pix_format *pix_output);
@@ -236,8 +235,16 @@ struct isp_module {
 	unsigned int resizer_output_height;
 };
 
-#define RAW_CAPTURE(isp)					\
-	(!((isp)->module.isp_pipeline & OMAP_ISP_PREVIEW))
+#define CCDC_CAPTURE(isp)					\
+	((isp)->module.isp_pipeline == OMAP_ISP_CCDC)
+
+#define CCDC_PREV_CAPTURE(isp)					\
+	((isp)->module.isp_pipeline == (OMAP_ISP_CCDC | OMAP_ISP_PREVIEW))
+
+#define CCDC_PREV_RESZ_CAPTURE(isp)					\
+	((isp)->module.isp_pipeline == (OMAP_ISP_CCDC | \
+					OMAP_ISP_PREVIEW | \
+					OMAP_ISP_RESIZER))
 
 /**
  * struct isp - Structure for storing ISP Control module information
@@ -425,7 +432,7 @@ static int ispccdc_sbl_wait_idle(int max_wait)
 	return isp_wait(ispccdc_sbl_busy, 0, max_wait);
 }
 
-static void isp_enable_interrupts(int is_raw)
+static void isp_enable_interrupts(void)
 {
 	isp_reg_writel(-1, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 	isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
@@ -434,12 +441,14 @@ static void isp_enable_interrupts(int is_raw)
 		   IRQ0ENABLE_CCDC_VD0_IRQ |
 		   IRQ0ENABLE_CCDC_VD1_IRQ);
 
-	if (is_raw)
-		return;
+	if (CCDC_PREV_CAPTURE(&isp_obj))
+		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			   IRQ0ENABLE_PRV_DONE_IRQ);
 
-	isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-		   IRQ0ENABLE_PRV_DONE_IRQ |
-		   IRQ0ENABLE_RSZ_DONE_IRQ);
+	if (CCDC_PREV_RESZ_CAPTURE(&isp_obj))
+		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			IRQ0ENABLE_PRV_DONE_IRQ |
+			IRQ0ENABLE_RSZ_DONE_IRQ);
 
 	return;
 }
@@ -910,7 +919,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 		goto out_ignore_buff;
 
 	if (irqstatus & CCDC_VD0) {
-		if (RAW_CAPTURE(&isp_obj))
+		if (CCDC_CAPTURE(&isp_obj))
 			isp_buf_process(bufs);
 		if (!ispccdc_busy())
 			ispccdc_config_shadow_registers();
@@ -922,26 +931,36 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 				PREV_DONE,
 				irqdis->isp_callbk_arg1[CBK_PREV_DONE],
 				irqdis->isp_callbk_arg2[CBK_PREV_DONE]);
-		else if (!RAW_CAPTURE(&isp_obj) && !ispresizer_busy()) {
-			if (isp_obj.module.applyCrop) {
-				ispresizer_applycrop();
-				if (!ispresizer_busy())
-					isp_obj.module.applyCrop = 0;
-			}
-			if (!isppreview_busy()) {
-				ispresizer_enable(1);
-				if (isppreview_busy()) {
-					/* FIXME: locking! */
-					ISP_BUF_DONE(bufs)->vb_state =
-						VIDEOBUF_ERROR;
-					printk(KERN_ERR "%s: can't stop"
-					       " preview\n", __func__);
+		else {
+			if (CCDC_PREV_RESZ_CAPTURE(&isp_obj)) {
+				if (!ispresizer_busy()) {
+					if (isp_obj.module.applyCrop) {
+						ispresizer_applycrop();
+						if (!ispresizer_busy())
+							isp_obj \
+							.module.applyCrop = 0;
+					}
+					if (!isppreview_busy()) {
+						ispresizer_enable(1);
+						if (isppreview_busy()) {
+							/* FIXME: locking! */
+							ISP_BUF_DONE \
+							(bufs)->vb_state =
+								VIDEOBUF_ERROR;
+							printk(KERN_ERR \
+								"%s: can't stop"
+								" preview\n",
+								__func__);
+						}
+					}
 				}
 			}
 			if (!isppreview_busy())
 				isppreview_config_shadow_registers();
 			if (!isppreview_busy())
 				isph3a_update_wb();
+			if (CCDC_PREV_CAPTURE(&isp_obj))
+				isp_buf_process(bufs);
 		}
 	}
 
@@ -951,7 +970,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 				RESZ_DONE,
 				irqdis->isp_callbk_arg1[CBK_RESZ_DONE],
 				irqdis->isp_callbk_arg2[CBK_RESZ_DONE]);
-		else if (!RAW_CAPTURE(&isp_obj)) {
+		else if (CCDC_PREV_RESZ_CAPTURE(&isp_obj)) {
 			if (!ispresizer_busy())
 				ispresizer_config_shadow_registers();
 			isp_buf_process(bufs);
@@ -1119,8 +1138,7 @@ static u32 isp_tmp_buf_alloc(size_t size)
  **/
 void isp_start(void)
 {
-	if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW
-	    && is_isppreview_enabled())
+	if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW)
 		isppreview_enable(1);
 
 	isph3a_notify(0);
@@ -1251,10 +1269,11 @@ EXPORT_SYMBOL(isp_stop);
 
 static void isp_set_buf(struct isp_buf *buf)
 {
-	if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER
-	    && is_ispresizer_enabled())
+	if (CCDC_PREV_RESZ_CAPTURE(&isp_obj))
 		ispresizer_set_outaddr(buf->isp_addr);
-	else if (isp_obj.module.isp_pipeline & OMAP_ISP_CCDC)
+	else if (CCDC_PREV_CAPTURE(&isp_obj))
+		isppreview_set_outaddr(buf->isp_addr);
+	else if (CCDC_CAPTURE(&isp_obj))
 		ispccdc_set_outaddr(buf->isp_addr);
 
 }
@@ -1272,23 +1291,25 @@ static u32 isp_calc_pipeline(struct v4l2_pix_format *pix_input,
 	     || pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8)
 	    && pix_output->pixelformat != V4L2_PIX_FMT_SGRBG10) {
 
-		if (!flag_720p)
-				isp_obj.module.isp_pipeline = OMAP_ISP_PREVIEW |
-						OMAP_ISP_RESIZER |
-						OMAP_ISP_CCDC;
-			else
-				isp_obj.module.isp_pipeline = OMAP_ISP_PREVIEW |
-						OMAP_ISP_CCDC;
+		if ((pix_output->width == 1280) &&
+			(pix_output->height == 720)) {
+			isp_obj.module.isp_pipeline =
+				OMAP_ISP_PREVIEW |
+					OMAP_ISP_CCDC;
+			printk(KERN_ERR "720p!!!!!!!\n");
+		} else
+			isp_obj.module.isp_pipeline = OMAP_ISP_PREVIEW |
+						      OMAP_ISP_RESIZER |
+						      OMAP_ISP_CCDC;
 
 		ispccdc_request();
 		isppreview_request();
-		if (!flag_720p)
-			ispresizer_request();
 		ispccdc_config_datapath(CCDC_RAW, CCDC_OTHERS_VP);
 		isppreview_config_datapath(PRV_RAW_CCDC, PREVIEW_MEM);
-		if (!flag_720p)
-				ispresizer_config_datapath(RSZ_MEM_YUV);
-
+		if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER) {
+			ispresizer_request();
+			ispresizer_config_datapath(RSZ_MEM_YUV);
+		}
 	} else {
 		isp_obj.module.isp_pipeline = OMAP_ISP_CCDC;
 		ispccdc_request();
@@ -1332,19 +1353,19 @@ static void isp_config_pipeline(struct v4l2_pix_format *pix_input,
 				       isp_obj.module.resizer_output_height);
 	}
 
-	if (pix_output->pixelformat == V4L2_PIX_FMT_UYVY) {
-		isppreview_config_ycpos(YCPOS_YCrYCb);
-		if (!flag_720p) {
-			if (is_ispresizer_enabled())
-				ispresizer_config_ycpos(0);
+	if (CCDC_PREV_RESZ_CAPTURE(&isp_obj)) {
+		if (pix_output->pixelformat == V4L2_PIX_FMT_UYVY) {
+			isppreview_config_ycpos(YCPOS_YCrYCb);
+			ispresizer_config_ycpos(0);
+		} else {
+			isppreview_config_ycpos(YCPOS_CrYCbY);
+			ispresizer_config_ycpos(1);
 		}
-
-	} else {
-		isppreview_config_ycpos(YCPOS_CrYCbY);
-		if (!flag_720p) {
-			if (is_ispresizer_enabled())
-				ispresizer_config_ycpos(1);
-		}
+	} else if (CCDC_PREV_CAPTURE(&isp_obj)) {
+		if (pix_output->pixelformat == V4L2_PIX_FMT_UYVY)
+			isppreview_config_ycpos(YCPOS_YCrYCb);
+		else
+			isppreview_config_ycpos(YCPOS_CrYCbY);
 	}
 
 	return;
@@ -1396,9 +1417,9 @@ static int isp_buf_process(struct isp_bufs *bufs)
 	if (ISP_BUFS_IS_EMPTY(bufs))
 		goto out;
 
-	if (RAW_CAPTURE(&isp_obj) && ispccdc_sbl_wait_idle(1000)) {
+	if (CCDC_CAPTURE(&isp_obj) && ispccdc_sbl_wait_idle(1000)) {
 		printk(KERN_ERR "ccdc %d won't become idle!\n",
-		       RAW_CAPTURE(&isp_obj));
+		       CCDC_CAPTURE(&isp_obj));
 		goto out;
 	}
 
@@ -1412,9 +1433,11 @@ static int isp_buf_process(struct isp_bufs *bufs)
 	} else {
 		/* Tell ISP not to write any of our buffers. */
 		isp_disable_interrupts();
-		if (RAW_CAPTURE(&isp_obj))
+		if (CCDC_CAPTURE(&isp_obj))
 			ispccdc_enable(0);
-		else
+		else if (CCDC_PREV_CAPTURE(&isp_obj))
+			isppreview_enable(0);
+		else if (CCDC_PREV_RESZ_CAPTURE(&isp_obj))
 			ispresizer_enable(0);
 		/*
 		 * We must wait for the HS_VS since before that the
@@ -1423,8 +1446,9 @@ static int isp_buf_process(struct isp_bufs *bufs)
 		 */
 		bufs->wait_hs_vs = isp_obj.config->wait_hs_vs;
 	}
-	if ((RAW_CAPTURE(&isp_obj) && ispccdc_busy())
-	    || (!RAW_CAPTURE(&isp_obj) && ispresizer_busy())) {
+	if ((CCDC_CAPTURE(&isp_obj) && ispccdc_busy()) ||
+		(CCDC_PREV_RESZ_CAPTURE(&isp_obj) && ispresizer_busy()) ||
+		(CCDC_PREV_CAPTURE(&isp_obj) && isppreview_busy())) {
 		/*
 		 * Next buffer available: for the transfer to succeed, the
 		 * CCDC (RAW capture) or resizer (YUV capture) must be idle
@@ -1498,7 +1522,7 @@ int isp_buf_queue(struct videobuf_buffer *vb,
 	buf->vb_state = VIDEOBUF_DONE;
 
 	if (ISP_BUFS_IS_EMPTY(bufs)) {
-		isp_enable_interrupts(RAW_CAPTURE(&isp_obj));
+		isp_enable_interrupts();
 		isp_set_buf(buf);
 		ispccdc_enable(1);
 		isp_start();
@@ -1524,8 +1548,8 @@ int isp_vbq_setup(struct videobuf_queue *vbq, unsigned int *cnt,
 				     * isp_obj.module.preview_output_height
 				     * ISP_BYTES_PER_PIXEL);
 
-	if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW
-	    && isp_obj.tmp_buf_size < tmp_size)
+	if (CCDC_PREV_RESZ_CAPTURE(&isp_obj) &&
+	    isp_obj.tmp_buf_size < tmp_size)
 		rval = isp_tmp_buf_alloc(tmp_size);
 
 	return rval;
@@ -1834,11 +1858,6 @@ int isp_s_fmt_cap(struct v4l2_pix_format *pix_input,
 	int rval = 0;
 
 
-	if ((pix_output->width == 1280) && (pix_output->height == 720))
-		flag_720p = 1;
-	else
-		flag_720p = 0;
-
 	if (!isp_obj.ref_count)
 		return -EINVAL;
 
@@ -1923,6 +1942,17 @@ void isp_config_crop(struct v4l2_pix_format *croppix)
 	return;
 }
 EXPORT_SYMBOL(isp_config_crop);
+
+/**
+ * isp_get_buf_offset - Gets offset of start of crop.
+ *
+ * Returns the offset (in bytes) of the start of the crop rectangle.
+ **/
+unsigned long isp_get_buf_offset()
+{
+	return isp_obj.tmp_buf_offset;
+}
+EXPORT_SYMBOL(isp_get_buf_offset);
 
 /**
  * isp_g_crop - Gets crop rectangle size and position.
@@ -2395,15 +2425,16 @@ static int isp_resume(struct platform_device *pdev)
 	if (omap3isp == NULL)
 		goto out;
 
-	if (isp_obj.ref_count >= 0) {
-		ret_err = isp_enable_clocks();
-		if (ret_err)
-			goto out;
-		isp_restore_ctx();
-		isp_resume_modules();
-		isp_enable_interrupts(RAW_CAPTURE(&isp_obj));
-		isp_start();
-	}
+	if (isp_obj.ref_count == 0)
+		goto out;
+
+	ret_err = isp_enable_clocks();
+	if (ret_err)
+		goto out;
+	isp_restore_ctx();
+	isp_resume_modules();
+	isp_enable_interrupts();
+	isp_start();
 
 out:
 	DPRINTK_ISPCTRL("isp_resume: done \n");
