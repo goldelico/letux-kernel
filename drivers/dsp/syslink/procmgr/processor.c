@@ -381,3 +381,17 @@ int processor_get_proc_info(void *handle, struct proc_mgr_proc_info *procinfo)
 	retval = proc_handle->proc_fxn_table.procinfo(proc_handle, procinfo);
 	return retval;
 }
+
+/*
+ * Function that returns the address translations
+ */
+int processor_virt_to_phys(void *handle, u32 da, u32 *mapped_entries,
+						u32 num_of_entries)
+{
+	struct processor_object *proc_handle =
+				(struct processor_object *)handle;
+	int retval;
+	retval = proc_handle->proc_fxn_table.virt_to_phys(handle, da,
+				mapped_entries, num_of_entries);
+	return retval;
+}

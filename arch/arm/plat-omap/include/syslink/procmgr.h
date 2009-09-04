@@ -271,4 +271,10 @@ int proc_mgr_register_notify(void *handle, proc_mgr_callback_fxn fxn,
  * processor.
  */
 int proc_mgr_get_proc_info(void *handle, struct proc_mgr_proc_info *proc_info);
+
+/* Function that returns virtual to physical translations
+ */
+int proc_mgr_virt_to_phys(void *handle, u32 da, u32 *mapped_entries,
+						u32 num_of_entries);
+
 #endif

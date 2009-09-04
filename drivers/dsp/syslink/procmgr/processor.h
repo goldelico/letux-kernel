@@ -77,4 +77,7 @@ int processor_register_notify(void *handle, proc_mgr_callback_fxn fxn,
 /* Function that returns the return value of specific processor info
  */
 int processor_get_proc_info(void *handle, struct proc_mgr_proc_info *procinfo);
+
+int processor_virt_to_phys(void *handle, u32 da, u32 *mapped_entries,
+						u32 num_of_entries);
 #endif

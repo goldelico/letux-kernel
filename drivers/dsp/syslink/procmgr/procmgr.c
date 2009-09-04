@@ -947,3 +947,28 @@ error_exit:
 	return -EFAULT;
 }
 EXPORT_SYMBOL(proc_mgr_get_proc_info);
+
+/*============================================
+ *  Function to get virtual to physical address translations
+ *
+ * This function retrieves physical entries
+ *
+ */
+int proc_mgr_virt_to_phys(void *handle, u32 da, u32 *mapped_entries,
+						u32 num_of_entries)
+{
+	int retval = 0;
+	struct proc_mgr_object *proc_mgr_handle =
+				(struct proc_mgr_object *)handle;
+
+	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
+
+	/* Map to host address space. */
+	retval = processor_virt_to_phys(proc_mgr_handle->proc_handle, da,
+				mapped_entries, num_of_entries);
+	WARN_ON(retval < 0);
+	mutex_unlock(proc_mgr_obj_state.gate_handle);
+	return retval;;
+}
+EXPORT_SYMBOL(proc_mgr_virt_to_phys);
+

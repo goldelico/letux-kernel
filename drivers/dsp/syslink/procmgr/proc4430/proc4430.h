@@ -106,6 +106,10 @@ int proc4430_map(void *handle, u32 proc_addr, u32 size, u32 *mapped_addr,
 /* Function to unmap the slave address to host address space */
 int proc4430_unmap(void *handle, u32 mapped_addr);
 
+/* Function to retrive physical address translations */
+int proc4430_virt_to_phys(void *handle, u32 da, u32 *mapped_entries,
+					u32 num_of_entries);
+
 /* =================================================
  *  APIs
  * =================================================

@@ -139,6 +139,13 @@ typedef int (*processor_unmap_fxn) (void *handle, u32 mapped_addr);
 typedef int (*processor_proc_info) (void *handle,
 				struct  proc_mgr_proc_info *proc_info);
 
+/*
+ *Function pointer type for the function that returns proc info
+ */
+typedef int (*processor_virt_to_phys_fxn) (void *handle, u32 da,
+			u32 *mapped_entries, u32 num_of_entries);
+
+
 /* =============================
  *  Function table interface
  * =============================
@@ -168,6 +175,8 @@ struct processor_fxn_table {
 	processor_unmap_fxn unmap;
 	/* Function to unmap slave addresses to master address space */
 	processor_proc_info procinfo;
+	/* Function to convert Virtual to Physical pages */
+	processor_virt_to_phys_fxn virt_to_phys;
 };
 
 /* =============================

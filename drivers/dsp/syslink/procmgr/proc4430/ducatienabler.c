@@ -234,10 +234,11 @@ int ducati_mem_unmap(u32 da, u32 num_bytes)
 			if (*iopte & IOPTE_LARGE) {
 				nent = 16;
 				/* rewind to the 1st entry */
-				iopte = (u32 *)((u32)iopte & IOLARGE_MASK);
-			} else
+				phyaddress = *iopte & IOLARGE_MASK;
+			} else {
 				nent = 1;
-			phyaddress = (*iopte) & IOPAGE_MASK;
+				phyaddress = (*iopte) & IOPAGE_MASK;
+			}
 		} else {
 			if ((*iopgd & IOPGD_SUPER) == IOPGD_SUPER) {
 				nent = 4096;
@@ -272,12 +273,43 @@ int ducati_mem_unmap(u32 da, u32 num_bytes)
 }
 
 /*
+ *  ======== ducati_mem_virtToPhys ========
+ *  This funciton provides the translation from
+ *  Remote virtual address to Physical address
+ */
+
+inline u32 ducati_mem_virtToPhys(u32 da)
+{
+	u32 *iopgd = iopgd_offset(ducati_iommu_ptr, da);
+	u32 phyaddress;
+
+	if (*iopgd & IOPGD_TABLE) {
+		u32 *iopte = iopte_offset(iopgd, da);
+		if (*iopte & IOPTE_LARGE) {
+			phyaddress = *iopte & IOLARGE_MASK;
+			phyaddress |= (da & (IOLARGE_SIZE - 1));
+		} else
+			phyaddress = (*iopte) & IOPAGE_MASK;
+	} else {
+		if ((*iopgd & IOPGD_SUPER) == IOPGD_SUPER) {
+			phyaddress = *iopgd & IOSUPER_MASK;
+			phyaddress |= (da & (IOSUPER_SIZE - 1));
+		} else {
+			phyaddress = (*iopgd) & IOPGD_MASK;
+			phyaddress |= (da & (IOPGD_SIZE - 1));
+		}
+	}
+	return phyaddress;
+}
+
+
+/*
  *  ======== user_va2pa ========
  *  Purpose:
  *      This function walks through the Linux page tables to convert a userland
  *      virtual address to physical address
  */
-static u32 user_va2pa(struct mm_struct *mm, u32 address)
+u32 user_va2pa(struct mm_struct *mm, u32 address)
 {
 	pgd_t *pgd;
 	pmd_t *pmd;
@@ -329,6 +361,7 @@ int ducati_mem_map(u32 mpu_addr, u32 ul_virt_addr,
 		return -EINVAL;
 	if (map_attr != 0) {
 		attrs = map_attr;
+		attrs |= DSP_MAPELEMSIZE32;
 	} else {
 		/* Assign default attributes */
 		attrs = DSP_MAPVIRTUALADDR | DSP_MAPELEMSIZE32;

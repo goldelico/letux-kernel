@@ -16,11 +16,13 @@
 
 #include <linux/types.h>
 #include <linux/mm.h>
+#include <linux/sched.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/vmalloc.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
+#include <linux/delay.h>
 
 /* Module level headers */
 #include "../procdefs.h"
@@ -247,6 +249,7 @@ void *proc4430_create(u16 proc_id, const struct proc4430_params *params)
 		handle->proc_fxn_table.map = &proc4430_map;
 		handle->proc_fxn_table.unmap = &proc4430_unmap;
 		handle->proc_fxn_table.procinfo = &proc4430_proc_info;
+		handle->proc_fxn_table.virt_to_phys = &proc4430_virt_to_phys;
 		handle->state = PROC_MGR_STATE_UNKNOWN;
 		handle->object = vmalloc
 				(sizeof(struct proc4430_object));
@@ -461,13 +464,14 @@ int proc4430_start(void *handle, u32 entry_pt,
 {
 	switch (start_params->params->proc_id) {
 	case SYS_M3:
+		/* De-assert RST2 */
 		__raw_writel(0x02, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
 		break;
 	case APP_M3:
 		__raw_writel(0x0, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
 		break;
 	default:
-		printk("proc4430_start: ERROR input\n");
+		printk(KERN_ERR "proc4430_start: ERROR input\n");
 		break;
 	}
 	return 0;
@@ -620,6 +624,17 @@ int proc4430_map(void *handle, u32 proc_addr,
 	u32 va_align;
 	u32 size_align;
 
+	/* FIX ME: Temporary work around until the dynamic memory mapping
+	  * for Tiler address space is available
+	  */
+	if ((map_attribs & DSP_MAPTILERADDR)) {
+		da_align = user_va2pa(current->mm, proc_addr);
+		*mapped_addr = (da_align | (proc_addr & (PAGE_SIZE - 1)));
+		printk(KERN_INFO "proc4430_map -tiler: user_va2pa: mapped_addr"
+			"= 0x%x\n", *mapped_addr);
+		return 0;
+	}
+
 	dmm_reserve_memory(size, &da);
 	/* Calculate the page-aligned PA, VA and size */
 	da_align = PG_ALIGN_LOW((u32)da, PAGE_SIZE);
@@ -659,6 +674,36 @@ error_exit:
 }
 
 /*=================================================
+ * Function to return list of translated mem entries
+ *
+ * This function takes the remote processor address as
+ * an input and returns the mapped Page entries in the
+ * buffer passed
+ */
+int proc4430_virt_to_phys(void *handle, u32 da, u32 *mapped_entries,
+						u32 num_of_entries)
+{
+	int da_align;
+	int i;
+	int ret_val = 0;
+
+	if (handle == NULL || mapped_entries == NULL || num_of_entries == 0) {
+		ret_val = -EFAULT;
+		goto error_exit;
+	}
+	da_align = PG_ALIGN_LOW((u32)da, PAGE_SIZE);
+	for (i = 0; i < num_of_entries; i++) {
+		mapped_entries[i] = ducati_mem_virtToPhys(da_align);
+		da_align += PAGE_SIZE;
+	}
+	return 0;
+error_exit:
+	printk(KERN_WARNING "proc4430_virtToPhys failed !!!!\n");
+	return ret_val;
+}
+
+
+/*=================================================
  * Function to return PROC4430 mem_entries info
  *
  */
@@ -669,6 +714,7 @@ int proc4430_proc_info(void *handle, struct proc_mgr_proc_info *procinfo)
 	struct proc4430_object *object = NULL;
 	struct proc4430_mem_entry *entry = NULL;
 	int i;
+
 	if (WARN_ON(handle == NULL))
 		goto error_exit;
 	if (WARN_ON(procinfo == NULL))

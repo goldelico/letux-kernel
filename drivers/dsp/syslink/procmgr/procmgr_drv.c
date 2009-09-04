@@ -574,7 +574,26 @@ static int proc_mgr_drv_ioctl(struct inode *inode, struct file *filp,
 	}
 	break;
 
+	case CMD_PROCMGR_GETVIRTTOPHYS:
+	{
+		struct proc_mgr_cmd_args_get_virt_to_phys src_args;
+
+		retval = copy_from_user((void *)&src_args,
+			(const void *)(args),
+			sizeof(struct proc_mgr_cmd_args_get_virt_to_phys));
+		retval = proc_mgr_virt_to_phys(src_args.handle,
+					src_args.da, (src_args.mem_entries),
+					src_args.num_of_entries);
+		if (WARN_ON(retval < 0))
+			goto func_exit;
+		retval = copy_to_user((void *)(args), (const void *)&src_args,
+			sizeof(struct proc_mgr_cmd_args_get_virt_to_phys));
+		WARN_ON(retval < 0);
+	}
+	break;
+
 	default:
+		printk(KERN_ERR"PROC_MGR_DRV: WRONG IOCTL !!!!\n");
 		BUG_ON(1);
 	break;
 	}

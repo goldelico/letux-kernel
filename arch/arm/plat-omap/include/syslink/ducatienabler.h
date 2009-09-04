@@ -17,6 +17,8 @@
 #define _DDUCATIMMU_ENABLER_H_
 
 #include <linux/types.h>
+#include <linux/mm.h>
+
 #include <syslink/hw_defs.h>
 #include <syslink/hw_mmu.h>
 
@@ -124,6 +126,8 @@
 #define DSP_MAPELEMSIZE64			0x00000040
 
 #define DSP_MAPVMALLOCADDR			0x00000080
+#define DSP_MAPTILERADDR			0x00000100
+
 
 #define PG_MASK(pg_size) (~((pg_size)-1))
 #define PG_ALIGN_LOW(addr, pg_size) ((addr) & PG_MASK(pg_size))
@@ -193,4 +197,6 @@ void ducati_destroy(void);
 u32 get_ducati_virt_mem();
 int ducati_mem_map(u32 va, u32 da, u32 num_bytes, u32 map_attr);
 int ducati_mem_unmap(u32 da, u32 num_bytes);
+u32 user_va2pa(struct mm_struct *mm, u32 address);
+inline u32 ducati_mem_virtToPhys(u32 da);
 #endif /* _DDUCATIMMU_ENABLER_H_*/

@@ -176,6 +176,12 @@ struct proc_mgr_cmd_args {
  */
 #define CMD_PROCMGR_UNMAP			(PROCMGR_BASE_CMD + 27)
 
+/*
+ * Command for ProcMgr_getVirtToPhysPages
+ */
+#define CMD_PROCMGR_GETVIRTTOPHYS		(PROCMGR_BASE_CMD + 28)
+
+
 
 
 /*  ----------------------------------------------------------------------------
@@ -516,5 +522,20 @@ struct proc_mgr_cmd_args_get_proc_info {
 	struct proc_mgr_proc_info *proc_info;
 	/*Pointer to the ProcInfo object to be populated. */
 };
+
+/*
+ * Command arguments for ProcMgr_virtToPhys
+ */
+struct proc_mgr_cmd_args_get_virt_to_phys {
+	struct proc_mgr_cmd_args commond_args;
+	/*Common command args */
+	void *handle;
+	u32 da;
+	/* mem entries buffer */
+	u32 *mem_entries;
+	/* number of entries */
+	u32 num_of_entries;
+};
+
 #endif
 
