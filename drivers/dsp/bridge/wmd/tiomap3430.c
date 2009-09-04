@@ -2088,14 +2088,14 @@ void configureDspMmu(struct WMD_DEV_CONTEXT *pDevContext, u32 dataBasePhys,
  */
 bool WaitForStart(struct WMD_DEV_CONTEXT *pDevContext, u32 dwSyncAddr)
 {
-	u16 usCount = TIHELEN_ACKTIMEOUT;
+	u16 timeout = TIHELEN_ACKTIMEOUT;
 
 	/*  Wait for response from board */
-	while (*((volatile u16 *)dwSyncAddr) && --usCount)
+	while (*((volatile u16 *)dwSyncAddr) && --timeout)
 		udelay(10);
 
 	/*  If timed out: return FALSE */
-	if (!usCount) {
+	if (!timeout) {
 		DBG_Trace(DBG_LEVEL7, "Timed out Waiting for DSP to Start\n");
 		return FALSE;
 	}
