@@ -72,6 +72,7 @@ static u8 triton_next_free_address = 0x2b;
 
 #define DEVGROUP_OFFSET		0
 #define TYPE_OFFSET		1
+#define REMAP_OFFSET		2
 
 static u8 res_config_addrs[] = {
 	[RES_VAUX1]	= 0x17,
@@ -151,37 +152,24 @@ static int __init twl4030_write_script(u8 address, struct twl4030_ins *script,
 	return err;
 }
 
-static int __init config_wakeup3_sequence(u8 address)
-{
-
-	int err = 0;
-
-	/* Set SLEEP to ACTIVE SEQ address for P3 */
-	err |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, address,
-				  R_SEQ_ADD_S2A3);
-
-	err |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, LVL_WAKEUP,
-					R_P3_SW_EVENTS);
-	if (err)
-		printk(KERN_ERR "TWL4030 wakeup sequence for P3" \
-				"config error\n");
-
-	return err;
-}
-
-static int __init config_wakeup12_sequence(u8 address)
+static int __init config_wakeup_sequence(u8 address)
 {
 	int err = 0;
 
 	/* Set SLEEP to ACTIVE SEQ address for P1 and P2 */
 	err |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, address,
 				  R_SEQ_ADD_SA12);
+	/* Set SLEEP to ACTIVE SEQ address for P3 */
+	err |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, address,
+				  R_SEQ_ADD_S2A3);
 
 	/* P1/P2/P3 LVL_WAKEUP should be on LEVEL */
 	err |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, LVL_WAKEUP,
 					R_P1_SW_EVENTS);
 	err |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, LVL_WAKEUP,
 					R_P2_SW_EVENTS);
+	err |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, LVL_WAKEUP,
+					R_P3_SW_EVENTS);
 
 	if (machine_is_omap_3430sdp() || machine_is_omap_ldp() ||
 	    machine_is_omap_zoom2()) {
@@ -195,8 +183,7 @@ static int __init config_wakeup12_sequence(u8 address)
 	}
 
 	if (err)
-		printk(KERN_ERR "TWL4030 wakeup sequence for P1 and P2" \
-				"config error\n");
+		printk(KERN_ERR "TWL4030 wakeup sequence config error\n");
 
 	return err;
 }
@@ -262,6 +249,7 @@ void twl4030_configure_resource(struct twl4030_resconfig *rconfig)
 {
 	int rconfig_addr;
 	u8 type;
+	u8 remap;
 
 	if (rconfig->resource > NUM_OF_RESOURCES) {
 		printk(KERN_ERR
@@ -303,6 +291,25 @@ void twl4030_configure_resource(struct twl4030_resconfig *rconfig)
 	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 				type, rconfig_addr + TYPE_OFFSET);
 
+	/* Set resource state remap */
+
+	if (twl4030_i2c_read_u8(TWL4030_MODULE_PM_RECEIVER,
+					&remap,
+					rconfig_addr + REMAP_OFFSET) < 0) {
+		printk(KERN_ERR
+			"TWL4030 Resource %d remap could not read\n",
+			rconfig->resource);
+		return;
+	}
+
+	if (rconfig->remap_sleep >= 0) {
+		remap &= ~0xF;
+		remap |= rconfig->remap_sleep;
+	}
+
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+				remap, rconfig_addr + REMAP_OFFSET);
+
 }
 
 static int __init load_triton_script(struct twl4030_script *tscript)
@@ -319,11 +326,8 @@ static int __init load_triton_script(struct twl4030_script *tscript)
 	if (tscript->flags & TRITON_WRST_SCRIPT)
 		err |= config_warmreset_sequence(address);
 
-	if (tscript->flags & TRITON_WAKEUP12_SCRIPT)
-		err |= config_wakeup12_sequence(address);
-
-	if (tscript->flags & TRITON_WAKEUP3_SCRIPT)
-		err |= config_wakeup3_sequence(address);
+	if (tscript->flags & TRITON_WAKEUP_SCRIPT)
+		err |= config_wakeup_sequence(address);
 
 	if (tscript->flags & TRITON_SLEEP_SCRIPT)
 		err |= config_sleep_sequence(address);
