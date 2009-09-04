@@ -21,6 +21,9 @@
 #ifndef OMAP_ISP_USER_H
 #define OMAP_ISP_USER_H
 
+#include <linux/types.h>
+#include <linux/videodev2.h>
+
 /* ISP Private IOCTLs */
 #define VIDIOC_PRIVATE_ISP_CCDC_CFG	\
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct ispccdc_update_config)
