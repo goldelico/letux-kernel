@@ -224,6 +224,7 @@ int twl4030_i2c_read(u8 mod_no, u8 *value, u8 reg, unsigned num_bytes);
 #define DEV_GRP_P1		0x1
 #define DEV_GRP_P2		0x2
 #define DEV_GRP_P3		0x4
+#define DEV_GRP_ALL		0x7
 
 #define RES_GRP_RES		0x0
 #define RES_GRP_PP		0x1
@@ -236,6 +237,7 @@ int twl4030_i2c_read(u8 mod_no, u8 *value, u8 reg, unsigned num_bytes);
 
 #define RES_TYPE2_R0		0x0
 
+#define RES_TYPE_R1		0x1
 #define RES_TYPE_ALL		0x7
 
 #define RES_STATE_WRST		0xF
@@ -368,9 +370,8 @@ struct twl4030_script {
 	unsigned size;
 	u8 flags;
 #define TRITON_WRST_SCRIPT	(1<<0)
-#define TRITON_WAKEUP12_SCRIPT	(1<<1)
-#define TRITON_WAKEUP3_SCRIPT	(1<<2)
-#define TRITON_SLEEP_SCRIPT	(1<<3)
+#define TRITON_WAKEUP_SCRIPT	(1<<1)
+#define TRITON_SLEEP_SCRIPT	(1<<2)
 };
 
 struct twl4030_resconfig {
@@ -378,6 +379,8 @@ struct twl4030_resconfig {
 	u8 devgroup;
 	u8 type;
 	u8 type2;
+	u8 remap_off;
+	u8 remap_sleep;
 };
 
 struct twl4030_power_data {

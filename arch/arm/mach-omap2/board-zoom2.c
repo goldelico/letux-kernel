@@ -640,15 +640,9 @@ static struct twl4030_madc_platform_data zoom2_madc_data = {
 };
 
 static struct twl4030_ins __initdata sleep_on_seq[] = {
-
-	/* Turn off HFCLKOUT */
-	{MSG_SINGULAR(DEV_GRP_P1, 0x19, RES_STATE_OFF), 2},
-	/* Turn OFF VDD1 */
-	{MSG_SINGULAR(DEV_GRP_P1, 0xf, RES_STATE_OFF), 2},
-	/* Turn OFF VDD2 */
-	{MSG_SINGULAR(DEV_GRP_P1, 0x10, RES_STATE_OFF), 2},
-	/* Turn OFF VPLL1 */
-	{MSG_SINGULAR(DEV_GRP_P1, 0x7, RES_STATE_OFF), 2},
+	/* Broadcast message to put res to sleep */
+	{MSG_BROADCAST(DEV_GRP_NULL, RES_GRP_ALL, RES_TYPE_R1, RES_TYPE2_R0,
+							RES_STATE_SLEEP), 2},
 };
 
 static struct twl4030_script sleep_on_script __initdata = {
@@ -657,31 +651,16 @@ static struct twl4030_script sleep_on_script __initdata = {
 	.flags	= TRITON_SLEEP_SCRIPT,
 };
 
-static struct twl4030_ins wakeup_p12_seq[] __initdata = {
-	/* Turn on HFCLKOUT */
-	{MSG_SINGULAR(DEV_GRP_P1, 0x19, RES_STATE_ACTIVE), 2},
-	/* Turn ON VDD1 */
-	{MSG_SINGULAR(DEV_GRP_P1, 0xf, RES_STATE_ACTIVE), 2},
-	/* Turn ON VDD2 */
-	{MSG_SINGULAR(DEV_GRP_P1, 0x10, RES_STATE_ACTIVE), 2},
-	/* Turn ON VPLL1 */
-	{MSG_SINGULAR(DEV_GRP_P1, 0x7, RES_STATE_ACTIVE), 2},
+static struct twl4030_ins wakeup_seq[] __initdata = {
+	/* Broadcast message to put res to active */
+	{MSG_BROADCAST(DEV_GRP_NULL, RES_GRP_ALL, RES_TYPE_R1, RES_TYPE2_R0,
+			RES_STATE_ACTIVE), 2},
 };
 
-static struct twl4030_script wakeup_p12_script __initdata = {
-	.script = wakeup_p12_seq,
-	.size   = ARRAY_SIZE(wakeup_p12_seq),
-	.flags  = TRITON_WAKEUP12_SCRIPT,
-};
-
-static struct twl4030_ins wakeup_p3_seq[] __initdata = {
-	{MSG_SINGULAR(DEV_GRP_P1, 0x19, RES_STATE_ACTIVE), 2},
-};
-
-static struct twl4030_script wakeup_p3_script __initdata = {
-	.script = wakeup_p3_seq,
-	.size   = ARRAY_SIZE(wakeup_p3_seq),
-	.flags  = TRITON_WAKEUP3_SCRIPT,
+static struct twl4030_script wakeup_script __initdata = {
+	.script = wakeup_seq,
+	.size   = ARRAY_SIZE(wakeup_seq),
+	.flags  = TRITON_WAKEUP_SCRIPT,
 };
 
 static struct twl4030_ins wrst_seq[] __initdata = {
@@ -709,19 +688,38 @@ static struct twl4030_script wrst_script __initdata = {
 
 static struct twl4030_script *twl4030_scripts[] __initdata = {
 	&sleep_on_script,
-	&wakeup_p12_script,
-	&wakeup_p3_script,
+	&wakeup_script,
 	&wrst_script,
 };
 
 static struct twl4030_resconfig twl4030_rconfig[] = {
-	{ .resource = RES_HFCLKOUT, .devgroup = DEV_GRP_P3, .type = -1,
-		.type2 = -1 },
-	{ .resource = RES_VDD1, .devgroup = DEV_GRP_P1, .type = -1,
-		.type2 = -1 },
-	{ .resource = RES_VDD2, .devgroup = DEV_GRP_P1, .type = -1,
-		.type2 = -1 },
-	{ 0, 0},
+	{ .resource = RES_HFCLKOUT, .devgroup = DEV_GRP_P3, .type = 1,
+		.type2 = -1, .remap_sleep = -1 },
+	{ .resource = RES_VDD1, .devgroup = DEV_GRP_P1, .type = 1,
+		.type2 = -1, .remap_sleep = RES_STATE_OFF },
+	{ .resource = RES_VDD2, .devgroup = DEV_GRP_P1, .type = 1,
+		.type2 = -1, .remap_sleep = RES_STATE_OFF },
+	{ .resource = RES_VPLL1, .devgroup = DEV_GRP_P1, .type = 1,
+		.type2 = -1, .remap_sleep = RES_STATE_OFF },
+	{ .resource = RES_VINTANA2, .devgroup = DEV_GRP_ALL, .type = 1,
+		.type2 = -1, .remap_sleep = -1 },
+	{ .resource = RES_VIO, .devgroup = DEV_GRP_ALL, .type = 1,
+		.type2 = -1, .remap_sleep = -1 },
+	{ .resource = RES_REGEN, .devgroup = DEV_GRP_ALL, .type = 1,
+		.type2 = -1, .remap_sleep = -1 },
+	{ .resource = RES_NRES_PWRON, .devgroup = DEV_GRP_ALL, .type = 1,
+		.type2 = -1, .remap_sleep = -1 },
+	{ .resource = RES_CLKEN, .devgroup = DEV_GRP_ALL, .type = 1,
+		.type2 = -1, .remap_sleep = -1 },
+	{ .resource = RES_SYSEN, .devgroup = DEV_GRP_ALL, .type = 1,
+		.type2 = -1, .remap_sleep = -1 },
+	{ .resource = RES_32KCLKOUT, .devgroup = DEV_GRP_ALL, .type = 1,
+		.type2 = -1, .remap_sleep = -1 },
+	{ .resource = RES_RESET, .devgroup = DEV_GRP_ALL, .type = 1,
+		.type2 = -1, .remap_sleep = -1 },
+	{ .resource = RES_Main_Ref, .devgroup = DEV_GRP_ALL, .type = 1,
+		.type2 = -1, .remap_sleep = -1 },
+	{ 0, 0 },
 };
 
 static struct twl4030_power_data zoom2_t2scripts_data __initdata = {
