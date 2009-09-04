@@ -20,13 +20,12 @@
 #include "omapvout.h"
 #include "omapvout-dss.h"
 #include "omapvout-mem.h"
+#include "omapvout-vbq.h"
 
 #define DMA_CHAN_ALLOTED	1
 #define DMA_CHAN_NOT_ALLOTED	0
 
 #define VRFB_TX_TIMEOUT		1000
-
-#define INVALID_SEQ_NUM		0
 
 /*=== Local Functions ==================================================*/
 
@@ -104,7 +103,7 @@ static int omapvout_dss_calc_offset(struct omapvout_device *vout)
 	dss = vout->dss;
 
 	switch (vout->rotation)	{
-	case 1: /* 90 degrees */
+	case 3: /* 270 degrees */
 		dss->foffset = (cx * OMAP_VRFB_LINE_LEN * bpp * bpp_mult)
 				+ ((oh + (ih - cy - ch)) * bpp * bpp_mult);
 		break;
@@ -113,7 +112,7 @@ static int omapvout_dss_calc_offset(struct omapvout_device *vout)
 							* bpp * bpp_mult)
 				+ ((ow + (iw - cx - cw)) * bpp * bpp_mult);
 		break;
-	case 3: /* 270 degrees */
+	case 1: /* 90 degrees */
 		dss->foffset = ((ow + (iw - cx - cw)) * OMAP_VRFB_LINE_LEN
 							* bpp * bpp_mult)
 				+ (cy * bpp * bpp_mult);
@@ -127,7 +126,151 @@ static int omapvout_dss_calc_offset(struct omapvout_device *vout)
 	return rc;
 }
 
-static int omapvout_dss_config_colorkey(struct omapvout_device *vout, bool init)
+static int omapvout_dss_get_overlays(struct omap_overlay **gfx,
+			struct omap_overlay **vid1, struct omap_overlay **vid2)
+{
+	struct omap_overlay *t;
+	int num_ovlys;
+	int i;
+
+	*gfx = NULL;
+	*vid1 = NULL;
+	*vid2 = NULL;
+	num_ovlys = omap_dss_get_num_overlays();
+	for (i = 0; i < num_ovlys; i++) {
+		t = omap_dss_get_overlay(i);
+
+		switch (t->id) {
+		case OMAP_DSS_GFX:
+			*gfx = t;
+			break;
+		case OMAP_DSS_VIDEO1:
+			*vid1 = t;
+			break;
+		case OMAP_DSS_VIDEO2:
+			*vid2 = t;
+			break;
+		}
+	}
+
+	if (*gfx && *vid1 && *vid2)
+		return 0;
+
+	return -EINVAL;
+}
+
+/* The algorithm below was cooked up to provide a reasonable global alpha
+ * configuration based on the typical use case, which is a single video plane
+ * blended with the graphics plane.  This algorithm will handle multiple
+ * video planes as well, but the thought is that typically the user is not
+ * going to want to be forced to set the global alpha value via the graphics
+ * plane (the frame buffer), but instead via the video plane.
+ *
+ * Algorithm:
+ * 1) For video1, if video2 is enabled, place the global alpha value set to
+ *    video2, else set to the graphics plane.
+ * 2) For video2, always place the global alpha value set to the graphics
+ *   plane, but need to be careful to move the video1 alpha value if its
+ *   already enabled.
+ */
+static void omapvout_dss_set_global_alpha(struct omapvout_device *vout)
+{
+	struct omap_overlay *gfx, *vid1, *vid2;
+	struct omap_overlay_info info;
+	u8 alpha;
+	u8 t;
+
+	/* Invert the requested alpha value since this alpha value is how
+	 * transparent the video plane is supposed to be, but it is being
+	 * applied to the plane above.
+	 */
+	alpha = 255 - vout->win.global_alpha;
+
+	if (omapvout_dss_get_overlays(&gfx, &vid1, &vid2)) {
+		DBG("Not all planes available\n");
+		return;
+	}
+
+	if (vout->dss->overlay->id == OMAP_DSS_VIDEO1) {
+		vid2->get_overlay_info(vid2, &info);
+		if (info.enabled) {
+			info.global_alpha = alpha;
+			vid2->set_overlay_info(vid2, &info);
+		} else {
+			gfx->get_overlay_info(gfx, &info);
+			info.global_alpha = alpha;
+			gfx->set_overlay_info(gfx, &info);
+		}
+	} else if (vout->dss->overlay->id == OMAP_DSS_VIDEO2) {
+		vid1->get_overlay_info(vid1, &info);
+		if (info.enabled) {
+			gfx->get_overlay_info(gfx, &info);
+			t = info.global_alpha;
+			info.global_alpha = alpha;
+			gfx->set_overlay_info(gfx, &info);
+			vid2->get_overlay_info(vid2, &info);
+			info.global_alpha = t;
+			vid2->set_overlay_info(vid2, &info);
+		} else {
+			gfx->get_overlay_info(gfx, &info);
+			info.global_alpha = alpha;
+			gfx->set_overlay_info(gfx, &info);
+			vid2->get_overlay_info(vid2, &info);
+			info.global_alpha = 255;
+			vid2->set_overlay_info(vid2, &info);
+		}
+	}
+
+#ifdef DEBUG
+	gfx->get_overlay_info(gfx, &info);
+	DBG("GFX Alpha = %d\n", info.global_alpha);
+	vid2->get_overlay_info(vid2, &info);
+	DBG("VID2 Alpha = %d\n", info.global_alpha);
+	vid1->get_overlay_info(vid1, &info);
+	DBG("VID1 Alpha = %d\n", info.global_alpha);
+#endif
+}
+
+/* This algorithm reverses the changes made in the "_set_" function and
+ * returns a flag denoting if alpha should still be enabled.
+ *
+ * The non-trivial part is to handle the case where both video planes are
+ * enabled.
+ */
+static bool omapvout_dss_clr_global_alpha(struct omapvout_device *vout)
+{
+	struct omap_overlay *gfx, *vid1, *vid2;
+	struct omap_overlay_info info;
+	bool alpha_en = false;
+	u8 t;
+
+	if (omapvout_dss_get_overlays(&gfx, &vid1, &vid2)) {
+		DBG("Not all planes available\n");
+		return false;
+	}
+
+	if (vout->dss->overlay->id == OMAP_DSS_VIDEO1) {
+		vid2->get_overlay_info(vid2, &info);
+		if (info.enabled)
+			alpha_en = true;
+	} else if (vout->dss->overlay->id == OMAP_DSS_VIDEO2) {
+		vid1->get_overlay_info(vid1, &info);
+		if (info.enabled) {
+			alpha_en = true;
+
+			/* Set gfx alpha to vid1's alpha */
+			vid2->get_overlay_info(vid2, &info);
+			t = info.global_alpha;
+			gfx->get_overlay_info(gfx, &info);
+			info.global_alpha = t;
+			gfx->set_overlay_info(gfx, &info);
+		}
+	}
+
+	return alpha_en;
+}
+
+static int omapvout_dss_enable_transparency(struct omapvout_device *vout)
 {
 	struct omap_overlay_manager *mgr;
 	struct omap_overlay_manager_info m_info;
@@ -140,22 +283,57 @@ static int omapvout_dss_config_colorkey(struct omapvout_device *vout, bool init)
 		return -EINVAL;
 
 	mgr->get_manager_info(mgr, &m_info);
-	if (vout->colorkey_en) {
-		m_info.alpha_enabled = false;
-		if (init) {
-			m_info.trans_key_type = OMAP_DSS_COLOR_KEY_GFX_DST;
-			m_info.trans_key = vout->colorkey;
-			m_info.trans_enabled = true;
-		} else {
-			m_info.trans_enabled = false;
-		}
 
-		mgr->set_manager_info(mgr, &m_info);
+	m_info.default_color = vout->bg_color;
+
+	if (vout->fbuf.flags & V4L2_FBUF_FLAG_CHROMAKEY) {
+		m_info.trans_key_type = OMAP_DSS_COLOR_KEY_GFX_DST;
+		m_info.trans_key = vout->win.chromakey;
+		m_info.trans_enabled = true;
+	} else if (vout->fbuf.flags & V4L2_FBUF_FLAG_SRC_CHROMAKEY) {
+		m_info.trans_key_type = OMAP_DSS_COLOR_KEY_VID_SRC;
+		m_info.trans_key = vout->win.chromakey;
+		m_info.trans_enabled = true;
 	} else {
 		m_info.trans_enabled = false;
-		m_info.alpha_enabled = false;
-		mgr->set_manager_info(mgr, &m_info);
 	}
+
+	if (vout->fbuf.flags & V4L2_FBUF_FLAG_LOCAL_ALPHA) {
+		m_info.alpha_enabled = true;
+	} else if (vout->fbuf.flags & V4L2_FBUF_FLAG_GLOBAL_ALPHA) {
+		omapvout_dss_set_global_alpha(vout);
+		m_info.alpha_enabled = true;
+	} else {
+		m_info.alpha_enabled = false;
+	}
+
+	DBG("Trans Enable = %d\n", m_info.trans_enabled);
+	DBG("Trans Mode = %d\n", m_info.trans_key_type);
+	DBG("Alpha Enable = %d\n", m_info.alpha_enabled);
+
+	mgr->set_manager_info(mgr, &m_info);
+
+	return 0;
+}
+
+static int omapvout_dss_disable_transparency(struct omapvout_device *vout)
+{
+	struct omap_overlay_manager *mgr;
+	struct omap_overlay_manager_info m_info;
+
+	mgr = vout->dss->overlay->manager;
+	if (mgr == NULL)
+		return -EINVAL;
+
+	if (mgr->set_manager_info == NULL || mgr->get_manager_info == NULL)
+		return -EINVAL;
+
+	mgr->get_manager_info(mgr, &m_info);
+
+	m_info.alpha_enabled = omapvout_dss_clr_global_alpha(vout);
+	m_info.trans_enabled = false;
+
+	mgr->set_manager_info(mgr, &m_info);
 
 	return 0;
 }
@@ -177,7 +355,8 @@ static int omapvout_dss_acquire_vrfb(struct omapvout_device *vout)
 {
 	int rc = 0;
 	int size;
-	u16 w, h;
+	int w, h;
+	int max_pixels;
 	struct omapvout_dss_vrfb *vrfb;
 
 	/* It is assumed that the caller has locked the vout mutex */
@@ -200,10 +379,13 @@ static int omapvout_dss_acquire_vrfb(struct omapvout_device *vout)
 		goto failed_ctx1;
 	}
 
+	/* Determine the VFRB buffer size by oversizing for the VRFB */
 	w = vout->max_video_width;
 	h = vout->max_video_height;
-	omap_vrfb_adjust_size(&w, &h, vout->max_video_bytespp);
-	size = PAGE_ALIGN(w * h * vout->max_video_bytespp);
+	max_pixels = w * h;
+	w += 32; /* Oversize as typical for VRFB */
+	h += 32;
+	size = PAGE_ALIGN(w * h * (vout->max_video_buffer_size / max_pixels));
 	vrfb->size = size;
 
 	rc = omapvout_mem_alloc(size, &vrfb->phy_addr[0], &vrfb->virt_addr[0]);
@@ -273,14 +455,12 @@ static int omapvout_dss_perform_vrfb_dma(struct omapvout_device *vout,
 					int buf_idx, bool vrfb_cfg)
 {
 	int rc = 0;
+	int rot = 0;
 	struct omapvout_dss_vrfb *vrfb;
 	u32 src_paddr;
 	u32 dst_paddr;
 
 	/* It is assumed that the caller has locked the vout mutex */
-
-	if (vout->rotation == 0)
-		return 0;
 
 	if (vout->dss->vrfb.req_status != DMA_CHAN_ALLOTED)
 		return -EINVAL;
@@ -298,9 +478,9 @@ static int omapvout_dss_perform_vrfb_dma(struct omapvout_device *vout,
 
 		dss_fmt = omapvout_dss_color_mode(vout->pix.pixelformat);
 		omap_vrfb_setup(&vrfb->ctx[0], vrfb->phy_addr[0],
-							w, h, dss_fmt);
+				w, h, dss_fmt, vout->rotation);
 		omap_vrfb_setup(&vrfb->ctx[1], vrfb->phy_addr[1],
-							w, h, dss_fmt);
+				w, h, dss_fmt, vout->rotation);
 
 		bytespp = omapvout_dss_format_bytespp(vout->pix.pixelformat);
 		vrfb->en = (w * bytespp) / 4; /* 32 bit ES */
@@ -315,8 +495,20 @@ static int omapvout_dss_perform_vrfb_dma(struct omapvout_device *vout,
 		}
 	}
 
-	src_paddr = vout->fq[buf_idx].phy_addr;
-	dst_paddr = vrfb->ctx[vrfb->next].paddr[0];
+	switch (vout->rotation) {
+	case 1:
+		rot = 3;
+		break;
+	case 3:
+		rot = 1;
+		break;
+	default:
+		rot = vout->rotation;
+		break;
+	}
+
+	src_paddr = vout->queue.bufs[buf_idx]->baddr;
+	dst_paddr = vrfb->ctx[vrfb->next].paddr[rot];
 
 	omap_set_dma_transfer_params(vrfb->dma_ch, OMAP_DMA_DATA_TYPE_S32,
 				vrfb->en, vrfb->fn, OMAP_DMA_SYNC_ELEMENT,
@@ -348,30 +540,22 @@ static int omapvout_dss_update_overlay(struct omapvout_device *vout,
 {
 	struct omap_overlay_info o_info;
 	struct omap_overlay *ovly;
+	struct omapvout_dss_vrfb *vrfb;
 	int rc = 0;
 	int rot = vout->rotation;
 
 	/* It is assumed that the caller has locked the vout mutex */
 
 	/* Populate the overlay info struct and set it */
-	memset(&o_info, 0, sizeof(o_info));
+	ovly = vout->dss->overlay;
+	ovly->get_overlay_info(ovly, &o_info);
 	o_info.enabled = true;
-	if (rot == 0) {
-		o_info.paddr = vout->fq[buf_idx].phy_addr;
-		o_info.paddr += vout->dss->foffset;
-		o_info.vaddr = NULL;
-		o_info.screen_width = vout->pix.width;
-	} else {
-		struct omapvout_dss_vrfb *vrfb;
-
-		vrfb = &vout->dss->vrfb;
-		o_info.paddr = vrfb->ctx[vrfb->next].paddr[rot];
-		o_info.paddr += vout->dss->foffset;
-		o_info.vaddr = NULL;
-		o_info.screen_width = OMAP_VRFB_LINE_LEN;
-
-		vrfb->next = (vrfb->next) ? 0 : 1;
-	}
+	vrfb = &vout->dss->vrfb;
+	o_info.paddr = vrfb->ctx[vrfb->next].paddr[0];
+	o_info.paddr += vout->dss->foffset;
+	o_info.vaddr = NULL;
+	o_info.screen_width = OMAP_VRFB_LINE_LEN;
+	vrfb->next = (vrfb->next) ? 0 : 1;
 
 	if (rot == 1 || rot == 3) { /* 90 or 270 degree rotation */
 		o_info.width = vout->crop.height;
@@ -386,15 +570,10 @@ static int omapvout_dss_update_overlay(struct omapvout_device *vout,
 	o_info.out_width = vout->win.w.width;
 	o_info.out_height = vout->win.w.height;
 	o_info.color_mode = omapvout_dss_color_mode(vout->pix.pixelformat);
-	if (rot == 0)
-		o_info.rotation_type = OMAP_DSS_ROT_DMA;
-	else
-		o_info.rotation_type = OMAP_DSS_ROT_VRFB;
-
+	o_info.rotation_type = OMAP_DSS_ROT_VRFB;
 	o_info.rotation = rot;
 	o_info.mirror = false;
 
-	ovly = vout->dss->overlay;
 	rc = ovly->set_overlay_info(ovly, &o_info);
 	if (rc) {
 		DBG("Failed setting the overlay info %d\n", rc);
@@ -416,116 +595,110 @@ static int omapvout_dss_update_overlay(struct omapvout_device *vout,
 	return rc;
 }
 
+static void omapvout_dss_mark_buf_done(struct omapvout_device *vout, int idx)
+{
+	/* FIXME: Should set the state to VIDEOBUF_DONE here, but since we
+	 * don't properly DQ yet, this has been hacked to allow no DQ.
+	 */
+	vout->queue.bufs[idx]->state = VIDEOBUF_IDLE;
+	wake_up_interruptible(&vout->queue.bufs[idx]->done);
+}
+
 static void omapvout_dss_perform_update(struct work_struct *work)
 {
 	struct omapvout_device *vout;
 	struct omapvout_dss *dss;
 	struct omap_dss_device *dev;
-	int i;
+	struct videobuf_buffer *buf;
 	int rc;
 	int idx = 0;
-	u32 seqn = INVALID_SEQ_NUM;
 
 	dss = container_of(work, struct omapvout_dss, work);
 	vout = dss->vout;
-
-	if (dss->exit_work)
-		return;
 
 	if (!dss->enabled)
 		return;
 
 	mutex_lock(&vout->mtx);
 
-	/* Find a frame to process */
-	for (i = vout->fq_cnt - 1; i >= 0; i--) {
-		if (vout->fq[i].seq_num != INVALID_SEQ_NUM) {
-			if (seqn == INVALID_SEQ_NUM ||
-					vout->fq[i].seq_num < seqn) {
-				seqn = vout->fq[i].seq_num;
-				idx = i;
+	dss->working = true;
+
+	while (!list_empty(&vout->q_list)) {
+
+		buf = list_entry(vout->q_list.next,
+				struct videobuf_buffer, queue);
+		list_del(&buf->queue);
+		buf->state = VIDEOBUF_ACTIVE;
+		idx = buf->i;
+
+		/*DBG("Processing frame %d\n", idx);*/
+
+		if (dss->need_cfg) {
+			rc = omapvout_dss_calc_offset(vout);
+			if (rc != 0) {
+				DBG("Offset calculation failed %d\n", rc);
+				goto failed_need_done;
+			}
+
+			rc = omapvout_dss_enable_transparency(vout);
+			if (rc != 0) {
+				DBG("Alpha config failed %d\n", rc);
+				goto failed_need_done;
 			}
 		}
-	}
 
-	if (seqn == INVALID_SEQ_NUM) {
-		DBG("No frame found to process\n");
-		goto failed;
-	}
-
-	vout->fq[idx].seq_num = INVALID_SEQ_NUM;
-
-	if (dss->need_cfg) {
-		rc = omapvout_dss_calc_offset(vout);
+		rc = omapvout_dss_perform_vrfb_dma(vout, idx, dss->need_cfg);
 		if (rc != 0) {
-			DBG("Offset calculation failed %d\n", rc);
-			goto failed_w_idx;
+			DBG("VRFB rotation failed %d\n", rc);
+			goto failed_need_done;
 		}
 
-		rc = omapvout_dss_config_colorkey(vout, true);
+                omapvout_dss_mark_buf_done(vout, idx);
+
+		rc = omapvout_dss_update_overlay(vout, idx);
 		if (rc != 0) {
-			DBG("Alpha config failed %d\n", rc);
-			goto failed_w_idx;
-		}
-	}
-
-	rc = omapvout_dss_perform_vrfb_dma(vout, idx, dss->need_cfg);
-	if (rc != 0) {
-		DBG("VRFB rotation failed %d\n", rc);
-		goto failed_w_idx;
-	}
-
-	rc = omapvout_dss_update_overlay(vout, idx);
-	if (rc != 0) {
-		DBG("DSS update failed %d\n", rc);
-		goto failed_w_idx;
-	}
-
-	dss->need_cfg = false;
-
-	mutex_unlock(&vout->mtx);
-
-	/* Wait until the new frame is being used.  There is no problem
-	 * doing this here since we are in a worker thread.  The mutex
-	 * is unlocked since the sync may take some time.
-	 */
-	dev = dss->overlay->manager->device;
-	if (dev->sync)
-		dev->sync(dev);
-
-	/* Since the mutex was unlocked, it is possible that the DSS may
-	 * be exiting when we return, so check for this and exit if so.
-	 */
-	if (dss->exit_work)
-		return;
-
-	mutex_lock(&vout->mtx);
-
-	if (vout->rotation == 0) {
-		if (vout->fq_cur_idx != -1) {
-			vout->fq[vout->fq_cur_idx].flags &=
-						~(V4L2_BUF_FLAG_QUEUED);
-			vout->fq[vout->fq_cur_idx].flags |= V4L2_BUF_FLAG_DONE;
-			wake_up_interruptible(&vout->fq_wait);
+			DBG("DSS update failed %d\n", rc);
+			goto failed;
 		}
 
-		vout->fq_cur_idx = idx;
-	} else {
-		vout->fq[idx].flags &= ~(V4L2_BUF_FLAG_QUEUED);
-		vout->fq[idx].flags |= V4L2_BUF_FLAG_DONE;
-		wake_up_interruptible(&vout->fq_wait);
+		dss->need_cfg = false;
+
+		mutex_unlock(&vout->mtx);
+
+		/* Wait until the new frame is being used.  There is no problem
+		 * doing this here since we are in a worker thread.  The mutex
+		 * is unlocked since the sync may take some time.
+		 */
+		dev = dss->overlay->manager->device;
+		if (dev->sync)
+			dev->sync(dev);
+
+		/* Since the mutex was unlocked, it is possible that the DSS
+		 * may be disabled when we return, so check for this and exit
+		 * if so.
+		 */
+		if (!dss->enabled) {
+			/* Since the DSS is disabled, this isn't a problem */
+			dss->working = false;
+
+			/* Clean up the states of the final buffer */
+			omapvout_dss_mark_buf_done(vout, idx);
+			return;
+		}
+
+		mutex_lock(&vout->mtx);
 	}
 
+	dss->working = false;
 	mutex_unlock(&vout->mtx);
 
 	return;
 
-failed_w_idx:
+failed_need_done:
 	/* Set the done flag on failures to be sure the buffer can be DQ'd */
-	vout->fq[idx].flags &= ~(V4L2_BUF_FLAG_QUEUED);
-	vout->fq[idx].flags |= V4L2_BUF_FLAG_DONE;
-	wake_up_interruptible(&vout->fq_wait);
+	omapvout_dss_mark_buf_done(vout, idx);
 failed:
+	dss->working = false;
 	mutex_unlock(&vout->mtx);
 }
 
@@ -537,6 +710,11 @@ int  omapvout_dss_init(struct omapvout_device *vout, enum omap_plane plane)
 	int rc = 0;
 	int i;
 	int cnt;
+
+	if (vout->dss) {
+		rc = -EINVAL;
+		goto failed;
+	}
 
 	vout->dss = kzalloc(sizeof(struct omapvout_dss), GFP_KERNEL);
 	if (vout->dss == NULL) {
@@ -590,6 +768,8 @@ int omapvout_dss_open(struct omapvout_device *vout, u16 *disp_w, u16 *disp_h)
 	struct omap_dss_device *dev;
 	int rc = 0;
 
+	/* It is assumed that the caller has locked the vout mutex */
+
 	if (vout->dss->overlay->manager == NULL) {
 		DBG("No manager found\n");
 		rc = -ENODEV;
@@ -612,9 +792,9 @@ int omapvout_dss_open(struct omapvout_device *vout, u16 *disp_w, u16 *disp_h)
 		rc = -ENOMEM;
 		goto failed;
 	}
+
 	INIT_WORK(&vout->dss->work, omapvout_dss_perform_update);
 
-	vout->dss->exit_work = false;
 	vout->dss->enabled = false;
 
 failed:
@@ -623,7 +803,10 @@ failed:
 
 void omapvout_dss_release(struct omapvout_device *vout)
 {
-	vout->dss->exit_work = true;
+	/* It is assumed that the caller has locked the vout mutex */
+
+	if (vout->dss->enabled)
+		omapvout_dss_disable(vout);
 
 	flush_workqueue(vout->dss->workqueue);
 	destroy_workqueue(vout->dss->workqueue);
@@ -638,6 +821,9 @@ int omapvout_dss_enable(struct omapvout_device *vout)
 {
 	/* It is assumed that the caller has locked the vout mutex */
 
+	/* Reset the current frame idx */
+	vout->dss->cur_q_idx = -1;
+
 	/* Force a reconfiguration */
 	vout->dss->need_cfg = true;
 
@@ -651,15 +837,26 @@ void omapvout_dss_disable(struct omapvout_device *vout)
 	int rc = 0;
 	struct omap_overlay_info o_info;
 	struct omap_overlay *ovly;
+	struct omap_dss_device *dev;
 
 	/* It is assumed that the caller has locked the vout mutex */
 
 	memset(&o_info, 0, sizeof(o_info));
 	o_info.enabled = false;
 
-	rc = omapvout_dss_config_colorkey(vout, false);
+	vout->dss->enabled = false;
+
+	dev = vout->dss->overlay->manager->device;
+	if (vout->dss->working && dev->sync) {
+		/* Allow the current frame to finish */
+		mutex_unlock(&vout->mtx);
+		dev->sync(dev);
+		mutex_lock(&vout->mtx);
+	}
+
+	rc = omapvout_dss_disable_transparency(vout);
 	if (rc)
-		DBG("Disabling alpha failed %d\n", rc);
+		DBG("Disabling transparency failed %d\n", rc);
 
 	ovly = vout->dss->overlay;
 	rc = ovly->set_overlay_info(ovly, &o_info);
@@ -674,15 +871,21 @@ void omapvout_dss_disable(struct omapvout_device *vout)
 				0, 0, vout->disp_width, vout->disp_height);
 	if (rc)
 		DBG("Display update failed %d\n", rc);
-
-	vout->dss->enabled = false;
 }
 
 int omapvout_dss_update(struct omapvout_device *vout)
 {
+	/* It is assumed that the caller has locked the vout mutex */
+
 	if (!vout->dss->enabled) {
 		DBG("DSS overlay is not enabled\n");
 		return -EINVAL;
+	}
+
+	if (vout->dss->working) {
+		/* Exit quitely, since still working on previous frame */
+		/*DBG("DSS busy, handle shortly\n");*/
+		return 0;
 	}
 
 	if (queue_work(vout->dss->workqueue, &vout->dss->work) == 0) {
