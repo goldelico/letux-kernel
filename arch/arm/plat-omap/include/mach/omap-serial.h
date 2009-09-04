@@ -33,11 +33,8 @@
 					         IO_ADDRESS(OMAP_UART3_BASE) ))
 extern unsigned int fcr[MAX_UARTS];
 
-/* This allows the OMAP to wake-up from the UARTs[cts line],
- * the definition should come from drivers/serial/omap-serial.c
- * BT in that case uses UART2 [uart_no=1], and state=1[enable]
- */
-extern int omap24xx_uart_cts_wakeup(int uart_no, int state);
+int omap_uart_active(int num);
+int omap_uart_cts_wakeup(int uart_no, int state);
 
 #endif /* __OMAP_SERIAL_H__ */
 

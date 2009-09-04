@@ -21,6 +21,7 @@
 #include <linux/clk.h>
 #ifdef CONFIG_SERIAL_OMAP
 #include <linux/platform_device.h>
+#include <mach/omap-serial.h>
 #endif
 #include <linux/io.h>
 #include <linux/wakelock.h>
@@ -55,6 +56,7 @@ struct omap_uart_state {
 	struct plat_serial8250_port *p;
 	struct list_head node;
 
+	int use_dma;
 #if defined(CONFIG_ARCH_OMAP3) && defined(CONFIG_PM)
 	int context_valid;
 
@@ -78,8 +80,6 @@ static void omap_serial_pm(struct uart_port *port, unsigned int state,
 	if (old == 3)
 		wake_lock_timeout(&omap_serial_wakelock, 10*HZ);
 }
-
-
 
 static struct plat_serial8250_port serial_platform_data[] = {
 	{
@@ -323,11 +323,12 @@ static void omap_uart_smart_idle_enable(struct omap_uart_state *uart,
 	u16 sysc;
 
 	sysc = serial_read_reg(p, UART_OMAP_SYSC) & 0x7;
-	if (enable)
-		sysc |= 0x2 << 3;
-	else
-		sysc |= 0x1 << 3;
-
+	if (enable) {
+		/* Errata 2.15: Force idle if in DMA mode */
+		sysc |= uart->use_dma ? 0x0 : (0x2 << 3);
+	} else {
+			sysc |= 0x1 << 3;
+	}
 	serial_write_reg(p, UART_OMAP_SYSC, sysc);
 }
 
@@ -377,6 +378,16 @@ static void omap_uart_idle_timer(unsigned long data)
 {
 	struct omap_uart_state *uart = (struct omap_uart_state *)data;
 
+#ifdef CONFIG_SERIAL_OMAP
+	/* If uart in DMA mode dont call allow_sleep
+	 * as our omap-serial driver as an errata
+	 * item 2.15
+	 */
+	if (uart->use_dma && omap_uart_active(uart->num)) {
+		omap_uart_block_sleep(uart);
+		return;
+	}
+#endif
 	omap_uart_allow_sleep(uart);
 }
 
@@ -424,6 +435,29 @@ void omap_uart_prepare_suspend(void)
 	list_for_each_entry(uart, &uart_list, node) {
 		omap_uart_allow_sleep(uart);
 	}
+}
+
+int uart_in_dma_mode(int num)
+{
+	int using_dma = 0;
+	switch (num) {
+	case 0:
+		#ifdef CONFIG_SERIAL_OMAP_DMA_UART1
+		using_dma = 1;
+		#endif
+		break;
+	case 1:
+		#ifdef CONFIG_SERIAL_OMAP_DMA_UART2
+		using_dma = 1;
+		#endif
+		break;
+	case 2:
+		#ifdef CONFIG_SERIAL_OMAP_DMA_UART3
+		using_dma = 1;
+		#endif
+		break;
+	}
+	return using_dma;
 }
 
 int omap_uart_can_sleep(void)
@@ -679,6 +713,8 @@ void __init omap_serial_init(void)
 		p->private_data = uart;
 		uart->p = p;
 		list_add(&uart->node, &uart_list);
+
+		uart->use_dma = uart_in_dma_mode(i);
 
 		omap_uart_enable_clocks(uart);
 		omap_uart_reset(uart);
