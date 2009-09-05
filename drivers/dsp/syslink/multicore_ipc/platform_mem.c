@@ -115,6 +115,7 @@ int platform_mem_destroy(void)
 
 	if (atomic_dec_return(&platform_mem_state.ref_count)
 			== PLATFORM_MEM_MAKE_MAGICSTAMP(0)) {
+		list_del(&platform_mem_state.map_table);
 		/* Delete the gate handle */
 		kfree(&platform_mem_state.gate);
 	}
@@ -230,6 +231,7 @@ int platform_mem_unmap(memory_unmap_info *unmap_info)
 	list_for_each_entry(info, &platform_mem_state.map_table, mem_entry) {
 		if (info->knl_virtual_address == unmap_info->addr) {
 			list_del(&info->mem_entry);
+			kfree(info);
 			break;
 		}
 

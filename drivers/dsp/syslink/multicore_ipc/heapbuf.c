@@ -343,8 +343,8 @@ int _heapbuf_create(void **handle_ptr, const struct heapbuf_params *params,
 	s32 retval  = 0;
 	u32 i;
 	s32 align;
-	s32 shmindex;
-	u32 shared_shmbase;
+	s32 shm_index;
+	u32 shared_shm_base;
 	void *entry = NULL;
 
 	if (atomic_cmpmask_and_lt(&(heapbuf_state.ref_count),
@@ -379,6 +379,7 @@ int _heapbuf_create(void **handle_ptr, const struct heapbuf_params *params,
 	handle->alloc = &heapbuf_alloc;
 	handle->free  = &heapbuf_free;
 	handle->get_stats = &heapbuf_get_stats;
+	/* FIXME: handle->is_blocking = &heapbuf_isblocking; */
 	/* Create the shared list */
 	listmp_sharedmemory_params_init(NULL, &listmp_params);
 	listmp_params.shared_addr = (u32 *)((u32) (params->shared_addr)
@@ -464,13 +465,13 @@ int _heapbuf_create(void **handle_ptr, const struct heapbuf_params *params,
 	if ((likely(heapbuf_state.cfg.use_nameserver == true))
 			&& (create_flag == true)) {
 		/* We will store a shared pointer in the nameserver */
-		shmindex = sharedregion_get_index(params->shared_addr);
-		shared_shmbase = (u32)sharedregion_get_srptr(
-					params->shared_addr, shmindex);
+		shm_index = sharedregion_get_index(params->shared_addr);
+		shared_shm_base = (u32)sharedregion_get_srptr(
+					params->shared_addr, shm_index);
 		if (obj->params.name != NULL) {
 			entry = nameserver_add_uint32(heapbuf_state.ns_handle,
 							params->name,
-							(u32)(shared_shmbase));
+							(u32)(shared_shm_base));
 			if (entry == NULL) {
 				retval = -EFAULT;
 				goto ns_add_error;
@@ -595,8 +596,10 @@ int heapbuf_delete(void **handle_ptr)
 	}
 
 	obj = (struct heapbuf_obj *)handle->obj;
-	if (obj == NULL)
+	if (obj == NULL) {
+		retval = -EINVAL;
 		goto error;
+	}
 
 	myproc_id =  multiproc_get_id(NULL);
 

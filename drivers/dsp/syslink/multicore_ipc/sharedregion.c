@@ -243,6 +243,7 @@ int sharedregion_add(u32 index, void *base, u32 len)
 
 
 	table = sharedregion_state.table;
+	/* Check for overlap */
 	for (i = 0; i < sharedregion_state.cfg.max_regions; i++) {
 		entry = (table
 			+ (myproc_id * sharedregion_state.cfg.max_regions)
@@ -317,6 +318,7 @@ int sharedregion_remove(u32 index)
 {
 	struct sharedregion_info *entry = NULL;
 	struct sharedregion_info *table = NULL;
+	u16 myproc_id;
 	s32 retval = 0;
 
 	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
@@ -335,8 +337,11 @@ int sharedregion_remove(u32 index)
 	if (retval)
 		goto error;
 
+	myproc_id = multiproc_get_id(NULL);
 	table = sharedregion_state.table;
-	entry = (table + index);
+	entry = (table
+		 + (myproc_id * sharedregion_state.cfg.max_regions)
+		 + index);
 	entry->is_valid = false;
 	entry->base = NULL;
 	entry->len = 0;

@@ -115,7 +115,7 @@
 #include <messageq.h>
 
 
-/*! @brief Macro to make a correct module magic number with refCount */
+/*  Macro to make a correct module magic number with refCount */
 #define MESSAGEQ_MAKE_MAGICSTAMP(x) ((MESSAGEQ_MODULEID << 12u) | (x))
 
 /* =============================================================================
@@ -126,11 +126,6 @@
  *  @brief  Name of the reserved NameServer used for MessageQ.
  */
 #define MESSAGEQ_NAMESERVER  "MessageQ"
-
-/*!
- *  @brief  Number of types of priority queues for each transport
- */
-#define MESSAGEQ_NUM_PRIORITY_QUEUES  2
 
 
 /* =============================================================================
@@ -152,7 +147,7 @@ struct messageq_module_object {
 	struct messageq_params default_inst_params;
 	/*!< Default instance creation parameters */
 	void *transports[MULTIPROC_MAXPROCESSORS][MESSAGEQ_NUM_PRIORITY_QUEUES];
-	/*!< Transport to be set in messageq_registerTransport */
+	/*!< Transport to be set in messageq_register_transport */
 	void **queues; /*messageq_handle *queues;*/
 	/*!< Grow option */
 	void **heaps; /*Heap_Handle *heaps; */
@@ -847,6 +842,7 @@ int messageq_get(void *messageq_handle, messageq_msg *msg,
 			mutex_unlock(messageq_state.gate_handle);
 		}
 	}
+	return status;
 
 exit:
 	if (status < 0)

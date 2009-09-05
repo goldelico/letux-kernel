@@ -209,8 +209,12 @@ static int gatepeterson_ioctl_open(struct gatepeterson_cmd_args *cargs)
 		}
 	}
 
-	params.shared_addr = sharedregion_get_ptr(
-			(u32 *)cargs->args.create.shared_addr_srptr);
+	/* For open by name, the shared_add_srptr may be invalid */
+	if (cargs->args.open.shared_addr_srptr != \
+					(u32) SHAREDREGION_INVALIDSRPTR) {
+		params.shared_addr = sharedregion_get_ptr(
+				(u32 *)cargs->args.open.shared_addr_srptr);
+	}
 	cargs->api_status = gatepeterson_open(&handle, &params);
 	cargs->args.open.handle = handle;
 

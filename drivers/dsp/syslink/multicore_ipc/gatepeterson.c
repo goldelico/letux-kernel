@@ -387,18 +387,18 @@ int gatepeterson_delete(void **gphandle)
 
 	handle = (struct gatepeterson_object *)(*gphandle);
 	obj = (struct gatepeterson_obj *)handle->obj;
-	if (obj == NULL) {
+	if (unlikely(obj == NULL)) {
 		retval = -EINVAL;
 		goto exit;
 	}
 
-	if (obj->attrs == NULL) {
+	if (unlikely(obj->attrs == NULL)) {
 		retval = -EINVAL;
 		goto exit;
 	}
 
 	/* Check if we have created the GP or not */
-	if (obj->attrs->creator_proc_id != multiproc_get_id(NULL)) {
+	if (unlikely(obj->attrs->creator_proc_id != multiproc_get_id(NULL))) {
 		retval = -EACCES;
 		goto exit;
 	}
@@ -438,6 +438,7 @@ int gatepeterson_delete(void **gphandle)
 		obj->local_gate = NULL; /* TBD: Fixme */
 		break;
 	case  GATEPETERSON_PROTECT_INTERRUPT: /* Fall through */
+		/* FIXME: Add a spinlock protection */
 	case  GATEPETERSON_PROTECT_TASKLET: /* Fall through */
 	case  GATEPETERSON_PROTECT_THREAD:  /* Fall through */
 	case  GATEPETERSON_PROTECT_PROCESS:
@@ -620,6 +621,11 @@ int gatepeterson_close(void **gphandle)
 
 	handle = (struct gatepeterson_object *)(*gphandle);
 	obj = (struct gatepeterson_obj *) handle->obj;
+	if (unlikely(obj == NULL)) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
 	retval = mutex_lock_interruptible(obj->local_gate);
 	if (retval)
 		goto exit;
@@ -647,13 +653,14 @@ int gatepeterson_close(void **gphandle)
 		obj->local_gate = NULL; /* TBD: Fixme */
 		break;
 	case  GATEPETERSON_PROTECT_INTERRUPT: /* Fall through */
+		/* FIXME: Add a spinlock protection */
 	case  GATEPETERSON_PROTECT_TASKLET: /* Fall through */
 	case  GATEPETERSON_PROTECT_THREAD:  /* Fall through */
 	case  GATEPETERSON_PROTECT_PROCESS:
 		kfree(obj->local_gate);
 		break;
 	default:
-		/* An invalid protection level was supplied, FIXME */
+		/* An invalid protection level was supplied */
 		break;
 	}
 
@@ -874,6 +881,9 @@ static void *_gatepeterson_create(const struct gatepeterson_params *params,
 	obj->nested		   = 0;
 	obj->top		   = handle;
 
+	/* Populate the params member */
+	memcpy(&obj->params, params, sizeof(struct gatepeterson_params));
+
 	/* Create the local lock if not provided */
 	if (likely(params->local_protection == GATEPETERSON_PROTECT_DEFAULT))
 		obj->params.local_protection =
@@ -890,10 +900,11 @@ static void *_gatepeterson_create(const struct gatepeterson_params *params,
 	*   protection here also
 	*/
 	case  GATEPETERSON_PROTECT_INTERRUPT: /* Fall through */
+		/* FIXME: Add a spinlock protection */
 	case  GATEPETERSON_PROTECT_TASKLET: /* Fall through */
 	case  GATEPETERSON_PROTECT_THREAD:  /* Fall through */
 	case  GATEPETERSON_PROTECT_PROCESS:
-		obj->local_gate = kmalloc(sizeof(struct mutex),	GFP_KERNEL);
+		obj->local_gate = kmalloc(sizeof(struct mutex), GFP_KERNEL);
 		if (obj->local_gate == NULL) {
 			retval = -ENOMEM;
 			goto gate_create_fail;
@@ -907,8 +918,6 @@ static void *_gatepeterson_create(const struct gatepeterson_params *params,
 		break;
 	}
 
-	/* Populate the params member */
-	memcpy(&obj->params, params, sizeof(struct gatepeterson_params));
 	/* Put in the local list */
 	retval = mutex_lock_interruptible(gatepeterson_state.mod_lock);
 	if (retval)
@@ -944,6 +953,4 @@ exit:
 				retval);
 
 	return NULL;
-
 }
-

@@ -248,15 +248,19 @@ static inline int listmp_sharedmemory_ioctl_open(
 		}
 	}
 
-	params.shared_addr = sharedregion_get_ptr(
+	/* For open by name, the shared_add_srptr may be invalid */
+	if (cargs->args.open.shared_addr_srptr != \
+		(u32)SHAREDREGION_INVALIDSRPTR) {
+		params.shared_addr = sharedregion_get_ptr(
 				(u32 *)cargs->args.open.shared_addr_srptr);
+	}
 	if (unlikely(params.shared_addr == NULL))
 		goto free_name;
 
 	/* Update gate in params. */
 	params.gate = cargs->args.open.knl_gate;
 	status = listmp_sharedmemory_open(&listmp_handle, &params);
-	if (status)
+	if (status < 0)
 		goto free_name;
 	cargs->args.open.listmp_handle = listmp_handle;
 

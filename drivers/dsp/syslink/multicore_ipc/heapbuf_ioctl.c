@@ -192,12 +192,15 @@ static int heapbuf_ioctl_open(struct heapbuf_cmd_args *cargs)
 		}
 	}
 
-	params.shared_addr = sharedregion_get_ptr((u32 *)
-				cargs->args.open.shared_addr_srptr);
+	/* For open by name, the shared_add_srptr may be invalid */
+	if (cargs->args.open.shared_addr_srptr != SHAREDREGION_INVALIDSRPTR) {
+		params.shared_addr = sharedregion_get_ptr(
+				(u32 *)cargs->args.open.shared_addr_srptr);
+	}
 	params.gate = cargs->args.open.knl_gate;
 
 	cargs->api_status = heapbuf_open(&handle, &params);
-	if (cargs->api_status != 0)
+	if (cargs->api_status < 0)
 		goto free_name;
 
 	cargs->args.open.handle = handle;

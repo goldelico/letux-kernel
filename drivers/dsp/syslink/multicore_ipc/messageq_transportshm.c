@@ -70,6 +70,9 @@ struct messageq_transportshm_moduleobject {
 	/*< Default instance parameters */
 	void *gate_handle;
 	/*< Handle to the gate for local thread safety */
+	void *transports[MULTIPROC_MAXPROCESSORS][MESSAGEQ_NUM_PRIORITY_QUEUES];
+	/*!< Transport to be set in messageq_register_transport */
+
 };
 
 /*
@@ -221,7 +224,6 @@ int messageq_transportshm_setup(const struct messageq_transportshm_config *cfg)
 
 	messageq_transportshm_state.gate_handle = \
 				kmalloc(sizeof(struct mutex), GFP_KERNEL);
-	mutex_init(messageq_transportshm_state.gate_handle);
 	if (messageq_transportshm_state.gate_handle == NULL) {
 		/* @retval MESSAGEQTRANSPORTSHM_E_FAIL Failed to create
 		GateMutex! */
@@ -232,10 +234,13 @@ int messageq_transportshm_setup(const struct messageq_transportshm_config *cfg)
 				MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0));
 		goto exit;
 	}
+	mutex_init(messageq_transportshm_state.gate_handle);
 
 	/* Copy the user provided values into the state object. */
 	memcpy(&messageq_transportshm_state.cfg, cfg,
 			sizeof(struct messageq_transportshm_config));
+	memset(&(messageq_transportshm_state.transports), 0, (sizeof(void *) * \
+		MULTIPROC_MAXPROCESSORS * MESSAGEQ_NUM_PRIORITY_QUEUES));
 	return status;
 
 exit:
@@ -257,6 +262,8 @@ exit:
 int messageq_transportshm_destroy(void)
 {
 	int status = 0;
+	u16 i;
+	u16 j;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(
 			&(messageq_transportshm_state.ref_count),
@@ -266,21 +273,41 @@ int messageq_transportshm_destroy(void)
 		goto exit;
 	}
 
-	if (atomic_dec_return(&messageq_transportshm_state.ref_count)
-				== MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0)) {
-		if (messageq_transportshm_state.gate_handle != NULL) {
-			kfree(messageq_transportshm_state.gate_handle);
-			messageq_transportshm_state.gate_handle = NULL;
-		}
-		/* Decrease the ref_count */
-		atomic_set(&messageq_transportshm_state.ref_count,
-				MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0));
+	if (!(atomic_dec_return(&messageq_transportshm_state.ref_count)
+				== MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0))) {
+		status = 1;
+		goto exit;
 	}
+
+	/* Temporarily increment ref_count here. */
+	atomic_set(&messageq_transportshm_state.ref_count,
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(1));
+
+	/* Delete any Transports that have not been deleted so far. */
+	for (i = 0; i < MULTIPROC_MAXPROCESSORS; i++) {
+		for (j = 0 ; j < MESSAGEQ_NUM_PRIORITY_QUEUES; j++) {
+			if (messageq_transportshm_state.transports[i][j] != \
+				NULL) {
+				messageq_transportshm_delete(&
+				(messageq_transportshm_state.transports[i][j]));
+			}
+		}
+	}
+	if (messageq_transportshm_state.gate_handle != NULL) {
+		kfree(messageq_transportshm_state.gate_handle);
+		messageq_transportshm_state.gate_handle = NULL;
+	}
+
+	/* Decrease the ref_count */
+	atomic_set(&messageq_transportshm_state.ref_count,
+			MESSAGEQTRANSPORTSHM_MAKE_MAGICSTAMP(0));
 	return 0;
 
 exit:
-	printk(KERN_ERR "messageq_transportshm_destroy failed: status = 0x%x\n",
-		status);
+	if (status < 0) {
+		printk(KERN_ERR "messageq_transportshm_destroy failed: "
+			"status = 0x%x\n", status);
+	}
 	return status;
 }
 
@@ -358,6 +385,12 @@ void *messageq_transportshm_create(u16 proc_id,
 	if (WARN_ON(params->shared_addr_size < \
 		messageq_transportshm_shared_mem_req(params))) {
 		status = -EINVAL;
+		goto exit;
+	}
+	if (messageq_transportshm_state.transports[proc_id][params->priority] \
+		!= NULL) {
+		/* Specified transport is already registered. */
+		status = MESSAGEQ_E_ALREADYEXISTS;
 		goto exit;
 	}
 
@@ -459,8 +492,11 @@ void *messageq_transportshm_create(u16 proc_id,
 	/* Register the transport with MessageQ */
 	status = messageq_register_transport((void *)handle, proc_id,
 			(u32)params->priority);
-	if (status >= 0)
+	if (status >= 0) {
+		messageq_transportshm_state.transports
+			[proc_id][params->priority] = (void *)handle;
 		handle->status = messageq_transportshm_status_UP;
+	}
 	return handle;
 
 listmp_open_fail:
@@ -468,10 +504,8 @@ listmp_open_fail:
 			"listmp_sharedmemory_open failed!\n");
 notify_register_fail:
 	if (status < 0) {
-		if (handle != NULL) {
-			kfree(handle);
-			handle = NULL;
-		}
+		if (handle != NULL)
+			messageq_transportshm_delete((void **)(&handle));
 	}
 
 exit:
@@ -513,6 +547,9 @@ int messageq_transportshm_delete(void **mqtshm_handleptr)
 	}
 
 	obj = (struct messageq_transportshm_object *) (*mqtshm_handleptr);
+	/* Clear handle in the local array */
+	messageq_transportshm_state.transports[obj->proc_id][obj->priority] = \
+		NULL;
 	obj->attrs[obj->my_index]->flag = 0;
 	status = listmp_sharedmemory_delete(
 			(listmp_sharedmemory_handle *)&obj->my_listmp_handle);

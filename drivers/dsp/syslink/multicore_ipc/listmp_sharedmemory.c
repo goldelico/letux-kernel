@@ -1309,8 +1309,8 @@ listmp_sharedmemory_handle _listmp_sharedmemory_create(
 	listmp_sharedmemory_object *handle = NULL;
 	struct listmp_sharedmemory_obj *obj = NULL;
 	u32 key;
-	u32 shmIndex;
-	u32 *sharedShmBase;
+	u32 shm_index;
+	u32 *shared_shm_base;
 
 	BUG_ON(params == NULL);
 
@@ -1419,15 +1419,15 @@ listmp_sharedmemory_handle _listmp_sharedmemory_create(
 			/* We will store a shared pointer in the
 			 * NameServer
 			 */
-			shmIndex = sharedregion_get_index(params->shared_addr);
-			sharedShmBase = sharedregion_get_srptr(
-						params->shared_addr, shmIndex);
+			shm_index = sharedregion_get_index(params->shared_addr);
+			shared_shm_base = sharedregion_get_srptr(
+						params->shared_addr, shm_index);
 			/* Add list instance to name server */
 			if (obj->params.name != NULL) {
 				obj->ns_key = nameserver_add_uint32(
 					listmp_sharedmemory_state.ns_handle,
 					params->name,
-					(u32) (params->shared_addr));
+					(u32) (shared_shm_base));
 				if (obj->ns_key == NULL)
 					status = -EFAULT;
 			}

@@ -46,7 +46,7 @@
  *  @def	MESSAGEQ_STATUSCODEBASE
  *  @brief	Error code base for MessageQ.
  */
-#define MESSAGEQ_STATUSCODEBASE		(MESSAGEQ_MODULEID << 12)
+#define MESSAGEQ_STATUSCODEBASE			(MESSAGEQ_MODULEID << 12)
 
 /*!
  *  @def	MESSAGEQ_MAKE_FAILURE
@@ -78,13 +78,13 @@
  *  @def	MESSAGEQ_E_BUSY
  *  @brief	the name is already registered or not.
  */
-#define MESSAGEQ_E_BUSY			MESSAGEQ_MAKE_FAILURE(3)
+#define MESSAGEQ_E_BUSY				MESSAGEQ_MAKE_FAILURE(3)
 
 /*!
  *  @def	MESSAGEQ_E_FAIL
  *  @brief	Generic failure.
  */
-#define MESSAGEQ_E_FAIL			MESSAGEQ_MAKE_FAILURE(4)
+#define MESSAGEQ_E_FAIL				MESSAGEQ_MAKE_FAILURE(4)
 
 /*!
  *  @def	MESSAGEQ_E_NOTFOUND
@@ -96,7 +96,7 @@
  *  @def	MESSAGEQ_E_INVALIDSTATE
  *  @brief	Module is not initialized.
  */
-#define MESSAGEQ_E_INVALIDSTATE		MESSAGEQ_MAKE_FAILURE(6)
+#define MESSAGEQ_E_INVALIDSTATE			MESSAGEQ_MAKE_FAILURE(6)
 
 /*!
  *  @def	MESSAGEQ_E_NOTONWER
@@ -108,7 +108,7 @@
  *  @def	MESSAGEQ_E_REMOTEACTIVE
  *  @brief	Remote opener of the instance has not closed the instance.
  */
-#define MESSAGEQ_E_REMOTEACTIVE		MESSAGEQ_MAKE_FAILURE(8)
+#define MESSAGEQ_E_REMOTEACTIVE			MESSAGEQ_MAKE_FAILURE(8)
 
 /*!
  *  @def	MESSAGEQ_E_INUSE
@@ -145,7 +145,7 @@
  *  @def	MESSAGEQ_E_MAXREACHED
  *  @brief	Indicates that all message queues are taken
  */
-#define MESSAGEQ_E_MAXREACHED		MESSAGEQ_MAKE_FAILURE(14)
+#define MESSAGEQ_E_MAXREACHED			MESSAGEQ_MAKE_FAILURE(14)
 
 /*!
  *  @def	MESSAGEQ_E_UNREGISTERHEAPID
@@ -157,7 +157,7 @@
  *  @def	MESSAGEQ_E_CANNOTFREESTATICMSG
  *  @brief	Indicates that static msg cannot be freed
  */
-#define MESSAGEQ_E_CANNOTFREESTATICMSG	MESSAGEQ_MAKE_FAILURE(16)
+#define MESSAGEQ_E_CANNOTFREESTATICMSG		MESSAGEQ_MAKE_FAILURE(16)
 
 /*!
  *  @def	MESSAGEQ_E_HEAPIDINVALID
@@ -187,7 +187,7 @@
  *  @def    MESSAGEQ_E_TIMEOUT
  *  @brief  Timeout while attempting to get a message
  */
-#define MESSAGEQ_E_TIMEOUT          MESSAGEQ_MAKE_FAILURE(21)
+#define MESSAGEQ_E_TIMEOUT			MESSAGEQ_MAKE_FAILURE(21)
 
 /*!
  *  @def	MESSAGEQ_SUCCESS
@@ -199,7 +199,7 @@
  *  @def    MESSAGEQ_S_ALREADYSETUP
  *  @brief  The MESSAGEQ module has already been setup in this process.
  */
-#define MESSAGEQ_S_ALREADYSETUP		MESSAGEQ_MAKE_SUCCESS(1)
+#define MESSAGEQ_S_ALREADYSETUP			MESSAGEQ_MAKE_SUCCESS(1)
 
 
 /* =============================================================================
@@ -209,17 +209,17 @@
 /*!
  *	@brief	Mask to extract version setting
  */
-#define MESSAGEQ_HEADERVERSION         0x2000u
+#define MESSAGEQ_HEADERVERSION			0x2000u
 
 /*!
  *	@brief	Mask to extract priority setting
  */
-#define MESSAGEQ_PRIORITYMASK          0x3u
+#define MESSAGEQ_PRIORITYMASK			0x3u
 
 /*!
  *	@brief	Mask to extract priority setting
  */
-#define MESSAGEQ_TRANSPORTPRIORITYMASK 0x01u
+#define MESSAGEQ_TRANSPORTPRIORITYMASK		0x01u
 
 /*!
  *  Mask to extract version setting
@@ -245,7 +245,13 @@
  * Indicates that if maximum number of message queues are already created,
  * should allow growth to create additional Message Queue.
  */
-#define MESSAGEQ_ALLOWGROWTH		(~((u32) 0))
+#define MESSAGEQ_ALLOWGROWTH			(~((u32) 0))
+
+/*!
+ * Number of types of priority queues for each transport
+ */
+#define MESSAGEQ_NUM_PRIORITY_QUEUES		2
+
 
 /* =============================================================================
  * Structures & Enums
@@ -453,7 +459,6 @@ int messageq_register_transport(void *messageq_transportshm_handle,
 
 /* Unregister a transport with MessageQ */
 int messageq_unregister_transport(u16 proc_id, u32 priority);
-
 
 
 #endif /* _MESSAGEQ_H_ */

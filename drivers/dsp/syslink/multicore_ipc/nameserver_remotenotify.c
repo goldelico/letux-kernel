@@ -16,12 +16,19 @@
  *  PURPOSE.
  */
 
+/* Standard headers */
 #include <linux/types.h>
+
+/* Utilities headers */
 #include <linux/string.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/semaphore.h>
 
+/* Syslink headers */
+#include <syslink/atomic_linux.h>
+
+/* Module level headers */
 #include <gate_remote.h>
 #include <gatepeterson.h>
 #include <nameserver.h>
@@ -29,11 +36,24 @@
 #include <nameserver_remotenotify.h>
 #include <notify.h>
 
+
+/*
+ *  Macro to make a correct module magic number with refCount
+ */
+#define NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(x)	\
+			((NAMESERVERREMOTENOTIFY_MODULEID << 12u) | (x))
+
 /*
  *  Cache line length
  *  TODO: Short-term hack. Make parameter or figure out some other way!
  */
-#define NAMESERVERREMOTENOTIFY_CACHESIZE   128
+#define NAMESERVERREMOTENOTIFY_CACHESIZE	128
+
+/*
+ *  Maximum length of value buffer that can be stored in the NameServer
+ *  managed by this NameServerRemoteNotify instance.
+ */
+#define NAMESERVERREMOTENOTIFY_MAXVALUEBUFLEN	300
 
 /* Defines the nameserver_remotenotify state object, which contains all the
  * module specific information
@@ -44,6 +64,7 @@ struct nameserver_remotenotify_module_object {
 	struct nameserver_remotenotify_params def_inst_params;
 	bool is_setup;
 	void *gate_handle;
+	atomic_t ref_count;
 };
 
 /*
@@ -55,8 +76,6 @@ struct nameserver_remotenotify_attrs {
 	u32 shared_addr_size;
 };
 
-#define MAX_VALUE_LEN 300 /* This should be actually sync with
-			nameserver value or user configured value */
 /*
  *  NameServer remote transport packet definition
  */
@@ -68,7 +87,7 @@ struct nameserver_remotenotify_message {
 	u32 value_len;
 	char instance_name[32];
 	char name[32];
-	char value_buf[MAX_VALUE_LEN];
+	char value_buf[NAMESERVERREMOTENOTIFY_MAXVALUEBUFLEN];
 };
 
 /*
@@ -157,6 +176,17 @@ int nameserver_remotenotify_setup(
 	struct mutex *lock = NULL;
 	bool user_cfg = true;
 
+	/* This sets the ref_count variable is not initialized, upper 16 bits is
+	* written with module Id to ensure correctness of refCount variable.
+	*/
+	atomic_cmpmask_and_set(&nameserver_remotenotify_state.ref_count,
+				NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
+				NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0));
+	if (atomic_inc_return(&nameserver_remotenotify_state.ref_count)
+				!= NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) {
+		return 1;
+	}
+
 	if (cfg == NULL) {
 		nameserver_remotenotify_get_config(&tmp_cfg);
 		cfg = &tmp_cfg;
@@ -192,12 +222,30 @@ exit:
  */
 int nameserver_remotenotify_destroy(void)
 {
+	s32 retval = 0;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(
+			&(nameserver_remotenotify_state.ref_count),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto exit;
+	}
+
+	if (!(atomic_dec_return(&nameserver_remotenotify_state.ref_count)
+			== NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0))) {
+		retval = 1;
+		goto exit;
+	}
 
 	if (nameserver_remotenotify_state.gate_handle != NULL)
 		kfree(nameserver_remotenotify_state.gate_handle);
 
 	nameserver_remotenotify_state.is_setup = false;
 	return 0;
+
+exit:
+	return retval;
 }
 
 /*
@@ -211,7 +259,21 @@ void nameserver_remotenotify_params_init(void *handle,
 	struct nameserver_remotenotify_object *object = NULL;
 	struct nameserver_remotenotify_obj *obj = NULL;
 
-	BUG_ON(params == NULL);
+	if (atomic_cmpmask_and_lt(&(nameserver_remotenotify_state.ref_count),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+		printk(KERN_ERR "nameserver_remotenotify_params_init failed: "
+			"Module is not initialized!\n");
+		return;
+	}
+
+	if (WARN_ON(params == NULL)) {
+		printk(KERN_ERR "nameserver_remotenotify_params_init failed: "
+			"Argument of type(nameserver_remotenotify_params *) "
+			"is NULL!\n");
+		return;
+	}
+
 	object = (struct nameserver_remotenotify_object *)handle;
 	if (handle == NULL)
 		memcpy(params,
@@ -240,45 +302,59 @@ void nameserver_remotenotify_callback(u16 proc_id, u32 event_no,
 	u32 proc_count;
 	u16  offset = 0;
 	void *nshandle = NULL;
-	char value[MAX_VALUE_LEN] = { 0 }; /* To take care of value len > 4,
-					do we need to make it  global? */
+	u32 value_len;
 	u32 key;
 	s32 retval = 0;
+	s32 count = -ENOENT;
 
-	if (WARN_ON(arg == NULL))
-		return;
+	if (atomic_cmpmask_and_lt(&(nameserver_remotenotify_state.ref_count),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
+		goto exit;
+	}
+
+	if (WARN_ON(arg == NULL)) {
+		retval = -EINVAL;
+		goto exit;
+	}
 
 	proc_count = multiproc_get_max_processors();
-	if (WARN_ON(proc_id >= proc_count))
-		return;
+	if (WARN_ON(proc_id >= proc_count)) {
+		retval = -EINVAL;
+		goto exit;
+	}
 
 	handle = (struct nameserver_remotenotify_obj *)arg;
 	if ((multiproc_get_id(NULL) > proc_id))
 		offset = 1;
 
 	if (handle->msg[1 - offset]->request != true)
-		goto exit;
+		goto signal_response;
 
 	/* This is a request */
+	value_len = handle->msg[1 - offset]->value_len;
 	nshandle = nameserver_get_handle(
 				handle->msg[1 - offset]->instance_name);
-	if (nshandle != NULL)
+	if (nshandle != NULL) {
 		/* Search for the NameServer entry */
-		retval = nameserver_get_local(nshandle,
-				handle->msg[1 - offset]->name, &value,
-				handle->msg[1 - offset]->value_len);
+		if (value_len == sizeof(u32)) {
+			count = nameserver_get_local(nshandle,
+					handle->msg[1 - offset]->name,
+					&handle->msg[1 - offset]->value,
+					value_len);
+		} else {
+			count = nameserver_get_local(nshandle,
+					handle->msg[1 - offset]->name,
+					&handle->msg[1 - offset]->value_buf,
+					value_len);
+		}
+	}
 
 	key = gatepeterson_enter(handle->params.gate);
 	/* If retval > 0 then an entry found */
-	if (retval > 0) {
+	if (count != -ENOENT)
 		handle->msg[1 - offset]->request_status = true;
-		if (handle->msg[1 - offset]->value_len == sizeof(u32))
-			memcpy(&(handle->msg[1 - offset]->value), &value,
-				sizeof(u32));
-		else
-			memcpy(&(handle->msg[1 - offset]->value_buf), &value,
-					handle->msg[1 - offset]->value_len);
-	}
 
 	/* Send a response back */
 	handle->msg[1 - offset]->response = true;
@@ -293,9 +369,14 @@ void nameserver_remotenotify_callback(u16 proc_id, u32 event_no,
 	retval = notify_sendevent(handle->params.notify_driver,
 				proc_id, event_no, 0, true);
 
-exit:
+signal_response:
 	if (handle->msg[offset]->response == true)
 		up(handle->sem_handle);
+exit:
+	if (retval < 0) {
+		printk(KERN_ERR "nameserver_remotenotify_callback failed! "
+			"status = 0x%x\n", retval);
+	}
 	return;
 }
 
@@ -318,13 +399,23 @@ int nameserver_remotenotify_get(void *rhandle,
 	BUG_ON(instance_name == NULL);
 	BUG_ON(name == NULL);
 	BUG_ON(value == NULL);
+	BUG_ON((value_len <= 0) || \
+		(value_len > NAMESERVERREMOTENOTIFY_MAXVALUEBUFLEN));
+
+	if (atomic_cmpmask_and_lt(&(nameserver_remotenotify_state.ref_count),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
+		goto exit;
+	}
 
 	if (WARN_ON(rhandle == NULL)) {
 		retval = -EINVAL;
 		goto exit;
 	}
 
-	if (value_len == 0) {
+	if ((value_len == 0) || \
+		(value_len > NAMESERVERREMOTENOTIFY_MAXVALUEBUFLEN)) {
 		retval = -EINVAL;
 		goto exit;
 	}
@@ -351,8 +442,12 @@ int nameserver_remotenotify_get(void *rhandle,
 			obj->params.notify_event_no,
 			0, /* Payload */
 			false); /* Not sending a payload */
-	if (retval < 0)
+	if (retval < 0) {
+		/* Undo previous operations */
+		obj->msg[offset]->request = 0;
+		obj->msg[offset]->value_len = 0;
 		goto notify_error;
+	}
 
 	gatepeterson_leave(obj->params.gate, key);
 
@@ -423,9 +518,21 @@ void *nameserver_remotenotify_create(u16 proc_id,
 	struct nameserver_remotenotify_obj *obj = NULL;
 	u16 proc_count;
 	s32 retval = 0;
+	s32 retval1 = 0;
 	u32 offset = 0;
 
-	BUG_ON(params == NULL);
+	if (atomic_cmpmask_and_lt(&(nameserver_remotenotify_state.ref_count),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
+		goto exit;
+	}
+
+	if (WARN_ON(params == NULL)) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
 	if (WARN_ON(params->notify_driver == NULL ||
 		params->shared_addr == NULL ||
 		params->shared_addr_size == 0)) {
@@ -495,7 +602,7 @@ void *nameserver_remotenotify_create(u16 proc_id,
 sem_alloc_error:
 	nameserver_unregister_remote_driver(proc_id);
 	/* Do we want to check the staus ? */
-	retval = notify_unregister_event(obj->params.notify_driver,
+	retval1 = notify_unregister_event(obj->params.notify_driver,
 				obj->remote_proc_id,
 				obj->params.notify_event_no,
 				nameserver_remotenotify_callback,
@@ -509,6 +616,8 @@ mem_error:
 	kfree(handle);
 
 exit:
+	printk(KERN_ERR "nameserver_remotenotify_create failed! "
+		"status = 0x%x\n", retval);
 	return NULL;
 }
 
@@ -525,14 +634,24 @@ int nameserver_remotenotify_delete(void **rhandle)
 	s32 retval = 0;
 	struct mutex *gate = NULL;
 
-	BUG_ON(rhandle == NULL);
-	if (WARN_ON(*rhandle == NULL)) {
+	if (atomic_cmpmask_and_lt(&(nameserver_remotenotify_state.ref_count),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+		retval = -ENODEV;
+		goto exit;
+	}
+
+	if (WARN_ON((rhandle == NULL) || (*rhandle == NULL))) {
 		retval = -EINVAL;
 		goto exit;
 	}
 
 	handle = (struct nameserver_remotenotify_object *)(*rhandle);
 	obj = (struct nameserver_remotenotify_obj *)handle->obj;
+	if (obj == NULL) {
+		retval = -EINVAL;
+		goto exit;
+	}
 
 	retval = mutex_lock_interruptible(obj->local_gate);
 	if (retval)
@@ -540,7 +659,7 @@ int nameserver_remotenotify_delete(void **rhandle)
 
 	retval = nameserver_unregister_remote_driver(obj->remote_proc_id);
 	/* Do we have to bug_on/warn_on oops here intead of exit ?*/
-	if (retval)
+	if (retval < 0)
 		goto exit;
 
 	kfree(obj->sem_handle);
@@ -561,6 +680,10 @@ int nameserver_remotenotify_delete(void **rhandle)
 	kfree(gate);
 
 exit:
+	if (retval < 0) {
+		printk(KERN_ERR "nameserver_remotenotify_delete failed! "
+			"status = 0x%x\n", retval);
+	}
 	return retval;
 }
 
