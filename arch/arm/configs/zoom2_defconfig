@@ -269,6 +269,7 @@ CONFIG_ARM_THUMB=y
 # errata
 #
 # CONFIG_ARM_ERRATA_430973 is not set
+# CONFIG_ARM_ERRATA_451027 is not set
 
 #
 # Bus support
