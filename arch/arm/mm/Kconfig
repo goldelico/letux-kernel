@@ -657,6 +657,14 @@ config CPU_BPREDICT_DISABLE
 	help
 	  Say Y here to disable branch prediction.  If unsure, say N.
 
+config CPU_USER_L2_PLE_ACCESS
+	bool "Allow user space to access cache preload engine"
+	depends on ARCH_OMAP34XX && EXPERIMENTAL
+	default n
+	help
+	  Say Y to allow user space to access preload engine. This is useful
+	  for data steaming to a NEON codec
+
 config TLS_REG_EMUL
 	bool
 	help
