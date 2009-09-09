@@ -187,10 +187,6 @@ wait_dll_unlock:
 configure_sdrc:
 	ldr	r11, omap3_sdrc_rfr_ctrl
 	str	r0, [r11]
-	ldr	r11, omap3_sdrc_actim_ctrla
-	str	r1, [r11]
-	ldr	r11, omap3_sdrc_actim_ctrlb
-	str	r2, [r11]
 	ldr	r11, omap3_sdrc_mr_0
 	str	r6, [r11]
 	ldr	r6, [r11]		@ posted-write barrier for SDRC
