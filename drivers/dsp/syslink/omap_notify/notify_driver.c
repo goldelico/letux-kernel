@@ -76,6 +76,7 @@ int notify_register_driver(char *driver_name,
 			/* Found an empty slot, so block it. */
 			drv_handle->is_init =
 					NOTIFY_DRIVERINITSTATUS_INPROGRESS;
+			drv_handle->index = i;
 			status = NOTIFY_SUCCESS;
 			break;
 		}

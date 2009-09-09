@@ -102,6 +102,7 @@ struct notify_ducatidrv_module {
 	struct notify_ducatidrv_config def_cfg;
 	struct notify_ducatidrv_params def_inst_params;
 	struct mutex *gate_handle;
+	struct notify_driver_object *drv_handles[NOTIFY_MAX_DRIVERS];
 } ;
 
 
@@ -250,6 +251,7 @@ struct notify_driver_object *notify_ducatidrv_create(char *driver_name,
 	int proc_id;
 	int i;
 	u32 shm_va;
+	int tmp_status = NOTIFY_SUCCESS;
 
 	int slot = false;
 
@@ -274,6 +276,13 @@ struct notify_driver_object *notify_ducatidrv_create(char *driver_name,
 
 
 	proc_id = PROC_DUCATI;
+
+	tmp_status = notify_get_driver_handle(driver_name, &drv_handle);
+
+	if (tmp_status != NOTIFY_E_NOTFOUND) {
+		status = -EEXIST;
+		goto func_end;
+	}
 
 	/* Fill in information about driver attributes. */
 	/* This driver supports interaction with one other remote
@@ -412,56 +421,58 @@ struct notify_driver_object *notify_ducatidrv_create(char *driver_name,
 	mutex_unlock(notify_ducatidriver_state.gate_handle);
 	omap_mbox_enable_irq(ducati_mbox, IRQ_RX);
 			status = 0;
-		if (status == 0) {
-			driver_obj = drv_handle->driver_object;
-			ctrl_ptr->reg_mask.mask = 0x0;
-			ctrl_ptr->reg_mask.enable_mask = 0xFFFFFFFF;
-			ctrl_ptr->recv_init_status = NOTIFYSHMDRV_INIT_STAMP;
-			ctrl_ptr->send_init_status = NOTIFYSHMDRV_INIT_STAMP;
-			drv_handle->is_init = NOTIFY_DRIVERINITSTATUS_DONE;
-		} else {
-			/* Check if drvHandle was
-			registered with Notify module. */
-			if (drv_handle != NULL) {
-				/* Unregister driver from the Notify module*/
-				notify_unregister_driver(drv_handle);
-				if (ctrl_ptr != NULL) {
-					/* Clear initialization status in
-					shared memory. */
-					ctrl_ptr->recv_init_status = 0x0;
-					ctrl_ptr->send_init_status = 0x0;
-					ctrl_ptr = NULL;
-				}
-				/* Check if driverObj was allocated. */
-				if (driver_obj != NULL) {
-					/* Check if event List was allocated. */
-					if (driver_obj->event_list != NULL) {
-						/* Check if lists were
-						created. */
-						for (i = 0 ;
-						i < params->num_events ; i++) {
-							list_del(
-							(struct list_head *)
-							&driver_obj->
-							event_list[i].
-							listeners);
-						}
-						kfree(driver_obj->event_list);
-						driver_obj->event_list = NULL;
-					}
-					/* Check if regChart was allocated. */
-					if (driver_obj->reg_chart != NULL) {
-						kfree(driver_obj->reg_chart);
-							driver_obj->reg_chart
-								= NULL;
-					}
-					kfree(driver_obj);
-				}
-				drv_handle->is_init =
-					NOTIFY_DRIVERINITSTATUS_NOTDONE;
-				drv_handle = NULL;
+	if (status == 0) {
+		notify_ducatidriver_state.drv_handles[drv_handle->index]
+							= drv_handle;
+		driver_obj = drv_handle->driver_object;
+		ctrl_ptr->reg_mask.mask = 0x0;
+		ctrl_ptr->reg_mask.enable_mask = 0xFFFFFFFF;
+		ctrl_ptr->recv_init_status = NOTIFYSHMDRV_INIT_STAMP;
+		ctrl_ptr->send_init_status = NOTIFYSHMDRV_INIT_STAMP;
+		drv_handle->is_init = NOTIFY_DRIVERINITSTATUS_DONE;
+	} else {
+		/* Check if drvHandle was
+		registered with Notify module. */
+		if (drv_handle != NULL) {
+			/* Unregister driver from the Notify module*/
+			notify_unregister_driver(drv_handle);
+			if (ctrl_ptr != NULL) {
+				/* Clear initialization status in
+				shared memory. */
+				ctrl_ptr->recv_init_status = 0x0;
+				ctrl_ptr->send_init_status = 0x0;
+				ctrl_ptr = NULL;
 			}
+			/* Check if driverObj was allocated. */
+			if (driver_obj != NULL) {
+				/* Check if event List was allocated. */
+				if (driver_obj->event_list != NULL) {
+					/* Check if lists were
+					created. */
+					for (i = 0 ;
+					i < params->num_events ; i++) {
+						list_del(
+						(struct list_head *)
+						&driver_obj->
+						event_list[i].
+						listeners);
+					}
+					kfree(driver_obj->event_list);
+					driver_obj->event_list = NULL;
+				}
+				/* Check if regChart was allocated. */
+				if (driver_obj->reg_chart != NULL) {
+					kfree(driver_obj->reg_chart);
+						driver_obj->reg_chart
+							= NULL;
+				}
+				kfree(driver_obj);
+			}
+			drv_handle->is_init =
+				NOTIFY_DRIVERINITSTATUS_NOTDONE;
+			drv_handle = NULL;
 		}
+	}
 
 func_end:
 	/* Leave critical section protection. */
@@ -504,6 +515,8 @@ int notify_ducatidrv_delete(struct notify_driver_object **handle_ptr)
 	if (drv_handle != NULL) {
 		status = notify_unregister_driver(drv_handle);
 		driver_obj = drv_handle->driver_object;
+		BUG_ON(drv_handle->index >= NOTIFY_MAX_DRIVERS);
+		notify_ducatidriver_state.drv_handles[drv_handle->index] = NULL;
 	}
 	if (status != NOTIFY_SUCCESS)
 		printk(KERN_WARNING "driver is not registerd\n");
@@ -581,6 +594,7 @@ EXPORT_SYMBOL(notify_ducatidrv_delete);
 int notify_ducatidrv_destroy(void)
 {
 	int status = 0;
+	int i = 0;
 
 	if (atomic_cmpmask_and_lt(&(notify_ducatidriver_state.ref_count),
 					NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(0),
@@ -592,13 +606,21 @@ int notify_ducatidrv_destroy(void)
 	if (atomic_dec_return(&(notify_ducatidriver_state.ref_count)) ==
 					NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(0)) {
 
+		/* Temprarily increment the refcount */
+		atomic_set(&(notify_ducatidriver_state.ref_count),
+			NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(1));
+
+		for (i = 0; i < NOTIFY_MAX_DRIVERS; i++) {
+			if (ducati_isr_params[i])
+				notify_ducatidrv_delete(
+				&(notify_ducatidriver_state.drv_handles[i]));
+		}
+
 		/* Check if the gate_handle was created internally. */
 
 		if (notify_ducatidriver_state.gate_handle != NULL)
 			kfree(notify_ducatidriver_state.gate_handle);
 
-		/* FIXME- Why do we need to reset this if we already
-		 *	decremented it to 0 */
 		atomic_set(&(notify_ducatidriver_state.ref_count),
 			NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(0));
 
@@ -663,8 +685,10 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 		cfg, sizeof(struct notify_ducatidrv_config));
 	}
 
-	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++)
+	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++) {
 		ducati_isr_params[i] = NULL;
+		notify_ducatidriver_state.drv_handles[i] = NULL;
+	}
 	/* Initialize the maibox modulde for ducati */
 	if (ducati_mbox == NULL) {
 		ducati_mbox = omap_mbox_get("mailbox-2");
