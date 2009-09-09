@@ -334,7 +334,7 @@ static DSP_STATUS AddOvlyInfo(void *handle, struct DBLL_SectInfo *sectInfo,
 			     u32 addr, u32 nBytes);
 static DSP_STATUS AddOvlyNode(struct DSP_UUID *pUuid,
 			     enum DSP_DCDOBJTYPE objType,
-			     IN void *handle);
+			     IN void *handle, void *pr_ctxt);
 static DSP_STATUS AddOvlySect(struct NLDR_OBJECT *hNldr,
 			      struct OvlySect **pList,
 			      struct DBLL_SectInfo *pSectInfo, bool *pExists,
@@ -1098,7 +1098,7 @@ func_end:
  */
 static DSP_STATUS AddOvlyNode(struct DSP_UUID *pUuid,
 			     enum DSP_DCDOBJTYPE objType,
-			     IN void *handle)
+			     IN void *handle, void *pr_ctxt)
 {
 	struct NLDR_OBJECT *hNldr = (struct NLDR_OBJECT *)handle;
 	char *pNodeName = NULL;

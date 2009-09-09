@@ -567,7 +567,7 @@ u32 MGRWRAP_RegisterObject(union Trapped_Args *args, void *pr_ctxt)
 		 "0x%x\n", args->ARGS_MGR_REGISTEROBJECT.pUuid);
 	status = DCD_RegisterObject(&pUuid,
 				args->ARGS_MGR_REGISTEROBJECT.objType,
-				(char *)pszPathName);
+				(char *)pszPathName, pr_ctxt);
 func_end:
 	if (pszPathName)
 		MEM_Free(pszPathName);
@@ -590,7 +590,7 @@ u32 MGRWRAP_UnregisterObject(union Trapped_Args *args, void *pr_ctxt)
 		 "MGRWRAP_UnregisterObject: entered pg2hMsg"
 		 " 0x%x\n", args->ARGS_MGR_UNREGISTEROBJECT.pUuid);
 	status = DCD_UnregisterObject(&pUuid,
-			args->ARGS_MGR_UNREGISTEROBJECT.objType);
+			args->ARGS_MGR_UNREGISTEROBJECT.objType, pr_ctxt);
 func_end:
 	return status;
 

@@ -82,6 +82,7 @@
 
 /*  ----------------------------------- Others */
 #include <dspbridge/uuidutil.h>
+#include <dspbridge/drv.h>
 
 /*  ----------------------------------- This */
 #include <dspbridge/dbdcd.h>
@@ -711,7 +712,8 @@ DSP_STATUS DCD_GetObjects(IN struct DCD_MANAGER *hDcdMgr, IN char *pszCoffPath,
 			 */
 			GT_1trace(curTrace, GT_4CLASS, "Registering objtype "
 				 "%d \n", cObjectType);
-			status = registerFxn(&dspUuid, cObjectType, handle);
+			status = registerFxn(&dspUuid, cObjectType, handle,
+					 NULL);
 			if (DSP_SUCCEEDED(status)) {
 				GT_1trace(curTrace, GT_5CLASS,
 					 "DCD_GetObjects: status 0x%x\n",
@@ -918,7 +920,8 @@ bool DCD_Init(void)
  */
 DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 			IN enum DSP_DCDOBJTYPE objType,
-			IN char *pszPathName)
+			IN char *pszPathName,
+			struct PROCESS_CONTEXT *pr_ctxt)
 {
 	DSP_STATUS status = DSP_SOK;
 	char szRegKey[REG_MAXREGPATHLENGTH];
@@ -926,6 +929,9 @@ DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 	u32 dwPathSize = 0;
 	u32 dwKeyLen;				/* Len of REG key. */
 	char szObjType[MAX_INT2CHAR_LENGTH];	/* str. rep. of objType. */
+#ifndef RES_CLEANUP_DISABLE
+	struct REG_VALUES *reg_key = NULL;
+#endif /* RES_CLEANUP_DISABLE */
 
 	DBC_Require(cRefs > 0);
 	DBC_Require(pUuid != NULL);
@@ -993,7 +999,24 @@ DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 			status = DSP_EFAIL;
 			GT_0trace(curTrace, GT_6CLASS,
 				"DCD_RegisterObject: REG_SetValue failed!\n");
+			goto func_end;
 		}
+#ifndef RES_CLEANUP_DISABLE
+		if (pr_ctxt) {
+			/* Insert Register values in Process context */
+			reg_key = MEM_Calloc(sizeof(struct REG_VALUES),
+					MEM_NONPAGED);
+			reg_key->pUuid = MEM_Alloc(sizeof(struct DSP_UUID),
+					MEM_NONPAGED);
+			if (reg_key && reg_key->pUuid) {
+				memcpy(reg_key->pUuid, pUuid,
+					sizeof(struct DSP_UUID));
+				reg_key->objType = objType;
+				reg_key->next = pr_ctxt->pREGList;
+				pr_ctxt->pREGList = reg_key;
+			}
+		}
+#endif /* RES_CLEANUP_DISABLE */
 	} else {
 		/* Deregister an existing object. */
 		status = REG_DeleteValue(NULL, szRegKey, szRegKey);
@@ -1024,10 +1047,14 @@ func_end:
  *  perform actual object de-registration.
  */
 DSP_STATUS DCD_UnregisterObject(IN struct DSP_UUID *pUuid,
-				IN enum DSP_DCDOBJTYPE objType)
+				IN enum DSP_DCDOBJTYPE objType,
+				struct PROCESS_CONTEXT *pr_ctxt)
 {
 	DSP_STATUS status = DSP_SOK;
-
+#ifndef RES_CLEANUP_DISABLE
+	struct REG_VALUES *reg_key = NULL;
+	struct REG_VALUES *reg_key_tmp = NULL;
+#endif /* RES_CLEANUP_DISABLE */
 	DBC_Require(cRefs > 0);
 	DBC_Require(pUuid != NULL);
 	DBC_Require((objType == DSP_DCDNODETYPE) ||
@@ -1045,8 +1072,34 @@ DSP_STATUS DCD_UnregisterObject(IN struct DSP_UUID *pUuid,
 	 *  When DCD_RegisterObject is called with NULL as pathname,
 	 *  it indicates an unregister object operation.
 	 */
-	status = DCD_RegisterObject(pUuid, objType, NULL);
+	status = DCD_RegisterObject(pUuid, objType, NULL, pr_ctxt);
 
+	if (DSP_FAILED(status))
+		goto func_end;
+#ifndef RES_CLEANUP_DISABLE
+	if (pr_ctxt) {
+		reg_key = pr_ctxt->pREGList;
+		while (reg_key && (memcmp(pUuid, reg_key->pUuid,
+				sizeof(struct DSP_UUID))
+				|| reg_key->objType != objType)) {
+			reg_key_tmp = reg_key;
+			reg_key = reg_key->next;
+		}
+		if (!reg_key) {
+			status = DSP_ENOTFOUND;
+			goto func_end;
+		}
+		/* Remove the Register structure from process context */
+		if (reg_key == pr_ctxt->pREGList)
+			pr_ctxt->pREGList = reg_key->next;
+		else
+			reg_key_tmp->next = reg_key->next;
+
+		MEM_Free(reg_key->pUuid);
+		MEM_Free(reg_key);
+	}
+#endif /* RES_CLEANUP_DISABLE */
+func_end:
 	return status;
 }
 
