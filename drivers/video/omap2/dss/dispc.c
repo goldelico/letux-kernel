@@ -133,6 +133,14 @@ struct dispc_reg { u16 idx; };
 
 #define DISPC_MAX_NR_ISRS		8
 
+
+#define LPR_GFX_FIFO_HIGH_THRES		0xB9C
+#define LPR_GFX_FIFO_LOW_THRES		0x7F8
+#define DISPC_VID_ATTRIBUTES_ENABLE	(1 << 0)
+#define DSS_CONTROL_APLL_CLK		1
+static int lpr_enabled;
+static int gfx_in_use;
+
 struct omap_dispc_isr_data {
 	omap_dispc_isr_t	isr;
 	void			*arg;
@@ -161,6 +169,7 @@ static struct {
 	u32	fifo_size[3];
 
 	spinlock_t irq_lock;
+	spinlock_t lpr_lock;
 	u32 irq_error_mask;
 	struct omap_dispc_isr_data registered_isr[DISPC_MAX_NR_ISRS];
 	u32 error_irqs;
@@ -2708,6 +2717,120 @@ int omap_dispc_unregister_isr(omap_dispc_isr_t isr, void *arg, u32 mask)
 }
 EXPORT_SYMBOL(omap_dispc_unregister_isr);
 
+/* This functions adds the OMAPDSS power saving capability by
+ * FIFO Merge when display is not in use, thus ehancing the DSS for
+ * Screen saver support.
+ */
+int omap_dispc_lpr_enable(void)
+{
+	int rc = 0;
+	unsigned long flags;
+	struct omap_overlay *ovl;
+	int v_attr;
+
+	/* Cannot enable lpr if DSS is inactive */
+	if (!gfx_in_use) {
+		DSSDBG("\nGRX plane in use\n");
+		return -1;
+	}
+
+	spin_lock_irqsave(&dispc.lpr_lock, flags);
+
+	if (lpr_enabled) {
+		DSSDBG("\nLPR is enabled\n");
+		goto lpr_out;
+	}
+
+	/* Check whether LPR can be triggered
+	* - gfx pipeline is routed to LCD
+	* - both video pipelines are disabled (this allows FIFOs merge)
+	*/
+
+	ovl = omap_dss_get_overlay(0);
+
+	if (ovl->manager->id != OMAP_DSS_CHANNEL_LCD) {
+		rc = -1;
+		goto lpr_out;
+	}
+
+	v_attr = dispc_read_reg(DISPC_VID_ATTRIBUTES(0)) |
+			dispc_read_reg(DISPC_VID_ATTRIBUTES(1));
+
+	if (v_attr & DISPC_VID_ATTRIBUTES_ENABLE) {
+		rc = -1;
+		goto lpr_out;
+	}
+
+	/* currently DSS is running on DSS1 by default. just warn if it has
+	* changed in the future
+	*/
+	if (dss_get_dispc_clk_source() == DSS_CONTROL_APLL_CLK) {
+		BUG();
+	}
+	dispc_setup_plane_fifo(ovl->id, LPR_GFX_FIFO_LOW_THRES,
+				LPR_GFX_FIFO_HIGH_THRES);
+
+	dispc_enable_fifomerge(1);
+
+	/* Enable LCD */
+
+	dispc_enable_lcd_out(1);
+
+	spin_unlock_irqrestore(&dispc.lpr_lock, flags);
+
+	/*Let LPR settings take an effect */
+
+	dispc_go(ovl->manager->id);
+
+	lpr_enabled = 1;
+
+	return 0;
+
+lpr_out:
+	spin_unlock_irqrestore(&dispc.lpr_lock, flags);
+	return rc;
+
+}
+EXPORT_SYMBOL(omap_dispc_lpr_enable);
+
+int omap_dispc_lpr_disable(void)
+{
+	unsigned long flags;
+	struct omap_overlay *ovl;
+	u32 fifo_low, fifo_high;
+	enum omap_burst_size burst_size;
+
+	if (!gfx_in_use)
+		return -1;
+
+	spin_lock_irqsave(&dispc.lpr_lock, flags);
+
+	ovl = omap_dss_get_overlay(0);
+
+	if (!lpr_enabled) {
+		spin_unlock_irqrestore(&dispc.lpr_lock, flags);
+		return 0;
+	}
+	/* Disable Fifo Merge */
+	dispc_enable_fifomerge(0);
+
+	default_get_overlay_fifo_thresholds(ovl->id, dispc.fifo_size[ovl->id],
+				&burst_size, &fifo_low, &fifo_high);
+
+	/* Restore default fifo size*/
+	dispc_setup_plane_fifo(ovl->id, fifo_low, fifo_high);
+
+	lpr_enabled = 0;
+
+	spin_unlock_irqrestore(&dispc.lpr_lock, flags);
+
+	/* Let DSS take an effect */
+	dispc_go(ovl->manager->id);
+
+	return 0;
+}
+EXPORT_SYMBOL(omap_dispc_lpr_disable);
+
 #ifdef DEBUG
 static void print_irq_status(u32 status)
 {
@@ -3134,6 +3257,14 @@ int dispc_enable_plane(enum omap_plane plane, bool enable)
 
 	enable_clocks(1);
 	_dispc_enable_plane(plane, enable);
+
+	if (plane == OMAP_DSS_GFX) {
+		if (enable)
+			gfx_in_use = 1;
+		else
+			gfx_in_use = 0;
+	}
+
 	enable_clocks(0);
 
 	return 0;
