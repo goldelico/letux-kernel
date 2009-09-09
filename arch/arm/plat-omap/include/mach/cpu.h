@@ -40,6 +40,7 @@ struct omap_chip_id {
  * CPU class bits (15xx, 16xx, 24xx, 34xx...)	[07:00]
  */
 unsigned int omap_rev(void);
+unsigned int omap_rev_id(void);
 
 /*
  * Test if multicore OMAP support is needed
@@ -334,12 +335,13 @@ IS_OMAP_TYPE(3430, 0x3430)
 #define OMAP243X_CLASS		0x24300024
 #define OMAP2430_REV_ES1_0	0x24300024
 
-#define OMAP343X_CLASS		0x34300034
-#define OMAP3430_REV_ES1_0	0x34300034
-#define OMAP3430_REV_ES2_0	0x34301034
-#define OMAP3430_REV_ES2_1	0x34302034
-#define OMAP3430_REV_ES3_0	0x34303034
-#define OMAP3430_REV_ES3_1	0x34304034
+#define OMAP343X_CLASS			0x34300034
+#define OMAP3430_REV_ES1_0		0x34300034
+#define OMAP3430_REV_ES2_0		0x34301034
+#define OMAP3430_REV_ES2_1		0x34302034
+#define OMAP3430_REV_ES3_0		0x34303034
+#define OMAP3430_REV_ES3_1		0x34304034
+#define OMAP3430_REV_ES3_1_1	0x34305034
 
 /*
  * omap_chip bits
@@ -362,6 +364,7 @@ IS_OMAP_TYPE(3430, 0x3430)
 #define CHIP_IS_OMAP3430ES2		(1 << 4)
 #define CHIP_IS_OMAP3430ES3_0		(1 << 5)
 #define CHIP_IS_OMAP3430ES3_1		(1 << 6)
+#define CHIP_IS_OMAP3430ES3_1_1	(1 << 7)
 
 #define CHIP_IS_OMAP24XX		(CHIP_IS_OMAP2420 | CHIP_IS_OMAP2430)
 
@@ -388,6 +391,12 @@ int omap_type(void);
 #define OMAP2_DEVICE_TYPE_SEC		2
 #define OMAP2_DEVICE_TYPE_GP		3
 #define OMAP2_DEVICE_TYPE_BAD		4
+
+/*
+ * Macro to detect omap revision number (for SW tiering */
+#define OMAP_3420	0x3420
+#define OMAP_3430	0x3430
+#define OMAP_3440	0x3440
 
 void omap2_check_revision(void);
 

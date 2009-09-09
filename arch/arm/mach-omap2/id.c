@@ -23,14 +23,21 @@
 #include <mach/cpu.h>
 
 static struct omap_chip_id omap_chip;
-static unsigned int omap_revision;
 
+static unsigned int omap_revision, omap_revision_id;
+static char *rev_name = "ES1.0                         ";
 
 unsigned int omap_rev(void)
 {
 	return omap_revision;
 }
 EXPORT_SYMBOL(omap_rev);
+
+unsigned int omap_rev_id(void)
+{
+	return omap_revision_id;
+}
+EXPORT_SYMBOL(omap_rev_id);
 
 /**
  * omap_chip_is - test whether currently running OMAP matches a chip type
@@ -157,7 +164,6 @@ void __init omap34xx_check_revision(void)
 	u32 cpuid, idcode;
 	u16 hawkeye;
 	u8 rev;
-	char *rev_name = "ES1.0";
 
 	/*
 	 * We cannot access revision registers on ES1.0.
@@ -284,3 +290,43 @@ void __init omap_l2cache_enable(void)
 	} else
 		printk(KERN_WARNING "L2 CACHE is enabled in bootloader\n");
 }
+
+/*
+  * Get OMAP chip version details from bootargs
+ */
+int  omap34xx_get_omap_version(char *str)
+{
+	unsigned int rev_id;
+	if (get_option(&str, &rev_id) == 1)	{
+		switch (rev_id) {
+		case 3420:
+			omap_revision_id = OMAP_3420;
+			omap_revision = OMAP3430_REV_ES3_1;
+			omap_chip.oc |= CHIP_IS_OMAP3430ES3_1;
+			rev_name = "ES3.1";
+			break;
+		case 3430:
+			omap_revision_id = OMAP_3430;
+			omap_revision = OMAP3430_REV_ES3_1;
+			omap_chip.oc |= CHIP_IS_OMAP3430ES3_1;
+			rev_name = "ES3.1";
+			break;
+		case 3440:
+			omap_revision_id = OMAP_3440;
+			omap_revision = OMAP3430_REV_ES3_1_1;
+			omap_chip.oc |= CHIP_IS_OMAP3430ES3_1_1;
+			rev_name = "ES3.1.1";
+			break;
+		default:
+			pr_err("OMAP revision unknown, please fix!\n");
+			return 1;
+		}
+		pr_info("OMAP%04x %s\n", omap_rev() >> 16, rev_name);
+		pr_info("OMAP Version is OMAP%04d\n", rev_id);
+	}
+
+	return 1;
+}
+
+__setup("omap_version=", omap34xx_get_omap_version);
+

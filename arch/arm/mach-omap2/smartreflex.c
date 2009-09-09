@@ -46,7 +46,7 @@ struct omap_sr {
 	u32		clk_length;
 	u32		req_opp_no;
 	u32		opp1_nvalue, opp2_nvalue, opp3_nvalue, opp4_nvalue;
-	u32		opp5_nvalue;
+	u32		opp5_nvalue, opp6_nvalue;
 	u32		senp_mod, senn_mod;
 	void __iomem	*srbase_addr;
 	void __iomem	*vpbase_addr;
@@ -150,6 +150,31 @@ static u32 cal_test_nvalue(u32 sennval, u32 senpval)
 		(rnsenn << NVALUERECIPROCAL_RNSENN_SHIFT));
 }
 
+void sr_calculate_rg(u32 rfuse, u32 gain_fuse, u32 delta_nt,
+					u32 *rnsen, u32 *sengain)
+{
+	u32 nadj;
+	nadj = ((1 << (gain_fuse + 8)) / rfuse) + delta_nt;
+	cal_reciprocal(nadj, sengain, rnsen);
+}
+
+/* extrapolate OPP6  nvalues from OPP5 value */
+static u32 calculate_opp_nvalue(u32 opp5_nvalue, u32 delta_p, u32 delta_n)
+{
+	u32 sen_pgain_fuse, sen_ngain_fuse, sen_prn_fuse, sen_nrn_fuse;
+	u32 sen_nrn, sen_ngain, sen_prn, sen_pgain;
+	sen_pgain_fuse = (opp5_nvalue & 0x00F0000) >> 0x14;
+	sen_ngain_fuse = (opp5_nvalue & 0x000F0000) >> 0x10;
+	sen_prn_fuse = (opp5_nvalue & 0x0000FF00) >> 0x08;
+	sen_nrn_fuse = (opp5_nvalue & 0x000000FF);
+	sr_calculate_rg(sen_nrn_fuse, sen_ngain_fuse, delta_n, &sen_nrn,
+					&sen_ngain);
+	sr_calculate_rg(sen_prn_fuse, sen_pgain_fuse, delta_p, &sen_prn,
+					&sen_pgain);
+	return  (sen_pgain << 0x14) | (sen_ngain << 0x10)
+			| (sen_prn << 0x08) | (sen_nrn);
+}
+
 /* determine the current OPP from the frequency
  * we need to give this function last element of OPP rate table
  * and the frequency
@@ -234,6 +259,10 @@ static void sr_set_efuse_nvalues(struct omap_sr *sr)
 					OMAP343X_CONTROL_FUSE_OPP2_VDD1);
 		sr->opp1_nvalue = omap_ctrl_readl(
 					OMAP343X_CONTROL_FUSE_OPP1_VDD1);
+		if (sr->opp5_nvalue) {
+			sr->opp6_nvalue = calculate_opp_nvalue(sr->opp5_nvalue,
+			227, 379);
+		}
 	} else if (sr->srid == SR2) {
 		sr->senn_mod = (omap_ctrl_readl(OMAP343X_CONTROL_FUSE_SR) &
 					OMAP343X_SR2_SENNENABLE_MASK) >>
@@ -265,6 +294,10 @@ static void sr_set_testing_nvalues(struct omap_sr *sr)
 		sr->opp3_nvalue = cal_test_nvalue(0x85b + 0x200, 0x655 + 0x200);
 		sr->opp2_nvalue = cal_test_nvalue(0x506 + 0x1a0, 0x3be + 0x1a0);
 		sr->opp1_nvalue = cal_test_nvalue(0x373 + 0x100, 0x28c + 0x100);
+		if (sr->opp5_nvalue) {
+			sr->opp6_nvalue = calculate_opp_nvalue(sr->opp5_nvalue,
+			227, 379);
+		}
 	} else if (sr->srid == SR2) {
 		sr->senp_mod = 0x03;
 		sr->senn_mod = 0x03;
@@ -515,6 +548,9 @@ static int sr_enable(struct omap_sr *sr, u32 target_opp_no)
 
 	if (sr->srid == SR1) {
 		switch (target_opp_no) {
+		case 6:
+			nvalue_reciprocal = sr->opp6_nvalue;
+			break;
 		case 5:
 			nvalue_reciprocal = sr->opp5_nvalue;
 			break;

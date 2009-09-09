@@ -57,6 +57,7 @@
 #include "pm.h"
 #include "smartreflex.h"
 #include "sdrc.h"
+#include <mach/omap-pm.h>
 
 static int regset_save_on_suspend;
 

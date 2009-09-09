@@ -608,8 +608,31 @@ static inline void __init zoom2_init_quaduart(void)
 
 static void __init omap_zoom2_init_irq(void)
 {
-	omap2_init_common_hw(mt46h32m32lf6_sdrc_params, omap3_mpu_rate_table,
-			     omap3_dsp_rate_table, omap3_l3_rate_table);
+	switch (omap_rev_id()) {
+	case OMAP_3420:
+		omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+		omap3_mpu_rate_table, omap3_dsp_rate_table_3420,
+		omap3_l3_rate_table);
+		break;
+
+	case OMAP_3430:
+		omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+		omap3_mpu_rate_table, omap3_dsp_rate_table,
+		omap3_l3_rate_table);
+		break;
+
+	case OMAP_3440:
+		omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+		omap3_mpu_rate_table, omap3_dsp_rate_table_3440,
+		omap3_l3_rate_table);
+		break;
+
+	default:
+		omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+		omap3_mpu_rate_table, omap3_dsp_rate_table,
+		omap3_l3_rate_table);
+		break;
+		}
 	omap2_mux_register(&zoom2_mux_cfg);
 	omap_init_irq();
 	omap_gpio_init();
@@ -998,7 +1021,6 @@ static void __init omap_zoom2_init(void)
 	omap_i2c_init();
 	/* Fix to prevent VIO leakage on wl127x */
 	wl127x_vio_leakage_fix();
-
 	platform_add_devices(zoom2_devices, ARRAY_SIZE(zoom2_devices));
 	omap_board_config = zoom2_config;
 	omap_board_config_size = ARRAY_SIZE(zoom2_config);
