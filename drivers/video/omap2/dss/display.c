@@ -277,6 +277,30 @@ static ssize_t display_wss_store(struct device *dev,
 	return size;
 }
 
+unsigned long lpr_enable;
+extern int omap_dispc_lpr_enable(void);
+extern void omap_dispc_lpr_disable(void);
+
+static ssize_t display_lpr_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+
+	lpr_enable = simple_strtoul(buf, NULL, 0);
+	if (lpr_enable)
+		omap_dispc_lpr_enable();
+	else
+		omap_dispc_lpr_disable();
+
+	return size;
+}
+
+static ssize_t display_lpr_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+
+	return snprintf(buf, PAGE_SIZE, "%u\n", lpr_enable);
+}
+
 static DEVICE_ATTR(enabled, S_IRUGO|S_IWUSR,
 		display_enabled_show, display_enabled_store);
 static DEVICE_ATTR(update_mode, S_IRUGO|S_IWUSR,
@@ -291,6 +315,8 @@ static DEVICE_ATTR(mirror, S_IRUGO|S_IWUSR,
 		display_mirror_show, display_mirror_store);
 static DEVICE_ATTR(wss, S_IRUGO|S_IWUSR,
 		display_wss_show, display_wss_store);
+static DEVICE_ATTR(lpr_enable, S_IRUGO|S_IWUSR,
+		display_lpr_show, display_lpr_store);
 
 static struct device_attribute *display_sysfs_attrs[] = {
 	&dev_attr_enabled,
@@ -300,6 +326,7 @@ static struct device_attribute *display_sysfs_attrs[] = {
 	&dev_attr_rotate,
 	&dev_attr_mirror,
 	&dev_attr_wss,
+	&dev_attr_lpr_enable,
 	NULL
 };
 
