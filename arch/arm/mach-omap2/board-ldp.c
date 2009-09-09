@@ -420,7 +420,7 @@ static struct twl4030_ins wakeup_seq[] __initdata = {
 static struct twl4030_script wakeup_script __initdata = {
 	.script	= wakeup_seq,
 	.size	= ARRAY_SIZE(wakeup_seq),
-	.flags	= TRITON_WAKEUP12_SCRIPT | TRITON_WAKEUP3_SCRIPT,
+	.flags	= TRITON_WAKEUP_SCRIPT,
 };
 
 static struct twl4030_ins wrst_seq[] __initdata = {
