@@ -1693,6 +1693,10 @@ static int ioctl_enum_framesizes(struct v4l2_int_device *s,
 
 const struct v4l2_fract imx046_frameintervals[] = {
 	{ .numerator = 3, .denominator = 30 },
+	{ .numerator = 2, .denominator = 25 },
+	{ .numerator = 1, .denominator = 15 },
+	{ .numerator = 1, .denominator = 20 },
+	{ .numerator = 1, .denominator = 25 },
 	{ .numerator = 1, .denominator = 30 },
 };
 
