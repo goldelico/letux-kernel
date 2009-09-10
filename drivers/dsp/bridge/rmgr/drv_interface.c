@@ -560,7 +560,6 @@ static int bridge_open(struct inode *ip, struct file *filp)
 {
 	int status = 0;
 #ifndef RES_CLEANUP_DISABLE
-	u32 hProcess;
 	struct PROCESS_CONTEXT *pPctxt = NULL;
 
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_open\n");
@@ -568,12 +567,7 @@ static int bridge_open(struct inode *ip, struct file *filp)
 	pPctxt = MEM_Calloc(sizeof(struct PROCESS_CONTEXT), MEM_PAGED);
 
 	if (pPctxt != NULL) {
-		spin_lock_init(&(pPctxt->proc_list_lock));
-		INIT_LIST_HEAD(&(pPctxt->processor_list));
-		/* Return PID instead of process handle */
-		hProcess = current->pid;
 		DRV_ProcUpdatestate(pPctxt, PROC_RES_ALLOCATED);
-		DRV_ProcSetPID(pPctxt, hProcess);
 		filp->private_data = pPctxt;
 	}
 #endif
@@ -589,7 +583,6 @@ static int bridge_release(struct inode *ip, struct file *filp)
 	int status;
 	HANDLE hDrvObject = NULL;
 	struct PROCESS_CONTEXT *pr_ctxt;
-	struct PROC_OBJECT *proc_obj_ptr, *temp;
 
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_release\n");
 
@@ -605,11 +598,7 @@ static int bridge_release(struct inode *ip, struct file *filp)
 	if (pr_ctxt) {
 		flush_signals(current);
 		DRV_RemoveAllResources(pr_ctxt);
-		list_for_each_entry_safe(proc_obj_ptr, temp,
-				&pr_ctxt->processor_list,
-				proc_object) {
-			PROC_Detach(proc_obj_ptr, pr_ctxt);
-		}
+		PROC_Detach(pr_ctxt);
 		MEM_Free(pr_ctxt);
 		filp->private_data = NULL;
 	}
@@ -700,6 +689,7 @@ DSP_STATUS DRV_RemoveAllResources(HANDLE hPCtxt)
 		DRV_RemoveAllSTRMResElements(pCtxt);
 		DRV_RemoveAllNodeResElements(pCtxt);
 		DRV_RemoveAllDMMResElements(pCtxt);
+		DRV_RemoveAllRegResElements(pCtxt);
 		DRV_ProcUpdatestate(pCtxt, PROC_RES_FREED);
 	}
 	return status;

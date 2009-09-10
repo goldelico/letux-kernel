@@ -168,6 +168,29 @@ extern char *iva_img;
 static struct GT_Mask PROC_DebugMask = { NULL, NULL };	/* WCD MGR Mask */
 #endif
 
+/* The PROC_OBJECT structure.   */
+struct PROC_OBJECT {
+	struct LST_ELEM link;		/* Link to next PROC_OBJECT */
+	u32 dwSignature;		/* Used for object validation */
+	struct DEV_OBJECT *hDevObject;	/* Device this PROC represents */
+	u32 hProcess;			/* Process owning this Processor */
+	struct MGR_OBJECT *hMgrObject;	/* Manager Object Handle */
+	u32 uAttachCount;		/* Processor attach count */
+	u32 uProcessor;			/* Processor number */
+	u32 uTimeout;			/* Time out count */
+	enum DSP_PROCSTATE sState;	/* Processor state */
+	u32 ulUnit;			/* DDSP unit number */
+	bool bIsAlreadyAttached;	/*
+					 * True if the Device below has
+					 * GPP Client attached
+					 */
+	struct NTFY_OBJECT *hNtfy;	/* Manages  notifications */
+	struct WMD_DEV_CONTEXT *hWmdContext;	/* WMD Context Handle */
+	struct WMD_DRV_INTERFACE *pIntfFxns;	/* Function interface to WMD */
+	char *g_pszLastCoff;
+	struct list_head proc_object;
+};
+
 static u32 cRefs;
 
 struct SYNC_CSOBJECT *hProcLock;	/* For critical sections */
@@ -201,6 +224,11 @@ PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
 	GT_3trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Attach, args:\n\t"
 		 "uProcessor:  0x%x\n\tpAttrIn:  0x%x\n\tphProcessor:"
 		 "0x%x\n", uProcessor, pAttrIn, phProcessor);
+
+	if (pr_ctxt && pr_ctxt->hProcessor) {
+		*phProcessor = pr_ctxt->hProcessor;
+		return status;
+	}
 
 	/* Get the Driver and Manager Object Handles */
 	status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
@@ -250,8 +278,8 @@ PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
 	pProcObject->hDevObject = hDevObject;
 	pProcObject->hMgrObject = hMgrObject;
 	pProcObject->uProcessor = devType;
-	/* Store PID of Caller Process */
-	pProcObject->hProcess = current->pid;
+	/* Store TGID of Caller Process */
+	pProcObject->hProcess = current->tgid;
 
 	INIT_LIST_HEAD(&pProcObject->proc_object);
 
@@ -311,6 +339,7 @@ PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
 		}
 		if (DSP_SUCCEEDED(status)) {
 			*phProcessor = (DSP_HPROCESSOR)pProcObject;
+			pr_ctxt->hProcessor = *phProcessor;
 			(void)PROC_NotifyClients(pProcObject,
 						 DSP_PROCESSORATTACH);
 			GT_0trace(PROC_DebugMask, GT_1CLASS,
@@ -324,11 +353,6 @@ PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
 			 "storage for notification \n");
 		MEM_FreeObject(pProcObject);
 	}
-#ifndef RES_CLEANUP_DISABLE
-	spin_lock(&pr_ctxt->proc_list_lock);
-	list_add(&pProcObject->proc_object, &pr_ctxt->processor_list);
-	spin_unlock(&pr_ctxt->proc_list_lock);
-#endif
 func_end:
 	DBC_Ensure((status == DSP_EFAIL && *phProcessor == NULL) ||
 		  (DSP_SUCCEEDED(status) &&
@@ -550,24 +574,19 @@ DSP_STATUS PROC_Ctrl(DSP_HPROCESSOR hProcessor, u32 dwCmd,
  *      Destroys the  Processor Object. Removes the notification from the Dev
  *      List.
  */
-DSP_STATUS PROC_Detach(DSP_HPROCESSOR hProcessor,
-		struct PROCESS_CONTEXT *pr_ctxt)
+DSP_STATUS PROC_Detach(struct PROCESS_CONTEXT *pr_ctxt)
 {
 	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
+	struct PROC_OBJECT *pProcObject = NULL;
+
+	if (pr_ctxt && pr_ctxt->hProcessor)
+		pProcObject = (struct PROC_OBJECT *)pr_ctxt->hProcessor;
 
 	DBC_Require(cRefs > 0);
 	GT_1trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Detach, args:\n\t"
-		 "hProcessor:  0x%x\n", hProcessor);
+		"pr_ctxt->phProcessor:  0x%x\n", *pProcObject);
 
 	if (MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-#ifndef RES_CLEANUP_DISABLE
-		if (pr_ctxt) {
-			spin_lock(&pr_ctxt->proc_list_lock);
-			list_del(&pProcObject->proc_object);
-			spin_unlock(&pr_ctxt->proc_list_lock);
-		}
-#endif
 		/* Notify the Client */
 		NTFY_Notify(pProcObject->hNtfy, DSP_PROCESSORDETACH);
 		/* Remove the notification memory */
@@ -583,6 +602,7 @@ DSP_STATUS PROC_Detach(DSP_HPROCESSOR hProcessor,
 			(u32)pProcObject);
 		/* Free the Processor Object */
 		MEM_FreeObject(pProcObject);
+		pr_ctxt->hProcessor = NULL;
 	} else {
 		status = DSP_EHANDLE;
 		GT_0trace(PROC_DebugMask, GT_7CLASS,
@@ -1625,8 +1645,6 @@ DSP_STATUS PROC_Stop(DSP_HPROCESSOR hProcessor)
 	}
 	if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
 	   (pProcObject->hWmdContext, &uBrdState))) {
-		/* Clean up all the resources except the current running
-		 * process resources */
 		if (uBrdState == BRD_ERROR)
 			WMD_DEH_ReleaseDummyMem();
 	}

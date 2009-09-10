@@ -567,7 +567,7 @@ u32 MGRWRAP_RegisterObject(union Trapped_Args *args, void *pr_ctxt)
 		 "0x%x\n", args->ARGS_MGR_REGISTEROBJECT.pUuid);
 	status = DCD_RegisterObject(&pUuid,
 				args->ARGS_MGR_REGISTEROBJECT.objType,
-				(char *)pszPathName);
+				(char *)pszPathName, pr_ctxt);
 func_end:
 	if (pszPathName)
 		MEM_Free(pszPathName);
@@ -590,7 +590,7 @@ u32 MGRWRAP_UnregisterObject(union Trapped_Args *args, void *pr_ctxt)
 		 "MGRWRAP_UnregisterObject: entered pg2hMsg"
 		 " 0x%x\n", args->ARGS_MGR_UNREGISTEROBJECT.pUuid);
 	status = DCD_UnregisterObject(&pUuid,
-			args->ARGS_MGR_UNREGISTEROBJECT.objType);
+			args->ARGS_MGR_UNREGISTEROBJECT.objType, pr_ctxt);
 func_end:
 	return status;
 
@@ -740,14 +740,13 @@ func_end:
  */
 u32 PROCWRAP_Detach(union Trapped_Args *args, void *pr_ctxt)
 {
-	u32 retVal;
-
 	GT_1trace(WCD_debugMask, GT_ENTER,
 		 "PROCWRAP_Detach: entered args\n0x%x "
 		 "hProceesor \n", args->ARGS_PROC_DETACH.hProcessor);
-	retVal = PROC_Detach(args->ARGS_PROC_DETACH.hProcessor, pr_ctxt);
 
-	return retVal;
+	/* PROC_Detach called at bridge_release only */
+
+	return DSP_SOK;
 }
 
 /*

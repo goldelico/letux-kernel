@@ -168,21 +168,19 @@ enum GPP_PROC_RES_STATE {
 	PROC_RES_FREED
 } ;
 
+struct REG_VALUES {
+	struct DSP_UUID *pUuid;
+	enum DSP_DCDOBJTYPE objType;
+	struct REG_VALUES *next;
+} ;
+
 /* Process Context */
 struct PROCESS_CONTEXT{
 	/* Process State */
 	enum GPP_PROC_RES_STATE resState;
 
-	/* Process ID (Same as UNIX process ID) */
-	u32 pid;
-
-	/* Pointer to next process context
-	* (To maintain a linked list of process contexts) */
-	struct PROCESS_CONTEXT *next;
-
-	/* List of Processors */
-	struct list_head processor_list;
-	spinlock_t proc_list_lock;
+	/* Handle to Processor */
+	DSP_HPROCESSOR hProcessor;
 
 	/* DSP Node resources */
 	struct NODE_RES_OBJECT *pNodeList;
@@ -195,6 +193,9 @@ struct PROCESS_CONTEXT{
 
 	/* Stream resources */
 	struct STRM_RES_OBJECT *pSTRMList;
+
+	/* Register resources */
+	struct REG_VALUES *pREGList;
 } ;
 #endif
 

@@ -123,6 +123,7 @@
 #include <dspbridge/nodepriv.h>
 #include <dspbridge/wmdchnl.h>
 #include <dspbridge/resourcecleanup.h>
+#include <dspbridge/dbdcd.h>
 #endif
 
 /*  ----------------------------------- Defines, Data Structures, Typedefs */
@@ -154,24 +155,10 @@ extern struct GT_Mask curTrace;
 static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 fRequest);
 static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 fRequest);
 
-#ifndef RES_CLEANUP_DISABLE
-/* GPP PROCESS CLEANUP CODE */
-
+#ifndef RES_CLEANUP_DISABLE /* GPP PROCESS CLEANUP CODE */
 static DSP_STATUS DRV_ProcFreeNodeRes(HANDLE hPCtxt);
 static DSP_STATUS  DRV_ProcFreeSTRMRes(HANDLE hPCtxt);
 extern enum NODE_STATE NODE_GetState(HANDLE hNode);
-
-/* Set the Process ID */
-DSP_STATUS DRV_ProcSetPID(HANDLE hPCtxt, s32 hProcess)
-{
-	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	DSP_STATUS status = DSP_SOK;
-
-	DBC_Assert(hPCtxt != NULL);
-
-	pCtxt->pid = hProcess;
-	return status;
-}
 
 /* Update the state of process context */
 DSP_STATUS DRV_ProcUpdatestate(HANDLE hPCtxt, enum GPP_PROC_RES_STATE status)
@@ -688,8 +675,24 @@ DSP_STATUS DRV_ProcUpdateSTRMRes(u32 uNumBufs, HANDLE hSTRMRes, HANDLE hPCtxt)
 	return status;
 }
 
-/* GPP PROCESS CLEANUP CODE END */
-#endif
+/* Remove the registered key elements */
+DSP_STATUS DRV_RemoveAllRegResElements(HANDLE hPCtxt)
+{
+	struct PROCESS_CONTEXT *pr_ctxt = (struct PROCESS_CONTEXT *)hPCtxt;
+	struct REG_VALUES *reg_key = NULL;
+	DSP_STATUS status = DSP_SOK;
+
+	while (pr_ctxt->pREGList) {
+		reg_key = pr_ctxt->pREGList;
+		status = DCD_UnregisterObject(pr_ctxt->pREGList->pUuid,
+			pr_ctxt->pREGList->objType, pr_ctxt);
+		pr_ctxt->pREGList = reg_key->next;
+		MEM_Free(reg_key->pUuid);
+		MEM_Free(reg_key);
+	}
+	return status;
+}
+#endif /* GPP PROCESS CLEANUP CODE END */
 
 /*
  *  ======== = DRV_Create ======== =

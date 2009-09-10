@@ -52,6 +52,7 @@ struct RegValueStruct {
 	char name[BRIDGE_MAX_NAME_SIZE];   /*  Name of a given value entry  */
 	u32 dataSize;		/*  Size of the data  */
 	void *pData;		/*  Pointer to the actual data  */
+	int counter; 		/* Number of register attempts for this key */
 };
 
 struct RegKeyStruct {
@@ -259,6 +260,9 @@ DSP_STATUS regsupSetValue(char *valName, void *pBuf, u32 dataSize)
 			GT_0trace(REG_debugMask, GT_7CLASS,
 				  "MAX NUM REG ENTRIES REACHED\n");
 		}
+	} else {
+		/* Increase the counter to track the registered entry */
+		pRegKey->values[i].counter++;
 	}
 
 	return retVal;
@@ -326,7 +330,22 @@ DSP_STATUS regsupDeleteValue(IN CONST char *pstrSubkey,
 		/*  See if the name matches...  */
                if (strncmp(pRegKey->values[i].name, pstrValue,
 		    BRIDGE_MAX_NAME_SIZE) == 0) {
-			/* We have a match!  Delete this key.  To delete a
+			/*
+			 * Check if registration counter is > 0, otherwise
+			 * delete the key
+			 */
+			if (pRegKey->values[i].counter > 0) {
+				/*
+				 * We do not un-register this entry as another
+				 * object needs it.  Key Registration counter
+				 * takes care of the delta
+				 */
+				pRegKey->values[i].counter--;
+				goto func_cont;
+			}
+
+			/*
+			 * We have a match!  Delete this key.  To delete a
 			 * key, we free all resources associated with this
 			 * key and, if we're not already the last entry in
 			 * the array, we copy that entry into this deleted
@@ -358,7 +377,7 @@ DSP_STATUS regsupDeleteValue(IN CONST char *pstrSubkey,
 
 			/* another one bites the dust. */
 			pRegKey->numValueEntries--;
-
+func_cont:
 			/*  Set our status to good and exit...  */
 			retVal = DSP_SOK;
 			break;
