@@ -692,7 +692,7 @@ int ispccdc_config_datapath(enum ccdc_input input, enum ccdc_output output)
 			ispccdc_load_lsc(lsc_gain_table_tmp,
 					 LSC_TABLE_INIT_SIZE);
 		}
-
+		ispccdc_obj.lsc_enable = 1;
 		break;
 	case CCDC_YUV_SYNC:
 		syncif.ccdc_mastermode = 0;
@@ -709,10 +709,13 @@ int ispccdc_config_datapath(enum ccdc_input input, enum ccdc_output output)
 		ispccdc_config_sync_if(syncif);
 		blkcfg.dcsubval = 0;
 		ispccdc_config_black_clamp(blkcfg);
+		ispccdc_obj.lsc_enable = 0;
 		break;
 	case CCDC_YUV_BT:
+		ispccdc_obj.lsc_enable = 0;
 		break;
 	case CCDC_OTHERS:
+		ispccdc_obj.lsc_enable = 0;
 		break;
 	default:
 		DPRINTK_ISPCCDC("ISP_ERR: Wrong CCDC Input\n");
