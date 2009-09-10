@@ -560,7 +560,6 @@ static int bridge_open(struct inode *ip, struct file *filp)
 {
 	int status = 0;
 #ifndef RES_CLEANUP_DISABLE
-	u32 hProcess;
 	struct PROCESS_CONTEXT *pPctxt = NULL;
 
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_open\n");
@@ -568,8 +567,6 @@ static int bridge_open(struct inode *ip, struct file *filp)
 	pPctxt = MEM_Calloc(sizeof(struct PROCESS_CONTEXT), MEM_PAGED);
 
 	if (pPctxt != NULL) {
-		/* Return PID instead of process handle */
-		hProcess = current->pid;
 		DRV_ProcUpdatestate(pPctxt, PROC_RES_ALLOCATED);
 		filp->private_data = pPctxt;
 	}

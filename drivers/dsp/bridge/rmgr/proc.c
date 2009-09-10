@@ -255,8 +255,8 @@ PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
 	pProcObject->hDevObject = hDevObject;
 	pProcObject->hMgrObject = hMgrObject;
 	pProcObject->uProcessor = devType;
-	/* Store PID of Caller Process */
-	pProcObject->hProcess = current->pid;
+	/* Store TGID of Caller Process */
+	pProcObject->hProcess = current->tgid;
 
 	INIT_LIST_HEAD(&pProcObject->proc_object);
 

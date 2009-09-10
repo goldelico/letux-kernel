@@ -101,8 +101,8 @@ s32 KFILE_Close(struct KFILE_FileObj *hFile)
 	if (MEM_IsValidHandle(hFile, SIGNATURE)) {
 		/* Close file only if opened by the same process (id). Otherwise
 		 * Linux closes all open file handles when process exits.*/
-               /* Return PID instead of process handle */
-               curr_pid = (__kernel_pid_t)current->pid;
+		/* Return TGID instead of process handle */
+		curr_pid = (__kernel_pid_t)current->tgid;
 		fRetVal = filp_close(hFile->fileDesc, NULL) ;
 		if (fRetVal) {
 			cRetVal = E_KFILE_ERROR;
@@ -181,8 +181,8 @@ struct KFILE_FileObj *KFILE_Open(CONST char *pszFileName, CONST char *pszMode)
 			hFile->size = fileDesc->f_op->llseek(fileDesc, 0,
 							    SEEK_END);
 			fileDesc->f_op->llseek(fileDesc, 0, SEEK_SET);
-                       /* Return PID instead of process handle */
-                       hFile->owner_pid = current->pid;
+			/* Return TGID instead of process handle */
+			hFile->owner_pid = current->tgid;
 
 			status = DSP_SOK;
 		}
