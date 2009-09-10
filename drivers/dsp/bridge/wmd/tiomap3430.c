@@ -303,7 +303,7 @@ static void bad_page_dump(u32 pa, struct page *pg)
 		current->comm, pg, (int)(2*sizeof(unsigned long)),
 		(unsigned long)pg->flags, pg->mapping,
 		page_mapcount(pg), page_count(pg));
-	BUG();
+	dump_stack();
 }
 
 /*
@@ -1704,9 +1704,10 @@ static DSP_STATUS WMD_BRD_MemUnMap(struct WMD_DEV_CONTEXT *hDevContext,
 						"COUNT 0 FOR PA 0x%x, size = "
 						"0x%x\n", pAddr, ulNumBytes);
 					bad_page_dump(pAddr, pg);
+				} else {
+					SetPageDirty(pg);
+					page_cache_release(pg);
 				}
-				SetPageDirty(pg);
-				page_cache_release(pg);
 				pAddr += HW_PAGE_SIZE_4KB;
 			}
 			if (HW_MMU_PteClear(pteAddrL2, vaCurr, pteSize)
@@ -1771,9 +1772,10 @@ skip_coarse_page:
 						"COUNT 0 FOR PA 0x%x, size = "
 						"0x%x\n", pAddr, ulNumBytes);
 					bad_page_dump(pAddr, pg);
+				} else {
+					SetPageDirty(pg);
+					page_cache_release(pg);
 				}
-				SetPageDirty(pg);
-				page_cache_release(pg);
 			}
 			pAddr += HW_PAGE_SIZE_4KB;
 		}
