@@ -194,7 +194,7 @@ static struct imx046_sensor_settings sensor_settings[] = {
 	{
 		.clk = {
 			.pre_pll_div = 1,
-			.pll_mult = 18,
+			.pll_mult = 36,
 			.post_pll_div = 1,
 			.vt_pix_clk_div = 10,
 			.vt_sys_clk_div = 1,
@@ -229,7 +229,7 @@ static struct imx046_sensor_settings sensor_settings[] = {
 	{
 		.clk = {
 			.pre_pll_div = 1,
-			.pll_mult = 18,
+			.pll_mult = 36,
 			.post_pll_div = 1,
 			.vt_pix_clk_div = 10,
 			.vt_sys_clk_div = 1,
