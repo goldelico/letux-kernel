@@ -179,16 +179,8 @@ struct PROCESS_CONTEXT{
 	/* Process State */
 	enum GPP_PROC_RES_STATE resState;
 
-	/* Process ID (Same as UNIX process ID) */
-	u32 pid;
-
-	/* Pointer to next process context
-	* (To maintain a linked list of process contexts) */
-	struct PROCESS_CONTEXT *next;
-
-	/* List of Processors */
-	struct list_head processor_list;
-	spinlock_t proc_list_lock;
+	/* Handle to Processor */
+	DSP_HPROCESSOR hProcessor;
 
 	/* DSP Node resources */
 	struct NODE_RES_OBJECT *pNodeList;

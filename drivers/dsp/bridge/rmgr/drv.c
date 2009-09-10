@@ -160,18 +160,6 @@ static DSP_STATUS DRV_ProcFreeNodeRes(HANDLE hPCtxt);
 static DSP_STATUS  DRV_ProcFreeSTRMRes(HANDLE hPCtxt);
 extern enum NODE_STATE NODE_GetState(HANDLE hNode);
 
-/* Set the Process ID */
-DSP_STATUS DRV_ProcSetPID(HANDLE hPCtxt, s32 hProcess)
-{
-	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	DSP_STATUS status = DSP_SOK;
-
-	DBC_Assert(hPCtxt != NULL);
-
-	pCtxt->pid = hProcess;
-	return status;
-}
-
 /* Update the state of process context */
 DSP_STATUS DRV_ProcUpdatestate(HANDLE hPCtxt, enum GPP_PROC_RES_STATE status)
 {

@@ -740,14 +740,13 @@ func_end:
  */
 u32 PROCWRAP_Detach(union Trapped_Args *args, void *pr_ctxt)
 {
-	u32 retVal;
-
 	GT_1trace(WCD_debugMask, GT_ENTER,
 		 "PROCWRAP_Detach: entered args\n0x%x "
 		 "hProceesor \n", args->ARGS_PROC_DETACH.hProcessor);
-	retVal = PROC_Detach(args->ARGS_PROC_DETACH.hProcessor, pr_ctxt);
 
-	return retVal;
+	/* PROC_Detach called at bridge_release only */
+
+	return DSP_SOK;
 }
 
 /*

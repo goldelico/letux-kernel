@@ -177,7 +177,7 @@ struct PROC_OBJECT {
  *      Close a DSP processor and de-allocate all (GPP) resources reserved
  *      for it. The Processor Object is deleted.
  *  Parameters:
- *      hProcessor  :   The processor handle.
+ *      pr_ctxt     :   The processor handle.
  *  Returns:
  *      DSP_SOK     :   Success.
  *      DSP_EHANDLE :   InValid Handle.
@@ -187,8 +187,7 @@ struct PROC_OBJECT {
  *  Ensures:
  *      PROC Object is destroyed.
  */
-	extern DSP_STATUS PROC_Detach(DSP_HPROCESSOR hProcessor,
-			struct PROCESS_CONTEXT *pr_ctxt);
+	extern DSP_STATUS PROC_Detach(struct PROCESS_CONTEXT *pr_ctxt);
 
 /*
  *  ======== PROC_EnumNodes ========
