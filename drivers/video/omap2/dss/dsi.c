@@ -829,7 +829,8 @@ static int dsi_calc_clock_rates(struct dsi_clock_info *cinfo)
 		 * with DSS2_FCK source also */
 		cinfo->highfreq = 0;
 	} else {
-		cinfo->clkin = dispc_pclk_rate();
+		/* TODO: Add support for LCD2 */
+		cinfo->clkin = dispc_pclk_rate(OMAP_DSS_CHANNEL_LCD);
 
 		if (cinfo->clkin < 32000000)
 			cinfo->highfreq = 0;
@@ -1220,8 +1221,8 @@ void dsi_dump_clocks(struct seq_file *s)
 
 	seq_printf(s,	"VP_CLK\t\t%lu\n"
 			"VP_PCLK\t\t%lu\n",
-			dispc_lclk_rate(),
-			dispc_pclk_rate());
+			dispc_lclk_rate(OMAP_DSS_CHANNEL_LCD),
+			dispc_pclk_rate(OMAP_DSS_CHANNEL_LCD));
 
 	enable_clocks(0);
 }
@@ -2907,7 +2908,8 @@ static int dsi_update_thread(void *data)
 				dss_setup_partial_planes(device,
 						&x, &y, &w, &h);
 
-			dispc_set_lcd_size(w, h);
+			dispc_set_lcd_size(OMAP_DSS_CHANNEL_LCD, w, h);
+			/* TODO: Correct this while adding support for LCD2 */
 		}
 
 		if (dsi.active_update_region.dirty) {
@@ -2942,7 +2944,8 @@ static int dsi_update_thread(void *data)
 						x, y, w, h);
 
 				dispc_enable_sidle();
-				dispc_enable_lcd_out(0);
+				/* TODO: update for LCD2 support */
+				dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD, 0);
 
 				dsi_reset_tx_fifo(0);
 			} else {
@@ -2985,13 +2988,15 @@ static int dsi_display_init_dispc(struct omap_dss_device *dssdev)
 		DSSERR("can't get FRAMEDONE irq\n");
 		return r;
 	}
+	/* TODO: Change here for LCD2 support*/
+	dispc_set_lcd_display_type(OMAP_DSS_CHANNEL_LCD,
+					OMAP_DSS_LCD_DISPLAY_TFT);
 
-	dispc_set_lcd_display_type(OMAP_DSS_LCD_DISPLAY_TFT);
-
-	dispc_set_parallel_interface_mode(OMAP_DSS_PARALLELMODE_DSI);
+	dispc_set_parallel_interface_mode(OMAP_DSS_CHANNEL_LCD,
+					OMAP_DSS_PARALLELMODE_DSI);
 	dispc_enable_fifohandcheck(1);
 
-	dispc_set_tft_data_lines(dssdev->ctrl.pixel_size);
+	dispc_set_tft_data_lines(OMAP_DSS_CHANNEL_LCD, dssdev->ctrl.pixel_size);
 
 	{
 		struct omap_video_timings timings = {
@@ -3003,7 +3008,7 @@ static int dsi_display_init_dispc(struct omap_dss_device *dssdev)
 			.vbp		= 0,
 		};
 
-		dispc_set_lcd_timings(&timings);
+		dispc_set_lcd_timings(OMAP_DSS_CHANNEL_LCD, &timings);
 	}
 
 	return 0;

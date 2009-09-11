@@ -510,6 +510,8 @@ struct omap_dss_device {
 
 	enum omap_dss_display_state state;
 
+	enum omap_channel channel;
+
 	int (*enable)(struct omap_dss_device *dssdev);
 	void (*disable)(struct omap_dss_device *dssdev);
 
