@@ -42,6 +42,7 @@
 
 #include <mach/control.h>
 #include <mach/clock.h>
+#include <mach/usb-ohci.h>
 
 #include "sdram-qimonda-hyb18m512160af-6.h"
 #include "mmc-twl4030.h"
@@ -800,7 +801,7 @@ static struct twl4030_platform_data sdp3430_twldata = {
 	.vpll2		= &sdp3430_vpll2,
 };
 
-static struct i2c_board_info __initdata sdp3430_i2c_boardinfo[] = {
+static struct i2c_board_info __initdata sdp3430_i2c1_boardinfo[] = {
 	{
 		I2C_BOARD_INFO("twl4030", 0x48),
 		.flags = I2C_CLIENT_WAKE,
@@ -809,13 +810,29 @@ static struct i2c_board_info __initdata sdp3430_i2c_boardinfo[] = {
 	},
 };
 
+/* I2C Address for ISP1301 Transceiver */
+#define ISP1301_I2C_ADDR1               0x2C
+#define ISP1301_I2C_ADDR2               0x2D
+
+static struct i2c_board_info __initdata sdp3430_i2c2_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("isp1301_host", ISP1301_I2C_ADDR1),
+		.type           = "isp1301_host",
+	},
+	{
+		I2C_BOARD_INFO("isp1301_host", ISP1301_I2C_ADDR2),
+		.type           = "isp1301_host",
+	},
+};
+
 static int __init omap3430_i2c_init(void)
 {
 	/* i2c1 for PMIC only */
-	omap_register_i2c_bus(1, 2600, sdp3430_i2c_boardinfo,
-			ARRAY_SIZE(sdp3430_i2c_boardinfo));
-	/* i2c2 on camera connector (for sensor control) and optional isp1301 */
-	omap_register_i2c_bus(2, 400, NULL, 0);
+	omap_register_i2c_bus(1, 2600, sdp3430_i2c1_boardinfo,
+			ARRAY_SIZE(sdp3430_i2c1_boardinfo));
+	/* i2c2 optional isp1301 */
+	omap_register_i2c_bus(2, 100, sdp3430_i2c2_boardinfo,
+			ARRAY_SIZE(sdp3430_i2c2_boardinfo));
 	/* i2c3 on display connector (for DVI, tfp410) */
 	omap_register_i2c_bus(3, 400, NULL, 0);
 	return 0;
@@ -840,6 +857,7 @@ static void __init omap_3430sdp_init(void)
 	omap_serial_init();
 	usb_musb_init();
 	usb_ehci_init();
+	usb_ohci_init();
 	sdp3430_display_init();
 }
 
