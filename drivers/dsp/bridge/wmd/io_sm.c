@@ -1127,7 +1127,7 @@ void IO_Schedule(struct IO_MGR *pIOMgr)
 {
 	if(!MEM_IsValidHandle(pIOMgr, IO_MGRSIGNATURE))
 		return;
-
+	tiomap3430_bump_dsp_opp_level();
 	DPC_Schedule(pIOMgr->hDPC);
 }
 
