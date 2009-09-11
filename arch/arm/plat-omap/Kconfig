@@ -285,6 +285,96 @@ config OMAP_SERIAL_WAKE
 	  to data on the serial RX line. This allows you to wake the
 	  system from serial console.
 
+comment "USBHOST Port Configuration"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+
+choice
+	prompt "Port 1"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	default OMAP_EHCI_PHY_MODE_PORT1
+
+config OMAP_EHCI_PHY_MODE_PORT1
+	bool "ULPI PHY mode: 12-pin ULPI"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	help
+	  12-pin ULPI PHY Mode. For use with a HS transceiver.
+
+config OMAP_EHCI_TLL_MODE_PORT1
+	bool "ULPI TLL mode: 12-pin ULPI"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	help
+	  12-pin ULPI TLL Mode
+
+config OMAP_OHCI_PHY_MODE_3PIN_PORT1
+	bool "Serial PHY mode: 3-pin Bi-directional DAT/SE0"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	help
+	  Serial PHY Mode (3-pin Bi-directional DAT/SE0)
+
+config OMAP_OHCI_PHY_MODE_4PIN_PORT1
+	bool "Serial PHY mode: 4-pin Bi-directional DP/DM"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	help
+	  Serial PHY Mode (4-pin Bidirectional DP/DM)
+
+endchoice
+
+choice
+	prompt "Port 2"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	default OMAP_EHCI_PHY_MODE_PORT2
+
+config OMAP_EHCI_PHY_MODE_PORT2
+	bool "ULPI PHY mode: 12-pin ULPI"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	help
+	  12-pin ULPI PHY Mode
+
+config OMAP_EHCI_TLL_MODE_PORT2
+	bool "ULPI TLL mode: 12-pin ULPI"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	help
+	  12-pin ULPI TLL Mode
+
+config OMAP_OHCI_PHY_MODE_3PIN_PORT2
+	bool "Serial PHY mode: 3-pin Bi-directional DAT/SE0"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	help
+	  Serial PHY Mode (3-pin Bi-directional DAT/SE0)
+
+config OMAP_OHCI_PHY_MODE_4PIN_PORT2
+	bool "Serial PHY mode: 4-pin Bi-directional DP/DM"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	help
+	  Serial PHY Mode (4-pin Bidirectional DP/DM)
+
+endchoice
+
+choice
+	prompt "Port 3"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	default OMAP_OHCI_PHY_MODE_3PIN_PORT3
+
+config OMAP_EHCI_TLL_MODE_PORT3
+	bool "ULPI TLL mode: 12-pin ULPI"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	help
+	  12-pin ULPI TLL Mode
+
+config OMAP_OHCI_PHY_MODE_3PIN_PORT3
+	bool "Serial PHY mode: 3-pin Bi-directional DAT/SE0"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	help
+	  Serial PHY Mode (3-pin Bidirectional DAT/SE0)
+
+config OMAP_OHCI_PHY_MODE_4PIN_PORT3
+	bool "Serial PHY mode: 4-pin Bi-directional DP/DM"
+	depends on USB_EHCI_HCD || USB_OHCI_HCD
+	help
+	  Serial PHY Mode (4-pin Bidirectional DP/DM)
+
+endchoice
+
 choice
 	prompt "OMAP PM layer selection"
 	depends on ARCH_OMAP

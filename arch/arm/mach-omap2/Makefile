@@ -105,3 +105,7 @@ ifneq ($(CONFIG_USB_EHCI_HCD),)
 	obj-y				+= usb-ehci.o
 endif
 
+ifneq ($(CONFIG_USB_OHCI_HCD),)
+	obj-y				+= usb-ohci.o
+endif
+

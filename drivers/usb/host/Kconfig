@@ -173,6 +173,107 @@ config USB_OHCI_HCD
 	  To compile this driver as a module, choose M here: the
 	  module will be called ohci-hcd.
 
+choice
+	prompt "PHY/TLL mode"
+	depends on USB_OHCI_HCD && ARCH_OMAP34XX
+	---help---
+	Choose PHY or TLL mode of operation for expansion board 750-2099-001(C)
+	The expansion board has been designed as:
+	Port1 connected to ISP1504
+	Port2 connected to ISP1504
+	Port3 connected to ISP1301
+
+config OMAP_OHCI_PHY_MODE
+	bool "OHCI PHY mode"
+	depends on USB_OHCI_HCD && ARCH_OMAP34XX
+	---help---
+	  OHCI PHY mode or TLL mode of operation to be chosen
+
+config OMAP_OHCI_PHY_MODE_PINS
+	bool "OHCI PHY mode Pins"
+	depends on OMAP_OHCI_PHY_MODE && USB_OHCI_HCD
+	default y
+	---help---
+	  OHCI PHY mode Number of pins
+
+config OMAP_OHCI_PHY_MODE_3PIN
+	bool "phy 3-pin"
+	depends on OMAP_OHCI_PHY_MODE_PINS
+	default y
+	---help---
+	  OHCI PHY 3-pin
+
+config OMAP_OHCI_PHY_MODE_4PIN
+	bool "phy 4-pin"
+	depends on OMAP_OHCI_PHY_MODE_PINS
+	---help---
+	  OHCI PHY 4-pin
+	  This is not implemented yet.
+
+config OMAP_OHCI_PHY_MODE_6PIN_DAT_SE0
+	bool "phy 6-pin dat/se0"
+	depends on OMAP_OHCI_PHY_MODE_PINS
+	---help---
+	  OHCI PHY 6-pin dat/se0
+	  This is not implemented yet.
+
+config OMAP_OHCI_PHY_MODE_6PIN_DP_DM
+	bool "phy 6-pin dp/dm"
+	depends on OMAP_OHCI_PHY_MODE_PINS
+	---help---
+	  OHCI PHY 6-pin dp/dm
+	  This is not implemented yet.
+
+config OMAP_OHCI_TLL_MODE
+	bool "OHCI TLL mode"
+	depends on USB_OHCI_HCD && ARCH_OMAP34XX
+	---help---
+	  OHCI PHY mode or TLL mode of operation to be chosen
+
+config OMAP_OHCI_TLL_MODE_PINS
+	bool "OHCI TLL mode Pins (NOT-IMPLEMENTED)"
+	depends on OMAP_OHCI_TLL_MODE
+	---help---
+	  OHCI TLL mode Number of pins
+
+config OMAP_OHCI_TLL_MODE_2PIN_DAT_SE0
+	bool "phy 2-pin DAT/SE0"
+	depends on OMAP_OHCI_TLL_MODE_PINS
+	---help---
+	  OHCI TLL
+
+config OMAP_OHCI_TLL_MODE_2PIN_DP_DM
+	bool "phy 2-pin DP/DM"
+	depends on OMAP_OHCI_TLL_MODE_PINS
+	---help---
+	  OHCI TLL
+
+config OMAP_OHCI_TLL_MODE_4PIN
+	bool "phy 4-pin"
+	depends on OMAP_OHCI_TLL_MODE_PINS
+	---help---
+	  OHCI TLL
+
+config OMAP_OHCI_TLL_MODE_3PIN
+	bool "phy 3-pin"
+	depends on OMAP_OHCI_TLL_MODE_PINS
+	---help---
+	  OHCI TLL
+
+config OMAP_OHCI_TLL_MODE_6PIN_DAT_SE0
+	bool "phy 6-pin DAT/SE0"
+	depends on OMAP_OHCI_TLL_MODE_PINS
+	---help---
+	  OHCI TLL
+
+config OMAP_OHCI_TLL_MODE_6PIN_DP_DM
+	bool "phy 6-pin DAT/SE0"
+	depends on OMAP_OHCI_TLL_MODE_PINS
+	---help---
+	  OHCI TLL
+endchoice
+
+
 config USB_OHCI_HCD_PPC_SOC
 	bool "OHCI support for on-chip PPC USB controller"
 	depends on USB_OHCI_HCD && (STB03xxx || PPC_MPC52xx)
