@@ -719,6 +719,62 @@ static void serial_omap_shutdown(struct uart_port *port)
 	free_irq(up->port.irq, up);
 }
 
+static inline void
+serial_omap_configure_xonxoff
+		(struct uart_omap_port *up, struct ktermios *termios)
+{
+	unsigned char efr = 0;
+
+	up->lcr = serial_in(up, UART_LCR);
+	serial_out(up, UART_LCR, 0xbf);
+	up->efr = serial_in(up, UART_EFR);
+	serial_out(up, UART_EFR, up->efr & ~UART_EFR_ECB);
+
+	serial_out(up, UART_XON1, termios->c_cc[VSTART]);
+	serial_out(up, UART_XOFF1, termios->c_cc[VSTOP]);
+
+	/* IXON Flag:
+	 * Enable XON/XOFF flow control on output.
+	 * Transmit XON1, XOFF1
+	 */
+	if (termios->c_iflag & IXON)
+		efr |= 0x01 << 3;
+
+	/* IXOFF Flag:
+	 * Enable XON/XOFF flow control on input.
+	 * Receiver compares XON1, XOFF1.
+	 */
+	if (termios->c_iflag & IXOFF)
+		efr |= 0x01 << 1;
+
+	serial_out(up, UART_EFR, up->efr | UART_EFR_ECB);
+	serial_out(up, UART_LCR, 0x80);
+
+	up->mcr = serial_in(up, UART_MCR);
+
+	/* IXANY Flag:
+	 * Enable any character to restart output.
+	 * Operation resumes after receiving any
+	 * character after recognition of the XOFF character
+	 */
+	if (termios->c_iflag & IXANY)
+		up->mcr |= 1<<5;
+
+	serial_out(up, UART_MCR, up->mcr | 1<<6);
+
+	serial_out(up, UART_LCR, 0xbf);
+	serial_out(up, UART_TI752_TCR, 0x0f);
+	/* Enable special char function UARTi.EFR_REG[5] and
+	 * load the new software flow control mode IXON or IXOFF
+	 * and restore the UARTi.EFR_REG[4] ENHANCED_EN value.
+	 */
+	serial_out(up, UART_EFR, up->efr | efr | 1<<5);
+	serial_out(up, UART_LCR, 0x80);
+
+	serial_out(up, UART_MCR, up->mcr & ~(1<<6));
+	serial_out(up, UART_LCR, up->lcr);
+}
+
 static void
 serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 			struct ktermios *old)
@@ -893,6 +949,10 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	}
 
 	serial_omap_set_mctrl(&up->port, up->port.mctrl);
+	/* ----Software Flow Control Configuration----- */
+	if (termios->c_iflag & (IXON | IXOFF))
+		serial_omap_configure_xonxoff(up, termios);
+
 	spin_unlock_irqrestore(&up->port.lock, flags);
 	DPRINTK("serial_omap_set_termios+%d\n", up->pdev->id);
 
@@ -1477,7 +1537,6 @@ int omap_uart_cts_wakeup(int uart_no, int state)
 	u32 *ptr;
 	unsigned char lcr, efr;
 	struct uart_omap_port *up = ui[uart_no];
-	u16 padconf_cts;
 
 	if (unlikely(uart_no < 0 || uart_no > MAX_UARTS)) {
 		printk(KERN_INFO "Bad uart id %d \n", uart_no);
@@ -1490,13 +1549,12 @@ int omap_uart_cts_wakeup(int uart_no, int state)
 		 */
 		switch (uart_no) {
 		case UART1:
-			ptr = (u32 *)
-				(OMAP343X_CTRL_REGADDR(W8_3430_UART1_CTS));
+			printk(KERN_INFO "Enabling CTS wakeup for UART1");
+			ptr = (u32 *) (OMAP343X_CTRL_REGADDR(0x180));
 			break;
 		case UART2:
 			printk(KERN_INFO "Enabling CTS wakeup for UART2");
-			padconf_cts = 0x174;
-			ptr = (u32 *) (OMAP343X_CTRL_REGADDR(padconf_cts));
+			ptr = (u32 *) (OMAP343X_CTRL_REGADDR(0x174));
 			break;
 		default:
 			printk(KERN_ERR
@@ -1530,18 +1588,18 @@ int omap_uart_cts_wakeup(int uart_no, int state)
 		switch (uart_no) {
 		case UART1:
 			ptr = (u32 *)
-				(OMAP343X_CTRL_REGADDR(W8_3430_UART1_CTS));
+				(OMAP343X_CTRL_REGADDR(0x180));
 			break;
 		case UART2:
 			ptr = (u32 *)
-				 (OMAP343X_CTRL_REGADDR(AB26_34XX_UART2_CTS));
+				 (OMAP343X_CTRL_REGADDR(0x174));
 			break;
 		default:
 			printk(KERN_ERR
 			"Wakeup on Uart%d is not supported\n", uart_no);
 			return -EPERM;
 		}
-		*ptr |= (u32)(~(OMAP3_WAKEUP_EN | OMAP3_OFF_PULL_EN |
+		*ptr &= (u32)(~(OMAP3_WAKEUP_EN | OMAP3_OFF_PULL_EN |
 				OMAP3_OFF_EN | OMAP3_OFFIN_EN));
 
 		/*
