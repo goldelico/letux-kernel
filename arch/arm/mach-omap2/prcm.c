@@ -27,6 +27,7 @@
 #include <mach/irqs.h>
 #include <mach/control.h>
 
+#include "sdrc.h"
 #include "clock.h"
 #include "cm.h"
 #include "prm.h"
@@ -129,6 +130,8 @@ EXPORT_SYMBOL(omap_prcm_get_reset_sources);
 void omap_prcm_arch_reset(char mode)
 {
 	s16 prcm_offs;
+	u32 sdrc_pwr;
+
 	omap2_clk_prepare_for_reboot();
 
 	if (cpu_is_omap24xx())
@@ -146,6 +149,11 @@ void omap_prcm_arch_reset(char mode)
 		omap_writel(l, OMAP343X_SCRATCHPAD + 4);
 	} else
 		WARN_ON(1);
+
+	/* Enable SDRC self-refresh on warm reset */
+	sdrc_pwr = sdrc_read_reg(SDRC_POWER);
+	sdrc_pwr |= 0x1 << SDRC_POWER_SRFRONRESET_SHIFT;
+	sdrc_write_reg(sdrc_pwr, SDRC_POWER);
 
 	prm_set_mod_reg_bits(OMAP_RST_DPLL3, prcm_offs, RM_RSTCTRL);
 }
