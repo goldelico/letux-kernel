@@ -1279,6 +1279,14 @@ void platform_stop_callback(void *arg)
 		}
 
 		if (index == SMHEAP_SRINDEX_APPM3)
+			status = heapbuf_close(platform_heap_handle_appm3);
+		else
+			status = heapbuf_close(platform_heap_handle_sysm3);
+		if (status < 0) {
+			printk(KERN_ERR "platform_stop_callback : "
+				"heapbuf_close failed [0x%x]", status);
+		}
+		if (index == SMHEAP_SRINDEX_APPM3)
 			status = gatepeterson_close(
 					&platform_heap_gate_handle_appm3);
 		else
@@ -1289,14 +1297,6 @@ void platform_stop_callback(void *arg)
 				"gatepeterson_close failed [0x%x]", status);
 		}
 
-		if (index == SMHEAP_SRINDEX_APPM3)
-			status = heapbuf_close(platform_heap_handle_appm3);
-		else
-			status = heapbuf_close(platform_heap_handle_sysm3);
-		if (status < 0) {
-			printk(KERN_ERR "platform_stop_callback : "
-				"heapbuf_close failed [0x%x]", status);
-		}
 	}
 
 	if (pc_params.use_notify) {
