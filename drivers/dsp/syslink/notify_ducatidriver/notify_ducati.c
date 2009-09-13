@@ -576,8 +576,6 @@ int notify_ducatidrv_delete(struct notify_driver_object **handle_ptr)
 			WARN_ON(1);
 			/*FIXME: Exit gracefully */
 		}
-		omap_mbox_put(ducati_mbox);
-		ducati_mbox = NULL;
 
 		kfree(driver_obj);
 		driver_obj = NULL;
@@ -624,6 +622,8 @@ int notify_ducatidrv_destroy(void)
 		atomic_set(&(notify_ducatidriver_state.ref_count),
 			NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(0));
 
+		omap_mbox_put(ducati_mbox);
+		ducati_mbox = NULL;
 	}
 
 
@@ -663,7 +663,6 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 	atomic_cmpmask_and_set(&(notify_ducatidriver_state.ref_count),
 					NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(0),
 					NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(0));
-
 	if (atomic_inc_return(&(notify_ducatidriver_state.ref_count)) !=
 		NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(1u)) {
 		return 1;
@@ -673,12 +672,13 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 	/* Create a default gate handle here */
 	notify_ducatidriver_state.gate_handle =
 			kmalloc(sizeof(struct mutex), GFP_KERNEL);
-			mutex_init(notify_ducatidriver_state.gate_handle);
+	mutex_init(notify_ducatidriver_state.gate_handle);
 
 	if (notify_ducatidriver_state.gate_handle == NULL) {
 		atomic_set(&(notify_ducatidriver_state.ref_count),
 				NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(0));
 		status = -ENOMEM;
+
 		goto error_exit;
 	} else {
 		memcpy(&notify_ducatidriver_state.cfg,

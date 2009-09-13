@@ -239,30 +239,32 @@ int gatepeterson_destroy(void)
 		goto exit;
 	}
 
-	if (atomic_dec_return(&gatepeterson_state.ref_count)
-				== GATEPETERSON_MAKE_MAGICSTAMP(0)) {
-		/* Temporarily increment ref_count here. */
-		atomic_set(&gatepeterson_state.ref_count,
-					GATEPETERSON_MAKE_MAGICSTAMP(1));
-		/* Check if any gatepeterson instances have not been
-		*  ideleted/closed so far, if there any, delete or close them
-		*/
-		list_for_each_entry(obj, &gatepeterson_state.obj_list, elem) {
-			if (obj->attrs->creator_proc_id ==
-						multiproc_get_id(NULL))
-				gatepeterson_delete(&obj->top);
-			else
-				gatepeterson_close(&obj->top);
-
-			if (list_empty(&gatepeterson_state.obj_list))
-				break;
-		}
-
-		/* Again reset ref_count. */
-		atomic_set(&gatepeterson_state.ref_count,
-					GATEPETERSON_MAKE_MAGICSTAMP(0));
+	if (!(atomic_dec_return(&gatepeterson_state.ref_count)
+			== GATEPETERSON_MAKE_MAGICSTAMP(0))) {
+		retval = 1;
+		goto exit;
 	}
 
+	/* Temporarily increment ref_count here. */
+	atomic_set(&gatepeterson_state.ref_count,
+				GATEPETERSON_MAKE_MAGICSTAMP(1));
+	/* Check if any gatepeterson instances have not been
+	*  ideleted/closed so far, if there any, delete or close them
+	*/
+	list_for_each_entry(obj, &gatepeterson_state.obj_list, elem) {
+		if (obj->attrs->creator_proc_id ==
+					multiproc_get_id(NULL))
+			gatepeterson_delete(&obj->top);
+		else
+			gatepeterson_close(&obj->top);
+
+		if (list_empty(&gatepeterson_state.obj_list))
+			break;
+	}
+
+	/* Again reset ref_count. */
+	atomic_set(&gatepeterson_state.ref_count,
+				GATEPETERSON_MAKE_MAGICSTAMP(0));
 
 	retval = mutex_lock_interruptible(gatepeterson_state.mod_lock);
 	if (retval != 0)
