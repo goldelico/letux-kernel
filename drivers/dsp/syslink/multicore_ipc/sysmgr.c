@@ -588,7 +588,7 @@ s32 sysmgr_destroy(void)
 		status = platform_destroy();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_destroy : platform_destroy "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
 			sysmgr_state.platform_init_flag = false;
 		}
@@ -599,8 +599,8 @@ s32 sysmgr_destroy(void)
 		status = nameserver_remotenotify_destroy();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_destroy : "
-				"nameserver_remotenotify_destroy failed [0x%x]",
-				status);
+				"nameserver_remotenotify_destroy "
+				"failed [0x%x]\n", status);
 		} else {
 			sysmgr_state.nameserver_remotenotify_init_flag \
 				= false;
@@ -612,7 +612,7 @@ s32 sysmgr_destroy(void)
 		status = notify_ducatidrv_destroy();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_destroy : "
-				"notify_ducatidrv_destroy failed [0x%x]",
+				"notify_ducatidrv_destroy failed [0x%x]\n",
 				status);
 		} else {
 			sysmgr_state.notify_ducatidrv_init_flag = false;
@@ -624,7 +624,7 @@ s32 sysmgr_destroy(void)
 		status = messageq_transportshm_destroy();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_destroy : "
-				"messageq_transportshm_destroy failed [0x%x]",
+				"messageq_transportshm_destroy failed [0x%x]\n",
 				status);
 		} else {
 			sysmgr_state.messageq_transportshm_init_flag = \
@@ -637,7 +637,7 @@ s32 sysmgr_destroy(void)
 		status = listmp_sharedmemory_destroy();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_destroy : "
-				"listmp_sharedmemory_destroy failed [0x%x]",
+				"listmp_sharedmemory_destroy failed [0x%x]\n",
 				status);
 		} else {
 			sysmgr_state.listmp_sharedmemory_init_flag = \
@@ -650,7 +650,7 @@ s32 sysmgr_destroy(void)
 		status = heapbuf_destroy();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_destroy : heapbuf_destroy "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
 			sysmgr_state.heapbuf_init_flag = false;
 		}
@@ -661,7 +661,7 @@ s32 sysmgr_destroy(void)
 		status = messageq_destroy();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_destroy : messageq_destroy "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
 			sysmgr_state.messageq_init_flag = false;
 		}
@@ -672,7 +672,7 @@ s32 sysmgr_destroy(void)
 		status = gatepeterson_destroy();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_destroy : "
-				"gatepeterson_destroy failed [0x%x]", status);
+				"gatepeterson_destroy failed [0x%x]\n", status);
 		} else {
 			sysmgr_state.gatepeterson_init_flag = false;
 		}
@@ -683,7 +683,7 @@ s32 sysmgr_destroy(void)
 		status = nameserver_destroy();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_destroy : nameserver_destroy "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
 			sysmgr_state.nameserver_init_flag = false;
 		}
@@ -694,7 +694,7 @@ s32 sysmgr_destroy(void)
 		status = notify_destroy();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_destroy : sysmgr_destroy "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
 			sysmgr_state.notify_init_flag = false;
 		}
@@ -705,7 +705,7 @@ s32 sysmgr_destroy(void)
 		status = sharedregion_destroy();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_destroy : "
-				"sharedregion_destroy failed [0x%x]", status);
+				"sharedregion_destroy failed [0x%x]\n", status);
 		} else {
 			sysmgr_state.sharedregion_init_flag = false;
 		}
@@ -716,7 +716,7 @@ s32 sysmgr_destroy(void)
 		status = proc_mgr_destroy();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_destroy : proc_mgr_destroy "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
 			sysmgr_state.proc_mgr_init_flag = false;
 		}
@@ -727,7 +727,7 @@ s32 sysmgr_destroy(void)
 		status = multiproc_destroy();
 		if (status < 0) {
 			printk(KERN_ERR "sysmgr_destroy : multiproc_destroy "
-				"failed [0x%x]", status);
+				"failed [0x%x]\n", status);
 		} else {
 			sysmgr_state.proc_mgr_init_flag = false;
 		}
@@ -737,8 +737,8 @@ s32 sysmgr_destroy(void)
 
 exit:
 	if (status < 0) {
-		printk(KERN_ERR "sysmgr_destroy : Module was not initialized "
-			"status = 0x%x]", status);
+		printk(KERN_ERR "sysmgr_destroy : failed with "
+			"status = [0x%x]\n", status);
 	}
 	return status;
 }
