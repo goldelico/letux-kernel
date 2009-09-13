@@ -64,8 +64,9 @@ int platform_override_config(struct sysmgr_config *config)
 
 	/* Override the messageq default config */
 	/* We use 2 heaps, 1 for APPM3 and 1 for SYSM3 */
-	if (config->messageq_cfg.num_heaps < 2)
-		config->messageq_cfg.num_heaps = 2;
+	/* FIXME: Temporary Fix - Add one more for the SW DMM heap */
+	if (config->messageq_cfg.num_heaps < 3)
+		config->messageq_cfg.num_heaps = 3;
 
 	/* Override the notify default config */
 	config->notify_cfg.maxDrivers = 2;

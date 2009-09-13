@@ -113,32 +113,40 @@
 
 
 /*! @brief Start of shared memory */
-#define SHAREDMEMORY_PHY_BASEADDR			 0x87B00000
-#define SHAREDMEMORY_PHY_BASESIZE			 0x00100000
+#define SHAREDMEMORY_PHY_BASEADDR		0x87B00000
+#define SHAREDMEMORY_PHY_BASESIZE		0x00100000
 
 /*! @brief Start of shared memory for SysM3 */
-#define SHAREDMEMORY_PHY_BASEADDR_SYSM3		 0x87B00000
-#define SHAREDMEMORY_PHY_BASESIZE_SYSM3		 0x0007F000
+#define SHAREDMEMORY_PHY_BASEADDR_SYSM3		0x87B00000
+#define SHAREDMEMORY_PHY_BASESIZE_SYSM3		0x0007F000
 
 /*! @brief Start of shared memory AppM3 */
-#define SHAREDMEMORY_PHY_BASEADDR_APPM3		 0x87B80000
-#define SHAREDMEMORY_PHY_BASESIZE_APPM3		 0x0007F000
+#define SHAREDMEMORY_PHY_BASEADDR_APPM3		0x87B80000
+#define SHAREDMEMORY_PHY_BASESIZE_APPM3		0x0007F000
 
 /*! @brief Start of SHM for SysM3 */
-#define SHAREDMEMORY_SLV_VRT_BASEADDR_SYSM3  0x98000000
-#define SHAREDMEMORY_SLV_VRT_BASESIZE_SYSM3	 0x00080000
+#define SHAREDMEMORY_SLV_VRT_BASEADDR_SYSM3	0x98000000
+#define SHAREDMEMORY_SLV_VRT_BASESIZE_SYSM3	0x00080000
 
 /*! @brief Start of SHM for AppM3 */
-#define SHAREDMEMORY_SLV_VRT_BASEADDR_APPM3  0x98080000
-#define SHAREDMEMORY_SLV_VRT_BASESIZE_APPM3	 0x00080000
+#define SHAREDMEMORY_SLV_VRT_BASEADDR_APPM3	0x98080000
+#define SHAREDMEMORY_SLV_VRT_BASESIZE_APPM3	0x00080000
 
 /*! @brief Start of Boot load page for SysM3 */
-#define BOOTLOADPAGE_SLV_VRT_BASEADDR_SYSM3	 0x9807F000
-#define BOOTLOADPAGE_SLV_VRT_BASESIZE_SYSM3	 0x00001000
+#define BOOTLOADPAGE_SLV_VRT_BASEADDR_SYSM3	0x9807F000
+#define BOOTLOADPAGE_SLV_VRT_BASESIZE_SYSM3	0x00001000
 
 /*! @brief Start of Boot load page for AppM3 */
-#define BOOTLOADPAGE_SLV_VRT_BASEADDR_APPM3	 0x980FF000
-#define BOOTLOADPAGE_SLV_VRT_BASESIZE_APPM3	 0x00001000
+#define BOOTLOADPAGE_SLV_VRT_BASEADDR_APPM3	0x980FF000
+#define BOOTLOADPAGE_SLV_VRT_BASESIZE_APPM3	0x00001000
+
+/*! @brief Start of shared memory */
+#define SHAREDMEMORY_SWDMM_PHY_BASEADDR		0x87C00000
+#define SHAREDMEMORY_SWDMM_PHY_BASESIZE		0x00400000
+
+/*! @brief Start of SHM SW DMMfor Ducati */
+#define SHAREDMEMORY_SWDMM_SLV_VRT_BASEADDR	0x80000000
+#define SHAREDMEMORY_SWDMM_SLV_VRT_BASESIZE	0x00400000
 
 /*!
  *  @brief  Size of the shared memory heap, this heap is used for providing
@@ -161,6 +169,10 @@
  */
 #define SMHEAP_SRINDEX_APPM3	1
 
+/*!
+ *  @brief  Shared region index for Shared memory SW DMM section.
+ */
+#define SMHEAP_SRINDEX_SWDMM	2
 
 /*!
  *  @brief  Shared region index for SysM3 boot load page
@@ -296,7 +308,7 @@ struct platform_proc_config_params {
 /*!
  *  @brief  Number of slave memory entries for OMAP4430.
  */
-#define NUM_MEM_ENTRIES			2
+#define NUM_MEM_ENTRIES			3
 
 /*!
  *  @brief  Number of slave memory entries for OMAP4430 SYSM3.
@@ -308,14 +320,12 @@ struct platform_proc_config_params {
  */
 #define NUM_MEM_ENTRIES_APPM3		1
 
-
 /*!
  *  @brief  Position of reset vector memory region in the memEntries array.
  */
 #define RESET_VECTOR_ENTRY_ID		0
 
-#define DUCATI_SHM_VA			0x98000000
-#define DUCATI_SHM_1_VA		0x98080000
+
 /** ============================================================================
  *  Globals
  *  ============================================================================
@@ -346,6 +356,18 @@ static struct proc4430_mem_entry mem_entries[NUM_MEM_ENTRIES] = {
 		/* MASTERVIRTADDR : Master virtual address (if known) */
 		SHAREDMEMORY_SLV_VRT_BASESIZE_APPM3,
 		/* SIZE		 : Size of the memory region */
+		true,		/* SHARE : Shared access memory? */
+	},
+	{
+		"DUCATI_SHM_SWDMM",	/* NAME	 : Name of the memory region */
+		SHAREDMEMORY_SWDMM_PHY_BASEADDR,
+		/* PHYSADDR	     : Physical address */
+		SHAREDMEMORY_SWDMM_SLV_VRT_BASEADDR,
+		/* SLAVEVIRTADDR  : Slave virtual address */
+		(u32) -1u,
+		/* MASTERVIRTADDR : Master virtual address (if known) */
+		SHAREDMEMORY_SWDMM_SLV_VRT_BASESIZE,
+		/* SIZE		: Size of the memory region */
 		true,		/* SHARE : Shared access memory? */
 	}
 };
@@ -484,6 +506,19 @@ s32 platform_setup(struct sysmgr_config *config)
 	memset((void *) platform_sm_heap_virt_addr_appm3,
 			0,
 			SHAREDMEMORY_PHY_BASESIZE_APPM3);
+
+	/* Map the static region */
+	info.src = SHAREDMEMORY_SWDMM_PHY_BASEADDR;
+	info.size = SHAREDMEMORY_SWDMM_PHY_BASESIZE;
+	info.is_cached = false;
+	status = platform_mem_map(&info);
+	if (status < 0)
+		goto mem_map_fail;
+
+	/* Create the shared region entry for the SW DMM heap */
+	sharedregion_add(SMHEAP_SRINDEX_SWDMM,
+			(void *)info.dst,
+			info.size);
 
 	proc4430_get_config(&proc_config);
 	status = proc4430_setup(&proc_config);
@@ -755,11 +790,25 @@ void platform_load_callback(void *arg)
 				sysmemmgr_xltflag_kvirt2phys);
 	info.base = (void *) SHAREDMEMORY_SLV_VRT_BASEADDR_APPM3;
 
-	/* Write info the boot load page */
+	/* Write info into the boot load page */
 	nwrite = sysmgr_put_object_config(proc_id,
 				(void *) &info,
 				SYSMGR_CMD_SHAREDREGION_ENTRY_START +
 					SMHEAP_SRINDEX_APPM3,
+				sizeof(struct sharedregion_info));
+	WARN_ON(nwrite != sizeof(struct sharedregion_info));
+
+	/* For SW DMM region */
+	sharedregion_get_table_info(SMHEAP_SRINDEX_SWDMM,
+				local_id,
+				&info);
+	info.base = (void *) SHAREDMEMORY_SWDMM_SLV_VRT_BASEADDR;
+
+	/* Write info into the boot load page */
+	nwrite = sysmgr_put_object_config(proc_id,
+				(void *) &info,
+				SYSMGR_CMD_SHAREDREGION_ENTRY_START +
+					SMHEAP_SRINDEX_SWDMM,
 				sizeof(struct sharedregion_info));
 	WARN_ON(nwrite != sizeof(struct sharedregion_info));
 	goto exit;
