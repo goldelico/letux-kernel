@@ -262,6 +262,38 @@ static ssize_t overlay_global_alpha_store(struct omap_overlay *ovl,
 	return size;
 }
 
+#ifdef CONFIG_ARCH_OMAP4
+static ssize_t overlay_zorder_show(struct omap_overlay *ovl, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			ovl->info.zorder);
+}
+
+static ssize_t overlay_zorder_store(struct omap_overlay *ovl,
+		const char *buf, size_t size)
+{
+	int r;
+	struct omap_overlay_info info;
+
+	ovl->get_overlay_info(ovl, &info);
+
+	info.zorder = simple_strtoul(buf, NULL, 10);
+
+	r = ovl->set_overlay_info(ovl, &info);
+	if (r)
+		return r;
+
+	if (ovl->manager) {
+		r = ovl->manager->apply(ovl->manager);
+		if (r)
+			return r;
+	}
+
+	return size;
+}
+
+#endif
+
 struct overlay_attribute {
 	struct attribute attr;
 	ssize_t (*show)(struct omap_overlay *, char *);
@@ -286,6 +318,11 @@ static OVERLAY_ATTR(enabled, S_IRUGO|S_IWUSR,
 static OVERLAY_ATTR(global_alpha, S_IRUGO|S_IWUSR,
 		overlay_global_alpha_show, overlay_global_alpha_store);
 
+#ifdef CONFIG_ARCH_OMAP4
+static OVERLAY_ATTR(zorder, S_IRUGO|S_IWUSR,
+		overlay_zorder_show, overlay_zorder_store);
+#endif
+
 static struct attribute *overlay_sysfs_attrs[] = {
 	&overlay_attr_name.attr,
 	&overlay_attr_manager.attr,
@@ -295,6 +332,9 @@ static struct attribute *overlay_sysfs_attrs[] = {
 	&overlay_attr_output_size.attr,
 	&overlay_attr_enabled.attr,
 	&overlay_attr_global_alpha.attr,
+#ifdef CONFIG_ARCH_OMAP4
+	&overlay_attr_zorder.attr,
+#endif
 	NULL
 };
 
@@ -398,6 +438,15 @@ int dss_check_overlay(struct omap_overlay *ovl, struct omap_dss_device *dssdev)
 		DSSERR("overlay doesn't support mode %d\n", info->color_mode);
 		return -EINVAL;
 	}
+
+#ifdef CONFIG_ARCH_OMAP4
+	if ((info->zorder < OMAP_DSS_OVL_ZORDER_0) ||
+			(info->zorder > OMAP_DSS_OVL_ZORDER_3)) {
+		DSSERR("overlay doesn't support zorder %d\n", info->zorder);
+		return -EINVAL;
+	}
+
+#endif
 
 	return 0;
 }
@@ -557,6 +606,9 @@ void dss_init_overlays(struct platform_device *pdev)
 				OMAP_DSS_COLOR_GFX_OMAP2;
 			ovl->caps = OMAP_DSS_OVL_CAP_DISPC;
 			ovl->info.global_alpha = 255;
+#ifdef CONFIG_ARCH_OMAP4
+			ovl->info.zorder = OMAP_DSS_OVL_ZORDER_0;
+#endif
 			break;
 		case 1:
 			ovl->name = "vid1";
@@ -567,6 +619,9 @@ void dss_init_overlays(struct platform_device *pdev)
 			ovl->caps = OMAP_DSS_OVL_CAP_SCALE |
 				OMAP_DSS_OVL_CAP_DISPC;
 			ovl->info.global_alpha = 255;
+#ifdef CONFIG_ARCH_OMAP4
+			ovl->info.zorder = OMAP_DSS_OVL_ZORDER_3;
+#endif
 			break;
 		case 2:
 			ovl->name = "vid2";
@@ -577,6 +632,9 @@ void dss_init_overlays(struct platform_device *pdev)
 			ovl->caps = OMAP_DSS_OVL_CAP_SCALE |
 				OMAP_DSS_OVL_CAP_DISPC;
 			ovl->info.global_alpha = 255;
+#ifdef CONFIG_ARCH_OMAP4
+			ovl->info.zorder = OMAP_DSS_OVL_ZORDER_2;
+#endif
 			break;
 #ifdef CONFIG_ARCH_OMAP4
 		case 3:
@@ -586,6 +644,10 @@ void dss_init_overlays(struct platform_device *pdev)
 			ovl->caps = OMAP_DSS_OVL_CAP_SCALE |
 				OMAP_DSS_OVL_CAP_DISPC;
 			ovl->info.global_alpha = 255;
+#ifdef CONFIG_ARCH_OMAP4
+			ovl->info.zorder = OMAP_DSS_OVL_ZORDER_1;
+#endif
+
 			break;
 #endif
 		}

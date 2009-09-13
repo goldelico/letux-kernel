@@ -1307,6 +1307,29 @@ void dispc_set_burst_size(enum omap_plane plane,
 	enable_clocks(0);
 }
 
+#ifdef CONFIG_ARCH_OMAP4
+void dispc_set_zorder(enum omap_plane plane,
+					enum omap_overlay_zorder zorder)
+{
+	u32 val;
+
+	val = dispc_read_reg(dispc_reg_att[plane]);
+	val = FLD_MOD(val, zorder, 27, 26);
+	dispc_write_reg(dispc_reg_att[plane], val);
+
+}
+void dispc_enable_zorder(enum omap_plane plane, bool enable)
+{
+	u32 val;
+
+	val = dispc_read_reg(dispc_reg_att[plane]);
+	val = FLD_MOD(val, enable, 25, 25);
+	dispc_write_reg(dispc_reg_att[plane], val);
+
+}
+
+#endif
+
 static void _dispc_set_vid_color_conv(enum omap_plane plane, bool enable)
 {
 	u32 val;

@@ -297,7 +297,9 @@ void dispc_set_plane_ba1(enum omap_plane plane, u32 paddr);
 #ifdef CONFIG_ARCH_OMAP4
 void dispc_set_plane_ba_uv0(enum omap_plane plane, u32 paddr);
 void dispc_set_plane_ba_uv1(enum omap_plane plane, u32 paddr);
-
+void dispc_set_zorder(enum omap_plane plane,
+			enum omap_overlay_zorder zorder);
+void dispc_enable_zorder(enum omap_plane plane, bool enable);
 #endif
 
 void dispc_set_plane_pos(enum omap_plane plane, u16 x, u16 y);

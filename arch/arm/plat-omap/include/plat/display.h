@@ -244,6 +244,15 @@ enum omap_overlay_manager_caps {
 	OMAP_DSS_OVL_MGR_CAP_DISPC = 1 << 0,
 };
 
+#ifdef CONFIG_ARCH_OMAP4
+enum omap_overlay_zorder {
+	OMAP_DSS_OVL_ZORDER_0	= 0x0,
+	OMAP_DSS_OVL_ZORDER_1	= 0x1,
+	OMAP_DSS_OVL_ZORDER_2	= 0x2,
+	OMAP_DSS_OVL_ZORDER_3	= 0x3,
+};
+#endif
+
 /* RFBI */
 
 struct rfbi_timings {
@@ -344,6 +353,7 @@ struct omap_overlay_info {
 	u8 global_alpha;
 #ifdef CONFIG_ARCH_OMAP4
 	u32 p_uv_addr; /* relevant for NV12 format only */
+	enum omap_overlay_zorder zorder;
 #endif
 };
 

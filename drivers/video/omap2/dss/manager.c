@@ -424,6 +424,7 @@ struct overlay_cache_data {
 
 #ifdef CONFIG_ARCH_OMAP4
 	u32 p_uv_addr; /* relevant for NV12 format only */
+	enum omap_overlay_zorder zorder;
 #endif
 };
 
@@ -842,6 +843,10 @@ static int configure_overlay(enum omap_plane plane)
 	dispc_set_burst_size(plane, c->burst_size);
 	dispc_setup_plane_fifo(plane, c->fifo_low, c->fifo_high);
 
+#ifdef CONFIG_ARCH_OMAP4
+	dispc_set_zorder(plane, c->zorder);
+	dispc_enable_zorder(plane, 1);
+#endif
 	dispc_enable_plane(plane, 1);
 
 	return 0;
@@ -1204,6 +1209,7 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 		oc->paddr = ovl->info.paddr;
 #ifdef CONFIG_ARCH_OMAP4
 		oc->p_uv_addr = ovl->info.p_uv_addr;
+		oc->zorder = ovl->info.zorder;
 #endif
 		oc->vaddr = ovl->info.vaddr;
 		oc->screen_width = ovl->info.screen_width;
