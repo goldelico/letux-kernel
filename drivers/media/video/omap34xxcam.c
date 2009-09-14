@@ -1453,9 +1453,7 @@ static long vidioc_default(struct file *file, void *fh, int cmd, void *arg)
 			break;
 		}
 
-		mutex_lock(&vdev->mutex);
-		rval = isp_handle_private(cmd, arg);
-		mutex_unlock(&vdev->mutex);
+		rval = isp_handle_private(&vdev->mutex, cmd, arg);
 	}
 out:
 	return rval;

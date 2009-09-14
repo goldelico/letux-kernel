@@ -286,7 +286,7 @@ void isp_config_crop(struct v4l2_pix_format *pix);
 int isp_try_fmt(struct v4l2_pix_format *pix_input,
 		struct v4l2_pix_format *pix_output);
 
-int isp_handle_private(int cmd, void *arg);
+int isp_handle_private(struct mutex *, int cmd, void *arg);
 
 void isp_save_context(struct isp_reg *);
 
