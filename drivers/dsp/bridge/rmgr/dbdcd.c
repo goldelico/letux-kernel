@@ -1585,7 +1585,7 @@ static DSP_STATUS GetDepLibInfo(IN struct DCD_MANAGER *hDcdMgr,
 		goto func_cont;
 
 	/* Allocate zeroed buffer. */
-	pszCoffBuf = MEM_Calloc(ulLen, MEM_PAGED);
+	pszCoffBuf = MEM_Calloc(ulLen + 4, MEM_PAGED);
 	if (pszCoffBuf == NULL)
 		status = DSP_EMEMORY;
 
