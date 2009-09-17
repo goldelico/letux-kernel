@@ -850,12 +850,12 @@ int proc4430_map(void *handle, u32 proc_addr,
 		return 0;
 	}
 
-	dmm_reserve_memory(size, &da);
 	/* Calculate the page-aligned PA, VA and size */
-	da_align = PG_ALIGN_LOW((u32)da, PAGE_SIZE);
 	va_align = PG_ALIGN_LOW(proc_addr, PAGE_SIZE);
 	size_align = PG_ALIGN_HIGH(size + (u32)proc_addr - va_align, PAGE_SIZE);
 
+	dmm_reserve_memory(size_align, &da);
+	da_align = PG_ALIGN_LOW((u32)da, PAGE_SIZE);
 	retval = ducati_mem_map(va_align, da_align, size_align, map_attribs);
 
 	/* Mapped address = MSB of DA | LSB of VA */
