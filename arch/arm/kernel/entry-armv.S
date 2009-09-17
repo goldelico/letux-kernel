@@ -154,6 +154,9 @@ ENDPROC(__und_invalid)
 __dabt_svc:
 	svc_entry
 
+#ifdef CONFIG_ARM_ERRATA_451027
+        dmb
+#endif
 	@
 	@ get ready to re-enable interrupts if appropriate
 	@

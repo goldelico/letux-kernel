@@ -328,7 +328,12 @@ logic_l1_restore:
 	/* data fault status Register */
 	MCR p15, 0, r9, c5, c0, 0
 
+#ifdef CONFIG_CPU_USER_L2_PLE_ACCESS
+	ldmia  r3!,{r4-r9}
+#else
 	ldmia  r3!,{r4-r8}
+#endif
+
 	/* instruction fault status Register */
 	MCR p15, 0, r4, c5, c0, 1
 	/*Data Auxiliary Fault Status Register */
@@ -339,6 +344,12 @@ logic_l1_restore:
 	MCR p15, 0, r7, c6, c0, 0
 	/*Instruction Fault Address Register*/
 	MCR p15, 0, r8, c6, c0, 2
+
+#ifdef CONFIG_CPU_USER_L2_PLE_ACCESS
+	/* PLE User Accessibility Register */
+	MCR p15, 0, r9, c11, c1, 0
+#endif
+
 	ldmia  r3!,{r4-r7}
 
 	/* user r/w thread and process ID */

@@ -205,6 +205,10 @@ __v7_setup:
 	ldr	r6, =0x40e040e0
 	mcr	p15, 0, r5, c10, c2, 0		@ write PRRR
 	mcr	p15, 0, r6, c10, c2, 1		@ write NMRR
+#ifdef CONFIG_CPU_USER_L2_PLE_ACCESS
+	mov	r10, #0x3
+	mcr     p15, 0, r10, c11, c1, 0
+#endif
 	adr	r5, v7_crval
 	ldmia	r5, {r5, r6}
    	mrc	p15, 0, r0, c1, c0, 0		@ read control register
