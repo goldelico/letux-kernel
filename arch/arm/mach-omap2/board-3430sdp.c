@@ -424,7 +424,6 @@ static inline void __init sdp3430_init_smc91x(void)
 
 static void __init omap_3430sdp_init_irq(void)
 {
-	omap2_init_common_hw(hyb18m512160af6_sdrc_params, omap3_mpu_rate_table,
 	switch (omap_rev_id()) {
 	case OMAP_3420:
 		omap2_init_common_hw(hyb18m512160af6_sdrc_params,
