@@ -69,9 +69,18 @@ static LIST_HEAD(adc_pending);
 
 #define adc_dbg(_adc, msg...) dev_dbg(&(_adc)->pdev->dev, msg)
 
+#define AUTOPST	(S3C2410_ADCTSC_YM_SEN | S3C2410_ADCTSC_YP_SEN | \
+		 S3C2410_ADCTSC_XP_SEN | S3C2410_ADCTSC_AUTO_PST | \
+		 S3C2410_ADCTSC_XY_PST(0))
+
+
 static inline void s3c_adc_convert(struct adc_device *adc)
 {
 	unsigned con = readl(adc->regs + S3C2410_ADCCON);
+
+	if (adc->cur->is_ts)
+		writel(S3C2410_ADCTSC_PULL_UP_DISABLE | AUTOPST,
+		       adc->regs + S3C2410_ADCTSC);
 
 	con |= S3C2410_ADCCON_ENABLE_START;
 	writel(con, adc->regs + S3C2410_ADCCON);

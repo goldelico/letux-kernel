@@ -205,6 +205,7 @@ EXPORT_SYMBOL(s3c_device_nand);
 struct platform_device s3c_device_ts = {
 	.name		  = "s3c2410-ts",
 	.id		  = -1,
+	.dev.parent	  = &s3c_device_adc.dev,
 };
 
 EXPORT_SYMBOL(s3c_device_ts);

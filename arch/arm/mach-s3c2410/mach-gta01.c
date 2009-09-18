@@ -993,6 +993,10 @@ static void __init gta01_machine_init(void)
 	printk(KERN_DEBUG  "Enabled GSM wakeup IRQ %d (rc=%d)\n",
 	       GTA01_IRQ_MODEM, rc);
 
+#ifdef CONFIG_S3C24XX_ADC
+	platform_device_register(&s3c_device_adc);
+#endif
+
 	pm_power_off = &gta01_power_off;
 }
 

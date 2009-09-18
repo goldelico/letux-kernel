@@ -1717,6 +1717,9 @@ static void __init gta02_machine_init(void)
 	gta02_vibrator_dev.dev.parent = &s3c24xx_pwm_device.dev; 
 	platform_device_register(&gta02_vibrator_dev);
 #endif
+#ifdef CONFIG_S3C24XX_ADC
+        platform_device_register(&s3c_device_adc);
+#endif
 }
 
 void DEBUG_LED(int n)
