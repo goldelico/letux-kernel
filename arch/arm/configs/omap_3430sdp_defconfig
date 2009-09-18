@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.29-omap1
-# Fri Sep 18 17:47:38 2009
+# Fri Sep 18 17:49:20 2009
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -210,8 +210,8 @@ CONFIG_OMAP_LL_DEBUG_UART1=y
 # CONFIG_OMAP_LL_DEBUG_UART_EXT is not set
 CONFIG_OMAP_SERIAL_WAKE=y
 # CONFIG_OMAP_PM_NONE is not set
-CONFIG_OMAP_PM_NOOP=y
-# CONFIG_OMAP_PM_SRF is not set
+# CONFIG_OMAP_PM_NOOP is not set
+CONFIG_OMAP_PM_SRF=y
 CONFIG_ARCH_OMAP34XX=y
 CONFIG_ARCH_OMAP3430=y
 
