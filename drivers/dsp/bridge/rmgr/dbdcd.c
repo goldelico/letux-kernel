@@ -931,6 +931,7 @@ DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 	char szObjType[MAX_INT2CHAR_LENGTH];	/* str. rep. of objType. */
 #ifndef RES_CLEANUP_DISABLE
 	struct REG_VALUES *reg_key = NULL;
+	enum DSP_DCDOBJTYPE object_type = objType;
 #endif /* RES_CLEANUP_DISABLE */
 
 	DBC_Require(cRefs > 0);
@@ -940,7 +941,16 @@ DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 			(objType == DSP_DCDLIBRARYTYPE) ||
 			(objType == DSP_DCDCREATELIBTYPE) ||
 			(objType == DSP_DCDEXECUTELIBTYPE) ||
-			(objType == DSP_DCDDELETELIBTYPE));
+			(objType == DSP_DCDDELETELIBTYPE) ||
+			(objType == DSP_DCDNODETYPE_PERSISTENT) ||
+			(objType == DSP_DCDPROCESSORTYPE_PERSISTENT) ||
+			(objType == DSP_DCDLIBRARYTYPE_PERSISTENT) ||
+			(objType == DSP_DCDCREATELIBTYPE_PERSISTENT) ||
+			(objType == DSP_DCDEXECUTELIBTYPE_PERSISTENT) ||
+			(objType == DSP_DCDDELETELIBTYPE_PERSISTENT));
+
+	if (objType >= PERSISTENT_OBJ_TYPE)
+		object_type -= PERSISTENT_OBJ_TYPE;
 
 	GT_3trace(curTrace, GT_ENTER, "DCD_RegisterObject: object UUID 0x%x, "
 		 "objType %d, szPathName %s\n", pUuid, objType, pszPathName);
@@ -961,7 +971,7 @@ DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 		goto func_end;
 	}
 
-	status = snprintf(szObjType, MAX_INT2CHAR_LENGTH, "%d", objType);
+	status = snprintf(szObjType, MAX_INT2CHAR_LENGTH, "%d", object_type);
 	if (status == -1) {
 		status = DSP_EFAIL;
 	} else {
@@ -1002,7 +1012,7 @@ DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 			goto func_end;
 		}
 #ifndef RES_CLEANUP_DISABLE
-		if (pr_ctxt) {
+		if (pr_ctxt && (objType < PERSISTENT_OBJ_TYPE)) {
 			/* Insert Register values in Process context */
 			reg_key = MEM_Calloc(sizeof(struct REG_VALUES),
 					MEM_NONPAGED);
@@ -1062,7 +1072,13 @@ DSP_STATUS DCD_UnregisterObject(IN struct DSP_UUID *pUuid,
 		   (objType == DSP_DCDLIBRARYTYPE) ||
 		   (objType == DSP_DCDCREATELIBTYPE) ||
 		   (objType == DSP_DCDEXECUTELIBTYPE) ||
-		   (objType == DSP_DCDDELETELIBTYPE));
+		   (objType == DSP_DCDDELETELIBTYPE) ||
+		   (objType == DSP_DCDNODETYPE_PERSISTENT) ||
+		   (objType == DSP_DCDPROCESSORTYPE_PERSISTENT) ||
+		   (objType == DSP_DCDLIBRARYTYPE_PERSISTENT) ||
+		   (objType == DSP_DCDCREATELIBTYPE_PERSISTENT) ||
+		   (objType == DSP_DCDEXECUTELIBTYPE_PERSISTENT) ||
+		   (objType == DSP_DCDDELETELIBTYPE_PERSISTENT));
 
 	GT_2trace(curTrace, GT_ENTER,
 		 "DCD_UnregisterObject: object UUID 0x%x, "
@@ -1077,7 +1093,7 @@ DSP_STATUS DCD_UnregisterObject(IN struct DSP_UUID *pUuid,
 	if (DSP_FAILED(status))
 		goto func_end;
 #ifndef RES_CLEANUP_DISABLE
-	if (pr_ctxt) {
+	if (pr_ctxt && (objType < PERSISTENT_OBJ_TYPE)) {
 		reg_key = pr_ctxt->pREGList;
 		while (reg_key && (memcmp(pUuid, reg_key->pUuid,
 				sizeof(struct DSP_UUID))
