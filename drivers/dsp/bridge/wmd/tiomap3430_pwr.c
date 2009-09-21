@@ -160,17 +160,19 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 			if (DSP_FAILED(status))
 				return status;
 			IO_SHMsetting(hIOMgr, SHM_GETOPP, &opplevel);
-			/* Set the OPP to low level before moving to OFF mode */
 			if (opplevel != VDD1_OPP1) {
 				DBG_Trace(DBG_LEVEL5,
-					"Tiomap_pwr.c - DSP requested"
-					" OPP = %d, MPU requesting low"
-					" OPP %d instead\n", opplevel,
-					VDD1_OPP1);
-				if (pdata->dsp_set_min_opp)
-					(*pdata->dsp_set_min_opp)(VDD1_OPP1);
-				status = DSP_SOK;
+					" DSP requested OPP = %d, MPU"
+					" requesting low OPP %d instead\n",
+					opplevel, VDD1_OPP1);
 			}
+			/*
+			 * Set the OPP to low level before moving to OFF
+			 * mode
+			 */
+			if (pdata->dsp_set_min_opp)
+				(*pdata->dsp_set_min_opp)(VDD1_OPP1);
+			status = DSP_SOK;
 #endif /* CONFIG_BRIDGE_DVFS */
 		} else {
 			DBG_Trace(DBG_LEVEL7,
