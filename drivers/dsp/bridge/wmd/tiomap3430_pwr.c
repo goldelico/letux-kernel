@@ -72,6 +72,7 @@
 extern struct MAILBOX_CONTEXT mboxsetting;
 extern unsigned short enable_off_mode;
 
+extern unsigned short min_active_opp;
 /*
  *  ======== handle_constraints_set ========
  *  	Sets new DSP constraint
@@ -80,7 +81,7 @@ DSP_STATUS handle_constraints_set(struct WMD_DEV_CONTEXT *pDevContext,
 				  IN void *pArgs)
 {
 #ifdef CONFIG_BRIDGE_DVFS
-	u32 *pConstraintVal;
+	u32 pConstraintVal;
 	DSP_STATUS status = DSP_SOK;
 	struct CFG_HOSTRES resources;
 	struct dspbridge_platform_data *pdata =
@@ -88,14 +89,24 @@ DSP_STATUS handle_constraints_set(struct WMD_DEV_CONTEXT *pDevContext,
 	status = CFG_GetHostResources(
 		(struct CFG_DEVNODE *)DRV_GetFirstDevExtension(), &resources);
 
-	pConstraintVal = (u32 *)(pArgs);
+	pConstraintVal = *(((u32 *)pArgs) + 1);
 	/* Read the target value requested by DSP  */
 	DBG_Trace(DBG_LEVEL7, "handle_constraints_set:"
-		"opp requested = 0x%x\n", (u32)*(pConstraintVal+1));
+		"opp requested = 0x%x\n", pConstraintVal);
 
 	/* Set the new opp value */
-	if (pdata->dsp_set_min_opp)
-		(*pdata->dsp_set_min_opp)((u32)*(pConstraintVal+1));
+	if (pdata->dsp_set_min_opp) {
+		/*
+		 * When Smartreflex is ON, DSP requires at least OPP level 3
+		 * to operate reliably. So boost lower OPP levels to OPP3.
+		 */
+		if (pConstraintVal < min_active_opp) {
+			pr_debug("DSPBRIDGE: VDD1 OPP%x elevated to OPP%x\n",
+					pConstraintVal, min_active_opp);
+			(*pdata->dsp_set_min_opp)(min_active_opp);
+		} else
+			(*pdata->dsp_set_min_opp)(pConstraintVal);
+	}
 	return DSP_SOK;
 #endif /* #ifdef CONFIG_BRIDGE_DVFS */
 	return DSP_SOK;
@@ -160,17 +171,19 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 			if (DSP_FAILED(status))
 				return status;
 			IO_SHMsetting(hIOMgr, SHM_GETOPP, &opplevel);
-			/* Set the OPP to low level before moving to OFF mode */
 			if (opplevel != VDD1_OPP1) {
 				DBG_Trace(DBG_LEVEL5,
-					"Tiomap_pwr.c - DSP requested"
-					" OPP = %d, MPU requesting low"
-					" OPP %d instead\n", opplevel,
-					VDD1_OPP1);
-				if (pdata->dsp_set_min_opp)
-					(*pdata->dsp_set_min_opp)(VDD1_OPP1);
-				status = DSP_SOK;
+					" DSP requested OPP = %d, MPU"
+					" requesting low OPP %d instead\n",
+					opplevel, VDD1_OPP1);
 			}
+			/*
+			 * Set the OPP to low level before moving to OFF
+			 * mode
+			 */
+			if (pdata->dsp_set_min_opp)
+				(*pdata->dsp_set_min_opp)(VDD1_OPP1);
+			status = DSP_SOK;
 #endif /* CONFIG_BRIDGE_DVFS */
 		} else {
 			DBG_Trace(DBG_LEVEL7,
@@ -811,4 +824,33 @@ void DSPClkWakeupEventCtrl(u32 ClkId, bool enable)
 							= mpu_grpsel;
 	break;
 	}
+}
+
+/*
+ *  ======== tiomap3430_bump_dsp_opp_level ========
+ *  	This function bumps DSP OPP level if it is OPP1
+ */
+DSP_STATUS tiomap3430_bump_dsp_opp_level(void)
+{
+#ifndef CONFIG_BRIDGE_DVFS
+	u32 opplevel;
+
+	struct dspbridge_platform_data *pdata =
+			omap_dspbridge_dev->dev.platform_data;
+
+	if (pdata->dsp_get_opp && pdata->dsp_set_min_opp)
+		opplevel = (*pdata->dsp_get_opp)();
+
+		/*
+		 * If OPP is at minimum level, increase it before waking
+		 * up the DSP.
+		 */
+		if (opplevel < min_active_opp) {
+			(*pdata->dsp_set_min_opp)(min_active_opp);
+			DBG_Trace(DBG_LEVEL7, "CHNLSM_InterruptDSP: Setting "
+				"the vdd1 constraint level to %d before "
+				"waking DSP \n", min_active_opp);
+		}
+#endif
+	return DSP_SOK;
 }
