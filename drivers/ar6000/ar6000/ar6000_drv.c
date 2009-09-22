@@ -221,6 +221,15 @@ static void ar6000_detect_error(unsigned long ptr);
 static struct net_device_stats *ar6000_get_stats(struct net_device *dev);
 static struct iw_statistics *ar6000_get_iwstats(struct net_device * dev);
 
+static struct net_device_ops ar6000_netdev_ops = {
+	.ndo_open = ar6000_open,
+	.ndo_stop = ar6000_close,
+	.ndo_start_xmit = ar6000_data_tx,
+	.ndo_validate_addr = eth_validate_addr,
+	.ndo_do_ioctl = ar6000_ioctl,
+	.ndo_get_stats = &ar6000_get_stats,
+};
+
 /*
  * HTC service connection handlers
  */
@@ -858,20 +867,15 @@ ar6000_avail_ev(HTC_HANDLE HTCHandle)
     spin_lock_init(&ar->arLock);
 
     /* Don't install the init function if BMI is requested */
-    if(!bmienable)
-    {
-        dev->init = ar6000_init;
+    if (!bmienable) {
+       ar6000_netdev_ops.ndo_init = ar6000_init;
     } else {
         AR_DEBUG_PRINTF(" BMI enabled \n");
     }
 
-    dev->open = &ar6000_open;
-    dev->stop = &ar6000_close;
-    dev->hard_start_xmit = &ar6000_data_tx;
-    dev->get_stats = &ar6000_get_stats;
+    dev->netdev_ops = &ar6000_netdev_ops;
 
     /* dev->tx_timeout = ar6000_tx_timeout; */
-    dev->do_ioctl = &ar6000_ioctl;
     dev->watchdog_timeo = AR6000_TX_TIMEOUT;
     ar6000_ioctl_iwsetup(&ath_iw_handler_def);
     dev->wireless_handlers = &ath_iw_handler_def;
