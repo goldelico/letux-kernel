@@ -194,17 +194,17 @@ static struct imx046_sensor_settings sensor_settings[] = {
 	{
 		.clk = {
 			.pre_pll_div = 1,
-			.pll_mult = 18,
+			.pll_mult = 36,
 			.post_pll_div = 1,
 			.vt_pix_clk_div = 10,
 			.vt_sys_clk_div = 1,
 		},
 		.mipi = {
 			.data_lanes = 1,
-			.ths_prepare = 2,
-			.ths_zero = 5,
-			.ths_settle_lower = 8,
-			.ths_settle_upper = 28,
+			.ths_prepare = 6,
+			.ths_zero = 9,
+			.ths_settle_lower = 23,
+			.ths_settle_upper = 59,
 		},
 		.frame = {
 			.frame_len_lines_min = 1250,
@@ -229,17 +229,17 @@ static struct imx046_sensor_settings sensor_settings[] = {
 	{
 		.clk = {
 			.pre_pll_div = 1,
-			.pll_mult = 18,
+			.pll_mult = 36,
 			.post_pll_div = 1,
 			.vt_pix_clk_div = 10,
 			.vt_sys_clk_div = 1,
 		},
 		.mipi = {
 			.data_lanes = 1,
-			.ths_prepare = 2,
-			.ths_zero = 5,
-			.ths_settle_lower = 8,
-			.ths_settle_upper = 28,
+			.ths_prepare = 6,
+			.ths_zero = 9,
+			.ths_settle_lower = 23,
+			.ths_settle_upper = 59,
 		},
 		.frame = {
 			.frame_len_lines_min = 1250,
@@ -1693,6 +1693,10 @@ static int ioctl_enum_framesizes(struct v4l2_int_device *s,
 
 const struct v4l2_fract imx046_frameintervals[] = {
 	{ .numerator = 3, .denominator = 30 },
+	{ .numerator = 2, .denominator = 25 },
+	{ .numerator = 1, .denominator = 15 },
+	{ .numerator = 1, .denominator = 20 },
+	{ .numerator = 1, .denominator = 25 },
 	{ .numerator = 1, .denominator = 30 },
 };
 

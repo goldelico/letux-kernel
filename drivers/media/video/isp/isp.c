@@ -1738,7 +1738,7 @@ EXPORT_SYMBOL(isp_s_ctrl);
  * Function simply routes the input ioctl cmd id to the appropriate handler in
  * the isp module.
  **/
-int isp_handle_private(int cmd, void *arg)
+int isp_handle_private(struct mutex *vdev_mutex, int cmd, void *arg)
 {
 	int rval = 0;
 
@@ -1747,15 +1747,21 @@ int isp_handle_private(int cmd, void *arg)
 
 	switch (cmd) {
 	case VIDIOC_PRIVATE_ISP_CCDC_CFG:
+		mutex_lock(vdev_mutex);
 		rval = omap34xx_isp_ccdc_config(arg);
+		mutex_unlock(vdev_mutex);
 		break;
 	case VIDIOC_PRIVATE_ISP_PRV_CFG:
+		mutex_lock(vdev_mutex);
 		rval = omap34xx_isp_preview_config(arg);
+		mutex_unlock(vdev_mutex);
 		break;
 	case VIDIOC_PRIVATE_ISP_AEWB_CFG: {
 		struct isph3a_aewb_config *params;
 		params = (struct isph3a_aewb_config *)arg;
+		mutex_lock(vdev_mutex);
 		rval = isph3a_aewb_configure(params);
+		mutex_unlock(vdev_mutex);
 	}
 		break;
 	case VIDIOC_PRIVATE_ISP_AEWB_REQ: {
@@ -1767,19 +1773,25 @@ int isp_handle_private(int cmd, void *arg)
 	case VIDIOC_PRIVATE_ISP_HIST_CFG: {
 		struct isp_hist_config *params;
 		params = (struct isp_hist_config *)arg;
+		mutex_lock(vdev_mutex);
 		rval = isp_hist_configure(params);
+		mutex_unlock(vdev_mutex);
 	}
 		break;
 	case VIDIOC_PRIVATE_ISP_HIST_REQ: {
 		struct isp_hist_data *data;
 		data = (struct isp_hist_data *)arg;
+		mutex_lock(vdev_mutex);
 		rval = isp_hist_request_statistics(data);
+		mutex_unlock(vdev_mutex);
 	}
 		break;
 	case VIDIOC_PRIVATE_ISP_AF_CFG: {
 		struct af_configuration *params;
 		params = (struct af_configuration *)arg;
+		mutex_lock(vdev_mutex);
 		rval = isp_af_configure(params);
+		mutex_unlock(vdev_mutex);
 	}
 		break;
 	case VIDIOC_PRIVATE_ISP_AF_REQ: {
