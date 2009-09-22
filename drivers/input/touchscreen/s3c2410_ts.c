@@ -37,7 +37,7 @@
  * 2007-05-23: Harald Welte <laforge@openmoko.org>
  *      - Add proper support for S32440
  *
- * 2008-06-23: Andy Green <andy@openmoko.com>
+ * 2008-06-23: Andy Green <andy@warmcat.com>
  *      - Removed averaging system
  *      - Added generic Touchscreen filter stuff
  *

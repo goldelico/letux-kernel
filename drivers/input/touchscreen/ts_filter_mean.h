@@ -9,7 +9,7 @@
  * mean
  *
  * (c) 2008,2009
- *     Andy Green <andy@openmoko.com>
+ *     Andy Green <andy@warmcat.com>
  *     Nelson Castillo <arhuaco@freaks-unidos.net>
  */
 

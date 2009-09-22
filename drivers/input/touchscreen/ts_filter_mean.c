@@ -14,7 +14,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * Copyright (c) 2008,2009
- *       Andy Green <andy@openmoko.com>
+ *       Andy Green <andy@warmcat.com>
  *       Nelson Castillo <arhuaco@freaks-unidos.net>
  *
  * Simple mean filter.
