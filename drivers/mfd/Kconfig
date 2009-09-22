@@ -127,6 +127,14 @@ config TWL4030_CODEC
 	select MFD_CORE
 	default n
 
+config TWL6030_GPADC
+	tristate "TWL6030 GPADC (General Purpose A/D Convertor) Support"
+	depends on TWL4030_CORE
+	default n
+	help
+	  Say yes here if you want support for the TWL6030 General Purpose
+	  A/D Convertor.
+
 config MFD_TMIO
 	bool
 	default n
