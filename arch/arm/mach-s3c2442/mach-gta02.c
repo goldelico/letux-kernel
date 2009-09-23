@@ -1561,6 +1561,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&s3c_device_usbgadget,
 	&s3c_device_nand,
 	&gta02_nor_flash,
+	&s3c_device_adc,
 
 	&s3c24xx_pwm_device,
 	&gta02_led_dev,
@@ -1716,9 +1717,6 @@ static void __init gta02_machine_init(void)
 #ifdef CONFIG_LEDS_NEO1973_VIBRATOR
 	gta02_vibrator_dev.dev.parent = &s3c24xx_pwm_device.dev; 
 	platform_device_register(&gta02_vibrator_dev);
-#endif
-#ifdef CONFIG_S3C24XX_ADC
-        platform_device_register(&s3c_device_adc);
 #endif
 }
 

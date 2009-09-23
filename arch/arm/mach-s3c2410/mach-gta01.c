@@ -560,6 +560,7 @@ static struct platform_device *gta01_devices[] __initdata = {
 	&s3c_device_sdi,
 	&s3c_device_usbgadget,
 	&s3c_device_nand,
+	&s3c_device_adc,
 	&s3c_device_ts,
 };
 
@@ -992,10 +993,6 @@ static void __init gta01_machine_init(void)
 	enable_irq_wake(GTA01_IRQ_MODEM);
 	printk(KERN_DEBUG  "Enabled GSM wakeup IRQ %d (rc=%d)\n",
 	       GTA01_IRQ_MODEM, rc);
-
-#ifdef CONFIG_S3C24XX_ADC
-	platform_device_register(&s3c_device_adc);
-#endif
 
 	pm_power_off = &gta01_power_off;
 }
