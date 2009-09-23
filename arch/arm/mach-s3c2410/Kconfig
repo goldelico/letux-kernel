@@ -155,6 +155,7 @@ config MACH_NEO1973_GTA01
 	select PCF50606_WATCHDOG
 	select POWER_SUPPLY
 	select BATTERY_GTA01
+	select S3C24XX_ADC
 
 	help
 	   Say Y here if you are using the FIC Neo1973 GSM Phone
