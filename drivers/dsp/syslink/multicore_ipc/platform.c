@@ -428,6 +428,11 @@ void *platform_sm_heap_phys_addr;
  */
 struct sysmgr_proc_config pc_params;
 
+/*!
+ *  @brief  SW DMM virtual address.
+ */
+void *platform_sw_dmm_virt_addr;
+
 /* =============================================================================
  * APIS
  * =============================================================================
@@ -514,10 +519,10 @@ s32 platform_setup(struct sysmgr_config *config)
 	status = platform_mem_map(&info);
 	if (status < 0)
 		goto mem_map_fail;
-
+	platform_sw_dmm_virt_addr = (void *) info.dst;
 	/* Create the shared region entry for the SW DMM heap */
 	sharedregion_add(SMHEAP_SRINDEX_SWDMM,
-			(void *)info.dst,
+			platform_sw_dmm_virt_addr,
 			info.size);
 
 	proc4430_get_config(&proc_config);
@@ -650,6 +655,11 @@ s32 platform_destroy(void)
 	struct platform_mem_unmap_info u_info;
 	/* Delete the Processor instances */
 
+	if (procmgr_handle_appm3 != NULL) {
+		status = proc_mgr_detach(procmgr_handle_appm3);
+		WARN_ON(status < 0);
+	}
+
 	if (procmgr_proc_handle_appm3 != NULL) {
 		status = proc4430_delete(&procmgr_proc_handle_appm3);
 		WARN_ON(status < 0);
@@ -657,6 +667,11 @@ s32 platform_destroy(void)
 
 	if (procmgr_handle_appm3 != NULL) {
 		status = proc_mgr_delete(&procmgr_handle_appm3);
+		WARN_ON(status < 0);
+	}
+
+	if (procmgr_handle_sysm3 != NULL) {
+		status = proc_mgr_detach(procmgr_handle_sysm3);
 		WARN_ON(status < 0);
 	}
 
@@ -683,10 +698,15 @@ s32 platform_destroy(void)
 	status = sysmemmgr_destroy();
 	WARN_ON(status < 0);
 
-	/* Delete the memory map */
-	u_info.addr = (u32) platform_sm_heap_virt_addr;
-	platform_mem_unmap(&u_info);
+	if (platform_sm_heap_virt_addr != NULL) {
+		u_info.addr = (u32) platform_sm_heap_virt_addr;
+		platform_mem_unmap(&u_info);
+	}
 
+	if (platform_sw_dmm_virt_addr != NULL) {
+		u_info.addr = platform_sw_dmm_virt_addr;
+		platform_mem_unmap(&u_info);
+	}
 
 	return status;
 }

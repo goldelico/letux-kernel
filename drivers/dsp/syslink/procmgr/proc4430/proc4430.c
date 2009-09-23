@@ -474,19 +474,19 @@ int proc4430_attach(void *handle, struct processor_attach_params *params)
 					OMAP4430PROC_MAKE_MAGICSTAMP(0),
 					OMAP4430PROC_MAKE_MAGICSTAMP(1))
 					== true) {
-		printk(KERN_ERR "proc4430_attach failed "
+		printk(KERN_ERR "proc4430_attach failed"
 			"Module not initialized");
 		return -ENODEV;
 	}
 
 	if (WARN_ON(handle == NULL)) {
-		printk(KERN_ERR "proc4430_attach failed "
+		printk(KERN_ERR "proc4430_attach failed"
 			"Driver handle is NULL");
 		return -EINVAL;
 	}
 
 	if (WARN_ON(params == NULL)) {
-		printk(KERN_ERR "proc4430_attach failed "
+		printk(KERN_ERR "proc4430_attach failed"
 			"Argument processor_attach_params * is NULL");
 		return -EINVAL;
 	}
@@ -556,7 +556,7 @@ int proc4430_detach(void *handle)
 	}
 
 	if (WARN_ON(handle == NULL)) {
-		printk(KERN_ERR "proc4430_attach failed "
+		printk(KERN_ERR "proc4430_detach failed "
 			"Argument Driverhandle is NULL");
 		return -EINVAL;
 	}
@@ -564,20 +564,18 @@ int proc4430_detach(void *handle)
 	proc_handle = (struct processor_object *)handle;
 	object = (struct proc4430_object *)proc_handle->object;
 	for (i = 0; (i < object->params.num_mem_entries); i++) {
-		if ((object->params.mem_entries[i].master_virt_addr == (u32)-1)
-			&& (object->params.mem_entries[i].shared == true)) {
+		if ((object->params.mem_entries[i].master_virt_addr > 0)
+		    && (object->params.mem_entries[i].shared == true)) {
 			unmap_info.addr =
 				object->params.mem_entries[i].master_virt_addr;
 			unmap_info.size = object->params.mem_entries[i].size;
-			if (unmap_info.addr != 0)
-				platform_mem_unmap(&unmap_info);
+			platform_mem_unmap(&unmap_info);
 			object->params.mem_entries[i].master_virt_addr =
-								(u32)-1;
+				(u32)-1;
 		}
 	}
 	return 0;
 }
-
 
 /*==========================================
  * Function to start the slave processor
@@ -602,7 +600,7 @@ int proc4430_start(void *handle, u32 entry_pt,
 
 	/*FIXME: Remove handle and entry_pt if not used */
 	if (WARN_ON(start_params == NULL)) {
-		printk(KERN_ERR "proc4430_attach failed "
+		printk(KERN_ERR "proc4430_start failed "
 			"Argument processor_start_params * is NULL");
 		return -EINVAL;
 	}
