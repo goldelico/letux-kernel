@@ -21,7 +21,7 @@
  * This filter is useful to reject samples that are not reliable. We consider
  * that a sample is not reliable if it deviates form the Majority.
  * This filter mixes information from all the available dimensions. It means
- * that for two dimensions we draw a rectangle where the though-to-be good
+ * that for two dimensions we draw a rectangle where the thought-to-be good
  * points can be found.
  *
  * The implementation would be more efficient with a double-linked list but
