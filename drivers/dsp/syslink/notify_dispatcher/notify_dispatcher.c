@@ -152,6 +152,8 @@ int ntfy_disp_deinit(void)
 		mailbx_hw_config.mailboxes[i] = (-1);
 	}
 
+	if (mailbx_hw_config.mbox_linear_addr != NULL)
+		iounmap((unsigned int *) mailbx_hw_config.mbox_linear_addr);
 	mailbx_hw_config.mbox_modules = 0;
 	mailbx_hw_config.mbox_linear_addr = (unsigned long int) (-1);
 	return 0;
