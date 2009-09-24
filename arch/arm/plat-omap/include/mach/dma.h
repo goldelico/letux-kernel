@@ -496,6 +496,7 @@ extern void omap_disable_dma_irq(int ch, u16 irq_bits);
 extern void omap_free_dma(int ch);
 extern void omap_start_dma(int lch);
 extern void omap_stop_dma(int lch);
+extern void omap_disable_lch(int lch);
 extern void omap_set_dma_transfer_params(int lch, int data_type,
 					 int elem_count, int frame_count,
 					 int sync_mode,

@@ -991,6 +991,15 @@ void omap_stop_dma(int lch)
 }
 EXPORT_SYMBOL(omap_stop_dma);
 
+void omap_disable_lch(int lch)
+{
+	u32 l;
+	l = dma_read(CCR(lch));
+	l &= ~OMAP_DMA_CCR_EN;
+	dma_write(l, CCR(lch));
+}
+EXPORT_SYMBOL(omap_disable_lch);
+
 /*
  * Allows changing the DMA callback function or data. This may be needed if
  * the driver shares a single DMA channel for multiple dma triggers.

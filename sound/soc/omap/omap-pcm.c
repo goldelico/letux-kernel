@@ -219,10 +219,14 @@ static int omap_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
-	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		prtd->period_index = -1;
 		omap_stop_dma(prtd->dma_ch);
+		break;
+
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+		omap_stop_dma(prtd->dma_ch);
+		omap_disable_lch(prtd->dma_ch);
 		break;
 	default:
 		ret = -EINVAL;

@@ -190,17 +190,29 @@ static int omap_mcbsp_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		mcbsp_data->active++;
 		omap_mcbsp_start(mcbsp_data->bus_id, play, !play);
 		break;
 
+	case SNDRV_PCM_TRIGGER_RESUME:
+		if (!mcbsp_data->active++) {
+			omap_mcbsp_enable_fclk(mcbsp_data->bus_id);
+			omap_mcbsp_start(mcbsp_data->bus_id, play, !play);
+		}
+		break;
+
 	case SNDRV_PCM_TRIGGER_STOP:
-	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		mcbsp_data->active--;
 		omap_mcbsp_stop(mcbsp_data->bus_id, play, !play);
+		break;
+
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+		if (!--mcbsp_data->active) {
+			omap_mcbsp_stop(mcbsp_data->bus_id, play, !play);
+			omap_mcbsp_disable_fclk(mcbsp_data->bus_id);
+		}
 		break;
 	default:
 		err = -EINVAL;
@@ -240,7 +252,7 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 		/* reset the xfer_size to the integral multiple of
 		the buffer size. This is for DMA packet mode transfer */
 		if (xfer_size) {
-			struct snd_pcm_runtime *runtime = substream->runtime;
+			/* struct snd_pcm_runtime *runtime = substream->runtime;*/
 			int buffer_size = params_buffer_size(params);
 			if (xfer_size > buffer_size) {
 				printk(KERN_DEBUG "buffer_size is %d \n",

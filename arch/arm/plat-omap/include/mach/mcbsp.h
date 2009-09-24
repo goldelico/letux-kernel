@@ -425,6 +425,8 @@ void omap_mcbsp_register_board_cfg(struct omap_mcbsp_platform_data *config,
 void omap_mcbsp_config(unsigned int id, const struct omap_mcbsp_reg_cfg * config);
 int omap_mcbsp_request(unsigned int id);
 void omap_mcbsp_free(unsigned int id);
+void omap_mcbsp_disable_fclk(unsigned int id);
+void omap_mcbsp_enable_fclk(unsigned int id);
 void omap_mcbsp_start(unsigned int id, int tx, int rx);
 void omap_mcbsp_stop(unsigned int id, int tx, int rx);
 void omap_mcbsp_xmit_word(unsigned int id, u32 word);
