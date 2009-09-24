@@ -823,7 +823,7 @@ void ducati_destroy(void)
 EXPORT_SYMBOL(ducati_destroy);
 
 /*============================================
- * Returns the duati virtual address for IPC shared memory
+ * Returns the ducati virtual address for IPC shared memory
  *
  */
 u32 get_ducati_virt_mem()
@@ -833,4 +833,13 @@ u32 get_ducati_virt_mem()
 }
 EXPORT_SYMBOL(get_ducati_virt_mem);
 
-
+/*============================================
+ * Unmaps the ducati virtual address for IPC shared memory
+ *
+ */
+void unmap_ducati_virt_mem(u32 shm_virt_addr)
+{
+	iounmap((unsigned int *) shm_virt_addr);
+	return;
+}
+EXPORT_SYMBOL(unmap_ducati_virt_mem);

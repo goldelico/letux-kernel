@@ -195,6 +195,7 @@ void dbg_print_ptes(bool ashow_inv_entries, bool ashow_repeat_entries);
 int ducati_setup(void);
 void ducati_destroy(void);
 u32 get_ducati_virt_mem();
+void unmap_ducati_virt_mem(u32 shm_virt_addr);
 int ducati_mem_map(u32 va, u32 da, u32 num_bytes, u32 map_attr);
 int ducati_mem_unmap(u32 da, u32 num_bytes);
 u32 user_va2pa(struct mm_struct *mm, u32 address);
