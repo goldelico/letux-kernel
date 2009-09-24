@@ -997,6 +997,11 @@ static void config_hdmi_gpio(void)
 	omap_cfg_reg(C27_34XX_CAM_PCLK);
 }
 
+static void config_mux_mcbsp3(void)
+{
+	/*Mux setting for GPIO164 McBSP3*/
+	omap_cfg_reg(H19_34XX_GPIO164_OUT);
+}
 static int __init wl127x_vio_leakage_fix(void)
 {
 	int ret = 0;
@@ -1037,6 +1042,7 @@ static void __init omap_zoom2_init(void)
 	config_wlan_gpio();
 	zoom2_cam_init();
 	zoom2_lcd_tv_panel_init();
+	config_mux_mcbsp3();
 #ifdef CONFIG_SIL9022
 	config_hdmi_gpio();
 	zoom2_hdmi_reset_enable(1);
