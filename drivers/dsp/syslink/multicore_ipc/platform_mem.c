@@ -166,7 +166,7 @@ int platform_mem_map(memory_map_info *map_info)
 
 	map_info->dst = 0;
 	if (map_info->is_cached == true)
-			map_info->dst = (u32) ioremap((dma_addr_t)
+		map_info->dst = (u32) ioremap((dma_addr_t)
 					(map_info->src), map_info->size);
 	else
 		map_info->dst = (u32) ioremap_nocache((dma_addr_t)
@@ -174,7 +174,7 @@ int platform_mem_map(memory_map_info *map_info)
 
 	if (map_info->dst == 0) {
 			retval = -EFAULT;
-			goto exit;
+			goto ioremap_fail;
 	}
 
 	/* Populate the info */
@@ -186,9 +186,10 @@ int platform_mem_map(memory_map_info *map_info)
 	mutex_unlock(platform_mem_state.gate);
 	goto exit;
 
+ioremap_fail:
+	mutex_unlock(platform_mem_state.gate);
 lock_fail:
 	kfree(info);
-
 exit:
 	return retval;
 }
@@ -234,7 +235,6 @@ int platform_mem_unmap(memory_unmap_info *unmap_info)
 			kfree(info);
 			break;
 		}
-
 	}
 	mutex_unlock(platform_mem_state.gate);
 
