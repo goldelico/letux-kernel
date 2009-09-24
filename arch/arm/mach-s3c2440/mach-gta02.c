@@ -61,6 +61,9 @@
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
 
+#include <linux/leds.h>
+#include <linux/leds_pwm.h>
+
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/mach/irq.h>
@@ -412,12 +415,6 @@ static struct platform_device gta02_nor_flash = {
 	.num_resources	= 1,
 };
 
-
-struct platform_device s3c24xx_pwm_device = {
-	.name		= "s3c24xx_pwm",
-	.num_resources	= 0,
-};
-
 static struct i2c_board_info gta02_i2c_devs[] __initdata = {
 	{
 		I2C_BOARD_INFO("pcf50633", 0x73),
@@ -587,6 +584,106 @@ static struct platform_device gta02_buttons_device = {
 	},
 };
 
+/* LEDs */
+static struct gpio_led gta02_gpio_leds[] = {
+	{
+		.name	= "gta02:red:aux",
+		.gpio	= GTA02_GPIO_AUX_LED,
+	},
+};
+
+static struct gpio_led_platform_data gta02_gpio_leds_pdata = {
+	.leds = gta02_gpio_leds,
+	.num_leds = ARRAY_SIZE(gta02_gpio_leds),
+};
+
+static struct platform_device gta02_leds_device = {
+	.name = "leds-gpio",
+	.id   = -1,
+	.dev = {
+		.platform_data = &gta02_gpio_leds_pdata,
+	},
+};
+
+static inline int gta02_pwm_to_gpio(int pwm_id)
+{
+	return S3C2410_GPB(pwm_id);
+}
+
+static int gta02_pwm_led_init(struct device *dev, struct led_pwm *led)
+{
+	int ret;
+	int gpio = gta02_pwm_to_gpio(led->pwm_id);
+
+	ret = gpio_request(gpio, dev_name(dev));
+	if (ret)
+		return ret;
+
+	gpio_direction_output(gpio, 0);
+
+	return 0;
+}
+
+static enum led_brightness gta02_pwm_led_notify(struct device *dev,
+	struct led_pwm *led, enum led_brightness brightness)
+{
+	int gpio = gta02_pwm_to_gpio(led->pwm_id);
+
+	if (brightness == led->max_brightness || brightness == 0) {
+		s3c2410_gpio_cfgpin(gpio, S3C2410_GPIO_OUTPUT);
+		gpio_set_value(gpio, brightness ? 1 : 0);
+
+		brightness = 0;
+	} else {
+		s3c2410_gpio_cfgpin(gpio, S3C2410_GPIO_SFN2);
+	}
+
+	return brightness;
+}
+
+static void gta02_pwm_led_exit(struct device *dev, struct led_pwm *led)
+{
+	gpio_free(gta02_pwm_to_gpio(led->pwm_id));
+}
+
+static struct led_pwm gta02_pwm_leds[] = {
+	{
+		.name = "gta02:orange:power",
+		.max_brightness = 0xff,
+		.pwm_period_ns = 1000000,
+		.pwm_id = 0,
+	},
+	{
+		.name = "gta02:blue:power",
+		.max_brightness = 0xff,
+		.pwm_period_ns = 1000000,
+		.pwm_id = 1,
+	},
+	{
+		.name = "gta02::vibrator",
+		.max_brightness = 0x3f,
+		.pwm_period_ns = 60000000,
+		.pwm_id = 3,
+	}
+};
+
+static struct led_pwm_platform_data gta02_pwm_leds_pdata = {
+	.num_leds = ARRAY_SIZE(gta02_pwm_leds),
+	.leds = gta02_pwm_leds,
+
+	.init = gta02_pwm_led_init,
+	.notify = gta02_pwm_led_notify,
+	.exit = gta02_pwm_led_exit,
+};
+
+static struct platform_device gta02_pwm_leds_device = {
+	.name	= "leds_pwm",
+	.id	= -1,
+	.dev = {
+		.platform_data = &gta02_pwm_leds_pdata,
+	}
+};
+
 static void __init gta02_map_io(void)
 {
 	s3c24xx_init_io(gta02_iodesc, ARRAY_SIZE(gta02_iodesc));
@@ -604,10 +701,14 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&s3c_device_usbgadget,
 	&s3c_device_nand,
 	&gta02_nor_flash,
-	&s3c24xx_pwm_device,
+	&s3c_device_timer[0],
+	&s3c_device_timer[1],
+	&s3c_device_timer[3],
 	&s3c_device_iis,
 	&s3c_device_i2c0,
 	&gta02_buttons_device,
+	&gta02_leds_device,
+	&gta02_pwm_leds_device,
 };
 
 /* These guys DO need to be children of PMU. */
@@ -665,6 +766,7 @@ static void __init gta02_machine_init(void)
 	i2c_register_board_info(0, gta02_i2c_devs, ARRAY_SIZE(gta02_i2c_devs));
 
 	platform_add_devices(gta02_devices, ARRAY_SIZE(gta02_devices));
+
 	pm_power_off = gta02_poweroff;
 }
 
