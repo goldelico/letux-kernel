@@ -302,7 +302,11 @@ static void omap_uart_restore_context(struct omap_uart_state *uart)
 	serial_write_reg(p, UART_DLM, uart->dlh);
 	serial_write_reg(p, UART_LCR, 0x0); /* Operational mode */
 	serial_write_reg(p, UART_IER, uart->ier);
-	serial_write_reg(p, UART_FCR, 0xA1);
+	if (uart->use_dma)
+		serial_write_reg(p, UART_FCR, 0x59);
+	else
+		serial_write_reg(p, UART_FCR, 0x51);
+
 	serial_write_reg(p, UART_LCR, 0xBF); /* Config B mode */
 	serial_write_reg(p, UART_EFR, efr);
 	serial_write_reg(p, UART_LCR, UART_LCR_WLEN8);
@@ -501,9 +505,29 @@ static irqreturn_t omap_uart_interrupt(int irq, void *dev_id)
 
 static u32 sleep_timeout = DEFAULT_TIMEOUT;
 
-static void omap_uart_idle_init(struct omap_uart_state *uart)
+static void omap_uart_wakeup_enable(struct omap_uart_state *uart)
 {
 	u32 v;
+	/* Set wake-enable bit */
+	if (uart->wk_en && uart->wk_mask) {
+		v = __raw_readl(uart->wk_en);
+		v |= uart->wk_mask;
+		__raw_writel(v, uart->wk_en);
+	}
+
+	/* Ensure IOPAD wake-enables are set */
+	if (cpu_is_omap34xx() && uart->padconf) {
+		u16 v;
+
+		v = omap_ctrl_readw(uart->padconf);
+		v |= OMAP3_PADCONF_WAKEUPENABLE0;
+		omap_ctrl_writew(v, uart->padconf);
+	}
+}
+
+
+static void omap_uart_idle_init(struct omap_uart_state *uart)
+{
 	struct plat_serial8250_port *p = uart->p;
 	int ret, irq_flags = 0;
 
@@ -572,21 +596,18 @@ static void omap_uart_idle_init(struct omap_uart_state *uart)
 		uart->padconf = 0;
 	}
 
-	/* Set wake-enable bit */
-	if (uart->wk_en && uart->wk_mask) {
-		v = __raw_readl(uart->wk_en);
-		v |= uart->wk_mask;
-		__raw_writel(v, uart->wk_en);
-	}
+#ifdef CONFIG_SERIAL_OMAP
+	/* use rx as wakeup source only for uart3,
+	 * uart1,2 will wakeup using CTS PIN
+	 * This is supported by omap-serial
+	 * driver
+	 */
+	if (uart->num == 2 || uart->num == 3)
+		omap_uart_wakeup_enable(uart);
 
-	/* Ensure IOPAD wake-enables are set */
-	if (cpu_is_omap34xx() && uart->padconf) {
-		u16 v;
-
-		v = omap_ctrl_readw(uart->padconf);
-		v |= OMAP3_PADCONF_WAKEUPENABLE0;
-		omap_ctrl_writew(v, uart->padconf);
-	}
+#elif CONFIG_SERIAL_8250
+		omap_uart_wakeup_enable(uart);
+#endif
 
 	p->flags |= UPF_SHARE_IRQ;
 

@@ -254,13 +254,6 @@ static void serial_omap_stop_tx(struct uart_port *port)
 		up->ier &= ~UART_IER_THRI;
 		serial_out(up, UART_IER, up->ier);
 	}
-#ifdef CONFIG__PM
-	if (!up->uart_dma.rx_dma_state) {
-		unsigned int tmp;
-		tmp = (serial_in(up, UART_OMAP_SYSC) & 0x7) | (2 << 3);
-		serial_out(up, UART_OMAP_SYSC, tmp); /* smart-idle */
-	}
-#endif
 }
 
 static void serial_omap_stop_rx(struct uart_port *port)
@@ -379,15 +372,6 @@ static void transmit_chars(struct uart_omap_port *up)
 static void serial_omap_start_tx(struct uart_port *port)
 {
 	struct uart_omap_port *up = (struct uart_omap_port *)port;
-#ifdef CONFIG_PM
-		/* Disallow OCP bus idle. UART TX irqs are not seen during
-		 * bus idle. Alternative is to set kernel timer at fifo
-		 * drain rate.
-		 */
-		unsigned int tmp;
-		tmp = (serial_in(up, UART_OMAP_SYSC) & 0x7) | (1 << 3);
-		serial_out(up, UART_OMAP_SYSC, tmp); /* no-idle */
-#endif
 	if (up->use_dma && !(up->port.x_char)) {
 
 		struct circ_buf *xmit = &up->port.info->xmit;
@@ -981,7 +965,6 @@ serial_omap_pm(struct uart_port *port, unsigned int state,
 	/*Holding wakelock for UART*/
 	if (oldstate == 3)
 		wake_lock_timeout(&omap_serial_wakelock, 10*HZ);
-
 }
 
 static void serial_omap_release_port(struct uart_port *port)
@@ -1195,16 +1178,6 @@ int serial_omap_suspend(struct platform_device *pdev, pm_message_t state)
 
 	if (up)
 		uart_suspend_port(&serial_omap_reg, &up->port);
-	if (up->use_dma) {
-		/*
-		 * Silicon Errata i291 workaround.
-		 * UART Module has to be put in force idle if it is
-		 * configured in DMA mode and when there is no activity
-		 * expected.
-		 */
-		tmp = (serial_in(up, UART_OMAP_SYSC) & 0x7);
-		serial_out(up, UART_OMAP_SYSC, tmp); /* force-idle */
-	}
 	return 0;
 }
 
@@ -1235,7 +1208,7 @@ static void serial_omap_rx_timeout(unsigned long uart_no)
 				usecs_to_jiffies(up->uart_dma.rx_timeout));
 		else {
 			serial_omap_stop_rxdma(up);
-			up->ier = UART_IER_RLSI | UART_IER_RDI;
+			up->ier |= UART_IER_RDI;
 			serial_out(up, UART_IER, up->ier);
 		}
 
@@ -1270,15 +1243,6 @@ static void uart_rx_dma_callback(int lch, u16 ch_status, void *data)
 
 static void serial_omap_start_rxdma(struct uart_omap_port *up)
 {
-#ifdef CONFIG_PM
-	/* Disallow OCP bus idle. UART TX irqs are not seen during
-	 * bus idle. Alternative is to set kernel timer at fifo
-	 * drain rate.
-	 */
-	unsigned int tmp;
-	tmp = (serial_in(up, UART_OMAP_SYSC) & 0x7) | (1 << 3);
-	serial_out(up, UART_OMAP_SYSC, tmp); /* no-idle */
-#endif
 	if (up->uart_dma.rx_dma_channel == 0xFF) {
 		omap_request_dma(uart_dma_rx[up->pdev->id-1], "UART Rx DMA",
 			(void *)uart_rx_dma_callback, up,
@@ -1573,8 +1537,6 @@ int omap_uart_cts_wakeup(int uart_no, int state)
 		efr = serial_in(up, UART_EFR);
 		serial_out(up, UART_EFR, efr | UART_EFR_ECB);
 		serial_out(up, UART_LCR, lcr);
-		up->ier	|= (1 << 7);
-		serial_out(up, UART_IER, up->ier);
 		serial_out(up, UART_OMAP_WER,
 				serial_in(up, UART_OMAP_WER) | 0x1);
 		serial_out(up, UART_LCR, 0xbf);
@@ -1610,8 +1572,6 @@ int omap_uart_cts_wakeup(int uart_no, int state)
 		efr = serial_in(up, UART_EFR);
 		serial_out(up, UART_EFR, efr | UART_EFR_ECB);
 		serial_out(up, UART_LCR, lcr);
-		up->ier	&= ~(1 << 7);
-		serial_out(up, UART_IER, up->ier);
 
 		/* TBD:Do we really want to disable
 		 * module wake up for this in WER
