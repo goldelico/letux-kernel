@@ -41,6 +41,8 @@ struct procmgr_dev {
 	struct cdev cdev;
 };
 
+struct platform_device	*omap_proc_dev;
+static struct platform_device	*procmgr_pdev;
 static struct procmgr_dev *procmgr_device;
 
 static struct class *proc_mgr_class;
@@ -71,6 +73,12 @@ static int __init proc_mgr_drv_initialize_module(void);
 /* Module finalization  function for Linux driver. */
 static void  __exit proc_mgr_drv_finalize_module(void);
 
+/* Platform driver probe function */
+static int __devinit proc_mgr_probe(struct platform_device *pdev);
+
+/* Platform driver remove function */
+static int __devexit proc_mgr_remove(struct platform_device *pdev);
+
 /*
  * name   DriverOps
  *
@@ -84,14 +92,17 @@ static const struct file_operations procmgr_fops = {
 	.mmap = proc_mgr_drv_mmap,
 } ;
 
+/* Imtiaz changed places */
 static struct platform_driver procmgr_driver_ldm = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = PROCMGR_NAME,
 	},
-	.probe = NULL,
-	.shutdown = NULL,
-	.remove = NULL,
+	.probe 		= proc_mgr_probe,
+	.remove 	= __devexit_p(proc_mgr_remove),
+	.shutdown 	= NULL,
+	.suspend 	= NULL,
+	.resume 	= NULL,
 };
 
 /*
@@ -625,16 +636,13 @@ static int proc_mgr_drv_mmap(struct file *filp, struct vm_area_struct *vma)
 	return 0;
 }
 
-/*
-* Module initialization  function for Linux driver.
- */
-static int __init proc_mgr_drv_initialize_module(void)
+static int __devinit proc_mgr_probe(struct platform_device *pdev)
 {
 	dev_t dev = 0 ;
-	int retval;
+	int retval = -ENOMEM;
 
 	/* Display the version info and created date/time */
-	printk(KERN_INFO "proc_mgr_drv_initialize_module\n");
+	dev_dbg(&omap_proc_dev->dev, "Entering %s function\n\n", __func__);
 
 	if (driver_major) {
 		dev = MKDEV(driver_major, driver_minor);
@@ -673,20 +681,17 @@ static int __init proc_mgr_drv_initialize_module(void)
 	device_create(proc_mgr_class, NULL, MKDEV(driver_major, driver_minor),
 			NULL, PROCMGR_NAME);
 
-	retval = platform_driver_register(&procmgr_driver_ldm);
 exit:
+	dev_dbg(&omap_proc_dev->dev, "Leaving %s function\n\n", __func__);
 	return retval;
 }
 
 
-/*
-* driver function to finalize the driver module.
- */
-static void __exit proc_mgr_drv_finalize_module(void)
+static int __devexit proc_mgr_remove(struct platform_device *pdev)
 {
 	dev_t devno = 0;
 
-	platform_driver_unregister(&procmgr_driver_ldm);
+	dev_dbg(&omap_proc_dev->dev, "Entering %s function\n", __func__);
 	devno = MKDEV(driver_major, driver_minor);
 	if (procmgr_device) {
 		cdev_del(&procmgr_device->cdev);
@@ -699,6 +704,47 @@ static void __exit proc_mgr_drv_finalize_module(void)
 						driver_minor));
 		class_destroy(proc_mgr_class);
 	}
+	dev_dbg(&omap_proc_dev->dev, "Entering %s function\n", __func__);
+	return 0;
+}
+
+/*
+* Module initialization  function for Linux driver.
+ */
+static int __init proc_mgr_drv_initialize_module(void)
+{
+	int retval = -ENOMEM;
+
+	procmgr_pdev = platform_device_alloc(PROCMGR_NAME, -1);
+	if (!procmgr_pdev) {
+		printk(KERN_ERR "%s:device allocation failed\n", __func__);
+		return -ENOMEM;
+	}
+	retval = platform_device_add(procmgr_pdev);
+	if (retval)
+		goto err_out;
+
+	/*Saving the context for future use*/
+	omap_proc_dev = procmgr_pdev;
+
+	retval = platform_driver_register(&procmgr_driver_ldm);
+	if (!retval)
+		return retval;
+err_out:
+	platform_device_put(procmgr_pdev);
+	return retval;
+}
+
+/*
+* driver function to finalize the driver module.
+ */
+static void __exit proc_mgr_drv_finalize_module(void)
+{
+
+	dev_dbg(&omap_proc_dev->dev, "Entering %s function\n", __func__);
+	platform_device_unregister(procmgr_pdev);
+	platform_driver_unregister(&procmgr_driver_ldm);
+	dev_dbg(&omap_proc_dev->dev, "Leaving %s function\n", __func__);
 }
 
 /*
