@@ -837,6 +837,7 @@ int heapbuf_close(void *handle_ptr)
 			/* Delete the list */
 			listmp_sharedmemory_close((listmp_sharedmemory_handle *)
 				obj->free_list);
+			kfree(obj);
 			kfree(handle);
 			handle = NULL;
 		}
