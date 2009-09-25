@@ -137,6 +137,8 @@ struct sysmgr_module_object {
 	/* Overall system configuration */
 	struct sysmgr_boot_load_page *boot_load_page[MULTIPROC_MAXPROCESSORS];
 	/* Boot load page of the slaves */
+	bool platform_mem_init_flag;
+	/* Platform memory manager initialize flag */
 	bool multiproc_init_flag;
 	/* Multiproc Initialize flag */
 	bool gatepeterson_init_flag;
@@ -373,8 +375,9 @@ s32 sysmgr_setup(const struct sysmgr_config *cfg)
 		printk(KERN_ERR "sysmgr_setup : platform_mem_setup "
 			"failed [0x%x]\n", status);
 	} else {
-		printk(KERN_ERR "platform_mem_setup_setup : status [0x%x]\n" ,
+		printk(KERN_ERR "platform_mem_setup : status [0x%x]\n" ,
 			status);
+		sysmgr_state.platform_mem_init_flag = true;
 	}
 
 	/* Override the platform specific configuration */
@@ -730,6 +733,17 @@ s32 sysmgr_destroy(void)
 				"failed [0x%x]\n", status);
 		} else {
 			sysmgr_state.proc_mgr_init_flag = false;
+		}
+	}
+
+	/* Finalize PlatformMem module */
+	if (sysmgr_state.platform_mem_init_flag == true) {
+		status = platform_mem_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "sysmgr_destroy : platform_mem_destroy "
+				"failed [0x%x]\n", status);
+		} else {
+			sysmgr_state.platform_mem_init_flag = false;
 		}
 	}
 

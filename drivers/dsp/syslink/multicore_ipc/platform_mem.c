@@ -117,7 +117,7 @@ int platform_mem_destroy(void)
 			== PLATFORM_MEM_MAKE_MAGICSTAMP(0)) {
 		list_del(&platform_mem_state.map_table);
 		/* Delete the gate handle */
-		kfree(&platform_mem_state.gate);
+		kfree(platform_mem_state.gate);
 	}
 
 exit:
