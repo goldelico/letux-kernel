@@ -874,6 +874,7 @@ int notify_ducatidrv_unregister_event(
 		goto func_end;
 	}
 	list_del((struct list_head *)&(listener->element));
+	kfree(listener);
 	event_list[event_no].event_handler_count--;
 
 
