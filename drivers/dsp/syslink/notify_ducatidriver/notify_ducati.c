@@ -72,9 +72,13 @@
 				((NOTIFYDRIVERSHM_MODULEID << 12u) | (x))
 
 static struct omap_mbox *ducati_mbox;
-static struct notify_ducatidrv_object *ducati_isr_params[NOTIFY_MAX_DRIVERS];
 static void notify_ducatidrv_isr(void *ntfy_msg);
 static void notify_ducatidrv_isr_callback(void *ref_data, void* ntfy_msg);
+
+struct notify_driver_object_list {
+	struct list_head elem;
+	struct notify_driver_object *drv_handle;
+};
 
 
 /*
@@ -102,7 +106,7 @@ struct notify_ducatidrv_module {
 	struct notify_ducatidrv_config def_cfg;
 	struct notify_ducatidrv_params def_inst_params;
 	struct mutex *gate_handle;
-	struct notify_driver_object *drv_handles[NOTIFY_MAX_DRIVERS];
+	struct list_head drv_handle_list;
 } ;
 
 
@@ -248,12 +252,11 @@ struct notify_driver_object *notify_ducatidrv_create(char *driver_name,
 	VOLATILE struct notify_shmdrv_proc_ctrl *ctrl_ptr = NULL;
 	struct notify_driver_attrs drv_attrs;
 	struct notify_interface fxn_table;
+	struct notify_driver_object_list *drv_handle_inst = NULL;
 	int proc_id;
 	int i;
 	u32 shm_va;
 	int tmp_status = NOTIFY_SUCCESS;
-
-	int slot = false;
 
 	BUG_ON(driver_name == NULL);
 	BUG_ON(params == NULL);
@@ -262,26 +265,23 @@ struct notify_driver_object *notify_ducatidrv_create(char *driver_name,
 					NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(0),
 					NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(1))
 					== true) {
+		printk(KERN_ERR "Module not initialized\n");
 		goto func_end;
 	}
-
-
-	WARN_ON(mutex_lock_interruptible(notify_ducatidriver_state.
-				gate_handle) != 0);
 
 	if (params->num_events > NOTIFYSHMDRV_MAX_EVENTS) {
-		status = -EINVAL;
+		printk(KERN_ERR "More than max number of events passed\n");
 		goto func_end;
 	}
-
-
+	WARN_ON(mutex_lock_interruptible(notify_ducatidriver_state.
+				gate_handle) != 0);
 	proc_id = PROC_DUCATI;
 
 	tmp_status = notify_get_driver_handle(driver_name, &drv_handle);
 
 	if (tmp_status != NOTIFY_E_NOTFOUND) {
-		status = -EEXIST;
-		goto func_end;
+		printk(KERN_ERR "Driver handle not found\n");
+		goto error_unlock_and_return;
 	}
 
 	/* Fill in information about driver attributes. */
@@ -322,161 +322,158 @@ struct notify_driver_object *notify_ducatidrv_create(char *driver_name,
 				&fxn_table,
 				&drv_attrs,
 				&drv_handle);
-	if (status < 0) {
-		/*retval NULL Failed to register driver with Notify module!*/
-		status = -EINVAL;
-	} else {
-		/* Allocate memory for the notify_ducatidrv_object object. */
-		drv_handle->driver_object = driver_obj =
-				kmalloc(sizeof(struct notify_ducatidrv_object),
-					GFP_ATOMIC);
-
-		if (driver_obj == NULL) {
-			status = -ENOMEM;
-			goto func_end;
-		} else {
-			memcpy(&(driver_obj->params), (void *) params,
-			sizeof(struct notify_ducatidrv_params));
-		}
+	/*FIXME: To take care of already exists case */
+	if ((status != NOTIFY_SUCCESS) && (status != NOTIFY_E_ALREADYEXISTS)) {
+		printk(KERN_ERR "Notify register failed\n");
+		goto error_clean_and_exit;
 	}
-	if (status >= 0) {
+	/* Allocate memory for the notify_ducatidrv_object object. */
+	drv_handle->driver_object = driver_obj =
+			kmalloc(sizeof(struct notify_ducatidrv_object),
+				GFP_ATOMIC);
 
-		if (params->remote_proc_id > multiproc_get_id(NULL)) {
-			driver_obj->self_id  = SELF_ID;
-			driver_obj->other_id = OTHER_ID;
-		} else {
-			driver_obj->self_id  = OTHER_ID;
-			driver_obj->other_id = SELF_ID;
-		}
-		shm_va = get_ducati_virt_mem();
-		driver_obj->ctrl_ptr = (struct notify_shmdrv_ctrl *) shm_va;
-		ctrl_ptr = &(driver_obj->ctrl_ptr->
-			proc_ctrl[driver_obj->self_id]);
-		ctrl_ptr->self_event_chart =
-					(struct notify_shmdrv_event_entry *)
-					((int)(driver_obj->ctrl_ptr)
-					+ sizeof(struct notify_shmdrv_ctrl)+
-					(sizeof(struct
-						notify_shmdrv_event_entry)
-						* params->num_events
-						* driver_obj->other_id));
+	if (driver_obj == NULL) {
+		status = -ENOMEM;
+		goto error_clean_and_exit;
+	} else {
+		memcpy(&(driver_obj->params), (void *) params,
+		sizeof(struct notify_ducatidrv_params));
+	}
 
-		ctrl_ptr->other_event_chart =
-					(struct notify_shmdrv_event_entry *)
-					((int)(driver_obj->ctrl_ptr)
-					+ sizeof(struct notify_shmdrv_ctrl) +
-					(sizeof(struct
-						notify_shmdrv_event_entry)
-						* params->num_events
-						* driver_obj->self_id));
-		driver_obj->proc_id = params->remote_proc_id;
-		driver_obj->event_list = kmalloc(
-					(sizeof(struct notify_drv_eventlist)
-					* params->num_events), GFP_ATOMIC);
-		if (driver_obj->event_list == NULL) {
-			status = -ENOMEM;
-			goto func_end;
-		} else {
-			memset(driver_obj->event_list, 0,
-			sizeof(struct notify_drv_eventlist)*params->
-							num_events);
-		}
+	if (params->remote_proc_id > multiproc_get_id(NULL)) {
+		driver_obj->self_id  = SELF_ID;
+		driver_obj->other_id = OTHER_ID;
+	} else {
+		driver_obj->self_id  = OTHER_ID;
+		driver_obj->other_id = SELF_ID;
+	}
 
-		driver_obj->reg_chart = kmalloc(sizeof(
-						struct notify_shmdrv_eventreg)
-						*params->num_events,
-						GFP_ATOMIC);
-		if (driver_obj->reg_chart == NULL) {
-			status = -ENOMEM;
-			goto func_end;
-		} else {
-			memset(driver_obj->reg_chart, 0,
-				sizeof(struct notify_shmdrv_eventreg)
-				*params->num_events);
-		}
+	shm_va = get_ducati_virt_mem();
+	driver_obj->ctrl_ptr = (struct notify_shmdrv_ctrl *) shm_va;
+	ctrl_ptr = &(driver_obj->ctrl_ptr->
+		proc_ctrl[driver_obj->self_id]);
+	ctrl_ptr->self_event_chart =
+				(struct notify_shmdrv_event_entry *)
+				((int)(driver_obj->ctrl_ptr)
+				+ sizeof(struct notify_shmdrv_ctrl)+
+				(sizeof(struct
+					notify_shmdrv_event_entry)
+					* params->num_events
+					* driver_obj->other_id));
 
-		event_list = driver_obj->event_list;
-		for (i = 0 ; (i < params->num_events) ; i++) {
-			ctrl_ptr->self_event_chart[i].flag = 0;
-			driver_obj->reg_chart[i].reg_event_no = (int) -1;
-			event_list[i].event_handler_count = 0;
-			INIT_LIST_HEAD(&event_list[i].listeners);
-		}
+	ctrl_ptr->other_event_chart =
+				(struct notify_shmdrv_event_entry *)
+				((int)(driver_obj->ctrl_ptr)
+				+ sizeof(struct notify_shmdrv_ctrl) +
+				(sizeof(struct
+					notify_shmdrv_event_entry)
+					* params->num_events
+					* driver_obj->self_id));
+	driver_obj->proc_id = params->remote_proc_id;
+	driver_obj->event_list = kmalloc(
+				(sizeof(struct notify_drv_eventlist)
+				* params->num_events), GFP_ATOMIC);
+	if (driver_obj->event_list == NULL) {
+		status = -ENOMEM;
+		goto error_clean_and_exit;
+	} else {
+		memset(driver_obj->event_list, 0,
+		sizeof(struct notify_drv_eventlist)*params->
+						num_events);
+	}
+
+	driver_obj->reg_chart = kmalloc(sizeof(
+					struct notify_shmdrv_eventreg)
+					*params->num_events,
+					GFP_ATOMIC);
+	if (driver_obj->reg_chart == NULL) {
+		status = -ENOMEM;
+		goto error_clean_and_exit;
+	} else {
+		memset(driver_obj->reg_chart, 0,
+			sizeof(struct notify_shmdrv_eventreg)
+			*params->num_events);
+	}
+
+	event_list = driver_obj->event_list;
+
+	for (i = 0 ; (i < params->num_events) ; i++) {
+		ctrl_ptr->self_event_chart[i].flag = 0;
+		driver_obj->reg_chart[i].reg_event_no = (int) -1;
+		event_list[i].event_handler_count = 0;
+		INIT_LIST_HEAD(&event_list[i].listeners);
 	}
 
 	/*Set up the ISR on the Modena-ducati FIFO */
-	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++) {
-		if (ducati_isr_params[i] == NULL) {
-			slot = true;
-			break;
-		}
-	}
-	if ((!slot) || (i == NOTIFY_MAX_DRIVERS)) {
-		/*FIXME: set a proper error value exit gracefully */
-		printk(KERN_ERR "Error: no free slots\n");
-		status = -ENODEV;
-		goto func_end;
-	}
-	ducati_isr_params[i] = (void *)driver_obj;
-	mutex_unlock(notify_ducatidriver_state.gate_handle);
-	omap_mbox_enable_irq(ducati_mbox, IRQ_RX);
-			status = 0;
-	if (status == 0) {
-		notify_ducatidriver_state.drv_handles[drv_handle->index]
-							= drv_handle;
-		driver_obj = drv_handle->driver_object;
-		ctrl_ptr->reg_mask.mask = 0x0;
-		ctrl_ptr->reg_mask.enable_mask = 0xFFFFFFFF;
-		ctrl_ptr->recv_init_status = NOTIFYSHMDRV_INIT_STAMP;
-		ctrl_ptr->send_init_status = NOTIFYSHMDRV_INIT_STAMP;
-		drv_handle->is_init = NOTIFY_DRIVERINITSTATUS_DONE;
-	} else {
-		/* Check if drvHandle was
-		registered with Notify module. */
-		if (drv_handle != NULL) {
-			/* Unregister driver from the Notify module*/
-			notify_unregister_driver(drv_handle);
-			if (ctrl_ptr != NULL) {
-				/* Clear initialization status in
-				shared memory. */
-				ctrl_ptr->recv_init_status = 0x0;
-				ctrl_ptr->send_init_status = 0x0;
-				ctrl_ptr = NULL;
-			}
-			/* Check if driverObj was allocated. */
-			if (driver_obj != NULL) {
-				/* Check if event List was allocated. */
-				if (driver_obj->event_list != NULL) {
-					/* Check if lists were
-					created. */
-					for (i = 0 ;
-					i < params->num_events ; i++) {
-						list_del(
-						(struct list_head *)
-						&driver_obj->
-						event_list[i].
-						listeners);
-					}
-					kfree(driver_obj->event_list);
-					driver_obj->event_list = NULL;
-				}
-				/* Check if regChart was allocated. */
-				if (driver_obj->reg_chart != NULL) {
-					kfree(driver_obj->reg_chart);
-						driver_obj->reg_chart
-							= NULL;
-				}
-				kfree(driver_obj);
-			}
-			drv_handle->is_init =
-				NOTIFY_DRIVERINITSTATUS_NOTDONE;
-			drv_handle = NULL;
-		}
+	/* Add the driver handle to list */
+	drv_handle_inst = kmalloc(sizeof
+		(struct notify_driver_object_list), GFP_ATOMIC);
+	if (drv_handle_inst == NULL) {
+		status = -ENOMEM;
+		goto error_clean_and_exit;
 	}
 
-func_end:
+	drv_handle_inst->drv_handle = drv_handle;
+	list_add_tail(&(drv_handle_inst->elem),
+		&(notify_ducatidriver_state.drv_handle_list));
+
+	driver_obj = drv_handle->driver_object;
+	ctrl_ptr->reg_mask.mask = 0x0;
+	ctrl_ptr->reg_mask.enable_mask = 0xFFFFFFFF;
+	ctrl_ptr->recv_init_status = NOTIFYSHMDRV_INIT_STAMP;
+	ctrl_ptr->send_init_status = NOTIFYSHMDRV_INIT_STAMP;
+	drv_handle->is_init = NOTIFY_DRIVERINITSTATUS_DONE;
+	mutex_unlock(notify_ducatidriver_state.gate_handle);
+	omap_mbox_enable_irq(ducati_mbox, IRQ_RX);
+
+	/* Done with initialization. goto function end */
+	goto func_end;
+
+error_clean_and_exit:
+	if (drv_handle != NULL) {
+		/* Unregister driver from the Notify module*/
+		notify_unregister_driver(drv_handle);
+		if (ctrl_ptr != NULL) {
+			/* Clear initialization status in
+			shared memory. */
+			ctrl_ptr->recv_init_status = 0x0;
+			ctrl_ptr->send_init_status = 0x0;
+			ctrl_ptr = NULL;
+		}
+		/* Check if driverObj was allocated. */
+		if (driver_obj != NULL) {
+			/* Check if event List was allocated. */
+			if (driver_obj->event_list != NULL) {
+				/* Check if lists were
+				created. */
+				for (i = 0 ;
+				i < params->num_events ; i++) {
+					list_del(
+					(struct list_head *)
+					&driver_obj->
+					event_list[i].
+					listeners);
+				}
+				kfree(driver_obj->event_list);
+				driver_obj->event_list = NULL;
+			}
+			/* Check if regChart was allocated. */
+			if (driver_obj->reg_chart != NULL) {
+				kfree(driver_obj->reg_chart);
+					driver_obj->reg_chart
+						= NULL;
+			}
+			kfree(driver_obj);
+		}
+		drv_handle->is_init =
+			NOTIFY_DRIVERINITSTATUS_NOTDONE;
+		drv_handle = NULL;
+	}
+
+error_unlock_and_return:
 	/* Leave critical section protection. */
 	mutex_unlock(notify_ducatidriver_state.gate_handle);
+func_end:
 	return drv_handle;
 }
 EXPORT_SYMBOL(notify_ducatidrv_create);
@@ -491,7 +488,9 @@ int notify_ducatidrv_delete(struct notify_driver_object **handle_ptr)
 	struct notify_driver_object  *drv_handle = NULL;
 	struct notify_ducatidrv_object *driver_obj = NULL;
 	struct notify_drv_eventlist *event_list;
-	short int i;
+	short int i = 0;
+	struct list_head *elem = NULL;
+	struct notify_driver_object_list *drv_list_entry  = NULL;
 	int proc_id;
 
 	if (atomic_cmpmask_and_lt(&(notify_ducatidriver_state.ref_count),
@@ -513,11 +512,20 @@ int notify_ducatidrv_delete(struct notify_driver_object **handle_ptr)
 	/*Uninstall the ISRs & Disable the Mailbox interrupt.*/
 
 	if (drv_handle != NULL) {
-		status = notify_unregister_driver(drv_handle);
-		driver_obj = drv_handle->driver_object;
-		BUG_ON(drv_handle->index >= NOTIFY_MAX_DRIVERS);
-		notify_ducatidriver_state.drv_handles[drv_handle->index] = NULL;
+		list_for_each(elem,
+			&notify_ducatidriver_state.drv_handle_list) {
+			drv_list_entry = container_of(elem,
+				struct notify_driver_object_list, elem);
+			if (drv_list_entry->drv_handle == drv_handle) {
+				list_del(elem);
+				kfree(drv_list_entry);
+				status = notify_unregister_driver(drv_handle);
+				drv_handle = NULL;
+				break;
+			}
+		}
 	}
+
 	if (status != NOTIFY_SUCCESS)
 		printk(KERN_WARNING "driver is not registerd\n");
 
@@ -559,25 +567,6 @@ int notify_ducatidrv_delete(struct notify_driver_object **handle_ptr)
 
 		omap_mbox_disable_irq(ducati_mbox, IRQ_RX);
 
-		/*FIXME: Exit gracefully */
-		if (mutex_lock_interruptible(
-			notify_ducatidriver_state.gate_handle) != 0)
-			WARN_ON(1);
-
-		for (i = 0; i < NOTIFY_MAX_DRIVERS; i++) {
-			if (ducati_isr_params[i] == (void *)driver_obj) {
-				ducati_isr_params[i] = NULL;
-				break;
-			}
-		}
-		mutex_unlock(notify_ducatidriver_state.gate_handle);
-
-		if (i == NOTIFY_MAX_DRIVERS) {
-			printk(KERN_ERR "Error: No handle to delete\n");
-			WARN_ON(1);
-			/*FIXME: Exit gracefully */
-		}
-
 		kfree(driver_obj);
 		driver_obj = NULL;
 	}
@@ -593,7 +582,10 @@ EXPORT_SYMBOL(notify_ducatidrv_delete);
 int notify_ducatidrv_destroy(void)
 {
 	int status = 0;
-	int i = 0;
+	struct list_head *handle_list = NULL;
+	struct notify_driver_object_list *entry_list = NULL;
+	struct notify_driver_object *drv_handle = NULL;
+	struct list_head *entry;
 
 	if (atomic_cmpmask_and_lt(&(notify_ducatidriver_state.ref_count),
 					NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(0),
@@ -608,11 +600,14 @@ int notify_ducatidrv_destroy(void)
 		/* Temprarily increment the refcount */
 		atomic_set(&(notify_ducatidriver_state.ref_count),
 			NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(1));
+		handle_list = &(notify_ducatidriver_state.drv_handle_list);
 
-		for (i = 0; i < NOTIFY_MAX_DRIVERS; i++) {
-			if (ducati_isr_params[i])
-				notify_ducatidrv_delete(
-				&(notify_ducatidriver_state.drv_handles[i]));
+		list_for_each(entry, handle_list) {
+			entry_list = (struct notify_driver_object_list *)
+				container_of(entry,
+				struct notify_driver_object_list, elem);
+			drv_handle = entry_list->drv_handle;
+			notify_ducatidrv_delete(&drv_handle);
 		}
 
 		/* Check if the gate_handle was created internally. */
@@ -653,7 +648,6 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 {
 	int status = 0;
 	struct notify_ducatidrv_config tmp_cfg;
-	int i = 0;
 
 	if (cfg == NULL) {
 		notify_ducatidrv_getconfig(&tmp_cfg);
@@ -679,28 +673,30 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 		atomic_set(&(notify_ducatidriver_state.ref_count),
 				NOTIFYDRIVERSHM_MAKE_MAGICSTAMP(0));
 		status = -ENOMEM;
-
 		goto error_exit;
 	} else {
 		memcpy(&notify_ducatidriver_state.cfg,
 		cfg, sizeof(struct notify_ducatidrv_config));
 	}
 
-	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++) {
-		ducati_isr_params[i] = NULL;
-		notify_ducatidriver_state.drv_handles[i] = NULL;
-	}
+	INIT_LIST_HEAD(&(notify_ducatidriver_state.
+		drv_handle_list));
 	/* Initialize the maibox modulde for ducati */
 	if (ducati_mbox == NULL) {
 		ducati_mbox = omap_mbox_get("mailbox-2");
 		if (ducati_mbox == NULL) {
+			printk(KERN_ERR "Failed in omap_mbox_get()\n");
 			status = -ENODEV;
-			goto error_exit;
+			goto error_mailbox_get_failed;
 		}
 		ducati_mbox->rxq->callback =
 				(int (*)(void *))notify_ducatidrv_isr;
 	}
+
 	return 0;
+
+error_mailbox_get_failed:
+	kfree(notify_ducatidriver_state.gate_handle);
 error_exit:
 	return status;
 }
@@ -1122,12 +1118,14 @@ int notify_ducatidrv_debug(struct notify_driver_object *handle)
  */
 static void notify_ducatidrv_isr(void *ntfy_msg)
 {
-	int i = 0;
-	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++) {
-		if (ducati_isr_params[i] != NULL) {
-			notify_ducatidrv_isr_callback(ducati_isr_params[i],
-							ntfy_msg);
-		}
+	struct notify_driver_object_list *obj_list;
+	struct list_head *entry = NULL;
+	list_for_each(entry, &(notify_ducatidriver_state.drv_handle_list)) {
+		obj_list = (struct notify_driver_object_list *)
+				container_of(entry,
+				struct notify_driver_object_list, elem);
+		notify_ducatidrv_isr_callback(
+			obj_list->drv_handle->driver_object, ntfy_msg);
 	}
 }
 EXPORT_SYMBOL(notify_ducatidrv_isr);

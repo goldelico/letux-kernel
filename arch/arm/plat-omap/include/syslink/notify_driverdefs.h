@@ -394,7 +394,6 @@ struct notify_driver_object {
 	struct notify_driver_attrs attrs;
 	u32 *disable_flag[NOTIFY_MAXNESTDEPTH];
 	void *driver_object;
-	int index;
 };
 
 

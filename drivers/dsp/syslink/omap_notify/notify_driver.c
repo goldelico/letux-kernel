@@ -69,14 +69,13 @@ int notify_register_driver(char *driver_name,
 			if (strncmp(driver_name, drv_handle->name,
 				NOTIFY_MAX_NAMELEN) == 0) {
 				status = NOTIFY_E_ALREADYEXISTS;
-				break;
+				goto return_existing_handle;
 			}
 		}
 		 if (drv_handle->is_init == NOTIFY_DRIVERINITSTATUS_NOTDONE) {
 			/* Found an empty slot, so block it. */
 			drv_handle->is_init =
 					NOTIFY_DRIVERINITSTATUS_INPROGRESS;
-			drv_handle->index = i;
 			status = NOTIFY_SUCCESS;
 			break;
 		}
@@ -91,6 +90,8 @@ int notify_register_driver(char *driver_name,
 	memcpy(&(drv_handle->fn_table), fn_table,
 				sizeof(struct notify_interface));
 	drv_handle->driver_object = NULL;
+
+return_existing_handle:
 	/*is_setup is set when driverInit is called. */
 	*driver_handle = drv_handle;
 
