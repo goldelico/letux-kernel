@@ -244,6 +244,88 @@ static void twl6030_init_vdd_regs(struct snd_soc_codec *codec)
 	}
 }
 
+/* twl6030 codec manual power-up sequence */
+static void twl6030_power_up(struct snd_soc_codec *codec)
+{
+	u8 ncpctl, ldoctl, lppllctl, accctl;
+
+	ncpctl = twl6030_read_reg_cache(codec, TWL6030_REG_NCPCTL);
+	ldoctl = twl6030_read_reg_cache(codec, TWL6030_REG_LDOCTL);
+	lppllctl = twl6030_read_reg_cache(codec, TWL6030_REG_LPPLLCTL);
+	accctl = twl6030_read_reg_cache(codec, TWL6030_REG_ACCCTL);
+
+	/* enable reference system */
+	ldoctl |= TWL6030_REFENA;
+	twl6030_write(codec, TWL6030_REG_LDOCTL, ldoctl);
+	mdelay(10);
+	/* enable internal oscillator */
+	ldoctl |= TWL6030_OSCENA;
+	twl6030_write(codec, TWL6030_REG_LDOCTL, ldoctl);
+	udelay(10);
+	/* enable high-side ldo */
+	ldoctl |= TWL6030_HSLDOENA;
+	twl6030_write(codec, TWL6030_REG_LDOCTL, ldoctl);
+	udelay(244);
+	/* enable negative charge pump */
+	ncpctl |= TWL6030_NCPENA | TWL6030_NCPOPEN;
+	twl6030_write(codec, TWL6030_REG_NCPCTL, ncpctl);
+	udelay(488);
+	/* enable low-side ldo */
+	ldoctl |= TWL6030_LSLDOENA;
+	twl6030_write(codec, TWL6030_REG_LDOCTL, ldoctl);
+	udelay(244);
+	/* enable low-power pll */
+	lppllctl |= TWL6030_LPLLENA;
+	twl6030_write(codec, TWL6030_REG_LPPLLCTL, lppllctl);
+	/* reset state machine */
+	accctl |= TWL6030_RESETSPLIT;
+	twl6030_write(codec, TWL6030_REG_ACCCTL, accctl);
+	mdelay(5);
+	accctl &= ~TWL6030_RESETSPLIT;
+	twl6030_write(codec, TWL6030_REG_ACCCTL, accctl);
+	/* disable internal oscillator */
+	ldoctl &= ~TWL6030_OSCENA;
+	twl6030_write(codec, TWL6030_REG_LDOCTL, ldoctl);
+}
+
+/* twl6030 codec manual power-down sequence */
+static void twl6030_power_down(struct snd_soc_codec *codec)
+{
+	u8 ncpctl, ldoctl, lppllctl, accctl;
+
+	ncpctl = twl6030_read_reg_cache(codec, TWL6030_REG_NCPCTL);
+	ldoctl = twl6030_read_reg_cache(codec, TWL6030_REG_LDOCTL);
+	lppllctl = twl6030_read_reg_cache(codec, TWL6030_REG_LPPLLCTL);
+	accctl = twl6030_read_reg_cache(codec, TWL6030_REG_ACCCTL);
+
+	/* enable internal oscillator */
+	ldoctl |= TWL6030_OSCENA;
+	twl6030_write(codec, TWL6030_REG_LDOCTL, ldoctl);
+	udelay(10);
+	/* disable low-power pll */
+	lppllctl &= ~TWL6030_LPLLENA;
+	twl6030_write(codec, TWL6030_REG_LPPLLCTL, lppllctl);
+	/* disable low-side ldo */
+	ldoctl &= ~TWL6030_LSLDOENA;
+	twl6030_write(codec, TWL6030_REG_LDOCTL, ldoctl);
+	udelay(244);
+	/* disable negative charge pump */
+	ncpctl &= ~(TWL6030_NCPENA | TWL6030_NCPOPEN);
+	twl6030_write(codec, TWL6030_REG_NCPCTL, ncpctl);
+	udelay(488);
+	/* disable high-side ldo */
+	ldoctl &= ~TWL6030_HSLDOENA;
+	twl6030_write(codec, TWL6030_REG_LDOCTL, ldoctl);
+	udelay(244);
+	/* disable internal oscillator */
+	ldoctl &= ~TWL6030_OSCENA;
+	twl6030_write(codec, TWL6030_REG_LDOCTL, ldoctl);
+	/* disable reference system */
+	ldoctl &= ~TWL6030_REFENA;
+	twl6030_write(codec, TWL6030_REG_LDOCTL, ldoctl);
+	mdelay(10);
+}
+
 /*
  * MICATT volume control:
  * from -6 to 0 dB in 6 dB steps
@@ -480,12 +562,15 @@ static int twl6030_set_bias_level(struct snd_soc_codec *codec,
 
 			/* power-up sequence latency */
 			mdelay(16);
-		}
 
-		/* sync registers updated during power-up sequence */
-		twl6030_read(codec, TWL6030_REG_NCPCTL);
-		twl6030_read(codec, TWL6030_REG_LDOCTL);
-		twl6030_read(codec, TWL6030_REG_LPPLLCTL);
+			/* sync registers updated during power-up sequence */
+			twl6030_read(codec, TWL6030_REG_NCPCTL);
+			twl6030_read(codec, TWL6030_REG_LDOCTL);
+			twl6030_read(codec, TWL6030_REG_LPPLLCTL);
+		} else {
+			/* use manual power-up sequence */
+			twl6030_power_up(codec);
+		}
 
 		/* initialize vdd/vss registers with reg_cache */
 		twl6030_init_vdd_regs(codec);
@@ -502,12 +587,16 @@ static int twl6030_set_bias_level(struct snd_soc_codec *codec,
 
 			/* power-down sequence latency */
 			udelay(500);
-		}
 
-		/* sync registers updated during power-down sequence */
-		twl6030_read(codec, TWL6030_REG_NCPCTL);
-		twl6030_read(codec, TWL6030_REG_LDOCTL);
-		twl6030_write_reg_cache(codec, TWL6030_REG_LPPLLCTL, 0x00);
+			/* sync registers updated during power-down sequence */
+			twl6030_read(codec, TWL6030_REG_NCPCTL);
+			twl6030_read(codec, TWL6030_REG_LDOCTL);
+			twl6030_write_reg_cache(codec, TWL6030_REG_LPPLLCTL,
+						0x00);
+		} else {
+			/* use manual power-down sequence */
+			twl6030_power_down(codec);
+		}
 
 		priv->codec_powered = 0;
 		break;
@@ -723,9 +812,6 @@ static int __devinit twl6030_codec_probe(struct platform_device *pdev)
 			goto gpio2_err;
 
 		priv->codec_powered = 0;
-	} else {
-		/* if no gpio is provided, then assume its always on */
-		priv->codec_powered = 1;
 	}
 
 	/* init vio registers */

@@ -67,6 +67,18 @@
 #define TWL6030_VIOREGNUM		18
 #define TWL6030_VDDREGNUM		21
 
+/* NCPCTL (0x05) fields */
+
+#define TWL6030_NCPENA			0x01
+#define TWL6030_NCPOPEN			0x40
+
+/* LDOCTL (0x06) fields */
+
+#define TWL6030_LSLDOENA		0x01
+#define TWL6030_HSLDOENA		0x04
+#define TWL6030_REFENA			0x40
+#define TWL6030_OSCENA			0x80
+
 /* HPPLLCTL (0x07) fields */
 
 #define TWL6030_HPLLENA			0x01
@@ -87,6 +99,10 @@
 #define TWL6030_LPLLSEL			0x04
 #define TWL6030_LPLLFIN			0x08
 #define TWL6030_HPLLSEL			0x10
+
+/* ACCCTL (0x2D) fields */
+
+#define TWL6030_RESETSPLIT		0x04
 
 extern struct snd_soc_dai twl6030_dai;
 extern struct snd_soc_codec_device soc_codec_dev_twl6030;
