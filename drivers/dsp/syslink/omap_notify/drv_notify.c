@@ -230,7 +230,6 @@ static int notify_drv_read(struct file *filp, char *dst, size_t size,
 	u32 i;
 	struct list_head *elem;
 	struct notify_drv_event_packet t_buf;
-
 	if (WARN_ON(notifydrv_state.is_setup == false)) {
 		ret_val = -EFAULT;
 		goto func_end;
@@ -252,34 +251,32 @@ static int notify_drv_read(struct file *filp, char *dst, size_t size,
 		ret_val = -EFAULT;
 		goto func_end;
 	}
-	if (list_empty(&(notifydrv_state.event_state[i].buf_list)) == false) {
-		/* Wait for the event */
-		ret_val = down_interruptible(
-			notifydrv_state.event_state[i].semhandle);
-		if (ret_val < 0) {
-			ret_val = -ERESTARTSYS;
-			goto func_end;
-		}
-		WARN_ON(mutex_lock_interruptible(notifydrv_state.gatehandle));
-		elem = ((struct list_head *)&(notifydrv_state.event_state[i]. \
-							buf_list))->next;
-		u_buf = container_of(elem, struct notify_drv_event_packet,
-				    element);
-		list_del(elem);
-		mutex_unlock(notifydrv_state.gatehandle);
-		if (u_buf == NULL) {
-			ret_val = -EFAULT;
-			goto func_end;
-		}
-		ret_val = copy_to_user((void *)dst, u_buf,
-			sizeof(struct notify_drv_event_packet));
-		kfree(u_buf);
-
-		if (WARN_ON(ret_val != 0))
-			ret_val = -EFAULT;
-		if (u_buf->is_exit == true)
-			up(notifydrv_state.event_state[i].tersemhandle);
+	/* Wait for the event */
+	ret_val = down_interruptible(
+		notifydrv_state.event_state[i].semhandle);
+	if (ret_val < 0) {
+		ret_val = -ERESTARTSYS;
+		goto func_end;
 	}
+	WARN_ON(mutex_lock_interruptible(notifydrv_state.gatehandle));
+	elem = ((struct list_head *)&(notifydrv_state.event_state[i]. \
+						buf_list))->next;
+	u_buf = container_of(elem, struct notify_drv_event_packet,
+			    element);
+	list_del(elem);
+	mutex_unlock(notifydrv_state.gatehandle);
+	if (u_buf == NULL) {
+		ret_val = -EFAULT;
+		goto func_end;
+	}
+	ret_val = copy_to_user((void *)dst, u_buf,
+		sizeof(struct notify_drv_event_packet));
+	kfree(u_buf);
+	if (WARN_ON(ret_val != 0))
+		ret_val = -EFAULT;
+	if (u_buf->is_exit == true)
+		up(notifydrv_state.event_state[i].tersemhandle);
+
 func_end:
 	return ret_val ;
 }
