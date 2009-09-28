@@ -620,6 +620,7 @@ int proc_mgr_stop(void *handle, struct proc_mgr_stop_params *params)
 	int retval = 0;
 	struct proc_mgr_object *proc_mgr_handle =
 				(struct proc_mgr_object *)handle;
+	struct processor_stop_params proc_params;
 	if (atomic_cmpmask_and_lt(&(proc_mgr_obj_state.ref_count),
 		PROCMGR_MAKE_MAGICSTAMP(0), PROCMGR_MAKE_MAGICSTAMP(1))
 		 == true) {
@@ -634,7 +635,9 @@ int proc_mgr_stop(void *handle, struct proc_mgr_stop_params *params)
 #endif /* #if defined (CONFIG_SYSLINK_USE_SYSMGR) */
 
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
-	retval = processor_stop(proc_mgr_handle->proc_handle);
+	proc_params.params = params;
+	retval = processor_stop(proc_mgr_handle->proc_handle,
+						&proc_params);
 	mutex_unlock(proc_mgr_obj_state.gate_handle);
 	return retval;;
 }

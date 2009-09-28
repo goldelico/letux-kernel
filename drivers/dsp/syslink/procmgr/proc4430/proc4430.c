@@ -42,6 +42,8 @@
 #define SYS_M3					2
 #define APP_M3					3
 #define CORE_PRM_BASE				IO_ADDRESS(0x4a306700)
+#define CORE_CM2_DUCATI_CLKSTCTRL               IO_ADDRESS(0x4A008900)
+#define CORE_CM2_DUCATI_CLKCTRL			IO_ADDRESS(0x4A008920)
 #define RM_MPU_M3_RSTCTRL_OFFSET		0x210
 #define RM_MPU_M3_RSTST_OFFSET			0x214
 #define RM_MPU_M3_RST1				0x1
@@ -150,8 +152,7 @@ int proc4430_setup(struct proc4430_config *cfg)
 		proc4430_get_config(&tmp_cfg);
 		cfg = &tmp_cfg;
 	}
-	/* Put SYS-M3 and APP M3 in reset */
-	__raw_writel(0x03, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+
 	dmm_create();
 	dmm_create_tables(DUCATI_DMM_START_ADDR, DUCATI_DMM_POOL_SIZE);
 
@@ -164,7 +165,6 @@ int proc4430_setup(struct proc4430_config *cfg)
 	}
 
 	mutex_init(proc4430_state.gate_handle);
-	ducati_setup();
 
 	/* Initialize the name to handles mapping array. */
 	memset(&proc4430_state.proc_handles, 0,
@@ -588,6 +588,8 @@ int proc4430_detach(void *handle)
 int proc4430_start(void *handle, u32 entry_pt,
 			struct processor_start_params *start_params)
 {
+	u32 reg;
+	int counter = 10;
 	if (atomic_cmpmask_and_lt(&proc4430_state.ref_count,
 					OMAP4430PROC_MAKE_MAGICSTAMP(0),
 					OMAP4430PROC_MAKE_MAGICSTAMP(1))
@@ -604,14 +606,35 @@ int proc4430_start(void *handle, u32 entry_pt,
 			"Argument processor_start_params * is NULL");
 		return -EINVAL;
 	}
-
 	switch (start_params->params->proc_id) {
 	case SYS_M3:
-		/* De-assert RST2 */
-		__raw_writel(0x02, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		/* Module is managed automatically by HW */
+		__raw_writel(0x01, CORE_CM2_DUCATI_CLKCTRL);
+		/* Enable the M3 clock */
+		__raw_writel(0x02, CORE_CM2_DUCATI_CLKSTCTRL);
+		do {
+			reg = __raw_readl(CORE_CM2_DUCATI_CLKSTCTRL);
+			if (reg & 0x100) {
+				printk(KERN_INFO "M3 clock enabled:"
+				"CORE_CM2_DUCATI_CLKSTCTRL = 0x%x\n", reg);
+				break;
+			}
+			msleep(1);
+		} while (--counter);
+		if (counter == 0) {
+			printk(KERN_ERR "FAILED TO ENABLE DUCATI M3 CLOCK !\n");
+			return -EFAULT;
+		}
+		/* De-assert RST 3 */
+		__raw_writel(0x3, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		ducati_setup();
+		printk(KERN_INFO "De-assert RST1\n");
+		__raw_writel(0x2, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		return 0;
 		break;
 	case APP_M3:
 		__raw_writel(0x0, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		printk(KERN_INFO "De-assert RST2\n");
 		break;
 	default:
 		printk(KERN_ERR "proc4430_start: ERROR input\n");
@@ -632,7 +655,7 @@ int proc4430_start(void *handle, u32 entry_pt,
  *  @sa		 proc4430_start, OMAP3530_halResetCtrl
  */
 int
-proc4430_stop(void *handle)
+proc4430_stop(void *handle, struct processor_stop_params *stop_params)
 {
 	if (atomic_cmpmask_and_lt(&proc4430_state.ref_count,
 					OMAP4430PROC_MAKE_MAGICSTAMP(0),
@@ -642,12 +665,22 @@ proc4430_stop(void *handle)
 			"Module not initialized");
 		return -ENODEV;
 	}
-
-	/* Stoppping both SYS M3 and APP M3 */
-	/* FIX ME: this needs to be changed to handle reset
-	* of only APPM3 case too
-	*/
-	__raw_writel(0x3, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+	switch (stop_params->params->proc_id) {
+	case SYS_M3:
+		ducati_destroy();
+		printk(KERN_INFO "Assert RST1 and RST2 and RST3\n");
+		__raw_writel(0x7, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		/* Disable the M3 clock */
+		__raw_writel(0x01, CORE_CM2_DUCATI_CLKSTCTRL);
+		break;
+	case APP_M3:
+		printk(KERN_INFO "Assert RST2\n");
+		__raw_writel(0x2, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		break;
+	default:
+		printk(KERN_ERR "proc4430_stop: ERROR input\n");
+		break;
+	}
 	return 0;
 }
 

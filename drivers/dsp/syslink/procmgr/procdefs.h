@@ -90,7 +90,8 @@ typedef int (*processor_start_fxn) (void *handle, u32 entry_pt,
 /*
  *Function pointer type for the function to stop the processor.
  */
-typedef int (*processor_stop_fxn) (void *handle);
+typedef int (*processor_stop_fxn) (void *handle,
+					struct processor_stop_params *params);
 
 /*
  * Function pointer type for the function to read from the slave

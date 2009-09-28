@@ -236,7 +236,7 @@ void  dbg_print_ptes(bool ashow_inv_entries, bool ashow_repeat_entries)
 	}
 	/*  Dump the TLB entries as well  */
 	DPRINTK("\n*** Currently programmed TLBs ***\n");
-	hw_mmu_tlb_dump(base_ducati_l2_mmu, false);
+	hw_mmu_tlb_dump(base_ducati_l2_mmu, true);
 	DPRINTK("*** DSP MMU DUMP COMPLETED ***\n");
 }
 
@@ -582,6 +582,10 @@ EXIT_LOOP:
 
 inline u32 ducati_mem_virtToPhys(u32 da)
 {
+#if 0
+	/* FIXME: temp work around till L2MMU issue
+	 * is resolved
+	 */
 	u32 *iopgd = iopgd_offset(ducati_iommu_ptr, da);
 	u32 phyaddress;
 
@@ -601,7 +605,8 @@ inline u32 ducati_mem_virtToPhys(u32 da)
 			phyaddress |= (da & (IOPGD_SIZE - 1));
 		}
 	}
-	return phyaddress;
+#endif
+	return da;
 }
 
 
@@ -947,6 +952,12 @@ static int add_dsp_mmu_entry(u32  *phys_addr, u32 *dsp_addr,
 				status = -EINVAL;
 				break;
 			}
+			/* Lock the base counter*/
+			hw_mmu_numlocked_set(base_ducati_l2_mmu,
+						mmu_index_next);
+
+			hw_mmu_victim_numset(base_ducati_l2_mmu,
+						mmu_index_next);
 		}
 	}
 	DPRINTK("Exited add_dsp_mmu_entryphys_addr = \
@@ -1016,7 +1027,6 @@ int  ducati_mmu_init(u32 a_phy_addr)
 	u32 num_l4_entries;
 	u32 i = 0;
 	u32 map_attrs;
-	u32 ducati_boot_addr = 0;
 	u32 num_l3_mem_entries = 0;
 	u32 tiler_mapbeg = 0;
 	u32 tiler_totalsize = 0;
@@ -1034,35 +1044,22 @@ int  ducati_mmu_init(u32 a_phy_addr)
 
 	mmu_index_next = 0;
 	phys_addr = a_phy_addr;
-	DPRINTK("Value before calling add_dsp_mmu_entry phys_addr = 0x%x,"
-		"ducati_boot_addr = 0x%x\n",
-		phys_addr, ducati_boot_addr);
-	ret_val = add_dsp_mmu_entry(&phys_addr,
-		&ducati_boot_addr, PAGE_SIZE_4KB);
-	if (WARN_ON(ret_val < 0))
-		goto error_exit;
 
-	DPRINTK("Value after calling add_dsp_mmu_entry phys_addr = 0x%x,"
-		"ducati_boot_addr = 0x%x\n",
-		phys_addr, ducati_boot_addr);
-
-	/* Lock the base counter*/
-	hw_mmu_numlocked_set(ducati_mmu_linear_addr,
-						mmu_index_next);
-
-	hw_mmu_victim_numset(ducati_mmu_linear_addr,
-						mmu_index_next);
 	printk(KERN_ALERT "  Programming Ducati memory regions\n");
 	printk(KERN_ALERT "=========================================\n");
 	for (i = 0; i < num_l3_mem_entries; i++) {
+
 		printk(KERN_ALERT "VA = [0x%x] of size [0x%x] at PA = [0x%x]\n",
 				l3_memory_regions[i].ul_virt_addr,
 				l3_memory_regions[i].ul_size, phys_addr);
+
 		if (l3_memory_regions[i].ul_virt_addr == DUCATI_SHARED_IPC_ADDR)
 			shm_phys_addr = phys_addr;
-		ret_val = add_entry_ext(&phys_addr,
-				(u32 *)(&(l3_memory_regions[i].ul_virt_addr)),
-				(l3_memory_regions[i].ul_size));
+
+		ret_val = add_dsp_mmu_entry(&phys_addr,
+			(u32 *)(&(l3_memory_regions[i].ul_virt_addr)),
+			(l3_memory_regions[i].ul_size));
+
 		if (WARN_ON(ret_val < 0))
 			goto error_exit;
 	}
@@ -1088,8 +1085,8 @@ int  ducati_mmu_init(u32 a_phy_addr)
 		printk(KERN_INFO "PA [0x%x] VA [0x%x] size [0x%x]\n",
 				l4_map[i].ul_phy_addr, l4_map[i].ul_virt_addr,
 				l4_map[i].ul_size);
-		ret_val = ducati_mem_map(l4_map[i].ul_phy_addr,
-			l4_map[i].ul_virt_addr, l4_map[i].ul_size, map_attrs);
+		ret_val = add_dsp_mmu_entry((u32 *)&l4_map[i].ul_phy_addr,
+			(u32 *)&l4_map[i].ul_virt_addr, (l4_map[i].ul_size));
 		if (WARN_ON(ret_val < 0)) {
 
 			DPRINTK("**** Failed to map Peripheral ****");
@@ -1100,6 +1097,7 @@ int  ducati_mmu_init(u32 a_phy_addr)
 			goto error_exit;
 		}
 	}
+
 	/* Set the TTB to point to the L1 page table's physical address */
 	hw_mmu_ttbset(ducati_mmu_linear_addr, p_pt_attrs->l1_base_pa);
 
@@ -1121,11 +1119,6 @@ int  ducati_mmu_init(u32 a_phy_addr)
 	/*  Dump the MMU Entries */
 	dbg_print_ptes(false, false);
 
-	DPRINTK("  Programmed Ducati BootVectors 0x0 to first page at [0x%x]",
-							a_phy_addr);
-
-	DPRINTK("  Leaving DDucati_MMUManager::ducati_mmu_init [0x%x]",
-								ret_val);
 	return 0;
 error_exit:
 	return ret_val;

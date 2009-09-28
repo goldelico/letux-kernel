@@ -362,8 +362,6 @@ static int __init proc4430_drv_initializeModule(void)
 	}
 	device_create(proc_4430_class, NULL, MKDEV(driver_major, driver_minor),
 			NULL, PROC4430_NAME);
-	/* FIX ME: THIS MIGHT NOT BE THE RIGHT PLACE TO CALL THE SETUP */
-	proc4430_setup(NULL);
 exit:
 	return 0;
 }

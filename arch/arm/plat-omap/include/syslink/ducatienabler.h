@@ -173,10 +173,8 @@ static const struct mmu_entry l4_map[] = {
 };
 
 static const struct  memory_entry l3_memory_regions[] = {
-	/*  Remaining BootVecs regions */
-	{DUCATI_BOOTVECS_ADDR, DUCATI_BOOTVECS_LEN},
-	/*  EXTMEM_CORE0: 0x4000 to 0xFFFFF */
-	{DUCATI_EXTMEM_SYSM3_ADDR, DUCATI_EXTMEM_SYSM3_LEN},
+	/*  BootVecs regions */
+	{0, (PAGE_SIZE_1MB * 2)},
 	/*  EXTMEM_CORE1: 0x10000000 to 0x100FFFFF */
 	{DUCATI_EXTMEM_APPM3_ADDR, DUCATI_EXTMEM_APPM3_LEN},
 	/*  PRIVATE_SYSM3_DATA*/

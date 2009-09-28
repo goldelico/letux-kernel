@@ -136,7 +136,8 @@ inline int processor_start(void *handle, u32 entry_pt,
  * devices, by placing it in reset.
  * The handle specifies the specific Processor instance to be used.
  */
-inline int processor_stop(void *handle)
+inline int processor_stop(void *handle,
+				struct processor_stop_params *params)
 {
 	int retval = 0;
 	struct processor_object *proc_handle =
@@ -145,7 +146,7 @@ inline int processor_stop(void *handle)
 	BUG_ON(handle == NULL);
 	BUG_ON(proc_handle->proc_fxn_table.stop == NULL);
 
-	retval = proc_handle->proc_fxn_table.stop(handle);
+	retval = proc_handle->proc_fxn_table.stop(handle, params);
 
 	if ((proc_handle->boot_mode == PROC_MGR_BOOTMODE_BOOT)
 	||  (proc_handle->boot_mode == PROC_MGR_BOOTMODE_NOLOAD))

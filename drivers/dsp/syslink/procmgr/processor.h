@@ -37,7 +37,8 @@ int processor_start(void *handle, u32 entry_pt,
 				struct processor_start_params *params);
 
 /* Function to stop the processor. */
-int processor_stop(void *handle);
+int processor_stop(void *handle,
+			struct processor_stop_params *params);
 
 /* Function to read from the slave processor's memory. */
 int processor_read(void *handle, u32 proc_addr, u32 *num_bytes, void *buffer);

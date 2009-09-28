@@ -81,7 +81,8 @@ int proc4430_start(void *handle, u32 entry_pt,
 		struct processor_start_params *params);
 
 /* Function to start the stop processor */
-int proc4430_stop(void *handle);
+int proc4430_stop(void *handle,
+			struct processor_stop_params *params);
 
 /* Function to read from the slave processor's memory. */
 int proc4430_read(void *handle, u32 proc_addr, u32 *num_bytes,
