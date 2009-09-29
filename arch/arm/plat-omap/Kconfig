@@ -392,6 +392,16 @@ config OMAP_PM_SRF
 
 endchoice
 
+config OMAP3_MPU_L2_CACHE_WORKAROUND
+	bool "Enable workaround for lockup on MPU cache corruption"
+	depends on ARCH_OMAP3 || PM
+	help
+	  Workaround replaces MPU RETENTION state with INACTIVE state.
+	  Some OMAP3's manufactured before July 2009 suffer from L2
+	  cache corruption.  When the MPU fetches a corrupted
+	  instruction a system hang or reset via watchdog occurs.  OFF
+	  mode is still safe to use.
+
 endmenu
 
 endif
