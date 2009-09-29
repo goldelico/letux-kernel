@@ -704,7 +704,7 @@ s32 platform_destroy(void)
 	}
 
 	if (platform_sw_dmm_virt_addr != NULL) {
-		u_info.addr = platform_sw_dmm_virt_addr;
+		u_info.addr = (u32) platform_sw_dmm_virt_addr;
 		platform_mem_unmap(&u_info);
 	}
 
