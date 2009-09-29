@@ -1275,6 +1275,7 @@ void platform_stop_callback(void *arg)
 	s32 status = 0;
 	u16 proc_id = (u32) arg;
 	int index = 0;
+	u32 nread = 0;
 
 	if (proc_id == multiproc_get_id("SysM3"))
 		index = SMHEAP_SRINDEX_SYSM3;
@@ -1284,6 +1285,13 @@ void platform_stop_callback(void *arg)
 		status = SYSMGR_E_FAIL;
 		goto proc_invalid_id;
 	}
+
+	/* Read the scalability info */
+	do {
+		nread = sysmgr_get_object_config(proc_id, (void *) &pc_params,
+				SYSMGR_CMD_SCALABILITY,
+				sizeof(struct sysmgr_proc_config));
+	} while (nread != sizeof(struct sysmgr_proc_config));
 
 	if (pc_params.use_messageq) {
 		/* Finalize drivers */
