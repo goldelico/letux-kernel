@@ -271,11 +271,15 @@ static int notify_drv_read(struct file *filp, char *dst, size_t size,
 	}
 	ret_val = copy_to_user((void *)dst, u_buf,
 		sizeof(struct notify_drv_event_packet));
-	kfree(u_buf);
+
 	if (WARN_ON(ret_val != 0))
 		ret_val = -EFAULT;
 	if (u_buf->is_exit == true)
 		up(notifydrv_state.event_state[i].tersemhandle);
+
+	kfree(u_buf);
+	u_buf = NULL;
+
 
 func_end:
 	return ret_val ;
@@ -599,7 +603,8 @@ static int notify_drv_add_buf_by_pid(u16 proc_id, u32 pid,
 		status = -EFAULT;
 		goto func_end;
 	}
-	u_buf = kmalloc(sizeof(struct notify_drv_event_packet), GFP_ATOMIC);
+	u_buf = kzalloc(sizeof(struct notify_drv_event_packet), GFP_ATOMIC);
+
 	if (u_buf != NULL) {
 		INIT_LIST_HEAD((struct list_head *)&u_buf->element);
 		u_buf->proc_id = proc_id;
@@ -617,7 +622,6 @@ static int notify_drv_add_buf_by_pid(u16 proc_id, u32 pid,
 			(struct list_head *)
 			&(notifydrv_state.event_state[i].buf_list));
 		mutex_unlock(notifydrv_state.gatehandle);
-
 		up(notifydrv_state.event_state[i].semhandle);
 		/* Termination packet */
 		if (is_exit == true) {

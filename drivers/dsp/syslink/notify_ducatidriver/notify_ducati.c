@@ -536,7 +536,7 @@ int notify_ducatidrv_delete(struct notify_driver_object **handle_ptr)
 				recv_init_status = 0x0;
 			driver_obj->ctrl_ptr->proc_ctrl[driver_obj->self_id].
 				send_init_status = 0x0;
-			unmap_ducati_virt_mem((u32) driver_obj->ctrl_ptr);
+			unmap_ducati_virt_mem((u32)(driver_obj->ctrl_ptr));
 			driver_obj->ctrl_ptr = NULL;
 		}
 
