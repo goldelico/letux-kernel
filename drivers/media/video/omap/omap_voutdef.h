@@ -25,6 +25,13 @@
 #define RGB_VRFB_BPP    1
 #define MAX_CID			3
 
+
+#define OMAP_VOUT_MAX_BUFFERS	6
+
+/*
+ * Currently VBUF context and Data Buffers are mapped 1:1
+ */
+#define OMAP_VOUT_MAX_VBUF_CTXT	OMAP_VOUT_MAX_BUFFERS
 /*
  * This structure is used to store the DMA transfer parameters
  * for VRFB hidden buffer
@@ -111,9 +118,9 @@ struct omap_vout_device {
 	int vrfb_bpp; /* bytes per pixel with respect to VRFB */
 
 	struct vid_vrfb_dma vrfb_dma_tx;
-	unsigned int smsshado_phy_addr[4];
-	unsigned int smsshado_virt_addr[4];
-	struct vrfb vrfb_context[4];
+	unsigned int smsshado_phy_addr[OMAP_VOUT_MAX_BUFFERS];
+	unsigned int smsshado_virt_addr[OMAP_VOUT_MAX_BUFFERS];
+	struct vrfb vrfb_context[OMAP_VOUT_MAX_VBUF_CTXT];
 	bool vrfb_static_allocation;
 	unsigned int smsshado_size;
 	unsigned char pos;
