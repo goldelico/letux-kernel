@@ -876,8 +876,6 @@ static int omap_vout_buffer_setup(struct videobuf_queue *q, unsigned int *count,
 
 	startindex = (vout->vid == OMAP_VIDEO1) ?
 		video1_numbuffers : video2_numbuffers;
-	if (V4L2_MEMORY_MMAP == vout->memory && *count < startindex)
-		*count = startindex;
 
 	if ((rotation_enabled(vout->rotation)) &&
 				*count > OMAP_VOUT_MAX_BUFFERS)
@@ -918,7 +916,11 @@ static int omap_vout_buffer_setup(struct videobuf_queue *q, unsigned int *count,
 		vout->buf_virt_addr[i] = virt_addr;
 		vout->buf_phy_addr[i] = phy_addr;
 	}
-	*count = vout->buffer_allocated = i;
+	if (startindex < *count)
+		*count = vout->buffer_allocated = i;
+	else
+		*count = vout->buffer_allocated = *count;
+
 	return 0;
 }
 
