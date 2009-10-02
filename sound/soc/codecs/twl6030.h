@@ -67,6 +67,20 @@
 #define TWL6030_VIOREGNUM		18
 #define TWL6030_VDDREGNUM		21
 
+/* INTID (0x03) fields */
+
+#define TWL6030_THINT			0x01
+#define TWL6030_PLUGINT			0x02
+#define TWL6030_UNPLUGINT		0x04
+#define TWL6030_HOOKINT			0x08
+#define TWL6030_HFINT			0x10
+#define TWL6030_VIBINT			0x20
+#define TWL6030_READYINT		0x40
+
+/* INTMR (0x04) fields */
+
+#define TWL6030_ALLINT_MSK		0x7B
+
 /* NCPCTL (0x05) fields */
 
 #define TWL6030_NCPENA			0x01
