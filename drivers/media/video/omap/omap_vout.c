@@ -578,7 +578,7 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout)
 	vout->line_length = line_length;
 	switch (rotation) {
 	case 1:
-		offset = vout->vrfb_context[0].yoffset *
+		offset = MAX_PIXELS_PER_LINE * vout->vrfb_context[0].yoffset *
 			vout->vrfb_context[0].bytespp;
 		temp_ps = ps / vr_ps;
 		if (mirroring == 0) {
@@ -606,7 +606,7 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout)
 		}
 		break;
 	case 3:
-		offset = MAX_PIXELS_PER_LINE * vout->vrfb_context[0].xoffset *
+		offset = vout->vrfb_context[0].xoffset *
 			vout->vrfb_context[0].bytespp;
 		temp_ps = ps / vr_ps;
 		if (mirroring == 0) {
