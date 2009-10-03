@@ -36,7 +36,21 @@
 #include "smartreflex.h"
 #include "prm-regbits-34xx.h"
 
-#define MAX_TRIES 100
+/* The timeout values have been measured using 32Khz timer
+ * for rover codebase by Nishant Menon. It is found to be
+ * working for Zoom2 also. Should get proper timeout values
+ * from h/w team.
+*/
+#define SR_DISABLE_TIMEOUT	3472
+#define VP_TRANXDONE_TIMEOUT	62
+#define VP_IDLE_TIMEOUT		3472
+
+#define INTC_MIR0               0x48200084
+#define INTC_MIR_CLEAR0         0x48200088
+#define INTC_MIR_SET0           0x4820008C
+#define INTC_SR1		(0x1 << 18)
+#define INTC_SR2		(0x1 << 19)
+
 
 struct omap_sr {
 	int		srid;
@@ -616,44 +630,128 @@ static int sr_enable(struct omap_sr *sr, u32 target_opp_no)
 	return true;
 }
 
+static void vp_disable(struct omap_sr *sr)
+{
+	u32 vp_config_offs, vp_status_offs, vp_tranxdone_st;
+	int timeout = 0;
+
+	if (sr->srid == SR1) {
+		vp_config_offs = OMAP3_PRM_VP1_CONFIG_OFFSET;
+		vp_status_offs = OMAP3_PRM_VP1_STATUS_OFFSET;
+		vp_tranxdone_st = OMAP3430_VP1_TRANXDONE_ST;
+	} else if (sr->srid == SR2) {
+		vp_config_offs = OMAP3_PRM_VP2_CONFIG_OFFSET;
+		vp_status_offs = OMAP3_PRM_VP2_STATUS_OFFSET;
+		vp_tranxdone_st = OMAP3430_VP2_TRANXDONE_ST;
+	}
+
+	while (timeout < VP_TRANXDONE_TIMEOUT) {
+		prm_write_mod_reg(vp_tranxdone_st, OCP_MOD,
+				  OMAP2_PRM_IRQSTATUS_MPU_OFFSET);
+		if (!(prm_read_mod_reg(OCP_MOD, OMAP2_PRM_IRQSTATUS_MPU_OFFSET)
+						& vp_tranxdone_st))
+			break;
+
+		udelay(1);
+		timeout++;
+	}
+
+	if (timeout == VP_TRANXDONE_TIMEOUT)
+		pr_warning("VP:TRANXDONE timeout exceeded still going ahead\
+					with disabling VP%d\n", sr->srid);
+
+	/* Disable VP */
+	prm_clear_mod_reg_bits(OMAP3430_VPENABLE, OMAP3430_GR_MOD,
+			       vp_config_offs);
+
+	/* Wait for VP to be in IDLE - typical latency < 1 microsecond */
+	timeout = 0;
+	while (timeout < VP_IDLE_TIMEOUT &&
+	       !(prm_read_mod_reg(OMAP3430_GR_MOD, vp_status_offs) &
+		 OMAP3430_VPINIDLE)) {
+		udelay(1);
+		timeout++;
+	}
+	if (timeout == VP_IDLE_TIMEOUT)
+		pr_warning("VP%d not idle timedout\n", sr->srid);
+}
+
+
 static void sr_disable(struct omap_sr *sr)
 {
 	u32 i = 0;
+	int c = 0;
+	u32 sr_int_status = 0;
 
+	/*Disable VP before disabling SR */
+	vp_disable(sr);
 	sr->is_sr_reset = 1;
+	/* Check to see if SR is already disabled.
+	 * If so do nothing and return
+	 */
+	if (!(sr_read_reg(sr, SRCONFIG) & SRCONFIG_SRENABLE))
+		return;
+
+	/*Check if SR interrupt is enabled at INTC level */
+	if (sr->srid == SR1)
+		sr_int_status = omap_readl(INTC_MIR0) & INTC_SR1;
+	else if (sr->srid == SR2)
+		sr_int_status = omap_readl(INTC_MIR0) & INTC_SR2;
+
+	/* Mask the SR1 or SR2 interrupt at INTC level if unmasked
+	 * so that the isr is not called. If this step is
+	 * is not done random spurious SR1/SR2 interrupts or
+	 * system suspend not working due to spurious interrupts
+	 * can be ovbserved.
+	 */
+	if (!sr_int_status) {
+		if (sr->srid == SR1)
+			omap_writel(INTC_SR1, INTC_MIR_SET0);
+		if (sr->srid == SR2)
+			omap_writel(INTC_SR2, INTC_MIR_SET0);
+		/* DSB is essential as none of the memory is
+		 * Strongly ordered
+		 */
+		dsb();
+	}
+	/* Enable MCUDisableAcknowledge interrupt */
+	sr_modify_reg(sr, ERRCONFIG, ERRCONFIG_MCUDISACKINTEN,
+			ERRCONFIG_MCUDISACKINTEN);
 
 	/* SRCONFIG - disable SR */
 	sr_modify_reg(sr, SRCONFIG, SRCONFIG_SRENABLE, ~SRCONFIG_SRENABLE);
 
-	if (sr->srid == SR1) {
-		/* Wait for VP idle before disabling VP */
-		while ((!prm_read_mod_reg(OMAP3430_GR_MOD,
-					OMAP3_PRM_VP1_STATUS_OFFSET))
-					&& i++ < MAX_TRIES)
-			udelay(1);
+	/* Wait for SR to be disabled.
+	 * wait until ERRCONFIG.MCUDISACKINTST = 1
+	 * Typical latency is < 1us.
+	 */
+	while ((c < SR_DISABLE_TIMEOUT) &&
+		(!(sr_read_reg(sr, ERRCONFIG) & ERRCONFIG_MCUDISACKINTST))) {
+		udelay(1);
+		c++;
+	}
 
-		if (i >= MAX_TRIES)
-			pr_warning("VP1 not idle, still going ahead with \
-							VP1 disable\n");
+	if (c == SR_DISABLE_TIMEOUT)
+		pr_warning("SR not disabled\n");
 
-		/* Disable VP1 */
-		prm_clear_mod_reg_bits(PRM_VP1_CONFIG_VPENABLE, OMAP3430_GR_MOD,
-					OMAP3_PRM_VP1_CONFIG_OFFSET);
+	/* Disable MCUDisableAcknowledge interrupt & clear pending interrupt */
+	sr_modify_reg(sr, ERRCONFIG, ERRCONFIG_MCUDISACKINTEN,
+			ERRCONFIG_MCUDISACKINTST);
 
-	} else if (sr->srid == SR2) {
-		/* Wait for VP idle before disabling VP */
-		while ((!prm_read_mod_reg(OMAP3430_GR_MOD,
-					OMAP3_PRM_VP2_STATUS_OFFSET))
-					&& i++ < MAX_TRIES)
-			udelay(1);
+	/* DSB is essential as none of the memory is Strongly ordered */
+	dsb();
+	/* Wait till ERRCONFIG_MCUDISACKINTST is cleared before unmasking
+	 * SR interrupts. Else we can have spurious interrupts
+	 */
+	while (sr_read_reg(sr, ERRCONFIG) & ERRCONFIG_MCUDISACKINTST)
+		;
 
-		if (i >= MAX_TRIES)
-			pr_warning("VP2 not idle, still going ahead with \
-							 VP2 disable\n");
-
-		/* Disable VP2 */
-		prm_clear_mod_reg_bits(PRM_VP2_CONFIG_VPENABLE, OMAP3430_GR_MOD,
-					OMAP3_PRM_VP2_CONFIG_OFFSET);
+	if (!sr_int_status) {
+		/* Unmask the SR interrrupts if previously unmasked*/
+		if (sr->srid == SR1)
+			omap_writel(INTC_SR1, INTC_MIR_CLEAR0);
+		if (sr->srid == SR2)
+			omap_writel(INTC_SR2, INTC_MIR_CLEAR0);
 	}
 }
 
@@ -834,44 +932,9 @@ void disable_smartreflex(int srid)
 
 	if (sr->is_autocomp_active == 1) {
 		if (sr->is_sr_reset == 0) {
-
-			/* SRCONFIG - disable SR */
-			sr_modify_reg(sr, SRCONFIG, SRCONFIG_SRENABLE,
-							~SRCONFIG_SRENABLE);
-
-			/* Disable SR clk */
+			sr_disable(sr);
+			 /* Disable SR clk */
 			sr_clk_disable(sr);
-			if (sr->srid == SR1) {
-				/* Wait for VP idle before disabling VP */
-				while ((!prm_read_mod_reg(OMAP3430_GR_MOD,
-						OMAP3_PRM_VP1_STATUS_OFFSET))
-						&& i++ < MAX_TRIES)
-					udelay(1);
-
-				if (i >= MAX_TRIES)
-					pr_warning("VP1 not idle, still going \
-						ahead with VP1 disable\n");
-
-				/* Disable VP1 */
-				prm_clear_mod_reg_bits(PRM_VP1_CONFIG_VPENABLE,
-						OMAP3430_GR_MOD,
-						OMAP3_PRM_VP1_CONFIG_OFFSET);
-			} else if (sr->srid == SR2) {
-				/* Wait for VP idle before disabling VP */
-				while ((!prm_read_mod_reg(OMAP3430_GR_MOD,
-						OMAP3_PRM_VP2_STATUS_OFFSET))
-						&& i++ < MAX_TRIES)
-					udelay(1);
-
-				if (i >= MAX_TRIES)
-					pr_warning("VP2 not idle, still going \
-						 ahead with VP2 disable\n");
-
-				/* Disable VP2 */
-				prm_clear_mod_reg_bits(PRM_VP2_CONFIG_VPENABLE,
-						OMAP3430_GR_MOD,
-						OMAP3_PRM_VP2_CONFIG_OFFSET);
-			}
 			/* Reset the volatage for current OPP */
 			sr_reset_voltage(srid);
 		}
@@ -1060,6 +1123,7 @@ static irqreturn_t sr_omap_irq(int irq, void *dev_id)
 {
 	static u32 vp1_volt;
 	static u32 vp2_volt;
+	static u32 errconfig;
 
 	if (dev_id == &sr1)
 		try_change_ret_volt(dev_id, &vp1_volt);
