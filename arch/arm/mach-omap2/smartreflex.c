@@ -39,9 +39,11 @@
 /* The timeout values have been measured using 32Khz timer
  * for rover codebase by Nishant Menon. It is found to be
  * working for Zoom2 also. Should get proper timeout values
- * from h/w team.
+ * from h/w team. The SR disbale time out value 3472 was found
+ * to be insufficient on zoom2 where we get occasional timeouts.
+ * Increasing it to a safer value.
 */
-#define SR_DISABLE_TIMEOUT	3472
+#define SR_DISABLE_TIMEOUT	10000
 #define VP_TRANXDONE_TIMEOUT	62
 #define VP_IDLE_TIMEOUT		3472
 
@@ -682,6 +684,7 @@ static void sr_disable(struct omap_sr *sr)
 	u32 i = 0;
 	int c = 0;
 	u32 sr_int_status = 0;
+	u32 temp;
 
 	/*Disable VP before disabling SR */
 	vp_disable(sr);
@@ -714,9 +717,12 @@ static void sr_disable(struct omap_sr *sr)
 		 */
 		dsb();
 	}
-	/* Enable MCUDisableAcknowledge interrupt */
-	sr_modify_reg(sr, ERRCONFIG, ERRCONFIG_MCUDISACKINTEN,
-			ERRCONFIG_MCUDISACKINTEN);
+	/* Enable MCUDisableAcknowledge interrupt, Disable VPBOUND interrupt
+	 * and Clean VPBOUNT interrupt status
+	 */
+	sr_modify_reg(sr, ERRCONFIG,
+			ERRCONFIG_MCUDISACKINTEN | ERRCONFIG_VPBOUNDINTEN,
+			ERRCONFIG_MCUDISACKINTEN | ERRCONFIG_VPBOUNDINTST);
 
 	/* SRCONFIG - disable SR */
 	sr_modify_reg(sr, SRCONFIG, SRCONFIG_SRENABLE, ~SRCONFIG_SRENABLE);
@@ -730,13 +736,15 @@ static void sr_disable(struct omap_sr *sr)
 		udelay(1);
 		c++;
 	}
-
 	if (c == SR_DISABLE_TIMEOUT)
-		pr_warning("SR not disabled\n");
+		pr_warning("SR%d not disabled\n", sr->srid);
 
-	/* Disable MCUDisableAcknowledge interrupt & clear pending interrupt */
+
+	/* Disable MCUDisableAcknowledge interrupt & clear pending interrupt
+	 * Also enable VPBOUND interrrupt
+	 */
 	sr_modify_reg(sr, ERRCONFIG, ERRCONFIG_MCUDISACKINTEN,
-			ERRCONFIG_MCUDISACKINTST);
+			ERRCONFIG_VPBOUNDINTEN | ERRCONFIG_MCUDISACKINTST);
 
 	/* DSB is essential as none of the memory is Strongly ordered */
 	dsb();
