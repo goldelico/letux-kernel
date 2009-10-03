@@ -1155,6 +1155,9 @@ static int voltagescale_vpforceupdate(u32 target_opp, u32 current_opp,
 				((target_opp_no < VDD2_OPP3)
 				? PRM_VP2_CONFIG_ERRORGAIN_OPPLOW
 				: PRM_VP2_CONFIG_ERRORGAIN_OPPHIGH);
+	} else {
+		pr_warning("Wrong VDD passed.VDD %d does not exist\n", vdd);
+		return -1;
 	}
 	/* Clear all pending TransactionDone interrupt/status */
 	while (timeout < VP_TRANXDONE_TIMEOUT) {
