@@ -350,7 +350,7 @@ static void sr_configure_vp(int srid)
 			vsel = mpu_opps[target_opp_no].vsel;
 
 		vpconfig = PRM_VP1_CONFIG_ERROROFFSET |
-			PRM_VP1_CONFIG_TIMEOUTEN |
+			OMAP3430_TIMEOUTEN |
 			vsel << OMAP3430_INITVOLTAGE_SHIFT |
 			((target_opp_no < VDD1_OPP3)
 					? PRM_VP1_CONFIG_ERRORGAIN_OPPLOW
@@ -374,11 +374,11 @@ static void sr_configure_vp(int srid)
 					OMAP3_PRM_VP1_VLIMITTO_OFFSET);
 
 		/* Trigger initVDD value copy to voltage processor */
-		prm_set_mod_reg_bits(PRM_VP1_CONFIG_INITVDD, OMAP3430_GR_MOD,
+		prm_set_mod_reg_bits(OMAP3430_INITVDD, OMAP3430_GR_MOD,
 				     OMAP3_PRM_VP1_CONFIG_OFFSET);
 
 		/* Clear initVDD copy trigger bit */
-		prm_clear_mod_reg_bits(PRM_VP1_CONFIG_INITVDD, OMAP3430_GR_MOD,
+		prm_clear_mod_reg_bits(OMAP3430_INITVDD, OMAP3430_GR_MOD,
 				       OMAP3_PRM_VP1_CONFIG_OFFSET);
 
 		/* Force update of voltage */
@@ -399,7 +399,7 @@ static void sr_configure_vp(int srid)
 			vsel = l3_opps[target_opp_no].vsel;
 
 		vpconfig = PRM_VP2_CONFIG_ERROROFFSET |
-			PRM_VP2_CONFIG_TIMEOUTEN |
+			OMAP3430_TIMEOUTEN |
 			vsel << OMAP3430_INITVOLTAGE_SHIFT |
 			((target_opp_no < VDD2_OPP3)
 					? PRM_VP2_CONFIG_ERRORGAIN_OPPLOW
@@ -423,11 +423,11 @@ static void sr_configure_vp(int srid)
 					OMAP3_PRM_VP2_VLIMITTO_OFFSET);
 
 		/* Trigger initVDD value copy to voltage processor */
-		prm_set_mod_reg_bits(PRM_VP1_CONFIG_INITVDD, OMAP3430_GR_MOD,
+		prm_set_mod_reg_bits(OMAP3430_INITVDD, OMAP3430_GR_MOD,
 				     OMAP3_PRM_VP2_CONFIG_OFFSET);
 
 		/* Clear initVDD copy trigger bit */
-		prm_clear_mod_reg_bits(PRM_VP1_CONFIG_INITVDD, OMAP3430_GR_MOD,
+		prm_clear_mod_reg_bits(OMAP3430_INITVDD, OMAP3430_GR_MOD,
 				       OMAP3_PRM_VP2_CONFIG_OFFSET);
 
 		/* Force update of voltage */
@@ -640,7 +640,7 @@ static int sr_enable(struct omap_sr *sr, u32 target_opp_no)
 		prm_clear_mod_reg_bits(OMAP3430_INITVDD, OMAP3430_GR_MOD,
 				       OMAP3_PRM_VP1_CONFIG_OFFSET);
 		/* Enable VP1 */
-		prm_set_mod_reg_bits(PRM_VP1_CONFIG_VPENABLE, OMAP3430_GR_MOD,
+		prm_set_mod_reg_bits(OMAP3430_VPENABLE, OMAP3430_GR_MOD,
 				     OMAP3_PRM_VP1_CONFIG_OFFSET);
 	} else if (sr->srid == SR2) {
 		/* set/latch init voltage */
@@ -658,7 +658,7 @@ static int sr_enable(struct omap_sr *sr, u32 target_opp_no)
 		prm_clear_mod_reg_bits(OMAP3430_INITVDD, OMAP3430_GR_MOD,
 				       OMAP3_PRM_VP2_CONFIG_OFFSET);
 		/* Enable VP2 */
-		prm_set_mod_reg_bits(PRM_VP2_CONFIG_VPENABLE, OMAP3430_GR_MOD,
+		prm_set_mod_reg_bits(OMAP3430_VPENABLE, OMAP3430_GR_MOD,
 				     OMAP3_PRM_VP2_CONFIG_OFFSET);
 	}
 
@@ -667,7 +667,7 @@ static int sr_enable(struct omap_sr *sr, u32 target_opp_no)
 	return true;
 }
 
-static void vp_disable(struct omap_sr *sr)
+static int vp_disable(struct omap_sr *sr)
 {
 	u32 vp_config_offs, vp_status_offs, vp_tranxdone_st;
 	int timeout = 0;
@@ -680,6 +680,9 @@ static void vp_disable(struct omap_sr *sr)
 		vp_config_offs = OMAP3_PRM_VP2_CONFIG_OFFSET;
 		vp_status_offs = OMAP3_PRM_VP2_STATUS_OFFSET;
 		vp_tranxdone_st = OMAP3430_VP2_TRANXDONE_ST;
+	} else {
+		pr_warning("Wrong SR id. SR %d does not exost\n", sr->srid);
+		return -1;
 	}
 
 	while (timeout < VP_TRANXDONE_TIMEOUT) {
@@ -711,24 +714,25 @@ static void vp_disable(struct omap_sr *sr)
 	}
 	if (timeout == VP_IDLE_TIMEOUT)
 		pr_warning("VP%d not idle timedout\n", sr->srid);
+	return 0;
 }
 
 
-static void sr_disable(struct omap_sr *sr)
+static int sr_disable(struct omap_sr *sr)
 {
-	u32 i = 0;
 	int c = 0;
 	u32 sr_int_status = 0;
-	u32 temp;
 
 	/*Disable VP before disabling SR */
-	vp_disable(sr);
+	if (vp_disable(sr))
+		return -1;
+
 	sr->is_sr_reset = 1;
 	/* Check to see if SR is already disabled.
 	 * If so do nothing and return
 	 */
 	if (!(sr_read_reg(sr, SRCONFIG) & SRCONFIG_SRENABLE))
-		return;
+		return 0;
 
 	/*Check if SR interrupt is enabled at INTC level */
 	if (sr->srid == SR1)
@@ -796,6 +800,7 @@ static void sr_disable(struct omap_sr *sr)
 		if (sr->srid == SR2)
 			omap_writel(INTC_SR2, INTC_MIR_CLEAR0);
 	}
+	return 0;
 }
 
 static void change_ret_volt(struct omap_sr *sr, u32 val)
@@ -912,7 +917,8 @@ int sr_stop_vddautocomap(int srid)
 		return -EINVAL;
 
 	if (sr->is_autocomp_active == 1) {
-		sr_disable(sr);
+		if (sr_disable(sr))
+			pr_warning("Problems in SR Disable!!!!\n");
 		sr_clk_disable(sr);
 		sr->is_autocomp_active = 0;
 		/* Reset the volatage for current OPP */
@@ -962,8 +968,6 @@ void enable_smartreflex(int srid)
 
 void disable_smartreflex(int srid)
 {
-	u32 i = 0;
-
 	struct omap_sr *sr = NULL;
 
 	if (srid == SR1)
@@ -975,7 +979,8 @@ void disable_smartreflex(int srid)
 
 	if (sr->is_autocomp_active == 1) {
 		if (sr->is_sr_reset == 0) {
-			sr_disable(sr);
+			if (sr_disable(sr))
+				pr_warning("Problems in SR Disable!!!!\n");
 			 /* Disable SR clk */
 			sr_clk_disable(sr);
 			/* Reset the volatage for current OPP */
@@ -1156,7 +1161,6 @@ static irqreturn_t sr_omap_irq(int irq, void *dev_id)
 {
 	static u32 vp1_volt;
 	static u32 vp2_volt;
-	static u32 errconfig;
 
 	if (dev_id == &sr1)
 		try_change_ret_volt(dev_id, &vp1_volt);
