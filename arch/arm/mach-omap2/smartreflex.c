@@ -950,7 +950,6 @@ void omap3_voltagescale_vcbypass_setup(omap3_voltagescale_vcbypass_t fun)
 int sr_voltagescale_vcbypass(u32 target_opp, u32 current_opp,
 					u8 target_vsel, u8 current_vsel)
 {
-	int sr_status = 0;
 	u32 vdd, target_opp_no, current_opp_no;
 	u32 vc_bypass_value;
 	u32 reg_addr = 0;
@@ -968,7 +967,6 @@ int sr_voltagescale_vcbypass(u32 target_opp, u32 current_opp,
 	current_opp_no = get_opp_no(current_opp);
 
 	if (vdd == VDD1_OPP) {
-		sr_status = sr_stop_vddautocomap(SR1);
 		t2_smps_steps = abs(target_vsel - current_vsel);
 		error_gain = ((target_opp_no < VDD1_OPP3)
 				? PRM_VP1_CONFIG_ERRORGAIN_OPPLOW
@@ -982,7 +980,6 @@ int sr_voltagescale_vcbypass(u32 target_opp, u32 current_opp,
 		reg_addr = R_VDD1_SR_CONTROL;
 
 	} else if (vdd == VDD2_OPP) {
-		sr_status = sr_stop_vddautocomap(SR2);
 		t2_smps_steps =  abs(target_vsel - current_vsel);
 		error_gain = ((target_opp_no < VDD2_OPP3)
 				? PRM_VP2_CONFIG_ERRORGAIN_OPPLOW
@@ -1028,13 +1025,6 @@ int sr_voltagescale_vcbypass(u32 target_opp, u32 current_opp,
 	 */
 	t2_smps_delay = ((t2_smps_steps * 125) / 40) + 2;
 	udelay(t2_smps_delay);
-
-	if (sr_status) {
-		if (vdd == VDD1_OPP)
-			sr_start_vddautocomap(SR1, target_opp_no);
-		else if (vdd == VDD2_OPP)
-			sr_start_vddautocomap(SR2, target_opp_no);
-	}
 
 	return 0;
 }
