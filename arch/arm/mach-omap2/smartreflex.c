@@ -738,13 +738,16 @@ void sr_start_vddautocomap(int srid, u32 target_opp_no)
 		return;
 
 	if (sr->is_sr_reset == 1) {
-		sr_clk_enable(sr);
+		if (sr_clk_enable(sr))
+			return;
 		sr_configure(sr, target_opp_no);
 	}
 
-	if (sr->is_autocomp_active == 1)
+	if (sr->is_autocomp_active == 1) {
 		pr_warning("SR%d: VDD autocomp is already active\n",
 									srid);
+		return;
+	}
 
 	sr->is_autocomp_active = 1;
 	if (!sr_enable(sr, target_opp_no)) {
@@ -795,7 +798,8 @@ void enable_smartreflex(int srid)
 	if (sr->is_autocomp_active == 1) {
 		if (sr->is_sr_reset == 1) {
 			/* Enable SR clks */
-			sr_clk_enable(sr);
+			if (sr_clk_enable(sr))
+				return;
 
 			if (srid == SR1)
 				target_opp_no = get_vdd1_opp();
@@ -831,7 +835,6 @@ void disable_smartreflex(int srid)
 	if (sr->is_autocomp_active == 1) {
 		if (sr->is_sr_reset == 0) {
 
-			sr->is_sr_reset = 1;
 			/* SRCONFIG - disable SR */
 			sr_modify_reg(sr, SRCONFIG, SRCONFIG_SRENABLE,
 							~SRCONFIG_SRENABLE);
