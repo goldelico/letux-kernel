@@ -300,7 +300,6 @@ static void sr_configure_vp(int srid)
 			vsel = mpu_opps[target_opp_no].vsel;
 
 		vpconfig = PRM_VP1_CONFIG_ERROROFFSET |
-			PRM_VP1_CONFIG_ERRORGAIN |
 			PRM_VP1_CONFIG_TIMEOUTEN |
 			vsel << OMAP3430_INITVOLTAGE_SHIFT;
 
@@ -346,7 +345,6 @@ static void sr_configure_vp(int srid)
 			vsel = l3_opps[target_opp_no].vsel;
 
 		vpconfig = PRM_VP2_CONFIG_ERROROFFSET |
-			PRM_VP2_CONFIG_ERRORGAIN |
 			PRM_VP2_CONFIG_TIMEOUTEN |
 			vsel << OMAP3430_INITVOLTAGE_SHIFT;
 
@@ -386,7 +384,7 @@ static void sr_configure_vp(int srid)
 	}
 }
 
-static void sr_configure(struct omap_sr *sr)
+static void sr_configure(struct omap_sr *sr, u32 target_opp)
 {
 	u32 sr_config;
 	u32 senp_en , senn_en;
@@ -400,7 +398,6 @@ static void sr_configure(struct omap_sr *sr)
 		sr_config = SR1_SRCONFIG_ACCUMDATA |
 			(sr->clk_length << SRCONFIG_SRCLKLENGTH_SHIFT) |
 			SRCONFIG_SENENABLE | SRCONFIG_ERRGEN_EN |
-			SRCONFIG_MINMAXAVG_EN |
 			(senn_en << SRCONFIG_SENNENABLE_SHIFT) |
 			(senp_en << SRCONFIG_SENPENABLE_SHIFT) |
 			SRCONFIG_DELAYCTRL;
@@ -411,13 +408,13 @@ static void sr_configure(struct omap_sr *sr)
 
 		sr_modify_reg(sr, ERRCONFIG, (SR_ERRWEIGHT_MASK |
 			SR_ERRMAXLIMIT_MASK | SR_ERRMINLIMIT_MASK),
-			(SR1_ERRWEIGHT | SR1_ERRMAXLIMIT | SR1_ERRMINLIMIT));
+			(SR1_ERRWEIGHT | SR1_ERRMAXLIMIT | ((target_opp < 3)
+			? SR1_ERRMINLIMIT_OPPLOW : SR1_ERRMINLIMIT_OPPHIGH)));
 
 	} else if (sr->srid == SR2) {
 		sr_config = SR2_SRCONFIG_ACCUMDATA |
 			(sr->clk_length << SRCONFIG_SRCLKLENGTH_SHIFT) |
 			SRCONFIG_SENENABLE | SRCONFIG_ERRGEN_EN |
-			SRCONFIG_MINMAXAVG_EN |
 			(senn_en << SRCONFIG_SENNENABLE_SHIFT) |
 			(senp_en << SRCONFIG_SENPENABLE_SHIFT) |
 			SRCONFIG_DELAYCTRL;
@@ -427,7 +424,8 @@ static void sr_configure(struct omap_sr *sr)
 					SR2_AVGWEIGHT_SENNAVGWEIGHT);
 		sr_modify_reg(sr, ERRCONFIG, (SR_ERRWEIGHT_MASK |
 			SR_ERRMAXLIMIT_MASK | SR_ERRMINLIMIT_MASK),
-			(SR2_ERRWEIGHT | SR2_ERRMAXLIMIT | SR2_ERRMINLIMIT));
+			(SR2_ERRWEIGHT | SR2_ERRMAXLIMIT | ((target_opp < 3)
+			? SR2_ERRMINLIMIT_OPPLOW : SR2_ERRMINLIMIT_OPPHIGH)));
 
 	}
 	sr->is_sr_reset = 0;
@@ -574,6 +572,9 @@ static int sr_enable(struct omap_sr *sr, u32 target_opp_no)
 		v &= ~(OMAP3430_INITVOLTAGE_MASK | OMAP3430_INITVDD);
 		v |= mpu_opps[target_opp_no].vsel <<
 			OMAP3430_INITVOLTAGE_SHIFT;
+		v &= ~OMAP3430_ERRORGAIN_MASK;
+		v |= ((target_opp_no < 3) ? PRM_VP1_CONFIG_ERRORGAIN_OPPLOW
+					: PRM_VP1_CONFIG_ERRORGAIN_OPPHIGH);
 		prm_write_mod_reg(v, OMAP3430_GR_MOD,
 				  OMAP3_PRM_VP1_CONFIG_OFFSET);
 		/* write1 to latch */
@@ -592,6 +593,9 @@ static int sr_enable(struct omap_sr *sr, u32 target_opp_no)
 		v &= ~(OMAP3430_INITVOLTAGE_MASK | OMAP3430_INITVDD);
 		v |= l3_opps[target_opp_no].vsel <<
 			OMAP3430_INITVOLTAGE_SHIFT;
+		v &= ~OMAP3430_ERRORGAIN_MASK;
+		v |= ((target_opp_no < 3) ? PRM_VP2_CONFIG_ERRORGAIN_OPPLOW
+					: PRM_VP2_CONFIG_ERRORGAIN_OPPHIGH);
 		prm_write_mod_reg(v, OMAP3430_GR_MOD,
 				  OMAP3_PRM_VP2_CONFIG_OFFSET);
 		/* write1 to latch */
@@ -733,7 +737,7 @@ void sr_start_vddautocomap(int srid, u32 target_opp_no)
 
 	if (sr->is_sr_reset == 1) {
 		sr_clk_enable(sr);
-		sr_configure(sr);
+		sr_configure(sr, target_opp_no);
 	}
 
 	if (sr->is_autocomp_active == 1)
@@ -801,7 +805,7 @@ void enable_smartreflex(int srid)
 						 Cannot configure SR\n");
 			}
 
-			sr_configure(sr);
+			sr_configure(sr, target_opp_no);
 
 			if (!sr_enable(sr, target_opp_no))
 				sr_clk_disable(sr);
