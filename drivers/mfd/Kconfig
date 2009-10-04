@@ -398,6 +398,7 @@ config LPC_SCH
 	help
 	  LPC bridge function of the Intel SCH provides support for
 	  System Management Bus and General Purpose I/O.
+source "drivers/mfd/glamo/Kconfig"
 
 endmenu
 
