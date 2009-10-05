@@ -510,6 +510,11 @@ static struct regulator_consumer_supply zoom2_vdda_dac_supply = {
 	.dev		= &zoom2_dss_device.dev,
 };
 
+static struct regulator_consumer_supply zoom2_vdds_dsi_supply = {
+	.supply		= "vdds_dsi",
+	.dev		= &zoom2_dss_device.dev,
+};
+
 #ifdef CONFIG_FB_OMAP2
 static struct resource zoom2_vout_resource[3 - CONFIG_FB_OMAP2_NUM_FBS] = {
 };
@@ -724,6 +729,19 @@ static struct regulator_init_data zoom2_vdac = {
 	.consumer_supplies      = &zoom2_vdda_dac_supply,
 };
 
+static struct regulator_init_data zoom2_vdsi = {
+	.constraints = {
+		.min_uV                 = 1800000,
+		.max_uV                 = 1800000,
+		.valid_modes_mask       = REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask         = REGULATOR_CHANGE_MODE
+					| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies  = 1,
+	.consumer_supplies      = &zoom2_vdds_dsi_supply,
+};
+
 static struct twl4030_hsmmc_info mmc[] __initdata = {
 	{
 		.mmc		= 1,
@@ -914,6 +932,7 @@ static struct twl4030_platform_data zoom2_twldata = {
 	.vmmc2          = &zoom2_vmmc2,
 	.vsim           = &zoom2_vsim,
 	.vdac		= &zoom2_vdac,
+	.vpll2		= &zoom2_vdsi,
 };
 
 static struct i2c_board_info __initdata zoom2_i2c_bus1_info[] = {
