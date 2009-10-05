@@ -38,6 +38,7 @@ obj-$(CONFIG_MACH_NEO1973_GTA02) += mach-gta02.o \
 	gta02-pm-gps.o \
 	gta02-pm-gsm.o \
 	gta02-pm-wlan.o \
+	gta02-fiq.o \
 
 # extra machine support
 
