@@ -30,18 +30,21 @@
 #include <mach/display.h>
 #include <mach/io.h>
 
+
+u16 current_descriptor_addrs;
+
 static struct i2c_client *sil9022_client;
 
 static struct omap_video_timings omap_dss_hdmi_timings = {
 	.x_res          = HDMI_XRES,
 	.y_res          = HDMI_YRES,
 	.pixel_clock    = HDMI_PIXCLOCK_MAX,
-	.hfp            = 63,
-	.hsw            = 255,
-	.hbp            = 49,
+	.hfp            = 110,
+	.hbp            = 220,
+	.hsw            = 40,
 	.vfp            = 5,
-	.vsw            = 20,
-	.vbp            = 4,
+	.vbp            = 20,
+	.vsw            = 5,
 };
 
 static struct hdmi_reg_data  hdmi_tpi_audio_config_data[] = {
@@ -135,6 +138,213 @@ static u8 avi_info_frame_data[] = {
 	0x00
 };
 
+void get_horz_vert_timing_info(u8 *edid)
+{
+	/*HORIZONTAL FRONT PORCH */
+	omap_dss_hdmi_timings.hfp = edid[current_descriptor_addrs + 8];
+	/*HORIZONTAL SYNC WIDTH */
+	omap_dss_hdmi_timings.hsw = edid[current_descriptor_addrs + 9];
+	/*HORIZONTAL BACK PORCH */
+	omap_dss_hdmi_timings.hbp = (((edid[current_descriptor_addrs + 4]
+					  & 0x0F) << 8) |
+					edid[current_descriptor_addrs + 3]) -
+		(omap_dss_hdmi_timings.hfp + omap_dss_hdmi_timings.hsw);
+	/*VERTICAL FRONT PORCH */
+	omap_dss_hdmi_timings.vfp = ((edid[current_descriptor_addrs + 10] &
+				       0xF0) >> 4);
+	/*VERTICAL SYNC WIDTH */
+	omap_dss_hdmi_timings.vsw = (edid[current_descriptor_addrs + 10] &
+				      0x0F);
+	/*VERTICAL BACK PORCH */
+	omap_dss_hdmi_timings.vbp = (((edid[current_descriptor_addrs + 7] &
+					0x0F) << 8) |
+				      edid[current_descriptor_addrs + 6]) -
+		(omap_dss_hdmi_timings.vfp + omap_dss_hdmi_timings.vsw);
+
+	dev_dbg(&sil9022_client->dev, "<%s> \n"
+				       "hfp			= %d\n"
+				       "hsw			= %d\n"
+				       "hbp			= %d\n"
+				       "vfp			= %d\n"
+				       "vsw			= %d\n"
+				       "vbp			= %d\n",
+		 __func__,
+		 omap_dss_hdmi_timings.hfp,
+		 omap_dss_hdmi_timings.hsw,
+		 omap_dss_hdmi_timings.hbp,
+		 omap_dss_hdmi_timings.vfp,
+		 omap_dss_hdmi_timings.vsw,
+		 omap_dss_hdmi_timings.vbp
+		 );
+
+}
+
+/*------------------------------------------------------------------------------
+ | Function    : get_edid_timing_data
+ +------------------------------------------------------------------------------
+ | Description : This function gets the resolution information from EDID
+ |
+ | Parameters  : void
+ |
+ | Returns     : void
+ +----------------------------------------------------------------------------*/
+void get_edid_timing_data(u8 *edid, u16 *pixel_clk, u16 *horizontal_res,
+			  u16 *vertical_res)
+{
+	u8 offset, effective_addrs;
+	u8 count;
+	u8 i;
+	u8 flag = false;
+	/*check for 720P timing in block0 */
+	for (count = 0; count < EDID_SIZE_BLOCK0_TIMING_DESCRIPTOR; count++) {
+		current_descriptor_addrs =
+			EDID_DESCRIPTOR_BLOCK0_ADDRESS +
+			count * EDID_TIMING_DESCRIPTOR_SIZE;
+		*horizontal_res =
+			(((edid[EDID_DESCRIPTOR_BLOCK0_ADDRESS + 4 +
+			   count * EDID_TIMING_DESCRIPTOR_SIZE] & 0xF0) << 4) |
+			 edid[EDID_DESCRIPTOR_BLOCK0_ADDRESS + 2 +
+			 count * EDID_TIMING_DESCRIPTOR_SIZE]);
+		*vertical_res =
+			(((edid[EDID_DESCRIPTOR_BLOCK0_ADDRESS + 7 +
+			   count * EDID_TIMING_DESCRIPTOR_SIZE] & 0xF0) << 4) |
+			 edid[EDID_DESCRIPTOR_BLOCK0_ADDRESS + 5 +
+			 count * EDID_TIMING_DESCRIPTOR_SIZE]);
+
+		dev_dbg(&sil9022_client->dev,
+			"<%s> ***Block-0-Timing-descriptor[%d]***\n",
+			__func__, count);
+		for (i = current_descriptor_addrs;
+		      i <
+		      (current_descriptor_addrs+EDID_TIMING_DESCRIPTOR_SIZE);
+		      i++)
+			dev_dbg(&sil9022_client->dev,
+				"%x ==>		%x\n", i, edid[i]);
+
+			dev_dbg(&sil9022_client->dev,
+				 "<%s>\n"
+				 "E-EDID Buffer Index	= %d\n"
+				 "horizontal_res       	= %d\n"
+				 "vertical_res		= %d\n",
+				 __func__,
+				 current_descriptor_addrs,
+				 *horizontal_res,
+				 *vertical_res
+				 );
+
+		if (*horizontal_res == HDMI_XRES &&
+		    *vertical_res == HDMI_YRES) {
+			dev_info(&sil9022_client->dev, "<%s>\nFound EDID Data "
+						       "for %d x %dp\n",
+				 __func__, *horizontal_res, *vertical_res);
+			flag = true;
+			break;
+			}
+	}
+
+	/*check for the Timing in block1 */
+	if (flag != true) {
+		offset = edid[EDID_DESCRIPTOR_BLOCK1_ADDRESS + 2];
+		if (offset != 0) {
+			effective_addrs = EDID_DESCRIPTOR_BLOCK1_ADDRESS
+				+ offset;
+			/*to determine the number of descriptor blocks */
+			for (count = 0;
+			      count < EDID_SIZE_BLOCK1_TIMING_DESCRIPTOR;
+			      count++) {
+				current_descriptor_addrs = effective_addrs +
+					count * EDID_TIMING_DESCRIPTOR_SIZE;
+				*horizontal_res =
+					(((edid[effective_addrs + 4 +
+					   count*EDID_TIMING_DESCRIPTOR_SIZE] &
+					   0xF0) << 4) |
+					 edid[effective_addrs + 2 +
+					 count * EDID_TIMING_DESCRIPTOR_SIZE]);
+				*vertical_res =
+					(((edid[effective_addrs + 7 +
+					   count*EDID_TIMING_DESCRIPTOR_SIZE] &
+					   0xF0) << 4) |
+					 edid[effective_addrs + 5 +
+					 count * EDID_TIMING_DESCRIPTOR_SIZE]);
+
+				dev_dbg(&sil9022_client->dev,
+					 "<%s> Block1-Timing-descriptor[%d]\n",
+					 __func__, count);
+
+				for (i = current_descriptor_addrs;
+				      i < (current_descriptor_addrs+
+					   EDID_TIMING_DESCRIPTOR_SIZE); i++)
+					dev_dbg(&sil9022_client->dev,
+						"%x ==> 	%x\n",
+						   i, edid[i]);
+
+				dev_dbg(&sil9022_client->dev, "<%s>\n"
+						"current_descriptor	= %d\n"
+						"horizontal_res		= %d\n"
+						"vertical_res 		= %d\n",
+					 __func__, current_descriptor_addrs,
+					 *horizontal_res, *vertical_res);
+
+				if (*horizontal_res == HDMI_XRES &&
+				    *vertical_res == HDMI_YRES) {
+					dev_info(&sil9022_client->dev,
+						 "<%s> Found EDID Data for "
+						 "%d x %dp\n",
+						 __func__,
+						 *horizontal_res,
+						 *vertical_res
+						 );
+					flag = true;
+					break;
+					}
+			}
+		}
+	}
+
+	if (flag == true) {
+		*pixel_clk = ((edid[current_descriptor_addrs + 1] << 8) |
+			     edid[current_descriptor_addrs]);
+
+		omap_dss_hdmi_timings.x_res = *horizontal_res;
+		omap_dss_hdmi_timings.y_res = *vertical_res;
+		omap_dss_hdmi_timings.pixel_clock = *pixel_clk*10;
+		dev_dbg(&sil9022_client->dev,
+			 "EDID TIMING DATA supported by zoom2 FOUND\n"
+			 "EDID DTD block address	= %d\n"
+			 "pixel_clk 			= %d\n"
+			 "horizontal res		= %d\n"
+			 "vertical res			= %d\n",
+			 current_descriptor_addrs,
+			 omap_dss_hdmi_timings.pixel_clock,
+			 omap_dss_hdmi_timings.x_res,
+			 omap_dss_hdmi_timings.y_res
+			 );
+
+		get_horz_vert_timing_info(edid);
+	} else {
+
+		dev_info(&sil9022_client->dev,
+			 "<%s>\n"
+			 "EDID TIMING DATA supported by zoom2 NOT FOUND\n"
+			 "setting default timing values for 720p\n"
+			 "pixel_clk 		= %d\n"
+			 "horizontal res	= %d\n"
+			 "vertical res		= %d\n",
+			 __func__,
+			 omap_dss_hdmi_timings.pixel_clock,
+			 omap_dss_hdmi_timings.x_res,
+			 omap_dss_hdmi_timings.y_res
+			 );
+
+		*pixel_clk = omap_dss_hdmi_timings.pixel_clock;
+		*horizontal_res = omap_dss_hdmi_timings.x_res;
+		*vertical_res = omap_dss_hdmi_timings.y_res;
+	}
+
+
+}
+
+
 static int
 sil9022_blockwrite_reg(struct i2c_client *client,
 				  u8 reg, u16 alength, u8 *val, u16 *out_len)
@@ -200,12 +410,12 @@ sil9022_blockread_reg(struct i2c_client *client,
 
 	/* High byte goes out first */
 	data[0] = reg;
+	err = i2c_transfer(client->adapter, msg, 1);
+	dev_dbg(&client->dev, "<%s> i2c Block Read1 at 0x%x, "
+			       "*val=%d flags=%d err=%d\n",
+		 __func__, data[0], data[1], msg->flags, err);
 
 	for (i = 0; i < alength; i++) {
-		err = i2c_transfer(client->adapter, msg, 1);
-		dev_dbg(&client->dev, "<%s> i2c Block Read1 at 0x%x, "
-				       "*val=%d flags=%d err=%d\n",
-			 __func__, data[0], data[1], msg->flags, err);
 		if (err >= 0) {
 			mdelay(3);
 			msg->flags = I2C_M_RD;
@@ -229,7 +439,7 @@ sil9022_blockread_reg(struct i2c_client *client,
 	}
 	*out_len = i;
 	dev_info(&client->dev, "<%s> i2c Block Read at 0x%x, bytes read = %d\n",
-		 __func__, reg, *out_len);
+		 __func__, client->addr, *out_len);
 
 	if (err < 0) {
 		dev_err(&client->dev, "<%s> ERROR:  i2c Read at 0x%x, "
@@ -351,12 +561,36 @@ hdmi_read_edid(struct i2c_client *client, u16 len,
 	int err =  0;
 	u8 val = 0;
 	int retries = 0;
+	int i = 0;
+	int k = 0;
 
 	len = (len < HDMI_EDID_MAX_LENGTH) ? len : HDMI_EDID_MAX_LENGTH;
 
 	/* Request DDC bus access to read EDID info from HDTV */
 	dev_info(&client->dev, "<%s> Reading HDMI EDID\n", __func__);
 
+	/* Bring transmitter to low-Power state */
+	val = TPI_AVI_POWER_STATE_D2;
+	err = sil9022_write_reg(client, HDMI_TPI_DEVICE_POWER_STATE_DATA, val);
+	if (err < 0) {
+		dev_err(&client->dev,
+			"<%s> ERROR: Failed during bring power state - low.\n",
+			 __func__);
+		return err;
+	}
+
+	/* Disable TMDS clock */
+	val = 0x11;
+	err = sil9022_write_reg(client, HDMI_SYS_CTRL_DATA_REG, val);
+	if (err < 0) {
+		dev_err(&client->dev,
+			"<%s> ERROR: Failed during bring power state - low.\n",
+			 __func__);
+		return err;
+	}
+
+	val = 0;
+	/* Read TPI system control register*/
 	err = sil9022_read_reg(client, 1, HDMI_SYS_CTRL_DATA_REG, &val);
 	if (err < 0) {
 		dev_err(&client->dev,
@@ -364,6 +598,9 @@ hdmi_read_edid(struct i2c_client *client, u16 len,
 		return err;
 	}
 
+	/* The host writes 0x1A[2]=1 to request the
+	 * DDC(Display Data Channel) bus
+	 */
 	val |= TPI_SYS_CTRL_DDC_BUS_REQUEST;
 	err = sil9022_write_reg(client, HDMI_SYS_CTRL_DATA_REG, val);
 	if (err < 0) {
@@ -372,7 +609,7 @@ hdmi_read_edid(struct i2c_client *client, u16 len,
 		return err;
 	}
 
-	 /*  Poll for bus access granted */
+	 /*  Poll for bus DDC Bus control to be granted */
 	dev_info(&client->dev, "<%s> Poll for DDC bus access\n", __func__);
 	val = 0;
 	do {
@@ -392,10 +629,9 @@ hdmi_read_edid(struct i2c_client *client, u16 len,
 		return err;
 	}
 
-	/*  Read the EDID structure from the monitor I2C address  */
 	memset(p_buffer, 0, len);
-	/* I2C SetSlaveAddress to HDMI_I2C_MONITOR_ADDRESS */
-
+	/* change I2C SetSlaveAddress to HDMI_I2C_MONITOR_ADDRESS */
+	/*  Read the EDID structure from the monitor I2C address  */
 	client->addr = HDMI_I2C_MONITOR_ADDRESS;
 	err = sil9022_blockread_reg(client, 1, len,
 				    0x00, p_buffer, out_len);
@@ -404,6 +640,21 @@ hdmi_read_edid(struct i2c_client *client, u16 len,
 			"<%s> ERROR: Reading EDID from "
 			"HDMI_I2C_MONITOR_ADDRESS\n", __func__);
 		return err;
+	}
+
+	for (i = 0; i < *out_len; i++) {
+		if ((i / 18) < 3) {
+			dev_dbg(&client->dev, "byte->%02x	%x\n",
+				i, p_buffer[i]);
+			continue;
+		}
+		if ((i/18 >= 3 && i/18 <= 6) && (i%18 == 0))
+			dev_dbg(&client->dev, "\n DTD Block %d\n", k++);
+
+		if ((i/18 == 7) && (i%18 == 0))
+			dev_dbg(&client->dev, "\n");
+
+		dev_dbg(&client->dev, "byte->%02x	%x\n", i, p_buffer[i]);
 	}
 
 	/* Release DDC bus access */
@@ -535,19 +786,21 @@ hdmi_disable_audio(struct i2c_client *client)
 }
 
 static int
-hdmi_enable(void)
+hdmi_enable(struct omap_dss_device *dssdev)
 {
 	int		err;
 	u8		val, vals[14];
 	int		i;
 	u16		out_len = 0;
 	u8		edid[HDMI_EDID_MAX_LENGTH];
-	HDMI_EDID	*p_edid = (HDMI_EDID *)edid;
-	HDMI_EDID_DTD	*p_video_spec = NULL;
-	HDMI_EDID_DTD	*p_monitor_limits = NULL;
+	u16		horizontal_res;
+	u16		vertical_res;
+	u16		pixel_clk;
+
 
 	memset(edid, 0, HDMI_EDID_MAX_LENGTH);
 	memset(vals, 0, 14);
+
 
 	err = hdmi_read_edid(sil9022_client, HDMI_EDID_MAX_LENGTH,
 			     edid, &out_len);
@@ -557,29 +810,46 @@ hdmi_enable(void)
 		return err;
 	}
 
-	/*  Determine DTD info for the attached monitor */
-	for (i = 0; i < HDMI_EDID_MAX_DTDS; i++) {
-		if (p_edid->DTD[i].monitor_limits.block_type ==
-			HDMI_EDID_DTD_TAG_MONITOR_LIMITS)
-			p_monitor_limits = &p_edid->DTD[i];
-
-
-		if (p_edid->DTD[i].video.pixel_clock[0] != 0 &&
-			p_edid->DTD[i].video.pixel_clock[1] != 0)
-			p_video_spec = &p_edid->DTD[i];
-	}
+	get_edid_timing_data(edid,
+			     &pixel_clk,
+			     &horizontal_res,
+			     &vertical_res
+			     );
 
 	/*  Fill the TPI Video Mode Data structure */
-	vals[0] = p_video_spec->video.pixel_clock[0];        /* Pixel clock */
-	vals[1] = p_video_spec->video.pixel_clock[1];
-	vals[2] = 60;                                     /* Vertical freq */
-	vals[3] = 0;
-	vals[4] = p_video_spec->video.horiz_active;      /* Horizontal pixels*/
-	vals[5] = (p_video_spec->video.horiz_high & 0xF0) >> 4;
-	vals[6] = p_video_spec->video.vert_active;       /* Vertical pixels */
-	vals[7] = (p_video_spec->video.vert_high & 0xF0) >> 4;
+	vals[0] = (pixel_clk & 0xFF);                  /* Pixel clock */
+	vals[1] = ((pixel_clk & 0xFF00) >> 8);
+	vals[2] = VERTICAL_FREQ;                    /* Vertical freq */
+	vals[3] = 0x00;
+	vals[4] = (horizontal_res & 0xFF);         /* Horizontal pixels*/
+	vals[5] = ((horizontal_res & 0xFF00) >> 8);
+	vals[6] = (vertical_res & 0xFF);           /* Vertical pixels */
+	vals[7] = ((vertical_res & 0xFF00) >> 8);
 
 
+	dev_info(&sil9022_client->dev, "<%s>\nHDMI Monitor E-EDID Timing Data\n"
+				       "horizontal_res 	= %d\n"
+				       "vertical_res	= %d\n"
+				       "pixel_clk	= %d\n"
+				       "hfp 		= %d\n"
+				       "hsw 		= %d\n"
+				       "hbp 		= %d\n"
+				       "vfp 		= %d\n"
+				       "vsw 		= %d\n"
+				       "vbp 		= %d\n",
+		 __func__,
+		 omap_dss_hdmi_timings.x_res,
+		 omap_dss_hdmi_timings.y_res,
+		 omap_dss_hdmi_timings.pixel_clock,
+		 omap_dss_hdmi_timings.hfp,
+		 omap_dss_hdmi_timings.hsw,
+		 omap_dss_hdmi_timings.hbp,
+		 omap_dss_hdmi_timings.vfp,
+		 omap_dss_hdmi_timings.vsw,
+		 omap_dss_hdmi_timings.vbp
+		 );
+
+	dssdev->panel.timings = omap_dss_hdmi_timings;
 	/*  Write out the TPI Video Mode Data */
 	out_len = 0;
 	err = sil9022_blockwrite_reg(sil9022_client,
@@ -843,7 +1113,7 @@ static int hdmi_panel_enable(struct omap_dss_device *dssdev)
 	if (r)
 		goto ERROR0;
 
-	r = hdmi_enable();
+	r = hdmi_enable(dssdev);
 	if (r)
 		goto ERROR0;
 	/* wait couple of vsyncs until enabling the LCD */

@@ -22,6 +22,7 @@
 #define HDMI_XRES			1280
 #define HDMI_YRES			720
 #define HDMI_PIXCLOCK_MAX		74250
+#define VERTICAL_FREQ 			0x3C
 
 #define I2C_M_WR 			0
 
@@ -104,6 +105,12 @@
 
 
 /* ---------------------------------------------------------------------  */
+#define EDID_TIMING_DESCRIPTOR_SIZE 		0x12
+#define EDID_DESCRIPTOR_BLOCK0_ADDRESS  	0x36
+#define EDID_DESCRIPTOR_BLOCK1_ADDRESS 		0x80
+#define EDID_SIZE_BLOCK0_TIMING_DESCRIPTOR 	4
+#define EDID_SIZE_BLOCK1_TIMING_DESCRIPTOR 	4
+
 /* HDMI Connected States  */
 #define HDMI_STATE_NOMONITOR    0       /* No HDMI monitor connected*/
 #define HDMI_STATE_CONNECTED    1  /* HDMI monitor connected but powered off*/
