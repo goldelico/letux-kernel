@@ -7,6 +7,7 @@
 #include <linux/io.h>
 #include <linux/pwm.h>
 #include <linux/err.h>
+#include <linux/hdq.h>
 
 /* -------------------------------------------------------------------------------
  * GTA02 FIQ related
@@ -16,6 +17,11 @@
  */
 
 #define DIVISOR_FROM_US(x) ((x) << 3)
+
+#ifdef CONFIG_HDQ_GPIO_BITBANG
+#define FIQ_DIVISOR_HDQ DIVISOR_FROM_US(HDQ_SAMPLE_PERIOD_US)
+extern int hdq_fiq_handler(void);
+#endif
 
 /* Global data related to our fiq source */
 static uint32_t gta02_fiq_ack_mask;
@@ -35,6 +41,9 @@ void gta02_fiq_handler(void)
 	 * thankfully and taken care of by the fiq-basis patch
 	 */
 
+#ifdef CONFIG_HDQ_GPIO_BITBANG
+	keep_running = hdq_fiq_handler();
+#endif
 	if (!keep_running) {
 		/* Disable irq */
 		intmask = __raw_readl(S3C2410_INTMSK);
