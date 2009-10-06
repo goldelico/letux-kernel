@@ -29,7 +29,7 @@
 #include "ispmmu.h"
 
 #define LSC_TABLE_INIT_SIZE	50052
-#define PTR_FREE		0
+#define PTR_FREE		((u32)(-ENOMEM))
 
 static u32 *fpc_table_add;
 static unsigned long fpc_table_add_m;
@@ -85,8 +85,8 @@ static struct isp_ccdc {
 	u8 lsc_request_enable;
 	struct ispccdc_lsc_config lsc_config;
 	u8 update_lsc_table;
-	unsigned long lsc_table_new;
-	unsigned long lsc_table_inuse;
+	u32 lsc_table_new;
+	u32 lsc_table_inuse;
 
 	int shadow_update;
 	spinlock_t lock;
@@ -184,8 +184,10 @@ int omap34xx_isp_ccdc_config(void *userspace_add)
 		if (ISP_ABS_CCDC_BLCLAMP & ccdc_struct->update) {
 			if (copy_from_user(&bclamp_t, (struct ispccdc_bclamp *)
 					   ccdc_struct->bclamp,
-					   sizeof(struct ispccdc_bclamp)))
-				goto copy_from_user_err;
+					   sizeof(struct ispccdc_bclamp))) {
+				ret = -EFAULT;
+				goto out;
+			}
 
 			ispccdc_enable_black_clamp(1);
 			ispccdc_config_black_clamp(bclamp_t);
@@ -195,8 +197,10 @@ int omap34xx_isp_ccdc_config(void *userspace_add)
 		if (ISP_ABS_CCDC_BLCLAMP & ccdc_struct->update) {
 			if (copy_from_user(&bclamp_t, (struct ispccdc_bclamp *)
 					   ccdc_struct->bclamp,
-					   sizeof(struct ispccdc_bclamp)))
-				goto copy_from_user_err;
+					   sizeof(struct ispccdc_bclamp))) {
+				ret = -EFAULT;
+				goto out;
+			}
 
 			ispccdc_enable_black_clamp(0);
 			ispccdc_config_black_clamp(bclamp_t);
@@ -206,8 +210,10 @@ int omap34xx_isp_ccdc_config(void *userspace_add)
 	if (ISP_ABS_CCDC_BCOMP & ccdc_struct->update) {
 		if (copy_from_user(&blcomp_t, (struct ispccdc_blcomp *)
 				   ccdc_struct->blcomp,
-				   sizeof(blcomp_t)))
-			goto copy_from_user_err;
+				   sizeof(blcomp_t))) {
+			ret = -EFAULT;
+			goto out;
+		}
 
 		ispccdc_config_black_comp(blcomp_t);
 	}
@@ -216,14 +222,17 @@ int omap34xx_isp_ccdc_config(void *userspace_add)
 		if (ISP_ABS_CCDC_FPC & ccdc_struct->update) {
 			if (copy_from_user(&fpc_t, (struct ispccdc_fpc *)
 					   ccdc_struct->fpc,
-					   sizeof(fpc_t)))
-				goto copy_from_user_err;
+					   sizeof(fpc_t))) {
+				ret = -EFAULT;
+				goto out;
+			}
 			fpc_table_add = kmalloc(64 + fpc_t.fpnum * 4,
 						GFP_KERNEL | GFP_DMA);
 			if (!fpc_table_add) {
 				printk(KERN_ERR "Cannot allocate memory for"
 				       " FPC table");
-				return -ENOMEM;
+				ret = -ENOMEM;
+				goto out;
 			}
 			while (((unsigned long)fpc_table_add & 0xFFFFFFC0)
 			       != (unsigned long)fpc_table_add)
@@ -234,8 +243,10 @@ int omap34xx_isp_ccdc_config(void *userspace_add)
 						      fpc_t.fpnum * 4);
 
 			if (copy_from_user(fpc_table_add, (u32 *)fpc_t.fpcaddr,
-					   fpc_t.fpnum * 4))
-				goto copy_from_user_err;
+					   fpc_t.fpnum * 4)) {
+				ret = -EFAULT;
+				goto out;
+			}
 
 			fpc_t.fpcaddr = fpc_table_add_m;
 			ispccdc_config_fpc(fpc_t);
@@ -247,8 +258,10 @@ int omap34xx_isp_ccdc_config(void *userspace_add)
 	if (ISP_ABS_CCDC_CULL & ccdc_struct->update) {
 		if (copy_from_user(&cull_t, (struct ispccdc_culling *)
 				   ccdc_struct->cull,
-				   sizeof(cull_t)))
-			goto copy_from_user_err;
+				   sizeof(cull_t))) {
+			ret = -EFAULT;
+			goto out;
+		}
 		ispccdc_config_culling(cull_t);
 	}
 
@@ -256,11 +269,13 @@ int omap34xx_isp_ccdc_config(void *userspace_add)
 		if (ISP_ABS_CCDC_CONFIG_LSC & ccdc_struct->flag) {
 			struct ispccdc_lsc_config cfg;
 			if (copy_from_user(&cfg, ccdc_struct->lsc_cfg,
-						sizeof(cfg)))
-				goto copy_from_user_err;
+					   sizeof(cfg))) {
+				ret = -EFAULT;
+				goto out;
+			}
 			ret = ispccdc_validate_config_lsc(&cfg);
 			if (ret)
-				goto lsc_err;
+				goto out;
 			memcpy(&ispccdc_obj.lsc_config, &cfg,
 			       sizeof(ispccdc_obj.lsc_config));
 			ispccdc_obj.lsc_request_enable = 1;
@@ -281,12 +296,15 @@ int omap34xx_isp_ccdc_config(void *userspace_add)
 			ispccdc_obj.lsc_table_new = PTR_FREE;
 			ispccdc_obj.lsc_request_enable = 0;
 			ispccdc_obj.update_lsc_config = 1;
-			goto allocate_err;
+			ret = -ENOMEM;
+			goto out;
 		}
 		n = ispmmu_da_to_va(ispccdc_obj.lsc_table_new);
 		if (copy_from_user(n, ccdc_struct->lsc,
-				   ispccdc_obj.lsc_config.size))
-			goto copy_from_user_err;
+				   ispccdc_obj.lsc_config.size)) {
+			ret = -EFAULT;
+			goto out;
+		}
 		ispccdc_obj.update_lsc_table = 1;
 	}
 
@@ -297,26 +315,16 @@ int omap34xx_isp_ccdc_config(void *userspace_add)
 	if (ISP_ABS_CCDC_COLPTN & ccdc_struct->update)
 		ispccdc_config_imgattr(ccdc_struct->colptn);
 
-	if (0) {
-allocate_err:
-		printk(KERN_ERR "ccdc: Cannot allocate memory");
-		ret = -ENOMEM;
-	}
+out:
+	if (ret == -EFAULT)
+		printk(KERN_ERR
+		       "ccdc: user provided bad configuration data address");
 
-	if (0) {
-copy_from_user_err:
-		printk(KERN_ERR "ccdc: Config: copy from user error");
-		ret = -EFAULT;
-	}
+	if (ret == -ENOMEM)
+		printk(KERN_ERR
+		       "ccdc: can not allocate memory");
 
-	if (0) {
-lsc_err:
-		printk(KERN_ERR "ccdc: Config: invalid LSC configuration");
-	}
-
-	spin_lock_irqsave(&ispccdc_obj.lock, flags);
 	ispccdc_obj.shadow_update = 0;
-	spin_unlock_irqrestore(&ispccdc_obj.lock, flags);
 	return 0;
 }
 EXPORT_SYMBOL(omap34xx_isp_ccdc_config);
@@ -412,20 +420,6 @@ static int ispccdc_validate_config_lsc(struct ispccdc_lsc_config *lsc_cfg)
 
 	paxel_shift_x = lsc_cfg->gain_mode_m;
 	paxel_shift_y = lsc_cfg->gain_mode_n;
-
-	printk(KERN_ERR "### CCDC: LSC provided config\n");
-	printk(KERN_ERR "\t.offset = %d\n", lsc_cfg->offset);
-	printk(KERN_ERR "\t.gain_mode_n = %d\n", lsc_cfg->gain_mode_n);
-	printk(KERN_ERR "\t.gain_mode_m = %d\n", lsc_cfg->gain_mode_m);
-	printk(KERN_ERR "\t.gain_format = %d\n", lsc_cfg->gain_format);
-	printk(KERN_ERR "\t.fmtsph = %d\n", lsc_cfg->fmtsph);
-	printk(KERN_ERR "\t.fmtlnh = %d\n", lsc_cfg->fmtlnh);
-	printk(KERN_ERR "\t.fmtslv = %d\n", lsc_cfg->fmtslv);
-	printk(KERN_ERR "\t.fmtlnv = %d\n", lsc_cfg->fmtlnv);
-	printk(KERN_ERR "\t.initial_x = %d\n", lsc_cfg->initial_x);
-	printk(KERN_ERR "\t.initial_y = %d\n", lsc_cfg->initial_y);
-	printk(KERN_ERR "\t.size = %d", lsc_cfg->size);
-	printk(KERN_ERR "###\n");
 
 	if ((paxel_shift_x < 2) || (paxel_shift_x > 6) ||
 	    (paxel_shift_y < 2) || (paxel_shift_y > 6)) {
@@ -533,9 +527,10 @@ void ispccdc_enable_lsc(u8 enable)
  */
 static void ispccdc_setup_lsc(void)
 {
+	ispccdc_enable_lsc(0);	/* Disable LSC */
 	if (ispccdc_obj.ccdc_inpfmt == CCDC_RAW &&
 	    ispccdc_obj.lsc_request_enable) {
-		/* Enable LSC */
+		/* LSC is requested to be enabled, so configure it */
 		if (ispccdc_obj.update_lsc_table) {
 			BUG_ON(ispccdc_obj.lsc_table_new == PTR_FREE);
 			ispmmu_vfree(ispccdc_obj.lsc_table_inuse);
@@ -545,10 +540,6 @@ static void ispccdc_setup_lsc(void)
 		}
 		ispccdc_config_lsc();
 		ispccdc_program_lsc();
-		ispccdc_enable_lsc(1); /* Start prefetching table */
-	} else {
-		/* Disable LSC */
-		ispccdc_enable_lsc(0);
 	}
 	ispccdc_obj.update_lsc_config = 0;
 }
@@ -1328,12 +1319,6 @@ int ispccdc_config_size(u32 input_w, u32 input_h, u32 output_w, u32 output_h)
                                ISPCCDC_VP_OUT);
         }
 
-	if (ispccdc_obj.lsc_request_enable) {
-		if (ispccdc_validate_config_lsc(&ispccdc_obj.lsc_config)) {
-			/* Invalid LSC for this resolution -- disable */
-			ispccdc_obj.lsc_request_enable = 0;
-		}
-	}
 	ispccdc_setup_lsc();
 
 	return 0;
@@ -1422,13 +1407,13 @@ EXPORT_SYMBOL(ispccdc_set_outaddr);
 
 void __ispccdc_enable(u8 enable)
 {
-	if (enable) {
-		if (ispccdc_obj.ccdc_inpfmt == CCDC_RAW)
-			ispccdc_enable_lsc(ispccdc_obj.lsc_request_enable);
-	} else {
-		ispccdc_enable_lsc(0);
-	}
+	int enable_lsc;
 
+	enable_lsc = enable &&
+		     ispccdc_obj.ccdc_inpfmt == CCDC_RAW &&
+		     ispccdc_obj.lsc_request_enable &&
+		     ispccdc_validate_config_lsc(&ispccdc_obj.lsc_config) == 0;
+	ispccdc_enable_lsc(enable_lsc);
 	isp_reg_and_or(OMAP3_ISP_IOMEM_CCDC, ISPCCDC_PCR, ~ISPCCDC_PCR_EN,
 		       enable ? ISPCCDC_PCR_EN : 0);
 }

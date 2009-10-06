@@ -1203,7 +1203,6 @@ static int __isp_disable_modules(int suspend)
 		/* This function supends lsc too */
 		ispccdc_suspend();
 	else {
-		ispccdc_enable_lsc(0);
 		ispccdc_enable(0);
 	}
 
