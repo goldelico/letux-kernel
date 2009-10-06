@@ -1340,9 +1340,9 @@ void isppreview_config_rgb_to_ycbcr(struct ispprev_csc prev_csc)
 	val |= (prev_csc.matrix[2][2] & 0x3ff) << ISPPRV_CSC2_BCR_SHIFT;
 	isp_reg_writel(val, OMAP3_ISP_IOMEM_PREV, ISPPRV_CSC2);
 
-	val = (prev_csc.offset[0] & 0xff) << ISPPRV_CSC_OFFSET_CR_SHIFT;
+	val = (prev_csc.offset[0] & 0xff) << ISPPRV_CSC_OFFSET_Y_SHIFT;
 	val |= (prev_csc.offset[1] & 0xff) << ISPPRV_CSC_OFFSET_CB_SHIFT;
-	val |= (prev_csc.offset[2] & 0xff) << ISPPRV_CSC_OFFSET_Y_SHIFT;
+	val |= (prev_csc.offset[2] & 0xff) << ISPPRV_CSC_OFFSET_CR_SHIFT;
 	isp_reg_writel(val, OMAP3_ISP_IOMEM_PREV, ISPPRV_CSC_OFFSET);
 }
 EXPORT_SYMBOL_GPL(isppreview_config_rgb_to_ycbcr);
