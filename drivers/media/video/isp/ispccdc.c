@@ -22,6 +22,7 @@
 #include <linux/mutex.h>
 #include <linux/module.h>
 #include <linux/uaccess.h>
+#include <linux/delay.h>
 
 #include "isp.h"
 #include "ispreg.h"
@@ -83,6 +84,7 @@ static struct isp_ccdc {
 	/* LSC related fields */
 	u8 update_lsc_config;
 	u8 lsc_request_enable;
+	u8 lsc_defer_setup;
 	struct ispccdc_lsc_config lsc_config;
 	u8 update_lsc_table;
 	u32 lsc_table_new;
@@ -308,9 +310,12 @@ int omap34xx_isp_ccdc_config(void *userspace_add)
 		ispccdc_obj.update_lsc_table = 1;
 	}
 
-	if ((ispccdc_obj.pm_state == 0) &&
-	    (ispccdc_obj.update_lsc_table || ispccdc_obj.update_lsc_config))
-		ispccdc_setup_lsc();
+	if (ispccdc_obj.update_lsc_table || ispccdc_obj.update_lsc_config) {
+		if (ispccdc_obj.pm_state == 0)
+			ispccdc_setup_lsc();
+		else
+			ispccdc_obj.lsc_defer_setup = 1;
+	}
 
 	if (ISP_ABS_CCDC_COLPTN & ccdc_struct->update)
 		ispccdc_config_imgattr(ccdc_struct->colptn);
@@ -513,6 +518,7 @@ void ispccdc_enable_lsc(u8 enable)
 
 		isp_reg_or(OMAP3_ISP_IOMEM_CCDC,
 			   ISPCCDC_LSC_CONFIG, ISPCCDC_LSC_ENABLE);
+		ispccdc_obj.lsc_request_enable = 0;
 	} else {
 		isp_reg_and(OMAP3_ISP_IOMEM_CCDC,
 			    ISPCCDC_LSC_CONFIG, ~ISPCCDC_LSC_ENABLE);
@@ -1138,11 +1144,10 @@ void ispccdc_config_shadow_registers(void)
 	if (ispccdc_obj.shadow_update)
 		goto skip;
 
-#if 0	/* FIXME: Do not support on-the-fly-LSC configuration yet */
-	if (ispccdc_obj.update_lsc_config) {
-		ispccdc_config_lsc();
-		ispccdc_enable_lsc(ispccdc_obj.lsc_request_enable);
-		ispccdc_obj.update_lsc_config = 0;
+	if (ispccdc_obj.lsc_defer_setup) {
+		ispccdc_enable_lsc(0);
+		ispccdc_obj.lsc_defer_setup = 0;
+		goto skip;
 	}
 
 	if (ispccdc_obj.update_lsc_table) {
@@ -1153,7 +1158,12 @@ void ispccdc_config_shadow_registers(void)
 		ispccdc_program_lsc();
 		ispccdc_obj.update_lsc_table = 0;
 	}
-#endif
+
+	if (ispccdc_obj.update_lsc_config) {
+		ispccdc_config_lsc();
+		ispccdc_enable_lsc(ispccdc_obj.lsc_request_enable);
+		ispccdc_obj.update_lsc_config = 0;
+	}
 
 skip:
 	spin_unlock_irqrestore(&ispccdc_obj.lock, flags);
@@ -1414,6 +1424,22 @@ void __ispccdc_enable(u8 enable)
 		     ispccdc_obj.lsc_request_enable &&
 		     ispccdc_validate_config_lsc(&ispccdc_obj.lsc_config) == 0;
 	ispccdc_enable_lsc(enable_lsc);
+	if (enable_lsc) {
+		int timeout = 10000;
+		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS,
+			   IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
+		while (!(isp_reg_readl(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS) &
+			 IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ) && timeout) {
+			udelay(1);
+			timeout--;
+		}
+		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS,
+			    ~IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
+		if (timeout <= 0) {
+			printk(KERN_ERR "LSC ouch!\n");
+			ispccdc_enable_lsc(0);
+		}
+	}
 	isp_reg_and_or(OMAP3_ISP_IOMEM_CCDC, ISPCCDC_PCR, ~ISPCCDC_PCR_EN,
 		       enable ? ISPCCDC_PCR_EN : 0);
 }
@@ -1616,6 +1642,7 @@ int __init isp_ccdc_init(void)
 
 	ispccdc_obj.update_lsc_config = 0;
 	ispccdc_obj.lsc_request_enable = 1;
+	ispccdc_obj.lsc_defer_setup = 0;
 
 	ispccdc_obj.lsc_config.initial_x = 0;
 	ispccdc_obj.lsc_config.initial_y = 0;
