@@ -44,7 +44,6 @@
 #include <dspbridge/dbdcddef.h>
 #include <dspbridge/host_os.h>
 #include <dspbridge/nldrdefs.h>
-#include <dspbridge/drv.h>
 
 /*
  *  ======== DCD_AutoRegister ========
@@ -363,8 +362,7 @@
  */
 	extern DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 					     IN enum DSP_DCDOBJTYPE objType,
-					     IN char *pszPathName,
-					     struct PROCESS_CONTEXT *pr_ctxt);
+					     IN char *pszPathName);
 
 /*
  *  ======== DCD_UnregisterObject ========
@@ -385,7 +383,6 @@
  *  Ensures:
  */
 	extern DSP_STATUS DCD_UnregisterObject(IN struct DSP_UUID *pUuid,
-					       IN enum DSP_DCDOBJTYPE objType,
-					       struct PROCESS_CONTEXT *pr_ctxt);
+					       IN enum DSP_DCDOBJTYPE objType);
 
 #endif				/* _DBDCD_H */

@@ -78,6 +78,4 @@ extern DSP_STATUS DRV_RemoveAllSTRMResElements(HANDLE pCtxt);
 
 extern enum NODE_STATE NODE_GetState(HANDLE hNode);
 
-extern DSP_STATUS DRV_RemoveAllRegResElements(HANDLE hPCtxt);
-
 #endif
