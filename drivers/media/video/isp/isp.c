@@ -877,7 +877,7 @@ int isp_configure_interface(struct isp_interface_config *config)
 
 	/* Set sensor specific fields in CCDC and Previewer module.*/
 	ispccdc_set_wenlog(config->wenlog);
-	ispccdc_set_crop_offset(config->raw_fmt_in);
+	ispccdc_set_raw_offset(config->raw_fmt_in);
 
 	return 0;
 }
