@@ -79,6 +79,7 @@
 
 /* INTMR (0x04) fields */
 
+#define TWL6030_READYMSK		0x40
 #define TWL6030_ALLINT_MSK		0x7B
 
 /* NCPCTL (0x05) fields */

@@ -52,6 +52,7 @@ struct twl6030_data {
 	int non_lp;
 	unsigned int sysclk;
 	struct snd_pcm_hw_constraint_list *sysclk_constraints;
+	struct completion ready;
 };
 
 /*
@@ -372,9 +373,10 @@ static int twl6030_power_mode_event(struct snd_soc_dapm_widget *w,
 static irqreturn_t twl6030_naudint_handler(int irq, void *data)
 {
 	struct snd_soc_codec *codec = data;
+	struct twl6030_data *priv = codec->private_data;
 	u8 intid;
 
-	twl_i2c_read_u8(TWL6030_MODULE_AUDIO, &intid, TWL6030_REG_INTID);
+	twl_i2c_read_u8(TWL_MODULE_AUDIO_VOICE, &intid, TWL6030_REG_INTID);
 
 	switch (intid) {
 	case TWL6030_THINT:
@@ -391,7 +393,7 @@ static irqreturn_t twl6030_naudint_handler(int irq, void *data)
 		dev_alert(codec->dev, "vib drivers over current detection\n");
 		break;
 	case TWL6030_READYINT:
-		dev_alert(codec->dev, "codec is ready\n");
+		complete(&priv->ready);
 		break;
 	default:
 		dev_err(codec->dev, "unknown audio interrupt %d\n", intid);
@@ -626,11 +628,45 @@ static int twl6030_add_widgets(struct snd_soc_codec *codec)
 	return 0;
 }
 
+static int twl6030_power_up_completion(struct snd_soc_codec *codec,
+					int naudint)
+{
+	struct twl6030_data *priv = codec->private_data;
+	int time_left;
+	u8 intid;
+
+	if (naudint) {
+		/* wait for ready interrupt with 48 ms timeout */
+		time_left = wait_for_completion_timeout(&priv->ready,
+					msecs_to_jiffies(48));
+	} else {
+		/* retry 3 times only */
+		for (time_left = 3; time_left > 0; time_left--) {
+			mdelay(16);
+			twl_i2c_read_u8(TWL_MODULE_AUDIO_VOICE, &intid,
+					TWL6030_REG_INTID);
+			if (intid & TWL6030_READYINT)
+				break;
+		}
+	}
+
+	if (!time_left) {
+		dev_err(codec->dev, "timeout waiting for READYINT\n");
+		return -ETIMEDOUT;
+	}
+
+	priv->codec_powered = 1;
+
+	return 0;
+}
+
 static int twl6030_set_bias_level(struct snd_soc_codec *codec,
 				enum snd_soc_bias_level level)
 {
 	struct twl6030_data *priv = codec->private_data;
 	int audpwron = priv->audpwron;
+	int naudint = priv->naudint;
+	int ret;
 
 	switch (level) {
 	case SND_SOC_BIAS_ON:
@@ -643,8 +679,10 @@ static int twl6030_set_bias_level(struct snd_soc_codec *codec,
 			/* use AUDPWRON line */
 			gpio_set_value(audpwron, 1);
 
-			/* power-up sequence latency */
-			mdelay(16);
+			/* wait for power-up completion */
+			ret = twl6030_power_up_completion(codec, naudint);
+			if (ret)
+				return ret;
 
 			/* sync registers updated during power-up sequence */
 			twl6030_read(codec, TWL6030_REG_NCPCTL);
@@ -653,12 +691,11 @@ static int twl6030_set_bias_level(struct snd_soc_codec *codec,
 		} else {
 			/* use manual power-up sequence */
 			twl6030_power_up(codec);
+			priv->codec_powered = 1;
 		}
 
 		/* initialize vdd/vss registers with reg_cache */
 		twl6030_init_vdd_regs(codec);
-
-		priv->codec_powered = 1;
 		break;
 	case SND_SOC_BIAS_OFF:
 		if (!priv->codec_powered)
@@ -1068,6 +1105,7 @@ static int __devinit twl6030_codec_probe(struct platform_device *pdev)
 	mutex_init(&codec->mutex);
 	INIT_LIST_HEAD(&codec->dapm_widgets);
 	INIT_LIST_HEAD(&codec->dapm_paths);
+	init_completion(&priv->ready);
 
 	if (gpio_is_valid(audpwron)) {
 		ret = gpio_request(audpwron, "audpwron");
@@ -1090,10 +1128,15 @@ static int __devinit twl6030_codec_probe(struct platform_device *pdev)
 		if (ret)
 			goto gpio2_err;
 	} else {
-		dev_warn(codec->dev,
-			"no naudint irq, audio interrupts disabled\n");
-		twl6030_write_reg_cache(codec, TWL6030_REG_INTMR,
-					TWL6030_ALLINT_MSK);
+		if (gpio_is_valid(audpwron)) {
+			/* enable only codec ready interrupt */
+			twl6030_write_reg_cache(codec, TWL6030_REG_INTMR,
+					~TWL6030_READYMSK & TWL6030_ALLINT_MSK);
+		} else {
+			/* no interrupts at all */
+			twl6030_write_reg_cache(codec, TWL6030_REG_INTMR,
+						TWL6030_ALLINT_MSK);
+		}
 	}
 
 	/* init vio registers */
