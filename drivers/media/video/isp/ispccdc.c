@@ -644,7 +644,7 @@ int ispccdc_config_datapath(enum ccdc_input input, enum ccdc_output output)
 		syn_mode &= ~ISPCCDC_SYN_MODE_EXWEN;
 		isp_reg_and(OMAP3_ISP_IOMEM_CCDC, ISPCCDC_CFG,
 			    ~ISPCCDC_CFG_WENLOG);
-		vpcfg.bitshift_sel = BIT11_2;
+		vpcfg.bitshift_sel = BIT9_0;
 		vpcfg.freq_sel = PIXCLKBY2;
 		ispccdc_config_vp(vpcfg);
 		ispccdc_enable_vp(0);
