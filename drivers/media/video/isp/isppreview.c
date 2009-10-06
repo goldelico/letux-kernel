@@ -1307,8 +1307,8 @@ void isppreview_config_rgb_blending(struct ispprev_rgbtorgb rgb2rgb)
 	val = (rgb2rgb.matrix[2][2] & 0xfff) << ISPPRV_RGB_MAT5_MTX_BB_SHIFT;
 	isp_reg_writel(val, OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_MAT5);
 
-	val = (rgb2rgb.offset[0] & 0x3ff) << ISPPRV_RGB_OFF1_MTX_OFFG_SHIFT;
-	val |= (rgb2rgb.offset[1] & 0x3ff) << ISPPRV_RGB_OFF1_MTX_OFFR_SHIFT;
+	val = (rgb2rgb.offset[0] & 0x3ff) << ISPPRV_RGB_OFF1_MTX_OFFR_SHIFT;
+	val |= (rgb2rgb.offset[1] & 0x3ff) << ISPPRV_RGB_OFF1_MTX_OFFG_SHIFT;
 	isp_reg_writel(val, OMAP3_ISP_IOMEM_PREV, ISPPRV_RGB_OFF1);
 
 	val = (rgb2rgb.offset[2] & 0x3ff) << ISPPRV_RGB_OFF2_MTX_OFFB_SHIFT;
