@@ -230,6 +230,8 @@ static inline void isp_reg_and_or(enum isp_mem_resources mmio_range, u32 reg,
 	isp_reg_writel((v & and_bits) | or_bits, mmio_range, reg);
 }
 
+void isp_flush(void);
+
 void isp_start(void);
 
 void isp_stop(void);

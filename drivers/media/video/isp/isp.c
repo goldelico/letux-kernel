@@ -315,6 +315,12 @@ void isp_reg_writel(u32 reg_value, enum isp_mem_resources isp_mmio_range,
 }
 EXPORT_SYMBOL(isp_reg_writel);
 
+void isp_flush(void)
+{
+	isp_reg_writel(0, OMAP3_ISP_IOMEM_MAIN, ISP_REVISION);
+	isp_reg_readl(OMAP3_ISP_IOMEM_MAIN, ISP_REVISION);
+}
+
 /*
  *
  * V4L2 Handling
@@ -1037,6 +1043,7 @@ out_ignore_buff:
 
 	spin_unlock_irqrestore(&isp_obj.lock, irqflags);
 
+	isp_flush();
 #if 1
 	{
 		static const struct {
