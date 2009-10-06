@@ -18,6 +18,7 @@
 #endif
 
 #include <asm/ptrace.h>
+#include <asm/domain.h>
 
 /*
  * Endian independent macros for shifting bytes within registers.
@@ -186,9 +187,9 @@
 	.macro	usraccoff, instr, reg, ptr, inc, off, cond, abort
 9999:
 	.if	\inc == 1
-	\instr\cond\()bt \reg, [\ptr, #\off]
+	T(\instr\cond\()b) \reg, [\ptr, #\off]
 	.elseif	\inc == 4
-	\instr\cond\()t \reg, [\ptr, #\off]
+	T(\instr\cond\()) \reg, [\ptr, #\off]
 	.else
 	.error	"Unsupported inc macro argument"
 	.endif
@@ -227,9 +228,9 @@
 	.rept	\rept
 9999:
 	.if	\inc == 1
-	\instr\cond\()bt \reg, [\ptr], #\inc
+	T(\instr\cond\()b) \reg, [\ptr], #\inc
 	.elseif	\inc == 4
-	\instr\cond\()t \reg, [\ptr], #\inc
+	T(\instr\cond\()) \reg, [\ptr], #\inc
 	.else
 	.error	"Unsupported inc macro argument"
 	.endif
