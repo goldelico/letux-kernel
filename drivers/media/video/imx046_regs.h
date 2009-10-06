@@ -307,14 +307,4 @@ const static struct imx046_capture_size imx046_sizes[] = {
 	{ 3280, 2464},	/* 8MP - Full Resolution */
 };
 
-/* PLL settings for imx046 */
-enum imx046_pll_type {
-	PLL_QUART_MP = 0,
-	PLL_0_5MP,
-	PLL_720p,
-	PLL_729p,
-	PLL_2MP,
-	PLL_8MP,
-};
-
 #endif /* ifndef IMX046_REGS_H */
