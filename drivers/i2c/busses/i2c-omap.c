@@ -282,6 +282,21 @@ static int omap_i2c_init(struct omap_i2c_dev *dev)
 	unsigned long internal_clk = 0;
 
 	if (dev->rev >= OMAP_I2C_REV_2) {
+		/* Disable I2C controller before soft reset */
+		omap_i2c_write_reg(dev, OMAP_I2C_CON_REG,
+			omap_i2c_read_reg(dev, OMAP_I2C_CON_REG) &
+				~(OMAP_I2C_CON_EN));
+		timeout = jiffies + OMAP_I2C_TIMEOUT;
+		while ((omap_i2c_read_reg(dev, OMAP_I2C_CON_REG) &
+			OMAP_I2C_CON_EN)) {
+			if (time_after(jiffies, timeout)) {
+				dev_warn(dev->dev, "timeout waiting "
+						"for controller reset\n");
+				return -ETIMEDOUT;
+			}
+			schedule();
+		}
+
 		omap_i2c_write_reg(dev, OMAP_I2C_SYSC_REG, SYSC_SOFTRESET_MASK);
 		/* For some reason we need to set the EN bit before the
 		 * reset done bit gets set. */
@@ -294,7 +309,7 @@ static int omap_i2c_init(struct omap_i2c_dev *dev)
 						"for controller reset\n");
 				return -ETIMEDOUT;
 			}
-			msleep(1);
+			schedule();
 		}
 
 		/* SYSC register is cleared by the reset; rewrite it */
