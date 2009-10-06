@@ -212,6 +212,8 @@ struct prev_params {
  * @red_gamma: Pointer to red gamma correction table.
  * @green_gamma: Pointer to green gamma correction table.
  * @blue_gamma: Pointer to blue gamma correction table.
+ * @prev_cfa: Pointer to color filter array configuration.
+ * @prev_wbal: Pointer to colour and digital gain configuration.
  */
 struct isptables_update {
 	u16 update;
@@ -221,6 +223,8 @@ struct isptables_update {
 	u32 *red_gamma;
 	u32 *green_gamma;
 	u32 *blue_gamma;
+	struct ispprev_cfa *prev_cfa;
+	struct ispprev_wbal *prev_wbal;
 };
 
 void isppreview_config_shadow_registers(void);
