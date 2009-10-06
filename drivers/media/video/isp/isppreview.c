@@ -27,10 +27,6 @@
 #include "ispreg.h"
 #include "isppreview.h"
 
-static struct ispprev_nf prev_nf_t;
-static struct prev_params *params;
-static int rg_update, gg_update, bg_update, nf_enable, nf_update;
-
 /* Structure for saving/restoring preview module registers */
 static struct isp_reg ispprev_reg_list[] = {
 	{OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO, 0x0000},
@@ -139,8 +135,6 @@ static struct ispprev_csc flr_prev_csc[] = {
 #define FLR_BLKADJ_GREEN	0x0
 #define FLR_BLKADJ_RED		0x0
 
-static int update_color_matrix;
-
 /**
  * struct isp_prev - Structure for storing ISP Preview module information
  * @prev_inuse: Flag to determine if CCDC has been reserved or not (0 or 1).
@@ -167,6 +161,7 @@ static int update_color_matrix;
  * This structure is used to store the OMAP ISP Preview module Information.
  */
 static struct isp_prev {
+	int update_color_matrix;
 	int pm_state;
 	u8 prev_inuse;
 	u32 prevout_w;
@@ -181,18 +176,22 @@ static struct isp_prev {
 	u8 cfa_en;
 	u8 csup_en;
 	u8 yenh_en;
+	u8 rg_update;
+	u8 gg_update;
+	u8 bg_update;
+	u8 nf_enable;
+	u8 nf_update;
 	u8 fmtavg;
 	u8 brightness;
 	u8 contrast;
 	enum v4l2_colorfx color;
 	enum cfa_fmt cfafmt;
+	struct ispprev_nf prev_nf_t;
+	struct prev_params params;
 	struct mutex ispprev_mutex; /* For checking/modifying prev_inuse */
 	u32 sph;
 	u32 slv;
 } ispprev_obj;
-
-/* Saved parameters */
-static struct prev_params *prev_config_params;
 
 /*
  * Coeficient Tables for the submodules in Preview.
@@ -261,6 +260,7 @@ int omap34xx_isp_preview_config(void *userspace_add)
 	struct ispprv_update_config *preview_struct;
 	struct isptables_update isp_table_update;
 	int yen_t[ISPPRV_YENH_TBL_SIZE];
+	struct prev_params *params = &ispprev_obj.params;
 
 	if (userspace_add == NULL)
 		return -EINVAL;
@@ -424,26 +424,27 @@ EXPORT_SYMBOL_GPL(omap34xx_isp_preview_config);
  **/
 int omap34xx_isp_tables_update(struct isptables_update *isptables_struct)
 {
+	struct prev_params *params = &ispprev_obj.params;
 
 	if (ISP_ABS_TBL_NF & isptables_struct->flag) {
-		nf_enable = 1;
+		ispprev_obj.nf_enable = 1;
 		params->features |= PREV_NOISE_FILTER;
 		if (ISP_ABS_TBL_NF & isptables_struct->update) {
-			if (copy_from_user(&prev_nf_t, (struct ispprev_nf *)
+			if (copy_from_user(&ispprev_obj.prev_nf_t, (struct ispprev_nf *)
 					   isptables_struct->prev_nf,
 					   sizeof(struct ispprev_nf)))
 				goto err_copy_from_user;
 
-			nf_update = 1;
+			ispprev_obj.nf_update = 1;
 		} else
-			nf_update = 0;
+			ispprev_obj.nf_update = 0;
 	} else {
-		nf_enable = 0;
+		ispprev_obj.nf_enable = 0;
 		params->features &= ~PREV_NOISE_FILTER;
 		if (ISP_ABS_TBL_NF & isptables_struct->update)
-			nf_update = 1;
+			ispprev_obj.nf_update = 1;
 		else
-			nf_update = 0;
+			ispprev_obj.nf_update = 0;
 	}
 
 	if (ISP_ABS_TBL_REDGAMMA & isptables_struct->update) {
@@ -451,18 +452,18 @@ int omap34xx_isp_tables_update(struct isptables_update *isptables_struct)
 				   sizeof(redgamma_table))) {
 			goto err_copy_from_user;
 		}
-		rg_update = 1;
+		ispprev_obj.rg_update = 1;
 	} else
-		rg_update = 0;
+		ispprev_obj.rg_update = 0;
 
 	if (ISP_ABS_TBL_GREENGAMMA & isptables_struct->update) {
 		if (copy_from_user(greengamma_table,
 				   isptables_struct->green_gamma,
 				   sizeof(greengamma_table)))
 			goto err_copy_from_user;
-		gg_update = 1;
+		ispprev_obj.gg_update = 1;
 	} else
-		gg_update = 0;
+		ispprev_obj.gg_update = 0;
 
 	if (ISP_ABS_TBL_BLUEGAMMA & isptables_struct->update) {
 		if (copy_from_user(bluegamma_table,
@@ -470,9 +471,9 @@ int omap34xx_isp_tables_update(struct isptables_update *isptables_struct)
 				   sizeof(bluegamma_table))) {
 			goto err_copy_from_user;
 		}
-		bg_update = 1;
+		ispprev_obj.bg_update = 1;
 	} else
-		bg_update = 0;
+		ispprev_obj.bg_update = 0;
 
 	return 0;
 
@@ -506,12 +507,12 @@ void isppreview_config_shadow_registers()
 				ispprev_obj.contrast);
 		isppreview_config_contrast(ispprev_obj.contrast);
 	}
-	if (update_color_matrix) {
+	if (ispprev_obj.update_color_matrix) {
 		isppreview_config_rgb_to_ycbcr(flr_prev_csc[ispprev_obj.color]);
-		update_color_matrix = 0;
+		ispprev_obj.update_color_matrix = 0;
 	}
 
-	if (gg_update) {
+	if (ispprev_obj.gg_update) {
 		isp_reg_writel(ISPPRV_TBL_ADDR_GREEN_G_START,
 			       OMAP3_ISP_IOMEM_PREV, ISPPRV_SET_TBL_ADDR);
 
@@ -520,10 +521,10 @@ void isppreview_config_shadow_registers()
 				       OMAP3_ISP_IOMEM_PREV,
 				       ISPPRV_SET_TBL_DATA);
 		}
-		gg_update = 0;
+		ispprev_obj.gg_update = 0;
 	}
 
-	if (rg_update) {
+	if (ispprev_obj.rg_update) {
 		isp_reg_writel(ISPPRV_TBL_ADDR_RED_G_START,
 			       OMAP3_ISP_IOMEM_PREV, ISPPRV_SET_TBL_ADDR);
 
@@ -532,10 +533,10 @@ void isppreview_config_shadow_registers()
 				       OMAP3_ISP_IOMEM_PREV,
 				       ISPPRV_SET_TBL_DATA);
 		}
-		rg_update = 0;
+		ispprev_obj.rg_update = 0;
 	}
 
-	if (bg_update) {
+	if (ispprev_obj.bg_update) {
 		isp_reg_writel(ISPPRV_TBL_ADDR_BLUE_G_START,
 			       OMAP3_ISP_IOMEM_PREV, ISPPRV_SET_TBL_ADDR);
 
@@ -544,25 +545,25 @@ void isppreview_config_shadow_registers()
 				       OMAP3_ISP_IOMEM_PREV,
 				       ISPPRV_SET_TBL_DATA);
 		}
-		bg_update = 0;
+		ispprev_obj.bg_update = 0;
 	}
 
-	if (nf_update && nf_enable) {
+	if (ispprev_obj.nf_update && ispprev_obj.nf_enable) {
 		isppreview_enable_noisefilter(0);
 		isp_reg_writel(0xC00,
 			       OMAP3_ISP_IOMEM_PREV, ISPPRV_SET_TBL_ADDR);
-		isp_reg_writel(prev_nf_t.spread,
+		isp_reg_writel(ispprev_obj.prev_nf_t.spread,
 			       OMAP3_ISP_IOMEM_PREV, ISPPRV_NF);
 		for (ctr = 0; ctr < ISPPRV_NF_TBL_SIZE; ctr++) {
-			isp_reg_writel(prev_nf_t.table[ctr],
+			isp_reg_writel(ispprev_obj.prev_nf_t.table[ctr],
 				       OMAP3_ISP_IOMEM_PREV,
 				       ISPPRV_SET_TBL_DATA);
 		}
 		isppreview_enable_noisefilter(1);
-		nf_update = 0;
+		ispprev_obj.nf_update = 0;
 	}
 
-	if (nf_update && ~nf_enable)
+	if (ispprev_obj.nf_update && ~ispprev_obj.nf_enable)
 		isppreview_enable_noisefilter(0);
 }
 EXPORT_SYMBOL_GPL(isppreview_config_shadow_registers);
@@ -633,7 +634,7 @@ int isppreview_config_datapath(enum preview_input input,
 {
 	u32 pcr = 0;
 	u8 enable = 0;
-	struct prev_params *params = prev_config_params;
+	struct prev_params *params = &ispprev_obj.params;
 	struct ispprev_yclimit yclimit;
 
 	pcr = isp_reg_readl(OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR);
@@ -1392,7 +1393,7 @@ EXPORT_SYMBOL_GPL(isppreview_get_brightness_range);
 void isppreview_set_color(u8 *mode)
 {
 	ispprev_obj.color = *mode;
-	update_color_matrix = 1;
+	ispprev_obj.update_color_matrix = 1;
 }
 EXPORT_SYMBOL_GPL(isppreview_set_color);
 
@@ -1728,7 +1729,7 @@ EXPORT_SYMBOL_GPL(isppreview_busy);
  **/
 struct prev_params *isppreview_get_config(void)
 {
-	return prev_config_params;
+	return &ispprev_obj.params;
 }
 EXPORT_SYMBOL_GPL(isppreview_get_config);
 
@@ -1838,14 +1839,8 @@ EXPORT_SYMBOL_GPL(isppreview_print_status);
  **/
 int __init isp_preview_init(void)
 {
+	struct prev_params *params = &ispprev_obj.params;
 	int i = 0;
-
-	prev_config_params = kmalloc(sizeof(*prev_config_params), GFP_KERNEL);
-	if (!prev_config_params) {
-		printk(KERN_ERR "Can't get memory for isp_preview params!\n");
-		return -ENOMEM;
-	}
-	params = prev_config_params;
 
 	ispprev_obj.prev_inuse = 0;
 	mutex_init(&ispprev_obj.ispprev_mutex);
@@ -1912,5 +1907,5 @@ int __init isp_preview_init(void)
  **/
 void isp_preview_cleanup(void)
 {
-	kfree(prev_config_params);
+
 }
