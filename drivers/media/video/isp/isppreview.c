@@ -162,6 +162,8 @@ static struct ispprev_csc flr_prev_csc[] = {
  */
 static struct isp_prev {
 	int update_color_matrix;
+	u8 update_rgb_blending;
+	u8 update_rgb_to_ycbcr;
 	int pm_state;
 	u8 prev_inuse;
 	u32 prevout_w;
@@ -179,8 +181,10 @@ static struct isp_prev {
 	u8 rg_update;
 	u8 gg_update;
 	u8 bg_update;
+	u8 cfa_update;
 	u8 nf_enable;
 	u8 nf_update;
+	u8 wbal_update;
 	u8 fmtavg;
 	u8 brightness;
 	u8 contrast;
@@ -189,8 +193,10 @@ static struct isp_prev {
 	struct ispprev_nf prev_nf_t;
 	struct prev_params params;
 	struct mutex ispprev_mutex; /* For checking/modifying prev_inuse */
+	int shadow_update;
 	u32 sph;
 	u32 slv;
+	spinlock_t lock;
 } ispprev_obj;
 
 /*
@@ -249,23 +255,27 @@ static u32 luma_enhance_table[] = {
 int omap34xx_isp_preview_config(void *userspace_add)
 {
 	struct ispprev_hmed prev_hmed_t;
-	struct ispprev_cfa prev_cfa_t;
 	struct ispprev_csup csup_t;
-	struct ispprev_wbal prev_wbal_t;
 	struct ispprev_blkadj prev_blkadj_t;
-	struct ispprev_rgbtorgb rgb2rgb_t;
-	struct ispprev_csc prev_csc_t;
 	struct ispprev_yclimit yclimit_t;
 	struct ispprev_dcor prev_dcor_t;
 	struct ispprv_update_config *preview_struct;
 	struct isptables_update isp_table_update;
 	int yen_t[ISPPRV_YENH_TBL_SIZE];
 	struct prev_params *params = &ispprev_obj.params;
+	unsigned long flags;
 
 	if (userspace_add == NULL)
 		return -EINVAL;
 
+	spin_lock_irqsave(&ispprev_obj.lock, flags);
+	ispprev_obj.shadow_update = 1;
+	spin_unlock_irqrestore(&ispprev_obj.lock, flags);
+
 	preview_struct = userspace_add;
+
+	if (ispprev_obj.pm_state)
+		goto out_config_shadow;
 
 	if (ISP_ABS_PREV_LUMAENH & preview_struct->flag) {
 		if (ISP_ABS_PREV_LUMAENH & preview_struct->update) {
@@ -302,23 +312,6 @@ int omap34xx_isp_preview_config(void *userspace_add)
 		params->features &= ~PREV_HORZ_MEDIAN_FILTER;
 	}
 
-	if (ISP_ABS_PREV_CFA & preview_struct->flag) {
-		if (ISP_ABS_PREV_CFA & preview_struct->update) {
-			if (copy_from_user(&prev_cfa_t,
-					   (struct ispprev_cfa *)
-					   preview_struct->prev_cfa,
-					   sizeof(struct ispprev_cfa)))
-				goto err_copy_from_user;
-
-			isppreview_config_cfa(prev_cfa_t);
-		}
-		isppreview_enable_cfa(1);
-		params->features |= PREV_CFA;
-	} else if (ISP_ABS_PREV_CFA & preview_struct->update) {
-		isppreview_enable_cfa(0);
-		params->features &= ~PREV_CFA;
-	}
-
 	if (ISP_ABS_PREV_CHROMA_SUPP & preview_struct->flag) {
 		if (ISP_ABS_PREV_CHROMA_SUPP & preview_struct->update) {
 			if (copy_from_user(&csup_t,
@@ -335,36 +328,12 @@ int omap34xx_isp_preview_config(void *userspace_add)
 		params->features &= ~PREV_CHROMA_SUPPRESS;
 	}
 
-	if (ISP_ABS_PREV_WB & preview_struct->update) {
-		if (copy_from_user(&prev_wbal_t, (struct ispprev_wbal *)
-				   preview_struct->prev_wbal,
-				   sizeof(struct ispprev_wbal)))
-			goto err_copy_from_user;
-		isppreview_config_whitebalance(prev_wbal_t);
-	}
-
 	if (ISP_ABS_PREV_BLKADJ & preview_struct->update) {
 		if (copy_from_user(&prev_blkadj_t, (struct ispprev_blkadjl *)
 				   preview_struct->prev_blkadj,
 				   sizeof(struct ispprev_blkadj)))
 			goto err_copy_from_user;
 		isppreview_config_blkadj(prev_blkadj_t);
-	}
-
-	if (ISP_ABS_PREV_RGB2RGB & preview_struct->update) {
-		if (copy_from_user(&rgb2rgb_t, (struct ispprev_rgbtorgb *)
-				   preview_struct->rgb2rgb,
-				   sizeof(struct ispprev_rgbtorgb)))
-			goto err_copy_from_user;
-		isppreview_config_rgb_blending(rgb2rgb_t);
-	}
-
-	if (ISP_ABS_PREV_COLOR_CONV & preview_struct->update) {
-		if (copy_from_user(&prev_csc_t, (struct ispprev_csc *)
-				   preview_struct->prev_csc,
-				   sizeof(struct ispprev_csc)))
-			goto err_copy_from_user;
-		isppreview_config_rgb_to_ycbcr(prev_csc_t);
 	}
 
 	if (ISP_ABS_PREV_YC_LIMIT & preview_struct->update) {
@@ -399,19 +368,52 @@ int omap34xx_isp_preview_config(void *userspace_add)
 		params->features &= ~PREV_GAMMA_BYPASS;
 	}
 
+out_config_shadow:
+	if (ISP_ABS_PREV_RGB2RGB & preview_struct->update) {
+		if (copy_from_user(&params->rgb2rgb,
+				   (struct ispprev_rgbtorgb *)
+				   preview_struct->rgb2rgb,
+				   sizeof(struct ispprev_rgbtorgb)))
+			goto err_copy_from_user;
+		/* The function call above prevents compiler from reordering
+		 * writes so that the flag below is always set after
+		 * ispprev_obj.params.rgb2rgb is written to. */
+		ispprev_obj.update_rgb_blending = 1;
+	}
+
+	if (ISP_ABS_PREV_COLOR_CONV & preview_struct->update) {
+		if (copy_from_user(&params->rgb2ycbcr, (struct ispprev_csc *)
+				   preview_struct->prev_csc,
+				   sizeof(struct ispprev_csc)))
+			goto err_copy_from_user;
+		/* Same here... this flag has to be set after rgb2ycbcr
+		 * structure is written to. */
+		ispprev_obj.update_rgb_to_ycbcr = 1;
+	}
+
 	isp_table_update.update = preview_struct->update;
 	isp_table_update.flag = preview_struct->flag;
 	isp_table_update.prev_nf = preview_struct->prev_nf;
 	isp_table_update.red_gamma = preview_struct->red_gamma;
 	isp_table_update.green_gamma = preview_struct->green_gamma;
 	isp_table_update.blue_gamma = preview_struct->blue_gamma;
+	isp_table_update.prev_cfa = preview_struct->prev_cfa;
+	isp_table_update.prev_wbal = preview_struct->prev_wbal;
 
 	if (omap34xx_isp_tables_update(&isp_table_update))
 		goto err_copy_from_user;
 
+	spin_lock_irqsave(&ispprev_obj.lock, flags);
+	ispprev_obj.shadow_update = 0;
+	spin_unlock_irqrestore(&ispprev_obj.lock, flags);
+
 	return 0;
 
 err_copy_from_user:
+	spin_lock_irqsave(&ispprev_obj.lock, flags);
+	ispprev_obj.shadow_update = 0;
+	spin_unlock_irqrestore(&ispprev_obj.lock, flags);
+
 	printk(KERN_ERR "Preview Config: Copy From User Error\n");
 	return -EFAULT;
 }
@@ -425,6 +427,15 @@ EXPORT_SYMBOL_GPL(omap34xx_isp_preview_config);
 int omap34xx_isp_tables_update(struct isptables_update *isptables_struct)
 {
 	struct prev_params *params = &ispprev_obj.params;
+
+	if (ISP_ABS_PREV_WB & isptables_struct->update) {
+		if (copy_from_user(&ispprev_obj.params.wbal,
+				isptables_struct->prev_wbal,
+				sizeof(struct ispprev_wbal)))
+			goto err_copy_from_user;
+
+		ispprev_obj.wbal_update = 1;
+	}
 
 	if (ISP_ABS_TBL_NF & isptables_struct->flag) {
 		ispprev_obj.nf_enable = 1;
@@ -475,6 +486,32 @@ int omap34xx_isp_tables_update(struct isptables_update *isptables_struct)
 	} else
 		ispprev_obj.bg_update = 0;
 
+	if (ISP_ABS_PREV_CFA & isptables_struct->update) {
+		struct ispprev_cfa cfa;
+		if (isptables_struct->prev_cfa) {
+			if (copy_from_user(&cfa,
+					   isptables_struct->prev_cfa,
+					   sizeof(struct ispprev_cfa)))
+				goto err_copy_from_user;
+			if (cfa.cfa_table != NULL) {
+				if (copy_from_user(cfa_coef_table,
+						   cfa.cfa_table,
+						   sizeof(cfa_coef_table)))
+					goto err_copy_from_user;
+			}
+			cfa.cfa_table = cfa_coef_table;
+			ispprev_obj.params.cfa = cfa;
+		}
+		if (ISP_ABS_PREV_CFA & isptables_struct->flag) {
+			ispprev_obj.cfa_en = 1;
+			ispprev_obj.params.features |= PREV_CFA;
+		} else {
+			ispprev_obj.cfa_en = 0;
+			ispprev_obj.params.features &= ~PREV_CFA;
+		}
+		ispprev_obj.cfa_update = 1;
+	}
+
 	return 0;
 
 err_copy_from_user:
@@ -491,6 +528,13 @@ void isppreview_config_shadow_registers()
 {
 	u8 current_brightness_contrast;
 	int ctr;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ispprev_obj.lock, flags);
+	if (ispprev_obj.shadow_update) {
+		spin_unlock_irqrestore(&ispprev_obj.lock, flags);
+		return;
+	}
 
 	isppreview_query_brightness(&current_brightness_contrast);
 	if (current_brightness_contrast !=
@@ -507,9 +551,21 @@ void isppreview_config_shadow_registers()
 				ispprev_obj.contrast);
 		isppreview_config_contrast(ispprev_obj.contrast);
 	}
+	if (ispprev_obj.wbal_update) {
+		isppreview_config_whitebalance(ispprev_obj.params.wbal);
+		ispprev_obj.wbal_update = 0;
+	}
 	if (ispprev_obj.update_color_matrix) {
 		isppreview_config_rgb_to_ycbcr(flr_prev_csc[ispprev_obj.color]);
 		ispprev_obj.update_color_matrix = 0;
+	}
+	if (ispprev_obj.update_rgb_blending) {
+		ispprev_obj.update_rgb_blending = 0;
+		isppreview_config_rgb_blending(ispprev_obj.params.rgb2rgb);
+	}
+	if (ispprev_obj.update_rgb_to_ycbcr) {
+		ispprev_obj.update_rgb_to_ycbcr = 0;
+		isppreview_config_rgb_to_ycbcr(ispprev_obj.params.rgb2ycbcr);
 	}
 
 	if (ispprev_obj.gg_update) {
@@ -548,6 +604,12 @@ void isppreview_config_shadow_registers()
 		ispprev_obj.bg_update = 0;
 	}
 
+	if (ispprev_obj.cfa_update) {
+		ispprev_obj.cfa_update = 0;
+		isppreview_config_cfa(ispprev_obj.params.cfa);
+		isppreview_enable_cfa(ispprev_obj.cfa_en);
+	}
+
 	if (ispprev_obj.nf_update && ispprev_obj.nf_enable) {
 		isppreview_enable_noisefilter(0);
 		isp_reg_writel(0xC00,
@@ -565,6 +627,8 @@ void isppreview_config_shadow_registers()
 
 	if (ispprev_obj.nf_update && ~ispprev_obj.nf_enable)
 		isppreview_enable_noisefilter(0);
+
+	spin_unlock_irqrestore(&ispprev_obj.lock, flags);
 }
 EXPORT_SYMBOL_GPL(isppreview_config_shadow_registers);
 
@@ -688,8 +752,6 @@ int isppreview_config_datapath(enum preview_input input,
 
 	isppreview_config_ycpos(params->pix_fmt);
 
-	if (params->cfa.cfa_table != NULL)
-		isppreview_config_cfa(params->cfa);
 	if (params->csup.hypf_en == 1)
 		isppreview_config_chroma_suppression(params->csup);
 	if (params->ytable != NULL)
@@ -697,6 +759,9 @@ int isppreview_config_datapath(enum preview_input input,
 
 	if (params->gtable.redtable != NULL)
 		isppreview_config_gammacorrn(params->gtable);
+
+	ispprev_obj.cfa_update = 0;
+	isppreview_config_cfa(params->cfa);
 
 	enable = (params->features & PREV_CFA) ? 1 : 0;
 	isppreview_enable_cfa(enable);
@@ -721,6 +786,8 @@ int isppreview_config_datapath(enum preview_input input,
 	isppreview_enable_gammabypass(enable);
 
 	isppreview_config_whitebalance(params->wbal);
+	ispprev_obj.wbal_update = 0;
+
 	isppreview_config_blkadj(params->blk_adj);
 	isppreview_config_rgb_blending(params->rgb2rgb);
 	isppreview_config_rgb_to_ycbcr(params->rgb2ycbcr);
@@ -1846,6 +1913,9 @@ int __init isp_preview_init(void)
 	mutex_init(&ispprev_obj.ispprev_mutex);
 
 	/* Init values */
+	ispprev_obj.update_color_matrix = 0;
+	ispprev_obj.update_rgb_blending = 0;
+	ispprev_obj.update_rgb_to_ycbcr = 0;
 	ispprev_obj.sph = 2;
 	ispprev_obj.slv = 0;
 	ispprev_obj.color = V4L2_COLORFX_NONE;
@@ -1899,6 +1969,9 @@ int __init isp_preview_init(void)
 			      PREV_DARK_FRAME_CAPTURE |
 			      PREV_CHROMA_SUPPRESS |
 			      PREV_LUMA_ENHANCE);
+
+	spin_lock_init(&ispprev_obj.lock);
+
 	return 0;
 }
 
