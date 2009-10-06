@@ -683,8 +683,12 @@ DSP_STATUS DRV_RemoveAllRegResElements(HANDLE hPCtxt)
 	DSP_STATUS status = DSP_SOK;
 
 	while (pr_ctxt->pREGList) {
+		reg_key = pr_ctxt->pREGList;
 		status = DCD_UnregisterObject(pr_ctxt->pREGList->pUuid,
 			pr_ctxt->pREGList->objType, pr_ctxt);
+		pr_ctxt->pREGList = reg_key->next;
+		MEM_Free(reg_key->pUuid);
+		MEM_Free(reg_key);
 	}
 	return status;
 }
