@@ -489,7 +489,7 @@ err_copy_from_user:
 void isppreview_config_shadow_registers()
 {
 	u8 current_brightness_contrast;
-	int ctr, prv_disabled;
+	int ctr;
 
 	isppreview_query_brightness(&current_brightness_contrast);
 	if (current_brightness_contrast !=
@@ -509,10 +509,6 @@ void isppreview_config_shadow_registers()
 	if (update_color_matrix) {
 		isppreview_config_rgb_to_ycbcr(flr_prev_csc[ispprev_obj.color]);
 		update_color_matrix = 0;
-	}
-	if (gg_update || rg_update || bg_update || nf_update) {
-		isppreview_enable(0);
-		prv_disabled = 1;
 	}
 
 	if (gg_update) {
@@ -552,6 +548,7 @@ void isppreview_config_shadow_registers()
 	}
 
 	if (nf_update && nf_enable) {
+		isppreview_enable_noisefilter(0);
 		isp_reg_writel(0xC00,
 			       OMAP3_ISP_IOMEM_PREV, ISPPRV_SET_TBL_ADDR);
 		isp_reg_writel(prev_nf_t.spread,
@@ -565,16 +562,8 @@ void isppreview_config_shadow_registers()
 		nf_update = 0;
 	}
 
-	if (~nf_update && nf_enable)
-		isppreview_enable_noisefilter(1);
-
 	if (nf_update && ~nf_enable)
 		isppreview_enable_noisefilter(0);
-
-	if (prv_disabled) {
-		isppreview_enable(1);
-		prv_disabled = 0;
-	}
 }
 EXPORT_SYMBOL_GPL(isppreview_config_shadow_registers);
 
