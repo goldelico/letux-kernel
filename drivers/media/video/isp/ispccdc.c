@@ -1263,12 +1263,12 @@ int ispccdc_config_size(u32 input_w, u32 input_h, u32 output_w, u32 output_h)
 		       ISPCCDC_VERT_LINES);
 	isp_reg_writel((ispccdc_obj.ccdcin_woffset
 			<< ISPCCDC_HORZ_INFO_SPH_SHIFT) |
-		       ((ispccdc_obj.ccdcout_w - ispccdc_obj.ccdcin_woffset - 1) <<
+		       ((ispccdc_obj.ccdcout_w - ispccdc_obj.ccdcin_woffset) <<
 			ISPCCDC_HORZ_INFO_NPH_SHIFT),
 		       OMAP3_ISP_IOMEM_CCDC,
 		       ISPCCDC_HORZ_INFO);
 	ispccdc_config_outlineoffset(ispccdc_obj.ccdcout_w * 2, 0, 0);
-	isp_reg_writel((((ispccdc_obj.ccdcout_h - 25) &
+	isp_reg_writel((((ispccdc_obj.ccdcout_h - 2) &
 			 ISPCCDC_VDINT_0_MASK) <<
 			ISPCCDC_VDINT_0_SHIFT) |
 		       (((ispccdc_obj.ccdcout_h / 2) &
