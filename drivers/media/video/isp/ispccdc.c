@@ -1182,21 +1182,20 @@ int ispccdc_try_size(u32 input_w, u32 input_h, u32 *output_w, u32 *output_h)
 	}
 
 	if (!ispccdc_obj.refmt_en
-	    && ispccdc_obj.ccdc_outfmt != CCDC_OTHERS_MEM
-	    && ispccdc_obj.ccdc_outfmt != CCDC_OTHERS_VP_MEM)
+	    && ispccdc_obj.ccdc_outfmt != CCDC_OTHERS_MEM)
 		*output_h -= 1;
 
 	if (ispccdc_obj.ccdc_outfmt == CCDC_OTHERS_VP) {
 		*output_h -= ispccdc_obj.ccdcin_hoffset;
 		*output_w -= ispccdc_obj.ccdcin_woffset;
-		*output_h &= 0xFFFFFFFE;
-		*output_w &= 0xFFFFFFFE;
 	}
 
 	if (ispccdc_obj.ccdc_outfmt == CCDC_OTHERS_MEM
 	    || ispccdc_obj.ccdc_outfmt == CCDC_OTHERS_VP_MEM) {
-		if (*output_w % 32)
+		if (*output_w % 32) {
 			*output_w -= (*output_w % 32);
+			*output_w += 32;
+		}
 	}
 
 	ispccdc_obj.ccdcout_w = *output_w;
