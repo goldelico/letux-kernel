@@ -927,9 +927,10 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 	if (irqstatus & CCDC_VD0) {
 		if (CCDC_CAPTURE(&isp_obj))
 			isp_buf_process(bufs);
-		if (!ispccdc_busy())
-			ispccdc_config_shadow_registers();
 	}
+
+	if (irqstatus & CCDC_VD1)
+		ispccdc_config_shadow_registers();
 
 	if (irqstatus & PREV_DONE) {
 		if (irqdis->isp_callbk[CBK_PREV_DONE])
