@@ -264,6 +264,21 @@ void omap_pm_cpu_set_freq(unsigned long f)
 }
 EXPORT_SYMBOL(omap_pm_cpu_set_freq);
 
+void omap_pm_set_min_mpu_freq(struct device *dev, unsigned long f)
+{
+	if (f == 0) {
+		WARN_ON(1);
+		return;
+	}
+
+	pr_debug("OMAP PM: CPUFreq requests CPU frequency to be set to %lu\n",
+		 f);
+
+	resource_request("mpu_freq", dev, f);
+	return;
+}
+EXPORT_SYMBOL(omap_pm_set_min_mpu_freq);
+
 unsigned long omap_pm_cpu_get_freq(void)
 {
 	pr_debug("OMAP PM: CPUFreq requests current CPU frequency\n");

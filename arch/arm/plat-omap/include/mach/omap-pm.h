@@ -350,12 +350,23 @@ struct cpufreq_frequency_table **omap_pm_cpu_get_freq_table(void);
 void omap_pm_cpu_set_freq(unsigned long f);
 
 /**
+ * omap_pm_set_min_mpu_freq - set the current minimum MPU frequency
+ * @f: MPU frequency in Hz
+ * @dev: struct device *
+ *
+ * Set the current minimum CPU frequency.  The actual CPU frequency
+ * used could end up higher if the DSP requested a higher OPP.
+ * Intended to be called by all Kernel components.  No
+ * return value.
+ */
+void omap_pm_set_min_mpu_freq(struct device *dev, unsigned long f);
+
+/**
  * omap_pm_cpu_get_freq - report the current CPU frequency
  *
  * Returns the current MPU frequency, or 0 upon error.
  */
 unsigned long omap_pm_cpu_get_freq(void);
-
 
 /*
  * Device context loss tracking
