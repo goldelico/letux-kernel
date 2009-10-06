@@ -935,6 +935,42 @@ static int prev_copy_params(struct prev_params *usr_params,
 	return 0;
 }
 
+static int prev_get_params(struct prev_params __user *usr_params,
+			   struct prev_device *device)
+{
+	struct prev_params usr_params_new;
+	u32 *cfa_table; /* params.cfa.cfa_table */
+	u32 *ytable; /* params.ytable */
+	u32 *redtable; /* params.gtable.redtable */
+	u32 *greentable; /* params.gtable.greentable */
+	u32 *bluetable; /* params.gtable.bluetable */
+
+	if (copy_from_user(&usr_params_new, usr_params,
+			   sizeof(struct prev_params)))
+		return -EFAULT;
+
+	/* Backup user pointers */
+	cfa_table = usr_params_new.cfa.cfa_table;
+	ytable = usr_params_new.ytable;
+	redtable = usr_params_new.gtable.redtable;
+	greentable = usr_params_new.gtable.greentable;
+	bluetable = usr_params_new.gtable.bluetable;
+
+	memcpy(&usr_params_new, device->params, sizeof(struct prev_params));
+
+	/* Restore user pointers */
+	usr_params_new.cfa.cfa_table = cfa_table;
+	usr_params_new.ytable = ytable;
+	usr_params_new.gtable.redtable = redtable;
+	usr_params_new.gtable.greentable = greentable;
+	usr_params_new.gtable.bluetable = bluetable;
+
+	if (copy_to_user(usr_params, &usr_params_new,
+			 sizeof(struct prev_params)))
+		return -EFAULT;
+	return 0;
+}
+
 /**
  * previewer_ioctl - I/O control function for Preview Wrapper
  * @inode: Inode structure associated with the Preview Wrapper.
@@ -1091,9 +1127,7 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 		break;
 
 	case PREV_GET_PARAM:
-		if (copy_to_user((struct prev_params *)arg, device->params,
-						sizeof(struct prev_params)))
-			ret = -EFAULT;
+		prev_get_params((struct prev_params *)arg, device);
 		break;
 
 	case PREV_GET_STATUS:
