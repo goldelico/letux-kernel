@@ -190,41 +190,6 @@ static struct imx046_sensor_settings sensor_settings[] = {
 		},
 	},
 
-	/* 720p_MP */
-	{
-		.clk = {
-			.pre_pll_div = 1,
-			.pll_mult = 36,
-			.post_pll_div = 1,
-			.vt_pix_clk_div = 10,
-			.vt_sys_clk_div = 1,
-		},
-		.mipi = {
-			.data_lanes = 1,
-			.ths_prepare = 6,
-			.ths_zero = 9,
-			.ths_settle_lower = 23,
-			.ths_settle_upper = 59,
-		},
-		.frame = {
-			.frame_len_lines_min = 1250,
-			.line_len_pck = 3456,
-			.x_addr_start = 360,
-			.x_addr_end = 2919,
-			.y_addr_start = 512,
-			.y_addr_end = 1951,
-			.x_output_size = 1280,
-			.y_output_size = 720,
-			.x_even_inc = 1,
-			.x_odd_inc = 3,
-			.y_even_inc = 1,
-			.y_odd_inc = 3,
-			.v_mode_add = 0,
-			.h_mode_add = 0,
-			.h_add_ave = 1,
-		},
-	},
-
 	/* 729p_MP */
 	{
 		.clk = {
@@ -247,9 +212,9 @@ static struct imx046_sensor_settings sensor_settings[] = {
 			.x_addr_start = 348,
 			.x_addr_end = 2931,
 			.y_addr_start = 503,
-			.y_addr_end = 1960,
+			.y_addr_end = 1958,
 			.x_output_size = 1292,
-			.y_output_size = 729,
+			.y_output_size = 728,
 			.x_even_inc = 1,
 			.x_odd_inc = 3,
 			.y_even_inc = 1,
