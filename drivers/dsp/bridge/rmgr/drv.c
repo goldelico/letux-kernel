@@ -1359,7 +1359,7 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 bRequest)
 							OMAP_DSP_MEM3_SIZE);
 		pResources->dwPerBase = ioremap(OMAP_PER_CM_BASE,
 							OMAP_PER_CM_SIZE);
-               pResources->dwPerPmBase = (u32)ioremap(OMAP_PER_PRM_BASE,
+               pResources->dwPerPmBase = ioremap(OMAP_PER_PRM_BASE,
                                                        OMAP_PER_PRM_SIZE);
                pResources->dwCorePmBase = (u32)ioremap(OMAP_CORE_PRM_BASE,
                                                        OMAP_CORE_PRM_SIZE);

@@ -206,12 +206,8 @@ void WMD_DEH_Notify(struct DEH_MGR *hDehMgr, u32 ulEventMask,
 	u32 memPhysical = 0;
 	u32 HW_MMU_MAX_TLB_COUNT = 31;
 	u32 extern faultAddr;
-	struct CFG_HOSTRES resources;
 	HW_STATUS hwStatus;
 
-	status = CFG_GetHostResources(
-			(struct CFG_DEVNODE *)DRV_GetFirstDevExtension(),
-			&resources);
 	if (DSP_FAILED(status))
 		DBG_Trace(DBG_LEVEL7,
 			 "**Failed to get Host Resources in MMU ISR **\n");
@@ -269,16 +265,16 @@ DBG_Trace(DBG_LEVEL6, "WMD_DEH_Notify: DSP_MMUFAULT, "
 				 "PA: 0x%x\n", pDevContext->
 				numTLBEntries, faultAddr, memPhysical);
 			if (DSP_SUCCEEDED(status)) {
-				hwStatus = HW_MMU_TLBAdd(resources.dwDmmuBase,
+				hwStatus = HW_MMU_TLBAdd(pDevContext->dwDSPMmuBase,
 					memPhysical, faultAddr,
 					HW_PAGE_SIZE_4KB, 1, &mapAttrs,
 					HW_SET, HW_SET);
 			}
 			/* send an interrupt to DSP */
-			HW_MBOX_MsgWrite(resources.dwMboxBase, MBOX_ARM2DSP,
+			HW_MBOX_MsgWrite(pDevContext->dwMailBoxBase, MBOX_ARM2DSP,
 					 MBX_DEH_CLASS | MBX_DEH_EMMU);
 			/* Clear MMU interrupt */
-			HW_MMU_EventAck(resources.dwDmmuBase,
+			HW_MMU_EventAck(pDevContext->dwDSPMmuBase,
 					 HW_MMU_TRANSLATION_FAULT);
 			break;
 #ifdef CONFIG_BRIDGE_NTFY_PWRERR
