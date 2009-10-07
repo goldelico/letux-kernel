@@ -1148,6 +1148,10 @@ static int voltagescale_vpforceupdate(u32 target_opp, u32 current_opp,
 				((target_opp_no < VDD1_OPP3)
 				? PRM_VP1_CONFIG_ERRORGAIN_OPPLOW
 				: PRM_VP1_CONFIG_ERRORGAIN_OPPHIGH);
+		prm_rmw_mod_reg_bits(OMAP3430_VC_CMD_ON_MASK,
+				(target_vsel << OMAP3430_VC_CMD_ON_SHIFT),
+				OMAP3430_GR_MOD,
+				OMAP3_PRM_VC_CMD_VAL_0_OFFSET);
 	} else if (vdd == VDD2_OPP) {
 		vp_config_offs = OMAP3_PRM_VP2_CONFIG_OFFSET;
 		vp_tranxdone_st = OMAP3430_VP2_TRANXDONE_ST;
@@ -1155,6 +1159,10 @@ static int voltagescale_vpforceupdate(u32 target_opp, u32 current_opp,
 				((target_opp_no < VDD2_OPP3)
 				? PRM_VP2_CONFIG_ERRORGAIN_OPPLOW
 				: PRM_VP2_CONFIG_ERRORGAIN_OPPHIGH);
+		prm_rmw_mod_reg_bits(OMAP3430_VC_CMD_ON_MASK,
+				(target_vsel << OMAP3430_VC_CMD_ON_SHIFT),
+				OMAP3430_GR_MOD,
+				OMAP3_PRM_VC_CMD_VAL_1_OFFSET);
 	} else {
 		pr_warning("Wrong VDD passed.VDD %d does not exist\n", vdd);
 		return -1;
