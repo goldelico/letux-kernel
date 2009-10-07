@@ -955,10 +955,10 @@ static void omap_mmc_request(struct mmc_host *mmc, struct mmc_request *req)
 		if (host->pdata->set_vdd1_opp)
 			host->pdata->set_vdd1_opp(host->dev, VDD1_OPP3_FREQ);
 
+	del_timer_sync(&host->inact_timer);
 	omap_hsmmc_enable_clks(host);
 
 	mmc_omap_prepare_data(host, req);
-	del_timer_sync(&host->inact_timer);
 	mmc_omap_start_command(host, req->cmd, req->data);
 }
 
