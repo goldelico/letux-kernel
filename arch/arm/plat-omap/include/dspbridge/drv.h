@@ -168,12 +168,6 @@ enum GPP_PROC_RES_STATE {
 	PROC_RES_FREED
 } ;
 
-struct REG_VALUES {
-	struct DSP_UUID *pUuid;
-	enum DSP_DCDOBJTYPE objType;
-	struct REG_VALUES *next;
-} ;
-
 /* Process Context */
 struct PROCESS_CONTEXT{
 	/* Process State */
@@ -193,9 +187,6 @@ struct PROCESS_CONTEXT{
 
 	/* Stream resources */
 	struct STRM_RES_OBJECT *pSTRMList;
-
-	/* Register resources */
-	struct REG_VALUES *pREGList;
 } ;
 #endif
 

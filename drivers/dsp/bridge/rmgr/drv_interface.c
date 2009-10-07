@@ -604,7 +604,8 @@ static int bridge_release(struct inode *ip, struct file *filp)
 	if (pr_ctxt) {
 		flush_signals(current);
 		DRV_RemoveAllResources(pr_ctxt);
-		PROC_Detach(pr_ctxt);
+		if (pr_ctxt->hProcessor)
+			PROC_Detach(pr_ctxt);
 		MEM_Free(pr_ctxt);
 		filp->private_data = NULL;
 	}
@@ -695,7 +696,6 @@ DSP_STATUS DRV_RemoveAllResources(HANDLE hPCtxt)
 		DRV_RemoveAllSTRMResElements(pCtxt);
 		DRV_RemoveAllNodeResElements(pCtxt);
 		DRV_RemoveAllDMMResElements(pCtxt);
-		DRV_RemoveAllRegResElements(pCtxt);
 		DRV_ProcUpdatestate(pCtxt, PROC_RES_FREED);
 	}
 	return status;
