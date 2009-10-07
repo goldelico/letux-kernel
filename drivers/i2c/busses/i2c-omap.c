@@ -37,6 +37,7 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <mach/omap-pm.h>
 
 /* I2C controller revisions */
 #define OMAP_I2C_REV_2			0x20
@@ -155,6 +156,9 @@
 
 #define SYSC_IDLEMODE_SMART		0x2
 #define SYSC_CLOCKACTIVITY_FCLK		0x2
+
+/* MPU wake-up latency Constraint in usec */
+#define OMAP_MPU_WAKEUP_LAT		400
 
 
 struct omap_i2c_dev {
@@ -547,8 +551,16 @@ static int omap_i2c_xfer_msg(struct i2c_adapter *adap,
 	 * REVISIT: We should abort the transfer on signals, but the bus goes
 	 * into arbitration and we're currently unable to recover from it.
 	 */
+
+	/*
+	 * REVISIT: Add a mpu wake-up latency constraint to let us wake
+	 * quickly enough for i2c transfers to work properly. Should change
+	 * the code to use a latency constraint function passed from pdata.
+	 */
+	omap_pm_set_max_mpu_wakeup_lat(dev->dev, OMAP_MPU_WAKEUP_LAT);
 	r = wait_for_completion_timeout(&dev->cmd_complete,
 					OMAP_I2C_TIMEOUT);
+	omap_pm_set_max_mpu_wakeup_lat(dev->dev, -1);
 	dev->buf_len = 0;
 	if (r < 0)
 		return r;
