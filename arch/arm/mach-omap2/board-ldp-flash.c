@@ -12,6 +12,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -65,6 +66,77 @@ struct gpmc_cs_config enet_gpmc_setting[] = {
 struct gpmc_freq_config freq_config[NO_GPMC_FREQ_SUPPORTED];
 #endif
 
+#define NAND_CMD_UNLOCK1	0x23
+#define NAND_CMD_UNLOCK2	0x24
+/**
+ * @brief platform specific unlock function
+ *
+ * @param mtd - mtd info
+ * @param ofs - offset to start unlock from
+ * @param len - length to unlock
+ *
+ * @return - unlock status
+ */
+static int omap_zoom2_nand_unlock(struct mtd_info *mtd, loff_t ofs, size_t len)
+{
+	int ret = 0;
+	int chipnr;
+	int status;
+	unsigned long page;
+	struct nand_chip *this = mtd->priv;
+	printk(KERN_INFO "nand_unlock: start: %08x, length: %d!\n",
+			(int)ofs, (int)len);
+
+	/* select the NAND device */
+	chipnr = (int)(ofs >> this->chip_shift);
+	this->select_chip(mtd, chipnr);
+	/* check the WP bit */
+	this->cmdfunc(mtd, NAND_CMD_STATUS, -1, -1);
+	if ((this->read_byte(mtd) & 0x80) == 0) {
+		printk(KERN_ERR "nand_unlock: Device is write protected!\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if ((ofs & (mtd->writesize - 1)) != 0) {
+		printk(KERN_ERR "nand_unlock: Start address must be"
+				"beginning of nand page!\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (len == 0 || (len & (mtd->writesize - 1)) != 0) {
+		printk(KERN_ERR "nand_unlock: Length must be a multiple of "
+				"nand page size!\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/* submit address of first page to unlock */
+	page = (unsigned long)(ofs >> this->page_shift);
+	this->cmdfunc(mtd, NAND_CMD_UNLOCK1, -1, page & this->pagemask);
+
+	/* submit ADDRESS of LAST page to unlock */
+	page += (unsigned long)((ofs + len) >> this->page_shift) ;
+	this->cmdfunc(mtd, NAND_CMD_UNLOCK2, -1, page & this->pagemask);
+
+	/* call wait ready function */
+	status = this->waitfunc(mtd, this);
+	udelay(1000);
+	/* see if device thinks it succeeded */
+	if (status & 0x01) {
+		/* there was an error */
+		printk(KERN_ERR "nand_unlock: error status =0x%08x ", status);
+		ret = -EIO;
+		goto out;
+	}
+
+ out:
+	/* de-select the NAND device */
+	this->select_chip(mtd, -1);
+	return ret;
+}
+
 static struct mtd_partition ldp_nand_partitions[] = {
 	/* All the partition sizes are listed in terms of NAND block size */
 	{
@@ -113,6 +185,7 @@ static struct omap_nand_platform_data ldp_nand_data = {
 	.nand_setup	= NULL,
 	.dma_channel	= -1,		/* disable DMA in OMAP NAND driver */
 	.dev_ready	= NULL,
+	.unlock		= omap_zoom2_nand_unlock,
 };
 
 static struct resource ldp_nand_resource = {
