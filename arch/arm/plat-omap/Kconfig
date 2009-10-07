@@ -405,6 +405,7 @@ config OMAP3_MPU_L2_CACHE_WORKAROUND
 config VOLTSCALE_VPFORCE
 	bool "Voltage scaling using VP force update method"
 	depends on ARCH_OMAP3 && PM
+	default y
 	help
 	 Say Y if you want to enable VP force update method
 	 of voltage scaling. This is the h/w recomended way
