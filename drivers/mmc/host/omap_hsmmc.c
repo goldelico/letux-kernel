@@ -93,6 +93,9 @@
 #define SRD			(1 << 26)
 #define RESETDONE		(1 << 0)
 
+#define VDD1_OPP3_FREQ		500000000
+#define VDD1_OPP1_FREQ		125000000
+
 /*
  * FIXME: Most likely all the data using these _DEVID defines should come
  * from the platform_data, or implemented in controller and slot specific
@@ -135,6 +138,7 @@ struct mmc_omap_host {
 	struct	clk		*dbclk;
 	struct	semaphore	sem;
 	struct	work_struct	mmc_carddetect_work;
+	struct  work_struct	mmc_opp_set_work;
 	void	__iomem		*base;
 	resource_size_t		mapbase;
 	unsigned int		id;
@@ -480,6 +484,7 @@ omap_hsmmc_inact_timer(unsigned long data)
 	struct mmc_omap_host *host = (struct mmc_omap_host *) data;
 
 	omap_hsmmc_disable_clks(host);
+	schedule_work(&host->mmc_opp_set_work);
 }
 
 /*
@@ -716,6 +721,15 @@ static void mmc_omap_detect(struct work_struct *work)
 	}
 }
 
+static void mmc_omap_opp_setup(struct work_struct *work)
+{
+	struct mmc_omap_host *host = container_of(work, struct mmc_omap_host,
+		mmc_opp_set_work);
+
+	if (host->pdata->set_vdd1_opp)
+		host->pdata->set_vdd1_opp(host->dev, VDD1_OPP1_FREQ);
+}
+
 /*
  * ISR for handling card insertion and removal
  */
@@ -936,6 +950,10 @@ static void omap_mmc_request(struct mmc_host *mmc, struct mmc_request *req)
 
 	WARN_ON(host->mrq != NULL);
 	host->mrq = req;
+
+	if (!host->clks_enabled)
+		if (host->pdata->set_vdd1_opp)
+			host->pdata->set_vdd1_opp(host->dev, VDD1_OPP3_FREQ);
 
 	omap_hsmmc_enable_clks(host);
 
@@ -1168,6 +1186,7 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 #endif
 	platform_set_drvdata(pdev, host);
 	INIT_WORK(&host->mmc_carddetect_work, mmc_omap_detect);
+	INIT_WORK(&host->mmc_opp_set_work, mmc_omap_opp_setup);
 
 	mmc->ops	= &mmc_omap_ops;
 	mmc->f_min	= 400000;

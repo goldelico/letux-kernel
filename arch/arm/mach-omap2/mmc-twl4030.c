@@ -29,6 +29,7 @@
 #endif
 
 #include "mmc-twl4030.h"
+#include <mach/omap-pm.h>
 
 
 #if defined(CONFIG_REGULATOR) && \
@@ -410,6 +411,7 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 		mmc->dma_mask = 0xffffffff;
 		mmc->init = twl_mmc_late_init;
 		mmc->context_loss = get_last_off_on_transaction_id;
+		mmc->set_vdd1_opp = omap_pm_set_min_mpu_freq;
 
 		/* note: twl4030 card detect GPIOs can disable VMMCx ... */
 		if (gpio_is_valid(c->gpio_cd)) {
