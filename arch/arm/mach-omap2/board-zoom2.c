@@ -25,6 +25,7 @@
 #include <linux/i2c/twl4030.h>
 #include <linux/interrupt.h>
 #include <linux/regulator/machine.h>
+#include <linux/switch.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -478,6 +479,19 @@ static struct platform_device zoom2_vout_device = {
 	.id		= -1,
 };
 
+static struct gpio_switch_platform_data headset_switch_data = {
+	.name		= "h2w",
+	.gpio		= OMAP_MAX_GPIO_LINES + 2, /* TWL4030 GPIO_2 */
+};
+
+static struct platform_device headset_switch_device = {
+	.name		= "switch-gpio",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &headset_switch_data,
+	}
+};
+
 static struct platform_device *zoom2_devices[] __initdata = {
 	&zoom2_dss_device,
 	&zoom2_smc911x_device,
@@ -488,6 +502,7 @@ static struct platform_device *zoom2_devices[] __initdata = {
 	&omap_hdq_device,
 #endif
 	&zoom2_vout_device,
+	&headset_switch_device,
 };
 
 static inline void __init zoom2_init_smc911x(void)
