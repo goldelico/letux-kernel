@@ -158,6 +158,12 @@ static void omap3_core_save_context(void)
 	omap_ctrl_readl(OMAP343X_CONTROL_PADCONF_OFF);
 	control_padconf_off |= START_PADCONF_SAVE;
 	omap_ctrl_writel(control_padconf_off, OMAP343X_CONTROL_PADCONF_OFF);
+	/* Due to Silicon Bug on context restore it is found
+	 * that the CONTROL_PAD_CONF_ETK14 register is not saved into
+	 * scratch pad memory sometimes. To rectify it delay acess by Mpu
+	 * for 300us for scm to finish saving task
+	 */
+	udelay(300);
 	/* wait for the save to complete */
 	while (!omap_ctrl_readl(OMAP343X_CONTROL_GENERAL_PURPOSE_STATUS)
 			& PADCONF_SAVE_DONE)
