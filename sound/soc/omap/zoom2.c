@@ -89,6 +89,12 @@ static int zoom2_i2s_hw_params(struct snd_pcm_substream *substream,
 	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_MCBSP_SYSCLK_CLKS_EXT,
 			0, SND_SOC_CLOCK_OUT);
 
+	/*
+	 * Set headset EXTMUTE signal to ON to make sure we
+	 * get correct headset status
+	 */
+	gpio_direction_output(ZOOM2_HEADSET_EXTMUTE_GPIO, 1);
+
 	return 0;
 }
 
@@ -564,7 +570,8 @@ static int __init zoom2_soc_init(void)
 	gpio_direction_output(ZOOM2_HEADSET_MUX_GPIO, 0);
 
 	BUG_ON(gpio_request(ZOOM2_HEADSET_EXTMUTE_GPIO, "ext_mute") < 0);
-	gpio_direction_output(ZOOM2_HEADSET_EXTMUTE_GPIO, 0);
+	/* set EXTMUTE on for initial headset detection */
+	gpio_direction_output(ZOOM2_HEADSET_EXTMUTE_GPIO, 1);
 
 	return 0;
 
