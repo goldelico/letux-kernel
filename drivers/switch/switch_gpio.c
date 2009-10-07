@@ -111,7 +111,8 @@ static int gpio_switch_probe(struct platform_device *pdev)
 	}
 
 	ret = request_irq(switch_data->irq, gpio_irq_handler,
-			  IRQF_TRIGGER_LOW, pdev->name, switch_data);
+			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+			pdev->name, switch_data);
 	if (ret < 0)
 		goto err_request_irq;
 
@@ -163,7 +164,11 @@ static void __exit gpio_switch_exit(void)
 	platform_driver_unregister(&gpio_switch_driver);
 }
 
+#ifndef MODULE
+late_initcall(gpio_switch_init);
+#else
 module_init(gpio_switch_init);
+#endif
 module_exit(gpio_switch_exit);
 
 MODULE_AUTHOR("Mike Lockwood <lockwood@android.com>");
