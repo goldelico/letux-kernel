@@ -86,7 +86,7 @@
 #define MAX_PIXELS_PER_LINE     2048
 #define VRFB_TX_TIMEOUT         1000
 
-#define OMAP_VOUT_MAX_BUF_SIZE (VID_MAX_WIDTH*VID_MAX_HEIGHT*4)
+#define OMAP_VOUT_MAX_BUF_SIZE (VID_MAX_WIDTH*VID_MAX_HEIGHT*2)
 
 /* IRQ Bits mask of DSS */
 #define OMAP_VOUT_IRQ_MASK (DISPC_IRQ_VSYNC | DISPC_IRQ_EVSYNC_EVEN | \
@@ -95,8 +95,8 @@
 
 static struct videobuf_queue_ops video_vbq_ops;
 
-static u32 video1_numbuffers = 3;
-static u32 video2_numbuffers = 3;
+static u32 video1_numbuffers = OMAP_VOUT_MAX_BUFFERS;
+static u32 video2_numbuffers = OMAP_VOUT_MAX_BUFFERS;
 static u32 video1_bufsize = OMAP_VOUT_MAX_BUF_SIZE;
 static u32 video2_bufsize = OMAP_VOUT_MAX_BUF_SIZE;
 static u32 vid1_static_vrfb_alloc;
@@ -148,7 +148,7 @@ static void omap_vout_cleanup_device(struct omap_vout_device *vout);
  * Maximum amount of memory to use for rendering buffers.
  * Default is enough to four (RGB24) DVI 720P buffers.
  */
-#define MAX_ALLOWED_VIDBUFFERS            4
+#define MAX_ALLOWED_VIDBUFFERS            6
 
 /* list of image formats supported by OMAP2 video pipelines */
 const static struct v4l2_fmtdesc omap_formats[] = {
@@ -372,7 +372,7 @@ static void omap_vout_release_vrfb(struct omap_vout_device *vout)
 {
 	int i;
 
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < OMAP_VOUT_MAX_VBUF_CTXT; i++)
 		omap_vrfb_release_ctx(&vout->vrfb_context[i]);
 
 	if (vout->vrfb_dma_tx.req_status == DMA_CHAN_ALLOTED) {
@@ -424,7 +424,7 @@ static void omap_vout_free_vrfb_buffers(struct omap_vout_device *vout)
 {
 	int j;
 
-	for (j = 0; j < 4; j++) {
+	for (j = 0; j < OMAP_VOUT_MAX_BUFFERS; j++) {
 		omap_vout_free_buffer(vout->smsshado_virt_addr[j],
 				vout->smsshado_phy_addr[j],
 				vout->smsshado_size);
@@ -876,11 +876,10 @@ static int omap_vout_buffer_setup(struct videobuf_queue *q, unsigned int *count,
 
 	startindex = (vout->vid == OMAP_VIDEO1) ?
 		video1_numbuffers : video2_numbuffers;
-	if (V4L2_MEMORY_MMAP == vout->memory && *count < startindex)
-		*count = startindex;
 
-	if ((rotation_enabled(vout->rotation)) && *count > 4)
-		*count = 4;
+	if ((rotation_enabled(vout->rotation)) &&
+				*count > OMAP_VOUT_MAX_BUFFERS)
+		*count = OMAP_VOUT_MAX_BUFFERS;
 
 	/* If rotation is enabled, allocate memory for VRFB space also */
 	if (rotation_enabled(vout->rotation)) {
@@ -917,7 +916,11 @@ static int omap_vout_buffer_setup(struct videobuf_queue *q, unsigned int *count,
 		vout->buf_virt_addr[i] = virt_addr;
 		vout->buf_phy_addr[i] = phy_addr;
 	}
-	*count = vout->buffer_allocated = i;
+	if (startindex < *count)
+		*count = vout->buffer_allocated = i;
+	else
+		*count = vout->buffer_allocated = *count;
+
 	return 0;
 }
 
@@ -941,7 +944,7 @@ static void omap_vout_free_allbuffers(struct omap_vout_device *vout)
 	 * during reqbufs.  Don't free if init time allocated
 	 */
 	if (!vout->vrfb_static_allocation) {
-		for (i = 0; i < 4; i++) {
+		for (i = 0; i < OMAP_VOUT_MAX_BUFFERS; i++) {
 			if (vout->smsshado_virt_addr[i]) {
 				omap_vout_free_buffer(
 						vout->smsshado_virt_addr[i],
@@ -2187,7 +2190,7 @@ static int __init omap_vout_setup_video_bufs(struct platform_device *pdev,
 	int image_width, image_height;
 	unsigned numbuffers;
 	struct video_device *vfd;
-	int static_vrfb_allocation = 0, vrfb_num_bufs = 4;
+	int static_vrfb_allocation = 0, vrfb_num_bufs = OMAP_VOUT_MAX_BUFFERS;
 
 	vout = vid_dev->vouts[vid_num];
 	vfd = vout->vfd;
@@ -2206,7 +2209,7 @@ static int __init omap_vout_setup_video_bufs(struct platform_device *pdev,
 		}
 	}
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < OMAP_VOUT_MAX_VBUF_CTXT; i++) {
 
 		if (omap_vrfb_request_ctx(&vout->vrfb_context[i])) {
 			printk(KERN_INFO VOUT_NAME ": VRFB Region allocation \
@@ -2538,16 +2541,13 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 			spin_unlock(&vout->vbq_lock);
 			return;
 		}
-
 		vout->next_frm = list_entry(vout->dma_queue.next,
 					struct videobuf_buffer, queue);
 		list_del(&vout->next_frm->queue);
 
 		vout->next_frm->state = VIDEOBUF_ACTIVE;
-
 		addr = (unsigned long) vout->queued_buf_addr[vout->next_frm->i]
 			+ vout->cropped_offset;
-
 		/* First save the configuration in ovelray structure */
 		r = omapvid_init(vout, addr);
 		if (r)
