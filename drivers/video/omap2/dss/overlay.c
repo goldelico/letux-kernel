@@ -534,7 +534,6 @@ static int omap_dss_unset_manager(struct omap_overlay *ovl)
 	r = ovl->wait_for_go(ovl);
 	if (r)
 		return r;
-
 	ovl->manager = NULL;
 
 	return 0;

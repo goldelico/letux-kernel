@@ -1851,6 +1851,7 @@ static int dsi_vc_send_bta(int channel)
 
 	return 0;
 }
+EXPORT_SYMBOL(dsi_vc_send_bta_sync);
 
 int dsi_vc_send_bta_sync(int channel)
 {
@@ -1871,6 +1872,7 @@ int dsi_vc_send_bta_sync(int channel)
 		r = -EIO;
 		goto err;
 	}
+	dsi_vc_config_l4(channel);
 
 	err = dsi_get_errors();
 	if (err) {

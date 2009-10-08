@@ -540,14 +540,21 @@ static int dss_mgr_wait_for_go(struct omap_overlay_manager *mgr)
 			mode = mgr->device->get_update_mode(mgr->device);
 			if (mode != OMAP_DSS_UPDATE_AUTO)
 				return 0;
-
+#ifdef CONFIG_ARCH_OMAP4
 			irq = (channel == OMAP_DSS_CHANNEL_LCD) ?
 						  DISPC_IRQ_FRAMEDONE
 						: DISPC_IRQ_FRAMEDONE2;
+#else
+			irq = DISPC_IRQ_FRAMEDONE;
+#endif
 		} else {
+#ifdef CONFIG_ARCH_OMAP4
 			irq = (channel == OMAP_DSS_CHANNEL_LCD) ?
 							DISPC_IRQ_VSYNC
 							: DISPC_IRQ_VSYNC2;
+#else
+			irq = DISPC_IRQ_VSYNC;
+#endif
 		}
 	}
 
@@ -616,14 +623,21 @@ int dss_mgr_wait_for_go_ovl(struct omap_overlay *ovl)
 			mode = dssdev->get_update_mode(dssdev);
 			if (mode != OMAP_DSS_UPDATE_AUTO)
 				return 0;
-
+#ifdef CONFIG_ARCH_OMAP4
 			irq = (channel == OMAP_DSS_CHANNEL_LCD) ?
 						DISPC_IRQ_FRAMEDONE
 						: DISPC_IRQ_FRAMEDONE2;
+#else
+			irq = DISPC_IRQ_FRAMEDONE;
+#endif
 		} else {
+#ifdef CONFIG_ARCH_OMAP4
 			irq = (channel == OMAP_DSS_CHANNEL_LCD) ?
 						DISPC_IRQ_VSYNC
 						: DISPC_IRQ_VSYNC2;
+#else
+			irq = DISPC_IRQ_VSYNC;
+#endif
 		}
 	}
 

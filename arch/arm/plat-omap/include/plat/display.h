@@ -292,6 +292,7 @@ int dsi_vc_dcs_write(int channel, u8 *data, int len);
 int dsi_vc_dcs_write_nosync(int channel, u8 *data, int len);
 int dsi_vc_dcs_read(int channel, u8 dcs_cmd, u8 *buf, int buflen);
 int dsi_vc_set_max_rx_packet_size(int channel, u16 len);
+int dsi_vc_send_bta_sync(int channel);
 int dsi_vc_send_null(int channel);
 int dsi_vc_send_bta_sync(int channel);
 
