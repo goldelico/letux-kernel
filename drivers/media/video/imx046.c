@@ -112,8 +112,8 @@ const static struct v4l2_fmtdesc imx046_formats[] = {
 
 #define NUM_CAPTURE_FORMATS ARRAY_SIZE(imx046_formats)
 
-static u32 min_exposure_time = 1000;
-static u32 max_exposure_time = 128000;
+static u32 min_exposure_time = IMX046_MIN_EXPOSURE;
+static u32 max_exposure_time = IMX046_MAX_EXPOSURE;
 static enum v4l2_power current_power_state;
 
 /* Structure of Sensor settings that change with image size */
@@ -190,41 +190,6 @@ static struct imx046_sensor_settings sensor_settings[] = {
 		},
 	},
 
-	/* 720p_MP */
-	{
-		.clk = {
-			.pre_pll_div = 1,
-			.pll_mult = 36,
-			.post_pll_div = 1,
-			.vt_pix_clk_div = 10,
-			.vt_sys_clk_div = 1,
-		},
-		.mipi = {
-			.data_lanes = 1,
-			.ths_prepare = 6,
-			.ths_zero = 9,
-			.ths_settle_lower = 23,
-			.ths_settle_upper = 59,
-		},
-		.frame = {
-			.frame_len_lines_min = 1250,
-			.line_len_pck = 3456,
-			.x_addr_start = 360,
-			.x_addr_end = 2919,
-			.y_addr_start = 512,
-			.y_addr_end = 1951,
-			.x_output_size = 1280,
-			.y_output_size = 720,
-			.x_even_inc = 1,
-			.x_odd_inc = 3,
-			.y_even_inc = 1,
-			.y_odd_inc = 3,
-			.v_mode_add = 0,
-			.h_mode_add = 0,
-			.h_add_ave = 1,
-		},
-	},
-
 	/* 729p_MP */
 	{
 		.clk = {
@@ -247,9 +212,9 @@ static struct imx046_sensor_settings sensor_settings[] = {
 			.x_addr_start = 348,
 			.x_addr_end = 2931,
 			.y_addr_start = 503,
-			.y_addr_end = 1960,
+			.y_addr_end = 1958,
 			.x_output_size = 1292,
-			.y_output_size = 729,
+			.y_output_size = 728,
 			.x_even_inc = 1,
 			.x_odd_inc = 3,
 			.y_even_inc = 1,
@@ -611,12 +576,13 @@ static int imx046_set_virtual_id(struct i2c_client *client, u32 id)
 static int imx046_set_framerate(struct v4l2_int_device *s,
 						struct v4l2_fract *fper)
 {
-	int err = 0;
+	int i, err = 0;
 	u16 isize = isize_current;
 	u32 frame_length_lines, line_time_q8;
 	struct imx046_sensor *sensor = s->priv;
 	struct i2c_client *client = sensor->i2c_client;
 	struct imx046_sensor_settings *ss;
+	struct vcontrol *lvc;
 
 	if ((fper->numerator == 0) || (fper->denominator == 0)) {
 		/* supply a default nominal_timeperframe */
@@ -656,6 +622,13 @@ static int imx046_set_framerate(struct v4l2_int_device *s,
 
 	/* Update max exposure time */
 	max_exposure_time = (line_time_q8 * (frame_length_lines - 1)) >> 8;
+
+	/* Ensure max exposure time gets updated in vcontrol array */
+	i = find_vctrl(V4L2_CID_EXPOSURE);
+	if (i >= 0) {
+		lvc = &imx046sensor_video_control[i];
+		lvc->qc.maximum = max_exposure_time;
+	}
 
 	printk(KERN_DEBUG "IMX046 Set Framerate: fper=%d/%d, "
 		"frame_len_lines=%d, max_expT=%dus\n", fper->numerator,

@@ -315,6 +315,12 @@ void isp_reg_writel(u32 reg_value, enum isp_mem_resources isp_mmio_range,
 }
 EXPORT_SYMBOL(isp_reg_writel);
 
+void isp_flush(void)
+{
+	isp_reg_writel(0, OMAP3_ISP_IOMEM_MAIN, ISP_REVISION);
+	isp_reg_readl(OMAP3_ISP_IOMEM_MAIN, ISP_REVISION);
+}
+
 /*
  *
  * V4L2 Handling
@@ -871,7 +877,7 @@ int isp_configure_interface(struct isp_interface_config *config)
 
 	/* Set sensor specific fields in CCDC and Previewer module.*/
 	ispccdc_set_wenlog(config->wenlog);
-	ispccdc_set_crop_offset(config->raw_fmt_in);
+	ispccdc_set_raw_offset(config->raw_fmt_in);
 
 	return 0;
 }
@@ -955,8 +961,11 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 					}
 				}
 			}
-			if (!isppreview_busy())
+			if (!isppreview_busy()) {
+				isppreview_enable(0);
 				isppreview_config_shadow_registers();
+				isppreview_enable(1);
+			}
 			if (!isppreview_busy())
 				isph3a_update_wb();
 			if (CCDC_PREV_CAPTURE(&isp_obj))
@@ -1034,6 +1043,7 @@ out_ignore_buff:
 
 	spin_unlock_irqrestore(&isp_obj.lock, irqflags);
 
+	isp_flush();
 #if 1
 	{
 		static const struct {

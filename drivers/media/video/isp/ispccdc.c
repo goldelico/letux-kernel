@@ -79,6 +79,7 @@ static struct isp_ccdc {
 	int lsc_state;
 	struct mutex mutexlock; /* For checking/modifying ccdc_inuse */
 	u32 wenlog;
+	enum ispccdc_raw_fmt raw_fmt_in;
 } ispccdc_obj;
 
 static struct ispccdc_lsc_config lsc_config;
@@ -284,34 +285,17 @@ void ispccdc_set_wenlog(u32 wenlog)
 EXPORT_SYMBOL(ispccdc_set_wenlog);
 
 /**
- * ispccdc_set_crop_offset - Store the component order as component offset.
+ * ispccdc_set_raw_offset - Store the component order as component offset.
  * @raw_fmt: Input data component order.
  *
  * Turns the component order into a horizontal & vertical offset and store
  * offsets to be used later.
  **/
-void ispccdc_set_crop_offset(enum ispccdc_raw_fmt raw_fmt)
+void ispccdc_set_raw_offset(enum ispccdc_raw_fmt raw_fmt)
 {
-	switch (raw_fmt) {
-	case ISPCCDC_INPUT_FMT_GR_BG:
-		ispccdc_obj.ccdcin_woffset = 1;
-		ispccdc_obj.ccdcin_hoffset = 0;
-		break;
-	case ISPCCDC_INPUT_FMT_BG_GR:
-		ispccdc_obj.ccdcin_woffset = 1;
-		ispccdc_obj.ccdcin_hoffset = 1;
-		break;
-	case ISPCCDC_INPUT_FMT_RG_GB:
-		ispccdc_obj.ccdcin_woffset = 0;
-		ispccdc_obj.ccdcin_hoffset = 0;
-		break;
-	case ISPCCDC_INPUT_FMT_GB_RG:
-		ispccdc_obj.ccdcin_woffset = 0;
-		ispccdc_obj.ccdcin_hoffset = 1;
-		break;
-	}
+	ispccdc_obj.raw_fmt_in = raw_fmt;
 }
-EXPORT_SYMBOL(ispccdc_set_crop_offset);
+EXPORT_SYMBOL(ispccdc_set_raw_offset);
 
 /**
  * ispccdc_request - Reserves the CCDC module.
@@ -660,7 +644,7 @@ int ispccdc_config_datapath(enum ccdc_input input, enum ccdc_output output)
 		syn_mode &= ~ISPCCDC_SYN_MODE_EXWEN;
 		isp_reg_and(OMAP3_ISP_IOMEM_CCDC, ISPCCDC_CFG,
 			    ~ISPCCDC_CFG_WENLOG);
-		vpcfg.bitshift_sel = BIT11_2;
+		vpcfg.bitshift_sel = BIT9_0;
 		vpcfg.freq_sel = PIXCLKBY2;
 		ispccdc_config_vp(vpcfg);
 		ispccdc_enable_vp(0);
@@ -737,6 +721,7 @@ int ispccdc_config_datapath(enum ccdc_input input, enum ccdc_output output)
 
 	ispccdc_obj.ccdc_inpfmt = input;
 	ispccdc_obj.ccdc_outfmt = output;
+	ispccdc_config_crop(0, 0, 0, 0);
 	ispccdc_print_status();
 	isp_print_status();
 	return 0;
@@ -1175,22 +1160,42 @@ int ispccdc_try_size(u32 input_w, u32 input_h, u32 *output_w, u32 *output_h)
 	else
 		*output_h = input_h;
 
+	if (ispccdc_obj.ccdc_inpfmt == CCDC_RAW) {
+		switch (ispccdc_obj.raw_fmt_in) {
+		case ISPCCDC_INPUT_FMT_GR_BG:
+			ispccdc_obj.ccdcin_woffset = 1;
+			ispccdc_obj.ccdcin_hoffset = 0;
+			break;
+		case ISPCCDC_INPUT_FMT_BG_GR:
+			ispccdc_obj.ccdcin_woffset = 1;
+			ispccdc_obj.ccdcin_hoffset = 1;
+			break;
+		case ISPCCDC_INPUT_FMT_RG_GB:
+			ispccdc_obj.ccdcin_woffset = 0;
+			ispccdc_obj.ccdcin_hoffset = 0;
+			break;
+		case ISPCCDC_INPUT_FMT_GB_RG:
+			ispccdc_obj.ccdcin_woffset = 0;
+			ispccdc_obj.ccdcin_hoffset = 1;
+			break;
+		}
+	}
+
 	if (!ispccdc_obj.refmt_en
-	    && ispccdc_obj.ccdc_outfmt != CCDC_OTHERS_MEM
-	    && ispccdc_obj.ccdc_outfmt != CCDC_OTHERS_VP_MEM)
+	    && ispccdc_obj.ccdc_outfmt != CCDC_OTHERS_MEM)
 		*output_h -= 1;
 
 	if (ispccdc_obj.ccdc_outfmt == CCDC_OTHERS_VP) {
 		*output_h -= ispccdc_obj.ccdcin_hoffset;
 		*output_w -= ispccdc_obj.ccdcin_woffset;
-		*output_h &= 0xFFFFFFFE;
-		*output_w &= 0xFFFFFFFE;
 	}
 
 	if (ispccdc_obj.ccdc_outfmt == CCDC_OTHERS_MEM
 	    || ispccdc_obj.ccdc_outfmt == CCDC_OTHERS_VP_MEM) {
-		if (*output_w % 32)
+		if (*output_w % 32) {
 			*output_w -= (*output_w % 32);
+			*output_w += 32;
+		}
 	}
 
 	ispccdc_obj.ccdcout_w = *output_w;
@@ -1258,12 +1263,12 @@ int ispccdc_config_size(u32 input_w, u32 input_h, u32 output_w, u32 output_h)
 		       ISPCCDC_VERT_LINES);
 	isp_reg_writel((ispccdc_obj.ccdcin_woffset
 			<< ISPCCDC_HORZ_INFO_SPH_SHIFT) |
-		       ((ispccdc_obj.ccdcout_w - ispccdc_obj.ccdcin_woffset - 1) <<
+		       ((ispccdc_obj.ccdcout_w - ispccdc_obj.ccdcin_woffset) <<
 			ISPCCDC_HORZ_INFO_NPH_SHIFT),
 		       OMAP3_ISP_IOMEM_CCDC,
 		       ISPCCDC_HORZ_INFO);
 	ispccdc_config_outlineoffset(ispccdc_obj.ccdcout_w * 2, 0, 0);
-	isp_reg_writel((((ispccdc_obj.ccdcout_h - 25) &
+	isp_reg_writel((((ispccdc_obj.ccdcout_h - 2) &
 			 ISPCCDC_VDINT_0_MASK) <<
 			ISPCCDC_VDINT_0_SHIFT) |
 		       (((ispccdc_obj.ccdcout_h / 2) &
