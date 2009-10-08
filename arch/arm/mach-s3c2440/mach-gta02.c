@@ -463,11 +463,11 @@ static void gta02_udc_command(enum s3c2410_udc_cmd_e cmd)
 	switch (cmd) {
 	case S3C2410_UDC_P_ENABLE:
 		pr_debug("%s S3C2410_UDC_P_ENABLE\n", __func__);
-		gpio_direction_output(GTA02_GPIO_USB_PULLUP, 1);
+		gpio_set_value(GTA02_GPIO_USB_PULLUP, 1);
 		break;
 	case S3C2410_UDC_P_DISABLE:
 		pr_debug("%s S3C2410_UDC_P_DISABLE\n", __func__);
-		gpio_direction_output(GTA02_GPIO_USB_PULLUP, 0);
+		gpio_set_value(GTA02_GPIO_USB_PULLUP, 0);
 		break;
 	case S3C2410_UDC_P_RESET:
 		pr_debug("%s S3C2410_UDC_P_RESET\n", __func__);
@@ -808,12 +808,27 @@ static void gta02_hijack_gpb(void)
 	s3c24xx_gpios[1].chip.get = gta02_gpb_get;
 }
 
+static void gta02_request_gpios(void)
+{
+	int ret;
+	ret = gpio_request(GTA02_GPIO_USB_PULLUP, "USB pullup");
+	if (ret) {
+		printk(KERN_ERR "Failed to request USB pullup gpio pin: %d\n", ret);
+	} else {
+		ret = gpio_direction_output(GTA02_GPIO_USB_PULLUP, 0);
+		if (ret)
+			printk(KERN_ERR "Failed to set USB pullup gpio direction: %d\n", ret);
+    }
+}
+
 static void __init gta02_machine_init(void)
 {
 	/* Set the panic callback to make AUX LED blink at ~5Hz. */
 	panic_blink = gta02_panic_blink;
 
 	gta02_hijack_gpb();
+
+	gta02_request_gpios();
 
 	s3c_pm_init();
 
