@@ -33,6 +33,7 @@
 #include "mcpdm.h"
 #include "omap-mcpdm.h"
 #include "omap-pcm.h"
+#include "../codecs/abe-twl6030.h"
 #include "../codecs/twl6030.h"
 
 static struct snd_soc_dai_link sdp4430_dai;
