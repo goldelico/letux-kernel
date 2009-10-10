@@ -151,10 +151,10 @@ static int sdp4430_twl6030_init(struct snd_soc_codec *codec)
 
 /* Digital audio interface glue - connects codec <--> CPU */
 static struct snd_soc_dai_link sdp4430_dai = {
-	.name = "TWL6030",
-	.stream_name = "TWL6030",
+	.name = "ABE-TWL6030",
+	.stream_name = "ABE-TWL6030",
 	.cpu_dai = &omap_mcpdm_dai,
-	.codec_dai = &twl6030_dai,
+	.codec_dai = &abe_dai,
 	.init = sdp4430_twl6030_init,
 };
 
@@ -169,7 +169,7 @@ static struct snd_soc_card snd_soc_sdp4430 = {
 /* Audio subsystem */
 static struct snd_soc_device sdp4430_snd_devdata = {
 	.card = &snd_soc_sdp4430,
-	.codec_dev = &soc_codec_dev_twl6030,
+	.codec_dev = &soc_codec_dev_abe_twl6030,
 };
 
 static struct platform_device *sdp4430_snd_device;

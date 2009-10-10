@@ -119,7 +119,7 @@
 #endif
 
 #if defined(CONFIG_TWL4030_CODEC) || defined(CONFIG_TWL4030_CODEC_MODULE) ||\
-	defined(CONFIG_SND_SOC_TWL6030) || defined(CONFIG_SND_SOC_TWL6030_MODULE)
+	defined(CONFIG_SND_SOC_ABE_TWL6030) || defined(CONFIG_SND_SOC_TWL6030_MODULE)
 #define twl_has_codec()	true
 #else
 #define twl_has_codec()	false

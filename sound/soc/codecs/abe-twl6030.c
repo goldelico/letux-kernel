@@ -1,5 +1,5 @@
 /*
- * ALSA SoC TWL6030 codec driver
+ * ALSA SoC ABE-TWL6030 codec driver
  *
  * Author:      Misael Lopez Cruz <x0052729@ti.com>
  *
@@ -38,9 +38,10 @@
 #include <sound/tlv.h>
 
 #include "twl6030.h"
+#include "abe-twl6030.h"
+#include "abe/abe_main.h"
 
-#define TWL6030_RATES	 (SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000)
-#define TWL6030_FORMATS	 (SNDRV_PCM_FMTBIT_S32_LE)
+#define ABE_FORMATS	 (SNDRV_PCM_FMTBIT_S32_LE)
 
 /* codec private data */
 struct twl6030_data {
@@ -248,6 +249,11 @@ static void twl6030_init_vdd_regs(struct snd_soc_codec *codec)
 		reg = twl6030_vdd_reg[i];
 		twl6030_write(codec, reg, cache[reg]);
 	}
+}
+
+static void abe_init_chip(struct snd_soc_codec *codec)
+{
+	abe_reset_hal();
 }
 
 /* twl6030 codec manual power-up sequence */
@@ -616,7 +622,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"HFR", NULL, "Handsfree Right Driver"},
 };
 
-static int twl6030_add_widgets(struct snd_soc_codec *codec)
+static int abe_twl6030_add_widgets(struct snd_soc_codec *codec)
 {
 	snd_soc_dapm_new_controls(codec, twl6030_dapm_widgets,
 				 ARRAY_SIZE(twl6030_dapm_widgets));
@@ -660,7 +666,7 @@ static int twl6030_power_up_completion(struct snd_soc_codec *codec,
 	return 0;
 }
 
-static int twl6030_set_bias_level(struct snd_soc_codec *codec,
+static int abe_twl6030_set_bias_level(struct snd_soc_codec *codec,
 				enum snd_soc_bias_level level)
 {
 	struct twl6030_data *priv = codec->private_data;
@@ -740,6 +746,8 @@ static struct snd_pcm_hw_constraint_list lp_constraints = {
 };
 
 static unsigned int hp_rates[] = {
+	8000,
+	16000,
 	48000,
 };
 
@@ -747,75 +755,6 @@ static struct snd_pcm_hw_constraint_list hp_constraints = {
 	.count	= ARRAY_SIZE(hp_rates),
 	.list	= hp_rates,
 };
-
-static int twl6030_startup(struct snd_pcm_substream *substream,
-			struct snd_soc_dai *dai)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_device *socdev = rtd->socdev;
-	struct snd_soc_codec *codec = socdev->card->codec;
-	struct twl6030_data *priv = codec->private_data;
-
-	if (!priv->sysclk) {
-		dev_err(codec->dev,
-			"no mclk configured, call set_sysclk() on init\n");
-		return -EINVAL;
-	}
-
-	/*
-	 * capture is not supported at 17.64 MHz,
-	 * it's reserved for headset low-power playback scenario
-	 */
-	if ((priv->sysclk == 17640000) && substream->stream) {
-		dev_err(codec->dev,
-			"capture mode is not supported at %dHz\n",
-			priv->sysclk);
-		return -EINVAL;
-	}
-
-	snd_pcm_hw_constraint_list(substream->runtime, 0,
-				SNDRV_PCM_HW_PARAM_RATE,
-				priv->sysclk_constraints);
-
-	return 0;
-}
-
-static int twl6030_hw_params(struct snd_pcm_substream *substream,
-			struct snd_pcm_hw_params *params,
-			struct snd_soc_dai *dai)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_device *socdev = rtd->socdev;
-	struct snd_soc_codec *codec = socdev->card->codec;
-	struct twl6030_data *priv = codec->private_data;
-	u8 lppllctl;
-	int rate;
-
-	/* nothing to do for high-perf pll, it supports only 48 kHz */
-	if (priv->pll == TWL6030_HPPLL_ID)
-		return 0;
-
-	lppllctl = twl6030_read_reg_cache(codec, TWL6030_REG_LPPLLCTL);
-
-	rate = params_rate(params);
-	switch (rate) {
-	case 44100:
-		lppllctl |= TWL6030_LPLLFIN;
-		priv->sysclk = 17640000;
-		break;
-	case 48000:
-		lppllctl &= ~TWL6030_LPLLFIN;
-		priv->sysclk = 19200000;
-		break;
-	default:
-		dev_err(codec->dev, "unsupported rate %d\n", rate);
-		return -EINVAL;
-	}
-
-	twl6030_write(codec, TWL6030_REG_LPPLLCTL, lppllctl);
-
-	return 0;
-}
 
 static int twl6030_trigger(struct snd_pcm_substream *substream,
 			int cmd, struct snd_soc_dai *dai)
@@ -951,58 +890,297 @@ static int twl6030_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 
 	return 0;
 }
-
-static struct snd_soc_dai_ops twl6030_dai_ops = {
-	.startup	= twl6030_startup,
-	.hw_params	= twl6030_hw_params,
-	.trigger	= twl6030_trigger,
-	.set_sysclk	= twl6030_set_dai_sysclk,
-};
-
-struct snd_soc_dai twl6030_dai = {
-	.name = "twl6030",
-	.playback = {
-		.stream_name = "Playback",
-		.channels_min = 1,
-		.channels_max = 4,
-		.rates = TWL6030_RATES,
-		.formats = TWL6030_FORMATS,
-	},
-	.capture = {
-		.stream_name = "Capture",
-		.channels_min = 1,
-		.channels_max = 2,
-		.rates = TWL6030_RATES,
-		.formats = TWL6030_FORMATS,
-	},
-	.ops = &twl6030_dai_ops,
-};
-EXPORT_SYMBOL_GPL(twl6030_dai);
-
-static int twl6030_suspend(struct platform_device *pdev, pm_message_t state)
+static int abe_mm_startup(struct snd_pcm_substream *substream,
+			struct snd_soc_dai *dai)
 {
-	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_device *socdev = rtd->socdev;
 	struct snd_soc_codec *codec = socdev->card->codec;
+	struct twl6030_data *priv = codec->private_data;
 
-	twl6030_set_bias_level(codec, SND_SOC_BIAS_OFF);
+	if (!priv->sysclk) {
+		dev_err(codec->dev,
+			"no mclk configured, call set_sysclk() on init\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * capture is not supported at 17.64 MHz,
+	 * it's reserved for headset low-power playback scenario
+	 */
+	if ((priv->sysclk == 17640000) && substream->stream) {
+		dev_err(codec->dev,
+			"capture mode is not supported at %dHz\n",
+			priv->sysclk);
+		return -EINVAL;
+	}
+
+	snd_pcm_hw_constraint_list(substream->runtime, 0,
+				SNDRV_PCM_HW_PARAM_RATE,
+				priv->sysclk_constraints);
+
+	abe_default_configuration(UC2_VOICE_CALL_AND_IHF_MMDL);
 
 	return 0;
 }
 
-static int twl6030_resume(struct platform_device *pdev)
+static int abe_mm_hw_params(struct snd_pcm_substream *substream,
+			struct snd_pcm_hw_params *params,
+			struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_device *socdev = rtd->socdev;
+	struct snd_soc_codec *codec = socdev->card->codec;
+	struct twl6030_data *priv = codec->private_data;
+	abe_uint32 dst_ptr;
+	u8 lppllctl;
+	int rate;
+
+	/* nothing to do for high-perf pll, it supports only 48 kHz */
+	if (priv->pll == TWL6030_HPPLL_ID) {
+		if (!substream->stream) {
+			/* Circular buffer 0 (MM_DL path) write pointer address
+			* increases by 2 to avoid loosing DMA request
+			*/
+			dst_ptr = 0x1a004800;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, 0x100, &dst_ptr, 4);
+
+	                dst_ptr = 0x04000c00;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, 0x108, &dst_ptr, 4);
+
+			dst_ptr = 0x040002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 300*4, &dst_ptr, 4);
+
+			dst_ptr = 0x00002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 301*4, &dst_ptr, 4);
+
+			dst_ptr = 0x000002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 302*4, &dst_ptr, 4);
+
+			dst_ptr = 0x000002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 303*4, &dst_ptr, 4);
+
+			dst_ptr = 0x040002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 304*4, &dst_ptr, 4);
+
+			dst_ptr = 0x00002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 305*4, &dst_ptr, 4);
+
+			dst_ptr = 0x000002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 306*4, &dst_ptr, 4);
+
+			dst_ptr = 0x000002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 306*4, &dst_ptr, 4);
+		}
+		return 0;
+	}
+
+	lppllctl = twl6030_read_reg_cache(codec, TWL6030_REG_LPPLLCTL);
+
+	rate = params_rate(params);
+	switch (rate) {
+	case 44100:
+		lppllctl |= TWL6030_LPLLFIN;
+		priv->sysclk = 17640000;
+		break;
+	case 48000:
+		lppllctl &= ~TWL6030_LPLLFIN;
+		priv->sysclk = 19200000;
+		break;
+	default:
+		dev_err(codec->dev, "unsupported rate %d\n", rate);
+		return -EINVAL;
+	}
+
+	twl6030_write(codec, TWL6030_REG_LPPLLCTL, lppllctl);
+
+	return 0;
+}
+
+static struct snd_soc_dai_ops abe_mm_dai_ops = {
+	.startup	= abe_mm_startup,
+	.hw_params	= abe_mm_hw_params,
+	.trigger	= twl6030_trigger,
+	.set_sysclk	= twl6030_set_dai_sysclk,
+};
+
+static int abe_voice_hw_params(struct snd_pcm_substream *substream,
+			struct snd_pcm_hw_params *params,
+			struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_device *socdev = rtd->socdev;
+	struct snd_soc_codec *codec = socdev->card->codec;
+	struct twl6030_data *priv = codec->private_data;
+	abe_uint32 dst_ptr;
+	u8 lppllctl;
+	int rate;
+
+	/* nothing to do for high-perf pll, it supports only 48 kHz */
+	if (priv->pll == TWL6030_HPPLL_ID) {
+		if (!substream->stream) {
+			/* Circular buffer 0 (MM_DL path) write pointer address
+	                 * increases by 2 to avoid loosing DMA request
+			*/
+	                dst_ptr = 0x1a004800;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, 0x100, &dst_ptr, 4);
+
+	                dst_ptr = 0x04000c00;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, 0x108, &dst_ptr, 4);
+
+			dst_ptr = 0x000002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 300*4, &dst_ptr, 4);
+
+			dst_ptr = 0x00002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 301*4, &dst_ptr, 4);
+
+			dst_ptr = 0x040002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 302*4, &dst_ptr, 4);
+
+			dst_ptr = 0x000002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 303*4, &dst_ptr, 4);
+
+			dst_ptr = 0x000002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 304*4, &dst_ptr, 4);
+
+			dst_ptr = 0x00002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 305*4, &dst_ptr, 4);
+
+			dst_ptr = 0x040002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 306*4, &dst_ptr, 4);
+
+			dst_ptr = 0x000002;
+			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 307*4, &dst_ptr, 4);
+		}
+		return 0;
+	}
+
+	lppllctl = twl6030_read_reg_cache(codec, TWL6030_REG_LPPLLCTL);
+
+	rate = params_rate(params);
+	switch (rate) {
+	case 8000:
+	case 16000:
+		lppllctl &= ~TWL6030_LPLLFIN;
+		priv->sysclk = 19200000;
+		break;
+	default:
+		dev_err(codec->dev, "unsupported rate %d\n", rate);
+		return -EINVAL;
+	}
+
+	twl6030_write(codec, TWL6030_REG_LPPLLCTL, lppllctl);
+
+	return 0;
+}
+
+static struct snd_soc_dai_ops abe_voice_dai_ops = {
+	.startup	= abe_mm_startup,
+	.hw_params	= abe_voice_hw_params,
+	.trigger	= twl6030_trigger,
+	.set_sysclk	= twl6030_set_dai_sysclk,
+};
+
+/* Audio Backend DAIs */
+struct snd_soc_dai abe_dai[] = {
+	/* Multimedia: MM-UL2, MM-DL */
+	{
+		.name = "Multimedia",
+		.playback = {
+			.stream_name = "Playback",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000,
+			.formats = ABE_FORMATS,
+		},
+		.capture = {
+			.stream_name = "Capture",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = SNDRV_PCM_RATE_48000,
+			.formats = ABE_FORMATS,
+		},
+		.ops = &abe_mm_dai_ops,
+	},
+	/* Tones DL: MM-DL2 */
+	{
+		.name = "Tones DL",
+		.playback = {
+			.stream_name = "Playback",
+			.channels_min = 2,
+			.channels_max = 2,
+			.rates = SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000,
+			.formats = ABE_FORMATS,
+		},
+		.ops = &abe_mm_dai_ops,
+	},
+	/* Voice: VX-UL, VX-DL */
+	{
+		.name = "Voice",
+		.playback = {
+			.stream_name = "Playback",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+			.formats = ABE_FORMATS,
+		},
+		.capture = {
+			.stream_name = "Capture",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+			.formats = ABE_FORMATS,
+		},
+		.ops = &abe_voice_dai_ops,
+	},
+	/* Digital Uplink: MM-UL */
+	{
+		.name = "Digital Uplink",
+		.capture = {
+			.stream_name = "Capture",
+			.channels_min = 2,
+			.channels_max = 8,
+			.rates = SNDRV_PCM_RATE_48000,
+			.formats = ABE_FORMATS,
+		},
+	},
+	/* Vibrator: VIB-DL */
+	{
+		.name = "Vibrator",
+		.playback = {
+			.stream_name = "Playback",
+			.channels_min = 2,
+			.channels_max = 2,
+			.rates = SNDRV_PCM_RATE_48000,
+			.formats = ABE_FORMATS,
+		},
+	},
+ };
+
+static int abe_twl6030_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
 	struct snd_soc_codec *codec = socdev->card->codec;
 
-	twl6030_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
-	twl6030_set_bias_level(codec, codec->suspend_bias_level);
+	abe_twl6030_set_bias_level(codec, SND_SOC_BIAS_OFF);
+
+	return 0;
+}
+
+static int abe_twl6030_resume(struct platform_device *pdev)
+{
+	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
+	struct snd_soc_codec *codec = socdev->card->codec;
+
+	abe_twl6030_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
+	abe_twl6030_set_bias_level(codec, codec->suspend_bias_level);
 
 	return 0;
 }
 
 static struct snd_soc_codec *twl6030_codec;
 
-static int twl6030_probe(struct platform_device *pdev)
+static int abe_twl6030_probe(struct platform_device *pdev)
 {
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
 	struct snd_soc_codec *codec;
@@ -1020,9 +1198,10 @@ static int twl6030_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	abe_init_chip(codec);
 	snd_soc_add_controls(codec, twl6030_snd_controls,
 				ARRAY_SIZE(twl6030_snd_controls));
-	twl6030_add_widgets(codec);
+	abe_twl6030_add_widgets(codec);
 
 	ret = snd_soc_init_card(socdev);
 	if (ret < 0) {
@@ -1038,12 +1217,12 @@ card_err:
 	return ret;
 }
 
-static int twl6030_remove(struct platform_device *pdev)
+static int abe_twl6030_remove(struct platform_device *pdev)
 {
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
 	struct snd_soc_codec *codec = socdev->card->codec;
 
-	twl6030_set_bias_level(codec, SND_SOC_BIAS_OFF);
+	abe_twl6030_set_bias_level(codec, SND_SOC_BIAS_OFF);
 	snd_soc_free_pcms(socdev);
 	snd_soc_dapm_free(socdev);
 	kfree(codec);
@@ -1051,15 +1230,15 @@ static int twl6030_remove(struct platform_device *pdev)
 	return 0;
 }
 
-struct snd_soc_codec_device soc_codec_dev_twl6030 = {
-	.probe = twl6030_probe,
-	.remove = twl6030_remove,
-	.suspend = twl6030_suspend,
-	.resume = twl6030_resume,
+struct snd_soc_codec_device soc_codec_dev_abe_twl6030 = {
+	.probe = abe_twl6030_probe,
+	.remove = abe_twl6030_remove,
+	.suspend = abe_twl6030_suspend,
+	.resume = abe_twl6030_resume,
 };
-EXPORT_SYMBOL_GPL(soc_codec_dev_twl6030);
+EXPORT_SYMBOL_GPL(soc_codec_dev_abe_twl6030);
 
-static int __devinit twl6030_codec_probe(struct platform_device *pdev)
+static int __devinit abe_twl6030_codec_probe(struct platform_device *pdev)
 {
 	struct twl4030_codec_data *twl_codec = pdev->dev.platform_data;
 	struct snd_soc_codec *codec;
@@ -1084,16 +1263,14 @@ static int __devinit twl6030_codec_probe(struct platform_device *pdev)
 
 	codec = &priv->codec;
 	codec->dev = &pdev->dev;
-	twl6030_dai.dev = &pdev->dev;
-
 	codec->name = "twl6030";
 	codec->owner = THIS_MODULE;
 	codec->read = twl6030_read_reg_cache;
 	codec->write = twl6030_write;
-	codec->set_bias_level = twl6030_set_bias_level;
+	codec->set_bias_level = abe_twl6030_set_bias_level;
 	codec->private_data = priv;
-	codec->dai = &twl6030_dai;
-	codec->num_dai = 1;
+	codec->dai = abe_dai;
+	codec->num_dai = ARRAY_SIZE(abe_dai);
 	codec->reg_cache_size = ARRAY_SIZE(twl6030_reg);
 	codec->reg_cache = kmemdup(twl6030_reg, sizeof(twl6030_reg),
 					GFP_KERNEL);
@@ -1143,7 +1320,7 @@ static int __devinit twl6030_codec_probe(struct platform_device *pdev)
 	twl6030_init_vio_regs(codec);
 
 	/* power on device */
-	ret = twl6030_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
+	ret = abe_twl6030_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 	if (ret)
 		goto irq_err;
 
@@ -1153,7 +1330,7 @@ static int __devinit twl6030_codec_probe(struct platform_device *pdev)
 
 	twl6030_codec = codec;
 
-	ret = snd_soc_register_dai(&twl6030_dai);
+	ret = snd_soc_register_dais(abe_dai, ARRAY_SIZE(abe_dai));
 	if (ret)
 		goto dai_err;
 
@@ -1163,7 +1340,7 @@ dai_err:
 	snd_soc_unregister_codec(codec);
 	twl6030_codec = NULL;
 reg_err:
-	twl6030_set_bias_level(codec, SND_SOC_BIAS_OFF);
+	abe_twl6030_set_bias_level(codec, SND_SOC_BIAS_OFF);
 irq_err:
 	if (naudint)
 		free_irq(naudint, codec);
@@ -1177,7 +1354,7 @@ cache_err:
 	return ret;
 }
 
-static int __devexit twl6030_codec_remove(struct platform_device *pdev)
+static int __devexit abe_twl6030_codec_remove(struct platform_device *pdev)
 {
 	struct twl6030_data *priv = twl6030_codec->private_data;
 	int audpwron = priv->audpwron;
@@ -1189,7 +1366,7 @@ static int __devexit twl6030_codec_remove(struct platform_device *pdev)
 	if (naudint)
 		free_irq(naudint, twl6030_codec);
 
-	snd_soc_unregister_dai(&twl6030_dai);
+	snd_soc_unregister_dais(abe_dai, ARRAY_SIZE(abe_dai));
 	snd_soc_unregister_codec(twl6030_codec);
 
 	kfree(twl6030_codec);
@@ -1199,44 +1376,44 @@ static int __devexit twl6030_codec_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int twl6030_codec_suspend(struct platform_device *pdev,
+static int abe_twl6030_codec_suspend(struct platform_device *pdev,
 				 pm_message_t msg)
 {
 	return snd_soc_suspend_device(&pdev->dev);
 }
 
-static int twl6030_codec_resume(struct platform_device *pdev)
+static int abe_twl6030_codec_resume(struct platform_device *pdev)
 {
 	return snd_soc_resume_device(&pdev->dev);
 }
 #else
-#define twl6030_codec_suspend NULL
-#define twl6030_codec_resume NULL
+#define abe_twl6030_codec_suspend NULL
+#define abe_twl6030_codec_resume NULL
 #endif
 
-static struct platform_driver twl6030_codec_driver = {
+static struct platform_driver abe_twl6030_codec_driver = {
 	.driver = {
 		.name = "twl6030_codec",
 		.owner = THIS_MODULE,
 	},
-	.probe = twl6030_codec_probe,
-	.remove = __devexit_p(twl6030_codec_remove),
-	.suspend = twl6030_codec_suspend,
-	.resume = twl6030_codec_resume,
+	.probe = abe_twl6030_codec_probe,
+	.remove = __devexit_p(abe_twl6030_codec_remove),
+	.suspend = abe_twl6030_codec_suspend,
+	.resume = abe_twl6030_codec_resume,
 };
 
-static int __init twl6030_codec_init(void)
+static int __init abe_twl6030_codec_init(void)
 {
-	return platform_driver_register(&twl6030_codec_driver);
+	return platform_driver_register(&abe_twl6030_codec_driver);
 }
-module_init(twl6030_codec_init);
+module_init(abe_twl6030_codec_init);
 
-static void __exit twl6030_codec_exit(void)
+static void __exit abe_twl6030_codec_exit(void)
 {
-	platform_driver_unregister(&twl6030_codec_driver);
+	platform_driver_unregister(&abe_twl6030_codec_driver);
 }
-module_exit(twl6030_codec_exit);
+module_exit(abe_twl6030_codec_exit);
 
-MODULE_DESCRIPTION("ASoC TWL6030 codec driver");
+MODULE_DESCRIPTION("ASoC ABE-TWL6030 codec driver");
 MODULE_AUTHOR("Misael Lopez Cruz");
 MODULE_LICENSE("GPL");
