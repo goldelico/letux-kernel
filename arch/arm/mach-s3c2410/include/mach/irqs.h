@@ -180,8 +180,8 @@
  * IRQ numbers available for each board.
  */
 
-#if 0
-/* Number of board specific irqs go here */
+#if defined(CONFIG_MACH_NEO1973_GTA02)
+#define IRQ_BOARD_NR (9 + 40)
 #else
 #define IRQ_BOARD_NR 0
 #endif
