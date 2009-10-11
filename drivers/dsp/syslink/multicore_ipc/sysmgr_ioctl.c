@@ -28,7 +28,7 @@
 /* Module Headers */
 #include <sysmgr.h>
 #include <sysmgr_ioctl.h>
-
+#include <platform.h>
 /*
  * ======== sysmgr_ioctl_setup ========
  *  Purpose:
@@ -103,6 +103,25 @@ int sysmgr_ioctl(struct inode *inode, struct file *filp,
 		os_status = sysmgr_ioctl_destroy(&cargs);
 		break;
 
+	case CMD_SYSMGR_LOADCALLBACK:
+#if defined CONFIG_SYSLINK_USE_SYSMGR
+		platform_load_callback((void *)(cargs.args.proc_id));
+		cargs.api_status = 0;
+#endif
+		break;
+
+	case CMD_SYSMGR_STARTCALLBACK:
+#if defined CONFIG_SYSLINK_USE_SYSMGR
+		platform_start_callback((void *)(cargs.args.proc_id));
+		cargs.api_status = 0;
+#endif
+		break;
+
+	case CMD_SYSMGR_STOPCALLBACK:
+#if defined CONFIG_SYSLINK_USE_SYSMGR
+		platform_stop_callback((void *)(cargs.args.proc_id));
+#endif
+		break;
 	default:
 		WARN_ON(cmd);
 		os_status = -ENOTTY;

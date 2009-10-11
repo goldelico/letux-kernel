@@ -40,7 +40,10 @@
 /* IOCTL command numbers for sysmgr */
 enum sysmgr_drv_cmd {
 	SYSMGR_SETUP = SYSMGR_BASE_CMD,
-	SYSMGR_DESTROY
+	SYSMGR_DESTROY,
+	SYSMGR_LOADCALLBACK,
+	SYSMGR_STARTCALLBACK,
+	SYSMGR_STOPCALLBACK
 };
 
 /* Command for sysmgr_setup */
@@ -51,6 +54,21 @@ enum sysmgr_drv_cmd {
 /* Command for sysmgr_destroy */
 #define CMD_SYSMGR_DESTROY \
 			_IOWR(SYSMGR_IOC_MAGIC, SYSMGR_DESTROY, \
+			struct sysmgr_cmd_args)
+
+/* Command for load callback */
+#define CMD_SYSMGR_LOADCALLBACK \
+			_IOWR(SYSMGR_IOC_MAGIC, SYSMGR_LOADCALLBACK, \
+			struct sysmgr_cmd_args)
+
+/* Command for load callback */
+#define CMD_SYSMGR_STARTCALLBACK \
+			_IOWR(SYSMGR_IOC_MAGIC, SYSMGR_STARTCALLBACK, \
+			struct sysmgr_cmd_args)
+
+/* Command for stop callback */
+#define CMD_SYSMGR_STOPCALLBACK \
+			_IOWR(SYSMGR_IOC_MAGIC, SYSMGR_STOPCALLBACK, \
 			struct sysmgr_cmd_args)
 
 
@@ -64,6 +82,8 @@ struct sysmgr_cmd_args {
 		struct {
 			struct sysmgr_config *config;
 		} setup;
+
+		int proc_id;
 	} args;
 
 	s32 api_status;

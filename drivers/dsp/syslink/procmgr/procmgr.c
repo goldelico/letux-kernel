@@ -25,11 +25,6 @@
 #include "procdefs.h"
 #include "processor.h"
 #include <syslink/atomic_linux.h>
-#if defined CONFIG_SYSLINK_USE_SYSMGR
-#include <sysmgr.h>
-#include <platform.h>
-#endif /* if defined (CONFIG_SYSLINK_USE_SYSMGR) */
-
 
 /* ================================
  *  Macros and types
@@ -583,9 +578,6 @@ int proc_mgr_start(void *handle, u32 entry_point,
 		proc_mgr_get_start_params(handle, &tmp_params);
 		params = &tmp_params;
 	}
-#if defined CONFIG_SYSLINK_USE_SYSMGR
-	platform_load_callback((void *)params->proc_id); /*  FIXME */
-#endif
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
 	memcpy(&(proc_mgr_handle->start_params), params,
 					sizeof(struct proc_mgr_start_params));
@@ -595,13 +587,6 @@ int proc_mgr_start(void *handle, u32 entry_point,
 						entry_point, &proc_params);
 
 	mutex_unlock(proc_mgr_obj_state.gate_handle);
-#if defined CONFIG_SYSLINK_USE_SYSMGR
-	if (retval == 0) {
-		/* TBD: should be removed when notify local is implemepented */
-		platform_start_callback((void *)params->proc_id);
-	}
-#endif /* defined (CONFIG_SYSLINK_USE_SYSMGR)*/
-
 	return retval;;
 }
 EXPORT_SYMBOL(proc_mgr_start);
@@ -629,11 +614,6 @@ int proc_mgr_stop(void *handle, struct proc_mgr_stop_params *params)
 		return -EFAULT;
 	}
 	BUG_ON(handle == NULL);
-#if defined CONFIG_SYSLINK_USE_SYSMGR
-	/* TBD: should be removed when notify local is implemepented */
-	platform_stop_callback((void *)params->proc_id);
-#endif /* #if defined (CONFIG_SYSLINK_USE_SYSMGR) */
-
 	WARN_ON(mutex_lock_interruptible(proc_mgr_obj_state.gate_handle));
 	proc_params.params = params;
 	retval = processor_stop(proc_mgr_handle->proc_handle,
