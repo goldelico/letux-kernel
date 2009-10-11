@@ -41,7 +41,7 @@
 
 struct omap_mcpdm_data {
 	struct omap_mcpdm_link *links;
-	int active;
+	int active[2];
 	int requested;
 };
 
@@ -58,13 +58,14 @@ static struct omap_mcpdm_link omap_mcpdm_links[] = {
 		.irq_mask = UP_IRQ_EMPTY | UP_IRQ_FULL,
 		.threshold = 1,
 		.format = PDMOUTFORMAT_LJUST,
-		.channels = PDM_UP1_EN | PDM_UP2_EN,
+		.channels = PDM_UP1_EN | PDM_UP2_EN |
+				PDM_DN_MASK | PDM_CMD_MASK,
 	},
 };
 
 static struct omap_mcpdm_data mcpdm_data = {
 	.links = omap_mcpdm_links,
-	.active = 0,
+	.active = {0},
 	.requested = 0,
 };
 
@@ -122,14 +123,14 @@ static int omap_abe_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		if (!mcpdm_priv->active++)
+		if (!mcpdm_priv->active[stream]++)
 			omap_mcpdm_start(stream);
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		if (!--mcpdm_priv->active)
+		if (!--mcpdm_priv->active[stream])
 			omap_mcpdm_stop(stream);
 		break;
 	default:

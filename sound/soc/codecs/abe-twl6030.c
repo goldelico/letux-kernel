@@ -56,6 +56,7 @@ struct twl6030_data {
 	struct snd_pcm_hw_constraint_list *sysclk_constraints;
 	struct completion ready;
 	struct clk *clk;
+	int configure;
 };
 
 /*
@@ -922,7 +923,8 @@ static int abe_mm_startup(struct snd_pcm_substream *substream,
 				SNDRV_PCM_HW_PARAM_RATE,
 				priv->sysclk_constraints);
 
-	abe_default_configuration(UC2_VOICE_CALL_AND_IHF_MMDL);
+	if (!priv->configure++)
+		abe_default_configuration(UC2_VOICE_CALL_AND_IHF_MMDL);
 
 	return 0;
 }
