@@ -75,7 +75,8 @@
  * during the make menuconfig.
  *
  */
-#define DUCATI_BASEIMAGE_PHYSICAL_ADDRESS	0x87200000
+/* #define DUCATI_BASEIMAGE_PHYSICAL_ADDRESS	0x87200000 */
+#define DUCATI_BASEIMAGE_PHYSICAL_ADDRESS	0x88000000
 
 #define phys_to_page(phys)      pfn_to_page((phys) >> PAGE_SHIFT)
 
@@ -1028,8 +1029,10 @@ int  ducati_mmu_init(u32 a_phy_addr)
 	u32 i = 0;
 	u32 map_attrs;
 	u32 num_l3_mem_entries = 0;
+#if 0
 	u32 tiler_mapbeg = 0;
 	u32 tiler_totalsize = 0;
+#endif
 
 	num_l4_entries = (sizeof(l4_map) / sizeof(struct mmu_entry));
 	num_l3_mem_entries = sizeof(l3_memory_regions) /
@@ -1053,8 +1056,18 @@ int  ducati_mmu_init(u32 a_phy_addr)
 				l3_memory_regions[i].ul_virt_addr,
 				l3_memory_regions[i].ul_size, phys_addr);
 
+#if 0
+		/* OMAP4430 original code */
 		if (l3_memory_regions[i].ul_virt_addr == DUCATI_SHARED_IPC_ADDR)
 			shm_phys_addr = phys_addr;
+		*/
+#endif
+		/* OMAP4430 SDC code */
+		/* Adjust below logic if using cacheable shared memory */
+		if (l3_memory_regions[i].ul_virt_addr == \
+			DUCATI_MEM_IPC_HEAP0_ADDR) {
+			shm_phys_addr = phys_addr;
+		}
 
 		ret_val = add_dsp_mmu_entry(&phys_addr,
 			(u32 *)(&(l3_memory_regions[i].ul_virt_addr)),
@@ -1064,6 +1077,8 @@ int  ducati_mmu_init(u32 a_phy_addr)
 			goto error_exit;
 	}
 
+#if 0
+	/* OMAP4430 original code */
 	tiler_mapbeg = L3_TILER_VIEW0_ADDR;
 	tiler_totalsize = DUCATIVA_TILER_VIEW0_LEN;
 	phys_addr = L3_TILER_VIEW0_ADDR;
@@ -1074,6 +1089,7 @@ int  ducati_mmu_init(u32 a_phy_addr)
 	ret_val = add_entry_ext(&phys_addr, &tiler_mapbeg, tiler_totalsize);
 	if (WARN_ON(ret_val < 0))
 		goto error_exit;
+#endif
 
 	map_attrs = 0x00000000;
 	map_attrs |= DSP_MAPLITTLEENDIAN;
@@ -1291,7 +1307,8 @@ EXPORT_SYMBOL(ducati_destroy);
  */
 u32 get_ducati_virt_mem()
 {
-	shm_virt_addr = (u32)ioremap(shm_phys_addr, DUCATI_SHARED_IPC_LEN);
+	/*shm_virt_addr = (u32)ioremap(shm_phys_addr, DUCATI_SHARED_IPC_LEN);*/
+	shm_virt_addr = (u32)ioremap(shm_phys_addr, DUCATI_MEM_IPC_SHMEM_LEN);
 	return shm_virt_addr;
 }
 EXPORT_SYMBOL(get_ducati_virt_mem);
