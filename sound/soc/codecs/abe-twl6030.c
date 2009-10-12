@@ -901,6 +901,7 @@ static int abe_mm_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_device *socdev = rtd->socdev;
 	struct snd_soc_codec *codec = socdev->card->codec;
 	struct twl6030_data *priv = codec->private_data;
+	abe_uint32 event;
 
 	if (!priv->sysclk) {
 		dev_err(codec->dev,
@@ -925,6 +926,13 @@ static int abe_mm_startup(struct snd_pcm_substream *substream,
 
 	if (!priv->configure++)
 		abe_default_configuration(UC2_VOICE_CALL_AND_IHF_MMDL);
+
+	if (substream->stream)
+		event = ABE_ATC_MCPDMUL_DMA_REQ;
+	else
+		event = ABE_ATC_MCPDMDL_DMA_REQ;
+
+	abe_block_copy (COPY_FROM_HOST_TO_ABE, ABE_ATC, AUDIO_ENGINE_SCHEDULER, &event, 4);
 
 	return 0;
 }
