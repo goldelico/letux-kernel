@@ -63,16 +63,18 @@ static struct kobj_attribute voltage_off_while_idle_attr =
 static ssize_t vdd_opp_show(struct kobject *, struct kobj_attribute *, char *);
 static ssize_t vdd_opp_store(struct kobject *k, struct kobj_attribute *,
 			  const char *buf, size_t n);
+static ssize_t vdd_opp_lock_store(struct kobject *k, struct kobj_attribute *,
+			  const char *buf, size_t n);
+
 static struct kobj_attribute vdd1_opp_attr =
 	__ATTR(vdd1_opp, 0644, vdd_opp_show, vdd_opp_store);
 
 static struct kobj_attribute vdd2_opp_attr =
 	__ATTR(vdd2_opp, 0644, vdd_opp_show, vdd_opp_store);
 static struct kobj_attribute vdd1_lock_attr =
-	__ATTR(vdd1_lock, 0644, vdd_opp_show, vdd_opp_store);
+	__ATTR(vdd1_lock, 0644, vdd_opp_show, vdd_opp_lock_store);
 static struct kobj_attribute vdd2_lock_attr =
-	__ATTR(vdd2_lock, 0644, vdd_opp_show, vdd_opp_store);
-
+	__ATTR(vdd2_lock, 0644, vdd_opp_show, vdd_opp_lock_store);
 #endif
 
 static struct kobj_attribute wakeup_timer_seconds_attr =
@@ -129,6 +131,7 @@ static ssize_t idle_store(struct kobject *kobj, struct kobj_attribute *attr,
 #include <mach/omap34xx.h>
 static int vdd1_locked;
 static int vdd2_locked;
+static struct device sysfs_cpufreq_dev;
 
 static ssize_t vdd_opp_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buf)
@@ -149,6 +152,42 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 			  const char *buf, size_t n)
 {
 	unsigned short value;
+	struct omap_opp *opp_table;
+
+	if (sscanf(buf, "%hu", &value) != 1)
+		return -EINVAL;
+
+	if (attr == &vdd1_opp_attr) {
+		if (value < MIN_VDD1_OPP || value > MAX_VDD1_OPP) {
+			printk(KERN_ERR "vdd_opp_store: Invalid value\n");
+			return -EINVAL;
+		}
+		opp_table = omap_get_mpu_rate_table();
+		omap_pm_set_min_mpu_freq(&sysfs_cpufreq_dev,
+					opp_table[value].rate);
+	} else if (attr == &vdd2_opp_attr) {
+		if (value < MIN_VDD2_OPP || (value > MAX_VDD2_OPP)) {
+			printk(KERN_ERR "vdd_opp_store: Invalid value\n");
+			return -EINVAL;
+		}
+		if (value == VDD2_OPP2)
+			omap_pm_set_min_bus_tput(&sysfs_cpufreq_dev,
+					OCP_INITIATOR_AGENT, 83*1000*4);
+		else if (value == VDD2_OPP3)
+			omap_pm_set_min_bus_tput(&sysfs_cpufreq_dev,
+					OCP_INITIATOR_AGENT, 166*1000*4);
+
+	} else {
+		return -EINVAL;
+	}
+	return n;
+}
+
+
+static ssize_t vdd_opp_lock_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t n)
+{
+	unsigned short value;
 	int flags = 0;
 
 	if (sscanf(buf, "%hu", &value) != 1)
@@ -167,6 +206,11 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 		if (vdd1_locked == 0 && value != 0) {
 			resource_lock_opp(VDD1_OPP);
 			vdd1_locked = 1;
+			if (value < MIN_VDD1_OPP || value > MAX_VDD1_OPP) {
+				printk(KERN_ERR "vdd_opp_store: Invalid value\n");
+				return -EINVAL;
+				}
+		resource_set_opp_level(VDD1_OPP, value, flags);
 		}
 	} else if (attr == &vdd2_lock_attr) {
 		flags = OPP_IGNORE_LOCK;
@@ -180,22 +224,13 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 		if (vdd2_locked == 0 && value != 0) {
 			resource_lock_opp(VDD2_OPP);
 			vdd2_locked = 1;
+			if (value < MIN_VDD2_OPP || value > MAX_VDD2_OPP) {
+				printk(KERN_ERR "vdd_opp_store: Invalid value\n");
+				return -EINVAL;
+			}
+			resource_set_opp_level(VDD2_OPP, value, flags);
 		}
-	}
-
-	if (attr == &vdd1_opp_attr) {
-		if (value < MIN_VDD1_OPP || value > MAX_VDD1_OPP) {
-			printk(KERN_ERR "vdd_opp_store: Invalid value\n");
-			return -EINVAL;
-		}
-		resource_set_opp_level(VDD1_OPP, value, flags);
-	} else if (attr == &vdd2_opp_attr) {
-		if (value < MIN_VDD2_OPP || value > MAX_VDD2_OPP) {
-			printk(KERN_ERR "vdd_opp_store: Invalid value\n");
-			return -EINVAL;
-		}
-		resource_set_opp_level(VDD2_OPP, value, flags);
-	} else {
+	}  else {
 		return -EINVAL;
 	}
 	return n;
