@@ -216,7 +216,6 @@ static struct file_operations bridge_fops = {
 static u32 timeOut = 1000;
 #ifdef CONFIG_BRIDGE_DVFS
 static struct clk *clk_handle;
-s32 dsp_max_opps = VDD1_OPP5;
 #endif
 
 /* Maximum Opps that can be requested by IVA*/
@@ -240,19 +239,6 @@ const struct omap_opp  vdd1_rate_table_bridge[] = {
 
 struct dspbridge_platform_data *omap_dspbridge_pdata;
 
-u32 vdd1_dsp_freq[6][4] = {
-	{0, 0, 0, 0},
-	/*OPP1*/
-	{0, 90000, 0, 86000},
-	/*OPP2*/
-	{0, 180000, 80000, 170000},
-	/*OPP3*/
-	{0, 360000, 160000, 340000},
-	/*OPP4*/
-	{0, 396000, 325000, 376000},
-	/*OPP5*/
-	{0, 430000, 355000, 430000},
-};
 
 #ifdef CONFIG_BRIDGE_DVFS
 static int dspbridge_post_scale(struct notifier_block *op, unsigned long level,
