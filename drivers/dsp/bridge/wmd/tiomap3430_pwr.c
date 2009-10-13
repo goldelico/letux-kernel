@@ -782,7 +782,7 @@ void DSPClkWakeupEventCtrl(u32 ClkId, bool enable)
  */
 DSP_STATUS tiomap3430_bump_dsp_opp_level(void)
 {
-#ifndef CONFIG_BRIDGE_DVFS
+#ifdef CONFIG_BRIDGE_DVFS
 	u32 opplevel;
 
 	struct dspbridge_platform_data *pdata =
