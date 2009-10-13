@@ -1752,7 +1752,7 @@ DSP_STATUS IO_SHMsetting(IN struct IO_MGR *hIOMgr, IN enum SHM_DESCTYPE desc,
 #ifdef CONFIG_BRIDGE_DVFS
 	struct omap_opp *dsp_opp_table;
 	u32 i, val;
-	u8 dsp_max_opps;
+	u8 vdd1_max_opps, dsp_max_opps = 0;
 	struct dspbridge_platform_data *pdata =
 				omap_dspbridge_dev->dev.platform_data;
 
@@ -1771,10 +1771,10 @@ DSP_STATUS IO_SHMsetting(IN struct IO_MGR *hIOMgr, IN enum SHM_DESCTYPE desc,
 		if (!pdata || !pdata->dsp_get_rate_table)
 			break;
 
-		dsp_max_opps = omap_pm_get_max_vdd1_opp();
+		vdd1_max_opps = omap_pm_get_max_vdd1_opp();
 		dsp_opp_table = (*pdata->dsp_get_rate_table)();
 
-		for (i = 0; i <= dsp_max_opps; i++) {
+		for (i = 0; i <= vdd1_max_opps; i++) {
 			hIOMgr->pSharedMem->oppTableStruct.oppPoint[i].voltage =
 				dsp_opp_table[i].vsel;
 			DBG_Trace(DBG_LEVEL5, "OPP shared memory -voltage: "
@@ -1801,7 +1801,7 @@ DSP_STATUS IO_SHMsetting(IN struct IO_MGR *hIOMgr, IN enum SHM_DESCTYPE desc,
 				 "%d\n", hIOMgr->pSharedMem->oppTableStruct.
 				  oppPoint[i].minFreq);
 			val = dsp_opp_table[i].rate;
-			if (val != dsp_opp_table[dsp_max_opps].rate) {
+			if (val != dsp_opp_table[vdd1_max_opps].rate) {
 				val = (val / 100) * 95;
 				val -= val % 1000;
 			}
@@ -1811,23 +1811,9 @@ DSP_STATUS IO_SHMsetting(IN struct IO_MGR *hIOMgr, IN enum SHM_DESCTYPE desc,
 			DBG_Trace(DBG_LEVEL5, "OPP shared memory -max value: "
 				 "%d\n", hIOMgr->pSharedMem->oppTableStruct.
 				 oppPoint[i].maxFreq);
-		}
-		/*
-		 * numOppPts hardcode to VDD1_OPP4, fix me when omap_rev_id()
-		 * kernel function works
-		 */
-		switch (omap_rev_id()) {
-		case OMAP_3420:
-			dsp_max_opps = VDD1_OPP3;
-			break;
-		case OMAP_3430:
-			dsp_max_opps = VDD1_OPP4;
-			break;
-		case OMAP_3440:
-			dsp_max_opps = VDD1_OPP6;
-			break;
-		default:
-			dsp_max_opps = VDD1_OPP4;
+			if (!dsp_max_opps && dsp_opp_table[i].rate ==
+					dsp_opp_table[vdd1_max_opps].rate)
+				dsp_max_opps = i;
 		}
 
 		hIOMgr->pSharedMem->oppTableStruct.numOppPts = dsp_max_opps;
