@@ -779,7 +779,6 @@ static void omap2_mcspi_work(struct work_struct *work)
 		spi = m->spi;
 		cs = spi->controller_state;
 
-		omap2_mcspi_set_enable(spi, 1);
 		list_for_each_entry(t, &m->transfers, transfer_list) {
 			if (t->tx_buf == NULL && t->rx_buf == NULL && t->len) {
 				status = -EINVAL;
@@ -806,6 +805,10 @@ static void omap2_mcspi_work(struct work_struct *work)
 			else if (t->rx_buf == NULL)
 				chconf |= OMAP2_MCSPI_CHCONF_TRM_TX_ONLY;
 			mcspi_write_chconf0(spi, chconf);
+
+			omap2_mcspi_set_master_mode(mcspi->master);
+
+			omap2_mcspi_set_enable(spi, 1);
 
 			if (t->len) {
 				unsigned	count;
