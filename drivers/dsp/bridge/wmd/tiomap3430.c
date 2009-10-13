@@ -98,6 +98,8 @@
 
 #define MMU_GFLUSH 0x60
 
+extern unsigned short min_active_opp;
+
 /* Forward Declarations: */
 static DSP_STATUS WMD_BRD_Monitor(struct WMD_DEV_CONTEXT *pDevContext);
 static DSP_STATUS WMD_BRD_Read(struct WMD_DEV_CONTEXT *pDevContext,
@@ -460,6 +462,10 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 	u32 extClkId = 0;
 	u32 tmpIndex;
 	u32 clkIdIndex = MBX_PM_MAX_RESOURCES;
+#ifdef CONFIG_BRIDGE_DVFS
+	struct dspbridge_platform_data *pdata =
+			omap_dspbridge_dev->dev.platform_data;
+#endif
 
 	DBG_Trace(DBG_ENTER, "Entering WMD_BRD_Start:\n hDevContext: 0x%x\n\t "
 			     "dwDSPAddr: 0x%x\n", hDevContext, dwDSPAddr);
@@ -719,6 +725,15 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 		/* Enable DSP MMU Interrupts */
 		HW_MMU_EventEnable(pDevContext->dwDSPMmuBase,
 				HW_MMU_ALL_INTERRUPTS);
+
+#ifdef CONFIG_BRIDGE_DVFS
+		/*
+		 * Bump OPP to the minimal require by DSP before running.
+		 */
+		if (pdata->dsp_set_min_opp)
+			(*pdata->dsp_set_min_opp)(min_active_opp);
+#endif
+
 		/* release the RST1, DSP starts executing now .. */
 		HW_RST_UnReset(pDevContext->prmbase, HW_RST1_IVA2);
 
