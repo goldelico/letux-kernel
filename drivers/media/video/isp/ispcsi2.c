@@ -1985,6 +1985,12 @@ int isp_csi2_reset(void)
 	reg |= ISPCSI2_SYSCONFIG_SOFT_RESET_RESET;
 	isp_reg_writel(reg, OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSCONFIG);
 
+	/* 3630: ComplexIO needs to be reset */
+	if (isp_rev() >= ISP_REV_3630)
+		isp_reg_or(OMAP3_ISP_IOMEM_CSI2A,
+			   ISPCSI2_COMPLEXIO_CFG1,
+			   ISPCSI2_COMPLEXIO_CFG1_RESET_CTRL_DEASSERTED);
+
 	do {
 		reg = isp_reg_readl(OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSSTATUS) &
 			ISPCSI2_SYSSTATUS_RESET_DONE_MASK;
