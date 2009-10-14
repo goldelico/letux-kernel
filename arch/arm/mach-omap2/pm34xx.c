@@ -531,7 +531,7 @@ int set_pwrdm_state(struct powerdomain *pwrdm, u32 state)
 	 * REVISIT: Bridge has to set powerstate based on enable_off_mode state.
 	 */
 	if (!strcmp(pwrdm->name, "iva2_pwrdm")) {
-		if (cur_state == PWRDM_POWER_OFF)
+		/* if (cur_state == PWRDM_POWER_OFF) */
 			return 0;
 	}
 
