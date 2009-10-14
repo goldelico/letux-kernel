@@ -300,7 +300,7 @@ struct imx046_clock_freq {
 const static struct imx046_capture_size imx046_sizes[] = {
 	{ 410, 308 },	/* QUART_MP - 1/8 Vertical Elim */
 	{ 820, 616 },		/* 0.5Mp - 4X Horizontal & Vertical Elim. */
-	{ 1292, 728},		/*1292x729 - 1/2 vertical & horizontal Elim. */
+	{ 1292, 729},		/*1292x729 - 1/2 vertical & horizontal Elim. */
 	{ 3280, 616 },	/* 2Mp - 4X Vertical Elim. */
 	{ 3280, 2464},	/* 8MP - Full Resolution */
 };

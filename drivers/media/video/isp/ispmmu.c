@@ -28,6 +28,11 @@
 
 static struct iommu *isp_iommu;
 
+void *ispmmu_da_to_va(dma_addr_t da)
+{
+	return da_to_va(isp_iommu, (u32)da);
+}
+
 dma_addr_t ispmmu_vmalloc(size_t bytes)
 {
 	return (dma_addr_t)iommu_vmalloc(isp_iommu, 0, bytes, IOMMU_FLAG);
