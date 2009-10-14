@@ -933,7 +933,10 @@ static int add_dsp_mmu_entry(u32  *phys_addr, u32 *dsp_addr,
 		status = get_mmu_entry_size(*phys_addr,
 			(size - mapped_size), &size_tlb, &entry_size);
 
-		if (size_tlb == SECTION)
+		if (size_tlb == SUPER_SECTION)
+			page_size = HW_PAGE_SIZE_16MB;
+
+		else if (size_tlb == SECTION)
 			page_size = HW_PAGE_SIZE_1MB;
 
 		else if (size_tlb == LARGE_PAGE)
