@@ -118,6 +118,10 @@
 
 #define CM_CAM_MCLK_HZ			216000000
 
+/* ISP hardware revisions */
+#define ISP_REV_3430				0x20
+#define ISP_REV_3630				0x21
+
 /* ISP Submodules offset */
 
 #define OMAP3ISP_REG_BASE		OMAP3430_ISP_BASE
@@ -623,6 +627,7 @@
 
 /* Define bit fields within selected registers */
 #define ISP_REVISION_SHIFT			0
+#define ISP_REVISION_MASK			0xFF
 
 #define ISP_SYSCONFIG_AUTOIDLE			0
 #define ISP_SYSCONFIG_SOFTRESET			(1 << 1)

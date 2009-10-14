@@ -321,6 +321,21 @@ void isp_flush(void)
 	isp_reg_readl(OMAP3_ISP_IOMEM_MAIN, ISP_REVISION);
 }
 
+/**
+ * isp_rev - Get hardware revision of ISP module
+ *
+ * Returns hardware revision:
+ *  0x20 - 3430 ES2 & ES3
+ *  0x21 - 3630
+ **/
+u32 isp_rev(void)
+{
+	u32 reg;
+
+	reg = isp_reg_readl(OMAP3_ISP_IOMEM_MAIN, ISP_REVISION);
+	return reg & ISP_REVISION_MASK;
+}
+
 /*
  *
  * V4L2 Handling
