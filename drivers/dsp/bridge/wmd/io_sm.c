@@ -1300,7 +1300,7 @@ static void InputMsg(struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr)
 	fInputEmpty = IO_GetValue(pIOMgr->hWmdContext, struct MSG, pCtrl,
 				 bufEmpty);
 	uMsgs = IO_GetValue(pIOMgr->hWmdContext, struct MSG, pCtrl, size);
-	if (fInputEmpty || uMsgs >= hMsgMgr->uMaxMsgs)
+	if (fInputEmpty || uMsgs > hMsgMgr->uMaxMsgs)
 		goto func_end;
 
 	pMsgInput = pIOMgr->pMsgInput;
