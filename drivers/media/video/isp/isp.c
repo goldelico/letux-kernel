@@ -2759,7 +2759,7 @@ out:
 
 #endif /* CONFIG_PM */
 
-static u64 raw_dmamask = DMA_32BIT_MASK;
+static u64 raw_dmamask = DMA_BIT_MASK(32);
 
 /**
  * isp_probe - Probe ISP platform device
@@ -2875,7 +2875,7 @@ static int isp_probe(struct platform_device *pdev)
 	spin_lock_init(&isp->h3a_lock);
 
 	isp->dev->dma_mask = &raw_dmamask;
-	isp->dev->coherent_dma_mask = DMA_32BIT_MASK;
+	isp->dev->coherent_dma_mask = DMA_BIT_MASK(32);
 
 	isp_get();
 	/* Get ISP revision */
