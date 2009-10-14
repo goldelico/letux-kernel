@@ -527,6 +527,7 @@ static struct resource zoom2_vout_resource[2] = {
 struct vout_platform_data zoom2_vout_data = {
 	.set_min_bus_tput = omap_pm_set_min_bus_tput,
 	.set_max_mpu_wakeup_lat =  omap_pm_set_max_mpu_wakeup_lat,
+	.set_vdd1_opp = omap_pm_set_min_mpu_freq,
 	.set_cpu_freq = omap_pm_cpu_set_freq,
 };
 #endif

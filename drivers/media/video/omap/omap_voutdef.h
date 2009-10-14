@@ -146,6 +146,7 @@ struct vout_platform_data {
 	void (*set_min_bus_tput)(struct device *dev, u8 agent_id,
 						unsigned long r);
 	void (*set_max_mpu_wakeup_lat)(struct device *dev, long t);
+	void (*set_vdd1_opp) (struct device *dev, unsigned long);
 	void (*set_cpu_freq)(unsigned long f);
 };
 

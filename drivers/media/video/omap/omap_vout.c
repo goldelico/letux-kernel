@@ -86,6 +86,9 @@
 #define MAX_PIXELS_PER_LINE     2048
 #define VRFB_TX_TIMEOUT         1000
 
+#define VDD1_OPP3_FREQ         500000000
+#define VDD1_OPP1_FREQ         125000000
+
 #define OMAP_VOUT_MAX_BUF_SIZE (VID_MAX_WIDTH*VID_MAX_HEIGHT*2)
 
 /* IRQ Bits mask of DSS */
@@ -578,7 +581,7 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout)
 	vout->line_length = line_length;
 	switch (rotation) {
 	case 1:
-		offset = vout->vrfb_context[0].yoffset *
+		offset = MAX_PIXELS_PER_LINE * vout->vrfb_context[0].yoffset *
 			vout->vrfb_context[0].bytespp;
 		temp_ps = ps / vr_ps;
 		if (mirroring == 0) {
@@ -606,7 +609,7 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout)
 		}
 		break;
 	case 3:
-		offset = MAX_PIXELS_PER_LINE * vout->vrfb_context[0].xoffset *
+		offset = vout->vrfb_context[0].xoffset *
 			vout->vrfb_context[0].bytespp;
 		temp_ps = ps / vr_ps;
 		if (mirroring == 0) {
@@ -1895,6 +1898,13 @@ static int vidioc_streamon(struct file *file, void *fh,
 	if (pdata->set_min_bus_tput)
 		pdata->set_min_bus_tput(vout->dev , OCP_INITIATOR_AGENT,
 							166 * 1000 * 4);
+	/*
+	* Setting VDD1 at OPP3 Frequency to get better performance
+	* on streamon.
+	*/
+
+	if (pdata->set_vdd1_opp)
+		pdata->set_vdd1_opp(vout->dev, VDD1_OPP3_FREQ);
 #endif
 	omap_dispc_register_isr(omap_vout_isr, vout, OMAP_VOUT_IRQ_MASK);
 
@@ -1945,6 +1955,11 @@ static int vidioc_streamoff(struct file *file, void *fh,
 		if (pdata->set_min_bus_tput)
 			pdata->set_min_bus_tput(vout->dev, OCP_INITIATOR_AGENT,
 								0);
+		/*
+		* Setting VDD1 at OPP1 when streamoff is called.
+		*/
+		if (pdata->set_vdd1_opp)
+			pdata->set_vdd1_opp(vout->dev, VDD1_OPP1_FREQ);
 #endif
 		for (t = 0; t < ovid->num_overlays; t++) {
 			struct omap_overlay *ovl = ovid->overlays[t];
