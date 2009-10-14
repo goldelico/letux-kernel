@@ -15,8 +15,6 @@
 #ifndef IMX046_REGS_H
 #define IMX046_REGS_H
 
-#define V4L2_CID_TEST_PATTERN		(V4L2_CID_PRIVATE_BASE + 1)
-
 /* The ID values we are looking for */
 #define IMX046_MOD_ID			0x0046
 #define IMX046_MFR_ID			0x000B
