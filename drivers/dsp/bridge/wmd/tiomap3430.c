@@ -98,6 +98,8 @@
 
 #define MMU_GFLUSH 0x60
 
+extern unsigned short min_active_opp;
+
 /* Forward Declarations: */
 static DSP_STATUS WMD_BRD_Monitor(struct WMD_DEV_CONTEXT *pDevContext);
 static DSP_STATUS WMD_BRD_Read(struct WMD_DEV_CONTEXT *pDevContext,
@@ -277,12 +279,9 @@ static inline void tlb_flush_all(const void __iomem *base)
 
 static inline void flush_all(struct WMD_DEV_CONTEXT *pDevContext)
 {
-	struct CFG_HOSTRES resources;
 	u32 temp = 0;
 
-	CFG_GetHostResources((struct CFG_DEVNODE *)DRV_GetFirstDevExtension(),
-				&resources);
-	HW_PWRST_IVA2RegGet(resources.dwPrmBase, &temp);
+	HW_PWRST_IVA2RegGet(pDevContext->prmbase, &temp);
 
 	if ((temp & HW_PWR_STATE_ON) == HW_PWR_STATE_OFF ||
 	    (temp & HW_PWR_STATE_ON) == HW_PWR_STATE_RET) {
@@ -338,47 +337,40 @@ void WMD_DRV_Entry(OUT struct WMD_DRV_INTERFACE **ppDrvInterface,
  */
 static DSP_STATUS WMD_BRD_Monitor(struct WMD_DEV_CONTEXT *hDevContext)
 {
-	DSP_STATUS status = DSP_SOK;
 	struct WMD_DEV_CONTEXT *pDevContext = hDevContext;
-	struct CFG_HOSTRES resources;
 	u32 temp;
 	enum HW_PwrState_t    pwrState;
 
 	DBG_Trace(DBG_ENTER, "Board in the monitor state  \n");
-	status = CFG_GetHostResources(
-		 (struct CFG_DEVNODE *)DRV_GetFirstDevExtension(), &resources);
-	if (DSP_FAILED(status))
-		goto error_return;
 
-	GetHWRegs(resources.dwPrmBase, resources.dwCmBase);
-	HW_PWRST_IVA2RegGet(resources.dwPrmBase, &temp);
+	GetHWRegs(pDevContext->prmbase, pDevContext->cmbase);
+	HW_PWRST_IVA2RegGet(pDevContext->prmbase, &temp);
 	if ((temp & 0x03) != 0x03 || (temp & 0x03) != 0x02) {
 		/* IVA2 is not in ON state */
 		/* Read and set PM_PWSTCTRL_IVA2  to ON */
-		HW_PWR_IVA2PowerStateSet(resources.dwPrmBase,
+		HW_PWR_IVA2PowerStateSet(pDevContext->prmbase,
 					  HW_PWR_DOMAIN_DSP,
 					  HW_PWR_STATE_ON);
 		/* Set the SW supervised state transition */
-		HW_PWR_CLKCTRL_IVA2RegSet(resources.dwCmBase, HW_SW_SUP_WAKEUP);
+		HW_PWR_CLKCTRL_IVA2RegSet(pDevContext->cmbase, HW_SW_SUP_WAKEUP);
 		/* Wait until the state has moved to ON */
-		HW_PWR_IVA2StateGet(resources.dwPrmBase, HW_PWR_DOMAIN_DSP,
+		HW_PWR_IVA2StateGet(pDevContext->prmbase, HW_PWR_DOMAIN_DSP,
 				     &pwrState);
 		/* Disable Automatic transition */
-		HW_PWR_CLKCTRL_IVA2RegSet(resources.dwCmBase, HW_AUTOTRANS_DIS);
+		HW_PWR_CLKCTRL_IVA2RegSet(pDevContext->cmbase, HW_AUTOTRANS_DIS);
 	}
 	DBG_Trace(DBG_LEVEL6, "WMD_BRD_Monitor - Middle ****** \n");
-	GetHWRegs(resources.dwPrmBase, resources.dwCmBase);
-	HW_RST_UnReset(resources.dwPrmBase, HW_RST2_IVA2);
+	GetHWRegs(pDevContext->prmbase, pDevContext->cmbase);
+	HW_RST_UnReset(pDevContext->prmbase, HW_RST2_IVA2);
 	CLK_Enable(SERVICESCLK_iva2_ck);
 
-	if (DSP_SUCCEEDED(status)) {
-		/* set the device state to IDLE */
-		pDevContext->dwBrdState = BRD_IDLE;
-	}
-error_return:
+	/* set the device state to IDLE */
+	pDevContext->dwBrdState = BRD_IDLE;
+
 	DBG_Trace(DBG_LEVEL6, "WMD_BRD_Monitor - End ****** \n");
-	GetHWRegs(resources.dwPrmBase, resources.dwCmBase);
-	return status;
+	GetHWRegs(pDevContext->prmbase, pDevContext->cmbase);
+
+	return DSP_SOK;
 }
 
 /*
@@ -460,7 +452,6 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 	u32 ulShmOffsetVirt;	/* offset of ulShmBaseVirt from ulTLBBaseVirt */
 	s32 iEntryNdx;
 	s32 itmpEntryNdx = 0;	/* DSP-MMU TLB entry base address */
-	struct CFG_HOSTRES resources;
 	u32 temp;
 	u32 ulDspClkRate;
 	u32 ulDspClkAddr;
@@ -471,6 +462,10 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 	u32 extClkId = 0;
 	u32 tmpIndex;
 	u32 clkIdIndex = MBX_PM_MAX_RESOURCES;
+#ifdef CONFIG_BRIDGE_DVFS
+	struct dspbridge_platform_data *pdata =
+			omap_dspbridge_dev->dev.platform_data;
+#endif
 
 	DBG_Trace(DBG_ENTER, "Entering WMD_BRD_Start:\n hDevContext: 0x%x\n\t "
 			     "dwDSPAddr: 0x%x\n", hDevContext, dwDSPAddr);
@@ -502,43 +497,34 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 		*((volatile u32 *)dwSyncAddr) = 0xffffffff;
 
 	if (DSP_SUCCEEDED(status)) {
-		status = CFG_GetHostResources(
-			(struct CFG_DEVNODE *)DRV_GetFirstDevExtension(),
-			&resources);
 		/* Assert RST1 i.e only the RST only for DSP megacell  */
-		/* HW_RST_Reset(resources.dwPrcmBase, HW_RST1_IVA2);*/
-		if (DSP_SUCCEEDED(status)) {
-			HW_RST_Reset(resources.dwPrmBase, HW_RST1_IVA2);
-			if (dsp_debug) {
-				/* Set the bootmode to self loop  */
-				DBG_Trace(DBG_LEVEL7,
-						"Set boot mode to self loop"
-						" for IVA2 Device\n");
-				HW_DSPSS_BootModeSet(resources.dwSysCtrlBase,
-					HW_DSPSYSC_SELFLOOPBOOT, dwDSPAddr);
-			} else {
-				/* Set the bootmode to '0' - direct boot */
-				DBG_Trace(DBG_LEVEL7,
-						"Set boot mode to direct"
-						" boot for IVA2 Device \n");
-				HW_DSPSS_BootModeSet(resources.dwSysCtrlBase,
-					HW_DSPSYSC_DIRECTBOOT, dwDSPAddr);
-			}
+		HW_RST_Reset(pDevContext->prmbase, HW_RST1_IVA2);
+		if (dsp_debug) {
+			/* Set the bootmode to self loop  */
+			DBG_Trace(DBG_LEVEL7,
+					"Set boot mode to self loop for IVA2 Device\n");
+			HW_DSPSS_BootModeSet(pDevContext->sysctrlbase,
+				HW_DSPSYSC_SELFLOOPBOOT, dwDSPAddr);
+		} else {
+			/* Set the bootmode to '0' - direct boot */
+			DBG_Trace(DBG_LEVEL7,
+					"Set boot mode to direct"
+					" boot for IVA2 Device \n");
+			HW_DSPSS_BootModeSet(pDevContext->sysctrlbase,
+				HW_DSPSYSC_DIRECTBOOT, dwDSPAddr);
 		}
-	}
-	if (DSP_SUCCEEDED(status)) {
 		/* Reset and Unreset the RST2, so that BOOTADDR is copied to
 		 * IVA2 SYSC register */
-		HW_RST_Reset(resources.dwPrmBase, HW_RST2_IVA2);
+		HW_RST_Reset(pDevContext->prmbase, HW_RST2_IVA2);
 		udelay(100);
-		HW_RST_UnReset(resources.dwPrmBase, HW_RST2_IVA2);
+		HW_RST_UnReset(pDevContext->prmbase, HW_RST2_IVA2);
 		udelay(100);
 		DBG_Trace(DBG_LEVEL6, "WMD_BRD_Start 0 ****** \n");
-		GetHWRegs(resources.dwPrmBase, resources.dwCmBase);
+		GetHWRegs(pDevContext->prmbase, pDevContext->cmbase);
 		/* Disbale the DSP MMU */
-		HW_MMU_Disable(resources.dwDmmuBase);
+		HW_MMU_Disable(pDevContext->dwDSPMmuBase);
 		/* Disable TWL */
-		HW_MMU_TWLDisable(resources.dwDmmuBase);
+		HW_MMU_TWLDisable(pDevContext->dwDSPMmuBase);
 
 		/* Only make TLB entry if both addresses are non-zero */
 		for (iEntryNdx = 0; iEntryNdx < WMDIOCTL_NUMOFMMUTLB;
@@ -564,39 +550,34 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 				itmpEntryNdx++;
 			}
 		}		/* end for */
-	}
 
-	/* Lock the above TLB entries and get the BIOS and load monitor timer
-	 * information*/
-	if (DSP_SUCCEEDED(status)) {
-		HW_MMU_NumLockedSet(resources.dwDmmuBase, itmpEntryNdx);
-		HW_MMU_VictimNumSet(resources.dwDmmuBase, itmpEntryNdx);
-		HW_MMU_TTBSet(resources.dwDmmuBase,
+		/*
+		 * Lock the above TLB entries and get the BIOS and load monitor timer
+		 * information
+		 */
+		HW_MMU_NumLockedSet(pDevContext->dwDSPMmuBase, itmpEntryNdx);
+		HW_MMU_VictimNumSet(pDevContext->dwDSPMmuBase, itmpEntryNdx);
+		HW_MMU_TTBSet(pDevContext->dwDSPMmuBase,
 				pDevContext->pPtAttrs->L1BasePa);
-		HW_MMU_TWLEnable(resources.dwDmmuBase);
+		HW_MMU_TWLEnable(pDevContext->dwDSPMmuBase);
+
 		/* Enable the SmartIdle and AutoIdle bit for MMU_SYSCONFIG */
-
-
-		temp = __raw_readl((resources.dwDmmuBase) + 0x10);
+		temp = __raw_readl((pDevContext->dwDSPMmuBase) + 0x10);
 		temp = (temp & 0xFFFFFFEF) | 0x11;
-		__raw_writel(temp, (resources.dwDmmuBase) + 0x10);
+		__raw_writel(temp, (pDevContext->dwDSPMmuBase) + 0x10);
 
 		/* Let the DSP MMU run */
-		HW_MMU_Enable(resources.dwDmmuBase);
+		HW_MMU_Enable(pDevContext->dwDSPMmuBase);
 
 		/* Enable the BIOS clock  */
 		(void)DEV_GetSymbol(pDevContext->hDevObject,
-					BRIDGEINIT_BIOSGPTIMER,
-				     &ulBiosGpTimer);
+					BRIDGEINIT_BIOSGPTIMER, &ulBiosGpTimer);
 		DBG_Trace(DBG_LEVEL7, "BIOS GPTimer : 0x%x\n", ulBiosGpTimer);
 		(void)DEV_GetSymbol(pDevContext->hDevObject,
-				BRIDGEINIT_LOADMON_GPTIMER,
-				     &ulLoadMonitorTimer);
+				BRIDGEINIT_LOADMON_GPTIMER, &ulLoadMonitorTimer);
 		DBG_Trace(DBG_LEVEL7, "Load Monitor Timer : 0x%x\n",
 			  ulLoadMonitorTimer);
-	}
 
-	if (DSP_SUCCEEDED(status)) {
 		if (ulLoadMonitorTimer != 0xFFFF) {
 			uClkCmd = (BPWR_DisableClock << MBX_PM_CLK_CMDSHIFT) |
 						ulLoadMonitorTimer;
@@ -606,8 +587,7 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 			DSPPeripheralClkCtrl(pDevContext, &uClkCmd);
 
 			extClkId = uClkCmd & MBX_PM_CLK_IDMASK;
-			for (tmpIndex = 0; tmpIndex < MBX_PM_MAX_RESOURCES;
-				       tmpIndex++) {
+			for (tmpIndex = 0; tmpIndex < MBX_PM_MAX_RESOURCES; tmpIndex++) {
 				if (extClkId == BPWR_CLKID[tmpIndex]) {
 					clkIdIndex = tmpIndex;
 					break;
@@ -615,8 +595,7 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 			}
 
 			if (clkIdIndex < MBX_PM_MAX_RESOURCES)
-				status = CLK_Set_32KHz(
-						BPWR_Clks[clkIdIndex].funClk);
+				status = CLK_Set_32KHz(BPWR_Clks[clkIdIndex].funClk);
 			else
 				status = DSP_EFAIL;
 
@@ -685,9 +664,9 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 					"_BRIDGEINIT_DSP_FREQ", &ulDspClkAddr);
 		/*Set Autoidle Mode for IVA2 PLL */
 		temp = (u32) *((REG_UWORD32 *)
-			((u32) (resources.dwCmBase) + 0x34));
+			((u32) (pDevContext->cmbase) + 0x34));
 		temp = (temp & 0xFFFFFFFE) | 0x1;
-		*((REG_UWORD32 *) ((u32) (resources.dwCmBase) + 0x34)) =
+		*((REG_UWORD32 *) ((u32) (pDevContext->cmbase) + 0x34)) =
 			(u32) temp;
 		DBG_Trace(DBG_LEVEL5, "WMD_BRD_Start: _BRIDGE_DSP_FREQ Addr:"
 				"0x%x \n", ulDspClkAddr);
@@ -703,29 +682,29 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 		}
 /*PM_IVA2GRPSEL_PER = 0xC0;*/
 		temp = (u32) *((REG_UWORD32 *)
-			((u32) (resources.dwPerPmBase) + 0xA8));
+			((u32) (pDevContext->perbase) + 0xA8));
 		temp = (temp & 0xFFFFFF30) | 0xC0;
-		*((REG_UWORD32 *) ((u32) (resources.dwPerPmBase) + 0xA8)) =
+		*((REG_UWORD32 *) ((u32) (pDevContext->perbase) + 0xA8)) =
 			(u32) temp;
 
 /*PM_MPUGRPSEL_PER &= 0xFFFFFF3F;*/
 		temp = (u32) *((REG_UWORD32 *)
-			((u32) (resources.dwPerPmBase) + 0xA4));
+			((u32) (pDevContext->perbase) + 0xA4));
 		temp = (temp & 0xFFFFFF3F);
-		*((REG_UWORD32 *) ((u32) (resources.dwPerPmBase) + 0xA4)) =
+		*((REG_UWORD32 *) ((u32) (pDevContext->perbase) + 0xA4)) =
 			(u32) temp;
 /*CM_SLEEPDEP_PER |= 0x04;*/
 		temp = (u32) *((REG_UWORD32 *)
-			((u32) (resources.dwPerBase) + 0x44));
+			((u32) (pDevContext->perbase) + 0x44));
 		temp = (temp & 0xFFFFFFFB) | 0x04;
-		*((REG_UWORD32 *) ((u32) (resources.dwPerBase) + 0x44)) =
+		*((REG_UWORD32 *) ((u32) (pDevContext->perbase) + 0x44)) =
 			(u32) temp;
 
 /*CM_CLKSTCTRL_IVA2 = 0x00000003 -To Allow automatic transitions*/
 		temp = (u32) *((REG_UWORD32 *)
-			((u32) (resources.dwCmBase) + 0x48));
+			((u32) (pDevContext->cmbase) + 0x48));
 		temp = (temp & 0xFFFFFFFC) | 0x03;
-		*((REG_UWORD32 *) ((u32) (resources.dwCmBase) + 0x48)) =
+		*((REG_UWORD32 *) ((u32) (pDevContext->cmbase) + 0x48)) =
 			(u32) temp;
 
 		/* Enable Mailbox events and also drain any pending
@@ -734,25 +713,34 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 	}
 
 	if (DSP_SUCCEEDED(status)) {
-		HW_RSTCTRL_RegGet(resources.dwPrmBase, HW_RST1_IVA2, &temp);
+		HW_RSTCTRL_RegGet(pDevContext->prmbase, HW_RST1_IVA2, &temp);
 		DBG_Trace(DBG_LEVEL7, "BRD_Start: RM_RSTCTRL_DSP = 0x%x \n",
 				temp);
-		HW_RSTST_RegGet(resources.dwPrmBase, HW_RST1_IVA2, &temp);
+		HW_RSTST_RegGet(pDevContext->prmbase, HW_RST1_IVA2, &temp);
 		DBG_Trace(DBG_LEVEL7, "BRD_Start0: RM_RSTST_DSP = 0x%x \n",
 				temp);
 
 		/* Let DSP go */
 		DBG_Trace(DBG_LEVEL7, "Unreset, WMD_BRD_Start\n");
 		/* Enable DSP MMU Interrupts */
-		HW_MMU_EventEnable(resources.dwDmmuBase,
+		HW_MMU_EventEnable(pDevContext->dwDSPMmuBase,
 				HW_MMU_ALL_INTERRUPTS);
-		/* release the RST1, DSP starts executing now .. */
-		HW_RST_UnReset(resources.dwPrmBase, HW_RST1_IVA2);
 
-		HW_RSTST_RegGet(resources.dwPrmBase, HW_RST1_IVA2, &temp);
+#ifdef CONFIG_BRIDGE_DVFS
+		/*
+		 * Bump OPP to the minimal require by DSP before running.
+		 */
+		if (pdata->dsp_set_min_opp)
+			(*pdata->dsp_set_min_opp)(min_active_opp);
+#endif
+
+		/* release the RST1, DSP starts executing now .. */
+		HW_RST_UnReset(pDevContext->prmbase, HW_RST1_IVA2);
+
+		HW_RSTST_RegGet(pDevContext->prmbase, HW_RST1_IVA2, &temp);
 		DBG_Trace(DBG_LEVEL7, "BRD_Start: RM_RSTST_DSP = 0x%x \n",
 				temp);
-		HW_RSTCTRL_RegGet(resources.dwPrmBase, HW_RST1_IVA2, &temp);
+		HW_RSTCTRL_RegGet(pDevContext->prmbase, HW_RST1_IVA2, &temp);
 		DBG_Trace(DBG_LEVEL5, "WMD_BRD_Start: CM_RSTCTRL_DSP: 0x%x \n",
 				temp);
 		DBG_Trace(DBG_LEVEL7, "Driver waiting for Sync @ 0x%x \n",
@@ -834,11 +822,11 @@ static DSP_STATUS WMD_BRD_Stop(struct WMD_DEV_CONTEXT *hDevContext)
 		return DSP_EFAIL;
 	}
 
-	HW_PWRST_IVA2RegGet(resources.dwPrmBase, &dspPwrState);
+	HW_PWRST_IVA2RegGet(pDevContext->prmbase, &dspPwrState);
 	if (dspPwrState != HW_PWR_STATE_OFF) {
 		CHNLSM_InterruptDSP2(pDevContext, MBX_PM_DSPIDLE);
 		mdelay(10);
-		GetHWRegs(resources.dwPrmBase, resources.dwCmBase);
+		GetHWRegs(pDevContext->prmbase, pDevContext->cmbase);
 		udelay(50);
 
 		clk_status = CLK_Disable(SERVICESCLK_iva2_ck);
@@ -849,7 +837,7 @@ static DSP_STATUS WMD_BRD_Stop(struct WMD_DEV_CONTEXT *hDevContext)
 		}
 		/* IVA2 is not in OFF state */
 		/* Set PM_PWSTCTRL_IVA2  to OFF */
-		HW_PWR_IVA2PowerStateSet(resources.dwPrmBase,
+		HW_PWR_IVA2PowerStateSet(pDevContext->prmbase,
 					  HW_PWR_DOMAIN_DSP,
 					  HW_PWR_STATE_OFF);
 		/* Set the SW supervised state transition for Sleep */
@@ -879,9 +867,9 @@ static DSP_STATUS WMD_BRD_Stop(struct WMD_DEV_CONTEXT *hDevContext)
 		       (pPtAttrs->L2NumPages * sizeof(struct PageInfo)));
 	}
 	DBG_Trace(DBG_LEVEL6, "WMD_BRD_Stop - End ****** \n");
-	HW_RST_Reset(resources.dwPrmBase, HW_RST1_IVA2);
-	HW_RST_Reset(resources.dwPrmBase, HW_RST2_IVA2);
-	HW_RST_Reset(resources.dwPrmBase, HW_RST3_IVA2);
+	HW_RST_Reset(pDevContext->prmbase, HW_RST1_IVA2);
+	HW_RST_Reset(pDevContext->prmbase, HW_RST2_IVA2);
+	HW_RST_Reset(pDevContext->prmbase, HW_RST3_IVA2);
 
 	return status;
 }
@@ -946,9 +934,9 @@ static DSP_STATUS WMD_BRD_Delete(struct WMD_DEV_CONTEXT *hDevContext)
 			(pPtAttrs->L2NumPages * sizeof(struct PageInfo)));
 	}
 	DBG_Trace(DBG_LEVEL6, "WMD_BRD_Delete - End ****** \n");
-	HW_RST_Reset(resources.dwPrmBase, HW_RST1_IVA2);
-	HW_RST_Reset(resources.dwPrmBase, HW_RST2_IVA2);
-	HW_RST_Reset(resources.dwPrmBase, HW_RST3_IVA2);
+	HW_RST_Reset(pDevContext->prmbase, HW_RST1_IVA2);
+	HW_RST_Reset(pDevContext->prmbase, HW_RST2_IVA2);
+	HW_RST_Reset(pDevContext->prmbase, HW_RST3_IVA2);
 
 	return status;
 }
@@ -1157,9 +1145,14 @@ static DSP_STATUS WMD_DEV_Create(OUT struct WMD_DEV_CONTEXT **ppDevContext,
 				 "enable the clock Fail\n");
 		}
 		udelay(5);
-		/* 24xx-Linux MMU address is obtained from the host
+		/* 34xx-Linux Base addresses are obtained from the host
 		 * resources struct */
 		pDevContext->dwDSPMmuBase = resources.dwDmmuBase;
+		pDevContext->dwMailBoxBase = resources.dwMboxBase;
+		pDevContext->cmbase = resources.dwCmBase;
+		pDevContext->sysctrlbase = resources.dwSysCtrlBase;
+		pDevContext->prmbase = resources.dwPrmBase;
+		pDevContext->perbase = resources.dwPerPmBase;
 	}
 	if (DSP_SUCCEEDED(status)) {
 		pDevContext->hDevObject = hDevObject;
