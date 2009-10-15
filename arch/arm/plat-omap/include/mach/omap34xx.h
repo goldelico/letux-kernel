@@ -114,6 +114,7 @@
 #define VDD2_OPP1	0x1
 #define VDD2_OPP2	0x2
 #define VDD2_OPP3	0x3
+#define VDD2_OPP4	0x4
 
 #define MIN_VDD1_OPP	(omap_pm_get_min_vdd1_opp())
 #define MAX_VDD1_OPP	(omap_pm_get_max_vdd1_opp())

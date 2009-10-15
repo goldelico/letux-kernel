@@ -625,36 +625,42 @@ static inline void __init zoom2_init_quaduart(void)
 
 static void __init omap_zoom2_init_irq(void)
 {
-	switch (omap_rev_id()) {
-	case OMAP_3420:
+	if (cpu_is_omap3630()) {
 		omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
-		omap3_mpu_rate_table, omap3_dsp_rate_table_3420,
-		omap3_l3_rate_table);
-		break;
+		omap3630_mpu_rate_table, omap3630_dsp_rate_table,
+		omap3630_l3_rate_table);
+	} else {
+		switch (omap_rev_id()) {
+		case OMAP_3420:
+			omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+			omap3_mpu_rate_table, omap3_dsp_rate_table_3420,
+			omap3_l3_rate_table);
+			break;
 
-	case OMAP_3430:
-		omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
-		omap3_mpu_rate_table, omap3_dsp_rate_table,
-		omap3_l3_rate_table);
-		break;
+		case OMAP_3430:
+			omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+			omap3_mpu_rate_table, omap3_dsp_rate_table,
+			omap3_l3_rate_table);
+			break;
 
-	case OMAP_3440:
-		omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
-		omap3_mpu_rate_table, omap3_dsp_rate_table_3440,
-		omap3_l3_rate_table);
-		break;
+		case OMAP_3440:
+			omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+			omap3_mpu_rate_table, omap3_dsp_rate_table_3440,
+			omap3_l3_rate_table);
+			break;
 
-	default:
-		omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
-		omap3_mpu_rate_table, omap3_dsp_rate_table,
-		omap3_l3_rate_table);
-		break;
+		default:
+			omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+			omap3_mpu_rate_table, omap3_dsp_rate_table,
+			omap3_l3_rate_table);
+			break;
 		}
+	}
 
 	/* Set Mcbsp only for Producton units */
 	/* Else you will see white screen on beta boards */
 
-	if (omap_rev() > OMAP3430_REV_ES3_0) {
+	if (cpu_is_omap3630() || (omap_rev() > OMAP3430_REV_ES3_0)) {
 		/* Production board supports McBSP4 */
 		omap2_mux_register(&zoom2_mux_cfg);
 	} else {
