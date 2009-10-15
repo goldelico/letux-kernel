@@ -202,7 +202,10 @@ int sharedregion_destroy(void)
 	return 0;
 
 error:
-	printk(KERN_ERR "sharedregion_destroy failed status:%x\n", retval);
+	if (retval < 0) {
+		printk(KERN_ERR "sharedregion_destroy failed status:%x\n",
+			retval);
+	}
 	return retval;
 }
 EXPORT_SYMBOL(sharedregion_destroy);
@@ -300,10 +303,13 @@ success:
 
 dup_entry_error: /* Fall through */
 mem_overlap_error:
+	printk(KERN_WARNING "sharedregion_add entry exists status: %x\n",
+		retval);
 	mutex_unlock(sharedregion_state.gate_handle);
 
 error:
-	printk(KERN_ERR "sharedregion_add failed status:%x\n", retval);
+	if (retval < 0)
+		printk(KERN_ERR "sharedregion_add failed status:%x\n", retval);
 	return retval;
 }
 EXPORT_SYMBOL(sharedregion_add);

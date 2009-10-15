@@ -315,7 +315,10 @@ int nameserver_destroy(void)
 	return 0;
 
 exit:
-	printk(KERN_ERR "nameserver_destroy failed, retval: %x\n", retval);
+	if (retval < 0) {
+		printk(KERN_ERR "nameserver_destroy failed, retval: %x\n",
+			retval);
+	}
 	return retval;
 }
 EXPORT_SYMBOL(nameserver_destroy);

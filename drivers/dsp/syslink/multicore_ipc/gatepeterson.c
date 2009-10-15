@@ -287,7 +287,10 @@ int gatepeterson_destroy(void)
 	return 0;
 
 exit:;
-	printk(KERN_ERR "gatepeterson_destroy failed status:%x\n", retval);
+	if (retval < 0) {
+		printk(KERN_ERR "gatepeterson_destroy failed status:%x\n",
+			retval);
+	}
 	return retval;
 
 }
