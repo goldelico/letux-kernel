@@ -314,8 +314,7 @@ static struct spi_board_info zoom2_spi_board_info[] __initdata = {
 	},
 };
 
-#define LCD_PANEL_BACKLIGHT_GPIO 	(15 + OMAP_MAX_GPIO_LINES)
-#define LCD_PANEL_ENABLE_GPIO 		(7 + OMAP_MAX_GPIO_LINES)
+#define LCD_PANEL_BACKLIGHT_GPIO 	(7 + OMAP_MAX_GPIO_LINES)
 
 #define LCD_PANEL_RESET_GPIO		55
 #define LCD_PANEL_QVGA_GPIO		56
@@ -363,14 +362,12 @@ static void zoom2_lcd_tv_panel_init(void)
 
 	gpio_request(lcd_panel_reset_gpio, "lcd reset");
 	gpio_request(LCD_PANEL_QVGA_GPIO, "lcd qvga");
-	gpio_request(LCD_PANEL_ENABLE_GPIO, "lcd panel");
 	gpio_request(LCD_PANEL_BACKLIGHT_GPIO, "lcd backlight");
 	
 	gpio_request( TV_PANEL_ENABLE_GPIO, "tv panel");
 
 	gpio_direction_output(LCD_PANEL_QVGA_GPIO, 0);
 	gpio_direction_output(lcd_panel_reset_gpio, 0);
-	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 0);
 	gpio_direction_output(LCD_PANEL_BACKLIGHT_GPIO, 0);
 
 	gpio_direction_output(TV_PANEL_ENABLE_GPIO, 0);
@@ -393,7 +390,6 @@ static int zoom2_panel_enable_lcd(struct omap_dss_device *dssdev)
 {
 	zoom2_panel_power_enable(1);
 
-	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 1);
 	gpio_direction_output(LCD_PANEL_BACKLIGHT_GPIO, 1);
 
 	return 0;
@@ -403,7 +399,6 @@ static void zoom2_panel_disable_lcd(struct omap_dss_device *dssdev)
 {
 	zoom2_panel_power_enable(0);
 
-	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 0);
 	gpio_direction_output(LCD_PANEL_BACKLIGHT_GPIO, 0);
 
 }
