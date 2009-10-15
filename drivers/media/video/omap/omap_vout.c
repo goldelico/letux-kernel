@@ -54,6 +54,7 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/semaphore.h>
+#include <linux/omap_resizer.h>
 #include <asm/processor.h>
 #include <mach/dma.h>
 #include <mach/vrfb.h>
@@ -95,6 +96,45 @@
 #define OMAP_VOUT_IRQ_MASK (DISPC_IRQ_VSYNC | DISPC_IRQ_EVSYNC_EVEN | \
 			    DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_FRAMEDONE)
 
+/* ISP resizer related code*/
+enum {
+	VIDEO_720_ENABLE = 1,
+	VIDEO_720_RESIZER_N_STREAMING,
+	VIDEO_720_DISABLE,
+};
+
+#define FLG720_BUF_MAPPED 	1
+#define FLG720_BUF_UNMAPPED 	0
+
+static int flg_720  = VIDEO_720_DISABLE;
+static int flg_720_bufmapped = FLG720_BUF_UNMAPPED;
+
+struct rsz_params isp_rsz_params;
+int rsz_configured;
+
+static u16 omap_vout_rsz_filter_4_tap_high_quality[] = {
+	0x0000, 0x0100, 0x0000, 0x0000,
+	0x03FA, 0x00F6, 0x0010, 0x0000,
+	0x03F9, 0x00DB, 0x002C, 0x0000,
+	0x03FB, 0x00B3, 0x0053, 0x03FF,
+	0x03FD, 0x0082, 0x0084, 0x03FD,
+	0x03FF, 0x0053, 0x00B3, 0x03FB,
+	0x0000, 0x002C, 0x00DB, 0x03F9,
+	0x0000, 0x0010, 0x00F6, 0x03FA
+};
+
+static u16 omap_vout_rsz_filter_7_tap_high_quality[] = {
+	0x0004, 0x0023, 0x005A, 0x0058,
+	0x0023, 0x0004, 0x0000, 0x0000,
+	0x0002, 0x0018, 0x004d, 0x0060,
+	0x0031, 0x0008, 0x0000, 0x0000,
+	0x0001, 0x000f, 0x003f, 0x0062,
+	0x003f, 0x000f, 0x0001, 0x0000,
+	0x0000, 0x0008, 0x0031, 0x0060,
+	0x004d, 0x0018, 0x0002, 0x0000
+};
+
+/* End ISP resizer*/
 
 static struct videobuf_queue_ops video_vbq_ops;
 
@@ -360,6 +400,19 @@ static inline u32 omap_vout_uservirt_to_phys(u32 virtp)
 	return physp;
 }
 
+/* This function wakes up the application once
+ * the DMA transfer to VRFB space is completed by the
+ * ISP resizer block
+ */
+void omap_vout_isp_rsz_dma_tx_callback(void *arg)
+{
+	struct omap_vout_device *vout;
+	vout = (struct omap_vout_device *) arg;
+
+	vout->vrfb_dma_tx.tx_status = 1;
+	wake_up_interruptible(&vout->vrfb_dma_tx.wait);
+}
+
 /* This functions wakes up the application once
  * the DMA transfer to VRFB space is completed. */
 static void omap_vout_vrfb_dma_tx_callback(int lch, u16 ch_status, void *data)
@@ -443,6 +496,7 @@ static int omap_vout_vrfb_buffer_setup(struct omap_vout_device *vout,
 {
 	int i, j;
 	int buffer_set;
+	u32 width, height;
 
 	/* Allocate the VRFB buffers only if the buffers are not
 	 * allocated during init time.
@@ -479,9 +533,16 @@ static int omap_vout_vrfb_buffer_setup(struct omap_vout_device *vout,
 		}
 	}
 	for (i = 0; i < *count; i++) {
+		if (flg_720 == VIDEO_720_ENABLE) {
+			width = vout->win.w.width;
+			height = vout->win.w.height;
+		} else {
+			width = vout->pix.width;
+			height = vout->pix.height;
+		}
 			omap_vrfb_setup(&vout->vrfb_context[i],
 				vout->smsshado_phy_addr[i],
-				vout->pix.width, vout->pix.height,
+				width, height,
 				vout->dss_mode,
 				vout->rotation);
 	}
@@ -530,6 +591,13 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout)
 	struct omap_overlay *ovl;
 	struct omap_dss_device *cur_display;
 	int *cropped_offset = &(vout->cropped_offset);
+
+	if (flg_720 == VIDEO_720_ENABLE) {
+		pix->height = win->w.height;
+		pix->width = win->w.width;
+		crop->height = win->w.height;
+		crop->width = win->w.width;
+	}
 
 	ovid = &(vout->vid_info);
 	ovl = ovid->overlays[0];
@@ -751,6 +819,7 @@ int omapvid_setup_overlay(struct omap_vout_device *vout,
 	enum omap_color_mode mode = 0;
 	int rotation, mirror;
 	int cropheight, cropwidth, pixheight, pixwidth;
+	u32 new_crop_width, new_crop_height, new_pix_width, new_pix_height;
 	struct omap_overlay_info info;
 
 	if ((ovl->caps & OMAP_DSS_OVL_CAP_SCALE) == 0 &&
@@ -769,19 +838,33 @@ int omapvid_setup_overlay(struct omap_vout_device *vout,
 	rotation = vout->rotation;
 	mirror = vout->mirror;
 
+	/* For 720p set the width and height for ISP resizer downscaling*/
+	if (flg_720 == VIDEO_720_ENABLE) {
+		new_crop_width = vout->win.w.width;
+		new_crop_height = vout->win.w.height;
+		new_pix_width = vout->win.w.width;
+		new_pix_height = vout->win.w.height;
+
+	} else {
+		new_crop_width = vout->crop.width;
+		new_crop_height = vout->crop.height;
+		new_pix_width = vout->pix.width;
+		new_pix_height = vout->pix.height;
+	}
+
 	/* Setup the input plane parameters according to
 	 * rotation value selected.
 	 */
 	if (rotate_90_or_270(vout->rotation)) {
-		cropheight = vout->crop.width;
-		cropwidth = vout->crop.height;
-		pixheight = vout->pix.width;
-		pixwidth = vout->pix.height;
+		cropheight = new_crop_width;
+		cropwidth = new_crop_height;
+		pixheight = new_pix_width;
+		pixwidth = new_pix_height;
 	} else {
-		cropheight = vout->crop.height;
-		cropwidth = vout->crop.width;
-		pixheight = vout->pix.height;
-		pixwidth = vout->pix.width;
+		cropheight = new_crop_height;
+		cropwidth = new_crop_width;
+		pixheight = new_pix_height;
+		pixwidth = new_pix_width;
 	}
 
 	ovl->get_overlay_info(ovl, &info);
@@ -977,6 +1060,11 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 	u32 elem_count = 0, frame_count = 0, pixsize = 2;
 	struct videobuf_dmabuf *dmabuf = NULL;
 	int rotation;
+	int ret = 0;
+
+	rotation = (vout->mirror) ?
+		rotation_with_mirror(vout->rotation) :
+		vout->rotation;
 
 	if (VIDEOBUF_NEEDS_INIT == vb->state) {
 		vb->width = vout->pix.width;
@@ -1009,61 +1097,76 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 		vout->queued_buf_addr[vb->i] = (u8 *) dmabuf->bus_addr;
 		return 0;
 	}
-	dmabuf = videobuf_to_dma(q->bufs[vb->i]);
-	/* If rotation is enabled, copy input buffer into VRFB
-	 * memory space using DMA. We are copying input buffer
-	 * into VRFB memory space of desired angle and DSS will
-	 * read image VRFB memory for 0 degree angle
-	 */
-	pixsize = vout->bpp * vout->vrfb_bpp;
-	/*
-	 * DMA transfer in double index mode
-	 */
 
-	/* Frame index */
-	dest_frame_index = ((MAX_PIXELS_PER_LINE * pixsize) -
-			(vout->pix.width * vout->bpp)) + 1;
+	if (flg_720 == VIDEO_720_ENABLE) {
+		flg_720  = VIDEO_720_RESIZER_N_STREAMING;
 
-	/* Source and destination parameters */
-	src_element_index = 0;
-	src_frame_index = 0;
-	dest_element_index = 1;
-	/* Number of elements per frame */
-	elem_count = vout->pix.width * vout->bpp;
-	frame_count = vout->pix.height;
-	vout->vrfb_dma_tx.tx_status = 0;
-	omap_set_dma_transfer_params(vout->vrfb_dma_tx.dma_ch,
-			OMAP_DMA_DATA_TYPE_S32, (elem_count / 4), frame_count,
-			OMAP_DMA_SYNC_ELEMENT, vout->vrfb_dma_tx.dev_id, 0x0);
-	/* src_port required only for OMAP1 */
-	omap_set_dma_src_params(vout->vrfb_dma_tx.dma_ch, 0,
-			OMAP_DMA_AMODE_POST_INC, dmabuf->bus_addr,
-			src_element_index, src_frame_index);
-	/*set dma source burst mode for VRFB */
-	omap_set_dma_src_burst_mode(vout->vrfb_dma_tx.dma_ch,
-			OMAP_DMA_DATA_BURST_16);
-	if (vout->mirror)
-		rotation = rotation_with_mirror(vout->rotation);
-	else
-		rotation = vout->rotation;
+		/*Start resizing*/
+		ret = rsz_begin(vb->i, vb->i, 8192,
+			(u32)vout->vrfb_context[vb->i].paddr[rotation]);
 
-	/* dest_port required only for OMAP1 */
-	omap_set_dma_dest_params(vout->vrfb_dma_tx.dma_ch, 0,
-			OMAP_DMA_AMODE_DOUBLE_IDX,
-			vout->vrfb_context[vb->i].paddr[rotation],
-			dest_element_index, dest_frame_index);
-	/*set dma dest burst mode for VRFB */
-	omap_set_dma_dest_burst_mode(vout->vrfb_dma_tx.dma_ch,
-			OMAP_DMA_DATA_BURST_16);
-	omap_dma_set_global_params(DMA_DEFAULT_ARB_RATE, 0x20, 0);
+		if (ret) {
+			printk(KERN_ERR "<%s> Failed to resize the 720p buffer"
+					" = %d\n", __func__, ret);
+			return ret;
+		}
 
-	omap_start_dma(vout->vrfb_dma_tx.dma_ch);
-	interruptible_sleep_on_timeout(&vout->vrfb_dma_tx.wait,
-			VRFB_TX_TIMEOUT);
+		flg_720 = VIDEO_720_ENABLE;
+	} else {
+		dmabuf = videobuf_to_dma(q->bufs[vb->i]);
+		/* If rotation is enabled, copy input buffer into VRFB
+		 * memory space using DMA. We are copying input buffer
+		 * into VRFB memory space of desired angle and DSS will
+		 * read image VRFB memory for 0 degree angle
+		 */
+		pixsize = vout->bpp * vout->vrfb_bpp;
+		/*
+		 * DMA transfer in double index mode
+		 */
 
-	if (vout->vrfb_dma_tx.tx_status == 0) {
-		omap_stop_dma(vout->vrfb_dma_tx.dma_ch);
-		return -EINVAL;
+		/* Frame index */
+		dest_frame_index = ((MAX_PIXELS_PER_LINE * pixsize) -
+				(vout->pix.width * vout->bpp)) + 1;
+
+		/* Source and destination parameters */
+		src_element_index = 0;
+		src_frame_index = 0;
+		dest_element_index = 1;
+		/* Number of elements per frame */
+		elem_count = vout->pix.width * vout->bpp;
+		frame_count = vout->pix.height;
+		vout->vrfb_dma_tx.tx_status = 0;
+		omap_set_dma_transfer_params(vout->vrfb_dma_tx.dma_ch,
+					     OMAP_DMA_DATA_TYPE_S32,
+					     (elem_count / 4), frame_count,
+					     OMAP_DMA_SYNC_ELEMENT,
+					     vout->vrfb_dma_tx.dev_id, 0x0);
+		/* src_port required only for OMAP1 */
+		omap_set_dma_src_params(vout->vrfb_dma_tx.dma_ch, 0,
+				OMAP_DMA_AMODE_POST_INC, dmabuf->bus_addr,
+				src_element_index, src_frame_index);
+		/*set dma source burst mode for VRFB */
+		omap_set_dma_src_burst_mode(vout->vrfb_dma_tx.dma_ch,
+				OMAP_DMA_DATA_BURST_16);
+
+		/* dest_port required only for OMAP1 */
+		omap_set_dma_dest_params(vout->vrfb_dma_tx.dma_ch, 0,
+				OMAP_DMA_AMODE_DOUBLE_IDX,
+				vout->vrfb_context[vb->i].paddr[rotation],
+				dest_element_index, dest_frame_index);
+		/*set dma dest burst mode for VRFB */
+		omap_set_dma_dest_burst_mode(vout->vrfb_dma_tx.dma_ch,
+				OMAP_DMA_DATA_BURST_16);
+		omap_dma_set_global_params(DMA_DEFAULT_ARB_RATE, 0x20, 0);
+
+		omap_start_dma(vout->vrfb_dma_tx.dma_ch);
+		interruptible_sleep_on_timeout(&vout->vrfb_dma_tx.wait,
+				VRFB_TX_TIMEOUT);
+
+		if (vout->vrfb_dma_tx.tx_status == 0) {
+			omap_stop_dma(vout->vrfb_dma_tx.dma_ch);
+			return -EINVAL;
+		}
 	}
 	/* Store buffers physical address into an array. Addresses
 	 * from this array will be used to configure DSS */
@@ -1216,6 +1319,28 @@ static int omap_vout_release(struct file *file)
 	if (r)
 		printk(KERN_WARNING VOUT_NAME "Unable to apply changes\n");
 
+	/* Release the ISP resizer resource if not already done so*/
+	if ((flg_720 == VIDEO_720_ENABLE) ||
+	    (flg_720 == VIDEO_720_RESIZER_N_STREAMING)) {
+		rsz_put_resource();
+		flg_720 = VIDEO_720_DISABLE;
+	}
+
+	/* unmap the dss buffers in ISP resizer*/
+	if (flg_720_bufmapped == FLG720_BUF_MAPPED) {
+		unsigned int i;
+		unsigned int num_buffers;
+
+		num_buffers = (vout->vid == OMAP_VIDEO1) ?
+			video1_numbuffers : video2_numbuffers;
+		for (i = 0; i < num_buffers; i++) {
+			rsz_unmap_input_dss_buffers(i);
+			printk(KERN_ERR "<%s> rsz_unmap_input_dss_buffers  %d\n",
+			       __func__, i);
+		}
+		flg_720_bufmapped = FLG720_BUF_UNMAPPED;
+	}
+
 	/* Free all buffers */
 	omap_vout_free_allbuffers(vout);
 	videobuf_mmap_free(q);
@@ -1361,6 +1486,12 @@ static int vidioc_s_fmt_vid_out(struct file *file, void *fh,
 		return -EBUSY;
 
 	mutex_lock(&vout->lock);
+
+	/*check for 720p format*/
+	if (vout->pix.height * vout->pix.width == VID_MAX_WIDTH * 720)
+		flg_720 = VIDEO_720_ENABLE;
+	else
+		flg_720 = VIDEO_720_DISABLE;
 
 	ovid = &(vout->vid_info);
 	ovl = ovid->overlays[0];
@@ -1732,6 +1863,13 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		return -EBUSY;
 	}
 
+	/*check for 720p format*/
+	if (vout->pix.height * vout->pix.width ==
+			VID_MAX_WIDTH * 720)
+		flg_720 = VIDEO_720_ENABLE;
+	else
+		flg_720 = VIDEO_720_DISABLE;
+
 	/* If buffers are already allocated free them */
 	if (q->bufs[0] && (V4L2_MEMORY_MMAP == q->bufs[0]->memory)) {
 		if (vout->mmap_count) {
@@ -1778,6 +1916,18 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		dmabuf->vmalloc = (void *) vout->buf_virt_addr[i];
 		dmabuf->bus_addr = (dma_addr_t) vout->buf_phy_addr[i];
 		dmabuf->sglen = 1;
+		/*
+		*As allocation of buffer is completed,
+		*remap it to ISPMMU for resizer
+		*/
+
+		if (flg_720 == VIDEO_720_ENABLE) {
+			ret = rsz_map_input_dss_buffers(vout->buf_phy_addr[i],
+							i,
+							vout->buffer_size);
+			printk(KERN_ERR "rsz_map_input_dss_buffers  %d\n", i);
+			flg_720_bufmapped = FLG720_BUF_MAPPED;
+		}
 	}
 	mutex_unlock(&vout->lock);
 	return 0;
@@ -1796,7 +1946,7 @@ static int vidioc_qbuf(struct file *file, void *fh,
 {
 	struct omap_vout_device *vout = fh;
 	struct videobuf_queue *q = &vout->vbq;
-	int ret = 0;
+	int ret, k, num_video_buffers;
 
 	if ((V4L2_BUF_TYPE_VIDEO_OUTPUT != buffer->type) ||
 			(buffer->index >= vout->buffer_allocated) ||
@@ -1815,6 +1965,63 @@ static int vidioc_qbuf(struct file *file, void *fh,
 		printk(KERN_WARNING VOUT_NAME
 				"DMA Channel not allocated for Rotation\n");
 		return -EINVAL;
+	}
+
+	/* get the ISP resizer resource and configure it*/
+	if (flg_720 == VIDEO_720_ENABLE) {
+		if (rsz_configured == 0) {
+			rsz_get_resource();
+
+			isp_rsz_params.in_hsize = vout->pix.width;
+			isp_rsz_params.in_vsize = vout->pix.height;
+			isp_rsz_params.out_hsize = vout->win.w.width;
+			isp_rsz_params.out_vsize = vout->win.w.height;
+
+			isp_rsz_params.in_pitch = isp_rsz_params.in_hsize * 2;
+			isp_rsz_params.inptyp = RSZ_INTYPE_YCBCR422_16BIT;
+			isp_rsz_params.vert_starting_pixel = 0;
+			isp_rsz_params.horz_starting_pixel = 0;
+
+			/* We are going to do downsampling, 0.75x*/
+			isp_rsz_params.cbilin = 0;
+			isp_rsz_params.out_pitch = isp_rsz_params.out_hsize * 2;
+			isp_rsz_params.hstph = 0;
+			isp_rsz_params.vstph = 0;
+			isp_rsz_params.yenh_params.type = 0;
+			isp_rsz_params.yenh_params.gain = 0;
+			isp_rsz_params.yenh_params.slop = 0;
+			isp_rsz_params.yenh_params.core = 0;
+
+			if (vout->pix.pixelformat == V4L2_PIX_FMT_YUYV)
+				isp_rsz_params.pix_fmt = RSZ_PIX_FMT_YUYV;
+			if (vout->pix.pixelformat == V4L2_PIX_FMT_UYVY)
+				isp_rsz_params.pix_fmt = RSZ_PIX_FMT_UYVY;
+
+			/* As we are downsizing, we put */
+			for (k = 0; k < 32; k++)
+				isp_rsz_params.tap4filt_coeffs[k] =
+				omap_vout_rsz_filter_4_tap_high_quality[k];
+			for (k = 0; k < 32; k++)
+				isp_rsz_params.tap7filt_coeffs[k] =
+				omap_vout_rsz_filter_7_tap_high_quality[k];
+
+			num_video_buffers = (vout->vid == OMAP_VIDEO1) ?
+			video1_numbuffers : video2_numbuffers;
+
+			ret = rsz_configure(&isp_rsz_params,
+					  omap_vout_isp_rsz_dma_tx_callback,
+					  num_video_buffers,
+					  (void *)vout);
+			printk(KERN_ERR "<%s>: rsz_configure = %d\n",
+			       __func__, ret);
+			if (ret) {
+				printk(KERN_ERR "<%s> failed to configure "
+						"ISP_resizer = %d\n",
+				       __func__, ret);
+				return ret;
+			}
+			rsz_configured = 1;
+		}
 	}
 
 	ret = videobuf_qbuf(q, buffer);
@@ -1883,6 +2090,12 @@ static int vidioc_streamon(struct file *file, void *fh,
 	vout->streaming = 1;
 
 	vout->first_int = 1;
+
+	/*check for 720p format*/
+	if (vout->pix.height * vout->pix.width == VID_MAX_WIDTH * 720)
+		flg_720 = VIDEO_720_ENABLE;
+	else
+		flg_720 = VIDEO_720_DISABLE;
 
 	if (omap_vout_calculate_offset(vout)) {
 		mutex_unlock(&vout->lock);
@@ -1983,6 +2196,15 @@ static int vidioc_streamoff(struct file *file, void *fh,
 			printk(KERN_ERR VOUT_NAME "failed to change mode\n");
 			return r;
 		}
+
+		/*release resizer now */
+		if (flg_720 == VIDEO_720_ENABLE) {
+			printk(KERN_ERR "<%s> rsz_put_resource\n", __func__);
+			flg_720 = VIDEO_720_DISABLE;
+			rsz_configured  = 0;
+			rsz_put_resource();
+		}
+
 		videobuf_streamoff(&vout->vbq);
 		videobuf_queue_cancel(&vout->vbq);
 	}
