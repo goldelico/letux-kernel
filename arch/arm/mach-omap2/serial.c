@@ -116,7 +116,7 @@ static struct plat_serial8250_port serial_platform_data[] = {
 		.pm		= omap_serial_pm,
 	},
 #define QUART_CLK (1843200)
-#ifdef CONFIG_MACH_OMAP_ZOOM2
+#if defined(CONFIG_MACH_OMAP_ZOOM2) || defined(CONFIG_MACH_OMAP_ZOOM3)
 	{
 		.membase	= ZOOM2_QUART_VIRT,
 		.mapbase        = 0x10000000,
@@ -167,7 +167,7 @@ static struct resource omap2_uart3_resources[] = {
 	}
 };
 
-#ifdef CONFIG_MACH_OMAP_ZOOM2
+#if defined(CONFIG_MACH_OMAP_ZOOM2) || defined(CONFIG_MACH_OMAP_ZOOM3)
 static struct resource omap2_quaduart_resources[] = {
 	{
 		.start		= 0x10000000,
@@ -200,7 +200,7 @@ static struct platform_device uart3_device = {
 	.resource		= omap2_uart3_resources,
 };
 
-#ifdef CONFIG_MACH_OMAP_ZOOM2
+#if defined(CONFIG_MACH_OMAP_ZOOM2) || defined(CONFIG_MACH_OMAP_ZOOM3)
 static struct platform_device quaduart_device = {
 
 	.name			= "omap-uart",
@@ -214,7 +214,7 @@ static struct platform_device *uart_devices[] = {
 	&uart1_device,
 	&uart2_device,
 	&uart3_device,
-#ifdef CONFIG_MACH_OMAP_ZOOM2
+#if defined(CONFIG_MACH_OMAP_ZOOM2) || defined(CONFIG_MACH_OMAP_ZOOM3)
 	&quaduart_device
 #endif
 };

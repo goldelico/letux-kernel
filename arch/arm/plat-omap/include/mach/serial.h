@@ -28,7 +28,7 @@
 #define OMAP_UART_EXT_BASE	0x10000000
 #endif
 
-#ifdef CONFIG_MACH_OMAP_ZOOM2
+#if defined(CONFIG_MACH_OMAP_ZOOM2) || defined(CONFIG_MACH_OMAP_ZOOM3)
 #define OMAP_MAX_NR_PORTS	4
 #else
 #define OMAP_MAX_NR_PORTS	3
