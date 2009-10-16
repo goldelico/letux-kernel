@@ -186,7 +186,9 @@ void __init omap34xx_check_revision(void)
 	hawkeye = (idcode >> 12) & 0xffff;
 	rev = (idcode >> 28) & 0xff;
 
-	if (hawkeye == 0xb7ae) {
+	switch (hawkeye) {
+	case 0xb7ae:
+		/* Handle 34xx/35xx devices */
 		switch (rev) {
 		case 0:
 			omap_revision = OMAP3430_REV_ES2_0;
@@ -209,6 +211,21 @@ void __init omap34xx_check_revision(void)
 			omap_revision = OMAP3430_REV_ES3_1;
 			rev_name = "Unknown revision\n";
 		}
+		break;
+	case 0xb891:
+		/* Handle 36xx devices */
+		switch (rev) {
+		case 0:
+			omap_revision = OMAP3630_REV_ES1_0;
+			break;
+		default:
+			/* Use the latest known revision as default */
+			omap_revision = OMAP3630_REV_ES1_0;
+		}
+		break;
+	default:
+		/* Unknown default to latest silicon rev as default*/
+		omap_revision = OMAP3630_REV_ES1_0;
 	}
 
 out:
@@ -252,6 +269,8 @@ void __init omap2_check_revision(void)
 			omap_chip.oc |= CHIP_IS_OMAP3430ES3_0;
 		else if (omap_rev() == OMAP3430_REV_ES3_1)
 			omap_chip.oc |= CHIP_IS_OMAP3430ES3_1;
+		else if (omap_rev() == OMAP3630_REV_ES1_0)
+				omap_chip.oc |= CHIP_IS_OMAP3630ES1;
 	} else {
 		pr_err("Uninitialized omap_chip, please fix!\n");
 	}
