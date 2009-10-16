@@ -55,6 +55,7 @@
 
 #include "mmc-twl4030.h"
 #include "omap3-opp.h"
+#include "sdram-hynix-h8mbx00u0mer-0em.h"
 #include "sdram-micron-mt46h32m32lf-6.h"
 
 #include <media/v4l2-int-device.h>
@@ -626,7 +627,7 @@ static inline void __init zoom2_init_quaduart(void)
 static void __init omap_zoom2_init_irq(void)
 {
 	if (cpu_is_omap3630()) {
-		omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+		omap2_init_common_hw(h8mbx00u0mer0em_sdrc_params,
 		omap3630_mpu_rate_table, omap3630_dsp_rate_table,
 		omap3630_l3_rate_table);
 	} else {
