@@ -50,6 +50,10 @@
 #include <linux/workqueue.h>
 #include <mach/omap-pm.h>
 
+#ifdef CONFIG_BRIDGE_DVFS
+#include <mach/omap-pm.h>
+#endif
+
 /*  ----------------------------------- DSP/BIOS Bridge */
 #include <dspbridge/std.h>
 #include <dspbridge/dbdefs.h>
