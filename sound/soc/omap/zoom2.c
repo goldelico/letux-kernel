@@ -535,10 +535,13 @@ static int __init zoom2_soc_init(void)
 {
 	int ret;
 
-	if (!machine_is_omap_zoom2()) {
-		pr_debug("Not Zoom2!\n");
+
+	if (!(machine_is_omap_zoom2() ||
+			machine_is_omap_zoom3())) {
+		pr_debug("Not Zoom2/3!\n");
 		return -ENODEV;
 	}
+
 	printk(KERN_INFO "Zoom2 SoC init\n");
 
 	omap_mux_config("MCBSP2_SLAVE");
