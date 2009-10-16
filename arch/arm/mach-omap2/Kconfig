@@ -129,7 +129,7 @@ config L2CACHE_OMAP3_DISABLE
 
 config WIFI_CONTROL_FUNC
         bool "Enable WiFi control function abstraction"
-	depends on MACH_OMAP_ZOOM2
+	depends on MACH_OMAP_ZOOM2 || MACH_OMAP_ZOOM3
         help
           Enables Power/Reset/Carddetect function abstraction
 
