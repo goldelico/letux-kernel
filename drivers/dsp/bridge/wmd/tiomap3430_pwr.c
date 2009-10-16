@@ -783,24 +783,24 @@ void DSPClkWakeupEventCtrl(u32 ClkId, bool enable)
 DSP_STATUS tiomap3430_bump_dsp_opp_level(void)
 {
 #ifdef CONFIG_BRIDGE_DVFS
-	u32 opplevel;
-
+	struct WMD_DEV_CONTEXT *dwContext;
+	struct DEV_OBJECT *hDevObject = DRV_GetFirstDevObject();
 	struct dspbridge_platform_data *pdata =
 			omap_dspbridge_dev->dev.platform_data;
 
-	if (pdata->dsp_get_opp && pdata->dsp_set_min_opp)
-		opplevel = (*pdata->dsp_get_opp)();
+	if (DSP_FAILED(DEV_GetWMDContext(hDevObject, &dwContext)))
+		return DSP_EFAIL;
 
+	if (dwContext->dwBrdState == BRD_DSP_HIBERNATION ||
+	    dwContext->dwBrdState == BRD_HIBERNATION) {
 		/*
-		 * If OPP is at minimum level, increase it before waking
-		 * up the DSP.
+		 * Increase OPP before waking up the DSP.
 		 */
-		if (opplevel < min_active_opp) {
-			(*pdata->dsp_set_min_opp)(min_active_opp);
-			DBG_Trace(DBG_LEVEL7, "CHNLSM_InterruptDSP: Setting "
-				"the vdd1 constraint level to %d before "
-				"waking DSP \n", min_active_opp);
-		}
+		(*pdata->dsp_set_min_opp)(min_active_opp);
+		DBG_Trace(DBG_LEVEL7, "CHNLSM_InterruptDSP: Setting "
+			"the vdd1 constraint level to %d before "
+			"waking DSP \n", min_active_opp);
+	}
 #endif
 	return DSP_SOK;
 }
