@@ -976,6 +976,7 @@ static int add_dsp_mmu_entry(u32  *phys_addr, u32 *dsp_addr,
  * and DSP-virtual address
  *
  */
+#if 0
 static int add_entry_ext(u32 *phys_addr, u32 *dsp_addr,
 					u32 size)
 {
@@ -1018,7 +1019,7 @@ static int add_entry_ext(u32 *phys_addr, u32 *dsp_addr,
 	}
 	return status;
 }
-
+#endif
 /*================================
  * Initialize the Ducati MMU.
  */
@@ -1032,6 +1033,7 @@ int  ducati_mmu_init(u32 a_phy_addr)
 	u32 i = 0;
 	u32 map_attrs;
 	u32 num_l3_mem_entries = 0;
+	u32 virt_addr = 0;
 #if 0
 	u32 tiler_mapbeg = 0;
 	u32 tiler_totalsize = 0;
@@ -1071,10 +1073,9 @@ int  ducati_mmu_init(u32 a_phy_addr)
 			DUCATI_MEM_IPC_HEAP0_ADDR) {
 			shm_phys_addr = phys_addr;
 		}
-
-		ret_val = add_dsp_mmu_entry(&phys_addr,
-			(u32 *)(&(l3_memory_regions[i].ul_virt_addr)),
-			(l3_memory_regions[i].ul_size));
+		virt_addr = l3_memory_regions[i].ul_virt_addr;
+		ret_val = add_dsp_mmu_entry(&phys_addr, &virt_addr,
+					(l3_memory_regions[i].ul_size));
 
 		if (WARN_ON(ret_val < 0))
 			goto error_exit;
@@ -1300,6 +1301,7 @@ void ducati_destroy(void)
 	}
 	if (p_pt_attrs)
 		kfree((void *)p_pt_attrs);
+	iounmap((unsigned int *)base_ducati_l2_mmu);
 	return;
 }
 EXPORT_SYMBOL(ducati_destroy);
