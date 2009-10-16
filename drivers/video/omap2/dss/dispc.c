@@ -2498,14 +2498,18 @@ static void _dispc_set_pol_freq(bool onoff, bool rf, bool ieo, bool ipc,
 	DSSDBG("onoff %d rf %d ieo %d ipc %d ihs %d ivs %d acbi %d acb %d\n",
 			onoff, rf, ieo, ipc, ihs, ivs, acbi, acb);
 
-	l |= FLD_VAL(onoff, 17, 17);
-	l |= FLD_VAL(rf, 16, 16);
-	l |= FLD_VAL(ieo, 15, 15);
-	l |= FLD_VAL(ipc, 14, 14);
-	l |= FLD_VAL(ihs, 13, 13);
-	l |= FLD_VAL(ivs, 12, 12);
-	l |= FLD_VAL(acbi, 11, 8);
-	l |= FLD_VAL(acb, 7, 0);
+	if (cpu_is_omap3630()) {
+		l = 0x00033028;
+	} else {
+		l |= FLD_VAL(onoff, 17, 17);
+		l |= FLD_VAL(rf, 16, 16);
+		l |= FLD_VAL(ieo, 15, 15);
+		l |= FLD_VAL(ipc, 14, 14);
+		l |= FLD_VAL(ihs, 13, 13);
+		l |= FLD_VAL(ivs, 12, 12);
+		l |= FLD_VAL(acbi, 11, 8);
+		l |= FLD_VAL(acb, 7, 0);
+	}
 
 	enable_clocks(1);
 	dispc_write_reg(DISPC_POL_FREQ, l);
