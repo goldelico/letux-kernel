@@ -25,7 +25,7 @@
 #include <mach/gpmc.h>
 #include <mach/nand.h>
 
-#ifdef CONFIG_MACH_OMAP_ZOOM2
+#if defined(CONFIG_MACH_OMAP_ZOOM2) || defined(CONFIG_MACH_OMAP_ZOOM3)
 #include <mach/board-zoom2.h>
 #else
 #include <mach/board-ldp.h>
