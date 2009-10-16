@@ -57,6 +57,9 @@ struct dpll_data {
 	u32			autoidle_mask;
 	u32			idlest_mask;
 	u32			freqsel_mask;
+	u32			dco_sel_mask;
+	u32			sd_div_mask;
+	u8			jtype;
 #  endif
 };
 
