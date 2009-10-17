@@ -1,15 +1,16 @@
 /*
- * neo1973_wm8753.c  --  SoC audio for Neo1973
+ * neo1973_gta02_wm8753.c  --  SoC audio for Openmoko Freerunner(GTA02)
  *
+ * Copyright 2007 Openmoko Inc
+ * Author: Graeme Gregory <graeme@openmoko.org>
  * Copyright 2007 Wolfson Microelectronics PLC.
- * Author: Graeme Gregory
- *         graeme.gregory@wolfsonmicro.com or linux@wolfsonmicro.com
+ * Author: Graeme Gregory <linux@wolfsonmicro.com>
+ * Copyright 2009 Wolfson Microelectronics
  *
  *  This program is free software; you can redistribute  it and/or modify it
  *  under  the terms of  the GNU General  Public License as published by the
  *  Free Software Foundation;  either version 2 of the  License, or (at your
  *  option) any later version.
- *
  */
 
 #include <linux/module.h>
@@ -17,6 +18,7 @@
 #include <linux/timer.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
+#include <linux/gpio.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -27,18 +29,19 @@
 #include <asm/hardware/scoop.h>
 #include <mach/regs-clock.h>
 #include <mach/regs-gpio.h>
+#include <mach/regs-gpioj.h>
 #include <mach/hardware.h>
 #include <linux/io.h>
 #include <mach/spi-gpio.h>
 
 #include <plat/regs-iis.h>
 
+#include <mach/regs-clock.h>
+#include <mach/gta02.h>
 #include "../codecs/wm8753.h"
 #include "../codecs/lm4857.h"
 #include "s3c-dma.h"
 #include "s3c24xx-i2s.h"
-
-static struct snd_soc_card neo1973;
 
 static int neo1973_hifi_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
@@ -49,8 +52,6 @@ static int neo1973_hifi_hw_params(struct snd_pcm_substream *substream,
 	unsigned int pll_out = 0, bclk = 0;
 	int ret = 0;
 	unsigned long iis_clkrate;
-
-	pr_debug("Entered %s\n", __func__);
 
 	iis_clkrate = s3c24xx_i2s_get_clockrate();
 
@@ -112,7 +113,8 @@ static int neo1973_hifi_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 
 	/* set codec BCLK division for sample rate */
-	ret = snd_soc_dai_set_clkdiv(codec_dai, WM8753_BCLKDIV, bclk);
+	ret = snd_soc_dai_set_clkdiv(codec_dai,
+					WM8753_BCLKDIV, bclk);
 	if (ret < 0)
 		return ret;
 
@@ -136,8 +138,6 @@ static int neo1973_hifi_hw_free(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
 
-	pr_debug("Entered %s\n", __func__);
-
 	/* disable the PLL */
 	return snd_soc_dai_set_pll(codec_dai, WM8753_PLL1, 0, 0, 0);
 }
@@ -150,7 +150,8 @@ static struct snd_soc_ops neo1973_hifi_ops = {
 	.hw_free = neo1973_hifi_hw_free,
 };
 
-static int neo1973_voice_hw_params(struct snd_pcm_substream *substream,
+static int neo1973_voice_hw_params(
+	struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -158,8 +159,6 @@ static int neo1973_voice_hw_params(struct snd_pcm_substream *substream,
 	unsigned int pcmdiv = 0;
 	int ret = 0;
 	unsigned long iis_clkrate;
-
-	pr_debug("Entered %s\n", __func__);
 
 	iis_clkrate = s3c24xx_i2s_get_clockrate();
 
@@ -178,13 +177,14 @@ static int neo1973_voice_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 
 	/* set the codec system clock for DAC and ADC */
-	ret = snd_soc_dai_set_sysclk(codec_dai, WM8753_PCMCLK, 12288000,
-		SND_SOC_CLOCK_IN);
+	ret = snd_soc_dai_set_sysclk(codec_dai, WM8753_PCMCLK,
+		12288000, SND_SOC_CLOCK_IN);
 	if (ret < 0)
 		return ret;
 
 	/* set codec PCM division for sample rate */
-	ret = snd_soc_dai_set_clkdiv(codec_dai, WM8753_PCMDIV, pcmdiv);
+	ret = snd_soc_dai_set_clkdiv(codec_dai, WM8753_PCMDIV,
+					pcmdiv);
 	if (ret < 0)
 		return ret;
 
@@ -202,8 +202,6 @@ static int neo1973_voice_hw_free(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->dai->codec_dai;
 
-	pr_debug("Entered %s\n", __func__);
-
 	/* disable the PLL */
 	return snd_soc_dai_set_pll(codec_dai, WM8753_PLL2, 0, 0, 0);
 }
@@ -213,19 +211,20 @@ static struct snd_soc_ops neo1973_voice_ops = {
 	.hw_free = neo1973_voice_hw_free,
 };
 
+/* Shared routes and controls */
+
 static const struct snd_soc_dapm_widget wm8753_dapm_widgets[] = {
-	SND_SOC_DAPM_LINE("Audio Out", NULL),
 	SND_SOC_DAPM_LINE("GSM Line Out", NULL),
 	SND_SOC_DAPM_LINE("GSM Line In", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
-	SND_SOC_DAPM_MIC("Call Mic", NULL),
+	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 };
 
-static const struct snd_soc_dapm_route dapm_routes[] = {
+static const struct snd_soc_dapm_route audio_map[] = {
 
-	/* Connections to the lm4857 amp */
-	{"Audio Out", NULL, "LOUT1"},
-	{"Audio Out", NULL, "ROUT1"},
+	/* Connections to the lm4853 amp */
+	{"Stereo Out", NULL, "LOUT1"},
+	{"Stereo Out", NULL, "ROUT1"},
 
 	/* Connections to the GSM Module */
 	{"GSM Line Out", NULL, "MONO1"},
@@ -240,26 +239,108 @@ static const struct snd_soc_dapm_route dapm_routes[] = {
 	/* Call Mic */
 	{"MIC2", NULL, "Mic Bias"},
 	{"MIC2N", NULL, "Mic Bias"},
-	{"Mic Bias", NULL, "Call Mic"},
+	{"Mic Bias", NULL, "Handset Mic"},
 
 	/* Connect the ALC pins */
 	{"ACIN", NULL, "ACOP"},
 };
 
-/*
- * This is an example machine initialisation for a wm8753 connected to a
- * neo1973 II. It is missing logic to detect hp/mic insertions and logic
- * to re-route the audio in such an event.
- */
+static const struct snd_kcontrol_new wm8753_neo1973_controls[] = {
+	SOC_DAPM_PIN_SWITCH("Stereo Out"),
+	SOC_DAPM_PIN_SWITCH("GSM Line Out"),
+	SOC_DAPM_PIN_SWITCH("GSM Line In"),
+	SOC_DAPM_PIN_SWITCH("Headset Mic"),
+	SOC_DAPM_PIN_SWITCH("Handset Mic"),
+};
+
+/* GTA01 specific controlls */
+
+#ifdef CONFIG_MACH_NEO1973_GTA01
+
+static const struct snd_soc_dapm_widget wm8753_dapm_widgets_gta01[] = {
+	SND_SOC_DAPM_SPK("Stereo Out", NULL),
+};
+
+#else
+static const struct snd_soc_dapm_widget wm8753_dapm_widgets_gta01[] = {};
+#endif
+
+/* GTA02 specific routes and controlls */
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
+
+static int lm4853_set_spk(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	int val = ucontrol->value.integer.value[0];
+
+	gpio_set_value(GTA02_GPIO_HP_IN, !val);
+
+	return 0;
+}
+
+static int lm4853_get_spk(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = !gpio_get_value(GTA02_GPIO_HP_IN);
+
+	return 0;
+}
+
+static int lm4853_event(struct snd_soc_dapm_widget *w,
+			struct snd_kcontrol *k,
+			int event)
+{
+	gpio_set_value(GTA02_GPIO_AMP_SHUT, !SND_SOC_DAPM_EVENT_ON(event));
+
+	return 0;
+}
+
+static const struct snd_soc_dapm_route audio_map_gta02[] = {
+	/* Call Speaker */
+	{"Handset Spk", NULL, "LOUT2"},
+	{"Handset Spk", NULL, "ROUT2"},
+};
+
+static const struct snd_kcontrol_new wm8753_neo1973_gta02_controls[] = {
+	SOC_DAPM_PIN_SWITCH("Handset Spk"),
+
+	SOC_SINGLE_BOOL_EXT("Amp Spk Switch", 0,
+		lm4853_get_spk,
+		lm4853_set_spk),
+};
+
+static const struct snd_soc_dapm_widget wm8753_dapm_widgets_gta02[] = {
+	SND_SOC_DAPM_SPK("Stereo Out", lm4853_event),
+	SND_SOC_DAPM_SPK("Handset Spk", NULL),
+};
+
+#else
+static const struct snd_soc_dapm_route audio_map_gta02[]= {};
+static const struct snd_kcontrol_new wm8753_neo1973_gta02_controls[] = {};
+static const struct snd_soc_dapm_widget wm8753_dapm_widgets_gta02[] = {};
+#endif
+
 static int neo1973_wm8753_init(struct snd_soc_codec *codec)
 {
 	int err;
+	const struct snd_soc_dapm_widget *machine_widgets;
+	size_t num_machine_widgets;
 
-	pr_debug("Entered %s\n", __func__);
+	if (machine_is_neo1973_gta01()) {
+		machine_widgets		= wm8753_dapm_widgets_gta01;
+		num_machine_widgets	= ARRAY_SIZE(wm8753_dapm_widgets_gta01);
+	} else {
+		machine_widgets		= wm8753_dapm_widgets_gta02;
+		num_machine_widgets	= ARRAY_SIZE(wm8753_dapm_widgets_gta02);
+
+	}
 
 	/* set up NC codec pins */
-	snd_soc_dapm_nc_pin(codec, "LOUT2");
-	snd_soc_dapm_nc_pin(codec, "ROUT2");
+	if (!machine_is_neo1973_gta02()) {
+		snd_soc_dapm_nc_pin(codec, "LOUT2");
+		snd_soc_dapm_nc_pin(codec, "ROUT2");
+	}
 	snd_soc_dapm_nc_pin(codec, "OUT3");
 	snd_soc_dapm_nc_pin(codec, "OUT4");
 	snd_soc_dapm_nc_pin(codec, "LINE1");
@@ -269,21 +350,42 @@ static int neo1973_wm8753_init(struct snd_soc_codec *codec)
 	snd_soc_dapm_new_controls(codec, wm8753_dapm_widgets,
 				  ARRAY_SIZE(wm8753_dapm_widgets));
 
-	/* set endpoints to default mode */
-	snd_soc_dapm_disable_pin(codec, "Audio Out");
-	snd_soc_dapm_disable_pin(codec, "GSM Line Out");
-	snd_soc_dapm_disable_pin(codec, "GSM Line In");
-	snd_soc_dapm_disable_pin(codec, "Headset Mic");
-	snd_soc_dapm_disable_pin(codec, "Call Mic");
+	snd_soc_dapm_new_controls(codec, machine_widgets, num_machine_widgets);
+
 
 	/* add neo1973 specific controls */
-	err = lm4857_add_controls(codec);
+	err = snd_soc_add_controls(codec, wm8753_neo1973_controls,
+					ARRAY_SIZE(wm8753_neo1973_controls));
+
 	if (err < 0)
 		return err;
 
-	/* set up neo1973 specific audio routes */
-	err = snd_soc_dapm_add_routes(codec, dapm_routes,
-				      ARRAY_SIZE(dapm_routes));
+	if (machine_is_neo1973_gta01()) {
+		err = lm4857_add_controls(codec);
+	} else {
+		err = snd_soc_add_controls(codec, wm8753_neo1973_gta02_controls,
+			ARRAY_SIZE(wm8753_neo1973_gta02_controls));
+	}
+
+	if (err < 0)
+		return err;
+
+	/* set up neo1973 gta02 specific audio path audio_map */
+	snd_soc_dapm_add_routes(codec, audio_map, ARRAY_SIZE(audio_map));
+
+	if (machine_is_neo1973_gta02()) {
+		snd_soc_dapm_add_routes(codec, audio_map_gta02,
+			ARRAY_SIZE(audio_map_gta02));
+	}
+
+	/* set endpoints to default off mode */
+	snd_soc_dapm_disable_pin(codec, "Stereo Out");
+	snd_soc_dapm_disable_pin(codec, "GSM Line Out");
+	snd_soc_dapm_disable_pin(codec, "GSM Line In");
+	snd_soc_dapm_disable_pin(codec, "Headset Mic");
+	snd_soc_dapm_disable_pin(codec, "Handset Mic");
+	if (machine_is_neo1973_gta02())
+		snd_soc_dapm_disable_pin(codec, "Handset Spk");
 
 	snd_soc_dapm_sync(codec);
 
@@ -310,53 +412,102 @@ static struct snd_soc_dai bt_dai = {
 
 static struct snd_soc_dai_link neo1973_dai[] = {
 { /* Hifi Playback - for similatious use with voice below */
-	.name = "WM8753",
-	.stream_name = "WM8753 HiFi",
-	.cpu_dai = &s3c24xx_i2s_dai,
-	.codec_dai = &wm8753_dai[WM8753_DAI_HIFI],
-	.init = neo1973_wm8753_init,
-	.ops = &neo1973_hifi_ops,
+	.name		= "WM8753",
+	.stream_name	= "WM8753 HiFi",
+	.cpu_dai	= &s3c24xx_i2s_dai,
+	.codec_dai	= &wm8753_dai[WM8753_DAI_HIFI],
+	.init		= neo1973_wm8753_init,
+	.ops		= &neo1973_hifi_ops,
 },
 { /* Voice via BT */
-	.name = "Bluetooth",
-	.stream_name = "Voice",
-	.cpu_dai = &bt_dai,
-	.codec_dai = &wm8753_dai[WM8753_DAI_VOICE],
-	.ops = &neo1973_voice_ops,
+	.name		= "Bluetooth",
+	.stream_name	= "Voice",
+	.cpu_dai	= &bt_dai,
+	.codec_dai	= &wm8753_dai[WM8753_DAI_VOICE],
+	.ops		= &neo1973_voice_ops,
 },
 };
 
 static struct snd_soc_card neo1973 = {
-	.name = "neo1973",
-	.platform = &s3c24xx_soc_platform,
-	.dai_link = neo1973_dai,
-	.num_links = ARRAY_SIZE(neo1973_dai),
+	.name		= "neo1973",
+	.platform	= &s3c24xx_soc_platform,
+	.dai_link	= neo1973_dai,
+	.num_links	= ARRAY_SIZE(neo1973_dai),
 };
 
 static struct snd_soc_device neo1973_snd_devdata = {
-	.card = &neo1973,
-	.codec_dev = &soc_codec_dev_wm8753,
+	.card		= &neo1973,
+	.codec_dev	= &soc_codec_dev_wm8753,
 };
 
 static struct platform_device *neo1973_snd_device;
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
+static int __init neo1973_gta02_init(void)
+{
+	int ret;
+
+	/* Initialise GPIOs used by amp */
+	ret = gpio_request(GTA02_GPIO_HP_IN, "GTA02_HP_IN");
+	if (ret) {
+		pr_err("gta02_wm8753: Failed to register GPIO %d\n", GTA02_GPIO_HP_IN);
+		goto err;
+	}
+
+	ret = gpio_direction_output(GTA02_GPIO_HP_IN, 1);
+	if (ret) {
+		pr_err("gta02_wm8753: Failed to configure GPIO %d\n", GTA02_GPIO_HP_IN);
+		goto err_free_gpio_hp_in;
+	}
+
+	ret = gpio_request(GTA02_GPIO_AMP_SHUT, "GTA02_AMP_SHUT");
+	if (ret) {
+		pr_err("gta02_wm8753: Failed to register GPIO %d\n", GTA02_GPIO_AMP_SHUT);
+		goto err_free_gpio_hp_in;
+	}
+
+	ret = gpio_direction_output(GTA02_GPIO_AMP_SHUT, 1);
+	if (ret) {
+		pr_err("gta02_wm8753: Failed to configure GPIO %d\n", GTA02_GPIO_AMP_SHUT);
+		goto err_free_gpio_amp_shut;
+	}
+
+	return 0;
+
+err_free_gpio_amp_shut:
+	gpio_free(GTA02_GPIO_AMP_SHUT);
+err_free_gpio_hp_in:
+	gpio_free(GTA02_GPIO_HP_IN);
+err:
+	return ret;
+}
+#else
+static inline int neo1973_gta02_init(void) { return 0; }
+#endif
 
 static int __init neo1973_init(void)
 {
 	int ret;
 
-	pr_debug("Entered %s\n", __func__);
-
-	if (!machine_is_neo1973_gta01()) {
-		printk(KERN_INFO
-			"Only GTA01 hardware supported by ASoC driver\n");
+	if (!machine_is_neo1973_gta01() && !machine_is_neo1973_gta02()) {
 		return -ENODEV;
 	}
+
+	if (machine_is_neo1973_gta02()) {
+		neo1973_snd_devdata.card->name = "neo1973gta02";
+	}
+
+	/* register bluetooth DAI here */
+	ret = snd_soc_register_dai(&bt_dai);
+	if (ret)
+		return ret;
 
 	neo1973_snd_device = platform_device_alloc("soc-audio", -1);
 	if (!neo1973_snd_device)
 		return -ENOMEM;
 
-	platform_set_drvdata(neo1973_snd_device, &neo1973_snd_devdata);
+	platform_set_drvdata(neo1973_snd_device,
+			&neo1973_snd_devdata);
 	neo1973_snd_devdata.dev = &neo1973_snd_device->dev;
 	ret = platform_device_add(neo1973_snd_device);
 
@@ -365,26 +516,41 @@ static int __init neo1973_init(void)
 		return ret;
 	}
 
-	ret = i2c_add_driver(&lm4857_i2c_driver);
+	if (machine_is_neo1973_gta02())
+		ret = neo1973_gta02_init();
 
-	if (ret != 0)
-		platform_device_unregister(neo1973_snd_device);
+	if (ret)
+		goto err_unregister_device;
 
+	return 0;
+
+err_unregister_device:
+	platform_device_unregister(neo1973_snd_device);
 	return ret;
 }
+module_init(neo1973_init);
+
+#ifdef CONFIG_MACH_NEO1973_GTA02
+static void __exit neo1973_gta02_exit(void)
+{
+	gpio_free(GTA02_GPIO_HP_IN);
+	gpio_free(GTA02_GPIO_AMP_SHUT);
+}
+#else
+static inline void neo1973_gta02_exit(void) {}
+#endif
 
 static void __exit neo1973_exit(void)
 {
-	pr_debug("Entered %s\n", __func__);
-
-	i2c_del_driver(&lm4857_i2c_driver);
+	snd_soc_unregister_dai(&bt_dai);
 	platform_device_unregister(neo1973_snd_device);
-}
 
-module_init(neo1973_init);
+	if (machine_is_neo1973_gta02())
+		neo1973_gta02_exit();
+}
 module_exit(neo1973_exit);
 
 /* Module information */
-MODULE_AUTHOR("Graeme Gregory, graeme@openmoko.org, www.openmoko.org");
-MODULE_DESCRIPTION("ALSA SoC WM8753 Neo1973");
+MODULE_AUTHOR("Graeme Gregory, graeme@openmoko.org");
+MODULE_DESCRIPTION("ALSA SoC WM8753 Neo1973 devices");
 MODULE_LICENSE("GPL");
