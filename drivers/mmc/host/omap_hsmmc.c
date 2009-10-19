@@ -93,9 +93,6 @@
 #define SRD			(1 << 26)
 #define RESETDONE		(1 << 0)
 
-#define VDD1_OPP3_FREQ		500000000
-#define VDD1_OPP1_FREQ		125000000
-
 /*
  * FIXME: Most likely all the data using these _DEVID defines should come
  * from the platform_data, or implemented in controller and slot specific
@@ -156,6 +153,9 @@ struct mmc_omap_host {
 	int			slot_id;
 	int			dbclk_enabled;
 	int 			clks_enabled;
+	int			inactive;
+	unsigned long		max_vdd1_opp;
+	unsigned long		min_vdd1_opp;
 	unsigned		off_counter;
 	spinlock_t		clk_lock;
 	struct timer_list	inact_timer;
@@ -726,8 +726,10 @@ static void mmc_omap_opp_setup(struct work_struct *work)
 	struct mmc_omap_host *host = container_of(work, struct mmc_omap_host,
 		mmc_opp_set_work);
 
-	if (host->pdata->set_vdd1_opp)
-		host->pdata->set_vdd1_opp(host->dev, VDD1_OPP1_FREQ);
+	if (host->pdata->set_vdd1_opp) {
+		host->pdata->set_vdd1_opp(host->dev, host->min_vdd1_opp);
+		host->inactive = 1;
+	}
 }
 
 /*
@@ -951,11 +953,13 @@ static void omap_mmc_request(struct mmc_host *mmc, struct mmc_request *req)
 	WARN_ON(host->mrq != NULL);
 	host->mrq = req;
 
-	if (!host->clks_enabled)
+	if (host->inactive)
 		if (host->pdata->set_vdd1_opp)
-			host->pdata->set_vdd1_opp(host->dev, VDD1_OPP3_FREQ);
+			host->pdata->set_vdd1_opp(host->dev,
+				host->max_vdd1_opp);
 
 	del_timer_sync(&host->inact_timer);
+	host->inactive = 0;
 	omap_hsmmc_enable_clks(host);
 
 	mmc_omap_prepare_data(host, req);
@@ -1161,6 +1165,9 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 	host->mapbase	= res->start;
 	host->base	= ioremap(host->mapbase, SZ_4K);
 
+	host->max_vdd1_opp = pdata->max_vdd1_opp;
+	host->min_vdd1_opp = pdata->min_vdd1_opp;
+
 #ifdef CONFIG_HC_Broken_eMMC_ZOOM2
 	/*
 	 * HACK:
@@ -1201,8 +1208,8 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 
 	host->clks_enabled = 0;
 	host->off_counter = 0;
+	host->inactive = 0;
 
-	host->clks_enabled = 0;
 	host->iclk = clk_get(&pdev->dev, "mmchs_ick");
 	if (IS_ERR(host->iclk)) {
 		ret = PTR_ERR(host->iclk);
