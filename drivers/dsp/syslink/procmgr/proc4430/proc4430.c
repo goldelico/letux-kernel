@@ -226,7 +226,6 @@ int proc4430_destroy(void)
 		mutex_destroy(proc4430_state.gate_handle);
 		kfree(proc4430_state.gate_handle);
 	}
-	ducati_destroy();
 
 exit:
 	return retval;
