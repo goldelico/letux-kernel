@@ -120,6 +120,7 @@ int sysmgr_ioctl(struct inode *inode, struct file *filp,
 	case CMD_SYSMGR_STOPCALLBACK:
 #if defined CONFIG_SYSLINK_USE_SYSMGR
 		platform_stop_callback((void *)(cargs.args.proc_id));
+		cargs.api_status = 0;
 #endif
 		break;
 	default:
