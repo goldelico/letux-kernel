@@ -111,7 +111,7 @@ config OMAP_HS_MMC3
 
 config HC_Broken_eMMC_ZOOM2
         bool "HC_Broken_eMMC support for Zoom2"
-	depends on MMC_OMAP_HS && MACH_OMAP_ZOOM2
+	depends on MMC_OMAP_HS && MACH_OMAP_ZOOM2 || MACH_OMAP_ZOOM3
 	default n
 	help
 	  This selects High capacity eMMC support for Zoom2.
