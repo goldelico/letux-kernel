@@ -77,6 +77,7 @@
 #define MSBS			(1 << 5)
 #define BCE			(1 << 1)
 #define FOUR_BIT		(1 << 1)
+#define DW8			(1 << 5)
 #define CC			0x1
 #define TC			0x02
 #define OD			0x1
@@ -1002,11 +1003,19 @@ static void omap_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	}
 
 	switch (mmc->ios.bus_width) {
+	case MMC_BUS_WIDTH_8:
+		OMAP_HSMMC_WRITE(host->base, CON,
+			OMAP_HSMMC_READ(host->base, CON) | DW8);
+		break;
 	case MMC_BUS_WIDTH_4:
+		OMAP_HSMMC_WRITE(host->base, CON,
+			OMAP_HSMMC_READ(host->base, CON) & ~DW8);
 		OMAP_HSMMC_WRITE(host->base, HCTL,
 			OMAP_HSMMC_READ(host->base, HCTL) | FOUR_BIT);
 		break;
 	case MMC_BUS_WIDTH_1:
+		OMAP_HSMMC_WRITE(host->base, CON,
+			OMAP_HSMMC_READ(host->base, CON) & ~DW8);
 		OMAP_HSMMC_WRITE(host->base, HCTL,
 			OMAP_HSMMC_READ(host->base, HCTL) & ~FOUR_BIT);
 		break;
@@ -1246,7 +1255,9 @@ static int __init omap_mmc_probe(struct platform_device *pdev)
 
 	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED;
 
-	if (pdata->slots[host->slot_id].wires >= 4)
+	if (mmc_slot(host).wires >= 8)
+		mmc->caps |= MMC_CAP_8_BIT_DATA;
+	else if (pdata->slots[host->slot_id].wires >= 4)
 		mmc->caps |= MMC_CAP_4_BIT_DATA;
 
 	/* Only MMC1 supports 3.0V */
