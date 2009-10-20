@@ -298,7 +298,7 @@ static ssize_t display_lpr_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", lpr_enable);
+	return snprintf(buf, PAGE_SIZE, "%lu\n", lpr_enable);
 }
 
 static DEVICE_ATTR(enabled, S_IRUGO|S_IWUSR,
@@ -397,7 +397,7 @@ static int default_get_recommended_bpp(struct omap_dss_device *dssdev)
 bool dss_use_replication(struct omap_dss_device *dssdev,
 		enum omap_color_mode mode)
 {
-	int bpp;
+	int bpp = 0;
 
 	if (mode != OMAP_DSS_COLOR_RGB12U && mode != OMAP_DSS_COLOR_RGB16)
 		return false;
@@ -609,7 +609,7 @@ EXPORT_SYMBOL(omap_dss_put_device);
  * of from-device is decremented. */
 struct omap_dss_device *omap_dss_get_next_device(struct omap_dss_device *from)
 {
-	struct device *dev;
+	struct device *dev = NULL;
 	struct device *dev_start = NULL;
 	struct omap_dss_device *dssdev = NULL;
 
