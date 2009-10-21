@@ -522,7 +522,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			if (latency == 0)
 				latency = 1;
 
-			def_sampling_rate = 10 * latency *
+			def_sampling_rate = latency *
 				CONFIG_CPU_FREQ_SAMPLING_LATENCY_MULTIPLIER;
 
 			if (def_sampling_rate < MIN_STAT_SAMPLING_RATE)
