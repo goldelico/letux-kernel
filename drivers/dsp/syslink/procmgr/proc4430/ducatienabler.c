@@ -1105,8 +1105,10 @@ int  ducati_mmu_init(u32 a_phy_addr)
 		printk(KERN_INFO "PA [0x%x] VA [0x%x] size [0x%x]\n",
 				l4_map[i].ul_phy_addr, l4_map[i].ul_virt_addr,
 				l4_map[i].ul_size);
-		ret_val = add_dsp_mmu_entry((u32 *)&l4_map[i].ul_phy_addr,
-			(u32 *)&l4_map[i].ul_virt_addr, (l4_map[i].ul_size));
+		virt_addr = l4_map[i].ul_virt_addr;
+		phys_addr = l4_map[i].ul_phy_addr;
+		ret_val = add_dsp_mmu_entry(&phys_addr,
+			&virt_addr, (l4_map[i].ul_size));
 		if (WARN_ON(ret_val < 0)) {
 
 			DPRINTK("**** Failed to map Peripheral ****");
