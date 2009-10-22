@@ -1,8 +1,8 @@
 /*
  * linux/drivers/video/omap2/dss/hdmi.c
  *
- * Copyright (C) 2009 Nokia Corporation
- * Author: Tomi Valkeinen <tomi.valkeinen@nokia.com>
+ * Copyright (C) 2009 Texas Instruments, Inc.
+ * Author: srinivas pulukuru <srinivas.pulukuru@ti.com>
  *
  * hdmi settings from TI's DSS driver
  *
@@ -22,17 +22,15 @@
 #define DSS_SUBSYS_NAME "HDMI"
 
 #include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/err.h>
-#include <linux/io.h>
-#include <linux/mutex.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
-#include <linux/string.h>
-#include <linux/platform_device.h>
+#include <linux/errno.h>
 #include <linux/sil9022.h>
 #include <linux/i2c/twl4030.h>
 
+#include <mach/board.h>
 #include <mach/display.h>
+#include <mach/cpu.h>
 
 #include "dss.h"
 
@@ -48,7 +46,7 @@ static void hdmi_set_timings(struct omap_dss_device *dssdev,
 			struct omap_video_timings *timings);
 
 #ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL_FOR_HDMI
-static int zoom2_panel_power_enable(int enable)
+static int enable_vpll2_power(int enable)
 {
 	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 				(enable) ? ENABLE_VPLL2_DEDICATED : 0,
@@ -190,7 +188,7 @@ static int hdmi_enable_display(struct omap_dss_device *dssdev)
 	/* this needs to be done here in order to
 	 * get the VPLL2 to power up the DSI PLL module
 	 */
-	zoom2_panel_power_enable(1);
+	enable_vpll2_power(1);
 
 	r = dsi_pll_init(0, 1);
 	if (r)
@@ -250,8 +248,9 @@ static void hdmi_disable_display(struct omap_dss_device *dssdev)
 
 #ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL_FOR_HDMI
 	dss_select_clk_source(0, 0);
-/*         dsi_pll_uninit();               */
-/*         dss_clk_disable(DSS_CLK_FCK2);  */
+	dsi_pll_uninit();
+	enable_vpll2_power(0);
+	dss_clk_disable(DSS_CLK_FCK2);
 #endif
 
 	dss_clk_disable(DSS_CLK_ICK | DSS_CLK_FCK1);
@@ -263,18 +262,22 @@ static void hdmi_disable_display(struct omap_dss_device *dssdev)
 
 static int hdmi_display_suspend(struct omap_dss_device *dssdev)
 {
-	int r = 0;
-
-	DSSDBG("hdmi_display_suspend\n");
 	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
 		return -EINVAL;
 
-	DSSDBG("dpi_display_suspend\n");
+	DSSDBG("hdmi_display_suspend\n");
 
 	if (dssdev->driver->suspend)
 		dssdev->driver->suspend(dssdev);
 
 	dispc_enable_lcd_out(0);
+
+#ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL_FOR_HDMI
+	dss_select_clk_source(0, 0);
+	dsi_pll_uninit();
+	enable_vpll2_power(0);
+	dss_clk_disable(DSS_CLK_FCK2);
+#endif
 
 	dss_clk_disable(DSS_CLK_ICK | DSS_CLK_FCK1);
 
@@ -286,7 +289,6 @@ static int hdmi_display_suspend(struct omap_dss_device *dssdev)
 static int hdmi_display_resume(struct omap_dss_device *dssdev)
 {
 	int r = 0;
-
 	if (dssdev->state != OMAP_DSS_DISPLAY_SUSPENDED)
 		return -EINVAL;
 
@@ -294,15 +296,44 @@ static int hdmi_display_resume(struct omap_dss_device *dssdev)
 
 	dss_clk_enable(DSS_CLK_ICK | DSS_CLK_FCK1);
 
+#ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL_FOR_HDMI
+	dss_clk_enable(DSS_CLK_FCK2);
+	enable_vpll2_power(1);
+
+	r = dsi_pll_init(0, 1);
+	if (r)
+		goto err0;
+
+	r = hdmi_set_mode(dssdev);
+	if (r)
+		goto err0;
+#endif
+
 	dispc_enable_lcd_out(1);
 
-	if (dssdev->driver->resume)
-		dssdev->driver->resume(dssdev);
+	if (dssdev->driver->resume) {
+		r = dssdev->driver->resume(dssdev);
+		if (r)
+			goto err1;
+	}
 
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 
 	return 0;
 
+err1:
+	dispc_enable_lcd_out(0);
+
+#ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL_FOR_HDMI
+err0:
+	DSSERR("<%s!!> err0: failed to init DSI_PLL = %d\n", __func__, r);
+	dss_select_clk_source(0, 0);
+	dsi_pll_uninit();
+	dss_clk_disable(DSS_CLK_FCK2);
+	enable_vpll2_power(0);
+#endif
+	dss_clk_disable(DSS_CLK_ICK | DSS_CLK_FCK1);
+	return r;
 }
 
 static void hdmi_get_timings(struct omap_dss_device *dssdev,

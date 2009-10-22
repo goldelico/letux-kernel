@@ -53,7 +53,7 @@ config OMAP2_DSS_DSI
 
 config OMAP2_DSS_USE_DSI_PLL
 	bool "Use DSI PLL for PCLK (EXPERIMENTAL)"
-	default n
+	default y
 	depends on OMAP2_DSS_DSI
 	help
 	  Use DSI PLL to generate pixel clock.  Currently only for DPI output.

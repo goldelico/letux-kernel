@@ -397,7 +397,9 @@ static int zoom2_panel_enable_lcd(struct omap_dss_device *dssdev)
 
 static void zoom2_panel_disable_lcd(struct omap_dss_device *dssdev)
 {
+#ifndef CONFIG_OMAP2_DSS_USE_DSI_PLL_FOR_HDMI
 	zoom2_panel_power_enable(0);
+#endif
 
 	gpio_direction_output(LCD_PANEL_BACKLIGHT_GPIO, 0);
 
@@ -433,7 +435,9 @@ static int zoom2_panel_enable_hdmi(struct omap_dss_device *dssdev)
 static void zoom2_panel_disable_hdmi(struct omap_dss_device *dssdev)
 {
 	zoom2_hdmi_reset_enable(0);
+#ifndef CONFIG_OMAP2_DSS_USE_DSI_PLL_FOR_HDMI
 	zoom2_panel_power_enable(0);
+#endif
 }
 
 static struct omap_dss_device zoom2_hdmi_device = {
