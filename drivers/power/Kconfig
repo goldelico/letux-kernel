@@ -131,4 +131,10 @@ config CHARGER_PCF50633
 	help
 	 Say Y to include support for NXP PCF50633 Main Battery Charger.
 
+config BATTERY_PLATFORM
+	tristate "Platform battery driver"
+	help
+	  Say Y here to include support for battery driver that gets all
+	  information from platform functions.
+
 endif # POWER_SUPPLY
