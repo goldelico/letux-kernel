@@ -30,6 +30,7 @@
 #include <mach/display.h>
 #include <mach/io.h>
 
+#include <mach/omap-pm.h>
 
 u16 current_descriptor_addrs;
 
@@ -1106,6 +1107,14 @@ static int hdmi_panel_enable(struct omap_dss_device *dssdev)
 {
 	int r = 0;
 
+#ifdef CONFIG_PM
+	struct hdmi_platform_data *pdata = dssdev->dev.platform_data;
+	if (pdata->set_min_bus_tput)
+		pdata->set_min_bus_tput(&sil9022_client->dev,
+					OCP_INITIATOR_AGENT,
+					166 * 1000 * 4);
+#endif
+
 	if (dssdev->platform_enable)
 		r = dssdev->platform_enable(dssdev);
 
@@ -1126,6 +1135,9 @@ ERROR0:
 
 static void hdmi_panel_disable(struct omap_dss_device *dssdev)
 {
+#ifdef CONFIG_PM
+	struct hdmi_platform_data *pdata = dssdev->dev.platform_data;
+#endif
 	hdmi_disable();
 
 	/* wait couple of vsyncs until enabling the hdmi */
@@ -1133,6 +1145,12 @@ static void hdmi_panel_disable(struct omap_dss_device *dssdev)
 
 	if (dssdev->platform_disable)
 		dssdev->platform_disable(dssdev);
+#ifdef CONFIG_PM
+	if (pdata->set_min_bus_tput)
+		pdata->set_min_bus_tput(&sil9022_client->dev,
+					OCP_INITIATOR_AGENT,
+					0);
+#endif
 }
 
 static int hdmi_panel_suspend(struct omap_dss_device *dssdev)

@@ -439,6 +439,11 @@ static void zoom2_panel_disable_hdmi(struct omap_dss_device *dssdev)
 	zoom2_panel_power_enable(0);
 #endif
 }
+struct hdmi_platform_data zoom2_hdmi_data = {
+#ifdef CONFIG_PM
+	.set_min_bus_tput = omap_pm_set_min_bus_tput,
+#endif
+};
 
 static struct omap_dss_device zoom2_hdmi_device = {
 	.name = "hdmi",
@@ -447,6 +452,9 @@ static struct omap_dss_device zoom2_hdmi_device = {
 	.phy.dpi.data_lines = 24,
 	.platform_enable = zoom2_panel_enable_hdmi,
 	.platform_disable = zoom2_panel_disable_hdmi,
+	.dev		= {
+		.platform_data = &zoom2_hdmi_data,
+	},
 };
 #endif
 

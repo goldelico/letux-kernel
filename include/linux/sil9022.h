@@ -705,5 +705,10 @@ typedef struct hdmi_reg_data {
 	u8 value;
 } hdmi_reg_data;
 
+struct hdmi_platform_data {
+	void (*set_min_bus_tput)(struct device *dev,
+				 u8 agent_id,
+				 unsigned long r);
+};
 #endif
 
