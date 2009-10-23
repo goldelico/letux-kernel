@@ -32,6 +32,7 @@
 #include <mach/irqs.h>
 #include <mach/mux.h>
 #include <mach/usb.h>
+#include <mach/omap-pm.h>
 
 #define OTG_SYSCONFIG	   0x404
 #define OTG_SYSC_SOFTRESET BIT(1)
@@ -183,6 +184,7 @@ static struct musb_hdrc_platform_data musb_plat = {
 	.power		= 50,			/* up to 100 mA */
 
 	.context_loss_counter = get_last_off_on_transaction_id,
+	.set_vdd1_opp 	= omap_pm_set_min_mpu_freq,
 };
 
 static u64 musb_dmamask = DMA_32BIT_MASK;
