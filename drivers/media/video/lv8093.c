@@ -427,6 +427,54 @@ static int ioctl_g_priv(struct v4l2_int_device *s, void *p)
 	return lens->pdata->priv_data_set(p);
 }
 
+static int lv8093_power_on(struct lv8093_device *lens)
+{
+	struct i2c_client *c = lens->i2c_client;
+	int rval = -EINVAL;
+
+	if (lens->pdata->power_set)
+		rval = lens->pdata->power_set(V4L2_POWER_ON);
+
+	if (rval < 0) {
+		v4l_err(c, "Unable to set the power state ON\n");
+		return rval;
+	}
+
+	return 0;
+}
+
+static int lv8093_power_off(struct lv8093_device *lens)
+{
+	struct i2c_client *c = lens->i2c_client;
+	int rval = -EINVAL;
+
+	if (lens->pdata->power_set)
+		rval = lens->pdata->power_set(V4L2_POWER_OFF);
+
+	if (rval < 0) {
+		v4l_err(c, "Unable to set the power state OFF\n");
+		return rval;
+	}
+
+	return 0;
+}
+
+static int lv8093_power_standby(struct lv8093_device *lens)
+{
+	struct i2c_client *c = lens->i2c_client;
+	int rval = -EINVAL;
+
+	if (lens->pdata->power_set)
+		rval = lens->pdata->power_set(V4L2_POWER_STANDBY);
+
+	if (rval < 0) {
+		v4l_err(c, "Unable to set the power state STANDBY\n");
+		return rval;
+	}
+
+	return 0;
+}
+
 /**
  * ioctl_s_power - V4L2 sensor interface handler for vidioc_int_s_power_num
  * @s: pointer to standard V4L2 device structure
@@ -438,49 +486,84 @@ static int ioctl_s_power(struct v4l2_int_device *s, enum v4l2_power on)
 {
 	struct lv8093_device *lens = s->priv;
 	struct i2c_client *c = lens->i2c_client;
-	int rval;
+	int rval = 0;
 
-	if (lens->pdata->power_set)
-		rval = lens->pdata->power_set(on);
+	switch (on) {
+	case V4L2_POWER_ON:
+		rval = lv8093_power_on(lens);
+		if (rval)
+			goto error;
+
+		if (lens->power_state == V4L2_POWER_STANDBY) {
+			rval = lv8093_reginit(c);
+			if (rval < 0) {
+				v4l_err(c, "Unable to initialize " LV8093_NAME
+					" lens HW\n");
+				lens->state = LENS_NOT_DETECTED;
+				return rval;
+			}
+		}
+		break;
+	case V4L2_POWER_OFF:
+		rval = lv8093_power_off(lens);
+		break;
+	case V4L2_POWER_STANDBY:
+		rval = lv8093_power_standby(lens);
+		break;
+	}
 
 	lens->power_state = on;
+error:
+	return rval;
+}
 
-	if ((on == V4L2_POWER_ON) && (lens->state == LENS_NOT_DETECTED)) {
-		rval = lv8093_detect(c);
-		if (rval < 0) {
-			v4l_err(c, "Unable to detect " LV8093_NAME
-				" lens HW\n");
-			lens->state = LENS_NOT_DETECTED;
-			return rval;
-		}
-		lens->state = LENS_DETECTED;
-		pr_info(LV8093_NAME " Lens HW detected\n");
+/**
+ * ioctl_dev_init - V4L2 sensor interface handler for vidioc_int_dev_init_num
+ * @s: pointer to standard V4L2 device structure
+ *
+ * Initialise the device when slave attaches to the master.  Returns 0 if
+ * lv8093 device could be found, otherwise returns appropriate error.
+ */
+static int ioctl_dev_init(struct v4l2_int_device *s)
+{
+	struct lv8093_device *lens = s->priv;
+	struct i2c_client *c = lens->i2c_client;
+	int err;
 
-		rval = lv8093_reginit(c);
-		if (rval < 0) {
-			v4l_err(c, "Unable to initialize " LV8093_NAME
-				" lens HW\n");
-			lens->state = LENS_NOT_DETECTED;
-			return rval;
-		}
+	err = lv8093_power_on(lens);
+	if (err)
+		return -ENODEV;
+
+	err = lv8093_detect(c);
+	if (err < 0) {
+		v4l_err(c, "Unable to detect " LV8093_NAME
+			" lens HW\n");
+		lens->state = LENS_NOT_DETECTED;
+		return err;
+	}
+	lens->state = LENS_DETECTED;
+	pr_info(LV8093_NAME " Lens HW detected\n");
+
+	err = lv8093_reginit(c);
+	if (err < 0) {
+		v4l_err(c, "Unable to initialize " LV8093_NAME
+			" lens HW\n");
+		lens->state = LENS_NOT_DETECTED;
+		return err;
 	}
 
-	if ((lens->power_state == V4L2_POWER_STANDBY) && (on == V4L2_POWER_ON)
-	    && (lens->state == LENS_DETECTED)) {
-		rval = lv8093_reginit(c);
-		if (rval < 0) {
-			v4l_err(c, "Unable to initialize " LV8093_NAME
-				" lens HW\n");
-			lens->state = LENS_NOT_DETECTED;
-			return rval;
-		}
-	}
+	err = lv8093_power_off(lens);
+	if (err)
+		return -ENODEV;
+
 	return 0;
 }
 
 static struct v4l2_int_ioctl_desc lv8093_ioctl_desc[] = {
 	{.num = vidioc_int_s_power_num,
 	 .func = (v4l2_int_ioctl_func *) ioctl_s_power},
+	{ .num = vidioc_int_dev_init_num,
+	  .func = (v4l2_int_ioctl_func *)ioctl_dev_init},
 	{.num = vidioc_int_g_priv_num,
 	 .func = (v4l2_int_ioctl_func *) ioctl_g_priv},
 	{.num = vidioc_int_queryctrl_num,
