@@ -654,7 +654,20 @@ static void __init omap_zoom2_init_irq(void)
 		omap3_l3_rate_table);
 		break;
 		}
-	omap2_mux_register(&zoom2_mux_cfg);
+
+	/* Set Mcbsp only for Producton units */
+	/* Else you will see white screen on beta boards */
+
+	if (omap_rev() > OMAP3430_REV_ES3_0) {
+		/* Production board supports McBSP4 */
+		omap2_mux_register(&zoom2_mux_cfg);
+	} else {
+		/* McBSP4_CLK is linked to LCD_RESET line
+		 * on Pre-Production zoom2's
+		 * Hence a white screen seen
+		 */
+		printk(KERN_WARNING "Issue: McBSP4 not supported on this baord");
+	}
 	omap_init_irq();
 	omap_gpio_init();
 	zoom2_init_smc911x();
