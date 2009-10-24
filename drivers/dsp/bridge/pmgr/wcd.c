@@ -280,9 +280,9 @@ inline DSP_STATUS WCD_CallDevIOCtl(u32 cmd, union Trapped_Args *args,
 		/* make the fxn call via the cmd table */
 		*pResult = (*WCD_cmdTable[cmd].fxn) (args, pr_ctxt);
 		return DSP_SOK;
-	} else {
-		return DSP_EINVALIDARG;
 	}
+
+	return DSP_EINVALIDARG;
 }
 
 /*
