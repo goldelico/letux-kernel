@@ -92,7 +92,6 @@ s32 KFILE_Close(struct KFILE_FileObj *hFile)
 {
 	s32 cRetVal = 0;	/* 0 indicates success */
 	s32 fRetVal = 0;
-	__kernel_pid_t curr_pid;
 
 	GT_1trace(KFILE_debugMask, GT_ENTER, "KFILE_Close: hFile 0x%x\n",
 		  hFile);
@@ -102,7 +101,6 @@ s32 KFILE_Close(struct KFILE_FileObj *hFile)
 		/* Close file only if opened by the same process (id). Otherwise
 		 * Linux closes all open file handles when process exits.*/
 		/* Return TGID instead of process handle */
-		curr_pid = (__kernel_pid_t)current->tgid;
 		fRetVal = filp_close(hFile->fileDesc, NULL) ;
 		if (fRetVal) {
 			cRetVal = E_KFILE_ERROR;
