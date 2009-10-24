@@ -108,8 +108,6 @@
 #define BRIDGE_NAME "C6410"
 /*  ----------------------------------- Globals */
 #define DRIVER_NAME  "DspBridge"
-#define DRIVER_MAJOR 0		/* Linux assigns our Major device number */
-#define DRIVER_MINOR 0		/* Linux assigns our Major device number */
 s32 dsp_debug;
 
 struct platform_device *omap_dspbridge_dev;
@@ -126,8 +124,8 @@ static u32 driverContext;
 #ifdef CONFIG_BRIDGE_DEBUG
 static char *GT_str;
 #endif /* CONFIG_BRIDGE_DEBUG */
-static s32 driver_major = DRIVER_MAJOR;
-static s32 driver_minor = DRIVER_MINOR;
+static s32 driver_major;
+static s32 driver_minor;
 static char *base_img;
 char *iva_img;
 static char *num_procs = "C55=1";
@@ -170,12 +168,6 @@ MODULE_PARM_DESC(GT_str, "GT string, default = NULL");
 module_param(dsp_debug, int, 0);
 MODULE_PARM_DESC(dsp_debug, "Wait after loading DSP image. default = false");
 #endif
-
-module_param(driver_major, int, 0);	/* Driver's major number */
-MODULE_PARM_DESC(driver_major, "Major device number, default = 0 (auto)");
-
-module_param(driver_minor, int, 0);	/* Driver's major number */
-MODULE_PARM_DESC(driver_minor, "Minor device number, default = 0 (auto)");
 
 module_param(base_img, charp, 0);
 MODULE_PARM_DESC(base_img, "DSP base image, default = NULL");
@@ -269,20 +261,14 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	omap_dspbridge_dev = pdev;
 
 	/* use 2.6 device model */
-	if (driver_major) {
-		dev = MKDEV(driver_major, driver_minor);
-		result = register_chrdev_region(dev, 1, driver_name);
-	} else {
-		result = alloc_chrdev_region(&dev, driver_minor, 1,
-					    driver_name);
-		driver_major = MAJOR(dev);
-	}
-
+	result = alloc_chrdev_region(&dev, driver_minor, 1, driver_name);
 	if (result < 0) {
 		GT_1trace(driverTrace, GT_7CLASS, "bridge_init: "
 				"Can't get Major %d \n", driver_major);
 		return result;
 	}
+
+	driver_major = MAJOR(dev);
 
 	bridge_device = kmalloc(sizeof(struct bridge_dev), GFP_KERNEL);
 	if (!bridge_device) {
