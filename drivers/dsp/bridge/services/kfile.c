@@ -260,7 +260,7 @@ KFILE_Read(void __user*pBuffer, s32 cSize, s32 cCount,
 s32 KFILE_Seek(struct KFILE_FileObj *hFile, s32 lOffset, s32 cOrigin)
 {
 	s32 cRetVal = 0;	/* 0 for success */
-	u32 dwCurPos = 0;
+	loff_t dwCurPos = 0;
 
 	struct file *fileDesc = NULL;
 
@@ -313,7 +313,7 @@ s32 KFILE_Seek(struct KFILE_FileObj *hFile, s32 lOffset, s32 cOrigin)
  */
 s32 KFILE_Tell(struct KFILE_FileObj *hFile)
 {
-	u32 dwCurPos = 0;
+	loff_t dwCurPos = 0;
 	s32 lRetVal = E_KFILE_ERROR;
 
 	GT_1trace(KFILE_debugMask, GT_ENTER, "KFILE_Tell: hFile 0x%x\n", hFile);
