@@ -1753,16 +1753,19 @@ DSP_STATUS PROC_UnMap(DSP_HPROCESSOR hProcessor, void *pMapAddr,
 	}
 
 	status = DMM_GetHandle(hProcessor, &hDmmMgr);
-	/* Critical section */
-	(void)SYNC_EnterCS(hProcLock);
 	if (DSP_FAILED(status)) {
 		GT_1trace(PROC_DebugMask, GT_7CLASS, "PROC_UnMap: "
-			 "Failed to get DMM Mgr handle: 0x%x\n", status);
-	} else {
-		/* Update DMM structures. Get the size to unmap.
-		 This function returns error if the VA is not mapped */
-		status = DMM_UnMapMemory(hDmmMgr, (u32) vaAlign, &sizeAlign);
+			"Failed to get DMM Mgr handle: 0x%x\n", status);
+		goto func_end;
 	}
+
+	/* Critical section */
+	(void)SYNC_EnterCS(hProcLock);
+	/*
+	 * Update DMM structures. Get the size to unmap.
+	 * This function returns error if the VA is not mapped
+	 */
+	status = DMM_UnMapMemory(hDmmMgr, (u32) vaAlign, &sizeAlign);
 	/* Remove mapping from the page tables. */
 	if (DSP_SUCCEEDED(status)) {
 		status = (*pProcObject->pIntfFxns->pfnBrdMemUnMap)
