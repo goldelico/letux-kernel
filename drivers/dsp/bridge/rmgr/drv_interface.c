@@ -270,13 +270,12 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 
 	driver_major = MAJOR(dev);
 
-	bridge_device = kmalloc(sizeof(struct bridge_dev), GFP_KERNEL);
+	bridge_device = kzalloc(sizeof(struct bridge_dev), GFP_KERNEL);
 	if (!bridge_device) {
 		result = -ENOMEM;
 		unregister_chrdev_region(dev, 1);
 		return result;
 	}
-	memset(bridge_device, 0, sizeof(struct bridge_dev));
 	cdev_init(&bridge_device->cdev, &bridge_fops);
 	bridge_device->cdev.owner = THIS_MODULE;
 	bridge_device->cdev.ops = &bridge_fops;
