@@ -265,7 +265,7 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	if (result < 0) {
 		GT_1trace(driverTrace, GT_7CLASS, "bridge_init: "
 				"Can't get Major %d \n", driver_major);
-		return result;
+		goto err1;
 	}
 
 	driver_major = MAJOR(dev);
@@ -273,19 +273,17 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	bridge_device = kzalloc(sizeof(struct bridge_dev), GFP_KERNEL);
 	if (!bridge_device) {
 		result = -ENOMEM;
-		unregister_chrdev_region(dev, 1);
-		return result;
+		goto err2;
 	}
 	cdev_init(&bridge_device->cdev, &bridge_fops);
 	bridge_device->cdev.owner = THIS_MODULE;
 	bridge_device->cdev.ops = &bridge_fops;
 
 	status = cdev_add(&bridge_device->cdev, dev, 1);
-
 	if (status) {
 		GT_0trace(driverTrace, GT_7CLASS,
 				"Failed to add the bridge device \n");
-		return status;
+		goto err3;
 	}
 
 	/* udev support */
@@ -419,7 +417,17 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	DBC_Assert(status == 0);
 	DBC_Assert(DSP_SUCCEEDED(initStatus));
 	GT_0trace(driverTrace, GT_ENTER, " <- driver_init\n");
-	return status;
+
+	return 0;
+
+err3:
+	kfree(bridge_device);
+
+err2:
+	unregister_chrdev_region(dev, 1);
+
+err1:
+	return result;
 }
 
 static int __devexit omap34xx_bridge_remove(struct platform_device *pdev)
