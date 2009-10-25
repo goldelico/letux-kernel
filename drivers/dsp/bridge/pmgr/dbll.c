@@ -909,26 +909,23 @@ void DBLL_unload(struct DBLL_LibraryObj *lib, struct DBLL_Attrs *attrs)
 		goto func_end;
 
 	zlLib->pTarget->attrs = *attrs;
-	if (zlLib != NULL) {
-		if (zlLib->mHandle) {
-			err = Dynamic_Unload_Module(zlLib->mHandle,
-				&zlLib->symbol.dlSymbol,
-				&zlLib->allocate.dlAlloc, &zlLib->init.dlInit);
-			if (err != 0) {
-				GT_1trace(DBLL_debugMask, GT_5CLASS,
-					 "Dynamic_Unload_Module "
-					 "failed: 0x%x\n", err);
-			}
+	if (zlLib->mHandle) {
+		err = Dynamic_Unload_Module(zlLib->mHandle,
+			&zlLib->symbol.dlSymbol,
+			&zlLib->allocate.dlAlloc, &zlLib->init.dlInit);
+		if (err != 0) {
+			GT_1trace(DBLL_debugMask, GT_5CLASS,
+				 "Dynamic_Unload_Module failed: 0x%x\n", err);
 		}
-		/* remove symbols from symbol table */
-		if (zlLib->symTab != NULL) {
-			GH_delete(zlLib->symTab);
-			zlLib->symTab = NULL;
-		}
-		/* delete DOFF desc since it holds *lots* of host OS
-		 * resources */
-		dofClose(zlLib);
 	}
+	/* remove symbols from symbol table */
+	if (zlLib->symTab != NULL) {
+		GH_delete(zlLib->symTab);
+		zlLib->symTab = NULL;
+	}
+	/* delete DOFF desc since it holds *lots* of host OS
+	 * resources */
+	dofClose(zlLib);
 func_end:
 	DBC_Ensure(zlLib->loadRef >= 0);
 }
