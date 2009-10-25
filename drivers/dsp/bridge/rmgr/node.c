@@ -404,7 +404,6 @@ DSP_STATUS NODE_Allocate(struct PROC_OBJECT *hProcessor,
 	DSP_STATUS status = DSP_SOK;
 	struct CMM_OBJECT *hCmmMgr = NULL; /* Shared memory manager hndl */
 	u32 procId;
-	char *label;
 	u32 pulValue;
 	u32 dynextBase;
 	u32 offSet = 0;
@@ -691,18 +690,16 @@ func_cont2:
 		}
 	}
 
-	/* Comapare value read from Node Properties and check if it is same as
+	/* Compare value read from Node Properties and check if it is same as
 	 * STACKSEGLABEL, if yes read the Address of STACKSEGLABEL, calculate
 	 * GPP Address, Read the value in that address and override the
 	 * uStackSeg value in task args */
 	if (DSP_SUCCEEDED(status) &&
 	   (char *)pNode->dcdProps.objData.nodeObj.ndbProps.uStackSegName !=
 	   NULL) {
-		label = MEM_Calloc(sizeof(STACKSEGLABEL)+1, MEM_PAGED);
-               strncpy(label, STACKSEGLABEL, sizeof(STACKSEGLABEL)+1);
-
-               if (strcmp((char *)pNode->dcdProps.objData.nodeObj.
-				     ndbProps.uStackSegName, label) == 0) {
+		if (strcmp((char *)
+		    pNode->dcdProps.objData.nodeObj.ndbProps.uStackSegName,
+		    STACKSEGLABEL) == 0) {
 			status = hNodeMgr->nldrFxns.pfnGetFxnAddr(pNode->
 				 hNldrNode, "DYNEXT_BEG", &dynextBase);
 			if (DSP_FAILED(status)) {
@@ -744,10 +741,6 @@ func_cont2:
 				ulStackSegVal;
 
 		}
-
-		if (label)
-			MEM_Free(label);
-
 	}
 
 
