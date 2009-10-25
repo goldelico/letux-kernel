@@ -1173,17 +1173,18 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 		/* Releasing resources by deleting the registry key  */
 		dwBuffSize = sizeof(struct CFG_HOSTRES);
 		pResources = MEM_Calloc(dwBuffSize, MEM_NONPAGED);
-		if (DSP_FAILED(REG_GetValue(NULL, (char *)driverExt->szString,
-		   CURRENTCONFIG, (u8 *)pResources, &dwBuffSize))) {
-			status = CFG_E_RESOURCENOTAVAIL;
-			GT_0trace(curTrace, GT_1CLASS,
-				 "REG_GetValue Failed \n");
-		} else {
-			GT_0trace(curTrace, GT_1CLASS,
-				 "REG_GetValue Succeeded \n");
-		}
-
 		if (pResources != NULL) {
+			if (DSP_FAILED(REG_GetValue(NULL,
+			    (char *) driverExt->szString,
+			    CURRENTCONFIG, (u8 *) pResources, &dwBuffSize))) {
+				status = CFG_E_RESOURCENOTAVAIL;
+				GT_0trace(curTrace, GT_1CLASS,
+					 "REG_GetValue Failed \n");
+			} else {
+				GT_0trace(curTrace, GT_1CLASS,
+					 "REG_GetValue Succeeded \n");
+			}
+
 			dwBuffSize = sizeof(shm_size);
 			status = REG_GetValue(NULL, CURRENTCONFIG, SHMSIZE,
 				(u8 *)&shm_size, &dwBuffSize);
@@ -1248,6 +1249,8 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 				 (u32)dwBuffSize);
 			/*  Set all the other entries to NULL */
 			MEM_Free(pResources);
+		} else {
+			status = DSP_EMEMORY;
 		}
 		GT_0trace(curTrace, GT_ENTER, " <- RequestBridgeResources \n");
 		return status;
