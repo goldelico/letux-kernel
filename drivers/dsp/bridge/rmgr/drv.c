@@ -1133,6 +1133,10 @@ DSP_STATUS DRV_ReleaseResources(u32 dwContext, struct DRV_OBJECT *hDrvObject)
 	for (pszdevNode = (struct DRV_EXT *)DRV_GetFirstDevExtension();
 	    pszdevNode != NULL; pszdevNode = (struct DRV_EXT *)
 	    DRV_GetNextDevExtension((u32)pszdevNode)) {
+		if (!pDRVObject->devNodeString) {
+			/* When this could happen? */
+			continue;
+		}
 		if ((u32)pszdevNode == dwContext) {
 			/* Found it */
 			/* Delete from the Driver object list */
