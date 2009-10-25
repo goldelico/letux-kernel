@@ -546,4 +546,15 @@ config TOUCHSCREEN_QUANTUM_OBP
 
 	  If unsure, say N.
 
+config TOUCHSCREEN_SYNTM12XX
+       tristate "Synaptic TM12xx touchscreen"
+       help
+         Say Y here to enable support for Synaptic TM12xx
+          series touchscreen controller.
+
+         If unsure, say N.
+
+         To compile this driver as module, choose M here: the
+         module will be called syntm12xx
+
 endif
