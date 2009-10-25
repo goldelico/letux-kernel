@@ -1268,11 +1268,16 @@ static DSP_STATUS WMD_DEV_Destroy(struct WMD_DEV_CONTEXT *hDevContext)
 	DSP_STATUS status = DSP_SOK;
 	struct WMD_DEV_CONTEXT *pDevContext = (struct WMD_DEV_CONTEXT *)
 						hDevContext;
+
+	/* It should never happen */
+	if (!hDevContext)
+		return DSP_EHANDLE;
+
 	DBG_Trace(DBG_ENTER, "Entering WMD_DEV_Destroy:n hDevContext ::0x%x\n",
 		  hDevContext);
 	/* first put the device to stop state */
 	WMD_BRD_Delete(pDevContext);
-	if (pDevContext && pDevContext->pPtAttrs) {
+	if (pDevContext->pPtAttrs) {
 		pPtAttrs = pDevContext->pPtAttrs;
 		if (pPtAttrs->hCSObj)
 			SYNC_DeleteCS(pPtAttrs->hCSObj);
