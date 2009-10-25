@@ -190,7 +190,7 @@ struct STREAM {
  *  ======== NODE_OBJECT ========
  */
 struct NODE_OBJECT {
-	struct LST_ELEM listElem;
+	struct list_head listElem;
 	u32 dwSignature;	/* For object validation */
 	struct NODE_MGR *hNodeMgr;	/* The manager of this node */
 	struct PROC_OBJECT *hProcessor;	/* Back pointer to processor */
@@ -665,14 +665,14 @@ func_cont:
 	if (DSP_SUCCEEDED(status)) {
 		/* Add the node to the node manager's list of allocated
 		 * nodes. */
-		LST_InitElem((struct LST_ELEM *)pNode);
+		LST_InitElem((struct list_head *)pNode);
 		NODE_SetState(pNode, NODE_ALLOCATED);
 
 		status = SYNC_EnterCS(hNodeMgr->hSync);
 
 		if (DSP_SUCCEEDED(status)) {
 			LST_PutTail(hNodeMgr->nodeList,
-			(struct LST_ELEM *) pNode);
+					(struct list_head *) pNode);
 			++(hNodeMgr->uNumNodes);
 		}
 
@@ -1633,7 +1633,7 @@ func_cont1:
 	}
 	/* Free host side resources even if a failure occurred */
 	/* Remove node from hNodeMgr->nodeList */
-	LST_RemoveElem(hNodeMgr->nodeList, (struct LST_ELEM *) hNode);
+	LST_RemoveElem(hNodeMgr->nodeList, (struct list_head *) hNode);
 	hNodeMgr->uNumNodes--;
 	/* Decrement count of nodes created on DSP */
 	if ((state != NODE_ALLOCATED) || ((state == NODE_ALLOCATED) &&
@@ -1726,7 +1726,7 @@ DSP_STATUS NODE_EnumNodes(struct NODE_MGR *hNodeMgr, IN DSP_HNODE *aNodeTab,
 				aNodeTab[i] = hNode;
 				hNode = (struct NODE_OBJECT *)LST_Next
 					(hNodeMgr->nodeList,
-					(struct LST_ELEM *)hNode);
+					(struct list_head *)hNode);
 			}
 			*puAllocated = *puNumNodes = hNodeMgr->uNumNodes;
 		}

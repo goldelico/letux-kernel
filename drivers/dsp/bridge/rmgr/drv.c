@@ -61,7 +61,7 @@ struct DRV_OBJECT {
  *  DRV_ since it is living in this module
  */
 struct DRV_EXT {
-	struct LST_ELEM link;
+	struct list_head link;
 	char szString[MAXREGPATHLENGTH];
 };
 
@@ -812,7 +812,7 @@ u32 DRV_GetNextDevObject(u32 hDevObject)
 		if ((pDrvObject->devList != NULL) &&
 		   !LST_IsEmpty(pDrvObject->devList)) {
 			dwNextDevObject = (u32)LST_Next(pDrvObject->devList,
-					  (struct LST_ELEM *)hDevObject);
+					  (struct list_head *)hDevObject);
 		}
 	}
 	return dwNextDevObject;
@@ -839,7 +839,7 @@ u32 DRV_GetNextDevExtension(u32 hDevExtension)
 		   !LST_IsEmpty(pDrvObject->devNodeString)) {
 			dwDevExtension = (u32)LST_Next(pDrvObject->
 				devNodeString,
-				(struct LST_ELEM *)hDevExtension);
+				(struct list_head *)hDevExtension);
 		}
 	}
 
@@ -888,7 +888,7 @@ DSP_STATUS DRV_InsertDevObject(struct DRV_OBJECT *hDRVObject,
 		 "Entering DRV_InsertProcObject hDRVObject "
 		 "0x%x\n, hDevObject 0x%x\n", hDRVObject, hDevObject);
 
-	LST_PutTail(pDRVObject->devList, (struct LST_ELEM *)hDevObject);
+	LST_PutTail(pDRVObject->devList, (struct list_head *)hDevObject);
 
 	GT_1trace(curTrace, GT_ENTER,
 		 "Exiting InsertDevObject status 0x%x\n", status);
@@ -909,7 +909,7 @@ DSP_STATUS DRV_RemoveDevObject(struct DRV_OBJECT *hDRVObject,
 {
 	DSP_STATUS status = DSP_EFAIL;
 	struct DRV_OBJECT *pDRVObject = (struct DRV_OBJECT *)hDRVObject;
-	struct LST_ELEM *pCurElem;
+	struct list_head *pCurElem;
 
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(pDRVObject, SIGNATURE));
@@ -974,7 +974,7 @@ DSP_STATUS DRV_RequestResources(u32 dwContext, u32 *pDevNodeString)
 			/* Update the Driver Object List */
 			*pDevNodeString = (u32)pszdevNode->szString;
 			LST_PutTail(pDRVObject->devNodeString,
-				(struct LST_ELEM *)pszdevNode);
+					(struct list_head *)pszdevNode);
 		} else {
 			GT_0trace(curTrace, GT_7CLASS,
 				"Failed to Allocate Memory devNodeString ");
@@ -1048,7 +1048,7 @@ DSP_STATUS DRV_ReleaseResources(u32 dwContext, struct DRV_OBJECT *hDrvObject)
 			/* Found it */
 			/* Delete from the Driver object list */
 			LST_RemoveElem(pDRVObject->devNodeString,
-				      (struct LST_ELEM *)pszdevNode);
+				      (struct list_head *)pszdevNode);
 			MEM_Free((void *) pszdevNode);
 			break;
 		}

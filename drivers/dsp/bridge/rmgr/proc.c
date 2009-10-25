@@ -83,7 +83,7 @@ static struct GT_Mask PROC_DebugMask = { NULL, NULL };	/* WCD MGR Mask */
 
 /* The PROC_OBJECT structure.   */
 struct PROC_OBJECT {
-	struct LST_ELEM link;		/* Link to next PROC_OBJECT */
+	struct list_head link;		/* Link to next PROC_OBJECT */
 	u32 dwSignature;		/* Used for object validation */
 	struct DEV_OBJECT *hDevObject;	/* Device this PROC represents */
 	u32 hProcess;			/* Process owning this Processor */

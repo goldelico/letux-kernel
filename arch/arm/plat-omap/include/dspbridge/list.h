@@ -26,7 +26,6 @@
 #include <dspbridge/mem.h>
 #include <linux/list.h>
 
-#define LST_ELEM            list_head
 #define LST_IsEmpty(l)      list_empty(&(l)->head)
 
 struct LST_LIST {

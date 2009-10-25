@@ -136,7 +136,7 @@ static struct CMM_XLATORATTRS CMM_DFLTXLATORATTRS = {
 
 /* SM node representing a block of memory. */
 struct CMM_MNODE {
-	struct LST_ELEM link;		/* must be 1st element */
+	struct list_head link;		/* must be 1st element */
 	u32 dwPA;		/* Phys addr */
 	u32 dwVA;		/* Virtual address in device process context */
 	u32 ulSize;		/* SM block size in bytes */
@@ -226,7 +226,7 @@ void *CMM_CallocBuf(struct CMM_OBJECT *hCmmMgr, u32 uSize,
 
 			/* put our node on InUse list */
 			LST_PutTail(pAllocator->pInUseListHead,
-				   (struct LST_ELEM *)pNode);
+				   (struct list_head *)pNode);
 			pBufPA = (void *)pNode->dwPA;	/* physical address */
 			/* clear mem */
 			pByte = (u8 *)pNode->dwVA;
@@ -365,8 +365,6 @@ DSP_STATUS CMM_Destroy(struct CMM_OBJECT *hCmmMgr, bool bForce)
 	if (pCmmMgr->pNodeFreeListHead != NULL) {
 		/* Free the free nodes */
 		while (!LST_IsEmpty(pCmmMgr->pNodeFreeListHead)) {
-			/* (struct LST_ELEM*) pNode =
-			 * LST_GetHead(pCmmMgr->pNodeFreeListHead);*/
 			pNode = (struct CMM_MNODE *)LST_GetHead(pCmmMgr->
 				 pNodeFreeListHead);
 			MEM_Free(pNode);
@@ -433,7 +431,7 @@ DSP_STATUS CMM_FreeBuf(struct CMM_OBJECT *hCmmMgr, void *pBufPA, u32 ulSegId)
 			if ((u32)pBufPA == pCurNode->dwPA) {
 				/* Found it */
 				LST_RemoveElem(pAllocator->pInUseListHead,
-					      (struct LST_ELEM *)pCurNode);
+					      (struct list_head *)pCurNode);
 				/* back to freelist */
 				AddToFreeList(pAllocator, pCurNode);
 				status = DSP_SOK;	/* all right! */
@@ -441,7 +439,8 @@ DSP_STATUS CMM_FreeBuf(struct CMM_OBJECT *hCmmMgr, void *pBufPA, u32 ulSegId)
 			}
 			/* next node. */
 			pCurNode = (struct CMM_MNODE *)LST_Next(pAllocator->
-				   pInUseListHead, (struct LST_ELEM *)pCurNode);
+					pInUseListHead,
+					(struct list_head *)pCurNode);
 		}
 		SYNC_LeaveCS(pCmmMgr->hCmmLock);
 	}
@@ -527,7 +526,7 @@ DSP_STATUS CMM_GetInfo(struct CMM_OBJECT *hCmmMgr,
 				/* next node. */
 				pCurNode = (struct CMM_MNODE *)LST_Next(pAltr->
 					pInUseListHead,
-					(struct LST_ELEM *)pCurNode);
+					(struct list_head *)pCurNode);
 			}
 		}
 	}		/* end for */
@@ -663,7 +662,7 @@ DSP_STATUS CMM_RegisterGPPSMSeg(struct CMM_OBJECT *hCmmMgr, u32 dwGPPBasePA,
 			/* Place node on the SM allocator's free list */
 			if (pNewNode) {
 				LST_PutTail(pSMA->pFreeListHead,
-					   (struct LST_ELEM *)pNewNode);
+					   (struct list_head *)pNewNode);
 			} else {
 				status = DSP_EMEMORY;
 				goto func_end;
@@ -757,9 +756,9 @@ static void UnRegisterGPPSMSeg(struct CMM_ALLOCATOR *pSMA)
 		while (pCurNode) {
 			pNextNode = (struct CMM_MNODE *)LST_Next(pSMA->
 				     pFreeListHead,
-				    (struct LST_ELEM *)pCurNode);
+				    (struct list_head *)pCurNode);
 			LST_RemoveElem(pSMA->pFreeListHead,
-				      (struct LST_ELEM *)pCurNode);
+				      (struct list_head *)pCurNode);
 			MEM_Free((void *) pCurNode);
 			/* next node. */
 			pCurNode = pNextNode;
@@ -770,9 +769,9 @@ static void UnRegisterGPPSMSeg(struct CMM_ALLOCATOR *pSMA)
 		while (pCurNode) {
 			pNextNode = (struct CMM_MNODE *)LST_Next(pSMA->
 				    pInUseListHead,
-				    (struct LST_ELEM *)pCurNode);
+				    (struct list_head *)pCurNode);
 			LST_RemoveElem(pSMA->pInUseListHead,
-				      (struct LST_ELEM *)pCurNode);
+				      (struct list_head *)pCurNode);
 			MEM_Free((void *) pCurNode);
 			/* next node. */
 			pCurNode = pNextNode;
@@ -830,15 +829,13 @@ static struct CMM_MNODE *GetNode(struct CMM_OBJECT *pCmmMgr, u32 dwPA,
 			MEM_PAGED);
 	} else {
 		/* surely a valid element */
-		/* (struct LST_ELEM*) pNode = LST_GetHead(pCmmMgr->
-		 * pNodeFreeListHead);*/
 		pNode = (struct CMM_MNODE *)LST_GetHead(pCmmMgr->
 			pNodeFreeListHead);
 	}
 	if (pNode == NULL) {
 		GT_0trace(CMM_debugMask, GT_7CLASS, "GetNode: Out Of Memory\n");
 	} else {
-		LST_InitElem((struct LST_ELEM *) pNode);	/* set self */
+		LST_InitElem((struct list_head *) pNode);	/* set self */
 		pNode->dwPA = dwPA;	/* Physical addr of start of block */
 		pNode->dwVA = dwVA;	/* Virtual   "            "        */
 		pNode->ulSize = ulSize;	/* Size of block */
@@ -855,8 +852,8 @@ static struct CMM_MNODE *GetNode(struct CMM_OBJECT *pCmmMgr, u32 dwPA,
 static void DeleteNode(struct CMM_OBJECT *pCmmMgr, struct CMM_MNODE *pNode)
 {
 	DBC_Require(pNode != NULL);
-	LST_InitElem((struct LST_ELEM *) pNode);	/* init .self ptr */
-	LST_PutTail(pCmmMgr->pNodeFreeListHead, (struct LST_ELEM *) pNode);
+	LST_InitElem((struct list_head *) pNode);	/* init .self ptr */
+	LST_PutTail(pCmmMgr->pNodeFreeListHead, (struct list_head *) pNode);
 }
 
 /*
@@ -874,12 +871,13 @@ static struct CMM_MNODE *GetFreeBlock(struct CMM_ALLOCATOR *pAllocator,
 		while (pCurNode) {
 			if (uSize <= (u32) pCurNode->ulSize) {
 				LST_RemoveElem(pAllocator->pFreeListHead,
-					      (struct LST_ELEM *)pCurNode);
+					      (struct list_head *)pCurNode);
 				return pCurNode;
 			}
 			/* next node. */
 			pCurNode = (struct CMM_MNODE *)LST_Next(pAllocator->
-				    pFreeListHead, (struct LST_ELEM *)pCurNode);
+					pFreeListHead,
+					(struct list_head *)pCurNode);
 		}
 	}
 	return NULL;
@@ -914,7 +912,8 @@ static void AddToFreeList(struct CMM_ALLOCATOR *pAllocator,
 		if ((pNodePrev == NULL) || (pNodeNext == NULL)) {
 			/* next node. */
 			pCurNode = (struct CMM_MNODE *)LST_Next(pAllocator->
-				    pFreeListHead, (struct LST_ELEM *)pCurNode);
+					pFreeListHead,
+					(struct list_head *)pCurNode);
 		} else {
 			/* got 'em */
 			break;
@@ -923,7 +922,7 @@ static void AddToFreeList(struct CMM_ALLOCATOR *pAllocator,
 	if (pNodePrev != NULL) {
 		/* combine with previous block */
 		LST_RemoveElem(pAllocator->pFreeListHead,
-			      (struct LST_ELEM *)pNodePrev);
+			      (struct list_head *)pNodePrev);
 		/* grow node to hold both */
 		pNode->ulSize += pNodePrev->ulSize;
 		pNode->dwPA = pNodePrev->dwPA;
@@ -934,7 +933,7 @@ static void AddToFreeList(struct CMM_ALLOCATOR *pAllocator,
 	if (pNodeNext != NULL) {
 		/* combine with next block */
 		LST_RemoveElem(pAllocator->pFreeListHead,
-			      (struct LST_ELEM *)pNodeNext);
+			      (struct list_head *)pNodeNext);
 		/* grow da node */
 		pNode->ulSize += pNodeNext->ulSize;
 		/* place node on mgr nodeFreeList */
@@ -948,17 +947,17 @@ static void AddToFreeList(struct CMM_ALLOCATOR *pAllocator,
 
 		/* next node. */
 		pCurNode = (struct CMM_MNODE *)LST_Next(pAllocator->
-			   pFreeListHead, (struct LST_ELEM *)pCurNode);
+			   pFreeListHead, (struct list_head *)pCurNode);
 	}
 	/* if pCurNode is NULL then add our pNode to the end of the freelist */
 	if (pCurNode == NULL) {
 		LST_PutTail(pAllocator->pFreeListHead,
-			   (struct LST_ELEM *)pNode);
+			   (struct list_head *)pNode);
 	} else {
 		/* insert our node before the current traversed node */
 		LST_InsertBefore(pAllocator->pFreeListHead,
-				(struct LST_ELEM *)pNode,
-				(struct LST_ELEM *)pCurNode);
+				(struct list_head *)pNode,
+				(struct list_head *)pCurNode);
 	}
 }
 

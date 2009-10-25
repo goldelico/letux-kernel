@@ -33,7 +33,7 @@
 #include <dspbridge/list.h>
 
 struct DRV_EXT {
-	struct LST_ELEM link;
+	struct list_head link;
 	char szString[MAXREGPATHLENGTH];
 };
 

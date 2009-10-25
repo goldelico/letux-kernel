@@ -70,7 +70,7 @@ struct RMM_Header {
  *  Keeps track of memory occupied by overlay section.
  */
 struct RMM_OvlySect {
-	struct LST_ELEM listElem;
+	struct list_head listElem;
 	u32 addr;		/* Start of memory section */
 	u32 size;		/* Length (target MAUs) of section */
 	s32 page;		/* Memory page */
@@ -147,7 +147,7 @@ DSP_STATUS RMM_alloc(struct RMM_TargetObj *target, u32 segid, u32 size,
 		}
 		prevSect = sect;
 		sect = (struct RMM_OvlySect *)LST_Next(target->ovlyList,
-			(struct LST_ELEM *)sect);
+			(struct list_head *)sect);
 	}
 	if (DSP_SUCCEEDED(status)) {
 		/* No overlap - allocate list element for new section. */
@@ -155,19 +155,19 @@ DSP_STATUS RMM_alloc(struct RMM_TargetObj *target, u32 segid, u32 size,
 		if (newSect == NULL) {
 			status = DSP_EMEMORY;
 		} else {
-			LST_InitElem((struct LST_ELEM *)newSect);
+			LST_InitElem((struct list_head *)newSect);
 			newSect->addr = addr;
 			newSect->size = size;
 			newSect->page = segid;
 			if (sect == NULL) {
 				/* Put new section at the end of the list */
 				LST_PutTail(target->ovlyList,
-					   (struct LST_ELEM *)newSect);
+					   (struct list_head *)newSect);
 			} else {
 				/* Put new section just before sect */
 				LST_InsertBefore(target->ovlyList,
-						(struct LST_ELEM *)newSect,
-						(struct LST_ELEM *)sect);
+						(struct list_head *)newSect,
+						(struct list_head *)sect);
 			}
 		}
 	}
@@ -374,12 +374,12 @@ bool RMM_free(struct RMM_TargetObj *target, u32 segid, u32 addr, u32 size,
 				DBC_Assert(size == sect->size);
 				/* Remove from list */
 				LST_RemoveElem(target->ovlyList,
-					      (struct LST_ELEM *)sect);
+					      (struct list_head *)sect);
 				MEM_Free(sect);
 				break;
 			}
 			sect = (struct RMM_OvlySect *)LST_Next(target->ovlyList,
-			       (struct LST_ELEM *)sect);
+			       (struct list_head *)sect);
 		}
 		if (sect == NULL)
 			retVal = false;

@@ -65,7 +65,7 @@
 /* The WMD device object: */
 struct DEV_OBJECT {
 	/* LST requires "link" to be first field!                        */
-	struct LST_ELEM link;		/* Link to next DEV_OBJECT.      */
+	struct list_head link;		/* Link to next DEV_OBJECT.      */
 	u32 devType;		/* Device Type */
 	u32 dwSignature;	/* Used for object validation.   */
 	struct CFG_DEVNODE *hDevNode;	/* Platform specific device id   */
@@ -948,7 +948,7 @@ DSP_STATUS DEV_NotifyClients(struct DEV_OBJECT *hDevObject, u32 ulStatus)
 	for (hProcObject = (DSP_HPROCESSOR)LST_First(pDevObject->procList);
 		hProcObject != NULL;
 		hProcObject = (DSP_HPROCESSOR)LST_Next(pDevObject->procList,
-						(struct LST_ELEM *)hProcObject))
+					(struct list_head *)hProcObject))
 		PROC_NotifyClients(hProcObject, (u32) ulStatus);
 
 	return status;
@@ -1205,7 +1205,7 @@ DSP_STATUS DEV_InsertProcObject(struct DEV_OBJECT *hDevObject,
 		*pbAlreadyAttached = true;
 
 	/* Add DevObject to tail. */
-	LST_PutTail(pDevObject->procList, (struct LST_ELEM *)hProcObject);
+	LST_PutTail(pDevObject->procList, (struct list_head *)hProcObject);
 
 	GT_1trace(debugMask, GT_ENTER,
 		 "Exiting DEV_InsetProcObject status 0x%x\n", status);
@@ -1236,7 +1236,7 @@ DSP_STATUS DEV_RemoveProcObject(struct DEV_OBJECT *hDevObject,
 				     u32 hProcObject)
 {
 	DSP_STATUS status = DSP_EFAIL;
-	struct LST_ELEM *pCurElem;
+	struct list_head *pCurElem;
 	struct DEV_OBJECT *pDevObject = (struct DEV_OBJECT *)hDevObject;
 
 	DBC_Require(IsValidHandle(pDevObject));

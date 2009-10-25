@@ -60,7 +60,7 @@ static struct extPhysMemPool extMemPool;
 
 /*  Information about each element allocated on heap */
 struct memInfo {
-	struct LST_ELEM link;		/* Must be first */
+	struct list_head link;		/* Must be first */
 	size_t size;
 	void *caller;
 	u32 dwSignature;	/* Should be last */
@@ -84,7 +84,7 @@ static struct memMan mMan;
  *  These functions are similar to LST_PutTail and LST_RemoveElem and are
  *  duplicated here to make MEM independent of LST
  */
-static inline void MLST_PutTail(struct LST_LIST *pList, struct LST_ELEM *pElem)
+static inline void MLST_PutTail(struct LST_LIST *pList, struct list_head *pElem)
 {
 	pElem->prev = pList->head.prev;
 	pElem->next = &pList->head;
@@ -93,7 +93,7 @@ static inline void MLST_PutTail(struct LST_LIST *pList, struct LST_ELEM *pElem)
 }
 
 static inline void MLST_RemoveElem(struct LST_LIST *pList,
-				   struct LST_ELEM *pCurElem)
+				   struct list_head *pCurElem)
 {
 	pCurElem->prev->next = pCurElem->next;
 	pCurElem->next->prev = pCurElem->prev;
@@ -104,8 +104,8 @@ static inline void MLST_RemoveElem(struct LST_LIST *pList,
 static void MEM_Check(void)
 {
 	struct memInfo *pMem;
-	struct LST_ELEM *last = &mMan.lst.head;
-	struct LST_ELEM *curr = mMan.lst.head.next;
+	struct list_head *last = &mMan.lst.head;
+	struct list_head *curr = last->next;
 
 	if (!LST_IsEmpty(&mMan.lst)) {
 		GT_0trace(MEM_debugMask, GT_7CLASS, "*** MEMORY LEAK ***\n");
@@ -121,7 +121,7 @@ static void MEM_Check(void)
 					(u32) pMem + sizeof(struct memInfo),
 					pMem->size, pMem->caller);
 				MLST_RemoveElem(&mMan.lst,
-						(struct LST_ELEM *) pMem);
+						(struct list_head *)pMem);
 				kfree(pMem);
 			} else {
 				GT_1trace(MEM_debugMask, GT_7CLASS,
@@ -257,7 +257,7 @@ void *MEM_Alloc(u32 cBytes, enum MEM_POOLATTRS type)
 
 				spin_lock(&mMan.lock);
 				MLST_PutTail(&mMan.lst,
-					    (struct LST_ELEM *)pMem);
+					    (struct list_head *)pMem);
 				spin_unlock(&mMan.lock);
 
 				pMem = (void *)((u32)pMem +
@@ -277,7 +277,7 @@ void *MEM_Alloc(u32 cBytes, enum MEM_POOLATTRS type)
 
 				spin_lock(&mMan.lock);
 				MLST_PutTail(&mMan.lst,
-					    (struct LST_ELEM *) pMem);
+					    (struct list_head *)pMem);
 				spin_unlock(&mMan.lock);
 
 				pMem = (void *)((u32)pMem +
@@ -367,7 +367,7 @@ void *MEM_Calloc(u32 cBytes, enum MEM_POOLATTRS type)
 				pMem->dwSignature = memInfoSign;
 				spin_lock(&mMan.lock);
 				MLST_PutTail(&mMan.lst,
-					(struct LST_ELEM *) pMem);
+					(struct list_head *)pMem);
 				spin_unlock(&mMan.lock);
 				pMem = (void *)((u32)pMem +
 					sizeof(struct memInfo));
@@ -388,8 +388,8 @@ void *MEM_Calloc(u32 cBytes, enum MEM_POOLATTRS type)
 				pMem->caller = __builtin_return_address(0);
 				pMem->dwSignature = memInfoSign;
 				spin_lock(&mMan.lock);
-				MLST_PutTail(&mMan.lst, (struct LST_ELEM *)
-					pMem);
+				MLST_PutTail(&mMan.lst,
+						(struct list_head *)pMem);
 				spin_unlock(&mMan.lock);
 				pMem = (void *)((u32)pMem +
 					sizeof(struct memInfo));
@@ -488,7 +488,7 @@ void MEM_VFree(IN void *pMemBuf)
 			if (pMem->dwSignature == memInfoSign) {
 				spin_lock(&mMan.lock);
 				MLST_RemoveElem(&mMan.lst,
-						(struct LST_ELEM *) pMem);
+						(struct list_head *)pMem);
 				spin_unlock(&mMan.lock);
 				pMem->dwSignature = 0;
 				vfree(pMem);
@@ -527,7 +527,7 @@ void MEM_Free(IN void *pMemBuf)
 			if (pMem->dwSignature == memInfoSign) {
 				spin_lock(&mMan.lock);
 				MLST_RemoveElem(&mMan.lst,
-						(struct LST_ELEM *) pMem);
+						(struct list_head *)pMem);
 				spin_unlock(&mMan.lock);
 				pMem->dwSignature = 0;
 				kfree(pMem);

@@ -206,7 +206,7 @@ func_cont:
 		pChirp->dwArg = dwArg;
 		pChirp->status = (fIsEOS ? CHNL_IOCSTATEOS :
 						CHNL_IOCSTATCOMPLETE);
-		LST_PutTail(pChnl->pIORequests, (struct LST_ELEM *)pChirp);
+		LST_PutTail(pChnl->pIORequests, (struct list_head *)pChirp);
 		pChnl->cIOReqs++;
 		DBC_Assert(pChnl->cIOReqs <= pChnl->cChirps);
 		/* If end of stream, update the channel state to prevent
@@ -291,7 +291,7 @@ DSP_STATUS WMD_CHNL_CancelIO(struct CHNL_OBJECT *hChnl)
 			pChirp->cBytes = 0;
 			pChirp->status |= CHNL_IOCSTATCANCEL;
 			LST_PutTail(pChnl->pIOCompletions,
-				   (struct LST_ELEM *)pChirp);
+				   (struct list_head *)pChirp);
 			pChnl->cIOCs++;
 			pChnl->cIOReqs--;
 			DBC_Assert(pChnl->cIOReqs >= 0);
@@ -635,8 +635,8 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 			ioc.dwArg = pChirp->dwArg;
 			ioc.status |= pChirp->status;
 			/* Place the used chirp on the free list: */
-			LST_PutTail(pChnl->pFreeList, (struct LST_ELEM *)
-				   pChirp);
+			LST_PutTail(pChnl->pFreeList,
+					(struct list_head *)pChirp);
 		} else {
 			ioc.pBuf = NULL;
 			ioc.cBytes = 0;
@@ -943,7 +943,7 @@ static struct LST_LIST *CreateChirpList(u32 uChirps)
 		/* Make N chirps and place on queue. */
 		for (i = 0; (i < uChirps) && ((pChirp = MakeNewChirp()) !=
 		    NULL); i++) {
-			LST_PutTail(pChirpList, (struct LST_ELEM *)pChirp);
+			LST_PutTail(pChirpList, (struct list_head *)pChirp);
 		}
 
 		/* If we couldn't allocate all chirps, free those allocated: */

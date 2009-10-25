@@ -164,7 +164,7 @@ struct loadMonStruct {
 
 /* I/O Request/completion packet: */
 	struct CHNL_IRP {
-		struct LST_ELEM link;	/* Link to next CHIRP in queue. */
+		struct list_head link;	/* Link to next CHIRP in queue. */
 		/* Buffer to be filled/emptied. (User)   */
 		u8 *pHostUserBuf;
 		/* Buffer to be filled/emptied. (System) */
