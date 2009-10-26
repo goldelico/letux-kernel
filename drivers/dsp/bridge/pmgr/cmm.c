@@ -296,12 +296,15 @@ DSP_STATUS CMM_Create(OUT struct CMM_OBJECT **phCmmMgr,
 		 * MEM_AllocObject */
 		if (DSP_SUCCEEDED(status)) {
 			/* create node free list */
-			pCmmObject->pNodeFreeListHead = LST_Create();
+			pCmmObject->pNodeFreeListHead = MEM_Calloc(sizeof(struct
+				LST_LIST), MEM_NONPAGED);
 			if (pCmmObject->pNodeFreeListHead == NULL) {
 				GT_0trace(CMM_debugMask, GT_7CLASS,
-					  "CMM_Create: LST_Create() "
-					  "failed \n");
+					  "CMM_Create: Out of memory\n");
 				status = DSP_EMEMORY;
+			} else {
+				INIT_LIST_HEAD(&pCmmObject->pNodeFreeListHead->
+					head);
 			}
 		}
 		if (DSP_SUCCEEDED(status))
@@ -370,7 +373,7 @@ DSP_STATUS CMM_Destroy(struct CMM_OBJECT *hCmmMgr, bool bForce)
 			MEM_Free(pNode);
 		}
 		/* delete NodeFreeList list */
-		LST_Delete(pCmmMgr->pNodeFreeListHead);
+		MEM_Free(pCmmMgr->pNodeFreeListHead);
 	}
 	SYNC_LeaveCS(pCmmMgr->hCmmLock);
 	if (DSP_SUCCEEDED(status)) {
@@ -635,25 +638,29 @@ DSP_STATUS CMM_RegisterGPPSMSeg(struct CMM_OBJECT *hCmmMgr, u32 dwGPPBasePA,
 			/* return the actual segment identifier */
 			*pulSegId = (u32) nSlot + 1;
 			/* create memory free list */
-			pSMA->pFreeListHead = LST_Create();
+			pSMA->pFreeListHead = MEM_Calloc(sizeof(struct
+				LST_LIST), MEM_NONPAGED);
 			if (pSMA->pFreeListHead == NULL) {
 				GT_0trace(CMM_debugMask, GT_7CLASS,
 					  "CMM_RegisterGPPSMSeg: "
-					  "Out Of Memory \n");
+					  "Out Of Memory 1\n");
 				status = DSP_EMEMORY;
 				goto func_end;
 			}
+			INIT_LIST_HEAD(&pSMA->pFreeListHead->head);
 		}
 		if (DSP_SUCCEEDED(status)) {
 			/* create memory in-use list */
-			pSMA->pInUseListHead = LST_Create();
+			pSMA->pInUseListHead = MEM_Calloc(sizeof(struct
+				LST_LIST), MEM_NONPAGED);
 			if (pSMA->pInUseListHead == NULL) {
 				GT_0trace(CMM_debugMask, GT_7CLASS,
 					  "CMM_RegisterGPPSMSeg: "
-					  "LST_Create failed\n");
+					  "Out of memory 2\n");
 				status = DSP_EMEMORY;
 				goto func_end;
 			}
+			INIT_LIST_HEAD(&pSMA->pInUseListHead->head);
 		}
 		if (DSP_SUCCEEDED(status)) {
 			/* Get a mem node for this hunk-o-memory */
@@ -763,7 +770,7 @@ static void UnRegisterGPPSMSeg(struct CMM_ALLOCATOR *pSMA)
 			/* next node. */
 			pCurNode = pNextNode;
 		}
-		LST_Delete(pSMA->pFreeListHead);	/* delete freelist */
+		MEM_Free(pSMA->pFreeListHead);		/* delete freelist */
 		/* free nodes on InUse list */
 		pCurNode = (struct CMM_MNODE *)LST_First(pSMA->pInUseListHead);
 		while (pCurNode) {
@@ -776,7 +783,7 @@ static void UnRegisterGPPSMSeg(struct CMM_ALLOCATOR *pSMA)
 			/* next node. */
 			pCurNode = pNextNode;
 		}
-		LST_Delete(pSMA->pInUseListHead);	/* delete InUse list */
+		MEM_Free(pSMA->pInUseListHead);		/* delete InUse list */
 	}
 	if ((void *) pSMA->dwVmBase != NULL)
 		MEM_UnmapLinearAddress((void *) pSMA->dwVmBase);

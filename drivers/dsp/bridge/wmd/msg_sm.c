@@ -77,18 +77,25 @@ DSP_STATUS WMD_MSG_Create(OUT struct MSG_MGR **phMsgMgr,
 		pMsgMgr->onExit = msgCallback;
 		pMsgMgr->hIOMgr = hIOMgr;
 		/* List of MSG_QUEUEs */
-		pMsgMgr->queueList = LST_Create();
+		pMsgMgr->queueList = MEM_Calloc(sizeof(struct LST_LIST),
+			MEM_NONPAGED);
 		 /*  Queues of message frames for messages to the DSP. Message
 		  * frames will only be added to the free queue when a
 		  * MSG_QUEUE object is created.  */
-		pMsgMgr->msgFreeList = LST_Create();
-		pMsgMgr->msgUsedList = LST_Create();
+		pMsgMgr->msgFreeList = MEM_Calloc(sizeof(struct LST_LIST),
+					MEM_NONPAGED);
+		pMsgMgr->msgUsedList = MEM_Calloc(sizeof(struct LST_LIST),
+					MEM_NONPAGED);
 		if (pMsgMgr->queueList == NULL ||
 		    pMsgMgr->msgFreeList == NULL ||
-		    pMsgMgr->msgUsedList == NULL)
+		    pMsgMgr->msgUsedList == NULL) {
 			status = DSP_EMEMORY;
-		else
+		} else {
+			INIT_LIST_HEAD(&pMsgMgr->queueList->head);
+			INIT_LIST_HEAD(&pMsgMgr->msgFreeList->head);
+			INIT_LIST_HEAD(&pMsgMgr->msgUsedList->head);
 			status = SYNC_InitializeDPCCS(&pMsgMgr->hSyncCS);
+		}
 
 		 /*  Create an event to be used by WMD_MSG_Put() in waiting
 		 *  for an available free frame from the message manager.  */
@@ -140,10 +147,14 @@ DSP_STATUS WMD_MSG_CreateQueue(struct MSG_MGR *hMsgMgr,
 	pMsgQ->hArg = hArg;	/* Node handle */
 	pMsgQ->dwId = dwId;	/* Node env (not valid yet) */
 	/* Queues of Message frames for messages from the DSP */
-	pMsgQ->msgFreeList = LST_Create();
-	pMsgQ->msgUsedList = LST_Create();
+	pMsgQ->msgFreeList = MEM_Calloc(sizeof(struct LST_LIST), MEM_NONPAGED);
+	pMsgQ->msgUsedList = MEM_Calloc(sizeof(struct LST_LIST), MEM_NONPAGED);
 	if (pMsgQ->msgFreeList == NULL || pMsgQ->msgUsedList == NULL)
 		status = DSP_EMEMORY;
+	else {
+		INIT_LIST_HEAD(&pMsgQ->msgFreeList->head);
+		INIT_LIST_HEAD(&pMsgQ->msgUsedList->head);
+	}
 
 	 /*  Create event that will be signalled when a message from
 	 *  the DSP is available.  */
@@ -546,7 +557,7 @@ static void DeleteMsgMgr(struct MSG_MGR *hMsgMgr)
 
 	if (hMsgMgr->queueList) {
 		if (LST_IsEmpty(hMsgMgr->queueList)) {
-			LST_Delete(hMsgMgr->queueList);
+			MEM_Free(hMsgMgr->queueList);
 			hMsgMgr->queueList = NULL;
 		}
 	}
@@ -644,7 +655,7 @@ static void FreeMsgList(struct LST_LIST *msgList)
 
 	DBC_Assert(LST_IsEmpty(msgList));
 
-	LST_Delete(msgList);
+	MEM_Free(msgList);
 func_end:
 	return;
 }

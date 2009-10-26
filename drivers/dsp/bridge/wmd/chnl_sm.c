@@ -937,9 +937,10 @@ static struct LST_LIST *CreateChirpList(u32 uChirps)
 	struct CHNL_IRP *pChirp;
 	u32 i;
 
-	pChirpList = LST_Create();
+	pChirpList = MEM_Calloc(sizeof(struct LST_LIST), MEM_NONPAGED);
 
 	if (pChirpList) {
+		INIT_LIST_HEAD(&pChirpList->head);
 		/* Make N chirps and place on queue. */
 		for (i = 0; (i < uChirps) && ((pChirp = MakeNewChirp()) !=
 		    NULL); i++) {
@@ -968,7 +969,7 @@ static void FreeChirpList(struct LST_LIST *pChirpList)
 	while (!LST_IsEmpty(pChirpList))
 		MEM_Free(LST_GetHead(pChirpList));
 
-	LST_Delete(pChirpList);
+	MEM_Free(pChirpList);
 }
 
 /*

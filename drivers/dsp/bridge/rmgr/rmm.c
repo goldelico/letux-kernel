@@ -254,11 +254,14 @@ DSP_STATUS RMM_create(struct RMM_TargetObj **pTarget,
 func_cont:
 	/* Initialize overlay memory list */
 	if (DSP_SUCCEEDED(status)) {
-		target->ovlyList = LST_Create();
+		target->ovlyList = MEM_Calloc(sizeof(struct LST_LIST),
+			MEM_NONPAGED);
 		if (target->ovlyList == NULL) {
 			GT_0trace(RMM_debugMask, GT_6CLASS,
 				 "RMM_create: Memory allocation failed\n");
 			status = DSP_EMEMORY;
+		} else {
+			INIT_LIST_HEAD(&target->ovlyList->head);
 		}
 	}
 
@@ -301,7 +304,7 @@ void RMM_delete(struct RMM_TargetObj *target)
 			MEM_Free(pSect);
 		}
 		DBC_Assert(LST_IsEmpty(target->ovlyList));
-		LST_Delete(target->ovlyList);
+		MEM_Free(target->ovlyList);
 	}
 
 	if (target->freeList != NULL) {

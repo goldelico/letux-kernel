@@ -93,12 +93,14 @@ DSP_STATUS NTFY_Create(struct NTFY_OBJECT **phNtfy)
 
 		status = SYNC_InitializeDPCCS(&pNtfy->hSync);
 		if (DSP_SUCCEEDED(status)) {
-			pNtfy->notifyList = LST_Create();
+			pNtfy->notifyList = MEM_Calloc(sizeof(struct LST_LIST),
+							MEM_NONPAGED);
 			if (pNtfy->notifyList == NULL) {
 				(void) SYNC_DeleteCS(pNtfy->hSync);
 				MEM_FreeObject(pNtfy);
 				status = DSP_EMEMORY;
 			} else {
+				INIT_LIST_HEAD(&pNtfy->notifyList->head);
 				*phNtfy = pNtfy;
 			}
 		}
@@ -131,7 +133,7 @@ void NTFY_Delete(struct NTFY_OBJECT *hNtfy)
 			DeleteNotify(pNotify);
 		}
 		DBC_Assert(LST_IsEmpty(hNtfy->notifyList));
-		LST_Delete(hNtfy->notifyList);
+		MEM_Free(hNtfy->notifyList);
 	}
 	if (hNtfy->hSync)
 		(void)SYNC_DeleteCS(hNtfy->hSync);

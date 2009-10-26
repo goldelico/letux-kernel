@@ -606,15 +606,21 @@ DSP_STATUS DRV_Create(OUT struct DRV_OBJECT **phDRVObject)
 	MEM_AllocObject(pDRVObject, struct DRV_OBJECT, SIGNATURE);
 	if (pDRVObject) {
 		/* Create and Initialize List of device objects */
-		pDRVObject->devList = LST_Create();
+		pDRVObject->devList = MEM_Calloc(sizeof(struct LST_LIST),
+			MEM_NONPAGED);
 		if (pDRVObject->devList) {
 			/* Create and Initialize List of device Extension */
-			pDRVObject->devNodeString = LST_Create();
+			pDRVObject->devNodeString = MEM_Calloc(sizeof(struct
+				LST_LIST), MEM_NONPAGED);
 			if (!(pDRVObject->devNodeString)) {
 				status = DSP_EFAIL;
 				GT_0trace(curTrace, GT_7CLASS,
 					 "Failed to Create DRV_EXT list ");
 				MEM_FreeObject(pDRVObject);
+			} else {
+				INIT_LIST_HEAD(&pDRVObject->devNodeString->
+					head);
+				INIT_LIST_HEAD(&pDRVObject->devList->head);
 			}
 		} else {
 			status = DSP_EMEMORY;
@@ -689,11 +695,11 @@ DSP_STATUS DRV_Destroy(struct DRV_OBJECT *hDRVObject)
 	 */
 	if (pDRVObject->devList) {
 		/* Could assert if the list is not empty  */
-		LST_Delete(pDRVObject->devList);
+		MEM_Free(pDRVObject->devList);
 	}
 	if (pDRVObject->devNodeString) {
 		/* Could assert if the list is not empty */
-		LST_Delete(pDRVObject->devNodeString);
+		MEM_Free(pDRVObject->devNodeString);
 	}
 	MEM_FreeObject(pDRVObject);
 	/* Update the DRV Object in Registry to be 0 */
@@ -933,7 +939,7 @@ DSP_STATUS DRV_RemoveDevObject(struct DRV_OBJECT *hDRVObject,
 	}
 	/* Remove list if empty. */
 	if (LST_IsEmpty(pDRVObject->devList)) {
-		LST_Delete(pDRVObject->devList);
+		MEM_Free(pDRVObject->devList);
 		pDRVObject->devList = NULL;
 	}
 	DBC_Ensure((pDRVObject->devList == NULL) ||
@@ -1054,7 +1060,7 @@ DSP_STATUS DRV_ReleaseResources(u32 dwContext, struct DRV_OBJECT *hDrvObject)
 		}
 		/* Delete the List if it is empty */
 		if (LST_IsEmpty(pDRVObject->devNodeString)) {
-			LST_Delete(pDRVObject->devNodeString);
+			MEM_Free(pDRVObject->devNodeString);
 			pDRVObject->devNodeString = NULL;
 		}
 	}

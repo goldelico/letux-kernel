@@ -277,11 +277,14 @@ DSP_STATUS DEV_CreateDevice(OUT struct DEV_OBJECT **phDevObject,
 	}
 	/* Create the Processor List */
 	if (DSP_SUCCEEDED(status)) {
-		pDevObject->procList = LST_Create();
+		pDevObject->procList = MEM_Calloc(sizeof(struct LST_LIST),
+			MEM_NONPAGED);
 		if (!(pDevObject->procList)) {
 			status = DSP_EFAIL;
 			GT_0trace(debugMask, GT_7CLASS, "DEV_Create: "
 				 "Failed to Create Proc List");
+		} else {
+			INIT_LIST_HEAD(&pDevObject->procList->head);
 		}
 	}
 	 /*  If all went well, return a handle to the dev object;
@@ -293,7 +296,7 @@ DSP_STATUS DEV_CreateDevice(OUT struct DEV_OBJECT **phDevObject,
 			 "0x%x\n", pDevObject);
 	} else {
 		if (pDevObject && pDevObject->procList)
-			LST_Delete(pDevObject->procList);
+			MEM_Free(pDevObject->procList);
 
 		if (pDevObject && pDevObject->hCodMgr)
 			COD_Delete(pDevObject->hCodMgr);
@@ -449,7 +452,7 @@ DSP_STATUS DEV_DestroyDevice(struct DEV_OBJECT *hDevObject)
 			status = DSP_EFAIL;
 		if (DSP_SUCCEEDED(status)) {
 			if (pDevObject->procList) {
-				LST_Delete(pDevObject->procList);
+				MEM_Free(pDevObject->procList);
 				pDevObject->procList = NULL;
 			}
 

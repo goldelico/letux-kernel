@@ -1381,7 +1381,8 @@ DSP_STATUS NODE_CreateMgr(OUT struct NODE_MGR **phNodeMgr,
 	MEM_AllocObject(pNodeMgr, struct NODE_MGR, NODEMGR_SIGNATURE);
 	if (pNodeMgr) {
 		pNodeMgr->hDevObject = hDevObject;
-		pNodeMgr->nodeList = LST_Create();
+		pNodeMgr->nodeList = MEM_Calloc(sizeof(struct LST_LIST),
+						MEM_NONPAGED);
 		pNodeMgr->pipeMap = GB_create(MAXPIPES);
 		pNodeMgr->pipeDoneMap = GB_create(MAXPIPES);
 		if (pNodeMgr->nodeList == NULL || pNodeMgr->pipeMap == NULL ||
@@ -1391,6 +1392,7 @@ DSP_STATUS NODE_CreateMgr(OUT struct NODE_MGR **phNodeMgr,
 				 "NODE_CreateMgr: Memory "
 				 "allocation failed\n");
 		} else {
+			INIT_LIST_HEAD(&pNodeMgr->nodeList->head);
 			status = NTFY_Create(&pNodeMgr->hNtfy);
 		}
 		pNodeMgr->uNumCreated = 0;
@@ -2842,7 +2844,7 @@ static void DeleteNodeMgr(struct NODE_MGR *hNodeMgr)
 					DeleteNode(hNode, NULL);
 
 			DBC_Assert(LST_IsEmpty(hNodeMgr->nodeList));
-			LST_Delete(hNodeMgr->nodeList);
+			MEM_Free(hNodeMgr->nodeList);
 		}
 		if (hNodeMgr->hNtfy)
 			NTFY_Delete(hNodeMgr->hNtfy);

@@ -21,9 +21,6 @@
 #define LIST_
 
 #include <dspbridge/host_os.h>
-
-/* MEM_Calloc(), MEM_NONPAGED, MEM_Free() */
-#include <dspbridge/mem.h>
 #include <linux/list.h>
 
 #define LST_IsEmpty(l)      list_empty(&(l)->head)
@@ -31,66 +28,6 @@
 struct LST_LIST {
 	struct list_head head;
 };
-
-/*
- *  ======== LST_Create ========
- *  Purpose:
- *      Allocates and initializes a circular list.
- *  Details:
- *      Uses portable MEM_Calloc() function to allocate a list containing
- *      a single element and initializes that element to indicate that it
- *      is the "end of the list" (i.e., the list is empty).
- *      An empty list is indicated by the "next" pointer in the element
- *      at the head of the list pointing to the head of the list, itself.
- *  Parameters:
- *  Returns:
- *      Pointer to beginning of created list (success)
- *      NULL --> Allocation failed
- *  Requires:
- *      LST initialized.
- *  Ensures:
- *  Notes:
- *      The created list contains a single element.  This element is the
- *      "empty" element, because its "next" and "prev" pointers point at
- *      the same location (the element itself).
- */
-static inline struct LST_LIST *LST_Create(void)
-{
-	struct LST_LIST *pList;
-
-	pList = (struct LST_LIST *) MEM_Calloc(sizeof(struct LST_LIST),
-		MEM_NONPAGED);
-	if (pList != NULL)
-		INIT_LIST_HEAD(&pList->head);
-
-	return pList;
-}
-
-/*
- *  ======== LST_Delete ========
- *  Purpose:
- *      Removes a list by freeing its control structure's memory space.
- *  Details:
- *      Uses portable MEM_Free() function to deallocate the memory
- *      block pointed at by the input parameter.
- *  Parameters:
- *      pList:  Pointer to list control structure of list to be deleted
- *  Returns:
- *      Void
- *  Requires:
- *      - LST initialized.
- *      - pList != NULL.
- *  Ensures:
- *  Notes:
- *      Must ONLY be used for empty lists, because it does not walk the
- *      chain of list elements.  Calling this function on a non-empty list
- *      will cause a memory leak.
- */
-static inline void LST_Delete(struct LST_LIST *pList)
-{
-	if (pList != NULL)
-		MEM_Free(pList);
-}
 
 /*
  *  ======== LST_First ========
