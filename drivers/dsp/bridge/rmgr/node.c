@@ -1278,7 +1278,6 @@ DSP_STATUS NODE_Create(struct NODE_OBJECT *hNode)
 	enum NODE_TYPE nodeType;
 	DSP_STATUS status = DSP_SOK;
 	DSP_STATUS status1 = DSP_SOK;
-	bool bJustWokeDSP = false;
 	struct DSP_CBDATA cbData;
 	u32 procId = 255;
 	struct DSP_PROCESSORSTATE procStatus;
@@ -1428,22 +1427,6 @@ func_cont2:
 	if (status != DSP_EWRONGSTATE) {
 		/* Put back in NODE_ALLOCATED state if error occurred */
 		NODE_SetState(hNode, NODE_ALLOCATED);
-	}
-	if (procId == DSP_UNIT) {
-		/* If node create failed, see if should sleep DSP now */
-		if (bJustWokeDSP == true) {
-			/* Check to see if partial create happened on DSP */
-			if (hNode->nodeEnv == (u32)NULL) {
-				/* No environment allocated on DSP, re-sleep
-				 * DSP now */
-				PROC_Ctrl(hNode->hProcessor, WMDIOCTL_DEEPSLEEP,
-					 &cbData);
-			} else {
-				/* Increment count, sleep later when node fully
-				 * deleted */
-				hNodeMgr->uNumCreated++;
-			}
-		}
 	}
 func_cont:
 		/* Free access to node dispatcher */
