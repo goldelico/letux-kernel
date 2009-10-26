@@ -352,6 +352,7 @@ PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
 			 "PROC_Attach: Could not allocate "
 			 "storage for notification \n");
 		MEM_FreeObject(pProcObject);
+		goto func_end;
 	}
 func_end:
 	DBC_Ensure((status == DSP_EFAIL && *phProcessor == NULL) ||
