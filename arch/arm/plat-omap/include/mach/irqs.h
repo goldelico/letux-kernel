@@ -388,6 +388,7 @@
 #ifndef __ASSEMBLY__
 extern void omap_init_irq(void);
 extern int omap_irq_pending(void);
+void omap3_intc_autoidle(int enable);
 void omap3_intc_save_context(void);
 void omap3_intc_restore_context(void);
 #endif

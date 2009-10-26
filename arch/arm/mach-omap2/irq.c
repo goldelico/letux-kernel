@@ -192,6 +192,17 @@ int omap_irq_pending(void)
 
 	return 0;
 }
+void omap3_intc_autoidle(int enable)
+{
+	u32 read_val;
+
+	read_val = intc_bank_read_reg(&irq_banks[0], INTC_SYSCONFIG);
+	if (!enable)
+		read_val &= ~0x1;
+	else
+		read_val |= 0x1;
+	intc_bank_write_reg(read_val, &irq_banks[0], INTC_SYSCONFIG);
+}
 
 void __init omap_init_irq(void)
 {

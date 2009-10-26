@@ -411,6 +411,12 @@ void omap_sram_idle(void)
 		prm_set_mod_reg_bits(OMAP3430_EN_IO, WKUP_MOD, PM_WKEN);
 		omap3_enable_io_chain();
 	}
+	/*
+	 * Disable INTC autoidle as it can cause interrupt controller
+	 * to enter unknown state with right combination of sleep / wakeup
+	 * transitions
+	 */
+	omap3_intc_autoidle(0);
 
 	/*
 	* On EMU/HS devices ROM code restores a SRDC value
@@ -464,6 +470,8 @@ void omap_sram_idle(void)
 		enable_smartreflex(SR1);
 		enable_smartreflex(SR2);
 	}
+	/* Re-enable interrupt controller autoidle */
+	omap3_intc_autoidle(1);
 
 	/* PER */
 	if (per_next_state < PWRDM_POWER_ON) {
