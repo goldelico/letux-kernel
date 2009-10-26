@@ -32,7 +32,6 @@
 
 #include <linux/init.h>
 #include <linux/sched.h>
-#include <linux/types.h>
 #include <linux/fcntl.h>
 #include <linux/interrupt.h>
 #include <linux/ptrace.h>
@@ -49,6 +48,10 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 
+#include <linux/stddef.h>
+#include <linux/spinlock.h>
+#include <linux/gfp.h>
+#include <net/bluetooth/hci.h>
 
 #include "hci_uart.h"
 
@@ -66,12 +69,10 @@
 #define HCILL_W4_DATA		4
 
 /* HCILL states */
-enum hcill_states_e {
-	HCILL_ASLEEP,
-	HCILL_ASLEEP_TO_AWAKE,
-	HCILL_AWAKE,
-	HCILL_AWAKE_TO_ASLEEP
-};
+#define HCILL_ASLEEP            0
+#define HCILL_ASLEEP_TO_AWAKE   1
+#define HCILL_AWAKE             2
+#define HCILL_AWAKE_TO_ASLEEP   3
 
 struct hcill_cmd {
 	u8 cmd;
@@ -87,6 +88,7 @@ struct ll_struct {
 	struct sk_buff_head tx_wait_q;	/* HCILL wait queue	*/
 };
 
+static inline int ll_check_data_len(struct ll_struct *ll, int len);
 /*
  * Builds and sends an HCILL command packet.
  * These are very simple packets with only 1 cmd byte
@@ -195,7 +197,7 @@ static void __ll_do_awake(struct ll_struct *ll)
  */
 static void ll_device_want_to_wakeup(struct hci_uart *hu)
 {
-	unsigned long flags;
+	unsigned long flags = 0;
 	struct ll_struct *ll = hu->priv;
 
 	BT_DBG("hu %p", hu);
@@ -245,7 +247,7 @@ out:
  */
 static void ll_device_want_to_sleep(struct hci_uart *hu)
 {
-	unsigned long flags;
+	unsigned long flags = 0;
 	struct ll_struct *ll = hu->priv;
 
 	BT_DBG("hu %p", hu);
@@ -278,7 +280,7 @@ out:
  */
 static void ll_device_woke_up(struct hci_uart *hu)
 {
-	unsigned long flags;
+	unsigned long flags = 0;
 	struct ll_struct *ll = hu->priv;
 
 	BT_DBG("hu %p", hu);

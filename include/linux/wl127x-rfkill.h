@@ -26,11 +26,10 @@
 
 #include <linux/rfkill.h>
 
-enum wl127x_devices {
-	WL127X_BLUETOOTH = 0,
-	WL127X_FM,
-	WL127X_MAX_DEV,
-};
+/*  wl127x devices */
+#define WL127X_BLUETOOTH  0
+#define WL127X_FM         1
+#define WL127X_MAX_DEV    2
 
 /* Set bt_nshutdown_gpio or fm_enable_gpio to -1 to disable the corresponding
  * rfkill driver */
