@@ -1006,9 +1006,19 @@ static int abe_mm_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static void abe_mm_shutdown(struct snd_pcm_substream *substream,
+			struct snd_soc_dai *dai)
+{
+	if (substream->stream)
+		abe_disable_data_transfer(MM_UL_PORT);
+	else
+		abe_disable_data_transfer(MM_DL_PORT);
+}
+
 static struct snd_soc_dai_ops abe_mm_dai_ops = {
 	.startup	= abe_mm_startup,
 	.hw_params	= abe_mm_hw_params,
+	.shutdown	= abe_mm_shutdown,
 	.trigger	= twl6030_trigger,
 	.set_sysclk	= twl6030_set_dai_sysclk,
 };
@@ -1083,9 +1093,19 @@ static int abe_voice_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static void abe_voice_shutdown(struct snd_pcm_substream *substream,
+			struct snd_soc_dai *dai)
+{
+	if (substream->stream)
+		abe_disable_data_transfer(VX_UL_PORT);
+	else
+		abe_disable_data_transfer(VX_DL_PORT);
+}
+
 static struct snd_soc_dai_ops abe_voice_dai_ops = {
 	.startup	= abe_mm_startup,
 	.hw_params	= abe_voice_hw_params,
+	.shutdown	= abe_voice_shutdown,
 	.trigger	= twl6030_trigger,
 	.set_sysclk	= twl6030_set_dai_sysclk,
 };
