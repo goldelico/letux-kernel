@@ -26,6 +26,7 @@
 #include <linux/gpio.h>
 #include <linux/rfkill.h>
 #include <linux/platform_device.h>
+#include <linux/device.h>
 #include <linux/wl127x-rfkill.h>
 
 static int wl127x_rfkill_set_power(void *data, enum rfkill_state state)
