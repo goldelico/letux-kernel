@@ -30,6 +30,7 @@
  *      MEM_FreePhysMem
  *      MEM_Init
  *      MEM_ExtPhysPoolInit
+ *      MEM_ExtPhysPoolRelease
  *
  *! Revision History:
  *! =================
@@ -199,7 +200,7 @@ void MEM_ExtPhysPoolInit(u32 poolPhysBase, u32 poolSize)
 	}
 }
 
-static void MEM_ExtPhysPoolRelease(void)
+void MEM_ExtPhysPoolRelease(void)
 {
 	GT_0trace(MEM_debugMask, GT_1CLASS,
 		  "Releasing External memory pool \n");
@@ -460,7 +461,6 @@ void MEM_Exit(void)
 		MEM_Check();
 
 #endif
-	MEM_ExtPhysPoolRelease();
 	DBC_Ensure(cRefs >= 0);
 }
 

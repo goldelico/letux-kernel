@@ -466,6 +466,8 @@ static int __devexit omap34xx_bridge_remove(struct platform_device *pdev)
 #endif
 
 func_cont:
+	MEM_ExtPhysPoolRelease();
+
 	SERVICES_Exit();
 	GT_exit();
 
