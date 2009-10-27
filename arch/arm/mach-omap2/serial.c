@@ -383,11 +383,11 @@ static void omap_uart_idle_timer(unsigned long data)
 	struct omap_uart_state *uart = (struct omap_uart_state *)data;
 
 #ifdef CONFIG_SERIAL_OMAP
-	/* If uart in DMA mode dont call allow_sleep
-	 * as our omap-serial driver as an errata
-	 * item 2.15
+	/* check if the uart port is active
+	 * if port is active then dont allow
+	 * sleep.
 	 */
-	if (uart->use_dma && omap_uart_active(uart->num)) {
+	if (omap_uart_active(uart->num)) {
 		omap_uart_block_sleep(uart);
 		return;
 	}

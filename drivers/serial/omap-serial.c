@@ -1594,11 +1594,42 @@ EXPORT_SYMBOL(omap_uart_cts_wakeup);
 int omap_uart_active(int num)
 {
 	struct uart_omap_port *up = ui[num];
-	if (up->uart_dma.tx_dma_channel == 0xFF
-			&& up->uart_dma.rx_dma_channel == 0xFF)
-		return 0;
-	return 1;
+	struct circ_buf *xmit;
+	unsigned int status;
 
+	/* for DMA mode status of DMA channel
+	 * will decide whether uart port can enter sleep
+	 * or should we block sleep state.
+	 */
+	if (up->use_dma &&
+		(up->uart_dma.tx_dma_channel != 0xFF ||
+		up->uart_dma.rx_dma_channel != 0xFF))
+		return 1;
+	else
+		return 0;
+
+	/* check for recent driver activity */
+	/* if from now to last activty < 5 second keep clocks on */
+	if ((jiffies_to_msecs(jiffies - isr8250_activity) < 5000))
+		return 1;
+
+	xmit = &up->port.info->xmit;
+	if (!(uart_circ_empty(xmit) || uart_tx_stopped(&up->port)))
+		return 1;
+
+	status = serial_in(up, UART_LSR);
+	/* TX hardware not empty */
+	if (!(status & (UART_LSR_TEMT | UART_LSR_THRE)))
+		return 1;
+
+	/* Any rx activity? */
+	if (status & UART_LSR_DR)
+		return 1;
+
+	/* Any modem activity */
+	status = serial_in(up, UART_MSR);
+	if (!((status & UART_MSR_ANY_DELTA) == 0))
+		return 1;
 }
 EXPORT_SYMBOL(omap_uart_active);
 
