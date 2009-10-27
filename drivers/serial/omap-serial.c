@@ -962,6 +962,8 @@ serial_omap_pm(struct uart_port *port, unsigned int state,
 	serial_out(up, UART_LCR, 0xBF);
 	serial_out(up, UART_EFR, efr);
 	serial_out(up, UART_LCR, 0);
+	/* Enable module level wake up */
+	serial_out(up, UART_OMAP_WER, 0x7f);
 	/*Holding wakelock for UART*/
 	if (oldstate == 3)
 		wake_lock_timeout(&omap_serial_wakelock, 10*HZ);
@@ -1498,9 +1500,10 @@ void __exit serial_omap_exit(void)
 
 int omap_uart_cts_wakeup(int uart_no, int state)
 {
-	u32 *ptr;
 	unsigned char lcr, efr;
 	struct uart_omap_port *up = ui[uart_no];
+	u32 padconf_cts;
+	u16 v;
 
 	if (unlikely(uart_no < 0 || uart_no > MAX_UARTS)) {
 		printk(KERN_INFO "Bad uart id %d \n", uart_no);
@@ -1514,21 +1517,27 @@ int omap_uart_cts_wakeup(int uart_no, int state)
 		switch (uart_no) {
 		case UART1:
 			printk(KERN_INFO "Enabling CTS wakeup for UART1");
-			ptr = (u32 *) (OMAP343X_CTRL_REGADDR(0x180));
+			padconf_cts = 0x180;
+			v = omap_ctrl_readw(padconf_cts);
 			break;
 		case UART2:
 			printk(KERN_INFO "Enabling CTS wakeup for UART2");
-			ptr = (u32 *) (OMAP343X_CTRL_REGADDR(0x174));
+			padconf_cts = 0x174;
+			v = omap_ctrl_readw(padconf_cts);
 			break;
 		default:
 			printk(KERN_ERR
 			"Wakeup on Uart%d is not supported\n", uart_no);
 			return -EPERM;
 		}
-		*ptr |= (u32)((OMAP3_WAKEUP_EN | OMAP3_OFF_PULL_EN |
-				OMAP3_OFF_EN | OMAP3_OFFIN_EN |
-				OMAP3_INPUT_EN | OMAP2_PULL_UP|
-				OMAP34XX_MUX_MODE0));
+
+		v |= ((OMAP3_WAKEUP_EN | OMAP3_OFF_PULL_EN |
+			OMAP3_OFFOUT_VAL | OMAP3_OFFIN_EN |
+			OMAP3_OFF_EN | OMAP2_PULL_UP |
+			OMAP34XX_MUX_MODE0));
+
+		omap_ctrl_writew(v, padconf_cts);
+
 		/*
 		 * Enable the CTS for module level wakeup
 		 */
@@ -1549,20 +1558,23 @@ int omap_uart_cts_wakeup(int uart_no, int state)
 		 */
 		switch (uart_no) {
 		case UART1:
-			ptr = (u32 *)
-				(OMAP343X_CTRL_REGADDR(0x180));
+			padconf_cts = 0x180;
+			v = omap_ctrl_readw(padconf_cts);
 			break;
 		case UART2:
-			ptr = (u32 *)
-				 (OMAP343X_CTRL_REGADDR(0x174));
+			padconf_cts = 0x174;
+			v = omap_ctrl_readw(padconf_cts);
 			break;
 		default:
 			printk(KERN_ERR
 			"Wakeup on Uart%d is not supported\n", uart_no);
 			return -EPERM;
 		}
-		*ptr &= (u32)(~(OMAP3_WAKEUP_EN | OMAP3_OFF_PULL_EN |
+
+		v &= (u32)(~(OMAP3_WAKEUP_EN | OMAP3_OFF_PULL_EN |
 				OMAP3_OFF_EN | OMAP3_OFFIN_EN));
+
+		omap_ctrl_writew(v, padconf_cts);
 
 		/*
 		 * Disable the CTS for module level wakeup
