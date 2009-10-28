@@ -324,21 +324,6 @@
 /* Insufficient buffer size */
 #define CFG_E_INSUFFICIENTBUFSIZE   (CFG_EBASE + 0x05)
 
-/* FAILURE Codes : BRD */
-#define BRD_EBASE                   (DSP_COMP_EBASE + 0x300)
-
-/* Board client does not have sufficient access rights for this operation. */
-#define BRD_E_ACCESSDENIED          (BRD_EBASE + 0x00)
-
-/* Unable to find trace buffer symbols in the DSP executable COFF file. */
-#define BRD_E_NOTRACEBUFFER         (BRD_EBASE + 0x01)
-
-/* Attempted to auto-start board, but no default DSP executable configured. */
-#define BRD_E_NOEXEC                (BRD_EBASE + 0x02)
-
-/* The operation failed because it was started from a wrong state */
-#define BRD_E_WRONGSTATE            (BRD_EBASE + 0x03)
-
 /* FAILURE Codes : COD */
 #define COD_EBASE                   (DSP_COMP_EBASE + 0x400)
 
