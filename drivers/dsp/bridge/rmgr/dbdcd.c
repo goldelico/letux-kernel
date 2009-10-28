@@ -343,7 +343,7 @@ DSP_STATUS DCD_EnumerateObject(IN s32 cIndex, IN enum DSP_DCDOBJTYPE objType,
 		}
 
 		if (DSP_SUCCEEDED(status)) {
-			status = REG_EnumValue(NULL, cIndex, szRegKey, szValue,
+			status = REG_EnumValue(cIndex, szRegKey, szValue,
 					&dwValueSize, szData, &dwDataSize);
 		}
 
@@ -527,10 +527,9 @@ DSP_STATUS DCD_GetObjectDef(IN struct DCD_MANAGER *hDcdMgr,
 		/* Retrieve paths from the registry based on struct DSP_UUID */
 		dwBufSize = REG_MAXREGPATHLENGTH;
 	}
-	if (DSP_SUCCEEDED(status)) {
-		status = REG_GetValue(NULL, szRegKey, szRegKey, (u8 *)szRegData,
-					&dwBufSize);
-	}
+	if (DSP_SUCCEEDED(status))
+		status = REG_GetValue(szRegKey, (u8 *)szRegData, &dwBufSize);
+
 	if (DSP_FAILED(status)) {
 		status = DSP_EUUID;
 		GT_0trace(curTrace, GT_6CLASS, "DCD_GetObjectDef: "
@@ -820,11 +819,9 @@ DSP_STATUS DCD_GetLibraryName(IN struct DCD_MANAGER *hDcdMgr,
 			status = DSP_EFAIL;
 		}
 	}
-	if (DSP_SUCCEEDED(status)) {
+	if (DSP_SUCCEEDED(status))
 		/* Retrieve path from the registry based on DSP_UUID */
-		status = REG_GetValue(NULL, szRegKey, szRegKey,
-					(u8 *)pstrLibName, pdwSize);
-	}
+		status = REG_GetValue(szRegKey, (u8 *)pstrLibName, pdwSize);
 
 	/* If can't find, phases might be registered as generic LIBRARYTYPE */
 	if (DSP_FAILED(status) && phase != NLDR_NOPHASE) {
@@ -851,8 +848,7 @@ DSP_STATUS DCD_GetLibraryName(IN struct DCD_MANAGER *hDcdMgr,
 		else
 			status = DSP_EFAIL;
 
-		status = REG_GetValue(NULL, szRegKey, szRegKey,
-					(u8 *)pstrLibName, pdwSize);
+		status = REG_GetValue(szRegKey, (u8 *)pstrLibName, pdwSize);
 	}
 
 	return status;
@@ -983,11 +979,10 @@ DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 	if (pszPathName) {
 		/* Add new reg value (UUID+objType) with COFF path info. */
 		dwPathSize = strlen(pszPathName) + 1;
-		status = REG_SetValue(NULL, szRegKey, szRegKey, REG_SZ,
-				(u8 *)pszPathName, dwPathSize);
-		GT_3trace(curTrace, GT_6CLASS, "REG_SetValue  REG_SZ=%d, "
-			"(u8 *)pszPathName=%s, dwPathSize=%d\n",
-			REG_SZ, pszPathName, dwPathSize);
+		status = REG_SetValue(szRegKey, (u8 *)pszPathName, dwPathSize);
+		GT_2trace(curTrace, GT_6CLASS, "REG_SetValue  "
+			  "(u8 *)pszPathName=%s, dwPathSize=%d\n",
+			  pszPathName, dwPathSize);
 		if (DSP_FAILED(status)) {
 			status = DSP_EFAIL;
 			GT_0trace(curTrace, GT_6CLASS,
@@ -995,7 +990,7 @@ DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 		}
 	} else {
 		/* Deregister an existing object. */
-		status = REG_DeleteValue(NULL, szRegKey, szRegKey);
+		status = REG_DeleteValue(szRegKey);
 		if (DSP_FAILED(status)) {
 			status = DSP_EFAIL;
 			GT_0trace(curTrace, GT_6CLASS, "DCD_UnregisterObject: "

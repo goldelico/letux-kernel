@@ -1128,8 +1128,8 @@ static DSP_STATUS WMD_DEV_Create(OUT struct WMD_DEV_CONTEXT **ppDevContext,
 	if (DSP_SUCCEEDED(status)) {
 		/* Set the Endianism Register */ /* Need to set this */
 		/* Retrieve the TC u16 SWAP Option */
-		status = REG_GetValue(NULL, CURRENTCONFIG, TCWORDSWAP,
-				     (u8 *)&tcWordSwap, &tcWordSwapSize);
+		status = REG_GetValue(TCWORDSWAP, (u8 *)&tcWordSwap,
+					&tcWordSwapSize);
 		/* Save the value */
 		pDevContext->tcWordSwapOn = tcWordSwap;
 	}

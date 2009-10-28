@@ -1177,9 +1177,8 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 		dwBuffSize = sizeof(struct CFG_HOSTRES);
 		pResources = MEM_Calloc(dwBuffSize, MEM_NONPAGED);
 		if (pResources != NULL) {
-			if (DSP_FAILED(REG_GetValue(NULL,
-			    (char *) driverExt->szString,
-			    CURRENTCONFIG, (u8 *) pResources, &dwBuffSize))) {
+			if (DSP_FAILED(REG_GetValue(CURRENTCONFIG,
+					(u8 *)pResources, &dwBuffSize))) {
 				status = CFG_E_RESOURCENOTAVAIL;
 				GT_0trace(curTrace, GT_1CLASS,
 					 "REG_GetValue Failed \n");
@@ -1189,8 +1188,8 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 			}
 
 			dwBuffSize = sizeof(shm_size);
-			status = REG_GetValue(NULL, CURRENTCONFIG, SHMSIZE,
-				(u8 *)&shm_size, &dwBuffSize);
+			status = REG_GetValue(SHMSIZE, (u8 *)&shm_size,
+					      &dwBuffSize);
 			if (DSP_SUCCEEDED(status)) {
 				if ((pResources->dwMemBase[1]) &&
 				   (pResources->dwMemPhys[1])) {
@@ -1247,8 +1246,7 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 			pResources->dwDmmuBase = NULL;
 
 			dwBuffSize = sizeof(struct CFG_HOSTRES);
-			status = REG_SetValue(NULL, (char *)driverExt->szString,
-				 CURRENTCONFIG, REG_BINARY, (u8 *)pResources,
+			status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
 				 (u32)dwBuffSize);
 			/*  Set all the other entries to NULL */
 			MEM_Free(pResources);
@@ -1301,10 +1299,8 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 			pResources->dwNumChnls = CHNL_MAXCHANNELS;
 			pResources->dwChnlBufSize = 0x400;
 			dwBuffSize = sizeof(struct CFG_HOSTRES);
-			status = REG_SetValue(NULL, (char *) dwContext,
-					     CURRENTCONFIG, REG_BINARY,
-					     (u8 *)pResources,
-					     sizeof(struct CFG_HOSTRES));
+			status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
+						sizeof(struct CFG_HOSTRES));
 			if (DSP_SUCCEEDED(status)) {
 				GT_0trace(curTrace, GT_1CLASS,
 					 " Successfully set the registry "
@@ -1394,8 +1390,7 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 bRequest)
 		GT_1trace(curTrace, GT_2CLASS, "dwDmmuBase 0x%x\n",
 						pResources->dwDmmuBase);
 		dwBuffSize = sizeof(shm_size);
-		status = REG_GetValue(NULL, CURRENTCONFIG, SHMSIZE,
-				     (u8 *)&shm_size, &dwBuffSize);
+		status = REG_GetValue(SHMSIZE, (u8 *)&shm_size, &dwBuffSize);
 		if (DSP_SUCCEEDED(status)) {
 			/* Allocate Physically contiguous,
 			 * non-cacheable  memory */
@@ -1427,9 +1422,7 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 bRequest)
 			pResources->dwNumChnls = CHNL_MAXCHANNELS;
 			pResources->dwChnlBufSize = 0x400;
 			dwBuffSize = sizeof(struct CFG_HOSTRES);
-			status = REG_SetValue(NULL, (char *)dwContext,
-					     CURRENTCONFIG, REG_BINARY,
-					     (u8 *)pResources,
+			status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
 					     sizeof(struct CFG_HOSTRES));
 			if (DSP_SUCCEEDED(status)) {
 				GT_0trace(curTrace, GT_1CLASS,

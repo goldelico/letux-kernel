@@ -130,8 +130,8 @@ DSP_STATUS CFG_GetAutoStart(struct CFG_DEVNODE *hDevNode,
 	if (!pdwAutoStart)
 		status = CFG_E_INVALIDPOINTER;
 	if (DSP_SUCCEEDED(status)) {
-		status = REG_GetValue(NULL, (char *)hDevNode, AUTOSTART,
-				     (u8 *)pdwAutoStart, &dwBufSize);
+		status = REG_GetValue(AUTOSTART, (u8 *)pdwAutoStart,
+					&dwBufSize);
 		if (DSP_FAILED(status))
 			status = CFG_E_RESOURCENOTAVAIL;
 	}
@@ -177,9 +177,8 @@ DSP_STATUS CFG_GetDevObject(struct CFG_DEVNODE *hDevNode, OUT u32 *pdwValue)
 			GT_0trace(CFG_debugMask, GT_1CLASS,
 				  "Fetching DSP Device from "
 				  "Registry \n");
-			status = REG_GetValue(NULL, (char *)hDevNode,
-					      "DEVICE_DSP",
-					      (u8 *)pdwValue, &dwBufSize);
+			status = REG_GetValue("DEVICE_DSP", (u8 *)pdwValue,
+						&dwBufSize);
 		} else {
 			GT_0trace(CFG_debugMask, GT_6CLASS,
 				  "Failed to Identify the Device to Fetch \n");
@@ -217,9 +216,7 @@ DSP_STATUS CFG_GetDSPResources(struct CFG_DEVNODE *hDevNode,
 	} else if (!pDSPResTable) {
 		status = CFG_E_INVALIDPOINTER;
 	} else {
-		status = REG_GetValue(NULL, CONFIG, DSPRESOURCES,
-				     (u8 *)pDSPResTable,
-				     &dwResSize);
+		status = REG_GetValue(DSPRESOURCES, (u8 *)pDSPResTable,						&dwResSize);
 	}
 	if (DSP_SUCCEEDED(status)) {
 		GT_0trace(CFG_debugMask, GT_1CLASS,
@@ -261,8 +258,7 @@ DSP_STATUS CFG_GetExecFile(struct CFG_DEVNODE *hDevNode, u32 ulBufSize,
 		status = CFG_E_INVALIDPOINTER;
 
 	if (DSP_SUCCEEDED(status)) {
-		status = REG_GetValue(NULL, (char *)hDevNode, DEFEXEC,
-				     (u8 *)pstrExecFile, &cExecSize);
+		status = REG_GetValue(DEFEXEC, (u8 *)pstrExecFile, &cExecSize);
 		if (DSP_FAILED(status))
 			status = CFG_E_RESOURCENOTAVAIL;
 		else if (cExecSize > ulBufSize)
@@ -306,9 +302,8 @@ DSP_STATUS CFG_GetHostResources(struct CFG_DEVNODE *hDevNode,
 
 	if (DSP_SUCCEEDED(status)) {
 		dwBufSize = sizeof(struct CFG_HOSTRES);
-		if (DSP_FAILED(REG_GetValue(NULL, (char *)hDevNode,
-			       CURRENTCONFIG,
-			      (u8 *)pHostResTable, &dwBufSize))) {
+		if (DSP_FAILED(REG_GetValue(CURRENTCONFIG, (u8 *)pHostResTable,
+						&dwBufSize))) {
 			status = CFG_E_RESOURCENOTAVAIL;
 		}
 	}
@@ -340,14 +335,10 @@ DSP_STATUS CFG_GetObject(OUT u32 *pdwValue, u32 dwType)
 	dwBufSize = sizeof(pdwValue);
 	switch (dwType) {
 	case (REG_DRV_OBJECT):
-		status = REG_GetValue(NULL, CONFIG, DRVOBJECT,
-				     (u8 *)pdwValue,
-				     &dwBufSize);
+		status = REG_GetValue(DRVOBJECT, (u8 *)pdwValue, &dwBufSize);
 		break;
 	case (REG_MGR_OBJECT):
-		status = REG_GetValue(NULL, CONFIG, MGROBJECT,
-				     (u8 *)pdwValue,
-				     &dwBufSize);
+		status = REG_GetValue(MGROBJECT, (u8 *)pdwValue, &dwBufSize);
 		break;
 	default:
 		break;
@@ -385,8 +376,8 @@ bool CFG_Init(void)
 	dspResources.aMemDesc[0].uMemType = 0;
 	dspResources.aMemDesc[0].ulMin = 0;
 	dspResources.aMemDesc[0].ulMax = 0;
-	if (DSP_SUCCEEDED(REG_SetValue(NULL, CONFIG, DSPRESOURCES, REG_BINARY,
-			 (u8 *)&dspResources, sizeof(struct CFG_DSPRES)))) {
+	if (DSP_SUCCEEDED(REG_SetValue(DSPRESOURCES, (u8 *)&dspResources,
+				 sizeof(struct CFG_DSPRES)))) {
 		GT_0trace(CFG_debugMask, GT_5CLASS,
 			  "Initialized DSP resources in "
 			  "Registry \n");
@@ -419,15 +410,12 @@ DSP_STATUS CFG_SetDevObject(struct CFG_DEVNODE *hDevNode, u32 dwValue)
                if (!(strcmp((char *)hDevNode, "TIOMAP1510"))) {
 			GT_0trace(CFG_debugMask, GT_1CLASS,
 				  "Registering the DSP Device \n");
-			status = REG_SetValue(NULL, (char *)hDevNode,
-				  "DEVICE_DSP", REG_DWORD,\
-				  (u8 *)&dwValue, dwBuffSize);
+			status = REG_SetValue("DEVICE_DSP", (u8 *)&dwValue,
+					      dwBuffSize);
 			if (DSP_SUCCEEDED(status)) {
 				dwBuffSize = sizeof(hDevNode);
-				status = REG_SetValue(NULL,
-					  (char *)hDevNode, "DEVNODESTRING_DSP",
-					  REG_DWORD, (u8 *)&hDevNode,
-					  dwBuffSize);
+				status = REG_SetValue("DEVNODESTRING_DSP",
+						(u8 *)&hDevNode, dwBuffSize);
 			}
 		} else {
 			GT_0trace(CFG_debugMask, GT_6CLASS,
@@ -461,12 +449,10 @@ DSP_STATUS CFG_SetObject(u32 dwValue, u32 dwType)
 	dwBuffSize = sizeof(dwValue);
 	switch (dwType) {
 	case (REG_DRV_OBJECT):
-		status = REG_SetValue(NULL, CONFIG, DRVOBJECT, REG_DWORD,
-			 (u8 *)&dwValue, dwBuffSize);
+		status = REG_SetValue(DRVOBJECT, (u8 *)&dwValue, dwBuffSize);
 		break;
 	case (REG_MGR_OBJECT):
-		status = REG_SetValue(NULL, CONFIG, MGROBJECT, REG_DWORD,
-			 (u8 *) &dwValue, dwBuffSize);
+		status = REG_SetValue(MGROBJECT, (u8 *) &dwValue, dwBuffSize);
 		break;
 	default:
 		break;

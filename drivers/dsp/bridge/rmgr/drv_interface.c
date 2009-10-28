@@ -324,22 +324,18 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 
 	if (base_img) {
 		temp = true;
-		REG_SetValue(NULL, NULL, AUTOSTART, REG_DWORD, (u8 *)&temp,
-			    sizeof(temp));
-		REG_SetValue(NULL, NULL, DEFEXEC, REG_SZ, (u8 *)base_img,
-						strlen(base_img) + 1);
+		REG_SetValue(AUTOSTART, (u8 *)&temp, sizeof(temp));
+		REG_SetValue(DEFEXEC, (u8 *)base_img, strlen(base_img) + 1);
 	} else {
 		temp = false;
-		REG_SetValue(NULL, NULL, AUTOSTART, REG_DWORD, (u8 *)&temp,
-			    sizeof(temp));
-		REG_SetValue(NULL, NULL, DEFEXEC, REG_SZ, (u8 *) "\0", (u32)2);
+		REG_SetValue(AUTOSTART, (u8 *)&temp, sizeof(temp));
+		REG_SetValue(DEFEXEC, (u8 *) "\0", (u32)2);
 	}
-	REG_SetValue(NULL, NULL, NUMPROCS, REG_SZ, (u8 *) num_procs,
-						strlen(num_procs) + 1);
+	REG_SetValue(NUMPROCS, (u8 *) num_procs, strlen(num_procs) + 1);
 
 	if (shm_size >= 0x10000) {	/* 64 KB */
-		initStatus = REG_SetValue(NULL, NULL, SHMSIZE, REG_DWORD,
-					  (u8 *)&shm_size, sizeof(shm_size));
+		initStatus = REG_SetValue(SHMSIZE, (u8 *)&shm_size,
+				sizeof(shm_size));
 	} else {
 		initStatus = DSP_EINVALIDARG;
 		status = -1;
@@ -355,17 +351,17 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	}
 
 	if (phys_mempool_base > 0x0) {
-		initStatus = REG_SetValue(NULL, NULL, PHYSMEMPOOLBASE,
-					 REG_DWORD, (u8 *)&phys_mempool_base,
-					 sizeof(phys_mempool_base));
+		initStatus = REG_SetValue(PHYSMEMPOOLBASE,
+					(u8 *)&phys_mempool_base,
+					sizeof(phys_mempool_base));
 	}
 	GT_1trace(driverTrace, GT_7CLASS, "phys_mempool_base = 0x%x \n",
 		 phys_mempool_base);
 
 	if (phys_mempool_size > 0x0) {
-		initStatus = REG_SetValue(NULL, NULL, PHYSMEMPOOLSIZE,
-					 REG_DWORD, (u8 *)&phys_mempool_size,
-					 sizeof(phys_mempool_size));
+		initStatus = REG_SetValue(PHYSMEMPOOLSIZE,
+					(u8 *)&phys_mempool_size,
+					sizeof(phys_mempool_size));
 	}
 	GT_1trace(driverTrace, GT_7CLASS, "phys_mempool_size = 0x%x\n",
 		 phys_mempool_base);
@@ -373,13 +369,12 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 		MEM_ExtPhysPoolInit(phys_mempool_base, phys_mempool_size);
 	if (tc_wordswapon) {
 		GT_0trace(driverTrace, GT_7CLASS, "TC Word Swap is enabled\n");
-		REG_SetValue(NULL, NULL, TCWORDSWAP, REG_DWORD,
-			    (u8 *)&tc_wordswapon, sizeof(tc_wordswapon));
+		REG_SetValue(TCWORDSWAP, (u8 *)&tc_wordswapon,
+				sizeof(tc_wordswapon));
 	} else {
 		GT_0trace(driverTrace, GT_7CLASS, "TC Word Swap is disabled\n");
-		REG_SetValue(NULL, NULL, TCWORDSWAP,
-			    REG_DWORD, (u8 *)&tc_wordswapon,
-			    sizeof(tc_wordswapon));
+		REG_SetValue(TCWORDSWAP, (u8 *)&tc_wordswapon,
+				sizeof(tc_wordswapon));
 	}
 	if (DSP_SUCCEEDED(initStatus)) {
 #ifdef CONFIG_BRIDGE_DVFS

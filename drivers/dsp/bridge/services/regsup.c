@@ -314,8 +314,7 @@ DSP_STATUS regsupEnumValue(IN u32 dwIndex, IN CONST char *pstrKey,
 /*
  *  ======== regsupDeleteValue ========
  */
-DSP_STATUS regsupDeleteValue(IN CONST char *pstrSubkey,
-			    IN CONST char *pstrValue)
+DSP_STATUS regsupDeleteValue(IN CONST char *pstrValue)
 {
 	DSP_STATUS retVal = DSP_EFAIL;
 	u32 i;
