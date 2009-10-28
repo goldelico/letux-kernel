@@ -76,7 +76,6 @@
 #include <dspbridge/services.h>
 #include <dspbridge/sync.h>
 #include <dspbridge/reg.h>
-#include <dspbridge/csl.h>
 
 /*  ----------------------------------- Platform Manager */
 #include <dspbridge/wcdioctl.h>

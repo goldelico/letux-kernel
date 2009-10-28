@@ -73,7 +73,6 @@
 #include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
-#include <dspbridge/csl.h>
 #include <dspbridge/mem.h>
 #include <dspbridge/reg.h>
 

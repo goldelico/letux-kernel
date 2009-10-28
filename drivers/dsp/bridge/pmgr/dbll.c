@@ -48,7 +48,6 @@
 #include <dspbridge/gh.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
-#include <dspbridge/csl.h>
 #include <dspbridge/mem.h>
 
 /* Dynamic loader library interface */
@@ -339,7 +338,6 @@ void DBLL_exit(void)
 
 	if (cRefs == 0) {
 		MEM_Exit();
-		CSL_Exit();
 		GH_exit();
 #if GT_TRACE
 		DBLL_debugMask.flags = NULL;
@@ -498,7 +496,6 @@ bool DBLL_init(void)
 		DBC_Assert(!DBLL_debugMask.flags);
 		GT_create(&DBLL_debugMask, "DL"); 	/* "DL" for dbDL */
 		GH_init();
-		CSL_Init();
 		retVal = MEM_Init();
 		if (!retVal)
 			MEM_Exit();

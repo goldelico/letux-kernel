@@ -43,7 +43,6 @@
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
-#include <dspbridge/csl.h>
 
 /*  ----------------------------------- This */
 #include <regsup.h>

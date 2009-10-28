@@ -63,7 +63,6 @@
 #endif
 
 /* OS adaptation layer */
-#include <dspbridge/csl.h>
 #include <dspbridge/mem.h>
 
 /* Platform manager */

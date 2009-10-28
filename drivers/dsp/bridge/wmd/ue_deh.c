@@ -44,7 +44,6 @@
 #include <dspbridge/dbg.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
-#include <dspbridge/csl.h>
 #include <dspbridge/cfg.h>
 #include <dspbridge/dpc.h>
 #include <dspbridge/mem.h>

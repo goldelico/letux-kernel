@@ -51,7 +51,6 @@
 #include <dspbridge/dbreg.h>
 #include <dspbridge/cfg.h>
 #include <dspbridge/drv.h>
-#include <dspbridge/csl.h>
 #include <dspbridge/sync.h>
 
 /* ------------------------------------ Hardware Abstraction Layer */
