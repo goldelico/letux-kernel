@@ -923,16 +923,23 @@ static int abe_mm_startup(struct snd_pcm_substream *substream,
 	snd_pcm_hw_constraint_list(substream->runtime, 0,
 				SNDRV_PCM_HW_PARAM_RATE,
 				priv->sysclk_constraints);
+	if (!priv->configure++) {
+		abe_write_event_generator(EVENT_MCPDM);
+		abe_write_mixer(MIXDL1, GAIN_0dB, RAMP_1MS, MIX_DL1_INPUT_VX_DL);
+		abe_write_mixer(MIXDL2, GAIN_0dB, RAMP_50MS, MIX_DL2_INPUT_MM_DL);
+	}
 
-	if (!priv->configure++)
-		abe_default_configuration(UC2_VOICE_CALL_AND_IHF_MMDL);
-
-	if (substream->stream)
+	/* enable data path */
+	if (substream->stream) {
 		event = ABE_ATC_MCPDMUL_DMA_REQ;
-	else
+		abe_enable_data_transfer(MM_UL2_PORT);
+	} else {
 		event = ABE_ATC_MCPDMDL_DMA_REQ;
+		abe_enable_data_transfer(MM_DL_PORT);
+	}
 
-	abe_block_copy (COPY_FROM_HOST_TO_ABE, ABE_ATC, AUDIO_ENGINE_SCHEDULER, &event, 4);
+	abe_block_copy(COPY_FROM_HOST_TO_ABE,
+                        ABE_ATC, AUDIO_ENGINE_SCHEDULER, &event, 4);
 
 	return 0;
 }
@@ -1023,6 +1030,57 @@ static struct snd_soc_dai_ops abe_mm_dai_ops = {
 	.set_sysclk	= twl6030_set_dai_sysclk,
 };
 
+static int abe_voice_startup(struct snd_pcm_substream *substream,
+			struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_device *socdev = rtd->socdev;
+	struct snd_soc_codec *codec = socdev->card->codec;
+	struct twl6030_data *priv = codec->private_data;
+	abe_uint32 event;
+
+	if (!priv->sysclk) {
+		dev_err(codec->dev,
+			"no mclk configured, call set_sysclk() on init\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * capture is not supported at 17.64 MHz,
+	 * it's reserved for headset low-power playback scenario
+	 */
+	if ((priv->sysclk == 17640000) && substream->stream) {
+		dev_err(codec->dev,
+			"capture mode is not supported at %dHz\n",
+			priv->sysclk);
+		return -EINVAL;
+	}
+
+	snd_pcm_hw_constraint_list(substream->runtime, 0,
+				SNDRV_PCM_HW_PARAM_RATE,
+				priv->sysclk_constraints);
+
+	if (!priv->configure++) {
+		abe_write_event_generator(EVENT_MCPDM);
+		abe_write_mixer(MIXDL1, GAIN_0dB, RAMP_1MS, MIX_DL1_INPUT_VX_DL);
+		abe_write_mixer(MIXDL2, GAIN_0dB, RAMP_50MS, MIX_DL2_INPUT_MM_DL);
+	}
+
+	/* enable data path */
+	if (substream->stream) {
+		event = ABE_ATC_MCPDMUL_DMA_REQ;
+		abe_enable_data_transfer(VX_UL_PORT);
+	} else {
+		event = ABE_ATC_MCPDMDL_DMA_REQ;
+		abe_enable_data_transfer(VX_DL_PORT);
+	}
+
+	abe_block_copy(COPY_FROM_HOST_TO_ABE,
+		ABE_ATC, AUDIO_ENGINE_SCHEDULER, &event, 4);
+
+	return 0;
+}
+
 static int abe_voice_hw_params(struct snd_pcm_substream *substream,
 			struct snd_pcm_hw_params *params,
 			struct snd_soc_dai *dai)
@@ -1103,7 +1161,7 @@ static void abe_voice_shutdown(struct snd_pcm_substream *substream,
 }
 
 static struct snd_soc_dai_ops abe_voice_dai_ops = {
-	.startup	= abe_mm_startup,
+	.startup	= abe_voice_startup,
 	.hw_params	= abe_voice_hw_params,
 	.shutdown	= abe_voice_shutdown,
 	.trigger	= twl6030_trigger,
