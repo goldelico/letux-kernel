@@ -112,23 +112,23 @@
 #define HEAPBUF_BLOCKSIZE		256
 
 
-/*! @brief Start of shared memory */
-#define SHAREDMEMORY_PHY_BASEADDR		0x8B000000
+/*! @brief Start of IPC shared memory */
+#define SHAREDMEMORY_PHY_BASEADDR		0x9CF00000
 #define SHAREDMEMORY_PHY_BASESIZE		0x00100000
 
-/*! @brief Start of shared memory for SysM3 */
-#define SHAREDMEMORY_PHY_BASEADDR_SYSM3		0x8B000000
+/*! @brief Start of IPC shared memory for SysM3 */
+#define SHAREDMEMORY_PHY_BASEADDR_SYSM3		0x9CF00000
 #define SHAREDMEMORY_PHY_BASESIZE_SYSM3		0x00054000
 
-/*! @brief Start of shared memory AppM3 */
-#define SHAREDMEMORY_PHY_BASEADDR_APPM3		0x8B055000
+/*! @brief Start of IPC shared memory AppM3 */
+#define SHAREDMEMORY_PHY_BASEADDR_APPM3		0x9CF55000
 #define SHAREDMEMORY_PHY_BASESIZE_APPM3		0x00054000
 
-/*! @brief Start of SHM for SysM3 */
+/*! @brief Start of IPC SHM for SysM3 */
 #define SHAREDMEMORY_SLV_VRT_BASEADDR_SYSM3	0xA0000000
 #define SHAREDMEMORY_SLV_VRT_BASESIZE_SYSM3	0x00055000
 
-/*! @brief Start of SHM for AppM3 */
+/*! @brief Start of IPC SHM for AppM3 */
 #define SHAREDMEMORY_SLV_VRT_BASEADDR_APPM3	0xA0055000
 #define SHAREDMEMORY_SLV_VRT_BASESIZE_APPM3	0x00055000
 
@@ -140,11 +140,11 @@
 #define BOOTLOADPAGE_SLV_VRT_BASEADDR_APPM3	0xA00A9000
 #define BOOTLOADPAGE_SLV_VRT_BASESIZE_APPM3	0x00001000
 
-/*! @brief Start of shared memory */
-#define SHAREDMEMORY_SWDMM_PHY_BASEADDR		0x8A300000
+/*! @brief Start of SW DMM shared memory */
+#define SHAREDMEMORY_SWDMM_PHY_BASEADDR		0x9F300000
 #define SHAREDMEMORY_SWDMM_PHY_BASESIZE		0x00C00000
 
-/*! @brief Start of SHM SW DMMfor Ducati */
+/*! @brief Start of SW DMM SHM for Ducati */
 #define SHAREDMEMORY_SWDMM_SLV_VRT_BASEADDR	0x81300000
 #define SHAREDMEMORY_SWDMM_SLV_VRT_BASESIZE	0x00C00000
 
