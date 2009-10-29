@@ -84,9 +84,6 @@
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/reg.h>
 
-/*  ----------------------------------- Others */
-#include <dspbridge/dbreg.h>
-
 /*  ----------------------------------- This */
 #include <dspbridge/cfg.h>
 #include <dspbridge/list.h>
@@ -412,11 +409,6 @@ DSP_STATUS CFG_SetDevObject(struct CFG_DEVNODE *hDevNode, u32 dwValue)
 				  "Registering the DSP Device \n");
 			status = REG_SetValue("DEVICE_DSP", (u8 *)&dwValue,
 					      dwBuffSize);
-			if (DSP_SUCCEEDED(status)) {
-				dwBuffSize = sizeof(hDevNode);
-				status = REG_SetValue("DEVNODESTRING_DSP",
-						(u8 *)&hDevNode, dwBuffSize);
-			}
 		} else {
 			GT_0trace(CFG_debugMask, GT_6CLASS,
 				  "Failed to Register Device \n");

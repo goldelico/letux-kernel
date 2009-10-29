@@ -116,9 +116,6 @@
 /*  ----------------------------------- Resource Manager */
 #include <dspbridge/mgr.h>
 
-/*  ----------------------------------- Others */
-#include <dspbridge/dbreg.h>
-
 /*  ----------------------------------- This */
 #include <dspbridge/dspdrv.h>
 

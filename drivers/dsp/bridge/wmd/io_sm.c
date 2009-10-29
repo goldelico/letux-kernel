@@ -88,7 +88,6 @@
 #include <dspbridge/cod.h>
 #include <dspbridge/dev.h>
 #include <dspbridge/chnl_sm.h>
-#include <dspbridge/dbreg.h>
 
 /*  ----------------------------------- Others */
 #include <dspbridge/rms_sh.h>

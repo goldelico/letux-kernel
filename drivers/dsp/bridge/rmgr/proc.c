@@ -136,7 +136,6 @@
 
 /*  ----------------------------------- Others */
 #include <dspbridge/dbdcd.h>
-#include <dspbridge/dbreg.h>
 #include <dspbridge/msg.h>
 #include <dspbridge/wmdioctl.h>
 #include <dspbridge/drv.h>

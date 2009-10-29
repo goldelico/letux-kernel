@@ -146,7 +146,6 @@
 #ifndef RES_CLEANUP_DISABLE
 #include <dspbridge/drv.h>
 #include <dspbridge/drvdefs.h>
-#include <dspbridge/dbreg.h>
 #include <dspbridge/resourcecleanup.h>
 #endif
 

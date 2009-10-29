@@ -108,9 +108,6 @@
 #include <dspbridge/mem.h>
 #include <dspbridge/reg.h>
 
-/*  ----------------------------------- Others */
-#include <dspbridge/dbreg.h>
-
 /*  ----------------------------------- This */
 #include <dspbridge/drv.h>
 #include <dspbridge/dev.h>

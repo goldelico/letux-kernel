@@ -91,7 +91,6 @@
 
 #ifndef RES_CLEANUP_DISABLE
 #include <dspbridge/cfg.h>
-#include <dspbridge/dbreg.h>
 #include <dspbridge/resourcecleanup.h>
 #endif
 

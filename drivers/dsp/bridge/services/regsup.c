@@ -35,7 +35,6 @@
 #include <dspbridge/std.h>
 #include <dspbridge/dbdefs.h>
 #include <dspbridge/errbase.h>
-#include <dspbridge/dbreg.h>
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
