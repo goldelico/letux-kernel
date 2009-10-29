@@ -1178,8 +1178,6 @@ static
 int serial_omap_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct uart_omap_port *up = platform_get_drvdata(pdev);
-	unsigned int tmp;
-
 	if (up)
 		uart_suspend_port(&serial_omap_reg, &up->port);
 	return 0;
