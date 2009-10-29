@@ -1041,19 +1041,23 @@ DSP_STATUS PROC_Load(DSP_HPROCESSOR hProcessor, IN CONST s32 iArgc,
 #ifdef DEBUG
 	BRD_STATUS uBrdState;
 #endif
+
 #ifdef OPT_LOAD_TIME_INSTRUMENTATION
 	struct timeval tv1;
 	struct timeval tv2;
 #endif
-	DBC_Require(cRefs > 0);
-	DBC_Require(iArgc > 0);
-	DBC_Require(aArgv != NULL);
-#ifdef OPT_LOAD_TIME_INSTRUMENTATION
-	do_gettimeofday(&tv1);
-#endif
+
 #if defined(CONFIG_BRIDGE_DVFS) && !defined(CONFIG_CPU_FREQ)
 	struct dspbridge_platform_data *pdata =
 				omap_dspbridge_dev->dev.platform_data;
+#endif
+
+	DBC_Require(cRefs > 0);
+	DBC_Require(iArgc > 0);
+	DBC_Require(aArgv != NULL);
+
+#ifdef OPT_LOAD_TIME_INSTRUMENTATION
+	do_gettimeofday(&tv1);
 #endif
 	GT_2trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Load, args:\n\t"
 		 "hProcessor:  0x%x\taArgv: 0x%x\n", hProcessor, aArgv[0]);
