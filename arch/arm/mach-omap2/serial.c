@@ -49,6 +49,10 @@ struct omap_uart_state {
 	u32 wk_mask;
 	u32 padconf;
 
+	u32 rts_padconf;
+	int rts_override;
+	u16 rts_padvalue;
+
 	struct clk *ick;
 	struct clk *fck;
 	int clocked;
@@ -344,6 +348,24 @@ static void omap_uart_smart_idle_enable(struct omap_uart_state *uart,
 	serial_write_reg(p, UART_OMAP_SYSC, sysc);
 }
 
+static inline void omap_uart_disable_rtspullup(struct omap_uart_state *uart)
+{
+	if (!uart->rts_padconf || !uart->rts_override)
+		return;
+	omap_ctrl_writew(uart->rts_padvalue, uart->rts_padconf);
+	uart->rts_override = 0;
+}
+
+static inline void omap_uart_enable_rtspullup(struct omap_uart_state *uart)
+{
+	if (!uart->rts_padconf || uart->rts_override)
+		return;
+
+	uart->rts_padvalue = omap_ctrl_readw(uart->rts_padconf);
+	omap_ctrl_writew(0x118 | 0x7, uart->rts_padconf);
+	uart->rts_override = 1;
+}
+
 static inline void omap_uart_restore(struct omap_uart_state *uart)
 {
 	omap_uart_enable_clocks(uart);
@@ -409,6 +431,7 @@ void omap_uart_prepare_idle(int num)
 
 	list_for_each_entry(uart, &uart_list, node) {
 		if (num == uart->num && uart->can_sleep) {
+			omap_uart_enable_rtspullup(uart);
 			omap_uart_disable_clocks(uart);
 			return;
 		}
@@ -422,6 +445,7 @@ void omap_uart_resume_idle(int num)
 	list_for_each_entry(uart, &uart_list, node) {
 		if (num == uart->num) {
 			omap_uart_restore(uart);
+			omap_uart_disable_rtspullup(uart);
 
 			/* Check for IO pad wakeup */
 			if (cpu_is_omap34xx() && uart->padconf) {
@@ -533,6 +557,23 @@ static void omap_uart_wakeup_enable(struct omap_uart_state *uart)
 	}
 }
 
+
+static void omap_uart_rtspad_init(struct omap_uart_state *uart)
+{
+	if (!cpu_is_omap34xx())
+		return;
+	switch (uart->num) {
+	case 0:
+		uart->rts_padconf = 0x17e;
+		break;
+	case 1:
+		uart->rts_padconf = 0x176;
+		break;
+	default:
+		uart->rts_padconf = 0;
+		break;
+	}
+}
 
 static void omap_uart_idle_init(struct omap_uart_state *uart)
 {
@@ -747,6 +788,7 @@ void __init omap_serial_init(void)
 
 		omap_uart_enable_clocks(uart);
 		omap_uart_reset(uart);
+		omap_uart_rtspad_init(uart);
 		omap_uart_idle_init(uart);
 	}
 }
