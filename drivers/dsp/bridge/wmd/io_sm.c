@@ -82,7 +82,6 @@
 #include <_tiomap.h>
 #include <tiomap_io.h>
 #include <_tiomap_pwr.h>
-#include <tiomap_io.h>
 
 /*  ----------------------------------- Platform Manager */
 #include <dspbridge/cod.h>

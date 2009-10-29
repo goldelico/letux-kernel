@@ -124,7 +124,6 @@
 /*  ----------------------------------- Platform Manager */
 #include <dspbridge/cod.h>
 #include <dspbridge/dev.h>
-#include <dspbridge/drv.h>
 #include <dspbridge/procpriv.h>
 #include <dspbridge/dmm.h>
 
