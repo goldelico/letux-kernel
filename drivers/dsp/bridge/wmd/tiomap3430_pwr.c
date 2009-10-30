@@ -117,6 +117,9 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 #ifdef CONFIG_PM
 	u16 timeout = PWRSTST_TIMEOUT / 10;
 	enum HW_PwrState_t pwrState;
+#ifdef BRIDGE_NTFY_PWRERR
+	struct DEH_MGR *hDehMgr;
+#endif /* #ifdef BRIDGE_NTFY_PWRERR */
 #ifdef CONFIG_BRIDGE_DVFS
 	u32 opplevel;
 	struct IO_MGR *hIOMgr;
@@ -136,9 +139,12 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 				    &pwrState);
 	}
 	if (timeout == 0) {
-		DBG_Trace(DBG_LEVEL7, "Timed out Waiting for DSP Off mode \n");
+		pr_err("Timed out waiting for DSP self hibernation\n");
+#ifdef BRIDGE_NTFY_PWRERR
+		DEV_GetDehMgr(pDevContext->hDevObject, &hDehMgr);
+		WMD_DEH_Notify(hDehMgr, DSP_PWRERROR, 0);
+#endif /* #ifdef BRIDGE_NTFY_PWRERR */
 		status = WMD_E_TIMEOUT;
-		return status;
 	} else {
 		/* Save mailbox settings */
 		status = HW_MBOX_saveSettings(pDevContext->dwMailBoxBase);
@@ -261,8 +267,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 	}
 
 	if (!timeout) {
-		DBG_Trace(DBG_LEVEL7, "SleepDSP: Timed out Waiting for DSP"
-			 " STANDBY %x \n", pwrState);
+		pr_err("Timed out waiting for DSP suspend %x\n", pwrState);
 #ifdef CONFIG_BRIDGE_NTFY_PWRERR
 		DEV_GetDehMgr(pDevContext->hDevObject, &hDehMgr);
 		WMD_DEH_Notify(hDehMgr, DSP_PWRERROR, 0);
