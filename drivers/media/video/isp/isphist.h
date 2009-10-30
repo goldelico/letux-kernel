@@ -23,7 +23,7 @@
 #define OMAP_ISP_HIST_H
 
 #include <mach/isp_user.h>
-#include <mach/dma.h>
+#include <plat/dma.h>
 
 #include "ispstat.h"
 
