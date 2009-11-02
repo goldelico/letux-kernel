@@ -136,7 +136,7 @@ struct clk {
 	u8			idlest_bit;
 #if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
 	u8			fixed_div;
-	u32			clksel_mask;
+	u32			clksel_mask, clksel_mask2;
 	const struct clksel	*clksel;
 	struct dpll_data	*dpll_data;
 	union {
@@ -219,6 +219,7 @@ void omap_clk_del_child(struct clk *clk, struct clk *clk2);
 #define PARENT_CONTROLS_CLOCK	(1 << 28)
 #define CLOCK_IN_OMAP3430ES1	(1 << 29)	/* 3430ES1 clocks only */
 #define CLOCK_IN_OMAP3430ES2	(1 << 30)	/* 3430ES2+ clocks only */
+#define CLOCK_IN_OMAP363X 	(1 << 31)
 
 /* Clksel_rate flags */
 #define DEFAULT_RATE		(1 << 0)

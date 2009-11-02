@@ -839,14 +839,18 @@ int __init omap2_clk_init(void)
 			cpu_mask |= RATE_IN_3430ES2;
 			cpu_clkflg |= CLOCK_IN_OMAP3430ES2;
 		}
-		if (cpu_is_omap3630())
+		if (cpu_is_omap3630()) {
 			dpll4_ck.dpll_data->jtype = 1;
+			dpll4_dd.mult_mask = OMAP3430_PERIPH_DPLL_36XX_MULT_MASK;
+			}
 	}
 	clk_init(&omap2_clk_functions);
 
 	for (clkp = onchip_34xx_clks;
 	     clkp < onchip_34xx_clks + ARRAY_SIZE(onchip_34xx_clks);
 	     clkp++) {
+		if ((*clkp)->flags & CLOCK_IN_OMAP363X)
+			(*clkp)->clksel_mask = (*clkp)->clksel_mask2;
 		if ((*clkp)->flags & cpu_clkflg)
 			clk_register(*clkp);
 	}

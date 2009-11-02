@@ -253,6 +253,22 @@ static const struct clksel_rate div16_dpll_rates[] = {
 	{ .div = 14, .val = 14, .flags = RATE_IN_343X },
 	{ .div = 15, .val = 15, .flags = RATE_IN_343X },
 	{ .div = 16, .val = 16, .flags = RATE_IN_343X },
+	{ .div = 17, .val = 17, .flags = RATE_IN_343X },
+	{ .div = 18, .val = 18, .flags = RATE_IN_343X },
+	{ .div = 19, .val = 19, .flags = RATE_IN_343X },
+	{ .div = 20, .val = 20, .flags = RATE_IN_343X },
+	{ .div = 21, .val = 21, .flags = RATE_IN_343X },
+	{ .div = 22, .val = 22, .flags = RATE_IN_343X },
+	{ .div = 23, .val = 23, .flags = RATE_IN_343X },
+	{ .div = 24, .val = 24, .flags = RATE_IN_343X },
+	{ .div = 25, .val = 25, .flags = RATE_IN_343X },
+	{ .div = 26, .val = 26, .flags = RATE_IN_343X },
+	{ .div = 27, .val = 27, .flags = RATE_IN_343X },
+	{ .div = 28, .val = 28, .flags = RATE_IN_343X },
+	{ .div = 29, .val = 29, .flags = RATE_IN_343X },
+	{ .div = 30, .val = 30, .flags = RATE_IN_343X },
+	{ .div = 31, .val = 31, .flags = RATE_IN_343X },
+	{ .div = 32, .val = 32, .flags = RATE_IN_343X },
 	{ .div = 0 }
 };
 
@@ -669,8 +685,10 @@ static struct clk dpll4_m3_ck = {
 	.init		= &omap2_init_clksel_parent,
 	.clksel_reg	= CM_CLKSEL,
 	.clksel_mask	= OMAP3430_CLKSEL_TV_MASK,
+	.clksel_mask2 = OMAP3630_CLKSEL_TV_MASK,
 	.clksel		= div16_dpll4_clksel,
-	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK,
+	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK
+					| CLOCK_IN_OMAP363X,
 	.clkdm		= { .name = "dpll4_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
@@ -761,8 +779,10 @@ static struct clk dpll4_m4_ck = {
 	.init		= &omap2_init_clksel_parent,
 	.clksel_reg	= CM_CLKSEL,
 	.clksel_mask	= OMAP3430_CLKSEL_DSS1_MASK,
+	.clksel_mask2	= OMAP3630_CLKSEL_DSS1_MASK,
 	.clksel		= div16_dpll4_clksel,
-	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK,
+	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK
+					| CLOCK_IN_OMAP363X,
 	.clkdm		= { .name = "dpll4_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 	.set_rate	= &omap2_clksel_set_rate,
@@ -789,8 +809,10 @@ static struct clk dpll4_m5_ck = {
 	.init		= &omap2_init_clksel_parent,
 	.clksel_reg	= CM_CLKSEL,
 	.clksel_mask	= OMAP3430_CLKSEL_CAM_MASK,
+	.clksel_mask2	= OMAP3630_CLKSEL_CAM_MASK,
 	.clksel		= div16_dpll4_clksel,
-	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK,
+	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK
+					| CLOCK_IN_OMAP363X,
 	.clkdm		= { .name = "dpll4_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
@@ -815,8 +837,10 @@ static struct clk dpll4_m6_ck = {
 	.init		= &omap2_init_clksel_parent,
 	.clksel_reg	= CM_CLKSEL1,
 	.clksel_mask	= OMAP3430_DIV_DPLL4_MASK,
+	.clksel_mask2	= OMAP3630_DIV_DPLL4_MASK,
 	.clksel		= div16_dpll4_clksel,
-	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK,
+	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK
+					| CLOCK_IN_OMAP363X,
 	.clkdm		= { .name = "dpll4_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 };
