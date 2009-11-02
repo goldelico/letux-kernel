@@ -1130,6 +1130,7 @@ static void isp_tmp_buf_free(void)
 		ispmmu_vfree(isp_obj.tmp_buf);
 		isp_obj.tmp_buf = 0;
 		isp_obj.tmp_buf_size = 0;
+		isp_obj.tmp_buf_offset = 0;
 	}
 }
 
