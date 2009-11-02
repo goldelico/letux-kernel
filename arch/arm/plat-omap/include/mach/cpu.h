@@ -212,7 +212,7 @@ IS_OMAP_SUBCLASS(363x, 0x363)
 #  undef  cpu_is_omap34xx
 #  define cpu_is_omap34xx()		1
 #  undef  cpu_is_omap3630
-# define cpu_is_omap3630()		1
+# define cpu_is_omap3630()		is_omap363x()
 # endif
 # if defined(CONFIG_ARCH_OMAP3430)
 #  undef  cpu_is_omap343x
