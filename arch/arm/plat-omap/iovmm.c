@@ -421,7 +421,6 @@ static void sgtable_fill_kmalloc(struct sg_table *sgt, u32 pa, size_t len)
 	}
 	BUG_ON(len);
 
-	clean_dcache_area(va, len);
 }
 
 static inline void sgtable_drain_kmalloc(struct sg_table *sgt)
