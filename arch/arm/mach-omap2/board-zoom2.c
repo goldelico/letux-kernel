@@ -55,6 +55,7 @@
 
 #include "mmc-twl4030.h"
 #include "omap3-opp.h"
+#include "sdram-hynix-h8mbx00u0mer-0em.h"
 #include "sdram-micron-mt46h32m32lf-6.h"
 
 #include <media/v4l2-int-device.h>
@@ -341,18 +342,19 @@ static void zoom2_lcd_tv_panel_init(void)
 {
 	unsigned char lcd_panel_reset_gpio;
 
-	omap_cfg_reg(AF21_34XX_GPIO8);
+	if (!cpu_is_omap3630())
+		omap_cfg_reg(AF21_34XX_GPIO8);
 	omap_cfg_reg(B23_34XX_GPIO167);
 	omap_cfg_reg(AB1_34XX_McSPI1_CS2);
 	omap_cfg_reg(A24_34XX_GPIO94);
 
-	if (omap_rev() > OMAP3430_REV_ES3_0) {
-		/* Production Zoom2 Board:
-		 * GPIO-96 is the LCD_RESET_GPIO
-		 */
-		omap_cfg_reg(C25_34XX_GPIO96);
-		lcd_panel_reset_gpio = 96;
-	} else {
+	/* Production Zoom2 Board:
+	 * GPIO-96 is the LCD_RESET_GPIO
+	 */
+	omap_cfg_reg(C25_34XX_GPIO96);
+	lcd_panel_reset_gpio = 96;
+
+	if (cpu_is_omap34xx() && (omap_rev() <= OMAP3430_REV_ES3_0)) {
 		/* Pilot Zoom2 board
 		 * GPIO-55 is the LCD_RESET_GPIO
 		 */
@@ -636,36 +638,42 @@ static inline void __init zoom2_init_quaduart(void)
 
 static void __init omap_zoom2_init_irq(void)
 {
-	switch (omap_rev_id()) {
-	case OMAP_3420:
-		omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
-		omap3_mpu_rate_table, omap3_dsp_rate_table_3420,
-		omap3_l3_rate_table);
-		break;
+	if (cpu_is_omap3630()) {
+		omap2_init_common_hw(h8mbx00u0mer0em_sdrc_params,
+		omap3630_mpu_rate_table, omap3630_dsp_rate_table,
+		omap3630_l3_rate_table);
+	} else {
+		switch (omap_rev_id()) {
+		case OMAP_3420:
+			omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+			omap3_mpu_rate_table, omap3_dsp_rate_table_3420,
+			omap3_l3_rate_table);
+			break;
 
-	case OMAP_3430:
-		omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
-		omap3_mpu_rate_table, omap3_dsp_rate_table,
-		omap3_l3_rate_table);
-		break;
+		case OMAP_3430:
+			omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+			omap3_mpu_rate_table, omap3_dsp_rate_table,
+			omap3_l3_rate_table);
+			break;
 
-	case OMAP_3440:
-		omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
-		omap3_mpu_rate_table, omap3_dsp_rate_table_3440,
-		omap3_l3_rate_table);
-		break;
+		case OMAP_3440:
+			omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+			omap3_mpu_rate_table, omap3_dsp_rate_table_3440,
+			omap3_l3_rate_table);
+			break;
 
-	default:
-		omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
-		omap3_mpu_rate_table, omap3_dsp_rate_table,
-		omap3_l3_rate_table);
-		break;
+		default:
+			omap2_init_common_hw(mt46h32m32lf6_sdrc_params,
+			omap3_mpu_rate_table, omap3_dsp_rate_table,
+			omap3_l3_rate_table);
+			break;
 		}
+	}
 
 	/* Set Mcbsp only for Producton units */
 	/* Else you will see white screen on beta boards */
 
-	if (omap_rev() > OMAP3430_REV_ES3_0) {
+	if (cpu_is_omap3630() || (omap_rev() > OMAP3430_REV_ES3_0)) {
 		/* Production board supports McBSP4 */
 		omap2_mux_register(&zoom2_mux_cfg);
 	} else {
@@ -771,7 +779,7 @@ static struct twl4030_hsmmc_info mmc[] __initdata = {
 	},
 	{
 		.mmc		= 2,
-		.wires		= 4,
+		.wires		= 8,
 		.gpio_wp	= -EINVAL,
 	},
 	{
@@ -1128,7 +1136,11 @@ static void __init omap_zoom2_map_io(void)
 	omap2_map_common_io();
 }
 
+#ifdef CONFIG_MACH_OMAP_ZOOM3
+MACHINE_START(OMAP_ZOOM3, "OMAP ZOOM3 board")
+#else
 MACHINE_START(OMAP_ZOOM2, "OMAP ZOOM2 board")
+#endif
 	/* phys_io is only used for DEBUG_LL early printing.  The Zoom2's
 	 * console is on an external quad UART sitting at address 0x10000000
 	 */

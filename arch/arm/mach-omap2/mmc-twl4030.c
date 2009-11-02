@@ -237,7 +237,7 @@ static int twl_mmc_resume(struct device *dev, int slot)
 static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 				int vdd)
 {
-	u32 reg;
+	u32 reg, prog_io;
 	int ret = 0;
 	struct twl_mmc_controller *c = &hsmmc[0];
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
@@ -269,7 +269,14 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 		}
 
 		reg = omap_ctrl_readl(control_pbias_offset);
-		reg |= OMAP2_PBIASSPEEDCTRL0;
+		if (cpu_is_omap3630()) {
+			/* Set MMC I/O to 52Mhz */
+			prog_io = omap_ctrl_readl(OMAP343X_CONTROL_PROG_IO1);
+			prog_io |= OMAP3630_PRG_SDMMC1_SPEEDCTRL;
+			omap_ctrl_writel(prog_io, OMAP343X_CONTROL_PROG_IO1);
+		} else {
+			reg |= OMAP2_PBIASSPEEDCTRL0;
+		}
 		reg &= ~OMAP2_PBIASLITEPWRDNZ0;
 		omap_ctrl_writel(reg, control_pbias_offset);
 
@@ -412,6 +419,14 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 		mmc->init = twl_mmc_late_init;
 		mmc->context_loss = get_last_off_on_transaction_id;
 		mmc->set_vdd1_opp = omap_pm_set_min_mpu_freq;
+		if (cpu_is_omap3630()) {
+			mmc->max_vdd1_opp = 600000000;
+			mmc->min_vdd1_opp = 150000000;
+		} else if (cpu_is_omap3430()) {
+			mmc->max_vdd1_opp = 500000000;
+			mmc->min_vdd1_opp = 125000000;
+		} else
+			mmc->set_vdd1_opp = NULL;
 
 		/* note: twl4030 card detect GPIOs can disable VMMCx ... */
 		if (gpio_is_valid(c->gpio_cd)) {

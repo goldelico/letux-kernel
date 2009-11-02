@@ -66,6 +66,8 @@ struct omap_mmc_platform_data {
 	unsigned (*context_loss) (struct device *dev);
 	/* Setup the vdd1 opp */
 	void (*set_vdd1_opp) (struct device *dev, unsigned long);
+	unsigned long max_vdd1_opp;
+	unsigned long min_vdd1_opp;
 
 	u64 dma_mask;
 

@@ -545,19 +545,24 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 		}
 	}
 
-	if (cpu_is_omap3430()) {
+	if (cpu_is_omap3430() || cpu_is_omap3630()) {
 		u32 dev_conf = 0, v_shift = 0;
 		if (controller_nr == 0) {
 			omap_cfg_reg(N28_3430_MMC1_CLK);
 			omap_cfg_reg(M27_3430_MMC1_CMD);
 			omap_cfg_reg(N27_3430_MMC1_DAT0);
-			omap_cfg_reg(N26_3430_MMC1_DAT1);
-			omap_cfg_reg(N25_3430_MMC1_DAT2);
-			omap_cfg_reg(P28_3430_MMC1_DAT3);
-			omap_cfg_reg(P27_3430_MMC1_DAT4);
-			omap_cfg_reg(P26_3430_MMC1_DAT5);
-			omap_cfg_reg(R27_3430_MMC1_DAT6);
-			omap_cfg_reg(R25_3430_MMC1_DAT7);
+			if (mmc_controller->slots[0].wires == 4 ||
+				mmc_controller->slots[0].wires == 8) {
+				omap_cfg_reg(N26_3430_MMC1_DAT1);
+				omap_cfg_reg(N25_3430_MMC1_DAT2);
+				omap_cfg_reg(P28_3430_MMC1_DAT3);
+			}
+			if (mmc_controller->slots[0].wires == 8) {
+				omap_cfg_reg(P27_3430_MMC1_DAT4);
+				omap_cfg_reg(P26_3430_MMC1_DAT5);
+				omap_cfg_reg(R27_3430_MMC1_DAT6);
+				omap_cfg_reg(R25_3430_MMC1_DAT7);
+			}
 			dev_conf = OMAP2_CONTROL_DEVCONF0;
 			v_shift = OMAP2_MMCSDIO1ADPCLKISEL;
 		}
@@ -566,9 +571,18 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 			omap_cfg_reg(AE2_3430_MMC2_CLK);
 			omap_cfg_reg(AG5_3430_MMC2_CMD);
 			omap_cfg_reg(AH5_3430_MMC2_DAT0);
-			omap_cfg_reg(AH4_3430_MMC2_DAT1);
-			omap_cfg_reg(AG4_3430_MMC2_DAT2);
-			omap_cfg_reg(AF4_3430_MMC2_DAT3);
+			if (mmc_controller->slots[0].wires == 4 ||
+				mmc_controller->slots[0].wires == 8) {
+				omap_cfg_reg(AH4_3430_MMC2_DAT1);
+				omap_cfg_reg(AG4_3430_MMC2_DAT2);
+				omap_cfg_reg(AF4_3430_MMC2_DAT3);
+			}
+			if (mmc_controller->slots[0].wires == 8) {
+				omap_cfg_reg(AE4_3430_MMC2_DAT4);
+				omap_cfg_reg(AH3_3430_MMC2_DAT5);
+				omap_cfg_reg(AF3_3430_MMC2_DAT6);
+				omap_cfg_reg(AE3_3430_MMC2_DAT7);
+			}
 			dev_conf = OMAP343X_CONTROL_DEVCONF1;
 			v_shift = OMAP2_MMCSDIO2ADPCLKISEL;
 		}
@@ -577,9 +591,12 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 			omap_cfg_reg(AF10_3430_MMC3_CLK);
 			omap_cfg_reg(AC3_3430_MMC3_CMD);
 			omap_cfg_reg(AE11_3430_MMC3_DAT0);
-			omap_cfg_reg(AH9_3430_MMC3_DAT1);
-			omap_cfg_reg(AF13_3430_MMC3_DAT2);
-			omap_cfg_reg(AE13_3430_MMC3_DAT3);
+			if (mmc_controller->slots[0].wires == 4 ||
+				mmc_controller->slots[0].wires == 8) {
+				omap_cfg_reg(AH9_3430_MMC3_DAT1);
+				omap_cfg_reg(AF13_3430_MMC3_DAT2);
+				omap_cfg_reg(AE13_3430_MMC3_DAT3);
+			}
 		}
 
 		/*
@@ -619,7 +636,7 @@ void __init omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 			irq = INT_24XX_MMC2_IRQ;
 			break;
 		case 2:
-			if (!cpu_is_omap34xx())
+			if (!(cpu_is_omap34xx() || cpu_is_omap3630()))
 				return;
 			base = OMAP3_MMC3_BASE;
 			irq = INT_34XX_MMC3_IRQ;

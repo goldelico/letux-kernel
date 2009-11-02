@@ -117,6 +117,10 @@ config MACH_OMAP_ZOOM2
 	bool "OMAP3 ZOOM2 board"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 
+config MACH_OMAP_ZOOM3
+	bool "OMAP3 ZOOM3 board"
+	depends on ARCH_OMAP3 && ARCH_OMAP34XX
+
 config L2CACHE_OMAP3_DISABLE
 	bool "Disable level 2 cache in Aux cntrl reg"
 	depends on ARCH_OMAP3
@@ -125,7 +129,7 @@ config L2CACHE_OMAP3_DISABLE
 
 config WIFI_CONTROL_FUNC
         bool "Enable WiFi control function abstraction"
-	depends on MACH_OMAP_ZOOM2
+	depends on MACH_OMAP_ZOOM2 || MACH_OMAP_ZOOM3
         help
           Enables Power/Reset/Carddetect function abstraction
 
