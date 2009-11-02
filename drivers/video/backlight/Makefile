@@ -31,4 +31,5 @@ obj-$(CONFIG_BACKLIGHT_WM831X)	+= wm831x_bl.o
 obj-$(CONFIG_BACKLIGHT_ADX)    += adx_bl.o
 obj-$(CONFIG_BACKLIGHT_ADP5520)	+= adp5520_bl.o
 obj-$(CONFIG_BACKLIGHT_88PM860X) += 88pm860x_bl.o
+obj-$(CONFIG_BACKLIGHT_PCF50633)	+= pcf50633-backlight.o
 
