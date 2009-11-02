@@ -128,7 +128,6 @@
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
 #include <dspbridge/cfg.h>
-#include <dspbridge/csl.h>
 #include <dspbridge/sync.h>
 
 /*  ----------------------------------- Mini-Driver */

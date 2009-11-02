@@ -324,21 +324,6 @@
 /* Insufficient buffer size */
 #define CFG_E_INSUFFICIENTBUFSIZE   (CFG_EBASE + 0x05)
 
-/* FAILURE Codes : BRD */
-#define BRD_EBASE                   (DSP_COMP_EBASE + 0x300)
-
-/* Board client does not have sufficient access rights for this operation. */
-#define BRD_E_ACCESSDENIED          (BRD_EBASE + 0x00)
-
-/* Unable to find trace buffer symbols in the DSP executable COFF file. */
-#define BRD_E_NOTRACEBUFFER         (BRD_EBASE + 0x01)
-
-/* Attempted to auto-start board, but no default DSP executable configured. */
-#define BRD_E_NOEXEC                (BRD_EBASE + 0x02)
-
-/* The operation failed because it was started from a wrong state */
-#define BRD_E_WRONGSTATE            (BRD_EBASE + 0x03)
-
 /* FAILURE Codes : COD */
 #define COD_EBASE                   (DSP_COMP_EBASE + 0x400)
 
@@ -478,32 +463,5 @@
 
 /* Insufficient space to hold data in registry value. */
 #define REG_E_MOREDATA              (REG_EBASE + 0x03)
-
-/* FAILURE Codes : KFILE */
-#define KFILE_EBASE                 (DSP_COMP_EBASE + 0x900)
-
-/* Invalid file handle. */
-#define E_KFILE_INVALIDHANDLE       (KFILE_EBASE + 0x01)
-
-/* Bad file name. */
-#define E_KFILE_BADFILENAME         (KFILE_EBASE + 0x02)
-
-/* Invalid file mode. */
-#define E_KFILE_INVALIDMODE         (KFILE_EBASE + 0x03)
-
-/* No resources available. */
-#define E_KFILE_NORESOURCES         (KFILE_EBASE + 0x04)
-
-/* Invalid file buffer        . */
-#define E_KFILE_INVALIDBUFFER       (KFILE_EBASE + 0x05)
-
-/* Bad origin argument. */
-#define E_KFILE_BADORIGINFLAG       (KFILE_EBASE + 0x06)
-
-/* Invalid file offset value. */
-#define E_KFILE_INVALIDOFFSET       (KFILE_EBASE + 0x07)
-
-/* General KFILE error condition */
-#define E_KFILE_ERROR               (KFILE_EBASE + 0x08)
 
 #endif				/* ERRBASE_ */

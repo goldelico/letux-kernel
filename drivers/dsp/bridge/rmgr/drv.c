@@ -104,13 +104,9 @@
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
-#include <dspbridge/csl.h>
 #include <dspbridge/list.h>
 #include <dspbridge/mem.h>
 #include <dspbridge/reg.h>
-
-/*  ----------------------------------- Others */
-#include <dspbridge/dbreg.h>
 
 /*  ----------------------------------- This */
 #include <dspbridge/drv.h>
@@ -1133,6 +1129,10 @@ DSP_STATUS DRV_ReleaseResources(u32 dwContext, struct DRV_OBJECT *hDrvObject)
 	for (pszdevNode = (struct DRV_EXT *)DRV_GetFirstDevExtension();
 	    pszdevNode != NULL; pszdevNode = (struct DRV_EXT *)
 	    DRV_GetNextDevExtension((u32)pszdevNode)) {
+		if (!pDRVObject->devNodeString) {
+			/* When this could happen? */
+			continue;
+		}
 		if ((u32)pszdevNode == dwContext) {
 			/* Found it */
 			/* Delete from the Driver object list */
@@ -1173,20 +1173,20 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 		/* Releasing resources by deleting the registry key  */
 		dwBuffSize = sizeof(struct CFG_HOSTRES);
 		pResources = MEM_Calloc(dwBuffSize, MEM_NONPAGED);
-		if (DSP_FAILED(REG_GetValue(NULL, (char *)driverExt->szString,
-		   CURRENTCONFIG, (u8 *)pResources, &dwBuffSize))) {
-			status = CFG_E_RESOURCENOTAVAIL;
-			GT_0trace(curTrace, GT_1CLASS,
-				 "REG_GetValue Failed \n");
-		} else {
-			GT_0trace(curTrace, GT_1CLASS,
-				 "REG_GetValue Succeeded \n");
-		}
-
 		if (pResources != NULL) {
+			if (DSP_FAILED(REG_GetValue(CURRENTCONFIG,
+					(u8 *)pResources, &dwBuffSize))) {
+				status = CFG_E_RESOURCENOTAVAIL;
+				GT_0trace(curTrace, GT_1CLASS,
+					 "REG_GetValue Failed \n");
+			} else {
+				GT_0trace(curTrace, GT_1CLASS,
+					 "REG_GetValue Succeeded \n");
+			}
+
 			dwBuffSize = sizeof(shm_size);
-			status = REG_GetValue(NULL, CURRENTCONFIG, SHMSIZE,
-				(u8 *)&shm_size, &dwBuffSize);
+			status = REG_GetValue(SHMSIZE, (u8 *)&shm_size,
+					      &dwBuffSize);
 			if (DSP_SUCCEEDED(status)) {
 				if ((pResources->dwMemBase[1]) &&
 				   (pResources->dwMemPhys[1])) {
@@ -1243,11 +1243,12 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 			pResources->dwDmmuBase = NULL;
 
 			dwBuffSize = sizeof(struct CFG_HOSTRES);
-			status = REG_SetValue(NULL, (char *)driverExt->szString,
-				 CURRENTCONFIG, REG_BINARY, (u8 *)pResources,
+			status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
 				 (u32)dwBuffSize);
 			/*  Set all the other entries to NULL */
 			MEM_Free(pResources);
+		} else {
+			status = DSP_EMEMORY;
 		}
 		GT_0trace(curTrace, GT_ENTER, " <- RequestBridgeResources \n");
 		return status;
@@ -1295,10 +1296,8 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 			pResources->dwNumChnls = CHNL_MAXCHANNELS;
 			pResources->dwChnlBufSize = 0x400;
 			dwBuffSize = sizeof(struct CFG_HOSTRES);
-			status = REG_SetValue(NULL, (char *) dwContext,
-					     CURRENTCONFIG, REG_BINARY,
-					     (u8 *)pResources,
-					     sizeof(struct CFG_HOSTRES));
+			status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
+						sizeof(struct CFG_HOSTRES));
 			if (DSP_SUCCEEDED(status)) {
 				GT_0trace(curTrace, GT_1CLASS,
 					 " Successfully set the registry "
@@ -1388,8 +1387,7 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 bRequest)
 		GT_1trace(curTrace, GT_2CLASS, "dwDmmuBase 0x%x\n",
 						pResources->dwDmmuBase);
 		dwBuffSize = sizeof(shm_size);
-		status = REG_GetValue(NULL, CURRENTCONFIG, SHMSIZE,
-				     (u8 *)&shm_size, &dwBuffSize);
+		status = REG_GetValue(SHMSIZE, (u8 *)&shm_size, &dwBuffSize);
 		if (DSP_SUCCEEDED(status)) {
 			/* Allocate Physically contiguous,
 			 * non-cacheable  memory */
@@ -1421,9 +1419,7 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 bRequest)
 			pResources->dwNumChnls = CHNL_MAXCHANNELS;
 			pResources->dwChnlBufSize = 0x400;
 			dwBuffSize = sizeof(struct CFG_HOSTRES);
-			status = REG_SetValue(NULL, (char *)dwContext,
-					     CURRENTCONFIG, REG_BINARY,
-					     (u8 *)pResources,
+			status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
 					     sizeof(struct CFG_HOSTRES));
 			if (DSP_SUCCEEDED(status)) {
 				GT_0trace(curTrace, GT_1CLASS,

@@ -50,6 +50,10 @@
 #include <linux/workqueue.h>
 #include <mach/omap-pm.h>
 
+#ifdef CONFIG_BRIDGE_DVFS
+#include <mach/omap-pm.h>
+#endif
+
 /*  ----------------------------------- DSP/BIOS Bridge */
 #include <dspbridge/std.h>
 #include <dspbridge/dbdefs.h>
@@ -78,13 +82,11 @@
 #include <_tiomap.h>
 #include <tiomap_io.h>
 #include <_tiomap_pwr.h>
-#include <tiomap_io.h>
 
 /*  ----------------------------------- Platform Manager */
 #include <dspbridge/cod.h>
 #include <dspbridge/dev.h>
 #include <dspbridge/chnl_sm.h>
-#include <dspbridge/dbreg.h>
 
 /*  ----------------------------------- Others */
 #include <dspbridge/rms_sh.h>

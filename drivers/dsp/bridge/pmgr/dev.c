@@ -142,7 +142,6 @@
 #include <dspbridge/node.h>
 
 /*  ----------------------------------- Others */
-#include <dspbridge/dbreg.h>
 #include <dspbridge/wcd.h>		/* WCD version info. */
 
 #include <dspbridge/chnl.h>

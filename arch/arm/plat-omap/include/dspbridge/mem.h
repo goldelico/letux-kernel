@@ -354,4 +354,9 @@
 	extern void MEM_ExtPhysPoolInit(IN u32 poolPhysBase,
 					IN u32 poolSize);
 
+/*
+ *  ======== MEM_ExtPhysPoolRelease ========
+ */
+	extern void MEM_ExtPhysPoolRelease(void);
+
 #endif				/* MEM_ */

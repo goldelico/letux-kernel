@@ -76,13 +76,11 @@
 #include <dspbridge/services.h>
 #include <dspbridge/sync.h>
 #include <dspbridge/reg.h>
-#include <dspbridge/csl.h>
 
 /*  ----------------------------------- Platform Manager */
 #include <dspbridge/wcdioctl.h>
 #include <dspbridge/_dcd.h>
 #include <dspbridge/dspdrv.h>
-#include <dspbridge/dbreg.h>
 
 /*  ----------------------------------- Resource Manager */
 #include <dspbridge/pwr.h>
@@ -95,11 +93,9 @@
 #include <dspbridge/resourcecleanup.h>
 #include <dspbridge/chnl.h>
 #include <dspbridge/proc.h>
-#include <dspbridge/cfg.h>
 #include <dspbridge/dev.h>
 #include <dspbridge/drvdefs.h>
 #include <dspbridge/drv.h>
-#include <dspbridge/dbreg.h>
 #endif
 
 #include <mach/omap-pm.h>
@@ -108,8 +104,6 @@
 #define BRIDGE_NAME "C6410"
 /*  ----------------------------------- Globals */
 #define DRIVER_NAME  "DspBridge"
-#define DRIVER_MAJOR 0		/* Linux assigns our Major device number */
-#define DRIVER_MINOR 0		/* Linux assigns our Major device number */
 s32 dsp_debug;
 
 struct platform_device *omap_dspbridge_dev;
@@ -126,11 +120,10 @@ static u32 driverContext;
 #ifdef CONFIG_BRIDGE_DEBUG
 static char *GT_str;
 #endif /* CONFIG_BRIDGE_DEBUG */
-static s32 driver_major = DRIVER_MAJOR;
-static s32 driver_minor = DRIVER_MINOR;
+static s32 driver_major;
+static s32 driver_minor;
 static char *base_img;
 char *iva_img;
-static char *num_procs = "C55=1";
 static s32 shm_size = 0x500000;	/* 5 MB */
 static u32 phys_mempool_base;
 static u32 phys_mempool_size;
@@ -170,12 +163,6 @@ MODULE_PARM_DESC(GT_str, "GT string, default = NULL");
 module_param(dsp_debug, int, 0);
 MODULE_PARM_DESC(dsp_debug, "Wait after loading DSP image. default = false");
 #endif
-
-module_param(driver_major, int, 0);	/* Driver's major number */
-MODULE_PARM_DESC(driver_major, "Major device number, default = 0 (auto)");
-
-module_param(driver_minor, int, 0);	/* Driver's major number */
-MODULE_PARM_DESC(driver_minor, "Minor device number, default = 0 (auto)");
 
 module_param(base_img, charp, 0);
 MODULE_PARM_DESC(base_img, "DSP base image, default = NULL");
@@ -269,38 +256,29 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	omap_dspbridge_dev = pdev;
 
 	/* use 2.6 device model */
-	if (driver_major) {
-		dev = MKDEV(driver_major, driver_minor);
-		result = register_chrdev_region(dev, 1, driver_name);
-	} else {
-		result = alloc_chrdev_region(&dev, driver_minor, 1,
-					    driver_name);
-		driver_major = MAJOR(dev);
-	}
-
+	result = alloc_chrdev_region(&dev, driver_minor, 1, driver_name);
 	if (result < 0) {
 		GT_1trace(driverTrace, GT_7CLASS, "bridge_init: "
 				"Can't get Major %d \n", driver_major);
-		return result;
+		goto err1;
 	}
 
-	bridge_device = kmalloc(sizeof(struct bridge_dev), GFP_KERNEL);
+	driver_major = MAJOR(dev);
+
+	bridge_device = kzalloc(sizeof(struct bridge_dev), GFP_KERNEL);
 	if (!bridge_device) {
 		result = -ENOMEM;
-		unregister_chrdev_region(dev, 1);
-		return result;
+		goto err2;
 	}
-	memset(bridge_device, 0, sizeof(struct bridge_dev));
 	cdev_init(&bridge_device->cdev, &bridge_fops);
 	bridge_device->cdev.owner = THIS_MODULE;
 	bridge_device->cdev.ops = &bridge_fops;
 
 	status = cdev_add(&bridge_device->cdev, dev, 1);
-
 	if (status) {
 		GT_0trace(driverTrace, GT_7CLASS,
 				"Failed to add the bridge device \n");
-		return status;
+		goto err3;
 	}
 
 	/* udev support */
@@ -342,22 +320,17 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 
 	if (base_img) {
 		temp = true;
-		REG_SetValue(NULL, NULL, AUTOSTART, REG_DWORD, (u8 *)&temp,
-			    sizeof(temp));
-		REG_SetValue(NULL, NULL, DEFEXEC, REG_SZ, (u8 *)base_img,
-						strlen(base_img) + 1);
+		REG_SetValue(AUTOSTART, (u8 *)&temp, sizeof(temp));
+		REG_SetValue(DEFEXEC, (u8 *)base_img, strlen(base_img) + 1);
 	} else {
 		temp = false;
-		REG_SetValue(NULL, NULL, AUTOSTART, REG_DWORD, (u8 *)&temp,
-			    sizeof(temp));
-		REG_SetValue(NULL, NULL, DEFEXEC, REG_SZ, (u8 *) "\0", (u32)2);
+		REG_SetValue(AUTOSTART, (u8 *)&temp, sizeof(temp));
+		REG_SetValue(DEFEXEC, (u8 *) "\0", (u32)2);
 	}
-	REG_SetValue(NULL, NULL, NUMPROCS, REG_SZ, (u8 *) num_procs,
-						strlen(num_procs) + 1);
 
 	if (shm_size >= 0x10000) {	/* 64 KB */
-		initStatus = REG_SetValue(NULL, NULL, SHMSIZE, REG_DWORD,
-					  (u8 *)&shm_size, sizeof(shm_size));
+		initStatus = REG_SetValue(SHMSIZE, (u8 *)&shm_size,
+				sizeof(shm_size));
 	} else {
 		initStatus = DSP_EINVALIDARG;
 		status = -1;
@@ -372,32 +345,22 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 		phys_mempool_size = pdata->phys_mempool_size;
 	}
 
-	if (phys_mempool_base > 0x0) {
-		initStatus = REG_SetValue(NULL, NULL, PHYSMEMPOOLBASE,
-					 REG_DWORD, (u8 *)&phys_mempool_base,
-					 sizeof(phys_mempool_base));
-	}
 	GT_1trace(driverTrace, GT_7CLASS, "phys_mempool_base = 0x%x \n",
 		 phys_mempool_base);
 
-	if (phys_mempool_size > 0x0) {
-		initStatus = REG_SetValue(NULL, NULL, PHYSMEMPOOLSIZE,
-					 REG_DWORD, (u8 *)&phys_mempool_size,
-					 sizeof(phys_mempool_size));
-	}
 	GT_1trace(driverTrace, GT_7CLASS, "phys_mempool_size = 0x%x\n",
 		 phys_mempool_base);
+
 	if ((phys_mempool_base > 0x0) && (phys_mempool_size > 0x0))
 		MEM_ExtPhysPoolInit(phys_mempool_base, phys_mempool_size);
 	if (tc_wordswapon) {
 		GT_0trace(driverTrace, GT_7CLASS, "TC Word Swap is enabled\n");
-		REG_SetValue(NULL, NULL, TCWORDSWAP, REG_DWORD,
-			    (u8 *)&tc_wordswapon, sizeof(tc_wordswapon));
+		REG_SetValue(TCWORDSWAP, (u8 *)&tc_wordswapon,
+				sizeof(tc_wordswapon));
 	} else {
 		GT_0trace(driverTrace, GT_7CLASS, "TC Word Swap is disabled\n");
-		REG_SetValue(NULL, NULL, TCWORDSWAP,
-			    REG_DWORD, (u8 *)&tc_wordswapon,
-			    sizeof(tc_wordswapon));
+		REG_SetValue(TCWORDSWAP, (u8 *)&tc_wordswapon,
+				sizeof(tc_wordswapon));
 	}
 	if (DSP_SUCCEEDED(initStatus)) {
 #ifdef CONFIG_BRIDGE_DVFS
@@ -434,7 +397,17 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	DBC_Assert(status == 0);
 	DBC_Assert(DSP_SUCCEEDED(initStatus));
 	GT_0trace(driverTrace, GT_ENTER, " <- driver_init\n");
-	return status;
+
+	return 0;
+
+err3:
+	kfree(bridge_device);
+
+err2:
+	unregister_chrdev_region(dev, 1);
+
+err1:
+	return result;
 }
 
 static int __devexit omap34xx_bridge_remove(struct platform_device *pdev)
@@ -473,6 +446,8 @@ static int __devexit omap34xx_bridge_remove(struct platform_device *pdev)
 #endif
 
 func_cont:
+	MEM_ExtPhysPoolRelease();
+
 	SERVICES_Exit();
 	GT_exit();
 

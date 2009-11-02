@@ -106,7 +106,6 @@
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
-#include <dspbridge/csl.h>
 #include <dspbridge/list.h>
 #include <dspbridge/mem.h>
 #include <dspbridge/proc.h>
@@ -147,7 +146,6 @@
 #ifndef RES_CLEANUP_DISABLE
 #include <dspbridge/drv.h>
 #include <dspbridge/drvdefs.h>
-#include <dspbridge/dbreg.h>
 #include <dspbridge/resourcecleanup.h>
 #endif
 
@@ -404,7 +402,6 @@ DSP_STATUS NODE_Allocate(struct PROC_OBJECT *hProcessor,
 	DSP_STATUS status = DSP_SOK;
 	struct CMM_OBJECT *hCmmMgr = NULL; /* Shared memory manager hndl */
 	u32 procId;
-	char *label;
 	u32 pulValue;
 	u32 dynextBase;
 	u32 offSet = 0;
@@ -691,18 +688,16 @@ func_cont2:
 		}
 	}
 
-	/* Comapare value read from Node Properties and check if it is same as
+	/* Compare value read from Node Properties and check if it is same as
 	 * STACKSEGLABEL, if yes read the Address of STACKSEGLABEL, calculate
 	 * GPP Address, Read the value in that address and override the
 	 * uStackSeg value in task args */
 	if (DSP_SUCCEEDED(status) &&
 	   (char *)pNode->dcdProps.objData.nodeObj.ndbProps.uStackSegName !=
 	   NULL) {
-		label = MEM_Calloc(sizeof(STACKSEGLABEL)+1, MEM_PAGED);
-               strncpy(label, STACKSEGLABEL, sizeof(STACKSEGLABEL)+1);
-
-               if (strcmp((char *)pNode->dcdProps.objData.nodeObj.
-				     ndbProps.uStackSegName, label) == 0) {
+		if (strcmp((char *)
+		    pNode->dcdProps.objData.nodeObj.ndbProps.uStackSegName,
+		    STACKSEGLABEL) == 0) {
 			status = hNodeMgr->nldrFxns.pfnGetFxnAddr(pNode->
 				 hNldrNode, "DYNEXT_BEG", &dynextBase);
 			if (DSP_FAILED(status)) {
@@ -744,10 +739,6 @@ func_cont2:
 				ulStackSegVal;
 
 		}
-
-		if (label)
-			MEM_Free(label);
-
 	}
 
 
@@ -1285,7 +1276,6 @@ DSP_STATUS NODE_Create(struct NODE_OBJECT *hNode)
 	enum NODE_TYPE nodeType;
 	DSP_STATUS status = DSP_SOK;
 	DSP_STATUS status1 = DSP_SOK;
-	bool bJustWokeDSP = false;
 	struct DSP_CBDATA cbData;
 	u32 procId = 255;
 	struct DSP_PROCESSORSTATE procStatus;
@@ -1435,22 +1425,6 @@ func_cont2:
 	if (status != DSP_EWRONGSTATE) {
 		/* Put back in NODE_ALLOCATED state if error occurred */
 		NODE_SetState(hNode, NODE_ALLOCATED);
-	}
-	if (procId == DSP_UNIT) {
-		/* If node create failed, see if should sleep DSP now */
-		if (bJustWokeDSP == true) {
-			/* Check to see if partial create happened on DSP */
-			if (hNode->nodeEnv == (u32)NULL) {
-				/* No environment allocated on DSP, re-sleep
-				 * DSP now */
-				PROC_Ctrl(hNode->hProcessor, WMDIOCTL_DEEPSLEEP,
-					 &cbData);
-			} else {
-				/* Increment count, sleep later when node fully
-				 * deleted */
-				hNodeMgr->uNumCreated++;
-			}
-		}
 	}
 func_cont:
 		/* Free access to node dispatcher */

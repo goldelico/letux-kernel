@@ -48,10 +48,8 @@
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
 #include <dspbridge/reg.h>
-#include <dspbridge/dbreg.h>
 #include <dspbridge/cfg.h>
 #include <dspbridge/drv.h>
-#include <dspbridge/csl.h>
 #include <dspbridge/sync.h>
 
 /* ------------------------------------ Hardware Abstraction Layer */
@@ -1129,8 +1127,8 @@ static DSP_STATUS WMD_DEV_Create(OUT struct WMD_DEV_CONTEXT **ppDevContext,
 	if (DSP_SUCCEEDED(status)) {
 		/* Set the Endianism Register */ /* Need to set this */
 		/* Retrieve the TC u16 SWAP Option */
-		status = REG_GetValue(NULL, CURRENTCONFIG, TCWORDSWAP,
-				     (u8 *)&tcWordSwap, &tcWordSwapSize);
+		status = REG_GetValue(TCWORDSWAP, (u8 *)&tcWordSwap,
+					&tcWordSwapSize);
 		/* Save the value */
 		pDevContext->tcWordSwapOn = tcWordSwap;
 	}
@@ -1268,11 +1266,16 @@ static DSP_STATUS WMD_DEV_Destroy(struct WMD_DEV_CONTEXT *hDevContext)
 	DSP_STATUS status = DSP_SOK;
 	struct WMD_DEV_CONTEXT *pDevContext = (struct WMD_DEV_CONTEXT *)
 						hDevContext;
+
+	/* It should never happen */
+	if (!hDevContext)
+		return DSP_EHANDLE;
+
 	DBG_Trace(DBG_ENTER, "Entering WMD_DEV_Destroy:n hDevContext ::0x%x\n",
 		  hDevContext);
 	/* first put the device to stop state */
 	WMD_BRD_Delete(pDevContext);
-	if (pDevContext && pDevContext->pPtAttrs) {
+	if (pDevContext->pPtAttrs) {
 		pPtAttrs = pDevContext->pPtAttrs;
 		if (pPtAttrs->hCSObj)
 			SYNC_DeleteCS(pPtAttrs->hCSObj);
