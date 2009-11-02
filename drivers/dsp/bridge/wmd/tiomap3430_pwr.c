@@ -801,7 +801,8 @@ DSP_STATUS tiomap3430_bump_dsp_opp_level(void)
 {
 #ifdef CONFIG_BRIDGE_DVFS
 	struct WMD_DEV_CONTEXT *dwContext;
-	struct DEV_OBJECT *hDevObject = DRV_GetFirstDevObject();
+	struct DEV_OBJECT *hDevObject =
+			(struct DEV_OBJECT *)DRV_GetFirstDevObject();
 	struct dspbridge_platform_data *pdata =
 			omap_dspbridge_dev->dev.platform_data;
 
