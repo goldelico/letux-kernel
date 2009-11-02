@@ -448,7 +448,6 @@ static void isp_enable_interrupts(void)
 	}
 
 	isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-		   IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
 		   IRQ0ENABLE_HS_VS_IRQ |
 		   IRQ0ENABLE_CCDC_VD0_IRQ |
 		   IRQ0ENABLE_CCDC_VD1_IRQ);
@@ -468,8 +467,7 @@ static void isp_enable_interrupts(void)
 static void isp_disable_interrupts(void)
 {
 	isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-		~(IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
-		IRQ0ENABLE_HS_VS_IRQ |
+		~(IRQ0ENABLE_HS_VS_IRQ |
 		IRQ0ENABLE_CCDC_VD0_IRQ |
 		IRQ0ENABLE_CCDC_VD1_IRQ));
 

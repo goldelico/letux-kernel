@@ -516,12 +516,18 @@ void ispccdc_enable_lsc(u8 enable)
 			   ISP_CTRL, ISPCTRL_SBL_SHARED_RPORTB
 			   | ISPCTRL_SBL_RD_RAM_EN);
 
+		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			   IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ);
+
 		isp_reg_or(OMAP3_ISP_IOMEM_CCDC,
 			   ISPCCDC_LSC_CONFIG, ISPCCDC_LSC_ENABLE);
 		ispccdc_obj.lsc_request_enable = 0;
 	} else {
 		isp_reg_and(OMAP3_ISP_IOMEM_CCDC,
 			    ISPCCDC_LSC_CONFIG, ~ISPCCDC_LSC_ENABLE);
+
+		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			    ~IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ);
 	}
 }
 
