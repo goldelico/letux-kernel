@@ -2622,8 +2622,16 @@ retry:
 
 		goto found;
 	} else if (cpu_is_omap34xx()) {
-		for (cur.fck_div = 16; cur.fck_div > 0; --cur.fck_div) {
-			cur.fck = prate / cur.fck_div * 2;
+		if (cpu_is_omap3630())
+			cur.fck_div = 32;
+		else
+			cur.fck_div = 16;
+
+		for ( ; cur.fck_div > 0; --cur.fck_div) {
+			if (cpu_is_omap3630())
+				cur.fck = prate / cur.fck_div ;
+			else
+				cur.fck = prate / cur.fck_div * 2;
 
 			if (cur.fck > DISPC_MAX_FCK)
 				continue;
