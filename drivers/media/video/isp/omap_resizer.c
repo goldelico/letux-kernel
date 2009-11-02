@@ -30,6 +30,7 @@
 #include <linux/uaccess.h>
 #include <media/v4l2-dev.h>
 #include <asm/cacheflush.h>
+#include <mach/iovmm.h>
 
 #include "isp.h"
 #include "ispmmu.h"
@@ -194,8 +195,9 @@ struct device_params {
 						 */
 	void *callback_arg;
 	u32 *in_buf_virt_addr[32];
-	u32 *out_buf_phy_addr[2];
-	u32 *out_buf_virt_addr[2];
+	u32 *out_buf_phy_addr[32];
+	u32 *out_buf_virt_addr[32];
+	u32 num_video_buffers;
 
 };
 
@@ -1593,7 +1595,7 @@ void rsz_put_resource(void)
 		return;
 
 	/* unmap output buffers if allocated */
-	for (i = 0; i < 2; ++i) {
+	for (i = 0; i < device->num_video_buffers; ++i) {
 		if (device->out_buf_virt_addr[i]) {
 			ispmmu_kunmap((dma_addr_t)device->out_buf_virt_addr[i]);
 			device_config->out_buf_virt_addr[i] = NULL;
@@ -1631,7 +1633,7 @@ EXPORT_SYMBOL(rsz_put_resource);
   * Returns 0 if successful,
   **/
 int rsz_configure(struct rsz_params *params, rsz_callback callback,
-					void *arg1)
+		  u32 num_video_buffers, void *arg1)
 {
 	int retval;
 	struct channel_config *rsz_conf_chan = device_config->config;
@@ -1644,6 +1646,7 @@ int rsz_configure(struct rsz_params *params, rsz_callback callback,
 	rsz_hardware_setup(rsz_conf_chan);
 	device_config->callback = callback;
 	device_config->callback_arg = arg1;
+	device_config->num_video_buffers = num_video_buffers;
 
 	return 0;
 }
@@ -1704,7 +1707,7 @@ int rsz_begin(u32 slot, int output_buffer_index,
 {
 	unsigned int output_size;
 	struct channel_config *rsz_conf_chan = device_config->config;
-	if (output_buffer_index > 1) {
+	if (output_buffer_index >= device_config->num_video_buffers) {
 		dev_err(rsz_device,
 		"ouput buffer index is out of range %d", output_buffer_index);
 		return -EINVAL;
@@ -1747,13 +1750,23 @@ int rsz_begin(u32 slot, int output_buffer_index,
 		dev_err(rsz_device, "No callback for RSZR\n");
 		return -1;
 	}
-	device_config->compl_isr.done = 0;
 
 	/* All settings are done.Enable the resizer */
+	isp_set_hs_vs(0);
+
+mult:
+	device_config->compl_isr.done = 0;
+
 	ispresizer_enable(1);
 	/* Wait for resizing complete event */
 	wait_for_completion_interruptible(&device_config->compl_isr);
 
+	if (device_config->multipass->active) {
+		printk(KERN_ERR "<%s> entering multipass resizing\n",
+		       __func__);
+		rsz_set_multipass(device_config->multipass, rsz_conf_chan);
+		goto mult;
+	}
 	/* Unset the ISP callback function */
 	isp_unset_callback(CBK_RESZ_DONE);
 
