@@ -842,6 +842,16 @@ int __init omap2_clk_init(void)
 		if (cpu_is_omap3630()) {
 			dpll4_ck.dpll_data->jtype = 1;
 			dpll4_dd.mult_mask = OMAP3430_PERIPH_DPLL_36XX_MULT_MASK;
+			cpu_clkflg |= CLOCK_IN_OMAP363X;
+			cpu_mask |= RATE_IN_363X;
+			omap_96m_alwon_fck.parent = &omap_192m_alwon_ck;
+			omap_96m_alwon_fck.init = &omap2_init_clksel_parent;
+			omap_96m_alwon_fck.clksel_reg = CM_CLKSEL;
+			omap_96m_alwon_fck.prcm_mod = CORE_MOD;
+			omap_96m_alwon_fck.clksel_mask = OMAP3630_CLKSEL_96M_MASK;
+			omap_96m_alwon_fck.clksel = omap_96m_alwon_fck_clksel;
+			omap_96m_alwon_fck.recalc = &omap2_clksel_recalc;
+
 			}
 	}
 	clk_init(&omap2_clk_functions);

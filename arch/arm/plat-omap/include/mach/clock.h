@@ -227,6 +227,8 @@ void omap_clk_del_child(struct clk *clk, struct clk *clk2);
 #define RATE_IN_243X		(1 << 2)
 #define RATE_IN_343X		(1 << 3)	/* rates common to all 343X */
 #define RATE_IN_3430ES2		(1 << 4)	/* 3430ES2+ rates only */
+#define RATE_IN_363X		(1 << 5)	/* rates common to all 3630 */
+
 
 #define RATE_IN_24XX		(RATE_IN_242X | RATE_IN_243X)
 
