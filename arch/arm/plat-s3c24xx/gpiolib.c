@@ -26,6 +26,7 @@
 #include <plat/pm.h>
 
 #include <mach/regs-gpio.h>
+#include <mach/regs-gpioj.h>
 
 static int s3c24xx_gpiolib_banka_input(struct gpio_chip *chip, unsigned offset)
 {
@@ -160,8 +161,16 @@ struct s3c_gpio_chip s3c24xx_gpios[] = {
 			.label			= "GPIOH",
 			.ngpio			= 11,
 		},
-	},
-};
+	}, {
+		.base	= S3C2440_GPJCON,
+		.pm	= __gpio_pm(&s3c_gpio_pm_2bit),
+		.chip	= {
+			.base			= S3C2440_GPJ0,
+			.owner			= THIS_MODULE,
+			.label			= "GPIOJ",
+			.ngpio			= 11,
+		},
+	},};
 
 static __init int s3c24xx_gpiolib_init(void)
 {
