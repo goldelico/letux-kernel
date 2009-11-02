@@ -1234,6 +1234,18 @@ static int rfbi_display_sync(struct omap_dss_device *dssdev)
 	return 0;
 }
 
+static enum omap_dss_update_mode rfbi_display_get_update_mode(
+	struct omap_dss_device *dssdev)
+{
+	return OMAP_DSS_UPDATE_MANUAL;
+}
+
+static int rfbi_display_set_update_mode(struct omap_dss_device *dssdev,
+		enum omap_dss_update_mode mode)
+{
+	return 0;
+}
+
 static int rfbi_display_enable_te(struct omap_dss_device *dssdev, bool enable)
 {
 	dssdev->driver->enable_te(dssdev, enable);
@@ -1305,6 +1317,8 @@ int rfbi_init_display(struct omap_dss_device *dssdev)
 	dssdev->update = rfbi_display_update;
 	dssdev->sync = rfbi_display_sync;
 	dssdev->enable_te = rfbi_display_enable_te;
+	dssdev->get_update_mode = rfbi_display_get_update_mode;
+	dssdev->set_update_mode = rfbi_display_set_update_mode;
 
 	rfbi.dssdev[dssdev->phy.rfbi.channel] = dssdev;
 
