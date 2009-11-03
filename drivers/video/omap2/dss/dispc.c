@@ -1629,7 +1629,7 @@ static int _dispc_setup_plane(enum omap_plane plane,
 		u8 global_alpha)
 {
 	const int maxdownscale = cpu_is_omap34xx() ? 4 : 2;
-	bool five_taps = 0;
+	bool five_taps = 1;
 	bool fieldmode = 0;
 	int cconv = 0;
 	unsigned offset0, offset1;
@@ -1708,8 +1708,6 @@ static int _dispc_setup_plane(enum omap_plane plane,
 			return -EINVAL;
 		}
 
-		/* Must use 5-tap filter? */
-		five_taps = height > out_height * 2;
 
 		if (!five_taps) {
 			fclk = calc_fclk(width, height,
