@@ -379,4 +379,5 @@ struct op {
 
 #if defined(CONFIG_SMP) || defined(CONFIG_PM)
 extern void vfp_save_state(void *location, u32 fpexc);
+extern void vfp_pm_save_context(void);
 #endif

@@ -325,34 +325,41 @@ static void vfp_enable(void *unused)
 #ifdef CONFIG_PM
 #include <linux/sysdev.h>
 
+ void vfp_pm_save_context(void)
+ {
+	struct thread_info *thread = current_thread_info();
+	u32 fpexc = fmrx(FPEXC);
+	__u32 cpu = thread->cpu;
+	int vfp_enabled;
+
+	vfp_enabled = fpexc & FPEXC_EN;
+
+	if (last_VFP_context[cpu]) {
+		if (!vfp_enabled) {
+			/* enable vfp now to save context */
+			vfp_enable(NULL);
+			fmxr(FPEXC, fmrx(FPEXC) | FPEXC_EN);
+		}
+		vfp_save_state(last_VFP_context[cpu], fpexc);
+
+		/* Disable vfp. The next inst traps an exception and restores*/
+		fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
+
+		/*
+		 * This is needed else the restore might fail if it sees
+		 * last_VFP_context if same as the current threads vfp_state.
+		 */
+		last_VFP_context[cpu] = NULL;
+	}
+ }
+
 static int vfp_pm_suspend(struct sys_device *dev, pm_message_t state)
 {
-	struct thread_info *ti = current_thread_info();
-	u32 fpexc = fmrx(FPEXC);
-
-	/* if vfp is on, then save state for resumption */
-	if (fpexc & FPEXC_EN) {
-		printk(KERN_DEBUG "%s: saving vfp state\n", __func__);
-		vfp_save_state(&ti->vfpstate, fpexc);
-
-		/* disable, just in case */
-		fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
-	}
-
-	/* clear any information we had about last context state */
-	memset(last_VFP_context, 0, sizeof(last_VFP_context));
-
 	return 0;
 }
 
 static int vfp_pm_resume(struct sys_device *dev)
 {
-	/* ensure we have access to the vfp */
-	vfp_enable(NULL);
-
-	/* and disable it to ensure the next usage restores the state */
-	fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
-
 	return 0;
 }
 
