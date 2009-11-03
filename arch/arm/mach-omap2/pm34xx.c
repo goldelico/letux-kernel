@@ -58,6 +58,7 @@
 #include "smartreflex.h"
 #include "sdrc.h"
 #include <mach/omap-pm.h>
+#include "../vfp/vfp.h"
 
 static int regset_save_on_suspend;
 
@@ -372,8 +373,12 @@ void omap_sram_idle(void)
 	pwrdm_pre_transition();
 
 	/* NEON control */
-	if (pwrdm_read_pwrst(neon_pwrdm) == PWRDM_POWER_ON)
+	if (pwrdm_read_pwrst(neon_pwrdm) == PWRDM_POWER_ON) {
+		if (mpu_next_state == PWRDM_POWER_OFF)
+			vfp_pm_save_context();
 		pwrdm_set_next_pwrst(neon_pwrdm, mpu_next_state);
+		}
+
 	/* PER */
 	per_next_state = pwrdm_read_next_pwrst(per_pwrdm);
 	core_next_state = pwrdm_read_next_pwrst(core_pwrdm);
