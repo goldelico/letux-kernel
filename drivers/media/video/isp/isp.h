@@ -59,7 +59,8 @@ enum isp_mem_resources {
 	OMAP3_ISP_IOMEM_RESZ,
 	OMAP3_ISP_IOMEM_SBL,
 	OMAP3_ISP_IOMEM_CSI2A,
-	OMAP3_ISP_IOMEM_CSI2PHY
+	OMAP3_ISP_IOMEM_CSI2PHY,
+	OMAP3_ISP_IOMEM_CSI2PHY2
 };
 
 struct isp_device {
@@ -78,10 +79,10 @@ struct isp_device {
 #define mmio_resz_main mmio_base[OMAP3_ISP_IOMEM_RESZ]
 #define mmio_sbl_main mmio_base[OMAP3_ISP_IOMEM_SBL]
 #define mmio_csi2_main mmio_base[OMAP3_ISP_IOMEM_CSI2A]
-#define mmio_csi2phy_main mmio_base[OMAP3_ISP_IOMEM_CSI2PHY]
-	unsigned long mmio_base[OMAP3_ISP_IOMEM_CSI2PHY + 1];
-	unsigned long mmio_base_phys[OMAP3_ISP_IOMEM_CSI2PHY + 1];
-	unsigned long mmio_size[OMAP3_ISP_IOMEM_CSI2PHY + 1];
+#define mmio_csi2phy_main mmio_base[OMAP3_ISP_IOMEM_CSI2PHY2]
+	unsigned long mmio_base[OMAP3_ISP_IOMEM_CSI2PHY2 + 1];
+	unsigned long mmio_base_phys[OMAP3_ISP_IOMEM_CSI2PHY2 + 1];
+	unsigned long mmio_size[OMAP3_ISP_IOMEM_CSI2PHY2 + 1];
 };
 
 enum isp_interface_type {

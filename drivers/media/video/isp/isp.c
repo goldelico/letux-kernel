@@ -2409,7 +2409,7 @@ static int isp_remove(struct platform_device *pdev)
 
 	free_irq(isp->irq, &isp_obj);
 
-	for (i = 0; i <= OMAP3_ISP_IOMEM_CSI2PHY; i++) {
+	for (i = 0; i <= OMAP3_ISP_IOMEM_CSI2PHY2; i++) {
 		if (isp->mmio_base[i]) {
 			iounmap((void *)isp->mmio_base[i]);
 			isp->mmio_base[i] = 0;
@@ -2503,7 +2503,7 @@ static int isp_probe(struct platform_device *pdev)
 
 	isp->dev = &pdev->dev;
 
-	for (i = 0; i <= OMAP3_ISP_IOMEM_CSI2PHY; i++) {
+	for (i = 0; i <= OMAP3_ISP_IOMEM_CSI2PHY2; i++) {
 		struct resource *mem;
 		/* request the mem region for the camera registers */
 		mem = platform_get_resource(pdev, IORESOURCE_MEM, i);
