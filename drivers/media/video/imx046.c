@@ -1397,7 +1397,7 @@ static int ioctl_g_fmt_cap(struct v4l2_int_device *s,
  */
 static int ioctl_priv_g_pixclk(struct v4l2_int_device *s, u32 *pixclk)
 {
-	*pixclk = xclk_current;
+	*pixclk = current_clk.vt_pix_clk;
 
 	return 0;
 }
@@ -1412,10 +1412,13 @@ static int ioctl_priv_g_pixclk(struct v4l2_int_device *s, u32 *pixclk)
 static int ioctl_priv_g_activesize(struct v4l2_int_device *s,
 			      struct v4l2_pix_format *pix)
 {
-	struct imx046_sensor *sensor = s->priv;
+	struct imx046_frame_settings *frm;
 
-	pix->width = sensor->pix.width;
-	pix->height = sensor->pix.height;
+	frm = &sensor_settings[isize_current].frame;
+	pix->width = ((frm->x_addr_end + 1) - frm->x_addr_start) /
+		((frm->x_even_inc + frm->x_odd_inc) / 2);
+	pix->height = ((frm->y_addr_end + 1) - frm->y_addr_start) /
+		((frm->y_even_inc + frm->y_odd_inc) / 2);
 
 	return 0;
 }
@@ -1430,8 +1433,11 @@ static int ioctl_priv_g_activesize(struct v4l2_int_device *s,
 static int ioctl_priv_g_fullsize(struct v4l2_int_device *s,
 			    struct v4l2_pix_format *pix)
 {
-	pix->width = imx046_sizes[NUM_IMAGE_SIZES - 1].width;
-	pix->height = imx046_sizes[NUM_IMAGE_SIZES - 1].height;
+	struct imx046_frame_settings *frm;
+
+	frm = &sensor_settings[isize_current].frame;
+	pix->width = frm->line_len_pck;
+	pix->height = frm->frame_len_lines;
 
 	return 0;
 }

@@ -851,7 +851,8 @@ static int prev_copy_params(struct prev_params *usr_params,
 
 	if (usr_params->cfa.cfa_table && isp_params->cfa.cfa_table) {
 		if (copy_from_user(isp_params->cfa.cfa_table,
-				usr_params->cfa.cfa_table, ISPPRV_CFA_TBL_SIZE))
+				usr_params->cfa.cfa_table,
+				ISPPRV_CFA_TBL_SIZE * 4))
 			return -EFAULT;
 	} else {
 		dev_warn(prev_dev,
@@ -865,7 +866,7 @@ static int prev_copy_params(struct prev_params *usr_params,
 
 	if (usr_params->ytable && isp_params->ytable) {
 		if (copy_from_user(isp_params->ytable,
-				usr_params->ytable, ISPPRV_YENH_TBL_SIZE))
+				usr_params->ytable, ISPPRV_YENH_TBL_SIZE * 4))
 			return -EFAULT;
 	} else {
 		dev_warn(prev_dev,
@@ -880,7 +881,7 @@ static int prev_copy_params(struct prev_params *usr_params,
 	if (usr_params->gtable.redtable && isp_params->gtable.redtable) {
 		if (copy_from_user(isp_params->gtable.redtable,
 				usr_params->gtable.redtable,
-				ISPPRV_GAMMA_TBL_SIZE))
+				ISPPRV_GAMMA_TBL_SIZE * 4))
 			return -EFAULT;
 	} else {
 		dev_warn(prev_dev,
@@ -893,7 +894,7 @@ static int prev_copy_params(struct prev_params *usr_params,
 	if (usr_params->gtable.greentable && isp_params->gtable.greentable) {
 		if (copy_from_user(isp_params->gtable.greentable,
 				usr_params->gtable.greentable,
-				ISPPRV_GAMMA_TBL_SIZE))
+				ISPPRV_GAMMA_TBL_SIZE * 4))
 			return -EFAULT;
 	} else {
 		dev_warn(prev_dev,
@@ -906,7 +907,7 @@ static int prev_copy_params(struct prev_params *usr_params,
 	if (usr_params->gtable.bluetable && isp_params->gtable.bluetable) {
 		if (copy_from_user(isp_params->gtable.bluetable,
 				usr_params->gtable.bluetable,
-				ISPPRV_GAMMA_TBL_SIZE))
+				ISPPRV_GAMMA_TBL_SIZE * 4))
 			return -EFAULT;
 	} else {
 		dev_warn(prev_dev,
