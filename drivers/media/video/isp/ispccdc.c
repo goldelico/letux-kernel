@@ -143,6 +143,8 @@ static void ispccdc_setup_lsc(void);
 
 static int ispccdc_validate_config_lsc(struct ispccdc_lsc_config *lsc_cfg);
 
+static void __ispccdc_enable(u8 enable);
+
 /**
  * omap34xx_isp_ccdc_config - Sets CCDC configuration from userspace
  * @userspace_add: Structure containing CCDC configuration sent from userspace.
@@ -1421,7 +1423,14 @@ int ispccdc_set_outaddr(u32 addr)
 }
 EXPORT_SYMBOL(ispccdc_set_outaddr);
 
-void __ispccdc_enable(u8 enable)
+static void ispccdc_callback_enable_lsc(unsigned long status,
+					isp_vbq_callback_ptr arg1, void *arg2)
+{
+	isp_unset_callback(CBK_LSC_PREF_COMP);
+	__ispccdc_enable(1);
+}
+
+static void __ispccdc_enable(u8 enable)
 {
 	int enable_lsc;
 
@@ -1431,20 +1440,10 @@ void __ispccdc_enable(u8 enable)
 		     ispccdc_validate_config_lsc(&ispccdc_obj.lsc_config) == 0;
 	ispccdc_enable_lsc(enable_lsc);
 	if (enable_lsc) {
-		int timeout = 10000;
-		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS,
-			   IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
-		while (!(isp_reg_readl(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS) &
-			 IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ) && timeout) {
-			udelay(1);
-			timeout--;
-		}
-		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS,
-			    ~IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
-		if (timeout <= 0) {
-			printk(KERN_ERR "LSC ouch!\n");
-			ispccdc_enable_lsc(0);
-		}
+		/* Defer CCDC enablement for when the prefetch is completed. */
+		isp_set_callback(CBK_LSC_PREF_COMP, ispccdc_callback_enable_lsc,
+				 (void *)NULL, (void *)NULL);
+		return;
 	}
 	isp_reg_and_or(OMAP3_ISP_IOMEM_CCDC, ISPCCDC_PCR, ~ISPCCDC_PCR_EN,
 		       enable ? ISPCCDC_PCR_EN : 0);
