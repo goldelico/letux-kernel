@@ -1207,14 +1207,18 @@ static int __isp_disable_modules(int suspend)
 		isp_af_suspend();
 		isph3a_aewb_suspend();
 		isp_hist_suspend();
-		isppreview_suspend();
-		ispresizer_suspend();
+		if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW)
+			isppreview_suspend();
+		if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER)
+			ispresizer_suspend();
 	} else {
 		isp_af_enable(0);
 		isph3a_aewb_enable(0);
 		isp_hist_enable(0);
-		isppreview_enable(0);
-		ispresizer_enable(0);
+		if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW)
+			isppreview_enable(0);
+		if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER)
+			ispresizer_enable(0);
 	}
 
 	timeout = jiffies + ISP_STOP_TIMEOUT;
@@ -1270,8 +1274,10 @@ static int isp_suspend_modules(void)
 
 static void isp_resume_modules(void)
 {
-	ispresizer_resume();
-	isppreview_resume();
+	if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER)
+		ispresizer_resume();
+	if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW)
+		isppreview_resume();
 	isp_hist_resume();
 	isph3a_aewb_resume();
 	isp_af_resume();
