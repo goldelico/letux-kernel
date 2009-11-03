@@ -44,11 +44,14 @@ unsigned short enable_off_mode;
 EXPORT_SYMBOL(enable_off_mode);
 unsigned short voltage_off_while_idle;
 unsigned short wakeup_timer_seconds;
+unsigned long max_dsp_frequency;
 atomic_t sleep_block = ATOMIC_INIT(0);
 
 static ssize_t idle_show(struct kobject *, struct kobj_attribute *, char *);
 static ssize_t idle_store(struct kobject *k, struct kobj_attribute *,
 			  const char *buf, size_t n);
+static ssize_t vdd_max_dsp_show(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf);
 
 static struct kobj_attribute sleep_while_idle_attr =
 	__ATTR(sleep_while_idle, 0644, idle_show, idle_store);
@@ -59,6 +62,8 @@ static struct kobj_attribute enable_off_mode_attr =
 static struct kobj_attribute voltage_off_while_idle_attr =
 	__ATTR(voltage_off_while_idle, 0644, idle_show, idle_store);
 
+static struct kobj_attribute max_dsp_frequency_attr =
+	__ATTR(max_dsp_frequency, 0644, vdd_max_dsp_show, NULL);
 #ifdef CONFIG_OMAP_PM_SRF
 static ssize_t vdd_opp_show(struct kobject *, struct kobj_attribute *, char *);
 static ssize_t vdd_opp_store(struct kobject *k, struct kobj_attribute *,
@@ -235,6 +240,16 @@ static ssize_t vdd_opp_lock_store(struct kobject *kobj,
 	}
 	return n;
 }
+
+static ssize_t vdd_max_dsp_show(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	struct omap_opp *dsp_rate;
+	if (attr == &max_dsp_frequency_attr) {
+		dsp_rate = omap_get_dsp_rate_table();
+	return sprintf(buf, "%ld\n", dsp_rate[MAX_VDD1_OPP].rate);
+		}
+}
 #endif
 
 void omap2_block_sleep(void)
@@ -293,6 +308,12 @@ static int __init omap_pm_init(void)
 				  &wakeup_timer_seconds_attr.attr);
 	if (error)
 		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
+
+	error = sysfs_create_file(power_kobj,
+				  &max_dsp_frequency_attr.attr);
+	if (error)
+		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
+
 #ifdef CONFIG_OMAP_PM_SRF
 	error = sysfs_create_file(power_kobj,
 				  &vdd1_opp_attr.attr);
