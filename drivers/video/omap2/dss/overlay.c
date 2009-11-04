@@ -69,7 +69,8 @@ static ssize_t overlay_manager_store(struct omap_overlay *ovl, const char *buf,
 	if (len > 0) {
 		for (i = 0; i < omap_dss_get_num_overlay_managers(); ++i) {
 			mgr = omap_dss_get_overlay_manager(i);
-
+			if (mgr == NULL)
+				return -EINVAL;
 			if (strncmp(buf, mgr->name, len) == 0)
 				break;
 
@@ -199,7 +200,7 @@ static ssize_t overlay_output_size_store(struct omap_overlay *ovl,
 
 static ssize_t overlay_enabled_show(struct omap_overlay *ovl, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", ovl->info.enabled);
+	return snprintf(buf, PAGE_SIZE, "%s\n", (ovl->info.enabled)? "true" : "false");
 }
 
 static ssize_t overlay_enabled_store(struct omap_overlay *ovl, const char *buf,
@@ -726,7 +727,8 @@ void dss_recheck_connections(struct omap_dss_device *dssdev, bool force)
 	} else
 #endif
 
-	if (dssdev->type != OMAP_DISPLAY_TYPE_VENC) {
+	if (dssdev->type != OMAP_DISPLAY_TYPE_VENC
+		&& dssdev->type != OMAP_DISPLAY_TYPE_HDMI) {
 		if (!lcd_mgr->device || force) {
 			if (lcd_mgr->device)
 				lcd_mgr->unset_device(lcd_mgr);
@@ -735,7 +737,8 @@ void dss_recheck_connections(struct omap_dss_device *dssdev, bool force)
 		}
 	}
 
-	if (dssdev->type == OMAP_DISPLAY_TYPE_VENC) {
+	if (dssdev->type == OMAP_DISPLAY_TYPE_VENC
+		|| dssdev->type == OMAP_DISPLAY_TYPE_HDMI) {
 		if (!tv_mgr->device || force) {
 			if (tv_mgr->device)
 				tv_mgr->unset_device(tv_mgr);

@@ -225,8 +225,34 @@ static struct omap_dss_device sdp4430_lcd_device = {
 	.platform_disable	=	sdp4430_panel_disable_lcd,
 };
 
+static int sdp4430_panel_enable_hdmi(struct omap_dss_device *dssdev)
+{
+	return 0;
+}
+
+static int sdp4430_panel_disable_hdmi(struct omap_dss_device *dssdev)
+{
+	return 0;
+}
+static void __init sdp4430_hdmi_init(void)
+{
+	return;
+}
+
+static struct omap_dss_device sdp4430_hdmi_device = {
+	.name = "hdmi",
+	.driver_name = "hdmi_panel",
+	.type = OMAP_DISPLAY_TYPE_HDMI,
+	.phy.dpi.data_lines = 24,
+	.platform_enable = sdp4430_panel_enable_hdmi,
+	.platform_disable = sdp4430_panel_disable_hdmi,
+};
+
 static struct omap_dss_device *sdp4430_dss_devices[] = {
 	&sdp4430_lcd_device,
+#ifdef CONFIG_OMAP2_DSS_HDMI
+	&sdp4430_hdmi_device,
+#endif
 };
 
 static struct omap_dss_board_info sdp4430_dss_data = {

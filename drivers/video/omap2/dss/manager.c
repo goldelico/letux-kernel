@@ -220,7 +220,7 @@ static ssize_t manager_trans_key_value_store(struct omap_overlay_manager *mgr,
 static ssize_t manager_trans_key_enabled_show(struct omap_overlay_manager *mgr,
 					      char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", mgr->info.trans_enabled);
+	return snprintf(buf, PAGE_SIZE, "%s\n", (mgr->info.trans_enabled)? "true" : "false");
 }
 
 static ssize_t manager_trans_key_enabled_store(struct omap_overlay_manager *mgr,
@@ -251,7 +251,7 @@ static ssize_t manager_trans_key_enabled_store(struct omap_overlay_manager *mgr,
 static ssize_t manager_alpha_blending_enabled_show(
 		struct omap_overlay_manager *mgr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", mgr->info.alpha_enabled);
+	return snprintf(buf, PAGE_SIZE, "%s\n", (mgr->info.alpha_enabled)? "true" : "false");
 }
 
 static ssize_t manager_alpha_blending_enabled_store(
@@ -532,7 +532,8 @@ static int dss_mgr_wait_for_go(struct omap_overlay_manager *mgr)
 		return 0;
 	channel = mgr->device->channel;
 
-	if (mgr->device->type == OMAP_DISPLAY_TYPE_VENC) {
+	if (mgr->device->type == OMAP_DISPLAY_TYPE_VENC
+		|| mgr->device->type == OMAP_DISPLAY_TYPE_HDMI) {
 		irq = DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_EVSYNC_EVEN;
 	} else {
 		if (mgr->device->caps & OMAP_DSS_DISPLAY_CAP_MANUAL_UPDATE) {
@@ -615,7 +616,8 @@ int dss_mgr_wait_for_go_ovl(struct omap_overlay *ovl)
 	dssdev = ovl->manager->device;
 	channel = dssdev->channel;
 
-	if (dssdev->type == OMAP_DISPLAY_TYPE_VENC) {
+	if (dssdev->type == OMAP_DISPLAY_TYPE_VENC
+		|| dssdev->type == OMAP_DISPLAY_TYPE_HDMI) {
 		irq = DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_EVSYNC_EVEN;
 	} else {
 		if (dssdev->caps & OMAP_DSS_DISPLAY_CAP_MANUAL_UPDATE) {
@@ -853,7 +855,9 @@ static int configure_overlay(enum omap_plane plane)
 	}
 
 	dispc_enable_replication(plane, c->replication);
-
+#ifdef CONFIG_OMAP2_DSS_HDMI
+	dispc_enable_preload(plane, 1); /* ZeBu hdmi test */
+#endif
 	dispc_set_burst_size(plane, c->burst_size);
 	dispc_setup_plane_fifo(plane, c->fifo_low, c->fifo_high);
 
@@ -1340,6 +1344,11 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 					&oc->burst_size, &oc->fifo_low,
 					&oc->fifo_high);
 			break;
+		case OMAP_DISPLAY_TYPE_HDMI:
+			oc->burst_size = 2; /* DISPC_BURST_8X128*/
+			oc->fifo_low = 0xf0;
+			oc->fifo_high = 0xfc;
+			break;
 #ifdef CONFIG_OMAP2_DSS_DSI
 		case OMAP_DISPLAY_TYPE_DSI:
 			dsi_get_overlay_fifo_thresholds(ovl->id, size,
@@ -1444,7 +1453,8 @@ int dss_init_overlay_managers(struct platform_device *pdev)
 		case 1:
 			mgr->name = "tv";
 			mgr->id = OMAP_DSS_CHANNEL_DIGIT;
-			mgr->supported_displays = OMAP_DISPLAY_TYPE_VENC;
+			mgr->supported_displays =
+				OMAP_DISPLAY_TYPE_VENC | OMAP_DISPLAY_TYPE_HDMI;
 			break;
 #ifdef CONFIG_ARCH_OMAP4
 		case 2:

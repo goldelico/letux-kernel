@@ -59,7 +59,7 @@ module_param_named(def_disp, def_disp_name, charp, 0);
 MODULE_PARM_DESC(def_disp_name, "default display name");
 
 #ifdef DEBUG
-unsigned int dss_debug;
+unsigned int dss_debug = 1;
 module_param_named(debug, dss_debug, bool, 0644);
 #endif
 
@@ -505,7 +505,13 @@ static int omap_dss_probe(struct platform_device *pdev)
 		}
 #endif
 	}
-
+#ifdef CONFIG_OMAP2_DSS_HDMI
+	r = hdmi_init(pdev);
+	if (r) {
+		DSSERR("Failed to initialize hdmi\n");
+		goto fail0;
+	}
+#endif
 #if defined(CONFIG_DEBUG_FS) && defined(CONFIG_OMAP2_DSS_DEBUG_SUPPORT)
 	r = dss_initialize_debugfs();
 	if (r)
@@ -544,6 +550,9 @@ static int omap_dss_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_OMAP2_DSS_VENC
 	venc_exit();
+#endif
+#ifdef CONFIG_OMAP2_DSS_HDMI
+	hdmi_exit();
 #endif
 	dispc_exit();
 	dpi_exit();

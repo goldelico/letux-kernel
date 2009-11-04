@@ -208,6 +208,8 @@ void dss_recheck_connections(struct omap_dss_device *dssdev, bool force);
 int dss_init(bool skip_init);
 void dss_exit(void);
 
+void dss_switch_tv_hdmi(int hdmi);
+
 void dss_save_context(void);
 void dss_restore_context(void);
 
@@ -300,6 +302,9 @@ void dispc_set_plane_ba_uv1(enum omap_plane plane, u32 paddr);
 void dispc_set_zorder(enum omap_plane plane,
 			enum omap_overlay_zorder zorder);
 void dispc_enable_zorder(enum omap_plane plane, bool enable);
+void dispc_enable_preload(enum omap_plane plane, bool enable);
+void dispc_enable_gamma_table(bool enable);
+void dispc_set_idle_mode(void);
 #endif
 
 void dispc_set_plane_pos(enum omap_plane plane, u16 x, u16 y);
@@ -384,4 +389,9 @@ void rfbi_set_timings(int rfbi_module, struct rfbi_timings *t);
 unsigned long rfbi_get_max_tx_rate(void);
 int rfbi_init_display(struct omap_dss_device *display);
 
+/* HDMI*/
+int hdmi_init(struct platform_device *pdev);
+void hdmi_exit(void);
+void hdmi_dump_regs(struct seq_file *s);
+int hdmi_init_display(struct omap_dss_device *display);
 #endif

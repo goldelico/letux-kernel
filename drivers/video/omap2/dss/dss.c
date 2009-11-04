@@ -40,9 +40,9 @@
 #define DISPC_BASE                      0x48050400
 #else
 /* DSS */
-#define DSS_BASE			0x48042000
+#define DSS_BASE			0x48040000
 /* DISPLAY CONTROLLER */
-#define DISPC_BASE			0x48043000
+#define DISPC_BASE			0x48041000
 #endif
 
 #define DSS_SZ_REGS			SZ_512
@@ -56,7 +56,6 @@ struct dss_reg {
 #define DSS_REVISION			DSS_REG(0x0000)
 #define DSS_SYSCONFIG			DSS_REG(0x0010)
 #define DSS_SYSSTATUS			DSS_REG(0x0014)
-#define DSS_IRQSTATUS			DSS_REG(0x0018)
 #define DSS_CONTROL			DSS_REG(0x0040)
 #define DSS_SDI_CONTROL			DSS_REG(0x0044)
 #define DSS_PLL_CONTROL			DSS_REG(0x0048)
@@ -253,7 +252,6 @@ void dss_dump_regs(struct seq_file *s)
 	DUMPREG(DSS_REVISION);
 	DUMPREG(DSS_SYSCONFIG);
 	DUMPREG(DSS_SYSSTATUS);
-	DUMPREG(DSS_IRQSTATUS);
 	DUMPREG(DSS_CONTROL);
 	DUMPREG(DSS_SDI_CONTROL);
 	DUMPREG(DSS_PLL_CONTROL);
@@ -468,16 +466,9 @@ static irqreturn_t dss_irq_handler_omap2(int irq, void *arg)
 
 static irqreturn_t dss_irq_handler_omap3(int irq, void *arg)
 {
-	u32 irqstatus;
-
-	irqstatus = dss_read_reg(DSS_IRQSTATUS);
-
-	if (irqstatus & (1<<0))	/* DISPC_IRQ */
-		dispc_irq_handler();
-#ifdef CONFIG_OMAP2_DSS_DSI
-	if (irqstatus & (1<<1))	/* DSI_IRQ */
-		dsi_irq_handler();
-#endif
+	/* INT_24XX_DSS_IRQ is dedicated for DISPC interrupt request only */
+	/* DSI1, DSI2 and HDMI to be handled in seperate handlers */
+	dispc_irq_handler();
 
 	return IRQ_HANDLED;
 }
@@ -524,6 +515,11 @@ void dss_set_dac_pwrdn_bgz(bool enable)
 	REG_FLD_MOD(DSS_CONTROL, enable, 5, 5);	/* DAC Power-Down Control */
 }
 
+void dss_switch_tv_hdmi(int hdmi)
+{
+	REG_FLD_MOD(DSS_CONTROL, hdmi, 15, 15);	/* 0x1 for HDMI, 0x0 TV */
+}
+
 int dss_init(bool skip_init)
 {
 	int r;
@@ -540,7 +536,7 @@ int dss_init(bool skip_init)
 		/* disable LCD and DIGIT output. This seems to fix the synclost
 		 * problem that we get, if the bootloader starts the DSS and
 		 * the kernel resets it */
-		omap_writel(omap_readl(0x48050440) & ~0x3, 0x48050440);
+		omap_writel(omap_readl(DISPC_BASE + 0x40) & ~0x3, (DISPC_BASE + 0x40));
 
 		/* We need to wait here a bit, otherwise we sometimes start to
 		 * get synclost errors, and after that only power cycle will
@@ -549,13 +545,14 @@ int dss_init(bool skip_init)
 		 * enabling clocks.
 		 */
 		msleep(50);
-
+#ifndef CONFIG_ARCH_OMAP4
 		_omap_dss_reset();
+#endif
 	}
-
+#ifndef CONFIG_ARCH_OMAP4
 	/* autoidle */
 	REG_FLD_MOD(DSS_SYSCONFIG, 1, 0, 0);
-
+#endif
 	/* Select DPLL */
 	REG_FLD_MOD(DSS_CONTROL, 0, 0, 0);
 

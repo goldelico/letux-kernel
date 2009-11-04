@@ -39,7 +39,7 @@ static ssize_t display_enabled_show(struct device *dev,
 	struct omap_dss_device *dssdev = to_dss_device(dev);
 	bool enabled = dssdev->state != OMAP_DSS_DISPLAY_DISABLED;
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", enabled);
+	return snprintf(buf, PAGE_SIZE, "%s\n", enabled? "true" : "false");
 }
 
 static ssize_t display_enabled_store(struct device *dev,
@@ -334,6 +334,8 @@ static int default_wait_vsync(struct omap_dss_device *dssdev)
 
 	if (dssdev->type == OMAP_DISPLAY_TYPE_VENC)
 		irq = DISPC_IRQ_EVSYNC_ODD;
+	else if (dssdev->type == OMAP_DISPLAY_TYPE_HDMI)
+		irq = DISPC_IRQ_EVSYNC_EVEN;
 	else
 		irq = DISPC_IRQ_VSYNC;
 
@@ -360,7 +362,7 @@ static int default_get_recommended_bpp(struct omap_dss_device *dssdev)
 			return 16;
 	case OMAP_DISPLAY_TYPE_VENC:
 	case OMAP_DISPLAY_TYPE_SDI:
-		return 24;
+	case OMAP_DISPLAY_TYPE_HDMI:
 		return 24;
 	default:
 		BUG();
@@ -380,6 +382,9 @@ bool dss_use_replication(struct omap_dss_device *dssdev,
 
 	if (dssdev->type == OMAP_DISPLAY_TYPE_DPI &&
 			(dssdev->panel.config & OMAP_DSS_LCD_TFT) == 0)
+		return false;
+
+	if (dssdev->type == OMAP_DISPLAY_TYPE_HDMI)
 		return false;
 
 	switch (dssdev->type) {
@@ -422,6 +427,9 @@ void dss_init_device(struct platform_device *pdev,
 #ifdef CONFIG_OMAP2_DSS_VENC
 	case OMAP_DISPLAY_TYPE_VENC:
 #endif
+#ifdef CONFIG_OMAP2_DSS_HDMI
+	case OMAP_DISPLAY_TYPE_HDMI:
+#endif
 		break;
 	default:
 		DSSERR("Support for display '%s' not compiled in.\n",
@@ -455,6 +463,11 @@ void dss_init_device(struct platform_device *pdev,
 #ifdef CONFIG_OMAP2_DSS_DSI
 	case OMAP_DISPLAY_TYPE_DSI:
 		r = dsi_init_display(dssdev);
+		break;
+#endif
+#ifdef CONFIG_OMAP2_DSS_HDMI
+	case OMAP_DISPLAY_TYPE_HDMI:
+		r = hdmi_init_display(dssdev);
 		break;
 #endif
 	default:

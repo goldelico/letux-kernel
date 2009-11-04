@@ -46,9 +46,9 @@
        	#define DISPC_BASE              0x48050400
 #else
        	/* DSS */
-       	#define DSS_BASE      	      	0x48042000
+       	#define DSS_BASE      	      	0x48040000
        	/* DISPLAY CONTROLLER */
-       	#define DISPC_BASE           	0x48043000
+       	#define DISPC_BASE           	0x48041000
 #endif
 
 #define DISPC_SZ_REGS			SZ_1K
@@ -681,11 +681,6 @@ void dispc_go(enum omap_channel channel)
 	else
 		 REG_FLD_MOD(DISPC_CONTROL, 1, 0, 0);
 
-	/* if the channel is not enabled, we don't need GO
-	//CLEAN UP: REMOVE THIS IF NOT NEEDED
-	if (REG_GET(DISPC_CONTROL, bit, bit) == 0)
-		goto end;
-	*/
 #endif
 	if (REG_GET(DISPC_CONTROL, bit, bit) == 0)
 		goto end;
@@ -1329,6 +1324,43 @@ void dispc_enable_zorder(enum omap_plane plane, bool enable)
 	dispc_write_reg(dispc_reg_att[plane], val);
 
 }
+/* this routine is a collection of some fine tuned settings from SiVal test, needs to be revisited on SDC */
+void dispc_enable_preload(enum omap_plane plane, bool enable)
+{
+	u32 val;
+	int x, y;
+
+	/* enable preload */
+	val = dispc_read_reg(dispc_reg_att[plane]);
+	val = FLD_MOD(val, enable, 19, 19);
+	dispc_write_reg(dispc_reg_att[plane], val);
+
+	/* DMA preload values */
+	dispc_write_reg(DISPC_VID_PRELOAD(0), 0x100);
+
+	/* clk divisor for DISPC_CORE_CLK */
+	x = 2;
+	y = 1;
+	val = FLD_VAL(x, 23, 16) | FLD_VAL(y, 0, 0);
+	dispc_write_reg(DISPC_DIVISOR, val);
+}
+void dispc_set_idle_mode(void)
+{
+	u32 l;
+
+	l = dispc_read_reg(DISPC_SYSCONFIG);
+	l = FLD_MOD(l, 1, 13, 12);	/* MIDLEMODE: smart standby */
+	l = FLD_MOD(l, 1, 4, 3);	/* SIDLEMODE: smart idle */
+	l = FLD_MOD(l, 0, 2, 2);	/* ENWAKEUP */
+	l = FLD_MOD(l, 0, 0, 0);	/* AUTOIDLE */
+	dispc_write_reg(DISPC_SYSCONFIG, l);
+
+}
+void dispc_enable_gamma_table(bool enable)
+{
+	REG_FLD_MOD(DISPC_CONFIG, enable, 9, 9);
+}
+
 
 #endif
 
