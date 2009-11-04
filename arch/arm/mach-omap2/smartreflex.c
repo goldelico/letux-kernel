@@ -1247,22 +1247,25 @@ static int __init omap3_sr_init(void)
 	if (ret)
 		pr_err("sysfs_create_file failed: %d\n", ret);
 
-	if (sr1.opp3_nvalue) {
-		current_opp_no = get_vdd1_opp();
-		if (!current_opp_no) {
-			pr_err("omap3_sr_init: Current VDD1 opp unknown\n");
-			return -EINVAL;
+	/* Enable SR only for 3430 for now */
+	if (!cpu_is_omap3630()) {
+		if (sr1.opp3_nvalue) {
+			current_opp_no = get_vdd1_opp();
+			if (!current_opp_no) {
+				pr_err("omap3_sr_init: Current VDD1 opp unknown\n");
+				return -EINVAL;
+			}
+			sr_start_vddautocomap(SR1, current_opp_no);
 		}
-		sr_start_vddautocomap(SR1, current_opp_no);
-	}
-	if (sr2.opp3_nvalue) {
-		current_opp_no = get_vdd2_opp();
-		if (!current_opp_no) {
-			pr_err("omap3_sr_init: Current VDD2 opp unknown\n");
-			return -EINVAL;
+		if (sr2.opp3_nvalue) {
+			current_opp_no = get_vdd2_opp();
+			if (!current_opp_no) {
+				pr_err("omap3_sr_init: Current VDD2 opp unknown\n");
+				return -EINVAL;
+			}
+			sr_start_vddautocomap(SR2, current_opp_no);
+			pr_info("SmartReflex: enabling autocompensation\n");
 		}
-		sr_start_vddautocomap(SR2, current_opp_no);
-		pr_info("SmartReflex: enabling autocompensation\n");
 	}
 
 	return 0;
