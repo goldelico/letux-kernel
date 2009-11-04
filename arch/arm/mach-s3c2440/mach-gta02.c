@@ -105,6 +105,7 @@
 
 #include <linux/hdq.h>
 #include <linux/bq27000_battery.h>
+#include <linux/platform_battery.h>
 
 #include <linux/jbt6k74.h>
 #include <linux/glamofb.h>
@@ -907,6 +908,117 @@ struct platform_device bq27000_battery_device = {
 	},
 };
 
+/* Platform battery */
+
+/* Capacity of a typical BL-5C dumb battery */
+#define GTA02_BAT_CHARGE_FULL	850000
+
+static int gta02_bat_voltscale(int volt)
+{
+	/* This table is suggested by SpeedEvil based on analysis of
+	 * experimental data */
+	static const int lut[][2] = {
+		{ 4120, 100 },
+		{ 3900, 60 },
+		{ 3740, 25 },
+		{ 3600, 5 },
+		{ 3000, 0 } };
+	int i, res = 0;
+
+	if (volt > lut[0][0])
+		res = lut[0][1];
+	else
+		for (i = 0; lut[i][1]; i++) {
+			if (volt <= lut[i][0] && volt >= lut[i+1][0]) {
+				res = lut[i][1] - (lut[i][0]-volt)*
+					(lut[i][1]-lut[i+1][1])/
+					(lut[i][0]-lut[i+1][0]);
+				break;
+			}
+		}
+	return res;
+}
+
+static int gta02_bat_get_voltage(void)
+{
+	struct pcf50633 *pcf = gta02_pcf;
+	u16 adc, mv = 0;
+	adc = pcf50633_adc_sync_read(pcf,
+		PCF50633_ADCC1_MUX_BATSNS_RES,
+		PCF50633_ADCC1_AVERAGE_16);
+	/* The formula from DS is for divide-by-two mode, current driver uses
+	divide-by-three */
+	mv = (adc * 6000) / 1023;
+	return mv * 1000;
+}
+
+static int gta02_bat_get_present(void)
+{
+	/* There is no reliable way to tell if it is present or not */
+	return 1;
+}
+
+static int gta02_bat_get_status(void)
+{
+#ifdef CONFIG_CHARGER_PCF50633
+	if (gta02_get_charger_active_status())
+		return POWER_SUPPLY_STATUS_CHARGING;
+	else
+		return POWER_SUPPLY_STATUS_DISCHARGING;
+#else
+	return POWER_SUPPLY_STATUS_UNKNOWN;
+#endif
+}
+
+static int gta02_bat_get_capacity(void)
+{
+	return gta02_bat_voltscale(gta02_bat_get_voltage()/1000);
+}
+
+static int gta02_bat_get_charge_full(void)
+{
+	return GTA02_BAT_CHARGE_FULL;
+}
+
+static int gta02_bat_get_charge_now(void)
+{
+	return gta02_bat_get_capacity() * gta02_bat_get_charge_full() / 100;
+}
+
+static enum power_supply_property gta02_platform_bat_properties[] = {
+	POWER_SUPPLY_PROP_PRESENT,
+	POWER_SUPPLY_PROP_STATUS,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_CHARGE_NOW,
+};
+
+int (*gta02_platform_bat_get_property[])(void) = {
+	gta02_bat_get_present,
+	gta02_bat_get_status,
+	gta02_bat_get_voltage,
+	gta02_bat_get_capacity,
+	gta02_bat_get_charge_full,
+	gta02_bat_get_charge_now,
+};
+
+static struct platform_bat_platform_data gta02_platform_bat_pdata = {
+	.name = "battery",
+	.properties = gta02_platform_bat_properties,
+	.num_properties = ARRAY_SIZE(gta02_platform_bat_properties),
+	.get_property = gta02_platform_bat_get_property,
+	.is_present = gta02_bat_get_present,
+};
+
+struct platform_device gta02_platform_bat = {
+	.name = "platform_battery",
+	.id = -1,
+	.dev = {
+		.platform_data = &gta02_platform_bat_pdata,
+	}
+};
+
 /* HDQ */
 
 static void gta02_hdq_gpio_direction_out(void)
@@ -987,6 +1099,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 
 static struct platform_device *gta02_devices_pmu_children[] = {
     &gta02_hdq_device,
+	&gta02_platform_bat,
 };
 
 /*
