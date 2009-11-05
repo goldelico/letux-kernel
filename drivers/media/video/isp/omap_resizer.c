@@ -1858,16 +1858,16 @@ static int __init omap_rsz_init(void)
 	struct device_params *device;
 	device = kzalloc(sizeof(struct device_params), GFP_KERNEL);
 	if (!device) {
-		dev_err(rsz_device, OMAP_REZR_NAME ": could not allocate "
-								"memory\n");
+		printk(KERN_ERR  "%s : could not allocate "
+					"memory\n", OMAP_REZR_NAME);
 		return -ENOMEM;
 	}
 
 	ret = alloc_chrdev_region(&dev, 0, 1, OMAP_REZR_NAME);
 	if (ret < 0) {
-		dev_err(rsz_device, OMAP_REZR_NAME ": intialization failed. "
+		printk(KERN_ERR "%s : intialization failed. "
 			"Could not allocate region "
-			"for character device\n");
+			"for character device\n" , OMAP_REZR_NAME);
 		kfree(device);
 		return -ENODEV;
 	}
@@ -1881,8 +1881,8 @@ static int __init omap_rsz_init(void)
 	/* Addding character device */
 	ret = cdev_add(&c_dev, dev, 1);
 	if (ret) {
-		dev_err(rsz_device, OMAP_REZR_NAME ": Error adding "
-			"device - %d\n", ret);
+		printk(KERN_ERR  "%s : Error adding "
+			"device - %d\n", OMAP_REZR_NAME, ret);
 		goto fail2;
 	}
 	rsz_major = MAJOR(dev);
@@ -1890,23 +1890,23 @@ static int __init omap_rsz_init(void)
 	/* register driver as a platform driver */
 	ret = platform_driver_register(&omap_resizer_driver);
 	if (ret) {
-		dev_err(rsz_device, OMAP_REZR_NAME
-		       ": Failed to register platform driver!\n");
+		printk(KERN_ERR "%s : Failed to "
+			"register platform driver!\n", OMAP_REZR_NAME);
 		goto fail3;
 	}
 
 	/* Register the drive as a platform device */
 	ret = platform_device_register(&omap_resizer_device);
 	if (ret) {
-		dev_err(rsz_device, OMAP_REZR_NAME
-		       ": Failed to register platform device!\n");
+		printk(KERN_ERR "%s : Failed to register "
+			"platform device!\n", OMAP_REZR_NAME);
 		goto fail4;
 	}
 
 	rsz_class = class_create(THIS_MODULE, OMAP_REZR_NAME);
 	if (!rsz_class) {
-		dev_err(rsz_device, OMAP_REZR_NAME
-			": Failed to create class!\n");
+		printk(KERN_ERR "%s : Failed to "
+			"create class!\n", OMAP_REZR_NAME);
 		goto fail5;
 	}
 
@@ -1914,7 +1914,16 @@ static int __init omap_rsz_init(void)
 	rsz_device = device_create(rsz_class, rsz_device,
 					MKDEV(rsz_major, 0), NULL,
 					OMAP_REZR_NAME);
-	dev_dbg(rsz_device, OMAP_REZR_NAME ": Registered Resizer Wrapper\n");
+	if (rsz_device)
+		dev_dbg(rsz_device, OMAP_REZR_NAME ":"
+			"Registered Resizer Wrapper\n");
+	else {
+		printk(KERN_ERR "%s : Registered Resizer Wrapper",
+					OMAP_REZR_NAME);
+		ret = -ENODEV;
+		goto fail6;
+	}
+
 	device->opened = 0;
 
 	device->vbq_ops.buf_setup = rsz_vbq_setup;
@@ -1927,6 +1936,8 @@ static int __init omap_rsz_init(void)
 	device_config = device;
 	return 0;
 
+fail6:
+	class_destroy(rsz_class);
 fail5:
 	platform_device_unregister(&omap_resizer_device);
 fail4:
