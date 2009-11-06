@@ -603,19 +603,17 @@ static int rsz_set_ratio(struct rsz_mult *multipass,
 		}
 
 	}
-	multipass->vrsz =
-		(multipass->in_vsize * RATIO_MULTIPLIER) / multipass->out_vsize;
-	multipass->hrsz =
-		(multipass->in_hsize * RATIO_MULTIPLIER) / multipass->out_hsize;
-	if (UP_RSZ_RATIO > multipass->vrsz || UP_RSZ_RATIO > multipass->hrsz) {
-		dev_err(rsz_device, "Upscaling ratio not supported!");
-		goto err_einval;
-	}
+
 	multipass->vrsz = (multipass->in_vsize - NUM_D2TAPS) * RATIO_MULTIPLIER
 						/ (multipass->out_vsize - 1);
 	multipass->hrsz = ((multipass->in_hsize - NUM_D2TAPS)
 						* RATIO_MULTIPLIER) /
 						(multipass->out_hsize - 1);
+
+	if (UP_RSZ_RATIO > multipass->vrsz || UP_RSZ_RATIO > multipass->hrsz) {
+		dev_err(rsz_device, "Upscaling ratio not supported!");
+		goto err_einval;
+	}
 
 	if (multipass->hrsz <= 512) {
 		multipass->hrsz = (multipass->in_hsize - NUM_TAPS)
