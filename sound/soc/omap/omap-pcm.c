@@ -281,6 +281,12 @@ static int omap_pcm_open(struct snd_pcm_substream *substream)
 	if (ret < 0)
 		goto out;
 
+	/* ensure that buffer size is a multiple of 24 */
+	ret = snd_pcm_hw_constraint_step(runtime, 0,
+					 SNDRV_PCM_HW_PARAM_BUFFER_BYTES, 96);
+	if (ret < 0)
+		goto out;
+
 	prtd = kzalloc(sizeof(*prtd), GFP_KERNEL);
 	if (prtd == NULL) {
 		ret = -ENOMEM;
