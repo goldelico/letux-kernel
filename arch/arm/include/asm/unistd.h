@@ -406,7 +406,17 @@
  * *NOTE*: This is a ghost syscall private to the kernel.  Only the
  * __kuser_cmpxchg code in entry-armv.S should be aware of its
  * existence.  Don't ever use this from user code.
+=======
+ * These are temporary interfaces; they are a stop gap until we get
+ * a proper solution to DMA.  These won't always work for every
+ * device.  Only use these IF you *really* know what you're doing.
+ * Don't be surprised if they go away in later kernels.
+>>>>>>> ARM: UNOFFICIAL_USER_DMA_API:arch/arm/include/asm/unistd.h
  */
+#define __ARM_NR_temp_dma_inv_range	(__ARM_NR_BASE+0x0007fd)
+#define __ARM_NR_temp_dma_clean_range	(__ARM_NR_BASE+0x0007fe)
+#define __ARM_NR_temp_dma_flush_range	(__ARM_NR_BASE+0x0007ff)
+
 #ifdef __KERNEL__
 #define __ARM_NR_cmpxchg		(__ARM_NR_BASE+0x00fff0)
 #endif

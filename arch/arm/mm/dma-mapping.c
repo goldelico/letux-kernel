@@ -614,3 +614,86 @@ void dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
 	}
 }
 EXPORT_SYMBOL(dma_sync_sg_for_device);
+
+#ifdef CONFIG_UNOFFICIAL_USER_DMA_API
+int temp_user_dma_op(unsigned long start, unsigned long end, int op)
+{
+	struct mm_struct *mm = current->active_mm;
+	void (*inner_op)(const void *, const void *);
+	void (*outer_op)(unsigned long, unsigned long);
+
+	if (!test_taint(TAINT_USER)) {
+		printk(KERN_WARNING "%s: using unofficial user DMA API, kernel tainted.\n",
+			current->comm);
+		add_taint(TAINT_USER);
+	}
+
+	switch (op) {
+	case 1:
+		inner_op = dmac_inv_range;
+		outer_op = outer_inv_range;
+		break;
+	case 2:
+		inner_op = dmac_clean_range;
+		outer_op = outer_clean_range;
+		break;
+	case 3:
+		inner_op = dmac_flush_range;
+		outer_op = outer_flush_range;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (end < start)
+		return -EINVAL;
+
+	down_read(&mm->mmap_sem);
+	do {
+		struct vm_area_struct *vma = find_vma(mm, start);
+
+		if (!vma || start < vma->vm_start ||
+		    vma->vm_flags & (VM_IO | VM_PFNMAP)) {
+			up_read(&mm->mmap_sem);
+			return -EFAULT;
+		}
+
+		do {
+			unsigned long e = (start | ~PAGE_MASK) + 1;
+			struct page *page;
+
+			if (e > end)
+				e = end;
+
+			page = follow_page(vma, start, FOLL_GET);
+			if (IS_ERR(page)) {
+				up_read(&mm->mmap_sem);
+				return PTR_ERR(page);
+			}
+
+			if (page) {
+				unsigned long phys;
+
+				/*
+				 * This flushes the userspace address - which
+				 * is not what this API was intended to do.
+				 * Things may go astray as a result.
+				 */
+				inner_op((void *)start, (void *)e);
+
+				/*
+				 * Now handle the L2 cache.
+				 */
+				phys = page_to_phys(page) + (start & ~PAGE_MASK);
+				outer_op(phys, phys + e - start);
+
+				put_page(page);
+			}
+			start = e;
+		} while (start < end && start < vma->vm_end);
+	} while (start < end);
+	up_read(&mm->mmap_sem);
+
+	return 0;
+}
+#endif
