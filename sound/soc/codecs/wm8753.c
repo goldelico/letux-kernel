@@ -710,7 +710,9 @@ static void pll_factors(struct _pll_div *pll_div, unsigned int target,
 	Nmod = target % source;
 	Kpart = FIXED_PLL_SIZE * (long long)Nmod;
 
-	do_div(Kpart, source);
+	// with this, gcc-4.4.2 emits the reference to uldivmod, but then optimizes it out
+	//do_div(Kpart, source);
+	__do_div_asm(Kpart, source);
 
 	K = Kpart & 0xFFFFFFFF;
 
