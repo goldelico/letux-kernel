@@ -167,6 +167,7 @@ struct isp_csi2_cfg {
 	struct isp_csi2_ctx_cfg contexts[8];
 	struct isp_csi2_timings_cfg timings[2];
 	struct isp_csi2_ctrl_cfg ctrl;
+	struct device *dev;
 };
 
 struct isp_csi2_cfg_update {
@@ -233,8 +234,8 @@ int isp_csi2_reset(void);
 void isp_csi2_enable(int enable);
 void isp_csi2_regdump(void);
 
-void ispcsi2_save_context(void);
-void ispcsi2_restore_context(void);
+void ispcsi2_save_context(struct device *dev);
+void ispcsi2_restore_context(struct device *dev);
 
 #endif	/* OMAP_ISP_CSI2_H */
 

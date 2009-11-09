@@ -149,9 +149,9 @@ void ispresizer_resume(void);
 
 int ispresizer_busy(void);
 
-void ispresizer_save_context(void);
+void ispresizer_save_context(struct device *dev);
 
-void ispresizer_restore_context(void);
+void ispresizer_restore_context(struct device *dev);
 
 void ispresizer_print_status(void);
 
