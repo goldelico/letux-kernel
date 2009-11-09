@@ -94,12 +94,12 @@ int isp_hist_configure(struct isp_hist_config *histcfg);
 
 int isp_hist_request_statistics(struct isp_hist_data *histdata);
 
-void isphist_save_context(void);
+void isphist_save_context(struct device *dev);
 
 void isp_hist_suspend(void);
 
 void isp_hist_resume(void);
 
-void isphist_restore_context(void);
+void isphist_restore_context(struct device *dev);
 
 #endif				/* OMAP_ISP_HIST */

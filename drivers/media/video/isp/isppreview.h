@@ -339,9 +339,9 @@ struct prev_params *isppreview_get_config(void);
 
 void isppreview_print_status(void);
 
-void isppreview_save_context(void);
+void isppreview_save_context(struct device *dev);
 
-void isppreview_restore_context(void);
+void isppreview_restore_context(struct device *dev);
 
 int omap34xx_isp_preview_config(void *userspace_add);
 

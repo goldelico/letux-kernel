@@ -31,66 +31,6 @@
 #include "isp_af.h"
 #include "ispmmu.h"
 
-/**
- * struct isp_af_buffer - AF frame stats buffer.
- * @virt_addr: Virtual address to mmap the buffer.
- * @phy_addr: Physical address of the buffer.
- * @addr_align: Virtual Address 32 bytes aligned.
- * @ispmmu_addr: Address of the buffer mapped by the ISPMMU.
- * @mmap_addr: Mapped memory area of buffer. For userspace access.
- * @locked: 1 - Buffer locked from write. 0 - Buffer can be overwritten.
- * @frame_num: Frame number from which the statistics are taken.
- * @lens_position: Lens position currently set in the DW9710 Coil motor driver.
- * @next: Pointer to link next buffer.
- */
-struct isp_af_buffer {
-	unsigned long virt_addr;
-	unsigned long phy_addr;
-	unsigned long addr_align;
-	unsigned long ispmmu_addr;
-	unsigned long mmap_addr;
-
-	u8 locked;
-	u16 frame_num;
-	u32 config_counter;
-	struct isp_af_xtrastats xtrastats;
-	struct isp_af_buffer *next;
-};
-
-/**
- * struct isp_af_status - AF status.
- * @initialized: 1 - Buffers initialized.
- * @update: 1 - Update registers.
- * @stats_req: 1 - Future stats requested.
- * @stats_done: 1 - Stats ready for user.
- * @frame_req: Number of frame requested for statistics.
- * @af_buff: Array of statistics buffers to access.
- * @stats_buf_size: Statistics buffer size.
- * @curr_cfg_buf_size: Current user configured stats buff size.
- * @min_buf_size: Minimum statisitics buffer size.
- * @frame_count: Frame Count.
- * @stats_wait: Wait primitive for locking/unlocking the stats request.
- * @buffer_lock: Spinlock for statistics buffers access.
- */
-static struct isp_af_status {
-	u8 initialized;
-	u8 update;
-	u8 stats_req;
-	u8 stats_done;
-	u16 frame_req;
-
-	struct isp_af_buffer af_buff[H3A_MAX_BUFF];
-	unsigned int stats_buf_size;
-	unsigned int min_buf_size;
-	unsigned int curr_cfg_buf_size;
-
-	int pm_state;
-	u32 frame_count;
-	wait_queue_head_t stats_wait;
-	atomic_t config_counter;
-	spinlock_t buffer_lock;		/* For stats buffers read/write sync */
-} afstat;
-
 struct af_device *af_dev_configptr;
 static struct isp_af_buffer *active_buff;
 static int af_major = -1;
@@ -103,7 +43,8 @@ static int camnotify;
  *
  * Called from update_vbq in camera driver
  **/
-void isp_af_setxtrastats(struct isp_af_xtrastats *xtrastats, u8 updateflag)
+void isp_af_setxtrastats(struct isp_af_device *isp_af,
+			 struct isp_af_xtrastats *xtrastats, u8 updateflag)
 {
 	int i, past_i;
 
@@ -111,7 +52,7 @@ void isp_af_setxtrastats(struct isp_af_xtrastats *xtrastats, u8 updateflag)
 		return;
 
 	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		if (afstat.af_buff[i].frame_num == active_buff->frame_num)
+		if (isp_af->af_buff[i].frame_num == active_buff->frame_num)
 			break;
 	}
 
@@ -119,27 +60,27 @@ void isp_af_setxtrastats(struct isp_af_xtrastats *xtrastats, u8 updateflag)
 		return;
 
 	if (i == 0) {
-		if (afstat.af_buff[H3A_MAX_BUFF - 1].locked == 0)
+		if (isp_af->af_buff[H3A_MAX_BUFF - 1].locked == 0)
 			past_i = H3A_MAX_BUFF - 1;
 		else
 			past_i = H3A_MAX_BUFF - 2;
 	} else if (i == 1) {
-		if (afstat.af_buff[0].locked == 0)
+		if (isp_af->af_buff[0].locked == 0)
 			past_i = 0;
 		else
 			past_i = H3A_MAX_BUFF - 1;
 	} else {
-		if (afstat.af_buff[i - 1].locked == 0)
+		if (isp_af->af_buff[i - 1].locked == 0)
 			past_i = i - 1;
 		else
 			past_i = i - 2;
 	}
 
 	if (updateflag & AF_UPDATEXS_TS)
-		afstat.af_buff[past_i].xtrastats.ts = xtrastats->ts;
+		isp_af->af_buff[past_i].xtrastats.ts = xtrastats->ts;
 
 	if (updateflag & AF_UPDATEXS_FIELDCOUNT)
-		afstat.af_buff[past_i].xtrastats.field_count =
+		isp_af->af_buff[past_i].xtrastats.field_count =
 			xtrastats->field_count;
 }
 EXPORT_SYMBOL(isp_af_setxtrastats);
@@ -147,9 +88,10 @@ EXPORT_SYMBOL(isp_af_setxtrastats);
 /*
  * Helper function to update buffer cache pages
  */
-static void isp_af_update_req_buffer(struct isp_af_buffer *buffer)
+static void isp_af_update_req_buffer(struct isp_af_device *isp_af,
+				     struct isp_af_buffer *buffer)
 {
-	int size = afstat.stats_buf_size;
+	int size = isp_af->stats_buf_size;
 
 	size = PAGE_ALIGN(size);
 	/* Update the kernel pages of the requested buffer */
@@ -161,7 +103,7 @@ static void isp_af_update_req_buffer(struct isp_af_buffer *buffer)
 	(((value) < (min)) || ((value) > (max)))
 
 /* Function to check paxel parameters */
-int isp_af_check_paxel(void)
+int isp_af_check_paxel(struct isp_af_device *isp_af)
 {
 	struct af_paxel *paxel_cfg = &af_dev_configptr->config->paxel_config;
 	struct af_iir *iir_cfg = &af_dev_configptr->config->iir_config;
@@ -222,7 +164,7 @@ int isp_af_check_paxel(void)
 /**
  * isp_af_check_iir - Function to check IIR Coefficient.
  **/
-int isp_af_check_iir(void)
+int isp_af_check_iir(struct isp_af_device *isp_af)
 {
 	struct af_iir *iir_cfg = &af_dev_configptr->config->iir_config;
 	int index;
@@ -252,35 +194,36 @@ int isp_af_check_iir(void)
 /**
  * isp_af_unlock_buffers - Helper function to unlock all buffers.
  **/
-static void isp_af_unlock_buffers(void)
+static void isp_af_unlock_buffers(struct isp_af_device *isp_af)
 {
 	int i;
 	unsigned long irqflags;
 
-	spin_lock_irqsave(&afstat.buffer_lock, irqflags);
+	spin_lock_irqsave(&isp_af->buffer_lock, irqflags);
 	for (i = 0; i < H3A_MAX_BUFF; i++)
-		afstat.af_buff[i].locked = 0;
+		isp_af->af_buff[i].locked = 0;
 
-	spin_unlock_irqrestore(&afstat.buffer_lock, irqflags);
+	spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
 }
 
 /*
  * Helper function to link allocated buffers
  */
-static void isp_af_link_buffers(void)
+static void isp_af_link_buffers(struct isp_af_device *isp_af)
 {
 	int i;
 
 	for (i = 0; i < H3A_MAX_BUFF; i++) {
 		if ((i + 1) < H3A_MAX_BUFF)
-			afstat.af_buff[i].next = &afstat.af_buff[i + 1];
+			isp_af->af_buff[i].next = &isp_af->af_buff[i + 1];
 		else
-			afstat.af_buff[i].next = &afstat.af_buff[0];
+			isp_af->af_buff[i].next = &isp_af->af_buff[0];
 	}
 }
 
 /* Function to perform hardware set up */
-int isp_af_configure(struct af_configuration *afconfig)
+int isp_af_configure(struct isp_af_device *isp_af,
+		     struct af_configuration *afconfig)
 {
 	int result;
 	int buff_size, i;
@@ -294,7 +237,7 @@ int isp_af_configure(struct af_configuration *afconfig)
 
 	memcpy(af_curr_cfg, afconfig, sizeof(struct af_configuration));
 	/* Get the value of PCR register */
-	busyaf = isp_reg_readl(OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
+	busyaf = isp_reg_readl(isp_af->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 
 	if ((busyaf & AF_BUSYAF) == AF_BUSYAF) {
 		DPRINTK_ISP_AF("AF_register_setup_ERROR : Engine Busy");
@@ -303,12 +246,12 @@ int isp_af_configure(struct af_configuration *afconfig)
 	}
 
 	/* Check IIR Coefficient and start Values */
-	result = isp_af_check_iir();
+	result = isp_af_check_iir(isp_af);
 	if (result < 0)
 		return result;
 
 	/* Check Paxel Values */
-	result = isp_af_check_paxel();
+	result = isp_af_check_paxel(isp_af);
 	if (result < 0)
 		return result;
 
@@ -322,75 +265,76 @@ int isp_af_configure(struct af_configuration *afconfig)
 	buff_size = (af_curr_cfg->paxel_config.hz_cnt + 1) *
 		(af_curr_cfg->paxel_config.vt_cnt + 1) * AF_PAXEL_SIZE;
 
-	afstat.curr_cfg_buf_size = buff_size;
+	isp_af->curr_cfg_buf_size = buff_size;
 	/* Deallocate the previous buffers */
-	if (afstat.stats_buf_size && buff_size > afstat.stats_buf_size) {
-		isp_af_enable(0);
+	if (isp_af->stats_buf_size && buff_size > isp_af->stats_buf_size) {
+		isp_af_enable(isp_af, 0);
 		for (i = 0; i < H3A_MAX_BUFF; i++) {
-			ispmmu_kunmap(afstat.af_buff[i].ispmmu_addr);
-			free_pages_exact((void *)afstat.af_buff[i].virt_addr,
-					afstat.min_buf_size);
-			afstat.af_buff[i].virt_addr = 0;
+			ispmmu_kunmap(isp_af->af_buff[i].ispmmu_addr);
+			free_pages_exact((void *)isp_af->af_buff[i].virt_addr,
+					isp_af->min_buf_size);
+			isp_af->af_buff[i].virt_addr = 0;
 		}
-		afstat.stats_buf_size = 0;
+		isp_af->stats_buf_size = 0;
 	}
 
-	if (!afstat.af_buff[0].virt_addr) {
-		afstat.stats_buf_size = buff_size;
-		afstat.min_buf_size = PAGE_ALIGN(afstat.stats_buf_size);
+	if (!isp_af->af_buff[0].virt_addr) {
+		isp_af->stats_buf_size = buff_size;
+		isp_af->min_buf_size = PAGE_ALIGN(isp_af->stats_buf_size);
 
 		for (i = 0; i < H3A_MAX_BUFF; i++) {
-			afstat.af_buff[i].virt_addr =
+			isp_af->af_buff[i].virt_addr =
 				(unsigned long)alloc_pages_exact(
-					afstat.min_buf_size,
+					isp_af->min_buf_size,
 					GFP_KERNEL | GFP_DMA);
-			if (afstat.af_buff[i].virt_addr == 0) {
+			if (isp_af->af_buff[i].virt_addr == 0) {
 				printk(KERN_ERR "Can't acquire memory for "
 				       "buffer[%d]\n", i);
 				return -ENOMEM;
 			}
-			afstat.af_buff[i].phy_addr = dma_map_single(NULL,
-					(void *)afstat.af_buff[i].virt_addr,
-					afstat.min_buf_size,
+			isp_af->af_buff[i].phy_addr = dma_map_single(NULL,
+					(void *)isp_af->af_buff[i].virt_addr,
+					isp_af->min_buf_size,
 					DMA_FROM_DEVICE);
-			afstat.af_buff[i].addr_align =
-				afstat.af_buff[i].virt_addr;
-			while ((afstat.af_buff[i].addr_align & 0xFFFFFFC0) !=
-			       afstat.af_buff[i].addr_align)
-				afstat.af_buff[i].addr_align++;
-			afstat.af_buff[i].ispmmu_addr =
-				ispmmu_kmap(afstat.af_buff[i].phy_addr,
-					    afstat.min_buf_size);
+			isp_af->af_buff[i].addr_align =
+				isp_af->af_buff[i].virt_addr;
+			while ((isp_af->af_buff[i].addr_align & 0xFFFFFFC0) !=
+			       isp_af->af_buff[i].addr_align)
+				isp_af->af_buff[i].addr_align++;
+			isp_af->af_buff[i].ispmmu_addr =
+				ispmmu_kmap(isp_af->af_buff[i].phy_addr,
+					    isp_af->min_buf_size);
 		}
-		isp_af_unlock_buffers();
-		isp_af_link_buffers();
+		isp_af_unlock_buffers(isp_af);
+		isp_af_link_buffers(isp_af);
 
 		/* First active buffer */
 		if (active_buff == NULL)
-			active_buff = &afstat.af_buff[0];
-		isp_af_set_address(active_buff->ispmmu_addr);
+			active_buff = &isp_af->af_buff[0];
+		isp_af_set_address(isp_af, active_buff->ispmmu_addr);
 	}
 
-	result = isp_af_register_setup(af_dev_configptr);
+	result = isp_af_register_setup(isp_af, af_dev_configptr);
 	if (result < 0)
 		return result;
 	af_dev_configptr->size_paxel = buff_size;
-	atomic_inc(&afstat.config_counter);
-	afstat.initialized = 1;
-	afstat.frame_count = 1;
+	atomic_inc(&isp_af->config_counter);
+	isp_af->initialized = 1;
+	isp_af->frame_count = 1;
 	active_buff->frame_num = 1;
 	/* Set configuration flag to indicate HW setup done */
 	if (af_curr_cfg->af_config)
-		isp_af_enable(1);
+		isp_af_enable(isp_af, 1);
 	else
-		isp_af_enable(0);
+		isp_af_enable(isp_af, 0);
 
 	/* Success */
 	return 0;
 }
 EXPORT_SYMBOL(isp_af_configure);
 
-int isp_af_register_setup(struct af_device *af_dev)
+int isp_af_register_setup(struct isp_af_device *isp_af,
+			  struct af_device *af_dev)
 {
 	unsigned int pcr = 0, pax1 = 0, pax2 = 0, paxstart = 0;
 	unsigned int coef = 0;
@@ -400,7 +344,7 @@ int isp_af_register_setup(struct af_device *af_dev)
 
 	/* Configure Hardware Registers */
 	/* Read PCR Register */
-	pcr = isp_reg_readl(OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
+	pcr = isp_reg_readl(isp_af->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 
 	/* Set Accumulator Mode */
 	if (af_dev->config->mode == ACCUMULATOR_PEAK)
@@ -431,7 +375,7 @@ int isp_af_register_setup(struct af_device *af_dev)
 		pcr &= ~AF_MED_EN;
 
 	/* Set PCR Register */
-	isp_reg_writel(pcr, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
+	isp_reg_writel(isp_af->dev, pcr, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 
 	pax1 &= ~PAXW;
 	pax1 |= af_dev->config->paxel_config.width << AF_PAXW_SHIFT;
@@ -440,7 +384,7 @@ int isp_af_register_setup(struct af_device *af_dev)
 	pax1 &= ~PAXH;
 	pax1 |= af_dev->config->paxel_config.height;
 
-	isp_reg_writel(pax1, OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX1);
+	isp_reg_writel(isp_af->dev, pax1, OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX1);
 
 	/* Configure AFPAX2 Register */
 	/* Set Line Increment in AFPAX2 Register */
@@ -452,7 +396,7 @@ int isp_af_register_setup(struct af_device *af_dev)
 	/* Set Horizontal Count */
 	pax2 &= ~PAXHC;
 	pax2 |= af_dev->config->paxel_config.hz_cnt;
-	isp_reg_writel(pax2, OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX2);
+	isp_reg_writel(isp_af->dev, pax2, OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAX2);
 
 	/* Configure PAXSTART Register */
 	/*Configure Horizontal Start */
@@ -461,10 +405,11 @@ int isp_af_register_setup(struct af_device *af_dev)
 	/* Configure Vertical Start */
 	paxstart &= ~PAXSV;
 	paxstart |= af_dev->config->paxel_config.vt_start;
-	isp_reg_writel(paxstart, OMAP3_ISP_IOMEM_H3A, ISPH3A_AFPAXSTART);
+	isp_reg_writel(isp_af->dev, paxstart, OMAP3_ISP_IOMEM_H3A,
+		       ISPH3A_AFPAXSTART);
 
 	/*SetIIRSH Register */
-	isp_reg_writel(af_dev->config->iir_config.hz_start_pos,
+	isp_reg_writel(isp_af->dev, af_dev->config->iir_config.hz_start_pos,
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AFIIRSH);
 
 	/*Set IIR Filter0 Coefficients */
@@ -475,12 +420,13 @@ int isp_af_register_setup(struct af_device *af_dev)
 		coef &= ~COEF_MASK1;
 		coef |= af_dev->config->iir_config.coeff_set0[index + 1] <<
 			AF_COEF_SHIFT;
-		isp_reg_writel(coef, OMAP3_ISP_IOMEM_H3A, base_coef_set0);
+		isp_reg_writel(isp_af->dev, coef, OMAP3_ISP_IOMEM_H3A,
+			       base_coef_set0);
 		base_coef_set0 = base_coef_set0 + AFCOEF_OFFSET;
 	}
 
 	/* set AFCOEF0010 Register */
-	isp_reg_writel(af_dev->config->iir_config.coeff_set0[10],
+	isp_reg_writel(isp_af->dev, af_dev->config->iir_config.coeff_set0[10],
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF010);
 
 	/*Set IIR Filter1 Coefficients */
@@ -492,65 +438,68 @@ int isp_af_register_setup(struct af_device *af_dev)
 		coef &= ~COEF_MASK1;
 		coef |= af_dev->config->iir_config.coeff_set1[index + 1] <<
 			AF_COEF_SHIFT;
-		isp_reg_writel(coef, OMAP3_ISP_IOMEM_H3A, base_coef_set1);
+		isp_reg_writel(isp_af->dev, coef, OMAP3_ISP_IOMEM_H3A,
+			       base_coef_set1);
 
 		base_coef_set1 = base_coef_set1 + AFCOEF_OFFSET;
 	}
-	isp_reg_writel(af_dev->config->iir_config.coeff_set1[10],
+	isp_reg_writel(isp_af->dev, af_dev->config->iir_config.coeff_set1[10],
 		       OMAP3_ISP_IOMEM_H3A, ISPH3A_AFCOEF1010);
 
 	return 0;
 }
 
 /* Function to set address */
-void isp_af_set_address(unsigned long address)
+void isp_af_set_address(struct isp_af_device *isp_af, unsigned long address)
 {
-	isp_reg_writel(address, OMAP3_ISP_IOMEM_H3A, ISPH3A_AFBUFST);
+	isp_reg_writel(isp_af->dev, address, OMAP3_ISP_IOMEM_H3A,
+		       ISPH3A_AFBUFST);
 }
 
-static int isp_af_stats_available(struct isp_af_data *afdata)
+static int isp_af_stats_available(struct isp_af_device *isp_af,
+				  struct isp_af_data *afdata)
 {
 	int i, ret;
 	unsigned long irqflags;
 
-	spin_lock_irqsave(&afstat.buffer_lock, irqflags);
+	spin_lock_irqsave(&isp_af->buffer_lock, irqflags);
 	for (i = 0; i < H3A_MAX_BUFF; i++) {
 		DPRINTK_ISP_AF("Checking Stats buff[%d] (%d) for %d\n",
-			       i, afstat.af_buff[i].frame_num,
+			       i, isp_af->af_buff[i].frame_num,
 			       afdata->frame_number);
-		if (afdata->frame_number == afstat.af_buff[i].frame_num
-		    && afstat.af_buff[i].frame_num != active_buff->frame_num) {
-			afstat.af_buff[i].locked = 1;
-			spin_unlock_irqrestore(&afstat.buffer_lock, irqflags);
-			isp_af_update_req_buffer(&afstat.af_buff[i]);
-			afstat.af_buff[i].frame_num = 0;
+		if (afdata->frame_number == isp_af->af_buff[i].frame_num
+		    && isp_af->af_buff[i].frame_num != active_buff->frame_num) {
+			isp_af->af_buff[i].locked = 1;
+			spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
+			isp_af_update_req_buffer(isp_af, &isp_af->af_buff[i]);
+			isp_af->af_buff[i].frame_num = 0;
 			ret = copy_to_user((void *)afdata->af_statistics_buf,
-					   (void *)afstat.af_buff[i].virt_addr,
-					   afstat.curr_cfg_buf_size);
+					   (void *)isp_af->af_buff[i].virt_addr,
+					   isp_af->curr_cfg_buf_size);
 			if (ret) {
 				printk(KERN_ERR "Failed copy_to_user for "
 				       "H3A stats buff, %d\n", ret);
 			}
-			afdata->xtrastats.ts = afstat.af_buff[i].xtrastats.ts;
+			afdata->xtrastats.ts = isp_af->af_buff[i].xtrastats.ts;
 			afdata->xtrastats.field_count =
-				afstat.af_buff[i].xtrastats.field_count;
+				isp_af->af_buff[i].xtrastats.field_count;
 			return 0;
 		}
 	}
-	spin_unlock_irqrestore(&afstat.buffer_lock, irqflags);
+	spin_unlock_irqrestore(&isp_af->buffer_lock, irqflags);
 	/* Stats unavailable */
 
 	return -1;
 }
 
-void isp_af_notify(int notify)
+void isp_af_notify(struct isp_af_device *isp_af, int notify)
 {
 	camnotify = notify;
-	if (camnotify && afstat.initialized) {
+	if (camnotify && isp_af->initialized) {
 		printk(KERN_DEBUG "Warning Camera Off \n");
-		afstat.stats_req = 0;
-		afstat.stats_done = 1;
-		wake_up_interruptible(&afstat.stats_wait);
+		isp_af->stats_req = 0;
+		isp_af->stats_done = 1;
+		wake_up_interruptible(&isp_af->stats_wait);
 	}
 }
 EXPORT_SYMBOL(isp_af_notify);
@@ -559,11 +508,12 @@ EXPORT_SYMBOL(isp_af_notify);
  * exposure time and analog gain. It is also used to request frame
  * statistics.
  */
-int isp_af_request_statistics(struct isp_af_data *afdata)
+int isp_af_request_statistics(struct isp_af_device *isp_af,
+			      struct isp_af_data *afdata)
 {
 	int ret = 0;
 	u16 frame_diff = 0;
-	u16 frame_cnt = afstat.frame_count;
+	u16 frame_cnt = isp_af->frame_count;
 	wait_queue_t wqt;
 
 	if (!af_dev_configptr->config->af_config) {
@@ -576,10 +526,10 @@ int isp_af_request_statistics(struct isp_af_data *afdata)
 		goto out;
 	}
 
-	isp_af_unlock_buffers();
+	isp_af_unlock_buffers(isp_af);
 	/* Stats available? */
 	DPRINTK_ISP_AF("Stats available?\n");
-	ret = isp_af_stats_available(afdata);
+	ret = isp_af_stats_available(isp_af, afdata);
 	if (!ret)
 		goto out;
 
@@ -605,12 +555,12 @@ int isp_af_request_statistics(struct isp_af_data *afdata)
 	}
 	if (!camnotify) {
 		/* Block until frame in near future completes */
-		afstat.frame_req = afdata->frame_number;
-		afstat.stats_req = 1;
-		afstat.stats_done = 0;
+		isp_af->frame_req = afdata->frame_number;
+		isp_af->stats_req = 1;
+		isp_af->stats_done = 0;
 		init_waitqueue_entry(&wqt, current);
-		ret = wait_event_interruptible(afstat.stats_wait,
-					       afstat.stats_done == 1);
+		ret = wait_event_interruptible(isp_af->stats_wait,
+					       isp_af->stats_done == 1);
 		if (ret < 0) {
 			afdata->af_statistics_buf = NULL;
 			return ret;
@@ -618,7 +568,7 @@ int isp_af_request_statistics(struct isp_af_data *afdata)
 		DPRINTK_ISP_AF("ISP AF request status interrupt raised\n");
 
 		/* Stats now available */
-		ret = isp_af_stats_available(afdata);
+		ret = isp_af_stats_available(isp_af, afdata);
 		if (ret) {
 			printk(KERN_ERR "After waiting for stats, stats not"
 			       " available!!\n");
@@ -627,7 +577,7 @@ int isp_af_request_statistics(struct isp_af_data *afdata)
 	}
 
 out:
-	afdata->curr_frame = afstat.frame_count;
+	afdata->curr_frame = isp_af->frame_count;
 
 	return 0;
 }
@@ -637,6 +587,7 @@ EXPORT_SYMBOL(isp_af_request_statistics);
 static void isp_af_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 		       void *arg2)
 {
+	struct isp_af_device *isp_af = (struct isp_af_device *)arg2;
 	u16 frame_align;
 
 	if ((H3A_AF_DONE & status) != H3A_AF_DONE)
@@ -644,99 +595,103 @@ static void isp_af_isr(unsigned long status, isp_vbq_callback_ptr arg1,
 
 	/* timestamp stats buffer */
 	do_gettimeofday(&active_buff->xtrastats.ts);
-	active_buff->config_counter = atomic_read(&afstat.config_counter);
+	active_buff->config_counter = atomic_read(&isp_af->config_counter);
 
 	/* Exchange buffers */
 	active_buff = active_buff->next;
 	if (active_buff->locked == 1)
 		active_buff = active_buff->next;
-	isp_af_set_address(active_buff->ispmmu_addr);
+	isp_af_set_address(isp_af, active_buff->ispmmu_addr);
 
 	/* Update frame counter */
-	afstat.frame_count++;
-	frame_align = afstat.frame_count;
-	if (afstat.frame_count > MAX_FRAME_COUNT) {
-		afstat.frame_count = 1;
+	isp_af->frame_count++;
+	frame_align = isp_af->frame_count;
+	if (isp_af->frame_count > MAX_FRAME_COUNT) {
+		isp_af->frame_count = 1;
 		frame_align++;
 	}
-	active_buff->frame_num = afstat.frame_count;
+	active_buff->frame_num = isp_af->frame_count;
 
 	/* Future Stats requested? */
-	if (afstat.stats_req) {
+	if (isp_af->stats_req) {
 		/* Is the frame we want already done? */
-		if (frame_align >= afstat.frame_req + 1) {
-			afstat.stats_req = 0;
-			afstat.stats_done = 1;
-			wake_up_interruptible(&afstat.stats_wait);
+		if (frame_align >= isp_af->frame_req + 1) {
+			isp_af->stats_req = 0;
+			isp_af->stats_done = 1;
+			wake_up_interruptible(&isp_af->stats_wait);
 		}
 	}
 }
 
-int __isp_af_enable(int enable)
+int __isp_af_enable(struct isp_af_device *isp_af, int enable)
 {
 	unsigned int pcr;
 
-	pcr = isp_reg_readl(OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
+	pcr = isp_reg_readl(isp_af->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 
 	/* Set AF_EN bit in PCR Register */
 	if (enable) {
-		if (isp_set_callback(CBK_H3A_AF_DONE, isp_af_isr,
-				     (void *)NULL, (void *)NULL)) {
+		if (isp_set_callback(isp_af->dev, CBK_H3A_AF_DONE, isp_af_isr,
+				     (void *)NULL, isp_af)) {
 			printk(KERN_ERR "No callback for AF\n");
 			return -EINVAL;
 		}
 
 		pcr |= AF_EN;
 	} else {
-		isp_unset_callback(CBK_H3A_AF_DONE);
+		isp_unset_callback(isp_af->dev, CBK_H3A_AF_DONE);
 		pcr &= ~AF_EN;
 	}
-	isp_reg_writel(pcr, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
+	isp_reg_writel(isp_af->dev, pcr, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR);
 	return 0;
 }
 
 /* Function to Enable/Disable AF Engine */
-int isp_af_enable(int enable)
+int isp_af_enable(struct isp_af_device *isp_af, int enable)
 {
 	int rval;
 
-	rval = __isp_af_enable(enable);
+	rval = __isp_af_enable(isp_af, enable);
 
 	if (!rval)
-		afstat.pm_state = enable;
+		isp_af->pm_state = enable;
 
 	return rval;
 }
 
 /* Function to Suspend AF Engine */
-void isp_af_suspend(void)
+void isp_af_suspend(struct isp_af_device *isp_af)
 {
-	if (afstat.pm_state)
-		__isp_af_enable(0);
+	if (isp_af->pm_state)
+		__isp_af_enable(isp_af, 0);
 }
 
 /* Function to Resume AF Engine */
-void isp_af_resume(void)
+void isp_af_resume(struct isp_af_device *isp_af)
 {
-	if (afstat.pm_state)
-		__isp_af_enable(1);
+	if (isp_af->pm_state)
+		__isp_af_enable(isp_af, 1);
 }
 
-int isp_af_busy(void)
+int isp_af_busy(struct isp_af_device *isp_af)
 {
-	return isp_reg_readl(OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR)
+	return isp_reg_readl(isp_af->dev, OMAP3_ISP_IOMEM_H3A, ISPH3A_PCR)
 		& ISPH3A_PCR_BUSYAF;
 }
 
 /* Function to register the AF character device driver. */
-int __init isp_af_init(void)
+int __init isp_af_init(struct device *dev)
 {
+	struct isp_device *isp = dev_get_drvdata(dev);
+	struct isp_af_device *isp_af = &isp->isp_af;
+
 	/*allocate memory for device structure and initialize it with 0 */
 	af_dev_configptr = kzalloc(sizeof(struct af_device), GFP_KERNEL);
 	if (!af_dev_configptr)
 		goto err_nomem1;
 
 	active_buff = NULL;
+	isp_af->dev = dev;
 
 	af_dev_configptr->config = (struct af_configuration *)
 		kzalloc(sizeof(struct af_configuration), GFP_KERNEL);
@@ -744,10 +699,8 @@ int __init isp_af_init(void)
 	if (af_dev_configptr->config == NULL)
 		goto err_nomem2;
 
-	memset(&afstat, 0, sizeof(afstat));
-
-	init_waitqueue_head(&afstat.stats_wait);
-	spin_lock_init(&afstat.buffer_lock);
+	init_waitqueue_head(&isp_af->stats_wait);
+	spin_lock_init(&isp_af->buffer_lock);
 
 	return 0;
 
@@ -758,26 +711,26 @@ err_nomem1:
 	return -ENOMEM;
 }
 
-void isp_af_exit(void)
+void isp_af_exit(struct device *dev)
 {
+	struct isp_device *isp = dev_get_drvdata(dev);
+	struct isp_af_device *isp_af = &isp->isp_af;
 	int i;
 
 	/* Free buffers */
 	for (i = 0; i < H3A_MAX_BUFF; i++) {
-		if (!afstat.af_buff[i].phy_addr)
+		if (!isp_af->af_buff[i].phy_addr)
 			continue;
 
-		ispmmu_kunmap(afstat.af_buff[i].ispmmu_addr);
+		ispmmu_kunmap(isp_af->af_buff[i].ispmmu_addr);
 
 		dma_free_coherent(NULL,
-				  afstat.min_buf_size,
-				  (void *)afstat.af_buff[i].virt_addr,
-				  (dma_addr_t)afstat.af_buff[i].phy_addr);
+				  isp_af->min_buf_size,
+				  (void *)isp_af->af_buff[i].virt_addr,
+				  (dma_addr_t)isp_af->af_buff[i].phy_addr);
 	}
 	kfree(af_dev_configptr->config);
 	kfree(af_dev_configptr);
-
-	memset(&afstat, 0, sizeof(afstat));
 
 	af_major = -1;
 }

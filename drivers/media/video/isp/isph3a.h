@@ -109,9 +109,9 @@ int isph3a_aewb_configure(struct isph3a_aewb_config *aewbcfg);
 
 int isph3a_aewb_request_statistics(struct isph3a_aewb_data *aewbdata);
 
-void isph3a_save_context(void);
+void isph3a_save_context(struct device *dev);
 
-void isph3a_restore_context(void);
+void isph3a_restore_context(struct device *dev);
 
 void isph3a_aewb_enable(u8 enable);
 

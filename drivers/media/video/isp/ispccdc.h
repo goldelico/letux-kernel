@@ -188,13 +188,13 @@ void ispccdc_suspend(void);
 
 void ispccdc_resume(void);
 
-int ispccdc_sbl_busy(void);
+int ispccdc_sbl_busy(void *_isp_ccdc);
 
 int ispccdc_busy(void);
 
-void ispccdc_save_context(void);
+void ispccdc_save_context(struct device *dev);
 
-void ispccdc_restore_context(void);
+void ispccdc_restore_context(struct device *dev);
 
 void ispccdc_print_status(void);
 

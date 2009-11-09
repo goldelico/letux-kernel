@@ -44,6 +44,7 @@ struct isp_hist_status {
 	u8 frame_cnt;
 	u8 frame_req;
 	u8 completed;
+	struct device *dev;
 } histstat;
 
 /**
@@ -128,8 +129,8 @@ void __isp_hist_enable(u8 enable)
 	else
 		DPRINTK_ISPHIST("   histogram disabled \n");
 
-	isp_reg_and_or(OMAP3_ISP_IOMEM_HIST, ISPHIST_PCR, ~ISPHIST_PCR_EN,
-						(enable ? ISPHIST_PCR_EN : 0));
+	isp_reg_and_or(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_PCR,
+		       ~ISPHIST_PCR_EN,	(enable ? ISPHIST_PCR_EN : 0));
 	histstat.hist_enable = enable;
 }
 
@@ -166,7 +167,7 @@ void isp_hist_resume(void)
 
 int isp_hist_busy(void)
 {
-	return isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_PCR) &
+	return isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_PCR) &
 		ISPHIST_PCR_BUSY;
 }
 
@@ -176,36 +177,38 @@ int isp_hist_busy(void)
  **/
 static void isp_hist_update_regs(void)
 {
-	isp_reg_writel(hist_regs.reg_pcr, OMAP3_ISP_IOMEM_HIST, ISPHIST_PCR);
-	isp_reg_writel(hist_regs.reg_cnt, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT);
-	isp_reg_writel(hist_regs.reg_wb_gain, OMAP3_ISP_IOMEM_HIST,
-		       ISPHIST_WB_GAIN);
-	isp_reg_writel(hist_regs.reg_r0_h, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(histstat.dev, hist_regs.reg_pcr, OMAP3_ISP_IOMEM_HIST,
+		       ISPHIST_PCR);
+	isp_reg_writel(histstat.dev, hist_regs.reg_cnt, OMAP3_ISP_IOMEM_HIST,
+		       ISPHIST_CNT);
+	isp_reg_writel(histstat.dev, hist_regs.reg_wb_gain,
+		       OMAP3_ISP_IOMEM_HIST, ISPHIST_WB_GAIN);
+	isp_reg_writel(histstat.dev, hist_regs.reg_r0_h, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R0_HORZ);
-	isp_reg_writel(hist_regs.reg_r0_v, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(histstat.dev, hist_regs.reg_r0_v, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R0_VERT);
-	isp_reg_writel(hist_regs.reg_r1_h, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(histstat.dev, hist_regs.reg_r1_h, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R1_HORZ);
-	isp_reg_writel(hist_regs.reg_r1_v, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(histstat.dev, hist_regs.reg_r1_v, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R1_VERT);
-	isp_reg_writel(hist_regs.reg_r2_h, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(histstat.dev, hist_regs.reg_r2_h, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R2_HORZ);
-	isp_reg_writel(hist_regs.reg_r2_v, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(histstat.dev, hist_regs.reg_r2_v, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R2_VERT);
-	isp_reg_writel(hist_regs.reg_r3_h, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(histstat.dev, hist_regs.reg_r3_h, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R3_HORZ);
-	isp_reg_writel(hist_regs.reg_r3_v, OMAP3_ISP_IOMEM_HIST,
+	isp_reg_writel(histstat.dev, hist_regs.reg_r3_v, OMAP3_ISP_IOMEM_HIST,
 		       ISPHIST_R3_VERT);
-	isp_reg_writel(hist_regs.reg_hist_addr, OMAP3_ISP_IOMEM_HIST,
-		       ISPHIST_ADDR);
-	isp_reg_writel(hist_regs.reg_hist_data, OMAP3_ISP_IOMEM_HIST,
-		       ISPHIST_DATA);
-	isp_reg_writel(hist_regs.reg_hist_radd, OMAP3_ISP_IOMEM_HIST,
-		       ISPHIST_RADD);
-	isp_reg_writel(hist_regs.reg_hist_radd_off, OMAP3_ISP_IOMEM_HIST,
-		       ISPHIST_RADD_OFF);
-	isp_reg_writel(hist_regs.reg_h_v_info, OMAP3_ISP_IOMEM_HIST,
-		       ISPHIST_H_V_INFO);
+	isp_reg_writel(histstat.dev, hist_regs.reg_hist_addr,
+		       OMAP3_ISP_IOMEM_HIST, ISPHIST_ADDR);
+	isp_reg_writel(histstat.dev, hist_regs.reg_hist_data,
+		       OMAP3_ISP_IOMEM_HIST, ISPHIST_DATA);
+	isp_reg_writel(histstat.dev, hist_regs.reg_hist_radd,
+		       OMAP3_ISP_IOMEM_HIST, ISPHIST_RADD);
+	isp_reg_writel(histstat.dev, hist_regs.reg_hist_radd_off,
+		       OMAP3_ISP_IOMEM_HIST, ISPHIST_RADD_OFF);
+	isp_reg_writel(histstat.dev, hist_regs.reg_h_v_info,
+		       OMAP3_ISP_IOMEM_HIST, ISPHIST_H_V_INFO);
 }
 
 /**
@@ -242,12 +245,14 @@ static int isp_hist_reset_mem(void)
 {
 	int i;
 
-	isp_reg_or(OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT, ISPHIST_CNT_CLR_EN);
+	isp_reg_or(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
+		   ISPHIST_CNT_CLR_EN);
 
 	for (i = 0; i < HIST_MEM_SIZE; i++)
-		isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_DATA);
+		isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_DATA);
 
-	isp_reg_and(OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT, ~ISPHIST_CNT_CLR_EN);
+	isp_reg_and(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
+		    ~ISPHIST_CNT_CLR_EN);
 
 	return 0;
 }
@@ -468,8 +473,9 @@ int isp_hist_configure(struct isp_hist_config *histcfg)
 
 	if (!histstat.initialized) {
 		DPRINTK_ISPHIST("Setting callback for HISTOGRAM\n");
-		ret = isp_set_callback(CBK_HIST_DONE, isp_hist_isr,
-				       (void *)NULL, (void *)NULL);
+		ret = isp_set_callback(histstat.dev, CBK_HIST_DONE,
+				       isp_hist_isr, (void *)NULL,
+				       (void *)NULL);
 		if (ret) {
 			printk(KERN_ERR "No callback for HIST\n");
 			return ret;
@@ -510,10 +516,12 @@ int isp_hist_request_statistics(struct isp_hist_data *histdata)
 	if (!histstat.completed && histstat.initialized)
 		return -EINVAL;
 
-	isp_reg_or(OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT, ISPHIST_CNT_CLR_EN);
+	isp_reg_or(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
+		   ISPHIST_CNT_CLR_EN);
 
 	for (i = 0; i < HIST_MEM_SIZE; i++) {
-		curr = isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_DATA);
+		curr = isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				     ISPHIST_DATA);
 		ret = put_user(curr, histdata->hist_statistics_buf + i);
 		if (ret) {
 			printk(KERN_ERR "Failed copy_to_user for "
@@ -521,7 +529,7 @@ int isp_hist_request_statistics(struct isp_hist_data *histdata)
 		}
 	}
 
-	isp_reg_and(OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
+	isp_reg_and(histstat.dev, OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT,
 		    ~ISPHIST_CNT_CLR_EN);
 	histstat.completed = 0;
 	return 0;
@@ -533,10 +541,12 @@ EXPORT_SYMBOL(isp_hist_request_statistics);
  *
  * Returns 0 if successful.
  **/
-int __init isp_hist_init(void)
+int __init isp_hist_init(struct device *dev)
 {
 	memset(&histstat, 0, sizeof(histstat));
 	memset(&hist_regs, 0, sizeof(hist_regs));
+
+	histstat.dev = dev;
 
 	return 0;
 }
@@ -544,7 +554,7 @@ int __init isp_hist_init(void)
 /**
  * isp_hist_cleanup - Module cleanup.
  **/
-void isp_hist_cleanup(void)
+void isp_hist_cleanup(struct device *dev)
 {
 	memset(&histstat, 0, sizeof(histstat));
 	memset(&hist_regs, 0, sizeof(hist_regs));
@@ -553,20 +563,20 @@ void isp_hist_cleanup(void)
 /**
  * isphist_save_context - Saves the values of the histogram module registers.
  **/
-void isphist_save_context(void)
+void isphist_save_context(struct device *dev)
 {
 	DPRINTK_ISPHIST(" Saving context\n");
-	isp_save_context(isphist_reg_list);
+	isp_save_context(dev, isphist_reg_list);
 }
 EXPORT_SYMBOL(isphist_save_context);
 
 /**
  * isphist_restore_context - Restores the values of the histogram module regs.
  **/
-void isphist_restore_context(void)
+void isphist_restore_context(struct device *dev)
 {
 	DPRINTK_ISPHIST(" Restoring context\n");
-	isp_restore_context(isphist_reg_list);
+	isp_restore_context(dev, isphist_reg_list);
 }
 EXPORT_SYMBOL(isphist_restore_context);
 
@@ -576,33 +586,48 @@ EXPORT_SYMBOL(isphist_restore_context);
 static void isp_hist_print_status(void)
 {
 	DPRINTK_ISPHIST("ISPHIST_PCR = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_PCR));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_PCR));
 	DPRINTK_ISPHIST("ISPHIST_CNT = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_CNT));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_CNT));
 	DPRINTK_ISPHIST("ISPHIST_WB_GAIN = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_WB_GAIN));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_WB_GAIN));
 	DPRINTK_ISPHIST("ISPHIST_R0_HORZ = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_R0_HORZ));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_R0_HORZ));
 	DPRINTK_ISPHIST("ISPHIST_R0_VERT = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_R0_VERT));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_R0_VERT));
 	DPRINTK_ISPHIST("ISPHIST_R1_HORZ = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_R1_HORZ));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_R1_HORZ));
 	DPRINTK_ISPHIST("ISPHIST_R1_VERT = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_R1_VERT));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_R1_VERT));
 	DPRINTK_ISPHIST("ISPHIST_R2_HORZ = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_R2_HORZ));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_R2_HORZ));
 	DPRINTK_ISPHIST("ISPHIST_R2_VERT = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_R2_VERT));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_R2_VERT));
 	DPRINTK_ISPHIST("ISPHIST_R3_HORZ = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_R3_HORZ));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_R3_HORZ));
 	DPRINTK_ISPHIST("ISPHIST_R3_VERT = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_R3_VERT));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_R3_VERT));
 	DPRINTK_ISPHIST("ISPHIST_ADDR = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_ADDR));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_ADDR));
 	DPRINTK_ISPHIST("ISPHIST_RADD = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_RADD));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_RADD));
 	DPRINTK_ISPHIST("ISPHIST_RADD_OFF = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_RADD_OFF));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_RADD_OFF));
 	DPRINTK_ISPHIST("ISPHIST_H_V_INFO = 0x%08x\n",
-			isp_reg_readl(OMAP3_ISP_IOMEM_HIST, ISPHIST_H_V_INFO));
+			isp_reg_readl(histstat.dev, OMAP3_ISP_IOMEM_HIST,
+				      ISPHIST_H_V_INFO));
 }
