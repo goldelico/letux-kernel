@@ -55,7 +55,19 @@
 #define HDMI_TXPHY_DIGITAL_CTRL			0x4ul
 #define HDMI_TXPHY_POWER_CTRL			0x8ul
 
-
+/* CEA861D_CODE1 */
+const struct omap_video_timings omap_dss_hdmi_timings3 = {
+	.x_res = 640,
+	.y_res = 480,
+	.pixel_clock = 25200,
+	.hsw = 96,
+	.hfp = 16,
+	.hbp = 48,
+	.vsw = 2,
+	.vfp = 10,
+	.vbp = 33,
+};
+/* CEA861D_CODE4 */
 const struct omap_video_timings omap_dss_hdmi_timings2 = {
 	.x_res = 1280,
 	.y_res = 720,
@@ -67,22 +79,11 @@ const struct omap_video_timings omap_dss_hdmi_timings2 = {
 	.vfp = 5,
 	.vbp = 20,
 };
+/* CEA861D_CODE16 */
 const struct omap_video_timings omap_dss_hdmi_timings = {
-	.x_res = 640,
-	.y_res = 480,
-	.pixel_clock = 74250,
-	.hsw = 96,
-	.hfp = 16,
-	.hbp = 48,
-	.vsw = 2,
-	.vfp = 10,
-	.vbp = 33,
-};
-
-const struct omap_video_timings omap_dss_hdmi_timings3 = {
 	.x_res = 1920,
 	.y_res = 1080,
-	.pixel_clock = 74250,
+	.pixel_clock = 148500,
 	.hsw = 44,
 	.hfp = 88,
 	.hbp = 148,
@@ -90,7 +91,6 @@ const struct omap_video_timings omap_dss_hdmi_timings3 = {
 	.vfp = 4,
 	.vbp = 36,
 };
-
 
 static struct {
 	void __iomem *base_phy;
@@ -173,13 +173,10 @@ typedef struct hdmi_pll_info {
 } hdmi_pll_info;
 
 /* HDMI TRM Page 53 */
-static const hdmi_pll_info coef_hdmi[6] = {
+static const hdmi_pll_info coef_hdmi[3] = {
 	{15, 105, 0, 4},	/*  CEA861D_CODE1 */
-	{15, 309, 98304, 14},	/*  CEA861D_CODE4 */
-	{15, 309, 98304, 14},	/*  CEA861D_CODE1 */
-	{15, 618, 196608, 28},	/*  CEA861D_CODE16 */
-	{15, 618, 34568, 1},	/*  CEA861D_CODE1 */
-	{9, 65, 0, 1},		/*  test */
+	{15, 309, 98304, 7},	/*  CEA861D_CODE4 */
+	{15, 618, 196608, 14},	/*  CEA861D_CODE16 */
 };
 
 static void compute_pll(int clkin, int phy,
@@ -306,10 +303,11 @@ static int hdmi_pll_reset(void)
 	return 0;
 }
 
-int hdmi_pll_program(struct hdmi_pll_info *format)
+int hdmi_pll_program(struct hdmi_pll_info *fmt)
 {
 	u32 r;
 	int refsel, range;
+	int pclk;
 
 	HDMI_PllPwr_t PllPwrWaitParam;
 
@@ -332,10 +330,17 @@ int hdmi_pll_program(struct hdmi_pll_info *format)
 
 	hdmi_pll_reset();
 
-	refsel = 0x3; /* select SYSCLK reference */
-	range = 0;
+	pclk = (fmt->regm * 384)/((fmt->regn + 1) * 10);
+	DSSDBG("pclk = %d\n", pclk);
 
-	r = hdmi_pll_init(refsel, range, format);
+	if (pclk > 1000)
+		range = 1;
+	else
+		range = 0;
+
+	refsel = 0x3; /* select SYSCLK reference */
+
+	r = hdmi_pll_init(refsel, range, fmt);
 
 	return r;
 
@@ -497,15 +502,21 @@ void hdmi_exit(void)
 
 static int hdmi_power_on(struct omap_dss_device *dssdev)
 {
-	int format = 1;
+	int format, pll_idx;
 	int r;
 	hdmi_pll_info *ptr;
 
 	/* use EDID in the future */
-	if (1280 == dssdev->panel.timings.x_res)
-		format = 4;
-	else if (1920 == dssdev->panel.timings.x_res)
+	if (1920 == dssdev->panel.timings.x_res) {
 		format = 16;
+		pll_idx = 2;
+	} else if (1280 == dssdev->panel.timings.x_res) {
+		format = 4;
+		pll_idx = 1;
+	} else {
+		format = 1;
+		pll_idx = 0;
+	}
 
 	hdmi_enable_clocks(1);
 
@@ -519,7 +530,7 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 	dispc_go(OMAP_DSS_CHANNEL_DIGIT);
 
 	/* config the PLL and PHY first */
-	ptr = &coef_hdmi[0]; /* index 0 for VGA */
+	ptr = &coef_hdmi[pll_idx];
 	r = hdmi_pll_program(ptr);
 
 	if (r)
@@ -690,7 +701,12 @@ int hdmi_init_display(struct omap_dss_device *dssdev)
 }
 
 
+#define HDMI_EDID_MAX_LENGTH 256
 
+void hdmi_read_edid(void)
+{
+	u32 edid[HDMI_EDID_MAX_LENGTH];
 
-
-
+	memset(edid, 0, HDMI_EDID_MAX_LENGTH);
+	/* HDMI_CORE_DDC_READEDID(HDMI_CORE_SYS, edid); */
+}
