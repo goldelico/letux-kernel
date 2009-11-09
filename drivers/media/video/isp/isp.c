@@ -45,6 +45,7 @@
 #include "ispcsi2.h"
 
 static struct isp_device *omap3isp;
+static int isp_complete_reset = 1;
 
 static int isp_try_size(struct v4l2_pix_format *pix_input,
 			struct v4l2_pix_format *pix_output);
@@ -455,7 +456,12 @@ static int ispccdc_sbl_wait_idle(int max_wait)
 
 static void isp_enable_interrupts(void)
 {
-	isp_reg_writel(-1, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+	if (isp_complete_reset) {
+		isp_reg_writel(-1, OMAP3_ISP_IOMEM_MAIN,
+			ISP_IRQ0STATUS);
+		isp_complete_reset = 0;
+	}
+
 	isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 		   IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
 		   IRQ0ENABLE_HS_VS_IRQ |
@@ -477,12 +483,20 @@ static void isp_enable_interrupts(void)
 static void isp_disable_interrupts(void)
 {
 	isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-		    ~(IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
-		      IRQ0ENABLE_HS_VS_IRQ |
-		      IRQ0ENABLE_CCDC_VD0_IRQ |
-		      IRQ0ENABLE_CCDC_VD1_IRQ |
-		      IRQ0ENABLE_PRV_DONE_IRQ |
-		      IRQ0ENABLE_RSZ_DONE_IRQ));
+		~(IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
+		IRQ0ENABLE_HS_VS_IRQ |
+		IRQ0ENABLE_CCDC_VD0_IRQ |
+		IRQ0ENABLE_CCDC_VD1_IRQ));
+
+	if (CCDC_PREV_CAPTURE(&isp_obj))
+		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+		~IRQ0ENABLE_PRV_DONE_IRQ);
+
+	if (CCDC_PREV_RESZ_CAPTURE(&isp_obj))
+		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+		~(IRQ0ENABLE_PRV_DONE_IRQ|IRQ0ENABLE_RSZ_DONE_IRQ));
+
+	return;
 }
 
 /**
@@ -936,8 +950,11 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 	 * We need to wait for the first HS_VS interrupt from CCDC.
 	 * Otherwise our frame (and everything else) might be bad.
 	 */
-	if (wait_hs_vs)
-		goto out_ignore_buff;
+	if (wait_hs_vs) {
+		if (!((irqstatus & RESZ_DONE) &&
+			CCDC_PREV_CAPTURE(&isp_obj)))
+			goto out_ignore_buff;
+	}
 
 	if (irqstatus & CCDC_VD0) {
 		if (CCDC_CAPTURE(&isp_obj))
@@ -1190,14 +1207,18 @@ static int __isp_disable_modules(int suspend)
 		isp_af_suspend();
 		isph3a_aewb_suspend();
 		isp_hist_suspend();
-		isppreview_suspend();
-		ispresizer_suspend();
+		if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW)
+			isppreview_suspend();
+		if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER)
+			ispresizer_suspend();
 	} else {
 		isp_af_enable(0);
 		isph3a_aewb_enable(0);
 		isp_hist_enable(0);
-		isppreview_enable(0);
-		ispresizer_enable(0);
+		if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW)
+			isppreview_enable(0);
+		if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER)
+			ispresizer_enable(0);
 	}
 
 	timeout = jiffies + ISP_STOP_TIMEOUT;
@@ -1233,6 +1254,11 @@ static int __isp_disable_modules(int suspend)
 		msleep(1);
 	}
 
+	if (!reset) {
+		DPRINTK_ISPCTRL(KERN_INFO
+			"(%s) isp_complete_reset \n", __func__);
+		isp_complete_reset = 1;
+	}
 	return reset;
 }
 
@@ -1248,8 +1274,10 @@ static int isp_suspend_modules(void)
 
 static void isp_resume_modules(void)
 {
-	ispresizer_resume();
-	isppreview_resume();
+	if (isp_obj.module.isp_pipeline & OMAP_ISP_RESIZER)
+		ispresizer_resume();
+	if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW)
+		isppreview_resume();
 	isp_hist_resume();
 	isph3a_aewb_resume();
 	isp_af_resume();
@@ -1411,6 +1439,7 @@ static void isp_buf_init(void)
 	struct isp_bufs *bufs = &isp_obj.bufs;
 	int sg;
 
+	isp_complete_reset = 1;
 	bufs->queue = 0;
 	bufs->done = 0;
 	bufs->wait_hs_vs = isp_obj.config->wait_hs_vs;
@@ -2409,7 +2438,7 @@ static int isp_remove(struct platform_device *pdev)
 
 	free_irq(isp->irq, &isp_obj);
 
-	for (i = 0; i <= OMAP3_ISP_IOMEM_CSI2PHY; i++) {
+	for (i = 0; i <= OMAP3_ISP_IOMEM_CSI2PHY2; i++) {
 		if (isp->mmio_base[i]) {
 			iounmap((void *)isp->mmio_base[i]);
 			isp->mmio_base[i] = 0;
@@ -2503,7 +2532,7 @@ static int isp_probe(struct platform_device *pdev)
 
 	isp->dev = &pdev->dev;
 
-	for (i = 0; i <= OMAP3_ISP_IOMEM_CSI2PHY; i++) {
+	for (i = 0; i <= OMAP3_ISP_IOMEM_CSI2PHY2; i++) {
 		struct resource *mem;
 		/* request the mem region for the camera registers */
 		mem = platform_get_resource(pdev, IORESOURCE_MEM, i);
