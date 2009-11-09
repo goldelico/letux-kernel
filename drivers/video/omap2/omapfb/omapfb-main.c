@@ -662,6 +662,9 @@ void set_fb_fix(struct fb_info *fbi)
 	fix->smem_start = omapfb_get_region_paddr(ofbi);
 	fix->smem_len = rg->size;
 
+	fix->mmio_start = DSS_BASE;
+	fix->mmio_len = DSS_SZ_REGS;
+
 	fix->type = FB_TYPE_PACKED_PIXELS;
 
 	if (var->nonstd)
