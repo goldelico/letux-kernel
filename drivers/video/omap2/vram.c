@@ -548,6 +548,10 @@ void __init omap_vram_reserve_sdram(void)
 	}
 #endif
 
+	/* changed for HDMI 1080p test */
+	size = 1920 * 1920 * 4;
+	paddr = 0;
+
 	if (!size)
 		return;
 

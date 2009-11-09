@@ -1339,7 +1339,7 @@ void dispc_enable_preload(enum omap_plane plane, bool enable)
 	dispc_write_reg(DISPC_VID_PRELOAD(0), 0x100);
 
 	/* clk divisor for DISPC_CORE_CLK */
-	x = 2;
+	x = 1; /* 1 for 1080P 2 for others */
 	y = 1;
 	val = FLD_VAL(x, 23, 16) | FLD_VAL(y, 0, 0);
 	dispc_write_reg(DISPC_DIVISOR, val);
