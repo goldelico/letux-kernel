@@ -94,6 +94,7 @@ void omap_pm_set_min_bus_tput(struct device *dev, u8 agent_id, unsigned long r)
 		resource_request("vdd2_opp", dev, r);
 	}
 }
+EXPORT_SYMBOL(omap_pm_set_min_bus_tput);
 
 void omap_pm_set_max_dev_wakeup_lat(struct device *dev, long t)
 {
