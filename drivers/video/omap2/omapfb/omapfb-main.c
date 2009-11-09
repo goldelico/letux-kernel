@@ -51,7 +51,7 @@ static int def_mirror;
 #ifdef DEBUG
 unsigned int omapfb_debug;
 module_param_named(debug, omapfb_debug, bool, 0644);
-static unsigned int omapfb_test_pattern = 1; /* change this to 0 to test logo */
+static unsigned int omapfb_test_pattern; /* change this to 0 to test logo */
 module_param_named(test, omapfb_test_pattern, bool, 0644);
 #endif
 
