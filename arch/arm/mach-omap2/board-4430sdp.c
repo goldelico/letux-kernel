@@ -234,10 +234,12 @@ static struct omap_dss_device sdp4430_lcd_device = {
 		.data1_pol	= 0,
 		.data2_lane	= 3,
 		.data2_pol	= 0,
-		.lp_clk_hz	= 10000000,
-		.ddr_clk_hz	= 150000000,
 		.ext_te		= false,
 		.ext_te_gpio	= 86,
+		.div		= {
+			.lck_div	= 0, /*TODO: OMAP4: change!*/
+			.pck_div	= 0,
+		},
 	},
 	.platform_enable	=	sdp4430_panel_enable_lcd,
 	.platform_disable	=	sdp4430_panel_disable_lcd,
@@ -278,11 +280,7 @@ static struct omap_dss_device *sdp4430_dss_devices[] = {
 static struct omap_dss_board_info sdp4430_dss_data = {
 	.num_devices	=	ARRAY_SIZE(sdp4430_dss_devices),
 	.devices	=	sdp4430_dss_devices,
-#ifndef CONFIG_OMAP2_DSS_HDMI
 	.default_device	=	&sdp4430_lcd_device,
-#else
-	.default_device	=	$sdp4430_hdmi_device,
-#endif
 };
 
 static struct platform_device sdp4430_dss_device = {
