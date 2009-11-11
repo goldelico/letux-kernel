@@ -31,6 +31,9 @@
 
 #include <mach/display.h>
 
+/* Delay between Panel configuration and Panel enabling */
+#define LCD_RST_DELAY		100
+
 #define LCD_XRES		800
 #define LCD_YRES		480
 
@@ -41,6 +44,10 @@
 /* Current Pixel clock */
 #define LCD_PIXEL_CLOCK		LCD_PIXCLOCK_MIN
 
+static int zoom2_spi_resume(struct spi_device *spi);
+static int zoom2_spi_suspend(struct spi_device *spi, pm_message_t mesg);
+
+struct spi_device *zoom2_spi_device;
 
 /*NEC NL8048HL11-01B  Manual
  * defines HFB, HSW, HBP, VFP, VSW, VBP as shown below
@@ -92,12 +99,19 @@ static void zoom2_panel_disable(struct omap_dss_device *dssdev)
 
 static int zoom2_panel_suspend(struct omap_dss_device *dssdev)
 {
+	pm_message_t mesg;
+
+	mesg.event = PM_EVENT_SUSPEND;
 	zoom2_panel_disable(dssdev);
+	zoom2_spi_suspend(zoom2_spi_device, mesg);
+
 	return 0;
 }
 
 static int zoom2_panel_resume(struct omap_dss_device *dssdev)
 {
+	zoom2_spi_resume(zoom2_spi_device);
+	mdelay(LCD_RST_DELAY);
 	return zoom2_panel_enable(dssdev);
 }
 
@@ -228,6 +242,7 @@ static int zoom2_spi_probe(struct spi_device *spi)
 	spi->bits_per_word = 32;
 	spi_setup(spi);
 
+	zoom2_spi_device = spi;
 	init_nec_wvga_lcd(spi);
 
 	omap_dss_register_driver(&zoom2_driver);
