@@ -855,9 +855,6 @@ static int configure_overlay(enum omap_plane plane)
 	}
 
 	dispc_enable_replication(plane, c->replication);
-#ifdef CONFIG_OMAP2_DSS_HDMI
-	dispc_enable_preload(plane, 1); /* ZeBu hdmi test */
-#endif
 	dispc_set_burst_size(plane, c->burst_size);
 	dispc_setup_plane_fifo(plane, c->fifo_low, c->fifo_high);
 
@@ -1340,14 +1337,10 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 		case OMAP_DISPLAY_TYPE_DBI:
 		case OMAP_DISPLAY_TYPE_SDI:
 		case OMAP_DISPLAY_TYPE_VENC:
+		case OMAP_DISPLAY_TYPE_HDMI:
 			default_get_overlay_fifo_thresholds(ovl->id, size,
 					&oc->burst_size, &oc->fifo_low,
 					&oc->fifo_high);
-			break;
-		case OMAP_DISPLAY_TYPE_HDMI:
-			oc->burst_size = 2; /* DISPC_BURST_8X128*/
-			oc->fifo_low = 0xf0;
-			oc->fifo_high = 0xfc;
 			break;
 #ifdef CONFIG_OMAP2_DSS_DSI
 		case OMAP_DISPLAY_TYPE_DSI:

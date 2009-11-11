@@ -545,7 +545,6 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 
 	/* these settings are independent of overlays */
 	dss_switch_tv_hdmi(1);
-	dispc_set_loadmode(OMAP_DSS_LOAD_CLUT_AND_FRAME);
 
 	/* bypass TV gamma table*/
 	dispc_enable_gamma_table(0);
