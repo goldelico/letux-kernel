@@ -2025,19 +2025,8 @@ static int omapfb_create_framebuffers(struct omapfb2_device *fbdev)
 	for (i = 0; i < min(fbdev->num_fbs, fbdev->num_overlays); i++) {
 		struct omapfb_info *ofbi = FB2OFB(fbdev->fbs[i]);
 
-		if (i == 0)
-		{
-			ofbi->overlays[0] = fbdev->overlays[1];/* yong 10/2 zebu test */
-		}
-		else if(i == 1)
-		{
-			ofbi->overlays[0] = fbdev->overlays[0];
-		}
-		else
-		{
-			ofbi->overlays[0] = fbdev->overlays[i];
+		ofbi->overlays[0] = fbdev->overlays[i];
 
-		}
 		ofbi->num_overlays = 1;
 	}
 
