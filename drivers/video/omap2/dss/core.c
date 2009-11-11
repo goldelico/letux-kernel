@@ -227,19 +227,33 @@ static void dss_put_clocks(void)
 
 unsigned long dss_clk_get_rate(enum dss_clock clk)
 {
-	switch (clk) {
-	case DSS_CLK_ICK:
-		return clk_get_rate(core.dss_ick);
-	case DSS_CLK_FCK1:
-		return clk_get_rate(core.dss1_fck);
-	case DSS_CLK_FCK2:
-		return clk_get_rate(core.dss2_fck);
-	case DSS_CLK_54M:
-		return clk_get_rate(core.dss_54m_fck);
-	case DSS_CLK_96M:
-		return clk_get_rate(core.dss_96m_fck);
+	if(!cpu_is_omap44xx())	{
+		switch (clk) {
+		case DSS_CLK_ICK:
+			return clk_get_rate(core.dss_ick);
+		case DSS_CLK_FCK1:
+			return clk_get_rate(core.dss1_fck);
+		case DSS_CLK_FCK2:
+			return clk_get_rate(core.dss2_fck);
+		case DSS_CLK_54M:
+			return clk_get_rate(core.dss_54m_fck);
+		case DSS_CLK_96M:
+			return clk_get_rate(core.dss_96m_fck);
+		}
+	} else {
+		switch (clk) {
+		case DSS_CLK_ICK:
+			return 166000000;
+		case DSS_CLK_FCK1:
+			return 153600000;
+		case DSS_CLK_FCK2:
+			return 0;
+		case DSS_CLK_54M:
+			return 54000000;
+		case DSS_CLK_96M:
+			return 96000000;
+		}
 	}
-
 	BUG();
 	return 0;
 }
@@ -497,14 +511,16 @@ static int omap_dss_probe(struct platform_device *pdev)
 			goto fail0;
 		}
 #endif
+	}
 #ifdef CONFIG_OMAP2_DSS_DSI
+		printk(KERN_INFO "dsi_init calling");
 		r = dsi_init(pdev);
 		if (r) {
 			DSSERR("Failed to initialize DSI\n");
 			goto fail0;
 		}
 #endif
-	}
+
 #ifdef CONFIG_OMAP2_DSS_HDMI
 	r = hdmi_init(pdev);
 	if (r) {

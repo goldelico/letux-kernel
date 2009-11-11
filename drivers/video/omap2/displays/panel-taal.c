@@ -36,6 +36,7 @@
 /* DSI Virtual channel. Hardcoded for now. */
 #define TCH 0
 
+#define DCS_RESET		0x01
 #define DCS_READ_NUM_ERRORS	0x05
 #define DCS_READ_POWER_MODE	0x0a
 #define DCS_READ_MADCTL		0x0b
@@ -158,6 +159,24 @@ static int taal_sleep_in(struct taal_data *td)
 	return 0;
 }
 
+static int taal_reset(struct taal_data *td)
+{
+	int r;
+
+//sv	hw_guard_wait(td);
+
+	r = taal_dcs_write_0(DCS_RESET);
+	if (r)
+		return r;
+
+//sv	hw_guard_start(td, 120);
+
+	msleep(5);
+
+	return 0;
+
+}
+
 static int taal_sleep_out(struct taal_data *td)
 {
 	int r;
@@ -242,7 +261,7 @@ static int taal_set_update_window(u16 x, u16 y, u16 w, u16 h)
 	u16 x2 = x + w - 1;
 	u16 y1 = y;
 	u16 y2 = y + h - 1;
-
+#if 0 //sv no need of column addr
 	u8 buf[5];
 	buf[0] = DCS_COLUMN_ADDR;
 	buf[1] = (x1 >> 8) & 0xff;
@@ -265,7 +284,9 @@ static int taal_set_update_window(u16 x, u16 y, u16 w, u16 h)
 		return r;
 
 	dsi_vc_send_bta_sync(TCH);
-
+#else
+	printk("set update window called but no need to tell the panel");
+#endif //sv no need of Colum addr
 	return r;
 }
 

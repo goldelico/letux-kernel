@@ -212,15 +212,33 @@ static int sdp4430_panel_disable_lcd(struct omap_dss_device *dssdev) {
 	return 0;
 }
 
-static void __init sdp4430_display_init(void) {
+static void __init sdp4430_display_init(void)
+{
+	int r;
+	/* MJ CORE_PAD0_C2C_DATA14_PAD1_C2C_DATA15 */
+	/* CONTROL_DSIPHY */
+	omap_writel(0x21084000, 0x4A100618);
+	printk(KERN_INFO "\n CONTROL_DSIPHY = 0x%X ", omap_readl(0x4A100618));
 	return;
 }
 
 static struct omap_dss_device sdp4430_lcd_device = {
-	.name			=	"sdp4430_lcd",
-	.driver_name		=	"sdp4430_panel",
-	.type			=	OMAP_DISPLAY_TYPE_DPI,
-	.phy.dpi.data_lines	=	16,
+	.name			= "lcd",
+	.driver_name		= "panel-taal",
+	.type			= OMAP_DISPLAY_TYPE_DSI,
+	.reset_gpio		= 78,
+	.phy.dsi		= {
+		.clk_lane	= 1,
+		.clk_pol	= 0,
+		.data1_lane	= 2,
+		.data1_pol	= 0,
+		.data2_lane	= 3,
+		.data2_pol	= 0,
+		.lp_clk_hz	= 10000000,
+		.ddr_clk_hz	= 150000000,
+		.ext_te		= false,
+		.ext_te_gpio	= 86,
+	},
 	.platform_enable	=	sdp4430_panel_enable_lcd,
 	.platform_disable	=	sdp4430_panel_disable_lcd,
 };
@@ -247,6 +265,8 @@ static struct omap_dss_device sdp4430_hdmi_device = {
 	.platform_enable = sdp4430_panel_enable_hdmi,
 	.platform_disable = sdp4430_panel_disable_hdmi,
 };
+
+
 
 static struct omap_dss_device *sdp4430_dss_devices[] = {
 	&sdp4430_lcd_device,
@@ -275,6 +295,10 @@ static struct platform_device sdp4430_dss_device = {
 
 /* end Display */
 
+static struct regulator_consumer_supply sdp4430_vdda_dac_supply = {
+	.supply		= "vdda_dac",
+	.dev		= &sdp4430_dss_device.dev,
+};
 static struct platform_device *sdp4430_devices[] __initdata = {
 	&sdp4430_dss_device,
 	&omap_kp_device,
@@ -537,6 +561,35 @@ static struct regulator_init_data sdp4430_vdac = {
 		.valid_ops_mask	 = REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &sdp4430_vdda_dac_supply,
+};
+
+/* VPLL2 for digital video outputs */
+static struct regulator_consumer_supply sdp4430_vpll2_supplies[] = {
+	{
+		.supply		= "vdvi",
+		.dev		= &sdp4430_lcd_device.dev,
+	},
+	{
+		.supply		= "vdds_dsi",
+		.dev		= &sdp4430_dss_device.dev,
+	}
+};
+
+static struct regulator_init_data sdp4430_vpll2 = {
+	.constraints = {
+		.name			= "VDVI",
+		.min_uV			= 1800000,
+		.max_uV			= 1800000,
+		.apply_uV		= true,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_MODE
+					| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(sdp4430_vpll2_supplies),
+	.consumer_supplies	= sdp4430_vpll2_supplies,
 };
 
 static struct regulator_init_data sdp4430_vusb = {
