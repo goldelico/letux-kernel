@@ -820,7 +820,9 @@ static int dsi_set_lp_clk_divisor(struct omap_dss_device *dssdev)
 	dsi.current_cinfo.lp_clk = lp_clk;
 	dsi.current_cinfo.lp_clk_div = lp_clk_div;
 
-	REG_FLD_MOD(DSI_CLK_CTRL, lp_clk_div, 12, 0);   /* LP_CLK_DIVISOR */
+	/* TODO: chnage the values in board file to get n=6 here */
+	REG_FLD_MOD(DSI_CLK_CTRL, 6, 12, 0);
+	/*REG_FLD_MOD(DSI_CLK_CTRL, lp_clk_div, 12, 0);    LP_CLK_DIVISOR */
 
 	REG_FLD_MOD(DSI_CLK_CTRL, dsi_fclk > 30000000 ? 1 : 0,
 			21, 21);		/* LP_RX_SYNCHRO_ENABLE */
@@ -1240,7 +1242,11 @@ int dsi_pll_init(struct omap_dss_device *dssdev, bool enable_hsclk,
 
 	return 0;
 err1:
-//sv3	regulator_disable(dsi.vdds_dsi_reg);
+
+#ifndef CONFIG_ARCH_OMAP4
+	regulator_disable(dsi.vdds_dsi_reg);
+#endif
+
 err0:
 //sv3 	enable_clocks(0);
 //sv3	dsi_enable_pll_clock(0);
@@ -1254,7 +1260,10 @@ void dsi_pll_uninit(void)
 
 	dsi.pll_locked = 0;
 	dsi_pll_power(DSI_PLL_POWER_OFF);
+
+#ifndef CONFIG_ARCH_OMAP4
 	regulator_disable(dsi.vdds_dsi_reg);
+#endif
 	DSSDBG("PLL uninit done\n");
 }
 
@@ -4124,6 +4133,7 @@ int dsi_init(struct platform_device *pdev)
 		goto err1;
 	}
 
+#ifndef CONFIG_ARCH_OMAP4
 	dsi.vdds_dsi_reg = regulator_get(&pdev->dev, "vdds_dsi");
 	if (IS_ERR(dsi.vdds_dsi_reg)) {
 		iounmap(dsi.base);
@@ -4131,6 +4141,7 @@ int dsi_init(struct platform_device *pdev)
 		r = PTR_ERR(dsi.vdds_dsi_reg);
 		goto err2;
 	}
+#endif
 
 	enable_clocks(1);
 
@@ -4155,7 +4166,9 @@ void dsi_exit(void)
 {
 	kthread_stop(dsi.thread);
 
+#ifndef CONFIG_ARCH_OMAP4
 	regulator_put(dsi.vdds_dsi_reg);
+#endif
 
 	iounmap(dsi.base);
 
