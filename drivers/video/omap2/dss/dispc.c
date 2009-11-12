@@ -2875,12 +2875,6 @@ int omap_dispc_lpr_enable(void)
 		goto lpr_out;
 	}
 
-	/* currently DSS is running on DSS1 by default. just warn if it has
-	* changed in the future
-	*/
-	if (dss_get_dispc_clk_source() == DSS_CONTROL_APLL_CLK) {
-		BUG();
-	}
 	dispc_setup_plane_fifo(ovl->id, LPR_GFX_FIFO_LOW_THRES,
 				LPR_GFX_FIFO_HIGH_THRES);
 
