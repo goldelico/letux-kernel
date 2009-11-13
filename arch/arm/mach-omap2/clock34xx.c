@@ -859,8 +859,10 @@ int __init omap2_clk_init(void)
 	for (clkp = onchip_34xx_clks;
 	     clkp < onchip_34xx_clks + ARRAY_SIZE(onchip_34xx_clks);
 	     clkp++) {
-		if ((*clkp)->flags & CLOCK_IN_OMAP363X)
-			(*clkp)->clksel_mask = (*clkp)->clksel_mask2;
+		if (cpu_is_omap3630()) {
+			if ((*clkp)->flags & CLOCK_IN_OMAP363X)
+				(*clkp)->clksel_mask = (*clkp)->clksel_mask2;
+		}
 		if ((*clkp)->flags & cpu_clkflg)
 			clk_register(*clkp);
 	}
