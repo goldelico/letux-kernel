@@ -45,6 +45,7 @@ struct isp_pipeline;
 #include "ispresizer.h"
 #include "isppreview.h"
 #include "ispcsi2.h"
+#include "isp_csi.h"
 
 #define IOMMU_FLAG (IOVMF_ENDIAN_LITTLE | IOVMF_ELSZ_8)
 
@@ -54,6 +55,7 @@ struct isp_pipeline;
 #define OMAP_ISP_AEWB		(1 << 3)
 #define OMAP_ISP_AF		(1 << 4)
 #define OMAP_ISP_HIST		(1 << 5)
+#define OMAP_ISP_CSIARX		(1 << 6)
 
 #define ISP_TOK_TERM		0xFFFFFFFF	/*
 						 * terminating token for ISP
@@ -205,19 +207,7 @@ struct isp_interface_config {
 			unsigned par_bridge:2;
 			unsigned par_clk_pol:1;
 		} par;
-		struct csi {
-			unsigned crc:1;
-			unsigned mode:1;
-			unsigned edge:1;
-			unsigned signalling:1;
-			unsigned strobe_clock_inv:1;
-			unsigned vs_edge:1;
-			unsigned channel:3;
-			unsigned vpclk:2;	/* Video port output clock */
-			unsigned int data_start;
-			unsigned int data_size;
-			u32 format;		/* V4L2_PIX_FMT_* */
-		} csi;
+		struct isp_csi_interface_cfg csi;
 	} u;
 };
 
@@ -445,6 +435,7 @@ struct isp_device {
 	struct isp_res_device isp_res;
 	struct isp_prev_device isp_prev;
 	struct isp_ccdc_device isp_ccdc;
+	struct isp_csi_device isp_csi;
 	struct isp_csi2_device isp_csi2;
 
 	struct iommu *iommu;
@@ -535,6 +526,7 @@ int __init isph3a_aewb_init(struct device *dev);
 int __init isp_preview_init(struct device *dev);
 int __init isp_resizer_init(struct device *dev);
 int __init isp_af_init(struct device *dev);
+int __init isp_csi_init(struct device *dev);
 int __init isp_csi2_init(struct device *dev);
 
 void isp_ccdc_cleanup(struct device *dev);
