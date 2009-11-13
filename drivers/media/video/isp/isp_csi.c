@@ -38,8 +38,12 @@ void isp_csi_enable(struct isp_csi_device *isp_csi, u8 enable)
 	struct device *dev = to_device(isp_csi);
 
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL,
-		       ~(BIT(0) | BIT(4)),
-		       enable ? (BIT(0) | BIT(4)) : 0);
+		       ~(ISPCSI1_CTRL_IF_EN |
+			 ISPCSI1_CTRL_MODE_CCP2),
+		       enable ?
+			(ISPCSI1_CTRL_IF_EN |
+			 ISPCSI1_CTRL_MODE_CCP2)
+			: 0);
 
 	isp_csi->if_enabled = enable ? true : false;
 }
@@ -76,59 +80,64 @@ int isp_csi_configure_interface(struct isp_csi_device *isp_csi,
 	}
 
 	/* Reset the CSI and wait for reset to complete */
-	isp_reg_writel(dev, isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-		       ISPCSI1_SYSCONFIG) | BIT(1),
-		       OMAP3_ISP_IOMEM_CCP2, ISPCSI1_SYSCONFIG);
+	isp_reg_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_SYSCONFIG,
+		   ISPCSI1_SYSCONFIG_SOFT_RESET);
 	while (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_SYSSTATUS) &
-		 BIT(0))) {
+		 ISPCSI1_SYSSTATUS_RESET_DONE)) {
 		udelay(10);
 		if (i++ > 10)
 			break;
 	}
 	if (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_SYSSTATUS) &
-	      BIT(0))) {
+	      ISPCSI1_SYSSTATUS_RESET_DONE)) {
 		dev_warn(dev,
-		       "omap3_isp: timeout waiting for csi reset\n");
+		       "timeout waiting for csi reset\n");
 	}
 
-	/* ISPCSI1_CTRL */
 	val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL);
-	val &= ~BIT(11);	/* Enable VP only off ->
-				   extract embedded data to interconnect */
-	BIT_SET(val, 8, 0x3, config->vpclk);	/* Video port clock */
-/*	val |= BIT(3);	*/	/* Wait for FEC before disabling interface */
-	val |= BIT(2);		/* I/O cell output is parallel
-				   (no effect, but errata says should be enabled
-				   for class 1/2) */
-	val |= BIT(12);		/* VP clock polarity to falling edge
-				   (needed or bad picture!) */
+	/* Disable VP only -> extract embedded data to interconnect */
+	val &= ~ISPCSI1_CTRL_VP_ONLY_EN;
+	BIT_SET(val, ISPCSI1_CTRL_VP_OUT_CTRL_SHIFT,
+		ISPCSI1_CTRL_VP_OUT_CTRL_MASK, config->vpclk);
+	/* I/O cell output is parallel
+	 * (no effect, but errata says should be enabled for class 1/2)
+	 */
+	val |= ISPCSI1_CTRL_IO_OUT_SEL;
+	/* VP clock polarity to falling edge */
+	val |= ISPCSI1_CTRL_VP_CLK_POL;
 
 	/* Data/strobe physical layer */
-	BIT_SET(val, 1, 1, config->signalling);
-	BIT_SET(val, 10, 1, config->strobe_clock_inv);
-	val |= BIT(4);		/* Magic bit to enable CSI1 and strobe mode */
+	val &= ~(ISPCSI1_CTRL_PHY_SEL | ISPCSI1_CTRL_INV);
+	if (config->signalling)
+		val |= ISPCSI1_CTRL_PHY_SEL;
+	if (config->strobe_clock_inv)
+		val |= ISPCSI1_CTRL_INV;
+	val |= ISPCSI1_CTRL_MODE_CCP2;
 	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL);
 
-	/* ISPCSI1_LCx_CTRL logical channel #0 */
-	reg = ISPCSI1_LCx_CTRL(0);	/* reg = ISPCSI1_CTRL1; */
+	/* Logical channel #0 - Set format and generic configuration */
+	reg = ISPCSI1_LCx_CTRL(0);
 	val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, reg);
-	/* Format = RAW10+VP or RAW8+DPCM10+VP*/
-	BIT_SET(val, 3, 0x1f, format);
+	BIT_SET(val, ISPCSI1_LCx_CTRL_FORMAT_SHIFT,
+		ISPCSI1_LCx_CTRL_FORMAT_MASK, format);
 	/* Enable setting of frame regions of interest */
-	BIT_SET(val, 1, 1, 1);
-	BIT_SET(val, 2, 1, config->crc);
+	val |= ISPCSI1_LCx_CTRL_REGION_EN;
+	val &= ~(ISPCSI1_LCx_CTRL_CRC_EN);
+	if (config->crc)
+		val |= ISPCSI1_LCx_CTRL_CRC_EN;
 	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, reg);
 
-	/* ISPCSI1_DAT_START for logical channel #0 */
-	reg = ISPCSI1_LCx_DAT_START(0);		/* reg = ISPCSI1_DAT_START; */
+	/* Logical channel #0 - Set pixel data region */
+	reg = ISPCSI1_LCx_DAT_START(0);
 	val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, reg);
-	BIT_SET(val, 16, 0xfff, config->data_start);
+	BIT_SET(val, ISPCSI1_LCx_DAT_START_VERT_SHIFT,
+		ISPCSI1_LCx_DAT_START_VERT_MASK, config->data_start);
 	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, reg);
 
-	/* ISPCSI1_DAT_SIZE for logical channel #0 */
-	reg = ISPCSI1_LCx_DAT_SIZE(0);		/* reg = ISPCSI1_DAT_SIZE; */
+	reg = ISPCSI1_LCx_DAT_SIZE(0);
 	val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, reg);
-	BIT_SET(val, 16, 0xfff, config->data_size);
+	BIT_SET(val, ISPCSI1_LCx_DAT_SIZE_VERT_SHIFT,
+		ISPCSI1_LCx_DAT_SIZE_VERT_MASK, config->data_size);
 	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, reg);
 
 	/* Clear status bits for logical channel #0 */
@@ -149,8 +158,8 @@ int isp_csi_configure_interface(struct isp_csi_device *isp_csi,
 	/* Enable CSI1 */
 	isp_csi_enable(isp_csi, 1);
 
-	if (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-			    ISPCSI1_CTRL) & BIT(4))) {
+	if (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL) &
+	      ISPCSI1_CTRL_MODE_CCP2)) {
 		dev_warn(dev, "OMAP3 CSI1 bus not available\n");
 		if (config->signalling) {
 			/* Strobe mode requires CCP2 */
