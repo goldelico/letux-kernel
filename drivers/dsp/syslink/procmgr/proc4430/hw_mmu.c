@@ -600,8 +600,8 @@ long hw_mmu_tlb_dump(const u32 base_address, bool shw_inv_entries)
 		ram = MMUMMU_RAMReadRegister32(base_address);
 
 		if ((cam & 0x4) != 0) {
-			printk(KERN_INFO "TLB Entry [0x%x]: VA = 0x%x"
-				"PA = 0x%x Protected = 0x%x\n)",
+			printk(KERN_INFO "TLB Entry [0x%2x]: VA = 0x%8x "
+				"PA = 0x%8x Protected = 0x%1x\n",
 				i, (cam & MMU_ADDR_MASK), (ram & MMU_ADDR_MASK),
 				(cam & 0x8) ? 1 : 0);
 
