@@ -605,6 +605,12 @@ int proc4430_start(void *handle, u32 entry_pt,
 			"Argument processor_start_params * is NULL");
 		return -EINVAL;
 	}
+
+	reg = __raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET);
+	printk(KERN_INFO "proc4430_start: Reset Status [0x%x]", reg);
+	reg = __raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+	printk(KERN_INFO "proc4430_start: Reset Control [0x%x]", reg);
+
 	switch (start_params->params->proc_id) {
 	case SYS_M3:
 		/* Module is managed automatically by HW */
@@ -624,16 +630,42 @@ int proc4430_start(void *handle, u32 entry_pt,
 			printk(KERN_ERR "FAILED TO ENABLE DUCATI M3 CLOCK !\n");
 			return -EFAULT;
 		}
-		/* De-assert RST 3 */
+		/* Check that releasing resets would indeed be effective */
+		reg = __raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		if (reg != 7) {
+			printk(KERN_ERR "proc4430_start: Resets in not proper state!\n");
+			__raw_writel(0x7,
+				CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		}
+
+		/* De-assert RST3, and clear the Reset status */
+		printk(KERN_INFO "De-assert RST3\n");
 		__raw_writel(0x3, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		while (!(__raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET)
+			& 0x4))
+			;
+		printk(KERN_INFO "RST3 released!");
+		__raw_writel(0x4, CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET);
 		ducati_setup();
+
+		/* De-assert RST1, and clear the Reset status */
 		printk(KERN_INFO "De-assert RST1\n");
 		__raw_writel(0x2, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
-		return 0;
+		while (!(__raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET)
+			& 0x1))
+			;
+		printk(KERN_INFO "RST1 released!");
+		__raw_writel(0x1, CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET);
 		break;
 	case APP_M3:
-		__raw_writel(0x0, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		/* De-assert RST2, and clear the Reset status */
 		printk(KERN_INFO "De-assert RST2\n");
+		__raw_writel(0x0, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		while (!(__raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET)
+			& 0x2))
+			;
+		printk(KERN_INFO "RST2 released!");
+		__raw_writel(0x2, CORE_PRM_BASE + RM_MPU_M3_RSTST_OFFSET);
 		break;
 	default:
 		printk(KERN_ERR "proc4430_start: ERROR input\n");
