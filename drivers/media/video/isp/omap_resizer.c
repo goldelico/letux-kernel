@@ -398,6 +398,8 @@ static int rsz_set_multipass(struct rsz_mult *multipass,
 	multipass->in_pitch = (multipass->inptyp ? multipass->in_hsize
 						: (multipass->in_hsize * 2));
 
+	rsz_conf_chan->register_config.rsz_sdr_inadd =
+		rsz_conf_chan->register_config.rsz_sdr_outadd;
 	rsz_set_ratio(multipass, rsz_conf_chan);
 	rsz_config_ratio(multipass, rsz_conf_chan);
 	rsz_hardware_setup(rsz_conf_chan);
