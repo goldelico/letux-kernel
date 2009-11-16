@@ -78,6 +78,7 @@
 #define COEFF_ADDRESS_OFFSET	0x04
 
 static DECLARE_MUTEX(resz_wrapper_mutex);
+static int multipass_active;
 
 
 /* Register mapped structure which contains the every register
@@ -175,19 +176,16 @@ struct channel_config {
 	enum config_done config_state;
 	u8 input_buf_index;
 	u8 output_buf_index;
-
 };
 /* Global structure which contains information about number of channels
    and protection variables */
 struct device_params {
-
 	struct rsz_params *params;
 	struct channel_config *config;		/* Pointer to channel */
 	struct rsz_mult *multipass;		/* Multipass to support */
 	unsigned char opened;			/* state of the device */
 	struct completion compl_isr;		/* Completion for interrupt */
 	struct mutex reszwrap_mutex;		/* Semaphore for array */
-
 	struct videobuf_queue_ops vbq_ops;	/* videobuf queue operations */
 	rsz_callback 	callback;		/* callback function which gets
 						 * called when Resizer
@@ -198,7 +196,10 @@ struct device_params {
 	u32 *out_buf_phy_addr[32];
 	u32 *out_buf_virt_addr[32];
 	u32 num_video_buffers;
-
+	dma_addr_t tmp_buf;
+	size_t tmp_buf_size;
+	struct rsz_mult original_multipass;
+	struct resizer_config original_rsz_conf_chan;
 };
 
 
@@ -216,7 +217,6 @@ struct rsz_fh {
 	enum v4l2_buf_type type;
 	struct videobuf_queue vbq;
 	struct device_params *device;
-
 	dma_addr_t isp_addr_read;		/* Input/Output address */
 	dma_addr_t isp_addr_write;		/* Input/Output address */
 	u32 rsz_bufsize;			/* channel specific buffersize
@@ -226,6 +226,7 @@ struct rsz_fh {
 static struct device_params *device_config;
 static struct device *rsz_device;
 static int rsz_major = -1;
+
 /* functions declaration */
 static void rsz_hardware_setup(struct channel_config *rsz_conf_chan);
 static int rsz_set_params(struct rsz_mult *multipass, struct rsz_params *,
@@ -244,6 +245,11 @@ static int rsz_set_ratio(struct rsz_mult *multipass,
 static void rsz_config_ratio(struct rsz_mult *multipass,
 					struct channel_config *rsz_conf_chan);
 
+static void rsz_tmp_buf_free(void);
+static u32 rsz_tmp_buf_alloc(size_t size);
+static void rsz_save_multipass_context(void);
+static void rsz_restore_multipass_context(void);
+
 /**
  * rsz_hardware_setup - Sets hardware configuration registers
  * @rsz_conf_chan: Structure containing channel configuration
@@ -258,12 +264,10 @@ static void rsz_hardware_setup(struct channel_config *rsz_conf_chan)
 	down(&resz_wrapper_mutex);
 	isp_reg_writel(rsz_conf_chan->register_config.rsz_cnt,
 			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT);
-
 	isp_reg_writel(rsz_conf_chan->register_config.rsz_in_start,
 			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START);
 	isp_reg_writel(rsz_conf_chan->register_config.rsz_in_size,
 			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_SIZE);
-
 	isp_reg_writel(rsz_conf_chan->register_config.rsz_out_size,
 			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_OUT_SIZE);
 	isp_reg_writel(rsz_conf_chan->register_config.rsz_sdr_inadd,
@@ -291,6 +295,47 @@ static void rsz_hardware_setup(struct channel_config *rsz_conf_chan)
 		coeffoffset = coeffoffset + COEFF_ADDRESS_OFFSET;
 	}
 	up(&resz_wrapper_mutex);
+}
+
+static void rsz_save_multipass_context()
+{
+	struct channel_config *rsz_conf_chan = device_config->config;
+	struct rsz_mult *multipass = device_config->multipass;
+
+	struct resizer_config  *original_rsz_conf_chan
+		= &device_config->original_rsz_conf_chan;
+	struct rsz_mult *original_multipass
+		= &device_config->original_multipass;
+
+	memset(original_rsz_conf_chan,
+		0, sizeof(struct  resizer_config));
+	memcpy(original_rsz_conf_chan,
+		(struct resizer_config *) &rsz_conf_chan->register_config,
+		sizeof(struct  resizer_config));
+	memset(original_multipass,
+		0, sizeof(struct rsz_mult));
+	memcpy(original_multipass,
+		multipass, sizeof(struct rsz_mult));
+
+	return;
+}
+
+static void rsz_restore_multipass_context()
+{
+	struct channel_config *rsz_conf_chan = device_config->config;
+	struct rsz_mult *multipass = device_config->multipass;
+
+	struct resizer_config  *original_rsz_conf_chan
+		= &device_config->original_rsz_conf_chan;
+	struct rsz_mult *original_multipass
+		= &device_config->original_multipass;
+
+	memcpy((struct resizer_config *) &rsz_conf_chan->register_config,
+		original_rsz_conf_chan, sizeof(struct  resizer_config));
+
+	memcpy(multipass, original_multipass, sizeof(struct rsz_mult));
+
+	return;
 }
 
 /**
@@ -1602,6 +1647,8 @@ void rsz_put_resource(void)
 		}
 	}
 
+	multipass_active = 0;
+	rsz_tmp_buf_free();
 	/* free all memory which was allocate during get() */
 	kfree(rsz_conf_chan);
 	kfree(params);
@@ -1638,10 +1685,21 @@ int rsz_configure(struct rsz_params *params, rsz_callback callback,
 	int retval;
 	struct channel_config *rsz_conf_chan = device_config->config;
 	struct rsz_mult *multipass = device_config->multipass;
+	size_t tmp_size;
 
+	multipass_active = 0;
 	retval = rsz_set_params(multipass, params, rsz_conf_chan);
 	if (retval != 0)
 		return retval;
+
+	if (device_config->multipass->active) {
+		multipass_active = 1;
+		tmp_size = PAGE_ALIGN(multipass->out_hsize
+				     * multipass->out_vsize
+				     * (multipass->inptyp ? 1 : 2));
+		rsz_tmp_buf_alloc(tmp_size);
+		rsz_save_multipass_context();
+	}
 
 	rsz_hardware_setup(rsz_conf_chan);
 	device_config->callback = callback;
@@ -1681,6 +1739,29 @@ int rsz_map_input_dss_buffers(u32 physical_address,
 }
 EXPORT_SYMBOL(rsz_map_input_dss_buffers);
 
+static void rsz_tmp_buf_free(void)
+{
+	if (device_config->tmp_buf) {
+		ispmmu_vfree(device_config->tmp_buf);
+		device_config->tmp_buf = 0;
+		device_config->tmp_buf_size = 0;
+	}
+}
+static u32 rsz_tmp_buf_alloc(size_t size)
+{
+	rsz_tmp_buf_free();
+	printk(KERN_INFO "%s: allocating %d bytes\n", __func__, size);
+
+	device_config->tmp_buf = ispmmu_vmalloc(size);
+	if (IS_ERR((void *)device_config->tmp_buf)) {
+		printk(KERN_ERR "ispmmu_vmap mapping failed ");
+		return -ENOMEM;
+	}
+	device_config->tmp_buf_size = size;
+
+	return 0;
+}
+
 /** rsz_begin - Function to be called by DSS when resizing of the input image/
   * buffer is needed
   * @slot: buffer index where the input image is stored
@@ -1707,11 +1788,18 @@ int rsz_begin(u32 slot, int output_buffer_index,
 {
 	unsigned int output_size;
 	struct channel_config *rsz_conf_chan = device_config->config;
+
 	if (output_buffer_index >= device_config->num_video_buffers) {
 		dev_err(rsz_device,
 		"ouput buffer index is out of range %d", output_buffer_index);
 		return -EINVAL;
 	}
+
+	if (multipass_active) {
+		rsz_restore_multipass_context();
+		rsz_hardware_setup(rsz_conf_chan);
+	}
+
 	/* If this output buffer has not been mapped till now then map it */
 	if (device_config->out_buf_virt_addr[output_buffer_index] == NULL) {
 		device_config->out_buf_phy_addr[output_buffer_index] =
@@ -1732,16 +1820,29 @@ int rsz_begin(u32 slot, int output_buffer_index,
 	/* Configure the input and output address with output line size
 	in resizer hardware */
 	down(&resz_wrapper_mutex);
-	isp_reg_writel \
-		((u32)device_config->out_buf_virt_addr[output_buffer_index],
-			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTADD);
 	rsz_conf_chan->register_config.rsz_sdr_inadd =
-				(u32)device_config->in_buf_virt_addr[slot];
-	rsz_conf_chan->register_config.rsz_sdr_outoff = out_off;
-	isp_reg_writel(rsz_conf_chan->register_config.rsz_sdr_inadd,
-			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
-	isp_reg_writel(rsz_conf_chan->register_config.rsz_sdr_outoff,
+		(u32)device_config->in_buf_virt_addr[slot];
+	isp_reg_writel \
+		(rsz_conf_chan->register_config.rsz_sdr_inadd,
+		OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
+
+	if (multipass_active) {
+		rsz_conf_chan->register_config.rsz_sdr_outadd =
+			(u32)device_config->tmp_buf;
+	} else {
+		rsz_conf_chan->register_config.rsz_sdr_outoff = out_off;
+		isp_reg_writel \
+			(rsz_conf_chan->register_config.rsz_sdr_outoff,
 			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTOFF);
+		rsz_conf_chan->register_config.rsz_sdr_outadd =
+			(u32)device_config->\
+			out_buf_virt_addr[output_buffer_index];
+	}
+
+	isp_reg_writel \
+		(rsz_conf_chan->register_config.rsz_sdr_outadd,
+			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTADD);
+
 	up(&resz_wrapper_mutex);
 
 	/* Set ISP callback for the resizing complete even */
@@ -1762,9 +1863,24 @@ mult:
 	wait_for_completion_interruptible(&device_config->compl_isr);
 
 	if (device_config->multipass->active) {
-		printk(KERN_ERR "<%s> entering multipass resizing\n",
-		       __func__);
+		multipass_active = 1;
 		rsz_set_multipass(device_config->multipass, rsz_conf_chan);
+		down(&resz_wrapper_mutex);
+		if (!device_config->multipass->active) {
+			rsz_conf_chan->register_config.rsz_sdr_outoff = out_off;
+			isp_reg_writel \
+				(rsz_conf_chan->register_config.rsz_sdr_outoff,
+				OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTOFF);
+
+			rsz_conf_chan->register_config.rsz_sdr_outadd =
+				(u32)device_config->\
+				out_buf_virt_addr[output_buffer_index];
+
+			isp_reg_writel \
+				(rsz_conf_chan->register_config.rsz_sdr_outadd,
+				OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTADD);
+		}
+		up(&resz_wrapper_mutex);
 		goto mult;
 	}
 	/* Unset the ISP callback function */
