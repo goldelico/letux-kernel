@@ -44,6 +44,7 @@ struct isp_pipeline;
 #include "isph3a.h"
 #include "ispresizer.h"
 #include "isppreview.h"
+#include "ispcsi2.h"
 
 #define IOMMU_FLAG (IOVMF_ENDIAN_LITTLE | IOVMF_ELSZ_8)
 
@@ -360,6 +361,7 @@ struct isp_device {
 	struct isp_res_device isp_res;
 	struct isp_prev_device isp_prev;
 	struct isp_ccdc_device isp_ccdc;
+	struct isp_csi2_device isp_csi2;
 
 	struct iommu *iommu;
 };
