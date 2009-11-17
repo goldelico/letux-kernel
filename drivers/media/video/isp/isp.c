@@ -689,20 +689,22 @@ int isp_configure_interface(struct device *dev,
 		ispctrl_val &= ~ISPCTRL_PAR_BRIDGE_BENDIAN;
 
 		if (config->u.csi.crc)
-			isp_csi2_ctrl_config_ecc_enable(true);
+			isp_csi2_ctrl_config_ecc_enable(&isp->isp_csi2, true);
 
-		isp_csi2_ctrl_config_vp_out_ctrl(config->u.csi.vpclk);
-		isp_csi2_ctrl_config_vp_only_enable(true);
-		isp_csi2_ctrl_config_vp_clk_enable(true);
-		isp_csi2_ctrl_update(false);
+		isp_csi2_ctrl_config_vp_out_ctrl(&isp->isp_csi2,
+						 config->u.csi.vpclk);
+		isp_csi2_ctrl_config_vp_only_enable(&isp->isp_csi2, true);
+		isp_csi2_ctrl_config_vp_clk_enable(&isp->isp_csi2, true);
+		isp_csi2_ctrl_update(&isp->isp_csi2, false);
 
-		isp_csi2_ctx_config_format(0, config->u.csi.format);
-		isp_csi2_ctx_update(0, false);
+		isp_csi2_ctx_config_format(&isp->isp_csi2, 0,
+					   config->u.csi.format);
+		isp_csi2_ctx_update(&isp->isp_csi2, 0, false);
 
-		isp_csi2_irq_complexio1_set(1);
-		isp_csi2_irq_status_set(1);
+		isp_csi2_irq_complexio1_set(&isp->isp_csi2, 1);
+		isp_csi2_irq_status_set(&isp->isp_csi2, 1);
 
-		isp_csi2_enable(1);
+		isp_csi2_enable(&isp->isp_csi2, 1);
 		mdelay(3);
 		break;
 	case ISP_CSIB:
@@ -859,7 +861,7 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	}
 
 	if (irqstatus & CSIA) {
-		int ret = isp_csi2_isr();
+		int ret = isp_csi2_isr(&isp->isp_csi2);
 		if (ret)
 			buf->vb_state = VIDEOBUF_ERROR;
 	}
@@ -1211,7 +1213,7 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 	}
 
 	isp_csi_enable(dev, 0);
-	isp_csi2_enable(0);
+	isp_csi2_enable(&isp->isp_csi2, 0);
 	isp_buf_init(dev);
 
 	return reset;
