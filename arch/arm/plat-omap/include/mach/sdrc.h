@@ -88,7 +88,11 @@
 
 #define OMAP242X_SMS_REGADDR(reg)	IO_ADDRESS(OMAP2420_SMS_BASE + reg)
 #define OMAP243X_SMS_REGADDR(reg)	IO_ADDRESS(OMAP243X_SMS_BASE + reg)
+#ifdef __ASSEMBLER__
+#define OMAP343X_SMS_REGADDR(reg)	L3_IO_ADDRESS(OMAP343X_SMS_BASE + reg)
+#else
 #define OMAP343X_SMS_REGADDR(reg)	IO_ADDRESS(OMAP343X_SMS_BASE + reg)
+#endif
 
 /* SMS register offsets - read/write with sms_{read,write}_reg() */
 

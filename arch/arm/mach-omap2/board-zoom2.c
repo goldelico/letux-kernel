@@ -100,6 +100,10 @@ extern struct imx046_platform_data zoom2_lv8093_platform_data;
 #define TWL4030_MSECURE_GPIO	22
 #define WL127X_BTEN_GPIO	109
 
+#define ZOOM2_EXT_QUART_PHYS 0x10000000
+#define ZOOM2_EXT_QUART_VIRT 0xfa400000
+#define ZOOM2_EXT_QUART_SIZE SZ_256
+
 static struct pin_config zoom2_mux_pins[] = {
 /*
  *		Name, reg-offset,
@@ -1146,9 +1150,9 @@ static void __init omap_zoom2_init(void)
 
 static struct map_desc zoom2_io_desc[] __initdata = {
 	{
-		.virtual	= ZOOM2_QUART_VIRT,
+		.virtual	= ZOOM2_EXT_QUART_VIRT,
 		.pfn		= __phys_to_pfn(ZOOM2_QUART_PHYS),
-		.length		= ZOOM2_QUART_SIZE,
+		.length		= ZOOM2_EXT_QUART_SIZE,
 		.type		= MT_DEVICE
 	},
 };
@@ -1168,8 +1172,8 @@ MACHINE_START(OMAP_ZOOM2, "OMAP ZOOM2 board")
 	/* phys_io is only used for DEBUG_LL early printing.  The Zoom2's
 	 * console is on an external quad UART sitting at address 0x10000000
 	 */
-	.phys_io	= 0x10000000,
-	.io_pg_offst	= ((0xfb000000) >> 18) & 0xfffc,
+	.phys_io	= ZOOM2_EXT_QUART_PHYS,
+	.io_pg_offst	= ((ZOOM2_EXT_QUART_VIRT) >> 18) & 0xfffc,
 	.boot_params	= 0x80000100,
 	.map_io		= omap_zoom2_map_io,
 	.init_irq	= omap_zoom2_init_irq,

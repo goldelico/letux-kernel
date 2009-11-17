@@ -39,10 +39,10 @@
 #elif	CONFIG_ARCH_OMAP3
 #ifdef CONFIG_OMAP_LL_DEBUG_UART_EXT
 		moveq   \rx, #0x10000000        @ physical base address
-		movne   \rx, #0xfb000000        @ virtual base address
+		ldrne	\rx, =0xfa400000
 #else
 		moveq	\rx, #0x48000000	@ physical base address
-		movne	\rx, #0xd8000000	@ virtual base
+		movne	\rx, #0xfa000000	@ virtual base
 		orr	\rx, \rx, #0x0006a000
 #ifdef CONFIG_OMAP_LL_DEBUG_UART2
 		add	\rx, \rx, #0x00002000	@ UART 2
