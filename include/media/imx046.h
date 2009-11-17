@@ -33,12 +33,12 @@ struct imx046_platform_data {
 	int (*priv_data_set)(struct v4l2_int_device *s, void *);
 	u32 (*set_xclk)(struct v4l2_int_device *s, u32 xclkfreq);
 	int (*cfg_interface_bridge)(u32);
-	int (*csi2_lane_count)(int count);
-	int (*csi2_cfg_vp_out_ctrl)(u8 vp_out_ctrl);
-	int (*csi2_ctrl_update)(bool);
-	int (*csi2_cfg_virtual_id)(u8 ctx, u8 id);
-	int (*csi2_ctx_update)(u8 ctx, bool);
-	int (*csi2_calc_phy_cfg0)(u32, u32, u32);
+	int (*csi2_lane_count)(struct v4l2_int_device *s, int count);
+	int (*csi2_cfg_vp_out_ctrl)(struct v4l2_int_device *s, u8 vp_out_ctrl);
+	int (*csi2_ctrl_update)(struct v4l2_int_device *s, bool);
+	int (*csi2_cfg_virtual_id)(struct v4l2_int_device *s, u8 ctx, u8 id);
+	int (*csi2_ctx_update)(struct v4l2_int_device *s, u8 ctx, bool);
+	int (*csi2_calc_phy_cfg0)(struct v4l2_int_device *s, u32, u32, u32);
 };
 
 #endif /* ifndef IMX046_H */

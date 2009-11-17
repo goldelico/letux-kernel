@@ -888,9 +888,10 @@ int imx046_setup_pll(struct i2c_client *client, enum imx046_image_size isize)
  * @c: i2c client driver structure
  * @isize: image size enum
  */
-int imx046_setup_mipi(struct imx046_sensor *sensor,
+int imx046_setup_mipi(struct v4l2_int_device *s,
 			enum imx046_image_size isize)
 {
+	struct imx046_sensor *sensor = s->priv;
 	struct i2c_client *client = sensor->i2c_client;
 
 	/* NOTE: Make sure imx046_update_clocks is called 1st */
@@ -915,10 +916,11 @@ int imx046_setup_mipi(struct imx046_sensor *sensor,
 		imx046_write_reg(client, IMX046_REG_RGLANESEL, 0x01, I2C_8BIT);
 
 	/* Set number of lanes in isp */
-	sensor->pdata->csi2_lane_count(sensor_settings[isize].mipi.data_lanes);
+	sensor->pdata->csi2_lane_count(s,
+				       sensor_settings[isize].mipi.data_lanes);
 
 	/* Send settings to ISP-CSI2 Receiver PHY */
-	sensor->pdata->csi2_calc_phy_cfg0(current_clk.mipi_clk,
+	sensor->pdata->csi2_calc_phy_cfg0(s, current_clk.mipi_clk,
 		sensor_settings[isize].mipi.ths_settle_lower,
 		sensor_settings[isize].mipi.ths_settle_upper);
 
@@ -1088,7 +1090,7 @@ static int imx046_configure(struct v4l2_int_device *s)
 	imx046_update_clocks(xclk_current, isize);
 	imx046_setup_pll(client, isize);
 
-	imx046_setup_mipi(sensor, isize);
+	imx046_setup_mipi(s, isize);
 
 	/* configure image size and pixel format */
 	imx046_configure_frame(client, isize);
@@ -1098,11 +1100,11 @@ static int imx046_configure(struct v4l2_int_device *s)
 
 	imx046_set_orientation(client, sensor->ver);
 
-	sensor->pdata->csi2_cfg_vp_out_ctrl(2);
-	sensor->pdata->csi2_ctrl_update(false);
+	sensor->pdata->csi2_cfg_vp_out_ctrl(s, 2);
+	sensor->pdata->csi2_ctrl_update(s, false);
 
-	sensor->pdata->csi2_cfg_virtual_id(0, IMX046_CSI2_VIRTUAL_ID);
-	sensor->pdata->csi2_ctx_update(0, false);
+	sensor->pdata->csi2_cfg_virtual_id(s, 0, IMX046_CSI2_VIRTUAL_ID);
+	sensor->pdata->csi2_ctx_update(s, 0, false);
 	imx046_set_virtual_id(client, IMX046_CSI2_VIRTUAL_ID);
 
 	/* Set initial exposure and gain */
