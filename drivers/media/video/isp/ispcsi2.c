@@ -2033,6 +2033,7 @@ EXPORT_SYMBOL(isp_csi2_irq_all_set);
  **/
 int isp_csi2_reset(struct isp_csi2_device *isp_csi2)
 {
+	struct isp_device *isp = dev_get_drvdata(isp_csi2->dev);
 	u32 reg;
 	u8 soft_reset_retries = 0;
 	int i;
@@ -2046,6 +2047,11 @@ int isp_csi2_reset(struct isp_csi2_device *isp_csi2)
 	reg |= ISPCSI2_SYSCONFIG_SOFT_RESET_RESET;
 	isp_reg_writel(isp_csi2->dev, reg, OMAP3_ISP_IOMEM_CSI2A,
 		       ISPCSI2_SYSCONFIG);
+
+	if (isp->revision > ISP_REVISION_2_0)
+		isp_reg_or(isp_csi2->dev, OMAP3_ISP_IOMEM_CSI2A,
+			   ISPCSI2_COMPLEXIO_CFG1,
+			   ISPCSI2_COMPLEXIO_CFG1_RESET_CTRL_DEASSERTED);
 
 	do {
 		reg = isp_reg_readl(isp_csi2->dev, OMAP3_ISP_IOMEM_CSI2A,
