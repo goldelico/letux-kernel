@@ -118,10 +118,6 @@
 
 #define CM_CAM_MCLK_HZ			172800000	/* Hz */
 
-/* ISP hardware revisions */
-#define ISP_REV_3430				0x20
-#define ISP_REV_3630				0x21
-
 /* ISP Submodules offset */
 
 #define OMAP3ISP_REG_BASE		OMAP3430_ISP_BASE
