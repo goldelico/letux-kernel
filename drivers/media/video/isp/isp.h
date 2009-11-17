@@ -60,6 +60,10 @@ struct isp_pipeline;
 						 */
 #define NUM_BUFS		VIDEO_MAX_FRAME
 
+#define ISP_REVISION_2_0            0x20
+#define ISP_REVISION_2_1            0x21
+#define ISP_REVISION_RAPXXX         0xF0
+
 #define ISP_BYTES_PER_PIXEL		2
 #define NUM_ISP_CAPTURE_FORMATS 	(sizeof(isp_formats) /		\
 					 sizeof(isp_formats[0]))
@@ -303,11 +307,13 @@ struct isp_pipeline {
  * @ref_count: Reference counter.
  * @cam_ick: Pointer to ISP Interface clock.
  * @cam_fck: Pointer to ISP Functional clock.
+ * @revision: Stores current ISP module revision.
  *
  * This structure is used to store the OMAP ISP Control Information.
  */
 struct isp_device {
 	struct device *dev;
+	u32 revision;
 
 	/*** platform HW resources ***/
 	unsigned int irq_num;
