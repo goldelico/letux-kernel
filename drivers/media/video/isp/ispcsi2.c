@@ -28,6 +28,7 @@
 
 static struct isp_csi2_cfg current_csi2_cfg;
 static struct isp_csi2_cfg_update current_csi2_cfg_update;
+static struct device *csi2_dev;
 
 static bool update_complexio_cfg1;
 static bool update_phy_cfg0;
@@ -2019,6 +2020,8 @@ int isp_csi2_reset(void)
 	memset(&current_csi2_cfg, 0, sizeof(current_csi2_cfg));
 	memset(&current_csi2_cfg_update, 0, sizeof(current_csi2_cfg_update));
 
+	current_csi2_cfg.dev = csi2_dev;
+
 	reg = isp_reg_readl(current_csi2_cfg.dev, OMAP3_ISP_IOMEM_CSI2A,
 			    ISPCSI2_SYSCONFIG);
 	reg |= ISPCSI2_SYSCONFIG_SOFT_RESET_RESET;
@@ -2270,6 +2273,7 @@ int __init isp_csi2_init(struct device *dev)
 	memset(&current_csi2_cfg, 0, sizeof(current_csi2_cfg));
 	memset(&current_csi2_cfg_update, 0, sizeof(current_csi2_cfg_update));
 	current_csi2_cfg.dev = dev;
+	csi2_dev = dev;
 	return 0;
 }
 
