@@ -380,6 +380,7 @@ static int prev_negotiate_output_size(struct prev_device *prvdev,
 
 	pipe.prv_in = PRV_RAW_MEM;
 	pipe.prv_out = PREVIEW_MEM;
+	pipe.ccdc_out_w = prvdev->params->size_params.hsize;
 	pipe.ccdc_out_w_img = prvdev->params->size_params.hsize;
 	pipe.ccdc_out_h = prvdev->params->size_params.vsize;
 
@@ -401,8 +402,8 @@ static int prev_negotiate_output_size(struct prev_device *prvdev,
 		pipe.ccdc_out_w_img, pipe.ccdc_out_h,
 		pipe.prv_out_w, pipe.prv_out_h);
 
-	*out_hsize = pipe.prv_out_w;
-	*out_vsize = pipe.prv_out_h;
+	*out_hsize = pipe.prv_out_w_img;
+	*out_vsize = pipe.prv_out_h_img;
 	return 0;
 }
 
@@ -477,7 +478,11 @@ static int prev_do_preview(struct prev_device *device)
 	}
 
 	/* Make sure we don't wait for any HS_VS interrupts */
+	isp_set_hs_vs(device->isp, 0);
+
 	isp_configure_interface(device->isp, &prevwrap_config);
+
+	isp_start(device->isp);
 
 	isppreview_enable(&isp->isp_prev, 1);
 
@@ -772,6 +777,7 @@ static int previewer_open(struct inode *inode, struct file *filp)
 	}
 	device->isp = isp;
 	isp_dev = dev_get_drvdata(isp);
+	device->params = &isp_dev->isp_prev.params;
 
 	ret = isppreview_request(&isp_dev->isp_prev);
 	if (ret < 0) {
