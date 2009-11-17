@@ -93,7 +93,6 @@ struct imx046_sensor {
 	int scaler;
 	int ver;
 	int fps;
-	int state;
 	bool resuming;
 };
 
@@ -889,9 +888,10 @@ int imx046_setup_pll(struct i2c_client *client, enum imx046_image_size isize)
  * @c: i2c client driver structure
  * @isize: image size enum
  */
-int imx046_setup_mipi(struct imx046_sensor *sensor,
+int imx046_setup_mipi(struct v4l2_int_device *s,
 			enum imx046_image_size isize)
 {
+	struct imx046_sensor *sensor = s->priv;
 	struct i2c_client *client = sensor->i2c_client;
 
 	/* NOTE: Make sure imx046_update_clocks is called 1st */
@@ -916,10 +916,11 @@ int imx046_setup_mipi(struct imx046_sensor *sensor,
 		imx046_write_reg(client, IMX046_REG_RGLANESEL, 0x01, I2C_8BIT);
 
 	/* Set number of lanes in isp */
-	sensor->pdata->csi2_lane_count(sensor_settings[isize].mipi.data_lanes);
+	sensor->pdata->csi2_lane_count(s,
+				       sensor_settings[isize].mipi.data_lanes);
 
 	/* Send settings to ISP-CSI2 Receiver PHY */
-	sensor->pdata->csi2_calc_phy_cfg0(current_clk.mipi_clk,
+	sensor->pdata->csi2_calc_phy_cfg0(s, current_clk.mipi_clk,
 		sensor_settings[isize].mipi.ths_settle_lower,
 		sensor_settings[isize].mipi.ths_settle_upper);
 
@@ -1089,7 +1090,7 @@ static int imx046_configure(struct v4l2_int_device *s)
 	imx046_update_clocks(xclk_current, isize);
 	imx046_setup_pll(client, isize);
 
-	imx046_setup_mipi(sensor, isize);
+	imx046_setup_mipi(s, isize);
 
 	/* configure image size and pixel format */
 	imx046_configure_frame(client, isize);
@@ -1099,11 +1100,11 @@ static int imx046_configure(struct v4l2_int_device *s)
 
 	imx046_set_orientation(client, sensor->ver);
 
-	sensor->pdata->csi2_cfg_vp_out_ctrl(2);
-	sensor->pdata->csi2_ctrl_update(false);
+	sensor->pdata->csi2_cfg_vp_out_ctrl(s, 2);
+	sensor->pdata->csi2_ctrl_update(s, false);
 
-	sensor->pdata->csi2_cfg_virtual_id(0, IMX046_CSI2_VIRTUAL_ID);
-	sensor->pdata->csi2_ctx_update(0, false);
+	sensor->pdata->csi2_cfg_virtual_id(s, 0, IMX046_CSI2_VIRTUAL_ID);
+	sensor->pdata->csi2_ctx_update(s, 0, false);
 	imx046_set_virtual_id(client, IMX046_CSI2_VIRTUAL_ID);
 
 	/* Set initial exposure and gain */
@@ -1501,8 +1502,44 @@ static int ioctl_g_priv(struct v4l2_int_device *s, void *p)
 {
 	struct imx046_sensor *sensor = s->priv;
 
-	return sensor->pdata->priv_data_set(p);
+	return sensor->pdata->priv_data_set(s, p);
 
+}
+
+static int imx046_power_off(struct v4l2_int_device *s)
+{
+	struct imx046_sensor *sensor = s->priv;
+	struct i2c_client *client = sensor->i2c_client;
+	int rval;
+
+	rval = sensor->pdata->power_set(s, V4L2_POWER_OFF);
+	if (rval < 0) {
+		v4l_err(client, "Unable to set the power state: "
+			IMX046_DRIVER_NAME " sensor\n");
+		return rval;
+	}
+
+	sensor->pdata->set_xclk(s, 0);
+	return 0;
+}
+
+static int imx046_power_on(struct v4l2_int_device *s)
+{
+	struct imx046_sensor *sensor = s->priv;
+	struct i2c_client *client = sensor->i2c_client;
+	int rval;
+
+	sensor->pdata->set_xclk(s, xclk_current);
+
+	rval = sensor->pdata->power_set(s, V4L2_POWER_ON);
+	if (rval < 0) {
+		v4l_err(client, "Unable to set the power state: "
+			IMX046_DRIVER_NAME " sensor\n");
+		sensor->pdata->set_xclk(s, 0);
+		return rval;
+	}
+
+	return 0;
 }
 
 /**
@@ -1515,55 +1552,17 @@ static int ioctl_g_priv(struct v4l2_int_device *s, void *p)
 static int ioctl_s_power(struct v4l2_int_device *s, enum v4l2_power on)
 {
 	struct imx046_sensor *sensor = s->priv;
-	struct i2c_client *client = sensor->i2c_client;
-	struct omap34xxcam_hw_config hw_config;
 	struct vcontrol *lvc;
-	int rval, i;
+	int i;
 
-	rval = ioctl_g_priv(s, &hw_config);
-	if (rval) {
-		v4l_err(client, "Unable to get hw params\n");
-		return rval;
-	}
-
-	if ((on == V4L2_POWER_STANDBY) && (sensor->state == SENSOR_DETECTED)) {
-		/* imx046_write_regs(c, stream_off_list,
-						I2C_STREAM_OFF_LIST_SIZE); */
-	}
-
-	if (on != V4L2_POWER_ON)
-		sensor->pdata->set_xclk(0, hw_config.u.sensor.xclk);
-	else
-		sensor->pdata->set_xclk(xclk_current, hw_config.u.sensor.xclk);
-
-	rval = sensor->pdata->power_set(&client->dev, on);
-	if (rval < 0) {
-		v4l_err(client, "Unable to set the power state: "
-			IMX046_DRIVER_NAME " sensor\n");
-		sensor->pdata->set_xclk(0, hw_config.u.sensor.xclk);
-		return rval;
-	}
-
-	if ((current_power_state == V4L2_POWER_STANDBY) &&
-					(on == V4L2_POWER_ON) &&
-					(sensor->state == SENSOR_DETECTED)) {
-		sensor->resuming = true;
-		imx046_configure(s);
-	}
-
-	if ((on == V4L2_POWER_ON) && (sensor->state == SENSOR_NOT_DETECTED)) {
-		rval = imx046_detect(client);
-		if (rval < 0) {
-			v4l_err(client, "Unable to detect "
-					IMX046_DRIVER_NAME " sensor\n");
-			sensor->state = SENSOR_NOT_DETECTED;
-			return rval;
+	if (on == V4L2_POWER_ON) {
+		imx046_power_on(s);
+		if (current_power_state == V4L2_POWER_STANDBY) {
+			sensor->resuming = true;
+			imx046_configure(s);
 		}
-		sensor->state = SENSOR_DETECTED;
-		sensor->ver = rval;
-		v4l_info(client, IMX046_DRIVER_NAME
-			" chip version 0x%02x detected\n", sensor->ver);
-	}
+	} else
+		imx046_power_off(s);
 
 	if (on == V4L2_POWER_OFF) {
 		/* Reset defaults for controls */
@@ -1624,16 +1623,23 @@ static int ioctl_dev_init(struct v4l2_int_device *s)
 	struct i2c_client *client = sensor->i2c_client;
 	int err;
 
+	err = imx046_power_on(s);
+	if (err)
+		return -ENODEV;
+
 	err = imx046_detect(client);
 	if (err < 0) {
-		v4l_err(client, "Unable to detect " IMX046_DRIVER_NAME
-				" sensor\n");
+		v4l_err(client, "Unable to detect "
+				IMX046_DRIVER_NAME " sensor\n");
 		return err;
 	}
-
 	sensor->ver = err;
-	v4l_info(client, IMX046_DRIVER_NAME " chip version "
-			"0x%02x detected\n", sensor->ver);
+	v4l_info(client, IMX046_DRIVER_NAME
+		" chip version 0x%02x detected\n", sensor->ver);
+
+	err = imx046_power_off(s);
+	if (err)
+		return -ENODEV;
 
 	return 0;
 }
@@ -1851,7 +1857,6 @@ static struct imx046_sensor imx046 = {
 		.numerator = 1,
 		.denominator = 30,
 	},
-	.state = SENSOR_NOT_DETECTED,
 };
 
 /**

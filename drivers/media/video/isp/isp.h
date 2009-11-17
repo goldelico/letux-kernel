@@ -28,6 +28,26 @@
 #include <mach/cpu.h>
 #include <media/videobuf-dma-sg.h>
 #include <linux/videodev2.h>
+
+#include <asm/io.h>
+
+#include <mach/iommu.h>
+#include <mach/iovmm.h>
+
+struct isp_pipeline;
+
+#include "ispstat.h"
+#include "isp_af.h"
+#include "isphist.h"
+#include "ispccdc.h"
+#include "ispreg.h"
+#include "isph3a.h"
+#include "ispresizer.h"
+#include "isppreview.h"
+#include "ispcsi2.h"
+
+#define IOMMU_FLAG (IOVMF_ENDIAN_LITTLE | IOVMF_ELSZ_8)
+
 #define OMAP_ISP_CCDC		(1 << 0)
 #define OMAP_ISP_PREVIEW	(1 << 1)
 #define OMAP_ISP_RESIZER	(1 << 2)
@@ -41,9 +61,19 @@
 						 */
 #define NUM_BUFS		VIDEO_MAX_FRAME
 
+#define ISP_REVISION_2_0            0x20
+#define ISP_REVISION_2_1            0x21
+#define ISP_REVISION_RAPXXX         0xF0
+
 #define ISP_BYTES_PER_PIXEL		2
 #define NUM_ISP_CAPTURE_FORMATS 	(sizeof(isp_formats) /		\
 					 sizeof(isp_formats[0]))
+
+#define to_isp_device(ptr_module)				\
+	container_of(ptr_module, struct isp_device, ptr_module)
+#define to_device(ptr_module)						\
+	(to_isp_device(ptr_module)->dev)
+
 typedef int (*isp_vbq_callback_ptr) (struct videobuf_buffer *vb);
 typedef void (*isp_callback_t) (unsigned long status,
 				isp_vbq_callback_ptr arg1, void *arg2);
@@ -61,28 +91,6 @@ enum isp_mem_resources {
 	OMAP3_ISP_IOMEM_CSI2A,
 	OMAP3_ISP_IOMEM_CSI2PHY,
 	OMAP3_ISP_IOMEM_CSI2PHY2
-};
-
-struct isp_device {
-	struct device *dev;
-
-	/*** platform HW resources ***/
-	unsigned int irq;
-
-#define mmio_base_main mmio_base[OMAP3_ISP_IOMEM_MAIN]
-#define mmio_cbuff_main mmio_base[OMAP3_ISP_IOMEM_CBUFF]
-#define mmio_ccp2_main mmio_base[OMAP3_ISP_IOMEM_CCP2]
-#define mmio_ccdc_main mmio_base[OMAP3_ISP_IOMEM_CCDC]
-#define mmio_hist_main mmio_base[OMAP3_ISP_IOMEM_HIST]
-#define mmio_h3a_main mmio_base[OMAP3_ISP_IOMEM_H3A]
-#define mmio_prev_main mmio_base[OMAP3_ISP_IOMEM_PREV]
-#define mmio_resz_main mmio_base[OMAP3_ISP_IOMEM_RESZ]
-#define mmio_sbl_main mmio_base[OMAP3_ISP_IOMEM_SBL]
-#define mmio_csi2_main mmio_base[OMAP3_ISP_IOMEM_CSI2A]
-#define mmio_csi2phy_main mmio_base[OMAP3_ISP_IOMEM_CSI2PHY2]
-	unsigned long mmio_base[OMAP3_ISP_IOMEM_CSI2PHY2 + 1];
-	unsigned long mmio_base_phys[OMAP3_ISP_IOMEM_CSI2PHY2 + 1];
-	unsigned long mmio_size[OMAP3_ISP_IOMEM_CSI2PHY2 + 1];
 };
 
 enum isp_interface_type {
@@ -119,22 +127,19 @@ enum isp_callback_type {
 	CBK_PREV_DONE,
 	CBK_RESZ_DONE,
 	CBK_MMU_ERR,
-	CBK_H3A_AWB_DONE,
 	CBK_HIST_DONE,
 	CBK_HS_VS,
 	CBK_LSC_ISR,
-	CBK_H3A_AF_DONE,
 	CBK_CATCHALL,
 	CBK_CSIA,
 	CBK_CSIB,
 	CBK_END,
 };
 
-enum ispccdc_raw_fmt {
-	ISPCCDC_INPUT_FMT_GR_BG,
-	ISPCCDC_INPUT_FMT_RG_GB,
-	ISPCCDC_INPUT_FMT_BG_GR,
-	ISPCCDC_INPUT_FMT_GB_RG,
+enum isp_running {
+	ISP_STOPPED,
+	ISP_RUNNING,
+	ISP_STOPPING,
 };
 
 /**
@@ -170,6 +175,7 @@ struct isp_reg {
  * @vskip: Vertical Start Line performed in Preview module.
  * @wenlog: Store the value for the sensor specific wenlog field.
  * @wait_hs_vs: Wait for this many hs_vs before anything else in the beginning.
+ * @pixelclk: Pixel data rate from sensor.
  */
 struct isp_interface_config {
 	enum isp_interface_type ccdc_par_ser;
@@ -181,6 +187,7 @@ struct isp_interface_config {
 	u32 wenlog;
 	int wait_hs_vs;
 	enum ispccdc_raw_fmt raw_fmt_in;
+	unsigned int pixelclk;
 	union {
 		struct par {
 			unsigned par_bridge:2;
@@ -202,65 +209,198 @@ struct isp_interface_config {
 	} u;
 };
 
-u32 isp_reg_readl(enum isp_mem_resources isp_mmio_range, u32 reg_offset);
+struct isp_buf {
+	dma_addr_t isp_addr;
+	void (*complete)(struct videobuf_buffer *vb, void *priv);
+	struct videobuf_buffer *vb;
+	void *priv;
+	u32 vb_state;
+};
 
-void isp_reg_writel(u32 reg_value, enum isp_mem_resources isp_mmio_range,
-		    u32 reg_offset);
+#define ISP_BUFS_IS_FULL(bufs)					\
+	(((bufs)->queue + 1) % NUM_BUFS == (bufs)->done)
+#define ISP_BUFS_IS_EMPTY(bufs)		((bufs)->queue == (bufs)->done)
+#define ISP_BUFS_IS_LAST(bufs)					\
+	((bufs)->queue == ((bufs)->done + 1) % NUM_BUFS)
+#define ISP_BUFS_QUEUED(bufs)						\
+	((((bufs)->done - (bufs)->queue + NUM_BUFS)) % NUM_BUFS)
+#define ISP_BUF_DONE(bufs)		((bufs)->buf + (bufs)->done)
+#define ISP_BUF_NEXT_DONE(bufs)				\
+	((bufs)->buf + ((bufs)->done + 1) % NUM_BUFS)
+#define ISP_BUF_QUEUE(bufs)		((bufs)->buf + (bufs)->queue)
+#define ISP_BUF_MARK_DONE(bufs)				\
+	(bufs)->done = ((bufs)->done + 1) % NUM_BUFS;
+#define ISP_BUF_MARK_QUEUED(bufs)			\
+	(bufs)->queue = ((bufs)->queue + 1) % NUM_BUFS;
 
-static inline void isp_reg_and(enum isp_mem_resources mmio_range, u32 reg,
-			       u32 and_bits)
-{
-	u32 v = isp_reg_readl(mmio_range, reg);
+struct isp_bufs {
+	dma_addr_t isp_addr_capture[VIDEO_MAX_FRAME];
+	/* queue full: (ispsg.queue + 1) % NUM_BUFS == ispsg.done
+	   queue empty: ispsg.queue == ispsg.done */
+	struct isp_buf buf[NUM_BUFS];
+	/* Next slot to queue a buffer. */
+	int queue;
+	/* Buffer that is being processed. */
+	int done;
+	/* Wait for this many hs_vs before anything else. */
+	int wait_hs_vs;
+};
 
-	isp_reg_writel(v & and_bits, mmio_range, reg);
-}
+/**
+ * struct ispirq - Structure for containing callbacks to be called in ISP ISR.
+ * @isp_callbk: Array which stores callback functions, indexed by the type of
+ *              callback (8 possible types).
+ * @isp_callbk_arg1: Pointer to array containing pointers to the first argument
+ *                   to be passed to the requested callback function.
+ * @isp_callbk_arg2: Pointer to array containing pointers to the second
+ *                   argument to be passed to the requested callback function.
+ *
+ * This structure is used to contain all the callback functions related for
+ * each callback type (CBK_CCDC_VD0, CBK_CCDC_VD1, CBK_PREV_DONE,
+ * CBK_RESZ_DONE, CBK_MMU_ERR, CBK_H3A_AWB_DONE, CBK_HIST_DONE, CBK_HS_VS,
+ * CBK_LSC_ISR).
+ */
+struct isp_irq {
+	isp_callback_t isp_callbk[CBK_END];
+	isp_vbq_callback_ptr isp_callbk_arg1[CBK_END];
+	void *isp_callbk_arg2[CBK_END];
+};
 
-static inline void isp_reg_or(enum isp_mem_resources mmio_range, u32 reg,
-			      u32 or_bits)
-{
-	u32 v = isp_reg_readl(mmio_range, reg);
+struct isp_pipeline {
+	unsigned int modules;		/* modules in use */
+	struct v4l2_pix_format pix;	/* output pix */
+	unsigned int ccdc_in_w;
+	unsigned int ccdc_in_h;
+	unsigned int ccdc_out_w;	/* ccdc output data width (pixels) */
+	unsigned int ccdc_out_h;	/* ccdc output data height */
+	unsigned int ccdc_out_w_img;	/* ccdc output visible image width */
+	enum ccdc_input ccdc_in;
+	enum ccdc_output ccdc_out;
+	unsigned int prv_out_w;
+	unsigned int prv_out_h;
+	unsigned int prv_out_w_img;
+	unsigned int prv_out_h_img;
+	unsigned int prv_fmt_avg;
+	enum preview_input prv_in;
+	enum preview_output prv_out;
+	struct v4l2_rect rsz_crop;
+	unsigned int rsz_out_w;
+	unsigned int rsz_out_h;
+	unsigned int rsz_out_w_img;
+	enum resizer_input rsz_in;
+};
 
-	isp_reg_writel(v | or_bits, mmio_range, reg);
-}
+#define CCDC_CAPTURE(isp)					\
+	((isp)->pipeline.modules == OMAP_ISP_CCDC)
 
-static inline void isp_reg_and_or(enum isp_mem_resources mmio_range, u32 reg,
-				  u32 and_bits, u32 or_bits)
-{
-	u32 v = isp_reg_readl(mmio_range, reg);
+#define CCDC_PREV_CAPTURE(isp)					\
+	((isp)->pipeline.modules == (OMAP_ISP_CCDC | OMAP_ISP_PREVIEW))
 
-	isp_reg_writel((v & and_bits) | or_bits, mmio_range, reg);
-}
+#define CCDC_PREV_RESZ_CAPTURE(isp)				\
+	((isp)->pipeline.modules == (OMAP_ISP_CCDC | \
+				     OMAP_ISP_PREVIEW | \
+				     OMAP_ISP_RESIZER))
 
-u32 isp_rev(void);
+/**
+ * struct isp - Structure for storing ISP Control module information
+ * @lock: Spinlock to sync between isr and processes.
+ * @isp_mutex: Semaphore used to get access to the ISP.
+ * @ref_count: Reference counter.
+ * @cam_ick: Pointer to ISP Interface clock.
+ * @cam_fck: Pointer to ISP Functional clock.
+ * @revision: Stores current ISP module revision.
+ *
+ * This structure is used to store the OMAP ISP Control Information.
+ */
+struct isp_device {
+	struct device *dev;
+	u32 revision;
 
-void isp_flush(void);
+	/*** platform HW resources ***/
+	unsigned int irq_num;
 
-void isp_start(void);
+#define mmio_base_main mmio_base[OMAP3_ISP_IOMEM_MAIN]
+#define mmio_cbuff_main mmio_base[OMAP3_ISP_IOMEM_CBUFF]
+#define mmio_ccp2_main mmio_base[OMAP3_ISP_IOMEM_CCP2]
+#define mmio_ccdc_main mmio_base[OMAP3_ISP_IOMEM_CCDC]
+#define mmio_hist_main mmio_base[OMAP3_ISP_IOMEM_HIST]
+#define mmio_h3a_main mmio_base[OMAP3_ISP_IOMEM_H3A]
+#define mmio_prev_main mmio_base[OMAP3_ISP_IOMEM_PREV]
+#define mmio_resz_main mmio_base[OMAP3_ISP_IOMEM_RESZ]
+#define mmio_sbl_main mmio_base[OMAP3_ISP_IOMEM_SBL]
+#define mmio_csi2_main mmio_base[OMAP3_ISP_IOMEM_CSI2A]
+#define mmio_csi2phy_main mmio_base[OMAP3_ISP_IOMEM_CSI2PHY2]
+	unsigned long mmio_base[OMAP3_ISP_IOMEM_CSI2PHY2 + 1];
+	unsigned long mmio_base_phys[OMAP3_ISP_IOMEM_CSI2PHY2 + 1];
+	unsigned long mmio_size[OMAP3_ISP_IOMEM_CSI2PHY2 + 1];
 
-void isp_stop(void);
+	/* ISP Obj */
+	spinlock_t lock;	/* For handling registered ISP callbacks */
+	spinlock_t h3a_lock;
+	struct mutex isp_mutex;	/* For handling ref_count field */
+	int ref_count;
+	struct clk *cam_ick;
+	struct clk *cam_mclk;
+	struct clk *dpll4_m5_ck;
+	struct clk *csi2_fck;
+	struct clk *l3_ick;
+	struct isp_interface_config *config;
+	dma_addr_t tmp_buf;
+	size_t tmp_buf_size;
+	unsigned long tmp_buf_offset;
+	struct isp_bufs bufs;
+	struct isp_irq irq;
+	struct isp_pipeline pipeline;
+	u32 interrupts;
+	enum isp_running running;
 
-int isp_buf_queue(struct videobuf_buffer *vb,
+	/* ISP modules */
+	struct isp_af_device isp_af;
+	struct isp_hist_device isp_hist;
+	struct isp_h3a_device isp_h3a;
+	struct isp_res_device isp_res;
+	struct isp_prev_device isp_prev;
+	struct isp_ccdc_device isp_ccdc;
+	struct isp_csi2_device isp_csi2;
+
+	struct iommu *iommu;
+};
+
+void isp_hist_dma_done(struct device *dev);
+
+u32 isp_rev(struct device *dev);
+
+void isp_flush(struct device *dev);
+
+void isp_start(struct device *dev);
+
+void isp_stop(struct device *dev);
+
+int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 		  void (*complete)(struct videobuf_buffer *vb, void *priv),
 		  void *priv);
 
-int isp_vbq_setup(struct videobuf_queue *vbq, unsigned int *cnt,
-		  unsigned int *size);
+int isp_vbq_setup(struct device *dev, struct videobuf_queue *vbq,
+		  unsigned int *cnt, unsigned int *size);
 
-int isp_vbq_prepare(struct videobuf_queue *vbq, struct videobuf_buffer *vb,
-		    enum v4l2_field field);
+int isp_vbq_prepare(struct device *dev, struct videobuf_queue *vbq,
+		    struct videobuf_buffer *vb, enum v4l2_field field);
 
-void isp_vbq_release(struct videobuf_queue *vbq, struct videobuf_buffer *vb);
+void isp_vbq_release(struct device *dev, struct videobuf_queue *vbq,
+		    struct videobuf_buffer *vb);
 
-int isp_set_callback(enum isp_callback_type type, isp_callback_t callback,
-		     isp_vbq_callback_ptr arg1, void *arg2);
+int isp_set_callback(struct device *dev, enum isp_callback_type type,
+		     isp_callback_t callback, isp_vbq_callback_ptr arg1,
+		     void *arg2);
 
-int isp_unset_callback(enum isp_callback_type type);
+int isp_unset_callback(struct device *dev, enum isp_callback_type type);
 
-u32 isp_set_xclk(u32 xclk, u8 xclksel);
+u32 isp_set_xclk(struct device *dev, u32 xclk, u8 xclksel);
 
-int isp_configure_interface(struct isp_interface_config *config);
+int isp_configure_interface(struct device *dev,
+			    struct isp_interface_config *config);
 
-int isp_get(void);
+struct device *isp_get(void);
 
 int isp_put(void);
 
@@ -268,56 +408,102 @@ int isp_queryctrl(struct v4l2_queryctrl *a);
 
 int isp_querymenu(struct v4l2_querymenu *a);
 
-int isp_g_ctrl(struct v4l2_control *a);
+int isp_g_ctrl(struct device *dev, struct v4l2_control *a);
 
-int isp_s_ctrl(struct v4l2_control *a);
+int isp_s_ctrl(struct device *dev, struct v4l2_control *a);
 
 int isp_enum_fmt_cap(struct v4l2_fmtdesc *f);
 
-int isp_try_fmt_cap(struct v4l2_pix_format *pix_input,
+int isp_try_fmt_cap(struct device *dev, struct v4l2_pix_format *pix_input,
 		    struct v4l2_pix_format *pix_output);
 
-void isp_g_fmt_cap(struct v4l2_pix_format *pix);
+void isp_g_fmt_cap(struct device *dev, struct v4l2_pix_format *pix);
 
-int isp_s_fmt_cap(struct v4l2_pix_format *pix_input,
+int isp_s_fmt_cap(struct device *dev, struct v4l2_pix_format *pix_input,
 		  struct v4l2_pix_format *pix_output);
 
-int isp_g_crop(struct v4l2_crop *a);
+int isp_g_crop(struct device *dev, struct v4l2_crop *a);
 
-int isp_s_crop(struct v4l2_crop *a, struct v4l2_pix_format *pix);
+int isp_s_crop(struct device *dev, struct v4l2_crop *a);
 
-void isp_config_crop(struct v4l2_pix_format *pix);
-
-int isp_try_fmt(struct v4l2_pix_format *pix_input,
+int isp_try_fmt(struct device *dev, struct v4l2_pix_format *pix_input,
 		struct v4l2_pix_format *pix_output);
 
-int isp_handle_private(struct mutex *, int cmd, void *arg);
+int isp_handle_private(struct device *dev, struct mutex *, int cmd, void *arg);
 
-void isp_save_context(struct isp_reg *);
+void isp_save_context(struct device *dev, struct isp_reg *);
 
-void isp_restore_context(struct isp_reg *);
+void isp_restore_context(struct device *dev, struct isp_reg *);
 
-void isp_print_status(void);
+void isp_print_status(struct device *dev);
 
-void isp_set_hs_vs(int);
+void isp_set_hs_vs(struct device *dev, int hs_vs);
 
-unsigned long isp_get_buf_offset(void);
+unsigned long isp_get_buf_offset(struct device *dev);
 
-int __init isp_ccdc_init(void);
-int __init isp_hist_init(void);
-int __init isph3a_aewb_init(void);
-int __init isp_preview_init(void);
-int __init isp_resizer_init(void);
-int __init isp_af_init(void);
-int __init isp_csi2_init(void);
+int __init isp_ccdc_init(struct device *dev);
+int __init isp_hist_init(struct device *dev);
+int __init isph3a_aewb_init(struct device *dev);
+int __init isp_preview_init(struct device *dev);
+int __init isp_resizer_init(struct device *dev);
+int __init isp_af_init(struct device *dev);
+int __init isp_csi2_init(struct device *dev);
 
-void isp_ccdc_cleanup(void);
-void isp_hist_cleanup(void);
-void isph3a_aewb_cleanup(void);
-void isp_preview_cleanup(void);
-void isp_hist_cleanup(void);
-void isp_resizer_cleanup(void);
-void isp_af_exit(void);
-void isp_csi2_cleanup(void);
+void isp_ccdc_cleanup(struct device *dev);
+void isp_hist_cleanup(struct device *dev);
+void isph3a_aewb_cleanup(struct device *dev);
+void isp_resizer_cleanup(struct device *dev);
+void isp_af_exit(struct device *dev);
+void isp_csi2_cleanup(struct device *dev);
+
+/* FIXME: Remove these when iommu supports these directly. */
+dma_addr_t ispmmu_vmap(struct device *dev, const struct scatterlist *sglist,
+		       int sglen);
+void ispmmu_vunmap(struct device *dev, dma_addr_t da);
+
+static inline
+u32 isp_reg_readl(struct device *dev, enum isp_mem_resources isp_mmio_range,
+		  u32 reg_offset)
+{
+	struct isp_device *isp = dev_get_drvdata(dev);
+
+	return __raw_readl(isp->mmio_base[isp_mmio_range] + reg_offset);
+}
+
+static inline
+void isp_reg_writel(struct device *dev, u32 reg_value,
+		    enum isp_mem_resources isp_mmio_range, u32 reg_offset)
+{
+	struct isp_device *isp = dev_get_drvdata(dev);
+
+	__raw_writel(reg_value, isp->mmio_base[isp_mmio_range] + reg_offset);
+}
+
+static inline
+void isp_reg_and(struct device *dev, enum isp_mem_resources mmio_range, u32 reg,
+		 u32 and_bits)
+{
+	u32 v = isp_reg_readl(dev, mmio_range, reg);
+
+	isp_reg_writel(dev, v & and_bits, mmio_range, reg);
+}
+
+static inline
+void isp_reg_or(struct device *dev, enum isp_mem_resources mmio_range, u32 reg,
+		u32 or_bits)
+{
+	u32 v = isp_reg_readl(dev, mmio_range, reg);
+
+	isp_reg_writel(dev, v | or_bits, mmio_range, reg);
+}
+
+static inline
+void isp_reg_and_or(struct device *dev, enum isp_mem_resources mmio_range,
+		    u32 reg, u32 and_bits, u32 or_bits)
+{
+	u32 v = isp_reg_readl(dev, mmio_range, reg);
+
+	isp_reg_writel(dev, (v & and_bits) | or_bits, mmio_range, reg);
+}
 
 #endif	/* OMAP_ISP_TOP_H */

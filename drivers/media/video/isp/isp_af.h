@@ -24,6 +24,9 @@
 
 #include <mach/isp_user.h>
 
+#include "isph3a.h"
+#include "ispstat.h"
+
 #define AF_MAJOR_NUMBER			0
 #define ISPAF_NAME			"OMAPISP_AF"
 #define AF_NR_DEVS			1
@@ -64,6 +67,8 @@
 #define AF_MED_EN			(1 << 2)
 #define AF_ALAW_EN			(1 << 1)
 #define AF_EN				(1 << 0)
+#define AF_PCR_MASK			(FVMODE | RGBPOS | MED_TH | \
+					 AF_MED_EN | AF_ALAW_EN)
 
 /*
  * AFPAX1 fields
@@ -104,22 +109,29 @@
 #define AF_UPDATEXS_FIELDCOUNT	(1 << 1)
 #define AF_UPDATEXS_LENSPOS		(1 << 2)
 
-/* Structure for device of AF Engine */
-struct af_device {
-	struct af_configuration *config; /*Device configuration structure */
-	int size_paxel;		/*Paxel size in bytes */
+/**
+ * struct isp_af_status - AF status.
+ * @update: 1 - Update registers.
+ */
+struct isp_af_device {
+	u8 update;
+	u8 buf_err;
+	int enabled;
+	struct ispstat stat;
+	struct af_configuration config; /*Device configuration structure */
+	struct ispstat_buffer *buf_next;
+	spinlock_t *lock;
 };
 
-int isp_af_check_paxel(void);
-int isp_af_check_iir(void);
-int isp_af_register_setup(struct af_device *af_dev);
-int isp_af_enable(int);
-void isp_af_suspend(void);
-void isp_af_resume(void);
-int isp_af_busy(void);
-void isp_af_notify(int notify);
-int isp_af_request_statistics(struct isp_af_data *afdata);
-int isp_af_configure(struct af_configuration *afconfig);
-void isp_af_set_address(unsigned long);
-void isp_af_setxtrastats(struct isp_af_xtrastats *xtrastats, u8 updateflag);
+int isp_af_buf_process(struct isp_af_device *isp_af);
+void isp_af_enable(struct isp_af_device *, int);
+void isp_af_try_enable(struct isp_af_device *isp_af);
+void isp_af_suspend(struct isp_af_device *);
+void isp_af_resume(struct isp_af_device *);
+int isp_af_busy(struct isp_af_device *);
+void isp_af_config_registers(struct isp_af_device *isp_af);
+int isp_af_request_statistics(struct isp_af_device *,
+			      struct isp_af_data *afdata);
+int isp_af_config(struct isp_af_device *, struct af_configuration *afconfig);
+
 #endif	/* OMAP_ISP_AF_H */

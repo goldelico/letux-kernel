@@ -41,6 +41,8 @@ static int cam_inited;
 #define VAUX_DEV_GRP_P1		0x20
 #define VAUX_DEV_GRP_NONE	0x00
 
+#define CAMZOOM2_USE_XCLKB  	1
+
 /* Sensor specific GPIO signals */
 #define IMX046_RESET_GPIO  	98
 #define IMX046_STANDBY_GPIO	58
@@ -124,16 +126,14 @@ struct lv8093_platform_data zoom2_lv8093_platform_data = {
 
 static struct omap34xxcam_sensor_config imx046_hwc = {
 	.sensor_isp  = 0,
-	.xclk        = OMAP34XXCAM_XCLK_B,
 	.capture_mem = IMX046_BIGGEST_FRAME_BYTE_SIZE * 2,
 	.ival_default	= { 1, 10 },
 };
 
-static int imx046_sensor_set_prv_data(void *priv)
+static int imx046_sensor_set_prv_data(struct v4l2_int_device *s, void *priv)
 {
 	struct omap34xxcam_hw_config *hwc = priv;
 
-	hwc->u.sensor.xclk	= imx046_hwc.xclk;
 	hwc->u.sensor.sensor_isp = imx046_hwc.sensor_isp;
 	hwc->dev_index		= 2;
 	hwc->dev_minor		= 5;
@@ -166,8 +166,10 @@ static struct isp_interface_config imx046_if_config = {
 };
 
 
-static int imx046_sensor_power_set(struct device *dev, enum v4l2_power power)
+static int imx046_sensor_power_set(struct v4l2_int_device *s, enum v4l2_power power)
 {
+	struct omap34xxcam_videodev *vdev = s->u.slave->master->priv;
+	struct isp_device *isp = dev_get_drvdata(vdev->cam->isp);
 	struct isp_csi2_lanes_cfg lanecfg;
 	struct isp_csi2_phy_cfg phyconfig;
 	static enum v4l2_power previous_power = V4L2_POWER_OFF;
@@ -181,9 +183,9 @@ static int imx046_sensor_power_set(struct device *dev, enum v4l2_power power)
 		/* Through-put requirement:
 		 * 3280 x 2464 x 2Bpp x 7.5fps x 3 memory ops = 355163 KByte/s
 		 */
-		omap_pm_set_min_bus_tput(dev, OCP_INITIATOR_AGENT, 355163);
+		omap_pm_set_min_bus_tput(vdev->cam->isp, OCP_INITIATOR_AGENT, 355163);
 
-		isp_csi2_reset();
+		isp_csi2_reset(&isp->isp_csi2);
 
 		lanecfg.clk.pol = IMX046_CSI2_CLOCK_POLARITY;
 		lanecfg.clk.pos = IMX046_CSI2_CLOCK_LANE;
@@ -195,20 +197,20 @@ static int imx046_sensor_power_set(struct device *dev, enum v4l2_power power)
 		lanecfg.data[2].pos = 0;
 		lanecfg.data[3].pol = 0;
 		lanecfg.data[3].pos = 0;
-		isp_csi2_complexio_lanes_config(&lanecfg);
-		isp_csi2_complexio_lanes_update(true);
+		isp_csi2_complexio_lanes_config(&isp->isp_csi2, &lanecfg);
+		isp_csi2_complexio_lanes_update(&isp->isp_csi2, true);
 
-		isp_csi2_ctrl_config_ecc_enable(true);
+		isp_csi2_ctrl_config_ecc_enable(&isp->isp_csi2, true);
 
 		phyconfig.ths_term = IMX046_CSI2_PHY_THS_TERM;
 		phyconfig.ths_settle = IMX046_CSI2_PHY_THS_SETTLE;
 		phyconfig.tclk_term = IMX046_CSI2_PHY_TCLK_TERM;
 		phyconfig.tclk_miss = IMX046_CSI2_PHY_TCLK_MISS;
 		phyconfig.tclk_settle = IMX046_CSI2_PHY_TCLK_SETTLE;
-		isp_csi2_phy_config(&phyconfig);
-		isp_csi2_phy_update(true);
+		isp_csi2_phy_config(&isp->isp_csi2, &phyconfig);
+		isp_csi2_phy_update(&isp->isp_csi2, true);
 
-		isp_configure_interface(&imx046_if_config);
+		isp_configure_interface(vdev->cam->isp, &imx046_if_config);
 
 		if (previous_power == V4L2_POWER_OFF) {
 			/* Request and configure gpio pins */
@@ -245,7 +247,7 @@ static int imx046_sensor_power_set(struct device *dev, enum v4l2_power power)
 	case V4L2_POWER_OFF:
 		printk(KERN_DEBUG "imx046_sensor_power_set(OFF)\n");
 		/* Power Down Sequence */
-		isp_csi2_complexio_power(ISP_CSI2_POWER_OFF);
+		isp_csi2_complexio_power(&isp->isp_csi2, ISP_CSI2_POWER_OFF);
 
 		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 				VAUX_DEV_GRP_NONE, TWL4030_VAUX4_DEV_GRP);
@@ -253,13 +255,13 @@ static int imx046_sensor_power_set(struct device *dev, enum v4l2_power power)
 				VAUX_DEV_GRP_NONE, TWL4030_VAUX2_DEV_GRP);
 		gpio_free(IMX046_RESET_GPIO);
 
-		omap_pm_set_min_bus_tput(dev, OCP_INITIATOR_AGENT, 0);
+		omap_pm_set_min_bus_tput(vdev->cam->isp, OCP_INITIATOR_AGENT, 0);
 		break;
 	case V4L2_POWER_STANDBY:
 		printk(KERN_DEBUG "imx046_sensor_power_set(STANDBY)\n");
-		isp_csi2_complexio_power(ISP_CSI2_POWER_OFF);
+		isp_csi2_complexio_power(&isp->isp_csi2, ISP_CSI2_POWER_OFF);
 		/*TODO*/
-		omap_pm_set_min_bus_tput(dev, OCP_INITIATOR_AGENT, 0);
+		omap_pm_set_min_bus_tput(vdev->cam->isp, OCP_INITIATOR_AGENT, 0);
 		break;
 	}
 
@@ -268,16 +270,76 @@ static int imx046_sensor_power_set(struct device *dev, enum v4l2_power power)
 	return err;
 }
 
+static u32 imx046_sensor_set_xclk(struct v4l2_int_device *s, u32 xclkfreq)
+{
+	struct omap34xxcam_videodev *vdev = s->u.slave->master->priv;
+
+	return isp_set_xclk(vdev->cam->isp, xclkfreq, CAMZOOM2_USE_XCLKB);
+}
+
+static int imx046_csi2_lane_count(struct v4l2_int_device *s, int count)
+{
+	struct omap34xxcam_videodev *vdev = s->u.slave->master->priv;
+	struct isp_device *isp = dev_get_drvdata(vdev->cam->isp);
+
+	return isp_csi2_complexio_lanes_count(&isp->isp_csi2, count);
+}
+
+static int imx046_csi2_cfg_vp_out_ctrl(struct v4l2_int_device *s,
+				       u8 vp_out_ctrl)
+{
+	struct omap34xxcam_videodev *vdev = s->u.slave->master->priv;
+	struct isp_device *isp = dev_get_drvdata(vdev->cam->isp);
+
+	return isp_csi2_ctrl_config_vp_out_ctrl(&isp->isp_csi2, vp_out_ctrl);
+}
+
+static int imx046_csi2_ctrl_update(struct v4l2_int_device *s, bool force_update)
+{
+	struct omap34xxcam_videodev *vdev = s->u.slave->master->priv;
+	struct isp_device *isp = dev_get_drvdata(vdev->cam->isp);
+
+	return isp_csi2_ctrl_update(&isp->isp_csi2, force_update);
+}
+
+static int imx046_csi2_cfg_virtual_id(struct v4l2_int_device *s, u8 ctx, u8 id)
+{
+	struct omap34xxcam_videodev *vdev = s->u.slave->master->priv;
+	struct isp_device *isp = dev_get_drvdata(vdev->cam->isp);
+
+	return isp_csi2_ctx_config_virtual_id(&isp->isp_csi2, ctx, id);
+}
+
+static int imx046_csi2_ctx_update(struct v4l2_int_device *s, u8 ctx,
+				  bool force_update)
+{
+	struct omap34xxcam_videodev *vdev = s->u.slave->master->priv;
+	struct isp_device *isp = dev_get_drvdata(vdev->cam->isp);
+
+	return isp_csi2_ctx_update(&isp->isp_csi2, ctx, force_update);
+}
+
+static int imx046_csi2_calc_phy_cfg0(struct v4l2_int_device *s,
+				     u32 mipiclk, u32 lbound_hs_settle,
+				     u32 ubound_hs_settle)
+{
+	struct omap34xxcam_videodev *vdev = s->u.slave->master->priv;
+	struct isp_device *isp = dev_get_drvdata(vdev->cam->isp);
+
+	return isp_csi2_calc_phy_cfg0(&isp->isp_csi2, mipiclk,
+				      lbound_hs_settle, ubound_hs_settle);
+}
+
 struct imx046_platform_data zoom2_imx046_platform_data = {
 	.power_set            = imx046_sensor_power_set,
 	.priv_data_set        = imx046_sensor_set_prv_data,
-	.set_xclk             = isp_set_xclk,
-	.csi2_lane_count      = isp_csi2_complexio_lanes_count,
-	.csi2_cfg_vp_out_ctrl = isp_csi2_ctrl_config_vp_out_ctrl,
-	.csi2_ctrl_update     = isp_csi2_ctrl_update,
-	.csi2_cfg_virtual_id  = isp_csi2_ctx_config_virtual_id,
-	.csi2_ctx_update      = isp_csi2_ctx_update,
-	.csi2_calc_phy_cfg0   = isp_csi2_calc_phy_cfg0,
+	.set_xclk             = imx046_sensor_set_xclk,
+	.csi2_lane_count      = imx046_csi2_lane_count,
+	.csi2_cfg_vp_out_ctrl = imx046_csi2_cfg_vp_out_ctrl,
+	.csi2_ctrl_update     = imx046_csi2_ctrl_update,
+	.csi2_cfg_virtual_id  = imx046_csi2_cfg_virtual_id,
+	.csi2_ctx_update      = imx046_csi2_ctx_update,
+	.csi2_calc_phy_cfg0   = imx046_csi2_calc_phy_cfg0,
 };
 #endif
 
