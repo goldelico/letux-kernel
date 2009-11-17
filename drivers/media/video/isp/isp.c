@@ -2515,6 +2515,12 @@ static int isp_probe(struct platform_device *pdev)
 	isp->dev->coherent_dma_mask = DMA_32BIT_MASK;
 
 	isp_get();
+	/* Get ISP revision */
+	isp->revision = isp_reg_readl(isp->dev,
+				      OMAP3_ISP_IOMEM_MAIN, ISP_REVISION);
+	dev_info(isp->dev, "Revision %d.%d found\n",
+		 (isp->revision & 0xF0) >> 4, isp->revision & 0xF);
+
 	isp->iommu = iommu_get("isp");
 	if (IS_ERR(isp->iommu)) {
 		ret_err = PTR_ERR(isp->iommu);
