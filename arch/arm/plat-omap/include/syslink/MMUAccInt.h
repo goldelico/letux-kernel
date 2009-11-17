@@ -38,7 +38,8 @@
 #define MMU_MMU_READ_CAM_OFFSET	0x68
 #define MMU_MMU_READ_RAM_OFFSET	0x6c
 #define MMU_MMU_EMU_FAULT_AD_OFFSET	0x70
-
+#define MMU_MMU_FAULT_PC_OFFSET  0x80
+#define MMU_MMU_FAULT_STATUS_OFFSET  0x84
 
 /* Bitfield mask and offset declarations */
 

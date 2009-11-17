@@ -418,7 +418,14 @@
 	WR_MEM_32_VOLATILE((base_address)+offset, newValue);\
 }
 
+#define MMUMMU_FAULT_PCReadRegister32(base_address)\
+	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_FAULT_PC_OFFSET))
 
+#define MMUMMU_FAULT_STATUSReadRegister32(base_address)\
+	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_FAULT_STATUS_OFFSET))
+
+#define MMUMMU_FAULT_EMUAddressReadRegister32(base_address)\
+	(RD_MEM_32_VOLATILE((base_address)+MMU_MMU_EMU_FAULT_AD_OFFSET))
 
 #endif	/* USE_LEVEL_1_MACROS */
 

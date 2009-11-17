@@ -575,6 +575,24 @@ static hw_status mmu_set_ram_entry(const u32       base_address,
 }
 EXPORT_SYMBOL(mmu_set_ram_entry);
 
+u32 hw_mmu_fault_dump(const u32 base_address)
+{
+	u32 reg;
+
+	reg = MMUMMU_FAULT_ADReadRegister32(base_address);
+	printk(KERN_INFO "Fault Address Address = 0x%x\n", reg);
+	reg = MMUMMU_FAULT_PCReadRegister32(base_address);
+	printk(KERN_INFO "Fault PC Register Address = 0x%x\n", reg);
+	reg = MMUMMU_FAULT_STATUSReadRegister32(base_address);
+	printk(KERN_INFO "Fault PC address doesn't show right value in DUCATI"
+				"because of HW limitation\n");
+	printk(KERN_INFO "Fault Status Register  = 0x%x\n", reg);
+	reg = MMUMMU_FAULT_EMUAddressReadRegister32(base_address);
+	printk(KERN_INFO "Fault EMU  Address = 0x%x\n", reg);
+	return 0;
+}
+EXPORT_SYMBOL(hw_mmu_fault_dump);
+
 long hw_mmu_tlb_dump(const u32 base_address, bool shw_inv_entries)
 {
 	u32 i;

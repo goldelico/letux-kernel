@@ -165,7 +165,7 @@ config OMAP_MBOX_FWK
 config OMAP_IOMMU
 	tristate "iommu"
 	depends on ARCH_OMAP
-	default y
+	default n
 
 config OMAP_IOMMU_DEBUG
 	depends on OMAP_IOMMU

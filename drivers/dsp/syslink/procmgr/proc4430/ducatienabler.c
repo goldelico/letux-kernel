@@ -57,7 +57,11 @@
 #include <asm/cacheflush.h>
 #include <linux/dma-mapping.h>
 
+#include <linux/interrupt.h>
+#include <mach/irqs.h>
+
 #include <syslink/ducatienabler.h>
+#include <syslink/MMUAccInt.h>
 
 
 #ifdef DEBUG_DUCATI_IPC
@@ -1123,12 +1127,17 @@ int  ducati_mmu_init(u32 a_phy_addr)
 	/* Set the TTB to point to the L1 page table's physical address */
 	hw_mmu_ttbset(ducati_mmu_linear_addr, p_pt_attrs->l1_base_pa);
 
-	/* Enable the TWL */
-	hw_mmu_twl_enable(ducati_mmu_linear_addr);
+	hw_mmu_event_enable(ducati_mmu_linear_addr,
+			(MMU_MMU_IRQENABLE_TLBMiss_MASK |
+			MMU_MMU_IRQENABLE_EMUMiss_MASK |
+			MMU_MMU_IRQENABLE_MultiHitFault_MASK));
 
 	hw_mmu_enable(ducati_mmu_linear_addr);
 
 	/*  MMU Debug Statements */
+	reg_value = *((REG u32 *)(ducati_mmu_linear_addr + 0x1C));
+	DPRINTK("  Ducati Enable Status [0x%x]\n", reg_value);
+
 	reg_value = *((REG u32 *)(ducati_mmu_linear_addr + 0x40));
 	DPRINTK("  Ducati TWL Status [0x%x]\n", reg_value);
 
@@ -1264,6 +1273,30 @@ error_exit:
 	return status;
 }
 
+static irqreturn_t ducati_fault_handler(int irq, void *data)
+{
+	u32 irq_status;
+
+	printk(KERN_INFO "********** DUCATI MMU FAULT DUMP******* \n");
+	printk(KERN_INFO "**Check the Ducati code for invalid memory"
+							"access*** \n");
+
+
+	hw_mmu_event_status(base_ducati_l2_mmu, &irq_status);
+	printk(KERN_INFO "IRQ status = 0x%x\n", irq_status);
+
+	hw_mmu_fault_dump(base_ducati_l2_mmu);
+
+	hw_mmu_eventack(base_ducati_l2_mmu, irq_status);
+	printk(KERN_INFO "IRQ status acknowledged\n");
+	printk(KERN_INFO "Disable Ducati Events and MMU \n");
+	hw_mmu_event_disable(base_ducati_l2_mmu, irq_status);
+	hw_mmu_disable(base_ducati_l2_mmu);
+	printk(KERN_INFO "**** DUCATI MMU FAULT DUMP end******* \n");
+	return 0;
+}
+
+
 /*========================================
  * This sets up the Ducati processor
  *
@@ -1271,6 +1304,17 @@ error_exit:
 int ducati_setup(void)
 {
 	int ret_val = 0;
+
+	ret_val = request_irq(INT_44XX_DUCATI_MMU_IRQ, ducati_fault_handler, 0,
+				"ducati_mmu_fault", NULL);
+
+	if (ret_val == 0)
+		printk(KERN_INFO "DUCATI MMU fault handler setup completed\n");
+	else {
+		printk(KERN_INFO "DUCATI MMU fault handler setup"
+			"failed = 0x%x\n", ret_val);
+	}
+
 	ret_val = init_mmu_page_attribs(0x8000, 14, 128);
 	if (WARN_ON(ret_val < 0))
 		goto error_exit;
@@ -1304,6 +1348,7 @@ void ducati_destroy(void)
 	if (p_pt_attrs)
 		kfree((void *)p_pt_attrs);
 	iounmap((unsigned int *)base_ducati_l2_mmu);
+	free_irq(INT_44XX_DUCATI_MMU_IRQ, NULL);
 	return;
 }
 EXPORT_SYMBOL(ducati_destroy);

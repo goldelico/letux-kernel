@@ -14,7 +14,7 @@ config  SYSLINK_PROC
 
 config  SYSLINK_PROC4430
         tristate "Proc 4430"
-        depends on SYSLINK_PROC && OMAP_IOMMU
+        depends on SYSLINK_PROC
         default m
         help
            Ducati Proc implementation

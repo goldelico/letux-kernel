@@ -166,4 +166,6 @@ extern hw_status hw_mmu_tlb_dump(u32 base_address, bool shw_inv_entries);
 
 extern u32 hw_mmu_pte_phyaddr(u32 pte_val, u32 pte_size);
 
+extern u32 hw_mmu_fault_dump(const u32 base_address);
+
 #endif  /* __HW_MMU_H */
