@@ -1851,13 +1851,13 @@ void isppreview_print_status(struct isp_prev_device *isp_prev,
 #endif
 
 	DPRINTK_ISPPREV("Preview Input format =%d, Output Format =%d\n",
-			pipe->prv_inp, pipe->prv_out);
-	DPRINTK_ISPPREV("Accepted Preview Input (width = %d,Height = %d)\n",
-			isp_prev->previn_w,
-			isp_prev->previn_h);
+			pipe->prv_in, pipe->prv_out);
+	DPRINTK_ISPPREV("Accepted CCDC Output (width = %d,Height = %d)\n",
+			pipe->ccdc_out_w,
+			pipe->ccdc_out_h);
 	DPRINTK_ISPPREV("Accepted Preview Output (width = %d,Height = %d)\n",
-			isp_prev->prevout_w,
-			isp_prev->prevout_h);
+			pipe->prv_out_w,
+			pipe->prv_out_h);
 	DPRINTK_ISPPREV("###ISP_CTRL in preview =0x%x\n",
 			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
 				      ISP_CTRL));
