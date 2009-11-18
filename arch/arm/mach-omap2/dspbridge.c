@@ -26,6 +26,7 @@ static struct dspbridge_platform_data dspbridge_pdata __initdata = {
 	.cpu_set_freq	 = omap_pm_cpu_set_freq,
 	.cpu_get_freq	 = omap_pm_cpu_get_freq,
 	.dsp_get_rate_table = omap_get_dsp_rate_table,
+	.mpu_get_rate_table = omap_get_mpu_rate_table,
 #endif
 };
 

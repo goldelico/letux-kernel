@@ -1229,7 +1229,8 @@ DSP_STATUS PROC_Load(DSP_HPROCESSOR hProcessor, IN CONST s32 iArgc,
 	/* Boost the OPP level to Maximum level supported by baseport*/
 #if defined(CONFIG_BRIDGE_DVFS) && !defined(CONFIG_CPU_FREQ)
 	if (pdata->cpu_set_freq)
-		(*pdata->cpu_set_freq)(pdata->mpu_speed[VDD1_OPP5]);
+		(*pdata->cpu_set_freq)(pdata->
+			mpu_rate_table[omap_pm_get_max_vdd1_opp()].rate);
 #endif
 		status = COD_LoadBase(hCodMgr, iArgc, (char **)aArgv,
 				     DEV_BrdWriteFxn,
@@ -1251,7 +1252,7 @@ DSP_STATUS PROC_Load(DSP_HPROCESSOR hProcessor, IN CONST s32 iArgc,
 	/* Requesting the lowest opp supported*/
 #if defined(CONFIG_BRIDGE_DVFS) && !defined(CONFIG_CPU_FREQ)
 	if (pdata->cpu_set_freq)
-		(*pdata->cpu_set_freq)(pdata->mpu_speed[VDD1_OPP1]);
+		(*pdata->cpu_set_freq)(pdata->mpu_rate_table[VDD1_OPP1].rate);
 #endif
 
 	}
