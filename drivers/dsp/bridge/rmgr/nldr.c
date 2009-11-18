@@ -1007,7 +1007,8 @@ DSP_STATUS NLDR_Unload(struct NLDR_NODEOBJECT *hNldrNode, enum NLDR_PHASE phase)
 				/* Unload main library */
 				pRootLib = &hNldrNode->root;
 			}
-			UnloadLib(hNldrNode, pRootLib);
+			if (pRootLib)
+				UnloadLib(hNldrNode, pRootLib);
 		} else {
 			if (hNldrNode->fOverlay)
 				UnloadOvly(hNldrNode, phase);

@@ -326,7 +326,7 @@ DSP_STATUS WMD_CHNL_CancelIO(struct CHNL_OBJECT *hChnl)
 	struct CHNL_MGR *pChnlMgr = NULL;
 
 	/* Check args: */
-	if (MEM_IsValidHandle(pChnl, CHNL_SIGNATURE)) {
+	if (MEM_IsValidHandle(pChnl, CHNL_SIGNATURE) && pChnl->pChnlMgr) {
 		iChnl = pChnl->uId;
 		uMode = pChnl->uMode;
 		pChnlMgr = pChnl->pChnlMgr;

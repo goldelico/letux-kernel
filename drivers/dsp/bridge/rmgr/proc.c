@@ -577,12 +577,11 @@ DSP_STATUS PROC_Detach(struct PROCESS_CONTEXT *pr_ctxt)
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = NULL;
 
-	if (pr_ctxt && pr_ctxt->hProcessor)
-		pProcObject = (struct PROC_OBJECT *)pr_ctxt->hProcessor;
-
 	DBC_Require(cRefs > 0);
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Detach, args:\n\t"
-		"pr_ctxt->phProcessor:  0x%x\n", *pProcObject);
+	GT_0trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Detach\n");
+
+	if (pr_ctxt)
+		pProcObject = (struct PROC_OBJECT *)pr_ctxt->hProcessor;
 
 	if (MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
 		/* Notify the Client */
