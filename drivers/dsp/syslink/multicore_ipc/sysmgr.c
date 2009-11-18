@@ -797,6 +797,7 @@ void sysmgr_wait_for_scalability_info(u16 proc_id)
 	printk(KERN_ERR "sysmgr_wait_for_scalability_info:AF while temp->handshake:%x\n",
 		temp->handshake);
 
+	temp->handshake = 0;
 }
 
 
@@ -812,4 +813,5 @@ void sysmgr_wait_for_slave_setup(u16 proc_id)
 
 	while (temp->handshake != SYSMGR_SETUPHANDSHAKESTAMP)
 		;
+	temp->handshake = 0;
 }
