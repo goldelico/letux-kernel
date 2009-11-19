@@ -1171,6 +1171,8 @@ static irqreturn_t sr_omap_irq(int irq, void *dev_id)
 	sr_modify_reg(dev_id, ERRCONFIG, ERRCONFIG_MCUBOUNDINTST,
 			ERRCONFIG_MCUBOUNDINTST);
 
+	/* Flush posted writes to avoid spurious IRQ */
+	sr_read_reg(dev_id, ERRCONFIG);
 	return IRQ_HANDLED;
 }
 
