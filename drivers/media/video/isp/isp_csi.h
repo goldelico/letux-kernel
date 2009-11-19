@@ -35,11 +35,26 @@ struct isp_csi_interface_cfg {
 };
 
 /**
+ * struct isp_csi_vp_cfg - ISP CSI1/CCP2 videoport config
+ * @no_ocp: Exclusively use VP (no OCP output)
+ * @divider: VP frequency divider, OCPCLK/(divider + 1)
+ * @write_polarity: 0 - Write data to VP on PCLK falling edge.
+ * 		    1 - Write data to VP on PCLK rising edge.
+ */
+struct isp_csi_vp_cfg {
+	bool no_ocp;
+	u8 divider;
+	u8 write_polarity;
+};
+
+/**
  * struct isp_csi_device - ISP CSI1/CCP2 device structure
  * @if_device: Interface enable.
+ * @vp_cfg: Structure with current videoport configuration.
  */
 struct isp_csi_device {
 	bool if_enabled;
+	struct isp_csi_vp_cfg vp_cfg;
 };
 
 void isp_csi_enable(struct isp_csi_device *isp_csi, u8 enable);
