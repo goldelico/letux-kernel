@@ -1355,6 +1355,8 @@ static int isp_try_pipeline(struct device *dev,
 	}
 
 	if (pipe->modules & OMAP_ISP_PREVIEW) {
+		pipe->prv_out_w = wanted_width;
+		pipe->prv_out_h = wanted_height;
 		rval = isppreview_try_pipeline(&isp->isp_prev, pipe);
 		if (rval) {
 			dev_dbg(dev, "the dimensions %dx%d are not"
@@ -1364,6 +1366,8 @@ static int isp_try_pipeline(struct device *dev,
 		}
 		pix_output->width = pipe->prv_out_w;
 		pix_output->height = pipe->prv_out_h;
+		pix_output->bytesperline =
+			pipe->prv_out_w * ISP_BYTES_PER_PIXEL;
 	}
 
 	if (pipe->modules & OMAP_ISP_RESIZER) {
