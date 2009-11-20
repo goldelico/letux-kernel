@@ -1705,8 +1705,10 @@ void rsz_put_resource(void)
 		}
 	}
 
-	multipass_active = 0;
-	rsz_tmp_buf_free();
+	if (multipass_active) {
+		rsz_tmp_buf_free();
+		multipass_active = 0;
+	}
 	/* free all memory which was allocate during get() */
 	kfree(rsz_conf_chan);
 	kfree(params);
@@ -1756,6 +1758,8 @@ int rsz_configure(struct rsz_params *params, rsz_callback callback,
 				     * multipass->out_vsize
 				     * (multipass->inptyp ? 1 : 2));
 		rsz_tmp_buf_alloc(tmp_size);
+		rsz_conf_chan->register_config.rsz_sdr_outadd =
+			(u32)device_config->tmp_buf;
 		rsz_save_multipass_context();
 	}
 
@@ -1875,8 +1879,6 @@ int rsz_begin(u32 slot, int output_buffer_index,
 
 	/* If this output buffer has not been mapped till now then map it */
 	if (!device_config->out_buf_virt_addr[output_buffer_index]) {
-		device_config->out_buf_phy_addr[output_buffer_index] =
-							(u32 *)out_phy_add;
 		output_size =
 			(rsz_conf_chan->register_config.rsz_out_size >>
 			ISPRSZ_OUT_SIZE_VERT_SHIFT) * out_off;
@@ -1892,35 +1894,29 @@ int rsz_begin(u32 slot, int output_buffer_index,
 						"for index \n");
 			return -ENOMEM;
 		}
-		rsz_conf_chan->register_config.rsz_sdr_outadd =
-			device_config->out_buf_virt_addr[output_buffer_index];
 	}
+	down(&resz_wrapper_mutex);
 	rsz_conf_chan->register_config.rsz_sdr_inadd =
 				device_config->in_buf_virt_addr[slot];
-	rsz_conf_chan->register_config.rsz_sdr_outoff = out_off;
 
 	/* Configure the input and output address with output line size
 	in resizer hardware */
-	down(&resz_wrapper_mutex);
 	isp_reg_writel(device_config->isp,
 		rsz_conf_chan->register_config.rsz_sdr_inadd,
 		OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
 
-	if (multipass_active) {
-		rsz_conf_chan->register_config.rsz_sdr_outadd =
-			(u32)device_config->tmp_buf;
-	} else {
+	if (!multipass_active) {
+		rsz_conf_chan->register_config.rsz_sdr_outoff = out_off;
 		isp_reg_writel(device_config->isp,
 			rsz_conf_chan->register_config.rsz_sdr_outoff,
 			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTOFF);
 		rsz_conf_chan->register_config.rsz_sdr_outadd =
 			(u32)device_config->\
 			out_buf_virt_addr[output_buffer_index];
-	}
-
-	isp_reg_writel(device_config->isp,
-		rsz_conf_chan->register_config.rsz_sdr_outadd,
+		isp_reg_writel(device_config->isp,
+			rsz_conf_chan->register_config.rsz_sdr_outadd,
 			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTADD);
+	}
 
 	up(&resz_wrapper_mutex);
 
