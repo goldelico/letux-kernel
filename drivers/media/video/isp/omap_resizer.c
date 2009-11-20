@@ -1933,7 +1933,6 @@ int rsz_begin(u32 slot, int output_buffer_index,
 	}
 
 	/* All settings are done.Enable the resizer */
-	isp_configure_interface(device_config->isp, &reszwrap_config);
 
 mult:
 	device_config->compl_isr.done = 0;
