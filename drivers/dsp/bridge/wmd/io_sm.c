@@ -48,7 +48,6 @@
 /*  ----------------------------------- Host OS */
 #include <dspbridge/host_os.h>
 #include <linux/workqueue.h>
-#include <mach/omap-pm.h>
 
 #ifdef CONFIG_BRIDGE_DVFS
 #include <mach/omap-pm.h>
