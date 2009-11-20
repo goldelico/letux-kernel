@@ -1533,6 +1533,10 @@ int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
 	struct device *dev = to_device(isp_prev);
 	u32 div = 0;
 	int max_out;
+	unsigned int wanted_width;
+	unsigned int wanted_height;
+	unsigned int left_boundary;
+	unsigned int right_boundary;
 
 	if (pipe->ccdc_out_w_img < 32 || pipe->ccdc_out_h < 32) {
 		dev_err(dev, "preview does not support "
@@ -1544,6 +1548,8 @@ int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
 	else
 		max_out = ISPPRV_MAXOUTPUT_WIDTH_ES2;
 
+	wanted_width = pipe->prv_out_w;
+	wanted_height = pipe->prv_out_h;
 	pipe->prv_out_w = pipe->ccdc_out_w;
 	pipe->prv_out_h = pipe->ccdc_out_h;
 	pipe->prv_out_w_img = pipe->ccdc_out_w_img;
@@ -1596,8 +1602,21 @@ int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
 	/* output width must be even */
 	pipe->prv_out_w_img &= ~1;
 
-	/* FIXME: This doesn't apply for prv -> rsz. */
-	pipe->prv_out_w = ALIGN(pipe->prv_out_w, 0x20);
+	if (pipe->modules == (OMAP_ISP_CCDC | OMAP_ISP_PREVIEW)) {
+		left_boundary = ALIGN(pipe->prv_out_w_img - 0x20, 0x20);
+		right_boundary = ALIGN(pipe->prv_out_w_img, 0x20);
+		if (wanted_width >= left_boundary &&
+				wanted_width <= right_boundary){
+			pipe->prv_out_w = ALIGN(wanted_width, 0x20);
+			pipe->prv_out_h = wanted_height;
+		} else {
+			pipe->prv_out_w = right_boundary;
+			pipe->prv_out_h = pipe->prv_out_h_img;
+		}
+	} else {
+		/* FIXME: This doesn't apply for prv -> rsz. */
+		pipe->prv_out_w = ALIGN(pipe->prv_out_w, 0x20);
+	}
 
 	return 0;
 }
