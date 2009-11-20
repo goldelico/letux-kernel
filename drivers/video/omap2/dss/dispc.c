@@ -562,9 +562,41 @@ static void _dispc_set_scale_coef(enum omap_plane plane,
 			int five_taps)
 {
 	unsigned long reg, mval, rem_ratio;
+	short int vc_3tap[3][8];
 	short int vc[5][8];
 	short int hc[5][8];
 	int i = 0;
+
+	/* 3-taps vertical filter coefficients */
+	/* Downscaling matrix, if image width > 1024 */
+	const static short int filter_coeff_vc_d[3][8] = {
+		{36,	40,	45,	50,	18, 	23,	27, 	31},
+		{56,	57,	56,	55,	55,	55,	56,	57},
+		{36,	31,	27,	23,	55,	50,	45,	40} };
+
+	/* Upscaling matrix, if image width > 1024 */
+	const static short int filter_coeff_vc_u[3][8] = {
+		{0,	16,	32,	48,	0,	0,	0,	0 },
+		{128,	112,	96,	80,	64,	80,	96,	112 },
+		{0,	0,	0,	0,	64,	48,	32,	16 } };
+
+	/* 5-taps horizontal filter coefficients */
+	/* Downscaling matrix, if image width > 1024 */
+	const static short int filter_coeff_hc_d[5][8] = {
+		{0,	4,	8,	12,	-9,	-7,	-5,	-2 },
+		{36,	40,	44,	48,	17,	22,	27,	 31 },
+		{56, 	55,	54,	53,	52,	53,	54,	55 },
+		{36,	31,	27,	22,	51,	48,	44,	40 },
+		{0,	-2,	-5,	-7,	17,	12,	8,	4 } };
+
+	/* Upscaling matrix, if image width > 1024 */
+	const static short int filter_coeff_hc_u[5][8] = {
+		{0,	0,	0,	0,	0,	0,	0,	0 },
+		{0,	16,	32,	48,	0,	0,	0,	0 },
+		{128,	112,	96,	80,	64,	80,	96,	112 },
+		{0,	0,	0,	0,	64,	48,	32,	16 },
+		{0,	0,	0,	0,	0,	0,	0,	0 } };
+
 
 	/* Filter coefficients designed for various scaling ratios */
 	/* Below Co-effients are defined for 5 taps as
@@ -574,6 +606,7 @@ static void _dispc_set_scale_coef(enum omap_plane plane,
 	* [3] = VC0
 	* [4] = VC00
 	*/
+
 	const static short int filter_coeff_M8[5][8] = {
 		{17,	14,	5,	-6,	2,	9,	15,	19},
 		{-20,	-4,	17,	47,	-18,	-27,	-30,	-27},
@@ -659,14 +692,14 @@ static void _dispc_set_scale_coef(enum omap_plane plane,
 		{7,	4,	1,	-1,	21,	17,	14,	10} };
 
 	/* Select the coefficients based on the ratio - height/vertical */
-	if (out_height != 0) {
+	if (out_height != 0 && five_taps) {
 		if (out_height != orig_height) {
 			rem_ratio = 0;
 			mval = 8; /* default */
 			rem_ratio =  out_height / orig_height ;
 			if (rem_ratio > 1) {
 				mval = 8;
-				DSSDBG("Coefficient class mval = %d \n", mval);
+				DSSDBG("Coefficient class mval = %lu \n", mval);
 			} else {
 				mval = (8 * orig_height) / out_height;
 			}
@@ -727,10 +760,24 @@ static void _dispc_set_scale_coef(enum omap_plane plane,
 				break;
 			};
 		}
+	} else if (out_height != 0 && !five_taps) {
+		if (out_height != orig_height) {
+			/* Vertical scaling */
+			if (out_height > orig_height) {
+				DSSDBG("Vertical upscaling \n");
+				memcpy(vc_3tap, filter_coeff_vc_u,
+					sizeof(vc_3tap));
+			} else {
+				DSSDBG("Vertical downscaling \n");
+				memcpy(vc_3tap, filter_coeff_vc_d,
+					sizeof(vc_3tap));
+			}
+		}
 	}
 
+
 	/* Select the coefficients based on the ratio - width / horizontal */
-	if (out_width != 0) {
+	if (out_width != 0 && five_taps) {
 		if (out_width != orig_width) {
 			rem_ratio = 0;
 			mval = 8; /* default */
@@ -796,6 +843,17 @@ static void _dispc_set_scale_coef(enum omap_plane plane,
 				break;
 			};
 		}
+	} else if (out_width != 0 && !five_taps) {
+		if (out_width != orig_width) {
+			/* Horizontal scaling */
+			if (out_height > orig_height) {
+				DSSDBG("Horizontal upscaling \n");
+				memcpy(hc, filter_coeff_hc_u, sizeof(hc));
+			} else {
+				DSSDBG("Horizontal downscaling \n");
+				memcpy(hc, filter_coeff_hc_d, sizeof(hc));
+			}
+		}
 	}
 
 	/* Pack the coefficients - use fivetaps for all ratios */
@@ -809,18 +867,29 @@ static void _dispc_set_scale_coef(enum omap_plane plane,
 		_dispc_write_firh_reg(plane, i, reg);
 		DSSDBG("H coefficients = 0x%x\n", (int)reg);
 
-		reg = 0;
-		reg = (hc[0][i] & 0xff)
-			| ((vc[3][i] & 0xff) << 8)
-			| ((vc[2][i] & 0xff) << 16)
-			| ((vc[1][i] & 0xff) << 24);
-		_dispc_write_firhv_reg(plane, i, reg);
-		DSSDBG("HV coefficients = 0x%x\n", (int)reg);
+		if (!five_taps) {
+			reg = 0;
+			reg = (hc[0][i] & 0xff)
+				| ((vc_3tap[2][i] & 0xff) << 8)
+				| ((vc_3tap[1][i] & 0xff) << 16)
+				| ((vc_3tap[0][i] & 0xff) << 24);
+			_dispc_write_firhv_reg(plane, i, reg);
+			DSSDBG("HV coefficients = 0x%x\n", (int)reg);
 
-		reg = 0;
-		reg =  ((vc[0][i] & 0xff) << 8) | (vc[4][i] & 0xff);
-		_dispc_write_firv_reg(plane, i, reg);
-		DSSDBG("V coefficients = 0x%x\n", (int)reg);
+		} else {
+			reg = 0;
+			reg = (hc[0][i] & 0xff)
+				| ((vc[3][i] & 0xff) << 8)
+				| ((vc[2][i] & 0xff) << 16)
+				| ((vc[1][i] & 0xff) << 24);
+			_dispc_write_firhv_reg(plane, i, reg);
+			DSSDBG("HV coefficients = 0x%x\n", (int)reg);
+
+			reg = 0;
+			reg =  ((vc[0][i] & 0xff) << 8) | (vc[4][i] & 0xff);
+			_dispc_write_firv_reg(plane, i, reg);
+			DSSDBG("V coefficients = 0x%x\n", (int)reg);
+		}
 	}
 }
 
@@ -1720,7 +1789,7 @@ static int _dispc_setup_plane(enum omap_plane plane,
 		}
 
 		if (width > (2048 >> five_taps))
-			return -EINVAL;
+			five_taps = 0;
 
 		if (five_taps)
 			fclk = calc_fclk_five_taps(width, height,
