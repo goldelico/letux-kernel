@@ -832,8 +832,7 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 				       ISPCSI1_LC01_IRQSTATUS);
 		}
 
-		if (!((irqstatus & RESZ_DONE) &&
-			CCDC_PREV_CAPTURE(isp)))
+		if (!(irqstatus & RESZ_DONE) || CCDC_PREV_RESZ_CAPTURE(isp))
 			goto out_ignore_buff;
 	case 0:
 		break;
