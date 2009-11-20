@@ -1648,8 +1648,6 @@ int rsz_get_resource(void)
 	init_completion(&device->compl_isr);
 	mutex_init(&device->reszwrap_mutex);
 
-	isp_get();
-
 	return 0;
 err_enomem2:
 	kfree(params);
@@ -1664,14 +1662,23 @@ EXPORT_SYMBOL(rsz_get_resource);
 
 void rsz_unmap_input_dss_buffers(unsigned int slot)
 {
-	struct isp_device *isp = dev_get_drvdata(device_config->isp);
+	struct isp_device *isp_mem;
 
+	device_config->isp = isp_get();
+	if (!device_config->isp) {
+		printk(KERN_ERR "[%s] Can't enable ISP clocks \n", __func__);
+		return;
+	}
+	isp_mem = dev_get_drvdata(device_config->isp);
 	if (device_config->in_buf_virt_addr[slot]) {
-		iommu_kunmap(isp->iommu,
+		iommu_kunmap(isp_mem->iommu,
 			     (dma_addr_t)device_config->in_buf_virt_addr[slot]);
 		device_config->in_buf_virt_addr[slot] = 0;
 	}
 	/* Release isp resource*/
+	isp_put();
+
+	return;
 }
 EXPORT_SYMBOL(rsz_unmap_input_dss_buffers);
 /**
@@ -1772,12 +1779,18 @@ EXPORT_SYMBOL(rsz_configure);
 int rsz_map_input_dss_buffers(u32 physical_address,
 					unsigned int slot, u32 size)
 {
-	struct isp_device *isp = dev_get_drvdata(device_config->isp);
+	struct isp_device *isp_mem;
 
 	DPRINTK_ISPRESZ("input_dss_buffer map physical address = 0x%x,"
 			"slot=%d, size = %d\n", physical_address, slot, size);
 	rsz_unmap_input_dss_buffers(slot);
-	device_config->in_buf_virt_addr[slot] = iommu_kmap(isp->iommu,
+	device_config->isp = isp_get();
+	if (!device_config->isp) {
+		printk(KERN_ERR "[%s] Can't enable ISP clocks \n", __func__);
+		return -EACCES;
+	}
+	isp_mem = dev_get_drvdata(device_config->isp);
+	device_config->in_buf_virt_addr[slot] = iommu_kmap(isp_mem->iommu,
 							   0,
 							   physical_address,
 							   size,
@@ -1787,6 +1800,7 @@ int rsz_map_input_dss_buffers(u32 physical_address,
 				"failed for buffer index %d", slot);
 		return -1;
 	}
+	isp_put();
 
 	return 0;
 }
