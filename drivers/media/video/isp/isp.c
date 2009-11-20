@@ -778,13 +778,16 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	int wait_hs_vs = 0;
 	int ret;
 
-	if (isp->running == ISP_STOPPED)
+	if ((isp->running == ISP_STOPPED) &&
+		!irqdis->isp_callbk[CBK_RESZ_DONE])
 		return IRQ_NONE;
 
 	irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 	isp_reg_writel(dev, irqstatus, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 
-	if (isp->running == ISP_STOPPING) {
+	if ((isp->running == ISP_STOPPING) &&
+		!(irqdis->isp_callbk[CBK_RESZ_DONE] &&
+			(irqstatus & RESZ_DONE))) {
 		isp_flush(dev);
 		return IRQ_HANDLED;
 	}
