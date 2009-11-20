@@ -319,7 +319,28 @@ static void isp_enable_interrupts(struct device *dev)
 
 static void isp_disable_interrupts(struct device *dev)
 {
-	isp_reg_writel(dev, 0, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE);
+	struct isp_device *isp = dev_get_drvdata(dev);
+	u32 irq0enable;
+	u32 v ;
+
+	irq0enable = ~(IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ
+		| IRQ0ENABLE_CCDC_VD0_IRQ
+		| IRQ0ENABLE_CSIA_IRQ
+		| IRQ0ENABLE_CSIB_IRQ | IRQ0ENABLE_HIST_DONE_IRQ
+		| IRQ0ENABLE_H3A_AWB_DONE_IRQ | IRQ0ENABLE_H3A_AF_DONE_IRQ
+		| isp->interrupts);
+
+	if (CCDC_PREV_CAPTURE(isp))
+		irq0enable &= ~IRQ0ENABLE_PRV_DONE_IRQ;
+
+	if (CCDC_PREV_RESZ_CAPTURE(isp))
+		irq0enable &= ~(IRQ0ENABLE_PRV_DONE_IRQ
+			| IRQ0ENABLE_RSZ_DONE_IRQ);
+
+	v = isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE);
+
+	isp_reg_writel(dev, v & irq0enable,
+		OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE);
 }
 
 /**
