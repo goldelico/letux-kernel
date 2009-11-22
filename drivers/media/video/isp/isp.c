@@ -46,6 +46,8 @@
 
 static struct isp_device *omap3isp;
 static int isp_complete_reset = 1;
+static int isp_lsc_disable_scheduled;
+static struct completion isp_lsc_wfc;
 
 static int isp_try_size(struct v4l2_pix_format *pix_input,
 			struct v4l2_pix_format *pix_output);
@@ -964,8 +966,14 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 			isp_buf_process(bufs);
 	}
 
-	if (irqstatus & CCDC_VD1)
-		ispccdc_config_shadow_registers();
+	if (irqstatus & CCDC_VD1) {
+		if (isp_lsc_disable_scheduled) {
+			isp_lsc_disable_scheduled = 0;
+			ispccdc_enable_lsc(0);
+			complete(&isp_lsc_wfc);
+		} else
+			ispccdc_config_shadow_registers();
+	}
 
 	if (irqstatus & PREV_DONE) {
 		if (irqdis->isp_callbk[CBK_PREV_DONE])
@@ -1205,6 +1213,8 @@ void isp_start(void)
 
 	isph3a_notify(0);
 	isp_af_notify(0);
+
+	isp_lsc_disable_scheduled = 0;
 	return;
 }
 EXPORT_SYMBOL(isp_start);
@@ -1327,6 +1337,15 @@ void isp_stop()
 
 	isph3a_notify(1);
 	isp_af_notify(1);
+
+	/* LSC graceful handling*/
+	if (isp_reg_readl(OMAP3_ISP_IOMEM_CCDC, ISPCCDC_LSC_CONFIG) &
+	    ISPCCDC_LSC_ENABLE) {
+		isp_lsc_disable_scheduled = 1;
+		init_completion(&isp_lsc_wfc);
+		wait_for_completion_interruptible(&isp_lsc_wfc);
+	}
+
 	isp_disable_interrupts();
 	reset = isp_stop_modules();
 	isp_buf_init();
