@@ -76,7 +76,7 @@ irqreturn_t  MMU_FaultIsr(int irq, IN void *pRefData)
 	struct DEH_MGR *pDehMgr = (struct DEH_MGR *)pRefData;
 	struct WMD_DEV_CONTEXT *pDevContext;
 	DSP_STATUS status = DSP_SOK;
-
+	unsigned long flags;
 
 	DBG_Trace(DBG_LEVEL1, "Entering DEH_DspMmuIsr: 0x%x\n", pRefData);
        DBC_Require(irq == INT_DSP_MMU_IRQ);
@@ -94,14 +94,30 @@ irqreturn_t  MMU_FaultIsr(int irq, IN void *pRefData)
 				"0x%x\n", dmmuEventMask);
 			printk(KERN_INFO "***** DSPMMU FAULT ***** faultAddr "
 				"0x%x\n", faultAddr);
-			/* Disable the MMU events, else once we clear it will
-			 * start to raise INTs again */
 			/*
 			 * Schedule a DPC directly. In the future, it may be
 			 * necessary to check if DSP MMU fault is intended for
 			 * Bridge.
 			 */
-			DPC_Schedule(pDehMgr->hMmuFaultDpc);
+			/* Increment count of DPC's pending. */
+			spin_lock_irqsave(&pDehMgr->hMmuFaultDpc->dpc_lock,
+						flags);
+			pDehMgr->hMmuFaultDpc->numRequested++;
+			spin_unlock_irqrestore(&pDehMgr->hMmuFaultDpc->dpc_lock,
+						flags);
+
+			/* Schedule DPC */
+			tasklet_schedule(&pDehMgr->hMmuFaultDpc->dpc_tasklet);
+#ifdef DEBUG
+			if (pDehMgr->hMmuFaultDpc->numRequested >
+			   pDehMgr->hMmuFaultDpc->numScheduled +
+			   pDehMgr->hMmuFaultDpc->numRequestedMax) {
+				pDehMgr->hMmuFaultDpc->numRequestedMax =
+					pDehMgr->hMmuFaultDpc->numRequested -
+					pDehMgr->hMmuFaultDpc->numScheduled;
+			}
+#endif
+
 			/* Reset errInfo structure before use. */
 			pDehMgr->errInfo.dwErrMask = DSP_MMUFAULT;
 			pDehMgr->errInfo.dwVal1 = faultAddr >> 16;

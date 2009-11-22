@@ -19,8 +19,6 @@
 #ifndef DPC_
 #define DPC_
 
-	struct DPC_OBJECT;
-
 /*
  *  ======== DPC_PROC ========
  *  Purpose:
@@ -40,64 +38,22 @@
  */
        typedef void(*DPC_PROC) (void *pRefData);
 
-/*
- *  ======== DPC_Cancel ========
- *  Purpose:
- *      Cancel a DPC previously scheduled by DPC_Schedule.
- *  Parameters:
- *      hDPC:           A DPC object handle created in DPC_Create().
- *  Returns:
- *      DSP_SOK:        Scheduled DPC, if any, is cancelled.
- *      DSP_SFALSE:     No DPC is currently scheduled for execution.
- *      DSP_EHANDLE:    Invalid hDPC.
- *  Requires:
- *  Ensures:
- *      If the DPC has already executed, is executing, or was not yet
- *      scheduled, this function will have no effect.
- */
-       extern DSP_STATUS DPC_Cancel(IN struct DPC_OBJECT *hDPC);
+/* The DPC object, passed to our priority event callback routine: */
+struct DPC_OBJECT {
+	u32 dwSignature;	/* Used for object validation.   */
+	void *pRefData;		/* Argument for client's DPC.    */
+	DPC_PROC pfnDPC;	/* Client's DPC.                 */
+	u32 numRequested;	/* Number of requested DPC's.      */
+	u32 numScheduled;	/* Number of executed DPC's.      */
+	struct tasklet_struct dpc_tasklet;
 
-/*
- *  ======== DPC_Create ========
- *  Purpose:
- *      Create a DPC object, allowing a client's own DPC procedure to be
- *      scheduled for a call with client reference data.
- *  Parameters:
- *      phDPC:          Pointer to location to store DPC object.
- *      pfnDPC:         Client's DPC procedure.
- *      pRefData:       Pointer to user-defined reference data.
- *  Returns:
- *      DSP_SOK:        DPC object created.
- *      DSP_EPOINTER:   phDPC == NULL or pfnDPC == NULL.
- *      DSP_EMEMORY:    Insufficient memory.
- *  Requires:
- *      Must not be called at interrupt time.
- *  Ensures:
- *      DSP_SOK: DPC object is created;
- *      else: *phDPC is set to NULL.
- */
-       extern DSP_STATUS DPC_Create(OUT struct DPC_OBJECT **phDPC,
-					   IN DPC_PROC pfnDPC,
-					   IN void *pRefData);
+#ifdef DEBUG
+	u32 cEntryCount;	/* Number of times DPC reentered. */
+	u32 numRequestedMax;	/* Keep track of max pending DPC's. */
+#endif
 
-/*
- *  ======== DPC_Destroy ========
- *  Purpose:
- *      Cancel the last scheduled DPC, and deallocate a DPC object previously
- *      allocated with DPC_Create().Frees the Object only if the thread and
- *      the events are terminated successfuly.
- *  Parameters:
- *      hDPC:           A DPC object handle created in DPC_Create().
- *  Returns:
- *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid hDPC.
- *  Requires:
- *      All DPC's scheduled for the DPC object must have completed their
- *      processing.
- *  Ensures:
- *      (SUCCESS && hDPC is NULL) or DSP_EFAILED status
- */
-       extern DSP_STATUS DPC_Destroy(IN struct DPC_OBJECT *hDPC);
+	spinlock_t dpc_lock;
+};
 
 /*
  *  ======== DPC_Exit ========
@@ -125,21 +81,7 @@
  */
        extern bool DPC_Init(void);
 
-/*
- *  ======== DPC_Schedule ========
- *  Purpose:
- *      Schedule a deferred procedure call to be executed at a later time.
- *      Latency and order of DPC execution is platform specific.
- *  Parameters:
- *      hDPC:           A DPC object handle created in DPC_Create().
- *  Returns:
- *      DSP_SOK:        An event is scheduled for deferred processing.
- *      DSP_EHANDLE:    Invalid hDPC.
- *  Requires:
- *      See requirements for DPC_PROC.
- *  Ensures:
- *      DSP_SOK:        The DPC will not be called before this function returns.
- */
-       extern DSP_STATUS DPC_Schedule(IN struct DPC_OBJECT *hDPC);
+/*  ----------------------------------- Function Prototypes */
+ void DPC_DeferredProcedure(IN unsigned long pDeferredContext);
 
 #endif				/* DPC_ */

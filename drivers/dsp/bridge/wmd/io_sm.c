@@ -245,7 +245,26 @@ DSP_STATUS WMD_IO_Create(OUT struct IO_MGR **phIOMgr,
 
 	if (devType == DSP_UNIT) {
 		/* Create a DPC object */
-		status = DPC_Create(&pIOMgr->hDPC, IO_DPC, (void *)pIOMgr);
+		MEM_AllocObject(pIOMgr->hDPC, struct DPC_OBJECT,
+				IO_MGRSIGNATURE);
+		if (pIOMgr->hDPC) {
+			tasklet_init(&pIOMgr->hDPC->dpc_tasklet,
+				DPC_DeferredProcedure, (u32)pIOMgr->hDPC);
+			/* Fill out our DPC Object */
+			pIOMgr->hDPC->pRefData = (void *)pIOMgr;
+			pIOMgr->hDPC->pfnDPC = IO_DPC;
+			pIOMgr->hDPC->numRequested = 0;
+			pIOMgr->hDPC->numScheduled = 0;
+#ifdef DEBUG
+			pIOMgr->hDPC->numRequestedMax = 0;
+			pIOMgr->hDPC->cEntryCount = 0;
+#endif
+			spin_lock_init(&pIOMgr->hDPC->dpc_lock);
+		} else {
+			DBG_Trace(GT_6CLASS, "IO DPC Create: DSP_EMEMORY\n");
+			status = DSP_EMEMORY;
+		}
+
 		if (DSP_SUCCEEDED(status))
 			status = DEV_GetDevNode(hDevObject, &hDevNode);
 
@@ -307,8 +326,13 @@ DSP_STATUS WMD_IO_Destroy(struct IO_MGR *hIOMgr)
 		destroy_workqueue(bridge_workqueue);
 		/* Linux function to uninstall ISR */
 		free_irq(INT_MAIL_MPU_IRQ, (void *)hIOMgr);
-		if (hIOMgr->hDPC)
-			(void)DPC_Destroy(hIOMgr->hDPC);
+
+		/* Free DPC object */
+		tasklet_kill(&hIOMgr->hDPC->dpc_tasklet);
+		MEM_FreeObject(hIOMgr->hDPC);
+		hIOMgr->hDPC = NULL;
+		DBG_Trace(GT_2CLASS, "DPC_Destroy: SUCCESS\n");
+
 #ifndef DSP_TRACEBUF_DISABLED
 		if (hIOMgr->pMsg)
 			MEM_Free(hIOMgr->pMsg);
@@ -1028,6 +1052,8 @@ irqreturn_t IO_ISR(int irq, IN void *pRefData)
 {
 	struct IO_MGR *hIOMgr = (struct IO_MGR *)pRefData;
 	bool fSchedDPC;
+	unsigned long flags;
+
 	if (irq != INT_MAIL_MPU_IRQ ||
 	   !MEM_IsValidHandle(hIOMgr, IO_MGRSIGNATURE))
 		return IRQ_NONE;
@@ -1049,8 +1075,25 @@ irqreturn_t IO_ISR(int irq, IN void *pRefData)
 			DBG_Trace(DBG_LEVEL6, "*** DSP RESET ***\n");
 			hIOMgr->wIntrVal = 0;
 		} else if (fSchedDPC) {
-			/* PROC-COPY defer i/o */
-			DPC_Schedule(hIOMgr->hDPC);
+			/*
+			 * PROC-COPY defer i/o.
+			 * Increment count of DPC's pending.
+			 */
+			spin_lock_irqsave(&hIOMgr->hDPC->dpc_lock, flags);
+			hIOMgr->hDPC->numRequested++;
+			spin_unlock_irqrestore(&hIOMgr->hDPC->dpc_lock, flags);
+
+			/* Schedule DPC */
+			tasklet_schedule(&hIOMgr->hDPC->dpc_tasklet);
+#ifdef DEBUG
+			if (hIOMgr->hDPC->numRequested >
+			   hIOMgr->hDPC->numScheduled +
+			   hIOMgr->hDPC->numRequestedMax) {
+				hIOMgr->hDPC->numRequestedMax =
+					hIOMgr->hDPC->numRequested -
+					hIOMgr->hDPC->numScheduled;
+			}
+#endif
 		}
 	} else {
 		/* Ensure that, if WMD didn't claim it, the IRQ is shared. */
@@ -1112,10 +1155,27 @@ func_end:
  */
 void IO_Schedule(struct IO_MGR *pIOMgr)
 {
+	unsigned long flags;
+
 	if (!MEM_IsValidHandle(pIOMgr, IO_MGRSIGNATURE))
 		return;
 	tiomap3430_bump_dsp_opp_level();
-	DPC_Schedule(pIOMgr->hDPC);
+
+	/* Increment count of DPC's pending. */
+	spin_lock_irqsave(&pIOMgr->hDPC->dpc_lock, flags);
+	pIOMgr->hDPC->numRequested++;
+	spin_unlock_irqrestore(&pIOMgr->hDPC->dpc_lock, flags);
+
+	/* Schedule DPC */
+	tasklet_schedule(&pIOMgr->hDPC->dpc_tasklet);
+#ifdef DEBUG
+	if (pIOMgr->hDPC->numRequested > pIOMgr->hDPC->numScheduled +
+	   pIOMgr->hDPC->numRequestedMax) {
+		pIOMgr->hDPC->numRequestedMax =	pIOMgr->hDPC->numRequested -
+				pIOMgr->hDPC->numScheduled;
+	}
+#endif
+
 }
 
 /*
