@@ -196,6 +196,7 @@ static int isppreview_tables_update(struct isp_prev_device *isp_prev,
 int isppreview_config(struct isp_prev_device *isp_prev, void *userspace_add)
 {
 	struct device *dev = to_device(isp_prev);
+	struct isp_device *isp = to_isp_device(isp_prev);
 	struct ispprev_hmed prev_hmed_t;
 	struct ispprev_csup csup_t;
 	struct ispprev_blkadj prev_blkadj_t;
@@ -346,6 +347,11 @@ out_config_shadow:
 		goto err_copy_from_user;
 
 	isp_prev->shadow_update = 0;
+
+	/* If the stream is stopped then update registers immediately */
+	if (isp->running == ISP_STOPPED)
+		isppreview_config_shadow_registers(isp_prev);
+
 	return 0;
 
 err_copy_from_user:
