@@ -66,39 +66,3 @@ bool DPC_Init(void)
 	return true;
 }
 
-/*
- *  ======== DeferredProcedure ========
- *  Purpose:
- *      Main DPC routine.  This is called by host OS DPC callback
- *      mechanism with interrupts enabled.
- */
-void DPC_DeferredProcedure(IN unsigned long pDeferredContext)
-{
-	struct DPC_OBJECT *pDPCObject = (struct DPC_OBJECT *)pDeferredContext;
-	/* read numRequested in local variable */
-	u32 requested;
-	u32 serviced;
-
-	DBC_Require(pDPCObject != NULL);
-	requested = pDPCObject->numRequested;
-	serviced = pDPCObject->numScheduled;
-
-	GT_1trace(DPC_DebugMask, GT_ENTER, "> DPC_DeferredProcedure "
-		  "pDeferredContext=%x\n", pDeferredContext);
-	/* Rollover taken care of using != instead of < */
-	if (serviced != requested) {
-		if (pDPCObject->pfnDPC != NULL) {
-			/* Process pending DPC's: */
-			do {
-				/* Call client's DPC: */
-				(*(pDPCObject->pfnDPC))(pDPCObject->pRefData);
-				serviced++;
-			} while (serviced != requested);
-		}
-		pDPCObject->numScheduled = requested;
-	}
-	GT_2trace(DPC_DebugMask, GT_ENTER,
-		  "< DPC_DeferredProcedure requested %d"
-		  " serviced %d\n", requested, serviced);
-}
-

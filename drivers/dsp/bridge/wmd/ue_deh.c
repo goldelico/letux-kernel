@@ -95,11 +95,8 @@ DSP_STATUS WMD_DEH_Create(OUT struct DEH_MGR **phDehMgr,
 				SIGNATURE);
 		if (pDehMgr->hMmuFaultDpc) {
 			tasklet_init(&pDehMgr->hMmuFaultDpc->dpc_tasklet,
-				DPC_DeferredProcedure,
-				(u32)pDehMgr->hMmuFaultDpc);
+				MMU_FaultDpc, (u32)pDehMgr);
 			/* Fill out DPC Object */
-			pDehMgr->hMmuFaultDpc->pRefData = (void *)pDehMgr;
-			pDehMgr->hMmuFaultDpc->pfnDPC = MMU_FaultDpc;
 			pDehMgr->hMmuFaultDpc->numRequested = 0;
 			pDehMgr->hMmuFaultDpc->numScheduled = 0;
 #ifdef DEBUG

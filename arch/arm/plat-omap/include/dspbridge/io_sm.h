@@ -77,7 +77,7 @@
  *  Ensures:
  *      Non-preemptible (but interruptible).
  */
-	extern void IO_DPC(IN OUT void *pRefData);
+	extern void IO_DPC(IN OUT unsigned long pRefData);
 
 /*
  *  ======== IO_ISR ========

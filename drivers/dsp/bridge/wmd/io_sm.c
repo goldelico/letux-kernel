@@ -249,10 +249,8 @@ DSP_STATUS WMD_IO_Create(OUT struct IO_MGR **phIOMgr,
 				IO_MGRSIGNATURE);
 		if (pIOMgr->hDPC) {
 			tasklet_init(&pIOMgr->hDPC->dpc_tasklet,
-				DPC_DeferredProcedure, (u32)pIOMgr->hDPC);
+				IO_DPC, (u32)pIOMgr);
 			/* Fill out our DPC Object */
-			pIOMgr->hDPC->pRefData = (void *)pIOMgr;
-			pIOMgr->hDPC->pfnDPC = IO_DPC;
 			pIOMgr->hDPC->numRequested = 0;
 			pIOMgr->hDPC->numScheduled = 0;
 #ifdef DEBUG
@@ -1006,12 +1004,14 @@ static void IO_DispatchPM(struct work_struct *work)
  *      out the dispatch of I/O as a non-preemptible event.It can only be
  *      pre-empted      by an ISR.
  */
-void IO_DPC(IN OUT void *pRefData)
+void IO_DPC(IN OUT unsigned long pRefData)
 {
 	struct IO_MGR *pIOMgr = (struct IO_MGR *)pRefData;
 	struct CHNL_MGR *pChnlMgr;
 	struct MSG_MGR *pMsgMgr;
 	struct DEH_MGR *hDehMgr;
+	u32 requested;
+	u32 serviced;
 
 	if (!MEM_IsValidHandle(pIOMgr, IO_MGRSIGNATURE))
 		goto func_end;
@@ -1021,16 +1021,27 @@ void IO_DPC(IN OUT void *pRefData)
 	if (!MEM_IsValidHandle(pChnlMgr, CHNL_MGRSIGNATURE))
 		goto func_end;
 	DBG_Trace(DBG_LEVEL7, "Entering IO_DPC(0x%x)\n", pRefData);
-	/* Check value of interrupt register to ensure it is a valid error */
-	if ((pIOMgr->wIntrVal > DEH_BASE) && (pIOMgr->wIntrVal < DEH_LIMIT)) {
-		/* Notify DSP/BIOS exception */
-		if (hDehMgr)
-			WMD_DEH_Notify(hDehMgr, DSP_SYSERROR, pIOMgr->wIntrVal);
-	}
-	IO_DispatchChnl(pIOMgr, NULL, IO_SERVICE);
+
+	requested = pIOMgr->hDPC->numRequested;
+	serviced = pIOMgr->hDPC->numScheduled;
+
+	if (serviced == requested)
+		goto func_end;
+
+	/* Process pending DPC's */
+	do {
+		/* Check value of interrupt reg to ensure it's a valid error */
+		if ((pIOMgr->wIntrVal > DEH_BASE) &&
+		   (pIOMgr->wIntrVal < DEH_LIMIT)) {
+			/* Notify DSP/BIOS exception */
+			if (hDehMgr)
+				WMD_DEH_Notify(hDehMgr, DSP_SYSERROR,
+						pIOMgr->wIntrVal);
+		}
+		IO_DispatchChnl(pIOMgr, NULL, IO_SERVICE);
 #ifdef CHNL_MESSAGES
-	if (MEM_IsValidHandle(pMsgMgr, MSGMGR_SIGNATURE))
-		IO_DispatchMsg(pIOMgr, pMsgMgr);
+		if (MEM_IsValidHandle(pMsgMgr, MSGMGR_SIGNATURE))
+			IO_DispatchMsg(pIOMgr, pMsgMgr);
 #endif
 #ifndef DSP_TRACEBUF_DISABLED
 	if (pIOMgr->wIntrVal & MBX_DBG_SYSPRINTF) {
@@ -1038,6 +1049,9 @@ void IO_DPC(IN OUT void *pRefData)
 		PrintDSPDebugTrace(pIOMgr);
 	}
 #endif
+		serviced++;
+	} while (serviced != requested);
+	pIOMgr->hDPC->numScheduled = requested;
 func_end:
 	return;
 }

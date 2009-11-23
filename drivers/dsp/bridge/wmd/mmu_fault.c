@@ -54,7 +54,7 @@ static bool MMU_CheckIfFault(struct WMD_DEV_CONTEXT *pDevContext);
  *  ======== MMU_FaultDpc ========
  *      Deferred procedure call to handle DSP MMU fault.
  */
-void MMU_FaultDpc(IN void *pRefData)
+void MMU_FaultDpc(IN unsigned long pRefData)
 {
 	struct DEH_MGR *hDehMgr = (struct DEH_MGR *)pRefData;
 	struct DEH_MGR *pDehMgr = (struct DEH_MGR *)hDehMgr;

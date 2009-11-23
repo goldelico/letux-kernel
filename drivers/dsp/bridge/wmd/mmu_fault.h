@@ -23,7 +23,7 @@
  *  ======== MMU_FaultDpc ========
  *      Deferred procedure call to handle DSP MMU fault.
  */
-	void MMU_FaultDpc(IN void *pRefData);
+	void MMU_FaultDpc(IN unsigned long pRefData);
 
 /*
  *  ======== MMU_FaultIsr ========

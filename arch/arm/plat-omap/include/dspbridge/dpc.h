@@ -19,30 +19,10 @@
 #ifndef DPC_
 #define DPC_
 
-/*
- *  ======== DPC_PROC ========
- *  Purpose:
- *      Deferred processing routine.  Typically scheduled from an ISR to
- *      complete I/O processing.
- *  Parameters:
- *      pRefData:   Ptr to user data: passed in via ISR_ScheduleDPC.
- *  Returns:
- *  Requires:
- *      The DPC should not block, or otherwise acquire resources.
- *      Interrupts to the processor are enabled.
- *      DPC_PROC executes in a critical section.
- *  Ensures:
- *      This DPC will not be reenterred on the same thread.
- *      However, the DPC may take hardware interrupts during execution.
- *      Interrupts to the processor are enabled.
- */
-       typedef void(*DPC_PROC) (void *pRefData);
-
 /* The DPC object, passed to our priority event callback routine: */
 struct DPC_OBJECT {
 	u32 dwSignature;	/* Used for object validation.   */
 	void *pRefData;		/* Argument for client's DPC.    */
-	DPC_PROC pfnDPC;	/* Client's DPC.                 */
 	u32 numRequested;	/* Number of requested DPC's.      */
 	u32 numScheduled;	/* Number of executed DPC's.      */
 	struct tasklet_struct dpc_tasklet;
@@ -80,8 +60,5 @@ struct DPC_OBJECT {
  *      A requirement for each of the other public DPC functions.
  */
        extern bool DPC_Init(void);
-
-/*  ----------------------------------- Function Prototypes */
- void DPC_DeferredProcedure(IN unsigned long pDeferredContext);
 
 #endif				/* DPC_ */
