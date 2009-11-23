@@ -2185,6 +2185,11 @@ static int isp_try_size(struct v4l2_pix_format *pix_input,
 		isp_obj.module.resizer_output_height = pix_output->height;
 	}
 
+	if (isp_obj.module.isp_pipeline & OMAP_ISP_PREVIEW) {
+		isp_obj.module.preview_output_width = pix_output->width;
+		isp_obj.module.preview_output_height = pix_output->height;
+	}
+
 	if (isp_obj.module.isp_pipeline & OMAP_ISP_CCDC) {
 		rval = ispccdc_try_size(isp_obj.module.ccdc_input_width,
 					isp_obj.module.ccdc_input_height,

@@ -1504,7 +1504,13 @@ int isppreview_try_size(u32 input_w, u32 input_h, u32 *output_w, u32 *output_h)
 	u32 prevout_h = input_h;
 	u32 div = 0;
 	int max_out;
+	unsigned int wanted_width;
+	unsigned int wanted_height;
+	unsigned int left_boundary;
+	unsigned int right_boundary;
 
+	wanted_width = *output_w;
+	wanted_height = *output_h;
 	ispprev_obj.previn_w = input_w;
 	ispprev_obj.previn_h = input_h;
 
@@ -1575,6 +1581,17 @@ int isppreview_try_size(u32 input_w, u32 input_h, u32 *output_w, u32 *output_h)
 				     ISP_32B_BOUNDARY_OFFSET) / 2;
 		}
 	}
+
+	if (wanted_width == 1280 && wanted_height == 720) {
+		left_boundary = prevout_w;
+		right_boundary = ALIGN(prevout_w, 0x20);
+		if (wanted_width >= left_boundary &&
+				wanted_width <= right_boundary){
+			prevout_w = wanted_width;
+			prevout_h = wanted_height;
+		}
+	}
+
 	*output_w = prevout_w;
 	ispprev_obj.prevout_w = prevout_w;
 	*output_h = prevout_h;
