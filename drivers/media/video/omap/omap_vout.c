@@ -1103,7 +1103,8 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 
 		/*Start resizing*/
 		ret = rsz_begin(vb->i, vb->i, 8192,
-			(u32)vout->vrfb_context[vb->i].paddr[rotation]);
+			(u32)vout->vrfb_context[vb->i].paddr[rotation],
+			vout->buf_phy_addr[vb->i], vout->buffer_size);
 
 		if (ret) {
 			printk(KERN_ERR "<%s> Failed to resize the 720p buffer"
@@ -1324,21 +1325,6 @@ static int omap_vout_release(struct file *file)
 	    (flg_720 == VIDEO_720_RESIZER_N_STREAMING)) {
 		rsz_put_resource();
 		flg_720 = VIDEO_720_DISABLE;
-	}
-
-	/* unmap the dss buffers in ISP resizer*/
-	if (flg_720_bufmapped == FLG720_BUF_MAPPED) {
-		unsigned int i;
-		unsigned int num_buffers;
-
-		num_buffers = (vout->vid == OMAP_VIDEO1) ?
-			video1_numbuffers : video2_numbuffers;
-		for (i = 0; i < num_buffers; i++) {
-			rsz_unmap_input_dss_buffers(i);
-			printk(KERN_ERR "<%s> rsz_unmap_input_dss_buffers  %d\n",
-			       __func__, i);
-		}
-		flg_720_bufmapped = FLG720_BUF_UNMAPPED;
 	}
 
 	/* Free all buffers */
@@ -1916,18 +1902,6 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		dmabuf->vmalloc = (void *) vout->buf_virt_addr[i];
 		dmabuf->bus_addr = (dma_addr_t) vout->buf_phy_addr[i];
 		dmabuf->sglen = 1;
-		/*
-		*As allocation of buffer is completed,
-		*remap it to ISPMMU for resizer
-		*/
-
-		if (flg_720 == VIDEO_720_ENABLE) {
-			ret = rsz_map_input_dss_buffers(vout->buf_phy_addr[i],
-							i,
-							vout->buffer_size);
-			printk(KERN_ERR "rsz_map_input_dss_buffers  %d\n", i);
-			flg_720_bufmapped = FLG720_BUF_MAPPED;
-		}
 	}
 	mutex_unlock(&vout->lock);
 	return 0;
