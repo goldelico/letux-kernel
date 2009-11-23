@@ -35,30 +35,4 @@ struct DPC_OBJECT {
 	spinlock_t dpc_lock;
 };
 
-/*
- *  ======== DPC_Exit ========
- *  Purpose:
- *      Discontinue usage of the DPC module.
- *  Parameters:
- *  Returns:
- *  Requires:
- *      DPC_Init(void) was previously called.
- *  Ensures:
- *      Resources acquired in DPC_Init(void) are freed.
- */
-       extern void DPC_Exit(void);
-
-/*
- *  ======== DPC_Init ========
- *  Purpose:
- *      Initialize the DPC module's private state.
- *  Parameters:
- *  Returns:
- *      TRUE if initialized; FALSE if error occured.
- *  Requires:
- *  Ensures:
- *      A requirement for each of the other public DPC functions.
- */
-       extern bool DPC_Init(void);
-
 #endif				/* DPC_ */
