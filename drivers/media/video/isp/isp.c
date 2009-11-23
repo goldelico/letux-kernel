@@ -1339,8 +1339,13 @@ static int isp_try_pipeline(struct device *dev,
 			pipe->ccdc_in = CCDC_RAW_GBRG;
 		pipe->ccdc_out = CCDC_OTHERS_VP;
 		pipe->prv_in = PRV_RAW_CCDC;
-		pipe->prv_out = PREVIEW_MEM;
-		pipe->rsz_in = RSZ_MEM_YUV;
+		if (isp->revision <= ISP_REVISION_2_0) {
+			pipe->prv_out = PREVIEW_MEM;
+			pipe->rsz_in = RSZ_MEM_YUV;
+		} else {
+			pipe->prv_out = PREVIEW_RSZ;
+			pipe->rsz_in = RSZ_OTFLY_YUV;
+		}
 	} else {
 		pipe->modules = OMAP_ISP_CCDC;
 		if (pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10 ||
@@ -1675,7 +1680,8 @@ int isp_vbq_setup(struct device *dev, struct videobuf_queue *vbq,
 				     * ISP_BYTES_PER_PIXEL);
 
 	if (CCDC_PREV_RESZ_CAPTURE(isp) &&
-	    isp->tmp_buf_size < tmp_size)
+	    isp->tmp_buf_size < tmp_size &&
+	    isp->revision <= ISP_REVISION_2_0)
 		return isp_tmp_buf_alloc(dev, tmp_size);
 
 	return 0;
@@ -2308,7 +2314,8 @@ int isp_put(void)
 	if (isp->ref_count) {
 		if (--isp->ref_count == 0) {
 			isp_save_ctx(&pdev->dev);
-			isp_tmp_buf_free(&pdev->dev);
+			if (isp->revision <= ISP_REVISION_2_0)
+				isp_tmp_buf_free(&pdev->dev);
 			isp_release_resources(&pdev->dev);
 			isp_disable_clocks(&pdev->dev);
 		}
