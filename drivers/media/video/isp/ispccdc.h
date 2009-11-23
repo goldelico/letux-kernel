@@ -28,7 +28,10 @@
 
 /* Enumeration constants for CCDC input output format */
 enum ccdc_input {
-	CCDC_RAW,
+	CCDC_RAW_GRBG,
+	CCDC_RAW_RGGB,
+	CCDC_RAW_BGGR,
+	CCDC_RAW_GBRG,
 	CCDC_YUV_SYNC,
 	CCDC_YUV_BT,
 	CCDC_OTHERS
