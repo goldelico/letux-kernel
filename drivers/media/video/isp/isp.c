@@ -1310,9 +1310,13 @@ static int isp_try_pipeline(struct device *dev,
 	int ifmt;
 	int rval;
 
-	if ((pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10
-	     || pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8)
-	    && pix_output->pixelformat != V4L2_PIX_FMT_SGRBG10) {
+	if ((pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10 ||
+	     pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8 ||
+	     pix_input->pixelformat == V4L2_PIX_FMT_SRGGB10 ||
+	     pix_input->pixelformat == V4L2_PIX_FMT_SBGGR10 ||
+	     pix_input->pixelformat == V4L2_PIX_FMT_SGBRG10) &&
+	    (pix_output->pixelformat == V4L2_PIX_FMT_YUYV ||
+	     pix_output->pixelformat == V4L2_PIX_FMT_UYVY)) {
 
 		if ((pix_output->width == 1280) &&
 			(pix_output->height == 720)) {
@@ -1324,18 +1328,42 @@ static int isp_try_pipeline(struct device *dev,
 					OMAP_ISP_RESIZER |
 					OMAP_ISP_CCDC;
 
-		pipe->ccdc_in = CCDC_RAW;
+		if (pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10 ||
+		    pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8)
+			pipe->ccdc_in = CCDC_RAW_GRBG;
+		if (pix_input->pixelformat == V4L2_PIX_FMT_SRGGB10)
+			pipe->ccdc_in = CCDC_RAW_RGGB;
+		if (pix_input->pixelformat == V4L2_PIX_FMT_SBGGR10)
+			pipe->ccdc_in = CCDC_RAW_BGGR;
+		if (pix_input->pixelformat == V4L2_PIX_FMT_SGBRG10)
+			pipe->ccdc_in = CCDC_RAW_GBRG;
 		pipe->ccdc_out = CCDC_OTHERS_VP;
+		pipe->prv_in = PRV_RAW_CCDC;
+		pipe->prv_out = PREVIEW_MEM;
+		pipe->rsz_in = RSZ_MEM_YUV;
 	} else {
 		pipe->modules = OMAP_ISP_CCDC;
-		if (pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10
-		    || pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8) {
-			pipe->ccdc_in = CCDC_RAW;
+		if (pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10 ||
+		    pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8 ||
+		    pix_input->pixelformat == V4L2_PIX_FMT_SRGGB10 ||
+		    pix_input->pixelformat == V4L2_PIX_FMT_SBGGR10 ||
+		    pix_input->pixelformat == V4L2_PIX_FMT_SGBRG10) {
 			pipe->ccdc_out = CCDC_OTHERS_VP_MEM;
-		} else {
+			if (pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10 ||
+			    pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8)
+				pipe->ccdc_in = CCDC_RAW_GRBG;
+			if (pix_input->pixelformat == V4L2_PIX_FMT_SRGGB10)
+				pipe->ccdc_in = CCDC_RAW_RGGB;
+			if (pix_input->pixelformat == V4L2_PIX_FMT_SBGGR10)
+				pipe->ccdc_in = CCDC_RAW_BGGR;
+			if (pix_input->pixelformat == V4L2_PIX_FMT_SGBRG10)
+				pipe->ccdc_in = CCDC_RAW_GBRG;
+		} else if (pix_input->pixelformat == V4L2_PIX_FMT_YUYV ||
+			   pix_input->pixelformat == V4L2_PIX_FMT_UYVY) {
 			pipe->ccdc_in = CCDC_YUV_SYNC;
 			pipe->ccdc_out = CCDC_OTHERS_MEM;
-		}
+		} else
+			return -EINVAL;
 	}
 
 	if (pipe->modules & OMAP_ISP_CCDC) {
@@ -1437,14 +1465,11 @@ static int isp_s_pipeline(struct device *dev,
 
 	if (pipe.modules & OMAP_ISP_PREVIEW) {
 		isppreview_request(&isp->isp_prev);
-		pipe.prv_in = PRV_RAW_CCDC;
-		pipe.prv_out = PREVIEW_MEM;
 		isppreview_s_pipeline(&isp->isp_prev, &pipe);
 	}
 
 	if (pipe.modules & OMAP_ISP_RESIZER) {
 		ispresizer_request(&isp->isp_res);
-		pipe.rsz_in = RSZ_MEM_YUV;
 		ispresizer_s_pipeline(&isp->isp_res, &pipe);
 	}
 
