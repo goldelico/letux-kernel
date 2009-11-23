@@ -826,8 +826,15 @@ int messageq_get(void *messageq_handle, messageq_msg *msg,
 				/* TODO: cater to different timeout values */
 				/*status = OsalSemaphore_pend(
 					obj->synchronizer, timeout); */
-				status = down_timeout(obj->synchronizer,
+				if (timeout == MESSAGEQ_FOREVER) {
+					if (down_interruptible
+							(obj->synchronizer)) {
+						status = -ERESTARTSYS;
+					}
+				} else {
+					status = down_timeout(obj->synchronizer,
 						msecs_to_jiffies(timeout));
+				}
 				if (status < 0) {
 					*msg = NULL;
 					break;
