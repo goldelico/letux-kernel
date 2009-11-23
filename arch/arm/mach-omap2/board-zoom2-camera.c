@@ -12,12 +12,12 @@
  * published by the Free Software Foundation.
  */
 
-#ifdef CONFIG_TWL4030_CORE
-
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/mm.h>
+
+#if defined(CONFIG_TWL4030_CORE) && defined(CONFIG_VIDEO_OMAP3)
 
 #include <linux/i2c/twl4030.h>
 
@@ -359,9 +359,5 @@ void __init zoom2_cam_init(void)
 	gpio_direction_output(IMX046_STANDBY_GPIO, true);
 
 	cam_inited = 1;
-}
-#else
-void __init zoom2_cam_init(void)
-{
 }
 #endif

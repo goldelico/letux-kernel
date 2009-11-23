@@ -36,14 +36,19 @@
 
 #include <media/v4l2-int-device.h>
 
-#if defined(CONFIG_VIDEO_IMX046) || defined(CONFIG_VIDEO_IMX046_MODULE)
+#if (defined(CONFIG_VIDEO_IMX046) || defined(CONFIG_VIDEO_IMX046_MODULE)) && \
+    defined(CONFIG_VIDEO_OMAP3)
 #include <media/imx046.h>
 extern struct imx046_platform_data zoom2_imx046_platform_data;
 #endif
 
+#ifdef CONFIG_VIDEO_OMAP3
 extern void zoom2_cam_init(void);
+#else
+#define zoom2_cam_init()	NULL
+#endif
 
-#ifdef CONFIG_VIDEO_LV8093
+#if defined(CONFIG_VIDEO_LV8093) && defined(CONFIG_VIDEO_OMAP3)
 #include <media/lv8093.h>
 extern struct imx046_platform_data zoom2_lv8093_platform_data;
 #define LV8093_PS_GPIO			7
@@ -321,13 +326,14 @@ static struct i2c_board_info __initdata zoom2_i2c_bus2_info[] = {
 		.platform_data = &synaptics_platform_data,
 		.irq = OMAP_GPIO_IRQ(OMAP_SYNAPTICS_GPIO),
 	},
-#if defined(CONFIG_VIDEO_IMX046) || defined(CONFIG_VIDEO_IMX046_MODULE)
+#if (defined(CONFIG_VIDEO_IMX046) || defined(CONFIG_VIDEO_IMX046_MODULE)) && \
+    defined(CONFIG_VIDEO_OMAP3)
 	{
 		I2C_BOARD_INFO("imx046", IMX046_I2C_ADDR),
 		.platform_data = &zoom2_imx046_platform_data,
 	},
 #endif
-#ifdef CONFIG_VIDEO_LV8093
+#if defined(CONFIG_VIDEO_LV8093) && defined(CONFIG_VIDEO_OMAP3)
 	{
 		I2C_BOARD_INFO(LV8093_NAME,  LV8093_AF_I2C_ADDR),
 		.platform_data = &zoom2_lv8093_platform_data,
