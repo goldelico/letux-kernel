@@ -37,7 +37,9 @@
 #include <plat/hdmi_lib.h>
 
 #define OMAP_HDMI_RATES	(SNDRV_PCM_RATE_48000)
-#define OMAP_HDMI_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S32_LE)
+
+/* Currently, we support only 16b samples at HDMI */
+#define OMAP_HDMI_FORMATS (SNDRV_PCM_FMTBIT_S16_LE)
 
 static struct omap_pcm_dma_data omap_hdmi_dai_dma_params = {
 	.name = "HDMI playback",
@@ -124,7 +126,8 @@ struct snd_soc_dai omap_hdmi_dai = {
 	.id = -1,
 	.playback = {
 		.channels_min = 2,
-		.channels_max = 8,
+		/* currently we support only stereo HDMI */
+		.channels_max = 2,
 		.rates = OMAP_HDMI_RATES,
 		.formats = OMAP_HDMI_FORMATS,
 	},
