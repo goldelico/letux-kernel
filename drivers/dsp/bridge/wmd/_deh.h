@@ -19,7 +19,6 @@
 #ifndef _DEH_
 #define _DEH_
 
-#include <dspbridge/dpc.h>
 #include <dspbridge/ntfy.h>
 #include <dspbridge/wmd.h>
 
@@ -30,8 +29,10 @@ struct DEH_MGR {
 	u32 dwSignature;	/* Used for object validation.  */
 	struct WMD_DEV_CONTEXT *hWmdContext;	/* WMD device context. */
 	struct NTFY_OBJECT *hNtfy;	/* NTFY object                  */
-	struct DPC_OBJECT *hMmuFaultDpc;	/* DPC object handle.  */
 	struct DSP_ERRORINFO errInfo;	/* DSP exception info.          */
+
+	/* MMU Fault DPC */
+	struct tasklet_struct dpc_tasklet;
 } ;
 
 #endif				/* _DEH_ */

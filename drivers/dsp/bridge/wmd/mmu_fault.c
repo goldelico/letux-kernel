@@ -27,7 +27,6 @@
 #include <dspbridge/dbg.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
-#include <dspbridge/dpc.h>
 #include <dspbridge/mem.h>
 #include <dspbridge/drv.h>
 
@@ -57,11 +56,10 @@ static bool MMU_CheckIfFault(struct WMD_DEV_CONTEXT *pDevContext);
 void MMU_FaultDpc(IN unsigned long pRefData)
 {
 	struct DEH_MGR *hDehMgr = (struct DEH_MGR *)pRefData;
-	struct DEH_MGR *pDehMgr = (struct DEH_MGR *)hDehMgr;
 
 	DBG_Trace(DBG_LEVEL1, "MMU_FaultDpc Enter: 0x%x\n", pRefData);
 
-	if (pDehMgr)
+	if (hDehMgr)
 		WMD_DEH_Notify(hDehMgr, DSP_MMUFAULT, 0L);
 
 	DBG_Trace(DBG_LEVEL1, "MMU_FaultDpc Exit: 0x%x\n", pRefData);
@@ -76,7 +74,6 @@ irqreturn_t  MMU_FaultIsr(int irq, IN void *pRefData)
 	struct DEH_MGR *pDehMgr = (struct DEH_MGR *)pRefData;
 	struct WMD_DEV_CONTEXT *pDevContext;
 	DSP_STATUS status = DSP_SOK;
-	unsigned long flags;
 
 	DBG_Trace(DBG_LEVEL1, "Entering DEH_DspMmuIsr: 0x%x\n", pRefData);
        DBC_Require(irq == INT_DSP_MMU_IRQ);
@@ -99,24 +96,7 @@ irqreturn_t  MMU_FaultIsr(int irq, IN void *pRefData)
 			 * necessary to check if DSP MMU fault is intended for
 			 * Bridge.
 			 */
-			/* Increment count of DPC's pending. */
-			spin_lock_irqsave(&pDehMgr->hMmuFaultDpc->dpc_lock,
-						flags);
-			pDehMgr->hMmuFaultDpc->numRequested++;
-			spin_unlock_irqrestore(&pDehMgr->hMmuFaultDpc->dpc_lock,
-						flags);
-
-			/* Schedule DPC */
-			tasklet_schedule(&pDehMgr->hMmuFaultDpc->dpc_tasklet);
-#ifdef DEBUG
-			if (pDehMgr->hMmuFaultDpc->numRequested >
-			   pDehMgr->hMmuFaultDpc->numScheduled +
-			   pDehMgr->hMmuFaultDpc->numRequestedMax) {
-				pDehMgr->hMmuFaultDpc->numRequestedMax =
-					pDehMgr->hMmuFaultDpc->numRequested -
-					pDehMgr->hMmuFaultDpc->numScheduled;
-			}
-#endif
+			tasklet_schedule(&pDehMgr->dpc_tasklet);
 
 			/* Reset errInfo structure before use. */
 			pDehMgr->errInfo.dwErrMask = DSP_MMUFAULT;

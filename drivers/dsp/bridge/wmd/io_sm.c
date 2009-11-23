@@ -43,7 +43,6 @@
 
 /* Services Layer */
 #include <dspbridge/cfg.h>
-#include <dspbridge/dpc.h>
 #include <dspbridge/mem.h>
 #include <dspbridge/ntfy.h>
 #include <dspbridge/sync.h>
@@ -108,7 +107,6 @@ struct IO_MGR {
 	u8 *pMsgOutput; 	/* Address of output messages */
 	u32 uSMBufSize; 	/* Size of a shared memory I/O channel */
 	bool fSharedIRQ; 	/* Is this IRQ shared? */
-	struct DPC_OBJECT *hDPC; 	/* DPC object handle */
 	struct SYNC_CSOBJECT *hCSObj; 	/* Critical section object handle */
 	u32 uWordSize; 	/* Size in bytes of DSP word */
 	u16 wIntrVal; 		/* Interrupt value */
@@ -128,6 +126,12 @@ struct IO_MGR {
 	u32 ulGppVa;
 	u32 ulDspVa;
 #endif
+	/* IO Dpc */
+	u32 dpc_req;				/* Number of requested DPC's. */
+	u32 dpc_sched;				/* Number of executed DPC's. */
+	struct tasklet_struct dpc_tasklet;
+	spinlock_t dpc_lock;
+
 } ;
 
 /* Function Prototypes */
@@ -244,24 +248,14 @@ DSP_STATUS WMD_IO_Create(OUT struct IO_MGR **phIOMgr,
 		status = SYNC_InitializeCS(&pIOMgr->hCSObj);
 
 	if (devType == DSP_UNIT) {
-		/* Create a DPC object */
-		MEM_AllocObject(pIOMgr->hDPC, struct DPC_OBJECT,
-				IO_MGRSIGNATURE);
-		if (pIOMgr->hDPC) {
-			tasklet_init(&pIOMgr->hDPC->dpc_tasklet,
-				IO_DPC, (u32)pIOMgr);
-			/* Fill out our DPC Object */
-			pIOMgr->hDPC->numRequested = 0;
-			pIOMgr->hDPC->numScheduled = 0;
-#ifdef DEBUG
-			pIOMgr->hDPC->numRequestedMax = 0;
-			pIOMgr->hDPC->cEntryCount = 0;
-#endif
-			spin_lock_init(&pIOMgr->hDPC->dpc_lock);
-		} else {
-			DBG_Trace(GT_6CLASS, "IO DPC Create: DSP_EMEMORY\n");
-			status = DSP_EMEMORY;
-		}
+		/* Create an IO DPC */
+		tasklet_init(&pIOMgr->dpc_tasklet, IO_DPC, (u32)pIOMgr);
+
+		/* Initialize DPC counters */
+		pIOMgr->dpc_req = 0;
+		pIOMgr->dpc_sched = 0;
+
+		spin_lock_init(&pIOMgr->dpc_lock);
 
 		if (DSP_SUCCEEDED(status))
 			status = DEV_GetDevNode(hDevObject, &hDevNode);
@@ -325,10 +319,8 @@ DSP_STATUS WMD_IO_Destroy(struct IO_MGR *hIOMgr)
 		/* Linux function to uninstall ISR */
 		free_irq(INT_MAIL_MPU_IRQ, (void *)hIOMgr);
 
-		/* Free DPC object */
-		tasklet_kill(&hIOMgr->hDPC->dpc_tasklet);
-		MEM_FreeObject(hIOMgr->hDPC);
-		hIOMgr->hDPC = NULL;
+		/* Free IO DPC object */
+		tasklet_kill(&hIOMgr->dpc_tasklet);
 		DBG_Trace(GT_2CLASS, "DPC_Destroy: SUCCESS\n");
 
 #ifndef DSP_TRACEBUF_DISABLED
@@ -1022,8 +1014,8 @@ void IO_DPC(IN OUT unsigned long pRefData)
 		goto func_end;
 	DBG_Trace(DBG_LEVEL7, "Entering IO_DPC(0x%x)\n", pRefData);
 
-	requested = pIOMgr->hDPC->numRequested;
-	serviced = pIOMgr->hDPC->numScheduled;
+	requested = pIOMgr->dpc_req;
+	serviced = pIOMgr->dpc_sched;
 
 	if (serviced == requested)
 		goto func_end;
@@ -1051,7 +1043,7 @@ void IO_DPC(IN OUT unsigned long pRefData)
 #endif
 		serviced++;
 	} while (serviced != requested);
-	pIOMgr->hDPC->numScheduled = requested;
+	pIOMgr->dpc_sched = requested;
 func_end:
 	return;
 }
@@ -1093,21 +1085,12 @@ irqreturn_t IO_ISR(int irq, IN void *pRefData)
 			 * PROC-COPY defer i/o.
 			 * Increment count of DPC's pending.
 			 */
-			spin_lock_irqsave(&hIOMgr->hDPC->dpc_lock, flags);
-			hIOMgr->hDPC->numRequested++;
-			spin_unlock_irqrestore(&hIOMgr->hDPC->dpc_lock, flags);
+			spin_lock_irqsave(&hIOMgr->dpc_lock, flags);
+			hIOMgr->dpc_req++;
+			spin_unlock_irqrestore(&hIOMgr->dpc_lock, flags);
 
 			/* Schedule DPC */
-			tasklet_schedule(&hIOMgr->hDPC->dpc_tasklet);
-#ifdef DEBUG
-			if (hIOMgr->hDPC->numRequested >
-			   hIOMgr->hDPC->numScheduled +
-			   hIOMgr->hDPC->numRequestedMax) {
-				hIOMgr->hDPC->numRequestedMax =
-					hIOMgr->hDPC->numRequested -
-					hIOMgr->hDPC->numScheduled;
-			}
-#endif
+			tasklet_schedule(&hIOMgr->dpc_tasklet);
 		}
 	} else {
 		/* Ensure that, if WMD didn't claim it, the IRQ is shared. */
@@ -1176,20 +1159,12 @@ void IO_Schedule(struct IO_MGR *pIOMgr)
 	tiomap3430_bump_dsp_opp_level();
 
 	/* Increment count of DPC's pending. */
-	spin_lock_irqsave(&pIOMgr->hDPC->dpc_lock, flags);
-	pIOMgr->hDPC->numRequested++;
-	spin_unlock_irqrestore(&pIOMgr->hDPC->dpc_lock, flags);
+	spin_lock_irqsave(&pIOMgr->dpc_lock, flags);
+	pIOMgr->dpc_req++;
+	spin_unlock_irqrestore(&pIOMgr->dpc_lock, flags);
 
 	/* Schedule DPC */
-	tasklet_schedule(&pIOMgr->hDPC->dpc_tasklet);
-#ifdef DEBUG
-	if (pIOMgr->hDPC->numRequested > pIOMgr->hDPC->numScheduled +
-	   pIOMgr->hDPC->numRequestedMax) {
-		pIOMgr->hDPC->numRequestedMax =	pIOMgr->hDPC->numRequested -
-				pIOMgr->hDPC->numScheduled;
-	}
-#endif
-
+	tasklet_schedule(&pIOMgr->dpc_tasklet);
 }
 
 /*

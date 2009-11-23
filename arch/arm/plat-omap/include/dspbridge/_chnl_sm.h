@@ -25,7 +25,6 @@
 
 #include <dspbridge/wcd.h>
 #include <dspbridge/wmd.h>
-#include <dspbridge/dpc.h>
 
 #include <dspbridge/list.h>
 #include <dspbridge/ntfy.h>

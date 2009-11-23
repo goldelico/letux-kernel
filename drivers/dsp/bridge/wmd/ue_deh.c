@@ -30,7 +30,6 @@
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
-#include <dspbridge/dpc.h>
 #include <dspbridge/mem.h>
 #include <dspbridge/ntfy.h>
 #include <dspbridge/drv.h>
@@ -90,24 +89,8 @@ DSP_STATUS WMD_DEH_Create(OUT struct DEH_MGR **phDehMgr,
 		if (DSP_SUCCEEDED(status))
 			status = NTFY_Create(&pDehMgr->hNtfy);
 
-		/* Create a DPC object. */
-		MEM_AllocObject(pDehMgr->hMmuFaultDpc, struct DPC_OBJECT,
-				SIGNATURE);
-		if (pDehMgr->hMmuFaultDpc) {
-			tasklet_init(&pDehMgr->hMmuFaultDpc->dpc_tasklet,
-				MMU_FaultDpc, (u32)pDehMgr);
-			/* Fill out DPC Object */
-			pDehMgr->hMmuFaultDpc->numRequested = 0;
-			pDehMgr->hMmuFaultDpc->numScheduled = 0;
-#ifdef DEBUG
-			pDehMgr->hMmuFaultDpc->numRequestedMax = 0;
-			pDehMgr->hMmuFaultDpc->cEntryCount = 0;
-#endif
-			spin_lock_init(&pDehMgr->hMmuFaultDpc->dpc_lock);
-		} else {
-			DBG_Trace(GT_6CLASS, "DEH DPC Create: DSP_EMEMORY\n");
-			status = DSP_EMEMORY;
-		}
+		/* Create a MMUfault DPC */
+		tasklet_init(&pDehMgr->dpc_tasklet, MMU_FaultDpc, (u32)pDehMgr);
 
 		if (DSP_SUCCEEDED(status))
 			status = DEV_GetDevNode(hDevObject, &hDevNode);
@@ -162,9 +145,7 @@ DSP_STATUS WMD_DEH_Destroy(struct DEH_MGR *hDehMgr)
 		free_irq(INT_DSP_MMU_IRQ, pDehMgr);
 
 		/* Free DPC object */
-		tasklet_kill(&pDehMgr->hMmuFaultDpc->dpc_tasklet);
-		MEM_FreeObject(pDehMgr->hMmuFaultDpc);
-		pDehMgr->hMmuFaultDpc = NULL;
+		tasklet_kill(&pDehMgr->dpc_tasklet);
 		DBG_Trace(GT_2CLASS, "DPC_Destroy: SUCCESS\n");
 
 		/* Deallocate the DEH manager object */
