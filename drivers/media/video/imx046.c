@@ -104,8 +104,8 @@ static enum imx046_image_size isize_current = EIGHT_MP;
 /* list of image formats supported by imx046 sensor */
 const static struct v4l2_fmtdesc imx046_formats[] = {
 	{
-		.description	= "Bayer10 (GrR/BGb)",
-		.pixelformat	= V4L2_PIX_FMT_SGRBG10,
+		.description	= "Bayer10 (RGr/GbB)",
+		.pixelformat	= V4L2_PIX_FMT_SRGGB10,
 	}
 };
 
@@ -1803,10 +1803,10 @@ static int __devinit imx046_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, sensor);
 
-	/* Make the default capture format QCIF V4L2_PIX_FMT_SGRBG10 */
+	/* Make the default capture format QCIF V4L2_PIX_FMT_SRGGB10 */
 	sensor->pix.width = IMX046_IMAGE_WIDTH_MAX;
 	sensor->pix.height = IMX046_IMAGE_HEIGHT_MAX;
-	sensor->pix.pixelformat = V4L2_PIX_FMT_SGRBG10;
+	sensor->pix.pixelformat = V4L2_PIX_FMT_SRGGB10;
 
 	err = v4l2_int_device_register(sensor->v4l2_int_device);
 	if (err)
