@@ -319,7 +319,28 @@ static void isp_enable_interrupts(struct device *dev)
 
 static void isp_disable_interrupts(struct device *dev)
 {
-	isp_reg_writel(dev, 0, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE);
+	struct isp_device *isp = dev_get_drvdata(dev);
+	u32 irq0enable;
+	u32 v ;
+
+	irq0enable = ~(IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ
+		| IRQ0ENABLE_CCDC_VD0_IRQ
+		| IRQ0ENABLE_CSIA_IRQ
+		| IRQ0ENABLE_CSIB_IRQ | IRQ0ENABLE_HIST_DONE_IRQ
+		| IRQ0ENABLE_H3A_AWB_DONE_IRQ | IRQ0ENABLE_H3A_AF_DONE_IRQ
+		| isp->interrupts);
+
+	if (CCDC_PREV_CAPTURE(isp))
+		irq0enable &= ~IRQ0ENABLE_PRV_DONE_IRQ;
+
+	if (CCDC_PREV_RESZ_CAPTURE(isp))
+		irq0enable &= ~(IRQ0ENABLE_PRV_DONE_IRQ
+			| IRQ0ENABLE_RSZ_DONE_IRQ);
+
+	v = isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE);
+
+	isp_reg_writel(dev, v & irq0enable,
+		OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE);
 }
 
 /**
@@ -778,13 +799,16 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	int wait_hs_vs = 0;
 	int ret;
 
-	if (isp->running == ISP_STOPPED)
+	if ((isp->running == ISP_STOPPED) &&
+		!irqdis->isp_callbk[CBK_RESZ_DONE])
 		return IRQ_NONE;
 
 	irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 	isp_reg_writel(dev, irqstatus, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 
-	if (isp->running == ISP_STOPPING) {
+	if ((isp->running == ISP_STOPPING) &&
+		!(irqdis->isp_callbk[CBK_RESZ_DONE] &&
+			(irqstatus & RESZ_DONE))) {
 		isp_flush(dev);
 		return IRQ_HANDLED;
 	}
@@ -829,8 +853,7 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 				       ISPCSI1_LC01_IRQSTATUS);
 		}
 
-		if (!((irqstatus & RESZ_DONE) &&
-			CCDC_PREV_CAPTURE(isp)))
+		if (!(irqstatus & RESZ_DONE) || CCDC_PREV_RESZ_CAPTURE(isp))
 			goto out_ignore_buff;
 	case 0:
 		break;
@@ -1100,10 +1123,16 @@ static void isp_tmp_buf_free(struct device *dev)
  *  isp_tmp_buf_alloc - To allocate a 10MB memory
  *
  **/
-static u32 isp_tmp_buf_alloc(struct device *dev, size_t size)
+static u32 isp_tmp_buf_alloc(struct device *dev, struct isp_pipeline *pipe)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	u32 da;
+	size_t size = PAGE_ALIGN(isp->pipeline.prv_out_w *
+				 isp->pipeline.prv_out_h *
+				 ISP_BYTES_PER_PIXEL);
+
+	if (isp->tmp_buf_size < size)
+		return 0;
 
 	isp_tmp_buf_free(dev);
 
@@ -1116,7 +1145,9 @@ static u32 isp_tmp_buf_alloc(struct device *dev, size_t size)
 	isp->tmp_buf_size = size;
 
 	isppreview_set_outaddr(&isp->isp_prev, isp->tmp_buf);
-	ispresizer_set_inaddr(&isp->isp_res, isp->tmp_buf);
+	ispresizer_set_inaddr(&isp->isp_res, isp->tmp_buf, 0);
+	ispresizer_config_inlineoffset(&isp->isp_res,
+				       pipe->prv_out_w * ISP_BYTES_PER_PIXEL);
 
 	return 0;
 }
@@ -1287,9 +1318,13 @@ static int isp_try_pipeline(struct device *dev,
 	int ifmt;
 	int rval;
 
-	if ((pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10
-	     || pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8)
-	    && pix_output->pixelformat != V4L2_PIX_FMT_SGRBG10) {
+	if ((pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10 ||
+	     pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8 ||
+	     pix_input->pixelformat == V4L2_PIX_FMT_SRGGB10 ||
+	     pix_input->pixelformat == V4L2_PIX_FMT_SBGGR10 ||
+	     pix_input->pixelformat == V4L2_PIX_FMT_SGBRG10) &&
+	    (pix_output->pixelformat == V4L2_PIX_FMT_YUYV ||
+	     pix_output->pixelformat == V4L2_PIX_FMT_UYVY)) {
 
 		if ((pix_output->width == 1280) &&
 			(pix_output->height == 720)) {
@@ -1301,18 +1336,47 @@ static int isp_try_pipeline(struct device *dev,
 					OMAP_ISP_RESIZER |
 					OMAP_ISP_CCDC;
 
-		pipe->ccdc_in = CCDC_RAW;
+		if (pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10 ||
+		    pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8)
+			pipe->ccdc_in = CCDC_RAW_GRBG;
+		if (pix_input->pixelformat == V4L2_PIX_FMT_SRGGB10)
+			pipe->ccdc_in = CCDC_RAW_RGGB;
+		if (pix_input->pixelformat == V4L2_PIX_FMT_SBGGR10)
+			pipe->ccdc_in = CCDC_RAW_BGGR;
+		if (pix_input->pixelformat == V4L2_PIX_FMT_SGBRG10)
+			pipe->ccdc_in = CCDC_RAW_GBRG;
 		pipe->ccdc_out = CCDC_OTHERS_VP;
+		pipe->prv_in = PRV_RAW_CCDC;
+		if (isp->revision <= ISP_REVISION_2_0) {
+			pipe->prv_out = PREVIEW_MEM;
+			pipe->rsz_in = RSZ_MEM_YUV;
+		} else {
+			pipe->prv_out = PREVIEW_RSZ;
+			pipe->rsz_in = RSZ_OTFLY_YUV;
+		}
 	} else {
 		pipe->modules = OMAP_ISP_CCDC;
-		if (pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10
-		    || pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8) {
-			pipe->ccdc_in = CCDC_RAW;
+		if (pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10 ||
+		    pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8 ||
+		    pix_input->pixelformat == V4L2_PIX_FMT_SRGGB10 ||
+		    pix_input->pixelformat == V4L2_PIX_FMT_SBGGR10 ||
+		    pix_input->pixelformat == V4L2_PIX_FMT_SGBRG10) {
 			pipe->ccdc_out = CCDC_OTHERS_VP_MEM;
-		} else {
+			if (pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10 ||
+			    pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8)
+				pipe->ccdc_in = CCDC_RAW_GRBG;
+			if (pix_input->pixelformat == V4L2_PIX_FMT_SRGGB10)
+				pipe->ccdc_in = CCDC_RAW_RGGB;
+			if (pix_input->pixelformat == V4L2_PIX_FMT_SBGGR10)
+				pipe->ccdc_in = CCDC_RAW_BGGR;
+			if (pix_input->pixelformat == V4L2_PIX_FMT_SGBRG10)
+				pipe->ccdc_in = CCDC_RAW_GBRG;
+		} else if (pix_input->pixelformat == V4L2_PIX_FMT_YUYV ||
+			   pix_input->pixelformat == V4L2_PIX_FMT_UYVY) {
 			pipe->ccdc_in = CCDC_YUV_SYNC;
 			pipe->ccdc_out = CCDC_OTHERS_MEM;
-		}
+		} else
+			return -EINVAL;
 	}
 
 	if (pipe->modules & OMAP_ISP_CCDC) {
@@ -1332,6 +1396,8 @@ static int isp_try_pipeline(struct device *dev,
 	}
 
 	if (pipe->modules & OMAP_ISP_PREVIEW) {
+		pipe->prv_out_w = wanted_width;
+		pipe->prv_out_h = wanted_height;
 		rval = isppreview_try_pipeline(&isp->isp_prev, pipe);
 		if (rval) {
 			dev_dbg(dev, "the dimensions %dx%d are not"
@@ -1341,6 +1407,8 @@ static int isp_try_pipeline(struct device *dev,
 		}
 		pix_output->width = pipe->prv_out_w;
 		pix_output->height = pipe->prv_out_h;
+		pix_output->bytesperline =
+			pipe->prv_out_w * ISP_BYTES_PER_PIXEL;
 	}
 
 	if (pipe->modules & OMAP_ISP_RESIZER) {
@@ -1410,14 +1478,11 @@ static int isp_s_pipeline(struct device *dev,
 
 	if (pipe.modules & OMAP_ISP_PREVIEW) {
 		isppreview_request(&isp->isp_prev);
-		pipe.prv_in = PRV_RAW_CCDC;
-		pipe.prv_out = PREVIEW_MEM;
 		isppreview_s_pipeline(&isp->isp_prev, &pipe);
 	}
 
 	if (pipe.modules & OMAP_ISP_RESIZER) {
 		ispresizer_request(&isp->isp_res);
-		pipe.rsz_in = RSZ_MEM_YUV;
 		ispresizer_s_pipeline(&isp->isp_res, &pipe);
 	}
 
@@ -1618,13 +1683,10 @@ int isp_vbq_setup(struct device *dev, struct videobuf_queue *vbq,
 		  unsigned int *cnt, unsigned int *size)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
-	size_t tmp_size = PAGE_ALIGN(isp->pipeline.prv_out_w
-				     * isp->pipeline.prv_out_h
-				     * ISP_BYTES_PER_PIXEL);
 
 	if (CCDC_PREV_RESZ_CAPTURE(isp) &&
-	    isp->tmp_buf_size < tmp_size)
-		return isp_tmp_buf_alloc(dev, tmp_size);
+	    isp->revision <= ISP_REVISION_2_0)
+		return isp_tmp_buf_alloc(dev, &isp->pipeline);
 
 	return 0;
 }
@@ -2250,7 +2312,8 @@ int isp_put(void)
 	if (isp->ref_count) {
 		if (--isp->ref_count == 0) {
 			isp_save_ctx(&pdev->dev);
-			isp_tmp_buf_free(&pdev->dev);
+			if (isp->revision <= ISP_REVISION_2_0)
+				isp_tmp_buf_free(&pdev->dev);
 			isp_release_resources(&pdev->dev);
 			isp_disable_clocks(&pdev->dev);
 		}

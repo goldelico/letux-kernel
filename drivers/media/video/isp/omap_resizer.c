@@ -1647,8 +1647,6 @@ int rsz_get_resource(void)
 	init_completion(&device->compl_isr);
 	mutex_init(&device->reszwrap_mutex);
 
-	isp_get();
-
 	return 0;
 err_enomem2:
 	kfree(params);
@@ -1661,18 +1659,6 @@ err_enomem0:
 }
 EXPORT_SYMBOL(rsz_get_resource);
 
-void rsz_unmap_input_dss_buffers(unsigned int slot)
-{
-	struct isp_device *isp = dev_get_drvdata(device_config->isp);
-
-	if (device_config->in_buf_virt_addr[slot]) {
-		iommu_kunmap(isp->iommu,
-			     (dma_addr_t)device_config->in_buf_virt_addr[slot]);
-		device_config->in_buf_virt_addr[slot] = 0;
-	}
-	/* Release isp resource*/
-}
-EXPORT_SYMBOL(rsz_unmap_input_dss_buffers);
 /**
  * rsz_put_resource - release all the resource which were acquired during
  * rsz_get_resource() call.
@@ -1695,10 +1681,16 @@ void rsz_put_resource(void)
 			iommu_kunmap(isp->iommu, device->out_buf_virt_addr[i]);
 			device_config->out_buf_virt_addr[i] = 0;
 		}
+		if (device->in_buf_virt_addr[i]) {
+			iommu_kunmap(isp->iommu, device->in_buf_virt_addr[i]);
+			device_config->in_buf_virt_addr[i] = 0;
+		}
 	}
 
-	multipass_active = 0;
-	rsz_tmp_buf_free();
+	if (multipass_active) {
+		rsz_tmp_buf_free();
+		multipass_active = 0;
+	}
 	/* free all memory which was allocate during get() */
 	kfree(rsz_conf_chan);
 	kfree(params);
@@ -1748,6 +1740,8 @@ int rsz_configure(struct rsz_params *params, rsz_callback callback,
 				     * multipass->out_vsize
 				     * (multipass->inptyp ? 1 : 2));
 		rsz_tmp_buf_alloc(tmp_size);
+		rsz_conf_chan->register_config.rsz_sdr_outadd =
+			(u32)device_config->tmp_buf;
 		rsz_save_multipass_context();
 	}
 
@@ -1759,37 +1753,6 @@ int rsz_configure(struct rsz_params *params, rsz_callback callback,
 	return 0;
 }
 EXPORT_SYMBOL(rsz_configure);
-
-/**
-  * rsz_map_input_dss_buffers - maps the input buffer of DSS in isp address
-  * space
-  * @physical_address: physical address of the buffer which needs to be mapped
-  * @slot: This is the buffer index for which this physical address is valid
-  * @size: size to be mapped in (buffer size)
-  * This function maps the buffers provided by the DSS as input image.
-  **/
-int rsz_map_input_dss_buffers(u32 physical_address,
-					unsigned int slot, u32 size)
-{
-	struct isp_device *isp = dev_get_drvdata(device_config->isp);
-
-	DPRINTK_ISPRESZ("input_dss_buffer map physical address = 0x%x,"
-			"slot=%d, size = %d\n", physical_address, slot, size);
-	rsz_unmap_input_dss_buffers(slot);
-	device_config->in_buf_virt_addr[slot] = iommu_kmap(isp->iommu,
-							   0,
-							   physical_address,
-							   size,
-							   IOMMU_FLAG);
-	if (IS_ERR_VALUE(device_config->in_buf_virt_addr[slot])) {
-		dev_err(rsz_device, "Mapping of input buffer in ISP"
-				"failed for buffer index %d", slot);
-		return -1;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(rsz_map_input_dss_buffers);
 
 static void rsz_tmp_buf_free(void)
 {
@@ -1827,21 +1790,20 @@ static u32 rsz_tmp_buf_alloc(size_t size)
   * @out_off: The line size in bytes for output buffer. as most probably
   * this will be VRFB with YUV422 data, it should come 0x2000 as input
   * @out_phy_add: physical address of the start of output memory area for this
-  *
+  * @in_phy_add: physical address of the start of input memory area for this
+  * @in_off:: The line size in bytes for output buffer.
   * rsz_begin()  takes the input buffer index and output buffer index
   * to start the process of resizing. after resizing is complete,
   * the callback function will be called with the argument.
   * Indexes of the input and output buffers are used so that it is faster
   * and easier to configure the input and output address for the ISP resizer.
-  * As per the current implementation, DSS uses two VRFB contexts for rotation.
-  * The input buffers are already mapped by rsz_map_input_dss_buffers() api, so
-  * only index has been taken as the parameter, however for output buffers
-  * index and physical address has been taken as argument. if this buffer is
-  * not already mapped to ISP address space we use physical address to map it,
-  * otherwise only the index is used.
+  * As per the current implementation, DSS uses six VRFB contexts for rotation.
+  * for both input and output buffers index and physical address has been taken
+  * as argument. if this buffer is not already mapped to ISP address space we
+  * use physical address to map it, otherwise only the index is used.
   **/
-int rsz_begin(u32 slot, int output_buffer_index,
-					u32 out_off, u32 out_phy_add)
+int rsz_begin(u32 input_buffer_index, int output_buffer_index,
+		u32 out_off, u32 out_phy_add, u32 in_phy_add, u32 in_off)
 {
 	unsigned int output_size;
 	struct channel_config *rsz_conf_chan = device_config->config;
@@ -1860,8 +1822,6 @@ int rsz_begin(u32 slot, int output_buffer_index,
 
 	/* If this output buffer has not been mapped till now then map it */
 	if (!device_config->out_buf_virt_addr[output_buffer_index]) {
-		device_config->out_buf_phy_addr[output_buffer_index] =
-							(u32 *)out_phy_add;
 		output_size =
 			(rsz_conf_chan->register_config.rsz_out_size >>
 			ISPRSZ_OUT_SIZE_VERT_SHIFT) * out_off;
@@ -1877,35 +1837,44 @@ int rsz_begin(u32 slot, int output_buffer_index,
 						"for index \n");
 			return -ENOMEM;
 		}
-		rsz_conf_chan->register_config.rsz_sdr_outadd =
-			device_config->out_buf_virt_addr[output_buffer_index];
 	}
+
+	if (!device_config->in_buf_virt_addr[input_buffer_index]) {
+		device_config->in_buf_virt_addr[input_buffer_index] =
+				iommu_kmap(isp->iommu,
+						0,
+						in_phy_add,
+						in_off,
+						IOMMU_FLAG);
+		if (IS_ERR_VALUE(
+			device_config->in_buf_virt_addr[input_buffer_index])) {
+			dev_err(rsz_device, "Mapping of output buffer failed"
+						"for index \n");
+			return -ENOMEM;
+		}
+	}
+	down(&resz_wrapper_mutex);
 	rsz_conf_chan->register_config.rsz_sdr_inadd =
-				device_config->in_buf_virt_addr[slot];
-	rsz_conf_chan->register_config.rsz_sdr_outoff = out_off;
+		device_config->in_buf_virt_addr[input_buffer_index];
 
 	/* Configure the input and output address with output line size
 	in resizer hardware */
-	down(&resz_wrapper_mutex);
 	isp_reg_writel(device_config->isp,
 		rsz_conf_chan->register_config.rsz_sdr_inadd,
 		OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
 
-	if (multipass_active) {
-		rsz_conf_chan->register_config.rsz_sdr_outadd =
-			(u32)device_config->tmp_buf;
-	} else {
+	if (!multipass_active) {
+		rsz_conf_chan->register_config.rsz_sdr_outoff = out_off;
 		isp_reg_writel(device_config->isp,
 			rsz_conf_chan->register_config.rsz_sdr_outoff,
 			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTOFF);
 		rsz_conf_chan->register_config.rsz_sdr_outadd =
 			(u32)device_config->\
 			out_buf_virt_addr[output_buffer_index];
-	}
-
-	isp_reg_writel(device_config->isp,
-		rsz_conf_chan->register_config.rsz_sdr_outadd,
+		isp_reg_writel(device_config->isp,
+			rsz_conf_chan->register_config.rsz_sdr_outadd,
 			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_OUTADD);
+	}
 
 	up(&resz_wrapper_mutex);
 
@@ -1918,7 +1887,6 @@ int rsz_begin(u32 slot, int output_buffer_index,
 	}
 
 	/* All settings are done.Enable the resizer */
-	isp_configure_interface(device_config->isp, &reszwrap_config);
 
 mult:
 	device_config->compl_isr.done = 0;
