@@ -1642,6 +1642,8 @@ int omap_uart_active(int num)
 	status = serial_in(up, UART_MSR);
 	if (!((status & UART_MSR_ANY_DELTA) == 0))
 		return 1;
+
+	return 0;
 }
 EXPORT_SYMBOL(omap_uart_active);
 
