@@ -122,6 +122,7 @@
 #define MAX_VDD1_OPP	(omap_pm_get_max_vdd1_opp())
 #define MIN_VDD2_OPP	(omap_pm_get_min_vdd2_opp())
 #define MAX_VDD2_OPP	(omap_pm_get_max_vdd2_opp())
+#define VDD1_THRESHOLD  MAX_VDD2_OPP
 
 #endif /* __ASM_ARCH_OMAP34XX_H */
 

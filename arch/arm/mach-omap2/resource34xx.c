@@ -361,7 +361,7 @@ int set_opp(struct shared_resource *resp, u32 target_level)
 	int ind;
 
 	if (resp == vdd1_resp) {
-		if (target_level < 3)
+		if (target_level < VDD1_THRESHOLD)
 			resource_release("vdd2_opp", &vdd2_dev);
 
 		resource_set_opp_level(VDD1_OPP, target_level, 0);
@@ -370,7 +370,7 @@ int set_opp(struct shared_resource *resp, u32 target_level)
 		 * is strictly above 100Mhz.
 		 * throughput in KiB/s for 200 Mhz = 200 * 1000 * 4.
 		 */
-		if (target_level >= 3)
+		if (target_level >= VDD1_THRESHOLD)
 			resource_request("vdd2_opp", &vdd2_dev,
 				4 * l3_opps[omap_pm_get_max_vdd2_opp()].rate/1000);
 
@@ -380,7 +380,7 @@ int set_opp(struct shared_resource *resp, u32 target_level)
 		/* Convert the tput in KiB/s to Bus frequency in MHz */
 		req_l3_freq = (tput * 1000)/4;
 
-		for (ind = 2; ind <= MAX_VDD2_OPP; ind++)
+		for (ind = MIN_VDD2_OPP; ind <= MAX_VDD2_OPP; ind++)
 			if ((l3_opps + ind)->rate >= req_l3_freq) {
 				target_level = ind;
 				break;

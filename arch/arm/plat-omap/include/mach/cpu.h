@@ -409,6 +409,9 @@ int omap_type(void);
 #define OMAP_3420	0x3420
 #define OMAP_3430	0x3430
 #define OMAP_3440	0x3440
+#define OMAP_3630	0x3630
+#define OMAP_3630_800	0x3630800
+#define OMAP_3630_1000	0x36301000
 
 void omap2_check_revision(void);
 

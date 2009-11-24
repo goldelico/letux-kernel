@@ -336,6 +336,21 @@ int  omap34xx_get_omap_version(char *str)
 			omap_chip.oc |= CHIP_IS_OMAP3430ES3_1_1;
 			rev_name = "ES3.1.1";
 			break;
+		case 3630:
+			omap_revision_id = OMAP_3630;
+			omap_chip.oc |= CHIP_IS_OMAP3630ES1;
+			omap_revision = OMAP3630_REV_ES1_0;
+			break;
+		case 3630800:
+			omap_revision_id = OMAP_3630_800;
+			omap_chip.oc |= CHIP_IS_OMAP3630ES1;
+			omap_revision = OMAP3630_REV_ES1_0;
+			break;
+		case 36301000:
+			omap_revision_id = OMAP_3630_1000;
+			omap_chip.oc |= CHIP_IS_OMAP3630ES1;
+			omap_revision = OMAP3630_REV_ES1_0;
+			break;
 		default:
 			pr_err("OMAP revision unknown, please fix!\n");
 			return 1;
