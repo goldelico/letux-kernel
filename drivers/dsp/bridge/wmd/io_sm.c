@@ -2003,7 +2003,7 @@ void PrintDSPDebugTrace(struct IO_MGR *hIOMgr)
  *      There are no more than ulNumWords extra characters needed (the number of
  *      linefeeds minus the number of NULLS in the input buffer).
  */
-#if (defined(DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE
+#if (defined(CONFIG_BRIDGE_DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE
 static DSP_STATUS PackTraceBuffer(char *lpBuf, u32 nBytes, u32 ulNumWords)
 {
 	DSP_STATUS status = DSP_SOK;
@@ -2051,7 +2051,7 @@ static DSP_STATUS PackTraceBuffer(char *lpBuf, u32 nBytes, u32 ulNumWords)
 
 	return status;
 }
-#endif    /* (defined(DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE */
+#endif    /* (defined(CONFIG_BRIDGE_DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE */
 
 /*
  *  ======== PrintDspTraceBuffer ========
@@ -2069,7 +2069,7 @@ DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT *hWmdContext)
 {
 	DSP_STATUS status = DSP_SOK;
 
-#if (defined(DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE
+#if (defined(CONFIG_BRIDGE_DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE
 	struct COD_MANAGER *hCodMgr;
 	u32 ulTraceEnd;
 	u32 ulTraceBegin;

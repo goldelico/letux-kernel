@@ -76,7 +76,7 @@ DSP_STATUS CFG_GetAutoStart(struct CFG_DEVNODE *hDevNode,
 		if (DSP_FAILED(status))
 			status = CFG_E_RESOURCENOTAVAIL;
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		GT_0trace(CFG_debugMask, GT_1CLASS,
 			 "CFG_GetAutoStart SUCCESS \n");
@@ -125,7 +125,7 @@ DSP_STATUS CFG_GetDevObject(struct CFG_DEVNODE *hDevNode, OUT u32 *pdwValue)
 				  "Failed to Identify the Device to Fetch \n");
 		}
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		GT_1trace(CFG_debugMask, GT_1CLASS,
 			  "CFG_GetDevObject SUCCESS DevObject"
@@ -167,7 +167,7 @@ DSP_STATUS CFG_GetDSPResources(struct CFG_DEVNODE *hDevNode,
 		GT_0trace(CFG_debugMask, GT_6CLASS,
 			  "CFG_GetDSPResources Failed \n");
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	/* assert that resource values are reasonable */
 	DBC_Assert(pDSPResTable->uChipType < 256);
 	DBC_Assert(pDSPResTable->uWordSize > 0);
@@ -206,7 +206,7 @@ DSP_STATUS CFG_GetExecFile(struct CFG_DEVNODE *hDevNode, u32 ulBufSize,
 			status = DSP_ESIZE;
 
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		GT_1trace(CFG_debugMask, GT_1CLASS,
 			  "CFG_GetExecFile SUCCESS Exec File"
@@ -248,7 +248,7 @@ DSP_STATUS CFG_GetHostResources(struct CFG_DEVNODE *hDevNode,
 			status = CFG_E_RESOURCENOTAVAIL;
 		}
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		GT_0trace(CFG_debugMask, GT_1CLASS,
 			  "CFG_GetHostResources SUCCESS \n");
@@ -358,7 +358,7 @@ DSP_STATUS CFG_SetDevObject(struct CFG_DEVNODE *hDevNode, u32 dwValue)
 				  "Failed to Register Device \n");
 		}
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		GT_0trace(CFG_debugMask, GT_1CLASS,
 			  "CFG_SetDevObject SUCCESS \n");
@@ -393,7 +393,7 @@ DSP_STATUS CFG_SetObject(u32 dwValue, u32 dwType)
 	default:
 		break;
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status))
 		GT_0trace(CFG_debugMask, GT_1CLASS, "CFG_SetObject SUCCESS \n");
 	else

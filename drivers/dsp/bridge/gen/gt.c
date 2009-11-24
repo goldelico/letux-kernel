@@ -226,7 +226,7 @@ s32 _GT_trace(struct GT_Mask *mask, char *format, ...)
 	arg6 = va_arg(va, s32);
 
 	va_end(va);
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (GT->PIDFXN == NULL) {
 		printk(GT_1format, mask->modName, GT->TIDFXN ?
 		(*GT->TIDFXN)() : 0);

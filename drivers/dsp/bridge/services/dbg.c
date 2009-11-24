@@ -33,7 +33,7 @@
 static struct GT_Mask DBG_debugMask = { NULL, NULL };	/* GT trace var. */
 #endif
 
-#if (defined(DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE
+#if (defined(CONFIG_BRIDGE_DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE
 
 /*
  *  ======== DBG_Init ========
@@ -87,4 +87,4 @@ void DBG_Exit(void)
 	GT_0trace(DBG_debugMask, GT_5CLASS, "DBG_Exit\n");
 }
 
-#endif	/* (defined(DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE */
+#endif	/* (defined(CONFIG_BRIDGE_DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE */

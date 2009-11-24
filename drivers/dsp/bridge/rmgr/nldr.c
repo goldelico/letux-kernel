@@ -24,7 +24,7 @@
 
 #include <dspbridge/dbc.h>
 #include <dspbridge/gt.h>
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 #include <dspbridge/dbg.h>
 #endif
 
@@ -563,7 +563,7 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 				rmmSegs[i].length = (pMemInfo + i)->len;
 				rmmSegs[i].space = 0;
 				pNldr->segTable[i] = (pMemInfo + i)->type;
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 				DBG_Trace(DBG_LEVEL7,
 				    "** (proc) DLL MEMSEGMENT: %d, Base: 0x%x, "
 				    "Length: 0x%x\n", i, rmmSegs[i].base,

@@ -80,7 +80,7 @@ static void error(char *fmt, ...)
 	pr_err("ERROR: ");
 	printk(fmt, arg1, arg2, arg3, arg4, arg5, arg6);
 
-#if defined(DEBUG) || defined(DDSP_DEBUG_PRODUCT)
+#if defined(CONFIG_BRIDGE_DEBUG) || defined(DDSP_DEBUG_PRODUCT)
 	if (in_interrupt()) {
 		printk(KERN_INFO "Not stopping after error since ISR/DPC "
 			"are disabled\n");

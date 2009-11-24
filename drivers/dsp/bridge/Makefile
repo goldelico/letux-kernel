@@ -22,7 +22,7 @@ bridgedriver-objs = $(libgen) $(libservices) $(libwmd) $(libpmgr) $(librmgr) \
 
 # Debug
 ifeq ($(CONFIG_BRIDGE_DEBUG),y)
-ccflags-y += -DGT_TRACE -DDEBUG
+ccflags-y += -DGT_TRACE
 endif
 
 #Machine dependent

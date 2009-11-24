@@ -382,7 +382,7 @@ DSP_STATUS WMD_CHNL_Create(OUT struct CHNL_MGR **phChnlMgr,
 	DSP_STATUS status = DSP_SOK;
 	struct CHNL_MGR *pChnlMgr = NULL;
 	s32 cChannels;
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	struct CHNL_MGR *hChnlMgr;
 #endif
 	/* Check DBC requirements:  */
@@ -391,7 +391,7 @@ DSP_STATUS WMD_CHNL_Create(OUT struct CHNL_MGR **phChnlMgr,
 	DBC_Require(pMgrAttrs->cChannels > 0);
 	DBC_Require(pMgrAttrs->cChannels <= CHNL_MAXCHANNELS);
 	DBC_Require(pMgrAttrs->uWordSize != 0);
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	/* This for the purposes of DBC_Require: */
 	status = DEV_GetChnlMgr(hDevObject, &hChnlMgr);
 	DBC_Require(status != DSP_EHANDLE);

@@ -31,7 +31,7 @@
 #define DBG_LEVEL6  (u8)(0x40)	/* Warn SERVICES Failures */
 #define DBG_LEVEL7  (u8)(0x80)	/* Warn Critical Errors */
 
-#if (defined(DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE
+#if (defined(CONFIG_BRIDGE_DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE
 
 /*
  *  ======== DBG_Exit ========
@@ -84,6 +84,6 @@
 #define DBG_Init(void) true
 #define DBG_Trace(bLevel, pstrFormat, args...)
 
-#endif	     /* (defined(DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE */
+#endif	     /* (defined(CONFIG_BRIDGE_DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE */
 
 #endif				/* DBG_ */

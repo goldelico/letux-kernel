@@ -36,7 +36,7 @@
 #define MEM_512MB   0x1fffffff
 #define memInfoSign 0x464E494D	/* "MINF" (in reverse). */
 
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 #define MEM_CHECK		/* Use to detect source of memory leaks */
 #endif
 

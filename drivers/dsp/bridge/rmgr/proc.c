@@ -953,7 +953,7 @@ DSP_STATUS PROC_Load(DSP_HPROCESSOR hProcessor, IN CONST s32 iArgc,
 	struct DMM_OBJECT *hDmmMgr;
 	u32 dwExtEnd;
 	u32 uProcId;
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	BRD_STATUS uBrdState;
 #endif
 
@@ -1221,7 +1221,7 @@ DSP_STATUS PROC_Load(DSP_HPROCESSOR hProcessor, IN CONST s32 iArgc,
 	/* Restore the original argv[0] */
 	MEM_Free(newEnvp);
 	aArgv[0] = pargv0;
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
 		   (pProcObject->hWmdContext, &uBrdState))) {
@@ -1232,7 +1232,7 @@ DSP_STATUS PROC_Load(DSP_HPROCESSOR hProcessor, IN CONST s32 iArgc,
 	}
 #endif
 func_end:
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status)) {
 		GT_0trace(PROC_DebugMask, GT_1CLASS, "PROC_Load: "
 			 "Processor Load Failed.\n");
@@ -1472,7 +1472,7 @@ DSP_STATUS PROC_Start(DSP_HPROCESSOR hProcessor)
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
 	struct COD_MANAGER *hCodMgr;	/* Code manager handle    */
 	u32 dwDspAddr;	/* Loaded code's entry point.    */
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	BRD_STATUS uBrdState;
 #endif
 	DBC_Require(cRefs > 0);
@@ -1540,7 +1540,7 @@ DSP_STATUS PROC_Start(DSP_HPROCESSOR hProcessor)
 			 "Failed to Create the Node Manager\n");
 	}
 func_cont:
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
 		   (pProcObject->hWmdContext, &uBrdState))) {
@@ -1618,7 +1618,7 @@ DSP_STATUS PROC_Stop(DSP_HPROCESSOR hProcessor)
 				MSG_Delete(hMsgMgr);
 				DEV_SetMsgMgr(pProcObject->hDevObject, NULL);
 			}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 			if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->
 			   pfnBrdStatus)(pProcObject->hWmdContext,
 			   &uBrdState))) {
@@ -1764,7 +1764,7 @@ static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *hProcObject)
 	DSP_STATUS status = DSP_EFAIL;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcObject;
 	struct MSG_MGR *hMsgMgr;
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	BRD_STATUS uBrdState;
 #endif
 
@@ -1788,7 +1788,7 @@ static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *hProcObject)
 	if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdMonitor)
 	   (pProcObject->hWmdContext))) {
 		status = DSP_SOK;
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
 		   (pProcObject->hWmdContext, &uBrdState))) {
 			GT_0trace(PROC_DebugMask, GT_1CLASS,
@@ -1806,7 +1806,7 @@ static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *hProcObject)
 	GT_1trace(PROC_DebugMask, GT_ENTER,
 		 "Exiting PROC_Monitor, status  0x%x\n",
 		 status);
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	DBC_Ensure((DSP_SUCCEEDED(status) && uBrdState == BRD_IDLE) ||
 		  DSP_FAILED(status));
 #endif

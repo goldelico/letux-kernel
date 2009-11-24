@@ -128,7 +128,7 @@ static int omap34xxbridge_suspend_lockout(
 
 #endif
 
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 module_param(GT_str, charp, 0);
 MODULE_PARM_DESC(GT_str, "GT string, default = NULL");
 
@@ -247,7 +247,7 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	GT_init();
 	GT_create(&driverTrace, "LD");
 
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (GT_str)
 		GT_set(GT_str);
 #elif defined(DDSP_DEBUG_PRODUCT) && GT_TRACE
