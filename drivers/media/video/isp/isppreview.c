@@ -407,6 +407,11 @@ out_config_shadow:
 	ispprev_obj.shadow_update = 0;
 	spin_unlock_irqrestore(&ispprev_obj.lock, flags);
 
+
+	/* If the stream is stopped then update registers immediately */
+	if (isp_state() == ISP_STOPPED)
+		isppreview_config_shadow_registers();
+
 	return 0;
 
 err_copy_from_user:
