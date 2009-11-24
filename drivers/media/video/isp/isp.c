@@ -961,6 +961,28 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 			goto out_ignore_buff;
 	}
 
+	if (irqstatus & LSC_PRE_ERR) {
+		struct isp_buf *buf = ISP_BUF_DONE(bufs);
+		/* Mark buffer faulty. */
+		buf->vb_state = VIDEOBUF_ERROR;
+		ispccdc_lsc_error_handler();
+		printk(KERN_ERR "%s: lsc prefetch error\n", __func__);
+	}
+
+	if (irqstatus & CSIA) {
+		struct isp_buf *buf = ISP_BUF_DONE(bufs);
+		isp_csi2_isr();
+		buf->vb_state = VIDEOBUF_ERROR;
+	}
+
+	if (irqstatus & IRQ0STATUS_CSIB_IRQ) {
+		u32 ispcsi1_irqstatus;
+
+		ispcsi1_irqstatus = isp_reg_readl(OMAP3_ISP_IOMEM_CCP2,
+						  ISPCSI1_LC01_IRQSTATUS);
+		DPRINTK_ISPCTRL("%x\n", ispcsi1_irqstatus);
+	}
+
 	if (irqstatus & CCDC_VD0) {
 		if (CCDC_CAPTURE(&isp_obj))
 			isp_buf_process(bufs);
@@ -1055,15 +1077,14 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 	}
 
 
-out_ignore_buff:
-	if (irqstatus & LSC_PRE_ERR) {
-		struct isp_buf *buf = ISP_BUF_DONE(bufs);
-		/* Mark buffer faulty. */
-		buf->vb_state = VIDEOBUF_ERROR;
-		ispccdc_lsc_error_handler();
-		printk(KERN_ERR "%s: lsc prefetch error\n", __func__);
+	if (irqdis->isp_callbk[CBK_CATCHALL]) {
+		irqdis->isp_callbk[CBK_CATCHALL](
+			irqstatus,
+			irqdis->isp_callbk_arg1[CBK_CATCHALL],
+			irqdis->isp_callbk_arg2[CBK_CATCHALL]);
 	}
 
+out_ignore_buff:
 	if (irqstatus & LSC_PRE_COMP) {
 		if (irqdis->isp_callbk[CBK_LSC_PREF_COMP])
 			irqdis->isp_callbk[CBK_LSC_PREF_COMP](
@@ -1078,27 +1099,6 @@ out_ignore_buff:
 				LSC_DONE,
 				irqdis->isp_callbk_arg1[CBK_LSC_DONE],
 				irqdis->isp_callbk_arg2[CBK_LSC_DONE]);
-	}
-
-	if (irqstatus & CSIA) {
-		struct isp_buf *buf = ISP_BUF_DONE(bufs);
-		isp_csi2_isr();
-		buf->vb_state = VIDEOBUF_ERROR;
-	}
-
-	if (irqstatus & IRQ0STATUS_CSIB_IRQ) {
-		u32 ispcsi1_irqstatus;
-
-		ispcsi1_irqstatus = isp_reg_readl(OMAP3_ISP_IOMEM_CCP2,
-						  ISPCSI1_LC01_IRQSTATUS);
-		DPRINTK_ISPCTRL("%x\n", ispcsi1_irqstatus);
-	}
-
-	if (irqdis->isp_callbk[CBK_CATCHALL]) {
-		irqdis->isp_callbk[CBK_CATCHALL](
-			irqstatus,
-			irqdis->isp_callbk_arg1[CBK_CATCHALL],
-			irqdis->isp_callbk_arg2[CBK_CATCHALL]);
 	}
 
 	spin_unlock_irqrestore(&isp_obj.lock, irqflags);
