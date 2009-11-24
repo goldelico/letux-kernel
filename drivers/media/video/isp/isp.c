@@ -273,6 +273,7 @@ static struct isp {
 	struct isp_bufs bufs;
 	struct isp_irq irq;
 	struct isp_module module;
+	enum isp_running running;
 } isp_obj;
 
 /* Structure for saving/restoring ISP module registers */
@@ -322,6 +323,11 @@ void isp_flush(void)
 {
 	isp_reg_writel(0, OMAP3_ISP_IOMEM_MAIN, ISP_REVISION);
 	isp_reg_readl(OMAP3_ISP_IOMEM_MAIN, ISP_REVISION);
+}
+
+enum isp_running isp_state(void)
+{
+	return isp_obj.running;
 }
 
 /*
@@ -1215,6 +1221,7 @@ void isp_start(void)
 	isp_af_notify(0);
 
 	isp_lsc_disable_scheduled = 0;
+	isp_obj.running = ISP_RUNNING;
 	return;
 }
 EXPORT_SYMBOL(isp_start);
@@ -1335,6 +1342,7 @@ void isp_stop()
 {
 	int reset;
 
+	isp_obj.running = ISP_STOPPING;
 	isph3a_notify(1);
 	isp_af_notify(1);
 
@@ -1348,6 +1356,7 @@ void isp_stop()
 
 	isp_disable_interrupts();
 	reset = isp_stop_modules();
+	isp_obj.running = ISP_STOPPED;
 	isp_buf_init();
 	if (!reset)
 		return;
@@ -2643,6 +2652,7 @@ static int isp_probe(struct platform_device *pdev)
 	}
 
 	isp_obj.ref_count = 0;
+	isp_obj.running = ISP_STOPPED;
 
 	mutex_init(&(isp_obj.isp_mutex));
 	spin_lock_init(&isp_obj.lock);

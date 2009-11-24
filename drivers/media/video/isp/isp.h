@@ -62,6 +62,12 @@ enum isp_mem_resources {
 	OMAP3_ISP_IOMEM_CSI2PHY
 };
 
+enum isp_running {
+	ISP_STOPPED,
+	ISP_RUNNING,
+	ISP_STOPPING,
+};
+
 struct isp_device {
 	struct device *dev;
 
@@ -300,6 +306,8 @@ void isp_print_status(void);
 void isp_set_hs_vs(int);
 
 unsigned long isp_get_buf_offset(void);
+
+enum isp_running isp_state(void);
 
 int __init isp_ccdc_init(void);
 int __init isp_hist_init(void);
