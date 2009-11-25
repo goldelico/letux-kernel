@@ -251,6 +251,11 @@ u32 sysmgr_get_object_config(u16 proc_id, void *config, u32 cmd_id, u32 size)
 	u32 ret = 0;
 	struct sysmgr_boot_load_page *blp = NULL;
 
+	if ((proc_id < 0) || (proc_id >= MULTIPROC_MAXPROCESSORS)) {
+		ret = 0;
+		goto exit;
+	}
+
 	blp = (struct sysmgr_boot_load_page *)
 			sysmgr_state.boot_load_page[proc_id];
 
@@ -274,6 +279,7 @@ u32 sysmgr_get_object_config(u16 proc_id, void *config, u32 cmd_id, u32 size)
 		}
 	}
 
+exit:
 	/* return number of bytes wrote to the boot load page */
 	return ret;
 }
@@ -290,6 +296,11 @@ u32 sysmgr_put_object_config(u16 proc_id, void *config, u32 cmd_id, u32 size)
 	struct sysmgr_bootload_page_entry *prev = NULL;
 	u32 offset = 0;
 	struct sysmgr_boot_load_page *blp = NULL;
+
+	if ((proc_id < 0) || (proc_id >= MULTIPROC_MAXPROCESSORS)) {
+		size = 0;
+		goto exit;
+	}
 
 	/* Get the boot load page pointer */
 	blp = sysmgr_state.boot_load_page[proc_id];
@@ -332,6 +343,7 @@ u32 sysmgr_put_object_config(u16 proc_id, void *config, u32 cmd_id, u32 size)
 		prev->offset = ((u32) entry - (u32) &blp->host_config);
 	}
 
+exit:
 	/* return number of bytes wrote to the boot load page */
 	return size;
 }
@@ -768,6 +780,12 @@ void sysmgr_set_boot_load_page(u16 proc_id, u32 boot_load_page)
 	struct sysmgr_boot_load_page *temp = \
 		(struct sysmgr_boot_load_page *) boot_load_page;
 
+	if ((proc_id < 0) || (proc_id >= MULTIPROC_MAXPROCESSORS)) {
+		printk(KERN_ERR
+		"sysmgr_set_boot_load_page failed: Invalid proc_id passed\n");
+		return;
+	}
+
 	/* Initialize the host config area */
 	sysmgr_state.boot_load_page[proc_id] = temp;
 	temp->host_config.offset = -1;
@@ -783,20 +801,23 @@ void sysmgr_set_boot_load_page(u16 proc_id, u32 boot_load_page)
  */
 void sysmgr_wait_for_scalability_info(u16 proc_id)
 {
-	VOLATILE struct sysmgr_boot_load_page *temp = \
-		sysmgr_state.boot_load_page[proc_id];
+	VOLATILE struct sysmgr_boot_load_page *temp = NULL;
+
+	if ((proc_id < 0) || (proc_id >= MULTIPROC_MAXPROCESSORS)) {
+		printk(KERN_ERR "sysmgr_wait_for_scalability_info failed: "
+			"Invalid proc_id passed\n");
+		return;
+	}
+	temp = sysmgr_state.boot_load_page[proc_id];
 
 	printk(KERN_ERR "sysmgr_wait_for_scalability_info: BF while temp->handshake:%x\n",
 		temp->handshake);
-
-	printk(KERN_ERR "Please break the platform and load Ducati image.\n");
-
 	while (temp->handshake != SYSMGR_SCALABILITYHANDSHAKESTAMP)
 		;
-
 	printk(KERN_ERR "sysmgr_wait_for_scalability_info:AF while temp->handshake:%x\n",
 		temp->handshake);
 
+	/* Reset the handshake value for reverse synchronization */
 	temp->handshake = 0;
 }
 
@@ -808,10 +829,18 @@ void sysmgr_wait_for_scalability_info(u16 proc_id)
  */
 void sysmgr_wait_for_slave_setup(u16 proc_id)
 {
-	VOLATILE struct sysmgr_boot_load_page *temp = \
-		sysmgr_state.boot_load_page[proc_id];
+	VOLATILE struct sysmgr_boot_load_page *temp = NULL;
+
+	if ((proc_id < 0) || (proc_id >= MULTIPROC_MAXPROCESSORS)) {
+		printk(KERN_ERR "sysmgr_wait_for_slave_setup failed: "
+			"Invalid proc_id passed\n");
+		return;
+	}
+	temp = sysmgr_state.boot_load_page[proc_id];
 
 	while (temp->handshake != SYSMGR_SETUPHANDSHAKESTAMP)
 		;
+
+	/* Reset the handshake value for reverse synchronization */
 	temp->handshake = 0;
 }
