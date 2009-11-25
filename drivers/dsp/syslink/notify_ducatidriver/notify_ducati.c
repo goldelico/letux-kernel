@@ -507,6 +507,7 @@ int notify_ducatidrv_delete(struct notify_driver_object **handle_ptr)
 	driver_obj = (struct notify_ducatidrv_object *)
 			(*handle_ptr)->driver_object;
 	drv_handle = (*handle_ptr);
+	WARN_ON(drv_handle == NULL);
 	WARN_ON((*handle_ptr)->driver_object == NULL);
 
 	/*Uninstall the ISRs & Disable the Mailbox interrupt.*/
