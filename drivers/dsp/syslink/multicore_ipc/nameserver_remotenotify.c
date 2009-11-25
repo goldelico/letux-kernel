@@ -432,8 +432,16 @@ int nameserver_remotenotify_get(void *rhandle,
 	obj->msg[offset]->request_status = 0;
 	obj->msg[offset]->value_len = value_len;
 	len = strlen(instance_name) + 1; /* Take termination null char */
+	if (len >= 32) {
+		retval = -EINVAL;
+		goto inval_len_error;
+	}
 	strncpy(obj->msg[offset]->instance_name, instance_name, len);
 	len = strlen(name);
+	if (len >= 32) {
+		retval = -EINVAL;
+		goto inval_len_error;
+	}
 	strncpy(obj->msg[offset]->name, name, len);
 
 	/* Send the notification to remote processor */
@@ -481,6 +489,7 @@ int nameserver_remotenotify_get(void *rhandle,
 	obj->msg[offset]->response = 0;
 	retval = value_len;
 
+inval_len_error:
 notify_error:
 request_error:
 	gatepeterson_leave(obj->params.gate, key);

@@ -225,6 +225,11 @@ static inline int listmp_sharedmemory_ioctl_open(
 	listmp_sharedmemory_params params;
 	void *listmp_handle = NULL;
 
+	if (unlikely(cargs->args.open.params == NULL)) {
+		retval = -EFAULT;
+		goto exit;
+	}
+
 	size = copy_from_user(&params, cargs->args.open.params,
 				sizeof(listmp_sharedmemory_params));
 	if (size) {
@@ -232,7 +237,8 @@ static inline int listmp_sharedmemory_ioctl_open(
 		goto exit;
 	}
 
-	if (cargs->args.open.name_len > 0) {
+	if ((cargs->args.open.name_len > 0) &&
+			(cargs->args.open.params->name != NULL)) {
 		params.name = kmalloc(cargs->args.open.name_len, GFP_KERNEL);
 		if (params.name != NULL) {
 			retval = -ENOMEM;
