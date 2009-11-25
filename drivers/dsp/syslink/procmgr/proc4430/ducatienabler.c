@@ -1173,7 +1173,7 @@ int init_mmu_page_attribs(u32 l1_size, u32 l1_allign, u32 ls_num_of_pages)
 		memset(p_pt_attrs, 0, sizeof(struct pg_table_attrs));
 	else {
 		status = -ENOMEM;
-		goto error_exit;
+		goto func_end;
 	}
 	p_pt_attrs->l1_size = l1_size;
 	align_size = p_pt_attrs->l1_size;
@@ -1258,6 +1258,7 @@ int init_mmu_page_attribs(u32 l1_size, u32 l1_allign, u32 ls_num_of_pages)
 		 (u32)p_pt_attrs, p_pt_attrs->l2_num_pages,
 		(u32)p_pt_attrs->pg_info);
 	return 0;
+
 error_exit:
 	kfree(p_pt_attrs->pg_info);
 	if (p_pt_attrs->l1_base_va) {
@@ -1269,6 +1270,7 @@ error_exit:
 				get_order(p_pt_attrs->ls_tbl_alloc_sz));
 	}
 	WARN_ON(1);
+func_end:
 	printk(KERN_ALERT "init_mmu_page_attribs FAILED !!!!!\n");
 	return status;
 }
@@ -1337,16 +1339,17 @@ EXPORT_SYMBOL(ducati_setup);
 void ducati_destroy(void)
 {
 	DPRINTK("  Freeing memory allocated in mmu_de_init\n");
-	if (p_pt_attrs->l2_tbl_alloc_va) {
-		free_pages(p_pt_attrs->l2_tbl_alloc_va,
-				get_order(p_pt_attrs->ls_tbl_alloc_sz));
-	}
-	if (p_pt_attrs->l1_tbl_alloc_va) {
-		free_pages(p_pt_attrs->l1_tbl_alloc_va,
-			get_order(p_pt_attrs->l1_tbl_alloc_sz));
-	}
-	if (p_pt_attrs)
+	if (p_pt_attrs) {
+		if (p_pt_attrs->l2_tbl_alloc_va) {
+			free_pages(p_pt_attrs->l2_tbl_alloc_va,
+					get_order(p_pt_attrs->ls_tbl_alloc_sz));
+		}
+		if (p_pt_attrs->l1_tbl_alloc_va) {
+			free_pages(p_pt_attrs->l1_tbl_alloc_va,
+				get_order(p_pt_attrs->l1_tbl_alloc_sz));
+		}
 		kfree((void *)p_pt_attrs);
+	}
 	iounmap((unsigned int *)base_ducati_l2_mmu);
 	free_irq(INT_44XX_DUCATI_MMU_IRQ, NULL);
 	return;
