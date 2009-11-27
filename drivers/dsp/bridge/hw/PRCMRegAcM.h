@@ -51,7 +51,7 @@
       __raw_readl(((u32)(baseAddress))+CM_ICLKEN_PER_OFFSET))
 
 
-#define CM_FCLKEN_PER_GPT5WriteRegister32(baseAddress,value)\
+#define CM_FCLKEN_PER_GPT5WriteRegister32(baseAddress, value)\
 {\
     const u32 offset = CM_FCLKEN_PER_OFFSET;\
     register u32 data = \
@@ -66,7 +66,7 @@
 }
 
 
-#define CM_FCLKEN_PER_GPT6WriteRegister32(baseAddress,value)\
+#define CM_FCLKEN_PER_GPT6WriteRegister32(baseAddress, value)\
 {\
     const u32 offset = CM_FCLKEN_PER_OFFSET;\
     register u32 data =\
@@ -81,7 +81,7 @@
 }
 
 
-#define CM_ICLKEN_PER_GPT5WriteRegister32(baseAddress,value)\
+#define CM_ICLKEN_PER_GPT5WriteRegister32(baseAddress, value)\
 {\
     const u32 offset = CM_ICLKEN_PER_OFFSET;\
     register u32 data = \
@@ -96,7 +96,7 @@
 }
 
 
-#define CM_ICLKEN_PER_GPT6WriteRegister32(baseAddress,value)\
+#define CM_ICLKEN_PER_GPT6WriteRegister32(baseAddress, value)\
 {\
     const u32 offset = CM_ICLKEN_PER_OFFSET;\
     register u32 data = \
@@ -116,7 +116,7 @@
       __raw_readl(((u32)(baseAddress))+CM_FCLKEN1_CORE_OFFSET))
 
 
-#define PRCMCM_FCLKEN1_COREEN_GPT8Write32(baseAddress,value)\
+#define PRCMCM_FCLKEN1_COREEN_GPT8Write32(baseAddress, value)\
 {\
     const u32 offset = PRCM_CM_FCLKEN1_CORE_OFFSET;\
     register u32 data = \
@@ -131,7 +131,7 @@
 }
 
 
-#define PRCMCM_FCLKEN1_COREEN_GPT7Write32(baseAddress,value)\
+#define PRCMCM_FCLKEN1_COREEN_GPT7Write32(baseAddress, value)\
 {\
     const u32 offset = PRCM_CM_FCLKEN1_CORE_OFFSET;\
     register u32 data = \
@@ -360,7 +360,7 @@
       PRCM_CM_CLKSEL1_PLL_APLLs_Clkin_OFFSET))
 
 
-#define CM_FCLKEN_IVA2EN_DSPWrite32(baseAddress,value)\
+#define CM_FCLKEN_IVA2EN_DSPWrite32(baseAddress, value)\
 {\
     const u32 offset = CM_FCLKEN_IVA2_OFFSET;\
     register u32 data = \
@@ -426,7 +426,7 @@
 }
 
 
-#define PRCMCM_CLKSEL_DSPSYNC_DSPWrite32(baseAddress,value)\
+#define PRCMCM_CLKSEL_DSPSYNC_DSPWrite32(baseAddress, value)\
 {\
     const u32 offset = PRCM_CM_CLKSEL_DSP_OFFSET;\
     register u32 data = \
@@ -514,7 +514,7 @@
       __raw_readl(((baseAddress))+PRCM_RM_RSTCTRL_DSP_OFFSET))
 
 
-#define PRM_RSTCTRL_IVA2RST1_DSPWrite32(baseAddress,value)\
+#define PRM_RSTCTRL_IVA2RST1_DSPWrite32(baseAddress, value)\
 {\
     const u32 offset = PRM_RSTCTRL_IVA2_OFFSET;\
     register u32 data =\
@@ -529,7 +529,7 @@
 }
 
 
-#define PRM_RSTCTRL_IVA2RST2_DSPWrite32(baseAddress,value)\
+#define PRM_RSTCTRL_IVA2RST2_DSPWrite32(baseAddress, value)\
 {\
     const u32 offset = PRM_RSTCTRL_IVA2_OFFSET;\
     register u32 data =\
@@ -544,7 +544,7 @@
 }
 
 
-#define PRM_RSTCTRL_IVA2RST3_DSPWrite32(baseAddress,value)\
+#define PRM_RSTCTRL_IVA2RST3_DSPWrite32(baseAddress, value)\
 {\
     const u32 offset = PRM_RSTCTRL_IVA2_OFFSET;\
     register u32 data =\
@@ -564,7 +564,7 @@
       __raw_readl(((baseAddress))+PRCM_RM_RSTST_DSP_OFFSET))
 
 
-#define PRCMRM_RSTST_DSPWriteRegister32(baseAddress,value)\
+#define PRCMRM_RSTST_DSPWriteRegister32(baseAddress, value)\
 {\
     const u32 offset = PRCM_RM_RSTST_DSP_OFFSET;\
     register u32 newValue = ((u32)(value));\
