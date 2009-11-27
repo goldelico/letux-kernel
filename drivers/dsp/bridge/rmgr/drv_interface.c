@@ -164,7 +164,7 @@ static char *driver_name = DRIVER_NAME;
 static struct GT_Mask driverTrace;
 #endif /* CONFIG_BRIDGE_DEBUG */
 
-static struct file_operations bridge_fops = {
+static const struct file_operations bridge_fops = {
 	.open		= bridge_open,
 	.release	= bridge_release,
 	.unlocked_ioctl	= bridge_ioctl,
