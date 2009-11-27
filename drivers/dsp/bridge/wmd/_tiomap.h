@@ -317,9 +317,9 @@ enum INTH_SensitiveEdge_t {
 #define ClearBit(reg, mask)             (reg &= ~mask)
 #define SetBit(reg, mask)               (reg |= mask)
 
-#define SetGroupBits16(reg, position, width, value) \
-	do {\
-		reg &= ~((0xFFFF >> (16 - (width))) << (position)) ; \
+#define SetGroupBits16(reg, position, width, value)			     \
+	do {								     \
+		reg &= ~((0xFFFF >> (16 - (width))) << (position));	     \
 		reg |= ((value & (0xFFFF >> (16 - (width)))) << (position)); \
 	} while (0);
 

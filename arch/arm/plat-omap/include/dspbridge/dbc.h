@@ -34,10 +34,12 @@
 
 #include <dspbridge/gt.h>
 
-#define DBC_Assert(exp) \
-    if (!(exp)) \
-	pr_err("%s, line %d: Assertion (" #exp ") failed.\n", \
-	__FILE__, __LINE__)
+#define DBC_Assert(exp) 						       \
+do {									       \
+	if (!(exp))							       \
+		pr_err("%s, line %d: Assertion (" #exp ") failed.\n", \
+		__FILE__, __LINE__);					       \
+} while (0)
 #define DBC_Require DBC_Assert	/* Function Precondition.  */
 #define DBC_Ensure  DBC_Assert	/* Function Postcondition. */
 

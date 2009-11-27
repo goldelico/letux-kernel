@@ -60,13 +60,13 @@
  *  Ensures:
  *      A subsequent call to MEM_IsValidHandle() will succeed for this object.
  */
-#define MEM_AllocObject(pObj, Obj, Signature)           \
-{                                                       \
-    pObj = MEM_Calloc(sizeof(Obj), MEM_NONPAGED);       \
-    if (pObj) {                                         \
-	pObj->dwSignature = Signature;                  \
-    }                                                   \
-}
+#define MEM_AllocObject(pObj, Obj, Signature)		\
+do {							\
+	pObj = MEM_Calloc(sizeof(Obj), MEM_NONPAGED);	\
+	if (pObj) {					\
+		pObj->dwSignature = Signature;		\
+	}						\
+} while (0)
 
 /*  ======== MEM_AllocPhysMem ========
  *  Purpose:
@@ -204,11 +204,11 @@
  *  Ensures:
  *      A subsequent call to MEM_IsValidHandle() will fail for this object.
  */
-#define MEM_FreeObject(pObj)    \
-{                               \
-    pObj->dwSignature = 0x00;   \
-    MEM_Free(pObj);             \
-}
+#define MEM_FreeObject(pObj)		\
+do {					\
+	pObj->dwSignature = 0x00;	\
+	MEM_Free(pObj);			\
+} while (0)
 
 /*
  *  ======== MEM_GetNumPages ========
