@@ -140,7 +140,8 @@ static bool MMU_CheckIfFault(struct WMD_DEV_CONTEXT *pDevContext)
 		DBG_Trace(DBG_LEVEL7, "**Failed to get Host Resources in "
 			 "MMU_CheckIfFault **\n");
 
-	hwStatus = HW_MMU_EventStatus(pDevContext->dwDSPMmuBase, &dmmuEventMask);
+	hwStatus = HW_MMU_EventStatus(pDevContext->dwDSPMmuBase,
+					&dmmuEventMask);
 	if (dmmuEventMask  ==  HW_MMU_TRANSLATION_FAULT) {
 		HW_MMU_FaultAddrRead(pDevContext->dwDSPMmuBase, &faultAddr);
 		DBG_Trace(DBG_LEVEL1, "WMD_DEH_Notify: DSP_MMUFAULT, fault "

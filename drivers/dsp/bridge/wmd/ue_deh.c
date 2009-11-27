@@ -248,14 +248,16 @@ DBG_Trace(DBG_LEVEL6, "WMD_DEH_Notify: DSP_MMUFAULT, "
 				 "PA: 0x%x\n", pDevContext->
 				numTLBEntries, faultAddr, memPhysical);
 			if (DSP_SUCCEEDED(status)) {
-				hwStatus = HW_MMU_TLBAdd(pDevContext->dwDSPMmuBase,
-					memPhysical, faultAddr,
-					HW_PAGE_SIZE_4KB, 1, &mapAttrs,
-					HW_SET, HW_SET);
+				hwStatus =
+					HW_MMU_TLBAdd(pDevContext->dwDSPMmuBase,
+						memPhysical, faultAddr,
+						HW_PAGE_SIZE_4KB, 1, &mapAttrs,
+						HW_SET, HW_SET);
 			}
 			/* send an interrupt to DSP */
-			HW_MBOX_MsgWrite(pDevContext->dwMailBoxBase, MBOX_ARM2DSP,
-					 MBX_DEH_CLASS | MBX_DEH_EMMU);
+			HW_MBOX_MsgWrite(pDevContext->dwMailBoxBase,
+					MBOX_ARM2DSP,
+					MBX_DEH_CLASS | MBX_DEH_EMMU);
 			/* Clear MMU interrupt */
 			HW_MMU_EventAck(pDevContext->dwDSPMmuBase,
 					 HW_MMU_TRANSLATION_FAULT);

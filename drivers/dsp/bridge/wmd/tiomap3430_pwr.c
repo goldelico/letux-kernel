@@ -550,14 +550,18 @@ DSP_STATUS DSP_PeripheralClocks_Disable(struct WMD_DEV_CONTEXT *pDevContext,
 			status = CLK_Disable(BPWR_Clks[clkIdx].intClk);
 			if (BPWR_CLKID[clkIdx] == BPWR_MCBSP1) {
 				/* clear MCBSP1_CLKS, on McBSP1 OFF */
-				value = __raw_readl(pDevContext->sysctrlbase + 0x274);
+				value = __raw_readl(pDevContext->sysctrlbase
+								+ 0x274);
 				value &= ~(1 << 2);
-				__raw_writel(value, pDevContext->sysctrlbase + 0x274);
+				__raw_writel(value, pDevContext->sysctrlbase
+								+ 0x274);
 			} else if (BPWR_CLKID[clkIdx] == BPWR_MCBSP2) {
 				/* clear MCBSP2_CLKS, on McBSP2 OFF */
-				value = __raw_readl(pDevContext->sysctrlbase + 0x274);
+				value = __raw_readl(pDevContext->sysctrlbase
+								+ 0x274);
 				value &= ~(1 << 6);
-				__raw_writel(value, pDevContext->sysctrlbase + 0x274);
+				__raw_writel(value, pDevContext->sysctrlbase
+								+ 0x274);
 			}
 			if (DSP_FAILED(status)) {
 				DBG_Trace(DBG_LEVEL7,
@@ -593,14 +597,18 @@ DSP_STATUS DSP_PeripheralClocks_Enable(struct WMD_DEV_CONTEXT *pDevContext,
 			int_clk_status = CLK_Enable(BPWR_Clks[clkIdx].intClk);
 			if (BPWR_CLKID[clkIdx] == BPWR_MCBSP1) {
 				/* set MCBSP1_CLKS, on McBSP1 ON */
-				value = __raw_readl(pDevContext->sysctrlbase + 0x274);
+				value = __raw_readl(pDevContext->sysctrlbase
+								+ 0x274);
 				value |= 1 << 2;
-				__raw_writel(value, pDevContext->sysctrlbase + 0x274);
+				__raw_writel(value, pDevContext->sysctrlbase
+								+ 0x274);
 			} else if (BPWR_CLKID[clkIdx] == BPWR_MCBSP2) {
 				/* set MCBSP2_CLKS, on McBSP2 ON */
-				value = __raw_readl(pDevContext->sysctrlbase + 0x274);
+				value = __raw_readl(pDevContext->sysctrlbase
+								+ 0x274);
 				value |= 1 << 6;
-				__raw_writel(value, pDevContext->sysctrlbase + 0x274);
+				__raw_writel(value, pDevContext->sysctrlbase
+								+ 0x274);
 			}
 			/* Enable the functional clock of the periphearl */
 			fun_clk_status = CLK_Enable(BPWR_Clks[clkIdx].funClk);
