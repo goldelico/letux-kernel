@@ -77,7 +77,7 @@ static void error(char *fmt, ...)
 
 	va_end(va);
 
-	printk("ERROR: ");
+	pr_err("ERROR: ");
 	printk(fmt, arg1, arg2, arg3, arg4, arg5, arg6);
 
 #if defined(DEBUG) || defined(DDSP_DEBUG_PRODUCT)

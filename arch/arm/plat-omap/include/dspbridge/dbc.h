@@ -36,7 +36,7 @@
 
 #define DBC_Assert(exp) \
     if (!(exp)) \
-	printk("%s, line %d: Assertion (" #exp ") failed.\n", \
+	pr_err("%s, line %d: Assertion (" #exp ") failed.\n", \
 	__FILE__, __LINE__)
 #define DBC_Require DBC_Assert	/* Function Precondition.  */
 #define DBC_Ensure  DBC_Assert	/* Function Postcondition. */
