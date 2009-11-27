@@ -152,13 +152,13 @@ DSP_STATUS CFG_GetDSPResources(struct CFG_DEVNODE *hDevNode,
 		  "Entered CFG_GetDSPResources, args: "
 		  "\n\thDevNode:  0x%x\n\tpDSPResTable:  0x%x\n",
 		  hDevNode, pDSPResTable);
-	if (!hDevNode) {
+	if (!hDevNode)
 		status = CFG_E_INVALIDHDEVNODE;
-	} else if (!pDSPResTable) {
+	else if (!pDSPResTable)
 		status = CFG_E_INVALIDPOINTER;
-	} else {
-		status = REG_GetValue(DSPRESOURCES, (u8 *)pDSPResTable,						&dwResSize);
-	}
+	else
+		status = REG_GetValue(DSPRESOURCES, (u8 *)pDSPResTable,
+					&dwResSize);
 	if (DSP_SUCCEEDED(status)) {
 		GT_0trace(CFG_debugMask, GT_1CLASS,
 			  "CFG_GetDSPResources SUCCESS\n");

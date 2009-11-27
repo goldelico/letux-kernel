@@ -592,9 +592,8 @@ func_cont1:
 					 aEProc[ndx].ulGppVa,
 					 aEProc[ndx].ulDspVa *
 					 hIOMgr->uWordSize, pgSize[i]);
-				if (DSP_FAILED(status)) {
+				if (DSP_FAILED(status))
 					goto func_end;
-				}
 			}
 			paCurr += pgSize[i];
 			vaCurr += pgSize[i];

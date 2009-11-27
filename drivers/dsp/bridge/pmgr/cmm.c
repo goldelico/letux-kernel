@@ -1044,11 +1044,10 @@ DSP_STATUS CMM_XlatorDelete(struct CMM_XLATOROBJECT *hXlator, bool bForce)
 
 	DBC_Require(cRefs > 0);
 
-	if (MEM_IsValidHandle(pXlator, CMMXLATESIGNATURE)) {
+	if (MEM_IsValidHandle(pXlator, CMMXLATESIGNATURE))
 		MEM_FreeObject(pXlator);
-	} else {
+	else
 		status = DSP_EHANDLE;
-	}
 
 	return status;
 }
