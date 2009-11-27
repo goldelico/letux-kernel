@@ -33,7 +33,7 @@
 static struct GT_Mask DBG_debugMask = { NULL, NULL };	/* GT trace var. */
 #endif
 
-#if (defined(DEBUG) || defined (DDSP_DEBUG_PRODUCT)) && GT_TRACE
+#if (defined(DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE
 
 /*
  *  ======== DBG_Init ========

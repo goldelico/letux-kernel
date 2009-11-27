@@ -441,7 +441,7 @@ DSP_STATUS DEV_DestroyDevice(struct DEV_OBJECT *hDevObject)
 
 		/* Call the driver's WMD_DEV_Destroy() function: */
 		/* Require of DevDestroy */
-		if(pDevObject->hWmdContext) {
+		if (pDevObject->hWmdContext) {
 			status = (*pDevObject->intfFxns.pfnDevDestroy)
 				(pDevObject->hWmdContext);
 			pDevObject->hWmdContext = NULL;

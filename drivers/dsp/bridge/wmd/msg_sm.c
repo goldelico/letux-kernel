@@ -65,7 +65,7 @@ DSP_STATUS WMD_MSG_Create(OUT struct MSG_MGR **phMsgMgr,
 		goto func_end;
 	}
 	DEV_GetIOMgr(hDevObject, &hIOMgr);
-	if(!hIOMgr) {
+	if (!hIOMgr) {
 		status = DSP_EPOINTER;
 		goto func_end;
 	}
