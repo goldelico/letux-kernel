@@ -54,7 +54,7 @@ union Trapped_Args {
 	} ARGS_MGR_UNREGISTEROBJECT;
 
 	struct {
-		struct DSP_NOTIFICATION  __user*__user *aNotifications;
+		struct DSP_NOTIFICATION  __user *__user *aNotifications;
 		u32 uCount;
 		u32 __user *puIndex;
 		u32 uTimeout;
@@ -111,7 +111,7 @@ union Trapped_Args {
 	struct {
 		DSP_HPROCESSOR hProcessor;
 		s32 iArgc;
-		char __user*__user *aArgv;
+		char __user *__user *aArgv;
 		char *__user *aEnvp;
 	} ARGS_PROC_LOAD;
 
