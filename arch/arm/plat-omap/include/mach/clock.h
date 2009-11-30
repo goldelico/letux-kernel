@@ -135,7 +135,7 @@ struct clk {
 	__s8			usecount;
 	u8			idlest_bit;
 #if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3)
-	u8			fixed_div;
+	u8			fixed_div, clksel_shift;
 	u32			clksel_mask, clksel_mask2;
 	const struct clksel	*clksel;
 	struct dpll_data	*dpll_data;

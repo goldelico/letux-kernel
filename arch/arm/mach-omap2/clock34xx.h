@@ -530,6 +530,7 @@ static struct clk dpll3_m3_ck = {
 	.init		= &omap2_init_clksel_parent,
 	.clksel_reg	= CM_CLKSEL1,
 	.clksel_mask	= OMAP3430_DIV_DPLL3_MASK,
+	.clksel_shift	= OMAP3430_DIV_DPLL3_SHIFT,
 	.clksel		= div16_dpll3_clksel,
 	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK,
 	.clkdm		= { .name = "dpll3_clkdm" },
@@ -608,6 +609,7 @@ static struct clk dpll4_m2_ck = {
 	.init		= &omap2_init_clksel_parent,
 	.clksel_reg	= OMAP3430_CM_CLKSEL3,
 	.clksel_mask	= OMAP3430_DIV_96M_MASK,
+	.clksel_shift	= OMAP3430_DIV_96M_SHIFT,
 	.clksel		= div16_dpll4_clksel,
 	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK,
 	.clkdm		= { .name = "dpll4_clkdm" },
@@ -707,6 +709,7 @@ static struct clk dpll4_m3_ck = {
 	.clksel_reg	= CM_CLKSEL,
 	.clksel_mask	= OMAP3430_CLKSEL_TV_MASK,
 	.clksel_mask2 = OMAP3630_CLKSEL_TV_MASK,
+	.clksel_shift = OMAP3430_CLKSEL_TV_SHIFT,
 	.clksel		= div16_dpll4_clksel,
 	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK
 					| CLOCK_IN_OMAP363X,
@@ -801,6 +804,7 @@ static struct clk dpll4_m4_ck = {
 	.clksel_reg	= CM_CLKSEL,
 	.clksel_mask	= OMAP3430_CLKSEL_DSS1_MASK,
 	.clksel_mask2	= OMAP3630_CLKSEL_DSS1_MASK,
+	.clksel_shift	= OMAP3430_CLKSEL_DSS1_SHIFT,
 	.clksel		= div16_dpll4_clksel,
 	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK
 					| CLOCK_IN_OMAP363X,
@@ -831,6 +835,7 @@ static struct clk dpll4_m5_ck = {
 	.clksel_reg	= CM_CLKSEL,
 	.clksel_mask	= OMAP3430_CLKSEL_CAM_MASK,
 	.clksel_mask2	= OMAP3630_CLKSEL_CAM_MASK,
+	.clksel_shift	= OMAP3430_CLKSEL_CAM_SHIFT,
 	.clksel		= div16_dpll4_clksel,
 	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK
 					| CLOCK_IN_OMAP363X,
@@ -861,6 +866,7 @@ static struct clk dpll4_m6_ck = {
 	.clksel_reg	= CM_CLKSEL1,
 	.clksel_mask	= OMAP3430_DIV_DPLL4_MASK,
 	.clksel_mask2	= OMAP3630_DIV_DPLL4_MASK,
+	.clksel_shift	= OMAP3430_DIV_DPLL4_SHIFT,
 	.clksel		= div16_dpll4_clksel,
 	.flags		= CLOCK_IN_OMAP343X | PARENT_CONTROLS_CLOCK
 					| CLOCK_IN_OMAP363X,
