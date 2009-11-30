@@ -140,16 +140,18 @@ static struct omap_usb_platform_data default_usb_platform_data = {
 
 static struct omap_usb_port_data default_usb_port_data[] = {
 	[0] = {
-		.flags = OMAP_USB_PORT_FLAG_ENABLED,
-		.mode = OMAP_USB_PORT_MODE_UTMI_PHY_6PIN,
+		.flags = (OMAP_USB_PORT_FLAG_ENABLED | \
+			OMAP_USB_PORT_FLAG_AUTOIDLE| \
+			OMAP_USB_PORT_FLAG_NOBITSTUFF),
+		.mode = OMAP_USB_PORT_MODE_ULPI_TLL_SDR,
 	},
 	[1] = {
-		.flags = OMAP_USB_PORT_FLAG_ENABLED,
-		.mode = OMAP_USB_PORT_MODE_ULPI_PHY,
+		.flags = OMAP_USB_PORT_FLAG_AUTOIDLE,
+		.mode = OMAP_USB_PORT_MODE_ULPI_TLL_SDR,
 	},
 	[2] = {
-		.flags = OMAP_USB_PORT_FLAG_ENABLED,
-		.mode = OMAP_USB_PORT_MODE_ULPI_PHY,
+		.flags = OMAP_USB_PORT_FLAG_AUTOIDLE,
+		.mode = OMAP_USB_PORT_MODE_ULPI_TLL_SDR,
 	},
 };
 
