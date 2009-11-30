@@ -79,6 +79,8 @@ obj-$(CONFIG_MACH_OMAP_ZOOM3)		+= board-zoom2.o \
 					   board-ldp-flash.o \
 					   board-zoom2-camera.o \
 					   board-zoom2-wifi.o
+obj-$(CONFIG_MACH_OMAP_3630SDP)		+= board-3630sdp.o \
+					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP_APOLLON)		+= board-apollon.o \
 					   board-apollon-mmc.o	\
 					   board-apollon-keys.o

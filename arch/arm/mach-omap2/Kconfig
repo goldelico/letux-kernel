@@ -121,6 +121,10 @@ config MACH_OMAP_ZOOM3
 	bool "OMAP3 ZOOM3 board"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 
+config MACH_OMAP_3630SDP
+	bool "OMAP3 3630 SDP board"
+	depends on ARCH_OMAP3 && ARCH_OMAP34XX
+
 config L2CACHE_OMAP3_DISABLE
 	bool "Disable level 2 cache in Aux cntrl reg"
 	depends on ARCH_OMAP3
