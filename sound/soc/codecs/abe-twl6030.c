@@ -961,7 +961,7 @@ static int abe_mm_hw_params(struct snd_pcm_substream *substream,
 	                dst_ptr = 0x04000c00;
 			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, 0x108, &dst_ptr, 4);
 
-			dst_ptr = 0x040002;
+			dst_ptr = 0x020002;
 			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 300*4, &dst_ptr, 4);
 
 			dst_ptr = 0x00002;
@@ -973,7 +973,7 @@ static int abe_mm_hw_params(struct snd_pcm_substream *substream,
 			dst_ptr = 0x000002;
 			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 303*4, &dst_ptr, 4);
 
-			dst_ptr = 0x040002;
+			dst_ptr = 0x020002;
 			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 304*4, &dst_ptr, 4);
 
 			dst_ptr = 0x00002;
@@ -1043,7 +1043,7 @@ static int abe_voice_hw_params(struct snd_pcm_substream *substream,
 			dst_ptr = 0x00002;
 			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 301*4, &dst_ptr, 4);
 
-			dst_ptr = 0x040002;
+			dst_ptr = 0x020002;
 			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 302*4, &dst_ptr, 4);
 
 			dst_ptr = 0x000002;
@@ -1055,7 +1055,7 @@ static int abe_voice_hw_params(struct snd_pcm_substream *substream,
 			dst_ptr = 0x00002;
 			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 305*4, &dst_ptr, 4);
 
-			dst_ptr = 0x040002;
+			dst_ptr = 0x020002;
 			abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_CMEM, 306*4, &dst_ptr, 4);
 
 			dst_ptr = 0x000002;
