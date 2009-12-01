@@ -651,6 +651,11 @@ int isp_configure_interface(struct device *dev,
 		break;
 	case ISP_CSIB:
 		ispctrl_val |= ISPCTRL_PAR_SER_CLK_SEL_CSIB;
+
+		/* FIXME: Provide cleaner mechanism for shared port usage */
+		if (config->u.csi.use_mem_read)
+			ispctrl_val |= ISPCTRL_SBL_SHARED_RPORTA
+				       | ISPCTRL_SBL_RD_RAM_EN;
 		r = isp_csi_configure_interface(&isp->isp_csi, &config->u.csi);
 		if (r)
 			return r;
@@ -843,16 +848,29 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 			ISPCSI1_LC01_IRQSTATUS_LC0_FW_IRQ |
 			ISPCSI1_LC01_IRQSTATUS_LC0_FSC_IRQ |
 			ISPCSI1_LC01_IRQSTATUS_LC0_SSC_IRQ;
-		u32 ispcsi1_irqstatus;
+		u32 ispcsi1_lc01_irqstatus, ispcsi1_lcm_irqstatus;
 
-		ispcsi1_irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-						  ISPCSI1_LC01_IRQSTATUS);
-		isp_reg_writel(dev, ispcsi1_irqstatus, OMAP3_ISP_IOMEM_CCP2,
-			       ISPCSI1_LC01_IRQSTATUS);
-		if (ispcsi1_irqstatus & ISPCSI1_LC01_ERROR) {
+		ispcsi1_lc01_irqstatus = isp_reg_readl(dev,
+						       OMAP3_ISP_IOMEM_CCP2,
+						       ISPCSI1_LC01_IRQSTATUS);
+		isp_reg_writel(dev, ispcsi1_lc01_irqstatus,
+			       OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LC01_IRQSTATUS);
+		if (ispcsi1_lc01_irqstatus & ISPCSI1_LC01_ERROR) {
 			buf->vb_state = VIDEOBUF_ERROR;
-			dev_dbg(dev, "CCP2 err:%x\n", ispcsi1_irqstatus);
+			dev_dbg(dev, "CCP2 err:%x\n", ispcsi1_lc01_irqstatus);
 		}
+
+		ispcsi1_lcm_irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
+						  ISPCSI1_LCM_IRQSTATUS);
+		isp_reg_writel(dev, ispcsi1_lcm_irqstatus, OMAP3_ISP_IOMEM_CCP2,
+			       ISPCSI1_LCM_IRQSTATUS);
+		if (ispcsi1_lcm_irqstatus &
+		    ISPCSI1_LCM_IRQSTATUS_LCM_OCPERROR) {
+			buf->vb_state = VIDEOBUF_ERROR;
+			dev_err(dev, "CCP2 err:%x\n", ispcsi1_lcm_irqstatus);
+		}
+		if (ispcsi1_lcm_irqstatus & ISPCSI1_LCM_IRQSTATUS_LCM_EOF)
+			dev_err(dev, "CCP2 EOF\n");
 	}
 
 	if (irqstatus & RESZ_DONE) {
@@ -1731,6 +1749,7 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 		isph3a_aewb_try_enable(&isp->isp_h3a);
 		isp_hist_try_enable(&isp->isp_hist);
 		ispccdc_enable(&isp->isp_ccdc, 1);
+		isp_csi_lcm_readport_enable(&isp->isp_csi, 1);
 	}
 
 	ISP_BUF_MARK_QUEUED(bufs);

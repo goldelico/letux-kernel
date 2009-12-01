@@ -22,6 +22,18 @@
 
 #include "isp.h"
 
+/**
+ * Constraints of memory read channel horizontal/vertical
+ * framing register
+ */
+#define MIN_CCP2_LCM_HSIZE_SKIP		0
+#define MIN_CCP2_LCM_HSIZE_COUNT	1
+#define MAX_CCP2_LCM_HSIZE_COUNT	ISPCSI1_LCM_HSIZE_COUNT_MASK
+
+#define MIN_CCP2_LCM_VSIZE_SKIP		0
+#define MIN_CCP2_LCM_VSIZE_COUNT	1
+#define MAX_CCP2_LCM_VSIZE_COUNT	ISPCSI1_LCM_VSIZE_COUNT_MASK
+
 #define BIT_SET(var, shift, mask, val)		\
 	do {					\
 		var = (var & ~(mask << shift))	\
@@ -122,6 +134,230 @@ static int isp_csi_set_vp_cfg(struct isp_csi_device *isp_csi,
 }
 
 /**
+ * isp_csi_lcm_s_src_ofst - Configures the Read address line offset.
+ * @isp_csi: Pointer to ISP CSI/CCP2 device.
+ * @offset: Line Offset for the input image.
+ **/
+int isp_csi_lcm_s_src_ofst(struct isp_csi_device *isp_csi, u32 offset)
+{
+	struct device *dev = to_device(isp_csi);
+
+	if ((offset & ISP_32B_BOUNDARY_BUF) != offset) {
+		dev_err(dev, "csi/ccp2: Offset should be in 32 byte "
+		       "boundary\n");
+		return -EINVAL;
+	}
+
+	isp_csi->lcm_src_ofst = offset;
+	isp_reg_writel(dev, offset, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_SRC_OFST);
+	return 0;
+}
+
+/**
+ * isp_csi_lcm_s_src_addr - Sets memory address to read in LCM.
+ * @isp_csi: Pointer to ISP CSI/CCP2 device.
+ * @addr: 32bit memory address aligned on 32byte boundary.
+ *
+ * Configures the memory address from which the input frame is to be read.
+ **/
+int isp_csi_lcm_s_src_addr(struct isp_csi_device *isp_csi, u32 addr)
+{
+	struct device *dev = to_device(isp_csi);
+
+	if ((addr & ISP_32B_BOUNDARY_BUF) != addr) {
+		dev_err(dev, "csi/ccp2: Address should be in 32 byte "
+		       "boundary\n");
+		return -EINVAL;
+	}
+
+	isp_csi->lcm_src_addr = addr;
+	isp_reg_writel(dev, addr, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_SRC_ADDR);
+	return 0;
+}
+
+/**
+ * isp_csi_lcm_validate_src_region - Validates input image region to read.
+ * @isp_csi: Pointer to ISP CSI/CCP2 device.
+ * @rect: v4l2 rectangle with demanded dimensions.
+ *
+ * Configures the region from which the input frame is to be read.
+ **/
+int isp_csi_lcm_validate_src_region(struct isp_csi_device *isp_csi,
+				    struct v4l2_rect rect)
+{
+	struct device *dev = to_device(isp_csi);
+
+	if ((rect.height < MIN_CCP2_LCM_VSIZE_COUNT) ||
+	    (rect.height > MAX_CCP2_LCM_VSIZE_COUNT)) {
+		dev_err(dev, "csi/ccp2: Invalid line count.\n");
+		return -EINVAL;
+	}
+	if ((rect.top < MIN_CCP2_LCM_VSIZE_SKIP) ||
+	    (rect.top >= rect.height)) {
+		dev_err(dev, "csi/ccp2: Invalid start line.\n");
+		return -EINVAL;
+	}
+
+	if ((rect.width < MIN_CCP2_LCM_HSIZE_COUNT) ||
+	    (rect.width > MAX_CCP2_LCM_HSIZE_COUNT)) {
+		dev_err(dev, "csi/ccp2: Invalid horizontal pixel count.\n");
+		return -EINVAL;
+	}
+
+	if ((rect.left < MIN_CCP2_LCM_HSIZE_SKIP) ||
+	    (rect.left >= rect.width)) {
+		dev_err(dev, "csi/ccp2: Invalid horizontal start pixel.\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+/**
+ * isp_csi_lcm_s_src_region - Sets input image region to read.
+ * @isp_csi: Pointer to ISP CSI/CCP2 device.
+ * @rect: v4l2 rectangle with demanded dimensions.
+ *
+ * Configures the region from which the input frame is to be read.
+ **/
+int isp_csi_lcm_s_src_region(struct isp_csi_device *isp_csi,
+			     struct v4l2_rect rect)
+{
+	struct device *dev = to_device(isp_csi);
+	int ret = 0;
+
+	ret = isp_csi_lcm_validate_src_region(isp_csi, rect);
+	if (ret)
+		return ret;
+
+	if (!isp_csi->lcm_src_addr || !isp_csi->lcm_src_ofst) {
+		dev_err(dev, "csi/ccp2: Reading address and offset must be "
+			     "specified first.\n");
+		return -EINVAL;
+	}
+
+	isp_reg_writel(dev, isp_csi->lcm_src_addr +
+			    (rect.top * isp_csi->lcm_src_ofst),
+		       OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_SRC_ADDR);
+
+	isp_reg_writel(dev,
+		       (rect.left & ISPCSI1_LCM_HSIZE_SKIP_MASK) <<
+			ISPCSI1_LCM_HSIZE_SKIP_SHIFT,
+		       OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_HSIZE);
+
+	isp_reg_writel(dev,
+		       (rect.width & ISPCSI1_LCM_HSIZE_COUNT_MASK) <<
+			ISPCSI1_LCM_HSIZE_COUNT_SHIFT,
+		       OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_HSIZE);
+
+	isp_reg_writel(dev,
+		       (rect.height & ISPCSI1_LCM_VSIZE_COUNT_MASK) <<
+			ISPCSI1_LCM_VSIZE_COUNT_SHIFT,
+		       OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_VSIZE);
+
+	isp_reg_writel(dev,
+		       isp_csi->lcm_src_ofst,
+		       OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_PREFETCH);
+
+	isp_csi->lcm_src_rect = rect;
+	return 0;
+}
+
+/**
+ * isp_csi_lcm_s_src_fmt - Sets pixel format to read.
+ * @isp_csi: Pointer to ISP CSI/CCP2 device.
+ * @format: Pixel format to read from memory.
+ **/
+int isp_csi_lcm_s_src_fmt(struct isp_csi_device *isp_csi, u32 format)
+{
+	struct device *dev = to_device(isp_csi);
+	u32 format_val, format_decmp;
+	u32 val;
+
+	switch (format) {
+	case V4L2_PIX_FMT_SGRBG10:
+		format_val = 0x3;
+		format_decmp = 0;
+		break;
+	case V4L2_PIX_FMT_SGRBG10DPCM8:
+		format_val = 0x3;
+		format_decmp = 0x2;
+		break;
+	default:
+		dev_err(dev, "isp_csi_lcm_s_src_fmt: unsupported format\n");
+		return -EINVAL;
+	}
+
+	isp_csi->lcm_src_fmt = format;
+
+	val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_CTRL);
+	val &= ~(ISPCSI1_LCM_CTRL_SRC_FORMAT_MASK <<
+		 ISPCSI1_LCM_CTRL_SRC_FORMAT_SHIFT);
+	val &= ~(ISPCSI1_LCM_CTRL_SRC_DECOMPR_MASK <<
+		 ISPCSI1_LCM_CTRL_SRC_DECOMPR_SHIFT);
+
+	val |= (format_val & ISPCSI1_LCM_CTRL_SRC_FORMAT_MASK) <<
+	       ISPCSI1_LCM_CTRL_SRC_FORMAT_SHIFT;
+	val |= (format_decmp & ISPCSI1_LCM_CTRL_SRC_DECOMPR_MASK) <<
+	       ISPCSI1_LCM_CTRL_SRC_DECOMPR_SHIFT;
+	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_CTRL);
+	return 0;
+}
+
+/**
+ * isp_csi_lcm_s_dst_fmt - Sets pixel format to output.
+ * @isp_csi: Pointer to ISP CSI/CCP2 device.
+ * @format: Pixel format to read from memory.
+ **/
+int isp_csi_lcm_s_dst_fmt(struct isp_csi_device *isp_csi, u32 format)
+{
+	struct device *dev = to_device(isp_csi);
+	u32 format_val, format_decmp;
+	u32 val;
+
+	switch (format) {
+	case V4L2_PIX_FMT_SGRBG10:
+		format_val = 0x3;
+		format_decmp = 0;
+		break;
+	case V4L2_PIX_FMT_SGRBG10DPCM8:
+		format_val = 0x3;
+		format_decmp = 0x2;
+		break;
+	default:
+		dev_err(dev, "isp_csi_lcm_s_src_fmt: unsupported format\n");
+		return -EINVAL;
+	}
+
+	isp_csi->lcm_dst_fmt = format;
+
+	val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_CTRL);
+	val &= ~(ISPCSI1_LCM_CTRL_DST_FORMAT_MASK <<
+		 ISPCSI1_LCM_CTRL_DST_FORMAT_SHIFT);
+	val &= ~(ISPCSI1_LCM_CTRL_DST_DECOMPR_MASK <<
+		 ISPCSI1_LCM_CTRL_DST_DECOMPR_SHIFT);
+
+	val |= (format_val & ISPCSI1_LCM_CTRL_DST_FORMAT_MASK) <<
+	       ISPCSI1_LCM_CTRL_DST_FORMAT_SHIFT;
+	val |= (format_decmp & ISPCSI1_LCM_CTRL_DST_DECOMPR_MASK) <<
+	       ISPCSI1_LCM_CTRL_DST_DECOMPR_SHIFT;
+	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_CTRL);
+	return 0;
+}
+
+int isp_csi_lcm_readport_enable(struct isp_csi_device *isp_csi, bool enable)
+{
+	struct device *dev = to_device(isp_csi);
+
+	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_CTRL,
+		       ~ISPCSI1_LCM_CTRL_CHAN_EN,
+		       enable ? ISPCSI1_LCM_CTRL_CHAN_EN : 0);
+
+	isp_csi->lcm_enabled = enable;
+
+	return 0;
+}
+
+/**
  * isp_csi_configure_interface - Initialize CSI1/CCP2 interface.
  * @isp_csi: Pointer to ISP CSI/CCP2 device.
  * @config: Pointer to ISP CSI/CCP2 interface config structure.
@@ -140,18 +376,6 @@ int isp_csi_configure_interface(struct isp_csi_device *isp_csi,
 	struct isp_csi_vp_cfg new_vp_cfg;
 	u32 val, reg;
 	int format;
-
-	switch (config->format) {
-	case V4L2_PIX_FMT_SGRBG10:
-		format = 0x16;		/* RAW10+VP */
-		break;
-	case V4L2_PIX_FMT_SGRBG10DPCM8:
-		format = 0x12;		/* RAW8+DPCM10+VP */
-		break;
-	default:
-		dev_err(dev, "isp_csi_configure_interface: bad csi format\n");
-		return -EINVAL;
-	}
 
 	/* Reset the CSI and wait for reset to complete */
 	isp_csi_reset(isp_csi);
@@ -177,55 +401,126 @@ int isp_csi_configure_interface(struct isp_csi_device *isp_csi,
 	val |= ISPCSI1_CTRL_MODE_CCP2;
 	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL);
 
-	/* Logical channel #0 - Set format and generic configuration */
-	reg = ISPCSI1_LCx_CTRL(0);
-	val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, reg);
-	BIT_SET(val, ISPCSI1_LCx_CTRL_FORMAT_SHIFT,
-		ISPCSI1_LCx_CTRL_FORMAT_MASK, format);
-	/* Enable setting of frame regions of interest */
-	val |= ISPCSI1_LCx_CTRL_REGION_EN;
-	val &= ~(ISPCSI1_LCx_CTRL_CRC_EN);
-	if (config->crc)
-		val |= ISPCSI1_LCx_CTRL_CRC_EN;
-	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, reg);
+	if (config->use_mem_read) {
 
-	/* Logical channel #0 - Set pixel data region */
-	reg = ISPCSI1_LCx_DAT_START(0);
-	val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, reg);
-	BIT_SET(val, ISPCSI1_LCx_DAT_START_VERT_SHIFT,
-		ISPCSI1_LCx_DAT_START_VERT_MASK, config->data_start);
-	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, reg);
+		/* Check if there's a buffer to read from */
+		if (!isp_csi->lcm_src_addr || !isp_csi->lcm_src_ofst) {
+			dev_err(dev, "isp_csi_configure_interface: Mem input"
+				     " selected without specifying a read"
+				     " buffer address/offset\n");
+			return -EINVAL;
+		}
+		isp_csi_lcm_s_src_addr(isp_csi, isp_csi->lcm_src_addr);
 
-	reg = ISPCSI1_LCx_DAT_SIZE(0);
-	val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, reg);
-	BIT_SET(val, ISPCSI1_LCx_DAT_SIZE_VERT_SHIFT,
-		ISPCSI1_LCx_DAT_SIZE_VERT_MASK, config->data_size);
-	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, reg);
+		isp_csi_lcm_s_src_ofst(isp_csi, isp_csi->lcm_src_ofst);
 
-	/* Clear status bits for logical channel #0 */
-	val = ISPCSI1_LC01_IRQSTATUS_LC0_FIFO_OVF_IRQ |
-	      ISPCSI1_LC01_IRQSTATUS_LC0_CRC_IRQ |
-	      ISPCSI1_LC01_IRQSTATUS_LC0_FSP_IRQ |
-	      ISPCSI1_LC01_IRQSTATUS_LC0_FW_IRQ |
-	      ISPCSI1_LC01_IRQSTATUS_LC0_FSC_IRQ |
-	      ISPCSI1_LC01_IRQSTATUS_LC0_SSC_IRQ;
+		isp_csi_lcm_readport_enable(isp_csi, 0);
 
-	/* Clear IRQ status bits for logical channel #0 */
-	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2,
-		       ISPCSI1_LC01_IRQSTATUS);
+		isp_csi_if_enable(isp_csi, 0);
 
-	/* Enable IRQs for logical channel #0 */
-	isp_reg_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LC01_IRQENABLE, val);
+		isp_reg_and_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL,
+			       ~((ISPCTRL_SBL_CBUFF0_BCF_CTRL_MASK <<
+				 ISPCTRL_SBL_CBUFF0_BCF_CTRL_SHIFT) |
+				 (ISPCTRL_SBL_CBUFF1_BCF_CTRL_MASK <<
+				 ISPCTRL_SBL_CBUFF1_BCF_CTRL_SHIFT)),
+				ISPCTRL_SBL_CBUFF1_BCF_CTRL_STALL_RESPONSE |
+				ISPCTRL_SBL_CBUFF0_BCF_CTRL_STALL_RESPONSE);
 
-	/* Enable CSI1 */
-	isp_csi_if_enable(isp_csi, 1);
 
-	if (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL) &
-	      ISPCSI1_CTRL_MODE_CCP2)) {
-		dev_warn(dev, "OMAP3 CSI1 bus not available\n");
-		if (config->signalling) {
-			/* Strobe mode requires CCP2 */
-			return -EIO;
+		/* Set burst size to 32 x 64 bit bursts */
+		isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_CTRL,
+			       ~(ISPCSI1_LCM_CTRL_BURST_SIZE_MASK <<
+				 ISPCSI1_LCM_CTRL_BURST_SIZE_SHIFT),
+			       (0x5 <<
+				ISPCSI1_LCM_CTRL_BURST_SIZE_SHIFT));
+
+		isp_reg_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_CTRL,
+			   ISPCSI1_CTRL_FRAME);
+
+		/* Mem Logical channel - Set format and generic configuration */
+		isp_csi_lcm_s_src_fmt(isp_csi, config->format);
+
+		isp_csi_lcm_s_dst_fmt(isp_csi, config->format);
+
+		/* Make Receiver output to the videoport (to CCDC) */
+		isp_reg_and(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_CTRL,
+			    ~ISPCSI1_LCM_CTRL_DST_PORT_MEM);
+
+		isp_csi_lcm_s_src_region(isp_csi, config->mem_src_rect);
+
+		/* Clear status bits for Mem logical channel */
+		isp_reg_writel(dev, ISPCSI1_LCM_IRQSTATUS_LCM_OCPERROR,
+			       OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_IRQSTATUS);
+
+		/* Enable IRQs for Mem logical channel */
+		isp_reg_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_IRQENABLE,
+			   ISPCSI1_LCM_IRQSTATUS_LCM_OCPERROR |
+			   ISPCSI1_LCM_IRQSTATUS_LCM_EOF);
+	} else {
+		switch (config->format) {
+		case V4L2_PIX_FMT_SGRBG10:
+			format = 0x16;		/* RAW10+VP */
+			break;
+		case V4L2_PIX_FMT_SGRBG10DPCM8:
+			format = 0x12;		/* RAW8+DPCM10+VP */
+			break;
+		default:
+			dev_err(dev, "isp_csi_configure_interface: bad csi"
+				     " format\n");
+			return -EINVAL;
+		}
+
+		/* Logical channel #0 - Set format and generic configuration */
+		reg = ISPCSI1_LCx_CTRL(0);
+		val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, reg);
+		BIT_SET(val, ISPCSI1_LCx_CTRL_FORMAT_SHIFT,
+			ISPCSI1_LCx_CTRL_FORMAT_MASK, format);
+		/* Enable setting of frame regions of interest */
+		val |= ISPCSI1_LCx_CTRL_REGION_EN;
+		val &= ~(ISPCSI1_LCx_CTRL_CRC_EN);
+		if (config->crc)
+			val |= ISPCSI1_LCx_CTRL_CRC_EN;
+		isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, reg);
+
+		/* Logical channel #0 - Set pixel data region */
+		reg = ISPCSI1_LCx_DAT_START(0);
+		val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, reg);
+		BIT_SET(val, ISPCSI1_LCx_DAT_START_VERT_SHIFT,
+			ISPCSI1_LCx_DAT_START_VERT_MASK, config->data_start);
+		isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, reg);
+
+		reg = ISPCSI1_LCx_DAT_SIZE(0);
+		val = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, reg);
+		BIT_SET(val, ISPCSI1_LCx_DAT_SIZE_VERT_SHIFT,
+			ISPCSI1_LCx_DAT_SIZE_VERT_MASK, config->data_size);
+		isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, reg);
+
+		/* Clear status bits for logical channel #0 */
+		val = ISPCSI1_LC01_IRQSTATUS_LC0_FIFO_OVF_IRQ |
+		      ISPCSI1_LC01_IRQSTATUS_LC0_CRC_IRQ |
+		      ISPCSI1_LC01_IRQSTATUS_LC0_FSP_IRQ |
+		      ISPCSI1_LC01_IRQSTATUS_LC0_FW_IRQ |
+		      ISPCSI1_LC01_IRQSTATUS_LC0_FSC_IRQ |
+		      ISPCSI1_LC01_IRQSTATUS_LC0_SSC_IRQ;
+
+		/* Clear IRQ status bits for logical channel #0 */
+		isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2,
+			       ISPCSI1_LC01_IRQSTATUS);
+
+		/* Enable IRQs for logical channel #0 */
+		isp_reg_or(dev, OMAP3_ISP_IOMEM_CCP2,
+			   ISPCSI1_LC01_IRQENABLE, val);
+
+		/* Enable CSI1 */
+		isp_csi_if_enable(isp_csi, 1);
+
+		if (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL) &
+		      ISPCSI1_CTRL_MODE_CCP2)) {
+			dev_warn(dev, "OMAP3 CSI1 bus not available\n");
+			if (config->signalling) {
+				/* Strobe mode requires CCP2 */
+				return -EIO;
+			}
 		}
 	}
 

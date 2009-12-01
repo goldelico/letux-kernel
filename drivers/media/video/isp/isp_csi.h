@@ -21,6 +21,7 @@
 #include <linux/videodev2.h>
 
 struct isp_csi_interface_cfg {
+	unsigned use_mem_read:1;
 	unsigned crc:1;
 	unsigned mode:1;
 	unsigned edge:1;
@@ -32,6 +33,7 @@ struct isp_csi_interface_cfg {
 	unsigned int data_start;
 	unsigned int data_size;
 	u32 format;
+	struct v4l2_rect mem_src_rect;
 };
 
 /**
@@ -54,12 +56,23 @@ struct isp_csi_vp_cfg {
  */
 struct isp_csi_device {
 	bool if_enabled;
+	bool lcm_enabled;
 	struct isp_csi_vp_cfg vp_cfg;
+	u32 lcm_src_addr;
+	u32 lcm_src_ofst;
+	struct v4l2_rect lcm_src_rect;
+	u32 lcm_src_fmt;
+	u32 lcm_dst_fmt;
 };
 
 void isp_csi_if_enable(struct isp_csi_device *isp_csi, u8 enable);
 int isp_csi_configure_interface(struct isp_csi_device *isp_csi,
 				struct isp_csi_interface_cfg *config);
+int isp_csi_lcm_s_src_ofst(struct isp_csi_device *isp_csi, u32 offset);
+int isp_csi_lcm_s_src_addr(struct isp_csi_device *isp_csi, u32 addr);
+int isp_csi_lcm_validate_src_region(struct isp_csi_device *isp_csi,
+				    struct v4l2_rect rect);
+int isp_csi_lcm_readport_enable(struct isp_csi_device *isp_csi, bool enable);
 
 #endif	/* OMAP_ISP_CSI_H */
 
