@@ -1438,11 +1438,11 @@ static void __ispccdc_enable(u8 enable)
 		     ispccdc_obj.ccdc_inpfmt == CCDC_RAW &&
 		     ispccdc_obj.lsc_request_enable &&
 		     ispccdc_validate_config_lsc(&ispccdc_obj.lsc_config) == 0;
-	ispccdc_enable_lsc(enable_lsc);
 	if (enable_lsc) {
 		/* Defer CCDC enablement for when the prefetch is completed. */
 		isp_set_callback(CBK_LSC_PREF_COMP, ispccdc_callback_enable_lsc,
 				 (void *)NULL, (void *)NULL);
+		ispccdc_enable_lsc(1);
 		return;
 	}
 	isp_reg_and_or(OMAP3_ISP_IOMEM_CCDC, ISPCCDC_PCR, ~ISPCCDC_PCR_EN,
