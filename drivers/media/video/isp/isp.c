@@ -1349,9 +1349,13 @@ void isp_stop()
 	/* LSC graceful handling*/
 	if (isp_reg_readl(OMAP3_ISP_IOMEM_CCDC, ISPCCDC_LSC_CONFIG) &
 	    ISPCCDC_LSC_ENABLE) {
+		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			       IRQ0ENABLE_CCDC_VD1_IRQ);
 		isp_lsc_disable_scheduled = 1;
 		init_completion(&isp_lsc_wfc);
 		wait_for_completion_interruptible(&isp_lsc_wfc);
+		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			       ~IRQ0ENABLE_CCDC_VD1_IRQ);
 	}
 
 	isp_disable_interrupts();
