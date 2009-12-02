@@ -2142,15 +2142,12 @@ static int __devexit musb_remove(struct platform_device *pdev)
 
 #ifdef	CONFIG_PM
 
-static int musb_suspend(struct platform_device *pdev, pm_message_t message)
+static int musb_suspend_late(struct platform_device *pdev, pm_message_t message)
 {
-	unsigned long	flags;
 	struct musb	*musb = dev_to_musb(&pdev->dev);
 
 	if (!musb->clock)
 		return 0;
-
-	spin_lock_irqsave(&musb->lock, flags);
 
 	musb_platform_save_context(musb);
 
@@ -2168,19 +2165,16 @@ static int musb_suspend(struct platform_device *pdev, pm_message_t message)
 		musb->set_clock(musb->clock, 0);
 	else
 		clk_disable(musb->clock);
-	spin_unlock_irqrestore(&musb->lock, flags);
+
 	return 0;
 }
 
-static int musb_resume(struct platform_device *pdev)
+static int musb_resume_early(struct platform_device *pdev)
 {
-	unsigned long	flags;
 	struct musb	*musb = dev_to_musb(&pdev->dev);
 
 	if (!musb->clock)
 		return 0;
-
-	spin_lock_irqsave(&musb->lock, flags);
 
 	if (musb->set_clock)
 		musb->set_clock(musb->clock, 1);
@@ -2193,7 +2187,6 @@ static int musb_resume(struct platform_device *pdev)
 	 * unless for some reason the whole soc powered down and we're
 	 * not treating that as a whole-system restart (e.g. swsusp)
 	 */
-	spin_unlock_irqrestore(&musb->lock, flags);
 	return 0;
 }
 
@@ -2210,8 +2203,8 @@ static struct platform_driver musb_driver = {
 	},
 	.remove		= __devexit_p(musb_remove),
 	.shutdown	= musb_shutdown,
-	.suspend	= musb_suspend,
-	.resume		= musb_resume,
+	.suspend_late	= musb_suspend_late,
+	.resume_early	= musb_resume_early,
 };
 
 /*-------------------------------------------------------------------------*/
