@@ -675,6 +675,11 @@ int listmp_sharedmemory_open(listmp_sharedmemory_handle *listmp_handleptr,
 					params->shared_addr =
 						sharedregion_get_ptr(
 						(u32 *)shared_shm_base);
+				if (params->shared_addr == NULL) {
+					status =
+					LISTMPSHAREDMEMORY_E_NOTCREATED;
+					goto exit;
+				}
 			}
 		}
 	}

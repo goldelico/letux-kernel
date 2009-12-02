@@ -38,6 +38,7 @@ static int nameserver_remotenotify_ioctl_get(
 	char *name = NULL;
 	u8 *value = NULL;
 
+	BUG_ON(cargs->args.get.instance_name_len == 0);
 	if (cargs->args.get.instance_name_len) {
 		instance_name = kmalloc(cargs->args.get.instance_name_len + 1,
 								GFP_KERNEL);

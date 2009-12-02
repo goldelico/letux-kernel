@@ -240,7 +240,7 @@ static inline int listmp_sharedmemory_ioctl_open(
 	if ((cargs->args.open.name_len > 0) &&
 			(cargs->args.open.params->name != NULL)) {
 		params.name = kmalloc(cargs->args.open.name_len, GFP_KERNEL);
-		if (params.name != NULL) {
+		if (params.name == NULL) {
 			retval = -ENOMEM;
 			goto exit;
 		}
@@ -277,8 +277,10 @@ static inline int listmp_sharedmemory_ioctl_open(
 
 	/* Error copying, so close the handle */
 	retval = -EFAULT;
-	if (cargs->args.open.listmp_handle)
+	if (cargs->args.open.listmp_handle) {
 		listmp_sharedmemory_close(cargs->args.open.listmp_handle);
+		cargs->args.open.listmp_handle = NULL;
+	}
 
 free_name:
 	if (cargs->args.open.name_len > 0)
