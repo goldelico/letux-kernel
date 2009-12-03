@@ -30,6 +30,7 @@
 #include <linux/reboot.h>
 
 #include <mach/gpio.h>
+#include <mach/cpu.h>
 #include <mach/sram.h>
 #include <mach/prcm.h>
 #include <mach/clockdomain.h>
@@ -765,6 +766,16 @@ static void __init omap3_iva_idle(void)
 
 static void __init prcm_setup_regs(void)
 {
+	u32 cm_clksel1_mpu, cm_clksel1_iva2;
+
+	/*set Bypass clock dividers for MPU and IVA */
+	cm_clksel1_mpu = cm_read_mod_reg(MPU_MOD, CM_CLKSEL1);
+	cm_clksel1_iva2 = cm_read_mod_reg(OMAP3430_IVA2_MOD, CM_CLKSEL1);
+	cm_clksel1_iva2 = (cm_clksel1_iva2 & ~(OMAP3430_IVA2_CLK_SRC_MASK)) |
+				(0x4 << OMAP3430_IVA2_CLK_SRC_SHIFT);
+	cm_clksel1_mpu = (cm_clksel1_mpu & ~(OMAP3430_MPU_CLK_SRC_MASK)) |
+				(0x2 << OMAP3430_MPU_CLK_SRC_SHIFT);
+
 	/* reset modem */
 	prm_write_mod_reg(OMAP3430_RM_RSTCTRL_CORE_MODEM_SW_RSTPWRON |
 			  OMAP3430_RM_RSTCTRL_CORE_MODEM_SW_RST,

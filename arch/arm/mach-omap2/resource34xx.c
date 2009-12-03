@@ -237,9 +237,21 @@ static int program_opp_freq(int res, int target_level, int current_level)
 {
 	int ret = 0, l3_div;
 	int *curr_opp;
+	u32 cm_clksel1_mpu;
 
 	lock_scratchpad_sem();
 	if (res == VDD1_OPP) {
+		if (target_level == VDD1_OPP1) {
+			cm_clksel1_mpu = cm_read_mod_reg(MPU_MOD, CM_CLKSEL1);
+			cm_clksel1_mpu = (cm_clksel1_mpu & ~(OMAP3430_MPU_CLK_SRC_MASK)) |
+						(0x4 << OMAP3430_MPU_CLK_SRC_SHIFT);
+			cm_write_mod_reg(cm_clksel1_mpu, MPU_MOD, CM_CLKSEL1);
+		} else if ((current_level == VDD1_OPP1) && (target_level != VDD1_OPP1)) {
+			cm_clksel1_mpu = cm_read_mod_reg(MPU_MOD, CM_CLKSEL1);
+			cm_clksel1_mpu = (cm_clksel1_mpu & ~(OMAP3430_MPU_CLK_SRC_MASK)) |
+						(0x2 << OMAP3430_MPU_CLK_SRC_SHIFT);
+			cm_write_mod_reg(cm_clksel1_mpu, MPU_MOD, CM_CLKSEL1);
+		}
 		curr_opp = &curr_vdd1_opp;
 		clk_set_rate(dpll1_clk, mpu_opps[target_level].rate);
 		clk_set_rate(dpll2_clk, dsp_opps[target_level].rate);
