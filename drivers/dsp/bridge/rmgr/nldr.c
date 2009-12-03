@@ -435,7 +435,7 @@ DSP_STATUS NLDR_Allocate(struct NLDR_OBJECT *hNldr, void *pPrivRef,
 	}
 	/* Cleanup on failure */
 	if (DSP_FAILED(status) && pNldrNode)
-		NLDR_Free((struct NLDR_NODEOBJECT *) pNldrNode);
+		MEM_FreeObject(pNldrNode);
 
 	DBC_Ensure((DSP_SUCCEEDED(status) &&
 		  MEM_IsValidHandle(((struct NLDR_NODEOBJECT *)(*phNldrNode)),
@@ -715,19 +715,6 @@ void NLDR_Exit(void)
 	}
 
 	DBC_Ensure(cRefs >= 0);
-}
-
-/*
- *  ======== NLDR_Free ========
- */
-void NLDR_Free(struct NLDR_NODEOBJECT *hNldrNode)
-{
-	DBC_Require(cRefs > 0);
-	DBC_Require(MEM_IsValidHandle(hNldrNode, NLDR_NODESIGNATURE));
-
-	GT_1trace(NLDR_debugMask, GT_ENTER, "NLDR_Free(0x%x)\n", hNldrNode);
-
-	MEM_FreeObject(hNldrNode);
 }
 
 /*

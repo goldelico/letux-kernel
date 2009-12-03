@@ -287,7 +287,6 @@
 		NLDR_CREATEFXN pfnCreate;
 		NLDR_DELETEFXN pfnDelete;
 		NLDR_EXITFXN pfnExit;
-		NLDR_FREEFXN pfnFree;
 		NLDR_GETFXNADDRFXN pfnGetFxnAddr;
 		NLDR_INITFXN pfnInit;
 		NLDR_LOADFXN pfnLoad;

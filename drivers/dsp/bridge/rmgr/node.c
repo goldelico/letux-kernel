@@ -284,7 +284,6 @@ static struct NLDR_FXNS nldrFxns = {
 	NLDR_Create,
 	NLDR_Delete,
 	NLDR_Exit,
-	NLDR_Free,
 	NLDR_GetFxnAddr,
 	NLDR_Init,
 	NLDR_Load,
@@ -2811,7 +2810,7 @@ static void DeleteNode(struct NODE_OBJECT *hNode,
 	}
 
 	if (hNode->hNldrNode) {
-		hNodeMgr->nldrFxns.pfnFree(hNode->hNldrNode);
+		MEM_Free(hNode->hNldrNode);
 		hNode->hNldrNode = NULL;
 	}
 	hNode->hNodeMgr = NULL;

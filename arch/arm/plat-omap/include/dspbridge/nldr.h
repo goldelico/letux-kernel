@@ -38,7 +38,6 @@
 
 	extern void NLDR_Delete(struct NLDR_OBJECT *hNldr);
 	extern void NLDR_Exit(void);
-	extern void NLDR_Free(struct NLDR_NODEOBJECT *hNldrNode);
 
 	extern DSP_STATUS NLDR_GetFxnAddr(struct NLDR_NODEOBJECT *hNldrNode,
 					  char *pstrFxn, u32 *pulAddr);
