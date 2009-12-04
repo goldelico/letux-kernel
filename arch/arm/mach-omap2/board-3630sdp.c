@@ -896,6 +896,13 @@ static int __init omap_i2c_init(void)
 	return 0;
 }
 
+/* usb1hs reset is routed to chip select pin of ISP1504
+ * on 750-2099-003(A) daughter card */
+static void config_usb1hs_gpio(void)
+{
+	omap_cfg_reg(D25_34XX_GPIO126);
+}
+
 static void enable_board_wakeup_source(void)
 {
 	omap_cfg_reg(AF26_34XX_SYS_NIRQ);
@@ -913,6 +920,7 @@ static void __init omap_sdp3630_init(void)
 	msecure_init();
 	omap_serial_init();
 	usb_musb_init();
+	config_usb1hs_gpio();
 	usb_ehci_init();
 #ifdef CONFIG_SIL9022
 	config_hdmi_gpio();

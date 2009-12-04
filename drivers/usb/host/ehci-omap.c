@@ -54,8 +54,16 @@
  *	Release the reset after a delay -
  *		to get the PHY state machine in working state
  */
-
+/* Setting:
+ *	Additional switch settings SW4.8=off, S5=1-2, S6=2-3
+ *	USB1HS EHCI PHY mode tested on SDP3630-V0-1-0 board using
+ *	750-2099-003(A) daughter card.
+ */
+#ifdef CONFIG_MACH_OMAP_3630SDP
+#define	EXT_PHY_RESET_GPIO_PORT1	(126)
+#else
 #define	EXT_PHY_RESET_GPIO_PORT1	(57)
+#endif
 #define	EXT_PHY_RESET_GPIO_PORT2	(61)
 
 static int default_usb_port_startup(struct platform_device *dev, int port)
@@ -82,6 +90,7 @@ static int default_usb_port_startup(struct platform_device *dev, int port)
 		return r;
 	}
 	gpio_direction_output(gpio, 0);
+	gpio_set_value(gpio, 1);
 	return 0;
 }
 
