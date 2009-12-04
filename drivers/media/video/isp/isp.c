@@ -1123,16 +1123,10 @@ static void isp_tmp_buf_free(struct device *dev)
  *  isp_tmp_buf_alloc - To allocate a 10MB memory
  *
  **/
-static u32 isp_tmp_buf_alloc(struct device *dev, struct isp_pipeline *pipe)
+static u32 isp_tmp_buf_alloc(struct device *dev, size_t size)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	u32 da;
-	size_t size = PAGE_ALIGN(isp->pipeline.prv_out_w *
-				 isp->pipeline.prv_out_h *
-				 ISP_BYTES_PER_PIXEL);
-
-	if (isp->tmp_buf_size < size)
-		return 0;
 
 	isp_tmp_buf_free(dev);
 
@@ -1145,9 +1139,7 @@ static u32 isp_tmp_buf_alloc(struct device *dev, struct isp_pipeline *pipe)
 	isp->tmp_buf_size = size;
 
 	isppreview_set_outaddr(&isp->isp_prev, isp->tmp_buf);
-	ispresizer_set_inaddr(&isp->isp_res, isp->tmp_buf, 0);
-	ispresizer_config_inlineoffset(&isp->isp_res,
-				       pipe->prv_out_w * ISP_BYTES_PER_PIXEL);
+	ispresizer_set_inaddr(&isp->isp_res, isp->tmp_buf);
 
 	return 0;
 }
@@ -1683,10 +1675,14 @@ int isp_vbq_setup(struct device *dev, struct videobuf_queue *vbq,
 		  unsigned int *cnt, unsigned int *size)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
+	size_t tmp_size = PAGE_ALIGN(isp->pipeline.prv_out_w
+				     * isp->pipeline.prv_out_h
+				     * ISP_BYTES_PER_PIXEL);
 
 	if (CCDC_PREV_RESZ_CAPTURE(isp) &&
+	    isp->tmp_buf_size < tmp_size &&
 	    isp->revision <= ISP_REVISION_2_0)
-		return isp_tmp_buf_alloc(dev, &isp->pipeline);
+		return isp_tmp_buf_alloc(dev, tmp_size);
 
 	return 0;
 }
