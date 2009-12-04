@@ -1123,16 +1123,10 @@ static void isp_tmp_buf_free(struct device *dev)
  *  isp_tmp_buf_alloc - To allocate a 10MB memory
  *
  **/
-static u32 isp_tmp_buf_alloc(struct device *dev, struct isp_pipeline *pipe)
+static u32 isp_tmp_buf_alloc(struct device *dev, size_t size)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	u32 da;
-	size_t size = PAGE_ALIGN(isp->pipeline.prv_out_w *
-				 isp->pipeline.prv_out_h *
-				 ISP_BYTES_PER_PIXEL);
-
-	if (isp->tmp_buf_size < size)
-		return 0;
 
 	isp_tmp_buf_free(dev);
 
@@ -1145,9 +1139,7 @@ static u32 isp_tmp_buf_alloc(struct device *dev, struct isp_pipeline *pipe)
 	isp->tmp_buf_size = size;
 
 	isppreview_set_outaddr(&isp->isp_prev, isp->tmp_buf);
-	ispresizer_set_inaddr(&isp->isp_res, isp->tmp_buf, 0);
-	ispresizer_config_inlineoffset(&isp->isp_res,
-				       pipe->prv_out_w * ISP_BYTES_PER_PIXEL);
+	ispresizer_set_inaddr(&isp->isp_res, isp->tmp_buf);
 
 	return 0;
 }
@@ -1347,13 +1339,8 @@ static int isp_try_pipeline(struct device *dev,
 			pipe->ccdc_in = CCDC_RAW_GBRG;
 		pipe->ccdc_out = CCDC_OTHERS_VP;
 		pipe->prv_in = PRV_RAW_CCDC;
-		if (isp->revision <= ISP_REVISION_2_0) {
-			pipe->prv_out = PREVIEW_MEM;
-			pipe->rsz_in = RSZ_MEM_YUV;
-		} else {
-			pipe->prv_out = PREVIEW_RSZ;
-			pipe->rsz_in = RSZ_OTFLY_YUV;
-		}
+		pipe->prv_out = PREVIEW_MEM;
+		pipe->rsz_in = RSZ_MEM_YUV;
 	} else {
 		pipe->modules = OMAP_ISP_CCDC;
 		if (pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10 ||
@@ -1683,10 +1670,13 @@ int isp_vbq_setup(struct device *dev, struct videobuf_queue *vbq,
 		  unsigned int *cnt, unsigned int *size)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
+	size_t tmp_size = PAGE_ALIGN(isp->pipeline.prv_out_w
+				     * isp->pipeline.prv_out_h
+				     * ISP_BYTES_PER_PIXEL);
 
 	if (CCDC_PREV_RESZ_CAPTURE(isp) &&
-	    isp->revision <= ISP_REVISION_2_0)
-		return isp_tmp_buf_alloc(dev, &isp->pipeline);
+	    isp->tmp_buf_size < tmp_size)
+		return isp_tmp_buf_alloc(dev, tmp_size);
 
 	return 0;
 }
@@ -2312,8 +2302,7 @@ int isp_put(void)
 	if (isp->ref_count) {
 		if (--isp->ref_count == 0) {
 			isp_save_ctx(&pdev->dev);
-			if (isp->revision <= ISP_REVISION_2_0)
-				isp_tmp_buf_free(&pdev->dev);
+			isp_tmp_buf_free(&pdev->dev);
 			isp_release_resources(&pdev->dev);
 			isp_disable_clocks(&pdev->dev);
 		}
