@@ -8,20 +8,20 @@ if Sys_Link
 
 config  SYSLINK_PROC
         tristate "Syslink ProcMgr"
-        default m
+        default y
         help
            Syslink Proc manager
 
 config  SYSLINK_PROC4430
         tristate "Proc 4430"
         depends on SYSLINK_PROC
-        default m
+        default y
         help
            Ducati Proc implementation
 
 config MPU_BRIDGE_NOTIFY
 	tristate "OMAP Notify Module"
-	default m 
+	default y 
 	help
           Notify Module
 
@@ -29,14 +29,14 @@ config MPU_BRIDGE_NOTIFY
 config  NOTIFY_DUCATI  
 	tristate "OMAP Notify Ducati Module"
 	depends on MPU_BRIDGE_NOTIFY && SYSLINK_PROC4430
-	default m
+	default y
 	help
  	   Notify Ducati Module 
 
 config MPU_SYSLINK_IPC
         tristate "Syslink IPC Module"
         depends on MPU_BRIDGE_NOTIFY && NOTIFY_DUCATI
-        default m
+        default y
         help
           Syslink IPC Module
 
