@@ -130,7 +130,7 @@ static u32 phys_mempool_size;
 static int tc_wordswapon;	/* Default value is always false */
 
 /* Minimum ACTIVE VDD1 OPP level for reliable DSP operation */
-unsigned short min_active_opp = 3;
+unsigned short min_active_opp = 1;
 
 #ifdef CONFIG_PM
 struct omap34xx_bridge_suspend_data {
@@ -181,7 +181,7 @@ module_param(tc_wordswapon, int, 0);
 MODULE_PARM_DESC(tc_wordswapon, "TC Word Swap Option. default = 0");
 
 module_param(min_active_opp, ushort, S_IRUSR | S_IWUSR);
-MODULE_PARM_DESC(min_active_opp, "Minimum ACTIVE VDD1 OPP Level, default = 3");
+MODULE_PARM_DESC(min_active_opp, "Minimum ACTIVE VDD1 OPP Level, default = 1");
 
 MODULE_AUTHOR("Texas Instruments");
 MODULE_LICENSE("GPL");
