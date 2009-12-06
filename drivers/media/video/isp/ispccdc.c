@@ -1454,10 +1454,12 @@ int ispccdc_set_outaddr(u32 addr)
 }
 EXPORT_SYMBOL(ispccdc_set_outaddr);
 
-static void ispccdc_callback_enable_lsc(unsigned long status,
-					isp_vbq_callback_ptr arg1, void *arg2)
+void ispccdc_lsc_pref_comp_handler(void)
 {
-	isp_unset_callback(CBK_LSC_PREF_COMP);
+	if (!ispccdc_obj.lsc_enable)
+		return;
+	isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+		    ~IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
 	__ispccdc_enable(1);
 }
 
@@ -1470,9 +1472,10 @@ static void __ispccdc_enable(u8 enable)
 		if (enable_lsc) {
 			/* Defer CCDC enablement for
 			 * when the prefetch is completed. */
-			isp_set_callback(CBK_LSC_PREF_COMP,
-					 ispccdc_callback_enable_lsc,
-					 (void *)NULL, (void *)NULL);
+			isp_reg_writel(IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ,
+				       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+			isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+				   IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
 			ispccdc_enable_lsc(1);
 			return;
 		}

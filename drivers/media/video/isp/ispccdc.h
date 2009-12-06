@@ -180,6 +180,8 @@ int ispccdc_config_outlineoffset(u32 offset, u8 oddeven, u8 numlines);
 
 int ispccdc_set_outaddr(u32 addr);
 
+void ispccdc_lsc_pref_comp_handler(void);
+
 void ispccdc_lsc_state_handler(unsigned long status);
 
 void ispccdc_enable(u8 enable);
