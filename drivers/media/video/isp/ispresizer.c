@@ -829,7 +829,6 @@ int ispresizer_config_inlineoffset(struct isp_res_device *isp_res, u32 offset)
  **/
 int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr, u32 offset)
 {
-	struct isp_device *isp = to_isp_device(isp_res);
 	struct device *dev = to_device(isp_res);
 
 	DPRINTK_ISPRESZ("ispresizer_set_inaddr()+\n");
