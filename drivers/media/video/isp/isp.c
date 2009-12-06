@@ -995,6 +995,14 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 				irqdis->isp_callbk_arg2[CBK_LSC_PREF_ERR]);
 	}
 
+	if (irqstatus & LSC_DONE) {
+		if (irqdis->isp_callbk[CBK_LSC_DONE])
+			irqdis->isp_callbk[CBK_LSC_DONE](
+				LSC_DONE,
+				irqdis->isp_callbk_arg1[CBK_LSC_DONE],
+				irqdis->isp_callbk_arg2[CBK_LSC_DONE]);
+	}
+
 	if (irqstatus & CSIA) {
 		struct isp_buf *buf = ISP_BUF_DONE(bufs);
 		isp_csi2_isr();
@@ -1115,14 +1123,6 @@ out_ignore_buff:
 				LSC_PRE_COMP,
 				irqdis->isp_callbk_arg1[CBK_LSC_PREF_COMP],
 				irqdis->isp_callbk_arg2[CBK_LSC_PREF_COMP]);
-	}
-
-	if (irqstatus & LSC_DONE) {
-		if (irqdis->isp_callbk[CBK_LSC_DONE])
-			irqdis->isp_callbk[CBK_LSC_DONE](
-				LSC_DONE,
-				irqdis->isp_callbk_arg1[CBK_LSC_DONE],
-				irqdis->isp_callbk_arg2[CBK_LSC_DONE]);
 	}
 
 	spin_unlock_irqrestore(&isp_obj.lock, irqflags);
