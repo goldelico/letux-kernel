@@ -1345,8 +1345,7 @@ int ispccdc_config_size(u32 input_w, u32 input_h, u32 output_w, u32 output_h)
 	isp_reg_writel((((ispccdc_obj.ccdcout_h - 2) &
 			 ISPCCDC_VDINT_0_MASK) <<
 			ISPCCDC_VDINT_0_SHIFT) |
-		       (((ispccdc_obj.ccdcout_h / 2) &
-			 ISPCCDC_VDINT_1_MASK) <<
+		       ((50 & ISPCCDC_VDINT_1_MASK) <<
 			ISPCCDC_VDINT_1_SHIFT),
 		       OMAP3_ISP_IOMEM_CCDC,
 		       ISPCCDC_VDINT);
