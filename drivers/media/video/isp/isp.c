@@ -1256,8 +1256,22 @@ static int __isp_disable_modules(int suspend)
 	unsigned long timeout = jiffies + ISP_STOP_TIMEOUT;
 	int reset = 0;
 
+	/* We need to disble the first LSC module */
+	timeout = jiffies + ISP_STOP_TIMEOUT;
+	while (ispccdc_lsc_delay_stop()) {
+		if (time_after(jiffies, timeout)) {
+			printk(KERN_ERR "%s: can't stop lsc "
+					"disabling lsc anyway. \n", __func__);
+			reset = 1;
+			break;
+		}
+		msleep(1);
+	}
+	/* We can disable lsc now */
+	ispccdc_enable_lsc(0);
+
 	/*
-	 * We need to stop all the modules after CCDC first or they'll
+	 * We need to stop all the modules after CCDC or they'll
 	 * never stop since they may not get a full frame from CCDC.
 	 */
 	if (suspend) {

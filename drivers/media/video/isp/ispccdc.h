@@ -188,6 +188,8 @@ void ispccdc_suspend(void);
 
 void ispccdc_resume(void);
 
+int ispccdc_lsc_delay_stop(void);
+
 int ispccdc_sbl_busy(void);
 
 int ispccdc_busy(void);

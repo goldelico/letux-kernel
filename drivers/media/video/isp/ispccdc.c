@@ -82,6 +82,8 @@ static struct isp_ccdc {
 	enum ispccdc_raw_fmt raw_fmt_in;
 
 	/* LSC related fields */
+	u8 lsc_delay_stop;
+	u8 lsc_enable;
 	u8 update_lsc_config;
 	u8 lsc_request_enable;
 	u8 lsc_defer_setup;
@@ -507,6 +509,21 @@ static void ispccdc_config_lsc(void)
 		       ISPCCDC_LSC_INITIAL);
 }
 
+static void ispccdc_callback_lsc_handler(unsigned long status,
+					isp_vbq_callback_ptr arg1, void *arg2)
+{
+	switch (status) {
+	case CCDC_VD1:
+		ispccdc_obj.lsc_delay_stop = 0;
+		break;
+	case LSC_DONE:
+		ispccdc_obj.lsc_delay_stop = 1;
+		break;
+	default:
+		break;
+	}
+}
+
 /**
  * ispccdc_enable_lsc - Enables/Disables the Lens Shading Compensation module.
  * @enable: 0 Disables LSC, 1 Enables LSC.
@@ -514,6 +531,12 @@ static void ispccdc_config_lsc(void)
 void ispccdc_enable_lsc(u8 enable)
 {
 	if (enable) {
+		/* Set callbacks needed for lsc handler */
+		isp_set_callback(CBK_CCDC_VD1, ispccdc_callback_lsc_handler,
+				 (void *)NULL, (void *)NULL);
+		isp_set_callback(CBK_LSC_DONE, ispccdc_callback_lsc_handler,
+				 (void *)NULL, (void *)NULL);
+
 		isp_reg_or(OMAP3_ISP_IOMEM_MAIN,
 			   ISP_CTRL, ISPCTRL_SBL_SHARED_RPORTB
 			   | ISPCTRL_SBL_RD_RAM_EN);
@@ -530,7 +553,11 @@ void ispccdc_enable_lsc(u8 enable)
 
 		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ);
+
+		isp_unset_callback(CBK_CCDC_VD1);
+		isp_unset_callback(CBK_LSC_DONE);
 	}
+	ispccdc_obj.lsc_enable = enable;
 }
 
 /**
@@ -1432,18 +1459,22 @@ static void ispccdc_callback_enable_lsc(unsigned long status,
 
 static void __ispccdc_enable(u8 enable)
 {
-	int enable_lsc;
-
-	enable_lsc = enable &&
-		     ispccdc_obj.ccdc_inpfmt == CCDC_RAW &&
-		     ispccdc_obj.lsc_request_enable &&
-		     ispccdc_validate_config_lsc(&ispccdc_obj.lsc_config) == 0;
-	if (enable_lsc) {
-		/* Defer CCDC enablement for when the prefetch is completed. */
-		isp_set_callback(CBK_LSC_PREF_COMP, ispccdc_callback_enable_lsc,
-				 (void *)NULL, (void *)NULL);
-		ispccdc_enable_lsc(1);
-		return;
+	if (enable) {
+		int enable_lsc = ispccdc_obj.ccdc_inpfmt == CCDC_RAW &&
+		    ispccdc_obj.lsc_request_enable &&
+		    ispccdc_validate_config_lsc(&ispccdc_obj.lsc_config) == 0;
+		if (enable_lsc) {
+			/* Defer CCDC enablement for
+			 * when the prefetch is completed. */
+			isp_set_callback(CBK_LSC_PREF_COMP,
+					 ispccdc_callback_enable_lsc,
+					 (void *)NULL, (void *)NULL);
+			ispccdc_enable_lsc(1);
+			return;
+		}
+	} else {
+		ispccdc_enable_lsc(0);
+		ispccdc_obj.lsc_request_enable = ispccdc_obj.lsc_enable;
 	}
 	isp_reg_and_or(OMAP3_ISP_IOMEM_CCDC, ISPCCDC_PCR, ~ISPCCDC_PCR_EN,
 		       enable ? ISPCCDC_PCR_EN : 0);
@@ -1511,6 +1542,16 @@ int ispccdc_busy(void)
 		ISPCCDC_PCR_BUSY;
 }
 EXPORT_SYMBOL(ispccdc_busy);
+
+/**
+ * ispccdc_lsc_can_stop - Inidcate if ccdc lsc module can be stopped corectly.
+ **/
+
+int ispccdc_lsc_delay_stop(void)
+{
+	return ispccdc_obj.lsc_delay_stop;
+}
+EXPORT_SYMBOL(ispccdc_lsc_delay_stop);
 
 /**
  * ispccdc_save_context - Saves the values of the CCDC module registers
@@ -1648,6 +1689,7 @@ int __init isp_ccdc_init(void)
 	ispccdc_obj.update_lsc_config = 0;
 	ispccdc_obj.lsc_request_enable = 1;
 	ispccdc_obj.lsc_defer_setup = 0;
+	ispccdc_obj.lsc_delay_stop = 0;
 
 	ispccdc_obj.lsc_config.initial_x = 0;
 	ispccdc_obj.lsc_config.initial_y = 0;
