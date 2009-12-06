@@ -534,6 +534,12 @@ int isp_set_callback(enum isp_callback_type type, isp_callback_t callback,
 		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			   IRQ0ENABLE_HIST_DONE_IRQ);
 		break;
+	case CBK_CCDC_VD1:
+		isp_reg_writel(IRQ0ENABLE_CCDC_VD1_IRQ,
+			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			   IRQ0ENABLE_CCDC_VD1_IRQ);
+		break;
 	case CBK_PREV_DONE:
 		isp_reg_writel(IRQ0ENABLE_PRV_DONE_IRQ,
 			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
@@ -557,6 +563,12 @@ int isp_set_callback(enum isp_callback_type type, isp_callback_t callback,
 			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			   IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
+		break;
+	case CBK_LSC_PREF_ERR:
+		isp_reg_writel(IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ,
+			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ);
 		break;
 	default:
 		break;
@@ -613,6 +625,10 @@ int isp_unset_callback(enum isp_callback_type type)
 		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~IRQ0ENABLE_RSZ_DONE_IRQ);
 		break;
+	case CBK_CCDC_VD1:
+		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			   ~IRQ0ENABLE_CCDC_VD1_IRQ);
+		break;
 	case CBK_LSC_DONE:
 		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~IRQ0ENABLE_CCDC_LSC_DONE_IRQ);
@@ -620,6 +636,10 @@ int isp_unset_callback(enum isp_callback_type type)
 	case CBK_LSC_PREF_COMP:
 		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
+		break;
+	case CBK_LSC_PREF_ERR:
+		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			    ~IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ);
 		break;
 	default:
 		break;
@@ -971,6 +991,11 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 		buf->vb_state = VIDEOBUF_ERROR;
 		ispccdc_lsc_error_handler();
 		printk(KERN_ERR "%s: lsc prefetch error\n", __func__);
+		if (irqdis->isp_callbk[CBK_LSC_PREF_ERR])
+			irqdis->isp_callbk[CBK_LSC_PREF_ERR](
+				LSC_PRE_ERR,
+				irqdis->isp_callbk_arg1[CBK_LSC_PREF_ERR],
+				irqdis->isp_callbk_arg2[CBK_LSC_PREF_ERR]);
 	}
 
 	if (irqstatus & CSIA) {
@@ -992,8 +1017,14 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 			isp_buf_process(bufs);
 	}
 
-	if (irqstatus & CCDC_VD1)
-			ispccdc_config_shadow_registers();
+	if (irqstatus & CCDC_VD1) {
+		if (irqdis->isp_callbk[CBK_CCDC_VD1])
+			irqdis->isp_callbk[CBK_CCDC_VD1](
+				CCDC_VD1,
+				irqdis->isp_callbk_arg1[CBK_CCDC_VD1],
+				irqdis->isp_callbk_arg2[CBK_CCDC_VD1]);
+		ispccdc_config_shadow_registers();
+	}
 
 	if (irqstatus & PREV_DONE) {
 		if (irqdis->isp_callbk[CBK_PREV_DONE])
