@@ -455,8 +455,7 @@ static void isp_enable_interrupts(void)
 
 	isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 		   IRQ0ENABLE_HS_VS_IRQ |
-		   IRQ0ENABLE_CCDC_VD0_IRQ |
-		   IRQ0ENABLE_CCDC_VD1_IRQ);
+		   IRQ0ENABLE_CCDC_VD0_IRQ);
 
 	if (CCDC_PREV_CAPTURE(&isp_obj))
 		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
@@ -474,8 +473,7 @@ static void isp_disable_interrupts(void)
 {
 	isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 		~(IRQ0ENABLE_HS_VS_IRQ |
-		  IRQ0ENABLE_CCDC_VD0_IRQ |
-		  IRQ0ENABLE_CCDC_VD1_IRQ));
+		IRQ0ENABLE_CCDC_VD0_IRQ));
 
 	if (CCDC_PREV_CAPTURE(&isp_obj))
 		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
@@ -989,7 +987,6 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 		struct isp_buf *buf = ISP_BUF_DONE(bufs);
 		/* Mark buffer faulty. */
 		buf->vb_state = VIDEOBUF_ERROR;
-		ispccdc_lsc_error_handler();
 		printk(KERN_ERR "%s: lsc prefetch error\n", __func__);
 		if (irqdis->isp_callbk[CBK_LSC_PREF_ERR])
 			irqdis->isp_callbk[CBK_LSC_PREF_ERR](
@@ -1017,14 +1014,12 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 			isp_buf_process(bufs);
 	}
 
-	if (irqstatus & CCDC_VD1) {
+	if (irqstatus & CCDC_VD1)
 		if (irqdis->isp_callbk[CBK_CCDC_VD1])
 			irqdis->isp_callbk[CBK_CCDC_VD1](
 				CCDC_VD1,
 				irqdis->isp_callbk_arg1[CBK_CCDC_VD1],
 				irqdis->isp_callbk_arg2[CBK_CCDC_VD1]);
-		ispccdc_config_shadow_registers();
-	}
 
 	if (irqstatus & PREV_DONE) {
 		if (irqdis->isp_callbk[CBK_PREV_DONE])

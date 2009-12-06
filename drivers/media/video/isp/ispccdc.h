@@ -168,8 +168,6 @@ void ispccdc_enable_alaw(u8 enable);
 
 void ispccdc_enable_lsc(u8 enable);
 
-void ispccdc_lsc_error_handler(void);
-
 void ispccdc_config_imgattr(u32 colptn);
 
 void ispccdc_config_shadow_registers(void);

@@ -515,10 +515,20 @@ static void ispccdc_callback_lsc_handler(unsigned long status,
 	switch (status) {
 	case CCDC_VD1:
 		ispccdc_obj.lsc_delay_stop = 0;
+		/* The only thing we update in config
+		 * shadow registers is LSC, next step
+		 * is to remove this fucntion and put updates
+		 * in this handler */
+		ispccdc_config_shadow_registers();
 		break;
 	case LSC_DONE:
 		ispccdc_obj.lsc_delay_stop = 1;
 		break;
+	case LSC_PRE_ERR:
+		/* If we have LSC prefetch error LSC enigne is block
+		 * and only way it can recover is sw reset of isp */
+		ispccdc_enable_lsc(0);
+		ispccdc_obj.lsc_delay_stop = 1;
 	default:
 		break;
 	}
@@ -532,6 +542,8 @@ void ispccdc_enable_lsc(u8 enable)
 {
 	if (enable) {
 		/* Set callbacks needed for lsc handler */
+		isp_set_callback(CBK_LSC_PREF_ERR, ispccdc_callback_lsc_handler,
+				 (void *)NULL, (void *)NULL);
 		isp_set_callback(CBK_CCDC_VD1, ispccdc_callback_lsc_handler,
 				 (void *)NULL, (void *)NULL);
 		isp_set_callback(CBK_LSC_DONE, ispccdc_callback_lsc_handler,
@@ -541,9 +553,6 @@ void ispccdc_enable_lsc(u8 enable)
 			   ISP_CTRL, ISPCTRL_SBL_SHARED_RPORTB
 			   | ISPCTRL_SBL_RD_RAM_EN);
 
-		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			   IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ);
-
 		isp_reg_or(OMAP3_ISP_IOMEM_CCDC,
 			   ISPCCDC_LSC_CONFIG, ISPCCDC_LSC_ENABLE);
 		ispccdc_obj.lsc_request_enable = 0;
@@ -551,9 +560,7 @@ void ispccdc_enable_lsc(u8 enable)
 		isp_reg_and(OMAP3_ISP_IOMEM_CCDC,
 			    ISPCCDC_LSC_CONFIG, ~ISPCCDC_LSC_ENABLE);
 
-		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			    ~IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ);
-
+		isp_unset_callback(CBK_LSC_PREF_ERR);
 		isp_unset_callback(CBK_CCDC_VD1);
 		isp_unset_callback(CBK_LSC_DONE);
 	}
@@ -583,11 +590,6 @@ static void ispccdc_setup_lsc(void)
 		ispccdc_program_lsc();
 	}
 	ispccdc_obj.update_lsc_config = 0;
-}
-
-void ispccdc_lsc_error_handler(void)
-{
-	ispccdc_enable_lsc(0);
 }
 
 /**
