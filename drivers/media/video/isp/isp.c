@@ -1566,16 +1566,17 @@ static int isp_buf_process(struct isp_bufs *bufs)
 	} else {
 		/* Tell ISP not to write any of our buffers. */
 		isp_disable_interrupts();
-		if (CCDC_PREV_CAPTURE(&isp_obj))
-			isppreview_enable(0);
-		else if (CCDC_PREV_RESZ_CAPTURE(&isp_obj))
-			ispresizer_enable(0);
 		/*
-		 * We must wait for the HS_VS since before that the
+		 * We must wait for one HS_VS since before that the
 		 * CCDC may trigger interrupts even if it's not
 		 * receiving a frame.
 		 */
-		bufs->wait_hs_vs = isp_obj.config->wait_hs_vs;
+		if (CCDC_CAPTURE(&isp_obj))
+			bufs->wait_hs_vs = 1;
+		else if (CCDC_PREV_CAPTURE(&isp_obj))
+			isppreview_enable(0);
+		else if (CCDC_PREV_RESZ_CAPTURE(&isp_obj))
+			ispresizer_enable(0);
 	}
 	if ((CCDC_CAPTURE(&isp_obj) && ispccdc_busy()) ||
 		(CCDC_PREV_RESZ_CAPTURE(&isp_obj) && ispresizer_busy()) ||
