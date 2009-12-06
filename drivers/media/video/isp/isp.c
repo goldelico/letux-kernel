@@ -1165,9 +1165,6 @@ static u32 isp_tmp_buf_alloc(size_t size)
 	}
 	isp_obj.tmp_buf_size = size;
 
-	isppreview_set_outaddr(isp_obj.tmp_buf);
-	ispresizer_set_inaddr(isp_obj.tmp_buf);
-
 	return 0;
 }
 
@@ -1622,9 +1619,14 @@ int isp_vbq_setup(struct videobuf_queue *vbq, unsigned int *cnt,
 				     * isp_obj.module.preview_output_height
 				     * ISP_BYTES_PER_PIXEL);
 
-	if (CCDC_PREV_RESZ_CAPTURE(&isp_obj) &&
-	    isp_obj.tmp_buf_size < tmp_size)
-		rval = isp_tmp_buf_alloc(tmp_size);
+	if (CCDC_PREV_RESZ_CAPTURE(&isp_obj)) {
+		if (isp_obj.tmp_buf_size < tmp_size)
+			rval = isp_tmp_buf_alloc(tmp_size);
+		if (!rval) {
+			isppreview_set_outaddr(isp_obj.tmp_buf);
+			ispresizer_set_inaddr(isp_obj.tmp_buf);
+		}
+	}
 
 	return rval;
 }
