@@ -1022,12 +1022,17 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 			isp_buf_process(bufs);
 	}
 
-	if (irqstatus & CCDC_VD1)
+	if (irqstatus & CCDC_VD1) {
 		if (irqdis->isp_callbk[CBK_CCDC_VD1])
 			irqdis->isp_callbk[CBK_CCDC_VD1](
 				CCDC_VD1,
 				irqdis->isp_callbk_arg1[CBK_CCDC_VD1],
 				irqdis->isp_callbk_arg2[CBK_CCDC_VD1]);
+		/* If we make raw capture Stop CCDC
+		 * together with LSC before EOF */
+		if (CCDC_CAPTURE(&isp_obj))
+			ispccdc_enable(0);
+	}
 
 	if (irqstatus & PREV_DONE) {
 		if (irqdis->isp_callbk[CBK_PREV_DONE])
@@ -1541,7 +1546,6 @@ static int isp_buf_process(struct isp_bufs *bufs)
 		goto out;
 
 	if (CCDC_CAPTURE(&isp_obj)) {
-		ispccdc_enable(0);
 		if (ispccdc_sbl_wait_idle(1000)) {
 			ispccdc_enable(1);
 			printk(KERN_ERR "ccdc %d won't become idle!\n",
