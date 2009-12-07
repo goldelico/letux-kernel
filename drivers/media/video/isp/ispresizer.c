@@ -383,8 +383,8 @@ int ispresizer_try_size(u32 *input_width, u32 *input_height, u32 *output_w,
 		if (rsz < MINIMUM_RESIZE_VALUE) {
 			rsz = MINIMUM_RESIZE_VALUE;
 			*output_h = (((input_h - 4) * 256) / rsz) + 1;
-			printk(KERN_INFO "%s: using output_h %d instead\n",
-			       __func__, *output_h);
+			DPRINTK_ISPRESZ("%s: using output_h"
+				"%d instead\n", __func__, *output_h);
 		}
 	} else {
 		rsz = rsz_7;
@@ -393,8 +393,8 @@ int ispresizer_try_size(u32 *input_width, u32 *input_height, u32 *output_w,
 		if (rsz > MAXIMUM_RESIZE_VALUE) {
 			rsz = MAXIMUM_RESIZE_VALUE;
 			*output_h = (((input_h - 7) * 256) / rsz) + 1;
-			printk(KERN_INFO "%s: using output_h %d instead\n",
-			       __func__, *output_h);
+			DPRINTK_ISPRESZ("%s: using output_h"
+				"%d instead\n", __func__, *output_h);
 		}
 	}
 
@@ -425,8 +425,8 @@ int ispresizer_try_size(u32 *input_width, u32 *input_height, u32 *output_w,
 			rsz = MAXIMUM_RESIZE_VALUE;
 			*output_w = (((input_w - 7) * 256) / rsz) + 1;
 			*output_w = (*output_w + 0xf) & 0xfffffff0;
-			printk(KERN_INFO "%s: using output_w %d instead\n",
-			       __func__, *output_w);
+			DPRINTK_ISPRESZ("%s: using output_w"
+				"%d instead\n", __func__, *output_w);
 		}
 	} else {
 		rsz = rsz_4;
@@ -434,8 +434,8 @@ int ispresizer_try_size(u32 *input_width, u32 *input_height, u32 *output_w,
 			rsz = MINIMUM_RESIZE_VALUE;
 			*output_w = (((input_w - 4) * 256) / rsz) + 1;
 			*output_w = (*output_w + 0xf) & 0xfffffff0;
-			printk(KERN_INFO "%s: using output_w %d instead\n",
-			       __func__, *output_w);
+			DPRINTK_ISPRESZ("%s: using output_w %d"
+				"instead\n", __func__, *output_w);
 		}
 	}
 
