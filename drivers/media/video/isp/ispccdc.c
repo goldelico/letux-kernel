@@ -509,9 +509,10 @@ static void ispccdc_config_lsc(void)
 		       ISPCCDC_LSC_INITIAL);
 }
 
-static void ispccdc_callback_lsc_handler(unsigned long status,
-					isp_vbq_callback_ptr arg1, void *arg2)
+void ispccdc_lsc_state_handler(unsigned long status)
 {
+	if (!ispccdc_obj.lsc_enable)
+		return;
 	switch (status) {
 	case CCDC_VD1:
 		ispccdc_obj.lsc_delay_stop = 0;
@@ -541,13 +542,14 @@ static void ispccdc_callback_lsc_handler(unsigned long status,
 void ispccdc_enable_lsc(u8 enable)
 {
 	if (enable) {
-		/* Set callbacks needed for lsc handler */
-		isp_set_callback(CBK_LSC_PREF_ERR, ispccdc_callback_lsc_handler,
-				 (void *)NULL, (void *)NULL);
-		isp_set_callback(CBK_CCDC_VD1, ispccdc_callback_lsc_handler,
-				 (void *)NULL, (void *)NULL);
-		isp_set_callback(CBK_LSC_DONE, ispccdc_callback_lsc_handler,
-				 (void *)NULL, (void *)NULL);
+		isp_reg_writel(IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ |
+			       IRQ0ENABLE_CCDC_LSC_DONE_IRQ |
+			       IRQ0ENABLE_CCDC_VD1_IRQ,
+			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
+			IRQ0ENABLE_CCDC_LSC_DONE_IRQ |
+			IRQ0ENABLE_CCDC_VD1_IRQ);
 
 		isp_reg_or(OMAP3_ISP_IOMEM_MAIN,
 			   ISP_CTRL, ISPCTRL_SBL_SHARED_RPORTB
@@ -560,9 +562,10 @@ void ispccdc_enable_lsc(u8 enable)
 		isp_reg_and(OMAP3_ISP_IOMEM_CCDC,
 			    ISPCCDC_LSC_CONFIG, ~ISPCCDC_LSC_ENABLE);
 
-		isp_unset_callback(CBK_LSC_PREF_ERR);
-		isp_unset_callback(CBK_CCDC_VD1);
-		isp_unset_callback(CBK_LSC_DONE);
+		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			    ~(IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
+			      IRQ0ENABLE_CCDC_LSC_DONE_IRQ |
+			      IRQ0ENABLE_CCDC_VD1_IRQ));
 	}
 	ispccdc_obj.lsc_enable = enable;
 }

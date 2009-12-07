@@ -532,12 +532,6 @@ int isp_set_callback(enum isp_callback_type type, isp_callback_t callback,
 		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			   IRQ0ENABLE_HIST_DONE_IRQ);
 		break;
-	case CBK_CCDC_VD1:
-		isp_reg_writel(IRQ0ENABLE_CCDC_VD1_IRQ,
-			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
-		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			   IRQ0ENABLE_CCDC_VD1_IRQ);
-		break;
 	case CBK_PREV_DONE:
 		isp_reg_writel(IRQ0ENABLE_PRV_DONE_IRQ,
 			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
@@ -550,23 +544,11 @@ int isp_set_callback(enum isp_callback_type type, isp_callback_t callback,
 		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			   IRQ0ENABLE_RSZ_DONE_IRQ);
 		break;
-	case CBK_LSC_DONE:
-		isp_reg_writel(IRQ0ENABLE_CCDC_LSC_DONE_IRQ,
-			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
-		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			   IRQ0ENABLE_CCDC_LSC_DONE_IRQ);
-		break;
 	case CBK_LSC_PREF_COMP:
 		isp_reg_writel(IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ,
 			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			   IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
-		break;
-	case CBK_LSC_PREF_ERR:
-		isp_reg_writel(IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ,
-			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
-		isp_reg_or(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ);
 		break;
 	default:
 		break;
@@ -623,21 +605,9 @@ int isp_unset_callback(enum isp_callback_type type)
 		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~IRQ0ENABLE_RSZ_DONE_IRQ);
 		break;
-	case CBK_CCDC_VD1:
-		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			   ~IRQ0ENABLE_CCDC_VD1_IRQ);
-		break;
-	case CBK_LSC_DONE:
-		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			    ~IRQ0ENABLE_CCDC_LSC_DONE_IRQ);
-		break;
 	case CBK_LSC_PREF_COMP:
 		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
-		break;
-	case CBK_LSC_PREF_ERR:
-		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			    ~IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ);
 		break;
 	default:
 		break;
@@ -988,20 +958,11 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 		/* Mark buffer faulty. */
 		buf->vb_state = VIDEOBUF_ERROR;
 		printk(KERN_ERR "%s: lsc prefetch error\n", __func__);
-		if (irqdis->isp_callbk[CBK_LSC_PREF_ERR])
-			irqdis->isp_callbk[CBK_LSC_PREF_ERR](
-				LSC_PRE_ERR,
-				irqdis->isp_callbk_arg1[CBK_LSC_PREF_ERR],
-				irqdis->isp_callbk_arg2[CBK_LSC_PREF_ERR]);
+		ispccdc_lsc_state_handler(LSC_PRE_ERR);
 	}
 
-	if (irqstatus & LSC_DONE) {
-		if (irqdis->isp_callbk[CBK_LSC_DONE])
-			irqdis->isp_callbk[CBK_LSC_DONE](
-				LSC_DONE,
-				irqdis->isp_callbk_arg1[CBK_LSC_DONE],
-				irqdis->isp_callbk_arg2[CBK_LSC_DONE]);
-	}
+	if (irqstatus & LSC_DONE)
+		ispccdc_lsc_state_handler(LSC_DONE);
 
 	if (irqstatus & CSIA) {
 		struct isp_buf *buf = ISP_BUF_DONE(bufs);
@@ -1023,11 +984,7 @@ static irqreturn_t omap34xx_isp_isr(int irq, void *_isp)
 	}
 
 	if (irqstatus & CCDC_VD1) {
-		if (irqdis->isp_callbk[CBK_CCDC_VD1])
-			irqdis->isp_callbk[CBK_CCDC_VD1](
-				CCDC_VD1,
-				irqdis->isp_callbk_arg1[CBK_CCDC_VD1],
-				irqdis->isp_callbk_arg2[CBK_CCDC_VD1]);
+		ispccdc_lsc_state_handler(CCDC_VD1);
 		/* If we make raw capture Stop CCDC
 		 * together with LSC before EOF */
 		if (CCDC_CAPTURE(&isp_obj))
