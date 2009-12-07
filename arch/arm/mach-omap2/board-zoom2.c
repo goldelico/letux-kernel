@@ -769,11 +769,13 @@ static struct twl4030_hsmmc_info mmc[] __initdata = {
 		.wires		= 4,
 		.gpio_wp	= -EINVAL,
 	},
+#ifdef CONFIG_OMAP_HS_MMC2
 	{
 		.mmc		= 2,
 		.wires		= 4,
 		.gpio_wp	= -EINVAL,
 	},
+#endif
 	{
 		.mmc		= 3,
 		.wires		= 4,
