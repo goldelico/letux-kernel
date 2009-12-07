@@ -31,12 +31,12 @@
 #include <plat/mux.h>
 
 #include "mcpdm.h"
-#include "omap-mcpdm.h"
+#include "omap-abe.h"
 #include "omap-pcm.h"
 #include "../codecs/abe-twl6030.h"
 #include "../codecs/twl6030.h"
 
-static struct snd_soc_dai_link sdp4430_dai;
+static struct snd_soc_dai_link sdp4430_dai[];
 static struct snd_soc_card snd_soc_sdp4430;
 static int twl6030_power_mode;
 
@@ -65,7 +65,7 @@ static int sdp4430_set_power_mode(struct snd_kcontrol *kcontrol,
 	}
 
 	/* set the codec mclk */
-	ret = snd_soc_dai_set_sysclk(sdp4430_dai.codec_dai, clk_id, freq,
+	ret = snd_soc_dai_set_sysclk(sdp4430_dai[0].codec_dai, clk_id, freq,
 				SND_SOC_CLOCK_IN);
 	if (ret) {
 		printk(KERN_ERR "can't set codec system clock\n");
@@ -150,20 +150,46 @@ static int sdp4430_twl6030_init(struct snd_soc_codec *codec)
 }
 
 /* Digital audio interface glue - connects codec <--> CPU */
-static struct snd_soc_dai_link sdp4430_dai = {
-	.name = "ABE-TWL6030",
-	.stream_name = "ABE-TWL6030",
-	.cpu_dai = &omap_mcpdm_dai,
-	.codec_dai = &abe_dai,
-	.init = sdp4430_twl6030_init,
+static struct snd_soc_dai_link sdp4430_dai[] = {
+	{
+		.name = "abe-twl6030",
+		.stream_name = "Multimedia",
+		.cpu_dai = &omap_abe_dai[OMAP_ABE_MM_DAI],
+		.codec_dai = &abe_dai[0],
+		.init = sdp4430_twl6030_init,
+	},
+	{
+		.name = "abe-twl6030",
+		.stream_name = "Tones DL",
+		.cpu_dai = &omap_abe_dai[OMAP_ABE_TONES_DL_DAI],
+		.codec_dai = &abe_dai[1],
+	},
+	{
+		.name = "abe-twl6030",
+		.stream_name = "Voice",
+		.cpu_dai = &omap_abe_dai[OMAP_ABE_VOICE_DAI],
+		.codec_dai = &abe_dai[2],
+	},
+	{
+		.name = "abe-twl6030",
+		.stream_name = "Digital Uplink",
+		.cpu_dai = &omap_abe_dai[OMAP_ABE_DIG_UPLINK_DAI],
+		.codec_dai = &abe_dai[3],
+	},
+	{
+		.name = "abe-twl6030",
+		.stream_name = "Vibrator",
+		.cpu_dai = &omap_abe_dai[OMAP_ABE_VIB_DAI],
+		.codec_dai = &abe_dai[4],
+	},
 };
 
 /* Audio machine driver */
 static struct snd_soc_card snd_soc_sdp4430 = {
 	.name = "SDP4430",
 	.platform = &omap_soc_platform,
-	.dai_link = &sdp4430_dai,
-	.num_links = 1,
+	.dai_link = sdp4430_dai,
+	.num_links = ARRAY_SIZE(sdp4430_dai),
 };
 
 /* Audio subsystem */
@@ -197,7 +223,7 @@ static int __init sdp4430_soc_init(void)
 	if (ret)
 		goto err;
 
-	ret = snd_soc_dai_set_sysclk(sdp4430_dai.codec_dai,
+	ret = snd_soc_dai_set_sysclk(sdp4430_dai[0].codec_dai,
 				TWL6030_SYSCLK_SEL_HPPLL, 12000000,
 				SND_SOC_CLOCK_IN);
 	if (ret) {
