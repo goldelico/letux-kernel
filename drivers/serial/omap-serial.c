@@ -719,6 +719,9 @@ serial_omap_configure_xonxoff
 	serial_out(up, UART_XON1, termios->c_cc[VSTART]);
 	serial_out(up, UART_XOFF1, termios->c_cc[VSTOP]);
 
+	/* clear SW control mode bits */
+	efr = up->efr & 0xf0;
+
 	/* IXON Flag:
 	 * Enable XON/XOFF flow control on output.
 	 * Transmit XON1, XOFF1
@@ -754,7 +757,7 @@ serial_omap_configure_xonxoff
 	 * load the new software flow control mode IXON or IXOFF
 	 * and restore the UARTi.EFR_REG[4] ENHANCED_EN value.
 	 */
-	serial_out(up, UART_EFR, up->efr | efr | 1<<5);
+	serial_out(up, UART_EFR, efr | 1<<5);
 	serial_out(up, UART_LCR, 0x80);
 
 	serial_out(up, UART_MCR, up->mcr & ~(1<<6));
