@@ -524,9 +524,6 @@ static int _omap3_noncore_dpll_lock(struct clk *clk)
 	u8 ai;
 	int r;
 
-	if (clk == &dpll3_ck)
-		return -EINVAL;
-
 	pr_debug("clock: locking DPLL %s\n", clk->name);
 
 	ai = omap3_dpll_autoidle_read(clk);
@@ -561,9 +558,6 @@ static int _omap3_noncore_dpll_bypass(struct clk *clk)
 	int r;
 	u8 ai;
 
-	if (clk == &dpll3_ck)
-		return -EINVAL;
-
 	if (!(clk->dpll_data->modes & (1 << DPLL_LOW_POWER_BYPASS)))
 		return -EINVAL;
 
@@ -596,9 +590,6 @@ static int _omap3_noncore_dpll_bypass(struct clk *clk)
 static int _omap3_noncore_dpll_stop(struct clk *clk)
 {
 	u8 ai;
-
-	if (clk == &dpll3_ck)
-		return -EINVAL;
 
 	if (!(clk->dpll_data->modes & (1 << DPLL_LOW_POWER_STOP)))
 		return -EINVAL;
@@ -636,9 +627,6 @@ static int omap3_noncore_dpll_enable(struct clk *clk)
 	int r;
 	struct dpll_data *dd;
 
-	if (clk == &dpll3_ck)
-		return -EINVAL;
-
 	dd = clk->dpll_data;
 	if (!dd)
 		return -EINVAL;
@@ -673,9 +661,6 @@ static int omap3_noncore_dpll_enable(struct clk *clk)
  */
 static void omap3_noncore_dpll_disable(struct clk *clk)
 {
-	if (clk == &dpll3_ck)
-		return;
-
 	_omap3_noncore_dpll_stop(clk);
 }
 
@@ -846,9 +831,6 @@ static int omap3_core_dpll_m2_set_rate(struct clk *clk, unsigned long rate)
 	int ret;
 
 	if (!clk || !rate)
-		return -EINVAL;
-
-	if (clk != &dpll3_m2_ck)
 		return -EINVAL;
 
 	validrate = omap2_clksel_round_rate_div(clk, rate, &new_div);
