@@ -2105,8 +2105,14 @@ static int vidioc_streamon(struct file *file, void *fh,
 
 #ifdef CONFIG_PM
 	if (pdata->set_min_bus_tput)
-		pdata->set_min_bus_tput(vout->dev , OCP_INITIATOR_AGENT,
-							166 * 1000 * 4);
+		if (cpu_is_omap3630()) {
+			pdata->set_min_bus_tput(vout->dev , OCP_INITIATOR_AGENT,
+								200 * 1000 * 4);
+		} else {
+			pdata->set_min_bus_tput(vout->dev , OCP_INITIATOR_AGENT,
+								166 * 1000 * 4);
+		}
+
 	/*
 	* Setting VDD1 at OPP3 Frequency to get better performance
 	* on streamon.
