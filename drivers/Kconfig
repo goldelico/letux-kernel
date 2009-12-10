@@ -118,6 +118,8 @@ source "drivers/platform/Kconfig"
 
 source "drivers/media/video/dmm/Kconfig"
 
+source "drivers/media/video/tiler/Kconfig"
+
 source "drivers/dsp/syslink/Kconfig"
 
 endmenu
