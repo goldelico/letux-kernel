@@ -225,12 +225,12 @@ static int usb_hcd_omap_probe(const struct hc_driver *driver,
 						OMAP_USBTLL_SYSCONFIG);
 
 
-	/* Put UHH in SmartIdle/SmartStandby mode */
+	/* Put UHH in NoIdle/NoStandby mode */
 	omap_writel((1 << OMAP_UHH_SYSCONFIG_AUTOIDLE_SHIFT) |
 			(1 << OMAP_UHH_SYSCONFIG_ENAWAKEUP_SHIFT) |
-			(2 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT) |
+			(1 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT) |
 			(0 << OMAP_UHH_SYSCONFIG_CACTIVITY_SHIFT) |
-			(2 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT),
+			(1 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT),
 						OMAP_UHH_SYSCONFIG);
 
 #ifdef CONFIG_OMAP_OHCI_PHY_MODE
@@ -627,8 +627,8 @@ static int omap_ohci_bus_suspend(struct usb_hcd *hcd)
 {
 	struct ohci_omap_clock_defs *ohci_clocks;
 	int ret = 0;
+	u32 uhh_sysconfig;
 
-printk("\n --> omap_ohci_bus_suspend() \n");
 	ohci_clocks = (struct ohci_omap_clock_defs *)
 			(((char *)hcd_to_ohci(hcd)) + sizeof(struct ohci_hcd));
 
@@ -637,10 +637,21 @@ printk("\n --> omap_ohci_bus_suspend() \n");
 		if (ret)
 			return ret;
 		mdelay(8); /* MSTANDBY assertion delayed by ~8ms */
+
+		/* Need to set ForceStandby,ForceIdle here
+		 * else the domain may not be able to transition
+		 * back during clk_enable if there was a pending event.
+		 */
+
+		uhh_sysconfig = omap_readl(OMAP_UHH_SYSCONFIG);
+		uhh_sysconfig &= ~(3 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT);
+		uhh_sysconfig &= ~(3 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT);
+		omap_writel(uhh_sysconfig, OMAP_UHH_SYSCONFIG);
+
 		ohci_context_save();
 		clk_disable(ohci_clocks->usbhost_ick_clk);
-		clk_disable(ohci_clocks->usbhost1_48m_fck_clk);
 		clk_disable(ohci_clocks->usbhost2_120m_fck_clk);
+		clk_disable(ohci_clocks->usbhost1_48m_fck_clk);
 		clk_disable(ohci_clocks->usbtll_ick_clk);
 		clk_disable(ohci_clocks->usbtll_fck_clk);
 		ohci_clocks->suspended = 1;
@@ -654,8 +665,8 @@ static int omap_ohci_bus_resume(struct usb_hcd *hcd)
 {
 	struct ohci_omap_clock_defs *ohci_clocks;
 	int ret = 0;
+	u32 uhh_sysconfig;
 
-printk("\n --> omap_ohci_bus_resume() \n");
 	ohci_clocks = (struct ohci_omap_clock_defs *)
 			(((char *)hcd_to_ohci(hcd)) + sizeof(struct ohci_hcd));
 
@@ -669,6 +680,18 @@ printk("\n --> omap_ohci_bus_resume() \n");
 		clk_enable(ohci_clocks->usbhost1_48m_fck_clk);
 		ohci_clocks->suspended = 0;
 		set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+
+		/* Need to set back to NoStandby,Noidle
+		 * FIXME: Maybe SmartIdle, SmartStandby will also work
+		 */
+
+		uhh_sysconfig = omap_readl(OMAP_UHH_SYSCONFIG);
+		uhh_sysconfig &= ~(3 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT);
+		uhh_sysconfig &= ~(3 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT);
+		uhh_sysconfig |= (1 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT);
+		uhh_sysconfig |= (1 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT);
+		omap_writel(uhh_sysconfig, OMAP_UHH_SYSCONFIG);
+
 		ret = ohci_bus_resume(hcd);
 	}
 
