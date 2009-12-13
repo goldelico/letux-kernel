@@ -637,7 +637,7 @@ int  messageq_transportshm_put(void *mqtshm_handle,
 	}
 
 	status = notify_sendevent(obj->notify_driver, obj->proc_id,
-					obj->notify_event_no, 0, false);
+					obj->notify_event_no, 0, true);
 	if (status < 0)
 		goto notify_send_fail;
 	else
