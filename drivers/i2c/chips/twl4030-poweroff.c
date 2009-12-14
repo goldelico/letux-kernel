@@ -41,8 +41,7 @@ void twl4030_poweroff(void)
 	err = twl_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &val,
 				   CFG_P123_TRANSITION);
 	if (err) {
-		printk(KERN_WARNING "I2C error %d while reading TWL4030"
-					"PM_MASTER CFG_P123_TRANSITION\n", err);
+		pr_warning("I2C error %d while reading TWL4030 PM_MASTER CFG_P123_TRANSITION\n", err);
 		return;
 	}
 
@@ -50,16 +49,14 @@ void twl4030_poweroff(void)
 	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, &val,
 				    CFG_P123_TRANSITION);
 	if (err) {
-		printk(KERN_WARNING "I2C error %d while writing TWL4030"
-					"PM_MASTER CFG_P123_TRANSITION\n", err);
+		pr_warning("I2C error %d while writing TWL4030 PM_MASTER CFG_P123_TRANSITION\n", err);
 		return;
 	}
 
 	err = twl_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &val,
 				  PWR_P1_SW_EVENTS);
 	if (err) {
-		printk(KERN_WARNING "I2C error %d while reading TWL4030"
-					"PM_MASTER P1_SW_EVENTS\n", err);
+		pr_warning("I2C error %d while reading TWL4030 PM_MASTER P1_SW_EVENTS\n", err);
 		return;
 	}
 
@@ -69,8 +66,7 @@ void twl4030_poweroff(void)
 				   PWR_P1_SW_EVENTS);
 
 	if (err) {
-		printk(KERN_WARNING "I2C error %d while writing TWL4030"
-					"PM_MASTER P1_SW_EVENTS\n", err);
+		pr_warning("I2C error %d while writing TWL4030 PM_MASTER P1_SW_EVENTS\n", err);
 		return;
 	}
 
