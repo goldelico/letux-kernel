@@ -1047,8 +1047,11 @@ u32 PROCWRAP_Map(union Trapped_Args *args, void *pr_ctxt)
 			 args->ARGS_PROC_MAPMEM.pReqAddr, &pMapAddr,
 			 args->ARGS_PROC_MAPMEM.ulMapAttr, pr_ctxt);
 	if (DSP_SUCCEEDED(status)) {
-		if (put_user(pMapAddr, args->ARGS_PROC_MAPMEM.ppMapAddr))
+		if (put_user(pMapAddr, args->ARGS_PROC_MAPMEM.ppMapAddr)) {
 			status = DSP_EINVALIDARG;
+			PROC_UnMap(args->ARGS_PROC_MAPMEM.hProcessor,
+				pMapAddr, pr_ctxt);
+		}
 
 	}
 	return status;
@@ -1093,9 +1096,13 @@ u32 PROCWRAP_ReserveMemory(union Trapped_Args *args, void *pr_ctxt)
 	GT_0trace(WCD_debugMask, GT_ENTER, "PROCWRAP_ReserveMemory: entered\n");
 	status = PROC_ReserveMemory(args->ARGS_PROC_RSVMEM.hProcessor,
 				   args->ARGS_PROC_RSVMEM.ulSize, &pRsvAddr);
-	if (put_user(pRsvAddr, args->ARGS_PROC_RSVMEM.ppRsvAddr))
-		status = DSP_EINVALIDARG;
-
+	if (DSP_SUCCEEDED(status)) {
+		if (put_user(pRsvAddr, args->ARGS_PROC_RSVMEM.ppRsvAddr)) {
+			status = DSP_EINVALIDARG;
+			PROC_UnReserveMemory(args->ARGS_PROC_RSVMEM.hProcessor,
+				pRsvAddr);
+		}
+	}
 	return status;
 }
 
@@ -1198,7 +1205,13 @@ u32 NODEWRAP_Allocate(union Trapped_Args *args, void *pr_ctxt)
 				      &nodeId, (struct DSP_CBDATA *)pArgs,
 				      pAttrIn, &hNode, pr_ctxt);
 	}
-	cp_to_usr(args->ARGS_NODE_ALLOCATE.phNode, &hNode, status, 1);
+	if (DSP_SUCCEEDED(status)) {
+		cp_to_usr(args->ARGS_NODE_ALLOCATE.phNode, &hNode, status, 1);
+		if (DSP_FAILED(status)) {
+			status = DSP_EPOINTER;
+			NODE_Delete(hNode, pr_ctxt);
+		}
+	}
 func_cont:
 	if (pArgs)
 		MEM_Free(pArgs);
@@ -1532,8 +1545,16 @@ u32 STRMWRAP_AllocateBuffer(union Trapped_Args *args, void *pr_ctxt)
 	status = STRM_AllocateBuffer(args->ARGS_STRM_ALLOCATEBUFFER.hStream,
 				     args->ARGS_STRM_ALLOCATEBUFFER.uSize,
 				     apBuffer, uNumBufs, pr_ctxt);
-	cp_to_usr(args->ARGS_STRM_ALLOCATEBUFFER.apBuffer, apBuffer, status,
-		 uNumBufs);
+	if (DSP_SUCCEEDED(status)) {
+		cp_to_usr(args->ARGS_STRM_ALLOCATEBUFFER.apBuffer, apBuffer,
+			status, uNumBufs);
+		if (DSP_FAILED(status)) {
+			status = DSP_EPOINTER;
+			STRM_FreeBuffer(
+				args->ARGS_STRM_ALLOCATEBUFFER.hStream,
+				apBuffer, uNumBufs, pr_ctxt);
+		}
+	}
 	if (apBuffer)
 		MEM_Free(apBuffer);
 
