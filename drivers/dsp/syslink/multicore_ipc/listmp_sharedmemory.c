@@ -809,7 +809,7 @@ bool listmp_sharedmemory_empty(listmp_sharedmemory_handle listmp_handle)
 	/*! @retval true if list is empty */
 	sharedHead = (struct listmp_elem *)(sharedregion_get_srptr(
 				(void *)obj->listmp_elem, obj->index));
-
+	dsb();
 	if (obj->listmp_elem->next == sharedHead)
 		is_empty = true;
 
@@ -856,6 +856,7 @@ void *listmp_sharedmemory_get_head(listmp_sharedmemory_handle listmp_handle)
 	}
 
 	localHeadNext = sharedregion_get_ptr((u32 *)obj->listmp_elem->next);
+	dsb();
 	/* See if the listmp_sharedmemory_object was empty */
 	if (localHeadNext == (struct listmp_elem *)obj->listmp_elem) {
 		/*! @retval NULL if list is empty */
@@ -863,14 +864,14 @@ void *listmp_sharedmemory_get_head(listmp_sharedmemory_handle listmp_handle)
 	} else {
 		/* Elem to return */
 		elem = localHeadNext;
-
+		dsb();
 		localNext = sharedregion_get_ptr((u32 *)elem->next);
 		sharedHead = (struct listmp_elem *) sharedregion_get_srptr(
 				(void *)obj->listmp_elem, obj->index);
 
 		/* Fix the head of the list next pointer */
 		obj->listmp_elem->next = elem->next;
-
+		dsb();
 		/* Fix the prev pointer of the new first elem on the
 		list */
 		localNext->prev = sharedHead;
@@ -979,12 +980,12 @@ int listmp_sharedmemory_put_head(listmp_sharedmemory_handle listmp_handle,
 
 	handle = (listmp_sharedmemory_object *)listmp_handle;
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
-
+	dsb();
 	index = sharedregion_get_index(elem);
 	sharedElem = (struct listmp_elem *) sharedregion_get_srptr(elem, index);
 	sharedHead = (struct listmp_elem *)sharedregion_get_srptr(
 					(void *)obj->listmp_elem, obj->index);
-
+	dsb();
 	if (obj->params.gate != NULL) {
 		retval = gatepeterson_enter(obj->params.gate);
 		if (retval < 0) {
@@ -992,10 +993,10 @@ int listmp_sharedmemory_put_head(listmp_sharedmemory_handle listmp_handle,
 			goto exit;
 		}
 	}
-
 	/* Add the new elem into the list */
 	elem->next = obj->listmp_elem->next;
 	elem->prev = sharedHead;
+	dsb();
 	localNextElem = sharedregion_get_ptr((u32 *)elem->next);
 	localNextElem->prev = sharedElem;
 	obj->listmp_elem->next = sharedElem;
@@ -1042,7 +1043,7 @@ int listmp_sharedmemory_put_tail(listmp_sharedmemory_handle listmp_handle,
 
 	handle = (listmp_sharedmemory_object *)listmp_handle;
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
-
+	dsb();
 	/* Safe to do outside the gate */
 	index = sharedregion_get_index(elem);
 	sharedElem = (struct listmp_elem *)
@@ -1058,11 +1059,12 @@ int listmp_sharedmemory_put_tail(listmp_sharedmemory_handle listmp_handle,
 			goto exit;
 		}
 	}
-
 	/* Add the new elem into the list */
 	elem->next = sharedHead;
 	elem->prev = obj->listmp_elem->prev;
+	dsb();
 	localPrevElem = sharedregion_get_ptr((u32 *)elem->prev);
+	dsb();
 	localPrevElem->next = sharedElem;
 	obj->listmp_elem->prev = sharedElem;
 
@@ -1126,7 +1128,7 @@ int listmp_sharedmemory_insert(listmp_sharedmemory_handle  listmp_handle,
 	index = sharedregion_get_index(new_elem);
 	sharedNewElem = (struct listmp_elem *)
 				sharedregion_get_srptr(new_elem, index);
-
+	dsb();
 	/* Get SRPtr for cur_elem */
 	index = sharedregion_get_index(cur_elem);
 	sharedCurElem = (struct listmp_elem *)
@@ -1134,10 +1136,11 @@ int listmp_sharedmemory_insert(listmp_sharedmemory_handle  listmp_handle,
 
 	/* Get SRPtr for cur_elem->prev */
 	localPrevElem = sharedregion_get_ptr((u32 *)cur_elem->prev);
-
+	dsb();
 	new_elem->next = sharedCurElem;
 	new_elem->prev = cur_elem->prev;
 	localPrevElem->next = sharedNewElem;
+	dsb();
 	cur_elem->prev = sharedNewElem;
 
 	if (obj->params.gate != NULL)
@@ -1191,7 +1194,7 @@ int listmp_sharedmemory_remove(listmp_sharedmemory_handle  listmp_handle,
 
 	localPrevElem = sharedregion_get_ptr((u32 *)elem->prev);
 	localNextElem = sharedregion_get_ptr((u32 *)elem->next);
-
+	dsb();
 	localPrevElem->next = elem->next;
 	localNextElem->prev = elem->prev;
 

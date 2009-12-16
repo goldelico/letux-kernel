@@ -94,7 +94,7 @@
 /*!
  *  @brief Wait for this much poll count when sending event
  */
-#define NOTIFY_SENDEVENTPOLLCOUNT	((u32) -1)
+#define NOTIFY_SENDEVENTPOLLCOUNT	0xfffff
 
 /*!
  *  @brief Align buffer in Heap

@@ -941,7 +941,7 @@ int notify_ducatidrv_sendevent(struct notify_driver_object *handle,
 	BUG_ON(handle ==  NULL);
 	BUG_ON(handle->driver_object == NULL);
 
-
+	dsb();
 	driver_object = (struct notify_ducatidrv_object *)
 				handle->driver_object;
 
@@ -970,9 +970,12 @@ int notify_ducatidrv_sendevent(struct notify_driver_object *handle,
 				proc_ctrl[driver_object->other_id].reg_mask.
 				enable_mask) != 1)) {
 			status = -ENODEV;
+			printk(KERN_ERR "NOTIFY DRV: OTHER SIDE NOT READY TO"
+				"RECEIVE. %d\n", event_no);
 			/* This may be used for polling till other-side
 			is ready, so do not set failure reason.*/
 		} else {
+			dsb();
 			/* Enter critical section protection. */
 			if (mutex_lock_interruptible(notify_ducatidriver_state.
 							gate_handle) != 0)
@@ -1009,6 +1012,23 @@ int notify_ducatidrv_sendevent(struct notify_driver_object *handle,
 				information to theremote processor */
 				status = omap_mbox_msg_send(ducati_mbox,
 								payload);
+				i = 0;
+				while ((other_event_chart[event_no].flag
+					!= DOWN)
+					&& status == 0) {
+					/* Leave critical section protection
+					Create a window of opportunity
+					for other interrupts to be handled.
+					*/
+					i++;
+					if ((max_poll_count != (int) -1)
+					&&	(i == max_poll_count)) {
+						status = -EBUSY;
+						printk(KERN_ERR "NOTIFY-remote"
+						"not processed event %d\n",
+						event_no);
+					}
+				}
 			}
 			/* Leave critical section protection. */
 			mutex_unlock(notify_ducatidriver_state.gate_handle);
@@ -1147,12 +1167,14 @@ static void notify_ducatidrv_isr_callback(void *ref_data, void* ntfy_msg)
 	struct notify_shmdrv_eventreg *reg_chart;
 	VOLATILE struct notify_shmdrv_proc_ctrl *proc_ctrl_ptr;
 	int event_no;
+	dsb();
+	/* Enter critical section protection. */
 
 	driver_obj = (struct notify_ducatidrv_object *) ref_data;
 	proc_ctrl_ptr = &(driver_obj->ctrl_ptr->proc_ctrl[driver_obj->self_id]);
 	reg_chart = driver_obj->reg_chart;
 	self_event_chart = proc_ctrl_ptr->self_event_chart;
-
+	dsb();
 	/* Execute the loop till no asserted event
 	is found for one complete loop
 	through all registered events
@@ -1169,9 +1191,11 @@ static void notify_ducatidrv_isr_callback(void *ref_data, void* ntfy_msg)
 
 			payload = self_event_chart[event_no].
 						payload;
+			dsb();
 			/* Acknowledge the event. */
 			payload = (int)ntfy_msg;
 			self_event_chart[event_no].flag = DOWN;
+			dsb();
 			/*Call the callbacks associated with the event*/
 			temp = driver_obj->
 				event_list[event_no].
@@ -1212,6 +1236,7 @@ static void notify_ducatidrv_isr_callback(void *ref_data, void* ntfy_msg)
 		}
 	} while ((event_no != (int) -1)
 	&& (i < driver_obj->params.num_events));
+
 }
 
 /*
