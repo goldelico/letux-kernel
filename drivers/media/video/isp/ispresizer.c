@@ -682,8 +682,8 @@ void ispresizer_enable(struct isp_res_device *isp_res, int enable)
 
 	DPRINTK_ISPRESZ("+ispresizer_enable()+\n");
 	if (enable) {
-		val = (isp_reg_readl(dev,
-				     OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR) & 0x2) |
+		val = (isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ,
+			ISPRSZ_PCR) & ISPRSZ_PCR_ONESHOT) |
 			ISPRSZ_PCR_ENABLE;
 	} else {
 		val = isp_reg_readl(dev,
