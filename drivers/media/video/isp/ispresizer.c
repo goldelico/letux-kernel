@@ -704,7 +704,7 @@ int ispresizer_busy(struct isp_res_device *isp_res)
 	struct device *dev = to_device(isp_res);
 
 	return isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR) &
-		ISPPRV_PCR_BUSY;
+		ISPRSZ_PCR_BUSY;
 }
 
 /**
