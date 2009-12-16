@@ -1506,13 +1506,14 @@ static int ioctl_g_priv(struct v4l2_int_device *s, void *p)
 
 }
 
-static int imx046_power_off(struct v4l2_int_device *s)
+static int __imx046_power_off_standby(struct v4l2_int_device *s,
+				      enum v4l2_power on)
 {
 	struct imx046_sensor *sensor = s->priv;
 	struct i2c_client *client = sensor->i2c_client;
 	int rval;
 
-	rval = sensor->pdata->power_set(s, V4L2_POWER_OFF);
+	rval = sensor->pdata->power_set(s, on);
 	if (rval < 0) {
 		v4l_err(client, "Unable to set the power state: "
 			IMX046_DRIVER_NAME " sensor\n");
@@ -1521,6 +1522,16 @@ static int imx046_power_off(struct v4l2_int_device *s)
 
 	sensor->pdata->set_xclk(s, 0);
 	return 0;
+}
+
+static int imx046_power_off(struct v4l2_int_device *s)
+{
+	return __imx046_power_off_standby(s, V4L2_POWER_OFF);
+}
+
+static int imx046_power_standby(struct v4l2_int_device *s)
+{
+	return __imx046_power_off_standby(s, V4L2_POWER_STANDBY);
 }
 
 static int imx046_power_on(struct v4l2_int_device *s)
@@ -1555,16 +1566,17 @@ static int ioctl_s_power(struct v4l2_int_device *s, enum v4l2_power on)
 	struct vcontrol *lvc;
 	int i;
 
-	if (on == V4L2_POWER_ON) {
+	switch (on) {
+	case V4L2_POWER_ON:
 		imx046_power_on(s);
 		if (current_power_state == V4L2_POWER_STANDBY) {
 			sensor->resuming = true;
 			imx046_configure(s);
 		}
-	} else
+		break;
+	case V4L2_POWER_OFF:
 		imx046_power_off(s);
 
-	if (on == V4L2_POWER_OFF) {
 		/* Reset defaults for controls */
 		i = find_vctrl(V4L2_CID_GAIN);
 		if (i >= 0) {
@@ -1581,6 +1593,10 @@ static int ioctl_s_power(struct v4l2_int_device *s, enum v4l2_power on)
 			lvc = &imx046sensor_video_control[i];
 			lvc->current_value = IMX046_MIN_TEST_PATT_MODE;
 		}
+		break;
+	case V4L2_POWER_STANDBY:
+		imx046_power_standby(s);
+		break;
 	}
 
 	sensor->resuming = false;
