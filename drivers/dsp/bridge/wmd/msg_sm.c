@@ -87,7 +87,7 @@ DSP_STATUS WMD_MSG_Create(OUT struct MSG_MGR **phMsgMgr,
 		    pMsgMgr->msgFreeList == NULL ||
 		    pMsgMgr->msgUsedList == NULL)
 			status = DSP_EMEMORY;
-		if (DSP_SUCCEEDED(status))
+		else
 			status = SYNC_InitializeDPCCS(&pMsgMgr->hSyncCS);
 
 		 /*  Create an event to be used by WMD_MSG_Put() in waiting
@@ -414,6 +414,8 @@ DSP_STATUS WMD_MSG_Put(struct MSG_QUEUE *hMsgQueue,
 		hSyncs[1] = hMsgQueue->hSyncDone;
 		status = SYNC_WaitOnMultipleEvents(hSyncs, 2, uTimeout,
 			 &uIndex);
+		if (DSP_FAILED(status))
+			goto func_end;
 		/* Enter critical section */
 		(void)SYNC_EnterCS(hMsgMgr->hSyncCS);
 		if (hMsgQueue->fDone) {
@@ -425,29 +427,28 @@ DSP_STATUS WMD_MSG_Put(struct MSG_QUEUE *hMsgQueue,
 			(void)SYNC_SetEvent(hMsgQueue->hSyncDoneAck);
 			status = DSP_EFAIL;
 		} else {
-			if (DSP_SUCCEEDED(status)) {
-				if (LST_IsEmpty(hMsgMgr->msgFreeList)) {
-					status = DSP_EPOINTER;
-					goto func_cont;
-				}
-				/* Get msg from free list */
-				pMsgFrame = (struct MSG_FRAME *)
-					    LST_GetHead(hMsgMgr->msgFreeList);
-				/* Copy message into pMsg and put frame on the
-				 * used list */
-				if (pMsgFrame != NULL) {
-					pMsgFrame->msgData.msg = *pMsg;
-					pMsgFrame->msgData.dwId =
-						hMsgQueue->dwId;
-					LST_PutTail(hMsgMgr->msgUsedList,
-						   (struct LST_ELEM *)
-						   pMsgFrame);
-					hMsgMgr->uMsgsPending++;
-					/* Schedule a DPC, to do the actual
-					 * data transfer: */
-					IO_Schedule(hMsgMgr->hIOMgr);
-				}
+			if (LST_IsEmpty(hMsgMgr->msgFreeList)) {
+				status = DSP_EPOINTER;
+				goto func_cont;
 			}
+			/* Get msg from free list */
+			pMsgFrame = (struct MSG_FRAME *)
+					    LST_GetHead(hMsgMgr->msgFreeList);
+			/*
+			 * Copy message into pMsg and put frame on the
+			 * used list
+			 */
+			if (pMsgFrame) {
+				pMsgFrame->msgData.msg = *pMsg;
+				pMsgFrame->msgData.dwId = hMsgQueue->dwId;
+				LST_PutTail(hMsgMgr->msgUsedList,
+					   (struct LST_ELEM *)pMsgFrame);
+				hMsgMgr->uMsgsPending++;
+				/* Schedule a DPC, to do the actual
+				 * data transfer: */
+				IO_Schedule(hMsgMgr->hIOMgr);
+			}
+
 			hMsgQueue->refCount--;
 			/* Reset event if there are still frames available */
 			if (!LST_IsEmpty(hMsgMgr->msgFreeList))

@@ -139,7 +139,7 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 		status = WMD_E_TIMEOUT;
 	} else {
 		/* Save mailbox settings */
-		status = HW_MBOX_saveSettings(pDevContext->dwMailBoxBase);
+		HW_MBOX_saveSettings(pDevContext->dwMailBoxBase);
 		DBG_Trace(DBG_LEVEL6, "MailBoxSettings: SYSCONFIG = 0x%x\n",
 			 mboxsetting.sysconfig);
 		DBG_Trace(DBG_LEVEL6, "MailBoxSettings: IRQENABLE0 = 0x%x\n",
@@ -492,13 +492,15 @@ DSP_STATUS PreScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
  */
 DSP_STATUS PostScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 {
+	DSP_STATUS status = DSP_SOK;
 #ifdef CONFIG_BRIDGE_DVFS
 	u32 level;
 	u32 voltage_domain;
 	struct IO_MGR *hIOMgr;
-	DSP_STATUS status = DSP_SOK;
 
 	status = DEV_GetIOMgr(pDevContext->hDevObject, &hIOMgr);
+	if (!hIOMgr)
+		return DSP_EHANDLE;
 
 	voltage_domain = *((u32 *)pArgs);
 	level = *((u32 *)pArgs + 1);
@@ -514,7 +516,6 @@ DSP_STATUS PostScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 		DBG_Trace(DBG_LEVEL7,
 			 "PostScale_DSP: IVA in sleep. Wrote to shared "
 			 "memory \n");
-		return DSP_SOK;
 	} else  if ((pDevContext->dwBrdState == BRD_RUNNING)) {
 		/* Update the OPP value in shared memory */
 		IO_SHMsetting(hIOMgr, SHM_CURROPP, &level);
@@ -523,14 +524,13 @@ DSP_STATUS PostScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 		DBG_Trace(DBG_LEVEL7,
 			"PostScale_DSP: Wrote to shared memory Sent post"
 			" notification to DSP\n");
-		return DSP_SOK;
 	} else {
 		DBG_Trace(DBG_LEVEL7, "PostScale_DSP: Failed - DSP BRD state "
 			"in wrong state");
-		return DSP_EFAIL;
+		status = DSP_EFAIL;
 	}
 #endif /* #ifdef CONFIG_BRIDGE_DVFS */
-	return DSP_SOK;
+	return status;
 }
 
 /*

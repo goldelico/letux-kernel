@@ -586,13 +586,11 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 				}
 			}
 
-			if (clkIdIndex < MBX_PM_MAX_RESOURCES)
+			if (clkIdIndex < MBX_PM_MAX_RESOURCES) {
 				status =
 				    CLK_Set_32KHz(BPWR_Clks[clkIdIndex].funClk);
-			else
+			} else {
 				status = DSP_EFAIL;
-
-			if (DSP_FAILED(status)) {
 				DBG_Trace(DBG_LEVEL7, " Error while setting"
 							"LM Timer  to 32KHz\n");
 			}
@@ -628,13 +626,11 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 				}
 			}
 
-			if (clkIdIndex < MBX_PM_MAX_RESOURCES)
+			if (clkIdIndex < MBX_PM_MAX_RESOURCES) {
 				status = CLK_Set_32KHz(
 						BPWR_Clks[clkIdIndex].funClk);
-			else
+			} else {
 				status = DSP_EFAIL;
-
-			if (DSP_FAILED(status)) {
 				DBG_Trace(DBG_LEVEL7,
 				" Error while setting BIOS Timer  to 32KHz\n");
 			}
@@ -703,9 +699,7 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 		/* Enable Mailbox events and also drain any pending
 		 * stale messages */
 		(void)CHNLSM_EnableInterrupt(pDevContext);
-	}
 
-	if (DSP_SUCCEEDED(status)) {
 		HW_RSTCTRL_RegGet(pDevContext->prmbase, HW_RST1_IVA2, &temp);
 		DBG_Trace(DBG_LEVEL7, "BRD_Start: RM_RSTCTRL_DSP = 0x%x \n",
 				temp);
@@ -742,10 +736,8 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 				dwDSPAddr);
 		if (dsp_debug)
 			while (*((volatile u16 *)dwSyncAddr))
-				;;
-	}
+				;
 
-	if (DSP_SUCCEEDED(status)) {
 		/* Wait for DSP to clear word in shared memory */
 		/* Read the Location */
 		if (!WaitForStart(pDevContext, dwSyncAddr)) {
@@ -762,8 +754,7 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 			 * completion of OPP table update to DSP
 			 */
 			*((volatile u32 *)dwSyncAddr) = 0XCAFECAFE;
-		}
-		if (DSP_SUCCEEDED(status)) {
+
 			/* update board state */
 			pDevContext->dwBrdState = BRD_RUNNING;
 			/* (void)CHNLSM_EnableInterrupt(pDevContext);*/
@@ -2059,9 +2050,7 @@ void configureDspMmu(struct WMD_DEV_CONTEXT *pDevContext, u32 dataBasePhys,
 		    enum HW_ElementSize_t elemSize,
 		    enum HW_MMUMixedSize_t mixedSize)
 {
-	struct CFG_HOSTRES resources;
 	struct HW_MMUMapAttrs_t mapAttrs = { endianism, elemSize, mixedSize };
-	DSP_STATUS status = DSP_SOK;
 
 	DBC_Require(sizeInBytes > 0);
 	DBG_Trace(DBG_LEVEL1,
@@ -2070,9 +2059,8 @@ void configureDspMmu(struct WMD_DEV_CONTEXT *pDevContext, u32 dataBasePhys,
 
 	DBG_Trace(DBG_LEVEL1, "endianism %x, elemSize %x, mixedSize %x\n",
 		 endianism, elemSize, mixedSize);
-	status = CFG_GetHostResources(
-		 (struct CFG_DEVNODE *)DRV_GetFirstDevExtension(), &resources);
-	status = HW_MMU_TLBAdd(pDevContext->dwDSPMmuBase, dataBasePhys,
+
+	HW_MMU_TLBAdd(pDevContext->dwDSPMmuBase, dataBasePhys,
 				dspBaseVirt, sizeInBytes, nEntryStart,
 				&mapAttrs, HW_SET, HW_SET);
 }

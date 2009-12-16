@@ -39,14 +39,12 @@ DSP_STATUS CHNLSM_EnableInterrupt(struct WMD_DEV_CONTEXT *pDevContext)
 	u32 numMbxMsg;
 	u32 mbxValue;
 	u32 devType;
-	struct IO_MGR *hIOMgr;
 
 	DBG_Trace(DBG_ENTER, "CHNLSM_EnableInterrupt(0x%x)\n", pDevContext);
 
 	/* Read the messages in the mailbox until the message queue is empty */
 
 	DEV_GetDevType(pDevContext->hDevObject, &devType);
-	status = DEV_GetIOMgr(pDevContext->hDevObject, &hIOMgr);
 	if (devType == DSP_UNIT) {
 		HW_MBOX_NumMsgGet(pDevContext->dwMailBoxBase,
 				  MBOX_DSP2ARM, &numMbxMsg);

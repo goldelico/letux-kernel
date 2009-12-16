@@ -78,7 +78,7 @@ DSP_STATUS ReadExtDspData(struct WMD_DEV_CONTEXT *hDevContext,
 	DBC_Assert(ulShmBaseVirt != 0);
 
 	/* Check if it is a read of Trace section */
-	if (!ulTraceSecBeg) {
+	if (DSP_SUCCEEDED(status) && !ulTraceSecBeg) {
 		status = DEV_GetSymbol(pDevContext->hDevObject,
 		DSP_TRACESEC_BEG, &ulTraceSecBeg);
 	}
@@ -100,7 +100,7 @@ DSP_STATUS ReadExtDspData(struct WMD_DEV_CONTEXT *hDevContext,
 	}
 
 	/* If reading from TRACE, force remap/unmap */
-	if ((bTraceRead) && dwBaseAddr) {
+	if (bTraceRead && dwBaseAddr) {
 		dwBaseAddr = 0;
 		pDevContext->dwDspExtBaseAddr = 0;
 	}
@@ -212,6 +212,9 @@ DSP_STATUS WriteDspData(struct WMD_DEV_CONTEXT *hDevContext, IN u8 *pbHostBuf,
 	status =  CFG_GetHostResources(
 		 (struct CFG_DEVNODE *)DRV_GetFirstDevExtension(), &resources);
 
+	if (DSP_FAILED(status))
+		return status;
+
 	offset = dwDSPAddr - hDevContext->dwDSPStartAdd;
 	if (offset < base1) {
 		dwBaseAddr = MEM_LinearAddress(resources.dwMemBase[2],
@@ -226,8 +229,7 @@ DSP_STATUS WriteDspData(struct WMD_DEV_CONTEXT *hDevContext, IN u8 *pbHostBuf,
 						resources.dwMemLength[4]);
 		offset = offset - base3;
 	} else{
-		status = DSP_EFAIL;
-		return status;
+		return DSP_EFAIL;
 	}
 	if (ulNumBytes)
 		memcpy((u8 *) (dwBaseAddr+offset), pbHostBuf, ulNumBytes);
