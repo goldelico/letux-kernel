@@ -141,18 +141,13 @@ enum ispccdc_raw_fmt {
 };
 
 /**
- * struct isp_ccdc_device - Structure for the CCDC module to store its own information
+ * struct isp_ccdc_device - Structure for the CCDC module to store its own
+ *			    information
  * @ccdc_inuse: Flag to determine if CCDC has been reserved or not (0 or 1).
- * @ccdcout_w: CCDC output width.
- * @ccdcout_h: CCDC output height.
- * @ccdcin_w: CCDC input width.
- * @ccdcin_h: CCDC input height.
  * @ccdcin_woffset: CCDC input horizontal offset.
  * @ccdcin_hoffset: CCDC input vertical offset.
  * @crop_w: Crop width.
  * @crop_h: Crop weight.
- * @ccdc_inpfmt: CCDC input format.
- * @ccdc_outfmt: CCDC output format.
  * @vpout_en: Video port output enable.
  * @wen: Data write enable.
  * @exwen: External data write enable.
@@ -161,6 +156,15 @@ enum ispccdc_raw_fmt {
  * @syncif_ipmod: Image
  * @obclamp_en: Data input format.
  * @mutexlock: Mutex used to get access to the CCDC.
+ * @wenlog: Write Enable logic to use against valid data signal.
+ * @fpc_table_add_m: ISP MMU mapped address of the current used FPC table.
+ * @fpc_table_add: Virtual address of the current used FPC table.
+ * @update_lsc_config: Set when user changes lsc_config
+ * @lsc_request_enable: Whether LSC is requested to be enabled
+ * @lsc_config: LSC config set by user
+ * @update_lsc_table: Set when user provides a new LSC table to lsc_table_new
+ * @lsc_table_new: LSC table set by user, ISP address
+ * @lsc_table_inuse: LSC table currently in use, ISP address
  * @shadow_update: non-zero when user is updating CCDC configuration
  * @lock: serializes shadow_update with interrupt handler
  */
@@ -179,6 +183,8 @@ struct isp_ccdc_device {
 	u8 obclamp_en;
 	struct mutex mutexlock; /* For checking/modifying ccdc_inuse */
 	u32 wenlog;
+	unsigned long fpc_table_add_m;
+	u32 *fpc_table_add;
 	enum ispccdc_raw_fmt raw_fmt_in;
 
 	/* LSC related fields */
@@ -189,9 +195,6 @@ struct isp_ccdc_device {
 	u8 update_lsc_table;
 	u32 lsc_table_new;
 	u32 lsc_table_inuse;
-
-	unsigned long fpc_table_add_m;
-	u32 *fpc_table_add;
 
 	int shadow_update;
 	spinlock_t lock;
