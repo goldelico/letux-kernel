@@ -27,21 +27,43 @@
 
 #define PWR_P1_SW_EVENTS	0x10
 #define PWR_DEVOFF	(1<<0)
+#define PWR_STOPON_POWERON (1<<6)
+
+#define CFG_P123_TRANSITION	0x03
+#define SEQ_OFFSYNC	(1<<0)
 
 void twl4030_poweroff(void)
 {
 	u8 val;
 	int err;
 
+	/* Make sure SEQ_OFFSYNC is set so that all the res goes to wait-on */
+	err = twl_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &val,
+				   CFG_P123_TRANSITION);
+	if (err) {
+		printk(KERN_WARNING "I2C error %d while reading TWL4030"
+					"PM_MASTER CFG_P123_TRANSITION\n", err);
+		return;
+	}
+
+	val |= SEQ_OFFSYNC;
+	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, &val,
+				    CFG_P123_TRANSITION);
+	if (err) {
+		printk(KERN_WARNING "I2C error %d while writing TWL4030"
+					"PM_MASTER CFG_P123_TRANSITION\n", err);
+		return;
+	}
+
 	err = twl_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &val,
 				  PWR_P1_SW_EVENTS);
 	if (err) {
 		printk(KERN_WARNING "I2C error %d while reading TWL4030"
 					"PM_MASTER P1_SW_EVENTS\n", err);
-		return ;
+		return;
 	}
 
-	val |= PWR_DEVOFF;
+	val |= PWR_STOPON_POWERON | PWR_DEVOFF;
 
 	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, val,
 				   PWR_P1_SW_EVENTS);
@@ -49,7 +71,7 @@ void twl4030_poweroff(void)
 	if (err) {
 		printk(KERN_WARNING "I2C error %d while writing TWL4030"
 					"PM_MASTER P1_SW_EVENTS\n", err);
-		return ;
+		return;
 	}
 
 	return;
