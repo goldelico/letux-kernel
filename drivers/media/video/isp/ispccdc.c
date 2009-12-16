@@ -78,7 +78,9 @@ static struct isp_reg ispccdc_reg_list[] = {
 };
 
 /**
- * ispccdc_print_status - Prints the values of the CCDC Module registers
+ * ispccdc_print_status - Print current CCDC Module register values.
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ * @pipe: Pointer to current ISP pipeline structure.
  *
  * Also prints other debug information stored in the CCDC module.
  **/
@@ -209,9 +211,11 @@ static void ispccdc_print_status(struct isp_ccdc_device *isp_ccdc,
 
 /**
  * ispccdc_config_black_clamp - Configures the clamp parameters in CCDC.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @bclamp: Structure containing the optical black average gain, optical black
  *          sample length, sample lines, and the start pixel position of the
  *          samples w.r.t the HS pulse.
+ *
  * Configures the clamp parameters in CCDC. Either if its being used the
  * optical black clamp, or the digital clamp. If its a digital clamp, then
  * assures to put a valid DC substraction level.
@@ -247,6 +251,7 @@ static int ispccdc_config_black_clamp(struct isp_ccdc_device *isp_ccdc,
 
 /**
  * ispccdc_enable_black_clamp - Enables/Disables the optical black clamp.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @enable: 0 Disables optical black clamp, 1 Enables optical black clamp.
  *
  * Enables or disables the optical black clamp. When disabled, the digital
@@ -265,6 +270,7 @@ static void ispccdc_enable_black_clamp(struct isp_ccdc_device *isp_ccdc,
 
 /**
  * ispccdc_config_fpc - Configures the Faulty Pixel Correction parameters.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @fpc: Structure containing the number of faulty pixels corrected in the
  *       frame, address of the FPC table.
  *
@@ -296,7 +302,8 @@ static int ispccdc_config_fpc(struct isp_ccdc_device *isp_ccdc,
 }
 
 /**
- * ispccdc_enable_fpc - Enables the Faulty Pixel Correction.
+ * ispccdc_enable_fpc - Enable Faulty Pixel Correction.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @enable: 0 Disables FPC, 1 Enables FPC.
  **/
 static void ispccdc_enable_fpc(struct isp_ccdc_device *isp_ccdc, u8 enable)
@@ -309,7 +316,8 @@ static void ispccdc_enable_fpc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 }
 
 /**
- * ispccdc_config_black_comp - Configures Black Level Compensation parameters.
+ * ispccdc_config_black_comp - Configure Black Level Compensation.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @blcomp: Structure containing the black level compensation value for RGrGbB
  *          pixels. in 2's complement.
  **/
@@ -329,7 +337,8 @@ static void ispccdc_config_black_comp(struct isp_ccdc_device *isp_ccdc,
 }
 
 /**
- * ispccdc_config_vp - Configures the Video Port Configuration parameters.
+ * ispccdc_config_vp - Configure the Video Port.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @vpcfg: Structure containing the Video Port input frequency, and the 10 bit
  *         format.
  **/
@@ -378,8 +387,11 @@ static void ispccdc_config_vp(struct isp_ccdc_device *isp_ccdc,
 }
 
 /**
- * ispccdc_enable_vp - Enables the Video Port.
+ * ispccdc_enable_vp - Enable Video Port.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @enable: 0 Disables VP, 1 Enables VP
+ *
+ * This is needed for outputting image to Preview, H3A and HIST ISP submodules.
  **/
 static void ispccdc_enable_vp(struct isp_ccdc_device *isp_ccdc, u8 enable)
 {
@@ -391,7 +403,8 @@ static void ispccdc_enable_vp(struct isp_ccdc_device *isp_ccdc, u8 enable)
 }
 
 /**
- * ispccdc_config_culling - Configures the culling parameters.
+ * ispccdc_config_culling - Configure culling parameters.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @cull: Structure containing the vertical culling pattern, and horizontal
  *        culling pattern for odd and even lines.
  **/
@@ -410,7 +423,8 @@ static void ispccdc_config_culling(struct isp_ccdc_device *isp_ccdc,
 }
 
 /**
- * ispccdc_enable_lpf - Enables the Low-Pass Filter (LPF).
+ * ispccdc_enable_lpf - Enable Low-Pass Filter (LPF).
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @enable: 0 Disables LPF, 1 Enables LPF
  **/
 static void ispccdc_enable_lpf(struct isp_ccdc_device *isp_ccdc, u8 enable)
@@ -423,7 +437,8 @@ static void ispccdc_enable_lpf(struct isp_ccdc_device *isp_ccdc, u8 enable)
 }
 
 /**
- * ispccdc_config_alaw - Configures the input width for A-law.
+ * ispccdc_config_alaw - Configure the input width for A-law compression.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @ipwidth: Input width for A-law
  **/
 static void ispccdc_config_alaw(struct isp_ccdc_device *isp_ccdc,
@@ -436,7 +451,8 @@ static void ispccdc_config_alaw(struct isp_ccdc_device *isp_ccdc,
 }
 
 /**
- * ispccdc_enable_alaw - Enables the A-law compression.
+ * ispccdc_enable_alaw - Enable A-law compression.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @enable: 0 - Disables A-law, 1 - Enables A-law
  **/
 static void ispccdc_enable_alaw(struct isp_ccdc_device *isp_ccdc, u8 enable)
@@ -449,7 +465,8 @@ static void ispccdc_enable_alaw(struct isp_ccdc_device *isp_ccdc, u8 enable)
 }
 
 /**
- * ispccdc_config_imgattr - Configures the sensor image specific attributes.
+ * ispccdc_config_imgattr - Configure sensor image specific attributes.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @colptn: Color pattern of the sensor.
  **/
 static void ispccdc_config_imgattr(struct isp_ccdc_device *isp_ccdc, u32 colptn)
@@ -462,6 +479,7 @@ static void ispccdc_config_imgattr(struct isp_ccdc_device *isp_ccdc, u32 colptn)
 
 /**
  * ispccdc_validate_config_lsc - Check that LSC configuration is valid.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @lsc_cfg: the LSC configuration to check.
  * @pipe: if not NULL, verify the table size against CCDC input size.
  *
@@ -528,6 +546,7 @@ static int ispccdc_validate_config_lsc(struct isp_ccdc_device *isp_ccdc,
 
 /**
  * ispccdc_program_lsc - Program Lens Shading Compensation table address.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  **/
 static void ispccdc_program_lsc(struct isp_ccdc_device *isp_ccdc)
 {
@@ -539,6 +558,7 @@ static void ispccdc_program_lsc(struct isp_ccdc_device *isp_ccdc)
 
 /**
  * ispccdc_config_lsc - Configures the lens shading compensation module
+ * @isp_ccdc: Pointer to ISP CCDC device.
  **/
 static void ispccdc_config_lsc(struct isp_ccdc_device *isp_ccdc)
 {
@@ -567,6 +587,7 @@ static void ispccdc_config_lsc(struct isp_ccdc_device *isp_ccdc)
 
 /**
  * ispccdc_enable_lsc - Enables/Disables the Lens Shading Compensation module.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @enable: 0 Disables LSC, 1 Enables LSC.
  **/
 static void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
@@ -589,6 +610,9 @@ static void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 
 /**
  * ispccdc_setup_lsc - apply user LSC settings
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ * @pipe: Pointer to ISP pipeline structure.
+ *
  * Consume the new LSC configuration and table set by user space application
  * and program to CCDC.  This function must be called from process context
  * before streamon when ISP is not yet running.
@@ -618,6 +642,12 @@ static void ispccdc_setup_lsc(struct isp_ccdc_device *isp_ccdc,
 	isp_ccdc->update_lsc_config = 0;
 }
 
+/**
+ * ispccdc_lsc_error_handler - Handle LSC prefetch error scenario.
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ *
+ * Disables LSC, and defers enablement to shadow registers update time.
+ **/
 void ispccdc_lsc_error_handler(struct isp_ccdc_device *isp_ccdc)
 {
 	ispccdc_enable_lsc(isp_ccdc, 0);
@@ -656,8 +686,10 @@ static void ispccdc_config_crop(struct isp_ccdc_device *isp_ccdc, u32 left,
 }
 
 /**
- * ispccdc_config_outlineoffset - Configures the output line offset
- * @offset: Must be twice the Output width and aligned on 32 byte boundary
+ * ispccdc_config_outlineoffset - Configure memory saving output line offset
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ * @offset: Address offset to start a new line. Must be twice the
+ *          Output width and aligned on 32 byte boundary
  * @oddeven: Specifies the odd/even line pattern to be chosen to store the
  *           output.
  * @numlines: Set the value 0-3 for +1-4lines, 4-7 for -1-4lines.
@@ -719,8 +751,9 @@ static int ispccdc_config_outlineoffset(struct isp_ccdc_device *isp_ccdc,
 }
 
 /**
- * ispccdc_set_outaddr - Sets the memory address where the output will be saved
- * @addr: 32-bit memory address aligned on 32 byte boundary.
+ * ispccdc_set_outaddr - Set memory address to save output image
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ * @addr: ISP MMU Mapped 32-bit memory address aligned on 32 byte boundary.
  *
  * Sets the memory address where the output will be saved.
  *
@@ -744,7 +777,8 @@ int ispccdc_set_outaddr(struct isp_ccdc_device *isp_ccdc, u32 addr)
 }
 
 /**
- * ispccdc_config_sync_if - Sets the sync i/f params between sensor and CCDC.
+ * ispccdc_config_sync_if - Set CCDC sync interface params between sensor and CCDC.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @syncif: Structure containing the sync parameters like field state, CCDC in
  *          master/slave mode, raw/yuv data, polarity of data, field, hs, vs
  *          signals.
@@ -845,8 +879,9 @@ static void ispccdc_config_sync_if(struct isp_ccdc_device *isp_ccdc,
 }
 
 /**
- * Set the value to be used for CCDC_CFG.WENLOG.
- *  w - Value of wenlog.
+ * ispccdc_set_wenlog - Set the CCDC Write Enable valid region.
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ * @wenlog: Write enable logic to apply against valid area. 0 - AND, 1 - OR.
  */
 void ispccdc_set_wenlog(struct isp_ccdc_device *isp_ccdc, u32 wenlog)
 {
@@ -854,9 +889,9 @@ void ispccdc_set_wenlog(struct isp_ccdc_device *isp_ccdc, u32 wenlog)
 }
 
 /**
- * ispccdc_config_datapath - Specifies the input and output modules for CCDC.
- * @input: Indicates the module that inputs the image to the CCDC.
- * @output: Indicates the module to which the CCDC outputs the image.
+ * ispccdc_config_datapath - Specify the input and output modules for CCDC.
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ * @pipe: Pointer to ISP pipeline structure to base on for config.
  *
  * Configures the default configuration for the CCDC to work with.
  *
@@ -1009,11 +1044,9 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 }
 
 /**
- * ispccdc_try_size - Checks if requested Input/output dimensions are valid
- * @input_w: input width for the CCDC in number of pixels per line
- * @input_h: input height for the CCDC in number of lines
- * @output_w: output width from the CCDC in number of pixels per line
- * @output_h: output height for the CCDC in number of lines
+ * ispccdc_try_pipeline - Checks if requested Input/output dimensions are valid
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ * @pipe: Pointer to ISP pipeline structure to fill back.
  *
  * Calculates the number of pixels cropped if the reformater is disabled,
  * Fills up the output width and height variables in the isp_ccdc structure.
@@ -1087,11 +1120,9 @@ int ispccdc_try_pipeline(struct isp_ccdc_device *isp_ccdc,
 }
 
 /**
- * ispccdc_config_size - Configure the dimensions of the CCDC input/output
- * @input_w: input width for the CCDC in number of pixels per line
- * @input_h: input height for the CCDC in number of lines
- * @output_w: output width from the CCDC in number of pixels per line
- * @output_h: output height for the CCDC in number of lines
+ * ispccdc_s_pipeline - Configure the CCDC based on overall ISP pipeline.
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ * @pipe: Pointer to ISP pipeline structure to configure.
  *
  * Configures the appropriate values stored in the isp_ccdc structure to
  * HORZ/VERT_INFO registers and the VP_OUT depending on whether the image
@@ -1179,7 +1210,8 @@ void ispccdc_set_raw_offset(struct isp_ccdc_device *isp_ccdc,
 EXPORT_SYMBOL(ispccdc_set_raw_offset);
 
 /**
- * ispccdc_enable - Enables the CCDC module.
+ * ispccdc_enable - Enable the CCDC module.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @enable: 0 Disables CCDC, 1 Enables CCDC
  *
  * Client should configure all the sub modules in CCDC before this.
@@ -1220,10 +1252,13 @@ void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
 		       ~ISPCCDC_PCR_EN, enable ? ISPCCDC_PCR_EN : 0);
 }
 
-/*
+/**
+ * ispccdc_sbl_busy - Poll idle state of CCDC and related SBL memory write bits
+ * @_isp_ccdc: Pointer to ISP CCDC device.
+ *
  * Returns zero if the CCDC is idle and the image has been written to
  * memory, too.
- */
+ **/
 int ispccdc_sbl_busy(void *_isp_ccdc)
 {
 	struct isp_ccdc_device *isp_ccdc = _isp_ccdc;
@@ -1245,7 +1280,8 @@ int ispccdc_sbl_busy(void *_isp_ccdc)
 }
 
 /**
- * ispccdc_busy - Gets busy state of the CCDC.
+ * ispccdc_busy - Get busy state of the CCDC.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  **/
 int ispccdc_busy(struct isp_ccdc_device *isp_ccdc)
 {
@@ -1256,6 +1292,12 @@ int ispccdc_busy(struct isp_ccdc_device *isp_ccdc)
 		ISPCCDC_PCR_BUSY;
 }
 
+/**
+ * ispccdc_config_shadow_registers - Configure CCDC during interframe time.
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ *
+ * Executes LSC deferred enablement before next frame starts.
+ **/
 void ispccdc_config_shadow_registers(struct isp_ccdc_device *isp_ccdc)
 {
 	unsigned long flags;
@@ -1290,7 +1332,8 @@ skip:
 }
 
 /**
- * ispccdc_config - Sets CCDC configuration from userspace
+ * ispccdc_config - Set CCDC configuration from userspace
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * @userspace_add: Structure containing CCDC configuration sent from userspace.
  *
  * Returns 0 if successful, -EINVAL if the pointer to the configuration
@@ -1489,8 +1532,8 @@ out:
 }
 
 /**
- * ispccdc_request - Reserves the CCDC module.
- *
+ * ispccdc_request - Reserve the CCDC module.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  * Reserves the CCDC module and assures that is used only once at a time.
  *
  * Returns 0 if successful, or -EBUSY if CCDC module is busy.
@@ -1517,7 +1560,8 @@ int ispccdc_request(struct isp_ccdc_device *isp_ccdc)
 }
 
 /**
- * ispccdc_free - Frees the CCDC module.
+ * ispccdc_free - Free the CCDC module.
+ * @isp_ccdc: Pointer to ISP CCDC device.
  *
  * Frees the CCDC module so it can be used by another process.
  *
@@ -1544,7 +1588,8 @@ int ispccdc_free(struct isp_ccdc_device *isp_ccdc)
 }
 
 /**
- * ispccdc_save_context - Saves the values of the CCDC module registers
+ * ispccdc_save_context - Save values of the CCDC module registers
+ * @dev: Device pointer specific to the OMAP3 ISP.
  **/
 void ispccdc_save_context(struct device *dev)
 {
@@ -1553,7 +1598,8 @@ void ispccdc_save_context(struct device *dev)
 }
 
 /**
- * ispccdc_restore_context - Restores the values of the CCDC module registers
+ * ispccdc_restore_context - Restore values of the CCDC module registers
+ * @dev: Pointer to ISP device
  **/
 void ispccdc_restore_context(struct device *dev)
 {
@@ -1563,6 +1609,7 @@ void ispccdc_restore_context(struct device *dev)
 
 /**
  * isp_ccdc_init - CCDC module initialization.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  *
  * Always returns 0
  **/
@@ -1600,11 +1647,13 @@ int __init isp_ccdc_init(struct device *dev)
 
 	isp_ccdc->shadow_update = 0;
 	spin_lock_init(&isp_ccdc->lock);
+
 	return 0;
 }
 
 /**
  * isp_ccdc_cleanup - CCDC module cleanup.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  **/
 void isp_ccdc_cleanup(struct device *dev)
 {
