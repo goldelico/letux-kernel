@@ -1134,6 +1134,9 @@ static u32 isp_tmp_buf_alloc(struct device *dev, struct isp_pipeline *pipe)
 				 isp->pipeline.prv_out_h *
 				 ISP_BYTES_PER_PIXEL);
 
+	ispresizer_config_inlineoffset(&isp->isp_res,
+			pipe->prv_out_w * ISP_BYTES_PER_PIXEL);
+
 	if (isp->tmp_buf_size >= size)
 		return 0;
 
@@ -1149,8 +1152,6 @@ static u32 isp_tmp_buf_alloc(struct device *dev, struct isp_pipeline *pipe)
 
 	isppreview_set_outaddr(&isp->isp_prev, isp->tmp_buf);
 	ispresizer_set_inaddr(&isp->isp_res, isp->tmp_buf, 0);
-	ispresizer_config_inlineoffset(&isp->isp_res,
-				       pipe->prv_out_w * ISP_BYTES_PER_PIXEL);
 
 	return 0;
 }
