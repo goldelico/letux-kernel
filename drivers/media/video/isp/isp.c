@@ -435,7 +435,7 @@ EXPORT_SYMBOL(isp_unset_callback);
  * Configures the specified MCLK divisor in the ISP timing control register
  * (TCTRL_CTRL) to generate the desired xclk clock value.
  *
- * Divisor = CM_CAM_MCLK_HZ / xclk
+ * Divisor = mclk / xclk
  *
  * Returns the final frequency that is actually being generated
  **/
@@ -443,15 +443,16 @@ u32 isp_set_xclk(struct device *dev, u32 xclk, u8 xclksel)
 {
 	u32 divisor;
 	u32 currentxclk;
+	struct isp_device *isp = dev_get_drvdata(dev);
 
-	if (xclk >= CM_CAM_MCLK_HZ) {
+	if (xclk >= isp->mclk) {
 		divisor = ISPTCTRL_CTRL_DIV_BYPASS;
-		currentxclk = CM_CAM_MCLK_HZ;
+		currentxclk = isp->mclk;
 	} else if (xclk >= 2) {
-		divisor = CM_CAM_MCLK_HZ / xclk;
+		divisor = isp->mclk / xclk;
 		if (divisor >= ISPTCTRL_CTRL_DIV_BYPASS)
 			divisor = ISPTCTRL_CTRL_DIV_BYPASS - 1;
-		currentxclk = CM_CAM_MCLK_HZ / divisor;
+		currentxclk = isp->mclk / divisor;
 	} else {
 		divisor = xclk;
 		currentxclk = 0;
@@ -734,6 +735,8 @@ int isp_configure_interface(struct device *dev,
 	ispccdc_set_wenlog(&isp->isp_ccdc, config->wenlog);
 	ispccdc_set_raw_offset(&isp->isp_ccdc, config->raw_fmt_in);
 
+	isp->mclk = config->cam_mclk;
+	isp_enable_mclk(dev);
 	/* FIXME: this should be set in ispccdc_config_vp() */
 	fmtcfg = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_FMTCFG);
 	fmtcfg &= ISPCCDC_FMTCFG_VPIF_FRQ_MASK;
@@ -2213,16 +2216,6 @@ static int isp_enable_clocks(struct device *dev)
 		dev_err(dev, "clk_enable cam_ick failed\n");
 		goto out_clk_enable_ick;
 	}
-	r = clk_set_rate(isp->dpll4_m5_ck, CM_CAM_MCLK_HZ/2);
-	if (r) {
-		dev_err(dev, "clk_set_rate for dpll4_m5_ck failed\n");
-		goto out_clk_enable_mclk;
-	}
-	r = clk_enable(isp->cam_mclk);
-	if (r) {
-		dev_err(dev, "clk_enable cam_mclk failed\n");
-		goto out_clk_enable_mclk;
-	}
 	r = clk_enable(isp->csi2_fck);
 	if (r) {
 		dev_err(dev, "clk_enable csi2_fck failed\n");
@@ -2231,11 +2224,32 @@ static int isp_enable_clocks(struct device *dev)
 	return 0;
 
 out_clk_enable_csi2_fclk:
-	clk_disable(isp->cam_mclk);
-out_clk_enable_mclk:
 	clk_disable(isp->cam_ick);
 out_clk_enable_ick:
 	return r;
+}
+
+int isp_enable_mclk(struct device *dev)
+{
+	struct isp_device *isp = dev_get_drvdata(dev);
+	int r;
+
+	r = clk_set_rate(isp->dpll4_m5_ck, isp->mclk);
+		if (r) {
+			dev_err(dev, "clk_set_rate for dpll4_m5_ck failed\n");
+			return r;
+	}
+	r = clk_enable(isp->cam_mclk);
+	if (r) {
+		dev_err(dev, "clk_enable cam_mclk failed\n");
+		return r;
+	}
+	return 0;
+}
+
+void isp_disable_mclk(struct isp_device *isp)
+{
+	clk_disable(isp->cam_mclk);
 }
 
 static void isp_disable_clocks(struct device *dev)
@@ -2243,7 +2257,6 @@ static void isp_disable_clocks(struct device *dev)
 	struct isp_device *isp = dev_get_drvdata(dev);
 
 	clk_disable(isp->cam_ick);
-	clk_disable(isp->cam_mclk);
 	clk_disable(isp->csi2_fck);
 }
 
@@ -2508,6 +2521,8 @@ static int isp_probe(struct platform_device *pdev)
 		ret_err = -ENODEV;
 		goto out_free_mmio;
 	}
+
+	isp->mclk = CM_CAM_MCLK_HZ / 2;
 
 	isp->cam_ick = clk_get(&camera_dev, "cam_ick");
 	if (IS_ERR(isp->cam_ick)) {
