@@ -595,6 +595,11 @@ static void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 	struct device *dev = to_device(isp_ccdc);
 
 	if (enable) {
+		isp_reg_writel(dev, IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ,
+			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			   IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ);
+
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN,
 			   ISP_CTRL, ISPCTRL_SBL_SHARED_RPORTB
 			   | ISPCTRL_SBL_RD_RAM_EN);
@@ -605,6 +610,9 @@ static void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 	} else {
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_CCDC,
 			    ISPCCDC_LSC_CONFIG, ~ISPCCDC_LSC_ENABLE);
+
+		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			    ~IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ);
 	}
 }
 
