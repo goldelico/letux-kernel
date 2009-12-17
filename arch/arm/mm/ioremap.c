@@ -110,15 +110,10 @@ static int remap_area_pages(unsigned long start, unsigned long pfn,
 	return err;
 }
 
-int ioremap_page(unsigned long virt, unsigned long phys, unsigned int mtype)
+int ioremap_page(unsigned long virt, unsigned long phys,
+		 const struct mem_type *mtype)
 {
-	const struct mem_type *type;
-
-	type = get_mem_type(mtype);
-	if (!type)
-		return -EINVAL;
-
-	return remap_area_pages(virt, __phys_to_pfn(phys), PAGE_SIZE, type);
+	return remap_area_pages(virt, __phys_to_pfn(phys), PAGE_SIZE, mtype);
 }
 EXPORT_SYMBOL(ioremap_page);
 
