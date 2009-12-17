@@ -54,6 +54,15 @@
 
 #define UETH__VERSION	"29-May-2008"
 
+/*
+ * Override the NET_IP_ALIGN macro to 0 bytes to have destination buffer
+ * aligned at 4 bytes thereby getting alligned adress for DMA access
+ */
+#if defined(CONFIG_ARCH_OMAP3) || defined(CONFIG_ARCH_OMAP4)
+#undef NET_IP_ALIGN
+#define NET_IP_ALIGN  0
+#endif
+
 struct eth_dev {
 	/* lock is held while accessing port_usb
 	 * or updating its backlink port_usb->ioport
