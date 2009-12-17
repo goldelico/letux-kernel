@@ -76,7 +76,8 @@
 #define NUM_OF_VIDEO_CHANNELS	2
 
 #define VID_MAX_WIDTH		1280	/* Largest width */
-#define VID_MAX_HEIGHT		800	/* Largest height */
+#define VID_MAX_HEIGHT		864	/* Largest height */
+#define VID_720P_HEIGHT		720	/* 720p height */
 
 /* Mimimum requirement is 2x2 for DSS */
 #define VID_MIN_WIDTH		2
@@ -91,7 +92,7 @@
 #define VDD1_OPP3_FREQ         500000000
 #define VDD1_OPP1_FREQ         125000000
 
-#define OMAP_VOUT_MAX_BUF_SIZE (VID_MAX_WIDTH*VID_MAX_HEIGHT*2)
+#define OMAP_VOUT_MAX_BUF_SIZE (VID_MAX_WIDTH*VID_720P_HEIGHT*2)
 
 /* IRQ Bits mask of DSS */
 #define OMAP_VOUT_IRQ_MASK (DISPC_IRQ_VSYNC | DISPC_IRQ_EVSYNC_EVEN | \
@@ -2473,9 +2474,9 @@ static int __init omap_vout_setup_video_bufs(struct platform_device *pdev,
 		image_width++;
 
 	image_width = image_width * TILE_SIZE;
-	image_height = VID_MAX_HEIGHT / TILE_SIZE;
+	image_height = VID_720P_HEIGHT / TILE_SIZE;
 
-	if (VID_MAX_HEIGHT % TILE_SIZE)
+	if (VID_720P_HEIGHT % TILE_SIZE)
 		image_height++;
 
 	image_height = image_height * TILE_SIZE;
