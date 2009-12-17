@@ -13,6 +13,8 @@
 #ifndef __MACH_IOMMU2_H
 #define __MACH_IOMMU2_H
 
+#include <linux/io.h>
+
 /*
  * MMU Register offsets
  */
