@@ -178,9 +178,7 @@ DSP_STATUS CLK_Enable(IN enum SERVICES_ClkId clk_id)
 
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 	if (pClk) {
-		if (clk_enable(pClk) == 0x0) {
-			/* Success ? */
-		} else {
+		if (clk_enable(pClk)) {
 			pr_err("CLK_Enable: failed to Enable CLK %s, "
 					"CLK dev id = %d\n",
 					SERVICES_Clks[clk_id].clk_name,
@@ -214,8 +212,7 @@ DSP_STATUS CLK_Set_32KHz(IN enum SERVICES_ClkId clk_id)
 	DSP_STATUS status = DSP_SOK;
 	struct clk *pClk;
 	struct clk *pClkParent;
-	enum SERVICES_ClkId sys_32k_id = SERVICESCLK_sys_32k_ck;
-	pClkParent =  SERVICES_Clks[sys_32k_id].clk_handle;
+	pClkParent =  SERVICES_Clks[SERVICESCLK_sys_32k_ck].clk_handle;
 
 	DBC_Require(clk_id < SERVICESCLK_NOT_DEFINED);
 	GT_2trace(CLK_debugMask, GT_6CLASS, "CLK_Set_32KHz: CLK %s, "

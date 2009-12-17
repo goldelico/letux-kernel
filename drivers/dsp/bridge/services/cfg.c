@@ -194,8 +194,7 @@ DSP_STATUS CFG_GetExecFile(struct CFG_DEVNODE *hDevNode, u32 ulBufSize,
 		  ulBufSize, pstrExecFile);
 	if (!hDevNode)
 		status = CFG_E_INVALIDHDEVNODE;
-
-	if (!pstrExecFile)
+	else if (!pstrExecFile)
 		status = CFG_E_INVALIDPOINTER;
 
 	if (DSP_SUCCEEDED(status)) {
@@ -277,9 +276,13 @@ DSP_STATUS CFG_GetObject(OUT u32 *pdwValue, u32 dwType)
 	switch (dwType) {
 	case (REG_DRV_OBJECT):
 		status = REG_GetValue(DRVOBJECT, (u8 *)pdwValue, &dwBufSize);
+		if (DSP_FAILED(status))
+			status = CFG_E_RESOURCENOTAVAIL;
 		break;
 	case (REG_MGR_OBJECT):
 		status = REG_GetValue(MGROBJECT, (u8 *)pdwValue, &dwBufSize);
+		if (DSP_FAILED(status))
+			status = CFG_E_RESOURCENOTAVAIL;
 		break;
 	default:
 		break;
@@ -289,7 +292,6 @@ DSP_STATUS CFG_GetObject(OUT u32 *pdwValue, u32 dwType)
 			  "CFG_GetObject SUCCESS DrvObject: "
 			  "0x%x\n ", *pdwValue);
 	} else {
-		status = CFG_E_RESOURCENOTAVAIL;
 		*pdwValue = 0;
 		GT_0trace(CFG_debugMask, GT_6CLASS, "CFG_GetObject Failed \n");
 	}

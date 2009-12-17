@@ -52,17 +52,14 @@ static unsigned int crefs;		/* module counter */
 DSP_STATUS REG_DeleteValue(IN CONST char *pstrValue)
 {
 	DSP_STATUS status;
-       DBC_Require(strlen(pstrValue) < REG_MAXREGPATHLENGTH);
+	DBC_Require(strlen(pstrValue) < REG_MAXREGPATHLENGTH);
 
 	GT_0trace(REG_debugMask, GT_ENTER, "REG_DeleteValue: entered\n");
 
 	SYNC_EnterCS(reglock);
-	if (regsupDeleteValue(pstrValue) == DSP_SOK)
-		status = DSP_SOK;
-	else
-		status = DSP_EFAIL;
-
+	status = regsupDeleteValue(pstrValue);
 	SYNC_LeaveCS(reglock);
+
 	return status;
 }
 
@@ -169,18 +166,17 @@ DSP_STATUS REG_SetValue(IN CONST char *pstrValue, IN u8 *pbData,
 
 	DBC_Require(pstrValue && pbData);
 	DBC_Require(dwDataSize > 0);
-       DBC_Require(strlen(pstrValue) < REG_MAXREGPATHLENGTH);
+	DBC_Require(strlen(pstrValue) < REG_MAXREGPATHLENGTH);
 
 	SYNC_EnterCS(reglock);
-	/*  We need to use regsup calls...  */
-	/*  ...for now we don't need the key handle or  */
-	/*  the subkey, all we need is the value to lookup.  */
-	if (regsupSetValue((char *)pstrValue, pbData, dwDataSize) == DSP_SOK)
-		status = DSP_SOK;
-	else
-		status = DSP_EFAIL;
-
+	/*
+	 * We need to use regsup calls
+	 * for now we don't need the key handle or
+	 * the subkey, all we need is the value to lookup.
+	 */
+	status = regsupSetValue((char *)pstrValue, pbData, dwDataSize);
 	SYNC_LeaveCS(reglock);
+
 	return status;
 }
 
