@@ -328,8 +328,7 @@ static void isp_enable_interrupts(struct device *dev)
 	struct isp_device *isp = dev_get_drvdata(dev);
 	u32 irq0enable;
 
-	irq0enable = IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ
-		| IRQ0ENABLE_CCDC_VD0_IRQ
+	irq0enable = IRQ0ENABLE_CCDC_VD0_IRQ
 		| IRQ0ENABLE_CSIA_IRQ
 		| IRQ0ENABLE_CSIB_IRQ | IRQ0ENABLE_HIST_DONE_IRQ
 		| IRQ0ENABLE_H3A_AWB_DONE_IRQ | IRQ0ENABLE_H3A_AF_DONE_IRQ
@@ -361,8 +360,7 @@ static void isp_disable_interrupts(struct device *dev)
 	u32 irq0enable;
 	u32 v ;
 
-	irq0enable = ~(IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ
-		| IRQ0ENABLE_CCDC_VD0_IRQ
+	irq0enable = ~(IRQ0ENABLE_CCDC_VD0_IRQ
 		| IRQ0ENABLE_CSIA_IRQ
 		| IRQ0ENABLE_CSIB_IRQ | IRQ0ENABLE_HIST_DONE_IRQ
 		| IRQ0ENABLE_H3A_AWB_DONE_IRQ | IRQ0ENABLE_H3A_AF_DONE_IRQ
