@@ -172,6 +172,7 @@ struct omap34xxcam_fh {
 	struct videobuf_queue vbq;
 	atomic_t field_count;
 	struct omap34xxcam_videodev *vdev;
+	wait_queue_head_t poll_vb;
 };
 
 #endif /* ifndef OMAP34XXCAM_H */

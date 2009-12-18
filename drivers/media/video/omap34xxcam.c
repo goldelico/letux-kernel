@@ -1689,30 +1689,22 @@ static unsigned int omap34xxcam_poll(struct file *file,
 {
 	struct v4l2_fh *vfh = file->private_data;
 	struct omap34xxcam_fh *ofh = to_omap34xxcam_fh(vfh);
-	struct omap34xxcam_videodev *vdev = ofh->vdev;
-	struct videobuf_buffer *vb;
+	unsigned int ret = 0;
 
-	mutex_lock(&vdev->mutex);
-	if (vdev->streaming != file) {
-		mutex_unlock(&vdev->mutex);
-		return POLLERR;
-	}
-	mutex_unlock(&vdev->mutex);
+	poll_wait(file, &ofh->poll_vb, wait);
 
 	mutex_lock(&ofh->vbq.vb_lock);
-	if (list_empty(&ofh->vbq.stream)) {
-		mutex_unlock(&ofh->vbq.vb_lock);
-		return POLLERR;
+	if (!list_empty(&ofh->vbq.stream)) {
+		struct videobuf_buffer *vb =
+			list_entry(ofh->vbq.stream.next,
+				   struct videobuf_buffer, stream);
+		if (vb->state == VIDEOBUF_DONE
+		    || vb->state == VIDEOBUF_ERROR)
+			ret |= POLLIN | POLLRDNORM;
 	}
-	vb = list_entry(ofh->vbq.stream.next, struct videobuf_buffer, stream);
 	mutex_unlock(&ofh->vbq.vb_lock);
 
-	poll_wait(file, &vb->done, wait);
-
-	if (vb->state == VIDEOBUF_DONE || vb->state == VIDEOBUF_ERROR)
-		return POLLIN | POLLRDNORM;
-
-	return 0;
+	return ret;
 }
 
 /**
@@ -1845,6 +1837,8 @@ out_no_pix:
 			       &ofh->vbq_lock, V4L2_BUF_TYPE_VIDEO_CAPTURE,
 			       V4L2_FIELD_NONE,
 			       sizeof(struct videobuf_buffer), &ofh->vfh);
+
+	init_waitqueue_head(&ofh->poll_vb);
 
 	return 0;
 
