@@ -57,6 +57,8 @@ void v4l2_event_init_fh(struct v4l2_events *events)
 
 	INIT_LIST_HEAD(&events->available);
 	INIT_LIST_HEAD(&events->subscribed);
+
+	atomic_set(&events->navailable, 0);
 };
 
 void v4l2_event_del(struct v4l2_events *events)
@@ -101,7 +103,8 @@ int v4l2_event_dequeue(struct v4l2_events *events, struct v4l2_event *event)
 	ev = list_first_entry(&events->available, struct _v4l2_event, list);
 	list_del(&ev->list);
 
-	ev->event.count = !list_empty(&events->available);
+	atomic_dec(&events->navailable);
+	ev->event.count = atomic_read(&events->navailable);
 
 	spin_unlock_irqrestore(&events->lock, flags);
 
@@ -153,6 +156,9 @@ void v4l2_event_queue(struct video_device *vdev, struct v4l2_event *ev)
 	list_for_each_entry(fh, &vdev->fh, list) {
 		struct _v4l2_event *_ev;
 
+		if (atomic_read(&fh->events.navailable) >= V4L2_MAX_EVENTS)
+			continue;
+
 		if (!v4l2_event_subscribed(&fh->events, ev->type))
 			continue;
 
@@ -165,6 +171,8 @@ void v4l2_event_queue(struct video_device *vdev, struct v4l2_event *ev)
 		spin_lock(&fh->events.lock);
 		list_add_tail(&_ev->list, &fh->events.available);
 		spin_unlock(&fh->events.lock);
+
+		atomic_inc(&fh->events.navailable);
 
 		wake_up_all(&fh->events.wait);
 	}
