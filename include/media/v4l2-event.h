@@ -28,6 +28,10 @@
 #include <linux/types.h>
 #include <linux/videodev2.h>
 
+#include <asm/atomic.h>
+
+#define V4L2_MAX_EVENTS		1024 /* Ought to be enough for everyone. */
+
 struct video_device;
 
 struct _v4l2_event {
@@ -38,6 +42,7 @@ struct _v4l2_event {
 struct v4l2_events {
 	spinlock_t		lock; /* Protect everything here. */
 	struct list_head	available;
+	atomic_t		navailable;
 	wait_queue_head_t	wait;
 	struct list_head	subscribed; /* Subscribed events. */
 };
