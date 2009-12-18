@@ -32,6 +32,8 @@ int v4l2_fh_add(struct video_device *vdev, struct v4l2_fh *fh)
 {
 	unsigned long flags;
 
+	v4l2_event_init_fh(&fh->events);
+
 	spin_lock_irqsave(&vdev->fh_lock, flags);
 	list_add(&fh->list, &vdev->fh);
 	spin_unlock_irqrestore(&vdev->fh_lock, flags);
@@ -44,13 +46,15 @@ void v4l2_fh_del(struct video_device *vdev, struct v4l2_fh *fh)
 {
 	unsigned long flags;
 
+	v4l2_event_del(&fh->events);
+
 	spin_lock_irqsave(&vdev->fh_lock, flags);
 	list_del(&fh->list);
 	spin_unlock_irqrestore(&vdev->fh_lock, flags);
 }
 EXPORT_SYMBOL_GPL(v4l2_fh_del);
 
-int v4l2_fh_init_vdev(struct video_device *vdev)
+int v4l2_fh_init(struct video_device *vdev)
 {
 	spin_lock_init(&vdev->fh_lock);
 	INIT_LIST_HEAD(&vdev->fh);
@@ -58,15 +62,7 @@ int v4l2_fh_init_vdev(struct video_device *vdev)
 	return 0;
 }
 
-void v4l2_fh_exit_vdev(struct video_device *vdev)
+void v4l2_fh_exit(struct video_device *vdev)
 {
 }
 
-int v4l2_fh_init(void)
-{
-	return 0;
-}
-
-void v4l2_fh_exit(void)
-{
-}
