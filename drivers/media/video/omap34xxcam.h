@@ -167,6 +167,7 @@ struct omap34xxcam_device {
  */
 struct omap34xxcam_fh {
 	spinlock_t vbq_lock; /* spinlock for the videobuf queue */
+	struct v4l2_fh vfh;
 	struct videobuf_queue vbq;
 	atomic_t field_count;
 	struct omap34xxcam_videodev *vdev;
