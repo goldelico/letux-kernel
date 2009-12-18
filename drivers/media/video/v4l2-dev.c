@@ -422,7 +422,7 @@ static int __video_register_device(struct video_device *vdev, int type, int nr,
 	if (!vdev->release)
 		return -EINVAL;
 
-	ret = v4l2_fh_init_vdev(vdev);
+	ret = v4l2_fh_init(vdev);
 	if (ret < 0)
 		return ret;
 
@@ -565,7 +565,7 @@ static int __video_register_device(struct video_device *vdev, int type, int nr,
 	return 0;
 
 cleanup:
-	v4l2_fh_exit_vdev(vdev);
+	v4l2_fh_exit(vdev);
 	mutex_lock(&videodev_lock);
 	if (vdev->cdev)
 		cdev_del(vdev->cdev);
@@ -631,7 +631,7 @@ static int __init videodev_init(void)
 		return -EIO;
 	}
 
-	v4l2_fh_init();
+	v4l2_event_init();
 
 	return 0;
 }
@@ -640,7 +640,7 @@ static void __exit videodev_exit(void)
 {
 	dev_t dev = MKDEV(VIDEO_MAJOR, 0);
 
-	v4l2_fh_exit();
+	v4l2_event_exit();
 
 	class_unregister(&video_class);
 	unregister_chrdev_region(dev, VIDEO_NUM_DEVICES);
