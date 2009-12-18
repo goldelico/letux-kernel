@@ -107,7 +107,9 @@ void show_pte(struct mm_struct *mm, unsigned long addr)
 
 		pte = pte_offset_map(pmd, addr);
 		printk(", *pte=%08lx", pte_val(*pte));
+#ifndef CONFIG_CPU_AFE
 		printk(", *ppte=%08lx", pte_val(pte[-PTRS_PER_PTE]));
+#endif
 		pte_unmap(pte);
 	} while(0);
 
@@ -458,7 +460,11 @@ static struct fsr_info {
 	{ do_bad,		SIGILL,	 BUS_ADRALN,	"alignment exception"		   },
 	{ do_bad,		SIGBUS,	 0,		"external abort on linefetch"	   },
 	{ do_translation_fault,	SIGSEGV, SEGV_MAPERR,	"section translation fault"	   },
+#ifndef CONFIG_CPU_AFE
 	{ do_bad,		SIGBUS,	 0,		"external abort on linefetch"	   },
+#else
+	{ do_page_fault,	SIGSEGV, SEGV_MAPERR,	"access flag fault"		   },
+#endif
 	{ do_page_fault,	SIGSEGV, SEGV_MAPERR,	"page translation fault"	   },
 	{ do_bad,		SIGBUS,	 0,		"external abort on non-linefetch"  },
 	{ do_bad,		SIGSEGV, SEGV_ACCERR,	"section domain fault"		   },
@@ -532,7 +538,11 @@ static struct fsr_info ifsr_info[] = {
 	{ do_bad,		SIGSEGV, SEGV_ACCERR,	"section access flag fault"	   },
 	{ do_bad,		SIGBUS,  0,		"unknown 4"			   },
 	{ do_translation_fault,	SIGSEGV, SEGV_MAPERR,	"section translation fault"	   },
+#ifndef CONFIG_CPU_AFE
 	{ do_bad,		SIGSEGV, SEGV_ACCERR,	"page access flag fault"	   },
+#else
+	{ do_page_fault,	SIGSEGV, SEGV_MAPERR,	"access flag fault"		   },
+#endif
 	{ do_page_fault,	SIGSEGV, SEGV_MAPERR,	"page translation fault"	   },
 	{ do_bad,		SIGBUS,	 0,		"external abort on non-linefetch"  },
 	{ do_bad,		SIGSEGV, SEGV_ACCERR,	"section domain fault"		   },

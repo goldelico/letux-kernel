@@ -158,7 +158,11 @@ extern void copy_page(void *to, const void *from);
  */
 typedef struct { unsigned long pte; } pte_t;
 typedef struct { unsigned long pmd; } pmd_t;
+#ifndef CONFIG_CPU_AFE
 typedef struct { unsigned long pgd[2]; } pgd_t;
+#else
+typedef struct { unsigned long pgd[4]; } pgd_t;
+#endif
 typedef struct { unsigned long pgprot; } pgprot_t;
 
 #define pte_val(x)      ((x).pte)
@@ -176,7 +180,11 @@ typedef struct { unsigned long pgprot; } pgprot_t;
  */
 typedef unsigned long pte_t;
 typedef unsigned long pmd_t;
+#ifndef CONFIG_CPU_AFE
 typedef unsigned long pgd_t[2];
+#else
+typedef unsigned long pgd_t[4];
+#endif
 typedef unsigned long pgprot_t;
 
 #define pte_val(x)      (x)
