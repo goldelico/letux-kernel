@@ -318,7 +318,7 @@ static int smsc911x_mii_read(struct mii_bus *bus, int phyaddr, int regidx)
 			goto out;
 		}
 
-	SMSC_WARNING(HW, "Timed out waiting for MII write to finish");
+	SMSC_WARNING(HW, "Timed out waiting for MII read to finish");
 	reg = -EIO;
 
 out:
@@ -730,8 +730,8 @@ static void smsc911x_phy_adjust_link(struct net_device *dev)
 			 * usage is 10/100 indicator */
 			pdata->gpio_setting = smsc911x_reg_read(pdata,
 				GPIO_CFG);
-			if ((pdata->gpio_setting & GPIO_CFG_LED1_EN_)
-			    && (!pdata->using_extphy)) {
+			if ((pdata->gpio_setting & GPIO_CFG_LED1_EN_) &&
+			    (!pdata->using_extphy)) {
 				/* Force 10/100 LED off, after saving
 				 * orginal GPIO configuration */
 				pdata->gpio_orig_setting = pdata->gpio_setting;
@@ -769,7 +769,7 @@ static int smsc911x_mii_probe(struct net_device *dev)
 		return -ENODEV;
 	}
 
-	phydev = phy_connect(dev, phydev->dev.bus_id,
+	phydev = phy_connect(dev, dev_name(&phydev->dev),
 		&smsc911x_phy_adjust_link, 0, pdata->config.phy_interface);
 
 	if (IS_ERR(phydev)) {
@@ -778,7 +778,8 @@ static int smsc911x_mii_probe(struct net_device *dev)
 	}
 
 	pr_info("%s: attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
-		dev->name, phydev->drv->name, phydev->dev.bus_id, phydev->irq);
+		dev->name, phydev->drv->name,
+		dev_name(&phydev->dev), phydev->irq);
 
 	/* mask with MAC supported features */
 	phydev->supported &= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
@@ -797,7 +798,7 @@ static int smsc911x_mii_probe(struct net_device *dev)
 	SMSC_TRACE(HW, "Passed Loop Back Test");
 #endif				/* USE_PHY_WORK_AROUND */
 
-	SMSC_TRACE(HW, "phy initialised succesfully");
+	SMSC_TRACE(HW, "phy initialised successfully");
 	return 0;
 }
 
@@ -893,22 +894,22 @@ static void smsc911x_tx_update_txcounters(struct net_device *dev)
 			SMSC_WARNING(HW,
 				"Packet tag reserved bit is high");
 		} else {
-			if (unlikely(tx_stat & 0x00008000)) {
+			if (unlikely(tx_stat & TX_STS_ES_)) {
 				dev->stats.tx_errors++;
 			} else {
 				dev->stats.tx_packets++;
 				dev->stats.tx_bytes += (tx_stat >> 16);
 			}
-			if (unlikely(tx_stat & 0x00000100)) {
+			if (unlikely(tx_stat & TX_STS_EXCESS_COL_)) {
 				dev->stats.collisions += 16;
 				dev->stats.tx_aborted_errors += 1;
 			} else {
 				dev->stats.collisions +=
 				    ((tx_stat >> 3) & 0xF);
 			}
-			if (unlikely(tx_stat & 0x00000800))
+			if (unlikely(tx_stat & TX_STS_LOST_CARRIER_))
 				dev->stats.tx_carrier_errors += 1;
-			if (unlikely(tx_stat & 0x00000200)) {
+			if (unlikely(tx_stat & TX_STS_LATE_COL_)) {
 				dev->stats.collisions++;
 				dev->stats.tx_aborted_errors++;
 			}
@@ -922,19 +923,17 @@ smsc911x_rx_counterrors(struct net_device *dev, unsigned int rxstat)
 {
 	int crc_err = 0;
 
-	if (unlikely(rxstat & 0x00008000)) {
+	if (unlikely(rxstat & RX_STS_ES_)) {
 		dev->stats.rx_errors++;
-		if (unlikely(rxstat & 0x00000002)) {
+		if (unlikely(rxstat & RX_STS_CRC_ERR_)) {
 			dev->stats.rx_crc_errors++;
 			crc_err = 1;
 		}
 	}
 	if (likely(!crc_err)) {
-		if (unlikely((rxstat & 0x00001020) == 0x00001020)) {
-			/* Frame type indicates length,
-			 * and length error is set */
+		if (unlikely((rxstat & RX_STS_FRAME_TYPE_) &&
+			     (rxstat & RX_STS_LENGTH_ERR_)))
 			dev->stats.rx_length_errors++;
-		}
 		if (rxstat & RX_STS_MCAST_)
 			dev->stats.multicast++;
 	}
@@ -953,7 +952,7 @@ smsc911x_rx_fastforward(struct smsc911x_data *pdata, unsigned int pktbytes)
 		do {
 			udelay(1);
 			val = smsc911x_reg_read(pdata, RX_DP_CTRL);
-		} while (--timeout && (val & RX_DP_CTRL_RX_FFWD_));
+		} while ((val & RX_DP_CTRL_RX_FFWD_) && --timeout);
 
 		if (unlikely(timeout == 0))
 			SMSC_WARNING(HW, "Timed out waiting for "
@@ -1160,8 +1159,8 @@ static int smsc911x_open(struct net_device *dev)
 
 	/* Make sure EEPROM has finished loading before setting GPIO_CFG */
 	timeout = 50;
-	while ((timeout--) &&
-	       (smsc911x_reg_read(pdata, E2P_CMD) & E2P_CMD_EPC_BUSY_)) {
+	while ((smsc911x_reg_read(pdata, E2P_CMD) & E2P_CMD_EPC_BUSY_) &&
+	       --timeout) {
 		udelay(10);
 	}
 
@@ -1250,7 +1249,7 @@ static int smsc911x_open(struct net_device *dev)
 	napi_enable(&pdata->napi);
 
 	temp = smsc911x_reg_read(pdata, INT_EN);
-	temp |= (INT_EN_TDFA_EN_ | INT_EN_RSFL_EN_);
+	temp |= (INT_EN_TDFA_EN_ | INT_EN_RSFL_EN_ | INT_EN_RXSTOP_INT_EN_);
 	smsc911x_reg_write(pdata, INT_EN, temp);
 
 	spin_lock_irq(&pdata->mac_lock);
@@ -1422,11 +1421,6 @@ static void smsc911x_set_multicast_list(struct net_device *dev)
 
 			/* Request the hardware to stop, then perform the
 			 * update when we get an RX_STOP interrupt */
-			smsc911x_reg_write(pdata, INT_STS, INT_STS_RXSTOP_INT_);
-			temp = smsc911x_reg_read(pdata, INT_EN);
-			temp |= INT_EN_RXSTOP_INT_EN_;
-			smsc911x_reg_write(pdata, INT_EN, temp);
-
 			temp = smsc911x_mac_read(pdata, MAC_CR);
 			temp &= ~(MAC_CR_RXEN_);
 			smsc911x_mac_write(pdata, MAC_CR, temp);
@@ -1465,9 +1459,6 @@ static irqreturn_t smsc911x_irqhandler(int irq, void *dev_id)
 		/* Called when there is a multicast update scheduled and
 		 * it is now safe to complete the update */
 		SMSC_TRACE(INTR, "RX Stop interrupt");
-		temp = smsc911x_reg_read(pdata, INT_EN);
-		temp &= (~INT_EN_RXSTOP_INT_EN_);
-		smsc911x_reg_write(pdata, INT_EN, temp);
 		smsc911x_reg_write(pdata, INT_STS, INT_STS_RXSTOP_INT_);
 		smsc911x_rx_multicast_update_workaround(pdata);
 		serviced = IRQ_HANDLED;
@@ -1662,6 +1653,7 @@ static int smsc911x_eeprom_write_location(struct smsc911x_data *pdata,
 					  u8 address, u8 data)
 {
 	u32 op = E2P_CMD_EPC_CMD_ERASE_ | address;
+	u32 temp;
 	int ret;
 
 	SMSC_TRACE(DRV, "address 0x%x, data 0x%x", address, data);
@@ -1670,6 +1662,10 @@ static int smsc911x_eeprom_write_location(struct smsc911x_data *pdata,
 	if (!ret) {
 		op = E2P_CMD_EPC_CMD_WRITE_ | address;
 		smsc911x_reg_write(pdata, E2P_DATA, (u32)data);
+
+		/* Workaround for hardware read-after-write restriction */
+		temp = smsc911x_reg_read(pdata, BYTE_TEST);
+
 		ret = smsc911x_eeprom_send_cmd(pdata, op);
 	}
 
@@ -1882,7 +1878,7 @@ static int __devexit smsc911x_drv_remove(struct platform_device *pdev)
 	if (!res)
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
-	release_mem_region(res->start, res->end - res->start);
+	release_mem_region(res->start, resource_size(res));
 
 	iounmap(pdata->ioaddr);
 
@@ -1896,9 +1892,9 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
 	struct net_device *dev;
 	struct smsc911x_data *pdata;
 	struct smsc911x_platform_config *config = pdev->dev.platform_data;
-	struct resource *res;
+	struct resource *res, *irq_res;
 	unsigned int intcfg = 0;
-	int res_size;
+	int res_size, irq_flags;
 	int retval;
 	DECLARE_MAC_BUF(mac);
 
@@ -1921,7 +1917,15 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
 		retval = -ENODEV;
 		goto out_0;
 	}
-	res_size = res->end - res->start;
+	res_size = resource_size(res);
+
+	irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (!irq_res) {
+		pr_warning("%s: Could not allocate irq resource.\n",
+			SMSC_CHIPNAME);
+		retval = -ENODEV;
+		goto out_0;
+	}
 
 	if (!request_mem_region(res->start, res_size, SMSC_CHIPNAME)) {
 		retval = -EBUSY;
@@ -1939,7 +1943,8 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
 
 	pdata = netdev_priv(dev);
 
-	dev->irq = platform_get_irq(pdev, 0);
+	dev->irq = irq_res->start;
+	irq_flags = irq_res->flags & IRQF_TRIGGER_MASK;
 	pdata->ioaddr = ioremap_nocache(res->start, res_size);
 
 	/* copy config parameters across to pdata */
@@ -1972,8 +1977,8 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
 	smsc911x_reg_write(pdata, INT_EN, 0);
 	smsc911x_reg_write(pdata, INT_STS, 0xFFFFFFFF);
 
-	retval = request_irq(dev->irq, smsc911x_irqhandler, IRQF_DISABLED,
-			     dev->name, dev);
+	retval = request_irq(dev->irq, smsc911x_irqhandler,
+			     irq_flags | IRQF_SHARED, dev->name, dev);
 	if (retval) {
 		SMSC_WARNING(PROBE,
 			"Unable to claim requested irq: %d", dev->irq);
@@ -2033,8 +2038,7 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
 
 	spin_unlock_irq(&pdata->mac_lock);
 
-	dev_info(&dev->dev, "MAC Address: %s\n",
-		 print_mac(mac, dev->dev_addr));
+	dev_info(&dev->dev, "MAC Address: %pM\n", dev->dev_addr);
 
 	return 0;
 
@@ -2048,7 +2052,7 @@ out_unmap_io_3:
 out_free_netdev_2:
 	free_netdev(dev);
 out_release_io_1:
-	release_mem_region(res->start, res->end - res->start);
+	release_mem_region(res->start, resource_size(res));
 out_0:
 	return retval;
 }

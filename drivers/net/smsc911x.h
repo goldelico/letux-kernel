@@ -30,7 +30,7 @@
 #define SMSC_NAPI_WEIGHT	16
 
 /* implements a PHY loopback test at initialisation time, to ensure a packet
- * can be succesfully looped back */
+ * can be successfully looped back */
 #define USE_PHY_WORK_AROUND
 
 #define DPRINTK(nlevel, klevel, fmt, args...) \
@@ -81,12 +81,19 @@
 
 #define RX_STATUS_FIFO			0x40
 #define RX_STS_ES_			0x00008000
+#define RX_STS_LENGTH_ERR_		0x00001000
 #define RX_STS_MCAST_			0x00000400
+#define RX_STS_FRAME_TYPE_		0x00000020
+#define RX_STS_CRC_ERR_			0x00000002
 
 #define RX_STATUS_FIFO_PEEK		0x44
 
 #define TX_STATUS_FIFO			0x48
 #define TX_STS_ES_			0x00008000
+#define TX_STS_LOST_CARRIER_		0x00000800
+#define TX_STS_NO_CARRIER_		0x00000400
+#define TX_STS_LATE_COL_		0x00000200
+#define TX_STS_EXCESS_COL_		0x00000100
 
 #define TX_STATUS_FIFO_PEEK		0x4C
 
