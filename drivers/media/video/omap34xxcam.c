@@ -873,6 +873,8 @@ static void omap34xxcam_event_cb(unsigned long status, int (*arg1)
 		omap34xxcam_event_queue(fh, V4L2_EVENT_OMAP3ISP_AEWB);
 	if (status & H3A_AF_DONE)
 		omap34xxcam_event_queue(fh, V4L2_EVENT_OMAP3ISP_AF);
+	if (status & HS_VS)
+		omap34xxcam_event_queue(fh, V4L2_EVENT_OMAP3ISP_HS_VS);
 
 	wake_up_all(&fh->vdev->poll_event);
 }
@@ -1531,6 +1533,7 @@ int vidioc_subscribe_event(struct v4l2_fh *vfh,
 	case V4L2_EVENT_OMAP3ISP_AF:
 	case V4L2_EVENT_OMAP3ISP_AEWB:
 	case V4L2_EVENT_OMAP3ISP_HIST:
+	case V4L2_EVENT_OMAP3ISP_HS_VS:
 		break;
 	default:
 		return -EINVAL;
