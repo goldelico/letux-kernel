@@ -59,6 +59,7 @@ void v4l2_event_init_fh(struct v4l2_events *events)
 	INIT_LIST_HEAD(&events->subscribed);
 
 	atomic_set(&events->navailable, 0);
+	events->sequence = 0;
 };
 
 void v4l2_event_del(struct v4l2_events *events)
@@ -169,6 +170,8 @@ void v4l2_event_queue(struct video_device *vdev, struct v4l2_event *ev)
 		_ev->event = *ev;
 
 		spin_lock(&fh->events.lock);
+		_ev->event.sequence = fh->events.sequence;
+		fh->events.sequence++;
 		list_add_tail(&_ev->list, &fh->events.available);
 		spin_unlock(&fh->events.lock);
 

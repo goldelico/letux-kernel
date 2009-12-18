@@ -43,6 +43,7 @@ struct v4l2_events {
 	spinlock_t		lock; /* Protect everything here. */
 	struct list_head	available;
 	atomic_t		navailable;
+	u32			sequence;
 	wait_queue_head_t	wait;
 	struct list_head	subscribed; /* Subscribed events. */
 };
