@@ -36,6 +36,7 @@
 #define OMAP34XXCAM_H
 
 #include <media/v4l2-int-device.h>
+#include <media/v4l2-fh.h>
 #include "isp/isp.h"
 
 #define CAM_NAME			"omap34xxcam"
