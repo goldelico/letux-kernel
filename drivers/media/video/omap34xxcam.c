@@ -34,6 +34,7 @@
 
 #include <linux/videodev2.h>
 #include <linux/version.h>
+#include <linux/ktime.h>
 #include <asm/pgalloc.h>
 
 #include <media/v4l2-common.h>
@@ -848,6 +849,33 @@ videobuf_dqbuf_again:
 	return rval;
 }
 
+static void omap34xxcam_event_queue(struct omap34xxcam_fh *fh, u32 type)
+{
+	struct v4l2_event event;
+
+	dev_dbg(&fh->vdev->vfd->dev, "event type %8.8x\n", type);
+
+	event.type = type;
+	ktime_get_ts(&event.timestamp);
+
+	v4l2_event_queue(fh->vdev->vfd, &event);
+}
+
+static void omap34xxcam_event_cb(unsigned long status, int (*arg1)
+				 (struct videobuf_buffer *vb), void *arg2)
+{
+	struct v4l2_fh *vfh = (struct v4l2_fh *)arg1;
+	struct omap34xxcam_fh *fh = to_omap34xxcam_fh(vfh);
+
+	if (status & HIST_DONE)
+		omap34xxcam_event_queue(fh, V4L2_EVENT_OMAP3ISP_HIST);
+	if (status & H3A_AWB_DONE)
+		omap34xxcam_event_queue(fh, V4L2_EVENT_OMAP3ISP_AEWB);
+	if (status & H3A_AF_DONE)
+		omap34xxcam_event_queue(fh, V4L2_EVENT_OMAP3ISP_AF);
+}
+
+
 /**
  * vidioc_streamon - V4L2 streamon IOCTL handler
  * @file: ptr. to system file structure
@@ -883,6 +911,8 @@ static int vidioc_streamon(struct file *file, void *_fh, enum v4l2_buf_type i)
 		goto out;
 	}
 
+	isp_set_callback(isp, CBK_CATCHALL, omap34xxcam_event_cb,
+			 (void *)vfh, NULL);
 	isp_start(isp);
 
 	rval = videobuf_streamon(&ofh->vbq);
@@ -927,6 +957,7 @@ static int vidioc_streamoff(struct file *file, void *_fh, enum v4l2_buf_type i)
 
 	rval = videobuf_streamoff(q);
 	if (!rval) {
+		isp_unset_callback(isp, CBK_CATCHALL);
 		vdev->streaming = NULL;
 
 		omap34xxcam_slave_power_set(vdev, V4L2_POWER_STANDBY,
@@ -1483,6 +1514,39 @@ done:
 	return rval;
 }
 
+
+int vidioc_dqevent(struct v4l2_fh *vfh, struct v4l2_event *ev)
+{
+	return v4l2_event_dequeue(&vfh->events, ev);
+}
+
+int vidioc_subscribe_event(struct v4l2_fh *vfh,
+			   struct v4l2_event_subscription *sub)
+{
+	struct omap34xxcam_fh *fh = to_omap34xxcam_fh(vfh);
+
+	switch (sub->type) {
+	case V4L2_EVENT_OMAP3ISP_AF:
+	case V4L2_EVENT_OMAP3ISP_AEWB:
+	case V4L2_EVENT_OMAP3ISP_HIST:
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return v4l2_event_subscribe(&fh->vfh.events, sub);
+}
+
+int vidioc_unsubscribe_event(struct v4l2_fh *vfh,
+			     struct v4l2_event_subscription *sub)
+{
+	struct omap34xxcam_fh *fh = to_omap34xxcam_fh(vfh);
+
+	v4l2_event_unsubscribe(&fh->vfh.events, sub);
+
+	return 0;
+}
+
 /**
  * vidioc_default - private IOCTL handler
  * @file: ptr. to system file structure
@@ -1833,6 +1897,7 @@ static int omap34xxcam_release(struct file *file)
 	if (vdev->streaming == file) {
 		isp_stop(isp);
 		videobuf_streamoff(&ofh->vbq);
+		isp_unset_callback(isp, CBK_CATCHALL);
 		omap34xxcam_slave_power_set(vdev, V4L2_POWER_STANDBY,
 					    OMAP34XXCAM_SLAVE_POWER_ALL);
 		vdev->streaming = NULL;
@@ -1950,6 +2015,9 @@ static const struct v4l2_ioctl_ops omap34xxcam_ioctl_ops = {
 	.vidioc_s_crop			= vidioc_s_crop,
 	.vidioc_enum_framesizes		= vidioc_enum_framesizes,
 	.vidioc_enum_frameintervals	= vidioc_enum_frameintervals,
+	.vidioc_dqevent			= vidioc_dqevent,
+	.vidioc_subscribe_event		= vidioc_subscribe_event,
+	.vidioc_unsubscribe_event	= vidioc_unsubscribe_event,
 	.vidioc_default			= vidioc_default,
 };
 
