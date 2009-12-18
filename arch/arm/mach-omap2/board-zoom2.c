@@ -29,6 +29,7 @@
 #include <linux/sil9022.h>
 #endif
 #include <linux/switch.h>
+#include <linux/smsc911x.h>
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -175,7 +176,7 @@ static struct omap_mux_cfg zoom2_mux_cfg = {
 		.size	= ARRAY_SIZE(zoom2_mux_pins),
 };
 
-static struct resource zoom2_smc911x_resources[] = {
+static struct resource zoom2_smsc911x_resources[] = {
 	[0] = {
 		.start	= OMAP34XX_ETHR_START,
 		.end	= OMAP34XX_ETHR_START + SZ_4K,
@@ -188,11 +189,21 @@ static struct resource zoom2_smc911x_resources[] = {
 	},
 };
 
-static struct platform_device zoom2_smc911x_device = {
-	.name		= "smc911x",
+static struct smsc911x_platform_config zoom_smsc911x_config = {
+        .irq_polarity   = SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
+        .irq_type       = SMSC911X_IRQ_TYPE_OPEN_DRAIN,
+        .flags          = SMSC911X_USE_32BIT,
+        .phy_interface  = PHY_INTERFACE_MODE_MII,
+};
+
+static struct platform_device zoom2_smsc911x_device = {
+	.name		= "smsc911x",
 	.id		= -1,
-	.num_resources	= ARRAY_SIZE(zoom2_smc911x_resources),
-	.resource	= zoom2_smc911x_resources,
+	.num_resources	= ARRAY_SIZE(zoom2_smsc911x_resources),
+	.resource	= zoom2_smsc911x_resources,
+	.dev		= {
+		.platform_data = &zoom_smsc911x_config,
+	}
 };
 
 #ifdef CONFIG_WL127X_RFKILL
@@ -581,7 +592,7 @@ static struct platform_device headset_switch_device = {
 
 static struct platform_device *zoom2_devices[] __initdata = {
 	&zoom2_dss_device,
-	&zoom2_smc911x_device,
+	&zoom2_smsc911x_device,
 #ifdef CONFIG_WL127X_RFKILL
 	&zoom2_wl127x_device,
 #endif
@@ -605,13 +616,13 @@ static inline void __init zoom2_init_smc911x(void)
 		return;
 	}
 
-	zoom2_smc911x_resources[0].start = cs_mem_base + 0x0;
-	zoom2_smc911x_resources[0].end   = cs_mem_base + 0xf;
+	zoom2_smsc911x_resources[0].start = cs_mem_base + 0x0;
+	zoom2_smsc911x_resources[0].end   = cs_mem_base + 0xf;
 	udelay(100);
 
 	eth_gpio = LDP_SMC911X_GPIO;
 
-	zoom2_smc911x_resources[1].start = OMAP_GPIO_IRQ(eth_gpio);
+	zoom2_smsc911x_resources[1].start = OMAP_GPIO_IRQ(eth_gpio);
 
 	if (gpio_request(eth_gpio, "smc911x irq") < 0) {
 		printk(KERN_ERR "Failed to request GPIO%d for smc911x IRQ\n",
