@@ -873,6 +873,8 @@ static void omap34xxcam_event_cb(unsigned long status, int (*arg1)
 		omap34xxcam_event_queue(fh, V4L2_EVENT_OMAP3ISP_AEWB);
 	if (status & H3A_AF_DONE)
 		omap34xxcam_event_queue(fh, V4L2_EVENT_OMAP3ISP_AF);
+
+	wake_up_all(&fh->vdev->poll_event);
 }
 
 
@@ -1691,6 +1693,11 @@ static unsigned int omap34xxcam_poll(struct file *file,
 	struct omap34xxcam_fh *ofh = to_omap34xxcam_fh(vfh);
 	unsigned int ret = 0;
 
+	poll_wait(file, &ofh->vdev->poll_event, wait);
+
+	if (v4l2_event_pending(&vfh->events))
+		ret |= POLLPRI;
+
 	poll_wait(file, &ofh->poll_vb, wait);
 
 	mutex_lock(&ofh->vbq.vb_lock);
@@ -2088,6 +2095,8 @@ static int omap34xxcam_device_register(struct v4l2_int_device *s)
 
 	/* Are we the first slave? */
 	if (vdev->slaves == 1) {
+		init_waitqueue_head(&vdev->poll_event);
+
 		/* initialize the video_device struct */
 		vdev->vfd = video_device_alloc();
 		if (!vdev->vfd) {

@@ -143,6 +143,8 @@ struct omap34xxcam_videodev {
 #define vdev_flash_config slave_config[OMAP34XXCAM_SLAVE_FLASH].u.flash
 	struct omap34xxcam_hw_config slave_config[OMAP34XXCAM_SLAVE_FLASH + 1];
 
+	wait_queue_head_t poll_event;
+
 	/*** capture data ***/
 	struct file *streaming;
 	struct v4l2_fract want_timeperframe;
