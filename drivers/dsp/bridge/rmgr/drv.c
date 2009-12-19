@@ -339,7 +339,6 @@ DSP_STATUS DRV_GetDMMResElement(u32 pMapAddr, HANDLE hDMMRes, HANDLE hPCtxt)
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
 	struct DMM_RES_OBJECT **pDMMRes = (struct DMM_RES_OBJECT **)hDMMRes;
 	DSP_STATUS status = DSP_SOK;
-	struct DMM_RES_OBJECT *pTempDMM2 = NULL;
 	struct DMM_RES_OBJECT *pTempDMM = NULL;
 
 	DBC_Assert(hPCtxt != NULL);
@@ -349,7 +348,6 @@ DSP_STATUS DRV_GetDMMResElement(u32 pMapAddr, HANDLE hDMMRes, HANDLE hPCtxt)
 			 "DRV_GetDMMResElement: 2 pTempDMM:%x "
 			 "pTempDMM->ulDSPAddr:%x pMapAddr:%x\n", pTempDMM,
 			 pTempDMM->ulDSPAddr, pMapAddr);
-		pTempDMM2 = pTempDMM;
 		pTempDMM = pTempDMM->next;
 	}
 	if (pTempDMM != NULL) {
@@ -579,12 +577,11 @@ DSP_STATUS DRV_GetSTRMResElement(HANDLE hStrm, HANDLE hSTRMRes, HANDLE hPCtxt)
 }
 
 /* Updating the stream resource element */
-DSP_STATUS DRV_ProcUpdateSTRMRes(u32 uNumBufs, HANDLE hSTRMRes, HANDLE hPCtxt)
+DSP_STATUS DRV_ProcUpdateSTRMRes(u32 uNumBufs, HANDLE hSTRMRes)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct STRM_RES_OBJECT **STRMRes = (struct STRM_RES_OBJECT **)hSTRMRes;
 
-	DBC_Assert(hPCtxt != NULL);
 	(*STRMRes)->uNumBufs = uNumBufs;
 	return status;
 }
@@ -1141,11 +1138,9 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 				iounmap((void *)pResources->dwPerPmBase);
 			if (pResources->dwCorePmBase)
 				iounmap((void *)pResources->dwCorePmBase);
-			if (pResources->dwSysCtrlBase) {
+			if (pResources->dwSysCtrlBase)
 				iounmap(pResources->dwSysCtrlBase);
-				/* don't set pResources->dwSysCtrlBase to null
-				 * as it is used in BOARD_Stop */
-			}
+
 			pResources->dwPrmBase = NULL;
 			pResources->dwCmBase = NULL;
 			pResources->dwMboxBase = NULL;
@@ -1155,6 +1150,7 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 			pResources->dwMemBase[4] = (u32) NULL;
 			pResources->dwWdTimerDspBase = NULL;
 			pResources->dwDmmuBase = NULL;
+			pResources->dwSysCtrlBase = NULL;
 
 			dwBuffSize = sizeof(struct CFG_HOSTRES);
 			status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,

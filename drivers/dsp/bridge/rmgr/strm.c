@@ -158,7 +158,7 @@ DSP_STATUS STRM_AllocateBuffer(struct STRM_OBJECT *hStrm, u32 uSize,
 
 	if (DRV_GetSTRMResElement(hStrm, &hSTRMRes, pr_ctxt) !=
 			DSP_ENOTFOUND)
-		DRV_ProcUpdateSTRMRes(uNumBufs, hSTRMRes, pr_ctxt);
+		DRV_ProcUpdateSTRMRes(uNumBufs, hSTRMRes);
 #endif
 func_end:
 	return status;
@@ -340,7 +340,7 @@ DSP_STATUS STRM_FreeBuffer(struct STRM_OBJECT *hStrm, u8 **apBuffer,
 #ifndef RES_CLEANUP_DISABLE
 	if (DRV_GetSTRMResElement(hStrm, hSTRMRes, pr_ctxt) !=
 			DSP_ENOTFOUND)
-		DRV_ProcUpdateSTRMRes(uNumBufs-i, hSTRMRes, pr_ctxt);
+		DRV_ProcUpdateSTRMRes(uNumBufs-i, hSTRMRes);
 #endif
 	return status;
 }
