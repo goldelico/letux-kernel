@@ -160,23 +160,22 @@ DSP_STATUS DISP_Create(OUT struct DISP_OBJECT **phDispObject,
 		status = DSP_EFAIL;
 		goto func_cont;
 	}
-	if (DSP_SUCCEEDED(status)) {
-		pDisp->uCharSize = DSPWORDSIZE;
-		pDisp->uWordSize = DSPWORDSIZE;
-		pDisp->uDataMauSize = DSPWORDSIZE;
-		/* Open channels for communicating with the RMS */
-		chnlAttrs.uIOReqs = CHNLIOREQS;
-		chnlAttrs.hEvent = NULL;
-		ulChnlId = pDispAttrs->ulChnlOffset + CHNLTORMSOFFSET;
-		status = (*pIntfFxns->pfnChnlOpen)(&(pDisp->hChnlToDsp),
-			 pDisp->hChnlMgr, CHNL_MODETODSP, ulChnlId, &chnlAttrs);
-		if (DSP_FAILED(status)) {
-			GT_2trace(DISP_DebugMask, GT_6CLASS,
-				 "DISP_Create:  Channel to RMS "
-				 "open failed, chnl id = %d, status = 0x%x\n",
-				 ulChnlId, status);
-		}
-	}
+
+	pDisp->uCharSize = DSPWORDSIZE;
+	pDisp->uWordSize = DSPWORDSIZE;
+	pDisp->uDataMauSize = DSPWORDSIZE;
+	/* Open channels for communicating with the RMS */
+	chnlAttrs.uIOReqs = CHNLIOREQS;
+	chnlAttrs.hEvent = NULL;
+	ulChnlId = pDispAttrs->ulChnlOffset + CHNLTORMSOFFSET;
+	status = (*pIntfFxns->pfnChnlOpen)(&(pDisp->hChnlToDsp),
+		 pDisp->hChnlMgr, CHNL_MODETODSP, ulChnlId, &chnlAttrs);
+	if (DSP_FAILED(status))
+		GT_2trace(DISP_DebugMask, GT_6CLASS,
+			 "DISP_Create:  Channel to RMS "
+			 "open failed, chnl id = %d, status = 0x%x\n",
+			 ulChnlId, status);
+
 	if (DSP_SUCCEEDED(status)) {
 		ulChnlId = pDispAttrs->ulChnlOffset + CHNLFROMRMSOFFSET;
 		status = (*pIntfFxns->pfnChnlOpen)(&(pDisp->hChnlFromDsp),
@@ -819,7 +818,7 @@ static DSP_STATUS SendMessage(struct DISP_OBJECT *hDisp, u32 dwTimeout,
 		GT_1trace(DISP_DebugMask, GT_6CLASS,
 			 "SendMessage: Channel AddIOReq to"
 			 " RMS failed! Status = 0x%x\n", status);
-		goto func_cont;
+		goto func_end;
 	}
 	status = (*pIntfFxns->pfnChnlGetIOC) (hChnl, dwTimeout, &chnlIOC);
 	if (DSP_SUCCEEDED(status)) {
@@ -839,7 +838,6 @@ static DSP_STATUS SendMessage(struct DISP_OBJECT *hDisp, u32 dwTimeout,
 			 "SendMessage: Channel GetIOC to"
 			 " RMS failed! Status = 0x%x\n", status);
 	}
-func_cont:
 	/* Get the reply */
 	if (DSP_FAILED(status))
 		goto func_end;

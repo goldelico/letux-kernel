@@ -74,16 +74,16 @@ DSP_STATUS MGR_Create(OUT struct MGR_OBJECT **phMgrObject,
 		 phMgrObject);
 	MEM_AllocObject(pMgrObject, struct MGR_OBJECT, SIGNATURE);
 	if (pMgrObject) {
-		if (DSP_SUCCEEDED(DCD_CreateManager(ZLDLLNAME,
-		   &pMgrObject->hDcdMgr))) {
+		status = DCD_CreateManager(ZLDLLNAME, &pMgrObject->hDcdMgr);
+		if (DSP_SUCCEEDED(status)) {
 			/* If succeeded store the handle in the MGR Object */
-			if (DSP_SUCCEEDED(CFG_SetObject((u32)pMgrObject,
-			   REG_MGR_OBJECT))) {
+			status = CFG_SetObject((u32)pMgrObject,
+							REG_MGR_OBJECT);
+			if (DSP_SUCCEEDED(status)) {
 				*phMgrObject = pMgrObject;
 				GT_0trace(MGR_DebugMask, GT_1CLASS,
 					 "MGR_Create:MGR Created\r\n");
 			} else {
-				status = DSP_EFAIL;
 				GT_0trace(MGR_DebugMask, GT_7CLASS,
 					 "MGR_Create:CFG_SetObject "
 					 "Failed\r\n");
@@ -92,7 +92,6 @@ DSP_STATUS MGR_Create(OUT struct MGR_OBJECT **phMgrObject,
 			}
 		} else {
 			/* failed to Create DCD Manager */
-			status = DSP_EFAIL;
 			GT_0trace(MGR_DebugMask, GT_7CLASS,
 				 "MGR_Create:DCD_ManagerCreate Failed\r\n");
 			MEM_FreeObject(pMgrObject);
@@ -151,7 +150,6 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 			   u32 uNDBPropsSize, OUT u32 *puNumNodes)
 {
 	DSP_STATUS status = DSP_SOK;
-	DSP_STATUS status1 = DSP_SOK;
 	struct DSP_UUID Uuid, uTempUuid;
 	u32 uTempIndex = 0;
 	u32 uNodeIndex = 0;
@@ -169,8 +167,8 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 		 uNDBPropsSize, puNumNodes);
 	*puNumNodes = 0;
 	/* Get The Manager Object from the Registry */
-	if (DSP_FAILED(CFG_GetObject((u32 *)&pMgrObject,
-	   REG_MGR_OBJECT))) {
+	status = CFG_GetObject((u32 *)&pMgrObject, REG_MGR_OBJECT);
+	if (DSP_FAILED(status)) {
 		GT_0trace(MGR_DebugMask, GT_7CLASS,
 			 "Manager_EnumNodeInfo:Failed To Get"
 			 " MGR Object from Registry\r\n");
@@ -196,26 +194,23 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 				 "Manager_EnumNodeInfo: uNode"
 				 " is Invalid \r\n");
 		} else {
-			status1 = DCD_GetObjectDef(pMgrObject->hDcdMgr,
+			status = DCD_GetObjectDef(pMgrObject->hDcdMgr,
 						(struct DSP_UUID *)&Uuid,
 						DSP_DCDNODETYPE, &GenObj);
-			if (DSP_SUCCEEDED(status1)) {
+			if (DSP_SUCCEEDED(status)) {
 				/* Get the Obj def */
 				*pNDBProps = GenObj.objData.nodeObj.ndbProps;
 				*puNumNodes = uNodeIndex;
-				status = DSP_SOK;
 			} else {
 				GT_0trace(MGR_DebugMask, GT_7CLASS,
 					 "Manager_EnumNodeInfo: "
 					 "Failed to Get Node Info \r\n");
-				status = DSP_EFAIL;
 			}
 		}
 	} else {
 		/* This could be changed during enum, EFAIL ... */
 		GT_0trace(MGR_DebugMask, GT_7CLASS, "Manager_EnumNodeInfo: "
 			 "Enumeration failure\r\n");
-		status = DSP_EFAIL;
 	}
 func_cont:
 	GT_4trace(MGR_DebugMask, GT_ENTER,

@@ -504,18 +504,10 @@ static int bridge_open(struct inode *ip, struct file *filp)
  * driver. */
 static int bridge_release(struct inode *ip, struct file *filp)
 {
-	int status;
-	HANDLE hDrvObject = NULL;
 	struct PROCESS_CONTEXT *pr_ctxt;
 
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_release\n");
 
-	status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
-
-	/* Checking weather task structure for all process existing
-	 * in the process context list If not removing those processes*/
-	if (DSP_FAILED(status))
-		goto func_end;
 
 	pr_ctxt = filp->private_data;
 
@@ -527,12 +519,8 @@ static int bridge_release(struct inode *ip, struct file *filp)
 		MEM_Free(pr_ctxt);
 		filp->private_data = NULL;
 	}
-func_end:
-	(status == true) ? (status = 0) : (status = -1);
-
 	GT_0trace(driverTrace, GT_ENTER, " <- driver_release\n");
-
-	return status;
+	return 0;
 }
 
 /* This function provides IO interface to the bridge driver. */

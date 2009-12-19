@@ -130,11 +130,13 @@ DSP_STATUS STRM_AllocateBuffer(struct STRM_OBJECT *hStrm, u32 uSize,
 		if (uSize == 0)
 			status = DSP_ESIZE;
 
-	}
-	if (DSP_FAILED(status)) {
+	} else {
 		status = DSP_EHANDLE;
-		goto func_end;
 	}
+
+	if (DSP_FAILED(status))
+		goto func_end;
+
 	for (i = 0; i < uNumBufs; i++) {
 		DBC_Assert(hStrm->hXlator != NULL);
 		(void)CMM_XlatorAllocBuf(hStrm->hXlator, &apBuffer[i], uSize);
@@ -191,20 +193,10 @@ DSP_STATUS STRM_Close(struct STRM_OBJECT *hStrm,
 		status = (*pIntfFxns->pfnChnlGetInfo) (hStrm->hChnl, &chnlInfo);
 		DBC_Assert(DSP_SUCCEEDED(status));
 
-		if (chnlInfo.cIOCs > 0 || chnlInfo.cIOReqs > 0) {
+		if (chnlInfo.cIOCs > 0 || chnlInfo.cIOReqs > 0)
 			status = DSP_EPENDING;
-		} else {
-
+		else
 			status = DeleteStrm(hStrm);
-
-			if (DSP_FAILED(status)) {
-				/* we already validated the handle. */
-				DBC_Assert(status != DSP_EHANDLE);
-
-				/* make sure we return a documented result */
-				status = DSP_EFAIL;
-			}
-		}
 	}
 #ifndef RES_CLEANUP_DISABLE
 	if (DSP_FAILED(status))
@@ -511,13 +503,8 @@ DSP_STATUS STRM_Issue(struct STRM_OBJECT *hStrm, IN u8 *pBuf, u32 ulBytes,
 				 (hStrm->hChnl, pBuf, ulBytes, ulBufSize,
 				 (u32) pTmpBuf, dwArg);
 		}
-		if (DSP_FAILED(status)) {
-			if (status == CHNL_E_NOIORPS)
-				status = DSP_ESTREAMFULL;
-			else
-				status = DSP_EFAIL;
-
-		}
+		if (status == CHNL_E_NOIORPS)
+			status = DSP_ESTREAMFULL;
 	}
 	return status;
 }

@@ -91,6 +91,7 @@ DSP_STATUS DRV_ProcUpdatestate(HANDLE hPCtxt, enum GPP_PROC_RES_STATE status)
 	if (pCtxt != NULL) {
 		pCtxt->resState = status;
 	} else {
+		status1 = DSP_EHANDLE;
 		GT_0trace(curTrace, GT_ENTER,
 			 "DRV_ProcUpdatestate: Failed to update "
 			 "process state");
@@ -313,8 +314,14 @@ DSP_STATUS  DRV_ProcFreeDMMRes(HANDLE hPCtxt)
 		if (pDMMRes->dmmAllocated) {
 			status = PROC_UnMap(pDMMRes->hProcessor,
 				 (void *)pDMMRes->ulDSPResAddr, pCtxt);
+			if (DSP_FAILED(status))
+				pr_debug("%s: PROC_UnMap failed! status ="
+						" 0x%xn", __func__, status);
 			status = PROC_UnReserveMemory(pDMMRes->hProcessor,
 				 (void *)pDMMRes->ulDSPResAddr);
+			if (DSP_FAILED(status))
+				pr_debug("%s: PROC_UnReserveMemory failed!"
+					" status = 0x%xn", __func__, status);
 			pDMMRes->dmmAllocated = 0;
 		}
 	}
@@ -629,32 +636,31 @@ DSP_STATUS DRV_Create(OUT struct DRV_OBJECT **phDRVObject)
 				MEM_FreeObject(pDRVObject);
 			}
 		} else {
-			status = DSP_EFAIL;
+			status = DSP_EMEMORY;
 			GT_0trace(curTrace, GT_7CLASS,
 				 "Failed to Create Dev List ");
 			MEM_FreeObject(pDRVObject);
 		}
 	} else {
-		status = DSP_EFAIL;
+		status = DSP_EMEMORY;
 		GT_0trace(curTrace, GT_7CLASS,
 			 "Failed to Allocate Memory for DRV Obj");
 	}
+	/* Store the DRV Object in the Registry */
+	if (DSP_SUCCEEDED(status))
+		status = CFG_SetObject((u32) pDRVObject, REG_DRV_OBJECT);
 	if (DSP_SUCCEEDED(status)) {
-		/* Store the DRV Object in the Registry */
-		if (DSP_SUCCEEDED
-		    (CFG_SetObject((u32) pDRVObject, REG_DRV_OBJECT))) {
-			GT_1trace(curTrace, GT_1CLASS,
-				 "DRV Obj Created pDrvObject 0x%x\n ",
-				 pDRVObject);
-			*phDRVObject = pDRVObject;
-		} else {
-			/* Free the DRV Object */
-			status = DSP_EFAIL;
-			MEM_Free(pDRVObject);
-			GT_0trace(curTrace, GT_7CLASS,
-				 "Failed to update the Registry with "
+		GT_1trace(curTrace, GT_1CLASS,
+			 "DRV Obj Created pDrvObject 0x%x\n ",
+			 pDRVObject);
+		*phDRVObject = pDRVObject;
+	} else {
+		/* Free the DRV Object */
+		MEM_Free(pDRVObject);
+		GT_0trace(curTrace, GT_7CLASS,
+			 "Failed to update the Registry with "
 				 "DRV Object ");
-		}
+
 	}
 	GT_2trace(curTrace, GT_ENTER,
 		 "Exiting DRV_Create: phDRVObject: 0x%x\tstatus:"
@@ -748,7 +754,6 @@ DSP_STATUS DRV_GetDevObject(u32 uIndex, struct DRV_OBJECT *hDrvObject,
 	}
 	if (pDevObject) {
 		*phDevObject = (struct DEV_OBJECT *) pDevObject;
-		status = DSP_SOK;
 	} else {
 		*phDevObject = NULL;
 		status = DSP_EFAIL;
@@ -976,8 +981,9 @@ DSP_STATUS DRV_RequestResources(u32 dwContext, u32 *pDevNodeString)
 	 *  it is freed in the Release resources. Update the driver object
 	 *  list.
 	 */
-	if (DSP_SUCCEEDED(CFG_GetObject((u32 *)&pDRVObject,
-	   REG_DRV_OBJECT))) {
+
+	status = CFG_GetObject((u32 *)&pDRVObject, REG_DRV_OBJECT);
+	if (DSP_SUCCEEDED(status)) {
 		pszdevNode = MEM_Calloc(sizeof(struct DRV_EXT), MEM_NONPAGED);
 		if (pszdevNode) {
 			LST_InitElem(&pszdevNode->link);
@@ -991,11 +997,10 @@ DSP_STATUS DRV_RequestResources(u32 dwContext, u32 *pDevNodeString)
 		} else {
 			GT_0trace(curTrace, GT_7CLASS,
 				"Failed to Allocate Memory devNodeString ");
-			status = DSP_EFAIL;
+			status = DSP_EMEMORY;
 			*pDevNodeString = 0;
 		}
 	} else {
-		status = DSP_EFAIL;
 		GT_0trace(curTrace, GT_7CLASS,
 			 "Failed to get Driver Object from Registry");
 		*pDevNodeString = 0;
@@ -1043,10 +1048,9 @@ DSP_STATUS DRV_ReleaseResources(u32 dwContext, struct DRV_OBJECT *hDrvObject)
 		GT_0trace(curTrace, GT_1CLASS, " Unknown device\n");
 	}
 
-	if (DSP_SUCCEEDED(status)) {
+	if (DSP_FAILED(status))
 		GT_0trace(curTrace, GT_1CLASS,
 			 "Failed to relese bridge resources\n");
-	}
 
 	/*
 	 *  Irrespective of the status go ahead and clean it
@@ -1212,27 +1216,25 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 		/* for 24xx base port is not mapping the mamory for DSP
 		 * internal memory TODO Do a ioremap here */
 		/* Second window is for DSP external memory shared with MPU */
-		if (DSP_SUCCEEDED(status)) {
-			/* for Linux, these are hard-coded values */
-			pResources->bIRQRegisters = 0;
-			pResources->bIRQAttrib = 0;
-			pResources->dwOffsetForMonitor = 0;
-			pResources->dwChnlOffset = 0;
-			/* CHNL_MAXCHANNELS */
-			pResources->dwNumChnls = CHNL_MAXCHANNELS;
-			pResources->dwChnlBufSize = 0x400;
-			dwBuffSize = sizeof(struct CFG_HOSTRES);
-			status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
+		/* for Linux, these are hard-coded values */
+		pResources->bIRQRegisters = 0;
+		pResources->bIRQAttrib = 0;
+		pResources->dwOffsetForMonitor = 0;
+		pResources->dwChnlOffset = 0;
+		/* CHNL_MAXCHANNELS */
+		pResources->dwNumChnls = CHNL_MAXCHANNELS;
+		pResources->dwChnlBufSize = 0x400;
+		dwBuffSize = sizeof(struct CFG_HOSTRES);
+		status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
 						sizeof(struct CFG_HOSTRES));
-			if (DSP_SUCCEEDED(status)) {
-				GT_0trace(curTrace, GT_1CLASS,
-					 " Successfully set the registry "
-					 "value for CURRENTCONFIG\n");
-			} else {
-				GT_0trace(curTrace, GT_7CLASS,
-					 " Failed to set the registry "
-					 "value for CURRENTCONFIG\n");
-			}
+		if (DSP_SUCCEEDED(status)) {
+			GT_0trace(curTrace, GT_1CLASS,
+				 " Successfully set the registry "
+				 "value for CURRENTCONFIG\n");
+		} else {
+			GT_0trace(curTrace, GT_7CLASS,
+				 " Failed to set the registry "
+				 "value for CURRENTCONFIG\n");
 		}
 		MEM_Free(pResources);
 	}

@@ -161,7 +161,6 @@ DSP_STATUS DCD_CreateManager(IN char *pszZlDllName,
 	status = COD_Create(&hCodMgr, pszZlDllName, NULL);
 
 	if (DSP_FAILED(status)) {
-		status = DSP_EFAIL;
 		GT_0trace(curTrace, GT_6CLASS,
 			 "DCD_CreateManager: COD_Create failed\n");
 		goto func_end;
@@ -442,8 +441,10 @@ DSP_STATUS DCD_GetObjectDef(IN struct DCD_MANAGER *hDcdMgr,
 		 " 0x%x, objType 0x%x, pObjDef 0x%x\n", hDcdMgr, pObjUuid,
 		 objType, pObjDef);
 	szUuid = (char *)MEM_Calloc(MAXUUIDLEN, MEM_PAGED);
-	if (!szUuid)
-		return status = DSP_EMEMORY;
+	if (!szUuid) {
+		status = DSP_EMEMORY;
+		goto func_end;
+	}
 
 	if (!IsValidHandle(hDcdMgr)) {
 		status = DSP_EHANDLE;
@@ -759,13 +760,10 @@ DSP_STATUS DCD_GetLibraryName(IN struct DCD_MANAGER *hDcdMgr,
 		sprintf(szObjType, "%d", DSP_DCDLIBRARYTYPE);
 		break;
 	default:
-		status = -1;
+		status = DSP_EINVALIDARG;
 		DBC_Assert(false);
 	}
-	if (status == -1) {
-		status = DSP_EFAIL;
-	} else {
-		status = DSP_SOK;
+	if (DSP_SUCCEEDED(status)) {
 		if ((strlen(szRegKey) + strlen(szObjType)) <
 		   REG_MAXREGPATHLENGTH) {
 			strncat(szRegKey, szObjType, strlen(szObjType) + 1);
@@ -945,19 +943,15 @@ DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 		GT_2trace(curTrace, GT_6CLASS, "REG_SetValue  "
 			  "(u8 *)pszPathName=%s, dwPathSize=%d\n",
 			  pszPathName, dwPathSize);
-		if (DSP_FAILED(status)) {
-			status = DSP_EFAIL;
+		if (DSP_FAILED(status))
 			GT_0trace(curTrace, GT_6CLASS,
 				"DCD_RegisterObject: REG_SetValue failed!\n");
-		}
 	} else {
 		/* Deregister an existing object. */
 		status = REG_DeleteValue(szRegKey);
-		if (DSP_FAILED(status)) {
-			status = DSP_EFAIL;
+		if (DSP_FAILED(status))
 			GT_0trace(curTrace, GT_6CLASS, "DCD_UnregisterObject: "
 				"REG_DeleteValue failed!\n");
-		}
 	}
 
 	if (DSP_SUCCEEDED(status)) {

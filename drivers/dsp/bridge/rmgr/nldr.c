@@ -1018,7 +1018,7 @@ static DSP_STATUS AddOvlyInfo(void *handle, struct DBLL_SectInfo *sectInfo,
 
 	/* Determine which phase this section belongs to */
 	for (pch = pSectName + 1; *pch && *pch != seps; pch++)
-		;;
+		;
 
 	if (*pch) {
 		pch++;	/* Skip over the ':' */
@@ -1398,7 +1398,7 @@ static DSP_STATUS LoadLib(struct NLDR_NODEOBJECT *hNldrNode,
 	/*
 	 *  Recursively load dependent libraries.
 	 */
-	if (DSP_SUCCEEDED(status) && persistentDepLibs) {
+	if (DSP_SUCCEEDED(status)) {
 		for (i = 0; i < nLibs; i++) {
 			/* If root library is NOT persistent, and dep library
 			 * is, then record it.  If root library IS persistent,
@@ -1422,15 +1422,11 @@ static DSP_STATUS LoadLib(struct NLDR_NODEOBJECT *hNldrNode,
 				pDepLib = &root->pDepLibs[nLoaded];
 			}
 
-			if (depLibUUIDs) {
-				status = LoadLib(hNldrNode, pDepLib,
+			status = LoadLib(hNldrNode, pDepLib,
 						depLibUUIDs[i],
 						persistentDepLibs[i], libPath,
 						phase,
 						depth);
-			} else {
-				status = DSP_EMEMORY;
-			}
 
 			if (DSP_SUCCEEDED(status)) {
 				if ((status != DSP_SALREADYLOADED) &&
@@ -1554,10 +1550,6 @@ static DSP_STATUS LoadOvly(struct NLDR_NODEOBJECT *hNldrNode,
 		DBC_Assert(false);
 		break;
 	}
-
-	DBC_Assert(pRefCount != NULL);
-	if (DSP_FAILED(status))
-		goto func_end;
 
 	if (pRefCount == NULL)
 		goto func_end;
@@ -1837,7 +1829,6 @@ static void UnloadOvly(struct NLDR_NODEOBJECT *hNldrNode, enum NLDR_PHASE phase)
 	u16 nOtherAlloc = 0;
 	u16 *pRefCount = NULL;
 	u16 *pOtherRef = NULL;
-	DSP_STATUS status = DSP_SOK;
 
 	/* Find the node in the table */
 	for (i = 0; i < hNldr->nOvlyNodes; i++) {
@@ -1878,17 +1869,16 @@ static void UnloadOvly(struct NLDR_NODEOBJECT *hNldrNode, enum NLDR_PHASE phase)
 		DBC_Assert(false);
 		break;
 	}
-	if (DSP_SUCCEEDED(status)) {
-		DBC_Assert(pRefCount && (*pRefCount > 0));
-		 if (pRefCount && (*pRefCount > 0)) {
-			*pRefCount -= 1;
-			if (pOtherRef) {
-				DBC_Assert(*pOtherRef > 0);
-				*pOtherRef -= 1;
-			}
+	DBC_Assert(pRefCount && (*pRefCount > 0));
+	 if (pRefCount && (*pRefCount > 0)) {
+		*pRefCount -= 1;
+		if (pOtherRef) {
+			DBC_Assert(*pOtherRef > 0);
+			*pOtherRef -= 1;
 		}
 	}
-	if (pRefCount && (*pRefCount == 0)) {
+
+	if (pRefCount && *pRefCount == 0) {
 		/* 'Deallocate' memory */
 		FreeSects(hNldr, pPhaseSects, nAlloc);
 	}

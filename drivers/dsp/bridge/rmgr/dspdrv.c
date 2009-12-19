@@ -56,7 +56,6 @@ u32 DSP_Init(OUT u32 *initStatus)
 	char devNode[MAXREGPATHLENGTH] = "TIOMAP1510";
 	DSP_STATUS status = DSP_EFAIL;
 	struct DRV_OBJECT *drvObject = NULL;
-	u32 index = 0;
 	u32 deviceNode;
 	u32 deviceNodeString;
 
@@ -64,11 +63,12 @@ u32 DSP_Init(OUT u32 *initStatus)
 
 	GT_0trace(curTrace, GT_ENTER, "Entering DSP_Init \r\n");
 
-	if (DSP_FAILED(WCD_Init())) {
+	if (!WCD_Init()) {
 		GT_0trace(curTrace, GT_7CLASS, "DSP_Init Failed \n");
 		goto func_cont;
 	}			/* End WCD_Exit */
-	if (DSP_FAILED(DRV_Create(&drvObject))) {
+	status = DRV_Create(&drvObject);
+	if (DSP_FAILED(status)) {
 		GT_0trace(curTrace, GT_7CLASS, "DSP_Init:DRV_Create Failed \n");
 		WCD_Exit();
 		goto func_cont;
@@ -76,29 +76,27 @@ u32 DSP_Init(OUT u32 *initStatus)
 	GT_0trace(curTrace, GT_5CLASS, "DSP_Init:DRV Created \r\n");
 
 	/* Request Resources */
-	if (DSP_SUCCEEDED(DRV_RequestResources((u32)&devNode,
-	   &deviceNodeString))) {
+	status = DRV_RequestResources((u32)&devNode, &deviceNodeString);
+	if (DSP_SUCCEEDED(status)) {
 		/* Attempt to Start the Device */
-		if (DSP_SUCCEEDED(DEV_StartDevice(
-		   (struct CFG_DEVNODE *)deviceNodeString))) {
+		status = DEV_StartDevice((struct CFG_DEVNODE *)
+							deviceNodeString);
+		if (DSP_SUCCEEDED(status)) {
 			/* Retreive the DevObject from the Registry */
-			GT_2trace(curTrace, GT_1CLASS,
-				 "DSP_Init Succeeded for Device1:"
-				 "%d: value: %x\n", index, deviceNodeString);
-			status = DSP_SOK;
+			GT_1trace(curTrace, GT_1CLASS,
+				 "DSP_Init Succeeded for Device1 value: %x\n",
+				 deviceNodeString);
 		} else {
 			GT_0trace(curTrace, GT_7CLASS,
 				 "DSP_Init:DEV_StartDevice Failed\n");
 			(void)DRV_ReleaseResources
 				((u32) deviceNodeString, drvObject);
-			status = DSP_EFAIL;
 		}
 	} else {
 		GT_0trace(curTrace, GT_7CLASS,
 			 "DSP_Init:DRV_RequestResources Failed \r\n");
 		status = DSP_EFAIL;
-	}	/* DRV_RequestResources */
-	index++;
+	}
 
 	/* Unwind whatever was loaded */
 	if (DSP_FAILED(status)) {
@@ -106,7 +104,6 @@ u32 DSP_Init(OUT u32 *initStatus)
 		 * unloading. Get the Driver Object iterate through and remove.
 		 * Reset the status to E_FAIL to avoid going through
 		 * WCD_InitComplete2. */
-		status = DSP_EFAIL;
 		for (deviceNode = DRV_GetFirstDevExtension(); deviceNode != 0;
 		    deviceNode = DRV_GetNextDevExtension(deviceNode)) {
 			(void)DEV_RemoveDevice
