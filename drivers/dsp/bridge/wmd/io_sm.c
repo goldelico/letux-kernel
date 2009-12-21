@@ -1931,9 +1931,9 @@ void PrintDSPDebugTrace(struct IO_MGR *hIOMgr)
 			 */
 			hIOMgr->ulGPPReadPointer += ulNewMessageLength;
 			/* Print the trace messages */
-			GT_0trace(dsp_trace_mask, GT_1CLASS, hIOMgr->pMsg);
+			pr_info("DSPTrace:%s", hIOMgr->pMsg);
 		} else if (ulGPPCurPointer < hIOMgr->ulGPPReadPointer) {
-			/* Handle trace buffer wraparound */
+		/* Handle trace buffer wraparound */
 			memcpy(hIOMgr->pMsg, (char *)hIOMgr->ulGPPReadPointer,
 				hIOMgr->ulTraceBufferEnd -
 				hIOMgr->ulGPPReadPointer);
@@ -1953,7 +1953,7 @@ void PrintDSPDebugTrace(struct IO_MGR *hIOMgr)
 			hIOMgr->ulGPPReadPointer = hIOMgr->ulTraceBufferBegin +
 						   ulNewMessageLength;
 			/* Print the trace messages */
-			GT_0trace(dsp_trace_mask, GT_1CLASS, hIOMgr->pMsg);
+			pr_info("DSPTrace:%s", hIOMgr->pMsg);
 		}
 	}
 }
