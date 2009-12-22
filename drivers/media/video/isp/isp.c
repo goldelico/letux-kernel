@@ -925,9 +925,12 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	if (irqstatus & LSC_PRE_ERR) {
 		/* Mark buffer faulty. */
 		buf->vb_state = VIDEOBUF_ERROR;
-		ispccdc_lsc_error_handler(&isp->isp_ccdc);
 		dev_dbg(dev, "lsc prefetch error\n");
+		ispccdc_lsc_state_handler(&isp->isp_ccdc, LSC_PRE_ERR);
 	}
+
+	if (irqstatus & LSC_DONE)
+		ispccdc_lsc_state_handler(&isp->isp_ccdc, LSC_DONE);
 
 	if (irqstatus & CSIA) {
 		int ret = isp_csi2_isr(&isp->isp_csi2);
@@ -979,8 +982,13 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 			isp_hist_try_enable(&isp->isp_hist);
 	}
 
-	if (irqstatus & CCDC_VD1)
-		ispccdc_config_shadow_registers(&isp->isp_ccdc);
+	if (irqstatus & CCDC_VD1) {
+		ispccdc_lsc_state_handler(&isp->isp_ccdc, CCDC_VD1);
+		/* If we make raw capture, stop CCDC
+		 * together with LSC before EOF */
+		if (CCDC_CAPTURE(isp))
+			ispccdc_enable(&isp->isp_ccdc, 0);
+	}
 
 	if (irqstatus & PREV_DONE) {
 		if (irqdis->isp_callbk[CBK_PREV_DONE])
@@ -1101,6 +1109,9 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	}
 
 out_ignore_buff:
+	if (irqstatus & LSC_PRE_COMP)
+		ispccdc_lsc_pref_comp_handler(&isp->isp_ccdc);
+
 	spin_unlock_irqrestore(&isp->lock, flags);
 
 	isp_flush(dev);
@@ -1250,8 +1261,22 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 	unsigned long timeout = jiffies + ISP_STOP_TIMEOUT;
 	int reset = 0;
 
+	/* We need to disble the first LSC module */
+	timeout = jiffies + ISP_STOP_TIMEOUT;
+	while (ispccdc_lsc_delay_stop(&isp->isp_ccdc)) {
+		if (time_after(jiffies, timeout)) {
+			printk(KERN_ERR "%s: can't stop lsc "
+					"disabling lsc anyway. \n", __func__);
+			reset = 1;
+			break;
+		}
+		msleep(1);
+	}
+	/* We can disable lsc now */
+	ispccdc_enable_lsc(&isp->isp_ccdc, 0);
+
 	/*
-	 * We need to stop all the modules after CCDC first or they'll
+	 * We need to stop all the modules after CCDC or they'll
 	 * never stop since they may not get a full frame from CCDC.
 	 */
 	if (suspend) {
@@ -1703,7 +1728,6 @@ static void isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 		return;
 
 	if (CCDC_CAPTURE(isp)) {
-		ispccdc_enable(&isp->isp_ccdc, 0);
 		if (ispccdc_sbl_wait_idle(&isp->isp_ccdc, 1000)) {
 			ispccdc_enable(&isp->isp_ccdc, 1);
 			dev_info(dev, "ccdc won't become idle!\n");
@@ -1723,8 +1747,17 @@ static void isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 	} else {
 		/* Tell ISP not to write any of our buffers. */
 		isp_disable_interrupts(dev);
-		if (CCDC_PREV_CAPTURE(isp))
+		/*
+		 * We must wait for one HS_VS since before that the
+		 * CCDC may trigger interrupts even if it's not
+		 * receiving a frame.
+		 */
+		if (CCDC_CAPTURE(isp))
+			bufs->wait_hs_vs = 1;
+		else if (CCDC_PREV_CAPTURE(isp))
 			isppreview_enable(&isp->isp_prev, 0);
+		else if (CCDC_PREV_RESZ_CAPTURE(isp))
+			ispresizer_enable(&isp->isp_res, 0);
 	}
 
 	/* Mark the current buffer as done. */

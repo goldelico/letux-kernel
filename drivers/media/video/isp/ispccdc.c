@@ -585,20 +585,52 @@ static void ispccdc_config_lsc(struct isp_ccdc_device *isp_ccdc)
 		       ISPCCDC_LSC_INITIAL);
 }
 
+void ispccdc_lsc_state_handler(struct isp_ccdc_device *isp_ccdc,
+		unsigned long status)
+{
+	if (!isp_ccdc->lsc_enable)
+		return;
+
+	switch (status) {
+	case CCDC_VD1:
+		isp_ccdc->lsc_delay_stop = 0;
+		/* The only thing we update in config
+		 * shadow registers is LSC, next step
+		 * is to remove this function and put updates
+		 * in this handler */
+		ispccdc_config_shadow_registers(isp_ccdc);
+		break;
+	case LSC_DONE:
+		isp_ccdc->lsc_delay_stop = 1;
+		break;
+	case LSC_PRE_ERR:
+		/* If we have LSC prefetch error, LSC engine is blocked
+		 * and the only way it can recover is to do isp sw reset */
+		ispccdc_enable_lsc(isp_ccdc, 0);
+		isp_ccdc->lsc_delay_stop = 1;
+	default:
+		break;
+	}
+}
+
 /**
  * ispccdc_enable_lsc - Enables/Disables the Lens Shading Compensation module.
  * @isp_ccdc: Pointer to ISP CCDC device.
  * @enable: 0 Disables LSC, 1 Enables LSC.
  **/
-static void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
+void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 {
 	struct device *dev = to_device(isp_ccdc);
 
 	if (enable) {
-		isp_reg_writel(dev, IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ,
+		isp_reg_writel(dev, IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ |
+			       IRQ0ENABLE_CCDC_LSC_DONE_IRQ |
+			       IRQ0ENABLE_CCDC_VD1_IRQ,
 			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			   IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ);
+			IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
+			IRQ0ENABLE_CCDC_LSC_DONE_IRQ |
+			IRQ0ENABLE_CCDC_VD1_IRQ);
 
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN,
 			   ISP_CTRL, ISPCTRL_SBL_SHARED_RPORTB
@@ -612,8 +644,11 @@ static void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 			    ISPCCDC_LSC_CONFIG, ~ISPCCDC_LSC_ENABLE);
 
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
-			    ~IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ);
+			    ~(IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
+			      IRQ0ENABLE_CCDC_LSC_DONE_IRQ |
+			      IRQ0ENABLE_CCDC_VD1_IRQ));
 	}
+	isp_ccdc->lsc_enable = enable;
 }
 
 /**
@@ -782,6 +817,18 @@ int ispccdc_set_outaddr(struct isp_ccdc_device *isp_ccdc, u32 addr)
 		return -EINVAL;
 	}
 
+}
+
+void ispccdc_lsc_pref_comp_handler(struct isp_ccdc_device *isp_ccdc)
+{
+	struct device *dev = to_device(isp_ccdc);
+
+	if (!isp_ccdc->lsc_enable)
+		return;
+	isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+		    ~IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
+
+	ispccdc_enable(isp_ccdc, 1);
 }
 
 /**
@@ -1179,8 +1226,7 @@ int ispccdc_s_pipeline(struct isp_ccdc_device *isp_ccdc,
 	isp_reg_writel(dev, (((pipe->ccdc_out_h - 2) &
 			 ISPCCDC_VDINT_0_MASK) <<
 			ISPCCDC_VDINT_0_SHIFT) |
-		       (((pipe->ccdc_out_h / 2) &
-			 ISPCCDC_VDINT_1_MASK) <<
+		       ((50 & ISPCCDC_VDINT_1_MASK) <<
 			ISPCCDC_VDINT_1_SHIFT),
 		       OMAP3_ISP_IOMEM_CCDC,
 		       ISPCCDC_VDINT);
@@ -1230,31 +1276,29 @@ void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
 	struct device *dev = to_device(isp_ccdc);
 	int enable_lsc;
 
-	enable_lsc = enable &&
+	if (enable) {
+		enable_lsc = enable &&
 		((isp->pipeline.ccdc_in == CCDC_RAW_GRBG) ||
 		 (isp->pipeline.ccdc_in == CCDC_RAW_RGGB) ||
 		 (isp->pipeline.ccdc_in == CCDC_RAW_BGGR) ||
 		 (isp->pipeline.ccdc_in == CCDC_RAW_GBRG)) &&
 		     isp_ccdc->lsc_request_enable &&
 		     ispccdc_validate_config_lsc(isp_ccdc,
-						 &isp_ccdc->lsc_config) == 0;
-	ispccdc_enable_lsc(isp_ccdc, enable_lsc);
-	if (enable_lsc) {
-		int timeout = 10000;
-		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN,
-			   ISP_IRQ0STATUS, IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
-		while (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
-				       ISP_IRQ0STATUS) &
-			 IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ) && timeout) {
-			udelay(1);
-			timeout--;
+					&isp_ccdc->lsc_config) == 0;
+
+		if (enable_lsc) {
+			/* Defer CCDC enablement for
+			 * when the prefetch is completed. */
+			isp_reg_writel(dev, IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ,
+				       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+			isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+				   IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
+			ispccdc_enable_lsc(isp_ccdc, 1);
+			return;
 		}
-		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN,
-			    ISP_IRQ0STATUS, ~IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ);
-		if (timeout <= 0) {
-			dev_err(dev, "LSC ouch!\n");
-			ispccdc_enable_lsc(isp_ccdc, 0);
-		}
+	} else {
+		ispccdc_enable_lsc(isp_ccdc, 0);
+		isp_ccdc->lsc_request_enable = isp_ccdc->lsc_enable;
 	}
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_PCR,
 		       ~ISPCCDC_PCR_EN, enable ? ISPCCDC_PCR_EN : 0);
@@ -1299,6 +1343,16 @@ int ispccdc_busy(struct isp_ccdc_device *isp_ccdc)
 			     ISPCCDC_PCR) &
 		ISPCCDC_PCR_BUSY;
 }
+
+/**
+ * ispccdc_lsc_can_stop - Indicate if ccdc lsc module can be stopped corectly.
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ **/
+int ispccdc_lsc_delay_stop(struct isp_ccdc_device *isp_ccdc)
+{
+	return isp_ccdc->lsc_delay_stop;
+}
+EXPORT_SYMBOL(ispccdc_lsc_delay_stop);
 
 /**
  * ispccdc_config_shadow_registers - Configure CCDC during interframe time.
@@ -1634,6 +1688,7 @@ int __init isp_ccdc_init(struct device *dev)
 	isp_ccdc->update_lsc_config = 0;
 	isp_ccdc->lsc_request_enable = 1;
 	isp_ccdc->lsc_defer_setup = 0;
+	isp_ccdc->lsc_delay_stop = 0;
 
 	isp_ccdc->lsc_config.initial_x = 0;
 	isp_ccdc->lsc_config.initial_y = 0;
