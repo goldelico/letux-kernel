@@ -188,6 +188,8 @@ struct isp_ccdc_device {
 	enum ispccdc_raw_fmt raw_fmt_in;
 
 	/* LSC related fields */
+	u8 lsc_delay_stop;
+	u8 lsc_enable;
 	u8 update_lsc_config;
 	u8 lsc_request_enable;
 	u8 lsc_defer_setup;
@@ -200,7 +202,6 @@ struct isp_ccdc_device {
 	spinlock_t lock;
 };
 
-void ispccdc_lsc_error_handler(struct isp_ccdc_device *isp_ccdc);
 int ispccdc_set_outaddr(struct isp_ccdc_device *isp_ccdc, u32 addr);
 void ispccdc_set_wenlog(struct isp_ccdc_device *isp_ccdc, u32 wenlog);
 int ispccdc_try_pipeline(struct isp_ccdc_device *isp_ccdc,
@@ -219,5 +220,10 @@ int ispccdc_request(struct isp_ccdc_device *isp_ccdc);
 int ispccdc_free(struct isp_ccdc_device *isp_ccdc);
 void ispccdc_save_context(struct device *dev);
 void ispccdc_restore_context(struct device *dev);
+void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable);
+int ispccdc_lsc_delay_stop(struct isp_ccdc_device *isp_ccdc);
+void ispccdc_lsc_state_handler(struct isp_ccdc_device *isp_ccdc,
+			unsigned long status);
+void ispccdc_lsc_pref_comp_handler(struct isp_ccdc_device *isp_ccdc);
 
 #endif		/* OMAP_ISP_CCDC_H */
