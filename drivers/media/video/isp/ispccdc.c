@@ -613,6 +613,14 @@ void ispccdc_lsc_state_handler(struct isp_ccdc_device *isp_ccdc,
 	}
 }
 
+static void __ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
+{
+	isp_reg_and_or(to_device(isp_ccdc), OMAP3_ISP_IOMEM_CCDC,
+		       ISPCCDC_LSC_CONFIG,
+		       ~ISPCCDC_LSC_ENABLE,
+		       enable ? ISPCCDC_LSC_ENABLE : 0);
+}
+
 /**
  * ispccdc_enable_lsc - Enables/Disables the Lens Shading Compensation module.
  * @isp_ccdc: Pointer to ISP CCDC device.
@@ -636,12 +644,10 @@ void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 			   ISP_CTRL, ISPCTRL_SBL_SHARED_RPORTB
 			   | ISPCTRL_SBL_RD_RAM_EN);
 
-		isp_reg_or(dev, OMAP3_ISP_IOMEM_CCDC,
-			   ISPCCDC_LSC_CONFIG, ISPCCDC_LSC_ENABLE);
+		__ispccdc_enable_lsc(isp_ccdc, 1);
 		isp_ccdc->lsc_request_enable = 0;
 	} else {
-		isp_reg_and(dev, OMAP3_ISP_IOMEM_CCDC,
-			    ISPCCDC_LSC_CONFIG, ~ISPCCDC_LSC_ENABLE);
+		__ispccdc_enable_lsc(isp_ccdc, 0);
 
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~(IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
@@ -1369,7 +1375,7 @@ void ispccdc_config_shadow_registers(struct isp_ccdc_device *isp_ccdc)
 		goto skip;
 
 	if (isp_ccdc->lsc_defer_setup) {
-		ispccdc_enable_lsc(isp_ccdc, 0);
+		__ispccdc_enable_lsc(isp_ccdc, 0);
 		isp_ccdc->lsc_defer_setup = 0;
 		goto skip;
 	}
@@ -1385,7 +1391,7 @@ void ispccdc_config_shadow_registers(struct isp_ccdc_device *isp_ccdc)
 
 	if (isp_ccdc->update_lsc_config) {
 		ispccdc_config_lsc(isp_ccdc);
-		ispccdc_enable_lsc(isp_ccdc, isp_ccdc->lsc_request_enable);
+		__ispccdc_enable_lsc(isp_ccdc, isp_ccdc->lsc_request_enable);
 		isp_ccdc->update_lsc_config = 0;
 	}
 
@@ -1573,8 +1579,12 @@ int ispccdc_config(struct isp_ccdc_device *isp_ccdc,
 	if (isp_ccdc->update_lsc_table || isp_ccdc->update_lsc_config) {
 		if (isp->running != ISP_RUNNING)
 			ispccdc_setup_lsc(isp_ccdc, &isp->pipeline);
-		else
+		else if (isp_ccdc->lsc_enable)
 			isp_ccdc->lsc_defer_setup = 1;
+		else if (isp_ccdc->lsc_request_enable) {
+			ispccdc_setup_lsc(isp_ccdc, &isp->pipeline);
+			ispccdc_enable_lsc(isp_ccdc, 1);
+		}
 	}
 
 	if (ISP_ABS_CCDC_COLPTN & ccdc_struct->update)
