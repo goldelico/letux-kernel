@@ -145,6 +145,8 @@ static void ispccdc_setup_lsc(void);
 
 static int ispccdc_validate_config_lsc(struct ispccdc_lsc_config *lsc_cfg);
 
+static void __ispccdc_enable_lsc(u8 enable);
+
 static void __ispccdc_enable(u8 enable);
 
 /**
@@ -317,8 +319,12 @@ int omap34xx_isp_ccdc_config(void *userspace_add)
 	if (ispccdc_obj.update_lsc_table || ispccdc_obj.update_lsc_config) {
 		if (ispccdc_obj.pm_state == 0)
 			ispccdc_setup_lsc();
-		else
-			ispccdc_obj.lsc_defer_setup = 1;
+		else if (ispccdc_obj.lsc_enable)
+				ispccdc_obj.lsc_defer_setup = 1;
+		else if (ispccdc_obj.lsc_request_enable) {
+				ispccdc_setup_lsc();
+				ispccdc_enable_lsc(1);
+		}
 	}
 
 	if (ISP_ABS_CCDC_COLPTN & ccdc_struct->update)
@@ -535,6 +541,13 @@ void ispccdc_lsc_state_handler(unsigned long status)
 	}
 }
 
+static void __ispccdc_enable_lsc(u8 enable)
+{
+	isp_reg_and_or(OMAP3_ISP_IOMEM_CCDC, ISPCCDC_LSC_CONFIG,
+		       ~ISPCCDC_LSC_ENABLE,
+		       enable ? ISPCCDC_LSC_ENABLE : 0);
+}
+
 /**
  * ispccdc_enable_lsc - Enables/Disables the Lens Shading Compensation module.
  * @enable: 0 Disables LSC, 1 Enables LSC.
@@ -555,12 +568,10 @@ void ispccdc_enable_lsc(u8 enable)
 			   ISP_CTRL, ISPCTRL_SBL_SHARED_RPORTB
 			   | ISPCTRL_SBL_RD_RAM_EN);
 
-		isp_reg_or(OMAP3_ISP_IOMEM_CCDC,
-			   ISPCCDC_LSC_CONFIG, ISPCCDC_LSC_ENABLE);
+		__ispccdc_enable_lsc(1);
 		ispccdc_obj.lsc_request_enable = 0;
 	} else {
-		isp_reg_and(OMAP3_ISP_IOMEM_CCDC,
-			    ISPCCDC_LSC_CONFIG, ~ISPCCDC_LSC_ENABLE);
+		__ispccdc_enable_lsc(0);
 
 		isp_reg_and(OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~(IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
@@ -1185,7 +1196,7 @@ void ispccdc_config_shadow_registers(void)
 		goto skip;
 
 	if (ispccdc_obj.lsc_defer_setup) {
-		ispccdc_enable_lsc(0);
+		__ispccdc_enable_lsc(0);
 		ispccdc_obj.lsc_defer_setup = 0;
 		goto skip;
 	}
@@ -1201,7 +1212,7 @@ void ispccdc_config_shadow_registers(void)
 
 	if (ispccdc_obj.update_lsc_config) {
 		ispccdc_config_lsc();
-		ispccdc_enable_lsc(ispccdc_obj.lsc_request_enable);
+		__ispccdc_enable_lsc(ispccdc_obj.lsc_request_enable);
 		ispccdc_obj.update_lsc_config = 0;
 	}
 
