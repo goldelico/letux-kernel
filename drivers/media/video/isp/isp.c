@@ -869,10 +869,8 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 
 	if ((isp->running == ISP_STOPPING) &&
 		!(irqdis->isp_callbk[CBK_RESZ_DONE] &&
-			(irqstatus & RESZ_DONE))) {
-		isp_flush(dev);
-		return IRQ_HANDLED;
-	}
+			(irqstatus & RESZ_DONE)))
+		goto out_stopping_lsc;
 
 	spin_lock_irqsave(&isp->lock, flags);
 	wait_hs_vs = bufs->wait_hs_vs;
@@ -929,9 +927,6 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 		ispccdc_lsc_state_handler(&isp->isp_ccdc, LSC_PRE_ERR);
 	}
 
-	if (irqstatus & LSC_DONE)
-		ispccdc_lsc_state_handler(&isp->isp_ccdc, LSC_DONE);
-
 	if (irqstatus & CSIA) {
 		int ret = isp_csi2_isr(&isp->isp_csi2);
 		if (ret)
@@ -980,14 +975,6 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 			isp_af_try_enable(&isp->isp_af);
 		if (!(irqstatus & HIST_DONE))
 			isp_hist_try_enable(&isp->isp_hist);
-	}
-
-	if (irqstatus & CCDC_VD1) {
-		ispccdc_lsc_state_handler(&isp->isp_ccdc, CCDC_VD1);
-		/* If we make raw capture, stop CCDC
-		 * together with LSC before EOF */
-		if (CCDC_CAPTURE(isp))
-			ispccdc_enable(&isp->isp_ccdc, 0);
 	}
 
 	if (irqstatus & PREV_DONE) {
@@ -1109,10 +1096,22 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	}
 
 out_ignore_buff:
+	spin_unlock_irqrestore(&isp->lock, flags);
+
+out_stopping_lsc:
+	if (irqstatus & LSC_DONE)
+		ispccdc_lsc_state_handler(&isp->isp_ccdc, LSC_DONE);
+
+	if (irqstatus & CCDC_VD1) {
+		ispccdc_lsc_state_handler(&isp->isp_ccdc, CCDC_VD1);
+		/* If we make raw capture, stop CCDC
+		 * together with LSC before EOF */
+		if (CCDC_CAPTURE(isp))
+			ispccdc_enable(&isp->isp_ccdc, 0);
+	}
+
 	if (irqstatus & LSC_PRE_COMP)
 		ispccdc_lsc_pref_comp_handler(&isp->isp_ccdc);
-
-	spin_unlock_irqrestore(&isp->lock, flags);
 
 	isp_flush(dev);
 
@@ -1404,8 +1403,8 @@ void isp_stop(struct device *dev)
 	isp->running = ISP_STOPPING;
 	isp_disable_interrupts(dev);
 	synchronize_irq(((struct isp_device *)dev_get_drvdata(dev))->irq_num);
-	isp->running = ISP_STOPPED;
 	reset = isp_stop_modules(dev);
+	isp->running = ISP_STOPPED;
 	if (!reset)
 		return;
 
