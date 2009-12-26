@@ -21,8 +21,6 @@
 /* Physical address needed since MMU not enabled yet on secondary core */
 #define OMAP4_AUX_CORE_BOOT1_PA			0x48281804
 
-	__INIT
-
 /*
  * OMAP4 specific entry point for secondary CPU to jump from ROM
  * code.  This routine also provides a holding flag into which
@@ -63,3 +61,12 @@ ENTRY(omap_auxcoreboot_addr)
 	smc
 	ldmfd   sp!, {r2-r12, pc}
 END(omap_auxcoreboot_addr)
+
+ENTRY(omap_read_auxcoreboot0)
+	stmfd   sp!, {r2-r12, lr}
+	ldr	r12, =0x103
+	dsb
+	smc
+	mov	r0, r0, lsr #9
+	ldmfd   sp!, {r2-r12, pc}
+END(omap_read_auxcoreboot0)
