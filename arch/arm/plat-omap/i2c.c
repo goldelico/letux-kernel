@@ -56,8 +56,15 @@ static struct resource i2c_resources[][2] = {
 #if	defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX)
 	{ I2C_RESOURCE_BUILDER(OMAP2_I2C_BASE2, INT_24XX_I2C2_IRQ) },
 #endif
+#if     defined(CONFIG_ARCH_OMAP4)
+	{ I2C_RESOURCE_BUILDER(OMAP2_I2C_BASE2, INT_44XX_I2C2_IRQ) },
+#endif
+
 #if	defined(CONFIG_ARCH_OMAP34XX)
 	{ I2C_RESOURCE_BUILDER(OMAP2_I2C_BASE3, INT_34XX_I2C3_IRQ) },
+#endif
+#if     defined(CONFIG_ARCH_OMAP4)
+	{ I2C_RESOURCE_BUILDER(OMAP2_I2C_BASE3, INT_44XX_I2C3_IRQ) },
 #endif
 };
 
@@ -118,7 +125,7 @@ static int __init omap_i2c_nr_ports(void)
 		ports = 1;
 	else if (cpu_is_omap24xx())
 		ports = 2;
-	else if (cpu_is_omap34xx())
+	else if (cpu_is_omap34xx() || cpu_is_omap44xx())
 		ports = 3;
 
 	return ports;
@@ -139,6 +146,10 @@ static int __init omap_i2c_add_bus(int bus_id)
 		} else {
 			base = OMAP2_I2C_BASE1;
 			irq = INT_24XX_I2C1_IRQ;
+		}
+		if (cpu_is_omap44xx()) {
+			base = OMAP2_I2C_BASE1;
+			irq = INT_44XX_I2C1_IRQ;
 		}
 		res[0].start = base;
 		res[0].end = base + OMAP_I2C_SIZE;
