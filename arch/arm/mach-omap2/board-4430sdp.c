@@ -107,9 +107,19 @@ static void __init omap_4430sdp_init_irq(void)
 	omap_gpio_init();
 }
 
+static int __init omap4_i2c_init(void)
+{
+	/* Phoenix Audio IC needs I2C1 to srat with 400 KHz and less */
+	omap_register_i2c_bus(1, 400, NULL, 0);
+	omap_register_i2c_bus(2, 400, NULL, 0);
+	omap_register_i2c_bus(3, 400, NULL, 0);
+
+	return 0;
+}
 
 static void __init omap_4430sdp_init(void)
 {
+	omap4_i2c_init();
 	platform_add_devices(sdp4430_devices, ARRAY_SIZE(sdp4430_devices));
 	omap_serial_init();
 }
