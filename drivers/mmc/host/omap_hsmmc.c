@@ -709,6 +709,9 @@ static void mmc_omap_detect(struct work_struct *work)
 						mmc_carddetect_work);
 	struct omap_mmc_slot_data *slot = &mmc_slot(host);
 
+	if (host->suspended)
+		return;
+
 	omap_hsmmc_enable_clks(host);
 
 	host->carddetect = slot->card_detect(slot->card_detect_irq);
@@ -739,6 +742,9 @@ static void mmc_omap_opp_setup(struct work_struct *work)
 static irqreturn_t omap_mmc_cd_handler(int irq, void *dev_id)
 {
 	struct mmc_omap_host *host = (struct mmc_omap_host *)dev_id;
+
+	if (host->suspended)
+		return IRQ_HANDLED;
 
 	schedule_work(&host->mmc_carddetect_work);
 
@@ -1408,23 +1414,26 @@ static int omap_mmc_suspend(struct platform_device *pdev, pm_message_t state)
 		return 0;
 
 	if (host) {
+		host->suspended = 1;
+		if (host->pdata->suspend) {
+			ret = host->pdata->suspend(&pdev->dev,
+						host->slot_id);
+			if (ret) {
+				dev_dbg(mmc_dev(host->mmc),
+					"Unable to handle MMC board"
+					" level suspend\n");
+				host->suspended = 0;
+				return ret;
+			}
+		}
+		cancel_work_sync(&host->mmc_carddetect_work);
+
 		ret = mmc_suspend_host(host->mmc, state);
 		if (ret == 0) {
-			host->suspended = 1;
-
 			omap_hsmmc_enable_clks(host);
 
 			OMAP_HSMMC_WRITE(host->base, ISE, 0);
 			OMAP_HSMMC_WRITE(host->base, IE, 0);
-
-			if (host->pdata->suspend) {
-				ret = host->pdata->suspend(&pdev->dev,
-								host->slot_id);
-				if (ret)
-					dev_dbg(mmc_dev(host->mmc),
-						"Unable to handle MMC board"
-						" level suspend\n");
-			}
 
 			if (host->id == OMAP_MMC1_DEVID
 					&& !(OMAP_HSMMC_READ(host->base, HCTL)
@@ -1441,6 +1450,15 @@ static int omap_mmc_suspend(struct platform_device *pdev, pm_message_t state)
 			}
 
 			omap_hsmmc_disable_clks(host);
+		} else {
+			host->suspended = 0;
+			if (host->pdata->resume) {
+				ret = host->pdata->resume(&pdev->dev,
+					host->slot_id);
+				if (ret)
+					dev_dbg(mmc_dev(host->mmc),
+						"Unmask interrupt failed\n");
+			}
 		}
 
 	}
