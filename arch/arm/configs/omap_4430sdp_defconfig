@@ -307,7 +307,7 @@ CONFIG_ALIGNMENT_TRAP=y
 #
 CONFIG_ZBOOT_ROM_TEXT=0x0
 CONFIG_ZBOOT_ROM_BSS=0x0
-CONFIG_CMDLINE="root=/dev/ram0 rw mem=128M console=ttyS0,115200n8 initrd=0x81600000,20M ramdisk_size=20480"
+CONFIG_CMDLINE="root=/dev/ram0 rw mem=128M console=ttyS2,115200n8 initrd=0x81600000,20M ramdisk_size=20480"
 # CONFIG_XIP_KERNEL is not set
 # CONFIG_KEXEC is not set
 
