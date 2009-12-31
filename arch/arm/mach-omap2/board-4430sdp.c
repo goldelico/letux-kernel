@@ -29,6 +29,7 @@
 #include <plat/timer-gp.h>
 #include <asm/hardware/gic.h>
 #include <asm/hardware/cache-l2x0.h>
+#include <linux/i2c/twl.h>
 
 static struct platform_device sdp4430_lcd_device = {
 	.name		= "sdp4430_lcd",
@@ -107,10 +108,25 @@ static void __init omap_4430sdp_init_irq(void)
 	omap_gpio_init();
 }
 
+static struct twl4030_platform_data sdp4430_twldata = {
+	.irq_base	= TWL6030_IRQ_BASE,
+	.irq_end	= TWL6030_IRQ_END,
+};
+
+static struct i2c_board_info __initdata sdp4430_i2c_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("twl6030", 0x48),
+		.flags = I2C_CLIENT_WAKE,
+		.irq = INT_44XX_SYS_NIRQ,
+		.platform_data = &sdp4430_twldata,
+	},
+};
+
 static int __init omap4_i2c_init(void)
 {
 	/* Phoenix Audio IC needs I2C1 to srat with 400 KHz and less */
-	omap_register_i2c_bus(1, 400, NULL, 0);
+	omap_register_i2c_bus(1, 400, sdp4430_i2c_boardinfo,
+				ARRAY_SIZE(sdp4430_i2c_boardinfo));
 	omap_register_i2c_bus(2, 400, NULL, 0);
 	omap_register_i2c_bus(3, 400, NULL, 0);
 
