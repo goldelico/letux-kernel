@@ -25,10 +25,12 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/cpu.h>
 
 #include <mach/hardware.h>
 #include <plat/clock.h>
 #include <asm/system.h>
+#include <asm/cpu.h>
 
 #if defined(CONFIG_ARCH_OMAP3) && !defined(CONFIG_OMAP_PM_NONE)
 #include <plat/omap-pm.h>
@@ -49,8 +51,12 @@ static struct cpufreq_frequency_table *freq_table;
 #endif
 
 static struct clk *mpu_clk;
-
+#ifdef CONFIG_SMP
+static cpumask_var_t omap_cpus;
+int cpus_initialized;
+#endif
 /* TODO: Add support for SDRAM timing changes */
+
 
 int omap_verify_speed(struct cpufreq_policy *policy)
 {
@@ -89,7 +95,14 @@ static int omap_target(struct cpufreq_policy *policy,
 	struct cpufreq_freqs freqs;
 #endif
 	int ret = 0;
+#ifdef CONFIG_SMP
+	int i;
+	const struct cpumask  *cpumasks;
 
+	/* Wait untill all CPU's are initialized */
+	if (unlikely(cpus_initialized < num_online_cpus()))
+		return ret;
+#endif
 	/* Ensure desired rate is within allowed range.  Some govenors
 	 * (ondemand) will just pass target_freq=0 to get the minimum. */
 	if (target_freq < policy->min)
@@ -105,8 +118,12 @@ static int omap_target(struct cpufreq_policy *policy,
 	if (freqs.old == freqs.new)
 		return ret;
 #ifdef CONFIG_SMP
-	int i;
-	for_each_cpu(i, cpumask_of(policy->cpu)) {
+	if (policy->shared_type != CPUFREQ_SHARED_TYPE_ANY)
+		cpumasks = policy->cpus;
+	else
+		cpumasks = cpumask_of(policy->cpu);
+
+	for_each_cpu(i, cpumasks) {
 		freqs.cpu = i;
 		cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
 	}
@@ -122,7 +139,7 @@ static int omap_target(struct cpufreq_policy *policy,
 	ret = clk_set_rate(mpu_clk, freqs.new * 1000);
 
 #ifdef CONFIG_SMP
-	for_each_cpu(i, cpumask_of(policy->cpu)) {
+	for_each_cpu(i, cpumasks) {
 		freqs.cpu = i;
 		cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
 	}
@@ -177,6 +194,12 @@ static int __init omap_cpu_init(struct cpufreq_policy *policy)
 
 	/* FIXME: what's the actual transition time? */
 	policy->cpuinfo.transition_latency = 300 * 1000;
+#ifdef CONFIG_SMP
+	policy->shared_type = CPUFREQ_SHARED_TYPE_ANY;
+	cpumask_or(omap_cpus, cpumask_of(policy->cpu), omap_cpus);
+	cpumask_copy(policy->cpus, omap_cpus);
+	cpus_initialized++;
+#endif
 	return 0;
 }
 
