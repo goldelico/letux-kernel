@@ -77,6 +77,8 @@ static inline int messageq_ioctl_get(struct messageq_cmd_args *cargs)
 	msg_srptr = sharedregion_get_srptr(msg, index);
 
 exit:
+	if (cargs->api_status == -ERESTARTSYS)
+		return -ERESTARTSYS;
 	cargs->args.get.msg_srptr = msg_srptr;
 	return 0;
 }
