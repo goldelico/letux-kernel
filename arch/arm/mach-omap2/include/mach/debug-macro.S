@@ -67,4 +67,10 @@
 		.endm
 
 		.macro	waituart,rd,rx
+1011:		ldrb	\rd, [\rx, #(0x5 << 2)]	@ LSR
+		and	\rd, \rd, #0x20
+		teq	\rd, #0x20
+		beq	1012f
+		bne	1011b
+1012:
 		.endm
