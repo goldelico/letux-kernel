@@ -14,10 +14,12 @@
 #include <linux/delay.h>
 #include <asm/io.h>
 #include <plat/common.h>
+#include <linux/cpufreq.h>
 
 #include "prm.h"
 #include "prm-regbits-44xx.h"
 #include "voltage.h"
+#include "opp4xxx.h"
 
 #define V_MPU	0x1
 #define V_IVA	0x2
@@ -144,11 +146,47 @@ void omap4_configure_vp(void)
 void omap4_configure_sr(void)
 {}
 
+#ifdef CONFIG_CPU_FREQ
+static int omap4_vdd1_scale(struct notifier_block *nb,
+			unsigned long state, struct cpufreq_freqs *freqs)
+{
+	int vsel;
+
+	vsel = get_vdd1_voltage(freqs->new * 1000);
+	if (vsel == -EINVAL)
+		return NOTIFY_DONE;
+
+	switch (state) {
+	case CPUFREQ_POSTCHANGE:
+		/* Scale voltage if going down */
+		if (freqs->old > freqs->new)
+			omap4_voltage_scale(V_MPU, vsel);
+		break;
+	case CPUFREQ_PRECHANGE:
+		/* Scale voltage if going up */
+		if (freqs->old < freqs->new)
+			omap4_voltage_scale(V_MPU, vsel);
+		break;
+	default:
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block vdd1_nb = {
+	.notifier_call = omap4_vdd1_scale,
+};
+#endif
+
 static int __init omap4_voltage_init(void)
 {
 	omap4_configure_vc();
 	omap4_configure_vp();
 	omap4_configure_sr();
+#ifdef CONFIG_CPU_FREQ
+	/* Register for a Freq scale callback */
+	cpufreq_register_notifier(&vdd1_nb, CPUFREQ_TRANSITION_NOTIFIER);
+#endif
 	return 0;
 }
 
