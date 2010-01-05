@@ -270,7 +270,7 @@ static void twl4030_kp_scan(struct twl4030_keypad *kp, int release_all)
 static irqreturn_t do_kp_irq(int irq, void *_kp)
 {
 	struct twl4030_keypad *kp = _kp;
-	u8 reg;
+	u8 uninitialized_var(reg);
 	int ret;
 
 #ifdef CONFIG_LOCKDEP
