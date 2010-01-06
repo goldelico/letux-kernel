@@ -85,7 +85,10 @@
 #define CMD_TIMEOUT		(1 << 16)
 #define DATA_TIMEOUT		(1 << 20)
 #define CMD_CRC			(1 << 17)
+#define CMD_CEB			(1 << 18)
+#define CMD_CIE			(1 << 19)
 #define DATA_CRC		(1 << 21)
+#define DATA_DEB		(1 << 22)
 #define CARD_ERR		(1 << 28)
 #define STAT_CLEAR		0xFFFFFFFF
 #define INIT_STREAM_CMD		0x00000000
@@ -589,7 +592,9 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id)
 		mmc_omap_report_irq(host, status);
 #endif
 		if ((status & CMD_TIMEOUT) ||
-			(status & CMD_CRC)) {
+			(status & CMD_CRC) ||
+			(status & CMD_CEB) ||
+			(status & CMD_CIE)) {
 			if (host->cmd) {
 				if (status & CMD_TIMEOUT) {
 					mmc_omap_reset_controller_fsm(host, SRC);
@@ -605,7 +610,8 @@ static irqreturn_t mmc_omap_irq(int irq, void *dev_id)
 			}
 		}
 		if ((status & DATA_TIMEOUT) ||
-			(status & DATA_CRC)) {
+			(status & DATA_CRC) ||
+			(status & DATA_DEB)) {
 			if (host->data) {
 				if (status & DATA_TIMEOUT)
 					mmc_dma_cleanup(host);
