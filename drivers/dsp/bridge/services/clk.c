@@ -54,10 +54,9 @@
 
 typedef volatile unsigned long  REG_UWORD32;
 
-#define SSI_Base        0x48058000
-
-#define SSI_BASE                     IO_ADDRESS(SSI_Base)
-
+#define OMAP_SSI_OFFSET			0x58000
+#define OMAP_SSI_SIZE			0x1000
+#define OMAP_SSI_SYSCONFIG_OFFSET	0x10
 
 struct SERVICES_Clk_t {
 	struct clk *clk_handle;
@@ -355,7 +354,13 @@ s32 CLK_Get_UseCnt(IN enum SERVICES_ClkId clk_id)
 void SSI_Clk_Prepare(bool FLAG)
 {
 	u32 ssi_sysconfig;
-	ssi_sysconfig = __raw_readl((SSI_BASE) + 0x10);
+	void __iomem *ssi_base;
+
+	ssi_base = ioremap(L4_34XX_BASE + OMAP_SSI_OFFSET, OMAP_SSI_SIZE);
+	if (!ssi_base) {
+		pr_err("%s: error, SSI not configured\n", __func__);
+		return;
+	}
 
 	if (FLAG) {
 		/* Set Autoidle, SIDLEMode to smart idle, and MIDLEmode to
@@ -368,5 +373,7 @@ void SSI_Clk_Prepare(bool FLAG)
 		 */
 		ssi_sysconfig = 0x1;
 	}
-	__raw_writel((u32)ssi_sysconfig, SSI_BASE + 0x10);
+
+	__raw_writel(ssi_sysconfig, ssi_base + OMAP_SSI_SYSCONFIG_OFFSET);
+	iounmap(ssi_base);
 }
