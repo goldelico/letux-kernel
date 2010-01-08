@@ -58,6 +58,10 @@ typedef volatile unsigned long  REG_UWORD32;
 #define OMAP_SSI_SIZE			0x1000
 #define OMAP_SSI_SYSCONFIG_OFFSET	0x10
 
+#define SSI_AUTOIDLE			(1 << 0)
+#define SSI_SIDLE_SMARTIDLE		(2 << 3)
+#define SSI_MIDLE_NOIDLE		(1 << 12)
+
 struct SERVICES_Clk_t {
 	struct clk *clk_handle;
 	const char *clk_name;
@@ -353,8 +357,8 @@ s32 CLK_Get_UseCnt(IN enum SERVICES_ClkId clk_id)
 
 void SSI_Clk_Prepare(bool FLAG)
 {
-	u32 ssi_sysconfig;
 	void __iomem *ssi_base;
+	unsigned int value;
 
 	ssi_base = ioremap(L4_34XX_BASE + OMAP_SSI_OFFSET, OMAP_SSI_SIZE);
 	if (!ssi_base) {
@@ -366,14 +370,14 @@ void SSI_Clk_Prepare(bool FLAG)
 		/* Set Autoidle, SIDLEMode to smart idle, and MIDLEmode to
 		 * no idle
 		 */
-		ssi_sysconfig = 0x1011;
+		value = SSI_AUTOIDLE | SSI_SIDLE_SMARTIDLE | SSI_MIDLE_NOIDLE;
 	} else {
 		/* Set Autoidle, SIDLEMode to forced idle, and MIDLEmode to
 		 * forced idle
 		 */
-		ssi_sysconfig = 0x1;
+		value = SSI_AUTOIDLE;
 	}
 
-	__raw_writel(ssi_sysconfig, ssi_base + OMAP_SSI_SYSCONFIG_OFFSET);
+	__raw_writel(value, ssi_base + OMAP_SSI_SYSCONFIG_OFFSET);
 	iounmap(ssi_base);
 }
