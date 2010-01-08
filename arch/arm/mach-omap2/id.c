@@ -362,7 +362,6 @@ void __init omap2_check_revision(void)
 		omap3_cpuinfo();
 	} else if (cpu_is_omap44xx()) {
 		omap4_check_revision();
-		return;
 	} else {
 		pr_err("OMAP revision unknown, please fix!\n");
 	}
