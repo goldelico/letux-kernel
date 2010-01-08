@@ -22,4 +22,5 @@ struct omap_nand_platform_data {
 	int			dma_channel;
 	void __iomem		*gpmc_cs_baseaddr;
 	void __iomem		*gpmc_baseaddr;
+	int			ecc_opt; /* 0x0 - sw ecc, 0x1 - hw ecc */
 };

@@ -186,6 +186,7 @@ static struct omap_nand_platform_data ldp_nand_data = {
 	.dma_channel	= -1,		/* disable DMA in OMAP NAND driver */
 	.dev_ready	= NULL,
 	.unlock		= omap_zoom2_nand_unlock,
+	.ecc_opt	= 0x1,
 };
 
 static struct resource ldp_nand_resource = {
