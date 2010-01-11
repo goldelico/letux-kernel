@@ -322,6 +322,7 @@ static struct omap_globals omap4_globals = {
 	.prm	= OMAP2_L4_IO_ADDRESS(OMAP4430_PRM_BASE),
 	.cm	= OMAP2_L4_IO_ADDRESS(OMAP4430_CM_BASE),
 	.cm2	= OMAP2_L4_IO_ADDRESS(OMAP4430_CM2_BASE),
+	.chiron = OMAP2_L4_IO_ADDRESS(OMAP4430_CHIRONSS_BASE),
 };
 
 void __init omap2_set_globals_443x(void)

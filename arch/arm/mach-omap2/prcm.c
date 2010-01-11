@@ -36,6 +36,7 @@
 static void __iomem *prm_base;
 static void __iomem *cm_base;
 static void __iomem *cm2_base;
+static void __iomem *chiron_base;
 
 #define MAX_MODULE_ENABLE_WAIT		100000
 
@@ -178,6 +179,18 @@ static inline void __omap_prcm_write(u32 value, void __iomem *base,
 	__raw_writel(value, base + module + reg);
 }
 
+/* Read a register in a CHIRON module */
+u32 chiron_read_mod_reg(s16 module, u16 idx)
+{
+	return __omap_prcm_read(chiron_base, module, idx);
+}
+
+/* Write into a register in a PRM module */
+void chiron_write_mod_reg(u32 val, s16 module, u16 idx)
+{
+	__omap_prcm_write(val, chiron_base, module, idx);
+}
+
 /* Read a register in a PRM module */
 u32 prm_read_mod_reg(s16 module, u16 idx)
 {
@@ -195,10 +208,21 @@ u32 prm_rmw_mod_reg_bits(u32 mask, u32 bits, s16 module, s16 idx)
 {
 	u32 v;
 
-	v = prm_read_mod_reg(module, idx);
+	/* CHIRON CPU0/1 domains are not part of PRM */
+	if ((module == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
+		(module == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD))
+		v = chiron_read_mod_reg(module, idx);
+	else
+		v = prm_read_mod_reg(module, idx);
+
 	v &= ~mask;
 	v |= bits;
-	prm_write_mod_reg(v, module, idx);
+
+	if ((module == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
+		(module == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD))
+		chiron_write_mod_reg(v, module, idx);
+	else
+		prm_write_mod_reg(v, module, idx);
 
 	return v;
 }
@@ -272,6 +296,7 @@ void __init omap2_set_globals_prcm(struct omap_globals *omap2_globals)
 	prm_base = omap2_globals->prm;
 	cm_base = omap2_globals->cm;
 	cm2_base = omap2_globals->cm2;
+	chiron_base = omap2_globals->chiron;
 }
 
 #ifdef CONFIG_ARCH_OMAP3

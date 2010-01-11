@@ -234,6 +234,8 @@
 extern u32 prm_read_mod_reg(s16 module, u16 idx);
 extern void prm_write_mod_reg(u32 val, s16 module, u16 idx);
 extern u32 prm_rmw_mod_reg_bits(u32 mask, u32 bits, s16 module, s16 idx);
+extern u32 chiron_read_mod_reg(s16 module, u16 idx);
+extern void chiron_write_mod_reg(u32 val, s16 module, u16 idx);
 
 /* Read-modify-write bits in a PRM register (by domain) */
 static inline u32 prm_set_mod_reg_bits(u32 bits, s16 module, s16 idx)
