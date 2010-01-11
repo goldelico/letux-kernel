@@ -415,7 +415,7 @@ static int prev_negotiate_output_size(struct prev_device *prvdev,
  **/
 static int prev_do_preview(struct prev_device *device)
 {
-	struct isp_device *isp = dev_get_drvdata(device->isp);
+	struct isp_device *isp;
 	u32 out_hsize, out_vsize, out_line_offset, in_line_offset;
 	int ret = 0, bpp;
 
@@ -425,6 +425,7 @@ static int prev_do_preview(struct prev_device *device)
 		dev_err(prev_dev, "%s: invalid argument\n", __func__);
 		return -EINVAL;
 	}
+	isp = dev_get_drvdata(device->isp);
 
 	prev_set_isp_ctrl(device->params->features);
 
