@@ -93,15 +93,15 @@
 #define FLAGBIT	 7	/* 7th bit is pref./req. flag */
 #define SEGMASK	 0x3f	/* Bits 0 - 5 */
 
-#define CREATEBIT       0	/* Create segid starts at bit 0 */
-#define DELETEBIT       8	/* Delete segid starts at bit 8 */
+#define CREATEBIT	0	/* Create segid starts at bit 0 */
+#define DELETEBIT	8	/* Delete segid starts at bit 8 */
 #define EXECUTEBIT      16	/* Execute segid starts at bit 16 */
 
 /*
  *  Masks that define memory type.  Must match defines in dynm.cdb.
  */
-#define DYNM_CODE       0x2
-#define DYNM_DATA       0x4
+#define DYNM_CODE	0x2
+#define DYNM_DATA	0x4
 #define DYNM_CODEDATA   (DYNM_CODE | DYNM_DATA)
 #define DYNM_INTERNAL   0x8
 #define DYNM_EXTERNAL   0x10
@@ -151,7 +151,7 @@
 	((uuid1).usData3 == (uuid2).usData3) && \
 	((uuid1).ucData4 == (uuid2).ucData4) && \
 	((uuid1).ucData5 == (uuid2).ucData5) && \
-       (strncmp((void *)(uuid1).ucData6, (void *)(uuid2).ucData6, 6)) == 0)
+	(strncmp((void *)(uuid1).ucData6, (void *)(uuid2).ucData6, 6)) == 0)
 
     /*
      *  ======== MemInfo ========
@@ -1006,9 +1006,9 @@ static DSP_STATUS AddOvlyInfo(void *handle, struct DBLL_SectInfo *sectInfo,
 	/* Find the node it belongs to */
 	for (i = 0; i < hNldr->nOvlyNodes; i++) {
 		pNodeName = hNldr->ovlyTable[i].pNodeName;
-               DBC_Require(pNodeName);
-               if (strncmp(pNodeName, pSectName + 1,
-                               strlen(pNodeName)) == 0) {
+		DBC_Require(pNodeName);
+		if (strncmp(pNodeName, pSectName + 1,
+				strlen(pNodeName)) == 0) {
 				/* Found the node */
 				break;
 		}
@@ -1022,14 +1022,14 @@ static DSP_STATUS AddOvlyInfo(void *handle, struct DBLL_SectInfo *sectInfo,
 
 	if (*pch) {
 		pch++;	/* Skip over the ':' */
-               if (strncmp(pch, PCREATE, strlen(PCREATE)) == 0) {
+		if (strncmp(pch, PCREATE, strlen(PCREATE)) == 0) {
 			status = AddOvlySect(hNldr, &hNldr->ovlyTable[i].
 				pCreateSects, sectInfo, &fExists, addr, nBytes);
 			if (DSP_SUCCEEDED(status) && !fExists)
 				hNldr->ovlyTable[i].nCreateSects++;
 
 		} else
-               if (strncmp(pch, PDELETE, strlen(PDELETE)) == 0) {
+		if (strncmp(pch, PDELETE, strlen(PDELETE)) == 0) {
 			status = AddOvlySect(hNldr, &hNldr->ovlyTable[i].
 					    pDeleteSects, sectInfo, &fExists,
 					    addr, nBytes);
@@ -1037,7 +1037,7 @@ static DSP_STATUS AddOvlyInfo(void *handle, struct DBLL_SectInfo *sectInfo,
 				hNldr->ovlyTable[i].nDeleteSects++;
 
 		} else
-               if (strncmp(pch, PEXECUTE, strlen(PEXECUTE)) == 0) {
+		if (strncmp(pch, PEXECUTE, strlen(PEXECUTE)) == 0) {
 			status = AddOvlySect(hNldr, &hNldr->ovlyTable[i].
 					    pExecuteSects, sectInfo, &fExists,
 					    addr, nBytes);
@@ -1087,14 +1087,14 @@ static DSP_STATUS AddOvlyNode(struct DSP_UUID *pUuid,
 		} else {
 			/* Add node to table */
 			hNldr->ovlyTable[hNldr->nNode].uuid = *pUuid;
-                       DBC_Require(objDef.objData.nodeObj.ndbProps.acName);
-                       uLen = strlen(objDef.objData.nodeObj.ndbProps.acName);
+			DBC_Require(objDef.objData.nodeObj.ndbProps.acName);
+			uLen = strlen(objDef.objData.nodeObj.ndbProps.acName);
 			pNodeName = objDef.objData.nodeObj.ndbProps.acName;
 			pBuf = MEM_Calloc(uLen + 1, MEM_PAGED);
 			if (pBuf == NULL) {
 				status = DSP_EMEMORY;
 			} else {
-                               strncpy(pBuf, pNodeName, uLen);
+				strncpy(pBuf, pNodeName, uLen);
 				hNldr->ovlyTable[hNldr->nNode].pNodeName = pBuf;
 				hNldr->nNode++;
 			}

@@ -225,8 +225,8 @@ DSP_STATUS CLK_Set_32KHz(IN enum SERVICES_ClkId clk_id)
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 	if (pClk) {
 		if (!(clk_set_parent(pClk, pClkParent) == 0x0)) {
-		       GT_2trace(CLK_debugMask, GT_7CLASS, "CLK_Set_32KHz: "
-				"Failed to set to 32KHz %s, CLK dev id = %d\n",
+			GT_2trace(CLK_debugMask, GT_7CLASS, "CLK_Set_32KHz: "
+				"Failed to set to 32KHz %s, CLK dev id = %s\n",
 				SERVICES_Clks[clk_id].clk_name,
 				SERVICES_Clks[clk_id].id);
 			status = DSP_EFAIL;
@@ -328,7 +328,8 @@ s32 CLK_Get_UseCnt(IN enum SERVICES_ClkId clk_id)
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 
 	if (pClk) {
-		useCount =  pClk->usecount; /* FIXME: usecount shouldn't be used */
+		/* FIXME: usecount shouldn't be used */
+		useCount = pClk->usecount;
 	} else {
 		GT_2trace(CLK_debugMask, GT_7CLASS,
 			 "CLK_GetRate: failed to get CLK %s, "

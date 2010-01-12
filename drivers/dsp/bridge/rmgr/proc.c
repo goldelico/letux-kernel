@@ -291,8 +291,8 @@ static DSP_STATUS GetExecFile(struct CFG_DEVNODE *hDevNode,
 		return CFG_GetExecFile(hDevNode, size, execFile);
 	} else if (devType == IVA_UNIT) {
 		if (iva_img) {
-                       len = strlen(iva_img);
-                       strncpy(execFile, iva_img, len + 1);
+			len = strlen(iva_img);
+			strncpy(execFile, iva_img, len + 1);
 			return DSP_SOK;
 		}
 	}
@@ -533,8 +533,8 @@ DSP_STATUS PROC_Detach(struct PROCESS_CONTEXT *pr_ctxt)
  *      on a DSP processor.
  */
 DSP_STATUS PROC_EnumNodes(DSP_HPROCESSOR hProcessor, OUT DSP_HNODE *aNodeTab,
-               IN u32 uNodeTabSize, OUT u32 *puNumNodes,
-               OUT u32 *puAllocated)
+		IN u32 uNodeTabSize, OUT u32 *puNumNodes,
+		OUT u32 *puAllocated)
 {
 	DSP_STATUS status = DSP_EFAIL;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
@@ -1088,13 +1088,13 @@ DSP_STATUS PROC_Load(DSP_HPROCESSOR hProcessor, IN CONST s32 iArgc,
 				DBC_Assert(pProcObject->g_pszLastCoff == NULL);
 				/* Allocate memory for pszLastCoff */
 				pProcObject->g_pszLastCoff = MEM_Calloc(
-                                       (strlen((char *)aArgv[0]) + 1),
+					(strlen((char *)aArgv[0]) + 1),
 					MEM_PAGED);
 				/* If memory allocated, save COFF file name*/
 				if (pProcObject->g_pszLastCoff) {
-                                       strncpy(pProcObject->g_pszLastCoff,
+					strncpy(pProcObject->g_pszLastCoff,
 						(char *)aArgv[0],
-                                       (strlen((char *)aArgv[0]) + 1));
+						(strlen((char *)aArgv[0]) + 1));
 				}
 			}
 		}

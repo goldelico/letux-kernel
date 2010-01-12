@@ -195,20 +195,22 @@ void dload_relocate(struct dload_state *dlthis, TgtAU_t *data,
 		rx = HASH_L(rop_map2[rx]);
 		if (rx < 0) {
 #if TMS32060
-		switch (rp->r_type) {
-		case R_C60ALIGN:
-		case R_C60NOCMP:
-		case R_C60FPHEAD:
-		    /* Ignore these reloc types and return */
-		    break;
-		default:
-		    /* Unknown reloc type, print error and return */
-		    dload_error(dlthis, "Bad coff operator 0x%x", rp->r_type);
-	    }
+			switch (rp->r_type) {
+			case R_C60ALIGN:
+			case R_C60NOCMP:
+			case R_C60FPHEAD:
+				/* Ignore these reloc types and return */
+				break;
+			default:
+				/* Unknown reloc type, print error and return */
+				dload_error(dlthis, "Bad coff operator 0x%x",
+						rp->r_type);
+			}
 #else
-	    dload_error(dlthis, "Bad coff operator 0x%x", rp->r_type);
+			dload_error(dlthis, "Bad coff operator 0x%x",
+					rp->r_type);
 #endif
-	    return;
+			return;
 		}
 	}
 	rx = HASH_I(rop_map2[rx]);
@@ -216,7 +218,8 @@ void dload_relocate(struct dload_state *dlthis, TgtAU_t *data,
 	   && (rx < (sizeof(rop_info)/sizeof(uint_least16_t))) && (rx > 0)) {
 		reloc_action = rop_action[rx]; reloc_info = rop_info[rx];
 	} else {
-	    dload_error(dlthis, "Buffer Overflow - Array Index Out of Bounds");
+		dload_error(dlthis, "Buffer Overflow - Array Index Out "
+				"of Bounds");
 	}
 
 	/* Compute the relocation amount for the referenced symbol, if any */

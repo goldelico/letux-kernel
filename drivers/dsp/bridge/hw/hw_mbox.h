@@ -116,11 +116,8 @@ extern HW_STATUS HW_MBOX_MsgRead(const void __iomem *baseAddress,
 * PURPOSE:      : this function writes a u32 from the sub module message
 *		 box Specified.
 */
-extern HW_STATUS HW_MBOX_MsgWrite(
-		      const void __iomem *baseAddress,
-		      const HW_MBOX_Id_t   mailBoxId,
-		      const u32	 writeValue
-		  );
+extern HW_STATUS HW_MBOX_MsgWrite(const void __iomem *baseAddress,
+			const HW_MBOX_Id_t mailBoxId, const u32 writeValue);
 
 /*
 * FUNCTION      : HW_MBOX_NumMsgGet
@@ -150,11 +147,8 @@ extern HW_STATUS HW_MBOX_MsgWrite(
 *
 * PURPOSE:      : this function gets number of messages in a specified mailbox.
 */
-extern HW_STATUS HW_MBOX_NumMsgGet(
-		      const void	 __iomem *baseAddress,
-		      const HW_MBOX_Id_t   mailBoxId,
-		      u32 *const	pNumMsg
-		  );
+extern HW_STATUS HW_MBOX_NumMsgGet(const void __iomem *baseAddress,
+			const HW_MBOX_Id_t mailBoxId, u32 *const pNumMsg);
 
 /*
 * FUNCTION      : HW_MBOX_EventEnable
@@ -186,12 +180,10 @@ extern HW_STATUS HW_MBOX_NumMsgGet(
 *
 * PURPOSE:      : this function enables the specified IRQ.
 */
-extern HW_STATUS HW_MBOX_EventEnable(
-		      const void __iomem *baseAddress,
-		      const HW_MBOX_Id_t       mailBoxId,
-		      const HW_MBOX_UserId_t   userId,
-		      const u32	     events
-		  );
+extern HW_STATUS HW_MBOX_EventEnable(const void __iomem *baseAddress,
+			const HW_MBOX_Id_t mailBoxId,
+			const HW_MBOX_UserId_t userId,
+			const u32 events);
 
 /*
 * FUNCTION      : HW_MBOX_EventDisable
@@ -223,12 +215,10 @@ extern HW_STATUS HW_MBOX_EventEnable(
 *
 * PURPOSE:      : this function disables the specified IRQ.
 */
-extern HW_STATUS HW_MBOX_EventDisable(
-		      const void __iomem *baseAddress,
-		      const HW_MBOX_Id_t       mailBoxId,
-		      const HW_MBOX_UserId_t   userId,
-		      const u32	     events
-		  );
+extern HW_STATUS HW_MBOX_EventDisable(const void __iomem *baseAddress,
+		const HW_MBOX_Id_t mailBoxId,
+		const HW_MBOX_UserId_t userId,
+		const u32 events);
 
 /*
 * FUNCTION      : HW_MBOX_EventAck
@@ -262,12 +252,10 @@ extern HW_STATUS HW_MBOX_EventDisable(
 *
 * PURPOSE:      : this function sets the status of the specified IRQ.
 */
-extern HW_STATUS HW_MBOX_EventAck(
-		      const void	__iomem *baseAddress,
-		      const HW_MBOX_Id_t	mailBoxId,
-		      const HW_MBOX_UserId_t    userId,
-		      const u32	      event
-		  );
+extern HW_STATUS HW_MBOX_EventAck(const void __iomem *baseAddress,
+			const HW_MBOX_Id_t mailBoxId,
+			const HW_MBOX_UserId_t userId,
+			const u32 event);
 
 /*
 * FUNCTION      : HW_MBOX_initSettings

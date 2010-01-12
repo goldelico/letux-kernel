@@ -113,7 +113,7 @@ DSP_STATUS CFG_GetDevObject(struct CFG_DEVNODE *hDevNode, OUT u32 *pdwValue)
 	if (DSP_SUCCEEDED(status)) {
 
 		/* check the device string and then call the REG_SetValue*/
-               if (!(strcmp((char *)((struct DRV_EXT *)hDevNode)->szString,
+		if (!(strcmp((char *)((struct DRV_EXT *)hDevNode)->szString,
 							"TIOMAP1510"))) {
 			GT_0trace(CFG_debugMask, GT_1CLASS,
 				  "Fetching DSP Device from "
@@ -217,7 +217,7 @@ DSP_STATUS CFG_GetExecFile(struct CFG_DEVNODE *hDevNode, u32 ulBufSize,
 	}
 #endif
 	DBC_Ensure(((status == DSP_SOK) &&
-                 (strlen(pstrExecFile) <= ulBufSize)) || (status != DSP_SOK));
+		(strlen(pstrExecFile) <= ulBufSize)) || (status != DSP_SOK));
 	return status;
 }
 
@@ -348,11 +348,11 @@ DSP_STATUS CFG_SetDevObject(struct CFG_DEVNODE *hDevNode, u32 dwValue)
 	if (DSP_SUCCEEDED(status)) {
 		/* Store the WCD device object in the Registry */
 
-               if (!(strcmp((char *)hDevNode, "TIOMAP1510"))) {
+		if (!(strcmp((char *)hDevNode, "TIOMAP1510"))) {
 			GT_0trace(CFG_debugMask, GT_1CLASS,
 				  "Registering the DSP Device \n");
 			status = REG_SetValue("DEVICE_DSP", (u8 *)&dwValue,
-					      dwBuffSize);
+						dwBuffSize);
 		} else {
 			GT_0trace(CFG_debugMask, GT_6CLASS,
 				  "Failed to Register Device \n");

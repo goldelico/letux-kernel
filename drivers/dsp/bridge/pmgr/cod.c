@@ -368,7 +368,7 @@ DSP_STATUS COD_GetBaseName(struct COD_MANAGER *hManager, char *pszName,
 	DBC_Require(pszName != NULL);
 
 	if (uSize <= COD_MAXPATHLENGTH)
-               strncpy(pszName, hManager->szZLFile, uSize);
+		strncpy(pszName, hManager->szZLFile, uSize);
 	else
 		status = DSP_EFAIL;
 
@@ -401,7 +401,7 @@ DSP_STATUS COD_GetEntry(struct COD_MANAGER *hManager, u32 *pulEntry)
  *      Get handle to the DBLL loader.
  */
 DSP_STATUS COD_GetLoader(struct COD_MANAGER *hManager,
-			       struct DBLL_TarObj **phLoader)
+				struct DBLL_TarObj **phLoader)
 {
 	DSP_STATUS status = DSP_SOK;
 

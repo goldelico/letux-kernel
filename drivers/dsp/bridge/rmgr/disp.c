@@ -766,8 +766,8 @@ static DSP_STATUS FillStreamDef(RMS_WORD *pdwBuf, u32 *ptotal, u32 offset,
 		 *  1 from total.
 		 */
 		total += sizeof(struct RMS_StrmDef) / sizeof(RMS_WORD) - 1;
-               DBC_Require(strmDef.szDevice);
-               dwLength = strlen(strmDef.szDevice) + 1;
+		DBC_Require(strmDef.szDevice);
+		dwLength = strlen(strmDef.szDevice) + 1;
 
 		/* Number of RMS_WORDS needed to hold device name */
 		uNameLen = (dwLength + uCharsInRMSWord - 1) / uCharsInRMSWord;

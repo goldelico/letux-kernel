@@ -166,10 +166,10 @@ DSP_STATUS WMD_MSG_CreateQueue(struct MSG_MGR *hMsgMgr,
 		status = SYNC_OpenEvent(&pMsgQ->hSyncDoneAck, NULL);
 
 	if (DSP_SUCCEEDED(status)) {
-               if (!hMsgMgr->msgFreeList) {
-                       status = DSP_EHANDLE;
-                       goto func_end;
-               }
+		if (!hMsgMgr->msgFreeList) {
+			status = DSP_EHANDLE;
+			goto func_end;
+		}
 		/* Enter critical section */
 		(void)SYNC_EnterCS(hMsgMgr->hSyncCS);
 		/* Initialize message frames and put in appropriate queues */
@@ -241,8 +241,8 @@ void WMD_MSG_DeleteQueue(struct MSG_QUEUE *hMsgQueue)
 	LST_RemoveElem(hMsgMgr->queueList, (struct LST_ELEM *)hMsgQueue);
 	/* Free the message queue object */
 	DeleteMsgQueue(hMsgQueue, hMsgQueue->uMaxMsgs);
-       if (!hMsgMgr->msgFreeList)
-               goto func_cont;
+	if (!hMsgMgr->msgFreeList)
+		goto func_cont;
 	if (LST_IsEmpty(hMsgMgr->msgFreeList))
 		SYNC_ResetEvent(hMsgMgr->hSyncEvent);
 func_cont:
@@ -271,10 +271,10 @@ DSP_STATUS WMD_MSG_Get(struct MSG_QUEUE *hMsgQueue,
 	}
 
 	hMsgMgr = hMsgQueue->hMsgMgr;
-       if (!hMsgQueue->msgUsedList) {
-               status = DSP_EHANDLE;
-               goto func_end;
-       }
+	if (!hMsgQueue->msgUsedList) {
+		status = DSP_EHANDLE;
+		goto func_end;
+	}
 
 	/* Enter critical section */
 	(void)SYNC_EnterCS(hMsgMgr->hSyncCS);
@@ -373,11 +373,10 @@ DSP_STATUS WMD_MSG_Put(struct MSG_QUEUE *hMsgQueue,
 		goto func_end;
 	}
 	hMsgMgr = hMsgQueue->hMsgMgr;
-       if (!hMsgMgr->msgFreeList) {
-               status = DSP_EHANDLE;
-               goto func_end;
-       }
-
+	if (!hMsgMgr->msgFreeList) {
+		status = DSP_EHANDLE;
+		goto func_end;
+	}
 
 	(void) SYNC_EnterCS(hMsgMgr->hSyncCS);
 
@@ -427,10 +426,10 @@ DSP_STATUS WMD_MSG_Put(struct MSG_QUEUE *hMsgQueue,
 			status = DSP_EFAIL;
 		} else {
 			if (DSP_SUCCEEDED(status)) {
-                               if (LST_IsEmpty(hMsgMgr->msgFreeList)) {
-                                       status = DSP_EPOINTER;
-                                       goto func_cont;
-                               }
+				if (LST_IsEmpty(hMsgMgr->msgFreeList)) {
+					status = DSP_EPOINTER;
+					goto func_cont;
+				}
 				/* Get msg from free list */
 				pMsgFrame = (struct MSG_FRAME *)
 					    LST_GetHead(hMsgMgr->msgFreeList);
@@ -545,21 +544,21 @@ static void DeleteMsgMgr(struct MSG_MGR *hMsgMgr)
 		goto func_end;
 
 	if (hMsgMgr->queueList) {
-               if (LST_IsEmpty(hMsgMgr->queueList)) {
-                       LST_Delete(hMsgMgr->queueList);
-                       hMsgMgr->queueList = NULL;
-               }
+		if (LST_IsEmpty(hMsgMgr->queueList)) {
+			LST_Delete(hMsgMgr->queueList);
+			hMsgMgr->queueList = NULL;
+		}
 	}
 
-       if (hMsgMgr->msgFreeList) {
+	if (hMsgMgr->msgFreeList) {
 		FreeMsgList(hMsgMgr->msgFreeList);
-               hMsgMgr->msgFreeList = NULL;
-       }
+		hMsgMgr->msgFreeList = NULL;
+	}
 
-       if (hMsgMgr->msgUsedList) {
+	if (hMsgMgr->msgUsedList) {
 		FreeMsgList(hMsgMgr->msgUsedList);
-               hMsgMgr->msgUsedList = NULL;
-       }
+		hMsgMgr->msgUsedList = NULL;
+	}
 
 	if (hMsgMgr->hSyncEvent)
 		SYNC_CloseEvent(hMsgMgr->hSyncEvent);
@@ -581,11 +580,11 @@ static void DeleteMsgQueue(struct MSG_QUEUE *hMsgQueue, u32 uNumToDSP)
 	struct MSG_FRAME *pMsg;
 	u32 i;
 
-       if (!MEM_IsValidHandle(hMsgQueue, MSGQ_SIGNATURE)
-               || !hMsgQueue->hMsgMgr || !hMsgQueue->hMsgMgr->msgFreeList)
-               goto func_end;
-       hMsgMgr = hMsgQueue->hMsgMgr;
+	if (!MEM_IsValidHandle(hMsgQueue, MSGQ_SIGNATURE) ||
+	    !hMsgQueue->hMsgMgr || !hMsgQueue->hMsgMgr->msgFreeList)
+		goto func_end;
 
+	hMsgMgr = hMsgQueue->hMsgMgr;
 
 	/* Pull off uNumToDSP message frames from Msg manager and free */
 	for (i = 0; i < uNumToDSP; i++) {
@@ -602,12 +601,12 @@ static void DeleteMsgQueue(struct MSG_QUEUE *hMsgQueue, u32 uNumToDSP)
 
        if (hMsgQueue->msgFreeList) {
 		FreeMsgList(hMsgQueue->msgFreeList);
-               hMsgQueue->msgFreeList = NULL;
+		hMsgQueue->msgFreeList = NULL;
        }
 
        if (hMsgQueue->msgUsedList) {
 		FreeMsgList(hMsgQueue->msgUsedList);
-               hMsgQueue->msgUsedList = NULL;
+		hMsgQueue->msgUsedList = NULL;
        }
 
 
@@ -636,8 +635,8 @@ static void FreeMsgList(struct LST_LIST *msgList)
 {
 	struct MSG_FRAME *pMsg;
 
-       if (!msgList)
-               goto func_end;
+	if (!msgList)
+		goto func_end;
 
 	while ((pMsg = (struct MSG_FRAME *)LST_GetHead(msgList)) != NULL)
 		MEM_Free(pMsg);
@@ -646,6 +645,6 @@ static void FreeMsgList(struct LST_LIST *msgList)
 
 	LST_Delete(msgList);
 func_end:
-       return;
+	return;
 }
 

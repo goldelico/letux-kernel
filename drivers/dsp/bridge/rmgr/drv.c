@@ -888,7 +888,7 @@ DSP_STATUS DRV_Init(void)
  *      Insert a DevObject into the list of Manager object.
  */
 DSP_STATUS DRV_InsertDevObject(struct DRV_OBJECT *hDRVObject,
-			       struct DEV_OBJECT *hDevObject)
+				struct DEV_OBJECT *hDevObject)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct DRV_OBJECT *pDRVObject = (struct DRV_OBJECT *)hDRVObject;
@@ -919,7 +919,7 @@ DSP_STATUS DRV_InsertDevObject(struct DRV_OBJECT *hDRVObject,
  *      objects.
  */
 DSP_STATUS DRV_RemoveDevObject(struct DRV_OBJECT *hDRVObject,
-			       struct DEV_OBJECT *hDevObject)
+				struct DEV_OBJECT *hDevObject)
 {
 	DSP_STATUS status = DSP_EFAIL;
 	struct DRV_OBJECT *pDRVObject = (struct DRV_OBJECT *)hDRVObject;
@@ -1001,7 +1001,7 @@ DSP_STATUS DRV_RequestResources(u32 dwContext, u32 *pDevNodeString)
 		*pDevNodeString = 0;
 	}
 
-       if (!(strcmp((char *) dwContext, "TIOMAP1510"))) {
+	if (!(strcmp((char *) dwContext, "TIOMAP1510"))) {
 		GT_0trace(curTrace, GT_1CLASS,
 			  " Allocating resources for UMA \n");
 		status = RequestBridgeResourcesDSP(dwContext, DRV_ASSIGN);
@@ -1034,7 +1034,7 @@ DSP_STATUS DRV_ReleaseResources(u32 dwContext, struct DRV_OBJECT *hDrvObject)
 
 	GT_0trace(curTrace, GT_ENTER, "Entering DRV_Release Resources\n");
 
-       if (!(strcmp((char *)((struct DRV_EXT *)dwContext)->szString,
+	if (!(strcmp((char *)((struct DRV_EXT *)dwContext)->szString,
 	   "TIOMAP1510"))) {
 		GT_0trace(curTrace, GT_1CLASS,
 			 " Releasing DSP-Bridge resources \n");
@@ -1149,10 +1149,10 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 				iounmap(pResources->dwDmmuBase);
 			if (pResources->dwPerBase)
 				iounmap(pResources->dwPerBase);
-                       if (pResources->dwPerPmBase)
-                               iounmap((void *)pResources->dwPerPmBase);
-                       if (pResources->dwCorePmBase)
-                               iounmap((void *)pResources->dwCorePmBase);
+			if (pResources->dwPerPmBase)
+				iounmap((void *)pResources->dwPerPmBase);
+			if (pResources->dwCorePmBase)
+				iounmap((void *)pResources->dwCorePmBase);
 			if (pResources->dwSysCtrlBase) {
 				iounmap(pResources->dwSysCtrlBase);
 				/* don't set pResources->dwSysCtrlBase to null
@@ -1284,10 +1284,10 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 bRequest)
 							OMAP_DSP_MEM3_SIZE);
 		pResources->dwPerBase = ioremap(OMAP_PER_CM_BASE,
 							OMAP_PER_CM_SIZE);
-               pResources->dwPerPmBase = ioremap(OMAP_PER_PRM_BASE,
-                                                       OMAP_PER_PRM_SIZE);
-               pResources->dwCorePmBase = (u32)ioremap(OMAP_CORE_PRM_BASE,
-                                                       OMAP_CORE_PRM_SIZE);
+		pResources->dwPerPmBase = ioremap(OMAP_PER_PRM_BASE,
+							OMAP_PER_PRM_SIZE);
+		pResources->dwCorePmBase = (u32)ioremap(OMAP_CORE_PRM_BASE,
+							OMAP_CORE_PRM_SIZE);
 		pResources->dwDmmuBase = ioremap(OMAP_DMMU_BASE,
 							OMAP_DMMU_SIZE);
 		pResources->dwWdTimerDspBase = NULL;

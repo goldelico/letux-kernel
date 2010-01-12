@@ -624,7 +624,7 @@ DSP_STATUS DRV_RemoveAllResources(HANDLE hPCtxt)
  * sysfs
  */
 static ssize_t drv_state_show(struct kobject *kobj, struct kobj_attribute *attr,
-                        char *buf)
+				char *buf)
 {
 	struct WMD_DEV_CONTEXT *dwContext;
 	struct DEV_OBJECT *hDevObject = NULL;
@@ -641,18 +641,18 @@ static ssize_t drv_state_show(struct kobject *kobj, struct kobj_attribute *attr,
 		drv_state = dwContext->dwBrdState;
 	}
 
-        return sprintf(buf, "%d\n", drv_state);
+	return sprintf(buf, "%d\n", drv_state);
 }
 
 static struct kobj_attribute drv_state_attr = __ATTR_RO(drv_state);
 
 static struct attribute *attrs[] = {
-        &drv_state_attr.attr,
-        NULL,
+	&drv_state_attr.attr,
+	NULL,
 };
 
 static struct attribute_group attr_group = {
-        .attrs = attrs,
+	.attrs = attrs,
 };
 
 static void bridge_create_sysfs(void)

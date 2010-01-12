@@ -107,11 +107,11 @@ DSP_STATUS WMD_DEH_Create(OUT struct DEH_MGR **phDehMgr,
 			pDehMgr->errInfo.dwVal2 = 0L;
 			pDehMgr->errInfo.dwVal3 = 0L;
 			/* Install ISR function for DSP MMU fault */
-                       if ((request_irq(INT_DSP_MMU_IRQ, MMU_FaultIsr, 0,
-                                           "DspBridge\tiommu fault", (void *)pDehMgr)) == 0)
-                               status = DSP_SOK;
-                       else
-                               status = DSP_EFAIL;
+			if ((request_irq(INT_DSP_MMU_IRQ, MMU_FaultIsr, 0,
+			   "DspBridge\tiommu fault", (void *)pDehMgr)) == 0)
+				status = DSP_SOK;
+			else
+				status = DSP_EFAIL;
 		}
 	}
 	if (DSP_FAILED(status)) {
@@ -120,8 +120,7 @@ DSP_STATUS WMD_DEH_Create(OUT struct DEH_MGR **phDehMgr,
 		*phDehMgr = NULL;
 	} else {
 		*phDehMgr = (struct DEH_MGR *)pDehMgr;
-               DBG_Trace(DBG_LEVEL1, "ISR_IRQ Object 0x%x \n",
-                                        pDehMgr);
+		DBG_Trace(DBG_LEVEL1, "ISR_IRQ Object 0x%x \n", pDehMgr);
 	}
 	DBG_Trace(DBG_LEVEL1, "Exiting DEH_Create.\n");
 	return status;
@@ -144,7 +143,7 @@ DSP_STATUS WMD_DEH_Destroy(struct DEH_MGR *hDehMgr)
 		if (pDehMgr->hNtfy)
 			(void)NTFY_Delete(pDehMgr->hNtfy);
 		/* Disable DSP MMU fault */
-               free_irq(INT_DSP_MMU_IRQ, pDehMgr);
+		free_irq(INT_DSP_MMU_IRQ, pDehMgr);
 		(void)DPC_Destroy(pDehMgr->hMmuFaultDpc);
 		/* Deallocate the DEH manager object */
 		MEM_FreeObject(pDehMgr);
