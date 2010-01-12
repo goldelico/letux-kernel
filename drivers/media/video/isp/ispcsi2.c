@@ -85,8 +85,10 @@ int isp_csi2_complexio_lanes_config(struct isp_csi2_device *isp_csi2,
 			       " parameters for data lane #%d\n", i);
 			goto err_einval;
 		}
-		if (pos_occupied[reqcfg->data[i].pos - 1] &&
-		    reqcfg->data[i].pos > 0) {
+		if (!reqcfg->data[i].pos)
+			continue;
+
+		if (pos_occupied[reqcfg->data[i].pos - 1]) {
 			printk(KERN_ERR "Lane #%d already occupied\n",
 			       reqcfg->data[i].pos);
 			goto err_einval;
