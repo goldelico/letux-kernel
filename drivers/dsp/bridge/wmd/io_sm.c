@@ -1326,7 +1326,7 @@ static void InputMsg(struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr)
 	fInputEmpty = IO_GetValue(pIOMgr->hWmdContext, struct MSG, pCtrl,
 				 bufEmpty);
 	uMsgs = IO_GetValue(pIOMgr->hWmdContext, struct MSG, pCtrl, size);
-	if (fInputEmpty || uMsgs > hMsgMgr->uMaxMsgs)
+	if (fInputEmpty)
 		goto func_end;
 
 	pMsgInput = pIOMgr->pMsgInput;
@@ -1354,9 +1354,6 @@ static void InputMsg(struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr)
 		 * input locations have been set up. If all nodes were
 		 * cleaned up, hMsgMgr->uMaxMsgs should be 0.
 		 */
-		if (hMsgQueue && uMsgs > hMsgMgr->uMaxMsgs)
-			goto func_end;
-
 		while (hMsgQueue != NULL) {
 			if (msg.dwId == hMsgQueue->dwId) {
 				/* Found it */
