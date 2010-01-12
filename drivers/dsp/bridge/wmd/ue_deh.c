@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implements upper edge DSP exception handling (DEH) functions.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,23 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== ue_deh.c ========
- *  Description:
- *      Implements upper edge DSP exception handling (DEH) functions.
- *
- *! Revision History:
- *! ================
- *! 03-Jan-2005 hn: Support for IVA DEH.
- *! 05-Jan-2004 vp: Updated for the 24xx HW library.
- *! 19-Feb-2003 vp: Code review updates.
- *!                 - Cosmetic changes.
- *! 18-Oct-2002 sb: Ported to Linux platform.
- *! 10-Dec-2001 kc: Updated DSP error reporting in DEBUG mode.
- *! 10-Sep-2001 kc: created.
  */
 
 /*  ----------------------------------- Host OS */

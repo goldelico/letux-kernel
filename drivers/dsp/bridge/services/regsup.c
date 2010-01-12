@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Provide registry support functions.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,20 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== regsup.c ========
- *  Purpose:
- *      Provide registry support functions.
- *
- *! Revision History:
- *! ================
- *! 28-May-2002  map: Integrated PSI's dspimage update mechanism
- *! 11-May-2002  gp:  Turned PERF "on".
- *! 21-May-2002  map: Fixed bug in SetValue - if resizing datasize, set
- *!		      new size too
  */
 
 /*  ----------------------------------- Host OS */

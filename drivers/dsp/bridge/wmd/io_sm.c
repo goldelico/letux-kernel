@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * IO dispatcher for a shared memory channel driver.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -15,34 +17,11 @@
  */
 
 /*
- *  ======== io_sm.c ========
- *  Description:
- *      IO dispatcher for a shared memory channel driver.
- *
- *  Public Functions:
- *      WMD_IO_Create
- *      WMD_IO_Destroy
- *      WMD_IO_OnLoaded
- *      IO_AndSetValue
- *      IO_BufSize
- *      IO_CancelChnl
- *      IO_DPC
- *      IO_ISR
- *      IO_IVAISR
- *      IO_OrSetValue
- *      IO_ReadValue
- *      IO_ReadValueLong
- *      IO_RequestChnl
- *      IO_Schedule
- *      IO_WriteValue
- *      IO_WriteValueLong
- *
  *  Channel Invariant:
  *      There is an important invariant condition which must be maintained per
  *      channel outside of WMD_CHNL_GetIOC() and IO_Dispatch(), violation of
- *      which may cause timeouts and/or failure of the WIN32_WaitSingleObject
- *      function (SYNC_WaitOnEvent).
- *
+ *      which may cause timeouts and/or failure of the SYNC_WaitOnEvent
+ *      function.
  */
 
 /*  ----------------------------------- Host OS */

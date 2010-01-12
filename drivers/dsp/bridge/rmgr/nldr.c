@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge dynamic + overlay Node loader.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,42 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== nldr.c ========
- *  Description:
- *      DSP/BIOS Bridge dynamic + overlay Node loader.
- *
- *  Public Functions:
- *      NLDR_Allocate
- *      NLDR_Create
- *      NLDR_Delete
- *      NLDR_Exit
- *      NLDR_Free
- *      NLDR_GetFxnAddr
- *      NLDR_Init
- *      NLDR_Load
- *      NLDR_Unload
- *
- *  Notes:
- *
- *! Revision History
- *! ================
- *! 07-Apr-2003 map Removed references to dead DLDR module
- *! 23-Jan-2003 map Updated RemoteAlloc to support memory granularity
- *! 20-Jan-2003 map Updated to maintain persistent dependent libraries
- *! 15-Jan-2003 map Adapted for use with multiple dynamic phase libraries
- *! 19-Dec-2002 map Fixed overlay bug in AddOvlySect for overlay
- *!		 sections > 1024 bytes.
- *! 13-Dec-2002 map Fixed NLDR_GetFxnAddr bug by searching dependent
- *!		 libs for symbols
- *! 27-Sep-2002 map Added RemoteFree to convert size to words for
- *!		 correct deallocation
- *! 16-Sep-2002 map Code Review Cleanup(from dldr.c)
- *! 29-Aug-2002 map Adjusted for ARM-side overlay copy
- *! 05-Aug-2002 jeh Created.
  */
 
 #include <dspbridge/host_os.h>

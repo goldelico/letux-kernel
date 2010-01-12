@@ -14,14 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== regsup.h ========
- *
- *! Revision History
- *! ================
- */
-
 #ifndef _REGSUP_H_
 #define _REGSUP_H_
 

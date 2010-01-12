@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Common WCD functions, also includes the wrapper
+ * functions called directly by the DeviceIOControl interface.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,83 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== wcd.c ========
- *  Description:
- *      Common WCD functions, also includes the wrapper
- *      functions called directly by the DeviceIOControl interface.
- *
- *  Public Functions:
- *      WCD_CallDevIOCtl
- *      WCD_Init
- *      WCD_InitComplete2
- *      WCD_Exit
- *      <MOD>WRAP_*
- *
- *! Revision History:
- *! ================
- *! 29-Apr-2004 hp  Call PROC_AutoStart only for DSP device
- *! 19-Apr-2004 sb  Aligned DMM definitions with Symbian
- *! 08-Mar-2004 sb  Added the Dynamic Memory Mapping APIs
- *! 03-Apr-2003 sb  Process environment pointer in PROCWRAP_Load
- *! 24-Feb-2003 swa PMGR Code review comments incorporated.
- *! 30-Jan-2002 ag  CMMWRAP_AllocBuf name changed to CMMWRAP_CallocBuf
- *! 15-Jan-2002 ag  Added actual bufSize param to STRMWRAP_Reclaim[issue].
- *! 14-Dec-2001 rr  ARGS_NODE_CONNECT maps the pAttr.
- *! 03-Oct-2001 rr  ARGS_NODE_ALLOCMSGBUF/FREEMSGBUF maps the pAttr.
- *! 10-Sep-2001 ag  Added CMD_CMM_GETHANDLE.
- *! 23-Apr-2001 jeh Pass pStatus to NODE_Terminate.
- *! 11-Apr-2001 jeh STRMWRAP_Reclaim embedded pointer is mapped and unmapped.
- *! 13-Feb-2001 kc: DSP/BIOS Bridge name updates.
- *! 06-Dec-2000 jeh WRAP_MAP2CALLER pointers in RegisterNotify calls.
- *! 05-Dec-2000 ag: Removed MAP2CALLER in NODEWRAP_FreeMsgBuf().
- *! 22-Nov-2000 kc: Added MGRWRAP_GetPerf_Data().
- *! 20-Nov-2000 jeh Added MSG_Init()/MSG_Exit(), IO_Init()/IO_Exit().
- *!		 WRAP pointers to handles for PROC_Attach, NODE_Allocate.
- *! 27-Oct-2000 jeh Added NODEWRAP_AllocMsgBuf, NODEWRAP_FreeMsgBuf. Removed
- *!		 NODEWRAP_GetMessageStream.
- *! 12-Oct-2000 ag: Added user CMM wrappers.
- *! 05-Oct-2000 rr: WcdInitComplete2 will fail even if one BRD or PROC
- *!		 AutoStart fails.
- *! 25-Sep-2000 rr: Updated to Version 0.9
- *! 13-Sep-2000 jeh Pass ARGS_NODE_CONNECT.pAttrs to NODE_Connect().
- *! 11-Aug-2000 rr: Part of node enabled.
- *! 31-Jul-2000 rr: UTIL_Wrap and MEM_Wrap added to RM.
- *! 27-Jul-2000 rr: PROCWRAP, NODEWRAP and STRMWRAP implemented.
- *!		 STRM and some NODE Wrappers are not implemented.
- *! 27-Jun-2000 rr: MGRWRAP fxns added.IFDEF to build for PM or DSP/BIOS Bridge
- *! 08-Feb-2000 rr  File name changed to wcd.c
- *! 03-Feb-2000 rr: Module initialization are done by SERVICES init. GT Class
- *!		 changes for module init/exit fxns.
- *! 24-Jan-2000 rr: Merged with Scott's code.
- *! 21-Jan-1999 sg: Changed ARGS_CHNL_GETMODE field name from pdwMode to pMode.
- *! 17-Jan-2000 rr: BRD_GetStatus does WRAP_MAP2CALLER for state.
- *! 14-Dec-1999 ag: Removed _MAP2CALLER in CHNL_GetMgr().
- *! 13-Dec-1999 rr: BRDWRAP_GetSymbol, BRDWRAP_GetTrace uses WRAP_MAP2CALLER
- *!		 macros.BRDWRAP_Load maps and unmaps embedded pointers.
- *! 10-Dec-1999 ag: User CHNL bufs mapped in _AddIOReq & _GetIOCompletion.
- *! 09-Dec-1999 rr: BRDWRAP_Open and CHNLWRAP_GetMgr does not map
- *!		 pointer as there was a change in config.c
- *! 06-Dec-1999 rr: BRD_Read and Write Maps the buf pointers.
- *! 03-Dec-1999 rr: CHNLWRAP_GetMgr and BRDWRAP_Open maps  hDevNode pointer.
- *!		 WCD_InitComplete2 Included for BRD_AutoStart.
- *! 16-Nov-1999 ag: Map buf to process in CHNLWRAP_AllocBuffer().
- *!		 CHNL_GetMgr() Mapping Fix.
- *! 10-Nov-1999 ag: Removed unnecessary calls to WRAP_MAP2CALLER.
- *! 08-Nov-1999 kc: Added MEMRY & enabled BRD_IOCtl for tests.
- *! 29-Oct-1999 ag: Added CHNL.
- *! 29-Oct-1999 kc: Added trace statements; added ptr mapping; updated
- *!		 use of UTIL module API.
- *! 29-Oct-1999 rr: Wrapper functions does the Mapping of the Pointers.
- *!		 in WinCE all the explicit pointers will be converted
- *!		 by the OS during interprocess but not the embedded pointers.
- *! 16-Oct-1999 kc: Code review cleanup.
- *! 07-Oct-1999 kc: Added UTILWRAP_TestDll() to run PM test harness. See
- *!		 /src/doc/pmtest.doc for more detail.
- *! 09-Sep-1999 rr: After exactly two years(!). Adopted for WinCE. GT Enabled.
- *! 09-Sep-1997 gp: Created.
  */
 
 /*  ----------------------------------- Host OS */

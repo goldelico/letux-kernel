@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge driver interface.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,36 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== linux_driver.c ========
- *  Description:
- *      DSP/BIOS Bridge driver interface.
- *
- *  Public Functions:
- *      driver_init
- *      driver_exit
- *      driver_open
- *      driver_release
- *      driver_ioctl
- *      driver_mmap
- *
- *! Revision History
- *! ================
- *! 21-Apr-2004 map   Deprecated use of MODULE_PARM for kernel versions
- *!		   greater than 2.5, use module_param.
- *! 08-Mar-2004 sb    Added the dsp_debug argument, which keeps the DSP in self
- *!		   loop after image load and waits in a loop for DSP to start
- *! 16-Feb-2004 vp    Deprecated the usage of MOD_INC_USE_COUNT and
- *! 						MOD_DEC_USE_COUNT
- *!		   for kernel versions greater than 2.5
- *! 20-May-2003 vp    Added unregister functions for the DPM.
- *! 24-Mar-2003 sb    Pass pid instead of driverContext to DSP_Close
- *! 24-Mar-2003 vp    Added Power Management support.
- *! 21-Mar-2003 sb    Configure SHM size using insmod argument shm_size
- *! 10-Feb-2003 vp    Updated based on code review comments
- *! 18-Oct-2002 sb    Created initial version
  */
 
 /*  ----------------------------------- Host OS */

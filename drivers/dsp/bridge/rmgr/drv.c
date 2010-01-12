@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge resource allocation module.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,82 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== drv.c ========
- *  Description:
- *      DSP/BIOS Bridge resource allocation module.
- *
- *  Public Functions:
- *      DRV_Create
- *      DRV_Destroy
- *      DRV_Exit
- *      DRV_GetDevObject
- *      DRV_GetDevExtension
- *      DRV_GetFirstDevObject
- *      DRV_GetNextDevObject
- *      DRV_GetNextDevExtension
- *      DRV_Init
- *      DRV_InsertDevObject
- *      DRV_RemoveDevObject
- *      DRV_RequestResources
- *      DRV_ReleaseResources
- *
- *! Revision History
- *! ======== ========
- *! 19-Apr-2004 sb: Replaced OS specific APIs with MEM_AllocPhysMem and
-		    MEM_FreePhysMem. Fixed warnings. Cosmetic updates.
- *! 12-Apr-2004 hp: IVA clean up during bridge-uninstall
- *! 05-Jan-2004 vp: Updated for 24xx platform
- *! 21-Mar-2003 sb: Get SHM size from registry
- *! 10-Feb-2003 vp: Code review updates
- *! 18-Oct-2002 vp: Ported to Linux platform
- *! 30-Oct-2000 kc: Modified usage of REG_SetValue.
- *! 06-Sep-2000 jeh Read channel info into struct CFG_HOSTRES in
- *! 					RequestISAResources()
- *! 21-Sep-2000 rr: numwindows is calculated instead of default value in
- *!		 RequestISAResources.
- *! 07-Aug-2000 rr: static list of dev objects removed.
- *! 27-Jul-2000 rr: RequestResources split into two(Request and Release)
- *!		 Device extension created to hold the DevNodeString.
- *! 17-Jul-2000 rr: Driver Object holds the list of Device Objects.
- *!		 Added DRV_Create, DRV_Destroy, DRV_GetDevObject,
- *!		 DRV_GetFirst/NextDevObject, DRV_Insert/RemoveDevObject.
- *! 09-May-2000 rr: PCI Support is not L301 specific.Use of MEM_Calloc
- *!		 instead of MEM_Alloc.
- *! 28-Mar-2000 rr: PCI Support added. L301 Specific. TBD.
- *! 03-Feb-2000 rr: GT and Module Init/exit Changes. Merged with kc.
- *! 19-Jan-2000 rr: DBC_Ensure in RequestPCMCIA moved within PCCARD ifdef
- *! 29-Dec-1999 rr: PCCard support for any slot.Bus type stored in the
- *!		 struct CFG_HOSTRES Structure.
- *! 17-Dec-1999 rr: if PCCARD_Init fails we return DSP_EFAIL.
- *!		 DBC_Ensure checks for sucess and pDevice != NULL
- *! 11-Dec-1999 ag: #define "Isa" renamed to "IsaBus".
- *! 09-Dec-1999 rr: windows.h included to remove warnings.
- *! 02-Dec-1999 rr: struct GT_Mask is with in if DEBUG. Request resources checks
- *!		 status while making call to Reg functions.
- *! 23-Nov-1999 rr: windows.h included
- *! 19-Nov-1999 rr: DRV_RELEASE bug while setting the registry to zero.
- *!		 fixed.
- *! 12-Nov-1999 rr: RequestResources() reads values from the registry.
- *!		 Hardcoded bIRQRegister define removed.
- *! 05-Nov-1999 rr: Added hardcoded device interrupt.
- *! 25-Oct-1999 rr: Resource structure removed. Now it uses the Host
- *!		 Resource structure directly.
- *! 15-Oct-1999 rr: Resource Structure modified. See drv.h
- *!		 dwBusType taken from the registry.Hard coded
- *!		 registry entries removed.
- *! 05-Oct-1999 rr: Calling DEV_StartDevice moved to wcdce.c. DRV_Register
- *!		 MiniDriver has been renamed to DRV_RequestResources.
- *!		 DRV_UnRegisterMiniDriver fxn removed.
- *! 24-Sep-1999 rr: Significant changes to the RegisterMiniDriver fxns.
- *!		 Now it is simpler. IT stores the dev node in the
- *!		 registry, assign resources and calls the DEV_Start.
- *! 10-Sep-1999 rr: Register Minidriver modified.
- *!		 - Resource structure follows the NT model
- *! 08-Aug-1999 rr: Adopted for WinCE. Exports Fxns removed. Hull Created.
  */
 
 /*  ----------------------------------- Host OS */

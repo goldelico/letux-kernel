@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Processor Manager Driver for TI OMAP3430 EVM.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,18 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== tiomap.c ========
- *  Processor Manager Driver for TI OMAP3430 EVM.
- *
- *  Public Function:
- *      WMD_DRV_Entry
- *
- *! Revision History:
- *! ================
- *   26-March-2008 HK and AL:  Added WMD_DEV_WalkTbl funciton.
  */
 
 /*  ----------------------------------- Host OS */

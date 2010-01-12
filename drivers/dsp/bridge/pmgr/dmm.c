@@ -3,6 +3,13 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * The Dynamic Memory Manager (DMM) module manages the DSP Virtual address
+ * space that can be directly mapped to any MPU buffer or memory region
+ *
+ * Notes:
+ *   Region: Generic memory entitiy having a start address and a size
+ *   Chunk:  Reserved region
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,46 +19,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== dmm.c ========
- *  Purpose:
- *      The Dynamic Memory Manager (DMM) module manages the DSP Virtual address
- *      space that can be directly mapped to any MPU buffer or memory region
- *
- *  Public Functions:
- *      DMM_CreateTables
- *      DMM_Create
- *      DMM_Destroy
- *      DMM_Exit
- *      DMM_Init
- *      DMM_MapMemory
- *      DMM_Reset
- *      DMM_ReserveMemory
- *      DMM_UnMapMemory
- *      DMM_UnReserveMemory
- *
- *  Private Functions:
- *      AddRegion
- *      CreateRegion
- *      GetRegion
- *	GetFreeRegion
- *	GetMappedRegion
- *
- *  Notes:
- *      Region: Generic memory entitiy having a start address and a size
- *      Chunk:  Reserved region
- *
- *
- *! Revision History:
- *! ================
- *! 04-Jun-2008 Hari K : Optimized DMM implementation. Removed linked list
- *!                                and instead used Table approach.
- *! 19-Apr-2004 sb: Integrated Alan's code review updates.
- *! 17-Mar-2004 ap: Fixed GetRegion for size=0 using tighter bound.
- *! 20-Feb-2004 sb: Created.
- *!
  */
 
 /*  ----------------------------------- Host OS */

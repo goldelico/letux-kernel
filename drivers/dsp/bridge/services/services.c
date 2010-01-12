@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Provide SERVICES loading.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,24 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== services.c ========
- *  Purpose:
- *      Provide SERVICES loading.
- *
- *  Public Functions:
- *      SERVICES_Exit
- *      SERVICES_Init
- *
- *
- *! Revision History
- *! ================
- *! 20-Nov-2000 rr: NTFY_Init/Exit added.
- *! 06-Jul-2000 rr: PROC prefix changed to PRCS to accomodate RM.
- *! 01-Feb-2000 kc: Created.
  */
 
 #include <dspbridge/host_os.h>

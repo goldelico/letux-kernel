@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge Stream Manager.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,53 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== strm.c ========
- *  Description:
- *      DSP/BIOS Bridge Stream Manager.
- *
- *  Public Functions:
- *      STRM_AllocateBuffer
- *      STRM_Close
- *      STRM_Create
- *      STRM_Delete
- *      STRM_Exit
- *      STRM_FreeBuffer
- *      STRM_GetEventHandle
- *      STRM_GetInfo
- *      STRM_Idle
- *      STRM_Init
- *      STRM_Issue
- *      STRM_Open
- *      STRM_PrepareBuffer
- *      STRM_Reclaim
- *      STRM_RegisterNotify
- *      STRM_Select
- *      STRM_UnprepareBuffer
- *
- *  Notes:
- *
- *! Revision History:
- *! =================
- *! 18-Feb-2003 vp  Code review updates.
- *! 18-Oct-2002 vp  Ported to Linux platform.
- *! 13-Mar-2002 map    pStrm init'd to NULL in STRM_Open to prevent error
- *! 12-Mar-2002 map Changed return var to WSX "wStatus" instead of "status"
- *!		    in DEV and CMM function calls to avoid confusion.
- *!		    Return DSP_SOK instead of S_OK from API fxns.
- *! 12-Mar-2002 map    Changed FAILED(..) to DSP_FAILED(..)
- *! 25-Jan-2002 ag  Allow neg seg ids(e.g. DSP_SHMSEG0) to denote SM.
- *! 15-Nov-2001 ag  Added STRMMODE & SM for DMA/ZCopy streaming.
- *!		 Changed DSP_STREAMINFO to STRM_INFO in STRM_GetInfo().
- *!		 Use strm timeout value for dma flush timeout.
- *! 09-May-2001 jeh Code review cleanup.
- *! 06-Feb-2001 kc  Updated DBC_Ensure in STRM_Select to check timeout.
- *! 23-Oct-2000 jeh Allow NULL STRM_ATTRS passed to STRM_Open() for DLL
- *!		 tests to pass.
- *! 25-Sep-2000 jeh Created.
  */
 
 /*  ----------------------------------- Host OS */

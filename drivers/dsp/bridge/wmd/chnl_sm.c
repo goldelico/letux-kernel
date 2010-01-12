@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implements upper edge functions for WMD channel module.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,26 +16,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
 /*
- *  ======== chnl_sm.c ========
- *  Description:
- *      Implements upper edge functions for WMD channel module.
- *
- *  Public Functions:
- *      WMD_CHNL_AddIOReq
- *      WMD_CHNL_CancelIO
- *      WMD_CHNL_Close
- *      WMD_CHNL_Create
- *      WMD_CHNL_Destroy
- *      WMD_CHNL_FlushIO
- *      WMD_CHNL_GetInfo
- *      WMD_CHNL_GetIOC
- *      WMD_CHNL_GetMgrInfo
- *      WMD_CHNL_Idle
- *      WMD_CHNL_Open
- *
- *  Notes:
  *      The lower edge functions must be implemented by the WMD writer, and
  *      are declared in chnl_sm.h.
  *
@@ -57,60 +40,6 @@
  *          LST_Empty(pChnl->pIOCompletions) ==> pChnl->hSyncEvent is reset
  *      and
  *          !LST_Empty(pChnl->pIOCompletions) ==> pChnl->hSyncEvent is set.
- *
- *! Revision History:
- *! ================
- *! 10-Feb-2004 sb: Consolidated the MAILBOX_IRQ macro at the top of the file.
- *! 05-Jan-2004 vp: Updated for 2.6 kernel on 24xx platform.
- *! 23-Apr-2003 sb: Fixed mailbox deadlock
- *! 24-Feb-2003 vp: Code Review Updates.
- *! 18-Oct-2002 vp: Ported to Linux platform
- *! 29-Aug-2002 rr  Changed the SYNC error code return to DSP error code return
- *            in WMD_CHNL_GetIOC.
- *! 22-Jan-2002 ag  Zero-copy support added.
- *!                 CMM_CallocBuf() used for SM allocations.
- *! 04-Feb-2001 ag  DSP-DMA support added.
- *! 22-Nov-2000 kc: Updated usage of PERF_RegisterStat.
- *! 06-Nov-2000 jeh Move ISR_Install, DPC_Create from CHNL_Create to IO_Create.
- *! 13-Oct-2000 jeh Added dwArg parameter to WMD_CHNL_AddIOReq(), added
- *!                 WMD_CHNL_Idle and WMD_CHNL_RegisterNotify for DSPStream.
- *!                 Remove #ifdef DEBUG from around channel cIOCs field.
- *! 21-Sep-2000 rr: PreOMAP chnl class library acts like a IO class library.
- *! 25-Sep-2000 ag: MEM_[Unmap]LinearAddress added for #ifdef CHNL_PREOMAP.
- *! 07-Sep-2000 rr: Added new channel class for PreOMAP.
- *! 11-Jul-2000 jeh Allow NULL user event in WMD_CHNL_Open().
- *! 06-Jul-2000 rr: Changed prefix PROC to PRCS for process module calls.
- *! 20-Jan-2000 ag: Incorporated code review comments.
- *! 05-Jan-2000 ag: Text format cleanup.
- *! 07-Dec-1999 ag: Now setting ChnlMgr fSharedIRQ flag before ISR_Install().
- *! 01-Dec-1999 ag: WMD_CHNL_Open() now accepts named sync event.
- *! 14-Nov-1999 ag: DPC_Schedule() uncommented.
- *! 28-Oct-1999 ag: CHNL Attrs userEvent not supported.
- *!                 SM addrs taken from COFF(IO) or host resource(SM).
- *! 25-May-1999 jg: CHNL_IOCLASS boards now get their shared memory buffer
- *!                 address and length from symbols defined in the currently
- *!                 loaded COFF file. See _chn_sm.h.
- *! 18-Jun-1997 gp: Moved waiting back to ring 0 to improve performance.
- *! 22-Jan-1998 gp: Update User's pIOC struct in GetIOC at lower IRQL (NT).
- *! 16-Jan-1998 gp: Commented out PERF stuff, since it is not all there in NT.
- *! 13-Jan-1998 gp: Protect IOCTLs from IO_DPC by raising IRQL to DIRQL (NT).
- *! 22-Oct-1997 gp: Call SYNC_OpenEvent in CHNL_Open, for NT support.
- *! 18-Jun-1997 gp: Moved waiting back to ring 0 to improve performance.
- *! 16-Jun-1997 gp: Added call into lower edge CHNL function to allow override
- *!                 of the SHM window length reported by Windows CM.
- *! 05-Jun-1997 gp: Removed unnecessary critical sections.
- *! 18-Mar-1997 gp: Ensured CHNL_FlushIO on input leaves channel in READY state.
- *! 06-Jan-1997 gp: ifdefed to support the IO variant of SHM channel class lib.
- *! 21-Jan-1997 gp: CHNL_Close: set pChnl = NULL for DBC_Ensure().
- *! 14-Jan-1997 gp: Updated based on code review feedback.
- *! 03-Jan-1997 gp: Added CHNL_E_WAITTIMEOUT error return code to CHNL_FlushIO()
- *! 23-Oct-1996 gp: Tag channel with ring 0 process handle.
- *! 13-Sep-1996 gp: Added performance statistics for channel.
- *! 09-Sep-1996 gp: Added WMD_CHNL_GetMgrInfo().
- *! 04-Sep-1996 gp: Removed shared memory control struct offset: made zero.
- *! 01-Aug-1996 gp: Implemented basic channel manager and channel create/delete.
- *! 17-Jul-1996 gp: Started pseudo coding.
- *! 11-Jul-1996 gp: Stubbed out.
  */
 
 /*  ----------------------------------- OS */

@@ -14,18 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== drv_interface.h ========
- *
- *! Revision History
- *! ================
- *! 24-Mar-2003 vp  Added hooks for Power Management Test
- *! 18-Feb-2003 vp  Code review updates
- *! 18-Oct-2002 sb  Created initial version
-
- */
-
 #ifndef	_DRV_INTERFACE_H_
 #define _DRV_INTERFACE_H_
 

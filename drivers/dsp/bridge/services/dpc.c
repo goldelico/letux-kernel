@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Deferred Procedure Call(DPC) Services.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,36 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== dpcce.c ========
- *  Purpose:
- *      Deferred Procedure Call(DPC) Services.
- *
- *
- *  Public Functions:
- *      DPC_Create
- *      DPC_Destroy
- *      DPC_Exit
- *      DPC_Init
- *      DPC_Schedule
- *
- *! Revision History:
- *! ================
- *! 28-Mar-2001 ag: Added #ifdef CHNL_NOIPCINTR to set DPC thread priority
- *!                     to THREAD_PRIORITY_IDLE for polling IPC.
- *! 03-Feb-2000 rr: Module init/exit is handled by SERVICES Init/Exit.
- *!		 GT Changes.
- *! 31-Jan-2000 rr: Changes after code review.Terminate thread,handle
- *!                 modified.DPC_Destroy frees the DPC_Object only on
- *!                 Successful termination of the thread and the handle.
- *! 06-Jan-1999 ag: Format cleanup for code review.
- *!                 Removed DPC_[Lower|Raise]IRQL[From|To]DispatchLevel.
- *! 10-Dec-1999 ag: Added SetProcPermissions in DPC_DeferredProcedure().
- *!                 (Needed to access client(s) CHNL buffers).
- *! 19-Sep-1999 a0216266: Stubbed from dpcnt.c.
  */
 
 /*  ----------------------------------- Host OS */

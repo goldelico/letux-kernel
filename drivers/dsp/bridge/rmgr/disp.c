@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Node Dispatcher interface. Communicates with Resource Manager Server
+ * (RMS) on DSP. Access to RMS is synchronized in NODE.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software;  you can redistribute it and/or modify
@@ -12,38 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== disp.c ========
- *
- *  Description:
- *      Node Dispatcher interface. Communicates with Resource Manager Server
- *      (RMS) on DSP. Access to RMS is synchronized in NODE.
- *
- *  Public Functions:
- *      DISP_Create
- *      DISP_Delete
- *      DISP_Exit
- *      DISP_Init
- *      DISP_NodeChangePriority
- *      DISP_NodeCreate
- *      DISP_NodeDelete
- *      DISP_NodePause
- *      DISP_NodeRun
- *
- *! Revision History:
- *! =================
- *! 18-Feb-2003 vp      Code review updates
- *! 18-Oct-2002 vp      Ported to Linux platform
- *! 16-May-2002 jeh     Added DISP_DoCinit().
- *! 24-Apr-2002 jeh     Added DISP_MemWrite().
- *! 13-Feb-2002 jeh     Pass system stack size to RMS.
- *! 16-Jan-2002  ag     Added bufsize param to _ChnlAddIOReq() fxn
- *! 10-May-2001 jeh     Code Review cleanup.
- *! 26-Sep-2000 jeh     Fixed status values in SendMessage().
- *! 19-Jun-2000 jeh     Created.
  */
 
 /*  ----------------------------------- Host OS */

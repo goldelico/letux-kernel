@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Clock and Timer services.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,24 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== clk.c ========
- *  Purpose:
- *      Clock and Timer services.
- *
- *  Public Functions:
- *      CLK_Exit
- *      CLK_Init
- *	CLK_Enable
- *	CLK_Disable
- *	CLK_GetRate
- *	CLK_Set_32KHz
- *! Revision History:
- *! ================
- *! 08-May-2007 rg: moved all clock functions from sync module.
- *		    And added CLK_Set_32KHz, CLK_Set_SysClk.
  */
 
 /*  ----------------------------------- Host OS */

@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge Node Manager.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,84 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== node.c ========
- *
- *  Description:
- *      DSP/BIOS Bridge Node Manager.
- *
- *  Public Functions:
- *      NODE_Allocate
- *      NODE_AllocMsgBuf
- *      NODE_ChangePriority
- *      NODE_Connect
- *      NODE_Create
- *      NODE_CreateMgr
- *      NODE_Delete
- *      NODE_DeleteMgr
- *      NODE_EnumNodes
- *      NODE_Exit
- *      NODE_FreeMsgBuf
- *      NODE_GetAttr
- *      NODE_GetChannelId
- *      NODE_GetMessage
- *      NODE_GetStrmMgr
- *      NODE_Init
- *      NODE_OnExit
- *      NODE_Pause
- *      NODE_PutMessage
- *      NODE_RegisterNotify
- *      NODE_Run
- *      NODE_Terminate
- *
- *! Revision History:
- *! =================
- *! 12-Apr-2004 hp  Compile IVA only for 24xx
- *! 09-Feb-2004 vp  Updated to support IVA.
- *! 07-Apr-2003 map	    Eliminated references to old DLDR
- *! 26-Mar-2003 vp  Commented the call to DSP deep sleep in Node_Delete
- *!		    function.
- *! 18-Feb-2003 vp  Code review updates.
- *! 06-Feb-2003 kc      Fixed FreeStream to release streams correctly.
- *! 23-Jan-2003 map     Removed call to DISP_DoCinit within Write()
- *! 03-Jan-2003 map     Only unload code after phase has executed if
- *!		     overlay or split dynload phases
- *! 18-Oct-2002 vp  Ported to Linux platform.
- *! 06-Nov-2002 map     Fixed NODE_Run on NODE_PAUSED bug
- *! 12-Oct-2002 map     Fixed DeleteNode bug in NODE_Create
- *! 11-Sep-2002 rr      DeleteNode frees the memory for strmConnect and dcd obj
- *! 29-Aug-2002 map     Modified Ovly and Write to use ARM-side copy
- *! 22-May-2002 sg      Changed use of cbData for PWR calls.
- *! 17-May-2002 jeh     Removed LoadLoaderFxns(). Get address of RMS_cinit()
- *!		     function. Call DISP_DoCinit() from Write(), if .cinit.
- *! 13-May-2002 sg      Added timeout to wake/sleep calls.
- *! 02-May-2002 sg      Added wake/sleep of DSP to support "nap" mode.
- *! 18-Apr-2002 jeh     Use dynamic loader if compile flag is set.
- *! 13-Feb-2002 jeh     Get uSysStackSize from DSP_NDBPROPS.
- *! 07-Jan-2002 ag      STRMMODE_ZEROCOPY(shared memory buffer swap) enabled.
- *! 17-Dec-2001 ag      STRMMODE_RDMA(DDMA) enabled.
- *! 12-Dec-2001 ag      Check for valid stream mode in NODE_Connect().
- *! 04-Dec-2001 jeh     Check for node sufficiently connected in NODE_Create().
- *! 15-Nov-2001 jeh     Removed DBC_Require(pNode->hXlator != NULL) from
- *!		     NODE_AllocMsgBuf(), and check node type != NODE_DEVICE.
- *! 11-Sep-2001 ag      Zero-copy messaging support.
- *! 28-Aug-2001 jeh     Overlay/dynamic loader infrastructure added. Removed
- *!		     NODE_GetDispatcher, excess node states.
- *! 07-Aug-2001 jeh     Removed critical section for dispatcher.
- *! 26-Jul-2001 jeh     Get ZL dll name through CFG.
- *! 05-Jun-2001 jeh     Assume DSP_STRMATTRS.uBufsize in GPP bytes.
- *! 11-May-2001 jeh     Some code review cleanup.
- *! 13-Feb-2001 kc:     DSP/BIOS Bridge name updates.
- *! 15-Dec-2000 sg      Convert IALG_Fxn address from byte addr to word addr.
- *! 04-Dec-2000 jeh     Call MSG Get and Put functions.
- *! 04-Dec-2000 ag      Added SM support for node messaging.
- *! 10-Nov-2000 rr:     NODE_MIN/MAX Priority is defined in dspdefs.h.
- *! 27-Oct-2000 jeh     Added NODE_AllocMsgBuf(), NODE_FreeMsgBuf().
- *! 11-Oct-2000 jeh     Changed NODE_EnumNodeInfo to NODE_EnumNodes. Added
- *!		     NODE_CloseOrphans(). Remove NODE_RegisterNotifyAllNodes
- *! 19-Jun-2000 jeh     Created.
  */
 
 /*  ----------------------------------- Host OS */

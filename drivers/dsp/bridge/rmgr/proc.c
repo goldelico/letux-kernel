@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Processor interface at the driver level.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,92 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== proc.c ========
- *  Description:
- *      Processor interface at the driver level.
- *
- *  Public Functions:
- *      PROC_Attach
- *      PROC_Ctrl
- *      PROC_Detach
- *      PROC_EnumNodes
- *      PROC_GetResourceInfo
- *      PROC_Exit
- *      PROC_FlushMemory
- *      PROC_GetState
- *      PROC_GetProcessorId
- *      PROC_GetTrace
- *      PROC_Init
- *      PROC_Load
- *      PROC_Map
- *      PROC_NotifyClients
- *      PROC_RegisterNotify
- *      PROC_ReserveMemory
- *      PROC_Start
- *      PROC_UnMap
- *      PROC_UnReserveMemory
- *      PROC_InvalidateMemory
-
- *! Revision History
- *! ======== ========
- *! 04-Apr-2007 sh  Added PROC_InvalidateMemory API
- *! 19-Apr-2004 sb  Aligned DMM definitions with Symbian
- *!		 Used MEM_FlushCache instead of OS specific API
- *!		 Integrated Alan's code review updates
- *! 08-Mar-2004 sb  Added the Dynamic Memory Mapping feature
- *! 08-Mar-2004 vp  Added g_pszLastCoff member to PROC_OBJECT.
- *!		 This is required for multiprocessor environment.
- *! 09-Feb-2004 vp  Added PROC_GetProcessorID function
- *! 22-Apr-2003 vp  Fixed issue with the string that stores coff file name
- *! 03-Apr-2003 sb  Fix DEH deregistering bug
- *! 26-Mar-2003 vp  Commented the call to DSP deep sleep in PROC_Start function.
- *! 18-Feb-2003 vp  Code review updates.
- *! 18-Oct-2002 vp  Ported to Linux platform.
- *! 22-May-2002 sg  Do IOCTL-to-PWR translation before calling PWR_SleepDSP.
- *! 14-May-2002 sg  Use CSL_Atoi() instead of atoi().
- *! 13-May-2002 sg  Propagate PWR return codes upwards.
- *! 07-May-2002 sg  Added check for, and call to PWR functions in PROC_Ctrl.
- *! 02-May-2002 sg  Added "nap" mode: put DSP to sleep once booted.
- *! 01-Apr-2002 jeh Assume word addresses in PROC_GetTrace().
- *! 29-Nov-2001 jeh Don't call DEH function if hDehMgr == NULL.
- *! 05-Nov-2001 kc: Updated PROC_RegisterNotify and PROC_GetState to support
- *!		 DEH module.
- *! 09-Oct-2001 jeh Fix number of bytes calculated in PROC_GetTrace().
- *! 11-Sep-2001 jeh Delete MSG manager in PROC_Monitor() to fix memory leak.
- *! 29-Aug-2001 rr: DCD_AutoRegister and IOOnLoaded moved before COD_LoadBase
- *!		 to facilitate the external loading.
- *! 14-Aug-2001 ag  DCD_AutoRegister() now called before IOOnLoaded() fxn.
- *! 21-Jun-2001 rr: MSG_Create is done only the first time.
- *! 02-May-2001 jeh Return failure in PROC_Load if IOOnLoaded function returns
- *!		 error other than E_NOTIMPL.
- *! 03-Apr-2001 sg: Changed DSP_DCD_ENOAUTOREGISTER to DSP_EDCDNOAUTOREGISTER.
- *! 13-Feb-2001 kc: DSP/BIOS Bridge name updates.
- *! 05-Jan-2001 rr: PROC_LOAD MSG_Create error is checked.
- *! 15-Dec-2000 rr: IoOnLoaded is checked for WSX_STATUS. We fail to load
- *!		 if DEV_Create2 fails; ie, no non-RMS targets can be
- *!		 loaded.
- *! 12-Dec-2000 rr: PROC_Start's DEV_Create2 is checked for WSX_STATUS.
- *! 28-Nov-2000 jeh Added call to IO OnLoaded function to PROC_Load().
- *! 29-Nov-2000 rr: Incorporated code review changes.
- *! 03-Nov-2000 rr: Auto_Register happens after PROC_Load.
- *! 06-Oct-2000 rr: Updated to ver 0.9. PROC_Start calls DEV_Create2 and
- *!		 WMD_BRD_STOP is always followed by DEV_Destroy2.
- *! 05-Sep-2000 rr: PROC_GetTrace calculates the Trace symbol for 55 in a
- *!		 different way.
- *! 10-Aug-2000 rr: PROC_NotifyClients, PROC_GetProcessorHandle Added
- *! 07-Aug-2000 rr: PROC_IDLE/SYNCINIT/UNKNOWN state removed.
- *!		 WMD fxns are checked for WSX_STATUS.
- *!		 PROC_Attach does not alter the state of the BRD.
- *!		 PROC_Run removed.
- *! 04-Aug-2000 rr: All the functions return DSP_EHANDLE if proc handle is
- *!		 invalid
- *! 27-Jul-2000 rr: PROC_GetTrace and PROC_Load implemented. Updated to
- *!		 ver 0.8 API.
- *! 06-Jul-2000 rr: Created.
  */
 
 /* ------------------------------------ Host OS */

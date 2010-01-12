@@ -14,26 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/*
- *  ======== dbll.c ========
- *
- *! Revision History
- *! ================
- *! 25-Apr-2030 map:    Fixed symbol redefinition bug + unload and return error
- *! 08-Apr-2003 map: 	Consolidated DBL with DBLL loader name
- *! 24-Mar-2003 map:    Updated findSymbol to support dllview update
- *! 23-Jan-2003 map:    Updated rmmAlloc to support memory granularity
- *! 21-Nov-2002 map:    Combine fopen and DLOAD_module_open to increase
- *!         performance on start.
- *! 04-Oct-2002 map:    Integrated new TIP dynamic loader w/ DOF api.
- *! 27-Sep-2002 map:    Changed handle passed to RemoteFree, instead of
- *!         RMM_free;  added GT_trace to rmmDealloc
- *! 20-Sep-2002 map:    Updated from Code Review
- *! 08-Aug-2002 jeh:    Updated to support overlays.
- *! 25-Jun-2002 jeh:    Pass RMM_Addr object to alloc function in rmmAlloc().
- *! 20-Mar-2002 jeh:    Created.
- */
-
 /*  ----------------------------------- Host OS */
 #include <dspbridge/host_os.h>
 

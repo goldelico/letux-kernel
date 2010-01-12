@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implements upper edge functions for WMD message module.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,34 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== msg_sm.c ========
- *  Description:
- *      Implements upper edge functions for WMD message module.
- *
- *  Public Functions:
- *      WMD_MSG_Create
- *      WMD_MSG_CreateQueue
- *      WMD_MSG_Delete
- *      WMD_MSG_DeleteQueue
- *      WMD_MSG_Get
- *      WMD_MSG_Put
- *      WMD_MSG_RegisterNotify
- *      WMD_MSG_SetQueueId
- *
- *! Revision History:
- *! =================
- *! 24-Jul-2002 jeh     Release critical section in WMD_MSG_Put() before
- *!                     scheduling DPC.
- *! 09-May-2001 jeh     Free MSG queue NTFY object, remove unnecessary set/
- *!                     reset of events.
- *! 10-Jan-2001 jeh     Set/Reset message manager and message queue events
- *!                     correctly.
- *! 04-Dec-2000 jeh     Bug fixes.
- *! 12-Sep-2000 jeh     Created.
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */

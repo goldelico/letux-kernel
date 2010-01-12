@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * HW Mailbox API and types definitions
+ *
  * Copyright (C) 2007 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,15 +16,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/*
- *  ======== hw_mbox.h ========
- *  Description:
- *      HW Mailbox API and types definitions
- *
- *! Revision History:
- *! ================
- *! 16 Feb 2003 sb: Initial version
- */
 #ifndef __MBOX_H
 #define __MBOX_H
 

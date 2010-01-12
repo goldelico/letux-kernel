@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implementation for the io read/write routines.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,21 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== _tiomap_io.c ========
- *  Description:
- *      Implementation for the io read/write routines.
- *
- *! Revision History
- *! ================
- *! 16-Feb-2004 vp:  Fixed warning in WriteDspData function.
- *! 16-Apr-2003 vp:  Added support for TC word swap
- *! 26-Feb-2003 vp:  Fixed issue with EXT_BEG and EXT_END address.
- *! 24-Feb-2003 vp:  Ported to Linux platform
- *! 08-Oct-2002 rr:  Created.
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */

@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Defines DSP MMU fault handling functions.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,18 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== mmu_fault.h ========
- *  Description:
- *      Defines DSP MMU fault handling functions.
- *
- *! Revision History:
- *! ================
- *! 26-Dec-2004 hn: IVA MMU handlers.
- *! 10-Sep-2001 kc: created.
  */
 
 #ifndef MMU_FAULT_

@@ -3,6 +3,10 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Private header file defining CMM manager objects and defines needed
+ * by IO manager to register shared memory regions when DSP base image
+ * is loaded(WMD_IO_OnLoaded).
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,24 +16,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== _cmm.h ========
- *  Description:
- *      Private header file defining CMM manager objects and defines needed
- *      by IO manager to register shared memory regions when DSP base image
- *      is loaded(WMD_IO_OnLoaded).
- *
- *  Public Functions:
- *      None.
- *
- *  Notes:
- *
- *! Revision History:
- *! ================
- *! 24-Aug-2001 ag     Created.
  */
 
 #ifndef _CMM_

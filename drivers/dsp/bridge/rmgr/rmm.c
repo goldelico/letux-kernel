@@ -14,11 +14,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
 /*
- *  ======== rmm.c ========
- *  Description:
- *
  *  This memory manager provides general heap management and arbitrary
  *  alignment for any number of memory segments.
  *
@@ -39,16 +35,6 @@
  *  it through RMM_free. The memory manager prevents DSP code/data that is
  *  overlayed from being overwritten as long as the memory it runs at has
  *  been allocated, and not yet freed.
- *
- *! Revision History
- *! ================
- *! 18-Feb-2003 vp  Code review updates.
- *! 18-Oct-2002 vp  Ported to Linux Platform.
- *! 24-Sep-2002 map Updated from Code Review
- *! 25-Jun-2002 jeh     Free from segid passed to RMM_free().
- *! 24-Apr-2002 jeh     Determine segid based on address in RMM_free(). (No way
- *!                     to keep track of segid with dynamic loader library.)
- *! 16-Oct-2001 jeh     Based on gen tree rm.c. Added support for overlays.
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */

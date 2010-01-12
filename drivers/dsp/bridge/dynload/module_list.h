@@ -14,50 +14,44 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/*============================================================================
- Filename:     module_list.h
-
- Copyright (C) 2002 Texas Instruments Incorporated
-
-
- This C header file gives the layout of the data structure created by the
- dynamic loader to describe the set of modules loaded into the DSP.
-
- Linked List Structure:
- ----------------------
- The data structure defined here is a singly-linked list.  The list
- represents the set of modules which are currently loaded in the DSP memory.
- The first entry in the list is a header record which contains a flag
- representing the state of the list.  The rest of the entries in the list
- are module records.
-
- Global symbol  _DLModules designates the first record in the list (i.e. the
- header record).  This symbol must be defined in any program that wishes to
- use DLLview plug-in.
-
- String Representation:
- ----------------------
- The string names of the module and its sections are stored in a block of
- memory which follows the module record itself.  The strings are ordered:
- module name first, followed by section names in order from the first
- section to the last.  String names are tightly packed arrays of 8-bit
- characters (two characters per 16-bit word on the C55x).  Strings are
- zero-byte-terminated.
-
- Creating and updating the list:
--------------------------------
- Upon loading a new module into the DSP memory the dynamic loader inserts a
-new module record as the first module record in the list.  The fields of
- this module record are initialized to reflect the properties of the module.
- The dynamic loader does NOT increment the flag/counter in the list's header
- record.
-
- Upon unloading a module from the DSP memory the dynamic loader removes the
-module's record from this list.  The dynamic loader also increments the
- flag/counter in the list's header record to indicate that the list has been
- changed.
-
-============================================================================*/
+/*
+ * This C header file gives the layout of the data structure created by the
+ * dynamic loader to describe the set of modules loaded into the DSP.
+ *
+ * Linked List Structure:
+ * ----------------------
+ * The data structure defined here is a singly-linked list.  The list
+ * represents the set of modules which are currently loaded in the DSP memory.
+ * The first entry in the list is a header record which contains a flag
+ * representing the state of the list.  The rest of the entries in the list
+ * are module records.
+ *
+ * Global symbol  _DLModules designates the first record in the list (i.e. the
+ * header record).  This symbol must be defined in any program that wishes to
+ * use DLLview plug-in.
+ *
+ * String Representation:
+ * ----------------------
+ * The string names of the module and its sections are stored in a block of
+ * memory which follows the module record itself.  The strings are ordered:
+ * module name first, followed by section names in order from the first
+ * section to the last.  String names are tightly packed arrays of 8-bit
+ * characters (two characters per 16-bit word on the C55x).  Strings are
+ * zero-byte-terminated.
+ *
+ * Creating and updating the list:
+ * -------------------------------
+ * Upon loading a new module into the DSP memory the dynamic loader inserts a
+ * new module record as the first module record in the list.  The fields of
+ * this module record are initialized to reflect the properties of the module.
+ * The dynamic loader does NOT increment the flag/counter in the list's header
+ * record.
+ *
+ * Upon unloading a module from the DSP memory the dynamic loader removes the
+ * module's record from this list.  The dynamic loader also increments the
+ * flag/counter in the list's header record to indicate that the list has been
+ * changed.
+ */
 
 #ifndef _MODULE_LIST_H_
 #define _MODULE_LIST_H_

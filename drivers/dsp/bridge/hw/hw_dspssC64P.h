@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP Subsystem API declarations
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,19 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== hw_dspss.h ========
- *  Description:
- *      DSP Subsystem API declarations
- *
- *! Revision History:
- *! ================
- *! 19-Apr-2004 sb: Removed redundant argument from HW_DSPSS_IPIEndianismSet
- *!		    Moved endianness and element size to generic hw_defs.h
- *! 16 Feb 2003 sb: Initial version
  */
 
 #ifndef __HW_DSPSS_H

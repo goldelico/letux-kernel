@@ -3,6 +3,10 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implementation of Manager interface to the device object at the
+ * driver level. This queries the NDB data base and retrieves the
+ * data about Node and Processor.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,32 +16,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== mgr.c ========
- *  Description:
- *      Implementation of Manager interface to the device object at the
- *      driver level. This queries the NDB data base and retrieves the
- *      data about Node and Processor.
- *
- *
- *! Revision History:
- *! ================
- *! 12-Feb-2003 vp: Code review updates.
- *! 18-Oct-2002 vp: Ported to Linux platform
- *! 01-Aug-2001 ag: Added extended info for DSP-MMU setup support.
- *! 13-Feb-2001 kc: DSP/BIOS Bridge name updates.
- *! 22-Nov-2000 kc: Added MGR_GetPerfData.
- *! 03-Nov-2000 rr: Updated after code review.
- *! 25-Sep-2000 rr: Updated to Version 0.9
- *! 10-Aug-2000 rr: dwSignature is not specifically inserted in MGR Obj
- *!                 as it is taken care by MEM_AllocObject. stdwin.h added
- *!                 for retail build to succeed.
- *! 07-Aug-2000 rr: MGR_Create does the job of Loading DCD Dll.
- *! 26-Jul-2000 rr: MGR_Destroy releases the hNDBDll.
- *! 20-Jun-2000 rr: Created.
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */

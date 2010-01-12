@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implementation of DSP wake/sleep routines.
+ *
  * Copyright (C) 2007-2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,21 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== _tiomap_pwr.c ========
- *  Description:
- *      Implementation of DSP wake/sleep routines.
- *
- *! Revision History
- *! ================
- *! 01-Nov-2007 HK: Added Off mode(Hibernation) support and DVFS support
- *! 05-Jan-2004 vp: Moved the file to platform specific folder and commented the
- *!		    code.
- *! 27-Mar-2003 vp: Added support for DSP boot idle mode.
- *! 06-Dec-2002 cring:  Added Palm support.
- *! 08-Oct-2002 rr:  Created.
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */

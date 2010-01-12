@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Structure subcomponents of channel class library IO objects which
+ * are exposed to class driver from mini-driver.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,22 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== ioobj.h ========
- *  Description:
- *      Structure subcomponents of channel class library IO objects which
- *      are exposed to class driver from mini-driver.
- *
- *  Public Functions:
- *      None.
- *
- *! Revision History:
- *! ================
- *! 24-Feb-2003 swa PMGR Code review comments incorporated.
- *! 01/16/97 gp: Created from chnlpriv.h
  */
 
 #ifndef IOOBJ_

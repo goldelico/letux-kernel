@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Generic bitmap operations.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,21 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== gb.c ========
- *  Description: Generic bitmap operations.
- *
- *! Revision History
- *! ================
- *! 24-Feb-2003 vp  Code review updates.
- *! 17-Dec-2002 map Fixed GB_minset(), GB_empty(), and GB_full(),
- *!                 to ensure only 'len' bits are considered in the map
- *! 18-Oct-2002 sb  Ported to Linux platform.
- *! 06-Dec-2001 jeh Fixed bug in GB_minclear().
- *!
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */

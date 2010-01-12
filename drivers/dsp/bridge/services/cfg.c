@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implementation of platform specific config services.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,64 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== cfgce.c ========
- *  Purpose:
- *      Implementation of platform specific config services.
- *
- *  Private Functions:
- *      CFG_Exit
- *      CFG_GetAutoStart
- *      CFG_GetDevObject
- *      CFG_GetDSPResources
- *      CFG_GetExecFile
- *      CFG_GetHostResources
- *      CFG_GetObject
- *      CFG_Init
- *      CFG_SetDevObject
- *      CFG_SetObject
- *
- *
- *! Revision History:
- *! ================
- *! 26-Arp-2004 hp  Support for handling more than one Device.
- *! 26-Feb-2003 kc  Removed unused CFG fxns.
- *! 10-Nov-2000 rr: CFG_GetBoardName local var initialized.
- *! 30-Oct-2000 kc: Changed local var. names to use Hungarian notation.
- *! 10-Aug-2000 rr: Cosmetic changes.
- *! 26-Jul-2000 rr: Added CFG_GetDCDName. CFG_Get/SetObject(based on a flag)
- *!                  replaces CFG_GetMgrObject & CFG_SetMgrObject.
- *! 17-Jul-2000 rr: Added CFG_GetMgrObject & CFG_SetMgrObject.
- *! 03-Feb-2000 rr: Module init/exit is handled by SERVICES Init/Exit.
- *!		    GT Changes.
- *! 31-Jan-2000 rr: Comments and bugfixes:  modified after code review
- *! 07-Jan-2000 rr: CFG_GetBoardName Ensure class checks strlen of the
- *!                 read value from the registry against the passed in BufSize;
- *!                 CFG_GetZLFile,CFG_GetWMDFileName and
- *!                 CFG_GetExecFile also modified same way.
- *! 06-Jan-2000 rr: CFG_GetSearchPath & CFG_GetWinBRIDGEDir removed.
- *! 09-Dec-1999 rr: CFG_SetDevObject stores the DevNodeString pointer.
- *! 03-Dec-1999 rr: CFG_GetDevObject reads stored DevObject from Registry.
- *!                 CFG_GetDevNode reads the Devnodestring from the registry.
- *!                 CFG_SetDevObject stores the registry path as
- *!                 DevNodestring in the registry.
- *! 02-Dec-1999 rr: CFG_debugMask is declared static now. stdwin.h included
- *! 22-Nov-1999 kc: Added windows.h to remove warnings.
- *! 25-Oct-1999 rr: CFG_GetHostResources reads the HostResource structure
- *!                 from the registry which was set by the DRV Request
- *!                 Resources.
- *! 15-Oct-1999 rr: Changes in CFG_SetPrivateDword & HostResources reflecting
- *!                 changes for  drv.h resource structure and wsxreg.h new
- *!                 entry(DevObject) Hard coded entries removed for those items
- *! 08-Oct-1999 rr: CFG_SetPrivateDword modified. it sets devobject into the
- *!                 registry. CFG_Get HostResources modified for opening up
- *!                 two mem winodws.
- *! 24-Sep-1999 rr: CFG_GetHostResources uses hardcoded Registry calls,uses NT
- *!                 type of Resource Structure.
- *! 19-Jul-1999 a0216266: Stubbed from cfgnt.c.
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */
