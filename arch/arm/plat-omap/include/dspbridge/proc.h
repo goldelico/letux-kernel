@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This is the Class driver RM module interface.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,51 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== proc.h ========
- *  Description:
- *	This is the Class driver RM module interface.
- *
- *  Public Functions:
- *      PROC_Attach
- *      PROC_Create
- *      PROC_Ctrl	       (OEM-function)
- *      PROC_Destroy
- *      PROC_Detach
- *      PROC_EnumNodes
- *      PROC_Exit
- *      PROC_FlushMemory
- *      PROC_GetDevObject       (OEM-function)
- *      PROC_GetResourceInfo
- *      PROC_GetState
- *      PROC_GetProcessorId
- *      PROC_GetTrace	   (OEM-function)
- *      PROC_Init
- *      PROC_Load	       (OEM-function)
- *      PROC_Map
- *      PROC_NotifyAllclients
- *      PROC_NotifyClients      (OEM-function)
- *      PROC_RegisterNotify
- *      PROC_ReserveMemory
- *      PROC_Start	      (OEM-function)
- *      PROC_UnMap
- *      PROC_UnReserveMemory
- *
- *  Notes:
- *
- *! Revision History:
- *! ================
- *! 19-Apr-2004 sb  Aligned DMM definitions with Symbian
- *! 08-Mar-2004 sb  Added the Dynamic Memory Mapping APIs
- *! 09-Feb-2003 vp: Added PROC_GetProcessorID function
- *! 29-Nov-2000 rr: Incorporated code review changes.
- *! 28-Sep-2000 rr: Updated to Version 0.9.
- *! 10-Aug-2000 rr: PROC_NotifyClients, PROC_GetProcessorHandle Added
- *! 27-Jul-2000 rr: Updated to ver 0.8 of DSPAPI(types). GetTrace added.
- *! 27-Jun-2000 rr: Created from dspapi.h
  */
 
 #ifndef PROC_

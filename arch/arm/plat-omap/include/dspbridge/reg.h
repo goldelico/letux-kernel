@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Provides registry functions.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,39 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== reg.h ========
- *  Purpose:
- *      Provide registry functions.
- *
- *  Public Functions:
- *      REG_DeleteValue
- *      REG_EnumValue
- *      REG_Exit
- *      REG_GetValue
- *      REG_Init
- *      REG_SetValue
- *
- *! Revision History:
- *! =================
- *! 30-Oct-2000 kc: Updated REG_SetValue & REG_GetValue; renamed
- *!                 REG_DeleteEntry to REG_DeleteValue.
- *! 29-Sep-2000 kc: Updated a REG functions for code review.
- *! 12-Aug-2000 kc: Renamed REG_EnumValue to REG_EnumKey. Re-implemented
- *!                 REG_EnumValue.
- *! 03-Feb-2000 rr: REG_EnumValue Fxn Added
- *! 13-Dec-1999 rr: windows.h removed
- *! 02-Dec-1999 rr: windows.h included for retail build
- *! 22-Nov-1999 kc: Changes from code review.
- *! 29-Dec-1997 cr: Changes from code review.
- *! 27-Oct-1997 cr: Added REG_DeleteValue.
- *! 20-Oct-1997 cr: Added ability to pass bValue = NULL to REG_GetValue
- *!                 and return size of reg entry in pdwValueSize.
- *! 29-Sep-1997 cr: Added REG_SetValue
- *! 29-Aug-1997 cr: Created.
  */
 
 #ifndef _REG_H

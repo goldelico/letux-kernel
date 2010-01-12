@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Manage lists of notification events.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,26 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== ntfy.h ========
- *  Purpose:
- *      Manage lists of notification events.
- *
- *  Public Functions:
- *      NTFY_Create
- *      NTFY_Delete
- *      NTFY_Exit
- *      NTFY_Init
- *      NTFY_Notify
- *      NTFY_Register
- *
- *! Revision History:
- *! =================
- *! 05-Nov-2001 kc: Updated NTFY_Register.
- *! 07-Sep-2000 jeh Created.
  */
 
 #ifndef NTFY_

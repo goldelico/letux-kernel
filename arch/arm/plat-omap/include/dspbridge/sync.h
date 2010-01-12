@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Provide synchronization services.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,44 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== sync.h ========
- *  Purpose:
- *      Provide synchronization services.
- *
- *  Public Functions:
- *      SYNC_CloseEvent
- *      SYNC_DeleteCS
- *      SYNC_EnterCS
- *      SYNC_Exit
- *      SYNC_Init
- *      SYNC_InitializeCS
- *      SYNC_LeaveCS
- *      SYNC_OpenEvent
- *      SYNC_PostMessage
- *      SYNC_ResetEvent
- *      SYNC_SetEvent
- *      SYNC_WaitOnEvent
- *      SYNC_WaitOnMultipleEvents
- *
- *! Revision History:
- *! ================
- *! 05-Oct-2000 jeh Added SYNC_WaitOnMultipleEvents().
- *! 01-Dec-1999 ag: Added #define SYNC_MAXNAMELENGTH.
- *! 04-Nov-1999 kc: Added critical section functions and objects to SYNC.
- *! 29-Oct-1999 kc: Cleaned up for code review.
- *! 24-Sep-1999 kc: Added WinCE notes.
- *! 20-Oct-1997 gp: Removed unused SYNC_ critical section and must complete fxns
- *!                 Added SYNC_HOBJECT, SYNC_ATTRS, and object validation, and
- *!                 merged SYNC_DestroyEvent into SYNC_CloseEvent, and merged
- *!                 SYNC_CreateEvent into SYNC_OpenEvent.
- *! 07-Oct-1997 gp: Added SYNC_Create/DestroyEvent (for NT testing).
- *! 06-Oct-1997 gp: Added SYNC_OpenEvent.
- *! 03-Jun-1997 gp: Added SYNC_{Begin|End}CritSection() functions.
- *! 03-Jan-1997 gp: Added SYNC_INFINITE define.
- *! 05-Aug-1996 gp: Created.
  */
 
 #ifndef _SYNC_H

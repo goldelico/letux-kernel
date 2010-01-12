@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Deferred Procedure Call(DPC) Services.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,30 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== dpc.h ========
- *  Purpose:
- *      Deferred Procedure Call(DPC) Services.
- *
- *  Public Functions:
- *      DPC_Cancel
- *      DPC_Create
- *      DPC_Destroy
- *      DPC_Exit
- *      DPC_Init
- *      DPC_Schedule
- *
- *! Revision History:
- *! ================
- *! 31-Jan-2000 rr:  DPC_Destroy ensures Suceess and DPC Object is NULL.
- *! 21-Jan-2000 ag:  Updated comments per code review.
- *! 06-Jan-2000 ag:  Removed DPC_[Lower|Raise]IRQL[From|To]DispatchLevel.
- *! 14-Jan-1998 gp:  Added DPC_[Lower|Raise]IRQL[From|To]DispatchLevel.
- *! 18-Aug-1997 cr:  Added explicit CDECL identifiers.
- *! 28-Jul-1996 gp:  Created.
  */
 
 #ifndef DPC_

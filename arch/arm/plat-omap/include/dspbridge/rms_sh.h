@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge Resource Manager Server shared definitions (used on both
+ * GPP and DSP sides).
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,37 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== rms_sh.h ========
- *
- *  DSP/BIOS Bridge Resource Manager Server shared definitions (used on both
- *  GPP and DSP sides).
- *
- *! Revision History
- *! ================
- *! 24-Mar-2003 vp  Merged updates required for CCS2.2 transition.
- *! 24-Feb-2003 kc  Rearranged order of node types to temporarily support
- *!		    legacy message node code
- *! 23-Nov-2002 gp  Converted tabs -> spaces, to fix formatting.
- *! 13-Feb-2002 jeh Added sysstacksize element to RMS_MoreTaskArgs.
- *! 11-Dec-2000 sg  Added 'misc' element to RMS_MoreTaskArgs.
- *! 04-Dec-2000 ag  Added RMS_BUFDESC command code.
- *!                 C/R code value changed to allow ORing of system/user codes.
- *! 10-Oct-2000 sg  Added 'align' field to RMS_StrmDef.
- *! 09-Oct-2000 sg  Moved pre-defined message codes here from rmsdefs.h.
- *! 02-Oct-2000 sg  Changed ticks to msec.
- *! 24-Aug-2000 sg  Moved definitions that will be exposed to app developers
- *!  		    to a separate file, rmsdefs.h.
- *! 10-Aug-2000 sg  Added RMS_COMMANDBUFSIZE and RMS_RESPONSEBUFSIZE; added
- *!		    pre-defined command/response codes; more comments.
- *! 09-Aug-2000 sg  Added RMS_ETASK.
- *! 08-Aug-2000 jeh Define RMS_WORD for GPP, rename DSP_MSG to RMS_DSPMSG.
- *!                 Added RMS_MsgArgs, RMS_MoreTaskArgs.
- *! 25-Jul-2000 sg: Changed SIO to STRM.
- *! 30-Jun-2000 sg: Initial.
  */
 
 #ifndef RMS_SH_

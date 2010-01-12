@@ -3,6 +3,14 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Prototypes for channel lower edge functions for a Bridge mini driver
+ * implementing data transfer via shared memory.
+ *
+ * Notes:
+ *   These lower edge functions must be implemented by the WMD writer.
+ *   Currently, CHNLSM_Read() and CHNLSM_Write() are not called, but must
+ *   be defined to link.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,28 +20,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== chnl_sm.h ========
- *  Description:
- *      Prototypes for channel lower edge functions for a WinBRIDGE mini driver
- *      implementing data transfer via shared memory.
- *
- *  Public Functions:
- *      CHNLSM_DisableInterrupt;
- *      CHNLSM_EnableInterrupt;
- *      CHNLSM_ISR;
- *      CHNLSM_Read;
- *      CHNLSM_UpdateSHMLength;
- *      CHNLSM_Write;
- *
- *  Notes:
- *      These lower edge functions must be implemented by the WMD writer.
- *      Currently, CHNLSM_Read() and CHNLSM_Write() are not called, but must
- *      be defined to link.
- *
  */
 
 #ifndef CHNLSM_

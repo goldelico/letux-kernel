@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Global CFG constants and types, shared between class and mini driver.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,31 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== cfgdefs.h ========
- *  Purpose:
- *      Global CFG constants and types, shared between class and mini driver.
- *
- *! Revision History:
- *! ================
- *! 24-Feb-2003 kc  Removed wIOPort* in CFG_HOSTRES.
- *! 06-Sep-2000 jeh Added channel info to CFG_HOSTRES.
- *! 09-May-2000 rr: CFG_HOSTRES now support multiple windows for PCI support.
- *! 31-Jan-2000 rr: Comments changed after code review.
- *! 06-Jan-2000 rr: Bus Type included in CFG_HOSTRES.
- *! 12-Nov-1999 rr: CFG_HOSTRES member names changed.
- *! 25-Oct-1999 rr: Modified the CFG_HOSTRES Structure
- *!                 PCMCIA ISR Register/Unregister fxn removed..
- *!                 New flag PCCARD introduced during compile time.
- *! 10-Sep-1999 ww: Added PCMCIA ISR Register/Unregister fxn.
- *! 01-Sep-1999 ag: Removed NT/95 specific fields in CFG_HOSTRES
- *! 27-Oct-1997 cr: Updated CFG_HOSTRES struct to support 1+ IRQs per board.
- *! 17-Sep-1997 gp: Tacked some NT config info to end of CFG_HOSTRES structure.
- *! 12-Dec-1996 cr: Cleaned up after code review.
- *! 14-Nov-1996 gp: Renamed from wsxcfg.h
- *! 19-Jun-1996 cr: Created.
  */
 
 #ifndef CFGDEFS_

@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * System-wide channel objects and constants.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,30 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== chnldefs.h ========
- *  Purpose:
- *      System-wide channel objects and constants.
- *
- *! Revision History:
- *! ================
- *! 19-Jan-2002 ag  Added cBufSize to IOC.
- *! 05-Jan-2000 ag: Text format cleanup.
- *! 02-Dec-1999 ag: Added new chnl attribute pstrEventName.
- *! 12-Nov-1999 kc: Enabled hEvent attribute for tests.
- *! 01-Nov-1999 ag: hEvent attribute not supported(yet).
- *! 16-Jan-1997 gp: Moved private stuff into chnlpriv.h
- *! 14-Jan-1997 gp: Updated based on code review feedback:
- *!                 Removed CHNL_MODENOWAIT, CHNL_MODEDIRECT,
- *! 03-Jan-1997 gp: Added channel class library types.
- *! 14-Dec-1996 gp: Moved uChnlId field from CHNL_ATTRS to CHNL_Open().
- *! 10-Dec-1996 gp: Added CHNL_IsTimedOut() macro.
- *! 14-Nov-1996 gp: Renamed from wsxchnl.h.
- *! 09-Sep-1996 gp: Added hReserved2 field to CHNL_ATTRS. Updated CHNL_INFO.
- *! 10-Jul-1996 gp: Created from channel.h.
  */
 
 #ifndef CHNLDEFS_

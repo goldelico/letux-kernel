@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Declarations of list management control structures and definitions
+ * of inline list management functions.
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,39 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== list.h ========
- *  Purpose:
- *      Declarations of list management control structures and definitions
- *      of inline list management functions.
- *
- *  Public Functions:
- *      LST_Create
- *      LST_Delete
- *      LST_Exit
- *      LST_First
- *      LST_GetHead
- *      LST_InitElem
- *      LST_Init
- *      LST_InsertBefore
- *      LST_IsEmpty
- *      LST_Next
- *      LST_PutTail
- *      LST_RemoveElem
- *
- *  Notes:
- *
- *! Revision History
- *! ================
- *! 10-Aug-2000 ag:  Added LST_InsertBefore().
- *! 29-Oct-1999 kc:  Cleaned up for code review.
- *! 16-Aug-1997 cr:  added explicit identifiers.
- *! 10-Aug-1996 gp:  Acquired from SMM for WinSPOX v.1.1; renamed identifiers.
- *! 21-Oct-1994 dh4: Cleaned / commented for code review.
- *! 08-Jun-1994 dh4: Converted to SPM (added extern "C").
  */
 
 #ifndef LIST_

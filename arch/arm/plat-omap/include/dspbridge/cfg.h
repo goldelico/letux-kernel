@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * PM Configuration module.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,54 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== cfg.h ========
- *  Purpose:
- *      PM Configuration module.
- *
- *  Private Functions:
- *      CFG_Exit
- *      CFG_GetAutoStart
- *      CFG_GetCDVersion
- *      CFG_GetDevObject
- *      CFG_GetDSPResources
- *      CFG_GetExecFile
- *      CFG_GetHostResources
- *      CFG_GetObject
- *      CFG_GetPerfValue
- *      CFG_GetWMDFileName
- *      CFG_GetZLFile
- *      CFG_Init
- *      CFG_SetDevObject
- *      CFG_SetObject
- *
- *! Revision History:
- *! =================
- *! 26-Feb-2003 kc  Removed unused CFG fxns.
- *! 28-Aug-2001 jeh  Added CFG_GetLoaderName.
- *! 26-Jul-2000 rr:  Added CFG_GetDCDName to retrieve the DCD Dll name.
- *! 13-Jul-2000 rr:  Added CFG_GetObject & CFG_SetObject.
- *! 13-Jan-2000 rr:  CFG_Get/SetPrivateDword renamed to CFG_Get/SetDevObject.
- *!                  CFG_GetWinBRIDGEDir/Directory,CFG_GetSearchPath removed.
- *! 15-Jan-1998 cr:  Code review cleanup.
- *! 16-Aug-1997 cr:  Added explicit cdecl identifiers.
- *! 12-Dec-1996 gp:  Moved CFG_FindInSearchPath to CSP module.
- *! 13-Sep-1996 gp:  Added CFG_GetBoardName().
- *! 22-Jul-1996 gp:  Added CFG_GetTraceStr, to retrieve an initial GT trace.
- *! 26-Jun-1996 cr:  Added CFG_FindInSearchPath.
- *! 25-Jun-1996 cr:  Added CFG_GetWinSPOXDir.
- *! 17-Jun-1996 cr:  Added CFG_GetDevNode.
- *! 11-Jun-1996 cr:  Cleaned up for code review.
- *! 07-Jun-1996 cr:  Added CFG_GetExecFile and CFG_GetZLFileName functions.
- *! 04-Jun-1996 gp:  Added AutoStart regkey and accessor function.  Placed
- *!                  OUT parameters in accessor function param. lists at end.
- *! 29-May-1996 gp:  Moved DEV_HDEVNODE to here and renamed CFG_HDEVNODE.
- *! 22-May-1996 cr:  Added GetHostResources, GetDSPResources, and
- *!                  GetWMDFileName services.
- *! 18-May-1996 gp:  Created.
  */
 
 #ifndef CFG_

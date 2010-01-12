@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * BRIDGE Minidriver BRD_IOCtl reserved command definitions.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,30 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== wmdioctl.h ========
- *  Description:
- *    BRIDGE Minidriver BRD_IOCtl reserved command definitions.
- *
- *! Revision History
- *! ================
- *! 19-Apr-2004 sb   Updated HW typedefs
- *! 16-Feb-2004 vp   Added MMU endianness attributes to WMDIOCTL_EXTPROC
- *! 21-Mar-2003 sb   Changed WMDIOCTL_NUMOFMMUTLB from 7 to 32
- *! 14-May-2001 sg   Added codes for PWR.
- *! 10-Aug-2001 ag   Added _SETMMUCONFIG ioctl used for DSP-MMU init.
- *! 16-Nov-1999 rajesh ?
- *! 18-Jun-1998 ag   Moved EMIF, SDRAM_C, & CE space init to ENBLEXTMEM ioctl.
- *!                  Added ENBLEXTMEM, RESETDSP, UNRESETDSP & ASSERTSIG ioctls.
- *! 07-Jun-1998 ag   Added JTAG_SELECT, MAP_TBC, GET_CONFIGURATION ioctls.
- *! 26-Jan-1998 jeh: Added START, RECV, and SEND ioctls.
- *! 07-Nov-1997 nn:  Added command to interrupt DSP for interrupt test.
- *! 20-Oct-1997 nn:  Added commands for getting and resetting interrupt count.
- *! 17-Oct-1997 gp:  Moved to src/wmd. Standardized prefix.
- *! 08-Oct-1997 nn:  Created.
  */
 
 #ifndef WMDIOCTL_

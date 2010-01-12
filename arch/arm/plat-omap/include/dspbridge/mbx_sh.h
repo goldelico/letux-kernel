@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Definitions for shared mailbox cmd/data values.(used on both
+ * the GPP and DSP sides).
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,15 +17,10 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
 /*
- *  ======== mbx_sh.h ========
- *  Definitions for shared mailbox cmd/data values.(used on both
- *     the GPP and DSP sides).
- *
  *  Bridge usage of OMAP mailbox 1 is determined by the "class" of the
- *     mailbox interrupt's cmd value received. The class value are defined
- *     as a bit (10 thru 15) being set.
+ *  mailbox interrupt's cmd value received. The class value are defined
+ *  as a bit (10 thru 15) being set.
  *
  *  Note: Only 16 bits of each  is used. Other 16 bit data reg available.
  *
@@ -37,7 +35,6 @@
  *   |  (class)  | (module specific) |
  *
  *
- *
  * B: DSP-DMA link driver channels (DDMA) : class = 1.
  *
  *    15         10                  0
@@ -48,8 +45,6 @@
  *
  *   where b -> buffer index  (32 DDMA buffers/chnl max)
  *         c -> channel Id    (32 DDMA chnls max)
- *
- *
  *
  *
  * C: Proc-copy link driver channels (PCPY) : class = 2.
@@ -110,16 +105,6 @@
  *   where x -> not used
  *         c -> Power management command
  *
- *
- *
- *! Revision History:
- *! ================
- *! 19-Sep-2002 mr  Added DEH reset const
- *! 24-Apr-2002 sg  Added more PM commands.
- *! 04-Mar-2002 gv  Added MBX_PM_CLASS
- *! 22-Jan-2002 ag  Bug fix in MBX_SETZCPYVAL(x) macro.
- *! 21-Dec-2001 ag  Added bit masks defns.
- *! 17-Dec-2001 ag: created.
  */
 
 #ifndef _MBX_SH_H

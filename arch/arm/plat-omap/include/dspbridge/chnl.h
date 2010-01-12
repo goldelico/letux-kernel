@@ -3,6 +3,11 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * WCD channel interface: multiplexes data streams through the single
+ * physical link managed by a mini-driver.
+ *
+ * See DSP API chnl.h for more details.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,46 +17,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== chnl.h ========
- *  Description:
- *      WCD channel interface: multiplexes data streams through the single
- *      physical link managed by a mini-driver.
- *
- *  Public Functions:
- *      CHNL_AddIOReq
- *      CHNL_AllocBuffer
- *      CHNL_CancelIO
- *      CHNL_Close
- *      CHNL_CloseOrphans
- *      CHNL_Create
- *      CHNL_Destroy
- *      CHNL_Exit
- *      CHNL_FlushIO
- *      CHNL_FreeBuffer
- *      CHNL_GetEventHandle
- *      CHNL_GetHandle
- *      CHNL_GetIOCompletion
- *      CHNL_GetId
- *      CHNL_GetMgr
- *      CHNL_GetMode
- *      CHNL_GetPosition
- *      CHNL_GetProcessHandle
- *      CHNL_Init
- *      CHNL_Open
- *
- *  Notes:
- *      See DSP API chnl.h for more details.
- *
- *! Revision History:
- *! ================
- *! 14-Jan-1997 gp: Updated based on code review feedback.
- *! 24-Oct-1996 gp: Move CloseOrphans into here from dspsys.
- *! 09-Sep-1996 gp: Added CHNL_GetProcessID() and CHNL_GetHandle().
- *! 10-Jul-1996 gp: Created.
  */
 
 #ifndef CHNL_

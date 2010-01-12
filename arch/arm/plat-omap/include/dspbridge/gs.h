@@ -3,6 +3,11 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Memory allocation/release wrappers.  This module allows clients to
+ * avoid OS spacific issues related to memory allocation.  It also provides
+ * simple diagnostic capabilities to assist in the detection of memory
+ * leaks.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,16 +17,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== gs.h ========
- *  Memory allocation/release wrappers.  This module allows clients to
- *  avoid OS spacific issues related to memory allocation.  It also provides
- *  simple diagnostic capabilities to assist in the detection of memory
- *  leaks.
- *! Revision History
- *! ================
  */
 
 #ifndef GS_

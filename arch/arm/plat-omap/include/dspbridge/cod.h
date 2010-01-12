@@ -3,6 +3,10 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Code management module for DSPs. This module provides an interface
+ * interface for loading both static and dynamic code objects onto DSP
+ * systems.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,60 +16,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== cod.h ========
- *  Description:
- *      Code management module for DSPs. This module provides an interface
- *      interface for loading both static and dynamic code objects onto DSP
- *      systems.
- *
- *  Public Functions:
- *      COD_Close
- *      COD_Create
- *      COD_Delete
- *      COD_Exit
- *      COD_GetBaseLib
- *      COD_GetBaseName
- *      COD_GetLoader
- *      COD_GetSection
- *      COD_GetSymValue
- *      COD_Init
- *      COD_LoadBase
- *      COD_Open
- *      COD_OpenBase
- *      COD_ReadSection
- *      COD_UnloadSection
- *
- *  Note:
- *      Currently, only static loading is supported.
- *
- *! Revision History
- *! ================
- *! 08-Apr-2003 map: Changed DBL to DBLL
- *! 07-Aug-2002 jeh: Added COD_GetBaseName().
- *! 17-Jul-2002 jeh: Added COD_Open(), COD_Close().
- *! 15-Mar-2002 jeh: Added DBL_Flags param to COD_OpenBase().
- *! 19-Oct-2001 jeh: Added COD_GetBaseLib, COD_GetLoader, (left in
- *!                  COD_LoadSection(), COD_UnloadSection(), since they
- *!                  may be needed for BridgeLite).
- *! 07-Sep-2001 jeh: Added COD_LoadSection(), COD_UnloadSection().
- *! 11-Jan-2001 jeh: Added COD_OpenBase.
- *! 29-Sep-2000 kc:  Added size param to COD_ReadSection for input buffer
- *!                  validation.
- *! 02-Aug-2000 kc:  Added COD_ReadSection.
- *! 04-Sep-1997 gp:  Added CDECL identifier to COD_WRITEFXN (for NT)..
- *! 18-Aug-1997 cr:  Added explicit CDECL identifier.
- *! 28-Oct-1996 gp:  Added COD_GetSection.
- *! 30-Jul-1996 gp:  Added envp[] argument to COD_LoadBase().
- *! 12-Jun-1996 gp:  Moved OUT param first in _Create().  Updated _Create()
- *!                  call to take a ZLFileName.  Moved COD_ processor types
- *!                  to CFG.
- *! 29-May-1996 gp:  Changed WCD_STATUS to DSP_STATUS.  Removed include's.
- *! 07-May-1996 mg:  Created.
- *
  */
 
 #ifndef COD_

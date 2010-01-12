@@ -3,6 +3,10 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This memory manager provides general heap management and arbitrary
+ * alignment for any number of memory segments, and management of overlay
+ * memory.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,28 +16,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== rmm.h ========
- *
- *  This memory manager provides general heap management and arbitrary
- *  alignment for any number of memory segments, and management of overlay
- *  memory.
- *
- *  Public functions:
- *      RMM_alloc
- *      RMM_create
- *      RMM_delete
- *      RMM_exit
- *      RMM_free
- *      RMM_init
- *
- *! Revision History
- *! ================
- *! 25-Jun-2002 jeh     Added RMM_Addr. Removed RMM_reserve, RMM_stat.
- *! 15-Oct-2001 jeh     Based on rm.h in gen tree.
  */
 
 #ifndef RMM_

@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This is the Stream Interface for the DDSP Class driver.
+ * All Device operations are performed via DeviceIOControl.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,36 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== dspdrv.h ========
- *  Purpose:
- *      This is the Stream Interface for the DDSP Class driver.
- *      All Device operations are performed via DeviceIOControl.
- *      Read, Seek and Write not used.
- *
- *  Public Functions
- *      DSP_Close
- *      DSP_Deinit
- *      DSP_Init
- *      DSP_IOControl
- *      DSP_Open
- *      DSP_PowerUp
- *      DSP_PowerDown
- *
- *! Revision History
- *! ================
- *! 28-Jan-2000 rr: Type void changed to Void.
- *! 02-Dec-1999 rr: MAX_DEV define moved from wcdce.c file.Code cleaned up.
- *! 12-Nov-1999 rr: "#include<wncnxerr.h> removed.
- *! 05-Oct-1999 rr  Renamed the file name to wcdce.h Removed Bus Specific
- *!                 code and #defines to PCCARD.h.
- *! 24-Sep-1999 rr  Changed the DSP_COMMON_WINDOW_SIZE to 0x4000(16k) for the
- *!                 Memory windows.
- *! 16-Jul-1999 ag  Adapted from rkw's CAC Bullet driver.
- *!
  */
 
 #if !defined __DSPDRV_h__

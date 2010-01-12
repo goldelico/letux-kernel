@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This is the Class driver RM module interface.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,36 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== mgr.h ========
- *  Description:
- *      This is the Class driver RM module interface.
- *
- *  Public Functions:
- *      MGR_Create
- *      MGR_Destroy
- *      MGR_EnumNodeInfo
- *      MGR_EnumProcessorInfo
- *      MGR_Exit
- *      MGR_GetDCDHandle
- *      MGR_Init
- *
- *  Notes:
- *
- *! Revision History:
- *! ================
- *! 15-Oct-2002 kc: Removed legacy PERF definitions.
- *! 11-Jul-2001 jeh Added CFG_HDEVNODE parameter to MGR_Create().
- *! 22-Nov-2000 kc: Added MGR_GetPerfData for acquiring PERF stats.
- *! 03-Nov-2000 rr: Added MGR_GetDCDHandle. Modified after code review.
- *! 25-Sep-2000 rr: Updated to Version 0.9
- *! 14-Aug-2000 rr: Cleaned up.
- *! 07-Aug-2000 rr: MGR_Create does the job of Loading DCD Dll.
- *! 27-Jul-2000 rr: Updated to ver 0.8 of DSPAPI(types).
- *! 20-Jun-2000 rr: Created.
  */
 
 #ifndef MGR_

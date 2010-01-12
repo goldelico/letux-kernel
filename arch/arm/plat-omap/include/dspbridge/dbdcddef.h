@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DCD (DSP/BIOS Bridge Configuration Database) constants and types.
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,31 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== dbdcddef.h ========
- *  Description:
- *      DCD (DSP/BIOS Bridge Configuration Database) constants and types.
- *
- *! Revision History:
- *! ================
- *! 03-Dec-2003 map Moved and renamed DCD_OBJTYPE to DSP_DCDOBJTYPE in dbdefs.h
- *! 05-Dec-2002 map Added DCD_CREATELIBTYPE, DCD_EXECUTELIBTYPE,
- *                        DCD_DELETELIBTYPE
- *! 24-Feb-2003 kc  Updated REG entry names to DspBridge.
- *! 22-Nov-2002 gp  Cleaned up comments, formatting.
- *! 05-Aug-2002 jeh Added DCD_REGISTERFXN.
- *! 19-Apr-2002 jeh Added DCD_LIBRARYTYPE to DCD_OBJTYPE, dynamic load
- *!                 properties to DCD_NODEPROPS.
- *! 29-Jul-2001 ag  Added extended procObj.
- *! 13-Feb-2001 kc: Named changed from dcdbsdef.h dbdcddef.h.
- *! 12-Dec-2000 jeh Added DAIS iAlg name to DCD_NODEPROPS.
- *! 30-Oct-2000 kc: Added #defines for DCD_AutoRegister function.
- *! 05-Sep-2000 jeh Added DCD_NODEPROPS.
- *! 12-Aug-2000 kc: Incoroporated the use of types defined in <dspdefs.h>.
- *! 29-Jul-2000 kc: Created.
  */
 
 #ifndef DBDCDDEF_

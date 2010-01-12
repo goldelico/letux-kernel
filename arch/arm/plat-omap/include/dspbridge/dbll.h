@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ *  DSP/BIOS Bridge Dynamic load library module interface. Function header
+ *  comments are in the file dblldefs.h.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,18 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== dbll.h ========
- *  DSP/BIOS Bridge Dynamic load library module interface. Function header
- *  comments are in the file dblldefs.h.
- *
- *! Revision History
- *! ================
- *! 31-Jul-2002 jeh     Removed function comments (now in dblldefs.h).
- *! 17-Apr-2002 jeh     Created based on zl.h.
  */
 
 #ifndef DBLL_

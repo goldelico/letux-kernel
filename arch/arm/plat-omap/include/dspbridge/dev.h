@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Bridge Mini-driver device operations.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,68 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== dev.h ========
- *  Description:
- *      'Bridge Mini-driver device operations.
- *
- *  Public Functions:
- *      DEV_BrdWriteFxn
- *      DEV_CreateDevice
- *      DEV_Create2
- *      DEV_Destroy2
- *      DEV_DestroyDevice
- *      DEV_GetChnlMgr
- *      DEV_GetCmmMgr
- *      DEV_GetCodMgr
- *      DEV_GetDehMgr
- *      DEV_GetDevNode
- *      DEV_GetDSPWordSize
- *      DEV_GetFirst
- *      DEV_GetIntfFxns
- *      DEV_GetIOMgr
- *      DEV_GetMsgMgr
- *      DEV_GetNext
- *      DEV_GetNodeManager
- *      DEV_GetSymbol
- *      DEV_GetWMDContext
- *      DEV_Exit
- *      DEV_Init
- *      DEV_InsertProcObject
- *      DEV_IsLocked
- *      DEV_NotifyClient
- *      DEV_RegisterNotify
- *      DEV_ReleaseCodMgr
- *      DEV_RemoveDevice
- *      DEV_RemoveProcObject
- *      DEV_SetChnlMgr
- *      DEV_SetMsgMgr
- *      DEV_SetLockOwner
- *      DEV_StartDevice
- *
- *! Revision History:
- *! ================
- *! 08-Mar-2004 sb  Added the Dynamic Memory Mapping feature - Dev_GetDmmMgr
- *! 09-Feb-2004 vp  Added functions required for IVA
- *! 25-Feb-2003 swa PMGR Code Review changes incorporated
- *! 05-Nov-2001 kc: Added DEV_GetDehMgr.
- *! 05-Dec-2000 jeh Added DEV_SetMsgMgr.
- *! 29-Nov-2000 rr: Incorporated code review changes.
- *! 17-Nov-2000 jeh Added DEV_GetMsgMgr.
- *! 05-Oct-2000 rr: DEV_Create2 & DEV_Destroy2 Added.
- *! 02-Oct-2000 rr: Added DEV_GetNodeManager.
- *! 11-Aug-2000 ag: Added DEV_GetCmmMgr() for shared memory management.
- *! 10-Aug-2000 rr: DEV_InsertProcObject/RemoveProcObject added.
- *! 06-Jun-2000 jeh Added DEV_GetSymbol().
- *! 05-Nov-1999 kc: Updated function prototypes.
- *! 08-Oct-1997 cr: Added explicit CDECL function identifiers.
- *! 07-Nov-1996 gp: Updated for code review.
- *! 22-Oct-1996 gp: Added DEV_CleanupProcessState().
- *! 29-May-1996 gp: Changed DEV_HDEVNODE --> CFG_HDEVNODE.
- *! 18-May-1996 gp: Created.
  */
 
 #ifndef DEV_

@@ -3,6 +3,13 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Declares the upper edge channel class library functions required by
+ * all WMD / WCD driver interface tables.  These functions are implemented
+ * by every class of WMD channel library.
+ *
+ * Notes:
+ *   The function comment headers reside in wmd.h.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,28 +19,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== wmdchnl.h ========
- *  Description:
- *      Declares the upper edge channel class library functions required by
- *      all WMD / WCD driver interface tables.  These functions are implemented
- *      by every class of WMD channel library.
- *
- *  Public Functions:
- *
- *  Notes:
- *      The function comment headers reside with the function typedefs in wmd.h.
- *
- *! Revision History:
- *! ================
- *! 07-Jan-2002 ag  Added cBufSize to WMD_CHNL_AddIOReq().
- *! 13-Oct-2000 jeh Added dwArg parameter to WMD_CHNL_AddIOReq(), added
- *!                 WMD_CHNL_Idle and WMD_CHNL_RegisterNotify for DSPStream
- *!                 support.
- *! 11-Jul-1996 gp: Created.
  */
 
 #ifndef WMDCHNL_

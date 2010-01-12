@@ -14,16 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== dbldefs.h ========
- *
- *! Revision History
- *! ================
- *! 19-Mar-2002 jeh     Added DBL_Fxns type (to make it easier to switch
- *!                     between different loaders).
- *! 28-Sep-2001 jeh     Created from zl.h.
- */
 #ifndef DBLDEFS_
 #define DBLDEFS_
 
@@ -38,8 +28,6 @@
 #define DBL_BSS      0x20	/* Unitialized section */
 
 #define DBL_MAXPATHLENGTH       255
-
-
 
 /*
  *  ======== DBL_Flags ========

@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Global MEM constants and types.
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,24 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== cmmdefs.h ========
- *  Purpose:
- *      Global MEM constants and types.
- *
- *! Revision History:
- *! ================
- *! 12-Nov-2001 ag  CMM_KERNMAPTYPE added for dsp<->device process addr map'n.
- *!                 This allows addr conversion from drvr process <-> DSP addr.
- *! 29-Aug-2001 ag  Added CMM_ALLSEGMENTS.
- *! 08-Dec-2000 ag  Added bus address conversion type CMM_POMAPEMIF2DSPBUS.
- *! 05-Dec-2000 ag  Added default CMM_DEFLTCONVFACTOR & CMM_DEFLTDSPADDROFFSET.
- *! 29-Oct-2000 ag  Added converstion factor for GPP DSP Pa translation.
- *! 15-Oct-2000 ag  Added address translator attributes and defaults.
- *! 12-Jul-2000 ag  Created.
  */
 
 #ifndef CMMDEFS_
