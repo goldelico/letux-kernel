@@ -497,10 +497,6 @@ void MEM_FlushCache(void *pMemBuf, u32 cBytes, u32 FlushType)
 	case PROC_WRBK_INV_ALL:
 		__cpuc_flush_kern_all();
 		break;
-	default:
-		GT_1trace(MEM_debugMask, GT_6CLASS, "MEM_FlushCache: invalid "
-			  "FlushMemType 0x%x\n", FlushType);
-	break;
 	}
 
 }
