@@ -206,7 +206,7 @@ static int omap_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct omap_runtime_data *prtd = runtime->private_data;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 	int ret = 0;
 
 	spin_lock_irqsave(&prtd->lock, flags);
