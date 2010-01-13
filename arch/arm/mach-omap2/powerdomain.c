@@ -128,6 +128,16 @@ static int _pwrdm_state_switch(struct powerdomain *pwrdm, int flag)
 		prev = pwrdm_read_prev_pwrst(pwrdm);
 		if (pwrdm->state != prev)
 			pwrdm->state_counter[prev]++;
+		if (prev == PWRDM_POWER_RET) {
+			if ((pwrdm->pwrsts_logic_ret == PWRSTS_OFF_RET) &&
+					(pwrdm_read_prev_logic_pwrst(pwrdm) ==
+					PWRDM_POWER_OFF))
+				pwrdm->ret_logic_off_counter++;
+			if ((pwrdm->pwrsts_mem_ret[0] == PWRSTS_OFF_RET) &&
+					(pwrdm_read_prev_mem_pwrst(pwrdm, 0) ==
+					PWRDM_POWER_OFF))
+				pwrdm->ret_mem_off_counter++;
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -162,6 +172,8 @@ static __init void _pwrdm_setup(struct powerdomain *pwrdm)
 
 	for (i = 0; i < 4; i++)
 		pwrdm->state_counter[i] = 0;
+	pwrdm->ret_logic_off_counter = 0;
+	pwrdm->ret_mem_off_counter = 0;
 
 	pwrdm_wait_transition(pwrdm);
 	pwrdm->state = pwrdm_read_pwrst(pwrdm);
