@@ -17,12 +17,15 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
+#include <linux/spi/spi.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
+#include <mach/mux.h>
 
+#include <mach/mcspi.h>
 #include <plat/board.h>
 #include <plat/common.h>
 #include <plat/control.h>
@@ -31,6 +34,25 @@
 #include <asm/hardware/cache-l2x0.h>
 #include <linux/i2c/twl.h>
 #include <linux/regulator/machine.h>
+
+static int ts_gpio;
+
+static struct omap2_mcspi_device_config tsc2046_mcspi_config = {
+	.turbo_mode     = 0,
+	.single_channel = 1,  /* 0: slave, 1: master */
+};
+
+static struct omap2_mcspi_device_config dummy1_mcspi_config = {
+	.turbo_mode     = 0,
+	.single_channel = 1,  /* 0: slave, 1: master */
+};
+
+#ifdef CONFIG_SPI_TI_OMAP_TEST
+static struct omap2_mcspi_device_config dummy2_mcspi_config = {
+	.turbo_mode     = 0,
+	.single_channel = 0,  /* 0: slave, 1: master */
+};
+#endif
 
 static struct platform_device sdp4430_lcd_device = {
 	.name		= "sdp4430_lcd",
@@ -294,11 +316,23 @@ static int __init omap4_i2c_init(void)
 	return 0;
 }
 
+static struct spi_board_info sdp4430_spi_board_info[] __initdata = {
+	[0] = {
+		.modalias		= "spitst",
+		.bus_num		= 4,
+		.chip_select		= 0,
+		.max_speed_hz		= 1500000,
+	},
+};
+
 static void __init omap_4430sdp_init(void)
 {
 	omap4_i2c_init();
 	platform_add_devices(sdp4430_devices, ARRAY_SIZE(sdp4430_devices));
 	omap_serial_init();
+	sdp4430_spi_board_info[0].irq = OMAP_GPIO_IRQ(ts_gpio);
+	spi_register_board_info(sdp4430_spi_board_info,
+				ARRAY_SIZE(sdp4430_spi_board_info));
 }
 
 static void __init omap_4430sdp_map_io(void)
