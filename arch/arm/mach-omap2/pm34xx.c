@@ -154,37 +154,48 @@ static void omap3_disable_io_chain(void)
 		prm_clear_mod_reg_bits(OMAP3430_EN_IO_CHAIN, WKUP_MOD, PM_WKEN);
 }
 
-static void omap3_core_save_context(void)
+static void omap3_core_save_context(int core_state)
 {
-	u32 control_padconf_off;
-	/* Save the padconf registers */
-	control_padconf_off =
-	omap_ctrl_readl(OMAP343X_CONTROL_PADCONF_OFF);
-	control_padconf_off |= START_PADCONF_SAVE;
-	omap_ctrl_writel(control_padconf_off, OMAP343X_CONTROL_PADCONF_OFF);
-	/* Due to Silicon Bug on context restore it is found
-	 * that the CONTROL_PAD_CONF_ETK14 register is not saved into
-	 * scratch pad memory sometimes. To rectify it delay acess by Mpu
-	 * for 300us for scm to finish saving task
-	 */
-	udelay(300);
-	/* wait for the save to complete */
-	while (!omap_ctrl_readl(OMAP343X_CONTROL_GENERAL_PURPOSE_STATUS)
-			& PADCONF_SAVE_DONE)
-		;
+	if (core_state == PWRDM_POWER_OFF) {
+		u32 control_padconf_off;
+		/* Save the padconf registers */
+		control_padconf_off =
+			omap_ctrl_readl(OMAP343X_CONTROL_PADCONF_OFF);
+		control_padconf_off |= START_PADCONF_SAVE;
+		omap_ctrl_writel(control_padconf_off,
+				OMAP343X_CONTROL_PADCONF_OFF);
+		/* Due to Silicon Bug on context restore it is found
+		 * that the CONTROL_PAD_CONF_ETK14 register is not saved into
+		 * scratch pad memory sometimes. To rectify it delay acess by Mpu
+		 * for 300us for scm to finish saving task
+		 */
+		udelay(300);
+		/* wait for the save to complete */
+		while (!omap_ctrl_readl(OMAP343X_CONTROL_GENERAL_PURPOSE_STATUS)
+				& PADCONF_SAVE_DONE)
+			;
+		/* Save the system control module context,
+		 * padconf already save above
+		 */
+		omap3_control_save_context();
+	}
+
 	/* Save the Interrupt controller context */
 	omap3_intc_save_context();
 	/* Save the GPMC context */
 	omap3_gpmc_save_context();
-	/* Save the system control module context, padconf already save above*/
-	omap3_control_save_context();
 	omap_dma_global_context_save();
 }
 
-static void omap3_core_restore_context(void)
+static void omap3_core_restore_context(int core_state)
 {
-	/* Restore the control module context, padconf restored by h/w */
-	omap3_control_restore_context();
+	if (core_state == PWRDM_POWER_OFF)
+
+		/* Restore the control module context,
+		 * padconf restored by h/w
+		 */
+		omap3_control_restore_context();
+
 	/* Restore the GPMC context */
 	omap3_gpmc_restore_context();
 	/* Restore the interrupt controller context */
@@ -343,7 +354,8 @@ void omap_sram_idle(void)
 	int mpu_next_state = PWRDM_POWER_ON;
 	int per_next_state = PWRDM_POWER_ON;
 	int core_next_state = PWRDM_POWER_ON;
-	int core_prev_state, per_prev_state;
+	int mpu_prev_state, core_prev_state, per_prev_state;
+	int mpu_logic_state, mpu_mem_state, core_logic_state, core_mem_state;
 	u32 sdrc_pwr = 0;
 	int per_state_modified = 0;
 
@@ -356,11 +368,24 @@ void omap_sram_idle(void)
 	pwrdm_clear_all_prev_pwrst(per_pwrdm);
 
 	mpu_next_state = pwrdm_read_next_pwrst(mpu_pwrdm);
+	mpu_logic_state = pwrdm_read_next_logic_pwrst(mpu_pwrdm);
+	mpu_mem_state = pwrdm_read_next_mem_pwrst(mpu_pwrdm, 0);
+
 	switch (mpu_next_state) {
 	case PWRDM_POWER_ON:
-	case PWRDM_POWER_RET:
 		/* No need to save context */
 		save_state = 0;
+		break;
+	case PWRDM_POWER_RET:
+		if (!mpu_logic_state && !mpu_mem_state)
+			save_state = 3;
+		else if (!mpu_mem_state)
+			save_state = 2;
+		else if (!mpu_logic_state)
+			save_state = 1;
+		else
+			/* No need to save context */
+			save_state = 0;
 		break;
 	case PWRDM_POWER_OFF:
 		save_state = 3;
@@ -383,6 +408,10 @@ void omap_sram_idle(void)
 	/* PER */
 	per_next_state = pwrdm_read_next_pwrst(per_pwrdm);
 	core_next_state = pwrdm_read_next_pwrst(core_pwrdm);
+	core_logic_state = pwrdm_read_next_logic_pwrst(core_pwrdm);
+	core_mem_state = pwrdm_read_next_mem_pwrst(core_pwrdm, 0) |
+				pwrdm_read_next_mem_pwrst(core_pwrdm, 1);
+
 	if (per_next_state < PWRDM_POWER_ON) {
 		omap_uart_prepare_idle(2);
 		omap2_gpio_prepare_for_idle(per_next_state);
@@ -411,9 +440,22 @@ void omap_sram_idle(void)
 			prm_set_mod_reg_bits(OMAP3430_AUTO_OFF,
 					     OMAP3430_GR_MOD,
 					     OMAP3_PRM_VOLTCTRL_OFFSET);
-			omap3_core_save_context();
+			omap3_core_save_context(PWRDM_POWER_OFF);
 			omap3_prcm_save_context();
-		}
+		} else if ((core_next_state == PWRDM_POWER_RET) &&
+				(core_logic_state == PWRDM_POWER_OFF) &&
+				(core_mem_state == PWRDM_POWER_OFF)) {
+			omap3_core_save_context(PWRDM_POWER_RET);
+			omap3_prcm_save_context();
+			prm_set_mod_reg_bits(OMAP3430_AUTO_RET,
+						OMAP3430_GR_MOD,
+						OMAP3_PRM_VOLTCTRL_OFFSET);
+		} else if (core_next_state == PWRDM_POWER_RET) {
+			prm_set_mod_reg_bits(OMAP3430_AUTO_RET,
+						OMAP3430_GR_MOD,
+						OMAP3_PRM_VOLTCTRL_OFFSET);
+	}
+
 		/* Enable IO-PAD and IO-CHAIN wakeups */
 		prm_set_mod_reg_bits(OMAP3430_EN_IO, WKUP_MOD, PM_WKEN);
 		omap3_enable_io_chain();
@@ -456,16 +498,23 @@ void omap_sram_idle(void)
 	    core_next_state == PWRDM_POWER_OFF)
 		sdrc_write_reg(sdrc_pwr, SDRC_POWER);
 
-	/* Restore table entry modified during MMU restoration */
-	if (pwrdm_read_prev_pwrst(mpu_pwrdm) == PWRDM_POWER_OFF)
-		restore_table_entry();
+	mpu_prev_state = pwrdm_read_prev_pwrst(mpu_pwrdm);
 
+	/* Restore table entry modified during MMU restoration */
+	if (((mpu_prev_state == PWRDM_POWER_RET) &&
+			(pwrdm_read_prev_logic_pwrst(mpu_pwrdm) ==
+			 PWRDM_POWER_OFF)) ||
+			(mpu_prev_state == PWRDM_POWER_OFF))
+		restore_table_entry();
 
 	/* CORE */
 	if (core_next_state < PWRDM_POWER_ON) {
 		core_prev_state = pwrdm_read_prev_pwrst(core_pwrdm);
-		if (core_prev_state == PWRDM_POWER_OFF) {
-			omap3_core_restore_context();
+		if ((core_prev_state == PWRDM_POWER_OFF) ||
+				(core_prev_state == PWRDM_POWER_RET &&
+				 pwrdm_read_prev_logic_pwrst(core_pwrdm) ==
+				 PWRDM_POWER_OFF)) {
+			omap3_core_restore_context(core_prev_state);
 			omap3_prcm_restore_context();
 			omap3_sram_restore_context();
 			omap2_sms_restore_context();

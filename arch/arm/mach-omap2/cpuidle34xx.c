@@ -35,14 +35,17 @@
 
 #ifdef CONFIG_CPU_IDLE
 
-#define OMAP3_MAX_STATES 7
+#define OMAP3_MAX_STATES 9
 #define OMAP3_STATE_C1 0 /* C1 - MPU WFI + Core active */
 #define OMAP3_STATE_C2 1 /* C2 - MPU WFI + Core inactive */
 #define OMAP3_STATE_C3 2 /* C3 - MPU CSWR + Core inactive */
-#define OMAP3_STATE_C4 3 /* C4 - MPU OFF + Core iactive */
-#define OMAP3_STATE_C5 4 /* C5 - MPU RET + Core RET */
-#define OMAP3_STATE_C6 5 /* C6 - MPU OFF + Core RET */
-#define OMAP3_STATE_C7 6 /* C7 - MPU OFF + Core OFF */
+#define OMAP3_STATE_C4 3 /* C4 - MPU OFF + Core inactive */
+#define OMAP3_STATE_C5 4 /* C5 - MPU CSWR + Core CSWR */
+#define OMAP3_STATE_C6 5 /* C6 - MPU OFF + Core CSWR */
+#define OMAP3_STATE_C7 6 /* C7 - MPU OSWR + CORE OSWR */
+#define OMAP3_STATE_C8 7 /* C8 - MPU OFF + CORE OSWR */
+#define OMAP3_STATE_C9 8 /* C9 - MPU OFF + CORE OFF */
+
 
 struct omap3_processor_cx {
 	u8 valid;
@@ -51,6 +54,11 @@ struct omap3_processor_cx {
 	u32 wakeup_latency;
 	u32 mpu_state;
 	u32 core_state;
+	u32 mpu_logicl1_ret_state;
+	u32 mpu_l2cache_ret_state;
+	u32 core_logic_state;
+	u32 core_mem1_ret_state;
+	u32 core_mem2_ret_state;
 	u32 threshold;
 	u32 flags;
 };
@@ -109,6 +117,21 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 		if (core_state < PWRDM_POWER_RET)
 			core_state = PWRDM_POWER_RET;
 	}
+
+	if (cx->mpu_logicl1_ret_state != 0xFF)
+		pwrdm_set_logic_retst(mpu_pd, cx->mpu_logicl1_ret_state);
+
+	if (cx->mpu_l2cache_ret_state != 0xFF)
+		pwrdm_set_mem_retst(mpu_pd, 0, cx->mpu_l2cache_ret_state);
+
+	if (cx->core_logic_state != 0xFF)
+		pwrdm_set_logic_retst(core_pd, cx->core_logic_state);
+
+	if (cx->core_mem1_ret_state != 0xFF)
+		pwrdm_set_mem_retst(core_pd, 0, cx->core_mem1_ret_state);
+
+	if (cx->core_mem2_ret_state != 0xFF)
+		pwrdm_set_mem_retst(core_pd, 1, cx->core_mem2_ret_state);
 
 	pwrdm_set_next_pwrst(mpu_pd, mpu_state);
 	pwrdm_set_next_pwrst(core_pd, core_state);
@@ -173,10 +196,24 @@ DEFINE_PER_CPU(struct cpuidle_device, omap3_idle_dev);
  *	C4 . MPU OFF + Core inactive
  *	C5 . MPU CSWR + Core CSWR
  *	C6 . MPU OFF + Core CSWR
- *	C7 . MPU OFF + Core OFF
+ *	C7 . MPU OSWR + Core OSWR
+ *	C8 . MPU OFF + Core OSWR
+ *	C9 . MPU OFF + Core OFF
  */
 void omap_init_power_states(void)
 {
+	int i;
+	struct omap3_processor_cx *cx;
+
+	for (i = OMAP3_STATE_C1; i < OMAP3_MAX_STATES; i++) {
+		cx = &omap3_power_states[i];
+		cx->mpu_logicl1_ret_state = 0xFF;
+		cx->mpu_l2cache_ret_state = 0xFF;
+		cx->core_logic_state = 0xFF;
+		cx->core_mem1_ret_state = 0xFF;
+		cx->core_mem2_ret_state = 0xFF;
+	}
+
 	/* C1 . MPU WFI + Core active */
 	omap3_power_states[OMAP3_STATE_C1].valid = 1;
 	omap3_power_states[OMAP3_STATE_C1].type = OMAP3_STATE_C1;
@@ -209,6 +246,10 @@ void omap_init_power_states(void)
 	omap3_power_states[OMAP3_STATE_C3].mpu_state = PWRDM_POWER_RET;
 #endif
 	omap3_power_states[OMAP3_STATE_C3].core_state = PWRDM_POWER_INACTIVE;
+	omap3_power_states[OMAP3_STATE_C3].mpu_logicl1_ret_state =
+				PWRDM_POWER_RET;
+	omap3_power_states[OMAP3_STATE_C3].mpu_l2cache_ret_state =
+				PWRDM_POWER_RET;
 	omap3_power_states[OMAP3_STATE_C3].flags = CPUIDLE_FLAG_TIME_VALID |
 				CPUIDLE_FLAG_CHECK_BM;
 
@@ -235,6 +276,15 @@ void omap_init_power_states(void)
 	omap3_power_states[OMAP3_STATE_C5].mpu_state = PWRDM_POWER_RET;
 #endif
 	omap3_power_states[OMAP3_STATE_C5].core_state = PWRDM_POWER_RET;
+	omap3_power_states[OMAP3_STATE_C5].mpu_logicl1_ret_state =
+				PWRDM_POWER_RET;
+	omap3_power_states[OMAP3_STATE_C5].mpu_l2cache_ret_state =
+				PWRDM_POWER_RET;
+	omap3_power_states[OMAP3_STATE_C5].core_logic_state = PWRDM_POWER_RET;
+	omap3_power_states[OMAP3_STATE_C5].core_mem1_ret_state =
+				PWRDM_POWER_RET;
+	omap3_power_states[OMAP3_STATE_C5].core_mem2_ret_state =
+				PWRDM_POWER_RET;
 	omap3_power_states[OMAP3_STATE_C5].flags = CPUIDLE_FLAG_TIME_VALID |
 				CPUIDLE_FLAG_CHECK_BM;
 
@@ -246,19 +296,61 @@ void omap_init_power_states(void)
 	omap3_power_states[OMAP3_STATE_C6].threshold = 10000;
 	omap3_power_states[OMAP3_STATE_C6].mpu_state = PWRDM_POWER_OFF;
 	omap3_power_states[OMAP3_STATE_C6].core_state = PWRDM_POWER_RET;
+	omap3_power_states[OMAP3_STATE_C6].core_logic_state = PWRDM_POWER_RET;
+	omap3_power_states[OMAP3_STATE_C6].core_mem1_ret_state =
+				PWRDM_POWER_RET;
+	omap3_power_states[OMAP3_STATE_C6].core_mem2_ret_state =
+				PWRDM_POWER_RET;
 	omap3_power_states[OMAP3_STATE_C6].flags = CPUIDLE_FLAG_TIME_VALID |
 				CPUIDLE_FLAG_CHECK_BM;
 
-	/* C7 . MPU OFF + Core OFF */
+	/* C7 . MPU OSWR + Core OSWR */
 	omap3_power_states[OMAP3_STATE_C7].valid = 1;
 	omap3_power_states[OMAP3_STATE_C7].type = OMAP3_STATE_C7;
-	omap3_power_states[OMAP3_STATE_C7].sleep_latency = 10000;
-	omap3_power_states[OMAP3_STATE_C7].wakeup_latency = 30000;
-	omap3_power_states[OMAP3_STATE_C7].threshold = 300000;
-	omap3_power_states[OMAP3_STATE_C7].mpu_state = PWRDM_POWER_OFF;
-	omap3_power_states[OMAP3_STATE_C7].core_state = PWRDM_POWER_OFF;
+	omap3_power_states[OMAP3_STATE_C7].sleep_latency = 4000;
+	omap3_power_states[OMAP3_STATE_C7].wakeup_latency = 9000;
+	omap3_power_states[OMAP3_STATE_C7].threshold = 18000;
+	omap3_power_states[OMAP3_STATE_C7].mpu_state = PWRDM_POWER_RET;
+	omap3_power_states[OMAP3_STATE_C7].core_state = PWRDM_POWER_RET;
+	omap3_power_states[OMAP3_STATE_C7].mpu_logicl1_ret_state =
+				PWRDM_POWER_OFF;
+	omap3_power_states[OMAP3_STATE_C7].mpu_l2cache_ret_state =
+				PWRDM_POWER_OFF;
+	omap3_power_states[OMAP3_STATE_C7].core_logic_state = PWRDM_POWER_OFF;
+	omap3_power_states[OMAP3_STATE_C7].core_mem1_ret_state =
+				PWRDM_POWER_OFF;
+	omap3_power_states[OMAP3_STATE_C7].core_mem2_ret_state =
+				PWRDM_POWER_OFF;
 	omap3_power_states[OMAP3_STATE_C7].flags = CPUIDLE_FLAG_TIME_VALID |
 				CPUIDLE_FLAG_CHECK_BM;
+
+	/* C8 . MPU OFF + Core OSWR */
+	omap3_power_states[OMAP3_STATE_C8].valid = 1;
+	omap3_power_states[OMAP3_STATE_C8].type = OMAP3_STATE_C7;
+	omap3_power_states[OMAP3_STATE_C8].sleep_latency = 8000;
+	omap3_power_states[OMAP3_STATE_C8].wakeup_latency = 25000;
+	omap3_power_states[OMAP3_STATE_C8].threshold = 250000;
+	omap3_power_states[OMAP3_STATE_C8].mpu_state = PWRDM_POWER_OFF;
+	omap3_power_states[OMAP3_STATE_C8].core_state = PWRDM_POWER_RET;
+	omap3_power_states[OMAP3_STATE_C8].core_logic_state = PWRDM_POWER_OFF;
+	omap3_power_states[OMAP3_STATE_C8].core_mem1_ret_state =
+				PWRDM_POWER_OFF;
+	omap3_power_states[OMAP3_STATE_C8].core_mem2_ret_state =
+				PWRDM_POWER_OFF;
+	omap3_power_states[OMAP3_STATE_C8].flags = CPUIDLE_FLAG_TIME_VALID |
+				CPUIDLE_FLAG_CHECK_BM;
+
+	/* C9 . MPU OFF + Core OFF */
+	omap3_power_states[OMAP3_STATE_C9].valid = 1;
+	omap3_power_states[OMAP3_STATE_C9].type = OMAP3_STATE_C7;
+	omap3_power_states[OMAP3_STATE_C9].sleep_latency = 10000;
+	omap3_power_states[OMAP3_STATE_C9].wakeup_latency = 30000;
+	omap3_power_states[OMAP3_STATE_C9].threshold = 300000;
+	omap3_power_states[OMAP3_STATE_C9].mpu_state = PWRDM_POWER_OFF;
+	omap3_power_states[OMAP3_STATE_C9].core_state = PWRDM_POWER_OFF;
+	omap3_power_states[OMAP3_STATE_C9].flags = CPUIDLE_FLAG_TIME_VALID |
+				CPUIDLE_FLAG_CHECK_BM;
+
 }
 
 struct cpuidle_driver omap3_idle_driver = {
