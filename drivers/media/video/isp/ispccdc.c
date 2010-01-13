@@ -1600,7 +1600,7 @@ out:
 		       "ccdc: can not allocate memory");
 
 	isp_ccdc->shadow_update = 0;
-	return 0;
+	return ret;
 }
 
 /**
