@@ -133,6 +133,7 @@ void omap34xxcam_vbq_complete(struct videobuf_buffer *vb, void *priv)
 
 	do_gettimeofday(&vb->ts);
 	vb->field_count = atomic_add_return(2, &ofh->field_count);
+	vb->state = VIDEOBUF_DONE;
 
 	wake_up(&vb->done);
 }
@@ -825,28 +826,8 @@ static int vidioc_dqbuf(struct file *file, void *_fh, struct v4l2_buffer *b)
 {
 	struct v4l2_fh *vfh = _fh;
 	struct omap34xxcam_fh *ofh = to_omap34xxcam_fh(vfh);
-	int rval;
 
-videobuf_dqbuf_again:
-	rval = videobuf_dqbuf(&ofh->vbq, b, file->f_flags & O_NONBLOCK);
-
-	/*
-	 * This is a hack. We don't want to show -EIO to the user
-	 * space. Requeue the buffer and try again if we're not doing
-	 * this in non-blocking mode.
-	 */
-	if (rval == -EIO) {
-		videobuf_qbuf(&ofh->vbq, b);
-		if (!(file->f_flags & O_NONBLOCK))
-			goto videobuf_dqbuf_again;
-		/*
-		 * We don't have a videobuf_buffer now --- maybe next
-		 * time...
-		 */
-		rval = -EAGAIN;
-	}
-
-	return rval;
+	return videobuf_dqbuf(&ofh->vbq, b, file->f_flags & O_NONBLOCK);;
 }
 
 static void omap34xxcam_event_queue(struct omap34xxcam_fh *fh, u32 type)
