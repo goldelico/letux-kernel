@@ -42,6 +42,8 @@
 unsigned short enable_dyn_sleep;
 unsigned short enable_off_mode;
 EXPORT_SYMBOL(enable_off_mode);
+unsigned short enable_oswr_ret;
+EXPORT_SYMBOL(enable_oswr_ret);
 unsigned short voltage_off_while_idle;
 unsigned short wakeup_timer_seconds;
 unsigned long max_dsp_frequency;
@@ -58,6 +60,9 @@ static struct kobj_attribute sleep_while_idle_attr =
 
 static struct kobj_attribute enable_off_mode_attr =
 	__ATTR(enable_off_mode, 0644, idle_show, idle_store);
+
+static struct kobj_attribute enable_oswr_ret_attr =
+	__ATTR(enable_oswr_ret, 0644, idle_show, idle_store);
 
 static struct kobj_attribute voltage_off_while_idle_attr =
 	__ATTR(voltage_off_while_idle, 0644, idle_show, idle_store);
@@ -92,6 +97,8 @@ static ssize_t idle_show(struct kobject *kobj, struct kobj_attribute *attr,
 		return sprintf(buf, "%hu\n", enable_dyn_sleep);
 	else if (attr == &enable_off_mode_attr)
 		return sprintf(buf, "%hu\n", enable_off_mode);
+	else if (attr == &enable_oswr_ret_attr)
+		return sprintf(buf, "%hu\n", enable_oswr_ret);
 	else if (attr == &voltage_off_while_idle_attr)
 		return sprintf(buf, "%hu\n", voltage_off_while_idle);
 	else if (attr == &wakeup_timer_seconds_attr)
@@ -115,6 +122,8 @@ static ssize_t idle_store(struct kobject *kobj, struct kobj_attribute *attr,
 	} else if (attr == &enable_off_mode_attr) {
 		enable_off_mode = value;
 		omap3_pm_off_mode_enable(enable_off_mode);
+	} else if (attr == &enable_oswr_ret_attr) {
+		enable_oswr_ret = value;
 	} else if (attr == &wakeup_timer_seconds_attr) {
 		wakeup_timer_seconds = value;
 	} else if (attr == &voltage_off_while_idle_attr) {
@@ -300,6 +309,12 @@ static int __init omap_pm_init(void)
 		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
 	error = sysfs_create_file(power_kobj,
 				  &enable_off_mode_attr.attr);
+	if (error) {
+		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
+		return error;
+	}
+	error = sysfs_create_file(power_kobj,
+				&enable_oswr_ret_attr.attr);
 	if (error) {
 		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
 		return error;

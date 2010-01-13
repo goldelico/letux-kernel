@@ -102,7 +102,11 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 	struct omap3_processor_cx *cx = cpuidle_get_statedata(state);
 	struct timespec ts_preidle, ts_postidle, ts_idle;
 	u32 mpu_state = cx->mpu_state, core_state = cx->core_state;
-
+	u32 mpu_logicl1_ret_state = cx->mpu_logicl1_ret_state;
+	u32 mpu_l2cache_ret_state = cx->mpu_l2cache_ret_state;
+	u32 core_logic_state = cx->core_logic_state;
+	u32 core_mem1_ret_state = cx->core_mem1_ret_state;
+	u32 core_mem2_ret_state = cx->core_mem2_ret_state;
 	current_cx_state = *cx;
 
 	/* Used to keep track of the total time in idle */
@@ -118,20 +122,33 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 			core_state = PWRDM_POWER_RET;
 	}
 
-	if (cx->mpu_logicl1_ret_state != 0xFF)
-		pwrdm_set_logic_retst(mpu_pd, cx->mpu_logicl1_ret_state);
+	if (!enable_oswr_ret) {
+		if (mpu_logicl1_ret_state == PWRDM_POWER_OFF)
+			mpu_logicl1_ret_state = PWRDM_POWER_RET;
+		if (mpu_l2cache_ret_state == PWRDM_POWER_OFF)
+			mpu_l2cache_ret_state = PWRDM_POWER_RET;
+		if (core_logic_state == PWRDM_POWER_OFF)
+			core_logic_state = PWRDM_POWER_RET;
+		if (core_mem1_ret_state == PWRDM_POWER_OFF)
+			core_mem1_ret_state = PWRDM_POWER_RET;
+		if (core_mem2_ret_state == PWRDM_POWER_OFF)
+			core_mem2_ret_state = PWRDM_POWER_RET;
+	}
 
-	if (cx->mpu_l2cache_ret_state != 0xFF)
-		pwrdm_set_mem_retst(mpu_pd, 0, cx->mpu_l2cache_ret_state);
+	if (mpu_logicl1_ret_state != 0xFF)
+		pwrdm_set_logic_retst(mpu_pd, mpu_logicl1_ret_state);
 
-	if (cx->core_logic_state != 0xFF)
-		pwrdm_set_logic_retst(core_pd, cx->core_logic_state);
+	if (mpu_l2cache_ret_state != 0xFF)
+		pwrdm_set_mem_retst(mpu_pd, 0, mpu_l2cache_ret_state);
 
-	if (cx->core_mem1_ret_state != 0xFF)
-		pwrdm_set_mem_retst(core_pd, 0, cx->core_mem1_ret_state);
+	if (core_logic_state != 0xFF)
+		pwrdm_set_logic_retst(core_pd, core_logic_state);
 
-	if (cx->core_mem2_ret_state != 0xFF)
-		pwrdm_set_mem_retst(core_pd, 1, cx->core_mem2_ret_state);
+	if (core_mem1_ret_state != 0xFF)
+		pwrdm_set_mem_retst(core_pd, 0, core_mem1_ret_state);
+
+	if (core_mem2_ret_state != 0xFF)
+		pwrdm_set_mem_retst(core_pd, 1, core_mem2_ret_state);
 
 	pwrdm_set_next_pwrst(mpu_pd, mpu_state);
 	pwrdm_set_next_pwrst(core_pd, core_state);
