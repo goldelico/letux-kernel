@@ -950,7 +950,7 @@ enum omap34xx_index {
 	/* SYS_NIRQ T2 INT1 */
 	AF26_34XX_SYS_NIRQ,
 	D25_34XX_GPIO126,
-
+	R8_34XX_GPIO56_TRISTATE,
 };
 
 struct omap_mux_cfg {

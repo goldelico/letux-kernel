@@ -910,6 +910,14 @@ static void config_usb1hs_gpio(void)
 	omap_cfg_reg(D25_34XX_GPIO126);
 }
 
+/* Set GPIO56 to safemode (input only),
+ * this prevents a toggle on RCV pin of ISP1301
+ */
+static void config_usb3fs_gpio(void)
+{
+	omap_cfg_reg(R8_34XX_GPIO56_TRISTATE);
+}
+
 static void enable_board_wakeup_source(void)
 {
 	omap_cfg_reg(AF26_34XX_SYS_NIRQ);
@@ -929,6 +937,7 @@ static void __init omap_sdp3630_init(void)
 	usb_musb_init();
 	config_usb1hs_gpio();
 	usb_ehci_init();
+	config_usb3fs_gpio();
 #ifdef CONFIG_SIL9022
 	config_hdmi_gpio();
 	sdp3630_hdmi_reset_enable(1);
