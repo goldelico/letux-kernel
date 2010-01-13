@@ -53,7 +53,7 @@ config TWL4030_USB
 
 config ISP1301_HOST
 	bool "Philips ISP1301 in Host mode with OMAP3 OHCI"
-	depends on ARCH_OMAP_OTG && MACH_OMAP_3430SDP
+	depends on ARCH_OMAP_OTG && (MACH_OMAP_3430SDP || MACH_OMAP_3630SDP)
 	default y
 	help
 	  If you say yes here you get support for the Philips ISP1301
