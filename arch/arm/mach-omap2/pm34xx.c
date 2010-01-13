@@ -413,7 +413,7 @@ void omap_sram_idle(void)
 				pwrdm_read_next_mem_pwrst(core_pwrdm, 1);
 
 	if (per_next_state < PWRDM_POWER_ON) {
-		omap_uart_prepare_idle(2);
+		omap_uart_prepare_idle(2, per_next_state);
 		omap2_gpio_prepare_for_idle(per_next_state);
 		if (per_next_state == PWRDM_POWER_OFF) {
 			if (core_next_state == PWRDM_POWER_ON) {
@@ -424,7 +424,7 @@ void omap_sram_idle(void)
 				omap3_per_save_context();
 		}
 	} else
-		omap_uart_prepare_idle(2);
+		omap_uart_prepare_idle(2, per_next_state);
 
 	if (pwrdm_read_pwrst(cam_pwrdm) == PWRDM_POWER_ON)
 		omap2_clkdm_deny_idle(mpu_pwrdm->pwrdm_clkdms[0]);
@@ -434,8 +434,8 @@ void omap_sram_idle(void)
 		/* Disable smartreflex before entering WFI */
 		disable_smartreflex(SR1);
 		disable_smartreflex(SR2);
-		omap_uart_prepare_idle(0);
-		omap_uart_prepare_idle(1);
+		omap_uart_prepare_idle(0, core_next_state & core_logic_state);
+		omap_uart_prepare_idle(1, core_next_state & core_logic_state);
 		if (core_next_state == PWRDM_POWER_OFF) {
 			prm_set_mod_reg_bits(OMAP3430_AUTO_OFF,
 					     OMAP3430_GR_MOD,
@@ -472,8 +472,8 @@ void omap_sram_idle(void)
 		prm_set_mod_reg_bits(OMAP3430_EN_IO, WKUP_MOD, PM_WKEN);
 		omap3_enable_io_chain();
 	} else {
-		omap_uart_prepare_idle(0);
-		omap_uart_prepare_idle(1);
+		omap_uart_prepare_idle(0, core_next_state & core_logic_state);
+		omap_uart_prepare_idle(1, core_next_state & core_logic_state);
 	}
 	/*
 	 * Disable INTC autoidle as it can cause interrupt controller
