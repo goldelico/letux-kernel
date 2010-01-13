@@ -35,6 +35,10 @@ u32 cm_rmw_mod_reg_bits(u32 mask, u32 bits, s16 module, s16 idx);
 
 void omap3_prcm_save_context(void);
 void omap3_prcm_restore_context(void);
+
+/* SMC core off notification defines */
+#define PRCM_ENTER_OFF	1
+#define PRCM_EXIT_OFF	0
 #endif
 
 

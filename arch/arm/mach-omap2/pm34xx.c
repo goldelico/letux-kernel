@@ -63,6 +63,9 @@
 
 static int regset_save_on_suspend;
 
+/* Function pointer need to be called from idle and suspend/resume path */
+static int (*core_off_notification)(bool);
+
 /* Scratchpad offsets */
 #define OMAP343X_TABLE_ADDRESS_OFFSET	   0x31
 #define OMAP343X_TABLE_VALUE_OFFSET	   0x30
@@ -442,6 +445,8 @@ void omap_sram_idle(void)
 					     OMAP3_PRM_VOLTCTRL_OFFSET);
 			omap3_core_save_context(PWRDM_POWER_OFF);
 			omap3_prcm_save_context();
+			if (core_off_notification != NULL)
+				core_off_notification(PRCM_ENTER_OFF);
 		} else if ((core_next_state == PWRDM_POWER_RET) &&
 				(core_logic_state == PWRDM_POWER_OFF) &&
 				(core_mem_state == PWRDM_POWER_OFF)) {
@@ -530,6 +535,9 @@ void omap_sram_idle(void)
 			omap3_prcm_restore_context();
 			omap3_sram_restore_context();
 			omap2_sms_restore_context();
+
+			if (core_off_notification != NULL)
+				core_off_notification(PRCM_EXIT_OFF);
 			/*
 			 * For OSWR to work we put PER DPLL in auto
 			 * idle mode in scratchpad. Clear it so that
@@ -1038,6 +1046,26 @@ static void __init prcm_setup_regs(void)
 
 	omap3_iva_idle();
 }
+
+/* Function to register smc notification  used in driver code */
+void pm_register_sleep_notification(u32 domain_id, int (*notification)(bool))
+{
+	if (core_off_notification == NULL)
+		core_off_notification = notification;
+	else
+		printk(KERN_ERR "This function is already registered\n");
+}
+EXPORT_SYMBOL(pm_register_sleep_notification);
+
+/* Function to unregister smc notification used in driver code */
+void pm_unregister_sleep_notification(u32 domain_id, int (*notification)(bool))
+{
+	if (core_off_notification != NULL)
+		core_off_notification = NULL;
+	else
+		printk(KERN_ERR "This function is already unregistered\n");
+}
+EXPORT_SYMBOL(pm_unregister_sleep_notification);
 
 void omap3_pm_off_mode_enable(int enable)
 {
