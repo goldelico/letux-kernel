@@ -136,7 +136,7 @@ static int imx046_sensor_set_prv_data(struct v4l2_int_device *s, void *priv)
 {
 	struct omap34xxcam_hw_config *hwc = priv;
 
-	hwc->u.sensor.sensor_isp = imx046_hwc.sensor_isp;
+	hwc->u.sensor		= imx046_hwc;
 	hwc->dev_index		= 2;
 	hwc->dev_minor		= 5;
 	hwc->dev_type		= OMAP34XXCAM_SLAVE_SENSOR;
