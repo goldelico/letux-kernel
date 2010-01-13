@@ -511,6 +511,8 @@ static void serial_omap_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
 	struct uart_omap_port *up = (struct uart_omap_port *)port;
 	unsigned char mcr = 0;
+	u16 efr = 0;
+	u16 lcr = 0;
 
 	DPRINTK("serial_omap_set_mctrl+%d\n", up->pdev->id);
 	if (mctrl & TIOCM_RTS)
@@ -524,8 +526,25 @@ static void serial_omap_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	if (mctrl & TIOCM_LOOP)
 		mcr |= UART_MCR_LOOP;
 
+	lcr = serial_in(up, UART_LCR);
+	/* Set the CONFIG B Mode to read the EFR */
+	serial_out(up, UART_LCR, 0xBF); /* Config B mode */
+	efr = serial_in(up, UART_EFR);
+	/* The EFR[4] bit to enable the MCR write */
+	serial_out(up, UART_EFR, UART_EFR_ECB);
+	serial_out(up, UART_LCR, 0x0); /* Operational mode */
+
 	mcr |= up->mcr;
 	serial_out(up, UART_MCR, mcr);
+
+	/* Set the CONFIG B Mode to read the EFR */
+	serial_out(up, UART_LCR, 0xBF); /* Config B mode */
+	serial_out(up, UART_EFR, efr);
+
+	/* Restore the LCR Value */
+	serial_out(up, UART_LCR, lcr);
+
+	return;
 }
 
 static void serial_omap_break_ctl(struct uart_port *port, int break_state)
@@ -873,7 +892,15 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	serial_out(up, UART_EFR, up->efr | UART_EFR_ECB);
 	serial_out(up, UART_LCR, 0x0);			/* Access FCR */
 
-	up->mcr = serial_in(up, UART_MCR);
+	/*
+	 * old is NULL only if its coming out of Sleep Mode. The up-mcr
+	 * would have a stored value in it, use the value itself. If
+	 * coming up in a normal working state, the MCR register would
+	 * have a valid value, hence read it and then use it.
+	 */
+	if (NULL != old)
+		up->mcr = serial_in(up, UART_MCR);
+
 	serial_out(up, UART_MCR, up->mcr | 0x40);        /* Access TLR*/
 	/* FIFO ENABLE, DMA MODE */
 	serial_out(up, UART_FCR, fcr[up->pdev->id - 1]);
