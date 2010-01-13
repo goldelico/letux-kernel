@@ -57,12 +57,55 @@ static inline void l2x0_inv_line(unsigned long addr)
 	writel(addr, base + L2X0_INV_LINE_PA);
 }
 
+#ifdef CONFIG_PL310_ERRATA_588369
+static noinline void debug_writel(unsigned long val)
+{
+	register unsigned long r0 asm("r0") = val;
+	/*
+	 * Texas Instrument secure monitor api to modify the PL310
+	 * Debug Control Register.
+	 * r0 contains the value to be modified and "r12" contains
+	 * the monitor API number. This API uses few CPU registers
+	 * internally and hence they need be backed up including
+	 * link register "lr".
+	 * Explicitly save r11 and r12 since  the compiler generated
+	 * code won't save it.
+	 */
+	__asm__ __volatile__(
+		__asmeq("%0", "r0")
+		"stmfd r13!, {r11,r12}\n"
+		"ldr r12, =0x100\n"
+		"dsb\n"
+		"smc\n"
+		"ldmfd r13!, {r11,r12}\n"
+		: : "r" (r0)
+		: "r4", "r5", "r10", "lr");
+}
+
+static inline void l2x0_flush_line(unsigned long addr)
+{
+	void __iomem *base = l2x0_base;
+
+	/* Clean by PA followed by Invalidate by PA */
+	cache_wait(base + L2X0_CLEAN_LINE_PA, 1);
+	writel(addr, base + L2X0_CLEAN_LINE_PA);
+	cache_wait(base + L2X0_INV_LINE_PA, 1);
+	writel(addr, base + L2X0_INV_LINE_PA);
+}
+#else
+
+/* Optimised out for non-errata case */
+static inline void debug_writel(unsigned long val)
+{
+}
+
 static inline void l2x0_flush_line(unsigned long addr)
 {
 	void __iomem *base = l2x0_base;
 	cache_wait(base + L2X0_CLEAN_INV_LINE_PA, 1);
 	writel(addr, base + L2X0_CLEAN_INV_LINE_PA);
 }
+#endif
 
 static inline void l2x0_inv_all(void)
 {
@@ -84,13 +127,17 @@ static void l2x0_inv_range(unsigned long start, unsigned long end)
 	spin_lock_irqsave(&l2x0_lock, flags);
 	if (start & (CACHE_LINE_SIZE - 1)) {
 		start &= ~(CACHE_LINE_SIZE - 1);
+		debug_writel(0x03);
 		l2x0_flush_line(start);
+		debug_writel(0x00);
 		start += CACHE_LINE_SIZE;
 	}
 
 	if (end & (CACHE_LINE_SIZE - 1)) {
 		end &= ~(CACHE_LINE_SIZE - 1);
+		debug_writel(0x03);
 		l2x0_flush_line(end);
+		debug_writel(0x00);
 	}
 
 	while (start < end) {
@@ -146,10 +193,12 @@ static void l2x0_flush_range(unsigned long start, unsigned long end)
 	while (start < end) {
 		unsigned long blk_end = start + min(end - start, 4096UL);
 
+		debug_writel(0x03);
 		while (start < blk_end) {
 			l2x0_flush_line(start);
 			start += CACHE_LINE_SIZE;
 		}
+		debug_writel(0x00);
 
 		if (blk_end < end) {
 			spin_unlock_irqrestore(&l2x0_lock, flags);
