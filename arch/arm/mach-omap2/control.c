@@ -330,6 +330,27 @@ void omap3_save_scratchpad_contents(void)
 		sizeof(sdrc_block_contents), &arm_context_addr, 4);
 }
 
+void omap3_scratchpad_dpll4autoidle(int enable)
+{
+	void * __iomem scratchpad_address;
+	struct omap3_scratchpad_prcm_block prcm_block_contents;
+
+	scratchpad_address = OMAP2_IO_ADDRESS(OMAP343X_SCRATCHPAD);
+
+	memcpy_fromio(&prcm_block_contents, scratchpad_address + 0x2C,
+		sizeof(prcm_block_contents));
+	if (enable)
+		prcm_block_contents.cm_autoidle_pll |=
+			(1 << OMAP3430_AUTO_PERIPH_DPLL_SHIFT);
+	else
+		prcm_block_contents.cm_autoidle_pll &=
+			~OMAP3430_AUTO_PERIPH_DPLL_MASK;
+
+	memcpy_toio(scratchpad_address + 0x2C, &prcm_block_contents,
+		sizeof(prcm_block_contents));
+
+}
+
 void omap3_control_save_context(void)
 {
 	control_context.sysconfig = omap_ctrl_readl(OMAP2_CONTROL_SYSCONFIG);

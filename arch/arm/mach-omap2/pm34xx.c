@@ -447,6 +447,18 @@ void omap_sram_idle(void)
 				(core_mem_state == PWRDM_POWER_OFF)) {
 			omap3_core_save_context(PWRDM_POWER_RET);
 			omap3_prcm_save_context();
+			/*
+			 * This is a hack. Currently OSWR does not
+			 * work if rom code restores DPLL4 to non
+			 * auto idle mode.
+			 * ROM restore takes 20mS longer if PER/DPLL4
+			 * idle is enabled before OFF.So it is typically
+			 * not enabled. Since OSWR hangs if it is not enabled
+			 * enable it for OSWR alone. Later in the restore path
+			 * it is disabled again
+			 */
+
+			omap3_scratchpad_dpll4autoidle(1);
 			prm_set_mod_reg_bits(OMAP3430_AUTO_RET,
 						OMAP3430_GR_MOD,
 						OMAP3_PRM_VOLTCTRL_OFFSET);
@@ -518,6 +530,14 @@ void omap_sram_idle(void)
 			omap3_prcm_restore_context();
 			omap3_sram_restore_context();
 			omap2_sms_restore_context();
+			/*
+			 * For OSWR to work we put PER DPLL in auto
+			 * idle mode in scratchpad. Clear it so that
+			 * next time if a OFF is attempted the ROM restore
+			 * does nt take long
+			 */
+			if (core_prev_state == PWRDM_POWER_RET)
+				omap3_scratchpad_dpll4autoidle(0);
 		}
 		omap_uart_resume_idle(0);
 		omap_uart_resume_idle(1);
