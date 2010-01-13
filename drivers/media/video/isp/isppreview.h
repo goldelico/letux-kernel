@@ -251,7 +251,6 @@ struct isptables_update {
  * This structure is used to store the OMAP ISP Preview module Information.
  */
 struct isp_prev_device {
-	int pm_state;
 	int update_color_matrix;
 	u8 update_rgb_blending;
 	u8 update_rgb_to_ycbcr;
