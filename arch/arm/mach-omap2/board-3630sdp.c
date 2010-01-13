@@ -862,6 +862,10 @@ static struct synaptics_i2c_rmi_platform_data synaptics_platform_data[] = {
 	}
 };
 
+/* I2C Address for ISP1301 Transceiver */
+#define ISP1301_I2C_ADDR1               0x2C
+#define ISP1301_I2C_ADDR2               0x2D
+
 static struct i2c_board_info __initdata sdp3630_i2c_bus2_info[] = {
 	{
 		I2C_BOARD_INFO(SYNAPTICS_I2C_RMI_NAME,  0x20),
@@ -874,6 +878,14 @@ static struct i2c_board_info __initdata sdp3630_i2c_bus2_info[] = {
 		.platform_data = &sdp3630_lv8093_platform_data,
 	},
 #endif
+	{
+		I2C_BOARD_INFO("isp1301_host", ISP1301_I2C_ADDR1),
+		.type           = "isp1301_host",
+	},
+	{
+		I2C_BOARD_INFO("isp1301_host", ISP1301_I2C_ADDR2),
+		.type           = "isp1301_host",
+	},
 };
 
 static struct i2c_board_info __initdata sdp3630_i2c_bus3_info[] = {
