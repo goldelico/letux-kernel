@@ -158,10 +158,10 @@ config SPI_OMAP_UWIRE
 	  This hooks up to the MicroWire controller on OMAP1 chips.
 
 config SPI_OMAP24XX
-	tristate "McSPI driver for OMAP24xx/OMAP34xx"
-	depends on ARCH_OMAP24XX || ARCH_OMAP34XX
+	tristate "McSPI driver for OMAP24xx/OMAP34xx/OMAP4"
+	depends on ARCH_OMAP24XX || ARCH_OMAP34XX || ARCH_OMAP4
 	help
-	  SPI master controller for OMAP24xx/OMAP34xx Multichannel SPI
+	  SPI master controller for OMAP24xx/OMAP34xx/OMAP44xx Multichannel SPI
 	  (McSPI) modules.
 
 config SPI_ORION
