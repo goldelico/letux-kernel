@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * IO dispatcher for a shared memory channel driver.
+ * Also, includes macros to simulate SHM via port io calls.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,41 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== io_sm.h ========
- *  Description:
- *      IO dispatcher for a shared memory channel driver.
- *      Also, includes macros to simulate SHM via port io calls.
- *
- *  Public Functions:
- *      IO_Dispatch
- *      IO_DPC
- *      IO_ISR
- *      IO_RequestChnl
- *
- *  Notes:
- *
- *! Revision History:
- *! ================
- *! 01-Mar-2004 vp: Added IVA releated functions.
- *! 23-Apr-2003 sb: Fixed mailbox deadlock
- *! 06-Feb-2003 kc  Added IO_DDMAClearChnlDesc and IO_DDZCClearChnlDesc.
- *! 21-Dec-2001 ag  Removed unused param in IO_DDMAInitChnlDesc().
- *                  Updated comments. Removed #ifdef CHNL_NOIPCINTR.
- *! 05-Nov-2001 kc  Updated IO_CALLISR macro.
- *! 01-May-2001 jeh Removed IO_RequestMsg.
- *! 29-Mar-2001 ag  Added #ifdef CHNL_NOIPCINTR.
- *! 04-Dec-2000 jeh Added IO_RequestMsg.
- *! 26-Oct-2000 jeh Added IO_GetLong, IO_SetLong, IO_ReadValueLong, and
- *!                 IO_WriteValueLong, for passing arg in SHM structure.
- *! 20-Jan-2000 ag: Updated header comments per code review.
- *! 05-Jan-2000 ag: Text format clean-up.
- *! 02-Nov-1999 ag: Updated header descriptions.
- *! 25-May-1999 jg: Removed assumption of 4 bytes / word.
- *! 12-Aug-1996 gp: Created.
  */
 
 #ifndef IOSM_
@@ -109,7 +77,7 @@
  *  Ensures:
  *      Non-preemptible (but interruptible).
  */
-	extern void IO_DPC(IN OUT void *pRefData);
+	extern void IO_DPC(IN OUT unsigned long pRefData);
 
 /*
  *  ======== IO_ISR ========
@@ -323,13 +291,13 @@
 
 	extern void IO_IntrDSP2(IN struct IO_MGR *pIOMgr, IN u16 wMbVal);
 
-       extern void IO_SM_init(void);
+	extern void IO_SM_init(void);
 
 /*
  *  ========PrintDspTraceBuffer ========
  *      Print DSP tracebuffer.
  */
-       extern DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT
-                                               *hWmdContext);
+	extern DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT
+						*hWmdContext);
 
 #endif				/* IOSM_ */

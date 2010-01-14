@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implementation of DSP wake/sleep routines.
+ *
  * Copyright (C) 2007-2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,21 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== _tiomap_pwr.c ========
- *  Description:
- *      Implementation of DSP wake/sleep routines.
- *
- *! Revision History
- *! ================
- *! 01-Nov-2007 HK: Added Off mode(Hibernation) support and DVFS support
- *! 05-Jan-2004 vp: Moved the file to platform specific folder and commented the
- *!		    code.
- *! 27-Mar-2003 vp: Added support for DSP boot idle mode.
- *! 06-Dec-2002 cring:  Added Palm support.
- *! 08-Oct-2002 rr:  Created.
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */
@@ -152,7 +139,7 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 		status = WMD_E_TIMEOUT;
 	} else {
 		/* Save mailbox settings */
-		status = HW_MBOX_saveSettings(pDevContext->dwMailBoxBase);
+		HW_MBOX_saveSettings(pDevContext->dwMailBoxBase);
 		DBG_Trace(DBG_LEVEL6, "MailBoxSettings: SYSCONFIG = 0x%x\n",
 			 mboxsetting.sysconfig);
 		DBG_Trace(DBG_LEVEL6, "MailBoxSettings: IRQENABLE0 = 0x%x\n",
@@ -505,13 +492,15 @@ DSP_STATUS PreScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
  */
 DSP_STATUS PostScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 {
+	DSP_STATUS status = DSP_SOK;
 #ifdef CONFIG_BRIDGE_DVFS
 	u32 level;
 	u32 voltage_domain;
 	struct IO_MGR *hIOMgr;
-	DSP_STATUS status = DSP_SOK;
 
 	status = DEV_GetIOMgr(pDevContext->hDevObject, &hIOMgr);
+	if (!hIOMgr)
+		return DSP_EHANDLE;
 
 	voltage_domain = *((u32 *)pArgs);
 	level = *((u32 *)pArgs + 1);
@@ -527,7 +516,6 @@ DSP_STATUS PostScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 		DBG_Trace(DBG_LEVEL7,
 			 "PostScale_DSP: IVA in sleep. Wrote to shared "
 			 "memory \n");
-		return DSP_SOK;
 	} else  if ((pDevContext->dwBrdState == BRD_RUNNING)) {
 		/* Update the OPP value in shared memory */
 		IO_SHMsetting(hIOMgr, SHM_CURROPP, &level);
@@ -536,14 +524,13 @@ DSP_STATUS PostScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 		DBG_Trace(DBG_LEVEL7,
 			"PostScale_DSP: Wrote to shared memory Sent post"
 			" notification to DSP\n");
-		return DSP_SOK;
 	} else {
 		DBG_Trace(DBG_LEVEL7, "PostScale_DSP: Failed - DSP BRD state "
 			"in wrong state");
-		return DSP_EFAIL;
+		status = DSP_EFAIL;
 	}
 #endif /* #ifdef CONFIG_BRIDGE_DVFS */
-	return DSP_SOK;
+	return status;
 }
 
 /*
@@ -563,14 +550,18 @@ DSP_STATUS DSP_PeripheralClocks_Disable(struct WMD_DEV_CONTEXT *pDevContext,
 			status = CLK_Disable(BPWR_Clks[clkIdx].intClk);
 			if (BPWR_CLKID[clkIdx] == BPWR_MCBSP1) {
 				/* clear MCBSP1_CLKS, on McBSP1 OFF */
-				value = __raw_readl(pDevContext->sysctrlbase + 0x274);
+				value = __raw_readl(pDevContext->sysctrlbase
+								+ 0x274);
 				value &= ~(1 << 2);
-				__raw_writel(value, pDevContext->sysctrlbase + 0x274);
+				__raw_writel(value, pDevContext->sysctrlbase
+								+ 0x274);
 			} else if (BPWR_CLKID[clkIdx] == BPWR_MCBSP2) {
 				/* clear MCBSP2_CLKS, on McBSP2 OFF */
-				value = __raw_readl(pDevContext->sysctrlbase + 0x274);
+				value = __raw_readl(pDevContext->sysctrlbase
+								+ 0x274);
 				value &= ~(1 << 6);
-				__raw_writel(value, pDevContext->sysctrlbase + 0x274);
+				__raw_writel(value, pDevContext->sysctrlbase
+								+ 0x274);
 			}
 			if (DSP_FAILED(status)) {
 				DBG_Trace(DBG_LEVEL7,
@@ -606,14 +597,18 @@ DSP_STATUS DSP_PeripheralClocks_Enable(struct WMD_DEV_CONTEXT *pDevContext,
 			int_clk_status = CLK_Enable(BPWR_Clks[clkIdx].intClk);
 			if (BPWR_CLKID[clkIdx] == BPWR_MCBSP1) {
 				/* set MCBSP1_CLKS, on McBSP1 ON */
-				value = __raw_readl(pDevContext->sysctrlbase + 0x274);
+				value = __raw_readl(pDevContext->sysctrlbase
+								+ 0x274);
 				value |= 1 << 2;
-				__raw_writel(value, pDevContext->sysctrlbase + 0x274);
+				__raw_writel(value, pDevContext->sysctrlbase
+								+ 0x274);
 			} else if (BPWR_CLKID[clkIdx] == BPWR_MCBSP2) {
 				/* set MCBSP2_CLKS, on McBSP2 ON */
-				value = __raw_readl(pDevContext->sysctrlbase + 0x274);
+				value = __raw_readl(pDevContext->sysctrlbase
+								+ 0x274);
 				value |= 1 << 6;
-				__raw_writel(value, pDevContext->sysctrlbase + 0x274);
+				__raw_writel(value, pDevContext->sysctrlbase
+								+ 0x274);
 			}
 			/* Enable the functional clock of the periphearl */
 			fun_clk_status = CLK_Enable(BPWR_Clks[clkIdx].funClk);

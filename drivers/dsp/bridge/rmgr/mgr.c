@@ -3,6 +3,10 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implementation of Manager interface to the device object at the
+ * driver level. This queries the NDB data base and retrieves the
+ * data about Node and Processor.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,32 +16,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== mgr.c ========
- *  Description:
- *      Implementation of Manager interface to the device object at the
- *      driver level. This queries the NDB data base and retrieves the
- *      data about Node and Processor.
- *
- *
- *! Revision History:
- *! ================
- *! 12-Feb-2003 vp: Code review updates.
- *! 18-Oct-2002 vp: Ported to Linux platform
- *! 01-Aug-2001 ag: Added extended info for DSP-MMU setup support.
- *! 13-Feb-2001 kc: DSP/BIOS Bridge name updates.
- *! 22-Nov-2000 kc: Added MGR_GetPerfData.
- *! 03-Nov-2000 rr: Updated after code review.
- *! 25-Sep-2000 rr: Updated to Version 0.9
- *! 10-Aug-2000 rr: dwSignature is not specifically inserted in MGR Obj
- *!                 as it is taken care by MEM_AllocObject. stdwin.h added
- *!                 for retail build to succeed.
- *! 07-Aug-2000 rr: MGR_Create does the job of Loading DCD Dll.
- *! 26-Jul-2000 rr: MGR_Destroy releases the hNDBDll.
- *! 20-Jun-2000 rr: Created.
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */
@@ -96,16 +74,16 @@ DSP_STATUS MGR_Create(OUT struct MGR_OBJECT **phMgrObject,
 		 phMgrObject);
 	MEM_AllocObject(pMgrObject, struct MGR_OBJECT, SIGNATURE);
 	if (pMgrObject) {
-		if (DSP_SUCCEEDED(DCD_CreateManager(ZLDLLNAME,
-		   &pMgrObject->hDcdMgr))) {
+		status = DCD_CreateManager(ZLDLLNAME, &pMgrObject->hDcdMgr);
+		if (DSP_SUCCEEDED(status)) {
 			/* If succeeded store the handle in the MGR Object */
-			if (DSP_SUCCEEDED(CFG_SetObject((u32)pMgrObject,
-			   REG_MGR_OBJECT))) {
+			status = CFG_SetObject((u32)pMgrObject,
+							REG_MGR_OBJECT);
+			if (DSP_SUCCEEDED(status)) {
 				*phMgrObject = pMgrObject;
 				GT_0trace(MGR_DebugMask, GT_1CLASS,
 					 "MGR_Create:MGR Created\r\n");
 			} else {
-				status = DSP_EFAIL;
 				GT_0trace(MGR_DebugMask, GT_7CLASS,
 					 "MGR_Create:CFG_SetObject "
 					 "Failed\r\n");
@@ -114,7 +92,6 @@ DSP_STATUS MGR_Create(OUT struct MGR_OBJECT **phMgrObject,
 			}
 		} else {
 			/* failed to Create DCD Manager */
-			status = DSP_EFAIL;
 			GT_0trace(MGR_DebugMask, GT_7CLASS,
 				 "MGR_Create:DCD_ManagerCreate Failed\r\n");
 			MEM_FreeObject(pMgrObject);
@@ -173,7 +150,6 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 			   u32 uNDBPropsSize, OUT u32 *puNumNodes)
 {
 	DSP_STATUS status = DSP_SOK;
-	DSP_STATUS status1 = DSP_SOK;
 	struct DSP_UUID Uuid, uTempUuid;
 	u32 uTempIndex = 0;
 	u32 uNodeIndex = 0;
@@ -191,8 +167,8 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 		 uNDBPropsSize, puNumNodes);
 	*puNumNodes = 0;
 	/* Get The Manager Object from the Registry */
-	if (DSP_FAILED(CFG_GetObject((u32 *)&pMgrObject,
-	   REG_MGR_OBJECT))) {
+	status = CFG_GetObject((u32 *)&pMgrObject, REG_MGR_OBJECT);
+	if (DSP_FAILED(status)) {
 		GT_0trace(MGR_DebugMask, GT_7CLASS,
 			 "Manager_EnumNodeInfo:Failed To Get"
 			 " MGR Object from Registry\r\n");
@@ -218,26 +194,23 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 				 "Manager_EnumNodeInfo: uNode"
 				 " is Invalid \r\n");
 		} else {
-			status1 = DCD_GetObjectDef(pMgrObject->hDcdMgr,
+			status = DCD_GetObjectDef(pMgrObject->hDcdMgr,
 						(struct DSP_UUID *)&Uuid,
 						DSP_DCDNODETYPE, &GenObj);
-			if (DSP_SUCCEEDED(status1)) {
+			if (DSP_SUCCEEDED(status)) {
 				/* Get the Obj def */
 				*pNDBProps = GenObj.objData.nodeObj.ndbProps;
 				*puNumNodes = uNodeIndex;
-				status = DSP_SOK;
 			} else {
 				GT_0trace(MGR_DebugMask, GT_7CLASS,
 					 "Manager_EnumNodeInfo: "
 					 "Failed to Get Node Info \r\n");
-				status = DSP_EFAIL;
 			}
 		}
 	} else {
 		/* This could be changed during enum, EFAIL ... */
 		GT_0trace(MGR_DebugMask, GT_7CLASS, "Manager_EnumNodeInfo: "
 			 "Enumeration failure\r\n");
-		status = DSP_EFAIL;
 	}
 func_cont:
 	GT_4trace(MGR_DebugMask, GT_ENTER,

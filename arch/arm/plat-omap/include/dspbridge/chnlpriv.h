@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Private channel header shared between DSPSYS, WCD and WMD modules.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,35 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== chnlpriv.h ========
- *  Description:
- *      Private channel header shared between DSPSYS, WCD and WMD modules.
- *
- *  Public Functions:
- *      None.
- *
- *  Notes:
- *
- *! Revision History:
- *! ================
- *! 05-Jan-2002 ag  Added cChannels(total # of chnls) to CHNL_MGRINFO struct.
- *!                 Added private CHNL_[PCPY][ZCPY][DDMA].
- *! 17-Nov-2000 jeh Removed IRQ, shared memory from CHNL_MGRATTRS, since these
- *!                 now belong to IO_ATTRS.
- *! 21-Jan-2000 ag: Code review comments added.
- *! 05-Jan-2000 ag: Text format cleanup.
- *! 11-Dec-1999 ag: Added CHNL_MAXLOCKPAGES for CHNL_PrepareBuffer().
- *! 04-Dec-1999 ag: Added CHNL_MAXEVTNAMELEN for i/o compl named event support.
- *! 01-Nov-1999 ag: CHNL_MAXCHANNELS set to 16 for 16-bit DSPs.
- *! 27-Oct-1997 cr: Expanded CHNL_MAXIRQ from 0x0f to 0xff.
- *! 16-Jan-1997 gp: Moved symbols into here from chnldefs.h.
- *! 03-Jan-1997 gp: Added CHNL_MAXIRQ define.
- *! 09-Dec-1996 gp: Removed CHNL_STATEIDLE.
- *! 15-Jul-1996 gp: Created.
  */
 
 #ifndef CHNLPRIV_
@@ -110,7 +83,7 @@
 		u32 cPosition;	/* Total bytes transferred.        */
 		u32 cIOCs;	/* Number of IOCs in queue.               */
 		u32 cIOReqs;	/* Number of IO Requests in queue.        */
-               u32 hProcess;   /* Process owning this channel.     */
+		u32 hProcess;   /* Process owning this channel.     */
 		/*
 		 * Name of channel I/O completion event. Not required in Linux
 		 */

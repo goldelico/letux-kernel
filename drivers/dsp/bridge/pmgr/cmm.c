@@ -3,6 +3,22 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * The Communication(Shared) Memory Management(CMM) module provides
+ * shared memory management services for DSP/BIOS Bridge data streaming
+ * and messaging.
+ *
+ * Multiple shared memory segments can be registered with CMM.
+ * Each registered SM segment is represented by a SM "allocator" that
+ * describes a block of physically contiguous shared memory used for
+ * future allocations by CMM.
+ *
+ * Memory is coelesced back to the appropriate heap when a buffer is
+ * freed.
+ *
+ * Notes:
+ *   Va: Virtual address.
+ *   Pa: Physical or kernel system address.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,85 +28,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== cmm.c ========
- *  Purpose:
- *      The Communication(Shared) Memory Management(CMM) module provides
- *      shared memory management services for DSP/BIOS Bridge data streaming
- *      and messaging.
- *
- *      Multiple shared memory segments can be registered with CMM.
- *      Each registered SM segment is represented by a SM "allocator" that
- *      describes a block of physically contiguous shared memory used for
- *      future allocations by CMM.
- *
- *      Memory is coelesced back to the appropriate heap when a buffer is
- *      freed.
- *
- *  Public Functions:
- *      CMM_CallocBuf
- *      CMM_Create
- *      CMM_Destroy
- *      CMM_Exit
- *      CMM_FreeBuf
- *      CMM_GetHandle
- *      CMM_GetInfo
- *      CMM_Init
- *      CMM_RegisterGPPSMSeg
- *      CMM_UnRegisterGPPSMSeg
- *
- *      The CMM_Xlator[xxx] routines below are used by Node and Stream
- *      to perform SM address translation to the client process address space.
- *      A "translator" object is created by a node/stream for each SM seg used.
- *
- *  Translator Routines:
- *      CMM_XlatorAllocBuf
- *      CMM_XlatorCreate
- *      CMM_XlatorDelete
- *      CMM_XlatorFreeBuf
- *      CMM_XlatorInfo
- *      CMM_XlatorTranslate
- *
- *  Private Functions:
- *      AddToFreeList
- *      GetAllocator
- *      GetFreeBlock
- *      GetNode
- *      GetSlot
- *      UnRegisterGPPSMSeg
- *
- *  Notes:
- *      Va: Virtual address.
- *      Pa: Physical or kernel system address.
- *
- *! Revision History:
- *! ================
- *! 24-Feb-2003 swa PMGR Code review comments incorporated.
- *! 16-Feb-2002 ag  Code review cleanup.
- *!                 PreOMAP address translation no longner supported.
- *! 30-Jan-2002 ag  Updates to CMM_XlatorTranslate() per TII, ANSI C++
- *!                 warnings.
- *! 27-Jan-2002 ag  Removed unused CMM_[Alloc][Free]Desc() & #ifdef USELOOKUP,
- *!                 & unused VALIDATECMM and VaPaConvert().
- *!                 Removed bFastXlate from CMM_XLATOR. Always fast lookup.
- *! 03-Jan-2002 ag  Clear SM in CMM_AllocBuf(). Renamed to CMM_CallocBuf().
- *! 13-Nov-2001 ag  Now delete pNodeFreeListHead and nodes in CMM_Destroy().
- *! 28-Aug-2001 ag  CMM_GetHandle() returns CMM Mgr hndle given HPROCESSOR.
- *!                 Removed unused CMM_[Un]RegisterDSPSMSeg() &
- *                  CMM_[Un}ReserveVirtSpace fxns. Some cleanup.
- *! 12-Aug-2001 ag  Exposed CMM_UnRegisterGPP[DSP]SMSeg.
- *! 13-Feb-2001 kc  DSP/BIOS Bridge name update.
- *! 21-Dec-2000 rr  GetFreeBlock checks for pAllocator.
- *! 09-Dec-2000 ag  Added GPPPA2DSPPA, DSPPA2GPPPA macros.
- *! 05-Dec-2000 ag  CMM_XlatorDelete() optionally frees SM bufs and descriptors.
- *! 30-Oct-2000 ag  Buf size bug fixed in CMM_AllocBuf() causing leak.
- *!                 Revamped XlatorTranslate() routine.
- *! 10-Oct-2000 ag  Added CMM_Xlator[xxx] functions.
- *! 02-Aug-2000 ag  Created.
- *!
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */
@@ -1050,6 +987,12 @@ static struct CMM_ALLOCATOR *GetAllocator(struct CMM_OBJECT *pCmmMgr,
 }
 
 /*
+ *  The CMM_Xlator[xxx] routines below are used by Node and Stream
+ *  to perform SM address translation to the client process address space.
+ *  A "translator" object is created by a node/stream for each SM seg used.
+ */
+
+/*
  *  ======== CMM_XlatorCreate ========
  *  Purpose:
  *      Create an address translator object.
@@ -1101,11 +1044,10 @@ DSP_STATUS CMM_XlatorDelete(struct CMM_XLATOROBJECT *hXlator, bool bForce)
 
 	DBC_Require(cRefs > 0);
 
-	if (MEM_IsValidHandle(pXlator, CMMXLATESIGNATURE)) {
+	if (MEM_IsValidHandle(pXlator, CMMXLATESIGNATURE))
 		MEM_FreeObject(pXlator);
-	} else {
+	else
 		status = DSP_EHANDLE;
-	}
 
 	return status;
 }

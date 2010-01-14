@@ -14,17 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== dblldefs.h ========
- *
- *! Revision History
- *! ================
- *! 08-Apr-2003 map	    Consolidated DBL into DBLL name
- *! 19-Mar-2002 jeh     Added DBL_Fxns type (to make it easier to switch
- *!                     between different loaders).
- *! 28-Sep-2001 jeh     Created from zl.h.
- */
 #ifndef DBLLDEFS_
 #define DBLLDEFS_
 

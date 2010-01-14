@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implementation for the io read/write routines.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,21 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== _tiomap_io.c ========
- *  Description:
- *      Implementation for the io read/write routines.
- *
- *! Revision History
- *! ================
- *! 16-Feb-2004 vp:  Fixed warning in WriteDspData function.
- *! 16-Apr-2003 vp:  Added support for TC word swap
- *! 26-Feb-2003 vp:  Fixed issue with EXT_BEG and EXT_END address.
- *! 24-Feb-2003 vp:  Ported to Linux platform
- *! 08-Oct-2002 rr:  Created.
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */
@@ -91,7 +78,7 @@ DSP_STATUS ReadExtDspData(struct WMD_DEV_CONTEXT *hDevContext,
 	DBC_Assert(ulShmBaseVirt != 0);
 
 	/* Check if it is a read of Trace section */
-	if (!ulTraceSecBeg) {
+	if (DSP_SUCCEEDED(status) && !ulTraceSecBeg) {
 		status = DEV_GetSymbol(pDevContext->hDevObject,
 		DSP_TRACESEC_BEG, &ulTraceSecBeg);
 	}
@@ -113,7 +100,7 @@ DSP_STATUS ReadExtDspData(struct WMD_DEV_CONTEXT *hDevContext,
 	}
 
 	/* If reading from TRACE, force remap/unmap */
-	if ((bTraceRead) && dwBaseAddr) {
+	if (bTraceRead && dwBaseAddr) {
 		dwBaseAddr = 0;
 		pDevContext->dwDspExtBaseAddr = 0;
 	}
@@ -225,6 +212,9 @@ DSP_STATUS WriteDspData(struct WMD_DEV_CONTEXT *hDevContext, IN u8 *pbHostBuf,
 	status =  CFG_GetHostResources(
 		 (struct CFG_DEVNODE *)DRV_GetFirstDevExtension(), &resources);
 
+	if (DSP_FAILED(status))
+		return status;
+
 	offset = dwDSPAddr - hDevContext->dwDSPStartAdd;
 	if (offset < base1) {
 		dwBaseAddr = MEM_LinearAddress(resources.dwMemBase[2],
@@ -239,8 +229,7 @@ DSP_STATUS WriteDspData(struct WMD_DEV_CONTEXT *hDevContext, IN u8 *pbHostBuf,
 						resources.dwMemLength[4]);
 		offset = offset - base3;
 	} else{
-		status = DSP_EFAIL;
-		return status;
+		return DSP_EFAIL;
 	}
 	if (ulNumBytes)
 		memcpy((u8 *) (dwBaseAddr+offset), pbHostBuf, ulNumBytes);

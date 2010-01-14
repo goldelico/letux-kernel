@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Global definitions and constants for DSP/BIOS Bridge.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,65 +16,14 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/*
- *  ======== dbdefs.h ========
- *  Description:
- *      Global definitions and constants for DSP/BIOS Bridge.
- *
- *! Revision History:
- *! ================
- *! 19-Apr-2004 sb  Aligned DMM definitions with Symbian
- *! 08-Mar-2004 sb  Added MAPATTR & ELEM_SIZE for Dynamic Memory Mapping feature
- *! 09-Feb-2004 vp  Added processor ID numbers for DSP and IVA
- *! 06-Feb-2003 kc  Removed DSP_POSTMESSAGE. Updated IsValid*Event macros.
- *! 22-Nov-2002 gp  Cleaned up comments, formatting.
- *!                 Removed unused DSP_ENUMLASTNODE define.
- *! 13-Feb-2002 jeh Added uSysStackSize to DSP_NDBPROPS.
- *! 23-Jan-2002 ag  Added #define DSP_SHMSEG0.
- *! 12-Dec-2001 ag  Added DSP_ESTRMMODE error code.
- *! 04-Dec-2001 jeh Added DSP_ENOTCONNECTED error code.
- *! 10-Dec-2001 kc: Modified macros and definitions to disable DSP_POSTMESSAGE.
- *! 01-Nov-2001 jeh Added DSP_EOVERLAYMEMORY.
- *! 18-Oct-2001 ag  Added DSP_STRMMODE type.
- *!                 Added DSP_ENOTSHAREDMEM.
- *! 21-Sep-2001 ag  Added additional error codes.
- *! 07-Jun-2001 sg  Made DSPStream_AllocateBuffer fxn name plural.
- *! 11-May-2001 jeh Changed DSP_NODE_MIN_PRIORITY from 0 to 1. Removed hNode
- *!                 from DSP_NODEINFO.
- *! 02-Apr-2001 sg  Added missing error codes, rearranged codes, switched to
- *!             hex offsets, renamed some codes to match API spec.
- *! 16-Jan-2001 jeh Added DSP_ESYMBOL, DSP_EUUID.
- *! 13-Feb-2001 kc: DSP/BIOS Bridge name updates.
- *! 05-Dec-2000 ag: Added DSP_RMSxxx user available message command codes.
- *! 09-Nov-2000 rr: Added DSP_PROCEESORRESTART define; Removed DSP_PBUFFER.
- *!                 Added DSP_DCD_ENOAUTOREGISTER, DSP_EUSER1-16, DSP_ESTRMFUL
- *!                 Removed DSP_EDONE. Macros's modified.
- *! 23-Oct-2000 jeh Replaced DSP_STREAMSTATECHANGE with DSP_STREAMDONE.
- *! 09-Oct-2000 jeh Updated to version 0.9 DSP Bridge API spec.
- *! 29-Sep-2000 kc  Added error codes for DCD and REG to simplify use of
- *!                 these codes within the RM module.
- *! 27-Sep-2000 jeh Added segid, alignment, uNumBufs to DSP_STREAMATTRIN.
- *! 29-Aug-2000 jeh Added DSP_NODETYPE enum, changed DSP_EALREADYATTACHED to
- *!                 DSP_EALREADYCONNECTED. Changed scStreamConnection[1]
- *!                 to scStreamConnection[16] in DSP_NODEINFO structure.
- *!                 Added DSP_NOTIFICATION, DSP_STRMATTR. PSTRING changed
- *!                 back to TCHAR * and moved to dbtype.h.
- *! 11-Aug-2000 rr: Macros to check valid events and notify masks added.
- *! 09-Aug-2000 rr: Changed PSTRING to *s8
- *! 07-Aug-2000 rr: PROC_IDLE/SYNCINIT/UNKNOWN state removed.
- *! 20-Jul-2000 rr: Updated to version 0.8
- *! 17-Jul-2000 rr: New PROC states added to the DSP_PROCSTATE.
- *! 27-Jun-2000 rr: Created from dspapi.h
- */
-
 #ifndef DBDEFS_
 #define DBDEFS_
 
 #include <linux/types.h>
 
-#include <dspbridge/dbtype.h>		/* GPP side type definitions           */
-#include <dspbridge/std.h>		/* DSP/BIOS type definitions           */
-#include <dspbridge/rms_sh.h>		/* Types shared between GPP and DSP    */
+#include <dspbridge/dbtype.h>		/* GPP side type definitions */
+#include <dspbridge/std.h>		/* DSP/BIOS type definitions */
+#include <dspbridge/rms_sh.h>		/* Types shared between GPP and DSP */
 
 #define PG_SIZE_4K 4096
 #define PG_MASK(pg_size) (~((pg_size)-1))
@@ -217,7 +168,9 @@
 		DSP_DCDLIBRARYTYPE,
 		DSP_DCDCREATELIBTYPE,
 		DSP_DCDEXECUTELIBTYPE,
-		DSP_DCDDELETELIBTYPE
+		DSP_DCDDELETELIBTYPE,
+		/* DSP_DCDMAXOBJTYPE is meant to be the last DCD object type */
+		DSP_DCDMAXOBJTYPE
 	} ;
 
 /* Processor states */
@@ -602,7 +555,7 @@ bit 6 - MMU element size = 64bit (valid only for non mixed page entries)
 #define AUTOSTART	"AutoStart"		/* Statically load flag */
 #define CURRENTCONFIG	"CurrentConfig"		/* Current resources */
 #define SHMSIZE		"SHMSize"		/* Size of SHM reservd on MPU */
-#define TCWORDSWAP	"TCWordSwap"		/* Traffic Contoller Word Swap */
+#define TCWORDSWAP	"TCWordSwap"		/* Traffic Controller WordSwp */
 #define DSPRESOURCES	"DspTMSResources"	/* C55 DSP resurces on OMAP */
 
 #endif				/* DBDEFS_ */

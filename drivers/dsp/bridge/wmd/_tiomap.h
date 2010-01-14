@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Definitions and types private to this WMD.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,13 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== _tiomap.h ========
- *  Description:
- *      Definitions and types private to this WMD.
- *
  */
 
 #ifndef _TIOMAP_
@@ -322,9 +317,9 @@ enum INTH_SensitiveEdge_t {
 #define ClearBit(reg, mask)             (reg &= ~mask)
 #define SetBit(reg, mask)               (reg |= mask)
 
-#define SetGroupBits16(reg, position, width, value) \
-	do {\
-		reg &= ~((0xFFFF >> (16 - (width))) << (position)) ; \
+#define SetGroupBits16(reg, position, width, value)			     \
+	do {								     \
+		reg &= ~((0xFFFF >> (16 - (width))) << (position));	     \
 		reg |= ((value & (0xFFFF >> (16 - (width)))) << (position)); \
 	} while (0);
 
@@ -333,28 +328,28 @@ enum INTH_SensitiveEdge_t {
 /* This mini driver's device context: */
 struct WMD_DEV_CONTEXT {
 	struct DEV_OBJECT *hDevObject;	/* Handle to WCD device object. */
-	u32 dwDspBaseAddr;	/* Arm's API to DSP virtual base addr */
+	u32 dwDspBaseAddr; 		/* Arm's API to DSP virt base addr */
 	/*
 	 * DSP External memory prog address as seen virtually by the OS on
 	 * the host side.
 	 */
-	u32 dwDspExtBaseAddr;	/* See the comment above        */
-	u32 dwAPIRegBase;	/* API memory mapped registers  */
-	void __iomem *dwDSPMmuBase;	/* DSP MMU Mapped registers	*/
-	void __iomem *dwMailBoxBase;	/* Mail box mapped registers	*/
-	void __iomem *cmbase;			/* CM mapped registers		*/
-	void __iomem *sysctrlbase;		/* SysCtrl mapped registers		*/
-	void __iomem *prmbase;			/* PRM mapped registers		*/
-	void __iomem *perbase;			/* PER mapped registers		*/
-	u32 dwAPIClkBase;	/* CLK Registers                */
-	u32 dwDSPClkM2Base;	/* DSP Clock Module m2          */
-	u32 dwPublicRhea;	/* Pub Rhea                     */
-	u32 dwIntAddr;	/* MB INTR reg                  */
-	u32 dwTCEndianism;	/* TC Endianism register        */
-	u32 dwTestBase;	/* DSP MMU Mapped registers     */
-	u32 dwSelfLoop;	/* Pointer to the selfloop      */
-	u32 dwDSPStartAdd;	/* API Boot vector              */
-	u32 dwInternalSize;	/* Internal memory size         */
+	u32 dwDspExtBaseAddr;		/* See the comment above */
+	u32 dwAPIRegBase;		/* API mem map'd registers */
+	void __iomem *dwDSPMmuBase;	/* DSP MMU Mapped registers */
+	void __iomem *dwMailBoxBase;	/* Mail box mapped registers */
+	void __iomem *cmbase;		/* CM mapped registers */
+	void __iomem *sysctrlbase;	/* SysCtrl mapped registers */
+	void __iomem *prmbase;		/* PRM mapped registers	*/
+	void __iomem *perbase;		/* PER mapped registers	*/
+	u32 dwAPIClkBase;		/* CLK Registers */
+	u32 dwDSPClkM2Base;		/* DSP Clock Module m2 */
+	u32 dwPublicRhea;		/* Pub Rhea */
+	u32 dwIntAddr;			/* MB INTR reg */
+	u32 dwTCEndianism;		/* TC Endianism register */
+	u32 dwTestBase;			/* DSP MMU Mapped registers */
+	u32 dwSelfLoop;			/* Pointer to the selfloop */
+	u32 dwDSPStartAdd;		/* API Boot vector */
+	u32 dwInternalSize;		/* Internal memory size */
 
 	/*
 	 * Processor specific info is set when prog loaded and read from DCD.
@@ -362,14 +357,14 @@ struct WMD_DEV_CONTEXT {
 	 */
 	/* DMMU TLB entries */
 	struct WMDIOCTL_EXTPROC aTLBEntry[WMDIOCTL_NUMOFMMUTLB];
-	u32 dwBrdState;	/* Last known board state.      */
-	u32 ulIntMask;	/* int mask                     */
-	u16 ioBase;	/* Board I/O base               */
-	u32 numTLBEntries;	/* DSP MMU TLB entry counter    */
-	u32 fixedTLBEntries;	/* Fixed DSPMMU TLB entry count */
+	u32 dwBrdState;			/* Last known board state. */
+	u32 ulIntMask;			/* int mask */
+	u16 ioBase;			/* Board I/O base */
+	u32 numTLBEntries;		/* DSP MMU TLB entry counter */
+	u32 fixedTLBEntries;		/* Fixed DSPMMU TLB entry count */
 
 	/* TC Settings */
-	bool tcWordSwapOn;	/* Traffic Controller Word Swap */
+	bool tcWordSwapOn;		/* Traffic Controller Word Swap */
 	struct PgTableAttrs *pPtAttrs;
 	u32 uDspPerClks;
 } ;

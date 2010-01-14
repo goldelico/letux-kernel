@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Common WCD functions, also includes the wrapper
+ * functions called directly by the DeviceIOControl interface.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,83 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== wcd.c ========
- *  Description:
- *      Common WCD functions, also includes the wrapper
- *      functions called directly by the DeviceIOControl interface.
- *
- *  Public Functions:
- *      WCD_CallDevIOCtl
- *      WCD_Init
- *      WCD_InitComplete2
- *      WCD_Exit
- *      <MOD>WRAP_*
- *
- *! Revision History:
- *! ================
- *! 29-Apr-2004 hp  Call PROC_AutoStart only for DSP device
- *! 19-Apr-2004 sb  Aligned DMM definitions with Symbian
- *! 08-Mar-2004 sb  Added the Dynamic Memory Mapping APIs
- *! 03-Apr-2003 sb  Process environment pointer in PROCWRAP_Load
- *! 24-Feb-2003 swa PMGR Code review comments incorporated.
- *! 30-Jan-2002 ag  CMMWRAP_AllocBuf name changed to CMMWRAP_CallocBuf
- *! 15-Jan-2002 ag  Added actual bufSize param to STRMWRAP_Reclaim[issue].
- *! 14-Dec-2001 rr  ARGS_NODE_CONNECT maps the pAttr.
- *! 03-Oct-2001 rr  ARGS_NODE_ALLOCMSGBUF/FREEMSGBUF maps the pAttr.
- *! 10-Sep-2001 ag  Added CMD_CMM_GETHANDLE.
- *! 23-Apr-2001 jeh Pass pStatus to NODE_Terminate.
- *! 11-Apr-2001 jeh STRMWRAP_Reclaim embedded pointer is mapped and unmapped.
- *! 13-Feb-2001 kc: DSP/BIOS Bridge name updates.
- *! 06-Dec-2000 jeh WRAP_MAP2CALLER pointers in RegisterNotify calls.
- *! 05-Dec-2000 ag: Removed MAP2CALLER in NODEWRAP_FreeMsgBuf().
- *! 22-Nov-2000 kc: Added MGRWRAP_GetPerf_Data().
- *! 20-Nov-2000 jeh Added MSG_Init()/MSG_Exit(), IO_Init()/IO_Exit().
- *!		 WRAP pointers to handles for PROC_Attach, NODE_Allocate.
- *! 27-Oct-2000 jeh Added NODEWRAP_AllocMsgBuf, NODEWRAP_FreeMsgBuf. Removed
- *!		 NODEWRAP_GetMessageStream.
- *! 12-Oct-2000 ag: Added user CMM wrappers.
- *! 05-Oct-2000 rr: WcdInitComplete2 will fail even if one BRD or PROC
- *!		 AutoStart fails.
- *! 25-Sep-2000 rr: Updated to Version 0.9
- *! 13-Sep-2000 jeh Pass ARGS_NODE_CONNECT.pAttrs to NODE_Connect().
- *! 11-Aug-2000 rr: Part of node enabled.
- *! 31-Jul-2000 rr: UTIL_Wrap and MEM_Wrap added to RM.
- *! 27-Jul-2000 rr: PROCWRAP, NODEWRAP and STRMWRAP implemented.
- *!		 STRM and some NODE Wrappers are not implemented.
- *! 27-Jun-2000 rr: MGRWRAP fxns added.IFDEF to build for PM or DSP/BIOS Bridge
- *! 08-Feb-2000 rr  File name changed to wcd.c
- *! 03-Feb-2000 rr: Module initialization are done by SERVICES init. GT Class
- *!		 changes for module init/exit fxns.
- *! 24-Jan-2000 rr: Merged with Scott's code.
- *! 21-Jan-1999 sg: Changed ARGS_CHNL_GETMODE field name from pdwMode to pMode.
- *! 17-Jan-2000 rr: BRD_GetStatus does WRAP_MAP2CALLER for state.
- *! 14-Dec-1999 ag: Removed _MAP2CALLER in CHNL_GetMgr().
- *! 13-Dec-1999 rr: BRDWRAP_GetSymbol, BRDWRAP_GetTrace uses WRAP_MAP2CALLER
- *!		 macros.BRDWRAP_Load maps and unmaps embedded pointers.
- *! 10-Dec-1999 ag: User CHNL bufs mapped in _AddIOReq & _GetIOCompletion.
- *! 09-Dec-1999 rr: BRDWRAP_Open and CHNLWRAP_GetMgr does not map
- *!		 pointer as there was a change in config.c
- *! 06-Dec-1999 rr: BRD_Read and Write Maps the buf pointers.
- *! 03-Dec-1999 rr: CHNLWRAP_GetMgr and BRDWRAP_Open maps  hDevNode pointer.
- *!		 WCD_InitComplete2 Included for BRD_AutoStart.
- *! 16-Nov-1999 ag: Map buf to process in CHNLWRAP_AllocBuffer().
- *!		 CHNL_GetMgr() Mapping Fix.
- *! 10-Nov-1999 ag: Removed unnecessary calls to WRAP_MAP2CALLER.
- *! 08-Nov-1999 kc: Added MEMRY & enabled BRD_IOCtl for tests.
- *! 29-Oct-1999 ag: Added CHNL.
- *! 29-Oct-1999 kc: Added trace statements; added ptr mapping; updated
- *!		 use of UTIL module API.
- *! 29-Oct-1999 rr: Wrapper functions does the Mapping of the Pointers.
- *!		 in WinCE all the explicit pointers will be converted
- *!		 by the OS during interprocess but not the embedded pointers.
- *! 16-Oct-1999 kc: Code review cleanup.
- *! 07-Oct-1999 kc: Added UTILWRAP_TestDll() to run PM test harness. See
- *!		 /src/doc/pmtest.doc for more detail.
- *! 09-Sep-1999 rr: After exactly two years(!). Adopted for WinCE. GT Enabled.
- *! 09-Sep-1997 gp: Created.
  */
 
 /*  ----------------------------------- Host OS */
@@ -478,6 +404,10 @@ u32 MGRWRAP_EnumNode_Info(union Trapped_Args *args, void *pr_ctxt)
 		 args->ARGS_MGR_ENUMNODE_INFO.pNDBProps,
 		 args->ARGS_MGR_ENUMNODE_INFO.uNDBPropsSize,
 		 args->ARGS_MGR_ENUMNODE_INFO.puNumNodes);
+
+	if (size < sizeof(struct DSP_NDBPROPS))
+		return DSP_ESIZE;
+
 	pNDBProps = MEM_Alloc(size, MEM_NONPAGED);
 	if (pNDBProps == NULL)
 		status = DSP_EMEMORY;
@@ -515,6 +445,10 @@ u32 MGRWRAP_EnumProc_Info(union Trapped_Args *args, void *pr_ctxt)
 		 args->ARGS_MGR_ENUMPROC_INFO.pProcessorInfo,
 		 args->ARGS_MGR_ENUMPROC_INFO.uProcessorInfoSize,
 		 args->ARGS_MGR_ENUMPROC_INFO.puNumProcs);
+
+	if (size < sizeof(struct DSP_PROCESSORINFO))
+		return DSP_ESIZE;
+
 	pProcessorInfo = MEM_Alloc(size, MEM_NONPAGED);
 	if (pProcessorInfo == NULL)
 		status = DSP_EMEMORY;
@@ -547,6 +481,11 @@ u32 MGRWRAP_RegisterObject(union Trapped_Args *args, void *pr_ctxt)
 	char *pszPathName = NULL;
 	DSP_STATUS status = DSP_SOK;
 
+
+	GT_1trace(WCD_debugMask, GT_ENTER,
+		 "MGRWRAP_RegisterObject: entered "
+		 "0x%x\n", args->ARGS_MGR_REGISTEROBJECT.pUuid);
+
 	cp_fm_usr(&pUuid, args->ARGS_MGR_REGISTEROBJECT.pUuid, status, 1);
 	if (DSP_FAILED(status))
 		goto func_end;
@@ -564,9 +503,9 @@ u32 MGRWRAP_RegisterObject(union Trapped_Args *args, void *pr_ctxt)
 		goto func_end;
 	}
 
-	GT_1trace(WCD_debugMask, GT_ENTER,
-		 "MGRWRAP_RegisterObject: entered pg2hMsg "
-		 "0x%x\n", args->ARGS_MGR_REGISTEROBJECT.pUuid);
+	if (args->ARGS_MGR_REGISTEROBJECT.objType >= DSP_DCDMAXOBJTYPE)
+		return DSP_EINVALIDARG;
+
 	status = DCD_RegisterObject(&pUuid,
 				args->ARGS_MGR_REGISTEROBJECT.objType,
 				(char *)pszPathName);
@@ -758,7 +697,10 @@ u32 PROCWRAP_EnumNode_Info(union Trapped_Args *args, void *pr_ctxt)
 		 args->ARGS_PROC_ENUMNODE_INFO.uNodeTabSize,
 		 args->ARGS_PROC_ENUMNODE_INFO.puNumNodes,
 		 args->ARGS_PROC_ENUMNODE_INFO.puAllocated);
-	DBC_Require(args->ARGS_PROC_ENUMNODE_INFO.uNodeTabSize <= MAX_NODES);
+
+	if (!args->ARGS_PROC_ENUMNODE_INFO.uNodeTabSize)
+		return DSP_ESIZE;
+
 	status = PROC_EnumNodes(args->ARGS_PROC_ENUMNODE_INFO.hProcessor,
 				aNodeTab,
 				args->ARGS_PROC_ENUMNODE_INFO.uNodeTabSize,
@@ -780,6 +722,9 @@ u32 PROCWRAP_FlushMemory(union Trapped_Args *args, void *pr_ctxt)
 	DSP_STATUS status;
 
 	GT_0trace(WCD_debugMask, GT_ENTER, "PROCWRAP_FlushMemory: entered\n");
+
+	if (args->ARGS_PROC_FLUSHMEMORY.ulFlags > PROC_WRBK_INV_ALL)
+		return DSP_EINVALIDARG;
 
 	status = PROC_FlushMemory(args->ARGS_PROC_FLUSHMEMORY.hProcessor,
 				 args->ARGS_PROC_FLUSHMEMORY.pMpuAddr,
@@ -815,9 +760,6 @@ u32 PROCWRAP_EnumResources(union Trapped_Args *args, void *pr_ctxt)
 	DSP_STATUS status = DSP_SOK;
 	struct DSP_RESOURCEINFO pResourceInfo;
 
-	if (DSP_FAILED(status))
-		goto func_end;
-
 	GT_4trace(WCD_debugMask, GT_ENTER,
 		 "PROCWRAP_EnumResources: entered args:\n"
 		 "0x%x hProcessor: 0x%x\tuResourceMask: 0x%x\tpResourceInfo"
@@ -826,15 +768,19 @@ u32 PROCWRAP_EnumResources(union Trapped_Args *args, void *pr_ctxt)
 		 args->ARGS_PROC_ENUMRESOURCES.uResourceType,
 		 args->ARGS_PROC_ENUMRESOURCES.pResourceInfo,
 		 args->ARGS_PROC_ENUMRESOURCES.uResourceInfoSize);
+
+	if (args->ARGS_PROC_ENUMRESOURCES.uResourceInfoSize <
+		sizeof(struct DSP_RESOURCEINFO))
+		return DSP_ESIZE;
+
 	status = PROC_GetResourceInfo(args->ARGS_PROC_ENUMRESOURCES.hProcessor,
 			args->ARGS_PROC_ENUMRESOURCES.uResourceType,
 			&pResourceInfo,
 			args->ARGS_PROC_ENUMRESOURCES.uResourceInfoSize);
-	if (DSP_FAILED(status))
-		goto func_end;
+
 	cp_to_usr(args->ARGS_PROC_ENUMRESOURCES.pResourceInfo, &pResourceInfo,
 						status, 1);
-func_end:
+
 	return status;
 
 }
@@ -847,6 +793,11 @@ u32 PROCWRAP_GetState(union Trapped_Args *args, void *pr_ctxt)
 	DSP_STATUS status;
 	struct DSP_PROCESSORSTATE procStatus;
 	GT_0trace(WCD_debugMask, GT_ENTER, "PROCWRAP_GetState: entered\n");
+
+	if (args->ARGS_PROC_GETSTATE.uStateInfoSize <
+		sizeof(struct DSP_PROCESSORSTATE))
+		return DSP_ESIZE;
+
 	status = PROC_GetState(args->ARGS_PROC_GETSTATE.hProcessor, &procStatus,
 			      args->ARGS_PROC_GETSTATE.uStateInfoSize);
 	cp_to_usr(args->ARGS_PROC_GETSTATE.pProcStatus, &procStatus, status, 1);
@@ -864,7 +815,8 @@ u32 PROCWRAP_GetTrace(union Trapped_Args *args, void *pr_ctxt)
 
 	GT_0trace(WCD_debugMask, GT_ENTER, "PROCWRAP_GetTrace: entered\n");
 
-	DBC_Require(args->ARGS_PROC_GETTRACE.uMaxSize <= MAX_TRACEBUFLEN);
+	if (args->ARGS_PROC_GETTRACE.uMaxSize > MAX_TRACEBUFLEN)
+		return DSP_ESIZE;
 
 	pBuf = MEM_Calloc(args->ARGS_PROC_GETTRACE.uMaxSize, MEM_NONPAGED);
 	if (pBuf != NULL) {
@@ -890,10 +842,12 @@ u32 PROCWRAP_Load(union Trapped_Args *args, void *pr_ctxt)
 	DSP_STATUS status = DSP_SOK;
 	char *temp;
 	s32 count = args->ARGS_PROC_LOAD.iArgc;
-	u8 **argv, **envp = NULL;
+	u8 **argv = NULL, **envp = NULL;
 
-	DBC_Require(count > 0);
-	DBC_Require(count <= MAX_LOADARGS);
+	if (count <= 0 || count > MAX_LOADARGS) {
+		status = DSP_EINVALIDARG;
+		goto func_cont;
+	}
 
 	argv = MEM_Alloc(count * sizeof(u8 *), MEM_NONPAGED);
 	if (!argv) {
@@ -1009,14 +963,21 @@ u32 PROCWRAP_Map(union Trapped_Args *args, void *pr_ctxt)
 	void *pMapAddr;
 
 	GT_0trace(WCD_debugMask, GT_ENTER, "PROCWRAP_Map: entered\n");
+
+	if (!args->ARGS_PROC_MAPMEM.ulSize)
+		return DSP_ESIZE;
+
 	status = PROC_Map(args->ARGS_PROC_MAPMEM.hProcessor,
 			 args->ARGS_PROC_MAPMEM.pMpuAddr,
 			 args->ARGS_PROC_MAPMEM.ulSize,
 			 args->ARGS_PROC_MAPMEM.pReqAddr, &pMapAddr,
 			 args->ARGS_PROC_MAPMEM.ulMapAttr, pr_ctxt);
 	if (DSP_SUCCEEDED(status)) {
-		if (put_user(pMapAddr, args->ARGS_PROC_MAPMEM.ppMapAddr))
+		if (put_user(pMapAddr, args->ARGS_PROC_MAPMEM.ppMapAddr)) {
 			status = DSP_EINVALIDARG;
+			PROC_UnMap(args->ARGS_PROC_MAPMEM.hProcessor,
+				pMapAddr, pr_ctxt);
+		}
 
 	}
 	return status;
@@ -1054,12 +1015,20 @@ u32 PROCWRAP_ReserveMemory(union Trapped_Args *args, void *pr_ctxt)
 	DSP_STATUS status;
 	void *pRsvAddr;
 
+	if ((args->ARGS_PROC_RSVMEM.ulSize <= 0) ||
+		(args->ARGS_PROC_RSVMEM.ulSize & (PG_SIZE_4K - 1)) != 0)
+		return DSP_ESIZE;
+
 	GT_0trace(WCD_debugMask, GT_ENTER, "PROCWRAP_ReserveMemory: entered\n");
 	status = PROC_ReserveMemory(args->ARGS_PROC_RSVMEM.hProcessor,
 				   args->ARGS_PROC_RSVMEM.ulSize, &pRsvAddr);
-	if (put_user(pRsvAddr, args->ARGS_PROC_RSVMEM.ppRsvAddr))
-		status = DSP_EINVALIDARG;
-
+	if (DSP_SUCCEEDED(status)) {
+		if (put_user(pRsvAddr, args->ARGS_PROC_RSVMEM.ppRsvAddr)) {
+			status = DSP_EINVALIDARG;
+			PROC_UnReserveMemory(args->ARGS_PROC_RSVMEM.hProcessor,
+				pRsvAddr);
+		}
+	}
 	return status;
 }
 
@@ -1162,7 +1131,13 @@ u32 NODEWRAP_Allocate(union Trapped_Args *args, void *pr_ctxt)
 				      &nodeId, (struct DSP_CBDATA *)pArgs,
 				      pAttrIn, &hNode, pr_ctxt);
 	}
-	cp_to_usr(args->ARGS_NODE_ALLOCATE.phNode, &hNode, status, 1);
+	if (DSP_SUCCEEDED(status)) {
+		cp_to_usr(args->ARGS_NODE_ALLOCATE.phNode, &hNode, status, 1);
+		if (DSP_FAILED(status)) {
+			status = DSP_EPOINTER;
+			NODE_Delete(hNode, pr_ctxt);
+		}
+	}
 func_cont:
 	if (pArgs)
 		MEM_Free(pArgs);
@@ -1179,6 +1154,9 @@ u32 NODEWRAP_AllocMsgBuf(union Trapped_Args *args, void *pr_ctxt)
 	struct DSP_BUFFERATTR *pAttr = NULL;
 	struct DSP_BUFFERATTR attr;
 	u8 *pBuffer = NULL;
+
+	if (!args->ARGS_NODE_ALLOCMSGBUF.uSize)
+		return DSP_ESIZE;
 
 	if (args->ARGS_NODE_ALLOCMSGBUF.pAttr) {	/* Optional argument */
 		cp_fm_usr(&attr, args->ARGS_NODE_ALLOCMSGBUF.pAttr, status, 1);
@@ -1305,6 +1283,10 @@ u32 NODEWRAP_FreeMsgBuf(union Trapped_Args *args, void *pr_ctxt)
 			pAttr = &attr;
 
 	}
+
+	if (!args->ARGS_NODE_FREEMSGBUF.pBuffer)
+		return DSP_EPOINTER;
+
 	if (DSP_SUCCEEDED(status)) {
 		status = NODE_FreeMsgBuf(args->ARGS_NODE_FREEMSGBUF.hNode,
 					args->ARGS_NODE_FREEMSGBUF.pBuffer,
@@ -1454,7 +1436,6 @@ u32 NODEWRAP_GetUUIDProps(union Trapped_Args *args, void *pr_ctxt)
 	GT_0trace(WCD_debugMask, GT_ENTER,
 		 "NODEWRAP_GetUUIDPropste: entered\n");
 
-
 	cp_fm_usr(&nodeId, args->ARGS_NODE_GETUUIDPROPS.pNodeID, status, 1);
 	if (DSP_FAILED(status))
 		goto func_cont;
@@ -1482,15 +1463,24 @@ u32 STRMWRAP_AllocateBuffer(union Trapped_Args *args, void *pr_ctxt)
 	u8 **apBuffer = NULL;
 	u32 uNumBufs = args->ARGS_STRM_ALLOCATEBUFFER.uNumBufs;
 
-	DBC_Require(uNumBufs <= MAX_BUFS);
+	if (uNumBufs > MAX_BUFS)
+		return DSP_EINVALIDARG;
 
 	apBuffer = MEM_Alloc((uNumBufs * sizeof(u8 *)), MEM_NONPAGED);
 
 	status = STRM_AllocateBuffer(args->ARGS_STRM_ALLOCATEBUFFER.hStream,
 				     args->ARGS_STRM_ALLOCATEBUFFER.uSize,
 				     apBuffer, uNumBufs, pr_ctxt);
-	cp_to_usr(args->ARGS_STRM_ALLOCATEBUFFER.apBuffer, apBuffer, status,
-		 uNumBufs);
+	if (DSP_SUCCEEDED(status)) {
+		cp_to_usr(args->ARGS_STRM_ALLOCATEBUFFER.apBuffer, apBuffer,
+			status, uNumBufs);
+		if (DSP_FAILED(status)) {
+			status = DSP_EPOINTER;
+			STRM_FreeBuffer(
+				args->ARGS_STRM_ALLOCATEBUFFER.hStream,
+				apBuffer, uNumBufs, pr_ctxt);
+		}
+	}
 	if (apBuffer)
 		MEM_Free(apBuffer);
 
@@ -1514,7 +1504,8 @@ u32 STRMWRAP_FreeBuffer(union Trapped_Args *args, void *pr_ctxt)
 	u8 **apBuffer = NULL;
 	u32 uNumBufs = args->ARGS_STRM_FREEBUFFER.uNumBufs;
 
-	DBC_Require(uNumBufs <= MAX_BUFS);
+	if (uNumBufs > MAX_BUFS)
+		return DSP_EINVALIDARG;
 
 	apBuffer = MEM_Alloc((uNumBufs * sizeof(u8 *)), MEM_NONPAGED);
 
@@ -1585,6 +1576,10 @@ u32 STRMWRAP_Idle(union Trapped_Args *args, void *pr_ctxt)
 u32 STRMWRAP_Issue(union Trapped_Args *args, void *pr_ctxt)
 {
 	DSP_STATUS status = DSP_SOK;
+
+	if (!args->ARGS_STRM_ISSUE.pBuffer)
+		return DSP_EPOINTER;
+
 	/* No need of doing cp_fm_usr for the user buffer (pBuffer)
 	as this is done in Bridge internal function WMD_CHNL_AddIOReq
 	in chnl_sm.c */
@@ -1611,8 +1606,11 @@ u32 STRMWRAP_Open(union Trapped_Args *args, void *pr_ctxt)
 
 	if (attr.pStreamAttrIn != NULL) {	/* Optional argument */
 		cp_fm_usr(&strmAttrIn, attr.pStreamAttrIn, status, 1);
-		if (DSP_SUCCEEDED(status))
+		if (DSP_SUCCEEDED(status)) {
 			attr.pStreamAttrIn = &strmAttrIn;
+			if (attr.pStreamAttrIn->lMode == STRMMODE_LDMA)
+				return DSP_ENOTIMPL;
+		}
 
 	}
 	status = STRM_Open(args->ARGS_STRM_OPEN.hNode,
@@ -1682,7 +1680,8 @@ u32 STRMWRAP_Select(union Trapped_Args *args, void *pr_ctxt)
 	struct STRM_OBJECT *aStrmTab[MAX_STREAMS];
 	DSP_STATUS status = DSP_SOK;
 
-	DBC_Require(args->ARGS_STRM_SELECT.nStreams <= MAX_STREAMS);
+	if (args->ARGS_STRM_SELECT.nStreams > MAX_STREAMS)
+		return DSP_EINVALIDARG;
 
 	cp_fm_usr(aStrmTab, args->ARGS_STRM_SELECT.aStreamTab, status,
 		 args->ARGS_STRM_SELECT.nStreams);

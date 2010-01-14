@@ -3,6 +3,12 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This module implements DSP code management for the DSP/BIOS Bridge
+ * environment. It is mostly a thin wrapper.
+ *
+ * This module provides an interface for loading both static and
+ * dynamic code objects onto DSP systems.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,47 +18,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== cod.c ========
- *  This module implements DSP code management for the DSP/BIOS Bridge
- *  environment. It is mostly a thin wrapper.
- *
- *  This module provides an interface for loading both static and
- *  dynamic code objects onto DSP systems.
- *
- *! Revision History
- *! ================
- *! 08-Apr-2003 map: Consolidated DBL to DBLL loader name
- *! 24-Feb-2003 swa: PMGR Code review comments incorporated.
- *! 18-Apr-2002 jeh: Added DBL function tables.
- *! 20-Nov-2001 jeh: Removed call to ZL_loadArgs function.
- *! 19-Oct-2001 jeh: Access DBL as a static library. Added COD_GetBaseLib,
- *!		  COD_GetLoader, removed COD_LoadSection, COD_UnloadSection.
- *! 07-Sep-2001 jeh: Added COD_LoadSection(), COD_UnloadSection().
- *! 07-Aug-2001 rr:  hMgr->baseLib is updated after zlopen in COD_LoadBase.
- *! 18-Apr-2001 jeh: Check for fLoaded flag before ZL_unload, to allow
- *!		  COD_OpenBase to be used.
- *! 11-Jan-2001 jeh: Added COD_OpenBase (not used yet, since there is an
- *!		  occasional crash).
- *! 02-Aug-2000 kc:  Added COD_ReadSection to COD module. Incorporates use
- *!		  of ZL_readSect (new function in ZL module).
- *! 28-Feb-2000 rr:  New GT Usage Implementation
- *! 08-Dec-1999 ag:  Removed x86 specific __asm int 3.
- *! 02-Oct-1999 ag:  Added #ifdef DEBUGINT3COD for debug.
- *! 20-Sep-1999 ag:  Removed call to GT_set().
- *! 04-Jun-1997 cr:  Added validation of argc/argv pair in COD_LoadBase, as it
- *!		     is a requirement to ZL_loadArgs.
- *! 31-May-1997 cr:  Changed COD_LoadBase argc value from u32 to int, added
- *!	       DSP_ENOTIMPL return value to COD_Create when attrs != NULL.
- *! 29-May-1997 cr:  Added debugging support.
- *! 24-Oct-1996 gp:  Added COD_GetSection().
- *! 18-Jun-1996 gp:  Updated GetSymValue() to check for lib; updated E_ codes.
- *! 12-Jun-1996 gp:  Imported CSL_ services for strcpyn(); Added ref counting.
- *! 20-May-1996 mg:  Adapted for new MEM and LDR modules.
- *! 08-May-1996 mg:  Created.
  */
 
 /*  ----------------------------------- Host OS */
@@ -403,7 +368,7 @@ DSP_STATUS COD_GetBaseName(struct COD_MANAGER *hManager, char *pszName,
 	DBC_Require(pszName != NULL);
 
 	if (uSize <= COD_MAXPATHLENGTH)
-               strncpy(pszName, hManager->szZLFile, uSize);
+		strncpy(pszName, hManager->szZLFile, uSize);
 	else
 		status = DSP_EFAIL;
 
@@ -436,7 +401,7 @@ DSP_STATUS COD_GetEntry(struct COD_MANAGER *hManager, u32 *pulEntry)
  *      Get handle to the DBLL loader.
  */
 DSP_STATUS COD_GetLoader(struct COD_MANAGER *hManager,
-			       struct DBLL_TarObj **phLoader)
+				struct DBLL_TarObj **phLoader)
 {
 	DSP_STATUS status = DSP_SOK;
 

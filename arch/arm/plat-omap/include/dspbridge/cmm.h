@@ -3,6 +3,22 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * The Communication Memory Management(CMM) module provides shared memory
+ * management services for DSP/BIOS Bridge data streaming and messaging.
+ * Multiple shared memory segments can be registered with CMM. Memory is
+ * coelesced back to the appropriate pool when a buffer is freed.
+ *
+ * The CMM_Xlator[xxx] functions are used for node messaging and data
+ * streaming address translation to perform zero-copy inter-processor
+ * data transfer(GPP<->DSP). A "translator" object is created for a node or
+ * stream object that contains per thread virtual address information. This
+ * translator info is used at runtime to perform SM address translation
+ * to/from the DSP address space.
+ *
+ * Notes:
+ *   CMM_XlatorAllocBuf - Used by Node and Stream modules for SM address
+ *			  translation.
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,56 +28,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== cmm.h ========
- *  Purpose:
- *      The Communication Memory Management(CMM) module provides shared memory
- *      management services for DSP/BIOS Bridge data streaming and messaging.
- *      Multiple shared memory segments can be registered with CMM. Memory is
- *      coelesced back to the appropriate pool when a buffer is freed.
- *
- *      The CMM_Xlator[xxx] functions are used for node messaging and data
- *      streaming address translation to perform zero-copy inter-processor
- *      data transfer(GPP<->DSP). A "translator" object is created for a node or
- *      stream object that contains per thread virtual address information. This
- *      translator info is used at runtime to perform SM address translation
- *      to/from the DSP address space.
- *
- *
- *  Public Functions:
- *      CMM_CallocBuf
- *      CMM_Create
- *      CMM_Destroy
- *      CMM_Exit
- *      CMM_FreeBuf
- *      CMM_GetHandle
- *      CMM_GetInfo
- *      CMM_Init
- *      CMM_RegisterGPPSMSeg
- *      CMM_UnRegisterGPPSMSeg
- *      CMM_XlatorAllocBuf       (Note #1 below)
- *      CMM_XlatorCreate           "
- *      CMM_XlatorDelete           "
- *      CMM_XlatorFreeBuf          "
- *      CMM_XlatorTranslate        "
- *
- *
- *  Notes:
- *      #1: Used by Node and Stream modules for SM address translation.
- *
- *! Revision History:
- *! ================
- *! 30-Jan-2002 ag  Removed unused CMM_Alloc[Free]Desc & CMM_XlatorRegisterPa.
- *!                 Renamed CMM_AllocBuf() to CMM_CallocBuf().
- *! 29-Aug-2001 ag: Added dsp virt base and size to CMM_RegisterGPPSMSeg().
- *! 12-Aug-2001 ag: Added CMM_UnRegisterGPP[DSP}SMSeg[s]().
- *! 05-Dec-2000 ag: Added param to CMM_XlatorDelete() to force buf cleanup.
- *! 30-Oct-2000 ag: Added conversion factor to CMM_RegisterDSP[GPP]SMSeg().
- *! 12-Oct-2000 ag: Added CMM_Xlator[xxx] functions.
- *! 10-Aug-2000 ag: Created.
- *!
  */
 
 #ifndef CMM_

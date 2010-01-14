@@ -3,6 +3,12 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Defines upper edge DEH functions required by all WMD/WCD driver
+ * interface tables.
+ *
+ * Notes:
+ *   Function comment headers reside with the function typedefs in wmd.h.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,30 +18,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== wmddeh.h ========
- *  Description:
- *      Defines upper edge DEH functions required by all WMD/WCD driver
- *      interface tables.
- *
- *  Public Functions:
- *      WMD_DEH_Create
- *      IVA_DEH_Create
- *      WMD_DEH_Destroy
- *      WMD_DEH_GetInfo
- *      WMD_DEH_RegisterNotify
- *      WMD_DEH_Notify
- *
- *  Notes:
- *      Function comment headers reside with the function typedefs in wmd.h.
- *
- *! Revision History:
- *! ================
- *! 26-Dec-2004 hn: added IVA_DEH_Create.
- *! 13-Sep-2001 kc: created.
  */
 
 #ifndef WMDDEH_

@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Global DISP constants and types, shared by PROCESSOR, NODE, and DISP.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,18 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== dispdefs.h ========
- *  Description:
- *      Global DISP constants and types, shared by PROCESSOR, NODE, and DISP.
- *
- *! Revision History
- *! ================
- *! 08-Aug-2000 jeh     Added fields to DISP_ATTRS.
- *! 06-Jul-2000 jeh     Created.
  */
 
 #ifndef DISPDEFS_

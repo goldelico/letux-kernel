@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Global UTIL constants and types, shared between WCD and DSPSYS.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,20 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== utildefs.h ========
- *  Purpose:
- *      Global UTIL constants and types, shared between WCD and DSPSYS.
- *
- *! Revision History:
- *! ================
- *! 24-Feb-2003 kc  Removed wIOPort* entries from UTIL_HOSTCONFIG.
- *! 12-Aug-2000 ag  Added UTIL_SYSINFO typedef.
- *! 08-Oct-1999 rr  Adopted for WinCE where test fxns will be added in util.h
- *! 26-Dec-1996 cr  Created.
  */
 
 #ifndef UTILDEFS_

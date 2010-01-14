@@ -3,6 +3,14 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This file provides an API add-on to the dynamic loader that allows the user
+ * to query section information and extract section data from dynamic load
+ * modules.
+ *
+ * Notes:
+ *   Functions in this API assume that the supplied Dynamic_Loader_Stream
+ *   object supports the set_file_posn method.
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,24 +22,11 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
 #ifndef _GETSECTION_H_
 #define _GETSECTION_H_
 
 
 #include "dynamic_loader.h"
-
-/*
- * Get Section Information
- *
- * This file provides an API add-on to the dynamic loader that allows the user
- * to query section information and extract section data from dynamic load
- * modules.
- *
- * NOTE:
- * Functions in this API assume that the supplied Dynamic_Loader_Stream object
- * supports the set_file_posn method.
- */
 
 	/* opaque handle for module information */
 	typedef void *DLOAD_module_info;

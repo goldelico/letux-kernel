@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * The io module manages IO between CHNL and MSG.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,25 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== io.h ========
- *  Description:
- *      The io module manages IO between CHNL and MSG.
- *
- *  Public Functions:
- *      IO_Create
- *      IO_Destroy
- *      IO_Exit
- *      IO_Init
- *      IO_OnLoaded
- *
- *
- *! Revision History:
- *! ================
- *! 07-Nov-2000 jeh     Created.
  */
 
 #ifndef IO_

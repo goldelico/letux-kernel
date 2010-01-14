@@ -14,11 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== gh.c ========
- */
-
 #include <dspbridge/std.h>
 
 #include <dspbridge/host_os.h>

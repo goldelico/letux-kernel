@@ -14,26 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/*
- *  ======== dbll.c ========
- *
- *! Revision History
- *! ================
- *! 25-Apr-2030 map:    Fixed symbol redefinition bug + unload and return error
- *! 08-Apr-2003 map: 	Consolidated DBL with DBLL loader name
- *! 24-Mar-2003 map:    Updated findSymbol to support dllview update
- *! 23-Jan-2003 map:    Updated rmmAlloc to support memory granularity
- *! 21-Nov-2002 map:    Combine fopen and DLOAD_module_open to increase
- *!         performance on start.
- *! 04-Oct-2002 map:    Integrated new TIP dynamic loader w/ DOF api.
- *! 27-Sep-2002 map:    Changed handle passed to RemoteFree, instead of
- *!         RMM_free;  added GT_trace to rmmDealloc
- *! 20-Sep-2002 map:    Updated from Code Review
- *! 08-Aug-2002 jeh:    Updated to support overlays.
- *! 25-Jun-2002 jeh:    Pass RMM_Addr object to alloc function in rmmAlloc().
- *! 20-Mar-2002 jeh:    Created.
- */
-
 /*  ----------------------------------- Host OS */
 #include <dspbridge/host_os.h>
 
@@ -668,7 +648,7 @@ DSP_STATUS DBLL_open(struct DBLL_TarObj *target, char *file, DBLL_Flags flags,
 		 " 0x%x\n", target, file, pLib);
 	zlLib = zlTarget->head;
 	while (zlLib != NULL) {
-               if (strcmp(zlLib->fileName, file) == 0) {
+		if (strcmp(zlLib->fileName, file) == 0) {
 			/* Library is already opened */
 			zlLib->openRef++;
 			break;
@@ -690,7 +670,7 @@ DSP_STATUS DBLL_open(struct DBLL_TarObj *target, char *file, DBLL_Flags flags,
 			zlLib->openRef++;
 			zlLib->pTarget = zlTarget;
 			/* Keep a copy of the file name */
-                       zlLib->fileName = MEM_Calloc(strlen(file) + 1,
+			zlLib->fileName = MEM_Calloc(strlen(file) + 1,
 							MEM_PAGED);
 			if (zlLib->fileName == NULL) {
 				GT_0trace(DBLL_debugMask, GT_6CLASS,
@@ -698,8 +678,8 @@ DSP_STATUS DBLL_open(struct DBLL_TarObj *target, char *file, DBLL_Flags flags,
 					 "allocation failed\n");
 				status = DSP_EMEMORY;
 			} else {
-                               strncpy(zlLib->fileName, file,
-                                          strlen(file) + 1);
+				strncpy(zlLib->fileName, file,
+					strlen(file) + 1);
 			}
 			zlLib->symTab = NULL;
 		}
@@ -1018,7 +998,7 @@ static bool nameMatch(void *key, void *value)
 	DBC_Require(value != NULL);
 
 	if ((key != NULL) && (value != NULL)) {
-               if (strcmp((char *)key, ((struct Symbol *)value)->name) == 0)
+		if (strcmp((char *)key, ((struct Symbol *)value)->name) == 0)
 			return true;
 	}
 	return false;
@@ -1177,7 +1157,7 @@ static struct dynload_symbol *addToSymbolTable(struct Dynamic_Loader_Sym *this,
 	struct dynload_symbol *retVal;
 
 	DBC_Require(this != NULL);
-       DBC_Require(name);
+	DBC_Require(name);
 	lib = pSymbol->lib;
 	DBC_Require(MEM_IsValidHandle(lib, DBLL_LIBSIGNATURE));
 
@@ -1195,15 +1175,15 @@ static struct dynload_symbol *addToSymbolTable(struct Dynamic_Loader_Sym *this,
 		}
 	}
 	/* Allocate string to copy symbol name */
-       symbol.name = (char *)MEM_Calloc(strlen((char *const)name) + 1,
+	symbol.name = (char *)MEM_Calloc(strlen((char *const)name) + 1,
 							MEM_PAGED);
 	if (symbol.name == NULL)
 		return NULL;
 
 	if (symbol.name != NULL) {
 		/* Just copy name (value will be filled in by dynamic loader) */
-               strncpy(symbol.name, (char *const)name,
-                          strlen((char *const)name) + 1);
+		strncpy(symbol.name, (char *const)name,
+			strlen((char *const)name) + 1);
 
 		/* Add symbol to symbol table */
 		symPtr = (struct Symbol *)GH_insert(lib->symTab, (void *)name,
@@ -1321,8 +1301,8 @@ static int rmmAlloc(struct Dynamic_Loader_Allocate *this,
 
 	/* Attempt to extract the segment ID and requirement information from
 	 the name of the section */
-       DBC_Require(info->name);
-       tokenLen = strlen((char *)(info->name)) + 1;
+	DBC_Require(info->name);
+	tokenLen = strlen((char *)(info->name)) + 1;
 
 	szSectName = MEM_Calloc(tokenLen, MEM_PAGED);
 	szLastToken = MEM_Calloc(tokenLen, MEM_PAGED);
@@ -1333,11 +1313,11 @@ static int rmmAlloc(struct Dynamic_Loader_Allocate *this,
 		status = DSP_EMEMORY;
 		goto func_cont;
 	}
-       strncpy(szSectName, (char *)(info->name), tokenLen);
+	strncpy(szSectName, (char *)(info->name), tokenLen);
 	pszCur = szSectName;
 	while ((pToken = strsep(&pszCur, ":")) && *pToken != '\0') {
-               strncpy(szSecLastToken, szLastToken, strlen(szLastToken) + 1);
-               strncpy(szLastToken, pToken, strlen(pToken) + 1);
+		strncpy(szSecLastToken, szLastToken, strlen(szLastToken) + 1);
+		strncpy(szLastToken, pToken, strlen(pToken) + 1);
 		pToken = strsep(&pszCur, ":");
 		count++; 	/* optimizes processing*/
 	}
@@ -1346,13 +1326,13 @@ static int rmmAlloc(struct Dynamic_Loader_Allocate *this,
 	 within the section name - only process if there are at least three
 	 tokens within the section name (just a minor optimization)*/
 	if (count >= 3)
-               strict_strtol(szLastToken, 10, (long *)&req);
+		strict_strtol(szLastToken, 10, (long *)&req);
 
 	if ((req == 0) || (req == 1)) {
-               if (strcmp(szSecLastToken, "DYN_DARAM") == 0) {
+		if (strcmp(szSecLastToken, "DYN_DARAM") == 0) {
 			segId = 0;
 		} else {
-                       if (strcmp(szSecLastToken, "DYN_SARAM") == 0) {
+			if (strcmp(szSecLastToken, "DYN_SARAM") == 0) {
 				segId = 1;
 			} else {
 				if (strcmp(szSecLastToken,
@@ -1413,7 +1393,7 @@ func_cont:
  *  ======== rmmDealloc ========
  */
 static void rmmDealloc(struct Dynamic_Loader_Allocate *this,
-		       struct LDR_SECTION_INFO *info)
+			struct LDR_SECTION_INFO *info)
 {
 	struct DBLLAlloc *pAlloc = (struct DBLLAlloc *)this;
 	struct DBLL_LibraryObj *lib;
@@ -1491,13 +1471,14 @@ static int writeMem(struct Dynamic_Loader_Initialize *this, void *buf,
 
 	DBC_Require(this != NULL);
 	lib = pInit->lib;
-	DBC_Require(MEM_IsValidHandle(lib, DBLL_LIBSIGNATURE));
+	if (!MEM_IsValidHandle(lib, DBLL_LIBSIGNATURE))
+		return false;
+
+	pTarget = lib->pTarget;
 
 	memType = (DLOAD_SECTION_TYPE(info->type) == DLOAD_TEXT) ? DBLL_CODE :
 		  DBLL_DATA;
-	if ((lib != NULL) &&
-	    ((pTarget = lib->pTarget) != NULL) &&
-	    (pTarget->attrs.write != NULL)) {
+	if (pTarget && pTarget->attrs.write) {
 		retVal = (*pTarget->attrs.write)(pTarget->attrs.wHandle,
 						 addr, buf, nBytes, memType);
 

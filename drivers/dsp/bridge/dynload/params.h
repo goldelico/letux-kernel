@@ -3,6 +3,15 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This file defines host and target properties for all machines
+ * supported by the dynamic loader.  To be tedious...
+ *
+ * host: the machine on which the dynamic loader runs
+ * target: the machine that the dynamic loader is loading
+ *
+ * Host and target may or may not be the same, depending upon the particular
+ * use.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,26 +23,9 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-
-/******************************************************************************
- *
- * This file defines host and target properties for all machines
- * supported by the dynamic loader.  To be tedious...
- *
- *		host == the machine on which the dynamic loader runs
- *		target == the machine that the dynamic loader is loading
- *
- * Host and target may or may not be the same, depending upon the particular
- * use.
- *****************************************************************************/
-
-/******************************************************************************
- *
- *							Host Properties
- *
- *****************************************************************************/
-
+/*
+ * Host Properties
+ */
 #define BITS_PER_BYTE 8		/* bits in the standard PC/SUN byte */
 #define LOG_BITS_PER_BYTE 3	/* log base 2 of same */
 #define BYTE_MASK ((1U<<BITS_PER_BYTE)-1)
@@ -57,12 +49,9 @@
 
 /* !! don't be tempted to insert type definitions here; use <stdint.h> !! */
 
-/******************************************************************************
- *
- *							Target Properties
- *
- *****************************************************************************/
-
+/*
+ * Target Properties
+ */
 
 /*--------------------------------------------------------------------------*/
 /* TMS320C6x Target Specific Parameters (byte-addressable)                  */
@@ -122,9 +111,7 @@
 #endif
 
 /*
- *
  * Useful properties and conversions derived from the above
- *
  */
 
 /*

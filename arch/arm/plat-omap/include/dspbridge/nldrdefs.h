@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Global Dynamic + static/overlay Node loader (NLDR) constants and types.
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,18 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== nldrdefs.h ========
- *  Description:
- *      Global Dynamic + static/overlay Node loader (NLDR) constants and types.
- *
- *! Revision History
- *! ================
- *! 07-Apr-2003 map     Consolidated dldrdefs.h into nldrdefs.h
- *! 05-Aug-2002 jeh     Created.
  */
 
 #ifndef NLDRDEFS_
@@ -297,7 +287,6 @@
 		NLDR_CREATEFXN pfnCreate;
 		NLDR_DELETEFXN pfnDelete;
 		NLDR_EXITFXN pfnExit;
-		NLDR_FREEFXN pfnFree;
 		NLDR_GETFXNADDRFXN pfnGetFxnAddr;
 		NLDR_INITFXN pfnInit;
 		NLDR_LOADFXN pfnLoad;

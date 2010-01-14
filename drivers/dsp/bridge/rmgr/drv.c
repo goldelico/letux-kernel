@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge resource allocation module.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,82 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== drv.c ========
- *  Description:
- *      DSP/BIOS Bridge resource allocation module.
- *
- *  Public Functions:
- *      DRV_Create
- *      DRV_Destroy
- *      DRV_Exit
- *      DRV_GetDevObject
- *      DRV_GetDevExtension
- *      DRV_GetFirstDevObject
- *      DRV_GetNextDevObject
- *      DRV_GetNextDevExtension
- *      DRV_Init
- *      DRV_InsertDevObject
- *      DRV_RemoveDevObject
- *      DRV_RequestResources
- *      DRV_ReleaseResources
- *
- *! Revision History
- *! ======== ========
- *! 19-Apr-2004 sb: Replaced OS specific APIs with MEM_AllocPhysMem and
-		    MEM_FreePhysMem. Fixed warnings. Cosmetic updates.
- *! 12-Apr-2004 hp: IVA clean up during bridge-uninstall
- *! 05-Jan-2004 vp: Updated for 24xx platform
- *! 21-Mar-2003 sb: Get SHM size from registry
- *! 10-Feb-2003 vp: Code review updates
- *! 18-Oct-2002 vp: Ported to Linux platform
- *! 30-Oct-2000 kc: Modified usage of REG_SetValue.
- *! 06-Sep-2000 jeh Read channel info into struct CFG_HOSTRES in
- *! 					RequestISAResources()
- *! 21-Sep-2000 rr: numwindows is calculated instead of default value in
- *!		 RequestISAResources.
- *! 07-Aug-2000 rr: static list of dev objects removed.
- *! 27-Jul-2000 rr: RequestResources split into two(Request and Release)
- *!		 Device extension created to hold the DevNodeString.
- *! 17-Jul-2000 rr: Driver Object holds the list of Device Objects.
- *!		 Added DRV_Create, DRV_Destroy, DRV_GetDevObject,
- *!		 DRV_GetFirst/NextDevObject, DRV_Insert/RemoveDevObject.
- *! 09-May-2000 rr: PCI Support is not L301 specific.Use of MEM_Calloc
- *!		 instead of MEM_Alloc.
- *! 28-Mar-2000 rr: PCI Support added. L301 Specific. TBD.
- *! 03-Feb-2000 rr: GT and Module Init/exit Changes. Merged with kc.
- *! 19-Jan-2000 rr: DBC_Ensure in RequestPCMCIA moved within PCCARD ifdef
- *! 29-Dec-1999 rr: PCCard support for any slot.Bus type stored in the
- *!		 struct CFG_HOSTRES Structure.
- *! 17-Dec-1999 rr: if PCCARD_Init fails we return DSP_EFAIL.
- *!		 DBC_Ensure checks for sucess and pDevice != NULL
- *! 11-Dec-1999 ag: #define "Isa" renamed to "IsaBus".
- *! 09-Dec-1999 rr: windows.h included to remove warnings.
- *! 02-Dec-1999 rr: struct GT_Mask is with in if DEBUG. Request resources checks
- *!		 status while making call to Reg functions.
- *! 23-Nov-1999 rr: windows.h included
- *! 19-Nov-1999 rr: DRV_RELEASE bug while setting the registry to zero.
- *!		 fixed.
- *! 12-Nov-1999 rr: RequestResources() reads values from the registry.
- *!		 Hardcoded bIRQRegister define removed.
- *! 05-Nov-1999 rr: Added hardcoded device interrupt.
- *! 25-Oct-1999 rr: Resource structure removed. Now it uses the Host
- *!		 Resource structure directly.
- *! 15-Oct-1999 rr: Resource Structure modified. See drv.h
- *!		 dwBusType taken from the registry.Hard coded
- *!		 registry entries removed.
- *! 05-Oct-1999 rr: Calling DEV_StartDevice moved to wcdce.c. DRV_Register
- *!		 MiniDriver has been renamed to DRV_RequestResources.
- *!		 DRV_UnRegisterMiniDriver fxn removed.
- *! 24-Sep-1999 rr: Significant changes to the RegisterMiniDriver fxns.
- *!		 Now it is simpler. IT stores the dev node in the
- *!		 registry, assign resources and calls the DEV_Start.
- *! 10-Sep-1999 rr: Register Minidriver modified.
- *!		 - Resource structure follows the NT model
- *! 08-Aug-1999 rr: Adopted for WinCE. Exports Fxns removed. Hull Created.
  */
 
 /*  ----------------------------------- Host OS */
@@ -165,6 +91,7 @@ DSP_STATUS DRV_ProcUpdatestate(HANDLE hPCtxt, enum GPP_PROC_RES_STATE status)
 	if (pCtxt != NULL) {
 		pCtxt->resState = status;
 	} else {
+		status1 = DSP_EHANDLE;
 		GT_0trace(curTrace, GT_ENTER,
 			 "DRV_ProcUpdatestate: Failed to update "
 			 "process state");
@@ -215,26 +142,21 @@ DSP_STATUS DRV_RemoveNodeResElement(HANDLE hNodeRes, HANDLE hPCtxt)
 {
 	struct NODE_RES_OBJECT *pNodeRes = (struct NODE_RES_OBJECT *)hNodeRes;
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	DSP_STATUS	status = DSP_SOK;
-	struct NODE_RES_OBJECT *pTempNode2 = pCtxt->pNodeList;
-	struct NODE_RES_OBJECT *pTempNode = pCtxt->pNodeList;
+	struct NODE_RES_OBJECT *pTempNode;
 
 	DBC_Assert(hPCtxt != NULL);
-	GT_0trace(curTrace, GT_ENTER, "\nDRV_RemoveNodeResElement: 1\n");
-	while ((pTempNode != NULL) && (pTempNode != pNodeRes)) {
-		pTempNode2 = pTempNode;
-		pTempNode = pTempNode->next;
-	}
-	if (pCtxt->pNodeList == pNodeRes)
+	pTempNode = pCtxt->pNodeList;
+	if (pTempNode == pNodeRes) {
 		pCtxt->pNodeList = pNodeRes->next;
-
-	if (pTempNode == NULL)
-		return DSP_ENOTFOUND;
-	else if (pTempNode2->next != NULL)
-		pTempNode2->next = pTempNode2->next->next;
-
-	MEM_Free(pTempNode);
-	return status;
+	} else {
+		while (pTempNode && pTempNode->next != pNodeRes)
+			pTempNode = pTempNode->next;
+		if (!pTempNode)
+			return DSP_ENOTFOUND;
+		pTempNode->next = pNodeRes->next;
+	}
+	MEM_Free(pNodeRes);
+	return DSP_SOK;
 }
 
 /* Actual Node De-Allocation */
@@ -321,35 +243,25 @@ DSP_STATUS DRV_InsertDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
 
 /* Release DMM resource element context
 * This is called from Proc_UnMap. after the actual resource is freed */
-DSP_STATUS 	DRV_RemoveDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
+DSP_STATUS DRV_RemoveDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
 {
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
 	struct DMM_RES_OBJECT *pDMMRes = (struct DMM_RES_OBJECT *)hDMMRes;
-	DSP_STATUS status = DSP_SOK;
-	struct DMM_RES_OBJECT *pTempDMMRes2 = NULL;
 	struct DMM_RES_OBJECT *pTempDMMRes = NULL;
 
 	DBC_Assert(hPCtxt != NULL);
-	pTempDMMRes2 = pCtxt->pDMMList;
 	pTempDMMRes = pCtxt->pDMMList;
-	GT_0trace(curTrace, GT_ENTER, "DRV_RemoveDMMResElement: 1");
-	while ((pTempDMMRes != NULL) && (pTempDMMRes != pDMMRes)) {
-		GT_0trace(curTrace, GT_ENTER, "DRV_RemoveDMMResElement: 2");
-		pTempDMMRes2 = pTempDMMRes;
-		pTempDMMRes = pTempDMMRes->next;
+	if (pCtxt->pDMMList == pDMMRes) {
+		pCtxt->pDMMList = pDMMRes->next;
+	} else {
+		while (pTempDMMRes && pTempDMMRes->next != pDMMRes)
+			pTempDMMRes = pTempDMMRes->next;
+		if (!pTempDMMRes)
+			return DSP_ENOTFOUND;
+		pTempDMMRes->next = pDMMRes->next;
 	}
-	GT_0trace(curTrace, GT_ENTER, "DRV_RemoveDMMResElement: 3");
-	if (pCtxt->pDMMList == pTempDMMRes)
-		pCtxt->pDMMList = pTempDMMRes->next;
-
-	if (pTempDMMRes == NULL)
-		return DSP_ENOTFOUND;
-	else if (pTempDMMRes2->next != NULL)
-		pTempDMMRes2->next = pTempDMMRes2->next->next;
-
 	MEM_Free(pDMMRes);
-	GT_0trace(curTrace, GT_ENTER, "DRV_RemoveDMMResElement: 4");
-	return status;
+	return DSP_SOK;
 }
 
 /* Update DMM resource status */
@@ -387,8 +299,14 @@ DSP_STATUS  DRV_ProcFreeDMMRes(HANDLE hPCtxt)
 		if (pDMMRes->dmmAllocated) {
 			status = PROC_UnMap(pDMMRes->hProcessor,
 				 (void *)pDMMRes->ulDSPResAddr, pCtxt);
+			if (DSP_FAILED(status))
+				pr_debug("%s: PROC_UnMap failed! status ="
+						" 0x%xn", __func__, status);
 			status = PROC_UnReserveMemory(pDMMRes->hProcessor,
 				 (void *)pDMMRes->ulDSPResAddr);
+			if (DSP_FAILED(status))
+				pr_debug("%s: PROC_UnReserveMemory failed!"
+					" status = 0x%xn", __func__, status);
 			pDMMRes->dmmAllocated = 0;
 		}
 	}
@@ -421,7 +339,6 @@ DSP_STATUS DRV_GetDMMResElement(u32 pMapAddr, HANDLE hDMMRes, HANDLE hPCtxt)
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
 	struct DMM_RES_OBJECT **pDMMRes = (struct DMM_RES_OBJECT **)hDMMRes;
 	DSP_STATUS status = DSP_SOK;
-	struct DMM_RES_OBJECT *pTempDMM2 = NULL;
 	struct DMM_RES_OBJECT *pTempDMM = NULL;
 
 	DBC_Assert(hPCtxt != NULL);
@@ -431,7 +348,6 @@ DSP_STATUS DRV_GetDMMResElement(u32 pMapAddr, HANDLE hDMMRes, HANDLE hPCtxt)
 			 "DRV_GetDMMResElement: 2 pTempDMM:%x "
 			 "pTempDMM->ulDSPAddr:%x pMapAddr:%x\n", pTempDMM,
 			 pTempDMM->ulDSPAddr, pMapAddr);
-		pTempDMM2 = pTempDMM;
 		pTempDMM = pTempDMM->next;
 	}
 	if (pTempDMM != NULL) {
@@ -549,25 +465,24 @@ DSP_STATUS 	DRV_ProcRemoveSTRMResElement(HANDLE hSTRMRes, HANDLE hPCtxt)
 {
 	struct STRM_RES_OBJECT *pSTRMRes = (struct STRM_RES_OBJECT *)hSTRMRes;
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	DSP_STATUS status = DSP_SOK;
-	struct STRM_RES_OBJECT *pTempSTRMRes2 = pCtxt->pSTRMList;
-	struct STRM_RES_OBJECT *pTempSTRMRes = pCtxt->pSTRMList;
+	struct STRM_RES_OBJECT *pTempSTRMRes;
 
 	DBC_Assert(hPCtxt != NULL);
-	while ((pTempSTRMRes != NULL) && (pTempSTRMRes != pSTRMRes)) {
-		pTempSTRMRes2 = pTempSTRMRes;
-		pTempSTRMRes = pTempSTRMRes->next;
-	}
-	if (pCtxt->pSTRMList == pTempSTRMRes)
-		pCtxt->pSTRMList = pTempSTRMRes->next;
 
-	if (pTempSTRMRes == NULL)
-		status = DSP_ENOTFOUND;
-	else if (pTempSTRMRes2->next != NULL)
-		pTempSTRMRes2->next = pTempSTRMRes2->next->next;
+	pTempSTRMRes = pCtxt->pSTRMList;
+
+	if (pCtxt->pSTRMList == pSTRMRes) {
+		pCtxt->pSTRMList = pSTRMRes->next;
+	} else {
+		while (pTempSTRMRes && pTempSTRMRes->next != pSTRMRes)
+			pTempSTRMRes = pTempSTRMRes->next;
+		if (pTempSTRMRes == NULL)
+			return DSP_ENOTFOUND;
+		pTempSTRMRes->next = pSTRMRes->next;
+	}
 
 	MEM_Free(pSTRMRes);
-	return status;
+	return DSP_SOK;
 }
 
 /* Actual Stream De-Allocation */
@@ -662,12 +577,11 @@ DSP_STATUS DRV_GetSTRMResElement(HANDLE hStrm, HANDLE hSTRMRes, HANDLE hPCtxt)
 }
 
 /* Updating the stream resource element */
-DSP_STATUS DRV_ProcUpdateSTRMRes(u32 uNumBufs, HANDLE hSTRMRes, HANDLE hPCtxt)
+DSP_STATUS DRV_ProcUpdateSTRMRes(u32 uNumBufs, HANDLE hSTRMRes)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct STRM_RES_OBJECT **STRMRes = (struct STRM_RES_OBJECT **)hSTRMRes;
 
-	DBC_Assert(hPCtxt != NULL);
 	(*STRMRes)->uNumBufs = uNumBufs;
 	return status;
 }
@@ -703,32 +617,31 @@ DSP_STATUS DRV_Create(OUT struct DRV_OBJECT **phDRVObject)
 				MEM_FreeObject(pDRVObject);
 			}
 		} else {
-			status = DSP_EFAIL;
+			status = DSP_EMEMORY;
 			GT_0trace(curTrace, GT_7CLASS,
 				 "Failed to Create Dev List ");
 			MEM_FreeObject(pDRVObject);
 		}
 	} else {
-		status = DSP_EFAIL;
+		status = DSP_EMEMORY;
 		GT_0trace(curTrace, GT_7CLASS,
 			 "Failed to Allocate Memory for DRV Obj");
 	}
+	/* Store the DRV Object in the Registry */
+	if (DSP_SUCCEEDED(status))
+		status = CFG_SetObject((u32) pDRVObject, REG_DRV_OBJECT);
 	if (DSP_SUCCEEDED(status)) {
-		/* Store the DRV Object in the Registry */
-		if (DSP_SUCCEEDED
-		    (CFG_SetObject((u32) pDRVObject, REG_DRV_OBJECT))) {
-			GT_1trace(curTrace, GT_1CLASS,
-				 "DRV Obj Created pDrvObject 0x%x\n ",
-				 pDRVObject);
-			*phDRVObject = pDRVObject;
-		} else {
-			/* Free the DRV Object */
-			status = DSP_EFAIL;
-			MEM_Free(pDRVObject);
-			GT_0trace(curTrace, GT_7CLASS,
-				 "Failed to update the Registry with "
+		GT_1trace(curTrace, GT_1CLASS,
+			 "DRV Obj Created pDrvObject 0x%x\n ",
+			 pDRVObject);
+		*phDRVObject = pDRVObject;
+	} else {
+		/* Free the DRV Object */
+		MEM_Free(pDRVObject);
+		GT_0trace(curTrace, GT_7CLASS,
+			 "Failed to update the Registry with "
 				 "DRV Object ");
-		}
+
 	}
 	GT_2trace(curTrace, GT_ENTER,
 		 "Exiting DRV_Create: phDRVObject: 0x%x\tstatus:"
@@ -822,7 +735,6 @@ DSP_STATUS DRV_GetDevObject(u32 uIndex, struct DRV_OBJECT *hDrvObject,
 	}
 	if (pDevObject) {
 		*phDevObject = (struct DEV_OBJECT *) pDevObject;
-		status = DSP_SOK;
 	} else {
 		*phDevObject = NULL;
 		status = DSP_EFAIL;
@@ -962,7 +874,7 @@ DSP_STATUS DRV_Init(void)
  *      Insert a DevObject into the list of Manager object.
  */
 DSP_STATUS DRV_InsertDevObject(struct DRV_OBJECT *hDRVObject,
-			       struct DEV_OBJECT *hDevObject)
+				struct DEV_OBJECT *hDevObject)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct DRV_OBJECT *pDRVObject = (struct DRV_OBJECT *)hDRVObject;
@@ -993,7 +905,7 @@ DSP_STATUS DRV_InsertDevObject(struct DRV_OBJECT *hDRVObject,
  *      objects.
  */
 DSP_STATUS DRV_RemoveDevObject(struct DRV_OBJECT *hDRVObject,
-			       struct DEV_OBJECT *hDevObject)
+				struct DEV_OBJECT *hDevObject)
 {
 	DSP_STATUS status = DSP_EFAIL;
 	struct DRV_OBJECT *pDRVObject = (struct DRV_OBJECT *)hDRVObject;
@@ -1050,8 +962,9 @@ DSP_STATUS DRV_RequestResources(u32 dwContext, u32 *pDevNodeString)
 	 *  it is freed in the Release resources. Update the driver object
 	 *  list.
 	 */
-	if (DSP_SUCCEEDED(CFG_GetObject((u32 *)&pDRVObject,
-	   REG_DRV_OBJECT))) {
+
+	status = CFG_GetObject((u32 *)&pDRVObject, REG_DRV_OBJECT);
+	if (DSP_SUCCEEDED(status)) {
 		pszdevNode = MEM_Calloc(sizeof(struct DRV_EXT), MEM_NONPAGED);
 		if (pszdevNode) {
 			LST_InitElem(&pszdevNode->link);
@@ -1065,17 +978,16 @@ DSP_STATUS DRV_RequestResources(u32 dwContext, u32 *pDevNodeString)
 		} else {
 			GT_0trace(curTrace, GT_7CLASS,
 				"Failed to Allocate Memory devNodeString ");
-			status = DSP_EFAIL;
+			status = DSP_EMEMORY;
 			*pDevNodeString = 0;
 		}
 	} else {
-		status = DSP_EFAIL;
 		GT_0trace(curTrace, GT_7CLASS,
 			 "Failed to get Driver Object from Registry");
 		*pDevNodeString = 0;
 	}
 
-       if (!(strcmp((char *) dwContext, "TIOMAP1510"))) {
+	if (!(strcmp((char *) dwContext, "TIOMAP1510"))) {
 		GT_0trace(curTrace, GT_1CLASS,
 			  " Allocating resources for UMA \n");
 		status = RequestBridgeResourcesDSP(dwContext, DRV_ASSIGN);
@@ -1108,7 +1020,7 @@ DSP_STATUS DRV_ReleaseResources(u32 dwContext, struct DRV_OBJECT *hDrvObject)
 
 	GT_0trace(curTrace, GT_ENTER, "Entering DRV_Release Resources\n");
 
-       if (!(strcmp((char *)((struct DRV_EXT *)dwContext)->szString,
+	if (!(strcmp((char *)((struct DRV_EXT *)dwContext)->szString,
 	   "TIOMAP1510"))) {
 		GT_0trace(curTrace, GT_1CLASS,
 			 " Releasing DSP-Bridge resources \n");
@@ -1117,10 +1029,9 @@ DSP_STATUS DRV_ReleaseResources(u32 dwContext, struct DRV_OBJECT *hDrvObject)
 		GT_0trace(curTrace, GT_1CLASS, " Unknown device\n");
 	}
 
-	if (DSP_SUCCEEDED(status)) {
+	if (DSP_FAILED(status))
 		GT_0trace(curTrace, GT_1CLASS,
 			 "Failed to relese bridge resources\n");
-	}
 
 	/*
 	 *  Irrespective of the status go ahead and clean it
@@ -1223,15 +1134,13 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 				iounmap(pResources->dwDmmuBase);
 			if (pResources->dwPerBase)
 				iounmap(pResources->dwPerBase);
-                       if (pResources->dwPerPmBase)
-                               iounmap((void *)pResources->dwPerPmBase);
-                       if (pResources->dwCorePmBase)
-                               iounmap((void *)pResources->dwCorePmBase);
-			if (pResources->dwSysCtrlBase) {
+			if (pResources->dwPerPmBase)
+				iounmap((void *)pResources->dwPerPmBase);
+			if (pResources->dwCorePmBase)
+				iounmap((void *)pResources->dwCorePmBase);
+			if (pResources->dwSysCtrlBase)
 				iounmap(pResources->dwSysCtrlBase);
-				/* don't set pResources->dwSysCtrlBase to null
-				 * as it is used in BOARD_Stop */
-			}
+
 			pResources->dwPrmBase = NULL;
 			pResources->dwCmBase = NULL;
 			pResources->dwMboxBase = NULL;
@@ -1241,6 +1150,7 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 			pResources->dwMemBase[4] = (u32) NULL;
 			pResources->dwWdTimerDspBase = NULL;
 			pResources->dwDmmuBase = NULL;
+			pResources->dwSysCtrlBase = NULL;
 
 			dwBuffSize = sizeof(struct CFG_HOSTRES);
 			status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
@@ -1286,27 +1196,25 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 		/* for 24xx base port is not mapping the mamory for DSP
 		 * internal memory TODO Do a ioremap here */
 		/* Second window is for DSP external memory shared with MPU */
-		if (DSP_SUCCEEDED(status)) {
-			/* for Linux, these are hard-coded values */
-			pResources->bIRQRegisters = 0;
-			pResources->bIRQAttrib = 0;
-			pResources->dwOffsetForMonitor = 0;
-			pResources->dwChnlOffset = 0;
-			/* CHNL_MAXCHANNELS */
-			pResources->dwNumChnls = CHNL_MAXCHANNELS;
-			pResources->dwChnlBufSize = 0x400;
-			dwBuffSize = sizeof(struct CFG_HOSTRES);
-			status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
+		/* for Linux, these are hard-coded values */
+		pResources->bIRQRegisters = 0;
+		pResources->bIRQAttrib = 0;
+		pResources->dwOffsetForMonitor = 0;
+		pResources->dwChnlOffset = 0;
+		/* CHNL_MAXCHANNELS */
+		pResources->dwNumChnls = CHNL_MAXCHANNELS;
+		pResources->dwChnlBufSize = 0x400;
+		dwBuffSize = sizeof(struct CFG_HOSTRES);
+		status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
 						sizeof(struct CFG_HOSTRES));
-			if (DSP_SUCCEEDED(status)) {
-				GT_0trace(curTrace, GT_1CLASS,
-					 " Successfully set the registry "
-					 "value for CURRENTCONFIG\n");
-			} else {
-				GT_0trace(curTrace, GT_7CLASS,
-					 " Failed to set the registry "
-					 "value for CURRENTCONFIG\n");
-			}
+		if (DSP_SUCCEEDED(status)) {
+			GT_0trace(curTrace, GT_1CLASS,
+				 " Successfully set the registry "
+				 "value for CURRENTCONFIG\n");
+		} else {
+			GT_0trace(curTrace, GT_7CLASS,
+				 " Failed to set the registry "
+				 "value for CURRENTCONFIG\n");
 		}
 		MEM_Free(pResources);
 	}
@@ -1358,10 +1266,10 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 bRequest)
 							OMAP_DSP_MEM3_SIZE);
 		pResources->dwPerBase = ioremap(OMAP_PER_CM_BASE,
 							OMAP_PER_CM_SIZE);
-               pResources->dwPerPmBase = ioremap(OMAP_PER_PRM_BASE,
-                                                       OMAP_PER_PRM_SIZE);
-               pResources->dwCorePmBase = (u32)ioremap(OMAP_CORE_PRM_BASE,
-                                                       OMAP_CORE_PRM_SIZE);
+		pResources->dwPerPmBase = ioremap(OMAP_PER_PRM_BASE,
+							OMAP_PER_PRM_SIZE);
+		pResources->dwCorePmBase = (u32)ioremap(OMAP_CORE_PRM_BASE,
+							OMAP_CORE_PRM_SIZE);
 		pResources->dwDmmuBase = ioremap(OMAP_DMMU_BASE,
 							OMAP_DMMU_SIZE);
 		pResources->dwWdTimerDspBase = NULL;

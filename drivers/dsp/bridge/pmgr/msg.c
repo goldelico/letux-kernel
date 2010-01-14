@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge MSG Module.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,27 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== msg.c ========
- *  Description:
- *      DSP/BIOS Bridge MSG Module.
- *
- *  Public Functions:
- *      MSG_Create
- *      MSG_Delete
- *      MSG_Exit
- *      MSG_Init
- *
- *! Revision History:
- *! =================
- *! 24-Feb-2003 swa 	PMGR Code review comments incorporated.
- *! 15-May-2001 ag      Changed SUCCEEDED to DSP_SUCCEEDED.
- *! 16-Feb-2001 jeh     Fixed some comments.
- *! 15-Dec-2000 rr      MSG_Create returns DSP_EFAIL if pfnMsgCreate fails.
- *! 12-Sep-2000 jeh     Created.
  */
 
 /*  ----------------------------------- Host OS */

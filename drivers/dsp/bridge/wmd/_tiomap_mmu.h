@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Definitions and types for the DSP MMU modules.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,20 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== _tiomap_mmu.h ========
- *  Description:
- *      Definitions and types for the DSP MMU modules
- *
- *! Revision History
- *! ================
- *! 19-Apr-2004 sb:  Renamed HW types. Removed dspMmuTlbEntry
- *! 05-Jan-2004 vp:  Moved the file to a platform specific folder from common.
- *! 21-Mar-2003 sb:  Added macro definition TIHEL_LARGEPAGESIZE
- *! 08-Oct-2002 rr:  Created.
  */
 
 #ifndef _TIOMAP_MMU_

@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Node Dispatcher interface. Communicates with Resource Manager Server
+ * (RMS) on DSP. Access to RMS is synchronized in NODE.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software;  you can redistribute it and/or modify
@@ -12,38 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== disp.c ========
- *
- *  Description:
- *      Node Dispatcher interface. Communicates with Resource Manager Server
- *      (RMS) on DSP. Access to RMS is synchronized in NODE.
- *
- *  Public Functions:
- *      DISP_Create
- *      DISP_Delete
- *      DISP_Exit
- *      DISP_Init
- *      DISP_NodeChangePriority
- *      DISP_NodeCreate
- *      DISP_NodeDelete
- *      DISP_NodePause
- *      DISP_NodeRun
- *
- *! Revision History:
- *! =================
- *! 18-Feb-2003 vp      Code review updates
- *! 18-Oct-2002 vp      Ported to Linux platform
- *! 16-May-2002 jeh     Added DISP_DoCinit().
- *! 24-Apr-2002 jeh     Added DISP_MemWrite().
- *! 13-Feb-2002 jeh     Pass system stack size to RMS.
- *! 16-Jan-2002  ag     Added bufsize param to _ChnlAddIOReq() fxn
- *! 10-May-2001 jeh     Code Review cleanup.
- *! 26-Sep-2000 jeh     Fixed status values in SendMessage().
- *! 19-Jun-2000 jeh     Created.
  */
 
 /*  ----------------------------------- Host OS */
@@ -189,23 +160,22 @@ DSP_STATUS DISP_Create(OUT struct DISP_OBJECT **phDispObject,
 		status = DSP_EFAIL;
 		goto func_cont;
 	}
-	if (DSP_SUCCEEDED(status)) {
-		pDisp->uCharSize = DSPWORDSIZE;
-		pDisp->uWordSize = DSPWORDSIZE;
-		pDisp->uDataMauSize = DSPWORDSIZE;
-		/* Open channels for communicating with the RMS */
-		chnlAttrs.uIOReqs = CHNLIOREQS;
-		chnlAttrs.hEvent = NULL;
-		ulChnlId = pDispAttrs->ulChnlOffset + CHNLTORMSOFFSET;
-		status = (*pIntfFxns->pfnChnlOpen)(&(pDisp->hChnlToDsp),
-			 pDisp->hChnlMgr, CHNL_MODETODSP, ulChnlId, &chnlAttrs);
-		if (DSP_FAILED(status)) {
-			GT_2trace(DISP_DebugMask, GT_6CLASS,
-				 "DISP_Create:  Channel to RMS "
-				 "open failed, chnl id = %d, status = 0x%x\n",
-				 ulChnlId, status);
-		}
-	}
+
+	pDisp->uCharSize = DSPWORDSIZE;
+	pDisp->uWordSize = DSPWORDSIZE;
+	pDisp->uDataMauSize = DSPWORDSIZE;
+	/* Open channels for communicating with the RMS */
+	chnlAttrs.uIOReqs = CHNLIOREQS;
+	chnlAttrs.hEvent = NULL;
+	ulChnlId = pDispAttrs->ulChnlOffset + CHNLTORMSOFFSET;
+	status = (*pIntfFxns->pfnChnlOpen)(&(pDisp->hChnlToDsp),
+		 pDisp->hChnlMgr, CHNL_MODETODSP, ulChnlId, &chnlAttrs);
+	if (DSP_FAILED(status))
+		GT_2trace(DISP_DebugMask, GT_6CLASS,
+			 "DISP_Create:  Channel to RMS "
+			 "open failed, chnl id = %d, status = 0x%x\n",
+			 ulChnlId, status);
+
 	if (DSP_SUCCEEDED(status)) {
 		ulChnlId = pDispAttrs->ulChnlOffset + CHNLFROMRMSOFFSET;
 		status = (*pIntfFxns->pfnChnlOpen)(&(pDisp->hChnlFromDsp),
@@ -795,8 +765,8 @@ static DSP_STATUS FillStreamDef(RMS_WORD *pdwBuf, u32 *ptotal, u32 offset,
 		 *  1 from total.
 		 */
 		total += sizeof(struct RMS_StrmDef) / sizeof(RMS_WORD) - 1;
-               DBC_Require(strmDef.szDevice);
-               dwLength = strlen(strmDef.szDevice) + 1;
+		DBC_Require(strmDef.szDevice);
+		dwLength = strlen(strmDef.szDevice) + 1;
 
 		/* Number of RMS_WORDS needed to hold device name */
 		uNameLen = (dwLength + uCharsInRMSWord - 1) / uCharsInRMSWord;
@@ -848,7 +818,7 @@ static DSP_STATUS SendMessage(struct DISP_OBJECT *hDisp, u32 dwTimeout,
 		GT_1trace(DISP_DebugMask, GT_6CLASS,
 			 "SendMessage: Channel AddIOReq to"
 			 " RMS failed! Status = 0x%x\n", status);
-		goto func_cont;
+		goto func_end;
 	}
 	status = (*pIntfFxns->pfnChnlGetIOC) (hChnl, dwTimeout, &chnlIOC);
 	if (DSP_SUCCEEDED(status)) {
@@ -868,7 +838,6 @@ static DSP_STATUS SendMessage(struct DISP_OBJECT *hDisp, u32 dwTimeout,
 			 "SendMessage: Channel GetIOC to"
 			 " RMS failed! Status = 0x%x\n", status);
 	}
-func_cont:
 	/* Get the reply */
 	if (DSP_FAILED(status))
 		goto func_end;

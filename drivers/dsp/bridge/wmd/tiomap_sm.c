@@ -39,14 +39,12 @@ DSP_STATUS CHNLSM_EnableInterrupt(struct WMD_DEV_CONTEXT *pDevContext)
 	u32 numMbxMsg;
 	u32 mbxValue;
 	u32 devType;
-	struct IO_MGR *hIOMgr;
 
 	DBG_Trace(DBG_ENTER, "CHNLSM_EnableInterrupt(0x%x)\n", pDevContext);
 
 	/* Read the messages in the mailbox until the message queue is empty */
 
 	DEV_GetDevType(pDevContext->hDevObject, &devType);
-	status = DEV_GetIOMgr(pDevContext->hDevObject, &hIOMgr);
 	if (devType == DSP_UNIT) {
 		HW_MBOX_NumMsgGet(pDevContext->dwMailBoxBase,
 				  MBOX_DSP2ARM, &numMbxMsg);
@@ -65,9 +63,9 @@ DSP_STATUS CHNLSM_EnableInterrupt(struct WMD_DEV_CONTEXT *pDevContext)
 			numMbxMsg--;
 			udelay(10);
 
-			HW_MBOX_EventAck(pDevContext->dwMailBoxBase, MBOX_ARM2DSP,
-					 HW_MBOX_U1_DSP1,
-					 HW_MBOX_INT_NEW_MSG);
+			HW_MBOX_EventAck(pDevContext->dwMailBoxBase,
+					MBOX_ARM2DSP, HW_MBOX_U1_DSP1,
+					HW_MBOX_INT_NEW_MSG);
 		}
 		/* Enable the new message events on this IRQ line */
 		HW_MBOX_EventEnable(pDevContext->dwMailBoxBase,
@@ -160,10 +158,11 @@ bool CHNLSM_ISR(struct WMD_DEV_CONTEXT *pDevContext, bool *pfSchedDPC,
 	HW_MBOX_NumMsgGet(pDevContext->dwMailBoxBase, MBOX_DSP2ARM, &numMbxMsg);
 
 	if (numMbxMsg > 0) {
-		HW_MBOX_MsgRead(pDevContext->dwMailBoxBase, MBOX_DSP2ARM, &mbxValue);
+		HW_MBOX_MsgRead(pDevContext->dwMailBoxBase, MBOX_DSP2ARM,
+				&mbxValue);
 
 		HW_MBOX_EventAck(pDevContext->dwMailBoxBase, MBOX_DSP2ARM,
-				 HW_MBOX_U0_ARM, HW_MBOX_INT_NEW_MSG);
+				HW_MBOX_U0_ARM, HW_MBOX_INT_NEW_MSG);
 
 		DBG_Trace(DBG_LEVEL3, "Read %x from Mailbox\n", mbxValue);
 		*pwIntrVal = (u16) mbxValue;

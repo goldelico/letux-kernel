@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Global HW definitions
+ *
  * Copyright (C) 2007 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,16 +16,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== GlobalTypes.h ========
- *  Description:
- *      Global HW definitions
- *
- *! Revision History:
- *! ================
- *! 16 Feb 2003 sb: Initial version
- */
 #ifndef __GLOBALTYPES_H
 #define __GLOBALTYPES_H
 
@@ -109,7 +101,7 @@
  * DESCRIPTION: Returns a 32 bit value given a 16 bit lower value and a 16
  *		bit upper value
  */
-#define RETURN_32BITS_FROM_16LOWER_AND_16UPPER(lower16Bits,upper16Bits)\
+#define RETURN_32BITS_FROM_16LOWER_AND_16UPPER(lower16Bits, upper16Bits)\
     (((((u32)lower16Bits)  & LOWER_16BIT_MASK)) | \
      (((((u32)upper16Bits) & LOWER_16BIT_MASK) << UPPER_16BIT_SHIFT)))
 
@@ -119,7 +111,7 @@
  * DESCRIPTION:  Returns a 16 bit value given a 8 bit lower value and a 8
  *	       bit upper value
  */
-#define RETURN_16BITS_FROM_8LOWER_AND_8UPPER(lower8Bits,upper8Bits)\
+#define RETURN_16BITS_FROM_8LOWER_AND_8UPPER(lower8Bits, upper8Bits)\
     (((((u32)lower8Bits)  & LOWER_8BIT_MASK)) | \
      (((((u32)upper8Bits) & LOWER_8BIT_MASK) << UPPER_8BIT_OF16_SHIFT)))
 

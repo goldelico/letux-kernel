@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * PWR API for controlling DSP power states.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,23 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== PWR.c ========
- *  PWR API for controlling DSP power states.
- *
- *  Public Functions:
- *      PWR_SleepDSP
- *      PWR_WakeDSP
- *
- *! Revision History
- *! ================
- *! 18-Feb-2003 vp  Code review updates.
- *! 18-Oct-2002 vp  Ported to Linux platform.
- *! 22-May-2002 sg  Do PWR-to-IOCTL code mapping in PWR_SleepDSP.
- *! 29-Apr-2002 sg  Initial.
  */
 
 /*  ----------------------------------- Host OS */

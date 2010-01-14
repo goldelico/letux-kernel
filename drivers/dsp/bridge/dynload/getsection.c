@@ -14,8 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-
 #include <dspbridge/getsection.h>
 #include "header.h"
 

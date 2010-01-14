@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * API definitions to configure DSP Subsystem modules like IPI
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,17 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== hw_dspss64P.c ========
- *  Description:
- *      API definitions to configure DSP Subsystem modules like IPI
- *
- *! Revision History:
- *! ================
- *! 19 Apr 2004 sb: Implemented HW_DSPSS_IPIEndianismSet
- *! 16 Feb 2003 sb: Initial version
  */
 
 /* PROJECT SPECIFIC INCLUDE FILES */

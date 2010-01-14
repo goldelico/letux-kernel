@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSPBridge Stream Manager.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,45 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== strm.h ========
- *  Description:
- *      DSPBridge Stream Manager.
- *
- *  Public Functions:
- *      STRM_AllocateBuffer
- *      STRM_Close
- *      STRM_Create
- *      STRM_Delete
- *      STRM_Exit
- *      STRM_FreeBuffer
- *      STRM_GetEventHandle
- *      STRM_GetInfo
- *      STRM_Idle
- *      STRM_Init
- *      STRM_Issue
- *      STRM_Open
- *      STRM_PrepareBuffer
- *      STRM_Reclaim
- *      STRM_RegisterNotify
- *      STRM_Select
- *      STRM_UnprepareBuffer
- *
- *  Notes:
- *
- *! Revision History:
- *! =================
- *! 15-Nov-2001 ag  Changed DSP_STREAMINFO to STRM_INFO in STRM_GetInfo().
- *!                 Added DSP_ESIZE error to STRM_AllocateBuffer().
- *! 07-Jun-2001 sg  Made DSPStream_AllocateBuffer fxn name plural.
- *! 10-May-2001 jeh Code review cleanup.
- *! 13-Feb-2001 kc  DSP/BIOS Bridge name updates.
- *! 06-Feb-2001 kc  Updated DBC_Ensure for STRM_Select().
- *! 23-Oct-2000 jeh Allow NULL STRM_ATTRS passed to STRM_Open().
- *! 25-Sep-2000 jeh Created.
  */
 
 #ifndef STRM_

@@ -3,6 +3,14 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Central repository for DSP/BIOS Bridge error and status code.
+ *
+ * Error codes are of the form:
+ *     [<MODULE>]_E<ERRORCODE>
+ *
+ * Success codes are of the form:
+ *     [<MODULE>]_S<SUCCESSCODE>
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,35 +20,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== errbase.h ========
- *  Description:
- *      Central repository for DSP/BIOS Bridge error and status code.
- *
- *  Error codes are of the form:
- *      [<MODULE>]_E<ERRORCODE>
- *
- *  Success codes are of the form:
- *      [<MODULE>]_S<SUCCESSCODE>
- *
- *! Revision History:
- *! ================
- *! 24-Jan-2003 map Added DSP_SALREADYLOADED for persistent library checking
- *! 23-Nov-2002 gp: Minor comment cleanup.
- *! 13-May-2002 sg  Added DSP_SALREADYASLEEP and DSP_SALREADYWAKE.
- *! 18-Feb-2002 mk: Added DSP_EOVERLAYMEMORY, EFWRITE, ENOSECT.
- *! 31-Jan-2002 mk: Added definitions of DSP_STRUE and DSP_SFALSE.
- *! 29-Jan-2002 mk: Added definition of CFG_E_INSUFFICIENTBUFSIZE.
- *! 24-Oct-2001 sp: Consolidated all the error codes into this file.
- *! 24-Jul-2001 mk: Type-casted all definitions of WSX_STATUS types for
- *!                 removal of compile warnings.
- *! 22-Nov-1999 kc: Changes from code review.
- *! 18-Aug-1999 rr: Ported From WSX.
- *! 29-May-1996 gp: Removed WCD_ and WMD_ error ranges. Redefined format of
- *!                 error codes.
- *! 10-May-1996 gp: Created.
  */
 
 #ifndef ERRBASE_

@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge Node Manager.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,52 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== node.h ========
- *  Description:
- *      DSP/BIOS Bridge Node Manager.
- *
- *  Public Functions:
- *      NODE_Allocate
- *      NODE_AllocMsgBuf
- *      NODE_ChangePriority
- *      NODE_Connect
- *      NODE_Create
- *      NODE_CreateMgr
- *      NODE_Delete
- *      NODE_DeleteMgr
- *      NODE_EnumNodes
- *      NODE_Exit
- *      NODE_FreeMsgBuf
- *      NODE_GetAttr
- *      NODE_GetMessage
- *      NODE_GetProcessor
- *      NODE_Init
- *      NODE_OnExit
- *      NODE_Pause
- *      NODE_PutMessage
- *      NODE_RegisterNotify
- *      NODE_Run
- *      NODE_Terminate
- *
- *  Notes:
- *
- *! Revision History:
- *! =================
- *! 23-Apr-2001 jeh     Updated with code review changes.
- *! 16-Jan-2001 jeh     Added DSP_ESYMBOL, DSP_EUUID to return codes.
- *! 17-Nov-2000 jeh     Added NODE_OnExit().
- *! 27-Oct-2000 jeh     Added timeouts to NODE_GetMessage, NODE_PutMessage.
- *! 12-Oct-2000 jeh     Changed NODE_EnumNodeInfo to NODE_EnumNodes. Removed
- *!                     NODE_RegisterAllNodes().
- *! 07-Sep-2000 jeh     Changed type HANDLE in NODE_RegisterNotify to
- *!                     DSP_HNOTIFICATION. Added DSP_STRMATTR param to
- *!                     NODE_Connect(). Removed NODE_GetMessageStream().
- *! 17-Jul-2000 jeh     Updated function header descriptions.
- *! 19-Jun-2000 jeh     Created.
  */
 
 #ifndef NODE_

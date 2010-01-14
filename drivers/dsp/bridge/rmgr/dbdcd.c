@@ -3,6 +3,15 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This file contains the implementation of the DSP/BIOS Bridge
+ * Configuration Database (DCD).
+ *
+ * Notes:
+ *   The fxn DCD_GetObjects can apply a callback fxn to each DCD object
+ *   that is located in a specified COFF file.  At the moment,
+ *   DCD_AutoRegister, DCD_AutoUnregister, and NLDR module all use
+ *   DCD_GetObjects.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,53 +21,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== dbdcd.c ========
- *  Description:
- *      This file contains the implementation of the DSP/BIOS Bridge
- *      Configuration Database (DCD).
- *
- *  Notes:
- *      The fxn DCD_GetObjects can apply a callback fxn to each DCD object
- *      that is located in a specified COFF file.  At the moment,
- *      DCD_AutoRegister, DCD_AutoUnregister, and NLDR module all use
- *      DCD_GetObjects.
- *
- *! Revision History
- *! ================
- *! 03-Dec-2003 map Changed DCD_OBJTYPE to DSP_DCDOBJTYPE
- *! 17-Dec-2002 map Modified DCD_GetDepLibs, DCD_GetNumDepLibs, GetDepLibInfo
- *!		 to include phase information
- *! 02-Dec-2002 map Modified DCD_GetLibraryName for phases in different
- *!		 libraries
- *! 26-Feb-2003 kc  Updated DCD_AutoUnregister and DCD_GetObjects to simplify
- *!		 DCD implementation.
- *! 17-Jul-2002 jeh Call COD_Open() instead of COD_OpenBase(), call COD_Close()
- *! 11-Jul-2002 jeh Added DCD_GetDepLibs(), DCD_GetNumDepLibs().
- *! 18-Feb-2003 vp  Code review updates
- *! 18-Oct-2002 vp  Ported to Linux platform
- *! 15-Mar-2002 jeh Read dynamic loading memory requirements into node object
- *!		 data. Added DCD_GetLibraryName().
- *! 13-Feb-2002 jeh Get system stack size in GetAttrsFromBuf().
- *! 01-Aug-2001 ag: Added check for PROC "extended" attributes used for
- *!		    DSP-MMU setup. These are private attributes.
- *! 18-Apr-2001 jeh Use COD_OpenBase instead of COD_LoadBase.
- *! 03-Apr-2001 sg: Changed error names to DSP_EDCD* format.
- *! 11-Jan-2001 jeh Changes to DCD_GetObjectDef to match node.cdb, proc.cdb.
- *! 12-Dec-2000 kc: Added DCD_AutoUnregister. MSGNODE, DAISNODE added in
- *!		 GetAttrsFromBuf
- *! 22-Nov-2000 kc: Replaced sprintf() calls with strncat.
- *! 09-Nov-2000 kc: Optimized DCD module.
- *! 30-Oct-2000 kc: Added DCD_AutoRegister function; changed local var. names.
- *! 29-Sep-2000 kc: Added code review changes (src/reviews/dcd_reviews.txt).
- *! 06-Sep-2000 jeh Get message segid, message notification type. Added Atoi()
- *!		 to replace atoi(), until cdb generation can output in
- *!		 decimal format.
- *! 26-Jul-2000 kc: Created.
- *!
  */
 
 /*  ----------------------------------- Host OS */
@@ -199,7 +161,6 @@ DSP_STATUS DCD_CreateManager(IN char *pszZlDllName,
 	status = COD_Create(&hCodMgr, pszZlDllName, NULL);
 
 	if (DSP_FAILED(status)) {
-		status = DSP_EFAIL;
 		GT_0trace(curTrace, GT_6CLASS,
 			 "DCD_CreateManager: COD_Create failed\n");
 		goto func_end;
@@ -480,8 +441,10 @@ DSP_STATUS DCD_GetObjectDef(IN struct DCD_MANAGER *hDcdMgr,
 		 " 0x%x, objType 0x%x, pObjDef 0x%x\n", hDcdMgr, pObjUuid,
 		 objType, pObjDef);
 	szUuid = (char *)MEM_Calloc(MAXUUIDLEN, MEM_PAGED);
-	if (!szUuid)
-		return status = DSP_EMEMORY;
+	if (!szUuid) {
+		status = DSP_EMEMORY;
+		goto func_end;
+	}
 
 	if (!IsValidHandle(hDcdMgr)) {
 		status = DSP_EHANDLE;
@@ -797,13 +760,10 @@ DSP_STATUS DCD_GetLibraryName(IN struct DCD_MANAGER *hDcdMgr,
 		sprintf(szObjType, "%d", DSP_DCDLIBRARYTYPE);
 		break;
 	default:
-		status = -1;
+		status = DSP_EINVALIDARG;
 		DBC_Assert(false);
 	}
-	if (status == -1) {
-		status = DSP_EFAIL;
-	} else {
-		status = DSP_SOK;
+	if (DSP_SUCCEEDED(status)) {
 		if ((strlen(szRegKey) + strlen(szObjType)) <
 		   REG_MAXREGPATHLENGTH) {
 			strncat(szRegKey, szObjType, strlen(szObjType) + 1);
@@ -983,19 +943,15 @@ DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 		GT_2trace(curTrace, GT_6CLASS, "REG_SetValue  "
 			  "(u8 *)pszPathName=%s, dwPathSize=%d\n",
 			  pszPathName, dwPathSize);
-		if (DSP_FAILED(status)) {
-			status = DSP_EFAIL;
+		if (DSP_FAILED(status))
 			GT_0trace(curTrace, GT_6CLASS,
 				"DCD_RegisterObject: REG_SetValue failed!\n");
-		}
 	} else {
 		/* Deregister an existing object. */
 		status = REG_DeleteValue(szRegKey);
-		if (DSP_FAILED(status)) {
-			status = DSP_EFAIL;
+		if (DSP_FAILED(status))
 			GT_0trace(curTrace, GT_6CLASS, "DCD_UnregisterObject: "
 				"REG_DeleteValue failed!\n");
-		}
 	}
 
 	if (DSP_SUCCEEDED(status)) {

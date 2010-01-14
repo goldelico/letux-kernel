@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Synchronization services.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,39 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== sync.c ========
- *  Purpose:
- *      Synchronization services.
- *
- *  Public Functions:
- *      SYNC_CloseEvent
- *      SYNC_DeleteCS
- *      SYNC_EnterCS
- *      SYNC_Exit
- *      SYNC_Init
- *      SYNC_InitializeCS
- *      SYNC_LeaveCS
- *      SYNC_OpenEvent
- *      SYNC_ResetEvent
- *      SYNC_SetEvent
- *      SYNC_WaitOnEvent
- *      SYNC_WaitOnMultipleEvents
- *
- *! Revision History:
- *! ================
- *! 05-Nov-2001 kc: Minor cosmetic changes.
- *! 05-Oct-2000 jeh Added SYNC_WaitOnMultipleEvents().
- *! 10-Aug-2000 rr: SYNC_PostMessage added.
- *! 10-Jul-2000 jeh Modified SYNC_OpenEvent() to handle NULL attrs.
- *! 03-Feb-2000 rr: Module init/exit is handled by SERVICES Init/Exit.
- *!		 GT Changes.
- *! 01-Dec-1999 ag: Added optional named event creation in SYNC_OpenEvent().
- *! 22-Nov-1999 kc: Added changes from code review.
- *! 22-Sep-1999 kc: Modified from sync95.c.
- *! 05-Aug-1996 gp: Created.
  */
 
 /*  ----------------------------------- Host OS */
@@ -218,7 +187,6 @@ DSP_STATUS SYNC_ResetEvent(struct SYNC_OBJECT *hEvent)
 
 	if (MEM_IsValidHandle(hEvent, SIGNATURE)) {
 		pEvent->state = so_reset;
-		status = DSP_SOK;
 	} else {
 		status = DSP_EHANDLE;
 		GT_1trace(SYNC_debugMask, GT_6CLASS,

@@ -14,25 +14,16 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
 /*
- *  ======== gt.h ========
- *  Purpose:
- *      There are two definitions that affect which portions of trace
- *      are acutally compiled into the client: GT_TRACE and GT_ASSERT. If
- *      GT_TRACE is set to 0 then all trace statements (except for assertions)
- *      will be compiled out of the client. If GT_ASSERT is set to 0 then
- *      assertions will be compiled out of the client. GT_ASSERT can not be
- *      set to 0 unless GT_TRACE is also set to 0 (i.e. GT_TRACE == 1 implies
- *      GT_ASSERT == 1).
- *
- *! Revision History
- *! ================
- *! 02-Feb-2000 rr: Renamed this file to gtce.h. GT CLASS and trace definitions
- *!                 are WinCE Specific.
- *! 03-Jan-1997	ge	Replaced "GT_" prefix to GT_Config structure members
- *!                 to eliminate preprocessor confusion with other macros.
+ * There are two definitions that affect which portions of trace
+ * are acutally compiled into the client: GT_TRACE and GT_ASSERT. If
+ * GT_TRACE is set to 0 then all trace statements (except for assertions)
+ * will be compiled out of the client. If GT_ASSERT is set to 0 then
+ * assertions will be compiled out of the client. GT_ASSERT can not be
+ * set to 0 unless GT_TRACE is also set to 0 (i.e. GT_TRACE == 1 implies
+ * GT_ASSERT == 1).
  */
+
 #include <linux/types.h>
 #ifndef GT_
 #define GT_
@@ -241,7 +232,7 @@ extern struct GT_Config _GT_params;
 
 #define GT_assert(mask, expr) \
 	(!(expr) ? \
-	    printk("assertion violation: %s, line %d\n", \
+	    pr_err("assertion violation: %s, line %d\n", \
 			    __FILE__, __LINE__), NULL : NULL)
 
 #define GT_config(config)     (_GT_params = *(config))

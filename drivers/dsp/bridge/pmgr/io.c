@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * IO manager interface: Manages IO between CHNL and MSG.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,29 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== io.c ========
- *  Description:
- *      IO manager interface: Manages IO between CHNL and MSG.
- *
- *  Public Functions:
- *      IO_Create
- *      IO_Destroy
- *      IO_Exit
- *      IO_Init
- *      IO_OnLoaded
- *
- *  Notes:
- *      This interface is basically a pass through to the WMD IO functions.
- *
- *! Revision History:
- *! ================
- *! 24-Feb-2003 swa 	PMGR Code review comments incorporated.
- *! 04-Apr-2001 rr      WSX_STATUS initialized in IO_Create.
- *! 07-Nov-2000 jeh     Created.
  */
 
 /*  ----------------------------------- Host OS */

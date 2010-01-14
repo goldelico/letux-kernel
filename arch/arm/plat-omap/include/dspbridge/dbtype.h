@@ -3,6 +3,10 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This header defines data types for DSP/BIOS Bridge APIs and device
+ * driver modules. It also defines the Hungarian prefix to use for each
+ * base type.
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,23 +16,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== dbtype.h ========
- *  Description:
- *      This header defines data types for DSP/BIOS Bridge APIs and device
- *      driver modules. It also defines the Hungarian
- *      prefix to use for each base type.
- *
- *
- *! Revision History:
- *! =================
- *! 23-Nov-2002 gp: Purpose -> Description in file header.
- *! 13-Feb-2001 kc: Name changed from ddsptype.h dbtype.h.
- *! 09-Oct-2000 jeh Added CHARACTER.
- *! 11-Aug-2000 ag: Added 'typedef void void'.
- *! 08-Apr-2000 ww: Cloned.
  */
 
 #ifndef DBTYPE_

@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Provide debugging services for Bridge Mini Drivers.
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,29 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== dbg.h ========
- *  Purpose:
- *      Provide debugging services for 'Bridge Mini Drivers.
- *
- *  Public Functions:
- *      DBG_Exit
- *      DBG_Init
- *      DBG_Printf
- *      DBG_Trace
- *
- *  Notes:
- *      WMD's must not call DBG_Init or DBG_Exit.
- *
- *! Revision History:
- *! ================
- *! 03-Feb-2000 rr: DBG Levels redefined.
- *! 29-Oct-1999 kc: Cleaned up for code review.
- *! 10-Oct-1997 cr: Added DBG_Printf service.
- *! 29-May-1996 gp: Removed WCD_ prefix.
- *! 15-May-1996 gp: Created.
  */
 
 #ifndef DBG_
@@ -52,7 +31,7 @@
 #define DBG_LEVEL6  (u8)(0x40)	/* Warn SERVICES Failures */
 #define DBG_LEVEL7  (u8)(0x80)	/* Warn Critical Errors */
 
-#if (defined(DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE
+#if (defined(CONFIG_BRIDGE_DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE
 
 /*
  *  ======== DBG_Exit ========
@@ -105,6 +84,6 @@
 #define DBG_Init(void) true
 #define DBG_Trace(bLevel, pstrFormat, args...)
 
-#endif	     /* (defined(DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE */
+#endif	     /* (defined(CONFIG_BRIDGE_DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE */
 
 #endif				/* DBG_ */

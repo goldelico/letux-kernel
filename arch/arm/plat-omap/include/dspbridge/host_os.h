@@ -14,16 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== windows.h ========
- *
- *! Revision History
- *! ================
- *! 08-Mar-2004 sb Added cacheflush.h to support Dynamic Memory Mapping feature
- *! 16-Feb-2004 sb Added headers required for consistent_alloc
- */
-
 #ifndef _HOST_OS_H_
 #define _HOST_OS_H_
 

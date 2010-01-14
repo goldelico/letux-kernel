@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Global HW definitions
+ *
  * Copyright (C) 2007 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,17 +16,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== hw_defs.h ========
- *  Description:
- *      Global HW definitions
- *
- *! Revision History:
- *! ================
- *! 19 Apr 2004 sb: Added generic page size, endianness and element size defns
- *! 16 Feb 2003 sb: Initial version
- */
 #ifndef __HW_DEFS_H
 #define __HW_DEFS_H
 

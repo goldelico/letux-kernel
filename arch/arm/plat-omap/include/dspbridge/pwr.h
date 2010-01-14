@@ -14,25 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== pwr.h ========
- *
- *  Public Functions:
- *
- *      PWR_SleepDSP
- *      PWR_WakeDSP
- *
- *  Notes:
- *
- *! Revision History:
- *! ================
- *! 06-Jun-2002 sg  Replaced dspdefs.h with includes of dbdefs.h and errbase.h.
- *! 13-May-2002 sg  Added DSP_SAREADYASLEEP and DSP_SALREADYAWAKE.
- *! 09-May-2002 sg  Updated, added timeouts.
- *! 02-May-2002 sg  Initial.
- */
-
 #ifndef PWR_
 #define PWR_
 

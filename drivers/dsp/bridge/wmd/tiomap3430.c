@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Processor Manager Driver for TI OMAP3430 EVM.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,18 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== tiomap.c ========
- *  Processor Manager Driver for TI OMAP3430 EVM.
- *
- *  Public Function:
- *      WMD_DRV_Entry
- *
- *! Revision History:
- *! ================
- *   26-March-2008 HK and AL:  Added WMD_DEV_WalkTbl funciton.
  */
 
 /*  ----------------------------------- Host OS */
@@ -350,12 +340,14 @@ static DSP_STATUS WMD_BRD_Monitor(struct WMD_DEV_CONTEXT *hDevContext)
 					  HW_PWR_DOMAIN_DSP,
 					  HW_PWR_STATE_ON);
 		/* Set the SW supervised state transition */
-		HW_PWR_CLKCTRL_IVA2RegSet(pDevContext->cmbase, HW_SW_SUP_WAKEUP);
+		HW_PWR_CLKCTRL_IVA2RegSet(pDevContext->cmbase,
+							HW_SW_SUP_WAKEUP);
 		/* Wait until the state has moved to ON */
 		HW_PWR_IVA2StateGet(pDevContext->prmbase, HW_PWR_DOMAIN_DSP,
 				     &pwrState);
 		/* Disable Automatic transition */
-		HW_PWR_CLKCTRL_IVA2RegSet(pDevContext->cmbase, HW_AUTOTRANS_DIS);
+		HW_PWR_CLKCTRL_IVA2RegSet(pDevContext->cmbase,
+							HW_AUTOTRANS_DIS);
 	}
 	DBG_Trace(DBG_LEVEL6, "WMD_BRD_Monitor - Middle ****** \n");
 	GetHWRegs(pDevContext->prmbase, pDevContext->cmbase);
@@ -500,7 +492,7 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 		if (dsp_debug) {
 			/* Set the bootmode to self loop  */
 			DBG_Trace(DBG_LEVEL7,
-					"Set boot mode to self loop for IVA2 Device\n");
+				"Set boot mode to self loop for IVA2 Device\n");
 			HW_DSPSS_BootModeSet(pDevContext->sysctrlbase,
 				HW_DSPSYSC_SELFLOOPBOOT, dwDSPAddr);
 		} else {
@@ -550,8 +542,8 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 		}		/* end for */
 
 		/*
-		 * Lock the above TLB entries and get the BIOS and load monitor timer
-		 * information
+		 * Lock the above TLB entries and get the BIOS and load
+		 * monitor timer information
 		 */
 		HW_MMU_NumLockedSet(pDevContext->dwDSPMmuBase, itmpEntryNdx);
 		HW_MMU_VictimNumSet(pDevContext->dwDSPMmuBase, itmpEntryNdx);
@@ -569,10 +561,11 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 
 		/* Enable the BIOS clock  */
 		(void)DEV_GetSymbol(pDevContext->hDevObject,
-					BRIDGEINIT_BIOSGPTIMER, &ulBiosGpTimer);
+				BRIDGEINIT_BIOSGPTIMER, &ulBiosGpTimer);
 		DBG_Trace(DBG_LEVEL7, "BIOS GPTimer : 0x%x\n", ulBiosGpTimer);
 		(void)DEV_GetSymbol(pDevContext->hDevObject,
-				BRIDGEINIT_LOADMON_GPTIMER, &ulLoadMonitorTimer);
+				BRIDGEINIT_LOADMON_GPTIMER,
+				&ulLoadMonitorTimer);
 		DBG_Trace(DBG_LEVEL7, "Load Monitor Timer : 0x%x\n",
 			  ulLoadMonitorTimer);
 
@@ -585,19 +578,19 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 			DSPPeripheralClkCtrl(pDevContext, &uClkCmd);
 
 			extClkId = uClkCmd & MBX_PM_CLK_IDMASK;
-			for (tmpIndex = 0; tmpIndex < MBX_PM_MAX_RESOURCES; tmpIndex++) {
+			for (tmpIndex = 0; tmpIndex < MBX_PM_MAX_RESOURCES;
+			     tmpIndex++) {
 				if (extClkId == BPWR_CLKID[tmpIndex]) {
 					clkIdIndex = tmpIndex;
 					break;
 				}
 			}
 
-			if (clkIdIndex < MBX_PM_MAX_RESOURCES)
-				status = CLK_Set_32KHz(BPWR_Clks[clkIdIndex].funClk);
-			else
+			if (clkIdIndex < MBX_PM_MAX_RESOURCES) {
+				status =
+				    CLK_Set_32KHz(BPWR_Clks[clkIdIndex].funClk);
+			} else {
 				status = DSP_EFAIL;
-
-			if (DSP_FAILED(status)) {
 				DBG_Trace(DBG_LEVEL7, " Error while setting"
 							"LM Timer  to 32KHz\n");
 			}
@@ -633,13 +626,11 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 				}
 			}
 
-			if (clkIdIndex < MBX_PM_MAX_RESOURCES)
+			if (clkIdIndex < MBX_PM_MAX_RESOURCES) {
 				status = CLK_Set_32KHz(
 						BPWR_Clks[clkIdIndex].funClk);
-			else
+			} else {
 				status = DSP_EFAIL;
-
-			if (DSP_FAILED(status)) {
 				DBG_Trace(DBG_LEVEL7,
 				" Error while setting BIOS Timer  to 32KHz\n");
 			}
@@ -708,9 +699,7 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 		/* Enable Mailbox events and also drain any pending
 		 * stale messages */
 		(void)CHNLSM_EnableInterrupt(pDevContext);
-	}
 
-	if (DSP_SUCCEEDED(status)) {
 		HW_RSTCTRL_RegGet(pDevContext->prmbase, HW_RST1_IVA2, &temp);
 		DBG_Trace(DBG_LEVEL7, "BRD_Start: RM_RSTCTRL_DSP = 0x%x \n",
 				temp);
@@ -747,10 +736,8 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 				dwDSPAddr);
 		if (dsp_debug)
 			while (*((volatile u16 *)dwSyncAddr))
-				;;
-	}
+				;
 
-	if (DSP_SUCCEEDED(status)) {
 		/* Wait for DSP to clear word in shared memory */
 		/* Read the Location */
 		if (!WaitForStart(pDevContext, dwSyncAddr)) {
@@ -767,8 +754,7 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 			 * completion of OPP table update to DSP
 			 */
 			*((volatile u32 *)dwSyncAddr) = 0XCAFECAFE;
-		}
-		if (DSP_SUCCEEDED(status)) {
+
 			/* update board state */
 			pDevContext->dwBrdState = BRD_RUNNING;
 			/* (void)CHNLSM_EnableInterrupt(pDevContext);*/
@@ -2064,9 +2050,7 @@ void configureDspMmu(struct WMD_DEV_CONTEXT *pDevContext, u32 dataBasePhys,
 		    enum HW_ElementSize_t elemSize,
 		    enum HW_MMUMixedSize_t mixedSize)
 {
-	struct CFG_HOSTRES resources;
 	struct HW_MMUMapAttrs_t mapAttrs = { endianism, elemSize, mixedSize };
-	DSP_STATUS status = DSP_SOK;
 
 	DBC_Require(sizeInBytes > 0);
 	DBG_Trace(DBG_LEVEL1,
@@ -2075,9 +2059,8 @@ void configureDspMmu(struct WMD_DEV_CONTEXT *pDevContext, u32 dataBasePhys,
 
 	DBG_Trace(DBG_LEVEL1, "endianism %x, elemSize %x, mixedSize %x\n",
 		 endianism, elemSize, mixedSize);
-	status = CFG_GetHostResources(
-		 (struct CFG_DEVNODE *)DRV_GetFirstDevExtension(), &resources);
-	status = HW_MMU_TLBAdd(pDevContext->dwDSPMmuBase, dataBasePhys,
+
+	HW_MMU_TLBAdd(pDevContext->dwDSPMmuBase, dataBasePhys,
 				dspBaseVirt, sizeInBytes, nEntryStart,
 				&mapAttrs, HW_SET, HW_SET);
 }

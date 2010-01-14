@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Global STRM constants and types.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,18 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== strmdefs.h ========
- *  Purpose:
- *      Global STRM constants and types.
- *
- *! Revision History
- *! ================
- *! 19-Nov-2001 ag      Added STRM_INFO..
- *! 25-Sep-2000 jeh     Created.
  */
 
 #ifndef STRMDEFS_

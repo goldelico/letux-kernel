@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Defines the DSP/BIOS Bridge Configuration Database (DCD) API.
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,30 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== dbdcd.h ========
- *  Description:
- *      Defines the DSP/BIOS Bridge Configuration Database (DCD) API.
- *
- *! Revision History
- *! ================
- *! 03-Dec-2003 map Changed DCD_OBJTYPE to DSP_DCDOBJTYPE
- *! 24-Feb-2003 kc  Updated DCD_AutoUnregister and DCD_GetObjects to simplify
- *!                 DCD implementation.
- *! 05-Aug-2002 jeh Added DCD_GetObjects().
- *! 11-Jul-2002 jeh Added DCD_GetDepLibs(), DCD_GetNumDepLibs().
- *! 22-Apr-2002 jeh Added DCD_GetLibraryName().
- *! 03-Apr-2001 sg  Changed error names to have DCD_E* format.
- *! 13-Feb-2001 kc  Name changed from dcdbs.h to dbdcd.h.
- *! 12-Dec-2000 kc  Added DCD_AutoUnregister.
- *! 09-Nov-2000 kc  Updated usage of DCD_EnumerateObject.
- *! 30-Oct-2000 kc  Added DCD_AutoRegister. Updated error DCD error codes.
- *! 29-Sep-2000 kc  Incorporated code review comments. See
- *!                 /src/reviews/dcd_review.txt.
- *! 26-Jul-2000 kc  Created.
- *!
  */
 
 #ifndef DBDCD_

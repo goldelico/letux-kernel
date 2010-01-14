@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implementation of Bridge Mini-driver device operations.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,104 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== dev.c ========
- *  Description:
- *      Implementation of 'Bridge Mini-driver device operations.
- *
- *  Public Functions:
- *      DEV_BrdWriteFxn
- *      DEV_CreateDevice
- *      DEV_Create2
- *      DEV_Destroy2
- *      DEV_DestroyDevice
- *      DEV_GetChnlMgr
- *      DEV_GetCmmMgr
- *      DEV_GetCodMgr
- *      DEV_GetDehMgr
- *      DEV_GetDevNode
- *      DEV_GetDSPWordSize
- *      DEV_GetFirst
- *      DEV_GetIntfFxns
- *      DEV_GetIOMgr
- *      DEV_GetNext
- *      DEV_GetNodeManager
- *      DEV_GetSymbol
- *      DEV_GetWMDContext
- *      DEV_Exit
- *      DEV_Init
- *      DEV_InsertProcObject
- *      DEV_IsLocked
- *      DEV_NotifyClient
- *      DEV_RegisterNotify
- *      DEV_ReleaseCodMgr
- *      DEV_RemoveDevice
- *      DEV_RemoveProcObject
- *      DEV_SetChnlMgr
- *      DEV_SetMsgMgr
- *      DEV_SetLockOwner
- *      DEV_StartDevice
- *
- *  Private Functions:
- *      FxnNotImplemented
- *      InitCodMgr
- *      InsertDevObject
- *      IsValidHandle
- *      RemoveDevObject
- *      StoreInterfaceFxns
- *
- *! Revision History:
- *! ================
- *! 03-Jan-2005 hn  Support for IVA DEH
- *! 08-Mar-2004 sb  Added the Dynamic Memory Mapping feature
- *! 09-Feb-2004 vp	Updated to support IVA.
- *! 24-Feb-2003 swa PMGR Code review comments incorporated.
- *! 29-Nov-2001 jeh Check for DSP_ENOTIMPL status of DEH create function.
- *! 05-Nov-2001 kc  Added support for DEH module.
- *! 05-Aug-2001 ag  Shared memory registration moved to WMD_IO_OnLoaded().
- *! 11-Jul-2001 jeh Moved MGR_Create() from DSP_Init() to DEV_StartDevice().
- *! 11-Apr-2001 rr: Removed CMM_RegisterGPPSMSeg.
- *! 02-Apr-2001 rr: CHNL_Create failure is printed out.
- *! 15-Jan-2001 jeh Removed call to IO_OnLoaded() from DEV_Create2().
- *! 13-Feb-2001 kc: DSP/BIOS Bridge name update.
- *! 15-Dec-2000 rr: Dev_Create2 returns error if NODE_CreateMgr fails.
- *! 05-Dec-2000 jeh Moved IO_OnLoaded() to PROC_Load. Added DEV_SetMsgMgr.
- *! 05-Dev-2000 ag  SM Heap for messaging registered via CMM_RegisterGPPSMSeg().
- *!                 SM heap base and size currently taken from registry.
- *! 29-Nov-2000 rr: Incorporated code review changes.
- *! 17-Nov-2000 jeh Added calls to get IO manager (IO_Create), IO_OnLoaded().
- *! 06-Oct-2000 rr: DEV_Destroy2 and DEV_Create2 added.
- *! 02-Oct-2000 rr: DEV_GetNodeManager added.
- *! 11-Aug-2000 ag: Added DEV_GetCmmMgr(), CMM_Init() & CMM_Exit().
- *!                 Removed <dspbridge/std.h> & <stdwin.h>, added <dspbridge/dbtype.h>
- *! 10-Aug-2000 rr: DEV_InsertProcObject/RemoveProcObject added.
- *!                 DEV_Cleanup calls PROC_Detach if it is a matching process.
- *! 27-Jul-2000 rr: DEV is in new directoy DEV and produces devlib.lib
- *! 17-Jul-2000 rr: DRV Object holds the list of Dev Objects. DEV gets
- *!                 the List and Next devices through DRV.
- *!                 DEV object has a back pointer to DRV Object.
- *! 06-Jun-2000 jeh Added DEV_GetSymbol().
- *! 09-May-2000 rr: dwMemBase has index for multiple windows need.
- *! 28-Feb-2000 rr: New GT Usage implemented.
- *! 03-Feb-2000 rr: GT and Module init/exit Changes.(Done up front from
- *!		    SERVICES)
- *! 31-Jan-2000 rr: Comments changed after code review.
- *! 21-Jan-2000 rr: windows.h, tchar.h, HMODULE removed. FreeLibrary replaced
- *!                 with LDR_FreeModule
- *! 17-Jan-2000 rr: CFG_Get/SetPrivateDword renamed to CFG_Get/SetDevObject.
- *!                 StoreInterfaceFxns stores the new fxn WMD_BRD_SETSTATE.
- *! 20-Nov-1999 ag: Actual uSMLength =  total - monitor offset.
- *! 12-Nov-1999 rr: bIRQ and IRQAttrib taken from the struct CFG_HOSTRES.
- *!		    dMemBase is added with offset for monitor taken from
- *!		    registry.
- *! 31-Oct-1999 ag: Added CHNL support.
- *! 10-Sep-1999 rr: GT Enabled. DEV_Create will Load the Mini Driver and will
- *!                 find its fxn table. Right now lot of things are hardcoded
- *!                 as the REG is not ready.
- *! 10-Jun-1996 rr: Created from WSX
  */
 
 /*  ----------------------------------- Host OS */
@@ -537,7 +441,7 @@ DSP_STATUS DEV_DestroyDevice(struct DEV_OBJECT *hDevObject)
 
 		/* Call the driver's WMD_DEV_Destroy() function: */
 		/* Require of DevDestroy */
-		if(pDevObject->hWmdContext) {
+		if (pDevObject->hWmdContext) {
 			status = (*pDevObject->intfFxns.pfnDevDestroy)
 				(pDevObject->hWmdContext);
 			pDevObject->hWmdContext = NULL;

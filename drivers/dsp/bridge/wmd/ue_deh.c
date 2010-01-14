@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implements upper edge DSP exception handling (DEH) functions.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,23 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== ue_deh.c ========
- *  Description:
- *      Implements upper edge DSP exception handling (DEH) functions.
- *
- *! Revision History:
- *! ================
- *! 03-Jan-2005 hn: Support for IVA DEH.
- *! 05-Jan-2004 vp: Updated for the 24xx HW library.
- *! 19-Feb-2003 vp: Code review updates.
- *!                 - Cosmetic changes.
- *! 18-Oct-2002 sb: Ported to Linux platform.
- *! 10-Dec-2001 kc: Updated DSP error reporting in DEBUG mode.
- *! 10-Sep-2001 kc: created.
  */
 
 /*  ----------------------------------- Host OS */
@@ -45,7 +30,6 @@
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
-#include <dspbridge/dpc.h>
 #include <dspbridge/mem.h>
 #include <dspbridge/ntfy.h>
 #include <dspbridge/drv.h>
@@ -102,12 +86,11 @@ DSP_STATUS WMD_DEH_Create(OUT struct DEH_MGR **phDehMgr,
 		status = DSP_EMEMORY;
 	} else {
 		/* Create an NTFY object to manage notifications */
-		if (DSP_SUCCEEDED(status))
-			status = NTFY_Create(&pDehMgr->hNtfy);
+		status = NTFY_Create(&pDehMgr->hNtfy);
 
-		/* Create a DPC object. */
-		status = DPC_Create(&pDehMgr->hMmuFaultDpc, MMU_FaultDpc,
-				   (void *)pDehMgr);
+		/* Create a MMUfault DPC */
+		tasklet_init(&pDehMgr->dpc_tasklet, MMU_FaultDpc, (u32)pDehMgr);
+
 		if (DSP_SUCCEEDED(status))
 			status = DEV_GetDevNode(hDevObject, &hDevNode);
 
@@ -122,11 +105,11 @@ DSP_STATUS WMD_DEH_Create(OUT struct DEH_MGR **phDehMgr,
 			pDehMgr->errInfo.dwVal2 = 0L;
 			pDehMgr->errInfo.dwVal3 = 0L;
 			/* Install ISR function for DSP MMU fault */
-                       if ((request_irq(INT_DSP_MMU_IRQ, MMU_FaultIsr, 0,
-                                           "DspBridge\tiommu fault", (void *)pDehMgr)) == 0)
-                               status = DSP_SOK;
-                       else
-                               status = DSP_EFAIL;
+			if ((request_irq(INT_DSP_MMU_IRQ, MMU_FaultIsr, 0,
+			   "DspBridge\tiommu fault", (void *)pDehMgr)) == 0)
+				status = DSP_SOK;
+			else
+				status = DSP_EFAIL;
 		}
 	}
 	if (DSP_FAILED(status)) {
@@ -135,8 +118,7 @@ DSP_STATUS WMD_DEH_Create(OUT struct DEH_MGR **phDehMgr,
 		*phDehMgr = NULL;
 	} else {
 		*phDehMgr = (struct DEH_MGR *)pDehMgr;
-               DBG_Trace(DBG_LEVEL1, "ISR_IRQ Object 0x%x \n",
-                                        pDehMgr);
+		DBG_Trace(DBG_LEVEL1, "ISR_IRQ Object 0x%x \n", pDehMgr);
 	}
 	DBG_Trace(DBG_LEVEL1, "Exiting DEH_Create.\n");
 	return status;
@@ -159,8 +141,12 @@ DSP_STATUS WMD_DEH_Destroy(struct DEH_MGR *hDehMgr)
 		if (pDehMgr->hNtfy)
 			(void)NTFY_Delete(pDehMgr->hNtfy);
 		/* Disable DSP MMU fault */
-               free_irq(INT_DSP_MMU_IRQ, pDehMgr);
-		(void)DPC_Destroy(pDehMgr->hMmuFaultDpc);
+		free_irq(INT_DSP_MMU_IRQ, pDehMgr);
+
+		/* Free DPC object */
+		tasklet_kill(&pDehMgr->dpc_tasklet);
+		DBG_Trace(GT_2CLASS, "DPC_Destroy: SUCCESS\n");
+
 		/* Deallocate the DEH manager object */
 		MEM_FreeObject(pDehMgr);
 	}
@@ -200,16 +186,10 @@ void WMD_DEH_Notify(struct DEH_MGR *hDehMgr, u32 ulEventMask,
 {
 	struct DEH_MGR *pDehMgr = (struct DEH_MGR *)hDehMgr;
 	struct WMD_DEV_CONTEXT *pDevContext;
-	DSP_STATUS status = DSP_SOK;
-	DSP_STATUS status1 = DSP_EFAIL;
 	u32 memPhysical = 0;
 	u32 HW_MMU_MAX_TLB_COUNT = 31;
 	u32 extern faultAddr;
-	HW_STATUS hwStatus;
 
-	if (DSP_FAILED(status))
-		DBG_Trace(DBG_LEVEL7,
-			 "**Failed to get Host Resources in MMU ISR **\n");
 
 	DBG_Trace(DBG_LEVEL1, "Entering WMD_DEH_Notify: 0x%x, 0x%x\n", pDehMgr,
 		 ulEventMask);
@@ -263,15 +243,15 @@ DBG_Trace(DBG_LEVEL6, "WMD_DEH_Notify: DSP_MMUFAULT, "
 			DBG_Trace(DBG_LEVEL6, "Adding TLB Entry %d: VA: 0x%x, "
 				 "PA: 0x%x\n", pDevContext->
 				numTLBEntries, faultAddr, memPhysical);
-			if (DSP_SUCCEEDED(status)) {
-				hwStatus = HW_MMU_TLBAdd(pDevContext->dwDSPMmuBase,
-					memPhysical, faultAddr,
-					HW_PAGE_SIZE_4KB, 1, &mapAttrs,
-					HW_SET, HW_SET);
-			}
+
+			HW_MMU_TLBAdd(pDevContext->dwDSPMmuBase,
+				memPhysical, faultAddr, HW_PAGE_SIZE_4KB, 1,
+				&mapAttrs, HW_SET, HW_SET);
+
 			/* send an interrupt to DSP */
-			HW_MBOX_MsgWrite(pDevContext->dwMailBoxBase, MBOX_ARM2DSP,
-					 MBX_DEH_CLASS | MBX_DEH_EMMU);
+			HW_MBOX_MsgWrite(pDevContext->dwMailBoxBase,
+					MBOX_ARM2DSP,
+					MBX_DEH_CLASS | MBX_DEH_EMMU);
 			/* Clear MMU interrupt */
 			HW_MMU_EventAck(pDevContext->dwDSPMmuBase,
 					 HW_MMU_TRANSLATION_FAULT);
@@ -296,16 +276,8 @@ DBG_Trace(DBG_LEVEL6, "WMD_DEH_Notify: DSP_MMUFAULT, "
 		}
 
 		/* Filter subsequent notifications when an error occurs */
-		if (pDevContext->dwBrdState != BRD_ERROR) {
-			/* Use it as a flag to send notifications the
-			 * first time and error occurred, next time
-			 * state will be BRD_ERROR */
-			status1 = DSP_EFAIL;
-		}
-
-		/* Filter subsequent notifications when an error occurs */
 		if (pDevContext->dwBrdState != BRD_ERROR)
-			status1 = DSP_SOK;
+			NTFY_Notify(pDehMgr->hNtfy, ulEventMask);
 
 		/* Set the Board state as ERROR */
 		pDevContext->dwBrdState = BRD_ERROR;
@@ -313,11 +285,6 @@ DBG_Trace(DBG_LEVEL6, "WMD_DEH_Notify: DSP_MMUFAULT, "
 		(void)DSP_PeripheralClocks_Disable(pDevContext, NULL);
 		/* Call DSP Trace Buffer */
 		PrintDspTraceBuffer(hDehMgr->hWmdContext);
-
-		if (DSP_SUCCEEDED(status1)) {
-			/* Signal DSP error/exception event. */
-			NTFY_Notify(pDehMgr->hNtfy, ulEventMask);
-		}
 
 	}
 	DBG_Trace(DBG_LEVEL1, "Exiting WMD_DEH_Notify\n");
@@ -346,6 +313,8 @@ DSP_STATUS WMD_DEH_GetInfo(struct DEH_MGR *hDehMgr,
 		pErrInfo->dwVal1 = pDehMgr->errInfo.dwVal1;
 		pErrInfo->dwVal2 = pDehMgr->errInfo.dwVal2;
 		pErrInfo->dwVal3 = pDehMgr->errInfo.dwVal3;
+	} else {
+		status = DSP_EHANDLE;
 	}
 
 	DBG_Trace(DBG_LEVEL1, "Exiting WMD_DEH_GetInfo\n");

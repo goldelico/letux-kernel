@@ -1,11 +1,19 @@
 /*
- *  Copyright 2009 by Texas Instruments Incorporated.
- *  All rights reserved. Property of Texas Instruments Incorporated.
- *  Restricted rights to use, duplicate or disclose this code are
- *  granted through contract.
+ * tramp_table_c6000.c
  *
- *  @(#) DSP/BIOS Bridge
+ * DSP-BIOS Bridge driver support functions for TI OMAP processors.
+ *
+ * Copyright (C) 2005-2006 Texas Instruments, Inc.
+ *
+ * This package is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
+ * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
+
 #include "dload_internal.h"
 
 /*  These are defined in coff.h, but may not be available on all platforms

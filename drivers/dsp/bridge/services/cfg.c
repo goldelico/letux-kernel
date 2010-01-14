@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implementation of platform specific config services.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,64 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== cfgce.c ========
- *  Purpose:
- *      Implementation of platform specific config services.
- *
- *  Private Functions:
- *      CFG_Exit
- *      CFG_GetAutoStart
- *      CFG_GetDevObject
- *      CFG_GetDSPResources
- *      CFG_GetExecFile
- *      CFG_GetHostResources
- *      CFG_GetObject
- *      CFG_Init
- *      CFG_SetDevObject
- *      CFG_SetObject
- *
- *
- *! Revision History:
- *! ================
- *! 26-Arp-2004 hp  Support for handling more than one Device.
- *! 26-Feb-2003 kc  Removed unused CFG fxns.
- *! 10-Nov-2000 rr: CFG_GetBoardName local var initialized.
- *! 30-Oct-2000 kc: Changed local var. names to use Hungarian notation.
- *! 10-Aug-2000 rr: Cosmetic changes.
- *! 26-Jul-2000 rr: Added CFG_GetDCDName. CFG_Get/SetObject(based on a flag)
- *!                  replaces CFG_GetMgrObject & CFG_SetMgrObject.
- *! 17-Jul-2000 rr: Added CFG_GetMgrObject & CFG_SetMgrObject.
- *! 03-Feb-2000 rr: Module init/exit is handled by SERVICES Init/Exit.
- *!		    GT Changes.
- *! 31-Jan-2000 rr: Comments and bugfixes:  modified after code review
- *! 07-Jan-2000 rr: CFG_GetBoardName Ensure class checks strlen of the
- *!                 read value from the registry against the passed in BufSize;
- *!                 CFG_GetZLFile,CFG_GetWMDFileName and
- *!                 CFG_GetExecFile also modified same way.
- *! 06-Jan-2000 rr: CFG_GetSearchPath & CFG_GetWinBRIDGEDir removed.
- *! 09-Dec-1999 rr: CFG_SetDevObject stores the DevNodeString pointer.
- *! 03-Dec-1999 rr: CFG_GetDevObject reads stored DevObject from Registry.
- *!                 CFG_GetDevNode reads the Devnodestring from the registry.
- *!                 CFG_SetDevObject stores the registry path as
- *!                 DevNodestring in the registry.
- *! 02-Dec-1999 rr: CFG_debugMask is declared static now. stdwin.h included
- *! 22-Nov-1999 kc: Added windows.h to remove warnings.
- *! 25-Oct-1999 rr: CFG_GetHostResources reads the HostResource structure
- *!                 from the registry which was set by the DRV Request
- *!                 Resources.
- *! 15-Oct-1999 rr: Changes in CFG_SetPrivateDword & HostResources reflecting
- *!                 changes for  drv.h resource structure and wsxreg.h new
- *!                 entry(DevObject) Hard coded entries removed for those items
- *! 08-Oct-1999 rr: CFG_SetPrivateDword modified. it sets devobject into the
- *!                 registry. CFG_Get HostResources modified for opening up
- *!                 two mem winodws.
- *! 24-Sep-1999 rr: CFG_GetHostResources uses hardcoded Registry calls,uses NT
- *!                 type of Resource Structure.
- *! 19-Jul-1999 a0216266: Stubbed from cfgnt.c.
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */
@@ -132,7 +76,7 @@ DSP_STATUS CFG_GetAutoStart(struct CFG_DEVNODE *hDevNode,
 		if (DSP_FAILED(status))
 			status = CFG_E_RESOURCENOTAVAIL;
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		GT_0trace(CFG_debugMask, GT_1CLASS,
 			 "CFG_GetAutoStart SUCCESS \n");
@@ -169,7 +113,7 @@ DSP_STATUS CFG_GetDevObject(struct CFG_DEVNODE *hDevNode, OUT u32 *pdwValue)
 	if (DSP_SUCCEEDED(status)) {
 
 		/* check the device string and then call the REG_SetValue*/
-               if (!(strcmp((char *)((struct DRV_EXT *)hDevNode)->szString,
+		if (!(strcmp((char *)((struct DRV_EXT *)hDevNode)->szString,
 							"TIOMAP1510"))) {
 			GT_0trace(CFG_debugMask, GT_1CLASS,
 				  "Fetching DSP Device from "
@@ -181,7 +125,7 @@ DSP_STATUS CFG_GetDevObject(struct CFG_DEVNODE *hDevNode, OUT u32 *pdwValue)
 				  "Failed to Identify the Device to Fetch \n");
 		}
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		GT_1trace(CFG_debugMask, GT_1CLASS,
 			  "CFG_GetDevObject SUCCESS DevObject"
@@ -208,13 +152,13 @@ DSP_STATUS CFG_GetDSPResources(struct CFG_DEVNODE *hDevNode,
 		  "Entered CFG_GetDSPResources, args: "
 		  "\n\thDevNode:  0x%x\n\tpDSPResTable:  0x%x\n",
 		  hDevNode, pDSPResTable);
-	if (!hDevNode) {
+	if (!hDevNode)
 		status = CFG_E_INVALIDHDEVNODE;
-	} else if (!pDSPResTable) {
+	else if (!pDSPResTable)
 		status = CFG_E_INVALIDPOINTER;
-	} else {
-		status = REG_GetValue(DSPRESOURCES, (u8 *)pDSPResTable,						&dwResSize);
-	}
+	else
+		status = REG_GetValue(DSPRESOURCES, (u8 *)pDSPResTable,
+					&dwResSize);
 	if (DSP_SUCCEEDED(status)) {
 		GT_0trace(CFG_debugMask, GT_1CLASS,
 			  "CFG_GetDSPResources SUCCESS\n");
@@ -223,7 +167,7 @@ DSP_STATUS CFG_GetDSPResources(struct CFG_DEVNODE *hDevNode,
 		GT_0trace(CFG_debugMask, GT_6CLASS,
 			  "CFG_GetDSPResources Failed \n");
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	/* assert that resource values are reasonable */
 	DBC_Assert(pDSPResTable->uChipType < 256);
 	DBC_Assert(pDSPResTable->uWordSize > 0);
@@ -250,8 +194,7 @@ DSP_STATUS CFG_GetExecFile(struct CFG_DEVNODE *hDevNode, u32 ulBufSize,
 		  ulBufSize, pstrExecFile);
 	if (!hDevNode)
 		status = CFG_E_INVALIDHDEVNODE;
-
-	if (!pstrExecFile)
+	else if (!pstrExecFile)
 		status = CFG_E_INVALIDPOINTER;
 
 	if (DSP_SUCCEEDED(status)) {
@@ -262,7 +205,7 @@ DSP_STATUS CFG_GetExecFile(struct CFG_DEVNODE *hDevNode, u32 ulBufSize,
 			status = DSP_ESIZE;
 
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		GT_1trace(CFG_debugMask, GT_1CLASS,
 			  "CFG_GetExecFile SUCCESS Exec File"
@@ -273,7 +216,7 @@ DSP_STATUS CFG_GetExecFile(struct CFG_DEVNODE *hDevNode, u32 ulBufSize,
 	}
 #endif
 	DBC_Ensure(((status == DSP_SOK) &&
-                 (strlen(pstrExecFile) <= ulBufSize)) || (status != DSP_SOK));
+		(strlen(pstrExecFile) <= ulBufSize)) || (status != DSP_SOK));
 	return status;
 }
 
@@ -304,7 +247,7 @@ DSP_STATUS CFG_GetHostResources(struct CFG_DEVNODE *hDevNode,
 			status = CFG_E_RESOURCENOTAVAIL;
 		}
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		GT_0trace(CFG_debugMask, GT_1CLASS,
 			  "CFG_GetHostResources SUCCESS \n");
@@ -333,9 +276,13 @@ DSP_STATUS CFG_GetObject(OUT u32 *pdwValue, u32 dwType)
 	switch (dwType) {
 	case (REG_DRV_OBJECT):
 		status = REG_GetValue(DRVOBJECT, (u8 *)pdwValue, &dwBufSize);
+		if (DSP_FAILED(status))
+			status = CFG_E_RESOURCENOTAVAIL;
 		break;
 	case (REG_MGR_OBJECT):
 		status = REG_GetValue(MGROBJECT, (u8 *)pdwValue, &dwBufSize);
+		if (DSP_FAILED(status))
+			status = CFG_E_RESOURCENOTAVAIL;
 		break;
 	default:
 		break;
@@ -345,7 +292,6 @@ DSP_STATUS CFG_GetObject(OUT u32 *pdwValue, u32 dwType)
 			  "CFG_GetObject SUCCESS DrvObject: "
 			  "0x%x\n ", *pdwValue);
 	} else {
-		status = CFG_E_RESOURCENOTAVAIL;
 		*pdwValue = 0;
 		GT_0trace(CFG_debugMask, GT_6CLASS, "CFG_GetObject Failed \n");
 	}
@@ -404,17 +350,17 @@ DSP_STATUS CFG_SetDevObject(struct CFG_DEVNODE *hDevNode, u32 dwValue)
 	if (DSP_SUCCEEDED(status)) {
 		/* Store the WCD device object in the Registry */
 
-               if (!(strcmp((char *)hDevNode, "TIOMAP1510"))) {
+		if (!(strcmp((char *)hDevNode, "TIOMAP1510"))) {
 			GT_0trace(CFG_debugMask, GT_1CLASS,
 				  "Registering the DSP Device \n");
 			status = REG_SetValue("DEVICE_DSP", (u8 *)&dwValue,
-					      dwBuffSize);
+						dwBuffSize);
 		} else {
 			GT_0trace(CFG_debugMask, GT_6CLASS,
 				  "Failed to Register Device \n");
 		}
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		GT_0trace(CFG_debugMask, GT_1CLASS,
 			  "CFG_SetDevObject SUCCESS \n");
@@ -449,7 +395,7 @@ DSP_STATUS CFG_SetObject(u32 dwValue, u32 dwType)
 	default:
 		break;
 	}
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status))
 		GT_0trace(CFG_debugMask, GT_1CLASS, "CFG_SetObject SUCCESS \n");
 	else

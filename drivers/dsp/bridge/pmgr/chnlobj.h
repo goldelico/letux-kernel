@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Structure subcomponents of channel class library channel objects which
+ * are exposed to class driver from mini-driver.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,24 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== chnlobj.h ========
- *  Description:
- *      Structure subcomponents of channel class library channel objects which
- *      are exposed to class driver from mini-driver.
- *
- *  Public Functions:
- *      None.
- *
- *! Revision History:
- *! ================
- *! 24-Feb-2003 swa 	PMGR Code review comments incorporated.
- *! 17-Nov-2000 jeh     Removed some fields from CHNL_MGR_ to match CHNL_MGR
- *!                     structure defined in _chnl_sm.h.
- *! 16-Jan-1997 gp:     Created from chnlpriv.h
  */
 
 #ifndef CHNLOBJ_

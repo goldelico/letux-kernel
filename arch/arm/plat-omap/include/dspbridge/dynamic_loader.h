@@ -14,8 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-
 #ifndef _DYNAMIC_LOADER_H_
 #define _DYNAMIC_LOADER_H_
 #include <linux/kernel.h>

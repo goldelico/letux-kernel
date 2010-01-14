@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * WCD channel interface: multiplexes data streams through the single
+ * physical link managed by a Bridge mini-driver.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,54 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== chnl.c ========
- *  Description:
- *      WCD channel interface: multiplexes data streams through the single
- *      physical link managed by a 'Bridge mini-driver.
- *
- *  Public Functions:
- *      CHNL_Close
- *      CHNL_CloseOrphans
- *      CHNL_Create
- *      CHNL_Destroy
- *      CHNL_Exit
- *      CHNL_GetHandle
- *      CHNL_GetProcessHandle
- *      CHNL_Init
- *      CHNL_Open
- *
- *  Notes:
- *      This interface is basically a pass through to the WMD CHNL functions,
- *      except for the CHNL_Get() accessor functions which call
- *      WMD_CHNL_GetInfo().
- *
- *! Revision History:
- *! ================
- *! 24-Feb-2003 swa PMGR Code review comments incorporated.
- *! 07-Jan-2002 ag  CHNL_CloseOrphans() now closes supported # of channels.
- *! 17-Nov-2000 jeh Removed IRQ, shared memory stuff from CHNL_Create.
- *! 28-Feb-2000 rr: New GT USage Implementation
- *! 03-Feb-2000 rr: GT and Module init/exit Changes.(Done up front from
- *!		    SERVICES)
- *! 21-Jan-2000 ag: Added code review comments.
- *! 13-Jan-2000 rr: CFG_Get/SetPrivateDword renamed to CFG_Get/SetDevObject.
- *! 08-Dec-1999 ag: CHNL_[Alloc|Free]Buffer bufs taken from client process heap.
- *! 02-Dec-1999 ag: Implemented CHNL_GetEventHandle().
- *! 17-Nov-1999 ag: CHNL_AllocBuffer() allocs extra word for process mapping.
- *! 28-Oct-1999 ag: WinCE port. Search for "WinCE" for changes(TBR).
- *! 07-Jan-1998 gp: CHNL_[Alloc|Free]Buffer now call MEM_UMB functions.
- *! 22-Oct-1997 gp: Removed requirement in CHNL_Open that hReserved1 != NULL.
- *! 30-Aug-1997 cr: Renamed cfg.h wbwcd.h b/c of WINNT file name collision.
- *! 10-Mar-1997 gp: Added GT trace.
- *! 14-Jan-1997 gp: Updated based on code review feedback.
- *! 03-Jan-1997 gp: Moved CHNL_AllocBuffer/CHNL_FreeBuffer code from udspsys.
- *! 14-Dec-1996 gp: Added uChnlId parameter to CHNL_Open().
- *! 09-Sep-1996 gp: Added CHNL_GetProcessHandle().
- *! 15-Jul-1996 gp: Created.
  */
 
 /*  ----------------------------------- Host OS */
@@ -76,7 +31,6 @@
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
-#include <dspbridge/dpc.h>
 #include <dspbridge/list.h>
 #include <dspbridge/mem.h>
 #include <dspbridge/sync.h>

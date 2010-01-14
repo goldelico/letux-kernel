@@ -14,39 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== listce.c ========
- *  Purpose
- *      Provides standard circular list handling functions.
- *
- *  Public Functions:
- *      LST_Create
- *      LST_Delete
- *      LST_Exit
- *      LST_First
- *      LST_GetHead
- *      LST_Init
- *      LST_InitElem
- *      LST_InsertBefore
- *      LST_Next
- *      LST_PutTail
- *      LST_RemoveElem
- *
- *! Revision History
- *! ================
- *! 06-Mar-2002 jeh Don't set element self to NULL in LST_RemoveElem().
- *! 10-Aug-2000 ag: Added LST_InsertBefore().
- *! 03-Feb-2000 rr: Module init/exit is handled by SERVICES Init/Exit.
- *!		 GT Changes.
- *! 22-Nov-1999 kc: Added changes from code review.
- *! 10-Aug-1999 kc: Based on wsx-c18.
- *! 16-Jun-1997 gp: Removed unnecessary enabling/disabling of interrupts around
- *!                 list manipulation code.
- *! 22-Oct-1996 gp: Added LST_RemoveElem, and LST_First/LST_Next iterators.
- *! 10-Aug-1996 gp: Acquired from SMM for WinSPOX v. 1.1; renamed identifiers.
- */
-
 /*  ----------------------------------- DSP/BIOS Bridge */
 #include <dspbridge/std.h>
 #include <dspbridge/dbdefs.h>

@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Private node header shared by NODE and DISP.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,27 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== nodepriv.h ========
- *  Description:
- *      Private node header shared by NODE and DISP.
- *
- *  Public Functions:
- *      NODE_GetChannelId
- *      NODE_GetStrmMgr
- *      NODE_GetTimeout
- *      NODE_GetType
- *      NODE_GetLoadType
- *
- *! Revision History
- *! ================
- *! 19-Nov-2002 map     Added NODE_GetLoadType
- *! 13-Feb-2002 jeh     Added uSysStackSize to NODE_TASKARGS.
- *! 23-Apr-2001 jeh     Removed unused typedefs, defines.
- *! 10-Oct-2000 jeh     Added alignment to NODE_STRMDEF.
- *! 20-Jun-2000 jeh     Created.
  */
 
 #ifndef NODEPRIV_

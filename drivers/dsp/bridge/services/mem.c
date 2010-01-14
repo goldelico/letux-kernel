@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implementation of platform specific memory services.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,44 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== mem.c ========
- *  Purpose:
- *      Implementation of platform specific memory services.
- *
- *  Public Functions:
- *      MEM_Alloc
- *      MEM_AllocPhysMem
- *      MEM_Calloc
- *      MEM_Exit
- *      MEM_FlushCache
- *      MEM_Free
- *      MEM_FreePhysMem
- *      MEM_Init
- *      MEM_ExtPhysPoolInit
- *      MEM_ExtPhysPoolRelease
- *
- *! Revision History:
- *! =================
- *! 18-Jan-2004 hp: Added support for External physical memory pool
- *! 19-Apr-2004 sb: Added Alloc/Free PhysMem, FlushCache, VirtualToPhysical
- *! 01-Sep-2001 ag: Code cleanup.
- *! 02-May-2001 ag: MEM_[UnMap]LinearAddress revamped to align Phys to Virt.
- *!		 Set PAGE_PHYSICAL if phy addr <= 512MB. Opposite uSoft doc!
- *! 29-Aug-2000 rr: MEM_LinearAddress does not check for 512MB for non-x86.
- *! 28-Mar-2000 rr: MEM_LinearAddress changed.Handles address larger than 512MB
- *! 03-Feb-2000 rr: Module init/exit is handled by SERVICES Init/Exit.
- *!		 GT Changes.
- *! 22-Nov-1999 kc: Added changes from code review.
- *! 16-Aug-1999 kc: modified for WinCE.
- *! 20-Mar-1999 ag: SP 4 fix in MEM_UMBCalloc().
- *!		 Mdl offset now ORed not added to userBuf.
- *! 23-Dec-1997 cr: Code review changes.
- *! 08-Dec-1997 cr: Prepared for code review.
- *! 24-Jun-1997 cr: Created.
  */
 
 /*  ----------------------------------- Host OS */
@@ -72,7 +36,7 @@
 #define MEM_512MB   0x1fffffff
 #define memInfoSign 0x464E494D	/* "MINF" (in reverse). */
 
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 #define MEM_CHECK		/* Use to detect source of memory leaks */
 #endif
 
@@ -497,10 +461,6 @@ void MEM_FlushCache(void *pMemBuf, u32 cBytes, u32 FlushType)
 	case PROC_WRBK_INV_ALL:
 		__cpuc_flush_kern_all();
 		break;
-	default:
-		GT_1trace(MEM_debugMask, GT_6CLASS, "MEM_FlushCache: invalid "
-			  "FlushMemType 0x%x\n", FlushType);
-	break;
 	}
 
 }

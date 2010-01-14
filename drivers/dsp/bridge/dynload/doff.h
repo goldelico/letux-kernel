@@ -3,6 +3,13 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Structures & definitions used for dynamically loaded modules file format.
+ * This format is a reformatted version of COFF. It optimizes the layout for
+ * the dynamic loader.
+ *
+ * .dof files, when viewed as a sequence of 32-bit integers, look the same
+ * on big-endian and little-endian machines.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,16 +21,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*****************************************************************************/
-/*  DOFF.H - Structures & definitions used for dynamically                   */
-/*           loaded modules file format.  This format is a reformatted       */
-/*           version of COFF.(see coff.h for details)  It optimizes the      */
-/*           layout for the dynamic loader.                                  */
-/*                                                                           */
-/*  .dof files, when viewed as a sequence of 32-bit integers, look the same  */
-/*  on big-endian and little-endian machines.                                */
-/*****************************************************************************/
 #ifndef _DOFF_H
 #define _DOFF_H
 

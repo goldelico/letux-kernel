@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge Node Dispatcher.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,35 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== disp.h ========
- *
- *  Description:
- *      DSP/BIOS Bridge Node Dispatcher.
- *
- *  Public Functions:
- *      DISP_Create
- *      DISP_Delete
- *      DISP_Exit
- *      DISP_Init
- *      DISP_NodeChangePriority
- *      DISP_NodeCreate
- *      DISP_NodeDelete
- *      DISP_NodeRun
- *
- *! Revision History:
- *! =================
- *! 28-Jan-2003 map     Removed DISP_DoCinit().
- *! 15-May-2002 jeh     Added DISP_DoCinit().
- *! 24-Apr-2002 jeh     Added DISP_MemWrite().
- *! 07-Sep-2001 jeh     Added DISP_MemCopy().
- *! 10-May-2001 jeh     Code review cleanup.
- *! 08-Aug-2000 jeh     Removed DISP_NodeTerminate since it no longer uses RMS.
- *! 17-Jul-2000 jeh     Updates to function headers.
- *! 19-Jun-2000 jeh     Created.
  */
 
 #ifndef DISP_

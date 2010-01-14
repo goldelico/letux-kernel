@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * PRCM types and API declarations
+ *
  * Copyright (C) 2007 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,16 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== hw_prcm.h ========
- *  Description:
- *      PRCM types and API declarations
- *
- *! Revision History:
- *! ================
- *! 16 Feb 2003 sb: Initial version
  */
 
 #ifndef __HW_PRCM_H

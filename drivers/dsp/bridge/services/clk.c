@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Clock and Timer services.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,24 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== clk.c ========
- *  Purpose:
- *      Clock and Timer services.
- *
- *  Public Functions:
- *      CLK_Exit
- *      CLK_Init
- *	CLK_Enable
- *	CLK_Disable
- *	CLK_GetRate
- *	CLK_Set_32KHz
- *! Revision History:
- *! ================
- *! 08-May-2007 rg: moved all clock functions from sync module.
- *		    And added CLK_Set_32KHz, CLK_Set_SysClk.
  */
 
 /*  ----------------------------------- Host OS */
@@ -54,10 +38,13 @@
 
 typedef volatile unsigned long  REG_UWORD32;
 
-#define SSI_Base        0x48058000
+#define OMAP_SSI_OFFSET			0x58000
+#define OMAP_SSI_SIZE			0x1000
+#define OMAP_SSI_SYSCONFIG_OFFSET	0x10
 
-#define SSI_BASE                     IO_ADDRESS(SSI_Base)
-
+#define SSI_AUTOIDLE			(1 << 0)
+#define SSI_SIDLE_SMARTIDLE		(2 << 3)
+#define SSI_MIDLE_NOIDLE		(1 << 12)
 
 struct SERVICES_Clk_t {
 	struct clk *clk_handle;
@@ -191,9 +178,7 @@ DSP_STATUS CLK_Enable(IN enum SERVICES_ClkId clk_id)
 
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 	if (pClk) {
-		if (clk_enable(pClk) == 0x0) {
-			/* Success ? */
-		} else {
+		if (clk_enable(pClk)) {
 			pr_err("CLK_Enable: failed to Enable CLK %s, "
 					"CLK dev id = %d\n",
 					SERVICES_Clks[clk_id].clk_name,
@@ -227,8 +212,7 @@ DSP_STATUS CLK_Set_32KHz(IN enum SERVICES_ClkId clk_id)
 	DSP_STATUS status = DSP_SOK;
 	struct clk *pClk;
 	struct clk *pClkParent;
-	enum SERVICES_ClkId sys_32k_id = SERVICESCLK_sys_32k_ck;
-	pClkParent =  SERVICES_Clks[sys_32k_id].clk_handle;
+	pClkParent =  SERVICES_Clks[SERVICESCLK_sys_32k_ck].clk_handle;
 
 	DBC_Require(clk_id < SERVICESCLK_NOT_DEFINED);
 	GT_2trace(CLK_debugMask, GT_6CLASS, "CLK_Set_32KHz: CLK %s, "
@@ -238,8 +222,8 @@ DSP_STATUS CLK_Set_32KHz(IN enum SERVICES_ClkId clk_id)
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 	if (pClk) {
 		if (!(clk_set_parent(pClk, pClkParent) == 0x0)) {
-		       GT_2trace(CLK_debugMask, GT_7CLASS, "CLK_Set_32KHz: "
-				"Failed to set to 32KHz %s, CLK dev id = %d\n",
+			GT_2trace(CLK_debugMask, GT_7CLASS, "CLK_Set_32KHz: "
+				"Failed to set to 32KHz %s, CLK dev id = %s\n",
 				SERVICES_Clks[clk_id].clk_name,
 				SERVICES_Clks[clk_id].id);
 			status = DSP_EFAIL;
@@ -341,7 +325,8 @@ s32 CLK_Get_UseCnt(IN enum SERVICES_ClkId clk_id)
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 
 	if (pClk) {
-		useCount =  pClk->usecount; /* FIXME: usecount shouldn't be used */
+		/* FIXME: usecount shouldn't be used */
+		useCount = pClk->usecount;
 	} else {
 		GT_2trace(CLK_debugMask, GT_7CLASS,
 			 "CLK_GetRate: failed to get CLK %s, "
@@ -354,19 +339,27 @@ s32 CLK_Get_UseCnt(IN enum SERVICES_ClkId clk_id)
 
 void SSI_Clk_Prepare(bool FLAG)
 {
-	u32 ssi_sysconfig;
-	ssi_sysconfig = __raw_readl((SSI_BASE) + 0x10);
+	void __iomem *ssi_base;
+	unsigned int value;
+
+	ssi_base = ioremap(L4_34XX_BASE + OMAP_SSI_OFFSET, OMAP_SSI_SIZE);
+	if (!ssi_base) {
+		pr_err("%s: error, SSI not configured\n", __func__);
+		return;
+	}
 
 	if (FLAG) {
 		/* Set Autoidle, SIDLEMode to smart idle, and MIDLEmode to
 		 * no idle
 		 */
-		ssi_sysconfig = 0x1011;
+		value = SSI_AUTOIDLE | SSI_SIDLE_SMARTIDLE | SSI_MIDLE_NOIDLE;
 	} else {
 		/* Set Autoidle, SIDLEMode to forced idle, and MIDLEmode to
 		 * forced idle
 		 */
-		ssi_sysconfig = 0x1;
+		value = SSI_AUTOIDLE;
 	}
-	__raw_writel((u32)ssi_sysconfig, SSI_BASE + 0x10);
+
+	__raw_writel(value, ssi_base + OMAP_SSI_SYSCONFIG_OFFSET);
+	iounmap(ssi_base);
 }

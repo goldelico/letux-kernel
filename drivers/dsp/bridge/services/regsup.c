@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Provide registry support functions.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,20 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== regsup.c ========
- *  Purpose:
- *      Provide registry support functions.
- *
- *! Revision History:
- *! ================
- *! 28-May-2002  map: Integrated PSI's dspimage update mechanism
- *! 11-May-2002  gp:  Turned PERF "on".
- *! 21-May-2002  map: Fixed bug in SetValue - if resizing datasize, set
- *!		      new size too
  */
 
 /*  ----------------------------------- Host OS */
@@ -141,7 +129,7 @@ DSP_STATUS regsupGetValue(char *valName, void *pBuf, u32 *dataSize)
 	/*  Need to search through the entries looking for the right one.  */
 	for (i = 0; i < pRegKey->numValueEntries; i++) {
 		/*  See if the name matches.  */
-               if (strncmp(pRegKey->values[i].name, valName,
+		if (strncmp(pRegKey->values[i].name, valName,
 		    BRIDGE_MAX_NAME_SIZE) == 0) {
 
 			/*  We have a match!  Copy out the data.  */
@@ -183,7 +171,7 @@ DSP_STATUS regsupSetValue(char *valName, void *pBuf, u32 dataSize)
 	/*  Need to search through the entries looking for the right one.  */
 	for (i = 0; i < pRegKey->numValueEntries; i++) {
 		/*  See if the name matches.  */
-               if (strncmp(pRegKey->values[i].name, valName,
+		if (strncmp(pRegKey->values[i].name, valName,
 		    BRIDGE_MAX_NAME_SIZE) == 0) {
 			/*  Make sure the new data size is the same.  */
 			if (dataSize != pRegKey->values[i].dataSize) {
@@ -259,16 +247,16 @@ DSP_STATUS regsupEnumValue(IN u32 dwIndex, IN CONST char *pstrKey,
 	/*  Need to search through the entries looking for the right one.  */
 	for (i = 0; i < pRegKey->numValueEntries; i++) {
 		/*  See if the name matches.  */
-               if ((strncmp(pRegKey->values[i].name, pstrKey,
+		if ((strncmp(pRegKey->values[i].name, pstrKey,
 		    dwKeyLen) == 0) && count++ == dwIndex) {
 			/*  We have a match!  Copy out the data.  */
 			memcpy(pstrData, pRegKey->values[i].pData,
 				pRegKey->values[i].dataSize);
 			/*  Get the size for the caller.  */
 			*pdwDataSize = pRegKey->values[i].dataSize;
-                       *pdwValueSize = strlen(&(pRegKey->
+			*pdwValueSize = strlen(&(pRegKey->
 						values[i].name[dwKeyLen]));
-                       strncpy(pstrValue,
+			strncpy(pstrValue,
 				    &(pRegKey->values[i].name[dwKeyLen]),
 				    *pdwValueSize + 1);
 			GT_3trace(REG_debugMask, GT_2CLASS,
@@ -297,7 +285,7 @@ DSP_STATUS regsupDeleteValue(IN CONST char *pstrValue)
 	for (i = 0; ((i < BRIDGE_MAX_NUM_REG_ENTRIES) &&
 	    (i < pRegKey->numValueEntries)); i++) {
 		/*  See if the name matches...  */
-               if (strncmp(pRegKey->values[i].name, pstrValue,
+		if (strncmp(pRegKey->values[i].name, pstrValue,
 		    BRIDGE_MAX_NAME_SIZE) == 0) {
 			/* We have a match!  Delete this key.  To delete a
 			 * key, we free all resources associated with this
@@ -313,7 +301,7 @@ DSP_STATUS regsupDeleteValue(IN CONST char *pstrValue)
 				pRegKey->values[i].pData = NULL;
 			} else {
 				/* move the last one here */
-                               strncpy(pRegKey->values[i].name, pRegKey->
+				strncpy(pRegKey->values[i].name, pRegKey->
 				    values[pRegKey->numValueEntries - 1].name,
 				    BRIDGE_MAX_NAME_SIZE);
 				pRegKey->values[i].dataSize =

@@ -3,6 +3,10 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DRV Resource allocation module. Driver Object gets Created
+ * at the time of Loading. It holds the List of Device Objects
+ * in the system.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,50 +16,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== drv.h ========
- *  Purpose:
- *      DRV Resource allocation module. Driver Object gets Created
- *      at the time of Loading. It holds the List of Device Objects
- *      in the Syste,
- *
- *  Public Functions:
- *      DRV_Create
- *      DRV_Destroy
- *      DRV_Exit
- *      DRV_GetDevObject
- *      DRV_GetDevExtension
- *      DRV_GetFirstDevObject
- *      DRV_GetNextDevObject
- *      DRV_GetNextDevExtension
- *      DRV_Init
- *      DRV_InsertDevObject
- *      DRV_RemoveDevObject
- *      DRV_RequestResources
- *      DRV_ReleaseResources
- *
- *! Revision History
- *! ================
- *! 10-Feb-2004 vp:  Added OMAP24xx specific definitions.
- *! 14-Aug-2000 rr:  Cleaned up.
- *! 27-Jul-2000 rr:  DRV_RequestResources split into two(Request and Release)
- *!                  Device extension created to hold the DevNodeString.
- *! 17-Jul-2000 rr:  Driver Object holds the list of Device Objects.
- *!                  Added DRV_Create, DRV_Destroy, DRV_GetDevObject,
- *!                  DRV_GetFirst/NextDevObject, DRV_Insert/RemoveDevObject.
- *! 12-Nov-1999 rr:  New Flag defines for DRV_ASSIGN and DRV_RELEASE
- *! 25-Oct-1999 rr:  Resource Structure removed.
- *! 15-Oct-1999 rr:  New Resource structure created.
- *! 05-Oct-1999 rr:  Added DRV_RequestResources
- *!                  Removed fxn'sDRV_RegisterMiniDriver(),
- *!		     DRV_UnRegisterMiniDriver()
- *!                  Removed Structures DSP_DRIVER & DRV_EXTENSION.
- *!
- *! 24-Sep-1999 rr:  Added DRV_EXTENSION and DSP_DRIVER structures.
- *!
  */
 
 #ifndef DRV_

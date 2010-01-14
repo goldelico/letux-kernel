@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This module implements the trace mechanism for bridge.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,20 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- * ======== gt.c ========
- * Description: This module implements the trace mechanism for bridge.
- *
- *! Revision History
- *! ================
- *! 16-May-1997 dr	Changed GT_Config member names to conform to coding
- *!			standards.
- *! 23-Apr-1997 ge	Check for GT->TIDFXN for NULL before calling it.
- *! 03-Jan-1997	ge	Changed GT_Config structure member names to eliminate
- *!			preprocessor confusion with other macros.
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */
@@ -238,7 +226,7 @@ s32 _GT_trace(struct GT_Mask *mask, char *format, ...)
 	arg6 = va_arg(va, s32);
 
 	va_end(va);
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (GT->PIDFXN == NULL) {
 		printk(GT_1format, mask->modName, GT->TIDFXN ?
 		(*GT->TIDFXN)() : 0);

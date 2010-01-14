@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Private header file defining MSG manager objects and defines needed
+ * by IO manager.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,24 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== _msg_sm.h ========
- *  Description:
- *      Private header file defining MSG manager objects and defines needed
- *      by IO manager.
- *
- *  Public Functions:
- *      None.
- *
- *  Notes:
- *
- *! Revision History:
- *! ================
- *! 09-May-2001 jeh     Code Review cleanup.
- *! 08-Nov-2000 jeh     Created.
  */
 
 #ifndef _MSG_SM_

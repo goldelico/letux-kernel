@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This file contains the specification of UUID helper functions.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,20 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== uuidutil.h ========
- *  Description:
- *      This file contains the specification of UUID helper functions.
- *
- *! Revision History
- *! ================
- *! 09-Nov-2000 kc: Modified description of UUID utility functions.
- *! 29-Sep-2000 kc: Appended "UUID_" prefix to UUID helper functions.
- *! 10-Aug-2000 kc: Created.
- *!
  */
 
 #ifndef UUIDUTIL_

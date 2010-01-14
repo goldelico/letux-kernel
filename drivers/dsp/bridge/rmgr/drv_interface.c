@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge driver interface.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,36 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== linux_driver.c ========
- *  Description:
- *      DSP/BIOS Bridge driver interface.
- *
- *  Public Functions:
- *      driver_init
- *      driver_exit
- *      driver_open
- *      driver_release
- *      driver_ioctl
- *      driver_mmap
- *
- *! Revision History
- *! ================
- *! 21-Apr-2004 map   Deprecated use of MODULE_PARM for kernel versions
- *!		   greater than 2.5, use module_param.
- *! 08-Mar-2004 sb    Added the dsp_debug argument, which keeps the DSP in self
- *!		   loop after image load and waits in a loop for DSP to start
- *! 16-Feb-2004 vp    Deprecated the usage of MOD_INC_USE_COUNT and
- *! 						MOD_DEC_USE_COUNT
- *!		   for kernel versions greater than 2.5
- *! 20-May-2003 vp    Added unregister functions for the DPM.
- *! 24-Mar-2003 sb    Pass pid instead of driverContext to DSP_Close
- *! 24-Mar-2003 vp    Added Power Management support.
- *! 21-Mar-2003 sb    Configure SHM size using insmod argument shm_size
- *! 10-Feb-2003 vp    Updated based on code review comments
- *! 18-Oct-2002 sb    Created initial version
  */
 
 /*  ----------------------------------- Host OS */
@@ -156,7 +128,7 @@ static int omap34xxbridge_suspend_lockout(
 
 #endif
 
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 module_param(GT_str, charp, 0);
 MODULE_PARM_DESC(GT_str, "GT string, default = NULL");
 
@@ -192,7 +164,7 @@ static char *driver_name = DRIVER_NAME;
 static struct GT_Mask driverTrace;
 #endif /* CONFIG_BRIDGE_DEBUG */
 
-static struct file_operations bridge_fops = {
+static const struct file_operations bridge_fops = {
 	.open		= bridge_open,
 	.release	= bridge_release,
 	.unlocked_ioctl	= bridge_ioctl,
@@ -275,7 +247,7 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	GT_init();
 	GT_create(&driverTrace, "LD");
 
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (GT_str)
 		GT_set(GT_str);
 #elif defined(DDSP_DEBUG_PRODUCT) && GT_TRACE
@@ -532,18 +504,10 @@ static int bridge_open(struct inode *ip, struct file *filp)
  * driver. */
 static int bridge_release(struct inode *ip, struct file *filp)
 {
-	int status;
-	HANDLE hDrvObject = NULL;
 	struct PROCESS_CONTEXT *pr_ctxt;
 
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_release\n");
 
-	status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
-
-	/* Checking weather task structure for all process existing
-	 * in the process context list If not removing those processes*/
-	if (DSP_FAILED(status))
-		goto func_end;
 
 	pr_ctxt = filp->private_data;
 
@@ -555,12 +519,8 @@ static int bridge_release(struct inode *ip, struct file *filp)
 		MEM_Free(pr_ctxt);
 		filp->private_data = NULL;
 	}
-func_end:
-	(status == true) ? (status = 0) : (status = -1);
-
 	GT_0trace(driverTrace, GT_ENTER, " <- driver_release\n");
-
-	return status;
+	return 0;
 }
 
 /* This function provides IO interface to the bridge driver. */
@@ -652,7 +612,7 @@ DSP_STATUS DRV_RemoveAllResources(HANDLE hPCtxt)
  * sysfs
  */
 static ssize_t drv_state_show(struct kobject *kobj, struct kobj_attribute *attr,
-                        char *buf)
+				char *buf)
 {
 	struct WMD_DEV_CONTEXT *dwContext;
 	struct DEV_OBJECT *hDevObject = NULL;
@@ -669,18 +629,18 @@ static ssize_t drv_state_show(struct kobject *kobj, struct kobj_attribute *attr,
 		drv_state = dwContext->dwBrdState;
 	}
 
-        return sprintf(buf, "%d\n", drv_state);
+	return sprintf(buf, "%d\n", drv_state);
 }
 
 static struct kobj_attribute drv_state_attr = __ATTR_RO(drv_state);
 
 static struct attribute *attrs[] = {
-        &drv_state_attr.attr,
-        NULL,
+	&drv_state_attr.attr,
+	NULL,
 };
 
 static struct attribute_group attr_group = {
-        .attrs = attrs,
+	.attrs = attrs,
 };
 
 static void bridge_create_sysfs(void)

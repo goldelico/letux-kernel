@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge dynamic + overlay Node loader.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,42 +16,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== nldr.c ========
- *  Description:
- *      DSP/BIOS Bridge dynamic + overlay Node loader.
- *
- *  Public Functions:
- *      NLDR_Allocate
- *      NLDR_Create
- *      NLDR_Delete
- *      NLDR_Exit
- *      NLDR_Free
- *      NLDR_GetFxnAddr
- *      NLDR_Init
- *      NLDR_Load
- *      NLDR_Unload
- *
- *  Notes:
- *
- *! Revision History
- *! ================
- *! 07-Apr-2003 map Removed references to dead DLDR module
- *! 23-Jan-2003 map Updated RemoteAlloc to support memory granularity
- *! 20-Jan-2003 map Updated to maintain persistent dependent libraries
- *! 15-Jan-2003 map Adapted for use with multiple dynamic phase libraries
- *! 19-Dec-2002 map Fixed overlay bug in AddOvlySect for overlay
- *!		 sections > 1024 bytes.
- *! 13-Dec-2002 map Fixed NLDR_GetFxnAddr bug by searching dependent
- *!		 libs for symbols
- *! 27-Sep-2002 map Added RemoteFree to convert size to words for
- *!		 correct deallocation
- *! 16-Sep-2002 map Code Review Cleanup(from dldr.c)
- *! 29-Aug-2002 map Adjusted for ARM-side overlay copy
- *! 05-Aug-2002 jeh Created.
- */
-
 #include <dspbridge/host_os.h>
 
 #include <dspbridge/std.h>
@@ -58,7 +24,7 @@
 
 #include <dspbridge/dbc.h>
 #include <dspbridge/gt.h>
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 #include <dspbridge/dbg.h>
 #endif
 
@@ -127,15 +93,15 @@
 #define FLAGBIT	 7	/* 7th bit is pref./req. flag */
 #define SEGMASK	 0x3f	/* Bits 0 - 5 */
 
-#define CREATEBIT       0	/* Create segid starts at bit 0 */
-#define DELETEBIT       8	/* Delete segid starts at bit 8 */
+#define CREATEBIT	0	/* Create segid starts at bit 0 */
+#define DELETEBIT	8	/* Delete segid starts at bit 8 */
 #define EXECUTEBIT      16	/* Execute segid starts at bit 16 */
 
 /*
  *  Masks that define memory type.  Must match defines in dynm.cdb.
  */
-#define DYNM_CODE       0x2
-#define DYNM_DATA       0x4
+#define DYNM_CODE	0x2
+#define DYNM_DATA	0x4
 #define DYNM_CODEDATA   (DYNM_CODE | DYNM_DATA)
 #define DYNM_INTERNAL   0x8
 #define DYNM_EXTERNAL   0x10
@@ -185,7 +151,7 @@
 	((uuid1).usData3 == (uuid2).usData3) && \
 	((uuid1).ucData4 == (uuid2).ucData4) && \
 	((uuid1).ucData5 == (uuid2).ucData5) && \
-       (strncmp((void *)(uuid1).ucData6, (void *)(uuid2).ucData6, 6)) == 0)
+	(strncmp((void *)(uuid1).ucData6, (void *)(uuid2).ucData6, 6)) == 0)
 
     /*
      *  ======== MemInfo ========
@@ -469,7 +435,7 @@ DSP_STATUS NLDR_Allocate(struct NLDR_OBJECT *hNldr, void *pPrivRef,
 	}
 	/* Cleanup on failure */
 	if (DSP_FAILED(status) && pNldrNode)
-		NLDR_Free((struct NLDR_NODEOBJECT *) pNldrNode);
+		MEM_FreeObject(pNldrNode);
 
 	DBC_Ensure((DSP_SUCCEEDED(status) &&
 		  MEM_IsValidHandle(((struct NLDR_NODEOBJECT *)(*phNldrNode)),
@@ -597,7 +563,7 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 				rmmSegs[i].length = (pMemInfo + i)->len;
 				rmmSegs[i].space = 0;
 				pNldr->segTable[i] = (pMemInfo + i)->type;
-#ifdef DEBUG
+#ifdef CONFIG_BRIDGE_DEBUG
 				DBG_Trace(DBG_LEVEL7,
 				    "** (proc) DLL MEMSEGMENT: %d, Base: 0x%x, "
 				    "Length: 0x%x\n", i, rmmSegs[i].base,
@@ -749,19 +715,6 @@ void NLDR_Exit(void)
 	}
 
 	DBC_Ensure(cRefs >= 0);
-}
-
-/*
- *  ======== NLDR_Free ========
- */
-void NLDR_Free(struct NLDR_NODEOBJECT *hNldrNode)
-{
-	DBC_Require(cRefs > 0);
-	DBC_Require(MEM_IsValidHandle(hNldrNode, NLDR_NODESIGNATURE));
-
-	GT_1trace(NLDR_debugMask, GT_ENTER, "NLDR_Free(0x%x)\n", hNldrNode);
-
-	MEM_FreeObject(hNldrNode);
 }
 
 /*
@@ -1007,7 +960,8 @@ DSP_STATUS NLDR_Unload(struct NLDR_NODEOBJECT *hNldrNode, enum NLDR_PHASE phase)
 				/* Unload main library */
 				pRootLib = &hNldrNode->root;
 			}
-			UnloadLib(hNldrNode, pRootLib);
+			if (pRootLib)
+				UnloadLib(hNldrNode, pRootLib);
 		} else {
 			if (hNldrNode->fOverlay)
 				UnloadOvly(hNldrNode, phase);
@@ -1039,9 +993,9 @@ static DSP_STATUS AddOvlyInfo(void *handle, struct DBLL_SectInfo *sectInfo,
 	/* Find the node it belongs to */
 	for (i = 0; i < hNldr->nOvlyNodes; i++) {
 		pNodeName = hNldr->ovlyTable[i].pNodeName;
-               DBC_Require(pNodeName);
-               if (strncmp(pNodeName, pSectName + 1,
-                               strlen(pNodeName)) == 0) {
+		DBC_Require(pNodeName);
+		if (strncmp(pNodeName, pSectName + 1,
+				strlen(pNodeName)) == 0) {
 				/* Found the node */
 				break;
 		}
@@ -1051,18 +1005,18 @@ static DSP_STATUS AddOvlyInfo(void *handle, struct DBLL_SectInfo *sectInfo,
 
 	/* Determine which phase this section belongs to */
 	for (pch = pSectName + 1; *pch && *pch != seps; pch++)
-		;;
+		;
 
 	if (*pch) {
 		pch++;	/* Skip over the ':' */
-               if (strncmp(pch, PCREATE, strlen(PCREATE)) == 0) {
+		if (strncmp(pch, PCREATE, strlen(PCREATE)) == 0) {
 			status = AddOvlySect(hNldr, &hNldr->ovlyTable[i].
 				pCreateSects, sectInfo, &fExists, addr, nBytes);
 			if (DSP_SUCCEEDED(status) && !fExists)
 				hNldr->ovlyTable[i].nCreateSects++;
 
 		} else
-               if (strncmp(pch, PDELETE, strlen(PDELETE)) == 0) {
+		if (strncmp(pch, PDELETE, strlen(PDELETE)) == 0) {
 			status = AddOvlySect(hNldr, &hNldr->ovlyTable[i].
 					    pDeleteSects, sectInfo, &fExists,
 					    addr, nBytes);
@@ -1070,7 +1024,7 @@ static DSP_STATUS AddOvlyInfo(void *handle, struct DBLL_SectInfo *sectInfo,
 				hNldr->ovlyTable[i].nDeleteSects++;
 
 		} else
-               if (strncmp(pch, PEXECUTE, strlen(PEXECUTE)) == 0) {
+		if (strncmp(pch, PEXECUTE, strlen(PEXECUTE)) == 0) {
 			status = AddOvlySect(hNldr, &hNldr->ovlyTable[i].
 					    pExecuteSects, sectInfo, &fExists,
 					    addr, nBytes);
@@ -1120,14 +1074,14 @@ static DSP_STATUS AddOvlyNode(struct DSP_UUID *pUuid,
 		} else {
 			/* Add node to table */
 			hNldr->ovlyTable[hNldr->nNode].uuid = *pUuid;
-                       DBC_Require(objDef.objData.nodeObj.ndbProps.acName);
-                       uLen = strlen(objDef.objData.nodeObj.ndbProps.acName);
+			DBC_Require(objDef.objData.nodeObj.ndbProps.acName);
+			uLen = strlen(objDef.objData.nodeObj.ndbProps.acName);
 			pNodeName = objDef.objData.nodeObj.ndbProps.acName;
 			pBuf = MEM_Calloc(uLen + 1, MEM_PAGED);
 			if (pBuf == NULL) {
 				status = DSP_EMEMORY;
 			} else {
-                               strncpy(pBuf, pNodeName, uLen);
+				strncpy(pBuf, pNodeName, uLen);
 				hNldr->ovlyTable[hNldr->nNode].pNodeName = pBuf;
 				hNldr->nNode++;
 			}
@@ -1431,7 +1385,7 @@ static DSP_STATUS LoadLib(struct NLDR_NODEOBJECT *hNldrNode,
 	/*
 	 *  Recursively load dependent libraries.
 	 */
-	if (DSP_SUCCEEDED(status) && persistentDepLibs) {
+	if (DSP_SUCCEEDED(status)) {
 		for (i = 0; i < nLibs; i++) {
 			/* If root library is NOT persistent, and dep library
 			 * is, then record it.  If root library IS persistent,
@@ -1455,15 +1409,11 @@ static DSP_STATUS LoadLib(struct NLDR_NODEOBJECT *hNldrNode,
 				pDepLib = &root->pDepLibs[nLoaded];
 			}
 
-			if (depLibUUIDs) {
-				status = LoadLib(hNldrNode, pDepLib,
+			status = LoadLib(hNldrNode, pDepLib,
 						depLibUUIDs[i],
 						persistentDepLibs[i], libPath,
 						phase,
 						depth);
-			} else {
-				status = DSP_EMEMORY;
-			}
 
 			if (DSP_SUCCEEDED(status)) {
 				if ((status != DSP_SALREADYLOADED) &&
@@ -1587,10 +1537,6 @@ static DSP_STATUS LoadOvly(struct NLDR_NODEOBJECT *hNldrNode,
 		DBC_Assert(false);
 		break;
 	}
-
-	DBC_Assert(pRefCount != NULL);
-	if (DSP_FAILED(status))
-		goto func_end;
 
 	if (pRefCount == NULL)
 		goto func_end;
@@ -1870,7 +1816,6 @@ static void UnloadOvly(struct NLDR_NODEOBJECT *hNldrNode, enum NLDR_PHASE phase)
 	u16 nOtherAlloc = 0;
 	u16 *pRefCount = NULL;
 	u16 *pOtherRef = NULL;
-	DSP_STATUS status = DSP_SOK;
 
 	/* Find the node in the table */
 	for (i = 0; i < hNldr->nOvlyNodes; i++) {
@@ -1911,17 +1856,16 @@ static void UnloadOvly(struct NLDR_NODEOBJECT *hNldrNode, enum NLDR_PHASE phase)
 		DBC_Assert(false);
 		break;
 	}
-	if (DSP_SUCCEEDED(status)) {
-		DBC_Assert(pRefCount && (*pRefCount > 0));
-		 if (pRefCount && (*pRefCount > 0)) {
-			*pRefCount -= 1;
-			if (pOtherRef) {
-				DBC_Assert(*pOtherRef > 0);
-				*pOtherRef -= 1;
-			}
+	DBC_Assert(pRefCount && (*pRefCount > 0));
+	 if (pRefCount && (*pRefCount > 0)) {
+		*pRefCount -= 1;
+		if (pOtherRef) {
+			DBC_Assert(*pOtherRef > 0);
+			*pOtherRef -= 1;
 		}
 	}
-	if (pRefCount && (*pRefCount == 0)) {
+
+	if (pRefCount && *pRefCount == 0) {
 		/* 'Deallocate' memory */
 		FreeSects(hNldr, pPhaseSects, nAlloc);
 	}
