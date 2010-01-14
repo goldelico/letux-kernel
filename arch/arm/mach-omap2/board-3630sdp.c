@@ -49,6 +49,7 @@
 
 #include <mach/display.h>
 #include <mach/hdq.h>
+#include <mach/usb-ohci.h>
 
 #include "mmc-twl4030.h"
 #include "omap3-opp.h"
@@ -938,6 +939,7 @@ static void __init omap_sdp3630_init(void)
 	config_usb1hs_gpio();
 	usb_ehci_init();
 	config_usb3fs_gpio();
+	usb_ohci_init();
 #ifdef CONFIG_SIL9022
 	config_hdmi_gpio();
 	sdp3630_hdmi_reset_enable(1);
