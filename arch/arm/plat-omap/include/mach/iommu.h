@@ -95,7 +95,7 @@ struct iommu_functions {
 
 	void (*save_ctx)(struct iommu *obj);
 	void (*restore_ctx)(struct iommu *obj);
-	ssize_t (*dump_ctx)(struct iommu *obj, char *buf);
+	ssize_t (*dump_ctx)(struct iommu *obj, char *buf, ssize_t len);
 };
 
 struct iommu_platform_data {
@@ -104,7 +104,11 @@ struct iommu_platform_data {
 	const int nr_tlb_entries;
 };
 
+#if defined(CONFIG_ARCH_OMAP1)
+#error "iommu for this processor not implemented yet"
+#else
 #include <mach/iommu2.h>
+#endif
 
 /*
  * utilities for super page(16MB, 1MB, 64KB and 4KB)
@@ -135,12 +139,13 @@ struct iommu_platform_data {
  */
 extern u32 iommu_arch_version(void);
 
+extern void iotlb_cr_to_e(struct cr_regs *cr, struct iotlb_entry *e);
+extern u32 iotlb_cr_to_virt(struct cr_regs *cr);
+
 extern int load_iotlb_entry(struct iommu *obj, struct iotlb_entry *e);
 extern void flush_iotlb_page(struct iommu *obj, u32 da);
 extern void flush_iotlb_range(struct iommu *obj, u32 start, u32 end);
 extern void flush_iotlb_all(struct iommu *obj);
-
-ssize_t iotlb_dump_cr(struct iommu *obj, struct cr_regs *cr, char *buf);
 
 extern int iopgtable_store_entry(struct iommu *obj, struct iotlb_entry *e);
 extern size_t iopgtable_clear_entry(struct iommu *obj, u32 iova);
@@ -153,5 +158,11 @@ extern void iommu_restore_ctx(struct iommu *obj);
 
 extern int install_iommu_arch(const struct iommu_functions *ops);
 extern void uninstall_iommu_arch(const struct iommu_functions *ops);
+
+extern int foreach_iommu_device(void *data,
+				int (*fn)(struct device *, void *));
+
+extern ssize_t iommu_dump_ctx(struct iommu *obj, char *buf, ssize_t len);
+extern size_t dump_tlb_entries(struct iommu *obj, char *buf, ssize_t len);
 
 #endif /* __MACH_IOMMU_H */

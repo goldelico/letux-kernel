@@ -36,6 +36,7 @@
 #define OMAP34XXCAM_H
 
 #include <media/v4l2-int-device.h>
+#include <media/v4l2-fh.h>
 #include "isp/isp.h"
 
 #define CAM_NAME			"omap34xxcam"
@@ -142,6 +143,8 @@ struct omap34xxcam_videodev {
 #define vdev_flash_config slave_config[OMAP34XXCAM_SLAVE_FLASH].u.flash
 	struct omap34xxcam_hw_config slave_config[OMAP34XXCAM_SLAVE_FLASH + 1];
 
+	wait_queue_head_t poll_event;
+
 	/*** capture data ***/
 	struct file *streaming;
 	struct v4l2_fract want_timeperframe;
@@ -167,9 +170,11 @@ struct omap34xxcam_device {
  */
 struct omap34xxcam_fh {
 	spinlock_t vbq_lock; /* spinlock for the videobuf queue */
+	struct v4l2_fh vfh;
 	struct videobuf_queue vbq;
 	atomic_t field_count;
 	struct omap34xxcam_videodev *vdev;
+	wait_queue_head_t poll_vb;
 };
 
 #endif /* ifndef OMAP34XXCAM_H */

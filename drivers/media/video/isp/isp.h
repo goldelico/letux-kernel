@@ -9,7 +9,7 @@
  *
  * Contributors:
  * 	Sameer Venkatraman <sameerv@ti.com>
- * 	Mohit Jalori <mjalori@ti.com>
+ * 	Mohit Jalori
  * 	Sergio Aguirre <saaguirre@ti.com>
  * 	Sakari Ailus <sakari.ailus@nokia.com>
  * 	Tuukka Toivonen <tuukka.o.toivonen@nokia.com>
@@ -156,11 +156,6 @@ struct isp_reg {
 /**
  * struct isp_interface_config - ISP interface configuration.
  * @ccdc_par_ser: ISP interface type. 0 - Parallel, 1 - CSIA, 2 - CSIB to CCDC.
- * @par_bridge: CCDC Bridge input control. Parallel interface.
- *                  0 - Disable, 1 - Enable, first byte->cam_d(bits 7 to 0)
- *                  2 - Enable, first byte -> cam_d(bits 15 to 8)
- * @par_clk_pol: Pixel clock polarity on the parallel interface.
- *                    0 - Non Inverted, 1 - Inverted
  * @dataline_shift: Data lane shifter.
  *                      0 - No Shift, 1 - CAMEXT[13 to 2]->CAM[11 to 0]
  *                      2 - CAMEXT[13 to 4]->CAM[9 to 0]
@@ -171,11 +166,27 @@ struct isp_reg {
  * @strobe: Strobe related parameter.
  * @prestrobe: PreStrobe related parameter.
  * @shutter: Shutter related parameter.
- * @hskip: Horizontal Start Pixel performed in Preview module.
- * @vskip: Vertical Start Line performed in Preview module.
+ * @prev_sph: Horizontal Start Pixel performed in Preview module.
+ * @prev_slv: Vertical Start Line performed in Preview module.
  * @wenlog: Store the value for the sensor specific wenlog field.
  * @wait_hs_vs: Wait for this many hs_vs before anything else in the beginning.
  * @pixelclk: Pixel data rate from sensor.
+ * @par_bridge: CCDC Bridge input control. Parallel interface.
+ *                  0 - Disable, 1 - Enable, first byte->cam_d(bits 7 to 0)
+ *                  2 - Enable, first byte -> cam_d(bits 15 to 8)
+ * @par_clk_pol: Pixel clock polarity on the parallel interface.
+ *                    0 - Non Inverted, 1 - Inverted
+ * @crc: Use cyclic redundancy check.
+ * @mode: (?)
+ * @edge: Falling or rising edge
+ * @signalling: Use strobe mode (only valid for CCP2 mode)
+ * @strobe_clock_inv: Strobe/clock signal inversion.
+ * @vs_edge: Type of edge used for detecting VSync signal.
+ * @channel: Logical channel number used in transmission.
+ * @vpclk: Video port output clock.
+ * @data_start: Start vertical position of the region of interest.
+ * @data_size: Vertical size of the region of interest.
+ * @format: V4L2 format which matches with the transmitted frame data.
  */
 struct isp_interface_config {
 	enum isp_interface_type ccdc_par_ser;
@@ -186,6 +197,7 @@ struct isp_interface_config {
 	int shutter;
 	u32 wenlog;
 	int wait_hs_vs;
+	u32 cam_mclk;
 	enum ispccdc_raw_fmt raw_fmt_in;
 	unsigned int pixelclk;
 	union {
@@ -209,6 +221,14 @@ struct isp_interface_config {
 	} u;
 };
 
+/**
+ * struct isp_buf - ISP buffer information structure.
+ * @isp_addr: MMU mapped address (a.k.a. device address) of the buffer.
+ * @complete: Pointer to function used to handle the buffer once its complete
+ * @vb: Pointer to associated video buffer structure.
+ * @priv: Private pointer to send to associated complete handling function.
+ * @vb_state: Current ISP video buffer state.
+ */
 struct isp_buf {
 	dma_addr_t isp_addr;
 	void (*complete)(struct videobuf_buffer *vb, void *priv);
@@ -233,16 +253,19 @@ struct isp_buf {
 #define ISP_BUF_MARK_QUEUED(bufs)			\
 	(bufs)->queue = ((bufs)->queue + 1) % NUM_BUFS;
 
+/**
+ * struct isp_bufs - ISP internal buffer queue list.
+ * @isp_addr_capture: Array of addresses for the ISP buffers inside the list.
+ * @buf: Array of ISP buffers inside the list.
+ * @queue: Next slot to queue a buffer.
+ * @done: Buffer that is being processed.
+ * @wait_hs_vs: Wait for this many hs_vs before anything else.
+ */
 struct isp_bufs {
 	dma_addr_t isp_addr_capture[VIDEO_MAX_FRAME];
-	/* queue full: (ispsg.queue + 1) % NUM_BUFS == ispsg.done
-	   queue empty: ispsg.queue == ispsg.done */
 	struct isp_buf buf[NUM_BUFS];
-	/* Next slot to queue a buffer. */
 	int queue;
-	/* Buffer that is being processed. */
 	int done;
-	/* Wait for this many hs_vs before anything else. */
 	int wait_hs_vs;
 };
 
@@ -266,6 +289,32 @@ struct isp_irq {
 	void *isp_callbk_arg2[CBK_END];
 };
 
+/**
+ * struct isp_pipeline - ISP pipeline description.
+ * @modules: ISP submodules in use.
+ * @pix: Output pixel format details in v4l2_pix_format structure.
+ * @ccdc_in_v_st: CCDC input vertical start.
+ * @ccdc_in_h_st: CCDC input horizontal start.
+ * @ccdc_in_w: CCDC input width.
+ * @ccdc_in_h: CCDC input height.
+ * @ccdc_out_w: CCDC output width (with extra padding pixels).
+ * @ccdc_out_h: CCDC output height.
+ * @ccdc_out_w_img: CCDC output width.
+ * @ccdc_in: CCDC input source.
+ * @ccdc_out: CCDC output destination.
+ * @prv_out_w: Preview output width (with extra padding pixels).
+ * @prv_out_h: Preview output height (with extra padding pixels).
+ * @prv_out_w_img: Preview output width.
+ * @prv_out_h_img: Preview output height.
+ * @prv_fmt_avg: Preview formatter averager.
+ * @prv_in: Preview input source.
+ * @prv_out: Preview output destination.
+ * @rsz_crop: Resizer crop region.
+ * @rsz_out_w: Resizer output width (with extra padding pixels).
+ * @rsz_out_h: Resizer output height.
+ * @rsz_out_w_img: Resizer output width (valid image region).
+ * @rsz_in: Resizer input source.
+ */
 struct isp_pipeline {
 	unsigned int modules;		/* modules in use */
 	struct v4l2_pix_format pix;	/* output pix */
@@ -304,15 +353,46 @@ struct isp_pipeline {
 				     OMAP_ISP_RESIZER))
 
 /**
- * struct isp - Structure for storing ISP Control module information
- * @lock: Spinlock to sync between isr and processes.
- * @isp_mutex: Semaphore used to get access to the ISP.
- * @ref_count: Reference counter.
- * @cam_ick: Pointer to ISP Interface clock.
- * @cam_fck: Pointer to ISP Functional clock.
+ * struct isp_device - ISP device structure.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @revision: Stores current ISP module revision.
+ * @irq_num: Currently used IRQ number.
+ * @mmio_base: Array with kernel base addresses for ioremapped ISP register
+ *             regions.
+ * @mmio_base_phys: Array with physical L4 bus addresses for ISP register
+ *                  regions.
+ * @mmio_size: Array with ISP register regions size in bytes.
+ * @lock: Spinlock for handling registered ISP callbacks.
+ * @h3a_lock: Spinlock for handling H3a (Not used) (?)
+ * @isp_mutex: Mutex for serializing requests to ISP.
+ * @ref_count: Reference count for handling multiple ISP requests.
+ * @cam_ick: Pointer to camera interface clock structure.
+ * @cam_mclk: Pointer to camera functional clock structure.
+ * @dpll4_m5_ck: Pointer to DPLL4 M5 clock structure.
+ * @csi2_fck: Pointer to camera CSI2 complexIO clock structure.
+ * @l3_ick: Pointer to OMAP3 L3 bus interface clock.
+ * @config: Pointer to currently set ISP interface configuration.
+ * @tmp_buf: ISP MMU mapped temporary buffer address used for 34xx Workaround
+ *           for CCDC->PRV->RSZ datapath errata.
+ * @tmp_buf_size: ISP MMU mapped temporary buffer size used for 34xx Workaround
+ *                for CCDC->PRV->RSZ datapath errata.
+ * @tmp_buf_offset: ISP MMU mapped temporary buffer line offset used for 34xx
+ *                  Workaround for CCDC->PRV->RSZ datapath errata.
+ * @bufs: Internal ISP buffer queue list.
+ * @irq: Currently attached ISP ISR callbacks information structure.
+ * @pipeline: Currently used internal ISP pipeline information.
+ * @interrupts: ISP interrupts staged for deferred enabling.
+ * @running: Current running/stopped status of ISP.
+ * @isp_af: Pointer to current settings for ISP AutoFocus SCM.
+ * @isp_hist: Pointer to current settings for ISP Histogram SCM.
+ * @isp_h3a: Pointer to current settings for ISP Auto Exposure and
+ *           White Balance SCM.
+ * @isp_res: Pointer to current settings for ISP Resizer.
+ * @isp_prev: Pointer to current settings for ISP Preview.
+ * @isp_ccdc: Pointer to current settings for ISP CCDC.
+ * @iommu: Pointer to requested IOMMU instance for ISP.
  *
- * This structure is used to store the OMAP ISP Control Information.
+ * This structure is used to store the OMAP ISP Information.
  */
 struct isp_device {
 	struct device *dev;
@@ -354,6 +434,7 @@ struct isp_device {
 	struct isp_irq irq;
 	struct isp_pipeline pipeline;
 	u32 interrupts;
+	u32 mclk;
 	enum isp_running running;
 
 	/* ISP modules */
@@ -405,6 +486,10 @@ int isp_configure_interface(struct device *dev,
 struct device *isp_get(void);
 
 int isp_put(void);
+
+int isp_enable_mclk(struct device *dev);
+
+void isp_disable_mclk(struct isp_device *dev);
 
 int isp_queryctrl(struct v4l2_queryctrl *a);
 
@@ -463,6 +548,14 @@ dma_addr_t ispmmu_vmap(struct device *dev, const struct scatterlist *sglist,
 		       int sglen);
 void ispmmu_vunmap(struct device *dev, dma_addr_t da);
 
+/**
+ * isp_reg_readl - Read value of an OMAP3 ISP register
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @isp_mmio_range: Range to which the register offset refers to.
+ * @reg_offset: Register offset to read from.
+ *
+ * Returns an unsigned 32 bit value with the required register contents.
+ **/
 static inline
 u32 isp_reg_readl(struct device *dev, enum isp_mem_resources isp_mmio_range,
 		  u32 reg_offset)
@@ -472,6 +565,13 @@ u32 isp_reg_readl(struct device *dev, enum isp_mem_resources isp_mmio_range,
 	return __raw_readl(isp->mmio_base[isp_mmio_range] + reg_offset);
 }
 
+/**
+ * isp_reg_writel - Write value to an OMAP3 ISP register
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @reg_value: 32 bit value to write to the register.
+ * @isp_mmio_range: Range to which the register offset refers to.
+ * @reg_offset: Register offset to write into.
+ **/
 static inline
 void isp_reg_writel(struct device *dev, u32 reg_value,
 		    enum isp_mem_resources isp_mmio_range, u32 reg_offset)
@@ -481,6 +581,13 @@ void isp_reg_writel(struct device *dev, u32 reg_value,
 	__raw_writel(reg_value, isp->mmio_base[isp_mmio_range] + reg_offset);
 }
 
+/**
+ * isp_reg_and - Do AND binary operation within an OMAP3 ISP register value
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @mmio_range: Range to which the register offset refers to.
+ * @reg: Register offset to work on.
+ * @and_bits: 32 bit value which would be 'ANDed' with current register value.
+ **/
 static inline
 void isp_reg_and(struct device *dev, enum isp_mem_resources mmio_range, u32 reg,
 		 u32 and_bits)
@@ -490,6 +597,13 @@ void isp_reg_and(struct device *dev, enum isp_mem_resources mmio_range, u32 reg,
 	isp_reg_writel(dev, v & and_bits, mmio_range, reg);
 }
 
+/**
+ * isp_reg_or - Do OR binary operation within an OMAP3 ISP register value
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @mmio_range: Range to which the register offset refers to.
+ * @reg: Register offset to work on.
+ * @or_bits: 32 bit value which would be 'ORed' with current register value.
+ **/
 static inline
 void isp_reg_or(struct device *dev, enum isp_mem_resources mmio_range, u32 reg,
 		u32 or_bits)
@@ -499,6 +613,17 @@ void isp_reg_or(struct device *dev, enum isp_mem_resources mmio_range, u32 reg,
 	isp_reg_writel(dev, v | or_bits, mmio_range, reg);
 }
 
+/**
+ * isp_reg_and_or - Do AND and OR binary ops within an OMAP3 ISP register value
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @mmio_range: Range to which the register offset refers to.
+ * @reg: Register offset to work on.
+ * @and_bits: 32 bit value which would be 'ANDed' with current register value.
+ * @or_bits: 32 bit value which would be 'ORed' with current register value.
+ *
+ * The AND operation is done first, and then the OR operation. Mostly useful
+ * when clearing a group of bits before setting a value.
+ **/
 static inline
 void isp_reg_and_or(struct device *dev, enum isp_mem_resources mmio_range,
 		    u32 reg, u32 and_bits, u32 or_bits)

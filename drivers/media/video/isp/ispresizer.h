@@ -51,6 +51,7 @@
 #define DEFAULTOFFSET			7
 #define OFFSETVERT4TAPMODE		4
 #define OPWDALIGNCONSTANT		0xfffffff0
+#define SHIFT_FOR_PRECISION		16
 
 /*
  * The client is supposed to call resizer API in the following sequence:
@@ -134,7 +135,8 @@ struct isp_res_device {
 	u16 h_resz;
 	u16 v_resz;
 	u8 algo;
-	dma_addr_t tmp_buf;
+	dma_addr_t in_buf_addr;
+	dma_addr_t in_buf_addr_off;
 	struct isprsz_coef coeflist;
 	struct mutex ispres_mutex; /* For checking/modifying res_inuse */
 	struct isprsz_yenh defaultyenh;
@@ -170,7 +172,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 
 int ispresizer_config_inlineoffset(struct isp_res_device *isp_res, u32 offset);
 
-int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr);
+int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr, u32 offset);
 
 int ispresizer_config_outlineoffset(struct isp_res_device *isp_res, u32 offset);
 

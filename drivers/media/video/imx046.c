@@ -270,10 +270,10 @@ static struct imx046_sensor_settings sensor_settings[] = {
 		},
 		.mipi = {
 			.data_lanes = 2,
-			.ths_prepare = 4,
-			.ths_zero = 5,
-			.ths_settle_lower = 13,
-			.ths_settle_upper = 33,
+			.ths_prepare = 2,
+			.ths_zero = 4,
+			.ths_settle_lower = 8,
+			.ths_settle_upper = 24,
 		},
 		.frame = {
 			.frame_len_lines_min = 2510,
@@ -614,9 +614,6 @@ static int imx046_set_framerate(struct v4l2_int_device *s,
 	else if (frame_length_lines < ss->frame.frame_len_lines_min)
 		frame_length_lines = ss->frame.frame_len_lines_min;
 
-	imx046_write_reg(client, IMX046_REG_FRAME_LEN_LINES,
-					frame_length_lines, I2C_16BIT);
-
 	sensor_settings[isize].frame.frame_len_lines = frame_length_lines;
 
 	/* Update max exposure time */
@@ -946,7 +943,7 @@ int imx046_configure_frame(struct i2c_client *client,
 	u32 val;
 
 	imx046_write_reg(client, IMX046_REG_FRAME_LEN_LINES,
-		sensor_settings[isize].frame.frame_len_lines_min, I2C_16BIT);
+		sensor_settings[isize].frame.frame_len_lines, I2C_16BIT);
 
 	imx046_write_reg(client, IMX046_REG_LINE_LEN_PCK,
 		sensor_settings[isize].frame.line_len_pck, I2C_16BIT);
@@ -1075,28 +1072,21 @@ static int imx046_configure(struct v4l2_int_device *s)
 	struct imx046_sensor *sensor = s->priv;
 	struct v4l2_pix_format *pix = &sensor->pix;
 	struct i2c_client *client = sensor->i2c_client;
-	enum imx046_image_size isize;
+	enum imx046_image_size isize = isize_current;
 	int err, i;
 	struct vcontrol *lvc = NULL;
-
-	isize = imx046_find_size(pix->width, pix->height);
-	isize_current = isize;
 
 	err = imx046_write_reg(client, IMX046_REG_SW_RESET, 0x01, I2C_8BIT);
 	mdelay(5);
 
 	imx046_write_regs(client, initial_list);
 
-	imx046_update_clocks(xclk_current, isize);
 	imx046_setup_pll(client, isize);
 
 	imx046_setup_mipi(s, isize);
 
 	/* configure image size and pixel format */
 	imx046_configure_frame(client, isize);
-
-	/* Setting of frame rate */
-	err = imx046_set_framerate(s, &sensor->timeperframe);
 
 	imx046_set_orientation(client, sensor->ver);
 
@@ -1327,6 +1317,7 @@ static int ioctl_try_fmt_cap(struct v4l2_int_device *s,
 	struct v4l2_pix_format *pix2 = &sensor->pix;
 
 	isize = imx046_find_size(pix->width, pix->height);
+	isize_current = isize;
 
 	pix->width = imx046_sizes[isize].width;
 	pix->height = imx046_sizes[isize].height;
@@ -1482,12 +1473,15 @@ static int ioctl_s_parm(struct v4l2_int_device *s,
 {
 	struct imx046_sensor *sensor = s->priv;
 	struct v4l2_fract *timeperframe = &a->parm.capture.timeperframe;
+	int err = 0;
 
 	sensor->timeperframe = *timeperframe;
 	imx046sensor_calc_xclk();
+	imx046_update_clocks(xclk_current, isize_current);
+	err = imx046_set_framerate(s, &sensor->timeperframe);
 	*timeperframe = sensor->timeperframe;
 
-	return 0;
+	return err;
 }
 
 
@@ -1506,13 +1500,14 @@ static int ioctl_g_priv(struct v4l2_int_device *s, void *p)
 
 }
 
-static int imx046_power_off(struct v4l2_int_device *s)
+static int __imx046_power_off_standby(struct v4l2_int_device *s,
+				      enum v4l2_power on)
 {
 	struct imx046_sensor *sensor = s->priv;
 	struct i2c_client *client = sensor->i2c_client;
 	int rval;
 
-	rval = sensor->pdata->power_set(s, V4L2_POWER_OFF);
+	rval = sensor->pdata->power_set(s, on);
 	if (rval < 0) {
 		v4l_err(client, "Unable to set the power state: "
 			IMX046_DRIVER_NAME " sensor\n");
@@ -1521,6 +1516,16 @@ static int imx046_power_off(struct v4l2_int_device *s)
 
 	sensor->pdata->set_xclk(s, 0);
 	return 0;
+}
+
+static int imx046_power_off(struct v4l2_int_device *s)
+{
+	return __imx046_power_off_standby(s, V4L2_POWER_OFF);
+}
+
+static int imx046_power_standby(struct v4l2_int_device *s)
+{
+	return __imx046_power_off_standby(s, V4L2_POWER_STANDBY);
 }
 
 static int imx046_power_on(struct v4l2_int_device *s)
@@ -1555,16 +1560,17 @@ static int ioctl_s_power(struct v4l2_int_device *s, enum v4l2_power on)
 	struct vcontrol *lvc;
 	int i;
 
-	if (on == V4L2_POWER_ON) {
+	switch (on) {
+	case V4L2_POWER_ON:
 		imx046_power_on(s);
 		if (current_power_state == V4L2_POWER_STANDBY) {
 			sensor->resuming = true;
 			imx046_configure(s);
 		}
-	} else
+		break;
+	case V4L2_POWER_OFF:
 		imx046_power_off(s);
 
-	if (on == V4L2_POWER_OFF) {
 		/* Reset defaults for controls */
 		i = find_vctrl(V4L2_CID_GAIN);
 		if (i >= 0) {
@@ -1581,6 +1587,10 @@ static int ioctl_s_power(struct v4l2_int_device *s, enum v4l2_power on)
 			lvc = &imx046sensor_video_control[i];
 			lvc->current_value = IMX046_MIN_TEST_PATT_MODE;
 		}
+		break;
+	case V4L2_POWER_STANDBY:
+		imx046_power_standby(s);
+		break;
 	}
 
 	sensor->resuming = false;

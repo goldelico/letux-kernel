@@ -246,6 +246,7 @@ struct isptables_update {
  * @contrast: Contrast in preview module.
  * @color: Color effect in preview module.
  * @cfafmt: Color Filter Array (CFA) Format.
+ * @wbal_update: Update digital and colour gains in Previewer
  *
  * This structure is used to store the OMAP ISP Preview module Information.
  */

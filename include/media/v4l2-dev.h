@@ -16,6 +16,8 @@
 #include <linux/mutex.h>
 #include <linux/videodev2.h>
 
+#include <media/v4l2-fh.h>
+
 #define VIDEO_MAJOR	81
 
 #define VFL_TYPE_GRABBER	0
@@ -75,6 +77,8 @@ struct video_device
 	/* attribute to differentiate multiple indices on one physical device */
 	int index;
 
+	spinlock_t fh_lock;		/* Lock for file handle list */
+	struct list_head fh;		/* File handle list */
 	int debug;			/* Activates debug level*/
 
 	/* Video standard vars */

@@ -43,6 +43,8 @@ static int cam_inited;
 
 #define CAMZOOM2_USE_XCLKB  	1
 
+#define ISP_IMX046_MCLK		216000000
+
 /* Sensor specific GPIO signals */
 #define IMX046_RESET_GPIO  	98
 #define IMX046_STANDBY_GPIO	58
@@ -134,7 +136,7 @@ static int imx046_sensor_set_prv_data(struct v4l2_int_device *s, void *priv)
 {
 	struct omap34xxcam_hw_config *hwc = priv;
 
-	hwc->u.sensor.sensor_isp = imx046_hwc.sensor_isp;
+	hwc->u.sensor		= imx046_hwc;
 	hwc->dev_index		= 2;
 	hwc->dev_minor		= 5;
 	hwc->dev_type		= OMAP34XXCAM_SLAVE_SENSOR;
@@ -151,6 +153,7 @@ static struct isp_interface_config imx046_if_config = {
 	.shutter 		= 0x0,
 	.wenlog 		= ISPCCDC_CFG_WENLOG_AND,
 	.wait_hs_vs		= 2,
+	.cam_mclk		= ISP_IMX046_MCLK,
 	.raw_fmt_in		= ISPCCDC_INPUT_FMT_RG_GB,
 	.u.csi.crc 		= 0x0,
 	.u.csi.mode 		= 0x0,
@@ -212,40 +215,40 @@ static int imx046_sensor_power_set(struct v4l2_int_device *s, enum v4l2_power po
 
 		isp_configure_interface(vdev->cam->isp, &imx046_if_config);
 
-		if (previous_power == V4L2_POWER_OFF) {
-			/* Request and configure gpio pins */
-			if (gpio_request(IMX046_RESET_GPIO, "imx046_rst") != 0)
-				return -EIO;
+		/* Request and configure gpio pins */
+		if (gpio_request(IMX046_RESET_GPIO, "imx046_rst") != 0)
+			return -EIO;
 
-			/* nRESET is active LOW. set HIGH to release reset */
-			gpio_set_value(IMX046_RESET_GPIO, 1);
+		/* nRESET is active LOW. set HIGH to release reset */
+		gpio_set_value(IMX046_RESET_GPIO, 1);
 
-			/* set to output mode */
-			gpio_direction_output(IMX046_RESET_GPIO, true);
+		/* set to output mode */
+		gpio_direction_output(IMX046_RESET_GPIO, true);
 
-			/* turn on analog power */
-			twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
-					VAUX_2_8_V, TWL4030_VAUX2_DEDICATED);
-			twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
-					VAUX_DEV_GRP_P1, TWL4030_VAUX2_DEV_GRP);
+		/* turn on analog power */
+		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+				VAUX_2_8_V, TWL4030_VAUX2_DEDICATED);
+		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+				VAUX_DEV_GRP_P1, TWL4030_VAUX2_DEV_GRP);
 
-			twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
-					VAUX_1_8_V, TWL4030_VAUX4_DEDICATED);
-			twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
-					VAUX_DEV_GRP_P1, TWL4030_VAUX4_DEV_GRP);
-			udelay(100);
+		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+				VAUX_1_8_V, TWL4030_VAUX4_DEDICATED);
+		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+				VAUX_DEV_GRP_P1, TWL4030_VAUX4_DEV_GRP);
+		udelay(100);
 
-			/* have to put sensor to reset to guarantee detection */
-			gpio_set_value(IMX046_RESET_GPIO, 0);
-			udelay(1500);
+		/* have to put sensor to reset to guarantee detection */
+		gpio_set_value(IMX046_RESET_GPIO, 0);
+		udelay(1500);
 
-			/* nRESET is active LOW. set HIGH to release reset */
-			gpio_set_value(IMX046_RESET_GPIO, 1);
-			udelay(300);
-		}
+		/* nRESET is active LOW. set HIGH to release reset */
+		gpio_set_value(IMX046_RESET_GPIO, 1);
+		udelay(300);
 		break;
 	case V4L2_POWER_OFF:
-		printk(KERN_DEBUG "imx046_sensor_power_set(OFF)\n");
+	case V4L2_POWER_STANDBY:
+		printk(KERN_DEBUG "imx046_sensor_power_set(%s)\n",
+			(power == V4L2_POWER_OFF) ? "OFF" : "STANDBY");
 		/* Power Down Sequence */
 		isp_csi2_complexio_power(&isp->isp_csi2, ISP_CSI2_POWER_OFF);
 
@@ -256,12 +259,10 @@ static int imx046_sensor_power_set(struct v4l2_int_device *s, enum v4l2_power po
 		gpio_free(IMX046_RESET_GPIO);
 
 		omap_pm_set_min_bus_tput(vdev->cam->isp, OCP_INITIATOR_AGENT, 0);
-		break;
-	case V4L2_POWER_STANDBY:
-		printk(KERN_DEBUG "imx046_sensor_power_set(STANDBY)\n");
-		isp_csi2_complexio_power(&isp->isp_csi2, ISP_CSI2_POWER_OFF);
-		/*TODO*/
-		omap_pm_set_min_bus_tput(vdev->cam->isp, OCP_INITIATOR_AGENT, 0);
+
+		/* Make sure not to disable the MCLK twice in a row */
+		if (previous_power == V4L2_POWER_ON)
+			isp_disable_mclk(isp);
 		break;
 	}
 

@@ -41,6 +41,16 @@
 #define VIDIOC_PRIVATE_OMAP34XXCAM_SENSOR_INFO	\
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 10, struct omap34xxcam_sensor_info)
 
+/*
+ *	P R I V A T E   E V E N T S
+ */
+
+#define V4L2_EVENT_OMAP3ISP_CLASS	(V4L2_EVENT_PRIVATE_START | 0x100)
+#define V4L2_EVENT_OMAP3ISP_AEWB	(V4L2_EVENT_OMAP3ISP_CLASS | 0x1)
+#define V4L2_EVENT_OMAP3ISP_AF		(V4L2_EVENT_OMAP3ISP_CLASS | 0x2)
+#define V4L2_EVENT_OMAP3ISP_HIST	(V4L2_EVENT_OMAP3ISP_CLASS | 0x3)
+#define V4L2_EVENT_OMAP3ISP_HS_VS	(V4L2_EVENT_OMAP3ISP_CLASS | 0x4)
+
 /* Structre for getting Sensor Information*/
 struct omap34xxcam_sensor_info {
 	__u32 current_xclk;

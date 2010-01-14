@@ -24,8 +24,8 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
 #include <asm/cacheflush.h>
+
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/clk.h>
@@ -163,6 +163,16 @@ static struct isp_reg isp_reg_list[] = {
 	{0, ISP_TOK_TERM, 0}
 };
 
+/**
+ * isp_flush - Post pending L3 bus writes by doing a register readback
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ *
+ * In order to force posting of pending writes, we need to write and
+ * readback the same register, in this case the revision register.
+ *
+ * See this link for reference:
+ *   http://www.mail-archive.com/linux-omap@vger.kernel.org/msg08149.html
+ **/
 void isp_flush(struct device *dev)
 {
 	isp_reg_writel(dev, 0, OMAP3_ISP_IOMEM_MAIN, ISP_REVISION);
@@ -176,7 +186,7 @@ void isp_flush(struct device *dev)
  */
 
 /**
- * find_vctrl - Returns the index of the ctrl array of the requested ctrl ID.
+ * find_vctrl - Return the index of the ctrl array of the requested ctrl ID.
  * @id: Requested control ID.
  *
  * Returns 0 if successful, -EINVAL if not found, or -EDOM if its out of
@@ -199,6 +209,12 @@ static int find_vctrl(int id)
 	return i;
 }
 
+/**
+ * find_next_vctrl - Return next v4l2 ctrl ID available after the specified ID
+ * @id: Reference V4L2 control ID.
+ *
+ * Returns 0 if successful, or -EINVAL if not found.
+ **/
 static int find_next_vctrl(int id)
 {
 	int i;
@@ -220,7 +236,7 @@ static int find_next_vctrl(int id)
 }
 
 /**
- * find_vmenu - Returns index of the menu array of the requested ctrl option.
+ * find_vmenu - Return index of the menu array of the requested ctrl option.
  * @id: Requested control ID.
  * @index: Requested menu option index.
  *
@@ -244,7 +260,8 @@ static int find_vmenu(int id, int index)
 }
 
 /**
- * isp_release_resources - Free ISP submodules
+ * isp_release_resources - Free all currently requested ISP submodules.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  **/
 static void isp_release_resources(struct device *dev)
 {
@@ -261,6 +278,14 @@ static void isp_release_resources(struct device *dev)
 	return;
 }
 
+/**
+ * isp_wait - Wait for idle or busy state transition with a time limit
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @busy: Function pointer which determines if submodule is busy.
+ * @wait_for_busy: If 0, waits for idle state, if 1, waits for busy state.
+ * @max_wait: Max retry count in us for wait for idle/busy transition.
+ * @priv: Function parameter to send to busy check function.
+ **/
 static int isp_wait(struct device *dev, int (*busy)(void *), int wait_for_busy,
 		    int max_wait, void *priv)
 {
@@ -282,6 +307,11 @@ static int isp_wait(struct device *dev, int (*busy)(void *), int wait_for_busy,
 	return 0;
 }
 
+/**
+ * ispccdc_sbl_wait_idle - Wrapper to wait for ccdc sbl status bits to be idle.
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ * @max_wait: Max retry count for wait for idle transition of the CCDC SBL bits
+ **/
 static int ispccdc_sbl_wait_idle(struct isp_ccdc_device *isp_ccdc, int max_wait)
 {
 	struct device *dev = to_device(isp_ccdc);
@@ -289,13 +319,16 @@ static int ispccdc_sbl_wait_idle(struct isp_ccdc_device *isp_ccdc, int max_wait)
 	return isp_wait(dev, ispccdc_sbl_busy, 0, max_wait, isp_ccdc);
 }
 
+/**
+ * isp_enable_interrupts - Enable ISP interrupts.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ **/
 static void isp_enable_interrupts(struct device *dev)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	u32 irq0enable;
 
-	irq0enable = IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ
-		| IRQ0ENABLE_CCDC_VD0_IRQ
+	irq0enable = IRQ0ENABLE_CCDC_VD0_IRQ
 		| IRQ0ENABLE_CSIA_IRQ
 		| IRQ0ENABLE_CSIB_IRQ | IRQ0ENABLE_HIST_DONE_IRQ
 		| IRQ0ENABLE_H3A_AWB_DONE_IRQ | IRQ0ENABLE_H3A_AF_DONE_IRQ
@@ -317,14 +350,17 @@ static void isp_enable_interrupts(struct device *dev)
 	return;
 }
 
+/**
+ * isp_disable_interrupts - Disable all ISP interrupts.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ **/
 static void isp_disable_interrupts(struct device *dev)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	u32 irq0enable;
 	u32 v ;
 
-	irq0enable = ~(IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ
-		| IRQ0ENABLE_CCDC_VD0_IRQ
+	irq0enable = ~(IRQ0ENABLE_CCDC_VD0_IRQ
 		| IRQ0ENABLE_CSIA_IRQ
 		| IRQ0ENABLE_CSIB_IRQ | IRQ0ENABLE_HIST_DONE_IRQ
 		| IRQ0ENABLE_H3A_AWB_DONE_IRQ | IRQ0ENABLE_H3A_AF_DONE_IRQ
@@ -344,7 +380,8 @@ static void isp_disable_interrupts(struct device *dev)
 }
 
 /**
- * isp_set_callback - Sets the callback for the ISP module done events.
+ * isp_set_callback - Set an external callback for an ISP interrupt.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @type: Type of the event for which callback is requested.
  * @callback: Method to be called as callback in the ISR context.
  * @arg1: First argument to be passed when callback is called in ISR.
@@ -394,6 +431,7 @@ EXPORT_SYMBOL(isp_set_callback);
 
 /**
  * isp_unset_callback - Clears the callback for the ISP module done events.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @type: Type of the event for which callback to be cleared.
  *
  * This function clears a callback function for a done event in the ISP
@@ -429,13 +467,14 @@ EXPORT_SYMBOL(isp_unset_callback);
 
 /**
  * isp_set_xclk - Configures the specified cam_xclk to the desired frequency.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @xclk: Desired frequency of the clock in Hz.
  * @xclksel: XCLK to configure (0 = A, 1 = B).
  *
  * Configures the specified MCLK divisor in the ISP timing control register
  * (TCTRL_CTRL) to generate the desired xclk clock value.
  *
- * Divisor = CM_CAM_MCLK_HZ / xclk
+ * Divisor = mclk / xclk
  *
  * Returns the final frequency that is actually being generated
  **/
@@ -443,15 +482,16 @@ u32 isp_set_xclk(struct device *dev, u32 xclk, u8 xclksel)
 {
 	u32 divisor;
 	u32 currentxclk;
+	struct isp_device *isp = dev_get_drvdata(dev);
 
-	if (xclk >= CM_CAM_MCLK_HZ) {
+	if (xclk >= isp->mclk) {
 		divisor = ISPTCTRL_CTRL_DIV_BYPASS;
-		currentxclk = CM_CAM_MCLK_HZ;
+		currentxclk = isp->mclk;
 	} else if (xclk >= 2) {
-		divisor = CM_CAM_MCLK_HZ / xclk;
+		divisor = isp->mclk / xclk;
 		if (divisor >= ISPTCTRL_CTRL_DIV_BYPASS)
 			divisor = ISPTCTRL_CTRL_DIV_BYPASS - 1;
-		currentxclk = CM_CAM_MCLK_HZ / divisor;
+		currentxclk = isp->mclk / divisor;
 	} else {
 		divisor = xclk;
 		currentxclk = 0;
@@ -484,7 +524,8 @@ EXPORT_SYMBOL(isp_set_xclk);
 
 /**
  * isp_power_settings - Sysconfig settings, for Power Management.
- * @isp_sysconfig: Structure containing the power settings for ISP to configure
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @idle: Consider idle state.
  *
  * Sets the power settings for the ISP, and SBL bus.
  **/
@@ -540,6 +581,11 @@ static void isp_power_settings(struct device *dev, int idle)
 			| (val << shift);	\
 	} while (0)
 
+/**
+ * isp_csi_enable - Enable CSI1/CCP2 interface.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @enable: Enable flag.
+ **/
 static void isp_csi_enable(struct device *dev, u8 enable)
 {
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL,
@@ -547,6 +593,18 @@ static void isp_csi_enable(struct device *dev, u8 enable)
 		       enable ? (BIT(0) | BIT(4)) : 0);
 }
 
+/**
+ * isp_init_csi - Initialize CSI1/CCP2 interface.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @config: Pointer to ISP interface config structure.
+ *
+ * This will analize the parameters passed by the interface config
+ * structure, and configure the respective registers for proper CSI1/CCP2
+ * config.
+ *
+ * Returns -EINVAL if wrong format, -EIO if strobe is choosen in CSI1 mode, or
+ * 0 on success.
+ **/
 static int isp_init_csi(struct device *dev, struct isp_interface_config *config)
 {
 	u32 i = 0, val, reg;
@@ -652,8 +710,9 @@ static int isp_init_csi(struct device *dev, struct isp_interface_config *config)
 
 /**
  * isp_configure_interface - Configures ISP Control I/F related parameters.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @config: Pointer to structure containing the desired configuration for the
- * 	ISP.
+ *          ISP.
  *
  * Configures ISP control register (ISP_CTRL) with the values specified inside
  * the config structure. Controls:
@@ -662,6 +721,8 @@ static int isp_init_csi(struct device *dev, struct isp_interface_config *config)
  * - Pixel clock polarity.
  * - 8 to 16-bit bridge at the input of CCDC module.
  * - HS or VS synchronization signal detection
+ *
+ * Returns 0 on success, otherwise, will return other negative error value.
  **/
 int isp_configure_interface(struct device *dev,
 			    struct isp_interface_config *config)
@@ -734,6 +795,8 @@ int isp_configure_interface(struct device *dev,
 	ispccdc_set_wenlog(&isp->isp_ccdc, config->wenlog);
 	ispccdc_set_raw_offset(&isp->isp_ccdc, config->raw_fmt_in);
 
+	isp->mclk = config->cam_mclk;
+	isp_enable_mclk(dev);
 	/* FIXME: this should be set in ispccdc_config_vp() */
 	fmtcfg = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_FMTCFG);
 	fmtcfg &= ISPCCDC_FMTCFG_VPIF_FRQ_MASK;
@@ -777,9 +840,7 @@ static void isp_buf_process(struct device *dev, struct isp_bufs *bufs);
 /**
  * isp_isr - Interrupt Service Routine for Camera ISP module.
  * @irq: Not used currently.
- * @ispirq_disp: Pointer to the object that is passed while request_irq is
- *               called. This is the isp->irq object containing info on the
- *               callback.
+ * @_pdev: Pointer to the platform device associated with the OMAP3 ISP.
  *
  * Handles the corresponding callback if plugged in.
  *
@@ -808,10 +869,8 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 
 	if ((isp->running == ISP_STOPPING) &&
 		!(irqdis->isp_callbk[CBK_RESZ_DONE] &&
-			(irqstatus & RESZ_DONE))) {
-		isp_flush(dev);
-		return IRQ_HANDLED;
-	}
+			(irqstatus & RESZ_DONE)))
+		goto out_stopping_lsc;
 
 	spin_lock_irqsave(&isp->lock, flags);
 	wait_hs_vs = bufs->wait_hs_vs;
@@ -864,8 +923,8 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	if (irqstatus & LSC_PRE_ERR) {
 		/* Mark buffer faulty. */
 		buf->vb_state = VIDEOBUF_ERROR;
-		ispccdc_lsc_error_handler(&isp->isp_ccdc);
 		dev_dbg(dev, "lsc prefetch error\n");
+		ispccdc_lsc_state_handler(&isp->isp_ccdc, LSC_PRE_ERR);
 	}
 
 	if (irqstatus & CSIA) {
@@ -917,9 +976,6 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 		if (!(irqstatus & HIST_DONE))
 			isp_hist_try_enable(&isp->isp_hist);
 	}
-
-	if (irqstatus & CCDC_VD1)
-		ispccdc_config_shadow_registers(&isp->isp_ccdc);
 
 	if (irqstatus & PREV_DONE) {
 		if (irqdis->isp_callbk[CBK_PREV_DONE])
@@ -1042,7 +1098,23 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 out_ignore_buff:
 	spin_unlock_irqrestore(&isp->lock, flags);
 
+out_stopping_lsc:
+	if (irqstatus & LSC_DONE)
+		ispccdc_lsc_state_handler(&isp->isp_ccdc, LSC_DONE);
+
+	if (irqstatus & CCDC_VD1) {
+		ispccdc_lsc_state_handler(&isp->isp_ccdc, CCDC_VD1);
+		/* If we make raw capture, stop CCDC
+		 * together with LSC before EOF */
+		if (CCDC_CAPTURE(isp))
+			ispccdc_enable(&isp->isp_ccdc, 0);
+	}
+
+	if (irqstatus & LSC_PRE_COMP)
+		ispccdc_lsc_pref_comp_handler(&isp->isp_ccdc);
+
 	isp_flush(dev);
+
 #if 1
 	{
 		static const struct {
@@ -1104,8 +1176,8 @@ struct device camera_dev = {
 };
 
 /**
- *  isp_tmp_buf_free - To free allocated 10MB memory
- *
+ * isp_tmp_buf_free - Free buffer for CCDC->PRV->RSZ datapath workaround.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  **/
 static void isp_tmp_buf_free(struct device *dev)
 {
@@ -1120,13 +1192,25 @@ static void isp_tmp_buf_free(struct device *dev)
 }
 
 /**
- *  isp_tmp_buf_alloc - To allocate a 10MB memory
+ * isp_tmp_buf_alloc - Allocate buffer for CCDC->PRV->RSZ datapath workaround.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @size: Byte size of the buffer to allocate
  *
+ * Returns 0 if successful, or -ENOMEM if there's no available memory.
  **/
-static u32 isp_tmp_buf_alloc(struct device *dev, size_t size)
+static u32 isp_tmp_buf_alloc(struct device *dev, struct isp_pipeline *pipe)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	u32 da;
+	size_t size = PAGE_ALIGN(isp->pipeline.prv_out_w *
+				 isp->pipeline.prv_out_h *
+				 ISP_BYTES_PER_PIXEL);
+
+	ispresizer_config_inlineoffset(&isp->isp_res,
+			pipe->prv_out_w * ISP_BYTES_PER_PIXEL);
+
+	if (isp->tmp_buf_size >= size)
+		return 0;
 
 	isp_tmp_buf_free(dev);
 
@@ -1139,16 +1223,14 @@ static u32 isp_tmp_buf_alloc(struct device *dev, size_t size)
 	isp->tmp_buf_size = size;
 
 	isppreview_set_outaddr(&isp->isp_prev, isp->tmp_buf);
-	ispresizer_set_inaddr(&isp->isp_res, isp->tmp_buf);
+	ispresizer_set_inaddr(&isp->isp_res, isp->tmp_buf, 0);
 
 	return 0;
 }
 
 /**
- * isp_start - Starts ISP submodule
- *
- * Start the needed isp components assuming these components
- * are configured correctly.
+ * isp_start - Set ISP in running state
+ * @dev: Device pointer specific to the OMAP3 ISP.
  **/
 void isp_start(struct device *dev)
 {
@@ -1163,14 +1245,37 @@ EXPORT_SYMBOL(isp_start);
 #define ISP_STATISTICS_BUSY			\
 	()
 #define ISP_STOP_TIMEOUT	msecs_to_jiffies(1000)
+
+/**
+ * __isp_disable_modules - Disable ISP submodules with a timeout to be idle.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @suspend: If 0, disable modules; if 1, send modules to suspend state.
+ *
+ * Returns 0 if stop/suspend left in idle state all the submodules properly,
+ * or returns 1 if a general Reset is required to stop/suspend the submodules.
+ **/
 static int __isp_disable_modules(struct device *dev, int suspend)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	unsigned long timeout = jiffies + ISP_STOP_TIMEOUT;
 	int reset = 0;
 
+	/* We need to disble the first LSC module */
+	timeout = jiffies + ISP_STOP_TIMEOUT;
+	while (ispccdc_lsc_delay_stop(&isp->isp_ccdc)) {
+		if (time_after(jiffies, timeout)) {
+			printk(KERN_ERR "%s: can't stop lsc "
+					"disabling lsc anyway. \n", __func__);
+			reset = 1;
+			break;
+		}
+		msleep(1);
+	}
+	/* We can disable lsc now */
+	ispccdc_enable_lsc(&isp->isp_ccdc, 0);
+
 	/*
-	 * We need to stop all the modules after CCDC first or they'll
+	 * We need to stop all the modules after CCDC or they'll
 	 * never stop since they may not get a full frame from CCDC.
 	 */
 	if (suspend) {
@@ -1227,16 +1332,34 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 	return reset;
 }
 
+/**
+ * isp_stop_modules - Stop ISP submodules.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ *
+ * Returns 0 if stop left in idle state all the submodules properly,
+ * or returns 1 if a general Reset is required to stop the submodules.
+ **/
 static int isp_stop_modules(struct device *dev)
 {
 	return __isp_disable_modules(dev, 0);
 }
 
+/**
+ * isp_suspend_modules - Suspend ISP submodules.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ *
+ * Returns 0 if suspend left in idle state all the submodules properly,
+ * or returns 1 if a general Reset is required to suspend the submodules.
+ **/
 static int isp_suspend_modules(struct device *dev)
 {
 	return __isp_disable_modules(dev, 1);
 }
 
+/**
+ * isp_resume_modules - Resume ISP submodules.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ **/
 static void isp_resume_modules(struct device *dev)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
@@ -1246,6 +1369,10 @@ static void isp_resume_modules(struct device *dev)
 	isp_af_resume(&isp->isp_af);
 }
 
+/**
+ * isp_reset - Reset ISP with a timeout wait for idle.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ **/
 static void isp_reset(struct device *dev)
 {
 	unsigned long timeout = 0;
@@ -1265,7 +1392,8 @@ static void isp_reset(struct device *dev)
 }
 
 /**
- * isp_stop - Stops isp submodules
+ * isp_stop - Stop ISP.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  **/
 void isp_stop(struct device *dev)
 {
@@ -1275,8 +1403,8 @@ void isp_stop(struct device *dev)
 	isp->running = ISP_STOPPING;
 	isp_disable_interrupts(dev);
 	synchronize_irq(((struct isp_device *)dev_get_drvdata(dev))->irq_num);
-	isp->running = ISP_STOPPED;
 	reset = isp_stop_modules(dev);
+	isp->running = ISP_STOPPED;
 	if (!reset)
 		return;
 
@@ -1286,6 +1414,11 @@ void isp_stop(struct device *dev)
 }
 EXPORT_SYMBOL(isp_stop);
 
+/**
+ * isp_set_buf - Program output buffer address based on current pipeline.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @buf: Pointer to ISP buffer structure.
+ **/
 static void isp_set_buf(struct device *dev, struct isp_buf *buf)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
@@ -1299,6 +1432,17 @@ static void isp_set_buf(struct device *dev, struct isp_buf *buf)
 
 }
 
+/**
+ * isp_try_pipeline - Retrieve and simulate resulting internal ISP pipeline.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @pix_input: Pointer to pixel format to use as input in the ISP.
+ * @pipe: Pointer to ISP pipeline structure to fill back.
+ *
+ * Returns the closest possible output size based on silicon limitations
+ * detailed through the pipe structure.
+ *
+ * If the input can't be read, it'll return -EINVAL. Returns 0 on success.
+ **/
 static int isp_try_pipeline(struct device *dev,
 			    struct v4l2_pix_format *pix_input,
 			    struct isp_pipeline *pipe)
@@ -1339,8 +1483,13 @@ static int isp_try_pipeline(struct device *dev,
 			pipe->ccdc_in = CCDC_RAW_GBRG;
 		pipe->ccdc_out = CCDC_OTHERS_VP;
 		pipe->prv_in = PRV_RAW_CCDC;
-		pipe->prv_out = PREVIEW_MEM;
-		pipe->rsz_in = RSZ_MEM_YUV;
+		if (isp->revision <= ISP_REVISION_2_0) {
+			pipe->prv_out = PREVIEW_MEM;
+			pipe->rsz_in = RSZ_MEM_YUV;
+		} else {
+			pipe->prv_out = PREVIEW_RSZ;
+			pipe->rsz_in = RSZ_OTFLY_YUV;
+		}
 	} else {
 		pipe->modules = OMAP_ISP_CCDC;
 		if (pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10 ||
@@ -1444,6 +1593,16 @@ static int isp_try_pipeline(struct device *dev,
 	return 0;
 }
 
+/**
+ * isp_s_pipeline - Configure internal ISP pipeline.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @pix_input: Pointer to pixel format to use as input in the ISP.
+ * @pix_output: Pointer to pixel format to use as output in the ISP.
+ *
+ * Returns the closest possible output size based on silicon limitations.
+ *
+ * If the input can't be read, it'll return -EINVAL. Returns 0 on success.
+ **/
 static int isp_s_pipeline(struct device *dev,
 			  struct v4l2_pix_format *pix_input,
 			  struct v4l2_pix_format *pix_output)
@@ -1530,6 +1689,10 @@ static int isp_vbq_sync(struct videobuf_buffer *vb)
 	return 0;
 }
 
+/**
+ * isp_buf_init - Initialize the internal buffer queue handling.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ **/
 static void isp_buf_init(struct device *dev)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
@@ -1552,6 +1715,13 @@ static void isp_buf_init(struct device *dev)
 	}
 }
 
+/**
+ * isp_buf_process - Do final handling when a buffer has been processed.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @bufs: Pointer to ISP buffer handling structure.
+ *
+ * Updates the pointers accordingly depending of the internal pipeline.
+ **/
 static void isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
@@ -1562,7 +1732,6 @@ static void isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 		return;
 
 	if (CCDC_CAPTURE(isp)) {
-		ispccdc_enable(&isp->isp_ccdc, 0);
 		if (ispccdc_sbl_wait_idle(&isp->isp_ccdc, 1000)) {
 			ispccdc_enable(&isp->isp_ccdc, 1);
 			dev_info(dev, "ccdc won't become idle!\n");
@@ -1582,8 +1751,17 @@ static void isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 	} else {
 		/* Tell ISP not to write any of our buffers. */
 		isp_disable_interrupts(dev);
-		if (CCDC_PREV_CAPTURE(isp))
+		/*
+		 * We must wait for one HS_VS since before that the
+		 * CCDC may trigger interrupts even if it's not
+		 * receiving a frame.
+		 */
+		if (CCDC_CAPTURE(isp))
+			bufs->wait_hs_vs = 1;
+		else if (CCDC_PREV_CAPTURE(isp))
 			isppreview_enable(&isp->isp_prev, 0);
+		else if (CCDC_PREV_RESZ_CAPTURE(isp))
+			ispresizer_enable(&isp->isp_res, 0);
 	}
 
 	/* Mark the current buffer as done. */
@@ -1603,6 +1781,15 @@ static void isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 	buf->vb = NULL;
 }
 
+/**
+ * isp_buf_queue - Queue a buffer into the internal ISP queue list.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @vb: Pointer to video buffer to queue.
+ * @complete: Pointer to function to call when buffer is completely processed.
+ * @priv: Pointer to private paramemter to send to complete function.
+ *
+ * Always returns 0.
+ **/
 int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 		  void (*complete)(struct videobuf_buffer *vb, void *priv),
 		  void *priv)
@@ -1666,22 +1853,38 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 }
 EXPORT_SYMBOL(isp_buf_queue);
 
+/**
+ * isp_vbq_setup - Do ISP specific actions when the VB wueue is set.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @vbq: Pointer to video buffer queue.
+ * @cnt: Pointer to buffer count size of the queue list.
+ * @size: Pointer to the bytesize of every video buffer queue entry.
+ *
+ * Currently, this just allocates the temporary buffer used for the
+ * ISP Workaround when having CCDC->PRV->RSZ internal datapath.
+ **/
 int isp_vbq_setup(struct device *dev, struct videobuf_queue *vbq,
 		  unsigned int *cnt, unsigned int *size)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
-	size_t tmp_size = PAGE_ALIGN(isp->pipeline.prv_out_w
-				     * isp->pipeline.prv_out_h
-				     * ISP_BYTES_PER_PIXEL);
 
 	if (CCDC_PREV_RESZ_CAPTURE(isp) &&
-	    isp->tmp_buf_size < tmp_size)
-		return isp_tmp_buf_alloc(dev, tmp_size);
+		isp->revision <= ISP_REVISION_2_0)
+		return isp_tmp_buf_alloc(dev, &isp->pipeline);
 
 	return 0;
 }
 EXPORT_SYMBOL(isp_vbq_setup);
 
+/**
+ * ispmmu_vmap - Wrapper for Virtual memory mapping of a scatter gather list
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @sglist: Pointer to source Scatter gather list to allocate.
+ * @sglen: Number of elements of the scatter-gatter list.
+ *
+ * Returns a resulting mapped device address by the ISP MMU, or -ENOMEM if
+ * we ran out of memory.
+ **/
 dma_addr_t ispmmu_vmap(struct device *dev, const struct scatterlist *sglist,
 		       int sglen)
 {
@@ -1721,6 +1924,11 @@ err_sg_alloc:
 }
 EXPORT_SYMBOL_GPL(ispmmu_vmap);
 
+/**
+ * ispmmu_vunmap - Unmap a device address from the ISP MMU
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @da: Device address generated from a ispmmu_vmap call.
+ **/
 void ispmmu_vunmap(struct device *dev, dma_addr_t da)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
@@ -1736,6 +1944,7 @@ EXPORT_SYMBOL_GPL(ispmmu_vunmap);
 
 /**
  * isp_vbq_prepare - Videobuffer queue prepare.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @vbq: Pointer to videobuf_queue structure.
  * @vb: Pointer to videobuf_buffer structure.
  * @field: Requested Field order for the videobuffer.
@@ -1768,6 +1977,7 @@ EXPORT_SYMBOL(isp_vbq_prepare);
 
 /**
  * isp_vbq_release - Videobuffer queue release.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @vbq: Pointer to videobuf_queue structure.
  * @vb: Pointer to videobuf_buffer structure.
  **/
@@ -1829,7 +2039,8 @@ int isp_querymenu(struct v4l2_querymenu *a)
 EXPORT_SYMBOL(isp_querymenu);
 
 /**
- * isp_g_ctrl - Gets value of the desired V4L2 control.
+ * isp_g_ctrl - Get value of the desired V4L2 control.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @a: V4L2 control to read actual value from.
  *
  * Return 0 if successful, or -EINVAL if chosen control is not found.
@@ -1866,7 +2077,8 @@ int isp_g_ctrl(struct device *dev, struct v4l2_control *a)
 EXPORT_SYMBOL(isp_g_ctrl);
 
 /**
- * isp_s_ctrl - Sets value of the desired V4L2 control.
+ * isp_s_ctrl - Set value of the desired V4L2 control.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @a: V4L2 control to read actual value from.
  *
  * Return 0 if successful, -EINVAL if chosen control is not found or value
@@ -1914,6 +2126,7 @@ EXPORT_SYMBOL(isp_s_ctrl);
 
 /**
  * isp_handle_private - Handle all private ioctls for isp module.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @cmd: ioctl cmd value
  * @arg: ioctl arg value
  *
@@ -1995,7 +2208,7 @@ int isp_handle_private(struct device *dev, struct mutex *vdev_mutex, int cmd,
 EXPORT_SYMBOL(isp_handle_private);
 
 /**
- * isp_enum_fmt_cap - Gets more information of chosen format index and type
+ * isp_enum_fmt_cap - Get more information of chosen format index and type
  * @f: Pointer to structure containing index and type of format to read from.
  *
  * Returns 0 if successful, or -EINVAL if format index or format type is
@@ -2032,8 +2245,9 @@ err:
 EXPORT_SYMBOL(isp_enum_fmt_cap);
 
 /**
- * isp_g_fmt_cap - Gets current output image format.
- * @f: Pointer to V4L2 format structure to be filled with current output format
+ * isp_g_fmt_cap - Get current output image format.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @pix: Pointer to V4L2 format structure to return current output format
  **/
 void isp_g_fmt_cap(struct device *dev, struct v4l2_pix_format *pix)
 {
@@ -2045,11 +2259,13 @@ void isp_g_fmt_cap(struct device *dev, struct v4l2_pix_format *pix)
 EXPORT_SYMBOL(isp_g_fmt_cap);
 
 /**
- * isp_s_fmt_cap - Sets I/O formats and crop and configures pipeline in ISP
- * @f: Pointer to V4L2 format structure to be filled with current output format
+ * isp_s_fmt_cap - Set I/O formats and crop, and configure pipeline in ISP
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @pix_input: Pointer to V4L2 format structure to represent current input.
+ * @pix_output: Pointer to V4L2 format structure to represent current output.
  *
- * Returns 0 if successful, or return value of either isp_try_size or
- * isp_try_fmt if there is an error.
+ * Returns 0 if successful, -EINVAL if ISP hasn't been opened, or return
+ * value of isp_s_pipeline if there is an error.
  **/
 int isp_s_fmt_cap(struct device *dev, struct v4l2_pix_format *pix_input,
 		  struct v4l2_pix_format *pix_output)
@@ -2078,8 +2294,9 @@ unsigned long isp_get_buf_offset(struct device *dev)
 EXPORT_SYMBOL(isp_get_buf_offset);
 
 /**
- * isp_g_crop - Gets crop rectangle size and position.
- * @a: Pointer to V4L2 crop structure to be filled.
+ * isp_g_crop - Get crop rectangle size and position.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @crop: Pointer to V4L2 crop structure to be filled.
  *
  * Always returns 0.
  **/
@@ -2101,11 +2318,14 @@ int isp_g_crop(struct device *dev, struct v4l2_crop *crop)
 EXPORT_SYMBOL(isp_g_crop);
 
 /**
- * isp_s_crop - Sets crop rectangle size and position and queues crop operation
+ * isp_s_crop - Set crop rectangle size and position.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @a: Pointer to V4L2 crop structure with desired parameters.
- * @pix: Pointer to V4L2 pixel format structure with desired parameters.
  *
- * Returns 0 if successful, or -EINVAL if crop parameters are out of bounds.
+ * Always returns 0.
+ *
+ * FIXME: Hardcoded to configure always the resizer, which could not be always
+ *        the case.
  **/
 int isp_s_crop(struct device *dev, struct v4l2_crop *a)
 {
@@ -2132,7 +2352,8 @@ int isp_s_crop(struct device *dev, struct v4l2_crop *a)
 EXPORT_SYMBOL(isp_s_crop);
 
 /**
- * isp_try_fmt_cap - Tries desired input/output image formats
+ * isp_try_fmt_cap - Try desired input/output image formats
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @pix_input: Pointer to V4L2 pixel format structure for input image.
  * @pix_output: Pointer to V4L2 pixel format structure for output image.
  *
@@ -2159,6 +2380,7 @@ EXPORT_SYMBOL(isp_try_fmt_cap);
 
 /**
  * isp_save_ctx - Saves ISP, CCDC, HIST, H3A, PREV, RESZ & MMU context.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  *
  * Routine for saving the context of each module in the ISP.
  * CCDC, HIST, H3A, PREV, RESZ and MMU.
@@ -2180,6 +2402,7 @@ static void isp_save_ctx(struct device *dev)
 
 /**
  * isp_restore_ctx - Restores ISP, CCDC, HIST, H3A, PREV, RESZ & MMU context.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  *
  * Routine for restoring the context of each module in the ISP.
  * CCDC, HIST, H3A, PREV, RESZ and MMU.
@@ -2199,6 +2422,12 @@ static void isp_restore_ctx(struct device *dev)
 	ispcsi2_restore_context(dev);
 }
 
+/**
+ * isp_enable_clocks - Enable ISP clocks
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ *
+ * Return 0 if successful, or clk_enable return value if any of tthem fails.
+ **/
 static int isp_enable_clocks(struct device *dev)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
@@ -2209,16 +2438,6 @@ static int isp_enable_clocks(struct device *dev)
 		dev_err(dev, "clk_enable cam_ick failed\n");
 		goto out_clk_enable_ick;
 	}
-	r = clk_set_rate(isp->dpll4_m5_ck, CM_CAM_MCLK_HZ/2);
-	if (r) {
-		dev_err(dev, "clk_set_rate for dpll4_m5_ck failed\n");
-		goto out_clk_enable_mclk;
-	}
-	r = clk_enable(isp->cam_mclk);
-	if (r) {
-		dev_err(dev, "clk_enable cam_mclk failed\n");
-		goto out_clk_enable_mclk;
-	}
 	r = clk_enable(isp->csi2_fck);
 	if (r) {
 		dev_err(dev, "clk_enable csi2_fck failed\n");
@@ -2227,26 +2446,52 @@ static int isp_enable_clocks(struct device *dev)
 	return 0;
 
 out_clk_enable_csi2_fclk:
-	clk_disable(isp->cam_mclk);
-out_clk_enable_mclk:
 	clk_disable(isp->cam_ick);
 out_clk_enable_ick:
 	return r;
 }
 
+int isp_enable_mclk(struct device *dev)
+{
+	struct isp_device *isp = dev_get_drvdata(dev);
+	int r;
+
+	r = clk_set_rate(isp->dpll4_m5_ck, isp->mclk);
+		if (r) {
+			dev_err(dev, "clk_set_rate for dpll4_m5_ck failed\n");
+			return r;
+	}
+	r = clk_enable(isp->cam_mclk);
+	if (r) {
+		dev_err(dev, "clk_enable cam_mclk failed\n");
+		return r;
+	}
+	return 0;
+}
+
+void isp_disable_mclk(struct isp_device *isp)
+{
+	clk_disable(isp->cam_mclk);
+}
+
+/**
+ * isp_disable_clocks - Disable ISP clocks
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ **/
 static void isp_disable_clocks(struct device *dev)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 
 	clk_disable(isp->cam_ick);
-	clk_disable(isp->cam_mclk);
 	clk_disable(isp->csi2_fck);
 }
 
 /**
- * isp_get - Adquires the ISP resource.
+ * isp_get - Acquire the ISP resource.
  *
  * Initializes the clocks for the first acquire.
+ *
+ * Returns pointer for isp device structure.
  **/
 struct device *isp_get(void)
 {
@@ -2288,6 +2533,9 @@ EXPORT_SYMBOL(isp_get);
  * isp_put - Releases the ISP resource.
  *
  * Releases the clocks also for the last release.
+ *
+ * Return resulting reference count, or -EBUSY if ISP structure is not
+ * allocated.
  **/
 int isp_put(void)
 {
@@ -2302,7 +2550,8 @@ int isp_put(void)
 	if (isp->ref_count) {
 		if (--isp->ref_count == 0) {
 			isp_save_ctx(&pdev->dev);
-			isp_tmp_buf_free(&pdev->dev);
+			if (isp->revision <= ISP_REVISION_2_0)
+				isp_tmp_buf_free(&pdev->dev);
 			isp_release_resources(&pdev->dev);
 			isp_disable_clocks(&pdev->dev);
 		}
@@ -2315,6 +2564,7 @@ EXPORT_SYMBOL(isp_put);
 
 /**
  * isp_save_context - Saves the values of the ISP module registers.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @reg_list: Structure containing pairs of register address and value to
  *            modify on OMAP.
  **/
@@ -2328,6 +2578,7 @@ void isp_save_context(struct device *dev, struct isp_reg *reg_list)
 
 /**
  * isp_restore_context - Restores the values of the ISP module registers.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  * @reg_list: Structure containing pairs of register address and value to
  *            modify on OMAP.
  **/
@@ -2339,6 +2590,12 @@ void isp_restore_context(struct device *dev, struct isp_reg *reg_list)
 		isp_reg_writel(dev, next->val, next->mmio_range, next->reg);
 }
 
+/**
+ * isp_remove - Remove ISP platform device
+ * @pdev: Pointer to ISP platform device
+ *
+ * Always returns 0.
+ **/
 static int isp_remove(struct platform_device *pdev)
 {
 	struct isp_device *isp = platform_get_drvdata(pdev);
@@ -2387,6 +2644,13 @@ static int isp_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_PM
 
+/**
+ * isp_suspend - Suspend routine for the ISP
+ * @pdev: Pointer to Platform device
+ * @state: New power state
+ *
+ * Always returns 0.
+ **/
 static int isp_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct isp_device *isp = platform_get_drvdata(pdev);
@@ -2413,6 +2677,12 @@ out:
 	return 0;
 }
 
+/**
+ * isp_resume - Resume routine for the ISP
+ * @pdev: Pointer to platform device
+ *
+ * Returns 0 if successful, or isp_enable_clocks return value otherwise.
+ **/
 static int isp_resume(struct platform_device *pdev)
 {
 	struct isp_device *isp = platform_get_drvdata(pdev);
@@ -2444,6 +2714,17 @@ out:
 
 static u64 raw_dmamask = DMA_32BIT_MASK;
 
+/**
+ * isp_probe - Probe ISP platform device
+ * @pdev: Pointer to ISP platform device
+ *
+ * Returns 0 if successful,
+ *   -ENOMEM if no memory available,
+ *   -ENODEV if no platform device resources found
+ *     or no space for remapping registers,
+ *   -EINVAL if couldn't install ISR,
+ *   or clk_get return error value.
+ **/
 static int isp_probe(struct platform_device *pdev)
 {
 	struct isp_device *isp;
@@ -2498,6 +2779,8 @@ static int isp_probe(struct platform_device *pdev)
 		ret_err = -ENODEV;
 		goto out_free_mmio;
 	}
+
+	isp->mclk = CM_CAM_MCLK_HZ / 2;
 
 	isp->cam_ick = clk_get(&camera_dev, "cam_ick");
 	if (IS_ERR(isp->cam_ick)) {
@@ -2636,8 +2919,7 @@ static void __exit isp_cleanup(void)
 
 /**
  * isp_print_status - Prints the values of the ISP Control Module registers
- *
- * Also prints other debug information stored in the ISP module structure.
+ * @dev: Device pointer specific to the OMAP3 ISP.
  **/
 void isp_print_status(struct device *dev)
 {

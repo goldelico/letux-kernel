@@ -15,8 +15,8 @@
 #include <linux/device.h>
 #include <linux/scatterlist.h>
 
-#include <asm/io.h>
 #include <asm/cacheflush.h>
+#include <asm/mach/map.h>
 
 #include <mach/iommu.h>
 #include <mach/iovmm.h>
@@ -167,6 +167,11 @@ static void *vmap_sg(const struct sg_table *sgt)
 	unsigned int i;
 	struct scatterlist *sg;
 	struct vm_struct *new;
+	const struct mem_type *mtype;
+
+	mtype = get_mem_type(MT_DEVICE);
+	if (!mtype)
+		return ERR_PTR(-EINVAL);
 
 	total = sgtable_len(sgt);
 	if (!total)
@@ -187,7 +192,7 @@ static void *vmap_sg(const struct sg_table *sgt)
 
 		BUG_ON(bytes != PAGE_SIZE);
 
-		err = ioremap_page(va,  pa, MT_DEVICE);
+		err = ioremap_page(va,  pa, mtype);
 		if (err)
 			goto err_out;
 
@@ -354,7 +359,7 @@ void *da_to_va(struct iommu *obj, u32 da)
 
 	area = __find_iovm_area(obj, da);
 	if (!area) {
-		dev_warn(obj->dev, "%s: no da area(%08x)\n", __func__, da);
+		dev_dbg(obj->dev, "%s: no da area(%08x)\n", __func__, da);
 		goto out;
 	}
 	va = area->va;
@@ -421,7 +426,6 @@ static void sgtable_fill_kmalloc(struct sg_table *sgt, u32 pa, size_t len)
 		len -= bytes;
 	}
 	BUG_ON(len);
-
 }
 
 static inline void sgtable_drain_kmalloc(struct sg_table *sgt)
@@ -442,7 +446,7 @@ static int map_iovm_area(struct iommu *obj, struct iovm_struct *new,
 	struct scatterlist *sg;
 	u32 da = new->da_start;
 
-	if (!obj || !new || !sgt)
+	if (!obj || !sgt)
 		return -EINVAL;
 
 	BUG_ON(!sgtable_ok(sgt));
@@ -532,7 +536,7 @@ static struct sg_table *unmap_vm_area(struct iommu *obj, const u32 da,
 
 	area = __find_iovm_area(obj, da);
 	if (!area) {
-		dev_err(obj->dev, "%s: no da area(%08x)\n", __func__, da);
+		dev_dbg(obj->dev, "%s: no da area(%08x)\n", __func__, da);
 		goto out;
 	}
 
@@ -610,7 +614,7 @@ u32 iommu_vmap(struct iommu *obj, u32 da, const struct sg_table *sgt,
 		 u32 flags)
 {
 	size_t bytes;
-	void *va;
+	void *va = NULL;
 
 	if (!obj || !obj->dev || !sgt)
 		return -EINVAL;
@@ -620,9 +624,11 @@ u32 iommu_vmap(struct iommu *obj, u32 da, const struct sg_table *sgt,
 		return -EINVAL;
 	bytes = PAGE_ALIGN(bytes);
 
-	va = vmap_sg(sgt);
-	if (IS_ERR(va))
-		return PTR_ERR(va);
+	if (flags & IOVMF_MMIO) {
+		va = vmap_sg(sgt);
+		if (IS_ERR(va))
+			return PTR_ERR(va);
+	}
 
 	flags &= IOVMF_HW_MASK;
 	flags |= IOVMF_DISCONT;
@@ -654,7 +660,7 @@ struct sg_table *iommu_vunmap(struct iommu *obj, u32 da)
 	 */
 	sgt = unmap_vm_area(obj, da, vunmap_sg, IOVMF_DISCONT | IOVMF_MMIO);
 	if (!sgt)
-		dev_err(obj->dev, "%s: No sgt\n", __func__);
+		dev_dbg(obj->dev, "%s: No sgt\n", __func__);
 	return sgt;
 }
 EXPORT_SYMBOL_GPL(iommu_vunmap);
@@ -724,7 +730,7 @@ void iommu_vfree(struct iommu *obj, const u32 da)
 
 	sgt = unmap_vm_area(obj, da, vfree, IOVMF_DISCONT | IOVMF_ALLOC);
 	if (!sgt)
-		dev_err(obj->dev, "%s: No sgt\n", __func__);
+		dev_dbg(obj->dev, "%s: No sgt\n", __func__);
 	sgtable_free(sgt);
 }
 EXPORT_SYMBOL_GPL(iommu_vfree);
@@ -797,10 +803,12 @@ EXPORT_SYMBOL_GPL(iommu_kmap);
 void iommu_kunmap(struct iommu *obj, u32 da)
 {
 	struct sg_table *sgt;
+	typedef void (*func_t)(const void *);
 
-	sgt = unmap_vm_area(obj, da, __iounmap, IOVMF_LINEAR | IOVMF_MMIO);
+	sgt = unmap_vm_area(obj, da, (func_t)__iounmap,
+			    IOVMF_LINEAR | IOVMF_MMIO);
 	if (!sgt)
-		dev_err(obj->dev, "%s: No sgt\n", __func__);
+		dev_dbg(obj->dev, "%s: No sgt\n", __func__);
 	sgtable_free(sgt);
 }
 EXPORT_SYMBOL_GPL(iommu_kunmap);
@@ -857,7 +865,7 @@ void iommu_kfree(struct iommu *obj, u32 da)
 
 	sgt = unmap_vm_area(obj, da, kfree, IOVMF_LINEAR | IOVMF_ALLOC);
 	if (!sgt)
-		dev_err(obj->dev, "%s: No sgt\n", __func__);
+		dev_dbg(obj->dev, "%s: No sgt\n", __func__);
 	sgtable_free(sgt);
 }
 EXPORT_SYMBOL_GPL(iommu_kfree);

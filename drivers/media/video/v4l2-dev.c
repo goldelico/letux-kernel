@@ -373,6 +373,10 @@ int video_register_device_index(struct video_device *vdev, int type, int nr,
 	if (!vdev || !vdev->release)
 		return -EINVAL;
 
+	ret = v4l2_fh_init(vdev);
+	if (ret < 0)
+		return ret;
+
 	/* Part 1: check device type */
 	switch (type) {
 	case VFL_TYPE_GRABBER:
@@ -511,6 +515,7 @@ int video_register_device_index(struct video_device *vdev, int type, int nr,
 	return 0;
 
 cleanup:
+	v4l2_fh_exit(vdev);
 	mutex_lock(&videodev_lock);
 	if (vdev->cdev)
 		cdev_del(vdev->cdev);
@@ -565,12 +570,16 @@ static int __init videodev_init(void)
 		return -EIO;
 	}
 
+	v4l2_event_init();
+
 	return 0;
 }
 
 static void __exit videodev_exit(void)
 {
 	dev_t dev = MKDEV(VIDEO_MAJOR, 0);
+
+	v4l2_event_exit();
 
 	class_unregister(&video_class);
 	unregister_chrdev_region(dev, VIDEO_NUM_DEVICES);

@@ -146,7 +146,25 @@ int ispresizer_config_crop(struct isp_res_device *isp_res,
 {
 	struct isp_device *isp = to_isp_device(isp_res);
 	struct v4l2_crop *crop = a;
-	int rval;
+	int rval, orig_left, left_delta, top_delta;
+	u32 crop_scaling_w, crop_scaling_h;
+
+	/* Crop is given in terms of Resizer output rectangle. */
+	/* Scale crop rectangle to size of Resizer input rectangle. */
+	crop_scaling_w = (isp->pipeline.prv_out_w_img << SHIFT_FOR_PRECISION) /
+		isp->pipeline.rsz_out_w;
+	crop->c.left = (crop->c.left * crop_scaling_w)
+		>> SHIFT_FOR_PRECISION;
+	crop->c.width = (crop->c.width * crop_scaling_w)
+		>> SHIFT_FOR_PRECISION;
+
+	crop_scaling_h = (isp->pipeline.prv_out_h << SHIFT_FOR_PRECISION) /
+		isp->pipeline.rsz_out_h;
+	crop->c.top = (crop->c.top * crop_scaling_h)
+		>> SHIFT_FOR_PRECISION;
+	crop->c.height = (crop->c.height * crop_scaling_h)
+		>> SHIFT_FOR_PRECISION;
+
 
 	if (crop->c.left < 0)
 		crop->c.left = 0;
@@ -161,6 +179,24 @@ int ispresizer_config_crop(struct isp_res_device *isp_res,
 		crop->c.left = isp->pipeline.prv_out_w_img - 1;
 	if (crop->c.top >= isp->pipeline.rsz_out_h)
 		crop->c.top = isp->pipeline.rsz_out_h - 1;
+
+
+	/* Align crop_left on 16 pixels */
+	orig_left = crop->c.left;
+	crop->c.left &= 0xFFFFFFF0;
+
+	/* Scale the change in crop_left to a change in crop_top */
+	left_delta = orig_left - crop->c.left;
+	top_delta = (int)(left_delta * crop->c.height) / crop->c.width;
+	crop->c.top = crop->c.top - top_delta;
+
+	/* Increase the crop width & height depending on above deltas */
+	crop->c.height += (2 * top_delta);
+	crop->c.width += (2 * left_delta);
+
+	/* Align crop_width on 16 pixels */
+	crop->c.width &= 0xFFFFFFF0;
+
 
 	/* Make sure the crop rectangle is never smaller than width
 	 * and height divided by 4, since the resizer cannot upscale it
@@ -262,7 +298,7 @@ int ispresizer_config_datapath(struct isp_res_device *isp_res,
 	case RSZ_OTFLY_YUV:
 		cnt &= ~ISPRSZ_CNT_INPTYP;
 		cnt &= ~ISPRSZ_CNT_INPSRC;
-		ispresizer_set_inaddr(isp_res, 0);
+		ispresizer_set_inaddr(isp_res, 0, 0);
 		ispresizer_config_inlineoffset(isp_res, 0);
 		break;
 	case RSZ_MEM_YUV:
@@ -477,6 +513,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 			  struct isp_pipeline *pipe)
 {
 	struct device *dev = to_device(isp_res);
+	struct isp_device *isp = to_isp_device(isp_res);
 	int i, j;
 	u32 res;
 	int rval;
@@ -484,10 +521,6 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 	rval = ispresizer_config_datapath(isp_res, pipe);
 	if (rval)
 		return rval;
-
-	/* Set Resizer input address and offset adderss */
-	ispresizer_config_inlineoffset(isp_res,
-				       pipe->prv_out_w * ISP_BYTES_PER_PIXEL);
 
 	res = isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT) &
 		~(ISPRSZ_CNT_HSTPH_MASK | ISPRSZ_CNT_VSTPH_MASK);
@@ -497,9 +530,29 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 		       OMAP3_ISP_IOMEM_RESZ,
 		       ISPRSZ_CNT);
 
-	/* Set start address for cropping */
-	ispresizer_set_inaddr(isp_res,
-			      isp_res->tmp_buf + isp_get_buf_offset(dev));
+	/* Set Resizer input address and offset adderss */
+	if (pipe->rsz_in == RSZ_OTFLY_YUV) {
+		/* Set the fractional part of the starting address.*/
+		isp_reg_writel(dev,
+			(isp->pipeline.rsz_crop.left <<
+			ISPRSZ_IN_START_HORZ_ST_SHIFT) |
+			(isp->pipeline.rsz_crop.top <<
+			ISPRSZ_IN_START_VERT_ST_SHIFT),
+			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START);
+	} else {
+		/* Set start address for cropping */
+		ispresizer_set_inaddr(isp_res, isp_res->in_buf_addr,
+			ISP_BYTES_PER_PIXEL *
+			((isp->pipeline.rsz_crop.left & ~0xf) +
+			isp->pipeline.prv_out_w *
+			isp->pipeline.rsz_crop.top));
+
+		/* Set the fractional part of the starting address.*/
+		isp_reg_writel(dev, ((isp->pipeline.rsz_crop.left & 0xf) <<
+			ISPRSZ_IN_START_HORZ_ST_SHIFT) |
+			(0x00 << ISPRSZ_IN_START_VERT_ST_SHIFT),
+			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START);
+	}
 
 	isp_reg_writel(dev,
 		       (pipe->rsz_crop.width << ISPRSZ_IN_SIZE_HORZ_SHIFT) |
@@ -629,8 +682,8 @@ void ispresizer_enable(struct isp_res_device *isp_res, int enable)
 
 	DPRINTK_ISPRESZ("+ispresizer_enable()+\n");
 	if (enable) {
-		val = (isp_reg_readl(dev,
-				     OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR) & 0x2) |
+		val = (isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ,
+			ISPRSZ_PCR) & ISPRSZ_PCR_ONESHOT) |
 			ISPRSZ_PCR_ENABLE;
 	} else {
 		val = isp_reg_readl(dev,
@@ -651,7 +704,7 @@ int ispresizer_busy(struct isp_res_device *isp_res)
 	struct device *dev = to_device(isp_res);
 
 	return isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_PCR) &
-		ISPPRV_PCR_BUSY;
+		ISPRSZ_PCR_BUSY;
 }
 
 /**
@@ -770,31 +823,24 @@ int ispresizer_config_inlineoffset(struct isp_res_device *isp_res, u32 offset)
 /**
  * ispresizer_set_inaddr - Sets the memory address of the input frame.
  * @addr: 32bit memory address aligned on 32byte boundary.
+ * @offset: Starting offset.
  *
  * Returns 0 if successful, or -EINVAL if address is not 32 bits aligned.
  **/
-int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr)
+int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr, u32 offset)
 {
-	struct isp_device *isp = to_isp_device(isp_res);
 	struct device *dev = to_device(isp_res);
 
 	DPRINTK_ISPRESZ("ispresizer_set_inaddr()+\n");
 
-	if (addr % 32)
+	if ((addr + offset) % 32)
 		return -EINVAL;
-	isp_res->tmp_buf = addr;
-	/* FIXME: is this the right place to put crop-related junk? */
-	isp_reg_writel(dev,
-		       isp_res->tmp_buf + ISP_BYTES_PER_PIXEL
-		       * ((isp->pipeline.rsz_crop.left & ~0xf) +
-			  isp->pipeline.prv_out_w
-			  * isp->pipeline.rsz_crop.top),
-		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
-	/* Set the fractional part of the starting address. Needed for crop */
-	isp_reg_writel(dev, ((isp->pipeline.rsz_crop.left & 0xf) <<
-		       ISPRSZ_IN_START_HORZ_ST_SHIFT) |
-		       (0x00 << ISPRSZ_IN_START_VERT_ST_SHIFT),
-		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START);
+
+	isp_res->in_buf_addr = addr;
+	isp_res->in_buf_addr_off = offset;
+
+	isp_reg_writel(dev, (addr + offset),
+		OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
 
 	DPRINTK_ISPRESZ("ispresizer_set_inaddr()-\n");
 	return 0;
