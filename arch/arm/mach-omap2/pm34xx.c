@@ -115,7 +115,7 @@ static struct prm_setup_vc prm_setup = {
 	.vdd_cmd_ra = (R_VDD2_SR_CONTROL << OMAP3430_VOLRA1_SHIFT) |
 			(R_VDD1_SR_CONTROL << OMAP3430_VOLRA0_SHIFT),
 	.vdd_ch_conf = OMAP3430_CMD1 | OMAP3430_RAV1,
-	.vdd_i2c_cfg = OMAP3430_MCODE_SHIFT | OMAP3430_HSEN | OMAP3430_SREN,
+	.vdd_i2c_cfg = OMAP3430_MCODE_SHIFT | OMAP3430_HSEN ,
 };
 
 static inline void omap3_per_save_context(void)
