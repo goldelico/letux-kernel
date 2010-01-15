@@ -175,8 +175,8 @@ static void omap3_core_save_context(int core_state)
 		 */
 		udelay(300);
 		/* wait for the save to complete */
-		while (!omap_ctrl_readl(OMAP343X_CONTROL_GENERAL_PURPOSE_STATUS)
-				& PADCONF_SAVE_DONE)
+		while (!(omap_ctrl_readl(OMAP343X_CONTROL_GENERAL_PURPOSE_STATUS)
+				& PADCONF_SAVE_DONE))
 			;
 		/* Save the system control module context,
 		 * padconf already save above
