@@ -115,12 +115,6 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 	local_irq_disable();
 	local_fiq_disable();
 
-	if (!enable_off_mode) {
-		if (mpu_state < PWRDM_POWER_RET)
-			mpu_state = PWRDM_POWER_RET;
-		if (core_state < PWRDM_POWER_RET)
-			core_state = PWRDM_POWER_RET;
-	}
 
 	if (!enable_oswr_ret) {
 		if (mpu_logicl1_ret_state == PWRDM_POWER_OFF)
@@ -369,6 +363,31 @@ void omap_init_power_states(void)
 				CPUIDLE_FLAG_CHECK_BM;
 
 }
+/**
+ * omap3_cpuidle_update_states - Update the cpuidle states.
+ *
+ * Currently, this function toggles the validity of idle states based upon
+ * the flag 'enable_off_mode'. When the flag is set all states are valid.
+ * Else, states leading to OFF state set to be invalid.
+ */
+void omap3_cpuidle_update_states(void)
+{
+	int i;
+
+	for (i = OMAP3_STATE_C1; i < OMAP3_MAX_STATES; i++) {
+		if (enable_off_mode) {
+			omap3_power_states[i].valid = 1;
+		} else {
+			if ((omap3_power_states[i].mpu_state
+					== PWRDM_POWER_OFF)
+			|| (omap3_power_states[i].core_state
+					== PWRDM_POWER_RET))
+				omap3_power_states[i].valid = 0;
+			}
+		}
+}
+
+
 
 struct cpuidle_driver omap3_idle_driver = {
 	.name = 	"omap3_idle",
@@ -418,6 +437,8 @@ int omap3_idle_init(void)
 	if (!count)
 		return -EINVAL;
 	dev->state_count = count;
+
+	omap3_cpuidle_update_states();
 
 	if (cpuidle_register_device(dev)) {
 		printk(KERN_ERR "%s: CPUidle register device failed\n",

@@ -108,6 +108,7 @@ static inline void omap2_block_sleep(void) { }
 static inline void omap2_allow_sleep(void) { }
 #endif
 
+extern void omap3_cpuidle_update_states(void);
 extern unsigned int omap24xx_idle_loop_suspend_sz;
 extern unsigned int omap34xx_suspend_sz;
 extern unsigned int save_secure_ram_context_sz;
