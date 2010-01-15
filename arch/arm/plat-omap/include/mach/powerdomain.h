@@ -37,6 +37,8 @@
 
 #define PWRSTS_OFF_RET_ON	(PWRSTS_OFF_RET | (1 << PWRDM_POWER_ON))
 
+#define PWRSTS_OFF_RET_INA_ON	(PWRSTS_OFF_RET_ON | \
+				 (1 << PWRDM_POWER_INACTIVE))
 
 /* Powerdomain flags */
 #define PWRDM_HAS_HDWR_SAR	(1 << 0) /* hardware save-and-restore support */
@@ -117,7 +119,8 @@ struct powerdomain {
 
 	struct list_head node;
 
-	int state;
+	s8 state;
+	s8 next_state;
 	unsigned state_counter[4];
 	unsigned ret_logic_off_counter;
 	unsigned ret_mem_off_counter;

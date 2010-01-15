@@ -112,8 +112,8 @@ static struct powerdomain *_pwrdm_deps_lookup(struct powerdomain *pwrdm,
 static int _pwrdm_state_switch(struct powerdomain *pwrdm, int flag)
 {
 
-	int prev;
-	int state;
+	u8  prev;
+	u8  state;
 
 	if (pwrdm == NULL)
 		return -EINVAL;
@@ -233,6 +233,7 @@ int pwrdm_register(struct powerdomain *pwrdm)
 	pr_debug("powerdomain: registered %s\n", pwrdm->name);
 	ret = 0;
 
+	pwrdm->next_state = -1;
 pr_unlock:
 	write_unlock_irqrestore(&pwrdm_rwlock, flags);
 
@@ -712,8 +713,13 @@ int pwrdm_get_mem_bank_count(struct powerdomain *pwrdm)
  */
 int pwrdm_set_next_pwrst(struct powerdomain *pwrdm, u8 pwrst)
 {
+	u8 prg_pwrst;
+
 	if (!pwrdm)
 		return -EINVAL;
+
+	if (pwrdm->next_state == pwrst)
+		return 0;
 
 	if (!(pwrdm->pwrsts & (1 << pwrst)))
 		return -EINVAL;
@@ -721,9 +727,22 @@ int pwrdm_set_next_pwrst(struct powerdomain *pwrdm, u8 pwrst)
 	pr_debug("powerdomain: setting next powerstate for %s to %0x\n",
 		 pwrdm->name, pwrst);
 
+	/* INACTIVE is reserved, so we program pwrdm as ON */
+	if (pwrst == PWRDM_POWER_INACTIVE)
+		prg_pwrst = PWRDM_POWER_ON;
+	else
+		prg_pwrst = pwrst;
+
 	prm_rmw_mod_reg_bits(OMAP_POWERSTATE_MASK,
-			     (pwrst << OMAP_POWERSTATE_SHIFT),
+			     (prg_pwrst << OMAP_POWERSTATE_SHIFT),
 			     pwrdm->prcm_offs, PM_PWSTCTRL);
+
+	/* If next state is ON, prevent idle */
+	if (pwrst == PWRDM_POWER_ON)
+		omap2_clkdm_deny_idle(pwrdm->pwrdm_clkdms[0]);
+	else
+		omap2_clkdm_allow_idle(pwrdm->pwrdm_clkdms[0]);
+	pwrdm->next_state = pwrst;
 
 	return 0;
 }
@@ -740,6 +759,9 @@ int pwrdm_read_next_pwrst(struct powerdomain *pwrdm)
 {
 	if (!pwrdm)
 		return -EINVAL;
+
+	if (pwrdm->next_state > -1)
+		return pwrdm->next_state;
 
 	return prm_read_mod_bits_shift(pwrdm->prcm_offs, PM_PWSTCTRL,
 					OMAP_POWERSTATE_MASK);

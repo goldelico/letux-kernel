@@ -165,7 +165,7 @@ static struct powerdomain iva2_pwrdm = {
 	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 	.dep_bit	  = OMAP3430_PM_WKDEP_MPU_EN_IVA2_SHIFT,
 	.wkdep_srcs	  = iva2_wkdeps,
-	.pwrsts		  = PWRSTS_OFF_RET_ON,
+	.pwrsts		  = PWRSTS_OFF_RET_INA_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
 	.banks		  = 4,
 	.pwrsts_mem_ret	  = {
@@ -188,7 +188,7 @@ static struct powerdomain mpu_34xx_pwrdm = {
 	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 	.dep_bit	  = OMAP3430_EN_MPU_SHIFT,
 	.wkdep_srcs	  = mpu_34xx_wkdeps,
-	.pwrsts		  = PWRSTS_OFF_RET_ON,
+	.pwrsts		  = PWRSTS_OFF_RET_INA_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
 	.banks		  = 1,
 	.pwrsts_mem_ret	  = {
@@ -206,7 +206,7 @@ static struct powerdomain core_34xx_pre_es3_1_pwrdm = {
 	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP3430ES1 |
 					   CHIP_IS_OMAP3430ES2 |
 					   CHIP_IS_OMAP3430ES3_0),
-	.pwrsts		  = PWRSTS_OFF_RET_ON,
+	.pwrsts		  = PWRSTS_OFF_RET_INA_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
 	.dep_bit	  = OMAP3430_EN_CORE_SHIFT,
 	.banks		  = 2,
@@ -215,8 +215,8 @@ static struct powerdomain core_34xx_pre_es3_1_pwrdm = {
 		[1] = PWRSTS_OFF_RET,	 /* MEM2RETSTATE */
 	},
 	.pwrsts_mem_on	  = {
-		[0] = PWRSTS_OFF_RET_ON, /* MEM1ONSTATE */
-		[1] = PWRSTS_OFF_RET_ON, /* MEM2ONSTATE */
+		[0] = PWRSTS_OFF_RET_INA_ON, /* MEM1ONSTATE */
+		[1] = PWRSTS_OFF_RET_INA_ON, /* MEM2ONSTATE */
 	},
 };
 
@@ -225,7 +225,7 @@ static struct powerdomain core_34xx_es3_1_pwrdm = {
 	.name		  = "core_pwrdm",
 	.prcm_offs	  = CORE_MOD,
 	.omap_chip	  = OMAP_CHIP_INIT(CHIP_GE_OMAP3430ES3_1),
-	.pwrsts		  = PWRSTS_OFF_RET_ON,
+	.pwrsts		  = PWRSTS_OFF_RET_INA_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
 	.dep_bit	  = OMAP3430_EN_CORE_SHIFT,
 	.flags		  = PWRDM_HAS_HDWR_SAR, /* for USBTLL only */
@@ -235,8 +235,8 @@ static struct powerdomain core_34xx_es3_1_pwrdm = {
 		[1] = PWRSTS_OFF_RET,	 /* MEM2RETSTATE */
 	},
 	.pwrsts_mem_on	  = {
-		[0] = PWRSTS_OFF_RET_ON, /* MEM1ONSTATE */
-		[1] = PWRSTS_OFF_RET_ON, /* MEM2ONSTATE */
+		[0] = PWRSTS_OFF_RET_INA_ON, /* MEM1ONSTATE */
+		[1] = PWRSTS_OFF_RET_INA_ON, /* MEM2ONSTATE */
 	},
 };
 
@@ -248,7 +248,7 @@ static struct powerdomain dss_pwrdm = {
 	.dep_bit	  = OMAP3430_PM_WKDEP_MPU_EN_DSS_SHIFT,
 	.wkdep_srcs	  = cam_dss_wkdeps,
 	.sleepdep_srcs	  = dss_per_usbhost_sleepdeps,
-	.pwrsts		  = PWRSTS_OFF_RET_ON,
+	.pwrsts		  = PWRSTS_OFF_RET_INA_ON,
 	.pwrsts_logic_ret = PWRDM_POWER_RET,
 	.banks		  = 1,
 	.pwrsts_mem_ret	  = {
@@ -288,7 +288,7 @@ static struct powerdomain cam_pwrdm = {
 	.prcm_offs	  = OMAP3430_CAM_MOD,
 	.wkdep_srcs	  = cam_dss_wkdeps,
 	.sleepdep_srcs	  = cam_gfx_sleepdeps,
-	.pwrsts		  = PWRSTS_OFF_RET_ON,
+	.pwrsts		  = PWRSTS_OFF_RET_INA_ON,
 	.pwrsts_logic_ret = PWRDM_POWER_RET,
 	.banks		  = 1,
 	.pwrsts_mem_ret	  = {
@@ -306,7 +306,7 @@ static struct powerdomain per_pwrdm = {
 	.dep_bit	  = OMAP3430_EN_PER_SHIFT,
 	.wkdep_srcs	  = per_usbhost_wkdeps,
 	.sleepdep_srcs	  = dss_per_usbhost_sleepdeps,
-	.pwrsts		  = PWRSTS_OFF_RET_ON,
+	.pwrsts		  = PWRSTS_OFF_RET_INA_ON,
 	.pwrsts_logic_ret = PWRSTS_OFF_RET,
 	.banks		  = 1,
 	.pwrsts_mem_ret	  = {
@@ -328,7 +328,7 @@ static struct powerdomain neon_pwrdm = {
 	.prcm_offs	  = OMAP3430_NEON_MOD,
 	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 	.wkdep_srcs	  = neon_wkdeps,
-	.pwrsts		  = PWRSTS_OFF_RET_ON,
+	.pwrsts		  = PWRSTS_OFF_RET_INA_ON,
 	.pwrsts_logic_ret = PWRDM_POWER_RET,
 };
 
@@ -338,7 +338,7 @@ static struct powerdomain usbhost_pwrdm = {
 	.omap_chip	  = OMAP_CHIP_INIT(CHIP_GE_OMAP3430ES2),
 	.wkdep_srcs	  = per_usbhost_wkdeps,
 	.sleepdep_srcs	  = dss_per_usbhost_sleepdeps,
-	.pwrsts		  = PWRSTS_OFF_RET_ON,
+	.pwrsts		  = PWRSTS_OFF_RET_INA_ON,
 	.pwrsts_logic_ret = PWRDM_POWER_RET,
 	/*
 	 * REVISIT: Enabling usb host save and restore mechanism seems to
