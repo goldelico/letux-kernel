@@ -418,6 +418,7 @@ void omap_sram_idle(void)
 	mpu_mem_state = pwrdm_read_next_mem_pwrst(mpu_pwrdm, 0);
 
 	switch (mpu_next_state) {
+	case PWRDM_POWER_INACTIVE:
 	case PWRDM_POWER_ON:
 		/* No need to save context */
 		save_state = 0;
@@ -641,7 +642,7 @@ void omap_sram_idle(void)
 		omap_uart_resume_idle(2);
 
 	/* Disable IO-PAD and IO-CHAIN wakeup */
-	if (core_next_state < PWRDM_POWER_ON) {
+	if (core_next_state <= PWRDM_POWER_ON) {
 		prm_clear_mod_reg_bits(OMAP3430_EN_IO, WKUP_MOD, PM_WKEN);
 		omap3_disable_io_chain();
 	}
@@ -649,7 +650,6 @@ void omap_sram_idle(void)
 
 	pwrdm_post_transition();
 
-	omap2_clkdm_allow_idle(mpu_pwrdm->pwrdm_clkdms[0]);
 }
 
 int omap3_can_sleep(void)
@@ -710,7 +710,6 @@ int set_pwrdm_state(struct powerdomain *pwrdm, u32 state)
 	}
 
 	if (sleep_switch) {
-		omap2_clkdm_allow_idle(pwrdm->pwrdm_clkdms[0]);
 		pwrdm_wait_transition(pwrdm);
 		pwrdm_state_switch(pwrdm);
 	}
