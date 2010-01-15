@@ -311,6 +311,7 @@ static inline void omap_init_sti(void) {}
 
 static struct omap2_mcspi_platform_config omap2_mcspi1_config = {
 	.num_cs		= 4,
+	.force_cs_mode	= 1,
 };
 
 static struct resource omap2_mcspi1_resources[] = {
@@ -333,6 +334,10 @@ static struct platform_device omap2_mcspi1 = {
 
 static struct omap2_mcspi_platform_config omap2_mcspi2_config = {
 	.num_cs		= 2,
+	.mode		= OMAP2_MCSPI_MASTER,
+	.dma_mode	= 1,
+	.force_cs_mode	= 0,
+	.fifo_depth	= 0,
 };
 
 static struct resource omap2_mcspi2_resources[] = {
