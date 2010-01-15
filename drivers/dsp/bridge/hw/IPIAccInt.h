@@ -22,20 +22,5 @@
 #define SYSC_IVA2BOOTADDR_OFFSET                0x400
 #define SYSC_IVA2BOOTADDR_MASK                 0xfffffc00
 
-
-/* The following represent the enumerated values for each bitfield */
-
-enum IPIIPI_SYSCONFIGAutoIdleE {
-	IPIIPI_SYSCONFIGAutoIdleclkfree = 0x0000,
-	IPIIPI_SYSCONFIGAutoIdleautoclkgate = 0x0001
-} ;
-
-enum IPIIPI_ENTRYElemSizeValueE {
-	IPIIPI_ENTRYElemSizeValueElemSz8b = 0x0000,
-	IPIIPI_ENTRYElemSizeValueElemSz16b = 0x0001,
-	IPIIPI_ENTRYElemSizeValueElemSz32b = 0x0002,
-	IPIIPI_ENTRYElemSizeValueReserved = 0x0003
-} ;
-
 #endif				/* _IPI_ACC_INT_H */
 /* EOF */

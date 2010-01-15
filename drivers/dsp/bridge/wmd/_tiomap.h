@@ -270,21 +270,6 @@ static const struct BPWR_Clk_t BPWR_Clks[] = {
 #define INTH_MASK_IT_REG_OFFSET         0x04	/* Mask Interrupt reg offset  */
 
 #define   DSP_MAILBOX1_INT              10
-
-/*
- *  INTH_InterruptKind_t
- *  Identify the kind of interrupt: either FIQ/IRQ
- */
-enum INTH_InterruptKind_t {
-	INTH_IRQ = 0,
-	INTH_FIQ = 1
-} ;
-
-enum INTH_SensitiveEdge_t {
-	FALLING_EDGE_SENSITIVE = 0,
-	LOW_LEVEL_SENSITIVE = 1
-} ;
-
 /*
  *  Bit definition of  Interrupt  Level  Registers
  */

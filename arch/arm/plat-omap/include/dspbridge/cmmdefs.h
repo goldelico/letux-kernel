@@ -105,14 +105,6 @@
 		CMM_DSPPA2PA = 4,	/* DSP Pa to GPP Pa */
 	} ;
 
-/*
- *  Used to "map" between device process virt addr and dsp addr.
- */
-	enum CMM_KERNMAPTYPE {
-		CMM_KERNVA2DSP = 0, /* Device process context to dsp address. */
-		CMM_DSP2KERNVA = 1, /* Dsp address to device process context. */
-	} ;
-
 	struct CMM_OBJECT;
 	struct CMM_XLATOROBJECT;
 
