@@ -79,8 +79,7 @@ struct CMM_ALLOCATOR {	/* sma */
 				 * context for 'sma') */
 	u32 dwDSPPhysAddrOffset;	/* DSP PA to GPP PA offset for this
 					 * SM space */
-	/* CMM_ADDTO[SUBFROM]DSPPA, _POMAPEMIF2DSPBUS */
-	enum CMM_CNVTTYPE cFactor;
+	s8 cFactor;			/* DSPPa to GPPPa Conversion Factor */
 	unsigned int dwDSPBase;	/* DSP virt base byte address */
 	u32 ulDSPSize;	/* DSP seg size in bytes */
 	struct CMM_OBJECT *hCmmMgr;	/* back ref to parent mgr */
@@ -571,7 +570,7 @@ bool CMM_Init(void)
  */
 DSP_STATUS CMM_RegisterGPPSMSeg(struct CMM_OBJECT *hCmmMgr, u32 dwGPPBasePA,
 				u32 ulSize, u32 dwDSPAddrOffset,
-				enum CMM_CNVTTYPE cFactor, u32 dwDSPBase,
+				s8 cFactor, u32 dwDSPBase,
 				u32 ulDSPSize, u32 *pulSegId,
 				u32 dwGPPBaseVA)
 {

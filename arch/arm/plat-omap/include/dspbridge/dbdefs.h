@@ -106,6 +106,9 @@
 
 #define    MAX_PROFILES     16
 
+/* DSP chip type */
+#define DSPTYPE_64	0x99
+
 /* Types defined for 'Bridge API */
 	typedef u32 DSP_STATUS;	/* API return code type         */
 
@@ -404,13 +407,6 @@
 		u32 cbStruct;
 		u32 uTimeout;
 	} ;
-
-	enum chipTypes {
-		DSPTYPE_55 = 6,
-		IVA_ARM7 = 0x97,
-		DSPTYPE_64 = 0x99
-	};
-
 /*
  * The DSP_PROCESSORINFO structure describes basic capabilities of a
  * DSP processor

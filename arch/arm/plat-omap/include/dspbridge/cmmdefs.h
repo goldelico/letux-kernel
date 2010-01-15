@@ -39,15 +39,9 @@
  *  For typical platforms:
  *      converted Address = PaDSP + ( cFactor * addressToConvert).
  */
-	enum CMM_CNVTTYPE {
-		CMM_SUBFROMDSPPA = -1,
-		/* PreOMAP is special case: not simple offset */
-		CMM_POMAPEMIF2DSPBUS = 0,
-		CMM_ADDTODSPPA = 1
-	} ;
+#define CMM_SUBFROMDSPPA	-1
+#define CMM_ADDTODSPPA		1
 
-#define CMM_DEFLTDSPADDROFFSET  0
-#define CMM_DEFLTCONVFACTOR     CMM_POMAPEMIF2DSPBUS /* PreOMAP DSPBUS<->EMIF */
 #define CMM_ALLSEGMENTS         0xFFFFFF	/* All SegIds */
 #define CMM_MAXGPPSEGS          1	/* Maximum # of SM segs */
 

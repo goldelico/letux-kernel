@@ -260,9 +260,8 @@
  *      pArgs != NULL
  *  Ensures:
  */
-	extern DSP_STATUS IO_SHMsetting(IN struct IO_MGR *hIOMgr,
-					IN enum SHM_DESCTYPE desc,
-					IN void *pArgs);
+	extern DSP_STATUS IO_SHMsetting(struct IO_MGR *hIOMgr,
+					u8 desc, void *pArgs);
 
 /*
  *  Misc functions for the CHNL_IO shared memory library:

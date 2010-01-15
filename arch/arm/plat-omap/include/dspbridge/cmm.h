@@ -227,7 +227,7 @@
 					       unsigned int dwGPPBasePA,
 					       u32 ulSize,
 					       u32 dwDSPAddrOffset,
-					       enum CMM_CNVTTYPE cFactor,
+					       s8  cFactor,
 					       unsigned int dwDSPBase,
 					       u32 ulDSPSize,
 					       u32 *pulSegId,

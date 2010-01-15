@@ -337,8 +337,7 @@ HW_STATUS HW_MMU_TLBAdd(const void __iomem *baseAddress,
 			   u32	      pageSize,
 			   u32	      entryNum,
 			   struct HW_MMUMapAttrs_t    *mapAttrs,
-			   enum HW_SetClear_t       preservedBit,
-			   enum HW_SetClear_t       validBit)
+			   s8 preservedBit, s8 validBit)
 {
     HW_STATUS  status = RET_OK;
     u32 lockReg;

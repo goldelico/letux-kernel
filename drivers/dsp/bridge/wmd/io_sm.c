@@ -1786,8 +1786,7 @@ void IO_IntrDSP2(IN struct IO_MGR *pIOMgr, IN u16 wMbVal)
  *  ======== IO_SHMcontrol ========
  *      Sets the requested SHM setting.
  */
-DSP_STATUS IO_SHMsetting(IN struct IO_MGR *hIOMgr, IN enum SHM_DESCTYPE desc,
-			 IN void *pArgs)
+DSP_STATUS IO_SHMsetting(struct IO_MGR *hIOMgr, u8 desc, void *pArgs)
 {
 #ifdef CONFIG_BRIDGE_DVFS
 	struct omap_opp *dsp_opp_table;

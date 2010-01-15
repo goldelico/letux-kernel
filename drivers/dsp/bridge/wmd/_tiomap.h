@@ -209,12 +209,8 @@ static const struct MAP_L4PERIPHERAL L4PeripheralTable[] = {
 #define MBX_PM_MAX_RESOURCES 11
 
 /*  Power Management Commands */
-enum BPWR_ExtClockCmd {
-	BPWR_DisableClock = 0,
-	BPWR_EnableClock,
-	BPWR_DisableAutoIdle,
-	BPWR_EnableAutoIdle
-} ;
+#define BPWR_DisableClock	0
+#define BPWR_EnableClock	1
 
 /* OMAP242x specific resources */
 enum BPWR_ExtClockId {
