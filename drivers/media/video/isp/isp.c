@@ -1369,6 +1369,14 @@ static void isp_resume_modules(struct device *dev)
 	isp_hist_resume(&isp->isp_hist);
 	isph3a_aewb_resume(&isp->isp_h3a);
 	isp_af_resume(&isp->isp_af);
+
+	if (isp->running == ISP_RUNNING) {
+		ispccdc_enable(&isp->isp_ccdc, 1);
+		ispresizer_enable(&isp->isp_res, 1);
+		isppreview_enable(&isp->isp_prev, 1);
+		isp_csi_enable(dev, 1);
+		isp_csi2_enable(&isp->isp_csi2, 1);
+	}
 }
 
 /**
