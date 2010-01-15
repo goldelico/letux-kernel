@@ -34,12 +34,18 @@ extern unsigned short wakeup_timer_seconds;
 extern struct omap_dm_timer *gptimer_wakeup;
 
 #ifdef CONFIG_ARCH_OMAP3
-struct prm_setup_vc {
+struct prm_setup_times_vc {
 	u16 clksetup;
 	u16 voltsetup_time1;
 	u16 voltsetup_time2;
-	u16 voltoffset;
 	u16 voltsetup2;
+	u16 voltsetup1;
+};
+
+struct prm_setup_vc {
+	struct prm_setup_times_vc *setup_times;
+	struct prm_setup_times_vc *setup_times_off;
+	u16 voltoffset;
 /* PRM_VC_CMD_VAL_0 specific bits */
 	u16 vdd0_on;
 	u16 vdd0_onlp;
@@ -57,7 +63,6 @@ struct prm_setup_vc {
 	u32 vdd_ch_conf;
 	u32 vdd_i2c_cfg;
 };
-
 extern void omap3_pm_off_mode_enable(int);
 extern int omap3_pm_get_suspend_state(struct powerdomain *pwrdm);
 extern int omap3_pm_set_suspend_state(struct powerdomain *pwrdm, int state);
