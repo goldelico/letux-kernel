@@ -37,7 +37,7 @@
 
 #define OMAP3_MAX_STATES 9
 #define OMAP3_STATE_C1 0 /* C1 - MPU WFI + Core active */
-#define OMAP3_STATE_C2 1 /* C2 - MPU WFI + Core inactive */
+#define OMAP3_STATE_C2 1 /* C2 - MPU inactive + Core inactive */
 #define OMAP3_STATE_C3 2 /* C3 - MPU CSWR + Core inactive */
 #define OMAP3_STATE_C4 3 /* C4 - MPU OFF + Core inactive */
 #define OMAP3_STATE_C5 4 /* C5 - MPU CSWR + Core CSWR */
@@ -207,7 +207,7 @@ DEFINE_PER_CPU(struct cpuidle_device, omap3_idle_dev);
  *
  * Below is the desciption of each C state.
  * 	C1 . MPU WFI + Core active
- *	C2 . MPU WFI + Core inactive
+ *	C2 . MPU inactive + Core inactive
  *	C3 . MPU CSWR + Core inactive
  *	C4 . MPU OFF + Core inactive
  *	C5 . MPU CSWR + Core CSWR
@@ -248,7 +248,8 @@ void omap_init_power_states(void)
 	omap3_power_states[OMAP3_STATE_C2].threshold = 20;
 	omap3_power_states[OMAP3_STATE_C2].mpu_state = PWRDM_POWER_ON;
 	omap3_power_states[OMAP3_STATE_C2].core_state = PWRDM_POWER_ON;
-	omap3_power_states[OMAP3_STATE_C2].flags = CPUIDLE_FLAG_TIME_VALID;
+	omap3_power_states[OMAP3_STATE_C2].flags = CPUIDLE_FLAG_TIME_VALID |
+				CPUIDLE_FLAG_CHECK_BM;
 
 	/* C3 . MPU CSWR + Core inactive */
 	omap3_power_states[OMAP3_STATE_C3].valid = 1;
