@@ -180,6 +180,7 @@ static struct powerdomain iva2_pwrdm = {
 		[2] = PWRSTS_OFF_ON,
 		[3] = PWRDM_POWER_ON,
 	},
+	.fclk_reg_amt	  = 1,
 };
 
 static struct powerdomain mpu_34xx_pwrdm = {
@@ -238,6 +239,12 @@ static struct powerdomain core_34xx_es3_1_pwrdm = {
 		[0] = PWRSTS_OFF_RET_INA_ON, /* MEM1ONSTATE */
 		[1] = PWRSTS_OFF_RET_INA_ON, /* MEM2ONSTATE */
 	},
+	.fclk_reg_amt	  = 2,
+	.fclk_masks	  = {
+		[0] = OMAP3430_EN_UART2 | OMAP3430_EN_UART1,
+		[1] = 0,
+	},
+
 };
 
 /* Another case of bit name collisions between several registers: EN_DSS */
@@ -257,6 +264,7 @@ static struct powerdomain dss_pwrdm = {
 	.pwrsts_mem_on	  = {
 		[0] = PWRDM_POWER_ON,  /* MEMONSTATE */
 	},
+	.fclk_reg_amt	  = 1,
 };
 
 /*
@@ -280,6 +288,7 @@ static struct powerdomain sgx_pwrdm = {
 	.pwrsts_mem_on	  = {
 		[0] = PWRDM_POWER_ON,  /* MEMONSTATE */
 	},
+	.fclk_reg_amt	  = 1,
 };
 
 static struct powerdomain cam_pwrdm = {
@@ -297,6 +306,7 @@ static struct powerdomain cam_pwrdm = {
 	.pwrsts_mem_on	  = {
 		[0] = PWRDM_POWER_ON,  /* MEMONSTATE */
 	},
+	.fclk_reg_amt	  = 1,
 };
 
 static struct powerdomain per_pwrdm = {
@@ -314,6 +324,10 @@ static struct powerdomain per_pwrdm = {
 	},
 	.pwrsts_mem_on	  = {
 		[0] = PWRDM_POWER_ON,  /* MEMONSTATE */
+	},
+	.fclk_reg_amt	  = 1,
+	.fclk_masks	  = {
+		[0] = OMAP3430_EN_UART3,
 	},
 };
 
@@ -355,6 +369,7 @@ static struct powerdomain usbhost_pwrdm = {
 	.pwrsts_mem_on	  = {
 		[0] = PWRDM_POWER_ON,  /* MEMONSTATE */
 	},
+	.fclk_reg_amt	  = 1,
 };
 
 static struct powerdomain dpll1_pwrdm = {

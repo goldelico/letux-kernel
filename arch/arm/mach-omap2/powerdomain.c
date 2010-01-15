@@ -1309,6 +1309,29 @@ int pwrdm_wait_transition(struct powerdomain *pwrdm)
 	return 0;
 }
 
+/**
+ * pwrdm_can_idle - check if the powerdomain can enter idle
+ * @pwrdm: struct powerdomain * the powerdomain to check status of
+ *
+ * Does a functional clock check for the powerdomain and returns 1 if the
+ * powerdomain can enter idle, 0 if not.
+ */
+int pwrdm_can_idle(struct powerdomain *pwrdm)
+{
+	int i;
+	const int fclk_regs[] = { CM_FCLKEN, OMAP3430ES2_CM_FCLKEN3 };
+
+	if (!pwrdm)
+		return -EINVAL;
+
+	for (i = 0; i < pwrdm->fclk_reg_amt; i++)
+		if (cm_read_mod_reg(pwrdm->prcm_offs, fclk_regs[i]) &
+				(0xffffffff ^ pwrdm->fclk_masks[i]))
+			return 0;
+	return 1;
+}
+
+
 int pwrdm_state_switch(struct powerdomain *pwrdm)
 {
 	return _pwrdm_state_switch(pwrdm, PWRDM_STATE_NOW);
