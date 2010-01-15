@@ -722,7 +722,7 @@ static int omap3_pm_suspend(void)
 	}
 
 	omap_uart_prepare_suspend();
-
+	omap3_intc_suspend();
 	regset_save_on_suspend = 1;
 	omap_sram_idle();
 	regset_save_on_suspend = 0;

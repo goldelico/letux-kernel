@@ -391,6 +391,7 @@ extern int omap_irq_pending(void);
 void omap3_intc_autoidle(int enable);
 void omap3_intc_save_context(void);
 void omap3_intc_restore_context(void);
+void omap3_intc_suspend(void);
 #endif
 
 #include <mach/hardware.h>
