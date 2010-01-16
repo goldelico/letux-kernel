@@ -42,8 +42,6 @@
 
 #include <mach/control.h>
 #include <mach/clock.h>
-#include <mach/usb-ohci.h>
-
 #include "sdram-qimonda-hyb18m512160af-6.h"
 #include "mmc-twl4030.h"
 #include "pm.h"
