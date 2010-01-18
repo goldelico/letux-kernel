@@ -6,6 +6,7 @@ linux-2.6-openmoko (20100118.gita15608f2-1) unstable; urgency=low
    + disable kernel preemption
    + disable mtd write verification
    + disable android stuff
+   + disable CONFIG_SYSFS_DEPRECATED
 
  -- Sebastian Reichel <elektranox@gmail.com>  Mon, 18 Jan 2010 19:17:56 +0100
 
