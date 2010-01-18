@@ -52,6 +52,9 @@
 #define INTC_MIR_SET0           0x4820008C
 #define INTC_SR1		(0x1 << 18)
 #define INTC_SR2		(0x1 << 19)
+#define ERRCONFIG_STATUS_MASK	(ERRCONFIG_VPBOUNDINTST | \
+		 ERRCONFIG_MCUBOUNDINTST | ERRCONFIG_MCUDISACKINTST)
+
 
 
 struct omap_sr {
@@ -84,6 +87,8 @@ static inline void sr_modify_reg(struct omap_sr *sr, unsigned offset, u32 mask,
 					u32 value)
 {
 	u32 reg_val;
+	if (offset == ERRCONFIG)
+		mask |= ERRCONFIG_STATUS_MASK;
 
 	reg_val = __raw_readl(SR_REGADDR(offset));
 	reg_val &= ~mask;
