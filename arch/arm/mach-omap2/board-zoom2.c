@@ -219,6 +219,15 @@ static struct platform_device zoom2_wl127x_device = {
 };
 #endif
 
+/* GPIOS need to be in order of BT, FM and GPS
+ * provide -1 is Not applicable for chip */
+static int gpios[] = {109, 161, -1};
+static struct platform_device zoom_btfmgps_device = {
+       .name           = "kim", /* named after init manager for ST */
+       .id             = -1,
+       .dev.platform_data = &gpios,
+};
+
 /* Zoom2 has Qwerty keyboard*/
 static int zoom2_twl4030_keymap[] = {
 	KEY(0, 0, KEY_E),
@@ -601,6 +610,7 @@ static struct platform_device *zoom2_devices[] __initdata = {
 #endif
 	&zoom2_vout_device,
 	&headset_switch_device,
+	&zoom_btfmgps_device,
 };
 
 static inline void __init zoom2_init_smc911x(void)
