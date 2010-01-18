@@ -276,5 +276,6 @@ config APANIC_PLABEL
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
+source "drivers/misc/ti-st/Kconfig"
 
 endif # MISC_DEVICES
