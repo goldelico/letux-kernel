@@ -476,6 +476,35 @@ void omap_set_dma_src_data_pack(int lch, int enable)
 }
 EXPORT_SYMBOL(omap_set_dma_src_data_pack);
 
+/**
+ * @brief omap_set_dma_prefetch : Enable/disable prefetch
+ * for a logical channel
+ *
+ * @param lch : Logical channel number
+ * @param enable : 1 to enable / 0 to disable
+ *
+ * Prefetch can only be enabled for destination synchronized transfer.
+ * It is SW user responsibility to have prefetch disabled for source
+ * synchronized transfers.
+ * It improves DMA performance by fetching data before receiving
+ * the DMA request. Therefore, the data source shall be available when
+ * the logical channel is enabled.
+ *
+ */
+void omap_set_dma_prefetch(int lch, int enable)
+{
+	u32 l;
+
+	if (cpu_class_is_omap2()) {
+		l = dma_read(CCR(lch));
+		l &= ~(1 << 23);
+		if (enable)
+			l |= (1 << 23);
+		dma_write(l, CCR(lch));
+	}
+}
+EXPORT_SYMBOL(omap_set_dma_prefetch);
+
 void omap_set_dma_src_burst_mode(int lch, enum omap_dma_burst_mode burst_mode)
 {
 	unsigned int burst = 0;
@@ -821,7 +850,10 @@ void omap_free_dma(int lch)
 		/* Disable all DMA interrupts for the channel. */
 		dma_write(0, CICR(lch));
 
-		/* Make sure the DMA transfer is stopped. */
+		/*
+		 * Make sure the DMA transfer is stopped
+		 * and disable prefetch.
+		 */
 		dma_write(0, CCR(lch));
 		omap_clear_dma(lch);
 	}

@@ -512,6 +512,7 @@ extern void omap_set_dma_src_params(int lch, int src_port, int src_amode,
 				    int src_ei, int src_fi);
 extern void omap_set_dma_src_index(int lch, int eidx, int fidx);
 extern void omap_set_dma_src_data_pack(int lch, int enable);
+extern void omap_set_dma_prefetch(int lch, int enable);
 extern void omap_set_dma_src_burst_mode(int lch,
 					enum omap_dma_burst_mode burst_mode);
 
