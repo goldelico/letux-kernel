@@ -218,9 +218,11 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 	struct omap_mcbsp_data *mcbsp_data = to_mcbsp(cpu_dai->private_data);
 	struct omap_mcbsp_reg_cfg *regs = &mcbsp_data->regs;
 	int dma, bus_id = mcbsp_data->bus_id, id = cpu_dai->id;
-	int wlen, channels, wpf;
-	unsigned long port;
-	unsigned int format;
+	int uninitialized_var(wlen);
+	int uninitialized_var(channels);
+	int uninitialized_var(wpf);
+	unsigned long uninitialized_var(port);
+	unsigned int uninitialized_var(format);
 	int xfer_size = 0;
 
 	if (cpu_class_is_omap1()) {
