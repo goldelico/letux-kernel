@@ -4,7 +4,7 @@
 /*
  * Touchscreen filter.
  *
- * (c) 2008,2009 Andy Green <andy@openmoko.com>
+ * (c) 2008,2009 Andy Green <andy@warmcat.com>
  */
 
 #include <linux/platform_device.h>

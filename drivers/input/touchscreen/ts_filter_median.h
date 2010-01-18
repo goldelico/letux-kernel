@@ -8,7 +8,7 @@
  *
  * median
  *
- * (c) 2008 Andy Green <andy@openmoko.com>
+ * (c) 2008 Andy Green <andy@warmcat.com>
  */
 
 struct ts_filter_median_configuration {

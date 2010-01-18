@@ -100,6 +100,7 @@
 
 #include <linux/hdq.h>
 #include <linux/bq27000_battery.h>
+#include <linux/gta01_battery.h>
 
 #include "../plat-s3c24xx/neo1973_pm_gps.h"
 
@@ -391,7 +392,7 @@ static int gta02_get_charger_online_status(void)
 {
 	struct pcf50633 *pcf = gta02_pcf;
 
-	return pcf50633_mbc_get_status(pcf) & PCF50633_MBC_USB_ONLINE;
+	return pcf50633_mbc_get_usb_online_status(pcf);
 }
 
 static int gta02_get_charger_active_status(void)
@@ -484,12 +485,13 @@ static int gta02_udc_vbus_status(void)
         if (!gta02_pcf)
 		return -ENODEV;
 
-	return !!(pcf50633_mbc_get_status(pcf) & PCF50633_MBC_USB_ONLINE);
+	return pcf50633_mbc_get_usb_online_status(pcf);
 }
 #else /* !CONFIG_CHARGER_PCF50633 */
 #define gta02_get_charger_online_status NULL
 #define gta02_get_charger_active_status NULL
 #define gta02_pmu_event_callback        NULL
+#define gta02_pmu_force_shutdown        NULL
 #define gta02_udc_vbus_draw             NULL
 #define gta02_udc_vbus_status           NULL
 #endif
@@ -569,7 +571,6 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 
 	.batteries = gta02_batteries,
 	.num_batteries = ARRAY_SIZE(gta02_batteries),
-	.charging_restart_interval = (900 * HZ),
 	.chg_ref_current_ma = 1000,
 
 	.reg_init_data = {
@@ -726,7 +727,7 @@ static void mangle_pmu_pdata_by_system_rev(void)
 		reg_init_data[PCF50633_REGULATOR_LDO1]
 					.constraints.min_uV = 3300000;
 		reg_init_data[PCF50633_REGULATOR_LDO1]
-					.constraints.min_uV = 3300000;
+					.constraints.max_uV = 3300000;
 		reg_init_data[PCF50633_REGULATOR_LDO1]
 					.constraints.state_mem.enabled = 0;
 
@@ -746,6 +747,34 @@ static void mangle_pmu_pdata_by_system_rev(void)
 		break;
 	}
 }
+
+static int gta02_bat_get_voltage(void)
+{
+	struct pcf50633 *pcf = gta02_pcf;
+	u16 adc, mv = 0;
+	adc = pcf50633_adc_sync_read(pcf,
+		PCF50633_ADCC1_MUX_BATSNS_RES,
+		PCF50633_ADCC1_AVERAGE_16);
+	/* The formula from DS is for divide-by-two mode, current driver uses
+	divide-by-three */
+	mv = (adc * 6000) / 1023;
+	return mv * 1000;
+}
+
+static struct gta01_bat_platform_data gta01_bat_pdata = {
+#ifdef CONFIG_CHARGER_PCF50633
+	.get_charging_status = gta02_get_charger_active_status,
+#endif
+	.get_voltage = gta02_bat_get_voltage,
+};
+
+struct platform_device gta01_bat = {
+	.name = "gta01_battery",
+	.id = -1,
+	.dev = {
+		.platform_data = &gta01_bat_pdata,
+	}
+};
 
 #ifdef CONFIG_HDQ_GPIO_BITBANG
 /* BQ27000 Battery */
@@ -1532,6 +1561,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&s3c_device_usbgadget,
 	&s3c_device_nand,
 	&gta02_nor_flash,
+	&s3c_device_adc,
 
 	&s3c24xx_pwm_device,
 	&gta02_led_dev,
@@ -1550,6 +1580,7 @@ static struct platform_device *gta02_devices_pmu_children[] = {
 	&gta02_spi_gpio_dev, /* input 2 and 3 */
 	&gta02_button_dev, /* input 4 */
 	&gta02_resume_reason_device,
+	&gta01_bat,
 };
 
 static void gta02_pmu_regulator_registered(struct pcf50633 *pcf, int id)

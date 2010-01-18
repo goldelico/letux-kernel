@@ -58,6 +58,7 @@ struct pcf50606_time {
 struct pcf50606_rtc {
 	int alarm_enabled;
 	int second_enabled;
+	int alarm_pending;
 
 	struct pcf50606 *pcf;
 	struct rtc_device *rtc_dev;
@@ -198,6 +199,7 @@ static int pcf50606_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	rtc = dev_get_drvdata(dev);
 
 	alrm->enabled = rtc->alarm_enabled;
+	alrm->pending = rtc->alarm_pending;
 
 	ret = pcf50606_read_block(rtc->pcf, PCF50606_REG_RTCSCA,
 				PCF50606_TI_EXTENT, &pcf_tm.time[0]);
@@ -234,8 +236,12 @@ static int pcf50606_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	ret = pcf50606_write_block(rtc->pcf, PCF50606_REG_RTCSCA,
 				PCF50606_TI_EXTENT, &pcf_tm.time[0]);
 
-	if (!alarm_masked)
+	if (!alrm->enabled)
+		rtc->alarm_pending = 0;
+
+	if (!alarm_masked || alrm->enabled)
 		pcf50606_irq_unmask(rtc->pcf, PCF50606_IRQ_ALARM);
+	rtc->alarm_enabled = alrm->enabled;
 
 	return ret;
 }
@@ -255,6 +261,7 @@ static void pcf50606_rtc_irq(int irq, void *data)
 	switch (irq) {
 	case PCF50606_IRQ_ALARM:
 		rtc_update_irq(rtc->rtc_dev, 1, RTC_AF | RTC_IRQF);
+		rtc->alarm_pending = 1;
 		break;
 	case PCF50606_IRQ_SECOND:
 		rtc_update_irq(rtc->rtc_dev, 1, RTC_UF | RTC_IRQF);

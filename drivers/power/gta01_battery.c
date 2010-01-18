@@ -23,7 +23,39 @@ static enum power_supply_property gta01_bat_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_CHARGE_NOW,
 };
+
+/* Capacity of typical BL-5C dumb battery */
+#define GTA01_BAT_CHARGE_FULL	850000
+
+static int gta01_bat_voltscale(int volt)
+{
+	/* This table is suggested by SpeedEvil based on analysis of
+	 * experimental data */
+	static const int lut[][2] = {
+		{ 4120, 100 },
+		{ 3900, 60 },
+		{ 3740, 25 },
+		{ 3600, 5 },
+		{ 3000, 0 } };
+	int i, res = 0;
+
+	if (volt > lut[0][0])
+		res = lut[0][1];
+	else
+		for (i = 0; lut[i][1]; i++) {
+			if (volt <= lut[i][0] && volt >= lut[i+1][0]) {
+				res = lut[i][1] - (lut[i][0]-volt)*
+					(lut[i][1]-lut[i+1][1])/
+					(lut[i][0]-lut[i+1][0]);
+				break;
+			}
+		}
+	return res;
+}
 
 static int gta01_bat_get_property(struct power_supply *psy,
 				       enum power_supply_property psp,
@@ -33,20 +65,48 @@ static int gta01_bat_get_property(struct power_supply *psy,
 	
 	switch(psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		if (bat->pdata->get_charging_status())
-			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+		if (bat->pdata->get_charging_status)
+			if (bat->pdata->get_charging_status())
+				val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			else
+				val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
 		else
-			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+			val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = bat->pdata->get_voltage();
+		if (bat->pdata->get_voltage)
+			val->intval = bat->pdata->get_voltage();
+		else
+			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		val->intval = bat->pdata->get_current();
+		if (bat->pdata->get_current)
+			val->intval = bat->pdata->get_current();
+		else
+			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = 1; /* You must never run GTA01 without battery. */
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_NOW:
+		if (bat->pdata->get_voltage) {
+			int perc = gta01_bat_voltscale(
+					bat->pdata->get_voltage()/1000);
+			val->intval = perc * GTA01_BAT_CHARGE_FULL / 100;
+		} else
+			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		if (bat->pdata->get_voltage)
+			val->intval = gta01_bat_voltscale(
+					bat->pdata->get_voltage()/1000);
+		else
+			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		val->intval = GTA01_BAT_CHARGE_FULL;
+		break;
+
 	default:
 		return -EINVAL;
 	}
@@ -76,6 +136,7 @@ static int gta01_battery_probe(struct platform_device *pdev)
 	gta01_bat->psy.external_power_changed = gta01_bat_ext_changed;
 
 	gta01_bat->pdata = pdev->dev.platform_data;
+	platform_set_drvdata(pdev, gta01_bat);
 	power_supply_register(&pdev->dev, &gta01_bat->psy);
 
 	return 0;

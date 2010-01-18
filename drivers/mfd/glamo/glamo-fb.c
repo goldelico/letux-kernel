@@ -128,7 +128,7 @@ static struct glamo_script glamo_regs[] = {
 	   * 01 00 0 100 0 000 01 0 0 */
 	/* The following values assume 640*480@16bpp */
 	{ GLAMO_REG_LCD_A_BASE1, 0x0000 }, /* display A base address 15:0 */
-	{ GLAMO_REG_LCD_A_BASE2, 0x0000 }, /* display A base address 22:16 */
+	{ GLAMO_REG_LCD_A_BASE2, 0x4000 }, /* display A base address 22:16 */
 	{ GLAMO_REG_LCD_B_BASE1, 0x6000 }, /* display B base address 15:0 */
 	{ GLAMO_REG_LCD_B_BASE2, 0x0009 }, /* display B base address 22:16 */
 	{ GLAMO_REG_LCD_CURSOR_BASE1, 0xC000 }, /* cursor base address 15:0 */

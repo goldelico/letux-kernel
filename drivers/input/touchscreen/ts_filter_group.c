@@ -20,28 +20,38 @@
  *
  * This filter is useful to reject samples that are not reliable. We consider
  * that a sample is not reliable if it deviates form the Majority.
+ * This filter mixes information from all the available dimensions. It means
+ * that for two dimensions we draw a rectangle where the thought-to-be good
+ * points can be found.
  *
- * 1) We collect S samples.
+ * The implementation would be more efficient with a double-linked list but
+ * let's keep it simple for now.
+ *
+ * 1) We collect S samples and keep it in sorted sets.
+ *  - Points that are "close enough" are considered to be in the same set.
+ *    We don't actually keep the sets but ranges of points.
  *
  * 2) For each dimension:
- *
- *  - We sort the points.
- *  - Points that are "close enough" are considered to be in the same set.
- *  - We choose the set with more elements. If more than "threshold"
- *    points are in this set we use the first and the last point of the set
- *    to define the valid range for this dimension [min, max], otherwise we
- *    discard all the points and go to step 1.
+ *  - We choose the range with more elements. If more than "threshold"
+ *    points are in this range we use the minimum and the maximum point
+ *    of the range to define the valid range for this dimension [min, max],
+ *    otherwise we discard all the points and the ranges and go to step 1.
  *
  * 3) We consider the unsorted S samples and try to feed them to the next
  *    filter in the chain. If one of the points of each sample
- *    is not in the allowed range for its dimension, we discard the sample.
+ *    is not in the allowed range for its dimension we discard the sample.
  *
  */
 
 #include <linux/kernel.h>
 #include <linux/slab.h>
-#include <linux/sort.h>
 #include "ts_filter_group.h"
+
+struct coord_range {
+	int min;	/* Minimum value of the range. */
+	int max;	/* Maximum value of the range  */
+	int N;		/* Number of points in the range. */
+};
 
 struct ts_filter_group {
 	/* Private filter configuration. */
@@ -52,13 +62,15 @@ struct ts_filter_group {
 	int N;			/* How many samples we have. */
 	int *samples[MAX_TS_FILTER_COORDS];	/* The samples: our input. */
 
-	int *group_size;	/* Used for temporal computations. */
-	int *sorted_samples;	/* Used for temporal computations. */
+	/* Temporal values that help us compute range_min and range_max. */
+	struct coord_range *ranges[MAX_TS_FILTER_COORDS];	/* Ranges. */
+	int n_ranges[MAX_TS_FILTER_COORDS];		/* Number of ranges */
 
+	/* Computed ranges that help us filter the points. */
 	int range_max[MAX_TS_FILTER_COORDS];	/* Max. computed ranges. */
 	int range_min[MAX_TS_FILTER_COORDS];	/* Min. computed ranges. */
 
-	int tries_left;		/* We finish if we don't get enough samples. */
+	int tries_left;		/* We finish if we can't get enough samples. */
 	int ready;		/* If we are ready to deliver samples. */
 	int result;		/* Index of the point being returned. */
 };
@@ -70,10 +82,13 @@ struct ts_filter_group {
 static void ts_filter_group_clear_internal(struct ts_filter_group *tsfg,
 					   int attempts)
 {
+	int n;
 	tsfg->N = 0;
 	tsfg->tries_left = attempts;
 	tsfg->ready = 0;
 	tsfg->result = 0;
+	for (n = 0; n < tsfg->tsf.count_coords; n++)
+		tsfg->n_ranges[n] = 0;
 }
 
 static void ts_filter_group_clear(struct ts_filter *tsf)
@@ -101,8 +116,9 @@ static struct ts_filter *ts_filter_group_create(
 	tsfg->tsf.count_coords = count_coords;
 
 	BUG_ON(tsfg->config->attempts <= 0);
+	BUG_ON(tsfg->config->length < tsfg->config->threshold);
 
-	tsfg->samples[0] = kmalloc((2 + count_coords) * sizeof(int) *
+	tsfg->samples[0] = kmalloc(count_coords * sizeof(int) *
 				   tsfg->config->length, GFP_KERNEL);
 	if (!tsfg->samples[0]) {
 		kfree(tsfg);
@@ -110,10 +126,16 @@ static struct ts_filter *ts_filter_group_create(
 	}
 	for (i = 1; i < count_coords; ++i)
 		tsfg->samples[i] = tsfg->samples[0] + i * tsfg->config->length;
-	tsfg->sorted_samples = tsfg->samples[0] + count_coords *
-			       tsfg->config->length;
-	tsfg->group_size = tsfg->samples[0] + (1 + count_coords) *
-			       tsfg->config->length;
+
+	tsfg->ranges[0] = kmalloc(count_coords * sizeof(struct coord_range) *
+				  tsfg->config->length, GFP_KERNEL);
+	if (!tsfg->ranges[0]) {
+		kfree(tsfg->samples[0]);
+		kfree(tsfg);
+		return NULL;
+	}
+	for (i = 1; i < count_coords; ++i)
+		tsfg->ranges[i] = tsfg->ranges[0] + i * tsfg->config->length;
 
 	ts_filter_group_clear_internal(tsfg, tsfg->config->attempts);
 
@@ -128,77 +150,90 @@ static void ts_filter_group_destroy(struct ts_filter *tsf)
 {
 	struct ts_filter_group *tsfg = ts_filter_to_filter_group(tsf);
 
-	kfree(tsfg->samples[0]); /* first guy has pointer from kmalloc */
+	kfree(tsfg->samples[0]);
+	kfree(tsfg->ranges[0]);
 	kfree(tsf);
 }
 
-static int int_cmp(const void *_a, const void *_b)
-{
-	const int *a = _a;
-	const int *b = _b;
-
-	if (*a > *b)
-		return 1;
-	if (*a < *b)
-		return -1;
-	return 0;
-}
-
 static void ts_filter_group_prepare_next(struct ts_filter *tsf);
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define IN_RANGE(c, r) ((c) >= (r).min - tsfg->config->close_enough && \
+			(c) <= (r).max + tsfg->config->close_enough)
+
+static void delete_spot(struct coord_range *v, int n, int size)
+{
+	int i;
+	for (i = n; i < size - 1; ++i)
+		v[i] = v[i + 1];
+}
 
 static int ts_filter_group_process(struct ts_filter *tsf, int *coords)
 {
 	struct ts_filter_group *tsfg = ts_filter_to_filter_group(tsf);
 	int n;
-	int i;
+	int j;
 
 	BUG_ON(tsfg->N >= tsfg->config->length);
 	BUG_ON(tsfg->ready);
 
-	for (n = 0; n < tsf->count_coords; n++)
+	for (n = 0; n < tsfg->tsf.count_coords; n++) {
+		int i;
+		struct coord_range *range = tsfg->ranges[n];
+		int *n_ranges = &tsfg->n_ranges[n];
+		int found = 0;
+
 		tsfg->samples[n][tsfg->N] = coords[n];
 
-	if (++tsfg->N < tsfg->config->length)
-		return 0;	/* We need more samples. */
-
-	for (n = 0; n < tsfg->tsf.count_coords; n++) {
-		int *v = tsfg->sorted_samples;
-		int ngroups = 0;
-		int best_size;
-		int best_idx = 0;
-		int idx = 0;
-
-		memcpy(v, tsfg->samples[n], tsfg->N * sizeof(int));
-		/*
-		 * FIXME: Remove this sort call. We already have the
-		 * algorithm for this modification. The filter will
-		 * need less points (about half) if there is not a
-		 * lot of noise. Right now we are doing a constant
-		 * amount of work no matter how much noise we are
-		 * dealing with.
-		 */
-		sort(v, tsfg->N, sizeof(int), int_cmp, NULL);
-
-		tsfg->group_size[0] = 1;
-		for (i = 1; i < tsfg->N; ++i) {
-			if (v[i] - v[i - 1] <= tsfg->config->close_enough)
-				tsfg->group_size[ngroups]++;
-			else
-				tsfg->group_size[++ngroups] = 1;
+		for (i = 0; i < *n_ranges; ++i) {
+			if (IN_RANGE(coords[n], range[i])) {
+				range[i].min  = MIN(range[i].min, coords[n]);
+				range[i].max  = MAX(range[i].max, coords[n]);
+				range[i].N++;
+				found = 1;
+				break;
+			} else if (coords[n] <= range[i].min)
+				break;	/* We need to insert a range. */
 		}
-		ngroups++;
-
-		best_size = tsfg->group_size[0];
-		for (i = 1; i < ngroups; i++) {
-			idx += tsfg->group_size[i - 1];
-			if (best_size < tsfg->group_size[i]) {
-				best_size = tsfg->group_size[i];
-				best_idx = idx;
+		if (found) { /* We might need to melt ranges. */
+			if (i && range[i - 1].max + tsfg->config->close_enough
+			    >= range[i].min) {
+				BUG_ON(range[i - 1].max >= range[i].max);
+				range[i - 1].max = range[i].max;
+				range[i - 1].N += range[i].N;
+				delete_spot(range, i, *n_ranges);
+				(*n_ranges)--;
+				i--;
 			}
+			if (i < *n_ranges - 1 && range[i + 1].min -
+			    tsfg->config->close_enough <= range[i].max) {
+				range[i].max = range[i + 1].max;
+				range[i].N += range[i + 1].N;
+				delete_spot(range, i + 1, *n_ranges);
+				(*n_ranges)--;
+			}
+		} else {
+			BUG_ON((*n_ranges) >= tsfg->config->length);
+			(*n_ranges)++;
+			for (j = *n_ranges - 1; j > i; --j)
+				range[j] = range[j - 1];
+			range[i].N = 1;
+			range[i].min = coords[n];
+			range[i].max = coords[n];
 		}
+	}
 
-		if (best_size < tsfg->config->threshold) {
-			/* This set is not good enough for us. */
+	if (++tsfg->N < tsfg->config->length)
+		return 0;
+
+	for (n = 0; n < tsfg->tsf.count_coords; ++n) {
+		int best = 0;
+		for (j = 1; j < tsfg->n_ranges[n]; ++j)
+			if (tsfg->ranges[n][best].N  < tsfg->ranges[n][j].N)
+				best = j;
+		if (tsfg->ranges[n][best].N < tsfg->config->threshold) {
+			/* This set of points is not good enough for us. */
 			if (--tsfg->tries_left) {
 				ts_filter_group_clear_internal
 					(tsfg, tsfg->tries_left);
@@ -207,9 +242,8 @@ static int ts_filter_group_process(struct ts_filter *tsf, int *coords)
 			}
 			return 1; /* We give up: error. */
 		}
-
-		tsfg->range_min[n] = v[best_idx];
-		tsfg->range_max[n] = v[best_idx + best_size - 1];
+		tsfg->range_min[n] = tsfg->ranges[n][best].min;
+		tsfg->range_max[n] = tsfg->ranges[n][best].max;
 	}
 
 	ts_filter_group_prepare_next(tsf);

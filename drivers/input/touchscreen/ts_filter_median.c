@@ -13,7 +13,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
- * Copyright (c) 2008 Andy Green <andy@openmoko.com>
+ * Copyright (c) 2008 Andy Green <andy@warmcat.com>
  *
  *
  * Median averaging stuff.  We sort incoming raw samples into an array of

@@ -221,6 +221,15 @@ static void ar6000_detect_error(unsigned long ptr);
 static struct net_device_stats *ar6000_get_stats(struct net_device *dev);
 static struct iw_statistics *ar6000_get_iwstats(struct net_device * dev);
 
+static struct net_device_ops ar6000_netdev_ops = {
+	.ndo_open = ar6000_open,
+	.ndo_stop = ar6000_close,
+	.ndo_start_xmit = ar6000_data_tx,
+	.ndo_validate_addr = eth_validate_addr,
+	.ndo_do_ioctl = ar6000_ioctl,
+	.ndo_get_stats = &ar6000_get_stats,
+};
+
 /*
  * HTC service connection handlers
  */
@@ -858,20 +867,15 @@ ar6000_avail_ev(HTC_HANDLE HTCHandle)
     spin_lock_init(&ar->arLock);
 
     /* Don't install the init function if BMI is requested */
-    if(!bmienable)
-    {
-        dev->init = ar6000_init;
+    if (!bmienable) {
+       ar6000_netdev_ops.ndo_init = ar6000_init;
     } else {
         AR_DEBUG_PRINTF(" BMI enabled \n");
     }
 
-    dev->open = &ar6000_open;
-    dev->stop = &ar6000_close;
-    dev->hard_start_xmit = &ar6000_data_tx;
-    dev->get_stats = &ar6000_get_stats;
+    dev->netdev_ops = &ar6000_netdev_ops;
 
     /* dev->tx_timeout = ar6000_tx_timeout; */
-    dev->do_ioctl = &ar6000_ioctl;
     dev->watchdog_timeo = AR6000_TX_TIMEOUT;
     ar6000_ioctl_iwsetup(&ath_iw_handler_def);
     dev->wireless_handlers = &ath_iw_handler_def;
@@ -974,17 +978,86 @@ ar6000_destroy(struct net_device *dev, unsigned int unregister)
         return;
     }
 
+    /* Stop the transmit queues */
+    netif_stop_queue(dev);
+
+    /* Disable the target and the interrupts associated with it */
+    if (ar->arWmiReady == TRUE)
+    {
+        if (!bypasswmi)
+        {
+            if (ar->arConnected == TRUE || ar->arConnectPending == TRUE)
+            {
+                AR_DEBUG_PRINTF("%s(): Disconnect\n", __func__);
+                AR6000_SPIN_LOCK(&ar->arLock, 0);
+                ar6000_init_profile_info(ar);
+                AR6000_SPIN_UNLOCK(&ar->arLock, 0);
+                wmi_disconnect_cmd(ar->arWmi);
+            }
+
+            ar6000_dbglog_get_debug_logs(ar);
+            ar->arWmiReady  = FALSE;
+            ar->arConnected = FALSE;
+            ar->arConnectPending = FALSE;
+            wmi_shutdown(ar->arWmi);
+            ar->arWmiEnabled = FALSE;
+            ar->arWmi = NULL;
+            ar->arWlanState = WLAN_ENABLED;
+#ifdef USER_KEYS
+            ar->user_savedkeys_stat = USER_SAVEDKEYS_STAT_INIT;
+            ar->user_key_ctrl      = 0;
+#endif
+        }
+
+         AR_DEBUG_PRINTF("%s(): WMI stopped\n", __func__);
+    }
+    else
+    {
+        AR_DEBUG_PRINTF("%s(): WMI not ready 0x%08x 0x%08x\n",
+            __func__, (unsigned int) ar, (unsigned int) ar->arWmi);
+
+        /* Shut down WMI if we have started it */
+        if(ar->arWmiEnabled == TRUE)
+        {
+            AR_DEBUG_PRINTF("%s(): Shut down WMI\n", __func__);
+            wmi_shutdown(ar->arWmi);
+            ar->arWmiEnabled = FALSE;
+            ar->arWmi = NULL;
+        }
+    }
+
+    /* stop HTC */
+    HTCStop(ar->arHtcTarget);
+
+    /* set the instance to NULL so we do not get called back on remove incase we
+     * we're explicity destroyed by module unload */
+    HTCSetInstance(ar->arHtcTarget, NULL);
+
+    if (resetok) {
+        /* try to reset the device if we can
+         * The driver may have been configure NOT to reset the target during
+         * a debug session */
+        AR_DEBUG_PRINTF(" Attempting to reset target on instance destroy.... \n");
+        ar6000_reset_device(ar->arHifDevice, ar->arTargetType);
+    } else {
+        AR_DEBUG_PRINTF(" Host does not want target reset. \n");
+    }
+
+       /* Done with cookies */
+    ar6000_cookie_cleanup(ar);
+
+    /* Cleanup BMI */
+    BMIInit();
+
     /* Clear the tx counters */
     memset(tx_attempt, 0, sizeof(tx_attempt));
     memset(tx_post, 0, sizeof(tx_post));
     memset(tx_complete, 0, sizeof(tx_complete));
 
+
     /* Free up the device data structure */
-    if (unregister) {
-	unregister_netdev(dev);
-    } else {
-	ar6000_close(dev);
-    }
+    if (unregister)
+	    unregister_netdev(dev);
 
     free_raw_buffers(ar);
 
@@ -1090,78 +1163,7 @@ ar6000_open(struct net_device *dev)
 static int
 ar6000_close(struct net_device *dev)
 {
-    AR_SOFTC_T *ar = netdev_priv(dev);
-
-    /* Stop the transmit queues */
     netif_stop_queue(dev);
-
-    /* Disable the target and the interrupts associated with it */
-    if (ar->arWmiReady == TRUE)
-    {
-        if (!bypasswmi)
-        {
-            if (ar->arConnected == TRUE || ar->arConnectPending == TRUE)
-            {
-                AR_DEBUG_PRINTF("%s(): Disconnect\n", __func__);
-                AR6000_SPIN_LOCK(&ar->arLock, 0);
-                ar6000_init_profile_info(ar);
-                AR6000_SPIN_UNLOCK(&ar->arLock, 0);
-                wmi_disconnect_cmd(ar->arWmi);
-            }
-
-            ar6000_dbglog_get_debug_logs(ar);
-            ar->arWmiReady  = FALSE;
-            ar->arConnected = FALSE;
-            ar->arConnectPending = FALSE;
-            wmi_shutdown(ar->arWmi);
-            ar->arWmiEnabled = FALSE;
-            ar->arWmi = NULL;
-            ar->arWlanState = WLAN_ENABLED;
-#ifdef USER_KEYS
-            ar->user_savedkeys_stat = USER_SAVEDKEYS_STAT_INIT;
-            ar->user_key_ctrl      = 0;
-#endif
-        }
-
-         AR_DEBUG_PRINTF("%s(): WMI stopped\n", __func__);
-    }
-    else
-    {
-        AR_DEBUG_PRINTF("%s(): WMI not ready 0x%08x 0x%08x\n",
-            __func__, (unsigned int) ar, (unsigned int) ar->arWmi);
-
-        /* Shut down WMI if we have started it */
-        if(ar->arWmiEnabled == TRUE)
-        {
-            AR_DEBUG_PRINTF("%s(): Shut down WMI\n", __func__);
-            wmi_shutdown(ar->arWmi);
-            ar->arWmiEnabled = FALSE;
-            ar->arWmi = NULL;
-        }
-    }
-
-    /* stop HTC */
-    HTCStop(ar->arHtcTarget);
-
-    /* set the instance to NULL so we do not get called back on remove incase we
-     * we're explicity destroyed by module unload */
-    HTCSetInstance(ar->arHtcTarget, NULL);
-
-    if (resetok) {
-        /* try to reset the device if we can
-         * The driver may have been configure NOT to reset the target during
-         * a debug session */
-        AR_DEBUG_PRINTF(" Attempting to reset target on instance destroy.... \n");
-        ar6000_reset_device(ar->arHifDevice, ar->arTargetType);
-    } else {
-        AR_DEBUG_PRINTF(" Host does not want target reset. \n");
-    }
-
-       /* Done with cookies */
-    ar6000_cookie_cleanup(ar);
-
-    /* Cleanup BMI */
-    BMIInit();
 
     return 0;
 }

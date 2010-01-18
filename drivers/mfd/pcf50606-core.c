@@ -282,7 +282,7 @@ out:
 
 int pcf50606_irq_mask(struct pcf50606 *pcf, int irq)
 {
-	dev_info(pcf->dev, "Masking IRQ %d\n", irq);
+	dev_dbg(pcf->dev, "Masking IRQ %d\n", irq);
 
 	return __pcf50606_irq_mask_set(pcf, irq, 1);
 }
@@ -290,7 +290,7 @@ EXPORT_SYMBOL_GPL(pcf50606_irq_mask);
 
 int pcf50606_irq_unmask(struct pcf50606 *pcf, int irq)
 {
-	dev_info(pcf->dev, "Unmasking IRQ %d\n", irq);
+	dev_dbg(pcf->dev, "Unmasking IRQ %d\n", irq);
 
 	return __pcf50606_irq_mask_set(pcf, irq, 0);
 }
@@ -330,7 +330,7 @@ static void pcf50606_irq_worker(struct work_struct *work)
 	ret = pcf50606_read_block(pcf, PCF50606_REG_INT1,
 						ARRAY_SIZE(pcf_int), pcf_int);
 	if (ret != ARRAY_SIZE(pcf_int)) {
-		dev_info(pcf->dev, "Error reading INT registers\n");
+		dev_err(pcf->dev, "Error reading INT registers\n");
 		
 		/*
 		 * If this doesn't ACK the interrupt to the chip, we'll be

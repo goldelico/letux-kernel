@@ -29,16 +29,12 @@
 struct pcf50633_mbc {
 	struct pcf50633 *pcf;
 
-	int adapter_active;
 	int adapter_online;
-	int usb_active;
 	int usb_online;
 
 	struct power_supply usb;
 	struct power_supply adapter;
 	struct power_supply ac;
-
-	struct delayed_work charging_restart_work;
 };
 
 int pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma)
@@ -92,17 +88,19 @@ int pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma)
 	chgmod = (mbcs2 & PCF50633_MBCS2_MBC_MASK);
 
 	/* If chgmod == BATFULL, setting chgena has no effect.
-	 * We need to set resume instead.
+	 * Datasheet says we need to set resume instead but when autoresume is
+	 * used resume doesn't work. Clear and set chgena instead.
 	 */
 	if (chgmod != PCF50633_MBCS2_MBC_BAT_FULL)
 		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
 				PCF50633_MBCC1_CHGENA, PCF50633_MBCC1_CHGENA);
-	else
+	else {
+		pcf50633_reg_clear_bits(pcf, PCF50633_REG_MBCC1,
+				PCF50633_MBCC1_CHGENA);
 		pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_MBCC1,
-				PCF50633_MBCC1_RESUME, PCF50633_MBCC1_RESUME);
+				PCF50633_MBCC1_CHGENA, PCF50633_MBCC1_CHGENA);
+	}
 
-	mbc->usb_active = charging_start;
-	
 	power_supply_changed(&mbc->usb);
 
 	return ret;
@@ -113,22 +111,43 @@ int pcf50633_mbc_get_status(struct pcf50633 *pcf)
 {
 	struct pcf50633_mbc *mbc  = platform_get_drvdata(pcf->mbc_pdev);
 	int status = 0;
+	u8 chgmod;
 
 	if (!mbc)
 		return 0;
 
+	chgmod = pcf50633_reg_read(pcf, PCF50633_REG_MBCS2)
+		& PCF50633_MBCS2_MBC_MASK;
+
 	if (mbc->usb_online)
 		status |= PCF50633_MBC_USB_ONLINE;
-	if (mbc->usb_active)
+	if (chgmod == PCF50633_MBCS2_MBC_USB_PRE ||
+	    chgmod == PCF50633_MBCS2_MBC_USB_PRE_WAIT ||
+	    chgmod == PCF50633_MBCS2_MBC_USB_FAST ||
+	    chgmod == PCF50633_MBCS2_MBC_USB_FAST_WAIT)
 		status |= PCF50633_MBC_USB_ACTIVE;
 	if (mbc->adapter_online)
 		status |= PCF50633_MBC_ADAPTER_ONLINE;
-	if (mbc->adapter_active)
+	if (chgmod == PCF50633_MBCS2_MBC_ADP_PRE ||
+	    chgmod == PCF50633_MBCS2_MBC_ADP_PRE_WAIT ||
+	    chgmod == PCF50633_MBCS2_MBC_ADP_FAST ||
+	    chgmod == PCF50633_MBCS2_MBC_ADP_FAST_WAIT)
 		status |= PCF50633_MBC_ADAPTER_ACTIVE;
 
 	return status;
 }
 EXPORT_SYMBOL_GPL(pcf50633_mbc_get_status);
+
+int pcf50633_mbc_get_usb_online_status(struct pcf50633 *pcf)
+{
+	struct pcf50633_mbc *mbc  = platform_get_drvdata(pcf->mbc_pdev);
+
+	if (!mbc)
+		return 0;
+
+	return mbc->usb_online;
+}
+EXPORT_SYMBOL_GPL(pcf50633_mbc_get_usb_online_status);
 
 static ssize_t
 show_chgmode(struct device *dev, struct device_attribute *attr, char *buf)
@@ -226,75 +245,24 @@ static struct attribute_group mbc_attr_group = {
 	.attrs	= pcf50633_mbc_sysfs_entries,
 };
 
-/* MBC state machine switches into charging mode when the battery voltage
- * falls below 96% of a battery float voltage. But the voltage drop in Li-ion
- * batteries is marginal(1~2 %) till about 80% of its capacity - which means,
- * after a BATFULL, charging won't be restarted until 80%.
- *
- * This work_struct function restarts charging every few seconds and makes
- * sure we don't discharge too much
- */
-
-static void pcf50633_mbc_charging_restart(struct work_struct *work)
-{
-	struct pcf50633_mbc *mbc;
-	u8 mbcs2, chgmod;
-
-	mbc = container_of(work, struct pcf50633_mbc,
-				charging_restart_work.work);
-
-	mbcs2 = pcf50633_reg_read(mbc->pcf, PCF50633_REG_MBCS2);
-	chgmod = (mbcs2 & PCF50633_MBCS2_MBC_MASK);
-
-	if (chgmod != PCF50633_MBCS2_MBC_BAT_FULL)
-		return;
-
-	/* Restart charging */
-	pcf50633_reg_set_bit_mask(mbc->pcf, PCF50633_REG_MBCC1,
-				PCF50633_MBCC1_RESUME, PCF50633_MBCC1_RESUME);
-	mbc->usb_active = 1;
-	power_supply_changed(&mbc->usb);
-
-	dev_info(mbc->pcf->dev, "Charging restarted\n");
-}
-
 static void
 pcf50633_mbc_irq_handler(int irq, void *data)
 {
 	struct pcf50633_mbc *mbc = data;
-	int chg_restart_interval = 
-			mbc->pcf->pdata->charging_restart_interval;
 
 	/* USB */
 	if (irq == PCF50633_IRQ_USBINS) {
 		mbc->usb_online = 1;
 	} else if (irq == PCF50633_IRQ_USBREM) {
 		mbc->usb_online = 0;
-		mbc->usb_active = 0;
 		pcf50633_mbc_usb_curlim_set(mbc->pcf, 0);		
-		cancel_delayed_work_sync(&mbc->charging_restart_work);
 	}
 
 	/* Adapter */
-	if (irq == PCF50633_IRQ_ADPINS) {
+	if (irq == PCF50633_IRQ_ADPINS)
 		mbc->adapter_online = 1;
-		mbc->adapter_active = 1;
-	} else if (irq == PCF50633_IRQ_ADPREM) {
+	else if (irq == PCF50633_IRQ_ADPREM)
 		mbc->adapter_online = 0;
-		mbc->adapter_active = 0;
-	}
-
-	if (irq == PCF50633_IRQ_BATFULL) {
-		mbc->usb_active = 0;
-		mbc->adapter_active = 0;
-
-		if (chg_restart_interval > 0)
-			schedule_delayed_work(&mbc->charging_restart_work,
-							chg_restart_interval);
-	} else if (irq == PCF50633_IRQ_USBLIMON)
-		mbc->usb_active = 0;
-	else if (irq == PCF50633_IRQ_USBLIMOFF)
-		mbc->usb_active = 1;
 
 	power_supply_changed(&mbc->usb);
 	power_supply_changed(&mbc->adapter);
@@ -428,9 +396,6 @@ static int __devinit pcf50633_mbc_probe(struct platform_device *pdev)
 	mbc->ac.supplied_to		= mbc->pcf->pdata->batteries;
 	mbc->ac.num_supplicants		= mbc->pcf->pdata->num_batteries;
 
-	INIT_DELAYED_WORK(&mbc->charging_restart_work,
-				pcf50633_mbc_charging_restart);
-
 	ret = power_supply_register(&pdev->dev, &mbc->adapter);
 	if (ret) {
 		dev_err(mbc->pcf->dev, "failed to register adapter\n");
@@ -479,8 +444,6 @@ static int __devexit pcf50633_mbc_remove(struct platform_device *pdev)
 
 	power_supply_unregister(&mbc->usb);
 	power_supply_unregister(&mbc->adapter);
-
-	cancel_delayed_work_sync(&mbc->charging_restart_work);
 
 	kfree(mbc);
 

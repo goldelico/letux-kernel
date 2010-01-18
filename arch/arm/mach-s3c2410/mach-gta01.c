@@ -237,7 +237,7 @@ static int gta01_bat_get_voltage(void)
 	adc = pcf50606_adc_sync_read(pcf, PCF50606_ADCMUX_BATVOLT_RES);
 	mv = (adc * 6000) / 1024;
 	
-	return mv;
+	return mv * 1000;
 }
 
 static int gta01_bat_get_current(void)
@@ -248,10 +248,10 @@ static int gta01_bat_get_current(void)
 	
 	adc_battvolt = pcf50606_adc_sync_read(pcf, PCF50606_ADCMUX_BATVOLT_SUBTR);
 	adc_adcin1 = pcf50606_adc_sync_read(pcf, PCF50606_ADCMUX_ADCIN1_SUBTR);
-	res = (adc_adcin1 - adc_battvolt) * 2400;
+	res = (adc_battvolt - adc_adcin1) * 2400;
 
 	/*rsense is 220 milli */
-	return (res * 1000) / (220 * 1024);
+	return (res * 1000) / (220 * 1024) * 1000;
 }
 
 static struct gta01_bat_platform_data gta01_bat_pdata = {
@@ -560,6 +560,7 @@ static struct platform_device *gta01_devices[] __initdata = {
 	&s3c_device_sdi,
 	&s3c_device_usbgadget,
 	&s3c_device_nand,
+	&s3c_device_adc,
 	&s3c_device_ts,
 };
 
