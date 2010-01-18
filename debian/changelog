@@ -1,3 +1,14 @@
+linux-2.6-openmoko (20100118.gita15608f2-1) unstable; urgency=low
+
+  * New git checkout
+  * debian/config.gta02:
+   + disable debug output
+   + disable kernel preemption
+   + disable mtd write verification
+   + disable android stuff
+
+ -- Sebastian Reichel <elektranox@gmail.com>  Mon, 18 Jan 2010 19:17:56 +0100
+
 linux-2.6-openmoko (20090702.gitd1c828aa-3) pkg-fso; urgency=low
 
   * debian/config.gta02:
