@@ -1524,6 +1524,7 @@ static int musb_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	spin_lock_irqsave(&musb->lock, flags);
 	if (is_on) {
 	    if (!musb->softconnect) {
+			musb_start(musb);
 			musb->softconnect = 1;
 			musb_pullup(musb, is_on);
 		}
