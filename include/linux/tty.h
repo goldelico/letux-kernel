@@ -23,7 +23,7 @@
  */
 #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
 #define NR_UNIX98_PTY_MAX	(1 << MINORBITS) /* Absolute limit */
-#define NR_LDISCS		19
+#define NR_LDISCS		20
 
 /* line disciplines */
 #define N_TTY		0
@@ -46,6 +46,7 @@
 #define N_GIGASET_M101	16	/* Siemens Gigaset M101 serial DECT adapter */
 #define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
 #define N_PPS		18	/* Pulse per Second */
+#define N_SHARED	19	/* for TI BT/FM/GPS combo devices*/
 
 /*
  * This character is the same as _POSIX_VDISABLE: it cannot be used as
@@ -187,7 +188,7 @@ struct tty_port_operations {
 	int (*carrier_raised)(struct tty_port *port);
 	void (*raise_dtr_rts)(struct tty_port *port);
 };
-	
+
 struct tty_port {
 	struct tty_struct	*tty;		/* Back pointer */
 	const struct tty_port_operations *ops;	/* Port operations */
