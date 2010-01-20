@@ -274,6 +274,10 @@ config APANIC_PLABEL
 	 If your platform uses a different flash partition label for storing
  	 crashdumps, enter it here.
 
+config BUILD_TI_ST
+         tristate "Build option for BT shared Transport driver"
+         default n
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/ti-st/Kconfig"
