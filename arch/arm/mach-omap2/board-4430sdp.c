@@ -23,9 +23,9 @@
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
-#include <mach/mux.h>
+#include <plat/mux.h>
 
-#include <mach/mcspi.h>
+#include <plat/mcspi.h>
 #include <plat/board.h>
 #include <plat/common.h>
 #include <plat/control.h>

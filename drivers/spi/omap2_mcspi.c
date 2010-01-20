@@ -37,7 +37,7 @@
 
 #include <plat/dma.h>
 #include <plat/clock.h>
-#include <mach/mcspi.h>
+#include <plat/mcspi.h>
 
 #define OMAP2_MCSPI_MAX_FREQ		48000000
 #define OMAP2_MCSPI_MAX_FIFODEPTH	64
