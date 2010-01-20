@@ -2455,8 +2455,19 @@ int isp_enable_mclk(struct device *dev)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	int r;
+	unsigned long curr_mclk, curr_dpll4_m5, ratio;
 
-	r = clk_set_rate(isp->dpll4_m5_ck, isp->mclk);
+	/* Check ratio between DPLL4_M5 and CAM_MCLK */
+	curr_mclk = clk_get_rate(isp->cam_mclk);
+	curr_dpll4_m5 = clk_get_rate(isp->dpll4_m5_ck);
+
+	/* Protection for potential Zero division, or zero-ratio result */
+	if (!curr_mclk || !curr_dpll4_m5)
+		BUG();
+
+	ratio = curr_mclk / curr_dpll4_m5;
+
+	r = clk_set_rate(isp->dpll4_m5_ck, isp->mclk / ratio);
 		if (r) {
 			dev_err(dev, "clk_set_rate for dpll4_m5_ck failed\n");
 			return r;
