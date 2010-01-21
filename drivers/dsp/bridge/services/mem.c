@@ -90,7 +90,6 @@ static inline void MLST_PutTail(struct LST_LIST *pList, struct LST_ELEM *pElem)
 	pElem->next = &pList->head;
 	pList->head.prev = pElem;
 	pElem->prev->next = pElem;
-	pElem->self = pElem;
 }
 
 static inline void MLST_RemoveElem(struct LST_LIST *pList,
@@ -577,7 +576,6 @@ bool MEM_Init(void)
 #ifdef MEM_CHECK
 		mMan.lst.head.next = &mMan.lst.head;
 		mMan.lst.head.prev = &mMan.lst.head;
-		mMan.lst.head.self = NULL;
 		spin_lock_init(&mMan.lock);
 #endif
 

@@ -66,7 +66,6 @@ void SERVICES_Exit(void)
 		SYNC_Exit();
 		CLK_Exit();
 		REG_Exit();
-		LST_Exit();
 		DBG_Exit();
 		CFG_Exit();
 		MEM_Exit();
@@ -85,7 +84,7 @@ void SERVICES_Exit(void)
 bool SERVICES_Init(void)
 {
 	bool fInit = true;
-	bool fCFG, fDBG, fLST, fMEM;
+	bool fCFG, fDBG, fMEM;
 	bool fREG, fSYNC, fCLK, fNTFY;
 
 	DBC_Require(cRefs >= 0);
@@ -104,12 +103,11 @@ bool SERVICES_Init(void)
 		fREG = REG_Init();
 		fCFG = CFG_Init();
 		fDBG = DBG_Init();
-		fLST = LST_Init();
 		fCLK  = CLK_Init();
 		fNTFY = NTFY_Init();
 
 		fInit = fCFG && fDBG &&
-			fLST && fMEM && fREG && fSYNC && fCLK;
+			fMEM && fREG && fSYNC && fCLK;
 
 		if (!fInit) {
 			if (fNTFY)
@@ -123,9 +121,6 @@ bool SERVICES_Init(void)
 
 			if (fREG)
 				REG_Exit();
-
-			if (fLST)
-				LST_Exit();
 
 			if (fDBG)
 				DBG_Exit();
