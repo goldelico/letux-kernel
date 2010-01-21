@@ -138,7 +138,7 @@ PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
 		 "uProcessor:  0x%x\n\tpAttrIn:  0x%x\n\tphProcessor:"
 		 "0x%x\n", uProcessor, pAttrIn, phProcessor);
 
-	if (pr_ctxt && pr_ctxt->hProcessor) {
+	if (pr_ctxt->hProcessor) {
 		*phProcessor = pr_ctxt->hProcessor;
 		return status;
 	}
@@ -500,8 +500,7 @@ DSP_STATUS PROC_Detach(struct PROCESS_CONTEXT *pr_ctxt)
 	DBC_Require(cRefs > 0);
 	GT_0trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Detach\n");
 
-	if (pr_ctxt)
-		pProcObject = (struct PROC_OBJECT *)pr_ctxt->hProcessor;
+	pProcObject = (struct PROC_OBJECT *)pr_ctxt->hProcessor;
 
 	if (MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
 		/* Notify the Client */
@@ -1718,7 +1717,7 @@ DSP_STATUS PROC_UnMap(DSP_HPROCESSOR hProcessor, void *pMapAddr,
 	if (DSP_FAILED(status))
 		goto func_end;
 
-	if (pr_ctxt && DRV_GetDMMResElement((u32)pMapAddr, &dmmRes, pr_ctxt)
+	if (DRV_GetDMMResElement((u32)pMapAddr, &dmmRes, pr_ctxt)
 							!= DSP_ENOTFOUND)
 		DRV_RemoveDMMResElement(dmmRes, pr_ctxt);
 #endif
