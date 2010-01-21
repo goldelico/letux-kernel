@@ -267,15 +267,17 @@ static int __init omap_i2c_get_clocks(struct omap_i2c_dev *dev)
 		return ret;
 	}
 
-	dev->fclk = clk_get(dev->dev, "fck");
-	if (IS_ERR(dev->fclk)) {
-		ret = PTR_ERR(dev->fclk);
-		if (dev->iclk != NULL) {
-			clk_put(dev->iclk);
-			dev->iclk = NULL;
-		}
+	if (!cpu_is_omap44xx()) {
+		dev->fclk = clk_get(dev->dev, "fck");
+		if (IS_ERR(dev->fclk)) {
+			ret = PTR_ERR(dev->fclk);
+			if (dev->iclk != NULL) {
+				clk_put(dev->iclk);
+				dev->iclk = NULL;
+			}
 		dev->fclk = NULL;
 		return ret;
+		}
 	}
 
 	return 0;
@@ -283,8 +285,10 @@ static int __init omap_i2c_get_clocks(struct omap_i2c_dev *dev)
 
 static void omap_i2c_put_clocks(struct omap_i2c_dev *dev)
 {
-	clk_put(dev->fclk);
-	dev->fclk = NULL;
+	if (!cpu_is_omap44xx()) {
+		clk_put(dev->fclk);
+		dev->fclk = NULL;
+	}
 	clk_put(dev->iclk);
 	dev->iclk = NULL;
 }
@@ -294,7 +298,8 @@ static void omap_i2c_unidle(struct omap_i2c_dev *dev)
 	WARN_ON(!dev->idle);
 
 	clk_enable(dev->iclk);
-	clk_enable(dev->fclk);
+	if (!cpu_is_omap44xx())
+		clk_enable(dev->fclk);
 	if (cpu_is_omap34xx()) {
 		omap_i2c_write_reg(dev, OMAP_I2C_CON_REG, 0);
 		omap_i2c_write_reg(dev, OMAP_I2C_PSC_REG, dev->pscstate);
@@ -336,7 +341,8 @@ static void omap_i2c_idle(struct omap_i2c_dev *dev)
 		omap_i2c_read_reg(dev, OMAP_I2C_STAT_REG);
 	}
 	dev->idle = 1;
-	clk_disable(dev->fclk);
+	if (!cpu_is_omap44xx())
+		clk_disable(dev->fclk);
 	clk_disable(dev->iclk);
 }
 
@@ -435,7 +441,7 @@ static int omap_i2c_init(struct omap_i2c_dev *dev)
 		else
 			internal_clk = 4000;
 		/* FIXME: Remove this once clock framework is available*/
-		if (dev->rev >= OMAP_I2C_REV_ON_4430)
+		if (dev->rev >= OMAP_I2C_REV_ON_4430 || cpu_is_omap44xx())
 			fclk_rate = 96000;
 		else
 			fclk_rate = clk_get_rate(dev->fclk) / 1000;
@@ -984,10 +990,8 @@ omap_i2c_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dev);
 
-	if (!cpu_is_omap44xx()) {
-		if ((r = omap_i2c_get_clocks(dev)) != 0)
-			goto err_iounmap;
-	}
+	if ((r = omap_i2c_get_clocks(dev)) != 0)
+		goto err_iounmap;
 
 	if (cpu_is_omap44xx())
 		dev->regs = (u8 *) omap4_reg_map;
