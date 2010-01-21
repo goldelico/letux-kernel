@@ -355,6 +355,21 @@ static int __init clk_disable_unused(void)
 		if (ck->usecount > 0 || ck->enable_reg == 0)
 			continue;
 
+		if (cpu_is_omap44xx()) {
+
+			if (!strcmp(ck->name, "uart3_ck"))
+				continue;
+
+			if (!strcmp(ck->name, "emif1_ck"))
+				continue;
+
+			if (!strcmp(ck->name, "emif2_ck"))
+				continue;
+
+			if (!strcmp(ck->name, "gptimer1_ck"))
+				continue;
+		}
+
 		spin_lock_irqsave(&clockfw_lock, flags);
 		if (arch_clock->clk_disable_unused)
 			arch_clock->clk_disable_unused(ck);
