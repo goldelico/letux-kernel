@@ -1717,7 +1717,7 @@ static int __init _omap_gpio_init(void)
 	}
 #endif
 
-#if defined(CONFIG_ARCH_OMAP3)
+#if defined(CONFIG_ARCH_OMAP3) || defined(CONFIG_ARCH_OMAP4)
 	if (cpu_is_omap34xx() || cpu_is_omap44xx()) {
 		for (i = 0; i < OMAP34XX_NR_GPIOS; i++) {
 			if (!cpu_is_omap44xx())
