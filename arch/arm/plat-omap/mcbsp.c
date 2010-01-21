@@ -1288,10 +1288,7 @@ static int __devinit omap_mcbsp_probe(struct platform_device *pdev)
 	mcbsp->rx_irq = pdata->rx_irq;
 	mcbsp->dma_rx_sync = pdata->dma_rx_sync;
 	mcbsp->dma_tx_sync = pdata->dma_tx_sync;
-	/*
-	* FIX-ME: Replace with correct clk node when clk
-	* framework is available
-	*/
+
 	if (!cpu_is_omap44xx())	{
 		mcbsp->iclk = clk_get(&pdev->dev, "ick");
 		if (IS_ERR(mcbsp->iclk)) {
@@ -1299,14 +1296,15 @@ static int __devinit omap_mcbsp_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "unable to get ick: %d\n", ret);
 			goto err_iclk;
 		}
-
-		mcbsp->fclk = clk_get(&pdev->dev, "fck");
-		if (IS_ERR(mcbsp->fclk)) {
-			ret = PTR_ERR(mcbsp->fclk);
-			dev_err(&pdev->dev, "unable to get fck: %d\n", ret);
-			goto err_fclk;
-		}
 	}
+
+	mcbsp->fclk = clk_get(&pdev->dev, "fck");
+	if (IS_ERR(mcbsp->fclk)) {
+		ret = PTR_ERR(mcbsp->fclk);
+		dev_err(&pdev->dev, "unable to get fck: %d\n", ret);
+		goto err_fclk;
+	}
+
 	mcbsp->pdata = pdata;
 	mcbsp->dev = &pdev->dev;
 	mcbsp_ptr[id] = mcbsp;
