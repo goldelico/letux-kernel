@@ -838,6 +838,9 @@ static void omap2_mcspi_work(struct work_struct *work)
 				omap2_mcspi_force_cs(spi, 0);
 				cs_active = 0;
 			}
+			chconf = mcspi_read_cs_reg(spi, OMAP2_MCSPI_CHCONF0);
+			if (chconf & OMAP2_MCSPI_CHCONF_FORCE)
+				omap2_mcspi_set_enable(spi, 0);
 		}
 
 		/* Restore defaults if they were overriden */
