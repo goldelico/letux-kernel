@@ -31,7 +31,7 @@
 
 static int wl127x_rfkill_set_power(void *data, enum rfkill_state state)
 {
-#ifndef CONFIG_BUILD_ST
+#ifndef CONFIG_BUILD_TI_ST
 	int nshutdown_gpio = (int)data;
 
 	switch (state) {
@@ -55,7 +55,7 @@ static int wl127x_rfkill_probe(struct platform_device *pdev)
 	enum rfkill_state default_state = RFKILL_STATE_SOFT_BLOCKED;  /* off */
 
 	if (pdata->bt_nshutdown_gpio >= 0) {
-#ifndef CONFIG_BUILD_ST
+#ifndef CONFIG_BUILD_TI_ST
 		rc = gpio_request(pdata->bt_nshutdown_gpio,
 				  "wl127x_bt_nshutdown_gpio");
 		if (unlikely(rc))
@@ -90,7 +90,7 @@ static int wl127x_rfkill_probe(struct platform_device *pdev)
 			return rc;
 		}
 	}
-#ifndef CONFIG_BUILD_ST
+#ifndef CONFIG_BUILD_TI_ST
 	if (pdata->fm_enable_gpio >= 0) {
 		rc = gpio_request(pdata->fm_enable_gpio,
 				  "wl127x_fm_enable_gpio");
@@ -136,11 +136,11 @@ static int wl127x_rfkill_remove(struct platform_device *pdev)
 	if (pdata->bt_nshutdown_gpio >= 0) {
 		rfkill_unregister(pdata->rfkill[WL127X_BLUETOOTH]);
 		rfkill_free(pdata->rfkill[WL127X_BLUETOOTH]);
-#ifndef CONFIG_BUILD_ST
+#ifndef CONFIG_BUILD_TI_ST
 		gpio_free(pdata->bt_nshutdown_gpio);
 #endif
 	}
-#ifndef ONFIG_BUILD_ST
+#ifndef CONFIG_BUILD_TI_ST
 	if (pdata->fm_enable_gpio >= 0) {
 		rfkill_unregister(pdata->rfkill[WL127X_FM]);
 		rfkill_free(pdata->rfkill[WL127X_FM]);
