@@ -49,7 +49,6 @@
 
 #include <mach/display.h>
 #include <mach/hdq.h>
-#include <mach/usb-ohci.h>
 
 #include "mmc-twl4030.h"
 #include "omap3-opp.h"
