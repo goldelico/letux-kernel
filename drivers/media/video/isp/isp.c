@@ -964,6 +964,13 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 		}
 	}
 
+	if (irqstatus & CCDC_VD1) {
+		/* If we make raw capture, stop CCDC
+		 * together with LSC before EOF */
+		if (CCDC_CAPTURE(isp))
+			ispccdc_enable(&isp->isp_ccdc, 0);
+	}
+
 	if (irqstatus & CCDC_VD0) {
 		if (CCDC_CAPTURE(isp))
 			isp_buf_process(dev, bufs);
@@ -1102,13 +1109,8 @@ out_stopping_lsc:
 	if (irqstatus & LSC_DONE)
 		ispccdc_lsc_state_handler(&isp->isp_ccdc, LSC_DONE);
 
-	if (irqstatus & CCDC_VD1) {
+	if (irqstatus & CCDC_VD1)
 		ispccdc_lsc_state_handler(&isp->isp_ccdc, CCDC_VD1);
-		/* If we make raw capture, stop CCDC
-		 * together with LSC before EOF */
-		if (CCDC_CAPTURE(isp))
-			ispccdc_enable(&isp->isp_ccdc, 0);
-	}
 
 	if (irqstatus & LSC_PRE_COMP)
 		ispccdc_lsc_pref_comp_handler(&isp->isp_ccdc);
