@@ -13,7 +13,7 @@ menu "Texas Instruments shared transport line discipline"
 	    are returned to relevant protocol drivers based on their
 	    packet types.
 
-    config ST_BT
+    config TI_ST_BT
     tristate "BlueZ bluetooth driver for ST"
     select BT
     select TI_ST
