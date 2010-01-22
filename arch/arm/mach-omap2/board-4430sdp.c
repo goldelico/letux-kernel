@@ -19,6 +19,8 @@
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
 #include <linux/usb/otg.h>
+#include <linux/input.h>
+#include <linux/input/matrix_keypad.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -33,12 +35,117 @@
 #include <plat/timer-gp.h>
 #include <plat/usb.h>
 #include <plat/syntm12xx.h>
+#include <plat/keypad.h>
 #include <asm/hardware/gic.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <linux/i2c/twl.h>
 #include <linux/regulator/machine.h>
 
 static int ts_gpio;
+
+#define OMAP4_KBDOCP_BASE               0x4A31C000
+
+static int omap_keymap[] = {
+	KEY(0, 0, KEY_E),
+	KEY(0, 1, KEY_D),
+	KEY(0, 2, KEY_X),
+	KEY(0, 3, KEY_Z),
+	KEY(0, 4, KEY_W),
+	KEY(0, 5, KEY_S),
+	KEY(0, 6, KEY_Q),
+	KEY(0, 7, KEY_UNKNOWN),
+
+	KEY(1, 0, KEY_R),
+	KEY(1, 1, KEY_F),
+	KEY(1, 2, KEY_C),
+	KEY(1, 3, KEY_KPPLUS),
+	KEY(1, 4, KEY_Y),
+	KEY(1, 5, KEY_H),
+	KEY(1, 6, KEY_A),
+	KEY(1, 7, KEY_UNKNOWN),
+
+	KEY(2, 0, KEY_T),
+	KEY(2, 1, KEY_G),
+	KEY(2, 2, KEY_V),
+	KEY(2, 3, KEY_B),
+	KEY(2, 4, KEY_U),
+	KEY(2, 5, KEY_J),
+	KEY(2, 6, KEY_N),
+	KEY(2, 7, KEY_UNKNOWN),
+
+	KEY(3, 0, KEY_HOME),
+	KEY(3, 1, KEY_SEND),
+	KEY(3, 2, KEY_END),
+	KEY(3, 3, KEY_F1),
+	KEY(3, 4, KEY_F2),
+	KEY(3, 5, KEY_F3),
+	KEY(3, 6, KEY_BACK),
+	KEY(3, 7, KEY_UNKNOWN),
+
+	KEY(4, 0, KEY_UNKNOWN),
+	KEY(4, 1, KEY_UNKNOWN),
+	KEY(4, 2, KEY_UNKNOWN),
+	KEY(4, 3, KEY_UNKNOWN),
+	KEY(4, 4, KEY_VOLUMEUP),
+	KEY(4, 5, KEY_UNKNOWN),
+	KEY(4, 6, KEY_BACKSPACE),
+	KEY(4, 7, KEY_F4),
+
+	KEY(5, 0, KEY_UNKNOWN),
+	KEY(5, 1, KEY_UNKNOWN),
+	KEY(5, 2, KEY_UNKNOWN),
+	KEY(5, 3, KEY_UNKNOWN),
+	KEY(5, 4, KEY_UNKNOWN),
+	KEY(5, 5, KEY_VOLUMEDOWN),
+	KEY(5, 6, KEY_UNKNOWN),
+	KEY(5, 7, KEY_UNKNOWN),
+
+	KEY(6, 0, KEY_I),
+	KEY(6, 1, KEY_K),
+	KEY(6, 2, KEY_DOT),
+	KEY(6, 3, KEY_O),
+	KEY(6, 4, KEY_L),
+	KEY(6, 5, KEY_M),
+	KEY(6, 6, KEY_P),
+	KEY(6, 7, KEY_SELECT),
+
+	KEY(7, 0, KEY_UNKNOWN),
+	KEY(7, 1, KEY_ENTER),
+	KEY(7, 2, KEY_CAPSLOCK),
+	KEY(7, 3, KEY_SPACE),
+	KEY(7, 4, KEY_LEFT),
+	KEY(7, 5, KEY_RIGHT),
+	KEY(7, 6, KEY_UP),
+	KEY(7, 7, KEY_DOWN),
+	0,
+};
+
+static struct resource sdp4430_kp_resources[] = {
+	{
+		.start  = OMAP4_KBDOCP_BASE,
+		.end    = OMAP4_KBDOCP_BASE,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+static struct omap_kp_platform_data omap_kp_data = {
+	.rows		= 8,
+	.cols		= 8,
+	.keymap		= omap_keymap,
+	.keymapsize	= ARRAY_SIZE(omap_keymap),
+	.delay		= 4,
+	.rep		= 1,
+};
+
+static struct platform_device omap_kp_device = {
+	.name		= "omap-keypad",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &omap_kp_data,
+	},
+	.num_resources	= ARRAY_SIZE(sdp4430_kp_resources),
+	.resource	= sdp4430_kp_resources,
+};
 
 /* Begin Synaptic Touchscreen TM-01217 */
 
@@ -102,6 +209,7 @@ static struct platform_device sdp4430_lcd_device = {
 
 static struct platform_device *sdp4430_devices[] __initdata = {
 	&sdp4430_lcd_device,
+	&omap_kp_device,
 };
 
 static struct omap_uart_config sdp4430_uart_config __initdata = {
