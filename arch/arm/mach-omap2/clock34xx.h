@@ -1257,10 +1257,10 @@ static struct clk gfx_cg2_ck = {
 /* SGX power domain - 3430ES2 only */
 
 static const struct clksel_rate sgx_core_rates[] = {
+	{ .div = 2, .val = 5, .flags = RATE_IN_363X },
 	{ .div = 3, .val = 0, .flags = RATE_IN_343X | DEFAULT_RATE },
 	{ .div = 4, .val = 1, .flags = RATE_IN_343X },
 	{ .div = 6, .val = 2, .flags = RATE_IN_343X },
-	{ .div = 2, .val = 5, .flags = RATE_IN_363X },
 	{ .div = 0 },
 };
 
@@ -1302,6 +1302,7 @@ static struct clk sgx_fck = {
 	.clkdm		= { .name = "sgx_clkdm" },
 	.recalc		= &omap2_clksel_recalc,
 	.set_rate	= &omap2_clksel_set_rate,
+	.round_rate	= &omap2_clksel_round_rate,
 };
 
 static struct clk sgx_ick = {
