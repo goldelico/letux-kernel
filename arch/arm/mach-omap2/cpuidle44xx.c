@@ -175,6 +175,5 @@ int __init omap4_idle_init(void)
 	return 0;
 }
 #endif /* CONFIG_CPU_IDLE */
-late_initcall(omap4_idle_init);
 
 
