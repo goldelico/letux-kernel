@@ -200,9 +200,10 @@ int musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 	return 0;
 }
 
-int __init musb_platform_init(struct musb *musb)
+int __init musb_platform_init(struct musb *musb, void *board_data)
 {
 	u32 l;
+	struct omap_musb_board_data *data = board_data;
 
 #if defined(CONFIG_ARCH_OMAP2430)
 	omap_cfg_reg(AE5_2430_USB0HS_STP);
@@ -238,7 +239,15 @@ int __init musb_platform_init(struct musb *musb)
 	omap_writel(l, OTG_SYSCONFIG);
 
 	l = omap_readl(OTG_INTERFSEL);
-	l |= ULPI_12PIN;
+
+	if (data->interface_type == MUSB_INTERFACE_UTMI) {
+		/* OMAP4 uses Internal PHY GS70 which uses UTMI interface */
+		l &= ~ULPI_12PIN;       /* Disable ULPI */
+		l |= UTMI_8BIT;         /* Enable UTMI  */
+	} else {
+		l |= ULPI_12PIN;
+	}
+
 	omap_writel(l, OTG_INTERFSEL);
 
 	pr_debug("HS USB OTG: revision 0x%x, sysconfig 0x%02x, "
