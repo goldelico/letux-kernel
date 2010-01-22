@@ -52,7 +52,7 @@ void *GS_alloc(u32 size)
  */
 void GS_exit(void)
 {
-	MEM_Exit();
+	/* Do nothing */
 }
 
 /*
@@ -85,8 +85,5 @@ void GS_frees(void *ptr, u32 size)
  */
 void GS_init(void)
 {
-	static bool curInit;
-
-	if (curInit == false)
-		curInit = MEM_Init(); /* which can't fail currently. */
+	/* Do nothing */
 }

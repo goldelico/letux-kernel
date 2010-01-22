@@ -45,8 +45,6 @@
 static struct GT_Mask MEM_debugMask = { NULL, NULL };	/* GT trace variable */
 #endif
 
-static u32 cRefs;		/* module reference count */
-
 static bool extPhysMemPoolEnabled;
 
 struct extPhysMemPool {
@@ -307,8 +305,6 @@ void *MEM_AllocPhysMem(u32 cBytes, u32 ulAlign, OUT u32 *pPhysicalAddress)
 	void *pVaMem = NULL;
 	dma_addr_t paMem;
 
-	DBC_Require(cRefs > 0);
-
 	GT_2trace(MEM_debugMask, GT_ENTER,
 		  "MEM_AllocPhysMem: cBytes 0x%x\tulAlign"
 		  "0x%x\n", cBytes, ulAlign);
@@ -414,17 +410,9 @@ void *MEM_Calloc(u32 cBytes, enum MEM_POOLATTRS type)
  */
 void MEM_Exit(void)
 {
-	DBC_Require(cRefs > 0);
-
-	GT_1trace(MEM_debugMask, GT_5CLASS, "MEM_Exit: cRefs 0x%x\n", cRefs);
-
-	cRefs--;
 #ifdef MEM_CHECK
-	if (cRefs == 0)
-		MEM_Check();
-
+	MEM_Check();
 #endif
-	DBC_Ensure(cRefs >= 0);
 }
 
 /*
@@ -434,7 +422,7 @@ void MEM_Exit(void)
  */
 void MEM_FlushCache(void *pMemBuf, u32 cBytes, u32 FlushType)
 {
-	if (cRefs <= 0 || !pMemBuf)
+	if (!pMemBuf)
 		return;
 
 	switch (FlushType) {
@@ -550,7 +538,6 @@ void MEM_Free(IN void *pMemBuf)
 void MEM_FreePhysMem(void *pVirtualAddress, u32 pPhysicalAddress,
 		     u32 cBytes)
 {
-	DBC_Require(cRefs > 0);
 	DBC_Require(pVirtualAddress != NULL);
 
 	GT_1trace(MEM_debugMask, GT_ENTER, "MEM_FreePhysMem: pVirtualAddress "
@@ -568,24 +555,13 @@ void MEM_FreePhysMem(void *pVirtualAddress, u32 pPhysicalAddress,
  */
 bool MEM_Init(void)
 {
-	DBC_Require(cRefs >= 0);
-
-	if (cRefs == 0) {
-		GT_create(&MEM_debugMask, "MM");	/* MM for MeM module */
+	GT_create(&MEM_debugMask, "MM");	/* MM for MeM module */
 
 #ifdef MEM_CHECK
-		mMan.lst.head.next = &mMan.lst.head;
-		mMan.lst.head.prev = &mMan.lst.head;
-		spin_lock_init(&mMan.lock);
+	mMan.lst.head.next = &mMan.lst.head;
+	mMan.lst.head.prev = &mMan.lst.head;
+	spin_lock_init(&mMan.lock);
 #endif
-
-	}
-
-	cRefs++;
-
-	GT_1trace(MEM_debugMask, GT_5CLASS, "MEM_Init: cRefs 0x%x\n", cRefs);
-
-	DBC_Ensure(cRefs > 0);
 
 	return true;
 }

@@ -335,9 +335,6 @@ void RMM_exit(void)
 	GT_1trace(RMM_debugMask, GT_5CLASS, "RMM_exit() ref count: 0x%x\n",
 		 cRefs);
 
-	if (cRefs == 0)
-		MEM_Exit();
-
 	DBC_Ensure(cRefs >= 0);
 }
 
@@ -396,31 +393,21 @@ bool RMM_free(struct RMM_TargetObj *target, u32 segid, u32 addr, u32 size,
  */
 bool RMM_init(void)
 {
-	bool retVal = true;
-
 	DBC_Require(cRefs >= 0);
 
 	if (cRefs == 0) {
 		DBC_Assert(!RMM_debugMask.flags);
 		GT_create(&RMM_debugMask, "RM");	/* "RM" for RMm */
 
-		retVal = MEM_Init();
-
-		if (!retVal)
-			MEM_Exit();
-
 	}
 
-	if (retVal)
-		cRefs++;
+	cRefs++;
 
 	GT_1trace(RMM_debugMask, GT_5CLASS,
 		 "RMM_init(), ref count:  0x%x\n",
 		 cRefs);
 
-	DBC_Ensure((retVal && (cRefs > 0)) || (!retVal && (cRefs >= 0)));
-
-	return retVal;
+	return true;
 }
 
 /*
