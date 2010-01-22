@@ -18,6 +18,7 @@
 #include <linux/io.h>
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
+#include <linux/usb/otg.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -30,6 +31,7 @@
 #include <plat/common.h>
 #include <plat/control.h>
 #include <plat/timer-gp.h>
+#include <plat/usb.h>
 #include <asm/hardware/gic.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <linux/i2c/twl.h>
@@ -325,11 +327,27 @@ static struct spi_board_info sdp4430_spi_board_info[] __initdata = {
 	},
 };
 
+static struct omap_musb_board_data musb_board_data = {
+	.interface_type         = MUSB_INTERFACE_UTMI,
+#ifdef CONFIG_USB_MUSB_OTG
+	.mode                   = MUSB_OTG,
+#elif defined(CONFIG_USB_MUSB_HDRC_HCD)
+	.mode                   = MUSB_HOST,
+#elif defined(CONFIG_USB_GADGET_MUSB_HDRC)
+	.mode                   = MUSB_PERIPHERAL,
+ #endif
+	.power                  = 100,
+ };
+
+
 static void __init omap_4430sdp_init(void)
 {
 	omap4_i2c_init();
 	platform_add_devices(sdp4430_devices, ARRAY_SIZE(sdp4430_devices));
 	omap_serial_init();
+	/* OMAP4 SDP uses internal transceiver so register nop transceiver */
+	usb_nop_xceiv_register();
+	usb_musb_init(&musb_board_data);
 	sdp4430_spi_board_info[0].irq = OMAP_GPIO_IRQ(ts_gpio);
 	spi_register_board_info(sdp4430_spi_board_info,
 				ARRAY_SIZE(sdp4430_spi_board_info));
