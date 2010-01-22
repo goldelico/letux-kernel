@@ -375,6 +375,13 @@ static int __init omap4_i2c_init(void)
 
 static struct spi_board_info sdp4430_spi_board_info[] __initdata = {
 	[0] = {
+		.modalias		= "ks8851",
+		.bus_num		= 1,
+		.chip_select		= 0,
+		.max_speed_hz		= 1500000,
+		.irq			= 34,
+	},
+	[1] = {
 		.modalias		= "spitst",
 		.bus_num		= 4,
 		.chip_select		= 0,
@@ -394,6 +401,15 @@ static struct omap_musb_board_data musb_board_data = {
 	.power                  = 100,
  };
 
+static void omap_ethernet_init(void)
+{
+	gpio_request(48, "ethernet");
+	gpio_direction_output(48, 1);
+	gpio_request(138, "quart");
+	gpio_direction_output(138, 1);
+	gpio_request(34, "ks8851");
+	gpio_direction_input(34);
+}
 
 static void __init omap_4430sdp_init(void)
 {
@@ -403,9 +419,11 @@ static void __init omap_4430sdp_init(void)
 	/* OMAP4 SDP uses internal transceiver so register nop transceiver */
 	usb_nop_xceiv_register();
 	usb_musb_init(&musb_board_data);
-	sdp4430_spi_board_info[0].irq = OMAP_GPIO_IRQ(ts_gpio);
+	omap_ethernet_init();
+	sdp4430_spi_board_info[0].irq = gpio_to_irq(34);
 	spi_register_board_info(sdp4430_spi_board_info,
-				ARRAY_SIZE(sdp4430_spi_board_info));
+			ARRAY_SIZE(sdp4430_spi_board_info));
+
 }
 
 static void __init omap_4430sdp_map_io(void)
