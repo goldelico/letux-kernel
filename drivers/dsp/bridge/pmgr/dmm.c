@@ -34,7 +34,6 @@
 #include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
-#include <dspbridge/list.h>
 #include <dspbridge/mem.h>
 #include <dspbridge/sync.h>
 

@@ -30,7 +30,6 @@
 
 /*  ----------------------------------- This */
 #include <dspbridge/cfg.h>
-#include <dspbridge/list.h>
 
 struct DRV_EXT {
 	struct list_head link;
