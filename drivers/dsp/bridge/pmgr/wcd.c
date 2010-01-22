@@ -235,7 +235,6 @@ void WCD_Exit(void)
 		MGR_Exit();
 		RMM_exit();
 		DRV_Exit();
-		SERVICES_Exit();
 	}
 	DBC_Ensure(WCD_cRefs >= 0);
 }
@@ -248,7 +247,7 @@ void WCD_Exit(void)
 bool WCD_Init(void)
 {
 	bool fInit = true;
-	bool fDRV, fDEV, fCOD, fSERVICES, fCHNL, fMSG, fIO;
+	bool fDRV, fDEV, fCOD, fCHNL, fMSG, fIO;
 	bool fMGR, fPROC, fNODE, fDISP, fNTFY, fSTRM, fRMM;
 #ifdef DEBUG
 	/* runtime check of Device IOCtl array. */
@@ -260,8 +259,6 @@ bool WCD_Init(void)
 
 #endif
 	if (WCD_cRefs == 0) {
-		/* initialize all SERVICES modules */
-		fSERVICES = SERVICES_Init();
 		/* initialize debugging module */
 		DBC_Assert(!WCD_debugMask.flags);
 		GT_create(&WCD_debugMask, "CD");    /* CD for class driver */
@@ -279,13 +276,10 @@ bool WCD_Init(void)
 		fIO = IO_Init();
 		fDEV = DEV_Init();
 		fCOD = COD_Init();
-		fInit = fSERVICES && fDRV && fDEV && fCHNL && fCOD &&
+		fInit = fDRV && fDEV && fCHNL && fCOD &&
 			fMSG && fIO;
 		fInit = fInit && fMGR && fPROC && fRMM;
 		if (!fInit) {
-			if (fSERVICES)
-				SERVICES_Exit();
-
 			if (fDRV)
 				DRV_Exit();
 
