@@ -491,6 +491,12 @@ static struct omap_board_mux board_mux[] __initdata = {
 #define board_mux	NULL
 #endif
 
+static struct omap_musb_board_data musb_board_data = {
+	.interface_type		= MUSB_INTERFACE_ULPI,
+	.mode			= MUSB_OTG,
+	.power			= 100,
+};
+
 static void __init cm_t35_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CUS);
@@ -501,7 +507,7 @@ static void __init cm_t35_init(void)
 	cm_t35_init_ethernet();
 	cm_t35_init_led();
 
-	usb_musb_init();
+	usb_musb_init(&musb_board_data);
 
 	omap_mux_init_signal("sys_nirq",
 		OMAP_WAKEUP_EN | OMAP_PIN_INPUT_PULLUP);
