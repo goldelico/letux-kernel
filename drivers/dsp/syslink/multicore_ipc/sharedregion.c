@@ -41,6 +41,8 @@ struct sharedregion_module_object {
 	u32 bitOffset;  /* Index bit offset */
 	u32 region_size; /* Max size of each region */
 	struct sharedregion_config cfg;	/* Current config values */
+	u32 *ref_count_table; /* The number of times each
+							entry has been added */
 };
 
 /*
@@ -138,6 +140,14 @@ int sharedregion_setup(const struct sharedregion_config *config)
 		goto table_alloc_fail;
 	}
 
+	sharedregion_state.ref_count_table = kmalloc(sizeof(u32) *
+					tmpcfg->max_regions * (proc_count + 1),
+					GFP_KERNEL);
+	if (sharedregion_state.ref_count_table == NULL) {
+		retval = -ENOMEM;
+		goto table_alloc_fail;
+	}
+
 	table = sharedregion_state.table;
 	for (i = 0; i < tmpcfg->max_regions; i++) {
 		for (j = 0; j < (proc_count + 1); j++) {
@@ -145,6 +155,8 @@ int sharedregion_setup(const struct sharedregion_config *config)
 									false;
 			(table + (j * tmpcfg->max_regions) + i)->base = 0;
 			(table + (j * tmpcfg->max_regions) + i)->len = 0;
+			sharedregion_state.ref_count_table[(j *
+						tmpcfg->max_regions) + i] = 0;
 		}
 	}
 
@@ -192,6 +204,7 @@ int sharedregion_destroy(void)
 	if (retval)
 		goto error;
 
+	kfree(sharedregion_state.ref_count_table);
 	kfree(sharedregion_state.table);
 	gate_handle = sharedregion_state.gate_handle; /* backup gate handle */
 	memset(&sharedregion_state, 0,
@@ -293,6 +306,9 @@ int sharedregion_add(u32 index, void *base, u32 len)
 
 	} else {
 		/* FHACK: FIX ME */
+		sharedregion_state.ref_count_table[(myproc_id *
+				sharedregion_state.cfg.max_regions)
+				+ index] += 1;
 		retval = 1;
 		goto dup_entry_error;
 	}
@@ -348,9 +364,18 @@ int sharedregion_remove(u32 index)
 	entry = (table
 		 + (myproc_id * sharedregion_state.cfg.max_regions)
 		 + index);
-	entry->is_valid = false;
-	entry->base = NULL;
-	entry->len = 0;
+
+	if (sharedregion_state.ref_count_table[(myproc_id *
+				sharedregion_state.cfg.max_regions)
+				+ index] > 0)
+		sharedregion_state.ref_count_table[(myproc_id *
+				sharedregion_state.cfg.max_regions)
+				+ index] -= 1;
+	else {
+		entry->is_valid = false;
+		entry->base = NULL;
+		entry->len = 0;
+	}
 	mutex_unlock(sharedregion_state.gate_handle);
 	return 0;
 
