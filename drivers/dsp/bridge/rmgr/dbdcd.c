@@ -350,7 +350,6 @@ void DCD_Exit(void)
 
 	cRefs--;
 	if (cRefs == 0) {
-		REG_Exit();
 		COD_Exit();
 	}
 
@@ -820,7 +819,6 @@ DSP_STATUS DCD_GetLibraryName(IN struct DCD_MANAGER *hDcdMgr,
  */
 bool DCD_Init(void)
 {
-	bool fInitREG;
 	bool fInitCOD;
 	bool fInit = true;
 
@@ -832,18 +830,13 @@ bool DCD_Init(void)
 	if (cRefs == 0) {
 		/* Initialize required modules. */
 		fInitCOD = COD_Init();
-		fInitREG = REG_Init();
 
-		if (!fInitCOD || !fInitREG) {
+		if (!fInitCOD) {
 			fInit = false;
 			GT_0trace(curTrace, GT_6CLASS, "DCD_Init failed\n");
 			/* Exit initialized modules. */
 			if (fInitCOD)
 				COD_Exit();
-
-			if (fInitREG)
-				REG_Exit();
-
 		}
 	}
 
