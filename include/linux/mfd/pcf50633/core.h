@@ -19,6 +19,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/power_supply.h>
 #include <linux/mfd/pcf50633/backlight.h>
+#include <linux/gpio.h>
 
 struct pcf50633;
 
@@ -46,6 +47,8 @@ struct pcf50633_platform_data {
 	u8 resumers[5];
 
 	struct pcf50633_bl_platform_data *backlight_data;
+
+	int gpio_base;
 };
 
 struct pcf50633_irq {
@@ -151,6 +154,7 @@ struct pcf50633 {
 
 	int onkey1s_held;
 
+	struct platform_device *gpio_pdev;
 	struct platform_device *rtc_pdev;
 	struct platform_device *mbc_pdev;
 	struct platform_device *adc_pdev;

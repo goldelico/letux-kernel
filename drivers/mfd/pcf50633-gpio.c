@@ -2,6 +2,7 @@
  *
  * (C) 2006-2008 by Openmoko, Inc.
  * Author: Balaji Rao <balajirrao@openmoko.org>
+ * Copyright 2010, Lars-Peter Clausen <lars@metafoo.de>
  * All rights reserved.
  *
  * Broken down from monstrous PCF50633 driver mainly by
@@ -16,9 +17,15 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/slab.h>
+#include <linux/platform_device.h>
 
 #include <linux/mfd/pcf50633/core.h>
 #include <linux/mfd/pcf50633/gpio.h>
+#include <linux/gpio.h>
+
+#define PCF50633_REG_GPIOCTL	0x13
+#define PCF50633_REG_GPIOCFG(x) (0x14 + (x))
 
 enum pcf50633_regulator_id {
 	PCF50633_REGULATOR_AUTO,
@@ -60,53 +67,88 @@ static const u8 pcf50633_regulator_registers[PCF50633_NUM_REGULATORS] = {
 	[PCF50633_REGULATOR_HCLDO]	= PCF50633_REG_HCLDOOUT,
 };
 
-int pcf50633_gpio_set(struct pcf50633 *pcf, int gpio, u8 val)
+struct pcf50633_gpio {
+	struct pcf50633 *pcf;
+	struct gpio_chip chip;
+};
+
+static inline struct pcf50633 *gpio_chip_to_pcf50633(struct gpio_chip *chip)
 {
+	struct pcf50633 *pcf = dev_to_pcf50633(chip->dev->parent);
+	return pcf;
+}
+
+static void pcf50633_gpio_set_value(struct gpio_chip *chip, unsigned gpio, int value)
+{
+	struct pcf50633 *pcf = gpio_chip_to_pcf50633(chip);
 	u8 reg;
 
-	reg = gpio - PCF50633_GPIO1 + PCF50633_REG_GPIO1CFG;
+	reg = PCF50633_REG_GPIOCFG(gpio);
 
-	return pcf50633_reg_set_bit_mask(pcf, reg, 0x07, val);
+	pcf50633_reg_set_bit_mask(pcf, reg, 0x07, value ? 0x7 : 0x0);
 }
-EXPORT_SYMBOL_GPL(pcf50633_gpio_set);
 
-u8 pcf50633_gpio_get(struct pcf50633 *pcf, int gpio)
+static int pcf50633_gpio_get_value(struct gpio_chip *chip, unsigned gpio)
 {
-	u8 reg, val;
-
-	reg = gpio - PCF50633_GPIO1 + PCF50633_REG_GPIO1CFG;
-	val = pcf50633_reg_read(pcf, reg) & 0x07;
-
-	return val;
+	struct pcf50633 *pcf = gpio_chip_to_pcf50633(chip);
+	return pcf50633_reg_read(pcf, PCF50633_REG_GPIOCFG(gpio)) >> 3;
 }
-EXPORT_SYMBOL_GPL(pcf50633_gpio_get);
 
-int pcf50633_gpio_invert_set(struct pcf50633 *pcf, int gpio, int invert)
+
+static int pcf50633_gpio_direction_output(struct gpio_chip *chip, unsigned gpio,
+                                          int value)
 {
-	u8 val, reg;
+	struct pcf50633 *pcf = gpio_chip_to_pcf50633(chip);
+	int ret;
 
-	reg = gpio - PCF50633_GPIO1 + PCF50633_REG_GPIO1CFG;
-	val = !!invert << 3;
+	ret = pcf50633_gpio_set_config(pcf, pcf->pdata->gpio_base + gpio,
+	                               PCF50633_GPIO_CONFIG_OUTPUT);
+	if (!ret)
+	    pcf50633_gpio_set_value(chip, gpio, value);
 
-	return pcf50633_reg_set_bit_mask(pcf, reg, 1 << 3, val);
+	return ret;
 }
-EXPORT_SYMBOL_GPL(pcf50633_gpio_invert_set);
 
-int pcf50633_gpio_invert_get(struct pcf50633 *pcf, int gpio)
+static int pcf50633_gpio_direction_input(struct gpio_chip *chip, unsigned gpio)
 {
-	u8 reg, val;
-
-	reg = gpio - PCF50633_GPIO1 + PCF50633_REG_GPIO1CFG;
-	val = pcf50633_reg_read(pcf, reg);
-
-	return val & (1 << 3);
+	return -ENOSYS;
 }
-EXPORT_SYMBOL_GPL(pcf50633_gpio_invert_get);
+
+int pcf50633_gpio_set_config(struct pcf50633 *pcf, unsigned gpio,
+                              enum pcf50633_gpio_config config)
+{
+	u8 reg;
+	u8 direction;
+	int ret;
+
+	gpio -= pcf->pdata->gpio_base;
+
+	if (gpio < 3) {
+	    direction = (config == PCF50633_GPIO_CONFIG_INPUT) ? (1 << gpio) : 0;
+	    ret = pcf50633_reg_set_bit_mask(pcf, PCF50633_REG_GPIOCTL, (1 << gpio),
+					    direction);
+	    if (ret) {
+			return ret;
+		}
+	} else if (gpio > 3 || config == PCF50633_GPIO_CONFIG_INPUT) {
+	    return -EINVAL;
+	}
+
+	if (config != PCF50633_GPIO_CONFIG_INPUT) {
+	    reg = PCF50633_REG_GPIOCFG(gpio);
+	    ret = pcf50633_reg_set_bit_mask(pcf, reg, 0x0f, config);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pcf50633_gpio_set_config);
 
 int pcf50633_gpio_power_supply_set(struct pcf50633 *pcf,
 					int gpio, int regulator, int on)
 {
 	u8 reg, val, mask;
+
+	gpio -= pcf->pdata->gpio_base;
 
 	/* the *ENA register is always one after the *OUT register */
 	reg = pcf50633_regulator_registers[regulator] + 1;
@@ -118,4 +160,69 @@ int pcf50633_gpio_power_supply_set(struct pcf50633 *pcf,
 }
 EXPORT_SYMBOL_GPL(pcf50633_gpio_power_supply_set);
 
+
+static int __devinit pcf50633_gpio_probe(struct platform_device *pdev)
+{
+	struct pcf50633 *pcf = dev_to_pcf50633(pdev->dev.parent);
+	struct pcf50633_gpio *pcf_gpio;
+
+	pcf_gpio = kzalloc(sizeof(*pcf_gpio), GFP_KERNEL);
+
+	if (!pcf_gpio)
+		return -ENOMEM;
+
+	pcf_gpio->pcf = pcf;
+
+	pcf_gpio->chip.direction_input = pcf50633_gpio_direction_input;
+	pcf_gpio->chip.direction_output = pcf50633_gpio_direction_output;
+	pcf_gpio->chip.get = pcf50633_gpio_get_value;
+	pcf_gpio->chip.set = pcf50633_gpio_set_value;
+
+	pcf_gpio->chip.base = pcf->pdata->gpio_base;
+	pcf_gpio->chip.ngpio = 4;
+	pcf_gpio->chip.label = dev_name(pcf->dev);
+	pcf_gpio->chip.can_sleep = 1;
+	pcf_gpio->chip.owner = THIS_MODULE;
+	pcf_gpio->chip.dev = &pdev->dev;
+
+	platform_set_drvdata(pdev, pcf_gpio);
+
+	return gpiochip_add(&pcf_gpio->chip);
+}
+
+static int __devexit pcf50633_gpio_remove(struct platform_device *pdev)
+{
+	struct pcf50633_gpio *pcf_gpio = platform_get_drvdata(pdev);
+
+	gpiochip_remove(&pcf_gpio->chip);
+
+	platform_set_drvdata(pdev, NULL);
+	kfree(pcf_gpio);
+
+	return 0;
+}
+
+static struct platform_driver pcf50633_gpio_driver = {
+	.probe = pcf50633_gpio_probe,
+	.remove = __devexit_p(pcf50633_gpio_remove),
+	.driver = {
+		.name = "pcf50633-gpio",
+		.owner = THIS_MODULE,
+	},
+};
+
+int __init pcf50633_gpio_init(void)
+{
+	return platform_driver_register(&pcf50633_gpio_driver);
+}
+module_init(pcf50633_gpio_init);
+
+void __exit pcf50633_gpio_exit(void)
+{
+	platform_driver_unregister(&pcf50633_gpio_driver);
+}
+module_exit(pcf50633_gpio_exit);
+
+MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
+MODULE_DESCRIPTION("GPIO driver for the PCF50633");
 MODULE_LICENSE("GPL");
