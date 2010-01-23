@@ -21,7 +21,7 @@
 #include <syslink/hw_mbox.h>
 #include <syslink/hw_ocp.h>
 #include <linux/delay.h>
-#include <mach/irqs.h>
+#include <plat/irqs.h>
 #include <linux/io.h>
 
 MODULE_LICENSE("GPL");

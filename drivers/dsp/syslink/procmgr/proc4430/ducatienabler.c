@@ -58,7 +58,7 @@
 #include <linux/dma-mapping.h>
 
 #include <linux/interrupt.h>
-#include <mach/irqs.h>
+#include <plat/irqs.h>
 
 #include <syslink/ducatienabler.h>
 #include <syslink/MMUAccInt.h>

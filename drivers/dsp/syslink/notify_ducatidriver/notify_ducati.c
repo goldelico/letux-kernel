@@ -23,7 +23,7 @@
 #include <linux/list.h>
 #include <linux/io.h>
 #include <linux/module.h>
-#include <mach/mailbox.h>
+#include <plat/mailbox.h>
 
 #include <syslink/notify_driver.h>
 #include <syslink/notifydefs.h>
