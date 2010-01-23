@@ -82,8 +82,6 @@
 /* #define DUCATI_BASEIMAGE_PHYSICAL_ADDRESS	0x87200000 */
 #define DUCATI_BASEIMAGE_PHYSICAL_ADDRESS	0x9CF00000
 
-#define phys_to_page(phys)      pfn_to_page((phys) >> PAGE_SHIFT)
-
 
 /* Attributes used to manage the DSP MMU page tables */
 struct pg_table_attrs {
