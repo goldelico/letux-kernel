@@ -29,24 +29,6 @@ static void __iomem *l2x0_base;
 static DEFINE_SPINLOCK(l2x0_lock);
 bool l2x0_disabled;
 
-#ifdef CONFIG_PL310_ERRATA_588369
-static void debug_writel(unsigned long val)
-{
-	register unsigned long r0 asm("r0") = val;
-	/*
-	 * Texas Instrument secure monitor api to modify the PL310
-	 * Debug Control Register.
-	 */
-	__asm__ __volatile__(
-		__asmeq("%0", "r0")
-		"ldr r12, =0x100\n"
-		"dsb\n"
-		"smc\n"
-		: : "r" (r0)
-		: "r4", "r5", "r6", "r7", "r8");
-}
-#endif
-
 static inline void cache_wait(void __iomem *reg, unsigned long mask)
 {
 	/* wait for the operation to complete */
@@ -81,33 +63,15 @@ static void l2x0_inv_range(unsigned long start, unsigned long end)
 	spin_lock_irqsave(&l2x0_lock, flags);
 	if (start & (CACHE_LINE_SIZE - 1)) {
 		start &= ~(CACHE_LINE_SIZE - 1);
-#ifdef CONFIG_PL310_ERRATA_588369
-		debug_writel(0x03);
-		cache_wait(base + L2X0_CLEAN_LINE_PA, 1);
-		writel(start, base + L2X0_CLEAN_LINE_PA);
-		cache_wait(base + L2X0_INV_LINE_PA, 1);
-		writel(start, base + L2X0_INV_LINE_PA);
-		debug_writel(0x00);
-#else
 		cache_wait(base + L2X0_CLEAN_INV_LINE_PA, 1);
 		writel(start, base + L2X0_CLEAN_INV_LINE_PA);
-#endif
 		start += CACHE_LINE_SIZE;
 	}
 
 	if (end & (CACHE_LINE_SIZE - 1)) {
 		end &= ~(CACHE_LINE_SIZE - 1);
-#ifdef CONFIG_PL310_ERRATA_588369
-		debug_writel(0x03);
-		cache_wait(base + L2X0_CLEAN_LINE_PA, 1);
-		writel(end, base + L2X0_CLEAN_LINE_PA);
-		cache_wait(base + L2X0_INV_LINE_PA, 1);
-		writel(end, base + L2X0_INV_LINE_PA);
-			debug_writel(0x00);
-#else
 		cache_wait(base + L2X0_CLEAN_INV_LINE_PA, 1);
 		writel(end, base + L2X0_CLEAN_INV_LINE_PA);
-#endif
 	}
 
 	while (start < end) {
@@ -166,17 +130,8 @@ static void l2x0_flush_range(unsigned long start, unsigned long end)
 		unsigned long blk_end = start + min(end - start, 4096UL);
 
 		while (start < blk_end) {
-#ifdef CONFIG_PL310_ERRATA_588369
-			debug_writel(0x03);
-			/* Clean by PA followed by Invalidate by PA */
-			cache_wait(base + L2X0_CLEAN_LINE_PA, 1);
-			writel(start, base + L2X0_CLEAN_LINE_PA);
-			cache_wait(base + L2X0_INV_LINE_PA, 1);
-			writel(start, base + L2X0_INV_LINE_PA);
-#else
 			cache_wait(base + L2X0_CLEAN_INV_LINE_PA, 1);
 			writel(start, base + L2X0_CLEAN_INV_LINE_PA);
-#endif
 			start += CACHE_LINE_SIZE;
 		}
 
@@ -185,12 +140,7 @@ static void l2x0_flush_range(unsigned long start, unsigned long end)
 			spin_lock_irqsave(&l2x0_lock, flags);
 		}
 	}
-#ifdef CONFIG_PL310_ERRATA_588369
-	cache_wait(base + L2X0_CLEAN_LINE_PA, 1);
-	cache_wait(base + L2X0_INV_LINE_PA, 1);
-#else
 	cache_wait(base + L2X0_CLEAN_INV_LINE_PA, 1);
-#endif
 	cache_sync();
 	spin_unlock_irqrestore(&l2x0_lock, flags);
 }
