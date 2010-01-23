@@ -28,7 +28,7 @@
 #ifndef _HOST_OS_H_
 #define _HOST_OS_H_
 
-#include <linux/autoconf.h>
+#include <generated/autoconf.h>
 #include <asm/system.h>
 #include <asm/atomic.h>
 #include <linux/semaphore.h>

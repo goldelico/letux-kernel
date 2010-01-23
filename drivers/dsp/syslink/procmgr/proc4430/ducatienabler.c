@@ -26,7 +26,7 @@
 #include <linux/pagemap.h>
 
 
-#include <linux/autoconf.h>
+#include <generated/autoconf.h>
 #include <asm/system.h>
 #include <asm/atomic.h>
 #include <linux/semaphore.h>

@@ -15,7 +15,7 @@
  */
 
 
-#include <linux/autoconf.h>
+#include <generated/autoconf.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/cdev.h>

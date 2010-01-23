@@ -19,7 +19,7 @@
 #define _ATOMIC_LINUX_H
 
 #include <linux/types.h>
-#include <linux/autoconf.h>
+#include <generated/autoconf.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <asm/atomic.h>
