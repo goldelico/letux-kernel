@@ -1221,7 +1221,7 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 			"(%s) isp_complete_reset \n", __func__);
 		isp_complete_reset = 1;
 	}
-	isp_csi_enable(&isp->isp_csi, 0);
+	isp_csi_if_enable(&isp->isp_csi, 0);
 	isp_csi2_enable(&isp->isp_csi2, 0);
 	isp_buf_init(dev);
 
@@ -1268,7 +1268,7 @@ static void isp_resume_modules(struct device *dev)
 		ispccdc_enable(&isp->isp_ccdc, 1);
 		ispresizer_enable(&isp->isp_res, 1);
 		isppreview_enable(&isp->isp_prev, 1);
-		isp_csi_enable(&isp->isp_csi, 1);
+		isp_csi_if_enable(&isp->isp_csi, 1);
 		isp_csi2_enable(&isp->isp_csi2, 1);
 	}
 }

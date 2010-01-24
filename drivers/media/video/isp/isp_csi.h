@@ -57,7 +57,7 @@ struct isp_csi_device {
 	struct isp_csi_vp_cfg vp_cfg;
 };
 
-void isp_csi_enable(struct isp_csi_device *isp_csi, u8 enable);
+void isp_csi_if_enable(struct isp_csi_device *isp_csi, u8 enable);
 int isp_csi_configure_interface(struct isp_csi_device *isp_csi,
 				struct isp_csi_interface_cfg *config);
 

@@ -29,21 +29,17 @@
 	} while (0)
 
 /**
- * isp_csi_enable - Enable CSI1/CCP2 interface.
+ * isp_csi_if_enable - Enable CSI1/CCP2 interface.
  * @isp_csi: Pointer to ISP CSI/CCP2 device.
  * @enable: Enable flag.
  **/
-void isp_csi_enable(struct isp_csi_device *isp_csi, u8 enable)
+void isp_csi_if_enable(struct isp_csi_device *isp_csi, u8 enable)
 {
 	struct device *dev = to_device(isp_csi);
 
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL,
-		       ~(ISPCSI1_CTRL_IF_EN |
-			 ISPCSI1_CTRL_MODE_CCP2),
-		       enable ?
-			(ISPCSI1_CTRL_IF_EN |
-			 ISPCSI1_CTRL_MODE_CCP2)
-			: 0);
+		       ~ISPCSI1_CTRL_IF_EN,
+		       enable ? ISPCSI1_CTRL_IF_EN : 0);
 
 	isp_csi->if_enabled = enable ? true : false;
 }
@@ -222,7 +218,7 @@ int isp_csi_configure_interface(struct isp_csi_device *isp_csi,
 	isp_reg_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LC01_IRQENABLE, val);
 
 	/* Enable CSI1 */
-	isp_csi_enable(isp_csi, 1);
+	isp_csi_if_enable(isp_csi, 1);
 
 	if (!(isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL) &
 	      ISPCSI1_CTRL_MODE_CCP2)) {
