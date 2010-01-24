@@ -1240,6 +1240,7 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 		isp_complete_reset = 1;
 	}
 	isp_csi_if_enable(&isp->isp_csi, 0);
+	isp_csi_lcm_readport_enable(&isp->isp_csi, 0);
 	isp_csi2_enable(&isp->isp_csi2, 0);
 	isp_buf_init(dev);
 
@@ -1748,8 +1749,23 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 		isp_af_try_enable(&isp->isp_af);
 		isph3a_aewb_try_enable(&isp->isp_h3a);
 		isp_hist_try_enable(&isp->isp_hist);
-		ispccdc_enable(&isp->isp_ccdc, 1);
-		isp_csi_lcm_readport_enable(&isp->isp_csi, 1);
+		/* We not wait HS_VS, when source is a virtual sensor */
+		if (!bufs->wait_hs_vs) {
+			/*
+			 * In case of pipeline with temporary buffer, "Resizer"
+			 * will be enabled when "Preview" is done.
+			 */
+			if (isp->revision > ISP_REVISION_2_0) {
+				if (isp->pipeline.modules & OMAP_ISP_RESIZER)
+					ispresizer_enable(&isp->isp_res, 1);
+			}
+			if (isp->pipeline.modules & OMAP_ISP_PREVIEW)
+				isppreview_enable(&isp->isp_prev, 1);
+		}
+		if (isp->pipeline.modules & OMAP_ISP_CCDC)
+			ispccdc_enable(&isp->isp_ccdc, 1);
+		if (isp->config->u.csi.use_mem_read)
+			isp_csi_lcm_readport_enable(&isp->isp_csi, 1);
 	}
 
 	ISP_BUF_MARK_QUEUED(bufs);
