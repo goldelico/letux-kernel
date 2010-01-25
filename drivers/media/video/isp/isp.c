@@ -2697,6 +2697,7 @@ static int isp_suspend(struct platform_device *pdev, pm_message_t state)
 		isp_reset(&pdev->dev);
 
 	isp_disable_clocks(&pdev->dev);
+	isp_disable_mclk(isp);
 
 out:
 	DPRINTK_ISPCTRL("isp_suspend: done\n");
@@ -2721,6 +2722,9 @@ static int isp_resume(struct platform_device *pdev)
 		goto out;
 
 	ret_err = isp_enable_clocks(&pdev->dev);
+	if (ret_err)
+		goto out;
+	ret_err = isp_enable_mclk(&pdev->dev);
 	if (ret_err)
 		goto out;
 	isp_restore_ctx(&pdev->dev);
