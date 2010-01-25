@@ -1471,17 +1471,6 @@ static int isp_try_pipeline(struct device *dev,
 	     pix_input->pixelformat == V4L2_PIX_FMT_SGBRG10) &&
 	    (pix_output->pixelformat == V4L2_PIX_FMT_YUYV ||
 	     pix_output->pixelformat == V4L2_PIX_FMT_UYVY)) {
-
-		if ((pix_output->width == 1280) &&
-			(pix_output->height == 720)) {
-			pipe->modules = OMAP_ISP_PREVIEW |
-					OMAP_ISP_CCDC;
-			printk(KERN_ERR "720p!!!!!!!\n");
-		} else
-			pipe->modules = OMAP_ISP_PREVIEW |
-					OMAP_ISP_RESIZER |
-					OMAP_ISP_CCDC;
-
 		if (pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10 ||
 		    pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8)
 			pipe->ccdc_in = CCDC_RAW_GRBG;
@@ -1493,12 +1482,22 @@ static int isp_try_pipeline(struct device *dev,
 			pipe->ccdc_in = CCDC_RAW_GBRG;
 		pipe->ccdc_out = CCDC_OTHERS_VP;
 		pipe->prv_in = PRV_RAW_CCDC;
-		if (isp->revision <= ISP_REVISION_2_0) {
+		if ((pix_output->width == 1280) &&
+		    (pix_output->height == 720)) {
+			pipe->modules = OMAP_ISP_PREVIEW |
+					OMAP_ISP_CCDC;
 			pipe->prv_out = PREVIEW_MEM;
-			pipe->rsz_in = RSZ_MEM_YUV;
 		} else {
-			pipe->prv_out = PREVIEW_RSZ;
-			pipe->rsz_in = RSZ_OTFLY_YUV;
+			pipe->modules = OMAP_ISP_PREVIEW |
+					OMAP_ISP_RESIZER |
+					OMAP_ISP_CCDC;
+			if (isp->revision <= ISP_REVISION_2_0) {
+				pipe->prv_out = PREVIEW_MEM;
+				pipe->rsz_in = RSZ_MEM_YUV;
+			} else {
+				pipe->prv_out = PREVIEW_RSZ;
+				pipe->rsz_in = RSZ_OTFLY_YUV;
+			}
 		}
 	} else {
 		pipe->modules = OMAP_ISP_CCDC;
