@@ -150,18 +150,20 @@ void isp_af_config_registers(struct isp_af_device *isp_af)
 	for (index = 0; index <= 8; index += 2) {
 		/*Set IIR Filter0 Coefficients */
 		coef = 0;
-		coef |= isp_af->config.iir_config.coeff_set0[index];
-		coef |= isp_af->config.iir_config.coeff_set0[index + 1] <<
-			AF_COEF_SHIFT;
+		coef |= isp_af->config.iir_config.coeff_set0[index] &
+			COEF_MASK0;
+		coef |= (isp_af->config.iir_config.coeff_set0[index + 1] <<
+			AF_COEF_SHIFT) & COEF_MASK1;
 		isp_reg_writel(dev, coef, OMAP3_ISP_IOMEM_H3A,
 			       base_coef_set0);
 		base_coef_set0 += AFCOEF_OFFSET;
 
 		/*Set IIR Filter1 Coefficients */
 		coef = 0;
-		coef |= isp_af->config.iir_config.coeff_set1[index];
-		coef |= isp_af->config.iir_config.coeff_set1[index + 1] <<
-			AF_COEF_SHIFT;
+		coef |= isp_af->config.iir_config.coeff_set1[index] &
+			COEF_MASK0;
+		coef |= (isp_af->config.iir_config.coeff_set1[index + 1] <<
+			AF_COEF_SHIFT) & COEF_MASK1;
 		isp_reg_writel(dev, coef, OMAP3_ISP_IOMEM_H3A,
 			       base_coef_set1);
 		base_coef_set1 += AFCOEF_OFFSET;
