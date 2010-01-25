@@ -313,7 +313,9 @@ int ispresizer_config_datapath(struct isp_res_device *isp_res,
 		dev_err(dev, "resizer: Wrong Input\n");
 		return -EINVAL;
 	}
-	isp_reg_or(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT, cnt);
+	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT,
+		       ~(ISPRSZ_CNT_INPSRC | ISPRSZ_CNT_INPTYP),
+		       cnt);
 	ispresizer_config_ycpos(isp_res, 0);
 	ispresizer_config_filter_coef(isp_res, &ispreszdefcoef);
 	ispresizer_enable_cbilin(isp_res, 0);
