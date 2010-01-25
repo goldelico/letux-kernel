@@ -579,7 +579,6 @@ static int imx046_set_framerate(struct v4l2_int_device *s,
 	u16 isize = isize_current;
 	u32 frame_length_lines, line_time_q8;
 	struct imx046_sensor *sensor = s->priv;
-	struct i2c_client *client = sensor->i2c_client;
 	struct imx046_sensor_settings *ss;
 	struct vcontrol *lvc;
 
@@ -1070,7 +1069,6 @@ int imx046_configure_test_pattern(int mode, struct v4l2_int_device *s,
 static int imx046_configure(struct v4l2_int_device *s)
 {
 	struct imx046_sensor *sensor = s->priv;
-	struct v4l2_pix_format *pix = &sensor->pix;
 	struct i2c_client *client = sensor->i2c_client;
 	enum imx046_image_size isize = isize_current;
 	int err, i;
