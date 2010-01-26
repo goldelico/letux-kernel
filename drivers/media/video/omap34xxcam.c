@@ -1287,6 +1287,7 @@ static int vidioc_cropcap(struct file *file, void *_fh, struct v4l2_cropcap *a)
 
 	if (rval && !vdev->vdev_sensor_config.sensor_isp) {
 		struct v4l2_format f;
+		struct v4l2_pix_format pixel_size;
 
 		/* cropcap failed, try to do this via g_fmt_cap */
 		rval = vidioc_int_g_fmt_cap(vdev->vdev_sensor, &f);
@@ -1296,8 +1297,30 @@ static int vidioc_cropcap(struct file *file, void *_fh, struct v4l2_cropcap *a)
 			cropcap->bounds.width = f.fmt.pix.width;
 			cropcap->bounds.height = f.fmt.pix.height;
 			cropcap->defrect = cropcap->bounds;
-			cropcap->pixelaspect.numerator = 1;
-			cropcap->pixelaspect.denominator = 1;
+		}
+
+		rval = vidioc_int_priv_g_pixelsize(vdev->vdev_sensor,
+						   &pixel_size);
+		if (!rval) {
+			if (pixel_size.width && pixel_size.height) {
+				/* Normalize value */
+				while (!((pixel_size.width |
+					pixel_size.height) & 0x01)) {
+
+					pixel_size.width >>= 1;
+					pixel_size.height >>= 1;
+				}
+				cropcap->pixelaspect.numerator =
+					pixel_size.width;
+				cropcap->pixelaspect.denominator =
+					pixel_size.height;
+			} else {
+				dev_err(&vdev->vfd->dev, "Sensor return invalid"
+					" result for pixelsize: %d x %d",
+					pixel_size.width, pixel_size.height);
+				cropcap->pixelaspect.numerator = 1;
+				cropcap->pixelaspect.denominator = 1;
+			}
 		}
 	}
 
@@ -1557,7 +1580,7 @@ static long vidioc_default(struct file *file, void *_fh, int cmd, void *arg)
 
 	if (cmd == VIDIOC_PRIVATE_OMAP34XXCAM_SENSOR_INFO) {
 		u32 pixclk;
-		struct v4l2_pix_format active_size, full_size;
+		struct v4l2_pix_format active_size, full_size, pixel_size;
 		struct omap34xxcam_sensor_info *ret_sensor_info;
 
 		ret_sensor_info = (struct omap34xxcam_sensor_info *)arg;
@@ -1578,10 +1601,18 @@ static long vidioc_default(struct file *file, void *_fh, int cmd, void *arg)
 		mutex_unlock(&vdev->mutex);
 		if (rval)
 			goto out;
+		mutex_lock(&vdev->mutex);
+		rval = vidioc_int_priv_g_pixelsize(vdev->vdev_sensor,
+						  &pixel_size);
+		mutex_unlock(&vdev->mutex);
+		if (rval)
+			goto out;
 		ret_sensor_info->current_xclk = pixclk;
 		memcpy(&ret_sensor_info->active_size, &active_size,
 			sizeof(struct v4l2_pix_format));
 		memcpy(&ret_sensor_info->full_size, &full_size,
+			sizeof(struct v4l2_pix_format));
+		memcpy(&ret_sensor_info->pixel_size, &pixel_size,
 			sizeof(struct v4l2_pix_format));
 		rval = 0;
 		goto out;
