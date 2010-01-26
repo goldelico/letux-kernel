@@ -93,7 +93,7 @@ static const struct file_operations procmgr_fops = {
 } ;
 
 /* Imtiaz changed places */
-static struct platform_driver procmgr_driver_ldm = {
+static struct platform_driver procmgr_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = PROCMGR_NAME,
@@ -728,7 +728,7 @@ static int __init proc_mgr_drv_initialize_module(void)
 	/*Saving the context for future use*/
 	omap_proc_dev = procmgr_pdev;
 
-	retval = platform_driver_register(&procmgr_driver_ldm);
+	retval = platform_driver_register(&procmgr_driver);
 	if (!retval)
 		return retval;
 err_out:
@@ -744,7 +744,7 @@ static void __exit proc_mgr_drv_finalize_module(void)
 
 	dev_dbg(&omap_proc_dev->dev, "Entering %s function\n", __func__);
 	platform_device_unregister(procmgr_pdev);
-	platform_driver_unregister(&procmgr_driver_ldm);
+	platform_driver_unregister(&procmgr_driver);
 	dev_dbg(&omap_proc_dev->dev, "Leaving %s function\n", __func__);
 }
 
