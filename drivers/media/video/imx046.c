@@ -1430,6 +1430,25 @@ static int ioctl_priv_g_fullsize(struct v4l2_int_device *s,
 }
 
 /**
+ * ioctl_g_pixelsize - V4L2 sensor interface handler for ioctl_g_pixelsize
+ * @s: pointer to standard V4L2 device structure
+ * @pix: pointer to standard V4L2 v4l2_pix_format structure
+ *
+ * Returns the sensor's configure pixel size.
+ */
+static int ioctl_priv_g_pixelsize(struct v4l2_int_device *s,
+			    struct v4l2_pix_format *pix)
+{
+	struct imx046_frame_settings *frm;
+
+	frm = &sensor_settings[isize_current].frame;
+	pix->width = (frm->x_even_inc + frm->x_odd_inc) / 2;
+	pix->height = (frm->y_even_inc + frm->y_odd_inc) / 2;
+
+	return 0;
+}
+
+/**
  * ioctl_g_parm - V4L2 sensor interface handler for VIDIOC_G_PARM ioctl
  * @s: pointer to standard V4L2 device structure
  * @a: pointer to standard V4L2 VIDIOC_G_PARM ioctl structure
@@ -1763,6 +1782,8 @@ static struct v4l2_int_ioctl_desc imx046_ioctl_desc[] = {
 	  .func = (v4l2_int_ioctl_func *)ioctl_priv_g_activesize },
 	{ .num = vidioc_int_priv_g_fullsize_num,
 	  .func = (v4l2_int_ioctl_func *)ioctl_priv_g_fullsize },
+	{ .num = vidioc_int_priv_g_pixelsize_num,
+	  .func = (v4l2_int_ioctl_func *)ioctl_priv_g_pixelsize },
 };
 
 static struct v4l2_int_slave imx046_slave = {
