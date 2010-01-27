@@ -1358,7 +1358,7 @@ EXPORT_SYMBOL(ducati_destroy);
  * Returns the ducati virtual address for IPC shared memory
  *
  */
-u32 get_ducati_virt_mem()
+u32 get_ducati_virt_mem(void)
 {
 	/*shm_virt_addr = (u32)ioremap(shm_phys_addr, DUCATI_SHARED_IPC_LEN);*/
 	shm_virt_addr = (u32)ioremap(shm_phys_addr, DUCATI_MEM_IPC_SHMEM_LEN);
