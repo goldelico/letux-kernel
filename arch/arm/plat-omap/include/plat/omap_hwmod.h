@@ -489,6 +489,9 @@ void omap_hwmod_ocp_barrier(struct omap_hwmod *oh);
 void omap_hwmod_writel(u32 v, struct omap_hwmod *oh, u16 reg_offs);
 u32 omap_hwmod_readl(struct omap_hwmod *oh, u16 reg_offs);
 
+void omap_hwmod_write_sysc(u32 v, struct omap_hwmod *oh);
+u32 omap_hwmod_read_sysc(struct omap_hwmod *oh);
+
 int omap_hwmod_count_resources(struct omap_hwmod *oh);
 int omap_hwmod_fill_resources(struct omap_hwmod *oh, struct resource *res);
 
