@@ -366,9 +366,8 @@ DSP_STATUS WriteExtDspData(struct WMD_DEV_CONTEXT *pDevContext,
 				 dwExtProgVirtMem);
 
 			pDevContext->dwDspExtBaseAddr =
-				(u32)MEM_LinearAddress((void *)
-				TO_VIRTUAL_UNCACHED(dwExtProgVirtMem), ulExtEnd
-				- ulExtBase);
+				(u32)MEM_LinearAddress((void *)dwExtProgVirtMem,
+					ulExtEnd - ulExtBase);
 			dwBaseAddr += pDevContext->dwDspExtBaseAddr;
 			/* This dwDspExtBaseAddr will get cleared only when
 			 * the board is stopped.  */
