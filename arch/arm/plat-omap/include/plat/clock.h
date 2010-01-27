@@ -169,7 +169,7 @@ struct clk_functions {
 #endif
 };
 
-extern unsigned int mpurate;
+extern int mpurate;
 
 extern int clk_init(struct clk_functions *custom_clocks);
 extern void clk_preinit(struct clk *clk);
