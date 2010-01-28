@@ -220,7 +220,8 @@ static void mbox_rx_work(struct work_struct *work)
 		if (blk_end_request(rq, 0, 0))
 			BUG();
 
-		mbox->rxq->callback((void *)msg);
+		if (mbox->rxq->callback)
+			mbox->rxq->callback((void *)msg);
 	}
 }
 
