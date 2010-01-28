@@ -869,8 +869,8 @@ out:
 static int omap2_mcspi_transfer(struct spi_device *spi, struct spi_message *m)
 {
 	struct omap2_mcspi	*mcspi;
-	unsigned long		flags;
-	struct spi_transfer	*t;
+	unsigned long		uninitialized_var(flags);
+	struct spi_transfer 	*uninitialized_var(t);
 
 	m->actual_length = 0;
 	m->status = 0;
