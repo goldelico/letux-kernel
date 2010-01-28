@@ -1397,11 +1397,15 @@ static int ioctl_priv_g_pixclk(struct v4l2_int_device *s, u32 *pixclk)
  * Returns the sensor's current active image basesize.
  */
 static int ioctl_priv_g_activesize(struct v4l2_int_device *s,
-			      struct v4l2_pix_format *pix)
+			      struct v4l2_rect *pix)
 {
 	struct imx046_frame_settings *frm;
 
 	frm = &sensor_settings[isize_current].frame;
+	pix->left = frm->x_addr_start /
+		((frm->x_even_inc + frm->x_odd_inc) / 2);
+	pix->top = frm->y_addr_start /
+		((frm->y_even_inc + frm->y_odd_inc) / 2);
 	pix->width = ((frm->x_addr_end + 1) - frm->x_addr_start) /
 		((frm->x_even_inc + frm->x_odd_inc) / 2);
 	pix->height = ((frm->y_addr_end + 1) - frm->y_addr_start) /
@@ -1418,11 +1422,13 @@ static int ioctl_priv_g_activesize(struct v4l2_int_device *s,
  * Returns the sensor's biggest image basesize.
  */
 static int ioctl_priv_g_fullsize(struct v4l2_int_device *s,
-			    struct v4l2_pix_format *pix)
+			    struct v4l2_rect *pix)
 {
 	struct imx046_frame_settings *frm;
 
 	frm = &sensor_settings[isize_current].frame;
+	pix->left = 0;
+	pix->top = 0;
 	pix->width = frm->line_len_pck;
 	pix->height = frm->frame_len_lines;
 
@@ -1437,11 +1443,13 @@ static int ioctl_priv_g_fullsize(struct v4l2_int_device *s,
  * Returns the sensor's configure pixel size.
  */
 static int ioctl_priv_g_pixelsize(struct v4l2_int_device *s,
-			    struct v4l2_pix_format *pix)
+			    struct v4l2_rect *pix)
 {
 	struct imx046_frame_settings *frm;
 
 	frm = &sensor_settings[isize_current].frame;
+	pix->left = 0;
+	pix->top = 0;
 	pix->width = (frm->x_even_inc + frm->x_odd_inc) / 2;
 	pix->height = (frm->y_even_inc + frm->y_odd_inc) / 2;
 
