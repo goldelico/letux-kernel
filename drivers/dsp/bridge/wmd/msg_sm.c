@@ -129,8 +129,8 @@ DSP_STATUS WMD_MSG_CreateQueue(struct MSG_MGR *hMsgMgr,
 	DSP_STATUS status = DSP_SOK;
 
 	if (!MEM_IsValidHandle(hMsgMgr, MSGMGR_SIGNATURE) ||
-	   phMsgQueue == NULL) {
-		status = DSP_EMEMORY;
+	   phMsgQueue == NULL || !hMsgMgr->msgFreeList) {
+		status = DSP_EHANDLE;
 		goto func_end;
 	}
 
@@ -177,10 +177,6 @@ DSP_STATUS WMD_MSG_CreateQueue(struct MSG_MGR *hMsgMgr,
 		status = SYNC_OpenEvent(&pMsgQ->hSyncDoneAck, NULL);
 
 	if (DSP_SUCCEEDED(status)) {
-		if (!hMsgMgr->msgFreeList) {
-			status = DSP_EHANDLE;
-			goto func_end;
-		}
 		/* Enter critical section */
 		(void)SYNC_EnterCS(hMsgMgr->hSyncCS);
 		/* Initialize message frames and put in appropriate queues */

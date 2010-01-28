@@ -579,7 +579,6 @@ DSP_STATUS DRV_Create(OUT struct DRV_OBJECT **phDRVObject)
 				status = DSP_EFAIL;
 				GT_0trace(curTrace, GT_7CLASS,
 					 "Failed to Create DRV_EXT list ");
-				MEM_FreeObject(pDRVObject);
 			} else {
 				INIT_LIST_HEAD(&pDRVObject->devNodeString->
 					head);
@@ -589,7 +588,6 @@ DSP_STATUS DRV_Create(OUT struct DRV_OBJECT **phDRVObject)
 			status = DSP_EMEMORY;
 			GT_0trace(curTrace, GT_7CLASS,
 				 "Failed to Create Dev List ");
-			MEM_FreeObject(pDRVObject);
 		}
 	} else {
 		status = DSP_EMEMORY;
@@ -605,6 +603,8 @@ DSP_STATUS DRV_Create(OUT struct DRV_OBJECT **phDRVObject)
 			 pDRVObject);
 		*phDRVObject = pDRVObject;
 	} else {
+		MEM_Free(pDRVObject->devList);
+		MEM_Free(pDRVObject->devNodeString);
 		/* Free the DRV Object */
 		MEM_Free(pDRVObject);
 		GT_0trace(curTrace, GT_7CLASS,

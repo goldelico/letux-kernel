@@ -1336,13 +1336,14 @@ static int rmmAlloc(struct Dynamic_Loader_Allocate *this,
 				 req, segId);
 		}
 	}
+func_cont:
 	MEM_Free(szSectName);
 	szSectName = NULL;
 	MEM_Free(szLastToken);
 	szLastToken = NULL;
 	MEM_Free(szSecLastToken);
 	szSecLastToken = NULL;
-func_cont:
+
 	if (memType == DBLL_CODE)
 		allocSize = info->size + GEM_L1P_PREFETCH_SIZE;
 	else
