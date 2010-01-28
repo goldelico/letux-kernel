@@ -319,7 +319,7 @@ V4L2_INT_WRAPPER_0(init);
 V4L2_INT_WRAPPER_1(g_chip_ident, int, *);
 
 V4L2_INT_WRAPPER_1(priv_g_pixclk, u32, *);
-V4L2_INT_WRAPPER_1(priv_g_activesize, struct v4l2_pix_format, *);
-V4L2_INT_WRAPPER_1(priv_g_fullsize, struct v4l2_pix_format, *);
-V4L2_INT_WRAPPER_1(priv_g_pixelsize, struct v4l2_pix_format, *);
+V4L2_INT_WRAPPER_1(priv_g_activesize, struct v4l2_rect, *);
+V4L2_INT_WRAPPER_1(priv_g_fullsize, struct v4l2_rect, *);
+V4L2_INT_WRAPPER_1(priv_g_pixelsize, struct v4l2_rect, *);
 #endif

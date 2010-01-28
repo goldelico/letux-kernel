@@ -1287,7 +1287,7 @@ static int vidioc_cropcap(struct file *file, void *_fh, struct v4l2_cropcap *a)
 
 	if (rval && !vdev->vdev_sensor_config.sensor_isp) {
 		struct v4l2_format f;
-		struct v4l2_pix_format pixel_size;
+		struct v4l2_rect pixel_size;
 
 		/* cropcap failed, try to do this via g_fmt_cap */
 		rval = vidioc_int_g_fmt_cap(vdev->vdev_sensor, &f);
@@ -1580,7 +1580,7 @@ static long vidioc_default(struct file *file, void *_fh, int cmd, void *arg)
 
 	if (cmd == VIDIOC_PRIVATE_OMAP34XXCAM_SENSOR_INFO) {
 		u32 pixclk;
-		struct v4l2_pix_format active_size, full_size, pixel_size;
+		struct v4l2_rect active_size, full_size, pixel_size;
 		struct omap34xxcam_sensor_info *ret_sensor_info;
 
 		ret_sensor_info = (struct omap34xxcam_sensor_info *)arg;
@@ -1609,11 +1609,11 @@ static long vidioc_default(struct file *file, void *_fh, int cmd, void *arg)
 			goto out;
 		ret_sensor_info->current_xclk = pixclk;
 		memcpy(&ret_sensor_info->active_size, &active_size,
-			sizeof(struct v4l2_pix_format));
+			sizeof(struct v4l2_rect));
 		memcpy(&ret_sensor_info->full_size, &full_size,
-			sizeof(struct v4l2_pix_format));
+			sizeof(struct v4l2_rect));
 		memcpy(&ret_sensor_info->pixel_size, &pixel_size,
-			sizeof(struct v4l2_pix_format));
+			sizeof(struct v4l2_rect));
 		rval = 0;
 		goto out;
 	}
