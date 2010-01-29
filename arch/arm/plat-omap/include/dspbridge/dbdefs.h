@@ -118,7 +118,6 @@
 
 	typedef u32 DSP_PROCFAMILY;	/* Processor family             */
 	typedef u32 DSP_PROCTYPE;	/* Processor type (w/in family) */
-	typedef u32 DSP_RTOSTYPE;	/* Type of DSP RTOS             */
 
 /* Handy Macros */
 #define IsValidProcEvent(x) (((x) == 0) || (((x) & (DSP_PROCESSORSTATECHANGE | \
@@ -419,7 +418,7 @@
 		u32 ulInternalMemSize;
 		u32 ulExternalMemSize;
 		u32 uProcessorID;
-		DSP_RTOSTYPE tyRunningRTOS;
+		int tyRunningRTOS;
 		s32 nNodeMinPriority;
 		s32 nNodeMaxPriority;
 	} ;
