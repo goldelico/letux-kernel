@@ -115,7 +115,7 @@ struct DSPHEAP_RES_OBJECT {
 /* New structure (member of process context) abstracts stream resource info */
 struct STRM_RES_OBJECT {
 	s32                    streamAllocated; /* Stream status */
-	DSP_HSTREAM             hStream;
+	void *hStream;
 	u32                    uNumBufs;
 	u32                    uDir;
 	struct STRM_RES_OBJECT         *next;

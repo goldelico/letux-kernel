@@ -114,7 +114,6 @@
 
 	typedef HANDLE DSP_HNODE;	/* Handle to a DSP Node object  */
 	typedef HANDLE DSP_HPROCESSOR;	/* Handle to a Processor object */
-	typedef HANDLE DSP_HSTREAM;	/* Handle to a Stream object    */
 
 	typedef u32 DSP_PROCFAMILY;	/* Processor family             */
 

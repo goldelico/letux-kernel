@@ -259,40 +259,40 @@ union Trapped_Args {
 	/* STRM module */
 
 	struct {
-		DSP_HSTREAM hStream;
+		void *hStream;
 		u32 uSize;
 		u8 *__user *apBuffer;
 		u32 uNumBufs;
 	} ARGS_STRM_ALLOCATEBUFFER;
 
 	struct {
-		DSP_HSTREAM hStream;
+		void *hStream;
 	} ARGS_STRM_CLOSE;
 
 	struct {
-		DSP_HSTREAM hStream;
+		void *hStream;
 		u8 *__user *apBuffer;
 		u32 uNumBufs;
 	} ARGS_STRM_FREEBUFFER;
 
 	struct {
-		DSP_HSTREAM hStream;
+		void *hStream;
 		HANDLE *phEvent;
 	} ARGS_STRM_GETEVENTHANDLE;
 
 	struct {
-		DSP_HSTREAM hStream;
+		void *hStream;
 		struct STRM_INFO __user *pStreamInfo;
 		u32 uStreamInfoSize;
 	} ARGS_STRM_GETINFO;
 
 	struct {
-		DSP_HSTREAM hStream;
+		void *hStream;
 		bool bFlush;
 	} ARGS_STRM_IDLE;
 
 	struct {
-		DSP_HSTREAM hStream;
+		void *hStream;
 		u8 *pBuffer;
 		u32 dwBytes;
 		u32 dwBufSize;
@@ -304,11 +304,11 @@ union Trapped_Args {
 		u32 uDirection;
 		u32 uIndex;
 		struct STRM_ATTR __user *pAttrIn;
-		DSP_HSTREAM __user *phStream;
+		void *__user *phStream;
 	} ARGS_STRM_OPEN;
 
 	struct {
-		DSP_HSTREAM hStream;
+		void *hStream;
 		u8 *__user *pBufPtr;
 		u32 __user *pBytes;
 		u32 __user *pBufSize;
@@ -316,14 +316,14 @@ union Trapped_Args {
 	} ARGS_STRM_RECLAIM;
 
 	struct {
-		DSP_HSTREAM hStream;
+		void *hStream;
 		u32 uEventMask;
 		u32 uNotifyType;
 		struct DSP_NOTIFICATION __user *hNotification;
 	} ARGS_STRM_REGISTERNOTIFY;
 
 	struct {
-		DSP_HSTREAM __user *aStreamTab;
+		void *__user *aStreamTab;
 		u32 nStreams;
 		u32 __user *pMask;
 		u32 uTimeout;
