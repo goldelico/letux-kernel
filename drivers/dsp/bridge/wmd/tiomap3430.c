@@ -96,7 +96,7 @@ static DSP_STATUS WMD_BRD_Read(struct WMD_DEV_CONTEXT *pDevContext,
 static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *pDevContext,
 			u32 dwDSPAddr);
 static DSP_STATUS WMD_BRD_Status(struct WMD_DEV_CONTEXT *pDevContext,
-			OUT BRD_STATUS *pdwState);
+			int *pdwState);
 static DSP_STATUS WMD_BRD_Stop(struct WMD_DEV_CONTEXT *pDevContext);
 static DSP_STATUS WMD_BRD_Write(struct WMD_DEV_CONTEXT *pDevContext,
 			IN u8 *pbHostBuf,
@@ -931,7 +931,7 @@ static DSP_STATUS WMD_BRD_Delete(struct WMD_DEV_CONTEXT *hDevContext)
  *      Returns the board status.
  */
 static DSP_STATUS WMD_BRD_Status(struct WMD_DEV_CONTEXT *hDevContext,
-				 OUT BRD_STATUS *pdwState)
+				 int *pdwState)
 {
 	struct WMD_DEV_CONTEXT *pDevContext = hDevContext;
 	*pdwState = pDevContext->dwBrdState;

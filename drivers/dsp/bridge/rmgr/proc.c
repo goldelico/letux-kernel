@@ -823,7 +823,7 @@ DSP_STATUS PROC_GetState(void *hProcessor,
 {
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
-	BRD_STATUS brdStatus;
+	int brdStatus;
 	struct DEH_MGR *hDehMgr;
 
 	DBC_Require(cRefs > 0);
@@ -961,7 +961,7 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 	u32 dwExtEnd;
 	u32 uProcId;
 #ifdef CONFIG_BRIDGE_DEBUG
-	BRD_STATUS uBrdState;
+	int uBrdState;
 #endif
 
 #ifdef OPT_LOAD_TIME_INSTRUMENTATION
@@ -1434,7 +1434,7 @@ DSP_STATUS PROC_Start(void *hProcessor)
 	struct COD_MANAGER *hCodMgr;	/* Code manager handle    */
 	u32 dwDspAddr;	/* Loaded code's entry point.    */
 #ifdef CONFIG_BRIDGE_DEBUG
-	BRD_STATUS uBrdState;
+	int uBrdState;
 #endif
 	DBC_Require(cRefs > 0);
 	GT_1trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Start, args:\n\t"
@@ -1525,7 +1525,7 @@ DSP_STATUS PROC_Stop(void *hProcessor)
 	u32 uNodeTabSize = 1;
 	u32 uNumNodes = 0;
 	u32 uNodesAllocated = 0;
-	BRD_STATUS uBrdState;
+	int uBrdState;
 
 	DBC_Require(cRefs > 0);
 	GT_1trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Stop, args:\n\t"
@@ -1699,7 +1699,7 @@ static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *hProcObject)
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcObject;
 	struct MSG_MGR *hMsgMgr;
 #ifdef CONFIG_BRIDGE_DEBUG
-	BRD_STATUS uBrdState;
+	int uBrdState;
 #endif
 
 	DBC_Require(cRefs > 0);

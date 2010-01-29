@@ -244,7 +244,7 @@
  */
        typedef DSP_STATUS(*
 			   WMD_BRD_STATUS) (struct WMD_DEV_CONTEXT *hDevContext,
-					    OUT BRD_STATUS * pdwState);
+					    int *pdwState);
 
 /*
  *  ======== WMD_BRD_Read ========
