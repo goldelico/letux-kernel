@@ -308,7 +308,7 @@
  *        (*puAllocated == *puNumNodes)
  */
 	extern DSP_STATUS NODE_EnumNodes(struct NODE_MGR *hNodeMgr,
-					 IN DSP_HNODE *aNodeTab,
+					 void **aNodeTab,
 					 u32 uNodeTabSize,
 					 OUT u32 *puNumNodes,
 					 OUT u32 *puAllocated);

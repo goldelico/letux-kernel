@@ -672,7 +672,7 @@ u32 PROCWRAP_Detach(union Trapped_Args *args, void *pr_ctxt)
 u32 PROCWRAP_EnumNode_Info(union Trapped_Args *args, void *pr_ctxt)
 {
 	DSP_STATUS status;
-	DSP_HNODE aNodeTab[MAX_NODES];
+	void *aNodeTab[MAX_NODES];
 	u32 uNumNodes;
 	u32 uAllocated;
 	struct PROCESS_CONTEXT *pCtxt = pr_ctxt;

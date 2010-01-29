@@ -83,7 +83,7 @@
 
 /* New structure (member of process context) abstracts NODE resource info */
 struct NODE_RES_OBJECT {
-	DSP_HNODE       hNode;
+	void *hNode;
 	s32            nodeAllocated; /* Node status */
 	s32            heapAllocated; /* Heap status */
 	s32            streamsAllocated; /* Streams status */

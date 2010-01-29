@@ -79,7 +79,7 @@ union Trapped_Args {
 
 	struct {
 		void *hProcessor;
-		DSP_HNODE __user *aNodeTab;
+		void *__user *aNodeTab;
 		u32 uNodeTabSize;
 		u32 __user *puNumNodes;
 		u32 __user *puAllocated;
@@ -174,79 +174,79 @@ union Trapped_Args {
 		struct DSP_UUID __user *pNodeID;
 		struct DSP_CBDATA __user *pArgs;
 		struct DSP_NODEATTRIN __user *pAttrIn;
-		DSP_HNODE __user *phNode;
+		void *__user *phNode;
 	} ARGS_NODE_ALLOCATE;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 		u32 uSize;
 		struct DSP_BUFFERATTR __user *pAttr;
 		u8 *__user *pBuffer;
 	} ARGS_NODE_ALLOCMSGBUF;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 		s32 iPriority;
 	} ARGS_NODE_CHANGEPRIORITY;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 		u32 uStream;
-		DSP_HNODE hOtherNode;
+		void *hOtherNode;
 		u32 uOtherStream;
 		struct DSP_STRMATTR __user *pAttrs;
 		struct DSP_CBDATA __user *pConnParam;
 	} ARGS_NODE_CONNECT;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 	} ARGS_NODE_CREATE;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 	} ARGS_NODE_DELETE;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 		struct DSP_BUFFERATTR __user *pAttr;
 		u8 *pBuffer;
 	} ARGS_NODE_FREEMSGBUF;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 		struct DSP_NODEATTR __user *pAttr;
 		u32 uAttrSize;
 	} ARGS_NODE_GETATTR;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 		struct DSP_MSG __user *pMessage;
 		u32 uTimeout;
 	} ARGS_NODE_GETMESSAGE;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 	} ARGS_NODE_PAUSE;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 		struct DSP_MSG __user *pMessage;
 		u32 uTimeout;
 	} ARGS_NODE_PUTMESSAGE;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 		u32 uEventMask;
 		u32 uNotifyType;
 		struct DSP_NOTIFICATION __user *hNotification;
 	} ARGS_NODE_REGISTERNOTIFY;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 	} ARGS_NODE_RUN;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 		DSP_STATUS __user *pStatus;
 	} ARGS_NODE_TERMINATE;
 
@@ -300,7 +300,7 @@ union Trapped_Args {
 	} ARGS_STRM_ISSUE;
 
 	struct {
-		DSP_HNODE hNode;
+		void *hNode;
 		u32 uDirection;
 		u32 uIndex;
 		struct STRM_ATTR __user *pAttrIn;

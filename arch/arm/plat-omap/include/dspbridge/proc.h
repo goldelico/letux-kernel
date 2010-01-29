@@ -153,7 +153,7 @@
  *  Details:
  */
 	extern DSP_STATUS PROC_EnumNodes(void *hProcessor,
-					 IN DSP_HNODE *aNodeTab,
+					 void **aNodeTab,
 					 IN u32 uNodeTabSize,
 					 OUT u32 *puNumNodes,
 					 OUT u32 *puAllocated);

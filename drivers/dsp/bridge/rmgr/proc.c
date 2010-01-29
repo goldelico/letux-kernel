@@ -530,7 +530,7 @@ DSP_STATUS PROC_Detach(struct PROCESS_CONTEXT *pr_ctxt)
  *      Enumerate and get configuration information about nodes allocated
  *      on a DSP processor.
  */
-DSP_STATUS PROC_EnumNodes(void *hProcessor, OUT DSP_HNODE *aNodeTab,
+DSP_STATUS PROC_EnumNodes(void *hProcessor, void **aNodeTab,
 		IN u32 uNodeTabSize, OUT u32 *puNumNodes,
 		OUT u32 *puAllocated)
 {
@@ -1521,7 +1521,7 @@ DSP_STATUS PROC_Stop(void *hProcessor)
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
 	struct MSG_MGR *hMsgMgr;
 	struct NODE_MGR *hNodeMgr;
-	DSP_HNODE hNode;
+	void *hNode;
 	u32 uNodeTabSize = 1;
 	u32 uNumNodes = 0;
 	u32 uNodesAllocated = 0;

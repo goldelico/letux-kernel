@@ -216,7 +216,7 @@ struct NODE_OBJECT {
 	s32 nExitStatus;	/* execute function return status */
 
 	/* Information needed for NODE_GetAttr() */
-	DSP_HNODE hDeviceOwner;	/* If dev node, task that owns it */
+	void *hDeviceOwner;	/* If dev node, task that owns it */
 	u32 uNumGPPInputs;	/* Current # of from GPP streams */
 	u32 uNumGPPOutputs;	/* Current # of to GPP streams */
 	/* Current stream connections */
@@ -1670,7 +1670,7 @@ DSP_STATUS NODE_DeleteMgr(struct NODE_MGR *hNodeMgr)
  *  Purpose:
  *      Enumerate currently allocated nodes.
  */
-DSP_STATUS NODE_EnumNodes(struct NODE_MGR *hNodeMgr, IN DSP_HNODE *aNodeTab,
+DSP_STATUS NODE_EnumNodes(struct NODE_MGR *hNodeMgr, void **aNodeTab,
 			 u32 uNodeTabSize, OUT u32 *puNumNodes,
 			 OUT u32 *puAllocated)
 {
