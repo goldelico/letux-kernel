@@ -38,14 +38,12 @@
 #include <dspbridge/drv.h>
 #include <dspbridge/dev.h>
 
-#ifndef RES_CLEANUP_DISABLE
 #include <dspbridge/node.h>
 #include <dspbridge/proc.h>
 #include <dspbridge/strm.h>
 #include <dspbridge/nodepriv.h>
 #include <dspbridge/wmdchnl.h>
 #include <dspbridge/resourcecleanup.h>
-#endif
 
 /*  ----------------------------------- Defines, Data Structures, Typedefs */
 #define SIGNATURE   0x5f52474d	/* "DRV_" (in reverse) */
@@ -76,7 +74,6 @@ extern struct GT_Mask curTrace;
 static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 fRequest);
 static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 fRequest);
 
-#ifndef RES_CLEANUP_DISABLE
 /* GPP PROCESS CLEANUP CODE */
 
 static DSP_STATUS DRV_ProcFreeNodeRes(HANDLE hPCtxt);
@@ -554,7 +551,6 @@ DSP_STATUS DRV_ProcUpdateSTRMRes(u32 uNumBufs, HANDLE hSTRMRes)
 }
 
 /* GPP PROCESS CLEANUP CODE END */
-#endif
 
 /*
  *  ======== = DRV_Create ======== =

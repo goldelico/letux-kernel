@@ -67,11 +67,9 @@
 #include <dspbridge/dbll.h>
 #include <dspbridge/nldr.h>
 
-#ifndef RES_CLEANUP_DISABLE
 #include <dspbridge/drv.h>
 #include <dspbridge/drvdefs.h>
 #include <dspbridge/resourcecleanup.h>
-#endif
 
 
 #define NODE_SIGNATURE      0x45444f4e	/* "EDON" */
@@ -338,9 +336,7 @@ DSP_STATUS NODE_Allocate(struct PROC_OBJECT *hProcessor,
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
 #endif
 
-#ifndef RES_CLEANUP_DISABLE
 	HANDLE nodeRes;
-#endif
 
 	DBC_Require(cRefs > 0);
 	DBC_Require(hProcessor != NULL);
@@ -696,13 +692,11 @@ func_cont:
 
 	}
 
-#ifndef RES_CLEANUP_DISABLE
 	if (DSP_SUCCEEDED(status)) {
 		DRV_InsertNodeResElement(*phNode, &nodeRes, pr_ctxt);
 		DRV_ProcNodeUpdateHeapStatus(nodeRes, true);
 		DRV_ProcNodeUpdateStatus(nodeRes, true);
 	}
-#endif
 	DBC_Ensure((DSP_FAILED(status) && (*phNode == NULL)) ||
 		  (DSP_SUCCEEDED(status)
 		    && MEM_IsValidHandle((*phNode), NODE_SIGNATURE)));
@@ -1517,9 +1511,8 @@ DSP_STATUS NODE_Delete(struct NODE_OBJECT *hNode,
 	u32 procId;
 	struct WMD_DRV_INTERFACE *pIntfFxns;
 
-#ifndef RES_CLEANUP_DISABLE
 	HANDLE		nodeRes;
-#endif
+
 	struct DSP_PROCESSORSTATE procStatus;
 	DBC_Require(cRefs > 0);
 	GT_1trace(NODE_debugMask, GT_ENTER, "NODE_Delete: hNode: 0x%x\n",
@@ -1643,18 +1636,15 @@ func_cont1:
 		hNodeMgr->uNumCreated--;
 	 /*  Free host-side resources allocated by NODE_Create()
 	 *  DeleteNode() fails if SM buffers not freed by client!  */
-#ifndef RES_CLEANUP_DISABLE
 	if (DRV_GetNodeResElement(hNode, &nodeRes, pr_ctxt) != DSP_ENOTFOUND) {
 		GT_0trace(NODE_debugMask, GT_5CLASS, "\nNODE_Delete12:\n");
 		DRV_ProcNodeUpdateStatus(nodeRes, false);
 	}
-#endif
 	GT_0trace(NODE_debugMask, GT_ENTER, "\nNODE_Delete13:\n ");
 	DeleteNode(hNode, pr_ctxt);
-#ifndef RES_CLEANUP_DISABLE
+
 	GT_0trace(NODE_debugMask, GT_5CLASS, "\nNODE_Delete2:\n ");
 	DRV_RemoveNodeResElement(nodeRes, pr_ctxt);
-#endif
 	GT_0trace(NODE_debugMask, GT_ENTER, "\nNODE_Delete3:\n ");
 	/* Exit critical section */
 	(void)SYNC_LeaveCS(hNodeMgr->hSync);

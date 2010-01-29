@@ -78,7 +78,6 @@
 #define OMAP_PRCM_VDD1_DOMAIN 1
 #define OMAP_PRCM_VDD2_DOMAIN 2
 
-#ifndef RES_CLEANUP_DISABLE
 
 /* GPP PROCESS CLEANUP Data structures */
 
@@ -148,7 +147,7 @@ struct PROCESS_CONTEXT{
 	/* Stream resources */
 	struct STRM_RES_OBJECT *pSTRMList;
 } ;
-#endif
+
 
 /*
  *  ======== DRV_Create ========

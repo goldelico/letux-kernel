@@ -683,7 +683,6 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 
 		/*pHostUserBuf */
 		status = copy_to_user(ioc.pBuf, pHostSysBuf, ioc.cBytes);
-#ifndef RES_CLEANUP_DISABLE
 		if (status) {
 			if (current->flags & PF_EXITING) {
 				DBG_Trace(DBG_LEVEL7,
@@ -698,7 +697,6 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 					 current->flags);
 			}
 		}
-#endif
 		if (status) {
 			DBG_Trace(DBG_LEVEL7,
 				 "Error copying kernel buffer to user, %d"

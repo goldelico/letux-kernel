@@ -59,9 +59,7 @@
 #include <dspbridge/_dcd.h>
 #include <dspbridge/dbdcd.h>
 
-#ifndef RES_CLEANUP_DISABLE
 #include <dspbridge/resourcecleanup.h>
-#endif
 
 /*  ----------------------------------- Defines, Data Structures, Typedefs */
 #define MAX_TRACEBUFLEN 255
@@ -101,9 +99,7 @@ static struct WCD_Cmd WCD_cmdTable[] = {
 	{MGRWRAP_RegisterObject, CMD_MGR_REGISTEROBJECT_OFFSET},
 	{MGRWRAP_UnregisterObject, CMD_MGR_UNREGISTEROBJECT_OFFSET},
 	{MGRWRAP_WaitForBridgeEvents, CMD_MGR_WAIT_OFFSET},
-#ifndef RES_CLEANUP_DISABLE
 	{MGRWRAP_GetProcessResourcesInfo, CMD_MGR_RESOUCES_OFFSET},
-#endif
 	/* PROC Module */
 	{PROCWRAP_Attach, CMD_PROC_ATTACH_OFFSET},
 	{PROCWRAP_Ctrl, CMD_PROC_CTRL_OFFSET},
@@ -551,7 +547,6 @@ u32 MGRWRAP_WaitForBridgeEvents(union Trapped_Args *args, void *pr_ctxt)
 }
 
 
-#ifndef RES_CLEANUP_DISABLE
 /*
  * ======== MGRWRAP_GetProcessResourceInfo ========
  */
@@ -571,7 +566,6 @@ u32 MGRWRAP_GetProcessResourcesInfo(union Trapped_Args *args, void *pr_ctxt)
     MEM_Free(pBuf);
     return status;
 }
-#endif
 
 
 /*

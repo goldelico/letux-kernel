@@ -14,7 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef RES_CLEANUP_DISABLE
 
 #include <dspbridge/nodepriv.h>
 #include <dspbridge/drv.h>
@@ -74,4 +73,3 @@ extern DSP_STATUS DRV_RemoveAllSTRMResElements(HANDLE pCtxt);
 
 extern enum NODE_STATE NODE_GetState(HANDLE hNode);
 
-#endif

@@ -44,10 +44,8 @@
 /*  ----------------------------------- This */
 #include <dspbridge/strm.h>
 
-#ifndef RES_CLEANUP_DISABLE
 #include <dspbridge/cfg.h>
 #include <dspbridge/resourcecleanup.h>
-#endif
 
 /*  ----------------------------------- Defines, Data Structures, Typedefs */
 #define STRM_SIGNATURE      0x4d525453	/* "MRTS" */
@@ -114,9 +112,9 @@ DSP_STATUS STRM_AllocateBuffer(struct STRM_OBJECT *hStrm, u32 uSize,
 	DSP_STATUS status = DSP_SOK;
 	u32 uAllocated = 0;
 	u32 i;
-#ifndef RES_CLEANUP_DISABLE
+
 	HANDLE hSTRMRes;
-#endif
+
 	DBC_Require(cRefs > 0);
 	DBC_Require(apBuffer != NULL);
 
@@ -152,14 +150,13 @@ DSP_STATUS STRM_AllocateBuffer(struct STRM_OBJECT *hStrm, u32 uSize,
 	if (DSP_FAILED(status))
 		STRM_FreeBuffer(hStrm, apBuffer, uAllocated, pr_ctxt);
 
-#ifndef RES_CLEANUP_DISABLE
 	if (DSP_FAILED(status))
 		goto func_end;
 
 	if (DRV_GetSTRMResElement(hStrm, &hSTRMRes, pr_ctxt) !=
 			DSP_ENOTFOUND)
 		DRV_ProcUpdateSTRMRes(uNumBufs, hSTRMRes);
-#endif
+
 func_end:
 	return status;
 }
@@ -176,9 +173,7 @@ DSP_STATUS STRM_Close(struct STRM_OBJECT *hStrm,
 	struct CHNL_INFO chnlInfo;
 	DSP_STATUS status = DSP_SOK;
 
-#ifndef RES_CLEANUP_DISABLE
-    HANDLE	      hSTRMRes;
-#endif
+	HANDLE	      hSTRMRes;
 
 	DBC_Require(cRefs > 0);
 
@@ -198,7 +193,7 @@ DSP_STATUS STRM_Close(struct STRM_OBJECT *hStrm,
 		else
 			status = DeleteStrm(hStrm);
 	}
-#ifndef RES_CLEANUP_DISABLE
+
 	if (DSP_FAILED(status))
 		goto func_end;
 
@@ -206,7 +201,6 @@ DSP_STATUS STRM_Close(struct STRM_OBJECT *hStrm,
 			DSP_ENOTFOUND)
 		DRV_ProcRemoveSTRMResElement(hSTRMRes, pr_ctxt);
 func_end:
-#endif
 	DBC_Ensure(status == DSP_SOK || status == DSP_EHANDLE ||
 		  status == DSP_EPENDING || status == DSP_EFAIL);
 
@@ -312,9 +306,8 @@ DSP_STATUS STRM_FreeBuffer(struct STRM_OBJECT *hStrm, u8 **apBuffer,
 	DSP_STATUS status = DSP_SOK;
 	u32 i = 0;
 
-#ifndef RES_CLEANUP_DISABLE
 	HANDLE hSTRMRes = NULL;
-#endif
+
 	DBC_Require(cRefs > 0);
 	DBC_Require(apBuffer != NULL);
 
@@ -337,11 +330,10 @@ DSP_STATUS STRM_FreeBuffer(struct STRM_OBJECT *hStrm, u8 **apBuffer,
 			apBuffer[i] = NULL;
 		}
 	}
-#ifndef RES_CLEANUP_DISABLE
 	if (DRV_GetSTRMResElement(hStrm, hSTRMRes, pr_ctxt) !=
 			DSP_ENOTFOUND)
 		DRV_ProcUpdateSTRMRes(uNumBufs-i, hSTRMRes);
-#endif
+
 	return status;
 }
 
@@ -529,9 +521,8 @@ DSP_STATUS STRM_Open(struct NODE_OBJECT *hNode, u32 uDir, u32 uIndex,
 	DSP_STATUS status = DSP_SOK;
 	struct CMM_OBJECT *hCmmMgr = NULL;	/* Shared memory manager hndl */
 
-#ifndef RES_CLEANUP_DISABLE
 	HANDLE hSTRMRes;
-#endif
+
 	DBC_Require(cRefs > 0);
 	DBC_Require(phStrm != NULL);
 	DBC_Require(pAttr != NULL);
@@ -666,9 +657,7 @@ func_cont:
 	else
 		(void)DeleteStrm(pStrm);
 
-#ifndef RES_CLEANUP_DISABLE
 	DRV_ProcInsertSTRMResElement(*phStrm, &hSTRMRes, pr_ctxt);
-#endif
 
 	 /* ensure we return a documented error code */
 	DBC_Ensure((DSP_SUCCEEDED(status) &&

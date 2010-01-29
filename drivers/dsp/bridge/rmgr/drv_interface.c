@@ -60,7 +60,6 @@
 /*  ----------------------------------- This */
 #include <drv_interface.h>
 
-#ifndef RES_CLEANUP_DISABLE
 #include <dspbridge/cfg.h>
 #include <dspbridge/resourcecleanup.h>
 #include <dspbridge/chnl.h>
@@ -68,7 +67,6 @@
 #include <dspbridge/dev.h>
 #include <dspbridge/drvdefs.h>
 #include <dspbridge/drv.h>
-#endif
 
 #include <mach/omap-pm.h>
 #include <mach-omap2/omap3-opp.h>
@@ -483,7 +481,6 @@ static void __exit bridge_exit(void)
 static int bridge_open(struct inode *ip, struct file *filp)
 {
 	int status = 0;
-#ifndef RES_CLEANUP_DISABLE
 	struct PROCESS_CONTEXT *pr_ctxt = NULL;
 
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_open\n");
@@ -499,7 +496,6 @@ static int bridge_open(struct inode *ip, struct file *filp)
 		status = -ENOMEM;
 
 		filp->private_data = pr_ctxt;
-#endif
 
 	GT_0trace(driverTrace, GT_ENTER, " <- driver_open\n");
 	return status;
@@ -603,7 +599,6 @@ static int bridge_mmap(struct file *filp, struct vm_area_struct *vma)
 	return status;
 }
 
-#ifndef RES_CLEANUP_DISABLE
 /* To remove all process resources before removing the process from the
  * process context list*/
 DSP_STATUS DRV_RemoveAllResources(HANDLE hPCtxt)
@@ -616,7 +611,6 @@ DSP_STATUS DRV_RemoveAllResources(HANDLE hPCtxt)
 	pCtxt->resState = PROC_RES_FREED;
 	return status;
 }
-#endif
 
 /*
  * sysfs

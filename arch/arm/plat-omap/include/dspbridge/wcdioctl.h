@@ -101,10 +101,7 @@ union Trapped_Args {
 	struct {
 		DSP_HPROCESSOR hProcessor;
 		u8 __user *pBuf;
-
-	#ifndef RES_CLEANUP_DISABLE
-	    u8 __user *pSize;
-    #endif
+		u8 __user *pSize;
 		u32 uMaxSize;
 	} ARGS_PROC_GETTRACE;
 
