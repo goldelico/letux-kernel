@@ -114,8 +114,6 @@
 	typedef u32 DSP_STATUS;	/* API return code type         */
 
 
-	typedef u32 DSP_PROCFAMILY;	/* Processor family             */
-
 /* Handy Macros */
 #define IsValidProcEvent(x) (((x) == 0) || (((x) & (DSP_PROCESSORSTATECHANGE | \
 				DSP_PROCESSORATTACH | \
@@ -411,7 +409,7 @@
  */
 	struct DSP_PROCESSORINFO {
 		u32 cbStruct;
-		DSP_PROCFAMILY uProcessorFamily;
+		int uProcessorFamily;
 		int uProcessorType;
 		u32 uClockRate;
 		u32 ulInternalMemSize;
