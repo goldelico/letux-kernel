@@ -484,16 +484,21 @@ static int bridge_open(struct inode *ip, struct file *filp)
 {
 	int status = 0;
 #ifndef RES_CLEANUP_DISABLE
-	struct PROCESS_CONTEXT *pPctxt = NULL;
+	struct PROCESS_CONTEXT *pr_ctxt = NULL;
 
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_open\n");
 
-	pPctxt = MEM_Calloc(sizeof(struct PROCESS_CONTEXT), MEM_PAGED);
+	/*
+	 * Allocate a new process context and insert it into global
+	 * process context list.
+	 */
+	pr_ctxt = MEM_Calloc(sizeof(struct PROCESS_CONTEXT), MEM_PAGED);
+	if (pr_ctxt)
+		pr_ctxt->resState = PROC_RES_ALLOCATED;
+	else
+		status = -ENOMEM;
 
-	if (pPctxt != NULL) {
-		DRV_ProcUpdatestate(pPctxt, PROC_RES_ALLOCATED);
-		filp->private_data = pPctxt;
-	}
+		filp->private_data = pr_ctxt;
 #endif
 
 	GT_0trace(driverTrace, GT_ENTER, " <- driver_open\n");
@@ -608,7 +613,7 @@ DSP_STATUS DRV_RemoveAllResources(HANDLE hPCtxt)
 	DRV_RemoveAllSTRMResElements(pCtxt);
 	DRV_RemoveAllNodeResElements(pCtxt);
 	DRV_RemoveAllDMMResElements(pCtxt);
-	DRV_ProcUpdatestate(pCtxt, PROC_RES_FREED);
+	pCtxt->resState = PROC_RES_FREED;
 	return status;
 }
 #endif

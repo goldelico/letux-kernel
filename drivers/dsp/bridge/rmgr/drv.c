@@ -83,15 +83,6 @@ static DSP_STATUS DRV_ProcFreeNodeRes(HANDLE hPCtxt);
 static DSP_STATUS  DRV_ProcFreeSTRMRes(HANDLE hPCtxt);
 extern enum NODE_STATE NODE_GetState(HANDLE hNode);
 
-/* Update the state of process context */
-DSP_STATUS DRV_ProcUpdatestate(HANDLE hPCtxt, enum GPP_PROC_RES_STATE status)
-{
-	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	DSP_STATUS status1 = DSP_SOK;
-	pCtxt->resState = status;
-	return status1;
-}
-
 /* Allocate and add a node resource element
 * This function is called from .Node_Allocate.  */
 DSP_STATUS DRV_InsertNodeResElement(HANDLE hNode, HANDLE hNodeRes,
