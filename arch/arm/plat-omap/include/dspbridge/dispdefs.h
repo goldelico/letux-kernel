@@ -27,7 +27,7 @@
 		/* Size of buffer for sending data to RMS */
 		u32 ulChnlBufSize;
 		DSP_PROCFAMILY procFamily;	/* eg, 5000 */
-		DSP_PROCTYPE procType;	/* eg, 5510 */
+		int procType;		/* eg, 5510 */
 		HANDLE hReserved1;	/* Reserved for future use. */
 		u32 hReserved2;	/* Reserved for future use. */
 	} ;

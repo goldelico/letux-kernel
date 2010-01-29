@@ -151,7 +151,7 @@ struct NODE_MGR {
 	u32 ulChnlOffset;	/* Offset of chnl ids rsvd for RMS */
 	u32 ulChnlBufSize;	/* Buffer size for data to RMS */
 	DSP_PROCFAMILY procFamily;	/* eg, 5000 */
-	DSP_PROCTYPE procType;	/* eg, 5510 */
+	int procType;	/* eg, 5510 */
 	u32 uDSPWordSize;	/* Size of DSP word on host bytes */
 	u32 uDSPDataMauSize;	/* Size of DSP data MAU */
 	u32 uDSPMauSize;	/* Size of MAU */
