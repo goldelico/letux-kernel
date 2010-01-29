@@ -16,11 +16,13 @@
 
 #include <plat/powerdomain.h>
 #include <plat/clockdomain.h>
+#include <plat/io.h>
 
 #ifdef CONFIG_CPU_IDLE
 
-#define OMAP4_MAX_STATES 1
-#define OMAP4_STATE_C1 0 /* C1 - MPU WFI + Core active */
+#define OMAP4_MAX_STATES 2
+#define OMAP4_STATE_C1 0 /* C1 - CPU0 WFI + CPU1 WFI + MPU active + Core active */
+#define OMAP4_STATE_C2 1 /* C2 - CPU0 CSWR + CPU1 OFF + MPU CSWR + Core active */
 
 #define wfi() \
 	{	\
@@ -37,6 +39,8 @@ struct omap4_processor_cx {
 	u8 type;
 	u32 sleep_latency;
 	u32 wakeup_latency;
+	u32 cpu0_state;
+	u32 cpu1_state;
 	u32 mpu_state;
 	u32 core_state;
 	u32 threshold;
@@ -45,6 +49,8 @@ struct omap4_processor_cx {
 
 struct omap4_processor_cx omap4_power_states[OMAP4_MAX_STATES];
 struct omap4_processor_cx current_cx_state;
+
+struct powerdomain *cpu0_pd, *cpu1_pd, *mpu_pd, *core_pd;
 
 static int omap4_idle_bm_check(void)
 {
@@ -62,9 +68,48 @@ static int omap4_idle_bm_check(void)
 static int omap4_enter_idle(struct cpuidle_device *dev,
 			struct cpuidle_state *state)
 {
+	struct omap4_processor_cx *cx = cpuidle_get_statedata(state);
+	struct timespec ts_preidle, ts_postidle, ts_idle;
+	u32 scu_pwr_st;
+
+	/* Used to keep track of the total time in idle */
+	getnstimeofday(&ts_preidle);
+
+	/* Do only sfi for non cpu0 cores */
+	if (dev->cpu) {
+		wfi();
+		goto return_sleep_time;
+	}
+
+	/* Do only a wfi as long as any other core is active */
+	if (num_online_cpus() > 1) {
+		wfi();
+		goto return_sleep_time;
+	}
+
+	/* program the scu if hitting ret or off */
+	if (cx->cpu0_state > PWRDM_POWER_ON) {
+		scu_pwr_st = omap_readl(0x48240008);
+		scu_pwr_st |= 0x2;
+		omap_writel(scu_pwr_st, 0x48240008);
+	}
+	pwrdm_set_next_pwrst(cpu0_pd, cx->cpu0_state);
+	pwrdm_set_next_pwrst(mpu_pd, cx->mpu_state);
+	pwrdm_set_next_pwrst(core_pd, cx->core_state);
+
 	wfi();
+
+	if (cx->cpu0_state > PWRDM_POWER_ON) {
+		scu_pwr_st = omap_readl(0x48240008);
+		scu_pwr_st &= ~0x2;
+		omap_writel(scu_pwr_st, 0x48240008);
+	}
+
+return_sleep_time:
+	getnstimeofday(&ts_postidle);
+	ts_idle = timespec_sub(ts_postidle, ts_preidle);
 	local_irq_enable();
-	return 0;
+	return (u32)timespec_to_ns(&ts_idle)/1000;
 }
 
 /**
@@ -95,20 +140,36 @@ DEFINE_PER_CPU(struct cpuidle_device, omap4_idle_dev);
 /* omap4_init_power_states - Initialises the OMAP4 specific C states.
  *
  * Below is the desciption of each C state.
- * 	C1 . MPU WFI + Core active
+ * 	C1 . CPU0 WFI + CPU1 WFI + MPU active + Core active
+ * 	C2 . CPU0 CSWR + CPU1 OFF + MPU CSWR + Core active
  */
 void omap_init_power_states(void)
 {
-	/* C1 . MPU WFI + Core active */
+	/* C1 . CPUx WFI + MPU active + Core active */
 	omap4_power_states[OMAP4_STATE_C1].valid = 1;
 	omap4_power_states[OMAP4_STATE_C1].type = OMAP4_STATE_C1;
+	/* TODO: Fix the latences */
 	omap4_power_states[OMAP4_STATE_C1].sleep_latency = 2;
 	omap4_power_states[OMAP4_STATE_C1].wakeup_latency = 2;
 	omap4_power_states[OMAP4_STATE_C1].threshold = 5;
+	omap4_power_states[OMAP4_STATE_C1].cpu0_state = PWRDM_POWER_ON;
+	omap4_power_states[OMAP4_STATE_C1].cpu1_state = PWRDM_POWER_ON;
 	omap4_power_states[OMAP4_STATE_C1].mpu_state = PWRDM_POWER_ON;
 	omap4_power_states[OMAP4_STATE_C1].core_state = PWRDM_POWER_ON;
 	omap4_power_states[OMAP4_STATE_C1].flags = CPUIDLE_FLAG_TIME_VALID;
 
+	/* C2 . CPU0 CSWR + CPU1 OFF + MPU CSWR + Core active */
+	omap4_power_states[OMAP4_STATE_C2].valid = 1;
+	omap4_power_states[OMAP4_STATE_C2].type = OMAP4_STATE_C1;
+	/* TODO: Fix the latences */
+	omap4_power_states[OMAP4_STATE_C2].sleep_latency = 5;
+	omap4_power_states[OMAP4_STATE_C2].wakeup_latency = 5;
+	omap4_power_states[OMAP4_STATE_C2].threshold = 10;
+	omap4_power_states[OMAP4_STATE_C2].cpu0_state = PWRDM_POWER_RET;
+	omap4_power_states[OMAP4_STATE_C2].cpu1_state = PWRDM_POWER_OFF;
+	omap4_power_states[OMAP4_STATE_C2].mpu_state = PWRDM_POWER_RET;
+	omap4_power_states[OMAP4_STATE_C2].core_state = PWRDM_POWER_ON;
+	omap4_power_states[OMAP4_STATE_C2].flags = CPUIDLE_FLAG_TIME_VALID;
 }
 
 struct cpuidle_driver omap4_idle_driver = {
@@ -128,6 +189,11 @@ int __init omap4_idle_init(void)
 	struct omap4_processor_cx *cx;
 	struct cpuidle_state *state;
 	struct cpuidle_device *dev;
+
+	cpu0_pd = pwrdm_lookup("cpu0_pwrdm");
+	cpu1_pd = pwrdm_lookup("cpu1_pwrdm");
+	mpu_pd = pwrdm_lookup("mpu_pwrdm");
+	core_pd = pwrdm_lookup("core_pwrdm");
 
 	omap_init_power_states();
 	cpuidle_register_driver(&omap4_idle_driver);
