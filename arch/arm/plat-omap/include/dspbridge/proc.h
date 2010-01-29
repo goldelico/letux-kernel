@@ -51,8 +51,7 @@
  */
 	extern DSP_STATUS PROC_Attach(u32 uProcessor,
 				      OPTIONAL CONST struct DSP_PROCESSORATTRIN
-				      *pAttrIn,
-				      OUT DSP_HPROCESSOR *phProcessor,
+				      *pAttrIn, void **phProcessor,
 				      struct PROCESS_CONTEXT *pr_ctxt);
 
 /*
@@ -101,7 +100,7 @@
  *  Details:
  *      This function Calls WMD_BRD_Ioctl.
  */
-	extern DSP_STATUS PROC_Ctrl(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS PROC_Ctrl(void *hProcessor,
 				    u32 dwCmd, IN struct DSP_CBDATA *pArgs);
 
 /*
@@ -153,7 +152,7 @@
  *  Ensures:
  *  Details:
  */
-	extern DSP_STATUS PROC_EnumNodes(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS PROC_EnumNodes(void *hProcessor,
 					 IN DSP_HNODE *aNodeTab,
 					 IN u32 uNodeTabSize,
 					 OUT u32 *puNumNodes,
@@ -187,7 +186,7 @@
  *      This function currently returns
  *      DSP_ENOTIMPL, and does not write any data to the pResourceInfo struct.
  */
-	extern DSP_STATUS PROC_GetResourceInfo(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS PROC_GetResourceInfo(void *hProcessor,
 					       u32 uResourceType,
 					       OUT struct DSP_RESOURCEINFO *
 					       pResourceInfo,
@@ -224,7 +223,7 @@
  *      DSP_SOK     :   *phDevObject is not NULL
  *      DSP_EFAIL   :   *phDevObject is NULL.
  */
-	extern DSP_STATUS PROC_GetDevObject(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS PROC_GetDevObject(void *hProcessor,
 					    struct DEV_OBJECT **phDevObject);
 
 /*
@@ -261,7 +260,7 @@
  *  Ensures:
  *  Details:
  */
-	extern DSP_STATUS PROC_GetState(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS PROC_GetState(void *hProcessor,
 					OUT struct DSP_PROCESSORSTATE
 					*pProcStatus,
 					u32 uStateInfoSize);
@@ -285,7 +284,7 @@
  *  Ensures:
  *  Details:
  */
-	extern DSP_STATUS PROC_GetProcessorId(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS PROC_GetProcessorId(void *hProcessor,
 					      u32 *procID);
 
 /*
@@ -308,7 +307,7 @@
  *  Ensures:
  *  Details:
  */
-	extern DSP_STATUS PROC_GetTrace(DSP_HPROCESSOR hProcessor, u8 *pBuf,
+	extern DSP_STATUS PROC_GetTrace(void *hProcessor, u8 *pBuf,
 					u32 uMaxSize);
 
 /*
@@ -342,7 +341,7 @@
  *      Does not implement access rights to control which GPP application
  *      can load the processor.
  */
-	extern DSP_STATUS PROC_Load(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS PROC_Load(void *hProcessor,
 				    IN CONST s32 iArgc, IN CONST char **aArgv,
 				    IN CONST char **aEnvp);
 
@@ -368,7 +367,7 @@
  *  Ensures:
  *  Details:
  */
-	extern DSP_STATUS PROC_RegisterNotify(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS PROC_RegisterNotify(void *hProcessor,
 					      u32 uEventMask, u32 uNotifyType,
 					      struct DSP_NOTIFICATION
 					      *hNotification);
@@ -390,7 +389,7 @@
  *      PROC Initialized.
  *  Ensures:
  */
-	extern DSP_STATUS PROC_NotifyClients(DSP_HPROCESSOR hProc,
+	extern DSP_STATUS PROC_NotifyClients(void *hProc,
 					     u32 uEvents);
 
 /*
@@ -413,7 +412,7 @@
  *      NODE And STRM would use this function to notify their clients
  *      about the state changes in NODE or STRM.
  */
-	extern DSP_STATUS PROC_NotifyAllClients(DSP_HPROCESSOR hProc,
+	extern DSP_STATUS PROC_NotifyAllClients(void *hProc,
 						u32 uEvents);
 
 /*
@@ -436,7 +435,7 @@
  *      Success and ProcState == PROC_RUNNING or DSP_FAILED status.
  *  Details:
  */
-	extern DSP_STATUS PROC_Start(DSP_HPROCESSOR hProcessor);
+	extern DSP_STATUS PROC_Start(void *hProcessor);
 
 /*
  *  ======== PROC_Stop ========
@@ -458,7 +457,7 @@
  *      Success and ProcState == PROC_RUNNING or DSP_FAILED status.
  *  Details:
  */
-	extern DSP_STATUS PROC_Stop(DSP_HPROCESSOR hProcessor);
+	extern DSP_STATUS PROC_Stop(void *hProcessor);
 
 /*
  *  ======== PROC_FlushMemory ========
@@ -479,7 +478,7 @@
  *  Details:
  *      All the arguments are currently ignored.
  */
-	extern DSP_STATUS PROC_FlushMemory(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS PROC_FlushMemory(void *hProcessor,
 					   void *pMpuAddr,
 					   u32 ulSize, u32 ulFlags);
 
@@ -502,7 +501,7 @@
  *  Details:
  *      All the arguments are currently ignored.
  */
-	extern DSP_STATUS PROC_InvalidateMemory(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS PROC_InvalidateMemory(void *hProcessor,
 					   void *pMpuAddr,
 					   u32 ulSize);
 
@@ -533,7 +532,7 @@
  *  Ensures:
  *  Details:
  */
-	extern DSP_STATUS PROC_Map(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS PROC_Map(void *hProcessor,
 				   void *pMpuAddr,
 				   u32 ulSize,
 				   void *pReqAddr,
@@ -559,7 +558,7 @@
  *  Ensures:
  *  Details:
  */
-	extern DSP_STATUS PROC_ReserveMemory(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS PROC_ReserveMemory(void *hProcessor,
 					     u32 ulSize, void **ppRsvAddr);
 
 /*
@@ -581,7 +580,7 @@
  *  Ensures:
  *  Details:
  */
-	extern DSP_STATUS PROC_UnMap(DSP_HPROCESSOR hProcessor, void *pMapAddr,
+	extern DSP_STATUS PROC_UnMap(void *hProcessor, void *pMapAddr,
 			struct PROCESS_CONTEXT *pr_ctxt);
 
 /*
@@ -603,7 +602,7 @@
  *  Ensures:
  *  Details:
  */
-	extern DSP_STATUS PROC_UnReserveMemory(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS PROC_UnReserveMemory(void *hProcessor,
 					       void *pRsvAddr);
 
 #endif				/* PROC_ */

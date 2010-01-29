@@ -570,7 +570,7 @@
  *  Parameters:
  *
  */
-	extern DSP_STATUS NODE_GetUUIDProps(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS NODE_GetUUIDProps(void *hProcessor,
 					    IN CONST struct DSP_UUID *pNodeId,
 					    OUT struct DSP_NDBPROPS
 					    *pNodeProps);

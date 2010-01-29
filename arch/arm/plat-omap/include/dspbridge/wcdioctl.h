@@ -64,21 +64,21 @@ union Trapped_Args {
 	struct {
 		u32 uProcessor;
 		struct DSP_PROCESSORATTRIN __user *pAttrIn;
-		DSP_HPROCESSOR __user *phProcessor;
+		void *__user *phProcessor;
 	} ARGS_PROC_ATTACH;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		u32 dwCmd;
 		struct DSP_CBDATA __user *pArgs;
 	} ARGS_PROC_CTRL;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 	} ARGS_PROC_DETACH;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		DSP_HNODE __user *aNodeTab;
 		u32 uNodeTabSize;
 		u32 __user *puNumNodes;
@@ -86,57 +86,57 @@ union Trapped_Args {
 	} ARGS_PROC_ENUMNODE_INFO;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		u32 uResourceType;
 		struct DSP_RESOURCEINFO *pResourceInfo;
 		u32 uResourceInfoSize;
 	} ARGS_PROC_ENUMRESOURCES;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		struct DSP_PROCESSORSTATE __user *pProcStatus;
 		u32 uStateInfoSize;
 	} ARGS_PROC_GETSTATE;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		u8 __user *pBuf;
 		u8 __user *pSize;
 		u32 uMaxSize;
 	} ARGS_PROC_GETTRACE;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		s32 iArgc;
 		char __user *__user *aArgv;
 		char *__user *aEnvp;
 	} ARGS_PROC_LOAD;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		u32 uEventMask;
 		u32 uNotifyType;
 		struct DSP_NOTIFICATION __user *hNotification;
 	} ARGS_PROC_REGISTER_NOTIFY;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 	} ARGS_PROC_START;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		u32 ulSize;
 		void *__user *ppRsvAddr;
 	} ARGS_PROC_RSVMEM;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		u32 ulSize;
 		void *pRsvAddr;
 	} ARGS_PROC_UNRSVMEM;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		void *pMpuAddr;
 		u32 ulSize;
 		void *pReqAddr;
@@ -145,24 +145,24 @@ union Trapped_Args {
 	} ARGS_PROC_MAPMEM;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		u32 ulSize;
 		void *pMapAddr;
 	} ARGS_PROC_UNMAPMEM;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		void *pMpuAddr;
 		u32 ulSize;
 		u32 ulFlags;
 	} ARGS_PROC_FLUSHMEMORY;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 	} ARGS_PROC_STOP;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		void *pMpuAddr;
 		u32 ulSize;
 	} ARGS_PROC_INVALIDATEMEMORY;
@@ -170,7 +170,7 @@ union Trapped_Args {
 
 	/* NODE Module */
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		struct DSP_UUID __user *pNodeID;
 		struct DSP_CBDATA __user *pArgs;
 		struct DSP_NODEATTRIN __user *pAttrIn;
@@ -251,7 +251,7 @@ union Trapped_Args {
 	} ARGS_NODE_TERMINATE;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		struct DSP_UUID __user *pNodeID;
 		struct DSP_NDBPROPS __user *pNodeProps;
 	} ARGS_NODE_GETUUIDPROPS;
@@ -344,7 +344,7 @@ union Trapped_Args {
 	} ARGS_CMM_FREEBUF;
 
 	struct {
-		DSP_HPROCESSOR hProcessor;
+		void *hProcessor;
 		struct CMM_OBJECT *__user *phCmmMgr;
 	} ARGS_CMM_GETHANDLE;
 

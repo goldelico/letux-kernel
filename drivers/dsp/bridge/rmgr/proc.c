@@ -120,7 +120,7 @@ static char **PrependEnvp(char **newEnvp, char **envp, s32 cEnvp, s32 cNewEnvp,
  */
 DSP_STATUS
 PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
-       OUT DSP_HPROCESSOR *phProcessor, struct PROCESS_CONTEXT *pr_ctxt)
+       void **phProcessor, struct PROCESS_CONTEXT *pr_ctxt)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct DEV_OBJECT *hDevObject;
@@ -249,7 +249,7 @@ PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
 				 "Proc Object into DEV, 0x%x!\n", status);
 		}
 		if (DSP_SUCCEEDED(status)) {
-			*phProcessor = (DSP_HPROCESSOR)pProcObject;
+			*phProcessor = (void *)pProcObject;
 			pr_ctxt->hProcessor = *phProcessor;
 			(void)PROC_NotifyClients(pProcObject,
 						 DSP_PROCESSORATTACH);
@@ -431,7 +431,7 @@ func_end:
  *      Call the WMD_ICOTL Fxn with the Argument This is a Synchronous
  *      Operation. arg can be null.
  */
-DSP_STATUS PROC_Ctrl(DSP_HPROCESSOR hProcessor, u32 dwCmd,
+DSP_STATUS PROC_Ctrl(void *hProcessor, u32 dwCmd,
 		    IN struct DSP_CBDATA *arg)
 {
 	DSP_STATUS status = DSP_SOK;
@@ -530,7 +530,7 @@ DSP_STATUS PROC_Detach(struct PROCESS_CONTEXT *pr_ctxt)
  *      Enumerate and get configuration information about nodes allocated
  *      on a DSP processor.
  */
-DSP_STATUS PROC_EnumNodes(DSP_HPROCESSOR hProcessor, OUT DSP_HNODE *aNodeTab,
+DSP_STATUS PROC_EnumNodes(void *hProcessor, OUT DSP_HNODE *aNodeTab,
 		IN u32 uNodeTabSize, OUT u32 *puNumNodes,
 		OUT u32 *puAllocated)
 {
@@ -640,7 +640,7 @@ static int memory_sync_vma(unsigned long start, u32 len,
 	return err;
 }
 
-static DSP_STATUS proc_memory_sync(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
+static DSP_STATUS proc_memory_sync(void *hProcessor, void *pMpuAddr,
 				   u32 ulSize, u32 ulFlags)
 {
 	/* Keep STATUS here for future additions to this function */
@@ -682,7 +682,7 @@ static DSP_STATUS proc_memory_sync(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
  *  Purpose:
  *     Flush cache
  */
-DSP_STATUS PROC_FlushMemory(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
+DSP_STATUS PROC_FlushMemory(void *hProcessor, void *pMpuAddr,
 			    u32 ulSize, u32 ulFlags)
 {
 	return proc_memory_sync(hProcessor, pMpuAddr, ulSize, ulFlags);
@@ -693,7 +693,7 @@ DSP_STATUS PROC_FlushMemory(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
  *  Purpose:
  *     Invalidates the memory specified
  */
-DSP_STATUS PROC_InvalidateMemory(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
+DSP_STATUS PROC_InvalidateMemory(void *hProcessor, void *pMpuAddr,
 				 u32 ulSize)
 {
 	enum DSP_FLUSHTYPE mtype = PROC_INVALIDATE_MEM;
@@ -706,7 +706,7 @@ DSP_STATUS PROC_InvalidateMemory(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
  *  Purpose:
  *      Enumerate the resources currently available on a processor.
  */
-DSP_STATUS PROC_GetResourceInfo(DSP_HPROCESSOR hProcessor, u32 uResourceType,
+DSP_STATUS PROC_GetResourceInfo(void *hProcessor, u32 uResourceType,
 				OUT struct DSP_RESOURCEINFO *pResourceInfo,
 				u32 uResourceInfoSize)
 {
@@ -795,7 +795,7 @@ void PROC_Exit(void)
  *      Return the Dev Object handle for a given Processor.
  *
  */
-DSP_STATUS PROC_GetDevObject(DSP_HPROCESSOR hProcessor,
+DSP_STATUS PROC_GetDevObject(void *hProcessor,
 			     struct DEV_OBJECT **phDevObject)
 {
 	DSP_STATUS status = DSP_EFAIL;
@@ -818,7 +818,7 @@ DSP_STATUS PROC_GetDevObject(DSP_HPROCESSOR hProcessor,
  *  Purpose:
  *      Report the state of the specified DSP processor.
  */
-DSP_STATUS PROC_GetState(DSP_HPROCESSOR hProcessor,
+DSP_STATUS PROC_GetState(void *hProcessor,
 			OUT struct DSP_PROCESSORSTATE *pProcStatus,
 			u32 uStateInfoSize)
 {
@@ -900,7 +900,7 @@ DSP_STATUS PROC_GetState(DSP_HPROCESSOR hProcessor,
  *      This call is destructive, meaning the processor is placed in the monitor
  *      state as a result of this function.
  */
-DSP_STATUS PROC_GetTrace(DSP_HPROCESSOR hProcessor, u8 *pBuf, u32 uMaxSize)
+DSP_STATUS PROC_GetTrace(void *hProcessor, u8 *pBuf, u32 uMaxSize)
 {
 	DSP_STATUS status;
 	status = DSP_ENOTIMPL;
@@ -943,7 +943,7 @@ bool PROC_Init(void)
  *      This will be an OEM-only function, and not part of the DSP/BIOS Bridge
  *      application developer's API.
  */
-DSP_STATUS PROC_Load(DSP_HPROCESSOR hProcessor, IN CONST s32 iArgc,
+DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 		    IN CONST char **aArgv, IN CONST char **aEnvp)
 {
 	DSP_STATUS status = DSP_SOK;
@@ -1251,7 +1251,7 @@ func_end:
  *  Purpose:
  *      Maps a MPU buffer to DSP address space.
  */
-DSP_STATUS PROC_Map(DSP_HPROCESSOR hProcessor, void *pMpuAddr, u32 ulSize,
+DSP_STATUS PROC_Map(void *hProcessor, void *pMpuAddr, u32 ulSize,
 		   void *pReqAddr, void **ppMapAddr, u32 ulMapAttr,
 		   struct PROCESS_CONTEXT *pr_ctxt)
 {
@@ -1327,7 +1327,7 @@ DSP_STATUS PROC_Map(DSP_HPROCESSOR hProcessor, void *pMpuAddr, u32 ulSize,
  *  Purpose:
  *      Register to be notified of specific processor events.
  */
-DSP_STATUS PROC_RegisterNotify(DSP_HPROCESSOR hProcessor, u32 uEventMask,
+DSP_STATUS PROC_RegisterNotify(void *hProcessor, u32 uEventMask,
 			      u32 uNotifyType, struct DSP_NOTIFICATION
 			      *hNotification)
 {
@@ -1399,7 +1399,7 @@ DSP_STATUS PROC_RegisterNotify(DSP_HPROCESSOR hProcessor, u32 uEventMask,
  *  Purpose:
  *      Reserve a virtually contiguous region of DSP address space.
  */
-DSP_STATUS PROC_ReserveMemory(DSP_HPROCESSOR hProcessor, u32 ulSize,
+DSP_STATUS PROC_ReserveMemory(void *hProcessor, u32 ulSize,
 			     void **ppRsvAddr)
 {
 	struct DMM_OBJECT *hDmmMgr;
@@ -1428,7 +1428,7 @@ DSP_STATUS PROC_ReserveMemory(DSP_HPROCESSOR hProcessor, u32 ulSize,
  *  Purpose:
  *      Start a processor running.
  */
-DSP_STATUS PROC_Start(DSP_HPROCESSOR hProcessor)
+DSP_STATUS PROC_Start(void *hProcessor)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
@@ -1516,7 +1516,7 @@ func_end:
  *  Purpose:
  *      Stop a processor running.
  */
-DSP_STATUS PROC_Stop(DSP_HPROCESSOR hProcessor)
+DSP_STATUS PROC_Stop(void *hProcessor)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
@@ -1595,7 +1595,7 @@ DSP_STATUS PROC_Stop(DSP_HPROCESSOR hProcessor)
  *  Purpose:
  *      Removes a MPU buffer mapping from the DSP address space.
  */
-DSP_STATUS PROC_UnMap(DSP_HPROCESSOR hProcessor, void *pMapAddr,
+DSP_STATUS PROC_UnMap(void *hProcessor, void *pMapAddr,
 		struct PROCESS_CONTEXT *pr_ctxt)
 {
 	DSP_STATUS status = DSP_SOK;
@@ -1652,7 +1652,7 @@ func_end:
  *  Purpose:
  *      Frees a previously reserved region of DSP address space.
  */
-DSP_STATUS PROC_UnReserveMemory(DSP_HPROCESSOR hProcessor, void *pRsvAddr)
+DSP_STATUS PROC_UnReserveMemory(void *hProcessor, void *pRsvAddr)
 {
 	struct DMM_OBJECT *hDmmMgr;
 	DSP_STATUS status = DSP_SOK;
@@ -1798,7 +1798,7 @@ static char **PrependEnvp(char **newEnvp, char **envp, s32 cEnvp, s32 cNewEnvp,
  *  Purpose:
  *      Notify the processor the events.
  */
-DSP_STATUS PROC_NotifyClients(DSP_HPROCESSOR hProc, u32 uEvents)
+DSP_STATUS PROC_NotifyClients(void *hProc, u32 uEvents)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProc;
@@ -1819,7 +1819,7 @@ DSP_STATUS PROC_NotifyClients(DSP_HPROCESSOR hProc, u32 uEvents)
  *      Notify the processor the events. This includes notifying all clients
  *      attached to a particulat DSP.
  */
-DSP_STATUS PROC_NotifyAllClients(DSP_HPROCESSOR hProc, u32 uEvents)
+DSP_STATUS PROC_NotifyAllClients(void *hProc, u32 uEvents)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProc;
@@ -1847,7 +1847,7 @@ func_end:
  *  Purpose:
  *      Retrieves the processor ID.
  */
-DSP_STATUS PROC_GetProcessorId(DSP_HPROCESSOR hProc, u32 *procID)
+DSP_STATUS PROC_GetProcessorId(void *hProc, u32 *procID)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProc;

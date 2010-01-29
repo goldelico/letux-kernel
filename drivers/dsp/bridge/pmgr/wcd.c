@@ -573,7 +573,7 @@ u32 MGRWRAP_GetProcessResourcesInfo(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 PROCWRAP_Attach(union Trapped_Args *args, void *pr_ctxt)
 {
-	DSP_HPROCESSOR processor;
+	void *processor;
 	DSP_STATUS status = DSP_SOK;
 	struct DSP_PROCESSORATTRIN attrIn, *pAttrIn = NULL;
 

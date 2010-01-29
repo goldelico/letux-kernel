@@ -160,7 +160,7 @@
  *      hDevObject != NULL
  *  Ensures:
  */
-	extern DSP_STATUS CMM_GetHandle(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS CMM_GetHandle(void *hProcessor,
 					OUT struct CMM_OBJECT **phCmmMgr);
 
 /*

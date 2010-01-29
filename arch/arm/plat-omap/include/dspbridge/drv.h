@@ -133,7 +133,7 @@ struct PROCESS_CONTEXT{
 	enum GPP_PROC_RES_STATE resState;
 
 	/* Handle to Processor */
-	DSP_HPROCESSOR hProcessor;
+	void *hProcessor;
 
 	/* DSP Node resources */
 	struct NODE_RES_OBJECT *pNodeList;

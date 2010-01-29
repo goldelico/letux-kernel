@@ -943,14 +943,14 @@ DSP_STATUS DEV_NotifyClients(struct DEV_OBJECT *hDevObject, u32 ulStatus)
 	DSP_STATUS status = DSP_SOK;
 
 	struct DEV_OBJECT *pDevObject = hDevObject;
-	DSP_HPROCESSOR hProcObject;
+	void *hProcObject;
 
 	GT_2trace(debugMask, GT_ENTER,
 		 "Entered DEV_NotifyClients, hDevObject: 0x%x\n"
 		 "\t\tulStatus: 0x%x\n", hDevObject, ulStatus);
-	for (hProcObject = (DSP_HPROCESSOR)LST_First(pDevObject->procList);
+	for (hProcObject = (void *)LST_First(pDevObject->procList);
 		hProcObject != NULL;
-		hProcObject = (DSP_HPROCESSOR)LST_Next(pDevObject->procList,
+		hProcObject = (void *)LST_Next(pDevObject->procList,
 					(struct list_head *)hProcObject))
 		PROC_NotifyClients(hProcObject, (u32) ulStatus);
 

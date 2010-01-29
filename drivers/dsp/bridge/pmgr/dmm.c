@@ -256,7 +256,7 @@ void DMM_Exit(void)
  *      Return the dynamic memory manager object for this device.
  *      This is typically called from the client process.
  */
-DSP_STATUS DMM_GetHandle(DSP_HPROCESSOR hProcessor,
+DSP_STATUS DMM_GetHandle(void *hProcessor,
 			OUT struct DMM_OBJECT **phDmmMgr)
 {
 	DSP_STATUS status = DSP_SOK;

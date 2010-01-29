@@ -457,7 +457,7 @@ DSP_STATUS CMM_FreeBuf(struct CMM_OBJECT *hCmmMgr, void *pBufPA, u32 ulSegId)
  *      Return the communication memory manager object for this device.
  *      This is typically called from the client process.
  */
-DSP_STATUS CMM_GetHandle(DSP_HPROCESSOR hProcessor,
+DSP_STATUS CMM_GetHandle(void *hProcessor,
 			OUT struct CMM_OBJECT **phCmmMgr)
 {
 	DSP_STATUS status = DSP_SOK;
