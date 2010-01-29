@@ -109,6 +109,10 @@ static int sr_clk_enable(struct omap_sr *sr)
 		return -1;
 	}
 
+	if (cpu_is_omap3630())
+		sr_modify_reg(sr, ERRCONFIG, SR_IDLEMODE_MASK,
+				SR_SMART_IDLE);
+	else
 	/* set fclk- active , iclk- idle */
 	sr_modify_reg(sr, ERRCONFIG, SR_CLKACTIVITY_MASK,
 		      SR_CLKACTIVITY_IOFF_FON);
@@ -118,6 +122,10 @@ static int sr_clk_enable(struct omap_sr *sr)
 
 static void sr_clk_disable(struct omap_sr *sr)
 {
+	if (cpu_is_omap3630())
+		sr_modify_reg(sr, ERRCONFIG, SR_IDLEMODE_MASK,
+		SR_FORCE_IDLE);
+	else
 	/* set fclk, iclk- idle */
 	sr_modify_reg(sr, ERRCONFIG, SR_CLKACTIVITY_MASK,
 		      SR_CLKACTIVITY_IOFF_FOFF);
@@ -306,26 +314,54 @@ static void sr_set_efuse_nvalues(struct omap_sr *sr)
 static void sr_set_testing_nvalues(struct omap_sr *sr)
 {
 	if (sr->srid == SR1) {
+		if (cpu_is_omap3630()) {
+			sr->senp_mod = 0x1;
+			sr->senn_mod = 0x1;
+
+			/* calculate nvalues for each opp */
+			sr->opp1_nvalue = cal_test_nvalue(783, 677);
+			sr->opp2_nvalue = cal_test_nvalue(1099, 939);
+			sr->opp3_nvalue = cal_test_nvalue(1480, 1281);
+			sr->opp4_nvalue = cal_test_nvalue(1696, 1494);
+		} else {
 		sr->senp_mod = 0x03;	/* SenN-M5 enabled */
 		sr->senn_mod = 0x03;
 
 		/* calculate nvalues for each opp */
-		sr->opp5_nvalue = cal_test_nvalue(0xacd + 0x330, 0x848 + 0x330);
-		sr->opp4_nvalue = cal_test_nvalue(0x964 + 0x2a0, 0x727 + 0x2a0);
-		sr->opp3_nvalue = cal_test_nvalue(0x85b + 0x200, 0x655 + 0x200);
-		sr->opp2_nvalue = cal_test_nvalue(0x506 + 0x1a0, 0x3be + 0x1a0);
-		sr->opp1_nvalue = cal_test_nvalue(0x373 + 0x100, 0x28c + 0x100);
+			sr->opp1_nvalue = cal_test_nvalue(0x373 + 0x100,
+							0x28c + 0x100);
+			sr->opp2_nvalue = cal_test_nvalue(0x506 + 0x1a0,
+							0x3be + 0x1a0);
+			sr->opp3_nvalue = cal_test_nvalue(0x85b + 0x200,
+							0x655 + 0x200);
+			sr->opp4_nvalue = cal_test_nvalue(0x964 + 0x2a0,
+							0x727 + 0x2a0);
+			sr->opp5_nvalue = cal_test_nvalue(0xacd + 0x330,
+							0x848 + 0x330);
+		}
 		if (sr->opp5_nvalue) {
 			sr->opp6_nvalue = calculate_opp_nvalue(sr->opp5_nvalue,
 			227, 379);
 		}
 	} else if (sr->srid == SR2) {
-		sr->senp_mod = 0x03;
-		sr->senn_mod = 0x03;
+		if (cpu_is_omap3630()) {
+			sr->senp_mod = 0x1;
+			sr->senn_mod = 0x1;
 
-		sr->opp3_nvalue = cal_test_nvalue(0x76f + 0x200, 0x579 + 0x200);
-		sr->opp2_nvalue = cal_test_nvalue(0x4f5 + 0x1c0, 0x390 + 0x1c0);
-		sr->opp1_nvalue = cal_test_nvalue(0x359, 0x25d);
+			sr->opp1_nvalue = 0;
+			sr->opp2_nvalue = cal_test_nvalue(962, 828);
+
+		} else {
+			sr->senp_mod = 0x03;
+			sr->senn_mod = 0x03;
+
+			sr->opp1_nvalue = cal_test_nvalue(0x359, 0x25d);
+			sr->opp2_nvalue = cal_test_nvalue(0x4f5 + 0x1c0,
+							0x390 + 0x1c0);
+			sr->opp3_nvalue = cal_test_nvalue(0x76f + 0x200,
+							0x579 + 0x200);
+		}
+
 	}
 
 }
@@ -456,38 +492,78 @@ static void sr_configure(struct omap_sr *sr, u32 target_opp)
 	senp_en = sr->senp_mod;
 	senn_en = sr->senn_mod;
 	if (sr->srid == SR1) {
-		sr_config = SR1_SRCONFIG_ACCUMDATA |
+		if (cpu_is_omap3630()) {
+			sr_config = SR1_SRCONFIG_ACCUMDATA |
 			(sr->clk_length << SRCONFIG_SRCLKLENGTH_SHIFT) |
 			SRCONFIG_SENENABLE | SRCONFIG_ERRGEN_EN |
-			(senn_en << SRCONFIG_SENNENABLE_SHIFT) |
-			(senp_en << SRCONFIG_SENPENABLE_SHIFT) |
-			SRCONFIG_DELAYCTRL;
+			(senn_en << SRCONFIG_SENNENABLE_SHIFT_36XX) |
+			(senp_en << SRCONFIG_SENPENABLE_SHIFT_36XX);
 
-		sr_write_reg(sr, SRCONFIG, sr_config);
-		sr_write_reg(sr, AVGWEIGHT, SR1_AVGWEIGHT_SENPAVGWEIGHT |
-					SR1_AVGWEIGHT_SENNAVGWEIGHT);
+			sr_write_reg(sr, SRCONFIG, sr_config);
+			sr_write_reg(sr, AVGWEIGHT,
+				SR1_AVGWEIGHT_SENPAVGWEIGHT |
+				SR1_AVGWEIGHT_SENNAVGWEIGHT);
 
-		sr_modify_reg(sr, ERRCONFIG, (SR_ERRWEIGHT_MASK |
+			sr_modify_reg(sr, ERRCONFIG_36XX, (SR_ERRWEIGHT_MASK |
 			SR_ERRMAXLIMIT_MASK | SR_ERRMINLIMIT_MASK),
 			(SR1_ERRWEIGHT | SR1_ERRMAXLIMIT |
 			((target_opp < VDD1_OPP3) ? SR1_ERRMINLIMIT_OPPLOW
 			: SR1_ERRMINLIMIT_OPPHIGH)));
-	} else if (sr->srid == SR2) {
-		sr_config = SR2_SRCONFIG_ACCUMDATA |
+		} else {
+			sr_config = SR1_SRCONFIG_ACCUMDATA |
 			(sr->clk_length << SRCONFIG_SRCLKLENGTH_SHIFT) |
 			SRCONFIG_SENENABLE | SRCONFIG_ERRGEN_EN |
 			(senn_en << SRCONFIG_SENNENABLE_SHIFT) |
 			(senp_en << SRCONFIG_SENPENABLE_SHIFT) |
 			SRCONFIG_DELAYCTRL;
 
-		sr_write_reg(sr, SRCONFIG, sr_config);
-		sr_write_reg(sr, AVGWEIGHT, SR2_AVGWEIGHT_SENPAVGWEIGHT |
+			sr_write_reg(sr, SRCONFIG, sr_config);
+			sr_write_reg(sr, AVGWEIGHT,
+					SR1_AVGWEIGHT_SENPAVGWEIGHT |
+					SR1_AVGWEIGHT_SENNAVGWEIGHT);
+
+			sr_modify_reg(sr, ERRCONFIG, (SR_ERRWEIGHT_MASK |
+			SR_ERRMAXLIMIT_MASK | SR_ERRMINLIMIT_MASK),
+			(SR1_ERRWEIGHT | SR1_ERRMAXLIMIT |
+			((target_opp < VDD1_OPP3) ? SR1_ERRMINLIMIT_OPPLOW
+			: SR1_ERRMINLIMIT_OPPHIGH)));
+		}
+	} else if (sr->srid == SR2) {
+		if (cpu_is_omap3630()) {
+			sr_config = SR2_SRCONFIG_ACCUMDATA |
+			(sr->clk_length << SRCONFIG_SRCLKLENGTH_SHIFT) |
+			SRCONFIG_SENENABLE | SRCONFIG_ERRGEN_EN |
+			(senn_en << SRCONFIG_SENNENABLE_SHIFT_36XX) |
+			(senp_en << SRCONFIG_SENPENABLE_SHIFT_36XX);
+
+			sr_write_reg(sr, SRCONFIG, sr_config);
+			sr_write_reg(sr, AVGWEIGHT,
+					SR2_AVGWEIGHT_SENPAVGWEIGHT |
 					SR2_AVGWEIGHT_SENNAVGWEIGHT);
-		sr_modify_reg(sr, ERRCONFIG, (SR_ERRWEIGHT_MASK |
+			sr_modify_reg(sr, ERRCONFIG_36XX, (SR_ERRWEIGHT_MASK |
 			SR_ERRMAXLIMIT_MASK | SR_ERRMINLIMIT_MASK),
 			(SR2_ERRWEIGHT | SR2_ERRMAXLIMIT |
 			((target_opp < VDD2_OPP3) ? SR2_ERRMINLIMIT_OPPLOW
 			: SR2_ERRMINLIMIT_OPPHIGH)));
+
+		} else {
+			sr_config = SR2_SRCONFIG_ACCUMDATA |
+			(sr->clk_length << SRCONFIG_SRCLKLENGTH_SHIFT) |
+			SRCONFIG_SENENABLE | SRCONFIG_ERRGEN_EN |
+			(senn_en << SRCONFIG_SENNENABLE_SHIFT) |
+			(senp_en << SRCONFIG_SENPENABLE_SHIFT) |
+			SRCONFIG_DELAYCTRL;
+
+			sr_write_reg(sr, SRCONFIG, sr_config);
+			sr_write_reg(sr, AVGWEIGHT,
+					SR2_AVGWEIGHT_SENPAVGWEIGHT |
+					SR2_AVGWEIGHT_SENNAVGWEIGHT);
+			sr_modify_reg(sr, ERRCONFIG, (SR_ERRWEIGHT_MASK |
+			SR_ERRMAXLIMIT_MASK | SR_ERRMINLIMIT_MASK),
+			(SR2_ERRWEIGHT | SR2_ERRMAXLIMIT |
+			((target_opp < VDD2_OPP3) ? SR2_ERRMINLIMIT_OPPLOW
+			: SR2_ERRMINLIMIT_OPPHIGH)));
+		}
 	}
 	sr->is_sr_reset = 0;
 }
@@ -615,20 +691,27 @@ static int sr_enable(struct omap_sr *sr, u32 target_opp_no)
 	}
 
 	if (nvalue_reciprocal == 0) {
-		pr_notice("OPP%d doesn't support SmartReflex\n",
+		pr_notice("OPP%d doesn't support SmartReflex \n",
 								target_opp_no);
 		return false;
 	}
 
 	sr_write_reg(sr, NVALUERECIPROCAL, nvalue_reciprocal);
-
+	if (cpu_is_omap3630()) {
+		/* Enable the interrupt */
+		sr_modify_reg(sr, ERRCONFIG_36XX,
+				(ERRCONFIG_VPBOUNDINTEN_36XX |
+				ERRCONFIG_VPBOUNDINTST_36XX),
+				(ERRCONFIG_VPBOUNDINTEN_36XX |
+				ERRCONFIG_VPBOUNDINTST_36XX));
+	} else {
 	/* Enable the interrupt */
 	sr_modify_reg(sr, ERRCONFIG,
 			(ERRCONFIG_VPBOUNDINTEN | ERRCONFIG_VPBOUNDINTST |
 			ERRCONFIG_MCUBOUNDINTEN | ERRCONFIG_MCUBOUNDINTST),
 			(ERRCONFIG_VPBOUNDINTEN | ERRCONFIG_VPBOUNDINTST |
 			ERRCONFIG_MCUBOUNDINTEN | ERRCONFIG_MCUBOUNDINTST));
-
+	}
 	if (sr->srid == SR1) {
 		/* set/latch init voltage */
 		v = prm_read_mod_reg(OMAP3430_GR_MOD,
@@ -1173,8 +1256,9 @@ static irqreturn_t sr_omap_irq(int irq, void *dev_id)
 	if (dev_id == &sr2)
 		try_change_ret_volt(dev_id, &vp2_volt);
 
-	sr_modify_reg(dev_id, ERRCONFIG, ERRCONFIG_MCUBOUNDINTST,
-			ERRCONFIG_MCUBOUNDINTST);
+	if (cpu_is_omap34xx())
+		sr_modify_reg(dev_id, ERRCONFIG, ERRCONFIG_MCUBOUNDINTST,
+				ERRCONFIG_MCUBOUNDINTST);
 
 	/* Flush posted writes to avoid spurious IRQ */
 	sr_read_reg(dev_id, ERRCONFIG);
