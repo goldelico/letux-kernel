@@ -45,6 +45,7 @@
 #include <mach/gpmc.h>
 #include <mach/dma.h>
 #include <mach/dmtimer.h>
+#include <mach/usb.h>
 
 #include <asm/tlbflush.h>
 
@@ -571,6 +572,12 @@ void omap_sram_idle(void)
 			 */
 			if (core_prev_state == PWRDM_POWER_RET)
 				omap3_scratchpad_dpll4autoidle(0);
+			/*
+			 * Errata 1.164 fix : OTG autoidle can prevent
+			 * sleep
+			 */
+			usb_musb_disable_autoidle();
+
 		}
 		omap_uart_resume_idle(0);
 		omap_uart_resume_idle(1);

@@ -45,6 +45,10 @@ static inline void usb_ohci_init(void)
 }
 #endif	/* !OMAP1 && !OHCI */
 
+/* This is needed for OMAP3 errata 1.164: enabled autoidle can prevent sleep */
+extern void usb_musb_disable_autoidle(void);
+
+
 #endif	/* !OMAP1 */
 
 void omap_usb_init(struct omap_usb_config *pdata);
