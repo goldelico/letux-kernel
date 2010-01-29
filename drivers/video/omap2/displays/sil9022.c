@@ -1207,7 +1207,7 @@ sil9022_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	return 0;
 ERROR1:
-	kfree(client);
+	kfree(sil9022_client);
 ERROR0:
 	return err;
 }
