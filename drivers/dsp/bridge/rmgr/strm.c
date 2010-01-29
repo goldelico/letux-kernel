@@ -498,7 +498,7 @@ DSP_STATUS STRM_Open(struct NODE_OBJECT *hNode, u32 uDir, u32 uIndex,
 	struct WMD_DRV_INTERFACE *pIntfFxns;
 	u32 ulChnlId;
 	struct STRM_OBJECT *pStrm = NULL;
-	CHNL_MODE uMode;
+	short int uMode;
 	struct CHNL_ATTRS chnlAttrs;
 	DSP_STATUS status = DSP_SOK;
 	struct CMM_OBJECT *hCmmMgr = NULL;	/* Shared memory manager hndl */

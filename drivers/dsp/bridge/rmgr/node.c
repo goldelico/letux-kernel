@@ -887,7 +887,7 @@ DSP_STATUS NODE_Connect(struct NODE_OBJECT *hNode1, u32 uStream1,
 	struct STREAM *pStream;
 	GB_BitNum pipeId = GB_NOBITS;
 	GB_BitNum chnlId = GB_NOBITS;
-	CHNL_MODE uMode;
+	short int uMode;
 	u32 dwLength;
 	DSP_STATUS status = DSP_SOK;
 	DBC_Require(cRefs > 0);

@@ -252,7 +252,7 @@ DSP_STATUS WMD_CHNL_CancelIO(struct CHNL_OBJECT *hChnl)
 	DSP_STATUS status = DSP_SOK;
 	struct CHNL_OBJECT *pChnl = (struct CHNL_OBJECT *)hChnl;
 	u32 iChnl = -1;
-	CHNL_MODE uMode;
+	short int uMode;
 	struct CHNL_IRP *pChirp;
 	struct CHNL_MGR *pChnlMgr = NULL;
 
@@ -482,7 +482,7 @@ DSP_STATUS WMD_CHNL_FlushIO(struct CHNL_OBJECT *hChnl, u32 dwTimeOut)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct CHNL_OBJECT *pChnl = (struct CHNL_OBJECT *)hChnl;
-	CHNL_MODE uMode = -1;
+	short int uMode = -1;
 	struct CHNL_MGR *pChnlMgr;
 	struct CHNL_IOC chnlIOC;
 	/* Check args:  */
@@ -755,7 +755,7 @@ DSP_STATUS WMD_CHNL_GetMgrInfo(struct CHNL_MGR *hChnlMgr, u32 uChnlID,
 DSP_STATUS WMD_CHNL_Idle(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 			 bool fFlush)
 {
-	CHNL_MODE uMode;
+	short int uMode;
 	struct CHNL_MGR *pChnlMgr;
 	DSP_STATUS status = DSP_SOK;
 
@@ -783,7 +783,7 @@ DSP_STATUS WMD_CHNL_Idle(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
  *      Open a new half-duplex channel to the DSP board.
  */
 DSP_STATUS WMD_CHNL_Open(OUT struct CHNL_OBJECT **phChnl,
-			 struct CHNL_MGR *hChnlMgr, CHNL_MODE uMode,
+			 struct CHNL_MGR *hChnlMgr, short int uMode,
 			 u32 uChnlId, CONST IN struct CHNL_ATTRS *pAttrs)
 {
 	DSP_STATUS status = DSP_SOK;

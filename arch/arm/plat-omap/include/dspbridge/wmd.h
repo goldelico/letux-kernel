@@ -418,7 +418,7 @@ typedef DSP_STATUS(*WMD_BRD_WRITE)(struct WMD_DEV_CONTEXT *hDevContext,
        typedef DSP_STATUS(*WMD_CHNL_OPEN) (OUT struct CHNL_OBJECT
 						   **phChnl,
 						   struct CHNL_MGR *hChnlMgr,
-						   CHNL_MODE uMode,
+						   short int uMode,
 						   u32 uChnlId,
 						   CONST IN OPTIONAL struct
 						   CHNL_ATTRS *pAttrs);
