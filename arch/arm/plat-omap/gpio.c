@@ -529,7 +529,7 @@ void omap_set_gpio_debounce(int gpio, int enable)
 {
 	struct gpio_bank *bank;
 	void __iomem *reg;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 	u32 val, l = 1 << get_gpio_index(gpio);
 
 	if (cpu_class_is_omap1())
@@ -709,7 +709,7 @@ static int gpio_irq_type(unsigned irq, unsigned type)
 	struct gpio_bank *bank;
 	unsigned gpio;
 	int retval;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	if (!cpu_class_is_omap2() && irq > IH_MPUIO_BASE)
 		gpio = OMAP_MPUIO(irq - IH_MPUIO_BASE);
@@ -926,7 +926,7 @@ static inline void _set_gpio_irqenable(struct gpio_bank *bank, int gpio, int ena
  */
 static int _set_gpio_wakeup(struct gpio_bank *bank, int gpio, int enable)
 {
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	switch (bank->method) {
 #ifdef CONFIG_ARCH_OMAP16XX
@@ -989,7 +989,7 @@ static int gpio_wake_enable(unsigned int irq, unsigned int enable)
 static int omap_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
 	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	spin_lock_irqsave(&bank->lock, flags);
 
@@ -1015,7 +1015,7 @@ static int omap_gpio_request(struct gpio_chip *chip, unsigned offset)
 static void omap_gpio_free(struct gpio_chip *chip, unsigned offset)
 {
 	struct gpio_bank *bank = container_of(chip, struct gpio_bank, chip);
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	spin_lock_irqsave(&bank->lock, flags);
 #ifdef CONFIG_ARCH_OMAP16XX
@@ -1234,7 +1234,7 @@ static int omap_mpuio_suspend_late(struct platform_device *pdev, pm_message_t me
 {
 	struct gpio_bank	*bank = platform_get_drvdata(pdev);
 	void __iomem		*mask_reg = bank->base + OMAP_MPUIO_GPIO_MASKIT;
-	unsigned long		flags;
+	unsigned long		uninitialized_var(flags);
 
 	spin_lock_irqsave(&bank->lock, flags);
 	bank->saved_wakeup = __raw_readl(mask_reg);
@@ -1248,7 +1248,7 @@ static int omap_mpuio_resume_early(struct platform_device *pdev)
 {
 	struct gpio_bank	*bank = platform_get_drvdata(pdev);
 	void __iomem		*mask_reg = bank->base + OMAP_MPUIO_GPIO_MASKIT;
-	unsigned long		flags;
+	unsigned long		uninitialized_var(flags);
 
 	spin_lock_irqsave(&bank->lock, flags);
 	__raw_writel(bank->saved_wakeup, mask_reg);
@@ -1307,7 +1307,7 @@ static inline void mpuio_init(void) {}
 static int gpio_input(struct gpio_chip *chip, unsigned offset)
 {
 	struct gpio_bank *bank;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	bank = container_of(chip, struct gpio_bank, chip);
 	spin_lock_irqsave(&bank->lock, flags);
@@ -1324,7 +1324,7 @@ static int gpio_get(struct gpio_chip *chip, unsigned offset)
 static int gpio_output(struct gpio_chip *chip, unsigned offset, int value)
 {
 	struct gpio_bank *bank;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	bank = container_of(chip, struct gpio_bank, chip);
 	spin_lock_irqsave(&bank->lock, flags);
@@ -1337,7 +1337,7 @@ static int gpio_output(struct gpio_chip *chip, unsigned offset, int value)
 static void gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 {
 	struct gpio_bank *bank;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	bank = container_of(chip, struct gpio_bank, chip);
 	spin_lock_irqsave(&bank->lock, flags);
@@ -1670,7 +1670,7 @@ static int omap_gpio_suspend(struct sys_device *dev, pm_message_t mesg)
 		void __iomem *wake_status;
 		void __iomem *wake_clear;
 		void __iomem *wake_set;
-		unsigned long flags;
+		unsigned long uninitialized_var(flags);
 
 		switch (bank->method) {
 #ifdef CONFIG_ARCH_OMAP16XX
@@ -1732,7 +1732,7 @@ static int omap_gpio_resume(struct sys_device *dev)
 		struct gpio_bank *bank = &gpio_bank[i];
 		void __iomem *wake_clear;
 		void __iomem *wake_set;
-		unsigned long flags;
+		unsigned long uninitialized_var(flags);
 
 		switch (bank->method) {
 #ifdef CONFIG_ARCH_OMAP16XX

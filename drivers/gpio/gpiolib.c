@@ -140,7 +140,7 @@ static int gpiochip_find_base(int ngpio)
 int __init gpiochip_reserve(int start, int ngpio)
 {
 	int ret = 0;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 	int i;
 
 	if (!gpio_is_valid(start) || !gpio_is_valid(start + ngpio - 1))
@@ -435,7 +435,7 @@ static struct class gpio_class = {
  */
 int gpio_export(unsigned gpio, bool direction_may_change)
 {
-	unsigned long		flags;
+	unsigned long		uninitialized_var(flags);
 	struct gpio_desc	*desc;
 	int			status = -EINVAL;
 
@@ -559,7 +559,7 @@ static int gpiochip_export(struct gpio_chip *chip)
 	mutex_unlock(&sysfs_lock);
 
 	if (status) {
-		unsigned long	flags;
+		unsigned long	uninitialized_var(flags);
 		unsigned	gpio;
 
 		spin_lock_irqsave(&gpio_lock, flags);
@@ -599,7 +599,7 @@ static void gpiochip_unexport(struct gpio_chip *chip)
 static int __init gpiolib_sysfs_init(void)
 {
 	int		status;
-	unsigned long	flags;
+	unsigned long	uninitialized_var(flags);
 	unsigned	gpio;
 
 	status = class_register(&gpio_class);
@@ -662,7 +662,7 @@ static inline void gpiochip_unexport(struct gpio_chip *chip)
  */
 int gpiochip_add(struct gpio_chip *chip)
 {
-	unsigned long	flags;
+	unsigned long	uninitialized_var(flags);
 	int		status = 0;
 	unsigned	id;
 	int		base = chip->base;
@@ -729,7 +729,7 @@ EXPORT_SYMBOL_GPL(gpiochip_add);
  */
 int gpiochip_remove(struct gpio_chip *chip)
 {
-	unsigned long	flags;
+	unsigned long	uninitialized_var(flags);
 	int		status = 0;
 	unsigned	id;
 
@@ -765,7 +765,7 @@ int gpio_request(unsigned gpio, const char *label)
 	struct gpio_desc	*desc;
 	struct gpio_chip	*chip;
 	int			status = -EINVAL;
-	unsigned long		flags;
+	unsigned long		uninitialized_var(flags);
 
 	spin_lock_irqsave(&gpio_lock, flags);
 
@@ -816,7 +816,7 @@ EXPORT_SYMBOL_GPL(gpio_request);
 
 void gpio_free(unsigned gpio)
 {
-	unsigned long		flags;
+	unsigned long		uninitialized_var(flags);
 	struct gpio_desc	*desc;
 	struct gpio_chip	*chip;
 
@@ -892,7 +892,7 @@ EXPORT_SYMBOL_GPL(gpiochip_is_requested);
 
 int gpio_direction_input(unsigned gpio)
 {
-	unsigned long		flags;
+	unsigned long		uninitialized_var(flags);
 	struct gpio_chip	*chip;
 	struct gpio_desc	*desc = &gpio_desc[gpio];
 	int			status = -EINVAL;
@@ -945,7 +945,7 @@ EXPORT_SYMBOL_GPL(gpio_direction_input);
 
 int gpio_direction_output(unsigned gpio, int value)
 {
-	unsigned long		flags;
+	unsigned long		uninitialized_var(flags);
 	struct gpio_chip	*chip;
 	struct gpio_desc	*desc = &gpio_desc[gpio];
 	int			status = -EINVAL;
