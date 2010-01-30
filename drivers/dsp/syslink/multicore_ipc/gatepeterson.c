@@ -554,8 +554,10 @@ int gatepeterson_open(void **gphandle,
 		goto exit;
 	}
 
-	if (gatepeterson_inc_refcount(params, &temp))
+	if (gatepeterson_inc_refcount(params, &temp)) {
+		retval = -EBUSY;
 		goto exit; /* It's already opened from local processor */
+	}
 
 	if (unlikely(params->shared_addr == NULL)) {
 		if (likely(gatepeterson_state.cfg.use_nameserver == true &&
@@ -578,20 +580,21 @@ int gatepeterson_open(void **gphandle,
 	if (unlikely(((struct gatepeterson_attrs *)sharedaddr)->status !=
 						GATEPETERSON_CREATED)) {
 		retval = -ENXIO; /* Not created */
-		goto noentry_fail;
+		goto exit;
 	}
 
 	if (unlikely(((struct gatepeterson_attrs *)sharedaddr)->version !=
 						GATEPETERSON_VERSION)) {
 		retval = -ENXIO; /* FIXME Version mismatch,
 					need to change retval */
-		goto noentry_fail;
+		goto exit;
 	}
 
 	*gphandle = _gatepeterson_create(params, false);
 	return 0;
 
 noentry_fail: /* Fall through */
+	retval = -ENOENT;
 exit:
 	printk(KERN_ERR "gatepeterson_open failed status: %x\n", retval);
 	return retval;
@@ -951,10 +954,10 @@ obj_alloc_fail:
 
 exit:
 	if (create_flag == true)
-		printk(KERN_ERR "gatepeterson_create failed status: %x\n",
+		printk(KERN_ERR "_gatepeterson_create (create) failed status: %x\n",
 				retval);
 	else
-		printk(KERN_ERR "gatepeterson_open failed status: %x\n",
+		printk(KERN_ERR "_gatepeterson_create (open) failed status: %x\n",
 				retval);
 
 	return NULL;
