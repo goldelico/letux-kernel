@@ -1518,6 +1518,22 @@ func_cont:
 	return status;
 }
 
+
+bool validate_strm_handle(struct STRM_OBJECT *hStrm, void *pr_ctxt)
+{
+	bool retVal = false;
+	struct PROCESS_CONTEXT *pCtxt = pr_ctxt;
+	struct STRM_RES_OBJECT *pStrm = pCtxt->pSTRMList;
+
+	while (pStrm && !retVal) {
+		if (hStrm == pStrm->hStream)
+			retVal = true;
+		pStrm = pStrm->next;
+	}
+
+	return retVal;
+}
+
 /*
  * ======== STRMWRAP_AllocateBuffer ========
  */
@@ -1526,6 +1542,10 @@ u32 STRMWRAP_AllocateBuffer(union Trapped_Args *args, void *pr_ctxt)
 	DSP_STATUS status;
 	u8 **apBuffer = NULL;
 	u32 uNumBufs = args->ARGS_STRM_ALLOCATEBUFFER.uNumBufs;
+
+	if (!validate_strm_handle(args->ARGS_STRM_ALLOCATEBUFFER.hStream,
+		pr_ctxt))
+		return DSP_EHANDLE;
 
 	if (uNumBufs > MAX_BUFS)
 		return DSP_EINVALIDARG;
@@ -1556,6 +1576,9 @@ u32 STRMWRAP_AllocateBuffer(union Trapped_Args *args, void *pr_ctxt)
  */
 u32 STRMWRAP_Close(union Trapped_Args *args, void *pr_ctxt)
 {
+	if (!validate_strm_handle(args->ARGS_STRM_CLOSE.hStream, pr_ctxt))
+		return DSP_EHANDLE;
+
 	return STRM_Close(args->ARGS_STRM_CLOSE.hStream, pr_ctxt);
 }
 
@@ -1567,6 +1590,9 @@ u32 STRMWRAP_FreeBuffer(union Trapped_Args *args, void *pr_ctxt)
 	DSP_STATUS status = DSP_SOK;
 	u8 **apBuffer = NULL;
 	u32 uNumBufs = args->ARGS_STRM_FREEBUFFER.uNumBufs;
+
+	if (!validate_strm_handle(args->ARGS_STRM_FREEBUFFER.hStream, pr_ctxt))
+		return DSP_EHANDLE;
 
 	if (uNumBufs > MAX_BUFS)
 		return DSP_EINVALIDARG;
@@ -1606,6 +1632,9 @@ u32 STRMWRAP_GetInfo(union Trapped_Args *args, void *pr_ctxt)
 	struct DSP_STREAMINFO user;
 	struct DSP_STREAMINFO *temp;
 
+	if (!validate_strm_handle(args->ARGS_STRM_GETINFO.hStream, pr_ctxt))
+		return DSP_EHANDLE;
+
 	cp_fm_usr(&strmInfo, args->ARGS_STRM_GETINFO.pStreamInfo, status, 1);
 	temp = strmInfo.pUser;
 
@@ -1628,6 +1657,9 @@ u32 STRMWRAP_Idle(union Trapped_Args *args, void *pr_ctxt)
 {
 	u32 retVal;
 
+	if (!validate_strm_handle(args->ARGS_STRM_IDLE.hStream, pr_ctxt))
+		return DSP_EHANDLE;
+
 	retVal = STRM_Idle(args->ARGS_STRM_IDLE.hStream,
 			args->ARGS_STRM_IDLE.bFlush);
 
@@ -1640,6 +1672,9 @@ u32 STRMWRAP_Idle(union Trapped_Args *args, void *pr_ctxt)
 u32 STRMWRAP_Issue(union Trapped_Args *args, void *pr_ctxt)
 {
 	DSP_STATUS status = DSP_SOK;
+
+	if (!validate_strm_handle(args->ARGS_STRM_ISSUE.hStream, pr_ctxt))
+		return DSP_EHANDLE;
 
 	if (!args->ARGS_STRM_ISSUE.pBuffer)
 		return DSP_EPOINTER;
@@ -1700,6 +1735,9 @@ u32 STRMWRAP_Reclaim(union Trapped_Args *args, void *pr_ctxt)
 	u32 dwArg;
 	u32 ulBufSize;
 
+	if (!validate_strm_handle(args->ARGS_STRM_RECLAIM.hStream, pr_ctxt))
+		return DSP_EHANDLE;
+
 	status = STRM_Reclaim(args->ARGS_STRM_RECLAIM.hStream, &pBufPtr,
 			     &ulBytes, &ulBufSize, &dwArg);
 	cp_to_usr(args->ARGS_STRM_RECLAIM.pBufPtr, &pBufPtr, status, 1);
@@ -1724,6 +1762,10 @@ u32 STRMWRAP_RegisterNotify(union Trapped_Args *args, void *pr_ctxt)
 
 	GT_0trace(WCD_debugMask, GT_ENTER,
 		 "NODEWRAP_RegisterNotify: entered\n");
+
+	if (!validate_strm_handle(args->ARGS_STRM_REGISTERNOTIFY.hStream,
+		pr_ctxt))
+		return DSP_EHANDLE;
 
 	/* Initialize the notification data structure  */
 	notification.psName = NULL;
