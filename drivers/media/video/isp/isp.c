@@ -1308,10 +1308,6 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 		isph3a_aewb_enable(&isp->isp_h3a, 0);
 		isp_hist_enable(&isp->isp_hist, 0);
 	}
-	if (isp->pipeline.modules & OMAP_ISP_RESIZER)
-		ispresizer_enable(&isp->isp_res, 0);
-	if (isp->pipeline.modules & OMAP_ISP_PREVIEW)
-		isppreview_enable(&isp->isp_prev, 0);
 
 	timeout = jiffies + ISP_STOP_TIMEOUT;
 	while (isp_af_busy(&isp->isp_af)
@@ -1779,10 +1775,6 @@ static void isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 	} else {
 		/* Tell ISP not to write any of our buffers. */
 		isp_disable_interrupts(dev);
-		if (CCDC_PREV_CAPTURE(isp))
-			isppreview_enable(&isp->isp_prev, 0);
-		else if (CCDC_PREV_RESZ_CAPTURE(isp))
-			ispresizer_enable(&isp->isp_res, 0);
 	}
 
 	/* Mark the current buffer as done. */
