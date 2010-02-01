@@ -172,7 +172,7 @@ static int hdq_write(struct hdq_data *hdq_data, u8 val, u8 *status)
 {
 	int ret;
 	u8 tmp_status;
-	unsigned long irqflags;
+	unsigned long uninitialized_var(irqflags);
 
 	*status = 0;
 
@@ -222,7 +222,7 @@ out:
 static irqreturn_t hdq_isr(int irq, void *_hdq)
 {
 	struct hdq_data *hdq_data = _hdq;
-	unsigned long irqflags;
+	unsigned long uninitialized_var(irqflags);
 
 	spin_lock_irqsave(&hdq_data->hdq_spinlock, irqflags);
 	hdq_data->hdq_irqstatus = hdq_reg_in(hdq_data, OMAP_HDQ_INT_STATUS);
@@ -305,7 +305,7 @@ static int omap_hdq_break(struct hdq_data *hdq_data)
 {
 	int ret = 0;
 	u8 tmp_status;
-	unsigned long irqflags;
+	unsigned long uninitialized_var(irqflags);
 
 	ret = mutex_lock_interruptible(&hdq_data->hdq_mutex);
 	if (ret < 0) {
