@@ -5,6 +5,7 @@
 menuconfig MEDIA_SUPPORT
 	tristate "Multimedia support"
 	depends on HAS_IOMEM
+	default y
 	help
 	  If you want to use Video for Linux, DVB for Linux, or DAB adapters,
 	  enable this option and other options below.
@@ -19,6 +20,7 @@ comment "Multimedia core support"
 
 config VIDEO_DEV
 	tristate "Video For Linux"
+	default y
 	---help---
 	  V4L core support for video capture and overlay devices, webcams and
 	  AM/FM radio cards.

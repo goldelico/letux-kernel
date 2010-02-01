@@ -1,9 +1,9 @@
 config VIDEO_OMAP3_OUT
-	tristate "OMAP2/OMAP3 V4L2-DSS driver"
+	tristate "OMAP2/OMAP3/OMAP4 V4L2-DSS driver"
 	select VIDEOBUF_GEN
 	select VIDEOBUF_DMA_SG
 	select OMAP2_DSS
-	depends on VIDEO_DEV && (ARCH_OMAP24XX || ARCH_OMAP34XX)
+	depends on VIDEO_DEV && (ARCH_OMAP24XX || ARCH_OMAP34XX || ARCH_OMAP4)
 	default y
 	---help---
-        V4L2 DSS support for OMAP2/3 based boards.
+        V4L2 DSS support for OMAP2/3/4 based boards.

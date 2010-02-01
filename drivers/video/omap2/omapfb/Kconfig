@@ -2,6 +2,7 @@ menuconfig FB_OMAP2
         tristate "OMAP2/3 frame buffer support (EXPERIMENTAL)"
         depends on FB && OMAP2_DSS
 
+	default y
 	select OMAP2_VRAM
 	select OMAP2_VRFB
         select FB_CFB_FILLRECT

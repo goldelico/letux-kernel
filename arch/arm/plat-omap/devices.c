@@ -389,6 +389,28 @@ static inline void omap_init_wdt(void) {}
 
 #if defined(CONFIG_VIDEO_OMAP3_OUT) || \
 	defined(CONFIG_VIDEO_OMAP3_OUT_MODULE)
+#ifdef CONFIG_ARCH_OMAP4
+#ifdef CONFIG_FB_OMAP2
+static struct resource sdp4430_vout_resource[3 - CONFIG_FB_OMAP2_NUM_FBS] = {
+};
+#else
+static struct resource sdp4430_vout_resource[2] = {
+};
+#endif
+
+static struct platform_device sdp4430_vout_device = {
+        .name           = "omap_vout",
+        .num_resources  = ARRAY_SIZE(sdp4430_vout_resource),
+        .resource       = &sdp4430_vout_resource[0],
+        .id             = -1,
+};
+
+static void omap_init_vout(void)
+{
+        (void) platform_device_register(&sdp4430_vout_device);
+}
+
+#else /* CONFIG_ARCH_OMAP4 */
 #ifdef CONFIG_FB_OMAP2
 static struct resource omap3evm_vout_resource[3 - CONFIG_FB_OMAP2_NUM_FBS] = {
 };
@@ -407,6 +429,7 @@ static void omap_init_vout(void)
 {
 	(void) platform_device_register(&omap3evm_vout_device);
 }
+#endif /* CONFIG_ARCH_OMAP4 */
 #else
 static inline void omap_init_vout(void) {}
 #endif

@@ -354,11 +354,14 @@ static void omap_vout_vrfb_dma_tx_callback(int lch, u16 ch_status, void *data)
 /* Release the VRFB context once the module exits */
 static void omap_vout_release_vrfb(struct omap_vout_device *vout)
 {
+#ifndef CONFIG_ARCH_OMAP4
+/* TODO: this is temporary disabling of vrfb to test V4L2: needs to be
+   corrected for future
+*/
 	int i;
-
 	for (i = 0; i < 4; i++)
 		omap_vrfb_release_ctx(&vout->vrfb_context[i]);
-
+#endif
 	if (vout->vrfb_dma_tx.req_status == DMA_CHAN_ALLOTED) {
 		vout->vrfb_dma_tx.req_status = DMA_CHAN_NOT_ALLOTED;
 		omap_free_dma(vout->vrfb_dma_tx.dma_ch);
@@ -450,12 +453,17 @@ static int omap_vout_vrfb_buffer_setup(struct omap_vout_device *vout,
 	else
 		yuv_mode = false;
 
+#ifndef CONFIG_ARCH_OMAP4
+/* TODO: this is temporary disabling of vrfb to test V4L2: needs to be
+ corrected for future
+*/
 	for (i = 0; i < *count; i++) {
 		omap_vrfb_setup(&vout->vrfb_context[i],
 				vout->smsshado_phy_addr[i],
 				vout->pix.width, vout->pix.height,
 				vout->bpp, yuv_mode);
 	}
+#endif
 	return 0;
 }
 
@@ -836,16 +844,24 @@ static int omap_vout_buffer_setup(struct videobuf_queue *q, unsigned int *count,
 	if (V4L2_MEMORY_MMAP == vout->memory && *count < startindex)
 		*count = startindex;
 
+#if defined CONFIG_ARCH_OMAP4
+	vout->rotation = 0;
+	printk(KERN_WARNING VOUT_NAME
+		" setting rotation to 0 in buffer setup\n");
+#endif
 	if ((rotation_enabled(vout))
 			&& *count > 4)
 		*count = 4;
 
+#ifndef CONFIG_ARCH_OMAP4
+/* TODO: this is temporary disabling of vrfb to test V4L2: needs to be
+ corrected for future*/
 	/* If rotation is enabled, allocate memory for VRFB space also */
 	if (rotation_enabled(vout)) {
 		if (omap_vout_vrfb_buffer_setup(vout, count, startindex))
 			return -ENOMEM;
 	}
-
+#endif
 	if (V4L2_MEMORY_MMAP != vout->memory)
 		return 0;
 
@@ -923,13 +939,14 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 			    enum v4l2_field field)
 {
 	struct omap_vout_device *vout = q->priv_data;
+	struct videobuf_dmabuf *dmabuf = NULL;
+#ifndef CONFIG_ARCH_OMAP4
 	u32 dest_frame_index = 0, src_element_index = 0;
 	u32 dest_element_index = 0, src_frame_index = 0;
 	u32 elem_count = 0, frame_count = 0, pixsize = 2;
-	struct videobuf_dmabuf *dmabuf = NULL;
 	enum dss_rotation rotation;
 	struct vid_vrfb_dma *tx;
-
+#endif
 	if (VIDEOBUF_NEEDS_INIT == vb->state) {
 		vb->width = vout->pix.width;
 		vb->height = vout->pix.height;
@@ -961,6 +978,7 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 		vout->queued_buf_addr[vb->i] = (u8 *) dmabuf->bus_addr;
 		return 0;
 	}
+#ifndef CONFIG_ARCH_OMAP4
 	dmabuf = videobuf_to_dma(q->bufs[vb->i]);
 	/* If rotation is enabled, copy input buffer into VRFB
 	 * memory space using DMA. We are copying input buffer
@@ -1014,6 +1032,7 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 	 * from this array will be used to configure DSS */
 	vout->queued_buf_addr[vb->i] = (u8 *)
 		vout->vrfb_context[vb->i].paddr[rotation];
+#endif
 	return 0;
 }
 
@@ -1319,6 +1338,11 @@ static int vidioc_s_fmt_vid_out(struct file *file, void *fh,
 	}
 	timing = &ovl->manager->device->panel.timings;
 
+#ifdef CONFIG_ARCH_OMAP4
+	if (rotation_enabled(vout))
+		vout->rotation = -1;
+#endif
+/* TODO: check if TILER ADAPTATION is needed here. */
 	/* We dont support RGB24-packed mode if vrfb rotation
 	 * is enabled*/
 	if ((rotation_enabled(vout)) &&
@@ -1667,6 +1691,9 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	int ret = 0;
 	struct videobuf_dmabuf *dmabuf = NULL;
 
+	printk(KERN_INFO VOUT_NAME
+			"entered REQbuf: \n");
+
 	if ((req->type != V4L2_BUF_TYPE_VIDEO_OUTPUT) || (req->count < 0))
 		return -EINVAL;
 	/* if memory is not mmp or userptr
@@ -1748,8 +1775,12 @@ static int vidioc_qbuf(struct file *file, void *fh,
 	struct videobuf_queue *q = &vout->vbq;
 	int ret = 0;
 
+	printk(KERN_INFO VOUT_NAME
+		"entered qbuf: buffer address: %x \n", (unsigned int) buffer);
+
 	if ((V4L2_BUF_TYPE_VIDEO_OUTPUT != buffer->type) ||
 			(buffer->index >= vout->buffer_allocated) ||
+
 			(q->bufs[buffer->index]->memory != buffer->memory)) {
 		return -EINVAL;
 	}
@@ -1778,6 +1809,9 @@ static int vidioc_dqbuf(struct file *file, void *fh,
 	struct videobuf_queue *q = &vout->vbq;
 	int ret = 0;
 
+	printk(KERN_INFO VOUT_NAME
+		"entered DQbuf: buffer address: %x \n", (unsigned int) b);
+
 	if (!vout->streaming)
 		return -EINVAL;
 
@@ -1801,7 +1835,13 @@ static int vidioc_streamon(struct file *file, void *fh,
 	struct omapvideo_info *ovid = &vout->vid_info;
 	u32 mask = 0;
 
+	printk(KERN_INFO VOUT_NAME
+		"entered streamon-before mutex lock \n\n");
+
 	mutex_lock(&vout->lock);
+
+	printk(KERN_INFO VOUT_NAME
+		"streamon: mutex acquired\n");
 
 	if (vout->streaming) {
 		mutex_unlock(&vout->lock);
@@ -1841,7 +1881,7 @@ static int vidioc_streamon(struct file *file, void *fh,
 	+ vout->cropped_offset;
 
 	mask = DISPC_IRQ_VSYNC | DISPC_IRQ_EVSYNC_EVEN |
-			DISPC_IRQ_EVSYNC_ODD;
+			DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_FRAMEDONE;
 
 	omap_dispc_register_isr(omap_vout_isr, vout, mask);
 
@@ -2157,6 +2197,8 @@ static int __init omap_vout_setup_video_bufs(struct platform_device *pdev,
 		}
 	}
 
+#ifndef CONFIG_ARCH_OMAP4
+/*TODO: removal of vrfb for OMAP4 V4L2 testing: to be cleaned.*/
 	for (i = 0; i < 4; i++) {
 		if (omap_vrfb_request_ctx(&vout->vrfb_context[i])) {
 			printk(KERN_INFO VOUT_NAME ": VRFB Region allocation "
@@ -2218,6 +2260,7 @@ static int __init omap_vout_setup_video_bufs(struct platform_device *pdev,
 		}
 		vout->vrfb_static_allocation = 1;
 	}
+#endif
 	return 0;
 
 free_buffers:
@@ -2301,7 +2344,9 @@ static int __init omap_vout_create_video_devices(struct platform_device *pdev)
 		else
 			goto success;
 error2:
+#ifndef CONFIG_ARCH_OMAP4
 	omap_vout_release_vrfb(vout);
+#endif
 	omap_vout_free_buffers(vout);
 error1:
 	video_device_release(vfd);
@@ -2479,8 +2524,15 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 		return;
 	cur_display = ovl->manager->device;
 
+	printk(KERN_INFO VOUT_NAME
+		" isr: before vbq_lock \n");
+
 	spin_lock(&vout->vbq_lock);
 	do_gettimeofday(&timevalue);
+
+	printk(KERN_INFO VOUT_NAME
+		" isr: after spin_lock and gettime \n");
+
 	if (cur_display->type == OMAP_DISPLAY_TYPE_DPI) {
 		if (!(irqstatus & DISPC_IRQ_VSYNC))
 			return;
@@ -2599,15 +2651,17 @@ static void omap_vout_cleanup_device(struct omap_vout_device *vout)
 		}
 	}
 
+#ifndef CONFIG_ARCH_OMAP4
 	omap_vout_release_vrfb(vout);
-
+#endif
 	omap_vout_free_buffers(vout);
+#ifndef CONFIG_ARCH_OMAP4
 	/* Free the VRFB buffer if allocated
 	 * init time
 	 */
 	if (vout->vrfb_static_allocation)
 		omap_vout_free_vrfb_buffers(vout);
-
+#endif
 	kfree(vout);
 }
 
