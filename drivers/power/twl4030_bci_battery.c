@@ -182,7 +182,7 @@ static int bci_charging_current;
 static inline int twl4030charger_presence_evt(void)
 {
 	int ret;
-	u8 chg_sts, set = 0, clear = 0;
+	u8 uninitialized_var(chg_sts), set = 0, clear = 0;
 
 	/* read charger power supply status */
 	ret = twl4030_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &chg_sts,
@@ -237,7 +237,7 @@ static irqreturn_t twl4030charger_interrupt(int irq, void *_di)
 static int twl4030battery_presence_evt(void)
 {
 	int ret;
-	u8 batstsmchg, batstspchg;
+	u8 uninitialized_var(batstsmchg), uninitialized_var(batstspchg);
 
 	/* check for the battery presence in main charge*/
 	ret = twl4030_i2c_read_u8(TWL4030_MODULE_MAIN_CHARGE,
@@ -278,7 +278,7 @@ static int twl4030battery_presence_evt(void)
 static int twl4030battery_level_evt(void)
 {
 	int ret;
-	u8 mfst;
+	u8 uninitialized_var(mfst);
 
 	/* checking for threshold event */
 	ret = twl4030_i2c_read_u8(TWL4030_MODULE_MAIN_CHARGE,
@@ -322,7 +322,8 @@ static int twl4030battery_level_evt(void)
  */
 static irqreturn_t twl4030battery_interrupt(int irq, void *_di)
 {
-	u8 isr1a_val, isr2a_val, clear_2a, clear_1a;
+	u8 uninitialized_var(isr1a_val), uninitialized_var(isr2a_val);
+	u8 clear_2a, clear_1a;
 	int ret;
 
 #ifdef CONFIG_LOCKDEP
@@ -621,7 +622,7 @@ int twl4030charger_usb_en(int enable)
  */
 static int twl4030battery_temperature(void)
 {
-	u8 val;
+	u8 uninitialized_var(val);
 	int temp, curr, volt, res, ret;
 
 	/* Getting and calculating the thermistor voltage */
@@ -680,7 +681,7 @@ static int twl4030battery_voltage(void)
 static int twl4030battery_current(void)
 {
 	int ret, curr = read_bci_val(T2_BATTERY_CUR);
-	u8 val;
+	u8 uninitialized_var(val);
 
 	ret = twl4030_i2c_read_u8(TWL4030_MODULE_MAIN_CHARGE, &val,
 		REG_BCICTL1);
@@ -725,7 +726,7 @@ static int twl4030backupbatt_voltage(void)
 static int twl4030charger_presence(void)
 {
 	int ret;
-	u8 hwsts;
+	u8 uninitialized_var(hwsts);
 
 	ret = twl4030_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &hwsts,
 		REG_STS_HW_CONDITIONS);
@@ -753,7 +754,7 @@ static int twl4030charger_presence(void)
 static int twl4030bci_status(void)
 {
 	int ret;
-	u8 status;
+	u8 uninitialized_var(status);
 
 	ret = twl4030_i2c_read_u8(TWL4030_MODULE_MAIN_CHARGE,
 		&status, REG_BCIMSTATEC);
@@ -768,7 +769,7 @@ static int twl4030bci_status(void)
 static int read_bci_val(u8 reg)
 {
 	int ret, temp;
-	u8 val;
+	u8 uninitialized_var(val);
 
 	/* reading MSB */
 	ret = twl4030_i2c_read_u8(TWL4030_MODULE_MAIN_CHARGE, &val,
