@@ -900,9 +900,12 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 		 * are erroneous. From stingray datasheet:
 		 *  "When sensor restarts, Normal image can get 2 frames after"
 		 *
-		 * So while we wait for HS_VS, check cnd clear the CSIB
-		 * error interrupts, if any
+		 * So while we wait for HS_VS, check cnd clear the CSIA and
+		 * CSIB error interrupts, if any
 		 */
+		if (irqstatus & CSIA)
+			isp_csi2_isr(&isp->isp_csi2);
+
 		if (irqstatus & IRQ0STATUS_CSIB_IRQ) {
 			u32 csib;
 
