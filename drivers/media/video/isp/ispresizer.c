@@ -536,9 +536,9 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 	if (pipe->rsz_in == RSZ_OTFLY_YUV) {
 		/* Set the fractional part of the starting address.*/
 		isp_reg_writel(dev,
-			(isp->pipeline.rsz_crop.left <<
+			((pipe->rsz_crop.left * 2)<<
 			ISPRSZ_IN_START_HORZ_ST_SHIFT) |
-			(isp->pipeline.rsz_crop.top <<
+			((pipe->rsz_crop.top) <<
 			ISPRSZ_IN_START_VERT_ST_SHIFT),
 			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START);
 	} else {
