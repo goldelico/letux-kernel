@@ -418,6 +418,8 @@ DSP_STATUS PROC_AutoStart(struct CFG_DEVNODE *hDevNode,
 			 "No Exec file found \n");
 	}
 func_cont:
+	MEM_Free(hProcObject->g_pszLastCoff);
+	hProcObject->g_pszLastCoff = NULL;
 	MEM_FreeObject(hProcObject);
 func_end:
 	GT_1trace(PROC_DebugMask, GT_ENTER,
