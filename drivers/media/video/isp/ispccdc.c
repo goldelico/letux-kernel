@@ -632,13 +632,11 @@ void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 
 	if (enable) {
 		isp_reg_writel(dev, IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ |
-			       IRQ0ENABLE_CCDC_LSC_DONE_IRQ |
-			       IRQ0ENABLE_CCDC_VD1_IRQ,
+			       IRQ0ENABLE_CCDC_LSC_DONE_IRQ,
 			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
-			IRQ0ENABLE_CCDC_LSC_DONE_IRQ |
-			IRQ0ENABLE_CCDC_VD1_IRQ);
+			IRQ0ENABLE_CCDC_LSC_DONE_IRQ);
 
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN,
 			   ISP_CTRL, ISPCTRL_SBL_SHARED_RPORTB
@@ -651,8 +649,7 @@ void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~(IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
-			      IRQ0ENABLE_CCDC_LSC_DONE_IRQ |
-			      IRQ0ENABLE_CCDC_VD1_IRQ));
+			      IRQ0ENABLE_CCDC_LSC_DONE_IRQ));
 	}
 	isp_ccdc->lsc_enable = enable;
 }
@@ -1302,8 +1299,14 @@ void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
 			ispccdc_enable_lsc(isp_ccdc, 1);
 			return;
 		}
+		isp_reg_writel(dev, IRQ0ENABLE_CCDC_VD1_IRQ,
+			OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			IRQ0ENABLE_CCDC_VD1_IRQ);
 	} else {
 		ispccdc_enable_lsc(isp_ccdc, 0);
+		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			    ~IRQ0ENABLE_CCDC_VD1_IRQ);
 		isp_ccdc->lsc_request_enable = isp_ccdc->lsc_enable;
 	}
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_PCR,
