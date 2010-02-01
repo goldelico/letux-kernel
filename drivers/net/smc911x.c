@@ -269,7 +269,7 @@ static void smc911x_enable(struct net_device *dev)
 {
 	struct smc911x_local *lp = netdev_priv(dev);
 	unsigned mask, cfg, cr;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	DBG(SMC_DEBUG_FUNC, "%s: --> %s\n", dev->name, __func__);
 
@@ -326,7 +326,7 @@ static void smc911x_shutdown(struct net_device *dev)
 {
 	struct smc911x_local *lp = netdev_priv(dev);
 	unsigned cr;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	DBG(SMC_DEBUG_FUNC, "%s: --> %s\n", CARDNAME, __func__);
 
@@ -516,7 +516,7 @@ static int smc911x_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct smc911x_local *lp = netdev_priv(dev);
 	unsigned int free;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	DBG(SMC_DEBUG_FUNC | SMC_DEBUG_TX, "%s: --> %s\n",
 		dev->name, __func__);
@@ -790,7 +790,7 @@ static int smc911x_phy_reset(struct net_device *dev, int phy)
 {
 	struct smc911x_local *lp = netdev_priv(dev);
 	int timeout;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 	unsigned int reg;
 
 	DBG(SMC_DEBUG_FUNC, "%s: --> %s()\n", dev->name, __func__);
@@ -890,7 +890,7 @@ static void smc911x_phy_configure(struct work_struct *work)
 	int my_phy_caps; /* My PHY capabilities */
 	int my_ad_caps; /* My Advertised capabilities */
 	int status;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	DBG(SMC_DEBUG_FUNC, "%s: --> %s()\n", dev->name, __func__);
 
@@ -1011,7 +1011,7 @@ static irqreturn_t smc911x_interrupt(int irq, void *dev_id)
 	struct smc911x_local *lp = netdev_priv(dev);
 	unsigned int status, mask, timeout;
 	unsigned int rx_overrun=0, cr, pkts;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	DBG(SMC_DEBUG_FUNC, "%s: --> %s\n", dev->name, __func__);
 
@@ -1267,7 +1267,7 @@ static void smc911x_timeout(struct net_device *dev)
 {
 	struct smc911x_local *lp = netdev_priv(dev);
 	int status, mask;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	DBG(SMC_DEBUG_FUNC, "%s: --> %s\n", dev->name, __func__);
 
@@ -1305,7 +1305,7 @@ static void smc911x_set_multicast_list(struct net_device *dev)
 	struct smc911x_local *lp = netdev_priv(dev);
 	unsigned int multicast_table[2];
 	unsigned int mcr, update_multicast = 0;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	DBG(SMC_DEBUG_FUNC, "%s: --> %s\n", dev->name, __func__);
 
@@ -1478,7 +1478,7 @@ smc911x_ethtool_getsettings(struct net_device *dev, struct ethtool_cmd *cmd)
 {
 	struct smc911x_local *lp = netdev_priv(dev);
 	int ret, status;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	DBG(SMC_DEBUG_FUNC, "%s: --> %s\n", dev->name, __func__);
 	cmd->maxtxpkt = 1;
@@ -1519,7 +1519,7 @@ smc911x_ethtool_setsettings(struct net_device *dev, struct ethtool_cmd *cmd)
 {
 	struct smc911x_local *lp = netdev_priv(dev);
 	int ret;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	if (lp->phy_type != 0) {
 		spin_lock_irqsave(&lp->lock, flags);
@@ -1552,7 +1552,7 @@ static int smc911x_ethtool_nwayreset(struct net_device *dev)
 {
 	struct smc911x_local *lp = netdev_priv(dev);
 	int ret = -EINVAL;
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 
 	if (lp->phy_type != 0) {
 		spin_lock_irqsave(&lp->lock, flags);
@@ -1586,7 +1586,7 @@ static void smc911x_ethtool_getregs(struct net_device *dev,
 										 struct ethtool_regs* regs, void *buf)
 {
 	struct smc911x_local *lp = netdev_priv(dev);
-	unsigned long flags;
+	unsigned long uninitialized_var(flags);
 	u32 reg,i,j=0;
 	u32 *data = (u32*)buf;
 

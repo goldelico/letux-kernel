@@ -740,7 +740,7 @@ static const struct chip_id chip_ids[] =  {
 #define SMC_SET_FIFO_INT(lp, x)		SMC_outl( x, lp, FIFO_INT )
 #define SMC_SET_FIFO_TDA(lp, x)					\
 	do {							\
-		unsigned long __flags;				\
+		unsigned long uninitialized_var(__flags);	\
 		int __mask;					\
 		local_irq_save(__flags);			\
 		__mask = SMC_GET_FIFO_INT((lp)) & ~(0xFF<<24);	\
