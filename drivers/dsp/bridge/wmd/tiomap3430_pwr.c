@@ -58,7 +58,7 @@
 extern struct MAILBOX_CONTEXT mboxsetting;
 extern unsigned short enable_off_mode;
 
-extern unsigned short min_active_opp;
+extern unsigned long min_active_opp;
 /*
  *  ======== handle_constraints_set ========
  *  	Sets new DSP constraint

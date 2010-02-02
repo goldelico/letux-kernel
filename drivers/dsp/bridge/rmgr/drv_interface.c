@@ -109,7 +109,7 @@ static char *firmware_file = "/system/lib/dsp/baseimage.dof";
 #endif
 
 /* Minimum ACTIVE VDD1 OPP level for reliable DSP operation */
-unsigned short min_active_opp = 1;
+unsigned long min_active_opp;
 
 #ifdef CONFIG_PM
 struct omap34xx_bridge_suspend_data {
@@ -162,7 +162,7 @@ MODULE_PARM_DESC(phys_mempool_size,
 module_param(tc_wordswapon, int, 0);
 MODULE_PARM_DESC(tc_wordswapon, "TC Word Swap Option. default = 0");
 
-module_param(min_active_opp, ushort, S_IRUSR | S_IWUSR);
+module_param(min_active_opp, ulong, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(min_active_opp, "Minimum ACTIVE VDD1 OPP Level, default = 1");
 
 MODULE_AUTHOR("Texas Instruments");
@@ -375,6 +375,9 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 		if (clk_notifier_register(clk_handle, &iva_clk_notifier))
 			pr_err("%s: clk_notifier_register failed for iva2_ck\n",
 								__func__);
+
+		if (!min_active_opp)
+			min_active_opp = pdata->mpu_min_speed;
 #endif
 		driverContext = DSP_Init(&initStatus);
 		if (DSP_FAILED(initStatus)) {

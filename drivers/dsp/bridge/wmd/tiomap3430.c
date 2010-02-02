@@ -84,7 +84,7 @@
 
 #define MMU_GFLUSH 0x60
 
-extern unsigned short min_active_opp;
+extern unsigned long min_active_opp;
 
 /* Forward Declarations: */
 static DSP_STATUS WMD_BRD_Monitor(struct WMD_DEV_CONTEXT *pDevContext);

@@ -15,6 +15,22 @@
 
 #include <mach/omap-pm.h>
 
+#ifdef CONFIG_BRIDGE_DVFS
+/*
+ * The DSP load balancer works on the following logic:
+ * Opp frequencies:
+ * 0 <---------> Freq 1 <------------> Freq 2 <---------> Freq 3
+ * DSP Thresholds for the frequencies:
+ * 0M<-------X-> Freq 1 <-------M--X-> Freq 2 <----M--X-> Freq 3
+ * Where, M is the minimal threshold and X is maximum threshold
+ *
+ * if from Freq x to Freq y; where x > y, transition happens on M
+ * if from Freq x to Freq y; where x < y, transition happens on X
+ */
+#define BRIDGE_THRESH_HIGH_PERCENT	95
+#define BRIDGE_THRESH_LOW_PERCENT	88
+#endif
+
 #include <dspbridge/host_os.h>
 
 static struct platform_device *dspbridge_pdev;
@@ -40,10 +56,90 @@ static struct dspbridge_platform_data dspbridge_pdata __initdata = {
  */
 static int get_opp_table(struct dspbridge_platform_data *pdata)
 {
+	int ret = 0;
 #ifdef CONFIG_BRIDGE_DVFS
-	/* Do nothing now  - fill based on PM implementation */
+	int opp_count, i, j;
+	unsigned long old_rate;
+	struct omap_opp *dsp_rate, *dsp_sort, temp;
+
+	opp_count = omap_pm_get_max_vdd1_opp();
+	dsp_rate = (*pdata->dsp_get_rate_table)();
+
+	dsp_sort = kzalloc(sizeof(struct omap_opp) * (opp_count + 1),
+			   GFP_KERNEL);
+	if (!dsp_sort) {
+		pr_err("dspbridge mpu sorted table allocation failed\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	for (i = 1; i <= opp_count; i++)
+		memcpy(&dsp_sort[i], &dsp_rate[i], sizeof(struct omap_opp));
+
+	/* Sort the frequencies to get a linear table */
+	for (i = 1; i <= opp_count; i++) {
+		temp = dsp_sort[i];
+		for (j = i - 1; j >= 0 && dsp_sort[j].rate > temp.rate; j--)
+			dsp_sort[j + 1] = dsp_sort[j];
+		dsp_sort[j + 1] = temp;
+	}
+
+	pdata->mpu_min_speed = dsp_sort[1].rate / 1000;
+	pdata->mpu_max_speed = dsp_sort[opp_count].rate / 1000;
+
+	/* need an initial terminator */
+	pdata->dsp_freq_table = kzalloc(
+			sizeof(struct dsp_shm_freq_table) *
+			(opp_count + 1), GFP_KERNEL);
+	if (!pdata->dsp_freq_table) {
+		pr_err("dspbridge frequency table allocation failed\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	old_rate = 0;
+	/*
+	 * the freq table is in terms of khz.. so we need to
+	 * divide by 1000
+	 */
+	for(i = 1; i <= opp_count; i++) {
+		/* dsp frequencies are in khz */
+		u32 rate = dsp_sort[i].rate / 1000;
+		/*
+		 * On certain 34xx silicons, certain OPPs are duplicated
+		 * for DSP - handle those by copying previous opp value
+		 */
+		if (rate == old_rate) {
+			memcpy(&pdata->dsp_freq_table[i],
+				&pdata->dsp_freq_table[i-1],
+				sizeof(struct dsp_shm_freq_table));
+		} else {
+			pdata->dsp_freq_table[i].dsp_freq = rate;
+			pdata->dsp_freq_table[i].u_volts = dsp_sort[i].vsel;
+			/*
+			 * min threshold:
+			 * NOTE: index 1 needs a min of 0! else no
+			 * scaling happens at DSP!
+			 */
+			pdata->dsp_freq_table[i].thresh_min_freq =
+				((old_rate * BRIDGE_THRESH_LOW_PERCENT) / 100);
+
+			/* max threshold */
+			pdata->dsp_freq_table[i].thresh_max_freq =
+				((rate * BRIDGE_THRESH_HIGH_PERCENT) / 100);
+		}
+		old_rate = rate;
+	}
+	/* the last entry should map with maximum rate */
+	pdata->dsp_freq_table[i - 1].thresh_max_freq = old_rate;
+	pdata->dsp_num_speeds = opp_count;
+
+err:
+	kfree(dsp_sort);
+	dsp_sort = NULL;
+out:
 #endif
-	return 0;
+	return ret;
 }
 
 static int __init dspbridge_init(void)

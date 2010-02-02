@@ -899,7 +899,7 @@ static void IO_DispatchPM(struct IO_MGR *pIOMgr)
 			pr_err("%s: hibernate cmd failed 0x%x\n",
 						__func__, status);
 	} else if (pArg[0] == MBX_PM_OPP_REQ) {
-		pArg[1] = pIOMgr->pSharedMem->oppRequest.rqstOppPt;
+		pArg[1] = pIOMgr->pSharedMem->oppRequest.rqstDspFreq;
 		DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : Value of OPP "
 			 "value =0x%x \n", pArg[1]);
 		status = pIOMgr->pIntfFxns->pfnDevCntrl(pIOMgr->
