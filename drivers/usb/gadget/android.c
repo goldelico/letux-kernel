@@ -195,7 +195,7 @@ static int __init android_bind(struct usb_composite_dev *cdev)
 	device_desc.iSerialNumber = id;
 
 	if (gadget->ops->wakeup)
-		android_config.bmAttributes |= USB_CONFIG_ATT_WAKEUP;
+		android_config_driver.bmAttributes |= USB_CONFIG_ATT_WAKEUP;
 
 	/* register our configuration */
 	ret = usb_add_config(cdev, &android_config_driver);
