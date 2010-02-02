@@ -379,8 +379,8 @@ static int __devinit omap_wdt_probe(struct platform_device *pdev)
 		__raw_readl(wdev->base + OMAP_WATCHDOG_REV) & 0xFF,
 		timer_margin);
 
-	/* autogate OCP interface clock */
-	__raw_writel(0x01, wdev->base + OMAP_WATCHDOG_SYS_CONFIG);
+	/* autogate OCP interface clock, set smart idle and clockactivity*/
+	__raw_writel(0x211, wdev->base + OMAP_WATCHDOG_SYS_CONFIG);
 
 	if (!cpu_is_omap44xx())
 		clk_disable(wdev->ick);
