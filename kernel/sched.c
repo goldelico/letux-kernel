@@ -53,6 +53,7 @@
 #include <linux/rcupdate.h>
 #include <linux/cpu.h>
 #include <linux/cpuset.h>
+#include <linux/cpufreq.h>
 #include <linux/percpu.h>
 #include <linux/kthread.h>
 #include <linux/proc_fs.h>
@@ -4362,6 +4363,7 @@ void account_steal_ticks(unsigned long ticks)
  */
 void account_idle_ticks(unsigned long ticks)
 {
+	cpufreq_exit_idle(smp_processor_id(), ticks);
 	account_idle_time(jiffies_to_cputime(ticks));
 }
 
@@ -5979,7 +5981,7 @@ void sched_show_task(struct task_struct *p)
 	unsigned state;
 
 	state = p->state ? __ffs(p->state) + 1 : 0;
-	printk(KERN_INFO "%-13.13s %c", p->comm,
+	printk(KERN_INFO "%-15.15s %c", p->comm,
 		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
 #if BITS_PER_LONG == 32
 	if (state == TASK_RUNNING)

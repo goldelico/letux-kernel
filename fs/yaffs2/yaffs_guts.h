@@ -424,6 +424,7 @@ struct yaffs_ObjectStruct {
 				 * until the inode is released.
 				 */
 	__u8 beingCreated:1;	/* This object is still being created so skip some checks. */
+	__u8 isShadowed:1;      /* This object is shadowed on the way to being renamed. */
 
 	__u8 serial;		/* serial number of chunk in NAND. Cached here */
 	__u16 sum;		/* sum of the name to speed searching */
@@ -557,6 +558,8 @@ struct yaffs_DeviceStruct {
 
 	int useHeaderFileSize;	/* Flag to determine if we should use file sizes from the header */
 
+	int emptyLostAndFound;  /* Flasg to determine if lst+found should be emptied on init */
+
 	int useNANDECC;		/* Flag to decide whether or not to use NANDECC */
 
 	void *genericDevice;	/* Pointer to device context
@@ -592,8 +595,9 @@ struct yaffs_DeviceStruct {
 	int isYaffs2;
 
 	/* The removeObjectCallback function must be supplied by OS flavours that
-	 * need it. The Linux kernel does not use this, but yaffs direct does use
-	 * it to implement the faster readdir
+	 * need it.
+         * yaffs direct uses it to implement the faster readdir.
+         * Linux uses it to protect the directory during unlocking.
 	 */
 	void (*removeObjectCallback)(struct yaffs_ObjectStruct *obj);
 
@@ -633,10 +637,14 @@ struct yaffs_DeviceStruct {
 
 	struct semaphore sem;	/* Semaphore for waiting on erasure.*/
 	struct semaphore grossLock;	/* Gross locking semaphore */
+	struct rw_semaphore dirLock; /* Lock the directory structure */
 	__u8 *spareBuffer;	/* For mtdif2 use. Don't know the size of the buffer
 				 * at compile time so we have to allocate it.
+
 				 */
 	void (*putSuperFunc) (struct super_block *sb);
+        struct ylist_head searchContexts;
+
 #endif
 
 	int isMounted;
