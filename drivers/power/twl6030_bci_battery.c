@@ -159,6 +159,15 @@
 #define REG_USB_ID_CTRL_SET	0x06
 #define ID_MEAS			0x01
 
+/* BQ24156 */
+#define REG_STATUS_CONTROL		0x00
+#define REG_CONTROL_REGISTER		0x01
+#define REG_CONTROL_BATTERY_VOLTAGE	0x02
+#define REG_BATTERY_TERMINATION		0x04
+#define REG_SPECIAL_CHARGER_VOLTAGE	0x05
+#define REG_SAFETY_LIMIT		0x06
+
+
 /* Ptr to thermistor table */
 int *therm_tbl;
 int charger_source;
@@ -208,6 +217,18 @@ static void twl6030_start_usb_charger(void)
 static void twl6030_start_ac_charger(void)
 {
 	printk(KERN_INFO "AC charger detected\n");
+	charger_source = 1;
+	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0xC0,
+				REG_STATUS_CONTROL);
+	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0xC8,
+				REG_CONTROL_REGISTER);
+	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x7C,
+				REG_CONTROL_BATTERY_VOLTAGE);
+	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x39,
+				REG_BATTERY_TERMINATION);
+	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x04,
+				REG_SPECIAL_CHARGER_VOLTAGE);
+	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x40, REG_SAFETY_LIMIT);
 	twl_i2c_write_u8(TWL6030_MODULE_CHARGER,
 			CONTROLLER_CTRL1_EN_CHARGER |
 			CONTROLLER_CTRL1_SEL_CHARGER,
@@ -466,6 +487,18 @@ static void twl6030_bci_battery_read_status(struct twl6030_bci_device_info *di)
 static void
 twl6030_bci_battery_update_status(struct twl6030_bci_device_info *di)
 {
+	if (charger_source == 1) {
+		/* reconfig params for ac charging & reset 32 second timer */
+		twl_i2c_write_u8(TWL6030_MODULE_BQ, 0xC0, REG_STATUS_CONTROL);
+		twl_i2c_write_u8(TWL6030_MODULE_BQ, 0xC8, REG_CONTROL_REGISTER);
+		twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x7C,
+						REG_CONTROL_BATTERY_VOLTAGE);
+		twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x39,
+						REG_BATTERY_TERMINATION);
+		twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x04,
+						REG_SPECIAL_CHARGER_VOLTAGE);
+		twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x40, REG_SAFETY_LIMIT);
+	}
 	twl6030_bci_battery_read_status(di);
 	di->charge_status = POWER_SUPPLY_STATUS_UNKNOWN;
 
