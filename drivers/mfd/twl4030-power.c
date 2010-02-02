@@ -331,6 +331,56 @@ static int __init load_triton_script(struct twl4030_script *tscript)
 	return err;
 }
 
+int twl4030_remove_script(u8 flags)
+{
+	int err;
+
+	err = twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, KEY_1,
+			R_PROTECT_KEY);
+	if (err) {
+		pr_err("twl4030: unable to unlock PROTECT_KEY\n");
+		return err;
+	}
+
+	err = twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, KEY_2,
+			R_PROTECT_KEY);
+	if (err) {
+		pr_err("twl4030: unable to unlock PROTECT_KEY\n");
+		return err;
+	}
+
+	if (flags & TRITON_WRST_SCRIPT) {
+		err = twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER,
+				END_OF_SCRIPT, R_SEQ_ADD_WARM);
+		if (err)
+			return err;
+	}
+	if (flags & TRITON_WAKEUP12_SCRIPT) {
+		err = twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER,
+				END_OF_SCRIPT, R_SEQ_ADD_SA12);
+		if (err)
+			return err;
+	}
+	if (flags & TRITON_WAKEUP3_SCRIPT) {
+		err = twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER,
+				END_OF_SCRIPT, R_SEQ_ADD_S2A3);
+		if (err)
+			return err;
+	}
+	if (flags & TRITON_SLEEP_SCRIPT) {
+		err = twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER,
+				END_OF_SCRIPT, R_SEQ_ADD_A2S);
+		if (err)
+			return err;
+	}
+
+	err = twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, 0, R_PROTECT_KEY);
+	if (err)
+		pr_err("TWL4030 Unable to relock registers\n");
+
+	return 0;
+}
+
 void __init twl4030_power_init(struct twl4030_power_data *triton2_scripts)
 {
 	int err = 0;
