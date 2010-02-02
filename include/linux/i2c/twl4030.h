@@ -387,6 +387,8 @@ struct twl4030_power_data {
 	const struct twl4030_resconfig *resource_config;
 };
 
+extern int twl4030_remove_script(u8 flags);
+
 struct twl4030_platform_data {
 	unsigned				irq_base, irq_end;
 	struct twl4030_bci_platform_data	*bci;
