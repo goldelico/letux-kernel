@@ -11,6 +11,8 @@ obj-$(CONFIG_OMAP_MCBSP) += mcbsp.o
 obj-$(CONFIG_OMAP_MPU_TIMER)	+= time.o
 obj-$(CONFIG_OMAP_32K_TIMER)	+= timer32k.o
 
+obj-$(CONFIG_OMAP_DM_TIMER)	+= dmtimers.o
+
 # Power Management
 obj-$(CONFIG_PM) += pm.o sleep.o
 

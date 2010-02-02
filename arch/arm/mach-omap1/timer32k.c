@@ -198,9 +198,6 @@ static __init void omap_init_32k_timer(void)
  */
 static void __init omap_timer_init(void)
 {
-#ifdef CONFIG_OMAP_DM_TIMER
-	omap_dm_timer_init();
-#endif
 	omap_init_32k_timer();
 }
 
