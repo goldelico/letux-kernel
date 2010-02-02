@@ -46,6 +46,7 @@
 #include <plat/clockdomain.h>
 #include "clockdomains.h"
 #include <plat/omap_hwmod.h>
+#include "dmtimers.h"
 #include "omap_hwmod_2420.h"
 #include "omap_hwmod_2430.h"
 #include "omap_hwmod_34xx.h"
@@ -341,4 +342,5 @@ void __init omap2_init_common_hw(struct omap_sdrc_params *sdrc_cs0,
 #endif
 	gpmc_init();
 	omap_gpio_early_init();
+	omap2_dm_timer_early_init();
 }

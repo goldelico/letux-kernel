@@ -52,5 +52,7 @@
 #define OMAP44XX_GPTIMER11_BASE         0x48088000
 #define OMAP44XX_GPTIMER12_BASE         0x4a320000
 
+void __init omap2_dm_timer_early_init(void);
+
 #endif
 
