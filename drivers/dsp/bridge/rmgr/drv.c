@@ -458,40 +458,35 @@ static DSP_STATUS  DRV_ProcFreeSTRMRes(HANDLE hPCtxt)
 {
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
 	DSP_STATUS status = DSP_SOK;
-	DSP_STATUS status1 = DSP_SOK;
 	u8 **apBuffer = NULL;
-	struct STRM_RES_OBJECT *pSTRMList = NULL;
 	struct STRM_RES_OBJECT *pSTRMRes = NULL;
+	struct STRM_INFO strm_info;
+	struct DSP_STREAMINFO user;
 	u8 *pBufPtr;
 	u32 ulBytes;
 	u32 dwArg;
 	s32 ulBufSize;
 
-	pSTRMList = pCtxt->pSTRMList;
-	while (pSTRMList != NULL) {
-		pSTRMRes = pSTRMList;
-		pSTRMList = pSTRMList->next;
-		if (pSTRMRes->uNumBufs != 0) {
-			apBuffer = MEM_Alloc((pSTRMRes->uNumBufs *
-					    sizeof(u8 *)), MEM_NONPAGED);
+	pSTRMRes = pCtxt->pSTRMList;
+	while (pSTRMRes) {
+		if (pSTRMRes->uNumBufs) {
+			apBuffer = MEM_Alloc(pSTRMRes->uNumBufs *
+					    sizeof(u8 *), MEM_NONPAGED);
+			if (!apBuffer)
+				return DSP_EMEMORY;
 			status = STRM_FreeBuffer(pSTRMRes->hStream, apBuffer,
 						pSTRMRes->uNumBufs, pCtxt);
 			MEM_Free(apBuffer);
 		}
-		status = STRM_Close(pSTRMRes->hStream, pCtxt);
-		if (DSP_FAILED(status)) {
-			if (status == DSP_EPENDING) {
-				status = STRM_Reclaim(pSTRMRes->hStream,
-						     &pBufPtr, &ulBytes,
-						     (u32 *)&ulBufSize, &dwArg);
-				if (DSP_SUCCEEDED(status))
-					status = STRM_Close(pSTRMRes->hStream,
-							pCtxt);
+		strm_info.pUser = &user;
+		user.uNumberBufsInStream = 0;
+		STRM_GetInfo(pSTRMRes->hStream, &strm_info, sizeof(strm_info));
+		while (strm_info.pUser->uNumberBufsInStream--)
+			STRM_Reclaim(pSTRMRes->hStream, &pBufPtr, &ulBytes,
+					     (u32 *)&ulBufSize, &dwArg);
 
-			}
-		}
 	}
-	return status1;
+	return status;
 }
 
 /* Release all Stream resources and its context
