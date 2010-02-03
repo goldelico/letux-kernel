@@ -360,5 +360,23 @@ extern DSP_STATUS WMD_TLB_DspVAToMpuPA(struct WMD_DEV_CONTEXT *pDevContext,
 				       OUT u32 *ulPhysAddr,
 				       OUT u32 *sizeTlb);
 
+/*
+ *  ======== sm_interrupt_dsp ========
+ *  Purpose:
+ *      Set interrupt value & send an interrupt to the DSP processor(s).
+ *      This is typicaly used when mailbox interrupt mechanisms allow data
+ *      to be associated with interrupt such as for OMAP's CMD/DATA regs.
+ *  Parameters:
+ *      hDevContext:    Handle to mini-driver defined device info.
+ *      wMbVal:         Value associated with interrupt(e.g. mailbox value).
+ *  Returns:
+ *      DSP_SOK:        Interrupt sent;
+ *      else:           Unable to send interrupt.
+ *  Requires:
+ *  Ensures:
+ */
+       extern DSP_STATUS sm_interrupt_dsp(struct WMD_DEV_CONTEXT*
+						     hDevContext, u16 wMbVal);
+
 #endif				/* _TIOMAP_ */
 

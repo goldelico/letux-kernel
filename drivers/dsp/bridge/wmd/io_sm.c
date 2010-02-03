@@ -63,7 +63,6 @@
 /* Platform Manager */
 #include <dspbridge/cod.h>
 #include <dspbridge/dev.h>
-#include <dspbridge/chnl_sm.h>
 
 /* Others */
 #include <dspbridge/rms_sh.h>
@@ -823,7 +822,7 @@ void IO_CancelChnl(struct IO_MGR *hIOMgr, u32 ulChnl)
 	IO_AndValue(pIOMgr->hWmdContext, struct SHM, sm, hostFreeMask,
 		   (~(1 << ulChnl)));
 
-	CHNLSM_InterruptDSP2(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
+	sm_interrupt_dsp(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
 func_end:
 	return;
 }
@@ -1235,7 +1234,7 @@ static void InputChnl(struct IO_MGR *pIOMgr, struct CHNL_OBJECT *pChnl,
 	if (fClearChnl) {
 		/* Indicate to the DSP we have read the input */
 		IO_SetValue(pIOMgr->hWmdContext, struct SHM, sm, inputFull, 0);
-		CHNLSM_InterruptDSP2(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
+		sm_interrupt_dsp(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
 	}
 	if (fNotifyClient) {
 		/* Notify client with IO completion record */
@@ -1349,7 +1348,7 @@ static void InputMsg(struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr)
 			   true);
 		IO_SetValue(pIOMgr->hWmdContext, struct MSG, pCtrl, postSWI,
 			   true);
-		CHNLSM_InterruptDSP2(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
+		sm_interrupt_dsp(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
 	}
 func_end:
 	return;
@@ -1463,7 +1462,7 @@ static void OutputChnl(struct IO_MGR *pIOMgr, struct CHNL_OBJECT *pChnl,
 #endif
 	IO_SetValue(pIOMgr->hWmdContext, struct SHM, sm, outputFull, 1);
 	/* Indicate to the DSP we have written the output */
-	CHNLSM_InterruptDSP2(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
+	sm_interrupt_dsp(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
 	/* Notify client with IO completion record (keep EOS) */
 	pChirp->status &= CHNL_IOCSTATEOS;
 	NotifyChnlComplete(pChnl, pChirp);
@@ -1557,7 +1556,7 @@ static void OutputMsg(struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr)
 			IO_SetValue(pIOMgr->hWmdContext, struct MSG, pCtrl,
 				   postSWI, true);
 			/* Tell the DSP we have written the output. */
-			CHNLSM_InterruptDSP2(pIOMgr->hWmdContext,
+			sm_interrupt_dsp(pIOMgr->hWmdContext,
 						MBX_PCPY_CLASS);
 		}
 	}
@@ -1719,7 +1718,7 @@ static u32 WriteData(struct WMD_DEV_CONTEXT *hDevContext, void *pDest,
 /* ZCPY IO routines. */
 void IO_IntrDSP2(IN struct IO_MGR *pIOMgr, IN u16 wMbVal)
 {
-	CHNLSM_InterruptDSP2(pIOMgr->hWmdContext, wMbVal);
+	sm_interrupt_dsp(pIOMgr->hWmdContext, wMbVal);
 }
 
 /*

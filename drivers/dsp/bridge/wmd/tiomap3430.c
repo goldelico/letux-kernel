@@ -55,7 +55,6 @@
 #include <dspbridge/wmdio.h>
 #include <dspbridge/wmdmsg.h>
 #include <dspbridge/pwr.h>
-#include <dspbridge/chnl_sm.h>
 #include <dspbridge/io_sm.h>
 
 /*  ----------------------------------- Platform Manager */
@@ -806,7 +805,7 @@ static DSP_STATUS WMD_BRD_Stop(struct WMD_DEV_CONTEXT *hDevContext)
 
 	HW_PWRST_IVA2RegGet(pDevContext->prmbase, &dspPwrState);
 	if (dspPwrState != HW_PWR_STATE_OFF && hDevContext->mbox) {
-		CHNLSM_InterruptDSP2(pDevContext, MBX_PM_DSPIDLE);
+		sm_interrupt_dsp(pDevContext, MBX_PM_DSPIDLE);
 		mdelay(10);
 		GetHWRegs(pDevContext->prmbase, pDevContext->cmbase);
 		udelay(50);

@@ -6,7 +6,7 @@ libservices = services/mem.o services/sync.o \
                services/regsup.o services/ntfy.o \
 		services/dbg.o services/services.o
 libwmd = wmd/chnl_sm.o wmd/msg_sm.o wmd/io_sm.o wmd/tiomap3430.o \
-		wmd/tiomap3430_pwr.o wmd/tiomap_sm.o wmd/tiomap_io.o \
+		wmd/tiomap3430_pwr.o wmd/tiomap_io.o \
 		wmd/mmu_fault.o wmd/ue_deh.o
 libpmgr = pmgr/chnl.o pmgr/io.o pmgr/msg.o pmgr/cod.o pmgr/dev.o pmgr/wcd.o \
 		pmgr/dmm.o pmgr/cmm.o pmgr/dbll.o

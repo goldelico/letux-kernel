@@ -22,7 +22,6 @@
 #include <dspbridge/cfg.h>
 #include <dspbridge/drv.h>
 #include <dspbridge/io_sm.h>
-#include <dspbridge/chnl_sm.h>
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbg.h>
@@ -204,14 +203,14 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 	case BRD_RUNNING:
 		omap_mbox_save_ctx(pDevContext->mbox);
 		if (enable_off_mode) {
-			CHNLSM_InterruptDSP2(pDevContext,
+			sm_interrupt_dsp(pDevContext,
 					     MBX_PM_DSPHIBERNATE);
 			DBG_Trace(DBG_LEVEL7,
 				 "SleepDSP - Sent hibernate "
 				 "command to DSP\n");
 			targetPwrState = HW_PWR_STATE_OFF;
 		} else {
-			CHNLSM_InterruptDSP2(pDevContext,
+			sm_interrupt_dsp(pDevContext,
 					     MBX_PM_DSPRETENTION);
 			targetPwrState = HW_PWR_STATE_RET;
 		}
@@ -220,7 +219,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 	case BRD_RETENTION:
 		omap_mbox_save_ctx(pDevContext->mbox);
 		if (enable_off_mode) {
-			CHNLSM_InterruptDSP2(pDevContext,
+			sm_interrupt_dsp(pDevContext,
 					     MBX_PM_DSPHIBERNATE);
 			targetPwrState = HW_PWR_STATE_OFF;
 		} else
@@ -319,7 +318,7 @@ DSP_STATUS WakeDSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 	}
 
 	/* Send a wakeup message to DSP */
-	CHNLSM_InterruptDSP2(pDevContext, MBX_PM_DSPWAKEUP);
+	sm_interrupt_dsp(pDevContext, MBX_PM_DSPWAKEUP);
 
 #ifdef CONFIG_BRIDGE_DEBUG
 	HW_PWR_IVA2StateGet(pDevContext->prmbase, HW_PWR_DOMAIN_DSP,
@@ -469,7 +468,7 @@ DSP_STATUS PreScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 		/* Send a prenotificatio to DSP */
 		DBG_Trace(DBG_LEVEL7,
 			 "PreScale_DSP: Sent notification to DSP\n");
-		CHNLSM_InterruptDSP2(pDevContext, MBX_PM_SETPOINT_PRENOTIFY);
+		sm_interrupt_dsp(pDevContext, MBX_PM_SETPOINT_PRENOTIFY);
 		return DSP_SOK;
 	} else {
 		DBG_Trace(DBG_LEVEL7, "PreScale_DSP: Failed - DSP BRD"
@@ -515,7 +514,7 @@ DSP_STATUS PostScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 		/* Update the OPP value in shared memory */
 		IO_SHMsetting(hIOMgr, SHM_CURROPP, &level);
 		/* Send a post notification to DSP */
-		CHNLSM_InterruptDSP2(pDevContext, MBX_PM_SETPOINT_POSTNOTIFY);
+		sm_interrupt_dsp(pDevContext, MBX_PM_SETPOINT_POSTNOTIFY);
 		DBG_Trace(DBG_LEVEL7,
 			"PostScale_DSP: Wrote to shared memory Sent post"
 			" notification to DSP\n");
