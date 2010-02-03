@@ -413,7 +413,7 @@ void *nameserver_create(const char *name,
 
 	name_len = strlen(name) + 1;
 	if (name_len > params->max_name_len) {
-		retval = E2BIG;
+		retval = -E2BIG;
 		goto exit;
 	}
 
@@ -424,8 +424,8 @@ void *nameserver_create(const char *name,
 	/* check if the name is already registered or not */
 	new_obj = nameserver_get_handle(name);
 	if (new_obj != NULL) {
-		retval = EEXIST;
-		goto error;
+		retval = -EEXIST;
+		goto error_handle;
 	}
 
 	new_obj = kmalloc(sizeof(struct nameserver_object), GFP_KERNEL);
@@ -465,11 +465,10 @@ void *nameserver_create(const char *name,
 
 error_mutex:
 	kfree(new_obj->name);
-
 error:
-	mutex_unlock(nameserver_state.list_lock);
 	kfree(new_obj);
-
+error_handle:
+	mutex_unlock(nameserver_state.list_lock);
 exit:
 	printk(KERN_ERR "nameserver_create failed retval:%x \n", retval);
 	return NULL;
@@ -612,7 +611,7 @@ void *nameserver_add(void *handle, const char *name,
 					&temp_obj->name_list, &new_node);
 	if (found == true) {
 		retval = -EEXIST;
-		goto error;
+		goto error_entry;
 	}
 
 	new_node = kmalloc(sizeof(struct nameserver_entry), GFP_KERNEL);
@@ -646,10 +645,10 @@ void *nameserver_add(void *handle, const char *name,
 
 error1:
 	kfree(new_node->name);
-
 error:
-	mutex_unlock(temp_obj->gate_handle);
 	kfree(new_node);
+error_entry:
+	mutex_unlock(temp_obj->gate_handle);
 exit:
 	printk(KERN_ERR "nameserver_add failed status: %x \n", retval);
 	return NULL;
@@ -938,8 +937,11 @@ int nameserver_match(void *handle, const char *name, u32 *value)
 	if (found == false)
 		retval = -ENOENT;
 
+	mutex_unlock(temp_obj->gate_handle);
+
 exit:
-	printk(KERN_ERR "nameserver_match failed status:%x \n", retval);
+	if (retval < 0)
+		printk(KERN_ERR "nameserver_match failed status:%x \n", retval);
 	return retval;
 }
 EXPORT_SYMBOL(nameserver_match);
