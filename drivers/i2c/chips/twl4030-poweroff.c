@@ -34,7 +34,7 @@
 
 static void twl4030_poweroff(void)
 {
-	u8 val;
+	u8 uninitialized_var(val);
 	int err;
 
 	/* Make sure SEQ_OFFSYNC is set so that all the res goes to wait-on */
