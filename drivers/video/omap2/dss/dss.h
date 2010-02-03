@@ -242,25 +242,28 @@ int sdi_init_display(struct omap_dss_device *display);
 int dsi_init(struct platform_device *pdev);
 void dsi_exit(void);
 
-void dsi_dump_clocks(struct seq_file *s);
-void dsi_dump_regs(struct seq_file *s);
+void dsi_dump_clocks(enum dsi lcd_ix, struct seq_file *s);
+void dsi_dump_regs(enum dsi lcd_ix, struct seq_file *s);
 
 void dsi_save_context(void);
 void dsi_restore_context(void);
 
 int dsi_init_display(struct omap_dss_device *display);
-void dsi_irq_handler(void);
+void dsi_irq_handler(enum dsi lcd_ix);
 unsigned long dsi_get_dsi1_pll_rate(void);
-int dsi_pll_set_clock_div(struct dsi_clock_info *cinfo);
-int dsi_pll_calc_clock_div_pck(bool is_tft, unsigned long req_pck,
-		struct dsi_clock_info *cinfo,
+int dsi_pll_set_clock_div(enum dsi lcd_ix, struct dsi_clock_info *cinfo);
+int dsi_pll_calc_clock_div_pck(enum dsi lcd_ix, bool is_tft,
+		unsigned long req_pck, struct dsi_clock_info *cinfo,
 		struct dispc_clock_info *dispc_cinfo);
-int dsi_pll_init(struct omap_dss_device *dssdev, bool enable_hsclk,
-		bool enable_hsdiv);
-void dsi_pll_uninit(void);
+int dsi_pll_init(enum dsi lcd_ix, struct omap_dss_device *dssdev,
+		bool enable_hsclk, bool enable_hsdiv);
+void dsi_pll_uninit(enum dsi lcd_ix);
 void dsi_get_overlay_fifo_thresholds(enum omap_plane plane,
 		u32 fifo_size, enum omap_burst_size *burst_size,
 		u32 *fifo_low, u32 *fifo_high);
+/* DSI2 */
+int dsi2_init(struct platform_device *pdev);
+void dsi2_exit(void);
 
 /* DPI */
 int dpi_init(void);
@@ -293,6 +296,8 @@ void dispc_setup_plane_fifo(enum omap_plane plane, u32 low, u32 high);
 void dispc_enable_fifomerge(bool enable);
 void dispc_set_burst_size(enum omap_plane plane,
 		enum omap_burst_size burst_size);
+void dispc_set_lcd_divisor(enum omap_channel channel, u16 lck_div,
+								u16 pck_div);
 
 void dispc_set_plane_ba0(enum omap_plane plane, u32 paddr);
 void dispc_set_plane_ba1(enum omap_plane plane, u32 paddr);

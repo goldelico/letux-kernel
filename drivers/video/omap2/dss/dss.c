@@ -29,6 +29,7 @@
 #include <linux/interrupt.h>
 #include <linux/seq_file.h>
 #include <linux/clk.h>
+#include <linux/i2c/twl.h>
 
 #include <plat/display.h>
 #include "dss.h"
@@ -56,7 +57,7 @@ struct dss_reg {
 #define DSS_REVISION			DSS_REG(0x0000)
 #define DSS_SYSCONFIG			DSS_REG(0x0010)
 #define DSS_SYSSTATUS			DSS_REG(0x0014)
-#define DSS_CONTROL			DSS_REG(0x0040)
+#define DSS_CONTROL				DSS_REG(0x0040)
 #define DSS_SDI_CONTROL			DSS_REG(0x0044)
 #define DSS_PLL_CONTROL			DSS_REG(0x0048)
 #define DSS_SDI_STATUS			DSS_REG(0x005C)
@@ -89,12 +90,20 @@ static struct {
 void __iomem  *dss_base;
 void __iomem  *dispc_base;
 
+#define GPIO_OE		0x134
+#define GPIO_DATAOUT	0x13C
+#define OMAP24XX_GPIO_CLEARDATAOUT	0x190
+#define OMAP24XX_GPIO_SETDATAOUT	0x194
+
+#define PWM2ON		0x03
+#define PWM2OFF		0x04
+#define TOGGLE3		0x92
+
 static int _omap_dss_wait_reset(void);
 
 static inline void dss_write_reg(const struct dss_reg idx, u32 val)
 {
 	__raw_writel(val, dss.base + idx.idx);
-	__raw_readl(dss.base + 0x00); //sv5
 }
 
 static inline u32 dss_read_reg(const struct dss_reg idx)
@@ -270,6 +279,8 @@ void dss_select_clk_source(bool dsi, bool dispc)
 	u32 r;
 	r = dss_read_reg(DSS_CONTROL);
 	r = FLD_MOD(r, dsi, 1, 1);	/* DSI_CLK_SWITCH */
+	if (cpu_is_omap44xx())
+		r = FLD_MOD(r, dsi, 10, 10);	/* DSI2_CLK_SWITCH */
 	r = FLD_MOD(r, dispc, 0, 0);	/* DISPC_CLK_SWITCH */
 	/* TODO: extend for LCD2 and HDMI */
 	dss_write_reg(DSS_CONTROL, r);
@@ -427,9 +438,10 @@ retry:
 					goto found;
 			}
 		}
-	} else {
-		BUG();
-	}
+	} else if (cpu_is_omap34xx()){
+		;/*do nothing for now*/
+	} else
+			BUG();
 
 found:
 	if (!match) {
@@ -473,7 +485,7 @@ static irqreturn_t dss_irq_handler_omap3(int irq, void *arg)
 	/* INT_24XX_DSS_IRQ is dedicated for DISPC interrupt request only */
 	/* DSI1, DSI2 and HDMI to be handled in seperate handlers */
 	dispc_irq_handler();
-
+	/*No irq handler specifically for DSI made yet*/
 	return IRQ_HANDLED;
 }
 
@@ -494,11 +506,7 @@ static int _omap_dss_wait_reset(void)
 
 static int _omap_dss_reset(void)
 {
-#if 0 //sv3
-	/* Soft reset */
-	REG_FLD_MOD(DSS_SYSCONFIG, 1, 1, 1);
-	return _omap_dss_wait_reset();
-#endif
+	return 0;
 }
 
 void dss_set_venc_output(enum omap_dss_venc_type type)
@@ -528,11 +536,14 @@ void dss_switch_tv_hdmi(int hdmi)
 
 int dss_init(bool skip_init)
 {
-	int r;
+	int r, ret;
 	u32 rev;
 	u32 val;
+	void __iomem  *gpio1_base, *gpio2_base;
+	void __iomem *mux_sec;
 
 	dss_base = dss.base = ioremap(DSS_BASE, DSS_SZ_REGS);
+
 	if (!dss.base) {
 		DSSERR("can't ioremap DSS\n");
 		r = -ENOMEM;
@@ -570,17 +581,19 @@ int dss_init(bool skip_init)
 	REG_FLD_MOD(DSS_CONTROL, 1, 3, 3);	/* venc clock 4x enable */
 	REG_FLD_MOD(DSS_CONTROL, 0, 2, 2);	/* venc clock mode = normal */
 #endif
-#ifndef CONFIG_ARCH_OMAP4
+if (!cpu_is_omap44xx()) {
+
 	r = request_irq(INT_24XX_DSS_IRQ,
 			cpu_is_omap24xx()
 			? dss_irq_handler_omap2
 			: dss_irq_handler_omap3,
 			0, "OMAP DSS", NULL);
-#else
+	} else {
 	r = request_irq(INT_44XX_DSS_IRQ,
 			dss_irq_handler_omap3,
 			0, "OMAP DSS", (void *)1);
-#endif
+		}
+
 	if (r < 0) {
 		DSSERR("omap2 dss: request_irq failed\n");
 		goto fail1;
@@ -601,181 +614,90 @@ int dss_init(bool skip_init)
 	printk(KERN_INFO "OMAP DSS rev %d.%d\n",
 			FLD_GET(rev, 7, 4), FLD_GET(rev, 3, 0));
 
-#if 0
-	 gpio_request(102,"gpio102");
+	if (cpu_is_omap44xx()) {
 
-	 gpio_direction_output(102, 1);
-	 mdelay(10);
-	 gpio_set_value(102,0 );
-	 mdelay(10);
-	 gpio_set_value(102,1 );
-	 mdelay(10);
-#endif
-#if 0
-omap_set_gpio_dataout(78, 0);
-
-printk(KERN_INFO "\n M-1-M");
-
-// GPIO clear_data_out
-
-temp = __raw_readl(0xd9052090);
-
-temp = temp | (1<<14);
-
-__raw_writel(temp, 0xd9052090);
-
-printk(KERN_INFO "\n M-2-M");
-
-mdelay(10);
-
-printk(KERN_INFO "\n M-3-M");
-
-omap_set_gpio_dataout(78, 1);
-
-printk(KERN_INFO "\n M-4-M");
-
-// GPIO set_data_out
-
-temp = __raw_readl(0xd9052094);
-
-printk(KERN_INFO "\n M-5-M");
-
-temp = temp | (1<<14);
-
-__raw_writel(temp, 0xd9052094);
-
-printk(KERN_INFO "\n M-6-M");
-
-mdelay(1000);
-
-printk(KERN_INFO "\n M-7-M");
-
-
-
-
-
-
-
-temp = __raw_readl(0xd905203C);
-
-printk(KERN_INFO "\n AFTER GPIO_RESET 0x4905203C = 0x%X ", temp);
-
-
-
-
-
-temp = __raw_readl(0xd9052094);
-
-printk(KERN_INFO "\n AFTER GPIO_CLEAR (14)  0x49052094 = 0x%X ", temp);
-
-
-#endif
-
-#if 0 //sv3
-// MJ Powerup-Powerdown sequence
-
-	printk(KERN_INFO "\n ==================PowerUpPowerDown Seq============================= \n");
-
-	// PowerDown PowerUp sequence from Symbian
- 	//Request PRCM clocks
-
-	val = omap_readl(0x4A307100);
-	omap_writel(val, 0x4A307100);
-	udelay(10);
-	val = val |0x3; // ON state
-	omap_writel(val, 0x4A307100);
-
-
-	// CM_DSS_DSS_CLKCTRL
-
-	val = omap_readl(0x4A009120); //CM_FCLKEN_DSS1,DSS2,TV
-	val = val | 0xE00;// 0x7; // ON
-	omap_writel(val, 0x4A009120);
-	udelay(10);
-	printk(KERN_INFO "\n CM_FCLKEN_DSS = 0x%X ", omap_readl(0x4A009120));
-
-	printk(KERN_INFO "\n CM_SYS_CLKSEL = 0x4A306110 == 0x%X ", omap_readl(0x4A306110));
-
-	//CM_CLKMODE_DPLL_CORE
-	// DPLL4 locking
-	val = omap_readl(0x4A004120);
-	val = (val >>16) & 0x7; //need  to check the bits.
-	if(val != 7) {
-	            printk(KERN_INFO "DPLL4 should be locked before DSS release");
-	}
- 
-	val = omap_readl(0x4A004120);
-	printk(KERN_INFO "\n CM_CLKMODE_DPLL_CORE = 0x%X ", val);
-	printk(KERN_INFO "\n DSS_SYSCONFIG = 0x%X ", dss_read_reg(DSS_SYSCONFIG));
- 
-#if 0
-	//Wait for DSS reset sequence
-	dss_write_reg(DSS_SYSCONFIG, 0x2);  //DSS_SYSCONFIG - Softreset
-	val = dss_read_reg(DSS_SYSCONFIG);
-
-	while( (dss_read_reg(DSS_SYSCONFIG) & 0x2) != 0x0); //wait till reset happens
-	printk(KERN_INFO "\n DSSSYSCONFIG Reset happened ");
-#endif
-
-	val = dss_read_reg(DSS_SYSSTATUS);
-	while(val != 0x1) { 
-            val = dss_read_reg(DSS_SYSSTATUS);
-	            // val = omap_readl(0x58000014); // Wait till Reset is DONE
-	            udelay(1);
-	}
-
-	printk(KERN_INFO "\n DSS SYSSTATUS RESET DONE ");
-
-#if 1
-
-	// CM_DSS_DSS_CLKCTRL
-	val = omap_readl(0x4A009120);
-	val = val & ~(0xE00); // OFF FCLK DSS1,DSS2 and TVOUT
-	omap_writel(val, 0x4A009120);
-	udelay(10);
-	printk(KERN_INFO "\n CM_FCLKEN_DSS = 0x%X ", omap_readl(0x4A009120));
+		gpio2_base=ioremap(0x48059000,0x1000);
 	
-
-	// DSS_PWRST_CTRL
-	val = omap_readl(0x4A307100);
-	val = val & ~(0x3); // Retention state
-	omap_writel(val, 0x4A307100);
-	udelay(10);
-	printk(KERN_INFO "\n DSS_PWRST_CTRL to retention = 0x%X ", omap_readl(0x4A307104));
+		mux_sec = ioremap(0x4A100000,0x1000);
+		val = __raw_readl(mux_sec + 0x1CC); /*mux for gpio 27 or 52 dont know*/
+		val &= ~(0xFfff);
+		val |=	0x03;
+		__raw_writel(val,mux_sec + 0x1CC);
 	
-	val = omap_readl(0x4A307100);
-	val = val | 0x3; // ON state 
-	omap_writel(val, 0x4A307100);
-	udelay(10);
-	printk(KERN_INFO "\n DSS_PWRST_CTRL to ON = 0x%X ", omap_readl(0x4A307104));
+		val = __raw_readl(mux_sec + 0x086); /*mux for gpio 59*/
+		val &= ~(0xFfff);
+		val |=	0x03;
+		__raw_writel(val,mux_sec + 0x086);
+
+		val = __raw_readl(mux_sec + 0x0EA); /*mux for GPio 104*/
+		val &= ~(0xFfff);
+		val |=	0x03;
+		__raw_writel(val,mux_sec + 0x0EA);
+
+		val = __raw_readl(gpio2_base+GPIO_OE);
+		val &= ~0x100;
+		__raw_writel(val, gpio2_base+GPIO_OE);
 	
- 	val = omap_readl(0x4A009120);
-	val = val | 0xE00; // ON FCLK DSS1,DSS2 and TVOUT
-	omap_writel(val, 0x4A009120);
-	udelay(10);
+		mdelay(120);
 
-	printk(KERN_INFO "\n ON FCLK DSS1,DSS2 and TVOUT = 0x%X ", omap_readl(0x4A009120));
-
-#endif
-
-#if 0	 
-	//Soft reset bit to DSS_RESET Wait for DSS reset sequence
-	dss_write_reg(DSS_SYSCONFIG, 0x2);  //DSS_SYSCONFIG - Softreset
-	val = dss_read_reg(DSS_SYSCONFIG);
-#endif
-	while( (dss_read_reg(DSS_SYSSTATUS) & 0x1) != 0x0); //wait till reset happens
-	printk(KERN_INFO "\n DSSSYSCONFIG Reset happened ");
-
- 	dispc_base = ioremap(0x58001000, 0x1000);
-	dss_write_reg(dispc_base+0x10, 0x2);  //DSS_SYSCONFIG - Softreset
-	while( (__raw_readl(dispc_base+0x14) & 0x1) != 0x0); //wait till DISPCreset happens
-	            printk(KERN_INFO "\n DISPC SYSCONFIG Reset happened ");
-
-	printk(KERN_INFO "\n ----------------------------------------------------------- \n");
+		/* To output signal high */
+		val = __raw_readl(gpio2_base+OMAP24XX_GPIO_SETDATAOUT);
+		val |= 0x100;
+		__raw_writel(val, gpio2_base+OMAP24XX_GPIO_SETDATAOUT);
+		mdelay(100);
 	
+		val = __raw_readl(gpio2_base+OMAP24XX_GPIO_CLEARDATAOUT);
+		val |= 0x100;
+		__raw_writel(val, gpio2_base+OMAP24XX_GPIO_CLEARDATAOUT);
+		mdelay(120);
 
+		val = __raw_readl(gpio2_base+OMAP24XX_GPIO_SETDATAOUT);
+		val |= 0x100;
+		__raw_writel(val, gpio2_base+OMAP24XX_GPIO_SETDATAOUT);
 
-#endif
+		mdelay(120);
+		printk("GPIO 104 reset done ");
+
+		ret = twl_i2c_write_u8(TWL_MODULE_PWM, 0xFF, PWM2ON); /*0xBD = 0xFF*/
+		ret = twl_i2c_write_u8(TWL_MODULE_PWM, 0x7F, PWM2OFF); /*0xBE = 0x7F*/
+		ret = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x30, TOGGLE3);
+
+		gpio2_base=ioremap(0x4a310000,0x1000);
+		gpio1_base=ioremap(0x48055000,0x1000);
+
+		/* To output signal low */
+		rev = __raw_readl(gpio2_base+OMAP24XX_GPIO_CLEARDATAOUT);
+		rev |= (1<<27);
+		__raw_writel(rev, gpio2_base+OMAP24XX_GPIO_CLEARDATAOUT);
+		mdelay(120);
+
+		rev = __raw_readl(gpio2_base+GPIO_OE);
+		rev &= ~(1<<27);
+		__raw_writel(rev, gpio2_base+GPIO_OE);
+
+		/* To output signal low */
+		rev = __raw_readl(gpio2_base+OMAP24XX_GPIO_CLEARDATAOUT);
+		rev |= (1<<27);
+		__raw_writel(rev, gpio2_base+OMAP24XX_GPIO_CLEARDATAOUT);
+		mdelay(120);
+
+		/* To output signal high */
+		rev = __raw_readl(gpio1_base+OMAP24XX_GPIO_SETDATAOUT);
+		rev |= (1<<27);
+		__raw_writel(rev, gpio1_base+OMAP24XX_GPIO_SETDATAOUT);
+		mdelay(120);
+
+		rev = __raw_readl(gpio1_base+GPIO_OE);
+		rev &= ~(1<<27);
+		__raw_writel(rev, gpio1_base+GPIO_OE);
+		mdelay(120);
+
+		/* To output signal high */
+		rev = __raw_readl(gpio1_base+OMAP24XX_GPIO_SETDATAOUT);
+		rev |= (1<<27);
+		__raw_writel(rev, gpio1_base+OMAP24XX_GPIO_SETDATAOUT);
+		mdelay(120);
+		}
 
 	return 0;
 
@@ -805,12 +727,12 @@ void dss_exit(void)
 
 void test(void)
 {
-	u32 a, b, c;
-	//	a = ioremap(0x58000000, 0x60);
+	u32 b, c;
+	/*a = ioremap(0x58000000, 0x60);*/
 	b = ioremap(0x4A009100, 0x30);
 	c = ioremap(0x4a307100, 0x10);
 
-	//printk(KERN_INFO "dss status 0x%x 0x%x\n", __raw_readl(a+0x5c), (a+0x5c));
+	/*printk(KERN_INFO "dss status 0x%x 0x%x\n", __raw_readl(a+0x5c), (a+0x5c));*/
 	printk(KERN_INFO "CM_DSS_CLKSTCTRL 0x%x 0x%x\n", __raw_readl(b), b);
 	printk(KERN_INFO "CM_DSS_DSS_CLKCTRL 0x%x 0x%x\n", __raw_readl(b+0x20), (b+0x20));
 	printk(KERN_INFO "PM DSS wrst 0x%x 0x%x\n", __raw_readl(c+0x4), (c+0x4));

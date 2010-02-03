@@ -29,6 +29,8 @@
 #include <linux/platform_device.h>
 
 #include <plat/display.h>
+#include <plat/cpu.h>
+
 #include "dss.h"
 
 static LIST_HEAD(display_list);
@@ -317,11 +319,10 @@ void default_get_overlay_fifo_thresholds(enum omap_plane plane,
 	unsigned burst_size_bytes;
 
 	*burst_size = OMAP_DSS_BURST_16x32; /* OMAP4: same as 8x128*/
-#ifndef CONFIG_ARCH_OMAP4
-	burst_size_bytes = 16 * 32 / 8;
-#else
-	burst_size_bytes = 8 * 128 / 8; /* OMAP4: highest burst size is 8x128*/
-#endif
+	if (!cpu_is_omap44xx())
+		burst_size_bytes = 16 * 32 / 8;
+	else
+		burst_size_bytes = 8 * 128 / 8; /* OMAP4: highest burst size is 8x128*/
 
 	*fifo_high = fifo_size - 1;
 	*fifo_low = fifo_size - burst_size_bytes;
@@ -462,7 +463,10 @@ void dss_init_device(struct platform_device *pdev,
 #endif
 #ifdef CONFIG_OMAP2_DSS_DSI
 	case OMAP_DISPLAY_TYPE_DSI:
-		r = dsi_init_display(dssdev);
+		if(!strcmp(dssdev->name, "lcd"))
+			r = dsi_init_display(dssdev);
+		else
+			r = dsi_init_display(dssdev);
 		break;
 #endif
 #ifdef CONFIG_OMAP2_DSS_HDMI

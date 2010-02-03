@@ -2856,7 +2856,7 @@ void dispc_set_lcd_timings(enum omap_channel channel,
 	DSSDBG("hsync %luHz, vsync %luHz\n", ht, vt);
 }
 
-static void dispc_set_lcd_divisor(enum omap_channel channel, u16 lck_div,
+void dispc_set_lcd_divisor(enum omap_channel channel, u16 lck_div,
 								u16 pck_div)
 {
 	BUG_ON(lck_div < 1);

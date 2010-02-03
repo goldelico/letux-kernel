@@ -226,6 +226,9 @@ enum omap_dss_overlay_managers {
 enum omap_dss_rotation_type {
 	OMAP_DSS_ROT_DMA = 0,
 	OMAP_DSS_ROT_VRFB = 1,
+#ifdef CONFIG_ARCH_OMAP4
+	OMAP_DSS_ROT_TILER = 2,
+#endif
 };
 
 /* clockwise rotation angle */
@@ -287,15 +290,21 @@ int omap_rfbi_setup_te(enum omap_rfbi_te_mode mode,
 			     int hs_pol_inv, int vs_pol_inv, int extif_div);
 
 /* DSI */
-void dsi_bus_lock(void);
-void dsi_bus_unlock(void);
-int dsi_vc_dcs_write(int channel, u8 *data, int len);
-int dsi_vc_dcs_write_nosync(int channel, u8 *data, int len);
-int dsi_vc_dcs_read(int channel, u8 dcs_cmd, u8 *buf, int buflen);
-int dsi_vc_set_max_rx_packet_size(int channel, u16 len);
-int dsi_vc_send_bta_sync(int channel);
-int dsi_vc_send_null(int channel);
-int dsi_vc_send_bta_sync(int channel);
+enum dsi {
+			dsi1 = 0,
+			dsi2 = 1,
+			};
+
+
+void dsi_bus_lock(enum dsi lcd_ix);
+void dsi_bus_unlock(enum dsi lcd_ix);
+int dsi_vc_dcs_write(enum dsi lcd_ix, int channel, u8 *data, int len);
+int dsi_vc_dcs_write_nosync(enum dsi lcd_ix, int channel, u8 *data, int len);
+int dsi_vc_dcs_read(enum dsi lcd_ix, int channel,
+			u8 dcs_cmd, u8 *buf, int buflen);
+int dsi_vc_set_max_rx_packet_size(enum dsi lcd_ix, int channel, u16 len);
+int dsi_vc_send_bta_sync(enum dsi lcd_ix, int channel);
+int dsi_vc_send_null(enum dsi lcd_ix, int channel);
 
 /* Board specific data */
 struct omap_dss_board_info {
