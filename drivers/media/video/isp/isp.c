@@ -886,12 +886,28 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 		 * Enable preview for the first time. We just have
 		 * missed the start-of-frame so we can do it now.
 		 */
-		if (irqstatus & CCDC_VD0 &&
-		    (CCDC_PREV_CAPTURE(isp) || CCDC_PREV_RESZ_CAPTURE(isp)) &&
-		    !(isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR) &
-		      (ISPPRV_PCR_BUSY | ISPPRV_PCR_EN))) {
-			isppreview_config_shadow_registers(&isp->isp_prev);
-			isppreview_enable(&isp->isp_prev, 1);
+		if (irqstatus & CCDC_VD0) {
+			/*
+			 * For some reason resizer is always busy after boot up
+			 * do not check resizer busy now.
+			 */
+			if ((isp->pipeline.modules & OMAP_ISP_RESIZER) &&
+			    (isp->pipeline.rsz_in == RSZ_OTFLY_YUV) &&
+			    !(isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ,
+					    ISPRSZ_PCR) & (ISPRSZ_PCR_ENABLE |
+					    ISPRSZ_PCR_BUSY))) {
+				ispresizer_config_shadow_registers(
+					&isp->isp_res);
+				ispresizer_enable(&isp->isp_res, 1);
+			}
+			if (((isp)->pipeline.modules & OMAP_ISP_PREVIEW) &&
+			    !(isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
+					    ISPPRV_PCR) & (ISPPRV_PCR_BUSY |
+					    ISPPRV_PCR_EN))) {
+				isppreview_config_shadow_registers(
+					&isp->isp_prev);
+				isppreview_enable(&isp->isp_prev, 1);
+			}
 		}
 	default:
 		/*
@@ -998,7 +1014,7 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 				if (ispresizer_busy(&isp->isp_res)) {
 					buf->vb_state = VIDEOBUF_ERROR;
 					dev_dbg(dev, "resizer busy.\n");
-				} else {
+				} else if (!ISP_BUFS_IS_EMPTY(bufs)) {
 					ispresizer_config_shadow_registers(
 						&isp->isp_res);
 					ispresizer_enable(&isp->isp_res, 1);
