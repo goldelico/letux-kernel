@@ -211,8 +211,10 @@ void *CMM_CallocBuf(struct CMM_OBJECT *hCmmMgr, u32 uSize,
 				pNewNode = GetNode(pCmmMgr, pNode->dwPA + uSize,
 					   pNode->dwVA + uSize,
 					   (u32)uDeltaSize);
-				/* leftovers go free */
-				AddToFreeList(pAllocator, pNewNode);
+				if (pNewNode) {
+					/* leftovers go free */
+					AddToFreeList(pAllocator, pNewNode);
+				}
 				/* adjust our node's size */
 				pNode->ulSize = uSize;
 			}

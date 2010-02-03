@@ -85,11 +85,13 @@ DSP_STATUS IO_Create(OUT struct IO_MGR **phIOMgr, struct DEV_OBJECT *hDevObject,
 	}
 
 	if (DSP_SUCCEEDED(status)) {
-		DEV_GetIntfFxns(hDevObject, &pIntfFxns);
+		status = DEV_GetIntfFxns(hDevObject, &pIntfFxns);
 
-		/* Let WMD channel module finish the create: */
-		status = (*pIntfFxns->pfnIOCreate)(&hIOMgr, hDevObject,
-			 pMgrAttrs);
+		if (pIntfFxns) {
+			/* Let WMD channel module finish the create */
+			status = (*pIntfFxns->pfnIOCreate)(&hIOMgr, hDevObject,
+					pMgrAttrs);
+		}
 
 		if (DSP_SUCCEEDED(status)) {
 			pIOMgr = (struct IO_MGR_ *) hIOMgr;

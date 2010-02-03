@@ -105,10 +105,12 @@ DSP_STATUS CHNL_Create(OUT struct CHNL_MGR **phChnlMgr,
 
 	if (DSP_SUCCEEDED(status)) {
 		struct WMD_DRV_INTERFACE *pIntfFxns;
-		DEV_GetIntfFxns(hDevObject, &pIntfFxns);
-		/* Let WMD channel module finish the create: */
-		status = (*pIntfFxns->pfnChnlCreate)(&hChnlMgr, hDevObject,
-			  pMgrAttrs);
+		status = DEV_GetIntfFxns(hDevObject, &pIntfFxns);
+		if (pIntfFxns) {
+			/* Let WMD channel module finish the create */
+			status = (*pIntfFxns->pfnChnlCreate)(&hChnlMgr,
+						hDevObject, pMgrAttrs);
+		}
 		if (DSP_SUCCEEDED(status)) {
 			/* Fill in WCD channel module's fields of the
 			 * CHNL_MGR structure */

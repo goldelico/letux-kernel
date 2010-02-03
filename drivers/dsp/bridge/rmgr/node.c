@@ -3171,12 +3171,12 @@ DSP_STATUS NODE_GetUUIDProps(DSP_HPROCESSOR hProcessor,
 		 pNodeId, pNodeProps);
 
 	status = PROC_GetDevObject(hProcessor, &hDevObject);
-	if (hDevObject != NULL) {
+	if (hDevObject != NULL)
 		status = DEV_GetNodeManager(hDevObject, &hNodeMgr);
-		if (hNodeMgr == NULL) {
-			status = DSP_EHANDLE;
-			goto func_end;
-		}
+
+	if (hNodeMgr == NULL) {
+		status = DSP_EHANDLE;
+		goto func_end;
 	}
 
 	/*
