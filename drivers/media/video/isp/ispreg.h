@@ -966,7 +966,7 @@
 #define ISPRSZ_PID_CID_SHIFT			8
 #define ISPRSZ_PID_TID_SHIFT			16
 
-#define ISPRSZ_PCR_ENABLE			0x5
+#define ISPRSZ_PCR_ENABLE			1
 #define ISPRSZ_PCR_BUSY				(1 << 1)
 #define ISPRSZ_PCR_ONESHOT			(1 << 2)
 
