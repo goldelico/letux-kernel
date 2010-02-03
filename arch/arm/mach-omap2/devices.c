@@ -177,7 +177,7 @@ static inline void omap_init_mbox(void)
 	if (cpu_is_omap2420()) {
 		mbox_device.num_resources = ARRAY_SIZE(omap2_mbox_resources);
 		mbox_device.resource = omap2_mbox_resources;
-	} else if (cpu_is_omap3430()) {
+	} else if (cpu_is_omap3430() || cpu_is_omap3630()) {
 		mbox_device.num_resources = ARRAY_SIZE(omap3_mbox_resources);
 		mbox_device.resource = omap3_mbox_resources;
 	} else {
