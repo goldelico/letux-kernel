@@ -28,6 +28,7 @@
 #include <linux/bitops.h>
 #include <linux/err.h>
 #include <linux/cpufreq.h>
+#include <linux/i2c/twl4030.h>
 
 #include <mach/clock.h>
 #include <mach/sram.h>
@@ -746,6 +747,8 @@ static struct clk_functions omap2_clk_functions = {
  */
 void omap2_clk_prepare_for_reboot(void)
 {
+	int err = 0;
+
 	/* REVISIT: Not ready for 343x */
 #if 0
 	u32 rate;
@@ -755,6 +758,18 @@ void omap2_clk_prepare_for_reboot(void)
 
 	rate = clk_get_rate(sclk);
 	clk_set_rate(vclk, rate);
+#endif
+
+	/*
+	 * PRCM on OMAP3 will drive SYS_OFFMODE low during DPLL3 warm reset.
+	 * This causes Gaia sleep script to execute, usually killing VDD1 and
+	 * VDD2 while code is running.  WA is to disable the sleep script
+	 * before warm reset.
+	 */
+#ifdef CONFIG_TWL4030_POWER
+	err = twl4030_remove_script(TRITON_SLEEP_SCRIPT);
+	if (err)
+		pr_err("twl4030: error trying to disable sleep script!\n");
 #endif
 }
 
