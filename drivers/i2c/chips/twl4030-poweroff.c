@@ -46,7 +46,7 @@ static void twl4030_poweroff(void)
 	}
 
 	val |= SEQ_OFFSYNC;
-	err = twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, &val,
+	err = twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, val,
 				    CFG_P123_TRANSITION);
 	if (err) {
 		pr_warning("I2C error %d while writing TWL4030 PM_MASTER CFG_P123_TRANSITION\n", err);
