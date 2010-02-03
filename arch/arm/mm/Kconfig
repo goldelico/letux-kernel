@@ -450,18 +450,6 @@ config CPU_32v6
 config CPU_32v7
 	bool
 
-# Page table format
-config CPU_AFE
-	bool
-	depends on MMU
-	default y if CPU_V7
-	help
-	  This option sets the Access Flag Enable bit forcing the simplified
-	  permission model and automatic management of the access bit (if
-	  supported by the hardware). With this option enabled and TEX
-	  remapping, Linux no longer keeps a separate page table entry for
-	  storing additional bits.
-
 # The abort model
 config CPU_ABRT_NOMMU
 	bool

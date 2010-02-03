@@ -40,7 +40,6 @@
 #define VMALLOC_START		(((unsigned long)high_memory + VMALLOC_OFFSET) & ~(VMALLOC_OFFSET-1))
 #endif
 
-#ifndef CONFIG_CPU_AFE
 /*
  * Hardware-wise, we have a two level page table structure, where the first
  * level has 4096 entries, and the second level has 256 entries.  Each entry
@@ -102,31 +101,13 @@
 #define PTRS_PER_PTE		512
 #define PTRS_PER_PMD		1
 #define PTRS_PER_PGD		2048
-#define LINUX_PTE_OFFSET	PTRS_PER_PTE
-#else
-/*
- * If the Access Flag is enabled, Linux only uses one version of PTEs. We tell
- * LInux that we have 1024 entries in the first level, each of which is 16
- * bytes long (4 hardware pointers to the second level). The PTE level has
- * 1024 entries.
- */
-#define PTRS_PER_PTE		1024
-#define PTRS_PER_PMD		1
-#define PTRS_PER_PGD		1024
-#define LINUX_PTE_OFFSET	0
-#endif
 
 /*
  * PMD_SHIFT determines the size of the area a second-level page table can map
  * PGDIR_SHIFT determines what a third-level page table entry can map
  */
-#ifndef CONFIG_CPU_AFE
 #define PMD_SHIFT		21
 #define PGDIR_SHIFT		21
-#else
-#define PMD_SHIFT		22
-#define PGDIR_SHIFT		22
-#endif
 
 #define LIBRARY_TEXT_START	0x0c000000
 
@@ -169,7 +150,6 @@ extern void __pgd_error(const char *file, int line, unsigned long val);
 #define SUPERSECTION_SIZE	(1UL << SUPERSECTION_SHIFT)
 #define SUPERSECTION_MASK	(~(SUPERSECTION_SIZE-1))
 
-#ifndef CONFIG_CPU_AFE
 /*
  * "Linux" PTE definitions.
  *
@@ -189,30 +169,7 @@ extern void __pgd_error(const char *file, int line, unsigned long val);
 #define L_PTE_USER		(1 << 8)
 #define L_PTE_EXEC		(1 << 9)
 #define L_PTE_SHARED		(1 << 10)	/* shared(v6), coherent(xsc3) */
-#define L_PTE_NOEXEC		0
-#define L_PTE_NOWRITE		0
-#else
-/*
- * "Linux" PTE definitions with AFE set.
- *
- * These bits overlap with the hardware bits but the naming is preserved for
- * consistency with the non-AFE version.
- */
-#define L_PTE_NOEXEC		(1 << 0)	/* XN */
-#define L_PTE_PRESENT		(1 << 1)
-#define L_PTE_FILE		(1 << 2)	/* only when !PRESENT */
-#define L_PTE_BUFFERABLE	(1 << 2)	/* B */
-#define L_PTE_CACHEABLE		(1 << 3)	/* C */
-#define L_PTE_YOUNG		(1 << 4)	/* access flag */
-#define L_PTE_USER		(1 << 5)	/* AP[1] */
-#define L_PTE_DIRTY		(1 << 7)	/* TEX[1] */
-#define L_PTE_NOWRITE		(1 << 9)	/* AP[2] */
-#define L_PTE_SHARED		(1 << 10)	/* shared(v6+) */
-#define L_PTE_EXEC		0
-#define L_PTE_WRITE		0
-#endif
 
-#ifndef CONFIG_CPU_AFE
 /*
  * These are the memory types, defined to be compatible with
  * pre-ARMv6 CPUs cacheable and bufferable bits:   XXCB
@@ -228,22 +185,6 @@ extern void __pgd_error(const char *file, int line, unsigned long val);
 #define L_PTE_MT_DEV_WC		(0x09 << 2)	/* 1001 */
 #define L_PTE_MT_DEV_CACHED	(0x0b << 2)	/* 1011 */
 #define L_PTE_MT_MASK		(0x0f << 2)
-#else
-/*
- * AFE page table format requires TEX remapping as well: TEX[0], C, B.
- */
-#define L_PTE_MT_UNCACHED	((0 << 6) | (0 << 2))	/* 000 */
-#define L_PTE_MT_BUFFERABLE	((0 << 6) | (1 << 2))	/* 001 */
-#define L_PTE_MT_WRITETHROUGH	((0 << 6) | (2 << 2))	/* 010 */
-#define L_PTE_MT_WRITEBACK	((0 << 6) | (3 << 2))	/* 011 */
-#define L_PTE_MT_MINICACHE	((1 << 6) | (2 << 2))	/* 110 (sa1100, xscale) */
-#define L_PTE_MT_WRITEALLOC	((1 << 6) | (3 << 2))	/* 111 */
-#define L_PTE_MT_DEV_SHARED	((1 << 6) | (0 << 2))	/* 100 */
-#define L_PTE_MT_DEV_NONSHARED	((1 << 6) | (0 << 2))	/* 100 */
-#define L_PTE_MT_DEV_WC		((0 << 6) | (1 << 2))	/* 001 */
-#define L_PTE_MT_DEV_CACHED	((0 << 6) | (3 << 2))	/* 011 */
-#define L_PTE_MT_MASK		((1 << 6) | (3 << 2))
-#endif
 
 #ifndef __ASSEMBLY__
 
@@ -261,22 +202,22 @@ extern pgprot_t		pgprot_kernel;
 #define _MOD_PROT(p, b)	__pgprot(pgprot_val(p) | (b))
 
 #define PAGE_NONE		pgprot_user
-#define PAGE_SHARED		_MOD_PROT(pgprot_user, L_PTE_USER | L_PTE_WRITE | L_PTE_NOEXEC)
+#define PAGE_SHARED		_MOD_PROT(pgprot_user, L_PTE_USER | L_PTE_WRITE)
 #define PAGE_SHARED_EXEC	_MOD_PROT(pgprot_user, L_PTE_USER | L_PTE_WRITE | L_PTE_EXEC)
-#define PAGE_COPY		_MOD_PROT(pgprot_user, L_PTE_USER | L_PTE_NOEXEC | L_PTE_NOWRITE)
-#define PAGE_COPY_EXEC		_MOD_PROT(pgprot_user, L_PTE_USER | L_PTE_EXEC | L_PTE_NOWRITE)
-#define PAGE_READONLY		_MOD_PROT(pgprot_user, L_PTE_USER | L_PTE_NOEXEC | L_PTE_NOWRITE)
-#define PAGE_READONLY_EXEC	_MOD_PROT(pgprot_user, L_PTE_USER | L_PTE_EXEC | L_PTE_NOWRITE)
-#define PAGE_KERNEL		_MOD_PROT(pgprot_kernel, L_PTE_NOEXEC)
+#define PAGE_COPY		_MOD_PROT(pgprot_user, L_PTE_USER)
+#define PAGE_COPY_EXEC		_MOD_PROT(pgprot_user, L_PTE_USER | L_PTE_EXEC)
+#define PAGE_READONLY		_MOD_PROT(pgprot_user, L_PTE_USER)
+#define PAGE_READONLY_EXEC	_MOD_PROT(pgprot_user, L_PTE_USER | L_PTE_EXEC)
+#define PAGE_KERNEL		pgprot_kernel
 #define PAGE_KERNEL_EXEC	_MOD_PROT(pgprot_kernel, L_PTE_EXEC)
 
-#define __PAGE_NONE		__pgprot(_L_PTE_DEFAULT | L_PTE_NOEXEC | L_PTE_NOWRITE)
-#define __PAGE_SHARED		__pgprot(_L_PTE_DEFAULT | L_PTE_USER | L_PTE_WRITE | L_PTE_NOEXEC)
+#define __PAGE_NONE		__pgprot(_L_PTE_DEFAULT)
+#define __PAGE_SHARED		__pgprot(_L_PTE_DEFAULT | L_PTE_USER | L_PTE_WRITE)
 #define __PAGE_SHARED_EXEC	__pgprot(_L_PTE_DEFAULT | L_PTE_USER | L_PTE_WRITE | L_PTE_EXEC)
-#define __PAGE_COPY		__pgprot(_L_PTE_DEFAULT | L_PTE_USER | L_PTE_NOEXEC | L_PTE_NOWRITE)
-#define __PAGE_COPY_EXEC	__pgprot(_L_PTE_DEFAULT | L_PTE_USER | L_PTE_EXEC | L_PTE_NOWRITE)
-#define __PAGE_READONLY		__pgprot(_L_PTE_DEFAULT | L_PTE_USER | L_PTE_NOEXEC | L_PTE_NOWRITE)
-#define __PAGE_READONLY_EXEC	__pgprot(_L_PTE_DEFAULT | L_PTE_USER | L_PTE_EXEC | L_PTE_NOWRITE)
+#define __PAGE_COPY		__pgprot(_L_PTE_DEFAULT | L_PTE_USER)
+#define __PAGE_COPY_EXEC	__pgprot(_L_PTE_DEFAULT | L_PTE_USER | L_PTE_EXEC)
+#define __PAGE_READONLY		__pgprot(_L_PTE_DEFAULT | L_PTE_USER)
+#define __PAGE_READONLY_EXEC	__pgprot(_L_PTE_DEFAULT | L_PTE_USER | L_PTE_EXEC)
 
 #endif /* __ASSEMBLY__ */
 
@@ -346,11 +287,7 @@ extern struct page *empty_zero_page;
  * Undefined behaviour if not..
  */
 #define pte_present(pte)	(pte_val(pte) & L_PTE_PRESENT)
-#ifndef CONFIG_CPU_AFE
 #define pte_write(pte)		(pte_val(pte) & L_PTE_WRITE)
-#else
-#define pte_write(pte)		(!(pte_val(pte) & L_PTE_NOWRITE))
-#endif
 #define pte_dirty(pte)		(pte_val(pte) & L_PTE_DIRTY)
 #define pte_young(pte)		(pte_val(pte) & L_PTE_YOUNG)
 #define pte_special(pte)	(0)
@@ -358,13 +295,8 @@ extern struct page *empty_zero_page;
 #define PTE_BIT_FUNC(fn,op) \
 static inline pte_t pte_##fn(pte_t pte) { pte_val(pte) op; return pte; }
 
-#ifndef CONFIG_CPU_AFE
 PTE_BIT_FUNC(wrprotect, &= ~L_PTE_WRITE);
 PTE_BIT_FUNC(mkwrite,   |= L_PTE_WRITE);
-#else
-PTE_BIT_FUNC(wrprotect, |= L_PTE_NOWRITE);
-PTE_BIT_FUNC(mkwrite,   &= ~L_PTE_NOWRITE);
-#endif
 PTE_BIT_FUNC(mkclean,   &= ~L_PTE_DIRTY);
 PTE_BIT_FUNC(mkdirty,   |= L_PTE_DIRTY);
 PTE_BIT_FUNC(mkold,     &= ~L_PTE_YOUNG);
@@ -394,7 +326,6 @@ static inline pte_t pte_mkspecial(pte_t pte) { return pte; }
 #define pmd_present(pmd)	(pmd_val(pmd))
 #define pmd_bad(pmd)		(pmd_val(pmd) & 2)
 
-#ifndef CONFIG_CPU_AFE
 #define copy_pmd(pmdpd,pmdps)		\
 	do {				\
 		pmdpd[0] = pmdps[0];	\
@@ -408,32 +339,13 @@ static inline pte_t pte_mkspecial(pte_t pte) { return pte; }
 		pmdp[1] = __pmd(0);	\
 		clean_pmd_entry(pmdp);	\
 	} while (0)
-#else
-#define copy_pmd(pmdpd,pmdps)		\
-	do {				\
-		pmdpd[0] = pmdps[0];	\
-		pmdpd[1] = pmdps[1];	\
-		pmdpd[2] = pmdps[2];	\
-		pmdpd[3] = pmdps[3];	\
-		flush_pmd_entry(pmdpd);	\
-	} while (0)
-
-#define pmd_clear(pmdp)			\
-	do {				\
-		pmdp[0] = __pmd(0);	\
-		pmdp[1] = __pmd(0);	\
-		pmdp[2] = __pmd(0);	\
-		pmdp[3] = __pmd(0);	\
-		clean_pmd_entry(pmdp);	\
-	} while (0)
-#endif
 
 static inline pte_t *pmd_page_vaddr(pmd_t pmd)
 {
 	unsigned long ptr;
 
 	ptr = pmd_val(pmd) & ~(PTRS_PER_PTE * sizeof(void *) - 1);
-	ptr += LINUX_PTE_OFFSET * sizeof(void *);
+	ptr += PTRS_PER_PTE * sizeof(void *);
 
 	return __va(ptr);
 }
@@ -473,8 +385,7 @@ static inline pte_t *pmd_page_vaddr(pmd_t pmd)
 
 static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 {
-	const unsigned long mask = L_PTE_EXEC | L_PTE_WRITE | L_PTE_USER |
-		L_PTE_NOEXEC | L_PTE_NOWRITE;
+	const unsigned long mask = L_PTE_EXEC | L_PTE_WRITE | L_PTE_USER;
 	pte_val(pte) = (pte_val(pte) & ~mask) | (pgprot_val(newprot) & mask);
 	return pte;
 }

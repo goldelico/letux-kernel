@@ -62,7 +62,7 @@ pte_alloc_one_kernel(struct mm_struct *mm, unsigned long addr)
 	pte = (pte_t *)__get_free_page(PGALLOC_GFP);
 	if (pte) {
 		clean_dcache_area(pte, sizeof(pte_t) * PTRS_PER_PTE);
-		pte += LINUX_PTE_OFFSET;
+		pte += PTRS_PER_PTE;
 	}
 
 	return pte;
@@ -95,7 +95,7 @@ pte_alloc_one(struct mm_struct *mm, unsigned long addr)
 static inline void pte_free_kernel(struct mm_struct *mm, pte_t *pte)
 {
 	if (pte) {
-		pte -= LINUX_PTE_OFFSET;
+		pte -= PTRS_PER_PTE;
 		free_page((unsigned long)pte);
 	}
 }
@@ -110,10 +110,6 @@ static inline void __pmd_populate(pmd_t *pmdp, unsigned long pmdval)
 {
 	pmdp[0] = __pmd(pmdval);
 	pmdp[1] = __pmd(pmdval + 256 * sizeof(pte_t));
-#ifdef CONFIG_CPU_AFE
-	pmdp[2] = __pmd(pmdval + 512 * sizeof(pte_t));
-	pmdp[3] = __pmd(pmdval + 768 * sizeof(pte_t));
-#endif
 	flush_pmd_entry(pmdp);
 }
 
@@ -132,7 +128,7 @@ pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmdp, pte_t *ptep)
 	 * The pmd must be loaded with the physical
 	 * address of the PTE table
 	 */
-	pte_ptr -= LINUX_PTE_OFFSET * sizeof(void *);
+	pte_ptr -= PTRS_PER_PTE * sizeof(void *);
 	__pmd_populate(pmdp, __pa(pte_ptr) | _PAGE_KERNEL_TABLE);
 }
 

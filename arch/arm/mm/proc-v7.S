@@ -126,26 +126,38 @@ ENDPROC(cpu_v7_switch_mm)
  *		  (hardware version is stored at -1024 bytes)
  *	- pte   - PTE value to store
  *	- ext	- value for extended PTE bits
- *
- *	Simplified permission translation (AP0 is the access flag):
- *	YUWD  AP2 AP1 AP0	SVC	User
- *	0xxx   0   0   0	no acc	no acc
- *	100x   1   0   1	r/o	no acc
- *	10x0   1   0   1	r/o	no acc
- *	1011   0   0   1	r/w	no acc
- *	110x   1   1   1	r/o	r/o
- *	11x0   1   1   1	r/o	r/o
- *	1111   0   1   1	r/w	r/w
  */
 ENTRY(cpu_v7_set_pte_ext)
 #ifdef CONFIG_MMU
-	tst	r1, #L_PTE_PRESENT
-	beq	1f
-	tst	r1, #L_PTE_DIRTY
-	orreq	r1, #L_PTE_NOWRITE
-	orr	r1, r1, r2
-1:
-	str	r1, [r0]
+ ARM(	str	r1, [r0], #-2048	)	@ linux version
+ THUMB(	str	r1, [r0]		)	@ linux version
+ THUMB(	sub	r0, r0, #2048		)
+
+	bic	r3, r1, #0x000003f0
+	bic	r3, r3, #PTE_TYPE_MASK
+	orr	r3, r3, r2
+	orr	r3, r3, #PTE_EXT_AP0 | 2
+
+	tst	r1, #1 << 4
+	orrne	r3, r3, #PTE_EXT_TEX(1)
+
+	tst	r1, #L_PTE_WRITE
+	tstne	r1, #L_PTE_DIRTY
+	orreq	r3, r3, #PTE_EXT_APX
+
+	tst	r1, #L_PTE_USER
+	orrne	r3, r3, #PTE_EXT_AP1
+	tstne	r3, #PTE_EXT_APX
+	bicne	r3, r3, #PTE_EXT_APX | PTE_EXT_AP0
+
+	tst	r1, #L_PTE_EXEC
+	orreq	r3, r3, #PTE_EXT_XN
+
+	tst	r1, #L_PTE_YOUNG
+	tstne	r1, #L_PTE_PRESENT
+	moveq	r3, #0
+
+	str	r3, [r0]
 	mcr	p15, 0, r0, c7, c10, 1		@ flush_pte
 #endif
 	mov	pc, lr
@@ -269,14 +281,14 @@ __v7_setup:
 ENDPROC(__v7_setup)
 
 	/*   AT
-	 *  TFR   EV X F   IHD LR    S
-	 * .EEE ..EE PUI. .TAT 4RVI ZWRS BLDP WCAM
-	 * rxxx rrxx xxx0 01x1 xxxx xxxx x111 xxxx < forced
-	 *   11    0 110    1  0011 1100 .111 1101 < we want
+	 *  TFR   EV X F   I D LR    S
+	 * .EEE ..EE PUI. .T.T 4RVI ZWRS BLDP WCAM
+	 * rxxx rrxx xxx0 0101 xxxx xxxx x111 xxxx < forced
+	 *    1    0 110       0011 1100 .111 1101 < we want
 	 */
 	.type	v7_crval, #object
 v7_crval:
-	crval	clear=0x0120c302, mmuset=0x30c23c7d, ucset=0x00c01c7c
+	crval	clear=0x0120c302, mmuset=0x10c03c7d, ucset=0x00c01c7c
 
 __v7_setup_stack:
 	.space	4 * 11				@ 11 registers

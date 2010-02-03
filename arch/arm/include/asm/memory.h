@@ -113,15 +113,11 @@
 #endif /* !CONFIG_MMU */
 
 /*
- * Size of DMA-consistent memory region.  Must be multiple of 2M (4MB if AFE),
+ * Size of DMA-consistent memory region.  Must be multiple of 2M,
  * between 2MB and 14MB inclusive.
  */
 #ifndef CONSISTENT_DMA_SIZE
-#ifndef CONFIG_CPU_AFE
 #define CONSISTENT_DMA_SIZE SZ_2M
-#else
-#define CONSISTENT_DMA_SIZE SZ_4M
-#endif
 #endif
 
 /*

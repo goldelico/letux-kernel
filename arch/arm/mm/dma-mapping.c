@@ -25,14 +25,8 @@
 #include <asm/sizes.h>
 
 /* Sanity check size */
-#ifndef CONFIG_CPU_AFE
 #if (CONSISTENT_DMA_SIZE % SZ_2M)
 #error "CONSISTENT_DMA_SIZE must be multiple of 2MiB"
-#endif
-#else
-#if (CONSISTENT_DMA_SIZE % SZ_4M)
-#error "CONSISTENT_DMA_SIZE must be multiple of 4MiB"
-#endif
 #endif
 
 #define CONSISTENT_END	(0xffe00000)
