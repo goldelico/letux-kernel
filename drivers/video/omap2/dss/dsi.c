@@ -3330,7 +3330,7 @@ static void dsi_handle_framedone(enum dsi lcd_ix)
 	}
 
 #ifdef CONFIG_OMAP2_DSS_FAKE_VSYNC
-	dispc_fake_vsync_irq();
+	dispc_fake_vsync_irq(lcd_ix);
 #endif
 }
 
