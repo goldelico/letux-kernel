@@ -189,7 +189,9 @@ static int twl4030_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
 	unsigned char rtc_data[ALL_TIME_REGS + 1];
 	int ret;
-	u8 save_control;
+	u8 uninitialized_var(save_control);
+
+	memset(rtc_data, 0, (ALL_TIME_REGS + 1));
 
 	ret = twl4030_rtc_read_u8(&save_control, REG_RTC_CTRL_REG);
 	if (ret < 0)
@@ -221,9 +223,11 @@ static int twl4030_rtc_read_time(struct device *dev, struct rtc_time *tm)
 
 static int twl4030_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
-	unsigned char save_control;
+	unsigned char uninitialized_var(save_control);
 	unsigned char rtc_data[ALL_TIME_REGS + 1];
 	int ret;
+
+	memset(rtc_data, 0, (ALL_TIME_REGS + 1));
 
 	rtc_data[1] = bin2bcd(tm->tm_sec);
 	rtc_data[2] = bin2bcd(tm->tm_min);
@@ -323,7 +327,7 @@ static irqreturn_t twl4030_rtc_interrupt(int irq, void *rtc)
 	unsigned long events = 0;
 	int ret = IRQ_NONE;
 	int res;
-	u8 rd_reg;
+	u8 uninitialized_var(rd_reg);
 
 #ifdef CONFIG_LOCKDEP
 	/* WORKAROUND for lockdep forcing IRQF_DISABLED on us, which
@@ -392,7 +396,7 @@ static int __devinit twl4030_rtc_probe(struct platform_device *pdev)
 	struct rtc_device *rtc;
 	int ret = 0;
 	int irq = platform_get_irq(pdev, 0);
-	u8 rd_reg;
+	u8 uninitialized_var(rd_reg);
 
 	if (irq <= 0)
 		return -EINVAL;
