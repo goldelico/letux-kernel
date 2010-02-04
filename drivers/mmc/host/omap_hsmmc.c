@@ -1125,8 +1125,10 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 	clkd = (reg & CLKD_MASK) >> CLKD_SHIFT;
 	if (clkd == 0)
 		clkd = 1;
-
-	cycle_ns = 1000000000 / (clk_get_rate(host->fclk) / clkd);
+	if (cpu_is_omap44xx())
+		cycle_ns = 1000000000 / (96000000 / clkd);
+	else
+		cycle_ns = 1000000000 / (clk_get_rate(host->fclk) / clkd);
 	timeout = timeout_ns / cycle_ns;
 	timeout += timeout_clks;
 	if (timeout) {
@@ -1816,18 +1818,20 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	sema_init(&host->sem, 1);
 	spin_lock_init(&host->irq_lock);
 
-	host->iclk = clk_get(&pdev->dev, "ick");
-	if (IS_ERR(host->iclk)) {
-		ret = PTR_ERR(host->iclk);
-		host->iclk = NULL;
-		goto err1;
-	}
-	host->fclk = clk_get(&pdev->dev, "fck");
-	if (IS_ERR(host->fclk)) {
-		ret = PTR_ERR(host->fclk);
-		host->fclk = NULL;
-		clk_put(host->iclk);
-		goto err1;
+	if (!cpu_is_omap44xx()) {
+		host->iclk = clk_get(&pdev->dev, "ick");
+		if (IS_ERR(host->iclk)) {
+			ret = PTR_ERR(host->iclk);
+			host->iclk = NULL;
+			goto err1;
+		}
+		host->fclk = clk_get(&pdev->dev, "fck");
+		if (IS_ERR(host->fclk)) {
+			ret = PTR_ERR(host->fclk);
+			host->fclk = NULL;
+			clk_put(host->iclk);
+			goto err1;
+		}
 	}
 
 	omap_hsmmc_context_save(host);
@@ -1837,17 +1841,19 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	/* we start off in DISABLED state */
 	host->dpm_state = DISABLED;
 
-	if (mmc_host_enable(host->mmc) != 0) {
-		clk_put(host->iclk);
-		clk_put(host->fclk);
-		goto err1;
-	}
+	if (!cpu_is_omap44xx()) {
+		if (mmc_host_enable(host->mmc) != 0) {
+			clk_put(host->iclk);
+			clk_put(host->fclk);
+			goto err1;
+		}
 
-	if (clk_enable(host->iclk) != 0) {
-		mmc_host_disable(host->mmc);
-		clk_put(host->iclk);
-		clk_put(host->fclk);
-		goto err1;
+		if (clk_enable(host->iclk) != 0) {
+			mmc_host_disable(host->mmc);
+			clk_put(host->iclk);
+			clk_put(host->fclk);
+			goto err1;
+		}
 	}
 
 	if (cpu_is_omap2430()) {

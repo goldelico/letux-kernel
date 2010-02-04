@@ -37,6 +37,14 @@ static u16 control_mmc1;
 #define HSMMC_NAME_LEN		9
 #define PHOENIX_MMC_CTRL	0xEE
 
+/* Hack :  Phoenix registers*/
+#define PHOENIX_CFG_INPUT_PUPD3	0xF2
+#define MMC_GRP			0x68
+#define MMC_TRANS		0x69
+#define MMC_STATE		0x6a
+#define MMC_VOLTAGE		0x6b
+
+
 static struct twl_mmc_controller {
 	struct omap_mmc_platform_data	*mmc;
 	/* Vcc == configured supply
@@ -112,6 +120,7 @@ static int twl_mmc_late_init(struct device *dev)
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
 	int ret = 0;
 	int i;
+	u8 regs;
 
 	/* MMC/SD/SDIO doesn't require a card detect switch */
 	if (!cpu_is_omap44xx()) {
@@ -176,6 +185,26 @@ static int twl_mmc_late_init(struct device *dev)
 					twl6030_interrupt_unmask
 						(TWL6030_MMCDETECT_INT_MASK,
 							REG_INT_MSK_STS_B);
+				}
+				/* Configure Phoenix for MMC1 Card detect */
+				if (i == 0) {
+					regs = 0x01;
+					twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
+								regs, MMC_GRP);
+					regs = 0x03;
+					twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
+							regs, MMC_TRANS);
+					regs = 0x21;
+					twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
+							regs, MMC_STATE);
+					regs = 0x15;
+					twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
+							regs, MMC_VOLTAGE);
+					msleep(200);
+					twl_i2c_write_u8(TWL4030_MODULE_INTBR,
+							0x04, PHOENIX_MMC_CTRL);
+					twl_i2c_write_u8(TWL4030_MODULE_INTBR,
+						0x11, PHOENIX_CFG_INPUT_PUPD3);
 				}
 			}
 			break;
@@ -248,6 +277,7 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 	int ret = 0;
 	struct twl_mmc_controller *c = &hsmmc[0];
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
+	u8 regs;
 
 	/*
 	 * Assume we power both OMAP VMMC1 (for CMD, CLK, DAT0..3) and the
@@ -294,7 +324,39 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 		}
 		omap_ctrl_writel(reg, control_pbias_offset);
 
-		ret = mmc_regulator_set_ocr(c->vcc, vdd);
+		/* Hack need to fix it */
+		if ((vdd == 0x12) || (vdd == 0x7)) {
+			regs = 0x01;
+			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
+						regs, MMC_GRP);
+			regs = 0x03;
+			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
+					regs, MMC_TRANS);
+			regs = 0x21;
+			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
+					regs, MMC_STATE);
+			regs = 0x15;
+			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
+					regs, MMC_VOLTAGE);
+		} else {
+			regs = 0x01;
+			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
+						regs, MMC_GRP);
+			regs = 0x03;
+			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
+					regs, MMC_TRANS);
+			regs = 0x00;
+			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
+					regs, MMC_STATE);
+			regs = 0x09;
+			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
+					regs, MMC_STATE);
+			regs = 0x15;
+			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
+					regs, MMC_VOLTAGE);
+		}
+		if (!cpu_is_omap44xx())
+			ret = mmc_regulator_set_ocr(c->vcc, vdd);
 
 		/* 100ms delay required for PBIAS configuration */
 		msleep(100);
@@ -329,7 +391,8 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 		}
 		omap_ctrl_writel(reg, control_pbias_offset);
 
-		ret = mmc_regulator_set_ocr(c->vcc, 0);
+		if (!cpu_is_omap44xx())
+			ret = mmc_regulator_set_ocr(c->vcc, 0);
 
 		/* 100ms delay required for PBIAS configuration */
 		msleep(100);
