@@ -254,7 +254,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 			&pwrState);
 
 	/* Wait for DSP to move into target power state */
-	while ((pwrState != targetPwrState) && timeout--) {
+	while ((pwrState != targetPwrState) && --timeout) {
 		if (msleep_interruptible(10)) {
 			pr_err("Waiting for DSP to Suspend interrupted\n");
 			return DSP_EFAIL;
