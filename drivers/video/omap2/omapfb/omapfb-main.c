@@ -39,7 +39,7 @@
 #define MYCONFIG_ARCH_OMAP4
 
 #ifdef MYCONFIG_ARCH_OMAP4 /* TODO: correct this!*/
-#include "../../../media/video/tiler/dmm_def.h"
+#include <mach/tiler.h>
 #endif
 
 #include "omapfb.h"
@@ -1364,7 +1364,7 @@ static void omapfb_free_fbmem(struct fb_info *fbi)
 		/* unmap the 0 angle rotation */
 		if (rg->vrfb.vaddr[0]) {
 			iounmap(rg->vrfb.vaddr[0]);
-			omap_vrfb_release_ctx(&rg->vrfb);
+			//omap_vrfb_release_ctx(&rg->vrfb);
 		}
 #endif
 	}
@@ -1437,7 +1437,7 @@ static int omapfb_alloc_fbmem(struct fb_info *fbi, unsigned long size,
 	/* DBG("allocated VRAM paddr %lx, vaddr %p\n", paddr, vaddr); */
 	DBG("allocated VRAM paddr %lx, vaddr %p\n", paddr, vaddr);
 	} else if (ofbi->rotation_type == OMAP_DSS_ROT_VRFB) {
-		r = omap_vrfb_request_ctx(&rg->vrfb);
+		//r = omap_vrfb_request_ctx(&rg->vrfb);
 		if (r) {
 			dev_err(fbdev->dev, "vrfb create ctx failed\n");
 			return r;
@@ -1456,8 +1456,8 @@ static int omapfb_alloc_fbmem(struct fb_info *fbi, unsigned long size,
 		 * This function is currenlty returning zero in w and h
 		*/
 		printk(KERN_ERR "Tiler alloc here");
-//		r = tiler_alloc_buf(2, 800, 480, &sysptr);
-		r = tiler_alloc_buf(2, 640, 480, &sysptr);
+//		r = tiler_alloc(2, 800, 480, &sysptr);
+		r = tiler_alloc(2, 640, 480, &sysptr);
 		printk(KERN_ERR "tiler_alloc returns %d for the size of %d",r,size);
 			if (r) {
 				dev_err(fbdev->dev,
@@ -1511,8 +1511,8 @@ static int omapfb_alloc_fbmem_display(struct fb_info *fbi, unsigned long size,
 		display->get_resolution(display, &w, &h);
 
 		if (ofbi->rotation_type == OMAP_DSS_ROT_VRFB) {
-			size = max(omap_vrfb_min_phys_size(w, h, bytespp),
-					omap_vrfb_min_phys_size(h, w, bytespp));
+			//size = max(omap_vrfb_min_phys_size(w, h, bytespp),
+				//	omap_vrfb_min_phys_size(h, w, bytespp));
 
 			DBG("adjusting fb mem size for VRFB, %u -> %lu\n",
 					w * h * bytespp, size);

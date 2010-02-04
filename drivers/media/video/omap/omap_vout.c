@@ -60,7 +60,8 @@
 #include "omap_voutdef.h"
 
 #ifdef CONFIG_ARCH_OMAP4 /* TODO: correct this!*/
-#include "../tiler/dmm_def.h"
+#include <mach/tiler.h>
+
 #endif
 
 #define TILER_ALLOCATE_V4L2
@@ -570,7 +571,7 @@ static int omap_vout_tiler_buffer_setup(struct omap_vout_device *vout,
 	for (i = 0; i < *count; i++) {
 		if (!vout->buf_phy_addr[i]) {
 
-			if (DMM_NO_ERROR != tiler_alloc_buf(fmt,
+			if (/*DMM_NO_ERROR */0!= tiler_alloc(fmt,
 					vout->pix.width, vout->pix.height,
 					&vout->buf_phy_addr[i])) {
 				vout->buf_phy_addr[i] = 0;
@@ -588,8 +589,8 @@ static int omap_vout_tiler_buffer_setup(struct omap_vout_device *vout,
 		}
 		if (OMAP_DSS_COLOR_NV12 == vout->dss_mode) {
 			if (!vout->buf_phy_uv_addr[i]) { /* UV-buffer */
-				if (DMM_NO_ERROR !=
-					tiler_alloc_buf(TILFMT_16BIT,
+				if (/*DMM_NO_ERROR */0!=
+					tiler_alloc(TILFMT_16BIT,
 					(vout->pix.width / 2),
 					(vout->pix.height / 2),
 					&vout->buf_phy_uv_addr[i])) {
@@ -606,12 +607,12 @@ static int omap_vout_tiler_buffer_setup(struct omap_vout_device *vout,
 				!vout->buf_phy_uv_addr[i]) {
 				for (j = 0; j < i; j++) {
 					if (vout->buf_phy_addr[j]) {
-						tiler_free_buf(
+						tiler_free(
 							vout->buf_phy_addr[j]);
 						vout->buf_phy_addr[j] = 0;
 						}
 					if (vout->buf_phy_uv_addr[j]) {
-						tiler_free_buf(
+						tiler_free(
 						vout->buf_phy_uv_addr[j]);
 						vout->buf_phy_uv_addr[j] = 0;
 						}
@@ -625,7 +626,7 @@ static int omap_vout_tiler_buffer_setup(struct omap_vout_device *vout,
 
 		if (!vout->buf_phy_addr[i]) {
 			for (j = 0; j < i; j++) {
-				tiler_free_buf(vout->buf_phy_addr[j]);
+				tiler_free(vout->buf_phy_addr[j]);
 				vout->buf_phy_addr[j] = 0;
 			}
 			*count = 0;
@@ -642,10 +643,10 @@ static void omap_vout_free_tiler_buffers(struct omap_vout_device *vout)
 	int j;
 	mutex_lock(&my_lock);
 	for (j = 0; j < vout->buffer_allocated; j++) {
-		tiler_free_buf(vout->buf_phy_addr[j]);
+		tiler_free(vout->buf_phy_addr[j]);
 		vout->buf_phy_addr[j] = 0;
 		if (vout->buf_phy_uv_addr[j]) {
-		tiler_free_buf(vout->buf_phy_uv_addr[j]);
+		tiler_free(vout->buf_phy_uv_addr[j]);
 		vout->buf_phy_uv_addr[j] = 0;
 		}
 	}
@@ -1155,7 +1156,7 @@ static int omap_vout_buffer_setup(struct videobuf_queue *q, unsigned int *count,
 	/* Now allocated the V4L2 buffers */
 	/* i is the block-width - either 4K or 8K, depending upon input width*/
 	i = (vout->pix.width * vout->bpp +
-		TILER_PAGESIZE - 1) & ~(TILER_PAGESIZE - 1);
+		TILER_PAGE - 1) & ~(TILER_PAGE - 1);
 
 	/* for NV12 format, buffer is height + height / 2*/
 	if (OMAP_DSS_COLOR_NV12 == vout->dss_mode)
@@ -1452,11 +1453,11 @@ static int omap_vout_mmap(struct file *file, struct vm_area_struct *vma)
 	/* for NV12, Y buffer is 1bpp*/
 	if (OMAP_DSS_COLOR_NV12 == vout->dss_mode) {
 		p = (vout->pix.width +
-			TILER_PAGESIZE - 1) & ~(TILER_PAGESIZE - 1);
+			TILER_PAGE - 1) & ~(TILER_PAGE - 1);
 		m_increment = 64 * TILER_WIDTH;
 	} else {
 		p = (vout->pix.width * vout->bpp +
-			TILER_PAGESIZE - 1) & ~(TILER_PAGESIZE - 1);
+			TILER_PAGE - 1) & ~(TILER_PAGE - 1);
 
 		if (vout->bpp > 1)
 			m_increment = 2*64*TILER_WIDTH;
@@ -2126,10 +2127,10 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		vout->buffer_allocated = num_buffers;
 #else  /* TILER_ALLOCATE_V4L2*/
 		for (i = 0; i < vout->buffer_allocated; i++) {
-			tiler_free_buf(vout->buf_phy_addr[i]);
+			tiler_free(vout->buf_phy_addr[i]);
 			vout->buf_phy_addr[i] = 0;
 			if (vout->buf_phy_uv_addr[i]) {
-				tiler_free_buf(vout->buf_phy_uv_addr[i]);
+				tiler_free(vout->buf_phy_uv_addr[i]);
 				vout->buf_phy_uv_addr[i] = 0;
 			}
 		}

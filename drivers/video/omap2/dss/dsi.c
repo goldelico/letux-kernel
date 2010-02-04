@@ -308,7 +308,7 @@ static struct dsi_struct
 	int debug_write;
 } dsi_1, dsi_2;
 
-#ifdef DEBUG
+#if 0
 static unsigned int dsi_perf;
 module_param_named(dsi_perf, dsi_perf, bool, 0644);
 #endif
@@ -400,7 +400,7 @@ static inline int wait_for_bit_change(enum dsi lcd_ix,
 	return value;
 }
 
-#ifdef DEBUG
+#if 0
 static void dsi_perf_mark_setup(enum dsi lcd_ix)
 {
 	if (lcd_ix == dsi1)
@@ -787,7 +787,7 @@ static inline void dsi_enable_pll_clock(enum dsi lcd_ix, bool enable)
 	}
 }
 
-#ifdef DEBUG
+#if 0
 static void _dsi_print_reset_status(enum dsi lcd_ix)
 {
 	u32 l;
