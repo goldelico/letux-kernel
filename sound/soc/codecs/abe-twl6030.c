@@ -253,6 +253,7 @@ static void twl6030_init_vdd_regs(struct snd_soc_codec *codec)
 
 static void abe_init_chip(struct snd_soc_codec *codec)
 {
+	abe_init_mem();
 	abe_reset_hal();
 }
 

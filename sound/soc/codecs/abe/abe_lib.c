@@ -9,6 +9,20 @@
  */
 
 #include "abe_main.h"
+#include <linux/io.h>
+
+void __iomem *io_base;
+
+void abe_init_mem()
+{
+	io_base = ioremap(L4_ABE_44XX_PHYS, SZ_1M);
+}
+
+#define ABE_PMEM_BASE_OFFSET_MPU	0xe0000
+#define ABE_CMEM_BASE_OFFSET_MPU	0xa0000
+#define ABE_SMEM_BASE_OFFSET_MPU	0xc0000
+#define ABE_DMEM_BASE_OFFSET_MPU	0x80000
+#define ABE_ATC_BASE_OFFSET_MPU		0xf1000
 
 #if 0
 /*
@@ -382,22 +396,22 @@ void abe_block_copy(abe_int32 direction, abe_int32 memory_bank, abe_int32 addres
 
 	switch (memory_bank) {
 	case ABE_PMEM:
-		base_address = (abe_uint32) ABE_PMEM_BASE_ADDRESS_MPU;
+		base_address = (abe_uint32) io_base + ABE_PMEM_BASE_OFFSET_MPU;
 		break;
 	case ABE_CMEM:
-		base_address = (abe_uint32) ABE_CMEM_BASE_ADDRESS_MPU;
+		base_address = (abe_uint32) io_base + ABE_CMEM_BASE_OFFSET_MPU;
 		break;
 	case ABE_SMEM:
-		base_address = (abe_uint32) ABE_SMEM_BASE_ADDRESS_MPU;
+		base_address = (abe_uint32) io_base + ABE_SMEM_BASE_OFFSET_MPU;
 		break;
 	case ABE_DMEM:
-		base_address = (abe_uint32) ABE_DMEM_BASE_ADDRESS_MPU;
+		base_address = (abe_uint32) io_base + ABE_DMEM_BASE_OFFSET_MPU;
 		break;
 	case ABE_ATC:
-		base_address = (abe_uint32) ABE_ATC_BASE_ADDRESS_MPU;
+		base_address = (abe_uint32) io_base + ABE_ATC_BASE_OFFSET_MPU;
 		break;
 	default:
-		base_address = (abe_uint32) ABE_SMEM_BASE_ADDRESS_MPU;
+		base_address = (abe_uint32) io_base + ABE_SMEM_BASE_OFFSET_MPU;
 		abe_dbg_param |= ERR_LIB;
 		abe_dbg_error_log(ABE_BLOCK_COPY_ERR);
 		break;
