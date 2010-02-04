@@ -256,8 +256,16 @@ static void twl6030_init_vdd_regs(struct snd_soc_codec *codec)
 
 static void abe_init_chip(struct snd_soc_codec *codec)
 {
+	struct twl6030_data *priv = codec->private_data;
+
 	abe_init_mem();
+
+	/* aess_clk has to be enabled to access hal registers.
+	 * Disable the clk after it has been used.
+	 */
+	clk_enable(priv->clk);
 	abe_reset_hal();
+	clk_disable(priv->clk);
 }
 
 /* twl6030 codec manual power-up sequence */
@@ -924,6 +932,8 @@ static int abe_mm_startup(struct snd_pcm_substream *substream,
 				SNDRV_PCM_HW_PARAM_RATE,
 				priv->sysclk_constraints);
 	if (!priv->configure++) {
+		clk_enable(priv->clk);
+
 		abe_write_event_generator(EVENT_MCPDM);
 		abe_write_mixer(MIXDL1, GAIN_0dB, RAMP_1MS, MIX_DL1_INPUT_VX_DL);
 		abe_write_mixer(MIXDL2, GAIN_0dB, RAMP_50MS, MIX_DL2_INPUT_MM_DL);
@@ -1016,10 +1026,18 @@ static int abe_mm_hw_params(struct snd_pcm_substream *substream,
 static void abe_mm_shutdown(struct snd_pcm_substream *substream,
 			struct snd_soc_dai *dai)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_device *socdev = rtd->socdev;
+	struct snd_soc_codec *codec = socdev->card->codec;
+	struct twl6030_data *priv = codec->private_data;
+
 	if (substream->stream)
 		abe_disable_data_transfer(MM_UL_PORT);
 	else
 		abe_disable_data_transfer(MM_DL_PORT);
+
+	if(!--priv->configure)
+		clk_disable(priv->clk);
 }
 
 static struct snd_soc_dai_ops abe_mm_dai_ops = {
@@ -1061,6 +1079,8 @@ static int abe_voice_startup(struct snd_pcm_substream *substream,
 				priv->sysclk_constraints);
 
 	if (!priv->configure++) {
+		clk_enable(priv->clk);
+
 		abe_write_event_generator(EVENT_MCPDM);
 		abe_write_mixer(MIXDL1, GAIN_0dB, RAMP_1MS, MIX_DL1_INPUT_VX_DL);
 		abe_write_mixer(MIXDL2, GAIN_0dB, RAMP_50MS, MIX_DL2_INPUT_MM_DL);
@@ -1154,10 +1174,18 @@ static int abe_voice_hw_params(struct snd_pcm_substream *substream,
 static void abe_voice_shutdown(struct snd_pcm_substream *substream,
 			struct snd_soc_dai *dai)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_device *socdev = rtd->socdev;
+	struct snd_soc_codec *codec = socdev->card->codec;
+	struct twl6030_data *priv = codec->private_data;
+
 	if (substream->stream)
 		abe_disable_data_transfer(VX_UL_PORT);
 	else
 		abe_disable_data_transfer(VX_DL_PORT);
+
+	if(!--priv->configure)
+		clk_disable(priv->clk);
 }
 
 static struct snd_soc_dai_ops abe_voice_dai_ops = {
@@ -1410,8 +1438,6 @@ static int __devinit abe_twl6030_codec_probe(struct platform_device *pdev)
 		goto clk_err;
 	}
 
-	clk_enable(priv->clk);
-
 	/* init vio registers */
 	twl6030_init_vio_regs(codec);
 
@@ -1441,7 +1467,6 @@ irq_err:
 	if (naudint)
 		free_irq(naudint, codec);
 gpio2_err:
-	clk_disable(priv->clk);
 	clk_put(priv->clk);
 clk_err:
 	if (gpio_is_valid(audpwron))
@@ -1465,7 +1490,6 @@ static int __devexit abe_twl6030_codec_remove(struct platform_device *pdev)
 	if (naudint)
 		free_irq(naudint, twl6030_codec);
 
-	clk_disable(priv->clk);
 	clk_put(priv->clk);
 
 	snd_soc_unregister_dais(abe_dai, ARRAY_SIZE(abe_dai));
