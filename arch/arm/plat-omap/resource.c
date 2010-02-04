@@ -327,7 +327,7 @@ int resource_request(const char *name, struct device *dev,
 	struct  users_list *user;
 	int 	found = 0, ret = 0;
 
-	resp = _resource_lookup(name);
+	resp = resource_lookup(name);
 	if (!resp) {
 		printk(KERN_ERR "resource_request: Invalid resource name\n");
 		return -EINVAL;
@@ -388,7 +388,7 @@ int resource_release(const char *name, struct device *dev)
 	struct users_list *user;
 	int found = 0, ret = 0;
 
-	resp = _resource_lookup(name);
+	resp = resource_lookup(name);
 	if (!resp) {
 		printk(KERN_ERR "resource_release: Invalid resource name\n");
 		return -EINVAL;
@@ -432,7 +432,7 @@ int resource_get_level(const char *name)
 	struct shared_resource *resp;
 	u32 ret;
 
-	resp = _resource_lookup(name);
+	resp = resource_lookup(name);
 	if (!resp) {
 		printk(KERN_ERR "resource_release: Invalid resource name\n");
 		return -EINVAL;
