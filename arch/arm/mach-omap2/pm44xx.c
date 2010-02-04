@@ -196,6 +196,12 @@ static int __init omap4_pm_init(void)
 
 	printk(KERN_ERR "Power Management for TI OMAP4.\n");
 
+	/*
+	 * TODO: Not all drivers are PM adapted yet. Doing this
+	 * here not might result in issues as this overrides some
+	 * settings done in the bootloader.
+	 */
+#if 0
 	ret = pwrdm_for_each(pwrdms_setup, NULL);
 	if (ret) {
 		printk(KERN_ERR "Failed to setup powerdomains\n");
@@ -203,6 +209,7 @@ static int __init omap4_pm_init(void)
 	}
 
 	(void) clkdm_for_each(clkdms_setup, NULL);
+#endif
 
 	cpu0_pwrdm = pwrdm_lookup("cpu0_pwrdm");
 	cpu1_pwrdm = pwrdm_lookup("cpu1_pwrdm");
