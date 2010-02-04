@@ -220,8 +220,7 @@ DSP_STATUS DMM_DeleteTables(struct DMM_OBJECT *hDmmMgr)
 		/* Delete all DMM tables */
 		SYNC_EnterCS(pDmmObj->hDmmLock);
 
-		if (pVirtualMappingTable != NULL)
-			MEM_VFree(pVirtualMappingTable);
+		vfree(pVirtualMappingTable);
 
 		SYNC_LeaveCS(pDmmObj->hDmmLock);
 	} else

@@ -296,23 +296,6 @@ void MEM_FlushCache(void *pMemBuf, u32 cBytes, u32 FlushType)
 }
 
 /*
- *  ======== MEM_VFree ========
- *  Purpose:
- *      Free the given block of system memory in virtual space.
- */
-void MEM_VFree(IN void *pMemBuf)
-{
-	DBC_Require(pMemBuf != NULL);
-
-	GT_1trace(MEM_debugMask, GT_ENTER, "MEM_VFree: pMemBufs 0x%x\n",
-		  pMemBuf);
-
-	if (pMemBuf) {
-		vfree(pMemBuf);
-	}
-}
-
-/*
  *  ======== MEM_FreePhysMem ========
  *  Purpose:
  *      Free the given block of physically contiguous memory.
