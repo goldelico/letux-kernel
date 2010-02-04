@@ -894,7 +894,7 @@ static int dsi_set_lp_clk_divisor(struct omap_dss_device *dssdev)
 	REG_FLD_MOD(lcd_ix, DSI_CLK_CTRL,
 	(cpu_is_omap44xx()) ? 6 : lp_clk_div, 12, 0);	/* LP_CLK_DIVISOR */
 
-	REG_FLD_MOD(lcd_ix, DSI_CLK_CTRL, dsi_fclk > 30000000 ? 1 : 0,
+	REG_FLD_MOD(lcd_ix, DSI_CLK_CTRL, 1,
 			21, 21);		/* LP_RX_SYNCHRO_ENABLE */
 
 	return 0;
@@ -1403,7 +1403,7 @@ void dsi_dump_clocks(enum dsi lcd_ix, struct seq_file *s)
 
 void dsi_dump_regs(enum dsi lcd_ix, struct seq_file *s)
 {
-#define DUMPREG(n, r) seq_printf(s, "%-35s %08x\n", #r, dsi_read_reg(n, r))
+#define DUMPREG(n, r) printk("%08x\n", dsi_read_reg(n, r))
 
 	dss_clk_enable(DSS_CLK_ICK | DSS_CLK_FCK1);
 
@@ -1577,7 +1577,7 @@ static void dsi_complexio_timings(enum dsi lcd_ix)
 	u32 ths_prepare, ths_prepare_ths_zero, ths_trail, ths_exit;
 	u32 tlpx_half, tclk_trail, tclk_zero;
 	u32 tclk_prepare;
-
+	unsigned int val;
 	/* calculate timings */
 
 	/* 1 * DDR_CLK = 2 * UI */
@@ -1622,7 +1622,7 @@ static void dsi_complexio_timings(enum dsi lcd_ix)
 			tclk_prepare, ddr2ns(lcd_ix, tclk_prepare));
 
 	/* program timings */
-
+	if (!cpu_is_omap44xx()) {
 	r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG0);
 	r = FLD_MOD(r, ths_prepare, 31, 24);
 	r = FLD_MOD(r, ths_prepare_ths_zero, 23, 16);
@@ -1639,6 +1639,31 @@ static void dsi_complexio_timings(enum dsi lcd_ix)
 	r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG2);
 	r = FLD_MOD(r, tclk_prepare, 7, 0);
 	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG2, r);
+		} else {
+	/*Timing Configurations
+	 Configure the DSI PHY timing parameters*/
+	val = ((9<<24)|
+		   (20<<16)|
+		   (6<<8)|
+		   (15<<0));
+	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG0,val);
+
+	val = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG1);
+	val = val & ~(0x007FFFFF);
+	val = ((2<<29)|
+	       (0<<27)|
+	       (2<<24)|
+	       (3<<16)|
+	       (6<<8)|
+	       (26<<0) );
+	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG1,val);
+
+	val = dsi_read_reg(lcd_ix,DSI_DSIPHY_CFG2);
+	/* this is required to preserve the reset data */
+	val = val & ~(0x000000FF);
+	val = val | (7 << 0);
+	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG2,val);
+			}
 }
 
 
@@ -3880,7 +3905,6 @@ static int dsi_display_enable(struct omap_dss_device *dssdev)
 	struct dsi_struct *p_dsi;
 	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
-
 	DSSDBG("dsi_display_enable\n");
 
 	mutex_lock(&(p_dsi->lock));

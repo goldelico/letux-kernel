@@ -3125,7 +3125,8 @@ void dispc_dump_clocks(struct seq_file *s)
 
 void dispc_dump_regs(struct seq_file *s)
 {
-#define DUMPREG(r) seq_printf(s, "%-35s %08x\n", #r, dispc_read_reg(r))
+#define DUMPREG(r) printk("%08x\n", dispc_read_reg(r))
+
 
 	dss_clk_enable(DSS_CLK_ICK | DSS_CLK_FCK1);
 

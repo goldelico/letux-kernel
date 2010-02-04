@@ -214,11 +214,6 @@ static int sdp4430_panel_disable_lcd(struct omap_dss_device *dssdev) {
 
 static void __init sdp4430_display_init(void)
 {
-	int r;
-	/* MJ CORE_PAD0_C2C_DATA14_PAD1_C2C_DATA15 */
-	/* CONTROL_DSIPHY */
-	omap_writel(0x21084000, 0x4A100618);
-	printk(KERN_INFO "\n CONTROL_DSIPHY = 0x%X ", omap_readl(0x4A100618));
 	return;
 }
 
@@ -467,7 +462,7 @@ static void __init omap_4430sdp_init_irq(void)
 #endif
 	gic_init_irq();
 	omap_gpio_init();
-	sdp4430_display_init();
+
 }
 
 static struct regulator_init_data sdp4430_vaux1 = {
@@ -757,7 +752,7 @@ static void __init omap_4430sdp_init(void)
 	sdp4430_spi_board_info[0].irq = gpio_to_irq(34);
 	spi_register_board_info(sdp4430_spi_board_info,
 			ARRAY_SIZE(sdp4430_spi_board_info));
-
+	sdp4430_display_init();
 }
 
 static void __init omap_4430sdp_map_io(void)
