@@ -1132,6 +1132,7 @@ static void dss_apply_irq_handler(void *data, u32 mask)
 		oc = &dss_cache.overlay_cache[i];
 		if (!mgr_busy[oc->channel])
 			oc->shadow_dirty = false;
+	}
 
 	for (i = 0; i < num_mgrs; ++i) {
 		mc = &dss_cache.manager_cache[i];
@@ -1146,13 +1147,13 @@ static void dss_apply_irq_handler(void *data, u32 mask)
 	/* re-read busy flags */
 	mgr_busy[0] = dispc_go_busy(0);
 	mgr_busy[1] = dispc_go_busy(1);
+	mgr_busy[2] = dispc_go_busy(2);
 
 	/* keep running as long as there are busy managers, so that
 	 * we can collect overlay-applied information */
 	for (i = 0; i < num_mgrs; ++i)
 		if (mgr_busy[i])
 			goto end;
-	}
 
 	omap_dispc_unregister_isr(dss_apply_irq_handler, NULL,
 			DISPC_IRQ_VSYNC	| DISPC_IRQ_EVSYNC_ODD |
@@ -1451,7 +1452,7 @@ int dss_init_overlay_managers(struct platform_device *pdev)
 			break;
 #ifdef CONFIG_ARCH_OMAP4
 		case 2:
-			mgr->name = "lcd2";
+			mgr->name = "2lcd";
 			mgr->id = OMAP_DSS_CHANNEL_LCD2;
 			mgr->supported_displays =
 				OMAP_DISPLAY_TYPE_DBI | OMAP_DISPLAY_TYPE_SDI |

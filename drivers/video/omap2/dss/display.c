@@ -463,10 +463,7 @@ void dss_init_device(struct platform_device *pdev,
 #endif
 #ifdef CONFIG_OMAP2_DSS_DSI
 	case OMAP_DISPLAY_TYPE_DSI:
-		if(!strcmp(dssdev->name, "lcd"))
-			r = dsi_init_display(dssdev);
-		else
-			r = dsi_init_display(dssdev);
+		r = dsi_init_display(dssdev);
 		break;
 #endif
 #ifdef CONFIG_OMAP2_DSS_HDMI

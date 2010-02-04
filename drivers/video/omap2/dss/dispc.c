@@ -1164,7 +1164,12 @@ static void _dispc_set_pix_inc(enum omap_plane plane, s32 inc)
 {
 	const struct dispc_reg ri_reg[] = { DISPC_GFX_PIXEL_INC,
 				     DISPC_VID_PIXEL_INC(0),
-				     DISPC_VID_PIXEL_INC(1) };
+				     DISPC_VID_PIXEL_INC(1)
+#ifdef CONFIG_ARCH_OMAP4
+			, DISPC_VID_V3_WB_PIXEL_INC(0) /* VID 3 pipeline*/
+#endif
+
+	};
 
 	dispc_write_reg(ri_reg[plane], inc);
 }
@@ -1270,6 +1275,9 @@ static void _dispc_set_channel_out(enum omap_plane plane,
 {
 	int shift;
 	u32 val;
+#ifdef CONFIG_ARCH_OMAP4
+	int chan = 0, chan2 = 0;
+#endif
 
 	switch (plane) {
 	case OMAP_DSS_GFX:
@@ -1288,7 +1296,20 @@ static void _dispc_set_channel_out(enum omap_plane plane,
 	}
 
 	val = dispc_read_reg(dispc_reg_att[plane]);
+#ifdef CONFIG_ARCH_OMAP4
+	switch (channel) {
+	case OMAP_DSS_CHANNEL_LCD:
+		chan = 0; chan2 = 0; break;
+	case OMAP_DSS_CHANNEL_DIGIT:
+		chan = 1; chan2 = 0; break;
+	case OMAP_DSS_CHANNEL_LCD2:
+		chan = 0; chan2 = 1; break;
+	}
+	val = FLD_MOD(val, chan, shift, shift);
+	val = FLD_MOD(val, chan2, 31, 30);
+#else
 	val = FLD_MOD(val, channel, shift, shift);
+#endif
 	dispc_write_reg(dispc_reg_att[plane], val);
 }
 
@@ -1486,8 +1507,13 @@ void dispc_setup_plane_fifo(enum omap_plane plane, u32 low, u32 high)
 
 	DSSDBG("fifo(%d) low/high old %u/%u, new %u/%u\n",
 			plane,
+#ifndef CONFIG_ARCH_OMAP4
 			REG_GET(ftrs_reg[plane], 11, 0),
 			REG_GET(ftrs_reg[plane], 27, 16),
+#else
+			REG_GET(ftrs_reg[plane], 15, 0),
+			REG_GET(ftrs_reg[plane], 31, 16),
+#endif
 			low, high);
 
 	if (cpu_is_omap24xx())
@@ -3771,9 +3797,13 @@ static void dispc_error_worker(struct work_struct *work)
 	}
 
 	if (errors & DISPC_IRQ_SYNC_LOST_DIGIT) {
+#if 0
 		struct omap_overlay_manager *manager = NULL;
 		bool enable = false;
+#endif
 
+		DSSERR("SYNC_LOST_DIGIT\n");
+	/*
 		DSSERR("SYNC_LOST_DIGIT, disabling TV\n");
 
 		for (i = 0; i < omap_dss_get_num_overlay_managers(); ++i) {
@@ -3806,6 +3836,7 @@ static void dispc_error_worker(struct work_struct *work)
 			if (enable)
 				manager->device->enable(manager->device);
 		}
+		*/
 	}
 
 	if (errors & DISPC_IRQ_OCP_ERR) {
@@ -3886,12 +3917,24 @@ int omap_dispc_wait_for_irq_interruptible_timeout(u32 irqmask,
 }
 
 #ifdef CONFIG_OMAP2_DSS_FAKE_VSYNC
-void dispc_fake_vsync_irq(void)
+void dispc_fake_vsync_irq(int disp_id)
 {
-	u32 irqstatus = DISPC_IRQ_VSYNC;
+	u32 irqstatus;
 	int i;
 
 	local_irq_disable();
+	switch (disp_id) {
+	case 0:
+		irqstatus = DISPC_IRQ_VSYNC;
+		break;
+	case 1:
+		irqstatus = DISPC_IRQ_VSYNC2;
+		break;
+	default:
+		DSSERR("Invalid display id for fake vsync\n");
+		local_irq_enable();
+		return;
+	}
 
 	for (i = 0; i < DISPC_MAX_NR_ISRS; i++) {
 		struct omap_dispc_isr_data *isr_data;
@@ -3948,8 +3991,10 @@ static void _omap_dispc_initial_config(void)
 	l = FLD_MOD(l, 1, 0, 0);	/* AUTOIDLE */
 	dispc_write_reg(DISPC_SYSCONFIG, l);
 
-	/* FUNCGATED */
-	REG_FLD_MOD(DISPC_CONFIG, 1, 9, 9);
+	if (!cpu_is_omap44xx()) {
+		/* FUNCGATED: changed bitfield in OMAP4 */
+		REG_FLD_MOD(DISPC_CONFIG, 1, 9, 9);
+	}
 
 	/* L3 firewall setting: enable access to OCM RAM */
 	/* XXX this should be somewhere in plat-omap */
