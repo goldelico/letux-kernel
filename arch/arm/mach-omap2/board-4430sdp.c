@@ -40,6 +40,7 @@
 #include <asm/hardware/cache-l2x0.h>
 #include <linux/i2c/twl.h>
 #include <linux/regulator/machine.h>
+#include "mmc-twl4030.h"
 
 static int ts_gpio;
 
@@ -224,6 +225,43 @@ static struct omap_board_config_kernel sdp4430_config[] __initdata = {
 	{ OMAP_TAG_LCD,		&sdp4430_lcd_config },
 };
 
+static struct twl4030_hsmmc_info mmc[] = {
+	{
+		.mmc            = 1,
+		/* 8 bits (default) requires S6.3 == ON,
+		 * so the SIM card isn't used; else 4 bits.
+		 */
+		.wires          = 8,
+		.gpio_wp        = 4,
+	},
+	{
+		.mmc            = 2,
+		.wires          = 8,
+		.nonremovable   = true,
+		.gpio_cd        = -EINVAL,
+		.gpio_wp        = -EINVAL,
+	},
+	{
+		.mmc            = 3,
+		.wires          = -EINVAL,
+		.gpio_cd        = -EINVAL,
+		.gpio_wp        = -EINVAL,
+	},
+	{
+		.mmc            = 4,
+		.wires          = -EINVAL,
+		.gpio_cd        = -EINVAL,
+		.gpio_wp        = -EINVAL,
+	},
+	{
+		.mmc            = 5,
+		.wires          = 8,
+		.gpio_cd        = -EINVAL,
+		.gpio_wp        = 4,
+	},
+	{}      /* Terminator */
+};
+
 static struct regulator_consumer_supply sdp4430_vmmc_supply[] = {
 	{
 		.supply = "vmmc",
@@ -241,6 +279,23 @@ static struct regulator_consumer_supply sdp4430_vmmc_supply[] = {
 		.supply = "vmmc",
 	},
 };
+
+static int __init sdp4430_mmc_init(void)
+{
+	/* TODO: Fix Hard Coding */
+	mmc[0].gpio_cd = 384 ;
+
+	twl4030_mmc_init(mmc);
+	/* link regulators to MMC adapters ... we "know" the
+	 * regulators will be set up only *after* we return.
+	 */
+	sdp4430_vmmc_supply[0].dev = mmc[0].dev;
+	sdp4430_vmmc_supply[1].dev = mmc[1].dev;
+	sdp4430_vmmc_supply[2].dev = mmc[2].dev;
+	sdp4430_vmmc_supply[3].dev = mmc[3].dev;
+	sdp4430_vmmc_supply[4].dev = mmc[4].dev;
+	return 0;
+}
 
 #ifdef CONFIG_CACHE_L2X0
 static int __init omap_l2_cache_init(void)
@@ -534,6 +589,7 @@ static void __init omap_4430sdp_init(void)
 	platform_add_devices(sdp4430_devices, ARRAY_SIZE(sdp4430_devices));
 	omap_serial_init();
 	/* OMAP4 SDP uses internal transceiver so register nop transceiver */
+	sdp4430_mmc_init();
 	usb_nop_xceiv_register();
 	usb_musb_init(&musb_board_data);
 	omap_ethernet_init();
