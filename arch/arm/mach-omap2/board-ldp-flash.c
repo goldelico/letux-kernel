@@ -161,6 +161,7 @@ static struct mtd_partition ldp_nand_partitions[] = {
 		.offset		= 0x0200000,
 		.size		= 0x1C00000,   /* 30M */
 	},
+#ifdef CONFIG_ANDROID
 	{
 		.name		= "system",
 		.offset		= 0x2000000,
@@ -176,7 +177,32 @@ static struct mtd_partition ldp_nand_partitions[] = {
 		.offset		= 0xE000000,
 		.size		= 0x2000000,    /* 32M */
  	},
+#endif
 };
+
+/*
+ * Unlock the nand partitions "system", "userdata", "cache" on Zoom2
+ * once CORE hits OFF mode.
+ */
+#if defined(CONFIG_ANDROID) && defined(CONFIG_MACH_OMAP_ZOOM2)
+static void zoom2_nand_unlock(struct mtd_info *mtd, struct device *dev)
+{
+	static int off_counter;
+
+	if (get_last_off_on_transaction_id(dev) != off_counter) {
+		int offset, size;
+
+		offset = ldp_nand_partitions[4].offset;
+		size = ldp_nand_partitions[4].size + ldp_nand_partitions[5].size
+				+ ldp_nand_partitions[6].size;
+		/* Unlock the partitions "system", "userdata" and "cache" */
+		omap_zoom2_nand_unlock(mtd, offset, size);
+		off_counter = get_last_off_on_transaction_id(dev);
+	}
+}
+#else
+#define zoom2_nand_unlock NULL
+#endif
 
 /* NAND chip access: 16 bit */
 static struct omap_nand_platform_data ldp_nand_data = {
@@ -186,6 +212,7 @@ static struct omap_nand_platform_data ldp_nand_data = {
 	.dma_channel	= -1,		/* disable DMA in OMAP NAND driver */
 	.dev_ready	= NULL,
 	.unlock		= omap_zoom2_nand_unlock,
+	.board_unlock	= zoom2_nand_unlock,
 	.ecc_opt	= 0x1,
 };
 

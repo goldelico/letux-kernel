@@ -204,6 +204,7 @@ static struct omapdev *omapdevs[] = {
 	&modem_intc_3xxx_omapdev,
 	&sms_3xxx_omapdev,
 	&gpmc_3xxx_omapdev,
+	&nand_3xxx_omapdev,
 	&sdrc_3xxx_omapdev,
 	&ocm_ram_3xxx_omapdev,
 	&ocm_rom_3xxx_omapdev,

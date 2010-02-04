@@ -105,6 +105,14 @@ static struct omapdev gpmc_3xxx_omapdev = {
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 };
 
+static struct omapdev nand_3xxx_omapdev = {
+	.name		= "nand_omapdev",
+	.pwrdm		= { .name = "core_pwrdm" },
+	.pdev_name	= "omap2-nand",
+	.pdev_id	= 0,
+	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
+};
+
 static struct omapdev sdrc_3xxx_omapdev = {
 	.name		= "sdrc_omapdev",
 	.pwrdm		= { .name = "core_pwrdm" },
