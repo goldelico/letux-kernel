@@ -31,10 +31,10 @@
 #include <linux/delay.h>
 #include <linux/string.h>
 #include <linux/platform_device.h>
-#include <mach/display.h>
-#include <mach/cpu.h>
-#include <mach/hdmi_lib.h>
-#include <mach/gpio.h>
+#include <plat/display.h>
+#include <plat/cpu.h>
+#include <plat/hdmi_lib.h>
+#include <plat/gpio.h>
 
 #include "dss.h"
 #include "hdmi.h"
@@ -132,8 +132,6 @@ static inline u32 hdmi_read_reg(u32 base, u16 idx)
 	return l;
 }
 
-#define FLD_MASK(start, end)	(((1 << (start - end + 1)) - 1) << (end))
-#define FLD_VAL(val, start, end) (((val) << end) & FLD_MASK(start, end))
 #define FLD_GET(val, start, end) (((val) & FLD_MASK(start, end)) >> (end))
 #define FLD_MOD(orig, val, start, end) \
 	(((orig) & ~FLD_MASK(start, end)) | FLD_VAL(val, start, end))
@@ -239,8 +237,7 @@ static int hdmi_pll_init(int refsel, int dcofreq, struct hdmi_pll_info *fmt, u16
 		/* divider programming for 1080p */
 		REG_FLD_MOD(pll, PLLCTRL_CFG3, sd, 17, 10);
 		r = FLD_MOD(r, 0x4, 3, 1); /* 1000MHz and 2000MHz */
-	}
-	else
+	} else
 		r = FLD_MOD(r, 0x2, 3, 1); /* 500MHz and 1000MHz */
 
 	hdmi_write_reg(pll, PLLCTRL_CFG2, r);
