@@ -495,7 +495,7 @@ static struct spi_board_info sdp4430_spi_board_info[] __initdata = {
 		.modalias		= "ks8851",
 		.bus_num		= 1,
 		.chip_select		= 0,
-		.max_speed_hz		= 1500000,
+		.max_speed_hz		= 24000000,
 		.irq			= 34,
 	},
 	[1] = {
