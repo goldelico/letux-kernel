@@ -490,10 +490,14 @@ static int bridge_open(struct inode *ip, struct file *filp)
 	 * process context list.
 	 */
 	pr_ctxt = MEM_Calloc(sizeof(struct PROCESS_CONTEXT), MEM_PAGED);
-	if (pr_ctxt)
+	if (pr_ctxt) {
 		pr_ctxt->resState = PROC_RES_ALLOCATED;
-	else
+		mutex_init(&pr_ctxt->dmm_mutex);
+		mutex_init(&pr_ctxt->node_mutex);
+		mutex_init(&pr_ctxt->strm_mutex);
+	} else {
 		status = -ENOMEM;
+	}
 
 		filp->private_data = pr_ctxt;
 

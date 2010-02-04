@@ -97,6 +97,8 @@ DSP_STATUS DRV_InsertNodeResElement(HANDLE hNode, HANDLE hNodeRes,
 		status = DSP_EHANDLE;
 	}
 	if (DSP_SUCCEEDED(status)) {
+		if (mutex_lock_interruptible(&pCtxt->node_mutex))
+			return DSP_EFAIL;
 		(*pNodeRes)->hNode = hNode;
 		if (pCtxt->pNodeList != NULL) {
 			pTempNodeRes = pCtxt->pNodeList;
@@ -111,6 +113,7 @@ DSP_STATUS DRV_InsertNodeResElement(HANDLE hNode, HANDLE hNodeRes,
 			GT_0trace(curTrace, GT_ENTER,
 				 "DRV_InsertNodeResElement: 3");
 		}
+		mutex_unlock(&pCtxt->node_mutex);
 	}
 	GT_0trace(curTrace, GT_ENTER, "DRV_InsertNodeResElement: 4");
 	return status;
@@ -123,7 +126,10 @@ DSP_STATUS DRV_RemoveNodeResElement(HANDLE hNodeRes, HANDLE hPCtxt)
 	struct NODE_RES_OBJECT *pNodeRes = (struct NODE_RES_OBJECT *)hNodeRes;
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
 	struct NODE_RES_OBJECT *pTempNode;
+	DSP_STATUS status = DSP_SOK;
 
+	if (mutex_lock_interruptible(&pCtxt->node_mutex))
+		return DSP_EFAIL;
 	pTempNode = pCtxt->pNodeList;
 	if (pTempNode == pNodeRes) {
 		pCtxt->pNodeList = pNodeRes->next;
@@ -131,11 +137,13 @@ DSP_STATUS DRV_RemoveNodeResElement(HANDLE hNodeRes, HANDLE hPCtxt)
 		while (pTempNode && pTempNode->next != pNodeRes)
 			pTempNode = pTempNode->next;
 		if (!pTempNode)
-			return DSP_ENOTFOUND;
-		pTempNode->next = pNodeRes->next;
+			status = DSP_ENOTFOUND;
+		else
+			pTempNode->next = pNodeRes->next;
 	}
+	mutex_unlock(&pCtxt->node_mutex);
 	MEM_Free(pNodeRes);
-	return DSP_SOK;
+	return status;
 }
 
 /* Actual Node De-Allocation */
@@ -200,6 +208,9 @@ DSP_STATUS DRV_InsertDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
 		status = DSP_EHANDLE;
 	}
 	if (DSP_SUCCEEDED(status)) {
+		if (mutex_lock_interruptible(&pCtxt->dmm_mutex))
+			return DSP_EFAIL;
+
 		if (pCtxt->pDMMList != NULL) {
 			GT_0trace(curTrace, GT_5CLASS,
 				 "DRV_InsertDMMResElement: 3");
@@ -213,6 +224,7 @@ DSP_STATUS DRV_InsertDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
 			GT_0trace(curTrace, GT_5CLASS,
 				 "DRV_InsertDMMResElement: 4");
 		}
+		mutex_unlock(&pCtxt->dmm_mutex);
 	}
 	GT_0trace(curTrace, GT_ENTER, "DRV_InsertDMMResElement: 5");
 	return status;
@@ -225,7 +237,10 @@ DSP_STATUS DRV_RemoveDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
 	struct DMM_RES_OBJECT *pDMMRes = (struct DMM_RES_OBJECT *)hDMMRes;
 	struct DMM_RES_OBJECT *pTempDMMRes = NULL;
+	DSP_STATUS status = DSP_SOK;
 
+	if (mutex_lock_interruptible(&pCtxt->dmm_mutex))
+		return DSP_EFAIL;
 	pTempDMMRes = pCtxt->pDMMList;
 	if (pCtxt->pDMMList == pDMMRes) {
 		pCtxt->pDMMList = pDMMRes->next;
@@ -233,11 +248,13 @@ DSP_STATUS DRV_RemoveDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
 		while (pTempDMMRes && pTempDMMRes->next != pDMMRes)
 			pTempDMMRes = pTempDMMRes->next;
 		if (!pTempDMMRes)
-			return DSP_ENOTFOUND;
-		pTempDMMRes->next = pDMMRes->next;
+			status = DSP_ENOTFOUND;
+		else
+			pTempDMMRes->next = pDMMRes->next;
 	}
+	mutex_unlock(&pCtxt->dmm_mutex);
 	MEM_Free(pDMMRes);
-	return DSP_SOK;
+	return status;
 }
 
 /* Update DMM resource status */
@@ -316,6 +333,10 @@ DSP_STATUS DRV_GetDMMResElement(u32 pMapAddr, HANDLE hDMMRes, HANDLE hPCtxt)
 	struct DMM_RES_OBJECT *pTempDMM = NULL;
 
 	pTempDMM = pCtxt->pDMMList;
+
+	if (mutex_lock_interruptible(&pCtxt->dmm_mutex))
+		return DSP_EFAIL;
+
 	while ((pTempDMM != NULL) && (pTempDMM->ulDSPAddr != pMapAddr)) {
 		GT_3trace(curTrace, GT_ENTER,
 			 "DRV_GetDMMResElement: 2 pTempDMM:%x "
@@ -323,6 +344,9 @@ DSP_STATUS DRV_GetDMMResElement(u32 pMapAddr, HANDLE hDMMRes, HANDLE hPCtxt)
 			 pTempDMM->ulDSPAddr, pMapAddr);
 		pTempDMM = pTempDMM->next;
 	}
+
+	mutex_unlock(&pCtxt->dmm_mutex);
+
 	if (pTempDMM != NULL) {
 		GT_0trace(curTrace, GT_ENTER, "DRV_GetDMMResElement: 3");
 		*pDMMRes = pTempDMM;
@@ -379,11 +403,18 @@ DSP_STATUS DRV_GetNodeResElement(HANDLE hNode, HANDLE hNodeRes, HANDLE hPCtxt)
 	struct NODE_RES_OBJECT *pTempNode = NULL;
 
 	pTempNode = pCtxt->pNodeList;
+
+	if (mutex_lock_interruptible(&pCtxt->node_mutex))
+		return DSP_EFAIL;
+
 	GT_0trace(curTrace, GT_ENTER, "DRV_GetNodeResElement: 1");
 	while ((pTempNode != NULL) && (pTempNode->hNode != hNode)) {
 		pTempNode2 = pTempNode;
 		pTempNode = pTempNode->next;
 	}
+
+	mutex_unlock(&pCtxt->node_mutex);
+
 	if (pTempNode != NULL)
 		*nodeRes = pTempNode;
 	else
@@ -410,6 +441,8 @@ DSP_STATUS DRV_ProcInsertSTRMResElement(HANDLE hStreamHandle, HANDLE hSTRMRes,
 		status = DSP_EHANDLE;
 	}
 	if (DSP_SUCCEEDED(status)) {
+		if (mutex_lock_interruptible(&pCtxt->strm_mutex))
+			return DSP_EFAIL;
 		(*pSTRMRes)->hStream = hStreamHandle;
 		if (pCtxt->pSTRMList != NULL) {
 			GT_0trace(curTrace, GT_ENTER,
@@ -424,6 +457,7 @@ DSP_STATUS DRV_ProcInsertSTRMResElement(HANDLE hStreamHandle, HANDLE hSTRMRes,
 			GT_0trace(curTrace, GT_ENTER,
 				 "DRV_InsertSTRMResElement: 4");
 		}
+		mutex_unlock(&pCtxt->strm_mutex);
 	}
 	return status;
 }
@@ -436,7 +470,10 @@ DSP_STATUS 	DRV_ProcRemoveSTRMResElement(HANDLE hSTRMRes, HANDLE hPCtxt)
 	struct STRM_RES_OBJECT *pSTRMRes = (struct STRM_RES_OBJECT *)hSTRMRes;
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
 	struct STRM_RES_OBJECT *pTempSTRMRes;
+	DSP_STATUS status = DSP_SOK;
 
+	if (mutex_lock_interruptible(&pCtxt->strm_mutex))
+		return DSP_EFAIL;
 	pTempSTRMRes = pCtxt->pSTRMList;
 
 	if (pCtxt->pSTRMList == pSTRMRes) {
@@ -445,12 +482,13 @@ DSP_STATUS 	DRV_ProcRemoveSTRMResElement(HANDLE hSTRMRes, HANDLE hPCtxt)
 		while (pTempSTRMRes && pTempSTRMRes->next != pSTRMRes)
 			pTempSTRMRes = pTempSTRMRes->next;
 		if (pTempSTRMRes == NULL)
-			return DSP_ENOTFOUND;
-		pTempSTRMRes->next = pSTRMRes->next;
+			status = DSP_ENOTFOUND;
+		else
+			pTempSTRMRes->next = pSTRMRes->next;
 	}
-
+	mutex_unlock(&pCtxt->strm_mutex);
 	MEM_Free(pSTRMRes);
-	return DSP_SOK;
+	return status;
 }
 
 /* Actual Stream De-Allocation */
@@ -519,11 +557,17 @@ DSP_STATUS DRV_GetSTRMResElement(HANDLE hStrm, HANDLE hSTRMRes, HANDLE hPCtxt)
 	struct STRM_RES_OBJECT *pTempSTRM2 = NULL;
 	struct STRM_RES_OBJECT *pTempSTRM = pCtxt->pSTRMList;
 
+	if (mutex_lock_interruptible(&pCtxt->strm_mutex))
+		return DSP_EFAIL;
+
 	while ((pTempSTRM != NULL) && (pTempSTRM->hStream != hStrm)) {
 		GT_0trace(curTrace, GT_ENTER, "DRV_GetSTRMResElement: 2");
 		pTempSTRM2 = pTempSTRM;
 		pTempSTRM = pTempSTRM->next;
 	}
+
+	mutex_unlock(&pCtxt->strm_mutex);
+
 	if (pTempSTRM != NULL) {
 		GT_0trace(curTrace, GT_ENTER, "DRV_GetSTRMResElement: 3");
 		*STRMRes = pTempSTRM;

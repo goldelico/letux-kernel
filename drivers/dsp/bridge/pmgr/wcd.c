@@ -1144,11 +1144,16 @@ bool validate_node_handle(struct NODE_OBJECT *hNode, void *pr_ctxt)
 	if (hNode == (struct NODE_OBJECT *) DSP_HGPPNODE)
 		retVal = true;
 
+	if (mutex_lock_interruptible(&pCtxt->node_mutex))
+		return DSP_EFAIL;
+
 	while (pNode && !retVal) {
 		if (hNode == pNode->hNode)
 			retVal = true;
 		pNode = pNode->next;
 	}
+
+	mutex_unlock(&pCtxt->node_mutex);
 
 	return retVal;
 }
@@ -1603,11 +1608,16 @@ bool validate_strm_handle(struct STRM_OBJECT *hStrm, void *pr_ctxt)
 	struct PROCESS_CONTEXT *pCtxt = pr_ctxt;
 	struct STRM_RES_OBJECT *pStrm = pCtxt->pSTRMList;
 
+	if (mutex_lock_interruptible(&pCtxt->strm_mutex))
+		return DSP_EFAIL;
+
 	while (pStrm && !retVal) {
 		if (hStrm == pStrm->hStream)
 			retVal = true;
 		pStrm = pStrm->next;
 	}
+
+	mutex_unlock(&pCtxt->strm_mutex);
 
 	return retVal;
 }
