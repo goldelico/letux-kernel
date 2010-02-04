@@ -233,10 +233,10 @@ static struct imx046_sensor_settings sensor_settings[] = {
 		},
 		.mipi = {
 			.data_lanes = 2,
-			.ths_prepare = 4,
-			.ths_zero = 5,
-			.ths_settle_lower = 13,
-			.ths_settle_upper = 33,
+			.ths_prepare = 2,
+			.ths_zero = 4,
+			.ths_settle_lower = 8,
+			.ths_settle_upper = 24,
 		},
 		.frame = {
 			.frame_len_lines_min = 629,
