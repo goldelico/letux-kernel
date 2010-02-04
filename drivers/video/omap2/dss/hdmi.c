@@ -37,6 +37,7 @@
 #include <mach/gpio.h>
 
 #include "dss.h"
+#include "hdmi.h"
 
 #define HDMI_PLLCTRL		0x58006200
 #define HDMI_PHY		0x58006300
@@ -54,49 +55,43 @@
 #define HDMI_TXPHY_TX_CTRL				0x0ul
 #define HDMI_TXPHY_DIGITAL_CTRL			0x4ul
 #define HDMI_TXPHY_POWER_CTRL			0x8ul
+#define HDMI_TXPHY_PAD_CFG_CTRL			0xCul
 
-/* CEA861D_CODE1 */
-const struct omap_video_timings omap_dss_hdmi_timings3 = {
-	.x_res = 640,
-	.y_res = 480,
-	.pixel_clock = 25200,
-	.hsw = 96,
-	.hfp = 16,
-	.hbp = 48,
-	.vsw = 2,
-	.vfp = 10,
-	.vbp = 33,
-};
-/* CEA861D_CODE4 */
-const struct omap_video_timings omap_dss_hdmi_timings2 = {
-	.x_res = 1280,
-	.y_res = 720,
-	.pixel_clock = 74250,
-	.hsw = 40,
-	.hfp = 110,
-	.hbp = 220,
-	.vsw = 5,
-	.vfp = 5,
-	.vbp = 20,
-};
-/* CEA861D_CODE16 */
-const struct omap_video_timings omap_dss_hdmi_timings = {
-	.x_res = 1920,
-	.y_res = 1080,
-	.pixel_clock = 148500,
-	.hsw = 44,
-	.hfp = 88,
-	.hbp = 148,
-	.vsw = 5,
-	.vfp = 4,
-	.vbp = 36,
-};
+static int hdmi_read_edid(struct omap_video_timings *);
+static int get_edid_timing_data(u8 *edid, u16 *pixel_clk, u16 *horizontal_res,
+			  u16 *vertical_res);
+/* CEA-861-D Codes */
+const struct omap_video_timings cea861d1 = \
+	{640, 480, 25200, 96, 16, 48, 2, 10, 33};
+const struct omap_video_timings cea861d4 = \
+	{1280, 720, 74250, 40, 110, 220, 5, 5, 20};
+const struct omap_video_timings cea861d16 = \
+	{1920, 1080, 148500, 44, 88, 148, 5, 4, 36};
+const struct omap_video_timings cea861d17 = \
+	{720, 576, 27000, 64, 12, 68, 5, 5, 39};
+const struct omap_video_timings cea861d18 = \
+	{720, 576, 27000, 64, 12, 68, 5, 5, 39};
+const struct omap_video_timings cea861d29 = \
+	{1440, 576, 54000, 128, 24, 136, 5, 5, 39};
+const struct omap_video_timings cea861d30 = \
+	{1440, 576, 54000, 128, 24, 136, 5, 5, 39};
+const struct omap_video_timings cea861d31 = \
+	{1920, 1080, 148500, 44, 528, 148, 5, 4, 36};
+const struct omap_video_timings cea861d35 = \
+	{2880, 480, 108000, 248, 64, 240, 6, 9, 30};
+const struct omap_video_timings cea861d36 = \
+	{2880, 480, 108000, 248, 64, 240, 6, 9, 30};
+const struct omap_video_timings vesad10 = \
+	{1024, 768, 65000, 136, 24, 160, 6, 3, 29};
 
 static struct {
 	void __iomem *base_phy;
 	void __iomem *base_pll;
 	struct mutex lock;
+	int code;
+	HDMI_Timing_t ti;
 } hdmi;
+struct omap_video_timings edid_timings;
 
 static inline void hdmi_write_reg(u32 base, u16 idx, u32 val)
 {
@@ -170,44 +165,50 @@ typedef struct hdmi_pll_info {
 	u16 regm;
 	u32 regmf;
 	u16 regm4; /* M4_CLOCK_DIV */
+	u16 regm2;
+	u16 regsd;
+	u16 dcofreq;
 } hdmi_pll_info;
 
-/* HDMI TRM Page 53 */
-static const hdmi_pll_info coef_hdmi[3] = {
-	{15, 105, 0, 4},	/*  CEA861D_CODE1 */
-	{15, 309, 98304, 7},	/*  CEA861D_CODE4 */
-	{15, 618, 196608, 14},	/*  CEA861D_CODE16 */
-};
-
 static void compute_pll(int clkin, int phy,
-	int n, int *m)
+	int n, hdmi_pll_info *pi)
 {
-	int hf = 0;
 	int refclk;
+	u32 temp, mf;
 
 	if (clkin > 3200) /* 32 mHz */
-		hf = 1;
-
-	if (hf == 0)
-		refclk = clkin / (n + 1);
-	else
 		refclk = clkin / (2 * (n + 1));
+	else
+		refclk = clkin / (n + 1);
 
-	/* HDMIPHY(MHz) = (CPF * regm / regn) * (clkin / (highfreq + 1)) */
-	/* phy = CPF * regm * refclk */
+	temp = phy * 100/(CPF * refclk);
 
-	*m = phy / (CPF * refclk);
+	pi->regn = n;
+	pi->regm = temp/100;
+	pi->regm2 = 1;
 
+	mf = (phy - pi->regm * CPF * refclk) * 262144;
+	pi->regmf = mf/(CPF * refclk);
+
+	if (phy > 1000 * 100) {
+		pi->regm4 = phy / 10000;
+		pi->dcofreq = 1;
+		pi->regsd = ((pi->regm * 384)/((n + 1) * 250) + 5)/10;
+	} else {
+		pi->regm4 = 1;
+		pi->dcofreq = 0;
+		pi->regsd = 0;
+	}
+
+	DSSDBG("M = %d Mf = %d, m4= %d\n", pi->regm, pi->regmf, pi->regm4);
+	DSSDBG("range = %d sd = %d\n", pi->dcofreq, pi->regsd);
 }
 
-static int hdmi_pll_init(int refsel, int dcofreq, struct hdmi_pll_info *fmt)
+static int hdmi_pll_init(int refsel, int dcofreq, struct hdmi_pll_info *fmt, u16 sd)
 {
 	u32 r;
 	unsigned t = 500000;
 	u32 pll = HDMI_PLLCTRL;
-
-	DSSDBG("0x%x %d %d %d %d\n", pll, refsel,
-		fmt->regm, fmt->regn, dcofreq);
 
 	/* PLL start always use manual mode */
 	REG_FLD_MOD(pll, PLLCTRL_PLL_CONTROL, 0x0, 0, 0);
@@ -227,15 +228,18 @@ static int hdmi_pll_init(int refsel, int dcofreq, struct hdmi_pll_info *fmt)
 	r = FLD_MOD(r, 0x0, 11, 11); /* PLL_CLKSEL 1: PLL 0: SYS*/
 	r = FLD_MOD(r, 0x0, 12, 12); /* PLL_HIGHFREQ divide by 2 */
 	r = FLD_MOD(r, 0x1, 13, 13); /* PLL_REFEN */
-	r = FLD_MOD(r, 0x1, 14, 14); /* PHY_CLKINEN de-assert during locking */
-	r = FLD_MOD(r, 0x0, 20, 20); /* HSDIVBYPASS assert during locking */
+	r = FLD_MOD(r, 0x0, 14, 14); /* PHY_CLKINEN de-assert during locking */
+	r = FLD_MOD(r, 0x1, 20, 20); /* HSDIVBYPASS assert during locking */
 	r = FLD_MOD(r, refsel, 22, 21); /* REFSEL */
 	/* DPLL3  used by DISPC or HDMI itself*/
 	r = FLD_MOD(r, 0x0, 17, 17); /* M4_CLOCK_PWDN */
 	r = FLD_MOD(r, 0x1, 16, 16); /* M4_CLOCK_EN */
 
-	if (dcofreq)
+	if (dcofreq) {
+		/* divider programming for 1080p */
+		REG_FLD_MOD(pll, PLLCTRL_CFG3, sd, 17, 10);
 		r = FLD_MOD(r, 0x4, 3, 1); /* 1000MHz and 2000MHz */
+	}
 	else
 		r = FLD_MOD(r, 0x2, 3, 1); /* 500MHz and 1000MHz */
 
@@ -253,16 +257,13 @@ static int hdmi_pll_init(int refsel, int dcofreq, struct hdmi_pll_info *fmt)
 
 	/* Wait till the lock bit is set */
 	/* read PLL status */
-	DSSDBG("status 0x%x\r\n", hdmi_read_reg(pll, PLLCTRL_PLL_STATUS));
-
-	DSSDBG("CFG1 0x%x\r\n", hdmi_read_reg(pll, PLLCTRL_CFG1));
-	DSSDBG("CFG2 0x%x\r\n", hdmi_read_reg(pll, PLLCTRL_CFG2));
-	DSSDBG("CFG4 0x%x\r\n", hdmi_read_reg(pll, PLLCTRL_CFG4));
-
 	while (0 == FLD_GET(hdmi_read_reg(pll, PLLCTRL_PLL_STATUS), 1, 1)) {
 		udelay(1);
 		if (!--t) {
-			ERR("cannot lock PLL\n");
+			printk(KERN_WARNING "HDMI: cannot lock PLL\n");
+			DSSDBG("CFG1 0x%x\n", hdmi_read_reg(pll, PLLCTRL_CFG1));
+			DSSDBG("CFG2 0x%x\n", hdmi_read_reg(pll, PLLCTRL_CFG2));
+			DSSDBG("CFG4 0x%x\n", hdmi_read_reg(pll, PLLCTRL_CFG4));
 			return -EIO;
 		}
 	}
@@ -306,8 +307,7 @@ static int hdmi_pll_reset(void)
 int hdmi_pll_program(struct hdmi_pll_info *fmt)
 {
 	u32 r;
-	int refsel, range;
-	int pclk;
+	int refsel;
 
 	HDMI_PllPwr_t PllPwrWaitParam;
 
@@ -330,20 +330,11 @@ int hdmi_pll_program(struct hdmi_pll_info *fmt)
 
 	hdmi_pll_reset();
 
-	pclk = (fmt->regm * 384)/((fmt->regn + 1) * 10);
-	DSSDBG("pclk = %d\n", pclk);
-
-	if (pclk > 1000)
-		range = 1;
-	else
-		range = 0;
-
 	refsel = 0x3; /* select SYSCLK reference */
 
-	r = hdmi_pll_init(refsel, range, fmt);
+	r = hdmi_pll_init(refsel, fmt->dcofreq, fmt, fmt->regsd);
 
 	return r;
-
 }
 
 /* double check the order */
@@ -368,15 +359,18 @@ static int hdmi_phy_init(u32 w1,
 	/* Dummy access performed to solve resetdone issue */
 	hdmi_read_reg(phy, HDMI_TXPHY_TX_CTRL);
 
+	/* write to phy address 0 to configure the clock */
+	/* use HFBITCLK write HDMI_TXPHY_TX_CONTROL__FREQOUT field */
+	REG_FLD_MOD(phy, HDMI_TXPHY_TX_CTRL, 0x1, 31, 30);
+
 	/* write to phy address 1 to start HDMI line (TXVALID and TMDSCLKEN) */
 	hdmi_write_reg(phy, HDMI_TXPHY_DIGITAL_CTRL,
 				0xF0000000);
 
 	/* setup max LDO voltage */
 	REG_FLD_MOD(phy, HDMI_TXPHY_POWER_CTRL, 0xB, 3, 0);
-
-	/* use HFBITCLK write HDMI_TXPHY_TX_CONTROL__FREQOUT field */
-	REG_FLD_MOD(phy, HDMI_TXPHY_TX_CTRL, 0x1, 31, 30);
+	/*  write to phy address 3 to change the polarity control  */
+	REG_FLD_MOD(phy, HDMI_TXPHY_PAD_CFG_CTRL, 0x1, 27, 27);
 
 	count = 0;
 	while (count++ < 1000)
@@ -408,7 +402,24 @@ static int hdmi_panel_probe(struct omap_dss_device *dssdev)
 
 	dssdev->panel.config = OMAP_DSS_LCD_TFT |
 			OMAP_DSS_LCD_IVS | OMAP_DSS_LCD_IHS;
-	dssdev->panel.timings = omap_dss_hdmi_timings;
+	switch (hdmi.code) {
+	case 1:
+	case 11:
+		dssdev->panel.timings = cea861d1;
+		break;
+	case 4:
+		dssdev->panel.timings = cea861d4;
+		break;
+	case 10:
+		dssdev->panel.timings = vesad10;
+		break;
+	case 30:
+		dssdev->panel.timings = cea861d30;
+		break;
+	case 16:
+	default:
+		dssdev->panel.timings = cea861d16;
+	}
 
 	return 0;
 }
@@ -462,10 +473,8 @@ static struct omap_dss_driver hdmi_driver = {
 };
 /* driver end */
 
-int hdmi_init(struct platform_device *pdev)
+int hdmi_init(struct platform_device *pdev, int code)
 {
-	hdmi_pll_info *pllptr;
-
 	DSSDBG("Enter hdmi_init()\n");
 
 	mutex_init(&hdmi.lock);
@@ -481,7 +490,7 @@ int hdmi_init(struct platform_device *pdev)
 		ERR("can't ioremap phy\n");
 		return -ENOMEM;
 	}
-
+	hdmi.code = code;
 	hdmi_enable_clocks(1);
 
 	hdmi_lib_init();
@@ -499,39 +508,107 @@ void hdmi_exit(void)
 	iounmap(hdmi.base_phy);
 }
 
+static void hdmi_gpio_config(int enable)
+{
+	u32 val;
+
+	if (enable) {
+		/* PAD0_HDMI_HPD_PAD1_HDMI_CEC */
+		omap_writel(0x01180118, 0x4A100098);
+		/* PAD0_HDMI_DDC_SCL_PAD1_HDMI_DDC_SDA */
+		omap_writel(0x01180118 , 0x4A10009C);
+		/* CONTROL_HDMI_TX_PHY */
+		omap_writel(0x10000000, 0x4A100610);
+
+		/* GPIO 41 line being muxed */
+		val = omap_readl(0x4A100060);
+		val = FLD_MOD(val, 3, 18, 16);
+		omap_writel(val, 0x4A100060);
+
+		/* GPIO 60 line being muxed */
+		val = omap_readl(0x4A100088);
+		val = FLD_MOD(val, 1, 19, 19);
+		val = FLD_MOD(val, 3, 2, 0);
+		omap_writel(0x3, 0x4A100088);
+
+		/* DATA_OUT */
+		val = omap_readl(0x4805513c);
+		val = FLD_MOD(val, 1, 29, 27);
+		val = FLD_MOD(val, 1, 10, 7);
+		omap_writel(val, 0x4805513c);
+
+		/* GPIO_OE */
+		val = omap_readl(0x48055134);
+		val = FLD_MOD(val, 0, 28, 28);
+		val = FLD_MOD(val, 0, 9, 9);
+		omap_writel(val, 0x48055134);
+
+		/* GPIO_SETDATAOUT */
+		val = omap_readl(0x48055194);
+		val = FLD_MOD(val, 1, 28, 28);
+		val = FLD_MOD(val, 1, 9, 9);
+		omap_writel(val, 0x48055194);
+
+		mdelay(120);
+	} else {
+		/* GPIO_OE */
+		val = omap_readl(0x48055134);
+		val = FLD_MOD(val, 1, 28, 28);
+		val = FLD_MOD(val, 1, 9, 9);
+		omap_writel(val, 0x48055134);
+	}
+}
 
 static int hdmi_power_on(struct omap_dss_device *dssdev)
 {
-	int format, pll_idx;
 	int r;
-	hdmi_pll_info *ptr;
+	int mode = 1;
+	struct omap_video_timings *p;
+	hdmi_pll_info pll_data;
 
-	/* use EDID in the future */
-	if (1920 == dssdev->panel.timings.x_res) {
-		format = 16;
-		pll_idx = 2;
-	} else if (1280 == dssdev->panel.timings.x_res) {
-		format = 4;
-		pll_idx = 1;
-	} else {
-		format = 1;
-		pll_idx = 0;
+	int clkin, n, phy;
+
+	switch (hdmi.code) {
+	case 1:
+	case 11:
+		dssdev->panel.timings = cea861d1;
+		break;
+	case 4:
+		dssdev->panel.timings = cea861d4;
+		break;
+	case 10:
+		dssdev->panel.timings = vesad10;
+		break;
+	case 30:
+		dssdev->panel.timings = cea861d30;
+		break;
+	case 16:
+	default:
+		dssdev->panel.timings = cea861d16;
 	}
 
+	if (hdmi.code == 1 || hdmi.code == 10)
+		mode = 0; /* DVI mode */
+
 	hdmi_enable_clocks(1);
+
+	hdmi_gpio_config(1);
+
+	p = &dssdev->panel.timings;
+
+	hdmi_read_edid(p);
+
+	clkin = 3840; /* 38.4 mHz */
+	n = 15; /* this is a constant for our math */
+	phy = p->pixel_clock;
+	compute_pll(clkin, phy, n, &pll_data);
 
 	HDMI_W1_StopVideoFrame(HDMI_WP);
 
 	dispc_enable_digit_out(0);
 
-	/* while(dispc_go_busy(OMAP_DSS_CHANNEL_DIGIT))
-		msleep(40); */
-
-	dispc_go(OMAP_DSS_CHANNEL_DIGIT);
-
 	/* config the PLL and PHY first */
-	ptr = &coef_hdmi[pll_idx];
-	r = hdmi_pll_program(ptr);
+	r = hdmi_pll_program(&pll_data);
 
 	if (r)
 		DSSERR("Failed to lock PLL\n");
@@ -540,8 +617,7 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 	if (r)
 		DSSERR("Failed to start PHY\n");
 
-	DSS_HDMI_CONFIG(HDMI_CORE_SYS, HDMI_CORE_AV,
-		HDMI_WP, HDMI_PHY, HDMI_PLLCTRL, format);
+	DSS_HDMI_CONFIG(hdmi.ti, hdmi.code, mode);
 
 	/* these settings are independent of overlays */
 	dss_switch_tv_hdmi(1);
@@ -566,19 +642,20 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 
 	dispc_enable_digit_out(1);
 
-	/* while(dispc_go_busy(OMAP_DSS_CHANNEL_DIGIT)) */
-	/*	msleep(40); */
-	dispc_go(OMAP_DSS_CHANNEL_DIGIT);
-
 	return 0;
 }
 
 static void hdmi_power_off(struct omap_dss_device *dssdev)
 {
-	/* todo: find out what needs to be done for power off */
+	HDMI_W1_StopVideoFrame(HDMI_WP);
+
 	dispc_enable_digit_out(0);
 
 	hdmi_phy_off(HDMI_WP);
+
+	HDMI_W1_SetWaitPllPwrState(HDMI_WP, HDMI_PLLPWRCMD_ALLOFF);
+
+	hdmi_gpio_config(0);
 
 	if (dssdev->platform_disable)
 		dssdev->platform_disable(dssdev);
@@ -605,9 +682,9 @@ static int hdmi_enable_display(struct omap_dss_device *dssdev)
 		goto err;
 	}
 
+	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 	hdmi_power_on(dssdev);
 
-	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 err:
 	mutex_unlock(&hdmi.lock);
 	return r;
@@ -628,11 +705,11 @@ static void hdmi_disable_display(struct omap_dss_device *dssdev)
 		goto end;
 	}
 
-	hdmi_power_off(dssdev);
-
 	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
-end:
 	omap_dss_stop_device(dssdev);
+
+	hdmi_power_off(dssdev);
+end:
 	mutex_unlock(&hdmi.lock);
 }
 
@@ -678,7 +755,7 @@ static int hdmi_check_timings(struct omap_dss_device *dssdev,
 {
 	DSSDBG("hdmi_check_timings\n");
 
-	if (memcmp(&omap_dss_hdmi_timings, timings, sizeof(*timings)) == 0)
+	if (memcmp(&dssdev->panel.timings, timings, sizeof(*timings)) == 0)
 		return 0;
 
 	return -EINVAL;
@@ -699,13 +776,248 @@ int hdmi_init_display(struct omap_dss_device *dssdev)
 	return 0;
 }
 
-
-#define HDMI_EDID_MAX_LENGTH 256
-
-void hdmi_read_edid(void)
+static int hdmi_read_edid(struct omap_video_timings *dp)
 {
-	u32 edid[HDMI_EDID_MAX_LENGTH];
+	u8		edid[HDMI_EDID_MAX_LENGTH];
+	u16		horizontal_res;
+	u16		vertical_res;
+	u16		pixel_clk;
+	struct omap_video_timings *tp;
 
 	memset(edid, 0, HDMI_EDID_MAX_LENGTH);
-	/* HDMI_CORE_DDC_READEDID(HDMI_CORE_SYS, edid); */
+	tp = dp;
+
+	if (HDMI_CORE_DDC_READEDID(HDMI_CORE_SYS, edid) != 0)
+		printk(KERN_WARNING "HDMI failed to read E-EDID\n");
+	else {
+		edid_timings.pixel_clock = dp->pixel_clock;
+		edid_timings.x_res = dp->x_res;
+		edid_timings.y_res = dp->y_res;
+		/* search for timings of default resolution */
+		if (get_edid_timing_data(edid, &pixel_clk,
+				&horizontal_res, &vertical_res)) {
+			dp->pixel_clock = pixel_clk * 10; /* be careful */
+			tp = &edid_timings;
+		} else {
+				edid_timings.pixel_clock =
+							cea861d4.pixel_clock;
+				edid_timings.x_res = cea861d4.x_res;
+				edid_timings.y_res = cea861d4.y_res;
+				if (get_edid_timing_data(edid,
+					&pixel_clk, &horizontal_res,
+							&vertical_res)) {
+					dp->pixel_clock = pixel_clk * 10;
+					dp->x_res = horizontal_res;
+					dp->y_res = vertical_res;
+					tp = &edid_timings;
+				}
+		}
+	}
+
+	hdmi.ti.pixelPerLine = tp->x_res;
+	hdmi.ti.linePerPanel = tp->y_res;
+	hdmi.ti.horizontalBackPorch = tp->hbp;
+	hdmi.ti.horizontalFrontPorch = tp->hfp;
+	hdmi.ti.horizontalSyncPulse = tp->hsw;
+	hdmi.ti.verticalBackPorch = tp->vbp;
+	hdmi.ti.verticalFrontPorch = tp->vfp;
+	hdmi.ti.verticalSyncPulse = tp->vsw;
+
+	return 0;
+}
+
+u16 current_descriptor_addrs;
+
+void get_horz_vert_timing_info(u8 *edid)
+{
+	/*HORIZONTAL FRONT PORCH */
+	edid_timings.hfp = edid[current_descriptor_addrs + 8];
+	/*HORIZONTAL SYNC WIDTH */
+	edid_timings.hsw = edid[current_descriptor_addrs + 9];
+	/*HORIZONTAL BACK PORCH */
+	edid_timings.hbp = (((edid[current_descriptor_addrs + 4]
+					  & 0x0F) << 8) |
+					edid[current_descriptor_addrs + 3]) -
+		(edid_timings.hfp + edid_timings.hsw);
+	/*VERTICAL FRONT PORCH */
+	edid_timings.vfp = ((edid[current_descriptor_addrs + 10] &
+				       0xF0) >> 4);
+	/*VERTICAL SYNC WIDTH */
+	edid_timings.vsw = (edid[current_descriptor_addrs + 10] &
+				      0x0F);
+	/*VERTICAL BACK PORCH */
+	edid_timings.vbp = (((edid[current_descriptor_addrs + 7] &
+					0x0F) << 8) |
+				      edid[current_descriptor_addrs + 6]) -
+		(edid_timings.vfp + edid_timings.vsw);
+
+	printk(KERN_INFO "hfp			= %d\n"
+			"hsw			= %d\n"
+			"hbp			= %d\n"
+			"vfp			= %d\n"
+			"vsw			= %d\n"
+			"vbp			= %d\n",
+		 edid_timings.hfp,
+		 edid_timings.hsw,
+		 edid_timings.hbp,
+		 edid_timings.vfp,
+		 edid_timings.vsw,
+		 edid_timings.vbp);
+
+}
+
+/*------------------------------------------------------------------------------
+ | Function    : get_edid_timing_data
+ +------------------------------------------------------------------------------
+ | Description : This function gets the resolution information from EDID
+ |
+ | Parameters  : void
+ |
+ | Returns     : void
+ +----------------------------------------------------------------------------*/
+static int get_edid_timing_data(u8 *edid, u16 *pixel_clk, u16 *horizontal_res,
+			  u16 *vertical_res)
+{
+	u8 offset, effective_addrs;
+	u8 count;
+	u8 flag = false;
+	/* Seach block 0, there are 4 DTDs arranged in priority order */
+	for (count = 0; count < EDID_SIZE_BLOCK0_TIMING_DESCRIPTOR; count++) {
+		current_descriptor_addrs =
+			EDID_DESCRIPTOR_BLOCK0_ADDRESS +
+			count * EDID_TIMING_DESCRIPTOR_SIZE;
+		*horizontal_res =
+			(((edid[EDID_DESCRIPTOR_BLOCK0_ADDRESS + 4 +
+			   count * EDID_TIMING_DESCRIPTOR_SIZE] & 0xF0) << 4) |
+			 edid[EDID_DESCRIPTOR_BLOCK0_ADDRESS + 2 +
+			 count * EDID_TIMING_DESCRIPTOR_SIZE]);
+		*vertical_res =
+			(((edid[EDID_DESCRIPTOR_BLOCK0_ADDRESS + 7 +
+			   count * EDID_TIMING_DESCRIPTOR_SIZE] & 0xF0) << 4) |
+			 edid[EDID_DESCRIPTOR_BLOCK0_ADDRESS + 5 +
+			 count * EDID_TIMING_DESCRIPTOR_SIZE]);
+		DSSDBG("***Block-0-Timing-descriptor[%d]***\n", count);
+#ifdef EDID_DEBUG
+		for (i = current_descriptor_addrs;
+		      i <
+		      (current_descriptor_addrs+EDID_TIMING_DESCRIPTOR_SIZE);
+		      i++)
+			DSSDBG("%d ==>		%x\n", i, edid[i]);
+
+			DSSDBG("E-EDID Buffer Index	= 0x%x\n"
+				 "horizontal_res       	= %d\n"
+				 "vertical_res		= %d\n",
+				 current_descriptor_addrs,
+				 *horizontal_res,
+				 *vertical_res
+				 );
+#endif
+		if (*horizontal_res == edid_timings.x_res &&
+		    *vertical_res == edid_timings.y_res) {
+			DSSDBG("Found EDID Data for %d x %dp\n",
+					*horizontal_res, *vertical_res);
+			flag = true;
+			break;
+			}
+	}
+
+	/*check for the 1080p in extended block CEA DTDs*/
+	if (flag != true) {
+		offset = edid[EDID_DESCRIPTOR_BLOCK1_ADDRESS + 2];
+		if (offset != 0) {
+			effective_addrs = EDID_DESCRIPTOR_BLOCK1_ADDRESS
+				+ offset;
+			/*to determine the number of descriptor blocks */
+			for (count = 0;
+			      count < EDID_SIZE_BLOCK1_TIMING_DESCRIPTOR;
+			      count++) {
+				current_descriptor_addrs = effective_addrs +
+					count * EDID_TIMING_DESCRIPTOR_SIZE;
+				*horizontal_res =
+					(((edid[effective_addrs + 4 +
+					   count*EDID_TIMING_DESCRIPTOR_SIZE] &
+					   0xF0) << 4) |
+					 edid[effective_addrs + 2 +
+					 count * EDID_TIMING_DESCRIPTOR_SIZE]);
+				*vertical_res =
+					(((edid[effective_addrs + 7 +
+					   count*EDID_TIMING_DESCRIPTOR_SIZE] &
+					   0xF0) << 4) |
+					 edid[effective_addrs + 5 +
+					 count * EDID_TIMING_DESCRIPTOR_SIZE]);
+
+				DSSDBG("Block1-Timing-descriptor[%d]\n", count);
+#ifdef EDID_DEBUG
+				for (i = current_descriptor_addrs;
+				      i < (current_descriptor_addrs+
+					   EDID_TIMING_DESCRIPTOR_SIZE); i++)
+					DSSDBG("%x ==> 	%x\n",
+						   i, edid[i]);
+
+				DSSDBG("current_descriptor	= 0x%x\n"
+						"horizontal_res		= %d\n"
+						"vertical_res 		= %d\n",
+					 current_descriptor_addrs,
+					 *horizontal_res, *vertical_res);
+#endif
+				if (*horizontal_res == edid_timings.x_res &&
+				    *vertical_res == edid_timings.y_res) {
+					DSSDBG("Found EDID Data for "
+						 "%d x %dp\n",
+						 *horizontal_res,
+						 *vertical_res
+						 );
+					flag = true;
+					break;
+					}
+			}
+		}
+	}
+
+	if (flag == true) {
+		*pixel_clk = ((edid[current_descriptor_addrs + 1] << 8) |
+					edid[current_descriptor_addrs]);
+
+		edid_timings.x_res = *horizontal_res;
+		edid_timings.y_res = *vertical_res;
+		edid_timings.pixel_clock = *pixel_clk*10;
+		printk(KERN_INFO "EDID TIMING DATA FOUND\n"
+			 "EDID DTD block address	= 0x%x\n"
+			 "pixel_clk 			= %d\n"
+			 "horizontal res		= %d\n"
+			 "vertical res			= %d\n",
+			 current_descriptor_addrs,
+			 edid_timings.pixel_clock,
+			 edid_timings.x_res,
+			 edid_timings.y_res
+			 );
+
+		get_horz_vert_timing_info(edid);
+	} else {
+
+		printk(
+			 "EDID TIMING DATA supported NOT FOUND\n"
+			 "setting default timing values\n"
+			 "pixel_clk 		= %d\n"
+			 "horizontal res	= %d\n"
+			 "vertical res		= %d\n",
+			 edid_timings.pixel_clock,
+			 edid_timings.x_res,
+			 edid_timings.y_res
+			 );
+
+		*pixel_clk = edid_timings.pixel_clock;
+		*horizontal_res = edid_timings.x_res;
+		*vertical_res = edid_timings.y_res;
+	}
+
+	return flag;
+}
+
+void hdmi_dump_regs(struct seq_file *s)
+{
+	DSSDBG("0x4a100060 x%x\n", omap_readl(0x4A100060));
+	DSSDBG("0x4A100088 x%x\n", omap_readl(0x4A100088));
+	DSSDBG("0x48055134 x%x\n", omap_readl(0x48055134));
+	DSSDBG("0x48055194 x%x\n", omap_readl(0x48055194));
 }

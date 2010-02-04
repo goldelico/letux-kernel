@@ -395,7 +395,7 @@ unsigned long rfbi_get_max_tx_rate(void);
 int rfbi_init_display(struct omap_dss_device *display);
 
 /* HDMI*/
-int hdmi_init(struct platform_device *pdev);
+int hdmi_init(struct platform_device *pdev, int code);
 void hdmi_exit(void);
 void hdmi_dump_regs(struct seq_file *s);
 int hdmi_init_display(struct omap_dss_device *display);
