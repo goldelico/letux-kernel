@@ -634,12 +634,12 @@ func_cont:
 				  status);
 		}
 	}
-	if (DSP_SUCCEEDED(status))
+	if (DSP_SUCCEEDED(status)) {
 		*phStrm = pStrm;
-	else
+		DRV_ProcInsertSTRMResElement(*phStrm, &hSTRMRes, pr_ctxt);
+	} else {
 		(void)DeleteStrm(pStrm);
-
-	DRV_ProcInsertSTRMResElement(*phStrm, &hSTRMRes, pr_ctxt);
+	}
 
 	 /* ensure we return a documented error code */
 	DBC_Ensure((DSP_SUCCEEDED(status) &&

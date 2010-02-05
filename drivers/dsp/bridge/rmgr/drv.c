@@ -332,11 +332,10 @@ DSP_STATUS DRV_GetDMMResElement(u32 pMapAddr, HANDLE hDMMRes, HANDLE hPCtxt)
 	DSP_STATUS status = DSP_SOK;
 	struct DMM_RES_OBJECT *pTempDMM = NULL;
 
-	pTempDMM = pCtxt->pDMMList;
-
 	if (mutex_lock_interruptible(&pCtxt->dmm_mutex))
 		return DSP_EFAIL;
 
+	pTempDMM = pCtxt->pDMMList;
 	while ((pTempDMM != NULL) && (pTempDMM->ulDSPAddr != pMapAddr)) {
 		GT_3trace(curTrace, GT_ENTER,
 			 "DRV_GetDMMResElement: 2 pTempDMM:%x "
@@ -402,11 +401,10 @@ DSP_STATUS DRV_GetNodeResElement(HANDLE hNode, HANDLE hNodeRes, HANDLE hPCtxt)
 	struct NODE_RES_OBJECT *pTempNode2 = NULL;
 	struct NODE_RES_OBJECT *pTempNode = NULL;
 
-	pTempNode = pCtxt->pNodeList;
-
 	if (mutex_lock_interruptible(&pCtxt->node_mutex))
 		return DSP_EFAIL;
 
+	pTempNode = pCtxt->pNodeList;
 	GT_0trace(curTrace, GT_ENTER, "DRV_GetNodeResElement: 1");
 	while ((pTempNode != NULL) && (pTempNode->hNode != hNode)) {
 		pTempNode2 = pTempNode;
@@ -555,11 +553,12 @@ DSP_STATUS DRV_GetSTRMResElement(HANDLE hStrm, HANDLE hSTRMRes, HANDLE hPCtxt)
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
 	DSP_STATUS status = DSP_SOK;
 	struct STRM_RES_OBJECT *pTempSTRM2 = NULL;
-	struct STRM_RES_OBJECT *pTempSTRM = pCtxt->pSTRMList;
+	struct STRM_RES_OBJECT *pTempSTRM;
 
 	if (mutex_lock_interruptible(&pCtxt->strm_mutex))
 		return DSP_EFAIL;
 
+	pTempSTRM = pCtxt->pSTRMList;
 	while ((pTempSTRM != NULL) && (pTempSTRM->hStream != hStrm)) {
 		GT_0trace(curTrace, GT_ENTER, "DRV_GetSTRMResElement: 2");
 		pTempSTRM2 = pTempSTRM;
