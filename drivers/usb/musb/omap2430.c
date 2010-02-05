@@ -266,13 +266,17 @@ int __init musb_platform_init(struct musb *musb)
 	musb->xceiv = *x;
 	musb_platform_resume(musb);
 
+	/*
+	 * Do Forcestdby here, for the case when kernel boots up
+	 * without cable attached, force_active(0) won't be called.
+	 */
 	l = omap_readl(OTG_SYSCONFIG);
-	l &= ~ENABLEWAKEUP;	/* disable wakeup */
+	l |= ENABLEWAKEUP;	/* Enable wakeup */
 	l &= ~NOSTDBY;		/* remove possible nostdby */
-	l |= SMARTSTDBY;	/* enable smart standby */
+	l |= FORCESTDBY;	/* enable smart standby */
 	l &= ~AUTOIDLE;		/* disable auto idle */
 	l &= ~NOIDLE;		/* remove possible noidle */
-	l |= SMARTIDLE;		/* enable smart idle */
+	l |= FORCEIDLE;		/* enable smart idle */
 	/*
 	 * MUSB AUTOIDLE don't work in 3430.
 	 * Workaround by Richard Woodruff/TI
@@ -534,11 +538,31 @@ void musb_link_force_active(int enable)
 		l |= NOSTDBY;		/* enable nostdby */
 		l &= ~SMARTIDLE;	/* disable smart idle */
 		l |= NOIDLE;		/* enable noidle */
+
+		/* Disable Mstandby */
+		omap_writel((omap_readl(OTG_FORCESTDBY) & ~ENABLEFORCE),
+				 OTG_FORCESTDBY);
 	} else {
-		l |= SMARTSTDBY;	/* enable smart standby */
+		/*
+		 * When the device is disconnected put the OTG to
+		 * Forceidle and Forcestdby. There where known issues
+		 * on different custom boards, wherein
+		 * the OTG idle ack was broken. May be the OTG senses
+		 * some fake activity on the lines.
+		 * Also, this might be moved to suspend/resume hooks.
+		 * Right now, musb doesn't have suspend/resume hooks
+		 * plugged in to LDM.
+		 */
+		l |= ENABLEWAKEUP;	/* Enable wakeup */
+		l &= ~SMARTSTDBY;	/* enable smart standby */
+		l |= FORCESTDBY;
 		l &= ~NOSTDBY;		/* disable nostdby */
-		l |= SMARTIDLE;		/* enable smart idle */
+		l |= FORCEIDLE;
 		l &= ~NOIDLE;		/* disable noidle */
+
+		/* Enable Mstdby */
+		omap_writel((omap_readl(OTG_FORCESTDBY) | ENABLEFORCE),
+				 OTG_FORCESTDBY);
 	}
 
 	omap_writel(l, OTG_SYSCONFIG);
