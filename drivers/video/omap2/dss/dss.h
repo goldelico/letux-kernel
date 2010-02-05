@@ -220,6 +220,8 @@ int dss_sdi_enable(void);
 void dss_sdi_disable(void);
 
 void dss_select_clk_source(bool dsi, bool dispc);
+void dss_select_clk_source_dsi(enum dsi lcd_ix, bool dsi, bool dispc);
+
 int dss_get_dsi_clk_source(void);
 int dss_get_dispc_clk_source(void);
 void dss_set_venc_output(enum omap_dss_venc_type type);

@@ -3783,7 +3783,7 @@ if (cpu_is_omap44xx()) {
 	if (r)
 		goto err1;
 
-	dss_select_clk_source(true, true);
+	dss_select_clk_source_dsi(lcd_ix, true, true);
 
 	DSSDBG("PLL OK\n");
 
@@ -3858,7 +3858,7 @@ err4:
 err3:
 	dsi_complexio_uninit(lcd_ix);
 err2:
-	dss_select_clk_source(false, false);
+	dss_select_clk_source_dsi(lcd_ix, false, false);
 err1:
 	dsi_pll_uninit(lcd_ix);
 err0:
@@ -3872,7 +3872,7 @@ static void dsi_display_uninit_dsi(struct omap_dss_device *dssdev)
 	if (dssdev->driver->disable)
 		dssdev->driver->disable(dssdev);
 
-	dss_select_clk_source(false, false);
+	dss_select_clk_source_dsi(lcd_ix, false, false);
 	dsi_complexio_uninit(lcd_ix);
 	dsi_pll_uninit(lcd_ix);
 }

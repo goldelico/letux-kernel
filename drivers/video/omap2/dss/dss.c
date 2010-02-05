@@ -286,6 +286,22 @@ void dss_select_clk_source(bool dsi, bool dispc)
 	dss_write_reg(DSS_CONTROL, r);
 }
 
+#ifdef CONFIG_ARCH_OMAP4
+void dss_select_clk_source_dsi(enum dsi lcd_ix, bool dsi, bool dispc)
+{
+	u32 r;
+	r = dss_read_reg(DSS_CONTROL);
+	if (lcd_ix == dsi1) {
+		r = FLD_MOD(r, dsi, 1, 1);	/* DSI_CLK_SWITCH */
+		r = FLD_MOD(r, dispc, 0, 0);	/* LCD1_CLK_SWITCH */
+	} else {
+		r = FLD_MOD(r, dsi, 10, 10);	/* DSI2_CLK_SWITCH */
+		r = FLD_MOD(r, dispc, 12, 12);	/* LCD2_CLK_SWITCH */
+		}
+	dss_write_reg(DSS_CONTROL, r);
+}
+#endif
+
 int dss_get_dsi_clk_source(void)
 {
 	return FLD_GET(dss_read_reg(DSS_CONTROL), 1, 1);
