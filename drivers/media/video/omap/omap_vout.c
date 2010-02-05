@@ -108,11 +108,7 @@ enum {
 	VIDEO_720_DISABLE,
 };
 
-#define FLG720_BUF_MAPPED 	1
-#define FLG720_BUF_UNMAPPED 	0
-
 static int flg_720  = VIDEO_720_DISABLE;
-static int flg_720_bufmapped = FLG720_BUF_UNMAPPED;
 
 struct rsz_params isp_rsz_params;
 int rsz_configured;
