@@ -1908,7 +1908,8 @@ static int twl4030_hw_params(struct snd_pcm_substream *substream,
 	rval = twl4030_set_format(codec, params);
 	if (rval < 0) {
 		mutex_unlock(&twl4030->mutex);
-		printk(KERN_ERR "twl4030_hw_params: set format failed %d\n");
+		printk(KERN_ERR "twl4030_hw_params: set format failed, format = %d\n",
+			params_format(params));
 		return rval;
 	}
 
