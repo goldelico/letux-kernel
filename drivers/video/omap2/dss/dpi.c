@@ -36,6 +36,7 @@ static struct {
 	int update_enabled;
 } dpi;
 
+/*TODO: OMAP4: check the clock divisor mechanism? */
 #ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
 static int dpi_set_dsi_clk(bool is_tft, unsigned long pck_req,
 		unsigned long *fck, int *lck_div, int *pck_div)
@@ -290,7 +291,7 @@ static int dpi_check_timings(struct omap_dss_device *dssdev,
 			struct omap_video_timings *timings)
 {
 	bool is_tft;
-	int r;
+	int r = 0;
 	int lck_div, pck_div;
 	unsigned long fck;
 	unsigned long pck;
@@ -303,6 +304,7 @@ static int dpi_check_timings(struct omap_dss_device *dssdev,
 
 	is_tft = (dssdev->panel.config & OMAP_DSS_LCD_TFT) != 0;
 
+/*TODO: OMAP4: check the clock divisor mechanism? */
 #ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
 	{
 		struct dsi_clock_info dsi_cinfo;

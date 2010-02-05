@@ -1485,3 +1485,11 @@ struct omap_overlay_manager *omap_dss_get_overlay_manager(int num)
 }
 EXPORT_SYMBOL(omap_dss_get_overlay_manager);
 
+#ifdef L4_EXAMPLE
+static int ovl_mgr_apply_l4(struct omap_overlay_manager *mgr)
+{
+	DSSDBG("omap_dss_mgr_apply_l4(%s)\n", mgr->name);
+	return 0;
+}
+#endif
+

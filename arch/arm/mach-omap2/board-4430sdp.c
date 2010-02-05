@@ -36,6 +36,7 @@
 #include <plat/usb.h>
 #include <plat/syntm12xx.h>
 #include <plat/keypad.h>
+#include <plat/display.h>
 #include <asm/hardware/gic.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <linux/i2c/twl.h>
@@ -202,14 +203,50 @@ static struct omap2_mcspi_device_config dummy2_mcspi_config = {
 	.single_channel = 0,  /* 0: slave, 1: master */
 };
 #endif
+/* Display */
+static int sdp4430_panel_enable_lcd(struct omap_dss_device *dssdev) {
+	return 0;
+}
 
-static struct platform_device sdp4430_lcd_device = {
-	.name		= "sdp4430_lcd",
-	.id		= -1,
+static int sdp4430_panel_disable_lcd(struct omap_dss_device *dssdev) {
+	return 0;
+}
+
+static void __init sdp4430_display_init(void) {
+	return;
+}
+
+static struct omap_dss_device sdp4430_lcd_device = {
+	.name			=	"sdp4430_lcd",
+	.driver_name		=	"sdp4430_panel",
+	.type			=	OMAP_DISPLAY_TYPE_DPI,
+	.phy.dpi.data_lines	=	16,
+	.platform_enable	=	sdp4430_panel_enable_lcd,
+	.platform_disable	=	sdp4430_panel_disable_lcd,
 };
 
-static struct platform_device *sdp4430_devices[] __initdata = {
+static struct omap_dss_device *sdp4430_dss_devices[] = {
 	&sdp4430_lcd_device,
+};
+
+static struct omap_dss_board_info sdp4430_dss_data = {
+	.num_devices	=	ARRAY_SIZE(sdp4430_dss_devices),
+	.devices	=	sdp4430_dss_devices,
+	.default_device	=	&sdp4430_lcd_device,
+};
+
+static struct platform_device sdp4430_dss_device = {
+	.name	=	"omapdss",
+	.id	=	-1,
+	.dev	= {
+		.platform_data = &sdp4430_dss_data,
+	},
+};
+
+/* end Display */
+
+static struct platform_device *sdp4430_devices[] __initdata = {
+	&sdp4430_dss_device,
 	&omap_kp_device,
 };
 
@@ -352,6 +389,7 @@ static void __init omap_4430sdp_init_irq(void)
 #endif
 	gic_init_irq();
 	omap_gpio_init();
+	sdp_4430_display_init();
 }
 
 static struct regulator_init_data sdp4430_vaux1 = {

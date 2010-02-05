@@ -25,8 +25,9 @@
 #define __LINUX_OMAPFB_H__
 
 #include <linux/fb.h>
-#include <linux/ioctl.h>
-#include <linux/types.h>
+
+#include <asm/ioctl.h>
+#include <asm/types.h>
 
 /* IOCTL commands. */
 

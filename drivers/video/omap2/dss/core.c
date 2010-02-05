@@ -286,6 +286,8 @@ void dss_clk_enable(enum dss_clock clks)
 
 	if (cpu_is_omap34xx() && dss_need_ctx_restore())
 		restore_all_ctx();
+	else if (cpu_is_omap44xx())
+		restore_all_ctx();
 }
 
 static void dss_clk_disable_no_ctx(enum dss_clock clks)
@@ -325,7 +327,7 @@ static void dss_clk_enable_all_no_ctx(void)
 	enum dss_clock clks;
 
 	clks = DSS_CLK_ICK | DSS_CLK_FCK1 | DSS_CLK_FCK2 | DSS_CLK_54M;
-	if (cpu_is_omap34xx())
+	if (cpu_is_omap34xx() || cpu_is_omap44xx())
 		clks |= DSS_CLK_96M;
 	dss_clk_enable_no_ctx(clks);
 }
@@ -335,7 +337,7 @@ static void dss_clk_disable_all_no_ctx(void)
 	enum dss_clock clks;
 
 	clks = DSS_CLK_ICK | DSS_CLK_FCK1 | DSS_CLK_FCK2 | DSS_CLK_54M;
-	if (cpu_is_omap34xx())
+	if (cpu_is_omap34xx() || cpu_is_omap44xx())
 		clks |= DSS_CLK_96M;
 	dss_clk_disable_no_ctx(clks);
 }
@@ -345,7 +347,7 @@ static void dss_clk_disable_all(void)
 	enum dss_clock clks;
 
 	clks = DSS_CLK_ICK | DSS_CLK_FCK1 | DSS_CLK_FCK2 | DSS_CLK_54M;
-	if (cpu_is_omap34xx())
+	if (cpu_is_omap34xx() || cpu_is_omap44xx())
 		clks |= DSS_CLK_96M;
 	dss_clk_disable(clks);
 }

@@ -25,6 +25,11 @@ config PANEL_TAAL
         help
           Taal DSI command mode panel from TPO.
 
+config LCD_4430SDP
+        tristate "OMAP4 LCD Panel"
+        help
+          LCD Panel used in OMAP4
+
 config PANEL_SHOLES
         tristate "Sholes Panel"
         help
