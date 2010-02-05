@@ -97,8 +97,10 @@ DSP_STATUS DRV_InsertNodeResElement(HANDLE hNode, HANDLE hNodeRes,
 		status = DSP_EHANDLE;
 	}
 	if (DSP_SUCCEEDED(status)) {
-		if (mutex_lock_interruptible(&pCtxt->node_mutex))
+		if (mutex_lock_interruptible(&pCtxt->node_mutex)) {
+			MEM_Free(*pNodeRes);
 			return DSP_EFAIL;
+		}
 		(*pNodeRes)->hNode = hNode;
 		if (pCtxt->pNodeList != NULL) {
 			pTempNodeRes = pCtxt->pNodeList;
@@ -208,8 +210,10 @@ DSP_STATUS DRV_InsertDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
 		status = DSP_EHANDLE;
 	}
 	if (DSP_SUCCEEDED(status)) {
-		if (mutex_lock_interruptible(&pCtxt->dmm_mutex))
+		if (mutex_lock_interruptible(&pCtxt->dmm_mutex)) {
+			MEM_Free(*pDMMRes);
 			return DSP_EFAIL;
+		}
 
 		if (pCtxt->pDMMList != NULL) {
 			GT_0trace(curTrace, GT_5CLASS,
@@ -439,8 +443,10 @@ DSP_STATUS DRV_ProcInsertSTRMResElement(HANDLE hStreamHandle, HANDLE hSTRMRes,
 		status = DSP_EHANDLE;
 	}
 	if (DSP_SUCCEEDED(status)) {
-		if (mutex_lock_interruptible(&pCtxt->strm_mutex))
+		if (mutex_lock_interruptible(&pCtxt->strm_mutex)) {
+			MEM_Free(*pSTRMRes);
 			return DSP_EFAIL;
+		}
 		(*pSTRMRes)->hStream = hStreamHandle;
 		if (pCtxt->pSTRMList != NULL) {
 			GT_0trace(curTrace, GT_ENTER,

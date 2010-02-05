@@ -1139,7 +1139,7 @@ bool validate_node_handle(struct NODE_OBJECT *hNode, void *pr_ctxt)
 {
 	bool retVal = false;
 	struct PROCESS_CONTEXT *pCtxt = pr_ctxt;
-	struct NODE_RES_OBJECT *pNode = pCtxt->pNodeList;
+	struct NODE_RES_OBJECT *pNode;
 
 	if (hNode == (struct NODE_OBJECT *) DSP_HGPPNODE)
 		retVal = true;
@@ -1147,6 +1147,7 @@ bool validate_node_handle(struct NODE_OBJECT *hNode, void *pr_ctxt)
 	if (mutex_lock_interruptible(&pCtxt->node_mutex))
 		return DSP_EFAIL;
 
+	pNode = pCtxt->pNodeList;
 	while (pNode && !retVal) {
 		if (hNode == pNode->hNode)
 			retVal = true;
@@ -1606,11 +1607,12 @@ bool validate_strm_handle(struct STRM_OBJECT *hStrm, void *pr_ctxt)
 {
 	bool retVal = false;
 	struct PROCESS_CONTEXT *pCtxt = pr_ctxt;
-	struct STRM_RES_OBJECT *pStrm = pCtxt->pSTRMList;
+	struct STRM_RES_OBJECT *pStrm;
 
 	if (mutex_lock_interruptible(&pCtxt->strm_mutex))
 		return DSP_EFAIL;
 
+	 pStrm = pCtxt->pSTRMList;
 	while (pStrm && !retVal) {
 		if (hStrm == pStrm->hStream)
 			retVal = true;
