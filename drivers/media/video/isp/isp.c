@@ -67,6 +67,18 @@ const static struct v4l2_fmtdesc isp_formats[] = {
 		.description = "Bayer10 (GrR/BGb)",
 		.pixelformat = V4L2_PIX_FMT_SGRBG10,
 	},
+	{
+		.description = "Bayer10 (GrR/BGb)",
+		.pixelformat = V4L2_PIX_FMT_SRGGB10,
+	},
+	{
+		.description = "Bayer10 (GrR/BGb)",
+		.pixelformat = V4L2_PIX_FMT_SGBRG10,
+	},
+	{
+		.description = "Bayer10 (GrR/BGb)",
+		.pixelformat = V4L2_PIX_FMT_SBGGR10,
+	},
 };
 
 /**
