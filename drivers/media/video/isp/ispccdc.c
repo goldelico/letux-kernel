@@ -591,25 +591,17 @@ void ispccdc_lsc_state_handler(struct isp_ccdc_device *isp_ccdc,
 	if (!isp_ccdc->lsc_enable)
 		return;
 
-	switch (status) {
-	case CCDC_VD1:
+	if (status & CCDC_VD1)
 		isp_ccdc->lsc_delay_stop = 0;
-		/* The only thing we update in config
-		 * shadow registers is LSC, next step
-		 * is to remove this function and put updates
-		 * in this handler */
-		ispccdc_config_shadow_registers(isp_ccdc);
-		break;
-	case LSC_DONE:
+
+	if (status & LSC_DONE)
 		isp_ccdc->lsc_delay_stop = 1;
-		break;
-	case LSC_PRE_ERR:
+
+	if (status & LSC_PRE_ERR) {
 		/* If we have LSC prefetch error, LSC engine is blocked
 		 * and the only way it can recover is to do isp sw reset */
 		ispccdc_enable_lsc(isp_ccdc, 0);
 		isp_ccdc->lsc_delay_stop = 1;
-	default:
-		break;
 	}
 }
 
