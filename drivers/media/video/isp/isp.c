@@ -879,10 +879,15 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 	isp_reg_writel(dev, irqstatus, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 
+	/* Handle first LSC states */
+	if ((irqstatus & LSC_DONE) || (irqstatus & LSC_DONE) ||
+	    (irqstatus & CCDC_VD1))
+		ispccdc_lsc_state_handler(&isp->isp_ccdc, irqstatus);
+
 	if ((isp->running == ISP_STOPPING) &&
 		!(irqdis->isp_callbk[CBK_RESZ_DONE] &&
 			(irqstatus & RESZ_DONE)))
-		goto out_stopping_lsc;
+		goto out_stopping_isp;
 
 	spin_lock_irqsave(&isp->lock, flags);
 	wait_hs_vs = bufs->wait_hs_vs;
@@ -954,8 +959,7 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	if (irqstatus & LSC_PRE_ERR) {
 		/* Mark buffer faulty. */
 		buf->vb_state = VIDEOBUF_ERROR;
-		dev_dbg(dev, "lsc prefetch error\n");
-		ispccdc_lsc_state_handler(&isp->isp_ccdc, LSC_PRE_ERR);
+		dev_dbg(dev, "lsc prefetch error \n");
 	}
 
 	if (irqstatus & CSIA) {
@@ -995,14 +999,14 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 		}
 	}
 
-	if ((irqstatus & CCDC_VD1) && CCDC_CAPTURE(isp)) {
+	if (irqstatus & CCDC_VD1) {
+		ispccdc_config_shadow_registers(&isp->isp_ccdc);
 		/*
-		 * If CCDC is writing to memory notify LSC that
-		 * can be stopped and stop ccdc here preventig to
-		 * write to any of our buffers.
+		 * If CCDC is writing to memory stop CCDC here
+		 * preventig to write to any of our buffers.
 		 */
-		ispccdc_lsc_state_handler(&isp->isp_ccdc, CCDC_VD1);
-		ispccdc_enable(&isp->isp_ccdc, 0);
+		if (CCDC_CAPTURE(isp))
+			ispccdc_enable(&isp->isp_ccdc, 0);
 	}
 
 	if (irqstatus & CCDC_VD0) {
@@ -1139,16 +1143,10 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 out_ignore_buff:
 	spin_unlock_irqrestore(&isp->lock, flags);
 
-out_stopping_lsc:
-	if (irqstatus & LSC_DONE)
-		ispccdc_lsc_state_handler(&isp->isp_ccdc, LSC_DONE);
-
-	if (irqstatus & CCDC_VD1)
-		ispccdc_lsc_state_handler(&isp->isp_ccdc, CCDC_VD1);
-
 	if (irqstatus & LSC_PRE_COMP)
 		ispccdc_lsc_pref_comp_handler(&isp->isp_ccdc);
 
+out_stopping_isp:
 	isp_flush(dev);
 
 #if 1
