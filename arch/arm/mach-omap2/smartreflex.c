@@ -847,7 +847,8 @@ static int sr_disable(struct omap_sr *sr)
 	/* Enable MCUDisableAcknowledge interrupt, Disable VPBOUND interrupt
 	 * and Clean VPBOUNT interrupt status
 	 */
-	sr_modify_reg(sr, ERRCONFIG,
+	if (cpu_is_omap3430())
+		sr_modify_reg(sr, ERRCONFIG,
 			ERRCONFIG_MCUDISACKINTEN | ERRCONFIG_VPBOUNDINTEN,
 			ERRCONFIG_MCUDISACKINTEN | ERRCONFIG_VPBOUNDINTST);
 
@@ -858,28 +859,32 @@ static int sr_disable(struct omap_sr *sr)
 	 * wait until ERRCONFIG.MCUDISACKINTST = 1
 	 * Typical latency is < 1us.
 	 */
-	while ((c < SR_DISABLE_TIMEOUT) &&
-		(!(sr_read_reg(sr, ERRCONFIG) & ERRCONFIG_MCUDISACKINTST))) {
-		udelay(1);
-		c++;
-	}
-	if (c == SR_DISABLE_TIMEOUT)
-		pr_warning("SR%d not disabled\n", sr->srid);
+	if (cpu_is_omap3430()) {
+		while ((c < SR_DISABLE_TIMEOUT) &&
+			(!(sr_read_reg(sr, ERRCONFIG) &
+				ERRCONFIG_MCUDISACKINTST))) {
+			udelay(1);
+			c++;
+		}
+		if (c == SR_DISABLE_TIMEOUT)
+			pr_warning("SR%d not disabled\n", sr->srid);
 
 
-	/* Disable MCUDisableAcknowledge interrupt & clear pending interrupt
-	 * Also enable VPBOUND interrrupt
-	 */
-	sr_modify_reg(sr, ERRCONFIG, ERRCONFIG_MCUDISACKINTEN,
+		/* Disable MCUDisableAcknowledge interrupt &
+		 * clear pending interrupt Also enable VPBOUND interrrupt
+		 */
+		sr_modify_reg(sr, ERRCONFIG, ERRCONFIG_MCUDISACKINTEN,
 			ERRCONFIG_VPBOUNDINTEN | ERRCONFIG_MCUDISACKINTST);
+	}
 
 	/* DSB is essential as none of the memory is Strongly ordered */
 	dsb();
 	/* Wait till ERRCONFIG_MCUDISACKINTST is cleared before unmasking
 	 * SR interrupts. Else we can have spurious interrupts
 	 */
-	while (sr_read_reg(sr, ERRCONFIG) & ERRCONFIG_MCUDISACKINTST)
-		;
+	if (cpu_is_omap3430())
+		while (sr_read_reg(sr, ERRCONFIG) & ERRCONFIG_MCUDISACKINTST)
+			;
 
 	if (!sr_int_status) {
 		/* Unmask the SR interrrupts if previously unmasked*/
@@ -1256,12 +1261,16 @@ static irqreturn_t sr_omap_irq(int irq, void *dev_id)
 	if (dev_id == &sr2)
 		try_change_ret_volt(dev_id, &vp2_volt);
 
-	if (cpu_is_omap34xx())
+	if (cpu_is_omap34xx()) {
 		sr_modify_reg(dev_id, ERRCONFIG, ERRCONFIG_MCUBOUNDINTST,
 				ERRCONFIG_MCUBOUNDINTST);
 
-	/* Flush posted writes to avoid spurious IRQ */
-	sr_read_reg(dev_id, ERRCONFIG);
+		/* Flush posted writes to avoid spurious IRQ */
+		sr_read_reg(dev_id, ERRCONFIG);
+	} else if (cpu_is_omap3630())
+		/* Flush posted writes to avoid spurious IRQ */
+		sr_read_reg(dev_id, ERRCONFIG_36XX);
+
 	return IRQ_HANDLED;
 }
 
