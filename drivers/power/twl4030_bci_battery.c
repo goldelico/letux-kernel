@@ -164,6 +164,7 @@ struct twl4030_bci_device_info {
 
 	struct power_supply	bat;
 	struct power_supply	bk_bat;
+	struct power_supply     usb_bat;
 	struct delayed_work	twl4030_bci_monitor_work;
 	struct delayed_work	twl4030_bk_bci_monitor_work;
 };
@@ -862,6 +863,10 @@ static enum power_supply_property twl4030_bk_bci_battery_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 };
 
+static enum power_supply_property twl4030_usb_battery_props[] = {
+	POWER_SUPPLY_PROP_ONLINE,
+};
+
 static void
 twl4030_bk_bci_battery_read_status(struct twl4030_bci_device_info *di)
 {
@@ -930,6 +935,21 @@ static int twl4030_bk_bci_battery_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		val->intval = di->bk_voltage_uV;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int twl4030_usb_battery_get_property(struct power_supply *psy,
+					enum power_supply_property psp,
+					union power_supply_propval *val)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = usb_charger_flag;
 		break;
 	default:
 		return -EINVAL;
@@ -1041,6 +1061,20 @@ static int __init twl4030_bci_battery_probe(struct platform_device *pdev)
 	di->bk_bat.get_property = twl4030_bk_bci_battery_get_property;
 	di->bk_bat.external_power_changed = NULL;
 
+	/*
+	 * Android expects a battery type POWER_SUPPLY_TYPE_USB
+	 * as a usb charger battery. This battery
+	 * and its "online" property are used to determine if the
+	 * usb cable is plugged in or not.
+	 */
+	di->usb_bat.name = "twl4030_bci_usb_src";
+	di->usb_bat.supplied_to = twl4030_bci_supplied_to;
+	di->usb_bat.type = POWER_SUPPLY_TYPE_USB;
+	di->usb_bat.properties = twl4030_usb_battery_props;
+	di->usb_bat.num_properties = ARRAY_SIZE(twl4030_usb_battery_props);
+	di->usb_bat.get_property = twl4030_usb_battery_get_property;
+	di->usb_bat.external_power_changed = NULL;
+
 	twl4030charger_ac_en(ENABLE);
 	twl4030charger_usb_en(ENABLE);
 	twl4030battery_hw_level_en(ENABLE);
@@ -1101,8 +1135,16 @@ static int __init twl4030_bci_battery_probe(struct platform_device *pdev)
 				twl4030_bk_bci_battery_work);
 	schedule_delayed_work(&di->twl4030_bk_bci_monitor_work, 500);
 
+	ret = power_supply_register(&pdev->dev, &di->usb_bat);
+	if (ret) {
+		dev_dbg(&pdev->dev, "failed to register usb battery\n");
+		goto usb_batt_failed;
+	}
+
 	return 0;
 
+usb_batt_failed:
+	power_supply_unregister(&di->bk_bat);
 bk_batt_failed:
 	power_supply_unregister(&di->bat);
 batt_failed:
