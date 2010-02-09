@@ -2460,17 +2460,24 @@ static int _dispc_setup_plane(enum omap_plane plane,
 	if ((paddr >= 0x60000000) && (paddr <= 0x7fffffff)) {
 		calc_tiler_row_rotation(rotation, width, frame_height,
 						color_mode, &row_inc);
-
 		orientation = calc_tiler_orientation(rotation, (u8)mirror);
 		/* get rotated top-left coordinate
 				(if rotation is applied before mirroring) */
 		memset(&orient, 0, sizeof(orient));
 		tiler_rotate_view(&orient, rotation * 90);
+
+		if (mirror) {
+			/* Horizontal mirroring */
+			if (rotation == 1 || rotation == 3)
+				mir_x = 1;
+			else
+				mir_y = 1;
+		} else {
+			mir_x = 0;
+			mir_y = 0;
+		}
 		orient.x_invert ^= mir_x;
 		orient.y_invert ^= mir_y;
-
-		printk(KERN_INFO "RYX = %d %d %d\n", orient.rotate_90,
-				orient.y_invert, orient.x_invert);
 
 		if (orient.rotate_90 & 1) {
 			tiler_height = width;
@@ -2479,7 +2486,6 @@ static int _dispc_setup_plane(enum omap_plane plane,
 			tiler_height = height;
 			tiler_width = width;
 		}
-		printk(KERN_INFO "w, h = %d %d\n", tiler_width, tiler_height);
 
 		paddr = tiler_reorient_topleft(tiler_get_natural_addr(paddr),
 				orient, tiler_width, tiler_height);

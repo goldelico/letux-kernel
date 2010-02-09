@@ -936,8 +936,7 @@ static int omapfb_setup_overlay(struct fb_info *fbi, struct omap_overlay *ovl,
 
 	ovl->get_overlay_info(ovl, &info);
 
-	if (ofbi->rotation_type == OMAP_DSS_ROT_VRFB ||
-		ofbi->rotation_type == OMAP_DSS_ROT_TILER)
+	if (ofbi->rotation_type == OMAP_DSS_ROT_VRFB)
 		mirror = 0;
 	else
 		mirror = ofbi->mirror;
