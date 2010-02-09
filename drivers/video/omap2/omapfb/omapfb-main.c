@@ -1396,7 +1396,7 @@ static void omapfb_free_fbmem(struct fb_info *fbi)
 	rg = &ofbi->region;
 
 	if (ofbi->rotation_type == OMAP_DSS_ROT_TILER) {
-		/* TODO: to be added for TILER */
+		tiler_free(rg->paddr);
 	} else {
 	if (rg->paddr)
 		if (omap_vram_free(rg->paddr, rg->size))
@@ -1574,7 +1574,11 @@ static int omapfb_alloc_fbmem_display(struct fb_info *fbi, unsigned long size,
 			w = 2048;
 			DBG("adjusting fb mem size for TILER, %dx%d -> %dx%d\n",
 				oldw, oldh, w, h);
-                }
+		} else if (ofbi->rotation_type == OMAP_DSS_ROT_TILER) {
+			/* round up width to tiler size */
+			w = ALIGN(w, PAGE_SIZE / bytespp);
+			fbi->fix.line_length = w * bytespp;
+		}
 
 		size = w * h * bytespp;
 		
@@ -1898,8 +1902,7 @@ static int omapfb_fb_init(struct omapfb2_device *fbdev, struct fb_info *fbi)
 	var->nonstd = 0;
 	var->bits_per_pixel = 0;
 
-	var->rotate = def_rotate = 0;
-	var->rotate = 0; //sv
+	var->rotate = def_rotate;
 
 	/*
 	 * Check if there is a default color format set in the board file,
