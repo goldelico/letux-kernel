@@ -18,6 +18,7 @@
 #include <linux/gpio.h>
 #include <linux/mmc/host.h>
 #include <linux/regulator/consumer.h>
+#include <plat/cpu.h>
 
 #include <mach/hardware.h>
 #include <plat/control.h>
@@ -424,6 +425,9 @@ static int twl_mmc23_set_power(struct device *dev, int slot, int power_on, int v
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
 	int i;
 
+	if (cpu_is_omap44xx())
+		return 0;
+
 	for (i = 1; i < ARRAY_SIZE(hsmmc); i++) {
 		if (mmc == hsmmc[i].mmc) {
 			c = &hsmmc[i];
@@ -494,6 +498,9 @@ static int twl_mmc23_set_sleep(struct device *dev, int slot, int sleep, int vdd,
 	struct twl_mmc_controller *c = NULL;
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
 	int i, err, mode;
+
+	if (cpu_is_omap44xx())
+		return 0;
 
 	for (i = 1; i < ARRAY_SIZE(hsmmc); i++) {
 		if (mmc == hsmmc[i].mmc) {
