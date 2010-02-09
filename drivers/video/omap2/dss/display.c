@@ -337,6 +337,8 @@ static int default_wait_vsync(struct omap_dss_device *dssdev)
 		irq = DISPC_IRQ_EVSYNC_ODD;
 	else if (dssdev->type == OMAP_DISPLAY_TYPE_HDMI)
 		irq = DISPC_IRQ_EVSYNC_EVEN;
+	else if (dssdev->type == OMAP_DISPLAY_TYPE_DSI)
+		irq = DISPC_IRQ_FRAMEDONE;
 	else
 		irq = DISPC_IRQ_VSYNC;
 
