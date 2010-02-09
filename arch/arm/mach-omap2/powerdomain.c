@@ -93,8 +93,8 @@ static u32 prm_read_mod_bits_shift(s16 domain, s16 idx, u32 mask)
 	u32 v;
 
 	/* CHIRON CPU0/1 domains are not part of PRM */
-	if ((domain == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
-		(domain == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD))
+	if (cpu_is_omap44xx() && ((domain == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD)
+			|| (domain == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD)))
 		v = chiron_read_mod_reg(domain, idx);
 	else
 		v = prm_read_mod_reg(domain, idx);
@@ -1248,16 +1248,18 @@ int pwrdm_wait_transition(struct powerdomain *pwrdm)
 	/* XXX Is this udelay() value meaningful? */
 
 	/* CHIRON CPU0/1 domains are not part of PRM */
-	if ((pwrdm->prcm_offs == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
-		(pwrdm->prcm_offs == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD))
+	if ( cpu_is_omap44xx() &&
+		((pwrdm->prcm_offs == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
+		(pwrdm->prcm_offs == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD)))
 		v = chiron_read_mod_reg(pwrdm->prcm_offs, pwrstst_reg_offs);
 	else
 		v = prm_read_mod_reg(pwrdm->prcm_offs, pwrstst_reg_offs);
 
 	while ((v & OMAP_INTRANSITION) && (c++ < PWRDM_TRANSITION_BAILOUT)) {
 		udelay(1);
-		if ((pwrdm->prcm_offs == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
-			(pwrdm->prcm_offs == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD))
+		if (cpu_is_omap44xx() &&
+			((pwrdm->prcm_offs == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
+			(pwrdm->prcm_offs == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD)))
 			v = chiron_read_mod_reg(pwrdm->prcm_offs, pwrstst_reg_offs);
 		else
 			v = prm_read_mod_reg(pwrdm->prcm_offs, pwrstst_reg_offs);
