@@ -570,7 +570,7 @@ DSP_STATUS PROC_EnumNodes(void *hProcessor, OUT DSP_HNODE *aNodeTab,
 
 /* Cache operation against kernel address instead of users */
 static int memory_sync_page(struct vm_area_struct *vma, unsigned long start,
-			    ssize_t len, enum DSP_FLUSHTYPE ftype)
+			    ssize_t len, u32 ulFlags)
 {
 	struct page *page;
 	void *kaddr;
@@ -592,7 +592,7 @@ static int memory_sync_page(struct vm_area_struct *vma, unsigned long start,
 		kaddr = page_address(page) + offset;
 		rest = min_t(ssize_t, PAGE_SIZE - offset, len);
 
-		MEM_FlushCache(kaddr, rest, ftype);
+		MEM_FlushCache(kaddr, rest, ulFlags);
 
 		put_page(page);
 		len -= rest;
@@ -603,8 +603,7 @@ static int memory_sync_page(struct vm_area_struct *vma, unsigned long start,
 }
 
 /* Check if the given area blongs to process virtul memory address space */
-static int memory_sync_vma(unsigned long start, u32 len,
-			   enum DSP_FLUSHTYPE ftype)
+static int memory_sync_vma(unsigned long start, u32 len, u32 ulFlags)
 {
 	int err = 0;
 	unsigned long end;
@@ -624,7 +623,7 @@ static int memory_sync_vma(unsigned long start, u32 len,
 			return -EINVAL;
 
 		size = min_t(ssize_t, vma->vm_end - start, len);
-		err = memory_sync_page(vma, start, size, ftype);
+		err = memory_sync_page(vma, start, size, ulFlags);
 		if (err)
 			break;
 
@@ -663,7 +662,7 @@ static DSP_STATUS proc_memory_sync(void *hProcessor, void *pMpuAddr,
 
 	down_read(&current->mm->mmap_sem);
 
-	if (memory_sync_vma((u32)pMpuAddr, ulSize, FlushMemType)) {
+	if (memory_sync_vma((u32)pMpuAddr, ulSize, ulFlags)) {
 		pr_err("%s: InValid address parameters %p %x\n",
 		       __func__, pMpuAddr, ulSize);
 		status = DSP_EHANDLE;
