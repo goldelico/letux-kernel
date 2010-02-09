@@ -83,4 +83,10 @@ void st_ll_send_frame(enum proto_type, struct sk_buff *);
 /* internal wake up function */
 void st_tx_wakeup(struct st_data_s *st_data);
 
+#define GPS_STUB_TEST
+#ifdef GPS_STUB_TEST
+int gps_chrdrv_stub_write(const unsigned char*, int);
+void gps_chrdrv_stub_init(void);
+#endif
+
 #endif /*ST_CORE_H */

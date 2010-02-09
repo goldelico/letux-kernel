@@ -47,7 +47,7 @@ struct hci_st {
 	unsigned long flags;
 
 	/* to hold ST registration callback  status */
-	unsigned char streg_cbdata;
+	char streg_cbdata;
 
 	/* write function pointer of ST driver */
 	long (*st_write) (struct sk_buff *);

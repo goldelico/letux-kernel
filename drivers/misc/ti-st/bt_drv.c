@@ -80,7 +80,7 @@ static inline void hci_st_tx_complete(struct hci_st *hst, int pkt_type)
  * status.hci_st_open() function will wait for signal from this
  * API when st_register() function returns ST_PENDING.
  */
-static void hci_st_registration_completion_cb(unsigned char data)
+static void hci_st_registration_completion_cb(char data)
 {
 	BTDRV_API_START();
 
@@ -225,7 +225,7 @@ static int hci_st_open(struct hci_dev *hdev)
 		}
 
 		/* Is ST registration callback called with ERROR value? */
-		if (hst->streg_cbdata < 0) {
+		if (hst->streg_cbdata != 0) {
 			BT_DRV_ERR("ST reg completion CB called with invalid"
 				   "status %d", hst->streg_cbdata);
 			BTDRV_API_EXIT(-EAGAIN);
@@ -310,13 +310,12 @@ static int hci_st_send_frame(struct sk_buff *skb)
 
 	BTDRV_API_START();
 
-	hdev = (struct hci_dev *)skb->dev;
-
 	if (skb == NULL) {
 		BT_DRV_ERR("Invalid skb received from HCI CORE");
 		BTDRV_API_EXIT(-ENOMEM);
 		return -ENOMEM;
 	}
+	hdev = (struct hci_dev *)skb->dev;
 	if (!hdev) {
 		BT_DRV_ERR("SKB received for invalid HCI Device (hdev=NULL)");
 		BTDRV_API_EXIT(-ENODEV);
@@ -471,18 +470,22 @@ static void __exit bt_drv_exit(void)
 	if (hst) {
 		struct hci_dev *hdev = hst->hdev;
 
-		if (hdev)
+		if (hdev == NULL) {
+			BT_DRV_ERR("Invalid hdev memory");
+			kfree(hst);
+		} else {
 			hci_st_close(hdev);
+			if (test_and_clear_bit(BT_DRV_RUNNING, &hst->flags)) {
+				/* Remove HCI device (hciX) created
+				 * in module init.
+				 */
+				hci_unregister_dev(hdev);
 
-		if (test_and_clear_bit(BT_DRV_RUNNING, &hst->flags)) {
-			/* Remove HCI device (hciX) created in module init */
-			hci_unregister_dev(hdev);
-
-			/* Free HCI device memory */
-			hci_free_dev(hdev);
+				/* Free HCI device memory */
+				hci_free_dev(hdev);
+			}
 		}
 	}
-
 	BTDRV_API_EXIT(0);
 }
 

@@ -111,10 +111,12 @@ int st_int_write(const unsigned char *data, int count)
 #ifdef VERBOSE
 	printk(KERN_ERR "start data.. \n");
 	for (i = 0; i < count; i++)	/* no newlines for each datum */
-		printk(KERN_ERR " %x", data[i]);
+		printk(" %x", data[i]);
 	printk(KERN_ERR "\n ..end data\n");
 #endif
+
 	return tty->ops->write(tty, data, count);
+
 }
 
 /*
@@ -157,7 +159,7 @@ void st_send_frame(enum proto_type protoid, struct sk_buff *skb)
  * to call registration complete callbacks
  * of all protocol stack drivers
  */
-void st_reg_complete(unsigned char err)
+void st_reg_complete(char err)
 {
 	unsigned char i = 0;
 	ST_DRV_DBG(" %s ", __func__);
@@ -238,6 +240,7 @@ void st_int_recv(const unsigned char *data, long count)
 	struct hci_acl_hdr *ah;
 	struct hci_sco_hdr *sh;
 	struct fm_event_hdr *fm;
+	struct gps_event_hdr *gps;
 	register int len = 0, type = 0, dlen = 0;
 	static enum proto_type protoid = ST_MAX;
 
@@ -320,6 +323,10 @@ void st_int_recv(const unsigned char *data, long count)
 				/* TODO : Add GPS packet machine logic here */
 			case ST_GPS_W4_EVENT_HDR:
 				/* [0x09 pkt hdr][R/W byte][2 byte len] */
+				gps = (struct gps_event_hdr *)st_gdata->rx_skb->
+				     data;
+				ST_DRV_DBG("GPS Header: ");
+				st_check_data_len(ST_GPS, gps->plen);
 				continue;
 			}	/* end of switch rx_state */
 		}
@@ -371,7 +378,7 @@ void st_int_recv(const unsigned char *data, long count)
 			type = 0x9;	/* ST_LL_GPS_CH9_PKT; */
 			protoid = ST_GPS;
 			st_gdata->rx_state = ST_GPS_W4_EVENT_HDR;
-			st_gdata->rx_count = 4;	/* GPS_EVENT_HDR_SIZE */
+			st_gdata->rx_count = 3;	/* GPS_EVENT_HDR_SIZE -1*/
 			break;
 		case LL_SLEEP_IND:
 		case LL_SLEEP_ACK:
@@ -415,6 +422,12 @@ void st_int_recv(const unsigned char *data, long count)
 		case ST_FM:	/* for FM */
 			st_gdata->rx_skb =
 			    alloc_skb(FM_MAX_FRAME_SIZE, GFP_ATOMIC);
+			if (!st_gdata->rx_skb) {
+				ST_DRV_ERR("Can't allocate mem for new packet");
+				st_gdata->rx_state = ST_W4_PACKET_TYPE;
+				st_gdata->rx_count = 0;
+				return;
+			}
 			/* place holder 0x08 */
 			skb_reserve(st_gdata->rx_skb, 1);
 			st_gdata->rx_skb->cb[0] = ST_FM_CH8_PKT;
@@ -423,6 +436,12 @@ void st_int_recv(const unsigned char *data, long count)
 			/* for GPS */
 			st_gdata->rx_skb =
 			    alloc_skb(100 /*GPS_MAX_FRAME_SIZE */ , GFP_ATOMIC);
+			if (!st_gdata->rx_skb) {
+				ST_DRV_ERR("Can't allocate mem for new packet");
+				st_gdata->rx_state = ST_W4_PACKET_TYPE;
+				st_gdata->rx_count = 0;
+				return;
+			}
 			/* place holder 0x09 */
 			skb_reserve(st_gdata->rx_skb, 1);
 			st_gdata->rx_skb->cb[0] = 0x09;	/*ST_GPS_CH9_PKT; */
@@ -594,9 +613,7 @@ long st_register(struct st_proto_s *new_proto)
 	ST_DRV_DBG("%s(%d) ", __func__, new_proto->type);
 	if (st_gdata == NULL || new_proto == NULL || new_proto->recv == NULL
 	    || new_proto->reg_complete_cb == NULL) {
-		ST_DRV_ERR
-		    ("%d's gdata/new_proto/recv or reg_complete_cb not ready",
-		     new_proto->type);
+		ST_DRV_ERR("gdata/new_proto/recv or reg_complete_cb not ready");
 		return ST_ERR_FAILURE;
 	}
 
@@ -886,7 +903,7 @@ static void st_tty_receive(struct tty_struct *tty, const unsigned char *data,
 	long i;
 	printk(KERN_ERR "incoming data...\n");
 	for (i = 0; i < count; i++)
-		printk(KERN_ERR " %x", data[i]);
+		printk(" %x", data[i]);
 	printk(KERN_ERR "\n.. data end\n");
 #endif
 

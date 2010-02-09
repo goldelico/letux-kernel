@@ -227,6 +227,7 @@ void kim_int_recv(const unsigned char *data, long count)
 			ST_KIM_ERR("can't allocate mem for new packet");
 			kim_gdata->rx_state = ST_W4_PACKET_TYPE;
 			kim_gdata->rx_count = 0;
+			return;
 		} /* not necessary in this case */
 		bt_cb(kim_gdata->rx_skb)->pkt_type = type;
 	}			/* end of while count */
