@@ -151,13 +151,13 @@ static ssize_t vdd_opp_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buf)
 {
 	if (attr == &vdd1_opp_attr)
-		return sprintf(buf, "%hu\n", resource_get_level("vdd1_opp"));
+		return sprintf(buf, "%u\n", resource_get_level("vdd1_opp"));
 	else if (attr == &vdd2_opp_attr)
-		return sprintf(buf, "%hu\n", resource_get_level("vdd2_opp"));
+		return sprintf(buf, "%u\n", resource_get_level("vdd2_opp"));
 	else if (attr == &vdd1_lock_attr)
-		return sprintf(buf, "%hu\n", resource_get_opp_lock(VDD1_OPP));
+		return sprintf(buf, "%u\n", resource_get_opp_lock(VDD1_OPP));
 	else if (attr == &vdd2_lock_attr)
-		return sprintf(buf, "%hu\n", resource_get_opp_lock(VDD2_OPP));
+		return sprintf(buf, "%u\n", resource_get_opp_lock(VDD2_OPP));
 	else
 		return -EINVAL;
 }
