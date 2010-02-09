@@ -46,12 +46,12 @@
 #include <dspbridge/dbtype.h>
 #include <mach/clock.h>
 #include <linux/clk.h>
+#include <mach/mailbox.h>
 #include <linux/pagemap.h>
 #include <asm/cacheflush.h>
 #include <linux/dma-mapping.h>
 
 /* TODO -- Remove, once BP defines them */
-#define INT_MAIL_MPU_IRQ        26
 #define INT_DSP_MMU_IRQ        28
 
 struct dspbridge_platform_data {

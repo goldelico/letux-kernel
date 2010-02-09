@@ -62,6 +62,7 @@
 /*  ----------------------------------- Mini-Driver */
 #include <dspbridge/wmd.h>
 #include <dspbridge/wmdchnl.h>
+#include "_tiomap.h"
 
 /*  ----------------------------------- Platform Manager */
 #include <dspbridge/dev.h>
@@ -97,6 +98,8 @@ DSP_STATUS WMD_CHNL_AddIOReq(struct CHNL_OBJECT *hChnl, void *pHostBuf,
 	DSP_STATUS status = DSP_SOK;
 	struct CHNL_OBJECT *pChnl = (struct CHNL_OBJECT *)hChnl;
 	struct CHNL_IRP *pChirp = NULL;
+	struct WMD_DEV_CONTEXT *dev_ctxt;
+	struct DEV_OBJECT *dev_obj;
 	u32 dwState;
 	bool fIsEOS;
 	struct CHNL_MGR *pChnlMgr = pChnl->pChnlMgr;
@@ -132,6 +135,12 @@ DSP_STATUS WMD_CHNL_AddIOReq(struct CHNL_OBJECT *hChnl, void *pHostBuf,
 				DBC_Assert(0);
 		}
 	}
+
+	dev_obj = DEV_GetFirst();
+	DEV_GetWMDContext(dev_obj, &dev_ctxt);
+	if (!dev_ctxt)
+		status = DSP_EHANDLE;
+
 	if (DSP_FAILED(status))
 		goto func_end;
 
@@ -170,7 +179,7 @@ func_cont:
 	 * non-mailbox interrupt occurs, that DPC will run and break CS. Hence
 	 * we disable ALL DPCs. We will try to disable ONLY IO DPC later.  */
 	SYNC_EnterCS(pChnlMgr->hCSObj);
-	disable_irq(MAILBOX_IRQ);
+	omap_mbox_disable_irq(dev_ctxt->mbox, IRQ_RX);
 	if (pChnl->uChnlType == CHNL_PCPY) {
 		/* This is a processor-copy channel. */
 		if (DSP_SUCCEEDED(status) && CHNL_IsOutput(pChnl->uMode)) {
@@ -224,7 +233,7 @@ func_cont:
 
 
 	}
-	enable_irq(MAILBOX_IRQ);
+	omap_mbox_enable_irq(dev_ctxt->mbox, IRQ_RX);
 	SYNC_LeaveCS(pChnlMgr->hCSObj);
 	if (wMbVal != 0)
 		IO_IntrDSP2(pChnlMgr->hIOMgr, wMbVal);
@@ -574,6 +583,8 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 	bool fDequeueIOC = true;
 	struct CHNL_IOC ioc = { NULL, 0, 0, 0, 0 };
 	u8 *pHostSysBuf = NULL;
+	struct WMD_DEV_CONTEXT *dev_ctxt;
+	struct DEV_OBJECT *dev_obj;
 
 	DBG_Trace(DBG_ENTER, "> WMD_CHNL_GetIOC pChnl %p CHNL_IsOutput %x "
 		 "uChnlType %x\n", pChnl, CHNL_IsOutput(pChnl->uMode),
@@ -588,6 +599,12 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 			status = CHNL_E_NOIOC;
 
 	}
+
+	dev_obj = DEV_GetFirst();
+	DEV_GetWMDContext(dev_obj, &dev_ctxt);
+	if (!dev_ctxt)
+		status = DSP_EHANDLE;
+
 	if (DSP_FAILED(status))
 		goto func_end;
 
@@ -615,7 +632,7 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 	}
 	/* See comment in AddIOReq */
 	SYNC_EnterCS(pChnl->pChnlMgr->hCSObj);
-	disable_irq(MAILBOX_IRQ);
+	omap_mbox_disable_irq(dev_ctxt->mbox, IRQ_RX);
 	if (fDequeueIOC) {
 		/* Dequeue IOC and set pIOC; */
 		DBC_Assert(!LST_IsEmpty(pChnl->pIOCompletions));
@@ -665,7 +682,7 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 		/* else, if list is empty, ensure event is reset. */
 		SYNC_ResetEvent(pChnl->hSyncEvent);
 	}
-	enable_irq(MAILBOX_IRQ);
+	omap_mbox_enable_irq(dev_ctxt->mbox, IRQ_RX);
 	SYNC_LeaveCS(pChnl->pChnlMgr->hCSObj);
 	if (fDequeueIOC && (pChnl->uChnlType == CHNL_PCPY && pChnl->uId > 1)) {
 		if (!(ioc.pBuf < (void *) USERMODE_ADDR))
@@ -796,6 +813,7 @@ DSP_STATUS WMD_CHNL_Open(OUT struct CHNL_OBJECT **phChnl,
 	DBC_Require(pAttrs != NULL);
 	DBC_Require(hChnlMgr != NULL);
 	*phChnl = NULL;
+
 	/* Validate Args:  */
 	if (pAttrs->uIOReqs == 0) {
 		status = DSP_EINVALIDARG;

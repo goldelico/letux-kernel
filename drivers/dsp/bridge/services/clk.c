@@ -57,7 +57,6 @@ struct SERVICES_Clk_t {
  * enumerations needs to be fixed in the array as well */
 static struct SERVICES_Clk_t SERVICES_Clks[] = {
 	{NULL, "iva2_ck", -1},
-	{NULL, "mailboxes_ick", -1},
 	{NULL, "gpt5_fck", -1},
 	{NULL, "gpt5_ick", -1},
 	{NULL, "gpt6_fck", -1},

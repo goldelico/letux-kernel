@@ -248,9 +248,8 @@ DBG_Trace(DBG_LEVEL6, "WMD_DEH_Notify: DSP_MMUFAULT, "
 				&mapAttrs, HW_SET, HW_SET);
 
 			/* send an interrupt to DSP */
-			HW_MBOX_MsgWrite(pDevContext->dwMailBoxBase,
-					MBOX_ARM2DSP,
-					MBX_DEH_CLASS | MBX_DEH_EMMU);
+			omap_mbox_msg_send(pDevContext->mbox,
+					MBX_DEH_CLASS | MBX_DEH_EMMU, NULL);
 			/* Clear MMU interrupt */
 			HW_MMU_EventAck(pDevContext->dwDSPMmuBase,
 					 HW_MMU_TRANSLATION_FAULT);

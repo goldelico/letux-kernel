@@ -139,13 +139,8 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 		status = WMD_E_TIMEOUT;
 	} else {
 		/* Save mailbox settings */
-		HW_MBOX_saveSettings(pDevContext->dwMailBoxBase);
-		DBG_Trace(DBG_LEVEL6, "MailBoxSettings: SYSCONFIG = 0x%x\n",
-			 mboxsetting.sysconfig);
-		DBG_Trace(DBG_LEVEL6, "MailBoxSettings: IRQENABLE0 = 0x%x\n",
-			 mboxsetting.irqEnable0);
-		DBG_Trace(DBG_LEVEL6, "MailBoxSettings: IRQENABLE1 = 0x%x\n",
-			 mboxsetting.irqEnable1);
+		omap_mbox_save_ctx(pDevContext->mbox);
+
 		/* Turn off DSP Peripheral clocks and DSP Load monitor timer */
 		status = DSP_PeripheralClocks_Disable(pDevContext, NULL);
 
@@ -207,7 +202,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 
 	switch (pDevContext->dwBrdState) {
 	case BRD_RUNNING:
-		status = HW_MBOX_saveSettings(pDevContext->dwMailBoxBase);
+		omap_mbox_save_ctx(pDevContext->mbox);
 		if (enable_off_mode) {
 			CHNLSM_InterruptDSP2(pDevContext,
 					     MBX_PM_DSPHIBERNATE);
@@ -223,7 +218,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 		prev_state = BRD_RUNNING;
 		break;
 	case BRD_RETENTION:
-		status = HW_MBOX_saveSettings(pDevContext->dwMailBoxBase);
+		omap_mbox_save_ctx(pDevContext->mbox);
 		if (enable_off_mode) {
 			CHNLSM_InterruptDSP2(pDevContext,
 					     MBX_PM_DSPHIBERNATE);

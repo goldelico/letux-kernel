@@ -43,9 +43,6 @@
 #define IO_SetLong(pContext, type, base, field, value)  (base->field = value)
 #define IO_GetLong(pContext, type, base, field)         (base->field)
 
-#define IO_DisableInterrupt(h)  CHNLSM_DisableInterrupt(h)
-#define IO_EnableInterrupt(h)   CHNLSM_EnableInterrupt(h)
-#define IO_CALLISR(h, pFlag, pwMBRegVal)   CHNLSM_ISR(h, pFlag, pwMBRegVal)
 
 /*
  *  ======== IO_CancelChnl ========
@@ -80,7 +77,7 @@
 	extern void IO_DPC(IN OUT unsigned long pRefData);
 
 /*
- *  ======== IO_ISR ========
+ *  ======== io_mbox_msg ========
  *  Purpose:
  *      Main interrupt handler for the shared memory WMD channel manager.
  *      Calls the WMD's CHNLSM_ISR to determine if this interrupt is ours, then
@@ -97,7 +94,7 @@
  *      Interrupts are disabled and EOI for this interrupt has been sent.
  *  Ensures:
  */
-       irqreturn_t IO_ISR(int irq, IN void *pRefData);
+       void io_mbox_msg(u32 msg);
 /*
  *  ======== IO_RequestChnl ========
  *  Purpose:

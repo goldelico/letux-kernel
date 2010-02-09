@@ -47,7 +47,6 @@
 #include <hw_dspssC64P.h>
 #include <hw_prcm.h>
 #include <hw_mmu.h>
-#include <hw_mbox.h>
 
 /*  ----------------------------------- Link Driver */
 #include <dspbridge/wmd.h>
@@ -698,7 +697,9 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 
 		/* Enable Mailbox events and also drain any pending
 		 * stale messages */
-		(void)CHNLSM_EnableInterrupt(pDevContext);
+		hDevContext->mbox = omap_mbox_get("dsp");
+		hDevContext->mbox->rxq->callback =
+						(int (*)(void *))io_mbox_msg;
 
 		HW_RSTCTRL_RegGet(pDevContext->prmbase, HW_RST1_IVA2, &temp);
 		DBG_Trace(DBG_LEVEL7, "BRD_Start: RM_RSTCTRL_DSP = 0x%x \n",
@@ -787,9 +788,6 @@ static DSP_STATUS WMD_BRD_Stop(struct WMD_DEV_CONTEXT *hDevContext)
 	DBG_Trace(DBG_ENTER, "Entering WMD_BRD_Stop:\nhDevContext: 0x%x\n",
 		  hDevContext);
 
-	/* Disable the mail box interrupts */
-	(void)CHNLSM_DisableInterrupt(pDevContext);
-
 	if (pDevContext->dwBrdState == BRD_STOPPED)
 		return status;
 
@@ -807,7 +805,7 @@ static DSP_STATUS WMD_BRD_Stop(struct WMD_DEV_CONTEXT *hDevContext)
 	}
 
 	HW_PWRST_IVA2RegGet(pDevContext->prmbase, &dspPwrState);
-	if (dspPwrState != HW_PWR_STATE_OFF) {
+	if (dspPwrState != HW_PWR_STATE_OFF && hDevContext->mbox) {
 		CHNLSM_InterruptDSP2(pDevContext, MBX_PM_DSPIDLE);
 		mdelay(10);
 		GetHWRegs(pDevContext->prmbase, pDevContext->cmbase);
@@ -850,6 +848,13 @@ static DSP_STATUS WMD_BRD_Stop(struct WMD_DEV_CONTEXT *hDevContext)
 		memset((u8 *) pPtAttrs->pgInfo, 0x00,
 		       (pPtAttrs->L2NumPages * sizeof(struct PageInfo)));
 	}
+	/* Disable the mail box interrupts */
+	if (hDevContext->mbox) {
+		omap_mbox_disable_irq(hDevContext->mbox, IRQ_RX);
+		omap_mbox_put(hDevContext->mbox);
+		hDevContext->mbox = NULL;
+	}
+
 	DBG_Trace(DBG_LEVEL6, "WMD_BRD_Stop - End ****** \n");
 	HW_RST_Reset(pDevContext->prmbase, HW_RST1_IVA2);
 	HW_RST_Reset(pDevContext->prmbase, HW_RST2_IVA2);
@@ -877,9 +882,6 @@ static DSP_STATUS WMD_BRD_Delete(struct WMD_DEV_CONTEXT *hDevContext)
 
 	DBG_Trace(DBG_ENTER, "Entering WMD_BRD_Delete:\nhDevContext: 0x%x\n",
 		  hDevContext);
-
-	/* Disable the mail box interrupts */
-	(void) CHNLSM_DisableInterrupt(pDevContext);
 
 	if (pDevContext->dwBrdState == BRD_STOPPED)
 		return status;
@@ -917,6 +919,13 @@ static DSP_STATUS WMD_BRD_Delete(struct WMD_DEV_CONTEXT *hDevContext)
 		memset((u8 *)pPtAttrs->pgInfo, 0x00,
 			(pPtAttrs->L2NumPages * sizeof(struct PageInfo)));
 	}
+	/* Disable the mail box interrupts */
+	if (hDevContext->mbox) {
+		omap_mbox_disable_irq(hDevContext->mbox, IRQ_RX);
+		omap_mbox_put(hDevContext->mbox);
+		hDevContext->mbox = NULL;
+	}
+
 	DBG_Trace(DBG_LEVEL6, "WMD_BRD_Delete - End ****** \n");
 	HW_RST_Reset(pDevContext->prmbase, HW_RST1_IVA2);
 	HW_RST_Reset(pDevContext->prmbase, HW_RST2_IVA2);
@@ -1122,17 +1131,10 @@ static DSP_STATUS WMD_DEV_Create(OUT struct WMD_DEV_CONTEXT **ppDevContext,
 		/* Set the Clock Divisor for the DSP module */
 		DBG_Trace(DBG_LEVEL7, "WMD_DEV_create:Reset mail box and "
 			  "enable the clock \n");
-		status = CLK_Enable(SERVICESCLK_mailbox_ick);
-		if (DSP_FAILED(status)) {
-			DBG_Trace(DBG_LEVEL7,
-				 "WMD_DEV_create:Reset mail box and "
-				 "enable the clock Fail\n");
-		}
 		udelay(5);
 		/* 34xx-Linux Base addresses are obtained from the host
 		 * resources struct */
 		pDevContext->dwDSPMmuBase = resources.dwDmmuBase;
-		pDevContext->dwMailBoxBase = resources.dwMboxBase;
 		pDevContext->cmbase = resources.dwCmBase;
 		pDevContext->sysctrlbase = resources.dwSysCtrlBase;
 		pDevContext->prmbase = resources.dwPrmBase;
