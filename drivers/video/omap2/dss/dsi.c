@@ -1403,7 +1403,8 @@ void dsi_dump_clocks(enum dsi lcd_ix, struct seq_file *s)
 
 void dsi_dump_regs(enum dsi lcd_ix, struct seq_file *s)
 {
-#define DUMPREG(n, r) printk("%08x\n", dsi_read_reg(n, r))
+#define DUMPREG(n, r) seq_printf(s, "%-35s %08x\n", #r, dsi_read_reg(n, r))
+
 
 	dss_clk_enable(DSS_CLK_ICK | DSS_CLK_FCK1);
 
