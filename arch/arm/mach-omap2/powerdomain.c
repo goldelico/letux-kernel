@@ -169,6 +169,7 @@ static int _pwrdm_post_transition_cb(struct powerdomain *pwrdm, void *unused)
 static __init void _pwrdm_setup(struct powerdomain *pwrdm)
 {
 	int i;
+	int state;
 
 	for (i = 0; i < 4; i++)
 		pwrdm->state_counter[i] = 0;
@@ -176,7 +177,12 @@ static __init void _pwrdm_setup(struct powerdomain *pwrdm)
 	pwrdm->ret_mem_off_counter = 0;
 
 	pwrdm_wait_transition(pwrdm);
-	pwrdm->state = pwrdm_read_pwrst(pwrdm);
+	state = pwrdm_read_pwrst(pwrdm);
+	if (state < 0) {
+		pr_err("powerdomain: invalid state for %s\n", pwrdm->name);
+		return;
+	}
+	pwrdm->state = state;
 	pwrdm->state_counter[pwrdm->state] = 1;
 
 }
