@@ -3105,6 +3105,9 @@ void dispc_irq_handler(void)
 	 * off */
 	dispc_write_reg(DISPC_IRQSTATUS, irqstatus);
 
+	/* flushed posted write */
+	dispc_read_reg(DISPC_IRQSTATUS);
+
 	/* make a copy and unlock, so that isrs can unregister
 	 * themselves */
 	memcpy(registered_isr, dispc.registered_isr,
