@@ -95,14 +95,6 @@ static inline int mbox_fifo_full(struct omap_mbox *mbox)
 }
 
 /* Mailbox IRQ handle functions */
-static inline void enable_mbox_irq(struct omap_mbox *mbox, omap_mbox_irq_t irq)
-{
-	mbox->ops->enable_irq(mbox, irq);
-}
-static inline void disable_mbox_irq(struct omap_mbox *mbox, omap_mbox_irq_t irq)
-{
-	mbox->ops->disable_irq(mbox, irq);
-}
 static inline void ack_mbox_irq(struct omap_mbox *mbox, omap_mbox_irq_t irq)
 {
 	if (mbox->ops->ack_irq)
@@ -187,7 +179,7 @@ static void mbox_tx_work(struct work_struct *work)
 
 		ret = __mbox_msg_send(mbox, (mbox_msg_t) rq->data, rq->special);
 		if (ret) {
-			enable_mbox_irq(mbox, IRQ_TX);
+			omap_mbox_enable_irq(mbox, IRQ_TX);
 			return;
 		}
 
@@ -245,7 +237,7 @@ static void mbox_rxq_fn(struct request_queue * q)
 
 static void __mbox_tx_interrupt(struct omap_mbox *mbox)
 {
-	disable_mbox_irq(mbox, IRQ_TX);
+	omap_mbox_disable_irq(mbox, IRQ_TX);
 	ack_mbox_irq(mbox, IRQ_TX);
 	schedule_work(&mbox->txq->work);
 }
@@ -256,7 +248,7 @@ static void __mbox_rx_interrupt(struct omap_mbox *mbox)
 	mbox_msg_t msg;
 	struct request_queue *q = mbox->rxq->queue;
 
-	disable_mbox_irq(mbox, IRQ_RX);
+	omap_mbox_disable_irq(mbox, IRQ_RX);
 
 	while (!mbox_fifo_empty(mbox)) {
 		rq = blk_get_request(q, WRITE, GFP_ATOMIC);
@@ -279,7 +271,7 @@ static void __mbox_rx_interrupt(struct omap_mbox *mbox)
 
 	/* no more messages in the fifo. clear IRQ source. */
 	ack_mbox_irq(mbox, IRQ_RX);
-	enable_mbox_irq(mbox, IRQ_RX);
+	omap_mbox_enable_irq(mbox, IRQ_RX);
 nomem:
 	schedule_work(&mbox->rxq->work);
 }
