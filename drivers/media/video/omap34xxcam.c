@@ -1451,8 +1451,8 @@ static int vidioc_enum_frameintervals(struct file *file, void *_fh,
 	struct v4l2_frmsizeenum frms;
 	unsigned int frmi_width;
 	unsigned int frmi_height;
-	unsigned int width;
-	unsigned int height;
+	unsigned int uninitialized_var(width);
+	unsigned int uninitialized_var(height);
 	unsigned int max_dist;
 	unsigned int dist;
 	u32 pixel_format;
