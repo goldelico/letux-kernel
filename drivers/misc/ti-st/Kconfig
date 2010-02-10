@@ -29,4 +29,11 @@ menu "Texas Instruments shared transport line discipline"
         This enables the FM driver for TI BT/FM/GPS combo devices
         This makes use of shared transport line discipline core driver to
         communicate with the FM core of the combo chip.
+   config TI_ST_GPS
+   tristate "GPS driver for ST"
+   select TI_ST
+   help
+       This enables the GPS driver for TI BT/FM/GPS combo devices
+       It will provide a character device for TI GPS Host software to access
+       GPS functionality of Connectivity chip via ST driver
 endmenu
