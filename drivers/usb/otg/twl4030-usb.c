@@ -112,6 +112,9 @@
 #define CARKIT_PLS_CTRL_RXPLSEN		(1 << 1)
 #define CARKIT_PLS_CTRL_TXPLSEN		(1 << 0)
 
+#define CARKIT_ANA_CTRL			0xBB
+#define SEL_MADC_MCPC			(1 << 3)
+
 #define MCPC_CTRL			0x30
 #define MCPC_CTRL_SET			0x31
 #define MCPC_CTRL_CLR			0x32
@@ -706,6 +709,20 @@ static int __init twl4030_usb_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, twl);
 	if (device_create_file(&pdev->dev, &dev_attr_vbus))
 		dev_warn(&pdev->dev, "could not create sysfs file\n");
+
+	/*
+	 * One time configuration to route MCPC pins to the MADC for
+	 * monitoring */
+	regulator_enable(twl->usb3v1);
+	regulator_enable(twl->usb1v8);
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0,
+			VUSB_DEDICATED2);
+	regulator_enable(twl->usb1v5);
+	twl4030_usb_write(twl, CARKIT_ANA_CTRL,
+		twl4030_usb_read(twl, CARKIT_ANA_CTRL) | SEL_MADC_MCPC);
+	regulator_disable(twl->usb1v5);
+	regulator_disable(twl->usb1v8);
+	regulator_disable(twl->usb3v1);
 
 	/* Our job is to use irqs and status from the power module
 	 * to keep the transceiver disabled when nothing's connected.
