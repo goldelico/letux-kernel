@@ -39,8 +39,11 @@
 /* Driver name */
 #define FM_DRV_NAME               "ti_fmdrv"
 
-/* Card name */
-#define FM_DRV_CARD_NAME   	  "Texas Instruments FM Radio"
+/* Card short name */
+#define FM_DRV_CARD_SHORT_NAME    "TI FM Radio"
+
+/* Card long name */
+#define FM_DRV_CARD_LONG_NAME     "Texas Instruments FM Radio"
 
 /* Define this macro to get debug msg */
 #ifdef DEBUG

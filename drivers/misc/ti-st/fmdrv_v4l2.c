@@ -240,7 +240,8 @@ static int fm_v4l2_vidioc_querycap(struct file *file, void *priv,
 	FMDRV_API_START();
 
 	strlcpy(capability->driver, FM_DRV_NAME, sizeof(capability->driver));
-	strlcpy(capability->card, FM_DRV_CARD_NAME, sizeof(capability->card));
+	strlcpy(capability->card, FM_DRV_CARD_SHORT_NAME,
+		sizeof(capability->card));
 	sprintf(capability->bus_info, "UART");
 	capability->version = FM_DRV_RADIO_VERSION;
 	capability->capabilities = V4L2_CAP_HW_FREQ_SEEK | V4L2_CAP_TUNER |

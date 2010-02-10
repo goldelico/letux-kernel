@@ -389,8 +389,14 @@ static int __fm_core_send_cmd(unsigned char fmreg_index, void *payload,
 
 	FMDRV_API_START();
 
-	if (fmreg_index > FM_REG_MAX_ENTRIES) {
+	if (fmreg_index >= FM_REG_MAX_ENTRIES) {
 		FM_DRV_ERR("Invalid fm register index");
+		FMDRV_API_EXIT(-EINVAL);
+		return -EINVAL;
+	}
+	if (test_bit(FM_FIRMWARE_DW_INPROGRESS, &fmdev->flag) &&
+			payload == NULL) {
+		FM_DRV_ERR("Payload data is NULL during firmware download");
 		FMDRV_API_EXIT(-EINVAL);
 		return -EINVAL;
 	}
@@ -3237,7 +3243,7 @@ static int fm_core_power_up(unsigned char fw_option)
 {
 	unsigned short payload, asic_id, asic_ver;
 	int resp_len, ret;
-	char fw_name[30];
+	char fw_name[50];
 
 	FMDRV_API_START();
 	if (fw_option >= FM_MODE_ENTRY_MAX) {

@@ -705,9 +705,9 @@ int fm_mixer_init(struct fmdrv_ops *fmdev)
 		return ret;
 	}
 
-	strcpy(fmdev->card->driver, FM_DRV_CARD_NAME);
-	strcpy(fmdev->card->shortname, FM_DRV_CARD_NAME);
-	sprintf(fmdev->card->longname, FM_DRV_CARD_NAME);
+	strcpy(fmdev->card->driver, FM_DRV_NAME);
+	strcpy(fmdev->card->shortname, FM_DRV_CARD_SHORT_NAME);
+	sprintf(fmdev->card->longname, FM_DRV_CARD_LONG_NAME);
 
 	FMDRV_API_EXIT(0);
 	return 0;
