@@ -190,7 +190,7 @@ static int hdmi_enable_display(struct omap_dss_device *dssdev)
 	 */
 	enable_vpll2_power(1);
 
-	r = dsi_pll_init(0, 1);
+	r = dsi_pll_init(1, 1);
 	if (r)
 		goto err3;
 #endif
@@ -300,7 +300,7 @@ static int hdmi_display_resume(struct omap_dss_device *dssdev)
 	dss_clk_enable(DSS_CLK_FCK2);
 	enable_vpll2_power(1);
 
-	r = dsi_pll_init(0, 1);
+	r = dsi_pll_init(1, 1);
 	if (r)
 		goto err0;
 
