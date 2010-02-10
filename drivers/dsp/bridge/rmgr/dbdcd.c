@@ -999,50 +999,20 @@ DSP_STATUS DCD_UnregisterObject(IN struct DSP_UUID *pUuid,
  */
 static s32 Atoi(char *pszBuf)
 {
-	s32 result = 0;
 	char *pch = pszBuf;
-	char c;
-	char first;
-	s32 base = 10;
-	s32 len;
+	s32 base = 0;
 
 	while (isspace(*pch))
 		pch++;
 
-	first = *pch;
-	if (first == '-' || first == '+') {
+	if (*pch == '-' || *pch == '+') {
+		base = 10;
 		pch++;
-	} else {
-		/* Determine if base 10 or base 16 */
-		len = strlen(pch);
-		if (len  > 1) {
-			c = pch[1];
-			if ((*pch == '0' && (c == 'x' || c == 'X'))) {
-				base = 16;
-				pch += 2;
-			}
-			c = pch[len - 1];
-			if (c == 'h' || c == 'H')
-				base = 16;
-
-		}
+	} else if (*pch && tolower(pch[strlen(pch) - 1]) == 'h') {
+		base = 16;
 	}
 
-	while (isdigit(c = *pch) || ((base == 16) && isxdigit(c))) {
-		result *= base;
-		if ('A' <= c && c <= 'F') {
-			c = c - 'A' + 10;
-		} else {
-			if ('a' <= c && c <= 'f')
-				c = c - 'a' + 10;
-			else
-				c -= '0';
-		}
-		result += c;
-		++pch;
-	}
-
-	return result;
+	return simple_strtoul(pch, NULL, base);
 }
 
 /*
