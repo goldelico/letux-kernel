@@ -1174,9 +1174,22 @@ static int __init pwrdms_setup(struct powerdomain *pwrdm, void *unused)
 	pwrst->pwrdm = pwrdm;
 	pwrst->next_state = PWRDM_POWER_RET;
 	list_add(&pwrst->node, &pwrst_list);
-
+	/*
+	 * For USBHOST don't set SAR only for ZOOM2.
+	 * REVISIT: Enabling usb host save and restore mechanism seems to
+	 * leave the usb host domain permanently in ACTIVE mode after
+	 * changing the usb host power domain state from OFF to active once.
+	 * Disabling for now.
+	 */
+#ifndef CONFIG_MACH_OMAP_ZOOM2
 	if (pwrdm_has_hdwr_sar(pwrdm))
 		pwrdm_enable_hdwr_sar(pwrdm);
+#else
+	if (strcmp(pwrst->pwrdm->name, "usbhost_pwrdm")) {
+		if (pwrdm_has_hdwr_sar(pwrdm))
+			pwrdm_enable_hdwr_sar(pwrdm);
+	}
+#endif
 
 	return set_pwrdm_state(pwrst->pwrdm, pwrst->next_state);
 }
