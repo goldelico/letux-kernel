@@ -169,6 +169,9 @@ DSP_STATUS regsupSetValue(char *valName, void *pBuf, u32 dataSize)
 				new->dataSize = dataSize;
 				LST_PutTail(pRegKey, (struct list_head *) new);
 				retVal = DSP_SOK;
+			} else {
+				MEM_Free(new);
+				retVal = DSP_EMEMORY;
 			}
 		} else {
 			retVal = DSP_EMEMORY;
