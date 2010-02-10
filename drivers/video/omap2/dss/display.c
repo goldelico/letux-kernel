@@ -408,6 +408,7 @@ bool dss_use_replication(struct omap_dss_device *dssdev,
 
 	switch (dssdev->type) {
 	case OMAP_DISPLAY_TYPE_DPI:
+	case OMAP_DISPLAY_TYPE_HDMI:
 		bpp = dssdev->phy.dpi.data_lines;
 		break;
 	case OMAP_DISPLAY_TYPE_VENC:

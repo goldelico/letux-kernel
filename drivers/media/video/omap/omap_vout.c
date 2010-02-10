@@ -2769,7 +2769,8 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 	do_gettimeofday(&timevalue);
 	if ((cur_display->type == OMAP_DISPLAY_TYPE_DSI &&
 	     irqstatus & DISPC_IRQ_FRAMEDONE) ||
-	    (cur_display->type == OMAP_DISPLAY_TYPE_DPI &&
+	    ((cur_display->type == OMAP_DISPLAY_TYPE_DPI ||
+	      cur_display->type == OMAP_DISPLAY_TYPE_HDMI) &&
 	     irqstatus & DISPC_IRQ_VSYNC)) {
 
 		if (!vout->first_int && (vout->cur_frm != vout->next_frm)) {
