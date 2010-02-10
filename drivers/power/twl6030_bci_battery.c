@@ -143,6 +143,9 @@
 #define CHARGERUSB_CIN_LIMIT_500	0x9
 #define CHARGERUSB_CIN_LIMIT_NONE	0xF
 
+/* CHARGERUSB_CTRLLIMIT2 */
+#define CHARGERUSB_CTRLLIMIT2_1500	0x0E
+
 #define REG_TOGGLE1		0x90
 #define ENABLE_FUELGUAGE	0x20
 
@@ -205,7 +208,7 @@ static void twl6030_start_usb_charger(void)
 	twl_i2c_write_u8(TWL6030_MODULE_CHARGER,
 			MASK_MCHARGERUSB_THMREG, CHARGERUSB_INT_MASK);
 	twl_i2c_write_u8(TWL6030_MODULE_CHARGER,
-			CHARGERUSB_VOREG_4P0, CHARGERUSB_VOREG);
+			CHARGERUSB_VOREG_4P2, CHARGERUSB_VOREG);
 	twl_i2c_write_u8(TWL6030_MODULE_CHARGER,
 		CHARGERUSB_CTRL2_VITERM_100, CHARGERUSB_CTRL2);
 	twl_i2c_write_u8(TWL6030_MODULE_CHARGER, TERM, CHARGERUSB_CTRL1);
@@ -224,11 +227,10 @@ static void twl6030_start_ac_charger(void)
 				REG_CONTROL_REGISTER);
 	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x7C,
 				REG_CONTROL_BATTERY_VOLTAGE);
-	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x39,
+	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x51,
 				REG_BATTERY_TERMINATION);
-	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x04,
+	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x02,
 				REG_SPECIAL_CHARGER_VOLTAGE);
-	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x40, REG_SAFETY_LIMIT);
 	twl_i2c_write_u8(TWL6030_MODULE_CHARGER,
 			CONTROLLER_CTRL1_EN_CHARGER |
 			CONTROLLER_CTRL1_SEL_CHARGER,
@@ -417,9 +419,9 @@ static int twl6030bci_status(void)
 	u8 status;
 
 	ret = twl_i2c_read_u8(TWL6030_MODULE_CHARGER, &status,
-						CONTROLLER_STAT1);
+						CONTROLLER_CTRL1);
 	if (ret) {
-		pr_err("twl6030_bci: error reading CONTROLLER_STAT1\n");
+		pr_err("twl6030_bci: error reading CONTROLLER_CTRL1\n");
 		return ret;
 	}
 
@@ -493,11 +495,10 @@ twl6030_bci_battery_update_status(struct twl6030_bci_device_info *di)
 		twl_i2c_write_u8(TWL6030_MODULE_BQ, 0xC8, REG_CONTROL_REGISTER);
 		twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x7C,
 						REG_CONTROL_BATTERY_VOLTAGE);
-		twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x39,
+		twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x51,
 						REG_BATTERY_TERMINATION);
-		twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x04,
+		twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x02,
 						REG_SPECIAL_CHARGER_VOLTAGE);
-		twl_i2c_write_u8(TWL6030_MODULE_BQ, 0x40, REG_SAFETY_LIMIT);
 	}
 	twl6030_bci_battery_read_status(di);
 	di->charge_status = POWER_SUPPLY_STATUS_UNKNOWN;
@@ -578,11 +579,12 @@ static int twl6030_bci_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		status = twl6030bci_status();
-		if ((status & VAC_DET) == VAC_DET)
-			val->intval = POWER_SUPPLY_TYPE_MAINS;
-		else if ((status & VBUS_DET) == VBUS_DET)
-			val->intval = POWER_SUPPLY_TYPE_USB;
-		else
+		if ((status & CONTROLLER_CTRL1_EN_CHARGER)) {
+			if ((status & CONTROLLER_CTRL1_SEL_CHARGER))
+				val->intval = POWER_SUPPLY_TYPE_MAINS;
+			else
+				val->intval = POWER_SUPPLY_TYPE_USB;
+		} else
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
@@ -617,7 +619,7 @@ static int __init twl6030_bci_battery_probe(struct platform_device *pdev)
 	struct twl6030_bci_device_info *di;
 	int irq;
 	int ret;
-	u8 rd_reg;
+	u8 rd_reg, controller_stat = 0;
 
 	di = kzalloc(sizeof(*di), GFP_KERNEL);
 	if (!di)
@@ -649,6 +651,7 @@ static int __init twl6030_bci_battery_probe(struct platform_device *pdev)
 	di->bk_bat.get_property = twl6030_bk_bci_battery_get_property;
 	di->bk_bat.external_power_changed = NULL;
 
+	di->vac_priority = 1;
 	platform_set_drvdata(pdev, di);
 
 	/* settings for temperature sensing */
@@ -731,15 +734,27 @@ static int __init twl6030_bci_battery_probe(struct platform_device *pdev)
 						CONTROLLER_INT_MASK);
 	twl_i2c_write_u8(TWL6030_MODULE_CHARGER, MASK_MCHARGERUSB_THMREG,
 						CHARGERUSB_INT_MASK);
-	twl_i2c_write_u8(TWL6030_MODULE_CHARGER, CHARGERUSB_VOREG_4P0,
+	twl_i2c_write_u8(TWL6030_MODULE_CHARGER, CHARGERUSB_VOREG_4P2,
 						CHARGERUSB_VOREG);
 	twl_i2c_write_u8(TWL6030_MODULE_CHARGER, CHARGERUSB_VICHRG_1500,
 						CHARGERUSB_VICHRG);
 	twl_i2c_write_u8(TWL6030_MODULE_CHARGER, CHARGERUSB_CTRL2_VITERM_100,
 						CHARGERUSB_CTRL2);
-	twl_i2c_write_u8(TWL6030_MODULE_CHARGER, TERM, CHARGERUSB_CTRL1);
 	twl_i2c_write_u8(TWL6030_MODULE_CHARGER, CHARGERUSB_CIN_LIMIT_NONE,
 						CHARGERUSB_CINLIMIT);
+	twl_i2c_write_u8(TWL6030_MODULE_CHARGER, CHARGERUSB_CTRLLIMIT2_1500,
+					CHARGERUSB_CTRLLIMIT2);
+
+	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0xa0, REG_SAFETY_LIMIT);
+
+	twl_i2c_read_u8(TWL6030_MODULE_CHARGER, &controller_stat,
+		CONTROLLER_STAT1);
+
+	if (controller_stat & VBUS_DET)
+		twl6030_start_usb_charger();
+
+	if (controller_stat & VAC_DET)
+		twl6030_start_ac_charger();
 
 	return 0;
 
