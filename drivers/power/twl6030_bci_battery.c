@@ -791,8 +791,10 @@ static int __exit twl6030_bci_battery_remove(struct platform_device *pdev)
 	free_irq(irq, di);
 
 	irq = platform_get_irq(pdev, 1);
-	free_irq(irq, NULL);
+	free_irq(irq, di);
 
+	cancel_delayed_work(&di->twl6030_bci_monitor_work);
+	cancel_delayed_work(&di->twl6030_bk_bci_monitor_work);
 	flush_scheduled_work();
 	power_supply_unregister(&di->bat);
 	power_supply_unregister(&di->bk_bat);
