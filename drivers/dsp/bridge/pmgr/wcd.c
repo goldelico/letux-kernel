@@ -639,7 +639,7 @@ u32 PROCWRAP_Ctrl(union Trapped_Args *args, void *pr_ctxt)
 		cp_fm_usr(pArgs, args->ARGS_PROC_CTRL.pArgs, status,
 			 cbDataSize);
 	}
-	if (DSP_SUCCEEDED(status)) {
+	if (pArgs) {
 		status = PROC_Ctrl(args->ARGS_PROC_CTRL.hProcessor,
 				  args->ARGS_PROC_CTRL.dwCmd,
 				  (struct DSP_CBDATA *)pArgs);

@@ -161,13 +161,17 @@ DSP_STATUS regsupSetValue(char *valName, void *pBuf, u32 dataSize)
 		struct RegValue *new = MEM_Calloc(sizeof(struct RegValue),
 						MEM_NONPAGED);
 
-		strncat(new->name, valName, MAXREGPATHLENGTH - 1);
-		new->pData = MEM_Alloc(dataSize, MEM_NONPAGED);
-		if (new->pData != NULL) {
-			memcpy(new->pData, pBuf, dataSize);
-			new->dataSize = dataSize;
-			LST_PutTail(pRegKey, (struct list_head *) new);
-			retVal = DSP_SOK;
+		if (new) {
+			strncat(new->name, valName, MAXREGPATHLENGTH - 1);
+			new->pData = MEM_Alloc(dataSize, MEM_NONPAGED);
+			if (new->pData != NULL) {
+				memcpy(new->pData, pBuf, dataSize);
+				new->dataSize = dataSize;
+				LST_PutTail(pRegKey, (struct list_head *) new);
+				retVal = DSP_SOK;
+			}
+		} else {
+			retVal = DSP_EMEMORY;
 		}
 	}
 
