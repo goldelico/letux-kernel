@@ -179,6 +179,7 @@ static struct {
 } dispc;
 
 static void _omap_dispc_set_irqs(void);
+static int dispc_is_vdma_req(u8 rotation, enum omap_color_mode color_mode);
 
 static inline void dispc_write_reg(const struct dispc_reg idx, u32 val)
 {
@@ -559,7 +560,7 @@ static void _dispc_write_firv_reg(enum omap_plane plane, int reg, u32 value)
 static void _dispc_set_scale_coef(enum omap_plane plane,
 			u16 orig_width, u16 out_width,
 			u16 orig_height, u16 out_height,
-			int five_taps)
+			int five_taps, bool vdma)
 {
 	unsigned long reg, mval, rem_ratio;
 	short int vc_3tap[3][8];
@@ -693,7 +694,7 @@ static void _dispc_set_scale_coef(enum omap_plane plane,
 
 	/* Select the coefficients based on the ratio - height/vertical */
 	if (out_height != 0 && five_taps) {
-		if (out_height != orig_height) {
+		if ((out_height != orig_height) || vdma) {
 			rem_ratio = 0;
 			mval = 8; /* default */
 			rem_ratio =  out_height / orig_height ;
@@ -778,7 +779,7 @@ static void _dispc_set_scale_coef(enum omap_plane plane,
 
 	/* Select the coefficients based on the ratio - width / horizontal */
 	if (out_width != 0 && five_taps) {
-		if (out_width != orig_width) {
+		if ((out_width != orig_width) || vdma) {
 			rem_ratio = 0;
 			mval = 8; /* default */
 			rem_ratio =  out_width / orig_width ;
@@ -1244,12 +1245,16 @@ static void _dispc_set_vid_accu1(enum omap_plane plane, int haccu, int vaccu)
 	dispc_write_reg(ac1_reg[plane-1], val);
 }
 
+static void _dispc_set_vdma_attrs(enum omap_plane plane, bool enable)
+{
+	REG_FLD_MOD(dispc_reg_att[plane], enable ? 1 : 0, 20, 20);
+}
 
 static void _dispc_set_scaling(enum omap_plane plane,
 		u16 orig_width, u16 orig_height,
 		u16 out_width, u16 out_height,
 		bool ilace, bool five_taps,
-		bool fieldmode)
+		bool fieldmode, bool vdma)
 {
 	int fir_hinc;
 	int fir_vinc;
@@ -1265,14 +1270,14 @@ static void _dispc_set_scaling(enum omap_plane plane,
 
 	/* New filter coefficients integration */
 	_dispc_set_scale_coef(plane, orig_width, out_width,
-			orig_height, out_height, five_taps);
+			orig_height, out_height, five_taps, vdma);
 
-	if (!orig_width || orig_width == out_width)
+	if (!orig_width || (!vdma && (orig_width == out_width)))
 		fir_hinc = 0;
 	else
 		fir_hinc = 1024 * orig_width / out_width;
 
-	if (!orig_height || orig_height == out_height)
+	if (!orig_height || (!vdma && (orig_height == out_height)))
 		fir_vinc = 0;
 	else
 		fir_vinc = 1024 * orig_height / out_height;
@@ -1351,10 +1356,12 @@ static void _dispc_set_rotation_attrs(enum omap_plane plane, u8 rotation,
 
 		REG_FLD_MOD(dispc_reg_att[plane], vidrot, 13, 12);
 
-		if (rotation == 1 || rotation == 3)
+		if (!dispc_is_vdma_req(rotation, color_mode) &&
+			(rotation == 1 || rotation == 3))
 			REG_FLD_MOD(dispc_reg_att[plane], 0x1, 18, 18);
 		else
 			REG_FLD_MOD(dispc_reg_att[plane], 0x0, 18, 18);
+
 	} else {
 		REG_FLD_MOD(dispc_reg_att[plane], 0, 13, 12);
 		REG_FLD_MOD(dispc_reg_att[plane], 0, 18, 18);
@@ -1679,6 +1686,17 @@ static unsigned long calc_fclk(u16 width, u16 height,
 	return dispc_pclk_rate() * vf * hf;
 }
 
+static int dispc_is_vdma_req(u8 rotation, enum omap_color_mode color_mode)
+{
+	/* TODO: VDMA support for RGB16 mode */
+	if (cpu_is_omap3630())
+		if ((color_mode == OMAP_DSS_COLOR_YUV2) ||
+			(color_mode == OMAP_DSS_COLOR_UYVY))
+			if ((rotation == 1) || (rotation == 3))
+				return true;
+	return false;
+}
+
 void dispc_set_channel_out(enum omap_plane plane, enum omap_channel channel_out)
 {
 	enable_clocks(1);
@@ -1786,6 +1804,8 @@ static int _dispc_setup_plane(enum omap_plane plane,
 			if (cpu_is_omap34xx() && height > out_height &&
 					fclk > dispc_fclk_rate())
 				five_taps = true;
+			if (dispc_is_vdma_req(rotation, color_mode))
+				five_taps = true;
 		}
 
 		if (width > (2048 >> five_taps))
@@ -1850,9 +1870,17 @@ static int _dispc_setup_plane(enum omap_plane plane,
 	_dispc_set_pic_size(plane, width, height);
 
 	if (plane != OMAP_DSS_GFX) {
-		_dispc_set_scaling(plane, width, height,
-				   out_width, out_height,
-				   ilace, five_taps, fieldmode);
+		if (dispc_is_vdma_req(rotation, color_mode)) {
+			_dispc_set_scaling(plane, width, height,
+				out_width, out_height,
+				ilace, five_taps, fieldmode, 1);
+			_dispc_set_vdma_attrs(plane, 1);
+		} else {
+			_dispc_set_scaling(plane, width, height,
+				out_width, out_height,
+				ilace, five_taps, fieldmode, 0);
+			_dispc_set_vdma_attrs(plane, 0);
+		}
 		_dispc_set_vid_size(plane, out_width, out_height);
 		_dispc_set_vid_color_conv(plane, cconv);
 	}
