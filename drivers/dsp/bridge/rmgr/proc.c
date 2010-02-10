@@ -70,7 +70,7 @@
 #define PWR_TIMEOUT	 500	/* Sleep/wake timout in msec */
 #define EXTEND	      "_EXT_END"	/* Extmem end addr in DSP binary */
 
-#define DSP_CACHE_SIZE 128 /* DSP cacheline size */
+#define DSP_CACHE_LINE 128
 
 extern char *iva_img;
 
@@ -651,15 +651,6 @@ static DSP_STATUS proc_memory_sync(void *hProcessor, void *pMpuAddr,
 		  "Entered %s, args:\n\t"
 		  "hProcessor: 0x%x pMpuAddr: 0x%x ulSize 0x%x, ulFlags 0x%x\n",
 		  __func__, hProcessor, pMpuAddr, ulSize, ulFlags);
-
-#ifdef CONFIG_BRIDGE_CHECK_ALIGN_128
-	if (!IS_ALIGNED((u32)pMpuAddr, DSP_CACHE_SIZE) ||
-	    !IS_ALIGNED(ulSize, DSP_CACHE_SIZE)) {
-		pr_err("%s: Invalid alignment %p %x\n",
-			__func__, pMpuAddr, ulSize);
-		return DSP_EALIGNMENT;
-	}
-#endif /* CONFIG_BRIDGE_CHECK_ALIGN_128 */
 
 	down_read(&current->mm->mmap_sem);
 
@@ -1269,14 +1260,14 @@ DSP_STATUS PROC_Map(void *hProcessor, void *pMpuAddr, u32 ulSize,
 		 "ulMapAttr %x, ppMapAddr %x\n", hProcessor, pMpuAddr, ulSize,
 		 pReqAddr, ulMapAttr, ppMapAddr);
 
-#ifdef CONFIG_BRIDGE_CHECK_ALIGN_128
-	if (!IS_ALIGNED((u32)pMpuAddr, DSP_CACHE_SIZE) ||
-	    !IS_ALIGNED(ulSize, DSP_CACHE_SIZE)) {
-		pr_err("%s: Invalid alignment %p %x\n",
-			__func__, pMpuAddr, ulSize);
-		return DSP_EALIGNMENT;
+#ifdef CONFIG_BRIDGE_CACHE_LINE_CHECK
+	if (!IS_ALIGNED((u32)pMpuAddr, DSP_CACHE_LINE) ||
+	    !IS_ALIGNED(size, DSP_CACHE_LINE)) {
+		pr_err("%s: not aligned: 0x%x (%d)\n", __func__,
+						(u32)pMpuAddr, ulSize);
+		return -EFAULT;
 	}
-#endif /* CONFIG_BRIDGE_CHECK_ALIGN_128 */
+#endif
 
 	/* Calculate the page-aligned PA, VA and size */
 	vaAlign = PG_ALIGN_LOW((u32) pReqAddr, PG_SIZE_4K);
