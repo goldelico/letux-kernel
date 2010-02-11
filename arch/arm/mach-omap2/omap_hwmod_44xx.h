@@ -2268,7 +2268,7 @@ static struct omap_hwmod_opt_clk gpio1_opt_clks[] = {
 static struct omap_hwmod_sysconfig omap44xx_gpio1_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.syss_offs	= 0x0014,
+	.syss_offs	= 0x0114,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
 			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
 			   SYSC_HAS_AUTOIDLE),
@@ -2333,7 +2333,7 @@ static struct omap_hwmod_opt_clk gpio2_opt_clks[] = {
 static struct omap_hwmod_sysconfig omap44xx_gpio2_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.syss_offs	= 0x0014,
+	.syss_offs	= 0x0114,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
 			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
 			   SYSC_HAS_AUTOIDLE),
@@ -2398,7 +2398,7 @@ static struct omap_hwmod_opt_clk gpio3_opt_clks[] = {
 static struct omap_hwmod_sysconfig omap44xx_gpio3_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.syss_offs	= 0x0014,
+	.syss_offs	= 0x0114,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
 			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
 			   SYSC_HAS_AUTOIDLE),
@@ -2463,7 +2463,7 @@ static struct omap_hwmod_opt_clk gpio4_opt_clks[] = {
 static struct omap_hwmod_sysconfig omap44xx_gpio4_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.syss_offs	= 0x0014,
+	.syss_offs	= 0x0114,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
 			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
 			   SYSC_HAS_AUTOIDLE),
@@ -2528,7 +2528,7 @@ static struct omap_hwmod_opt_clk gpio5_opt_clks[] = {
 static struct omap_hwmod_sysconfig omap44xx_gpio5_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.syss_offs	= 0x0014,
+	.syss_offs	= 0x0114,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
 			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
 			   SYSC_HAS_AUTOIDLE),
@@ -2593,7 +2593,7 @@ static struct omap_hwmod_opt_clk gpio6_opt_clks[] = {
 static struct omap_hwmod_sysconfig omap44xx_gpio6_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.syss_offs	= 0x0014,
+	.syss_offs	= 0x0114,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
 			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
 			   SYSC_HAS_AUTOIDLE),
