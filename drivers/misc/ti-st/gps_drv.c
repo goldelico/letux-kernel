@@ -122,7 +122,7 @@ long gpsdrv_st_recv(struct sk_buff *skb)
  *  @data   Status update of GPS registration
  *  Returns: NULL
  */
-void gpsdrv_st_cb(u8 data)
+void gpsdrv_st_cb(char data)
 {
 	GPSDRV_DBG(" Inside %s", __func__);
 	hgps->streg_cbdata = data;	/* ST registration callback  status */
