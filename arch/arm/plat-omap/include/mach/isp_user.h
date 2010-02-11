@@ -54,8 +54,9 @@
 /* Structre for getting Sensor Information*/
 struct omap34xxcam_sensor_info {
 	__u32 current_xclk;
-	struct v4l2_pix_format active_size;
-	struct v4l2_pix_format full_size;
+	struct v4l2_rect active_size;
+	struct v4l2_rect full_size;
+	struct v4l2_rect pixel_size;
 };
 
 /* AE/AWB related structures and flags*/

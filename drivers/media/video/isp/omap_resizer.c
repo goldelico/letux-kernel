@@ -41,13 +41,15 @@
 
 /* Defines and Constants*/
 #define MAX_CHANNELS		16
-#define MAX_IMAGE_WIDTH		2047
-#define MAX_IMAGE_WIDTH_HIGH	2047
 #define ALIGNMENT		16
 #define CHANNEL_BUSY		1
 #define CHANNEL_FREE		0
 #define PIXEL_EVEN		2
 #define RATIO_MULTIPLIER	256
+#define MAX_4TAP_OUTWIDTH_3430	3300
+#define MAX_7TAP_OUTWIDTH_3430	1650
+#define MAX_4TAP_OUTWIDTH_3630	4096
+#define MAX_7TAP_OUTWIDTH_3630	2048
 /* Bit position Macro */
 /* macro for bit set and clear */
 #define BITSET(variable, bit)	((variable) | (1 << bit))
@@ -635,15 +637,11 @@ err_einval:
 static int rsz_set_ratio(struct rsz_mult *multipass,
 				struct channel_config *rsz_conf_chan)
 {
+	struct isp_device *isp = dev_get_drvdata(device_config->isp);
 	int alignment = 0;
 
 	rsz_conf_chan->register_config.rsz_cnt = 0;
 
-	if ((multipass->out_hsize > MAX_IMAGE_WIDTH) ||
-			(multipass->out_vsize > MAX_IMAGE_WIDTH)) {
-		dev_err(rsz_device, "Invalid output size!");
-		goto err_einval;
-	}
 	if (multipass->cbilin) {
 		rsz_conf_chan->register_config.rsz_cnt =
 				BITSET(rsz_conf_chan->register_config.rsz_cnt,
@@ -747,17 +745,9 @@ static int rsz_set_ratio(struct rsz_mult *multipass,
 		}
 	}
 	if (multipass->hrsz >= 64 && multipass->hrsz <= 1024) {
-		if (multipass->out_hsize > MAX_IMAGE_WIDTH) {
-			dev_err(rsz_device, "wrong width\n");
-			goto err_einval;
-		}
 		multipass->active = 0;
 
 	} else if (multipass->hrsz > 1024) {
-		if (multipass->out_hsize > MAX_IMAGE_WIDTH) {
-			dev_err(rsz_device, "wrong width\n");
-			goto err_einval;
-		}
 		if (multipass->hstph > NUM_D2PH)
 			goto err_einval;
 		multipass->num_htap = 0;
@@ -776,12 +766,37 @@ static int rsz_set_ratio(struct rsz_mult *multipass,
 
 	}
 
-	if (multipass->vrsz > 1024) {
-		if (multipass->out_vsize > MAX_IMAGE_WIDTH_HIGH) {
+	/* 4Tap: Check max Output width */
+	if (multipass->vrsz <= 512) {
+		if (isp->revision <= ISP_REVISION_2_0 &&
+		    multipass->out_vsize > MAX_4TAP_OUTWIDTH_3430) {
 			dev_err(rsz_device, "wrong width\n");
 			goto err_einval;
 		}
 
+		if (isp->revision > ISP_REVISION_2_0 &&
+		    multipass->out_vsize > MAX_4TAP_OUTWIDTH_3630) {
+			dev_err(rsz_device, "wrong width\n");
+			goto err_einval;
+		}
+	}
+
+	/* 7Tap: Check max Output width */
+	if (multipass->vrsz > 512) {
+		if (isp->revision <= ISP_REVISION_2_0 &&
+		    multipass->out_vsize > MAX_7TAP_OUTWIDTH_3430) {
+			dev_err(rsz_device, "wrong width\n");
+			goto err_einval;
+		}
+
+		if (isp->revision > ISP_REVISION_2_0 &&
+		    multipass->out_vsize > MAX_7TAP_OUTWIDTH_3630) {
+			dev_err(rsz_device, "wrong width\n");
+			goto err_einval;
+		}
+	}
+
+	if (multipass->vrsz > 1024) {
 		multipass->out_vsize = multipass->in_vsize * 256 / 1024;
 		multipass->vrsz = ((multipass->in_vsize - NUM_D2TAPS)
 						* RATIO_MULTIPLIER)

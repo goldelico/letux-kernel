@@ -111,8 +111,6 @@ const static struct v4l2_fmtdesc imx046_formats[] = {
 
 #define NUM_CAPTURE_FORMATS ARRAY_SIZE(imx046_formats)
 
-static u32 min_exposure_time = IMX046_MIN_EXPOSURE;
-static u32 max_exposure_time = IMX046_MAX_EXPOSURE;
 static enum v4l2_power current_power_state;
 
 /* Structure of Sensor settings that change with image size */
@@ -235,10 +233,10 @@ static struct imx046_sensor_settings sensor_settings[] = {
 		},
 		.mipi = {
 			.data_lanes = 2,
-			.ths_prepare = 4,
-			.ths_zero = 5,
-			.ths_settle_lower = 13,
-			.ths_settle_upper = 33,
+			.ths_prepare = 2,
+			.ths_zero = 4,
+			.ths_settle_lower = 8,
+			.ths_settle_upper = 24,
 		},
 		.frame = {
 			.frame_len_lines_min = 629,
@@ -575,13 +573,11 @@ static int imx046_set_virtual_id(struct i2c_client *client, u32 id)
 static int imx046_set_framerate(struct v4l2_int_device *s,
 						struct v4l2_fract *fper)
 {
-	int i, err = 0;
+	int err = 0;
 	u16 isize = isize_current;
 	u32 frame_length_lines, line_time_q8;
 	struct imx046_sensor *sensor = s->priv;
-	struct i2c_client *client = sensor->i2c_client;
 	struct imx046_sensor_settings *ss;
-	struct vcontrol *lvc;
 
 	if ((fper->numerator == 0) || (fper->denominator == 0)) {
 		/* supply a default nominal_timeperframe */
@@ -616,19 +612,9 @@ static int imx046_set_framerate(struct v4l2_int_device *s,
 
 	sensor_settings[isize].frame.frame_len_lines = frame_length_lines;
 
-	/* Update max exposure time */
-	max_exposure_time = (line_time_q8 * (frame_length_lines - 1)) >> 8;
-
-	/* Ensure max exposure time gets updated in vcontrol array */
-	i = find_vctrl(V4L2_CID_EXPOSURE);
-	if (i >= 0) {
-		lvc = &imx046sensor_video_control[i];
-		lvc->qc.maximum = max_exposure_time;
-	}
-
 	printk(KERN_DEBUG "IMX046 Set Framerate: fper=%d/%d, "
 		"frame_len_lines=%d, max_expT=%dus\n", fper->numerator,
-		fper->denominator, frame_length_lines, max_exposure_time);
+		fper->denominator, frame_length_lines, IMX046_MAX_EXPOSURE);
 
 	return err;
 }
@@ -684,22 +670,24 @@ int imx046sensor_set_exposure_time(u32 exp_time, struct v4l2_int_device *s,
 	struct imx046_sensor_settings *ss;
 
 	if ((current_power_state == V4L2_POWER_ON) || sensor->resuming) {
-		if (exp_time < min_exposure_time) {
+		if (exp_time < IMX046_MIN_EXPOSURE) {
 			v4l_err(client, "Exposure time %d us not within"
 					" the legal range.\n", exp_time);
 			v4l_err(client, "Exposure time must be between"
 					" %d us and %d us\n",
-					min_exposure_time, max_exposure_time);
-			exp_time = min_exposure_time;
+					IMX046_MIN_EXPOSURE,
+					IMX046_MAX_EXPOSURE);
+			exp_time = IMX046_MIN_EXPOSURE;
 		}
 
-		if (exp_time > max_exposure_time) {
+		if (exp_time > IMX046_MAX_EXPOSURE) {
 			v4l_err(client, "Exposure time %d us not within"
 					" the legal range.\n", exp_time);
 			v4l_err(client, "Exposure time must be between"
 					" %d us and %d us\n",
-					min_exposure_time, max_exposure_time);
-			exp_time = max_exposure_time;
+					IMX046_MIN_EXPOSURE,
+					IMX046_MAX_EXPOSURE);
+			exp_time = IMX046_MAX_EXPOSURE;
 		}
 
 		ss = &sensor_settings[isize_current];
@@ -712,7 +700,15 @@ int imx046sensor_set_exposure_time(u32 exp_time, struct v4l2_int_device *s,
 				 line_time_q8;
 
 		if (coarse_int_time > ss->frame.frame_len_lines - 2)
-			coarse_int_time = ss->frame.frame_len_lines - 2;
+			err = imx046_write_reg(client,
+						IMX046_REG_FRAME_LEN_LINES,
+						coarse_int_time + 2,
+						I2C_16BIT);
+		else
+			err = imx046_write_reg(client,
+						IMX046_REG_FRAME_LEN_LINES,
+						ss->frame.frame_len_lines,
+						I2C_16BIT);
 
 		err = imx046_write_reg(client, IMX046_REG_COARSE_INT_TIME,
 					coarse_int_time, I2C_16BIT);
@@ -1070,7 +1066,6 @@ int imx046_configure_test_pattern(int mode, struct v4l2_int_device *s,
 static int imx046_configure(struct v4l2_int_device *s)
 {
 	struct imx046_sensor *sensor = s->priv;
-	struct v4l2_pix_format *pix = &sensor->pix;
 	struct i2c_client *client = sensor->i2c_client;
 	enum imx046_image_size isize = isize_current;
 	int err, i;
@@ -1402,11 +1397,15 @@ static int ioctl_priv_g_pixclk(struct v4l2_int_device *s, u32 *pixclk)
  * Returns the sensor's current active image basesize.
  */
 static int ioctl_priv_g_activesize(struct v4l2_int_device *s,
-			      struct v4l2_pix_format *pix)
+			      struct v4l2_rect *pix)
 {
 	struct imx046_frame_settings *frm;
 
 	frm = &sensor_settings[isize_current].frame;
+	pix->left = frm->x_addr_start /
+		((frm->x_even_inc + frm->x_odd_inc) / 2);
+	pix->top = frm->y_addr_start /
+		((frm->y_even_inc + frm->y_odd_inc) / 2);
 	pix->width = ((frm->x_addr_end + 1) - frm->x_addr_start) /
 		((frm->x_even_inc + frm->x_odd_inc) / 2);
 	pix->height = ((frm->y_addr_end + 1) - frm->y_addr_start) /
@@ -1423,13 +1422,36 @@ static int ioctl_priv_g_activesize(struct v4l2_int_device *s,
  * Returns the sensor's biggest image basesize.
  */
 static int ioctl_priv_g_fullsize(struct v4l2_int_device *s,
-			    struct v4l2_pix_format *pix)
+			    struct v4l2_rect *pix)
 {
 	struct imx046_frame_settings *frm;
 
 	frm = &sensor_settings[isize_current].frame;
+	pix->left = 0;
+	pix->top = 0;
 	pix->width = frm->line_len_pck;
 	pix->height = frm->frame_len_lines;
+
+	return 0;
+}
+
+/**
+ * ioctl_g_pixelsize - V4L2 sensor interface handler for ioctl_g_pixelsize
+ * @s: pointer to standard V4L2 device structure
+ * @pix: pointer to standard V4L2 v4l2_pix_format structure
+ *
+ * Returns the sensor's configure pixel size.
+ */
+static int ioctl_priv_g_pixelsize(struct v4l2_int_device *s,
+			    struct v4l2_rect *pix)
+{
+	struct imx046_frame_settings *frm;
+
+	frm = &sensor_settings[isize_current].frame;
+	pix->left = 0;
+	pix->top = 0;
+	pix->width = (frm->x_even_inc + frm->x_odd_inc) / 2;
+	pix->height = (frm->y_even_inc + frm->y_odd_inc) / 2;
 
 	return 0;
 }
@@ -1768,6 +1790,8 @@ static struct v4l2_int_ioctl_desc imx046_ioctl_desc[] = {
 	  .func = (v4l2_int_ioctl_func *)ioctl_priv_g_activesize },
 	{ .num = vidioc_int_priv_g_fullsize_num,
 	  .func = (v4l2_int_ioctl_func *)ioctl_priv_g_fullsize },
+	{ .num = vidioc_int_priv_g_pixelsize_num,
+	  .func = (v4l2_int_ioctl_func *)ioctl_priv_g_pixelsize },
 };
 
 static struct v4l2_int_slave imx046_slave = {

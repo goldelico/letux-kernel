@@ -217,7 +217,7 @@ int isppreview_config(struct isp_prev_device *isp_prev, void *userspace_add)
 
 	config = userspace_add;
 
-	if (isp_prev->pm_state)
+	if (isp->running != ISP_STOPPED)
 		goto out_config_shadow;
 
 	if (ISP_ABS_PREV_LUMAENH & config->flag) {

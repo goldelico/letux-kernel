@@ -67,6 +67,18 @@ const static struct v4l2_fmtdesc isp_formats[] = {
 		.description = "Bayer10 (GrR/BGb)",
 		.pixelformat = V4L2_PIX_FMT_SGRBG10,
 	},
+	{
+		.description = "Bayer10 (GrR/BGb)",
+		.pixelformat = V4L2_PIX_FMT_SRGGB10,
+	},
+	{
+		.description = "Bayer10 (GrR/BGb)",
+		.pixelformat = V4L2_PIX_FMT_SGBRG10,
+	},
+	{
+		.description = "Bayer10 (GrR/BGb)",
+		.pixelformat = V4L2_PIX_FMT_SBGGR10,
+	},
 };
 
 /**
@@ -867,10 +879,15 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 	isp_reg_writel(dev, irqstatus, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 
+	/* Handle first LSC states */
+	if ((irqstatus & LSC_DONE) || (irqstatus & LSC_DONE) ||
+	    (irqstatus & CCDC_VD1))
+		ispccdc_lsc_state_handler(&isp->isp_ccdc, irqstatus);
+
 	if ((isp->running == ISP_STOPPING) &&
 		!(irqdis->isp_callbk[CBK_RESZ_DONE] &&
 			(irqstatus & RESZ_DONE)))
-		goto out_stopping_lsc;
+		goto out_stopping_isp;
 
 	spin_lock_irqsave(&isp->lock, flags);
 	wait_hs_vs = bufs->wait_hs_vs;
@@ -886,12 +903,28 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 		 * Enable preview for the first time. We just have
 		 * missed the start-of-frame so we can do it now.
 		 */
-		if (irqstatus & CCDC_VD0 &&
-		    (CCDC_PREV_CAPTURE(isp) || CCDC_PREV_RESZ_CAPTURE(isp)) &&
-		    !(isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR) &
-		      (ISPPRV_PCR_BUSY | ISPPRV_PCR_EN))) {
-			isppreview_config_shadow_registers(&isp->isp_prev);
-			isppreview_enable(&isp->isp_prev, 1);
+		if (irqstatus & CCDC_VD0) {
+			/*
+			 * For some reason resizer is always busy after boot up
+			 * do not check resizer busy now.
+			 */
+			if ((isp->pipeline.modules & OMAP_ISP_RESIZER) &&
+			    (isp->pipeline.rsz_in == RSZ_OTFLY_YUV) &&
+			    !(isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ,
+					    ISPRSZ_PCR) & (ISPRSZ_PCR_ENABLE |
+					    ISPRSZ_PCR_BUSY))) {
+				ispresizer_config_shadow_registers(
+					&isp->isp_res);
+				ispresizer_enable(&isp->isp_res, 1);
+			}
+			if (((isp)->pipeline.modules & OMAP_ISP_PREVIEW) &&
+			    !(isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
+					    ISPPRV_PCR) & (ISPPRV_PCR_BUSY |
+					    ISPPRV_PCR_EN))) {
+				isppreview_config_shadow_registers(
+					&isp->isp_prev);
+				isppreview_enable(&isp->isp_prev, 1);
+			}
 		}
 	default:
 		/*
@@ -900,9 +933,12 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 		 * are erroneous. From stingray datasheet:
 		 *  "When sensor restarts, Normal image can get 2 frames after"
 		 *
-		 * So while we wait for HS_VS, check cnd clear the CSIB
-		 * error interrupts, if any
+		 * So while we wait for HS_VS, check cnd clear the CSIA and
+		 * CSIB error interrupts, if any
 		 */
+		if (irqstatus & CSIA)
+			isp_csi2_isr(&isp->isp_csi2);
+
 		if (irqstatus & IRQ0STATUS_CSIB_IRQ) {
 			u32 csib;
 
@@ -923,8 +959,7 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	if (irqstatus & LSC_PRE_ERR) {
 		/* Mark buffer faulty. */
 		buf->vb_state = VIDEOBUF_ERROR;
-		dev_dbg(dev, "lsc prefetch error\n");
-		ispccdc_lsc_state_handler(&isp->isp_ccdc, LSC_PRE_ERR);
+		dev_dbg(dev, "lsc prefetch error \n");
 	}
 
 	if (irqstatus & CSIA) {
@@ -964,6 +999,16 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 		}
 	}
 
+	if (irqstatus & CCDC_VD1) {
+		ispccdc_config_shadow_registers(&isp->isp_ccdc);
+		/*
+		 * If CCDC is writing to memory stop CCDC here
+		 * preventig to write to any of our buffers.
+		 */
+		if (CCDC_CAPTURE(isp))
+			ispccdc_enable(&isp->isp_ccdc, 0);
+	}
+
 	if (irqstatus & CCDC_VD0) {
 		if (CCDC_CAPTURE(isp))
 			isp_buf_process(dev, bufs);
@@ -988,7 +1033,7 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 				if (ispresizer_busy(&isp->isp_res)) {
 					buf->vb_state = VIDEOBUF_ERROR;
 					dev_dbg(dev, "resizer busy.\n");
-				} else {
+				} else if (!ISP_BUFS_IS_EMPTY(bufs)) {
 					ispresizer_config_shadow_registers(
 						&isp->isp_res);
 					ispresizer_enable(&isp->isp_res, 1);
@@ -1098,21 +1143,10 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 out_ignore_buff:
 	spin_unlock_irqrestore(&isp->lock, flags);
 
-out_stopping_lsc:
-	if (irqstatus & LSC_DONE)
-		ispccdc_lsc_state_handler(&isp->isp_ccdc, LSC_DONE);
-
-	if (irqstatus & CCDC_VD1) {
-		ispccdc_lsc_state_handler(&isp->isp_ccdc, CCDC_VD1);
-		/* If we make raw capture, stop CCDC
-		 * together with LSC before EOF */
-		if (CCDC_CAPTURE(isp))
-			ispccdc_enable(&isp->isp_ccdc, 0);
-	}
-
 	if (irqstatus & LSC_PRE_COMP)
 		ispccdc_lsc_pref_comp_handler(&isp->isp_ccdc);
 
+out_stopping_isp:
 	isp_flush(dev);
 
 #if 1
@@ -1287,10 +1321,6 @@ static int __isp_disable_modules(struct device *dev, int suspend)
 		isph3a_aewb_enable(&isp->isp_h3a, 0);
 		isp_hist_enable(&isp->isp_hist, 0);
 	}
-	if (isp->pipeline.modules & OMAP_ISP_RESIZER)
-		ispresizer_enable(&isp->isp_res, 0);
-	if (isp->pipeline.modules & OMAP_ISP_PREVIEW)
-		isppreview_enable(&isp->isp_prev, 0);
 
 	timeout = jiffies + ISP_STOP_TIMEOUT;
 	while (isp_af_busy(&isp->isp_af)
@@ -1367,6 +1397,14 @@ static void isp_resume_modules(struct device *dev)
 	isp_hist_resume(&isp->isp_hist);
 	isph3a_aewb_resume(&isp->isp_h3a);
 	isp_af_resume(&isp->isp_af);
+
+	if (isp->running == ISP_RUNNING) {
+		ispccdc_enable(&isp->isp_ccdc, 1);
+		ispresizer_enable(&isp->isp_res, 1);
+		isppreview_enable(&isp->isp_prev, 1);
+		isp_csi_enable(dev, 1);
+		isp_csi2_enable(&isp->isp_csi2, 1);
+	}
 }
 
 /**
@@ -1461,17 +1499,6 @@ static int isp_try_pipeline(struct device *dev,
 	     pix_input->pixelformat == V4L2_PIX_FMT_SGBRG10) &&
 	    (pix_output->pixelformat == V4L2_PIX_FMT_YUYV ||
 	     pix_output->pixelformat == V4L2_PIX_FMT_UYVY)) {
-
-		if ((pix_output->width == 1280) &&
-			(pix_output->height == 720)) {
-			pipe->modules = OMAP_ISP_PREVIEW |
-					OMAP_ISP_CCDC;
-			printk(KERN_ERR "720p!!!!!!!\n");
-		} else
-			pipe->modules = OMAP_ISP_PREVIEW |
-					OMAP_ISP_RESIZER |
-					OMAP_ISP_CCDC;
-
 		if (pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10 ||
 		    pix_input->pixelformat == V4L2_PIX_FMT_SGRBG10DPCM8)
 			pipe->ccdc_in = CCDC_RAW_GRBG;
@@ -1483,12 +1510,22 @@ static int isp_try_pipeline(struct device *dev,
 			pipe->ccdc_in = CCDC_RAW_GBRG;
 		pipe->ccdc_out = CCDC_OTHERS_VP;
 		pipe->prv_in = PRV_RAW_CCDC;
-		if (isp->revision <= ISP_REVISION_2_0) {
+		if ((pix_output->width == 1280) &&
+		    (pix_output->height == 720)) {
+			pipe->modules = OMAP_ISP_PREVIEW |
+					OMAP_ISP_CCDC;
 			pipe->prv_out = PREVIEW_MEM;
-			pipe->rsz_in = RSZ_MEM_YUV;
 		} else {
-			pipe->prv_out = PREVIEW_RSZ;
-			pipe->rsz_in = RSZ_OTFLY_YUV;
+			pipe->modules = OMAP_ISP_PREVIEW |
+					OMAP_ISP_RESIZER |
+					OMAP_ISP_CCDC;
+			if (isp->revision <= ISP_REVISION_2_0) {
+				pipe->prv_out = PREVIEW_MEM;
+				pipe->rsz_in = RSZ_MEM_YUV;
+			} else {
+				pipe->prv_out = PREVIEW_RSZ;
+				pipe->rsz_in = RSZ_OTFLY_YUV;
+			}
 		}
 	} else {
 		pipe->modules = OMAP_ISP_CCDC;
@@ -1751,17 +1788,6 @@ static void isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 	} else {
 		/* Tell ISP not to write any of our buffers. */
 		isp_disable_interrupts(dev);
-		/*
-		 * We must wait for one HS_VS since before that the
-		 * CCDC may trigger interrupts even if it's not
-		 * receiving a frame.
-		 */
-		if (CCDC_CAPTURE(isp))
-			bufs->wait_hs_vs = 1;
-		else if (CCDC_PREV_CAPTURE(isp))
-			isppreview_enable(&isp->isp_prev, 0);
-		else if (CCDC_PREV_RESZ_CAPTURE(isp))
-			ispresizer_enable(&isp->isp_res, 0);
 	}
 
 	/* Mark the current buffer as done. */
@@ -2681,6 +2707,7 @@ static int isp_suspend(struct platform_device *pdev, pm_message_t state)
 		isp_reset(&pdev->dev);
 
 	isp_disable_clocks(&pdev->dev);
+	isp_disable_mclk(isp);
 
 out:
 	DPRINTK_ISPCTRL("isp_suspend: done\n");
@@ -2705,6 +2732,9 @@ static int isp_resume(struct platform_device *pdev)
 		goto out;
 
 	ret_err = isp_enable_clocks(&pdev->dev);
+	if (ret_err)
+		goto out;
+	ret_err = isp_enable_mclk(&pdev->dev);
 	if (ret_err)
 		goto out;
 	isp_restore_ctx(&pdev->dev);

@@ -146,25 +146,7 @@ int ispresizer_config_crop(struct isp_res_device *isp_res,
 {
 	struct isp_device *isp = to_isp_device(isp_res);
 	struct v4l2_crop *crop = a;
-	int rval, orig_left, left_delta, top_delta;
-	u32 crop_scaling_w, crop_scaling_h;
-
-	/* Crop is given in terms of Resizer output rectangle. */
-	/* Scale crop rectangle to size of Resizer input rectangle. */
-	crop_scaling_w = (isp->pipeline.prv_out_w_img << SHIFT_FOR_PRECISION) /
-		isp->pipeline.rsz_out_w;
-	crop->c.left = (crop->c.left * crop_scaling_w)
-		>> SHIFT_FOR_PRECISION;
-	crop->c.width = (crop->c.width * crop_scaling_w)
-		>> SHIFT_FOR_PRECISION;
-
-	crop_scaling_h = (isp->pipeline.prv_out_h << SHIFT_FOR_PRECISION) /
-		isp->pipeline.rsz_out_h;
-	crop->c.top = (crop->c.top * crop_scaling_h)
-		>> SHIFT_FOR_PRECISION;
-	crop->c.height = (crop->c.height * crop_scaling_h)
-		>> SHIFT_FOR_PRECISION;
-
+	int rval;
 
 	if (crop->c.left < 0)
 		crop->c.left = 0;
@@ -179,24 +161,6 @@ int ispresizer_config_crop(struct isp_res_device *isp_res,
 		crop->c.left = isp->pipeline.prv_out_w_img - 1;
 	if (crop->c.top >= isp->pipeline.rsz_out_h)
 		crop->c.top = isp->pipeline.rsz_out_h - 1;
-
-
-	/* Align crop_left on 16 pixels */
-	orig_left = crop->c.left;
-	crop->c.left &= 0xFFFFFFF0;
-
-	/* Scale the change in crop_left to a change in crop_top */
-	left_delta = orig_left - crop->c.left;
-	top_delta = (int)(left_delta * crop->c.height) / crop->c.width;
-	crop->c.top = crop->c.top - top_delta;
-
-	/* Increase the crop width & height depending on above deltas */
-	crop->c.height += (2 * top_delta);
-	crop->c.width += (2 * left_delta);
-
-	/* Align crop_width on 16 pixels */
-	crop->c.width &= 0xFFFFFFF0;
-
 
 	/* Make sure the crop rectangle is never smaller than width
 	 * and height divided by 4, since the resizer cannot upscale it
@@ -313,7 +277,9 @@ int ispresizer_config_datapath(struct isp_res_device *isp_res,
 		dev_err(dev, "resizer: Wrong Input\n");
 		return -EINVAL;
 	}
-	isp_reg_or(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT, cnt);
+	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT,
+		       ~(ISPRSZ_CNT_INPSRC | ISPRSZ_CNT_INPTYP),
+		       cnt);
 	ispresizer_config_ycpos(isp_res, 0);
 	ispresizer_config_filter_coef(isp_res, &ispreszdefcoef);
 	ispresizer_enable_cbilin(isp_res, 0);
@@ -534,9 +500,9 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 	if (pipe->rsz_in == RSZ_OTFLY_YUV) {
 		/* Set the fractional part of the starting address.*/
 		isp_reg_writel(dev,
-			(isp->pipeline.rsz_crop.left <<
+			((pipe->rsz_crop.left * 2)<<
 			ISPRSZ_IN_START_HORZ_ST_SHIFT) |
-			(isp->pipeline.rsz_crop.top <<
+			((pipe->rsz_crop.top) <<
 			ISPRSZ_IN_START_VERT_ST_SHIFT),
 			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START);
 	} else {

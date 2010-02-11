@@ -591,25 +591,17 @@ void ispccdc_lsc_state_handler(struct isp_ccdc_device *isp_ccdc,
 	if (!isp_ccdc->lsc_enable)
 		return;
 
-	switch (status) {
-	case CCDC_VD1:
+	if (status & CCDC_VD1)
 		isp_ccdc->lsc_delay_stop = 0;
-		/* The only thing we update in config
-		 * shadow registers is LSC, next step
-		 * is to remove this function and put updates
-		 * in this handler */
-		ispccdc_config_shadow_registers(isp_ccdc);
-		break;
-	case LSC_DONE:
+
+	if (status & LSC_DONE)
 		isp_ccdc->lsc_delay_stop = 1;
-		break;
-	case LSC_PRE_ERR:
+
+	if (status & LSC_PRE_ERR) {
 		/* If we have LSC prefetch error, LSC engine is blocked
 		 * and the only way it can recover is to do isp sw reset */
 		ispccdc_enable_lsc(isp_ccdc, 0);
 		isp_ccdc->lsc_delay_stop = 1;
-	default:
-		break;
 	}
 }
 
@@ -632,13 +624,11 @@ void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 
 	if (enable) {
 		isp_reg_writel(dev, IRQ0ENABLE_CCDC_LSC_PREF_COMP_IRQ |
-			       IRQ0ENABLE_CCDC_LSC_DONE_IRQ |
-			       IRQ0ENABLE_CCDC_VD1_IRQ,
+			       IRQ0ENABLE_CCDC_LSC_DONE_IRQ,
 			       OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
-			IRQ0ENABLE_CCDC_LSC_DONE_IRQ |
-			IRQ0ENABLE_CCDC_VD1_IRQ);
+			IRQ0ENABLE_CCDC_LSC_DONE_IRQ);
 
 		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN,
 			   ISP_CTRL, ISPCTRL_SBL_SHARED_RPORTB
@@ -651,8 +641,7 @@ void ispccdc_enable_lsc(struct isp_ccdc_device *isp_ccdc, u8 enable)
 
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~(IRQ0ENABLE_CCDC_LSC_PREF_ERR_IRQ |
-			      IRQ0ENABLE_CCDC_LSC_DONE_IRQ |
-			      IRQ0ENABLE_CCDC_VD1_IRQ));
+			      IRQ0ENABLE_CCDC_LSC_DONE_IRQ));
 	}
 	isp_ccdc->lsc_enable = enable;
 }
@@ -1302,8 +1291,14 @@ void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
 			ispccdc_enable_lsc(isp_ccdc, 1);
 			return;
 		}
+		isp_reg_writel(dev, IRQ0ENABLE_CCDC_VD1_IRQ,
+			OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+		isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			IRQ0ENABLE_CCDC_VD1_IRQ);
 	} else {
 		ispccdc_enable_lsc(isp_ccdc, 0);
+		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
+			    ~IRQ0ENABLE_CCDC_VD1_IRQ);
 		isp_ccdc->lsc_request_enable = isp_ccdc->lsc_enable;
 	}
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_PCR,
@@ -1600,7 +1595,7 @@ out:
 		       "ccdc: can not allocate memory");
 
 	isp_ccdc->shadow_update = 0;
-	return 0;
+	return ret;
 }
 
 /**
