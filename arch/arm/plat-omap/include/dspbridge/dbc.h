@@ -45,9 +45,9 @@ do {									       \
 
 #else
 
-#define DBC_Assert(exp)
-#define DBC_Require(exp)
-#define DBC_Ensure(exp)
+#define DBC_Assert(exp) {}
+#define DBC_Require(exp) {}
+#define DBC_Ensure(exp) {}
 
 #endif				/* DEBUG */
 

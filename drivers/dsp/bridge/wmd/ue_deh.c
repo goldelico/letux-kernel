@@ -188,8 +188,7 @@ void WMD_DEH_Notify(struct DEH_MGR *hDehMgr, u32 ulEventMask,
 	struct WMD_DEV_CONTEXT *pDevContext;
 	u32 memPhysical = 0;
 	u32 HW_MMU_MAX_TLB_COUNT = 31;
-	u32 extern faultAddr;
-
+	extern u32 faultAddr;
 
 	DBG_Trace(DBG_LEVEL1, "Entering WMD_DEH_Notify: 0x%x, 0x%x\n", pDehMgr,
 		 ulEventMask);
@@ -249,9 +248,8 @@ DBG_Trace(DBG_LEVEL6, "WMD_DEH_Notify: DSP_MMUFAULT, "
 				&mapAttrs, HW_SET, HW_SET);
 
 			/* send an interrupt to DSP */
-			HW_MBOX_MsgWrite(pDevContext->dwMailBoxBase,
-					MBOX_ARM2DSP,
-					MBX_DEH_CLASS | MBX_DEH_EMMU);
+			omap_mbox_msg_send(pDevContext->mbox,
+					MBX_DEH_CLASS | MBX_DEH_EMMU, NULL);
 			/* Clear MMU interrupt */
 			HW_MMU_EventAck(pDevContext->dwDSPMmuBase,
 					 HW_MMU_TRANSLATION_FAULT);

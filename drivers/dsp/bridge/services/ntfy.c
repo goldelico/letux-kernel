@@ -53,7 +53,7 @@ struct NTFY_OBJECT {
  *  This object will be created when a client registers for events.
  */
 struct NOTIFICATION {
-	struct LST_ELEM listElem;
+	struct list_head listElem;
 	u32 uEventMask;	/* Events to be notified about */
 	u32 uNotifyType;	/* Type of notification to be sent */
 
@@ -93,12 +93,14 @@ DSP_STATUS NTFY_Create(struct NTFY_OBJECT **phNtfy)
 
 		status = SYNC_InitializeDPCCS(&pNtfy->hSync);
 		if (DSP_SUCCEEDED(status)) {
-			pNtfy->notifyList = LST_Create();
+			pNtfy->notifyList = MEM_Calloc(sizeof(struct LST_LIST),
+							MEM_NONPAGED);
 			if (pNtfy->notifyList == NULL) {
 				(void) SYNC_DeleteCS(pNtfy->hSync);
 				MEM_FreeObject(pNtfy);
 				status = DSP_EMEMORY;
 			} else {
+				INIT_LIST_HEAD(&pNtfy->notifyList->head);
 				*phNtfy = pNtfy;
 			}
 		}
@@ -131,7 +133,7 @@ void NTFY_Delete(struct NTFY_OBJECT *hNtfy)
 			DeleteNotify(pNotify);
 		}
 		DBC_Assert(LST_IsEmpty(hNtfy->notifyList));
-		LST_Delete(hNtfy->notifyList);
+		MEM_Free(hNtfy->notifyList);
 	}
 	if (hNtfy->hSync)
 		(void)SYNC_DeleteCS(hNtfy->hSync);
@@ -192,7 +194,7 @@ void NTFY_Notify(struct NTFY_OBJECT *hNtfy, u32 uEventMask)
 
 		}
 		pNotify = (struct NOTIFICATION *)LST_Next(hNtfy->notifyList,
-			  (struct LST_ELEM *)pNotify);
+			  (struct list_head *)pNotify);
 	}
 
 	(void) SYNC_LeaveCS(hNtfy->hSync);
@@ -241,7 +243,7 @@ DSP_STATUS NTFY_Register(struct NTFY_OBJECT *hNtfy,
 			break;
 		}
 		pNotify = (struct NOTIFICATION *)LST_Next(hNtfy->notifyList,
-			  (struct LST_ELEM *)pNotify);
+			  (struct list_head *)pNotify);
 	}
 	if (pNotify == NULL) {
 		/* Not registered */
@@ -256,7 +258,7 @@ DSP_STATUS NTFY_Register(struct NTFY_OBJECT *hNtfy,
 
 		}
 		if (DSP_SUCCEEDED(status)) {
-			LST_InitElem((struct LST_ELEM *) pNotify);
+			LST_InitElem((struct list_head *)pNotify);
 			 /* If there is more than one notification type, each
 			 * type may require its own handler code. */
 			status = SYNC_OpenEvent(&pNotify->hSync, &syncAttrs);
@@ -266,7 +268,7 @@ DSP_STATUS NTFY_Register(struct NTFY_OBJECT *hNtfy,
 				pNotify->uEventMask = uEventMask;
 				pNotify->uNotifyType = uNotifyType;
 				LST_PutTail(hNtfy->notifyList,
-					   (struct LST_ELEM *)pNotify);
+					   (struct list_head *)pNotify);
 			} else {
 				DeleteNotify(pNotify);
 			}
@@ -276,7 +278,7 @@ DSP_STATUS NTFY_Register(struct NTFY_OBJECT *hNtfy,
 		if (uEventMask == 0) {
 			/* Remove from list and free */
 			LST_RemoveElem(hNtfy->notifyList,
-				      (struct LST_ELEM *)pNotify);
+				      (struct list_head *)pNotify);
 			DeleteNotify(pNotify);
 		} else {
 			/* Update notification mask (type shouldn't change) */

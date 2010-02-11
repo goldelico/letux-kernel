@@ -63,7 +63,6 @@
 /* Platform Manager */
 #include <dspbridge/cod.h>
 #include <dspbridge/dev.h>
-#include <dspbridge/chnl_sm.h>
 
 /* Others */
 #include <dspbridge/rms_sh.h>
@@ -114,9 +113,6 @@ struct IO_MGR {
 	struct MGR_PROCESSOREXTINFO extProcInfo;
 	struct CMM_OBJECT *hCmmMgr; 	/* Shared Mem Mngr */
 	struct work_struct io_workq;     /* workqueue */
-	u32 dQuePowerMbxVal[MAX_PM_REQS];
-	u32 iQuePowerHead;
-	u32 iQuePowerTail;
 #ifndef DSP_TRACEBUF_DISABLED
 	u32 ulTraceBufferBegin; 	/* Trace message start address */
 	u32 ulTraceBufferEnd; 	/* Trace message end address */
@@ -138,7 +134,7 @@ struct IO_MGR {
 static void IO_DispatchChnl(IN struct IO_MGR *pIOMgr,
 			   IN OUT struct CHNL_OBJECT *pChnl, u32 iMode);
 static void IO_DispatchMsg(IN struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr);
-static void IO_DispatchPM(struct work_struct *work);
+static void IO_DispatchPM(struct IO_MGR *pIOMgr);
 static void NotifyChnlComplete(struct CHNL_OBJECT *pChnl,
 				struct CHNL_IRP *pChirp);
 static void InputChnl(struct IO_MGR *pIOMgr, struct CHNL_OBJECT *pChnl,
@@ -153,7 +149,7 @@ static u32 ReadData(struct WMD_DEV_CONTEXT *hDevContext, void *pDest,
 			void *pSrc, u32 uSize);
 static u32 WriteData(struct WMD_DEV_CONTEXT *hDevContext, void *pDest,
 			void *pSrc, u32 uSize);
-static struct workqueue_struct *bridge_workqueue;
+
 #ifndef DSP_TRACEBUF_DISABLED
 void PrintDSPDebugTrace(struct IO_MGR *hIOMgr);
 #endif
@@ -182,7 +178,6 @@ DSP_STATUS WMD_IO_Create(OUT struct IO_MGR **phIOMgr,
 	struct CFG_HOSTRES hostRes;
 	struct CFG_DEVNODE *hDevNode;
 	struct CHNL_MGR *hChnlMgr;
-	static int ref_count;
 	u32 devType;
 	/* Check requirements */
 	if (!phIOMgr || !pMgrAttrs || pMgrAttrs->uWordSize == 0) {
@@ -213,27 +208,13 @@ DSP_STATUS WMD_IO_Create(OUT struct IO_MGR **phIOMgr,
 	 */
 	pSharedMem = (struct SHM *) -1;
 
-	/* Create a Single Threaded Work Queue */
-	if (ref_count == 0)
-		bridge_workqueue = create_workqueue("bridge_work-queue");
-
-	if (bridge_workqueue <= 0)
-		DBG_Trace(DBG_LEVEL1, "Workque Create failed 0x%d \n",
-						bridge_workqueue);
-
 	/* Allocate IO manager object */
 	MEM_AllocObject(pIOMgr, struct IO_MGR, IO_MGRSIGNATURE);
 	if (pIOMgr == NULL) {
 		status = DSP_EMEMORY;
 		goto func_end;
 	}
-	/* Intializing Work Element */
-	if (ref_count == 0) {
-		INIT_WORK(&pIOMgr->io_workq, (void *)IO_DispatchPM);
-		ref_count = 1;
-	} else {
-		PREPARE_WORK(&pIOMgr->io_workq, (void *)IO_DispatchPM);
-	}
+
 
 	/* Initialize CHNL_MGR object */
 #ifndef DSP_TRACEBUF_DISABLED
@@ -258,8 +239,6 @@ DSP_STATUS WMD_IO_Create(OUT struct IO_MGR **phIOMgr,
 		if (DSP_SUCCEEDED(status))
 			status = DEV_GetDevNode(hDevObject, &hDevNode);
 
-		pIOMgr->iQuePowerHead = 0;
-		pIOMgr->iQuePowerTail = 0;
 	}
 	if (DSP_SUCCEEDED(status)) {
 		status = CFG_GetHostResources((struct CFG_DEVNODE *)
@@ -268,17 +247,7 @@ DSP_STATUS WMD_IO_Create(OUT struct IO_MGR **phIOMgr,
 	if (DSP_SUCCEEDED(status)) {
 		pIOMgr->hWmdContext = hWmdContext;
 		pIOMgr->fSharedIRQ = pMgrAttrs->fShared;
-		IO_DisableInterrupt(hWmdContext);
-		if (devType == DSP_UNIT) {
-			HW_MBOX_initSettings(hostRes.dwMboxBase);
-			/* Plug the channel ISR */
-			if ((request_irq(INT_MAIL_MPU_IRQ, IO_ISR, 0,
-			  "DspBridge\tmailbox", (void *)pIOMgr)) == 0)
-				DBG_Trace(DBG_LEVEL1, "ISR_IRQ Object 0x%x \n",
-						pIOMgr);
-			else
-				status = CHNL_E_ISR;
-		}
+
 	} else {
 		status = CHNL_E_ISR;
 	}
@@ -308,12 +277,6 @@ DSP_STATUS WMD_IO_Destroy(struct IO_MGR *hIOMgr)
 	if (MEM_IsValidHandle(hIOMgr, IO_MGRSIGNATURE)) {
 		/* Disable interrupts from the board */
 		status = DEV_GetWMDContext(hIOMgr->hDevObject, &hWmdContext);
-		if (DSP_SUCCEEDED(status))
-			(void)CHNLSM_DisableInterrupt(hWmdContext);
-
-		destroy_workqueue(bridge_workqueue);
-		/* Linux function to uninstall ISR */
-		free_irq(INT_MAIL_MPU_IRQ, (void *)hIOMgr);
 
 		/* Free IO DPC object */
 		tasklet_kill(&hIOMgr->dpc_tasklet);
@@ -826,7 +789,6 @@ DSP_STATUS WMD_IO_OnLoaded(struct IO_MGR *hIOMgr)
 	hIOMgr->ulGppVa = (ulGppVa + ulSeg1Size + ulPadSize);
 
 #endif
-	IO_EnableInterrupt(hIOMgr->hWmdContext);
 func_end:
 	return status;
 }
@@ -860,7 +822,7 @@ void IO_CancelChnl(struct IO_MGR *hIOMgr, u32 ulChnl)
 	IO_AndValue(pIOMgr->hWmdContext, struct SHM, sm, hostFreeMask,
 		   (~(1 << ulChnl)));
 
-	CHNLSM_InterruptDSP2(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
+	sm_interrupt_dsp(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
 func_end:
 	return;
 }
@@ -910,58 +872,49 @@ func_end:
  *  ======== IO_DispatchPM ========
  *      Performs I/O dispatch on PM related messages from DSP
  */
-static void IO_DispatchPM(struct work_struct *work)
+static void IO_DispatchPM(struct IO_MGR *pIOMgr)
 {
-	struct IO_MGR *pIOMgr = container_of(work, struct IO_MGR, io_workq);
 	DSP_STATUS status;
 	u32 pArg[2];
 
 	DBG_Trace(DBG_LEVEL7, "IO_DispatchPM: Entering IO_DispatchPM : \n");
 
 	/* Perform Power message processing here */
-	while (pIOMgr->iQuePowerHead != pIOMgr->iQuePowerTail) {
-		pArg[0] = *(u32 *)&(pIOMgr->dQuePowerMbxVal[pIOMgr->
-			  iQuePowerTail]);
-		DBG_Trace(DBG_LEVEL7, "IO_DispatchPM - pArg[0] - 0x%x: \n",
-			 pArg[0]);
-		/* Send the command to the WMD clk/pwr manager to handle */
-		if (pArg[0] ==  MBX_PM_HIBERNATE_EN) {
-			DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : Hibernate "
-				 "command\n");
-			status = pIOMgr->pIntfFxns->pfnDevCntrl(pIOMgr->
-				 hWmdContext, WMDIOCTL_PWR_HIBERNATE, pArg);
-			if (DSP_FAILED(status)) {
-				DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : "
-					 "Hibernation command failed\n");
-			}
-		} else if (pArg[0] == MBX_PM_OPP_REQ) {
-			pArg[1] = pIOMgr->pSharedMem->oppRequest.rqstOppPt;
-			DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : Value of OPP "
-				 "value =0x%x \n", pArg[1]);
-			status = pIOMgr->pIntfFxns->pfnDevCntrl(pIOMgr->
-				 hWmdContext, WMDIOCTL_CONSTRAINT_REQUEST,
-				 pArg);
-			if (DSP_FAILED(status)) {
-				DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : Failed "
-					 "to set constraint = 0x%x \n",
-					 pArg[1]);
-			}
-
-		} else {
-			DBG_Trace(DBG_LEVEL7, "IO_DispatchPM - clock control - "
-				 "value of msg = 0x%x: \n", pArg[0]);
-			status = pIOMgr->pIntfFxns->pfnDevCntrl(pIOMgr->
-				 hWmdContext, WMDIOCTL_CLK_CTRL, pArg);
-			if (DSP_FAILED(status)) {
-				DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : Failed "
-					 "to control the DSP clk = 0x%x \n",
-					 *pArg);
-			}
+	pArg[0] = pIOMgr->wIntrVal;
+	DBG_Trace(DBG_LEVEL7, "IO_DispatchPM - pArg[0] - 0x%x: \n",
+		 pArg[0]);
+	/* Send the command to the WMD clk/pwr manager to handle */
+	if (pArg[0] ==  MBX_PM_HIBERNATE_EN) {
+		DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : Hibernate "
+			 "command\n");
+		status = pIOMgr->pIntfFxns->pfnDevCntrl(pIOMgr->
+			 hWmdContext, WMDIOCTL_PWR_HIBERNATE, pArg);
+		if (DSP_FAILED(status)) {
+			DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : "
+				 "Hibernation command failed\n");
 		}
-		/* Increment the tail count here */
-		pIOMgr->iQuePowerTail++;
-		if (pIOMgr->iQuePowerTail >= MAX_PM_REQS)
-			pIOMgr->iQuePowerTail = 0;
+	} else if (pArg[0] == MBX_PM_OPP_REQ) {
+		pArg[1] = pIOMgr->pSharedMem->oppRequest.rqstOppPt;
+		DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : Value of OPP "
+			 "value =0x%x \n", pArg[1]);
+		status = pIOMgr->pIntfFxns->pfnDevCntrl(pIOMgr->
+			 hWmdContext, WMDIOCTL_CONSTRAINT_REQUEST,
+			 pArg);
+		if (DSP_FAILED(status)) {
+			DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : Failed "
+				 "to set constraint = 0x%x \n",
+				 pArg[1]);
+		}
+	} else {
+		DBG_Trace(DBG_LEVEL7, "IO_DispatchPM - clock control - "
+			 "value of msg = 0x%x: \n", pArg[0]);
+		status = pIOMgr->pIntfFxns->pfnDevCntrl(pIOMgr->
+			 hWmdContext, WMDIOCTL_CLK_CTRL, pArg);
+		if (DSP_FAILED(status)) {
+			DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : Failed "
+				 "to control the DSP clk = 0x%x \n",
+				 *pArg);
+		}
 	}
 }
 
@@ -989,6 +942,7 @@ void IO_DPC(IN OUT unsigned long pRefData)
 		goto func_end;
 	DBG_Trace(DBG_LEVEL7, "Entering IO_DPC(0x%x)\n", pRefData);
 
+
 	requested = pIOMgr->dpc_req;
 	serviced = pIOMgr->dpc_sched;
 
@@ -1011,10 +965,10 @@ void IO_DPC(IN OUT unsigned long pRefData)
 			IO_DispatchMsg(pIOMgr, pMsgMgr);
 #endif
 #ifndef DSP_TRACEBUF_DISABLED
-	if (pIOMgr->wIntrVal & MBX_DBG_SYSPRINTF) {
-		/* Notify DSP Trace message */
-		PrintDSPDebugTrace(pIOMgr);
-	}
+		if (pIOMgr->wIntrVal & MBX_DBG_SYSPRINTF) {
+			/* Notify DSP Trace message */
+			PrintDSPDebugTrace(pIOMgr);
+		}
 #endif
 		serviced++;
 	} while (serviced != requested);
@@ -1024,55 +978,40 @@ func_end:
 }
 
 /*
- *  ======== IO_ISR ========
+ *  ======== io_mbox_msg ========
  *      Main interrupt handler for the shared memory IO manager.
  *      Calls the WMD's CHNL_ISR to determine if this interrupt is ours, then
  *      schedules a DPC to dispatch I/O.
  */
-irqreturn_t IO_ISR(int irq, IN void *pRefData)
+void io_mbox_msg(u32 msg)
 {
-	struct IO_MGR *hIOMgr = (struct IO_MGR *)pRefData;
-	bool fSchedDPC;
+	struct IO_MGR *io_mgr;
+	struct DEV_OBJECT *dev_obj;
 	unsigned long flags;
 
-	if (irq != INT_MAIL_MPU_IRQ ||
-	   !MEM_IsValidHandle(hIOMgr, IO_MGRSIGNATURE))
-		return IRQ_NONE;
-	DBG_Trace(DBG_LEVEL3, "Entering IO_ISR(0x%x)\n", pRefData);
+	DBG_Trace(DBG_LEVEL3, "Entering io_mbox_msg\n");
 
-	/* Call WMD's CHNLSM_ISR() to see if interrupt is ours, and process. */
-	if (IO_CALLISR(hIOMgr->hWmdContext, &fSchedDPC, &hIOMgr->wIntrVal)) {
-		DBG_Trace(DBG_LEVEL3, "IO_ISR %x\n", hIOMgr->wIntrVal);
-		if (hIOMgr->wIntrVal & MBX_PM_CLASS) {
-			hIOMgr->dQuePowerMbxVal[hIOMgr->iQuePowerHead] =
-				hIOMgr->wIntrVal;
-			hIOMgr->iQuePowerHead++;
-			if (hIOMgr->iQuePowerHead >= MAX_PM_REQS)
-				hIOMgr->iQuePowerHead = 0;
+	dev_obj = DEV_GetFirst();
+	DEV_GetIOMgr(dev_obj, &io_mgr);
 
-			queue_work(bridge_workqueue, &hIOMgr->io_workq);
-		}
-		if (hIOMgr->wIntrVal == MBX_DEH_RESET) {
-			DBG_Trace(DBG_LEVEL6, "*** DSP RESET ***\n");
-			hIOMgr->wIntrVal = 0;
-		} else if (fSchedDPC) {
-			/*
-			 * PROC-COPY defer i/o.
-			 * Increment count of DPC's pending.
-			 */
-			spin_lock_irqsave(&hIOMgr->dpc_lock, flags);
-			hIOMgr->dpc_req++;
-			spin_unlock_irqrestore(&hIOMgr->dpc_lock, flags);
+	if (!io_mgr)
+		return;
 
-			/* Schedule DPC */
-			tasklet_schedule(&hIOMgr->dpc_tasklet);
-		}
+	io_mgr->wIntrVal = (u16)msg;
+	DBG_Trace(DBG_LEVEL3, "io_mbox_msg %x\n", io_mgr->wIntrVal);
+	if (io_mgr->wIntrVal & MBX_PM_CLASS)
+		IO_DispatchPM(io_mgr);
+
+	if (io_mgr->wIntrVal == MBX_DEH_RESET) {
+		DBG_Trace(DBG_LEVEL6, "*** DSP RESET ***\n");
+		io_mgr->wIntrVal = 0;
 	} else {
-		/* Ensure that, if WMD didn't claim it, the IRQ is shared. */
-		DBC_Ensure(hIOMgr->fSharedIRQ);
+		spin_lock_irqsave(&io_mgr->dpc_lock, flags);
+		io_mgr->dpc_req++;
+		spin_unlock_irqrestore(&io_mgr->dpc_lock, flags);
+		tasklet_schedule(&io_mgr->dpc_tasklet);
 	}
-
-	return IRQ_HANDLED;
+	return;
 }
 
 /*
@@ -1208,7 +1147,7 @@ static void InputChnl(struct IO_MGR *pIOMgr, struct CHNL_OBJECT *pChnl,
 			    pChnlMgr->uWordSize;
 	chnlId = IO_GetValue(pIOMgr->hWmdContext, struct SHM, sm, inputId);
 	dwArg = IO_GetLong(pIOMgr->hWmdContext, struct SHM, sm, arg);
-	if (!(chnlId >= 0) || !(chnlId < CHNL_MAXCHANNELS)) {
+	if (chnlId >= CHNL_MAXCHANNELS) {
 		/* Shouldn't be here: would indicate corrupted SHM. */
 		DBC_Assert(chnlId);
 		goto func_end;
@@ -1295,7 +1234,7 @@ static void InputChnl(struct IO_MGR *pIOMgr, struct CHNL_OBJECT *pChnl,
 	if (fClearChnl) {
 		/* Indicate to the DSP we have read the input */
 		IO_SetValue(pIOMgr->hWmdContext, struct SHM, sm, inputFull, 0);
-		CHNLSM_InterruptDSP2(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
+		sm_interrupt_dsp(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
 	}
 	if (fNotifyClient) {
 		/* Notify client with IO completion record */
@@ -1377,8 +1316,8 @@ static void InputMsg(struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr)
 					if (hMsgQueue->msgUsedList && pMsg) {
 						pMsg->msgData = msg;
 						LST_PutTail(hMsgQueue->
-						      msgUsedList,
-						      (struct LST_ELEM *)pMsg);
+						    msgUsedList,
+						    (struct list_head *)pMsg);
 						NTFY_Notify(hMsgQueue->hNtfy,
 							DSP_NODEMESSAGEREADY);
 						SYNC_SetEvent(hMsgQueue->
@@ -1399,7 +1338,7 @@ static void InputMsg(struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr)
 			if (!hMsgMgr->queueList || !hMsgQueue)
 				goto func_end;
 			hMsgQueue = (struct MSG_QUEUE *)LST_Next(hMsgMgr->
-				    queueList, (struct LST_ELEM *)hMsgQueue);
+				    queueList, (struct list_head *)hMsgQueue);
 		}
 	}
 	/* Set the post SWI flag */
@@ -1409,7 +1348,7 @@ static void InputMsg(struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr)
 			   true);
 		IO_SetValue(pIOMgr->hWmdContext, struct MSG, pCtrl, postSWI,
 			   true);
-		CHNLSM_InterruptDSP2(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
+		sm_interrupt_dsp(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
 	}
 func_end:
 	return;
@@ -1437,7 +1376,7 @@ static void NotifyChnlComplete(struct CHNL_OBJECT *pChnl,
 	 */
 	fSignalEvent = LST_IsEmpty(pChnl->pIOCompletions);
 	/* Enqueue the IO completion info for the client */
-	LST_PutTail(pChnl->pIOCompletions, (struct LST_ELEM *) pChirp);
+	LST_PutTail(pChnl->pIOCompletions, (struct list_head *)pChirp);
 	pChnl->cIOCs++;
 
 	if (pChnl->cIOCs > pChnl->cChirps)
@@ -1523,7 +1462,7 @@ static void OutputChnl(struct IO_MGR *pIOMgr, struct CHNL_OBJECT *pChnl,
 #endif
 	IO_SetValue(pIOMgr->hWmdContext, struct SHM, sm, outputFull, 1);
 	/* Indicate to the DSP we have written the output */
-	CHNLSM_InterruptDSP2(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
+	sm_interrupt_dsp(pIOMgr->hWmdContext, MBX_PCPY_CLASS);
 	/* Notify client with IO completion record (keep EOS) */
 	pChirp->status &= CHNL_IOCSTATEOS;
 	NotifyChnlComplete(pChnl, pChirp);
@@ -1595,7 +1534,7 @@ static void OutputMsg(struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr)
 				if (!hMsgMgr->msgFreeList)
 					goto func_end;
 				LST_PutTail(hMsgMgr->msgFreeList,
-					   (struct LST_ELEM *) pMsg);
+					   (struct list_head *)pMsg);
 				SYNC_SetEvent(hMsgMgr->hSyncEvent);
 			} else {
 				DBG_Trace(DBG_LEVEL3, "pMsg is NULL\n");
@@ -1617,7 +1556,7 @@ static void OutputMsg(struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr)
 			IO_SetValue(pIOMgr->hWmdContext, struct MSG, pCtrl,
 				   postSWI, true);
 			/* Tell the DSP we have written the output. */
-			CHNLSM_InterruptDSP2(pIOMgr->hWmdContext,
+			sm_interrupt_dsp(pIOMgr->hWmdContext,
 						MBX_PCPY_CLASS);
 		}
 	}
@@ -1779,15 +1718,14 @@ static u32 WriteData(struct WMD_DEV_CONTEXT *hDevContext, void *pDest,
 /* ZCPY IO routines. */
 void IO_IntrDSP2(IN struct IO_MGR *pIOMgr, IN u16 wMbVal)
 {
-	CHNLSM_InterruptDSP2(pIOMgr->hWmdContext, wMbVal);
+	sm_interrupt_dsp(pIOMgr->hWmdContext, wMbVal);
 }
 
 /*
  *  ======== IO_SHMcontrol ========
  *      Sets the requested SHM setting.
  */
-DSP_STATUS IO_SHMsetting(IN struct IO_MGR *hIOMgr, IN enum SHM_DESCTYPE desc,
-			 IN void *pArgs)
+DSP_STATUS IO_SHMsetting(struct IO_MGR *hIOMgr, u8 desc, void *pArgs)
 {
 #ifdef CONFIG_BRIDGE_DVFS
 	struct omap_opp *dsp_opp_table;

@@ -308,7 +308,7 @@
  *        (*puAllocated == *puNumNodes)
  */
 	extern DSP_STATUS NODE_EnumNodes(struct NODE_MGR *hNodeMgr,
-					 IN DSP_HNODE *aNodeTab,
+					 void **aNodeTab,
 					 u32 uNodeTabSize,
 					 OUT u32 *puNumNodes,
 					 OUT u32 *puAllocated);
@@ -570,7 +570,7 @@
  *  Parameters:
  *
  */
-	extern DSP_STATUS NODE_GetUUIDProps(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS NODE_GetUUIDProps(void *hProcessor,
 					    IN CONST struct DSP_UUID *pNodeId,
 					    OUT struct DSP_NDBPROPS
 					    *pNodeProps);

@@ -160,7 +160,7 @@
  *      hDevObject != NULL
  *  Ensures:
  */
-	extern DSP_STATUS CMM_GetHandle(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS CMM_GetHandle(void *hProcessor,
 					OUT struct CMM_OBJECT **phCmmMgr);
 
 /*
@@ -227,7 +227,7 @@
 					       unsigned int dwGPPBasePA,
 					       u32 ulSize,
 					       u32 dwDSPAddrOffset,
-					       enum CMM_CNVTTYPE cFactor,
+					       s8  cFactor,
 					       unsigned int dwDSPBase,
 					       u32 ulDSPSize,
 					       u32 *pulSegId,

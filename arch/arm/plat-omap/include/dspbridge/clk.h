@@ -22,8 +22,7 @@
 	/* Generic TIMER object: */
 	struct TIMER_OBJECT;
 	enum SERVICES_ClkId {
-		SERVICESCLK_iva2_ck = 0,
-		SERVICESCLK_mailbox_ick,
+		SERVICESCLK_iva2_ck,
 		SERVICESCLK_gpt5_fck,
 		SERVICESCLK_gpt5_ick,
 		SERVICESCLK_gpt6_fck,

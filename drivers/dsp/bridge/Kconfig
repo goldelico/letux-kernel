@@ -38,7 +38,7 @@ config BRIDGE_DEBUG
 menu "Bridge Hacking"
 	depends on MPU_BRIDGE
 
-config BRIDGE_CHECK_ALIGN_128
+config BRIDGE_CACHE_LINE_CHECK
 	bool "Check buffers to be 128 byte aligned"
 	depends on MPU_BRIDGE
 	default n

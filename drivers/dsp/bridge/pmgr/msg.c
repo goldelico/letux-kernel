@@ -29,7 +29,6 @@
 #include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
-#include <dspbridge/list.h>
 #include <dspbridge/mem.h>
 
 /*  ----------------------------------- Mini Driver */
@@ -73,10 +72,13 @@ DSP_STATUS MSG_Create(OUT struct MSG_MGR **phMsgMgr,
 
 	*phMsgMgr = NULL;
 
-	DEV_GetIntfFxns(hDevObject, &pIntfFxns);
+	status = DEV_GetIntfFxns(hDevObject, &pIntfFxns);
 
-	/* Let WMD message module finish the create: */
-	status = (*pIntfFxns->pfnMsgCreate)(&hMsgMgr, hDevObject, msgCallback);
+	if (pIntfFxns) {
+		/* Let WMD message module finish the create */
+		status = (*pIntfFxns->pfnMsgCreate)(&hMsgMgr,
+				hDevObject, msgCallback);
+	}
 
 	if (DSP_SUCCEEDED(status)) {
 		/* Fill in WCD message module's fields of the MSG_MGR

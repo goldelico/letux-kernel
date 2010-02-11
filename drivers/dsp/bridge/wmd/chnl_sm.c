@@ -62,6 +62,7 @@
 /*  ----------------------------------- Mini-Driver */
 #include <dspbridge/wmd.h>
 #include <dspbridge/wmdchnl.h>
+#include "_tiomap.h"
 
 /*  ----------------------------------- Platform Manager */
 #include <dspbridge/dev.h>
@@ -97,6 +98,8 @@ DSP_STATUS WMD_CHNL_AddIOReq(struct CHNL_OBJECT *hChnl, void *pHostBuf,
 	DSP_STATUS status = DSP_SOK;
 	struct CHNL_OBJECT *pChnl = (struct CHNL_OBJECT *)hChnl;
 	struct CHNL_IRP *pChirp = NULL;
+	struct WMD_DEV_CONTEXT *dev_ctxt;
+	struct DEV_OBJECT *dev_obj;
 	u32 dwState;
 	bool fIsEOS;
 	struct CHNL_MGR *pChnlMgr = pChnl->pChnlMgr;
@@ -132,6 +135,12 @@ DSP_STATUS WMD_CHNL_AddIOReq(struct CHNL_OBJECT *hChnl, void *pHostBuf,
 				DBC_Assert(0);
 		}
 	}
+
+	dev_obj = DEV_GetFirst();
+	DEV_GetWMDContext(dev_obj, &dev_ctxt);
+	if (!dev_ctxt)
+		status = DSP_EHANDLE;
+
 	if (DSP_FAILED(status))
 		goto func_end;
 
@@ -170,7 +179,7 @@ func_cont:
 	 * non-mailbox interrupt occurs, that DPC will run and break CS. Hence
 	 * we disable ALL DPCs. We will try to disable ONLY IO DPC later.  */
 	SYNC_EnterCS(pChnlMgr->hCSObj);
-	disable_irq(MAILBOX_IRQ);
+	omap_mbox_disable_irq(dev_ctxt->mbox, IRQ_RX);
 	if (pChnl->uChnlType == CHNL_PCPY) {
 		/* This is a processor-copy channel. */
 		if (DSP_SUCCEEDED(status) && CHNL_IsOutput(pChnl->uMode)) {
@@ -206,7 +215,7 @@ func_cont:
 		pChirp->dwArg = dwArg;
 		pChirp->status = (fIsEOS ? CHNL_IOCSTATEOS :
 						CHNL_IOCSTATCOMPLETE);
-		LST_PutTail(pChnl->pIORequests, (struct LST_ELEM *)pChirp);
+		LST_PutTail(pChnl->pIORequests, (struct list_head *)pChirp);
 		pChnl->cIOReqs++;
 		DBC_Assert(pChnl->cIOReqs <= pChnl->cChirps);
 		/* If end of stream, update the channel state to prevent
@@ -224,7 +233,7 @@ func_cont:
 
 
 	}
-	enable_irq(MAILBOX_IRQ);
+	omap_mbox_enable_irq(dev_ctxt->mbox, IRQ_RX);
 	SYNC_LeaveCS(pChnlMgr->hCSObj);
 	if (wMbVal != 0)
 		IO_IntrDSP2(pChnlMgr->hIOMgr, wMbVal);
@@ -252,7 +261,7 @@ DSP_STATUS WMD_CHNL_CancelIO(struct CHNL_OBJECT *hChnl)
 	DSP_STATUS status = DSP_SOK;
 	struct CHNL_OBJECT *pChnl = (struct CHNL_OBJECT *)hChnl;
 	u32 iChnl = -1;
-	CHNL_MODE uMode;
+	short int uMode;
 	struct CHNL_IRP *pChirp;
 	struct CHNL_MGR *pChnlMgr = NULL;
 
@@ -291,7 +300,7 @@ DSP_STATUS WMD_CHNL_CancelIO(struct CHNL_OBJECT *hChnl)
 			pChirp->cBytes = 0;
 			pChirp->status |= CHNL_IOCSTATCANCEL;
 			LST_PutTail(pChnl->pIOCompletions,
-				   (struct LST_ELEM *)pChirp);
+				   (struct list_head *)pChirp);
 			pChnl->cIOCs++;
 			pChnl->cIOReqs--;
 			DBC_Assert(pChnl->cIOReqs >= 0);
@@ -482,7 +491,7 @@ DSP_STATUS WMD_CHNL_FlushIO(struct CHNL_OBJECT *hChnl, u32 dwTimeOut)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct CHNL_OBJECT *pChnl = (struct CHNL_OBJECT *)hChnl;
-	CHNL_MODE uMode = -1;
+	short int uMode = -1;
 	struct CHNL_MGR *pChnlMgr;
 	struct CHNL_IOC chnlIOC;
 	/* Check args:  */
@@ -574,6 +583,8 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 	bool fDequeueIOC = true;
 	struct CHNL_IOC ioc = { NULL, 0, 0, 0, 0 };
 	u8 *pHostSysBuf = NULL;
+	struct WMD_DEV_CONTEXT *dev_ctxt;
+	struct DEV_OBJECT *dev_obj;
 
 	DBG_Trace(DBG_ENTER, "> WMD_CHNL_GetIOC pChnl %p CHNL_IsOutput %x "
 		 "uChnlType %x\n", pChnl, CHNL_IsOutput(pChnl->uMode),
@@ -588,6 +599,12 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 			status = CHNL_E_NOIOC;
 
 	}
+
+	dev_obj = DEV_GetFirst();
+	DEV_GetWMDContext(dev_obj, &dev_ctxt);
+	if (!dev_ctxt)
+		status = DSP_EHANDLE;
+
 	if (DSP_FAILED(status))
 		goto func_end;
 
@@ -615,7 +632,7 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 	}
 	/* See comment in AddIOReq */
 	SYNC_EnterCS(pChnl->pChnlMgr->hCSObj);
-	disable_irq(MAILBOX_IRQ);
+	omap_mbox_disable_irq(dev_ctxt->mbox, IRQ_RX);
 	if (fDequeueIOC) {
 		/* Dequeue IOC and set pIOC; */
 		DBC_Assert(!LST_IsEmpty(pChnl->pIOCompletions));
@@ -635,8 +652,8 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 			ioc.dwArg = pChirp->dwArg;
 			ioc.status |= pChirp->status;
 			/* Place the used chirp on the free list: */
-			LST_PutTail(pChnl->pFreeList, (struct LST_ELEM *)
-				   pChirp);
+			LST_PutTail(pChnl->pFreeList,
+					(struct list_head *)pChirp);
 		} else {
 			ioc.pBuf = NULL;
 			ioc.cBytes = 0;
@@ -665,7 +682,7 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 		/* else, if list is empty, ensure event is reset. */
 		SYNC_ResetEvent(pChnl->hSyncEvent);
 	}
-	enable_irq(MAILBOX_IRQ);
+	omap_mbox_enable_irq(dev_ctxt->mbox, IRQ_RX);
 	SYNC_LeaveCS(pChnl->pChnlMgr->hCSObj);
 	if (fDequeueIOC && (pChnl->uChnlType == CHNL_PCPY && pChnl->uId > 1)) {
 		if (!(ioc.pBuf < (void *) USERMODE_ADDR))
@@ -683,7 +700,6 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 
 		/*pHostUserBuf */
 		status = copy_to_user(ioc.pBuf, pHostSysBuf, ioc.cBytes);
-#ifndef RES_CLEANUP_DISABLE
 		if (status) {
 			if (current->flags & PF_EXITING) {
 				DBG_Trace(DBG_LEVEL7,
@@ -698,7 +714,6 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 					 current->flags);
 			}
 		}
-#endif
 		if (status) {
 			DBG_Trace(DBG_LEVEL7,
 				 "Error copying kernel buffer to user, %d"
@@ -757,7 +772,7 @@ DSP_STATUS WMD_CHNL_GetMgrInfo(struct CHNL_MGR *hChnlMgr, u32 uChnlID,
 DSP_STATUS WMD_CHNL_Idle(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 			 bool fFlush)
 {
-	CHNL_MODE uMode;
+	short int uMode;
 	struct CHNL_MGR *pChnlMgr;
 	DSP_STATUS status = DSP_SOK;
 
@@ -785,7 +800,7 @@ DSP_STATUS WMD_CHNL_Idle(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
  *      Open a new half-duplex channel to the DSP board.
  */
 DSP_STATUS WMD_CHNL_Open(OUT struct CHNL_OBJECT **phChnl,
-			 struct CHNL_MGR *hChnlMgr, CHNL_MODE uMode,
+			 struct CHNL_MGR *hChnlMgr, short int uMode,
 			 u32 uChnlId, CONST IN struct CHNL_ATTRS *pAttrs)
 {
 	DSP_STATUS status = DSP_SOK;
@@ -798,6 +813,7 @@ DSP_STATUS WMD_CHNL_Open(OUT struct CHNL_OBJECT **phChnl,
 	DBC_Require(pAttrs != NULL);
 	DBC_Require(hChnlMgr != NULL);
 	*phChnl = NULL;
+
 	/* Validate Args:  */
 	if (pAttrs->uIOReqs == 0) {
 		status = DSP_EINVALIDARG;
@@ -937,13 +953,14 @@ static struct LST_LIST *CreateChirpList(u32 uChirps)
 	struct CHNL_IRP *pChirp;
 	u32 i;
 
-	pChirpList = LST_Create();
+	pChirpList = MEM_Calloc(sizeof(struct LST_LIST), MEM_NONPAGED);
 
 	if (pChirpList) {
+		INIT_LIST_HEAD(&pChirpList->head);
 		/* Make N chirps and place on queue. */
 		for (i = 0; (i < uChirps) && ((pChirp = MakeNewChirp()) !=
 		    NULL); i++) {
-			LST_PutTail(pChirpList, (struct LST_ELEM *)pChirp);
+			LST_PutTail(pChirpList, (struct list_head *)pChirp);
 		}
 
 		/* If we couldn't allocate all chirps, free those allocated: */
@@ -968,7 +985,7 @@ static void FreeChirpList(struct LST_LIST *pChirpList)
 	while (!LST_IsEmpty(pChirpList))
 		MEM_Free(LST_GetHead(pChirpList));
 
-	LST_Delete(pChirpList);
+	MEM_Free(pChirpList);
 }
 
 /*

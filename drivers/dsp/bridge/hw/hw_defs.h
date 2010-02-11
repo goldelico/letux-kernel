@@ -30,11 +30,9 @@
 /* HW_STATUS:  return type for HW API */
 typedef long HW_STATUS;
 
-/* HW_SetClear_t:  Enumerated Type used to set and clear any bit */
-enum HW_SetClear_t {
-    HW_CLEAR,
-    HW_SET
-} ;
+/*  Macro used to set and clear any bit */
+#define HW_CLEAR	0
+#define HW_SET		1
 
 /* HW_Endianism_t:  Enumerated Type used to specify the endianism
  *		Do NOT change these values. They are used as bit fields. */

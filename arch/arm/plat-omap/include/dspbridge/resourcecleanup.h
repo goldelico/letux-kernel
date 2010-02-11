@@ -14,7 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef RES_CLEANUP_DISABLE
 
 #include <dspbridge/nodepriv.h>
 #include <dspbridge/drv.h>
@@ -29,9 +28,6 @@ extern DSP_STATUS DRV_InsertProcContext(struct DRV_OBJECT *hDrVObject,
 extern DSP_STATUS DRV_RemoveAllDMMResElements(HANDLE pCtxt);
 
 extern DSP_STATUS DRV_RemoveAllNodeResElements(HANDLE pCtxt);
-
-extern DSP_STATUS DRV_ProcUpdatestate(HANDLE pCtxt,
-				      enum GPP_PROC_RES_STATE resState);
 
 extern DSP_STATUS DRV_ProcSetPID(HANDLE pCtxt, s32 hProcess);
 
@@ -77,4 +73,3 @@ extern DSP_STATUS DRV_RemoveAllSTRMResElements(HANDLE pCtxt);
 
 extern enum NODE_STATE NODE_GetState(HANDLE hNode);
 
-#endif

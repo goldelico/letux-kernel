@@ -45,8 +45,6 @@
 static struct GT_Mask MEM_debugMask = { NULL, NULL };	/* GT trace variable */
 #endif
 
-static u32 cRefs;		/* module reference count */
-
 static bool extPhysMemPoolEnabled;
 
 struct extPhysMemPool {
@@ -60,7 +58,7 @@ static struct extPhysMemPool extMemPool;
 
 /*  Information about each element allocated on heap */
 struct memInfo {
-	struct LST_ELEM link;		/* Must be first */
+	struct list_head link;		/* Must be first */
 	size_t size;
 	void *caller;
 	u32 dwSignature;	/* Should be last */
@@ -84,17 +82,16 @@ static struct memMan mMan;
  *  These functions are similar to LST_PutTail and LST_RemoveElem and are
  *  duplicated here to make MEM independent of LST
  */
-static inline void MLST_PutTail(struct LST_LIST *pList, struct LST_ELEM *pElem)
+static inline void MLST_PutTail(struct LST_LIST *pList, struct list_head *pElem)
 {
 	pElem->prev = pList->head.prev;
 	pElem->next = &pList->head;
 	pList->head.prev = pElem;
 	pElem->prev->next = pElem;
-	pElem->self = pElem;
 }
 
 static inline void MLST_RemoveElem(struct LST_LIST *pList,
-				   struct LST_ELEM *pCurElem)
+				   struct list_head *pCurElem)
 {
 	pCurElem->prev->next = pCurElem->next;
 	pCurElem->next->prev = pCurElem->prev;
@@ -105,8 +102,8 @@ static inline void MLST_RemoveElem(struct LST_LIST *pList,
 static void MEM_Check(void)
 {
 	struct memInfo *pMem;
-	struct LST_ELEM *last = &mMan.lst.head;
-	struct LST_ELEM *curr = mMan.lst.head.next;
+	struct list_head *last = &mMan.lst.head;
+	struct list_head *curr = last->next;
 
 	if (!LST_IsEmpty(&mMan.lst)) {
 		GT_0trace(MEM_debugMask, GT_7CLASS, "*** MEMORY LEAK ***\n");
@@ -122,7 +119,7 @@ static void MEM_Check(void)
 					(u32) pMem + sizeof(struct memInfo),
 					pMem->size, pMem->caller);
 				MLST_RemoveElem(&mMan.lst,
-						(struct LST_ELEM *) pMem);
+						(struct list_head *)pMem);
 				kfree(pMem);
 			} else {
 				GT_1trace(MEM_debugMask, GT_7CLASS,
@@ -258,7 +255,7 @@ void *MEM_Alloc(u32 cBytes, enum MEM_POOLATTRS type)
 
 				spin_lock(&mMan.lock);
 				MLST_PutTail(&mMan.lst,
-					    (struct LST_ELEM *)pMem);
+					    (struct list_head *)pMem);
 				spin_unlock(&mMan.lock);
 
 				pMem = (void *)((u32)pMem +
@@ -278,7 +275,7 @@ void *MEM_Alloc(u32 cBytes, enum MEM_POOLATTRS type)
 
 				spin_lock(&mMan.lock);
 				MLST_PutTail(&mMan.lst,
-					    (struct LST_ELEM *) pMem);
+					    (struct list_head *)pMem);
 				spin_unlock(&mMan.lock);
 
 				pMem = (void *)((u32)pMem +
@@ -307,8 +304,6 @@ void *MEM_AllocPhysMem(u32 cBytes, u32 ulAlign, OUT u32 *pPhysicalAddress)
 {
 	void *pVaMem = NULL;
 	dma_addr_t paMem;
-
-	DBC_Require(cRefs > 0);
 
 	GT_2trace(MEM_debugMask, GT_ENTER,
 		  "MEM_AllocPhysMem: cBytes 0x%x\tulAlign"
@@ -368,7 +363,7 @@ void *MEM_Calloc(u32 cBytes, enum MEM_POOLATTRS type)
 				pMem->dwSignature = memInfoSign;
 				spin_lock(&mMan.lock);
 				MLST_PutTail(&mMan.lst,
-					(struct LST_ELEM *) pMem);
+					(struct list_head *)pMem);
 				spin_unlock(&mMan.lock);
 				pMem = (void *)((u32)pMem +
 					sizeof(struct memInfo));
@@ -389,8 +384,8 @@ void *MEM_Calloc(u32 cBytes, enum MEM_POOLATTRS type)
 				pMem->caller = __builtin_return_address(0);
 				pMem->dwSignature = memInfoSign;
 				spin_lock(&mMan.lock);
-				MLST_PutTail(&mMan.lst, (struct LST_ELEM *)
-					pMem);
+				MLST_PutTail(&mMan.lst,
+						(struct list_head *)pMem);
 				spin_unlock(&mMan.lock);
 				pMem = (void *)((u32)pMem +
 					sizeof(struct memInfo));
@@ -415,17 +410,9 @@ void *MEM_Calloc(u32 cBytes, enum MEM_POOLATTRS type)
  */
 void MEM_Exit(void)
 {
-	DBC_Require(cRefs > 0);
-
-	GT_1trace(MEM_debugMask, GT_5CLASS, "MEM_Exit: cRefs 0x%x\n", cRefs);
-
-	cRefs--;
 #ifdef MEM_CHECK
-	if (cRefs == 0)
-		MEM_Check();
-
+	MEM_Check();
 #endif
-	DBC_Ensure(cRefs >= 0);
 }
 
 /*
@@ -435,7 +422,7 @@ void MEM_Exit(void)
  */
 void MEM_FlushCache(void *pMemBuf, u32 cBytes, u32 FlushType)
 {
-	if (cRefs <= 0 || !pMemBuf)
+	if (!pMemBuf)
 		return;
 
 	switch (FlushType) {
@@ -489,7 +476,7 @@ void MEM_VFree(IN void *pMemBuf)
 			if (pMem->dwSignature == memInfoSign) {
 				spin_lock(&mMan.lock);
 				MLST_RemoveElem(&mMan.lst,
-						(struct LST_ELEM *) pMem);
+						(struct list_head *)pMem);
 				spin_unlock(&mMan.lock);
 				pMem->dwSignature = 0;
 				vfree(pMem);
@@ -528,7 +515,7 @@ void MEM_Free(IN void *pMemBuf)
 			if (pMem->dwSignature == memInfoSign) {
 				spin_lock(&mMan.lock);
 				MLST_RemoveElem(&mMan.lst,
-						(struct LST_ELEM *) pMem);
+						(struct list_head *)pMem);
 				spin_unlock(&mMan.lock);
 				pMem->dwSignature = 0;
 				kfree(pMem);
@@ -551,7 +538,6 @@ void MEM_Free(IN void *pMemBuf)
 void MEM_FreePhysMem(void *pVirtualAddress, u32 pPhysicalAddress,
 		     u32 cBytes)
 {
-	DBC_Require(cRefs > 0);
 	DBC_Require(pVirtualAddress != NULL);
 
 	GT_1trace(MEM_debugMask, GT_ENTER, "MEM_FreePhysMem: pVirtualAddress "
@@ -569,25 +555,13 @@ void MEM_FreePhysMem(void *pVirtualAddress, u32 pPhysicalAddress,
  */
 bool MEM_Init(void)
 {
-	DBC_Require(cRefs >= 0);
-
-	if (cRefs == 0) {
-		GT_create(&MEM_debugMask, "MM");	/* MM for MeM module */
+	GT_create(&MEM_debugMask, "MM");	/* MM for MeM module */
 
 #ifdef MEM_CHECK
-		mMan.lst.head.next = &mMan.lst.head;
-		mMan.lst.head.prev = &mMan.lst.head;
-		mMan.lst.head.self = NULL;
-		spin_lock_init(&mMan.lock);
+	mMan.lst.head.next = &mMan.lst.head;
+	mMan.lst.head.prev = &mMan.lst.head;
+	spin_lock_init(&mMan.lock);
 #endif
-
-	}
-
-	cRefs++;
-
-	GT_1trace(MEM_debugMask, GT_5CLASS, "MEM_Init: cRefs 0x%x\n", cRefs);
-
-	DBC_Ensure(cRefs > 0);
 
 	return true;
 }

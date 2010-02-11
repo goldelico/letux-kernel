@@ -38,7 +38,7 @@
  *      This is typically called from the client process.
  */
 
-	extern DSP_STATUS DMM_GetHandle(DSP_HPROCESSOR hProcessor,
+	extern DSP_STATUS DMM_GetHandle(void *hProcessor,
 					OUT struct DMM_OBJECT **phDmmMgr);
 
 	extern DSP_STATUS DMM_ReserveMemory(struct DMM_OBJECT *hDmmMgr,

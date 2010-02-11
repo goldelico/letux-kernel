@@ -21,7 +21,6 @@
 
 #include <dspbridge/devdefs.h>
 #include <hw_defs.h>
-#include <hw_mbox.h>
 #include <dspbridge/wmdioctl.h>		/* for WMDIOCTL_EXTPROC defn */
 #include <dspbridge/sync.h>
 #include <dspbridge/clk.h>
@@ -209,12 +208,8 @@ static const struct MAP_L4PERIPHERAL L4PeripheralTable[] = {
 #define MBX_PM_MAX_RESOURCES 11
 
 /*  Power Management Commands */
-enum BPWR_ExtClockCmd {
-	BPWR_DisableClock = 0,
-	BPWR_EnableClock,
-	BPWR_DisableAutoIdle,
-	BPWR_EnableAutoIdle
-} ;
+#define BPWR_DisableClock	0
+#define BPWR_EnableClock	1
 
 /* OMAP242x specific resources */
 enum BPWR_ExtClockId {
@@ -270,21 +265,6 @@ static const struct BPWR_Clk_t BPWR_Clks[] = {
 #define INTH_MASK_IT_REG_OFFSET         0x04	/* Mask Interrupt reg offset  */
 
 #define   DSP_MAILBOX1_INT              10
-
-/*
- *  INTH_InterruptKind_t
- *  Identify the kind of interrupt: either FIQ/IRQ
- */
-enum INTH_InterruptKind_t {
-	INTH_IRQ = 0,
-	INTH_FIQ = 1
-} ;
-
-enum INTH_SensitiveEdge_t {
-	FALLING_EDGE_SENSITIVE = 0,
-	LOW_LEVEL_SENSITIVE = 1
-} ;
-
 /*
  *  Bit definition of  Interrupt  Level  Registers
  */
@@ -336,7 +316,6 @@ struct WMD_DEV_CONTEXT {
 	u32 dwDspExtBaseAddr;		/* See the comment above */
 	u32 dwAPIRegBase;		/* API mem map'd registers */
 	void __iomem *dwDSPMmuBase;	/* DSP MMU Mapped registers */
-	void __iomem *dwMailBoxBase;	/* Mail box mapped registers */
 	void __iomem *cmbase;		/* CM mapped registers */
 	void __iomem *sysctrlbase;	/* SysCtrl mapped registers */
 	void __iomem *prmbase;		/* PRM mapped registers	*/
@@ -350,6 +329,8 @@ struct WMD_DEV_CONTEXT {
 	u32 dwSelfLoop;			/* Pointer to the selfloop */
 	u32 dwDSPStartAdd;		/* API Boot vector */
 	u32 dwInternalSize;		/* Internal memory size */
+
+	struct omap_mbox *mbox;		/* Mail box handle*/
 
 	/*
 	 * Processor specific info is set when prog loaded and read from DCD.
@@ -378,6 +359,24 @@ extern DSP_STATUS WMD_TLB_DspVAToMpuPA(struct WMD_DEV_CONTEXT *pDevContext,
 				       IN u32 ulVirtAddr,
 				       OUT u32 *ulPhysAddr,
 				       OUT u32 *sizeTlb);
+
+/*
+ *  ======== sm_interrupt_dsp ========
+ *  Purpose:
+ *      Set interrupt value & send an interrupt to the DSP processor(s).
+ *      This is typicaly used when mailbox interrupt mechanisms allow data
+ *      to be associated with interrupt such as for OMAP's CMD/DATA regs.
+ *  Parameters:
+ *      hDevContext:    Handle to mini-driver defined device info.
+ *      wMbVal:         Value associated with interrupt(e.g. mailbox value).
+ *  Returns:
+ *      DSP_SOK:        Interrupt sent;
+ *      else:           Unable to send interrupt.
+ *  Requires:
+ *  Ensures:
+ */
+       extern DSP_STATUS sm_interrupt_dsp(struct WMD_DEV_CONTEXT*
+						     hDevContext, u16 wMbVal);
 
 #endif				/* _TIOMAP_ */
 

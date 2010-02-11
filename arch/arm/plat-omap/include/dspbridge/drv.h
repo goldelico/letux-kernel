@@ -69,22 +69,18 @@
 #define OMAP_SYSC_BASE 0x48002000
 #define OMAP_SYSC_SIZE 0x1000
 
-#define OMAP_MBOX_BASE 0x48094000
-#define OMAP_MBOX_SIZE 0x1000
-
 #define OMAP_DMMU_BASE 0x5D000000
 #define OMAP_DMMU_SIZE 0x1000
 
 #define OMAP_PRCM_VDD1_DOMAIN 1
 #define OMAP_PRCM_VDD2_DOMAIN 2
 
-#ifndef RES_CLEANUP_DISABLE
 
 /* GPP PROCESS CLEANUP Data structures */
 
 /* New structure (member of process context) abstracts NODE resource info */
 struct NODE_RES_OBJECT {
-	DSP_HNODE       hNode;
+	void *hNode;
 	s32            nodeAllocated; /* Node status */
 	s32            heapAllocated; /* Heap status */
 	s32            streamsAllocated; /* Streams status */
@@ -116,7 +112,7 @@ struct DSPHEAP_RES_OBJECT {
 /* New structure (member of process context) abstracts stream resource info */
 struct STRM_RES_OBJECT {
 	s32                    streamAllocated; /* Stream status */
-	DSP_HSTREAM             hStream;
+	void *hStream;
 	u32                    uNumBufs;
 	u32                    uDir;
 	struct STRM_RES_OBJECT         *next;
@@ -134,21 +130,24 @@ struct PROCESS_CONTEXT{
 	enum GPP_PROC_RES_STATE resState;
 
 	/* Handle to Processor */
-	DSP_HPROCESSOR hProcessor;
+	void *hProcessor;
 
 	/* DSP Node resources */
 	struct NODE_RES_OBJECT *pNodeList;
+	struct mutex node_mutex;
 
 	/* DMM resources */
 	struct DMM_RES_OBJECT *pDMMList;
+	struct mutex dmm_mutex;
 
 	/* DSP Heap resources */
 	struct DSPHEAP_RES_OBJECT *pDSPHEAPList;
 
 	/* Stream resources */
 	struct STRM_RES_OBJECT *pSTRMList;
+	struct mutex strm_mutex;
 } ;
-#endif
+
 
 /*
  *  ======== DRV_Create ========

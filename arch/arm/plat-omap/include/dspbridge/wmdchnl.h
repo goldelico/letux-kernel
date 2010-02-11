@@ -33,7 +33,7 @@
 
 	extern DSP_STATUS WMD_CHNL_Open(OUT struct CHNL_OBJECT **phChnl,
 					struct CHNL_MGR *hChnlMgr,
-					CHNL_MODE uMode,
+					short int uMode,
 					u32 uChnlId,
 					CONST IN OPTIONAL struct CHNL_ATTRS
 					*pAttrs);

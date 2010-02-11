@@ -106,16 +106,14 @@
 
 #define    MAX_PROFILES     16
 
+/* DSP chip type */
+#define DSPTYPE_64	0x99
+
 /* Types defined for 'Bridge API */
 	typedef u32 DSP_STATUS;	/* API return code type         */
 
-	typedef HANDLE DSP_HNODE;	/* Handle to a DSP Node object  */
-	typedef HANDLE DSP_HPROCESSOR;	/* Handle to a Processor object */
-	typedef HANDLE DSP_HSTREAM;	/* Handle to a Stream object    */
 
 	typedef u32 DSP_PROCFAMILY;	/* Processor family             */
-	typedef u32 DSP_PROCTYPE;	/* Processor type (w/in family) */
-	typedef u32 DSP_RTOSTYPE;	/* Type of DSP RTOS             */
 
 /* Handy Macros */
 #define IsValidProcEvent(x) (((x) == 0) || (((x) & (DSP_PROCESSORSTATECHANGE | \
@@ -325,7 +323,7 @@
 		u32 cbStruct;
 		enum DSP_CONNECTTYPE lType;
 		u32 uThisNodeStreamIndex;
-		DSP_HNODE hConnectedNode;
+		void *hConnectedNode;
 		struct DSP_UUID uiConnectedNodeID;
 		u32 uConnectedNodeStreamIndex;
 	} ;
@@ -375,7 +373,7 @@
 		struct DSP_NDBPROPS nbNodeDatabaseProps;
 		u32 uExecutionPriority;
 		enum NODE_STATE nsExecutionState;
-		DSP_HNODE hDeviceOwner;
+		void *hDeviceOwner;
 		u32 uNumberStreams;
 		struct DSP_STREAMCONNECT scStreamConnection[16];
 		u32 uNodeEnv;
@@ -404,13 +402,6 @@
 		u32 cbStruct;
 		u32 uTimeout;
 	} ;
-
-	enum chipTypes {
-		DSPTYPE_55 = 6,
-		IVA_ARM7 = 0x97,
-		DSPTYPE_64 = 0x99
-	};
-
 /*
  * The DSP_PROCESSORINFO structure describes basic capabilities of a
  * DSP processor
@@ -418,12 +409,12 @@
 	struct DSP_PROCESSORINFO {
 		u32 cbStruct;
 		DSP_PROCFAMILY uProcessorFamily;
-		DSP_PROCTYPE uProcessorType;
+		int uProcessorType;
 		u32 uClockRate;
 		u32 ulInternalMemSize;
 		u32 ulExternalMemSize;
 		u32 uProcessorID;
-		DSP_RTOSTYPE tyRunningRTOS;
+		int tyRunningRTOS;
 		s32 nNodeMinPriority;
 		s32 nNodeMaxPriority;
 	} ;

@@ -70,7 +70,7 @@ struct RMM_Header {
  *  Keeps track of memory occupied by overlay section.
  */
 struct RMM_OvlySect {
-	struct LST_ELEM listElem;
+	struct list_head listElem;
 	u32 addr;		/* Start of memory section */
 	u32 size;		/* Length (target MAUs) of section */
 	s32 page;		/* Memory page */
@@ -147,7 +147,7 @@ DSP_STATUS RMM_alloc(struct RMM_TargetObj *target, u32 segid, u32 size,
 		}
 		prevSect = sect;
 		sect = (struct RMM_OvlySect *)LST_Next(target->ovlyList,
-			(struct LST_ELEM *)sect);
+			(struct list_head *)sect);
 	}
 	if (DSP_SUCCEEDED(status)) {
 		/* No overlap - allocate list element for new section. */
@@ -155,19 +155,19 @@ DSP_STATUS RMM_alloc(struct RMM_TargetObj *target, u32 segid, u32 size,
 		if (newSect == NULL) {
 			status = DSP_EMEMORY;
 		} else {
-			LST_InitElem((struct LST_ELEM *)newSect);
+			LST_InitElem((struct list_head *)newSect);
 			newSect->addr = addr;
 			newSect->size = size;
 			newSect->page = segid;
 			if (sect == NULL) {
 				/* Put new section at the end of the list */
 				LST_PutTail(target->ovlyList,
-					   (struct LST_ELEM *)newSect);
+					   (struct list_head *)newSect);
 			} else {
 				/* Put new section just before sect */
 				LST_InsertBefore(target->ovlyList,
-						(struct LST_ELEM *)newSect,
-						(struct LST_ELEM *)sect);
+						(struct list_head *)newSect,
+						(struct list_head *)sect);
 			}
 		}
 	}
@@ -254,11 +254,14 @@ DSP_STATUS RMM_create(struct RMM_TargetObj **pTarget,
 func_cont:
 	/* Initialize overlay memory list */
 	if (DSP_SUCCEEDED(status)) {
-		target->ovlyList = LST_Create();
+		target->ovlyList = MEM_Calloc(sizeof(struct LST_LIST),
+			MEM_NONPAGED);
 		if (target->ovlyList == NULL) {
 			GT_0trace(RMM_debugMask, GT_6CLASS,
 				 "RMM_create: Memory allocation failed\n");
 			status = DSP_EMEMORY;
+		} else {
+			INIT_LIST_HEAD(&target->ovlyList->head);
 		}
 	}
 
@@ -301,7 +304,7 @@ void RMM_delete(struct RMM_TargetObj *target)
 			MEM_Free(pSect);
 		}
 		DBC_Assert(LST_IsEmpty(target->ovlyList));
-		LST_Delete(target->ovlyList);
+		MEM_Free(target->ovlyList);
 	}
 
 	if (target->freeList != NULL) {
@@ -331,9 +334,6 @@ void RMM_exit(void)
 
 	GT_1trace(RMM_debugMask, GT_5CLASS, "RMM_exit() ref count: 0x%x\n",
 		 cRefs);
-
-	if (cRefs == 0)
-		MEM_Exit();
 
 	DBC_Ensure(cRefs >= 0);
 }
@@ -374,12 +374,12 @@ bool RMM_free(struct RMM_TargetObj *target, u32 segid, u32 addr, u32 size,
 				DBC_Assert(size == sect->size);
 				/* Remove from list */
 				LST_RemoveElem(target->ovlyList,
-					      (struct LST_ELEM *)sect);
+					      (struct list_head *)sect);
 				MEM_Free(sect);
 				break;
 			}
 			sect = (struct RMM_OvlySect *)LST_Next(target->ovlyList,
-			       (struct LST_ELEM *)sect);
+			       (struct list_head *)sect);
 		}
 		if (sect == NULL)
 			retVal = false;
@@ -393,31 +393,21 @@ bool RMM_free(struct RMM_TargetObj *target, u32 segid, u32 addr, u32 size,
  */
 bool RMM_init(void)
 {
-	bool retVal = true;
-
 	DBC_Require(cRefs >= 0);
 
 	if (cRefs == 0) {
 		DBC_Assert(!RMM_debugMask.flags);
 		GT_create(&RMM_debugMask, "RM");	/* "RM" for RMm */
 
-		retVal = MEM_Init();
-
-		if (!retVal)
-			MEM_Exit();
-
 	}
 
-	if (retVal)
-		cRefs++;
+	cRefs++;
 
 	GT_1trace(RMM_debugMask, GT_5CLASS,
 		 "RMM_init(), ref count:  0x%x\n",
 		 cRefs);
 
-	DBC_Ensure((retVal && (cRefs > 0)) || (!retVal && (cRefs >= 0)));
-
-	return retVal;
+	return true;
 }
 
 /*

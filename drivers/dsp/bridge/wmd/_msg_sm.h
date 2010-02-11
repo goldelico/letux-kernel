@@ -106,7 +106,7 @@ struct MSG_MGR {
  *  The MSG_QUEUE's hSynEvent gets posted when a message is ready.
  */
 struct MSG_QUEUE {
-	struct LST_ELEM listElem;
+	struct list_head listElem;
 	u32 dwSignature;
 	struct MSG_MGR *hMsgMgr;
 	u32 uMaxMsgs;	/* Node message depth */
@@ -135,7 +135,7 @@ struct MSG_DSPMSG {
  *  ======== MSG_FRAME ========
  */
 struct MSG_FRAME {
-	struct LST_ELEM listElem;
+	struct list_head listElem;
 	struct MSG_DSPMSG msgData;
 } ;
 

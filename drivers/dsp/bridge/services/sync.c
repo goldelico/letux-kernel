@@ -329,7 +329,7 @@ DSP_STATUS SYNC_WaitOnMultipleEvents(struct SYNC_OBJECT **hSyncEvents,
 	if (Wp->state != wo_signalled && dwTimeout > 0) {
 		struct timer_list timeout;
 		if (dwTimeout != SYNC_INFINITE) {
-			init_timer(&timeout);
+			init_timer_on_stack(&timeout);
 			timeout.function = timeout_callback;
 			timeout.data = (unsigned long)Wp;
 			timeout.expires = jiffies + dwTimeout * HZ / 1000;

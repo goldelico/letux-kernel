@@ -22,8 +22,7 @@
 #include <hw_prcm.h>
 
 static HW_STATUS HW_RST_WriteVal(const void __iomem *baseAddress,
-				    enum HW_RstModule_t r,
-				    enum HW_SetClear_t val);
+				    enum HW_RstModule_t r, s8 val);
 
 HW_STATUS HW_RST_Reset(const void __iomem *baseAddress, enum HW_RstModule_t r)
 {
@@ -36,8 +35,7 @@ HW_STATUS HW_RST_UnReset(const void __iomem *baseAddress, enum HW_RstModule_t r)
 }
 
 static HW_STATUS HW_RST_WriteVal(const void __iomem *baseAddress,
-				    enum HW_RstModule_t r,
-				    enum HW_SetClear_t val)
+				    enum HW_RstModule_t r, s8 val)
 {
 	HW_STATUS status = RET_OK;
 

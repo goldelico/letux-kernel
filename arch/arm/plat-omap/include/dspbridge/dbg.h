@@ -80,9 +80,9 @@
 	extern DSP_STATUS DBG_Trace(IN u8 bLevel, IN char *pstrFormat, ...);
 #else
 
-#define DBG_Exit(void)
+#define DBG_Exit(void) do {} while (0)
 #define DBG_Init(void) true
-#define DBG_Trace(bLevel, pstrFormat, args...)
+#define DBG_Trace(bLevel, pstrFormat, args...) do {} while (0)
 
 #endif	     /* (defined(CONFIG_BRIDGE_DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE */
 

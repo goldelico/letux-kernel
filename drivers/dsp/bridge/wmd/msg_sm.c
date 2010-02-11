@@ -77,18 +77,25 @@ DSP_STATUS WMD_MSG_Create(OUT struct MSG_MGR **phMsgMgr,
 		pMsgMgr->onExit = msgCallback;
 		pMsgMgr->hIOMgr = hIOMgr;
 		/* List of MSG_QUEUEs */
-		pMsgMgr->queueList = LST_Create();
+		pMsgMgr->queueList = MEM_Calloc(sizeof(struct LST_LIST),
+			MEM_NONPAGED);
 		 /*  Queues of message frames for messages to the DSP. Message
 		  * frames will only be added to the free queue when a
 		  * MSG_QUEUE object is created.  */
-		pMsgMgr->msgFreeList = LST_Create();
-		pMsgMgr->msgUsedList = LST_Create();
+		pMsgMgr->msgFreeList = MEM_Calloc(sizeof(struct LST_LIST),
+					MEM_NONPAGED);
+		pMsgMgr->msgUsedList = MEM_Calloc(sizeof(struct LST_LIST),
+					MEM_NONPAGED);
 		if (pMsgMgr->queueList == NULL ||
 		    pMsgMgr->msgFreeList == NULL ||
-		    pMsgMgr->msgUsedList == NULL)
+		    pMsgMgr->msgUsedList == NULL) {
 			status = DSP_EMEMORY;
-		else
+		} else {
+			INIT_LIST_HEAD(&pMsgMgr->queueList->head);
+			INIT_LIST_HEAD(&pMsgMgr->msgFreeList->head);
+			INIT_LIST_HEAD(&pMsgMgr->msgUsedList->head);
 			status = SYNC_InitializeDPCCS(&pMsgMgr->hSyncCS);
+		}
 
 		 /*  Create an event to be used by WMD_MSG_Put() in waiting
 		 *  for an available free frame from the message manager.  */
@@ -122,8 +129,8 @@ DSP_STATUS WMD_MSG_CreateQueue(struct MSG_MGR *hMsgMgr,
 	DSP_STATUS status = DSP_SOK;
 
 	if (!MEM_IsValidHandle(hMsgMgr, MSGMGR_SIGNATURE) ||
-	   phMsgQueue == NULL) {
-		status = DSP_EMEMORY;
+	   phMsgQueue == NULL || !hMsgMgr->msgFreeList) {
+		status = DSP_EHANDLE;
 		goto func_end;
 	}
 
@@ -134,16 +141,20 @@ DSP_STATUS WMD_MSG_CreateQueue(struct MSG_MGR *hMsgMgr,
 		status = DSP_EMEMORY;
 		goto func_end;
 	}
-	LST_InitElem((struct LST_ELEM *) pMsgQ);
+	LST_InitElem((struct list_head *)pMsgQ);
 	pMsgQ->uMaxMsgs = uMaxMsgs;
 	pMsgQ->hMsgMgr = hMsgMgr;
 	pMsgQ->hArg = hArg;	/* Node handle */
 	pMsgQ->dwId = dwId;	/* Node env (not valid yet) */
 	/* Queues of Message frames for messages from the DSP */
-	pMsgQ->msgFreeList = LST_Create();
-	pMsgQ->msgUsedList = LST_Create();
+	pMsgQ->msgFreeList = MEM_Calloc(sizeof(struct LST_LIST), MEM_NONPAGED);
+	pMsgQ->msgUsedList = MEM_Calloc(sizeof(struct LST_LIST), MEM_NONPAGED);
 	if (pMsgQ->msgFreeList == NULL || pMsgQ->msgUsedList == NULL)
 		status = DSP_EMEMORY;
+	else {
+		INIT_LIST_HEAD(&pMsgQ->msgFreeList->head);
+		INIT_LIST_HEAD(&pMsgQ->msgUsedList->head);
+	}
 
 	 /*  Create event that will be signalled when a message from
 	 *  the DSP is available.  */
@@ -166,10 +177,6 @@ DSP_STATUS WMD_MSG_CreateQueue(struct MSG_MGR *hMsgMgr,
 		status = SYNC_OpenEvent(&pMsgQ->hSyncDoneAck, NULL);
 
 	if (DSP_SUCCEEDED(status)) {
-		if (!hMsgMgr->msgFreeList) {
-			status = DSP_EHANDLE;
-			goto func_end;
-		}
 		/* Enter critical section */
 		(void)SYNC_EnterCS(hMsgMgr->hSyncCS);
 		/* Initialize message frames and put in appropriate queues */
@@ -186,7 +193,7 @@ DSP_STATUS WMD_MSG_CreateQueue(struct MSG_MGR *hMsgMgr,
 			DeleteMsgQueue(pMsgQ, uNumAllocated);
 		} else {
 			LST_PutTail(hMsgMgr->queueList,
-				   (struct LST_ELEM *)pMsgQ);
+				   (struct list_head *)pMsgQ);
 			*phMsgQueue = pMsgQ;
 			/* Signal that free frames are now available */
 			if (!LST_IsEmpty(hMsgMgr->msgFreeList))
@@ -238,7 +245,7 @@ void WMD_MSG_DeleteQueue(struct MSG_QUEUE *hMsgQueue)
 	}
 	/* Remove message queue from hMsgMgr->queueList */
 	(void)SYNC_EnterCS(hMsgMgr->hSyncCS);
-	LST_RemoveElem(hMsgMgr->queueList, (struct LST_ELEM *)hMsgQueue);
+	LST_RemoveElem(hMsgMgr->queueList, (struct list_head *)hMsgQueue);
 	/* Free the message queue object */
 	DeleteMsgQueue(hMsgQueue, hMsgQueue->uMaxMsgs);
 	if (!hMsgMgr->msgFreeList)
@@ -285,7 +292,7 @@ DSP_STATUS WMD_MSG_Get(struct MSG_QUEUE *hMsgQueue,
 		if (pMsgFrame != NULL) {
 			*pMsg = pMsgFrame->msgData.msg;
 			LST_PutTail(hMsgQueue->msgFreeList,
-				   (struct LST_ELEM *)pMsgFrame);
+				   (struct list_head *)pMsgFrame);
 			if (LST_IsEmpty(hMsgQueue->msgUsedList))
 				SYNC_ResetEvent(hMsgQueue->hSyncEvent);
 			else {
@@ -335,7 +342,7 @@ DSP_STATUS WMD_MSG_Get(struct MSG_QUEUE *hMsgQueue,
 				if (pMsgFrame != NULL) {
 					*pMsg = pMsgFrame->msgData.msg;
 					LST_PutTail(hMsgQueue->msgFreeList,
-					(struct LST_ELEM *)pMsgFrame);
+					(struct list_head *)pMsgFrame);
 				}
 			}
 			hMsgQueue->refCount--;
@@ -387,8 +394,8 @@ DSP_STATUS WMD_MSG_Put(struct MSG_QUEUE *hMsgQueue,
 		if (pMsgFrame != NULL) {
 			pMsgFrame->msgData.msg = *pMsg;
 			pMsgFrame->msgData.dwId = hMsgQueue->dwId;
-			LST_PutTail(hMsgMgr->msgUsedList, (struct LST_ELEM *)
-				   pMsgFrame);
+			LST_PutTail(hMsgMgr->msgUsedList,
+					(struct list_head *)pMsgFrame);
 			hMsgMgr->uMsgsPending++;
 			fPutMsg = true;
 		}
@@ -442,7 +449,7 @@ DSP_STATUS WMD_MSG_Put(struct MSG_QUEUE *hMsgQueue,
 				pMsgFrame->msgData.msg = *pMsg;
 				pMsgFrame->msgData.dwId = hMsgQueue->dwId;
 				LST_PutTail(hMsgMgr->msgUsedList,
-					   (struct LST_ELEM *)pMsgFrame);
+					   (struct list_head *)pMsgFrame);
 				hMsgMgr->uMsgsPending++;
 				/* Schedule a DPC, to do the actual
 				 * data transfer: */
@@ -527,8 +534,8 @@ static DSP_STATUS AddNewMsg(struct LST_LIST *msgList)
 	pMsg = (struct MSG_FRAME *)MEM_Calloc(sizeof(struct MSG_FRAME),
 		MEM_PAGED);
 	if (pMsg != NULL) {
-		LST_InitElem((struct LST_ELEM *) pMsg);
-		LST_PutTail(msgList, (struct LST_ELEM *) pMsg);
+		LST_InitElem((struct list_head *)pMsg);
+		LST_PutTail(msgList, (struct list_head *)pMsg);
 	} else {
 		status = DSP_EMEMORY;
 	}
@@ -546,7 +553,7 @@ static void DeleteMsgMgr(struct MSG_MGR *hMsgMgr)
 
 	if (hMsgMgr->queueList) {
 		if (LST_IsEmpty(hMsgMgr->queueList)) {
-			LST_Delete(hMsgMgr->queueList);
+			MEM_Free(hMsgMgr->queueList);
 			hMsgMgr->queueList = NULL;
 		}
 	}
@@ -644,7 +651,7 @@ static void FreeMsgList(struct LST_LIST *msgList)
 
 	DBC_Assert(LST_IsEmpty(msgList));
 
-	LST_Delete(msgList);
+	MEM_Free(msgList);
 func_end:
 	return;
 }

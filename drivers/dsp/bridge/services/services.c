@@ -29,7 +29,6 @@
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
 #include <dspbridge/dbg.h>
-#include <dspbridge/list.h>
 #include <dspbridge/mem.h>
 #include <dspbridge/ntfy.h>
 #include <dspbridge/reg.h>
@@ -44,8 +43,6 @@
 static struct GT_Mask SERVICES_debugMask = { NULL, NULL };  /* GT trace var. */
 #endif
 
-static u32 cRefs;		/* SERVICES module reference count */
-
 /*
  *  ======== SERVICES_Exit ========
  *  Purpose:
@@ -54,27 +51,16 @@ static u32 cRefs;		/* SERVICES module reference count */
  */
 void SERVICES_Exit(void)
 {
-	DBC_Require(cRefs > 0);
+	/* Uninitialize all SERVICES modules here */
+	NTFY_Exit();
+	SYNC_Exit();
+	CLK_Exit();
+	REG_Exit();
+	DBG_Exit();
+	CFG_Exit();
+	MEM_Exit();
 
-	GT_1trace(SERVICES_debugMask, GT_5CLASS, "SERVICES_Exit: cRefs 0x%x\n",
-		 cRefs);
-
-	cRefs--;
-	if (cRefs == 0) {
-		/* Uninitialize all SERVICES modules here */
-		NTFY_Exit();
-		SYNC_Exit();
-		CLK_Exit();
-		REG_Exit();
-		LST_Exit();
-		DBG_Exit();
-		CFG_Exit();
-		MEM_Exit();
-
-		GT_exit();
-	}
-
-	DBC_Ensure(cRefs >= 0);
+	GT_exit();
 }
 
 /*
@@ -85,67 +71,49 @@ void SERVICES_Exit(void)
 bool SERVICES_Init(void)
 {
 	bool fInit = true;
-	bool fCFG, fDBG, fLST, fMEM;
+	bool fCFG, fDBG, fMEM;
 	bool fREG, fSYNC, fCLK, fNTFY;
 
-	DBC_Require(cRefs >= 0);
+	GT_init();
+	GT_create(&SERVICES_debugMask, "OS");	/* OS for OSal */
 
-	if (cRefs == 0) {
-
-		GT_init();
-		GT_create(&SERVICES_debugMask, "OS");	/* OS for OSal */
-
-		GT_0trace(SERVICES_debugMask, GT_ENTER,
+	GT_0trace(SERVICES_debugMask, GT_ENTER,
 			 "SERVICES_Init: entered\n");
 
-		/* Perform required initialization of SERVICES modules. */
-		fMEM = MEM_Init();
-		fSYNC = SYNC_Init();
-		fREG = REG_Init();
-		fCFG = CFG_Init();
-		fDBG = DBG_Init();
-		fLST = LST_Init();
-		fCLK  = CLK_Init();
-		fNTFY = NTFY_Init();
+	/* Perform required initialization of SERVICES modules. */
+	fMEM = MEM_Init();
+	fSYNC = SYNC_Init();
+	fREG = REG_Init();
+	fCFG = CFG_Init();
+	fDBG = DBG_Init();
+	fCLK  = CLK_Init();
+	fNTFY = NTFY_Init();
 
-		fInit = fCFG && fDBG &&
-			fLST && fMEM && fREG && fSYNC && fCLK;
+	fInit = fCFG && fDBG && fMEM && fREG && fSYNC && fCLK;
 
-		if (!fInit) {
-			if (fNTFY)
-				NTFY_Exit();
+	if (!fInit) {
+		if (fNTFY)
+			NTFY_Exit();
 
-			if (fSYNC)
-				SYNC_Exit();
+		if (fSYNC)
+			SYNC_Exit();
 
-			if (fCLK)
-				CLK_Exit();
+		if (fCLK)
+			CLK_Exit();
 
-			if (fREG)
-				REG_Exit();
+		if (fREG)
+			REG_Exit();
 
-			if (fLST)
-				LST_Exit();
+		if (fDBG)
+			DBG_Exit();
 
-			if (fDBG)
-				DBG_Exit();
+		if (fCFG)
+			CFG_Exit();
 
-			if (fCFG)
-				CFG_Exit();
+		if (fMEM)
+			MEM_Exit();
 
-			if (fMEM)
-				MEM_Exit();
-
-		}
 	}
-
-	if (fInit)
-		cRefs++;
-
-	GT_1trace(SERVICES_debugMask, GT_5CLASS, "SERVICES_Init: cRefs 0x%x\n",
-		 cRefs);
-
-	DBC_Ensure((fInit && (cRefs > 0)) || (!fInit && (cRefs >= 0)));
 
 	return fInit;
 }

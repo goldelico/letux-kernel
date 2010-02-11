@@ -317,7 +317,6 @@ void DBLL_exit(void)
 		  cRefs);
 
 	if (cRefs == 0) {
-		MEM_Exit();
 		GH_exit();
 #if GT_TRACE
 		DBLL_debugMask.flags = NULL;
@@ -468,30 +467,20 @@ DSP_STATUS DBLL_getSect(struct DBLL_LibraryObj *lib, char *name, u32 *pAddr,
  */
 bool DBLL_init(void)
 {
-	bool retVal = true;
-
 	DBC_Require(cRefs >= 0);
 
 	if (cRefs == 0) {
 		DBC_Assert(!DBLL_debugMask.flags);
 		GT_create(&DBLL_debugMask, "DL"); 	/* "DL" for dbDL */
 		GH_init();
-		retVal = MEM_Init();
-		if (!retVal)
-			MEM_Exit();
-
 	}
 
-	if (retVal)
-		cRefs++;
-
+	cRefs++;
 
 	GT_1trace(DBLL_debugMask, GT_5CLASS, "DBLL_init(), ref count:  0x%x\n",
 		 cRefs);
 
-	DBC_Ensure((retVal && (cRefs > 0)) || (!retVal && (cRefs >= 0)));
-
-	return retVal;
+	return true;
 }
 
 /*
@@ -1347,13 +1336,14 @@ static int rmmAlloc(struct Dynamic_Loader_Allocate *this,
 				 req, segId);
 		}
 	}
+func_cont:
 	MEM_Free(szSectName);
 	szSectName = NULL;
 	MEM_Free(szLastToken);
 	szLastToken = NULL;
 	MEM_Free(szSecLastToken);
 	szSecLastToken = NULL;
-func_cont:
+
 	if (memType == DBLL_CODE)
 		allocSize = info->size + GEM_L1P_PREFETCH_SIZE;
 	else

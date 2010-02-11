@@ -60,7 +60,6 @@
 /*  ----------------------------------- This */
 #include <drv_interface.h>
 
-#ifndef RES_CLEANUP_DISABLE
 #include <dspbridge/cfg.h>
 #include <dspbridge/resourcecleanup.h>
 #include <dspbridge/chnl.h>
@@ -68,7 +67,6 @@
 #include <dspbridge/dev.h>
 #include <dspbridge/drvdefs.h>
 #include <dspbridge/drv.h>
-#endif
 
 #include <mach/omap-pm.h>
 #include <mach-omap2/omap3-opp.h>
@@ -483,18 +481,25 @@ static void __exit bridge_exit(void)
 static int bridge_open(struct inode *ip, struct file *filp)
 {
 	int status = 0;
-#ifndef RES_CLEANUP_DISABLE
-	struct PROCESS_CONTEXT *pPctxt = NULL;
+	struct PROCESS_CONTEXT *pr_ctxt = NULL;
 
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_open\n");
 
-	pPctxt = MEM_Calloc(sizeof(struct PROCESS_CONTEXT), MEM_PAGED);
-
-	if (pPctxt != NULL) {
-		DRV_ProcUpdatestate(pPctxt, PROC_RES_ALLOCATED);
-		filp->private_data = pPctxt;
+	/*
+	 * Allocate a new process context and insert it into global
+	 * process context list.
+	 */
+	pr_ctxt = MEM_Calloc(sizeof(struct PROCESS_CONTEXT), MEM_PAGED);
+	if (pr_ctxt) {
+		pr_ctxt->resState = PROC_RES_ALLOCATED;
+		mutex_init(&pr_ctxt->dmm_mutex);
+		mutex_init(&pr_ctxt->node_mutex);
+		mutex_init(&pr_ctxt->strm_mutex);
+	} else {
+		status = -ENOMEM;
 	}
-#endif
+
+		filp->private_data = pr_ctxt;
 
 	GT_0trace(driverTrace, GT_ENTER, " <- driver_open\n");
 	return status;
@@ -505,10 +510,12 @@ static int bridge_open(struct inode *ip, struct file *filp)
 static int bridge_release(struct inode *ip, struct file *filp)
 {
 	struct PROCESS_CONTEXT *pr_ctxt;
-
+	int status;
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_release\n");
-
-
+	if (!filp->private_data) {
+		status = -EIO;
+		goto err;
+	}
 	pr_ctxt = filp->private_data;
 
 	if (pr_ctxt) {
@@ -519,8 +526,9 @@ static int bridge_release(struct inode *ip, struct file *filp)
 		MEM_Free(pr_ctxt);
 		filp->private_data = NULL;
 	}
+err:
 	GT_0trace(driverTrace, GT_ENTER, " <- driver_release\n");
-	return 0;
+	return status;
 }
 
 /* This function provides IO interface to the bridge driver. */
@@ -542,11 +550,15 @@ static long bridge_ioctl(struct file *filp, unsigned int code,
 
 	/* Deduct one for the CMD_BASE. */
 	code = (code - 1);
+	if (!filp->private_data) {
+		status = -EIO;
+		goto err;
+	}
 
 	status = copy_from_user(&pBufIn, (union Trapped_Args *)args,
 				sizeof(union Trapped_Args));
 
-	if (status >= 0) {
+	if (!status) {
 		status = WCD_CallDevIOCtl(code, &pBufIn, &retval,
 				filp->private_data);
 
@@ -560,8 +572,8 @@ static long bridge_ioctl(struct file *filp, unsigned int code,
 
 	}
 
+err:
 	GT_0trace(driverTrace, GT_ENTER, " <- driver_ioctl\n");
-
 	return status;
 }
 
@@ -591,22 +603,18 @@ static int bridge_mmap(struct file *filp, struct vm_area_struct *vma)
 	return status;
 }
 
-#ifndef RES_CLEANUP_DISABLE
 /* To remove all process resources before removing the process from the
  * process context list*/
 DSP_STATUS DRV_RemoveAllResources(HANDLE hPCtxt)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	if (pCtxt != NULL) {
-		DRV_RemoveAllSTRMResElements(pCtxt);
-		DRV_RemoveAllNodeResElements(pCtxt);
-		DRV_RemoveAllDMMResElements(pCtxt);
-		DRV_ProcUpdatestate(pCtxt, PROC_RES_FREED);
-	}
+	DRV_RemoveAllSTRMResElements(pCtxt);
+	DRV_RemoveAllNodeResElements(pCtxt);
+	DRV_RemoveAllDMMResElements(pCtxt);
+	pCtxt->resState = PROC_RES_FREED;
 	return status;
 }
-#endif
 
 /*
  * sysfs

@@ -17,9 +17,6 @@
 #ifndef _REGSUP_H_
 #define _REGSUP_H_
 
-#define BRIDGE_MAX_NAME_SIZE                     MAXREGPATHLENGTH
-#define BRIDGE_MAX_NUM_REG_ENTRIES               52
-
 /*  Init function. MUST be called BEFORE any calls are  */
 /*  made into this psuedo-registry!!!  Returns TRUE/FALSE for SUCCESS/ERROR  */
 extern bool regsupInit(void);

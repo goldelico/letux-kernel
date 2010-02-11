@@ -39,15 +39,9 @@
  *  For typical platforms:
  *      converted Address = PaDSP + ( cFactor * addressToConvert).
  */
-	enum CMM_CNVTTYPE {
-		CMM_SUBFROMDSPPA = -1,
-		/* PreOMAP is special case: not simple offset */
-		CMM_POMAPEMIF2DSPBUS = 0,
-		CMM_ADDTODSPPA = 1
-	} ;
+#define CMM_SUBFROMDSPPA	-1
+#define CMM_ADDTODSPPA		1
 
-#define CMM_DEFLTDSPADDROFFSET  0
-#define CMM_DEFLTCONVFACTOR     CMM_POMAPEMIF2DSPBUS /* PreOMAP DSPBUS<->EMIF */
 #define CMM_ALLSEGMENTS         0xFFFFFF	/* All SegIds */
 #define CMM_MAXGPPSEGS          1	/* Maximum # of SM segs */
 
@@ -103,14 +97,6 @@
 		CMM_VA2DSPPA = 2,	/* Va to DSP Pa  */
 		CMM_PA2DSPPA = 3,	/* GPP Pa to DSP Pa */
 		CMM_DSPPA2PA = 4,	/* DSP Pa to GPP Pa */
-	} ;
-
-/*
- *  Used to "map" between device process virt addr and dsp addr.
- */
-	enum CMM_KERNMAPTYPE {
-		CMM_KERNVA2DSP = 0, /* Device process context to dsp address. */
-		CMM_DSP2KERNVA = 1, /* Dsp address to device process context. */
 	} ;
 
 	struct CMM_OBJECT;

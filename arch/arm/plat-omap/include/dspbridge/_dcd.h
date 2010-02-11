@@ -96,11 +96,8 @@
 	extern u32 MGRWRAP_WaitForBridgeEvents(union Trapped_Args *args,
 			void *pr_ctxt);
 
-#ifndef RES_CLEANUP_DISABLE
 	extern u32 MGRWRAP_GetProcessResourcesInfo(union Trapped_Args *args,
 			void *pr_ctxt);
-#endif
-
 
 /* CPRC (Processor) wrapper Functions */
 	extern u32 PROCWRAP_Attach(union Trapped_Args *args, void *pr_ctxt);

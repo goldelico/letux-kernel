@@ -45,6 +45,11 @@
 
 #define MAXOPPS 16
 
+/* Shared memory config options */
+#define SHM_CURROPP	0	/* Set current OPP in SHM */
+#define SHM_OPPINFO	1	/* Set dsp voltage and freq table values */
+#define SHM_GETOPP	2	/* Get opp requested by DSP */
+
 struct oppTableEntry {
     u32 voltage;
     u32 frequency;
@@ -71,12 +76,6 @@ struct loadMonStruct {
     u32 predDspLoad;
     u32 predDspFreq;
 };
-
-	enum SHM_DESCTYPE {
-		SHM_CURROPP = 0,
-		SHM_OPPINFO = 1,
-		SHM_GETOPP = 2,		/* Get DSP requested OPP info */
-	} ;
 
 /* Structure in shared between DSP and PC for communication.*/
 	struct SHM {
@@ -164,7 +163,7 @@ struct loadMonStruct {
 
 /* I/O Request/completion packet: */
 	struct CHNL_IRP {
-		struct LST_ELEM link;	/* Link to next CHIRP in queue. */
+		struct list_head link;	/* Link to next CHIRP in queue. */
 		/* Buffer to be filled/emptied. (User)   */
 		u8 *pHostUserBuf;
 		/* Buffer to be filled/emptied. (System) */

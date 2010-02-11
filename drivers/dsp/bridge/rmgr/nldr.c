@@ -478,17 +478,12 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 	MEM_AllocObject(pNldr, struct NLDR_OBJECT, NLDR_SIGNATURE);
 	if (pNldr) {
 		pNldr->hDevObject = hDevObject;
-		/* warning, lazy status checking alert! */
 		status = DEV_GetCodMgr(hDevObject, &hCodMgr);
-		DBC_Assert(DSP_SUCCEEDED(status));
-		status = COD_GetLoader(hCodMgr, &pNldr->dbll);
-		DBC_Assert(DSP_SUCCEEDED(status));
-		status = COD_GetBaseLib(hCodMgr, &pNldr->baseLib);
-		DBC_Assert(DSP_SUCCEEDED(status));
-		status = COD_GetBaseName(hCodMgr, szZLFile, COD_MAXPATHLENGTH);
-		DBC_Assert(DSP_SUCCEEDED(status));
-		status = DSP_SOK;
-		/* end lazy status checking */
+		if (hCodMgr) {
+			COD_GetLoader(hCodMgr, &pNldr->dbll);
+			COD_GetBaseLib(hCodMgr, &pNldr->baseLib);
+			COD_GetBaseName(hCodMgr, szZLFile, COD_MAXPATHLENGTH);
+		}
 		pNldr->usDSPMauSize = pAttrs->usDSPMauSize;
 		pNldr->usDSPWordSize = pAttrs->usDSPWordSize;
 		pNldr->dbllFxns = dbllFxns;

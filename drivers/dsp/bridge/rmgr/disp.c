@@ -133,7 +133,7 @@ DSP_STATUS DISP_Create(OUT struct DISP_OBJECT **phDispObject,
 	if (DSP_SUCCEEDED(status)) {
 		status = DEV_GetChnlMgr(hDevObject, &(pDisp->hChnlMgr));
 		if (DSP_SUCCEEDED(status)) {
-			(void) DEV_GetIntfFxns(hDevObject, &pIntfFxns);
+			status = DEV_GetIntfFxns(hDevObject, &pIntfFxns);
 			pDisp->pIntfFxns = pIntfFxns;
 		} else {
 			GT_1trace(DISP_DebugMask, GT_6CLASS,

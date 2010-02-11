@@ -286,7 +286,7 @@ do {					\
  *  Ensures:
  *      - pBaseAddr no longer points to a valid linear address.
  */
-#define MEM_UnmapLinearAddress(pBaseAddr)
+#define MEM_UnmapLinearAddress(pBaseAddr) {}
 
 /*
  *  ======== MEM_ExtPhysPoolInit ========

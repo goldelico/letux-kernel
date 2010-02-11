@@ -44,10 +44,8 @@
 /*  ----------------------------------- This */
 #include <dspbridge/strm.h>
 
-#ifndef RES_CLEANUP_DISABLE
 #include <dspbridge/cfg.h>
 #include <dspbridge/resourcecleanup.h>
-#endif
 
 /*  ----------------------------------- Defines, Data Structures, Typedefs */
 #define STRM_SIGNATURE      0x4d525453	/* "MRTS" */
@@ -114,25 +112,20 @@ DSP_STATUS STRM_AllocateBuffer(struct STRM_OBJECT *hStrm, u32 uSize,
 	DSP_STATUS status = DSP_SOK;
 	u32 uAllocated = 0;
 	u32 i;
-#ifndef RES_CLEANUP_DISABLE
+
 	HANDLE hSTRMRes;
-#endif
+
 	DBC_Require(cRefs > 0);
 	DBC_Require(apBuffer != NULL);
 
 	GT_4trace(STRM_debugMask, GT_ENTER, "STRM_AllocateBuffer: hStrm: 0x%x\t"
 		 "uSize: 0x%x\tapBuffer: 0x%x\tuNumBufs: 0x%x\n",
 		 hStrm, uSize, apBuffer, uNumBufs);
-	if (MEM_IsValidHandle(hStrm, STRM_SIGNATURE)) {
-		/*
-		 * Allocate from segment specified at time of stream open.
-		 */
-		if (uSize == 0)
-			status = DSP_ESIZE;
-
-	} else {
-		status = DSP_EHANDLE;
-	}
+	/*
+	 * Allocate from segment specified at time of stream open.
+	 */
+	if (uSize == 0)
+		status = DSP_ESIZE;
 
 	if (DSP_FAILED(status))
 		goto func_end;
@@ -152,14 +145,13 @@ DSP_STATUS STRM_AllocateBuffer(struct STRM_OBJECT *hStrm, u32 uSize,
 	if (DSP_FAILED(status))
 		STRM_FreeBuffer(hStrm, apBuffer, uAllocated, pr_ctxt);
 
-#ifndef RES_CLEANUP_DISABLE
 	if (DSP_FAILED(status))
 		goto func_end;
 
 	if (DRV_GetSTRMResElement(hStrm, &hSTRMRes, pr_ctxt) !=
 			DSP_ENOTFOUND)
 		DRV_ProcUpdateSTRMRes(uNumBufs, hSTRMRes);
-#endif
+
 func_end:
 	return status;
 }
@@ -176,29 +168,24 @@ DSP_STATUS STRM_Close(struct STRM_OBJECT *hStrm,
 	struct CHNL_INFO chnlInfo;
 	DSP_STATUS status = DSP_SOK;
 
-#ifndef RES_CLEANUP_DISABLE
-    HANDLE	      hSTRMRes;
-#endif
+	HANDLE	      hSTRMRes;
 
 	DBC_Require(cRefs > 0);
 
 	GT_1trace(STRM_debugMask, GT_ENTER, "STRM_Close: hStrm: 0x%x\n", hStrm);
 
-	if (!MEM_IsValidHandle(hStrm, STRM_SIGNATURE)) {
-		status = DSP_EHANDLE;
-	} else {
-		/* Have all buffers been reclaimed? If not, return
-		 * DSP_EPENDING */
-		pIntfFxns = hStrm->hStrmMgr->pIntfFxns;
-		status = (*pIntfFxns->pfnChnlGetInfo) (hStrm->hChnl, &chnlInfo);
-		DBC_Assert(DSP_SUCCEEDED(status));
 
-		if (chnlInfo.cIOCs > 0 || chnlInfo.cIOReqs > 0)
-			status = DSP_EPENDING;
-		else
-			status = DeleteStrm(hStrm);
-	}
-#ifndef RES_CLEANUP_DISABLE
+	/* Have all buffers been reclaimed? If not, return
+	 * DSP_EPENDING */
+	pIntfFxns = hStrm->hStrmMgr->pIntfFxns;
+	status = (*pIntfFxns->pfnChnlGetInfo) (hStrm->hChnl, &chnlInfo);
+	DBC_Assert(DSP_SUCCEEDED(status));
+
+	if (chnlInfo.cIOCs > 0 || chnlInfo.cIOReqs > 0)
+		status = DSP_EPENDING;
+	else
+		status = DeleteStrm(hStrm);
+
 	if (DSP_FAILED(status))
 		goto func_end;
 
@@ -206,7 +193,6 @@ DSP_STATUS STRM_Close(struct STRM_OBJECT *hStrm,
 			DSP_ENOTFOUND)
 		DRV_ProcRemoveSTRMResElement(hSTRMRes, pr_ctxt);
 func_end:
-#endif
 	DBC_Ensure(status == DSP_SOK || status == DSP_EHANDLE ||
 		  status == DSP_EPENDING || status == DSP_EFAIL);
 
@@ -312,36 +298,31 @@ DSP_STATUS STRM_FreeBuffer(struct STRM_OBJECT *hStrm, u8 **apBuffer,
 	DSP_STATUS status = DSP_SOK;
 	u32 i = 0;
 
-#ifndef RES_CLEANUP_DISABLE
 	HANDLE hSTRMRes = NULL;
-#endif
+
 	DBC_Require(cRefs > 0);
 	DBC_Require(apBuffer != NULL);
 
 	GT_3trace(STRM_debugMask, GT_ENTER, "STRM_FreeBuffer: hStrm: 0x%x\t"
 		 "apBuffer: 0x%x\tuNumBufs: 0x%x\n", hStrm, apBuffer, uNumBufs);
 
-	if (!MEM_IsValidHandle(hStrm, STRM_SIGNATURE))
-		status = DSP_EHANDLE;
+	for (i = 0; i < uNumBufs; i++) {
+		DBC_Assert(hStrm->hXlator != NULL);
+		status = CMM_XlatorFreeBuf(hStrm->hXlator, apBuffer[i]);
+		if (DSP_FAILED(status)) {
+			GT_0trace(STRM_debugMask, GT_7CLASS,
+				 "STRM_FreeBuffer: DSP_FAILED"
+				 " to free shared memory.\n");
+			break;
+		}
+		apBuffer[i] = NULL;
+	}
 
 	if (DSP_SUCCEEDED(status)) {
-		for (i = 0; i < uNumBufs; i++) {
-			DBC_Assert(hStrm->hXlator != NULL);
-			status = CMM_XlatorFreeBuf(hStrm->hXlator, apBuffer[i]);
-			if (DSP_FAILED(status)) {
-				GT_0trace(STRM_debugMask, GT_7CLASS,
-					 "STRM_FreeBuffer: DSP_FAILED"
-					 " to free shared memory.\n");
-				break;
-			}
-			apBuffer[i] = NULL;
-		}
+		if (DRV_GetSTRMResElement(hStrm, hSTRMRes, pr_ctxt) !=
+				DSP_ENOTFOUND)
+			DRV_ProcUpdateSTRMRes(uNumBufs-i, hSTRMRes);
 	}
-#ifndef RES_CLEANUP_DISABLE
-	if (DRV_GetSTRMResElement(hStrm, hSTRMRes, pr_ctxt) !=
-			DSP_ENOTFOUND)
-		DRV_ProcUpdateSTRMRes(uNumBufs-i, hSTRMRes);
-#endif
 	return status;
 }
 
@@ -366,14 +347,12 @@ DSP_STATUS STRM_GetInfo(struct STRM_OBJECT *hStrm,
 	GT_3trace(STRM_debugMask, GT_ENTER, "STRM_GetInfo: hStrm: 0x%x\t"
 		 "pStreamInfo: 0x%x\tuStreamInfoSize: 0x%x\n", hStrm,
 		 pStreamInfo, uStreamInfoSize);
-	if (!MEM_IsValidHandle(hStrm, STRM_SIGNATURE)) {
-		status = DSP_EHANDLE;
-	} else {
-		if (uStreamInfoSize < sizeof(struct STRM_INFO)) {
-			/* size of users info */
-			status = DSP_ESIZE;
-		}
+
+	if (uStreamInfoSize < sizeof(struct STRM_INFO)) {
+		/* size of users info */
+		status = DSP_ESIZE;
 	}
+
 	if (DSP_FAILED(status))
 		goto func_end;
 
@@ -428,14 +407,11 @@ DSP_STATUS STRM_Idle(struct STRM_OBJECT *hStrm, bool fFlush)
 	GT_2trace(STRM_debugMask, GT_ENTER, "STRM_Idle: hStrm: 0x%x\t"
 		 "fFlush: 0x%x\n", hStrm, fFlush);
 
-	if (!MEM_IsValidHandle(hStrm, STRM_SIGNATURE)) {
-		status = DSP_EHANDLE;
-	} else {
-		pIntfFxns = hStrm->hStrmMgr->pIntfFxns;
+	pIntfFxns = hStrm->hStrmMgr->pIntfFxns;
 
-		status = (*pIntfFxns->pfnChnlIdle) (hStrm->hChnl,
-			 hStrm->uTimeout, fFlush);
-	}
+	status = (*pIntfFxns->pfnChnlIdle) (hStrm->hChnl,
+		 hStrm->uTimeout, fFlush);
+
 	return status;
 }
 
@@ -486,26 +462,24 @@ DSP_STATUS STRM_Issue(struct STRM_OBJECT *hStrm, IN u8 *pBuf, u32 ulBytes,
 	GT_4trace(STRM_debugMask, GT_ENTER, "STRM_Issue: hStrm: 0x%x\tpBuf: "
 		 "0x%x\tulBytes: 0x%x\tdwArg: 0x%x\n", hStrm, pBuf, ulBytes,
 		 dwArg);
-	if (!MEM_IsValidHandle(hStrm, STRM_SIGNATURE)) {
-		status = DSP_EHANDLE;
-	} else {
-		pIntfFxns = hStrm->hStrmMgr->pIntfFxns;
 
-		if (hStrm->uSegment != 0) {
-			pTmpBuf = CMM_XlatorTranslate(hStrm->hXlator,
-					(void *)pBuf, CMM_VA2DSPPA);
-			if (pTmpBuf == NULL)
-				status = DSP_ETRANSLATE;
+	pIntfFxns = hStrm->hStrmMgr->pIntfFxns;
 
-		}
-		if (DSP_SUCCEEDED(status)) {
-			status = (*pIntfFxns->pfnChnlAddIOReq)
-				 (hStrm->hChnl, pBuf, ulBytes, ulBufSize,
-				 (u32) pTmpBuf, dwArg);
-		}
-		if (status == CHNL_E_NOIORPS)
-			status = DSP_ESTREAMFULL;
+	if (hStrm->uSegment != 0) {
+		pTmpBuf = CMM_XlatorTranslate(hStrm->hXlator,
+				(void *)pBuf, CMM_VA2DSPPA);
+		if (pTmpBuf == NULL)
+			status = DSP_ETRANSLATE;
+
 	}
+	if (DSP_SUCCEEDED(status)) {
+		status = (*pIntfFxns->pfnChnlAddIOReq)
+			 (hStrm->hChnl, pBuf, ulBytes, ulBufSize,
+			 (u32) pTmpBuf, dwArg);
+	}
+	if (status == CHNL_E_NOIORPS)
+		status = DSP_ESTREAMFULL;
+
 	return status;
 }
 
@@ -524,14 +498,13 @@ DSP_STATUS STRM_Open(struct NODE_OBJECT *hNode, u32 uDir, u32 uIndex,
 	struct WMD_DRV_INTERFACE *pIntfFxns;
 	u32 ulChnlId;
 	struct STRM_OBJECT *pStrm = NULL;
-	CHNL_MODE uMode;
+	short int uMode;
 	struct CHNL_ATTRS chnlAttrs;
 	DSP_STATUS status = DSP_SOK;
 	struct CMM_OBJECT *hCmmMgr = NULL;	/* Shared memory manager hndl */
 
-#ifndef RES_CLEANUP_DISABLE
 	HANDLE hSTRMRes;
-#endif
+
 	DBC_Require(cRefs > 0);
 	DBC_Require(phStrm != NULL);
 	DBC_Require(pAttr != NULL);
@@ -661,14 +634,12 @@ func_cont:
 				  status);
 		}
 	}
-	if (DSP_SUCCEEDED(status))
+	if (DSP_SUCCEEDED(status)) {
 		*phStrm = pStrm;
-	else
+		DRV_ProcInsertSTRMResElement(*phStrm, &hSTRMRes, pr_ctxt);
+	} else {
 		(void)DeleteStrm(pStrm);
-
-#ifndef RES_CLEANUP_DISABLE
-	DRV_ProcInsertSTRMResElement(*phStrm, &hSTRMRes, pr_ctxt);
-#endif
+	}
 
 	 /* ensure we return a documented error code */
 	DBC_Ensure((DSP_SUCCEEDED(status) &&
@@ -702,10 +673,6 @@ DSP_STATUS STRM_Reclaim(struct STRM_OBJECT *hStrm, OUT u8 **pBufPtr,
 		 "\tpulBytes: 0x%x\tpdwArg: 0x%x\n", hStrm, pBufPtr, pulBytes,
 		 pdwArg);
 
-	if (!MEM_IsValidHandle(hStrm, STRM_SIGNATURE)) {
-		status = DSP_EHANDLE;
-		goto func_end;
-	}
 	pIntfFxns = hStrm->hStrmMgr->pIntfFxns;
 
 	status = (*pIntfFxns->pfnChnlGetIOC)(hStrm->hChnl, hStrm->uTimeout,
@@ -757,7 +724,6 @@ DSP_STATUS STRM_Reclaim(struct STRM_OBJECT *hStrm, OUT u8 **pBufPtr,
 		}
 		*pBufPtr = chnlIOC.pBuf;
 	}
-func_end:
 	/* ensure we return a documented return code */
 	DBC_Ensure(DSP_SUCCEEDED(status) || status == DSP_EHANDLE ||
 		  status == DSP_ETIMEOUT || status == DSP_ETRANSLATE ||
@@ -784,9 +750,8 @@ DSP_STATUS STRM_RegisterNotify(struct STRM_OBJECT *hStrm, u32 uEventMask,
 		 "STRM_RegisterNotify: hStrm: 0x%x\t"
 		 "uEventMask: 0x%x\tuNotifyType: 0x%x\thNotification: 0x%x\n",
 		 hStrm, uEventMask, uNotifyType, hNotification);
-	if (!MEM_IsValidHandle(hStrm, STRM_SIGNATURE)) {
-		status = DSP_EHANDLE;
-	} else if ((uEventMask & ~((DSP_STREAMIOCOMPLETION) |
+
+	if ((uEventMask & ~((DSP_STREAMIOCOMPLETION) |
 		 DSP_STREAMDONE)) != 0) {
 		status = DSP_EVALUE;
 	} else {
