@@ -79,7 +79,7 @@ static int omap_keymap[] = {
 	KEY(3, 1, KEY_SEND),
 	KEY(3, 2, KEY_END),
 	KEY(3, 3, KEY_F1),
-	KEY(3, 4, KEY_F2),
+	KEY(3, 4, KEY_LEFTSHIFT),
 	KEY(3, 5, KEY_F3),
 	KEY(3, 6, KEY_BACK),
 	KEY(3, 7, KEY_UNKNOWN),
