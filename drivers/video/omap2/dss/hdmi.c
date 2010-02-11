@@ -158,7 +158,7 @@ static inline u32 hdmi_read_reg(u32 base, u16 idx)
 
 #define CPF			2
 
-typedef struct hdmi_pll_info {
+struct hdmi_pll_info {
 	u16 regn;
 	u16 regm;
 	u32 regmf;
@@ -166,10 +166,10 @@ typedef struct hdmi_pll_info {
 	u16 regm2;
 	u16 regsd;
 	u16 dcofreq;
-} hdmi_pll_info;
+};
 
 static void compute_pll(int clkin, int phy,
-	int n, hdmi_pll_info *pi)
+	int n, struct hdmi_pll_info *pi)
 {
 	int refclk;
 	u32 temp, mf;
@@ -524,14 +524,13 @@ static void hdmi_gpio_config(int enable)
 
 		/* GPIO 60 line being muxed */
 		val = omap_readl(0x4A100088);
-		val = FLD_MOD(val, 1, 19, 19);
 		val = FLD_MOD(val, 3, 2, 0);
-		omap_writel(0x3, 0x4A100088);
+		omap_writel(val, 0x4A100088);
 
 		/* DATA_OUT */
 		val = omap_readl(0x4805513c);
-		val = FLD_MOD(val, 1, 29, 27);
-		val = FLD_MOD(val, 1, 10, 7);
+		val = FLD_MOD(val, 1, 28, 28);
+		val = FLD_MOD(val, 1, 9, 9);
 		omap_writel(val, 0x4805513c);
 
 		/* GPIO_OE */
@@ -558,10 +557,10 @@ static void hdmi_gpio_config(int enable)
 
 static int hdmi_power_on(struct omap_dss_device *dssdev)
 {
-	int r;
+	int r = 0;
 	int mode = 1;
 	struct omap_video_timings *p;
-	hdmi_pll_info pll_data;
+	struct hdmi_pll_info pll_data;
 
 	int clkin, n, phy;
 
@@ -593,7 +592,11 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 
 	p = &dssdev->panel.timings;
 
-	hdmi_read_edid(p);
+	r = hdmi_read_edid(p);
+	if (r) {
+		r = -EIO;
+		goto err;
+	}
 
 	clkin = 3840; /* 38.4 mHz */
 	n = 15; /* this is a constant for our math */
@@ -606,13 +609,18 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 
 	/* config the PLL and PHY first */
 	r = hdmi_pll_program(&pll_data);
-
-	if (r)
+	if (r) {
 		DSSERR("Failed to lock PLL\n");
+		r = -EIO;
+		goto err;
+	}
 
 	r = hdmi_phy_init(HDMI_WP, HDMI_PHY);
-	if (r)
+	if (r) {
 		DSSERR("Failed to start PHY\n");
+		r = -EIO;
+		goto err;
+	}
 
 	DSS_HDMI_CONFIG(hdmi.ti, hdmi.code, mode);
 
@@ -629,9 +637,6 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 	dispc_set_digit_size(dssdev->panel.timings.x_res,
 			dssdev->panel.timings.y_res);
 
-	/* dss_dump_regs(NULL); */
-	/* dispc_dump_regs(NULL); */
-
 	HDMI_W1_StartVideoFrame(HDMI_WP);
 
 	if (dssdev->platform_enable)
@@ -639,7 +644,8 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 
 	dispc_enable_digit_out(1);
 
-	return 0;
+err:
+	return r;
 }
 
 static void hdmi_power_off(struct omap_dss_device *dssdev)
@@ -658,6 +664,9 @@ static void hdmi_power_off(struct omap_dss_device *dssdev)
 		dssdev->platform_disable(dssdev);
 
 	hdmi_enable_clocks(0);
+
+	/* reset to default */
+	hdmi.code = 16;
 }
 
 static int hdmi_enable_display(struct omap_dss_device *dssdev)
@@ -680,7 +689,11 @@ static int hdmi_enable_display(struct omap_dss_device *dssdev)
 	}
 
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
-	hdmi_power_on(dssdev);
+	r = hdmi_power_on(dssdev);
+	if (r) {
+		DSSERR("failed to power on device\n");
+		goto err;
+	}
 
 err:
 	mutex_unlock(&hdmi.lock);
@@ -775,6 +788,7 @@ int hdmi_init_display(struct omap_dss_device *dssdev)
 
 static int hdmi_read_edid(struct omap_video_timings *dp)
 {
+	int r = 0;
 	u8		edid[HDMI_EDID_MAX_LENGTH];
 	u16		horizontal_res;
 	u16		vertical_res;
@@ -784,9 +798,11 @@ static int hdmi_read_edid(struct omap_video_timings *dp)
 	memset(edid, 0, HDMI_EDID_MAX_LENGTH);
 	tp = dp;
 
-	if (HDMI_CORE_DDC_READEDID(HDMI_CORE_SYS, edid) != 0)
+	if (HDMI_CORE_DDC_READEDID(HDMI_CORE_SYS, edid) != 0) {
 		printk(KERN_WARNING "HDMI failed to read E-EDID\n");
-	else {
+		r = -EIO;
+		goto err;
+	} else {
 		edid_timings.pixel_clock = dp->pixel_clock;
 		edid_timings.x_res = dp->x_res;
 		edid_timings.y_res = dp->y_res;
@@ -807,10 +823,26 @@ static int hdmi_read_edid(struct omap_video_timings *dp)
 					dp->x_res = horizontal_res;
 					dp->y_res = vertical_res;
 					tp = &edid_timings;
-				}
+					if (tp->hfp == 440)
+						hdmi.code = 19; /*720p 50hZ*/
+					else /* 720p 60hZ */
+						hdmi.code = 4;
 		}
 	}
 
+	if (tp->x_res == cea861d16.x_res)
+		switch (tp->hfp) {
+		case 628: /* 1080p 24Hz */
+			hdmi.code = 32;
+			break;
+		case 528: /* 1080p 50Hz */
+			hdmi.code = 31;
+			break;
+		case 88: /* 1080p 60Hz */
+		default:
+			hdmi.code = 16;
+		}
+	}
 	hdmi.ti.pixelPerLine = tp->x_res;
 	hdmi.ti.linePerPanel = tp->y_res;
 	hdmi.ti.horizontalBackPorch = tp->hbp;
@@ -820,7 +852,8 @@ static int hdmi_read_edid(struct omap_video_timings *dp)
 	hdmi.ti.verticalFrontPorch = tp->vfp;
 	hdmi.ti.verticalSyncPulse = tp->vsw;
 
-	return 0;
+err:
+	return r;
 }
 
 u16 current_descriptor_addrs;
