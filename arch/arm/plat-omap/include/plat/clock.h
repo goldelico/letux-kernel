@@ -86,6 +86,8 @@ struct clk {
 	int			(*set_rate)(struct clk *, unsigned long);
 	long			(*round_rate)(struct clk *, unsigned long);
 	void			(*init)(struct clk *);
+	int			(*enable)(struct clk *);
+	void			(*disable)(struct clk *);
 	__u8			enable_bit;
 	__s8			usecount;
 #if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3) || \
