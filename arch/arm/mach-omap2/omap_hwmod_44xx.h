@@ -2318,6 +2318,17 @@ static struct omap_hwmod_opt_clk gpio1_opt_clks[] = {
 	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
 };
 
+static struct omap_hwmod_sysconfig omap44xx_gpio1_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.syss_offs	= 0x0014,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields    = &omap_hwmod_sysc_type1,
+};
+
 static struct omap_hwmod omap44xx_gpio1_hwmod = {
 	.name		= "gpio1",
 	.mpu_irqs	= omap44xx_gpio1_irqs,
@@ -2330,6 +2341,7 @@ static struct omap_hwmod omap44xx_gpio1_hwmod = {
 			.device_reg = OMAP4430_CM_WKUP_GPIO1_CLKCTRL,
 		},
 	},
+	.sysconfig	= &omap44xx_gpio1_sysc,
 	.opt_clks 	= gpio1_opt_clks,
 	.opt_clks_cnt = ARRAY_SIZE(gpio1_opt_clks),
 	.sysconfig	= &omap44xx_gpio1_sysc,
@@ -2382,6 +2394,17 @@ static struct omap_hwmod_opt_clk gpio2_opt_clks[] = {
 	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
 };
 
+static struct omap_hwmod_sysconfig omap44xx_gpio2_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.syss_offs	= 0x0014,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields    = &omap_hwmod_sysc_type1,
+};
+
 static struct omap_hwmod omap44xx_gpio2_hwmod = {
 	.name		= "gpio2",
 	.mpu_irqs	= omap44xx_gpio2_irqs,
@@ -2394,6 +2417,7 @@ static struct omap_hwmod omap44xx_gpio2_hwmod = {
 			.device_reg = OMAP4430_CM_L4PER_GPIO2_CLKCTRL,
 		},
 	},
+	.sysconfig	= &omap44xx_gpio2_sysc,
 	.opt_clks 	= gpio2_opt_clks,
 	.opt_clks_cnt = ARRAY_SIZE(gpio2_opt_clks),
 	.sysconfig	= &omap44xx_gpio2_sysc,
@@ -2446,6 +2470,17 @@ static struct omap_hwmod_opt_clk gpio3_opt_clks[] = {
 	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
 };
 
+static struct omap_hwmod_sysconfig omap44xx_gpio3_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.syss_offs	= 0x0014,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields    = &omap_hwmod_sysc_type1,
+};
+
 static struct omap_hwmod omap44xx_gpio3_hwmod = {
 	.name		= "gpio3",
 	.mpu_irqs	= omap44xx_gpio3_irqs,
@@ -2458,6 +2493,7 @@ static struct omap_hwmod omap44xx_gpio3_hwmod = {
 			.device_reg = OMAP4430_CM_L4PER_GPIO3_CLKCTRL,
 		},
 	},
+	.sysconfig	= &omap44xx_gpio3_sysc,
 	.opt_clks 	= gpio3_opt_clks,
 	.opt_clks_cnt = ARRAY_SIZE(gpio3_opt_clks),
 	.sysconfig	= &omap44xx_gpio3_sysc,
@@ -2510,6 +2546,17 @@ static struct omap_hwmod_opt_clk gpio4_opt_clks[] = {
 	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
 };
 
+static struct omap_hwmod_sysconfig omap44xx_gpio4_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.syss_offs	= 0x0014,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields    = &omap_hwmod_sysc_type1,
+};
+
 static struct omap_hwmod omap44xx_gpio4_hwmod = {
 	.name		= "gpio4",
 	.mpu_irqs	= omap44xx_gpio4_irqs,
@@ -2522,6 +2569,7 @@ static struct omap_hwmod omap44xx_gpio4_hwmod = {
 			.device_reg = OMAP4430_CM_L4PER_GPIO4_CLKCTRL,
 		},
 	},
+	.sysconfig	= &omap44xx_gpio4_sysc,
 	.opt_clks 	= gpio4_opt_clks,
 	.opt_clks_cnt = ARRAY_SIZE(gpio4_opt_clks),
 	.sysconfig	= &omap44xx_gpio4_sysc,
@@ -2574,6 +2622,17 @@ static struct omap_hwmod_opt_clk gpio5_opt_clks[] = {
 	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
 };
 
+static struct omap_hwmod_sysconfig omap44xx_gpio5_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.syss_offs	= 0x0014,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields    = &omap_hwmod_sysc_type1,
+};
+
 static struct omap_hwmod omap44xx_gpio5_hwmod = {
 	.name		= "gpio5",
 	.mpu_irqs	= omap44xx_gpio5_irqs,
@@ -2586,6 +2645,7 @@ static struct omap_hwmod omap44xx_gpio5_hwmod = {
 			.device_reg = OMAP4430_CM_L4PER_GPIO5_CLKCTRL,
 		},
 	},
+	.sysconfig	= &omap44xx_gpio5_sysc,
 	.opt_clks 	= gpio5_opt_clks,
 	.opt_clks_cnt = ARRAY_SIZE(gpio5_opt_clks),
 	.sysconfig	= &omap44xx_gpio5_sysc,
@@ -2638,6 +2698,17 @@ static struct omap_hwmod_opt_clk gpio6_opt_clks[] = {
 	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
 };
 
+static struct omap_hwmod_sysconfig omap44xx_gpio6_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.syss_offs	= 0x0014,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields    = &omap_hwmod_sysc_type1,
+};
+
 static struct omap_hwmod omap44xx_gpio6_hwmod = {
 	.name		= "gpio6",
 	.mpu_irqs	= omap44xx_gpio6_irqs,
@@ -2650,6 +2721,7 @@ static struct omap_hwmod omap44xx_gpio6_hwmod = {
 			.device_reg = OMAP4430_CM_L4PER_GPIO6_CLKCTRL,
 		},
 	},
+	.sysconfig	= &omap44xx_gpio6_sysc,
 	.opt_clks 	= gpio6_opt_clks,
 	.opt_clks_cnt = ARRAY_SIZE(gpio6_opt_clks),
 	.sysconfig	= &omap44xx_gpio6_sysc,
