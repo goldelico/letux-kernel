@@ -719,14 +719,14 @@ func_cont:
 				  status);
 		}
 	}
-	if (DSP_SUCCEEDED(status))
+	if (DSP_SUCCEEDED(status)) {
 		*phStrm = pStrm;
-	else
-		(void)DeleteStrm(pStrm);
-
 #ifndef RES_CLEANUP_DISABLE
-	DRV_ProcInsertSTRMResElement(*phStrm, &hSTRMRes, pr_ctxt);
+		DRV_ProcInsertSTRMResElement(*phStrm, &hSTRMRes, pr_ctxt);
 #endif
+	} else {
+		(void)DeleteStrm(pStrm);
+	}
 
 	 /* ensure we return a documented error code */
 	DBC_Ensure((DSP_SUCCEEDED(status) &&
