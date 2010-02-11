@@ -591,7 +591,7 @@ static int bridge_open(struct inode *ip, struct file *filp)
 static int bridge_release(struct inode *ip, struct file *filp)
 {
 	struct PROCESS_CONTEXT *pr_ctxt;
-	int status;
+	int status = 0;
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_release\n");
 	if (!filp->private_data) {
 		status = -EIO;
