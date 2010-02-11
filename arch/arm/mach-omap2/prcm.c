@@ -209,8 +209,9 @@ u32 prm_rmw_mod_reg_bits(u32 mask, u32 bits, s16 module, s16 idx)
 	u32 v;
 
 	/* CHIRON CPU0/1 domains are not part of PRM */
-	if ((module == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
-		(module == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD))
+	if (cpu_is_omap44xx() &&
+			((module == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
+			(module == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD)))
 		v = chiron_read_mod_reg(module, idx);
 	else
 		v = prm_read_mod_reg(module, idx);
@@ -218,8 +219,9 @@ u32 prm_rmw_mod_reg_bits(u32 mask, u32 bits, s16 module, s16 idx)
 	v &= ~mask;
 	v |= bits;
 
-	if ((module == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
-		(module == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD))
+	if (cpu_is_omap44xx() &&
+			((module == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
+			(module == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD)))
 		chiron_write_mod_reg(v, module, idx);
 	else
 		prm_write_mod_reg(v, module, idx);
