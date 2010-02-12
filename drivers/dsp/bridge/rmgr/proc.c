@@ -322,7 +322,6 @@ DSP_STATUS PROC_AutoStart(struct CFG_DEVNODE *hDevNode,
 	DSP_STATUS status = DSP_EFAIL;
 	u32 dwAutoStart = 0;	/* autostart flag */
 	struct PROC_OBJECT *pProcObject;
-	struct PROC_OBJECT *hProcObject;
 	char szExecFile[MAXCMDLINELEN];
 	char *argv[2];
 	struct MGR_OBJECT *hMgrObject = NULL;
@@ -354,19 +353,18 @@ DSP_STATUS PROC_AutoStart(struct CFG_DEVNODE *hDevNode,
 	GT_0trace(PROC_DebugMask, GT_1CLASS, "NTFY Created \n");
 	pProcObject->hDevObject = hDevObject;
 	pProcObject->hMgrObject = hMgrObject;
-	hProcObject = pProcObject;
 	status = DEV_GetIntfFxns(hDevObject, &pProcObject->pIntfFxns);
 	if (DSP_SUCCEEDED(status)) {
 		status = DEV_GetWMDContext(hDevObject,
 					&pProcObject->hWmdContext);
 		if (DSP_FAILED(status)) {
-			MEM_FreeObject(hProcObject);
+			MEM_FreeObject(pProcObject);
 			GT_0trace(PROC_DebugMask, GT_7CLASS,
 				 "PROC_AutoStart: Failed "
 				 "to get WMD Context \n");
 		}
 	} else {
-		MEM_FreeObject(hProcObject);
+		MEM_FreeObject(pProcObject);
 		GT_0trace(PROC_DebugMask, GT_7CLASS,
 			 "PROC_AutoStart: Failed to "
 			 "get IntFxns \n");
@@ -375,7 +373,7 @@ DSP_STATUS PROC_AutoStart(struct CFG_DEVNODE *hDevNode,
 		goto func_cont;
 
 	/* Stop the Device, put it into standby mode */
-	status = PROC_Stop(hProcObject);
+	status = PROC_Stop(pProcObject);
 
 	if (DSP_FAILED(status))
 		goto func_cont;
@@ -397,9 +395,9 @@ DSP_STATUS PROC_AutoStart(struct CFG_DEVNODE *hDevNode,
 		argv[0] = szExecFile;
 		argv[1] = NULL;
 		/* ...and try to load it: */
-		status = PROC_Load(hProcObject, 1, (CONST char **)argv, NULL);
+		status = PROC_Load(pProcObject, 1, (CONST char **)argv, NULL);
 		if (DSP_SUCCEEDED(status)) {
-			status = PROC_Start(hProcObject);
+			status = PROC_Start(pProcObject);
 			if (DSP_SUCCEEDED(status)) {
 				GT_0trace(PROC_DebugMask, GT_1CLASS,
 					  "PROC_AutoStart: Processor started "
@@ -418,9 +416,9 @@ DSP_STATUS PROC_AutoStart(struct CFG_DEVNODE *hDevNode,
 			 "No Exec file found \n");
 	}
 func_cont:
-	kfree(hProcObject->g_pszLastCoff);
-	hProcObject->g_pszLastCoff = NULL;
-	MEM_FreeObject(hProcObject);
+	kfree(pProcObject->g_pszLastCoff);
+	pProcObject->g_pszLastCoff = NULL;
+	MEM_FreeObject(pProcObject);
 func_end:
 	GT_1trace(PROC_DebugMask, GT_ENTER,
 		 "Exiting PROC_AutoStart, status:0x%x\n", status);
@@ -1657,7 +1655,7 @@ DSP_STATUS PROC_UnReserveMemory(void *hProcessor, void *pRsvAddr)
  *      This does a WMD_BRD_Stop, DEV_Destroy2 and WMD_BRD_Monitor.
  *      In DEV_Destroy2 we delete the node manager.
  *  Parameters:
- *      hProcObject:    Handle to Processor Object
+ *      pProcObject:    Pointer to Processor Object
  *  Returns:
  *      DSP_SOK:	Processor placed in monitor mode.
  *      !DSP_SOK:       Failed to place processor in monitor mode.
@@ -1666,10 +1664,9 @@ DSP_STATUS PROC_UnReserveMemory(void *hProcessor, void *pRsvAddr)
  *  Ensures:
  *      Success:	ProcObject state is PROC_IDLE
  */
-static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *hProcObject)
+static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *pProcObject)
 {
 	DSP_STATUS status = DSP_EFAIL;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcObject;
 	struct MSG_MGR *hMsgMgr;
 #ifdef CONFIG_BRIDGE_DEBUG
 	int uBrdState;
@@ -1678,7 +1675,7 @@ static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *hProcObject)
 	DBC_Require(cRefs > 0);
 
 	GT_1trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Monitor, args:\n\t"
-		 "hProcessor: 0x%x\n", hProcObject);
+		 "hProcessor: 0x%x\n", pProcObject);
 	/* This is needed only when Device is loaded when it is
 	 * already 'ACTIVE' */
 	/* Destory the Node Manager, MSG Manager */
