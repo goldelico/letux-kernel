@@ -358,13 +358,11 @@ DSP_STATUS PROC_AutoStart(struct CFG_DEVNODE *hDevNode,
 		status = DEV_GetWMDContext(hDevObject,
 					&pProcObject->hWmdContext);
 		if (DSP_FAILED(status)) {
-			MEM_FreeObject(pProcObject);
 			GT_0trace(PROC_DebugMask, GT_7CLASS,
 				 "PROC_AutoStart: Failed "
 				 "to get WMD Context \n");
 		}
 	} else {
-		MEM_FreeObject(pProcObject);
 		GT_0trace(PROC_DebugMask, GT_7CLASS,
 			 "PROC_AutoStart: Failed to "
 			 "get IntFxns \n");
@@ -386,6 +384,10 @@ DSP_STATUS PROC_AutoStart(struct CFG_DEVNODE *hDevNode,
 			 "CFG_GetAutoStart DSP_FAILED \n");
 		goto func_cont;
 	}
+
+	/* paranoid - must be able to kfree this on remaining error paths */
+	pProcObject->g_pszLastCoff = NULL;
+
 	/* Get the default executable for this board... */
 	DEV_GetDevType(hDevObject, (u32 *)&devType);
 	pProcObject->uProcessor = devType;
@@ -415,9 +417,9 @@ DSP_STATUS PROC_AutoStart(struct CFG_DEVNODE *hDevNode,
 		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_AutoStart: "
 			 "No Exec file found \n");
 	}
-func_cont:
 	kfree(pProcObject->g_pszLastCoff);
 	pProcObject->g_pszLastCoff = NULL;
+func_cont:
 	MEM_FreeObject(pProcObject);
 func_end:
 	GT_1trace(PROC_DebugMask, GT_ENTER,
