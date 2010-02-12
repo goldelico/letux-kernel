@@ -83,24 +83,6 @@ static struct platform_device omap_i2c_devices[] = {
 #endif
 };
 
-#if defined(CONFIG_ARCH_OMAP24XX)
-static const int omap24xx_pins[][2] = {
-	{ M19_24XX_I2C1_SCL, L15_24XX_I2C1_SDA },
-	{ J15_24XX_I2C2_SCL, H19_24XX_I2C2_SDA },
-};
-#else
-static const int omap24xx_pins[][2] = {};
-#endif
-#if defined(CONFIG_ARCH_OMAP34XX)
-static const int omap34xx_pins[][2] = {
-	{ K21_34XX_I2C1_SCL, J21_34XX_I2C1_SDA},
-	{ AF15_34XX_I2C2_SCL, AE15_34XX_I2C2_SDA},
-	{ AF14_34XX_I2C3_SCL, AG14_34XX_I2C3_SDA},
-};
-#else
-static const int omap34xx_pins[][2] = {};
-#endif
-
 #define OMAP_I2C_CMDLINE_SETUP	(BIT(31))
 
 #ifdef CONFIG_ARCH_OMAP34XX
@@ -126,27 +108,6 @@ static void __init omap_set_i2c_constraint_func(
 		pd->set_mpu_wkup_lat = omap_i2c_set_wfc_mpu_wkup_lat;
 	else
 		pd->set_mpu_wkup_lat = NULL;
-}
-
-static void __init omap_i2c_mux_pins(int bus)
-{
-	int scl, sda;
-
-	if (cpu_class_is_omap1()) {
-		scl = I2C_SCL;
-		sda = I2C_SDA;
-	} else if (cpu_is_omap24xx()) {
-		scl = omap24xx_pins[bus][0];
-		sda = omap24xx_pins[bus][1];
-	} else if (cpu_is_omap34xx()) {
-		scl = omap34xx_pins[bus][0];
-		sda = omap34xx_pins[bus][1];
-	} else {
-		return;
-	}
-
-	omap_cfg_reg(sda);
-	omap_cfg_reg(scl);
 }
 
 static int __init omap_i2c_nr_ports(void)
@@ -184,7 +145,6 @@ static int __init omap_i2c_add_bus(int bus_id)
 		res[1].start = irq;
 	}
 
-	omap_i2c_mux_pins(bus_id - 1);
 	return platform_device_register(pdev);
 }
 
@@ -238,7 +198,7 @@ out:
 subsys_initcall(omap_register_i2c_bus_cmdline);
 
 /**
- * omap_register_i2c_bus - register I2C bus with device descriptors
+ * omap_plat_register_i2c_bus - register I2C bus with device descriptors
  * @bus_id: bus id counting from number 1
  * @clkrate: clock rate of the bus in kHz
  * @info: pointer into I2C device descriptor table or NULL
@@ -246,7 +206,7 @@ subsys_initcall(omap_register_i2c_bus_cmdline);
  *
  * Returns 0 on success or an error code.
  */
-int __init omap_register_i2c_bus(int bus_id, u32 clkrate,
+int __init omap_plat_register_i2c_bus(int bus_id, u32 clkrate,
 			  struct i2c_board_info const *info,
 			  unsigned len)
 {
