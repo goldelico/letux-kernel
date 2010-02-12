@@ -24,7 +24,6 @@
 #include <asm/mach/map.h>
 
 #include <plat/mcspi.h>
-#include <plat/mux.h>
 #include <plat/board.h>
 #include <plat/common.h>
 #include <plat/dma.h>
