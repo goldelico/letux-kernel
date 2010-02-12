@@ -39,7 +39,6 @@
 #include <linux/gpio.h>
 #include <plat/usb.h>
 
-
 /*
  * OMAP USBHOST Register addresses: VIRTUAL ADDRESSES
  *	Use ehci_omap_readl()/ehci_omap_writel() functions
