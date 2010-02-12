@@ -27,6 +27,8 @@
 #include <mach/gpio.h>
 #include <plat/mmc.h>
 
+#include "mux.h"
+
 #if defined(CONFIG_VIDEO_OMAP2) || defined(CONFIG_VIDEO_OMAP2_MODULE)
 
 static struct resource cam_resources[] = {
@@ -623,29 +625,42 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 	if (cpu_is_omap34xx()) {
 		u32 dev_conf = 0, v_shift = 0;
 		if (controller_nr == 0) {
-			omap_cfg_reg(N28_34XX_MMC1_CLK);
-			omap_cfg_reg(M27_34XX_MMC1_CMD);
-			omap_cfg_reg(N27_34XX_MMC1_DAT0);
+			omap_mux_init_signal("sdmmc1_clk",
+				OMAP_PIN_INPUT_PULLUP);
+			omap_mux_init_signal("sdmmc1_cmd",
+				OMAP_PIN_INPUT_PULLUP);
+			omap_mux_init_signal("sdmmc1_dat0",
+				OMAP_PIN_INPUT_PULLUP);
 			if (mmc_controller->slots[0].wires == 4 ||
 				mmc_controller->slots[0].wires == 8) {
-				omap_cfg_reg(N26_34XX_MMC1_DAT1);
-				omap_cfg_reg(N25_34XX_MMC1_DAT2);
-				omap_cfg_reg(P28_34XX_MMC1_DAT3);
+				omap_mux_init_signal("sdmmc1_dat1",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc1_dat2",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc1_dat3",
+					OMAP_PIN_INPUT_PULLUP);
 			}
 			if (mmc_controller->slots[0].wires == 8) {
-				omap_cfg_reg(P27_34XX_MMC1_DAT4);
-				omap_cfg_reg(P26_34XX_MMC1_DAT5);
-				omap_cfg_reg(R27_34XX_MMC1_DAT6);
-				omap_cfg_reg(R25_34XX_MMC1_DAT7);
+				omap_mux_init_signal("sdmmc1_dat4",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc1_dat5",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc1_dat6",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc1_dat7",
+					OMAP_PIN_INPUT_PULLUP);
 			}
 			dev_conf = OMAP2_CONTROL_DEVCONF0;
 			v_shift = OMAP2_MMCSDIO1ADPCLKISEL;
 		}
 		if (controller_nr == 1) {
 			/* MMC2 */
-			omap_cfg_reg(AE2_34XX_MMC2_CLK);
-			omap_cfg_reg(AG5_34XX_MMC2_CMD);
-			omap_cfg_reg(AH5_34XX_MMC2_DAT0);
+			omap_mux_init_signal("sdmmc2_clk",
+				OMAP_PIN_INPUT_PULLUP);
+			omap_mux_init_signal("sdmmc2_cmd",
+				OMAP_PIN_INPUT_PULLUP);
+			omap_mux_init_signal("sdmmc2_dat0",
+				OMAP_PIN_INPUT_PULLUP);
 
 			/*
 			 * For 8 wire configurations, Lines DAT4, 5, 6 and 7 need to be muxed
@@ -653,15 +668,22 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 			 */
 			if (mmc_controller->slots[0].wires == 4 ||
 				mmc_controller->slots[0].wires == 8) {
-				omap_cfg_reg(AH4_34XX_MMC2_DAT1);
-				omap_cfg_reg(AG4_34XX_MMC2_DAT2);
-				omap_cfg_reg(AF4_34XX_MMC2_DAT3);
+				omap_mux_init_signal("sdmmc2_dat1",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc2_dat2",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc2_dat3",
+					OMAP_PIN_INPUT_PULLUP);
 			}
 			if (mmc_controller->slots[0].wires == 8) {
-				omap_cfg_reg(AE4_34XX_MMC2_DAT4);
-				omap_cfg_reg(AH3_34XX_MMC2_DAT5);
-				omap_cfg_reg(AF3_34XX_MMC2_DAT6);
-				omap_cfg_reg(AE3_34XX_MMC2_DAT7);
+				omap_mux_init_signal("sdmmc2_dat4.sdmmc2_dat4",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc2_dat5.sdmmc2_dat5",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc2_dat6.sdmmc2_dat6",
+					OMAP_PIN_INPUT_PULLUP);
+				omap_mux_init_signal("sdmmc2_dat7.sdmmc2_dat7",
+					OMAP_PIN_INPUT_PULLUP);
 			}
 			dev_conf = OMAP343X_CONTROL_DEVCONF1;
 			v_shift = OMAP2_MMCSDIO2ADPCLKISEL;
