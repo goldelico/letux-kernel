@@ -1681,8 +1681,7 @@ static int __init omap3_gpio_pads_init(void)
 
 		for (j = min; j <= max; j++) {
 			/* Check if pad has been configured as GPIO. */
-			if ((omap_ctrl_readw(offset) &
-				OMAP34XX_MUX_MODE7) == OMAP34XX_MUX_MODE4) {
+			if ((omap_ctrl_readw(offset) & 7) == 4) {
 				gpio_pad_map[j] = offset;
 				if (j > 31)
 					gpio_amt++;
