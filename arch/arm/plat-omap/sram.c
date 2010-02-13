@@ -388,9 +388,9 @@ u32 omap3_configure_core_dpll(u32 sdrc_rfr_ctrl, u32 sdrc_actim_ctrla,
 
 
 /* Function for SDRC config for warm reset */
-static u32 (*_omap3_sram_configure_core_dpll_warmreset)();
+static u32 (*_omap3_sram_configure_core_dpll_warmreset)(void);
 
-u32 omap3_configure_core_dpll_warmreset()
+u32 omap3_configure_core_dpll_warmreset(void)
 {
 	if (!_omap3_sram_configure_core_dpll_warmreset)
 		omap_sram_error();
