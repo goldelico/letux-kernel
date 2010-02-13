@@ -1,4 +1,15 @@
-linux-2.6-openmoko (20100118.gita15608f2-1) unstable; urgency=low
+linux-2.6-openmoko (20100118.gita15608f2-2) pkg-fso; urgency=low
+
+  * debian/config.gta02:
+   + CONFIG_SYSFS_DEPRECATED_V2 is not set
+   + CONFIG_JBT6K74=m
+   + CONFIG_MFD_GLAMO_*=m
+   + CONFIG_FB_S3C2410=m
+   + CONFIG_LEDS_NEO1973_*=m
+
+ -- Sebastian Reichel <elektranox@gmail.com>  Sat, 13 Feb 2010 00:25:10 +0100
+
+linux-2.6-openmoko (20100118.gita15608f2-1) pkg-fso; urgency=low
 
   * New git checkout
   * debian/config.gta02:
