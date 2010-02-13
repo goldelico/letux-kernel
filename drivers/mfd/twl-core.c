@@ -166,6 +166,10 @@
 #define TWL4030_BASEADD_PWMB		0x00F1
 #define TWL4030_BASEADD_KEYPAD		0x00D2
 
+#define TWL5031_BASEADD_ACCESSORY      0x0074 /* Replaces Main Charge */
+#define TWL5031_BASEADD_INTERRUPTS     0x00B9 /* Different than TWL4030's
+                                                 one */
+
 /* subchip/slave 3 - POWER ID */
 #define TWL4030_BASEADD_BACKUP		0x0014
 #define TWL4030_BASEADD_INT		0x002E
@@ -283,6 +287,8 @@ static struct twl_mapping twl4030_map[TWL4030_MODULE_LAST + 1] = {
 	{ 2, TWL4030_BASEADD_PWM1 },
 	{ 2, TWL4030_BASEADD_PWMA },
 	{ 2, TWL4030_BASEADD_PWMB },
+	{ 2, TWL5031_BASEADD_ACCESSORY },
+	{ 2, TWL5031_BASEADD_INTERRUPTS },
 
 	{ 3, TWL4030_BASEADD_BACKUP },
 	{ 3, TWL4030_BASEADD_INT },
@@ -581,7 +587,8 @@ add_children(struct twl4030_platform_data *pdata, unsigned long features)
 	struct device	*child;
 	unsigned sub_chip_id;
 
-	if (twl_has_bci() && pdata->bci && !(features & TPS_SUBSET)) {
+	if (twl_has_bci() && pdata->bci &&
+		!(features & (TPS_SUBSET | TWL5031))) {
 		child = add_child(3, "twl4030_bci",
 				pdata->bci, sizeof(*pdata->bci),
 				false,
@@ -1035,6 +1042,7 @@ fail:
 static const struct i2c_device_id twl_ids[] = {
 	{ "twl4030", TWL4030_VAUX2 },	/* "Triton 2" */
 	{ "twl5030", 0 },		/* T2 updated */
+	{ "twl5031", TWL5031 },         /* TWL5030 updated */
 	{ "tps65950", 0 },		/* catalog version of twl5030 */
 	{ "tps65930", TPS_SUBSET },	/* fewer LDOs and DACs; no charger */
 	{ "tps65920", TPS_SUBSET },	/* fewer LDOs; no codec or charger */
