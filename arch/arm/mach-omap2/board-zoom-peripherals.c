@@ -422,6 +422,13 @@ static int __init omap_i2c_init(void)
 	return 0;
 }
 
+static void enable_board_wakeup_source(void)
+{
+	/* T2 interrupt line (keypad) */
+	omap_mux_init_signal("sys_nirq",
+			OMAP_WAKEUP_EN | OMAP_PIN_INPUT_PULLUP);
+}
+
 static struct omap_musb_board_data musb_board_data = {
 	.interface_type		= MUSB_INTERFACE_ULPI,
 	.mode			= MUSB_OTG,
@@ -437,6 +444,7 @@ void __init zoom_peripherals_init(void)
 	zoom_lcd_tv_panel_init();
 #endif
 	usb_musb_init(&musb_board_data);
+	enable_board_wakeup_source();
 	zoom2_cam_init();
 #ifdef CONFIG_PANEL_SIL9022
 	config_hdmi_gpio();
