@@ -1451,7 +1451,7 @@ static int omapfb_alloc_fbmem(struct fb_info *fbi, unsigned long size,
 	struct omapfb2_mem_region *rg;
 	void __iomem *vaddr;
 	int r;
-	u16 h, w;
+	u16 h = 0, w = 0;
 	unsigned long pstride;
 	size_t psize;
 
