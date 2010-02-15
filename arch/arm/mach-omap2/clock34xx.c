@@ -47,11 +47,7 @@
 #include "cm-regbits-34xx.h"
 
 /* CM_AUTOIDLE_PLL*.AUTO_* bit values */
-#define DPLL_AUTOIDLE_DISABLE			0x0
-#define DPLL_AUTOIDLE_LOW_POWER_STOP		0x1
-
 #define MAX_DPLL_WAIT_TRIES		1000000
-
 #define MIN_SDRC_DLL_LOCK_FREQ		83000000
 
 #define CYCLES_PER_MHZ			1000000
@@ -166,6 +162,7 @@ const struct clkops clkops_omap3430es2_hsotgusb_wait = {
 	.find_companion = omap2_clk_dflt_find_companion,
 };
 
+<<<<<<< HEAD
 /**
  * omap3_dpll_recalc - recalculate DPLL rate
  * @clk: DPLL struct clk
@@ -422,134 +419,12 @@ static void omap3_noncore_dpll_disable(struct clk *clk)
 	_omap3_noncore_dpll_stop(clk);
 }
 
+=======
+>>>>>>> a1391d2... ARM: OMAP4: PM: Move DPLL control apis to dpll.c
 const struct clkops clkops_noncore_dpll_ops = {
 	.enable		= omap3_noncore_dpll_enable,
 	.disable	= omap3_noncore_dpll_disable,
 };
-
-/* Non-CORE DPLL rate set code */
-
-/*
- * omap3_noncore_dpll_program - set non-core DPLL M,N values directly
- * @clk: struct clk * of DPLL to set
- * @m: DPLL multiplier to set
- * @n: DPLL divider to set
- * @freqsel: FREQSEL value to set
- *
- * Program the DPLL with the supplied M, N values, and wait for the DPLL to
- * lock..  Returns -EINVAL upon error, or 0 upon success.
- */
-static int omap3_noncore_dpll_program(struct clk *clk, u16 m, u8 n, u16 freqsel)
-{
-	struct dpll_data *dd = clk->dpll_data;
-	u32 v;
-
-	/* 3430 ES2 TRM: 4.7.6.9 DPLL Programming Sequence */
-	_omap3_noncore_dpll_bypass(clk);
-
-	/* Set jitter correction */
-	v = __raw_readl(dd->control_reg);
-	v &= ~dd->freqsel_mask;
-	v |= freqsel << __ffs(dd->freqsel_mask);
-	__raw_writel(v, dd->control_reg);
-
-	/* Set DPLL multiplier, divider */
-	v = __raw_readl(dd->mult_div1_reg);
-	v &= ~(dd->mult_mask | dd->div1_mask);
-	v |= m << __ffs(dd->mult_mask);
-	v |= (n - 1) << __ffs(dd->div1_mask);
-	__raw_writel(v, dd->mult_div1_reg);
-
-	/* We let the clock framework set the other output dividers later */
-
-	/* REVISIT: Set ramp-up delay? */
-
-	_omap3_noncore_dpll_lock(clk);
-
-	return 0;
-}
-
-/**
- * omap3_noncore_dpll_set_rate - set non-core DPLL rate
- * @clk: struct clk * of DPLL to set
- * @rate: rounded target rate
- *
- * Set the DPLL CLKOUT to the target rate.  If the DPLL can enter
- * low-power bypass, and the target rate is the bypass source clock
- * rate, then configure the DPLL for bypass.  Otherwise, round the
- * target rate if it hasn't been done already, then program and lock
- * the DPLL.  Returns -EINVAL upon error, or 0 upon success.
- */
-int omap3_noncore_dpll_set_rate(struct clk *clk, unsigned long rate)
-{
-	struct clk *new_parent = NULL;
-	u16 freqsel;
-	struct dpll_data *dd;
-	int ret;
-
-	if (!clk || !rate)
-		return -EINVAL;
-
-	dd = clk->dpll_data;
-	if (!dd)
-		return -EINVAL;
-
-	if (rate == omap2_get_dpll_rate(clk))
-		return 0;
-
-	/*
-	 * Ensure both the bypass and ref clocks are enabled prior to
-	 * doing anything; we need the bypass clock running to reprogram
-	 * the DPLL.
-	 */
-	omap2_clk_enable(dd->clk_bypass);
-	omap2_clk_enable(dd->clk_ref);
-
-	if (dd->clk_bypass->rate == rate &&
-	    (clk->dpll_data->modes & (1 << DPLL_LOW_POWER_BYPASS))) {
-		pr_debug("clock: %s: set rate: entering bypass.\n", clk->name);
-
-		ret = _omap3_noncore_dpll_bypass(clk);
-		if (!ret)
-			new_parent = dd->clk_bypass;
-	} else {
-		if (dd->last_rounded_rate != rate)
-			omap2_dpll_round_rate(clk, rate);
-
-		if (dd->last_rounded_rate == 0)
-			return -EINVAL;
-
-		freqsel = _omap3_dpll_compute_freqsel(clk, dd->last_rounded_n);
-		if (!freqsel)
-			WARN_ON(1);
-
-		pr_debug("clock: %s: set rate: locking rate to %lu.\n",
-			 clk->name, rate);
-
-		ret = omap3_noncore_dpll_program(clk, dd->last_rounded_m,
-						 dd->last_rounded_n, freqsel);
-		if (!ret)
-			new_parent = dd->clk_ref;
-	}
-	if (!ret) {
-		/*
-		 * Switch the parent clock in the heirarchy, and make sure
-		 * that the new parent's usecount is correct.  Note: we
-		 * enable the new parent before disabling the old to avoid
-		 * any unnecessary hardware disable->enable transitions.
-		 */
-		if (clk->usecount) {
-			omap2_clk_enable(new_parent);
-			omap2_clk_disable(clk->parent);
-		}
-		clk_reparent(clk, new_parent);
-		clk->rate = rate;
-	}
-	omap2_clk_disable(dd->clk_ref);
-	omap2_clk_disable(dd->clk_bypass);
-
-	return 0;
-}
 
 int omap3_dpll4_set_rate(struct clk *clk, unsigned long rate)
 {
@@ -655,124 +530,6 @@ int omap3_core_dpll_m2_set_rate(struct clk *clk, unsigned long rate)
 				  0, 0, 0, 0);
 
 	return 0;
-}
-
-
-/* DPLL autoidle read/set code */
-
-
-/**
- * omap3_dpll_autoidle_read - read a DPLL's autoidle bits
- * @clk: struct clk * of the DPLL to read
- *
- * Return the DPLL's autoidle bits, shifted down to bit 0.  Returns
- * -EINVAL if passed a null pointer or if the struct clk does not
- * appear to refer to a DPLL.
- */
-u32 omap3_dpll_autoidle_read(struct clk *clk)
-{
-	const struct dpll_data *dd;
-	u32 v;
-
-	if (!clk || !clk->dpll_data)
-		return -EINVAL;
-
-	dd = clk->dpll_data;
-
-	v = __raw_readl(dd->autoidle_reg);
-	v &= dd->autoidle_mask;
-	v >>= __ffs(dd->autoidle_mask);
-
-	return v;
-}
-
-/**
- * omap3_dpll_allow_idle - enable DPLL autoidle bits
- * @clk: struct clk * of the DPLL to operate on
- *
- * Enable DPLL automatic idle control.  This automatic idle mode
- * switching takes effect only when the DPLL is locked, at least on
- * OMAP3430.  The DPLL will enter low-power stop when its downstream
- * clocks are gated.  No return value.
- */
-void omap3_dpll_allow_idle(struct clk *clk)
-{
-	const struct dpll_data *dd;
-	u32 v;
-
-	if (!clk || !clk->dpll_data)
-		return;
-
-	dd = clk->dpll_data;
-
-	/*
-	 * REVISIT: CORE DPLL can optionally enter low-power bypass
-	 * by writing 0x5 instead of 0x1.  Add some mechanism to
-	 * optionally enter this mode.
-	 */
-	v = __raw_readl(dd->autoidle_reg);
-	v &= ~dd->autoidle_mask;
-	v |= DPLL_AUTOIDLE_LOW_POWER_STOP << __ffs(dd->autoidle_mask);
-	__raw_writel(v, dd->autoidle_reg);
-}
-
-/**
- * omap3_dpll_deny_idle - prevent DPLL from automatically idling
- * @clk: struct clk * of the DPLL to operate on
- *
- * Disable DPLL automatic idle control.  No return value.
- */
-void omap3_dpll_deny_idle(struct clk *clk)
-{
-	const struct dpll_data *dd;
-	u32 v;
-
-	if (!clk || !clk->dpll_data)
-		return;
-
-	dd = clk->dpll_data;
-
-	v = __raw_readl(dd->autoidle_reg);
-	v &= ~dd->autoidle_mask;
-	v |= DPLL_AUTOIDLE_DISABLE << __ffs(dd->autoidle_mask);
-	__raw_writel(v, dd->autoidle_reg);
-}
-
-/* Clock control for DPLL outputs */
-
-/**
- * omap3_clkoutx2_recalc - recalculate DPLL X2 output virtual clock rate
- * @clk: DPLL output struct clk
- *
- * Using parent clock DPLL data, look up DPLL state.  If locked, set our
- * rate to the dpll_clk * 2; otherwise, just use dpll_clk.
- */
-unsigned long omap3_clkoutx2_recalc(struct clk *clk)
-{
-	const struct dpll_data *dd;
-	unsigned long rate;
-	u32 v;
-	struct clk *pclk;
-
-	/* Walk up the parents of clk, looking for a DPLL */
-	pclk = clk->parent;
-	while (pclk && !pclk->dpll_data)
-		pclk = pclk->parent;
-
-	/* clk does not have a DPLL as a parent? */
-	WARN_ON(!pclk);
-
-	dd = pclk->dpll_data;
-
-	WARN_ON(!dd->enable_mask);
-
-	v = __raw_readl(dd->control_reg) & dd->enable_mask;
-	v >>= __ffs(dd->enable_mask);
-	if (v != OMAP3XXX_EN_DPLL_LOCKED)
-		rate = clk->parent->rate;
-	else
-		rate = clk->parent->rate * 2;
-	return rate;
 }
 
 /* Common clock code */
