@@ -23,9 +23,6 @@ obj-$(CONFIG_ARCH_OMAP2420)		+= sram242x.o
 obj-$(CONFIG_ARCH_OMAP2430)		+= sram243x.o
 obj-$(CONFIG_ARCH_OMAP3)		+= sram34xx.o
 
-# Pin multiplexing
-obj-$(CONFIG_ARCH_OMAP3)		+= mux34xx.o
-
 # SMS/SDRC
 obj-$(CONFIG_ARCH_OMAP2)		+= sdrc2xxx.o
 # obj-$(CONFIG_ARCH_OMAP3)		+= sdrc3xxx.o
@@ -46,8 +43,11 @@ obj-$(CONFIG_ARCH_OMAP4)		+= cm4xxx.o
 
 # Clock framework
 obj-$(CONFIG_ARCH_OMAP2)		+= clock24xx.o
-obj-$(CONFIG_ARCH_OMAP3)		+= clock34xx.o
 obj-$(CONFIG_OMAP_PM_SRF)		+=  resource34xx.o
+obj-$(CONFIG_ARCH_OMAP3)		+= clock34xx.o clock34xx_data.o
+
+# EMU peripherals
+obj-$(CONFIG_OMAP3_EMU)		+= emu.o
 
 obj-$(CONFIG_OMAP_MBOX_FWK)		+= mailbox_mach.o
 mailbox_mach-objs			:= mailbox.o
@@ -63,9 +63,6 @@ obj-$(CONFIG_OMAP3_DEBOBS)	+= debobs.o
 ifneq ($(CONFIG_MPU_BRIDGE),)
 obj-y                                  += dspbridge.o
 endif
-
-i2c-omap-$(CONFIG_I2C_OMAP)		:= i2c.o
-obj-y					+= $(i2c-omap-m) $(i2c-omap-y)
 
 # Specific board support
 obj-$(CONFIG_MACH_OMAP_GENERIC)		+= board-generic.o
