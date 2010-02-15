@@ -1178,7 +1178,7 @@ struct omap_hwmod *omap_hwmod_lookup(const char *name)
 int omap_hwmod_for_each(int (*fn)(struct omap_hwmod *oh))
 {
 	struct omap_hwmod *temp_oh;
-	int ret;
+	int ret = 0;
 
 	if (!fn)
 		return -EINVAL;

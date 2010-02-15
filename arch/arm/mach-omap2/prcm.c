@@ -151,8 +151,10 @@ void omap_prcm_arch_reset(char mode)
 		omap_writel(l, OMAP343X_SCRATCHPAD + 4);
 	} else if (cpu_is_omap44xx())
 		prcm_offs = OMAP4430_PRM_DEVICE_MOD;
-	else
+	else {
 		WARN_ON(1);
+		return;
+	}
 
 	if (cpu_is_omap24xx() | cpu_is_omap34xx())
 #ifdef CONFIG_MACH_SHOLES

@@ -189,7 +189,7 @@ static int __init clkdms_setup(struct clockdomain *clkdm, void *unused)
 
 static int __init omap4_pm_init(void)
 {
-	int ret;
+	int ret = 0;
 
 	if (!cpu_is_omap44xx())
 		return -ENODEV;

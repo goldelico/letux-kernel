@@ -2736,6 +2736,9 @@ int __init omap2_clk_init(void)
 	if (cpu_is_omap44xx()) {
 		cpu_mask = RATE_IN_4430;
 		cpu_clkflg = CK_443X;
+	} else {
+		printk(KERN_ERR "clock init failed: Unknown platform\n");
+		return -EINVAL;
 	}
 
 	clk_init(&omap2_clk_functions);
