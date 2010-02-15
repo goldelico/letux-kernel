@@ -635,8 +635,16 @@ if (!cpu_is_omap44xx()) {
 	if (cpu_is_omap44xx()) {
 
 		gpio2_base=ioremap(0x48059000,0x1000);
-	
+		if (!gpio2_base) {
+			DSSERR("Failed to ioremap gpio2 base");
+			return;
+		}
+
 		mux_sec = ioremap(0x4A100000,0x1000);
+		if (!mux_sec) {
+			DSSERR("Failed to ioremap mux sec ");
+			return;
+		}
 		val = __raw_readl(mux_sec + 0x1CC); /*mux for gpio 27 or 52 dont know*/
 		val &= ~(0xFfff);
 		val |=	0x03;
@@ -683,6 +691,14 @@ if (!cpu_is_omap44xx()) {
 		gpio2_base=ioremap(0x4a310000,0x1000);
 		gpio1_base=ioremap(0x48055000,0x1000);
 
+		if (!gpio2_base) {
+			DSSERR("Failed to ioremap gpio2 base");
+			return;
+		}
+		if (!gpio1_base) {
+			DSSERR("Failed to ioremap gpio1 base");
+			return;
+		}
 		/* To output signal low */
 		rev = __raw_readl(gpio2_base+OMAP24XX_GPIO_CLEARDATAOUT);
 		rev |= (1<<27);
@@ -750,9 +766,13 @@ void test(void)
 	b = ioremap(0x4A009100, 0x30);
 	c = ioremap(0x4a307100, 0x10);
 
+	if (!b)
+		return;
 	/*printk(KERN_INFO "dss status 0x%x 0x%x\n", __raw_readl(a+0x5c), (a+0x5c));*/
 	printk(KERN_INFO "CM_DSS_CLKSTCTRL 0x%x 0x%x\n", __raw_readl(b), b);
 	printk(KERN_INFO "CM_DSS_DSS_CLKCTRL 0x%x 0x%x\n", __raw_readl(b+0x20), (b+0x20));
+	if (!c)
+		return;
 	printk(KERN_INFO "PM DSS wrst 0x%x 0x%x\n", __raw_readl(c+0x4), (c+0x4));
 
 }
