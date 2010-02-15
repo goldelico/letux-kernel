@@ -225,7 +225,6 @@ static void expire_wake_lock(struct wake_lock *lock)
 /* Caller must acquire the list_lock spinlock */
 static void print_active_locks(int type)
 {
-	unsigned long irqflags;
 	struct wake_lock *lock;
 
 	BUG_ON(type >= WAKE_LOCK_TYPE_COUNT);
