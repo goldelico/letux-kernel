@@ -198,7 +198,7 @@ static int charge_state;
 static void twl6030_start_usb_charger(void)
 {
 	charger_source = 2;
-	printk(KERN_INFO "USB charger detected\n");
+	pr_debug("USB charger detected\n");
 	twl_i2c_write_u8(TWL6030_MODULE_CHARGER, CHARGERUSB_VICHRG_1500,
 					CHARGERUSB_VICHRG);
 	twl_i2c_write_u8(TWL6030_MODULE_CHARGER, CHARGERUSB_CIN_LIMIT_NONE,
@@ -219,7 +219,7 @@ static void twl6030_start_usb_charger(void)
 
 static void twl6030_start_ac_charger(void)
 {
-	printk(KERN_INFO "AC charger detected\n");
+	pr_debug("AC charger detected\n");
 	charger_source = 1;
 	twl_i2c_write_u8(TWL6030_MODULE_BQ, 0xC0,
 				REG_STATUS_CONTROL);
@@ -272,50 +272,50 @@ static irqreturn_t twl6030charger_ctrl_interrupt(int irq, void *_di)
 	no_ac_and_vbus = !((present_charge_state) & (VBUS_DET | VAC_DET));
 	ac_or_vbus = charge_state & (VBUS_DET | VAC_DET);
 	if (no_ac_and_vbus && ac_or_vbus) {
-		printk(KERN_INFO "No Charging source\n");
+		pr_debug("No Charging source\n");
 		/* disable charging when no source present */
 	}
 
 	charge_state = present_charge_state;
 
 	if (stat_reset & VBUS_DET) {
-		printk(KERN_INFO "usb removed\n");
+		pr_debug("usb removed\n");
 		if (present_charge_state & VAC_DET)
 			twl6030_start_ac_charger();
 
 	}
 	if (stat_set & VBUS_DET) {
 		if ((present_charge_state & VAC_DET) && (di->vac_priority))
-			printk(KERN_INFO "USB charger detected, continue with VAC\n");
+			pr_debug("USB charger detected, continue with VAC\n");
 		else
 			twl6030_start_usb_charger();
 	}
 
 	if (stat_reset & VAC_DET) {
-		printk(KERN_INFO "vac removed\n");
+		pr_debug("vac removed\n");
 		if (present_charge_state & VBUS_DET)
 			twl6030_start_usb_charger();
 	}
 	if (stat_set & VAC_DET) {
 		if ((present_charge_state & VBUS_DET) && !(di->vac_priority))
-			printk(KERN_INFO "AC charger detected, continue with VBUS\n");
+			pr_debug("AC charger detected, continue with VBUS\n");
 		else
 			twl6030_start_ac_charger();
 	}
 
 
 	if (stat_set & CONTROLLER_STAT1_FAULT_WDG)
-		printk(KERN_INFO "Fault watchdog fired\n");
+		pr_debug("Fault watchdog fired\n");
 	if (stat_reset & CONTROLLER_STAT1_FAULT_WDG)
-		printk(KERN_INFO "Fault watchdog recovered\n");
+		pr_debug("Fault watchdog recovered\n");
 	if (stat_set & CONTROLLER_STAT1_BAT_REMOVED)
-		printk(KERN_INFO "Battery removed\n");
+		pr_debug("Battery removed\n");
 	if (stat_reset & CONTROLLER_STAT1_BAT_REMOVED)
-		printk(KERN_INFO "Battery inserted\n");
+		pr_debug("Battery inserted\n");
 	if (stat_set & CONTROLLER_STAT1_BAT_TEMP_OVRANGE)
-		printk(KERN_INFO "Battery temperature overrange\n");
+		pr_debug("Battery temperature overrange\n");
 	if (stat_reset & CONTROLLER_STAT1_BAT_TEMP_OVRANGE)
-		printk(KERN_INFO "Battery temperature within range\n");
+		pr_debug("Battery temperature within range\n");
 
 #if 0
 	power_supply_changed(&di->bat);
@@ -337,9 +337,9 @@ static irqreturn_t twl6030charger_fault_interrupt(int irq, void *_di)
 	ret = twl_i2c_read_u8(TWL6030_MODULE_CHARGER, &usb_charge_sts2,
 						CHARGERUSB_STATUS_INT2);
 	if (usb_charge_sts2 & CHARGE_DONE)
-		printk(KERN_INFO "USB charge done\n");
+		pr_debug("USB charge done\n");
 
-	printk(KERN_INFO "Charger fault detected STS, INT1, INT2 %x %x %x\n",
+	pr_debug("Charger fault detected STS, INT1, INT2 %x %x %x\n",
 	    usb_charge_sts, usb_charge_sts1, usb_charge_sts2);
 	return IRQ_HANDLED;
 }
