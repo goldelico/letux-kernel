@@ -557,6 +557,7 @@ int dss_init(bool skip_init)
 	int r, ret;
 	u32 rev;
 	u32 val;
+	u32 mmcdata2;
 	void __iomem  *gpio1_base, *gpio2_base;
 	void __iomem *mux_sec;
 
@@ -655,7 +656,8 @@ if (!cpu_is_omap44xx()) {
 		val |=	0x03;
 		__raw_writel(val,mux_sec + 0x086);
 
-		val = __raw_readl(mux_sec + 0x0EA); /*mux for GPio 104*/
+		/* mux for GPio 104*/
+		val = mmcdata2 = __raw_readl(mux_sec + 0x0EA);
 		val &= ~(0xFfff);
 		val |=	0x03;
 		__raw_writel(val,mux_sec + 0x0EA);
@@ -683,6 +685,9 @@ if (!cpu_is_omap44xx()) {
 
 		mdelay(120);
 		printk("GPIO 104 reset done ");
+
+		/* Restore mmc pad */
+		__raw_writel(mmcdata2, mux_sec + 0x0EA);
 
 		ret = twl_i2c_write_u8(TWL_MODULE_PWM, 0xFF, PWM2ON); /*0xBD = 0xFF*/
 		ret = twl_i2c_write_u8(TWL_MODULE_PWM, 0x7F, PWM2OFF); /*0xBE = 0x7F*/
