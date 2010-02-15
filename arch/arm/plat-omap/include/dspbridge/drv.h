@@ -178,15 +178,18 @@ struct PROCESS_CONTEXT{
 
 	/* DSP Node resources */
 	struct NODE_RES_OBJECT *pNodeList;
+	struct mutex node_mutex;
 
 	/* DMM resources */
 	struct DMM_RES_OBJECT *pDMMList;
+	struct mutex dmm_mutex;
 
 	/* DSP Heap resources */
 	struct DSPHEAP_RES_OBJECT *pDSPHEAPList;
 
 	/* Stream resources */
 	struct STRM_RES_OBJECT *pSTRMList;
+	struct mutex strm_mutex;
 } ;
 #endif
 
