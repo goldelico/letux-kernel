@@ -1672,7 +1672,7 @@ static int dsi_complexio_init(enum dsi lcd_ix, struct omap_dss_device *dssdev)
 {
 	int r = 0;
 
-	void __iomem *phymux_base;
+	void __iomem *phymux_base = NULL;
 
 	unsigned int dsimux = 0xFFFFFFFF;
 
@@ -2538,9 +2538,9 @@ EXPORT_SYMBOL(dsi_vc_set_max_rx_packet_size);
 static void dsi_set_lp_rx_timeout(enum dsi lcd_ix, unsigned long ns)
 {
 	u32 r;
-	unsigned x4, x16;
-	unsigned long fck;
-	unsigned long ticks;
+	unsigned x4 = 0, x16 = 0;
+	unsigned long fck = 0;
+	unsigned long ticks = 0;
 
 	/* ticks in DSI_FCK */
 	if (!cpu_is_omap44xx()) {
@@ -2598,9 +2598,9 @@ static void dsi_set_lp_rx_timeout(enum dsi lcd_ix, unsigned long ns)
 static void dsi_set_ta_timeout(enum dsi lcd_ix, unsigned long ns)
 {
 	u32 r;
-	unsigned x8, x16;
-	unsigned long fck;
-	unsigned long ticks;
+	unsigned x8 = 0, x16 = 0;
+	unsigned long fck = 0;
+	unsigned long ticks = 0;
 
 	/* ticks in DSI_FCK */
 	if (!cpu_is_omap44xx()) {
@@ -2659,9 +2659,9 @@ static void dsi_set_ta_timeout(enum dsi lcd_ix, unsigned long ns)
 static void dsi_set_stop_state_counter(enum dsi lcd_ix, unsigned long ns)
 {
 	u32 r;
-	unsigned x4, x16;
-	unsigned long fck;
-	unsigned long ticks;
+	unsigned x4 = 0, x16 = 0;
+	unsigned long fck = 0;
+	unsigned long ticks = 0;
 
 	/* ticks in DSI_FCK */
 	if (!cpu_is_omap44xx()) {
@@ -2717,9 +2717,9 @@ static void dsi_set_stop_state_counter(enum dsi lcd_ix, unsigned long ns)
 static void dsi_set_hs_tx_timeout(enum dsi lcd_ix, unsigned long ns)
 {
 	u32 r;
-	unsigned x4, x16;
-	unsigned long fck;
-	unsigned long ticks;
+	unsigned x4 = 0, x16 = 0;
+	unsigned long fck = 0;
+	unsigned long ticks = 0;
 
 	/* ticks in TxByteClkHS */
 if (!cpu_is_omap44xx()) {

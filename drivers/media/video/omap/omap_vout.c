@@ -3038,6 +3038,7 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 #endif
 
 	default:
+			spin_unlock(&vout->vbq_lock);
 			return;
 		}
 
