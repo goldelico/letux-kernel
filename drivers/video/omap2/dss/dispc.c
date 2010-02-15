@@ -2300,7 +2300,7 @@ static int _dispc_setup_plane(enum omap_plane plane,
 
 	u8 orientation = 0;
 	struct tiler_view_orient orient;
-	unsigned long r, mir_x, mir_y;
+	unsigned long r, mir_x = 0, mir_y = 0;
 	unsigned long tiler_width, tiler_height;
 	void __iomem *reg = NULL;
 
