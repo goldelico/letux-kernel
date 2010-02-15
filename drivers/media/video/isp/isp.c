@@ -880,7 +880,7 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	isp_reg_writel(dev, irqstatus, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 
 	/* Handle first LSC states */
-	if ((irqstatus & LSC_DONE) || (irqstatus & LSC_DONE) ||
+	if ((irqstatus & LSC_PRE_ERR) || (irqstatus & LSC_DONE) ||
 	    (irqstatus & CCDC_VD1))
 		ispccdc_lsc_state_handler(&isp->isp_ccdc, irqstatus);
 
