@@ -907,6 +907,10 @@ static int configure_dispc(void)
 	/* Commit overlay settings */
 	for (i = 0; i < num_ovls; ++i) {
 		oc = &dss_cache.overlay_cache[i];
+		if (oc->channel > 3) {
+			DSSERR("overlay cache out of bounds %d ", oc->channel);
+			continue;
+		}
 		mc = &dss_cache.manager_cache[oc->channel];
 
 		if (!oc->dirty)
