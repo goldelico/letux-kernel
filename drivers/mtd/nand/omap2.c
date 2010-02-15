@@ -139,6 +139,7 @@ struct omap_nand_info {
 	struct mtd_partition		*parts;
 	struct nand_chip		nand;
 	struct platform_device		*pdev;
+	struct device			*dev;
 
 	int				gpmc_cs;
 	unsigned long			phys_base;
@@ -183,6 +184,14 @@ static void omap_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 {
 	struct omap_nand_info *info = container_of(mtd,
 					struct omap_nand_info, mtd);
+	struct omap_nand_platform_data  *pdata;
+
+	pdata = info->pdev->dev.platform_data;
+	if (cmd == NAND_CMD_ERASE1) {
+		if (pdata->board_unlock)
+			pdata->board_unlock(mtd, info->dev);
+	}
+
 	switch (ctrl) {
 	case NAND_CTRL_CHANGE | NAND_CTRL_CLE:
 		info->nand.IO_ADDR_W = info->gpmc_cs_baseaddr +
@@ -233,7 +242,13 @@ static void omap_write_buf8(struct mtd_info *mtd, const u_char *buf, int len)
 {
 	struct omap_nand_info *info = container_of(mtd,
 						struct omap_nand_info, mtd);
+	struct omap_nand_platform_data  *pdata;
+
+	pdata = info->pdev->dev.platform_data;
 	u_char *p = (u_char *)buf;
+
+	if (pdata->board_unlock)
+		pdata->board_unlock(mtd, info->dev);
 
 	while (len--) {
 		iowrite8(*p++, info->nand.IO_ADDR_W);
@@ -265,7 +280,13 @@ static void omap_write_buf16(struct mtd_info *mtd, const u_char * buf, int len)
 {
 	struct omap_nand_info *info = container_of(mtd,
 						struct omap_nand_info, mtd);
+	struct omap_nand_platform_data  *pdata;
+
+	pdata = info->pdev->dev.platform_data;
 	u16 *p = (u16 *) buf;
+
+	if (pdata->board_unlock)
+		pdata->board_unlock(mtd, info->dev);
 
 	/* FIXME try bursts of writesw() or DMA ... */
 	len >>= 1;
@@ -332,8 +353,15 @@ static void omap_write_buf_pref(struct mtd_info *mtd,
 {
 	struct omap_nand_info *info = container_of(mtd,
 						struct omap_nand_info, mtd);
+	struct omap_nand_platform_data  *pdata;
 	uint32_t pfpw_status = 0, w_count = 0;
 	int i = 0, ret = 0;
+
+	pdata = info->pdev->dev.platform_data;
+
+	if (pdata->board_unlock)
+		pdata->board_unlock(mtd, info->dev);
+
 	u16 *p = (u16 *) buf;
 
 	/* take care of subpage writes */
@@ -505,6 +533,14 @@ static void omap_read_buf_dma_pref(struct mtd_info *mtd, u_char *buf, int len)
 static void omap_write_buf_dma_pref(struct mtd_info *mtd,
 					const u_char *buf, int len)
 {
+	struct omap_nand_platform_data  *pdata;
+	struct omap_nand_info *info = container_of(mtd, struct omap_nand_info,
+									mtd);
+
+	pdata = info->pdev->dev.platform_data;
+	if (pdata->board_unlock)
+		pdata->board_unlock(mtd, info->dev);
+
 	if (len <= mtd->oobsize)
 		omap_write_buf_pref(mtd, buf, len);
 	else
@@ -733,6 +769,7 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 	init_waitqueue_head(&info->controller.wq);
 
 	info->pdev = pdev;
+	info->dev		= &pdev->dev;
 
 	info->gpmc_cs		= pdata->cs;
 	info->gpmc_baseaddr	= pdata->gpmc_baseaddr;
