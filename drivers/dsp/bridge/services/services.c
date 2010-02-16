@@ -77,9 +77,6 @@ bool SERVICES_Init(void)
 	GT_init();
 	GT_create(&SERVICES_debugMask, "OS");	/* OS for OSal */
 
-	GT_0trace(SERVICES_debugMask, GT_ENTER,
-			 "SERVICES_Init: entered\n");
-
 	/* Perform required initialization of SERVICES modules. */
 	fMEM = MEM_Init();
 	fSYNC = SYNC_Init();

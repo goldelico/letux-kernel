@@ -148,7 +148,7 @@ void NTFY_Delete(struct NTFY_OBJECT *hNtfy)
  */
 void NTFY_Exit(void)
 {
-	GT_0trace(NTFY_debugMask, GT_5CLASS, "Entered NTFY_Exit\n");
+	/* Do nothing */
 }
 
 /*
@@ -159,8 +159,6 @@ void NTFY_Exit(void)
 bool NTFY_Init(void)
 {
 	GT_create(&NTFY_debugMask, "NY");	/* "NY" for NtfY */
-
-	GT_0trace(NTFY_debugMask, GT_5CLASS, "NTFY_Init()\n");
 
 	return true;
 }

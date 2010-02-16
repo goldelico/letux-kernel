@@ -48,7 +48,7 @@ static struct GT_Mask CFG_debugMask = { NULL, NULL };	/* CFG debug Mask */
  */
 void CFG_Exit(void)
 {
-	GT_0trace(CFG_debugMask, GT_5CLASS, "Entered CFG_Exit\n");
+	/* Do nothing */
 }
 
 /*
@@ -61,9 +61,7 @@ DSP_STATUS CFG_GetAutoStart(struct CFG_DEVNODE *hDevNode,
 {
 	DSP_STATUS status = DSP_SOK;
 	u32 dwBufSize;
-	GT_2trace(CFG_debugMask, GT_ENTER,
-		  "Entered CFG_GetAutoStart: \n\thDevNode:"
-		  "0x%x\n\tpdwAutoStart: 0x%x\n", hDevNode, pdwAutoStart);
+
 	dwBufSize = sizeof(*pdwAutoStart);
 	if (!hDevNode)
 		status = CFG_E_INVALIDHDEVNODE;
@@ -99,9 +97,7 @@ DSP_STATUS CFG_GetDevObject(struct CFG_DEVNODE *hDevNode, OUT u32 *pdwValue)
 {
 	DSP_STATUS status = DSP_SOK;
 	u32 dwBufSize;
-	GT_2trace(CFG_debugMask, GT_ENTER, "Entered CFG_GetDevObject, args: "
-		 "\n\thDevNode: 0x%x\n\tpdwValue: 0x%x\n", hDevNode,
-		 *pdwValue);
+
 	if (!hDevNode)
 		status = CFG_E_INVALIDHDEVNODE;
 
@@ -147,10 +143,7 @@ DSP_STATUS CFG_GetDSPResources(struct CFG_DEVNODE *hDevNode,
 {
 	DSP_STATUS status = DSP_SOK;	/* return value */
 	u32 dwResSize;
-	GT_2trace(CFG_debugMask, GT_ENTER,
-		  "Entered CFG_GetDSPResources, args: "
-		  "\n\thDevNode:  0x%x\n\tpDSPResTable:  0x%x\n",
-		  hDevNode, pDSPResTable);
+
 	if (!hDevNode)
 		status = CFG_E_INVALIDHDEVNODE;
 	else if (!pDSPResTable)
@@ -187,10 +180,7 @@ DSP_STATUS CFG_GetExecFile(struct CFG_DEVNODE *hDevNode, u32 ulBufSize,
 {
 	DSP_STATUS status = DSP_SOK;
 	u32 cExecSize = ulBufSize;
-	GT_3trace(CFG_debugMask, GT_ENTER,
-		  "Entered CFG_GetExecFile:\n\tthDevNode: "
-		  "0x%x\n\tulBufSize: 0x%x\n\tpstrExecFile: 0x%x\n", hDevNode,
-		  ulBufSize, pstrExecFile);
+
 	if (!hDevNode)
 		status = CFG_E_INVALIDHDEVNODE;
 	else if (!pstrExecFile)
@@ -229,10 +219,7 @@ DSP_STATUS CFG_GetHostResources(struct CFG_DEVNODE *hDevNode,
 {
 	DSP_STATUS status = DSP_SOK;
 	u32 dwBufSize;
-	GT_2trace(CFG_debugMask, GT_ENTER,
-		  "Entered CFG_GetHostResources, args:\n\t"
-		  "pHostResTable:  0x%x\n\thDevNode:  0x%x\n",
-		  pHostResTable, hDevNode);
+
 	if (!hDevNode)
 		status = CFG_E_INVALIDHDEVNODE;
 
@@ -268,9 +255,7 @@ DSP_STATUS CFG_GetObject(OUT u32 *pdwValue, u32 dwType)
 	DSP_STATUS status = DSP_EINVALIDARG;
 	u32 dwBufSize;
 	DBC_Require(pdwValue != NULL);
-	GT_1trace(CFG_debugMask, GT_ENTER,
-		 "Entered CFG_GetObject, args:pdwValue: "
-		 "0x%x\n", *pdwValue);
+
 	dwBufSize = sizeof(pdwValue);
 	switch (dwType) {
 	case (REG_DRV_OBJECT):
@@ -308,7 +293,6 @@ bool CFG_Init(void)
 {
 	struct CFG_DSPRES dspResources;
 	GT_create(&CFG_debugMask, "CF");	/* CF for ConFig */
-	GT_0trace(CFG_debugMask, GT_5CLASS, "Entered CFG_Init\n");
 	GT_0trace(CFG_debugMask, GT_5CLASS, "Intializing DSP Registry Info \n");
 
 	dspResources.uChipType = DSPTYPE_64;
@@ -339,9 +323,7 @@ DSP_STATUS CFG_SetDevObject(struct CFG_DEVNODE *hDevNode, u32 dwValue)
 {
 	DSP_STATUS status = DSP_SOK;
 	u32 dwBuffSize;
-	GT_2trace(CFG_debugMask, GT_ENTER,
-		  "Entered CFG_SetDevObject, args: \n\t"
-		  "hDevNode: 0x%x\n\tdwValue: 0x%x\n", hDevNode, dwValue);
+
 	if (!hDevNode)
 		status = CFG_E_INVALIDHDEVNODE;
 
@@ -380,9 +362,7 @@ DSP_STATUS CFG_SetObject(u32 dwValue, u32 dwType)
 {
 	DSP_STATUS status = DSP_EINVALIDARG;
 	u32 dwBuffSize;
-	GT_1trace(CFG_debugMask, GT_ENTER,
-		  "Entered CFG_SetObject, args: dwValue: "
-		  "0x%x\n", dwValue);
+
 	dwBuffSize = sizeof(dwValue);
 	switch (dwType) {
 	case (REG_DRV_OBJECT):

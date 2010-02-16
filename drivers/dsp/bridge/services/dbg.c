@@ -44,8 +44,6 @@ bool DBG_Init(void)
 {
 	GT_create(&DBG_debugMask, "WD");     /* for WmD (link driver) debug */
 
-	GT_0trace(DBG_debugMask, GT_5CLASS, "DBG_Init\n");
-
 	return true;
 }
 
@@ -84,7 +82,7 @@ DSP_STATUS DBG_Trace(u8 bLevel, char *pstrFormat, ...)
  */
 void DBG_Exit(void)
 {
-	GT_0trace(DBG_debugMask, GT_5CLASS, "DBG_Exit\n");
+	/* Nothing to do */
 }
 
 #endif	/* (defined(CONFIG_BRIDGE_DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE */

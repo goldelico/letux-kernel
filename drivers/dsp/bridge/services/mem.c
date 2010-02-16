@@ -151,8 +151,6 @@ void *MEM_Alloc(u32 cBytes, enum MEM_POOLATTRS type)
 {
 	void *pMem = NULL;
 
-	GT_2trace(MEM_debugMask, GT_ENTER,
-		  "MEM_Alloc: cBytes 0x%x\ttype 0x%x\n", cBytes, type);
 	if (cBytes > 0) {
 		switch (type) {
 		case MEM_NONPAGED:
@@ -186,10 +184,6 @@ void *MEM_AllocPhysMem(u32 cBytes, u32 ulAlign, OUT u32 *pPhysicalAddress)
 	void *pVaMem = NULL;
 	dma_addr_t paMem;
 
-	GT_2trace(MEM_debugMask, GT_ENTER,
-		  "MEM_AllocPhysMem: cBytes 0x%x\tulAlign"
-		  "0x%x\n", cBytes, ulAlign);
-
 	if (cBytes > 0) {
 		if (extPhysMemPoolEnabled) {
 			pVaMem = MEM_ExtPhysMemAlloc(cBytes, ulAlign,
@@ -217,10 +211,6 @@ void *MEM_AllocPhysMem(u32 cBytes, u32 ulAlign, OUT u32 *pPhysicalAddress)
 void *MEM_Calloc(u32 cBytes, enum MEM_POOLATTRS type)
 {
 	void *pMem = NULL;
-
-	GT_2trace(MEM_debugMask, GT_ENTER,
-		  "MEM_Calloc: cBytes 0x%x\ttype 0x%x\n",
-		  cBytes, type);
 
 	if (cBytes > 0) {
 		switch (type) {
@@ -304,9 +294,6 @@ void MEM_FreePhysMem(void *pVirtualAddress, u32 pPhysicalAddress,
 		     u32 cBytes)
 {
 	DBC_Require(pVirtualAddress != NULL);
-
-	GT_1trace(MEM_debugMask, GT_ENTER, "MEM_FreePhysMem: pVirtualAddress "
-		  "0x%x\n", pVirtualAddress);
 
 	if (!extPhysMemPoolEnabled)
 		dma_free_coherent(NULL, cBytes, pVirtualAddress,

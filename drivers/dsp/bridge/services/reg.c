@@ -54,8 +54,6 @@ DSP_STATUS REG_DeleteValue(IN CONST char *pstrValue)
 	DSP_STATUS status;
 	DBC_Require(strlen(pstrValue) < REG_MAXREGPATHLENGTH);
 
-	GT_0trace(REG_debugMask, GT_ENTER, "REG_DeleteValue: entered\n");
-
 	SYNC_EnterCS(reglock);
 	status = regsupDeleteValue(pstrValue);
 	SYNC_LeaveCS(reglock);
@@ -81,8 +79,6 @@ DSP_STATUS REG_EnumValue(IN u32 dwIndex,
 	DBC_Require(*pdwValueSize <= REG_MAXREGPATHLENGTH);
        DBC_Require(strlen(pstrKey) < REG_MAXREGPATHLENGTH);
 
-	GT_0trace(REG_debugMask, GT_ENTER, "REG_EnumValue: entered\n");
-
 	SYNC_EnterCS(reglock);
 	status = regsupEnumValue(dwIndex, pstrKey, pstrValue, pdwValueSize,
 				 pstrData, pdwDataSize);
@@ -97,8 +93,6 @@ DSP_STATUS REG_EnumValue(IN u32 dwIndex,
  */
 void REG_Exit(void)
 {
-	GT_0trace(REG_debugMask, GT_5CLASS, "REG_Exit\n");
-
 	if (reglock)
 		SYNC_DeleteCS(reglock);
 
@@ -118,8 +112,6 @@ DSP_STATUS REG_GetValue(IN CONST char *pstrValue, OUT u8 *pbData,
 
 	DBC_Require(pstrValue && pbData);
        DBC_Require(strlen(pstrValue) < REG_MAXREGPATHLENGTH);
-
-	GT_0trace(REG_debugMask, GT_ENTER, "REG_GetValue: entered\n");
 
 	SYNC_EnterCS(reglock);
 	/*  We need to use regsup calls...  */
@@ -141,8 +133,6 @@ DSP_STATUS REG_GetValue(IN CONST char *pstrValue, OUT u8 *pbData,
 bool REG_Init(void)
 {
 	bool fInit;
-
-	GT_create(&REG_debugMask, "RG");	/* RG for ReG */
 
 	fInit = regsupInit();
 

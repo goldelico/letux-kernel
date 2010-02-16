@@ -103,7 +103,6 @@ void CLK_Exit(void)
 {
 	int i = 0;
 
-	GT_0trace(CLK_debugMask, GT_5CLASS, "CLK_Exit\n");
 	/* Relinquish the clock handles */
 	while (i < SERVICESCLK_NOT_DEFINED) {
 		if (SERVICES_Clks[i].clk_handle)
@@ -126,7 +125,6 @@ bool CLK_Init(void)
 	struct clk *clk_handle;
 	int i = 0;
 	GT_create(&CLK_debugMask, "CK");	/* CK for CLK */
-	GT_0trace(CLK_debugMask, GT_5CLASS, "CLK_Init\n");
 
 	dspbridge_device.dev.bus = &platform_bus_type;
 
@@ -171,9 +169,6 @@ DSP_STATUS CLK_Enable(IN enum SERVICES_ClkId clk_id)
 	struct clk *pClk;
 
 	DBC_Require(clk_id < SERVICESCLK_NOT_DEFINED);
-	GT_2trace(CLK_debugMask, GT_6CLASS, "CLK_Enable: CLK %s, "
-		"CLK dev id = %d\n", SERVICES_Clks[clk_id].clk_name,
-		SERVICES_Clks[clk_id].id);
 
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 	if (pClk) {
@@ -214,10 +209,7 @@ DSP_STATUS CLK_Set_32KHz(IN enum SERVICES_ClkId clk_id)
 	pClkParent =  SERVICES_Clks[SERVICESCLK_sys_32k_ck].clk_handle;
 
 	DBC_Require(clk_id < SERVICESCLK_NOT_DEFINED);
-	GT_2trace(CLK_debugMask, GT_6CLASS, "CLK_Set_32KHz: CLK %s, "
-		"CLK dev id = %d is setting to 32KHz \n",
-		SERVICES_Clks[clk_id].clk_name,
-		SERVICES_Clks[clk_id].id);
+
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 	if (pClk) {
 		if (!(clk_set_parent(pClk, pClkParent) == 0x0)) {
@@ -244,9 +236,6 @@ DSP_STATUS CLK_Disable(IN enum SERVICES_ClkId clk_id)
 	s32 clkUseCnt;
 
 	DBC_Require(clk_id < SERVICESCLK_NOT_DEFINED);
-	GT_2trace(CLK_debugMask, GT_6CLASS, "CLK_Disable: CLK %s, "
-		"CLK dev id = %d\n", SERVICES_Clks[clk_id].clk_name,
-		SERVICES_Clks[clk_id].id);
 
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 
@@ -294,9 +283,6 @@ DSP_STATUS CLK_GetRate(IN enum SERVICES_ClkId clk_id, u32 *speedKhz)
 	DBC_Require(clk_id < SERVICESCLK_NOT_DEFINED);
 	*speedKhz = 0x0;
 
-	GT_2trace(CLK_debugMask, GT_7CLASS, "CLK_GetRate: CLK %s, "
-		"CLK dev Id = %d \n", SERVICES_Clks[clk_id].clk_name,
-		SERVICES_Clks[clk_id].id);
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 	if (pClk) {
 		clkSpeedHz = clk_get_rate(pClk);
