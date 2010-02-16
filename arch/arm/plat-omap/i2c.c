@@ -106,6 +106,8 @@ static void omap_i2c_set_wfc_mpu_wkup_lat(struct device *dev, int val)
 {
 	omap_pm_set_max_mpu_wakeup_lat(dev, val);
 }
+#else
+#define omap_i2c_set_wfc_mpu_wkup_lat NULL
 #endif
 
 static void __init omap_set_i2c_constraint_func(
