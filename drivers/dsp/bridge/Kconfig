@@ -35,6 +35,14 @@ config BRIDGE_DEBUG
 	help
 	  Say Y to enable Bridge debugging capabilities
 
+config BRIDGE_RECOVERY
+	bool "DSP Recovery Support"
+	depends on MPU_BRIDGE
+	help
+	  In case of DSP fatal error, BRIDGE driver will try to
+	  recover itself.
+
+
 menu "Bridge Hacking"
 	depends on MPU_BRIDGE
 
