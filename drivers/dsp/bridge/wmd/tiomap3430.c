@@ -463,7 +463,7 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 	 /* Write a signature into the SHM base + offset; this will
 	 * get cleared when the DSP program starts.  */
 	if ((ulShmBaseVirt == 0) || (ulShmBase == 0)) {
-		DBG_Trace(DBG_LEVEL6, "WMD_BRD_Start: Illegal SM base\n");
+		pr_err("%s: Illegal SM base\n", __func__);
 		status = DSP_EFAIL;
 	} else
 		*((volatile u32 *)dwSyncAddr) = 0xffffffff;
@@ -1353,8 +1353,8 @@ static DSP_STATUS WMD_BRD_MemMap(struct WMD_DEV_CONTEXT *hDevContext,
 		       vma->vm_end, vma->vm_flags);
 	}
 	if (!vma) {
-		DBG_Trace(DBG_LEVEL7, "Failed to get the VMA region for "
-			  "MPU Buffer !!! \n");
+		pr_err("%s: Failed to get VMA region for 0x%x (%d)\n",
+					__func__, ulMpuAddr, ulNumBytes);
 		status = DSP_EINVALIDARG;
 		up_read(&mm->mmap_sem);
 		goto func_cont;
@@ -1940,7 +1940,7 @@ bool WaitForStart(struct WMD_DEV_CONTEXT *pDevContext, u32 dwSyncAddr)
 
 	/*  If timed out: return FALSE */
 	if (!timeout) {
-		DBG_Trace(DBG_LEVEL7, "Timed out Waiting for DSP to Start\n");
+		pr_err("%s: Timed out waiting DSP to Start\n", __func__);
 		return FALSE;
 	}
 	return TRUE;

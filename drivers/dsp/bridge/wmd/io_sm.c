@@ -467,9 +467,9 @@ DSP_STATUS WMD_IO_OnLoaded(struct IO_MGR *hIOMgr)
 
 		if ((ulSegSize + ulSeg1Size + ulPadSize) >
 		   hostRes.dwMemLength[1]) {
-			DBG_Trace(DBG_LEVEL7, "Insufficient SHM Reserved 0x%x. "
-				 "Required 0x%x\n", hostRes.dwMemLength[1],
-				 ulSegSize + ulSeg1Size + ulPadSize);
+			pr_err("%s: SHM Error, reserved 0x%x required 0x%x\n",
+					__func__, hostRes.dwMemLength[1],
+					ulSegSize + ulSeg1Size + ulPadSize);
 			status = DSP_EMEMORY;
 		}
 	}
@@ -871,10 +871,9 @@ static void IO_DispatchPM(struct IO_MGR *pIOMgr)
 			 "command\n");
 		status = pIOMgr->pIntfFxns->pfnDevCntrl(pIOMgr->
 			 hWmdContext, WMDIOCTL_PWR_HIBERNATE, pArg);
-		if (DSP_FAILED(status)) {
-			DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : "
-				 "Hibernation command failed\n");
-		}
+		if (DSP_FAILED(status))
+			pr_err("%s: hibernate cmd failed 0x%x\n",
+						__func__, status);
 	} else if (pArg[0] == MBX_PM_OPP_REQ) {
 		pArg[1] = pIOMgr->pSharedMem->oppRequest.rqstOppPt;
 		DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : Value of OPP "
@@ -1303,9 +1302,9 @@ static void InputMsg(struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr)
 						 * No free frame to copy the
 						 * message into.
 						 */
-						DBG_Trace(DBG_LEVEL7, "NO FREE "
-							"MSG FRAMES, DISCARDING"
-							" MESSAGE\n");
+						pr_err("%s: no free msg frames,"
+							" discarding msg\n",
+							__func__);
 					}
 				}
 				break;
