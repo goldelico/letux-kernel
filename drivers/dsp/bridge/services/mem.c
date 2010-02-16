@@ -97,10 +97,6 @@ static void *MEM_ExtPhysMemAlloc(u32 bytes, u32 align, OUT u32 *pPhysAddr)
 
 	if (bytes > ((extMemPool.physMemBase + extMemPool.physMemSize)
 	    - extMemPool.nextPhysAllocPtr)) {
-		GT_1trace(MEM_debugMask, GT_7CLASS,
-			  "ExtPhysical Memory Allocation "
-			  "unable to allocate memory for bytes = 0x%x \n",
-			  bytes);
 		pPhysAddr = NULL;
 		return NULL;
 	} else {
@@ -147,9 +143,6 @@ void *MEM_Alloc(u32 cBytes, enum MEM_POOLATTRS type)
 			break;
 
 		default:
-			GT_0trace(MEM_debugMask, GT_6CLASS,
-				  "MEM_Alloc: unexpected "
-				  "MEM_POOLATTRS value\n");
 			break;
 		}
 	}
@@ -176,9 +169,6 @@ void *MEM_AllocPhysMem(u32 cBytes, u32 ulAlign, OUT u32 *pPhysicalAddress)
 				(in_atomic()) ? GFP_ATOMIC : GFP_KERNEL);
 		if (pVaMem == NULL) {
 			*pPhysicalAddress = 0;
-			GT_1trace(MEM_debugMask, GT_6CLASS,
-				  "MEM_AllocPhysMem failed: "
-				  "0x%x\n", pVaMem);
 		} else {
 			*pPhysicalAddress = paMem;
 		}
@@ -212,9 +202,6 @@ void *MEM_Calloc(u32 cBytes, enum MEM_POOLATTRS type)
 				memset(pMem, 0, cBytes);
 			break;
 		default:
-			GT_1trace(MEM_debugMask, GT_6CLASS,
-				  "MEM_Calloc: unexpected "
-				  "MEM_POOLATTRS value 0x%x\n", type);
 			break;
 		}
 	}

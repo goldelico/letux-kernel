@@ -73,11 +73,7 @@ DSP_STATUS CFG_GetAutoStart(struct CFG_DEVNODE *hDevNode,
 		if (DSP_FAILED(status))
 			status = CFG_E_RESOURCENOTAVAIL;
 	}
-#ifdef CONFIG_BRIDGE_DEBUG
-	if (DSP_FAILED(status))
-		GT_0trace(CFG_debugMask, GT_6CLASS,
-		"CFG_GetAutoStart Failed \n");
-#endif
+
 	DBC_Ensure((status == DSP_SOK &&
 		(*pdwAutoStart == 0 || *pdwAutoStart == 1))
 		|| status != DSP_SOK);
@@ -105,13 +101,9 @@ DSP_STATUS CFG_GetDevObject(struct CFG_DEVNODE *hDevNode, OUT u32 *pdwValue)
 
 		/* check the device string and then call the REG_SetValue*/
 		if (!(strcmp((char *)((struct DRV_EXT *)hDevNode)->szString,
-							"TIOMAP1510"))) {
+							"TIOMAP1510")))
 			status = REG_GetValue("DEVICE_DSP", (u8 *)pdwValue,
 						&dwBufSize);
-		} else {
-			GT_0trace(CFG_debugMask, GT_6CLASS,
-				  "Failed to Identify the Device to Fetch \n");
-		}
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status))
@@ -301,9 +293,6 @@ DSP_STATUS CFG_SetDevObject(struct CFG_DEVNODE *hDevNode, u32 dwValue)
 		if (!(strcmp((char *)hDevNode, "TIOMAP1510"))) {
 			status = REG_SetValue("DEVICE_DSP", (u8 *)&dwValue,
 						dwBuffSize);
-		} else {
-			GT_0trace(CFG_debugMask, GT_6CLASS,
-				  "Failed to Register Device \n");
 		}
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
