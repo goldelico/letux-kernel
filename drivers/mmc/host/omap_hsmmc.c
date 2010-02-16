@@ -1383,9 +1383,8 @@ static int omap_mmc_remove(struct platform_device *pdev)
 	struct mmc_omap_host *host = platform_get_drvdata(pdev);
 	struct resource *res;
 
-	omap_hsmmc_enable_clks(host);
-
 	if (host) {
+		omap_hsmmc_enable_clks(host);
 		mmc_remove_host(host->mmc);
 		if (host->pdata->cleanup)
 			host->pdata->cleanup(&pdev->dev);
