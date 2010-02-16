@@ -574,10 +574,6 @@ DSP_STATUS COD_Open(struct COD_MANAGER *hMgr, IN char *pszCoffPath,
 	DBC_Require(flags == COD_NOLOAD || flags == COD_SYMB);
 	DBC_Require(pLib != NULL);
 
-	GT_4trace(COD_debugMask, GT_ENTER, "Entered COD_Open, hMgr: 0x%x\n\t "
-		  "pszCoffPath:  0x%x\tflags: 0x%x\tlib: 0x%x\n", hMgr,
-		  pszCoffPath, flags, pLib);
-
 	*pLib = NULL;
 
 	lib = MEM_Calloc(sizeof(struct COD_LIBRARYOBJ), MEM_NONPAGED);
@@ -592,6 +588,9 @@ DSP_STATUS COD_Open(struct COD_MANAGER *hMgr, IN char *pszCoffPath,
 			*pLib = lib;
 	}
 
+	if (DSP_FAILED(status))
+		pr_err("%s: error status 0x%x, pszCoffPath: %s flags: 0x%x\n",
+					__func__, status, pszCoffPath, flags);
 	return status;
 }
 
@@ -610,10 +609,6 @@ DSP_STATUS COD_OpenBase(struct COD_MANAGER *hMgr, IN char *pszCoffPath,
 	DBC_Require(IsValid(hMgr));
 	DBC_Require(pszCoffPath != NULL);
 
-	GT_2trace(COD_debugMask, GT_ENTER,
-		  "Entered COD_OpenBase, hMgr:  0x%x\n\t"
-		  "pszCoffPath:  0x%x\n", hMgr, pszCoffPath);
-
 	/* if we previously opened a base image, close it now */
 	if (hMgr->baseLib) {
 		if (hMgr->fLoaded) {
@@ -631,6 +626,9 @@ DSP_STATUS COD_OpenBase(struct COD_MANAGER *hMgr, IN char *pszCoffPath,
 		hMgr->szZLFile[COD_MAXPATHLENGTH - 1] = '\0';
 	}
 
+	if (DSP_FAILED(status))
+		pr_err("%s: error status 0x%x pszCoffPath: %s\n", __func__,
+							status, pszCoffPath);
 	return status;
 }
 

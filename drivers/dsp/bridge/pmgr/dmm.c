@@ -120,10 +120,10 @@ DSP_STATUS DMM_CreateTables(struct DMM_OBJECT *hDmmMgr, u32 addr, u32 size)
 			pVirtualMappingTable[0].RegionSize = TableSize;
 		}
 		SYNC_LeaveCS(pDmmObj->hDmmLock);
-	} else
-		GT_0trace(DMM_debugMask, GT_7CLASS,
-			 "DMM_CreateTables: DMM_DeleteTables"
-			 "Failure\n");
+	}
+
+	if (DSP_FAILED(status))
+		pr_err("%s: failure, status 0x%x\n", __func__, status);
 
 	return status;
 }

@@ -215,9 +215,8 @@ DSP_STATUS DEV_CreateDevice(OUT struct DEV_OBJECT **phDevObject,
 		} else {
 			ioMgrAttrs.dwSMBase = 0;
 			ioMgrAttrs.uSMLength = 0;
-			GT_0trace(debugMask, GT_7CLASS,
-				  "**There is no memory reserved for "
-				  "shared structures**\n");
+			pr_err("%s: No memory reserved for shared structures\n",
+								__func__);
 		}
 		status = CHNL_Create(&pDevObject->hChnlMgr, pDevObject,
 				    &mgrAttrs);
