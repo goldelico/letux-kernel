@@ -377,17 +377,11 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 		}
 
 		clk_handle = clk_get(NULL, "iva2_ck");
-		if (!clk_handle) {
+		if (!clk_handle)
 			GT_0trace(driverTrace, GT_7CLASS,
 			"clk_get failed to get iva2_ck \n");
-		} else {
-			GT_0trace(driverTrace, GT_7CLASS,
-			"clk_get PASS to get iva2_ck \n");
-		}
-		if (!clk_notifier_register(clk_handle, &iva_clk_notifier)) {
-			GT_0trace(driverTrace, GT_7CLASS,
-			"clk_notifier_register PASS for iva2_ck \n");
-		} else {
+
+		if (clk_notifier_register(clk_handle, &iva_clk_notifier)) {
 			GT_0trace(driverTrace, GT_7CLASS,
 			"clk_notifier_register FAIL for iva2_ck \n");
 		}
@@ -431,10 +425,7 @@ static int __devexit omap34xx_bridge_remove(struct platform_device *pdev)
 		goto func_cont;
 
 #ifdef CONFIG_BRIDGE_DVFS
-	if (!clk_notifier_unregister(clk_handle, &iva_clk_notifier)) {
-		GT_0trace(driverTrace, GT_7CLASS,
-		"clk_notifier_unregister PASS for iva2_ck \n");
-	} else {
+	if (clk_notifier_unregister(clk_handle, &iva_clk_notifier)) {
 		GT_0trace(driverTrace, GT_7CLASS,
 		"clk_notifier_unregister FAILED for iva2_ck \n");
 	}

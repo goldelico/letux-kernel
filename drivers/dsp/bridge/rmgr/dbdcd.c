@@ -165,10 +165,6 @@ DSP_STATUS DCD_CreateManager(IN char *pszZlDllName,
 
 		/* Return handle to this DCD interface. */
 		*phDcdMgr = pDcdMgr;
-
-		GT_2trace(curTrace, GT_5CLASS,
-			 "DCD_CreateManager: pDcdMgr 0x%x, "
-			 " hCodMgr 0x%x", pDcdMgr, hCodMgr);
 	} else {
 		status = DSP_EMEMORY;
 
@@ -607,8 +603,6 @@ DSP_STATUS DCD_GetObjects(IN struct DCD_MANAGER *hDcdMgr, IN char *pszCoffPath,
 #endif
 	if (DSP_SUCCEEDED(status)) {
 		/* Compress DSP buffer to conform to PC format. */
-		GT_0trace(curTrace, GT_4CLASS,
-			 "Successfully read section !!\n");
 		if (strstr(pszCoffPath, "iva") == NULL) {
 			CompressBuf(pszCoffBuf, ulLen, DSPWORDSIZE);
 		} else {
@@ -637,14 +631,8 @@ DSP_STATUS DCD_GetObjects(IN struct DCD_MANAGER *hDcdMgr, IN char *pszCoffPath,
 			 *  2) Unregister found DCD object (when handle == NULL)
 			 *  3) Add overlay node.
 			 */
-			GT_1trace(curTrace, GT_4CLASS, "Registering objtype "
-				 "%d \n", cObjectType);
 			status = registerFxn(&dspUuid, cObjectType, handle);
-			if (DSP_SUCCEEDED(status)) {
-				GT_1trace(curTrace, GT_5CLASS,
-					 "DCD_GetObjects: status 0x%x\n",
-					 status);
-			} else {
+			if (DSP_FAILED(status)) {
 				GT_0trace(curTrace, GT_6CLASS,
 					 "DCD_GetObjects: "
 					 "registration() failed\n");

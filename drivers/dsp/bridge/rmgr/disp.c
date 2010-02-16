@@ -144,8 +144,7 @@ DSP_STATUS DISP_Create(OUT struct DISP_OBJECT **phDispObject,
 		goto func_cont;
 
 	status = DEV_GetDevType(hDevObject, &devType);
-	GT_1trace(DISP_DebugMask, GT_6CLASS, "DISP_Create: Creating DISP for "
-		 "device = 0x%x\n", devType);
+
 	if (DSP_FAILED(status))
 		goto func_cont;
 
@@ -329,9 +328,6 @@ DSP_STATUS DISP_NodeCreate(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 	DBC_Require(pNodeEnv != NULL);
 
 	status = DEV_GetDevType(hDisp->hDevObject, &devType);
-
-	GT_1trace(DISP_DebugMask, GT_6CLASS, "DISP_Create: Creating DISP "
-		 "for device = 0x%x\n", devType);
 
 	if (DSP_FAILED(status))
 		goto func_end;

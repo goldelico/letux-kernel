@@ -79,8 +79,6 @@ DSP_STATUS MGR_Create(OUT struct MGR_OBJECT **phMgrObject,
 							REG_MGR_OBJECT);
 			if (DSP_SUCCEEDED(status)) {
 				*phMgrObject = pMgrObject;
-				GT_0trace(MGR_DebugMask, GT_1CLASS,
-					 "MGR_Create:MGR Created\r\n");
 			} else {
 				GT_0trace(MGR_DebugMask, GT_7CLASS,
 					 "MGR_Create:CFG_SetObject "

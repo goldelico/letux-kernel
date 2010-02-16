@@ -234,12 +234,8 @@ PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
 					     (u32)pProcObject,
 					     &pProcObject->bIsAlreadyAttached);
 		if (DSP_SUCCEEDED(status)) {
-			if (pProcObject->bIsAlreadyAttached) {
+			if (pProcObject->bIsAlreadyAttached)
 				status = DSP_SALREADYATTACHED;
-				GT_0trace(PROC_DebugMask, GT_1CLASS,
-					 "PROC_Attach: Processor "
-					 "Already Attached!\n");
-			}
 		} else {
 			if (pProcObject->hNtfy)
 				NTFY_Delete(pProcObject->hNtfy);
@@ -254,9 +250,6 @@ PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
 			pr_ctxt->hProcessor = *phProcessor;
 			(void)PROC_NotifyClients(pProcObject,
 						 DSP_PROCESSORATTACH);
-			GT_0trace(PROC_DebugMask, GT_1CLASS,
-				 "PROC_Attach: Processor "
-				 "Attach Success!\n");
 		}
 	} else {
 		/* Don't leak memory if DSP_FAILED */
@@ -341,7 +334,6 @@ DSP_STATUS PROC_AutoStart(struct CFG_DEVNODE *hDevNode,
 		status = DSP_EMEMORY;
 		goto func_end;
 	}
-	GT_0trace(PROC_DebugMask, GT_1CLASS, "NTFY Created \n");
 	pProcObject->hDevObject = hDevObject;
 	pProcObject->hMgrObject = hMgrObject;
 	status = DEV_GetIntfFxns(hDevObject, &pProcObject->pIntfFxns);
@@ -391,11 +383,7 @@ DSP_STATUS PROC_AutoStart(struct CFG_DEVNODE *hDevNode,
 		status = PROC_Load(pProcObject, 1, (CONST char **)argv, NULL);
 		if (DSP_SUCCEEDED(status)) {
 			status = PROC_Start(pProcObject);
-			if (DSP_SUCCEEDED(status)) {
-				GT_0trace(PROC_DebugMask, GT_1CLASS,
-					  "PROC_AutoStart: Processor started "
-					  "running\n");
-			} else {
+			if (DSP_FAILED(status)) {
 				GT_0trace(PROC_DebugMask, GT_7CLASS,
 					  "PROC_AutoStart: DSP_FAILED To "
 					  "Start \n");
@@ -906,11 +894,6 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 #endif
 	/* Call the WMD_BRD_Load Fxn */
 
-	if (pProcObject->bIsAlreadyAttached) {
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Load GPP "
-			 "Client is already attached status  \n");
-	}
 	if (DSP_FAILED(DEV_GetCodMgr(pProcObject->hDevObject, &hCodMgr))) {
 		status = DSP_EFAIL;
 		GT_1trace(PROC_DebugMask, GT_7CLASS, "PROC_Load: DSP_FAILED in "
@@ -1393,8 +1376,6 @@ DSP_STATUS PROC_Start(void *hProcessor)
 			PROC_NotifyClients(pProcObject,
 					  DSP_PROCESSORSTATECHANGE);
 		}
-		GT_0trace(PROC_DebugMask, GT_1CLASS, "PROC_Start: Processor "
-			 "Started and running \n");
 	} else {
 		/* Failed to Create Node Manager and DISP Object
 		 * Stop the Processor from running. Put it in STOPPED State */
@@ -1477,11 +1458,8 @@ DSP_STATUS PROC_Stop(void *hProcessor)
 #ifdef CONFIG_BRIDGE_DEBUG
 			if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->
 			   pfnBrdStatus)(pProcObject->hWmdContext,
-			   &uBrdState))) {
-				GT_0trace(PROC_DebugMask, GT_1CLASS,
-					 "PROC_Monitor:Processor Stopped \n");
+			   &uBrdState)))
 				DBC_Assert(uBrdState == BRD_STOPPED);
-			}
 #endif
 		} else {
 			GT_0trace(PROC_DebugMask, GT_7CLASS,
@@ -1538,9 +1516,6 @@ DSP_STATUS PROC_UnMap(void *hProcessor, void *pMapAddr,
 			 (pProcObject->hWmdContext, vaAlign, sizeAlign);
 	}
 	(void)SYNC_LeaveCS(hProcLock);
-	GT_1trace(PROC_DebugMask, GT_ENTER,
-		   "PROC_UnMap DRV_GetDMMResElement "
-		   "pMapAddr:[0x%x]", pMapAddr);
 	if (DSP_FAILED(status))
 		goto func_end;
 
@@ -1627,13 +1602,10 @@ static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *pProcObject)
 		status = DSP_SOK;
 #ifdef CONFIG_BRIDGE_DEBUG
 		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
-		   (pProcObject->hWmdContext, &uBrdState))) {
-			GT_0trace(PROC_DebugMask, GT_1CLASS,
-				 "PROC_Monitor:Processor in "
-				 "Monitor State\n");
+		   (pProcObject->hWmdContext, &uBrdState)))
 			DBC_Assert(uBrdState == BRD_IDLE);
-		}
 #endif
+
 	} else {
 		/* Monitor Failure */
 		GT_0trace(PROC_DebugMask, GT_7CLASS,
@@ -1708,8 +1680,6 @@ DSP_STATUS PROC_NotifyClients(void *hProc, u32 uEvents)
 	DBC_Require(cRefs > 0);
 
 	NTFY_Notify(pProcObject->hNtfy, uEvents);
-	GT_0trace(PROC_DebugMask, GT_1CLASS,
-		 "PROC_NotifyClients :Signaled. \n");
 
 	return status;
 }
@@ -1737,8 +1707,6 @@ DSP_STATUS PROC_NotifyAllClients(void *hProc, u32 uEvents)
 
 	DEV_NotifyClients(pProcObject->hDevObject, uEvents);
 
-	GT_0trace(PROC_DebugMask, GT_1CLASS,
-		 "PROC_NotifyAllClients :Signaled. \n");
 func_end:
 	return status;
 }

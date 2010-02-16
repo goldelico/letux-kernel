@@ -71,7 +71,6 @@ u32 DSP_Init(OUT u32 *initStatus)
 		WCD_Exit();
 		goto func_cont;
 	}		/* End DRV_Create */
-	GT_0trace(curTrace, GT_5CLASS, "DSP_Init:DRV Created \r\n");
 
 	/* Request Resources */
 	status = DRV_RequestResources((u32)&devNode, &deviceNodeString);
@@ -79,12 +78,7 @@ u32 DSP_Init(OUT u32 *initStatus)
 		/* Attempt to Start the Device */
 		status = DEV_StartDevice((struct CFG_DEVNODE *)
 							deviceNodeString);
-		if (DSP_SUCCEEDED(status)) {
-			/* Retreive the DevObject from the Registry */
-			GT_1trace(curTrace, GT_1CLASS,
-				 "DSP_Init Succeeded for Device1 value: %x\n",
-				 deviceNodeString);
-		} else {
+		if (DSP_FAILED(status)) {
 			GT_0trace(curTrace, GT_7CLASS,
 				 "DSP_Init:DEV_StartDevice Failed\n");
 			(void)DRV_ReleaseResources
@@ -123,7 +117,6 @@ func_cont:
 		 * correct one. We should not propagate that error
 		 * into the device loader. */
 		(void)WCD_InitComplete2();
-		GT_0trace(curTrace, GT_1CLASS, "DSP_Init Succeeded\n");
 	} else {
 		GT_0trace(curTrace, GT_7CLASS, "DSP_Init Failed\n");
 	}			/* End WCD_InitComplete2 */
