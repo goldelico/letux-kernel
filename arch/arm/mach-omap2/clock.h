@@ -73,7 +73,7 @@ int omap2_wait_clock_ready(s16 prcm_mod, u16 idlest_reg, u32 cval,
 			   const char *name);
 void omap2_clk_prepare_for_reboot(void);
 
-extern void omap3_lock_dpll5();
+extern void omap3_lock_dpll5(void);
 extern u8 cpu_mask;
 
 /* clksel_rate data common to 24xx/343x */

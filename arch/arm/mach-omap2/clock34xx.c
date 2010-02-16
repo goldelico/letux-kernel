@@ -773,7 +773,7 @@ void omap2_clk_prepare_for_reboot(void)
 #endif
 }
 
-void omap3_lock_dpll5()
+void omap3_lock_dpll5(void)
 {
 	struct clk *dpll5_clk;
 	struct clk *dpll5_m2_clk;
