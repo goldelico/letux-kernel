@@ -440,6 +440,8 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 static void omap_mbox_fini(struct omap_mbox *mbox)
 {
 	free_irq(mbox->irq, mbox);
+	flush_work(&mbox->rxq->work);
+	flush_work(&mbox->txq->work);
 	mbox_queue_free(mbox->txq);
 	mbox_queue_free(mbox->rxq);
 
