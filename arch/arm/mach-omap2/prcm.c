@@ -131,7 +131,6 @@ EXPORT_SYMBOL(omap_prcm_get_reset_sources);
 void omap_prcm_arch_reset(char mode)
 {
 	s16 prcm_offs;
-	u32 sdrc_pwr;
 
 	omap2_clk_prepare_for_reboot();
 
