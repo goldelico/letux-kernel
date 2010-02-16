@@ -152,9 +152,6 @@ DSP_STATUS DMM_Create(OUT struct DMM_OBJECT **phDmmMgr,
 		else
 			DMM_Destroy(pDmmObject);
 	} else {
-		GT_0trace(DMM_debugMask, GT_7CLASS,
-			 "DMM_Create: Object Allocation "
-			 "Failure(DMM Object)\n");
 		status = DSP_EMEMORY;
 	}
 
@@ -178,10 +175,7 @@ DSP_STATUS DMM_Destroy(struct DMM_OBJECT *hDmmMgr)
 			/* Delete CS & dmm mgr object */
 			SYNC_DeleteCS(pDmmObj->hDmmLock);
 			MEM_FreeObject(pDmmObj);
-		} else
-			GT_0trace(DMM_debugMask, GT_7CLASS,
-			 "DMM_Destroy: DMM_DeleteTables "
-			 "Failure\n");
+		}
 	} else
 		status = DSP_EHANDLE;
 

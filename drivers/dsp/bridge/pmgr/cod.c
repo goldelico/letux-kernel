@@ -240,11 +240,8 @@ DSP_STATUS COD_Create(OUT struct COD_MANAGER **phMgr, char *pstrDummyFile,
 		return DSP_ENOTIMPL;
 
 	hMgrNew = MEM_Calloc(sizeof(struct COD_MANAGER), MEM_NONPAGED);
-	if (hMgrNew == NULL) {
-		GT_0trace(COD_debugMask, GT_7CLASS,
-			  "COD_Create: Out Of Memory\n");
+	if (hMgrNew == NULL)
 		return DSP_EMEMORY;
-	}
 
 	hMgrNew->ulMagic = MAGIC;
 
@@ -277,8 +274,6 @@ DSP_STATUS COD_Create(OUT struct COD_MANAGER **phMgr, char *pstrDummyFile,
 
 	if (DSP_FAILED(status)) {
 		COD_Delete(hMgrNew);
-		GT_1trace(COD_debugMask, GT_7CLASS,
-			  "COD_Create:ZL Create Failed: 0x%x\n", status);
 		return COD_E_ZLCREATEFAILED;
 	}
 
@@ -427,15 +422,8 @@ DSP_STATUS COD_GetSection(struct COD_LIBRARYOBJ *lib, IN char *pstrSect,
 		hManager = lib->hCodMgr;
 		status = hManager->fxns.getSectFxn(lib->dbllLib, pstrSect,
 						   puAddr, puLen);
-		if (DSP_FAILED(status)) {
-			GT_1trace(COD_debugMask, GT_7CLASS,
-				 "COD_GetSection: Section %s not"
-				 "found\n", pstrSect);
-		}
 	} else {
 		status = COD_E_NOSYMBOLSLOADED;
-		GT_0trace(COD_debugMask, GT_7CLASS,
-			  "COD_GetSection:No Symbols loaded\n");
 	}
 
 	DBC_Ensure(DSP_SUCCEEDED(status) || ((*puAddr == 0) && (*puLen == 0)));
@@ -467,16 +455,10 @@ DSP_STATUS COD_GetSymValue(struct COD_MANAGER *hMgr, char *pstrSym,
 	if (hMgr->baseLib) {
 		if (!hMgr->fxns.getAddrFxn(hMgr->baseLib, pstrSym, &pSym)) {
 			if (!hMgr->fxns.getCAddrFxn(hMgr->baseLib, pstrSym,
-			    &pSym)) {
-				GT_0trace(COD_debugMask, GT_7CLASS,
-					  "COD_GetSymValue: "
-					  "Symbols not found\n");
+			    &pSym))
 				return COD_E_SYMBOLNOTFOUND;
-			}
 		}
 	} else {
-		GT_0trace(COD_debugMask, GT_7CLASS, "COD_GetSymValue: "
-			 "No Symbols loaded\n");
 		return COD_E_NOSYMBOLSLOADED;
 	}
 
@@ -565,12 +547,9 @@ DSP_STATUS COD_LoadBase(struct COD_MANAGER *hMgr, u32 nArgc, char *aArgs[],
 	flags = DBLL_CODE | DBLL_DATA | DBLL_SYMB;
 	status = hMgr->fxns.loadFxn(hMgr->baseLib, flags, &newAttrs,
 		 &hMgr->ulEntry);
-	if (DSP_FAILED(status)) {
+	if (DSP_FAILED(status))
 		hMgr->fxns.closeFxn(hMgr->baseLib);
-		GT_1trace(COD_debugMask, GT_7CLASS,
-			  "COD_LoadBase: COD Load failed: "
-			  "0x%x\n", status);
-	}
+
 	if (DSP_SUCCEEDED(status))
 		hMgr->fLoaded = true;
 	else
@@ -602,22 +581,15 @@ DSP_STATUS COD_Open(struct COD_MANAGER *hMgr, IN char *pszCoffPath,
 	*pLib = NULL;
 
 	lib = MEM_Calloc(sizeof(struct COD_LIBRARYOBJ), MEM_NONPAGED);
-	if (lib == NULL) {
-		GT_0trace(COD_debugMask, GT_7CLASS,
-			 "COD_Open: Out Of Memory\n");
+	if (lib == NULL)
 		status = DSP_EMEMORY;
-	}
 
 	if (DSP_SUCCEEDED(status)) {
 		lib->hCodMgr = hMgr;
 		status = hMgr->fxns.openFxn(hMgr->target, pszCoffPath, flags,
 					   &lib->dbllLib);
-		if (DSP_FAILED(status)) {
-			GT_1trace(COD_debugMask, GT_7CLASS,
-				 "COD_Open failed: 0x%x\n", status);
-		} else {
+		if (DSP_SUCCEEDED(status))
 			*pLib = lib;
-		}
 	}
 
 	return status;
@@ -652,10 +624,7 @@ DSP_STATUS COD_OpenBase(struct COD_MANAGER *hMgr, IN char *pszCoffPath,
 		hMgr->baseLib = NULL;
 	}
 	status = hMgr->fxns.openFxn(hMgr->target, pszCoffPath, flags, &lib);
-	if (DSP_FAILED(status)) {
-		GT_0trace(COD_debugMask, GT_7CLASS,
-			 "COD_OpenBase: COD Open failed\n");
-	} else {
+	if (DSP_SUCCEEDED(status)) {
 		/* hang onto the library for subsequent sym table usage */
 		hMgr->baseLib = lib;
 		strncpy(hMgr->szZLFile, pszCoffPath, COD_MAXPATHLENGTH - 1);
@@ -681,19 +650,13 @@ DSP_STATUS COD_ReadSection(struct COD_LIBRARYOBJ *lib, IN char *pstrSect,
 	DBC_Require(pstrSect != NULL);
 	DBC_Require(pstrContent != NULL);
 
-	if (lib != NULL) {
+	if (lib != NULL)
 		status = lib->hCodMgr->fxns.readSectFxn(lib->dbllLib, pstrSect,
 							pstrContent,
 							cContentSize);
-		if (DSP_FAILED(status)) {
-			GT_1trace(COD_debugMask, GT_7CLASS,
-				 "COD_ReadSection failed: 0x%lx\n", status);
-		}
-	} else {
+	else
 		status = COD_E_NOSYMBOLSLOADED;
-		GT_0trace(COD_debugMask, GT_7CLASS,
-			  "COD_ReadSection: No Symbols loaded\n");
-	}
+
 	return status;
 }
 

@@ -262,9 +262,6 @@ DSP_STATUS DBLL_create(struct DBLL_TarObj **pTarget, struct DBLL_Attrs *pAttrs)
 	MEM_AllocObject(pzlTarget, struct DBLL_TarObj, DBLL_TARGSIGNATURE);
 	if (pTarget != NULL) {
 		if (pzlTarget == NULL) {
-			GT_0trace(DBLL_debugMask, GT_6CLASS,
-				 "DBLL_create: Memory allocation"
-				 " failed\n");
 			*pTarget = NULL;
 			status = DSP_EMEMORY;
 		} else {
@@ -563,10 +560,6 @@ DSP_STATUS DBLL_load(struct DBLL_LibraryObj *lib, DBLL_Flags flags,
 			      &zlLib->mHandle);
 
 			if (err != 0) {
-				GT_1trace(DBLL_debugMask, GT_6CLASS,
-					 "DBLL_load: "
-					 "Dynamic_Load_Module failed: 0x%lx\n",
-					 err);
 				status = DSP_EDYNLOAD;
 			} else if (bRedefinedSymbol) {
 				zlLib->loadRef++;
@@ -635,8 +628,6 @@ DSP_STATUS DBLL_open(struct DBLL_TarObj *target, char *file, DBLL_Flags flags,
 		MEM_AllocObject(zlLib, struct DBLL_LibraryObj,
 				DBLL_LIBSIGNATURE);
 		if (zlLib == NULL) {
-			GT_0trace(DBLL_debugMask, GT_6CLASS,
-				 "DBLL_open: Memory allocation failed\n");
 			status = DSP_EMEMORY;
 		} else {
 			zlLib->ulPos = 0;
@@ -648,9 +639,6 @@ DSP_STATUS DBLL_open(struct DBLL_TarObj *target, char *file, DBLL_Flags flags,
 			zlLib->fileName = MEM_Calloc(strlen(file) + 1,
 							MEM_PAGED);
 			if (zlLib->fileName == NULL) {
-				GT_0trace(DBLL_debugMask, GT_6CLASS,
-					 "DBLL_open: Memory "
-					 "allocation failed\n");
 				status = DSP_EMEMORY;
 			} else {
 				strncpy(zlLib->fileName, file,
@@ -711,8 +699,6 @@ DSP_STATUS DBLL_open(struct DBLL_TarObj *target, char *file, DBLL_Flags flags,
 					&zlLib->init.dlInit, 0,
 					&zlLib->mHandle);
 		if (err != 0) {
-			GT_1trace(DBLL_debugMask, GT_6CLASS, "DBLL_open: "
-				 "Dynamic_Load_Module failed: 0x%lx\n", err);
 			status = DSP_EDYNLOAD;
 		} else {
 			/* Now that we have the symbol table, we can unload */
@@ -720,13 +706,9 @@ DSP_STATUS DBLL_open(struct DBLL_TarObj *target, char *file, DBLL_Flags flags,
 						   &zlLib->symbol.dlSymbol,
 						   &zlLib->allocate.dlAlloc,
 						   &zlLib->init.dlInit);
-			if (err != 0) {
-				GT_1trace(DBLL_debugMask, GT_6CLASS,
-					"DBLL_open: "
-					"Dynamic_Unload_Module failed: 0x%lx\n",
-					err);
+			if (err != 0)
 				status = DSP_EDYNLOAD;
-			}
+
 			zlLib->mHandle = NULL;
 		}
 	}
@@ -889,9 +871,7 @@ DSP_STATUS DBLL_unloadSect(struct DBLL_LibraryObj *lib, char *sectName,
 {
 	DBC_Require(cRefs > 0);
 	DBC_Require(sectName != NULL);
-	GT_2trace(DBLL_debugMask, GT_ENTER,
-		 "DBLL_unloadSect: lib: 0x%x sectName: "
-		 "%s\n", lib, sectName);
+
 	return DSP_ENOTIMPL;
 }
 

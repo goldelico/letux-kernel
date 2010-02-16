@@ -75,22 +75,16 @@ DSP_STATUS CHNL_Create(OUT struct CHNL_MGR **phChnlMgr,
 
 	/* Validate args: */
 	if ((0 < pMgrAttrs->cChannels) &&
-	   (pMgrAttrs->cChannels <= CHNL_MAXCHANNELS)) {
+	   (pMgrAttrs->cChannels <= CHNL_MAXCHANNELS))
 		status = DSP_SOK;
-	} else if (pMgrAttrs->cChannels == 0) {
+	else if (pMgrAttrs->cChannels == 0)
 		status = DSP_EINVALIDARG;
-		GT_0trace(CHNL_DebugMask, GT_7CLASS,
-			  "CHNL_Create:Invalid Args\n");
-	} else {
+	else
 		status = CHNL_E_MAXCHANNELS;
-		GT_0trace(CHNL_DebugMask, GT_7CLASS,
-			  "CHNL_Create:Error Max Channels\n");
-	}
-	if (pMgrAttrs->uWordSize == 0) {
+
+	if (pMgrAttrs->uWordSize == 0)
 		status = CHNL_E_INVALIDWORDSIZE;
-		GT_0trace(CHNL_DebugMask, GT_7CLASS,
-			  "CHNL_Create:Invalid Word size\n");
-	}
+
 	if (DSP_SUCCEEDED(status)) {
 		status = DEV_GetChnlMgr(hDevObject, &hChnlMgr);
 		if (DSP_SUCCEEDED(status) && hChnlMgr != NULL)
@@ -139,8 +133,6 @@ DSP_STATUS CHNL_Destroy(struct CHNL_MGR *hChnlMgr)
 		/* Let WMD channel module destroy the CHNL_MGR: */
 		status = (*pIntfFxns->pfnChnlDestroy)(hChnlMgr);
 	} else {
-		GT_0trace(CHNL_DebugMask, GT_7CLASS,
-			  "CHNL_Destroy:Invalid Handle\n");
 		status = DSP_EHANDLE;
 	}
 

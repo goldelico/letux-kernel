@@ -68,17 +68,11 @@ DSP_STATUS IO_Create(OUT struct IO_MGR **phIOMgr, struct DEV_OBJECT *hDevObject,
 	*phIOMgr = NULL;
 
 	/* A memory base of 0 implies no memory base:  */
-	if ((pMgrAttrs->dwSMBase != 0) && (pMgrAttrs->uSMLength == 0)) {
+	if ((pMgrAttrs->dwSMBase != 0) && (pMgrAttrs->uSMLength == 0))
 		status = CHNL_E_INVALIDMEMBASE;
-		GT_0trace(IO_DebugMask, GT_7CLASS,
-			 "IO_Create:Invalid Mem Base\n");
-	}
 
-	if (pMgrAttrs->uWordSize == 0) {
+	if (pMgrAttrs->uWordSize == 0)
 		status = CHNL_E_INVALIDWORDSIZE;
-		GT_0trace(IO_DebugMask, GT_7CLASS,
-			 "IO_Create:Invalid Word size\n");
-	}
 
 	if (DSP_SUCCEEDED(status)) {
 		status = DEV_GetIntfFxns(hDevObject, &pIntfFxns);

@@ -161,8 +161,6 @@ DSP_STATUS DEV_CreateDevice(OUT struct DEV_OBJECT **phDevObject,
 	WMD_DRV_Entry(&pDrvFxns, pstrWMDFileName);
 	if (DSP_FAILED(CFG_GetObject((u32 *) &hDrvObject, REG_DRV_OBJECT))) {
 		/* don't propogate CFG errors from this PROC function */
-		GT_0trace(debugMask, GT_7CLASS,
-			  "Failed to get the DRV Object \n");
 		status = DSP_EFAIL;
 	}
 	/* Create the device object, and pass a handle to the WMD for
@@ -193,8 +191,6 @@ DSP_STATUS DEV_CreateDevice(OUT struct DEV_OBJECT **phDevObject,
 			DBC_Assert(DSP_FAILED(status) || (pDevObject->
 				   hWmdContext != NULL));
 		} else {
-			GT_0trace(debugMask, GT_7CLASS,
-				  "DEV_Create: Out Of Memory");
 			status = DSP_EMEMORY;
 		}
 	}
@@ -233,11 +229,6 @@ DSP_STATUS DEV_CreateDevice(OUT struct DEV_OBJECT **phDevObject,
 		/* Create CMM mgr even if Msg Mgr not impl.  */
 		status = CMM_Create(&pDevObject->hCmmMgr,
 				   (struct DEV_OBJECT *)pDevObject, NULL);
-		if (DSP_FAILED(status)) {
-			GT_0trace(debugMask, GT_7CLASS,
-				  "DEV_Create: Failed to Create SM "
-				  "Manager\n");
-		}
 		/* Only create IO manager if we have a channel manager */
 		if (DSP_SUCCEEDED(status) && pDevObject->hChnlMgr) {
 			status = IO_Create(&pDevObject->hIOMgr, pDevObject,
@@ -252,11 +243,6 @@ DSP_STATUS DEV_CreateDevice(OUT struct DEV_OBJECT **phDevObject,
 		/* Create DMM mgr .  */
 		status = DMM_Create(&pDevObject->hDmmMgr,
 				   (struct DEV_OBJECT *)pDevObject, NULL);
-		if (DSP_FAILED(status)) {
-			GT_0trace(debugMask, GT_7CLASS,
-				  "DEV_Create: Failed to Create DMM "
-				  "Manager\n");
-		}
 	}
 	/* Add the new DEV_Object to the global list: */
 	if (DSP_SUCCEEDED(status)) {
@@ -267,13 +253,10 @@ DSP_STATUS DEV_CreateDevice(OUT struct DEV_OBJECT **phDevObject,
 	if (DSP_SUCCEEDED(status)) {
 		pDevObject->procList = MEM_Calloc(sizeof(struct LST_LIST),
 			MEM_NONPAGED);
-		if (!(pDevObject->procList)) {
+		if (!(pDevObject->procList))
 			status = DSP_EFAIL;
-			GT_0trace(debugMask, GT_7CLASS, "DEV_Create: "
-				 "Failed to Create Proc List");
-		} else {
+		else
 			INIT_LIST_HEAD(&pDevObject->procList->head);
-		}
 	}
 	 /*  If all went well, return a handle to the dev object;
 	 *  else, cleanup and return NULL in the OUT parameter.  */
@@ -292,7 +275,6 @@ DSP_STATUS DEV_CreateDevice(OUT struct DEV_OBJECT **phDevObject,
 			MEM_FreeObject(pDevObject);
 
 		*phDevObject = NULL;
-		GT_0trace(debugMask, GT_7CLASS, "DEV_CreateDevice Failed\n");
 	}
 
 	DBC_Ensure((DSP_SUCCEEDED(status) && IsValidHandle(*phDevObject)) ||
@@ -318,13 +300,9 @@ DSP_STATUS DEV_Create2(struct DEV_OBJECT *hDevObject)
 	/* There can be only one Node Manager per DEV object */
 	DBC_Assert(!pDevObject->hNodeMgr);
 	status = NODE_CreateMgr(&pDevObject->hNodeMgr, hDevObject);
-	if (DSP_FAILED(status)) {
-		GT_1trace(debugMask, GT_7CLASS,
-			 "DEV_Create2: NODE_CreateMgr failed, "
-			 "0x%x!\n", status);
+	if (DSP_FAILED(status))
 		pDevObject->hNodeMgr = NULL;
-		GT_0trace(debugMask, GT_7CLASS, "DEV_Create2: Failed!!\n");
-	}
+
 	DBC_Ensure((DSP_SUCCEEDED(status) && pDevObject->hNodeMgr != NULL)
 		   || (DSP_FAILED(status) && pDevObject->hNodeMgr == NULL));
 	return status;
@@ -350,8 +328,6 @@ DSP_STATUS DEV_Destroy2(struct DEV_OBJECT *hDevObject)
 			pDevObject->hNodeMgr = NULL;
 
 	}
-	if (DSP_FAILED(status))
-		GT_0trace(debugMask, GT_7CLASS, "DEV_Destroy2 failed!!\n");
 
 	DBC_Ensure((DSP_SUCCEEDED(status) && pDevObject->hNodeMgr == NULL) ||
 		  DSP_FAILED(status));
@@ -433,7 +409,6 @@ DSP_STATUS DEV_DestroyDevice(struct DEV_OBJECT *hDevObject)
 			pDevObject = NULL;
 		}
 	} else {
-		GT_0trace(debugMask, GT_7CLASS, "DEV_Destroy: Invlaid handle");
 		status = DSP_EHANDLE;
 	}
 
@@ -460,8 +435,6 @@ DSP_STATUS DEV_GetChnlMgr(struct DEV_OBJECT *hDevObject,
 	} else {
 		*phMgr = NULL;
 		status = DSP_EHANDLE;
-		GT_0trace(debugMask, GT_7CLASS,
-			 "DEV_GetChnlMgr: Invalid handle");
 	}
 
 	DBC_Ensure(DSP_SUCCEEDED(status) || ((phMgr != NULL) &&
@@ -489,8 +462,6 @@ DSP_STATUS DEV_GetCmmMgr(struct DEV_OBJECT *hDevObject,
 	} else {
 		*phMgr = NULL;
 		status = DSP_EHANDLE;
-		GT_0trace(debugMask, GT_7CLASS,
-			 "DEV_GetCmmMgr: Invalid handle");
 	}
 
 	DBC_Ensure(DSP_SUCCEEDED(status) || ((phMgr != NULL) &&
@@ -518,8 +489,6 @@ DSP_STATUS DEV_GetDmmMgr(struct DEV_OBJECT *hDevObject,
 	} else {
 		*phMgr = NULL;
 		status = DSP_EHANDLE;
-		GT_0trace(debugMask, GT_7CLASS,
-			 "DEV_GetDmmMgr: Invalid handle");
 	}
 
 	DBC_Ensure(DSP_SUCCEEDED(status) || ((phMgr != NULL) &&
@@ -546,9 +515,6 @@ DSP_STATUS DEV_GetCodMgr(struct DEV_OBJECT *hDevObject,
 	} else {
 		*phCodMgr = NULL;
 		status = DSP_EHANDLE;
-		GT_1trace(debugMask, GT_7CLASS,
-			 "DEV_GetCodMgr, invalid handle:  0x%x\n",
-			 hDevObject);
 	}
 
 	DBC_Ensure(DSP_SUCCEEDED(status) || ((phCodMgr != NULL) &&
@@ -572,8 +538,6 @@ DSP_STATUS DEV_GetDehMgr(struct DEV_OBJECT *hDevObject,
 	} else {
 		*phDehMgr = NULL;
 		status = DSP_EHANDLE;
-		GT_0trace(debugMask, GT_7CLASS,
-			 "DEV_GetDehMgr: Invalid handle");
 	}
 	return status;
 }
@@ -597,8 +561,6 @@ DSP_STATUS DEV_GetDevNode(struct DEV_OBJECT *hDevObject,
 	} else {
 		*phDevNode = NULL;
 		status = DSP_EHANDLE;
-		GT_0trace(debugMask, GT_7CLASS,
-			 "DEV_GetDevNode: Invalid handle");
 	}
 
 	DBC_Ensure(DSP_SUCCEEDED(status) || ((phDevNode != NULL) &&
@@ -643,8 +605,6 @@ DSP_STATUS DEV_GetIntfFxns(struct DEV_OBJECT *hDevObject,
 	} else {
 		*ppIntfFxns = NULL;
 		status = DSP_EHANDLE;
-		GT_0trace(debugMask, GT_7CLASS,
-			  "DEV_GetIntDxns: Invalid handle");
 	}
 
 	DBC_Ensure(DSP_SUCCEEDED(status) || ((ppIntfFxns != NULL) &&
@@ -669,7 +629,6 @@ DSP_STATUS DEV_GetIOMgr(struct DEV_OBJECT *hDevObject,
 	} else {
 		*phIOMgr = NULL;
 		status = DSP_EHANDLE;
-		GT_0trace(debugMask, GT_7CLASS, "DEV_GetIOMgr: Invalid handle");
 	}
 
 	return status;
@@ -726,9 +685,6 @@ DSP_STATUS DEV_GetNodeManager(struct DEV_OBJECT *hDevObject,
 	} else {
 		*phNodeMgr = NULL;
 		status = DSP_EHANDLE;
-		GT_1trace(debugMask, GT_7CLASS,
-			 "DEV_GetNodeManager, invalid handle: 0x"
-			 "%x\n", hDevObject);
 	}
 
 	DBC_Ensure(DSP_SUCCEEDED(status) || ((phNodeMgr != NULL) &&
@@ -757,8 +713,6 @@ DSP_STATUS DEV_GetSymbol(struct DEV_OBJECT *hDevObject,
 		}
 	} else {
 		status = DSP_EHANDLE;
-		GT_0trace(debugMask, GT_7CLASS,
-			 "DEV_GetSymbol: Invalid handle");
 	}
 
 	return status;
@@ -783,8 +737,6 @@ DSP_STATUS DEV_GetWMDContext(struct DEV_OBJECT *hDevObject,
 	} else {
 		*phWmdContext = NULL;
 		status = DSP_EHANDLE;
-		GT_0trace(debugMask, GT_7CLASS,
-			 "DEV_GetWMDContext: Invalid handle");
 	}
 
 	DBC_Ensure(DSP_SUCCEEDED(status) || ((phWmdContext != NULL) &&
@@ -906,13 +858,11 @@ DSP_STATUS DEV_SetChnlMgr(struct DEV_OBJECT *hDevObject, struct CHNL_MGR *hMgr)
 
 	DBC_Require(cRefs > 0);
 
-	if (IsValidHandle(hDevObject)) {
+	if (IsValidHandle(hDevObject))
 		pDevObject->hChnlMgr = hMgr;
-	} else {
+	else
 		status = DSP_EHANDLE;
-		GT_0trace(debugMask, GT_7CLASS,
-			 "DEV_SetChnlMgr, Invalid handle\n");
-	}
+
 	DBC_Ensure(DSP_FAILED(status) || (pDevObject->hChnlMgr == hMgr));
 	return status;
 }
@@ -950,15 +900,6 @@ DSP_STATUS DEV_StartDevice(struct CFG_DEVNODE *hDevNode)
 		if (DSP_SUCCEEDED(status)) {
 			/* Get DSP resources of device from Registry: */
 			status = CFG_GetDSPResources(hDevNode, &dspRes);
-			if (DSP_FAILED(status)) {
-				GT_1trace(debugMask, GT_7CLASS,
-					 "Failed to get WMD DSP resources"
-					 " from registry: 0x%x ", status);
-			}
-		} else {
-			GT_1trace(debugMask, GT_7CLASS,
-				 "Failed to get WMD Host resources "
-				 "from registry: 0x%x ", status);
 		}
 	if (DSP_SUCCEEDED(status)) {
 		/* Given all resources, create a device object. */
@@ -969,26 +910,14 @@ DSP_STATUS DEV_StartDevice(struct CFG_DEVNODE *hDevNode)
 			status = CFG_SetDevObject(hDevNode, (u32)hDevObject);
 			if (DSP_FAILED(status)) {
 				/* Clean up */
-				GT_1trace(debugMask, GT_7CLASS,
-					 "Failed to set DevObject in the "
-					 "Registry: 0x%x", status);
 				DEV_DestroyDevice(hDevObject);
 				hDevObject = NULL;
 			}
-		} else {
-			GT_1trace(debugMask, GT_7CLASS,
-				 "Failed to Create Device: 0x%x",
-				 status);
 		}
 	}
 	if (DSP_SUCCEEDED(status)) {
 		/* Create the Manager Object */
 		status = MGR_Create(&hMgrObject, hDevNode);
-	}
-	if (DSP_FAILED(status)) {
-		GT_1trace(debugMask, GT_7CLASS, "Failed to MGR object: 0x%x",
-			 status);
-		status = DSP_EFAIL;
 	}
 	if (DSP_FAILED(status)) {
 		if (hDevObject)
@@ -1012,9 +941,6 @@ DSP_STATUS DEV_StartDevice(struct CFG_DEVNODE *hDevNode)
  */
 static DSP_STATUS FxnNotImplemented(int arg, ...)
 {
-	DBG_Trace(DBG_LEVEL1,
-		 "WARNING: Calling a non-implemented WMD function.\n");
-
 	return DSP_ENOTIMPL;
 }
 
