@@ -162,8 +162,6 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 #endif /* CONFIG_BRIDGE_DVFS */
 		} else {
 			pDevContext->dwBrdState = prev_state;
-			DBG_Trace(DBG_LEVEL7,
-				 "handle_hibernation_fromDSP- FAILED\n");
 		}
 	}
 #endif
@@ -187,10 +185,8 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 	enum HW_PwrState_t pwrState, targetPwrState;
 
 	/* Check if sleep code is valid */
-	if ((dwCmd != PWR_DEEPSLEEP) && (dwCmd != PWR_EMERGENCYDEEPSLEEP)) {
-		DBG_Trace(DBG_LEVEL7, "SleepDSP- Illegal sleep command\n");
+	if ((dwCmd != PWR_DEEPSLEEP) && (dwCmd != PWR_EMERGENCYDEEPSLEEP))
 		return DSP_EINVALIDARG;
-	}
 
 	switch (pDevContext->dwBrdState) {
 	case BRD_RUNNING:
@@ -268,7 +264,6 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 		/* Turn off DSP Peripheral clocks  */
 		status = DSP_PeripheralClocks_Disable(pDevContext, NULL);
 		if (DSP_FAILED(status)) {
-			DBG_Trace(DBG_LEVEL7, "SleepDSP- FAILED\n");
 			return status;
 		}
 #ifdef CONFIG_BRIDGE_DVFS
@@ -355,9 +350,6 @@ DSP_STATUS DSPPeripheralClkCtrl(struct WMD_DEV_CONTEXT *pDevContext,
 	 * just return with failure when the CLK ID does not match */
 	/* DBC_Assert(clkIdIndex < MBX_PM_MAX_RESOURCES);*/
 	if (clkIdIndex == MBX_PM_MAX_RESOURCES) {
-		DBG_Trace(DBG_LEVEL7,
-			 "DSPPeripheralClkCtrl : Could n't get clock Id for"
-			 "clkid 0x%x \n", clkIdIndex);
 		/* return with a more meaningfull error code */
 		return DSP_EFAIL;
 	}
@@ -382,9 +374,6 @@ DSP_STATUS DSPPeripheralClkCtrl(struct WMD_DEV_CONTEXT *pDevContext,
 		if ((DSP_SUCCEEDED(status)) && (DSP_SUCCEEDED(status1))) {
 			(pDevContext->uDspPerClks) &=
 				(~((u32) (1 << clkIdIndex)));
-		} else {
-			DBG_Trace(DBG_LEVEL7, "DSPPeripheralClkCtrl : Failed "
-				 "to disable clk\n");
 		}
 		break;
 	case BPWR_EnableClock:
@@ -404,9 +393,6 @@ DSP_STATUS DSPPeripheralClkCtrl(struct WMD_DEV_CONTEXT *pDevContext,
 		DSPClkWakeupEventCtrl(BPWR_Clks[clkIdIndex].clkId, true);
 		if ((DSP_SUCCEEDED(status)) && (DSP_SUCCEEDED(status1))) {
 			(pDevContext->uDspPerClks) |= (1 << clkIdIndex);
-		} else {
-			DBG_Trace(DBG_LEVEL7,
-				 "DSPPeripheralClkCtrl:Failed to Enable clk\n");
 		}
 		break;
 	default:
@@ -448,8 +434,6 @@ DSP_STATUS PreScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 		sm_interrupt_dsp(pDevContext, MBX_PM_SETPOINT_PRENOTIFY);
 		return DSP_SOK;
 	} else {
-		DBG_Trace(DBG_LEVEL7, "PreScale_DSP: Failed - DSP BRD"
-			  " state in wrong state");
 		return DSP_EFAIL;
 	}
 #endif /* #ifdef CONFIG_BRIDGE_DVFS */
@@ -496,8 +480,6 @@ DSP_STATUS PostScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 			"PostScale_DSP: Wrote to shared memory Sent post"
 			" notification to DSP\n");
 	} else {
-		DBG_Trace(DBG_LEVEL7, "PostScale_DSP: Failed - DSP BRD state "
-			"in wrong state");
 		status = DSP_EFAIL;
 	}
 #endif /* #ifdef CONFIG_BRIDGE_DVFS */
@@ -534,18 +516,9 @@ DSP_STATUS DSP_PeripheralClocks_Disable(struct WMD_DEV_CONTEXT *pDevContext,
 				__raw_writel(value, pDevContext->sysctrlbase
 								+ 0x274);
 			}
-			if (DSP_FAILED(status)) {
-				DBG_Trace(DBG_LEVEL7,
-					 "Failed to Enable the DSP Peripheral"
-					 "Clk 0x%x \n", BPWR_Clks[clkIdx]);
-			}
+
 			/* Disables the functional clock of the periphearl */
 			status = CLK_Disable(BPWR_Clks[clkIdx].funClk);
-			if (DSP_FAILED(status)) {
-				DBG_Trace(DBG_LEVEL7,
-					 "Failed to Enable the DSP Peripheral"
-					 "Clk 0x%x \n", BPWR_Clks[clkIdx]);
-			}
 		}
 	}
 	return status;

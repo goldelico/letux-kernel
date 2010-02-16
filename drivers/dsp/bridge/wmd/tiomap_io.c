@@ -151,22 +151,16 @@ DSP_STATUS ReadExtDspData(struct WMD_DEV_CONTEXT *hDevContext,
 
 	/* This dwDspExtBaseAddr will get cleared only when the board is
 	* stopped. */
-				if (!pDevContext->dwDspExtBaseAddr) {
+				if (!pDevContext->dwDspExtBaseAddr)
 					status = DSP_EFAIL;
-					DBG_Trace(DBG_LEVEL7, "ReadExtDspData: "
-					"failed to Map the program memory\n");
-				}
 			}
 
 			dwBaseAddr = dwExtProgVirtMem;
 		}
 	}
 
-	if (!dwBaseAddr || !ulExtBase || !ulExtEnd) {
-		DBG_Trace(DBG_LEVEL7,
-		"Symbols missing for Ext Prog reading \n");
+	if (!dwBaseAddr || !ulExtBase || !ulExtEnd)
 		status = DSP_EFAIL;
-	}
 
 	offset = dwDSPAddr - ulExtBase;
 
@@ -346,30 +340,21 @@ DSP_STATUS WriteExtDspData(struct WMD_DEV_CONTEXT *pDevContext,
 			dwBaseAddr += pDevContext->dwDspExtBaseAddr;
 			/* This dwDspExtBaseAddr will get cleared only when
 			 * the board is stopped.  */
-			if (!pDevContext->dwDspExtBaseAddr) {
+			if (!pDevContext->dwDspExtBaseAddr)
 				retVal = DSP_EFAIL;
-				DBG_Trace(DBG_LEVEL7, "WriteExtDspData: failed "
-					 "to Map the program memory\n");
-			}
 		}
 	}
-	if (!dwBaseAddr || !ulExtBase || !ulExtEnd) {
-		DBG_Trace(DBG_LEVEL7, "Symbols missing for Ext Prog loading\n");
+	if (!dwBaseAddr || !ulExtBase || !ulExtEnd)
 		retVal = DSP_EFAIL;
-	}
+
 	if (DSP_SUCCEEDED(retVal)) {
 		for (i = 0; i < 4; i++)
 			remainByte[i] = 0x0;
 
 		dwOffset = dwDSPAddr - ulExtBase;
 		/* Also make sure the dwDSPAddr is < ulExtEnd */
-		if (dwDSPAddr > ulExtEnd || dwOffset > dwDSPAddr) {
-			DBG_Trace(DBG_LEVEL7, "We can not load at this address "
-				 "dwDSPAddr=0x%x, ulExt/DynBase=0x%x, "
-				 "ulExtEnd=0x%x\n", dwDSPAddr, ulExtBase,
-				 ulExtEnd);
+		if (dwDSPAddr > ulExtEnd || dwOffset > dwDSPAddr)
 			retVal = DSP_EFAIL;
-		}
 	}
 	if (DSP_SUCCEEDED(retVal)) {
 		if (ulNumBytes)

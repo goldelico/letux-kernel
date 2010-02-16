@@ -148,18 +148,12 @@ DSP_STATUS WMD_CHNL_AddIOReq(struct CHNL_OBJECT *hChnl, void *pHostBuf,
 		pHostSysBuf = MEM_Alloc(cBufSize, MEM_NONPAGED);
 		if (pHostSysBuf == NULL) {
 			status = DSP_EMEMORY;
-			DBG_Trace(DBG_LEVEL7,
-				 "No memory to allocate kernel buffer\n");
 			goto func_end;
 		}
 		if (CHNL_IsOutput(pChnl->uMode)) {
 			status = copy_from_user(pHostSysBuf, pHostBuf,
 						cBufSize);
 			if (status) {
-				DBG_Trace(DBG_LEVEL7,
-					 "Error copying user buffer to "
-					 "kernel, %d bytes remaining.\n",
-					 status);
 				kfree(pHostSysBuf);
 				pHostSysBuf = NULL;
 				status = DSP_EPOINTER;
@@ -681,8 +675,6 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 		/* If the addr is in user mode, then copy it */
 		if (!pHostSysBuf || !ioc.pBuf) {
 			status = DSP_EPOINTER;
-			DBG_Trace(DBG_LEVEL7,
-				 "System buffer NULL in IO completion.\n");
 			goto func_cont;
 		}
 		if (!CHNL_IsInput(pChnl->uMode))
@@ -691,22 +683,11 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 		/*pHostUserBuf */
 		status = copy_to_user(ioc.pBuf, pHostSysBuf, ioc.cBytes);
 		if (status) {
-			if (current->flags & PF_EXITING) {
+			if (current->flags & PF_EXITING)
 				status = 0;
-			} else {
-				DBG_Trace(DBG_LEVEL7,
-					 "\n2current->flags != PF_EXITING, "
-					 " current->flags;0x%x\n",
-					 current->flags);
-			}
 		}
-		if (status) {
-			DBG_Trace(DBG_LEVEL7,
-				 "Error copying kernel buffer to user, %d"
-				 " bytes remaining.  in_interupt %d\n",
-				 status, in_interrupt());
+		if (status)
 			status = DSP_EPOINTER;
-		}
 func_cont1:
 		kfree(pHostSysBuf);
 	}

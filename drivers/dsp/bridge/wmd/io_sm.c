@@ -467,11 +467,6 @@ DSP_STATUS WMD_IO_OnLoaded(struct IO_MGR *hIOMgr)
 
 		if ((ulSegSize + ulSeg1Size + ulPadSize) >
 		   hostRes.dwMemLength[1]) {
-			DBG_Trace(DBG_LEVEL7, "ulGppPa %x, ulGppVa %x, ulDspVa "
-				 "%x, ulShm0End %x, ulDynExtBase %x, ulExtEnd "
-				 "%x, ulSegSize %x, ulSeg1Size %x \n", ulGppPa,
-				 ulGppVa, ulDspVa, ulShm0End, ulDynExtBase,
-				 ulExtEnd, ulSegSize, ulSeg1Size);
 			DBG_Trace(DBG_LEVEL7, "Insufficient SHM Reserved 0x%x. "
 				 "Required 0x%x\n", hostRes.dwMemLength[1],
 				 ulSegSize + ulSeg1Size + ulPadSize);
@@ -1480,7 +1475,6 @@ static void OutputMsg(struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr)
 		/* Copy uMsgs messages into shared memory */
 		for (i = 0; i < uMsgs; i++) {
 			if (!hMsgMgr->msgUsedList) {
-				DBG_Trace(DBG_LEVEL3, "msgUsedList is NULL\n");
 				pMsg = NULL;
 				goto func_end;
 			} else {
@@ -1516,8 +1510,6 @@ static void OutputMsg(struct IO_MGR *pIOMgr, struct MSG_MGR *hMsgMgr)
 				LST_PutTail(hMsgMgr->msgFreeList,
 					   (struct list_head *)pMsg);
 				SYNC_SetEvent(hMsgMgr->hSyncEvent);
-			} else {
-				DBG_Trace(DBG_LEVEL3, "pMsg is NULL\n");
 			}
 		}
 
@@ -1598,13 +1590,6 @@ static DSP_STATUS registerSHMSegs(struct IO_MGR *hIOMgr,
 		if (DSP_SUCCEEDED(status)) {
 			status = CMM_UnRegisterGPPSMSeg(hIOMgr->hCmmMgr,
 				 CMM_ALLSEGMENTS);
-			if (DSP_FAILED(status)) {
-				DBG_Trace(DBG_LEVEL7, "ERROR - Unable to "
-					 "Un-Register SM segments \n");
-			}
-		} else {
-			DBG_Trace(DBG_LEVEL7, "ERROR - Unable to get CMM "
-				 "Handle \n");
 		}
 	}
 	/* Register new SM region(s) */
@@ -1659,10 +1644,6 @@ static DSP_STATUS registerSHMSegs(struct IO_MGR *hIOMgr,
 			 CMM_ADDTODSPPA : CMM_SUBFROMDSPPA,
 			 (u32)(ulShm0_Base * hIOMgr->uWordSize),
 			 ulDSPSize, &ulShmSegId0, dwGPPBaseVA);
-		if (DSP_FAILED(status)) {
-			DBG_Trace(DBG_LEVEL7, "ERROR - Failed to register SM "
-				 "Seg 0 \n");
-		}
 		/* First SM region is segId = 1 */
 		if (ulShmSegId0 != 1)
 			status = DSP_EFAIL;
@@ -1906,25 +1887,14 @@ DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT *hWmdContext)
 					    pWmdContext->hDevObject;
 
 	status = DEV_GetCodMgr(pDevObject, &hCodMgr);
-	if (DSP_FAILED(status))
-		GT_0trace(dsp_trace_mask, GT_2CLASS,
-			"PrintDspTraceBuffer: Failed on DEV_GetCodMgr.\n");
 
 	if (DSP_SUCCEEDED(status)) {
 		/* Look for SYS_PUTCBEG/SYS_PUTCEND */
 		status = COD_GetSymValue(hCodMgr, COD_TRACEBEG, &ulTraceBegin);
-		if (DSP_FAILED(status))
-			GT_0trace(dsp_trace_mask, GT_2CLASS,
-				"PrintDspTraceBuffer: Failed on "
-				"COD_GetSymValue.\n");
 	}
-	if (DSP_SUCCEEDED(status)) {
+	if (DSP_SUCCEEDED(status))
 		status = COD_GetSymValue(hCodMgr, COD_TRACEEND, &ulTraceEnd);
-		 if (DSP_FAILED(status))
-			GT_0trace(dsp_trace_mask, GT_2CLASS,
-				"PrintDspTraceBuffer: Failed on "
-				"COD_GetSymValue.\n");
-	}
+
 	if (DSP_SUCCEEDED(status)) {
 		ulNumBytes = (ulTraceEnd - ulTraceBegin);
 
@@ -1941,10 +1911,6 @@ DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT *hWmdContext)
 		status = (*pIntfFxns->pfnBrdRead)(hWmdContext,
 			(u8 *)pszBuf, (u32)ulTraceBegin,
 			ulNumBytes, 0);
-		if (DSP_FAILED(status))
-			GT_0trace(dsp_trace_mask, GT_2CLASS,
-				"PrintDspTraceBuffer: "
-				"Failed to Read Trace Buffer.\n");
 
 		if (DSP_SUCCEEDED(status)) {
 			/* Pack and do newline conversion */
@@ -1994,9 +1960,6 @@ DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT *hWmdContext)
 		}
 		kfree(pszBuf);
 	} else {
-		  GT_0trace(dsp_trace_mask, GT_2CLASS,
-			"PrintDspTraceBuffer: Failed to "
-			"allocate trace buffer.\n");
 		  status = DSP_EMEMORY;
 	}
 

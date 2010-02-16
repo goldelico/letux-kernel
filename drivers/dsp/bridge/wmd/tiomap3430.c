@@ -373,8 +373,6 @@ static DSP_STATUS WMD_BRD_Read(struct WMD_DEV_CONTEXT *hDevContext,
 	u32 dspBaseAddr = hDevContext->dwDspBaseAddr;
 
 	if (dwDSPAddr < pDevContext->dwDSPStartAdd) {
-		DBG_Trace(DBG_LEVEL7,
-			  "WMD_BRD_Read: DSP address < start address \n ");
 		status = DSP_EFAIL;
 		return status;
 	}
@@ -570,8 +568,6 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 				    CLK_Set_32KHz(BPWR_Clks[clkIdIndex].funClk);
 			} else {
 				status = DSP_EFAIL;
-				DBG_Trace(DBG_LEVEL7, " Error while setting"
-							"LM Timer  to 32KHz\n");
 			}
 			uClkCmd = (BPWR_EnableClock << MBX_PM_CLK_CMDSHIFT) |
 				  ulLoadMonitorTimer;
@@ -607,8 +603,6 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 						BPWR_Clks[clkIdIndex].funClk);
 			} else {
 				status = DSP_EFAIL;
-				DBG_Trace(DBG_LEVEL7,
-				" Error while setting BIOS Timer  to 32KHz\n");
 			}
 
 			uClkCmd = (BPWR_EnableClock << MBX_PM_CLK_CMDSHIFT) |
@@ -702,11 +696,9 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 
 		/* Wait for DSP to clear word in shared memory */
 		/* Read the Location */
-		if (!WaitForStart(pDevContext, dwSyncAddr)) {
+		if (!WaitForStart(pDevContext, dwSyncAddr))
 			status = WMD_E_TIMEOUT;
-			DBG_Trace(DBG_LEVEL7,
-				 "WMD_BRD_Start Failed to Synchronize\n");
-		}
+
 		status = DEV_GetIOMgr(pDevContext->hDevObject, &hIOMgr);
 		if (DSP_SUCCEEDED(status)) {
 			IO_SHMsetting(hIOMgr, SHM_OPPINFO, NULL);
@@ -720,7 +712,6 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 			/* (void)CHNLSM_EnableInterrupt(pDevContext);*/
 		} else {
 			pDevContext->dwBrdState = BRD_UNKNOWN;
-			DBG_Trace(DBG_LEVEL7, "Device not Started \n ");
 		}
 	}
 	return status;
@@ -752,12 +743,8 @@ static DSP_STATUS WMD_BRD_Stop(struct WMD_DEV_CONTEXT *hDevContext)
 	status = CFG_GetHostResources(
 			(struct CFG_DEVNODE *)DRV_GetFirstDevExtension(),
 			&resources);
-	if (DSP_FAILED(status)) {
-		DBG_Trace(DBG_LEVEL7,
-			  "WMD_BRD_Stop: Get Host resources failed \n");
-		DBG_Trace(DBG_LEVEL1, "Device Stopp failed \n ");
+	if (DSP_FAILED(status))
 		return DSP_EFAIL;
-	}
 
 	HW_PWRST_IVA2RegGet(pDevContext->prmbase, &dspPwrState);
 	if (dspPwrState != HW_PWR_STATE_OFF && hDevContext->mbox) {
@@ -767,11 +754,7 @@ static DSP_STATUS WMD_BRD_Stop(struct WMD_DEV_CONTEXT *hDevContext)
 		udelay(50);
 
 		clk_status = CLK_Disable(SERVICESCLK_iva2_ck);
-		if (DSP_FAILED(clk_status)) {
-			DBG_Trace(DBG_LEVEL6,
-				 "\n WMD_BRD_Stop: CLK_Disable failed "
-				 "for iva2_fck\n");
-		}
+
 		/* IVA2 is not in OFF state */
 		/* Set PM_PWSTCTRL_IVA2  to OFF */
 		HW_PWR_IVA2PowerStateSet(pDevContext->prmbase,
@@ -781,11 +764,6 @@ static DSP_STATUS WMD_BRD_Stop(struct WMD_DEV_CONTEXT *hDevContext)
 		HW_PWR_CLKCTRL_IVA2RegSet(resources.dwCmBase, HW_SW_SUP_SLEEP);
 	} else {
 		clk_status = CLK_Disable(SERVICESCLK_iva2_ck);
-		if (DSP_FAILED(clk_status)) {
-			DBG_Trace(DBG_LEVEL6,
-				 "\n WMD_BRD_Stop: Else loop CLK_Disable failed"
-				 " for iva2_fck\n");
-		}
 	}
 	udelay(10);
 	/* Release the Ext Base virtual Address as the next DSP Program
@@ -843,18 +821,12 @@ static DSP_STATUS WMD_BRD_Delete(struct WMD_DEV_CONTEXT *hDevContext)
 	 * IVA2 */
 	status = CFG_GetHostResources(
 		(struct CFG_DEVNODE *)DRV_GetFirstDevExtension(), &resources);
-	if (DSP_FAILED(status)) {
-		DBG_Trace(DBG_LEVEL7,
-			 "WMD_BRD_Stop: Get Host resources failed \n");
-		DBG_Trace(DBG_LEVEL1, "Device Delete failed \n ");
+	if (DSP_FAILED(status))
 		return DSP_EFAIL;
-	}
+
 	status = SleepDSP(pDevContext, PWR_EMERGENCYDEEPSLEEP, NULL);
 	clk_status = CLK_Disable(SERVICESCLK_iva2_ck);
-	if (DSP_FAILED(clk_status)) {
-		DBG_Trace(DBG_LEVEL6, "\n WMD_BRD_Stop: CLK_Disable failed for"
-			  " iva2_fck\n");
-	}
+
 	/* Release the Ext Base virtual Address as the next DSP Program
 	 * may have a different load address */
 	if (pDevContext->dwDspExtBaseAddr)
@@ -909,8 +881,6 @@ static DSP_STATUS WMD_BRD_Write(struct WMD_DEV_CONTEXT *hDevContext,
 	struct WMD_DEV_CONTEXT *pDevContext = hDevContext;
 
 	if (dwDSPAddr < pDevContext->dwDSPStartAdd) {
-		DBG_Trace(DBG_LEVEL7,
-			 "WMD_BRD_Write: DSP address < start address \n ");
 		status = DSP_EFAIL;
 		return status;
 	}
@@ -950,14 +920,12 @@ static DSP_STATUS WMD_DEV_Create(OUT struct WMD_DEV_CONTEXT **ppDevContext,
 	 *  state, which becomes the context for later calls into this WMD.  */
 	pDevContext = MEM_Calloc(sizeof(struct WMD_DEV_CONTEXT), MEM_NONPAGED);
 	if (!pDevContext) {
-		DBG_Trace(DBG_ENTER, "Failed to allocate mem  \n");
 		status = DSP_EMEMORY;
 		goto func_end;
 	}
 	status = CFG_GetHostResources(
 		(struct CFG_DEVNODE *)DRV_GetFirstDevExtension(), &resources);
 	if (DSP_FAILED(status)) {
-		DBG_Trace(DBG_ENTER, "Failed to get host resources   \n");
 		status = DSP_EMEMORY;
 		goto func_end;
 	}
@@ -975,11 +943,9 @@ static DSP_STATUS WMD_DEV_Create(OUT struct WMD_DEV_CONTEXT **ppDevContext,
 	pDevContext->numTLBEntries = 0;
 	pDevContext->dwDspBaseAddr = (u32)MEM_LinearAddress((void *)
 			(pConfig->dwMemBase[3]), pConfig->dwMemLength[3]);
-	if (!pDevContext->dwDspBaseAddr) {
+	if (!pDevContext->dwDspBaseAddr)
 		status = DSP_EFAIL;
-		DBG_Trace(DBG_LEVEL7,
-			 "WMD_DEV_Create: failed to Map the API memory\n");
-	}
+
 	pPtAttrs = MEM_Calloc(sizeof(struct PgTableAttrs), MEM_NONPAGED);
 	if (pPtAttrs != NULL) {
 		/* Assuming that we use only DSP's memory map
@@ -1105,11 +1071,7 @@ static DSP_STATUS WMD_DEV_Create(OUT struct WMD_DEV_CONTEXT **ppDevContext,
 			}
 		}
 		kfree(pPtAttrs);
-
 		kfree(pDevContext);
-
-		DBG_Trace(DBG_LEVEL7,
-			 "WMD_DEV_Create Error Device  not created\n");
 	}
 func_end:
 	return status;
@@ -1164,7 +1126,6 @@ static DSP_STATUS WMD_DEV_Ctrl(struct WMD_DEV_CONTEXT *pDevContext, u32 dwCmd,
 		break;
 	default:
 		status = DSP_EFAIL;
-		DBG_Trace(DBG_LEVEL7, "Error in WMD_BRD_Ioctl \n");
 		break;
 	}
 	return status;
@@ -1342,8 +1303,6 @@ static DSP_STATUS WMD_BRD_MemMap(struct WMD_DEV_CONTEXT *hDevContext,
 			 * Mixedsize isn't enabled, so size can't be
 			 * zero here
 			 */
-			DBG_Trace(DBG_LEVEL7,
-				 "WMD_BRD_MemMap: MMU element size is zero\n");
 			return DSP_EINVALIDARG;
 		}
 	}
@@ -1424,12 +1383,9 @@ static DSP_STATUS WMD_BRD_MemMap(struct WMD_DEV_CONTEXT *hDevContext,
 			}
 			status = PteSet(pDevContext->pPtAttrs, pa,
 					va, HW_PAGE_SIZE_4KB, &hwAttrs);
-			if (DSP_FAILED(status)) {
-				DBG_Trace(DBG_LEVEL7,
-					"WMD_BRD_MemMap: FAILED IN VM_IO"
-					"PTESET \n");
+			if (DSP_FAILED(status))
 				break;
-			}
+
 			va += HW_PAGE_SIZE_4KB;
 			mpuAddr += HW_PAGE_SIZE_4KB;
 			pa += HW_PAGE_SIZE_4KB;
@@ -1453,11 +1409,9 @@ static DSP_STATUS WMD_BRD_MemMap(struct WMD_DEV_CONTEXT *hDevContext,
 				status = PteSet(pDevContext->pPtAttrs,
 					page_to_phys(mappedPage), va,
 					HW_PAGE_SIZE_4KB, &hwAttrs);
-				if (DSP_FAILED(status)) {
-					DBG_Trace(DBG_LEVEL7,
-					"WMD_BRD_MemMap: FAILED IN PTESET \n");
+				if (DSP_FAILED(status))
 					break;
-				}
+
 				va += HW_PAGE_SIZE_4KB;
 				ulMpuAddr += HW_PAGE_SIZE_4KB;
 			} else {
