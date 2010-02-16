@@ -692,10 +692,6 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 		status = copy_to_user(ioc.pBuf, pHostSysBuf, ioc.cBytes);
 		if (status) {
 			if (current->flags & PF_EXITING) {
-				DBG_Trace(DBG_LEVEL7,
-					 "\n2current->flags ==  PF_EXITING, "
-					 " current->flags;0x%x\n",
-					 current->flags);
 				status = 0;
 			} else {
 				DBG_Trace(DBG_LEVEL7,

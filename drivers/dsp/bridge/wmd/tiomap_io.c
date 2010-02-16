@@ -86,11 +86,8 @@ DSP_STATUS ReadExtDspData(struct WMD_DEV_CONTEXT *hDevContext,
 
 	if (DSP_SUCCEEDED(status)) {
 		if ((dwDSPAddr <= ulTraceSecEnd) &&
-			(dwDSPAddr >= ulTraceSecBeg)) {
-			DBG_Trace(DBG_LEVEL5, "Reading from DSP Trace"
-				 "section 0x%x \n", dwDSPAddr);
+			(dwDSPAddr >= ulTraceSecBeg))
 			bTraceRead = true;
-		}
 	}
 
 	/* If reading from TRACE, force remap/unmap */
@@ -142,20 +139,13 @@ DSP_STATUS ReadExtDspData(struct WMD_DEV_CONTEXT *hDevContext,
 			DBC_Assert(ulTLBBaseVirt <= ulShmBaseVirt);
 			dwExtProgVirtMem = pDevContext->aTLBEntry[0].ulGppVa;
 
-			if (bTraceRead) {
-				DBG_Trace(DBG_LEVEL7, "ReadExtDspData: "
-				"GPP VA pointing to SHMMEMBASE 0x%x \n",
-				 dwExtProgVirtMem);
-			} else {
+			if (!bTraceRead) {
 				ulShmOffsetVirt = ulShmBaseVirt - ulTLBBaseVirt;
 				ulShmOffsetVirt += PG_ALIGN_HIGH(ulExtEnd -
 						ulDynExtBase + 1,
 						HW_PAGE_SIZE_64KB);
 				dwExtProgVirtMem -= ulShmOffsetVirt;
 				dwExtProgVirtMem += (ulExtBase - ulDynExtBase);
-				DBG_Trace(DBG_LEVEL7, "ReadExtDspData: "
-				"GPP VA pointing to EXTMEMBASE 0x%x \n",
-				dwExtProgVirtMem);
 				pDevContext->dwDspExtBaseAddr =
 						dwExtProgVirtMem;
 
@@ -266,11 +256,8 @@ DSP_STATUS WriteExtDspData(struct WMD_DEV_CONTEXT *pDevContext,
 	}
 	if (DSP_SUCCEEDED(retVal)) {
 		if ((dwDSPAddr <= ulTraceSecEnd) &&
-		   (dwDSPAddr >= ulTraceSecBeg)) {
-			DBG_Trace(DBG_LEVEL5, "Writing to DSP Trace "
-				 "section 0x%x \n", dwDSPAddr);
+		   (dwDSPAddr >= ulTraceSecBeg))
 			bTraceLoad = true;
-		}
 	}
 
 	/* If dynamic, force remap/unmap */
@@ -352,9 +339,6 @@ DSP_STATUS WriteExtDspData(struct WMD_DEV_CONTEXT *pDevContext,
 				dwExtProgVirtMem = hostRes.dwMemBase[1];
 				dwExtProgVirtMem += (ulExtBase - ulDynExtBase);
 			}
-			DBG_Trace(DBG_LEVEL7, "WriteExtDspData: GPP VA "
-				 "pointing to EXTMEMBASE 0x%x \n",
-				 dwExtProgVirtMem);
 
 			pDevContext->dwDspExtBaseAddr =
 				(u32)MEM_LinearAddress((void *)dwExtProgVirtMem,

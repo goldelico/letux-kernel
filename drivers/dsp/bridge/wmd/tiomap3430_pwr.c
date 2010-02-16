@@ -151,12 +151,7 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 			if (DSP_FAILED(status))
 				return status;
 			IO_SHMsetting(hIOMgr, SHM_GETOPP, &opplevel);
-			if (opplevel != VDD1_OPP1) {
-				DBG_Trace(DBG_LEVEL5,
-					" DSP requested OPP = %d, MPU"
-					" requesting low OPP %d instead\n",
-					opplevel, VDD1_OPP1);
-			}
+
 			/*
 			 * Set the OPP to low level before moving to OFF
 			 * mode
@@ -264,9 +259,6 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 #endif /* CONFIG_BRIDGE_NTFY_PWRERR */
 		return WMD_E_TIMEOUT;
 	} else {
-		DBG_Trace(DBG_LEVEL7, "SleepDSP: DSP STANDBY Pwr state %x \n",
-			 pwrState);
-
 		/* Update the Bridger Driver state */
 		if (enable_off_mode)
 			pDevContext->dwBrdState = BRD_HIBERNATION;
@@ -321,9 +313,6 @@ DSP_STATUS WakeDSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 #ifdef CONFIG_BRIDGE_DEBUG
 	HW_PWR_IVA2StateGet(pDevContext->prmbase, HW_PWR_DOMAIN_DSP,
 			&pwrState);
-	DBG_Trace(DBG_LEVEL7,
-			"\nWakeDSP: Power State After sending Interrupt "
-			"to DSP %x\n", pwrState);
 #endif /* CONFIG_BRIDGE_DEBUG */
 
 	/* Set the device state to RUNNIG */
@@ -353,9 +342,6 @@ DSP_STATUS DSPPeripheralClkCtrl(struct WMD_DEV_CONTEXT *pDevContext,
 
 	extClk = (u32)*((u32 *)pArgs);
 
-	DBG_Trace(DBG_LEVEL3, "DSPPeripheralClkCtrl : extClk+Cmd = 0x%x \n",
-		 extClk);
-
 	extClkId = extClk & MBX_PM_CLK_IDMASK;
 
 	/* process the power message -- TODO, keep it in a separate function */
@@ -379,8 +365,6 @@ DSP_STATUS DSPPeripheralClkCtrl(struct WMD_DEV_CONTEXT *pDevContext,
 	switch (extClkCmd) {
 	case BPWR_DisableClock:
 		/* Call BP to disable the needed clock */
-		DBG_Trace(DBG_LEVEL3,
-			 "DSPPeripheralClkCtrl : Disable CLK for \n");
 		status1 = CLK_Disable(BPWR_Clks[clkIdIndex].intClk);
 		status = CLK_Disable(BPWR_Clks[clkIdIndex].funClk);
 		if (BPWR_CLKID[clkIdIndex] == BPWR_MCBSP1) {
@@ -404,8 +388,6 @@ DSP_STATUS DSPPeripheralClkCtrl(struct WMD_DEV_CONTEXT *pDevContext,
 		}
 		break;
 	case BPWR_EnableClock:
-		DBG_Trace(DBG_LEVEL3,
-			 "DSPPeripheralClkCtrl : Enable CLK for \n");
 		status1 = CLK_Enable(BPWR_Clks[clkIdIndex].intClk);
 		status = CLK_Enable(BPWR_Clks[clkIdIndex].funClk);
 		if (BPWR_CLKID[clkIdIndex] == BPWR_MCBSP1) {
