@@ -188,16 +188,13 @@ void *MEM_Calloc(u32 cBytes, enum MEM_POOLATTRS type)
 		case MEM_NONPAGED:
 		/* If non-paged memory required, see note at top of file. */
 		case MEM_PAGED:
-			pMem = kmalloc(cBytes,
+			pMem = kzalloc(cBytes,
 				(in_atomic()) ? GFP_ATOMIC : GFP_KERNEL);
-			if (pMem)
-				memset(pMem, 0, cBytes);
-
 			break;
 		case MEM_LARGEVIRTMEM:
-			pMem = vmalloc(cBytes);
-			if (pMem)
-				memset(pMem, 0, cBytes);
+			pMem = __vmalloc(cBytes,
+				GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO,
+				PAGE_KERNEL);
 			break;
 		default:
 			break;
