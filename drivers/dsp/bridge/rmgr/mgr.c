@@ -80,22 +80,15 @@ DSP_STATUS MGR_Create(OUT struct MGR_OBJECT **phMgrObject,
 			if (DSP_SUCCEEDED(status)) {
 				*phMgrObject = pMgrObject;
 			} else {
-				GT_0trace(MGR_DebugMask, GT_7CLASS,
-					 "MGR_Create:CFG_SetObject "
-					 "Failed\r\n");
 				DCD_DestroyManager(pMgrObject->hDcdMgr);
 				MEM_FreeObject(pMgrObject);
 			}
 		} else {
 			/* failed to Create DCD Manager */
-			GT_0trace(MGR_DebugMask, GT_7CLASS,
-				 "MGR_Create:DCD_ManagerCreate Failed\r\n");
 			MEM_FreeObject(pMgrObject);
 		}
 	} else {
 		status = DSP_EMEMORY;
-		GT_0trace(MGR_DebugMask, GT_7CLASS,
-			 "MGR_Create DSP_FAILED to allocate memory \n");
 	}
 
 	DBC_Ensure(DSP_FAILED(status) ||
@@ -152,12 +145,9 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 	*puNumNodes = 0;
 	/* Get The Manager Object from the Registry */
 	status = CFG_GetObject((u32 *)&pMgrObject, REG_MGR_OBJECT);
-	if (DSP_FAILED(status)) {
-		GT_0trace(MGR_DebugMask, GT_7CLASS,
-			 "Manager_EnumNodeInfo:Failed To Get"
-			 " MGR Object from Registry\r\n");
+	if (DSP_FAILED(status))
 		goto func_cont;
-	}
+
 	DBC_Assert(MEM_IsValidHandle(pMgrObject, SIGNATURE));
 	/* Forever loop till we hit failed or no more items in the
 	 * Enumeration. We will exit the loop other than DSP_SOK; */
@@ -174,9 +164,6 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 	if (DSP_SUCCEEDED(status)) {
 		if (uNode > (uNodeIndex - 1)) {
 			status = DSP_EINVALIDARG;
-			GT_0trace(MGR_DebugMask, GT_7CLASS,
-				 "Manager_EnumNodeInfo: uNode"
-				 " is Invalid \r\n");
 		} else {
 			status = DCD_GetObjectDef(pMgrObject->hDcdMgr,
 						(struct DSP_UUID *)&Uuid,
@@ -185,17 +172,10 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 				/* Get the Obj def */
 				*pNDBProps = GenObj.objData.nodeObj.ndbProps;
 				*puNumNodes = uNodeIndex;
-			} else {
-				GT_0trace(MGR_DebugMask, GT_7CLASS,
-					 "Manager_EnumNodeInfo: "
-					 "Failed to Get Node Info \r\n");
 			}
 		}
-	} else {
-		/* This could be changed during enum, EFAIL ... */
-		GT_0trace(MGR_DebugMask, GT_7CLASS, "Manager_EnumNodeInfo: "
-			 "Enumeration failure\r\n");
 	}
+
 func_cont:
 	DBC_Ensure((DSP_SUCCEEDED(status) && *puNumNodes > 0) ||
 		  (DSP_FAILED(status) && *puNumNodes == 0));
@@ -240,15 +220,12 @@ DSP_STATUS MGR_EnumProcessorInfo(u32 uProcessor,
 		if (DSP_SUCCEEDED(status)) {
 			status = DEV_GetDevType(hDevObject, (u32 *) &devType);
 			status = DEV_GetDevNode(hDevObject, &devNode);
-			if (devType == DSP_UNIT) {
+			if (devType == DSP_UNIT)
 				status = CFG_GetDSPResources(devNode,
 							 &chipResources);
-			} else {
+			else
 				status = DSP_EFAIL;
-				GT_1trace(MGR_DebugMask, GT_7CLASS,
-					 "Unsupported dev type gotten"
-					 "from device object %d\n", devType);
-			}
+
 			if (DSP_SUCCEEDED(status)) {
 				pProcessorInfo->uProcessorType =
 						chipResources.uChipType;
@@ -392,11 +369,8 @@ bool MGR_Init(void)
 		GT_create(&MGR_DebugMask, "MG");	/* "MG" for Manager */
 		fInitDCD = DCD_Init();	/*  DCD Module */
 
-		if (!fInitDCD) {
+		if (!fInitDCD)
 			fRetval = false;
-			GT_0trace(MGR_DebugMask, GT_6CLASS,
-				 "MGR_Init failed\n");
-		}
 	}
 
 	if (fRetval)

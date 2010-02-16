@@ -189,11 +189,9 @@ DSP_STATUS RMM_create(struct RMM_TargetObj **pTarget,
 	/* Allocate DBL target object */
 	MEM_AllocObject(target, struct RMM_TargetObj, RMM_TARGSIGNATURE);
 
-	if (target == NULL) {
-		GT_0trace(RMM_debugMask, GT_6CLASS,
-			 "RMM_create: Memory allocation failed\n");
+	if (target == NULL)
 		status = DSP_EMEMORY;
-	}
+
 	if (DSP_FAILED(status))
 		goto func_cont;
 
@@ -205,8 +203,6 @@ DSP_STATUS RMM_create(struct RMM_TargetObj **pTarget,
 	target->freeList = MEM_Calloc(numSegs * sizeof(struct RMM_Header *),
 				     MEM_PAGED);
 	if (target->freeList == NULL) {
-		GT_0trace(RMM_debugMask, GT_6CLASS,
-			 "RMM_create: Memory allocation failed\n");
 		status = DSP_EMEMORY;
 	} else {
 		/* Allocate headers for each element on the free list */
@@ -215,9 +211,6 @@ DSP_STATUS RMM_create(struct RMM_TargetObj **pTarget,
 					MEM_Calloc(sizeof(struct RMM_Header),
 					MEM_PAGED);
 			if (target->freeList[i] == NULL) {
-				GT_0trace(RMM_debugMask, GT_6CLASS,
-					 "RMM_create: Memory "
-					 "allocation failed\n");
 				status = DSP_EMEMORY;
 				break;
 			}
@@ -226,8 +219,6 @@ DSP_STATUS RMM_create(struct RMM_TargetObj **pTarget,
 		target->segTab = MEM_Calloc(numSegs *
 				 sizeof(struct RMM_Segment), MEM_PAGED);
 		if (target->segTab == NULL) {
-			GT_0trace(RMM_debugMask, GT_6CLASS,
-				 "RMM_create: Memory allocation failed\n");
 			status = DSP_EMEMORY;
 		} else {
 			/* Initialize segment table and free list */
@@ -249,8 +240,6 @@ func_cont:
 		target->ovlyList = MEM_Calloc(sizeof(struct LST_LIST),
 			MEM_NONPAGED);
 		if (target->ovlyList == NULL) {
-			GT_0trace(RMM_debugMask, GT_6CLASS,
-				 "RMM_create: Memory allocation failed\n");
 			status = DSP_EMEMORY;
 		} else {
 			INIT_LIST_HEAD(&target->ovlyList->head);

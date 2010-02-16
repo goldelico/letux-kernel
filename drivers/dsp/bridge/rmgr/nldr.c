@@ -353,8 +353,6 @@ DSP_STATUS NLDR_Allocate(struct NLDR_OBJECT *hNldr, void *pPrivRef,
 	MEM_AllocObject(pNldrNode, struct NLDR_NODEOBJECT, NLDR_NODESIGNATURE);
 
 	if (pNldrNode == NULL) {
-		GT_0trace(NLDR_debugMask, GT_6CLASS, "NLDR_Allocate: "
-			 "Memory allocation failed\n");
 		status = DSP_EMEMORY;
 	} else {
 		pNldrNode->pfPhaseSplit = pfPhaseSplit;
@@ -486,8 +484,6 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 			status = DSP_EMEMORY;
 
 	} else {
-		GT_0trace(NLDR_debugMask, GT_6CLASS, "NLDR_Create: "
-			 "Memory allocation failed\n");
 		status = DSP_EMEMORY;
 	}
 	/* Create the DCD Manager */
@@ -502,9 +498,6 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 			pszCoffBuf = MEM_Calloc(ulLen * pNldr->usDSPMauSize,
 						MEM_PAGED);
 			if (!pszCoffBuf) {
-				GT_0trace(NLDR_debugMask, GT_6CLASS,
-					 "NLDR_Create: Memory "
-					 "allocation failed\n");
 				status = DSP_EMEMORY;
 			}
 		} else {
@@ -521,21 +514,12 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 		/* Read section containing dynamic load mem segments */
 		status = pNldr->dbllFxns.readSectFxn(pNldr->baseLib, DYNMEMSECT,
 						    pszCoffBuf, ulLen);
-		if (DSP_FAILED(status)) {
-			GT_1trace(NLDR_debugMask, GT_6CLASS,
-				 "NLDR_Create: DBLL_read Section"
-				 "failed: 0x%lx\n", status);
-		}
 	}
 	if (DSP_SUCCEEDED(status) && ulLen > 0) {
 		/* Parse memory segment data */
 		nSegs = (u16)(*((u32 *)pszCoffBuf));
-		if (nSegs > MAXMEMSEGS) {
-			GT_1trace(NLDR_debugMask, GT_6CLASS,
-				 "NLDR_Create: Invalid number of "
-				 "dynamic load mem segments: 0x%lx\n", nSegs);
+		if (nSegs > MAXMEMSEGS)
 			status = DSP_ECORRUPTFILE;
-		}
 	}
 	/* Parse dynamic load memory segments */
 	if (DSP_SUCCEEDED(status) && nSegs > 0) {
@@ -775,14 +759,10 @@ DSP_STATUS NLDR_GetFxnAddr(struct NLDR_NODEOBJECT *hNldrNode, char *pstrFxn,
 		}
 	}
 
-	if (status1) {
+	if (status1)
 		*pulAddr = pSym->value;
-	} else {
-		GT_1trace(NLDR_debugMask, GT_6CLASS,
-			 "NLDR_GetFxnAddr: Symbol not found: "
-			 "%s\n", pstrFxn);
+	else
 		status = DSP_ESYMBOL;
-	}
 
 	return status;
 }
@@ -803,8 +783,6 @@ DSP_STATUS NLDR_GetRmmManager(struct NLDR_OBJECT *hNldrObject,
 	} else {
 		*phRmmMgr = NULL;
 		status = DSP_EHANDLE;
-		GT_0trace(NLDR_debugMask, GT_7CLASS,
-			 "NLDR_GetRmmManager:Invalid handle");
 	}
 
 	DBC_Ensure(DSP_SUCCEEDED(status) || ((phRmmMgr != NULL) &&

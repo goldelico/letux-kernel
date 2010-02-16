@@ -61,13 +61,11 @@ u32 DSP_Init(OUT u32 *initStatus)
 
 	GT_create(&curTrace, "DD");
 
-	if (!WCD_Init()) {
-		GT_0trace(curTrace, GT_7CLASS, "DSP_Init Failed \n");
+	if (!WCD_Init())
 		goto func_cont;
-	}			/* End WCD_Exit */
+
 	status = DRV_Create(&drvObject);
 	if (DSP_FAILED(status)) {
-		GT_0trace(curTrace, GT_7CLASS, "DSP_Init:DRV_Create Failed \n");
 		WCD_Exit();
 		goto func_cont;
 	}		/* End DRV_Create */
@@ -78,12 +76,9 @@ u32 DSP_Init(OUT u32 *initStatus)
 		/* Attempt to Start the Device */
 		status = DEV_StartDevice((struct CFG_DEVNODE *)
 							deviceNodeString);
-		if (DSP_FAILED(status)) {
-			GT_0trace(curTrace, GT_7CLASS,
-				 "DSP_Init:DEV_StartDevice Failed\n");
+		if (DSP_FAILED(status))
 			(void)DRV_ReleaseResources
 				((u32) deviceNodeString, drvObject);
-		}
 	} else {
 		GT_0trace(curTrace, GT_7CLASS,
 			 "DSP_Init:DRV_RequestResources Failed \r\n");

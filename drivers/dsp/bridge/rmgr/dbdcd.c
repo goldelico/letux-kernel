@@ -96,15 +96,12 @@ DSP_STATUS DCD_AutoRegister(IN struct DCD_MANAGER *hDcdMgr,
 
 	DBC_Require(cRefs > 0);
 
-	if (IsValidHandle(hDcdMgr)) {
+	if (IsValidHandle(hDcdMgr))
 		status = DCD_GetObjects(hDcdMgr, pszCoffPath,
 					(DCD_REGISTERFXN)DCD_RegisterObject,
 					(void *)pszCoffPath);
-	} else {
+	else
 		status = DSP_EHANDLE;
-		GT_0trace(curTrace, GT_6CLASS,
-			 "DCD_AutoRegister: invalid DCD manager handle.\n");
-	}
 
 	return status;
 }
@@ -121,15 +118,11 @@ DSP_STATUS DCD_AutoUnregister(IN struct DCD_MANAGER *hDcdMgr,
 
 	DBC_Require(cRefs > 0);
 
-	if (IsValidHandle(hDcdMgr)) {
+	if (IsValidHandle(hDcdMgr))
 		status = DCD_GetObjects(hDcdMgr, pszCoffPath,
 				(DCD_REGISTERFXN)DCD_RegisterObject, NULL);
-	} else {
+	else
 		status = DSP_EHANDLE;
-		GT_0trace(curTrace, GT_6CLASS,
-			 "DCD_AutoUnregister: invalid DCD manager"
-			 " handle.\n");
-	}
 
 	return status;
 }
@@ -150,12 +143,8 @@ DSP_STATUS DCD_CreateManager(IN char *pszZlDllName,
 	DBC_Require(phDcdMgr);
 
 	status = COD_Create(&hCodMgr, pszZlDllName, NULL);
-
-	if (DSP_FAILED(status)) {
-		GT_0trace(curTrace, GT_6CLASS,
-			 "DCD_CreateManager: COD_Create failed\n");
+	if (DSP_FAILED(status))
 		goto func_end;
-	}
 
 	/* Create a DCD object. */
 	MEM_AllocObject(pDcdMgr, struct DCD_MANAGER, SIGNATURE);
@@ -173,9 +162,6 @@ DSP_STATUS DCD_CreateManager(IN char *pszZlDllName,
 		 * COD manager.
 		 */
 		COD_Delete(hCodMgr);
-
-		GT_0trace(curTrace, GT_6CLASS,
-			 "DCD_CreateManager: MEM_AllocObject failed\n");
 	}
 
 	DBC_Ensure((DSP_SUCCEEDED(status)) || ((hCodMgr == NULL) &&
@@ -206,9 +192,6 @@ DSP_STATUS DCD_DestroyManager(IN struct DCD_MANAGER *hDcdMgr)
 		MEM_FreeObject(pDcdMgr);
 
 		status = DSP_SOK;
-	} else {
-		GT_0trace(curTrace, GT_6CLASS,
-			 "DCD_DestroyManager: invalid DCD manager handle.\n");
 	}
 
 	return status;
@@ -306,9 +289,6 @@ DSP_STATUS DCD_EnumerateObject(IN s32 cIndex, IN enum DSP_DCDOBJTYPE objType,
 			status = DSP_SENUMCOMPLETE;
 		} else {
 			status = DSP_EFAIL;
-			GT_1trace(curTrace, GT_6CLASS,
-				 "DCD_EnumerateObject: REG_EnumValue"
-				 " failed, status = 0x%x\n", status);
 		}
 	}
 
@@ -414,8 +394,6 @@ DSP_STATUS DCD_GetObjectDef(IN struct DCD_MANAGER *hDcdMgr,
 
 	if (!IsValidHandle(hDcdMgr)) {
 		status = DSP_EHANDLE;
-		GT_0trace(curTrace, GT_6CLASS, "DCD_GetObjectDef: invalid "
-			 "DCD manager handle.\n");
 		goto func_end;
 	}
 
@@ -461,8 +439,6 @@ DSP_STATUS DCD_GetObjectDef(IN struct DCD_MANAGER *hDcdMgr,
 
 	if (DSP_FAILED(status)) {
 		status = DSP_EUUID;
-		GT_0trace(curTrace, GT_6CLASS, "DCD_GetObjectDef: "
-			 "REG_GetValue() failed\n");
 		goto func_end;
 	}
 
@@ -470,8 +446,6 @@ DSP_STATUS DCD_GetObjectDef(IN struct DCD_MANAGER *hDcdMgr,
 	status = COD_Open(pDcdMgr->hCodMgr, szRegData, COD_NOLOAD, &lib);
 	if (DSP_FAILED(status)) {
 		status = DSP_EDCDLOADBASE;
-		GT_0trace(curTrace, GT_6CLASS, "DCD_GetObjectDef: "
-			 "COD_OpenBase() failed\n");
 		goto func_end;
 	}
 
@@ -488,8 +462,6 @@ DSP_STATUS DCD_GetObjectDef(IN struct DCD_MANAGER *hDcdMgr,
 	status = COD_GetSection(lib, szSectName, &ulAddr, &ulLen);
 	if (DSP_FAILED(status)) {
 		status = DSP_EDCDGETSECT;
-		GT_0trace(curTrace, GT_6CLASS, "DCD_GetObjectDef:"
-			 " COD_GetSection() failed\n");
 		goto func_end;
 	}
 
@@ -519,15 +491,10 @@ DSP_STATUS DCD_GetObjectDef(IN struct DCD_MANAGER *hDcdMgr,
 
 		/* Parse the content of the COFF buffer. */
 		status = GetAttrsFromBuf(pszCoffBuf, ulLen, objType, pObjDef);
-		if (DSP_FAILED(status)) {
+		if (DSP_FAILED(status))
 			status = DSP_EDCDPARSESECT;
-			GT_0trace(curTrace, GT_6CLASS, "DCD_GetObjectDef: "
-				 "GetAttrsFromBuf() failed\n");
-		}
 	} else {
 		status = DSP_EDCDREADSECT;
-		GT_0trace(curTrace, GT_6CLASS, "DCD_GetObjectDef: "
-			 "COD_ReadSection() failed\n");
 	}
 
 	/* Free the previously allocated dynamic buffer. */
@@ -562,8 +529,6 @@ DSP_STATUS DCD_GetObjects(IN struct DCD_MANAGER *hDcdMgr, IN char *pszCoffPath,
 	DBC_Require(cRefs > 0);
 	if (!IsValidHandle(hDcdMgr)) {
 		status = DSP_EHANDLE;
-		GT_0trace(curTrace, GT_6CLASS,
-			 "DCD_GetObjects: invalid DCD manager handle.\n");
 		goto func_end;
 	}
 
@@ -571,8 +536,6 @@ DSP_STATUS DCD_GetObjects(IN struct DCD_MANAGER *hDcdMgr, IN char *pszCoffPath,
 	status = COD_Open(pDcdMgr->hCodMgr, pszCoffPath, COD_NOLOAD, &lib);
 	if (DSP_FAILED(status)) {
 		status = DSP_EDCDLOADBASE;
-		GT_0trace(curTrace, GT_6CLASS,
-			 "DCD_AutoRegister: COD_Open() failed\n");
 		goto func_cont;
 	}
 
@@ -580,9 +543,6 @@ DSP_STATUS DCD_GetObjects(IN struct DCD_MANAGER *hDcdMgr, IN char *pszCoffPath,
 	status = COD_GetSection(lib, DCD_REGISTER_SECTION, &ulAddr, &ulLen);
 	if (DSP_FAILED(status) ||  !(ulLen > 0)) {
 		status = DSP_EDCDNOAUTOREGISTER;
-		GT_0trace(curTrace, GT_6CLASS,
-			 "DCD_GetObjects: COD_GetSection() "
-			 "- no auto register section\n");
 		goto func_cont;
 	}
 
@@ -633,17 +593,12 @@ DSP_STATUS DCD_GetObjects(IN struct DCD_MANAGER *hDcdMgr, IN char *pszCoffPath,
 			 */
 			status = registerFxn(&dspUuid, cObjectType, handle);
 			if (DSP_FAILED(status)) {
-				GT_0trace(curTrace, GT_6CLASS,
-					 "DCD_GetObjects: "
-					 "registration() failed\n");
 				/* if error occurs, break from while loop. */
 				break;
 			}
 		}
 	} else {
 		status = DSP_EDCDREADSECT;
-		GT_0trace(curTrace, GT_6CLASS, "DCD_GetObjects: "
-			 "COD_ReadSection() failed\n");
 	}
 
 	/* Free the previously allocated dynamic buffer. */
@@ -787,7 +742,6 @@ bool DCD_Init(void)
 
 		if (!fInitCOD) {
 			fInit = false;
-			GT_0trace(curTrace, GT_6CLASS, "DCD_Init failed\n");
 			/* Exit initialized modules. */
 			if (fInitCOD)
 				COD_Exit();
@@ -880,15 +834,9 @@ DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 		GT_2trace(curTrace, GT_6CLASS, "REG_SetValue  "
 			  "(u8 *)pszPathName=%s, dwPathSize=%d\n",
 			  pszPathName, dwPathSize);
-		if (DSP_FAILED(status))
-			GT_0trace(curTrace, GT_6CLASS,
-				"DCD_RegisterObject: REG_SetValue failed!\n");
 	} else {
 		/* Deregister an existing object. */
 		status = REG_DeleteValue(szRegKey);
-		if (DSP_FAILED(status))
-			GT_0trace(curTrace, GT_6CLASS, "DCD_UnregisterObject: "
-				"REG_DeleteValue failed!\n");
 	}
 
 	if (DSP_SUCCEEDED(status)) {

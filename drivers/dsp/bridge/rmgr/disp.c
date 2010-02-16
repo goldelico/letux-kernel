@@ -117,13 +117,10 @@ DSP_STATUS DISP_Create(OUT struct DISP_OBJECT **phDispObject,
 
 	/* Allocate Node Dispatcher object */
 	MEM_AllocObject(pDisp, struct DISP_OBJECT, DISP_SIGNATURE);
-	if (pDisp == NULL) {
+	if (pDisp == NULL)
 		status = DSP_EMEMORY;
-		GT_0trace(DISP_DebugMask, GT_6CLASS,
-			 "DISP_Create: MEM_AllocObject() failed!\n");
-	} else {
+	else
 		pDisp->hDevObject = hDevObject;
-	}
 
 	/* Get Channel manager and WMD function interface */
 	if (DSP_SUCCEEDED(status)) {
@@ -131,10 +128,6 @@ DSP_STATUS DISP_Create(OUT struct DISP_OBJECT **phDispObject,
 		if (DSP_SUCCEEDED(status)) {
 			status = DEV_GetIntfFxns(hDevObject, &pIntfFxns);
 			pDisp->pIntfFxns = pIntfFxns;
-		} else {
-			GT_1trace(DISP_DebugMask, GT_6CLASS,
-				 "DISP_Create: Failed to get "
-				 "channel manager! status = 0x%x\n", status);
 		}
 	}
 
@@ -149,9 +142,6 @@ DSP_STATUS DISP_Create(OUT struct DISP_OBJECT **phDispObject,
 		goto func_cont;
 
 	if (devType != DSP_UNIT) {
-		GT_0trace(DISP_DebugMask, GT_6CLASS,
-			 "DISP_Create: Unkown device "
-			 "type in Device object !! \n");
 		status = DSP_EFAIL;
 		goto func_cont;
 	}
@@ -165,35 +155,20 @@ DSP_STATUS DISP_Create(OUT struct DISP_OBJECT **phDispObject,
 	ulChnlId = pDispAttrs->ulChnlOffset + CHNLTORMSOFFSET;
 	status = (*pIntfFxns->pfnChnlOpen)(&(pDisp->hChnlToDsp),
 		 pDisp->hChnlMgr, CHNL_MODETODSP, ulChnlId, &chnlAttrs);
-	if (DSP_FAILED(status))
-		GT_2trace(DISP_DebugMask, GT_6CLASS,
-			 "DISP_Create:  Channel to RMS "
-			 "open failed, chnl id = %d, status = 0x%x\n",
-			 ulChnlId, status);
 
 	if (DSP_SUCCEEDED(status)) {
 		ulChnlId = pDispAttrs->ulChnlOffset + CHNLFROMRMSOFFSET;
 		status = (*pIntfFxns->pfnChnlOpen)(&(pDisp->hChnlFromDsp),
 			 pDisp->hChnlMgr, CHNL_MODEFROMDSP, ulChnlId,
 			 &chnlAttrs);
-		if (DSP_FAILED(status)) {
-			GT_2trace(DISP_DebugMask, GT_6CLASS,
-				 "DISP_Create: Channel from RMS "
-				 "open failed, chnl id = %d, status = 0x%x\n",
-				 ulChnlId, status);
-		}
 	}
 	if (DSP_SUCCEEDED(status)) {
 		/* Allocate buffer for commands, replies */
 		pDisp->ulBufsize = pDispAttrs->ulChnlBufSize;
 		pDisp->ulBufsizeRMS = RMS_COMMANDBUFSIZE;
 		pDisp->pBuf = MEM_Calloc(pDisp->ulBufsize, MEM_PAGED);
-		if (pDisp->pBuf == NULL) {
+		if (pDisp->pBuf == NULL)
 			status = DSP_EMEMORY;
-			GT_0trace(DISP_DebugMask, GT_6CLASS,
-				 "DISP_Create: Failed "
-				 "to allocate channel buffer!\n");
-		}
 	}
 func_cont:
 	if (DSP_SUCCEEDED(status))
@@ -280,11 +255,7 @@ DSP_STATUS DISP_NodeChangePriority(struct DISP_OBJECT *hDisp,
 	pCommand->arg2 = nPriority;
 	status = SendMessage(hDisp, NODE_GetTimeout(hNode),
 		 sizeof(struct RMS_Command), &dwArg);
-	if (DSP_FAILED(status)) {
-		GT_1trace(DISP_DebugMask, GT_6CLASS,
-			 "DISP_NodeChangePriority failed! "
-			 "status = 0x%x\n", status);
-	}
+
 	return status;
 }
 
@@ -489,19 +460,9 @@ DSP_STATUS DISP_NodeCreate(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 					 strmDef, max, uCharsInRMSWord);
 				offset = total;
 			}
-			if (DSP_FAILED(status)) {
-				GT_2trace(DISP_DebugMask, GT_6CLASS,
-				      "DISP_NodeCreate: Message"
-				      " args to large for buffer! Message args"
-				      " size = %d, max = %d\n", total, max);
-			}
 		} else {
 			/* Args won't fit */
 			status = DSP_EFAIL;
-			GT_2trace(DISP_DebugMask, GT_6CLASS,
-				 "DISP_NodeCreate: Message args "
-				 " too large for buffer! Message args size = %d"
-				 ", max = %d\n", total, max);
 		}
 	}
 	if (DSP_SUCCEEDED(status)) {
@@ -509,11 +470,7 @@ DSP_STATUS DISP_NodeCreate(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 		DBC_Assert(ulBytes < (RMS_COMMANDBUFSIZE * sizeof(RMS_WORD)));
 		status = SendMessage(hDisp, NODE_GetTimeout(hNode),
 			 ulBytes, pNodeEnv);
-		if (DSP_FAILED(status)) {
-			GT_1trace(DISP_DebugMask, GT_6CLASS,
-				  "DISP_NodeCreate  failed! "
-				  "status = 0x%x\n", status);
-		} else {
+		if (DSP_SUCCEEDED(status)) {
 			/*
 			 * Message successfully received from RMS.
 			 * Return the status of the Node's create function
@@ -568,11 +525,7 @@ DSP_STATUS DISP_NodeDelete(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 
 			status = SendMessage(hDisp, NODE_GetTimeout(hNode),
 					    sizeof(struct RMS_Command), &dwArg);
-			if (DSP_FAILED(status)) {
-				GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "DISP_NodeDelete failed!"
-					 "status = 0x%x\n", status);
-			} else {
+			if (DSP_SUCCEEDED(status)) {
 				/*
 				 * Message successfully received from RMS.
 				 * Return the status of the Node's delete
@@ -627,11 +580,7 @@ DSP_STATUS DISP_NodeRun(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 
 			status = SendMessage(hDisp, NODE_GetTimeout(hNode),
 				 sizeof(struct RMS_Command), &dwArg);
-			if (DSP_FAILED(status)) {
-				GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "DISP_NodeRun failed!"
-					 "status = 0x%x\n", status);
-			} else {
+			if (DSP_SUCCEEDED(status)) {
 				/*
 				 * Message successfully received from RMS.
 				 * Return the status of the Node's execute
@@ -773,30 +722,17 @@ static DSP_STATUS SendMessage(struct DISP_OBJECT *hDisp, u32 dwTimeout,
 	/* Send the command */
 	status = (*pIntfFxns->pfnChnlAddIOReq) (hChnl, pBuf, ulBytes, 0,
 		 0L, dwArg);
-
-	if (DSP_FAILED(status)) {
-		GT_1trace(DISP_DebugMask, GT_6CLASS,
-			 "SendMessage: Channel AddIOReq to"
-			 " RMS failed! Status = 0x%x\n", status);
+	if (DSP_FAILED(status))
 		goto func_end;
-	}
+
 	status = (*pIntfFxns->pfnChnlGetIOC) (hChnl, dwTimeout, &chnlIOC);
 	if (DSP_SUCCEEDED(status)) {
 		if (!CHNL_IsIOComplete(chnlIOC)) {
-			if (CHNL_IsTimedOut(chnlIOC)) {
+			if (CHNL_IsTimedOut(chnlIOC))
 				status = DSP_ETIMEOUT;
-			} else {
-				GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "SendMessage failed! "
-					 "Channel IOC status = 0x%x\n",
-					 chnlIOC.status);
+			else
 				status = DSP_EFAIL;
-			}
 		}
-	} else {
-		GT_1trace(DISP_DebugMask, GT_6CLASS,
-			 "SendMessage: Channel GetIOC to"
-			 " RMS failed! Status = 0x%x\n", status);
 	}
 	/* Get the reply */
 	if (DSP_FAILED(status))
@@ -806,22 +742,15 @@ static DSP_STATUS SendMessage(struct DISP_OBJECT *hDisp, u32 dwTimeout,
 	ulBytes = REPLYSIZE;
 	status = (*pIntfFxns->pfnChnlAddIOReq)(hChnl, pBuf, ulBytes,
 		 0, 0L, dwArg);
-	if (DSP_FAILED(status)) {
-		GT_1trace(DISP_DebugMask, GT_6CLASS,
-			 "SendMessage: Channel AddIOReq "
-			 "from RMS failed! Status = 0x%x\n", status);
+	if (DSP_FAILED(status))
 		goto func_end;
-	}
+
 	status = (*pIntfFxns->pfnChnlGetIOC) (hChnl, dwTimeout, &chnlIOC);
 	if (DSP_SUCCEEDED(status)) {
 		if (CHNL_IsTimedOut(chnlIOC)) {
 			status = DSP_ETIMEOUT;
 		} else if (chnlIOC.cBytes < ulBytes) {
 			/* Did not get all of the reply from the RMS */
-			GT_1trace(DISP_DebugMask, GT_6CLASS,
-				 "SendMessage: Did not get all"
-				 "of reply from RMS! Bytes received: %d\n",
-				 chnlIOC.cBytes);
 			status = DSP_EFAIL;
 		} else {
 			if (CHNL_IsIOComplete(chnlIOC)) {
@@ -832,11 +761,6 @@ static DSP_STATUS SendMessage(struct DISP_OBJECT *hDisp, u32 dwTimeout,
 				status = DSP_EFAIL;
 			}
 		}
-	} else {
-		/* GetIOC failed */
-		GT_1trace(DISP_DebugMask, GT_6CLASS,
-			 "SendMessage: Failed to get "
-			 "reply from RMS! Status = 0x%x\n", status);
 	}
 func_end:
 	return status;

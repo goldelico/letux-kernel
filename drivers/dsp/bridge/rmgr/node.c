@@ -291,11 +291,9 @@ static struct NLDR_FXNS nldrFxns = {
 enum NODE_STATE NODE_GetState(HANDLE hNode)
 {
 	struct NODE_OBJECT *pNode = (struct NODE_OBJECT *)hNode;
-	if (!MEM_IsValidHandle(pNode, NODE_SIGNATURE)) {
-		GT_1trace(NODE_debugMask, GT_5CLASS,
-				"NODE_GetState:hNode 0x%x\n", pNode);
+	if (!MEM_IsValidHandle(pNode, NODE_SIGNATURE))
 		return  -1;
-	} else
+	else
 		return pNode->nState;
 }
 
@@ -373,9 +371,6 @@ DSP_STATUS NODE_Allocate(struct PROC_OBJECT *hProcessor,
 	/* If processor is in error state then don't attempt
 	    to send the message */
 	if (procStatus.iState == PROC_ERROR) {
-		GT_1trace(NODE_debugMask, GT_5CLASS,
-			"NODE_Allocate: proc Status 0x%x\n",
-			procStatus.iState);
 		status = DSP_EFAIL;
 		goto func_end;
 	}
@@ -540,21 +535,11 @@ func_cont:
 		if (DSP_SUCCEEDED(status)) {
 			/*Get the shared mem mgr for this nodes dev object */
 			status = CMM_GetHandle(hProcessor, &hCmmMgr);
-			if (DSP_FAILED(status)) {
-				GT_1trace(NODE_debugMask, GT_5CLASS,
-					 "NODE_Allocate: Failed to"
-					 " get CMM Mgr handle: 0x%x\n", status);
-			} else {
+			if (DSP_SUCCEEDED(status)) {
 				/* Allocate a SM addr translator for this node
 				 * w/ deflt attr */
 				status = CMM_XlatorCreate(&pNode->hXlator,
 					 hCmmMgr, NULL);
-				if (DSP_FAILED(status)) {
-					GT_1trace(NODE_debugMask, GT_5CLASS,
-						"NODE_Allocate: Failed to "
-						"create SM translator: 0x%x\n",
-						status);
-				}
 			}
 		}
 		if (DSP_SUCCEEDED(status)) {
@@ -591,11 +576,6 @@ func_cont:
 					     &pNode->dcdProps.objData.nodeObj,
 					     &pNode->hNldrNode,
 					     &pNode->fPhaseSplit);
-		if (DSP_FAILED(status)) {
-			GT_1trace(NODE_debugMask, GT_5CLASS,
-				 "NODE_Allocate: Failed to "
-				 "allocate NLDR node: 0x%x\n", status);
-		}
 	}
 
 	/* Compare value read from Node Properties and check if it is same as
@@ -746,11 +726,6 @@ DBAPI NODE_AllocMsgBuf(struct NODE_OBJECT *hNode, u32 uSize,
 		/* Set/get this node's translators virtual address base/size */
 		status = CMM_XlatorInfo(pNode->hXlator, pBuffer, uSize,
 					pAttr->uSegment, bSetInfo);
-		if (DSP_FAILED(status)) {
-			GT_1trace(NODE_debugMask, GT_7CLASS,
-				 "NODE_AllocMsgBuf "
-				 "failed: 0x%lx\n", status);
-		}
 	}
 	if (DSP_SUCCEEDED(status) && (!bVirtAddr)) {
 		if (pAttr->uSegment != 1) {
@@ -1191,8 +1166,6 @@ DSP_STATUS NODE_Create(struct NODE_OBJECT *hNode)
 	/* If processor is in error state then don't attempt to create
 	    new node */
 	if (procStatus.iState == PROC_ERROR) {
-		GT_1trace(NODE_debugMask, GT_4CLASS, "NODE_Create:"
-			"		proc Status 0x%x\n", procStatus.iState);
 		status = DSP_EFAIL;
 		goto func_end;
 	}
@@ -1347,17 +1320,12 @@ DSP_STATUS NODE_CreateMgr(OUT struct NODE_MGR **phNodeMgr,
 		if (pNodeMgr->nodeList == NULL || pNodeMgr->pipeMap == NULL ||
 		   pNodeMgr->pipeDoneMap == NULL) {
 			status = DSP_EMEMORY;
-			GT_0trace(NODE_debugMask, GT_6CLASS,
-				 "NODE_CreateMgr: Memory "
-				 "allocation failed\n");
 		} else {
 			INIT_LIST_HEAD(&pNodeMgr->nodeList->head);
 			status = NTFY_Create(&pNodeMgr->hNtfy);
 		}
 		pNodeMgr->uNumCreated = 0;
 	} else {
-		GT_0trace(NODE_debugMask, GT_6CLASS,
-			 "NODE_CreateMgr: Memory allocation failed\n");
 		status = DSP_EMEMORY;
 	}
 	/* get devNodeType */
@@ -1413,11 +1381,6 @@ DSP_STATUS NODE_CreateMgr(OUT struct NODE_MGR **phNodeMgr,
 		if (devType != IVA_UNIT) {
 			/* Get addresses of any RMS functions loaded */
 			status = GetRMSFxns(pNodeMgr);
-			if (DSP_FAILED(status)) {
-				GT_1trace(NODE_debugMask, GT_6CLASS,
-				"NODE_CreateMgr: Failed to"
-				" get RMS functions: status = 0x%x", status);
-			}
 		}
 	}
 
@@ -1433,11 +1396,6 @@ DSP_STATUS NODE_CreateMgr(OUT struct NODE_MGR **phNodeMgr,
 		pNodeMgr->fLoaderInit = pNodeMgr->nldrFxns.pfnInit();
 		status = pNodeMgr->nldrFxns.pfnCreate(&pNodeMgr->hNldr,
 						     hDevObject, &nldrAttrs);
-		if (DSP_FAILED(status)) {
-			GT_1trace(NODE_debugMask, GT_6CLASS,
-				 "NODE_CreateMgr: Failed to "
-				 "create loader: status = 0x%x\n", status);
-		}
 	}
 	if (DSP_SUCCEEDED(status))
 		*phNodeMgr = pNodeMgr;
@@ -1835,8 +1793,6 @@ DSP_STATUS NODE_GetMessage(struct NODE_OBJECT *hNode, OUT struct DSP_MSG *pMsg,
 	/* If processor is in error state then don't attempt to get the
 	    message */
 	if (procStatus.iState == PROC_ERROR) {
-		GT_1trace(NODE_debugMask, GT_4CLASS, "NODE_GetMessage:"
-			"		proc Status 0x%x\n", procStatus.iState);
 		status = DSP_EFAIL;
 		goto func_end;
 	}
@@ -1871,13 +1827,9 @@ DSP_STATUS NODE_GetMessage(struct NODE_OBJECT *hNode, OUT struct DSP_MSG *pMsg,
 			pMsg->dwArg1 = (u32) pTmpBuf;
 			pMsg->dwArg2 *= hNode->hNodeMgr->uDSPWordSize;
 		} else {
-			GT_0trace(NODE_debugMask, GT_7CLASS, "NODE_GetMessage: "
-				 "Failed SM translation!\n");
 			status = DSP_ETRANSLATE;
 		}
 	} else {
-		GT_0trace(NODE_debugMask, GT_7CLASS, "NODE_GetMessage: Failed "
-			 "SM Pa/Pa translation!\n");
 		status = DSP_ETRANSLATE;
 	}
 func_end:
@@ -2059,9 +2011,6 @@ DSP_STATUS NODE_Pause(struct NODE_OBJECT *hNode)
 			/* If processor is in error state then don't attempt
 			    to send the message */
 			if (procStatus.iState == PROC_ERROR) {
-				GT_1trace(NODE_debugMask, GT_4CLASS,
-					"NODE_Pause: proc Status 0x%x\n",
-					procStatus.iState);
 				status = DSP_EFAIL;
 				goto func_cont;
 			}
@@ -2073,13 +2022,8 @@ DSP_STATUS NODE_Pause(struct NODE_OBJECT *hNode)
 			}
 
 			/* Update state */
-			if (DSP_SUCCEEDED(status)) {
+			if (DSP_SUCCEEDED(status))
 				NODE_SetState(hNode, NODE_PAUSED);
-			} else {
-				GT_1trace(NODE_debugMask, GT_6CLASS,
-					 "NODE_Pause: Failed. hNode:"
-					 " 0x%x\n", hNode);
-			}
 		}
 func_cont:
 		/* End of SYNC_EnterCS */
@@ -2129,8 +2073,6 @@ DSP_STATUS NODE_PutMessage(struct NODE_OBJECT *hNode,
 	/* If processor is in bad state then don't attempt sending the
 	    message */
 	if (procStatus.iState == PROC_ERROR) {
-		GT_1trace(NODE_debugMask, GT_4CLASS, "NODE_PutMessage:"
-			"		proc Status 0x%x\n", procStatus.iState);
 		status = DSP_EFAIL;
 		goto func_end;
 	}
@@ -2183,9 +2125,6 @@ DSP_STATUS NODE_PutMessage(struct NODE_OBJECT *hNode,
 				status = DSP_EFAIL;	/* bad DSPWordSize */
 			}
 		} else {	/* failed to translate buffer address */
-			GT_0trace(NODE_debugMask, GT_7CLASS,
-				 "NODE_PutMessage: Failed to"
-				 " translate SM address\n");
 			status = DSP_ETRANSLATE;
 		}
 	}
@@ -2281,8 +2220,6 @@ DSP_STATUS NODE_Run(struct NODE_OBJECT *hNode)
 		goto func_end;
 	/* If processor is in error state then don't attempt to run the node */
 	if (procStatus.iState == PROC_ERROR) {
-		GT_1trace(NODE_debugMask, GT_4CLASS, "NODE_Run:"
-			"		proc Status 0x%x\n", procStatus.iState);
 		status = DSP_EFAIL;
 		goto func_end;
 	}
@@ -2400,9 +2337,7 @@ DSP_STATUS NODE_Terminate(struct NODE_OBJECT *hNode, OUT DSP_STATUS *pStatus)
 		goto func_end;
 	}
 	if (pNode->hProcessor == NULL) {
-		GT_1trace(NODE_debugMask, GT_4CLASS,
-		"NODE_Terminate: pNode->hProcessor = 0x%x\n",
-		pNode->hProcessor);
+		status = DSP_EHANDLE;
 		goto func_end;
 	}
 	status = PROC_GetProcessorId(pNode->hProcessor, &procId);
@@ -2445,8 +2380,6 @@ DSP_STATUS NODE_Terminate(struct NODE_OBJECT *hNode, OUT DSP_STATUS *pStatus)
 		/* If processor is in error state then don't attempt to send
 		 * A kill task command */
 		if (procStatus.iState == PROC_ERROR) {
-			GT_1trace(NODE_debugMask, GT_4CLASS, "NODE_Terminate:"
-				" proc Status 0x%x\n", procStatus.iState);
 			status = DSP_EFAIL;
 			goto func_cont;
 		}
@@ -2601,18 +2534,10 @@ static void DeleteNode(struct NODE_OBJECT *hNode,
 			status = PROC_UnMap(hNode->hProcessor,
 					   (void *)taskArgs.uDSPHeapAddr,
 					   pr_ctxt);
-			if (DSP_FAILED(status))
-				GT_1trace(NODE_debugMask, GT_5CLASS,
-					 "DSPProcessor_UnMap failed."
-					 " Status = 0x%x\n", (u32)status);
 
 			status = PROC_UnReserveMemory(hNode->hProcessor,
 					(void *)taskArgs.uDSPHeapResAddr);
-			if (DSP_FAILED(status))
-				GT_1trace(NODE_debugMask, GT_5CLASS,
-					 "DSPProcessor_UnReserveMemory "
-					 "failed. Status = 0x%x\n",
-					 (u32)status);
+
 #ifdef DSP_DMM_DEBUG
 			status = DMM_GetHandle(pProcObject, &hDmmMgr);
 			if (DSP_SUCCEEDED(status))
@@ -3064,9 +2989,6 @@ DSP_STATUS NODE_GetUUIDProps(void *hProcessor,
 	/* If processor is in error state then don't attempt
 	    to send the message */
 	if (procStatus.iState == PROC_ERROR) {
-		GT_1trace(NODE_debugMask, GT_5CLASS,
-			"NODE_GetUUIDProps: proc Status 0x%x\n",
-			procStatus.iState);
 		status = DSP_EFAIL;
 		goto func_end;
 	}
