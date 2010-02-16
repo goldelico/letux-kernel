@@ -118,9 +118,6 @@ DSP_STATUS STRM_AllocateBuffer(struct STRM_OBJECT *hStrm, u32 uSize,
 	DBC_Require(cRefs > 0);
 	DBC_Require(apBuffer != NULL);
 
-	GT_4trace(STRM_debugMask, GT_ENTER, "STRM_AllocateBuffer: hStrm: 0x%x\t"
-		 "uSize: 0x%x\tapBuffer: 0x%x\tuNumBufs: 0x%x\n",
-		 hStrm, uSize, apBuffer, uNumBufs);
 	/*
 	 * Allocate from segment specified at time of stream open.
 	 */
@@ -213,8 +210,6 @@ DSP_STATUS STRM_Create(OUT struct STRM_MGR **phStrmMgr, struct DEV_OBJECT *hDev)
 	DBC_Require(phStrmMgr != NULL);
 	DBC_Require(hDev != NULL);
 
-	GT_2trace(STRM_debugMask, GT_ENTER, "STRM_Create: phStrmMgr: "
-		 "0x%x\thDev: 0x%x\n", phStrmMgr, hDev);
 	*phStrmMgr = NULL;
 	/* Allocate STRM manager object */
 	MEM_AllocObject(pStrmMgr, struct STRM_MGR, STRMMGR_SIGNATURE);
@@ -262,9 +257,6 @@ void STRM_Delete(struct STRM_MGR *hStrmMgr)
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(hStrmMgr, STRMMGR_SIGNATURE));
 
-	GT_1trace(STRM_debugMask, GT_ENTER, "STRM_Delete: hStrmMgr: 0x%x\n",
-		 hStrmMgr);
-
 	DeleteStrmMgr(hStrmMgr);
 
 	DBC_Ensure(!MEM_IsValidHandle(hStrmMgr, STRMMGR_SIGNATURE));
@@ -280,9 +272,6 @@ void STRM_Exit(void)
 	DBC_Require(cRefs > 0);
 
 	cRefs--;
-
-	GT_1trace(STRM_debugMask, GT_5CLASS,
-		 "Entered STRM_Exit, ref count:  0x%x\n", cRefs);
 
 	DBC_Ensure(cRefs >= 0);
 }
@@ -302,9 +291,6 @@ DSP_STATUS STRM_FreeBuffer(struct STRM_OBJECT *hStrm, u8 **apBuffer,
 
 	DBC_Require(cRefs > 0);
 	DBC_Require(apBuffer != NULL);
-
-	GT_3trace(STRM_debugMask, GT_ENTER, "STRM_FreeBuffer: hStrm: 0x%x\t"
-		 "apBuffer: 0x%x\tuNumBufs: 0x%x\n", hStrm, apBuffer, uNumBufs);
 
 	for (i = 0; i < uNumBufs; i++) {
 		DBC_Assert(hStrm->hXlator != NULL);
@@ -344,9 +330,6 @@ DSP_STATUS STRM_GetInfo(struct STRM_OBJECT *hStrm,
 	DBC_Require(pStreamInfo != NULL);
 	DBC_Require(uStreamInfoSize >= sizeof(struct STRM_INFO));
 
-	GT_3trace(STRM_debugMask, GT_ENTER, "STRM_GetInfo: hStrm: 0x%x\t"
-		 "pStreamInfo: 0x%x\tuStreamInfoSize: 0x%x\n", hStrm,
-		 pStreamInfo, uStreamInfoSize);
 
 	if (uStreamInfoSize < sizeof(struct STRM_INFO)) {
 		/* size of users info */
@@ -435,9 +418,6 @@ bool STRM_Init(void)
 
 	if (fRetVal)
 		cRefs++;
-
-	GT_1trace(STRM_debugMask, GT_5CLASS, "STRM_Init(), ref count: 0x%x\n",
-		 cRefs);
 
 	DBC_Ensure((fRetVal && (cRefs > 0)) || (!fRetVal && (cRefs >= 0)));
 
@@ -746,10 +726,6 @@ DSP_STATUS STRM_RegisterNotify(struct STRM_OBJECT *hStrm, u32 uEventMask,
 	DBC_Require(cRefs > 0);
 	DBC_Require(hNotification != NULL);
 
-	GT_4trace(STRM_debugMask, GT_ENTER,
-		 "STRM_RegisterNotify: hStrm: 0x%x\t"
-		 "uEventMask: 0x%x\tuNotifyType: 0x%x\thNotification: 0x%x\n",
-		 hStrm, uEventMask, uNotifyType, hNotification);
 
 	if ((uEventMask & ~((DSP_STREAMIOCOMPLETION) |
 		 DSP_STREAMDONE)) != 0) {
@@ -792,10 +768,6 @@ DSP_STATUS STRM_Select(IN struct STRM_OBJECT **aStrmTab, u32 nStrms,
 	DBC_Require(pMask != NULL);
 	DBC_Require(nStrms > 0);
 
-	GT_4trace(STRM_debugMask, GT_ENTER,
-		 "STRM_Select: aStrmTab: 0x%x \tnStrms: "
-		 "0x%x\tpMask: 0x%x\tuTimeout: 0x%x\n", aStrmTab,
-		 nStrms, pMask, uTimeout);
 	*pMask = 0;
 	for (i = 0; i < nStrms; i++) {
 		if (!MEM_IsValidHandle(aStrmTab[i], STRM_SIGNATURE)) {

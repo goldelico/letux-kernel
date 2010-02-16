@@ -724,11 +724,6 @@ DBAPI NODE_AllocMsgBuf(struct NODE_OBJECT *hNode, u32 uSize,
 
 	DBC_Require(uSize > 0);
 
-	GT_4trace(NODE_debugMask, GT_ENTER,
-		 "NODE_AllocMsgBuf: hNode: 0x%x\tuSize:"
-		 " 0x%x\tpAttr: 0x%x\tpBuffer: %d\n", pNode, uSize, pAttr,
-		 pBuffer);
-
 	if (NODE_GetType(pNode) == NODE_DEVICE)
 		status = DSP_ENODETYPE;
 
@@ -814,9 +809,6 @@ DSP_STATUS NODE_ChangePriority(struct NODE_OBJECT *hNode, s32 nPriority)
 	u32 procId;
 
 	DBC_Require(cRefs > 0);
-
-	GT_2trace(NODE_debugMask, GT_ENTER, "NODE_ChangePriority: "
-		 "hNode: 0x%x\tnPriority: %d\n", hNode, nPriority);
 
 	if (!hNode->hNodeMgr) {
 		GT_1trace(NODE_debugMask, GT_7CLASS,
@@ -1361,8 +1353,7 @@ DSP_STATUS NODE_CreateMgr(OUT struct NODE_MGR **phNodeMgr,
 	DBC_Require(cRefs > 0);
 	DBC_Require(phNodeMgr != NULL);
 	DBC_Require(hDevObject != NULL);
-	GT_2trace(NODE_debugMask, GT_ENTER, "NODE_CreateMgr: phNodeMgr: 0x%x\t"
-		 "hDevObject: 0x%x\n", phNodeMgr, hDevObject);
+
 	*phNodeMgr = NULL;
 	/* Allocate Node manager object */
 	MEM_AllocObject(pNodeMgr, struct NODE_MGR, NODEMGR_SIGNATURE);
@@ -1629,12 +1620,10 @@ func_cont1:
 		GT_0trace(NODE_debugMask, GT_5CLASS, "\nNODE_Delete12:\n");
 		DRV_ProcNodeUpdateStatus(nodeRes, false);
 	}
-	GT_0trace(NODE_debugMask, GT_ENTER, "\nNODE_Delete13:\n ");
 	DeleteNode(hNode, pr_ctxt);
 
 	GT_0trace(NODE_debugMask, GT_5CLASS, "\nNODE_Delete2:\n ");
 	DRV_RemoveNodeResElement(nodeRes, pr_ctxt);
-	GT_0trace(NODE_debugMask, GT_ENTER, "\nNODE_Delete3:\n ");
 	/* Exit critical section */
 	(void)SYNC_LeaveCS(hNodeMgr->hSync);
 	PROC_NotifyClients(hProcessor, DSP_NODESTATECHANGE);
@@ -1653,8 +1642,6 @@ DSP_STATUS NODE_DeleteMgr(struct NODE_MGR *hNodeMgr)
 
 	DBC_Require(cRefs > 0);
 
-	GT_1trace(NODE_debugMask, GT_ENTER, "NODE_DeleteMgr: hNodeMgr: 0x%x\n",
-		 hNodeMgr);
 	if (MEM_IsValidHandle(hNodeMgr, NODEMGR_SIGNATURE))
 		DeleteNodeMgr(hNodeMgr);
 	else
@@ -1679,10 +1666,7 @@ DSP_STATUS NODE_EnumNodes(struct NODE_MGR *hNodeMgr, void **aNodeTab,
 	DBC_Require(aNodeTab != NULL || uNodeTabSize == 0);
 	DBC_Require(puNumNodes != NULL);
 	DBC_Require(puAllocated != NULL);
-	GT_5trace(NODE_debugMask, GT_ENTER, "NODE_EnumNodes: hNodeMgr: 0x%x\t"
-		 "aNodeTab: %d\tuNodeTabSize: 0x%x\tpuNumNodes: 0x%x\t"
-		 "puAllocated\n", hNodeMgr, aNodeTab, uNodeTabSize, puNumNodes,
-		 puAllocated);
+
 	if (!MEM_IsValidHandle(hNodeMgr, NODEMGR_SIGNATURE)) {
 		status = DSP_EHANDLE;
 		goto func_end;
@@ -1726,9 +1710,6 @@ void NODE_Exit(void)
 
 	cRefs--;
 
-	GT_1trace(NODE_debugMask, GT_5CLASS,
-		 "Entered NODE_Exit, ref count:  0x%x\n", cRefs);
-
 	DBC_Ensure(cRefs >= 0);
 }
 
@@ -1747,8 +1728,7 @@ DSP_STATUS NODE_FreeMsgBuf(struct NODE_OBJECT *hNode, IN u8 *pBuffer,
 	DBC_Require(pBuffer != NULL);
 	DBC_Require(pNode != NULL);
 	DBC_Require(pNode->hXlator != NULL);
-	GT_3trace(NODE_debugMask, GT_ENTER, "NODE_FreeMsgBuf: hNode: 0x%x\t"
-		 "pBuffer: 0x%x\tpAttr: 0x%x\n", hNode, pBuffer, pAttr);
+
 	status = PROC_GetProcessorId(pNode->hProcessor, &procId);
 	if (procId == DSP_UNIT) {
 		if (DSP_SUCCEEDED(status)) {
@@ -1784,9 +1764,6 @@ DSP_STATUS NODE_GetAttr(struct NODE_OBJECT *hNode,
 	DBC_Require(cRefs > 0);
 	DBC_Require(pAttr != NULL);
 	DBC_Require(uAttrSize >= sizeof(struct DSP_NODEATTR));
-	GT_3trace(NODE_debugMask, GT_ENTER, "NODE_GetAttr: hNode: "
-		 "0x%x\tpAttr: 0x%x \tuAttrSize: 0x%x\n", hNode, pAttr,
-		 uAttrSize);
 
 	hNodeMgr = hNode->hNodeMgr;
 	 /* Enter hNodeMgr critical section (since we're accessing
@@ -1830,9 +1807,7 @@ DSP_STATUS NODE_GetChannelId(struct NODE_OBJECT *hNode, u32 uDir, u32 uIndex,
 	DBC_Require(cRefs > 0);
 	DBC_Require(uDir == DSP_TONODE || uDir == DSP_FROMNODE);
 	DBC_Require(pulId != NULL);
-	GT_4trace(NODE_debugMask, GT_ENTER, "NODE_GetChannelId: hNode: "
-		 "0x%x\tuDir: %d\tuIndex: %d\tpulId: 0x%x\n", hNode, uDir,
-		 uIndex, pulId);
+
 	nodeType = NODE_GetType(hNode);
 	if (nodeType != NODE_TASK && nodeType != NODE_DAISSOCKET) {
 		status = DSP_ENODETYPE;
@@ -1945,17 +1920,12 @@ DSP_STATUS NODE_GetNldrObj(struct NODE_MGR *hNodeMgr,
 	DSP_STATUS status = DSP_SOK;
 	struct NODE_MGR *pNodeMgr = hNodeMgr;
 	DBC_Require(phNldrObj != NULL);
-	GT_2trace(NODE_debugMask, GT_ENTER,
-		 "Entered NODE_GetNldrObj, hNodeMgr: "
-		 "0x%x\n\tphNldrObj:  0x%x\n", hNodeMgr, phNldrObj);
+
 	if (!MEM_IsValidHandle(hNodeMgr, NODEMGR_SIGNATURE))
 		status = DSP_EHANDLE;
 	else
 		*phNldrObj = pNodeMgr->hNldr;
 
-	GT_2trace(NODE_debugMask, GT_ENTER,
-		 "Exit NODE_GetNldrObj: status 0x%x\n\t"
-		 "phNldrObj:  0x%x\n", status, *phNldrObj);
 	DBC_Ensure(DSP_SUCCEEDED(status) || ((phNldrObj != NULL) &&
 		  (*phNldrObj == NULL)));
 	return status;
@@ -2033,9 +2003,6 @@ bool NODE_Init(void)
 	}
 
 	cRefs++;
-
-	GT_1trace(NODE_debugMask, GT_5CLASS, "NODE_Init(), ref count: 0x%x\n",
-		 cRefs);
 
 	return true;
 }
@@ -3141,11 +3108,6 @@ DSP_STATUS NODE_GetUUIDProps(void *hProcessor,
 		status = DSP_EFAIL;
 		goto func_end;
 	}
-
-	GT_3trace(NODE_debugMask, GT_ENTER,
-		 "NODE_GetUUIDProps: " "\thProcessor: "
-		 "0x%x\tpNodeId: 0x%x" "\tpNodeProps: 0x%x\n", hProcessor,
-		 pNodeId, pNodeProps);
 
 	status = PROC_GetDevObject(hProcessor, &hDevObject);
 	if (hDevObject != NULL)

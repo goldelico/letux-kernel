@@ -69,9 +69,7 @@ DSP_STATUS MGR_Create(OUT struct MGR_OBJECT **phMgrObject,
 
 	DBC_Require(phMgrObject != NULL);
 	DBC_Require(cRefs > 0);
-	GT_1trace(MGR_DebugMask, GT_ENTER,
-		 "Entering MGR_Create phMgrObject 0x%x\n ",
-		 phMgrObject);
+
 	MEM_AllocObject(pMgrObject, struct MGR_OBJECT, SIGNATURE);
 	if (pMgrObject) {
 		status = DCD_CreateManager(ZLDLLNAME, &pMgrObject->hDcdMgr);
@@ -101,9 +99,7 @@ DSP_STATUS MGR_Create(OUT struct MGR_OBJECT **phMgrObject,
 		GT_0trace(MGR_DebugMask, GT_7CLASS,
 			 "MGR_Create DSP_FAILED to allocate memory \n");
 	}
-	GT_2trace(MGR_DebugMask, GT_ENTER,
-		 "Exiting MGR_Create: phMgrObject: 0x%x\t"
-		 "status: 0x%x\n", phMgrObject, status);
+
 	DBC_Ensure(DSP_FAILED(status) ||
 		  MEM_IsValidHandle(pMgrObject, SIGNATURE));
 	return status;
@@ -121,8 +117,6 @@ DSP_STATUS MGR_Destroy(struct MGR_OBJECT *hMgrObject)
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(hMgrObject, SIGNATURE));
 
-	GT_1trace(MGR_DebugMask, GT_ENTER,
-		 "Entering MGR_Destroy hMgrObject 0x%x\n", hMgrObject);
 	/* Free resources */
 	if (hMgrObject->hDcdMgr)
 		DCD_DestroyManager(hMgrObject->hDcdMgr);
@@ -130,10 +124,6 @@ DSP_STATUS MGR_Destroy(struct MGR_OBJECT *hMgrObject)
 	MEM_FreeObject(pMgrObject);
 	/* Update the Registry with NULL for MGR Object */
 	(void)CFG_SetObject(0, REG_MGR_OBJECT);
-
-	GT_2trace(MGR_DebugMask, GT_ENTER,
-		 "Exiting MGR_Destroy: hMgrObject: 0x%x\t"
-		 "status: 0x%x\n", hMgrObject, status);
 
 	DBC_Ensure(DSP_FAILED(status) ||
 		 !MEM_IsValidHandle(hMgrObject, SIGNATURE));
@@ -161,10 +151,6 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 	DBC_Require(uNDBPropsSize >= sizeof(struct DSP_NDBPROPS));
 	DBC_Require(cRefs > 0);
 
-	GT_4trace(MGR_DebugMask, GT_ENTER, "Entered Manager_EnumNodeInfo, "
-		 "args:\n\t uNode: 0x%x\n\tpNDBProps:  0x%x\n\tuNDBPropsSize:"
-		 "0x%x\tpuNumNodes: 0x%x\n", uNode, pNDBProps,
-		 uNDBPropsSize, puNumNodes);
 	*puNumNodes = 0;
 	/* Get The Manager Object from the Registry */
 	status = CFG_GetObject((u32 *)&pMgrObject, REG_MGR_OBJECT);
@@ -213,11 +199,6 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 			 "Enumeration failure\r\n");
 	}
 func_cont:
-	GT_4trace(MGR_DebugMask, GT_ENTER,
-		 "Exiting Manager_EnumNodeInfo, args:\n\t"
-		 "uNode: 0x%x\n\tpNDBProps:  0x%x\n\tuNDBPropsSize:"
-		 " 0x%x\tuNumNodes: 0x%x\n", uNode, pNDBProps,
-		uNDBPropsSize, *puNumNodes);
 	DBC_Ensure((DSP_SUCCEEDED(status) && *puNumNodes > 0) ||
 		  (DSP_FAILED(status) && *puNumNodes == 0));
 
@@ -254,11 +235,6 @@ DSP_STATUS MGR_EnumProcessorInfo(u32 uProcessor,
 	DBC_Require(uProcessorInfoSize >= sizeof(struct DSP_PROCESSORINFO));
 	DBC_Require(cRefs > 0);
 
-	GT_4trace(MGR_DebugMask, GT_ENTER,
-		 "Entered Manager_EnumProcessorInfo, "
-		 "args:\n\tuProcessor:  0x%x\n\tpProcessorInfo: 0x%x\n\t"
-		 "uProcessorInfoSize: 0x%x\tpuNumProcs: 0x%x\n", uProcessor,
-		 pProcessorInfo, uProcessorInfoSize, puNumProcs);
 	*puNumProcs = 0;
 	status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
 	if (DSP_SUCCEEDED(status)) {
@@ -372,8 +348,6 @@ void MGR_Exit(void)
 	if (cRefs == 0)
 		DCD_Exit();
 
-	GT_1trace(MGR_DebugMask, GT_5CLASS,
-		 "Entered MGR_Exit, ref count: 0x%x\n", cRefs);
 	DBC_Ensure(cRefs >= 0);
 }
 
@@ -430,9 +404,6 @@ bool MGR_Init(void)
 	if (fRetval)
 		cRefs++;
 
-
-	GT_1trace(MGR_DebugMask, GT_5CLASS,
-		 "Entered MGR_Init, ref count:  0x%x\n", cRefs);
 	DBC_Ensure((fRetval && (cRefs > 0)) || (!fRetval && (cRefs >= 0)));
 
 	return fRetval;

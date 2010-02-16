@@ -347,10 +347,6 @@ DSP_STATUS NLDR_Allocate(struct NLDR_OBJECT *hNldr, void *pPrivRef,
 	DBC_Require(phNldrNode != NULL);
 	DBC_Require(MEM_IsValidHandle(hNldr, NLDR_SIGNATURE));
 
-	GT_5trace(NLDR_debugMask, GT_ENTER, "NLDR_Allocate(0x%x, 0x%x, 0x%x, "
-		 "0x%x, 0x%x)\n", hNldr, pPrivRef, pNodeProps, phNldrNode,
-		 pfPhaseSplit);
-
 	/* Initialize handle in case of failure */
 	*phNldrNode = NULL;
 	/* Allocate node object */
@@ -472,8 +468,7 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 	DBC_Require(pAttrs != NULL);
 	DBC_Require(pAttrs->pfnOvly != NULL);
 	DBC_Require(pAttrs->pfnWrite != NULL);
-	GT_3trace(NLDR_debugMask, GT_ENTER, "NLDR_Create(0x%x, 0x%x, 0x%x)\n",
-		 phNldr, hDevObject, pAttrs);
+
 	/* Allocate dynamic loader object */
 	MEM_AllocObject(pNldr, struct NLDR_OBJECT, NLDR_SIGNATURE);
 	if (pNldr) {
@@ -644,7 +639,7 @@ void NLDR_Delete(struct NLDR_OBJECT *hNldr)
 	u16 i;
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(hNldr, NLDR_SIGNATURE));
-	GT_1trace(NLDR_debugMask, GT_ENTER, "NLDR_Delete(0x%x)\n", hNldr);
+
 	hNldr->dbllFxns.exitFxn();
 	if (hNldr->rmm)
 		RMM_delete(hNldr->rmm);
@@ -698,9 +693,6 @@ void NLDR_Exit(void)
 
 	cRefs--;
 
-	GT_1trace(NLDR_debugMask, GT_5CLASS,
-		 "Entered NLDR_Exit, ref count:  0x%x\n", cRefs);
-
 	if (cRefs == 0) {
 		RMM_exit();
 		NLDR_debugMask.flags = NULL;
@@ -725,8 +717,6 @@ DSP_STATUS NLDR_GetFxnAddr(struct NLDR_NODEOBJECT *hNldrNode, char *pstrFxn,
 	DBC_Require(MEM_IsValidHandle(hNldrNode, NLDR_NODESIGNATURE));
 	DBC_Require(pulAddr != NULL);
 	DBC_Require(pstrFxn != NULL);
-	GT_3trace(NLDR_debugMask, GT_ENTER, "NLDR_GetFxnAddr(0x%x, %s, 0x%x)\n",
-		 hNldrNode, pstrFxn, pulAddr);
 
 	hNldr = hNldrNode->pNldr;
 	/* Called from NODE_Create(), NODE_Delete(), or NODE_Run(). */
@@ -807,8 +797,7 @@ DSP_STATUS NLDR_GetRmmManager(struct NLDR_OBJECT *hNldrObject,
 	DSP_STATUS status = DSP_SOK;
 	struct NLDR_OBJECT *pNldrObject = hNldrObject;
 	DBC_Require(phRmmMgr != NULL);
-	GT_2trace(NLDR_debugMask, GT_ENTER, "NLDR_GetRmmManager(0x%x, 0x%x)\n",
-		 hNldrObject, phRmmMgr);
+
 	if (MEM_IsValidHandle(hNldrObject, NLDR_SIGNATURE)) {
 		*phRmmMgr = pNldrObject->rmm;
 	} else {
@@ -817,9 +806,6 @@ DSP_STATUS NLDR_GetRmmManager(struct NLDR_OBJECT *hNldrObject,
 		GT_0trace(NLDR_debugMask, GT_7CLASS,
 			 "NLDR_GetRmmManager:Invalid handle");
 	}
-
-	GT_2trace(NLDR_debugMask, GT_ENTER, "Exit NLDR_GetRmmManager: status "
-		 "0x%x\n\tphRmmMgr:  0x%x\n", status, *phRmmMgr);
 
 	DBC_Ensure(DSP_SUCCEEDED(status) || ((phRmmMgr != NULL) &&
 		  (*phRmmMgr == NULL)));
@@ -844,9 +830,6 @@ bool NLDR_Init(void)
 
 	cRefs++;
 
-	GT_1trace(NLDR_debugMask, GT_5CLASS, "NLDR_Init(), ref count: 0x%x\n",
-		 cRefs);
-
 	DBC_Ensure(cRefs > 0);
 	return true;
 }
@@ -864,9 +847,6 @@ DSP_STATUS NLDR_Load(struct NLDR_NODEOBJECT *hNldrNode, enum NLDR_PHASE phase)
 	DBC_Require(MEM_IsValidHandle(hNldrNode, NLDR_NODESIGNATURE));
 
 	hNldr = hNldrNode->pNldr;
-
-	GT_2trace(NLDR_debugMask, GT_ENTER, "NLDR_Load(0x%x, 0x%x)\n",
-		 hNldrNode, phase);
 
 	if (hNldrNode->fDynamic) {
 		hNldrNode->phase = phase;
@@ -922,8 +902,7 @@ DSP_STATUS NLDR_Unload(struct NLDR_NODEOBJECT *hNldrNode, enum NLDR_PHASE phase)
 
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(hNldrNode, NLDR_NODESIGNATURE));
-	GT_2trace(NLDR_debugMask, GT_ENTER, "NLDR_Unload(0x%x, 0x%x)\n",
-		 hNldrNode, phase);
+
 	if (hNldrNode != NULL) {
 		if (hNldrNode->fDynamic) {
 			if (*hNldrNode->pfPhaseSplit) {

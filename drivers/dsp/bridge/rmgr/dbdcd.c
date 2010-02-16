@@ -96,9 +96,6 @@ DSP_STATUS DCD_AutoRegister(IN struct DCD_MANAGER *hDcdMgr,
 
 	DBC_Require(cRefs > 0);
 
-	GT_1trace(curTrace, GT_ENTER, "DCD_AutoRegister: hDcdMgr 0x%x\n",
-		 hDcdMgr);
-
 	if (IsValidHandle(hDcdMgr)) {
 		status = DCD_GetObjects(hDcdMgr, pszCoffPath,
 					(DCD_REGISTERFXN)DCD_RegisterObject,
@@ -123,9 +120,6 @@ DSP_STATUS DCD_AutoUnregister(IN struct DCD_MANAGER *hDcdMgr,
 	DSP_STATUS status = DSP_SOK;
 
 	DBC_Require(cRefs > 0);
-
-	GT_1trace(curTrace, GT_ENTER, "DCD_AutoUnregister: hDcdMgr 0x%x\n",
-		 hDcdMgr);
 
 	if (IsValidHandle(hDcdMgr)) {
 		status = DCD_GetObjects(hDcdMgr, pszCoffPath,
@@ -154,9 +148,6 @@ DSP_STATUS DCD_CreateManager(IN char *pszZlDllName,
 
 	DBC_Require(cRefs >= 0);
 	DBC_Require(phDcdMgr);
-
-	GT_1trace(curTrace, GT_ENTER, "DCD_CreateManager: phDcdMgr 0x%x\n",
-		 phDcdMgr);
 
 	status = COD_Create(&hCodMgr, pszZlDllName, NULL);
 
@@ -211,9 +202,6 @@ DSP_STATUS DCD_DestroyManager(IN struct DCD_MANAGER *hDcdMgr)
 
 	DBC_Require(cRefs >= 0);
 
-	GT_1trace(curTrace, GT_ENTER, "DCD_DestroyManager: hDcdMgr 0x%x\n",
-		 hDcdMgr);
-
 	if (IsValidHandle(hDcdMgr)) {
 		/* Delete the COD manager. */
 		COD_Delete(pDcdMgr->hCodMgr);
@@ -251,10 +239,6 @@ DSP_STATUS DCD_EnumerateObject(IN s32 cIndex, IN enum DSP_DCDOBJTYPE objType,
 	DBC_Require(cRefs >= 0);
 	DBC_Require(cIndex >= 0);
 	DBC_Require(pUuid != NULL);
-
-	GT_3trace(curTrace, GT_ENTER,
-		 "DCD_EnumerateObject: cIndex %d, objType %d, "
-		 " pUuid 0x%x\n", cIndex, objType, pUuid);
 
 	if ((cIndex != 0) && (cEnumRefs == 0)) {
 		/*
@@ -346,8 +330,6 @@ void DCD_Exit(void)
 {
 	DBC_Require(cRefs > 0);
 
-	GT_1trace(curTrace, GT_5CLASS, "DCD_Exit: cRefs 0x%x\n", cRefs);
-
 	cRefs--;
 	if (cRefs == 0) {
 		COD_Exit();
@@ -372,9 +354,6 @@ DSP_STATUS DCD_GetDepLibs(IN struct DCD_MANAGER *hDcdMgr,
 	DBC_Require(pDepLibUuids != NULL);
 	DBC_Require(pPersistentDepLibs != NULL);
 
-	GT_1trace(curTrace, GT_ENTER, "DCD_GetDepLibs: hDcdMgr 0x%x\n",
-		 hDcdMgr);
-
 	status = GetDepLibInfo(hDcdMgr, pUuid, &numLibs, NULL, pDepLibUuids,
 			      pPersistentDepLibs, phase);
 
@@ -395,9 +374,6 @@ DSP_STATUS DCD_GetNumDepLibs(IN struct DCD_MANAGER *hDcdMgr,
 	DBC_Require(pNumLibs != NULL);
 	DBC_Require(pNumPersLibs != NULL);
 	DBC_Require(pUuid != NULL);
-
-	GT_1trace(curTrace, GT_ENTER, "DCD_GetNumDepLibs: hDcdMgr 0x%x\n",
-		 hDcdMgr);
 
 	status = GetDepLibInfo(hDcdMgr, pUuid, pNumLibs, pNumPersLibs,
 				NULL, NULL, phase);
@@ -434,10 +410,6 @@ DSP_STATUS DCD_GetObjectDef(IN struct DCD_MANAGER *hDcdMgr,
 	DBC_Require(pObjDef != NULL);
 	DBC_Require(pObjUuid != NULL);
 
-	GT_4trace(curTrace, GT_ENTER,
-		 "DCD_GetObjectDef: hDcdMgr 0x%x, " "objUuid"
-		 " 0x%x, objType 0x%x, pObjDef 0x%x\n", hDcdMgr, pObjUuid,
-		 objType, pObjDef);
 	szUuid = (char *)MEM_Calloc(MAXUUIDLEN, MEM_PAGED);
 	if (!szUuid) {
 		status = DSP_EMEMORY;
@@ -592,8 +564,6 @@ DSP_STATUS DCD_GetObjects(IN struct DCD_MANAGER *hDcdMgr, IN char *pszCoffPath,
 	s32 cObjectType;
 
 	DBC_Require(cRefs > 0);
-	GT_1trace(curTrace, GT_ENTER,
-		 "DCD_GetObjects: hDcdMgr 0x%x\n", hDcdMgr);
 	if (!IsValidHandle(hDcdMgr)) {
 		status = DSP_EHANDLE;
 		GT_0trace(curTrace, GT_6CLASS,
@@ -823,9 +793,6 @@ bool DCD_Init(void)
 
 	DBC_Require(cRefs >= 0);
 
-	GT_1trace(curTrace, GT_ENTER, "DCD_Init: (on enter) cRefs = 0x%x\n",
-		 cRefs);
-
 	if (cRefs == 0) {
 		/* Initialize required modules. */
 		fInitCOD = COD_Init();
@@ -841,10 +808,6 @@ bool DCD_Init(void)
 
 	if (fInit)
 		cRefs++;
-
-
-	GT_1trace(curTrace, GT_5CLASS, "DCD_Init: (on exit) cRefs = 0x%x\n",
-		 cRefs);
 
 	DBC_Ensure((fInit && (cRefs > 0)) || (!fInit && (cRefs == 0)));
 
@@ -972,10 +935,6 @@ DSP_STATUS DCD_UnregisterObject(IN struct DSP_UUID *pUuid,
 		   (objType == DSP_DCDCREATELIBTYPE) ||
 		   (objType == DSP_DCDEXECUTELIBTYPE) ||
 		   (objType == DSP_DCDDELETELIBTYPE));
-
-	GT_2trace(curTrace, GT_ENTER,
-		 "DCD_UnregisterObject: object UUID 0x%x, "
-		 "objType %d\n", pUuid, objType);
 
 	/*
 	 *  When DCD_RegisterObject is called with NULL as pathname,
@@ -1420,9 +1379,6 @@ static DSP_STATUS GetDepLibInfo(IN struct DCD_MANAGER *hDcdMgr,
 	DBC_Require(IsValidHandle(hDcdMgr));
 	DBC_Require(pNumLibs != NULL);
 	DBC_Require(pUuid != NULL);
-
-	GT_1trace(curTrace, GT_ENTER, "DCD_GetNumDepLibs: hDcdMgr 0x%x\n",
-		 hDcdMgr);
 
 	/*  Initialize to 0 dependent libraries, if only counting number of
 	 *  dependent libraries */

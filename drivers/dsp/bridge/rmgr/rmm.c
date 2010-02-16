@@ -116,10 +116,6 @@ DSP_STATUS RMM_alloc(struct RMM_TargetObj *target, u32 segid, u32 size,
 	DBC_Require(reserve || (target->numSegs > 0));
 	DBC_Require(cRefs > 0);
 
-	GT_6trace(RMM_debugMask, GT_ENTER,
-		 "RMM_alloc(0x%lx, 0x%lx, 0x%lx, 0x%lx, "
-		 "0x%lx, 0x%lx)\n", target, segid, size, align, dspAddr,
-		 reserve);
 	if (!reserve) {
 		if (!allocBlock(target, segid, size, align, dspAddr)) {
 			status = DSP_EMEMORY;
@@ -189,10 +185,6 @@ DSP_STATUS RMM_create(struct RMM_TargetObj **pTarget,
 
 	DBC_Require(pTarget != NULL);
 	DBC_Require(numSegs == 0 || segTab != NULL);
-
-	GT_3trace(RMM_debugMask, GT_ENTER,
-		 "RMM_create(0x%lx, 0x%lx, 0x%lx)\n",
-		 pTarget, segTab, numSegs);
 
 	/* Allocate DBL target object */
 	MEM_AllocObject(target, struct RMM_TargetObj, RMM_TARGSIGNATURE);
@@ -293,8 +285,6 @@ void RMM_delete(struct RMM_TargetObj *target)
 
 	DBC_Require(MEM_IsValidHandle(target, RMM_TARGSIGNATURE));
 
-	GT_1trace(RMM_debugMask, GT_ENTER, "RMM_delete(0x%lx)\n", target);
-
 	kfree(target->segTab);
 
 	if (target->ovlyList) {
@@ -331,9 +321,6 @@ void RMM_exit(void)
 
 	cRefs--;
 
-	GT_1trace(RMM_debugMask, GT_5CLASS, "RMM_exit() ref count: 0x%x\n",
-		 cRefs);
-
 	DBC_Ensure(cRefs >= 0);
 }
 
@@ -354,9 +341,6 @@ bool RMM_free(struct RMM_TargetObj *target, u32 segid, u32 addr, u32 size,
 		   (addr + size) <= (target->segTab[segid].base +
 		   target->segTab[segid].length)));
 
-	GT_5trace(RMM_debugMask, GT_ENTER,
-		 "RMM_free(0x%lx, 0x%lx, 0x%lx, 0x%lx, "
-		 "0x%lx)\n", target, segid, addr, size, reserved);
 	/*
 	 *  Free or unreserve memory.
 	 */
@@ -401,10 +385,6 @@ bool RMM_init(void)
 	}
 
 	cRefs++;
-
-	GT_1trace(RMM_debugMask, GT_5CLASS,
-		 "RMM_init(), ref count:  0x%x\n",
-		 cRefs);
 
 	return true;
 }

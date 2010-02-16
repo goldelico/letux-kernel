@@ -61,8 +61,6 @@ u32 DSP_Init(OUT u32 *initStatus)
 
 	GT_create(&curTrace, "DD");
 
-	GT_0trace(curTrace, GT_ENTER, "Entering DSP_Init \r\n");
-
 	if (!WCD_Init()) {
 		GT_0trace(curTrace, GT_7CLASS, "DSP_Init Failed \n");
 		goto func_cont;
@@ -145,8 +143,6 @@ bool DSP_Deinit(u32 deviceContext)
 	bool retVal = true;
 	u32 deviceNode;
 	struct MGR_OBJECT *mgrObject = NULL;
-
-	GT_0trace(curTrace, GT_ENTER, "Entering DSP_Deinit \r\n");
 
 	while ((deviceNode = DRV_GetFirstDevExtension()) != 0) {
 		(void)DEV_RemoveDevice((struct CFG_DEVNODE *)deviceNode);

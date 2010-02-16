@@ -113,10 +113,6 @@ DSP_STATUS DISP_Create(OUT struct DISP_OBJECT **phDispObject,
 	DBC_Require(pDispAttrs != NULL);
 	DBC_Require(hDevObject != NULL);
 
-	GT_3trace(DISP_DebugMask, GT_ENTER, "DISP_Create: phDispObject: 0x%x\t"
-		 "hDevObject: 0x%x\tpDispAttrs: 0x%x\n", phDispObject,
-		 hDevObject, pDispAttrs);
-
 	*phDispObject = NULL;
 
 	/* Allocate Node Dispatcher object */
@@ -221,9 +217,6 @@ void DISP_Delete(struct DISP_OBJECT *hDisp)
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(hDisp, DISP_SIGNATURE));
 
-	GT_1trace(DISP_DebugMask, GT_ENTER,
-		 "DISP_Delete: hDisp: 0x%x\n", hDisp);
-
 	DeleteDisp(hDisp);
 
 	DBC_Ensure(!MEM_IsValidHandle(hDisp, DISP_SIGNATURE));
@@ -238,9 +231,6 @@ void DISP_Exit(void)
 	DBC_Require(cRefs > 0);
 
 	cRefs--;
-
-	GT_1trace(DISP_DebugMask, GT_5CLASS,
-		 "Entered DISP_Exit, ref count:  0x%x\n", cRefs);
 
 	DBC_Ensure(cRefs >= 0);
 }
@@ -263,9 +253,6 @@ bool DISP_Init(void)
 	if (fRetVal)
 		cRefs++;
 
-	GT_1trace(DISP_DebugMask, GT_5CLASS,
-		 "DISP_Init(), ref count:  0x%x\n", cRefs);
-
 	DBC_Ensure((fRetVal && (cRefs > 0)) || (!fRetVal && (cRefs >= 0)));
 	return fRetVal;
 }
@@ -286,10 +273,6 @@ DSP_STATUS DISP_NodeChangePriority(struct DISP_OBJECT *hDisp,
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(hDisp, DISP_SIGNATURE));
 	DBC_Require(hNode != NULL);
-
-	GT_5trace(DISP_DebugMask, GT_ENTER, "DISP_NodeChangePriority: hDisp: "
-		"0x%x\thNode: 0x%x\tulRMSFxn: 0x%x\tnodeEnv: 0x%x\tnPriority\n",
-		hDisp, hNode, ulRMSFxn, nodeEnv, nPriority);
 
 	/* Send message to RMS to change priority */
 	pCommand = (struct RMS_Command *)(hDisp->pBuf);
@@ -344,11 +327,6 @@ DSP_STATUS DISP_NodeCreate(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 	DBC_Require(hNode != NULL);
 	DBC_Require(NODE_GetType(hNode) != NODE_DEVICE);
 	DBC_Require(pNodeEnv != NULL);
-
-	GT_6trace(DISP_DebugMask, GT_ENTER,
-	     "DISP_NodeCreate: hDisp: 0x%x\thNode:"
-	     " 0x%x\tulRMSFxn: 0x%x\tulCreateFxn: 0x%x\tpArgs: 0x%x\tpNodeEnv:"
-	     " 0x%x\n", hDisp, hNode, ulRMSFxn, ulCreateFxn, pArgs, pNodeEnv);
 
 	status = DEV_GetDevType(hDisp->hDevObject, &devType);
 
@@ -468,10 +446,6 @@ DSP_STATUS DISP_NodeCreate(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 			 * that would break the node object's abstraction.
 			 */
 			GetNodeInfo(hNode, &nodeInfo);
-			GT_2trace(DISP_DebugMask, GT_ENTER,
-				 "uExecutionPriority %x, nPriority %x\n",
-				 nodeInfo.uExecutionPriority,
-				 taskArgs.nPriority);
 			pMoreTaskArgs->priority = nodeInfo.uExecutionPriority;
 			pMoreTaskArgs->stackSize = taskArgs.uStackSize;
 			pMoreTaskArgs->sysstackSize = taskArgs.uSysStackSize;
@@ -581,11 +555,6 @@ DSP_STATUS DISP_NodeDelete(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 	DBC_Require(MEM_IsValidHandle(hDisp, DISP_SIGNATURE));
 	DBC_Require(hNode != NULL);
 
-	GT_5trace(DISP_DebugMask, GT_ENTER,
-		 "DISP_NodeDelete: hDisp: 0x%xthNode: "
-		 "0x%x\tulRMSFxn: 0x%x\tulDeleteFxn: 0x%x\tnodeEnv: 0x%x\n",
-		 hDisp, hNode, ulRMSFxn, ulDeleteFxn, nodeEnv);
-
 	status = DEV_GetDevType(hDisp->hDevObject, &devType);
 
 	if (DSP_SUCCEEDED(status)) {
@@ -644,10 +613,6 @@ DSP_STATUS DISP_NodeRun(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(hDisp, DISP_SIGNATURE));
 	DBC_Require(hNode != NULL);
-
-	GT_5trace(DISP_DebugMask, GT_ENTER, "DISP_NodeRun: hDisp: 0x%xthNode: \
-		 0x%x\tulRMSFxn: 0x%x\tulExecuteFxn: 0x%x\tnodeEnv: 0x%x\n", \
-		 hDisp, hNode, ulRMSFxn, ulExecuteFxn, nodeEnv);
 
 	status = DEV_GetDevType(hDisp->hDevObject, &devType);
 
