@@ -71,11 +71,6 @@ DSP_STATUS CHNL_Create(OUT struct CHNL_MGR **phChnlMgr,
 	DBC_Require(phChnlMgr != NULL);
 	DBC_Require(pMgrAttrs != NULL);
 
-	GT_3trace(CHNL_DebugMask, GT_ENTER,
-		  "Entered CHNL_Create: phChnlMgr: 0x%x\t"
-		  "hDevObject: 0x%x\tpMgrAttrs:0x%x\n",
-		  phChnlMgr, hDevObject, pMgrAttrs);
-
 	*phChnlMgr = NULL;
 
 	/* Validate args: */
@@ -124,9 +119,6 @@ DSP_STATUS CHNL_Create(OUT struct CHNL_MGR **phChnlMgr,
 		}
 	}
 
-	GT_2trace(CHNL_DebugMask, GT_ENTER,
-		  "Exiting CHNL_Create: pChnlMgr: 0x%x,"
-		  "status: 0x%x\n", pChnlMgr, status);
 	DBC_Ensure(DSP_FAILED(status) || CHNL_IsValidMgr(pChnlMgr));
 
 	return status;
@@ -145,8 +137,6 @@ DSP_STATUS CHNL_Destroy(struct CHNL_MGR *hChnlMgr)
 
 	DBC_Require(cRefs > 0);
 
-	GT_1trace(CHNL_DebugMask, GT_ENTER,
-		  "Entered CHNL_Destroy: hChnlMgr: 0x%x\n", hChnlMgr);
 	if (CHNL_IsValidMgr(pChnlMgr)) {
 		pIntfFxns = pChnlMgr->pIntfFxns;
 		/* Let WMD channel module destroy the CHNL_MGR: */
@@ -157,9 +147,6 @@ DSP_STATUS CHNL_Destroy(struct CHNL_MGR *hChnlMgr)
 		status = DSP_EHANDLE;
 	}
 
-	GT_2trace(CHNL_DebugMask, GT_ENTER,
-		  "Exiting CHNL_Destroy: pChnlMgr: 0x%x,"
-		  " status:0x%x\n", pChnlMgr, status);
 	DBC_Ensure(DSP_FAILED(status) || !CHNL_IsValidMgr(pChnlMgr));
 
 	return status;
@@ -175,9 +162,6 @@ void CHNL_Exit(void)
 	DBC_Require(cRefs > 0);
 
 	cRefs--;
-
-	GT_1trace(CHNL_DebugMask, GT_5CLASS,
-		  "Entered CHNL_Exit, ref count: 0x%x\n", cRefs);
 
 	DBC_Ensure(cRefs >= 0);
 }
@@ -201,10 +185,6 @@ bool CHNL_Init(void)
 
 	if (fRetval)
 		cRefs++;
-
-	GT_1trace(CHNL_DebugMask, GT_5CLASS,
-		  "Entered CHNL_Init, ref count: 0x%x\n",
-		  cRefs);
 
 	DBC_Ensure((fRetval && (cRefs > 0)) || (!fRetval && (cRefs >= 0)));
 

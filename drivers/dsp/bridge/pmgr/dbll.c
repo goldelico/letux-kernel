@@ -220,7 +220,6 @@ void DBLL_close(struct DBLL_LibraryObj *zlLib)
 	DBC_Require(MEM_IsValidHandle(zlLib, DBLL_LIBSIGNATURE));
 	DBC_Require(zlLib->openRef > 0);
 	zlTarget = zlLib->pTarget;
-	GT_1trace(DBLL_debugMask, GT_ENTER, "DBLL_close: lib: 0x%x\n", zlLib);
 	zlLib->openRef--;
 	if (zlLib->openRef == 0) {
 		/* Remove library from list */
@@ -259,9 +258,6 @@ DSP_STATUS DBLL_create(struct DBLL_TarObj **pTarget, struct DBLL_Attrs *pAttrs)
 	DBC_Require(pAttrs != NULL);
 	DBC_Require(pTarget != NULL);
 
-	GT_2trace(DBLL_debugMask, GT_ENTER,
-		  "DBLL_create: pTarget: 0x%x pAttrs: "
-		  "0x%x\n", pTarget, pAttrs);
 	/* Allocate DBL target object */
 	MEM_AllocObject(pzlTarget, struct DBLL_TarObj, DBLL_TARGSIGNATURE);
 	if (pTarget != NULL) {
@@ -294,9 +290,6 @@ void DBLL_delete(struct DBLL_TarObj *target)
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(zlTarget, DBLL_TARGSIGNATURE));
 
-	GT_1trace(DBLL_debugMask, GT_ENTER, "DBLL_delete: target: 0x%x\n",
-		 target);
-
 	if (zlTarget != NULL)
 		MEM_FreeObject(zlTarget);
 
@@ -311,9 +304,6 @@ void DBLL_exit(void)
 	DBC_Require(cRefs > 0);
 
 	cRefs--;
-
-	GT_1trace(DBLL_debugMask, GT_5CLASS, "DBLL_exit() ref count: 0x%x\n",
-		  cRefs);
 
 	if (cRefs == 0) {
 		GH_exit();
@@ -475,9 +465,6 @@ bool DBLL_init(void)
 	}
 
 	cRefs++;
-
-	GT_1trace(DBLL_debugMask, GT_5CLASS, "DBLL_init(), ref count:  0x%x\n",
-		 cRefs);
 
 	return true;
 }
@@ -848,9 +835,7 @@ void DBLL_setAttrs(struct DBLL_TarObj *target, struct DBLL_Attrs *pAttrs)
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(zlTarget, DBLL_TARGSIGNATURE));
 	DBC_Require(pAttrs != NULL);
-	GT_2trace(DBLL_debugMask, GT_ENTER,
-		 "DBLL_setAttrs: target: 0x%x pAttrs: "
-		 "0x%x\n", target, pAttrs);
+
 	if ((pAttrs != NULL) && (zlTarget != NULL))
 		zlTarget->attrs = *pAttrs;
 

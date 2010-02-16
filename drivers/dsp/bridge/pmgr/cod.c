@@ -232,10 +232,6 @@ DSP_STATUS COD_Create(OUT struct COD_MANAGER **phMgr, char *pstrDummyFile,
 	DBC_Require(cRefs > 0);
 	DBC_Require(phMgr != NULL);
 
-	GT_3trace(COD_debugMask, GT_ENTER,
-		  "Entered COD_Create, Args: \t\nphMgr: "
-		  "0x%x\t\npstrDummyFile: 0x%x\t\nattr: 0x%x\n",
-		  phMgr, pstrDummyFile, attrs);
 	/* assume failure */
 	*phMgr = NULL;
 
@@ -288,8 +284,7 @@ DSP_STATUS COD_Create(OUT struct COD_MANAGER **phMgr, char *pstrDummyFile,
 
 	/* return the new manager */
 	*phMgr = hMgrNew;
-	GT_1trace(COD_debugMask, GT_1CLASS,
-		  "COD_Create: Success CodMgr: 0x%x\n",	*phMgr);
+
 	return DSP_SOK;
 }
 
@@ -303,7 +298,6 @@ void COD_Delete(struct COD_MANAGER *hMgr)
 	DBC_Require(cRefs > 0);
 	DBC_Require(IsValid(hMgr));
 
-	GT_1trace(COD_debugMask, GT_ENTER, "COD_Delete:hMgr 0x%x\n", hMgr);
 	if (hMgr->baseLib) {
 		if (hMgr->fLoaded)
 			hMgr->fxns.unloadFxn(hMgr->baseLib, &hMgr->attrs);
@@ -329,9 +323,6 @@ void COD_Exit(void)
 	DBC_Require(cRefs > 0);
 
 	cRefs--;
-
-	GT_1trace(COD_debugMask, GT_ENTER,
-		  "Entered COD_Exit, ref count:  0x%x\n", cRefs);
 
 	DBC_Ensure(cRefs >= 0);
 }
@@ -389,9 +380,6 @@ DSP_STATUS COD_GetEntry(struct COD_MANAGER *hManager, u32 *pulEntry)
 
 	*pulEntry = hManager->ulEntry;
 
-	GT_1trace(COD_debugMask, GT_ENTER, "COD_GetEntry:ulEntr 0x%x\n",
-		  *pulEntry);
-
 	return DSP_SOK;
 }
 
@@ -433,10 +421,6 @@ DSP_STATUS COD_GetSection(struct COD_LIBRARYOBJ *lib, IN char *pstrSect,
 	DBC_Require(puAddr != NULL);
 	DBC_Require(puLen != NULL);
 
-	GT_4trace(COD_debugMask, GT_ENTER,
-		  "Entered COD_GetSection Args \t\n lib: "
-		  "0x%x\t\npstrsect: 0x%x\t\npuAddr: 0x%x\t\npuLen: 0x%x\n",
-		  lib, pstrSect, puAddr, puLen);
 	*puAddr = 0;
 	*puLen = 0;
 	if (lib != NULL) {
@@ -521,9 +505,6 @@ bool COD_Init(void)
 	if (fRetVal)
 		cRefs++;
 
-
-	GT_1trace(COD_debugMask, GT_1CLASS,
-		  "Entered COD_Init, ref count: 0x%x\n", cRefs);
 	DBC_Ensure((fRetVal && cRefs > 0) || (!fRetVal && cRefs >= 0));
 	return fRetVal;
 }
@@ -558,11 +539,6 @@ DSP_STATUS COD_LoadBase(struct COD_MANAGER *hMgr, u32 nArgc, char *aArgs[],
 	DBC_Require(pfnWrite != NULL);
 	DBC_Require(hMgr->baseLib != NULL);
 
-	GT_6trace(COD_debugMask, GT_ENTER,
-		 "Entered COD_LoadBase, hMgr:  0x%x\n \t"
-		 "nArgc:  0x%x\n\taArgs:  0x%x\n\tpfnWrite:  0x%x\n\tpArb:"
-		 " 0x%x\n \tenvp:  0x%x\n", hMgr, nArgc, aArgs, pfnWrite,
-		 pArb, envp);
 	/*
 	 *  Make sure every argv[] stated in argc has a value, or change argc to
 	 *  reflect true number in NULL terminated argv array.
@@ -710,10 +686,6 @@ DSP_STATUS COD_ReadSection(struct COD_LIBRARYOBJ *lib, IN char *pstrSect,
 	DBC_Require(IsValid(lib->hCodMgr));
 	DBC_Require(pstrSect != NULL);
 	DBC_Require(pstrContent != NULL);
-
-	GT_4trace(COD_debugMask, GT_ENTER, "Entered COD_ReadSection Args: 0x%x,"
-		 " 0x%x, 0x%x, 0x%x\n", lib, pstrSect, pstrContent,
-		 cContentSize);
 
 	if (lib != NULL) {
 		status = lib->hCodMgr->fxns.readSectFxn(lib->dbllLib, pstrSect,

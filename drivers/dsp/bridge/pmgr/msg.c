@@ -66,10 +66,6 @@ DSP_STATUS MSG_Create(OUT struct MSG_MGR **phMsgMgr,
 	DBC_Require(msgCallback != NULL);
 	DBC_Require(hDevObject != NULL);
 
-	GT_3trace(MSG_debugMask, GT_ENTER, "MSG_Create: phMsgMgr: 0x%x\t"
-		 "hDevObject: 0x%x\tmsgCallback: 0x%x\n",
-		 phMsgMgr, hDevObject, msgCallback);
-
 	*phMsgMgr = NULL;
 
 	status = DEV_GetIntfFxns(hDevObject, &pIntfFxns);
@@ -109,9 +105,6 @@ void MSG_Delete(struct MSG_MGR *hMsgMgr)
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(pMsgMgr, MSGMGR_SIGNATURE));
 
-	GT_1trace(MSG_debugMask, GT_ENTER, "MSG_Delete: hMsgMgr: 0x%x\n",
-		 hMsgMgr);
-
 	pIntfFxns = pMsgMgr->pIntfFxns;
 
 	/* Let WMD message module destroy the MSG_MGR: */
@@ -129,8 +122,7 @@ void MSG_Exit(void)
 {
 	DBC_Require(cRefs > 0);
 	cRefs--;
-	GT_1trace(MSG_debugMask, GT_5CLASS,
-		 "Entered MSG_Exit, ref count: 0x%x\n",	cRefs);
+
 	DBC_Ensure(cRefs >= 0);
 }
 
@@ -147,9 +139,6 @@ bool MSG_Init(void)
 	}
 
 	cRefs++;
-
-	GT_1trace(MSG_debugMask, GT_5CLASS, "MSG_Init(), ref count:  0x%x\n",
-		 cRefs);
 
 	DBC_Ensure(cRefs >= 0);
 

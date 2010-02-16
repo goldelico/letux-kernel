@@ -263,9 +263,6 @@ DSP_STATUS CMM_Create(OUT struct CMM_OBJECT **phCmmMgr,
 	DBC_Require(cRefs > 0);
 	DBC_Require(phCmmMgr != NULL);
 
-	GT_3trace(CMM_debugMask, GT_ENTER,
-		  "CMM_Create: phCmmMgr: 0x%x\thDevObject: "
-		  "0x%x\tpMgrAttrs: 0x%x\n", phCmmMgr, hDevObject, pMgrAttrs);
 	*phCmmMgr = NULL;
 	/* create, zero, and tag a cmm mgr object */
 	MEM_AllocObject(pCmmObject, struct CMM_OBJECT, CMMSIGNATURE);
@@ -396,9 +393,6 @@ void CMM_Exit(void)
 	DBC_Require(cRefs > 0);
 
 	cRefs--;
-
-	GT_1trace(CMM_debugMask, GT_ENTER,
-		  "exiting CMM_Exit,ref count:0x%x\n", cRefs);
 }
 
 /*
@@ -416,7 +410,7 @@ DSP_STATUS CMM_FreeBuf(struct CMM_OBJECT *hCmmMgr, void *pBufPA, u32 ulSegId)
 
 	DBC_Require(cRefs > 0);
 	DBC_Require(pBufPA != NULL);
-	GT_1trace(CMM_debugMask, GT_ENTER, "CMM_FreeBuf pBufPA %x\n", pBufPA);
+
 	if (ulSegId == 0) {
 		pAttrs = &CMM_DFLTALCTATTRS;
 		ulSegId = pAttrs->ulSegId;
@@ -555,9 +549,6 @@ bool CMM_Init(void)
 	}
 	if (fRetval)
 		cRefs++;
-
-	GT_1trace(CMM_debugMask, GT_ENTER,
-		  "Entered CMM_Init,ref count:0x%x\n", cRefs);
 
 	DBC_Ensure((fRetval && (cRefs > 0)) || (!fRetval && (cRefs >= 0)));
 
@@ -1014,10 +1005,7 @@ DSP_STATUS CMM_XlatorCreate(OUT struct CMM_XLATOROBJECT **phXlator,
 	DBC_Require(cRefs > 0);
 	DBC_Require(phXlator != NULL);
 	DBC_Require(hCmmMgr != NULL);
-	GT_3trace(CMM_debugMask, GT_ENTER,
-		  "CMM_XlatorCreate: phXlator: 0x%x\t"
-		  "phCmmMgr: 0x%x\tpXlAttrs: 0x%x\n", phXlator,
-		  hCmmMgr, pXlatorAttrs);
+
 	*phXlator = NULL;
 	if (pXlatorAttrs == NULL)
 		pXlatorAttrs = &CMM_DFLTXLATORATTRS;	/* set defaults */

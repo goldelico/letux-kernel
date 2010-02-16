@@ -65,10 +65,6 @@ DSP_STATUS IO_Create(OUT struct IO_MGR **phIOMgr, struct DEV_OBJECT *hDevObject,
 	DBC_Require(phIOMgr != NULL);
 	DBC_Require(pMgrAttrs != NULL);
 
-	GT_3trace(IO_DebugMask, GT_ENTER, "Entered IO_Create: phIOMgr: 0x%x\t "
-		 "hDevObject: 0x%x\tpMgrAttrs: 0x%x\n",
-		 phIOMgr, hDevObject, pMgrAttrs);
-
 	*phIOMgr = NULL;
 
 	/* A memory base of 0 implies no memory base:  */
@@ -106,10 +102,6 @@ DSP_STATUS IO_Create(OUT struct IO_MGR **phIOMgr, struct DEV_OBJECT *hDevObject,
 		}
 	}
 
-	GT_2trace(IO_DebugMask, GT_ENTER,
-		 "Exiting IO_Create: hIOMgr: 0x%x, status:"
-		 " 0x%x\n", hIOMgr, status);
-
 	return status;
 }
 
@@ -126,17 +118,11 @@ DSP_STATUS IO_Destroy(struct IO_MGR *hIOMgr)
 
 	DBC_Require(cRefs > 0);
 
-	GT_1trace(IO_DebugMask, GT_ENTER, "Entered IO_Destroy: hIOMgr: 0x%x\n",
-		  hIOMgr);
-
 	pIntfFxns = pIOMgr->pIntfFxns;
 
 	/* Let WMD channel module destroy the IO_MGR: */
 	status = (*pIntfFxns->pfnIODestroy) (hIOMgr);
 
-	GT_2trace(IO_DebugMask, GT_ENTER,
-		 "Exiting IO_Destroy: pIOMgr: 0x%x, status:"
-		 " 0x%x\n", pIOMgr, status);
 	return status;
 }
 
@@ -150,9 +136,6 @@ void IO_Exit(void)
 	DBC_Require(cRefs > 0);
 
 	cRefs--;
-
-	GT_1trace(IO_DebugMask, GT_5CLASS,
-		 "Entered IO_Exit, ref count: 0x%x\n", cRefs);
 
 	DBC_Ensure(cRefs >= 0);
 }
@@ -175,10 +158,6 @@ bool IO_Init(void)
 
 	if (fRetval)
 		cRefs++;
-
-
-	GT_1trace(IO_DebugMask, GT_5CLASS,
-		 "Entered IO_Init, ref count: 0x%x\n", cRefs);
 
 	DBC_Ensure((fRetval && (cRefs > 0)) || (!fRetval && (cRefs >= 0)));
 
