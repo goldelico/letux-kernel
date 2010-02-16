@@ -269,8 +269,7 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	/* use 2.6 device model */
 	result = alloc_chrdev_region(&dev, 0, 1, driver_name);
 	if (result < 0) {
-		GT_1trace(driverTrace, GT_7CLASS, "bridge_init: "
-				"Can't get Major %d \n", driver_major);
+		pr_err("%s: Can't get major %d\n", __func__, driver_major);
 		goto err1;
 	}
 
@@ -281,8 +280,7 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 
 	status = cdev_add(&bridge_cdev, dev, 1);
 	if (status) {
-		GT_0trace(driverTrace, GT_7CLASS,
-				"Failed to add the bridge device \n");
+		pr_err("%s: Failed to add bridge device\n", __func__);
 		goto err2;
 	}
 
@@ -290,8 +288,7 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	bridge_class = class_create(THIS_MODULE, "ti_bridge");
 
 	if (IS_ERR(bridge_class))
-		GT_0trace(driverTrace, GT_7CLASS,
-				"Error creating bridge class \n");
+		pr_err("%s: Error creating bridge class\n", __func__);
 
 	device_create(bridge_class, NULL, MKDEV(driver_major, 0),
 			NULL, "DspBridge");
@@ -337,8 +334,7 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	} else {
 		initStatus = DSP_EINVALIDARG;
 		status = -1;
-		GT_0trace(driverTrace, GT_7CLASS,
-			  "SHM size must be at least 64 KB\n");
+		pr_err("%s: SHM size must be at least 64 KB\n", __func__);
 	}
 	GT_1trace(driverTrace, GT_7CLASS,
 		 "requested shm_size = 0x%x\n", shm_size);
@@ -378,19 +374,16 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 
 		clk_handle = clk_get(NULL, "iva2_ck");
 		if (!clk_handle)
-			GT_0trace(driverTrace, GT_7CLASS,
-			"clk_get failed to get iva2_ck \n");
+			pr_err("%s: clk_get failed to get iva2_ck\n", __func__);
 
-		if (clk_notifier_register(clk_handle, &iva_clk_notifier)) {
-			GT_0trace(driverTrace, GT_7CLASS,
-			"clk_notifier_register FAIL for iva2_ck \n");
-		}
+		if (clk_notifier_register(clk_handle, &iva_clk_notifier))
+			pr_err("%s: clk_notifier_register failed for iva2_ck\n",
+								__func__);
 #endif
 		driverContext = DSP_Init(&initStatus);
 		if (DSP_FAILED(initStatus)) {
 			status = -1;
-			GT_0trace(driverTrace, GT_7CLASS,
-				 "DSP/BIOS Bridge initialization Failed\n");
+			pr_err("DSP Bridge driver initialization failed\n");
 		} else {
 			pr_info("DSP Bridge driver loaded\n");
 		}
@@ -424,10 +417,9 @@ static int __devexit omap34xx_bridge_remove(struct platform_device *pdev)
 		goto func_cont;
 
 #ifdef CONFIG_BRIDGE_DVFS
-	if (clk_notifier_unregister(clk_handle, &iva_clk_notifier)) {
-		GT_0trace(driverTrace, GT_7CLASS,
-		"clk_notifier_unregister FAILED for iva2_ck \n");
-	}
+	if (clk_notifier_unregister(clk_handle, &iva_clk_notifier))
+		pr_err("%s: clk_notifier_unregister failed for iva2_ck\n",
+								__func__);
 #endif /* #ifdef CONFIG_BRIDGE_DVFS */
 
 	if (driverContext) {

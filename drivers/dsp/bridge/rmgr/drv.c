@@ -1199,8 +1199,7 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 bRequest)
 							&dmaAddr);
 			if (pResources->dwMemBase[1] == 0) {
 				status = DSP_EMEMORY;
-				GT_0trace(curTrace, GT_7CLASS,
-					 "SHM reservation Failed\n");
+				pr_err("SHM reservation Failed\n");
 			} else {
 				pResources->dwMemLength[1] = shm_size;
 				pResources->dwMemPhys[1] = dmaAddr;

@@ -378,8 +378,7 @@ DSP_STATUS NODE_Allocate(struct PROC_OBJECT *hProcessor,
 	/* Assuming that 0 is not a valid function address */
 	if (hNodeMgr->ulFxnAddrs[0] == 0) {
 		/* No RMS on target - we currently can't handle this */
-		GT_0trace(NODE_debugMask, GT_5CLASS, "No RMS functions in base "
-			 "image. Node allocation fails.\n");
+		pr_err("%s: Failed, no RMS in base image\n", __func__);
 		status = DSP_EFAIL;
 	} else {
 		/* Validate pAttrIn fields, if non-NULL */
@@ -433,10 +432,8 @@ DSP_STATUS NODE_Allocate(struct PROC_OBJECT *hProcessor,
 
 	/* check for page aligned Heap size */
 	if (((pAttrIn->uHeapSize) & (PG_SIZE_4K - 1))) {
-		GT_1trace(NODE_debugMask, GT_7CLASS,
-			 "NODE_Allocate: node heap page size"
-			 " not aligned to 4K page, size=0x%x \n",
-			 pAttrIn->uHeapSize);
+		pr_err("%s: node heap size not aligned to 4K, size = 0x%x \n",
+						__func__, pAttrIn->uHeapSize);
 		status = DSP_EINVALIDARG;
 	} else {
 		pNode->createArgs.asa.taskArgs.uHeapSize = pAttrIn->uHeapSize;
@@ -451,10 +448,8 @@ DSP_STATUS NODE_Allocate(struct PROC_OBJECT *hProcessor,
 			(void **)&(pNode->createArgs.asa.taskArgs.
 				uDSPHeapResAddr));
 	if (DSP_FAILED(status)) {
-		GT_1trace(NODE_debugMask, GT_5CLASS,
-			 "NODE_Allocate:Failed to reserve "
-			 "memory for Heap: 0x%x\n", status);
-
+		pr_err("%s: Failed to reserve memory for heap: 0x%x\n",
+							__func__, status);
 		goto func_cont;
 	}
 #ifdef DSP_DMM_DEBUG
@@ -473,9 +468,8 @@ DSP_STATUS NODE_Allocate(struct PROC_OBJECT *hProcessor,
 			(void *)pNode->createArgs.asa.taskArgs.uDSPHeapResAddr,
 			(void **)&pMappedAddr, mapAttrs, pr_ctxt);
 	if (DSP_FAILED(status))
-		GT_1trace(NODE_debugMask, GT_5CLASS,
-			 "NODE_Allocate: Failed to map memory"
-			 " for Heap: 0x%x\n", status);
+		pr_err("%s: Failed to map memory for Heap: 0x%x\n",
+							__func__, status);
 	else
 		pNode->createArgs.asa.taskArgs.uDSPHeapAddr = (u32)pMappedAddr;
 
@@ -590,28 +584,23 @@ func_cont:
 		    STACKSEGLABEL) == 0) {
 			status = hNodeMgr->nldrFxns.pfnGetFxnAddr(pNode->
 				 hNldrNode, "DYNEXT_BEG", &dynextBase);
-			if (DSP_FAILED(status)) {
-				GT_1trace(NODE_debugMask, GT_5CLASS,
-				"NODE_Allocate: Failed to get Address for "
-				"DYNEXT_BEG: 0x%x\n", status);
-			}
+			if (DSP_FAILED(status))
+				pr_err("%s: Failed to get addr for DYNEXT_BEG"
+					" status = 0x%x\n", __func__, status);
 
 			status = hNodeMgr->nldrFxns.pfnGetFxnAddr(pNode->
 				 hNldrNode, "L1DSRAM_HEAP", &pulValue);
 
-			if (DSP_FAILED(status)) {
-				GT_1trace(NODE_debugMask, GT_5CLASS,
-				"NODE_Allocate: Failed to get Address for "
-				"L1DSRAM_HEAP: 0x%x\n", status);
-			}
+			if (DSP_FAILED(status))
+				pr_err("%s: Failed to get addr for L1DSRAM_HEAP"
+					" status = 0x%x\n", __func__, status);
 
 			status = CFG_GetHostResources((struct CFG_DEVNODE *)
 				 DRV_GetFirstDevExtension(), &hostRes);
 
 			if (DSP_FAILED(status)) {
-				GT_1trace(NODE_debugMask, GT_5CLASS,
-				"NODE_Allocate: Failed to get host resource "
-				"0x%x\n", status);
+				pr_err("%s: Failed to get host resource, status"
+						" = 0x%x\n", __func__, status);
 				goto func_end;
 			}
 
@@ -752,9 +741,8 @@ DBAPI NODE_AllocMsgBuf(struct NODE_OBJECT *hNode, u32 uSize,
 			(void)CMM_XlatorAllocBuf(pNode->hXlator, pBuffer,
 						 uSize);
 			if (*pBuffer == NULL) {
-				GT_0trace(NODE_debugMask, GT_7CLASS,
-					 "NODE_AllocMsgBuf: "
-					 "ERROR: Out of shared memory.\n");
+				pr_err("%s: error - Out of shared memory\n",
+								__func__);
 				status = DSP_EMEMORY;
 			}
 		}
@@ -1217,9 +1205,8 @@ DSP_STATUS NODE_Create(struct NODE_OBJECT *hNode)
 							CREATEPHASE);
 			}
 		} else {
-			GT_1trace(NODE_debugMask, GT_ENTER,
-				 "NODE_Create: failed to load"
-				 " create code: 0x%x\n", status);
+			pr_err("%s: failed to load create code: 0x%x\n",
+							__func__, status);
 		}
 		/* Request the lowest OPP level*/
 #if defined(CONFIG_BRIDGE_DVFS) && !defined(CONFIG_CPU_FREQ)
@@ -1261,11 +1248,9 @@ DSP_STATUS NODE_Create(struct NODE_OBJECT *hNode)
 						      NLDR_CREATE);
 		hNode->fLoaded = false;
 	}
-	if (DSP_FAILED(status1)) {
-		GT_1trace(NODE_debugMask, GT_5CLASS,
-			 "NODE_Create: Failed to unload "
-			 "create code: 0x%x\n", status1);
-	}
+	if (DSP_FAILED(status1))
+		pr_err("%s: Failed to unload create code: 0x%x\n",
+							__func__, status1);
 func_cont2:
 	/* Update node state and node manager state */
 	if (DSP_SUCCEEDED(status)) {
@@ -1484,14 +1469,11 @@ DSP_STATUS NODE_Delete(struct NODE_OBJECT *hNode,
 			   hNode->fPhaseSplit) {
 				status = hNodeMgr->nldrFxns.pfnLoad(hNode->
 					 hNldrNode, NLDR_DELETE);
-				if (DSP_SUCCEEDED(status)) {
+				if (DSP_SUCCEEDED(status))
 					hNode->fLoaded = true;
-				} else {
-					GT_1trace(NODE_debugMask, GT_ENTER,
-						 "NODE_Delete: failed to "
-						 "load delete code: 0x%x\n",
-						 status);
-				}
+				else
+					pr_err("%s: fail - load delete code:"
+						" 0x%x\n", __func__, status);
 			}
 		}
 func_cont1:
@@ -1522,21 +1504,16 @@ func_cont1:
 					status1 = hNodeMgr->nldrFxns.pfnUnload(
 						hNode->hNldrNode, NLDR_EXECUTE);
 				}
-				if (DSP_FAILED(status1)) {
-					GT_1trace(NODE_debugMask, GT_ENTER,
-						  "NODE_Delete: failed to"
-						  "unload execute code: 0x%x\n",
-						  status1);
-				}
+				if (DSP_FAILED(status1))
+					pr_err("%s: fail - unload execute code:"
+						" 0x%x\n", __func__, status1);
+
 				status1 = hNodeMgr->nldrFxns.pfnUnload(
 					  hNode->hNldrNode, NLDR_DELETE);
 				hNode->fLoaded = false;
-				if (DSP_FAILED(status1)) {
-					GT_1trace(NODE_debugMask, GT_ENTER,
-						  "NODE_Delete: failed to"
-						  "unload delete code: 0x%x\n",
-						  status1);
-				}
+				if (DSP_FAILED(status1))
+					pr_err("%s: fail - unload delete code: "
+						"0x%x\n", __func__, status1);
 			}
 		}
 	}
@@ -2119,9 +2096,7 @@ DSP_STATUS NODE_PutMessage(struct NODE_OBJECT *hNode,
 				/* MAUs */
 				newMsg.dwArg2 /= hNode->hNodeMgr->uDSPWordSize;
 			} else {
-				GT_0trace(NODE_debugMask, GT_7CLASS,
-					 "NODE_PutMessage: "
-					 "uDSPWordSize is zero!\n");
+				pr_err("%s: uDSPWordSize is zero!\n", __func__);
 				status = DSP_EFAIL;	/* bad DSPWordSize */
 			}
 		} else {	/* failed to translate buffer address */
@@ -2261,9 +2236,8 @@ DSP_STATUS NODE_Run(struct NODE_OBJECT *hNode)
 			if (DSP_SUCCEEDED(status)) {
 				hNode->fLoaded = true;
 			} else {
-				GT_1trace(NODE_debugMask, GT_ENTER,
-					 "NODE_Run: failed to load "
-					 "execute code:0x%x\n", status);
+				pr_err("%s: fail - load execute code: 0x%x\n",
+							__func__, status);
 			}
 		}
 		if (DSP_SUCCEEDED(status)) {
