@@ -63,11 +63,14 @@
 #define OMAP_MPUIO_LATCH		0x34
 #endif
 
+#if defined(CONFIG_ARCH_OMAP2)
+#define OMAP_NR_GPIOS			5
 #define OMAP242X_NR_GPIOS		4
-#define OMAP243X_NR_GPIOS		5
-#define OMAP34XX_NR_GPIOS		6
-#define OMAP44XX_NR_GPIOS		6
-#define OMAP_MAX_NR_GPIOS		OMAP44XX_NR_GPIOS
+#elif defined(CONFIG_ARCH_OMAP3)
+#define OMAP_NR_GPIOS			6
+#elif defined(CONFIG_ARCH_OMAP4)
+#define OMAP_NR_GPIOS			6
+#endif
 
 #define OMAP_MPUIO(nr)		(OMAP_MAX_GPIO_LINES + (nr))
 #define OMAP_GPIO_IS_MPUIO(nr)	((nr) >= OMAP_MAX_GPIO_LINES)
@@ -92,7 +95,7 @@
 #define OMAP243X_GPIO4_BASE		(L4_WK_243X_BASE + 0x12000)
 #define OMAP243X_GPIO5_BASE		(L4_24XX_BASE + 0xb6000)
 
-#define OMAP2_GPIO_AS_LEN		8192
+#define OMAP2_GPIO_AS_LEN		4096
 
 #define OMAP24XX_GPIO_REVISION		0x0000
 #define OMAP24XX_GPIO_SYSCONFIG		0x0010
@@ -129,7 +132,7 @@
 #define OMAP34XX_GPIO5_BASE	(L4_PER_34XX_BASE + 0x56000)
 #define OMAP34XX_GPIO6_BASE	(L4_PER_34XX_BASE + 0x58000)
 
-#define OMAP3_GPIO_AS_LEN		8192
+#define OMAP3_GPIO_AS_LEN		4096
 
 /*
  * OMAP44XX  specific GPIO registers
@@ -141,7 +144,7 @@
 #define OMAP44XX_GPIO5_BASE	(L4_PER_44XX_BASE + 0x5b000)
 #define OMAP44XX_GPIO6_BASE	(L4_PER_44XX_BASE + 0x5d000)
 
-#define OMAP4_GPIO_AS_LEN		8192
+#define OMAP4_GPIO_AS_LEN		4096
 #define OMAP4_GPIO_REVISION		0x0000
 #define OMAP4_GPIO_SYSCONFIG		0x0010
 #define OMAP4_GPIO_EOI			0x0020
@@ -188,14 +191,15 @@ extern void omap3_gpio_restore_pad_context(int restore_oe);
 
 #include <linux/errno.h>
 #include <asm-generic/gpio.h>
+#include <linux/platform_device.h>
 
 struct omap_gpio_platform_data {
-	unsigned long pbase;
+	void __iomem *base;
 	u16 irq;
 	u16 virtual_irq_start;
-	char ick_name[11];
-	char fck_name[11];
-	char dbck_name[11];
+	int (*device_enable)(struct platform_device *pdev);
+	int (*device_shutdown) (struct platform_device *pdev);
+	int (*device_idle)(struct platform_device *pdev);
 };
 
 struct gpio_bank {
@@ -220,13 +224,14 @@ struct gpio_bank {
 	u32 saved_fallingdetect;
 	u32 saved_risingdetect;
 	u32 mod_usage;
-	struct clk *ick;
-	struct clk *fck;
 	u8 initialized;
-#endif
 	struct clk *dbck;
 	void __iomem *base;
 	u16 virtual_irq_start;
+	int (*device_enable)(struct platform_device *pdev);
+	int (*device_shutdown) (struct platform_device *pdev);
+	int (*device_idle)(struct platform_device *pdev);
+#endif
 };
 
 static inline int gpio_get_value(unsigned gpio)
