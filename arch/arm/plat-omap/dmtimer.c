@@ -557,7 +557,8 @@ void omap_dm_timer_stop(struct omap_dm_timer *timer)
 		  * Wait for functional clock period x 3.5 to make sure that
 		  * timer is stopped
 		  */
-		udelay(3500000 / clk_get_rate(timer->fclk) + 1);
+		//udelay(3500000 / clk_get_rate(timer->fclk) + 1);
+		udelay(5);
 		/* Ack possibly pending interrupt */
 		omap_dm_timer_write_reg(timer, OMAP_TIMER_STAT_REG,
 				OMAP_TIMER_INT_OVERFLOW);

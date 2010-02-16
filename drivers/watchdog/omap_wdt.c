@@ -344,17 +344,20 @@ static int __devinit omap_wdt_probe(struct platform_device *pdev)
 	wdev->omap_wdt_users = 0;
 	wdev->mem = mem;
 
-	wdev->ick = clk_get(&pdev->dev, "ick");
-	if (IS_ERR(wdev->ick)) {
-		ret = PTR_ERR(wdev->ick);
-		wdev->ick = NULL;
-		goto err_clk;
-	}
-	wdev->fck = clk_get(&pdev->dev, "fck");
-	if (IS_ERR(wdev->fck)) {
-		ret = PTR_ERR(wdev->fck);
-		wdev->fck = NULL;
-		goto err_clk;
+	/* FIXME: Enable this ones correct clk nodes available */
+	if (!cpu_is_omap44xx()) {
+		wdev->ick = clk_get(&pdev->dev, "ick");
+		if (IS_ERR(wdev->ick)) {
+			ret = PTR_ERR(wdev->ick);
+			wdev->ick = NULL;
+			goto err_clk;
+		}
+		wdev->fck = clk_get(&pdev->dev, "fck");
+		if (IS_ERR(wdev->fck)) {
+			ret = PTR_ERR(wdev->fck);
+			wdev->fck = NULL;
+			goto err_clk;
+		}
 	}
 
 	wdev->base = ioremap(res->start, res->end - res->start + 1);
