@@ -83,7 +83,6 @@ DSP_STATUS WMD_DEH_Create(OUT struct DEH_MGR **phDehMgr,
 	struct CFG_DEVNODE *hDevNode;
 	struct WMD_DEV_CONTEXT *hWmdContext = NULL;
 
-	DBG_Trace(DBG_LEVEL1, "Entering DEH_Create: 0x%x\n", phDehMgr);
 	 /*  Message manager will be created when a file is loaded, since
 	 *  size of message buffer in shared memory is configurable in
 	 *  the base image.  */
@@ -133,7 +132,7 @@ DSP_STATUS WMD_DEH_Create(OUT struct DEH_MGR **phDehMgr,
 		*phDehMgr = (struct DEH_MGR *)pDehMgr;
 		DBG_Trace(DBG_LEVEL1, "ISR_IRQ Object 0x%x \n", pDehMgr);
 	}
-	DBG_Trace(DBG_LEVEL1, "Exiting DEH_Create.\n");
+
 	return status;
 }
 
@@ -146,7 +145,6 @@ DSP_STATUS WMD_DEH_Destroy(struct DEH_MGR *hDehMgr)
 	DSP_STATUS status = DSP_SOK;
 	struct DEH_MGR *pDehMgr = (struct DEH_MGR *)hDehMgr;
 
-	DBG_Trace(DBG_LEVEL1, "Entering DEH_Destroy: 0x%x\n", pDehMgr);
 	if (MEM_IsValidHandle(pDehMgr, SIGNATURE)) {
 		/* Release dummy VA buffer */
 		WMD_DEH_ReleaseDummyMem();
@@ -165,7 +163,7 @@ DSP_STATUS WMD_DEH_Destroy(struct DEH_MGR *hDehMgr)
 		/* The GPTimer is no longer needed */
 		omap_dm_timer_free(timer);
 	}
-	DBG_Trace(DBG_LEVEL1, "Exiting DEH_Destroy.\n");
+
 	return status;
 }
 
@@ -180,14 +178,11 @@ DSP_STATUS WMD_DEH_RegisterNotify(struct DEH_MGR *hDehMgr, u32 uEventMask,
 	DSP_STATUS status = DSP_SOK;
 	struct DEH_MGR *pDehMgr = (struct DEH_MGR *)hDehMgr;
 
-	DBG_Trace(DBG_LEVEL1, "Entering WMD_DEH_RegisterNotify: 0x%x\n",
-		 pDehMgr);
-
 	if (MEM_IsValidHandle(pDehMgr, SIGNATURE)) {
 		status = NTFY_Register(pDehMgr->hNtfy, hNotification,
 			 uEventMask, uNotifyType);
 	}
-	DBG_Trace(DBG_LEVEL1, "Exiting WMD_DEH_RegisterNotify.\n");
+
 	return status;
 }
 
@@ -206,8 +201,6 @@ void WMD_DEH_Notify(struct DEH_MGR *hDehMgr, u32 ulEventMask,
 	extern u32 faultAddr;
 	u32 cnt = 0;
 
-	DBG_Trace(DBG_LEVEL1, "Entering WMD_DEH_Notify: 0x%x, 0x%x\n", pDehMgr,
-		 ulEventMask);
 	if (MEM_IsValidHandle(pDehMgr, SIGNATURE)) {
 		printk(KERN_INFO "WMD_DEH_Notify: ********** DEVICE EXCEPTION "
 			"**********\n");
@@ -344,8 +337,6 @@ void WMD_DEH_Notify(struct DEH_MGR *hDehMgr, u32 ulEventMask,
 		(void)DSP_PeripheralClocks_Disable(pDevContext, NULL);
 
 	}
-	DBG_Trace(DBG_LEVEL1, "Exiting WMD_DEH_Notify\n");
-
 }
 
 /*
@@ -361,8 +352,6 @@ DSP_STATUS WMD_DEH_GetInfo(struct DEH_MGR *hDehMgr,
 	DBC_Require(pDehMgr);
 	DBC_Require(pErrInfo);
 
-	DBG_Trace(DBG_LEVEL1, "Entering WMD_DEH_GetInfo: 0x%x\n", hDehMgr);
-
 	if (MEM_IsValidHandle(pDehMgr, SIGNATURE)) {
 		/* Copy DEH error info structure to PROC error info
 		 * structure. */
@@ -373,8 +362,6 @@ DSP_STATUS WMD_DEH_GetInfo(struct DEH_MGR *hDehMgr,
 	} else {
 		status = DSP_EHANDLE;
 	}
-
-	DBG_Trace(DBG_LEVEL1, "Exiting WMD_DEH_GetInfo\n");
 
 	return status;
 }

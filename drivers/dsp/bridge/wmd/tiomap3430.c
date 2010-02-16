@@ -301,7 +301,6 @@ void WMD_DRV_Entry(OUT struct WMD_DRV_INTERFACE **ppDrvInterface,
 {
 
 	DBC_Require(pstrWMDFileName != NULL);
-	DBG_Trace(DBG_ENTER, "In the WMD_DRV_Entry \n");
 
 	IO_SM_init(); /* Initialization of io_sm module */
 
@@ -327,7 +326,6 @@ static DSP_STATUS WMD_BRD_Monitor(struct WMD_DEV_CONTEXT *hDevContext)
 	u32 temp;
 	enum HW_PwrState_t    pwrState;
 
-	DBG_Trace(DBG_ENTER, "Board in the monitor state  \n");
 
 	GetHWRegs(pDevContext->prmbase, pDevContext->cmbase);
 	HW_PWRST_IVA2RegGet(pDevContext->prmbase, &temp);
@@ -355,7 +353,6 @@ static DSP_STATUS WMD_BRD_Monitor(struct WMD_DEV_CONTEXT *hDevContext)
 	/* set the device state to IDLE */
 	pDevContext->dwBrdState = BRD_IDLE;
 
-	DBG_Trace(DBG_LEVEL6, "WMD_BRD_Monitor - End ****** \n");
 	GetHWRegs(pDevContext->prmbase, pDevContext->cmbase);
 
 	return DSP_SOK;
@@ -375,10 +372,6 @@ static DSP_STATUS WMD_BRD_Read(struct WMD_DEV_CONTEXT *hDevContext,
 	u32 offset;
 	u32 dspBaseAddr = hDevContext->dwDspBaseAddr;
 
-	DBG_Trace(DBG_ENTER, "WMD_BRD_Read, pDevContext: 0x%x\n\t\tpbHostBuf:"
-		  " 0x%x\n\t\tdwDSPAddr:  0x%x\n\t\tulNumBytes:  0x%x\n\t\t"
-		  "ulMemType:  0x%x\n", pDevContext, pbHostBuf,
-		  dwDSPAddr, ulNumBytes, ulMemType);
 	if (dwDSPAddr < pDevContext->dwDSPStartAdd) {
 		DBG_Trace(DBG_LEVEL7,
 			  "WMD_BRD_Read: DSP address < start address \n ");
@@ -412,8 +405,6 @@ static DSP_STATUS WMD_BRD_SetState(struct WMD_DEV_CONTEXT *hDevContext,
 	DSP_STATUS status = DSP_SOK;
 	struct WMD_DEV_CONTEXT *pDevContext = hDevContext;
 
-	DBG_Trace(DBG_ENTER, "WMD_BRD_SetState: Board State: 0x%x \n",
-		  ulBrdState);
 	pDevContext->dwBrdState = ulBrdState;
 	return status;
 }
@@ -454,9 +445,6 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 	struct dspbridge_platform_data *pdata =
 			omap_dspbridge_dev->dev.platform_data;
 #endif
-
-	DBG_Trace(DBG_ENTER, "Entering WMD_BRD_Start:\n hDevContext: 0x%x\n\t "
-			     "dwDSPAddr: 0x%x\n", hDevContext, dwDSPAddr);
 
 	/* The device context contains all the mmu setup info from when the
 	 * last dsp base image was loaded. The first entry is always
@@ -784,9 +772,6 @@ static DSP_STATUS WMD_BRD_Stop(struct WMD_DEV_CONTEXT *hDevContext)
 	u32 dspPwrState;
 	DSP_STATUS clk_status;
 
-	DBG_Trace(DBG_ENTER, "Entering WMD_BRD_Stop:\nhDevContext: 0x%x\n",
-		  hDevContext);
-
 	if (pDevContext->dwBrdState == BRD_STOPPED)
 		return status;
 
@@ -854,7 +839,6 @@ static DSP_STATUS WMD_BRD_Stop(struct WMD_DEV_CONTEXT *hDevContext)
 		hDevContext->mbox = NULL;
 	}
 
-	DBG_Trace(DBG_LEVEL6, "WMD_BRD_Stop - End ****** \n");
 	HW_RST_Reset(pDevContext->prmbase, HW_RST1_IVA2);
 	HW_RST_Reset(pDevContext->prmbase, HW_RST2_IVA2);
 	HW_RST_Reset(pDevContext->prmbase, HW_RST3_IVA2);
@@ -878,9 +862,6 @@ static DSP_STATUS WMD_BRD_Delete(struct WMD_DEV_CONTEXT *hDevContext)
 	struct CFG_HOSTRES resources;
 	struct PgTableAttrs *pPtAttrs;
 	DSP_STATUS clk_status;
-
-	DBG_Trace(DBG_ENTER, "Entering WMD_BRD_Delete:\nhDevContext: 0x%x\n",
-		  hDevContext);
 
 	if (pDevContext->dwBrdState == BRD_STOPPED)
 		return status;
@@ -925,7 +906,6 @@ static DSP_STATUS WMD_BRD_Delete(struct WMD_DEV_CONTEXT *hDevContext)
 		hDevContext->mbox = NULL;
 	}
 
-	DBG_Trace(DBG_LEVEL6, "WMD_BRD_Delete - End ****** \n");
 	HW_RST_Reset(pDevContext->prmbase, HW_RST1_IVA2);
 	HW_RST_Reset(pDevContext->prmbase, HW_RST2_IVA2);
 	HW_RST_Reset(pDevContext->prmbase, HW_RST3_IVA2);
@@ -957,10 +937,6 @@ static DSP_STATUS WMD_BRD_Write(struct WMD_DEV_CONTEXT *hDevContext,
 	DSP_STATUS status = DSP_SOK;
 	struct WMD_DEV_CONTEXT *pDevContext = hDevContext;
 
-	DBG_Trace(DBG_ENTER, "WMD_BRD_Write, pDevContext: 0x%x\n\t\t "
-		 "pbHostBuf: 0x%x\n\t\tdwDSPAddr: 0x%x\n\t\tulNumBytes: "
-		 "0x%x\n \t\t ulMemtype: 0x%x\n", pDevContext, pbHostBuf,
-		 dwDSPAddr, ulNumBytes, ulMemType);
 	if (dwDSPAddr < pDevContext->dwDSPStartAdd) {
 		DBG_Trace(DBG_LEVEL7,
 			 "WMD_BRD_Write: DSP address < start address \n ");
@@ -976,8 +952,6 @@ static DSP_STATUS WMD_BRD_Write(struct WMD_DEV_CONTEXT *hDevContext,
 					 ulNumBytes, ulMemType, false);
 	}
 
-	DBG_Trace(DBG_ENTER, "WMD_BRD_Write, memcopy :  DspLogicAddr=0x%x \n",
-			pDevContext->dwDspBaseAddr);
 	return status;
 }
 
@@ -1001,9 +975,6 @@ static DSP_STATUS WMD_DEV_Create(OUT struct WMD_DEV_CONTEXT **ppDevContext,
 	u32   pg_tbl_va;
 	u32   align_size;
 
-	DBG_Trace(DBG_ENTER, "WMD_DEV_Create, ppDevContext: 0x%x\n\t\t "
-		  "hDevObject: 0x%x\n\t\tpConfig: 0x%x\n\t\tpDspConfig: 0x%x\n",
-		  ppDevContext, hDevObject, pConfig, pDspConfig);
 	 /* Allocate and initialize a data structure to contain the mini driver
 	 *  state, which becomes the context for later calls into this WMD.  */
 	pDevContext = MEM_Calloc(sizeof(struct WMD_DEV_CONTEXT), MEM_NONPAGED);
@@ -1187,8 +1158,6 @@ static DSP_STATUS WMD_DEV_Ctrl(struct WMD_DEV_CONTEXT *pDevContext, u32 dwCmd,
 	struct WMDIOCTL_EXTPROC *paExtProc = (struct WMDIOCTL_EXTPROC *)pArgs;
 	s32 ndx;
 
-	DBG_Trace(DBG_ENTER, "WMD_DEV_Ctrl, pDevContext:  0x%x\n\t\t dwCmd:  "
-		  "0x%x\n\t\tpArgs:  0x%x\n", pDevContext, dwCmd, pArgs);
 	switch (dwCmd) {
 	case WMDIOCTL_CHNLREAD:
 		break;
@@ -1255,8 +1224,6 @@ static DSP_STATUS WMD_DEV_Destroy(struct WMD_DEV_CONTEXT *hDevContext)
 	if (!hDevContext)
 		return DSP_EHANDLE;
 
-	DBG_Trace(DBG_ENTER, "Entering WMD_DEV_Destroy:n hDevContext ::0x%x\n",
-		  hDevContext);
 	/* first put the device to stop state */
 	WMD_BRD_Delete(pDevContext);
 	if (pDevContext->pPtAttrs) {
@@ -1553,7 +1520,6 @@ func_cont:
 	if (DSP_SUCCEEDED(status)) {
 		status = DSP_SOK;
 	} else {
-		DBG_Trace(DBG_LEVEL7, "< WMD_BRD_MemMap status %x\n", status);
 		/*
 		 * Roll out the mapped pages incase it failed in middle of
 		 * mapping
@@ -1828,8 +1794,7 @@ static DSP_STATUS PteUpdate(struct WMD_DEV_CONTEXT *hDevContext, u32 pa,
 	DSP_STATUS status = DSP_SOK;
 	u32 pgSize[] = { HW_PAGE_SIZE_16MB, HW_PAGE_SIZE_1MB,
 			   HW_PAGE_SIZE_64KB, HW_PAGE_SIZE_4KB };
-	DBG_Trace(DBG_ENTER, "> PteUpdate hDevContext %x, pa %x, va %x, "
-		 "size %x, mapAttrs %x\n", hDevContext, pa, va, size, mapAttrs);
+
 	while (numBytes && DSP_SUCCEEDED(status)) {
 		/* To find the max. page size with which both PA & VA are
 		 * aligned */
@@ -1852,8 +1817,7 @@ static DSP_STATUS PteUpdate(struct WMD_DEV_CONTEXT *hDevContext, u32 pa,
 			}
 		}
 	}
-	DBG_Trace(DBG_ENTER, "< PteUpdate status %x numBytes %x\n", status,
-		  numBytes);
+
 	return status;
 }
 
@@ -1878,8 +1842,7 @@ static DSP_STATUS PteSet(struct PgTableAttrs *pt, u32 pa, u32 va,
 	u32 L2BasePa = 0;
 	u32 L2PageNum = 0;
 	DSP_STATUS status = DSP_SOK;
-	DBG_Trace(DBG_ENTER, "> PteSet pPgTableAttrs %x, pa %x, va %x, "
-		 "size %x, attrs %x\n", pt, pa, va, size, attrs);
+
 	L1BaseVa = pt->L1BaseVa;
 	pgTblVa = L1BaseVa;
 	if ((size == HW_PAGE_SIZE_64KB) || (size == HW_PAGE_SIZE_4KB)) {
@@ -1945,7 +1908,7 @@ static DSP_STATUS PteSet(struct PgTableAttrs *pt, u32 pa, u32 va,
 			  attrs->elementSize, attrs->mixedSize);
 		status = HW_MMU_PteSet(pgTblVa, pa, va, size, attrs);
 	}
-	DBG_Trace(DBG_ENTER, "< PteSet status %x\n", status);
+
 	return status;
 }
 
@@ -1965,9 +1928,6 @@ static DSP_STATUS MemMapVmalloc(struct WMD_DEV_CONTEXT *pDevContext,
 	u32 pa;
 	u32 numOf4KPages;
 	u32 temp = 0;
-
-	DBG_Trace(DBG_ENTER, "> MemMapVmalloc hDevContext %x, pa %x, va %x, "
-		  "size %x\n", pDevContext, ulMpuAddr, ulVirtAddr, ulNumBytes);
 
 	/*
 	 * Do Kernel va to pa translation.
@@ -2032,7 +1992,6 @@ static DSP_STATUS MemMapVmalloc(struct WMD_DEV_CONTEXT *pDevContext,
 	 * region
 	 */
 	flush_all(pDevContext);
-	DBG_Trace(DBG_LEVEL7, "< WMD_BRD_MemMap at end status %x\n", status);
 	return status;
 }
 

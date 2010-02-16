@@ -191,8 +191,6 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 	u32 prev_state;
 	enum HW_PwrState_t pwrState, targetPwrState;
 
-	DBG_Trace(DBG_LEVEL7, "SleepDSP- Enter function \n");
-
 	/* Check if sleep code is valid */
 	if ((dwCmd != PWR_DEEPSLEEP) && (dwCmd != PWR_EMERGENCYDEEPSLEEP)) {
 		DBG_Trace(DBG_LEVEL7, "SleepDSP- Illegal sleep command\n");
@@ -351,10 +349,7 @@ DSP_STATUS DSPPeripheralClkCtrl(struct WMD_DEV_CONTEXT *pDevContext,
 	DSP_STATUS status1 = DSP_SOK;
 	u32 value;
 
-	DBG_Trace(DBG_ENTER, "Entering DSPPeripheralClkCtrl \n");
 	dspPerClksBefore = pDevContext->uDspPerClks;
-	DBG_Trace(DBG_ENTER, "DSPPeripheralClkCtrl : uDspPerClks = 0x%x \n",
-		  dspPerClksBefore);
 
 	extClk = (u32)*((u32 *)pArgs);
 

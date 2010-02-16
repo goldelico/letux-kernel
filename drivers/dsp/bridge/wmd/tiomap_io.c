@@ -65,12 +65,6 @@ DSP_STATUS ReadExtDspData(struct WMD_DEV_CONTEXT *hDevContext,
 	u32	dwBaseAddr = pDevContext->dwDspExtBaseAddr;
 	bool	bTraceRead = false;
 
-	DBG_Trace(DBG_ENTER, "ReadExtDspData,"
-	"hDevContext: 0x%x\n\t\tpbHostBuf: 0x%x"
-	"\n\t\tdwDSPAddr:  0x%x\n\t\tulNumBytes:  0x%x\n\t\t"
-	"ulMemType:  0x%x\n", pDevContext, pbHostBuf, dwDSPAddr,
-	ulNumBytes, ulMemType);
-
 	if (!ulShmBaseVirt) {
 		status = DEV_GetSymbol(pDevContext->hDevObject,
 		SHMBASENAME, &ulShmBaseVirt);
@@ -207,7 +201,6 @@ DSP_STATUS WriteDspData(struct WMD_DEV_CONTEXT *hDevContext, IN u8 *pbHostBuf,
 	base1 = OMAP_DSP_MEM1_SIZE;
 	base2 = OMAP_DSP_MEM2_BASE - OMAP_DSP_MEM1_BASE;
 	base3 = OMAP_DSP_MEM3_BASE - OMAP_DSP_MEM1_BASE;
-	DBG_Trace(DBG_ENTER, "Entered WriteDspData \n");
 
 	status =  CFG_GetHostResources(
 		 (struct CFG_DEVNODE *)DRV_GetFirstDevExtension(), &resources);
@@ -263,8 +256,6 @@ DSP_STATUS WriteExtDspData(struct WMD_DEV_CONTEXT *pDevContext,
 	bTempByte1 = 0x0;
 	bTempByte2 = 0x0;
 
-	DBG_Trace(DBG_ENTER, "Entered WriteExtDspData dwDSPAddr 0x%x "
-		 "ulNumBytes 0x%x \n", dwDSPAddr, ulNumBytes);
 	  if (bSymbolsReloaded) {
 		/* Check if it is a load to Trace section */
 		retVal = DEV_GetSymbol(pDevContext->hDevObject,

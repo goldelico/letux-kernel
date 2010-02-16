@@ -107,11 +107,6 @@ DSP_STATUS WMD_CHNL_AddIOReq(struct CHNL_OBJECT *hChnl, void *pHostBuf,
 	bool fSchedDPC = false;
 	u16 wMbVal = 0;
 
-	DBG_Trace(DBG_ENTER,
-		  "> WMD_CHNL_AddIOReq pChnl %p CHNL_IsOutput %x uChnlType "
-		  "%x Id %d\n", pChnl, CHNL_IsOutput(pChnl->uMode),
-		  pChnl->uChnlType, pChnl->uId);
-
 	fIsEOS = (cBytes == 0);
 	/* Validate args:  */
 	if (pHostBuf == NULL) {
@@ -243,7 +238,6 @@ func_cont:
 		IO_Schedule(pChnlMgr->hIOMgr);
 
 func_end:
-	DBG_Trace(DBG_ENTER, "< WMD_CHNL_AddIOReq pChnl %p\n", pChnl);
 	return status;
 }
 
@@ -585,9 +579,6 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 	struct WMD_DEV_CONTEXT *dev_ctxt;
 	struct DEV_OBJECT *dev_obj;
 
-	DBG_Trace(DBG_ENTER, "> WMD_CHNL_GetIOC pChnl %p CHNL_IsOutput %x "
-		 "uChnlType %x\n", pChnl, CHNL_IsOutput(pChnl->uMode),
-		 pChnl->uChnlType);
 	/* Check args: */
 	if (pIOC == NULL) {
 		status = DSP_EPOINTER;
@@ -727,7 +718,6 @@ func_cont:
 	/* Update User's IOC block: */
 	*pIOC = ioc;
 func_end:
-	DBG_Trace(DBG_ENTER, "< WMD_CHNL_GetIOC pChnl %p\n", pChnl);
 	return status;
 }
 
