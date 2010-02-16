@@ -84,8 +84,6 @@ DSP_STATUS MSG_Create(OUT struct MSG_MGR **phMsgMgr,
 
 		/* Finally, return the new message manager handle: */
 		*phMsgMgr = hMsgMgr;
-		GT_1trace(MSG_debugMask, GT_1CLASS,
-			 "MSG_Create: Success pMsgMgr: 0x%x\n",	pMsgMgr);
 	} else {
 		status = DSP_EFAIL;
 	}

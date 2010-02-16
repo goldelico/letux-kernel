@@ -279,9 +279,6 @@ DSP_STATUS DEV_CreateDevice(OUT struct DEV_OBJECT **phDevObject,
 	 *  else, cleanup and return NULL in the OUT parameter.  */
 	if (DSP_SUCCEEDED(status)) {
 		*phDevObject = pDevObject;
-		GT_1trace(debugMask, GT_1CLASS,
-			 "DEV_CreateDevice Succeeded \nDevObject "
-			 "0x%x\n", pDevObject);
 	} else {
 		kfree(pDevObject->procList);
 
@@ -892,11 +889,6 @@ DSP_STATUS DEV_RemoveDevice(struct CFG_DEVNODE *hDevNode)
 		pDevObject = (struct DEV_OBJECT *)hDevObject;
 		/* Destroy the device object. */
 		status = DEV_DestroyDevice(hDevObject);
-		if (DSP_SUCCEEDED(status)) {
-			/* Null out the handle stored with the DevNode. */
-			GT_0trace(debugMask, GT_1CLASS,
-				 "DEV_RemoveDevice, success");
-		}
 	}
 
 	return status;

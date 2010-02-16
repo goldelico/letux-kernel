@@ -96,9 +96,6 @@ DSP_STATUS IO_Create(OUT struct IO_MGR **phIOMgr, struct DEV_OBJECT *hDevObject,
 
 			/* Return the new channel manager handle: */
 			*phIOMgr = hIOMgr;
-			GT_1trace(IO_DebugMask, GT_1CLASS,
-				 "IO_Create: Success hIOMgr: 0x%x\n",
-				 hIOMgr);
 		}
 	}
 

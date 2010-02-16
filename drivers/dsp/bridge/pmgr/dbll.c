@@ -1313,12 +1313,6 @@ static int rmmAlloc(struct Dynamic_Loader_Allocate *this,
 					segId = 2;
 			}
 		}
-		if (segId != -1) {
-			GT_2trace(DBLL_debugMask, GT_5CLASS,
-				 "Extracted values for memory"
-				 " granularity req [%d] segId [%d]\n",
-				 req, segId);
-		}
 	}
 func_cont:
 	kfree(szSectName);
@@ -1332,9 +1326,7 @@ func_cont:
 		allocSize = info->size + GEM_L1P_PREFETCH_SIZE;
 	else
 		allocSize = info->size;
-	GT_2trace(DBLL_debugMask, GT_5CLASS,
-			 "Beg info->run_addr = 0x%x, info->load_addr= 0x%x\n",
-			 info->run_addr, info->load_addr);
+
 	if (info->load_addr != info->run_addr)
 		runAddrFlag = 1;
 	/* TODO - ideally, we can pass the alignment requirement also
@@ -1392,12 +1384,6 @@ static void rmmDealloc(struct Dynamic_Loader_Allocate *this,
 		status = (lib->pTarget->attrs.free)(lib->pTarget->
 			 attrs.symHandle, segid, info->load_addr / DSPWORDSIZE,
 			 freeSize, false);
-	}
-	if (DSP_SUCCEEDED(status)) {
-		GT_2trace(DBLL_debugMask, GT_5CLASS,
-			 "Remote dealloc: base = 0x%lx len ="
-			 "0x%lx\n", info->load_addr / DSPWORDSIZE,
-			 freeSize / DSPWORDSIZE);
 	}
 }
 

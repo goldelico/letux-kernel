@@ -239,9 +239,6 @@ void *CMM_CallocBuf(struct CMM_OBJECT *hCmmMgr, u32 uSize,
 				*ppBufVA = (void *)pNode->dwVA;
 			}
 		}
-		GT_3trace(CMM_debugMask, GT_3CLASS,
-			  "CMM_CallocBuf dwPA %x, dwVA %x uSize"
-			  "%x\n", pNode->dwPA, pNode->dwVA, uSize);
 		SYNC_LeaveCS(pCmmMgr->hCmmLock);
 	}
 	return pBufPA;
@@ -279,9 +276,6 @@ DSP_STATUS CMM_Create(OUT struct CMM_OBJECT **phCmmMgr,
 		sysInfo.dwAllocationGranularity = PAGE_SIZE;
 		sysInfo.dwNumberOfProcessors = 1;
 		if (DSP_SUCCEEDED(status)) {
-			GT_1trace(CMM_debugMask, GT_5CLASS,
-				  "CMM_Create: Got system page size"
-				  "= 0x%x\t\n", sysInfo.dwPageSize);
 			pCmmObject->dwPageSize = sysInfo.dwPageSize;
 		} else {
 			GT_0trace(CMM_debugMask, GT_7CLASS,
@@ -1136,10 +1130,6 @@ DSP_STATUS CMM_XlatorInfo(struct CMM_XLATOROBJECT *hXlator, IN OUT u8 **pAddr,
 			/* set translators virtual address range */
 			pXlator->dwVirtBase = (u32)*pAddr;
 			pXlator->ulVirtSize = ulSize;
-			GT_2trace(CMM_debugMask, GT_3CLASS,
-				  "pXlator->dwVirtBase %x, "
-				  "ulVirtSize %x\n", pXlator->dwVirtBase,
-				  pXlator->ulVirtSize);
 		} else {	/* return virt base address */
 			*pAddr = (u8 *)pXlator->dwVirtBase;
 		}
@@ -1219,10 +1209,7 @@ loop_cont:
 		GT_2trace(CMM_debugMask, GT_7CLASS,
 			  "CMM_XlatorTranslate: Can't translate"
 			  " address: 0x%x xType %x\n", pAddr, xType);
-	} else {
-		GT_3trace(CMM_debugMask, GT_3CLASS,
-			  "CMM_XlatorTranslate: pAddr %x, xType"
-			  " %x, dwAddrXlate %x\n", pAddr, xType, dwAddrXlate);
 	}
+
 	return (void *)dwAddrXlate;
 }

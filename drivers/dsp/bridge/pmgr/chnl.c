@@ -113,9 +113,6 @@ DSP_STATUS CHNL_Create(OUT struct CHNL_MGR **phChnlMgr,
 			pChnlMgr->pIntfFxns = pIntfFxns;
 			/* Finally, return the new channel manager handle: */
 			*phChnlMgr = hChnlMgr;
-			GT_1trace(CHNL_DebugMask, GT_1CLASS,
-				  "CHNL_Create: Success pChnlMgr:"
-				  "0x%x\n", pChnlMgr);
 		}
 	}
 

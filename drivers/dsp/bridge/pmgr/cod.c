@@ -645,17 +645,11 @@ DSP_STATUS COD_OpenBase(struct COD_MANAGER *hMgr, IN char *pszCoffPath,
 	/* if we previously opened a base image, close it now */
 	if (hMgr->baseLib) {
 		if (hMgr->fLoaded) {
-			GT_0trace(COD_debugMask, GT_7CLASS,
-				 "Base Image is already loaded. "
-				 "Unloading it...\n");
 			hMgr->fxns.unloadFxn(hMgr->baseLib, &hMgr->attrs);
 			hMgr->fLoaded = false;
 		}
 		hMgr->fxns.closeFxn(hMgr->baseLib);
 		hMgr->baseLib = NULL;
-	} else {
-		GT_0trace(COD_debugMask, GT_1CLASS,
-			 "COD_OpenBase: Opening the base image ...\n");
 	}
 	status = hMgr->fxns.openFxn(hMgr->target, pszCoffPath, flags, &lib);
 	if (DSP_FAILED(status)) {
