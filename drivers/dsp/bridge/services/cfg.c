@@ -107,8 +107,7 @@ DSP_STATUS CFG_GetDevObject(struct CFG_DEVNODE *hDevNode, OUT u32 *pdwValue)
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status))
-		GT_0trace(CFG_debugMask, GT_6CLASS,
-			  "CFG_GetDevObject Failed \n");
+		pr_err("%s: Failed, status 0x%x\n", __func__, status);
 #endif
 	return status;
 }
@@ -133,8 +132,7 @@ DSP_STATUS CFG_GetDSPResources(struct CFG_DEVNODE *hDevNode,
 					&dwResSize);
 	if (DSP_FAILED(status)) {
 		status = CFG_E_RESOURCENOTAVAIL;
-		GT_0trace(CFG_debugMask, GT_6CLASS,
-			  "CFG_GetDSPResources Failed \n");
+		pr_err("%s: Failed, status 0x%x\n", __func__, status);
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
 	/* assert that resource values are reasonable */
@@ -173,8 +171,7 @@ DSP_STATUS CFG_GetExecFile(struct CFG_DEVNODE *hDevNode, u32 ulBufSize,
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status))
-		GT_0trace(CFG_debugMask, GT_6CLASS,
-			  "CFG_GetExecFile Failed \n");
+		pr_err("%s: Failed, status 0x%x\n", __func__, status);
 #endif
 	DBC_Ensure(((status == DSP_SOK) &&
 		(strlen(pstrExecFile) <= ulBufSize)) || (status != DSP_SOK));
@@ -241,7 +238,7 @@ DSP_STATUS CFG_GetObject(OUT u32 *pdwValue, u32 dwType)
 	}
 	if (DSP_FAILED(status)) {
 		*pdwValue = 0;
-		GT_0trace(CFG_debugMask, GT_6CLASS, "CFG_GetObject Failed \n");
+		pr_err("%s: Failed, status 0x%x\n", __func__, status);
 	}
 	DBC_Ensure((DSP_SUCCEEDED(status) && *pdwValue != 0) ||
 		   (DSP_FAILED(status) && *pdwValue == 0));
@@ -267,9 +264,8 @@ bool CFG_Init(void)
 	dspResources.aMemDesc[0].ulMax = 0;
 	if (DSP_FAILED(REG_SetValue(DSPRESOURCES, (u8 *)&dspResources,
 				       sizeof(struct CFG_DSPRES))))
-		GT_0trace(CFG_debugMask, GT_5CLASS,
-			  "Failed to Initialize DSP resources"
-			  " in Registry \n");
+		pr_err("Failed to initialize DSP resources in registry\n");
+
 	return true;
 }
 
@@ -297,8 +293,7 @@ DSP_STATUS CFG_SetDevObject(struct CFG_DEVNODE *hDevNode, u32 dwValue)
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status))
-		GT_0trace(CFG_debugMask, GT_6CLASS,
-			  "CFG_SetDevObject Failed \n");
+		pr_err("%s: Failed, status 0x%x\n", __func__, status);
 #endif
 	return status;
 }
@@ -326,7 +321,7 @@ DSP_STATUS CFG_SetObject(u32 dwValue, u32 dwType)
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status))
-		GT_0trace(CFG_debugMask, GT_6CLASS, "CFG_SetObject Failed \n");
+		pr_err("%s: Failed, status 0x%x\n", __func__, status);
 #endif
 	return status;
 }

@@ -59,9 +59,7 @@ void MEM_ExtPhysPoolInit(u32 poolPhysBase, u32 poolSize)
 	poolVirtBase = (u32)ioremap(poolPhysBase, poolSize);
 
 	if ((void **)poolVirtBase == NULL) {
-		GT_0trace(MEM_debugMask, GT_7CLASS,
-			  "[PHYS_POOL]Mapping External "
-			  "physical memory to virt failed \n");
+		pr_err("%s: external physical memory map failed\n", __func__);
 		extPhysMemPoolEnabled = false;
 	} else {
 		extMemPool.physMemBase = poolPhysBase;
