@@ -392,8 +392,7 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 			GT_0trace(driverTrace, GT_7CLASS,
 				 "DSP/BIOS Bridge initialization Failed\n");
 		} else {
-			GT_0trace(driverTrace, GT_5CLASS,
-					"DSP/BIOS Bridge driver loaded\n");
+			pr_info("DSP Bridge driver loaded\n");
 		}
 	}
 #ifdef CONFIG_BRIDGE_RECOVERY

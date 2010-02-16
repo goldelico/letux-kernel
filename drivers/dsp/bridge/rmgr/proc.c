@@ -983,8 +983,7 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 	if (DSP_SUCCEEDED(status)) {
 		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
 		   (pProcObject->hWmdContext, &uBrdState))) {
-			GT_0trace(PROC_DebugMask, GT_1CLASS,
-				 "PROC_Load: Processor Loaded\n");
+			pr_info("%s: Processor Loaded %s\n", __func__, pargv0);
 			DBC_Assert(uBrdState == BRD_LOADED);
 		}
 	}
@@ -1236,8 +1235,7 @@ func_cont:
 	if (DSP_SUCCEEDED(status)) {
 		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
 		   (pProcObject->hWmdContext, &uBrdState))) {
-			GT_0trace(PROC_DebugMask, GT_1CLASS,
-				 "PROC_Start: Processor State is RUNNING \n");
+			pr_info("%s: dsp in running state\n", __func__);
 			DBC_Assert(uBrdState != BRD_HIBERNATION);
 		}
 	}
