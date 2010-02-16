@@ -74,13 +74,9 @@ DSP_STATUS CFG_GetAutoStart(struct CFG_DEVNODE *hDevNode,
 			status = CFG_E_RESOURCENOTAVAIL;
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
-	if (DSP_SUCCEEDED(status)) {
-		GT_0trace(CFG_debugMask, GT_1CLASS,
-			 "CFG_GetAutoStart SUCCESS \n");
-	} else {
+	if (DSP_FAILED(status))
 		GT_0trace(CFG_debugMask, GT_6CLASS,
 		"CFG_GetAutoStart Failed \n");
-	}
 #endif
 	DBC_Ensure((status == DSP_SOK &&
 		(*pdwAutoStart == 0 || *pdwAutoStart == 1))
@@ -110,9 +106,6 @@ DSP_STATUS CFG_GetDevObject(struct CFG_DEVNODE *hDevNode, OUT u32 *pdwValue)
 		/* check the device string and then call the REG_SetValue*/
 		if (!(strcmp((char *)((struct DRV_EXT *)hDevNode)->szString,
 							"TIOMAP1510"))) {
-			GT_0trace(CFG_debugMask, GT_1CLASS,
-				  "Fetching DSP Device from "
-				  "Registry \n");
 			status = REG_GetValue("DEVICE_DSP", (u8 *)pdwValue,
 						&dwBufSize);
 		} else {
@@ -121,14 +114,9 @@ DSP_STATUS CFG_GetDevObject(struct CFG_DEVNODE *hDevNode, OUT u32 *pdwValue)
 		}
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
-	if (DSP_SUCCEEDED(status)) {
-		GT_1trace(CFG_debugMask, GT_1CLASS,
-			  "CFG_GetDevObject SUCCESS DevObject"
-			  ": 0x%x\n ", *pdwValue);
-	} else {
+	if (DSP_FAILED(status))
 		GT_0trace(CFG_debugMask, GT_6CLASS,
 			  "CFG_GetDevObject Failed \n");
-	}
 #endif
 	return status;
 }
@@ -151,10 +139,7 @@ DSP_STATUS CFG_GetDSPResources(struct CFG_DEVNODE *hDevNode,
 	else
 		status = REG_GetValue(DSPRESOURCES, (u8 *)pDSPResTable,
 					&dwResSize);
-	if (DSP_SUCCEEDED(status)) {
-		GT_0trace(CFG_debugMask, GT_1CLASS,
-			  "CFG_GetDSPResources SUCCESS\n");
-	} else {
+	if (DSP_FAILED(status)) {
 		status = CFG_E_RESOURCENOTAVAIL;
 		GT_0trace(CFG_debugMask, GT_6CLASS,
 			  "CFG_GetDSPResources Failed \n");
@@ -195,14 +180,9 @@ DSP_STATUS CFG_GetExecFile(struct CFG_DEVNODE *hDevNode, u32 ulBufSize,
 
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
-	if (DSP_SUCCEEDED(status)) {
-		GT_1trace(CFG_debugMask, GT_1CLASS,
-			  "CFG_GetExecFile SUCCESS Exec File"
-			  "name : %s\n ", pstrExecFile);
-	} else {
+	if (DSP_FAILED(status))
 		GT_0trace(CFG_debugMask, GT_6CLASS,
 			  "CFG_GetExecFile Failed \n");
-	}
 #endif
 	DBC_Ensure(((status == DSP_SOK) &&
 		(strlen(pstrExecFile) <= ulBufSize)) || (status != DSP_SOK));
@@ -234,13 +214,9 @@ DSP_STATUS CFG_GetHostResources(struct CFG_DEVNODE *hDevNode,
 		}
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
-	if (DSP_SUCCEEDED(status)) {
-		GT_0trace(CFG_debugMask, GT_1CLASS,
-			  "CFG_GetHostResources SUCCESS \n");
-	} else {
+	if (DSP_FAILED(status))
 		GT_0trace(CFG_debugMask, GT_6CLASS,
 			  "CFG_GetHostResources Failed \n");
-	}
 #endif
 	return status;
 }
@@ -271,11 +247,7 @@ DSP_STATUS CFG_GetObject(OUT u32 *pdwValue, u32 dwType)
 	default:
 		break;
 	}
-	if (DSP_SUCCEEDED(status)) {
-		GT_1trace(CFG_debugMask, GT_1CLASS,
-			  "CFG_GetObject SUCCESS DrvObject: "
-			  "0x%x\n ", *pdwValue);
-	} else {
+	if (DSP_FAILED(status)) {
 		*pdwValue = 0;
 		GT_0trace(CFG_debugMask, GT_6CLASS, "CFG_GetObject Failed \n");
 	}
@@ -293,7 +265,6 @@ bool CFG_Init(void)
 {
 	struct CFG_DSPRES dspResources;
 	GT_create(&CFG_debugMask, "CF");	/* CF for ConFig */
-	GT_0trace(CFG_debugMask, GT_5CLASS, "Intializing DSP Registry Info \n");
 
 	dspResources.uChipType = DSPTYPE_64;
 	dspResources.cChips = 1;
@@ -302,12 +273,8 @@ bool CFG_Init(void)
 	dspResources.aMemDesc[0].uMemType = 0;
 	dspResources.aMemDesc[0].ulMin = 0;
 	dspResources.aMemDesc[0].ulMax = 0;
-	if (DSP_SUCCEEDED(REG_SetValue(DSPRESOURCES, (u8 *)&dspResources,
-				 sizeof(struct CFG_DSPRES)))) {
-		GT_0trace(CFG_debugMask, GT_5CLASS,
-			  "Initialized DSP resources in "
-			  "Registry \n");
-	} else
+	if (DSP_FAILED(REG_SetValue(DSPRESOURCES, (u8 *)&dspResources,
+				       sizeof(struct CFG_DSPRES))))
 		GT_0trace(CFG_debugMask, GT_5CLASS,
 			  "Failed to Initialize DSP resources"
 			  " in Registry \n");
@@ -332,8 +299,6 @@ DSP_STATUS CFG_SetDevObject(struct CFG_DEVNODE *hDevNode, u32 dwValue)
 		/* Store the WCD device object in the Registry */
 
 		if (!(strcmp((char *)hDevNode, "TIOMAP1510"))) {
-			GT_0trace(CFG_debugMask, GT_1CLASS,
-				  "Registering the DSP Device \n");
 			status = REG_SetValue("DEVICE_DSP", (u8 *)&dwValue,
 						dwBuffSize);
 		} else {
@@ -342,13 +307,9 @@ DSP_STATUS CFG_SetDevObject(struct CFG_DEVNODE *hDevNode, u32 dwValue)
 		}
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
-	if (DSP_SUCCEEDED(status)) {
-		GT_0trace(CFG_debugMask, GT_1CLASS,
-			  "CFG_SetDevObject SUCCESS \n");
-	} else {
+	if (DSP_FAILED(status))
 		GT_0trace(CFG_debugMask, GT_6CLASS,
 			  "CFG_SetDevObject Failed \n");
-	}
 #endif
 	return status;
 }
@@ -375,11 +336,8 @@ DSP_STATUS CFG_SetObject(u32 dwValue, u32 dwType)
 		break;
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
-	if (DSP_SUCCEEDED(status))
-		GT_0trace(CFG_debugMask, GT_1CLASS, "CFG_SetObject SUCCESS \n");
-	else
+	if (DSP_FAILED(status))
 		GT_0trace(CFG_debugMask, GT_6CLASS, "CFG_SetObject Failed \n");
-
 #endif
 	return status;
 }

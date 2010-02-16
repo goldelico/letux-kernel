@@ -69,18 +69,11 @@ void MEM_ExtPhysPoolInit(u32 poolPhysBase, u32 poolSize)
 		extMemPool.virtMemBase = poolVirtBase;
 		extMemPool.nextPhysAllocPtr = poolPhysBase;
 		extPhysMemPoolEnabled = true;
-		GT_3trace(MEM_debugMask, GT_1CLASS,
-			  "ExtMemory Pool details " "Pool"
-			  "Physical mem base = %0x " "Pool Physical mem size "
-			  "= %0x" "Pool Virtual mem base = %0x \n",
-			  poolPhysBase, poolSize, poolVirtBase);
 	}
 }
 
 void MEM_ExtPhysPoolRelease(void)
 {
-	GT_0trace(MEM_debugMask, GT_1CLASS,
-		  "Releasing External memory pool \n");
 	if (extPhysMemPoolEnabled) {
 		iounmap((void *)(extMemPool.virtMemBase));
 		extPhysMemPoolEnabled = false;
@@ -99,15 +92,9 @@ static void *MEM_ExtPhysMemAlloc(u32 bytes, u32 align, OUT u32 *pPhysAddr)
 	u32 offset;
 	u32 virtAddr;
 
-	GT_2trace(MEM_debugMask, GT_1CLASS,
-		  "Ext Memory Allocation" "bytes=0x%x , "
-		  "align=0x%x \n", bytes, align);
-	if (align == 0) {
-		GT_0trace(MEM_debugMask, GT_7CLASS,
-			  "ExtPhysical Memory Allocation "
-			  "No alignment request in allocation call !! \n");
+	if (align == 0)
 		align = 1;
-	}
+
 	if (bytes > ((extMemPool.physMemBase + extMemPool.physMemSize)
 	    - extMemPool.nextPhysAllocPtr)) {
 		GT_1trace(MEM_debugMask, GT_7CLASS,
@@ -130,10 +117,6 @@ static void *MEM_ExtPhysMemAlloc(u32 bytes, u32 align, OUT u32 *pPhysAddr)
 			extMemPool.nextPhysAllocPtr = newAllocPtr + bytes;
 			virtAddr = extMemPool.virtMemBase + (newAllocPtr -
 				   extMemPool.physMemBase);
-			GT_2trace(MEM_debugMask, GT_1CLASS,
-				  "Ext Memory Allocation succedded "
-				  "phys address=0x%x , virtaddress=0x%x \n",
-				  newAllocPtr, virtAddr);
 			return (void *)virtAddr;
 		} else {
 			*pPhysAddr = 0;

@@ -143,12 +143,6 @@ bool CLK_Init(void)
 				  SERVICES_Clks[i].clk_name,
 				  SERVICES_Clks[i].id);
 			/* should we fail here?? */
-		} else {
-			GT_2trace(CLK_debugMask, GT_7CLASS,
-				  "CLK_Init: PASS and Clk handle %s, "
-				  "CLK dev id = %d\n",
-				  SERVICES_Clks[i].clk_name,
-				  SERVICES_Clks[i].id);
 		}
 		SERVICES_Clks[i].clk_handle = clk_handle;
 		i++;
@@ -246,10 +240,6 @@ DSP_STATUS CLK_Disable(IN enum SERVICES_ClkId clk_id)
 				SERVICES_Clks[clk_id].clk_name,
 				SERVICES_Clks[clk_id].id);
 	} else if (clkUseCnt == 0) {
-		GT_2trace(CLK_debugMask, GT_4CLASS, "CLK_Disable: CLK %s,"
-				"CLK dev id= %d is already disabled\n",
-				SERVICES_Clks[clk_id].clk_name,
-				SERVICES_Clks[clk_id].id);
 		return status;
 	}
 	if (clk_id == SERVICESCLK_ssi_ick)

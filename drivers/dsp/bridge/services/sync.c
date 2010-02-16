@@ -202,23 +202,13 @@ DSP_STATUS SYNC_SetEvent(struct SYNC_OBJECT *hEvent)
 
 	if (MEM_IsValidHandle(hEvent, SIGNATURE)) {
 		spin_lock_irqsave(&hEvent->sync_lock, flags);
-		GT_1trace(SYNC_debugMask, GT_6CLASS,
-			"SYNC_SetEvent: pEvent->pWaitObj "
-			"= 0x%x \n", pEvent->pWaitObj);
-	if (pEvent->pWaitObj)
-		GT_1trace(SYNC_debugMask, GT_6CLASS, "SYNC_SetEvent: "
-			"pEvent->pWaitObj->state = 0x%x \n",
-			pEvent->pWaitObj->state);
+
 		if (pEvent->pWaitObj != NULL &&
 		   test_and_set(&pEvent->pWaitObj->state,
 		   wo_signalled) == wo_waiting) {
-
 			pEvent->state = so_reset;
 			pEvent->pWaitObj->signalling_event = pEvent;
 			up(&pEvent->pWaitObj->sem);
-			GT_1trace(SYNC_debugMask, GT_6CLASS,
-				  "SYNC_SetEvent: Unlock "
-				  "Semaphore for hEvent 0x%x\n", hEvent);
 		} else {
 			pEvent->state = so_signalled;
 		}
@@ -289,12 +279,8 @@ DSP_STATUS SYNC_WaitOnMultipleEvents(struct SYNC_OBJECT **hSyncEvents,
 	for (curr = 0; curr < uCount; curr++) {
 		hSyncEvents[curr]->pWaitObj = Wp;
 		if (hSyncEvents[curr]->state == so_signalled) {
-			GT_0trace(SYNC_debugMask, GT_6CLASS,
-				 "Detected signaled Event !!!\n");
 			if (test_and_set(&(Wp->state), wo_signalled) ==
 			   wo_waiting) {
-				GT_0trace(SYNC_debugMask, GT_6CLASS,
-					 "Setting Signal Event!!!\n");
 				hSyncEvents[curr]->state = so_reset;
 				Wp->signalling_event = hSyncEvents[curr];
 			}
@@ -313,11 +299,9 @@ DSP_STATUS SYNC_WaitOnMultipleEvents(struct SYNC_OBJECT **hSyncEvents,
 			timeout.expires = jiffies + dwTimeout * HZ / 1000;
 			add_timer(&timeout);
 		}
-		if (down_interruptible(&(Wp->sem))) {
-			GT_0trace(SYNC_debugMask, GT_7CLASS, "SYNC: "
-				"WaitOnMultipleEvents Interrupted by signal\n");
+		if (down_interruptible(&(Wp->sem)))
 			status = DSP_EFAIL;
-		}
+
 		if (dwTimeout != SYNC_INFINITE) {
 			if (in_interrupt()) {
 				if (!del_timer(&timeout)) {
@@ -419,7 +403,6 @@ DSP_STATUS SYNC_EnterCS(struct SYNC_CSOBJECT *hCSObj)
 	} else if (MEM_IsValidHandle(hCSObj, SIGNATUREDPCCS)) {
 		struct SYNC_DPCCSOBJECT *pDPCCSObj =
 					(struct SYNC_DPCCSOBJECT *)hCSObj;
-		GT_0trace(SYNC_debugMask, GT_ENTER, "SYNC_EnterCS DPC\n");
 		spin_lock_bh(&pDPCCSObj->sync_dpccs_lock);
 		pDPCCSObj->count--;
 		if (pDPCCSObj->count != 0) {
@@ -521,7 +504,6 @@ DSP_STATUS SYNC_LeaveCS(struct SYNC_CSOBJECT *hCSObj)
 			spin_lock_bh(&pDPCCSObj->sync_dpccs_lock);
 		}
 		spin_unlock_bh(&pDPCCSObj->sync_dpccs_lock);
-		GT_0trace(SYNC_debugMask, GT_ENTER, "SYNC_LeaveCS DPC\n");
 	} else {
 		status = DSP_EHANDLE;
 		GT_1trace(SYNC_debugMask, GT_6CLASS,
