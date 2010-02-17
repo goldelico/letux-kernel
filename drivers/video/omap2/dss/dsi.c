@@ -3695,7 +3695,7 @@ static int dsi_configure_dsi_clocks(struct omap_dss_device *dssdev)
 
 	if (cpu_is_omap44xx()) {/*TODO: shouldn't be needed once we have corrected dsi_configure_dsi_clocks ? */
 	cinfo.regn = 19;
-	cinfo.regm = 102;
+	cinfo.regm = 150;
 	cinfo.regm3 = 4;
 	cinfo.regm4 = 4;
 	cinfo.use_dss2_fck = true;
