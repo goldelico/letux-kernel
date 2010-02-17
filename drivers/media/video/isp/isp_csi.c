@@ -64,7 +64,7 @@ void isp_csi_if_enable(struct isp_csi_device *isp_csi, u8 enable)
 static void isp_csi_reset(struct isp_csi_device *isp_csi)
 {
 	struct device *dev = to_device(isp_csi);
-	u32 i = 0;
+	u32 i = 0, reg;
 
 	isp_reg_or(dev, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_SYSCONFIG,
 		   ISPCSI1_SYSCONFIG_SOFT_RESET);
@@ -79,6 +79,14 @@ static void isp_csi_reset(struct isp_csi_device *isp_csi)
 		dev_warn(dev,
 		       "timeout waiting for csi reset\n");
 	}
+
+	reg = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
+			    ISPCSI1_SYSCONFIG);
+	reg &= ~ISPCSI1_SYSCONFIG_MSTANDBY_MODE_MASK;
+	reg |= ISPCSI1_SYSCONFIG_MSTANDBY_MODE_NO;
+	reg &= ~ISPCSI1_SYSCONFIG_AUTO_IDLE;
+	isp_reg_writel(dev, reg, OMAP3_ISP_IOMEM_CCP2,
+		       ISPCSI1_SYSCONFIG);
 }
 
 /**
