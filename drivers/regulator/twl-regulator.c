@@ -367,11 +367,17 @@ twlldo_set_voltage(struct regulator_dev *rdev, int min_uV, int max_uV)
 		/* REVISIT for VAUX2, first match may not be best/lowest */
 
 		/* use the first in-range value */
-		if (min_uV <= uV && uV <= max_uV)
+		if (min_uV <= uV && uV <= max_uV) {
+			if (twl_class_is_6030())
+				/*
+				 * Use the below formula to calculate vsel
+				 * mV = 1000mv + 100mv * (vsel - 1)
+				 */
+				vsel = (LDO_MV(mV) - 1000)/100 + 1;
 			return twlreg_write(info, TWL_MODULE_PM_RECEIVER,
 							VREG_VOLTAGE, vsel);
+		}
 	}
-
 	return -EDOM;
 }
 
@@ -384,8 +390,17 @@ static int twlldo_get_voltage(struct regulator_dev *rdev)
 	if (vsel < 0)
 		return vsel;
 
-	vsel &= info->table_len - 1;
-	return LDO_MV(info->table[vsel]) * 1000;
+	if (twl_class_is_4030()) {
+		vsel &= info->table_len - 1;
+		return LDO_MV(info->table[vsel]) * 1000;
+	} else if (twl_class_is_6030()) {
+		/*
+		 * Use the below formula to calculate vsel
+		 * mV = 1000mv + 100mv * (vsel - 1)
+		 */
+		return (1000 + (100 * (vsel - 1))) * 1000;
+	}
+	return -EDOM;
 }
 
 static struct regulator_ops twlldo_ops = {
