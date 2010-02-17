@@ -16,7 +16,7 @@
 
 
 /*  ----------------------------------- OS Specific Headers         */
-#include <generated/autoconf.h>
+#include <linux/autoconf.h>
 #include <linux/spinlock.h>
 #include <linux/module.h>
 #include <linux/init.h>

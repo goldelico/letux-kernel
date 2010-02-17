@@ -14,7 +14,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <generated/autoconf.h>
+#include <linux/autoconf.h>
 #include <linux/spinlock.h>
 #include <linux/semaphore.h>
 #include <linux/module.h>
