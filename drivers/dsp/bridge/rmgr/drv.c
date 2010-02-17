@@ -468,6 +468,8 @@ DSP_STATUS DRV_RemoveAllSTRMResElements(HANDLE hPCtxt)
 	DSP_STATUS status = DSP_SOK;
 	struct STRM_RES_OBJECT *strm_res = NULL;
 	struct STRM_RES_OBJECT *strm_tmp = NULL;
+	struct STRM_INFO strm_info;
+	struct DSP_STREAMINFO user;
 	u8 **apBuffer = NULL;
 	u8 *pBufPtr;
 	u32 ulBytes;
@@ -482,21 +484,19 @@ DSP_STATUS DRV_RemoveAllSTRMResElements(HANDLE hPCtxt)
 			apBuffer = MEM_Alloc((strm_res->uNumBufs *
 						sizeof(u8 *)), MEM_NONPAGED);
 
-			if (!apBuffer)
-				return DSP_EMEMORY;
-			status = STRM_FreeBuffer(strm_res->hStream, apBuffer,
-						strm_res->uNumBufs, pCtxt);
-
-			kfree(apBuffer);
+			if (apBuffer) {
+				status = STRM_FreeBuffer(strm_res->hStream,
+					apBuffer, strm_res->uNumBufs, pCtxt);
+				kfree(apBuffer);
+			}
 		}
+		strm_info.pUser = &user;
+		user.uNumberBufsInStream = 0;
+		STRM_GetInfo(strm_res->hStream, &strm_info, sizeof(strm_info));
+		while (user.uNumberBufsInStream--)
+			STRM_Reclaim(strm_res->hStream, &pBufPtr, &ulBytes,
+					     (u32 *)&ulBufSize, &dwArg);
 		status = STRM_Close(strm_res->hStream, pCtxt);
-		if (status == DSP_EPENDING) {
-			status = STRM_Reclaim(strm_res->hStream,
-				&pBufPtr, &ulBytes, (u32 *)&ulBufSize, &dwArg);
-			if (DSP_SUCCEEDED(status))
-				status = STRM_Close(strm_res->hStream, pCtxt);
-		}
-
 	}
 	return status;
 }
