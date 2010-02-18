@@ -166,10 +166,6 @@ static DSP_STATUS registerSHMSegs(struct IO_MGR *hIOMgr,
 				  struct COD_MANAGER *hCodMan,
 				  u32 dwGPPBasePA);
 
-#if GT_TRACE
-static struct GT_Mask dsp_trace_mask = { NULL, NULL }; /* GT trace variable */
-#endif
-
 /*
  *  ======== WMD_IO_Create ========
  *      Create an IO manager object.
@@ -1961,7 +1957,7 @@ func_end:
 
 void IO_SM_init(void)
 {
-	GT_create(&dsp_trace_mask, "DT"); /* DSP Trace Mask */
+	/* Do nothing */
 }
 DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context)
 {
