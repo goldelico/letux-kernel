@@ -97,16 +97,16 @@ void MSG_Delete(struct MSG_MGR *hMsgMgr)
 	struct WMD_DRV_INTERFACE *pIntfFxns;
 
 	DBC_Require(cRefs > 0);
-	DBC_Require(MEM_IsValidHandle(pMsgMgr, MSGMGR_SIGNATURE));
 
-	pIntfFxns = pMsgMgr->pIntfFxns;
+	if (MEM_IsValidHandle(pMsgMgr, MSGMGR_SIGNATURE)) {
+		pIntfFxns = pMsgMgr->pIntfFxns;
 
-	/* Let WMD message module destroy the MSG_MGR: */
-	(*pIntfFxns->pfnMsgDelete)(hMsgMgr);
-
-	if (MEM_IsValidHandle(pMsgMgr, MSGMGR_SIGNATURE))
+		/* Let WMD message module destroy the MSG_MGR: */
+		(*pIntfFxns->pfnMsgDelete)(hMsgMgr);
+	} else {
 		dev_dbg(bridge, "%s: Error hMsgMgr handle: %p\n",
 						__func__, hMsgMgr);
+	}
 }
 
 /*
