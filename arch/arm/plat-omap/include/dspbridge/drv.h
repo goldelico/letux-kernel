@@ -398,4 +398,8 @@ struct PROCESS_CONTEXT{
 
 	extern DSP_STATUS  DRV_ProcFreeDMMRes(HANDLE hPCtxt);
 
+#ifdef CONFIG_BRIDGE_RECOVERY
+	void bridge_recover_schedule(void);
+#endif
+
 #endif				/* DRV_ */

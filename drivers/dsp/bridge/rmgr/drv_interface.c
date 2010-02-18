@@ -98,6 +98,15 @@ static s32 shm_size = 0x500000;	/* 5 MB */
 static u32 phys_mempool_base;
 static u32 phys_mempool_size;
 static int tc_wordswapon;	/* Default value is always false */
+#ifdef CONFIG_BRIDGE_RECOVERY
+static atomic_t bridge_cref;	/* number of bridge open handles */
+static struct workqueue_struct *bridge_rec_queue;
+static struct work_struct bridge_recovery_work;
+static DECLARE_COMPLETION_ONSTACK(bridge_comp);
+static DECLARE_COMPLETION_ONSTACK(bridge_open_comp);
+static bool recover;
+static char *firmware_file = "/system/lib/dsp/baseimage.dof";
+#endif
 
 /* Minimum ACTIVE VDD1 OPP level for reliable DSP operation */
 unsigned short min_active_opp = 1;
@@ -132,6 +141,9 @@ MODULE_PARM_DESC(GT_str, "GT string, default = NULL");
 
 module_param(dsp_debug, int, 0);
 MODULE_PARM_DESC(dsp_debug, "Wait after loading DSP image. default = false");
+#endif
+#ifdef CONFIG_BRIDGE_RECOVERY
+module_param(firmware_file, charp, 0644);
 #endif
 
 module_param(base_img, charp, 0);
@@ -178,6 +190,61 @@ static struct clk *clk_handle;
 
 struct dspbridge_platform_data *omap_dspbridge_pdata;
 
+#ifdef CONFIG_BRIDGE_RECOVERY
+static void bridge_load_firmware(void)
+{
+	struct PROCESS_CONTEXT pr_ctxt;
+	DSP_STATUS status;
+	const char *argv[2];
+	argv[0] = firmware_file;
+	argv[1] = NULL;
+
+	pr_ctxt.hProcessor = NULL;
+	status = PROC_Attach(0, NULL, &pr_ctxt.hProcessor, &pr_ctxt);
+	if (DSP_FAILED(status))
+		goto func_err;
+
+	status = PROC_Stop(pr_ctxt.hProcessor);
+	if (DSP_FAILED(status))
+		goto func_err;
+
+	status = PROC_Load(pr_ctxt.hProcessor, 1, argv, NULL);
+	if (DSP_FAILED(status))
+		goto func_err;
+
+	status = PROC_Start(pr_ctxt.hProcessor);
+	if (DSP_FAILED(status))
+		goto func_err;
+
+	status = PROC_Detach(&pr_ctxt);
+	if (DSP_SUCCEEDED(status)) {
+		pr_info("DSP recovery succeeded\n");
+		return;
+	}
+
+func_err:
+	pr_err("DSP could not be restarted, status = %x\n", status);
+}
+
+static void bridge_recover(struct work_struct *work)
+{
+	if (atomic_read(&bridge_cref)) {
+		INIT_COMPLETION(bridge_comp);
+		wait_for_completion(&bridge_comp);
+	}
+	bridge_load_firmware();
+	recover = false;
+	complete_all(&bridge_open_comp);
+}
+
+void bridge_recover_schedule(void)
+{
+	INIT_COMPLETION(bridge_open_comp);
+	recover = true;
+	pr_err("DSP crash, attempting to reset\n");
+	queue_work(bridge_rec_queue, &bridge_recovery_work);
+}
+#endif
 
 #ifdef CONFIG_BRIDGE_DVFS
 static int dspbridge_post_scale(struct notifier_block *op, unsigned long level,
@@ -348,6 +415,11 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 					"DSP/BIOS Bridge driver loaded\n");
 		}
 	}
+#ifdef CONFIG_BRIDGE_RECOVERY
+	bridge_rec_queue = create_workqueue("bridge_rec_queue");
+	INIT_WORK(&bridge_recovery_work, bridge_recover);
+	INIT_COMPLETION(bridge_comp);
+#endif
 
 	DBC_Assert(status == 0);
 	DBC_Assert(DSP_SUCCEEDED(initStatus));
@@ -484,6 +556,10 @@ static int bridge_open(struct inode *ip, struct file *filp)
 	struct PROCESS_CONTEXT *pr_ctxt = NULL;
 
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_open\n");
+#ifdef CONFIG_BRIDGE_RECOVERY
+	if (recover)
+		wait_for_completion(&bridge_open_comp);
+#endif
 
 	/*
 	 * Allocate a new process context and insert it into global
@@ -501,6 +577,11 @@ static int bridge_open(struct inode *ip, struct file *filp)
 
 		filp->private_data = pr_ctxt;
 
+#ifdef CONFIG_BRIDGE_RECOVERY
+	if (!status)
+		atomic_inc(&bridge_cref);
+#endif
+
 	GT_0trace(driverTrace, GT_ENTER, " <- driver_open\n");
 	return status;
 }
@@ -510,7 +591,7 @@ static int bridge_open(struct inode *ip, struct file *filp)
 static int bridge_release(struct inode *ip, struct file *filp)
 {
 	struct PROCESS_CONTEXT *pr_ctxt;
-	int status;
+	int status = 0;
 	GT_0trace(driverTrace, GT_ENTER, "-> driver_release\n");
 	if (!filp->private_data) {
 		status = -EIO;
@@ -527,6 +608,11 @@ static int bridge_release(struct inode *ip, struct file *filp)
 		filp->private_data = NULL;
 	}
 err:
+#ifdef CONFIG_BRIDGE_RECOVERY
+	if (!atomic_dec_return(&bridge_cref))
+		complete(&bridge_comp);
+#endif
+
 	GT_0trace(driverTrace, GT_ENTER, " <- driver_release\n");
 	return status;
 }
@@ -540,6 +626,13 @@ static long bridge_ioctl(struct file *filp, unsigned int code,
 	union Trapped_Args pBufIn;
 
 	DBC_Require(filp != NULL);
+#ifdef CONFIG_BRIDGE_RECOVERY
+	if (recover) {
+		status = -EBUSY;
+		goto err;
+	}
+#endif
+
 #ifdef CONFIG_PM
 	status = omap34xxbridge_suspend_lockout(&bridge_suspend_data, filp);
 	if (status != 0)

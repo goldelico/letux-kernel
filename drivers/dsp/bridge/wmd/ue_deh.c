@@ -274,8 +274,12 @@ DBG_Trace(DBG_LEVEL6, "WMD_DEH_Notify: DSP_MMUFAULT, "
 		}
 
 		/* Filter subsequent notifications when an error occurs */
-		if (pDevContext->dwBrdState != BRD_ERROR)
+		if (pDevContext->dwBrdState != BRD_ERROR) {
 			NTFY_Notify(pDehMgr->hNtfy, ulEventMask);
+#ifdef CONFIG_BRIDGE_RECOVERY
+			bridge_recover_schedule();
+#endif
+		}
 
 		/* Set the Board state as ERROR */
 		pDevContext->dwBrdState = BRD_ERROR;
