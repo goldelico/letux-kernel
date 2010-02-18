@@ -58,7 +58,6 @@
 /*  ----------------------------------- This */
 #include <dspbridge/proc.h>
 #include <dspbridge/pwr.h>
-#include <mach-omap2/omap3-opp.h>
 
 #include <dspbridge/resourcecleanup.h>
 /*  ----------------------------------- Defines, Data Structures, Typedefs */

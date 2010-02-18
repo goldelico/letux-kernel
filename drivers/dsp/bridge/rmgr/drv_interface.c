@@ -69,7 +69,6 @@
 #include <dspbridge/drv.h>
 
 #include <mach/omap-pm.h>
-#include <mach-omap2/omap3-opp.h>
 
 #define BRIDGE_NAME "C6410"
 /*  ----------------------------------- Globals */
