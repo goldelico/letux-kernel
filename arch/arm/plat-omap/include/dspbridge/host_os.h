@@ -70,6 +70,7 @@ struct dspbridge_platform_data {
 #define PRCM_VDD1 1
 
 extern struct platform_device *omap_dspbridge_dev;
+extern struct device *bridge;
 
 #if defined(CONFIG_MPU_BRIDGE) || defined(CONFIG_MPU_BRIDGE_MODULE)
 extern void dspbridge_reserve_sdram(void);
