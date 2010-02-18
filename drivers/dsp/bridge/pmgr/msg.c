@@ -42,9 +42,6 @@
 #include <dspbridge/msg.h>
 
 /*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask MSG_debugMask = { NULL, NULL };	/* GT trace variable */
-#endif
 static u32 cRefs;		/* module reference count */
 
 /*
@@ -130,11 +127,6 @@ void MSG_Exit(void)
 bool MSG_Init(void)
 {
 	DBC_Require(cRefs >= 0);
-
-	if (cRefs == 0) {
-		DBC_Assert(!MSG_debugMask.flags);
-		GT_create(&MSG_debugMask, "MS");	/* "MS" for MSg */
-	}
 
 	cRefs++;
 

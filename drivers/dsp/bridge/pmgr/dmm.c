@@ -63,10 +63,6 @@ struct DMM_OBJECT {
 
 
 /*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask DMM_debugMask = { NULL, NULL };	/* GT trace variable */
-#endif
-
 static u32 cRefs;		/* module reference count */
 struct MapPage {
 	u64   RegionSize:31;
@@ -257,12 +253,6 @@ bool DMM_Init(void)
 	bool fRetval = true;
 
 	DBC_Require(cRefs >= 0);
-
-	if (cRefs == 0) {
-		/* Set the Trace mask */
-		/*"DM" for Dymanic Memory Manager */
-		GT_create(&DMM_debugMask, "DM");
-	}
 
 	if (fRetval)
 		cRefs++;

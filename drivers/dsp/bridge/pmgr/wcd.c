@@ -81,9 +81,6 @@ struct WCD_Cmd {
 } ;
 
 /*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask WCD_debugMask = { NULL, NULL };	/* Core VxD Mask */
-#endif
 static u32 WCD_cRefs;
 
 /*
@@ -237,19 +234,8 @@ bool WCD_Init(void)
 	bool fInit = true;
 	bool fDRV, fDEV, fCOD, fCHNL, fMSG, fIO;
 	bool fMGR, fPROC, fNODE, fDISP, fSTRM, fRMM;
-#ifdef DEBUG
-	/* runtime check of Device IOCtl array. */
-	u32 i;
-	int cmdtable = ARRAY_SIZE(WCD_cmdTable);
 
-	for (i = 1; i < cmdtable; i++)
-		DBC_Assert(WCD_cmdTable[i - 1].dwIndex == i);
-
-#endif
 	if (WCD_cRefs == 0) {
-		/* initialize debugging module */
-		DBC_Assert(!WCD_debugMask.flags);
-		GT_create(&WCD_debugMask, "CD");    /* CD for class driver */
 		/* initialize class driver and other modules */
 		fDRV = DRV_Init();
 		fMGR = MGR_Init();

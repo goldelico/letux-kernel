@@ -76,10 +76,6 @@ struct COD_LIBRARYOBJ {
 
 static u32 cRefs = 0L;
 
-#if GT_TRACE
-static struct GT_Mask COD_debugMask = { NULL, NULL };
-#endif
-
 static struct DBLL_Fxns dbllFxns = {
 	(DBLL_CloseFxn) DBLL_close,
 	(DBLL_CreateFxn) DBLL_create,
@@ -477,11 +473,6 @@ bool COD_Init(void)
 	bool fRetVal = true;
 
 	DBC_Require(cRefs >= 0);
-
-	if (cRefs == 0) {
-		DBC_Assert(!COD_debugMask.flags);
-		GT_create(&COD_debugMask, "CO");
-	}
 
 	if (fRetVal)
 		cRefs++;

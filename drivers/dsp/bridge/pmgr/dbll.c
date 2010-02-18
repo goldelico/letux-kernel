@@ -199,10 +199,6 @@ static u16 nameHash(void *name, u16 maxBucket);
 static bool nameMatch(void *name, void *sp);
 static void symDelete(void *sp);
 
-#if GT_TRACE
-static struct GT_Mask DBLL_debugMask = { NULL, NULL };  /* GT trace variable */
-#endif
-
 static u32 cRefs; 		/* module reference count */
 
 /* Symbol Redefinition */
@@ -302,12 +298,8 @@ void DBLL_exit(void)
 
 	cRefs--;
 
-	if (cRefs == 0) {
+	if (cRefs == 0)
 		GH_exit();
-#if GT_TRACE
-		DBLL_debugMask.flags = NULL;
-#endif
-	}
 
 	DBC_Ensure(cRefs >= 0);
 }
@@ -455,11 +447,8 @@ bool DBLL_init(void)
 {
 	DBC_Require(cRefs >= 0);
 
-	if (cRefs == 0) {
-		DBC_Assert(!DBLL_debugMask.flags);
-		GT_create(&DBLL_debugMask, "DL"); 	/* "DL" for dbDL */
+	if (cRefs == 0)
 		GH_init();
-	}
 
 	cRefs++;
 

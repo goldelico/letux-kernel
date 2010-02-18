@@ -43,10 +43,6 @@
 /*  ----------------------------------- Globals */
 static u32 cRefs;
 
-#if GT_TRACE
-static struct GT_Mask IO_DebugMask = { NULL, NULL };	/* WCD IO Mask */
-#endif
-
 /*
  *  ======== IO_Create ========
  *  Purpose:
@@ -141,11 +137,6 @@ bool IO_Init(void)
 	bool fRetval = true;
 
 	DBC_Require(cRefs >= 0);
-
-	if (cRefs == 0) {
-		DBC_Assert(!IO_DebugMask.flags);
-		GT_create(&IO_DebugMask, "IO");	/* "IO" for IO */
-	}
 
 	if (fRetval)
 		cRefs++;

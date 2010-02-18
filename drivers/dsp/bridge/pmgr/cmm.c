@@ -144,10 +144,6 @@ struct CMM_MNODE {
 
 
 /*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask CMM_debugMask = { NULL, NULL };	/* GT trace variable */
-#endif
-
 static u32 cRefs;		/* module reference count */
 
 /*  ----------------------------------- Function Prototypes */
@@ -527,11 +523,6 @@ bool CMM_Init(void)
 	bool fRetval = true;
 
 	DBC_Require(cRefs >= 0);
-	if (cRefs == 0) {
-		/* Set the Trace mask */
-		/* "CM" for Comm Memory manager */
-		GT_create(&CMM_debugMask, "CM");
-	}
 	if (fRetval)
 		cRefs++;
 
