@@ -180,31 +180,31 @@ static DSP_STATUS DRV_ProcFreeNodeRes(HANDLE hPCtxt)
 DSP_STATUS DRV_InsertDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
 {
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	struct DMM_RES_OBJECT **pDMMRes = (struct DMM_RES_OBJECT **)hDMMRes;
+	struct DMM_MAP_OBJECT **pDMMRes = (struct DMM_MAP_OBJECT **)hDMMRes;
 	DSP_STATUS	status = DSP_SOK;
-	struct DMM_RES_OBJECT *pTempDMMRes = NULL;
+	struct DMM_MAP_OBJECT *pTempDMMRes = NULL;
 
-	*pDMMRes = (struct DMM_RES_OBJECT *)
-		    MEM_Calloc(1 * sizeof(struct DMM_RES_OBJECT), MEM_PAGED);
+	*pDMMRes = (struct DMM_MAP_OBJECT *)
+		    MEM_Calloc(1 * sizeof(struct DMM_MAP_OBJECT), MEM_PAGED);
 	if (*pDMMRes == NULL)
 		status = DSP_EHANDLE;
 
 	if (DSP_SUCCEEDED(status)) {
-		if (mutex_lock_interruptible(&pCtxt->dmm_mutex)) {
+		if (mutex_lock_interruptible(&pCtxt->dmm_map_mutex)) {
 			kfree(*pDMMRes);
 			return DSP_EFAIL;
 		}
 
-		if (pCtxt->pDMMList != NULL) {
-			pTempDMMRes = pCtxt->pDMMList;
-			while (pTempDMMRes->next != NULL)
+		if (pCtxt->dmm_map_list) {
+			pTempDMMRes = pCtxt->dmm_map_list;
+			while (pTempDMMRes->next)
 				pTempDMMRes = pTempDMMRes->next;
 
 			pTempDMMRes->next = *pDMMRes;
 		} else {
-			pCtxt->pDMMList = *pDMMRes;
+			pCtxt->dmm_map_list = *pDMMRes;
 		}
-		mutex_unlock(&pCtxt->dmm_mutex);
+		mutex_unlock(&pCtxt->dmm_map_mutex);
 	}
 
 	return status;
@@ -215,15 +215,15 @@ DSP_STATUS DRV_InsertDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
 DSP_STATUS DRV_RemoveDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
 {
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	struct DMM_RES_OBJECT *pDMMRes = (struct DMM_RES_OBJECT *)hDMMRes;
-	struct DMM_RES_OBJECT *pTempDMMRes = NULL;
+	struct DMM_MAP_OBJECT *pDMMRes = (struct DMM_MAP_OBJECT *)hDMMRes;
+	struct DMM_MAP_OBJECT *pTempDMMRes = NULL;
 	DSP_STATUS status = DSP_SOK;
 
-	if (mutex_lock_interruptible(&pCtxt->dmm_mutex))
+	if (mutex_lock_interruptible(&pCtxt->dmm_map_mutex))
 		return DSP_EFAIL;
-	pTempDMMRes = pCtxt->pDMMList;
-	if (pCtxt->pDMMList == pDMMRes) {
-		pCtxt->pDMMList = pDMMRes->next;
+	pTempDMMRes = pCtxt->dmm_map_list;
+	if (pCtxt->dmm_map_list == pDMMRes) {
+		pCtxt->dmm_map_list = pDMMRes->next;
 	} else {
 		while (pTempDMMRes && pTempDMMRes->next != pDMMRes)
 			pTempDMMRes = pTempDMMRes->next;
@@ -232,7 +232,7 @@ DSP_STATUS DRV_RemoveDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
 		else
 			pTempDMMRes->next = pDMMRes->next;
 	}
-	mutex_unlock(&pCtxt->dmm_mutex);
+	mutex_unlock(&pCtxt->dmm_map_mutex);
 	kfree(pDMMRes);
 	return status;
 }
@@ -242,14 +242,14 @@ DSP_STATUS DRV_UpdateDMMResElement(HANDLE hDMMRes, u32 pMpuAddr, u32 ulSize,
 				  u32 pReqAddr, u32 pMapAddr,
 				  HANDLE hProcessor)
 {
-	struct DMM_RES_OBJECT *pDMMRes = (struct DMM_RES_OBJECT *)hDMMRes;
+	struct DMM_MAP_OBJECT *pDMMRes = (struct DMM_MAP_OBJECT *)hDMMRes;
 	DSP_STATUS status = DSP_SOK;
 
 	DBC_Assert(hDMMRes != NULL);
 	pDMMRes->ulMpuAddr = pMpuAddr;
 	pDMMRes->ulDSPAddr = pMapAddr;
 	pDMMRes->ulDSPResAddr = pReqAddr;
-	pDMMRes->dmmSize = ulSize;
+	pDMMRes->size = ulSize;
 	pDMMRes->hProcessor = hProcessor;
 	pDMMRes->dmmAllocated = 1;
 
@@ -261,10 +261,10 @@ DSP_STATUS  DRV_ProcFreeDMMRes(HANDLE hPCtxt)
 {
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
 	DSP_STATUS status = DSP_SOK;
-	struct DMM_RES_OBJECT *pDMMList = pCtxt->pDMMList;
-	struct DMM_RES_OBJECT *pDMMRes = NULL;
+	struct DMM_MAP_OBJECT *pDMMList = pCtxt->dmm_map_list;
+	struct DMM_MAP_OBJECT *pDMMRes = NULL;
 
-	while (pDMMList != NULL) {
+	while (pDMMList) {
 		pDMMRes = pDMMList;
 		pDMMList = pDMMList->next;
 		if (pDMMRes->dmmAllocated) {
@@ -290,38 +290,38 @@ DSP_STATUS DRV_RemoveAllDMMResElements(HANDLE hPCtxt)
 {
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
 	DSP_STATUS status = DSP_SOK;
-	struct DMM_RES_OBJECT *pTempDMMRes2 = NULL;
-	struct DMM_RES_OBJECT *pTempDMMRes = NULL;
+	struct DMM_MAP_OBJECT *pTempDMMRes2 = NULL;
+	struct DMM_MAP_OBJECT *pTempDMMRes = NULL;
 
 	DRV_ProcFreeDMMRes(pCtxt);
-	pTempDMMRes = pCtxt->pDMMList;
+	pTempDMMRes = pCtxt->dmm_map_list;
 	while (pTempDMMRes != NULL) {
 		pTempDMMRes2 = pTempDMMRes;
 		pTempDMMRes = pTempDMMRes->next;
 		kfree(pTempDMMRes2);
 	}
-	pCtxt->pDMMList = NULL;
+	pCtxt->dmm_map_list = NULL;
 	return status;
 }
 
 DSP_STATUS DRV_GetDMMResElement(u32 pMapAddr, HANDLE hDMMRes, HANDLE hPCtxt)
 {
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	struct DMM_RES_OBJECT **pDMMRes = (struct DMM_RES_OBJECT **)hDMMRes;
+	struct DMM_MAP_OBJECT **pDMMRes = (struct DMM_MAP_OBJECT **)hDMMRes;
 	DSP_STATUS status = DSP_SOK;
-	struct DMM_RES_OBJECT *pTempDMM = NULL;
+	struct DMM_MAP_OBJECT *pTempDMM = NULL;
 
-	if (mutex_lock_interruptible(&pCtxt->dmm_mutex))
+	if (mutex_lock_interruptible(&pCtxt->dmm_map_mutex))
 		return DSP_EFAIL;
 
-	pTempDMM = pCtxt->pDMMList;
-	while ((pTempDMM != NULL) && (pTempDMM->ulDSPAddr != pMapAddr))
+	pTempDMM = pCtxt->dmm_map_list;
+	while (pTempDMM && (pTempDMM->ulDSPAddr != pMapAddr))
 		pTempDMM = pTempDMM->next;
 
-	mutex_unlock(&pCtxt->dmm_mutex);
+	mutex_unlock(&pCtxt->dmm_map_mutex);
 
 
-	if (pTempDMM != NULL)
+	if (pTempDMM)
 		*pDMMRes = pTempDMM;
 	else
 		status = DSP_ENOTFOUND;

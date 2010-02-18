@@ -87,15 +87,15 @@ struct NODE_RES_OBJECT {
 	struct NODE_RES_OBJECT         *next;
 } ;
 
-/* New structure (member of process context) abstracts DMM resource info */
-struct DMM_RES_OBJECT {
+/* Abstracts DMM resource info */
+struct DMM_MAP_OBJECT {
 	s32            dmmAllocated; /* DMM status */
 	u32           ulMpuAddr;
 	u32           ulDSPAddr;
 	u32           ulDSPResAddr;
-	u32           dmmSize;
+	u32           size;
 	HANDLE          hProcessor;
-	struct DMM_RES_OBJECT  *next;
+	struct DMM_MAP_OBJECT  *next;
 } ;
 
 /* New structure (member of process context) abstracts DMM resource info */
@@ -136,9 +136,9 @@ struct PROCESS_CONTEXT{
 	struct NODE_RES_OBJECT *pNodeList;
 	struct mutex node_mutex;
 
-	/* DMM resources */
-	struct DMM_RES_OBJECT *pDMMList;
-	struct mutex dmm_mutex;
+	/* DMM mapped memory resources */
+	struct DMM_MAP_OBJECT *dmm_map_list;
+	struct mutex dmm_map_mutex;
 
 	/* DSP Heap resources */
 	struct DSPHEAP_RES_OBJECT *pDSPHEAPList;
