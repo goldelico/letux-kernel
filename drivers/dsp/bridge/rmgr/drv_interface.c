@@ -127,10 +127,8 @@ static int omap34xxbridge_suspend_lockout(
 
 #endif
 
-#ifdef CONFIG_BRIDGE_DEBUG
 module_param(dsp_debug, int, 0);
 MODULE_PARM_DESC(dsp_debug, "Wait after loading DSP image. default = false");
-#endif
 #ifdef CONFIG_BRIDGE_RECOVERY
 module_param(firmware_file, charp, 0644);
 #endif

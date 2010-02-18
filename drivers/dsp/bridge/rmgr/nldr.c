@@ -530,11 +530,9 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 				rmmSegs[i].length = (pMemInfo + i)->len;
 				rmmSegs[i].space = 0;
 				pNldr->segTable[i] = (pMemInfo + i)->type;
-#ifdef CONFIG_BRIDGE_DEBUG
 				dev_dbg(bridge, "(proc) DLL MEMSEGMENT: %d, "
 					"Base: 0x%x, Length: 0x%x\n", i,
 					rmmSegs[i].base, rmmSegs[i].length);
-#endif
 			}
 		}
 	}

@@ -772,9 +772,7 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 	struct DMM_OBJECT *hDmmMgr;
 	u32 dwExtEnd;
 	u32 uProcId;
-#ifdef CONFIG_BRIDGE_DEBUG
 	int uBrdState;
-#endif
 
 #ifdef OPT_LOAD_TIME_INSTRUMENTATION
 	struct timeval tv1;
@@ -968,7 +966,6 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 	/* Restore the original argv[0] */
 	kfree(newEnvp);
 	aArgv[0] = pargv0;
-#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
 		   (pProcObject->hWmdContext, &uBrdState))) {
@@ -976,12 +973,11 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 			DBC_Assert(uBrdState == BRD_LOADED);
 		}
 	}
-#endif
+
 func_end:
-#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status))
 		pr_err("%s: Processor failed to load\n", __func__);
-#endif
+
 	DBC_Ensure((DSP_SUCCEEDED(status) && pProcObject->sState == PROC_LOADED)
 		   || DSP_FAILED(status));
 #ifdef OPT_LOAD_TIME_INSTRUMENTATION
@@ -1197,9 +1193,8 @@ DSP_STATUS PROC_Start(void *hProcessor)
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
 	struct COD_MANAGER *hCodMgr;	/* Code manager handle    */
 	u32 dwDspAddr;	/* Loaded code's entry point.    */
-#ifdef CONFIG_BRIDGE_DEBUG
 	int uBrdState;
-#endif
+
 	DBC_Require(cRefs > 0);
 
 	/* Call the WMD_BRD_Start */
@@ -1240,7 +1235,6 @@ DSP_STATUS PROC_Start(void *hProcessor)
 		pProcObject->sState = PROC_STOPPED;
 	}
 func_cont:
-#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
 		   (pProcObject->hWmdContext, &uBrdState))) {
@@ -1250,7 +1244,7 @@ func_cont:
 	} else {
 		pr_err("%s: Failed to start the dsp\n", __func__);
 	}
-#endif
+
 func_end:
 	DBC_Ensure((DSP_SUCCEEDED(status) && pProcObject->sState ==
 		  PROC_RUNNING)	|| DSP_FAILED(status));
@@ -1307,12 +1301,10 @@ DSP_STATUS PROC_Stop(void *hProcessor)
 				MSG_Delete(hMsgMgr);
 				DEV_SetMsgMgr(pProcObject->hDevObject, NULL);
 			}
-#ifdef CONFIG_BRIDGE_DEBUG
 			if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->
 			   pfnBrdStatus)(pProcObject->hWmdContext,
 			   &uBrdState)))
 				DBC_Assert(uBrdState == BRD_STOPPED);
-#endif
 		}
 	} else {
 		pr_err("%s: Failed to stop the processor\n", __func__);
@@ -1444,9 +1436,7 @@ static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *pProcObject)
 {
 	DSP_STATUS status = DSP_EFAIL;
 	struct MSG_MGR *hMsgMgr;
-#ifdef CONFIG_BRIDGE_DEBUG
 	int uBrdState;
-#endif
 
 	DBC_Require(cRefs > 0);
 
@@ -1465,17 +1455,13 @@ static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *pProcObject)
 	if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdMonitor)
 	   (pProcObject->hWmdContext))) {
 		status = DSP_SOK;
-#ifdef CONFIG_BRIDGE_DEBUG
 		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
 		   (pProcObject->hWmdContext, &uBrdState)))
 			DBC_Assert(uBrdState == BRD_IDLE);
-#endif
 	}
 
-#ifdef CONFIG_BRIDGE_DEBUG
 	DBC_Ensure((DSP_SUCCEEDED(status) && uBrdState == BRD_IDLE) ||
 		  DSP_FAILED(status));
-#endif
 	return status;
 }
 

@@ -99,10 +99,8 @@ DSP_STATUS CFG_GetDevObject(struct CFG_DEVNODE *hDevNode, OUT u32 *pdwValue)
 			status = REG_GetValue("DEVICE_DSP", (u8 *)pdwValue,
 						&dwBufSize);
 	}
-#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status))
 		pr_err("%s: Failed, status 0x%x\n", __func__, status);
-#endif
 	return status;
 }
 
@@ -128,14 +126,12 @@ DSP_STATUS CFG_GetDSPResources(struct CFG_DEVNODE *hDevNode,
 		status = CFG_E_RESOURCENOTAVAIL;
 		pr_err("%s: Failed, status 0x%x\n", __func__, status);
 	}
-#ifdef CONFIG_BRIDGE_DEBUG
 	/* assert that resource values are reasonable */
 	DBC_Assert(pDSPResTable->uChipType < 256);
 	DBC_Assert(pDSPResTable->uWordSize > 0);
 	DBC_Assert(pDSPResTable->uWordSize < 32);
 	DBC_Assert(pDSPResTable->cChips > 0);
 	DBC_Assert(pDSPResTable->cChips < 256);
-#endif
 	return status;
 }
 
@@ -163,10 +159,8 @@ DSP_STATUS CFG_GetExecFile(struct CFG_DEVNODE *hDevNode, u32 ulBufSize,
 			status = DSP_ESIZE;
 
 	}
-#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status))
 		pr_err("%s: Failed, status 0x%x\n", __func__, status);
-#endif
 	DBC_Ensure(((status == DSP_SOK) &&
 		(strlen(pstrExecFile) <= ulBufSize)) || (status != DSP_SOK));
 	return status;
@@ -196,10 +190,8 @@ DSP_STATUS CFG_GetHostResources(struct CFG_DEVNODE *hDevNode,
 			status = CFG_E_RESOURCENOTAVAIL;
 		}
 	}
-#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status))
 		dev_dbg(bridge, "%s Failed, status 0x%x\n", __func__, status);
-#endif
 	return status;
 }
 
@@ -283,10 +275,9 @@ DSP_STATUS CFG_SetDevObject(struct CFG_DEVNODE *hDevNode, u32 dwValue)
 						dwBuffSize);
 		}
 	}
-#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status))
 		pr_err("%s: Failed, status 0x%x\n", __func__, status);
-#endif
+
 	return status;
 }
 
@@ -311,9 +302,7 @@ DSP_STATUS CFG_SetObject(u32 dwValue, u32 dwType)
 	default:
 		break;
 	}
-#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status))
 		pr_err("%s: Failed, status 0x%x\n", __func__, status);
-#endif
 	return status;
 }

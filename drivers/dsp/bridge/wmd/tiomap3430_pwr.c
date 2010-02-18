@@ -284,9 +284,6 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 DSP_STATUS WakeDSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 {
 #ifdef CONFIG_PM
-#ifdef CONFIG_BRIDGE_DEBUG
-	enum HW_PwrState_t pwrState;
-#endif /* CONFIG_BRIDGE_DEBUG */
 
 	/* Check the BRD/WMD state, if it is not 'SLEEP' then return failure */
 	if (pDevContext->dwBrdState == BRD_RUNNING ||
@@ -298,11 +295,6 @@ DSP_STATUS WakeDSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 
 	/* Send a wakeup message to DSP */
 	sm_interrupt_dsp(pDevContext, MBX_PM_DSPWAKEUP);
-
-#ifdef CONFIG_BRIDGE_DEBUG
-	HW_PWR_IVA2StateGet(pDevContext->prmbase, HW_PWR_DOMAIN_DSP,
-			&pwrState);
-#endif /* CONFIG_BRIDGE_DEBUG */
 
 	/* Set the device state to RUNNIG */
 	pDevContext->dwBrdState = BRD_RUNNING;

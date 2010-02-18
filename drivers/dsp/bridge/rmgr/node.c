@@ -53,9 +53,7 @@
 
 /*  ----------------------------------- Others */
 #include <dspbridge/gb.h>
-#ifdef CONFIG_BRIDGE_DEBUG
 #include <dspbridge/uuidutil.h>
-#endif
 
 /*  ----------------------------------- This */
 #include <dspbridge/nodepriv.h>
@@ -2802,9 +2800,7 @@ static DSP_STATUS GetNodeProps(struct DCD_MANAGER *hDcdMgr,
 	enum NODE_TYPE nodeType = NODE_TASK;
 	struct DSP_NDBPROPS *pndbProps = &(pdcdProps->objData.nodeObj.ndbProps);
 	DSP_STATUS status = DSP_SOK;
-#ifdef CONFIG_BRIDGE_DEBUG
 	char szUuid[MAXUUIDLEN];
-#endif
 
 	status = DCD_GetObjectDef(hDcdMgr, (struct DSP_UUID *)pNodeId,
 				 DSP_DCDNODETYPE, pdcdProps);
@@ -2812,12 +2808,10 @@ static DSP_STATUS GetNodeProps(struct DCD_MANAGER *hDcdMgr,
 	if (DSP_SUCCEEDED(status)) {
 		hNode->nType = nodeType = pndbProps->uNodeType;
 
-#ifdef CONFIG_BRIDGE_DEBUG
 		/* Create UUID value to set in registry. */
 		UUID_UuidToString((struct DSP_UUID *)pNodeId, szUuid,
 				 MAXUUIDLEN);
 		dev_dbg(bridge, "(node) UUID: %s\n", szUuid);
-#endif
 
 		/* Fill in message args that come from NDB */
 		if (nodeType != NODE_DEVICE) {
@@ -2826,10 +2820,8 @@ static DSP_STATUS GetNodeProps(struct DCD_MANAGER *hDcdMgr,
 			pMsgArgs->uNotifyType = pdcdProps->objData.nodeObj.
 						uMsgNotifyType;
 			pMsgArgs->uMaxMessages = pndbProps->uMessageDepth;
-#ifdef CONFIG_BRIDGE_DEBUG
 			dev_dbg(bridge, "(node) Max Number of Messages: 0x%x\n",
 				 pMsgArgs->uMaxMessages);
-#endif
 		} else {
 			/* Copy device name */
 			DBC_Require(pndbProps->acName);
@@ -2852,7 +2844,6 @@ static DSP_STATUS GetNodeProps(struct DCD_MANAGER *hDcdMgr,
 			pTaskArgs->uStackSize = pndbProps->uStackSize;
 			pTaskArgs->uSysStackSize = pndbProps->uSysStackSize;
 			pTaskArgs->uStackSeg = pndbProps->uStackSeg;
-#ifdef CONFIG_BRIDGE_DEBUG
 			dev_dbg(bridge, "(node) Priority: 0x%x Stack Size: "
 				"0x%x words System Stack Size: 0x%x words "
 				"Stack Segment: 0x%x profile count : 0x%x\n",
@@ -2860,7 +2851,6 @@ static DSP_STATUS GetNodeProps(struct DCD_MANAGER *hDcdMgr,
 				pTaskArgs->uSysStackSize,
 				pTaskArgs->uStackSeg,
 				pndbProps->uCountProfiles);
-#endif
 		}
 	}
 
