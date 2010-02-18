@@ -549,6 +549,8 @@ static int __devexit omap_kp_remove(struct platform_device *pdev)
 	/* unregister everything */
 	input_unregister_device(omap_kp->input);
 
+	device_remove_file(&pdev->dev, &dev_attr_enable);
+
 	kfree(omap_kp);
 
 	return 0;
