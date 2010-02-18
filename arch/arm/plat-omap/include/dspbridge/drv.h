@@ -87,16 +87,11 @@ struct NODE_RES_OBJECT {
 	struct NODE_RES_OBJECT         *next;
 } ;
 
-/* Abstracts DMM resource info */
+/* Used for DMM mapped memory accounting */
 struct DMM_MAP_OBJECT {
-	s32            dmmAllocated; /* DMM status */
-	u32           ulMpuAddr;
-	u32           ulDSPAddr;
-	u32           ulDSPResAddr;
-	u32           size;
-	HANDLE          hProcessor;
-	struct DMM_MAP_OBJECT  *next;
-} ;
+	struct	list_head	link;
+	u32	dsp_addr;
+};
 
 /* Used for DMM reserved memory accounting */
 struct DMM_RSV_OBJECT {
@@ -143,8 +138,8 @@ struct PROCESS_CONTEXT{
 	struct mutex node_mutex;
 
 	/* DMM mapped memory resources */
-	struct DMM_MAP_OBJECT *dmm_map_list;
-	struct mutex dmm_map_mutex;
+	struct list_head dmm_map_list;
+	spinlock_t dmm_map_lock;
 
 	/* DMM reserved memory resources */
 	struct list_head dmm_rsv_list;
@@ -394,19 +389,6 @@ struct PROCESS_CONTEXT{
  */
 	extern DSP_STATUS DRV_ReleaseResources(IN u32 dwContext,
 					       struct DRV_OBJECT *hDrvObject);
-
-/*
- *  ======== DRV_ProcFreeDMMRes ========
- *  Purpose:
- *       Actual DMM De-Allocation.
- *  Parameters:
- *      hPCtxt:      Path to the driver Registry Key.
- *  Returns:
- *      DSP_SOK if success;
- */
-
-
-	extern DSP_STATUS  DRV_ProcFreeDMMRes(HANDLE hPCtxt);
 
 #ifdef CONFIG_BRIDGE_RECOVERY
 	void bridge_recover_schedule(void);

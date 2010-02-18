@@ -526,7 +526,8 @@ static int bridge_open(struct inode *ip, struct file *filp)
 	pr_ctxt = MEM_Calloc(sizeof(struct PROCESS_CONTEXT), MEM_PAGED);
 	if (pr_ctxt) {
 		pr_ctxt->resState = PROC_RES_ALLOCATED;
-		mutex_init(&pr_ctxt->dmm_map_mutex);
+		spin_lock_init(&pr_ctxt->dmm_map_lock);
+		INIT_LIST_HEAD(&pr_ctxt->dmm_map_list);
 		spin_lock_init(&pr_ctxt->dmm_rsv_lock);
 		INIT_LIST_HEAD(&pr_ctxt->dmm_rsv_list);
 		mutex_init(&pr_ctxt->node_mutex);

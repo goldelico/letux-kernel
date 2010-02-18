@@ -175,153 +175,33 @@ static DSP_STATUS DRV_ProcFreeNodeRes(HANDLE hPCtxt)
 	return status;
 }
 
-/* Allocate the DMM resource element
-* This is called from Proc_Map. after the actual resource is allocated */
-DSP_STATUS DRV_InsertDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
-{
-	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	struct DMM_MAP_OBJECT **pDMMRes = (struct DMM_MAP_OBJECT **)hDMMRes;
-	DSP_STATUS	status = DSP_SOK;
-	struct DMM_MAP_OBJECT *pTempDMMRes = NULL;
-
-	*pDMMRes = (struct DMM_MAP_OBJECT *)
-		    MEM_Calloc(1 * sizeof(struct DMM_MAP_OBJECT), MEM_PAGED);
-	if (*pDMMRes == NULL)
-		status = DSP_EHANDLE;
-
-	if (DSP_SUCCEEDED(status)) {
-		if (mutex_lock_interruptible(&pCtxt->dmm_map_mutex)) {
-			kfree(*pDMMRes);
-			return DSP_EFAIL;
-		}
-
-		if (pCtxt->dmm_map_list) {
-			pTempDMMRes = pCtxt->dmm_map_list;
-			while (pTempDMMRes->next)
-				pTempDMMRes = pTempDMMRes->next;
-
-			pTempDMMRes->next = *pDMMRes;
-		} else {
-			pCtxt->dmm_map_list = *pDMMRes;
-		}
-		mutex_unlock(&pCtxt->dmm_map_mutex);
-	}
-
-	return status;
-}
-
-/* Release DMM resource element context
-* This is called from Proc_UnMap. after the actual resource is freed */
-DSP_STATUS DRV_RemoveDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
-{
-	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	struct DMM_MAP_OBJECT *pDMMRes = (struct DMM_MAP_OBJECT *)hDMMRes;
-	struct DMM_MAP_OBJECT *pTempDMMRes = NULL;
-	DSP_STATUS status = DSP_SOK;
-
-	if (mutex_lock_interruptible(&pCtxt->dmm_map_mutex))
-		return DSP_EFAIL;
-	pTempDMMRes = pCtxt->dmm_map_list;
-	if (pCtxt->dmm_map_list == pDMMRes) {
-		pCtxt->dmm_map_list = pDMMRes->next;
-	} else {
-		while (pTempDMMRes && pTempDMMRes->next != pDMMRes)
-			pTempDMMRes = pTempDMMRes->next;
-		if (!pTempDMMRes)
-			status = DSP_ENOTFOUND;
-		else
-			pTempDMMRes->next = pDMMRes->next;
-	}
-	mutex_unlock(&pCtxt->dmm_map_mutex);
-	kfree(pDMMRes);
-	return status;
-}
-
-/* Update DMM resource status */
-DSP_STATUS DRV_UpdateDMMResElement(HANDLE hDMMRes, u32 pMpuAddr, u32 ulSize,
-				  u32 pReqAddr, u32 pMapAddr,
-				  HANDLE hProcessor)
-{
-	struct DMM_MAP_OBJECT *pDMMRes = (struct DMM_MAP_OBJECT *)hDMMRes;
-	DSP_STATUS status = DSP_SOK;
-
-	DBC_Assert(hDMMRes != NULL);
-	pDMMRes->ulMpuAddr = pMpuAddr;
-	pDMMRes->ulDSPAddr = pMapAddr;
-	pDMMRes->ulDSPResAddr = pReqAddr;
-	pDMMRes->size = ulSize;
-	pDMMRes->hProcessor = hProcessor;
-	pDMMRes->dmmAllocated = 1;
-
-	return status;
-}
-
-/* Actual DMM De-Allocation */
-DSP_STATUS  DRV_ProcFreeDMMRes(HANDLE hPCtxt)
-{
-	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	DSP_STATUS status = DSP_SOK;
-	struct DMM_MAP_OBJECT *pDMMList = pCtxt->dmm_map_list;
-	struct DMM_MAP_OBJECT *pDMMRes = NULL;
-
-	while (pDMMList) {
-		pDMMRes = pDMMList;
-		pDMMList = pDMMList->next;
-		if (pDMMRes->dmmAllocated) {
-			/* PROC_UnMap will free pDMMRes pointer */
-			status = PROC_UnMap(pDMMRes->hProcessor,
-				 (void *)pDMMRes->ulDSPAddr, pCtxt);
-			if (DSP_FAILED(status))
-				pr_debug("%s: PROC_UnMap failed! status ="
-						" 0x%xn", __func__, status);
-		}
-	}
-	return status;
-}
-
 /* Release all Mapped and Reserved DMM resources */
 DSP_STATUS DRV_RemoveAllDMMResElements(HANDLE hPCtxt)
 {
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
 	DSP_STATUS status = DSP_SOK;
-	struct DMM_RSV_OBJECT *temp, *rsv_obj;
+	struct DMM_MAP_OBJECT *temp_map, *map_obj;
+	struct DMM_RSV_OBJECT *temp_rsv, *rsv_obj;
 
-	DRV_ProcFreeDMMRes(pCtxt);
-	pCtxt->dmm_map_list = NULL;
+	/* Free DMM mapped memory resources */
+	list_for_each_entry_safe(map_obj, temp_map, &pCtxt->dmm_map_list,
+			link) {
+		status = PROC_UnMap(pCtxt->hProcessor,
+				(void *)map_obj->dsp_addr, pCtxt);
+		if (DSP_FAILED(status))
+			pr_err("%s: PROC_UnMap failed!"
+					" status = 0x%xn", __func__, status);
+	}
 
 	/* Free DMM reserved memory resources */
-	list_for_each_entry_safe(rsv_obj, temp, &pCtxt->dmm_rsv_list, link) {
+	list_for_each_entry_safe(rsv_obj, temp_rsv, &pCtxt->dmm_rsv_list,
+			link) {
 		status = PROC_UnReserveMemory(pCtxt->hProcessor,
 				(void *)rsv_obj->dsp_reserved_addr, pCtxt);
 		if (DSP_FAILED(status))
 			pr_err("%s: PROC_UnReserveMemory failed!"
 					" status = 0x%xn", __func__, status);
 	}
-	return status;
-}
-
-DSP_STATUS DRV_GetDMMResElement(u32 pMapAddr, HANDLE hDMMRes, HANDLE hPCtxt)
-{
-	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	struct DMM_MAP_OBJECT **pDMMRes = (struct DMM_MAP_OBJECT **)hDMMRes;
-	DSP_STATUS status = DSP_SOK;
-	struct DMM_MAP_OBJECT *pTempDMM = NULL;
-
-	if (mutex_lock_interruptible(&pCtxt->dmm_map_mutex))
-		return DSP_EFAIL;
-
-	pTempDMM = pCtxt->dmm_map_list;
-	while (pTempDMM && (pTempDMM->ulDSPAddr != pMapAddr))
-		pTempDMM = pTempDMM->next;
-
-	mutex_unlock(&pCtxt->dmm_map_mutex);
-
-
-	if (pTempDMM)
-		*pDMMRes = pTempDMM;
-	else
-		status = DSP_ENOTFOUND;
-
 	return status;
 }
 

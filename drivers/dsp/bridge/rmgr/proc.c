@@ -1023,8 +1023,7 @@ DSP_STATUS PROC_Map(void *hProcessor, void *pMpuAddr, u32 ulSize,
 	u32 sizeAlign;
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
-
-       HANDLE        dmmRes;
+	struct DMM_MAP_OBJECT *map_obj;
 
 	GT_6trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Map, args:\n\t"
 		 "hProcessor %x, pMpuAddr %x, ulSize %x, pReqAddr %x, "
@@ -1073,11 +1072,23 @@ DSP_STATUS PROC_Map(void *hProcessor, void *pMpuAddr, u32 ulSize,
 	}
 	(void)SYNC_LeaveCS(hProcLock);
 
-	if (DSP_SUCCEEDED(status)) {
-		DRV_InsertDMMResElement(&dmmRes, pr_ctxt);
-		DRV_UpdateDMMResElement(dmmRes, (u32)pMpuAddr, ulSize,
-				(u32)pReqAddr, (u32)*ppMapAddr, hProcessor);
+	if (DSP_FAILED(status))
+		goto func_end;
+
+	/*
+	 * A successful map should be followed by insertion of map_obj
+	 * into dmm_map_list, so that mapped memory resource tracking
+	 * remains uptodate
+	 */
+	map_obj = kmalloc(sizeof(struct DMM_MAP_OBJECT), GFP_KERNEL);
+	if (map_obj) {
+		map_obj->dsp_addr = (u32)*ppMapAddr;
+		spin_lock(&pr_ctxt->dmm_map_lock);
+		list_add(&map_obj->link, &pr_ctxt->dmm_map_list);
+		spin_unlock(&pr_ctxt->dmm_map_lock);
 	}
+
+func_end:
 	GT_1trace(PROC_DebugMask, GT_ENTER, "Leaving PROC_Map [0x%x]", status);
 	return status;
 }
@@ -1343,8 +1354,7 @@ DSP_STATUS PROC_UnMap(void *hProcessor, void *pMapAddr,
 	struct DMM_OBJECT *hDmmMgr;
 	u32 vaAlign;
 	u32 sizeAlign;
-
-	HANDLE	      dmmRes;
+	struct DMM_MAP_OBJECT *map_obj;
 
 	GT_2trace(PROC_DebugMask, GT_ENTER,
 		 "Entered PROC_UnMap, args:\n\thProcessor:"
@@ -1372,9 +1382,21 @@ DSP_STATUS PROC_UnMap(void *hProcessor, void *pMapAddr,
 	if (DSP_FAILED(status))
 		goto func_end;
 
-	if (DRV_GetDMMResElement((u32)pMapAddr, &dmmRes, pr_ctxt)
-							!= DSP_ENOTFOUND)
-		DRV_RemoveDMMResElement(dmmRes, pr_ctxt);
+	/*
+	 * A successful unmap should be followed by removal of map_obj
+	 * from dmm_map_list, so that mapped memory resource tracking
+	 * remains uptodate
+	 */
+	spin_lock(&pr_ctxt->dmm_map_lock);
+	list_for_each_entry(map_obj, &pr_ctxt->dmm_map_list, link) {
+		if (map_obj->dsp_addr == (u32)pMapAddr) {
+			list_del(&map_obj->link);
+			kfree(map_obj);
+			break;
+		}
+	}
+	spin_unlock(&pr_ctxt->dmm_map_lock);
+
 func_end:
 	GT_1trace(PROC_DebugMask, GT_ENTER,
 		 "Leaving PROC_UnMap [0x%x]", status);
