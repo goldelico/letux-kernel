@@ -67,8 +67,6 @@ struct DCD_MANAGER {
 static u32 cRefs;
 static u32 cEnumRefs;
 
-extern struct GT_Mask curTrace;
-
 /* Helper function prototypes. */
 static s32 Atoi(char *pszBuf);
 static DSP_STATUS GetAttrsFromBuf(char *pszBuf, u32 ulBufSize,

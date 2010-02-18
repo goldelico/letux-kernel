@@ -81,11 +81,6 @@ struct DISP_OBJECT {
 
 static u32 cRefs;
 
-/* Debug msgs: */
-#if GT_TRACE
-static struct GT_Mask DISP_DebugMask = { NULL, NULL };
-#endif
-
 static void DeleteDisp(struct DISP_OBJECT *hDisp);
 static DSP_STATUS FillStreamDef(RMS_WORD *pdwBuf, u32 *ptotal, u32 offset,
 				struct NODE_STRMDEF strmDef, u32 max,
@@ -218,11 +213,6 @@ bool DISP_Init(void)
 	bool fRetVal = true;
 
 	DBC_Require(cRefs >= 0);
-
-	if (cRefs == 0) {
-		DBC_Assert(!DISP_DebugMask.flags);
-		GT_create(&DISP_DebugMask, "DI");  /* "DI" for DIspatcher */
-	}
 
 	if (fRetVal)
 		cRefs++;

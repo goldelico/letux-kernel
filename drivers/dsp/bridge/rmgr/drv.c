@@ -66,10 +66,6 @@ struct DRV_EXT {
 /*  ----------------------------------- Globals */
 static s32 cRefs;
 
-#if GT_TRACE
-extern struct GT_Mask curTrace;
-#endif
-
 /*  ----------------------------------- Function Prototypes */
 static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 fRequest);
 static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 fRequest);

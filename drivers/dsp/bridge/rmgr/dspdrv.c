@@ -44,9 +44,6 @@
 /*  ----------------------------------- This */
 #include <dspbridge/dspdrv.h>
 
-/*  ----------------------------------- Globals */
-struct GT_Mask curTrace;
-
 /*
  *  ======== DSP_Init ========
  *  	Allocates bridge resources. Loads a base image onto DSP, if specified.
@@ -58,8 +55,6 @@ u32 DSP_Init(OUT u32 *initStatus)
 	struct DRV_OBJECT *drvObject = NULL;
 	u32 deviceNode;
 	u32 deviceNodeString;
-
-	GT_create(&curTrace, "DD");
 
 	if (!WCD_Init())
 		goto func_cont;

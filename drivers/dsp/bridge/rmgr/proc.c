@@ -80,9 +80,6 @@
 extern char *iva_img;
 
 /*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask PROC_DebugMask = { NULL, NULL };	/* WCD MGR Mask */
-#endif
 
 /* The PROC_OBJECT structure.   */
 struct PROC_OBJECT {
@@ -740,13 +737,8 @@ bool PROC_Init(void)
 
 	DBC_Require(cRefs >= 0);
 
-	if (cRefs == 0) {
-		/* Set the Trace mask */
-		DBC_Assert(!PROC_DebugMask.flags);
-		GT_create(&PROC_DebugMask, "PR");  /* "PR" for Processor */
-
+	if (cRefs == 0)
 		(void)SYNC_InitializeCS(&hProcLock);
-	}
 
 	if (fRetval)
 		cRefs++;

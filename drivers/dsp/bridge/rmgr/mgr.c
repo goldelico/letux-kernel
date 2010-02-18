@@ -50,10 +50,6 @@ struct MGR_OBJECT {
 };
 
 /*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask MGR_DebugMask = { NULL, NULL };
-#endif
-
 static u32 cRefs;
 
 /*
@@ -355,11 +351,6 @@ bool MGR_Init(void)
 	DBC_Require(cRefs >= 0);
 
 	if (cRefs == 0) {
-
-		/* Set the Trace mask */
-		DBC_Assert(!MGR_DebugMask.flags);
-
-		GT_create(&MGR_DebugMask, "MG");	/* "MG" for Manager */
 		fInitDCD = DCD_Init();	/*  DCD Module */
 
 		if (!fInitDCD)

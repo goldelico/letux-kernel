@@ -266,10 +266,6 @@ static u32 Ovly(void *pPrivRef, u32 ulDspRunAddr, u32 ulDspLoadAddr,
 static u32 Write(void *pPrivRef, u32 ulDspAddr, void *pBuf,
 			u32 ulNumBytes, u32 nMemSpace);
 
-#if GT_TRACE
-static struct GT_Mask NODE_debugMask = { NULL, NULL };  /* GT trace variable */
-#endif
-
 #ifdef DSP_DMM_DEBUG
 extern u32 DMM_MemMapDump(struct DMM_OBJECT *hDmmMgr);
 #endif
@@ -1893,11 +1889,6 @@ enum NODE_TYPE NODE_GetType(struct NODE_OBJECT *hNode)
 bool NODE_Init(void)
 {
 	DBC_Require(cRefs >= 0);
-
-	if (cRefs == 0) {
-		DBC_Assert(!NODE_debugMask.flags);
-		GT_create(&NODE_debugMask, "NO");	/* "NO" for NOde */
-	}
 
 	cRefs++;
 

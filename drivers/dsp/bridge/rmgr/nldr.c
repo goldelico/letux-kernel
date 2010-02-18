@@ -292,7 +292,6 @@ static struct DBLL_Fxns dbllFxns = {
 	(DBLL_UnloadSectFxn) DBLL_unloadSect,
 };
 
-static struct GT_Mask NLDR_debugMask = { NULL, NULL };	/* GT trace variable */
 static u32 cRefs;		/* module reference count */
 
 static DSP_STATUS AddOvlyInfo(void *handle, struct DBLL_SectInfo *sectInfo,
@@ -674,10 +673,8 @@ void NLDR_Exit(void)
 
 	cRefs--;
 
-	if (cRefs == 0) {
+	if (cRefs == 0)
 		RMM_exit();
-		NLDR_debugMask.flags = NULL;
-	}
 
 	DBC_Ensure(cRefs >= 0);
 }
@@ -796,12 +793,8 @@ bool NLDR_Init(void)
 {
 	DBC_Require(cRefs >= 0);
 
-	if (cRefs == 0) {
-		DBC_Assert(!NLDR_debugMask.flags);
-		GT_create(&NLDR_debugMask, "NL");	/* "NL" for NLdr */
-
+	if (cRefs == 0)
 		RMM_init();
-	}
 
 	cRefs++;
 

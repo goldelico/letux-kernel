@@ -91,9 +91,6 @@ struct STRM_MGR {
 } ;
 
 /*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask STRM_debugMask = { NULL, NULL };	/* GT trace variable */
-#endif
 static u32 cRefs;		/* module reference count */
 
 /*  ----------------------------------- Function Prototypes */
@@ -393,13 +390,6 @@ bool STRM_Init(void)
 	bool fRetVal = true;
 
 	DBC_Require(cRefs >= 0);
-
-	if (cRefs == 0) {
-#if GT_TRACE
-		DBC_Assert(!STRM_debugMask.flags);
-		GT_create(&STRM_debugMask, "ST");	/* "ST" for STrm */
-#endif
-	}
 
 	if (fRetVal)
 		cRefs++;
