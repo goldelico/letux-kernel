@@ -34,6 +34,7 @@
 #include <linux/platform_device.h>
 #include <linux/mutex.h>
 #include <linux/errno.h>
+#include <linux/clk.h>
 #include <mach/gpio.h>
 #include <plat/keypad.h>
 #include <plat/menelaus.h>
@@ -85,6 +86,7 @@ static int kp_cur_group = -1;
 struct omap_kp {
 	struct input_dev *input;
 	struct timer_list timer;
+	struct clk *cclk;
 	int irq;
 	unsigned int rows;
 	unsigned int cols;
@@ -367,6 +369,15 @@ static int __devinit omap_kp_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	if (cpu_is_omap44xx()) {
+		omap_kp->cclk = clk_get(NULL, "keyboard_ck");
+		if (IS_ERR(omap_kp->cclk))
+			goto err0;
+		ret = clk_enable(omap_kp->cclk);
+		if (ret)
+			printk(KERN_ERR " Unable to get keyboard_ck \n");
+	}
+
 	platform_set_drvdata(pdev, omap_kp);
 
 	omap_kp->input = input_dev;
@@ -511,7 +522,8 @@ err2:
 err1:
 	for (i = col_idx - 1; i >=0; i--)
 		gpio_free(col_gpios[i]);
-
+	clk_put(omap_kp->cclk);
+err0:
 	kfree(omap_kp);
 	input_free_device(input_dev);
 
@@ -545,6 +557,11 @@ static int __devexit omap_kp_remove(struct platform_device *pdev)
 
 	del_timer_sync(&omap_kp->timer);
 	tasklet_kill(&kp_tasklet);
+
+	if (cpu_is_omap44xx()) {
+		clk_disable(omap_kp->cclk);
+		clk_put(omap_kp->cclk);
+	}
 
 	/* unregister everything */
 	input_unregister_device(omap_kp->input);
