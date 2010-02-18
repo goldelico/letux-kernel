@@ -188,6 +188,9 @@ static int imx046_sensor_power_set(struct v4l2_int_device *s, enum v4l2_power po
 		 */
 		omap_pm_set_min_bus_tput(vdev->cam->isp, OCP_INITIATOR_AGENT, 355163);
 
+		/* Hold a constraint to keep MPU in C1 */
+		omap_pm_set_max_mpu_wakeup_lat(vdev->cam->isp, 12);
+
 		isp_csi2_reset(&isp->isp_csi2);
 
 		lanecfg.clk.pol = IMX046_CSI2_CLOCK_POLARITY;
@@ -258,7 +261,9 @@ static int imx046_sensor_power_set(struct v4l2_int_device *s, enum v4l2_power po
 				VAUX_DEV_GRP_NONE, TWL4030_VAUX2_DEV_GRP);
 		gpio_free(IMX046_RESET_GPIO);
 
+		/* Remove pm constraints */
 		omap_pm_set_min_bus_tput(vdev->cam->isp, OCP_INITIATOR_AGENT, 0);
+		omap_pm_set_max_mpu_wakeup_lat(vdev->cam->isp, -1);
 
 		/* Make sure not to disable the MCLK twice in a row */
 		if (previous_power == V4L2_POWER_ON)
