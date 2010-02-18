@@ -864,6 +864,7 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	struct isp_buf *buf;
 	unsigned long flags;
 	u32 irqstatus = 0;
+	u32 irqenable = 0;
 	u32 sbl_pcr;
 	int wait_hs_vs = 0;
 	int ret;
@@ -874,6 +875,9 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 
 	irqstatus = isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 	isp_reg_writel(dev, irqstatus, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+
+	irqenable = isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE);
+	irqstatus &= irqenable;
 
 	/* Handle first LSC states */
 	if ((irqstatus & LSC_PRE_ERR) || (irqstatus & LSC_DONE) ||
