@@ -1180,7 +1180,6 @@ no_page_table:
 	}
 	return page;
 }
-EXPORT_SYMBOL_GPL(follow_page);
 
 /* Can we do the FOLL_ANON optimization? */
 static inline int use_zero_page(struct vm_area_struct *vma)
