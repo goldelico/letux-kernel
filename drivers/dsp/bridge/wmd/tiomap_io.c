@@ -22,7 +22,6 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/dbg.h>
 
 /*  ----------------------------------- Platform Manager */
 #include <dspbridge/dev.h>

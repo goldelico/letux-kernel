@@ -32,8 +32,6 @@
 /* Assertion Macros: */
 #if GT_TRACE
 
-#include <dspbridge/gt.h>
-
 #define DBC_Assert(exp) 						       \
 do {									       \
 	if (!(exp))							       \

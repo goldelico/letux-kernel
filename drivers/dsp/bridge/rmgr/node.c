@@ -26,7 +26,6 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
@@ -56,7 +55,6 @@
 #include <dspbridge/gb.h>
 #ifdef CONFIG_BRIDGE_DEBUG
 #include <dspbridge/uuidutil.h>
-#include <dspbridge/dbg.h>
 #endif
 
 /*  ----------------------------------- This */

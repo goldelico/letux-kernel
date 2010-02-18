@@ -23,9 +23,6 @@
 #include <dspbridge/drv.h>
 #include <dspbridge/io_sm.h>
 
-/*  ----------------------------------- Trace & Debug */
-#include <dspbridge/dbg.h>
-
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
 

@@ -23,10 +23,6 @@
 #include <dspbridge/errbase.h>
 
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
-#ifdef CONFIG_BRIDGE_DEBUG
-#include <dspbridge/dbg.h>
-#endif
 
 /* OS adaptation layer */
 #include <dspbridge/mem.h>
