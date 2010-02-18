@@ -527,6 +527,8 @@ static int bridge_open(struct inode *ip, struct file *filp)
 	if (pr_ctxt) {
 		pr_ctxt->resState = PROC_RES_ALLOCATED;
 		mutex_init(&pr_ctxt->dmm_map_mutex);
+		spin_lock_init(&pr_ctxt->dmm_rsv_lock);
+		INIT_LIST_HEAD(&pr_ctxt->dmm_rsv_list);
 		mutex_init(&pr_ctxt->node_mutex);
 		mutex_init(&pr_ctxt->strm_mutex);
 	} else {

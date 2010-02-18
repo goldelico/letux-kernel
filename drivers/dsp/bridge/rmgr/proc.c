@@ -1154,11 +1154,12 @@ DSP_STATUS PROC_RegisterNotify(void *hProcessor, u32 uEventMask,
  *      Reserve a virtually contiguous region of DSP address space.
  */
 DSP_STATUS PROC_ReserveMemory(void *hProcessor, u32 ulSize,
-			     void **ppRsvAddr)
+		     void **ppRsvAddr, struct PROCESS_CONTEXT *pr_ctxt)
 {
 	struct DMM_OBJECT *hDmmMgr;
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
+	struct DMM_RSV_OBJECT *rsv_obj;
 
 	GT_3trace(PROC_DebugMask, GT_ENTER,
 		 "Entered PROC_ReserveMemory, args:\n\t"
@@ -1169,6 +1170,23 @@ DSP_STATUS PROC_ReserveMemory(void *hProcessor, u32 ulSize,
 	if (DSP_SUCCEEDED(status))
 		status = DMM_ReserveMemory(hDmmMgr, ulSize, (u32 *)ppRsvAddr);
 
+	if (status != DSP_SOK)
+		goto func_end;
+
+	/*
+	 * A successful reserve should be followed by insertion of rsv_obj
+	 * into dmm_rsv_list, so that reserved memory resource tracking
+	 * remains uptodate
+	 */
+	rsv_obj = kmalloc(sizeof(struct DMM_RSV_OBJECT), GFP_KERNEL);
+	if (rsv_obj) {
+		rsv_obj->dsp_reserved_addr = (u32) *ppRsvAddr;
+		spin_lock(&pr_ctxt->dmm_rsv_lock);
+		list_add(&rsv_obj->link, &pr_ctxt->dmm_rsv_list);
+		spin_unlock(&pr_ctxt->dmm_rsv_lock);
+	}
+
+func_end:
 	GT_1trace(PROC_DebugMask, GT_ENTER, "Leaving PROC_ReserveMemory [0x%x]",
 		 status);
 	return status;
@@ -1368,11 +1386,13 @@ func_end:
  *  Purpose:
  *      Frees a previously reserved region of DSP address space.
  */
-DSP_STATUS PROC_UnReserveMemory(void *hProcessor, void *pRsvAddr)
+DSP_STATUS PROC_UnReserveMemory(void *hProcessor, void *pRsvAddr,
+		struct PROCESS_CONTEXT *pr_ctxt)
 {
 	struct DMM_OBJECT *hDmmMgr;
 	DSP_STATUS status = DSP_SOK;
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
+	struct DMM_RSV_OBJECT *rsv_obj;
 
 	GT_2trace(PROC_DebugMask, GT_ENTER,
 		 "Entered PROC_UnReserveMemory, args:\n\t"
@@ -1381,6 +1401,25 @@ DSP_STATUS PROC_UnReserveMemory(void *hProcessor, void *pRsvAddr)
 	status = DMM_GetHandle(pProcObject, &hDmmMgr);
 	if (DSP_SUCCEEDED(status))
 		status = DMM_UnReserveMemory(hDmmMgr, (u32) pRsvAddr);
+
+	if (status != DSP_SOK)
+		goto func_end;
+
+	/*
+	 * A successful unreserve should be followed by removal of rsv_obj
+	 * from dmm_rsv_list, so that reserved memory resource tracking
+	 * remains uptodate
+	 */
+	spin_lock(&pr_ctxt->dmm_rsv_lock);
+	list_for_each_entry(rsv_obj, &pr_ctxt->dmm_rsv_list, link) {
+		if (rsv_obj->dsp_reserved_addr == (u32)pRsvAddr) {
+			list_del(&rsv_obj->link);
+			kfree(rsv_obj);
+			break;
+		}
+	}
+	spin_unlock(&pr_ctxt->dmm_rsv_lock);
+func_end:
 
 	GT_1trace(PROC_DebugMask, GT_ENTER,
 		 "Leaving PROC_UnReserveMemory [0x%x]",

@@ -273,25 +273,20 @@ DSP_STATUS  DRV_ProcFreeDMMRes(HANDLE hPCtxt)
 			if (DSP_FAILED(status))
 				pr_debug("%s: PROC_UnMap failed! status ="
 						" 0x%xn", __func__, status);
-			status = PROC_UnReserveMemory(pDMMRes->hProcessor,
-				 (void *)pDMMRes->ulDSPResAddr);
-			if (DSP_FAILED(status))
-				pr_debug("%s: PROC_UnReserveMemory failed!"
-					" status = 0x%xn", __func__, status);
 			pDMMRes->dmmAllocated = 0;
 		}
 	}
 	return status;
 }
 
-/* Release all DMM resources and its context
-* This is called from .bridge_release. */
+/* Release all Mapped and Reserved DMM resources */
 DSP_STATUS DRV_RemoveAllDMMResElements(HANDLE hPCtxt)
 {
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
 	DSP_STATUS status = DSP_SOK;
 	struct DMM_MAP_OBJECT *pTempDMMRes2 = NULL;
 	struct DMM_MAP_OBJECT *pTempDMMRes = NULL;
+	struct DMM_RSV_OBJECT *temp, *rsv_obj;
 
 	DRV_ProcFreeDMMRes(pCtxt);
 	pTempDMMRes = pCtxt->dmm_map_list;
@@ -301,6 +296,15 @@ DSP_STATUS DRV_RemoveAllDMMResElements(HANDLE hPCtxt)
 		kfree(pTempDMMRes2);
 	}
 	pCtxt->dmm_map_list = NULL;
+
+	/* Free DMM reserved memory resources */
+	list_for_each_entry_safe(rsv_obj, temp, &pCtxt->dmm_rsv_list, link) {
+		status = PROC_UnReserveMemory(pCtxt->hProcessor,
+				(void *)rsv_obj->dsp_reserved_addr, pCtxt);
+		if (DSP_FAILED(status))
+			pr_err("%s: PROC_UnReserveMemory failed!"
+					" status = 0x%xn", __func__, status);
+	}
 	return status;
 }
 

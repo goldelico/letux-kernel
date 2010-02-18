@@ -446,7 +446,7 @@ DSP_STATUS NODE_Allocate(struct PROC_OBJECT *hProcessor,
 	status = PROC_ReserveMemory(hProcessor,
 			pNode->createArgs.asa.taskArgs.uHeapSize + PAGE_SIZE,
 			(void **)&(pNode->createArgs.asa.taskArgs.
-				uDSPHeapResAddr));
+				uDSPHeapResAddr), pr_ctxt);
 	if (DSP_FAILED(status)) {
 		pr_err("%s: Failed to reserve memory for heap: 0x%x\n",
 							__func__, status);
@@ -2510,7 +2510,8 @@ static void DeleteNode(struct NODE_OBJECT *hNode,
 					   pr_ctxt);
 
 			status = PROC_UnReserveMemory(hNode->hProcessor,
-					(void *)taskArgs.uDSPHeapResAddr);
+					(void *)taskArgs.uDSPHeapResAddr,
+					pr_ctxt);
 
 #ifdef DSP_DMM_DEBUG
 			status = DMM_GetHandle(pProcObject, &hDmmMgr);

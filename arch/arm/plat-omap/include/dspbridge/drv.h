@@ -98,6 +98,12 @@ struct DMM_MAP_OBJECT {
 	struct DMM_MAP_OBJECT  *next;
 } ;
 
+/* Used for DMM reserved memory accounting */
+struct DMM_RSV_OBJECT {
+	struct	list_head	link;
+	u32	dsp_reserved_addr;
+};
+
 /* New structure (member of process context) abstracts DMM resource info */
 struct DSPHEAP_RES_OBJECT {
 	s32            heapAllocated; /* DMM status */
@@ -139,6 +145,10 @@ struct PROCESS_CONTEXT{
 	/* DMM mapped memory resources */
 	struct DMM_MAP_OBJECT *dmm_map_list;
 	struct mutex dmm_map_mutex;
+
+	/* DMM reserved memory resources */
+	struct list_head dmm_rsv_list;
+	spinlock_t dmm_rsv_lock;
 
 	/* DSP Heap resources */
 	struct DSPHEAP_RES_OBJECT *pDSPHEAPList;
