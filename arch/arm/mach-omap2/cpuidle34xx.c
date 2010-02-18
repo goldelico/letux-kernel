@@ -75,6 +75,20 @@ static int omap3_idle_bm_check(void)
 	return 0;
 }
 
+static int _cpuidle_allow_idle(struct powerdomain *pwrdm,
+				struct clockdomain *clkdm)
+{
+	omap2_clkdm_allow_idle(clkdm);
+	return 0;
+}
+
+static int _cpuidle_deny_idle(struct powerdomain *pwrdm,
+				struct clockdomain *clkdm)
+{
+	omap2_clkdm_deny_idle(clkdm);
+	return 0;
+}
+
 static int pwrdm_get_idle_state(struct powerdomain *pwrdm)
 {
 	if (pwrdm_can_idle(pwrdm))
@@ -145,10 +159,18 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 	if (omap_irq_pending() || need_resched())
 		goto return_sleep_time;
 
+	if (cx->type == OMAP3_STATE_C1) {
+		pwrdm_for_each_clkdm(mpu_pd, _cpuidle_deny_idle);
+		pwrdm_for_each_clkdm(core_pd, _cpuidle_deny_idle);
+	}
 
 	/* Execute ARM wfi */
 	omap_sram_idle();
 
+	if (cx->type == OMAP3_STATE_C1) {
+		pwrdm_for_each_clkdm(mpu_pd, _cpuidle_allow_idle);
+		pwrdm_for_each_clkdm(core_pd, _cpuidle_allow_idle);
+	}
 
 return_sleep_time:
 	getnstimeofday(&ts_postidle);
