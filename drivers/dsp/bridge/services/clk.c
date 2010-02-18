@@ -89,11 +89,6 @@ struct TIMER_OBJECT {
 	struct timer_list timer;
 };
 
-/*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask CLK_debugMask = { NULL, NULL };	/* GT trace variable */
-#endif
-
 /*
  *  ======== CLK_Exit ========
  *  Purpose:
@@ -124,7 +119,6 @@ bool CLK_Init(void)
 	static struct platform_device dspbridge_device;
 	struct clk *clk_handle;
 	int i = 0;
-	GT_create(&CLK_debugMask, "CK");	/* CK for CLK */
 
 	dspbridge_device.dev.bus = &platform_bus_type;
 

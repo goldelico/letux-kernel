@@ -36,10 +36,6 @@
 #include <dspbridge/reg.h>
 #include <regsup.h>
 
-#if GT_TRACE
-struct GT_Mask REG_debugMask = { NULL, NULL };	/* GT trace var. */
-#endif
-
 struct SYNC_CSOBJECT *reglock;		/* For critical sections */
 
 static unsigned int crefs;		/* module counter */

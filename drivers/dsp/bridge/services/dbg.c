@@ -28,11 +28,6 @@
 /*  ----------------------------------- This */
 #include <dspbridge/dbg.h>
 
-/*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask DBG_debugMask = { NULL, NULL };	/* GT trace var. */
-#endif
-
 #if (defined(CONFIG_BRIDGE_DEBUG) || defined(DDSP_DEBUG_PRODUCT)) && GT_TRACE
 
 /*
@@ -42,8 +37,6 @@ static struct GT_Mask DBG_debugMask = { NULL, NULL };	/* GT trace var. */
  */
 bool DBG_Init(void)
 {
-	GT_create(&DBG_debugMask, "WD");     /* for WmD (link driver) debug */
-
 	return true;
 }
 
@@ -69,7 +62,7 @@ DSP_STATUS DBG_Trace(u8 bLevel, char *pstrFormat, ...)
 
 	va_end(va);
 
-	if (bLevel & *(DBG_debugMask).flags)
+	if (bLevel)
 		printk(pstrFormat, arg1, arg2, arg3, arg4, arg5, arg6);
 
 	return DSP_SOK;

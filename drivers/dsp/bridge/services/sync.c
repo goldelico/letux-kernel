@@ -67,11 +67,6 @@ struct SYNC_DPCCSOBJECT {
 	s32 count;
 } ;
 
-/*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask SYNC_debugMask = { NULL, NULL };  /* GT trace variable */
-#endif
-
 static int test_and_set(volatile void *ptr, int val)
 {
 	int ret = val;
@@ -123,8 +118,6 @@ void SYNC_Exit(void)
  */
 bool SYNC_Init(void)
 {
-	GT_create(&SYNC_debugMask, "SY");	/* SY for SYnc */
-
 	return true;
 }
 

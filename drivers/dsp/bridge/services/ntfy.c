@@ -66,11 +66,6 @@ struct NOTIFICATION {
 	struct SYNC_OBJECT *hSync;
 };
 
-/*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask NTFY_debugMask = { NULL, NULL };  /* GT trace variable */
-#endif
-
 /*  ----------------------------------- Function Prototypes */
 static void DeleteNotify(struct NOTIFICATION *pNotify);
 
@@ -158,8 +153,6 @@ void NTFY_Exit(void)
  */
 bool NTFY_Init(void)
 {
-	GT_create(&NTFY_debugMask, "NY");	/* "NY" for NtfY */
-
 	return true;
 }
 

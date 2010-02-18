@@ -38,11 +38,6 @@
 /*  ----------------------------------- This */
 #include <dspbridge/services.h>
 
-/*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask SERVICES_debugMask = { NULL, NULL };  /* GT trace var. */
-#endif
-
 /*
  *  ======== SERVICES_Exit ========
  *  Purpose:
@@ -75,7 +70,6 @@ bool SERVICES_Init(void)
 	bool fREG, fSYNC, fCLK, fNTFY;
 
 	GT_init();
-	GT_create(&SERVICES_debugMask, "OS");	/* OS for OSal */
 
 	/* Perform required initialization of SERVICES modules. */
 	fMEM = MEM_Init();

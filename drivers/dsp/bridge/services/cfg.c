@@ -36,11 +36,6 @@ struct DRV_EXT {
 	char szString[MAXREGPATHLENGTH];
 };
 
-/*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask CFG_debugMask = { NULL, NULL };	/* CFG debug Mask */
-#endif
-
 /*
  *  ======== CFG_Exit ========
  *  Purpose:
@@ -252,7 +247,6 @@ DSP_STATUS CFG_GetObject(OUT u32 *pdwValue, u32 dwType)
 bool CFG_Init(void)
 {
 	struct CFG_DSPRES dspResources;
-	GT_create(&CFG_debugMask, "CF");	/* CF for ConFig */
 
 	dspResources.uChipType = DSPTYPE_64;
 	dspResources.cChips = 1;

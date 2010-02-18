@@ -45,10 +45,6 @@ struct RegValue {
 /*  Pointer to the registry support key  */
 static struct LST_LIST regKey, *pRegKey = &regKey;
 
-#if GT_TRACE
-extern struct GT_Mask REG_debugMask;	/* GT trace var. */
-#endif
-
 /*
  *  ======== regsupInit ========
  *  Purpose:
