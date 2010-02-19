@@ -2708,8 +2708,11 @@ static struct omap_hwmod_sysconfig omap44xx_gptimer1_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.sysc_fields	= &omap_hwmod_sysc_type1,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET | SYSC_HAS_EMUFREE | SYSC_HAS_AUTOIDLE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY |
+			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_EMUFREE | SYSC_HAS_AUTOIDLE |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_gptimer1_hwmod = {
@@ -2764,8 +2767,11 @@ static struct omap_hwmod_sysconfig omap44xx_gptimer10_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.sysc_fields	= &omap_hwmod_sysc_type1,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET | SYSC_HAS_EMUFREE | SYSC_HAS_AUTOIDLE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY |
+			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_EMUFREE | SYSC_HAS_AUTOIDLE |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_gptimer10_hwmod = {
@@ -2820,8 +2826,9 @@ static struct omap_hwmod_sysconfig omap44xx_gptimer11_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_gptimer11_hwmod = {
@@ -2878,8 +2885,11 @@ static struct omap_hwmod_sysconfig omap44xx_gptimer2_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.sysc_fields	= &omap_hwmod_sysc_type1,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET | SYSC_HAS_EMUFREE | SYSC_HAS_AUTOIDLE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY |
+			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_EMUFREE | SYSC_HAS_AUTOIDLE |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_gptimer2_hwmod = {
@@ -2934,8 +2944,9 @@ static struct omap_hwmod_sysconfig omap44xx_gptimer3_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_gptimer3_hwmod = {
@@ -2990,8 +3001,9 @@ static struct omap_hwmod_sysconfig omap44xx_gptimer4_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_gptimer4_hwmod = {
@@ -3046,8 +3058,9 @@ static struct omap_hwmod_sysconfig omap44xx_gptimer5_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_gptimer5_hwmod = {
@@ -3102,8 +3115,9 @@ static struct omap_hwmod_sysconfig omap44xx_gptimer6_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_gptimer6_hwmod = {
@@ -3214,8 +3228,9 @@ static struct omap_hwmod_sysconfig omap44xx_gptimer8_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_gptimer8_hwmod = {
@@ -3270,8 +3285,9 @@ static struct omap_hwmod_sysconfig omap44xx_gptimer9_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_gptimer9_hwmod = {
