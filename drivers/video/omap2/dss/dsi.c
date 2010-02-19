@@ -3318,9 +3318,6 @@ static void dsi_display_disable(struct omap_dss_device *dssdev)
 	dsi_bus_lock();
 
 	dsi.error_recovery.enabled = false;
-	cancel_work_sync(&dsi.error_recovery.work);
-
-	complete_all(&dsi.update_completion);
 
 	if (dssdev->state == OMAP_DSS_DISPLAY_DISABLED ||
 			dssdev->state == OMAP_DSS_DISPLAY_SUSPENDED)
@@ -3353,9 +3350,6 @@ static int dsi_display_suspend(struct omap_dss_device *dssdev)
 	dsi_bus_lock();
 
 	dsi.error_recovery.enabled = false;
-	cancel_work_sync(&dsi.error_recovery.work);
-
-	complete_all(&dsi.update_completion);
 
 	if (dssdev->state == OMAP_DSS_DISPLAY_DISABLED ||
 			dssdev->state == OMAP_DSS_DISPLAY_SUSPENDED)
