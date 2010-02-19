@@ -56,7 +56,7 @@ static int omap_clk_for_each_child(struct clk *clk, unsigned long parent_rate,
 					     u8 rate_storage))
 {
 	struct clk_child *child;
-	int ret;
+	int ret = 0;
 
 	list_for_each_entry(child, &clk->children, node) {
 		ret = (*cb)(child->clk, parent_rate, rate_storage);
