@@ -476,8 +476,10 @@ static int omap_wdt_suspend(struct platform_device *pdev, pm_message_t state)
 	struct omap_wdt_dev *wdev = platform_get_drvdata(pdev);
 
 	if (wdev->omap_wdt_users) {
+#ifdef CONFIG_OMAP_WATCHDOG_AUTOPET
 		wdev->jiffies_exp -= jiffies - wdev->jiffies_start;
 		del_timer(&wdev->autopet_timer);
+#endif
 		omap_wdt_disable(wdev);
 	}
 
@@ -489,7 +491,9 @@ static int omap_wdt_resume(struct platform_device *pdev)
 	struct omap_wdt_dev *wdev = platform_get_drvdata(pdev);
 
 	if (wdev->omap_wdt_users) {
+#ifdef CONFIG_OMAP_WATCHDOG_AUTOPET
 		mod_timer(&wdev->autopet_timer, jiffies + wdev->jiffies_exp);
+#endif
 		omap_wdt_enable(wdev);
 	}
 
