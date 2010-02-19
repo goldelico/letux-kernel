@@ -1440,12 +1440,7 @@ static int omapfb_alloc_fbmem_display(struct fb_info *fbi, unsigned long size,
 			DBG("adjusting fb mem size for VRFB, %u -> %lu\n",
 					w * h * bytespp, size);
 		} else {
-#ifdef CONFIG_PVR_OMAP_DSS2
-		/* pvr drivers require double buffered fb */
-		size = w * h * bytespp * 2 + 8192;
-#else
-		size = w * h * bytespp;
-#endif
+			size = w * h * bytespp;
 		}
 	}
 
