@@ -65,7 +65,7 @@ struct twlreg_info {
 static inline int
 twl4030reg_read(struct twlreg_info *info, unsigned offset)
 {
-	u8 value;
+	u8 uninitialized_var(value);
 	int status;
 
 	status = twl4030_i2c_read_u8(TWL4030_MODULE_PM_RECEIVER,
