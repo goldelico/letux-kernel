@@ -1278,7 +1278,9 @@ static irqreturn_t sr_omap_irq(int irq, void *dev_id)
 static int __init omap3_sr_init(void)
 {
 	int ret = 0;
-	u8 RdReg;
+#ifdef CONFIG_TWL4030_CORE
+	u8 uninitialized_var(RdReg);
+#endif
 	u32 current_opp_no;
 
 	/* Exit if OPP tables are not defined */
