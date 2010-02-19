@@ -1818,26 +1818,6 @@ static long __video_do_ioctl(struct file *file,
 		break;
 	}
 
-	/*---------------Color space conversion------------------------------*/
-	case VIDIOC_S_COL_SPC_CONV:
-	{
-		struct v4l2_color_space_conversion *p = arg;
-		if (!ops->vidioc_s_color_space_conv)
-			break;
-
-		ret = ops->vidioc_s_color_space_conv(file, fh, p);
-		break;
-	}
-
-	case VIDIOC_G_COL_SPC_CONV:
-	{
-		struct v4l2_color_space_conversion *p = arg;
-		if (!ops->vidioc_g_color_space_conv)
-			break;
-		ret = ops->vidioc_g_color_space_conv(file, fh, p);
-		break;
-	}
-
 	default:
 	{
 		if (!ops->vidioc_default)
