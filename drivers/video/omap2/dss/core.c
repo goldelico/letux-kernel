@@ -445,7 +445,8 @@ static int omap_dss_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_FB_OMAP_BOOTLOADER_INIT
 	/* DISPC_CONTROL */
-	skip_init = 1;
+	if (omap_readl(0x48050440) & 1)	/* LCD enabled? */
+		skip_init = 1;
 #endif
 
 	r = dss_init(skip_init);
