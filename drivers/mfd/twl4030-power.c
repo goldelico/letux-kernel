@@ -185,7 +185,7 @@ static int __init config_wakeup12_sequence(u8 address)
 
 	if (machine_is_omap_3430sdp() || machine_is_omap_ldp() ||
 	    machine_is_omap_zoom2() || machine_is_omap_zoom3()) {
-		u8 data;
+		u8 uninitialized_var(data);
 		/* Disabling AC charger effect on sleep-active transitions */
 		err |= twl4030_i2c_read_u8(TWL4030_MODULE_PM_MASTER, &data,
 						R_CFG_P1_TRANSITION);
@@ -227,7 +227,7 @@ static int __init config_warmreset_sequence(u8 address)
 {
 
 	int err = 0;
-	u8 rd_data;
+	u8 uninitialized_var(rd_data);
 
 	/* Set WARM RESET SEQ address for P1 */
 	err |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, address,
@@ -261,7 +261,7 @@ static int __init config_warmreset_sequence(u8 address)
 void twl4030_configure_resource(struct twl4030_resconfig *rconfig)
 {
 	int rconfig_addr;
-	u8 type;
+	u8 uninitialized_var(type);
 
 	if (rconfig->resource > NUM_OF_RESOURCES) {
 		printk(KERN_ERR
