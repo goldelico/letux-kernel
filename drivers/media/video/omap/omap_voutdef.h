@@ -150,4 +150,6 @@ struct vout_platform_data {
 	void (*set_cpu_freq)(unsigned long f);
 };
 
+extern int use_isp_resizer;
+
 #endif	/* ifndef OMAP_VOUTDEF_H */

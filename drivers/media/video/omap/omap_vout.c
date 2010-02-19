@@ -111,7 +111,7 @@ enum {
 static int flg_720  = VIDEO_720_DISABLE;
 
 struct rsz_params isp_rsz_params;
-int rsz_configured;
+int rsz_configured = -1;
 
 static u16 omap_vout_rsz_filter_4_tap_high_quality[] = {
 	0x0000, 0x0100, 0x0000, 0x0000,
@@ -534,7 +534,7 @@ static int omap_vout_vrfb_buffer_setup(struct omap_vout_device *vout,
 		}
 	}
 	for (i = 0; i < *count; i++) {
-		if (flg_720 == VIDEO_720_ENABLE) {
+		if (flg_720 == VIDEO_720_ENABLE || use_isp_resizer) {
 			width = vout->win.w.width;
 			height = vout->win.w.height;
 		} else {
@@ -593,7 +593,7 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout)
 	struct omap_dss_device *cur_display;
 	int *cropped_offset = &(vout->cropped_offset);
 
-	if (flg_720 == VIDEO_720_ENABLE) {
+	if (flg_720 == VIDEO_720_ENABLE || use_isp_resizer) {
 		pix->height = win->w.height;
 		pix->width = win->w.width;
 		crop->height = win->w.height;
@@ -840,7 +840,7 @@ int omapvid_setup_overlay(struct omap_vout_device *vout,
 	mirror = vout->mirror;
 
 	/* For 720p set the width and height for ISP resizer downscaling*/
-	if (flg_720 == VIDEO_720_ENABLE) {
+	if (flg_720 == VIDEO_720_ENABLE || use_isp_resizer) {
 		new_crop_width = vout->win.w.width;
 		new_crop_height = vout->win.w.height;
 		new_pix_width = vout->win.w.width;
@@ -1101,27 +1101,41 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 				  dmabuf->bus_addr + vout->buffer_size);
 	}
 
-	if (!rotation_enabled(vout->rotation)) {
-
-		vout->queued_buf_addr[vb->i] = (u8 *) dmabuf->bus_addr;
-		return 0;
-	}
-
-	if (flg_720 == VIDEO_720_ENABLE) {
+	if (flg_720 == VIDEO_720_ENABLE || use_isp_resizer) {
 		flg_720  = VIDEO_720_RESIZER_N_STREAMING;
 
 		/*Start resizing*/
-		ret = rsz_begin(vb->i, vb->i, 8192,
-			(u32)vout->vrfb_context[vb->i].paddr[rotation],
-			vout->buf_phy_addr[vb->i], vout->buffer_size);
+		if (!rotation_enabled(vout->rotation)) {
+			ret = rsz_begin(vb->i, vb->i,
+					MAX_PIXELS_PER_LINE *\
+					vout->bpp * vout->vrfb_bpp,
+					(u32)dmabuf->bus_addr,
+					vout->buf_phy_addr[vb->i],
+					vout->buffer_size);
+
+			vout->queued_buf_addr[vb->i] = (u8 *) dmabuf->bus_addr;
+			return 0;
+		} else
+			ret = rsz_begin(vb->i, vb->i,
+					MAX_PIXELS_PER_LINE *\
+					vout->bpp * vout->vrfb_bpp,
+					(u32)vout->vrfb_context[vb->i].\
+					paddr[rotation],
+					vout->buf_phy_addr[vb->i],
+					vout->buffer_size);
 
 		if (ret) {
-			printk(KERN_ERR "<%s> Failed to resize the 720p buffer"
+			printk(KERN_ERR "<%s> ISP Resizer Failed to resize "
+					"the buffer"
 					" = %d\n", __func__, ret);
 			return ret;
 		}
 
 		flg_720 = VIDEO_720_ENABLE;
+	} else if (!rotation_enabled(vout->rotation)) {
+
+			vout->queued_buf_addr[vb->i] = (u8 *) dmabuf->bus_addr;
+			return 0;
 	} else {
 		/* If rotation is enabled, copy input buffer into VRFB
 		 * memory space using DMA. We are copying input buffer
@@ -1333,9 +1347,11 @@ static int omap_vout_release(struct file *file)
 
 	/* Release the ISP resizer resource if not already done so*/
 	if ((flg_720 == VIDEO_720_ENABLE) ||
-	    (flg_720 == VIDEO_720_RESIZER_N_STREAMING)) {
+	    ((flg_720 == VIDEO_720_RESIZER_N_STREAMING || use_isp_resizer) &&
+	     (rsz_configured != -1))) {
 		rsz_put_resource();
 		flg_720 = VIDEO_720_DISABLE;
+		use_isp_resizer = 0;
 	}
 
 	/* Free all buffers */
@@ -1485,10 +1501,12 @@ static int vidioc_s_fmt_vid_out(struct file *file, void *fh,
 	mutex_lock(&vout->lock);
 
 	/*check for 720p format*/
-	if (vout->pix.height * vout->pix.width == VID_MAX_WIDTH * 720)
+	if (vout->pix.height * vout->pix.width == VID_MAX_WIDTH * 720) {
 		flg_720 = VIDEO_720_ENABLE;
-	else
+		use_isp_resizer = 1;
+	} else
 		flg_720 = VIDEO_720_DISABLE;
+
 
 	ovid = &(vout->vid_info);
 	ovl = ovid->overlays[0];
@@ -1572,7 +1590,7 @@ static int vidioc_s_fmt_vid_overlay(struct file *file, void *fh,
 	struct v4l2_window *win = &f->fmt.win;
 
 	mutex_lock(&vout->lock);
-	if (flg_720 == VIDEO_720_ENABLE) {
+	if (flg_720 == VIDEO_720_ENABLE || use_isp_resizer) {
 		/* align the output width to 16 bytes
 		 * ISP resizer requires the output width to be
 		 * aligned to 16 bytes.
@@ -1877,11 +1895,13 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 
 	/*check for 720p format*/
 	if (vout->pix.height * vout->pix.width ==
-			VID_MAX_WIDTH * 720)
+			VID_MAX_WIDTH * 720) {
 		flg_720 = VIDEO_720_ENABLE;
-	else
+		use_isp_resizer = 1;
+	} else
 		flg_720 = VIDEO_720_DISABLE;
 
+	rsz_configured = 0;
 	/* If buffers are already allocated free them */
 	if (q->bufs[0] && (V4L2_MEMORY_MMAP == q->bufs[0]->memory)) {
 		if (vout->mmap_count) {
@@ -1968,9 +1988,15 @@ static int vidioc_qbuf(struct file *file, void *fh,
 	}
 
 	/* get the ISP resizer resource and configure it*/
-	if (flg_720 == VIDEO_720_ENABLE) {
+	if (flg_720 == VIDEO_720_ENABLE || use_isp_resizer) {
 		if (rsz_configured == 0) {
-			rsz_get_resource();
+			ret = rsz_get_resource();
+			if (ret) {
+				printk(KERN_ERR "<%s>: <%s> failed to get ISP "
+						"resizer resource = %d\n",
+				       __FILE__, __func__, ret);
+				return ret;
+			}
 
 			isp_rsz_params.in_hsize = vout->pix.width;
 			isp_rsz_params.in_vsize = vout->pix.height;
@@ -2092,9 +2118,10 @@ static int vidioc_streamon(struct file *file, void *fh,
 	vout->first_int = 1;
 
 	/*check for 720p format*/
-	if (vout->pix.height * vout->pix.width == VID_MAX_WIDTH * 720)
+	if (vout->pix.height * vout->pix.width == VID_MAX_WIDTH * 720) {
 		flg_720 = VIDEO_720_ENABLE;
-	else
+		use_isp_resizer = 1;
+	} else
 		flg_720 = VIDEO_720_DISABLE;
 
 	if (omap_vout_calculate_offset(vout)) {
@@ -2205,10 +2232,11 @@ static int vidioc_streamoff(struct file *file, void *fh,
 		}
 
 		/*release resizer now */
-		if (flg_720 == VIDEO_720_ENABLE) {
+		if (flg_720 == VIDEO_720_ENABLE || use_isp_resizer) {
 			printk(KERN_ERR "<%s> rsz_put_resource\n", __func__);
 			flg_720 = VIDEO_720_DISABLE;
 			rsz_configured  = 0;
+			use_isp_resizer = 0;
 			rsz_put_resource();
 		}
 
