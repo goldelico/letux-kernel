@@ -477,17 +477,13 @@ static inline void enable_clocks(bool enable)
 bool dispc_go_busy(enum omap_channel channel)
 {
 	int bit;
-	bool ret;
 
 	if (channel == OMAP_DSS_CHANNEL_LCD)
 		bit = 5; /* GOLCD */
 	else
 		bit = 6; /* GODIGIT */
 
-	enable_clocks(1);
-	ret = REG_GET(DISPC_CONTROL, bit, bit) == 1;
-	enable_clocks(0);
-	return ret;
+	return REG_GET(DISPC_CONTROL, bit, bit) == 1;
 }
 
 void dispc_go(enum omap_channel channel)
