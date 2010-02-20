@@ -3,7 +3,12 @@ linux-2.6-openmoko (20100118.gita15608f2-2) pkg-fso; urgency=low
   * debian/config.gta02:
    + CONFIG_SYSFS_DEPRECATED_V2 is not set
    + CONFIG_KEYBOARD_NEO1973=m
-   + CONFIG_LEDS_NEO1973_*=m
+   + CONFIG_LEDS_NEO1973_GTA02=m
+   + CONFIG_INPUT_LIS302DL=m
+   + usb stuff is compiled as modules
+   + hid stuff is compiled as modules
+   + addded ubifs support (module)
+   + ext3 is now a module
 
  -- Sebastian Reichel <elektranox@gmail.com>  Sat, 13 Feb 2010 00:25:10 +0100
 
