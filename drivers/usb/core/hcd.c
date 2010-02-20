@@ -1273,6 +1273,10 @@ static int map_urb_for_dma(struct usb_hcd *hcd, struct urb *urb,
 	if (is_root_hub(urb->dev))
 		return 0;
 
+	if (usb_endpoint_xfer_control(&urb->ep->desc))
+		urb->transfer_flags = URB_NO_SETUP_DMA_MAP |
+					URB_NO_TRANSFER_DMA_MAP;
+
 	if (usb_endpoint_xfer_control(&urb->ep->desc)
 	    && !(urb->transfer_flags & URB_NO_SETUP_DMA_MAP)) {
 		if (hcd->self.uses_dma)
