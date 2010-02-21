@@ -946,6 +946,12 @@ static void
 ar6000_unavail_ev(void *Instance)
 {
     AR_SOFTC_T *ar = (AR_SOFTC_T *)Instance;
+    union iwreq_data wrqu;
+
+    A_MEMZERO(&wrqu, sizeof(wrqu));
+    wrqu.ap_addr.sa_family = ARPHRD_ETHER;
+    wireless_send_event(ar->arNetDev, SIOCGIWAP, &wrqu, NULL);
+
         /* NULL out it's entry in the global list */
     ar6000_devices[ar->arDeviceIndex] = NULL;
     ar6000_destroy(ar->arNetDev, 1);
