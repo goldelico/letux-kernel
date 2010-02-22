@@ -2944,7 +2944,7 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 	struct timeval timevalue = {0};
 	struct omap_vout_device *vout =
 	    (struct omap_vout_device *) arg;
-	u32 addr, uv_addr;
+	u32 addr, uv_addr, flags;
 
 #if !(CONFIG_OMAP2_DSS_HDMI)
 	u32 fid;
@@ -2970,21 +2970,21 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 			else if (cur_display->channel == OMAP_DSS_CHANNEL_LCD2)
 				irq = DISPC_IRQ_FRAMEDONE2;
 #endif
-	spin_lock(&vout->vbq_lock);
+	spin_lock_irqsave(&vout->vbq_lock, flags);
 	do_gettimeofday(&timevalue);
 
 	switch (cur_display->type) {
 
 	case OMAP_DISPLAY_TYPE_DSI:
 			if (!(irqstatus & irq)) {
-				spin_unlock(&vout->vbq_lock);
+				spin_unlock_irqrestore(&vout->vbq_lock, flags);
 				return;
 		}
 			break;
 
 	case OMAP_DISPLAY_TYPE_DPI:
 			if (!(irqstatus & DISPC_IRQ_VSYNC)) {
-				spin_unlock(&vout->vbq_lock);
+				spin_unlock_irqrestore(&vout->vbq_lock, flags);
 			return;
 		}
 			break;
@@ -2993,7 +2993,7 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 
 	case OMAP_DISPLAY_TYPE_HDMI:
 			if (!(irqstatus & DISPC_IRQ_EVSYNC_EVEN)) {
-				spin_unlock(&vout->vbq_lock);
+				spin_unlock_irqrestore(&vout->vbq_lock, flags);
 				return;
 		}
 			break;
@@ -3001,7 +3001,7 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 	case OMAP_DISPLAY_TYPE_VENC:
 		if (vout->first_int) {
 			vout->first_int = 0;
-			spin_unlock(&vout->vbq_lock);
+			spin_unlock_irqrestore(&vout->vbq_lock, flags);
 			return;
 		}
 		if (irqstatus & DISPC_IRQ_EVSYNC_ODD) {
@@ -3009,7 +3009,7 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 		} else if (irqstatus & DISPC_IRQ_EVSYNC_EVEN) {
 			fid = 0;
 		} else {
-			spin_unlock(&vout->vbq_lock);
+			spin_unlock_irqrestore(&vout->vbq_lock, flags);
 			return;
 		}
 		fid = 1;
@@ -3018,12 +3018,12 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 			if (0 == fid)
 				vout->field_id = fid;
 
-			spin_unlock(&vout->vbq_lock);
+			spin_unlock_irqrestore(&vout->vbq_lock, flags);
 			return;
 		}
 		if (0 == fid) {
 			if (vout->cur_frm == vout->next_frm) {
-				spin_unlock(&vout->vbq_lock);
+				spin_unlock_irqrestore(&vout->vbq_lock, flags);
 				return;
 			}
 			vout->cur_frm->ts = timevalue;
@@ -3034,7 +3034,7 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 		} else if (1 == fid) {
 			if (list_empty(&vout->dma_queue) ||
 			    (vout->cur_frm != vout->next_frm)) {
-				spin_unlock(&vout->vbq_lock);
+				spin_unlock_irqrestore(&vout->vbq_lock, flags);
 				return;
 			}
 			goto venc;
@@ -3042,7 +3042,7 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 #endif
 
 	default:
-			spin_unlock(&vout->vbq_lock);
+			spin_unlock_irqrestore(&vout->vbq_lock, flags);
 			return;
 		}
 
@@ -3055,7 +3055,7 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 
 				vout->first_int = 0;
 				if (list_empty(&vout->dma_queue)) {
-					spin_unlock(&vout->vbq_lock);
+					spin_unlock_irqrestore(&vout->vbq_lock, flags);
 					return;
 				}
 
@@ -3090,7 +3090,7 @@ venc:
 end:
 #endif
 
-	spin_unlock(&vout->vbq_lock);
+	spin_unlock_irqrestore(&vout->vbq_lock, flags);
 }
 
 static void omap_vout_cleanup_device(struct omap_vout_device *vout)
