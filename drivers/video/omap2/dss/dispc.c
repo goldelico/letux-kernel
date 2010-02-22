@@ -1964,7 +1964,7 @@ static void calc_tiler_row_rotation(u8 rotation,
 		return;
 	}
 
-	printk(KERN_INFO
+	DSSDBG(
 		" colormode: %d, rotation: %d, ps: %d, width: %d,"
 		" height: %d, row_inc:%d\n",
 		color_mode, rotation, ps, width, height, *row_inc);
@@ -2494,7 +2494,7 @@ static int _dispc_setup_plane(enum omap_plane plane,
 			puv_addr = tiler_reorient_topleft(
 					tiler_get_natural_addr(puv_addr),
 					orient, tiler_width/2, tiler_height/2);
-			printk(KERN_INFO
+			DSSDBG(
 				"rotated addresses: 0x%0x, 0x%0x\n",
 						paddr, puv_addr);
 			/* set BURSTTYPE if rotation is non-zero */

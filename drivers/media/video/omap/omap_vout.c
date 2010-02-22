@@ -584,7 +584,7 @@ static int omap_vout_tiler_buffer_setup(struct omap_vout_device *vout,
 		? VIDEO_MAX_FRAME - start : *count;
 	int bpp = omap_vout_try_format(pix);
 
-	printk(KERN_INFO VOUT_NAME "tiler buffer alloc:\n"
+	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev, "tiler buffer alloc:\n"
 		"count - %d, start -%d :\n", *count, startindex);
 
 	/* special allocation scheme for NV12 format */
@@ -611,7 +611,8 @@ static int omap_vout_tiler_buffer_setup(struct omap_vout_device *vout,
 			aligned);
 	}
 
-	printk(KERN_INFO VOUT_NAME "allocated %d buffers\n", n_alloc);
+	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev,
+			"allocated %d buffers\n", n_alloc);
 
 	if (n_alloc < *count) {
 		if (n_alloc && (startindex == -1 ||
@@ -624,11 +625,12 @@ static int omap_vout_tiler_buffer_setup(struct omap_vout_device *vout,
 	}
 
 	for (i = start; i < start + n_alloc; i++) {
-		printk(KERN_INFO "y=%08lx (%d) uv=%08lx (%d)\n",
-		vout->buf_phy_addr[i],
-		vout->buf_phy_addr_alloced[i] ? 1 : 0,
-		vout->buf_phy_uv_addr[i],
-		vout->buf_phy_uv_addr_alloced[i] ? 1 : 0);
+		v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev,
+				"y=%08lx (%d) uv=%08lx (%d)\n",
+				vout->buf_phy_addr[i],
+				vout->buf_phy_addr_alloced[i] ? 1 : 0,
+				vout->buf_phy_uv_addr[i],
+				vout->buf_phy_uv_addr_alloced[i] ? 1 : 0);
 	}
 
 	*count = n_alloc;
@@ -1156,8 +1158,9 @@ static int omap_vout_buffer_setup(struct videobuf_queue *q, unsigned int *count,
 	else
 		*size = vout->buffer_size = (vout->pix.height * i);
 
-	printk(KERN_INFO "\nheight=%d, size = %d, vout->buffer_sz=%d\n",
-		vout->pix.height, *size, vout->buffer_size);
+	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev,
+			"\nheight=%d, size = %d, vout->buffer_sz=%d\n",
+			vout->pix.height, *size, vout->buffer_size);
 	if (omap_vout_tiler_buffer_setup(vout, count, 0, &vout->pix))
 			return -ENOMEM;
 #endif  /* TILER_ALLOCATE_V4L2 */
@@ -2075,8 +2078,7 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	int ret = 0;
 	struct videobuf_dmabuf *dmabuf = NULL;
 
-	printk(KERN_INFO VOUT_NAME
-			"entered REQbuf: \n");
+	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev, "entered REQbuf: \n");
 
 	if ((req->type != V4L2_BUF_TYPE_VIDEO_OUTPUT) || (req->count < 0))
 		return -EINVAL;
@@ -2187,7 +2189,7 @@ static int vidioc_qbuf(struct file *file, void *fh,
 	struct videobuf_queue *q = &vout->vbq;
 	int ret = 0;
 
-	printk(KERN_INFO VOUT_NAME
+	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev,
 		"entered qbuf: buffer address: %x \n", (unsigned int) buffer);
 
 	if ((V4L2_BUF_TYPE_VIDEO_OUTPUT != buffer->type) ||
@@ -2222,7 +2224,7 @@ static int vidioc_dqbuf(struct file *file, void *fh,
 	struct videobuf_queue *q = &vout->vbq;
 	int ret = 0;
 
-	printk(KERN_INFO VOUT_NAME
+	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev,
 		"entered DQbuf: buffer address: %x \n", (unsigned int) b);
 
 	if (!vout->streaming)
@@ -2610,7 +2612,9 @@ static int __init omap_vout_setup_video_bufs(struct platform_device *pdev,
 		vout->buffer_size = (vid_num == 0)	? video1_bufsize
 							: video2_bufsize;
 	}
-	printk(KERN_INFO VOUT_NAME "Buffer Size = %d\n", vout->buffer_size);
+	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev, "Buffer Size = %d\n",
+		vout->buffer_size);
+
 	for (i = 0; i < numbuffers; i++) {
 		vout->buf_virt_addr[i] =
 			omap_vout_alloc_buffer(vout->buffer_size,
