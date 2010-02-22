@@ -233,6 +233,7 @@ config ARCH_REALVIEW
 	select GENERIC_TIME
 	select GENERIC_CLOCKEVENTS
 	select ARCH_WANT_OPTIONAL_GPIOLIB
+	select ARCH_HAS_BARRIERS if CACHE_L2X0
 	help
 	  This enables support for ARM Ltd RealView boards.
 
