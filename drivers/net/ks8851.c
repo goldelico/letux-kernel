@@ -1364,6 +1364,18 @@ static int __devexit ks8851_remove(struct spi_device *spi)
 	return 0;
 }
 
+static int ks8851_suspend(struct spi_device *spi, pm_message_t message)
+{
+	disable_irq_nosync(spi->irq);
+	return 0;
+}
+
+static int ks8851_resume(struct spi_device *spi)
+{
+	enable_irq(spi->irq);
+	return 0;
+}
+
 static struct spi_driver ks8851_driver = {
 	.driver = {
 		.name = "ks8851",
@@ -1371,6 +1383,8 @@ static struct spi_driver ks8851_driver = {
 	},
 	.probe = ks8851_probe,
 	.remove = __devexit_p(ks8851_remove),
+	.suspend = ks8851_suspend,
+	.resume = ks8851_resume,
 };
 
 static int __init ks8851_init(void)
