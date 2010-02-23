@@ -529,7 +529,7 @@ static struct clk bclk_16xx = {
 };
 
 static struct clk mmc1_ck = {
-	.name		= "mmc_ck",
+	.name		= "mmc1_ck",
 	.ops		= &clkops_generic,
 	/* Functional clock is direct from ULPD, interface clock is ARMPER */
 	.parent		= &armper_ck.clk,
@@ -540,8 +540,7 @@ static struct clk mmc1_ck = {
 };
 
 static struct clk mmc2_ck = {
-	.name		= "mmc_ck",
-	.id		= 1,
+	.name		= "mmc2_ck",
 	.ops		= &clkops_generic,
 	/* Functional clock is direct from ULPD, interface clock is ARMPER */
 	.parent		= &armper_ck.clk,
@@ -552,8 +551,7 @@ static struct clk mmc2_ck = {
 };
 
 static struct clk mmc3_ck = {
-	.name		= "mmc_ck",
-	.id		= 2,
+	.name		= "mmc3_ck",
 	.ops		= &clkops_generic,
 	/* Functional clock is direct from ULPD, interface clock is ARMPER */
 	.parent		= &armper_ck.clk,
@@ -576,7 +574,6 @@ static struct clk virtual_ck_mpu = {
 remains active during MPU idle whenever this is enabled */
 static struct clk i2c_fck = {
 	.name		= "i2c_fck",
-	.id		= 1,
 	.ops		= &clkops_null,
 	.flags		= CLOCK_NO_IDLE_PARENT,
 	.parent		= &armxor_ck.clk,
@@ -585,7 +582,6 @@ static struct clk i2c_fck = {
 
 static struct clk i2c_ick = {
 	.name		= "i2c_ick",
-	.id		= 1,
 	.ops		= &clkops_null,
 	.flags		= CLOCK_NO_IDLE_PARENT,
 	.parent		= &armper_ck.clk,
