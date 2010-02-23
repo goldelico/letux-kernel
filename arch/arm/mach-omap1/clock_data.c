@@ -1,7 +1,7 @@
 /*
  *  linux/arch/arm/mach-omap1/clock_data.c
  *
- *  Copyright (C) 2004 - 2005, 2009 Nokia corporation
+ *  Copyright (C) 2004 - 2005, 2009-2010 Nokia Corporation
  *  Written by Tuukka Tikkanen <tuukka.tikkanen@elektrobit.com>
  *  Based on clocks.h by Tony Lindgren, Gordon McNutt and RidgeRun, Inc
  *
@@ -31,7 +31,6 @@
 static struct clk dummy_ck = {
 	.name	= "dummy",
 	.ops	= &clkops_dummy,
-	.flags	= RATE_FIXED,
 };
 
 static struct clk ck_ref = {
@@ -388,8 +387,7 @@ static struct uart_clk uart1_16xx = {
 		/* Direct from ULPD, no real parent */
 		.parent		= &armper_ck.clk,
 		.rate		= 48000000,
-		.flags		= RATE_FIXED | ENABLE_REG_32BIT |
-				  CLOCK_NO_IDLE_PARENT,
+		.flags		= ENABLE_REG_32BIT | CLOCK_NO_IDLE_PARENT,
 		.enable_reg	= OMAP1_IO_ADDRESS(MOD_CONF_CTRL_0),
 		.enable_bit	= 29,
 	},
@@ -429,8 +427,7 @@ static struct uart_clk uart3_16xx = {
 		/* Direct from ULPD, no real parent */
 		.parent		= &armper_ck.clk,
 		.rate		= 48000000,
-		.flags		= RATE_FIXED | ENABLE_REG_32BIT |
-				  CLOCK_NO_IDLE_PARENT,
+		.flags		= ENABLE_REG_32BIT | CLOCK_NO_IDLE_PARENT,
 		.enable_reg	= OMAP1_IO_ADDRESS(MOD_CONF_CTRL_0),
 		.enable_bit	= 31,
 	},
@@ -442,7 +439,7 @@ static struct clk usb_clko = {	/* 6 MHz output on W4_USB_CLKO */
 	.ops		= &clkops_generic,
 	/* Direct from ULPD, no parent */
 	.rate		= 6000000,
-	.flags		= RATE_FIXED | ENABLE_REG_32BIT,
+	.flags		= ENABLE_REG_32BIT,
 	.enable_reg	= OMAP1_IO_ADDRESS(ULPD_CLOCK_CTRL),
 	.enable_bit	= USB_MCLK_EN_BIT,
 };
@@ -452,7 +449,7 @@ static struct clk usb_hhc_ck1510 = {
 	.ops		= &clkops_generic,
 	/* Direct from ULPD, no parent */
 	.rate		= 48000000, /* Actually 2 clocks, 12MHz and 48MHz */
-	.flags		= RATE_FIXED | ENABLE_REG_32BIT,
+	.flags		= ENABLE_REG_32BIT,
 	.enable_reg	= OMAP1_IO_ADDRESS(MOD_CONF_CTRL_0),
 	.enable_bit	= USB_HOST_HHC_UHOST_EN,
 };
@@ -463,7 +460,7 @@ static struct clk usb_hhc_ck16xx = {
 	/* Direct from ULPD, no parent */
 	.rate		= 48000000,
 	/* OTG_SYSCON_2.OTG_PADEN == 0 (not 1510-compatible) */
-	.flags		= RATE_FIXED | ENABLE_REG_32BIT,
+	.flags		= ENABLE_REG_32BIT,
 	.enable_reg	= OMAP1_IO_ADDRESS(OTG_BASE + 0x08), /* OTG_SYSCON_2 */
 	.enable_bit	= 8 /* UHOST_EN */,
 };
@@ -473,7 +470,6 @@ static struct clk usb_dc_ck = {
 	.ops		= &clkops_generic,
 	/* Direct from ULPD, no parent */
 	.rate		= 48000000,
-	.flags		= RATE_FIXED,
 	.enable_reg	= OMAP1_IO_ADDRESS(SOFT_REQ_REG),
 	.enable_bit	= 4,
 };
@@ -483,7 +479,6 @@ static struct clk usb_dc_ck7xx = {
 	.ops		= &clkops_generic,
 	/* Direct from ULPD, no parent */
 	.rate		= 48000000,
-	.flags		= RATE_FIXED,
 	.enable_reg	= OMAP1_IO_ADDRESS(SOFT_REQ_REG),
 	.enable_bit	= 8,
 };
@@ -493,7 +488,6 @@ static struct clk mclk_1510 = {
 	.ops		= &clkops_generic,
 	/* Direct from ULPD, no parent. May be enabled by ext hardware. */
 	.rate		= 12000000,
-	.flags		= RATE_FIXED,
 	.enable_reg	= OMAP1_IO_ADDRESS(SOFT_REQ_REG),
 	.enable_bit	= 6,
 };
@@ -514,7 +508,6 @@ static struct clk bclk_1510 = {
 	.ops		= &clkops_generic,
 	/* Direct from ULPD, no parent. May be enabled by ext hardware. */
 	.rate		= 12000000,
-	.flags		= RATE_FIXED,
 };
 
 static struct clk bclk_16xx = {
@@ -534,7 +527,7 @@ static struct clk mmc1_ck = {
 	/* Functional clock is direct from ULPD, interface clock is ARMPER */
 	.parent		= &armper_ck.clk,
 	.rate		= 48000000,
-	.flags		= RATE_FIXED | ENABLE_REG_32BIT | CLOCK_NO_IDLE_PARENT,
+	.flags		= ENABLE_REG_32BIT | CLOCK_NO_IDLE_PARENT,
 	.enable_reg	= OMAP1_IO_ADDRESS(MOD_CONF_CTRL_0),
 	.enable_bit	= 23,
 };
@@ -545,7 +538,7 @@ static struct clk mmc2_ck = {
 	/* Functional clock is direct from ULPD, interface clock is ARMPER */
 	.parent		= &armper_ck.clk,
 	.rate		= 48000000,
-	.flags		= RATE_FIXED | ENABLE_REG_32BIT | CLOCK_NO_IDLE_PARENT,
+	.flags		= ENABLE_REG_32BIT | CLOCK_NO_IDLE_PARENT,
 	.enable_reg	= OMAP1_IO_ADDRESS(MOD_CONF_CTRL_0),
 	.enable_bit	= 20,
 };
@@ -556,7 +549,7 @@ static struct clk mmc3_ck = {
 	/* Functional clock is direct from ULPD, interface clock is ARMPER */
 	.parent		= &armper_ck.clk,
 	.rate		= 48000000,
-	.flags		= RATE_FIXED | ENABLE_REG_32BIT | CLOCK_NO_IDLE_PARENT,
+	.flags		= ENABLE_REG_32BIT | CLOCK_NO_IDLE_PARENT,
 	.enable_reg	= OMAP1_IO_ADDRESS(SOFT_REQ_REG),
 	.enable_bit	= 12,
 };
