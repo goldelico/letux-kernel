@@ -1,0 +1,30 @@
+Index: linux-2.6-openmoko/drivers/rtc/rtc-pcf50606.c
+===================================================================
+--- linux-2.6-openmoko.orig/drivers/rtc/rtc-pcf50606.c	2010-02-23 21:08:17.000000000 +0100
++++ linux-2.6-openmoko/drivers/rtc/rtc-pcf50606.c	2010-02-23 21:09:51.000000000 +0100
+@@ -71,7 +71,9 @@
+ 	rtc->tm_hour = bcd2bin(pcf->time[PCF50606_TI_HOUR]);
+ 	rtc->tm_wday = bcd2bin(pcf->time[PCF50606_TI_WKDAY]);
+ 	rtc->tm_mday = bcd2bin(pcf->time[PCF50606_TI_DAY]);
+-	rtc->tm_mon = bcd2bin(pcf->time[PCF50606_TI_MONTH]) - 1;
++	rtc->tm_mon = bcd2bin(pcf->time[PCF50606_TI_MONTH]
++						  ? pcf->time[PCF50606_TI_MONTH]
++						  : 1) - 1;
+ 	rtc->tm_year = bcd2bin(pcf->time[PCF50606_TI_YEAR]) + 100;
+ }
+ 
+Index: linux-2.6-openmoko/drivers/rtc/rtc-pcf50633.c
+===================================================================
+--- linux-2.6-openmoko.orig/drivers/rtc/rtc-pcf50633.c	2010-02-23 21:08:20.000000000 +0100
++++ linux-2.6-openmoko/drivers/rtc/rtc-pcf50633.c	2010-02-23 21:09:41.000000000 +0100
+@@ -71,7 +71,9 @@
+ 	rtc->tm_hour = bcd2bin(pcf->time[PCF50633_TI_HOUR]);
+ 	rtc->tm_wday = bcd2bin(pcf->time[PCF50633_TI_WKDAY]);
+ 	rtc->tm_mday = bcd2bin(pcf->time[PCF50633_TI_DAY]);
+-	rtc->tm_mon = bcd2bin(pcf->time[PCF50633_TI_MONTH]) - 1;
++	rtc->tm_mon = bcd2bin(pcf->time[PCF50633_TI_MONTH]
++						  ? pcf->time[PCF50633_TI_MONTH]
++						  : 1) - 1;
+ 	rtc->tm_year = bcd2bin(pcf->time[PCF50633_TI_YEAR]) + 100;
+ }
+ 

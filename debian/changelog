@@ -1,3 +1,10 @@
+linux-2.6-openmoko (20100118.gita15608f2-3) pkg-fso; urgency=low
+
+  * Add RTC read fix
+  * Debian Standards Version 3.8.0 -> 3.8.4
+
+ -- Sebastian Reichel <elektranox@gmail.com>  Tue, 23 Feb 2010 21:11:13 +0100
+
 linux-2.6-openmoko (20100118.gita15608f2-2) pkg-fso; urgency=low
 
   * debian/config.gta02:
