@@ -1751,6 +1751,13 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	int ret = 0, irq;
 	int ctrlr_caps;
 
+	/*
+	 * FIXME OMAP4: Limit to MMC1 support by returning success for other
+	 * controllers
+	 */
+	if (cpu_is_omap44xx() && pdev->id > 0)
+		return 0;
+
 	if (pdata == NULL) {
 		dev_err(&pdev->dev, "Platform Data is missing\n");
 		return -ENXIO;
