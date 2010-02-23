@@ -20,11 +20,6 @@ libhw = hw/hw_prcm.o hw/hw_dspssC64P.o hw/hw_mmu.o
 bridgedriver-objs = $(libgen) $(libservices) $(libwmd) $(libpmgr) $(librmgr) \
 			$(libdload) $(libhw)
 
-# Debug
-ifeq ($(CONFIG_BRIDGE_DEBUG),y)
-ccflags-y += -DGT_TRACE
-endif
-
 #Machine dependent
 ccflags-y += -D_TI_ -D_DB_TIOMAP -DTMS32060 \
 		-DTICFG_PROC_VER -DTICFG_EVM_TYPE -DCHNL_SMCLASS \

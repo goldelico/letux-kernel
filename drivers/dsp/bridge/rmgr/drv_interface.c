@@ -608,9 +608,7 @@ err:
 /* This function maps kernel space memory to user space memory. */
 static int bridge_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-#if GT_TRACE
 	u32 offset = vma->vm_pgoff << PAGE_SHIFT;
-#endif
 	u32 status;
 
 	DBC_Assert(vma->vm_start < vma->vm_end);

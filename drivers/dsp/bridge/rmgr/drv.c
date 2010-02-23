@@ -515,7 +515,7 @@ DSP_STATUS DRV_GetDevObject(u32 uIndex, struct DRV_OBJECT *hDrvObject,
 			   struct DEV_OBJECT **phDevObject)
 {
 	DSP_STATUS status = DSP_SOK;
-#if GT_TRACE	/* pDrvObject is used only for Assertions and debug messages.*/
+#ifdef CONFIG_BRIDGE_DEBUG	/* used only for Assertions and debug messages.*/
 	struct DRV_OBJECT *pDrvObject = (struct DRV_OBJECT *)hDrvObject;
 #endif
 	struct DEV_OBJECT *pDevObject;
