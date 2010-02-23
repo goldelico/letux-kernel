@@ -1663,6 +1663,14 @@ static int ioctl_dev_init(struct v4l2_int_device *s)
 	if (err < 0) {
 		v4l_err(client, "Unable to detect "
 				IMX046_DRIVER_NAME " sensor\n");
+
+		/*
+		 * Turn power off before leaving the function.
+		 * If not, CAM Pwrdm will be ON which is not needed
+		 * as there is no sensor detected.
+		 */
+		imx046_power_off(s);
+
 		return err;
 	}
 	sensor->ver = err;
