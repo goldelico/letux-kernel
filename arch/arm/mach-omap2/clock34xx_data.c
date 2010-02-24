@@ -3235,6 +3235,25 @@ int __init omap2_clk_init(void)
 		}
 	}
 
+	if (cpu_is_omap3630()) {
+		/*
+		 * For 3630: override clkops_omap2_dflt_wait for the
+		 * clocks affected from PWRDN reset Limitation
+		 */
+		dpll3_m3x2_ck.ops =
+				&clkops_omap36xx_pwrdn_with_hsdiv_wait_restore;
+		dpll4_m2x2_ck.ops =
+				&clkops_omap36xx_pwrdn_with_hsdiv_wait_restore;
+		dpll4_m3x2_ck.ops =
+				&clkops_omap36xx_pwrdn_with_hsdiv_wait_restore;
+		dpll4_m4x2_ck.ops =
+				&clkops_omap36xx_pwrdn_with_hsdiv_wait_restore;
+		dpll4_m5x2_ck.ops =
+				&clkops_omap36xx_pwrdn_with_hsdiv_wait_restore;
+		dpll4_m6x2_ck.ops =
+				&clkops_omap36xx_pwrdn_with_hsdiv_wait_restore;
+	}
+
 	clk_init(&omap2_clk_functions);
 
 	for (c = omap34xx_clks; c < omap34xx_clks + ARRAY_SIZE(omap34xx_clks); c++)
