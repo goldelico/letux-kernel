@@ -77,11 +77,8 @@ s32 dsp_debug;
 
 struct platform_device *omap_dspbridge_dev;
 
-struct bridge_dev {
-	struct cdev cdev;
-};
 
-static struct bridge_dev *bridge_device;
+static struct cdev bridge_cdev;
 
 static struct class *bridge_class;
 
@@ -279,20 +276,14 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 
 	driver_major = MAJOR(dev);
 
-	bridge_device = kzalloc(sizeof(struct bridge_dev), GFP_KERNEL);
-	if (!bridge_device) {
-		result = -ENOMEM;
-		goto err2;
-	}
-	cdev_init(&bridge_device->cdev, &bridge_fops);
-	bridge_device->cdev.owner = THIS_MODULE;
-	bridge_device->cdev.ops = &bridge_fops;
+	cdev_init(&bridge_cdev, &bridge_fops);
+	bridge_cdev.owner = THIS_MODULE;
 
-	status = cdev_add(&bridge_device->cdev, dev, 1);
+	status = cdev_add(&bridge_cdev, dev, 1);
 	if (status) {
 		GT_0trace(driverTrace, GT_7CLASS,
 				"Failed to add the bridge device \n");
-		goto err3;
+		goto err2;
 	}
 
 	/* udev support */
@@ -384,7 +375,7 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 			GT_0trace(driverTrace, GT_7CLASS, "dspbridge failed to"
 				"get mpu opp table\n");
 			return -EFAULT;
-			goto err3;
+			goto err2;
 		}
 
 		clk_handle = clk_get(NULL, "iva2_ck");
@@ -425,12 +416,8 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 
 	return 0;
 
-err3:
-	kfree(bridge_device);
-
 err2:
 	unregister_chrdev_region(dev, 1);
-
 err1:
 	return result;
 }
@@ -480,10 +467,7 @@ func_cont:
 	bridge_destroy_sysfs();
 
 	devno = MKDEV(driver_major, 0);
-	if (bridge_device) {
-		cdev_del(&bridge_device->cdev);
-		kfree(bridge_device);
-	}
+	cdev_del(&bridge_cdev);
 	unregister_chrdev_region(devno, 1);
 	if (bridge_class) {
 		/* remove the device from sysfs */
