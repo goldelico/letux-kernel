@@ -657,9 +657,11 @@ static struct omap_hwmod_ocp_if *omap44xx_aess_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_aess_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_MIDLEMODE |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_MIDLEMODE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE | MSTANDBY_FORCE,
 };
 
 static struct omap_hwmod omap44xx_aess_hwmod = {
@@ -750,7 +752,7 @@ static struct omap_hwmod_ocp_if *omap44xx_dss_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_dss_sysc = {
 	.rev_offs	= 0x0000,
 	.syss_offs	= 0x0014,
-	.idlemodes	= SIDLE_FORCE,
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod_opt_clk dss_opt_clks[] = {
@@ -821,9 +823,11 @@ static struct omap_hwmod_ocp_if *omap44xx_fdif_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_fdif_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_MIDLEMODE | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE | MSTANDBY_FORCE,
 };
 
 static struct omap_hwmod omap44xx_fdif_hwmod = {
@@ -883,9 +887,11 @@ static struct omap_hwmod_ocp_if *omap44xx_gfx_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_gfx_sysc = {
 	.rev_offs	= 0xfe00,
 	.sysc_offs	= 0xfe10,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_MIDLEMODE |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_MIDLEMODE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE | MSTANDBY_FORCE,
 };
 
 static struct omap_hwmod omap44xx_gfx_hwmod = {
@@ -946,7 +952,7 @@ static struct omap_hwmod_ocp_if *omap44xx_hsi_slaves[] = {
 
 static struct omap_hwmod_sysconfig omap44xx_hsi_sysc = {
 	.sysc_flags	= SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_hsi_hwmod = {
@@ -1013,9 +1019,11 @@ static struct omap_hwmod_ocp_if *omap44xx_iss_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_iss_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_MIDLEMODE | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE | MSTANDBY_FORCE,
 };
 
 static struct omap_hwmod_opt_clk iss_opt_clks[] = {
@@ -1168,10 +1176,12 @@ static struct omap_hwmod_ocp_if *omap44xx_mmc1_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_mmc1_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE,
-	.idlemodes	= SIDLE_FORCE | MSTANDBY_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_mmc1_hwmod = {
@@ -1238,10 +1248,12 @@ static struct omap_hwmod_ocp_if *omap44xx_mmc2_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_mmc2_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE,
-	.idlemodes	= SIDLE_FORCE | MSTANDBY_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_mmc2_hwmod = {
@@ -1348,9 +1360,12 @@ static struct omap_hwmod_ocp_if *omap44xx_unipro1_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_unipro1_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE | MSTANDBY_FORCE,
 };
 
 static struct omap_hwmod_opt_clk unipro1_opt_clks[] = {
@@ -1481,9 +1496,11 @@ static struct omap_hwmod_sysc_fields omap_hwmod_sysc_type_usb_host_fs = {
 static struct omap_hwmod_sysconfig omap44xx_usb_host_fs_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0210,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_MIDLEMODE | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type_usb_host_fs,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE | MSTANDBY_FORCE,
 };
 
 static struct omap_hwmod omap44xx_usb_host_fs_hwmod = {
@@ -1543,7 +1560,7 @@ static struct omap_hwmod_ocp_if *omap44xx_usb_otg_slaves[] = {
 
 static struct omap_hwmod_sysconfig omap44xx_usb_otg_sysc = {
 	.sysc_flags	= SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod_opt_clk usb_otg_opt_clks[] = {
@@ -1793,7 +1810,7 @@ static struct omap_hwmod_ocp_if *omap44xx_scrm_slaves[] = {
 
 static struct omap_hwmod_sysconfig omap44xx_scrm_sysc = {
 	.sysc_flags	= SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_scrm_hwmod = {
@@ -1951,9 +1968,9 @@ static struct omap_hwmod_ocp_if *omap44xx_devicecorectrl_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_devicecorectrl_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_devicecorectrl_hwmod = {
@@ -1993,9 +2010,9 @@ static struct omap_hwmod_ocp_if *omap44xx_devicewakeupctrl_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_devicewakeupctrl_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_devicewakeupctrl_hwmod = {
@@ -2043,9 +2060,10 @@ static struct omap_hwmod_ocp_if *omap44xx_dmic_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_dmic_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_dmic_hwmod = {
@@ -2101,10 +2119,11 @@ static struct omap_hwmod_ocp_if *omap44xx_elm_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_elm_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.syss_offs	= 0x0014,
-	.sysc_flags	= SYSC_HAS_SOFTRESET | SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_AUTOIDLE,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SOFTRESET | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_elm_hwmod = {
@@ -2156,7 +2175,7 @@ static struct omap_hwmod_ocp_if *omap44xx_emif1_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_emif1_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_flags	= SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_emif1_hwmod = {
@@ -2210,7 +2229,7 @@ static struct omap_hwmod_ocp_if *omap44xx_emif2_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_emif2_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_flags	= SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 };
 
 static struct omap_hwmod omap44xx_emif2_hwmod = {
@@ -2261,19 +2280,18 @@ static struct omap_hwmod_ocp_if *omap44xx_gpio1_slaves[] = {
 	&omap44xx_l4_wkup__gpio1,
 };
 
-static struct omap_hwmod_opt_clk gpio1_opt_clks[] = {
-	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
-};
-
 static struct omap_hwmod_sysconfig omap44xx_gpio1_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
-			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
-			   SYSC_HAS_AUTOIDLE),
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
-	.sysc_fields    = &omap_hwmod_sysc_type1,
+	.sysc_fields	= &omap_hwmod_sysc_type1,
+};
+
+static struct omap_hwmod_opt_clk gpio1_opt_clks[] = {
+	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
 };
 
 static struct omap_hwmod omap44xx_gpio1_hwmod = {
@@ -2288,9 +2306,9 @@ static struct omap_hwmod omap44xx_gpio1_hwmod = {
 			.device_reg = OMAP4430_CM_WKUP_GPIO1_CLKCTRL,
 		},
 	},
-	.sysconfig	= &omap44xx_gpio1_sysc,
 	.opt_clks 	= gpio1_opt_clks,
 	.opt_clks_cnt = ARRAY_SIZE(gpio1_opt_clks),
+	.sysconfig	= &omap44xx_gpio1_sysc,
 	.slaves		= omap44xx_gpio1_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_gpio1_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
@@ -2326,19 +2344,18 @@ static struct omap_hwmod_ocp_if *omap44xx_gpio2_slaves[] = {
 	&omap44xx_l4_per__gpio2,
 };
 
-static struct omap_hwmod_opt_clk gpio2_opt_clks[] = {
-	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
-};
-
 static struct omap_hwmod_sysconfig omap44xx_gpio2_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
-			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
-			   SYSC_HAS_AUTOIDLE),
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
-	.sysc_fields    = &omap_hwmod_sysc_type1,
+	.sysc_fields	= &omap_hwmod_sysc_type1,
+};
+
+static struct omap_hwmod_opt_clk gpio2_opt_clks[] = {
+	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
 };
 
 static struct omap_hwmod omap44xx_gpio2_hwmod = {
@@ -2353,9 +2370,9 @@ static struct omap_hwmod omap44xx_gpio2_hwmod = {
 			.device_reg = OMAP4430_CM_L4PER_GPIO2_CLKCTRL,
 		},
 	},
-	.sysconfig	= &omap44xx_gpio2_sysc,
 	.opt_clks 	= gpio2_opt_clks,
 	.opt_clks_cnt = ARRAY_SIZE(gpio2_opt_clks),
+	.sysconfig	= &omap44xx_gpio2_sysc,
 	.slaves		= omap44xx_gpio2_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_gpio2_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
@@ -2391,19 +2408,18 @@ static struct omap_hwmod_ocp_if *omap44xx_gpio3_slaves[] = {
 	&omap44xx_l4_per__gpio3,
 };
 
-static struct omap_hwmod_opt_clk gpio3_opt_clks[] = {
-	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
-};
-
 static struct omap_hwmod_sysconfig omap44xx_gpio3_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
-			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
-			   SYSC_HAS_AUTOIDLE),
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
-	.sysc_fields    = &omap_hwmod_sysc_type1,
+	.sysc_fields	= &omap_hwmod_sysc_type1,
+};
+
+static struct omap_hwmod_opt_clk gpio3_opt_clks[] = {
+	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
 };
 
 static struct omap_hwmod omap44xx_gpio3_hwmod = {
@@ -2418,9 +2434,9 @@ static struct omap_hwmod omap44xx_gpio3_hwmod = {
 			.device_reg = OMAP4430_CM_L4PER_GPIO3_CLKCTRL,
 		},
 	},
-	.sysconfig	= &omap44xx_gpio3_sysc,
 	.opt_clks 	= gpio3_opt_clks,
 	.opt_clks_cnt = ARRAY_SIZE(gpio3_opt_clks),
+	.sysconfig	= &omap44xx_gpio3_sysc,
 	.slaves		= omap44xx_gpio3_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_gpio3_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
@@ -2456,19 +2472,18 @@ static struct omap_hwmod_ocp_if *omap44xx_gpio4_slaves[] = {
 	&omap44xx_l4_per__gpio4,
 };
 
-static struct omap_hwmod_opt_clk gpio4_opt_clks[] = {
-	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
-};
-
 static struct omap_hwmod_sysconfig omap44xx_gpio4_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
-			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
-			   SYSC_HAS_AUTOIDLE),
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
-	.sysc_fields    = &omap_hwmod_sysc_type1,
+	.sysc_fields	= &omap_hwmod_sysc_type1,
+};
+
+static struct omap_hwmod_opt_clk gpio4_opt_clks[] = {
+	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
 };
 
 static struct omap_hwmod omap44xx_gpio4_hwmod = {
@@ -2483,9 +2498,9 @@ static struct omap_hwmod omap44xx_gpio4_hwmod = {
 			.device_reg = OMAP4430_CM_L4PER_GPIO4_CLKCTRL,
 		},
 	},
-	.sysconfig	= &omap44xx_gpio4_sysc,
 	.opt_clks 	= gpio4_opt_clks,
 	.opt_clks_cnt = ARRAY_SIZE(gpio4_opt_clks),
+	.sysconfig	= &omap44xx_gpio4_sysc,
 	.slaves		= omap44xx_gpio4_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_gpio4_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
@@ -2521,19 +2536,18 @@ static struct omap_hwmod_ocp_if *omap44xx_gpio5_slaves[] = {
 	&omap44xx_l4_per__gpio5,
 };
 
-static struct omap_hwmod_opt_clk gpio5_opt_clks[] = {
-	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
-};
-
 static struct omap_hwmod_sysconfig omap44xx_gpio5_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
-			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
-			   SYSC_HAS_AUTOIDLE),
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
-	.sysc_fields    = &omap_hwmod_sysc_type1,
+	.sysc_fields	= &omap_hwmod_sysc_type1,
+};
+
+static struct omap_hwmod_opt_clk gpio5_opt_clks[] = {
+	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
 };
 
 static struct omap_hwmod omap44xx_gpio5_hwmod = {
@@ -2548,9 +2562,9 @@ static struct omap_hwmod omap44xx_gpio5_hwmod = {
 			.device_reg = OMAP4430_CM_L4PER_GPIO5_CLKCTRL,
 		},
 	},
-	.sysconfig	= &omap44xx_gpio5_sysc,
 	.opt_clks 	= gpio5_opt_clks,
 	.opt_clks_cnt = ARRAY_SIZE(gpio5_opt_clks),
+	.sysconfig	= &omap44xx_gpio5_sysc,
 	.slaves		= omap44xx_gpio5_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_gpio5_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
@@ -2586,19 +2600,18 @@ static struct omap_hwmod_ocp_if *omap44xx_gpio6_slaves[] = {
 	&omap44xx_l4_per__gpio6,
 };
 
-static struct omap_hwmod_opt_clk gpio6_opt_clks[] = {
-	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
-};
-
 static struct omap_hwmod_sysconfig omap44xx_gpio6_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= (SYSC_HAS_SIDLEMODE |
-			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
-			   SYSC_HAS_AUTOIDLE),
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
-	.sysc_fields    = &omap_hwmod_sysc_type1,
+	.sysc_fields	= &omap_hwmod_sysc_type1,
+};
+
+static struct omap_hwmod_opt_clk gpio6_opt_clks[] = {
+	{ .role = "dbclk", .clkdev_con_id = "sys_32k_ck" },
 };
 
 static struct omap_hwmod omap44xx_gpio6_hwmod = {
@@ -2613,9 +2626,9 @@ static struct omap_hwmod omap44xx_gpio6_hwmod = {
 			.device_reg = OMAP4430_CM_L4PER_GPIO6_CLKCTRL,
 		},
 	},
-	.sysconfig	= &omap44xx_gpio6_sysc,
 	.opt_clks 	= gpio6_opt_clks,
 	.opt_clks_cnt = ARRAY_SIZE(gpio6_opt_clks),
+	.sysconfig	= &omap44xx_gpio6_sysc,
 	.slaves		= omap44xx_gpio6_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_gpio6_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
@@ -2707,12 +2720,12 @@ static struct omap_hwmod_ocp_if *omap44xx_gptimer1_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_gptimer1_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY |
 			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
 			   SYSC_HAS_EMUFREE | SYSC_HAS_AUTOIDLE |
 			   SYSS_MISSING),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_gptimer1_hwmod = {
@@ -2766,12 +2779,12 @@ static struct omap_hwmod_ocp_if *omap44xx_gptimer10_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_gptimer10_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY |
 			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
 			   SYSC_HAS_EMUFREE | SYSC_HAS_AUTOIDLE |
 			   SYSS_MISSING),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_gptimer10_hwmod = {
@@ -2825,10 +2838,10 @@ static struct omap_hwmod_ocp_if *omap44xx_gptimer11_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_gptimer11_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
 			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_gptimer11_hwmod = {
@@ -2884,12 +2897,12 @@ static struct omap_hwmod_ocp_if *omap44xx_gptimer2_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_gptimer2_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY |
 			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
 			   SYSC_HAS_EMUFREE | SYSC_HAS_AUTOIDLE |
 			   SYSS_MISSING),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_gptimer2_hwmod = {
@@ -2943,10 +2956,10 @@ static struct omap_hwmod_ocp_if *omap44xx_gptimer3_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_gptimer3_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
 			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_gptimer3_hwmod = {
@@ -3000,10 +3013,10 @@ static struct omap_hwmod_ocp_if *omap44xx_gptimer4_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_gptimer4_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
 			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_gptimer4_hwmod = {
@@ -3057,10 +3070,10 @@ static struct omap_hwmod_ocp_if *omap44xx_gptimer5_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_gptimer5_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
 			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_gptimer5_hwmod = {
@@ -3114,10 +3127,10 @@ static struct omap_hwmod_ocp_if *omap44xx_gptimer6_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_gptimer6_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
 			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_gptimer6_hwmod = {
@@ -3171,9 +3184,10 @@ static struct omap_hwmod_ocp_if *omap44xx_gptimer7_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_gptimer7_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_gptimer7_hwmod = {
@@ -3227,10 +3241,10 @@ static struct omap_hwmod_ocp_if *omap44xx_gptimer8_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_gptimer8_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
 			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_gptimer8_hwmod = {
@@ -3284,10 +3298,10 @@ static struct omap_hwmod_ocp_if *omap44xx_gptimer9_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_gptimer9_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
 			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
 	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_gptimer9_hwmod = {
@@ -3392,10 +3406,12 @@ static struct omap_hwmod_ocp_if *omap44xx_i2c1_slaves[] = {
 
 static struct omap_hwmod_sysconfig omap44xx_i2c1_sysc = {
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.syss_offs	= 0x0090,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_i2c1_hwmod = {
@@ -3455,10 +3471,12 @@ static struct omap_hwmod_ocp_if *omap44xx_i2c2_slaves[] = {
 
 static struct omap_hwmod_sysconfig omap44xx_i2c2_sysc = {
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.syss_offs	= 0x0090,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_i2c2_hwmod = {
@@ -3518,10 +3536,12 @@ static struct omap_hwmod_ocp_if *omap44xx_i2c3_slaves[] = {
 
 static struct omap_hwmod_sysconfig omap44xx_i2c3_sysc = {
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.syss_offs	= 0x0090,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_i2c3_hwmod = {
@@ -3581,10 +3601,12 @@ static struct omap_hwmod_ocp_if *omap44xx_i2c4_slaves[] = {
 
 static struct omap_hwmod_sysconfig omap44xx_i2c4_sysc = {
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.syss_offs	= 0x0090,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_i2c4_hwmod = {
@@ -3640,10 +3662,12 @@ static struct omap_hwmod_ocp_if *omap44xx_keyboard_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_keyboard_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.syss_offs	= 0x0014,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET | SYSC_HAS_EMUFREE | SYSC_HAS_AUTOIDLE,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY |
+			   SYSC_HAS_ENAWAKEUP | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_EMUFREE | SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_keyboard_hwmod = {
@@ -3752,9 +3776,9 @@ static struct omap_hwmod_sysc_fields omap_hwmod_sysc_type_mcasp = {
 
 static struct omap_hwmod_sysconfig omap44xx_mcasp_sysc = {
 	.sysc_offs	= 0x0004,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type_mcasp,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_mcasp_hwmod = {
@@ -3814,9 +3838,11 @@ static struct omap_hwmod_ocp_if *omap44xx_mcbsp1_slaves[] = {
 
 static struct omap_hwmod_sysconfig omap44xx_mcbsp1_sysc = {
 	.sysc_offs	= 0x008c,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type1,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_mcbsp1_hwmod = {
@@ -3876,9 +3902,11 @@ static struct omap_hwmod_ocp_if *omap44xx_mcbsp2_slaves[] = {
 
 static struct omap_hwmod_sysconfig omap44xx_mcbsp2_sysc = {
 	.sysc_offs	= 0x008c,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type1,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_mcbsp2_hwmod = {
@@ -3938,9 +3966,11 @@ static struct omap_hwmod_ocp_if *omap44xx_mcbsp3_slaves[] = {
 
 static struct omap_hwmod_sysconfig omap44xx_mcbsp3_sysc = {
 	.sysc_offs	= 0x008c,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type1,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_mcbsp3_hwmod = {
@@ -4000,9 +4030,11 @@ static struct omap_hwmod_ocp_if *omap44xx_mcbsp4_slaves[] = {
 
 static struct omap_hwmod_sysconfig omap44xx_mcbsp4_sysc = {
 	.sysc_offs	= 0x008c,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type1,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_mcbsp4_hwmod = {
@@ -4069,10 +4101,11 @@ static struct omap_hwmod_ocp_if *omap44xx_mcspi1_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_mcspi1_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_mcspi1_hwmod = {
@@ -4135,10 +4168,11 @@ static struct omap_hwmod_ocp_if *omap44xx_mcspi2_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_mcspi2_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_mcspi2_hwmod = {
@@ -4201,10 +4235,11 @@ static struct omap_hwmod_ocp_if *omap44xx_mcspi3_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_mcspi3_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_mcspi3_hwmod = {
@@ -4265,10 +4300,11 @@ static struct omap_hwmod_ocp_if *omap44xx_mcspi4_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_mcspi4_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_mcspi4_hwmod = {
@@ -4329,10 +4365,12 @@ static struct omap_hwmod_ocp_if *omap44xx_mmc3_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_mmc3_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE,
-	.idlemodes	= SIDLE_FORCE | MSTANDBY_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_mmc3_hwmod = {
@@ -4393,10 +4431,12 @@ static struct omap_hwmod_ocp_if *omap44xx_mmc4_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_mmc4_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE,
-	.idlemodes	= SIDLE_FORCE | MSTANDBY_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_mmc4_hwmod = {
@@ -4457,10 +4497,12 @@ static struct omap_hwmod_ocp_if *omap44xx_mmc5_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_mmc5_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type2,
 	.syss_offs	= 0x0114,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE,
-	.idlemodes	= SIDLE_FORCE | MSTANDBY_FORCE,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_MIDLEMODE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
 };
 
 static struct omap_hwmod omap44xx_mmc5_hwmod = {
@@ -4550,9 +4592,10 @@ static struct omap_hwmod_ocp_if *omap44xx_pdm_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_pdm_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_pdm_hwmod = {
@@ -4661,9 +4704,10 @@ static struct omap_hwmod_ocp_if *omap44xx_slimbus1_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_slimbus1_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod_opt_clk slimbus1_opt_clks[] = {
@@ -4739,9 +4783,10 @@ static struct omap_hwmod_ocp_if *omap44xx_slimbus2_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_slimbus2_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type2,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod_opt_clk slimbus2_opt_clks[] = {
@@ -4849,9 +4894,10 @@ static struct omap_hwmod_sysc_fields omap_hwmod_sysc_type_sr_core = {
 
 static struct omap_hwmod_sysconfig omap44xx_sr_core_sysc = {
 	.sysc_offs	= 0x0038,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type_sr_core,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_sr_core_hwmod = {
@@ -4910,9 +4956,10 @@ static struct omap_hwmod_sysc_fields omap_hwmod_sysc_type_sr_iva = {
 
 static struct omap_hwmod_sysconfig omap44xx_sr_iva_sysc = {
 	.sysc_offs	= 0x0038,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type_sr_iva,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_sr_iva_hwmod = {
@@ -4971,9 +5018,10 @@ static struct omap_hwmod_sysc_fields omap_hwmod_sysc_type_sr_mpu = {
 
 static struct omap_hwmod_sysconfig omap44xx_sr_mpu_sysc = {
 	.sysc_offs	= 0x0038,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type_sr_mpu,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_sr_mpu_hwmod = {
@@ -5023,9 +5071,9 @@ static struct omap_hwmod_ocp_if *omap44xx_synctimer_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_synctimer_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0004,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
 	.sysc_fields	= &omap_hwmod_sysc_type1,
-	.sysc_flags	= SYSC_HAS_SIDLEMODE | SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
 };
 
 static struct omap_hwmod omap44xx_synctimer_hwmod = {
@@ -5080,11 +5128,13 @@ static struct omap_hwmod_ocp_if *omap44xx_uart1_slaves[] = {
 };
 
 static struct omap_hwmod_sysconfig omap44xx_uart1_sysc = {
+	.rev_offs	= 0x0050,
 	.sysc_offs	= 0x0054,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.syss_offs	= 0x0058,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_uart1_hwmod = {
@@ -5143,11 +5193,13 @@ static struct omap_hwmod_ocp_if *omap44xx_uart2_slaves[] = {
 };
 
 static struct omap_hwmod_sysconfig omap44xx_uart2_sysc = {
+	.rev_offs	= 0x0050,
 	.sysc_offs	= 0x0054,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.syss_offs	= 0x0058,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_uart2_hwmod = {
@@ -5206,11 +5258,13 @@ static struct omap_hwmod_ocp_if *omap44xx_uart3_slaves[] = {
 };
 
 static struct omap_hwmod_sysconfig omap44xx_uart3_sysc = {
+	.rev_offs	= 0x0050,
 	.sysc_offs	= 0x0054,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.syss_offs	= 0x0058,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_uart3_hwmod = {
@@ -5269,11 +5323,13 @@ static struct omap_hwmod_ocp_if *omap44xx_uart4_slaves[] = {
 };
 
 static struct omap_hwmod_sysconfig omap44xx_uart4_sysc = {
+	.rev_offs	= 0x0050,
 	.sysc_offs	= 0x0054,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.syss_offs	= 0x0058,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_uart4_hwmod = {
@@ -5329,10 +5385,12 @@ static struct omap_hwmod_ocp_if *omap44xx_usb_tll_slaves[] = {
 static struct omap_hwmod_sysconfig omap44xx_usb_tll_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
-	.sysc_fields	= &omap_hwmod_sysc_type1,
 	.syss_offs	= 0x0014,
-	.sysc_flags	= SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE | SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE,
-	.idlemodes	= SIDLE_FORCE,
+	.sysc_flags	= (SYSC_HAS_ENAWAKEUP | SYSC_HAS_SIDLEMODE |
+			   SYSC_HAS_CLOCKACTIVITY | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod_opt_clk usb_tll_opt_clks[] = {
@@ -5643,6 +5701,7 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 	&omap44xx_l4_per_hwmod,
 	&omap44xx_l4_wkup_hwmod,
 	&omap44xx_sad2d_fw_hwmod,
+
 	/* processor_dma_engine */
 	&omap44xx_tesla_hwmod,
 
