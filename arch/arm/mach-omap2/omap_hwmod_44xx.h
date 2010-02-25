@@ -3352,6 +3352,15 @@ static struct omap_hwmod_ocp_if *omap44xx_hdq1w_slaves[] = {
 	&omap44xx_l4_per__hdq1w,
 };
 
+static struct omap_hwmod_sysconfig omap44xx_hdq1w_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0014,
+	.syss_offs	= 0x0018,
+	.sysc_flags	= (SYSC_HAS_SOFTRESET | SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
+};
+
 static struct omap_hwmod omap44xx_hdq1w_hwmod = {
 	.name		= "hdq1w",
 	.mpu_irqs	= omap44xx_hdq1w_irqs,
@@ -3364,6 +3373,7 @@ static struct omap_hwmod omap44xx_hdq1w_hwmod = {
 			.device_reg = OMAP4430_CM_L4PER_HDQ1W_CLKCTRL,
 		},
 	},
+	.sysconfig	= &omap44xx_hdq1w_sysc,
 	.slaves		= omap44xx_hdq1w_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_hdq1w_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
