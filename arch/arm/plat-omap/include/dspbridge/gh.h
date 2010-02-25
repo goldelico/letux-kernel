@@ -26,4 +26,7 @@ extern void GH_exit(void);
 extern void *GH_find(struct GH_THashTab *hashTab, void *key);
 extern void GH_init(void);
 extern void *GH_insert(struct GH_THashTab *hashTab, void *key, void *value);
+void gh_iterate(struct GH_THashTab *hash_tab,
+			void (*callback)(void *, void *), void *user_data);
+
 #endif				/* GH_ */

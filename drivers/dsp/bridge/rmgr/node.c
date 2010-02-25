@@ -3337,3 +3337,34 @@ static u32 Write(void *pPrivRef, u32 ulDspAddr, void *pBuf,
 	return ulNumBytes;
 }
 
+
+/*
+ *  ======== node_find_addr ========
+ */
+DSP_STATUS node_find_addr(struct NODE_MGR *node_mgr, u32 sym_addr,
+			u32 offset_range, void *sym_addr_output, char *sym_name)
+{
+	struct NODE_OBJECT *node_obj;
+	DSP_STATUS status = DSP_ENOTFOUND;
+	u32 n;
+
+	pr_debug("%s(0x%x, 0x%x, 0x%x, 0x%x,  %s)\n", __func__,
+			(unsigned int) node_mgr,
+			sym_addr, offset_range,
+			(unsigned int) sym_addr_output, sym_name);
+
+	node_obj = (struct NODE_OBJECT *)(node_mgr->nodeList->head.next);
+
+	for (n = 0; n < node_mgr->uNumNodes; n++) {
+		status = nldr_find_addr(node_obj->hNldrNode, sym_addr,
+				offset_range, sym_addr_output, sym_name);
+
+		if (DSP_SUCCEEDED(status))
+			break;
+
+		node_obj = (struct NODE_OBJECT *) (node_obj->listElem.next);
+	}
+
+	return status;
+}
+

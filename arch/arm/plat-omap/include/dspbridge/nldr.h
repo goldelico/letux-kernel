@@ -51,5 +51,8 @@
 				    enum NLDR_PHASE phase);
 	extern DSP_STATUS NLDR_Unload(struct NLDR_NODEOBJECT *hNldrNode,
 				    enum NLDR_PHASE phase);
+	DSP_STATUS nldr_find_addr(
+			struct NLDR_NODEOBJECT *nldr_node, u32 sym_addr,
+			u32 offset_range, void *offset_output, char *sym_name);
 
 #endif				/* NLDR_ */

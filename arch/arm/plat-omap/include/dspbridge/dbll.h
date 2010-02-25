@@ -56,6 +56,9 @@
 	extern DSP_STATUS DBLL_unloadSect(struct DBLL_LibraryObj *lib,
 					  char *sectName,
 					  struct DBLL_Attrs *attrs);
+	bool dbll_find_symbol(struct DBLL_LibraryObj *zl_lib, u32 address,
+		u32 offset_range, u32 *sym_addr_output, char *name_output);
+
 
 #endif				/* DBLL_ */
 

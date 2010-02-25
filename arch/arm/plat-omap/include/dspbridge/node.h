@@ -575,4 +575,16 @@
 					    OUT struct DSP_NDBPROPS
 					    *pNodeProps);
 
+
+/*
+ *	======== node_find_addr ========
+ *	Purpose:
+ *		Find the closest symbol to the given address.
+ *	Parameters:
+ *
+ */
+	DSP_STATUS node_find_addr(struct NODE_MGR *node_mgr,
+				u32 sym_addr, u32 offset_range,
+				void *sym_addr_output, char *sym_name);
+
 #endif				/* NODE_ */

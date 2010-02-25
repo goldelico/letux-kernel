@@ -35,5 +35,6 @@ ccflags-y += -Idrivers/dsp/bridge/services
 ccflags-y += -Idrivers/dsp/bridge/wmd
 ccflags-y += -Idrivers/dsp/bridge/pmgr
 ccflags-y += -Idrivers/dsp/bridge/rmgr
+ccflags-y += -Idrivers/dsp/bridge/dynload
 ccflags-y += -Idrivers/dsp/bridge/hw
 ccflags-y += -Iarch/arm

@@ -296,4 +296,9 @@
 	extern DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT
 						*hWmdContext);
 
+	DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context);
+
+	void dump_dl_modules(struct WMD_DEV_CONTEXT *wmd_context);
+
+
 #endif				/* IOSM_ */

@@ -1913,3 +1913,74 @@ static u32 findGcf(u32 a, u32 b)
 	return b;
 }
 
+
+/*
+ *  ======== nldr_find_addr ========
+ */
+DSP_STATUS nldr_find_addr(struct NLDR_NODEOBJECT *nldr_node, u32 sym_addr,
+			u32 offset_range, void *offset_output, char *sym_name)
+{
+	DSP_STATUS status = DSP_SOK;
+	bool status1 = false;
+	s32 i = 0;
+	struct LibNode root = { NULL, 0, NULL };
+	DBC_Require(cRefs > 0);
+	DBC_Require(MEM_IsValidHandle(nldr_node, NLDR_NODESIGNATURE));
+	DBC_Require(offset_output != NULL);
+	DBC_Require(sym_name != NULL);
+	pr_debug("%s(0x%x, 0x%x, 0x%x, 0x%x,  %s)\n", __func__, (u32) nldr_node,
+			sym_addr, offset_range, (u32) offset_output, sym_name);
+
+	if (nldr_node->fDynamic && *nldr_node->pfPhaseSplit) {
+		switch (nldr_node->phase) {
+		case NLDR_CREATE:
+			root = nldr_node->createLib;
+			break;
+		case NLDR_EXECUTE:
+			root = nldr_node->executeLib;
+			break;
+		case NLDR_DELETE:
+			root = nldr_node->deleteLib;
+			break;
+		default:
+			DBC_Assert(false);
+			break;
+		}
+	} else {
+		/* for Overlay nodes or non-split Dynamic nodes */
+		root = nldr_node->root;
+	}
+
+	status1 = dbll_find_symbol(root.lib, sym_addr,
+			offset_range, offset_output, sym_name);
+
+	/* If symbol not found, check dependent libraries */
+	if (!status1)
+		for (i = 0; i < root.nDepLibs; i++) {
+			status1 = dbll_find_symbol(
+				root.pDepLibs[i].lib, sym_addr,
+				offset_range, offset_output, sym_name);
+			if (status1)
+				/* Symbol found */
+				break;
+		}
+	/* Check persistent libraries */
+	if (!status1)
+		for (i = 0; i < nldr_node->nPersLib; i++) {
+			status1 = dbll_find_symbol(
+				nldr_node->persLib[i].lib, sym_addr,
+				offset_range, offset_output, sym_name);
+			if (status1)
+				/* Symbol found */
+				break;
+		}
+
+	if (status1 == false) {
+		pr_debug("%s: Address 0x%x not found in range %d.\n",
+				__func__, sym_addr, offset_range);
+		status = DSP_ESYMBOL;
+	}
+
+	return status;
+}
+
