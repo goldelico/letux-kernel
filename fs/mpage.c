@@ -43,6 +43,7 @@ static void mpage_end_io_read(struct bio *bio, int err)
 {
 	const int uptodate = test_bit(BIO_UPTODATE, &bio->bi_flags);
 	struct bio_vec *bvec = bio->bi_io_vec + bio->bi_vcnt - 1;
+	unsigned long phys;
 
 	do {
 		struct page *page = bvec->bv_page;
@@ -51,6 +52,9 @@ static void mpage_end_io_read(struct bio *bio, int err)
 			prefetchw(&bvec->bv_page->flags);
 
 		if (uptodate) {
+			flush_dcache_page(page);
+			phys = page_to_phys(page);
+			outer_flush_range(phys, phys + PAGE_SIZE);
 			SetPageUptodate(page);
 		} else {
 			ClearPageUptodate(page);
