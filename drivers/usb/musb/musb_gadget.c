@@ -579,6 +579,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	void __iomem		*epio = musb->endpoints[epnum].regs;
 	unsigned		fifo_count = 0;
 	u16			len = musb_ep->packet_sz;
+	u8			use_mode_1;
 
 	csr = musb_readw(epio, MUSB_RXCSR);
 
@@ -611,6 +612,17 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 
 	if (csr & MUSB_RXCSR_RXPKTRDY) {
 		len = musb_readw(epio, MUSB_RXCOUNT);
+		/*
+		 * Enable Mode 1 for RX transfers only for g_file_storage, for
+		 * which request->short_not_ok =1. This will result in a thpt
+		 * performance gain of around 30% for g_file_storage use cases.
+		 */
+
+		if (request->short_not_ok && len == musb_ep->packet_sz)
+			use_mode_1 = 1;
+		else
+			use_mode_1 = 0;
+
 		if (request->actual < request->length) {
 #ifdef CONFIG_USB_INVENTRA_DMA
 			if (is_dma_capable() && musb_ep->dma) {
@@ -642,28 +654,40 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	 * then becomes usable as a runtime "use mode 1" hint...
 	 */
 
-				csr |= MUSB_RXCSR_DMAENAB;
-#ifdef USE_MODE1
+	/* Experimental: Mode1 works with g_file_storage use cases
+	 * For other drivers, it appears that sometimes an end-point
+	 * interrupt is received before the DMA completion interrupt
+	 * REVISIT this at a later date. For now, enable mode 1
+	 * as a configurable option
+	 */
+
+		if (use_mode_1) {
+			/* csr |= MUSB_RXCSR_DMAMODE; */
+
+			/* this special sequence (enabling and then
+			 * disabling MUSB_RXCSR_DMAMODE) is required
+			 * to get DMAReq to activate
+			 */
 				csr |= MUSB_RXCSR_AUTOCLEAR;
-				/* csr |= MUSB_RXCSR_DMAMODE; */
-
-				/* this special sequence (enabling and then
-				 * disabling MUSB_RXCSR_DMAMODE) is required
-				 * to get DMAReq to activate
-				 */
-				musb_writew(epio, MUSB_RXCSR,
-					csr | MUSB_RXCSR_DMAMODE);
-#endif
 				musb_writew(epio, MUSB_RXCSR, csr);
-
+				csr |= MUSB_RXCSR_DMAENAB;
+				musb_writew(epio, MUSB_RXCSR, csr);
+				csr |= MUSB_RXCSR_DMAMODE;
+				musb_writew(epio, MUSB_RXCSR, csr);
+				csr |= MUSB_RXCSR_DMAENAB;
+				musb_writew(epio, MUSB_RXCSR, csr);
+		} else {
+				csr |= MUSB_RXCSR_DMAENAB;
+				musb_writew(epio, MUSB_RXCSR, csr);
+		}
 				if (request->actual < request->length) {
 					int transfer_size = 0;
-#ifdef USE_MODE1
+		if (use_mode_1) {
 					transfer_size = min(request->length,
 							channel->max_len);
-#else
+		} else {
 					transfer_size = len;
-#endif
+		}
 					if (transfer_size <= musb_ep->packet_sz)
 						musb_ep->dma->desired_mode = 0;
 					else
