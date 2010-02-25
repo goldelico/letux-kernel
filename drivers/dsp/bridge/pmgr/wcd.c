@@ -406,8 +406,7 @@ u32 MGRWRAP_EnumNode_Info(union Trapped_Args *args, void *pr_ctxt)
 		 size);
 	cp_to_usr(args->ARGS_MGR_ENUMNODE_INFO.puNumNodes, &uNumNodes, status,
 		 1);
-	if (pNDBProps)
-		MEM_Free(pNDBProps);
+	kfree(pNDBProps);
 
 	return status;
 }
@@ -448,8 +447,7 @@ u32 MGRWRAP_EnumProc_Info(union Trapped_Args *args, void *pr_ctxt)
 		 status, size);
 	cp_to_usr(args->ARGS_MGR_ENUMPROC_INFO.puNumProcs, &uNumProcs,
 		 status, 1);
-	if (pProcessorInfo)
-		MEM_Free(pProcessorInfo);
+	kfree(pProcessorInfo);
 
 	return status;
 }
@@ -495,8 +493,7 @@ u32 MGRWRAP_RegisterObject(union Trapped_Args *args, void *pr_ctxt)
 				args->ARGS_MGR_REGISTEROBJECT.objType,
 				(char *)pszPathName);
 func_end:
-	if (pszPathName)
-		MEM_Free(pszPathName);
+	kfree(pszPathName);
 	return status;
 }
 
@@ -563,7 +560,7 @@ u32 MGRWRAP_GetProcessResourcesInfo(union Trapped_Args *args, void *pr_ctxt)
     GT_0trace(WCD_debugMask, GT_ENTER, "\n***********"
 	     "456MGRWRAP_GetProcessResourcesInfo:**************\n");
     cp_to_usr(args->ARGS_PROC_GETTRACE.pSize, &uSize, status, 1);
-    MEM_Free(pBuf);
+    kfree(pBuf);
     return status;
 }
 
@@ -646,8 +643,7 @@ u32 PROCWRAP_Ctrl(union Trapped_Args *args, void *pr_ctxt)
 	}
 
 	/* cp_to_usr(args->ARGS_PROC_CTRL.pArgs, pArgs, status, 1);*/
-	if (pArgs)
-		MEM_Free(pArgs);
+	kfree(pArgs);
 func_end:
 	return status;
 }
@@ -839,8 +835,7 @@ u32 PROCWRAP_GetTrace(union Trapped_Args *args, void *pr_ctxt)
 	}
 	cp_to_usr(args->ARGS_PROC_GETTRACE.pBuf, pBuf, status,
 		 args->ARGS_PROC_GETTRACE.uMaxSize);
-	if (pBuf)
-		MEM_Free(pBuf);
+	kfree(pBuf);
 
 	return status;
 }
@@ -875,7 +870,7 @@ u32 PROCWRAP_Load(union Trapped_Args *args, void *pr_ctxt)
 
 	cp_fm_usr(argv, args->ARGS_PROC_LOAD.aArgv, status, count);
 	if (DSP_FAILED(status)) {
-		MEM_Free(argv);
+		kfree(argv);
 		argv = NULL;
 		goto func_cont;
 	}
@@ -891,7 +886,7 @@ u32 PROCWRAP_Load(union Trapped_Args *args, void *pr_ctxt)
 			if (argv[i]) {
 				cp_fm_usr(argv[i], temp, status, len);
 				if (DSP_FAILED(status)) {
-					MEM_Free(argv[i]);
+					kfree(argv[i]);
 					argv[i] = NULL;
 					goto func_cont;
 				}
@@ -917,7 +912,7 @@ u32 PROCWRAP_Load(union Trapped_Args *args, void *pr_ctxt)
 
 		cp_fm_usr(envp, args->ARGS_PROC_LOAD.aEnvp, status, count);
 		if (DSP_FAILED(status)) {
-			MEM_Free(envp);
+			kfree(envp);
 			envp = NULL;
 			goto func_cont;
 		}
@@ -931,7 +926,7 @@ u32 PROCWRAP_Load(union Trapped_Args *args, void *pr_ctxt)
 			if (envp[i]) {
 				cp_fm_usr(envp[i], temp, status, len);
 				if (DSP_FAILED(status)) {
-					MEM_Free(envp[i]);
+					kfree(envp[i]);
 					envp[i] = NULL;
 					goto func_cont;
 				}
@@ -956,17 +951,17 @@ func_cont:
 	if (envp) {
 		i = 0;
 		while (envp[i])
-			MEM_Free(envp[i++]);
+			kfree(envp[i++]);
 
-		MEM_Free(envp);
+		kfree(envp);
 	}
 
 	if (argv) {
 		count = args->ARGS_PROC_LOAD.iArgc;
 		for (i = 0; (i < count) && argv[i]; i++)
-			MEM_Free(argv[i]);
+			kfree(argv[i]);
 
-		MEM_Free(argv);
+		kfree(argv);
 	}
 
 	return status;
@@ -1220,8 +1215,7 @@ u32 NODEWRAP_Allocate(union Trapped_Args *args, void *pr_ctxt)
 		}
 	}
 func_cont:
-	if (pArgs)
-		MEM_Free(pArgs);
+	kfree(pArgs);
 
 	return status;
 }
@@ -1336,8 +1330,7 @@ u32 NODEWRAP_Connect(union Trapped_Args *args, void *pr_ctxt)
 				     pAttrs, (struct DSP_CBDATA *)pArgs);
 	}
 func_cont:
-	if (pArgs)
-		MEM_Free(pArgs);
+	kfree(pArgs);
 
 	return status;
 }
@@ -1597,8 +1590,7 @@ u32 NODEWRAP_GetUUIDProps(union Trapped_Args *args, void *pr_ctxt)
 	} else
 		status = DSP_EMEMORY;
 func_cont:
-	if (pnodeProps)
-		MEM_Free(pnodeProps);
+	kfree(pnodeProps);
 	return status;
 }
 
@@ -1655,8 +1647,7 @@ u32 STRMWRAP_AllocateBuffer(union Trapped_Args *args, void *pr_ctxt)
 				apBuffer, uNumBufs, pr_ctxt);
 		}
 	}
-	if (apBuffer)
-		MEM_Free(apBuffer);
+	kfree(apBuffer);
 
 	return status;
 }
@@ -1698,8 +1689,7 @@ u32 STRMWRAP_FreeBuffer(union Trapped_Args *args, void *pr_ctxt)
 	}
 	cp_to_usr(args->ARGS_STRM_FREEBUFFER.apBuffer, apBuffer, status,
 		 uNumBufs);
-	if (apBuffer)
-		MEM_Free(apBuffer);
+	kfree(apBuffer);
 
 	return status;
 }

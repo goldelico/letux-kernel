@@ -133,7 +133,7 @@ void NTFY_Delete(struct NTFY_OBJECT *hNtfy)
 			DeleteNotify(pNotify);
 		}
 		DBC_Assert(LST_IsEmpty(hNtfy->notifyList));
-		MEM_Free(hNtfy->notifyList);
+		kfree(hNtfy->notifyList);
 	}
 	if (hNtfy->hSync)
 		(void)SYNC_DeleteCS(hNtfy->hSync);
@@ -299,9 +299,8 @@ static void DeleteNotify(struct NOTIFICATION *pNotify)
 	if (pNotify->hSync)
 		(void) SYNC_CloseEvent(pNotify->hSync);
 
-	if (pNotify->pstrName)
-		MEM_Free(pNotify->pstrName);
+	kfree(pNotify->pstrName);
 
-	MEM_Free(pNotify);
+	kfree(pNotify);
 }
 

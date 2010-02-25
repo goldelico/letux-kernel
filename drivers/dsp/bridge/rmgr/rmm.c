@@ -295,16 +295,15 @@ void RMM_delete(struct RMM_TargetObj *target)
 
 	GT_1trace(RMM_debugMask, GT_ENTER, "RMM_delete(0x%lx)\n", target);
 
-	if (target->segTab != NULL)
-		MEM_Free(target->segTab);
+	kfree(target->segTab);
 
 	if (target->ovlyList) {
 		while ((pSect = (struct RMM_OvlySect *)LST_GetHead
 		      (target->ovlyList))) {
-			MEM_Free(pSect);
+			kfree(pSect);
 		}
 		DBC_Assert(LST_IsEmpty(target->ovlyList));
-		MEM_Free(target->ovlyList);
+		kfree(target->ovlyList);
 	}
 
 	if (target->freeList != NULL) {
@@ -314,10 +313,10 @@ void RMM_delete(struct RMM_TargetObj *target)
 			while (next) {
 				hptr = next;
 				next = hptr->next;
-				MEM_Free(hptr);
+				kfree(hptr);
 			}
 		}
-		MEM_Free(target->freeList);
+		kfree(target->freeList);
 	}
 
 	MEM_FreeObject(target);
@@ -375,7 +374,7 @@ bool RMM_free(struct RMM_TargetObj *target, u32 segid, u32 addr, u32 size,
 				/* Remove from list */
 				LST_RemoveElem(target->ovlyList,
 					      (struct list_head *)sect);
-				MEM_Free(sect);
+				kfree(sect);
 				break;
 			}
 			sect = (struct RMM_OvlySect *)LST_Next(target->ovlyList,
@@ -494,7 +493,7 @@ static bool allocBlock(struct RMM_TargetObj *target, u32 segid, u32 size,
 		if (hsize >= allocsize) {	/* big enough */
 			if (hsize == allocsize && prevhead != NULL) {
 				prevhead->next = next;
-				MEM_Free(head);
+				kfree(head);
 			} else {
 				head->size = hsize - allocsize;
 				head->addr += allocsize;
@@ -563,7 +562,7 @@ static bool freeBlock(struct RMM_TargetObj *target, u32 segid, u32 addr,
 			head->next = rhead->next;
 			thead->size = size + thead->size;
 			thead->addr = addr;
-			MEM_Free(rhead);
+			kfree(rhead);
 			rhead = thead;
 		}
 
@@ -571,7 +570,7 @@ static bool freeBlock(struct RMM_TargetObj *target, u32 segid, u32 addr,
 		if ((head->addr + head->size) == rhead->addr) {
 			head->next = rhead->next;
 			head->size = head->size + rhead->size;
-			MEM_Free(rhead);
+			kfree(rhead);
 		}
 	}
 

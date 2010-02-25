@@ -369,8 +369,7 @@ DSP_STATUS SYNC_WaitOnMultipleEvents(struct SYNC_OBJECT **hSyncEvents,
 			  "SYNC:Signaling Event NULL!!!(:-\n");
 		status = DSP_ETIMEOUT;
 	}
-	if (Wp)
-		MEM_Free(Wp);
+	kfree(Wp);
 	return status;
 }
 

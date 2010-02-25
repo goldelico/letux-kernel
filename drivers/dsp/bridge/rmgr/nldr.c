@@ -584,11 +584,9 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 		pNldr->writeFxn = pAttrs->pfnWrite;
 		pNldr->dbllAttrs = newAttrs;
 	}
-	if (rmmSegs)
-		MEM_Free(rmmSegs);
+	kfree(rmmSegs);
 
-	if (pszCoffBuf)
-		MEM_Free(pszCoffBuf);
+	kfree(pszCoffBuf);
 
 	/* Get overlay nodes */
 	if (DSP_SUCCEEDED(status)) {
@@ -651,8 +649,7 @@ void NLDR_Delete(struct NLDR_OBJECT *hNldr)
 	if (hNldr->rmm)
 		RMM_delete(hNldr->rmm);
 
-	if (hNldr->segTable)
-		MEM_Free(hNldr->segTable);
+	kfree(hNldr->segTable);
 
 	if (hNldr->hDcdMgr)
 		DCD_DestroyManager(hNldr->hDcdMgr);
@@ -663,29 +660,29 @@ void NLDR_Delete(struct NLDR_OBJECT *hNldr)
 			pSect = hNldr->ovlyTable[i].pCreateSects;
 			while (pSect) {
 				pNext = pSect->pNextSect;
-				MEM_Free(pSect);
+				kfree(pSect);
 				pSect = pNext;
 			}
 			pSect = hNldr->ovlyTable[i].pDeleteSects;
 			while (pSect) {
 				pNext = pSect->pNextSect;
-				MEM_Free(pSect);
+				kfree(pSect);
 				pSect = pNext;
 			}
 			pSect = hNldr->ovlyTable[i].pExecuteSects;
 			while (pSect) {
 				pNext = pSect->pNextSect;
-				MEM_Free(pSect);
+				kfree(pSect);
 				pSect = pNext;
 			}
 			pSect = hNldr->ovlyTable[i].pOtherSects;
 			while (pSect) {
 				pNext = pSect->pNextSect;
-				MEM_Free(pSect);
+				kfree(pSect);
 				pSect = pNext;
 			}
 		}
-		MEM_Free(hNldr->ovlyTable);
+		kfree(hNldr->ovlyTable);
 	}
 	MEM_FreeObject(hNldr);
 	DBC_Ensure(!MEM_IsValidHandle(hNldr, NLDR_SIGNATURE));
@@ -1083,17 +1080,13 @@ static DSP_STATUS AddOvlyNode(struct DSP_UUID *pUuid,
 		}
 	}
 	/* These were allocated in DCD_GetObjectDef */
-	if (objDef.objData.nodeObj.pstrCreatePhaseFxn)
-		MEM_Free(objDef.objData.nodeObj.pstrCreatePhaseFxn);
+	kfree(objDef.objData.nodeObj.pstrCreatePhaseFxn);
 
-	if (objDef.objData.nodeObj.pstrExecutePhaseFxn)
-		MEM_Free(objDef.objData.nodeObj.pstrExecutePhaseFxn);
+	kfree(objDef.objData.nodeObj.pstrExecutePhaseFxn);
 
-	if (objDef.objData.nodeObj.pstrDeletePhaseFxn)
-		MEM_Free(objDef.objData.nodeObj.pstrDeletePhaseFxn);
+	kfree(objDef.objData.nodeObj.pstrDeletePhaseFxn);
 
-	if (objDef.objData.nodeObj.pstrIAlgName)
-		MEM_Free(objDef.objData.nodeObj.pstrIAlgName);
+	kfree(objDef.objData.nodeObj.pstrIAlgName);
 
 func_end:
 	return status;
@@ -1312,8 +1305,7 @@ static DSP_STATUS LoadLib(struct NLDR_NODEOBJECT *hNldrNode,
 			 DBLL_NOLOAD, &root->lib);
 	}
 	/* Done with file name */
-	if (pszFileName)
-		MEM_Free(pszFileName);
+	kfree(pszFileName);
 
 	/* Check to see if library not already loaded */
 	if (DSP_SUCCEEDED(status) && rootPersistent) {
@@ -1462,15 +1454,11 @@ static DSP_STATUS LoadLib(struct NLDR_NODEOBJECT *hNldrNode,
 	/* Going up one node in the dependency tree */
 	depth--;
 
-	if (depLibUUIDs) {
-		MEM_Free(depLibUUIDs);
-		depLibUUIDs = NULL;
-	}
+	kfree(depLibUUIDs);
+	depLibUUIDs = NULL;
 
-	if (persistentDepLibs) {
-		MEM_Free(persistentDepLibs);
-		persistentDepLibs = NULL;
-	}
+	kfree(persistentDepLibs);
+	persistentDepLibs = NULL;
 
 	return status;
 }
@@ -1791,10 +1779,8 @@ static void UnloadLib(struct NLDR_NODEOBJECT *hNldrNode, struct LibNode *root)
 	}
 
 	/* Free dependent library list */
-	if (root->pDepLibs) {
-		MEM_Free(root->pDepLibs);
-		root->pDepLibs = NULL;
-	}
+	kfree(root->pDepLibs);
+	root->pDepLibs = NULL;
 }
 
 /*

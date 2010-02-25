@@ -726,8 +726,7 @@ static void DeleteDisp(struct DISP_OBJECT *hDisp)
 					 status);
 			}
 		}
-		if (hDisp->pBuf)
-			MEM_Free(hDisp->pBuf);
+		kfree(hDisp->pBuf);
 
 		MEM_FreeObject(hDisp);
 	}

@@ -98,7 +98,7 @@ DSP_STATUS DRV_InsertNodeResElement(HANDLE hNode, HANDLE hNodeRes,
 	}
 	if (DSP_SUCCEEDED(status)) {
 		if (mutex_lock_interruptible(&pCtxt->node_mutex)) {
-			MEM_Free(*pNodeRes);
+			kfree(*pNodeRes);
 			return DSP_EFAIL;
 		}
 		(*pNodeRes)->hNode = hNode;
@@ -144,7 +144,7 @@ DSP_STATUS DRV_RemoveNodeResElement(HANDLE hNodeRes, HANDLE hPCtxt)
 			pTempNode->next = pNodeRes->next;
 	}
 	mutex_unlock(&pCtxt->node_mutex);
-	MEM_Free(pNodeRes);
+	kfree(pNodeRes);
 	return status;
 }
 
@@ -211,7 +211,7 @@ DSP_STATUS DRV_InsertDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
 	}
 	if (DSP_SUCCEEDED(status)) {
 		if (mutex_lock_interruptible(&pCtxt->dmm_mutex)) {
-			MEM_Free(*pDMMRes);
+			kfree(*pDMMRes);
 			return DSP_EFAIL;
 		}
 
@@ -257,7 +257,7 @@ DSP_STATUS DRV_RemoveDMMResElement(HANDLE hDMMRes, HANDLE hPCtxt)
 			pTempDMMRes->next = pDMMRes->next;
 	}
 	mutex_unlock(&pCtxt->dmm_mutex);
-	MEM_Free(pDMMRes);
+	kfree(pDMMRes);
 	return status;
 }
 
@@ -323,7 +323,7 @@ DSP_STATUS DRV_RemoveAllDMMResElements(HANDLE hPCtxt)
 	while (pTempDMMRes != NULL) {
 		pTempDMMRes2 = pTempDMMRes;
 		pTempDMMRes = pTempDMMRes->next;
-		MEM_Free(pTempDMMRes2);
+		kfree(pTempDMMRes2);
 	}
 	pCtxt->pDMMList = NULL;
 	return status;
@@ -390,7 +390,7 @@ DSP_STATUS 	DRV_RemoveAllNodeResElements(HANDLE hPCtxt)
 	while (pTempNode != NULL) {
 		pTempNode2 = pTempNode;
 		pTempNode = pTempNode->next;
-		MEM_Free(pTempNode2);
+		kfree(pTempNode2);
 	}
 	pCtxt->pNodeList = NULL;
 	return status;
@@ -444,7 +444,7 @@ DSP_STATUS DRV_ProcInsertSTRMResElement(HANDLE hStreamHandle, HANDLE hSTRMRes,
 	}
 	if (DSP_SUCCEEDED(status)) {
 		if (mutex_lock_interruptible(&pCtxt->strm_mutex)) {
-			MEM_Free(*pSTRMRes);
+			kfree(*pSTRMRes);
 			return DSP_EFAIL;
 		}
 		(*pSTRMRes)->hStream = hStreamHandle;
@@ -491,7 +491,7 @@ DSP_STATUS 	DRV_ProcRemoveSTRMResElement(HANDLE hSTRMRes, HANDLE hPCtxt)
 			pTempSTRMRes->next = pSTRMRes->next;
 	}
 	mutex_unlock(&pCtxt->strm_mutex);
-	MEM_Free(pSTRMRes);
+	kfree(pSTRMRes);
 	return status;
 }
 
@@ -518,7 +518,7 @@ static DSP_STATUS  DRV_ProcFreeSTRMRes(HANDLE hPCtxt)
 				return DSP_EMEMORY;
 			status = STRM_FreeBuffer(pSTRMRes->hStream, apBuffer,
 						pSTRMRes->uNumBufs, pCtxt);
-			MEM_Free(apBuffer);
+			kfree(apBuffer);
 		}
 		strm_info.pUser = &user;
 		user.uNumberBufsInStream = 0;
@@ -546,7 +546,7 @@ DSP_STATUS	DRV_RemoveAllSTRMResElements(HANDLE hPCtxt)
 	while (pTempSTRMRes != NULL) {
 		pTempSTRMRes2 = pTempSTRMRes;
 		pTempSTRMRes = pTempSTRMRes->next;
-		MEM_Free(pTempSTRMRes2);
+		kfree(pTempSTRMRes2);
 	}
 	pCtxt->pSTRMList = NULL;
 	return status;
@@ -647,10 +647,10 @@ DSP_STATUS DRV_Create(OUT struct DRV_OBJECT **phDRVObject)
 			 pDRVObject);
 		*phDRVObject = pDRVObject;
 	} else {
-		MEM_Free(pDRVObject->devList);
-		MEM_Free(pDRVObject->devNodeString);
+		kfree(pDRVObject->devList);
+		kfree(pDRVObject->devNodeString);
 		/* Free the DRV Object */
-		MEM_Free(pDRVObject);
+		kfree(pDRVObject);
 		GT_0trace(curTrace, GT_7CLASS,
 			 "Failed to update the Registry with "
 				 "DRV Object ");
@@ -700,14 +700,8 @@ DSP_STATUS DRV_Destroy(struct DRV_OBJECT *hDRVObject)
 	 *  as the DRV_RemoveDevObject and the Last DRV_RequestResources
 	 *  removes the list if the lists are empty.
 	 */
-	if (pDRVObject->devList) {
-		/* Could assert if the list is not empty  */
-		MEM_Free(pDRVObject->devList);
-	}
-	if (pDRVObject->devNodeString) {
-		/* Could assert if the list is not empty */
-		MEM_Free(pDRVObject->devNodeString);
-	}
+	kfree(pDRVObject->devList);
+	kfree(pDRVObject->devNodeString);
 	MEM_FreeObject(pDRVObject);
 	/* Update the DRV Object in Registry to be 0 */
 	(void)CFG_SetObject(0, REG_DRV_OBJECT);
@@ -946,7 +940,7 @@ DSP_STATUS DRV_RemoveDevObject(struct DRV_OBJECT *hDRVObject,
 	}
 	/* Remove list if empty. */
 	if (LST_IsEmpty(pDRVObject->devList)) {
-		MEM_Free(pDRVObject->devList);
+		kfree(pDRVObject->devList);
 		pDRVObject->devList = NULL;
 	}
 	DBC_Ensure((pDRVObject->devList == NULL) ||
@@ -1062,12 +1056,12 @@ DSP_STATUS DRV_ReleaseResources(u32 dwContext, struct DRV_OBJECT *hDrvObject)
 			/* Delete from the Driver object list */
 			LST_RemoveElem(pDRVObject->devNodeString,
 				      (struct list_head *)pszdevNode);
-			MEM_Free((void *) pszdevNode);
+			kfree((void *) pszdevNode);
 			break;
 		}
 		/* Delete the List if it is empty */
 		if (LST_IsEmpty(pDRVObject->devNodeString)) {
-			MEM_Free(pDRVObject->devNodeString);
+			kfree(pDRVObject->devNodeString);
 			pDRVObject->devNodeString = NULL;
 		}
 	}
@@ -1166,7 +1160,7 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 			status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
 				 (u32)dwBuffSize);
 			/*  Set all the other entries to NULL */
-			MEM_Free(pResources);
+			kfree(pResources);
 		} else {
 			status = DSP_EMEMORY;
 		}
@@ -1222,7 +1216,7 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 				 " Failed to set the registry "
 				 "value for CURRENTCONFIG\n");
 		}
-		MEM_Free(pResources);
+		kfree(pResources);
 	}
 	/* End Mem alloc */
 	return status;
@@ -1343,7 +1337,7 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 bRequest)
 					 " for CURRENTCONFIG\n");
 			}
 		}
-		MEM_Free(pResources);
+		kfree(pResources);
 	}
 	/* End Mem alloc */
 	return status;

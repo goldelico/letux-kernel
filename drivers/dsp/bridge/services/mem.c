@@ -313,23 +313,6 @@ void MEM_VFree(IN void *pMemBuf)
 }
 
 /*
- *  ======== MEM_Free ========
- *  Purpose:
- *      Free the given block of system memory.
- */
-void MEM_Free(IN void *pMemBuf)
-{
-	DBC_Require(pMemBuf != NULL);
-
-	GT_1trace(MEM_debugMask, GT_ENTER, "MEM_Free: pMemBufs 0x%x\n",
-		  pMemBuf);
-
-	if (pMemBuf) {
-		kfree(pMemBuf);
-	}
-}
-
-/*
  *  ======== MEM_FreePhysMem ========
  *  Purpose:
  *      Free the given block of physically contiguous memory.

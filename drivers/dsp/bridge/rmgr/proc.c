@@ -418,7 +418,7 @@ DSP_STATUS PROC_AutoStart(struct CFG_DEVNODE *hDevNode,
 			 "No Exec file found \n");
 	}
 func_cont:
-	MEM_Free(hProcObject->g_pszLastCoff);
+	kfree(hProcObject->g_pszLastCoff);
 	hProcObject->g_pszLastCoff = NULL;
 	MEM_FreeObject(hProcObject);
 func_end:
@@ -510,10 +510,8 @@ DSP_STATUS PROC_Detach(struct PROCESS_CONTEXT *pr_ctxt)
 			/* Remove the notification memory */
 			NTFY_Delete(pProcObject->hNtfy);
 		}
-		if (pProcObject->g_pszLastCoff) {
-			MEM_Free(pProcObject->g_pszLastCoff);
-			pProcObject->g_pszLastCoff = NULL;
-		}
+		kfree(pProcObject->g_pszLastCoff);
+		pProcObject->g_pszLastCoff = NULL;
 		/* Remove the Proc from the DEV List */
 		(void)DEV_RemoveProcObject(pProcObject->hDevObject,
 			(u32)pProcObject);
@@ -1018,7 +1016,7 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 					/* Regardless of auto unregister status,
 					 *  free previously allocated
 					 *  memory.  */
-					MEM_Free(pProcObject->g_pszLastCoff);
+					kfree(pProcObject->g_pszLastCoff);
 					pProcObject->g_pszLastCoff = NULL;
 				}
 			}
@@ -1181,7 +1179,7 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 		}
 	}
 	/* Restore the original argv[0] */
-	MEM_Free(newEnvp);
+	kfree(newEnvp);
 	aArgv[0] = pargv0;
 #ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {

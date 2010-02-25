@@ -290,8 +290,7 @@ DSP_STATUS WMD_IO_Destroy(struct IO_MGR *hIOMgr)
 		DBG_Trace(GT_2CLASS, "DPC_Destroy: SUCCESS\n");
 
 #ifndef DSP_TRACEBUF_DISABLED
-		if (hIOMgr->pMsg)
-			MEM_Free(hIOMgr->pMsg);
+		kfree(hIOMgr->pMsg);
 #endif
 		SYNC_DeleteCS(hIOMgr->hCSObj); 	/* Leak Fix. */
 		/* Free this IO manager object */
@@ -783,8 +782,7 @@ DSP_STATUS WMD_IO_OnLoaded(struct IO_MGR *hIOMgr)
 	hIOMgr->ulTraceBufferCurrent = (ulGppVa + ulSeg1Size + ulPadSize) +
 				(hIOMgr->ulTraceBufferCurrent - ulDspVa);
 	/* Calculate the size of trace buffer */
-	if (hIOMgr->pMsg)
-		MEM_Free(hIOMgr->pMsg);
+	kfree(hIOMgr->pMsg);
 	hIOMgr->pMsg = MEM_Alloc(((hIOMgr->ulTraceBufferEnd -
 				hIOMgr->ulTraceBufferBegin) *
 				hIOMgr->uWordSize) + 2, MEM_NONPAGED);
@@ -2040,7 +2038,7 @@ DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT *hWmdContext)
 			pr_debug("\n=======================\n"
 				"DSP Trace Buffer End:\n");
 		}
-		MEM_Free(pszBuf);
+		kfree(pszBuf);
 	} else {
 		  GT_0trace(dsp_trace_mask, GT_2CLASS,
 			"PrintDspTraceBuffer: Failed to "
@@ -2234,7 +2232,7 @@ DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context)
 				pr_err("[%d] 0x%x\n", i, *buffer);
 		}
 
-		MEM_Free(buffer - total_size / 4);
+		kfree(buffer - total_size / 4);
 	}
 func_end:
 	return status;
@@ -2311,7 +2309,7 @@ void dump_dl_modules(struct WMD_DEV_CONTEXT *wmd_context)
 		 */
 		if (module_size > module_struct_size) {
 
-			MEM_Free(module_struct);
+			kfree(module_struct);
 
 			module_struct = MEM_Calloc(module_size+128,
 							MEM_NONPAGED);
@@ -2374,6 +2372,6 @@ void dump_dl_modules(struct WMD_DEV_CONTEXT *wmd_context)
 		}
 	}
 func_end:
-	MEM_Free(module_struct);
+	kfree(module_struct);
 
 }

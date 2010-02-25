@@ -1152,8 +1152,7 @@ static DSP_STATUS WMD_DEV_Create(OUT struct WMD_DEV_CONTEXT **ppDevContext,
 			if (pPtAttrs->hCSObj)
 				SYNC_DeleteCS(pPtAttrs->hCSObj);
 
-			if (pPtAttrs->pgInfo)
-				MEM_Free(pPtAttrs->pgInfo);
+			kfree(pPtAttrs->pgInfo);
 
 			if (pPtAttrs->L2TblAllocVa) {
 				MEM_FreePhysMem((void *)pPtAttrs->L2TblAllocVa,
@@ -1166,11 +1165,9 @@ static DSP_STATUS WMD_DEV_Create(OUT struct WMD_DEV_CONTEXT **ppDevContext,
 						pPtAttrs->L1TblAllocSz);
 			}
 		}
-		if (pPtAttrs)
-			MEM_Free(pPtAttrs);
+		kfree(pPtAttrs);
 
-		if (pDevContext)
-			MEM_Free(pDevContext);
+		kfree(pDevContext);
 
 		DBG_Trace(DBG_LEVEL7,
 			 "WMD_DEV_Create Error Device  not created\n");
@@ -1267,8 +1264,7 @@ static DSP_STATUS WMD_DEV_Destroy(struct WMD_DEV_CONTEXT *hDevContext)
 		if (pPtAttrs->hCSObj)
 			SYNC_DeleteCS(pPtAttrs->hCSObj);
 
-		if (pPtAttrs->pgInfo)
-			MEM_Free(pPtAttrs->pgInfo);
+		kfree(pPtAttrs->pgInfo);
 
 		if (pPtAttrs->L2TblAllocVa) {
 			MEM_FreePhysMem((void *)pPtAttrs->L2TblAllocVa,
@@ -1280,12 +1276,11 @@ static DSP_STATUS WMD_DEV_Destroy(struct WMD_DEV_CONTEXT *hDevContext)
 					pPtAttrs->L1TblAllocPa, pPtAttrs->
 					L1TblAllocSz);
 		}
-		if (pPtAttrs)
-			MEM_Free(pPtAttrs);
+		kfree(pPtAttrs);
 
 	}
 	/* Free the driver's device context: */
-	MEM_Free((void *) hDevContext);
+	kfree((void *) hDevContext);
 	return status;
 }
 

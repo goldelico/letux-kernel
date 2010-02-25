@@ -165,7 +165,7 @@ DSP_STATUS WMD_CHNL_AddIOReq(struct CHNL_OBJECT *hChnl, void *pHostBuf,
 					 "Error copying user buffer to "
 					 "kernel, %d bytes remaining.\n",
 					 status);
-				MEM_Free(pHostSysBuf);
+				kfree(pHostSysBuf);
 				pHostSysBuf = NULL;
 				status = DSP_EPOINTER;
 				goto func_end;
@@ -469,8 +469,7 @@ DSP_STATUS WMD_CHNL_Destroy(struct CHNL_MGR *hChnlMgr)
 			SYNC_DeleteCS(pChnlMgr->hCSObj);
 
 		/* Free channel manager object: */
-		if (pChnlMgr->apChannel)
-			MEM_Free(pChnlMgr->apChannel);
+		kfree(pChnlMgr->apChannel);
 
 		/* Set hChnlMgr to NULL in device object. */
 		DEV_SetChnlMgr(pChnlMgr->hDevObject, NULL);
@@ -722,7 +721,7 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 			status = DSP_EPOINTER;
 		}
 func_cont1:
-		MEM_Free(pHostSysBuf);
+		kfree(pHostSysBuf);
 	}
 func_cont:
 	/* Update User's IOC block: */
@@ -983,9 +982,9 @@ static void FreeChirpList(struct LST_LIST *pChirpList)
 	DBC_Require(pChirpList != NULL);
 
 	while (!LST_IsEmpty(pChirpList))
-		MEM_Free(LST_GetHead(pChirpList));
+		kfree(LST_GetHead(pChirpList));
 
-	MEM_Free(pChirpList);
+	kfree(pChirpList);
 }
 
 /*

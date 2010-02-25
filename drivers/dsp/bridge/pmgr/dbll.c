@@ -235,8 +235,7 @@ void DBLL_close(struct DBLL_LibraryObj *zlLib)
 
 		/* Free DOF resources */
 		dofClose(zlLib);
-		if (zlLib->fileName)
-			MEM_Free(zlLib->fileName);
+		kfree(zlLib->fileName);
 
 		/* remove symbols from symbol table */
 		if (zlLib->symTab)
@@ -1009,7 +1008,7 @@ static void symDelete(void *value)
 {
 	struct Symbol *sp = (struct Symbol *)value;
 
-	MEM_Free(sp->name);
+	kfree(sp->name);
 }
 
 /*
@@ -1178,7 +1177,7 @@ static struct dynload_symbol *addToSymbolTable(struct Dynamic_Loader_Sym *this,
 		symPtr = (struct Symbol *)GH_insert(lib->symTab, (void *)name,
 			 (void *)&symbol);
 		if (symPtr == NULL)
-			MEM_Free(symbol.name);
+			kfree(symbol.name);
 
 	}
 	if (symPtr != NULL)
@@ -1234,7 +1233,7 @@ static void deallocate(struct Dynamic_Loader_Sym *this, void *memPtr)
 	lib = pSymbol->lib;
 	DBC_Require(MEM_IsValidHandle(lib, DBLL_LIBSIGNATURE));
 
-	MEM_Free(memPtr);
+	kfree(memPtr);
 }
 
 /*
@@ -1337,11 +1336,11 @@ static int rmmAlloc(struct Dynamic_Loader_Allocate *this,
 		}
 	}
 func_cont:
-	MEM_Free(szSectName);
+	kfree(szSectName);
 	szSectName = NULL;
-	MEM_Free(szLastToken);
+	kfree(szLastToken);
 	szLastToken = NULL;
-	MEM_Free(szSecLastToken);
+	kfree(szSecLastToken);
 	szSecLastToken = NULL;
 
 	if (memType == DBLL_CODE)

@@ -210,7 +210,7 @@ void COD_Close(struct COD_LIBRARYOBJ *lib)
 	hMgr = lib->hCodMgr;
 	hMgr->fxns.closeFxn(lib->dbllLib);
 
-	MEM_Free(lib);
+	kfree(lib);
 }
 
 /*
@@ -315,7 +315,7 @@ void COD_Delete(struct COD_MANAGER *hMgr)
 		hMgr->fxns.exitFxn();
 	}
 	hMgr->ulMagic = ~MAGIC;
-	MEM_Free(hMgr);
+	kfree(hMgr);
 }
 
 /*

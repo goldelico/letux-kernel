@@ -371,10 +371,10 @@ DSP_STATUS CMM_Destroy(struct CMM_OBJECT *hCmmMgr, bool bForce)
 		while (!LST_IsEmpty(pCmmMgr->pNodeFreeListHead)) {
 			pNode = (struct CMM_MNODE *)LST_GetHead(pCmmMgr->
 				 pNodeFreeListHead);
-			MEM_Free(pNode);
+			kfree(pNode);
 		}
 		/* delete NodeFreeList list */
-		MEM_Free(pCmmMgr->pNodeFreeListHead);
+		kfree(pCmmMgr->pNodeFreeListHead);
 	}
 	SYNC_LeaveCS(pCmmMgr->hCmmLock);
 	if (DSP_SUCCEEDED(status)) {
@@ -767,11 +767,11 @@ static void UnRegisterGPPSMSeg(struct CMM_ALLOCATOR *pSMA)
 				    (struct list_head *)pCurNode);
 			LST_RemoveElem(pSMA->pFreeListHead,
 				      (struct list_head *)pCurNode);
-			MEM_Free((void *) pCurNode);
+			kfree((void *) pCurNode);
 			/* next node. */
 			pCurNode = pNextNode;
 		}
-		MEM_Free(pSMA->pFreeListHead);		/* delete freelist */
+		kfree(pSMA->pFreeListHead);		/* delete freelist */
 		/* free nodes on InUse list */
 		pCurNode = (struct CMM_MNODE *)LST_First(pSMA->pInUseListHead);
 		while (pCurNode) {
@@ -780,11 +780,11 @@ static void UnRegisterGPPSMSeg(struct CMM_ALLOCATOR *pSMA)
 				    (struct list_head *)pCurNode);
 			LST_RemoveElem(pSMA->pInUseListHead,
 				      (struct list_head *)pCurNode);
-			MEM_Free((void *) pCurNode);
+			kfree((void *) pCurNode);
 			/* next node. */
 			pCurNode = pNextNode;
 		}
-		MEM_Free(pSMA->pInUseListHead);		/* delete InUse list */
+		kfree(pSMA->pInUseListHead);		/* delete InUse list */
 	}
 	if ((void *) pSMA->dwVmBase != NULL)
 		MEM_UnmapLinearAddress((void *) pSMA->dwVmBase);

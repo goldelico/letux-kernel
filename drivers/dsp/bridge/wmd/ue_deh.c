@@ -386,9 +386,7 @@ DSP_STATUS WMD_DEH_GetInfo(struct DEH_MGR *hDehMgr,
  */
 void WMD_DEH_ReleaseDummyMem(void)
 {
-	if (dummyVaAddr) {
-		MEM_Free((void *)dummyVaAddr);
-		dummyVaAddr = 0;
-	}
+	kfree((void *)dummyVaAddr);
+	dummyVaAddr = 0;
 }
 

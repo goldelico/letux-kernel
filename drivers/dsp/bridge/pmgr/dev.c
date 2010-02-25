@@ -295,8 +295,7 @@ DSP_STATUS DEV_CreateDevice(OUT struct DEV_OBJECT **phDevObject,
 			 "DEV_CreateDevice Succeeded \nDevObject "
 			 "0x%x\n", pDevObject);
 	} else {
-		if (pDevObject && pDevObject->procList)
-			MEM_Free(pDevObject->procList);
+		kfree(pDevObject->procList);
 
 		if (pDevObject && pDevObject->hCodMgr)
 			COD_Delete(pDevObject->hCodMgr);
@@ -451,10 +450,8 @@ DSP_STATUS DEV_DestroyDevice(struct DEV_OBJECT *hDevObject)
 		} else
 			status = DSP_EFAIL;
 		if (DSP_SUCCEEDED(status)) {
-			if (pDevObject->procList) {
-				MEM_Free(pDevObject->procList);
-				pDevObject->procList = NULL;
-			}
+			kfree(pDevObject->procList);
+			pDevObject->procList = NULL;
 
 			/* Remove this DEV_Object from the global list: */
 			DRV_RemoveDevObject(pDevObject->hDrvObject, pDevObject);

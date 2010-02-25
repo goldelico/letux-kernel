@@ -849,8 +849,7 @@ DSP_STATUS STRM_Select(IN struct STRM_OBJECT **aStrmTab, u32 nStrms,
 		}
 	}
 func_end:
-	if (hSyncEvents)
-		MEM_Free(hSyncEvents);
+	kfree(hSyncEvents);
 
 	DBC_Ensure((DSP_SUCCEEDED(status) && (*pMask != 0 || uTimeout == 0)) ||
 		  (DSP_FAILED(status) && *pMask == 0));
