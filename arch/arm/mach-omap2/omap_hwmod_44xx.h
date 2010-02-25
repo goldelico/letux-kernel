@@ -5106,7 +5106,7 @@ static struct omap_hwmod_dma_info omap44xx_uart1_sdma_chs[] = {
 static struct omap_hwmod_addr_space omap44xx_uart1_addrs[] = {
 	{
 		.pa_start	= 0x4806a000,
-		.pa_end		= 0x4806a07f,
+		.pa_end		= 0x4806a0ff,
 		.flags		= ADDR_TYPE_RT
 	},
 };
@@ -5171,7 +5171,7 @@ static struct omap_hwmod_dma_info omap44xx_uart2_sdma_chs[] = {
 static struct omap_hwmod_addr_space omap44xx_uart2_addrs[] = {
 	{
 		.pa_start	= 0x4806c000,
-		.pa_end		= 0x4806c07f,
+		.pa_end		= 0x4806c0ff,
 		.flags		= ADDR_TYPE_RT
 	},
 };
@@ -5236,7 +5236,7 @@ static struct omap_hwmod_dma_info omap44xx_uart3_sdma_chs[] = {
 static struct omap_hwmod_addr_space omap44xx_uart3_addrs[] = {
 	{
 		.pa_start	= 0x48020000,
-		.pa_end		= 0x4802007f,
+		.pa_end		= 0x480200ff,
 		.flags		= ADDR_TYPE_RT
 	},
 };
@@ -5301,7 +5301,7 @@ static struct omap_hwmod_dma_info omap44xx_uart4_sdma_chs[] = {
 static struct omap_hwmod_addr_space omap44xx_uart4_addrs[] = {
 	{
 		.pa_start	= 0x4806e000,
-		.pa_end		= 0x4806e07f,
+		.pa_end		= 0x4806e0ff,
 		.flags		= ADDR_TYPE_RT
 	},
 };
@@ -5574,8 +5574,8 @@ static struct omap_hwmod_irq_info omap44xx_wdt3_irqs[] = {
 
 static struct omap_hwmod_addr_space omap44xx_wdt3_addrs[] = {
 	{
-		.pa_start	= 0x40104c00,
-		.pa_end		= 0x40104c3f,
+		.pa_start	= 0x40130000,
+		.pa_end		= 0x4013007f,
 		.flags		= ADDR_TYPE_RT
 	},
 };
