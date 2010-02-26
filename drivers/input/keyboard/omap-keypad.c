@@ -257,14 +257,9 @@ static void omap_kp_tasklet(unsigned long data)
 				continue;
 
 			kp_cur_group = key & GROUP_MASK;
-			if (cpu_is_omap44xx())
-				input_report_key(omap_kp_data->input,
-					key & ~GROUP_MASK, new_state[col]
-						 & (1 << row));
-			else
-				input_report_key(omap_kp_data->input,
-					 key & ~GROUP_MASK, new_state[col]
-						 & (1 << row));
+			input_report_key(omap_kp_data->input,
+				key & ~GROUP_MASK, new_state[col]
+					 & (1 << row));
 #endif
 		}
 	}
@@ -436,6 +431,10 @@ static int __devinit omap_kp_probe(struct platform_device *pdev)
 	__set_bit(EV_KEY, input_dev->evbit);
 	for (i = 0; keymap[i] != 0; i++)
 		__set_bit(keymap[i] & KEY_MAX, input_dev->keybit);
+
+	if (cpu_is_omap44xx())
+		__set_bit(KEY_OK, input_dev->keybit);
+
 	input_dev->name = "omap_keypad";
 	input_dev->phys = "omap_keypad/input0";
 	input_dev->dev.parent = &pdev->dev;
