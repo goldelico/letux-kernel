@@ -421,7 +421,7 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 		mmc->set_vdd1_opp = omap_pm_set_min_mpu_freq;
 		if (cpu_is_omap3630()) {
 			mmc->max_vdd1_opp = 600000000;
-			mmc->min_vdd1_opp = 150000000;
+			mmc->min_vdd1_opp = 300000000;
 		} else if (cpu_is_omap3430()) {
 			mmc->max_vdd1_opp = 500000000;
 			mmc->min_vdd1_opp = 125000000;
