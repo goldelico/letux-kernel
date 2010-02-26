@@ -436,8 +436,8 @@ static int __devinit omap_kp_probe(struct platform_device *pdev)
 	__set_bit(EV_KEY, input_dev->evbit);
 	for (i = 0; keymap[i] != 0; i++)
 		__set_bit(keymap[i] & KEY_MAX, input_dev->keybit);
-	input_dev->name = "omap-keypad";
-	input_dev->phys = "omap-keypad/input0";
+	input_dev->name = "omap_keypad";
+	input_dev->phys = "omap_keypad/input0";
 	input_dev->dev.parent = &pdev->dev;
 
 	input_dev->id.bustype = BUS_HOST;
