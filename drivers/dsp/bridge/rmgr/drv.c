@@ -77,7 +77,6 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 fRequest);
 /* GPP PROCESS CLEANUP CODE */
 
 static DSP_STATUS DRV_ProcFreeNodeRes(HANDLE hPCtxt);
-static DSP_STATUS  DRV_ProcFreeSTRMRes(HANDLE hPCtxt);
 extern enum NODE_STATE NODE_GetState(HANDLE hNode);
 
 /* Allocate and add a node resource element
@@ -460,60 +459,45 @@ DSP_STATUS 	DRV_ProcRemoveSTRMResElement(HANDLE hSTRMRes, HANDLE hPCtxt)
 	return status;
 }
 
-/* Actual Stream De-Allocation */
-static DSP_STATUS  DRV_ProcFreeSTRMRes(HANDLE hPCtxt)
+/* Release all Stream resources and its context
+ * This is called from .bridge_release.
+ */
+DSP_STATUS DRV_RemoveAllSTRMResElements(HANDLE hPCtxt)
 {
 	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
 	DSP_STATUS status = DSP_SOK;
+	struct STRM_RES_OBJECT *strm_res = NULL;
+	struct STRM_RES_OBJECT *strm_tmp = NULL;
 	u8 **apBuffer = NULL;
-	struct STRM_RES_OBJECT *pSTRMRes = NULL;
-	struct STRM_INFO strm_info;
-	struct DSP_STREAMINFO user;
 	u8 *pBufPtr;
 	u32 ulBytes;
 	u32 dwArg;
 	s32 ulBufSize;
 
-	pSTRMRes = pCtxt->pSTRMList;
-	while (pSTRMRes) {
-		if (pSTRMRes->uNumBufs) {
-			apBuffer = MEM_Alloc(pSTRMRes->uNumBufs *
-					    sizeof(u8 *), MEM_NONPAGED);
+	strm_tmp = pCtxt->pSTRMList;
+	while (strm_tmp) {
+		strm_res = strm_tmp;
+		strm_tmp = strm_tmp->next;
+		if (strm_res->uNumBufs) {
+			apBuffer = MEM_Alloc((strm_res->uNumBufs *
+						sizeof(u8 *)), MEM_NONPAGED);
+
 			if (!apBuffer)
 				return DSP_EMEMORY;
-			status = STRM_FreeBuffer(pSTRMRes->hStream, apBuffer,
-						pSTRMRes->uNumBufs, pCtxt);
+			status = STRM_FreeBuffer(strm_res->hStream, apBuffer,
+						strm_res->uNumBufs, pCtxt);
+
 			kfree(apBuffer);
 		}
-		strm_info.pUser = &user;
-		user.uNumberBufsInStream = 0;
-		STRM_GetInfo(pSTRMRes->hStream, &strm_info, sizeof(strm_info));
-		while (strm_info.pUser->uNumberBufsInStream--)
-			STRM_Reclaim(pSTRMRes->hStream, &pBufPtr, &ulBytes,
-					     (u32 *)&ulBufSize, &dwArg);
+		status = STRM_Close(strm_res->hStream, pCtxt);
+		if (status == DSP_EPENDING) {
+			status = STRM_Reclaim(strm_res->hStream,
+				&pBufPtr, &ulBytes, (u32 *)&ulBufSize, &dwArg);
+			if (DSP_SUCCEEDED(status))
+				status = STRM_Close(strm_res->hStream, pCtxt);
+		}
 
 	}
-	return status;
-}
-
-/* Release all Stream resources and its context
-* This is called from .bridge_release.
-*/
-DSP_STATUS	DRV_RemoveAllSTRMResElements(HANDLE hPCtxt)
-{
-	struct PROCESS_CONTEXT *pCtxt = (struct PROCESS_CONTEXT *)hPCtxt;
-	DSP_STATUS status = DSP_SOK;
-	struct STRM_RES_OBJECT *pTempSTRMRes2 = NULL;
-	struct STRM_RES_OBJECT *pTempSTRMRes = NULL;
-
-	DRV_ProcFreeSTRMRes(pCtxt);
-	pTempSTRMRes = pCtxt->pSTRMList;
-	while (pTempSTRMRes != NULL) {
-		pTempSTRMRes2 = pTempSTRMRes;
-		pTempSTRMRes = pTempSTRMRes->next;
-		kfree(pTempSTRMRes2);
-	}
-	pCtxt->pSTRMList = NULL;
 	return status;
 }
 
