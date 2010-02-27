@@ -1913,7 +1913,7 @@ DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT *hWmdContext)
 
 		if (DSP_SUCCEEDED(status)) {
 			/* Pack and do newline conversion */
-			pr_debug("%s: DSP Trace Buffer Begin:\n"
+			pr_info("%s: DSP Trace Buffer Begin:\n"
 				"=======================\n%s\n",
 				__func__, pszBuf);
 
@@ -1954,7 +1954,7 @@ DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT *hWmdContext)
 				}
 			}
 
-			pr_debug("\n=======================\n"
+			pr_info("\n=======================\n"
 				"DSP Trace Buffer End:\n");
 		}
 		kfree(pszBuf);
