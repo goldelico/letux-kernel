@@ -585,6 +585,10 @@ struct omap_dss_device {
 	int (*set_wss)(struct omap_dss_device *dssdev, u32 wss);
 	u32 (*get_wss)(struct omap_dss_device *dssdev);
 
+	void (*enable_device_detect)(struct omap_dss_device *dssdev, u8 enable);
+	bool (*get_device_detect)(struct omap_dss_device *dssdev);
+	int (*get_device_connected)(struct omap_dss_device *dssdev);
+
 	/* platform specific  */
 	int (*platform_enable)(struct omap_dss_device *dssdev);
 	void (*platform_disable)(struct omap_dss_device *dssdev);

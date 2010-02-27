@@ -26,6 +26,7 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/io.h>
+#include <linux/gpio.h>
 #include <linux/mutex.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
@@ -86,6 +87,10 @@
 #define VENC_OUTPUT_CONTROL			0xC4
 #define VENC_OUTPUT_TEST			0xC8
 #define VENC_DAC_B__DAC_C			0xC8
+
+#define TV_INT_GPIO                     33
+
+static bool tv_detect_enabled;
 
 struct venc_config {
 	u32 f_control;
@@ -576,6 +581,7 @@ static int venc_enable_display(struct omap_dss_device *dssdev)
 	venc.wss_data = 0;
 
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
+
 err:
 	mutex_unlock(&venc.venc_lock);
 
@@ -600,6 +606,7 @@ static void venc_disable_display(struct omap_dss_device *dssdev)
 	venc_power_off(dssdev);
 
 	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
+
 end:
 	mutex_unlock(&venc.venc_lock);
 }
@@ -725,6 +732,64 @@ static enum omap_dss_update_mode venc_display_get_update_mode(
 		return OMAP_DSS_UPDATE_DISABLED;
 }
 
+static void venc_configure_tv_detect(u8 enable)
+{
+	u32 reg;
+
+	venc_enable_clocks(1);
+	reg = venc_read_reg(VENC_GEN_CTRL);
+
+	if (enable) {
+				/* TVDET Active High Setting */
+		reg |= FLD_VAL(1, 16, 16);
+
+		/* Enable TVDET pulse generation */
+		reg |= FLD_VAL(1, 0, 0);
+
+		venc_write_reg(VENC_GEN_CTRL, reg);
+
+	} else {
+		/* Disable TVDET pulse generation */
+		reg |= FLD_VAL(0, 0, 0);
+
+		venc_write_reg(VENC_GEN_CTRL, reg);
+	}
+	venc_enable_clocks(0);
+
+}
+static void venc_enable_tv_detect(struct omap_dss_device *dssdev, u8 enable)
+{
+	tv_detect_enabled = enable;
+}
+
+static bool venc_get_tv_detect(struct omap_dss_device *dssdev)
+{
+
+	return tv_detect_enabled;
+}
+
+static int venc_get_tv_connected(struct omap_dss_device *dssdev)
+{
+	int tv_status;
+	int dev_state = dssdev->state;
+
+	if (tv_detect_enabled) {
+		venc_enable_display(dssdev);
+		venc_configure_tv_detect(1);
+		/* Wait for 3 vsyncs before checking status*/
+		mdelay(60);
+		tv_status = gpio_get_value(TV_INT_GPIO);
+		venc_configure_tv_detect(0);
+
+		if (dev_state != OMAP_DSS_DISPLAY_ACTIVE)
+			venc_disable_display(dssdev);
+	} else {
+		tv_status = -EINVAL;
+	}
+
+	return tv_status;
+}
+
 int venc_init_display(struct omap_dss_device *dssdev)
 {
 	DSSDBG("init_display\n");
@@ -739,6 +804,13 @@ int venc_init_display(struct omap_dss_device *dssdev)
 	dssdev->get_wss = venc_get_wss;
 	dssdev->set_wss = venc_set_wss;
 	dssdev->get_update_mode = venc_display_get_update_mode;
+	dssdev->enable_device_detect = venc_enable_tv_detect;
+	dssdev->get_device_detect = venc_get_tv_detect;
+	dssdev->get_device_connected = venc_get_tv_connected;
+
+	tv_detect_enabled = 0;
+	gpio_request(TV_INT_GPIO, "tv_detect");
+	gpio_direction_input(TV_INT_GPIO);
 
 	return 0;
 }
