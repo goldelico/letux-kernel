@@ -26,6 +26,8 @@
 #define OMAP4_STATE_C2 1 /* C2 - CPU0 CSWR + CPU1 OFF + MPU CSWR + Core active */
 #define OMAP4_STATE_C3 2 /* C3 - CPU0 CSWR + CPU1 OFF + MPU CSWR + Core CSWR */
 
+extern int (*_omap_sram_idle)(void);
+
 #define wfi() \
 	{	\
 		__asm__ __volatile__ ("wfi");	\
@@ -101,7 +103,10 @@ static int omap4_enter_idle(struct cpuidle_device *dev,
 	pwrdm_set_next_pwrst(mpu_pd, cx->mpu_state);
 	pwrdm_set_next_pwrst(core_pd, cx->core_state);
 
-	wfi();
+	if (_omap_sram_idle)
+		_omap_sram_idle();
+	else
+		wfi();
 
 	if (cx->cpu0_state > PWRDM_POWER_ON) {
 		scu_pwr_st = omap_readl(0x48240008);
