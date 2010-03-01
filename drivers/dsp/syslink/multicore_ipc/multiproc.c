@@ -43,16 +43,25 @@ struct multiproc_module_object {
 	struct multiproc_config cfg; /*  Module configuration structure */
 	struct multiproc_config def_cfg; /* Default module configuration */
 	atomic_t ref_count; /* Reference count */
+	u16 id;	/* Local processor ID */
 };
 
 static struct multiproc_module_object multiproc_state = {
-	.def_cfg.max_processors = 4,
-	.def_cfg.name_list[0][0] = "MPU",
-	.def_cfg.name_list[1][0] = "Tesla",
+	.def_cfg.num_processors = 4,
+	.def_cfg.name_list[0][0] = "Tesla",
+	.def_cfg.name_list[1][0] = "AppM3",
 	.def_cfg.name_list[2][0] = "SysM3",
-	.def_cfg.name_list[3][0] = "AppM3",
-	.def_cfg.id = 0
+	.def_cfg.name_list[3][0] = "MPU",
+	.def_cfg.id = 3,
+	.id = MULTIPROC_INVALIDID
 };
+
+/*
+ * ========= multiproc_module =========
+ *  Pointer to the MultiProc module state.
+ */
+static struct multiproc_module_object *multiproc_module = &multiproc_state;
+
 
 /*
  * ======== multiproc_get_config ========
@@ -63,14 +72,14 @@ void multiproc_get_config(struct multiproc_config *cfg)
 {
 	BUG_ON(cfg == NULL);
 	if (atomic_cmpmask_and_lt(
-			&(multiproc_state.ref_count),
+			&(multiproc_module->ref_count),
 			MULTIPROC_MAKE_MAGICSTAMP(0),
 			MULTIPROC_MAKE_MAGICSTAMP(1)) == true) {
 			/* (If setup has not yet been called) */
-		memcpy(cfg, &multiproc_state.def_cfg,
+		memcpy(cfg, &multiproc_module->def_cfg,
 				sizeof(struct multiproc_config));
 	} else {
-		memcpy(cfg, &multiproc_state.cfg,
+		memcpy(cfg, &multiproc_module->cfg,
 				sizeof(struct multiproc_config));
 	}
 }
@@ -91,11 +100,11 @@ s32 multiproc_setup(struct multiproc_config *cfg)
 	/* This sets the ref_count variable is not initialized, upper 16 bits is
 	* written with module Id to ensure correctness of ref_count variable.
 	*/
-	atomic_cmpmask_and_set(&multiproc_state.ref_count,
+	atomic_cmpmask_and_set(&multiproc_module->ref_count,
 				MULTIPROC_MAKE_MAGICSTAMP(0),
 				MULTIPROC_MAKE_MAGICSTAMP(0));
 
-	if (atomic_inc_return(&multiproc_state.ref_count)
+	if (atomic_inc_return(&multiproc_module->ref_count)
 					!= MULTIPROC_MAKE_MAGICSTAMP(1u)) {
 		status = 1;
 	} else {
@@ -104,8 +113,9 @@ s32 multiproc_setup(struct multiproc_config *cfg)
 			cfg = &tmp_cfg;
 		}
 
-		memcpy(&multiproc_state.cfg, cfg,
+		memcpy(&multiproc_module->cfg, cfg,
 				sizeof(struct multiproc_config));
+		multiproc_module->id = cfg->id;
 	}
 
 	return status;
@@ -125,14 +135,14 @@ s32 multiproc_destroy(void)
 	int status = 0;
 
 	if (atomic_cmpmask_and_lt(
-			&(multiproc_state.ref_count),
+			&(multiproc_module->ref_count),
 			MULTIPROC_MAKE_MAGICSTAMP(0),
 			MULTIPROC_MAKE_MAGICSTAMP(1)) == true) {
 		status = -ENODEV;
 		goto exit;
 	}
 
-	atomic_dec_return(&multiproc_state.ref_count);
+	atomic_dec_return(&multiproc_module->ref_count);
 
 exit:
 	return status;
@@ -149,7 +159,7 @@ int multiproc_set_local_id(u16 proc_id)
 	int status = 0;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(
-			&(multiproc_state.ref_count),
+			&(multiproc_module->ref_count),
 			MULTIPROC_MAKE_MAGICSTAMP(0),
 			MULTIPROC_MAKE_MAGICSTAMP(1)) == true)) {
 		status = -ENODEV;
@@ -161,7 +171,7 @@ int multiproc_set_local_id(u16 proc_id)
 		goto exit;
 	}
 
-	multiproc_state.cfg.id = proc_id;
+	multiproc_module->cfg.id = proc_id;
 
 exit:
 	return status;
@@ -179,18 +189,18 @@ u16 multiproc_get_id(const char *proc_name)
 	u16 proc_id = MULTIPROC_INVALIDID;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(
-			&(multiproc_state.ref_count),
+			&(multiproc_module->ref_count),
 			MULTIPROC_MAKE_MAGICSTAMP(0),
 			MULTIPROC_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
 
 	/* If the name is NULL, just return the local id */
 	if (proc_name == NULL)
-		proc_id = multiproc_state.cfg.id;
+		proc_id = multiproc_module->cfg.id;
 	else {
-		for (i = 0; i < multiproc_state.cfg.max_processors ; i++) {
+		for (i = 0; i < multiproc_module->cfg.num_processors ; i++) {
 			if (strcmp(proc_name,
-				&multiproc_state.cfg.name_list[i][0]) == 0) {
+				&multiproc_module->cfg.name_list[i][0]) == 0) {
 				proc_id = i;
 				break;
 			}
@@ -213,7 +223,7 @@ char *multiproc_get_name(u16 proc_id)
 
 	/* On error condition return NULL pointer, else entry from name list */
 	if (WARN_ON(atomic_cmpmask_and_lt(
-			&(multiproc_state.ref_count),
+			&(multiproc_module->ref_count),
 			MULTIPROC_MAKE_MAGICSTAMP(0),
 			MULTIPROC_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
@@ -221,7 +231,7 @@ char *multiproc_get_name(u16 proc_id)
 	if (WARN_ON(proc_id >= MULTIPROC_MAXPROCESSORS))
 		goto exit;
 
-	proc_name = multiproc_state.cfg.name_list[proc_id];
+	proc_name = multiproc_module->cfg.name_list[proc_id];
 
 exit:
 	return proc_name;
@@ -229,14 +239,63 @@ exit:
 EXPORT_SYMBOL(multiproc_get_name);
 
 /*
- * ======== multiProc_set_local_id ========
+ * ======== multiproc_get_num_processors ========
  *  Purpose:
- *  This will get the maximum proccessor id in the system
+ *  This will get the number of processors in the system
  */
-u16 multiproc_get_max_processors(void)
+u16 multiproc_get_num_processors(void)
 {
-	return multiproc_state.cfg.max_processors;
-
+	return multiproc_module->cfg.num_processors;
 }
-EXPORT_SYMBOL(multiproc_get_max_processors);
+EXPORT_SYMBOL(multiproc_get_num_processors);
 
+/*
+ * ======== multiproc_self ========
+ *  Purpose:
+ *  Return Id of current processor
+ */
+u16 multiproc_self(void)
+{
+	return multiproc_module->id;
+}
+EXPORT_SYMBOL(multiproc_self);
+
+/*
+ * ======== multiproc_get_slot ========
+ * Determines the offset for any two processors.
+ */
+u32 multiproc_get_slot(u16 remote_proc_id)
+{
+	u32 slot = 0u;
+	u32 i;
+	u32 j;
+	u32 small_id;
+	u32 large_id;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(
+			&(multiproc_module->ref_count),
+			MULTIPROC_MAKE_MAGICSTAMP(0),
+			MULTIPROC_MAKE_MAGICSTAMP(1)) == true))
+		goto exit;
+
+	if (remote_proc_id > multiproc_self()) {
+		small_id = multiproc_self();
+		large_id = remote_proc_id;
+	} else {
+		large_id = multiproc_self();
+		small_id = remote_proc_id;
+	}
+
+	/* determine what offset to create for the remote Proc Id */
+	for (i = 0; i < multiproc_module->cfg.num_processors; i++) {
+		for (j = i + 1; j < multiproc_module->cfg.num_processors; j++) {
+			if ((small_id == i) && (large_id == j))
+				break;
+			slot++;
+		}
+	}
+
+exit:
+	return slot;
+}
+EXPORT_SYMBOL(multiproc_get_slot);

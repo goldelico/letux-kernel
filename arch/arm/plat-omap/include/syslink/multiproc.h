@@ -47,7 +47,7 @@
  *  Configuration structure for multiproc module
  */
 struct multiproc_config {
-	s32 max_processors; /* Max number of procs for particular system */
+	s32 num_processors; /* Number of procs for particular system */
 	char name_list[MULTIPROC_MAXPROCESSORS][MULTIPROC_MAXNAMELENGTH];
 	/* Name List for processors in the system */
 	u16 id; /* Local Proc ID. This needs to be set before calling any
@@ -77,7 +77,13 @@ u16  multiproc_get_id(const char *proc_name);
 /* Function to get name from processor id. */
 char *multiproc_get_name(u16 proc_id);
 
-/* Function to get maximum proc Id in the system. */
-u16 multiproc_get_max_processors(void);
+/* Function to get number of processors in the system. */
+u16 multiproc_get_num_processors(void);
+
+/* Return Id of current processor */
+u16 multiproc_self(void);
+
+/* Determines the offset for any two processors. */
+u32 multiproc_get_slot(u16 remote_proc_id);
 
 #endif	/* _MULTIPROC_H_ */
