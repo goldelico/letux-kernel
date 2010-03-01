@@ -1752,10 +1752,10 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	int ctrlr_caps;
 
 	/*
-	 * FIXME OMAP4: Limit to MMC1 support by returning success for other
-	 * controllers
+	 * FIXME OMAP4: Do not register MMC2.
+	 * eMMC seems to be recognized on MMC1 which is incorrect.
 	 */
-	if (cpu_is_omap44xx() && pdev->id > 0)
+	if (cpu_is_omap44xx() && pdev->id == 1)
 		return 0;
 
 	if (pdata == NULL) {
