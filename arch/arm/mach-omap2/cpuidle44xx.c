@@ -17,12 +17,14 @@
 #include <plat/powerdomain.h>
 #include <plat/clockdomain.h>
 #include <plat/io.h>
+#include <plat/serial.h>
 
 #ifdef CONFIG_CPU_IDLE
 
-#define OMAP4_MAX_STATES 2
+#define OMAP4_MAX_STATES 3
 #define OMAP4_STATE_C1 0 /* C1 - CPU0 WFI + CPU1 WFI + MPU active + Core active */
 #define OMAP4_STATE_C2 1 /* C2 - CPU0 CSWR + CPU1 OFF + MPU CSWR + Core active */
+#define OMAP4_STATE_C3 2 /* C3 - CPU0 CSWR + CPU1 OFF + MPU CSWR + Core CSWR */
 
 #define wfi() \
 	{	\
@@ -54,6 +56,8 @@ struct powerdomain *cpu0_pd, *cpu1_pd, *mpu_pd, *core_pd;
 
 static int omap4_idle_bm_check(void)
 {
+	if (!omap_uart_can_sleep())
+		return 1;
 	return 0;
 }
 
@@ -142,6 +146,7 @@ DEFINE_PER_CPU(struct cpuidle_device, omap4_idle_dev);
  * Below is the desciption of each C state.
  * 	C1 . CPU0 WFI + CPU1 WFI + MPU active + Core active
  * 	C2 . CPU0 CSWR + CPU1 OFF + MPU CSWR + Core active
+ * 	C3 . CPU0 CSWR + CPU1 OFF + MPU CSWR + Core CSWR
  */
 void omap_init_power_states(void)
 {
@@ -160,7 +165,7 @@ void omap_init_power_states(void)
 
 	/* C2 . CPU0 CSWR + CPU1 OFF + MPU CSWR + Core active */
 	omap4_power_states[OMAP4_STATE_C2].valid = 1;
-	omap4_power_states[OMAP4_STATE_C2].type = OMAP4_STATE_C1;
+	omap4_power_states[OMAP4_STATE_C2].type = OMAP4_STATE_C2;
 	/* TODO: Fix the latences */
 	omap4_power_states[OMAP4_STATE_C2].sleep_latency = 5;
 	omap4_power_states[OMAP4_STATE_C2].wakeup_latency = 5;
@@ -170,6 +175,20 @@ void omap_init_power_states(void)
 	omap4_power_states[OMAP4_STATE_C2].mpu_state = PWRDM_POWER_RET;
 	omap4_power_states[OMAP4_STATE_C2].core_state = PWRDM_POWER_ON;
 	omap4_power_states[OMAP4_STATE_C2].flags = CPUIDLE_FLAG_TIME_VALID;
+
+	/* C3 . CPU0 CSWR + CPU1 OFF + MPU CSWR + Core CSWR */
+	omap4_power_states[OMAP4_STATE_C3].valid = 1;
+	omap4_power_states[OMAP4_STATE_C3].type = OMAP4_STATE_C3;
+	/* TODO: Fix the latences */
+	omap4_power_states[OMAP4_STATE_C3].sleep_latency = 50;
+	omap4_power_states[OMAP4_STATE_C3].wakeup_latency = 50;
+	omap4_power_states[OMAP4_STATE_C3].threshold = 100;
+	omap4_power_states[OMAP4_STATE_C3].cpu0_state = PWRDM_POWER_RET;
+	omap4_power_states[OMAP4_STATE_C3].cpu1_state = PWRDM_POWER_OFF;
+	omap4_power_states[OMAP4_STATE_C3].mpu_state = PWRDM_POWER_RET;
+	omap4_power_states[OMAP4_STATE_C3].core_state = PWRDM_POWER_RET;
+	omap4_power_states[OMAP4_STATE_C3].flags = CPUIDLE_FLAG_TIME_VALID |
+							CPUIDLE_FLAG_CHECK_BM;
 }
 
 struct cpuidle_driver omap4_idle_driver = {
