@@ -3741,8 +3741,8 @@ static struct omap_hwmod_irq_info omap44xx_mailbox_irqs[] = {
 
 static struct omap_hwmod_addr_space omap44xx_mailbox_addrs[] = {
 	{
-		.pa_start	= 0x5a05a800,
-		.pa_end		= 0x5a05a9ff,
+		.pa_start	= 0x4A0F4000,
+		.pa_end		= 0x4A0F41FF,
 		.flags		= ADDR_TYPE_RT
 	},
 };
