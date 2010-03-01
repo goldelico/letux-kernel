@@ -3763,6 +3763,15 @@ static struct omap_hwmod_ocp_if *omap44xx_mailbox_slaves[] = {
 	&omap44xx_l4_cfg__mailbox,
 };
 
+static struct omap_hwmod_sysconfig omap44xx_mailbox_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
+};
+
 static struct omap_hwmod omap44xx_mailbox_hwmod = {
 	.name		= "mailbox",
 	.mpu_irqs	= omap44xx_mailbox_irqs,
@@ -3773,6 +3782,7 @@ static struct omap_hwmod omap44xx_mailbox_hwmod = {
 			.device_reg = OMAP4430_CM_L4CFG_MAILBOX_CLKCTRL,
 		},
 	},
+	.sysconfig	= &omap44xx_mailbox_sysc,
 	.slaves		= omap44xx_mailbox_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_mailbox_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
