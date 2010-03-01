@@ -5610,8 +5610,13 @@ static struct omap_hwmod_ocp_if *omap44xx_wdt2_slaves[] = {
 };
 
 static struct omap_hwmod_sysconfig omap44xx_wdt2_sysc = {
-	.sysc_flags	= SYSS_MISSING,
-	.idlemodes	= SIDLE_FORCE,
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.syss_offs	= 0x0014,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
 };
 
 static struct omap_hwmod omap44xx_wdt2_hwmod = {
@@ -5662,6 +5667,16 @@ static struct omap_hwmod_ocp_if *omap44xx_wdt3_slaves[] = {
 	&omap44xx_l4_audio__wdt3,
 };
 
+static struct omap_hwmod_sysconfig omap44xx_wdt3_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.syss_offs	= 0x0014,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_EMUFREE |
+			   SYSC_HAS_SOFTRESET),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
+};
+
 static struct omap_hwmod omap44xx_wdt3_hwmod = {
 	.name		= "wdt3",
 	.mpu_irqs	= omap44xx_wdt3_irqs,
@@ -5674,6 +5689,7 @@ static struct omap_hwmod omap44xx_wdt3_hwmod = {
 			.device_reg = OMAP4430_CM1_ABE_WDT3_CLKCTRL,
 		},
 	},
+	.sysconfig	= &omap44xx_wdt3_sysc,
 	.slaves		= omap44xx_wdt3_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_wdt3_slaves),
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP4430),
