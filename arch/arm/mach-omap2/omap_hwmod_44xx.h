@@ -1694,6 +1694,18 @@ static struct omap_hwmod_ocp_if *omap44xx_sdma_slaves[] = {
 	&omap44xx_l4_cfg__sdma,
 };
 
+static struct omap_hwmod_sysconfig omap44xx_sdma_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x002c,
+	.syss_offs	= 0x0028,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_SOFTRESET |
+			   SYSC_HAS_MIDLEMODE | SYSC_HAS_CLOCKACTIVITY |
+			   SYSC_HAS_EMUFREE | SYSC_HAS_AUTOIDLE),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type1,
+};
+
 static struct omap_hwmod omap44xx_sdma_hwmod = {
 	.name		= "sdma",
 	.mpu_irqs	= omap44xx_sdma_irqs,
@@ -1706,6 +1718,7 @@ static struct omap_hwmod omap44xx_sdma_hwmod = {
 			.device_reg = OMAP4430_CM_SDMA_SDMA_CLKCTRL,
 		},
 	},
+	.sysconfig	= &omap44xx_sdma_sysc,
 	.slaves		= omap44xx_sdma_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_sdma_slaves),
 	.masters	= omap44xx_sdma_masters,
