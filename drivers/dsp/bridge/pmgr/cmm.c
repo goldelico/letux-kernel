@@ -564,11 +564,10 @@ DSP_STATUS CMM_RegisterGPPSMSeg(struct CMM_OBJECT *hCmmMgr, u32 dwGPPBasePA,
 	DBC_Require(dwGPPBaseVA != 0);
 	DBC_Require((cFactor <= CMM_ADDTODSPPA) &&
 		   (cFactor >= CMM_SUBFROMDSPPA));
-	GT_6trace(CMM_debugMask, GT_ENTER,
-		  "CMM_RegisterGPPSMSeg dwGPPBasePA %x "
-		  "ulSize %x dwDSPAddrOffset %x dwDSPBase %x ulDSPSize %x "
-		  "dwGPPBaseVA %x\n", dwGPPBasePA, ulSize, dwDSPAddrOffset,
-		  dwDSPBase, ulDSPSize, dwGPPBaseVA);
+	dev_dbg(bridge, "%s: dwGPPBasePA %x ulSize %x dwDSPAddrOffset %x "
+			"dwDSPBase %x ulDSPSize %x dwGPPBaseVA %x\n", __func__,
+			dwGPPBasePA, ulSize, dwDSPAddrOffset, dwDSPBase,
+			ulDSPSize, dwGPPBaseVA);
 	if (!MEM_IsValidHandle(hCmmMgr, CMMSIGNATURE)) {
 		status = DSP_EHANDLE;
 		return status;

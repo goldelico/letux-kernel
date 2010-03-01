@@ -512,13 +512,9 @@ u32 MGRWRAP_GetProcessResourcesInfo(union Trapped_Args *args, void *pr_ctxt)
     DSP_STATUS status = DSP_SOK;
     u32 uSize = 0;
     u8 *pBuf = MEM_Alloc(8092, MEM_NONPAGED);
-    GT_1trace(WCD_debugMask, GT_ENTER,
-	     "MGRWRAP_GetProcessResourcesInfo:uSize=%d :\n", uSize);
+
     cp_to_usr(args->ARGS_PROC_GETTRACE.pBuf, pBuf, status, uSize);
-    GT_0trace(WCD_debugMask, GT_ENTER, "\n***********"
-	     "123MGRWRAP_GetProcessResourcesInfo:**************\n");
-    GT_0trace(WCD_debugMask, GT_ENTER, "\n***********"
-	     "456MGRWRAP_GetProcessResourcesInfo:**************\n");
+
     cp_to_usr(args->ARGS_PROC_GETTRACE.pSize, &uSize, status, 1);
     kfree(pBuf);
     return status;
@@ -601,10 +597,6 @@ func_end:
  */
 u32 PROCWRAP_Detach(union Trapped_Args *args, void *pr_ctxt)
 {
-	GT_1trace(WCD_debugMask, GT_ENTER,
-		 "PROCWRAP_Detach: entered args\n0x%x "
-		 "hProceesor \n", args->ARGS_PROC_DETACH.hProcessor);
-
 	/* PROC_Detach called at bridge_release only */
 
 	return DSP_SOK;

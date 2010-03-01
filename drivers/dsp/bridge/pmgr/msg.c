@@ -109,8 +109,8 @@ void MSG_Delete(struct MSG_MGR *hMsgMgr)
 	(*pIntfFxns->pfnMsgDelete)(hMsgMgr);
 
 	if (MEM_IsValidHandle(pMsgMgr, MSGMGR_SIGNATURE))
-		GT_1trace(MSG_debugMask, GT_7CLASS, "MSG_Delete: Error hMsgMgr "
-					"Valid Handle: 0x%x\n", hMsgMgr);
+		dev_dbg(bridge, "%s: Error hMsgMgr handle: %p\n",
+						__func__, hMsgMgr);
 }
 
 /*

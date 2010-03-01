@@ -289,9 +289,6 @@ DSP_STATUS DMM_MapMemory(struct DMM_OBJECT *hDmmMgr, u32 addr, u32 size)
 	struct MapPage *chunk;
 	DSP_STATUS status = DSP_SOK;
 
-	GT_3trace(DMM_debugMask, GT_ENTER,
-		 "Entered DMM_MapMemory () hDmmMgr %x, "
-		 "addr %x, size %x\n", hDmmMgr, addr, size);
 	SYNC_EnterCS(pDmmObj->hDmmLock);
 	/* Find the Reserved memory chunk containing the DSP block to
 	 * be mapped */
@@ -303,9 +300,10 @@ DSP_STATUS DMM_MapMemory(struct DMM_OBJECT *hDmmMgr, u32 addr, u32 size)
 	} else
 		status = DSP_ENOTFOUND;
 	SYNC_LeaveCS(pDmmObj->hDmmLock);
-	GT_2trace(DMM_debugMask, GT_4CLASS,
-		 "Leaving DMM_MapMemory status %x, chunk %x\n",
-		status, chunk);
+
+	dev_dbg(bridge, "%s hDmmMgr %p, addr %x, size %x\n\tstatus %x, "
+		"chunk %p", __func__, hDmmMgr, addr, size, status, chunk);
+
 	return status;
 }
 
@@ -323,9 +321,6 @@ DSP_STATUS DMM_ReserveMemory(struct DMM_OBJECT *hDmmMgr, u32 size,
 	u32 rsvAddr = 0;
 	u32 rsvSize = 0;
 
-	GT_3trace(DMM_debugMask, GT_ENTER,
-		 "Entered DMM_ReserveMemory () hDmmMgr %x, "
-		 "size %x, pRsvAddr %x\n", hDmmMgr, size, pRsvAddr);
 	SYNC_EnterCS(pDmmObj->hDmmLock);
 
 	/* Try to get a DSP chunk from the free list */
@@ -355,9 +350,11 @@ DSP_STATUS DMM_ReserveMemory(struct DMM_OBJECT *hDmmMgr, u32 size,
 		status = DSP_EMEMORY;
 
 	SYNC_LeaveCS(pDmmObj->hDmmLock);
-	GT_3trace(DMM_debugMask, GT_4CLASS,
-		 "Leaving ReserveMemory status %x, rsvAddr"
-		 " %x, rsvSize %x\n", status, rsvAddr, rsvSize);
+
+	dev_dbg(bridge, "%s hDmmMgr %p, size %x, pRsvAddr %p\n\tstatus %x, "
+			"rsvAddr %x, rsvSize %x\n", __func__, hDmmMgr, size,
+			pRsvAddr, status, rsvAddr, rsvSize);
+
 	return status;
 }
 
@@ -373,9 +370,6 @@ DSP_STATUS DMM_UnMapMemory(struct DMM_OBJECT *hDmmMgr, u32 addr, u32 *pSize)
 	struct MapPage *chunk;
 	DSP_STATUS status = DSP_SOK;
 
-	GT_3trace(DMM_debugMask, GT_ENTER,
-		 "Entered DMM_UnMapMemory () hDmmMgr %x, "
-		 "addr %x, pSize %x\n", hDmmMgr, addr, pSize);
 	SYNC_EnterCS(pDmmObj->hDmmLock);
 	chunk = GetMappedRegion(addr) ;
 	if (chunk == NULL)
@@ -388,9 +382,9 @@ DSP_STATUS DMM_UnMapMemory(struct DMM_OBJECT *hDmmMgr, u32 addr, u32 *pSize)
 		chunk->MappedSize = 0;
 	}
 	SYNC_LeaveCS(pDmmObj->hDmmLock);
-	GT_3trace(DMM_debugMask, GT_ENTER,
-		 "Leaving DMM_UnMapMemory status %x, chunk"
-		 " %x,  *pSize %x\n", status, chunk, *pSize);
+
+	dev_dbg(bridge, "%s: hDmmMgr %p, addr %x, pSize %p\n\tstatus %x, "
+		"chunk %p\n", __func__, hDmmMgr, addr, pSize, status, chunk);
 
 	return status;
 }
@@ -407,10 +401,6 @@ DSP_STATUS DMM_UnReserveMemory(struct DMM_OBJECT *hDmmMgr, u32 rsvAddr)
 	u32 i;
 	DSP_STATUS status = DSP_SOK;
 	u32 chunkSize;
-
-	GT_2trace(DMM_debugMask, GT_ENTER,
-		 "Entered DMM_UnReserveMemory () hDmmMgr "
-		 "%x, rsvAddr %x\n", hDmmMgr, rsvAddr);
 
 	SYNC_EnterCS(pDmmObj->hDmmLock);
 
@@ -441,9 +431,10 @@ DSP_STATUS DMM_UnReserveMemory(struct DMM_OBJECT *hDmmMgr, u32 rsvAddr)
 		 */
 	}
 	SYNC_LeaveCS(pDmmObj->hDmmLock);
-	GT_2trace(DMM_debugMask, GT_ENTER,
-		 "Leaving DMM_UnReserveMemory status %x"
-		 " chunk %x\n", status, chunk);
+
+	dev_dbg(bridge, "%s: hDmmMgr %p, rsvAddr %x\n\tstatus %x chunk %p",
+			__func__, hDmmMgr, rsvAddr, status, chunk);
+
 	return status;
 }
 
@@ -464,9 +455,9 @@ static struct MapPage *GetRegion(u32 aAddr)
 		if (i < TableSize)
 			currRegion = pVirtualMappingTable + i;
 	}
-	GT_3trace(DMM_debugMask, GT_4CLASS,
-	       "Leaving GetRegion currRegion %x, iFreeRegion %d\n,"
-	       "iFreeSize %d\n", currRegion, iFreeRegion, iFreeSize) ;
+
+	dev_dbg(bridge, "%s: currRegion %p, iFreeRegion %d, iFreeSize %d\n",
+			__func__, currRegion, iFreeRegion, iFreeSize);
 	return currRegion;
 }
 

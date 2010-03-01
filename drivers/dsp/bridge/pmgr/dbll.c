@@ -328,14 +328,14 @@ bool DBLL_getAddr(struct DBLL_LibraryObj *zlLib, char *name,
 	DBC_Require(ppSym != NULL);
 	DBC_Require(zlLib->symTab != NULL);
 
-	GT_3trace(DBLL_debugMask, GT_ENTER,
-		 "DBLL_getAddr: lib: 0x%x name: %s pAddr:"
-		 " 0x%x\n", zlLib, name, ppSym);
 	sym = (struct Symbol *)GH_find(zlLib->symTab, name);
 	if (sym != NULL) {
 		*ppSym = &sym->value;
 		status = true;
 	}
+
+	dev_dbg(bridge, "%s: lib: %p name: %s pAddr: %p, status 0x%x\n",
+					 __func__, zlLib, name, ppSym, status);
 	return status;
 }
 
@@ -408,9 +408,6 @@ DSP_STATUS DBLL_getSect(struct DBLL_LibraryObj *lib, char *name, u32 *pAddr,
 	DBC_Require(pSize != NULL);
 	DBC_Require(MEM_IsValidHandle(zlLib, DBLL_LIBSIGNATURE));
 
-	GT_4trace(DBLL_debugMask, GT_ENTER,
-		 "DBLL_getSect: lib: 0x%x name: %s pAddr:"
-		 " 0x%x pSize: 0x%x\n", lib, name, pAddr, pSize);
 	/* If DOFF file is not open, we open it. */
 	if (zlLib != NULL) {
 		if (zlLib->fp == NULL) {
@@ -444,6 +441,9 @@ DSP_STATUS DBLL_getSect(struct DBLL_LibraryObj *lib, char *name, u32 *pAddr,
 		dofClose(zlLib);
 		fOpenedDoff = false;
 	}
+
+	dev_dbg(bridge, "%s: lib: %p name: %s pAddr: %p pSize: %p, "
+		"status 0x%x\n", __func__, lib, name, pAddr, pSize, status);
 
 	return status;
 }
@@ -483,9 +483,6 @@ DSP_STATUS DBLL_load(struct DBLL_LibraryObj *lib, DBLL_Flags flags,
 	DBC_Require(pEntry != NULL);
 	DBC_Require(attrs != NULL);
 
-	GT_4trace(DBLL_debugMask, GT_ENTER,
-		 "DBLL_load: lib: 0x%x flags: 0x%x pEntry:"
-		 " 0x%x\n", lib, flags, attrs, pEntry);
 	/*
 	 *  Load if not already loaded.
 	 */
@@ -579,6 +576,10 @@ DSP_STATUS DBLL_load(struct DBLL_LibraryObj *lib, DBLL_Flags flags,
 		dofClose(zlLib);
 
 	DBC_Ensure(DSP_FAILED(status) || zlLib->loadRef > 0);
+
+	dev_dbg(bridge, "%s: lib: %p flags: 0x%x pEntry: %p, status 0x%x\n",
+			__func__, lib, flags, pEntry, status);
+
 	return status;
 }
 
@@ -611,9 +612,6 @@ DSP_STATUS DBLL_open(struct DBLL_TarObj *target, char *file, DBLL_Flags flags,
 	DBC_Require(file != NULL);
 	DBC_Require(pLib != NULL);
 
-	GT_3trace(DBLL_debugMask, GT_ENTER,
-		 "DBLL_open: target: 0x%x file: %s pLib:"
-		 " 0x%x\n", target, file, pLib);
 	zlLib = zlTarget->head;
 	while (zlLib != NULL) {
 		if (strcmp(zlLib->fileName, file) == 0) {
@@ -733,6 +731,10 @@ func_cont:
 	DBC_Ensure((DSP_SUCCEEDED(status) && (zlLib->openRef > 0) &&
 		  MEM_IsValidHandle(((struct DBLL_LibraryObj *)(*pLib)),
 		  DBLL_LIBSIGNATURE)) || (DSP_FAILED(status) && *pLib == NULL));
+
+	dev_dbg(bridge, "%s: target: %p file: %s pLib: %p, status 0x%x\n",
+					 __func__, target, file, pLib, status);
+
 	return status;
 }
 
@@ -756,9 +758,6 @@ DSP_STATUS DBLL_readSect(struct DBLL_LibraryObj *lib, char *name,
 	DBC_Require(pContent != NULL);
 	DBC_Require(size != 0);
 
-	GT_4trace(DBLL_debugMask, GT_ENTER,
-		 "DBLL_readSect: lib: 0x%x name: %s "
-		 "pContent: 0x%x size: 0x%x\n", lib, name, pContent, size);
 	/* If DOFF file is not open, we open it. */
 	if (zlLib != NULL) {
 		if (zlLib->fp == NULL) {
@@ -804,6 +803,9 @@ func_cont:
 		dofClose(zlLib);
 		fOpenedDoff = false;
 	}
+
+	dev_dbg(bridge, "%s: lib: %p name: %s pContent: %p size: 0x%x, "
+		"status 0x%x\n", __func__, lib, name, pContent, size, status);
 	return status;
 }
 
@@ -834,7 +836,7 @@ void DBLL_unload(struct DBLL_LibraryObj *lib, struct DBLL_Attrs *attrs)
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(zlLib, DBLL_LIBSIGNATURE));
 	DBC_Require(zlLib->loadRef > 0);
-	GT_1trace(DBLL_debugMask, GT_ENTER, "DBLL_unload: lib: 0x%x\n", lib);
+	dev_dbg(bridge, "%s: lib: %p\n", __func__, lib);
 	zlLib->loadRef--;
 	/* Unload only if reference count is 0 */
 	if (zlLib->loadRef != 0)
@@ -846,8 +848,7 @@ void DBLL_unload(struct DBLL_LibraryObj *lib, struct DBLL_Attrs *attrs)
 			&zlLib->symbol.dlSymbol,
 			&zlLib->allocate.dlAlloc, &zlLib->init.dlInit);
 		if (err != 0) {
-			GT_1trace(DBLL_debugMask, GT_5CLASS,
-				 "Dynamic_Unload_Module failed: 0x%x\n", err);
+			dev_dbg(bridge, "%s: failed: 0x%x\n", __func__, err);
 		}
 	}
 	/* remove symbols from symbol table */
@@ -1062,8 +1063,7 @@ static struct dynload_symbol *findSymbol(struct Dynamic_Loader_Sym *this,
 	}
 
 	if (!status && bGblSearch) {
-		GT_1trace(DBLL_debugMask, GT_6CLASS,
-			 "findSymbol: Symbol not found: %s\n", name);
+		dev_dbg(bridge, "%s: Symbol not found: %s\n", __func__, name);
 	}
 
 	DBC_Assert((status && (pSym != NULL)) || (!status && (pSym == NULL)));
@@ -1121,9 +1121,8 @@ static struct dynload_symbol *addToSymbolTable(struct Dynamic_Loader_Sym *this,
 		bGblSearch = true;
 		if (pSym) {
 			bRedefinedSymbol = true;
-			GT_1trace(DBLL_debugMask, GT_6CLASS,
-				 "Symbol already defined in "
-				 "symbol table: %s\n", name);
+			dev_dbg(bridge, "%s already defined in symbol table\n",
+									name);
 			return NULL;
 		}
 	}
@@ -1215,7 +1214,7 @@ static void errorReport(struct Dynamic_Loader_Sym *this, const char *errstr,
 	lib = pSymbol->lib;
 	DBC_Require(MEM_IsValidHandle(lib, DBLL_LIBSIGNATURE));
 	vsnprintf((char *)tempBuf, MAXEXPR, (char *)errstr, args);
-	GT_1trace(DBLL_debugMask, GT_5CLASS, "%s\n", tempBuf);
+	dev_dbg(bridge, "%s\n", tempBuf);
 }
 
 /* Dynamic_Loader_Allocate */
@@ -1324,13 +1323,11 @@ func_cont:
 		if (!runAddrFlag)
 			info->run_addr = info->load_addr;
 		info->context = (u32)rmmAddr.segid;
-		GT_3trace(DBLL_debugMask, GT_5CLASS,
-			 "Remote alloc: %s  base = 0x%lx len"
-			 "= 0x%lx\n", info->name, info->load_addr / DSPWORDSIZE,
-			 info->size / DSPWORDSIZE);
-		GT_2trace(DBLL_debugMask, GT_5CLASS,
-			 "info->run_addr = 0x%x, info->load_addr= 0x%x\n",
-			 info->run_addr, info->load_addr);
+		dev_dbg(bridge, "%s: %s base = 0x%x len = 0x%x, "
+			"info->run_addr 0x%x, info->load_addr 0x%x\n",
+			__func__, info->name, info->load_addr / DSPWORDSIZE,
+			info->size / DSPWORDSIZE, info->run_addr,
+			info->load_addr);
 	}
 	return retVal;
 }

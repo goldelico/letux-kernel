@@ -449,9 +449,8 @@ DSP_STATUS COD_GetSymValue(struct COD_MANAGER *hMgr, char *pstrSym,
 	DBC_Require(pstrSym != NULL);
 	DBC_Require(pulValue != NULL);
 
-	GT_3trace(COD_debugMask, GT_ENTER, "Entered COD_GetSymValue Args \t\n"
-		  "hMgr: 0x%x\t\npstrSym: 0x%x\t\npulValue: 0x%x\n",
-		  hMgr, pstrSym, pulValue);
+	dev_dbg(bridge, "%s: hMgr: %p pstrSym: %s pulValue: %p\n",
+					__func__, hMgr, pstrSym, pulValue);
 	if (hMgr->baseLib) {
 		if (!hMgr->fxns.getAddrFxn(hMgr->baseLib, pstrSym, &pSym)) {
 			if (!hMgr->fxns.getCAddrFxn(hMgr->baseLib, pstrSym,
