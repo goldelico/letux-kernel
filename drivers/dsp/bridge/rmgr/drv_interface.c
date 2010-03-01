@@ -84,9 +84,6 @@ static struct cdev bridge_cdev;
 static struct class *bridge_class;
 
 static u32 driverContext;
-#ifdef CONFIG_BRIDGE_DEBUG
-static char *GT_str;
-#endif /* CONFIG_BRIDGE_DEBUG */
 static s32 driver_major;
 static char *base_img;
 char *iva_img;
@@ -132,9 +129,6 @@ static int omap34xxbridge_suspend_lockout(
 #endif
 
 #ifdef CONFIG_BRIDGE_DEBUG
-module_param(GT_str, charp, 0);
-MODULE_PARM_DESC(GT_str, "GT string, default = NULL");
-
 module_param(dsp_debug, int, 0);
 MODULE_PARM_DESC(dsp_debug, "Wait after loading DSP image. default = false");
 #endif
@@ -295,15 +289,6 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 
 	bridge_create_sysfs();
 
-	GT_init();
-
-#ifdef CONFIG_BRIDGE_DEBUG
-	if (GT_str)
-		GT_set(GT_str);
-#elif defined(DDSP_DEBUG_PRODUCT) && GT_TRACE
-	GT_set("**=67");
-#endif
-
 #ifdef CONFIG_PM
 	/* Initialize the wait queue */
 	if (!status) {
@@ -436,7 +421,6 @@ func_cont:
 	MEM_ExtPhysPoolRelease();
 
 	SERVICES_Exit();
-	GT_exit();
 
 	/* Remove driver sysfs entries */
 	bridge_destroy_sysfs();
