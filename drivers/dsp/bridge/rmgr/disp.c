@@ -304,9 +304,8 @@ DSP_STATUS DISP_NodeCreate(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 		goto func_end;
 
 	if (devType != DSP_UNIT) {
-		GT_1trace(DISP_DebugMask, GT_7CLASS,
-			 "DISP_NodeCreate unknown device "
-			 "type = 0x%x\n", devType);
+		dev_dbg(bridge, "%s: unknown device type = 0x%x\n",
+							__func__, devType);
 		goto func_end;
 	}
 	DBC_Require(pArgs != NULL);
@@ -323,10 +322,8 @@ DSP_STATUS DISP_NodeCreate(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 		/ sizeof(RMS_WORD)  - 1 + dwLength;
 	if (total >= max) {
 		status = DSP_EFAIL;
-		GT_2trace(DISP_DebugMask, GT_6CLASS,
-			"DISP_NodeCreate: Message args too"
-			" large for buffer! Message args size = %d, max = %d\n",
-			total, max);
+		dev_dbg(bridge, "%s: Message args too large for buffer! size "
+				"= %d, max = %d\n", __func__, total, max);
 	}
 	/*
 	 *  Fill in buffer to send to RMS.
@@ -423,10 +420,9 @@ DSP_STATUS DISP_NodeCreate(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 			pMoreTaskArgs->numInputStreams = taskArgs.uNumInputs;
 			total +=
 			    sizeof(struct RMS_MoreTaskArgs) / sizeof(RMS_WORD);
-			GT_2trace(DISP_DebugMask, GT_7CLASS,
-				 "DISP::::uDSPHeapAddr %x, "
-				 "uHeapSize %x\n", taskArgs.uDSPHeapAddr,
-				 taskArgs.uHeapSize);
+			dev_dbg(bridge, "%s: uDSPHeapAddr %x, uHeapSize %x\n",
+					__func__, taskArgs.uDSPHeapAddr,
+					taskArgs.uHeapSize);
 			/* Keep track of pSIOInDef[] and pSIOOutDef[]
 			 * positions in the buffer, since this needs to be
 			 * filled in later.  */
@@ -477,13 +473,9 @@ DSP_STATUS DISP_NodeCreate(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 			 * on the DSP-side
 			 */
 			status = (((RMS_WORD *)(hDisp->pBuf))[0]);
-			if (DSP_FAILED(status)) {
-				GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "DISP_NodeCreate, "
-					 "DSP-side Node Create failed: 0x%x\n",
-					 status);
-			}
-
+			if (DSP_FAILED(status))
+				dev_dbg(bridge, "%s: DSP-side failed: 0x%x\n",
+							__func__, status);
 		}
 	}
 func_end:
@@ -532,12 +524,9 @@ DSP_STATUS DISP_NodeDelete(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 				 * function on the DSP-side
 				 */
 				status = (((RMS_WORD *)(hDisp->pBuf))[0]);
-				if (DSP_FAILED(status)) {
-					GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "DISP_NodeDelete, "
-					 "DSP-side Node Delete failed: 0x%x\n",
-					 status);
-				}
+				if (DSP_FAILED(status))
+					dev_dbg(bridge, "%s: DSP-side failed: "
+						"0x%x\n", __func__, status);
 			}
 
 
@@ -587,12 +576,9 @@ DSP_STATUS DISP_NodeRun(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 				 * function on the DSP-side
 				 */
 				status = (((RMS_WORD *)(hDisp->pBuf))[0]);
-				if (DSP_FAILED(status)) {
-					GT_1trace(DISP_DebugMask, GT_6CLASS,
-						"DISP_NodeRun, DSP-side Node "
-						"Execute failed: 0x%x\n",
-						status);
-		}
+				if (DSP_FAILED(status))
+					dev_dbg(bridge, "%s: DSP-side failed: "
+						"0x%x\n", __func__, status);
 		}
 
 	}
@@ -621,19 +607,15 @@ static void DeleteDisp(struct DISP_OBJECT *hDisp)
 			status = (*pIntfFxns->pfnChnlClose)
 				 (hDisp->hChnlFromDsp);
 			if (DSP_FAILED(status)) {
-				GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "DISP_Delete: Failed to "
-					 "close channel from RMS: 0x%x\n",
-					 status);
+				dev_dbg(bridge, "%s: Failed to close channel "
+					"from RMS: 0x%x\n", __func__, status);
 			}
 		}
 		if (hDisp->hChnlToDsp) {
 			status = (*pIntfFxns->pfnChnlClose)(hDisp->hChnlToDsp);
 			if (DSP_FAILED(status)) {
-				GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "DISP_Delete: Failed to "
-					 "close channel to RMS: 0x%x\n",
-					 status);
+				dev_dbg(bridge, "%s: Failed to close channel to"
+					" RMS: 0x%x\n", __func__, status);
 			}
 		}
 		kfree(hDisp->pBuf);

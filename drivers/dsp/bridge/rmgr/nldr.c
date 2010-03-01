@@ -504,10 +504,8 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 			/* Ok to not have dynamic loading memory */
 			status = DSP_SOK;
 			ulLen = 0;
-			GT_1trace(NLDR_debugMask, GT_6CLASS,
-				 "NLDR_Create: DBLL_getSect "
-				 "failed (no dynamic loading mem segments): "
-				 "0x%lx\n", status);
+			dev_dbg(bridge, "%s: failed - no dynamic loading mem "
+					"segments: 0x%x\n", __func__, status);
 		}
 	}
 	if (DSP_SUCCEEDED(status) && ulLen > 0) {
@@ -538,10 +536,9 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 				rmmSegs[i].space = 0;
 				pNldr->segTable[i] = (pMemInfo + i)->type;
 #ifdef CONFIG_BRIDGE_DEBUG
-				DBG_Trace(DBG_LEVEL7,
-				    "** (proc) DLL MEMSEGMENT: %d, Base: 0x%x, "
-				    "Length: 0x%x\n", i, rmmSegs[i].base,
-				    rmmSegs[i].length);
+				dev_dbg(bridge, "(proc) DLL MEMSEGMENT: %d, "
+					"Base: 0x%x, Length: 0x%x\n", i,
+					rmmSegs[i].base, rmmSegs[i].length);
 #endif
 			}
 		}
@@ -1591,8 +1588,7 @@ static DSP_STATUS RemoteAlloc(void **pRef, u16 space, u32 size,
 	nWords = (size + hNldr->usDSPWordSize - 1) / hNldr->usDSPWordSize;
 	/* Modify memory 'align' to account for DSP cache line size */
 	align = findLcm(GEM_CACHE_LINE_SIZE, align);
-	GT_1trace(NLDR_debugMask, GT_7CLASS,
-		 "RemoteAlloc: memory align to 0x%x \n", align);
+	dev_dbg(bridge, "%s: memory align to 0x%x\n", __func__, align);
 	if (segmentId != -1) {
 		pRmmAddr->segid = segmentId;
 		segid = segmentId;
@@ -1637,9 +1633,8 @@ static DSP_STATUS RemoteAlloc(void **pRef, u16 space, u32 size,
 		pRmmAddr->segid = segid;
 		status = RMM_alloc(rmm, segid, nWords, align, dspAddr, false);
 		if (DSP_FAILED(status)) {
-			GT_1trace(NLDR_debugMask, GT_6CLASS,
-				 "RemoteAlloc:Unable allocate "
-				 "from segment %d.\n", segid);
+			dev_dbg(bridge, "%s: Unable allocate from segment %d\n",
+							__func__, segid);
 		}
 	} else {
 		/* segid > MAXSEGID ==> Internal or external memory */
@@ -1664,9 +1659,8 @@ static DSP_STATUS RemoteAlloc(void **pRef, u16 space, u32 size,
 func_cont:
 	/* Haven't found memory yet, attempt to find any segment that works */
 	if (status == DSP_EMEMORY && !fReq) {
-		GT_0trace(NLDR_debugMask, GT_6CLASS,
-			 "RemoteAlloc: Preferred segment "
-			 "unavailable, trying another segment.\n");
+		dev_dbg(bridge, "%s: Preferred segment unavailable, trying "
+							"another\n", __func__);
 		for (i = 0; i < hNldr->nSegs; i++) {
 			/* All bits of memType must be set */
 			if ((hNldr->segTable[i] & memType) != memType)

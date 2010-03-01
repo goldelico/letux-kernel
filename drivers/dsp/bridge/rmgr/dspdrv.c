@@ -80,8 +80,7 @@ u32 DSP_Init(OUT u32 *initStatus)
 			(void)DRV_ReleaseResources
 				((u32) deviceNodeString, drvObject);
 	} else {
-		GT_0trace(curTrace, GT_7CLASS,
-			 "DSP_Init:DRV_RequestResources Failed \r\n");
+		dev_dbg(bridge, "%s: DRV_RequestResources Failed\n", __func__);
 		status = DSP_EFAIL;
 	}
 
@@ -102,8 +101,7 @@ u32 DSP_Init(OUT u32 *initStatus)
 		(void)DRV_Destroy(drvObject);
 		drvObject = NULL;
 		WCD_Exit();
-		GT_0trace(curTrace, GT_7CLASS,
-			 "DSP_Init:Logical device Failed to Load\n");
+		dev_dbg(bridge, "%s: Logical device failed init\n", __func__);
 	}	/* Unwinding the loaded drivers */
 func_cont:
 	/* Attempt to Start the Board */
@@ -113,7 +111,7 @@ func_cont:
 		 * into the device loader. */
 		(void)WCD_InitComplete2();
 	} else {
-		GT_0trace(curTrace, GT_7CLASS, "DSP_Init Failed\n");
+		dev_dbg(bridge, "%s: Failed\n", __func__);
 	}			/* End WCD_InitComplete2 */
 	DBC_Ensure((DSP_SUCCEEDED(status) && drvObject != NULL) ||
 		  (DSP_FAILED(status) && drvObject == NULL));

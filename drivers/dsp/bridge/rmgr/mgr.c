@@ -238,9 +238,7 @@ DSP_STATUS MGR_EnumProcessorInfo(u32 uProcessor,
 	/* Get The Manager Object from the Registry */
 	if (DSP_FAILED(CFG_GetObject((u32 *)&pMgrObject,
 	   REG_MGR_OBJECT))) {
-		GT_0trace(MGR_DebugMask, GT_7CLASS,
-			 "Manager_EnumProcessorInfo: "
-			 "Failed To Get MGR Object from Registry\r\n");
+		dev_dbg(bridge, "%s: Failed to get MGR Object\n", __func__);
 		goto func_end;
 	}
 	DBC_Assert(MEM_IsValidHandle(pMgrObject, SIGNATURE));
@@ -274,10 +272,8 @@ DSP_STATUS MGR_EnumProcessorInfo(u32 uProcessor,
 						pProcessorInfo;
 				*pExtInfo = GenObj.objData.extProcObj;
 			}
-			GT_1trace(MGR_DebugMask, GT_7CLASS,
-				 "Manager_EnumProcessorInfo: Got"
-				 " Proctype  from DCD %x \r\n",
-				 pProcessorInfo->uProcessorType);
+			dev_dbg(bridge, "%s: Got proctype  from DCD %x\n",
+				__func__, pProcessorInfo->uProcessorType);
 			/* See if we got the needed processor */
 			if (devType == DSP_UNIT) {
 				if (pProcessorInfo->uProcessorType ==
@@ -293,18 +289,15 @@ DSP_STATUS MGR_EnumProcessorInfo(u32 uProcessor,
 			pProcessorInfo->uProcessorType =
 					 chipResources.uChipType;
 		} else {
-			GT_1trace(MGR_DebugMask, GT_7CLASS,
-				 "Manager_EnumProcessorInfo: "
-				 "Failed to Get DCD Processor Info %x \r\n",
-				 status2);
+			dev_dbg(bridge, "%s: Failed to get DCD processor info "
+						"%x\n", __func__, status2);
 			status = DSP_EFAIL;
 		}
 	}
 	*puNumProcs = uProcIndex;
 	if (procDetect == false) {
-		GT_0trace(MGR_DebugMask, GT_7CLASS,
-			 "Manager_EnumProcessorInfo: Failed"
-			 " to get Proc info from DCD , so use CFG registry\n");
+		dev_dbg(bridge, "%s: Failed to get proc info from DCD, so use "
+						"CFG registry\n", __func__);
 		pProcessorInfo->uProcessorType = chipResources.uChipType;
 	}
 func_end:

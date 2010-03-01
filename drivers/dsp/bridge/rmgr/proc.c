@@ -513,8 +513,8 @@ static DSP_STATUS proc_memory_sync(void *hProcessor, void *pMpuAddr,
 #endif /* CONFIG_BRIDGE_CHECK_ALIGN_128 */
 
 	if (memory_check_vma((u32)pMpuAddr, ulSize)) {
-		GT_3trace(PROC_DebugMask, GT_7CLASS,
-			  "%s: InValid address parameters\n",
+		dev_dbg(bridge, "%s: InValid address parameters pMpuAddr %p "
+				"ulSize 0x%x",
 			  __func__, pMpuAddr, ulSize);
 		status = DSP_EHANDLE;
 		goto err_out;
@@ -705,10 +705,8 @@ DSP_STATUS PROC_GetState(void *hProcessor,
 			status = (*pProcObject->pIntfFxns->pfnDehGetInfo)
 				 (hDehMgr, &(pProcStatus->errInfo));
 	}
-	GT_2trace(PROC_DebugMask, GT_ENTER,
-		 "Exiting PROC_GetState, results:\n\t"
-		 "status:  0x%x\n\tpProcStatus: 0x%x\n", status,
-		 pProcStatus->iState);
+	dev_dbg(bridge, "%s, results: status: 0x%x pProcStatus: 0x%x\n",
+					__func__, status, pProcStatus->iState);
 	return status;
 }
 
@@ -829,8 +827,8 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 		status = snprintf(szProcID, MAXPROCIDLEN, PROC_ENVPROCID,
 				    nProcID);
 		if (status == -1) {
-			GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_Load: "
-				 "Proc ID string overflow \n");
+			dev_dbg(bridge, "%s: Proc ID string overflow\n",
+								__func__);
 			status = DSP_EFAIL;
 		} else {
 			newEnvp = PrependEnvp(newEnvp, (char **)aEnvp, cEnvp,
@@ -926,8 +924,8 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 				     pProcObject->hDevObject, NULL);
 		if (DSP_FAILED(status)) {
 			if (status == COD_E_OPENFAILED) {
-				GT_0trace(PROC_DebugMask, GT_7CLASS,
-					"PROC_Load:Failure to Load the EXE\n");
+				dev_dbg(bridge,	"%s: Failure to Load the EXE\n",
+								__func__);
 			}
 			if (status == COD_E_SYMBOLNOTFOUND) {
 				pr_err("%s: Couldn't parse the file\n",
@@ -1001,8 +999,7 @@ func_end:
 		tv2.tv_usec += 1000000;
 		tv2.tv_sec--;
 	}
-	GT_2trace(PROC_DebugMask, GT_1CLASS,
-			"Proc_Load: time to load %d sec and %d usec \n",
+	dev_dbg(bridge, "%s: time to load %d sec and %d usec\n", __func__,
 		    tv2.tv_sec - tv1.tv_sec, tv2.tv_usec - tv1.tv_usec);
 #endif
 	return status;
@@ -1025,10 +1022,6 @@ DSP_STATUS PROC_Map(void *hProcessor, void *pMpuAddr, u32 ulSize,
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
 	struct DMM_MAP_OBJECT *map_obj;
 
-	GT_6trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Map, args:\n\t"
-		 "hProcessor %x, pMpuAddr %x, ulSize %x, pReqAddr %x, "
-		 "ulMapAttr %x, ppMapAddr %x\n", hProcessor, pMpuAddr, ulSize,
-		 pReqAddr, ulMapAttr, ppMapAddr);
 
 #ifdef CONFIG_BRIDGE_CACHE_LINE_CHECK
 	if ((ulMapAttr & BUFMODE_MASK) != RBUF) {
@@ -1046,9 +1039,6 @@ DSP_STATUS PROC_Map(void *hProcessor, void *pMpuAddr, u32 ulSize,
 	paAlign = PG_ALIGN_LOW((u32) pMpuAddr, PG_SIZE_4K);
 	sizeAlign = PG_ALIGN_HIGH(ulSize + (u32)pMpuAddr - paAlign,
 				 PG_SIZE_4K);
-
-	GT_3trace(PROC_DebugMask, GT_ENTER, "PROC_Map: vaAlign %x, paAlign %x, "
-		 "sizeAlign %x\n", vaAlign, paAlign, sizeAlign);
 
 	/* Critical section */
 	(void)SYNC_EnterCS(hProcLock);
@@ -1089,7 +1079,12 @@ DSP_STATUS PROC_Map(void *hProcessor, void *pMpuAddr, u32 ulSize,
 	}
 
 func_end:
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Leaving PROC_Map [0x%x]", status);
+	dev_dbg(bridge, "%s: hProcessor %p, pMpuAddr %p, ulSize %x, "
+		"pReqAddr %p, ulMapAttr %x, ppMapAddr %p, vaAlign %x, "
+		"paAlign %x, sizeAlign %x status 0x%x\n", __func__, hProcessor,
+		pMpuAddr, ulSize, pReqAddr, ulMapAttr,  ppMapAddr, vaAlign,
+		paAlign, sizeAlign, status);
+
 	return status;
 }
 
@@ -1172,10 +1167,6 @@ DSP_STATUS PROC_ReserveMemory(void *hProcessor, u32 ulSize,
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
 	struct DMM_RSV_OBJECT *rsv_obj;
 
-	GT_3trace(PROC_DebugMask, GT_ENTER,
-		 "Entered PROC_ReserveMemory, args:\n\t"
-		 "hProcessor: 0x%x ulSize: 0x%x ppRsvAddr: 0x%x\n", hProcessor,
-		 ulSize, ppRsvAddr);
 
 	status = DMM_GetHandle(pProcObject, &hDmmMgr);
 	if (DSP_SUCCEEDED(status))
@@ -1198,8 +1189,9 @@ DSP_STATUS PROC_ReserveMemory(void *hProcessor, u32 ulSize,
 	}
 
 func_end:
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Leaving PROC_ReserveMemory [0x%x]",
-		 status);
+	dev_dbg(bridge, "%s: hProcessor: 0x%p ulSize: 0x%x ppRsvAddr: 0x%p "
+					"status 0x%x\n", __func__, hProcessor,
+					ulSize, ppRsvAddr, status);
 	return status;
 }
 
@@ -1314,9 +1306,7 @@ DSP_STATUS PROC_Stop(void *hProcessor)
 	status = (*pProcObject->pIntfFxns->pfnBrdStop)(pProcObject->
 		 hWmdContext);
 	if (DSP_SUCCEEDED(status)) {
-		GT_0trace(PROC_DebugMask, GT_1CLASS,
-			 "PROC_Stop: Processor Stopped, "
-			 "i.e in standby mode \n");
+		dev_dbg(bridge, "%s: processor in standby mode\n", __func__);
 		pProcObject->sState = PROC_STOPPED;
 		/* Destory the Node Manager, MSG Manager */
 		if (DSP_SUCCEEDED(DEV_Destroy2(pProcObject->hDevObject))) {
@@ -1356,10 +1346,6 @@ DSP_STATUS PROC_UnMap(void *hProcessor, void *pMapAddr,
 	u32 sizeAlign;
 	struct DMM_MAP_OBJECT *map_obj;
 
-	GT_2trace(PROC_DebugMask, GT_ENTER,
-		 "Entered PROC_UnMap, args:\n\thProcessor:"
-		 "0x%x pMapAddr: 0x%x\n", hProcessor, pMapAddr);
-
 	vaAlign = PG_ALIGN_LOW((u32) pMapAddr, PG_SIZE_4K);
 
 	status = DMM_GetHandle(hProcessor, &hDmmMgr);
@@ -1398,8 +1384,8 @@ DSP_STATUS PROC_UnMap(void *hProcessor, void *pMapAddr,
 	spin_unlock(&pr_ctxt->dmm_map_lock);
 
 func_end:
-	GT_1trace(PROC_DebugMask, GT_ENTER,
-		 "Leaving PROC_UnMap [0x%x]", status);
+	dev_dbg(bridge, "%s: hProcessor: 0x%p pMapAddr: 0x%p status: 0x%x\n",
+					__func__, hProcessor, pMapAddr, status);
 	return status;
 }
 
@@ -1416,9 +1402,6 @@ DSP_STATUS PROC_UnReserveMemory(void *hProcessor, void *pRsvAddr,
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
 	struct DMM_RSV_OBJECT *rsv_obj;
 
-	GT_2trace(PROC_DebugMask, GT_ENTER,
-		 "Entered PROC_UnReserveMemory, args:\n\t"
-		 "hProcessor: 0x%x pRsvAddr: 0x%x\n", hProcessor, pRsvAddr);
 
 	status = DMM_GetHandle(pProcObject, &hDmmMgr);
 	if (DSP_SUCCEEDED(status))
@@ -1443,9 +1426,8 @@ DSP_STATUS PROC_UnReserveMemory(void *hProcessor, void *pRsvAddr,
 	spin_unlock(&pr_ctxt->dmm_rsv_lock);
 func_end:
 
-	GT_1trace(PROC_DebugMask, GT_ENTER,
-		 "Leaving PROC_UnReserveMemory [0x%x]",
-		 status);
+	dev_dbg(bridge, "%s: hProcessor: 0x%p pRsvAddr: 0x%p status: 0x%x\n",
+					__func__, hProcessor, pRsvAddr, status);
 
 	return status;
 }

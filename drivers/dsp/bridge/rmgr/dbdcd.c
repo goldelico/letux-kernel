@@ -473,8 +473,7 @@ DSP_STATUS DCD_GetObjectDef(IN struct DCD_MANAGER *hDcdMgr,
 		status = COD_ReadSection(lib, szSectName, pszCoffBuf, ulLen);
 	} else {
 		status = COD_ReadSection(lib, szSectName, pszCoffBuf, ulLen);
-		GT_0trace(curTrace, GT_4CLASS,
-			 "Skipped Byte swap for IVA !!\n");
+		dev_dbg(bridge, "%s: Skipped Byte swap for IVA!!\n", __func__);
 	}
 #else
 	status = COD_ReadSection(lib, szSectName, pszCoffBuf, ulLen);
@@ -485,8 +484,8 @@ DSP_STATUS DCD_GetObjectDef(IN struct DCD_MANAGER *hDcdMgr,
 			CompressBuf(pszCoffBuf, ulLen, DSPWORDSIZE);
 		} else {
 			CompressBuf(pszCoffBuf, ulLen, 1);
-			GT_0trace(curTrace, GT_4CLASS, "Compressing IVA "
-				 "COFF buffer by 1 for IVA !!\n");
+			dev_dbg(bridge, "%s: Compressing IVA COFF buffer by 1 "
+						"for IVA!!\n", __func__);
 		}
 
 		/* Parse the content of the COFF buffer. */
@@ -554,7 +553,7 @@ DSP_STATUS DCD_GetObjects(IN struct DCD_MANAGER *hDcdMgr, IN char *pszCoffPath,
 		status = COD_ReadSection(lib, DCD_REGISTER_SECTION,
 					pszCoffBuf, ulLen);
 	} else {
-		GT_0trace(curTrace, GT_4CLASS, "Skipped Byte swap for IVA!!\n");
+		dev_dbg(bridge, "%s: Skipped Byte swap for IVA!!\n", __func__);
 		status = COD_ReadSection(lib, DCD_REGISTER_SECTION,
 					pszCoffBuf, ulLen);
 	}
@@ -567,8 +566,8 @@ DSP_STATUS DCD_GetObjects(IN struct DCD_MANAGER *hDcdMgr, IN char *pszCoffPath,
 			CompressBuf(pszCoffBuf, ulLen, DSPWORDSIZE);
 		} else {
 			CompressBuf(pszCoffBuf, ulLen, 1);
-			GT_0trace(curTrace, GT_4CLASS, "Compress COFF buffer "
-				 "with 1 word for IVA !!\n");
+			dev_dbg(bridge, "%s: Compress COFF buffer with 1 word "
+						"for IVA!!\n", __func__);
 		}
 
 		/* Read from buffer and register object in buffer. */
@@ -633,10 +632,9 @@ DSP_STATUS DCD_GetLibraryName(IN struct DCD_MANAGER *hDcdMgr,
 	DBC_Require(pdwSize != NULL);
 	DBC_Require(IsValidHandle(hDcdMgr));
 
-	GT_4trace(curTrace, GT_ENTER,
-		 "DCD_GetLibraryName: hDcdMgr 0x%x, pUuid 0x%x, "
-		 " pstrLibName 0x%x, pdwSize 0x%x\n", hDcdMgr, pUuid,
-		 pstrLibName, pdwSize);
+	dev_dbg(bridge, "%s: hDcdMgr %p, pUuid %p, pstrLibName %p, pdwSize "
+					"%p\n", __func__, hDcdMgr, pUuid,
+					pstrLibName, pdwSize);
 
 	/*
 	 *  Pre-determine final key length. It's length of DCD_REGKEY +
@@ -782,8 +780,8 @@ DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 			(objType == DSP_DCDEXECUTELIBTYPE) ||
 			(objType == DSP_DCDDELETELIBTYPE));
 
-	GT_3trace(curTrace, GT_ENTER, "DCD_RegisterObject: object UUID 0x%x, "
-		 "objType %d, szPathName %s\n", pUuid, objType, pszPathName);
+	dev_dbg(bridge, "%s: object UUID %p, objType %d, szPathName %s\n",
+					__func__, pUuid, objType, pszPathName);
 
 	/*
 	 * Pre-determine final key length. It's length of DCD_REGKEY +
@@ -831,9 +829,8 @@ DSP_STATUS DCD_RegisterObject(IN struct DSP_UUID *pUuid,
 		/* Add new reg value (UUID+objType) with COFF path info. */
 		dwPathSize = strlen(pszPathName) + 1;
 		status = REG_SetValue(szRegKey, (u8 *)pszPathName, dwPathSize);
-		GT_2trace(curTrace, GT_6CLASS, "REG_SetValue  "
-			  "(u8 *)pszPathName=%s, dwPathSize=%d\n",
-			  pszPathName, dwPathSize);
+		dev_dbg(bridge, "%s: pszPathName=%s, dwPathSize=%d\n", __func__,
+						pszPathName, dwPathSize);
 	} else {
 		/* Deregister an existing object. */
 		status = REG_DeleteValue(szRegKey);

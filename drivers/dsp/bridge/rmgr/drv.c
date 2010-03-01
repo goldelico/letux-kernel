@@ -765,24 +765,23 @@ DSP_STATUS DRV_RequestResources(u32 dwContext, u32 *pDevNodeString)
 			*pDevNodeString = 0;
 		}
 	} else {
-		GT_0trace(curTrace, GT_7CLASS,
-			 "Failed to get Driver Object from Registry");
+		dev_dbg(bridge, "%s: Failed to get Driver Object from Registry",
+								__func__);
 		*pDevNodeString = 0;
 	}
 
 	if (!(strcmp((char *) dwContext, "TIOMAP1510"))) {
-		GT_0trace(curTrace, GT_1CLASS,
-			  " Allocating resources for UMA \n");
+		dev_dbg(bridge, "%s: Allocating resources for UMA\n", __func__);
 		status = RequestBridgeResourcesDSP(dwContext, DRV_ASSIGN);
 	} else {
 		status = DSP_EFAIL;
-		GT_0trace(curTrace, GT_7CLASS, "Unknown Device ");
+		dev_dbg(bridge, "%s: Unknown Device\n", __func__);
 	}
 
-	if (DSP_FAILED(status)) {
-		GT_0trace(curTrace, GT_7CLASS,
-			 "Failed to reserve bridge resources ");
-	}
+	if (DSP_FAILED(status))
+		dev_dbg(bridge, "%s: Failed to reserve bridge resources\n",
+								__func__);
+
 	DBC_Ensure((DSP_SUCCEEDED(status) && pDevNodeString != NULL &&
 		  !LST_IsEmpty(pDRVObject->devNodeString)) ||
 		  (DSP_FAILED(status) && *pDevNodeString == 0));
@@ -805,11 +804,11 @@ DSP_STATUS DRV_ReleaseResources(u32 dwContext, struct DRV_OBJECT *hDrvObject)
 	   "TIOMAP1510")))
 		status = RequestBridgeResources(dwContext, DRV_RELEASE);
 	else
-		GT_0trace(curTrace, GT_1CLASS, " Unknown device\n");
+		dev_dbg(bridge, "%s: Unknown device\n", __func__);
 
 	if (DSP_FAILED(status))
-		GT_0trace(curTrace, GT_1CLASS,
-			 "Failed to relese bridge resources\n");
+		dev_dbg(bridge, "%s: Failed to relese bridge resources\n",
+								__func__);
 
 	/*
 	 *  Irrespective of the status go ahead and clean it
@@ -877,10 +876,9 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 					shm_size);
 				}
 			} else {
-				GT_1trace(curTrace, GT_7CLASS,
-					"Error getting SHM size from registry: "
-					"%x. Not calling MEM_FreePhysMem\n",
-					status);
+				dev_dbg(bridge, "%s: Error getting SHM size "
+					"from registry: %x. Not calling "
+					"MEM_FreePhysMem\n", __func__, status);
 			}
 			pResources->dwMemBase[1] = 0;
 			pResources->dwMemPhys[1] = 0;
@@ -943,18 +941,15 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 							OMAP_IVA2_CM_SIZE);
 		pResources->dwSysCtrlBase = ioremap(OMAP_SYSC_BASE,
 							OMAP_SYSC_SIZE);
-		GT_1trace(curTrace, GT_2CLASS, "dwMemBase[0] 0x%x\n",
-			 pResources->dwMemBase[0]);
-		GT_1trace(curTrace, GT_2CLASS, "dwMemBase[3] 0x%x\n",
-			 pResources->dwMemBase[3]);
-		GT_1trace(curTrace, GT_2CLASS, "dwPrmBase 0x%x\n",
-							pResources->dwPrmBase);
-		GT_1trace(curTrace, GT_2CLASS, "dwCmBase 0x%x\n",
-							pResources->dwCmBase);
-		GT_1trace(curTrace, GT_2CLASS, "dwWdTimerDspBase 0x%x\n",
+		dev_dbg(bridge, "dwMemBase[0] 0x%x\n",
+						pResources->dwMemBase[0]);
+		dev_dbg(bridge, "dwMemBase[3] 0x%x\n",
+						pResources->dwMemBase[3]);
+		dev_dbg(bridge, "dwPrmBase %p\n", pResources->dwPrmBase);
+		dev_dbg(bridge, "dwCmBase %p\n", pResources->dwCmBase);
+		dev_dbg(bridge, "dwWdTimerDspBase %p\n",
 						pResources->dwWdTimerDspBase);
-		GT_1trace(curTrace, GT_2CLASS, "dwDmmuBase 0x%x\n",
-						pResources->dwDmmuBase);
+		dev_dbg(bridge, "dwDmmuBase %p\n", pResources->dwDmmuBase);
 
 		/* for 24xx base port is not mapping the mamory for DSP
 		 * internal memory TODO Do a ioremap here */
@@ -971,9 +966,8 @@ static DSP_STATUS RequestBridgeResources(u32 dwContext, s32 bRequest)
 		status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
 						sizeof(struct CFG_HOSTRES));
 		if (DSP_FAILED(status)) {
-			GT_0trace(curTrace, GT_7CLASS,
-				 " Failed to set the registry "
-				 "value for CURRENTCONFIG\n");
+			dev_dbg(bridge, "%s: Failed to set the registry value "
+					"for CURRENTCONFIG\n", __func__);
 		}
 		kfree(pResources);
 	}
@@ -1031,24 +1025,21 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 bRequest)
 							OMAP_DMMU_SIZE);
 		pResources->dwWdTimerDspBase = NULL;
 
-		GT_1trace(curTrace, GT_2CLASS, "dwMemBase[0] 0x%x\n",
+		dev_dbg(bridge, "dwMemBase[0] 0x%x\n",
 						pResources->dwMemBase[0]);
-		GT_1trace(curTrace, GT_2CLASS, "dwMemBase[1] 0x%x\n",
+		dev_dbg(bridge, "dwMemBase[1] 0x%x\n",
 						pResources->dwMemBase[1]);
-		GT_1trace(curTrace, GT_2CLASS, "dwMemBase[2] 0x%x\n",
+		dev_dbg(bridge, "dwMemBase[2] 0x%x\n",
 						pResources->dwMemBase[2]);
-		GT_1trace(curTrace, GT_2CLASS, "dwMemBase[3] 0x%x\n",
+		dev_dbg(bridge, "dwMemBase[3] 0x%x\n",
 						pResources->dwMemBase[3]);
-		GT_1trace(curTrace, GT_2CLASS, "dwMemBase[4] 0x%x\n",
+		dev_dbg(bridge, "dwMemBase[4] 0x%x\n",
 						pResources->dwMemBase[4]);
-		GT_1trace(curTrace, GT_2CLASS, "dwPrmBase 0x%x\n",
-						pResources->dwPrmBase);
-		GT_1trace(curTrace, GT_2CLASS, "dwCmBase 0x%x\n",
-						pResources->dwCmBase);
-		GT_1trace(curTrace, GT_2CLASS, "dwWdTimerDspBase 0x%x\n",
+		dev_dbg(bridge, "dwPrmBase %p\n", pResources->dwPrmBase);
+		dev_dbg(bridge, "dwCmBase %p\n", pResources->dwCmBase);
+		dev_dbg(bridge, "dwWdTimerDspBase %p\n",
 						pResources->dwWdTimerDspBase);
-		GT_1trace(curTrace, GT_2CLASS, "dwDmmuBase 0x%x\n",
-						pResources->dwDmmuBase);
+		dev_dbg(bridge, "dwDmmuBase %p\n", pResources->dwDmmuBase);
 		dwBuffSize = sizeof(shm_size);
 		status = REG_GetValue(SHMSIZE, (u8 *)&shm_size, &dwBuffSize);
 		if (DSP_SUCCEEDED(status)) {
@@ -1064,9 +1055,8 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 bRequest)
 				pResources->dwMemLength[1] = shm_size;
 				pResources->dwMemPhys[1] = dmaAddr;
 
-				GT_3trace(curTrace, GT_1CLASS,
-					 "Bridge SHM address 0x%x dmaAddr"
-					 " %x size %x\n",
+				dev_dbg(bridge, "%s: Bridge SHM address 0x%x "
+					"dmaAddr %x size %x\n", __func__,
 					 pResources->dwMemBase[1],
 					 dmaAddr, shm_size);
 			}
@@ -1084,9 +1074,8 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 bRequest)
 			status = REG_SetValue(CURRENTCONFIG, (u8 *)pResources,
 					     sizeof(struct CFG_HOSTRES));
 			if (DSP_FAILED(status)) {
-				GT_0trace(curTrace, GT_7CLASS,
-					 " Failed to set the registry value"
-					 " for CURRENTCONFIG\n");
+				dev_dbg(bridge, "%s: Failed to set the registry"
+					" value for CURRENTCONFIG\n", __func__);
 			}
 		}
 		kfree(pResources);
