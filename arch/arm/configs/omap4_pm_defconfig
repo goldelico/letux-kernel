@@ -231,7 +231,7 @@ CONFIG_ARCH_OMAP4=y
 #
 # OMAP Feature Selections
 #
-# CONFIG_OMAP_RESET_CLOCKS is not set
+CONFIG_OMAP_RESET_CLOCKS=y
 # CONFIG_OMAP_MUX is not set
 CONFIG_OMAP_MCBSP=y
 # CONFIG_OMAP_MBOX_FWK is not set
@@ -361,9 +361,7 @@ CONFIG_CPU_IDLE_GOV_LADDER=y
 #
 # CONFIG_FPE_NWFPE is not set
 # CONFIG_FPE_FASTFPE is not set
-CONFIG_VFP=y
-CONFIG_VFPv3=y
-CONFIG_NEON=y
+# CONFIG_VFP is not set
 
 #
 # Userspace binary formats
