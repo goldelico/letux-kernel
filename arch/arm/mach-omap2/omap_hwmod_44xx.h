@@ -1115,6 +1115,16 @@ static struct omap_hwmod_ocp_if *omap44xx_ivahd_slaves[] = {
 	&omap44xx_l3_2__ivahd,
 };
 
+static struct omap_hwmod_sysconfig omap44xx_ivahd_sysc = {
+	.rev_offs	= 0x0000,
+	.sysc_offs	= 0x0010,
+	.sysc_flags	= (SYSC_HAS_SIDLEMODE | SYSC_HAS_MIDLEMODE |
+			   SYSS_MISSING),
+	.idlemodes	= (SIDLE_FORCE | SIDLE_NO | SIDLE_SMART |
+			   MSTANDBY_FORCE | MSTANDBY_NO | MSTANDBY_SMART),
+	.sysc_fields	= &omap_hwmod_sysc_type2,
+};
+
 static struct omap_hwmod omap44xx_ivahd_hwmod = {
 	.name		= "ivahd",
 	.mpu_irqs	= omap44xx_ivahd_irqs,
@@ -1127,6 +1137,7 @@ static struct omap_hwmod omap44xx_ivahd_hwmod = {
 			.device_reg = OMAP4430_CM_IVAHD_IVAHD_CLKCTRL,
 		},
 	},
+	.sysconfig	= &omap44xx_ivahd_sysc,
 	.slaves		= omap44xx_ivahd_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap44xx_ivahd_slaves),
 	.masters	= omap44xx_ivahd_masters,
