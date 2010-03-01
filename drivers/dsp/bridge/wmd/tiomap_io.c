@@ -424,7 +424,7 @@ DSP_STATUS sm_interrupt_dsp(struct WMD_DEV_CONTEXT *pDevContext,
 		pr_err("omap_mbox_msg_send Fail and status = %d\n", status);
 		status = DSP_EFAIL;
 	}
-	DBG_Trace(DBG_LEVEL3, "writing %x to Mailbox\n", wMbVal);
+	dev_dbg(bridge, "%s: writing %x to Mailbox\n", __func__, wMbVal);
 
 	return DSP_SOK;
 }

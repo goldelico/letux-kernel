@@ -310,9 +310,8 @@ void WMD_DEH_Notify(struct DEH_MGR *hDehMgr, u32 ulEventMask,
 			break;
 #endif /* CONFIG_BRIDGE_NTFY_PWRERR */
 		default:
-			DBG_Trace(DBG_LEVEL6,
-				 "WMD_DEH_Notify: Unknown Error, errInfo = "
-				 "0x%x\n", dwErrInfo);
+			dev_dbg(bridge, "%s: Unknown Error, errInfo = 0x%x\n",
+							__func__, dwErrInfo);
 			break;
 		}
 
