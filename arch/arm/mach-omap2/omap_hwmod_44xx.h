@@ -5847,18 +5847,14 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 	&omap44xx_mmc4_hwmod,
 	&omap44xx_mmc5_hwmod,
 	&omap44xx_ocmc_ram_hwmod,
-#if 0
 	&omap44xx_pdm_hwmod,
-#endif
 	&omap44xx_sl2_hwmod,
 	&omap44xx_slimbus1_hwmod,
 	&omap44xx_slimbus2_hwmod,
 	&omap44xx_spinlock_hwmod,
-#if 0
 	&omap44xx_sr_core_hwmod,
 	&omap44xx_sr_iva_hwmod,
 	&omap44xx_sr_mpu_hwmod,
-#endif
 	&omap44xx_synctimer_hwmod,
 	&omap44xx_uart1_hwmod,
 	&omap44xx_uart2_hwmod,
@@ -5878,9 +5874,7 @@ static __initdata struct omap_hwmod *omap44xx_hwmods[] = {
 	&omap44xx_gfx_hwmod,
 #endif
 	&omap44xx_hsi_hwmod,
-#if 0
 	&omap44xx_iss_hwmod,
-#endif
 	&omap44xx_ivahd_hwmod,
 	&omap44xx_mmc1_hwmod,
 	&omap44xx_mmc2_hwmod,
