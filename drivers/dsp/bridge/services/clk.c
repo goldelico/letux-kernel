@@ -274,9 +274,8 @@ DSP_STATUS CLK_GetRate(IN enum SERVICES_ClkId clk_id, u32 *speedKhz)
 	if (pClk) {
 		clkSpeedHz = clk_get_rate(pClk);
 		*speedKhz = clkSpeedHz / 1000;
-		GT_2trace(CLK_debugMask, GT_6CLASS,
-			  "CLK_GetRate: clkSpeedHz = %d , "
-			 "speedinKhz=%d\n", clkSpeedHz, *speedKhz);
+		dev_dbg(bridge, "%s: clkSpeedHz = %d, speedinKhz = %d\n",
+					__func__, clkSpeedHz, *speedKhz);
 	} else {
 		pr_err("%s: failed to get %s, dev Id = %d\n", __func__,
 						SERVICES_Clks[clk_id].clk_name,

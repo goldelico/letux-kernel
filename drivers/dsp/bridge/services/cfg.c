@@ -204,8 +204,7 @@ DSP_STATUS CFG_GetHostResources(struct CFG_DEVNODE *hDevNode,
 	}
 #ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status))
-		GT_0trace(CFG_debugMask, GT_6CLASS,
-			  "CFG_GetHostResources Failed \n");
+		dev_dbg(bridge, "%s Failed, status 0x%x\n", __func__, status);
 #endif
 	return status;
 }

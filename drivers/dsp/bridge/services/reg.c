@@ -140,8 +140,6 @@ bool REG_Init(void)
 		SYNC_InitializeCS(&reglock);
 	crefs++;
 
-	GT_0trace(REG_debugMask, GT_5CLASS, "REG_Init\n");
-
 	return fInit;
 }
 
