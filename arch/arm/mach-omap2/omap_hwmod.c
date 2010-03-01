@@ -839,11 +839,8 @@ static int _wait_target_ready(struct omap_hwmod *oh)
 		ret = omap2_cm_wait_module_ready(oh->prcm.omap2.module_offs,
 						 oh->prcm.omap2.idlest_reg_id,
 						 oh->prcm.omap2.idlest_idle_bit);
-#if 0
 	} else if (cpu_is_omap44xx()) {
-		ret = omap4_cm_wait_module_ready(oh->prcm.omap4.module_offs,
-						 oh->prcm.omap4.device_offs);
-#endif
+		ret = omap4_cm_wait_module_ready(oh->prcm.omap4.device_reg);
 	} else {
 		BUG();
 	};
@@ -934,15 +931,20 @@ static int _enable(struct omap_hwmod *oh)
 #endif
 	_enable_clocks(oh);
 
-	if (oh->sysconfig) {
-		if (!(oh->_int_flags & _HWMOD_SYSCONFIG_LOADED))
-			_update_sysc_cache(oh);
-		_sysc_enable(oh);
-	}
-
 	r = _wait_target_ready(oh);
-	if (!r)
+	if (!r) {
 		oh->_state = _HWMOD_STATE_ENABLED;
+
+		/* Access the sysconfig only if the target is ready */
+		if (oh->sysconfig) {
+			if (!(oh->_int_flags & _HWMOD_SYSCONFIG_LOADED))
+				_update_sysc_cache(oh);
+			_sysc_enable(oh);
+		}
+	}
+	else {
+		pr_debug("omap_hwmod: %s: _wait_target_ready: %d\n", oh->name, r);
+	}
 
 	return r;
 }
@@ -1032,7 +1034,7 @@ static int _shutdown(struct omap_hwmod *oh)
 static int _setup(struct omap_hwmod *oh)
 {
 	struct omap_hwmod_ocp_if *os;
-	int i;
+	int i, r;
 
 	if (!oh)
 		return -EINVAL;
@@ -1056,7 +1058,11 @@ static int _setup(struct omap_hwmod *oh)
 
 	oh->_state = _HWMOD_STATE_INITIALIZED;
 
-	_enable(oh);
+	r = _enable(oh);
+	if (r) {
+		pr_warning("omap_hwmod: %s: cannot be enabled (%d)\n", oh->name, oh->_state);
+		return 0;
+	}
 
 	if (!(oh->flags & HWMOD_INIT_NO_RESET)) {
 		/*
