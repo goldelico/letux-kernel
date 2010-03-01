@@ -827,10 +827,10 @@ static int _wait_target_ready(struct omap_hwmod *oh)
 		return 0;
 
 	os = *oh->slaves + oh->_mpu_port_index;
-
+#if 0
 	if (!(os->flags & OCPIF_HAS_IDLEST))
 		return 0;
-
+#endif
 	/* XXX check module SIDLEMODE */
 
 	/* XXX check clock enable states */
