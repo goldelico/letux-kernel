@@ -13,6 +13,7 @@
 
 #include <linux/sched.h>
 #include <linux/cpuidle.h>
+#include <linux/gpio.h>
 
 #include <plat/powerdomain.h>
 #include <plat/clockdomain.h>
@@ -101,12 +102,27 @@ static int omap4_enter_idle(struct cpuidle_device *dev,
 	}
 	pwrdm_set_next_pwrst(cpu0_pd, cx->cpu0_state);
 	pwrdm_set_next_pwrst(mpu_pd, cx->mpu_state);
+	if (cx->core_state < PWRDM_POWER_ON) {
+		omap_uart_prepare_idle(0);
+		omap_uart_prepare_idle(1);
+		omap_uart_prepare_idle(2);
+		omap_uart_prepare_idle(3);
+		omap2_gpio_prepare_for_retention();
+	}
 	pwrdm_set_next_pwrst(core_pd, cx->core_state);
 
 	if (_omap_sram_idle)
 		_omap_sram_idle();
 	else
 		wfi();
+
+	if (cx->core_state < PWRDM_POWER_ON) {
+		omap2_gpio_resume_after_retention();
+		omap_uart_resume_idle(0);
+		omap_uart_resume_idle(1);
+		omap_uart_resume_idle(2);
+		omap_uart_resume_idle(3);
+	}
 
 	if (cx->cpu0_state > PWRDM_POWER_ON) {
 		scu_pwr_st = omap_readl(0x48240008);
