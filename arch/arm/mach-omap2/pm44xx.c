@@ -107,8 +107,9 @@ static int omap4_pm_suspend(void)
 		pwrst->saved_state = pwrdm_read_next_pwrst(pwrst->pwrdm);
 	/* Set ones wanted by suspend */
 	list_for_each_entry(pwrst, &pwrst_list, node)
-		if (set_pwrdm_state(pwrst->pwrdm, PWRDM_POWER_RET))
-			goto restore;
+		if (strcmp(pwrst->pwrdm->name, "cpu1_pwrdm"))
+			if (set_pwrdm_state(pwrst->pwrdm, PWRDM_POWER_RET))
+				goto restore;
 
 	if (_omap_sram_idle)
 		_omap_sram_idle();
@@ -122,7 +123,8 @@ restore:
 	list_for_each_entry(pwrst, &pwrst_list, node) {
 		state = pwrdm_read_pwrst(pwrst->pwrdm);
 		printk("Powerdomain (%s) entered state %d\n", pwrst->pwrdm->name, state);
-		set_pwrdm_state(pwrst->pwrdm, pwrst->saved_state);
+		if (strcmp(pwrst->pwrdm->name, "cpu1_pwrdm"))
+			set_pwrdm_state(pwrst->pwrdm, pwrst->saved_state);
 	}
 	scu_pwr_st = omap_readl(0x48240008);
 	scu_pwr_st &= ~0x2;
