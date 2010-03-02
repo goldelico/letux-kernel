@@ -1,3 +1,18 @@
+linux-2.6-openmoko (20100118.gita15608f2-4) UNRELEASED; urgency=low
+
+  * ext3 is compiled in again to support ext3 root-filesystems
+    until we get a kernel with initrd support.
+  * planned to be compiled as module:
+     + CONFIG_RTC_DRV_PCF50633=y
+     + CONFIG_DISPLAY_JBT6K74=y
+     + FRAMEBUFFER=y
+     + MFD_GLAMO=y
+     + CONFIG_CHARGER_PCF50633=y
+     + CONFIG_BATTERY_BQ27000_HDQ=y
+     + CONFIG_INPUT_PCF50633_PMU=y
+
+ -- Sebastian Reichel <elektranox@gmail.com>  Wed, 03 Mar 2010 00:25:52 +0100
+
 linux-2.6-openmoko (20100118.gita15608f2-3) pkg-fso; urgency=low
 
   * Add RTC read fix
