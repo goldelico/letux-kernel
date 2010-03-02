@@ -209,11 +209,13 @@ static int __init clkdms_setup(struct clockdomain *clkdm, void *unused)
 	return 0;
 }
 
+#ifdef CONFIG_PM
 void omap_push_sram_idle(void)
 {
 	_omap_sram_idle = omap_sram_push(omap44xx_cpu_suspend,
 						omap44xx_cpu_suspend_sz);
 }
+#endif
 
 static int __init omap4_pm_init(void)
 {
