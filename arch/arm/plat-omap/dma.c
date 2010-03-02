@@ -291,12 +291,14 @@ void omap_set_dma_transfer_params(int lch, int data_type, int elem_count,
 		val |= (dma_trigger & ~0x1f) << 14;
 		val |= dma_trigger & 0x1f;
 
-		if (sync_mode & OMAP_DMA_SYNC_FRAME)
+		if ((sync_mode == OMAP_DMA_SYNC_FRAME) ||
+		    (sync_mode == OMAP_DMA_SYNC_PACKET))
 			val |= 1 << 5;
 		else
 			val &= ~(1 << 5);
 
-		if (sync_mode & OMAP_DMA_SYNC_BLOCK)
+		if ((sync_mode == OMAP_DMA_SYNC_BLOCK) ||
+		    (sync_mode == OMAP_DMA_SYNC_PACKET))
 			val |= 1 << 18;
 		else
 			val &= ~(1 << 18);
