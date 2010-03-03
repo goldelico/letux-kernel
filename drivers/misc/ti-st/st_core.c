@@ -77,15 +77,12 @@ bool is_protocol_list_empty(void)
 {
 	unsigned char i = 0;
 	ST_DRV_DBG(" %s ", __func__);
-	spin_lock(&st_gdata->lock);
 	for (i = 0; i < ST_MAX; i++) {
 		if (st_gdata->list[i] != NULL) {
-			spin_unlock(&st_gdata->lock);
 			return ST_NOTEMPTY;
 		}
 		/* not empty */
 	}
-	spin_unlock(&st_gdata->lock);
 	/* list empty */
 	return ST_EMPTY;
 }
@@ -214,7 +211,9 @@ static inline int st_check_data_len(int protoid, int len)
 static inline void st_wakeup_ack(unsigned char cmd)
 {
 	register struct sk_buff *waiting_skb;
-	spin_lock(&st_gdata->lock);
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&st_gdata->lock, flags);
 	/* de-Q from waitQ and Q in txQ now that the
 	 * chip is awake
 	 */
@@ -223,7 +222,7 @@ static inline void st_wakeup_ack(unsigned char cmd)
 
 	/* state forwarded to ST LL */
 	st_ll_sleep_state((unsigned long)cmd);
-	spin_unlock(&st_gdata->lock);
+	spin_unlock_irqrestore(&st_gdata->lock, flags);
 
 	/* wake up to send the recently copied skbs from waitQ */
 	st_tx_wakeup(st_gdata);
@@ -576,10 +575,11 @@ void st_tx_wakeup(struct st_data_s *st_data)
 */
 void kim_st_list_protocols(char *buf)
 {
+	unsigned long flags = 0;
 #ifdef DEBUG
 	unsigned char i = ST_MAX;
 #endif
-	spin_lock(&st_gdata->lock);
+	spin_lock_irqsave(&st_gdata->lock, flags);
 #ifdef DEBUG			/* more detailed log */
 	for (i = 0; i < ST_MAX; i++) {
 		if (i == 0) {
@@ -599,7 +599,7 @@ void kim_st_list_protocols(char *buf)
 		st_gdata->list[ST_FM] != NULL ? 'R' : 'U',
 		st_gdata->list[ST_GPS] != NULL ? 'R' : 'U');
 #endif
-	spin_unlock(&st_gdata->lock);
+	spin_unlock_irqrestore(&st_gdata->lock, flags);
 }
 
 /********************************************************************/
@@ -610,6 +610,8 @@ void kim_st_list_protocols(char *buf)
 long st_register(struct st_proto_s *new_proto)
 {
 	long err = ST_SUCCESS;
+	unsigned long flags = 0;
+
 	ST_DRV_DBG("%s(%d) ", __func__, new_proto->type);
 	if (st_gdata == NULL || new_proto == NULL || new_proto->recv == NULL
 	    || new_proto->reg_complete_cb == NULL) {
@@ -628,7 +630,7 @@ long st_register(struct st_proto_s *new_proto)
 	}
 
 	/* can be from process context only */
-	spin_lock(&st_gdata->lock);
+	spin_lock_irqsave(&st_gdata->lock, flags);
 
 	if (test_bit(ST_REG_IN_PROGRESS, &st_gdata->st_state)) {
 		ST_DRV_DBG(" ST_REG_IN_PROGRESS:%d ", new_proto->type);
@@ -639,7 +641,7 @@ long st_register(struct st_proto_s *new_proto)
 		new_proto->write = st_write;
 
 		set_bit(ST_REG_PENDING, &st_gdata->st_state);
-		spin_unlock(&st_gdata->lock);
+		spin_unlock_irqrestore(&st_gdata->lock, flags);
 		return ST_ERR_PENDING;
 	} else if (is_protocol_list_empty() == ST_EMPTY) {
 		ST_DRV_DBG(" protocol list empty :%d ", new_proto->type);
@@ -647,7 +649,7 @@ long st_register(struct st_proto_s *new_proto)
 		st_recv = st_kim_recv;
 
 		/* release lock previously held - re-locked below */
-		spin_unlock(&st_gdata->lock);
+		spin_unlock_irqrestore(&st_gdata->lock, flags);
 
 		/* enable the ST LL - to set default chip state */
 		st_ll_enable();
@@ -692,10 +694,10 @@ long st_register(struct st_proto_s *new_proto)
 			return ST_ERR_ALREADY;
 		}
 
-		spin_lock(&st_gdata->lock);
+		spin_lock_irqsave(&st_gdata->lock, flags);
 		st_gdata->list[new_proto->type] = new_proto;
 		new_proto->write = st_write;
-		spin_unlock(&st_gdata->lock);
+		spin_unlock_irqrestore(&st_gdata->lock, flags);
 		return err;
 	}
 	/* if fw is already downloaded & new stack registers protocol */
@@ -720,7 +722,7 @@ long st_register(struct st_proto_s *new_proto)
 		new_proto->write = st_write;
 
 		/* lock already held before entering else */
-		spin_unlock(&st_gdata->lock);
+		spin_unlock_irqrestore(&st_gdata->lock, flags);
 		return err;
 	}
 	ST_DRV_DBG("done %s(%d) ", __func__, new_proto->type);
@@ -733,6 +735,8 @@ EXPORT_SYMBOL_GPL(st_register);
 long st_unregister(enum proto_type type)
 {
 	long err = ST_SUCCESS;
+	unsigned long flags = 0;
+
 	ST_DRV_DBG("%s: %d ", __func__, type);
 
 	if (type < ST_BT || type >= ST_MAX) {
@@ -740,11 +744,11 @@ long st_unregister(enum proto_type type)
 		return ST_ERR_NOPROTO;
 	}
 
-	spin_lock(&st_gdata->lock);
+	spin_lock_irqsave(&st_gdata->lock, flags);
 
 	if (st_gdata->list[type] == NULL) {
 		ST_DRV_ERR(" protocol %d not registered", type);
-		spin_unlock(&st_gdata->lock);
+		spin_unlock_irqrestore(&st_gdata->lock, flags);
 		return ST_ERR_NOPROTO;
 	}
 
@@ -755,7 +759,7 @@ long st_unregister(enum proto_type type)
 	 * only in kim_start and kim_stop
 	 */
 	st_kim_chip_toggle(type, KIM_GPIO_INACTIVE);
-	spin_unlock(&st_gdata->lock);
+	spin_unlock_irqrestore(&st_gdata->lock, flags);
 
 	if ((is_protocol_list_empty() == ST_EMPTY) &&
 	    (!test_bit(ST_REG_PENDING, &st_gdata->st_state))) {
@@ -859,19 +863,21 @@ static int st_tty_open(struct tty_struct *tty)
 static void st_tty_close(struct tty_struct *tty)
 {
 	unsigned char i = ST_MAX;
+	unsigned long flags = 0;
+
 	ST_DRV_DBG("%s ", __func__);
 
 	/* TODO:
 	 * if a protocol has been registered & line discipline
 	 * un-installed for some reason - what should be done ?
 	 */
-	spin_lock(&st_gdata->lock);
+	spin_lock_irqsave(&st_gdata->lock, flags);
 	for (i = ST_BT; i < ST_MAX; i++) {
 		if (st_gdata->list[i] != NULL)
 			ST_DRV_ERR("%d not un-registered", i);
 		st_gdata->list[i] = NULL;
 	}
-	spin_unlock(&st_gdata->lock);
+	spin_unlock_irqrestore(&st_gdata->lock, flags);
 	/*
 	 * signal to UIM via KIM that -
 	 * N_SHARED ldisc is un-installed
@@ -882,7 +888,7 @@ static void st_tty_close(struct tty_struct *tty)
 	tty_ldisc_flush(tty);
 	tty_driver_flush_buffer(tty);
 
-	spin_lock(&st_gdata->lock);
+	spin_lock_irqsave(&st_gdata->lock, flags);
 	/* empty out txq and tx_waitq */
 	skb_queue_purge(&st_gdata->txq);
 	skb_queue_purge(&st_gdata->tx_waitq);
@@ -891,14 +897,16 @@ static void st_tty_close(struct tty_struct *tty)
 	st_gdata->rx_state = ST_W4_PACKET_TYPE;
 	kfree_skb(st_gdata->rx_skb);
 	st_gdata->rx_skb = NULL;
-	spin_unlock(&st_gdata->lock);
+	spin_unlock_irqrestore(&st_gdata->lock, flags);
 
 	ST_DRV_DBG("%s: done ", __func__);
 }
 
 static void st_tty_receive(struct tty_struct *tty, const unsigned char *data,
-			   char *flags, int count)
+			   char *tty_flags, int count)
 {
+	unsigned long flags = 0;
+
 #ifdef VERBOSE
 	long i;
 	printk(KERN_ERR "incoming data...\n");
@@ -911,9 +919,9 @@ static void st_tty_receive(struct tty_struct *tty, const unsigned char *data,
 	 * if fw download is in progress then route incoming data
 	 * to KIM for validation
 	 */
-	spin_lock(&st_gdata->lock);
+	spin_lock_irqsave(&st_gdata->lock, flags);
 	st_recv(data, count);
-	spin_unlock(&st_gdata->lock);
+	spin_unlock_irqrestore(&st_gdata->lock, flags);
 
 	ST_DRV_VER("done %s", __func__);
 }
