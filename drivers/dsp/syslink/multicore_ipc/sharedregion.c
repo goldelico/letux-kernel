@@ -24,6 +24,7 @@
 
 #include <multiproc.h>
 #include <nameserver.h>
+#include <heapmemmp.h>
 #include <sharedregion.h>
 
 /* Macro to make a correct module magic number with refCount */
@@ -31,187 +32,174 @@
 
 #define SHAREDREGION_MAX_REGIONS_DEFAULT  4
 
-/*
- *  Module state object
- */
+#define ROUND_UP(a, b)	(((a) + ((b) - 1)) & (~((b) - 1)))
+
+/* Module state object */
 struct sharedregion_module_object {
-	atomic_t ref_count;   /* Reference count */
-	struct mutex *gate_handle;
-	struct sharedregion_info *table; /* Ptr to the table */
-	u32 bitOffset;  /* Index bit offset */
-	u32 region_size; /* Max size of each region */
-	struct sharedregion_config cfg;	/* Current config values */
-	u32 *ref_count_table; /* The number of times each
-							entry has been added */
+	atomic_t ref_count; /* Reference count */
+	struct mutex *local_lock; /* Handle to a gate instance */
+	struct sharedregion_region *regions; /* Pointer to the regions */
+	struct sharedregion_config cfg; /* Current config values */
+	struct sharedregion_config def_cfg; /* Default config values */
+	u32 num_offset_bits;
+	/* no. of bits for the offset for a SRPtr. This value is calculated */
+	u32 offset_mask; /* offset bitmask using for generating a SRPtr */
 };
 
-/*
- *  Shared region state object variable with default settings
- */
+/* Shared region state object variable with default settings */
 static struct sharedregion_module_object sharedregion_state = {
-	.cfg.heap_handle = NULL,
-	.cfg.gate_handle = NULL,
-	.cfg.max_regions = SHAREDREGION_MAX_REGIONS_DEFAULT
+	.num_offset_bits = 0,
+	.regions = NULL,
+	.local_lock = NULL,
+	.offset_mask = 0,
+	.def_cfg.num_entries = 4u,
+	.def_cfg.translate = true,
+	.def_cfg.cache_line_size = 128u
 };
 
-/*
- * ======== sharedregion_get_config ========
- *  Purpose:
- *  This will get  sharedregion module configiguration
- */
+/* Pointer to the SharedRegion module state */
+static struct sharedregion_module_object *sharedregion_module = \
+							&sharedregion_state;
+
+/* Checks to make sure overlap does not exists.
+ * Return error if overlap found. */
+static int _sharedregion_check_overlap(void *base, u32 len);
+
+/* Return the number of offsetBits bits */
+static u32 _sharedregion_get_num_offset_bits(void);
+
+/* This will get the sharedregion module configuration */
 int sharedregion_get_config(struct sharedregion_config *config)
 {
 	BUG_ON((config == NULL));
-	memcpy(config, &sharedregion_state.cfg,
-				sizeof(struct sharedregion_config));
+	if (atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
+		memcpy(config, &sharedregion_module->def_cfg,
+			sizeof(struct sharedregion_config));
+	} else {
+		memcpy(config, &sharedregion_module->cfg,
+			sizeof(struct sharedregion_config));
+	}
 	return 0;
 }
 EXPORT_SYMBOL(sharedregion_get_config);
 
-
-/*
- * ======== sharedregion_get_bitoffset  ========
- *  Purpose:
- *  This will get get the bit offset
- */
-static u32 sharedregion_get_bitoffset(u32 max_regions)
-{
-	u32 i;
-	u32 bitoffset = 0;
-	for (i = ((sizeof(void *) * 8) - 1); i >= 0; i--) {
-		if (max_regions > (1 << i))
-			break;
-	}
-
-	bitoffset = (((sizeof(void *) * 8) - 1) - i);
-	return bitoffset;
-}
-
-/*
- * ======== sharedregion_setup ========
- *  Purpose:
- *  This will get setup the sharedregion module
- */
+/* This will get setup the sharedregion module */
 int sharedregion_setup(const struct sharedregion_config *config)
 {
-	struct sharedregion_config *tmpcfg = &sharedregion_state.cfg;
-	struct sharedregion_info *table = NULL;
+	struct sharedregion_config tmpcfg;
 	u32 i;
-	u32 j;
 	s32 retval = 0;
-	u16 proc_count;
 
 	/* This sets the refCount variable is not initialized, upper 16 bits is
 	* written with module Id to ensure correctness of refCount variable
 	*/
-	atomic_cmpmask_and_set(&sharedregion_state.ref_count,
+	atomic_cmpmask_and_set(&sharedregion_module->ref_count,
 				SHAREDREGION_MAKE_MAGICSTAMP(0),
 				SHAREDREGION_MAKE_MAGICSTAMP(0));
 
-	if (atomic_inc_return(&sharedregion_state.ref_count)
-				!= SHAREDREGION_MAKE_MAGICSTAMP(1)) {
+	if (atomic_inc_return(&sharedregion_module->ref_count)
+			!= SHAREDREGION_MAKE_MAGICSTAMP(1)) {
 		return 1;
 	}
 
+	if (config == NULL) {
+		sharedregion_get_config(&tmpcfg);
+		config = &tmpcfg;
+	}
 	if (config != NULL) {
-		if (WARN_ON(config->max_regions == 0)) {
+		if (WARN_ON(config->num_entries == 0)) {
 			retval = -EINVAL;
 			goto error;
 		}
-		memcpy(&sharedregion_state.cfg, config,
-				sizeof(struct sharedregion_config));
 	}
 
-	sharedregion_state.gate_handle = kmalloc(sizeof(struct mutex),
-							GFP_KERNEL);
-	if (sharedregion_state.gate_handle == NULL)
+	memcpy(&sharedregion_module->cfg, config,
+		sizeof(struct sharedregion_config));
+	sharedregion_module->cfg.translate = true;
+
+	sharedregion_module->regions = kmalloc(
+					(sizeof(struct sharedregion_region) * \
+					sharedregion_module->cfg.num_entries),
+					GFP_KERNEL);
+	if (sharedregion_module->regions == NULL) {
+		retval = -ENOMEM;
+		goto error;
+	}
+	for (i = 0; i < sharedregion_module->cfg.num_entries; i++) {
+		sharedregion_module->regions[i].entry.base = NULL;
+		sharedregion_module->regions[i].entry.len = 0;
+		sharedregion_module->regions[i].entry.owner_proc_id = 0;
+		sharedregion_module->regions[i].entry.is_valid = false;
+		sharedregion_module->regions[i].entry.cache_enable = true;
+		sharedregion_module->regions[i].entry.cache_line_size =
+			sharedregion_module->cfg.cache_line_size;
+		sharedregion_module->regions[i].entry.create_heap = false;
+		sharedregion_module->regions[i].reserved_size = 0;
+		sharedregion_module->regions[i].heap = NULL;
+		sharedregion_module->regions[i].entry.name = NULL;
+	}
+
+	/* set the defaults for region 0  */
+	sharedregion_module->regions[0].entry.create_heap = true;
+	sharedregion_module->regions[0].entry.owner_proc_id = multiproc_self();
+
+	sharedregion_module->num_offset_bits = \
+					_sharedregion_get_num_offset_bits();
+	sharedregion_module->offset_mask =
+		(1 << sharedregion_module->num_offset_bits) - 1;
+
+	sharedregion_module->local_lock = kmalloc(sizeof(struct mutex),
+						GFP_KERNEL);
+	if (sharedregion_module->local_lock == NULL) {
+		retval = -ENOMEM;
 		goto gate_create_fail;
-
-	sharedregion_state.bitOffset =
-			sharedregion_get_bitoffset(tmpcfg->max_regions);
-	sharedregion_state.region_size = (1 << sharedregion_state.bitOffset);
-	proc_count = multiproc_get_max_processors();
-	 /* TODO check heap usage & + 1 ? */
-	sharedregion_state.table = kmalloc(sizeof(struct sharedregion_info) *
-					tmpcfg->max_regions * (proc_count + 1),
-					GFP_KERNEL);
-	if (sharedregion_state.table == NULL) {
-		retval = -ENOMEM;
-		goto table_alloc_fail;
 	}
+	mutex_init(sharedregion_module->local_lock);
 
-	sharedregion_state.ref_count_table = kmalloc(sizeof(u32) *
-					tmpcfg->max_regions * (proc_count + 1),
-					GFP_KERNEL);
-	if (sharedregion_state.ref_count_table == NULL) {
-		retval = -ENOMEM;
-		goto table_alloc_fail;
-	}
-
-	table = sharedregion_state.table;
-	for (i = 0; i < tmpcfg->max_regions; i++) {
-		for (j = 0; j < (proc_count + 1); j++) {
-			(table + (j * tmpcfg->max_regions) + i)->is_valid =
-									false;
-			(table + (j * tmpcfg->max_regions) + i)->base = 0;
-			(table + (j * tmpcfg->max_regions) + i)->len = 0;
-			sharedregion_state.ref_count_table[(j *
-						tmpcfg->max_regions) + i] = 0;
-		}
-	}
-
-	mutex_init(sharedregion_state.gate_handle);
 	return 0;
 
-table_alloc_fail:
-	kfree(sharedregion_state.gate_handle);
-
 gate_create_fail:
-	memset(&sharedregion_state, 0,
-		sizeof(struct sharedregion_module_object));
-	sharedregion_state.cfg.max_regions = SHAREDREGION_MAX_REGIONS_DEFAULT;
+	kfree(sharedregion_module->regions);
 
 error:
 	printk(KERN_ERR "sharedregion_setup failed status:%x\n", retval);
+	sharedregion_destroy();
 	return retval;
 }
 EXPORT_SYMBOL(sharedregion_setup);
 
-/*
- * ======== sharedregion_destroy ========
- *  Purpose:
- *  This will get destroy the sharedregion module
- */
+/* This will get destroy the sharedregion module */
 int sharedregion_destroy(void)
 {
 	s32 retval = 0;
-	void *gate_handle = NULL;
+	void *local_lock = NULL;
 
-	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
 				SHAREDREGION_MAKE_MAGICSTAMP(0),
-				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
 		retval = -ENODEV;
 		goto error;
 	}
 
-	if (!(atomic_dec_return(&sharedregion_state.ref_count)
-					== SHAREDREGION_MAKE_MAGICSTAMP(0))) {
-		retval = 1; /* Syslink is not handling this on 2.0.0.06 */
+	if (!(atomic_dec_return(&sharedregion_module->ref_count)
+			== SHAREDREGION_MAKE_MAGICSTAMP(0))) {
+		retval = 1;
 		goto error;
 	}
 
-	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
+	retval = mutex_lock_interruptible(sharedregion_module->local_lock);
 	if (retval)
 		goto error;
+	kfree(sharedregion_module->regions);
+	memset(&sharedregion_module->cfg, 0,
+		sizeof(struct sharedregion_config));
+	sharedregion_module->num_offset_bits = 0;
+	sharedregion_module->offset_mask = 0;
+	mutex_unlock(sharedregion_module->local_lock);
 
-	kfree(sharedregion_state.ref_count_table);
-	kfree(sharedregion_state.table);
-	gate_handle = sharedregion_state.gate_handle; /* backup gate handle */
-	memset(&sharedregion_state, 0,
-		sizeof(struct sharedregion_module_object));
-	sharedregion_state.cfg.max_regions = SHAREDREGION_MAX_REGIONS_DEFAULT;
-	mutex_unlock(gate_handle);
-	kfree(gate_handle);
+	kfree(local_lock);
 	return 0;
 
 error:
@@ -223,6 +211,324 @@ error:
 }
 EXPORT_SYMBOL(sharedregion_destroy);
 
+/* Creates a heap by owner of region for each SharedRegion.
+ * Function is called by Ipc_start(). Requires that SharedRegion 0
+ * be valid before calling start(). */
+int sharedregion_start(void)
+{
+	int retval = 0;
+	struct sharedregion_region *region = NULL;
+	void *shared_addr = NULL;
+	struct heapmemmp_object *heap_handle = NULL;
+	struct heapmemmp_params params;
+	int i;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if ((sharedregion_module->cfg.num_entries == 0) ||
+		(sharedregion_module->regions[0].entry.is_valid == false)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	/*
+	 *  Loop through shared regions. If an owner of a region is specified
+	 *  and create_heap has been specified for the SharedRegion, then
+	 *  the owner creates a HeapMemMP and the other processors open it.
+	 */
+	for (i = 0; i < sharedregion_module->cfg.num_entries; i++) {
+		region = &(sharedregion_module->regions[i]);
+		if ((region->entry.is_valid)
+			&& (region->entry.owner_proc_id == multiproc_self())
+			&& (region->entry.create_heap)
+			&& (region->heap == NULL)) {
+			/* get the next free address in each region */
+			shared_addr = (void *)((u32) region->entry.base
+						+ region->reserved_size);
+
+			/* Create the HeapMemMP in the region. */
+			heapmemmp_params_init(&params);
+			params.shared_addr = shared_addr;
+			params.shared_buf_size =
+				region->entry.len - region->reserved_size;
+
+			/* Adjust to account for the size of HeapMemMP_Attrs */
+			params.shared_buf_size -=
+				((heapmemmp_shared_mem_req(&params) - \
+					params.shared_buf_size));
+			heap_handle = heapmemmp_create(&params);
+			if (heap_handle == NULL) {
+				retval = -1;
+				break;
+			} else {
+				region->heap = heap_handle;
+			}
+		}
+	}
+
+error:
+	if (retval < 0) {
+		printk(KERN_ERR "sharedregion_start failed status:%x\n",
+			retval);
+	}
+	return retval;
+}
+EXPORT_SYMBOL(sharedregion_start);
+
+/* Function to stop the SharedRegion module */
+int sharedregion_stop(void)
+{
+	int retval = 0;
+	int tmp_status = 0;
+	struct sharedregion_region *region = NULL;
+	int i;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON((sharedregion_module->cfg.num_entries == 0)
+		|| (sharedregion_module->regions[0].entry.is_valid == false))) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	/*
+	 *  Loop through shared regions. If an owner of a region is specified
+	 *  and create_heap has been specified for the SharedRegion, then
+	 *  the other processors close it and the owner deletes the HeapMemMP.
+	 */
+	for (i = 0; i < sharedregion_module->cfg.num_entries; i++) {
+		region = &(sharedregion_module->regions[i]);
+		if ((region->entry.is_valid)
+			&& (region->entry.owner_proc_id == multiproc_self())
+			&& (region->entry.create_heap)
+			&& (region->heap != NULL)) {
+			/* Delete heap */
+			tmp_status = heapmemmp_delete((void **)&(region->heap));
+			if ((tmp_status < 0) && (retval >= 0))
+				retval = -1;
+		}
+		memset(region, 0, sizeof(struct sharedregion_region));
+	}
+
+	/* set the defaults for region 0  */
+	sharedregion_module->regions[0].entry.create_heap = true;
+	sharedregion_module->regions[0].entry.owner_proc_id = multiproc_self();
+
+error:
+	if (retval < 0)
+		printk(KERN_ERR "sharedregion_stop failed status:%x\n", retval);
+	return retval;
+}
+EXPORT_SYMBOL(sharedregion_stop);
+
+/* Opens a heap, for non-owner processors, for each SharedRegion. */
+int sharedregion_attach(u16 remote_proc_id)
+{
+	int retval = 0;
+	struct sharedregion_region *region = NULL;
+	void *shared_addr = NULL;
+	int i;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON((remote_proc_id > MULTIPROC_MAXPROCESSORS))) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	/*
+	 *  Loop through the regions and open the heap if not owner
+	 */
+	for (i = 0; i < sharedregion_module->cfg.num_entries; i++) {
+		region = &(sharedregion_module->regions[i]);
+		if ((region->entry.is_valid) && \
+			(region->entry.owner_proc_id != multiproc_self()) && \
+			(region->entry.owner_proc_id != \
+			SHAREDREGION_DEFAULTOWNERID) && \
+			(region->entry.create_heap) && (region->heap == NULL)) {
+			/* SharedAddr should match creator's for each region */
+			shared_addr = (void *)((u32) region->entry.base +
+							region->reserved_size);
+
+			/* Heap should already be created so open by address */
+			retval = heapmemmp_open_by_addr(shared_addr,
+						(void **) &(region->heap));
+			if (retval < 0) {
+				retval = -1;
+				break;
+			}
+		}
+	}
+
+error:
+	if (retval < 0) {
+		printk(KERN_ERR "sharedregion_attach failed status:%x\n",
+			retval);
+	}
+	return retval;
+}
+EXPORT_SYMBOL(sharedregion_attach);
+
+/* Closes a heap, for non-owner processors, for each SharedRegion. */
+int sharedregion_detach(u16 remote_proc_id)
+{
+	int retval = 0;
+	int tmp_status = 0;
+	struct sharedregion_region *region = NULL;
+	u16 i;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON((remote_proc_id > MULTIPROC_MAXPROCESSORS))) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	/*
+	 *  Loop through the regions and open the heap if not owner
+	 */
+	for (i = 0; i < sharedregion_module->cfg.num_entries; i++) {
+		region = &(sharedregion_module->regions[i]);
+		if ((region->entry.is_valid) && \
+			(region->entry.owner_proc_id != multiproc_self()) && \
+			(region->entry.owner_proc_id != \
+			SHAREDREGION_DEFAULTOWNERID) && \
+			(region->entry.create_heap) && (region->heap != NULL)) {
+			/* Heap should already be created so open by address */
+			tmp_status = heapmemmp_close((void **) &(region->heap));
+			if ((tmp_status < 0) && (retval >= 0)) {
+				retval = -1;
+				printk(KERN_ERR "sharedregion_detach: "
+					"heapmemmp_close failed!");
+			}
+		}
+	}
+
+error:
+	if (retval < 0) {
+		printk(KERN_ERR "sharedregion_detach failed status:%x\n",
+			retval);
+	}
+	return retval;
+}
+EXPORT_SYMBOL(sharedregion_detach);
+
+/* This will return the address pointer associated with the
+ * shared region pointer */
+void *sharedregion_get_ptr(u32 *srptr)
+{
+	struct sharedregion_region *region = NULL;
+	void *return_ptr = NULL;
+	u16 region_id;
+	s32 retval = 0;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (srptr == SHAREDREGION_INVALIDSRPTR)
+		goto error;
+
+	if (sharedregion_module->cfg.translate == false)
+		return_ptr = (void *)srptr;
+	else {
+		region_id = \
+			((u32)(srptr) >> sharedregion_module->num_offset_bits);
+		if (region_id >= sharedregion_module->cfg.num_entries) {
+			retval = -EINVAL;
+			goto error;
+		}
+
+		region = &(sharedregion_module->regions[region_id]);
+		return_ptr = (void *)(((u32)srptr & \
+					sharedregion_module->offset_mask) + \
+					(u32) region->entry.base);
+	}
+	return return_ptr;
+
+error:
+	printk(KERN_ERR "sharedregion_get_ptr failed 0x%x\n", retval);
+	return (void *)NULL;
+
+}
+EXPORT_SYMBOL(sharedregion_get_ptr);
+
+/* This will return sharedregion pointer associated with the
+ * an address in a shared region area registered with the
+ * sharedregion module */
+u32 *sharedregion_get_srptr(void *addr, u16 id)
+{
+	struct sharedregion_region *region = NULL;
+	u32 *ret_ptr = SHAREDREGION_INVALIDSRPTR ;
+	s32 retval = 0;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON(addr == NULL))
+		goto error;
+
+	if (WARN_ON(id >= sharedregion_module->cfg.num_entries))
+		goto error;
+
+	if (sharedregion_module->cfg.translate == false)
+		ret_ptr = (u32 *)addr;
+	else {
+		region = &(sharedregion_module->regions[id]);
+		/*
+		 *  Note: The very last byte on the very last id cannot be
+		 *        mapped because SharedRegion_INVALIDSRPTR which is ~0
+		 *        denotes an error. Since pointers should be word
+		 *        aligned, we don't expect this to be a problem.
+		 *
+		 *        ie: numEntries = 4, id = 3, base = 0x00000000,
+		 *            len = 0x40000000 ==> address 0x3fffffff would be
+		 *            invalid because the SRPtr for this address is
+		 *            0xffffffff
+		 */
+		if (((u32) addr >= (u32) region->entry.base) && ((u32) addr < \
+			((u32) region->entry.base + region->entry.len))) {
+			ret_ptr = (u32 *)
+				((id << sharedregion_module->num_offset_bits) |
+				((u32) addr - (u32) region->entry.base));
+		}
+	}
+	return ret_ptr;
+
+error:
+	printk(KERN_ERR	"sharedregion_get_srptr failed 0x%x\n", retval);
+	return (u32 *)NULL;
+}
+EXPORT_SYMBOL(sharedregion_get_srptr);
+
+#if 0
 /*
  * ======== sharedregion_add ========
  *  Purpose:
@@ -239,31 +545,31 @@ int sharedregion_add(u32 index, void *base, u32 len)
 	bool overlap = false;
 	bool same = false;
 
-	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
 				SHAREDREGION_MAKE_MAGICSTAMP(0),
-				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
 		retval = -ENODEV;
 		goto error;
 	}
 
-	if (index >= sharedregion_state.cfg.max_regions ||
-			sharedregion_state.region_size < len) {
+	if (index >= sharedregion_module->cfg.num_entries ||
+			sharedregion_module->region_size < len) {
 		retval = -EINVAL;
 		goto error;
 	}
 
 	myproc_id = multiproc_get_id(NULL);
-	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
+	retval = mutex_lock_interruptible(sharedregion_module->local_lock);
 	if (retval)
 		goto error;
 
 
-	table = sharedregion_state.table;
+	table = sharedregion_module->table;
 	/* Check for overlap */
-	for (i = 0; i < sharedregion_state.cfg.max_regions; i++) {
+	for (i = 0; i < sharedregion_module->cfg.num_entries; i++) {
 		entry = (table
-			+ (myproc_id * sharedregion_state.cfg.max_regions)
-			+ i);
+			 + (myproc_id * sharedregion_module->cfg.num_entries)
+			 + i);
 		if (entry->is_valid) {
 			/* Handle duplicate entry */
 			if ((base == entry->base) && (len == entry->len)) {
@@ -272,13 +578,14 @@ int sharedregion_add(u32 index, void *base, u32 len)
 			}
 
 			if ((base >= entry->base) &&
-			(base < (void *)((u32)entry->base + entry->len))) {
+				(base < (void *)
+					((u32)entry->base + entry->len))) {
 				overlap = true;
 				break;
 			}
 
 			if ((base < entry->base) &&
-			(void *)((u32)base + len) >= entry->base) {
+				(void *)((u32)base + len) >= entry->base) {
 				overlap = true;
 				break;
 			}
@@ -297,7 +604,7 @@ int sharedregion_add(u32 index, void *base, u32 len)
 	}
 
 	entry = (table
-		 + (myproc_id * sharedregion_state.cfg.max_regions)
+		 + (myproc_id * sharedregion_module->cfg.num_entries)
 		 + index);
 	if (entry->is_valid == false) {
 		entry->base = base;
@@ -306,22 +613,22 @@ int sharedregion_add(u32 index, void *base, u32 len)
 
 	} else {
 		/* FHACK: FIX ME */
-		sharedregion_state.ref_count_table[(myproc_id *
-				sharedregion_state.cfg.max_regions)
-				+ index] += 1;
+		sharedregion_module->ref_count_table[(myproc_id *
+					sharedregion_module->cfg.num_entries)
+					+ index] += 1;
 		retval = 1;
 		goto dup_entry_error;
 	}
 
 success:
-	mutex_unlock(sharedregion_state.gate_handle);
+	mutex_unlock(sharedregion_module->local_lock);
 	return 0;
 
 dup_entry_error: /* Fall through */
 mem_overlap_error:
 	printk(KERN_WARNING "sharedregion_add entry exists status: %x\n",
 		retval);
-	mutex_unlock(sharedregion_state.gate_handle);
+	mutex_unlock(sharedregion_module->local_lock);
 
 error:
 	if (retval < 0)
@@ -343,40 +650,40 @@ int sharedregion_remove(u32 index)
 	u16 myproc_id;
 	s32 retval = 0;
 
-	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
 				SHAREDREGION_MAKE_MAGICSTAMP(0),
-				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
 		retval = -ENODEV;
 		goto error;
 	}
 
-	if (index >= sharedregion_state.cfg.max_regions) {
+	if (index >= sharedregion_module->cfg.num_entries) {
 		retval = -EINVAL;
 		goto error;
 	}
 
-	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
+	retval = mutex_lock_interruptible(sharedregion_module->local_lock);
 	if (retval)
 		goto error;
 
 	myproc_id = multiproc_get_id(NULL);
-	table = sharedregion_state.table;
+	table = sharedregion_module->table;
 	entry = (table
-		 + (myproc_id * sharedregion_state.cfg.max_regions)
+		 + (myproc_id * sharedregion_module->cfg.num_entries)
 		 + index);
 
-	if (sharedregion_state.ref_count_table[(myproc_id *
-				sharedregion_state.cfg.max_regions)
-				+ index] > 0)
-		sharedregion_state.ref_count_table[(myproc_id *
-				sharedregion_state.cfg.max_regions)
-				+ index] -= 1;
+	if (sharedregion_module->ref_count_table[(myproc_id *
+			sharedregion_module->cfg.num_entries)
+			+ index] > 0)
+		sharedregion_module->ref_count_table[(myproc_id *
+					sharedregion_module->cfg.num_entries)
+					+ index] -= 1;
 	else {
 		entry->is_valid = false;
 		entry->base = NULL;
 		entry->len = 0;
 	}
-	mutex_unlock(sharedregion_state.gate_handle);
+	mutex_unlock(sharedregion_module->local_lock);
 	return 0;
 
 error:
@@ -384,150 +691,6 @@ error:
 	return retval;
 }
 EXPORT_SYMBOL(sharedregion_remove);
-
-/*
- * ======== sharedregion_get_index ========
- *  Purpose:
- *  This will return the index for the specified address pointer.
- */
-int sharedregion_get_index(void *addr)
-{
-	struct sharedregion_info *entry = NULL;
-	struct sharedregion_info *table = NULL;
-	bool found = false;
-	u32 i;
-	u16 myproc_id;
-	s32 retval = 0;
-
-	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
-				SHAREDREGION_MAKE_MAGICSTAMP(0),
-				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
-		retval = -ENODEV;
-		goto exit;
-	}
-
-	myproc_id = multiproc_get_id(NULL);
-	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
-	if (retval) {
-		retval = -ENODEV;
-		goto exit;
-	}
-
-	table = sharedregion_state.table;
-	for (i = 0; i < sharedregion_state.cfg.max_regions; i++) {
-		entry = (table
-			+ (myproc_id * sharedregion_state.cfg.max_regions)
-			+ i);
-		if ((addr >= entry->base) &&
-		(addr < (void *)((u32)entry->base + (entry->len)))) {
-			found = true;
-			break;
-		}
-	}
-
-	if (found)
-		retval = i;
-	else
-		retval = -ENOENT; /* No entry found in the table */
-
-	mutex_unlock(sharedregion_state.gate_handle);
-	return retval;
-
-exit:
-	printk(KERN_ERR "sharedregion_get_index failed index:%x\n", retval);
-	return retval;
-}
-EXPORT_SYMBOL(sharedregion_get_index);
-
-/*
- * ======== sharedregion_get_ptr ========
- *  Purpose:
- *  This will return the address pointer associated with the
- *  shared region pointer
- */
-void *sharedregion_get_ptr(u32 *srptr)
-{
-	struct sharedregion_info *entry = NULL;
-	void *ptr = NULL;
-	u16 myproc_id;
-	s32 retval = 0;
-
-	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
-				SHAREDREGION_MAKE_MAGICSTAMP(0),
-				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
-		retval = -ENODEV;
-		goto error;
-	}
-
-	if (srptr == SHAREDREGION_INVALIDSRPTR)
-		goto error;
-
-	myproc_id = multiproc_get_id(NULL);
-	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
-	if (WARN_ON(retval != 0))
-		goto error;
-
-	entry = (sharedregion_state.table
-		 + (myproc_id * sharedregion_state.cfg.max_regions)
-		 + ((u32)srptr >> sharedregion_state.bitOffset));
-	/* TO DO check:: is this correct ? */
-	ptr = ((void *)(((u32)srptr &
-		((1 << sharedregion_state.bitOffset) - 1)) + (u32)entry->base));
-	mutex_unlock(sharedregion_state.gate_handle);
-	return ptr;
-
-error:
-	printk(KERN_ERR "sharedregion_get_ptr failed \n");
-	return (void *)NULL;
-
-}
-EXPORT_SYMBOL(sharedregion_get_ptr);
-
-/*
- * ======== sharedregion_get_srptr ========
- *  Purpose:
- *  This will return sharedregion pointer associated with the
- *  an address in a shared region area registered with the
- *  sharedregion module
- */
-u32 *sharedregion_get_srptr(void *addr, s32 index)
-{
-	struct sharedregion_info *entry = NULL;
-	u32 *ptr = SHAREDREGION_INVALIDSRPTR ;
-	u32 myproc_id;
-	s32 retval = 0;
-
-	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
-				SHAREDREGION_MAKE_MAGICSTAMP(0),
-				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
-		retval = -ENODEV;
-		goto error;
-	}
-
-	if (WARN_ON(addr == NULL))
-		goto error;
-
-	if (WARN_ON(index >= sharedregion_state.cfg.max_regions))
-		goto error;
-
-	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
-	if (WARN_ON(retval != 0))
-		goto error;
-
-	myproc_id = multiproc_get_id(NULL);
-	entry = (sharedregion_state.table
-		+ (myproc_id * sharedregion_state.cfg.max_regions)
-		+ index);
-	ptr = (u32 *) ((index << sharedregion_state.bitOffset)
-				| ((u32)addr - (u32)entry->base));
-	mutex_unlock(sharedregion_state.gate_handle);
-	return ptr;
-
-error:
-	printk(KERN_ERR	"sharedregion_get_srptr failed\n");
-	return (u32 *)NULL;
-}
-EXPORT_SYMBOL(sharedregion_get_srptr);
 
 /*
  * ======== sharedregion_get_table_info ========
@@ -544,35 +707,35 @@ int sharedregion_get_table_info(u32 index, u16 proc_id,
 	s32 retval = 0;
 
 	BUG_ON(info == NULL);
-	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
 				SHAREDREGION_MAKE_MAGICSTAMP(0),
-				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
 		retval = -ENODEV;
 		goto error;
 	}
 
 	proc_count = multiproc_get_max_processors();
-	if (index >= sharedregion_state.cfg.max_regions ||
-						proc_id >= proc_count) {
+	if (index >= sharedregion_module->cfg.num_entries ||
+			proc_id >= proc_count) {
 		retval = -EINVAL;
 		goto error;
 	}
 
-	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
+	retval = mutex_lock_interruptible(sharedregion_module->local_lock);
 	if (retval)
 		goto error;
 
-	table = sharedregion_state.table;
+	table = sharedregion_module->table;
 	entry = (table
-		+ (proc_id * sharedregion_state.cfg.max_regions)
-		+ index);
+		 + (proc_id * sharedregion_module->cfg.num_entries)
+		 + index);
 	memcpy((void *) info, (void *) entry, sizeof(struct sharedregion_info));
-	mutex_unlock(sharedregion_state.gate_handle);
+	mutex_unlock(sharedregion_module->local_lock);
 	return 0;
 
 error:
 	printk(KERN_ERR "sharedregion_get_table_info failed status:%x\n",
-			retval);
+		retval);
 	return retval;
 }
 EXPORT_SYMBOL(sharedregion_get_table_info);
@@ -591,210 +754,853 @@ int sharedregion_set_table_info(u32 index, u16 proc_id,
 	u16 proc_count;
 	s32 retval = 0;
 
-	BUG_ON(info != NULL);
-	if (atomic_cmpmask_and_lt(&(sharedregion_state.ref_count),
+	BUG_ON(info == NULL);
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
 				SHAREDREGION_MAKE_MAGICSTAMP(0),
-				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true) {
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
 		retval = -ENODEV;
 		goto error;
 	}
 
 	proc_count = multiproc_get_max_processors();
-	if (index >= sharedregion_state.cfg.max_regions ||
-						proc_id >= proc_count) {
+	if (index >= sharedregion_module->cfg.num_entries ||
+			proc_id >= proc_count) {
 		retval = -EINVAL;
 		goto error;
 	}
 
-	retval = mutex_lock_interruptible(sharedregion_state.gate_handle);
+	retval = mutex_lock_interruptible(sharedregion_module->local_lock);
 	if (retval)
 		goto error;
 
-	table = sharedregion_state.table;
+	table = sharedregion_module->table;
 	entry = (table
-		+ (proc_id * sharedregion_state.cfg.max_regions)
-		+ index);
+		 + (proc_id * sharedregion_module->cfg.num_entries)
+		 + index);
 	memcpy((void *) entry, (void *) info, sizeof(struct sharedregion_info));
-	mutex_unlock(sharedregion_state.gate_handle);
+	mutex_unlock(sharedregion_module->local_lock);
 	return 0;
 
 error:
 	printk(KERN_ERR "sharedregion_set_table_info failed status:%x\n",
-			retval);
+		retval);
 	return retval;
 }
 EXPORT_SYMBOL(sharedregion_set_table_info);
+#endif
 
-/*
- * ======== Sharedregion_attach ========
- *  Purpose:
- *  This will attachs the shared region with an proc_id
- *
- *  Application should call this function from the callback
- *  function registered for device attach to the processor
- *  manager. All modules which requires some logic setup
- *  to be done when a device gets attach to the system,
- *  should export API like this. Please see the below psuedo
- *  code for example:
- *  Example
- *  code
- *      void function (proc_id, config) {
- *          NotifyDriver_attach (proc_id, config->ndParams);
- *           SysMemMgr_attach (proc_id);
- *           SMM_attach (proc_id);
- *            NameServerRemoteTransport_attach(proc_id, config->nsrtParams);
- *            SharedRegion_attach (proc_id);
- *            SharedMemory_getConfig (&cfg);
- *             for (i = 0u; i < cfg->maxRegions; i++) {
- *                  SharedRegion_getTableInfo(i, &myinfo,   myProcId);
- *                  SharedRegion_getTableInfo(i, &peerinfo, proc_id);
- *                   DMM_map (proc_id,
- *                           PA(myinfo->vaddr),
- *                            peerinfo->vaddr,
- *                            myinfo->len);
- *               }
- *               ...
- *          }
- *
- *          main () {
- *               # attach callback for device attach only
- *                ProcMgr_register (function, proc_id, DEV_ATTACH);
- *          }
- *
- */
-void sharedregion_attach(u16 proc_id)
+/* Return the region info */
+void sharedregion_get_region_info(u16 id, struct sharedregion_region *region)
 {
-	struct sharedregion_info *entry = NULL;
-	struct sharedregion_info *table = NULL;
-	char *hexstr = "0123456789ABCDEF";
-	char tname[80];
-	u16 proc_id_list[2];
-	u32 addr = 0;
-	u32 len;
-	u16 proc_count;
-	void *nshandle;
+	struct sharedregion_region *regions = NULL;
 	s32 retval = 0;
-	s32 i;
 
-	if (WARN_ON(sharedregion_state.table == NULL))
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
 		goto error;
-
-	proc_count = multiproc_get_max_processors();
-	if (WARN_ON(proc_id >= proc_count))
-		goto error;
-
-	proc_id_list[0] = proc_id;
-	proc_id_list[1] = MULTIPROC_INVALIDID;
-	nshandle = nameserver_get_handle(SHAREDREGION_NAMESERVER);
-	if (nshandle == NULL)
-		goto error;
-
-	/* Get Shared region entries from the remote shared region nameserver */
-	for (i = 0u; i < sharedregion_state.cfg.max_regions; i++) {
-		memset(tname, 0, 80);
-		strcpy(tname, "SHAREDREGION:SRENTRY_ADDR_");
-		tname[strlen(tname)] = hexstr[(proc_id >> 4u) & 0xF];
-		tname[strlen(tname)] = hexstr[proc_id & 0xF];
-		tname[strlen(tname)] = '_';
-		tname[strlen(tname)] = hexstr[(i >> 28u) & 0xF];
-		tname[strlen(tname)] = hexstr[(i >> 24u) & 0xF];
-		tname[strlen(tname)] = hexstr[(i >> 20u) & 0xF];
-		tname[strlen(tname)] = hexstr[(i >> 16u) & 0xF];
-		tname[strlen(tname)] = hexstr[(i >> 12u) & 0xF];
-		tname[strlen(tname)] = hexstr[(i >>  8u) & 0xF];
-		tname[strlen(tname)] = hexstr[(i >>  4u) & 0xF];
-		tname[strlen(tname)] = hexstr[i & 0xF];
-		retval = nameserver_get(nshandle, tname,
-					&len, sizeof(u32), &proc_id_list[0]);
-		if (WARN_ON(retval))
-			;
-
-		memset(tname, 0, 80u);
-		strcpy(tname, "SHAREDREGION:SRENTRY_LEN_");
-		tname[strlen(tname)] = hexstr[(proc_id >> 4u) & 0xF];
-		tname[strlen(tname)] = hexstr[proc_id & 0xF];
-		tname[strlen(tname)] = '_';
-		tname[strlen(tname)] = hexstr[(i >> 28u) & 0xF];
-		tname[strlen(tname)] = hexstr[(i >> 24u) & 0xF];
-		tname[strlen(tname)] = hexstr[(i >> 20u) & 0xF];
-		tname[strlen(tname)] = hexstr[(i >> 16u) & 0xF];
-		tname[strlen(tname)] = hexstr[(i >> 12u) & 0xF];
-		tname[strlen(tname)] = hexstr[(i >>  8u) & 0xF];
-		tname[strlen(tname)] = hexstr[(i >>  4u) & 0xF];
-		tname[strlen(tname)] = hexstr[i & 0xF];
-
-		/* TO DO : check this */
-		retval = nameserver_get(nshandle, tname,
-					&len, sizeof(u32), &proc_id_list[0]);
-		if (WARN_ON(retval))
-			;
-
-		/* Found an entry in the remote nameserver */
-		/* Add it into the shared region table */
-		if (retval == 0) {
-			retval = mutex_lock_interruptible(
-					sharedregion_state.gate_handle);
-			if (WARN_ON(retval))
-				break;
-
-			table = sharedregion_state.table;
-			/* mark entry invalid */
-			entry = (table
-				+ (proc_id * sharedregion_state.cfg.max_regions)
-				+ i);
-			entry->base    = (void *)addr;
-			entry->len     = len;
-			entry->is_valid = false;
-			mutex_unlock(sharedregion_state.gate_handle);
-		}
-
 	}
 
+	if (WARN_ON(id >= sharedregion_module->cfg.num_entries)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	if (WARN_ON(region == NULL)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	regions = &(sharedregion_module->regions[id]);
+	memcpy((void *) region, (void *) regions,
+		sizeof(struct sharedregion_region));
+
 error:
+	if (retval < 0) {
+		printk(KERN_ERR "sharedregion_get_region_info failed: "
+			"status = 0x%x", retval);
+	}
 	return;
 }
-EXPORT_SYMBOL(sharedregion_attach);
 
-/*
- * ======== Sharedregion_detach ========
- *  Purpose:
- *  This will detachs the shared region for an proc_id
- *
- *  Application should call this function from the callback
- *  function registered for device detach to the processorl
- *  manager. All modules which requires some logic setup
- *  to be done when a device gets detach from the system,
- *  should export API like this.
- *  Please see the below psuedo code for example:
- *  @Example
- *  @code
- *    void function (proc_id) {
- *    	SharedRegion_detach (proc_id);
- *    	SysMemMgr_detach (proc_id);
- *     	...
- *   	# Name server must be detached last
- *    	nameserver_detach (proc_id);
- *     }
- *
- *    main () {
- *    	# attach callback for device detach only
- *	Processor_register (function, proc_id, DEV_DETACH);
- *    }
- *
- */
-void sharedregion_detach(u16 proc_id)
+/* Whether address translation is enabled */
+bool sharedregion_translate_enabled(void)
 {
-	u16 proc_count;
+	return sharedregion_module->cfg.translate;
+}
 
-	if (WARN_ON(sharedregion_state.table == NULL))
-		goto error;
+/* Gets the number of regions */
+u16 sharedregion_get_num_regions(void)
+{
+	return sharedregion_module->cfg.num_entries;
+}
 
-	proc_count = multiproc_get_max_processors();
-	if (WARN_ON(proc_id >= proc_count))
+/* Sets the table information entry in the table */
+int sharedregion_set_entry(u16 id, struct sharedregion_entry *entry)
+{
+	int retval = 0;
+	struct sharedregion_region *region = NULL;
+	void *shared_addr = NULL;
+	struct heapmemmp_object *heap_handle = NULL;
+	struct heapmemmp_object **heap_handle_ptr = NULL;
+	struct heapmemmp_params params;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
 		goto error;
+	}
+
+	if (WARN_ON(entry == NULL)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	if (WARN_ON(id >= sharedregion_module->cfg.num_entries)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	region = &(sharedregion_module->regions[id]);
+
+	/* Make sure region does not overlap existing ones */
+	retval = _sharedregion_check_overlap(region->entry.base,
+						region->entry.len);
+	if (retval < 0) {
+		printk(KERN_ERR "sharedregion_set_entry: Entry is overlapping "
+			"existing entry!");
+		goto error;
+	}
+	if (region->entry.is_valid) {
+		/*region entry should be invalid at this point */
+		retval = -EEXIST;
+		printk(KERN_ERR "_sharedregion_setEntry: Entry already exists");
+		goto error;
+	}
+	if ((entry->cache_enable) && (entry->cache_line_size == 0)) {
+		/* if cache enabled, cache line size must != 0 */
+		retval = -1;
+		printk(KERN_ERR "_sharedregion_setEntry: If cache enabled, "
+			"cache line size must != 0");
+		goto error;
+	}
+
+	/* needs to be thread safe */
+	retval = mutex_lock_interruptible(sharedregion_module->local_lock);
+	if (retval)
+		goto error;
+	/* set specified region id to entry values */
+	memcpy((void *)&(region->entry), (void *)entry,
+		sizeof(struct sharedregion_entry));
+	mutex_unlock(sharedregion_module->local_lock);
+
+	if (entry->owner_proc_id == multiproc_self()) {
+		if ((entry->create_heap) && (region->heap == NULL)) {
+			/* get current Ptr (reserve memory with size of 0) */
+			shared_addr = sharedregion_reserve_memory(id, 0);
+			heapmemmp_params_init(&params);
+			params.shared_addr = shared_addr;
+			params.shared_buf_size = region->entry.len - \
+						region->reserved_size;
+
+			/*
+			 *  Calculate size of HeapMemMP_Attrs and adjust
+			 *  shared_buf_size. Size of HeapMemMP_Attrs =
+			 *  HeapMemMP_sharedMemReq(&params) -
+			 *  params.shared_buf_size
+			 */
+			params.shared_buf_size -= \
+				(heapmemmp_shared_mem_req(&params) - \
+				params.shared_buf_size);
+
+			heap_handle = heapmemmp_create(&params);
+			if (heap_handle == NULL) {
+				region->entry.is_valid = false;
+				retval = -ENOMEM;
+				goto error;
+			} else
+				region->heap = heap_handle;
+		}
+	} else {
+		if ((entry->create_heap) && (region->heap == NULL)) {
+			/* shared_addr should match creator's for each region */
+			shared_addr = (void *)((u32) region->entry.base
+						+ region->reserved_size);
+
+			/* set the pointer to a heap handle */
+			heap_handle_ptr = \
+				(struct heapmemmp_object **) &(region->heap);
+
+			/* open the heap by address */
+			retval = heapmemmp_open_by_addr(shared_addr, (void **)
+							heap_handle_ptr);
+			if (retval < 0) {
+				region->entry.is_valid = false;
+				retval = -1;
+				goto error;
+			}
+		}
+	}
+	return 0;
 
 error:
+	printk(KERN_ERR "sharedregion_set_entry failed! status = 0x%x", retval);
+	return retval;
+}
+
+/* Clears the region in the table */
+int sharedregion_clear_entry(u16 id)
+{
+	int retval = 0;
+	struct sharedregion_region *region = NULL;
+	struct heapmemmp_object *heapmem_ptr = NULL;
+	u16 my_id;
+	u16 owner_proc_id;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON(id >= sharedregion_module->cfg.num_entries)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	/* Need to make sure not trying to clear Region 0 */
+	if (WARN_ON(id == 0)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	my_id = multiproc_self();
+
+	/* Needs to be thread safe */
+	retval = mutex_lock_interruptible(sharedregion_module->local_lock);
+	if (retval)
+		goto error;
+	region = &(sharedregion_module->regions[id]);
+
+	/* Store these fields to local variables */
+	owner_proc_id = region->entry.owner_proc_id;
+	heapmem_ptr = region->heap;
+
+	/* Clear region to their defaults */
+	region->entry.is_valid = false;
+	region->entry.base = NULL;
+	region->entry.len = 0u;
+	region->entry.owner_proc_id = SHAREDREGION_DEFAULTOWNERID;
+	region->entry.cache_enable = true;
+	region->entry.cache_line_size = \
+				sharedregion_module->cfg.cache_line_size;
+	region->entry.create_heap = false;
+	region->entry.name = NULL;
+	region->reserved_size = 0u;
+	region->heap = NULL;
+	mutex_unlock(sharedregion_module->local_lock);
+
+	/* Delete or close previous created heap outside the gate */
+	if (heapmem_ptr != NULL) {
+		if (owner_proc_id == my_id) {
+			retval = heapmemmp_delete((void **) &heapmem_ptr);
+			if (retval < 0) {
+				retval = -1;
+				goto error;
+			}
+		} else if (owner_proc_id != (u16) SHAREDREGION_DEFAULTOWNERID) {
+			retval = heapmemmp_close((void **) &heapmem_ptr);
+			if (retval < 0) {
+				retval = -1;
+				goto error;
+			}
+		}
+	}
+	return 0;
+
+error:
+	printk(KERN_ERR "sharedregion_clear_entry failed! status = 0x%x",
+		retval);
+	return retval;
+}
+
+/* Clears the reserve memory for each region in the table */
+void sharedregion_clear_reserved_memory(void)
+{
+	struct sharedregion_region *region = NULL;
+	int i;
+
+	/*
+	 *  Loop through shared regions. If an owner of a region is specified,
+	 *  the owner zeros out the reserved memory in each region.
+	 */
+	for (i = 0; i < sharedregion_module->cfg.num_entries; i++) {
+		region = &(sharedregion_module->regions[i]);
+		if ((region->entry.is_valid) && \
+			(region->entry.owner_proc_id == multiproc_self())) {
+			/* Clear reserved memory */
+			memset(region->entry.base, 0, region->reserved_size);
+
+			/* Writeback invalidate cache if enabled in region */
+			if (region->entry.cache_enable) {
+				/* TODO: Enable cache */
+				/* Cache_wbInv(region->entry.base,
+						region->reserved_size,
+						Cache_Type_ALL,
+						true); */
+			}
+		}
+	}
+}
+
+/* Initializes the entry fields */
+void sharedregion_entry_init(struct sharedregion_entry *entry)
+{
+	s32 retval = 0;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON(entry == NULL)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	/* init the entry to default values */
+	entry->base = NULL;
+	entry->len = 0;
+	entry->owner_proc_id = SHAREDREGION_DEFAULTOWNERID;
+	entry->cache_enable = false; /*Set to true once cache API is done */
+	entry->cache_line_size = sharedregion_module->cfg.cache_line_size;
+	entry->create_heap = false;
+	entry->name = NULL;
+	entry->is_valid = false;
+
+error:
+	if (retval < 0) {
+		printk(KERN_ERR "sharedregion_entry_init failed: "
+			"status = 0x%x", retval);
+	}
 	return;
 }
-EXPORT_SYMBOL(sharedregion_detach);
 
+/* Returns Heap Handle of associated id */
+void *sharedregion_get_heap(u16 id)
+{
+	struct heapmemmp_object *heap = NULL;
+	s32 retval = 0;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON(id >= sharedregion_module->cfg.num_entries)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	/*
+	 *  If translate == true or translate == false
+	 *  and 'id' is not INVALIDREGIONID, then assert id is valid.
+	 *  Return the heap associated with the region id.
+	 *
+	 *  If those conditions are not met, the id is from
+	 *  an addres in local memory so return NULL.
+	 */
+	if ((sharedregion_module->cfg.translate) || \
+			((sharedregion_module->cfg.translate == false) && \
+			(id != SHAREDREGION_INVALIDREGIONID))) {
+		heap = sharedregion_module->regions[id].heap;
+	}
+	return (void *)heap;
+
+error:
+	printk(KERN_ERR "sharedregion_get_heap failed: status = 0x%x", retval);
+	return (void *)NULL;
+}
+
+/* This will return the id for the specified address pointer. */
+u16 sharedregion_get_id(void *addr)
+{
+	struct sharedregion_region *region = NULL;
+	u16 region_id = SHAREDREGION_INVALIDREGIONID;
+	u16 i;
+	s32 retval = -ENOENT;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON(addr == NULL)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	retval = mutex_lock_interruptible(sharedregion_module->local_lock);
+	if (retval) {
+		retval = -ENODEV;
+		goto error;
+	}
+	for (i = 0; i < sharedregion_module->cfg.num_entries; i++) {
+		region = &(sharedregion_module->regions[i]);
+		if (region->entry.is_valid && (addr >= region->entry.base) &&
+			(addr < (void *)((u32)region->entry.base + \
+			(region->entry.len)))) {
+			region_id = i;
+			retval = 0;
+			break;
+		}
+	}
+	mutex_unlock(sharedregion_module->local_lock);
+
+error:
+	if (retval < 0) {
+		printk(KERN_ERR "sharedregion_get_id failed: "
+			"status = 0x%x", retval);
+	}
+	return region_id;
+}
+EXPORT_SYMBOL(sharedregion_get_id);
+
+/* Returns the id of shared region that matches name.
+ * Returns sharedregion_INVALIDREGIONID if no region is found. */
+u16 sharedregion_get_id_by_name(char *name)
+{
+	struct sharedregion_region *region = NULL;
+	u16 region_id = SHAREDREGION_INVALIDREGIONID;
+	u16 i;
+	s32 retval = 0;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON(name == NULL)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	/* Needs to be thread safe */
+	retval = mutex_lock_interruptible(sharedregion_module->local_lock);
+	if (retval)
+		goto error;
+	/* loop through entries to find matching name */
+	for (i = 0; i < sharedregion_module->cfg.num_entries; i++) {
+		region = &(sharedregion_module->regions[i]);
+		if (region->entry.is_valid) {
+			if (strcmp(region->entry.name, name) == 0) {
+				region_id = i;
+				break;
+			}
+		}
+	}
+	mutex_unlock(sharedregion_module->local_lock);
+
+error:
+	if (retval < 0) {
+		printk(KERN_ERR "sharedregion_get_id_by_name failed: "
+			"status = 0x%x", retval);
+	}
+	return region_id;
+}
+
+/* Gets the entry information for the specified region id */
+int sharedregion_get_entry(u16 id, struct sharedregion_entry *entry)
+{
+	int retval = 0;
+	struct sharedregion_region *region = NULL;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON(entry == NULL)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	if (WARN_ON(id >= sharedregion_module->cfg.num_entries)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	region = &(sharedregion_module->regions[id]);
+	memcpy((void *) entry, (void *) &(region->entry),
+			sizeof(struct sharedregion_entry));
+	return 0;
+
+error:
+	printk(KERN_ERR "sharedregion_get_entry failed: status = 0x%x", retval);
+	return retval;
+}
+
+/* Get cache line size */
+uint sharedregion_get_cache_line_size(u16 id)
+{
+	uint cache_line_size = sizeof(int);
+	s32 retval = 0;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON(id >= sharedregion_module->cfg.num_entries)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	/*
+	 *  If translate == true or translate == false
+	 *  and 'id' is not INVALIDREGIONID, then assert id is valid.
+	 *  Return the heap associated with the region id.
+	 *
+	 *  If those conditions are not met, the id is from
+	 *  an addres in local memory so return NULL.
+	 */
+	if ((sharedregion_module->cfg.translate) || \
+			((sharedregion_module->cfg.translate == false) && \
+			(id != SHAREDREGION_INVALIDREGIONID))) {
+		cache_line_size =
+			sharedregion_module->regions[id].entry.cache_line_size;
+	}
+	return cache_line_size;
+
+error:
+	printk(KERN_ERR "sharedregion_get_cache_line_size failed: "
+		"status = 0x%x", retval);
+	return cache_line_size;
+}
+
+/* Is cache enabled? */
+bool sharedregion_is_cache_enabled(u16 id)
+{
+	bool cache_enable = false;
+	s32 retval = 0;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON(id >= sharedregion_module->cfg.num_entries)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	/*
+	 *  If translate == true or translate == false
+	 *  and 'id' is not INVALIDREGIONID, then assert id is valid.
+	 *  Return the heap associated with the region id.
+	 *
+	 *  If those conditions are not met, the id is from
+	 *  an address in local memory so return NULL.
+	 */
+	if ((sharedregion_module->cfg.translate) || \
+			((sharedregion_module->cfg.translate == false) && \
+			(id != SHAREDREGION_INVALIDREGIONID))) {
+		cache_enable = \
+			sharedregion_module->regions[id].entry.cache_enable;
+	}
+	return cache_enable;
+
+error:
+	printk(KERN_ERR "sharedregion_is_cache_enabled failed: "
+		"status = 0x%x", retval);
+	return false;
+}
+
+/* Reserves the specified amount of memory from the specified region id. */
+void *sharedregion_reserve_memory(u16 id, uint size)
+{
+	void *ret_ptr = NULL;
+	struct sharedregion_region *region = NULL;
+	u32 min_align;
+	uint new_size;
+	uint cur_size;
+	uint cache_line_size = 0;
+	s32 retval = 0;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON(id >= sharedregion_module->cfg.num_entries)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	if (WARN_ON(sharedregion_module->regions[id].entry.is_valid == false)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	/*TODO: min_align = Memory_getMaxDefaultTypeAlign();*/min_align = 4;
+	cache_line_size = sharedregion_get_cache_line_size(id);
+	if (cache_line_size > min_align)
+		min_align = cache_line_size;
+
+	region = &(sharedregion_module->regions[id]);
+
+	/* Set the current size to the reserved_size */
+	cur_size = region->reserved_size;
+
+	/* No need to round here since cur_size is already aligned */
+	ret_ptr = (void *)((u32) region->entry.base + cur_size);
+
+	/*  Round the new size to the min alignment since */
+	new_size = ROUND_UP(size, min_align);
+
+	/* Need to make sure (cur_size + new_size) is smaller than region len */
+	if (region->entry.len < (cur_size + new_size)) {
+		retval = -EINVAL;
+		printk(KERN_ERR "sharedregion_reserve_memory: Too large size "
+					"is requested to be reserved!");
+		goto error;
+	}
+
+	/* Add the new size to current size */
+	region->reserved_size = cur_size + new_size;
+	return ret_ptr;
+
+error:
+	printk(KERN_ERR "sharedregion_reserve_memory failed: "
+		"status = 0x%x", retval);
+	return (void *)NULL;
+}
+
+/* Unreserve the specified amount of memory from the specified region id. */
+void sharedregion_unreserve_memory(u16 id, uint size)
+{
+	struct sharedregion_region *region = NULL;
+	u32 min_align;
+	uint new_size;
+	uint cur_size;
+	uint cache_line_size = 0;
+	s32 retval = 0;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON(id >= sharedregion_module->cfg.num_entries)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	if (WARN_ON(sharedregion_module->regions[id].entry.is_valid == false)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	/*TODO: min_align = Memory_getMaxDefaultTypeAlign();*/min_align = 4;
+	cache_line_size = sharedregion_get_cache_line_size(id);
+	if (cache_line_size > min_align)
+		min_align = cache_line_size;
+
+	region = &(sharedregion_module->regions[id]);
+
+	/* Set the current size to the unreservedSize */
+	cur_size = region->reserved_size;
+
+	/*  Round the new size to the min alignment since */
+	new_size = ROUND_UP(size, min_align);
+
+	/* Add the new size to current size */
+	region->reserved_size = cur_size - new_size;
+
+error:
+	if (retval < 0) {
+		printk(KERN_ERR "sharedregion_unreserve_memory failed: "
+			"status = 0x%x", retval);
+	}
+	return;
+}
+
+/* =============================================================================
+ *  Internal Functions
+ * =============================================================================
+ */
+/* Checks to make sure overlap does not exists. */
+int _sharedregion_check_overlap(void *base, u32 len)
+{
+	int retval = 0;
+	struct sharedregion_region *region = NULL;
+	u32 i;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	retval = mutex_lock_interruptible(sharedregion_module->local_lock);
+	if (retval)
+		goto error;
+
+	/* check whether new region overlaps existing ones */
+	for (i = 0; i < sharedregion_module->cfg.num_entries; i++) {
+		region = &(sharedregion_module->regions[i]);
+		if (region->entry.is_valid) {
+			if (base >= region->entry.base) {
+				if (base < (void *)((u32) region->entry.base
+							+ region->entry.len)) {
+					retval = -1;
+					printk(KERN_ERR "_sharedregion_check_"
+						"_overlap failed: Specified "
+						"region falls within another "
+						"region!");
+					break;
+				}
+			} else {
+				if ((void *)((u32) base + len) > \
+					region->entry.base) {
+					retval = -1;
+					printk(KERN_ERR "_sharedregion_check_"
+						"_overlap failed: Specified "
+						"region spans across multiple "
+						"regions!");
+					break;
+				}
+			}
+		}
+	}
+
+	mutex_unlock(sharedregion_module->local_lock);
+	return 0;
+
+error:
+	printk(KERN_ERR "_sharedregion_check_overlap failed: "
+		"status = 0x%x", retval);
+	return retval;
+}
+
+/* Return the number of offset_bits bits */
+u32 _sharedregion_get_num_offset_bits(void)
+{
+	u32 num_entries = sharedregion_module->cfg.num_entries;
+	u32 index_bits = 0;
+	u32 num_offset_bits = 0;
+	s32 retval = 0;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (num_entries == 0 || num_entries == 1)
+		index_bits = num_entries;
+	else {
+		num_entries = num_entries - 1;
+
+		/* determine the number of bits for the index */
+		while (num_entries) {
+			index_bits++;
+			num_entries = num_entries >> 1;
+		}
+	}
+	num_offset_bits = 32 - index_bits;
+
+error:
+	if (retval < 0) {
+		printk(KERN_ERR "_sharedregion_get_num_offset_bits failed: "
+			"status = 0x%x", retval);
+	}
+	return num_offset_bits;
+}
+
+/* Sets the table information entry in the table (doesn't create heap). */
+int _sharedregion_set_entry(u16 id, struct sharedregion_entry *entry)
+{
+	int retval = 0;
+	struct sharedregion_region *region = NULL;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(sharedregion_module->ref_count),
+				SHAREDREGION_MAKE_MAGICSTAMP(0),
+				SHAREDREGION_MAKE_MAGICSTAMP(1)) == true)) {
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (WARN_ON(entry == NULL)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	if (WARN_ON(id >= sharedregion_module->cfg.num_entries)) {
+		retval = -EINVAL;
+		goto error;
+	}
+
+	region = &(sharedregion_module->regions[id]);
+
+	/* Make sure region does not overlap existing ones */
+	retval = _sharedregion_check_overlap(region->entry.base,
+						region->entry.len);
+	if (retval < 0) {
+		printk(KERN_ERR "_sharedregion_set_entry: Entry is overlapping "
+			"existing entry!");
+		goto error;
+	}
+	if (region->entry.is_valid) {
+		/*region entry should be invalid at this point */
+		retval = -EEXIST;
+		printk(KERN_ERR "_sharedregion_set_entry: ntry already exists");
+		goto error;
+	}
+	/* Fail if cacheEnabled and cache_line_size equal 0 */
+	if ((entry->cache_enable) && (entry->cache_line_size == 0)) {
+		/* if cache enabled, cache line size must != 0 */
+		retval = -1;
+		printk(KERN_ERR "_sharedregion_set_entry: If cache enabled, "
+			"cache line size must != 0");
+		goto error;
+	}
+
+	/* needs to be thread safe */
+	retval = mutex_lock_interruptible(sharedregion_module->local_lock);
+	if (retval)
+		goto error;
+	/* set specified region id to entry values */
+	memcpy((void *)&(region->entry), (void *)entry,
+		sizeof(struct sharedregion_entry));
+	mutex_unlock(sharedregion_module->local_lock);
+	return 0;
+
+error:
+	printk(KERN_ERR "_sharedregion_set_entry failed! status = 0x%x",
+		retval);
+	return retval;
+}

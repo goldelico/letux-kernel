@@ -5,7 +5,7 @@
  *  multi-processor environment where there are memory regions
  *  that are shared and accessed across different processors
  *
- *  Copyright (C) 2008-2009 Texas Instruments, Inc.
+ *  Copyright (C) 2008-2010 Texas Instruments, Inc.
  *
  *  This package is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 as
@@ -30,13 +30,16 @@ enum CMD_SHAREDREGION {
 	SHAREDREGION_GETCONFIG = SHAREDREGION_BASE_CMD,
 	SHAREDREGION_SETUP,
 	SHAREDREGION_DESTROY,
-	SHAREDREGION_ADD,
-	SHAREDREGION_GETPTR,
-	SHAREDREGION_GETSRPTR,
-	SHAREDREGION_GETTABLEINFO,
-	SHAREDREGION_REMOVE,
-	SHAREDREGION_SETTABLEINFO,
-	SHAREDREGION_GETINDEX,
+	SHAREDREGION_START,
+	SHAREDREGION_STOP,
+	SHAREDREGION_ATTACH,
+	SHAREDREGION_DETACH,
+	SHAREDREGION_GETHEAP,
+	SHAREDREGION_CLEARENTRY,
+	SHAREDREGION_SETENTRY,
+	SHAREDREGION_RESERVEMEMORY,
+	SHAREDREGION_CLEARRESERVEDMEMORY,
+	SHAREDREGION_GETREGIONINFO
 };
 
 /*
@@ -47,66 +50,81 @@ enum CMD_SHAREDREGION {
 /*
  *  Command for sharedregion_get_config
  */
-#define CMD_SHAREDREGION_GETCONFIG	_IOWR(IPC_IOC_MAGIC,                   \
-					SHAREDREGION_GETCONFIG,		       \
+#define CMD_SHAREDREGION_GETCONFIG	_IOWR(IPC_IOC_MAGIC,		\
+					SHAREDREGION_GETCONFIG,		\
 					struct sharedregion_cmd_args)
 /*
  *  Command for sharedregion_setup
  */
-#define CMD_SHAREDREGION_SETUP		_IOWR(IPC_IOC_MAGIC,                   \
-					SHAREDREGION_SETUP,		       \
+#define CMD_SHAREDREGION_SETUP		_IOWR(IPC_IOC_MAGIC,		\
+					SHAREDREGION_SETUP,		\
 					struct sharedregion_cmd_args)
 /*
  *  Command for sharedregion_setup
  */
-#define CMD_SHAREDREGION_DESTROY	_IOWR(IPC_IOC_MAGIC,                   \
-					SHAREDREGION_DESTROY, 		       \
+#define CMD_SHAREDREGION_DESTROY	_IOWR(IPC_IOC_MAGIC,		\
+					SHAREDREGION_DESTROY, 		\
 					struct sharedregion_cmd_args)
 /*
- *  Command for sharedregion_ADD
+ *  Command for sharedregion_start
  */
-#define CMD_SHAREDREGION_ADD		_IOWR(IPC_IOC_MAGIC,                   \
-					SHAREDREGION_ADD,		       \
+#define CMD_SHAREDREGION_START		_IOWR(IPC_IOC_MAGIC,		\
+					SHAREDREGION_START,		\
 					struct sharedregion_cmd_args)
 /*
- *  Command for sharedregion_get_ptr
+ *  Command for sharedregion_stop
  */
-#define CMD_SHAREDREGION_GETPTR		_IOWR(IPC_IOC_MAGIC,                   \
-					SHAREDREGION_GETPTR,		       \
-					struct sharedregion_cmd_args)
-
-/*
- *  Command for sharedregion_get_srptr
- */
-#define CMD_SHAREDREGION_GETSRPTR	_IOWR(IPC_IOC_MAGIC,                   \
-					SHAREDREGION_GETSRPTR,		       \
-					struct sharedregion_cmd_args)
-
-/*
- *  Command for sharedregion_get_table_info
- */
-#define CMD_SHAREDREGION_GETTABLEINFO	_IOWR(IPC_IOC_MAGIC,                   \
-					SHAREDREGION_GETTABLEINFO,	       \
-					struct sharedregion_cmd_args)
-
-/*
- *  Command for sharedregion_remove
- */
-#define CMD_SHAREDREGION_REMOVE		_IOWR(IPC_IOC_MAGIC,                   \
-					SHAREDREGION_REMOVE,		       \
+#define CMD_SHAREDREGION_STOP		_IOWR(IPC_IOC_MAGIC,		\
+					SHAREDREGION_STOP,		\
 					struct sharedregion_cmd_args)
 /*
- *  Command for sharedregion_set_table_info
+ *  Command for sharedregion_attach
  */
-#define CMD_SHAREDREGION_SETTABLEINFO	_IOWR(IPC_IOC_MAGIC,                   \
-					SHAREDREGION_SETTABLEINFO,	       \
+#define CMD_SHAREDREGION_ATTACH		_IOWR(IPC_IOC_MAGIC,		\
+					SHAREDREGION_ATTACH,		\
 					struct sharedregion_cmd_args)
-
 /*
- *  Command for sharedregion_get_index
+ *  Command for sharedregion_detach
  */
-#define CMD_SHAREDREGION_GETINDEX	_IOWR(IPC_IOC_MAGIC,                   \
-					SHAREDREGION_GETINDEX,		       \
+#define CMD_SHAREDREGION_DETACH		_IOWR(IPC_IOC_MAGIC,		\
+					SHAREDREGION_DETACH,		\
+					struct sharedregion_cmd_args)
+/*
+ *  Command for sharedregion_get_heap
+ */
+#define CMD_SHAREDREGION_GETHEAP	_IOWR(IPC_IOC_MAGIC,		\
+					SHAREDREGION_GETHEAP,		\
+					struct sharedregion_cmd_args)
+/*
+ *  Command for sharedregion_clear_entry
+ */
+#define CMD_SHAREDREGION_CLEARENTRY	_IOWR(IPC_IOC_MAGIC,		\
+					SHAREDREGION_CLEARENTRY,	\
+					struct sharedregion_cmd_args)
+/*
+ *  Command for sharedregion_set_entry
+ */
+#define CMD_SHAREDREGION_SETENTRY	_IOWR(IPC_IOC_MAGIC,		\
+					SHAREDREGION_SETENTRY,		\
+					struct sharedregion_cmd_args)
+/*
+ *  Command for sharedregion_reserve_memory
+ */
+#define CMD_SHAREDREGION_RESERVEMEMORY	_IOWR(IPC_IOC_MAGIC,		\
+					SHAREDREGION_RESERVEMEMORY,	\
+					struct sharedregion_cmd_args)
+/*
+ *  Command for sharedregion_clear_reserved_memory
+ */
+#define CMD_SHAREDREGION_CLEARRESERVEDMEMORY				\
+					_IOWR(IPC_IOC_MAGIC,		\
+					SHAREDREGION_CLEARRESERVEDMEMORY, \
+					struct sharedregion_cmd_args)
+/*
+ *  Command for sharedregion_get_region_info
+ */
+#define CMD_SHAREDREGION_GETREGIONINFO	_IOWR(IPC_IOC_MAGIC,		\
+					SHAREDREGION_GETREGIONINFO,	\
 					struct sharedregion_cmd_args)
 
 /*
@@ -114,53 +132,45 @@ enum CMD_SHAREDREGION {
  */
 union sharedregion_arg {
 	struct {
-	    struct sharedregion_config *config;
+		struct sharedregion_config *config;
 	} get_config;
 
 	struct {
-	    struct sharedregion_config *config;
-	    struct sharedregion_config *default_cfg;
-	    struct sharedregion_info *table;
+		struct sharedregion_region *regions;
+		struct sharedregion_config *config;
 	} setup;
 
 	struct {
-	    u32 index;
-	    void *base;
-	    u32	len;
-	} add;
+		struct sharedregion_region *regions;
+	} get_region_info;
 
 	struct {
-	    void *addr;
-	    s32 index;
-	} get_index;
+		u16 remote_proc_id;
+	} attach;
 
 	struct {
-	    u32 *srptr;
-	    void *addr;
-	} get_ptr;
+		u16 remote_proc_id;
+	} detach;
 
 	struct {
-	    u32 *srptr;
-	    void *addr;
-	    s32 index;
-	} get_srptr;
+		u16 id;
+		void *heap_handle;
+	} get_heap;
 
 	struct {
-	    u32 index;
-	    u16 proc_id;
-	    struct sharedregion_info *info;
-	} get_table_info;
+		u16 id;
+		struct sharedregion_entry entry;
+	} set_entry;
 
 	struct {
-	    u32 index;
-	} remove;
+		u16 id;
+	} clear_entry;
 
 	struct {
-	    u32	index;
-	    u16 proc_id;
-	    struct sharedregion_info *info;
-	} set_table_info;
-} ;
+		u16 id;
+		u32 size;
+	} reserve_memory;
+};
 
 /*
  *  Command arguments for sharedregion
@@ -177,5 +187,3 @@ int sharedregion_ioctl(struct inode *inode, struct file *filp,
 			unsigned int cmd, unsigned long args);
 
 #endif /* _SHAREDREGION_IOCTL_H */
-
-
