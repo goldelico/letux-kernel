@@ -60,7 +60,7 @@ static inline int messageq_ioctl_get(struct messageq_cmd_args *cargs)
 {
 	messageq_msg msg = NULL;
 	u32 *msg_srptr = SHAREDREGION_INVALIDSRPTR;
-	int index;
+	u16 index;
 
 	cargs->api_status = messageq_get(cargs->args.get.messageq_handle,
 					&msg,
@@ -68,7 +68,7 @@ static inline int messageq_ioctl_get(struct messageq_cmd_args *cargs)
 	if (unlikely(cargs->api_status < 0))
 		goto exit;
 
-	index = sharedregion_get_index(msg);
+	index = sharedregion_get_id(msg);
 	if (unlikely(index < 0)) {
 		cargs->api_status = index;
 		goto exit;
@@ -106,13 +106,13 @@ static inline int messageq_ioctl_alloc(struct messageq_cmd_args *cargs)
 {
 	messageq_msg msg;
 	u32 *msg_srptr = SHAREDREGION_INVALIDSRPTR;
-	int index;
+	u16 index;
 
 	msg = messageq_alloc(cargs->args.alloc.heap_id, cargs->args.alloc.size);
 	if (unlikely(msg == NULL))
 		goto exit;
 
-	index = sharedregion_get_index(msg);
+	index = sharedregion_get_id(msg);
 	if (unlikely(index < 0))
 		goto exit;
 
@@ -156,8 +156,7 @@ static inline int messageq_ioctl_params_init(struct messageq_cmd_args *cargs)
 	unsigned long size;
 	struct messageq_params params;
 
-	messageq_params_init(cargs->args.params_init.messageq_handle,
-						&params);
+	messageq_params_init(&params);
 	size = copy_to_user(cargs->args.params_init.params, &params,
 				sizeof(struct messageq_params));
 	if (size) {
@@ -183,11 +182,13 @@ static inline int messageq_ioctl_create(struct messageq_cmd_args *cargs)
 	struct messageq_params params;
 	char *name = NULL;
 
-	size = copy_from_user(&params, cargs->args.create.params,
-					sizeof(struct messageq_params));
-	if (size) {
-		retval = -EFAULT;
-		goto exit;
+	if (cargs->args.create.params != NULL) {
+		size = copy_from_user(&params, cargs->args.create.params,
+						sizeof(struct messageq_params));
+		if (size) {
+			retval = -EFAULT;
+			goto exit;
+		}
 	}
 
 	/* Allocate memory for the name */
@@ -205,7 +206,14 @@ static inline int messageq_ioctl_create(struct messageq_cmd_args *cargs)
 		}
 	}
 
-	cargs->args.create.messageq_handle = messageq_create(name, &params);
+	if (cargs->args.create.params != NULL) {
+		cargs->args.create.messageq_handle = \
+			messageq_create(name, &params);
+	} else {
+		cargs->args.create.messageq_handle = \
+			messageq_create(name, NULL);
+	}
+
 	if (cargs->args.create.messageq_handle != NULL) {
 		cargs->args.create.queue_id = messageq_get_queue_id(
 					 cargs->args.create.messageq_handle);
@@ -346,7 +354,6 @@ static inline int messageq_ioctl_destroy(struct messageq_cmd_args *cargs)
 	return 0;
 }
 
-
 /*
  * ======== messageq_ioctl_register_heap ========
  *  Purpose:
@@ -370,6 +377,62 @@ static inline int messageq_ioctl_unregister_heap(
 {
 	cargs->api_status =  messageq_unregister_heap(
 				cargs->args.unregister_heap.heap_id);
+	return 0;
+}
+
+/*
+ * ======== messageq_ioctl_attach ========
+ *  Purpose:
+ *  This ioctl interface to messageq_ioctl_attach function
+ */
+static inline int messageq_ioctl_attach(struct messageq_cmd_args *cargs)
+{
+	void *shared_addr;
+
+	shared_addr = sharedregion_get_ptr(
+				cargs->args.attach.shared_addr_srptr);
+	if (unlikely(shared_addr == NULL)) {
+		cargs->api_status = -1;
+		goto exit;
+	}
+	cargs->api_status = messageq_attach(cargs->args.attach.remote_proc_id,
+				shared_addr);
+
+exit:
+	return 0;
+}
+
+/*
+ * ======== messageq_ioctl_detach ========
+ *  Purpose:
+ *  This ioctl interface to messageq_ioctl_detach function
+ */
+static inline int messageq_ioctl_detach(struct messageq_cmd_args *cargs)
+{
+	cargs->api_status = messageq_detach(cargs->args.detach.remote_proc_id);
+	return 0;
+}
+
+/*
+ * ======== messageq_ioctl_sharedmem_req ========
+ *  Purpose:
+ *  This ioctl interface to messageq_ioctl_sharedmem_req function
+ */
+static inline int messageq_ioctl_shared_mem_req(struct messageq_cmd_args *cargs)
+{
+	void *shared_addr;
+
+	shared_addr = sharedregion_get_ptr(
+				cargs->args.shared_mem_req.shared_addr_srptr);
+	if (unlikely(shared_addr == NULL)) {
+		cargs->api_status = -1;
+		goto exit;
+	}
+	cargs->args.shared_mem_req.mem_req = \
+			messageq_shared_mem_req(shared_addr);
+	cargs->api_status = 0;
+
+exit:
 	return 0;
 }
 
@@ -462,6 +525,18 @@ int messageq_ioctl(struct inode *inode, struct file *filp,
 
 	case CMD_MESSAGEQ_UNREGISTERHEAP:
 		os_status = messageq_ioctl_unregister_heap(&cargs);
+		break;
+
+	case CMD_MESSAGEQ_ATTACH:
+		os_status = messageq_ioctl_attach(&cargs);
+		break;
+
+	case CMD_MESSAGEQ_DETACH:
+		os_status = messageq_ioctl_detach(&cargs);
+		break;
+
+	case CMD_MESSAGEQ_SHAREDMEMREQ:
+		os_status = messageq_ioctl_shared_mem_req(&cargs);
 		break;
 
 	default:

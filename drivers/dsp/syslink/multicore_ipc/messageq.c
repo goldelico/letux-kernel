@@ -111,9 +111,10 @@
 /* Module level headers */
 #include <nameserver.h>
 #include <multiproc.h>
-#include <messageq_transportshm.h>
+#include <transportshm_setup_proxy.h>
 #include <heap.h>
 #include <messageq.h>
+#include <transportshm.h>
 
 
 /*  Macro to make a correct module magic number with refCount */
@@ -128,6 +129,8 @@
  */
 #define MESSAGEQ_NAMESERVER  "MessageQ"
 
+/*! Mask to extract priority setting */
+#define MESSAGEQ_TRANSPORTPRIORITYMASK	0x1
 
 /* =============================================================================
  * Structures & Enums
@@ -136,46 +139,45 @@
 /* structure for MessageQ module state */
 struct messageq_module_object {
 	atomic_t ref_count;
-	/*!< Reference count */
+	/* Reference count */
 	void *ns_handle;
-	/*!< Handle to the local NameServer used for storing GP objects */
+	/* Handle to the local NameServer used for storing GP objects */
 	struct mutex *gate_handle;
-	/*!< Handle of gate to be used for local thread safety */
+	/* Handle of gate to be used for local thread safety */
 	struct messageq_config cfg;
-	/*!< Current config values */
+	/* Current config values */
 	struct messageq_config default_cfg;
-	/*!< Default config values */
+	/* Default config values */
 	struct messageq_params default_inst_params;
-	/*!< Default instance creation parameters */
+	/* Default instance creation parameters */
 	void *transports[MULTIPROC_MAXPROCESSORS][MESSAGEQ_NUM_PRIORITY_QUEUES];
-	/*!< Transport to be set in messageq_register_transport */
+	/* Transport to be set in messageq_register_transport */
 	void **queues; /*messageq_handle *queues;*/
-	/*!< Grow option */
+	/* Grow option */
 	void **heaps; /*Heap_Handle *heaps; */
-	/*!< Heap to be set in messageq_registerHeap */
+	/* Heap to be set in messageq_registerHeap */
 	u16 num_queues;
-	/*!< Heap to be set in messageq_registerHeap */
+	/* Heap to be set in messageq_registerHeap */
 	u16 num_heaps;
-	/*!< Number of Heaps */
+	/* Number of Heaps */
 	bool can_free_queues;
-	/*!< Grow option */
+	/* Grow option */
+	u16 seq_num;
+	/* sequence number */
 };
 
-/*!
- *  @brief	Structure for the Handle for the MessageQ.
- */
+/* Structure for the Handle for the MessageQ. */
 struct messageq_object {
 	struct messageq_params params;
 	/*! Instance specific creation parameters */
-	char *name;
-	/*! MessageQ name */
 	u32 queue;
 	/* Unique id */
 	struct list_head normal_list;
 	/* Embedded List objects */
 	struct list_head high_list;
 	/* Embedded List objects */
-	/*OsalSemaphore_Handle synchronizer;*/
+	void *ns_key;
+	/* NameServer key */
 	struct semaphore *synchronizer;
 	/* Semaphore used for synchronizing message events */
 };
@@ -189,22 +191,22 @@ static struct messageq_module_object messageq_state = {
 				.num_queues = 1,
 				.num_heaps = 1,
 				.can_free_queues = false,
+				.default_cfg.trace_flag = false,
 				.default_cfg.num_heaps = 1,
 				.default_cfg.max_runtime_entries = 32,
-				.default_cfg.name_table_gate = NULL,
 				.default_cfg.max_name_len = 32,
-				.default_inst_params.reserved = 0
+				.default_inst_params.synchronizer = NULL
 };
 
+/* Pointer to the MessageQ module state */
+static struct messageq_module_object *messageq_module = &messageq_state;
 
 /* =============================================================================
  * Constants
  * =============================================================================
  */
-/*
- *  Used to denote a message that was initialized
- *  with the messageq_static_msg_init function.
- */
+/* Used to denote a message that was initialized
+ * with the messageq_static_msg_init function. */
 #define MESSAGEQ_STATICMSG 0xFFFF
 
 
@@ -212,12 +214,11 @@ static struct messageq_module_object messageq_state = {
  * Forward declarations of internal functions
  * =============================================================================
  */
-/*
- *  @brief   Grow the MessageQ table
- *
- *  @sa	  messageq_create
- */
+/* Grow the MessageQ table */
 static u16 _messageq_grow(struct messageq_object *obj);
+
+/* Initializes a message not obtained from MessageQ_alloc */
+static void messageq_msg_init(messageq_msg msg);
 
 /* =============================================================================
  * APIS
@@ -238,17 +239,17 @@ static u16 _messageq_grow(struct messageq_object *obj);
  */
 void messageq_get_config(struct messageq_config *cfg)
 {
-	if (WARN_ON(cfg == NULL))
+	if (WARN_ON(unlikely(cfg == NULL)))
 		goto exit;
 
-	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+	if (likely(atomic_cmpmask_and_lt(&(messageq_module->ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true) {
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
 		/* (If setup has not yet been called) */
-		memcpy(cfg, &messageq_state.default_cfg,
+		memcpy(cfg, &messageq_module->default_cfg,
 			sizeof(struct messageq_config));
 	} else {
-		memcpy(cfg, &messageq_state.cfg,
+		memcpy(cfg, &messageq_module->cfg,
 			sizeof(struct messageq_config));
 	}
 	return;
@@ -277,120 +278,95 @@ EXPORT_SYMBOL(messageq_get_config);
  */
 int messageq_setup(const struct messageq_config *cfg)
 {
-	int status = MESSAGEQ_SUCCESS;
+	int status = 0;
 	struct nameserver_params params;
 	struct messageq_config tmpcfg;
 
 	/* This sets the ref_count variable is not initialized, upper 16 bits is
 	* written with module Id to ensure correctness of refCount variable.
 	*/
-	atomic_cmpmask_and_set(&messageq_state.ref_count,
+	atomic_cmpmask_and_set(&messageq_module->ref_count,
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
 				MESSAGEQ_MAKE_MAGICSTAMP(0));
-	if (atomic_inc_return(&messageq_state.ref_count)
-				!= MESSAGEQ_MAKE_MAGICSTAMP(1)) {
+	if (unlikely(atomic_inc_return(&messageq_module->ref_count)
+				!= MESSAGEQ_MAKE_MAGICSTAMP(1))) {
 		return 1;
 	}
 
-	if (cfg == NULL) {
+	if (unlikely(cfg == NULL)) {
 		messageq_get_config(&tmpcfg);
 		cfg = &tmpcfg;
 	}
 
-	if (WARN_ON(cfg->max_name_len == 0)) {
+	if (WARN_ON(unlikely(cfg->max_name_len == 0))) {
 		status = -EINVAL;
 		goto exit;
 	}
-	if (WARN_ON(cfg->max_name_len == 0)) {
+	if (WARN_ON(unlikely(cfg->max_runtime_entries == 0))) {
 		status = -EINVAL;
 		goto exit;
 	}
 
-	if (cfg->name_table_gate != NULL) {
-		messageq_state.gate_handle = cfg->name_table_gate;
-	} else {
-		/* User has not provided any gate handle, so create a default
-		* handle for protecting list object */
-		messageq_state.gate_handle = kmalloc(sizeof(struct mutex),
-					GFP_KERNEL);
-		if (messageq_state.gate_handle == NULL) {
-			/*! @retval MESSAGEQ_E_FAIL Failed to create lock! */
-			status = MESSAGEQ_E_FAIL;
-			printk(KERN_ERR "messageq_setup: Failed to create a "
-				"mutex.\n");
-			status = -ENOMEM;
-			goto exit;
-		}
-		mutex_init(messageq_state.gate_handle);
+	/* User has not provided any gate handle, so create a default
+	* handle for protecting list object */
+	messageq_module->gate_handle = kmalloc(sizeof(struct mutex),
+				GFP_KERNEL);
+	if (unlikely(messageq_module->gate_handle == NULL)) {
+		/*! @retval MESSAGEQ_E_FAIL Failed to create lock! */
+		status = MESSAGEQ_E_FAIL;
+		printk(KERN_ERR "messageq_setup: Failed to create a "
+			"mutex.\n");
+		status = -ENOMEM;
+		goto exit;
 	}
+	mutex_init(messageq_module->gate_handle);
 
+	memcpy(&messageq_module->cfg, (void *) cfg,
+		sizeof(struct messageq_config));
 	/* Initialize the parameters */
 	nameserver_params_init(&params);
-	params.max_value_len = 4;
+	params.max_value_len = sizeof(u32);
 	params.max_name_len = cfg->max_name_len;
+	params.max_runtime_entries = cfg->max_runtime_entries;
+
+	messageq_module->seq_num = 0;
 
 	/* Create the nameserver for modules */
-	messageq_state.ns_handle = nameserver_create(MESSAGEQ_NAMESERVER,
+	messageq_module->ns_handle = nameserver_create(MESSAGEQ_NAMESERVER,
 								&params);
-	if (messageq_state.ns_handle == NULL) {
+	if (unlikely(messageq_module->ns_handle == NULL)) {
 		/*! @retval MESSAGEQ_E_FAIL Failed to create the
 		 * MessageQ nameserver*/
 		status = MESSAGEQ_E_FAIL;
 		printk(KERN_ERR "messageq_setup: Failed to create the messageq"
 			"nameserver!\n");
-		goto nameserver_create_fail;
+		goto exit;
 	}
 
-	messageq_state.num_heaps = cfg->num_heaps;
-	messageq_state.heaps = kzalloc(sizeof(void *) * \
-				messageq_state.num_heaps, GFP_KERNEL);
-	if (messageq_state.heaps == NULL) {
+	messageq_module->num_heaps = cfg->num_heaps;
+	messageq_module->heaps = kzalloc(sizeof(void *) * \
+				messageq_module->num_heaps, GFP_KERNEL);
+	if (unlikely(messageq_module->heaps == NULL)) {
 		status = -ENOMEM;
-		goto heaps_alloc_fail;
+		goto exit;
 	}
 
-	messageq_state.num_queues = cfg->max_runtime_entries;
-	messageq_state.queues = kzalloc(sizeof(struct messageq_object *) * \
-					messageq_state.num_queues, GFP_KERNEL);
-	if (messageq_state.queues == NULL) {
+	messageq_module->num_queues = cfg->max_runtime_entries;
+	messageq_module->queues = kzalloc(sizeof(struct messageq_object *) * \
+				messageq_module->num_queues, GFP_KERNEL);
+	if (unlikely(messageq_module->queues == NULL)) {
 		status = -ENOMEM;
-		goto queues_alloc_fail;
+		goto exit;
 	}
 
-	memset(&(messageq_state.transports), 0, (sizeof(void *) * \
+	memset(&(messageq_module->transports), 0, (sizeof(void *) * \
 				MULTIPROC_MAXPROCESSORS * \
 				MESSAGEQ_NUM_PRIORITY_QUEUES));
-
-	BUG_ON(status < 0);
 	return status;
-
-queues_alloc_fail:
-	if (messageq_state.queues != NULL)
-		kfree(messageq_state.queues);
-heaps_alloc_fail:
-	if (messageq_state.heaps != NULL)
-		kfree(messageq_state.heaps);
-	if (messageq_state.ns_handle != NULL)
-		nameserver_delete(&messageq_state.ns_handle);
-nameserver_create_fail:
-	if (cfg->name_table_gate != NULL) {
-		if (messageq_state.gate_handle != NULL) {
-			kfree(messageq_state.gate_handle);
-			messageq_state.gate_handle = NULL;
-		}
-	}
-
-	memset(&messageq_state.cfg, 0, sizeof(struct messageq_config));
-	messageq_state.queues = NULL;
-	messageq_state.heaps = NULL;
-	messageq_state.num_queues = 0;
-	messageq_state.num_heaps = 1;
-	messageq_state.can_free_queues = true;
 
 exit:
 	if (status < 0) {
-		atomic_set(&messageq_state.ref_count,
-					MESSAGEQ_MAKE_MAGICSTAMP(0));
+		messageq_destroy();
 		printk(KERN_ERR "messageq_setup failed! status = 0x%x\n",
 			status);
 	}
@@ -398,68 +374,75 @@ exit:
 }
 EXPORT_SYMBOL(messageq_setup);
 
-/*
- * ======== messageq_destroy ========
- *  Purpose:
- *  Function to destroy the MessageQ module.
- */
+/* Function to destroy the MessageQ module. */
 int messageq_destroy(void)
 {
-	int status = MESSAGEQ_SUCCESS;
+	int status = 0;
+	int tmp_status = 0;
 	u32 i;
 
-	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+	if (unlikely(atomic_cmpmask_and_lt(&(messageq_module->ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true) {
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
 		status = -ENODEV;
 		goto exit;
 	}
 
-	if (!(atomic_dec_return(&messageq_state.ref_count)
+	if (!(atomic_dec_return(&messageq_module->ref_count)
 					== MESSAGEQ_MAKE_MAGICSTAMP(0))) {
 		status = 1;
 		goto exit;
 	}
 
-	if (WARN_ON(messageq_state.ns_handle == NULL)) {
-		status = -ENODEV;
-		goto exit;
-	}
+	/* Temporarily increment the refcount */
+	atomic_set(&messageq_module->ref_count, MESSAGEQ_MAKE_MAGICSTAMP(1));
 
 	/* Delete any Message Queues that have not been deleted so far. */
-	for (i = 0; i < messageq_state.num_queues; i++) {
-		if (messageq_state.queues[i] != NULL)
-			messageq_delete(&(messageq_state.queues[i]));
+	for (i = 0; i < messageq_module->num_queues; i++) {
+		if (messageq_module->queues[i] != NULL) {
+			tmp_status = \
+				messageq_delete(&(messageq_module->queues[i]));
+			if (unlikely(tmp_status < 0 && status >= 0)) {
+				status = tmp_status;
+				printk(KERN_ERR "messageq_destroy: "
+					"messageq_delete failed for queue %d",
+					i);
+			}
+		}
 	}
 
-	/* Delete the nameserver for modules */
-	status = nameserver_delete(&messageq_state.ns_handle);
-	BUG_ON(status < 0);
+	if (likely(messageq_module->ns_handle != NULL)) {
+		/* Delete the nameserver for modules */
+		tmp_status = nameserver_delete(&messageq_module->ns_handle);
+		if (unlikely(tmp_status < 0 && status >= 0)) {
+			status = tmp_status;
+			printk(KERN_ERR "messageq_destroy: "
+				"nameserver_delete failed");
+		}
+	}
 
 	/* Delete the gate if created internally */
-	if (messageq_state.cfg.name_table_gate == NULL) {
-		kfree(messageq_state.gate_handle);
-		messageq_state.gate_handle = NULL;
-		BUG_ON(status < 0);
+	if (likely(messageq_module->gate_handle != NULL)) {
+		kfree(messageq_module->gate_handle);
+		messageq_module->gate_handle = NULL;
 	}
 
-	memset(&(messageq_state.transports), 0, (sizeof(void *) * \
+	memset(&(messageq_module->transports), 0, (sizeof(void *) * \
 		MULTIPROC_MAXPROCESSORS * MESSAGEQ_NUM_PRIORITY_QUEUES));
-	if (messageq_state.heaps != NULL) {
-		kfree(messageq_state.heaps);
-		messageq_state.heaps = NULL;
+	if (likely(messageq_module->heaps != NULL)) {
+		kfree(messageq_module->heaps);
+		messageq_module->heaps = NULL;
 	}
-	if (messageq_state.queues != NULL) {
-		kfree(messageq_state.queues);
-		messageq_state.queues = NULL;
+	if (likely(messageq_module->queues != NULL)) {
+		kfree(messageq_module->queues);
+		messageq_module->queues = NULL;
 	}
 
-	memset(&messageq_state.cfg, 0, sizeof(struct messageq_config));
-	messageq_state.num_queues = 0;
-	messageq_state.num_heaps = 1;
-	messageq_state.can_free_queues = true;
-	atomic_set(&messageq_state.ref_count,
-				MESSAGEQ_MAKE_MAGICSTAMP(0));
+	memset(&messageq_module->cfg, 0, sizeof(struct messageq_config));
+	messageq_module->num_queues = 0;
+	messageq_module->num_heaps = 1;
+	messageq_module->can_free_queues = true;
+	atomic_set(&messageq_module->ref_count, MESSAGEQ_MAKE_MAGICSTAMP(0));
 
 exit:
 	if (status < 0) {
@@ -470,84 +453,62 @@ exit:
 }
 EXPORT_SYMBOL(messageq_destroy);
 
-/*
- * ======== messageq_params_init ========
- *  Purpose:
- *  Initialize this config-params structure with supplier-specified
- *  defaults before instance creation.
- */
-void messageq_params_init(void *messageq_handle,
-			struct messageq_params *params)
+/* Initialize this config-params structure with supplier-specified
+ *  defaults before instance creation. */
+void messageq_params_init(struct messageq_params *params)
 {
-	struct messageq_object *object = NULL;
-
-	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+	if (unlikely(atomic_cmpmask_and_lt(&(messageq_module->ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
 		goto exit;
-
-	if (WARN_ON(params == NULL)) {
+	if (WARN_ON(unlikely(params == NULL))) {
 		printk(KERN_ERR "messageq_params_init failed:Argument of "
 			"type(messageq_params *) is NULL!\n");
 		goto exit;
 	}
 
-	if (messageq_handle == NULL) {
-		memcpy(params, &(messageq_state.default_inst_params),
-				sizeof(struct messageq_params));
-	} else {
-		object = (struct messageq_object *) messageq_handle;
-		memcpy((void *)params, (void *)&object->params,
-				sizeof(struct messageq_params));
-	}
+	memcpy(params, &(messageq_module->default_inst_params),
+		sizeof(struct messageq_params));
 
 exit:
 	return;
 }
 EXPORT_SYMBOL(messageq_params_init);
 
-/*
- * ======== messageq_create ========
- *  Purpose:
- *  Creates a new instance of MessageQ module.
- */
+/* Creates a new instance of MessageQ module. */
 void *messageq_create(char *name, const struct messageq_params *params)
 {
 	int status = 0;
-	struct messageq_object *handle = NULL;
+	struct messageq_object *obj = NULL;
 	bool found = false;
 	u16 count = 0;
 	int  i;
 	u16 start;
 	u16 queueIndex = 0;
 
-	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+	if (unlikely(atomic_cmpmask_and_lt(&(messageq_module->ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true) {
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
 		status = -ENODEV;
 		goto exit;
 	}
-	if (WARN_ON(params == NULL)) {
-		status = -EINVAL;
-		goto exit;
-	}
 
-	/* Create the generic handle */
-	handle = kzalloc(sizeof(struct messageq_object), 0);
-	if (handle == NULL) {
+	/* Create the generic obj */
+	obj = kzalloc(sizeof(struct messageq_object), 0);
+	if (unlikely(obj == NULL)) {
 		status = -ENOMEM;
 		goto exit;
 	}
 
-	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_module->gate_handle);
 	if (status)
 		goto exit;
 	start = 0; /* Statically allocated objects not supported */
-	count = messageq_state.num_queues;
+	count = messageq_module->num_queues;
 	/* Search the dynamic array for any holes */
 	for (i = start; i < count ; i++) {
-		if (messageq_state.queues[i] == NULL) {
-			messageq_state.queues[i] = (void *) handle;
+		if (messageq_module->queues[i] == NULL) {
+			messageq_module->queues[i] = (void *) obj;
 			queueIndex = i;
 			found = true;
 			break;
@@ -558,100 +519,83 @@ void *messageq_create(char *name, const struct messageq_params *params)
 	 *  - if no growth allowed, raise an error
 	 *  - if growth is allowed, grow the array
 	 */
-	if (found == false) {
-		if (messageq_state.cfg.max_runtime_entries
-			!= MESSAGEQ_ALLOWGROWTH) {
-			mutex_unlock(messageq_state.gate_handle);
-			status = MESSAGEQ_E_MAXREACHED;
-			printk(KERN_ERR "messageq_create: All message queues "
-				"are full!\n");
-			goto free_slot_fail;
-		} else {
-			queueIndex = _messageq_grow(handle);
-			if (queueIndex == MESSAGEQ_INVALIDMESSAGEQ) {
-				mutex_unlock(messageq_state.gate_handle);
-				status = MESSAGEQ_E_MAXREACHED;
-				printk(KERN_ERR "messageq_create: All message "
-					"queues are full!\n");
-				goto free_slot_fail;
-			}
+	if (unlikely(found == false)) {
+		/* Growth is always allowed */
+		queueIndex = _messageq_grow(obj);
+		if (unlikely(queueIndex == MESSAGEQ_INVALIDMESSAGEQ)) {
+			mutex_unlock(messageq_module->gate_handle);
+			status = MESSAGEQ_E_FAIL;
+			printk(KERN_ERR "messageq_create: Failed to grow the "
+				"queue array!");
+			goto exit;
 		}
 	}
 
-	BUG_ON(status < 0);
-	mutex_unlock(messageq_state.gate_handle);
-
-	/* Construct the list object */
-	INIT_LIST_HEAD(&handle->normal_list);
-	INIT_LIST_HEAD(&handle->high_list);
-
-	/* Copy the name */
-	if (name != NULL) {
-		handle->name = kmalloc((strlen(name) + 1), GFP_KERNEL);
-		if (handle->name == NULL) {
-			status = -ENOMEM;
-			goto handle_name_alloc_fail;
-		}
-		strncpy(handle->name, name, strlen(name) + 1);
-	}
-
-	/* Update processor information */
-	handle->queue = ((u32)(multiproc_get_id(NULL)) << 16) | queueIndex;
-	/*handle->synchronizer = OsalSemaphore_create(OsalSemaphore_Type_Binary
+	if (params != NULL) {
+		/* Populate the params member */
+		memcpy((void *) &obj->params, (void *)params,
+			sizeof(struct messageq_params));
+		if (unlikely(params->synchronizer == NULL))
+			obj->synchronizer = \
+				kzalloc(sizeof(struct semaphore), GFP_KERNEL);
+		else
+			obj->synchronizer = params->synchronizer;
+	} else {
+		/*obj->synchronizer = OsalSemaphore_create(
+				OsalSemaphore_Type_Binary
 				| OsalSemaphore_IntType_Interruptible);*/
-	handle->synchronizer = kzalloc(sizeof(struct semaphore), GFP_KERNEL);
-	if (handle->synchronizer == NULL) {
+		obj->synchronizer = kzalloc(sizeof(struct semaphore),
+						GFP_KERNEL);
+	}
+	if (unlikely(obj->synchronizer == NULL)) {
+		mutex_unlock(messageq_module->gate_handle);
 		status = MESSAGEQ_E_FAIL;
 		printk(KERN_ERR "messageq_create: Failed to create "
 			"synchronizer semaphore!\n");
-		goto semaphore_create_fail;
+		goto exit;
 	} else {
-		sema_init(handle->synchronizer, 0);
+		sema_init(obj->synchronizer, 0);
 	}
+	mutex_unlock(messageq_module->gate_handle);
 
-	if (name != NULL) {
-		nameserver_add_uint32(messageq_state.ns_handle, name,
-						handle->queue);
-	}
-	goto exit;
+	/* Construct the list object */
+	INIT_LIST_HEAD(&obj->normal_list);
+	INIT_LIST_HEAD(&obj->high_list);
 
-semaphore_create_fail:
-	if (handle->name != NULL)
-		kfree(handle->name);
-
-handle_name_alloc_fail:
-	list_del(&handle->high_list);
-	list_del(&handle->normal_list);
-
-free_slot_fail:
-	/* Now free the handle */
-	if (handle != NULL) {
-		kfree(handle);
-		handle = NULL;
+	/* Update processor information */
+	obj->queue = ((u32)(multiproc_self()) << 16) | queueIndex;
+	if (likely(name != NULL)) {
+		obj->ns_key = nameserver_add_uint32(messageq_module->ns_handle,
+						name, obj->queue);
+		if (unlikely(obj->ns_key == NULL)) {
+			status = MESSAGEQ_E_FAIL;
+			printk(KERN_ERR "messageq_create: Failed to add "
+				"the messageq name!\n");
+		}
 	}
 
 exit:
-	if (status < 0) {
+	if (unlikely(status < 0)) {
+		messageq_delete((void **)&obj);
 		printk(KERN_ERR "messageq_create failed! status = 0x%x\n",
 			status);
 	}
-	return (void *) handle;
+	return (void *) obj;
 }
 EXPORT_SYMBOL(messageq_create);
 
-/*
- * ======== messageq_delete ========
- *  Purpose:
- *  Deletes a instance of MessageQ module.
- */
+/* Deletes a instance of MessageQ module. */
 int messageq_delete(void **msg_handleptr)
 {
 	int status = 0;
-	struct messageq_object *handle = NULL;
+	int tmp_status = 0;
+	struct messageq_object *obj = NULL;
+	messageq_msg temp_msg;
 
-	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true) {
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
 		status = -ENODEV;
 		goto exit;
 	}
@@ -664,38 +608,71 @@ int messageq_delete(void **msg_handleptr)
 		goto exit;
 	}
 
-	handle = (struct messageq_object *) (*msg_handleptr);
+	obj = (struct messageq_object *) (*msg_handleptr);
 
 	/* Take the local lock */
-	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_module->gate_handle);
 	if (status)
 		goto exit;
 
-	if (handle->name != NULL) {
+	if (unlikely(obj->ns_key != NULL)) {
 		/* remove from the name serve */
-		nameserver_remove(messageq_state.ns_handle, handle->name);
-		/* Free memory for the name */
-		kfree(handle->name);
+		status = nameserver_remove_entry(messageq_module->ns_handle,
+			obj->ns_key);
+		if (unlikely(status < 0)) {
+			printk(KERN_ERR "messageq_delete: nameserver_remove_"
+				"entry failed! status = 0x%x", status);
+		}
 	}
+
+	/* Remove all the messages for the message queue's normal_list queue
+	 * and free the list */
+	while (true) {
+		if (!list_empty(&obj->normal_list)) {
+			temp_msg = (messageq_msg) (obj->normal_list.next);
+			list_del_init(obj->normal_list.next);
+		} else
+			break;
+		tmp_status = messageq_free(temp_msg);
+		if (unlikely((tmp_status < 0) && (status >= 0))) {
+			status = tmp_status;
+			printk(KERN_ERR "messageq_delete: messageq_free failed"
+				" for normal_list!");
+		}
+	}
+	list_del(&obj->normal_list);
+
+	/* Remove all the messages for the message queue's normal_list queue
+	 * and free the list */
+	while (true) {
+		if (!list_empty(&obj->high_list)) {
+			temp_msg = (messageq_msg) (obj->high_list.next);
+			list_del_init(obj->high_list.next);
+		} else
+			break;
+		tmp_status = messageq_free(temp_msg);
+		if (unlikely((tmp_status < 0) && (status >= 0))) {
+			status = tmp_status;
+			printk(KERN_ERR "messageq_delete: messageq_free failed"
+				" for high_list!");
+		}
+	}
+	list_del(&obj->high_list);
+
+	/*if (obj->synchronizer != NULL)
+		status = OsalSemaphore_delete(&obj->synchronizer);*/
+	if (obj->synchronizer != NULL) {
+		kfree(obj->synchronizer);
+		obj->synchronizer = NULL;
+	}
+	/* Clear the MessageQ obj from array. */
+	messageq_module->queues[obj->queue & 0xFFFF] = NULL;
 
 	/* Release the local lock */
-	mutex_unlock(messageq_state.gate_handle);
+	mutex_unlock(messageq_module->gate_handle);
 
-	/* Free the list */
-	list_del(&handle->high_list);
-	list_del(&handle->normal_list);
-
-	/*if (handle->synchronizer != NULL)
-		status = OsalSemaphore_delete(&handle->synchronizer);*/
-	if (handle->synchronizer != NULL) {
-		kfree(handle->synchronizer);
-		handle->synchronizer = NULL;
-	}
-	/* Clear the MessageQ handle from array. */
-	messageq_state.queues[handle->queue] = NULL;
-
-	/* Now free the handle */
-	kfree(handle);
+	/* Now free the obj */
+	kfree(obj);
 	*msg_handleptr = NULL;
 
 exit:
@@ -707,40 +684,31 @@ exit:
 }
 EXPORT_SYMBOL(messageq_delete);
 
-/*
- * ======== messageq_open ========
- *  Purpose:
- *  Opens a created instance of MessageQ module.
- */
+/* Opens a created instance of MessageQ module. */
 int messageq_open(char *name, u32 *queue_id)
 {
 	int status = 0;
-	int len = 0;
 
-	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true) {
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
 		status = -ENODEV;
 		goto exit;
 	}
-	if (WARN_ON(queue_id == NULL)) {
+	if (WARN_ON(unlikely(name == NULL))) {
+		status = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(queue_id == NULL))) {
 		status = -EINVAL;
 		goto exit;
 	}
 
 	/* Initialize return queue ID to invalid. */
 	*queue_id = MESSAGEQ_INVALIDMESSAGEQ;
-	len = nameserver_get(messageq_state.ns_handle, name, queue_id,
-					sizeof(u32), NULL);
-	if (len < 0) {
-		if (len == -ENOENT) {
-			/* Name not found */
-			status = -ENOENT;
-		} else {
-			/* Any other error from nameserver */
-			status = len;
-		}
-	}
+	status = nameserver_get_uint32(messageq_module->ns_handle, name,
+					queue_id, NULL);
 
 exit:
 	if (status < 0) {
@@ -751,59 +719,61 @@ exit:
 }
 EXPORT_SYMBOL(messageq_open);
 
-/*
- * ======== messageq_close ========
- *  Purpose:
- *  Closes previously opened/created instance of MessageQ module.
- */
-void messageq_close(u32 *queue_id)
+/* Closes previously opened/created instance of MessageQ module. */
+int messageq_close(u32 *queue_id)
 {
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
-		goto exit;
+	s32 status = 0;
 
-	if (WARN_ON(queue_id == NULL)) {
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
+		status = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(queue_id == NULL))) {
 		printk(KERN_ERR "messageq_close: queue_id passed is NULL!\n");
+		status = -EINVAL;
 		goto exit;
 	}
 
 	*queue_id = MESSAGEQ_INVALIDMESSAGEQ;
 
 exit:
-	return;
+	if (status < 0) {
+		printk(KERN_ERR "messageq_close failed! status = 0x%x\n",
+			status);
+	}
+	return status;
 }
 EXPORT_SYMBOL(messageq_close);
 
-/*
- *  ======== messageq_get ========
- */
+/* Retrieve a message */
 int messageq_get(void *messageq_handle, messageq_msg *msg,
 							u32 timeout)
 {
 	int status = 0;
 	struct messageq_object *obj = (struct messageq_object *)messageq_handle;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-					MESSAGEQ_MAKE_MAGICSTAMP(0),
-					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
 		status = -ENODEV;
 		goto exit;
 	}
-
-	if (WARN_ON(msg == NULL)) {
+	if (WARN_ON(unlikely(msg == NULL))) {
 		status = -EINVAL;
 		goto exit;
 	}
-
-	if (WARN_ON(obj == NULL)) {
+	if (WARN_ON(unlikely(obj == NULL))) {
 		status = -EINVAL;
 		goto exit;
 	}
 
 	/* Keep looping while there is no element in the list */
 	/* Take the local lock */
-	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_module->gate_handle);
 	if (status)
 		goto exit;
 	if (!list_empty(&obj->high_list)) {
@@ -811,16 +781,16 @@ int messageq_get(void *messageq_handle, messageq_msg *msg,
 		list_del_init(obj->high_list.next);
 	}
 	/* Leave the local lock */
-	mutex_unlock(messageq_state.gate_handle);
+	mutex_unlock(messageq_module->gate_handle);
 	while (*msg == NULL) {
-		status = mutex_lock_interruptible(messageq_state.gate_handle);
+		status = mutex_lock_interruptible(messageq_module->gate_handle);
 		if (status)
 			goto exit;
 		if (!list_empty(&obj->normal_list)) {
 			*msg = (messageq_msg) (obj->normal_list.next);
 			list_del_init(obj->normal_list.next);
 		}
-		mutex_unlock(messageq_state.gate_handle);
+		mutex_unlock(messageq_module->gate_handle);
 
 		if (*msg == NULL) {
 			/*
@@ -847,48 +817,54 @@ int messageq_get(void *messageq_handle, messageq_msg *msg,
 				}
 			}
 			status = mutex_lock_interruptible(
-					messageq_state.gate_handle);
+					messageq_module->gate_handle);
 			if (status)
 				goto exit;
 			if (!list_empty(&obj->high_list)) {
 				*msg = (messageq_msg) (obj->high_list.next);
 				list_del_init(obj->high_list.next);
 			}
-			mutex_unlock(messageq_state.gate_handle);
+			mutex_unlock(messageq_module->gate_handle);
 		}
 	}
-	return status;
 
 exit:
-	if (status < 0)
+	if (unlikely((messageq_module->cfg.trace_flag == true) || \
+		((*msg != NULL) && \
+		(((*msg)->flags & MESSAGEQ_TRACEMASK) != 0)))) {
+		printk(KERN_INFO "messageq_get: *msg = 0x%x seq_num = 0x%x "
+			"src_proc = 0x%x obj = 0x%x\n", (uint)(*msg),
+			((*msg)->seq_num), ((*msg)->src_proc), (uint)(obj));
+	}
+	if (status < 0 && status != -ETIME)
 		printk(KERN_ERR "messageq_get failed! status = 0x%x\n", status);
 	return status;
 }
 EXPORT_SYMBOL(messageq_get);
 
-/*
- * ======== messageq_count ========
- *  Purpose:
- *  Count the number of messages in the queue
- */
+/* Count the number of messages in the queue */
 int messageq_count(void *messageq_handle)
 {
 	struct messageq_object *obj = (struct messageq_object *)messageq_handle;
 	int count = 0;
 	struct list_head *elem;
 	int key;
+	s32 status = 0;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-					MESSAGEQ_MAKE_MAGICSTAMP(0),
-					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
+		status = -ENODEV;
 		goto exit;
-
+	}
 	if (WARN_ON(obj == NULL)) {
+		status = -EINVAL;
 		printk(KERN_ERR "messageq_count: obj passed is NULL!\n");
 		goto exit;
 	}
 
-	key = mutex_lock_interruptible(messageq_state.gate_handle);
+	key = mutex_lock_interruptible(messageq_module->gate_handle);
 	if (key < 0)
 		return key;
 
@@ -898,121 +874,140 @@ int messageq_count(void *messageq_handle)
 	list_for_each(elem, &obj->normal_list) {
 		count++;
 	}
-	mutex_unlock(messageq_state.gate_handle);
+	mutex_unlock(messageq_module->gate_handle);
 
 exit:
+	if (status < 0)
+		printk(KERN_ERR "messageq_count failed! status = 0x%x", status);
 	return count;
 }
 EXPORT_SYMBOL(messageq_count);
 
-/*
- * ======== messageq_static_msg_init ========
- *  Purpose:
- *  Initialize a static message
- */
+/* Initialize a static message */
 void messageq_static_msg_init(messageq_msg msg, u32 size)
 {
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-					MESSAGEQ_MAKE_MAGICSTAMP(0),
-					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
-		goto exit;
+	s32 status = 0;
 
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
+		status = -ENODEV;
+		goto exit;
+	}
 	if (WARN_ON(msg == NULL)) {
 		printk(KERN_ERR "messageq_static_msg_init: msg is invalid!\n");
 		goto exit;
 	}
 
 	/* Fill in the fields of the message */
+	messageq_msg_init(msg);
 	msg->heap_id = MESSAGEQ_STATICMSG;
 	msg->msg_size = size;
-	msg->reply_id = (u16)MESSAGEQ_INVALIDMESSAGEQ;
-	msg->msg_id = MESSAGEQ_INVALIDMSGID;
-	msg->dst_id = (u16)MESSAGEQ_INVALIDMESSAGEQ;
-	msg->flags = MESSAGEQ_HEADERVERSION | MESSAGEQ_NORMALPRI;
+
+	if (unlikely((messageq_module->cfg.trace_flag == true) || \
+		(((*msg).flags & MESSAGEQ_TRACEMASK) != 0))) {
+		printk(KERN_INFO "messageq_static_msg_init: msg = 0x%x "
+			"seq_num = 0x%x src_proc = 0x%x", (uint)(msg),
+			(msg)->seq_num, (msg)->src_proc);
+	}
 
 exit:
+	if (status < 0) {
+		printk(KERN_ERR "messageq_static_msg_init failed! "
+			"status = 0x%x", status);
+	}
 	return;
 }
 EXPORT_SYMBOL(messageq_static_msg_init);
 
-/*
- * ======== messageq_alloc ========
- *  Purpose:
- *  Allocate a message and initial the needed fields (note some
- *  of the fields in the header at set via other APIs or in the
- *  messageq_put function.
- */
+/* Allocate a message and initial the needed fields (note some
+ * of the fields in the header at set via other APIs or in the
+ * messageq_put function. */
 messageq_msg messageq_alloc(u16 heap_id, u32 size)
 {
+	int status = 0;
 	messageq_msg msg = NULL;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-					MESSAGEQ_MAKE_MAGICSTAMP(0),
-					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
+		status = -ENODEV;
 		goto exit;
-
-	if (WARN_ON(heap_id >= messageq_state.num_heaps)) {
-		printk(KERN_ERR "messageq_alloc: heap_id is invalid!\n");
+	}
+	if (WARN_ON(unlikely(heap_id >= messageq_module->num_heaps))) {
+		status = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(messageq_module->heaps[heap_id] == NULL))) {
+		status = -EINVAL;
 		goto exit;
 	}
 
-	if (messageq_state.heaps[heap_id] != NULL) {
-		/* Allocate the message. No alignment requested */
-		msg = sl_heap_alloc(messageq_state.heaps[heap_id], size, 0);
-		if (msg == NULL) {
-			printk(KERN_ERR "messageq_alloc: message allocation "
-				"failed!\n");
-			goto exit;
-		}
+	/* Allocate the message. No alignment requested */
+	msg = sl_heap_alloc(messageq_module->heaps[heap_id], size, 0);
+	if (msg == NULL) {
+		status = -ENOMEM;
+		goto exit;
+	}
 
-		/* Fill in the fields of the message */
-		msg->msg_size = size;
-		msg->heap_id = heap_id;
-		msg->reply_id = (u16)MESSAGEQ_INVALIDMESSAGEQ;
-		msg->dst_id = (u16)MESSAGEQ_INVALIDMESSAGEQ;
-		msg->msg_id = MESSAGEQ_INVALIDMSGID;
-		msg->flags = MESSAGEQ_HEADERVERSION | MESSAGEQ_NORMALPRI;
-	} else {
-		printk(KERN_ERR "messageq_alloc: heap_id was not "
-			"registered!\n");
+	/* Fill in the fields of the message */
+	messageq_msg_init(msg);
+	msg->msg_size = size;
+	msg->heap_id = heap_id;
+
+	if (unlikely((messageq_module->cfg.trace_flag == true) || \
+		(((*msg).flags & MESSAGEQ_TRACEMASK) != 0))) {
+		printk(KERN_INFO "messageq_alloc: msg = 0x%x seq_num = 0x%x "
+			"src_proc = 0x%x", (uint)(msg), (msg)->seq_num,
+			(msg)->src_proc);
 	}
 
 exit:
+	if (status < 0)
+		printk(KERN_ERR "messageq_alloc failed! status = 0x%x", status);
 	return msg;
 }
 EXPORT_SYMBOL(messageq_alloc);
 
-/*
- * ======== messageq_free ========
- *  Purpose:
- *  Frees the message.
- */
+/* Frees the message. */
 int messageq_free(messageq_msg msg)
 {
 	u32 status = 0;
 	void *heap = NULL;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-					MESSAGEQ_MAKE_MAGICSTAMP(0),
-					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
 		status = -ENODEV;
 		goto exit;
 	}
-
-	if (WARN_ON(msg == NULL)) {
+	if (WARN_ON(unlikely(msg == NULL))) {
 		status = -EINVAL;
 		goto exit;
 	}
-	if (msg->heap_id >= messageq_state.num_heaps) {
-		status = MESSAGEQ_E_INVALIDHEAPID;
-		goto exit;
-	}
-	if (msg->heap_id == MESSAGEQ_STATICMSG) {
+	if (unlikely(msg->heap_id == MESSAGEQ_STATICMSG)) {
 		status = MESSAGEQ_E_CANNOTFREESTATICMSG;
 		goto exit;
 	}
+	if (unlikely(msg->heap_id >= messageq_module->num_heaps)) {
+		status = MESSAGEQ_E_INVALIDHEAPID;
+		goto exit;
+	}
+	if (unlikely(messageq_module->heaps[msg->heap_id] == NULL)) {
+		status = MESSAGEQ_E_INVALIDHEAPID;
+		goto exit;
+	}
 
-	heap = messageq_state.heaps[msg->heap_id];
+	if (unlikely((messageq_module->cfg.trace_flag == true) || \
+		(((*msg).flags & MESSAGEQ_TRACEMASK) != 0))) {
+		printk(KERN_INFO "messageq_free: msg = 0x%x seq_num = 0x%x "
+			"src_proc = 0x%x", (uint)(msg), (msg)->seq_num,
+			(msg)->src_proc);
+	}
+	heap = messageq_module->heaps[msg->heap_id];
 	sl_heap_free(heap, msg, msg->msg_size);
 
 exit:
@@ -1024,11 +1019,7 @@ exit:
 }
 EXPORT_SYMBOL(messageq_free);
 
-/*
- * ======== messageq_put ========
- *  Purpose:
- *  Put a message in the queue
- */
+/* Put a message in the queue */
 int messageq_put(u32 queue_id, messageq_msg msg)
 {
 	int status = 0;
@@ -1037,21 +1028,26 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 	void *transport = NULL;
 	u32 priority;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-					MESSAGEQ_MAKE_MAGICSTAMP(0),
-					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
 		status = -ENODEV;
 		goto exit;
 	}
-	if (WARN_ON(msg == NULL)) {
+	if (WARN_ON(unlikely(queue_id == MESSAGEQ_INVALIDMESSAGEQ))) {
+		status = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(msg == NULL))) {
 		status = -EINVAL;
 		goto exit;
 	}
 
 	msg->dst_id = (u16)(queue_id);
 	msg->dst_proc = (u16)(queue_id >> 16);
-	if (dst_proc_id != multiproc_get_id(NULL)) {
-		if (dst_proc_id >= multiproc_get_max_processors()) {
+	if (likely(dst_proc_id != multiproc_self())) {
+		if (unlikely(dst_proc_id >= multiproc_get_num_processors())) {
 			/* Invalid destination processor id */
 			status = MESSAGEQ_E_INVALIDPROCID;
 			goto exit;
@@ -1059,25 +1055,26 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 
 		priority = (u32)((msg->flags) & MESSAGEQ_TRANSPORTPRIORITYMASK);
 		/* Call the transport associated with this message queue */
-		transport = messageq_state.transports[dst_proc_id][priority];
+		transport = messageq_module->transports[dst_proc_id][priority];
 		if (transport == NULL) {
 			/* Try the other transport */
 			priority = !priority;
 			transport =
-			messageq_state.transports[dst_proc_id][priority];
+			messageq_module->transports[dst_proc_id][priority];
 		}
 
-		if (transport != NULL)
-			status = messageq_transportshm_put(transport, msg);
-		else {
+		if (unlikely(transport == NULL)) {
 			status = -ENODEV;
 			goto exit;
 		}
+		status = transportshm_put(transport, msg);
+		if (unlikely(status < 0))
+			goto exit;
 	} else {
 		/* It is a local MessageQ */
 		obj = (struct messageq_object *)
-				(messageq_state.queues[(u16)(queue_id)]);
-		status = mutex_lock_interruptible(messageq_state.gate_handle);
+				(messageq_module->queues[(u16)(queue_id)]);
+		status = mutex_lock_interruptible(messageq_module->gate_handle);
 		if (status < 0)
 			goto exit;
 		if ((msg->flags & MESSAGEQ_PRIORITYMASK) == \
@@ -1093,13 +1090,19 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 					&obj->high_list);
 			}
 		}
-		mutex_unlock(messageq_state.gate_handle);
+		mutex_unlock(messageq_module->gate_handle);
 
 		/* Notify the reader. */
 		if (obj->synchronizer != NULL) {
 			up(obj->synchronizer);
 			/*OsalSemaphore_post(obj->synchronizer);*/
 		}
+	}
+	if (unlikely((messageq_module->cfg.trace_flag == true) || \
+		(((*msg).flags & MESSAGEQ_TRACEMASK) != 0))) {
+		printk(KERN_INFO "messageq_put: msg = 0x%x seq_num = 0x%x "
+			"src_proc = 0x%x dst_proc_id = 0x%x\n", (uint)(msg),
+			(msg)->seq_num, (msg)->src_proc, (msg)->dst_proc);
 	}
 
 exit:
@@ -1109,39 +1112,41 @@ exit:
 }
 EXPORT_SYMBOL(messageq_put);
 
-/*
- * ======== messageq_register_heap ========
- *  Purpose:
- *  register a heap
- */
+/* Register a heap */
 int messageq_register_heap(void *heap_handle, u16 heap_id)
 {
-	int  status = 0;
+	int status = 0;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
 		status = -ENODEV;
 		goto exit;
 	}
+	if (WARN_ON(unlikely(heap_handle == NULL))) {
+		/*! @retval -EINVAL Invalid heap_id */
+		status = -EINVAL;
+		goto exit;
+	}
 	/* Make sure the heap_id is valid */
-	if (WARN_ON(heap_id >= messageq_state.num_heaps)) {
-		/*! @retval MESSAGEQ_E_HEAPIDINVALID Invalid heap_id */
-		status = MESSAGEQ_E_HEAPIDINVALID;
+	if (WARN_ON(unlikely(heap_id >= messageq_module->num_heaps))) {
+		/*! @retval -EINVAL Invalid heap_id */
+		status = -EINVAL;
 		goto exit;
 	}
 
-	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_module->gate_handle);
 	if (status)
 		goto exit;
-	if (messageq_state.heaps[heap_id] == NULL)
-		messageq_state.heaps[heap_id] = heap_handle;
+	if (messageq_module->heaps[heap_id] == NULL)
+		messageq_module->heaps[heap_id] = heap_handle;
 	else {
 		/*! @retval MESSAGEQ_E_ALREADYEXISTS Specified heap is
 		already registered. */
 		status = MESSAGEQ_E_ALREADYEXISTS;
 	}
-	mutex_unlock(messageq_state.gate_handle);
+	mutex_unlock(messageq_module->gate_handle);
 
 exit:
 	if (status < 0) {
@@ -1152,35 +1157,31 @@ exit:
 }
 EXPORT_SYMBOL(messageq_register_heap);
 
-/*
- * ======== messageq_unregister_heap ========
- *  Purpose:
- *  Unregister a heap
- */
+/* Unregister a heap */
 int messageq_unregister_heap(u16 heap_id)
 {
-	int  status = 0;
+	int status = 0;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
 		status = -ENODEV;
 		goto exit;
 	}
-
 	/* Make sure the heap_id is valid */
-	if (WARN_ON(heap_id > messageq_state.num_heaps)) {
-		/*! @retval MESSAGEQ_E_HEAPIDINVALID Invalid heap_id */
-		status = MESSAGEQ_E_HEAPIDINVALID;
+	if (WARN_ON(unlikely(heap_id >= messageq_module->num_heaps))) {
+		/*! @retval -EINVAL Invalid heap_id */
+		status = -EINVAL;
 		goto exit;
 	}
 
-	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_module->gate_handle);
 	if (status)
 		goto exit;
-	if (messageq_state.heaps != NULL)
-		messageq_state.heaps[heap_id] = NULL;
-	mutex_unlock(messageq_state.gate_handle);
+	if (messageq_module->heaps != NULL)
+		messageq_module->heaps[heap_id] = NULL;
+	mutex_unlock(messageq_module->gate_handle);
 
 exit:
 	if (status < 0) {
@@ -1191,43 +1192,40 @@ exit:
 }
 EXPORT_SYMBOL(messageq_unregister_heap);
 
-/*
- * ======== messageq_register_transport ========
- *  Purpose:
- *  register a transport
- */
+/* Register a transport */
 int messageq_register_transport(void *messageq_transportshm_handle,
 				 u16 proc_id, u32 priority)
 {
 	int  status = 0;
 
-	BUG_ON(messageq_transportshm_handle == NULL);
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
 		status = -ENODEV;
 		goto exit;
 	}
-
-	/* Make sure the proc_id is valid */
-	if (WARN_ON(proc_id >= multiproc_get_max_processors())) {
-		/*! @retval MESSAGEQ_E_PROCIDINVALID Invalid proc_id */
-		status = MESSAGEQ_E_PROCIDINVALID;
+	if (WARN_ON(unlikely(messageq_transportshm_handle == NULL))) {
+		status = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(proc_id >= multiproc_get_num_processors()))) {
+		status = -EINVAL;
 		goto exit;
 	}
 
-	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_module->gate_handle);
 	if (status)
 		goto exit;
-	if (messageq_state.transports[proc_id][priority] == NULL) {
-		messageq_state.transports[proc_id][priority] = \
+	if (messageq_module->transports[proc_id][priority] == NULL) {
+		messageq_module->transports[proc_id][priority] = \
 			messageq_transportshm_handle;
 	} else {
 		/*! @retval MESSAGEQ_E_ALREADYEXISTS Specified transport is
 		already registered. */
 		status = MESSAGEQ_E_ALREADYEXISTS;
 	}
-	mutex_unlock(messageq_state.gate_handle);
+	mutex_unlock(messageq_module->gate_handle);
 
 exit:
 	if (status < 0) {
@@ -1238,92 +1236,76 @@ exit:
 }
 EXPORT_SYMBOL(messageq_register_transport);
 
-/*
- * ======== messageq_unregister_transport ========
- *  Purpose:
- *  Unregister a transport
- */
-int messageq_unregister_transport(u16 proc_id, u32 priority)
+/* Unregister a transport */
+void messageq_unregister_transport(u16 proc_id, u32 priority)
 {
 	int  status = 0;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-					MESSAGEQ_MAKE_MAGICSTAMP(0),
-					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true)) {
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
 		status = -ENODEV;
 		goto exit;
 	}
-
-	/* Make sure the proc_id is valid */
-	if (WARN_ON(proc_id >= multiproc_get_max_processors())) {
+	if (WARN_ON(proc_id >= multiproc_get_num_processors())) {
 		/*! @retval MESSAGEQ_E_PROCIDINVALID Invalid proc_id */
-		status = MESSAGEQ_E_PROCIDINVALID;
+		status = -EINVAL;
 		goto exit;
 	}
 
-	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_module->gate_handle);
 	if (status)
 		goto exit;
-	if (messageq_state.transports[proc_id][priority] == NULL)
-		messageq_state.transports[proc_id][priority] = NULL;
-	mutex_unlock(messageq_state.gate_handle);
+	if (messageq_module->transports[proc_id][priority] != NULL)
+		messageq_module->transports[proc_id][priority] = NULL;
+	mutex_unlock(messageq_module->gate_handle);
 
 exit:
 	if (status < 0) {
 		printk(KERN_ERR "messageq_unregister_transport failed! "
 			"status = 0x%x\n", status);
 	}
-	return status;
+	return;
 }
 EXPORT_SYMBOL(messageq_unregister_transport);
 
-/*
- * ======== messageq_set_reply_queue ========
- *  Purpose:
- *  Set the destination queue of the message.
- */
+/* Set the destination queue of the message. */
 void messageq_set_reply_queue(void *messageq_handle, messageq_msg msg)
 {
+	s32 status = 0;
+
 	struct messageq_object *obj = \
 			(struct messageq_object *) messageq_handle;
 
-	BUG_ON(messageq_handle == NULL);
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-					MESSAGEQ_MAKE_MAGICSTAMP(0),
-					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
+	if (WARN_ON(unlikely(messageq_handle == NULL))) {
+		status = -EINVAL;
 		goto exit;
-
-	if (WARN_ON(msg == NULL)) {
-		printk(KERN_ERR "messageq_set_reply_queue: msg passed is "
-			"NULL!\n");
+	}
+	if (WARN_ON(unlikely(msg == NULL))) {
+		status = -EINVAL;
 		goto exit;
 	}
 
 	msg->reply_id = (u16)(obj->queue);
 	msg->reply_proc = (u16)(obj->queue >> 16);
+	return;
 
 exit:
+	printk(KERN_ERR "messageq_set_reply_queue failed: status = 0x%x",
+		status);
 	return;
 }
 EXPORT_SYMBOL(messageq_set_reply_queue);
 
-/*
- * ======== messageq_get_queue_id ========
- *  Purpose:
- *  Get the queue _id of the message.
- */
+/* Get the queue _id of the message. */
 u32 messageq_get_queue_id(void *messageq_handle)
 {
 	struct messageq_object *obj = \
 			(struct messageq_object *) messageq_handle;
 	u32 queue_id = MESSAGEQ_INVALIDMESSAGEQ;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-					MESSAGEQ_MAKE_MAGICSTAMP(0),
-					MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
-		goto exit;
-
-	if (WARN_ON(obj == NULL)) {
+	if (WARN_ON(unlikely(obj == NULL))) {
 		printk(KERN_ERR "messageq_get_queue_id: obj passed is NULL!\n");
 		goto exit;
 	}
@@ -1335,23 +1317,14 @@ exit:
 }
 EXPORT_SYMBOL(messageq_get_queue_id);
 
-/*
- * ======== messageq_get_proc_id ========
- *  Purpose:
- *  Get the proc _id of the message.
- */
+/* Get the proc _id of the message. */
 u16 messageq_get_proc_id(void *messageq_handle)
 {
 	struct messageq_object *obj = \
 			(struct messageq_object *) messageq_handle;
 	u16 proc_id = MULTIPROC_INVALIDID;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
-		goto exit;
-
-	if (WARN_ON(obj == NULL)) {
+	if (WARN_ON(unlikely(obj == NULL))) {
 		printk(KERN_ERR "messageq_get_proc_id: obj passed is NULL!\n");
 		goto exit;
 	}
@@ -1363,21 +1336,12 @@ exit:
 }
 EXPORT_SYMBOL(messageq_get_proc_id);
 
-/*
- * ======== messageq_get_dst_queue ========
- *  Purpose:
- *  Get the destination queue of the message.
- */
+/* Get the destination queue of the message. */
 u32 messageq_get_dst_queue(messageq_msg msg)
 {
 	u32 queue_id = MESSAGEQ_INVALIDMESSAGEQ;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
-		goto exit;
-
-	if (WARN_ON(msg == NULL)) {
+	if (WARN_ON(unlikely(msg == NULL))) {
 		printk(KERN_ERR "messageq_get_dst_queue: msg passed is "
 			"NULL!\n");
 		goto exit;
@@ -1385,28 +1349,19 @@ u32 messageq_get_dst_queue(messageq_msg msg)
 
 	/*construct queue value */
 	if (msg->dst_id != (u32)MESSAGEQ_INVALIDMESSAGEQ)
-		queue_id = ((u32) multiproc_get_id(NULL) << 16) | msg->dst_id;
+		queue_id = ((u32) multiproc_self() << 16) | msg->dst_id;
 
 exit:
 	return queue_id;
 }
 EXPORT_SYMBOL(messageq_get_dst_queue);
 
-/*
- * ======== messageq_get_msg_id ========
- *  Purpose:
- *  Get the message id of the message.
- */
+/* Get the message id of the message. */
 u16 messageq_get_msg_id(messageq_msg msg)
 {
 	u16 id = MESSAGEQ_INVALIDMSGID;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
-		goto exit;
-
-	if (WARN_ON(msg == NULL)) {
+	if (WARN_ON(unlikely(msg == NULL))) {
 		printk(KERN_ERR "messageq_get_msg_id: msg passed is NULL!\n");
 		goto exit;
 	}
@@ -1418,21 +1373,12 @@ exit:
 }
 EXPORT_SYMBOL(messageq_get_msg_id);
 
-/*
- * ======== messageq_get_msg_size ========
- *  Purpose:
- *  Get the message size of the message.
- */
+/* Get the message size of the message. */
 u32 messageq_get_msg_size(messageq_msg msg)
 {
 	u32 size = 0;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
-		goto exit;
-
-	if (WARN_ON(msg == NULL)) {
+	if (WARN_ON(unlikely(msg == NULL))) {
 		printk(KERN_ERR "messageq_get_msg_size: msg passed is NULL!\n");
 		goto exit;
 	}
@@ -1444,22 +1390,12 @@ exit:
 }
 EXPORT_SYMBOL(messageq_get_msg_size);
 
-/*
- * ======== messageq_get_msg_pri ========
- *  Purpose:
- *  Get the message priority of the message.
- */
+/* Get the message priority of the message. */
 u32 messageq_get_msg_pri(messageq_msg msg)
 {
 	u32 priority = MESSAGEQ_NORMALPRI;
 
-	BUG_ON(msg == NULL);
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
-		goto exit;
-
-	if (WARN_ON(msg == NULL)) {
+	if (WARN_ON(unlikely(msg == NULL))) {
 		printk(KERN_ERR "messageq_get_msg_pri: msg passed is NULL!\n");
 		goto exit;
 	}
@@ -1471,21 +1407,12 @@ exit:
 }
 EXPORT_SYMBOL(messageq_get_msg_pri);
 
-/*
- * ======== messageq_get_reply_queue ========
- *  Purpose:
- *  Get the embedded source message queue out of the message.
- */
+/* Get the embedded source message queue out of the message. */
 u32 messageq_get_reply_queue(messageq_msg msg)
 {
 	u32 queue = MESSAGEQ_INVALIDMESSAGEQ;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
-		goto exit;
-
-	if (WARN_ON(msg == NULL)) {
+	if (WARN_ON(unlikely(msg == NULL))) {
 		printk(KERN_ERR "messageq_get_reply_queue: msg passed is "
 			"NULL!\n");
 		goto exit;
@@ -1499,19 +1426,10 @@ exit:
 }
 EXPORT_SYMBOL(messageq_get_reply_queue);
 
-/*
- * ======== messageq_set_msg_id ========
- *  Purpose:
- *  Set the message id of the message.
- */
+/* Set the message id of the message. */
 void messageq_set_msg_id(messageq_msg msg, u16 msg_id)
 {
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
-		goto exit;
-
-	if (WARN_ON(msg == NULL)) {
+	if (WARN_ON(unlikely(msg == NULL))) {
 		printk(KERN_ERR "messageq_set_msg_id: msg passed is NULL!\n");
 		goto exit;
 	}
@@ -1523,19 +1441,10 @@ exit:
 }
 EXPORT_SYMBOL(messageq_set_msg_id);
 
-/*
- * ======== messageq_set_msg_pri ========
- *  Purpose:
- *  Set the priority of the message.
- */
+/* Set the priority of the message. */
 void messageq_set_msg_pri(messageq_msg msg, u32 priority)
 {
-	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
-				MESSAGEQ_MAKE_MAGICSTAMP(0),
-				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))
-		goto exit;
-
-	if (WARN_ON(msg == NULL)) {
+	if (WARN_ON(unlikely(msg == NULL))) {
 		printk(KERN_ERR "messageq_set_msg_pri: msg passed is NULL!\n");
 		goto exit;
 	}
@@ -1547,30 +1456,104 @@ exit:
 }
 EXPORT_SYMBOL(messageq_set_msg_pri);
 
+/* Sets the tracing of a message */
+void messageq_set_msg_trace(messageq_msg msg, bool trace_flag)
+{
+	if (WARN_ON(unlikely(msg == NULL))) {
+		printk(KERN_ERR "messageq_set_msg_trace: msg passed is "
+			"NULL!\n");
+		goto exit;
+	}
+
+	msg->flags = (msg->flags & ~MESSAGEQ_TRACEMASK) | \
+			(trace_flag << MESSAGEQ_TRACESHIFT);
+
+	printk(KERN_INFO "messageq_set_msg_trace: msg = 0x%x, seq_num = 0x%x"
+			"src_proc = 0x%x trace_flag = 0x%x", (uint)msg,
+			msg->seq_num, msg->src_proc, trace_flag);
+exit:
+	return;
+}
+
+/* Returns the amount of shared memory used by one transport instance.
+ *
+ *  The MessageQ module itself does not use any shared memory but the
+ *  underlying transport may use some shared memory.
+ */
+uint messageq_shared_mem_req(void *shared_addr)
+{
+	uint mem_req;
+
+	if (likely(multiproc_get_num_processors() > 1)) {
+		/* Determine device-specific shared memory requirements */
+		mem_req = messageq_setup_transport_proxy_shared_mem_req(
+								shared_addr);
+	} else {
+		/* Only 1 processor: no shared memory needed */
+		mem_req = 0;
+	}
+
+	return mem_req;
+}
+EXPORT_SYMBOL(messageq_shared_mem_req);
+
+/* Calls the SetupProxy to setup the MessageQ transports. */
+int messageq_attach(u16 remote_proc_id, void *shared_addr)
+{
+	int status = MESSAGEQ_S_SUCCESS;
+
+	if (likely(multiproc_get_num_processors() > 1)) {
+		/* Use the messageq_setup_transport_proxy to attach
+		 * transports */
+		status = messageq_setup_transport_proxy_attach(
+						remote_proc_id, shared_addr);
+		if (status < 0) {
+			printk(KERN_ERR "messageq_attach failed in transport"
+					"setup, status = 0x%x", status);
+		}
+	}
+
+	/*! @retval MESSAGEQ_S_SUCCESS Operation successfully completed! */
+	return status;
+}
+EXPORT_SYMBOL(messageq_attach);
+
+/* Calls the SetupProxy to detach the MessageQ transports. */
+int messageq_detach(u16 remote_proc_id)
+{
+	int status = MESSAGEQ_S_SUCCESS;
+
+	if (likely(multiproc_get_num_processors() > 1)) {
+		/* Use the messageq_setup_transport_proxy to detach
+		 * transports */
+		status = messageq_setup_transport_proxy_detach(remote_proc_id);
+		if (unlikely(status < 0)) {
+			printk(KERN_ERR "messageq_detach failed in transport"
+					"detach, status = 0x%x", status);
+		}
+	}
+
+	/*! @retval MESSAGEQ_S_SUCCESS Operation successfully completed! */
+	return status;
+}
+EXPORT_SYMBOL(messageq_detach);
+
 /* =============================================================================
  * Internal functions
  * =============================================================================
  */
-/*
- * ======== _messageq_grow ========
- *  Purpose:
- *  Grow the MessageQ table
- */
+/* Grow the MessageQ table */
 u16 _messageq_grow(struct messageq_object *obj)
 {
-	u16 queue_index = messageq_state.num_queues;
-	int oldSize;
+	u16 queue_index = messageq_module->num_queues;
+	int old_size;
 	void **queues;
 	void **oldqueues;
 
-	if (WARN_ON(obj == NULL)) {
-		printk(KERN_ERR "_messageq_grow: obj passed is NULL!\n");
-		goto exit;
-	}
-
-	oldSize = (messageq_state.num_queues) * \
+	/* No parameter validation required since this is an internal func. */
+	old_size = (messageq_module->num_queues) * \
 			sizeof(struct messageq_object *);
-	queues = kmalloc(oldSize + sizeof(struct messageq_object *),
+	queues = kmalloc(old_size + sizeof(struct messageq_object *),
 				GFP_KERNEL);
 	if (queues == NULL) {
 		printk(KERN_ERR "_messageq_grow: Growing the messageq "
@@ -1579,20 +1562,58 @@ u16 _messageq_grow(struct messageq_object *obj)
 	}
 
 	/* Copy contents into new table */
-	memcpy(queues, messageq_state.queues, oldSize);
+	memcpy(queues, messageq_module->queues, old_size);
 	/* Fill in the new entry */
 	queues[queue_index] = (void *)obj;
 	/* Hook-up new table */
-	oldqueues = messageq_state.queues;
-	messageq_state.queues = queues;
-	messageq_state.num_queues++;
+	oldqueues = messageq_module->queues;
+	messageq_module->queues = queues;
+	messageq_module->num_queues++;
 
 	/* Delete old table if not statically defined*/
-	if (messageq_state.can_free_queues == true)
+	if (messageq_module->can_free_queues == true)
 		kfree(oldqueues);
 	else
-		messageq_state.can_free_queues = true;
+		messageq_module->can_free_queues = true;
 
 exit:
 	return queue_index;
+}
+
+/* This is a helper function to initialize a message. */
+static void messageq_msg_init(messageq_msg msg)
+{
+	s32 status = 0;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(messageq_module->ref_count),
+				MESSAGEQ_MAKE_MAGICSTAMP(0),
+				MESSAGEQ_MAKE_MAGICSTAMP(1)) == true))) {
+		status = -ENODEV;
+		goto exit;
+	}
+
+	if (WARN_ON(unlikely(msg == NULL))) {
+		status = -EINVAL;
+		goto exit;
+	}
+
+	msg->reply_id = (u16) MESSAGEQ_INVALIDMESSAGEQ;
+	msg->msg_id = MESSAGEQ_INVALIDMSGID;
+	msg->dst_id = (u16) MESSAGEQ_INVALIDMESSAGEQ;
+	msg->flags = MESSAGEQ_HEADERVERSION | MESSAGEQ_NORMALPRI;
+	msg->src_proc = multiproc_self();
+
+	status = mutex_lock_interruptible(messageq_module->gate_handle);
+	if (status < 0)
+		goto exit;
+	msg->seq_num  = messageq_module->seq_num++;
+	mutex_unlock(messageq_module->gate_handle);
+
+exit:
+	if (status < 0) {
+		printk(KERN_ERR "messageq_msg_init: Invalid NULL msg "
+			"specified!\n");
+	}
+	return;
 }

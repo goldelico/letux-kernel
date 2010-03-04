@@ -28,8 +28,6 @@
 
 /* Syslink headers */
 #include <listmp.h>
-#include <messageq_transportshm.h>
-
 
 /*!
  *  @def	MESSAGEQ_MODULEID
@@ -37,169 +35,137 @@
  */
 #define MESSAGEQ_MODULEID			(0xded2)
 
+
 /* =============================================================================
  *  All success and failure codes for the module
  * =============================================================================
  */
 
 /*!
- *  @def	MESSAGEQ_STATUSCODEBASE
- *  @brief	Error code base for MessageQ.
+ *  @def    MESSAGEQ_S_BUSY
+ *  @brief  The resource is still in use
  */
-#define MESSAGEQ_STATUSCODEBASE			(MESSAGEQ_MODULEID << 12)
-
-/*!
- *  @def	MESSAGEQ_MAKE_FAILURE
- *  @brief	Macro to make error code.
- */
-#define MESSAGEQ_MAKE_FAILURE(x)		((int) (0x80000000 + \
-						(MESSAGEQ_STATUSCODEBASE + \
-						(x))))
-
-/*!
- *  @def	MESSAGEQ_MAKE_SUCCESS
- *  @brief	Macro to make success code.
- */
-#define MESSAGEQ_MAKE_SUCCESS(x)		(MESSAGEQ_STATUSCODEBASE + (x))
-
-/*!
- *  @def	MESSAGEQ_E_INVALIDARG
- *  @brief	Argument passed to a function is invalid.
- */
-#define MESSAGEQ_E_INVALIDARG			MESSAGEQ_MAKE_FAILURE(1)
-
-/*!
- *  @def	MESSAGEQ_E_MEMORY
- *  @brief	Memory allocation failed.
- */
-#define MESSAGEQ_E_MEMORY			MESSAGEQ_MAKE_FAILURE(2)
-
-/*!
- *  @def	MESSAGEQ_E_BUSY
- *  @brief	the name is already registered or not.
- */
-#define MESSAGEQ_E_BUSY				MESSAGEQ_MAKE_FAILURE(3)
-
-/*!
- *  @def	MESSAGEQ_E_FAIL
- *  @brief	Generic failure.
- */
-#define MESSAGEQ_E_FAIL				MESSAGEQ_MAKE_FAILURE(4)
-
-/*!
- *  @def	MESSAGEQ_E_NOTFOUND
- *  @brief	name not found in the nameserver.
- */
-#define MESSAGEQ_E_NOTFOUND			MESSAGEQ_MAKE_FAILURE(5)
-
-/*!
- *  @def	MESSAGEQ_E_INVALIDSTATE
- *  @brief	Module is not initialized.
- */
-#define MESSAGEQ_E_INVALIDSTATE			MESSAGEQ_MAKE_FAILURE(6)
-
-/*!
- *  @def	MESSAGEQ_E_NOTONWER
- *  @brief	Instance is not created on this processor.
- */
-#define MESSAGEQ_E_NOTONWER			MESSAGEQ_MAKE_FAILURE(7)
-
-/*!
- *  @def	MESSAGEQ_E_REMOTEACTIVE
- *  @brief	Remote opener of the instance has not closed the instance.
- */
-#define MESSAGEQ_E_REMOTEACTIVE			MESSAGEQ_MAKE_FAILURE(8)
-
-/*!
- *  @def	MESSAGEQ_E_INUSE
- *  @brief	Indicates that the instance is in use..
- */
-#define MESSAGEQ_E_INUSE			MESSAGEQ_MAKE_FAILURE(9)
-
-/*!
- *  @def	MESSAGEQ_E_INVALIDCONTEXT
- *  @brief	Indicates that the api is called with wrong handle
- */
-#define MESSAGEQ_E_INVALIDCONTEXT		MESSAGEQ_MAKE_FAILURE(10)
-
-/*!
- *  @def	MESSAGEQ_E_INVALIDMSG
- *  @brief	Indicates that an invalid msg has been specified
- *
- */
-#define MESSAGEQ_E_INVALIDMSG			MESSAGEQ_MAKE_FAILURE(11)
-
-/*!
- *  @def	MESSAGEQ_E_INVALIDHEAPID
- *  @brief	Indicates that an invalid heap has been specified
- */
-#define MESSAGEQ_E_INVALIDHEAPID		MESSAGEQ_MAKE_FAILURE(12)
-
-/*!
- *  @def	MESSAGEQ_E_INVALIDPROCID
- *  @brief	Indicates that an invalid proc id has been specified
- */
-#define MESSAGEQ_E_INVALIDPROCID		MESSAGEQ_MAKE_FAILURE(13)
-
-/*!
- *  @def	MESSAGEQ_E_MAXREACHED
- *  @brief	Indicates that all message queues are taken
- */
-#define MESSAGEQ_E_MAXREACHED			MESSAGEQ_MAKE_FAILURE(14)
-
-/*!
- *  @def	MESSAGEQ_E_UNREGISTERHEAPID
- *  @brief	Indicates that heap id has not been registered
- */
-#define MESSAGEQ_E_UNREGISTERHEAPID		MESSAGEQ_MAKE_FAILURE(15)
-
-/*!
- *  @def	MESSAGEQ_E_CANNOTFREESTATICMSG
- *  @brief	Indicates that static msg cannot be freed
- */
-#define MESSAGEQ_E_CANNOTFREESTATICMSG		MESSAGEQ_MAKE_FAILURE(16)
-
-/*!
- *  @def	MESSAGEQ_E_HEAPIDINVALID
- *  @brief	Indicates that the heap id is invalid
- */
-#define MESSAGEQ_E_HEAPIDINVALID		MESSAGEQ_MAKE_FAILURE(17)
-
-/*!
- *  @def	MESSAGEQ_E_PROCIDINVALID
- *  @brief	Indicates that the proc id is invalid
- */
-#define MESSAGEQ_E_PROCIDINVALID		MESSAGEQ_MAKE_FAILURE(18)
-
-/*!
- *  @def    MESSAGEQ_E_OSFAILURE
- *  @brief  Failure in OS call.
- */
-#define MESSAGEQ_E_OSFAILURE			MESSAGEQ_MAKE_FAILURE(19)
-
-/*!
- *  @def    MESSAGEQ_E_ALREADYEXISTS
- *  @brief  Specified entity already exists
- */
-#define MESSAGEQ_E_ALREADYEXISTS		MESSAGEQ_MAKE_FAILURE(20)
-
-/*!
- *  @def    MESSAGEQ_E_TIMEOUT
- *  @brief  Timeout while attempting to get a message
- */
-#define MESSAGEQ_E_TIMEOUT			MESSAGEQ_MAKE_FAILURE(21)
-
-/*!
- *  @def	MESSAGEQ_SUCCESS
- *  @brief	Operation successful.
- */
-#define MESSAGEQ_SUCCESS			MESSAGEQ_MAKE_SUCCESS(0)
+#define MESSAGEQ_S_BUSY				2
 
 /*!
  *  @def    MESSAGEQ_S_ALREADYSETUP
- *  @brief  The MESSAGEQ module has already been setup in this process.
+ *  @brief  The module has been already setup
  */
-#define MESSAGEQ_S_ALREADYSETUP			MESSAGEQ_MAKE_SUCCESS(1)
+#define MESSAGEQ_S_ALREADYSETUP			1
+
+/*!
+ *  @def    MESSAGEQ_S_SUCCESS
+ *  @brief  Operation is successful.
+ */
+#define MESSAGEQ_S_SUCCESS			0
+
+/*!
+ *  @def    MESSAGEQ_E_FAIL
+ *  @brief  Operation is not successful.
+ */
+#define MESSAGEQ_E_FAIL				-1
+
+/*!
+ *  @def    MESSAGEQ_E_INVALIDARG
+ *  @brief  There is an invalid argument.
+ */
+#define MESSAGEQ_E_INVALIDARG			-2
+
+/*!
+ *  @def    MESSAGEQ_E_MEMORY
+ *  @brief  Operation resulted in memory failure.
+ */
+#define MESSAGEQ_E_MEMORY			-3
+
+/*!
+ *  @def    MESSAGEQ_E_ALREADYEXISTS
+ *  @brief  The specified entity already exists.
+ */
+#define MESSAGEQ_E_ALREADYEXISTS		-4
+
+/*!
+ *  @def    MESSAGEQ_E_NOTFOUND
+ *  @brief  Unable to find the specified entity.
+ */
+#define MESSAGEQ_E_NOTFOUND			-5
+
+/*!
+ *  @def    MESSAGEQ_E_TIMEOUT
+ *  @brief  Operation timed out.
+ */
+#define MESSAGEQ_E_TIMEOUT			-6
+
+/*!
+ *  @def    MESSAGEQ_E_INVALIDSTATE
+ *  @brief  Module is not initialized.
+ */
+#define MESSAGEQ_E_INVALIDSTATE			-7
+
+/*!
+ *  @def    MESSAGEQ_E_OSFAILURE
+ *  @brief  A failure occurred in an OS-specific call
+ */
+#define MESSAGEQ_E_OSFAILURE			-8
+
+/*!
+ *  @def    MESSAGEQ_E_RESOURCE
+ *  @brief  Specified resource is not available
+ */
+#define MESSAGEQ_E_RESOURCE			-9
+
+/*!
+ *  @def    MESSAGEQ_E_RESTART
+ *  @brief  Operation was interrupted. Please restart the operation
+ */
+#define MESSAGEQ_E_RESTART			-10
+
+/*!
+ *  @def    MESSAGEQ_E_INVALIDMSG
+ *  @brief  Operation is successful.
+ */
+#define MESSAGEQ_E_INVALIDMSG			-11
+
+/*!
+ *  @def    MESSAGEQ_E_NOTOWNER
+ *  @brief  Not the owner
+ */
+#define MESSAGEQ_E_NOTOWNER			-12
+
+/*!
+ *  @def    MESSAGEQ_E_REMOTEACTIVE
+ *  @brief  Operation is successful.
+ */
+#define MESSAGEQ_E_REMOTEACTIVE			-13
+
+/*!
+ *  @def    MESSAGEQ_E_INVALIDHEAPID
+ *  @brief  Operation is successful.
+ */
+#define MESSAGEQ_E_INVALIDHEAPID		-14
+
+/*!
+ *  @def    MESSAGEQ_E_INVALIDPROCID
+ *  @brief  Operation is successful.
+ */
+#define MESSAGEQ_E_INVALIDPROCID		-15
+
+/*!
+ *  @def    MESSAGEQ_E_MAXREACHED
+ *  @brief  Operation is successful.
+ */
+#define MESSAGEQ_E_MAXREACHED			-16
+
+/*!
+ *  @def    MESSAGEQ_E_UNREGISTEREDHEAPID
+ *  @brief  Operation is successful.
+ */
+#define MESSAGEQ_E_UNREGISTEREDHEAPID		-17
+
+/*!
+ *  @def    MESSAGEQ_E_CANNOTFREESTATICMSG
+ *  @brief  Operation is successful.
+ */
+#define MESSAGEQ_E_CANNOTFREESTATICMSG		-18
 
 
 /* =============================================================================
@@ -211,20 +177,16 @@
  */
 #define MESSAGEQ_HEADERVERSION			0x2000u
 
+/*! Mask to extract Trace setting */
+#define MESSAGEQ_TRACEMASK			(uint) 0x1000
+
+/*! Shift for Trace setting */
+#define MESSAGEQ_TRACESHIFT			(uint) 12
+
 /*!
  *	@brief	Mask to extract priority setting
  */
 #define MESSAGEQ_PRIORITYMASK			0x3u
-
-/*!
- *	@brief	Mask to extract priority setting
- */
-#define MESSAGEQ_TRANSPORTPRIORITYMASK		0x01u
-
-/*!
- *  Mask to extract version setting
- */
-#define MESSAGEQ_VERSIONMASK			0xE000;
 
 /*!
  *  Used as the timeout value to specify wait forever
@@ -295,9 +257,12 @@ struct msgheader {
 	/*!< Maximum length for Message queue names */
 	u16 heap_id;
 	/*!< Maximum length for Message queue names */
-	u32       reserved;
+	u16 seq_num;
+	/*!< sequence number */
+	u32 reserved;
 	/*!< Reserved field */
 };
+
 /*! Structure which defines the first field in every message */
 #define messageq_msg	struct msgheader *
 /*typedef struct msgheader *messageq_msg;*/
@@ -307,16 +272,17 @@ struct msgheader {
  *  @brief	Structure defining config parameters for the MessageQ Buf module.
  */
 struct messageq_config {
+	bool trace_flag;
+	/*!< Trace Flag
+	*  This flag allows the configuration of the default module trace
+	*  settings.
+	*/
+
 	u16 num_heaps;
-	/*!
-	*  Number of heapIds in the system
-	*
+	/*!< Number of heapIds in the system
 	*  This allows MessageQ to pre-allocate the heaps table.
 	*  The heaps table is used when registering heaps.
-	*
-	*  The default is 1 since generally all systems need at least
-	*  one heap.
-	*
+	*  The default is 1 since generally all systems need at least one heap.
 	*  There is no default heap, so unless the system is only using
 	*  staticMsgInit, the application must register a heap.
 	*/
@@ -326,23 +292,19 @@ struct messageq_config {
 	*  Maximum number of MessageQs that can be dynamically created
 	*/
 
-	struct mutex *name_table_gate;
-	/*!
-	*  Gate used to make the name table thread safe. If NULL is passed, gate
-	*  will be created internally.
-	*/
-
 	u32 max_name_len;
-	/*!
-	*  Maximum length for Message queue names
-	*/
+	/*!< Maximum length for Message queue names */
 };
 
 struct messageq_params {
-	u32 reserved;
-	/*!< No parameters required currently. Reserved field. */
-	u32 max_name_len;
-	/*!< Maximum length for Message queue names */
+	void *synchronizer;
+	/*!< Synchronizer instance used to signal IO completion
+	*
+	* The synchronizer is used in the #MessageQ_put and #MessageQ_get calls.
+	* The synchronizer signal is called as part of the #MessageQ_put call.
+	* The synchronizer waits in the #MessageQ_get if there are no messages
+	* present.
+	*/
 };
 
 /* =============================================================================
@@ -358,11 +320,23 @@ int messageq_setup(const struct messageq_config *cfg);
 /* Function to destroy the MessageQ module. */
 int messageq_destroy(void);
 
+/* Returns the amount of shared memory used by one transport instance.
+ *
+ *  The MessageQ module itself does not use any shared memory but the
+ *  underlying transport may use some shared memory.
+ */
+uint messageq_shared_mem_req(void *shared_addr);
+
+/* Calls the SetupProxy function to setup the MessageQ transports. */
+int messageq_attach(u16 remote_proc_id, void *shared_addr);
+
+/* Calls the SetupProxy function to detach the MessageQ transports. */
+int messageq_detach(u16 remote_proc_id);
+
 /* Initialize this config-params structure with supplier-specified
  * defaults before instance creation.
  */
-void messageq_params_init(void *messageq_handle,
-				struct messageq_params *params);
+void messageq_params_init(struct messageq_params *params);
 
 /* Create a message queue */
 void *messageq_create(char *name, const struct messageq_params *params);
@@ -370,17 +344,17 @@ void *messageq_create(char *name, const struct messageq_params *params);
 /* Deletes a instance of MessageQ module. */
 int messageq_delete(void **messageq_handleptr);
 
+/* Open a message queue */
+int messageq_open(char *name, u32 *queue_id);
+
+/* Close an opened message queue handle */
+int messageq_close(u32 *queue_id);
+
 /* Allocates a message from the heap */
 messageq_msg messageq_alloc(u16 heapId, u32 size);
 
 /* Frees a message back to the heap */
 int messageq_free(messageq_msg msg);
-
-/* Open a message queue */
-int messageq_open(char *name, u32 *queue_id);
-
-/* Close an opened message queue handle */
-void messageq_close(u32 *queue_id);
 
 /* Initializes a message not obtained from MessageQ_alloc */
 void messageq_static_msg_init(messageq_msg msg, u32 size);
@@ -389,8 +363,7 @@ void messageq_static_msg_init(messageq_msg msg, u32 size);
 int messageq_put(u32 queueId, messageq_msg msg);
 
 /* Gets a message for a message queue and blocks if the queue is empty */
-int messageq_get(void *messageq_handle, messageq_msg *msg,
-							u32 timeout);
+int messageq_get(void *messageq_handle, messageq_msg *msg, u32 timeout);
 
 /* Register a heap with MessageQ */
 int messageq_register_heap(void *heap_handle, u16 heap_id);
@@ -401,14 +374,17 @@ int messageq_unregister_heap(u16 heapId);
 /* Returns the number of messages in a message queue */
 int messageq_count(void *messageq_handle);
 
-/* Set the destination queue of the message. */
-void messageq_set_reply_queue(void *messageq_handle, messageq_msg msg);
+/* Get the proc Id of the message. */
+u16 messageq_get_proc_id(void *messageq_handle);
 
 /* Get the queue Id of the message. */
 u32 messageq_get_queue_id(void *messageq_handle);
 
-/* Get the proc Id of the message. */
-u16 messageq_get_proc_id(void *messageq_handle);
+/* Set the destination queue of the message. */
+void messageq_set_reply_queue(void *messageq_handle, messageq_msg msg);
+
+/* Set the tracing of a message */
+void messageq_set_msg_trace(messageq_msg msg, bool trace_flag);
 
 /*
  *  Functions to set Message properties
@@ -454,11 +430,11 @@ void messageq_set_msg_pri(messageq_msg msg, u32 priority);
  * =============================================================================
  */
 /* Register a transport with MessageQ */
-int messageq_register_transport(void *messageq_transportshm_handle,
+int messageq_register_transport(void *imessageq_transport_handle,
 					u16 proc_id, u32 priority);
 
 /* Unregister a transport with MessageQ */
-int messageq_unregister_transport(u16 proc_id, u32 priority);
+void messageq_unregister_transport(u16 proc_id, u32 priority);
 
 
 #endif /* _MESSAGEQ_H_ */

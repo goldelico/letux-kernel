@@ -47,9 +47,10 @@ enum messageq_drv_cmd {
 	MESSAGEQ_PUT,
 	MESSAGEQ_REGISTERHEAP,
 	MESSAGEQ_UNREGISTERHEAP,
-	MESSAGEQ_REGISTERTRANSPORT,
-	MESSAGEQ_UNREGISTERTRANSPORT,
-	MESSAGEQ_GET
+	MESSAGEQ_ATTACH,
+	MESSAGEQ_DETACH,
+	MESSAGEQ_GET,
+	MESSAGEQ_SHAREDMEMREQ
 };
 
 /*  ----------------------------------------------------------------------------
@@ -130,21 +131,24 @@ enum messageq_drv_cmd {
 			struct messageq_cmd_args)
 
 
-/* Command for messageq_register_transport */
-#define CMD_MESSAGEQ_REGISTERTRANSPORT \
-			_IOWR(MESSAGEQ_IOC_MAGIC, MESSAGEQ_REGISTERTRANSPORT, \
+/* Command for messageq_attach */
+#define CMD_MESSAGEQ_ATTACH \
+			_IOWR(MESSAGEQ_IOC_MAGIC, MESSAGEQ_ATTACH, \
 			struct messageq_cmd_args)
 
-
-/* Command for messageq_unregister_transport */
-#define CMD_MESSAGEQ_UNREGISTERTRANSPORT \
-		_IOWR(MESSAGEQ_IOC_MAGIC, MESSAGEQ_UNREGISTERTRANSPORT, \
-		struct messageq_cmd_args)
-
+/* Command for messageq_detach */
+#define CMD_MESSAGEQ_DETACH \
+			_IOWR(MESSAGEQ_IOC_MAGIC, MESSAGEQ_DETACH, \
+			struct messageq_cmd_args)
 
 /* Command for messageq_get */
 #define CMD_MESSAGEQ_GET \
 			_IOWR(MESSAGEQ_IOC_MAGIC, MESSAGEQ_GET, \
+			struct messageq_cmd_args)
+
+/* Command for messageq_sharedmem_req */
+#define CMD_MESSAGEQ_SHAREDMEMREQ \
+			_IOWR(MESSAGEQ_IOC_MAGIC, MESSAGEQ_SHAREDMEMREQ, \
 			struct messageq_cmd_args)
 
 /* Command arguments for messageq */
@@ -219,6 +223,20 @@ struct messageq_cmd_args {
 		struct {
 			u16 heap_id;
 		} unregister_heap;
+
+		struct {
+			u32 *shared_addr_srptr;
+			uint mem_req;
+		} shared_mem_req;
+
+		struct {
+			u16 remote_proc_id;
+			u32 *shared_addr_srptr;
+		} attach;
+
+		struct {
+			u16 remote_proc_id;
+		} detach;
 	} args;
 
 	int api_status;
