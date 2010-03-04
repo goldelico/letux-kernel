@@ -1907,6 +1907,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	case MUSB_HOST:
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 
+	if (cpu_is_omap44xx()) {
 		/* Program CFG_LDO_PD2 register and set VUSB bit */
 		twl_i2c_write_u8(TWL4030_MODULE_INTBR , 0x1, CFG_LDO_PD2);
 
@@ -1944,6 +1945,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		twl_i2c_write_u8(TWL_MODULE_MAIN_CHARGE , 0x40,
 							CHARGERUSB_CTRL1);
 
+	}
 		break;
 #else
 		goto bad_config;
@@ -1952,11 +1954,13 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 #ifdef CONFIG_USB_GADGET_MUSB_HDRC
 		/* FIXME */
 		/* TODO:- Phoenix Settings to be done from Phoenix Layer */
+	if (cpu_is_omap44xx()) {
 		twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, 0x21,
 							VUSB_CFG_STATE);
 		twl_i2c_write_u8(TWL4030_MODULE_INTBR , 0x10,
 							MISC2);
 		omap_writel(0x00000015, 0x4A00233C);
+	}
 
 		break;
 #else
