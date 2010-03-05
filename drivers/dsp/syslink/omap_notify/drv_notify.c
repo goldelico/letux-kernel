@@ -287,7 +287,7 @@ func_end:
 
 static int notify_drv_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	vma->vm_page_prot = pgprot_dmacoherent(vma->vm_page_prot);
 
 	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 		vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
