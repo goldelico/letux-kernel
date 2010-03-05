@@ -1380,6 +1380,7 @@ static int __init ks8851_init(void)
 
 static void __exit ks8851_exit(void)
 {
+	destroy_workqueue(eth_wq);
 	spi_unregister_driver(&ks8851_driver);
 }
 
