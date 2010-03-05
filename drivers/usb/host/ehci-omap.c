@@ -471,29 +471,6 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 	if (reset_delay)
 		udelay(reset_delay);
 
-	for (i = 0; i < OMAP_TLL_CHANNEL_COUNT; i++) {
-		if ((data->num_ports > i) && (data->port_data[i].reset))
-			data->port_data[i].reset(dev, i, 1);
-	}
-
-	if (data->flags & OMAP_USB_FLAG_VBUS_INTERNAL_CHARGEPUMP) {
-		/* Refer ISSUE2: LINK assumes external charge pump */
-
-		/* use Port1 VBUS to charge externally Port2:
-		 *	So for PHY mode operation use Port2 only
-		 */
-		omap_writel((0xA << EHCI_INSNREG05_ULPI_REGADD_SHIFT) |/* OTG ctrl reg*/
-			    (2 << EHCI_INSNREG05_ULPI_OPSEL_SHIFT) |/*   Write */
-			    (1 << EHCI_INSNREG05_ULPI_PORTSEL_SHIFT) |/* Port1 */
-			    (1 << EHCI_INSNREG05_ULPI_CONTROL_SHIFT) |/* Start */
-			    (0x26),
-			    EHCI_INSNREG05_ULPI);
-
-		while (!(omap_readl(EHCI_INSNREG05_ULPI)
-			 & (1<<EHCI_INSNREG05_ULPI_CONTROL_SHIFT)))
-			cpu_relax();
-	}
-
 	return 0;
 }
 
@@ -566,6 +543,21 @@ static void omap_stop_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 		"Clock to USB host has been disabled\n");
 }
 
+/*-------------------------------------------------------------------------*/
+/* Enable the Chip Select on the PHY */
+int enable_phy(struct platform_device *dev)
+{
+	struct omap_usb_platform_data *data = dev->dev.platform_data;
+	int i = 0;
+
+	for (i = 0; i < OMAP_TLL_CHANNEL_COUNT; i++) {
+		if ((data->num_ports > i) && (data->port_data[i].reset))
+			data->port_data[i].reset(dev, i, 1);
+	}
+
+	return 0;
+}
+
 static const struct hc_driver ehci_omap_hc_driver;
 
 /*-------------------------------------------------------------------------*/
@@ -633,9 +625,15 @@ static int ehci_hcd_omap_drv_probe(struct platform_device *dev)
 
 	retval = usb_add_hcd(hcd, dev->resource[1].start,
 				IRQF_DISABLED | IRQF_SHARED);
-	if (retval == 0)
-		return retval;
+	if (retval != 0)
+		goto err;
 
+	/*Enable chip select on PHY*/
+	enable_phy(dev);
+
+	return retval;
+
+err:
 	dev_dbg(hcd->self.controller, "ERR: add_hcd\n");
 	omap_stop_ehc(dev, hcd);
 	iounmap(hcd->regs);
