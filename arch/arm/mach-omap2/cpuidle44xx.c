@@ -95,7 +95,7 @@ static int omap4_enter_idle(struct cpuidle_device *dev,
 	}
 
 	/* program the scu if hitting ret or off */
-	if (cx->cpu0_state > PWRDM_POWER_ON) {
+	if (cx->cpu0_state < PWRDM_POWER_ON) {
 		scu_pwr_st = omap_readl(0x48240008);
 		scu_pwr_st |= 0x2;
 		omap_writel(scu_pwr_st, 0x48240008);
@@ -124,7 +124,7 @@ static int omap4_enter_idle(struct cpuidle_device *dev,
 		omap_uart_resume_idle(3);
 	}
 
-	if (cx->cpu0_state > PWRDM_POWER_ON) {
+	if (cx->cpu0_state < PWRDM_POWER_ON) {
 		scu_pwr_st = omap_readl(0x48240008);
 		scu_pwr_st &= ~0x2;
 		omap_writel(scu_pwr_st, 0x48240008);
