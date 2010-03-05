@@ -38,6 +38,8 @@ enum CMD_NAMESERVER {
 	NAMESERVER_REMOVE,
 	NAMESERVER_REMOVEENTRY,
 	NAMESERVER_GETHANDLE,
+	NAMESERVER_ISREGISTERED,
+	NAMESERVER_GETCONFIG
 };
 
 /*
@@ -47,92 +49,119 @@ enum CMD_NAMESERVER {
 /*
  *  Command for nameserver_setup
  */
-#define CMD_NAMESERVER_SETUP		_IOWR(IPC_IOC_MAGIC, NAMESERVER_SETUP, \
+#define CMD_NAMESERVER_SETUP		_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_SETUP, 		\
 					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_destroy
  */
-#define CMD_NAMESERVER_DESTROY		_IOWR(IPC_IOC_MAGIC,                   \
-					NAMESERVER_DESTROY,                    \
+#define CMD_NAMESERVER_DESTROY		_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_DESTROY,		\
 					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_params_init
  */
-#define CMD_NAMESERVER_PARAMS_INIT	_IOWR(IPC_IOC_MAGIC,		       \
-					NAMESERVER_PARAMS_INIT,		       \
+#define CMD_NAMESERVER_PARAMS_INIT	_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_PARAMS_INIT,		\
 					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_create
  */
-#define CMD_NAMESERVER_CREATE		_IOWR(IPC_IOC_MAGIC,                   \
-					NAMESERVER_CREATE,                     \
+#define CMD_NAMESERVER_CREATE		_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_CREATE,		\
 					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_delete
  */
-#define CMD_NAMESERVER_DELETE		_IOWR(IPC_IOC_MAGIC,                   \
-					NAMESERVER_DELETE,                     \
+#define CMD_NAMESERVER_DELETE		_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_DELETE,		\
 					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_add
  */
-#define CMD_NAMESERVER_ADD		_IOWR(IPC_IOC_MAGIC, NAMESERVER_ADD,   \
+#define CMD_NAMESERVER_ADD		_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_ADD,			\
 					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_addu32
  */
-#define CMD_NAMESERVER_ADDUINT32	_IOWR(IPC_IOC_MAGIC,		       \
-					NAMESERVER_ADDUINT32,		       \
+#define CMD_NAMESERVER_ADDUINT32	_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_ADDUINT32,		\
 					struct nameserver_cmd_args)
 /*
  *  Command for nameserver_get
  */
-#define CMD_NAMESERVER_GET		_IOWR(IPC_IOC_MAGIC, NAMESERVER_GET,   \
+#define CMD_NAMESERVER_GET		_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_GET,			\
 					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_get_local
  */
-#define CMD_NAMESERVER_GETLOCAL		_IOWR(IPC_IOC_MAGIC,		       \
-					NAMESERVER_GETLOCAL,		       \
+#define CMD_NAMESERVER_GETLOCAL		_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_GETLOCAL,		\
 					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_match
  */
-#define CMD_NAMESERVER_MATCH		_IOWR(IPC_IOC_MAGIC, NAMESERVER_MATCH, \
+#define CMD_NAMESERVER_MATCH		_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_MATCH,		\
 					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_remove
  */
-#define CMD_NAMESERVER_REMOVE		_IOWR(IPC_IOC_MAGIC, NAMESERVER_REMOVE,\
+#define CMD_NAMESERVER_REMOVE		_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_REMOVE,		\
 					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_remove_entry
  */
-#define CMD_NAMESERVER_REMOVEENTRY 	_IOWR(IPC_IOC_MAGIC,		       \
-					NAMESERVER_REMOVEENTRY,		       \
+#define CMD_NAMESERVER_REMOVEENTRY 	_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_REMOVEENTRY,		\
 					struct nameserver_cmd_args)
 
 /*
  *  Command for nameserver_get_handle
  */
-#define CMD_NAMESERVER_GETHANDLE	_IOWR(IPC_IOC_MAGIC,		       \
-					NAMESERVER_GETHANDLE,		       \
+#define CMD_NAMESERVER_GETHANDLE	_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_GETHANDLE,		\
+					struct nameserver_cmd_args)
+
+/*
+ *  Command for NameServer_isRegistered
+ */
+#define CMD_NAMESERVER_ISREGISTERED	_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_ISREGISTERED,	\
+					struct nameserver_cmd_args)
+
+/*
+ *  Command for NameServer_getConfig
+ */
+#define CMD_NAMESERVER_GETCONFIG	_IOWR(IPC_IOC_MAGIC,		\
+					NAMESERVER_GETCONFIG,		\
 					struct nameserver_cmd_args)
 
 /*
  *  Command arguments for nameserver
  */
- union nameserver_arg {
+union nameserver_arg {
+	struct {
+		struct nameserver_config *config;
+	} get_config;
+
+	struct {
+		struct nameserver_config *config;
+	} setup;
+
 	struct {
 		struct nameserver_params *params;
 	} params_init;
@@ -155,7 +184,7 @@ enum CMD_NAMESERVER {
 		void *buf;
 		s32 len;
 		void *entry;
-		struct nameserver_entry *node;
+		void *node;
 	} add;
 
 	struct {
@@ -170,27 +199,25 @@ enum CMD_NAMESERVER {
 		void *handle;
 		char *name;
 		u32 name_len;
-		void *buf;
+		void *value;
 		u32 len;
 		u16 *proc_id;
 		u32 proc_len;
-		u32 count;
 	} get;
 
 	struct {
 		void *handle;
 		char *name;
 		u32 name_len;
-		void *buf;
+		void *value;
 		u32 len;
-		u32 count;
 	} get_local;
 
 	struct {
 		void *handle;
 		char *name;
 		u32 name_len;
-		u32 *value;
+		u32 value;
 		u32 count;
 	} match;
 
@@ -210,6 +237,11 @@ enum CMD_NAMESERVER {
 		char *name;
 		u32 name_len;
 	} get_handle;
+
+	struct {
+		u16 proc_id;
+		bool check;
+	} is_registered;
 };
 
 /*
@@ -227,4 +259,3 @@ int nameserver_ioctl(struct inode *inode, struct file *filp,
 			unsigned int cmd, unsigned long args);
 
 #endif	/* _NAMESERVER_IOCTL_H_ */
-

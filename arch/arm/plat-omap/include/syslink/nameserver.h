@@ -29,17 +29,26 @@
  */
 #define NAMESERVER_MODULEID      (0xF414)
 
+struct nameserver_config {
+	u32 reserved;
+};
+
 /*
  *  Instance config-params object.
  */
 struct nameserver_params {
-	bool check_existing; /* Prevents duplicate entry add in to the table */
-	void *gate_handle; /* Lock used for critical region of the table */
-	u16 max_name_len; /* Length, in MAUs, of name field */
 	u32 max_runtime_entries;
-	u32 max_value_len; /* Length, in MAUs, of the value field */
 	void *table_heap; /* Table is placed into a section on dyn creates */
+	bool check_existing; /* Prevents duplicate entry add in to the table */
+	u32 max_value_len; /* Length, in MAUs, of the value field */
+	u16 max_name_len; /* Length, in MAUs, of name field */
 };
+
+
+/*
+ *  Function to get the default configuration for the nameserver module
+ */
+void nameserver_get_config(struct nameserver_config *cfg);
 
 /*
  *  Function to setup the nameserver module
@@ -52,15 +61,35 @@ int nameserver_setup(void);
 int nameserver_destroy(void);
 
 /*
- *  Function to initialize the parameter structure
+ *  Function to construct a name server.
  */
-int nameserver_params_init(struct nameserver_params *params);
+void nameserver_construct(void *object, const char *name,
+				const struct nameserver_params *params);
+
+/*
+ *  Function to destruct a name server
+ */
+void nameserver_destruct(void *object);
+
+/*
+ *  Function to register a remote driver
+ */
+int nameserver_register_remote_driver(void *handle, u16 proc_id);
+
+/*
+ *  Function to unregister a remote driver
+ */
+int nameserver_unregister_remote_driver(u16 proc_id);
+
+/*
+ *  Determines if a remote driver is registered for the specified id.
+ */
+bool nameserver_is_registered(u16 proc_id);
 
 /*
  *  Function to initialize the parameter structure
  */
-int nameserver_get_params(void *handle,
-			struct nameserver_params *params);
+void nameserver_params_init(struct nameserver_params *params);
 
 /*
  *  Function to create a name server
@@ -74,28 +103,46 @@ void *nameserver_create(const char *name,
 int nameserver_delete(void **handle);
 
 /*
+ *  Function to handle for  a name
+ */
+void *nameserver_get_handle(const char *name);
+
+/*
  *  Function to add a variable length value into the local table
  */
-void *nameserver_add(void *handle, const char *name,
-			void  *buffer, u32 length);
+void *nameserver_add(void *handle, const char *name, void *buf, u32 len);
 
 /*
  *  Function to add a 32 bit value into the local table
  */
-void *nameserver_add_uint32(void *handle,
-			const char *name, u32 value);
+void *nameserver_add_uint32(void *handle, const char *name, u32 value);
 
 /*
- *  Function to Retrieve the value portion of a name/value pair
+ *  Function to retrieve the value portion of a name/value pair
  */
-int nameserver_get(void *handle, const char *name,
-		void *buffer, u32 length, u16 procId[]);
+int nameserver_get(void *handle, const char *name, void *buf, u32 *len,
+			u16 procId[]);
+
+/*
+ *  Function to retrieve a 32-bit value of a name/value pair
+ */
+int nameserver_get_uint32(void *handle, const char *name, void *buf,
+				u16 procId[]);
 
 /*
  *  Function to get the value portion of a name/value pair from local table
  */
-int nameserver_get_local(void *handle, const char *name,
-			void *buffer, u32 length);
+int nameserver_get_local(void *handle, const char *name, void *buf, u32 *len);
+
+/*
+ *  Function to retrieve a 32-bit value from the local name/value table
+ */
+int nameserver_get_local_uint32(void *handle, const char *name, void *buf);
+
+/*
+ *  Function to match the name
+ */
+int nameserver_match(void *handle, const char *name, u32 *value);
 
 /*
  *  Function to removes a value/pair
@@ -103,29 +150,8 @@ int nameserver_get_local(void *handle, const char *name,
 int nameserver_remove(void *handle, const char *name);
 
 /*
- *  Function to Remove an entry from the table
+ *  Function to remove an entry from the table
  */
-int nameserver_remove_entry(void *nshandle, void *nsentry);
-
-/*
- *  Function to handle for  a name
- */
-void *nameserver_get_handle(const char *name);
-
-/*
- *  Function to Match the name
- */
-int nameserver_match(void *handle, const char *name, u32 *value);
-
-/*
- *  Function to register a remote driver
- */
-int nameserver_register_remote_driver(void *handle, u16 proc_id);
-
-/*
- *  Function to unregister a remote driver
- */
-int nameserver_unregister_remote_driver(u16 proc_id);
+int nameserver_remove_entry(void *handle, void *entry);
 
 #endif /* _NAMESERVER_H_ */
-

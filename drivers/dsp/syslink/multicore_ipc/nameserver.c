@@ -28,8 +28,8 @@
 #include <multiproc.h>
 #include <nameserver_remote.h>
 
-#define NS_MAX_NAME_LEN  			32
-#define NS_MAX_RUNTIME_ENTRY 		(~0)
+#define NS_MAX_NAME_LEN				32
+#define NS_MAX_RUNTIME_ENTRY			(~0)
 #define NS_MAX_VALUE_LEN			4
 
 /*
@@ -110,14 +110,14 @@
 /*
  *  A name/value table entry
  */
-struct nameserver_entry {
+struct nameserver_table_entry {
 	struct list_head elem; /* List element */
 	u32 hash; /* Hash value */
 	char *name; /* Name portion of name/value pair */
 	u32 len; /* Length of the value field. */
 	void *buf; /* Value portion of name/value entry */
 	bool collide; /* Does the hash collides? */
-	struct nameserver_entry *next; /* Pointer to the next entry,
+	struct nameserver_table_entry *next; /* Pointer to the next entry,
 					used incase of collision only */
 };
 
@@ -127,34 +127,50 @@ struct nameserver_entry {
 struct nameserver_object {
 	struct list_head elem;
 	char *name; /* Name of the instance */
-	u32 count; /* Counter for entries */
-	struct mutex *gate_handle; /* Gate for critical regions */
 	struct list_head name_list; /* Filled entries list */
+	struct mutex *gate_handle; /* Gate for critical regions */
 	struct nameserver_params params; /* The parameter structure */
+	u32 count; /* Counter for entries */
 };
 
 
 /* nameserver module state object */
 struct nameserver_module_object {
-	struct list_head obj_list;
-	struct mutex *list_lock;
+	struct list_head obj_list; /* List holding created objects */
+	struct mutex *mod_gate_handle; /* Handle to module gate */
 	struct nameserver_remote_object **remote_handle_list;
-	atomic_t ref_count;
+	/* List of Remote driver handles for processors */
+	atomic_t ref_count; /* Reference count */
+	struct nameserver_params def_inst_params;
+	/* Default instance paramters */
+	struct nameserver_config def_cfg; /* Default module configuration */
+	struct nameserver_config cfg; /* Module configuration */
+
 };
 
 /*
  * Variable for holding state of the nameserver module.
  */
-struct nameserver_module_object nameserver_state = {
-	.obj_list     = LIST_HEAD_INIT(nameserver_state.obj_list),
-	.list_lock    = NULL,
+static struct nameserver_module_object nameserver_state = {
+	.def_cfg.reserved = 0x0,
+	.def_inst_params.max_runtime_entries = 0u,
+	.def_inst_params.table_heap = NULL,
+	.def_inst_params.check_existing = true,
+	.def_inst_params.max_value_len = 0u,
+	.def_inst_params.max_name_len = 16u,
+	.mod_gate_handle = NULL,
 	.remote_handle_list = NULL,
 };
 
 /*
+ *  Pointer to the SharedRegion module state
+ */
+static struct nameserver_module_object *nameserver_module = &(nameserver_state);
+
+/*
  * Lookup table for CRC calculation.
  */
-static const u32 string_crc_table[256u] = {
+static const u32 nameserver_crc_table[256u] = {
   0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
   0xe963a535, 0x9e6495a3, 0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
   0x09b64c2b, 0x7eb17cbd, 0xe7b82d07, 0x90bf1d91, 0x1db71064, 0x6ab020f2,
@@ -200,29 +216,56 @@ static const u32 string_crc_table[256u] = {
   0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d,
 };
 
-/*
- * ======== nameserver_setup ========
- *  Purpose:
- *  This will calculate hash for a string
- */
-static u32 nameserver_string_hash(const char *string)
+/* Function to calculate hash for a string */
+static u32 _nameserver_string_hash(const char *string);
+
+#if 0
+/* This will return true if the entry is found in the table */
+static bool _nameserver_is_entry_found(const char *name, u32 hash,
+				struct list_head *list,
+				struct nameserver_table_entry **entry);
+#endif
+
+/* This will return true if the hash is found in the table */
+static bool _nameserver_is_hash_found(const char *name, u32 hash,
+				struct list_head *list,
+				struct nameserver_table_entry **entry);
+
+/* This will return true if entry is found in the hash collide list */
+static bool _nameserver_check_for_entry(const char *name,
+					struct nameserver_table_entry **entry);
+
+/* Function to get the default configuration for the NameServer module. */
+void nameserver_get_config(struct nameserver_config *cfg)
 {
-	u32 i;
-	u32 hash ;
-	u32 len = strlen(string);
+	s32 retval = 0;
 
-	for (i = 0, hash = len; i < len; i++)
-		hash = (hash >> 8) ^
-			string_crc_table[(hash & 0xff)] ^ string[i];
+	if (WARN_ON(cfg == NULL)) {
+		retval = -EINVAL;
+		goto exit;
+	}
 
-	return hash;
+	if (atomic_cmpmask_and_lt(&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true) {
+		/* (If setup has not yet been called) */
+		memcpy(cfg, &nameserver_module->def_cfg,
+			sizeof(struct nameserver_config));
+	} else {
+		memcpy(cfg, &nameserver_module->cfg,
+			sizeof(struct nameserver_config));
+	}
+
+exit:
+	if (retval < 0) {
+		printk(KERN_ERR "nameserver_get_config failed! retval = 0x%x",
+			retval);
+	}
+	return;
 }
+EXPORT_SYMBOL(nameserver_get_config);
 
-/*
- * ======== nameserver_setup ========
- *  Purpose:
- *  This will setup the nameserver module
- */
+/* This will setup the nameserver module */
 int nameserver_setup(void)
 {
 	struct nameserver_remote_object **list = NULL;
@@ -232,86 +275,87 @@ int nameserver_setup(void)
 	/* This sets the ref_count variable if not initialized, upper 16 bits is
 	*   written with module Id to ensure correctness of refCount variable
 	*/
-	atomic_cmpmask_and_set(&nameserver_state.ref_count,
+	atomic_cmpmask_and_set(&nameserver_module->ref_count,
 				NAMESERVER_MAKE_MAGICSTAMP(0),
 				NAMESERVER_MAKE_MAGICSTAMP(0));
 
-	if (atomic_inc_return(&nameserver_state.ref_count)
+	if (atomic_inc_return(&nameserver_module->ref_count)
 				!= NAMESERVER_MAKE_MAGICSTAMP(1)) {
 		return 1;
 	}
 
-	nr_procs = multiproc_get_max_processors();
+	INIT_LIST_HEAD(&nameserver_state.obj_list),
+
+	nameserver_module->mod_gate_handle = kmalloc(sizeof(struct mutex),
+						GFP_KERNEL);
+	if (nameserver_module->mod_gate_handle == NULL) {
+		retval = -ENOMEM;
+		goto exit;
+	}
+	/* mutex is initialized with state = UNLOCKED */
+	mutex_init(nameserver_module->mod_gate_handle);
+
+	nr_procs = multiproc_get_num_processors();
 	list = kmalloc(nr_procs * sizeof(struct nameserver_remote_object *),
 					GFP_KERNEL);
 	if (list == NULL) {
 		retval = -ENOMEM;
-		goto error;
+		goto remote_alloc_fail;
 	}
+	memset(list, 0, nr_procs * sizeof(struct nameserver_remote_object *));
+	nameserver_module->remote_handle_list = list;
 
-	memset(list , 0, nr_procs * sizeof(struct nameserver_remote_object *));
-	nameserver_state.remote_handle_list = list;
-	nameserver_state.list_lock = kmalloc(sizeof(struct mutex), GFP_KERNEL);
-	if (nameserver_state.list_lock == NULL) {
-		retval = -ENOMEM;
-		goto error;
-	}
-
-	/* mutex is initialized with state = UNLOCKED */
-	mutex_init(nameserver_state.list_lock);
 	return 0;
 
-error:
-	kfree(list);
+remote_alloc_fail:
+	kfree(nameserver_module->mod_gate_handle);
+exit:
 	printk(KERN_ERR "nameserver_setup failed, retval: %x\n", retval);
 	return retval;
 }
 EXPORT_SYMBOL(nameserver_setup);
 
-/*
- * ======== nameserver_destroy ========
- *  Purpose:
- *  This will destroy the nameserver module
- */
+/* This will destroy the nameserver module */
 int nameserver_destroy(void)
 {
 	s32 retval = 0;
 	struct mutex *lock = NULL;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(&(nameserver_state.ref_count),
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
 				NAMESERVER_MAKE_MAGICSTAMP(0),
-				NAMESERVER_MAKE_MAGICSTAMP(1)) == true)) {
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
 		retval = -ENODEV;
 		goto exit;
 	}
 
-	if (!(atomic_dec_return(&nameserver_state.ref_count)
+	if (!(atomic_dec_return(&nameserver_module->ref_count)
 					== NAMESERVER_MAKE_MAGICSTAMP(0))) {
 		retval = 1;
 		goto exit;
 	}
 
-	if (WARN_ON(nameserver_state.list_lock == NULL)) {
+	if (WARN_ON(nameserver_module->mod_gate_handle == NULL)) {
 		retval = -ENODEV;
 		goto exit;
 	}
 
 	/* If a nameserver instance exist, do not proceed  */
-	if (!list_empty(&nameserver_state.obj_list)) {
+	if (!list_empty(&nameserver_module->obj_list)) {
 		retval = -EBUSY;
 		goto exit;
 	}
 
-	retval = mutex_lock_interruptible(nameserver_state.list_lock);
+	retval = mutex_lock_interruptible(nameserver_module->mod_gate_handle);
 	if (retval)
 		goto exit;
 
-	lock = nameserver_state.list_lock;
-	nameserver_state.list_lock = NULL;
+	lock = nameserver_module->mod_gate_handle;
+	nameserver_module->mod_gate_handle = NULL;
 	mutex_unlock(lock);
 	kfree(lock);
-	kfree(nameserver_state.remote_handle_list);
-	nameserver_state.remote_handle_list = NULL;
+	kfree(nameserver_module->remote_handle_list);
+	nameserver_module->remote_handle_list = NULL;
 	return 0;
 
 exit:
@@ -323,84 +367,37 @@ exit:
 }
 EXPORT_SYMBOL(nameserver_destroy);
 
-/*!
- *  Purpose:
- *  Initialize this config-params structure with supplier-specified
- *  defaults before instance creation.
- */
-int nameserver_params_init(struct nameserver_params *params)
+/* Initialize this config-params structure with supplier-specified
+ * defaults before instance creation. */
+void nameserver_params_init(struct nameserver_params *params)
 {
-	BUG_ON(params == NULL);
-	params->check_existing = true;
-	params->gate_handle = NULL;
-	params->max_name_len = NS_MAX_NAME_LEN;
-	params->max_runtime_entries = NS_MAX_RUNTIME_ENTRY;
-	params->max_value_len = NS_MAX_VALUE_LEN;
-	params->table_heap = NULL;
-	return 0;
+	s32 retval = 0;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(params == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	memcpy(params, &nameserver_module->def_inst_params,
+		sizeof(struct nameserver_params));
+
+exit:
+	if (retval < 0) {
+		printk(KERN_ERR "nameserver_params_init failed! status = 0x%x",
+			retval);
+	}
+	return;
 }
 EXPORT_SYMBOL(nameserver_params_init);
 
-/*
- * ======== nameserver_get_params ========
- *  Purpose:
- *  This will initialize config-params structure with
- *  supplier-specified defaults before instance creation
- */
-int nameserver_get_params(void *handle,
-		struct nameserver_params *params)
-{
-	struct nameserver_object *nshandle = NULL;
-
-	BUG_ON(params == NULL);
-	if (handle == NULL) {
-		params->check_existing       = true;
-		params->max_name_len         = NS_MAX_NAME_LEN;
-		params->max_runtime_entries  = NS_MAX_RUNTIME_ENTRY;
-		params->max_value_len        = NS_MAX_VALUE_LEN;
-		params->gate_handle          = NULL;
-		params->table_heap    	     = NULL;
-	} else {
-		nshandle = (struct nameserver_object *)handle;
-		params->check_existing 	 = nshandle->params.check_existing;
-		params->max_name_len 	 = nshandle->params.max_name_len;
-		params->max_runtime_entries  =
-					nshandle->params.max_runtime_entries;
-		params->max_value_len    = nshandle->params.max_value_len;
-		params->gate_handle      = nshandle->params.gate_handle;
-		params->table_heap      = nshandle->params.table_heap;
-	}
-	return 0;
-}
-EXPORT_SYMBOL(nameserver_get_params);
-
-/*
- * ======== nameserver_get_params ========
- *  Purpose:
- *  This will get the handle of a nameserver instance
- *  from name
- */
-void *nameserver_get_handle(const char *name)
-{
-	struct nameserver_object *obj = NULL;
-
-	BUG_ON(name == NULL);
-	list_for_each_entry(obj, &nameserver_state.obj_list, elem) {
-		if (strcmp(obj->name, name) == 0)
-			goto succes;
-	}
-	return NULL;
-
-succes:
-	return (void *)obj;
-}
-EXPORT_SYMBOL(nameserver_get_handle);
-
-/*
- * ======== nameserver_create ========
- *  Purpose:
- *  This will create a name server instance
- */
+/* This will create a name server instance */
 void *nameserver_create(const char *name,
 			const struct nameserver_params *params)
 {
@@ -408,8 +405,21 @@ void *nameserver_create(const char *name,
 	u32 name_len;
 	s32 retval = 0;
 
-	BUG_ON(name == NULL);
-	BUG_ON(params == NULL);
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(params == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(name == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
 
 	name_len = strlen(name) + 1;
 	if (name_len > params->max_name_len) {
@@ -417,7 +427,7 @@ void *nameserver_create(const char *name,
 		goto exit;
 	}
 
-	retval = mutex_lock_interruptible(nameserver_state.list_lock);
+	retval = mutex_lock_interruptible(nameserver_module->mod_gate_handle);
 	if (retval)
 		goto exit;
 
@@ -441,15 +451,13 @@ void *nameserver_create(const char *name,
 	}
 
 	strncpy(new_obj->name, name, name_len);
-	memcpy(&new_obj->params, params,
-				sizeof(struct nameserver_params));
+	memcpy(&new_obj->params, params, sizeof(struct nameserver_params));
 	if (params->max_value_len < sizeof(u32))
 		new_obj->params.max_value_len = sizeof(u32);
 	else
 		new_obj->params.max_value_len = params->max_value_len;
 
-	new_obj->gate_handle =
-				kmalloc(sizeof(struct mutex), GFP_KERNEL);
+	new_obj->gate_handle = kmalloc(sizeof(struct mutex), GFP_KERNEL);
 	if (new_obj->gate_handle == NULL) {
 			retval = -ENOMEM;
 			goto error_mutex;
@@ -459,8 +467,9 @@ void *nameserver_create(const char *name,
 	new_obj->count = 0;
 	/* Put in the nameserver instance to local list */
 	INIT_LIST_HEAD(&new_obj->name_list);
-	list_add_tail(&new_obj->elem, &nameserver_state.obj_list);
-	mutex_unlock(nameserver_state.list_lock);
+	INIT_LIST_HEAD(&new_obj->elem);
+	list_add(&new_obj->elem, &nameserver_module->obj_list);
+	mutex_unlock(nameserver_module->mod_gate_handle);
 	return (void *)new_obj;
 
 error_mutex:
@@ -468,29 +477,135 @@ error_mutex:
 error:
 	kfree(new_obj);
 error_handle:
-	mutex_unlock(nameserver_state.list_lock);
+	mutex_unlock(nameserver_module->mod_gate_handle);
 exit:
-	printk(KERN_ERR "nameserver_create failed retval:%x \n", retval);
+	printk(KERN_ERR "nameserver_create failed retval:%x\n", retval);
 	return NULL;
 }
 EXPORT_SYMBOL(nameserver_create);
 
+/* Function to construct a name server. */
+void nameserver_construct(void *handle, const char *name,
+				const struct nameserver_params *params)
+{
+	struct nameserver_object *obj = NULL;
+	u32 name_len = 0;
+	s32 retval = 0;
 
-/*
- * ======== nameserver_delete ========
- *  Purpose:
- *  This will delete a name server instance
- */
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(handle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(params == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(name == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(params->table_heap == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	/* check if the name is already registered or not */
+	if (nameserver_get_handle(name)) {
+		retval = -EEXIST; /* NameServer_E_ALREADYEXISTS */
+		goto exit;
+	}
+	name_len = strlen(name) + 1;
+	if (name_len > params->max_name_len) {
+		retval = -E2BIG;
+		goto exit;
+	}
+
+	obj = (struct nameserver_object *) handle;
+	/* Allocate memory for the name */
+	obj->name = kmalloc(name_len, GFP_ATOMIC);
+	if (obj->name == NULL) {
+		retval = -ENOMEM;
+		goto exit;
+	}
+
+	/* Copy the name */
+	strncpy(obj->name, name, strlen(name) + 1u);
+	/* Copy the params */
+	memcpy((void *) &obj->params, (void *) params,
+			sizeof(struct nameserver_params));
+
+	if (params->max_value_len < sizeof(u32))
+		obj->params.max_value_len = sizeof(u32);
+	else
+		obj->params.max_value_len = params->max_value_len;
+
+	/* Construct the list */
+	INIT_LIST_HEAD(&obj->name_list);
+
+	obj->gate_handle = kmalloc(sizeof(struct mutex), GFP_KERNEL);
+	if (obj->gate_handle == NULL) {
+		retval = -ENOMEM;
+		goto exit;
+	}
+	mutex_init(obj->gate_handle);
+
+	/* Initialize the count */
+	obj->count = 0u;
+
+	/* Put in the local list */
+	retval = mutex_lock_interruptible(nameserver_module->mod_gate_handle);
+	if (retval)
+		goto exit;
+	INIT_LIST_HEAD(&obj->elem);
+	list_add(&obj->elem, &nameserver_module->obj_list);
+	mutex_unlock(nameserver_module->mod_gate_handle);
+
+exit:
+	if (retval < 0) {
+		printk(KERN_ERR "nameserver_construct failed! retval = 0x%x",
+			retval);
+	}
+	return;
+}
+
+/* This will delete a name server instance */
 int nameserver_delete(void **handle)
 {
 	struct nameserver_object *temp_obj = NULL;
 	struct mutex *gate_handle = NULL;
-	bool localgate = false;
 	s32 retval = 0;
 
-	BUG_ON(handle == NULL);
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(handle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(*handle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
 	temp_obj = (struct nameserver_object *) (*handle);
-	retval = mutex_lock_interruptible(temp_obj->gate_handle);
+	if (WARN_ON(unlikely((temp_obj->name == NULL) &&
+		(nameserver_get_handle(temp_obj->name) == NULL)))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	gate_handle = temp_obj->gate_handle;
+	retval = mutex_lock_interruptible(gate_handle);
 	if (retval)
 		goto exit;
 
@@ -500,56 +615,872 @@ int nameserver_delete(void **handle)
 		goto error;
 	}
 
-	retval = mutex_lock_interruptible(nameserver_state.list_lock);
+	retval = mutex_lock_interruptible(nameserver_module->mod_gate_handle);
 	if (retval)
 		goto error;
-
 	list_del(&temp_obj->elem);
-	mutex_unlock(nameserver_state.list_lock);
-	gate_handle = temp_obj->gate_handle;
+	mutex_unlock(nameserver_module->mod_gate_handle);
+
 	/* free the memory allocated for instance name */
 	kfree(temp_obj->name);
-	/* Delete the lock handle if created internally */
-	if (temp_obj->params.gate_handle == NULL)
-		localgate = true;
+	temp_obj->name = NULL;
 
 	/* Free the memory used for handle */
+	INIT_LIST_HEAD(&temp_obj->name_list);
 	kfree(temp_obj);
 	*handle = NULL;
 	mutex_unlock(gate_handle);
-	if (localgate == true)
-		kfree(gate_handle);
+	kfree(gate_handle);
+	return 0;
+
+error:
+	mutex_unlock(gate_handle);
+exit:
+	printk(KERN_ERR "nameserver_delete failed retval:%x\n", retval);
+	return retval;
+}
+EXPORT_SYMBOL(nameserver_delete);
+
+/* Function to destroy a name server. */
+void nameserver_destruct(void *handle)
+{
+	struct nameserver_object *obj = NULL;
+	struct mutex *gate_handle = NULL;
+	s32 retval = 0;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(handle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	obj = (struct nameserver_object *) handle;
+	if (nameserver_get_handle(obj->name) == NULL) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	/* enter the critical section */
+	gate_handle = obj->gate_handle;
+	retval = mutex_lock_interruptible(gate_handle);
+	if (retval)
+		goto exit;
+	/* Do not proceed if an entry in the in the table */
+	if (obj->count != 0) {
+		retval = -EBUSY;
+		goto error;
+	}
+
+	retval = mutex_lock_interruptible(nameserver_module->mod_gate_handle);
+	if (retval)
+		goto error;
+	list_del(&obj->elem);
+	mutex_unlock(nameserver_module->mod_gate_handle);
+
+	/* free the memory allocated for the name */
+	kfree(obj->name);
+	obj->name = NULL;
+
+	/* Destruct the list */
+	INIT_LIST_HEAD(&obj->name_list);
+
+	/* Free the memory used for obj */
+	memset(obj, 0, sizeof(struct nameserver_object));
+
+	/* leave the critical section */
+	mutex_unlock(gate_handle);
+	kfree(gate_handle);
+	return;
+
+error:
+	/* leave the critical section */
+	mutex_unlock(obj->gate_handle);
+
+exit:
+	printk(KERN_ERR "nameserver_destruct failed! status = 0x%x", retval);
+	return;
+}
+
+/* This will add an entry into a nameserver instance */
+void *nameserver_add(void *handle, const char *name,
+		void *buf, u32 len)
+{
+	struct nameserver_table_entry *node = NULL;
+	struct nameserver_table_entry *new_node = NULL;
+	struct nameserver_object *temp_obj = NULL;
+	bool found = false;
+	bool exact_entry = false;
+	u32 hash;
+	u32 name_len;
+	s32 retval = 0;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(handle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(name == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(buf == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(len == 0))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	temp_obj = (struct nameserver_object *)handle;
+	retval = mutex_lock_interruptible(temp_obj->gate_handle);
+	if (retval)
+		goto exit;
+	if (temp_obj->count >= temp_obj->params.max_runtime_entries) {
+		retval = -ENOSPC;
+		goto error;
+	}
+
+	/* make the null char in to account */
+	name_len = strlen(name) + 1;
+	if (name_len > temp_obj->params.max_name_len) {
+		retval = -E2BIG;
+		goto error;
+	}
+
+	/* TODO : hash and collide ?? */
+	hash = _nameserver_string_hash(name);
+	found = _nameserver_is_hash_found(name, hash,
+					&temp_obj->name_list, &node);
+	if (found == true)
+		exact_entry = _nameserver_check_for_entry(name, &node);
+
+	if (exact_entry == true && temp_obj->params.check_existing == true) {
+		retval = -EEXIST;
+		goto error;
+	}
+
+	new_node = kmalloc(sizeof(struct nameserver_table_entry), GFP_KERNEL);
+	if (new_node == NULL) {
+		retval = -ENOMEM;
+		goto error;
+	}
+
+	new_node->hash    = hash;
+	new_node->collide = found;
+	new_node->len     = len;
+	new_node->next    = NULL;
+	new_node->name    = kmalloc(name_len, GFP_KERNEL);
+	if (new_node->name == NULL) {
+		retval = -ENOMEM;
+		goto error_name;
+	}
+	new_node->buf  = kmalloc(len, GFP_KERNEL);
+	if (new_node->buf == NULL) {
+		retval = -ENOMEM;
+		goto error_buf;
+	}
+
+	strncpy(new_node->name, name, name_len);
+	memcpy(new_node->buf, buf, len);
+	if (found == true) {
+		/* If hash is found, need to stitch the list to link the
+		* new node to the existing node with the same hash. */
+		new_node->next = node->next;
+		node->next = new_node;
+		node->collide = found;
+	} else
+		list_add(&new_node->elem, &temp_obj->name_list);
+	temp_obj->count++;
+	mutex_unlock(temp_obj->gate_handle);
+	return new_node;
+
+error_buf:
+	kfree(new_node->name);
+error_name:
+	kfree(new_node);
+error:
+	mutex_unlock(temp_obj->gate_handle);
+exit:
+	printk(KERN_ERR "nameserver_add failed status: %x\n", retval);
+	return NULL;
+}
+EXPORT_SYMBOL(nameserver_add);
+
+/* This will add a Uint32 value into a nameserver instance */
+void *nameserver_add_uint32(void *handle, const char *name,
+			u32 value)
+{
+	s32 retval = 0;
+	struct nameserver_table_entry *new_node = NULL;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(handle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(name == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	new_node = nameserver_add(handle, name, &value, sizeof(u32));
+
+exit:
+	if (retval < 0 || new_node == NULL) {
+		printk(KERN_ERR "nameserver_add_uint32 failed! status = 0x%x "
+			"new_node = 0x%x", retval, (u32)new_node);
+	}
+	return new_node;
+}
+EXPORT_SYMBOL(nameserver_add_uint32);
+
+/* This will remove a name/value pair from a name server */
+int nameserver_remove(void *handle, const char *name)
+{
+	struct nameserver_object *temp_obj = NULL;
+	struct nameserver_table_entry *entry = NULL;
+	struct nameserver_table_entry *prev = NULL;
+	bool found = false;
+	u32 hash;
+	u32 name_len;
+	s32 retval = 0;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(handle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(name == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	temp_obj = (struct nameserver_object *)handle;
+	name_len = strlen(name) + 1;
+	if (name_len > temp_obj->params.max_name_len) {
+		retval = -E2BIG;
+		goto exit;
+	}
+
+	retval = mutex_lock_interruptible(temp_obj->gate_handle);
+	if (retval)
+		goto exit;
+
+	hash = _nameserver_string_hash(name);
+	found = _nameserver_is_hash_found(name, hash,
+					&temp_obj->name_list, &entry);
+	if (found == false) {
+		retval = -ENOENT;
+		goto error;
+	}
+
+	if (entry->collide == true) {
+		if (strcmp(entry->name, name) == 0u) {
+			kfree(entry->buf);
+			kfree(entry->name);
+			entry->hash = entry->next->hash;
+			entry->name = entry->next->name;
+			entry->len = entry->next->len;
+			entry->buf = entry->next->buf;
+			entry->collide = entry->next->collide;
+			entry->next = entry->next->next;
+			kfree(entry->next);
+			temp_obj->count--;
+		} else {
+			found = false;
+			prev = entry;
+			entry = entry->next;
+			while (entry) {
+				if (strcmp(entry->name, name) == 0u) {
+					kfree(entry->buf);
+					kfree(entry->name);
+					prev->next = entry->next;
+					kfree(entry);
+					temp_obj->count--;
+					found = true;
+					break;
+				}
+				prev = entry;
+				entry = entry->next;
+			}
+			if (found == false) {
+				retval = -ENOENT;
+				goto error;
+			}
+		}
+	} else {
+		kfree(entry->buf);
+		kfree(entry->name);
+		list_del(&entry->elem);
+		kfree(entry);
+		temp_obj->count--;
+	}
+
+	mutex_unlock(temp_obj->gate_handle);
 	return 0;
 
 error:
 	mutex_unlock(temp_obj->gate_handle);
 exit:
-	printk(KERN_ERR "nameserver_delete failed retval:%x \n", retval);
+	printk(KERN_ERR "nameserver_remove failed status:%x\n", retval);
 	return retval;
 }
-EXPORT_SYMBOL(nameserver_delete);
+EXPORT_SYMBOL(nameserver_remove);
 
-/*
- * ======== nameserver_is_entry_found ========
- *  Purpose:
- *  This will  return true if the entry fond in the table
- */
-static bool nameserver_is_entry_found(const char *name, u32 hash,
-				struct list_head *list,
-				struct nameserver_entry **entry)
+/* This will  remove a name/value pair from a name server */
+int nameserver_remove_entry(void *nshandle, void *nsentry)
 {
-	struct nameserver_entry *node = NULL;
+	struct nameserver_table_entry *node = NULL;
+	struct nameserver_object *obj = NULL;
+	s32 retval = 0;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(nshandle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(nsentry == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	obj = (struct nameserver_object *)nshandle;
+	node = (struct nameserver_table_entry *)nsentry;
+	retval = mutex_lock_interruptible(obj->gate_handle);
+	if (retval)
+		goto exit;
+
+	kfree(node->buf);
+	kfree(node->name);
+	list_del(&node->elem);
+	kfree(node);
+	obj->count--;
+	mutex_unlock(obj->gate_handle);
+	return 0;
+
+exit:
+	printk(KERN_ERR "nameserver_remove_entry failed status:%x\n", retval);
+	return retval;
+}
+EXPORT_SYMBOL(nameserver_remove_entry);
+
+
+/* This will retrieve the value portion of a name/value
+ * pair from local table */
+int nameserver_get_local(void *handle, const char *name,
+			void *value, u32 *len)
+{
+	struct nameserver_object *temp_obj = NULL;
+	struct nameserver_table_entry *entry = NULL;
+	bool found = false;
+	u32 hash;
+	u32 length = 0;
+	s32 retval = 0;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(handle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(name == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(value == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(len == 0))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(*len == 0))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	length = *len;
+	temp_obj = (struct nameserver_object *)handle;
+	retval = mutex_lock_interruptible(temp_obj->gate_handle);
+	if (retval)
+		goto exit;
+
+	hash = _nameserver_string_hash(name);
+	found = _nameserver_is_hash_found(name, hash,
+					&temp_obj->name_list, &entry);
+	if (found == false) {
+		retval = -ENOENT;
+		goto error;
+	}
+
+	if (entry->collide == true) {
+		found = _nameserver_check_for_entry(name, &entry);
+		if (found == false) {
+			retval = -ENOENT;
+			goto error;
+		}
+	}
+
+	if (entry->len >= length) {
+		memcpy(value, entry->buf, length);
+		*len = length;
+	} else {
+		memcpy(value, entry->buf, entry->len);
+		*len = entry->len;
+	}
+
+error:
+	mutex_unlock(temp_obj->gate_handle);
+
+exit:
+	if (retval < 0)
+		printk(KERN_ERR "nameserver_get_local entry not found!\n");
+	return retval;
+}
+EXPORT_SYMBOL(nameserver_get_local);
+
+/* This will retrieve the value portion of a name/value
+ * pair from local table */
+int nameserver_get(void *handle, const char *name,
+		void *value, u32 *len, u16 proc_id[])
+{
+	struct nameserver_object *temp_obj = NULL;
+	u16 max_proc_id;
+	u16 local_proc_id;
+	s32 retval = -ENOENT;
+	u32 i;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(handle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(name == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(value == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(len == 0))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(*len == 0))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	temp_obj = (struct nameserver_object *)handle;
+	max_proc_id = multiproc_get_num_processors();
+	local_proc_id = multiproc_self();
+	if (proc_id == NULL) {
+		retval = nameserver_get_local(temp_obj, name, value, len);
+		if (retval == -ENOENT) {
+			for (i = 0; i < max_proc_id; i++) {
+				/* Skip current processor */
+				if (i == local_proc_id)
+					continue;
+
+				if (nameserver_module->remote_handle_list[i] \
+					== NULL)
+					continue;
+
+				retval = nameserver_remote_get(
+						nameserver_module->
+						remote_handle_list[i],
+						temp_obj->name, name, value,
+						len, NULL);
+				if (retval >= 0 || ((retval < 0) &&
+					(retval != -ENOENT)))
+					break;
+			}
+		}
+		goto exit;
+	}
+
+	for (i = 0; i < max_proc_id; i++) {
+		/* Skip processor with invalid id */
+		if (proc_id[i] == MULTIPROC_INVALIDID)
+			continue;
+
+		if (i == local_proc_id) {
+			retval = nameserver_get_local(temp_obj,
+							name, value, len);
+		} else {
+			retval = nameserver_remote_get(
+					nameserver_module->
+					remote_handle_list[proc_id[i]],
+					temp_obj->name, name, value, len, NULL);
+		}
+		if (retval >= 0 || ((retval < 0) && (retval != -ENOENT)))
+			break;
+	}
+
+exit:
+	if (retval < 0)
+		printk(KERN_ERR "nameserver_get failed: status=%x\n", retval);
+	return retval;
+}
+EXPORT_SYMBOL(nameserver_get);
+
+/* Gets a 32-bit value by name */
+int nameserver_get_uint32(void *handle, const char *name, void *value,
+				u16 proc_id[])
+{
+	/* Initialize retval to not found */
+	int retval = -ENOENT;
+	u32 len = sizeof(u32);
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(handle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(name == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(value == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	retval = nameserver_get(handle, name, value, &len, proc_id);
+
+exit:
+	/* -ENOENT is a valid run-time failure. */
+	if ((retval < 0) && (retval != -ENOENT)) {
+		printk(KERN_ERR "nameserver_get_uint32 failed! status = 0x%x",
+			retval);
+	}
+	return retval;
+}
+EXPORT_SYMBOL(nameserver_get_uint32);
+
+/* Gets a 32-bit value by name from the local table
+ *
+ * If the name is found, the 32-bit value is copied into the value
+ * argument and a success retval is returned.
+ *
+ * If the name is not found, zero is returned in len and the contents
+ * of value are not modified. Not finding a name is not considered
+ * an error.
+ *
+ * This function only searches the local name/value table. */
+int nameserver_get_local_uint32(void *handle, const char *name, void *value)
+{
+	int retval = 0;
+	u32 len = sizeof(u32);
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(handle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(name == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(value == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	retval = nameserver_get_local(handle, name, value, &len);
+
+exit:
+	/* -ENOENT is a valid run-time failure. */
+	if ((retval < 0) && (retval != -ENOENT)) {
+		printk(KERN_ERR "nameserver_get_local_uint32 failed! "
+			"status = 0x%x", retval);
+	}
+	return retval;
+}
+EXPORT_SYMBOL(nameserver_get_local_uint32);
+
+/* This will retrieve the value portion of a name/value
+ * pair from local table. Returns the number of characters that
+ * matched with an entry. So if "abc" was an entry and you called
+ * match with "abcd", this function will have the "abc" entry.
+ * The return would be 3 since three characters matched */
+int nameserver_match(void *handle, const char *name, u32 *value)
+{
+	struct nameserver_object *temp_obj = NULL;
+	struct nameserver_table_entry *node = NULL;
+	struct nameserver_table_entry *temp = NULL;
+	u32 len = 0;
+	u32 found_len = 0;
+	s32 retval = 0;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(handle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(name == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(value == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	temp_obj = (struct nameserver_object *)handle;
+	retval = mutex_lock_interruptible(temp_obj->gate_handle);
+	if (retval)
+		goto exit;
+	list_for_each_entry(node, &temp_obj->name_list, elem) {
+		temp = node;
+		while (temp) {
+			len = strlen(temp->name);
+			if (len > found_len) {
+				if (strncmp(temp->name, name, len) == 0u) {
+					*value = (u32)temp->buf;
+					found_len = len;
+				}
+			}
+			temp = temp->next;
+		}
+	}
+	mutex_unlock(temp_obj->gate_handle);
+
+exit:
+	if (retval < 0)
+		printk(KERN_ERR "nameserver_match failed status:%x\n", retval);
+	return found_len;
+}
+EXPORT_SYMBOL(nameserver_match);
+
+/* This will get the handle of a nameserver instance from name */
+void *nameserver_get_handle(const char *name)
+{
+	struct nameserver_object *obj = NULL;
+	bool found = false;
+	s32 retval = 0;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(name == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	list_for_each_entry(obj, &nameserver_module->obj_list, elem) {
+		if (strcmp(obj->name, name) == 0) {
+			found = true;
+			break;
+		}
+	}
+	if (found == false) {
+		retval = -ENOENT;
+		goto exit;
+	}
+	return (void *)obj;
+
+exit:
+	printk(KERN_ERR "nameserver_get_handle failed! status = 0x%x", retval);
+	return (void *)NULL;
+}
+EXPORT_SYMBOL(nameserver_get_handle);
+
+/* =============================================================================
+ * Internal functions
+ * =============================================================================
+ */
+/* Function to register a remote driver for a processor */
+int nameserver_register_remote_driver(void *handle, u16 proc_id)
+{
+	s32 retval = 0;
+	u16 proc_count;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(handle == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	proc_count = multiproc_get_num_processors();
+	if (WARN_ON(unlikely(proc_id >= proc_count))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	nameserver_module->remote_handle_list[proc_id] = \
+		(struct nameserver_remote_object *)handle;
+	return 0;
+
+exit:
+	printk(KERN_ERR "nameserver_register_remote_driver failed! "
+		"status:%x\n", retval);
+	return retval;
+}
+EXPORT_SYMBOL(nameserver_register_remote_driver);
+
+/* Function to unregister a remote driver. */
+int nameserver_unregister_remote_driver(u16 proc_id)
+{
+	s32 retval = 0;
+	u16 proc_count;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+
+	proc_count = multiproc_get_num_processors();
+	if (WARN_ON(proc_id >= proc_count)) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	nameserver_module->remote_handle_list[proc_id] = NULL;
+	return 0;
+
+exit:
+	printk(KERN_ERR "nameserver_unregister_remote_driver failed! "
+		"status:%x\n", retval);
+	return retval;
+}
+EXPORT_SYMBOL(nameserver_unregister_remote_driver);
+
+/* Determines if a remote driver is registered for the specified id. */
+bool nameserver_is_registered(u16 proc_id)
+{
+	bool registered = false;
+	s32 retval = 0;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+				&(nameserver_module->ref_count),
+				NAMESERVER_MAKE_MAGICSTAMP(0),
+				NAMESERVER_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(proc_id >= multiproc_get_num_processors()))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	registered = (nameserver_module->remote_handle_list[proc_id] != NULL);
+
+exit:
+	if (retval < 0) {
+		printk(KERN_ERR "nameserver_is_registered failed! "
+			"status = 0x%x", retval);
+	}
+	return registered;
+}
+EXPORT_SYMBOL(nameserver_is_registered);
+
+/* Function to calculate hash for a string */
+static u32 _nameserver_string_hash(const char *string)
+{
+	u32 i;
+	u32 hash ;
+	u32 len = strlen(string);
+
+	for (i = 0, hash = len; i < len; i++)
+		hash = (hash >> 8) ^
+			nameserver_crc_table[(hash & 0xff)] ^ string[i];
+
+	return hash;
+}
+
+#if 0
+/* This will return true if the entry is found in the table */
+static bool _nameserver_is_entry_found(const char *name, u32 hash,
+				struct list_head *list,
+				struct nameserver_table_entry **entry)
+{
+	struct nameserver_table_entry *node = NULL;
 	bool hash_match = false;
 	bool name_match = false;
 
-
 	list_for_each_entry(node, list, elem) {
-		/* Hash not matchs, take next node	*/
+		/* Hash not matches, take next node */
 		if (node->hash == hash)
 			hash_match = true;
 		else
 			continue;
-		/* If the name matchs, incase hash is duplicate */
+		/* If the name matches, incase hash is duplicate */
 		if (strcmp(node->name, name) == 0)
 			name_match = true;
 
@@ -564,442 +1495,46 @@ static bool nameserver_is_entry_found(const char *name, u32 hash,
 	}
 	return false;
 }
+#endif
 
-/*
- * ======== nameserver_add ========
- *  Purpose:
- *  This will  add an entry into a nameserver instance
- */
-void *nameserver_add(void *handle, const char *name,
-		void  *buffer, u32 length)
+/* This will return true if the hash is found in the table */
+static bool _nameserver_is_hash_found(const char *name, u32 hash,
+				struct list_head *list,
+				struct nameserver_table_entry **entry)
 {
-	struct nameserver_entry *new_node = NULL;
-	struct nameserver_object *temp_obj = NULL;
-	bool found = false;
-	u32 hash;
-	u32 name_len;
-	s32 retval = 0;
+	struct nameserver_table_entry *node = NULL;
 
-	BUG_ON(handle == NULL);
-	BUG_ON(name == NULL);
-	BUG_ON(buffer == NULL);
-	if (WARN_ON(length == 0)) {
-		retval = -EINVAL;
-		goto exit;
-	}
+	/* No parameter checking as function is internal */
 
-	temp_obj = (struct nameserver_object *)handle;
-	retval = mutex_lock_interruptible(temp_obj->gate_handle);
-	if (retval)
-		goto exit;
-
-	if (temp_obj->count >= temp_obj->params.max_runtime_entries) {
-		retval = -ENOSPC;
-		goto error;
-	}
-
-	/* make the null char in to account */
-	name_len = strlen(name) + 1;
-	if (name_len > temp_obj->params.max_name_len) {
-		retval = -E2BIG;
-		goto error;
-	}
-
-	/* TODO : hash and collide ?? */
-	hash = nameserver_string_hash(name);
-	found = nameserver_is_entry_found(name, hash,
-					&temp_obj->name_list, &new_node);
-	if (found == true) {
-		retval = -EEXIST;
-		goto error_entry;
-	}
-
-	new_node = kmalloc(sizeof(struct nameserver_entry), GFP_KERNEL);
-	if (new_node == NULL) {
-		retval = -ENOMEM;
-		goto error;
-	}
-
-	new_node->hash    = hash;
-	new_node->collide = true;
-	new_node->len     = length;
-	new_node->next    = NULL;
-	new_node->name    = kmalloc(name_len, GFP_KERNEL);
-	if (new_node->name == NULL) {
-		retval = -ENOMEM;
-		goto error;
-	}
-
-	new_node->buf  = kmalloc(length, GFP_KERNEL);
-	if (new_node->buf == NULL) {
-		retval = -ENOMEM;
-		goto error1;
-	}
-
-	strncpy(new_node->name, name, name_len);
-	memcpy(new_node->buf, buffer, length);
-	list_add_tail(&new_node->elem, &temp_obj->name_list);
-	temp_obj->count++;
-	mutex_unlock(temp_obj->gate_handle);
-	return new_node;
-
-error1:
-	kfree(new_node->name);
-error:
-	kfree(new_node);
-error_entry:
-	mutex_unlock(temp_obj->gate_handle);
-exit:
-	printk(KERN_ERR "nameserver_add failed status: %x \n", retval);
-	return NULL;
-
-}
-EXPORT_SYMBOL(nameserver_add);
-
-/*
- * ======== nameserver_add_uint32 ========
- *  Purpose:
- *  This will  a Uint32 value into a nameserver instance
- */
-void *nameserver_add_uint32(void *handle, const char *name,
-			u32 value)
-{
-	struct nameserver_entry *new_node = NULL;
-	BUG_ON(handle == NULL);
-	BUG_ON(name == NULL);
-
-	new_node = nameserver_add(handle, name, &value, sizeof(u32));
-	return new_node;
-}
-EXPORT_SYMBOL(nameserver_add_uint32);
-
-/*
- * ======== nameserver_remove ========
- *  Purpose:
- *  This will  remove a name/value pair from a name server
- */
-int nameserver_remove(void *handle, const char *name)
-{
-	struct nameserver_object *temp_obj = NULL;
-	struct nameserver_entry *entry = NULL;
-	bool found = false;
-	u32 hash;
-	u32 name_len;
-	s32 retval = 0;
-
-	BUG_ON(handle == NULL);
-	BUG_ON(name == NULL);
-
-	temp_obj = (struct nameserver_object *)handle;
-	name_len = strlen(name) + 1;
-	if (name_len > temp_obj->params.max_name_len) {
-		retval = -E2BIG;
-		goto exit;
-	}
-
-	retval = mutex_lock_interruptible(temp_obj->gate_handle);
-	if (retval)
-		goto exit;
-
-	/* TODO :check collide & hash usage */
-	hash = nameserver_string_hash(name);
-	found = nameserver_is_entry_found(name, hash,
-					&temp_obj->name_list, &entry);
-	if (found == false) {
-		retval = -ENOENT;
-		goto error;
-	}
-
-	kfree(entry->buf);
-	kfree(entry->name);
-	list_del(&entry->elem);
-	kfree(entry);
-	temp_obj->count--;
-	mutex_unlock(temp_obj->gate_handle);
-	return 0;
-
-error:
-	mutex_unlock(temp_obj->gate_handle);
-
-exit:
-	printk(KERN_ERR "nameserver_remove failed status:%x \n", retval);
-	return retval;
-}
-EXPORT_SYMBOL(nameserver_remove);
-
-/*
- * ======== nameserver_remove_entry ========
- *  Purpose:
- *  This will  remove a name/value pair from a name server
- */
-int nameserver_remove_entry(void *nshandle, void *nsentry)
-{
-	struct nameserver_entry *node = NULL;
-	struct nameserver_object *handle = NULL;
-	s32 retval = 0;
-
-	BUG_ON(nshandle == NULL);
-	BUG_ON(nsentry == NULL);
-
-	handle = (struct nameserver_object *)nshandle;
-	node = (struct nameserver_entry *)nsentry;
-	retval = mutex_lock_interruptible(handle->gate_handle);
-	if (retval)
-		goto exit;
-
-	kfree(node->buf);
-	kfree(node->name);
-	list_del(&node->elem);
-	kfree(node);
-	handle->count--;
-	mutex_unlock(handle->gate_handle);
-	return 0;
-
-exit:
-	printk(KERN_ERR "nameserver_remove_entry failed status:%x \n", retval);
-	return retval;
-}
-EXPORT_SYMBOL(nameserver_remove_entry);
-
-
-/*
- * ======== nameserver_get_local ========
- *  Purpose:
- *  This will retrieve the value portion of a name/value
- *  pair from local table
- */
-int nameserver_get_local(void *handle, const char *name,
-			void *buffer, u32 length)
-{
-	struct nameserver_object *temp_obj = NULL;
-	struct nameserver_entry *entry = NULL;
-	bool found = false;
-	u32 hash;
-	s32 retval = 0;
-
-	BUG_ON(handle == NULL);
-	BUG_ON(name == NULL);
-	BUG_ON(buffer == NULL);
-	if (WARN_ON(length == 0)) {
-		retval = -EINVAL;
-		goto exit;
-	}
-
-	temp_obj = (struct nameserver_object *)handle;
-	retval = mutex_lock_interruptible(temp_obj->gate_handle);
-	if (retval)
-		goto exit;
-
-	/* TODO :check collide & hash usage */
-	hash = nameserver_string_hash(name);
-	found = nameserver_is_entry_found(name, hash,
-					&temp_obj->name_list, &entry);
-	if (found == false) {
-		retval = -ENOENT;
-		goto error;
-	}
-
-	if (entry->len >= length) {
-		memcpy(buffer, entry->buf, length);
-		retval = length;
-	} else {
-		memcpy(buffer, entry->buf, entry->len);
-		retval = entry->len;
-	}
-
-	mutex_unlock(temp_obj->gate_handle);
-	return retval;
-
-error:
-	mutex_unlock(temp_obj->gate_handle);
-
-exit:
-	printk(KERN_ERR "nameserver_get_local entry not found!\n");
-	return retval;
-}
-EXPORT_SYMBOL(nameserver_get_local);
-
-/*
- * ======== nameserver_get ========
- *  Purpose:
- *  This will etrieve the value portion of a name/value
- *  pair from local table
- */
-int nameserver_get(void *handle, const char *name,
-		void *buffer, u32 length, u16 proc_id[])
-{
-	struct nameserver_object *temp_obj = NULL;
-	u16 max_proc_id;
-	u16 local_proc_id;
-	s32 retval = -ENOENT;
-	u32 i;
-
-	BUG_ON(handle == NULL);
-	BUG_ON(name == NULL);
-	BUG_ON(buffer == NULL);
-	if (WARN_ON(length == 0)) {
-		retval = -EINVAL;
-		goto exit;
-	}
-
-	temp_obj = (struct nameserver_object *)handle;
-	max_proc_id = multiproc_get_max_processors();
-	local_proc_id = multiproc_get_id(NULL);
-	if (proc_id == NULL) {
-		retval = nameserver_get_local(temp_obj, name,
-						buffer, length);
-		if (retval > 0) /* Got the value */
-			goto exit;
-
-		for (i = 0; i < max_proc_id; i++) {
-			/* Skip current processor */
-			if (i == local_proc_id)
-				continue;
-
-			if (nameserver_state.remote_handle_list[i] == NULL)
-				continue;
-
-			retval = nameserver_remote_get(
-					nameserver_state.remote_handle_list[i],
-					temp_obj->name, name, buffer, length);
-			if (retval > 0 || ((retval < 0) &&
-				(retval != -ENOENT))) /* Got the value */
-				break;
-		}
-		goto exit;
-	}
-
-	for (i = 0; i < max_proc_id; i++) {
-		/* Skip processor with invalid id */
-		if (proc_id[i] == MULTIPROC_INVALIDID)
-			continue;
-
-		if (i == local_proc_id) {
-			retval = nameserver_get_local(temp_obj,
-							name, buffer, length);
-			if (retval > 0)
-				break;
-
-		} else {
-			retval = nameserver_remote_get(
-				nameserver_state.remote_handle_list[proc_id[i]],
-				temp_obj->name,	name, buffer, length);
-			if (retval > 0 || ((retval < 0) &&
-				(retval != -ENOENT))) /* Got the value */
-				break;
-		}
-	}
-
-exit:
-	if (retval < 0)
-		printk(KERN_ERR "nameserver_get failed: status=%x \n", retval);
-	return retval;
-}
-EXPORT_SYMBOL(nameserver_get);
-
-/*
- * ======== nameserver_get ========
- *  Purpose:
- *  This will etrieve the value portion of a name/value
- *  pair from local table
- *
- *  Returns the number of characters that matched with an entry
- *  So if "abc" was an entry and you called match with "abcd", this
- *  function will have the "abc" entry. The return would be 3 since
- *  three characters matched
- *
- */
-int nameserver_match(void *handle, const char *name, u32 *value)
-{
-	struct nameserver_object *temp_obj = NULL;
-	struct nameserver_entry *node = NULL;
-	s32 retval = 0;
-	u32 hash;
-	bool found = false;
-
-	BUG_ON(handle == NULL);
-	BUG_ON(name == NULL);
-	BUG_ON(value == NULL);
-
-	temp_obj = (struct nameserver_object *)handle;
-	retval = mutex_lock_interruptible(temp_obj->gate_handle);
-	if (retval)
-		goto exit;
-
-	hash = nameserver_string_hash(name);
-	list_for_each_entry(node, &temp_obj->name_list, elem) {
+	list_for_each_entry(node, list, elem) {
+		/* Hash not matches, take next node */
 		if (node->hash == hash) {
-			*value = *(u32 *)node->buf;
-			found = true;
+			*entry = node;
+			return true;
 		}
 	}
-
-	if (found == false)
-		retval = -ENOENT;
-
-	mutex_unlock(temp_obj->gate_handle);
-
-exit:
-	if (retval < 0)
-		printk(KERN_ERR "nameserver_match failed status:%x \n", retval);
-	return retval;
+	return false;
 }
-EXPORT_SYMBOL(nameserver_match);
 
-/*
- * ======== nameserver_register_remote_driver ========
- *  Purpose:
- *  This will register a remote driver for a processor
- */
-int nameserver_register_remote_driver(void *handle, u16 proc_id)
+/* This will return true if entry is found in the hash collide list */
+static bool _nameserver_check_for_entry(const char *name,
+					struct nameserver_table_entry **entry)
 {
-	struct nameserver_remote_object *temp = NULL;
-	s32 retval = 0;
-	u16 proc_count;
+	struct nameserver_table_entry *temp = NULL;
+	bool found = false;
 
-	BUG_ON(handle == NULL);
-	proc_count = multiproc_get_max_processors();
-	if (WARN_ON(proc_id >= proc_count)) {
-		retval = -EINVAL;
-		goto exit;
+	/* No parameter checking as function is internal */
+
+	temp = *entry;
+	while (temp) {
+		if (strcmp(((struct nameserver_table_entry *)temp)->name,
+				name) == 0u) {
+			*entry = temp;
+			found = true;
+			break;
+		}
+		temp = temp->next;
 	}
 
-	temp = (struct nameserver_remote_object *)handle;
-	nameserver_state.remote_handle_list[proc_id] = temp;
-	return 0;
-
-exit:
-	printk(KERN_ERR
-			"nameserver_register_remote_driver failed status:%x \n",
-			retval);
-	return retval;
+	return found;
 }
-EXPORT_SYMBOL(nameserver_register_remote_driver);
-
-/*
- * ======== nameserver_unregister_remote_driver ========
- *  Purpose:
- *  This will unregister a remote driver for a  processor
- */
-int nameserver_unregister_remote_driver(u16 proc_id)
-{
-	s32 retval = 0;
-	u16 proc_count;
-
-	proc_count = multiproc_get_max_processors();
-	if (WARN_ON(proc_id >= proc_count)) {
-		retval = -EINVAL;
-		goto exit;
-	}
-
-	nameserver_state.remote_handle_list[proc_id] = NULL;
-	return 0;
-
-exit:
-	printk(KERN_ERR
-		"nameserver_unregister_remote_driver failed status:%x \n",
-		retval);
-	return retval;
-}
-EXPORT_SYMBOL(nameserver_unregister_remote_driver);
-
