@@ -1012,23 +1012,6 @@ int notify_ducatidrv_sendevent(struct notify_driver_object *handle,
 				information to theremote processor */
 				status = omap_mbox_msg_send(ducati_mbox,
 								payload);
-				i = 0;
-				while ((other_event_chart[event_no].flag
-					!= DOWN)
-					&& status == 0) {
-					/* Leave critical section protection
-					Create a window of opportunity
-					for other interrupts to be handled.
-					*/
-					i++;
-					if ((max_poll_count != (int) -1)
-					&&	(i == max_poll_count)) {
-						status = -EBUSY;
-						printk(KERN_ERR "NOTIFY-remote"
-						"not processed event %d\n",
-						event_no);
-					}
-				}
 			}
 			/* Leave critical section protection. */
 			mutex_unlock(notify_ducatidriver_state.gate_handle);
