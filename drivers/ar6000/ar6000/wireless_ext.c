@@ -1813,6 +1813,9 @@ ar6000_ioctl_siwscan(struct net_device *dev,
     wait_event_interruptible_timeout(ar6000_scan_queue, ar->scan_complete,
 				     5 * HZ);
 
+    if (ar->arWmiReady == FALSE || ar->arWlanState == WLAN_DISABLED)
+	return -EIO;
+
     if (wmi_bssfilter_cmd(ar->arWmi, NONE_BSS_FILTER, 0) != A_OK) {
 	    printk("Couldn't set filtering\n");
 	    ret = -EIO;
