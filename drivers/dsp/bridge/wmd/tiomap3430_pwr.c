@@ -728,33 +728,3 @@ void DSPClkWakeupEventCtrl(u32 ClkId, bool enable)
 	break;
 	}
 }
-
-/*
- *  ======== tiomap3430_bump_dsp_opp_level ========
- *  	This function bumps DSP OPP level if it is OPP1
- */
-DSP_STATUS tiomap3430_bump_dsp_opp_level(void)
-{
-#ifdef CONFIG_BRIDGE_DVFS
-	struct WMD_DEV_CONTEXT *dwContext;
-	struct DEV_OBJECT *hDevObject =
-			(struct DEV_OBJECT *)DRV_GetFirstDevObject();
-	struct dspbridge_platform_data *pdata =
-			omap_dspbridge_dev->dev.platform_data;
-
-	if (DSP_FAILED(DEV_GetWMDContext(hDevObject, &dwContext)))
-		return DSP_EFAIL;
-
-	if (dwContext->dwBrdState == BRD_DSP_HIBERNATION ||
-	    dwContext->dwBrdState == BRD_HIBERNATION) {
-		/*
-		 * Increase OPP before waking up the DSP.
-		 */
-		(*pdata->dsp_set_min_opp)(min_active_opp);
-		dev_dbg(bridge, "CHNLSM_InterruptDSP: Setting "
-			"the vdd1 constraint level to %d before "
-			"waking DSP \n", min_active_opp);
-	}
-#endif
-	return DSP_SOK;
-}

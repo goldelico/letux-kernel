@@ -381,14 +381,6 @@ DSP_STATUS sm_interrupt_dsp(struct WMD_DEV_CONTEXT *pDevContext,
 	if (!pDevContext->mbox)
 		return DSP_SOK;
 
-#ifdef CONFIG_BRIDGE_DVFS
-	if (pDevContext->dwBrdState == BRD_DSP_HIBERNATION ||
-	    pDevContext->dwBrdState == BRD_HIBERNATION) {
-		if (!in_atomic())
-			tiomap3430_bump_dsp_opp_level();
-	}
-#endif
-
 	if (pDevContext->dwBrdState == BRD_DSP_HIBERNATION ||
 	    pDevContext->dwBrdState == BRD_HIBERNATION) {
 		/* Restart the peripheral clocks */

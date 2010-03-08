@@ -1063,7 +1063,6 @@ void IO_Schedule(struct IO_MGR *pIOMgr)
 
 	if (!MEM_IsValidHandle(pIOMgr, IO_MGRSIGNATURE))
 		return;
-	tiomap3430_bump_dsp_opp_level();
 
 	/* Increment count of DPC's pending. */
 	spin_lock_irqsave(&pIOMgr->dpc_lock, flags);
