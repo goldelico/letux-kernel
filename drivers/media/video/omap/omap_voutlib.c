@@ -34,6 +34,8 @@
 #include <linux/semaphore.h>
 #include <mach/cpu.h>
 
+int use_isp_resizer;
+
 /* Return the default overlay cropping rectangle in crop given the image
  * size in pix and the video display size in fbuf.  The default
  * cropping rectangle is the largest rectangle no larger than the capture size
@@ -143,17 +145,17 @@ int omap_vout_new_window(struct v4l2_rect *crop,
 			if (crop->height != win->w.height)
 				crop->width = 768;
 		}
-	} else if (cpu_is_omap34xx()) {
+	} else {
 		/* adjust the cropping window to allow for resizing
-		 * limitations 34xx allow 8x to 1/4x scaling.
+		 * limitations 34xx allow 8x to 1/8x scaling.
 		 */
-		if ((crop->height/win->w.height) >= 4) {
-			/* The maximum vertical downsizing ratio is 4:1 */
-			crop->height = win->w.height * 4;
+		if ((crop->height/win->w.height) >= 8) {
+			/* The maximum vertical downsizing ratio is 8:1 */
+			crop->height = win->w.height * 8;
 		}
-		if ((crop->width/win->w.width) >= 4) {
-			/* The maximum horizontal downsizing ratio is 4:1 */
-			crop->width = win->w.width * 4;
+		if ((crop->width/win->w.width) >= 8) {
+			/* The maximum horizontal downsizing ratio is 8:1 */
+			crop->width = win->w.width * 8;
 		}
 	}
 	return 0;
@@ -210,14 +212,21 @@ int omap_vout_new_crop(struct v4l2_pix_format *pix,
 				try_crop.width = 768;
 		}
 	}
+
 	/* vertical resizing */
-	vresize = (1024 * crop->height) / win->w.height;
+	vresize = (1024 * try_crop.height) / win->w.height;
 	if (cpu_is_omap24xx()) {
 		if (vresize > 2048)
 			vresize = 2048;
-	} else if (cpu_is_omap34xx()) {
-		if (vresize > 4096)
-			vresize = 4096;
+	} else {
+		if (vresize > 4096) {
+			use_isp_resizer = 1;
+			printk(KERN_ERR "\n<%s> Using ISP resizer vresize "
+					"= %lu\n\n",
+			       __func__, vresize);
+			if (vresize > 8096)
+				vresize = 8096;
+		}
 	}
 	win->w.height = ((1024 * try_crop.height) / vresize) & ~1;
 	if (win->w.height == 0)
@@ -232,13 +241,24 @@ int omap_vout_new_crop(struct v4l2_pix_format *pix,
 			try_crop.height = 2;
 	}
 	/* horizontal resizing */
-	hresize = (1024 * crop->width) / win->w.width;
+	hresize = (1024 * try_crop.width) / win->w.width;
 	if (cpu_is_omap24xx()) {
 		if (hresize > 2048)
 			hresize = 2048;
-	} else if (cpu_is_omap34xx()) {
-		if (hresize > 4096)
-			hresize = 4096;
+	} else {
+		/* DSS DMA resizer handles the 8x to 1/4x horz scaling
+		 * for 1/4x to 1/8x scaling ISP resizer is used
+		 * for width > 1024 and scaling 1/2x-1/8x ISP resizer is used
+		 */
+		if (hresize > 4096 ||
+		    (hresize > 2048 && try_crop.width > 1024)) {
+			use_isp_resizer = 1;
+			printk(KERN_ERR "\n<%s> Using ISP resizer "
+					"hresize = %lu, width = %u\n\n",
+			       __func__, hresize, try_crop.width);
+			if (hresize > 8096)
+				hresize = 8096;
+		}
 	}
 	win->w.width = ((1024 * try_crop.width) / hresize) & ~1;
 	if (win->w.width == 0)
@@ -272,17 +292,18 @@ int omap_vout_new_crop(struct v4l2_pix_format *pix,
 			if (try_crop.height != win->w.height)
 				try_crop.width = 768;
 		}
-	} else if (cpu_is_omap34xx()) {
+	} else {
 		/* Check for resizing constraints
-		 * 34xx allow 8x to 1/4x scaling.
+		 * 34xx DSS allow 8x to 1/4x scaling.
+		 * ISP resizer handles downscaling from 1/4x to 1/8x
 		 */
-		if ((try_crop.height/win->w.height) >= 4) {
-			/* The maximum vertical downsizing ratio is 4:1 */
-			try_crop.height = win->w.height * 4;
+		if ((try_crop.height/win->w.height) >= 8) {
+			/* The maximum vertical downsizing ratio is 8:1 */
+			try_crop.height = win->w.height * 8;
 		}
-		if ((try_crop.width/win->w.width) >= 4) {
-			/* The maximum horizontal downsizing ratio is 4:1 */
-			try_crop.width = win->w.width * 4;
+		if ((try_crop.width/win->w.width) >= 8) {
+			/* The maximum horizontal downsizing ratio is 8:1 */
+			try_crop.width = win->w.width * 8;
 		}
 	}
 	/* update our cropping rectangle and we're done */
