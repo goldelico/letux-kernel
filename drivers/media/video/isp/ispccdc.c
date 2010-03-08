@@ -1055,6 +1055,7 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 		syncif.hdpol = 0;
 		syncif.ipmod = RAW;
 		syncif.vdpol = 0;
+		syncif.bt_r656_en = 0;
 		ispccdc_config_sync_if(isp_ccdc, syncif);
 		ispccdc_config_imgattr(isp_ccdc, colptn);
 		blkcfg.oblen = 0;
@@ -1072,6 +1073,7 @@ static int ispccdc_config_datapath(struct isp_ccdc_device *isp_ccdc,
 		syncif.hdpol = 0;
 		syncif.ipmod = YUV16;
 		syncif.vdpol = 1;
+		syncif.bt_r656_en = 0;
 		ispccdc_config_imgattr(isp_ccdc, 0);
 		ispccdc_config_sync_if(isp_ccdc, syncif);
 		blkcfg.oblen = 0;
