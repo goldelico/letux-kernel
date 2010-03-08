@@ -1275,11 +1275,11 @@ static DSP_STATUS WMD_BRD_MemMap(struct WMD_DEV_CONTEXT *hDevContext,
 	if (ulNumBytes == 0)
 		return DSP_EINVALIDARG;
 
-	if (ulMapAttr != 0) {
+	if (ulMapAttr & DSP_MAP_DIR_MASK) {
 		attrs = ulMapAttr;
 	} else {
 		/* Assign default attributes */
-		attrs = DSP_MAPVIRTUALADDR | DSP_MAPELEMSIZE16;
+		attrs = ulMapAttr | (DSP_MAPVIRTUALADDR | DSP_MAPELEMSIZE16);
 	}
 	/* Take mapping properties */
 	if (attrs & DSP_MAPBIGENDIAN)

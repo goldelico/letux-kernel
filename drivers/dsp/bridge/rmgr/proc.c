@@ -73,8 +73,8 @@
 #define BUFMODE_MASK	(3 << 14)
 
 /* Buffer modes from DSP perspective */
-#define RBUF		0x1	/* Input buffer */
-#define WBUF		0x2	/* Output Buffer */
+#define RBUF		0x4000		/* Input buffer */
+#define WBUF		0x8000		/* Output Buffer */
 
 extern char *iva_img;
 
