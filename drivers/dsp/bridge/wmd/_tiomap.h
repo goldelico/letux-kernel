@@ -285,6 +285,11 @@ static const struct BPWR_Clk_t BPWR_Clks[] = {
 #define MBOX_ARM HW_MBOX_U0_ARM
 #define MBOX_DSP HW_MBOX_U1_DSP1
 
+/* WDT defines */
+#define WDT_SYSCONFIG_OFFSET	0x10
+#define WDT_ISR_OFFSET		0x18
+#define WDT_IER_OFFSET		0x1C
+
 #define ENABLE                          true
 #define DISABLE                         false
 
@@ -320,6 +325,7 @@ struct WMD_DEV_CONTEXT {
 	void __iomem *sysctrlbase;	/* SysCtrl mapped registers */
 	void __iomem *prmbase;		/* PRM mapped registers	*/
 	void __iomem *perbase;		/* PER mapped registers	*/
+	void __iomem *wdt3_base;		/* WDT3 mapped registers */
 	u32 dwAPIClkBase;		/* CLK Registers */
 	u32 dwDSPClkM2Base;		/* DSP Clock Module m2 */
 	u32 dwPublicRhea;		/* Pub Rhea */

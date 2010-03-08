@@ -32,6 +32,7 @@
 #include <dspbridge/cfg.h>
 
 /*  ----------------------------------- specific to this file */
+#include <dspbridge/io_sm.h>
 #include "_tiomap.h"
 #include "_tiomap_pwr.h"
 #include "tiomap_io.h"
@@ -392,6 +393,10 @@ DSP_STATUS sm_interrupt_dsp(struct WMD_DEV_CONTEXT *pDevContext,
 	    pDevContext->dwBrdState == BRD_HIBERNATION) {
 		/* Restart the peripheral clocks */
 		DSP_PeripheralClocks_Enable(pDevContext, NULL);
+
+#ifdef CONFIG_BRIDGE_WDT3
+		dsp_wdt_enable(true);
+#endif
 
 		/* Restore mailbox settings */
 		/* Enabling Dpll in lock mode*/

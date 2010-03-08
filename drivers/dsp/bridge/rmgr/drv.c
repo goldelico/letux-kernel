@@ -1018,7 +1018,8 @@ static DSP_STATUS RequestBridgeResourcesDSP(u32 dwContext, s32 bRequest)
 							OMAP_CORE_PRM_SIZE);
 		pResources->dwDmmuBase = ioremap(OMAP_DMMU_BASE,
 							OMAP_DMMU_SIZE);
-		pResources->dwWdTimerDspBase = NULL;
+		pResources->dwWdTimerDspBase = ioremap(OMAP_WDT3_BASE,
+							OMAP_WDT3_BASE);
 
 		dev_dbg(bridge, "dwMemBase[0] 0x%x\n",
 						pResources->dwMemBase[0]);

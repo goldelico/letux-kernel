@@ -139,6 +139,14 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 
 		/* Turn off DSP Peripheral clocks and DSP Load monitor timer */
 		status = DSP_PeripheralClocks_Disable(pDevContext, NULL);
+#ifdef CONFIG_BRIDGE_WDT3
+		/*
+		 * Disable WDT clocks and ISR on DSP commanded
+		 * hibernation.
+		 */
+		dsp_wdt_enable(false);
+
+#endif
 
 		if (DSP_SUCCEEDED(status)) {
 			/* Update the Bridger Driver state */
@@ -257,6 +265,14 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 
 		/* Turn off DSP Peripheral clocks  */
 		status = DSP_PeripheralClocks_Disable(pDevContext, NULL);
+#ifdef CONFIG_BRIDGE_WDT3
+		/*
+		 * Disable WDT clocks and ISR on BSP commanded
+		 * hibernation.
+		 */
+		dsp_wdt_enable(false);
+
+#endif
 		if (DSP_FAILED(status)) {
 			return status;
 		}

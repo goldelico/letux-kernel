@@ -99,8 +99,15 @@ struct loadMonStruct {
 		struct oppRqstStruct oppRequest;
 		/* load monitor information structure*/
 		struct loadMonStruct loadMonInfo;
-		char dummy[184];             /* padding to 256 byte boundary */
-		u32 shm_dbg_var[64];         /* shared memory debug variables */
+#ifdef CONFIG_BRIDGE_WDT3
+		/* Flag for WDT enable/disable F/I clocks */
+		u32 wdt_setclocks;
+		u32 wdt_overflow;	/* WDT overflow time */
+		char dummy[176];	/* padding to 256 byte boundary */
+#else
+		char dummy[184];	/* padding to 256 byte boundary */
+#endif
+		u32 shm_dbg_var[64];	/* shared memory debug variables */
 	} ;
 
 	/* Channel Manager: only one created per board: */

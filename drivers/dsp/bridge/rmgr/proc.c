@@ -1094,7 +1094,7 @@ DSP_STATUS PROC_RegisterNotify(void *hProcessor, u32 uEventMask,
 	/* Check if event mask is a valid processor related event */
 	if (uEventMask & ~(DSP_PROCESSORSTATECHANGE | DSP_PROCESSORATTACH |
 	   DSP_PROCESSORDETACH | DSP_PROCESSORRESTART | DSP_MMUFAULT |
-	   DSP_SYSERROR | DSP_PWRERROR))
+	   DSP_SYSERROR | DSP_PWRERROR | DSP_WDTOVERFLOW))
 		status = DSP_EVALUE;
 
 	/* Check if notify type is valid */
@@ -1105,7 +1105,8 @@ DSP_STATUS PROC_RegisterNotify(void *hProcessor, u32 uEventMask,
 		/* If event mask is not DSP_SYSERROR, DSP_MMUFAULT,
 		 * or DSP_PWRERROR then register event immediately. */
 		if (uEventMask &
-		    ~(DSP_SYSERROR | DSP_MMUFAULT | DSP_PWRERROR)) {
+		    ~(DSP_SYSERROR | DSP_MMUFAULT | DSP_PWRERROR |
+				DSP_WDTOVERFLOW)) {
 			status = NTFY_Register(pProcObject->hNtfy,
 				 hNotification,	uEventMask, uNotifyType);
 			/* Special case alert, special case alert!

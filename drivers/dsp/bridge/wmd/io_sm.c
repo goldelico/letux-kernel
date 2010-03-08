@@ -131,6 +131,9 @@ struct IO_MGR {
 	u32 dpc_req;				/* Number of requested DPC's. */
 	u32 dpc_sched;				/* Number of executed DPC's. */
 	struct tasklet_struct dpc_tasklet;
+#ifdef CONFIG_BRIDGE_WDT3
+	struct tasklet_struct wdt3_tasklet;
+#endif
 	spinlock_t dpc_lock;
 
 } ;
@@ -157,6 +160,11 @@ static u32 WriteData(struct WMD_DEV_CONTEXT *hDevContext, void *pDest,
 
 #ifndef DSP_TRACEBUF_DISABLED
 void PrintDSPDebugTrace(struct IO_MGR *hIOMgr);
+#endif
+
+#ifdef CONFIG_BRIDGE_WDT3
+static bool wdt3_enable = true;
+static void io_wdt3_ovf(unsigned long);
 #endif
 
 /* Bus Addr (cached kernel) */
@@ -230,7 +238,9 @@ DSP_STATUS WMD_IO_Create(OUT struct IO_MGR **phIOMgr,
 	if (devType == DSP_UNIT) {
 		/* Create an IO DPC */
 		tasklet_init(&pIOMgr->dpc_tasklet, IO_DPC, (u32)pIOMgr);
-
+#ifdef CONFIG_BRIDGE_WDT3
+		tasklet_init(&pIOMgr->wdt3_tasklet, io_wdt3_ovf, (u32)pIOMgr);
+#endif
 		/* Initialize DPC counters */
 		pIOMgr->dpc_req = 0;
 		pIOMgr->dpc_sched = 0;
@@ -252,6 +262,16 @@ DSP_STATUS WMD_IO_Create(OUT struct IO_MGR **phIOMgr,
 	} else {
 		status = CHNL_E_ISR;
 	}
+#ifdef CONFIG_BRIDGE_WDT3
+	if (DSP_SUCCEEDED(status)) {
+		if ((request_irq(INT_34XX_WDT3_IRQ, io_isr_wdt3, 0,
+			  "dsp_wdt", (void *)pIOMgr)) != 0)
+			status = DSP_EFAIL;
+		else
+		/* Disable at this moment I will enable when DSP starts */
+			disable_irq(INT_34XX_WDT3_IRQ);
+	}
+#endif
 func_end:
 	if (DSP_FAILED(status)) {
 		/* Cleanup */
@@ -278,10 +298,14 @@ DSP_STATUS WMD_IO_Destroy(struct IO_MGR *hIOMgr)
 	if (MEM_IsValidHandle(hIOMgr, IO_MGRSIGNATURE)) {
 		/* Disable interrupts from the board */
 		status = DEV_GetWMDContext(hIOMgr->hDevObject, &hWmdContext);
-
+#ifdef CONFIG_BRIDGE_WDT3
+		free_irq(INT_34XX_WDT3_IRQ, (void *)hIOMgr);
+#endif
 		/* Free IO DPC object */
 		tasklet_kill(&hIOMgr->dpc_tasklet);
-
+#ifdef CONFIG_BRIDGE_WDT3
+		tasklet_kill(&hIOMgr->wdt3_tasklet);
+#endif
 #ifndef DSP_TRACEBUF_DISABLED
 		kfree(hIOMgr->pMsg);
 #endif
@@ -1954,6 +1978,91 @@ void IO_SM_init(void)
 {
 	/* Do nothing */
 }
+
+#ifdef CONFIG_BRIDGE_WDT3
+/*
+ *  ======== io_wdt3_ovf ========
+ *      Deferred procedure call WDT overflow ISR.  Carries
+ *      out the dispatch of I/O as a non-preemptible event.It can only be
+ *      pre-empted  by an ISR.
+ */
+void io_wdt3_ovf(unsigned long data)
+{
+	struct DEH_MGR *deh_mgr;
+	struct IO_MGR *io_mgr = (struct IO_MGR *)data;
+	DEV_GetDehMgr(io_mgr->hDevObject, &deh_mgr);
+	if (deh_mgr)
+		WMD_DEH_Notify(deh_mgr, DSP_WDTOVERFLOW, (u32)io_mgr);
+}
+
+/*
+ *  ======== io_isr_wdt3 ========
+
+ */
+irqreturn_t io_isr_wdt3(int irq, IN void *data)
+{
+	u32 value;
+	struct IO_MGR *io_mgr = (struct IO_MGR *)data;
+	/* The pending interrupt event is cleared when the set status bit is
+	 * overwritten by a value of 1 by a write command in the WTDi.WISR
+	 * register. Reading the WTDi.WISR register and writing the value
+	 * back allows a fast acknowledge interrupt process. */
+	if (CLK_Get_UseCnt(SERVICESCLK_wdt3_fck)) {
+		value = __raw_readl(io_mgr->hWmdContext->wdt3_base
+							+ WDT_ISR_OFFSET);
+		__raw_writel(value, io_mgr->hWmdContext->wdt3_base
+							+ WDT_ISR_OFFSET);
+	}
+	tasklet_schedule(&io_mgr->wdt3_tasklet);
+	return IRQ_HANDLED;
+}
+#endif
+
+#ifdef CONFIG_BRIDGE_WDT3
+/*
+ *  ======== dsp_wdt_config ========
+ *      Enables/disables WDT.
+ */
+void dsp_wdt_enable(bool enable)
+{
+	u32 tmp;
+	struct WMD_DEV_CONTEXT *dev_ctxt;
+	struct IO_MGR *io_mgr;
+
+	if (!wdt3_enable)
+		return;
+
+	DEV_GetWMDContext(DEV_GetFirst(), &dev_ctxt);
+	DEV_GetIOMgr(DEV_GetFirst(), &io_mgr);
+	if (!dev_ctxt || !io_mgr)
+		return;
+
+	if (enable) {
+		CLK_Enable(SERVICESCLK_wdt3_fck);
+		CLK_Enable(SERVICESCLK_wdt3_ick);
+		io_mgr->pSharedMem->wdt_setclocks = 1;
+		tmp = __raw_readl(dev_ctxt->wdt3_base + WDT_ISR_OFFSET);
+		__raw_writel(tmp, dev_ctxt->wdt3_base + WDT_ISR_OFFSET);
+		enable_irq(INT_34XX_WDT3_IRQ);
+	} else {
+		disable_irq(INT_34XX_WDT3_IRQ);
+		io_mgr->pSharedMem->wdt_setclocks = 0;
+		CLK_Disable(SERVICESCLK_wdt3_ick);
+		CLK_Disable(SERVICESCLK_wdt3_fck);
+	}
+}
+
+void dsp_wdt_set_timeout(unsigned timeout)
+{
+	struct IO_MGR *io_mgr;
+	DEV_GetIOMgr(DEV_GetFirst(), &io_mgr);
+	if (io_mgr && io_mgr->pSharedMem != (void *)-1)
+		io_mgr->pSharedMem->wdt_overflow = timeout;
+	else
+		pr_err("%s: DSP image not loaded\n", __func__);
+}
+#endif
+
 DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context)
 {
 	DSP_STATUS status = DSP_SOK;
