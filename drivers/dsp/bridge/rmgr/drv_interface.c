@@ -671,7 +671,43 @@ static ssize_t drv_state_show(struct device *dev,
 	return sprintf(buf, "%d\n", drv_state);
 }
 
+/*
+ * this sysfs is intended to retrieve two MPU addresses
+ * needed for the INST2 utility.
+ * the inst_log script will run this sysfs
+ */
+static ssize_t mpu_address_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+    struct WMD_DEV_CONTEXT *dwContext = NULL;
+	struct DEV_OBJECT *hDevObject = NULL;
+	u32 mem_poolsize = 0;
+	u32 GppPa = 0, DspVa = 0;
+	u32 armPhyMemOffUncached = 0;
+	hDevObject = (struct DEV_OBJECT *)DRV_GetFirstDevObject();
+	DEV_GetWMDContext(hDevObject, &dwContext);
+	GppPa = dwContext->aTLBEntry[0].ulGppPa;
+	DspVa = dwContext->aTLBEntry[0].ulDspVa;
+
+	/*
+	 * the physical address offset, this offset is a
+	 * fixed value for a given platform.
+	 */
+	armPhyMemOffUncached = GppPa - DspVa;
+
+	/*
+	 * the offset value for cached address region
+	 * on DSP address space
+	 */
+	mem_poolsize = phys_mempool_base - 0x20000000;
+
+	/* Retrive the above calculated addresses */
+	return sprintf(buf, "mempoolsizeOffset 0x%x GppPaOffset 0x%x\n",
+					mem_poolsize, armPhyMemOffUncached);
+}
+
 static DEVICE_ATTR(drv_state, S_IRUGO, drv_state_show, NULL);
+static DEVICE_ATTR(mpu_address, S_IRUGO, mpu_address_show, NULL);
 
 #ifdef CONFIG_BRIDGE_WDT3
 static ssize_t wdt3_show(struct device *dev, struct device_attribute *attr,
@@ -742,6 +778,7 @@ static DEVICE_ATTR(dsp_wdt_timeout, S_IWUSR | S_IRUGO, wdt3_timeout_show,
 
 static struct attribute *attrs[] = {
 	&dev_attr_drv_state.attr,
+	&dev_attr_mpu_address.attr,
 #ifdef CONFIG_BRIDGE_WDT3
 	&dev_attr_dsp_wdt.attr,
 	&dev_attr_dsp_wdt_timeout.attr,
