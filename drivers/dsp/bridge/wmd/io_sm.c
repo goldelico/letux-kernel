@@ -2062,6 +2062,15 @@ void dsp_wdt_set_timeout(unsigned timeout)
 		pr_err("%s: DSP image not loaded\n", __func__);
 }
 
+unsigned dsp_wdt_get_timeout(void)
+{
+	struct IO_MGR *io_mgr;
+	DEV_GetIOMgr(DEV_GetFirst(), &io_mgr);
+	return (io_mgr && io_mgr->pSharedMem != (void *)-1) ?
+		io_mgr->pSharedMem->wdt_overflow :
+		(pr_err("%s: DSP image not loaded\n", __func__), 0);
+}
+
 bool dsp_wdt_get_enable(void)
 {
 	return wdt3_enable;
