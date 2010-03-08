@@ -120,6 +120,8 @@
 	irqreturn_t io_isr_wdt3(int irq, void *data);
 	void dsp_wdt_enable(bool);
 	void dsp_wdt_set_timeout(unsigned);
+	bool dsp_wdt_get_enable(void);
+	void dsp_wdt_set_enable(bool);
 #endif
 
 	extern void IO_RequestChnl(struct IO_MGR *hIOMgr,

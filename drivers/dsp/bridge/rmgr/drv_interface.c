@@ -52,6 +52,11 @@
 #include <dspbridge/wcdioctl.h>
 #include <dspbridge/_dcd.h>
 #include <dspbridge/dspdrv.h>
+#ifdef CONFIG_BRIDGE_WDT3
+#include <dspbridge/clk.h>
+#include <dspbridge/io_sm.h>
+#include <_tiomap.h>
+#endif
 
 /*  ----------------------------------- Resource Manager */
 #include <dspbridge/pwr.h>
@@ -645,8 +650,8 @@ DSP_STATUS DRV_RemoveAllResources(HANDLE hPCtxt)
 /*
  * sysfs
  */
-static ssize_t drv_state_show(struct kobject *kobj, struct kobj_attribute *attr,
-				char *buf)
+static ssize_t drv_state_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
 {
 	struct WMD_DEV_CONTEXT *dwContext;
 	struct DEV_OBJECT *hDevObject = NULL;
@@ -666,10 +671,59 @@ static ssize_t drv_state_show(struct kobject *kobj, struct kobj_attribute *attr,
 	return sprintf(buf, "%d\n", drv_state);
 }
 
-static struct kobj_attribute drv_state_attr = __ATTR_RO(drv_state);
+static DEVICE_ATTR(drv_state, S_IRUGO, drv_state_show, NULL);
+
+#ifdef CONFIG_BRIDGE_WDT3
+static ssize_t wdt3_show(struct device *dev, struct device_attribute *attr,
+							char *buf)
+{
+	return sprintf(buf, "%d\n", (dsp_wdt_get_enable()) ? 1 : 0);
+}
+
+static ssize_t wdt3_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t n)
+{
+	u32 wdt3;
+	struct DEV_OBJECT *dev_object;
+	struct WMD_DEV_CONTEXT *dev_ctxt;
+
+	if (sscanf(buf, "%d", &wdt3) != 1)
+		return -EINVAL;
+
+	dev_object = DEV_GetFirst();
+	if (dev_object == NULL)
+		goto func_end;
+	DEV_GetWMDContext(dev_object, &dev_ctxt);
+	if (dev_ctxt == NULL)
+		goto func_end;
+
+	/* enable WDT */
+	if (wdt3 == 1) {
+		if (dsp_wdt_get_enable())
+			goto func_end;
+		dsp_wdt_set_enable(true);
+		if (!CLK_Get_UseCnt(SERVICESCLK_wdt3_fck) &&
+				dev_ctxt->dwBrdState != BRD_DSP_HIBERNATION)
+			dsp_wdt_enable(true);
+	} else if (wdt3 == 0) {
+		if (!dsp_wdt_get_enable())
+			goto func_end;
+		if (CLK_Get_UseCnt(SERVICESCLK_wdt3_fck))
+			dsp_wdt_enable(false);
+		dsp_wdt_set_enable(false);
+	}
+func_end:
+	return n;
+}
+
+static DEVICE_ATTR(dsp_wdt, S_IWUSR | S_IRUGO, wdt3_show, wdt3_store);
+#endif
 
 static struct attribute *attrs[] = {
-	&drv_state_attr.attr,
+	&dev_attr_drv_state.attr,
+#ifdef CONFIG_BRIDGE_WDT3
+	&dev_attr_dsp_wdt.attr,
+#endif
 	NULL,
 };
 

@@ -2061,6 +2061,16 @@ void dsp_wdt_set_timeout(unsigned timeout)
 	else
 		pr_err("%s: DSP image not loaded\n", __func__);
 }
+
+bool dsp_wdt_get_enable(void)
+{
+	return wdt3_enable;
+}
+
+void dsp_wdt_set_enable(bool enable)
+{
+	wdt3_enable = enable;
+}
 #endif
 
 DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context)
