@@ -862,10 +862,12 @@ static int __devinit omap_iommu_probe(struct platform_device *pdev)
 	if (!obj)
 		return -ENOMEM;
 
-	obj->clk = clk_get(&pdev->dev, pdata->clk_name);
-	if (IS_ERR(obj->clk))
-		goto err_clk;
-
+	/* FIX ME: OMAP4 PM framework not ready */
+	if (!cpu_is_omap44xx()) {
+		obj->clk = clk_get(&pdev->dev, pdata->clk_name);
+		if (IS_ERR(obj->clk))
+			goto err_clk;
+	}
 	obj->nr_tlb_entries = pdata->nr_tlb_entries;
 	obj->name = pdata->name;
 	obj->dev = &pdev->dev;
