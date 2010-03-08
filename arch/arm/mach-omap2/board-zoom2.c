@@ -1106,7 +1106,7 @@ static void config_wlan_gpio(void)
 	omap_cfg_reg(W21_34XX_GPIO162);
 }
 
-static void config_bt_gpio(void)
+static void config_bt_mux_gpio(void)
 {
 	/* configure BT_EN gpio */
 	omap_cfg_reg(B25_34XX_GPIO109);
@@ -1166,7 +1166,7 @@ static void __init omap_zoom2_init(void)
 	omap_serial_init();
 	usb_musb_init();
 	config_wlan_gpio();
-	config_bt_gpio();
+	config_bt_mux_gpio();
 	zoom2_cam_init();
 	zoom2_lcd_tv_panel_init();
 	config_mux_mcbsp3();
