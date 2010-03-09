@@ -25,6 +25,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
@@ -49,6 +50,10 @@ struct MGR_OBJECT {
 };
 
 /*  ----------------------------------- Globals */
+#if GT_TRACE
+static struct GT_Mask MGR_DebugMask = { NULL, NULL };
+#endif
+
 static u32 cRefs;
 
 /*
@@ -233,7 +238,9 @@ DSP_STATUS MGR_EnumProcessorInfo(u32 uProcessor,
 	/* Get The Manager Object from the Registry */
 	if (DSP_FAILED(CFG_GetObject((u32 *)&pMgrObject,
 	   REG_MGR_OBJECT))) {
-		dev_dbg(bridge, "%s: Failed to get MGR Object\n", __func__);
+		GT_0trace(MGR_DebugMask, GT_7CLASS,
+			 "Manager_EnumProcessorInfo: "
+			 "Failed To Get MGR Object from Registry\r\n");
 		goto func_end;
 	}
 	DBC_Assert(MEM_IsValidHandle(pMgrObject, SIGNATURE));
@@ -267,8 +274,10 @@ DSP_STATUS MGR_EnumProcessorInfo(u32 uProcessor,
 						pProcessorInfo;
 				*pExtInfo = GenObj.objData.extProcObj;
 			}
-			dev_dbg(bridge, "%s: Got proctype  from DCD %x\n",
-				__func__, pProcessorInfo->uProcessorType);
+			GT_1trace(MGR_DebugMask, GT_7CLASS,
+				 "Manager_EnumProcessorInfo: Got"
+				 " Proctype  from DCD %x \r\n",
+				 pProcessorInfo->uProcessorType);
 			/* See if we got the needed processor */
 			if (devType == DSP_UNIT) {
 				if (pProcessorInfo->uProcessorType ==
@@ -284,15 +293,18 @@ DSP_STATUS MGR_EnumProcessorInfo(u32 uProcessor,
 			pProcessorInfo->uProcessorType =
 					 chipResources.uChipType;
 		} else {
-			dev_dbg(bridge, "%s: Failed to get DCD processor info "
-						"%x\n", __func__, status2);
+			GT_1trace(MGR_DebugMask, GT_7CLASS,
+				 "Manager_EnumProcessorInfo: "
+				 "Failed to Get DCD Processor Info %x \r\n",
+				 status2);
 			status = DSP_EFAIL;
 		}
 	}
 	*puNumProcs = uProcIndex;
 	if (procDetect == false) {
-		dev_dbg(bridge, "%s: Failed to get proc info from DCD, so use "
-						"CFG registry\n", __func__);
+		GT_0trace(MGR_DebugMask, GT_7CLASS,
+			 "Manager_EnumProcessorInfo: Failed"
+			 " to get Proc info from DCD , so use CFG registry\n");
 		pProcessorInfo->uProcessorType = chipResources.uChipType;
 	}
 func_end:
@@ -350,6 +362,11 @@ bool MGR_Init(void)
 	DBC_Require(cRefs >= 0);
 
 	if (cRefs == 0) {
+
+		/* Set the Trace mask */
+		DBC_Assert(!MGR_DebugMask.flags);
+
+		GT_create(&MGR_DebugMask, "MG");	/* "MG" for Manager */
 		fInitDCD = DCD_Init();	/*  DCD Module */
 
 		if (!fInitDCD)

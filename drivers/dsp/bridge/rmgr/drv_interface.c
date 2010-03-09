@@ -41,6 +41,7 @@
 #include <_tiomap.h>
 
 /*  ----------------------------------- Trace & Debug */
+#include <dspbridge/gt.h>
 #include <dspbridge/dbc.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
@@ -80,7 +81,6 @@
 s32 dsp_debug;
 
 struct platform_device *omap_dspbridge_dev;
-struct device *bridge;
 
 
 static struct cdev bridge_cdev;
@@ -88,6 +88,9 @@ static struct cdev bridge_cdev;
 static struct class *bridge_class;
 
 static u32 driverContext;
+#ifdef CONFIG_BRIDGE_DEBUG
+static char *GT_str;
+#endif /* CONFIG_BRIDGE_DEBUG */
 static s32 driver_major;
 static char *base_img;
 char *iva_img;
@@ -132,8 +135,13 @@ static int omap34xxbridge_suspend_lockout(
 
 #endif
 
+#ifdef CONFIG_BRIDGE_DEBUG
+module_param(GT_str, charp, 0);
+MODULE_PARM_DESC(GT_str, "GT string, default = NULL");
+
 module_param(dsp_debug, int, 0);
 MODULE_PARM_DESC(dsp_debug, "Wait after loading DSP image. default = false");
+#endif
 #ifdef CONFIG_BRIDGE_RECOVERY
 module_param(firmware_file, charp, 0644);
 #endif
@@ -161,6 +169,10 @@ MODULE_AUTHOR("Texas Instruments");
 MODULE_LICENSE("GPL");
 
 static char *driver_name = DRIVER_NAME;
+
+#ifdef CONFIG_BRIDGE_DEBUG
+static struct GT_Mask driverTrace;
+#endif /* CONFIG_BRIDGE_DEBUG */
 
 static const struct file_operations bridge_fops = {
 	.open		= bridge_open,
@@ -259,9 +271,6 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 
 	omap_dspbridge_dev = pdev;
 
-	/* Global bridge device */
-	bridge = &omap_dspbridge_dev->dev;
-
 	/* use 2.6 device model */
 	result = alloc_chrdev_region(&dev, 0, 1, driver_name);
 	if (result < 0) {
@@ -290,6 +299,16 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 			NULL, "DspBridge");
 
 	bridge_create_sysfs();
+
+	GT_init();
+	GT_create(&driverTrace, "LD");
+
+#ifdef CONFIG_BRIDGE_DEBUG
+	if (GT_str)
+		GT_set(GT_str);
+#elif defined(DDSP_DEBUG_PRODUCT) && GT_TRACE
+	GT_set("**=67");
+#endif
 
 #ifdef CONFIG_PM
 	/* Initialize the wait queue */
@@ -322,27 +341,28 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 		status = -1;
 		pr_err("%s: SHM size must be at least 64 KB\n", __func__);
 	}
-	dev_dbg(bridge, "%s: requested shm_size = 0x%x\n", __func__, shm_size);
+	GT_1trace(driverTrace, GT_7CLASS,
+		 "requested shm_size = 0x%x\n", shm_size);
 
 	if (pdata->phys_mempool_base && pdata->phys_mempool_size) {
 		phys_mempool_base = pdata->phys_mempool_base;
 		phys_mempool_size = pdata->phys_mempool_size;
 	}
 
-	dev_dbg(bridge, "%s: phys_mempool_base = 0x%x \n", __func__,
-							phys_mempool_base);
+	GT_1trace(driverTrace, GT_7CLASS, "phys_mempool_base = 0x%x \n",
+		 phys_mempool_base);
 
-	dev_dbg(bridge, "%s: phys_mempool_size = 0x%x\n", __func__,
-							phys_mempool_size);
+	GT_1trace(driverTrace, GT_7CLASS, "phys_mempool_size = 0x%x\n",
+		 phys_mempool_base);
 
 	if ((phys_mempool_base > 0x0) && (phys_mempool_size > 0x0))
 		MEM_ExtPhysPoolInit(phys_mempool_base, phys_mempool_size);
 	if (tc_wordswapon) {
-		dev_dbg(bridge, "%s: TC Word Swap is enabled\n", __func__);
+		GT_0trace(driverTrace, GT_7CLASS, "TC Word Swap is enabled\n");
 		REG_SetValue(TCWORDSWAP, (u8 *)&tc_wordswapon,
 				sizeof(tc_wordswapon));
 	} else {
-		dev_dbg(bridge, "%s: TC Word Swap is enabled\n", __func__);
+		GT_0trace(driverTrace, GT_7CLASS, "TC Word Swap is disabled\n");
 		REG_SetValue(TCWORDSWAP, (u8 *)&tc_wordswapon,
 				sizeof(tc_wordswapon));
 	}
@@ -351,7 +371,7 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 		if (pdata->mpu_get_rate_table)
 			pdata->mpu_rate_table = (*pdata->mpu_get_rate_table)();
 		else {
-			dev_dbg(bridge, "dspbridge failed to"
+			GT_0trace(driverTrace, GT_7CLASS, "dspbridge failed to"
 				"get mpu opp table\n");
 			return -EFAULT;
 			goto err2;
@@ -423,6 +443,7 @@ func_cont:
 	MEM_ExtPhysPoolRelease();
 
 	SERVICES_Exit();
+	GT_exit();
 
 	/* Remove driver sysfs entries */
 	bridge_destroy_sysfs();
@@ -599,8 +620,8 @@ static long bridge_ioctl(struct file *filp, unsigned int code,
 		if (DSP_SUCCEEDED(status)) {
 			status = retval;
 		} else {
-			dev_dbg(bridge, "%s: IOCTL Failed, code: 0x%x "
-				"status 0x%x\n", __func__, code, status);
+			GT_1trace(driverTrace, GT_7CLASS,
+				 "IOCTL Failed, code : 0x%x\n", code);
 			status = -1;
 		}
 
@@ -613,7 +634,9 @@ err:
 /* This function maps kernel space memory to user space memory. */
 static int bridge_mmap(struct file *filp, struct vm_area_struct *vma)
 {
+#if GT_TRACE
 	u32 offset = vma->vm_pgoff << PAGE_SHIFT;
+#endif
 	u32 status;
 
 	DBC_Assert(vma->vm_start < vma->vm_end);
@@ -621,10 +644,10 @@ static int bridge_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_flags |= VM_RESERVED | VM_IO;
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
-	dev_dbg(bridge, "%s: vm filp %p offset %x start %lx end %lx page_prot "
-				"%lx flags %lx\n", __func__, filp, offset,
-				vma->vm_start, vma->vm_end, vma->vm_page_prot,
-				vma->vm_flags);
+	GT_6trace(driverTrace, GT_3CLASS,
+		 "vm filp %p offset %lx start %lx end %lx"
+		 " page_prot %lx flags %lx\n", filp, offset, vma->vm_start,
+		 vma->vm_end, vma->vm_page_prot, vma->vm_flags);
 
 	status = remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 				vma->vm_end - vma->vm_start, vma->vm_page_prot);

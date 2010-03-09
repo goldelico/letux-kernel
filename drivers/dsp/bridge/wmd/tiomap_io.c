@@ -22,6 +22,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/dbg.h>
 
 /*  ----------------------------------- Platform Manager */
 #include <dspbridge/dev.h>
@@ -420,7 +421,7 @@ DSP_STATUS sm_interrupt_dsp(struct WMD_DEV_CONTEXT *pDevContext,
 		pr_err("omap_mbox_msg_send Fail and status = %d\n", status);
 		status = DSP_EFAIL;
 	}
-	dev_dbg(bridge, "%s: writing %x to Mailbox\n", __func__, wMbVal);
+	DBG_Trace(DBG_LEVEL3, "writing %x to Mailbox\n", wMbVal);
 
 	return DSP_SOK;
 }

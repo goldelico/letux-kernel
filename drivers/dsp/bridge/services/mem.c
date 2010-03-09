@@ -26,6 +26,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- This */
 #include <dspbridge/mem.h>
@@ -35,6 +36,10 @@
 #define MEM_512MB   0x1fffffff
 
 /*  ----------------------------------- Globals */
+#if GT_TRACE
+static struct GT_Mask MEM_debugMask = { NULL, NULL };	/* GT trace variable */
+#endif
+
 static bool extPhysMemPoolEnabled;
 
 struct extPhysMemPool {
@@ -267,5 +272,6 @@ void MEM_FreePhysMem(void *pVirtualAddress, u32 pPhysicalAddress,
  */
 bool MEM_Init(void)
 {
+	GT_create(&MEM_debugMask, "MM");	/* MM for MeM module */
 	return true;
 }

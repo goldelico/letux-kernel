@@ -23,6 +23,9 @@
 #include <dspbridge/drv.h>
 #include <dspbridge/io_sm.h>
 
+/*  ----------------------------------- Trace & Debug */
+#include <dspbridge/dbg.h>
+
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
 
@@ -70,8 +73,8 @@ DSP_STATUS handle_constraints_set(struct WMD_DEV_CONTEXT *pDevContext,
 
 	pConstraintVal = *(((u32 *)pArgs) + 1);
 	/* Read the target value requested by DSP  */
-	dev_dbg(bridge, "OPP: %s opp requested = %p\n", __func__,
-						(u32 *)pConstraintVal);
+	DBG_Trace(DBG_LEVEL7, "handle_constraints_set:"
+		"opp requested = 0x%x\n", pConstraintVal);
 
 	/* Set the new opp value */
 	if (pdata->dsp_set_min_opp) {
@@ -199,8 +202,9 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 		if (enable_off_mode) {
 			sm_interrupt_dsp(pDevContext,
 					     MBX_PM_DSPHIBERNATE);
-			dev_dbg(bridge, "PM: %s - sent hibernate cmd to DSP\n",
-								__func__);
+			DBG_Trace(DBG_LEVEL7,
+				 "SleepDSP - Sent hibernate "
+				 "command to DSP\n");
 			targetPwrState = HW_PWR_STATE_OFF;
 		} else {
 			sm_interrupt_dsp(pDevContext,
@@ -223,14 +227,16 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 	case BRD_HIBERNATION:
 	case BRD_DSP_HIBERNATION:
 		/* Already in Hibernation, so just return */
-		dev_dbg(bridge, "PM: %s - DSP already in hibernation\n",
-								__func__);
+		DBG_Trace(DBG_LEVEL7, "SleepDSP- DSP already in "
+			 "hibernation\n");
 		return DSP_SOK;
 	case BRD_STOPPED:
-		dev_dbg(bridge, "PM: %s - Board in STOP state\n", __func__);
+		DBG_Trace(DBG_LEVEL7,
+			 "SleepDSP- Board in STOP state \n");
 		return DSP_SALREADYASLEEP;
 	default:
-		dev_dbg(bridge, "PM: %s - Bridge in Illegal state\n", __func__);
+		DBG_Trace(DBG_LEVEL7,
+			 "SleepDSP- Bridge in Illegal state\n");
 			return DSP_EFAIL;
 	}
 	pDevContext->dwBrdState = BRD_SLEEP_TRANSITION;
@@ -300,6 +306,9 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 DSP_STATUS WakeDSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 {
 #ifdef CONFIG_PM
+#ifdef CONFIG_BRIDGE_DEBUG
+	enum HW_PwrState_t pwrState;
+#endif /* CONFIG_BRIDGE_DEBUG */
 
 	/* Check the BRD/WMD state, if it is not 'SLEEP' then return failure */
 	if (pDevContext->dwBrdState == BRD_RUNNING ||
@@ -311,6 +320,11 @@ DSP_STATUS WakeDSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 
 	/* Send a wakeup message to DSP */
 	sm_interrupt_dsp(pDevContext, MBX_PM_DSPWAKEUP);
+
+#ifdef CONFIG_BRIDGE_DEBUG
+	HW_PWR_IVA2StateGet(pDevContext->prmbase, HW_PWR_DOMAIN_DSP,
+			&pwrState);
+#endif /* CONFIG_BRIDGE_DEBUG */
 
 	/* Set the device state to RUNNIG */
 	pDevContext->dwBrdState = BRD_RUNNING;
@@ -398,7 +412,8 @@ DSP_STATUS DSPPeripheralClkCtrl(struct WMD_DEV_CONTEXT *pDevContext,
 		}
 		break;
 	default:
-		dev_dbg(bridge, "%s: Unsupported CMD\n", __func__);
+		DBG_Trace(DBG_LEVEL3,
+			 "DSPPeripheralClkCtrl : Unsupported CMD \n");
 		/* unsupported cmd */
 		/* TODO -- provide support for AUTOIDLE Enable/Disable
 		 * commands */
@@ -420,17 +435,18 @@ DSP_STATUS PreScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 	voltage_domain = *((u32 *)pArgs);
 	level = *((u32 *)pArgs + 1);
 
-	dev_dbg(bridge, "OPP: %s voltage_domain = %x, level = 0x%x\n",
-					__func__, voltage_domain, level);
+	DBG_Trace(DBG_LEVEL7, "PreScale_DSP: voltage_domain = %x, level = "
+		 "0x%x\n", voltage_domain, level);
 	if ((pDevContext->dwBrdState == BRD_HIBERNATION) ||
 			(pDevContext->dwBrdState == BRD_RETENTION) ||
 			(pDevContext->dwBrdState == BRD_DSP_HIBERNATION)) {
-		dev_dbg(bridge, "OPP: %s IVA in sleep. No message to DSP\n",
-								__func__);
+		DBG_Trace(DBG_LEVEL7, "PreScale_DSP: IVA in sleep. "
+			 "No notification to DSP\n");
 		return DSP_SOK;
 	} else if ((pDevContext->dwBrdState == BRD_RUNNING)) {
 		/* Send a prenotificatio to DSP */
-		dev_dbg(bridge, "OPP: %s sent notification to DSP\n", __func__);
+		DBG_Trace(DBG_LEVEL7,
+			 "PreScale_DSP: Sent notification to DSP\n");
 		sm_interrupt_dsp(pDevContext, MBX_PM_SETPOINT_PRENOTIFY);
 		return DSP_SOK;
 	} else {
@@ -459,23 +475,26 @@ DSP_STATUS PostScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 
 	voltage_domain = *((u32 *)pArgs);
 	level = *((u32 *)pArgs + 1);
-	dev_dbg(bridge, "OPP: %s voltage_domain = %x, level = 0x%x\n",
-					__func__, voltage_domain, level);
+	DBG_Trace(DBG_LEVEL7,
+		"PostScale_DSP: voltage_domain = %x, level = 0x%x\n",
+		voltage_domain, level);
 	if ((pDevContext->dwBrdState == BRD_HIBERNATION) ||
 			(pDevContext->dwBrdState == BRD_RETENTION) ||
 			(pDevContext->dwBrdState == BRD_DSP_HIBERNATION) ||
 			(pDevContext->dwBrdState == BRD_SLEEP_TRANSITION)) {
 		/* Update the OPP value in shared memory */
 		IO_SHMsetting(hIOMgr, SHM_CURROPP, &level);
-		dev_dbg(bridge, "OPP: %s IVA in sleep. Wrote to SHM\n",
-								__func__);
+		DBG_Trace(DBG_LEVEL7,
+			 "PostScale_DSP: IVA in sleep. Wrote to shared "
+			 "memory \n");
 	} else  if ((pDevContext->dwBrdState == BRD_RUNNING)) {
 		/* Update the OPP value in shared memory */
 		IO_SHMsetting(hIOMgr, SHM_CURROPP, &level);
 		/* Send a post notification to DSP */
 		sm_interrupt_dsp(pDevContext, MBX_PM_SETPOINT_POSTNOTIFY);
-		dev_dbg(bridge, "OPP: %s wrote to SHM. Sent post notification "
-							"to DSP\n", __func__);
+		DBG_Trace(DBG_LEVEL7,
+			"PostScale_DSP: Wrote to shared memory Sent post"
+			" notification to DSP\n");
 	} else {
 		status = DSP_EFAIL;
 	}

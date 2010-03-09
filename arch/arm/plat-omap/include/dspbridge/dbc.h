@@ -25,8 +25,14 @@
 #ifndef DBC_
 #define DBC_
 
+#ifndef GT_TRACE
+#define GT_TRACE 0	    /* 0 = "trace compiled out"; 1 = "trace active" */
+#endif
+
 /* Assertion Macros: */
-#ifdef CONFIG_BRIDGE_DEBUG
+#if GT_TRACE
+
+#include <dspbridge/gt.h>
 
 #define DBC_Assert(exp) 						       \
 do {									       \

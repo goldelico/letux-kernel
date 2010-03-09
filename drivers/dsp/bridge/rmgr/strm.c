@@ -26,6 +26,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
@@ -90,6 +91,9 @@ struct STRM_MGR {
 } ;
 
 /*  ----------------------------------- Globals */
+#if GT_TRACE
+static struct GT_Mask STRM_debugMask = { NULL, NULL };	/* GT trace variable */
+#endif
 static u32 cRefs;		/* module reference count */
 
 /*  ----------------------------------- Function Prototypes */
@@ -162,6 +166,9 @@ DSP_STATUS STRM_Close(struct STRM_OBJECT *hStrm,
 
 	DBC_Require(cRefs > 0);
 
+	GT_1trace(STRM_debugMask, GT_ENTER, "STRM_Close: hStrm: 0x%x\n", hStrm);
+
+
 	/* Have all buffers been reclaimed? If not, return
 	 * DSP_EPENDING */
 	pIntfFxns = hStrm->hStrmMgr->pIntfFxns;
@@ -183,8 +190,6 @@ func_end:
 	DBC_Ensure(status == DSP_SOK || status == DSP_EHANDLE ||
 		  status == DSP_EPENDING || status == DSP_EFAIL);
 
-	dev_dbg(bridge, "%s: hStrm: %p, status 0x%x\n", __func__,
-							hStrm, status);
 	return status;
 }
 
@@ -369,13 +374,14 @@ DSP_STATUS STRM_Idle(struct STRM_OBJECT *hStrm, bool fFlush)
 
 	DBC_Require(cRefs > 0);
 
+	GT_2trace(STRM_debugMask, GT_ENTER, "STRM_Idle: hStrm: 0x%x\t"
+		 "fFlush: 0x%x\n", hStrm, fFlush);
+
 	pIntfFxns = hStrm->hStrmMgr->pIntfFxns;
 
 	status = (*pIntfFxns->pfnChnlIdle) (hStrm->hChnl,
 		 hStrm->uTimeout, fFlush);
 
-	dev_dbg(bridge, "%s: hStrm: %p fFlush: 0x%x status: 0x%x\n",
-					__func__, hStrm, fFlush, status);
 	return status;
 }
 
@@ -389,6 +395,13 @@ bool STRM_Init(void)
 	bool fRetVal = true;
 
 	DBC_Require(cRefs >= 0);
+
+	if (cRefs == 0) {
+#if GT_TRACE
+		DBC_Assert(!STRM_debugMask.flags);
+		GT_create(&STRM_debugMask, "ST");	/* "ST" for STrm */
+#endif
+	}
 
 	if (fRetVal)
 		cRefs++;
@@ -413,6 +426,10 @@ DSP_STATUS STRM_Issue(struct STRM_OBJECT *hStrm, IN u8 *pBuf, u32 ulBytes,
 	DBC_Require(cRefs > 0);
 	DBC_Require(pBuf != NULL);
 
+	GT_4trace(STRM_debugMask, GT_ENTER, "STRM_Issue: hStrm: 0x%x\tpBuf: "
+		 "0x%x\tulBytes: 0x%x\tdwArg: 0x%x\n", hStrm, pBuf, ulBytes,
+		 dwArg);
+
 	pIntfFxns = hStrm->hStrmMgr->pIntfFxns;
 
 	if (hStrm->uSegment != 0) {
@@ -430,10 +447,6 @@ DSP_STATUS STRM_Issue(struct STRM_OBJECT *hStrm, IN u8 *pBuf, u32 ulBytes,
 	if (status == CHNL_E_NOIORPS)
 		status = DSP_ESTREAMFULL;
 
-
-	dev_dbg(bridge, "%s: hStrm: %p pBuf: %p ulBytes: 0x%x dwArg: 0x%x "
-					"status: 0x%x\n", __func__, hStrm, pBuf,
-					ulBytes, dwArg, status);
 	return status;
 }
 
@@ -462,6 +475,10 @@ DSP_STATUS STRM_Open(struct NODE_OBJECT *hNode, u32 uDir, u32 uIndex,
 	DBC_Require(cRefs > 0);
 	DBC_Require(phStrm != NULL);
 	DBC_Require(pAttr != NULL);
+	GT_5trace(STRM_debugMask, GT_ENTER,
+		 "STRM_Open: hNode: 0x%x\tuDir: 0x%x\t"
+		 "uIndex: 0x%x\tpAttr: 0x%x\tphStrm: 0x%x\n",
+		 hNode, uDir, uIndex, pAttr, phStrm);
 	*phStrm = NULL;
 	if (uDir != DSP_TONODE && uDir != DSP_FROMNODE) {
 		status = DSP_EDIRECTION;
@@ -579,10 +596,6 @@ func_cont:
 		  (*phStrm == NULL && (status == DSP_EHANDLE ||
 		  status == DSP_EDIRECTION || status == DSP_EVALUE ||
 		  status == DSP_EFAIL)));
-
-	dev_dbg(bridge, "%s: hNode: %p uDir: 0x%x uIndex: 0x%x pAttr: %p "
-				"phStrm: %p status: 0x%x\n", __func__,
-				hNode, uDir, uIndex, pAttr, phStrm, status);
 	return status;
 }
 
@@ -603,6 +616,11 @@ DSP_STATUS STRM_Reclaim(struct STRM_OBJECT *hStrm, OUT u8 **pBufPtr,
 	DBC_Require(pBufPtr != NULL);
 	DBC_Require(pulBytes != NULL);
 	DBC_Require(pdwArg != NULL);
+
+	GT_4trace(STRM_debugMask, GT_ENTER,
+		 "STRM_Reclaim: hStrm: 0x%x\tpBufPtr: 0x%x"
+		 "\tpulBytes: 0x%x\tpdwArg: 0x%x\n", hStrm, pBufPtr, pulBytes,
+		 pdwArg);
 
 	pIntfFxns = hStrm->hStrmMgr->pIntfFxns;
 
@@ -652,10 +670,6 @@ DSP_STATUS STRM_Reclaim(struct STRM_OBJECT *hStrm, OUT u8 **pBufPtr,
 	DBC_Ensure(DSP_SUCCEEDED(status) || status == DSP_EHANDLE ||
 		  status == DSP_ETIMEOUT || status == DSP_ETRANSLATE ||
 		  status == DSP_EFAIL);
-
-	dev_dbg(bridge, "%s: hStrm: %p pBufPtr: %p pulBytes: %p pdwArg: %p "
-					"status 0x%x\n", __func__, hStrm,
-					pBufPtr, pulBytes, pdwArg, status);
 	return status;
 }
 

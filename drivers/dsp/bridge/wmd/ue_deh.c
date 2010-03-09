@@ -26,6 +26,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/dbg.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
@@ -318,8 +319,9 @@ void WMD_DEH_Notify(struct DEH_MGR *hDehMgr, u32 ulEventMask,
 			break;
 #endif
 		default:
-			dev_dbg(bridge, "%s: Unknown Error, errInfo = 0x%x\n",
-							__func__, dwErrInfo);
+			DBG_Trace(DBG_LEVEL6,
+				 "WMD_DEH_Notify: Unknown Error, errInfo = "
+				 "0x%x\n", dwErrInfo);
 			break;
 		}
 

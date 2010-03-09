@@ -26,6 +26,8 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/dbg.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
@@ -87,6 +89,9 @@ struct DEV_OBJECT {
 
 /*  ----------------------------------- Globals */
 static u32 cRefs;		/* Module reference count */
+#if GT_TRACE
+static struct GT_Mask debugMask = { NULL, NULL };	/* For debugging */
+#endif
 
 /*  ----------------------------------- Function Prototypes */
 static DSP_STATUS FxnNotImplemented(int arg, ...);
@@ -770,6 +775,9 @@ bool DEV_Init(void)
 	DBC_Require(cRefs >= 0);
 
 	if (cRefs == 0) {
+		/* Set the Trace mask */
+		DBC_Assert(!debugMask.flags);
+		GT_create(&debugMask, "DV");	/* "DV" for DeVice */
 		fCmm = CMM_Init();
 		fDmm = DMM_Init();
 

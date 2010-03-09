@@ -44,6 +44,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/list.h>
@@ -85,6 +86,10 @@ struct RMM_TargetObj {
 	u32 numSegs;
 	struct LST_LIST *ovlyList;	/* List of overlay memory in use */
 };
+
+#if GT_TRACE
+static struct GT_Mask RMM_debugMask = { NULL, NULL };	/* GT trace variable */
+#endif
 
 static u32 cRefs;		/* module reference count */
 
@@ -361,6 +366,12 @@ bool RMM_free(struct RMM_TargetObj *target, u32 segid, u32 addr, u32 size,
 bool RMM_init(void)
 {
 	DBC_Require(cRefs >= 0);
+
+	if (cRefs == 0) {
+		DBC_Assert(!RMM_debugMask.flags);
+		GT_create(&RMM_debugMask, "RM");	/* "RM" for RMm */
+
+	}
 
 	cRefs++;
 

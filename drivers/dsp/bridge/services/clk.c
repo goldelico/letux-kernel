@@ -26,6 +26,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
@@ -88,6 +89,11 @@ struct TIMER_OBJECT {
 	struct timer_list timer;
 };
 
+/*  ----------------------------------- Globals */
+#if GT_TRACE
+static struct GT_Mask CLK_debugMask = { NULL, NULL };	/* GT trace variable */
+#endif
+
 /*
  *  ======== CLK_Exit ========
  *  Purpose:
@@ -118,6 +124,7 @@ bool CLK_Init(void)
 	static struct platform_device dspbridge_device;
 	struct clk *clk_handle;
 	int i = 0;
+	GT_create(&CLK_debugMask, "CK");	/* CK for CLK */
 
 	dspbridge_device.dev.bus = &platform_bus_type;
 
@@ -267,8 +274,9 @@ DSP_STATUS CLK_GetRate(IN enum SERVICES_ClkId clk_id, u32 *speedKhz)
 	if (pClk) {
 		clkSpeedHz = clk_get_rate(pClk);
 		*speedKhz = clkSpeedHz / 1000;
-		dev_dbg(bridge, "%s: clkSpeedHz = %d, speedinKhz = %d\n",
-					__func__, clkSpeedHz, *speedKhz);
+		GT_2trace(CLK_debugMask, GT_6CLASS,
+			  "CLK_GetRate: clkSpeedHz = %d , "
+			 "speedinKhz=%d\n", clkSpeedHz, *speedKhz);
 	} else {
 		pr_err("%s: failed to get %s, dev Id = %d\n", __func__,
 						SERVICES_Clks[clk_id].clk_name,
