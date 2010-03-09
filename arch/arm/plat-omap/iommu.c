@@ -171,14 +171,11 @@ static void iotlb_lock_get(struct iommu *obj, struct iotlb_lock *l)
 	l->base = MMU_LOCK_BASE(val);
 	l->vict = MMU_LOCK_VICT(val);
 
-	BUG_ON(l->base != 0); /* Currently no preservation is used */
 }
 
 static void iotlb_lock_set(struct iommu *obj, struct iotlb_lock *l)
 {
 	u32 val;
-
-	BUG_ON(l->base != 0); /* Currently no preservation is used */
 
 	val = (l->base << MMU_LOCK_BASE_SHIFT);
 	val |= (l->vict << MMU_LOCK_VICT_SHIFT);
@@ -241,7 +238,7 @@ int load_iotlb_entry(struct iommu *obj, struct iotlb_entry *e)
 			break;
 	}
 
-	if (i == obj->nr_tlb_entries) {
+	if (i == obj->nr_tlb_entries || (l.base == obj->nr_tlb_entries)) {
 		dev_dbg(obj->dev, "%s: full: no entry\n", __func__);
 		err = -EBUSY;
 		goto out;
@@ -252,13 +249,18 @@ int load_iotlb_entry(struct iommu *obj, struct iotlb_entry *e)
 		clk_disable(obj->clk);
 		return PTR_ERR(cr);
 	}
-
 	iotlb_load_cr(obj, cr);
 	kfree(cr);
 
+	/* Increment base number if preservation is set */
+	if (e->prsvd)
+		l.base++;
 	/* increment victim for next tlb load */
-	if (++l.vict == obj->nr_tlb_entries)
-		l.vict = 0;
+	if (++l.vict == obj->nr_tlb_entries) {
+		l.vict = l.base;
+		goto out;
+	}
+
 	iotlb_lock_set(obj, &l);
 out:
 	clk_disable(obj->clk);
