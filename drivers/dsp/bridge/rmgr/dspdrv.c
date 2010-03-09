@@ -26,7 +26,6 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
@@ -44,9 +43,6 @@
 /*  ----------------------------------- This */
 #include <dspbridge/dspdrv.h>
 
-/*  ----------------------------------- Globals */
-struct GT_Mask curTrace;
-
 /*
  *  ======== DSP_Init ========
  *  	Allocates bridge resources. Loads a base image onto DSP, if specified.
@@ -59,21 +55,14 @@ u32 DSP_Init(OUT u32 *initStatus)
 	u32 deviceNode;
 	u32 deviceNodeString;
 
-	GT_create(&curTrace, "DD");
-
-	GT_0trace(curTrace, GT_ENTER, "Entering DSP_Init \r\n");
-
-	if (!WCD_Init()) {
-		GT_0trace(curTrace, GT_7CLASS, "DSP_Init Failed \n");
+	if (!WCD_Init())
 		goto func_cont;
-	}			/* End WCD_Exit */
+
 	status = DRV_Create(&drvObject);
 	if (DSP_FAILED(status)) {
-		GT_0trace(curTrace, GT_7CLASS, "DSP_Init:DRV_Create Failed \n");
 		WCD_Exit();
 		goto func_cont;
 	}		/* End DRV_Create */
-	GT_0trace(curTrace, GT_5CLASS, "DSP_Init:DRV Created \r\n");
 
 	/* Request Resources */
 	status = DRV_RequestResources((u32)&devNode, &deviceNodeString);
@@ -81,20 +70,11 @@ u32 DSP_Init(OUT u32 *initStatus)
 		/* Attempt to Start the Device */
 		status = DEV_StartDevice((struct CFG_DEVNODE *)
 							deviceNodeString);
-		if (DSP_SUCCEEDED(status)) {
-			/* Retreive the DevObject from the Registry */
-			GT_1trace(curTrace, GT_1CLASS,
-				 "DSP_Init Succeeded for Device1 value: %x\n",
-				 deviceNodeString);
-		} else {
-			GT_0trace(curTrace, GT_7CLASS,
-				 "DSP_Init:DEV_StartDevice Failed\n");
+		if (DSP_FAILED(status))
 			(void)DRV_ReleaseResources
 				((u32) deviceNodeString, drvObject);
-		}
 	} else {
-		GT_0trace(curTrace, GT_7CLASS,
-			 "DSP_Init:DRV_RequestResources Failed \r\n");
+		dev_dbg(bridge, "%s: DRV_RequestResources Failed\n", __func__);
 		status = DSP_EFAIL;
 	}
 
@@ -115,8 +95,7 @@ u32 DSP_Init(OUT u32 *initStatus)
 		(void)DRV_Destroy(drvObject);
 		drvObject = NULL;
 		WCD_Exit();
-		GT_0trace(curTrace, GT_7CLASS,
-			 "DSP_Init:Logical device Failed to Load\n");
+		dev_dbg(bridge, "%s: Logical device failed init\n", __func__);
 	}	/* Unwinding the loaded drivers */
 func_cont:
 	/* Attempt to Start the Board */
@@ -125,9 +104,8 @@ func_cont:
 		 * correct one. We should not propagate that error
 		 * into the device loader. */
 		(void)WCD_InitComplete2();
-		GT_0trace(curTrace, GT_1CLASS, "DSP_Init Succeeded\n");
 	} else {
-		GT_0trace(curTrace, GT_7CLASS, "DSP_Init Failed\n");
+		dev_dbg(bridge, "%s: Failed\n", __func__);
 	}			/* End WCD_InitComplete2 */
 	DBC_Ensure((DSP_SUCCEEDED(status) && drvObject != NULL) ||
 		  (DSP_FAILED(status) && drvObject == NULL));
@@ -145,8 +123,6 @@ bool DSP_Deinit(u32 deviceContext)
 	bool retVal = true;
 	u32 deviceNode;
 	struct MGR_OBJECT *mgrObject = NULL;
-
-	GT_0trace(curTrace, GT_ENTER, "Entering DSP_Deinit \r\n");
 
 	while ((deviceNode = DRV_GetFirstDevExtension()) != 0) {
 		(void)DEV_RemoveDevice((struct CFG_DEVNODE *)deviceNode);

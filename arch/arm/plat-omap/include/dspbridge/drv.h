@@ -72,6 +72,9 @@
 #define OMAP_DMMU_BASE 0x5D000000
 #define OMAP_DMMU_SIZE 0x1000
 
+#define OMAP_WDT3_BASE 0x49030000
+#define OMAP_WDT3_SIZE 0x1000
+
 #define OMAP_PRCM_VDD1_DOMAIN 1
 #define OMAP_PRCM_VDD2_DOMAIN 2
 
@@ -87,16 +90,17 @@ struct NODE_RES_OBJECT {
 	struct NODE_RES_OBJECT         *next;
 } ;
 
-/* New structure (member of process context) abstracts DMM resource info */
-struct DMM_RES_OBJECT {
-	s32            dmmAllocated; /* DMM status */
-	u32           ulMpuAddr;
-	u32           ulDSPAddr;
-	u32           ulDSPResAddr;
-	u32           dmmSize;
-	HANDLE          hProcessor;
-	struct DMM_RES_OBJECT  *next;
-} ;
+/* Used for DMM mapped memory accounting */
+struct DMM_MAP_OBJECT {
+	struct	list_head	link;
+	u32	dsp_addr;
+};
+
+/* Used for DMM reserved memory accounting */
+struct DMM_RSV_OBJECT {
+	struct	list_head	link;
+	u32	dsp_reserved_addr;
+};
 
 /* New structure (member of process context) abstracts DMM resource info */
 struct DSPHEAP_RES_OBJECT {
@@ -136,9 +140,13 @@ struct PROCESS_CONTEXT{
 	struct NODE_RES_OBJECT *pNodeList;
 	struct mutex node_mutex;
 
-	/* DMM resources */
-	struct DMM_RES_OBJECT *pDMMList;
-	struct mutex dmm_mutex;
+	/* DMM mapped memory resources */
+	struct list_head dmm_map_list;
+	spinlock_t dmm_map_lock;
+
+	/* DMM reserved memory resources */
+	struct list_head dmm_rsv_list;
+	spinlock_t dmm_rsv_lock;
 
 	/* DSP Heap resources */
 	struct DSPHEAP_RES_OBJECT *pDSPHEAPList;
@@ -384,19 +392,6 @@ struct PROCESS_CONTEXT{
  */
 	extern DSP_STATUS DRV_ReleaseResources(IN u32 dwContext,
 					       struct DRV_OBJECT *hDrvObject);
-
-/*
- *  ======== DRV_ProcFreeDMMRes ========
- *  Purpose:
- *       Actual DMM De-Allocation.
- *  Parameters:
- *      hPCtxt:      Path to the driver Registry Key.
- *  Returns:
- *      DSP_SOK if success;
- */
-
-
-	extern DSP_STATUS  DRV_ProcFreeDMMRes(HANDLE hPCtxt);
 
 #ifdef CONFIG_BRIDGE_RECOVERY
 	void bridge_recover_schedule(void);

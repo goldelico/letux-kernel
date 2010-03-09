@@ -109,6 +109,22 @@
  *      pChnl != NULL
  *  Ensures:
  */
+
+
+#ifdef CONFIG_BRIDGE_WDT3
+/*
+ *  ========  io_isr_wdt3 ========
+ *  Purpose:
+ *         Main interrupt handler for the WDT overflow.
+ */
+	irqreturn_t io_isr_wdt3(int irq, void *data);
+	void dsp_wdt_enable(bool);
+	void dsp_wdt_set_timeout(unsigned);
+	unsigned dsp_wdt_get_timeout(void);
+	bool dsp_wdt_get_enable(void);
+	void dsp_wdt_set_enable(bool);
+#endif
+
 	extern void IO_RequestChnl(struct IO_MGR *hIOMgr,
 				   struct CHNL_OBJECT *pChnl,
 				   u32 iMode, OUT u16 *pwMbVal);
@@ -295,5 +311,10 @@
  */
 	extern DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT
 						*hWmdContext);
+
+	DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context);
+
+	void dump_dl_modules(struct WMD_DEV_CONTEXT *wmd_context);
+
 
 #endif				/* IOSM_ */

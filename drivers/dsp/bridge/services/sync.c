@@ -26,7 +26,6 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
@@ -67,11 +66,6 @@ struct SYNC_DPCCSOBJECT {
 	s32 count;
 } ;
 
-/*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask SYNC_debugMask = { NULL, NULL };  /* GT trace variable */
-#endif
-
 static int test_and_set(volatile void *ptr, int val)
 {
 	int ret = val;
@@ -93,22 +87,14 @@ DSP_STATUS SYNC_CloseEvent(struct SYNC_OBJECT *hEvent)
 
 	DBC_Require(pEvent != NULL && pEvent->pWaitObj == NULL);
 
-	GT_1trace(SYNC_debugMask, GT_ENTER, "SYNC_CloseEvent: hEvent 0x%x\n",
-		  hEvent);
-
 	if (MEM_IsValidHandle(hEvent, SIGNATURE)) {
-		if (pEvent->pWaitObj) {
+		if (pEvent->pWaitObj)
 			status = DSP_EFAIL;
-			GT_0trace(SYNC_debugMask, GT_6CLASS,
-				  "SYNC_CloseEvent: Wait object not NULL\n");
-		}
+
 		MEM_FreeObject(pEvent);
 
 	} else {
 		status = DSP_EHANDLE;
-		GT_1trace(SYNC_debugMask, GT_6CLASS,
-			  "SYNC_CloseEvent: invalid "
-			  "hEvent handle 0x%x\n", hEvent);
 	}
 
 	return status;
@@ -121,7 +107,7 @@ DSP_STATUS SYNC_CloseEvent(struct SYNC_OBJECT *hEvent)
  */
 void SYNC_Exit(void)
 {
-	GT_0trace(SYNC_debugMask, GT_5CLASS, "SYNC_Exit\n");
+	/* Do nothing */
 }
 
 /*
@@ -131,10 +117,6 @@ void SYNC_Exit(void)
  */
 bool SYNC_Init(void)
 {
-	GT_create(&SYNC_debugMask, "SY");	/* SY for SYnc */
-
-	GT_0trace(SYNC_debugMask, GT_5CLASS, "SYNC_Init\n");
-
 	return true;
 }
 
@@ -151,10 +133,6 @@ DSP_STATUS SYNC_OpenEvent(OUT struct SYNC_OBJECT **phEvent,
 
 	DBC_Require(phEvent != NULL);
 
-	GT_2trace(SYNC_debugMask, GT_ENTER,
-		  "SYNC_OpenEvent: phEvent 0x%x, pAttrs "
-		  "0x%x\n", phEvent, pAttrs);
-
 	/* Allocate memory for sync object */
 	MEM_AllocObject(pEvent, struct SYNC_OBJECT, SIGNATURE);
 	if (pEvent != NULL) {
@@ -163,8 +141,6 @@ DSP_STATUS SYNC_OpenEvent(OUT struct SYNC_OBJECT **phEvent,
 		spin_lock_init(&pEvent->sync_lock);
 	} else {
 		status = DSP_EMEMORY;
-		GT_0trace(SYNC_debugMask, GT_6CLASS,
-			  "SYNC_OpenEvent: MEM_AllocObject failed\n");
 	}
 
 	*phEvent = pEvent;
@@ -182,17 +158,10 @@ DSP_STATUS SYNC_ResetEvent(struct SYNC_OBJECT *hEvent)
 	DSP_STATUS status = DSP_SOK;
 	struct SYNC_OBJECT *pEvent = (struct SYNC_OBJECT *)hEvent;
 
-	GT_1trace(SYNC_debugMask, GT_ENTER, "SYNC_ResetEvent: hEvent 0x%x\n",
-		  hEvent);
-
-	if (MEM_IsValidHandle(hEvent, SIGNATURE)) {
+	if (MEM_IsValidHandle(hEvent, SIGNATURE))
 		pEvent->state = so_reset;
-	} else {
+	else
 		status = DSP_EHANDLE;
-		GT_1trace(SYNC_debugMask, GT_6CLASS,
-			  "SYNC_ResetEvent: invalid hEvent "
-			  "handle 0x%x\n", hEvent);
-	}
 
 	return status;
 }
@@ -212,37 +181,21 @@ DSP_STATUS SYNC_SetEvent(struct SYNC_OBJECT *hEvent)
 	struct SYNC_OBJECT *pEvent = (struct SYNC_OBJECT *)hEvent;
 	unsigned long flags;
 
-	GT_1trace(SYNC_debugMask, GT_6CLASS, "SYNC_SetEvent: hEvent 0x%x\n",
-		  hEvent);
-
 	if (MEM_IsValidHandle(hEvent, SIGNATURE)) {
 		spin_lock_irqsave(&hEvent->sync_lock, flags);
-		GT_1trace(SYNC_debugMask, GT_6CLASS,
-			"SYNC_SetEvent: pEvent->pWaitObj "
-			"= 0x%x \n", pEvent->pWaitObj);
-	if (pEvent->pWaitObj)
-		GT_1trace(SYNC_debugMask, GT_6CLASS, "SYNC_SetEvent: "
-			"pEvent->pWaitObj->state = 0x%x \n",
-			pEvent->pWaitObj->state);
+
 		if (pEvent->pWaitObj != NULL &&
 		   test_and_set(&pEvent->pWaitObj->state,
 		   wo_signalled) == wo_waiting) {
-
 			pEvent->state = so_reset;
 			pEvent->pWaitObj->signalling_event = pEvent;
 			up(&pEvent->pWaitObj->sem);
-			GT_1trace(SYNC_debugMask, GT_6CLASS,
-				  "SYNC_SetEvent: Unlock "
-				  "Semaphore for hEvent 0x%x\n", hEvent);
 		} else {
 			pEvent->state = so_signalled;
 		}
 		spin_unlock_irqrestore(&hEvent->sync_lock, flags);
 	} else {
 		status = DSP_EHANDLE;
-		GT_1trace(SYNC_debugMask, GT_6CLASS,
-			  "SYNC_SetEvent: invalid hEvent "
-			  "handle 0x%x\n", hEvent);
 	}
 	return status;
 }
@@ -259,17 +212,12 @@ DSP_STATUS SYNC_WaitOnEvent(struct SYNC_OBJECT *hEvent, u32 dwTimeout)
 	struct SYNC_OBJECT *pEvent = (struct SYNC_OBJECT *)hEvent;
 	u32 temp;
 
-	GT_2trace(SYNC_debugMask, GT_6CLASS, "SYNC_WaitOnEvent: hEvent 0x%x\n, "
-		  "dwTimeOut 0x%x", hEvent, dwTimeout);
-	if (MEM_IsValidHandle(hEvent, SIGNATURE)) {
+	if (MEM_IsValidHandle(hEvent, SIGNATURE))
 		status = SYNC_WaitOnMultipleEvents(&pEvent, 1, dwTimeout,
 						  &temp);
-	} else {
+	else
 		status = DSP_EHANDLE;
-		GT_1trace(SYNC_debugMask, GT_6CLASS,
-			  "SYNC_WaitOnEvent: invalid hEvent"
-			  "handle 0x%x\n", hEvent);
-	}
+
 	return status;
 }
 
@@ -295,11 +243,6 @@ DSP_STATUS SYNC_WaitOnMultipleEvents(struct SYNC_OBJECT **hSyncEvents,
 	for (i = 0; i < uCount; i++)
 		DBC_Require(MEM_IsValidHandle(hSyncEvents[i], SIGNATURE));
 
-	GT_4trace(SYNC_debugMask, GT_6CLASS,
-		  "SYNC_WaitOnMultipleEvents: hSyncEvents:"
-		  "0x%x\tuCount: 0x%x" "\tdwTimeout: 0x%x\tpuIndex: 0x%x\n",
-		  hSyncEvents, uCount, dwTimeout, puIndex);
-
 	Wp = MEM_Calloc(sizeof(struct WAIT_OBJECT), MEM_NONPAGED);
 	if (Wp == NULL)
 		return DSP_EMEMORY;
@@ -311,12 +254,8 @@ DSP_STATUS SYNC_WaitOnMultipleEvents(struct SYNC_OBJECT **hSyncEvents,
 	for (curr = 0; curr < uCount; curr++) {
 		hSyncEvents[curr]->pWaitObj = Wp;
 		if (hSyncEvents[curr]->state == so_signalled) {
-			GT_0trace(SYNC_debugMask, GT_6CLASS,
-				 "Detected signaled Event !!!\n");
 			if (test_and_set(&(Wp->state), wo_signalled) ==
 			   wo_waiting) {
-				GT_0trace(SYNC_debugMask, GT_6CLASS,
-					 "Setting Signal Event!!!\n");
 				hSyncEvents[curr]->state = so_reset;
 				Wp->signalling_event = hSyncEvents[curr];
 			}
@@ -335,23 +274,14 @@ DSP_STATUS SYNC_WaitOnMultipleEvents(struct SYNC_OBJECT **hSyncEvents,
 			timeout.expires = jiffies + dwTimeout * HZ / 1000;
 			add_timer(&timeout);
 		}
-		if (down_interruptible(&(Wp->sem))) {
-			GT_0trace(SYNC_debugMask, GT_7CLASS, "SYNC: "
-				"WaitOnMultipleEvents Interrupted by signal\n");
+		if (down_interruptible(&(Wp->sem)))
 			status = DSP_EFAIL;
-		}
+
 		if (dwTimeout != SYNC_INFINITE) {
-			if (in_interrupt()) {
-				if (!del_timer(&timeout)) {
-					GT_0trace(SYNC_debugMask, GT_7CLASS,
-						  "SYNC: Timer expired\n");
-				}
-			} else {
-				if (!del_timer_sync(&timeout)) {
-					GT_0trace(SYNC_debugMask, GT_7CLASS,
-						  "SYNC: Timer expired\n");
-				}
-			}
+			if (in_interrupt())
+				del_timer(&timeout);
+			else
+				del_timer_sync(&timeout);
 		}
 	}
 	for (i = 0; i <= curr; i++) {
@@ -364,13 +294,9 @@ DSP_STATUS SYNC_WaitOnMultipleEvents(struct SYNC_OBJECT **hSyncEvents,
 			*puIndex = i;
 
 	}
-	if (Wp->signalling_event == NULL && DSP_SUCCEEDED(status)) {
-		GT_0trace(SYNC_debugMask, GT_7CLASS,
-			  "SYNC:Signaling Event NULL!!!(:-\n");
+	if (Wp->signalling_event == NULL && DSP_SUCCEEDED(status))
 		status = DSP_ETIMEOUT;
-	}
-	if (Wp)
-		MEM_Free(Wp);
+	kfree(Wp);
 	return status;
 }
 
@@ -390,31 +316,20 @@ DSP_STATUS SYNC_DeleteCS(struct SYNC_CSOBJECT *hCSObj)
 	DSP_STATUS status = DSP_SOK;
 	struct SYNC_CSOBJECT *pCSObj = (struct SYNC_CSOBJECT *)hCSObj;
 
-	GT_0trace(SYNC_debugMask, GT_ENTER, "SYNC_DeleteCS\n");
-
 	if (MEM_IsValidHandle(hCSObj, SIGNATURECS)) {
-		if (down_trylock(&pCSObj->sem) != 0) {
-			GT_1trace(SYNC_debugMask, GT_7CLASS,
-				  "CS in use (locked) while "
-				  "deleting! pCSObj=0x%X", pCSObj);
+		if (down_trylock(&pCSObj->sem) != 0)
 			DBC_Assert(0);
-		}
+
 		MEM_FreeObject(hCSObj);
 	} else if (MEM_IsValidHandle(hCSObj, SIGNATUREDPCCS)) {
 		struct SYNC_DPCCSOBJECT *pDPCCSObj =
 					 (struct SYNC_DPCCSOBJECT *)hCSObj;
-		if (pDPCCSObj->count != 1) {
-			GT_1trace(SYNC_debugMask, GT_7CLASS,
-				  "DPC CS in use (locked) while "
-				  "deleting! pCSObj=0x%X", pCSObj);
+		if (pDPCCSObj->count != 1)
 			DBC_Assert(0);
-		}
+
 		MEM_FreeObject(pDPCCSObj);
 	} else {
 		status = DSP_EHANDLE;
-		GT_1trace(SYNC_debugMask, GT_6CLASS,
-			  "SYNC_DeleteCS: invalid hCSObj "
-			  "handle 0x%x\n", hCSObj);
 	}
 
 	return status;
@@ -428,40 +343,25 @@ DSP_STATUS SYNC_EnterCS(struct SYNC_CSOBJECT *hCSObj)
 	DSP_STATUS status = DSP_SOK;
 	struct SYNC_CSOBJECT *pCSObj = (struct SYNC_CSOBJECT *)hCSObj;
 
-	GT_1trace(SYNC_debugMask, GT_ENTER, "SYNC_EnterCS: hCSObj %p\n",
-		 hCSObj);
 	if (MEM_IsValidHandle(hCSObj, SIGNATURECS)) {
 		if (in_interrupt()) {
 			status = DSP_EFAIL;
-			GT_0trace(SYNC_debugMask, GT_7CLASS,
-				 "SYNC_EnterCS called from "
-				 "ISR/DPC or with ISR/DPC disabled!");
 			DBC_Assert(0);
 		} else if (down_interruptible(&pCSObj->sem)) {
-			GT_1trace(SYNC_debugMask, GT_7CLASS,
-				 "CS interrupted by signal! "
-				 "pCSObj=0x%X", pCSObj);
 			status = DSP_EFAIL;
 		}
 	} else if (MEM_IsValidHandle(hCSObj, SIGNATUREDPCCS)) {
 		struct SYNC_DPCCSOBJECT *pDPCCSObj =
 					(struct SYNC_DPCCSOBJECT *)hCSObj;
-		GT_0trace(SYNC_debugMask, GT_ENTER, "SYNC_EnterCS DPC\n");
 		spin_lock_bh(&pDPCCSObj->sync_dpccs_lock);
 		pDPCCSObj->count--;
 		if (pDPCCSObj->count != 0) {
 			/* FATAL ERROR : Failed to acquire DPC CS */
-			GT_2trace(SYNC_debugMask, GT_7CLASS,
-				  "SYNC_EnterCS DPCCS %x locked,"
-				  "count %d", pDPCCSObj, pDPCCSObj->count);
 			spin_unlock_bh(&pDPCCSObj->sync_dpccs_lock);
 			DBC_Assert(0);
 		}
 	} else {
 		status = DSP_EHANDLE;
-		GT_1trace(SYNC_debugMask, GT_6CLASS,
-			  "SYNC_EnterCS: invalid hCSObj "
-			  "handle 0x%x\n", hCSObj);
 	}
 
 	return status;
@@ -475,18 +375,13 @@ DSP_STATUS SYNC_InitializeCS(OUT struct SYNC_CSOBJECT **phCSObj)
 	DSP_STATUS status = DSP_SOK;
 	struct SYNC_CSOBJECT *pCSObj = NULL;
 
-	GT_0trace(SYNC_debugMask, GT_ENTER, "SYNC_InitializeCS\n");
-
 	/* Allocate memory for sync CS object */
 	MEM_AllocObject(pCSObj, struct SYNC_CSOBJECT, SIGNATURECS);
-	if (pCSObj != NULL) {
+	if (pCSObj != NULL)
 		init_MUTEX(&pCSObj->sem);
-	} else {
+	else
 		status = DSP_EMEMORY;
-		GT_0trace(SYNC_debugMask, GT_6CLASS,
-			  "SYNC_InitializeCS: MEM_AllocObject"
-			  "failed\n");
-	}
+
 	/* return CS object */
 	*phCSObj = pCSObj;
 	DBC_Assert(DSP_FAILED(status) || (pCSObj));
@@ -500,8 +395,6 @@ DSP_STATUS SYNC_InitializeDPCCS(OUT struct SYNC_CSOBJECT **phCSObj)
 
 	DBC_Require(phCSObj);
 
-	GT_0trace(SYNC_debugMask, GT_ENTER, "SYNC_InitializeDPCCS\n");
-
 	if (phCSObj) {
 		/* Allocate memory for sync CS object */
 		MEM_AllocObject(pCSObj, struct SYNC_DPCCSOBJECT,
@@ -511,9 +404,6 @@ DSP_STATUS SYNC_InitializeDPCCS(OUT struct SYNC_CSOBJECT **phCSObj)
 			spin_lock_init(&pCSObj->sync_dpccs_lock);
 		} else {
 			status = DSP_EMEMORY;
-			GT_0trace(SYNC_debugMask, GT_6CLASS,
-				  "SYNC_InitializeDPCCS: "
-				  "MEM_AllocObject failed\n");
 		}
 
 		/* return CS object */
@@ -522,8 +412,6 @@ DSP_STATUS SYNC_InitializeDPCCS(OUT struct SYNC_CSOBJECT **phCSObj)
 		status = DSP_EPOINTER;
 	}
 
-	GT_1trace(SYNC_debugMask, GT_ENTER, "SYNC_InitializeDPCCS "
-		  "pCSObj %p\n", pCSObj);
 	DBC_Assert(DSP_FAILED(status) || (pCSObj));
 
 	return status;
@@ -537,9 +425,6 @@ DSP_STATUS SYNC_LeaveCS(struct SYNC_CSOBJECT *hCSObj)
 	DSP_STATUS status = DSP_SOK;
 	struct SYNC_CSOBJECT *pCSObj = (struct SYNC_CSOBJECT *)hCSObj;
 
-	GT_1trace(SYNC_debugMask, GT_ENTER, "SYNC_LeaveCS: hCSObj %p\n",
-		  hCSObj);
-
 	if (MEM_IsValidHandle(hCSObj, SIGNATURECS)) {
 		up(&pCSObj->sem);
 	} else if (MEM_IsValidHandle(hCSObj, SIGNATUREDPCCS)) {
@@ -548,21 +433,13 @@ DSP_STATUS SYNC_LeaveCS(struct SYNC_CSOBJECT *hCSObj)
 		pDPCCSObj->count++;
 		if (pDPCCSObj->count != 1) {
 			/* FATAL ERROR : Invalid DPC CS count */
-			GT_2trace(SYNC_debugMask, GT_7CLASS,
-				  "SYNC_LeaveCS DPCCS %x, "
-				  "Invalid count %d", pDPCCSObj,
-				  pDPCCSObj->count);
 			spin_unlock_bh(&pDPCCSObj->sync_dpccs_lock);
 			DBC_Assert(0);
 			spin_lock_bh(&pDPCCSObj->sync_dpccs_lock);
 		}
 		spin_unlock_bh(&pDPCCSObj->sync_dpccs_lock);
-		GT_0trace(SYNC_debugMask, GT_ENTER, "SYNC_LeaveCS DPC\n");
 	} else {
 		status = DSP_EHANDLE;
-		GT_1trace(SYNC_debugMask, GT_6CLASS,
-			  "SYNC_LeaveCS: invalid hCSObj "
-			  "handle 0x%x\n", hCSObj);
 	}
 
 	return status;

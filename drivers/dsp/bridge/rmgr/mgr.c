@@ -25,7 +25,6 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
@@ -50,10 +49,6 @@ struct MGR_OBJECT {
 };
 
 /*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask MGR_DebugMask = { NULL, NULL };
-#endif
-
 static u32 cRefs;
 
 /*
@@ -69,9 +64,7 @@ DSP_STATUS MGR_Create(OUT struct MGR_OBJECT **phMgrObject,
 
 	DBC_Require(phMgrObject != NULL);
 	DBC_Require(cRefs > 0);
-	GT_1trace(MGR_DebugMask, GT_ENTER,
-		 "Entering MGR_Create phMgrObject 0x%x\n ",
-		 phMgrObject);
+
 	MEM_AllocObject(pMgrObject, struct MGR_OBJECT, SIGNATURE);
 	if (pMgrObject) {
 		status = DCD_CreateManager(ZLDLLNAME, &pMgrObject->hDcdMgr);
@@ -81,29 +74,18 @@ DSP_STATUS MGR_Create(OUT struct MGR_OBJECT **phMgrObject,
 							REG_MGR_OBJECT);
 			if (DSP_SUCCEEDED(status)) {
 				*phMgrObject = pMgrObject;
-				GT_0trace(MGR_DebugMask, GT_1CLASS,
-					 "MGR_Create:MGR Created\r\n");
 			} else {
-				GT_0trace(MGR_DebugMask, GT_7CLASS,
-					 "MGR_Create:CFG_SetObject "
-					 "Failed\r\n");
 				DCD_DestroyManager(pMgrObject->hDcdMgr);
 				MEM_FreeObject(pMgrObject);
 			}
 		} else {
 			/* failed to Create DCD Manager */
-			GT_0trace(MGR_DebugMask, GT_7CLASS,
-				 "MGR_Create:DCD_ManagerCreate Failed\r\n");
 			MEM_FreeObject(pMgrObject);
 		}
 	} else {
 		status = DSP_EMEMORY;
-		GT_0trace(MGR_DebugMask, GT_7CLASS,
-			 "MGR_Create DSP_FAILED to allocate memory \n");
 	}
-	GT_2trace(MGR_DebugMask, GT_ENTER,
-		 "Exiting MGR_Create: phMgrObject: 0x%x\t"
-		 "status: 0x%x\n", phMgrObject, status);
+
 	DBC_Ensure(DSP_FAILED(status) ||
 		  MEM_IsValidHandle(pMgrObject, SIGNATURE));
 	return status;
@@ -121,8 +103,6 @@ DSP_STATUS MGR_Destroy(struct MGR_OBJECT *hMgrObject)
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(hMgrObject, SIGNATURE));
 
-	GT_1trace(MGR_DebugMask, GT_ENTER,
-		 "Entering MGR_Destroy hMgrObject 0x%x\n", hMgrObject);
 	/* Free resources */
 	if (hMgrObject->hDcdMgr)
 		DCD_DestroyManager(hMgrObject->hDcdMgr);
@@ -130,10 +110,6 @@ DSP_STATUS MGR_Destroy(struct MGR_OBJECT *hMgrObject)
 	MEM_FreeObject(pMgrObject);
 	/* Update the Registry with NULL for MGR Object */
 	(void)CFG_SetObject(0, REG_MGR_OBJECT);
-
-	GT_2trace(MGR_DebugMask, GT_ENTER,
-		 "Exiting MGR_Destroy: hMgrObject: 0x%x\t"
-		 "status: 0x%x\n", hMgrObject, status);
 
 	DBC_Ensure(DSP_FAILED(status) ||
 		 !MEM_IsValidHandle(hMgrObject, SIGNATURE));
@@ -161,19 +137,12 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 	DBC_Require(uNDBPropsSize >= sizeof(struct DSP_NDBPROPS));
 	DBC_Require(cRefs > 0);
 
-	GT_4trace(MGR_DebugMask, GT_ENTER, "Entered Manager_EnumNodeInfo, "
-		 "args:\n\t uNode: 0x%x\n\tpNDBProps:  0x%x\n\tuNDBPropsSize:"
-		 "0x%x\tpuNumNodes: 0x%x\n", uNode, pNDBProps,
-		 uNDBPropsSize, puNumNodes);
 	*puNumNodes = 0;
 	/* Get The Manager Object from the Registry */
 	status = CFG_GetObject((u32 *)&pMgrObject, REG_MGR_OBJECT);
-	if (DSP_FAILED(status)) {
-		GT_0trace(MGR_DebugMask, GT_7CLASS,
-			 "Manager_EnumNodeInfo:Failed To Get"
-			 " MGR Object from Registry\r\n");
+	if (DSP_FAILED(status))
 		goto func_cont;
-	}
+
 	DBC_Assert(MEM_IsValidHandle(pMgrObject, SIGNATURE));
 	/* Forever loop till we hit failed or no more items in the
 	 * Enumeration. We will exit the loop other than DSP_SOK; */
@@ -190,9 +159,6 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 	if (DSP_SUCCEEDED(status)) {
 		if (uNode > (uNodeIndex - 1)) {
 			status = DSP_EINVALIDARG;
-			GT_0trace(MGR_DebugMask, GT_7CLASS,
-				 "Manager_EnumNodeInfo: uNode"
-				 " is Invalid \r\n");
 		} else {
 			status = DCD_GetObjectDef(pMgrObject->hDcdMgr,
 						(struct DSP_UUID *)&Uuid,
@@ -201,23 +167,11 @@ DSP_STATUS MGR_EnumNodeInfo(u32 uNode, OUT struct DSP_NDBPROPS *pNDBProps,
 				/* Get the Obj def */
 				*pNDBProps = GenObj.objData.nodeObj.ndbProps;
 				*puNumNodes = uNodeIndex;
-			} else {
-				GT_0trace(MGR_DebugMask, GT_7CLASS,
-					 "Manager_EnumNodeInfo: "
-					 "Failed to Get Node Info \r\n");
 			}
 		}
-	} else {
-		/* This could be changed during enum, EFAIL ... */
-		GT_0trace(MGR_DebugMask, GT_7CLASS, "Manager_EnumNodeInfo: "
-			 "Enumeration failure\r\n");
 	}
+
 func_cont:
-	GT_4trace(MGR_DebugMask, GT_ENTER,
-		 "Exiting Manager_EnumNodeInfo, args:\n\t"
-		 "uNode: 0x%x\n\tpNDBProps:  0x%x\n\tuNDBPropsSize:"
-		 " 0x%x\tuNumNodes: 0x%x\n", uNode, pNDBProps,
-		uNDBPropsSize, *puNumNodes);
 	DBC_Ensure((DSP_SUCCEEDED(status) && *puNumNodes > 0) ||
 		  (DSP_FAILED(status) && *puNumNodes == 0));
 
@@ -254,11 +208,6 @@ DSP_STATUS MGR_EnumProcessorInfo(u32 uProcessor,
 	DBC_Require(uProcessorInfoSize >= sizeof(struct DSP_PROCESSORINFO));
 	DBC_Require(cRefs > 0);
 
-	GT_4trace(MGR_DebugMask, GT_ENTER,
-		 "Entered Manager_EnumProcessorInfo, "
-		 "args:\n\tuProcessor:  0x%x\n\tpProcessorInfo: 0x%x\n\t"
-		 "uProcessorInfoSize: 0x%x\tpuNumProcs: 0x%x\n", uProcessor,
-		 pProcessorInfo, uProcessorInfoSize, puNumProcs);
 	*puNumProcs = 0;
 	status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
 	if (DSP_SUCCEEDED(status)) {
@@ -266,15 +215,12 @@ DSP_STATUS MGR_EnumProcessorInfo(u32 uProcessor,
 		if (DSP_SUCCEEDED(status)) {
 			status = DEV_GetDevType(hDevObject, (u32 *) &devType);
 			status = DEV_GetDevNode(hDevObject, &devNode);
-			if (devType == DSP_UNIT) {
+			if (devType == DSP_UNIT)
 				status = CFG_GetDSPResources(devNode,
 							 &chipResources);
-			} else {
+			else
 				status = DSP_EFAIL;
-				GT_1trace(MGR_DebugMask, GT_7CLASS,
-					 "Unsupported dev type gotten"
-					 "from device object %d\n", devType);
-			}
+
 			if (DSP_SUCCEEDED(status)) {
 				pProcessorInfo->uProcessorType =
 						chipResources.uChipType;
@@ -287,9 +233,7 @@ DSP_STATUS MGR_EnumProcessorInfo(u32 uProcessor,
 	/* Get The Manager Object from the Registry */
 	if (DSP_FAILED(CFG_GetObject((u32 *)&pMgrObject,
 	   REG_MGR_OBJECT))) {
-		GT_0trace(MGR_DebugMask, GT_7CLASS,
-			 "Manager_EnumProcessorInfo: "
-			 "Failed To Get MGR Object from Registry\r\n");
+		dev_dbg(bridge, "%s: Failed to get MGR Object\n", __func__);
 		goto func_end;
 	}
 	DBC_Assert(MEM_IsValidHandle(pMgrObject, SIGNATURE));
@@ -323,10 +267,8 @@ DSP_STATUS MGR_EnumProcessorInfo(u32 uProcessor,
 						pProcessorInfo;
 				*pExtInfo = GenObj.objData.extProcObj;
 			}
-			GT_1trace(MGR_DebugMask, GT_7CLASS,
-				 "Manager_EnumProcessorInfo: Got"
-				 " Proctype  from DCD %x \r\n",
-				 pProcessorInfo->uProcessorType);
+			dev_dbg(bridge, "%s: Got proctype  from DCD %x\n",
+				__func__, pProcessorInfo->uProcessorType);
 			/* See if we got the needed processor */
 			if (devType == DSP_UNIT) {
 				if (pProcessorInfo->uProcessorType ==
@@ -342,18 +284,15 @@ DSP_STATUS MGR_EnumProcessorInfo(u32 uProcessor,
 			pProcessorInfo->uProcessorType =
 					 chipResources.uChipType;
 		} else {
-			GT_1trace(MGR_DebugMask, GT_7CLASS,
-				 "Manager_EnumProcessorInfo: "
-				 "Failed to Get DCD Processor Info %x \r\n",
-				 status2);
+			dev_dbg(bridge, "%s: Failed to get DCD processor info "
+						"%x\n", __func__, status2);
 			status = DSP_EFAIL;
 		}
 	}
 	*puNumProcs = uProcIndex;
 	if (procDetect == false) {
-		GT_0trace(MGR_DebugMask, GT_7CLASS,
-			 "Manager_EnumProcessorInfo: Failed"
-			 " to get Proc info from DCD , so use CFG registry\n");
+		dev_dbg(bridge, "%s: Failed to get proc info from DCD, so use "
+						"CFG registry\n", __func__);
 		pProcessorInfo->uProcessorType = chipResources.uChipType;
 	}
 func_end:
@@ -372,8 +311,6 @@ void MGR_Exit(void)
 	if (cRefs == 0)
 		DCD_Exit();
 
-	GT_1trace(MGR_DebugMask, GT_5CLASS,
-		 "Entered MGR_Exit, ref count: 0x%x\n", cRefs);
 	DBC_Ensure(cRefs >= 0);
 }
 
@@ -413,26 +350,15 @@ bool MGR_Init(void)
 	DBC_Require(cRefs >= 0);
 
 	if (cRefs == 0) {
-
-		/* Set the Trace mask */
-		DBC_Assert(!MGR_DebugMask.flags);
-
-		GT_create(&MGR_DebugMask, "MG");	/* "MG" for Manager */
 		fInitDCD = DCD_Init();	/*  DCD Module */
 
-		if (!fInitDCD) {
+		if (!fInitDCD)
 			fRetval = false;
-			GT_0trace(MGR_DebugMask, GT_6CLASS,
-				 "MGR_Init failed\n");
-		}
 	}
 
 	if (fRetval)
 		cRefs++;
 
-
-	GT_1trace(MGR_DebugMask, GT_5CLASS,
-		 "Entered MGR_Init, ref count:  0x%x\n", cRefs);
 	DBC_Ensure((fRetval && (cRefs > 0)) || (!fRetval && (cRefs >= 0)));
 
 	return fRetval;

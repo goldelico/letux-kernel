@@ -26,7 +26,6 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
@@ -42,9 +41,6 @@
 #include <dspbridge/msg.h>
 
 /*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask MSG_debugMask = { NULL, NULL };	/* GT trace variable */
-#endif
 static u32 cRefs;		/* module reference count */
 
 /*
@@ -66,10 +62,6 @@ DSP_STATUS MSG_Create(OUT struct MSG_MGR **phMsgMgr,
 	DBC_Require(msgCallback != NULL);
 	DBC_Require(hDevObject != NULL);
 
-	GT_3trace(MSG_debugMask, GT_ENTER, "MSG_Create: phMsgMgr: 0x%x\t"
-		 "hDevObject: 0x%x\tmsgCallback: 0x%x\n",
-		 phMsgMgr, hDevObject, msgCallback);
-
 	*phMsgMgr = NULL;
 
 	status = DEV_GetIntfFxns(hDevObject, &pIntfFxns);
@@ -88,8 +80,6 @@ DSP_STATUS MSG_Create(OUT struct MSG_MGR **phMsgMgr,
 
 		/* Finally, return the new message manager handle: */
 		*phMsgMgr = hMsgMgr;
-		GT_1trace(MSG_debugMask, GT_1CLASS,
-			 "MSG_Create: Success pMsgMgr: 0x%x\n",	pMsgMgr);
 	} else {
 		status = DSP_EFAIL;
 	}
@@ -107,19 +97,16 @@ void MSG_Delete(struct MSG_MGR *hMsgMgr)
 	struct WMD_DRV_INTERFACE *pIntfFxns;
 
 	DBC_Require(cRefs > 0);
-	DBC_Require(MEM_IsValidHandle(pMsgMgr, MSGMGR_SIGNATURE));
 
-	GT_1trace(MSG_debugMask, GT_ENTER, "MSG_Delete: hMsgMgr: 0x%x\n",
-		 hMsgMgr);
+	if (MEM_IsValidHandle(pMsgMgr, MSGMGR_SIGNATURE)) {
+		pIntfFxns = pMsgMgr->pIntfFxns;
 
-	pIntfFxns = pMsgMgr->pIntfFxns;
-
-	/* Let WMD message module destroy the MSG_MGR: */
-	(*pIntfFxns->pfnMsgDelete)(hMsgMgr);
-
-	if (MEM_IsValidHandle(pMsgMgr, MSGMGR_SIGNATURE))
-		GT_1trace(MSG_debugMask, GT_7CLASS, "MSG_Delete: Error hMsgMgr "
-					"Valid Handle: 0x%x\n", hMsgMgr);
+		/* Let WMD message module destroy the MSG_MGR: */
+		(*pIntfFxns->pfnMsgDelete)(hMsgMgr);
+	} else {
+		dev_dbg(bridge, "%s: Error hMsgMgr handle: %p\n",
+						__func__, hMsgMgr);
+	}
 }
 
 /*
@@ -129,8 +116,7 @@ void MSG_Exit(void)
 {
 	DBC_Require(cRefs > 0);
 	cRefs--;
-	GT_1trace(MSG_debugMask, GT_5CLASS,
-		 "Entered MSG_Exit, ref count: 0x%x\n",	cRefs);
+
 	DBC_Ensure(cRefs >= 0);
 }
 
@@ -141,15 +127,7 @@ bool MSG_Init(void)
 {
 	DBC_Require(cRefs >= 0);
 
-	if (cRefs == 0) {
-		DBC_Assert(!MSG_debugMask.flags);
-		GT_create(&MSG_debugMask, "MS");	/* "MS" for MSg */
-	}
-
 	cRefs++;
-
-	GT_1trace(MSG_debugMask, GT_5CLASS, "MSG_Init(), ref count:  0x%x\n",
-		 cRefs);
 
 	DBC_Ensure(cRefs >= 0);
 

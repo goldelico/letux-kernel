@@ -53,6 +53,7 @@
 #define DSP_SYSERROR                0x00000020
 #define DSP_EXCEPTIONABORT          0x00000300
 #define DSP_PWRERROR                0x00000080
+#define DSP_WDTOVERFLOW	0x00000040
 
 /* IVA exception events (IVA MMU fault) */
 #define IVA_MMUFAULT                0x00000040
@@ -113,29 +114,29 @@
 	typedef u32 DSP_STATUS;	/* API return code type         */
 
 
-	typedef u32 DSP_PROCFAMILY;	/* Processor family             */
-
 /* Handy Macros */
 #define IsValidProcEvent(x) (((x) == 0) || (((x) & (DSP_PROCESSORSTATECHANGE | \
-				    DSP_PROCESSORATTACH | \
-				    DSP_PROCESSORDETACH | \
-				    DSP_PROCESSORRESTART | \
-				    DSP_NODESTATECHANGE | \
-				    DSP_STREAMDONE | \
-				    DSP_STREAMIOCOMPLETION | \
-				    DSP_MMUFAULT | \
-				    DSP_SYSERROR | \
-				    DSP_PWRERROR)) && \
+				DSP_PROCESSORATTACH | \
+				DSP_PROCESSORDETACH | \
+				DSP_PROCESSORRESTART | \
+				DSP_NODESTATECHANGE | \
+				DSP_STREAMDONE | \
+				DSP_STREAMIOCOMPLETION | \
+				DSP_MMUFAULT | \
+				DSP_SYSERROR | \
+				DSP_PWRERROR | \
+				DSP_WDTOVERFLOW)) && \
 				!((x) & ~(DSP_PROCESSORSTATECHANGE | \
-				    DSP_PROCESSORATTACH | \
-				    DSP_PROCESSORDETACH | \
-				    DSP_PROCESSORRESTART | \
-				    DSP_NODESTATECHANGE | \
-				    DSP_STREAMDONE | \
-				    DSP_STREAMIOCOMPLETION | \
-				    DSP_MMUFAULT | \
-				    DSP_SYSERROR | \
-				    DSP_PWRERROR))))
+				DSP_PROCESSORATTACH | \
+				DSP_PROCESSORDETACH | \
+				DSP_PROCESSORRESTART | \
+				DSP_NODESTATECHANGE | \
+				DSP_STREAMDONE | \
+				DSP_STREAMIOCOMPLETION | \
+				DSP_MMUFAULT | \
+				DSP_SYSERROR | \
+				DSP_PWRERROR | \
+				DSP_WDTOVERFLOW))))
 
 #define IsValidNodeEvent(x)    (((x) == 0) || (((x) & (DSP_NODESTATECHANGE | \
 				DSP_NODEMESSAGEREADY)) && \
@@ -408,7 +409,7 @@
  */
 	struct DSP_PROCESSORINFO {
 		u32 cbStruct;
-		DSP_PROCFAMILY uProcessorFamily;
+		int uProcessorFamily;
 		int uProcessorType;
 		u32 uClockRate;
 		u32 ulInternalMemSize;
@@ -493,6 +494,9 @@ bit 3 - MMU element size = 8bit (valid only for non mixed page entries)
 bit 4 - MMU element size = 16bit (valid only for non mixed page entries)
 bit 5 - MMU element size = 32bit (valid only for non mixed page entries)
 bit 6 - MMU element size = 64bit (valid only for non mixed page entries)
+
+bit 14 - Input (read only) buffer
+bit 15 - Output (writeable) buffer
 */
 
 /* Types of mapping attributes */
@@ -520,6 +524,8 @@ bit 6 - MMU element size = 64bit (valid only for non mixed page entries)
 #define DSP_MAPVMALLOCADDR         0x00000080
 
 #define DSP_MAPDONOTLOCK	   0x00000100
+
+#define DSP_MAP_DIR_MASK		0x3FFF
 
 #define GEM_CACHE_LINE_SIZE     128
 #define GEM_L1P_PREFETCH_SIZE   128

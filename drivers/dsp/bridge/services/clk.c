@@ -26,7 +26,6 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
@@ -65,8 +64,8 @@ static struct SERVICES_Clk_t SERVICES_Clks[] = {
 	{NULL, "gpt7_ick", -1},
 	{NULL, "gpt8_fck", -1},
 	{NULL, "gpt8_ick", -1},
-	{NULL, "wdt_fck", 3},
-	{NULL, "wdt_ick", 3},
+	{NULL, "wdt3_fck", 3},
+	{NULL, "wdt3_ick", 3},
 	{NULL, "mcbsp_fck", 1},
 	{NULL, "mcbsp_ick", 1},
 	{NULL, "mcbsp_fck", 2},
@@ -89,11 +88,6 @@ struct TIMER_OBJECT {
 	struct timer_list timer;
 };
 
-/*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask CLK_debugMask = { NULL, NULL };	/* GT trace variable */
-#endif
-
 /*
  *  ======== CLK_Exit ========
  *  Purpose:
@@ -103,7 +97,6 @@ void CLK_Exit(void)
 {
 	int i = 0;
 
-	GT_0trace(CLK_debugMask, GT_5CLASS, "CLK_Exit\n");
 	/* Relinquish the clock handles */
 	while (i < SERVICESCLK_NOT_DEFINED) {
 		if (SERVICES_Clks[i].clk_handle)
@@ -125,8 +118,6 @@ bool CLK_Init(void)
 	static struct platform_device dspbridge_device;
 	struct clk *clk_handle;
 	int i = 0;
-	GT_create(&CLK_debugMask, "CK");	/* CK for CLK */
-	GT_0trace(CLK_debugMask, GT_5CLASS, "CLK_Init\n");
 
 	dspbridge_device.dev.bus = &platform_bus_type;
 
@@ -139,18 +130,10 @@ bool CLK_Init(void)
 			     SERVICES_Clks[i].clk_name);
 
 		if (!clk_handle) {
-			GT_2trace(CLK_debugMask, GT_7CLASS,
-				  "CLK_Init: failed to get Clk handle %s, "
-				  "CLK dev id = %d\n",
-				  SERVICES_Clks[i].clk_name,
+			pr_err("%s: failed to get clk handle %s, dev id = %d\n",
+				  __func__, SERVICES_Clks[i].clk_name,
 				  SERVICES_Clks[i].id);
 			/* should we fail here?? */
-		} else {
-			GT_2trace(CLK_debugMask, GT_7CLASS,
-				  "CLK_Init: PASS and Clk handle %s, "
-				  "CLK dev id = %d\n",
-				  SERVICES_Clks[i].clk_name,
-				  SERVICES_Clks[i].id);
 		}
 		SERVICES_Clks[i].clk_handle = clk_handle;
 		i++;
@@ -171,9 +154,6 @@ DSP_STATUS CLK_Enable(IN enum SERVICES_ClkId clk_id)
 	struct clk *pClk;
 
 	DBC_Require(clk_id < SERVICESCLK_NOT_DEFINED);
-	GT_2trace(CLK_debugMask, GT_6CLASS, "CLK_Enable: CLK %s, "
-		"CLK dev id = %d\n", SERVICES_Clks[clk_id].clk_name,
-		SERVICES_Clks[clk_id].id);
 
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 	if (pClk) {
@@ -214,15 +194,11 @@ DSP_STATUS CLK_Set_32KHz(IN enum SERVICES_ClkId clk_id)
 	pClkParent =  SERVICES_Clks[SERVICESCLK_sys_32k_ck].clk_handle;
 
 	DBC_Require(clk_id < SERVICESCLK_NOT_DEFINED);
-	GT_2trace(CLK_debugMask, GT_6CLASS, "CLK_Set_32KHz: CLK %s, "
-		"CLK dev id = %d is setting to 32KHz \n",
-		SERVICES_Clks[clk_id].clk_name,
-		SERVICES_Clks[clk_id].id);
+
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 	if (pClk) {
 		if (!(clk_set_parent(pClk, pClkParent) == 0x0)) {
-			GT_2trace(CLK_debugMask, GT_7CLASS, "CLK_Set_32KHz: "
-				"Failed to set to 32KHz %s, CLK dev id = %s\n",
+			pr_err("%s: failed for %s, dev id = %d\n", __func__,
 				SERVICES_Clks[clk_id].clk_name,
 				SERVICES_Clks[clk_id].id);
 			status = DSP_EFAIL;
@@ -244,9 +220,6 @@ DSP_STATUS CLK_Disable(IN enum SERVICES_ClkId clk_id)
 	s32 clkUseCnt;
 
 	DBC_Require(clk_id < SERVICESCLK_NOT_DEFINED);
-	GT_2trace(CLK_debugMask, GT_6CLASS, "CLK_Disable: CLK %s, "
-		"CLK dev id = %d\n", SERVICES_Clks[clk_id].clk_name,
-		SERVICES_Clks[clk_id].id);
 
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 
@@ -257,10 +230,6 @@ DSP_STATUS CLK_Disable(IN enum SERVICES_ClkId clk_id)
 				SERVICES_Clks[clk_id].clk_name,
 				SERVICES_Clks[clk_id].id);
 	} else if (clkUseCnt == 0) {
-		GT_2trace(CLK_debugMask, GT_4CLASS, "CLK_Disable: CLK %s,"
-				"CLK dev id= %d is already disabled\n",
-				SERVICES_Clks[clk_id].clk_name,
-				SERVICES_Clks[clk_id].id);
 		return status;
 	}
 	if (clk_id == SERVICESCLK_ssi_ick)
@@ -294,21 +263,16 @@ DSP_STATUS CLK_GetRate(IN enum SERVICES_ClkId clk_id, u32 *speedKhz)
 	DBC_Require(clk_id < SERVICESCLK_NOT_DEFINED);
 	*speedKhz = 0x0;
 
-	GT_2trace(CLK_debugMask, GT_7CLASS, "CLK_GetRate: CLK %s, "
-		"CLK dev Id = %d \n", SERVICES_Clks[clk_id].clk_name,
-		SERVICES_Clks[clk_id].id);
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 	if (pClk) {
 		clkSpeedHz = clk_get_rate(pClk);
 		*speedKhz = clkSpeedHz / 1000;
-		GT_2trace(CLK_debugMask, GT_6CLASS,
-			  "CLK_GetRate: clkSpeedHz = %d , "
-			 "speedinKhz=%d\n", clkSpeedHz, *speedKhz);
+		dev_dbg(bridge, "%s: clkSpeedHz = %d, speedinKhz = %d\n",
+					__func__, clkSpeedHz, *speedKhz);
 	} else {
-		GT_2trace(CLK_debugMask, GT_7CLASS,
-			 "CLK_GetRate: failed to get CLK %s, "
-			 "CLK dev Id = %d\n", SERVICES_Clks[clk_id].clk_name,
-			 SERVICES_Clks[clk_id].id);
+		pr_err("%s: failed to get %s, dev Id = %d\n", __func__,
+						SERVICES_Clks[clk_id].clk_name,
+						SERVICES_Clks[clk_id].id);
 		status = DSP_EFAIL;
 	}
 	return status;
@@ -327,10 +291,9 @@ s32 CLK_Get_UseCnt(IN enum SERVICES_ClkId clk_id)
 		/* FIXME: usecount shouldn't be used */
 		useCount = pClk->usecount;
 	} else {
-		GT_2trace(CLK_debugMask, GT_7CLASS,
-			 "CLK_GetRate: failed to get CLK %s, "
-			 "CLK dev Id = %d\n", SERVICES_Clks[clk_id].clk_name,
-			 SERVICES_Clks[clk_id].id);
+		pr_err("%s: failed to get %s, dev Id = %d\n", __func__,
+						SERVICES_Clks[clk_id].clk_name,
+						SERVICES_Clks[clk_id].id);
 		status = DSP_EFAIL;
 	}
 	return useCount;

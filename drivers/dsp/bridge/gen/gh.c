@@ -184,3 +184,25 @@ static void myfree(void *ptr, s32 size)
 {
 	GS_free(ptr);
 }
+
+
+/*
+ *  ======== gh_iterate ========
+ */
+void gh_iterate(struct GH_THashTab *hash_tab,
+			void (*callback)(void *, void *), void *user_data)
+{
+	struct Elem *elem;
+	u32 i;
+
+	if (hash_tab && hash_tab->buckets)
+		for (i = 0; i < hash_tab->maxBucket; i++) {
+			elem = hash_tab->buckets[i];
+			while (elem) {
+				callback(&elem->data, user_data);
+				elem = elem->next;
+			}
+		}
+}
+
+

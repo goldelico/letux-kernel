@@ -559,7 +559,7 @@
  *  Details:
  */
 	extern DSP_STATUS PROC_ReserveMemory(void *hProcessor,
-					     u32 ulSize, void **ppRsvAddr);
+		u32 ulSize, void **ppRsvAddr, struct PROCESS_CONTEXT *pr_ctxt);
 
 /*
  *  ======== PROC_UnMap ========
@@ -603,6 +603,6 @@
  *  Details:
  */
 	extern DSP_STATUS PROC_UnReserveMemory(void *hProcessor,
-					       void *pRsvAddr);
+			void *pRsvAddr, struct PROCESS_CONTEXT *pr_ctxt);
 
 #endif				/* PROC_ */

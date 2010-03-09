@@ -37,7 +37,6 @@
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
 #include <dspbridge/errbase.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
@@ -144,10 +143,6 @@ struct CMM_MNODE {
 
 
 /*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask CMM_debugMask = { NULL, NULL };	/* GT trace variable */
-#endif
-
 static u32 cRefs;		/* module reference count */
 
 /*  ----------------------------------- Function Prototypes */
@@ -239,9 +234,6 @@ void *CMM_CallocBuf(struct CMM_OBJECT *hCmmMgr, u32 uSize,
 				*ppBufVA = (void *)pNode->dwVA;
 			}
 		}
-		GT_3trace(CMM_debugMask, GT_3CLASS,
-			  "CMM_CallocBuf dwPA %x, dwVA %x uSize"
-			  "%x\n", pNode->dwPA, pNode->dwVA, uSize);
 		SYNC_LeaveCS(pCmmMgr->hCmmLock);
 	}
 	return pBufPA;
@@ -263,9 +255,6 @@ DSP_STATUS CMM_Create(OUT struct CMM_OBJECT **phCmmMgr,
 	DBC_Require(cRefs > 0);
 	DBC_Require(phCmmMgr != NULL);
 
-	GT_3trace(CMM_debugMask, GT_ENTER,
-		  "CMM_Create: phCmmMgr: 0x%x\thDevObject: "
-		  "0x%x\tpMgrAttrs: 0x%x\n", phCmmMgr, hDevObject, pMgrAttrs);
 	*phCmmMgr = NULL;
 	/* create, zero, and tag a cmm mgr object */
 	MEM_AllocObject(pCmmObject, struct CMM_OBJECT, CMMSIGNATURE);
@@ -282,14 +271,8 @@ DSP_STATUS CMM_Create(OUT struct CMM_OBJECT **phCmmMgr,
 		sysInfo.dwAllocationGranularity = PAGE_SIZE;
 		sysInfo.dwNumberOfProcessors = 1;
 		if (DSP_SUCCEEDED(status)) {
-			GT_1trace(CMM_debugMask, GT_5CLASS,
-				  "CMM_Create: Got system page size"
-				  "= 0x%x\t\n", sysInfo.dwPageSize);
 			pCmmObject->dwPageSize = sysInfo.dwPageSize;
 		} else {
-			GT_0trace(CMM_debugMask, GT_7CLASS,
-				  "CMM_Create: failed to get system"
-				  "page size\n");
 			pCmmObject->dwPageSize = 0;
 			status = DSP_EFAIL;
 		}
@@ -299,14 +282,11 @@ DSP_STATUS CMM_Create(OUT struct CMM_OBJECT **phCmmMgr,
 			/* create node free list */
 			pCmmObject->pNodeFreeListHead = MEM_Calloc(sizeof(struct
 				LST_LIST), MEM_NONPAGED);
-			if (pCmmObject->pNodeFreeListHead == NULL) {
-				GT_0trace(CMM_debugMask, GT_7CLASS,
-					  "CMM_Create: Out of memory\n");
+			if (pCmmObject->pNodeFreeListHead == NULL)
 				status = DSP_EMEMORY;
-			} else {
+			else
 				INIT_LIST_HEAD(&pCmmObject->pNodeFreeListHead->
 					head);
-			}
 		}
 		if (DSP_SUCCEEDED(status))
 			status = SYNC_InitializeCS(&pCmmObject->hCmmLock);
@@ -317,9 +297,6 @@ DSP_STATUS CMM_Create(OUT struct CMM_OBJECT **phCmmMgr,
 			CMM_Destroy(pCmmObject, true);
 
 	} else {
-		GT_0trace(CMM_debugMask, GT_6CLASS,
-			  "CMM_Create: Object Allocation "
-			  "Failure(CMM Object)\n");
 		status = DSP_EMEMORY;
 	}
 	return status;
@@ -371,10 +348,10 @@ DSP_STATUS CMM_Destroy(struct CMM_OBJECT *hCmmMgr, bool bForce)
 		while (!LST_IsEmpty(pCmmMgr->pNodeFreeListHead)) {
 			pNode = (struct CMM_MNODE *)LST_GetHead(pCmmMgr->
 				 pNodeFreeListHead);
-			MEM_Free(pNode);
+			kfree(pNode);
 		}
 		/* delete NodeFreeList list */
-		MEM_Free(pCmmMgr->pNodeFreeListHead);
+		kfree(pCmmMgr->pNodeFreeListHead);
 	}
 	SYNC_LeaveCS(pCmmMgr->hCmmLock);
 	if (DSP_SUCCEEDED(status)) {
@@ -396,9 +373,6 @@ void CMM_Exit(void)
 	DBC_Require(cRefs > 0);
 
 	cRefs--;
-
-	GT_1trace(CMM_debugMask, GT_ENTER,
-		  "exiting CMM_Exit,ref count:0x%x\n", cRefs);
 }
 
 /*
@@ -416,7 +390,7 @@ DSP_STATUS CMM_FreeBuf(struct CMM_OBJECT *hCmmMgr, void *pBufPA, u32 ulSegId)
 
 	DBC_Require(cRefs > 0);
 	DBC_Require(pBufPA != NULL);
-	GT_1trace(CMM_debugMask, GT_ENTER, "CMM_FreeBuf pBufPA %x\n", pBufPA);
+
 	if (ulSegId == 0) {
 		pAttrs = &CMM_DFLTALCTATTRS;
 		ulSegId = pAttrs->ulSegId;
@@ -548,16 +522,8 @@ bool CMM_Init(void)
 	bool fRetval = true;
 
 	DBC_Require(cRefs >= 0);
-	if (cRefs == 0) {
-		/* Set the Trace mask */
-		/* "CM" for Comm Memory manager */
-		GT_create(&CMM_debugMask, "CM");
-	}
 	if (fRetval)
 		cRefs++;
-
-	GT_1trace(CMM_debugMask, GT_ENTER,
-		  "Entered CMM_Init,ref count:0x%x\n", cRefs);
 
 	DBC_Ensure((fRetval && (cRefs > 0)) || (!fRetval && (cRefs >= 0)));
 
@@ -588,11 +554,10 @@ DSP_STATUS CMM_RegisterGPPSMSeg(struct CMM_OBJECT *hCmmMgr, u32 dwGPPBasePA,
 	DBC_Require(dwGPPBaseVA != 0);
 	DBC_Require((cFactor <= CMM_ADDTODSPPA) &&
 		   (cFactor >= CMM_SUBFROMDSPPA));
-	GT_6trace(CMM_debugMask, GT_ENTER,
-		  "CMM_RegisterGPPSMSeg dwGPPBasePA %x "
-		  "ulSize %x dwDSPAddrOffset %x dwDSPBase %x ulDSPSize %x "
-		  "dwGPPBaseVA %x\n", dwGPPBasePA, ulSize, dwDSPAddrOffset,
-		  dwDSPBase, ulDSPSize, dwGPPBaseVA);
+	dev_dbg(bridge, "%s: dwGPPBasePA %x ulSize %x dwDSPAddrOffset %x "
+			"dwDSPBase %x ulDSPSize %x dwGPPBaseVA %x\n", __func__,
+			dwGPPBasePA, ulSize, dwDSPAddrOffset, dwDSPBase,
+			ulDSPSize, dwGPPBaseVA);
 	if (!MEM_IsValidHandle(hCmmMgr, CMMSIGNATURE)) {
 		status = DSP_EHANDLE;
 		return status;
@@ -608,9 +573,6 @@ DSP_STATUS CMM_RegisterGPPSMSeg(struct CMM_OBJECT *hCmmMgr, u32 dwGPPBasePA,
 	/* Check if input ulSize is big enough to alloc at least one block */
 	if (DSP_SUCCEEDED(status)) {
 		if (ulSize < pCmmMgr->ulMinBlockSize) {
-			GT_0trace(CMM_debugMask, GT_7CLASS,
-				  "CMM_RegisterGPPSMSeg: "
-				  "ulSize too small\n");
 			status = DSP_EINVALIDARG;
 			goto func_end;
 		}
@@ -629,9 +591,6 @@ DSP_STATUS CMM_RegisterGPPSMSeg(struct CMM_OBJECT *hCmmMgr, u32 dwGPPBasePA,
 		pSMA->dwDSPBase = dwDSPBase;
 		pSMA->ulDSPSize = ulDSPSize;
 		if (pSMA->dwVmBase == 0) {
-			GT_0trace(CMM_debugMask, GT_7CLASS,
-				  "CMM_RegisterGPPSMSeg: Error"
-				  "MEM_LinearAddress()\n");
 			status = DSP_EFAIL;
 			goto func_end;
 		}
@@ -642,9 +601,6 @@ DSP_STATUS CMM_RegisterGPPSMSeg(struct CMM_OBJECT *hCmmMgr, u32 dwGPPBasePA,
 			pSMA->pFreeListHead = MEM_Calloc(sizeof(struct
 				LST_LIST), MEM_NONPAGED);
 			if (pSMA->pFreeListHead == NULL) {
-				GT_0trace(CMM_debugMask, GT_7CLASS,
-					  "CMM_RegisterGPPSMSeg: "
-					  "Out Of Memory 1\n");
 				status = DSP_EMEMORY;
 				goto func_end;
 			}
@@ -655,9 +611,6 @@ DSP_STATUS CMM_RegisterGPPSMSeg(struct CMM_OBJECT *hCmmMgr, u32 dwGPPBasePA,
 			pSMA->pInUseListHead = MEM_Calloc(sizeof(struct
 				LST_LIST), MEM_NONPAGED);
 			if (pSMA->pInUseListHead == NULL) {
-				GT_0trace(CMM_debugMask, GT_7CLASS,
-					  "CMM_RegisterGPPSMSeg: "
-					  "Out of memory 2\n");
 				status = DSP_EMEMORY;
 				goto func_end;
 			}
@@ -681,9 +634,6 @@ DSP_STATUS CMM_RegisterGPPSMSeg(struct CMM_OBJECT *hCmmMgr, u32 dwGPPBasePA,
 			UnRegisterGPPSMSeg(pSMA);
 		}
 	} else {
-		GT_0trace(CMM_debugMask, GT_6CLASS,
-			  "CMM_RegisterGPPSMSeg: SMA Object "
-			  "Allocation Failure\n");
 		status = DSP_EMEMORY;
 		goto func_end;
 	}
@@ -734,9 +684,6 @@ DSP_STATUS CMM_UnRegisterGPPSMSeg(struct CMM_OBJECT *hCmmMgr, u32 ulSegId)
 			}	/* end while */
 		} else {
 			status = DSP_EINVALIDARG;
-			GT_0trace(CMM_debugMask, GT_7CLASS,
-				  "CMM_UnRegisterGPPSMSeg: Bad "
-				  "segment Id\n");
 		}
 	} else {
 		status = DSP_EHANDLE;
@@ -767,11 +714,11 @@ static void UnRegisterGPPSMSeg(struct CMM_ALLOCATOR *pSMA)
 				    (struct list_head *)pCurNode);
 			LST_RemoveElem(pSMA->pFreeListHead,
 				      (struct list_head *)pCurNode);
-			MEM_Free((void *) pCurNode);
+			kfree((void *) pCurNode);
 			/* next node. */
 			pCurNode = pNextNode;
 		}
-		MEM_Free(pSMA->pFreeListHead);		/* delete freelist */
+		kfree(pSMA->pFreeListHead);		/* delete freelist */
 		/* free nodes on InUse list */
 		pCurNode = (struct CMM_MNODE *)LST_First(pSMA->pInUseListHead);
 		while (pCurNode) {
@@ -780,11 +727,11 @@ static void UnRegisterGPPSMSeg(struct CMM_ALLOCATOR *pSMA)
 				    (struct list_head *)pCurNode);
 			LST_RemoveElem(pSMA->pInUseListHead,
 				      (struct list_head *)pCurNode);
-			MEM_Free((void *) pCurNode);
+			kfree((void *) pCurNode);
 			/* next node. */
 			pCurNode = pNextNode;
 		}
-		MEM_Free(pSMA->pInUseListHead);		/* delete InUse list */
+		kfree(pSMA->pInUseListHead);		/* delete InUse list */
 	}
 	if ((void *) pSMA->dwVmBase != NULL)
 		MEM_UnmapLinearAddress((void *) pSMA->dwVmBase);
@@ -808,12 +755,9 @@ static s32 GetSlot(struct CMM_OBJECT *pCmmMgr)
 			break;
 
 	}
-	if (nSlot == CMM_MAXGPPSEGS) {
-		GT_0trace(CMM_debugMask, GT_7CLASS,
-			  "CMM_RegisterGPPSMSeg: Allocator "
-			  "entry failure, max exceeded\n");
+	if (nSlot == CMM_MAXGPPSEGS)
 		nSlot = -1;	/* failed */
-	}
+
 	return nSlot;
 }
 
@@ -840,9 +784,7 @@ static struct CMM_MNODE *GetNode(struct CMM_OBJECT *pCmmMgr, u32 dwPA,
 		pNode = (struct CMM_MNODE *)LST_GetHead(pCmmMgr->
 			pNodeFreeListHead);
 	}
-	if (pNode == NULL) {
-		GT_0trace(CMM_debugMask, GT_7CLASS, "GetNode: Out Of Memory\n");
-	} else {
+	if (pNode) {
 		LST_InitElem((struct list_head *) pNode);	/* set self */
 		pNode->dwPA = dwPA;	/* Physical addr of start of block */
 		pNode->dwVA = dwVA;	/* Virtual   "            "        */
@@ -1014,10 +956,7 @@ DSP_STATUS CMM_XlatorCreate(OUT struct CMM_XLATOROBJECT **phXlator,
 	DBC_Require(cRefs > 0);
 	DBC_Require(phXlator != NULL);
 	DBC_Require(hCmmMgr != NULL);
-	GT_3trace(CMM_debugMask, GT_ENTER,
-		  "CMM_XlatorCreate: phXlator: 0x%x\t"
-		  "phCmmMgr: 0x%x\tpXlAttrs: 0x%x\n", phXlator,
-		  hCmmMgr, pXlatorAttrs);
+
 	*phXlator = NULL;
 	if (pXlatorAttrs == NULL)
 		pXlatorAttrs = &CMM_DFLTXLATORATTRS;	/* set defaults */
@@ -1027,9 +966,6 @@ DSP_STATUS CMM_XlatorCreate(OUT struct CMM_XLATOROBJECT **phXlator,
 		pXlatorObject->hCmmMgr = hCmmMgr;	/* ref back to CMM */
 		pXlatorObject->ulSegId = pXlatorAttrs->ulSegId;	/* SM segId */
 	} else {
-		GT_0trace(CMM_debugMask, GT_6CLASS,
-			  "CMM_XlatorCreate: Object Allocation"
-			  "Failure(CMM Xlator)\n");
 		status = DSP_EMEMORY;
 	}
 	if (DSP_SUCCEEDED(status))
@@ -1117,10 +1053,6 @@ DSP_STATUS CMM_XlatorFreeBuf(struct CMM_XLATOROBJECT *hXlator, void *pBufVa)
 			if (DSP_FAILED(status)) {
 				/* Uh oh, this shouldn't happen. Descriptor
 				 * gone! */
-				GT_2trace(CMM_debugMask, GT_7CLASS,
-					"Cannot free DMA/ZCPY buffer"
-					"not allocated by MPU. PA %x, VA %x\n",
-					pBufPa, pBufVa);
 				DBC_Assert(false);   /* CMM is leaking mem! */
 			}
 		}
@@ -1148,10 +1080,6 @@ DSP_STATUS CMM_XlatorInfo(struct CMM_XLATOROBJECT *hXlator, IN OUT u8 **pAddr,
 			/* set translators virtual address range */
 			pXlator->dwVirtBase = (u32)*pAddr;
 			pXlator->ulVirtSize = ulSize;
-			GT_2trace(CMM_debugMask, GT_3CLASS,
-				  "pXlator->dwVirtBase %x, "
-				  "ulVirtSize %x\n", pXlator->dwVirtBase,
-				  pXlator->ulVirtSize);
 		} else {	/* return virt base address */
 			*pAddr = (u8 *)pXlator->dwVirtBase;
 		}
@@ -1199,9 +1127,6 @@ void *CMM_XlatorTranslate(struct CMM_XLATOROBJECT *hXlator, void *pAddr,
 			   (dwAddrXlate >=
 			   (pXlator->dwVirtBase + pXlator->ulVirtSize))) {
 				dwAddrXlate = 0;	/* bad address */
-				GT_0trace(CMM_debugMask, GT_7CLASS,
-					  "CMM_XlatorTranslate: "
-					  "Virt addr out of range\n");
 			}
 		} else {
 			/* Gpp PA =  Gpp Base + offset */
@@ -1227,14 +1152,5 @@ void *CMM_XlatorTranslate(struct CMM_XLATOROBJECT *hXlator, void *pAddr,
 					  pAlctr->cFactor);
 	}
 loop_cont:
-	if (!dwAddrXlate) {
-		GT_2trace(CMM_debugMask, GT_7CLASS,
-			  "CMM_XlatorTranslate: Can't translate"
-			  " address: 0x%x xType %x\n", pAddr, xType);
-	} else {
-		GT_3trace(CMM_debugMask, GT_3CLASS,
-			  "CMM_XlatorTranslate: pAddr %x, xType"
-			  " %x, dwAddrXlate %x\n", pAddr, xType, dwAddrXlate);
-	}
 	return (void *)dwAddrXlate;
 }

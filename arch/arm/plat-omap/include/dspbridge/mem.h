@@ -140,38 +140,6 @@ do {							\
 	extern void MEM_FlushCache(void *pMemBuf, u32 cBytes, u32 FlushType);
 
 /*
- *  ======== MEM_Free ========
- *  Purpose:
- *      Free the given block of system memory.
- *  Parameters:
- *      pMemBuf:    Pointer to memory allocated by MEM_Calloc/Alloc().
- *  Returns:
- *  Requires:
- *      MEM initialized.
- *      pMemBuf is a valid memory address returned by MEM_Calloc/Alloc().
- *  Ensures:
- *      pMemBuf is no longer a valid pointer to memory.
- */
-	extern void MEM_Free(IN void *pMemBuf);
-
-/*
- *  ======== MEM_VFree ========
- *  Purpose:
- *      Free the given block of system memory in virtual space.
- *  Parameters:
- *      pMemBuf:    Pointer to memory allocated by MEM_Calloc/Alloc()
- *		    using vmalloc.
- *  Returns:
- *  Requires:
- *      MEM initialized.
- *      pMemBuf is a valid memory address returned by MEM_Calloc/Alloc()
- *	using vmalloc.
- *  Ensures:
- *      pMemBuf is no longer a valid pointer to memory.
- */
-	extern void MEM_VFree(IN void *pMemBuf);
-
-/*
  *  ======== MEM_FreePhysMem ========
  *  Purpose:
  *      Free the given block of physically contiguous memory.
@@ -200,14 +168,14 @@ do {							\
  *      pObj:   Pointer to the object to free.
  *  Returns:
  *  Requires:
- *      Same requirements as MEM_Free().
+ *      Same requirements as kfree().
  *  Ensures:
  *      A subsequent call to MEM_IsValidHandle() will fail for this object.
  */
 #define MEM_FreeObject(pObj)		\
 do {					\
 	pObj->dwSignature = 0x00;	\
-	MEM_Free(pObj);			\
+	kfree(pObj);			\
 } while (0)
 
 /*

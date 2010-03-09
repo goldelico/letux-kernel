@@ -26,7 +26,6 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/list.h>
@@ -65,11 +64,6 @@ struct NOTIFICATION {
 	HANDLE hEvent;		/* Handle for notification */
 	struct SYNC_OBJECT *hSync;
 };
-
-/*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask NTFY_debugMask = { NULL, NULL };  /* GT trace variable */
-#endif
 
 /*  ----------------------------------- Function Prototypes */
 static void DeleteNotify(struct NOTIFICATION *pNotify);
@@ -133,7 +127,7 @@ void NTFY_Delete(struct NTFY_OBJECT *hNtfy)
 			DeleteNotify(pNotify);
 		}
 		DBC_Assert(LST_IsEmpty(hNtfy->notifyList));
-		MEM_Free(hNtfy->notifyList);
+		kfree(hNtfy->notifyList);
 	}
 	if (hNtfy->hSync)
 		(void)SYNC_DeleteCS(hNtfy->hSync);
@@ -148,7 +142,7 @@ void NTFY_Delete(struct NTFY_OBJECT *hNtfy)
  */
 void NTFY_Exit(void)
 {
-	GT_0trace(NTFY_debugMask, GT_5CLASS, "Entered NTFY_Exit\n");
+	/* Do nothing */
 }
 
 /*
@@ -158,10 +152,6 @@ void NTFY_Exit(void)
  */
 bool NTFY_Init(void)
 {
-	GT_create(&NTFY_debugMask, "NY");	/* "NY" for NtfY */
-
-	GT_0trace(NTFY_debugMask, GT_5CLASS, "NTFY_Init()\n");
-
 	return true;
 }
 
@@ -299,9 +289,8 @@ static void DeleteNotify(struct NOTIFICATION *pNotify)
 	if (pNotify->hSync)
 		(void) SYNC_CloseEvent(pNotify->hSync);
 
-	if (pNotify->pstrName)
-		MEM_Free(pNotify->pstrName);
+	kfree(pNotify->pstrName);
 
-	MEM_Free(pNotify);
+	kfree(pNotify);
 }
 

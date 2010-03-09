@@ -27,7 +27,6 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
@@ -47,11 +46,6 @@
 
 /*  ----------------------------------- Globals */
 static u32 cRefs;
-#if GT_TRACE
-static struct GT_Mask CHNL_DebugMask = { NULL, NULL };	/* WCD CHNL Mask */
-#endif
-
-
 
 /*
  *  ======== CHNL_Create ========
@@ -71,31 +65,20 @@ DSP_STATUS CHNL_Create(OUT struct CHNL_MGR **phChnlMgr,
 	DBC_Require(phChnlMgr != NULL);
 	DBC_Require(pMgrAttrs != NULL);
 
-	GT_3trace(CHNL_DebugMask, GT_ENTER,
-		  "Entered CHNL_Create: phChnlMgr: 0x%x\t"
-		  "hDevObject: 0x%x\tpMgrAttrs:0x%x\n",
-		  phChnlMgr, hDevObject, pMgrAttrs);
-
 	*phChnlMgr = NULL;
 
 	/* Validate args: */
 	if ((0 < pMgrAttrs->cChannels) &&
-	   (pMgrAttrs->cChannels <= CHNL_MAXCHANNELS)) {
+	   (pMgrAttrs->cChannels <= CHNL_MAXCHANNELS))
 		status = DSP_SOK;
-	} else if (pMgrAttrs->cChannels == 0) {
+	else if (pMgrAttrs->cChannels == 0)
 		status = DSP_EINVALIDARG;
-		GT_0trace(CHNL_DebugMask, GT_7CLASS,
-			  "CHNL_Create:Invalid Args\n");
-	} else {
+	else
 		status = CHNL_E_MAXCHANNELS;
-		GT_0trace(CHNL_DebugMask, GT_7CLASS,
-			  "CHNL_Create:Error Max Channels\n");
-	}
-	if (pMgrAttrs->uWordSize == 0) {
+
+	if (pMgrAttrs->uWordSize == 0)
 		status = CHNL_E_INVALIDWORDSIZE;
-		GT_0trace(CHNL_DebugMask, GT_7CLASS,
-			  "CHNL_Create:Invalid Word size\n");
-	}
+
 	if (DSP_SUCCEEDED(status)) {
 		status = DEV_GetChnlMgr(hDevObject, &hChnlMgr);
 		if (DSP_SUCCEEDED(status) && hChnlMgr != NULL)
@@ -118,15 +101,9 @@ DSP_STATUS CHNL_Create(OUT struct CHNL_MGR **phChnlMgr,
 			pChnlMgr->pIntfFxns = pIntfFxns;
 			/* Finally, return the new channel manager handle: */
 			*phChnlMgr = hChnlMgr;
-			GT_1trace(CHNL_DebugMask, GT_1CLASS,
-				  "CHNL_Create: Success pChnlMgr:"
-				  "0x%x\n", pChnlMgr);
 		}
 	}
 
-	GT_2trace(CHNL_DebugMask, GT_ENTER,
-		  "Exiting CHNL_Create: pChnlMgr: 0x%x,"
-		  "status: 0x%x\n", pChnlMgr, status);
 	DBC_Ensure(DSP_FAILED(status) || CHNL_IsValidMgr(pChnlMgr));
 
 	return status;
@@ -145,21 +122,14 @@ DSP_STATUS CHNL_Destroy(struct CHNL_MGR *hChnlMgr)
 
 	DBC_Require(cRefs > 0);
 
-	GT_1trace(CHNL_DebugMask, GT_ENTER,
-		  "Entered CHNL_Destroy: hChnlMgr: 0x%x\n", hChnlMgr);
 	if (CHNL_IsValidMgr(pChnlMgr)) {
 		pIntfFxns = pChnlMgr->pIntfFxns;
 		/* Let WMD channel module destroy the CHNL_MGR: */
 		status = (*pIntfFxns->pfnChnlDestroy)(hChnlMgr);
 	} else {
-		GT_0trace(CHNL_DebugMask, GT_7CLASS,
-			  "CHNL_Destroy:Invalid Handle\n");
 		status = DSP_EHANDLE;
 	}
 
-	GT_2trace(CHNL_DebugMask, GT_ENTER,
-		  "Exiting CHNL_Destroy: pChnlMgr: 0x%x,"
-		  " status:0x%x\n", pChnlMgr, status);
 	DBC_Ensure(DSP_FAILED(status) || !CHNL_IsValidMgr(pChnlMgr));
 
 	return status;
@@ -176,9 +146,6 @@ void CHNL_Exit(void)
 
 	cRefs--;
 
-	GT_1trace(CHNL_DebugMask, GT_5CLASS,
-		  "Entered CHNL_Exit, ref count: 0x%x\n", cRefs);
-
 	DBC_Ensure(cRefs >= 0);
 }
 
@@ -194,17 +161,8 @@ bool CHNL_Init(void)
 
 	DBC_Require(cRefs >= 0);
 
-	if (cRefs == 0) {
-		DBC_Assert(!CHNL_DebugMask.flags);
-		GT_create(&CHNL_DebugMask, "CH");   /* "CH" for CHannel */
-	}
-
 	if (fRetval)
 		cRefs++;
-
-	GT_1trace(CHNL_DebugMask, GT_5CLASS,
-		  "Entered CHNL_Init, ref count: 0x%x\n",
-		  cRefs);
 
 	DBC_Ensure((fRetval && (cRefs > 0)) || (!fRetval && (cRefs >= 0)));
 

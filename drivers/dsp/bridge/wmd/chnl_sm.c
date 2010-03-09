@@ -52,7 +52,6 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/dbg.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
@@ -107,11 +106,6 @@ DSP_STATUS WMD_CHNL_AddIOReq(struct CHNL_OBJECT *hChnl, void *pHostBuf,
 	bool fSchedDPC = false;
 	u16 wMbVal = 0;
 
-	DBG_Trace(DBG_ENTER,
-		  "> WMD_CHNL_AddIOReq pChnl %p CHNL_IsOutput %x uChnlType "
-		  "%x Id %d\n", pChnl, CHNL_IsOutput(pChnl->uMode),
-		  pChnl->uChnlType, pChnl->uId);
-
 	fIsEOS = (cBytes == 0);
 	/* Validate args:  */
 	if (pHostBuf == NULL) {
@@ -153,19 +147,13 @@ DSP_STATUS WMD_CHNL_AddIOReq(struct CHNL_OBJECT *hChnl, void *pHostBuf,
 		pHostSysBuf = MEM_Alloc(cBufSize, MEM_NONPAGED);
 		if (pHostSysBuf == NULL) {
 			status = DSP_EMEMORY;
-			DBG_Trace(DBG_LEVEL7,
-				 "No memory to allocate kernel buffer\n");
 			goto func_end;
 		}
 		if (CHNL_IsOutput(pChnl->uMode)) {
 			status = copy_from_user(pHostSysBuf, pHostBuf,
 						cBufSize);
 			if (status) {
-				DBG_Trace(DBG_LEVEL7,
-					 "Error copying user buffer to "
-					 "kernel, %d bytes remaining.\n",
-					 status);
-				MEM_Free(pHostSysBuf);
+				kfree(pHostSysBuf);
 				pHostSysBuf = NULL;
 				status = DSP_EPOINTER;
 				goto func_end;
@@ -243,7 +231,6 @@ func_cont:
 		IO_Schedule(pChnlMgr->hIOMgr);
 
 func_end:
-	DBG_Trace(DBG_ENTER, "< WMD_CHNL_AddIOReq pChnl %p\n", pChnl);
 	return status;
 }
 
@@ -461,16 +448,15 @@ DSP_STATUS WMD_CHNL_Destroy(struct CHNL_MGR *hChnlMgr)
 		for (iChnl = 0; iChnl < pChnlMgr->cChannels; iChnl++) {
 			status = WMD_CHNL_Close(pChnlMgr->apChannel[iChnl]);
 			if (DSP_FAILED(status))
-				DBG_Trace(DBG_LEVEL7, "Error in CHNL_Close "
-						"status 0x%x\n", status);
+				dev_dbg(bridge, "%s: Error status 0x%x\n",
+							__func__, status);
 		}
 		/* release critical section */
 		if (pChnlMgr->hCSObj)
 			SYNC_DeleteCS(pChnlMgr->hCSObj);
 
 		/* Free channel manager object: */
-		if (pChnlMgr->apChannel)
-			MEM_Free(pChnlMgr->apChannel);
+		kfree(pChnlMgr->apChannel);
 
 		/* Set hChnlMgr to NULL in device object. */
 		DEV_SetChnlMgr(pChnlMgr->hDevObject, NULL);
@@ -586,9 +572,6 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 	struct WMD_DEV_CONTEXT *dev_ctxt;
 	struct DEV_OBJECT *dev_obj;
 
-	DBG_Trace(DBG_ENTER, "> WMD_CHNL_GetIOC pChnl %p CHNL_IsOutput %x "
-		 "uChnlType %x\n", pChnl, CHNL_IsOutput(pChnl->uMode),
-		 pChnl->uChnlType);
 	/* Check args: */
 	if (pIOC == NULL) {
 		status = DSP_EPOINTER;
@@ -691,8 +674,6 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 		/* If the addr is in user mode, then copy it */
 		if (!pHostSysBuf || !ioc.pBuf) {
 			status = DSP_EPOINTER;
-			DBG_Trace(DBG_LEVEL7,
-				 "System buffer NULL in IO completion.\n");
 			goto func_cont;
 		}
 		if (!CHNL_IsInput(pChnl->uMode))
@@ -701,34 +682,18 @@ DSP_STATUS WMD_CHNL_GetIOC(struct CHNL_OBJECT *hChnl, u32 dwTimeOut,
 		/*pHostUserBuf */
 		status = copy_to_user(ioc.pBuf, pHostSysBuf, ioc.cBytes);
 		if (status) {
-			if (current->flags & PF_EXITING) {
-				DBG_Trace(DBG_LEVEL7,
-					 "\n2current->flags ==  PF_EXITING, "
-					 " current->flags;0x%x\n",
-					 current->flags);
+			if (current->flags & PF_EXITING)
 				status = 0;
-			} else {
-				DBG_Trace(DBG_LEVEL7,
-					 "\n2current->flags != PF_EXITING, "
-					 " current->flags;0x%x\n",
-					 current->flags);
-			}
 		}
-		if (status) {
-			DBG_Trace(DBG_LEVEL7,
-				 "Error copying kernel buffer to user, %d"
-				 " bytes remaining.  in_interupt %d\n",
-				 status, in_interrupt());
+		if (status)
 			status = DSP_EPOINTER;
-		}
 func_cont1:
-		MEM_Free(pHostSysBuf);
+		kfree(pHostSysBuf);
 	}
 func_cont:
 	/* Update User's IOC block: */
 	*pIOC = ioc;
 func_end:
-	DBG_Trace(DBG_ENTER, "< WMD_CHNL_GetIOC pChnl %p\n", pChnl);
 	return status;
 }
 
@@ -983,9 +948,9 @@ static void FreeChirpList(struct LST_LIST *pChirpList)
 	DBC_Require(pChirpList != NULL);
 
 	while (!LST_IsEmpty(pChirpList))
-		MEM_Free(LST_GetHead(pChirpList));
+		kfree(LST_GetHead(pChirpList));
 
-	MEM_Free(pChirpList);
+	kfree(pChirpList);
 }
 
 /*

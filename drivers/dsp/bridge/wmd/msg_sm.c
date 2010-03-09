@@ -553,7 +553,7 @@ static void DeleteMsgMgr(struct MSG_MGR *hMsgMgr)
 
 	if (hMsgMgr->queueList) {
 		if (LST_IsEmpty(hMsgMgr->queueList)) {
-			MEM_Free(hMsgMgr->queueList);
+			kfree(hMsgMgr->queueList);
 			hMsgMgr->queueList = NULL;
 		}
 	}
@@ -600,7 +600,7 @@ static void DeleteMsgQueue(struct MSG_QUEUE *hMsgQueue, u32 uNumToDSP)
 		if (!LST_IsEmpty(hMsgMgr->msgFreeList)) {
 			pMsg = (struct MSG_FRAME *)LST_GetHead(hMsgMgr->
 				msgFreeList);
-			MEM_Free(pMsg);
+			kfree(pMsg);
 		} else {
 			/* Cannot free all of the message frames */
 			break;
@@ -647,11 +647,11 @@ static void FreeMsgList(struct LST_LIST *msgList)
 		goto func_end;
 
 	while ((pMsg = (struct MSG_FRAME *)LST_GetHead(msgList)) != NULL)
-		MEM_Free(pMsg);
+		kfree(pMsg);
 
 	DBC_Assert(LST_IsEmpty(msgList));
 
-	MEM_Free(msgList);
+	kfree(msgList);
 func_end:
 	return;
 }

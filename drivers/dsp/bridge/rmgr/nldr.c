@@ -23,10 +23,6 @@
 #include <dspbridge/errbase.h>
 
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
-#ifdef CONFIG_BRIDGE_DEBUG
-#include <dspbridge/dbg.h>
-#endif
 
 /* OS adaptation layer */
 #include <dspbridge/mem.h>
@@ -292,7 +288,6 @@ static struct DBLL_Fxns dbllFxns = {
 	(DBLL_UnloadSectFxn) DBLL_unloadSect,
 };
 
-static struct GT_Mask NLDR_debugMask = { NULL, NULL };	/* GT trace variable */
 static u32 cRefs;		/* module reference count */
 
 static DSP_STATUS AddOvlyInfo(void *handle, struct DBLL_SectInfo *sectInfo,
@@ -347,18 +342,12 @@ DSP_STATUS NLDR_Allocate(struct NLDR_OBJECT *hNldr, void *pPrivRef,
 	DBC_Require(phNldrNode != NULL);
 	DBC_Require(MEM_IsValidHandle(hNldr, NLDR_SIGNATURE));
 
-	GT_5trace(NLDR_debugMask, GT_ENTER, "NLDR_Allocate(0x%x, 0x%x, 0x%x, "
-		 "0x%x, 0x%x)\n", hNldr, pPrivRef, pNodeProps, phNldrNode,
-		 pfPhaseSplit);
-
 	/* Initialize handle in case of failure */
 	*phNldrNode = NULL;
 	/* Allocate node object */
 	MEM_AllocObject(pNldrNode, struct NLDR_NODEOBJECT, NLDR_NODESIGNATURE);
 
 	if (pNldrNode == NULL) {
-		GT_0trace(NLDR_debugMask, GT_6CLASS, "NLDR_Allocate: "
-			 "Memory allocation failed\n");
 		status = DSP_EMEMORY;
 	} else {
 		pNldrNode->pfPhaseSplit = pfPhaseSplit;
@@ -472,8 +461,7 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 	DBC_Require(pAttrs != NULL);
 	DBC_Require(pAttrs->pfnOvly != NULL);
 	DBC_Require(pAttrs->pfnWrite != NULL);
-	GT_3trace(NLDR_debugMask, GT_ENTER, "NLDR_Create(0x%x, 0x%x, 0x%x)\n",
-		 phNldr, hDevObject, pAttrs);
+
 	/* Allocate dynamic loader object */
 	MEM_AllocObject(pNldr, struct NLDR_OBJECT, NLDR_SIGNATURE);
 	if (pNldr) {
@@ -491,8 +479,6 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 			status = DSP_EMEMORY;
 
 	} else {
-		GT_0trace(NLDR_debugMask, GT_6CLASS, "NLDR_Create: "
-			 "Memory allocation failed\n");
 		status = DSP_EMEMORY;
 	}
 	/* Create the DCD Manager */
@@ -507,40 +493,26 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 			pszCoffBuf = MEM_Calloc(ulLen * pNldr->usDSPMauSize,
 						MEM_PAGED);
 			if (!pszCoffBuf) {
-				GT_0trace(NLDR_debugMask, GT_6CLASS,
-					 "NLDR_Create: Memory "
-					 "allocation failed\n");
 				status = DSP_EMEMORY;
 			}
 		} else {
 			/* Ok to not have dynamic loading memory */
 			status = DSP_SOK;
 			ulLen = 0;
-			GT_1trace(NLDR_debugMask, GT_6CLASS,
-				 "NLDR_Create: DBLL_getSect "
-				 "failed (no dynamic loading mem segments): "
-				 "0x%lx\n", status);
+			dev_dbg(bridge, "%s: failed - no dynamic loading mem "
+					"segments: 0x%x\n", __func__, status);
 		}
 	}
 	if (DSP_SUCCEEDED(status) && ulLen > 0) {
 		/* Read section containing dynamic load mem segments */
 		status = pNldr->dbllFxns.readSectFxn(pNldr->baseLib, DYNMEMSECT,
 						    pszCoffBuf, ulLen);
-		if (DSP_FAILED(status)) {
-			GT_1trace(NLDR_debugMask, GT_6CLASS,
-				 "NLDR_Create: DBLL_read Section"
-				 "failed: 0x%lx\n", status);
-		}
 	}
 	if (DSP_SUCCEEDED(status) && ulLen > 0) {
 		/* Parse memory segment data */
 		nSegs = (u16)(*((u32 *)pszCoffBuf));
-		if (nSegs > MAXMEMSEGS) {
-			GT_1trace(NLDR_debugMask, GT_6CLASS,
-				 "NLDR_Create: Invalid number of "
-				 "dynamic load mem segments: 0x%lx\n", nSegs);
+		if (nSegs > MAXMEMSEGS)
 			status = DSP_ECORRUPTFILE;
-		}
 	}
 	/* Parse dynamic load memory segments */
 	if (DSP_SUCCEEDED(status) && nSegs > 0) {
@@ -558,12 +530,9 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 				rmmSegs[i].length = (pMemInfo + i)->len;
 				rmmSegs[i].space = 0;
 				pNldr->segTable[i] = (pMemInfo + i)->type;
-#ifdef CONFIG_BRIDGE_DEBUG
-				DBG_Trace(DBG_LEVEL7,
-				    "** (proc) DLL MEMSEGMENT: %d, Base: 0x%x, "
-				    "Length: 0x%x\n", i, rmmSegs[i].base,
-				    rmmSegs[i].length);
-#endif
+				dev_dbg(bridge, "(proc) DLL MEMSEGMENT: %d, "
+					"Base: 0x%x, Length: 0x%x\n", i,
+					rmmSegs[i].base, rmmSegs[i].length);
 			}
 		}
 	}
@@ -584,11 +553,9 @@ DSP_STATUS NLDR_Create(OUT struct NLDR_OBJECT **phNldr,
 		pNldr->writeFxn = pAttrs->pfnWrite;
 		pNldr->dbllAttrs = newAttrs;
 	}
-	if (rmmSegs)
-		MEM_Free(rmmSegs);
+	kfree(rmmSegs);
 
-	if (pszCoffBuf)
-		MEM_Free(pszCoffBuf);
+	kfree(pszCoffBuf);
 
 	/* Get overlay nodes */
 	if (DSP_SUCCEEDED(status)) {
@@ -646,13 +613,12 @@ void NLDR_Delete(struct NLDR_OBJECT *hNldr)
 	u16 i;
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(hNldr, NLDR_SIGNATURE));
-	GT_1trace(NLDR_debugMask, GT_ENTER, "NLDR_Delete(0x%x)\n", hNldr);
+
 	hNldr->dbllFxns.exitFxn();
 	if (hNldr->rmm)
 		RMM_delete(hNldr->rmm);
 
-	if (hNldr->segTable)
-		MEM_Free(hNldr->segTable);
+	kfree(hNldr->segTable);
 
 	if (hNldr->hDcdMgr)
 		DCD_DestroyManager(hNldr->hDcdMgr);
@@ -663,29 +629,29 @@ void NLDR_Delete(struct NLDR_OBJECT *hNldr)
 			pSect = hNldr->ovlyTable[i].pCreateSects;
 			while (pSect) {
 				pNext = pSect->pNextSect;
-				MEM_Free(pSect);
+				kfree(pSect);
 				pSect = pNext;
 			}
 			pSect = hNldr->ovlyTable[i].pDeleteSects;
 			while (pSect) {
 				pNext = pSect->pNextSect;
-				MEM_Free(pSect);
+				kfree(pSect);
 				pSect = pNext;
 			}
 			pSect = hNldr->ovlyTable[i].pExecuteSects;
 			while (pSect) {
 				pNext = pSect->pNextSect;
-				MEM_Free(pSect);
+				kfree(pSect);
 				pSect = pNext;
 			}
 			pSect = hNldr->ovlyTable[i].pOtherSects;
 			while (pSect) {
 				pNext = pSect->pNextSect;
-				MEM_Free(pSect);
+				kfree(pSect);
 				pSect = pNext;
 			}
 		}
-		MEM_Free(hNldr->ovlyTable);
+		kfree(hNldr->ovlyTable);
 	}
 	MEM_FreeObject(hNldr);
 	DBC_Ensure(!MEM_IsValidHandle(hNldr, NLDR_SIGNATURE));
@@ -701,13 +667,8 @@ void NLDR_Exit(void)
 
 	cRefs--;
 
-	GT_1trace(NLDR_debugMask, GT_5CLASS,
-		 "Entered NLDR_Exit, ref count:  0x%x\n", cRefs);
-
-	if (cRefs == 0) {
+	if (cRefs == 0)
 		RMM_exit();
-		NLDR_debugMask.flags = NULL;
-	}
 
 	DBC_Ensure(cRefs >= 0);
 }
@@ -728,8 +689,6 @@ DSP_STATUS NLDR_GetFxnAddr(struct NLDR_NODEOBJECT *hNldrNode, char *pstrFxn,
 	DBC_Require(MEM_IsValidHandle(hNldrNode, NLDR_NODESIGNATURE));
 	DBC_Require(pulAddr != NULL);
 	DBC_Require(pstrFxn != NULL);
-	GT_3trace(NLDR_debugMask, GT_ENTER, "NLDR_GetFxnAddr(0x%x, %s, 0x%x)\n",
-		 hNldrNode, pstrFxn, pulAddr);
 
 	hNldr = hNldrNode->pNldr;
 	/* Called from NODE_Create(), NODE_Delete(), or NODE_Run(). */
@@ -788,14 +747,10 @@ DSP_STATUS NLDR_GetFxnAddr(struct NLDR_NODEOBJECT *hNldrNode, char *pstrFxn,
 		}
 	}
 
-	if (status1) {
+	if (status1)
 		*pulAddr = pSym->value;
-	} else {
-		GT_1trace(NLDR_debugMask, GT_6CLASS,
-			 "NLDR_GetFxnAddr: Symbol not found: "
-			 "%s\n", pstrFxn);
+	else
 		status = DSP_ESYMBOL;
-	}
 
 	return status;
 }
@@ -810,19 +765,13 @@ DSP_STATUS NLDR_GetRmmManager(struct NLDR_OBJECT *hNldrObject,
 	DSP_STATUS status = DSP_SOK;
 	struct NLDR_OBJECT *pNldrObject = hNldrObject;
 	DBC_Require(phRmmMgr != NULL);
-	GT_2trace(NLDR_debugMask, GT_ENTER, "NLDR_GetRmmManager(0x%x, 0x%x)\n",
-		 hNldrObject, phRmmMgr);
+
 	if (MEM_IsValidHandle(hNldrObject, NLDR_SIGNATURE)) {
 		*phRmmMgr = pNldrObject->rmm;
 	} else {
 		*phRmmMgr = NULL;
 		status = DSP_EHANDLE;
-		GT_0trace(NLDR_debugMask, GT_7CLASS,
-			 "NLDR_GetRmmManager:Invalid handle");
 	}
-
-	GT_2trace(NLDR_debugMask, GT_ENTER, "Exit NLDR_GetRmmManager: status "
-		 "0x%x\n\tphRmmMgr:  0x%x\n", status, *phRmmMgr);
 
 	DBC_Ensure(DSP_SUCCEEDED(status) || ((phRmmMgr != NULL) &&
 		  (*phRmmMgr == NULL)));
@@ -838,17 +787,10 @@ bool NLDR_Init(void)
 {
 	DBC_Require(cRefs >= 0);
 
-	if (cRefs == 0) {
-		DBC_Assert(!NLDR_debugMask.flags);
-		GT_create(&NLDR_debugMask, "NL");	/* "NL" for NLdr */
-
+	if (cRefs == 0)
 		RMM_init();
-	}
 
 	cRefs++;
-
-	GT_1trace(NLDR_debugMask, GT_5CLASS, "NLDR_Init(), ref count: 0x%x\n",
-		 cRefs);
 
 	DBC_Ensure(cRefs > 0);
 	return true;
@@ -867,9 +809,6 @@ DSP_STATUS NLDR_Load(struct NLDR_NODEOBJECT *hNldrNode, enum NLDR_PHASE phase)
 	DBC_Require(MEM_IsValidHandle(hNldrNode, NLDR_NODESIGNATURE));
 
 	hNldr = hNldrNode->pNldr;
-
-	GT_2trace(NLDR_debugMask, GT_ENTER, "NLDR_Load(0x%x, 0x%x)\n",
-		 hNldrNode, phase);
 
 	if (hNldrNode->fDynamic) {
 		hNldrNode->phase = phase;
@@ -925,8 +864,7 @@ DSP_STATUS NLDR_Unload(struct NLDR_NODEOBJECT *hNldrNode, enum NLDR_PHASE phase)
 
 	DBC_Require(cRefs > 0);
 	DBC_Require(MEM_IsValidHandle(hNldrNode, NLDR_NODESIGNATURE));
-	GT_2trace(NLDR_debugMask, GT_ENTER, "NLDR_Unload(0x%x, 0x%x)\n",
-		 hNldrNode, phase);
+
 	if (hNldrNode != NULL) {
 		if (hNldrNode->fDynamic) {
 			if (*hNldrNode->pfPhaseSplit) {
@@ -1083,17 +1021,13 @@ static DSP_STATUS AddOvlyNode(struct DSP_UUID *pUuid,
 		}
 	}
 	/* These were allocated in DCD_GetObjectDef */
-	if (objDef.objData.nodeObj.pstrCreatePhaseFxn)
-		MEM_Free(objDef.objData.nodeObj.pstrCreatePhaseFxn);
+	kfree(objDef.objData.nodeObj.pstrCreatePhaseFxn);
 
-	if (objDef.objData.nodeObj.pstrExecutePhaseFxn)
-		MEM_Free(objDef.objData.nodeObj.pstrExecutePhaseFxn);
+	kfree(objDef.objData.nodeObj.pstrExecutePhaseFxn);
 
-	if (objDef.objData.nodeObj.pstrDeletePhaseFxn)
-		MEM_Free(objDef.objData.nodeObj.pstrDeletePhaseFxn);
+	kfree(objDef.objData.nodeObj.pstrDeletePhaseFxn);
 
-	if (objDef.objData.nodeObj.pstrIAlgName)
-		MEM_Free(objDef.objData.nodeObj.pstrIAlgName);
+	kfree(objDef.objData.nodeObj.pstrIAlgName);
 
 func_end:
 	return status;
@@ -1312,8 +1246,7 @@ static DSP_STATUS LoadLib(struct NLDR_NODEOBJECT *hNldrNode,
 			 DBLL_NOLOAD, &root->lib);
 	}
 	/* Done with file name */
-	if (pszFileName)
-		MEM_Free(pszFileName);
+	kfree(pszFileName);
 
 	/* Check to see if library not already loaded */
 	if (DSP_SUCCEEDED(status) && rootPersistent) {
@@ -1462,15 +1395,11 @@ static DSP_STATUS LoadLib(struct NLDR_NODEOBJECT *hNldrNode,
 	/* Going up one node in the dependency tree */
 	depth--;
 
-	if (depLibUUIDs) {
-		MEM_Free(depLibUUIDs);
-		depLibUUIDs = NULL;
-	}
+	kfree(depLibUUIDs);
+	depLibUUIDs = NULL;
 
-	if (persistentDepLibs) {
-		MEM_Free(persistentDepLibs);
-		persistentDepLibs = NULL;
-	}
+	kfree(persistentDepLibs);
+	persistentDepLibs = NULL;
 
 	return status;
 }
@@ -1646,8 +1575,7 @@ static DSP_STATUS RemoteAlloc(void **pRef, u16 space, u32 size,
 	nWords = (size + hNldr->usDSPWordSize - 1) / hNldr->usDSPWordSize;
 	/* Modify memory 'align' to account for DSP cache line size */
 	align = findLcm(GEM_CACHE_LINE_SIZE, align);
-	GT_1trace(NLDR_debugMask, GT_7CLASS,
-		 "RemoteAlloc: memory align to 0x%x \n", align);
+	dev_dbg(bridge, "%s: memory align to 0x%x\n", __func__, align);
 	if (segmentId != -1) {
 		pRmmAddr->segid = segmentId;
 		segid = segmentId;
@@ -1692,9 +1620,8 @@ static DSP_STATUS RemoteAlloc(void **pRef, u16 space, u32 size,
 		pRmmAddr->segid = segid;
 		status = RMM_alloc(rmm, segid, nWords, align, dspAddr, false);
 		if (DSP_FAILED(status)) {
-			GT_1trace(NLDR_debugMask, GT_6CLASS,
-				 "RemoteAlloc:Unable allocate "
-				 "from segment %d.\n", segid);
+			dev_dbg(bridge, "%s: Unable allocate from segment %d\n",
+							__func__, segid);
 		}
 	} else {
 		/* segid > MAXSEGID ==> Internal or external memory */
@@ -1719,9 +1646,8 @@ static DSP_STATUS RemoteAlloc(void **pRef, u16 space, u32 size,
 func_cont:
 	/* Haven't found memory yet, attempt to find any segment that works */
 	if (status == DSP_EMEMORY && !fReq) {
-		GT_0trace(NLDR_debugMask, GT_6CLASS,
-			 "RemoteAlloc: Preferred segment "
-			 "unavailable, trying another segment.\n");
+		dev_dbg(bridge, "%s: Preferred segment unavailable, trying "
+							"another\n", __func__);
 		for (i = 0; i < hNldr->nSegs; i++) {
 			/* All bits of memType must be set */
 			if ((hNldr->segTable[i] & memType) != memType)
@@ -1791,10 +1717,8 @@ static void UnloadLib(struct NLDR_NODEOBJECT *hNldrNode, struct LibNode *root)
 	}
 
 	/* Free dependent library list */
-	if (root->pDepLibs) {
-		MEM_Free(root->pDepLibs);
-		root->pDepLibs = NULL;
-	}
+	kfree(root->pDepLibs);
+	root->pDepLibs = NULL;
 }
 
 /*
@@ -1911,5 +1835,76 @@ static u32 findGcf(u32 a, u32 b)
 		b = c;
 	}
 	return b;
+}
+
+
+/*
+ *  ======== nldr_find_addr ========
+ */
+DSP_STATUS nldr_find_addr(struct NLDR_NODEOBJECT *nldr_node, u32 sym_addr,
+			u32 offset_range, void *offset_output, char *sym_name)
+{
+	DSP_STATUS status = DSP_SOK;
+	bool status1 = false;
+	s32 i = 0;
+	struct LibNode root = { NULL, 0, NULL };
+	DBC_Require(cRefs > 0);
+	DBC_Require(MEM_IsValidHandle(nldr_node, NLDR_NODESIGNATURE));
+	DBC_Require(offset_output != NULL);
+	DBC_Require(sym_name != NULL);
+	pr_debug("%s(0x%x, 0x%x, 0x%x, 0x%x,  %s)\n", __func__, (u32) nldr_node,
+			sym_addr, offset_range, (u32) offset_output, sym_name);
+
+	if (nldr_node->fDynamic && *nldr_node->pfPhaseSplit) {
+		switch (nldr_node->phase) {
+		case NLDR_CREATE:
+			root = nldr_node->createLib;
+			break;
+		case NLDR_EXECUTE:
+			root = nldr_node->executeLib;
+			break;
+		case NLDR_DELETE:
+			root = nldr_node->deleteLib;
+			break;
+		default:
+			DBC_Assert(false);
+			break;
+		}
+	} else {
+		/* for Overlay nodes or non-split Dynamic nodes */
+		root = nldr_node->root;
+	}
+
+	status1 = dbll_find_symbol(root.lib, sym_addr,
+			offset_range, offset_output, sym_name);
+
+	/* If symbol not found, check dependent libraries */
+	if (!status1)
+		for (i = 0; i < root.nDepLibs; i++) {
+			status1 = dbll_find_symbol(
+				root.pDepLibs[i].lib, sym_addr,
+				offset_range, offset_output, sym_name);
+			if (status1)
+				/* Symbol found */
+				break;
+		}
+	/* Check persistent libraries */
+	if (!status1)
+		for (i = 0; i < nldr_node->nPersLib; i++) {
+			status1 = dbll_find_symbol(
+				nldr_node->persLib[i].lib, sym_addr,
+				offset_range, offset_output, sym_name);
+			if (status1)
+				/* Symbol found */
+				break;
+		}
+
+	if (status1 == false) {
+		pr_debug("%s: Address 0x%x not found in range %d.\n",
+				__func__, sym_addr, offset_range);
+		status = DSP_ESYMBOL;
+	}
+
+	return status;
 }
 

@@ -62,7 +62,7 @@ void GS_exit(void)
  */
 void GS_free(void *ptr)
 {
-	MEM_Free(ptr);
+	kfree(ptr);
 	/* ack! no size info */
 	/* cumsize -= size; */
 }
@@ -74,7 +74,7 @@ void GS_free(void *ptr)
  */
 void GS_frees(void *ptr, u32 size)
 {
-	MEM_Free(ptr);
+	kfree(ptr);
 	cumsize -= size;
 }
 

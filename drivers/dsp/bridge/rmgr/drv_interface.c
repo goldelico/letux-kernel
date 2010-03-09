@@ -41,7 +41,6 @@
 #include <_tiomap.h>
 
 /*  ----------------------------------- Trace & Debug */
-#include <dspbridge/gt.h>
 #include <dspbridge/dbc.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
@@ -53,6 +52,11 @@
 #include <dspbridge/wcdioctl.h>
 #include <dspbridge/_dcd.h>
 #include <dspbridge/dspdrv.h>
+#ifdef CONFIG_BRIDGE_WDT3
+#include <dspbridge/clk.h>
+#include <dspbridge/io_sm.h>
+#include <_tiomap.h>
+#endif
 
 /*  ----------------------------------- Resource Manager */
 #include <dspbridge/pwr.h>
@@ -76,21 +80,15 @@
 s32 dsp_debug;
 
 struct platform_device *omap_dspbridge_dev;
+struct device *bridge;
 
-struct bridge_dev {
-	struct cdev cdev;
-};
 
-static struct bridge_dev *bridge_device;
+static struct cdev bridge_cdev;
 
 static struct class *bridge_class;
 
 static u32 driverContext;
-#ifdef CONFIG_BRIDGE_DEBUG
-static char *GT_str;
-#endif /* CONFIG_BRIDGE_DEBUG */
 static s32 driver_major;
-static s32 driver_minor;
 static char *base_img;
 char *iva_img;
 static s32 shm_size = 0x500000;	/* 5 MB */
@@ -134,13 +132,8 @@ static int omap34xxbridge_suspend_lockout(
 
 #endif
 
-#ifdef CONFIG_BRIDGE_DEBUG
-module_param(GT_str, charp, 0);
-MODULE_PARM_DESC(GT_str, "GT string, default = NULL");
-
 module_param(dsp_debug, int, 0);
 MODULE_PARM_DESC(dsp_debug, "Wait after loading DSP image. default = false");
-#endif
 #ifdef CONFIG_BRIDGE_RECOVERY
 module_param(firmware_file, charp, 0644);
 #endif
@@ -168,10 +161,6 @@ MODULE_AUTHOR("Texas Instruments");
 MODULE_LICENSE("GPL");
 
 static char *driver_name = DRIVER_NAME;
-
-#ifdef CONFIG_BRIDGE_DEBUG
-static struct GT_Mask driverTrace;
-#endif /* CONFIG_BRIDGE_DEBUG */
 
 static const struct file_operations bridge_fops = {
 	.open		= bridge_open,
@@ -270,55 +259,37 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 
 	omap_dspbridge_dev = pdev;
 
+	/* Global bridge device */
+	bridge = &omap_dspbridge_dev->dev;
+
 	/* use 2.6 device model */
-	result = alloc_chrdev_region(&dev, driver_minor, 1, driver_name);
+	result = alloc_chrdev_region(&dev, 0, 1, driver_name);
 	if (result < 0) {
-		GT_1trace(driverTrace, GT_7CLASS, "bridge_init: "
-				"Can't get Major %d \n", driver_major);
+		pr_err("%s: Can't get major %d\n", __func__, driver_major);
 		goto err1;
 	}
 
 	driver_major = MAJOR(dev);
 
-	bridge_device = kzalloc(sizeof(struct bridge_dev), GFP_KERNEL);
-	if (!bridge_device) {
-		result = -ENOMEM;
-		goto err2;
-	}
-	cdev_init(&bridge_device->cdev, &bridge_fops);
-	bridge_device->cdev.owner = THIS_MODULE;
-	bridge_device->cdev.ops = &bridge_fops;
+	cdev_init(&bridge_cdev, &bridge_fops);
+	bridge_cdev.owner = THIS_MODULE;
 
-	status = cdev_add(&bridge_device->cdev, dev, 1);
+	status = cdev_add(&bridge_cdev, dev, 1);
 	if (status) {
-		GT_0trace(driverTrace, GT_7CLASS,
-				"Failed to add the bridge device \n");
-		goto err3;
+		pr_err("%s: Failed to add bridge device\n", __func__);
+		goto err2;
 	}
 
 	/* udev support */
 	bridge_class = class_create(THIS_MODULE, "ti_bridge");
 
 	if (IS_ERR(bridge_class))
-		GT_0trace(driverTrace, GT_7CLASS,
-				"Error creating bridge class \n");
+		pr_err("%s: Error creating bridge class\n", __func__);
 
-	device_create(bridge_class, NULL, MKDEV(driver_major, driver_minor),
+	device_create(bridge_class, NULL, MKDEV(driver_major, 0),
 			NULL, "DspBridge");
 
 	bridge_create_sysfs();
-
-	GT_init();
-	GT_create(&driverTrace, "LD");
-
-#ifdef CONFIG_BRIDGE_DEBUG
-	if (GT_str)
-		GT_set(GT_str);
-#elif defined(DDSP_DEBUG_PRODUCT) && GT_TRACE
-	GT_set("**=67");
-#endif
-
-	GT_0trace(driverTrace, GT_ENTER, "-> driver_init\n");
 
 #ifdef CONFIG_PM
 	/* Initialize the wait queue */
@@ -349,31 +320,29 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	} else {
 		initStatus = DSP_EINVALIDARG;
 		status = -1;
-		GT_0trace(driverTrace, GT_7CLASS,
-			  "SHM size must be at least 64 KB\n");
+		pr_err("%s: SHM size must be at least 64 KB\n", __func__);
 	}
-	GT_1trace(driverTrace, GT_7CLASS,
-		 "requested shm_size = 0x%x\n", shm_size);
+	dev_dbg(bridge, "%s: requested shm_size = 0x%x\n", __func__, shm_size);
 
 	if (pdata->phys_mempool_base && pdata->phys_mempool_size) {
 		phys_mempool_base = pdata->phys_mempool_base;
 		phys_mempool_size = pdata->phys_mempool_size;
 	}
 
-	GT_1trace(driverTrace, GT_7CLASS, "phys_mempool_base = 0x%x \n",
-		 phys_mempool_base);
+	dev_dbg(bridge, "%s: phys_mempool_base = 0x%x \n", __func__,
+							phys_mempool_base);
 
-	GT_1trace(driverTrace, GT_7CLASS, "phys_mempool_size = 0x%x\n",
-		 phys_mempool_base);
+	dev_dbg(bridge, "%s: phys_mempool_size = 0x%x\n", __func__,
+							phys_mempool_size);
 
 	if ((phys_mempool_base > 0x0) && (phys_mempool_size > 0x0))
 		MEM_ExtPhysPoolInit(phys_mempool_base, phys_mempool_size);
 	if (tc_wordswapon) {
-		GT_0trace(driverTrace, GT_7CLASS, "TC Word Swap is enabled\n");
+		dev_dbg(bridge, "%s: TC Word Swap is enabled\n", __func__);
 		REG_SetValue(TCWORDSWAP, (u8 *)&tc_wordswapon,
 				sizeof(tc_wordswapon));
 	} else {
-		GT_0trace(driverTrace, GT_7CLASS, "TC Word Swap is disabled\n");
+		dev_dbg(bridge, "%s: TC Word Swap is enabled\n", __func__);
 		REG_SetValue(TCWORDSWAP, (u8 *)&tc_wordswapon,
 				sizeof(tc_wordswapon));
 	}
@@ -382,36 +351,26 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 		if (pdata->mpu_get_rate_table)
 			pdata->mpu_rate_table = (*pdata->mpu_get_rate_table)();
 		else {
-			GT_0trace(driverTrace, GT_7CLASS, "dspbridge failed to"
+			dev_dbg(bridge, "dspbridge failed to"
 				"get mpu opp table\n");
 			return -EFAULT;
-			goto err3;
+			goto err2;
 		}
 
 		clk_handle = clk_get(NULL, "iva2_ck");
-		if (!clk_handle) {
-			GT_0trace(driverTrace, GT_7CLASS,
-			"clk_get failed to get iva2_ck \n");
-		} else {
-			GT_0trace(driverTrace, GT_7CLASS,
-			"clk_get PASS to get iva2_ck \n");
-		}
-		if (!clk_notifier_register(clk_handle, &iva_clk_notifier)) {
-			GT_0trace(driverTrace, GT_7CLASS,
-			"clk_notifier_register PASS for iva2_ck \n");
-		} else {
-			GT_0trace(driverTrace, GT_7CLASS,
-			"clk_notifier_register FAIL for iva2_ck \n");
-		}
+		if (!clk_handle)
+			pr_err("%s: clk_get failed to get iva2_ck\n", __func__);
+
+		if (clk_notifier_register(clk_handle, &iva_clk_notifier))
+			pr_err("%s: clk_notifier_register failed for iva2_ck\n",
+								__func__);
 #endif
 		driverContext = DSP_Init(&initStatus);
 		if (DSP_FAILED(initStatus)) {
 			status = -1;
-			GT_0trace(driverTrace, GT_7CLASS,
-				 "DSP/BIOS Bridge initialization Failed\n");
+			pr_err("DSP Bridge driver initialization failed\n");
 		} else {
-			GT_0trace(driverTrace, GT_5CLASS,
-					"DSP/BIOS Bridge driver loaded\n");
+			pr_info("DSP Bridge driver loaded\n");
 		}
 	}
 #ifdef CONFIG_BRIDGE_RECOVERY
@@ -422,16 +381,11 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 
 	DBC_Assert(status == 0);
 	DBC_Assert(DSP_SUCCEEDED(initStatus));
-	GT_0trace(driverTrace, GT_ENTER, " <- driver_init\n");
 
 	return 0;
 
-err3:
-	kfree(bridge_device);
-
 err2:
 	unregister_chrdev_region(dev, 1);
-
 err1:
 	return result;
 }
@@ -443,20 +397,14 @@ static int __devexit omap34xx_bridge_remove(struct platform_device *pdev)
 	DSP_STATUS dsp_status = DSP_SOK;
 	HANDLE hDrvObject = NULL;
 
-	GT_0trace(driverTrace, GT_ENTER, "-> driver_exit\n");
-
 	dsp_status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
 	if (DSP_FAILED(dsp_status))
 		goto func_cont;
 
 #ifdef CONFIG_BRIDGE_DVFS
-	if (!clk_notifier_unregister(clk_handle, &iva_clk_notifier)) {
-		GT_0trace(driverTrace, GT_7CLASS,
-		"clk_notifier_unregister PASS for iva2_ck \n");
-	} else {
-		GT_0trace(driverTrace, GT_7CLASS,
-		"clk_notifier_unregister FAILED for iva2_ck \n");
-	}
+	if (clk_notifier_unregister(clk_handle, &iva_clk_notifier))
+		pr_err("%s: clk_notifier_unregister failed for iva2_ck\n",
+								__func__);
 #endif /* #ifdef CONFIG_BRIDGE_DVFS */
 
 	if (driverContext) {
@@ -475,20 +423,16 @@ func_cont:
 	MEM_ExtPhysPoolRelease();
 
 	SERVICES_Exit();
-	GT_exit();
 
 	/* Remove driver sysfs entries */
 	bridge_destroy_sysfs();
 
-	devno = MKDEV(driver_major, driver_minor);
-	if (bridge_device) {
-		cdev_del(&bridge_device->cdev);
-		kfree(bridge_device);
-	}
+	devno = MKDEV(driver_major, 0);
+	cdev_del(&bridge_cdev);
 	unregister_chrdev_region(devno, 1);
 	if (bridge_class) {
 		/* remove the device from sysfs */
-		device_destroy(bridge_class, MKDEV(driver_major, driver_minor));
+		device_destroy(bridge_class, MKDEV(driver_major, 0));
 		class_destroy(bridge_class);
 
 	}
@@ -554,7 +498,6 @@ static int bridge_open(struct inode *ip, struct file *filp)
 	int status = 0;
 	struct PROCESS_CONTEXT *pr_ctxt = NULL;
 
-	GT_0trace(driverTrace, GT_ENTER, "-> driver_open\n");
 #ifdef CONFIG_BRIDGE_RECOVERY
 	if (recover)
 		wait_for_completion(&bridge_open_comp);
@@ -567,7 +510,10 @@ static int bridge_open(struct inode *ip, struct file *filp)
 	pr_ctxt = MEM_Calloc(sizeof(struct PROCESS_CONTEXT), MEM_PAGED);
 	if (pr_ctxt) {
 		pr_ctxt->resState = PROC_RES_ALLOCATED;
-		mutex_init(&pr_ctxt->dmm_mutex);
+		spin_lock_init(&pr_ctxt->dmm_map_lock);
+		INIT_LIST_HEAD(&pr_ctxt->dmm_map_list);
+		spin_lock_init(&pr_ctxt->dmm_rsv_lock);
+		INIT_LIST_HEAD(&pr_ctxt->dmm_rsv_list);
 		mutex_init(&pr_ctxt->node_mutex);
 		mutex_init(&pr_ctxt->strm_mutex);
 	} else {
@@ -581,7 +527,6 @@ static int bridge_open(struct inode *ip, struct file *filp)
 		atomic_inc(&bridge_cref);
 #endif
 
-	GT_0trace(driverTrace, GT_ENTER, " <- driver_open\n");
 	return status;
 }
 
@@ -591,7 +536,7 @@ static int bridge_release(struct inode *ip, struct file *filp)
 {
 	struct PROCESS_CONTEXT *pr_ctxt;
 	int status = 0;
-	GT_0trace(driverTrace, GT_ENTER, "-> driver_release\n");
+
 	if (!filp->private_data) {
 		status = -EIO;
 		goto err;
@@ -603,7 +548,7 @@ static int bridge_release(struct inode *ip, struct file *filp)
 		DRV_RemoveAllResources(pr_ctxt);
 		if (pr_ctxt->hProcessor)
 			PROC_Detach(pr_ctxt);
-		MEM_Free(pr_ctxt);
+		kfree(pr_ctxt);
 		filp->private_data = NULL;
 	}
 err:
@@ -612,7 +557,6 @@ err:
 		complete(&bridge_comp);
 #endif
 
-	GT_0trace(driverTrace, GT_ENTER, " <- driver_release\n");
 	return status;
 }
 
@@ -638,8 +582,6 @@ static long bridge_ioctl(struct file *filp, unsigned int code,
 		return status;
 #endif
 
-	GT_0trace(driverTrace, GT_ENTER, " -> driver_ioctl\n");
-
 	/* Deduct one for the CMD_BASE. */
 	code = (code - 1);
 	if (!filp->private_data) {
@@ -657,24 +599,21 @@ static long bridge_ioctl(struct file *filp, unsigned int code,
 		if (DSP_SUCCEEDED(status)) {
 			status = retval;
 		} else {
-			GT_1trace(driverTrace, GT_7CLASS,
-				 "IOCTL Failed, code : 0x%x\n", code);
+			dev_dbg(bridge, "%s: IOCTL Failed, code: 0x%x "
+				"status 0x%x\n", __func__, code, status);
 			status = -1;
 		}
 
 	}
 
 err:
-	GT_0trace(driverTrace, GT_ENTER, " <- driver_ioctl\n");
 	return status;
 }
 
 /* This function maps kernel space memory to user space memory. */
 static int bridge_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-#if GT_TRACE
 	u32 offset = vma->vm_pgoff << PAGE_SHIFT;
-#endif
 	u32 status;
 
 	DBC_Assert(vma->vm_start < vma->vm_end);
@@ -682,10 +621,10 @@ static int bridge_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_flags |= VM_RESERVED | VM_IO;
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
-	GT_6trace(driverTrace, GT_3CLASS,
-		 "vm filp %p offset %lx start %lx end %lx"
-		 " page_prot %lx flags %lx\n", filp, offset, vma->vm_start,
-		 vma->vm_end, vma->vm_page_prot, vma->vm_flags);
+	dev_dbg(bridge, "%s: vm filp %p offset %x start %lx end %lx page_prot "
+				"%lx flags %lx\n", __func__, filp, offset,
+				vma->vm_start, vma->vm_end, vma->vm_page_prot,
+				vma->vm_flags);
 
 	status = remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 				vma->vm_end - vma->vm_start, vma->vm_page_prot);
@@ -711,8 +650,8 @@ DSP_STATUS DRV_RemoveAllResources(HANDLE hPCtxt)
 /*
  * sysfs
  */
-static ssize_t drv_state_show(struct kobject *kobj, struct kobj_attribute *attr,
-				char *buf)
+static ssize_t drv_state_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
 {
 	struct WMD_DEV_CONTEXT *dwContext;
 	struct DEV_OBJECT *hDevObject = NULL;
@@ -732,10 +671,118 @@ static ssize_t drv_state_show(struct kobject *kobj, struct kobj_attribute *attr,
 	return sprintf(buf, "%d\n", drv_state);
 }
 
-static struct kobj_attribute drv_state_attr = __ATTR_RO(drv_state);
+/*
+ * this sysfs is intended to retrieve two MPU addresses
+ * needed for the INST2 utility.
+ * the inst_log script will run this sysfs
+ */
+static ssize_t mpu_address_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+    struct WMD_DEV_CONTEXT *dwContext = NULL;
+	struct DEV_OBJECT *hDevObject = NULL;
+	u32 mem_poolsize = 0;
+	u32 GppPa = 0, DspVa = 0;
+	u32 armPhyMemOffUncached = 0;
+	hDevObject = (struct DEV_OBJECT *)DRV_GetFirstDevObject();
+	DEV_GetWMDContext(hDevObject, &dwContext);
+	GppPa = dwContext->aTLBEntry[0].ulGppPa;
+	DspVa = dwContext->aTLBEntry[0].ulDspVa;
+
+	/*
+	 * the physical address offset, this offset is a
+	 * fixed value for a given platform.
+	 */
+	armPhyMemOffUncached = GppPa - DspVa;
+
+	/*
+	 * the offset value for cached address region
+	 * on DSP address space
+	 */
+	mem_poolsize = phys_mempool_base - 0x20000000;
+
+	/* Retrive the above calculated addresses */
+	return sprintf(buf, "mempoolsizeOffset 0x%x GppPaOffset 0x%x\n",
+					mem_poolsize, armPhyMemOffUncached);
+}
+
+static DEVICE_ATTR(drv_state, S_IRUGO, drv_state_show, NULL);
+static DEVICE_ATTR(mpu_address, S_IRUGO, mpu_address_show, NULL);
+
+#ifdef CONFIG_BRIDGE_WDT3
+static ssize_t wdt3_show(struct device *dev, struct device_attribute *attr,
+							char *buf)
+{
+	return sprintf(buf, "%d\n", (dsp_wdt_get_enable()) ? 1 : 0);
+}
+
+static ssize_t wdt3_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t n)
+{
+	u32 wdt3;
+	struct DEV_OBJECT *dev_object;
+	struct WMD_DEV_CONTEXT *dev_ctxt;
+
+	if (sscanf(buf, "%d", &wdt3) != 1)
+		return -EINVAL;
+
+	dev_object = DEV_GetFirst();
+	if (dev_object == NULL)
+		goto func_end;
+	DEV_GetWMDContext(dev_object, &dev_ctxt);
+	if (dev_ctxt == NULL)
+		goto func_end;
+
+	/* enable WDT */
+	if (wdt3 == 1) {
+		if (dsp_wdt_get_enable())
+			goto func_end;
+		dsp_wdt_set_enable(true);
+		if (!CLK_Get_UseCnt(SERVICESCLK_wdt3_fck) &&
+				dev_ctxt->dwBrdState != BRD_DSP_HIBERNATION)
+			dsp_wdt_enable(true);
+	} else if (wdt3 == 0) {
+		if (!dsp_wdt_get_enable())
+			goto func_end;
+		if (CLK_Get_UseCnt(SERVICESCLK_wdt3_fck))
+			dsp_wdt_enable(false);
+		dsp_wdt_set_enable(false);
+	}
+func_end:
+	return n;
+}
+
+static DEVICE_ATTR(dsp_wdt, S_IWUSR | S_IRUGO, wdt3_show, wdt3_store);
+
+static ssize_t wdt3_timeout_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", dsp_wdt_get_timeout());
+}
+
+static ssize_t wdt3_timeout_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t n)
+{
+	u32 wdt3_to;
+
+	if (sscanf(buf, "%d", &wdt3_to) != 1)
+		return -EINVAL;
+
+	dsp_wdt_set_timeout(wdt3_to);
+	return n;
+}
+
+static DEVICE_ATTR(dsp_wdt_timeout, S_IWUSR | S_IRUGO, wdt3_timeout_show,
+			wdt3_timeout_store);
+#endif
 
 static struct attribute *attrs[] = {
-	&drv_state_attr.attr,
+	&dev_attr_drv_state.attr,
+	&dev_attr_mpu_address.attr,
+#ifdef CONFIG_BRIDGE_WDT3
+	&dev_attr_dsp_wdt.attr,
+	&dev_attr_dsp_wdt_timeout.attr,
+#endif
 	NULL,
 };
 

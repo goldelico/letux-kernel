@@ -26,7 +26,6 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
@@ -44,10 +43,6 @@ struct RegValue {
 
 /*  Pointer to the registry support key  */
 static struct LST_LIST regKey, *pRegKey = &regKey;
-
-#if GT_TRACE
-extern struct GT_Mask REG_debugMask;	/* GT trace var. */
-#endif
 
 /*
  *  ======== regsupInit ========
@@ -72,8 +67,8 @@ void regsupExit(void)
 	while (!LST_IsEmpty(pRegKey)) {
 		rv = (struct RegValue *) LST_GetHead(pRegKey);
 
-		MEM_Free(rv->pData);
-		MEM_Free(rv);
+		kfree(rv->pData);
+		kfree(rv);
 	}
 }
 
@@ -105,12 +100,7 @@ DSP_STATUS regsupGetValue(char *valName, void *pBuf, u32 *dataSize)
 						(struct list_head *) rv);
 	}
 
-	if (DSP_SUCCEEDED(retVal)) {
-		GT_2trace(REG_debugMask, GT_2CLASS, "G %s DATA %x ", valName,
-			  *(u32 *)pBuf);
-	} else {
-		GT_1trace(REG_debugMask, GT_3CLASS, "G %s FAILED\n", valName);
-	}
+	dev_dbg(bridge, "REG: get %s, status = 0x%x\n", valName, retVal);
 
 	return retVal;
 }
@@ -125,9 +115,6 @@ DSP_STATUS regsupSetValue(char *valName, void *pBuf, u32 dataSize)
 	DSP_STATUS retVal = DSP_EFAIL;
 	struct RegValue *rv = (struct RegValue *) LST_First(pRegKey);
 
-	GT_2trace(REG_debugMask, GT_2CLASS, "S %s DATA %x ", valName,
-		  *(u32 *)pBuf);
-
 	/*  Need to search through the entries looking for the right one.  */
 	while (rv) {
 		/*  See if the name matches.  */
@@ -135,7 +122,7 @@ DSP_STATUS regsupSetValue(char *valName, void *pBuf, u32 dataSize)
 			/*  Make sure the new data size is the same.  */
 			if (dataSize != rv->dataSize) {
 				/*  The caller needs a different data size!  */
-				MEM_Free(rv->pData);
+				kfree(rv->pData);
 				rv->pData = MEM_Alloc(dataSize, MEM_NONPAGED);
 				if (rv->pData == NULL)
 					break;
@@ -170,13 +157,15 @@ DSP_STATUS regsupSetValue(char *valName, void *pBuf, u32 dataSize)
 				LST_PutTail(pRegKey, (struct list_head *) new);
 				retVal = DSP_SOK;
 			} else {
-				MEM_Free(new);
+				kfree(new);
 				retVal = DSP_EMEMORY;
 			}
 		} else {
 			retVal = DSP_EMEMORY;
 		}
 	}
+
+	dev_dbg(bridge, "REG: set %s, status = 0x%x", valName, retVal);
 
 	return retVal;
 }
@@ -210,9 +199,6 @@ DSP_STATUS regsupEnumValue(IN u32 dwIndex, IN CONST char *pstrKey,
 			*pdwValueSize = strlen(&(rv->name[dwKeyLen]));
 			strncpy(pstrValue, &(rv->name[dwKeyLen]),
 				    *pdwValueSize + 1);
-			GT_3trace(REG_debugMask, GT_2CLASS,
-				  "E Key %s, Value %s, Data %x ",
-				  pstrKey, pstrValue, *(u32 *)pstrData);
 			/*  Set our status to good and exit.  */
 			retVal = DSP_SOK;
 			break;
@@ -223,6 +209,9 @@ DSP_STATUS regsupEnumValue(IN u32 dwIndex, IN CONST char *pstrKey,
 
 	if (count && DSP_FAILED(retVal))
 		retVal = REG_E_NOMOREITEMS;
+
+	dev_dbg(bridge, "REG: enum Key %s, Value %s, status = 0x%x",
+					pstrKey, pstrValue, retVal);
 
 	return retVal;
 }
@@ -245,8 +234,8 @@ DSP_STATUS regsupDeleteValue(IN CONST char *pstrValue)
 			 * key.
 			 */
 			LST_RemoveElem(pRegKey, (struct list_head *)rv);
-			MEM_Free(rv->pData);
-			MEM_Free(rv);
+			kfree(rv->pData);
+			kfree(rv);
 
 			/*  Set our status to good and exit...  */
 			retVal = DSP_SOK;
@@ -255,6 +244,9 @@ DSP_STATUS regsupDeleteValue(IN CONST char *pstrValue)
 		rv = (struct RegValue *)LST_Next(pRegKey,
 				(struct list_head *)rv);
 	}
+
+	dev_dbg(bridge, "REG: del %s, status = 0x%x", pstrValue, retVal);
+
 	return retVal;
 
 }

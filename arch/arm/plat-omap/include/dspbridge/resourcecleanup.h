@@ -48,17 +48,6 @@ extern DSP_STATUS DRV_RemoveNodeResElement(HANDLE nodeRes, HANDLE status);
 
 extern void DRV_ProcNodeUpdateStatus(HANDLE hNodeRes, s32 status);
 
-extern DSP_STATUS DRV_UpdateDMMResElement(HANDLE dmmRes, u32 pMpuAddr,
-					  u32 ulSize, u32 pReqAddr,
-					  u32 ppMapAddr, HANDLE hProcesso);
-
-extern DSP_STATUS DRV_InsertDMMResElement(HANDLE dmmRes, HANDLE pCtxt);
-
-extern DSP_STATUS DRV_GetDMMResElement(u32 pMapAddr, HANDLE dmmRes,
-				       HANDLE pCtxt);
-
-extern DSP_STATUS DRV_RemoveDMMResElement(HANDLE dmmRes, HANDLE pCtxt);
-
 extern DSP_STATUS DRV_ProcUpdateSTRMRes(u32 uNumBufs, HANDLE STRMRes);
 
 extern DSP_STATUS DRV_ProcInsertSTRMResElement(HANDLE hStrm, HANDLE STRMRes,

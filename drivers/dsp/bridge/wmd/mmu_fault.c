@@ -24,7 +24,6 @@
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/host_os.h>
 #include <dspbridge/dbc.h>
-#include <dspbridge/dbg.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
@@ -57,12 +56,9 @@ void MMU_FaultDpc(IN unsigned long pRefData)
 {
 	struct DEH_MGR *hDehMgr = (struct DEH_MGR *)pRefData;
 
-	DBG_Trace(DBG_LEVEL1, "MMU_FaultDpc Enter: 0x%x\n", pRefData);
-
 	if (hDehMgr)
 		WMD_DEH_Notify(hDehMgr, DSP_MMUFAULT, 0L);
 
-	DBG_Trace(DBG_LEVEL1, "MMU_FaultDpc Exit: 0x%x\n", pRefData);
 }
 
 /*
@@ -74,7 +70,6 @@ irqreturn_t  MMU_FaultIsr(int irq, IN void *pRefData)
 	struct DEH_MGR *pDehMgr = (struct DEH_MGR *)pRefData;
 	struct WMD_DEV_CONTEXT *pDevContext;
 
-	DBG_Trace(DBG_LEVEL1, "Entering DEH_DspMmuIsr: 0x%x\n", pRefData);
 	DBC_Require(irq == INT_DSP_MMU_IRQ);
 	DBC_Require(MEM_IsValidHandle(pDehMgr, SIGNATURE));
 
@@ -104,9 +99,6 @@ irqreturn_t  MMU_FaultIsr(int irq, IN void *pRefData)
 			HW_MMU_EventDisable(pDevContext->dwDSPMmuBase,
 					    HW_MMU_TRANSLATION_FAULT);
 		} else {
-			DBG_Trace(DBG_LEVEL7,
-				 "***** MMU FAULT ***** faultcode 0x%x\n",
-				 dmmuEventMask);
 			HW_MMU_EventDisable(pDevContext->dwDSPMmuBase,
 					    HW_MMU_ALL_INTERRUPTS);
 		}
@@ -130,8 +122,6 @@ static bool MMU_CheckIfFault(struct WMD_DEV_CONTEXT *pDevContext)
 					&dmmuEventMask);
 	if (dmmuEventMask  ==  HW_MMU_TRANSLATION_FAULT) {
 		HW_MMU_FaultAddrRead(pDevContext->dwDSPMmuBase, &faultAddr);
-		DBG_Trace(DBG_LEVEL1, "WMD_DEH_Notify: DSP_MMUFAULT, fault "
-			 "address = 0x%x\n", faultAddr);
 		retVal = true;
 	}
 	return retVal;

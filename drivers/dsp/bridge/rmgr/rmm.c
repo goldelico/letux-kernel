@@ -44,7 +44,6 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/list.h>
@@ -87,10 +86,6 @@ struct RMM_TargetObj {
 	struct LST_LIST *ovlyList;	/* List of overlay memory in use */
 };
 
-#if GT_TRACE
-static struct GT_Mask RMM_debugMask = { NULL, NULL };	/* GT trace variable */
-#endif
-
 static u32 cRefs;		/* module reference count */
 
 static bool allocBlock(struct RMM_TargetObj *target, u32 segid, u32 size,
@@ -116,10 +111,6 @@ DSP_STATUS RMM_alloc(struct RMM_TargetObj *target, u32 segid, u32 size,
 	DBC_Require(reserve || (target->numSegs > 0));
 	DBC_Require(cRefs > 0);
 
-	GT_6trace(RMM_debugMask, GT_ENTER,
-		 "RMM_alloc(0x%lx, 0x%lx, 0x%lx, 0x%lx, "
-		 "0x%lx, 0x%lx)\n", target, segid, size, align, dspAddr,
-		 reserve);
 	if (!reserve) {
 		if (!allocBlock(target, segid, size, align, dspAddr)) {
 			status = DSP_EMEMORY;
@@ -190,18 +181,12 @@ DSP_STATUS RMM_create(struct RMM_TargetObj **pTarget,
 	DBC_Require(pTarget != NULL);
 	DBC_Require(numSegs == 0 || segTab != NULL);
 
-	GT_3trace(RMM_debugMask, GT_ENTER,
-		 "RMM_create(0x%lx, 0x%lx, 0x%lx)\n",
-		 pTarget, segTab, numSegs);
-
 	/* Allocate DBL target object */
 	MEM_AllocObject(target, struct RMM_TargetObj, RMM_TARGSIGNATURE);
 
-	if (target == NULL) {
-		GT_0trace(RMM_debugMask, GT_6CLASS,
-			 "RMM_create: Memory allocation failed\n");
+	if (target == NULL)
 		status = DSP_EMEMORY;
-	}
+
 	if (DSP_FAILED(status))
 		goto func_cont;
 
@@ -213,8 +198,6 @@ DSP_STATUS RMM_create(struct RMM_TargetObj **pTarget,
 	target->freeList = MEM_Calloc(numSegs * sizeof(struct RMM_Header *),
 				     MEM_PAGED);
 	if (target->freeList == NULL) {
-		GT_0trace(RMM_debugMask, GT_6CLASS,
-			 "RMM_create: Memory allocation failed\n");
 		status = DSP_EMEMORY;
 	} else {
 		/* Allocate headers for each element on the free list */
@@ -223,9 +206,6 @@ DSP_STATUS RMM_create(struct RMM_TargetObj **pTarget,
 					MEM_Calloc(sizeof(struct RMM_Header),
 					MEM_PAGED);
 			if (target->freeList[i] == NULL) {
-				GT_0trace(RMM_debugMask, GT_6CLASS,
-					 "RMM_create: Memory "
-					 "allocation failed\n");
 				status = DSP_EMEMORY;
 				break;
 			}
@@ -234,8 +214,6 @@ DSP_STATUS RMM_create(struct RMM_TargetObj **pTarget,
 		target->segTab = MEM_Calloc(numSegs *
 				 sizeof(struct RMM_Segment), MEM_PAGED);
 		if (target->segTab == NULL) {
-			GT_0trace(RMM_debugMask, GT_6CLASS,
-				 "RMM_create: Memory allocation failed\n");
 			status = DSP_EMEMORY;
 		} else {
 			/* Initialize segment table and free list */
@@ -257,8 +235,6 @@ func_cont:
 		target->ovlyList = MEM_Calloc(sizeof(struct LST_LIST),
 			MEM_NONPAGED);
 		if (target->ovlyList == NULL) {
-			GT_0trace(RMM_debugMask, GT_6CLASS,
-				 "RMM_create: Memory allocation failed\n");
 			status = DSP_EMEMORY;
 		} else {
 			INIT_LIST_HEAD(&target->ovlyList->head);
@@ -293,18 +269,15 @@ void RMM_delete(struct RMM_TargetObj *target)
 
 	DBC_Require(MEM_IsValidHandle(target, RMM_TARGSIGNATURE));
 
-	GT_1trace(RMM_debugMask, GT_ENTER, "RMM_delete(0x%lx)\n", target);
-
-	if (target->segTab != NULL)
-		MEM_Free(target->segTab);
+	kfree(target->segTab);
 
 	if (target->ovlyList) {
 		while ((pSect = (struct RMM_OvlySect *)LST_GetHead
 		      (target->ovlyList))) {
-			MEM_Free(pSect);
+			kfree(pSect);
 		}
 		DBC_Assert(LST_IsEmpty(target->ovlyList));
-		MEM_Free(target->ovlyList);
+		kfree(target->ovlyList);
 	}
 
 	if (target->freeList != NULL) {
@@ -314,10 +287,10 @@ void RMM_delete(struct RMM_TargetObj *target)
 			while (next) {
 				hptr = next;
 				next = hptr->next;
-				MEM_Free(hptr);
+				kfree(hptr);
 			}
 		}
-		MEM_Free(target->freeList);
+		kfree(target->freeList);
 	}
 
 	MEM_FreeObject(target);
@@ -331,9 +304,6 @@ void RMM_exit(void)
 	DBC_Require(cRefs > 0);
 
 	cRefs--;
-
-	GT_1trace(RMM_debugMask, GT_5CLASS, "RMM_exit() ref count: 0x%x\n",
-		 cRefs);
 
 	DBC_Ensure(cRefs >= 0);
 }
@@ -355,9 +325,6 @@ bool RMM_free(struct RMM_TargetObj *target, u32 segid, u32 addr, u32 size,
 		   (addr + size) <= (target->segTab[segid].base +
 		   target->segTab[segid].length)));
 
-	GT_5trace(RMM_debugMask, GT_ENTER,
-		 "RMM_free(0x%lx, 0x%lx, 0x%lx, 0x%lx, "
-		 "0x%lx)\n", target, segid, addr, size, reserved);
 	/*
 	 *  Free or unreserve memory.
 	 */
@@ -375,7 +342,7 @@ bool RMM_free(struct RMM_TargetObj *target, u32 segid, u32 addr, u32 size,
 				/* Remove from list */
 				LST_RemoveElem(target->ovlyList,
 					      (struct list_head *)sect);
-				MEM_Free(sect);
+				kfree(sect);
 				break;
 			}
 			sect = (struct RMM_OvlySect *)LST_Next(target->ovlyList,
@@ -395,17 +362,7 @@ bool RMM_init(void)
 {
 	DBC_Require(cRefs >= 0);
 
-	if (cRefs == 0) {
-		DBC_Assert(!RMM_debugMask.flags);
-		GT_create(&RMM_debugMask, "RM");	/* "RM" for RMm */
-
-	}
-
 	cRefs++;
-
-	GT_1trace(RMM_debugMask, GT_5CLASS,
-		 "RMM_init(), ref count:  0x%x\n",
-		 cRefs);
 
 	return true;
 }
@@ -494,7 +451,7 @@ static bool allocBlock(struct RMM_TargetObj *target, u32 segid, u32 size,
 		if (hsize >= allocsize) {	/* big enough */
 			if (hsize == allocsize && prevhead != NULL) {
 				prevhead->next = next;
-				MEM_Free(head);
+				kfree(head);
 			} else {
 				head->size = hsize - allocsize;
 				head->addr += allocsize;
@@ -563,7 +520,7 @@ static bool freeBlock(struct RMM_TargetObj *target, u32 segid, u32 addr,
 			head->next = rhead->next;
 			thead->size = size + thead->size;
 			thead->addr = addr;
-			MEM_Free(rhead);
+			kfree(rhead);
 			rhead = thead;
 		}
 
@@ -571,7 +528,7 @@ static bool freeBlock(struct RMM_TargetObj *target, u32 segid, u32 addr,
 		if ((head->addr + head->size) == rhead->addr) {
 			head->next = rhead->next;
 			head->size = head->size + rhead->size;
-			MEM_Free(rhead);
+			kfree(rhead);
 		}
 	}
 
