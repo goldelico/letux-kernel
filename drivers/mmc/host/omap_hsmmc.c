@@ -1361,6 +1361,28 @@ static void omap_hsmmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		mmc_host_lazy_disable(host->mmc);
 }
 
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+static void omap_hsmmc_status_notify_cb(int card_present, void *dev_id)
+{
+	struct omap_hsmmc_host *host = dev_id;
+	struct omap_mmc_slot_data *slot = &mmc_slot(host);
+	int carddetect;
+
+	printk(KERN_DEBUG "%s: card_present %d\n", mmc_hostname(host->mmc),
+		card_present);
+
+	carddetect = slot->card_detect(slot->card_detect_irq);
+
+	sysfs_notify(&host->mmc->class_dev.kobj, NULL, "cover_switch");
+	if (carddetect) {
+		mmc_detect_change(host->mmc, (HZ * 200) / 1000);
+	} else {
+		omap_hsmmc_reset_controller_fsm(host, SRD);
+		mmc_detect_change(host->mmc, (HZ * 50) / 1000);
+	}
+}
+#endif
+
 static int omap_hsmmc_get_cd(struct mmc_host *mmc)
 {
 	struct omap_hsmmc_host *host = mmc_priv(mmc);
@@ -1813,6 +1835,18 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	}
 	dev_dbg(mmc_dev(host->mmc), "DMA Mode=%d\n", host->dma_type);
 
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+	if (pdev->id == CONFIG_TIWLAN_MMC_CONTROLLER-1) {
+		if (pdata->slots[0].embedded_sdio != NULL) {
+			mmc_set_embedded_sdio_data(mmc,
+			&pdata->slots[0].embedded_sdio->cis,
+			&pdata->slots[0].embedded_sdio->cccr,
+			pdata->slots[0].embedded_sdio->funcs,
+			pdata->slots[0].embedded_sdio->num_funcs);
+
+		}
+	}
+#endif
 
 	platform_set_drvdata(pdev, host);
 	INIT_WORK(&host->mmc_carddetect_work, omap_hsmmc_detect);
@@ -1964,6 +1998,15 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 			goto err_irq_cd;
 		}
 	}
+
+#ifdef CONFIG_MMC_EMBEDDED_SDIO
+	else if (mmc_slot(host).register_status_notify) {
+		if (pdev->id == CONFIG_TIWLAN_MMC_CONTROLLER-1) {
+			mmc_slot(host).register_status_notify(
+				omap_hsmmc_status_notify_cb, host);
+		}
+	}
+#endif
 
 	OMAP_HSMMC_WRITE(host->base, ISE, INT_EN_MASK);
 	OMAP_HSMMC_WRITE(host->base, IE, INT_EN_MASK);
