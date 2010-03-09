@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Fri Feb 26 12:15:34 2010
+# Mon Mar  8 20:55:47 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -520,6 +520,14 @@ CONFIG_APANIC_PLABEL="kpanic"
 # Motorola TS 27.010 Mux driver
 #
 # CONFIG_MOT_FEAT_TS27010MUX is not set
+
+#
+# Texas Instruments shared transport line discipline
+#
+# CONFIG_TI_ST is not set
+# CONFIG_TI_ST_BT is not set
+# CONFIG_TI_ST_FM is not set
+# CONFIG_TI_ST_GPS is not set
 CONFIG_HAVE_IDE=y
 # CONFIG_IDE is not set
 
@@ -890,6 +898,7 @@ CONFIG_VIDEO_HELPER_CHIPS_AUTO=y
 # CONFIG_VIDEO_CPIA is not set
 # CONFIG_VIDEO_SAA5246A is not set
 # CONFIG_VIDEO_SAA5249 is not set
+# CONFIG_VIDEO_OMAP_VIDEOOUT is not set
 CONFIG_VIDEO_OMAP3_OUT=y
 # CONFIG_SOC_CAMERA is not set
 # CONFIG_VIDEO_OLDOMAP34XX_ISP_PREVIEWER is not set
@@ -1154,7 +1163,6 @@ CONFIG_ANDROID_RAM_CONSOLE_ENABLE_VERBOSE=y
 CONFIG_ANDROID_TIMED_OUTPUT=y
 CONFIG_ANDROID_TIMED_GPIO=y
 CONFIG_ANDROID_LOW_MEMORY_KILLER=y
-# CONFIG_DREAM is not set
 
 #
 # Qualcomm MSM Camera And Video
