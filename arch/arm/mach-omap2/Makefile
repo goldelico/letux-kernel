@@ -130,6 +130,7 @@ obj-$(CONFIG_MACH_CM_T35)		+= board-cm-t35.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_IGEP0020)		+= board-igep0020.o \
 					   mmc-twl4030.o
+obj-$(CONFIG_MMC_EMBEDDED_SDIO)         += board-4430sdp-wifi.o
 
 obj-$(CONFIG_MACH_OMAP_4430SDP)		+= board-4430sdp.o \
 					   mmc-twl4030.o
