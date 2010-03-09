@@ -87,6 +87,12 @@ struct musb_hdrc_platform_data {
 
 	/* MUSB vdd1 opp constraint */
 	void 		(*set_vdd1_opp) (struct device *dev, unsigned long);
+
+	/* Max opp constraint */
+	unsigned long max_vdd1_opp;
+
+	/* Min opp constraint */
+	unsigned long min_vdd1_opp;
 };
 
 

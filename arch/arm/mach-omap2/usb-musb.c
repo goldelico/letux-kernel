@@ -226,6 +226,15 @@ void __init usb_musb_init(void)
 		musb_plat.clock = "hsotgusb_ick";
 	}
 
+	if (cpu_is_omap3630()) {
+		musb_plat.max_vdd1_opp = S600M;
+		musb_plat.min_vdd1_opp = S300M;
+	} else if (cpu_is_omap3430()) {
+		musb_plat.max_vdd1_opp = S500M;
+		musb_plat.min_vdd1_opp = S125M;
+	} else
+		musb_plat.set_vdd1_opp = NULL;
+
 	musb_resources[0].end = musb_resources[0].start + SZ_8K - 1;
 
 #ifdef CONFIG_NOP_USB_XCEIV

@@ -42,9 +42,6 @@
 #include "musb_core.h"
 #include "omap2430.h"
 
-#define VDD1_OPP3_FREQ	500000000
-#define VDD1_OPP1_FREQ	125000000
-
 #ifdef CONFIG_ARCH_OMAP3430
 #define	get_cpu_rev()	2
 #endif
@@ -158,17 +155,6 @@ void musb_platform_disable(struct musb *musb)
 }
 static void omap_vbus_power(struct musb *musb, int is_on, int sleeping)
 {
-}
-
-/*  Set the MUSB vdd1 opp constraint */
-static void musb_set_opp_constraint(struct musb *musb)
-{
-	struct musb_hdrc_platform_data *pdata =
-			musb->controller->platform_data;
-
-	/* Initialize vdd1 to opp3 constraint  */
-	if (pdata->set_vdd1_opp)
-		pdata->set_vdd1_opp(musb->controller, VDD1_OPP3_FREQ);
 }
 
 static void omap_set_vbus(struct musb *musb, int is_on)
@@ -486,8 +472,7 @@ void musb_platform_restore_context(struct musb *musb)
 void musb_link_save_context(struct otg_transceiver *xceiv)
 {
 	struct musb	*musb = xceiv->link;
-
-	struct musb_hdrc_platform_data *pdata =
+	struct musb_hdrc_platform_data *plat =
 			musb->controller->platform_data;
 
 	musb_platform_save_context(musb);
@@ -497,9 +482,9 @@ void musb_link_save_context(struct otg_transceiver *xceiv)
 	 */
 	omap_pm_set_max_mpu_wakeup_lat(musb->controller, -1);
 
-	/* Initialize vdd1 to opp1 constraint  */
-	if (pdata->set_vdd1_opp)
-		pdata->set_vdd1_opp(musb->controller, VDD1_OPP1_FREQ);
+	/* Initialize vdd1 to min opp1 constraint  */
+	if (plat->set_vdd1_opp)
+		plat->set_vdd1_opp(musb->controller, plat->min_vdd1_opp);
 }
 
 void musb_link_restore_context(struct otg_transceiver *xceiv)
@@ -513,7 +498,10 @@ void musb_link_restore_context(struct otg_transceiver *xceiv)
 	 * So prevent CPUIdle going to C7, restrict to C6
 	 */
 	omap_pm_set_max_mpu_wakeup_lat(musb->controller, 6250);
-	musb_set_opp_constraint(musb);
+
+	/* Initialize vdd1 to max opp1 constraint  */
+	if (plat->set_vdd1_opp)
+		plat->set_vdd1_opp(musb->controller, plat->max_vdd1_opp);
 
 	/* No context restore needed in case
 	 * OFF transition has not happened
