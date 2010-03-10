@@ -503,6 +503,14 @@ int isp_csi_configure_interface(struct isp_csi_device *isp_csi,
 	if (config->strobe_clock_inv)
 		val |= ISPCSI1_CTRL_INV;
 	val |= ISPCSI1_CTRL_MODE_CCP2;
+
+	/*
+	 * CCDC input speed is limited to 1 pixel every 2 clock cycles,
+	 * FRACDIV should be set to 0x8000
+	 */
+	val = (val & ~ISPCSI1_CTRL_FRACDIV_MASK) |
+		  (0x8000 << ISPCSI1_CTRL_FRACDIV_SHIFT);
+
 	isp_reg_writel(dev, val, OMAP3_ISP_IOMEM_CCP2, ISPCSI1_CTRL);
 
 	if (config->use_mem_read) {
