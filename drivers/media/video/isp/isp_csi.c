@@ -322,6 +322,7 @@ int isp_csi_lcm_s_src_region(struct isp_csi_device *isp_csi,
 {
 	struct device *dev = to_device(isp_csi);
 	int ret = 0;
+	u16 hwords;
 
 	ret = isp_csi_lcm_validate_src_region(isp_csi, rect);
 	if (ret)
@@ -352,9 +353,14 @@ int isp_csi_lcm_s_src_region(struct isp_csi_device *isp_csi,
 			ISPCSI1_LCM_VSIZE_COUNT_SHIFT,
 		       OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_VSIZE);
 
-	isp_reg_writel(dev,
-		       isp_csi->lcm_src_ofst,
-		       OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_PREFETCH);
+	/*
+	 * Calculate hwords based on formula
+	 * HWORDS = 4 x ceil( ((SKIP + COUNT) x bits_per_pixel)/(8 x 32))
+	 */
+	hwords = ((rect.left + rect.width) >> 2);
+	isp_reg_writel(dev, (hwords &  ISPCSI1_LCM_PREFETCH_HWORDS_MASK) <<
+			ISPCSI1_LCM_PREFETCH_HWORDS_SHIFT,
+			OMAP3_ISP_IOMEM_CCP2, ISPCSI1_LCM_PREFETCH);
 
 	isp_csi->lcm_src_rect = rect;
 	return 0;
