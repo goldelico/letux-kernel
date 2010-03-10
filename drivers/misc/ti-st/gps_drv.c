@@ -226,6 +226,7 @@ int gpsdrv_open(struct inode *inod, struct file *file)
 
 	/* if returned status is pending, wait for the completion */
 	if (ret == ST_ERR_PENDING) {
+		hgps->streg_cbdata = -EINPROGRESS;
 		GPSDRV_VER(" GPS Register waiting for completion ");
 		timeout =
 		    wait_for_completion_timeout(&hgps->gpsdrv_reg_completed,
@@ -237,7 +238,7 @@ int gpsdrv_open(struct inode *inod, struct file *file)
 			return GPS_ERR_TIMEOUT;
 		}
 
-		if (0 > hgps->streg_cbdata) {
+		if (hgps->streg_cbdata != 0) {
 			GPSDRV_ERR
 			    ("GPS Device Registration Failed-ST Reg CB called"
 			     "with invalid value %d", hgps->streg_cbdata);

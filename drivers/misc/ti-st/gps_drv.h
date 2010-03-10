@@ -79,7 +79,7 @@ struct gpsdrv_data {
 	struct completion gpsdrv_reg_completed;	/* comepletion handler
 						   to synchronize
 						   gpsdrv_chrdev_open */
-	unsigned char streg_cbdata;	/* ST registration callback  status */
+	char streg_cbdata;	/* ST registration callback  status */
 
 	unsigned long state;	/* used locally,to maintain various
 				   GPS driver status */
