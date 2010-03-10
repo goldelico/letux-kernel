@@ -342,7 +342,7 @@ static void isp_enable_interrupts(struct device *dev)
 
 	irq0enable = IRQ0ENABLE_CCDC_VD0_IRQ
 		| IRQ0ENABLE_CSIA_IRQ
-		| IRQ0ENABLE_CSIB_IRQ | IRQ0ENABLE_HIST_DONE_IRQ
+		| IRQ0ENABLE_CSIB_LC0_IRQ | IRQ0ENABLE_HIST_DONE_IRQ
 		| IRQ0ENABLE_H3A_AWB_DONE_IRQ | IRQ0ENABLE_H3A_AF_DONE_IRQ
 		| isp->interrupts;
 
@@ -373,7 +373,7 @@ static void isp_disable_interrupts(struct device *dev)
 
 	irq0enable = ~(IRQ0ENABLE_CCDC_VD0_IRQ
 		| IRQ0ENABLE_CSIA_IRQ
-		| IRQ0ENABLE_CSIB_IRQ | IRQ0ENABLE_HIST_DONE_IRQ
+		| IRQ0ENABLE_CSIB_LC0_IRQ | IRQ0ENABLE_HIST_DONE_IRQ
 		| IRQ0ENABLE_H3A_AWB_DONE_IRQ | IRQ0ENABLE_H3A_AF_DONE_IRQ
 		| isp->interrupts);
 
@@ -811,7 +811,7 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 		if (irqstatus & CSIA)
 			isp_csi2_isr(&isp->isp_csi2);
 
-		if (irqstatus & IRQ0STATUS_CSIB_IRQ) {
+		if (irqstatus & IRQ0STATUS_CSIB_LC0_IRQ) {
 			u32 csib;
 
 			csib = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
@@ -840,7 +840,7 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 			buf->vb_state = VIDEOBUF_ERROR;
 	}
 
-	if (irqstatus & IRQ0STATUS_CSIB_IRQ) {
+	if (irqstatus & IRQ0STATUS_CSIB_LC0_IRQ) {
 		static const u32 ISPCSI1_LC01_ERROR =
 			ISPCSI1_LC01_IRQSTATUS_LC0_FIFO_OVF_IRQ |
 			ISPCSI1_LC01_IRQSTATUS_LC0_CRC_IRQ |
