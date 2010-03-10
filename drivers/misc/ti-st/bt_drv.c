@@ -215,11 +215,11 @@ static int hci_st_open(struct hci_dev *hdev)
 		timeleft =
 		    wait_for_completion_timeout
 		    (&hst->wait_for_btdrv_reg_completion,
-		     msecs_to_jiffies(BT_REGISTER_TIMEOUT));
+		     BT_REGISTER_TIMEOUT);
 		if (!timeleft) {
-			BT_DRV_ERR("Timeout(%ld sec),didn't get reg"
+			BT_DRV_ERR("Timeout(%d msec),didn't get reg"
 				   "completion signal from ST",
-				   BT_REGISTER_TIMEOUT / 1000);
+				   jiffies_to_msecs(BT_REGISTER_TIMEOUT));
 			BTDRV_API_EXIT(-ETIMEDOUT);
 			return -ETIMEDOUT;
 		}
