@@ -550,7 +550,7 @@ static int gpsdrv_ioctl(struct inode *inode, struct file *file,
 		 * available in the available SKB
 		 */
 		spin_lock(&hgps->lock);
-		if (!skb_queue_empty(&hgps->tx_list)) {
+		if (!skb_queue_empty(&hgps->rx_list)) {
 			skb = skb_dequeue(&hgps->rx_list);
 			*(unsigned int *)arg = skb->len;
 			/* Re-Store the SKB for furtur Read operations */
