@@ -86,28 +86,15 @@ static inline void l2x0_inv_line(unsigned long addr)
 }
 
 #ifdef CONFIG_PL310_ERRATA_588369
-static noinline void debug_writel(unsigned long val)
+static void debug_writel(unsigned long val)
 {
-	register unsigned long r0 asm("r0") = val;
+	extern void omap_smc1(u32 fn, u32 arg);
+
 	/*
-	 * Texas Instrument secure monitor api to modify the PL310
-	 * Debug Control Register.
-	 * r0 contains the value to be modified and "r12" contains
-	 * the monitor API number. This API uses few CPU registers
-	 * internally and hence they need be backed up including
-	 * link register "lr".
-	 * Explicitly save r11 and r12 since  the compiler generated
-	 * code won't save it.
+	 * Texas Instrument secure monitor api to modify the
+	 * PL310 Debug Control Register.
 	 */
-	__asm__ __volatile__(
-		__asmeq("%0", "r0")
-		"stmfd r13!, {r11,r12}\n"
-		"ldr r12, =0x100\n"
-		"dsb\n"
-		"smc\n"
-		"ldmfd r13!, {r11,r12}\n"
-		: : "r" (r0)
-		: "r4", "r5", "r10", "lr");
+	omap_smc1(0x100, val);
 }
 
 static inline void l2x0_flush_line(unsigned long addr)

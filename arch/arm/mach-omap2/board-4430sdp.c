@@ -425,6 +425,31 @@ static int __init sdp4430_mmc_init(void)
 }
 
 #ifdef CONFIG_CACHE_L2X0
+noinline void omap_smc1(u32 fn, u32 arg)
+{
+	register u32 r12 asm("r12") = fn;
+	register u32 r0 asm("r0") = arg;
+
+	/* This is common routine cache secure monitor API used to
+	 * modify the PL310 secure registers.
+	 * r0 contains the value to be modified and "r12" contains
+	 * the monitor API number. It uses few CPU registers
+	 * internally and hence they need be backed up including
+	 * link register "lr".
+	 * Explicitly save r11 and r12 the compiler generated code
+	 * won't save it.
+	 */
+	asm volatile(
+		"stmfd r13!, {r11,r12}\n"
+		"dsb\n"
+		"smc\n"
+		"ldmfd r13!, {r11,r12}\n"
+		: "+r" (r0), "+r" (r12)
+		:
+		: "r4", "r5", "r10", "lr", "cc");
+}
+EXPORT_SYMBOL(omap_smc1);
+
 static int __init omap_l2_cache_init(void)
 {
 	void __iomem *l2cache_base;
@@ -433,16 +458,8 @@ static int __init omap_l2_cache_init(void)
 	l2cache_base = ioremap(OMAP44XX_L2CACHE_BASE, SZ_4K);
 	BUG_ON(!l2cache_base);
 
-	/* Enable L2 Cache using secure api
-	 * Save/Restore relevant registers
-	 */
-	__asm__ __volatile__(
-		"stmfd r13!, {r0-r12, r14}\n"
-		"mov r0, #1\n"
-		"ldr r12, =0x102\n"
-		"dsb\n"
-		"smc\n"
-		"ldmfd r13!, {r0-r12, r14}");
+	/* Enable PL310 L2 Cache controller */
+	omap_smc1(0x102, 0x1);
 
 	/* 32KB way size, 16-way associativity,
 	* parity disabled
