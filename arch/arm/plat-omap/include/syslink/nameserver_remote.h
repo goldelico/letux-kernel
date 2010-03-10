@@ -24,8 +24,8 @@
 struct nameserver_remote_object {
 	int (*get)(const struct nameserver_remote_object *obj,
 		const char *instance_name, const char *name,
-		void *value, u32 value_len, void *reserved);
-		/* Function to get data from	remote nameserver */
+		void *value, u32 *value_len, void *reserved);
+		/* Function to get data from remote nameserver */
 	void *obj; /* Implementation specific object */
 };
 
@@ -34,6 +34,6 @@ struct nameserver_remote_object {
  */
 int nameserver_remote_get(const struct nameserver_remote_object *handle,
 			const char *instance_name, const char *name,
-			void *value, u32 value_len);
+			void *value, u32 *value_len, void *reserved);
 
 #endif /* _NAMESERVER_REMOTE_H_ */

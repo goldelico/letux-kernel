@@ -31,70 +31,60 @@
  *  Module configuration structure
  */
 struct nameserver_remotenotify_config {
-	u32 reserved;
-	/* Reserved value (not currently used) */
+	u32 notify_event_id;
+	/* Notify event number */
 };
 
 /*
   * Module configuration structure
  */
 struct nameserver_remotenotify_params {
-	u32 notify_event_no; /* Notify event number */
-	void *notify_driver; /* Notify Driver handle */
 	void *shared_addr; /* Address of the shared memory */
-	u32 shared_addr_size; /* Size of the shared memory */
-	void *gate; /* Handle to the gate used for protecting
-			nameserver add and delete */
+	void *gatemp; /* Handle to the gatemp used for protecting the
+			nameserver_remotenotify instance. Using the default
+			value of NULL will result in the default gatemp being
+			used for context protection */
 };
 
-/*
- *  Function to get the default configuration for the nameserver_remotenotify
- *  module
- */
+/* Function to get the default configuration for the nameserver_remotenotify
+ * module */
 void nameserver_remotenotify_get_config(
 				struct nameserver_remotenotify_config *cfg);
 
-/*
- *  Function to setup the nameserver_remotenotify module
- */
+/* Function to setup the nameserver_remotenotify module */
 int nameserver_remotenotify_setup(struct nameserver_remotenotify_config *cfg);
 
-/*
- *  Function to destroy the nameserver_remotenotify module
- */
+/* Function to destroy the nameserver_remotenotify module */
 int nameserver_remotenotify_destroy(void);
 
-/*
- *  Function to get the current configuration values
- */
-void nameserver_remotenotify_params_init(void *handle,
-			struct nameserver_remotenotify_params *params);
+/* Function to get the current configuration values */
+void nameserver_remotenotify_params_init(
+				struct nameserver_remotenotify_params *params);
 
-/*
- *  Function to setup the Name Server remote notify
- */
-void *nameserver_remotenotify_create(u16 proc_id,
+/* Function to create the nameserver_remotenotify object */
+void *nameserver_remotenotify_create(u16 remote_proc_id,
 			const struct nameserver_remotenotify_params *params);
 
-/*
- *  Function to destroy the Name Server remote notify
- */
+/* Function to delete the nameserver_remotenotify object */
 int nameserver_remotenotify_delete(void **handle);
 
-
-/*
- *  Function to get a name/value from remote nameserver
- */
+/* Function to get a name/value from remote nameserver */
 int nameserver_remotenotify_get(void *handle,
 				const char *instance_name, const char *name,
-				void *value, u32 value_len, void *reserved);
+				void *value, u32 *value_len, void *reserved);
 
-/*
- *  Get the shared memory requirements for the nameserver_remotenotify
- */
-u32 nameserver_remotenotify_shared_memreq(
+/* Get the shared memory requirements for the nameserver_remotenotify */
+uint nameserver_remotenotify_shared_mem_req(
 			const struct nameserver_remotenotify_params *params);
+
+/* Create all the NameServerRemoteNotify drivers. */
+int nameserver_remotenotify_start(void *shared_addr);
+
+/* Attaches to remote processor */
+int nameserver_remotenotify_attach(u16 remote_proc_id, void *shared_addr);
+
+/* Detaches from remote processor */
+int nameserver_remotenotify_detach(u16 remote_proc_id);
 
 
 #endif /* _NAMESERVER_REMOTENOTIFY_H_ */
-

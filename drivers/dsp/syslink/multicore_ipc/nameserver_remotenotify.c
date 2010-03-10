@@ -29,10 +29,11 @@
 #include <syslink/atomic_linux.h>
 
 /* Module level headers */
-#include <gate_remote.h>
-#include <gatepeterson.h>
-#include <nameserver.h>
 #include <multiproc.h>
+#include <sharedregion.h>
+#include <gate_remote.h>
+#include <gatemp.h>
+#include <nameserver.h>
 #include <nameserver_remotenotify.h>
 #include <notify.h>
 
@@ -51,9 +52,9 @@
 
 /*
  *  Maximum length of value buffer that can be stored in the NameServer
- *  managed by this NameServerRemoteNotify instance.
+ *  managed by this NameServerRemoteNotify instance. Value in 4-byte words
  */
-#define NAMESERVERREMOTENOTIFY_MAXVALUEBUFLEN	300
+#define NAMESERVERREMOTENOTIFY_MAXVALUEBUFLEN	75
 
 /* Defines the nameserver_remotenotify state object, which contains all the
  * module specific information
@@ -65,41 +66,37 @@ struct nameserver_remotenotify_module_object {
 	bool is_setup;
 	void *gate_handle;
 	atomic_t ref_count;
-};
-
-/*
- *  NameServer remote transport state attributes
- */
-struct nameserver_remotenotify_attrs {
-	u32 version;
-	u32 status;
-	u32 shared_addr_size;
+	void *nsr_handles[MULTIPROC_MAXPROCESSORS];
 };
 
 /*
  *  NameServer remote transport packet definition
  */
 struct nameserver_remotenotify_message {
-	u32 request;
-	u32 response;
-	u32 request_status;
-	u32 value;
-	u32 value_len;
-	char instance_name[32];
-	char name[32];
-	char value_buf[NAMESERVERREMOTENOTIFY_MAXVALUEBUFLEN];
+	u32 request; /* If this is a request set to 1 */
+	u32 response; /* If this is a response set to 1 */
+	u32 request_status; /* If request sucessful set to 1 */
+	u32 value; /* Holds value if len <= 4 */
+	u32 value_len; /* Len of value */
+	u32 instance_name[8]; /* Name of NameServer instance */
+	u32 name[8]; /* Size is 8 to align to 128 cache line boundary */
+	u32 value_buf[NAMESERVERREMOTENOTIFY_MAXVALUEBUFLEN];
+		/* Supports up to 300-byte value */
 };
 
 /*
  *  NameServer remote transport state object definition
  */
 struct nameserver_remotenotify_obj {
-	struct nameserver_remotenotify_attrs *attrs;
 	struct nameserver_remotenotify_message *msg[2];
 	struct nameserver_remotenotify_params params;
+	u16 region_id;
 	u16 remote_proc_id;
+	bool cache_enable;
 	struct mutex *local_gate;
+	void *gatemp;
 	struct semaphore *sem_handle; /* Binary semaphore */
+	u16 notify_event_id;
 };
 
 /*
@@ -119,62 +116,68 @@ static struct nameserver_remotenotify_module_object
 				nameserver_remotenotify_state = {
 	.is_setup = false,
 	.gate_handle = NULL,
-	.def_cfg.reserved = 0,
-	.def_inst_params.gate = NULL,
+	.def_cfg.notify_event_id = 7u,
+	.def_inst_params.gatemp = NULL,
 	.def_inst_params.shared_addr = 0x0,
-	.def_inst_params.shared_addr_size = 0x0,
-	.def_inst_params.notify_event_no = (u32) -1,
-	.def_inst_params.notify_driver = NULL,
 };
 
+static void _nameserver_remotenotify_callback(u16 proc_id, u16 line_id,
+					u32 event_id, uint *arg, u32 payload);
+
 /*
- * ======== nameserver_remotenotify_get_config ========
- *  Purpose:
- *  This will get the default configuration for the  nameserver remote
- *  module
- *  This function can be called by the application to get their
- *  configuration parameter to nameserver_remotenotify_setup filled
- *  in by the nameserver_remotenotify module with the default
- *  parameters. If the user does not wish to make any change in the
- *  default parameters, this API is not required to be called
+ * This will get the default configuration for the  nameserver remote
+ * module. This function can be called by the application to get their
+ * configuration parameter to nameserver_remotenotify_setup filled
+ * in by the nameserver_remotenotify module with the default
+ * parameters. If the user does not wish to make any change in the
+ * default parameters, this API is not required to be called
  */
 void nameserver_remotenotify_get_config(
 			struct nameserver_remotenotify_config *cfg)
 {
-	BUG_ON(cfg == NULL);
+	s32 retval = 0;
+
+	if (WARN_ON(unlikely(cfg == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
 	if (nameserver_remotenotify_state.is_setup == false)
 		memcpy(cfg, &(nameserver_remotenotify_state.def_cfg),
 			sizeof(struct nameserver_remotenotify_config));
 	else
 		memcpy(cfg, &(nameserver_remotenotify_state.cfg),
 			sizeof(struct nameserver_remotenotify_config));
-}
 
+exit:
+	if (retval < 0) {
+		printk(KERN_ERR "nameserver_remotenotify_get_config failed!"
+			" retval = 0x%x", retval);
+	}
+	return;
+}
+EXPORT_SYMBOL(nameserver_remotenotify_get_config);
 
 /*
- * ======== nameserver_remotenotify_setup ========
- *  Purpose:
- *  This will setup the nameserver_remotenotify module
- *  This function sets up the nameserver_remotenotify module. This
- *  function must be called before any other instance-level APIs can
- *  be invoked
- *  Module-level configuration needs to be provided to this
- *  function. If the user wishes to change some specific config
- *  parameters, then nameserver_remotenotify_get_config can be called
- *  to get the configuration filled with the default values. After
- *  this, only the required configuration values can be changed. If
- *  the user does not wish to make any change in the default
- *  parameters, the application can simply call
- *  nameserver_remotenotify_setup with NULL parameters. The default
- *  parameters would get automatically used
+ * This will setup the nameserver_remotenotify module
+ * This function sets up the nameserver_remotenotify module. This
+ * function must be called before any other instance-level APIs can
+ * be invoked
+ * Module-level configuration needs to be provided to this
+ * function. If the user wishes to change some specific config
+ * parameters, then nameserver_remotenotify_get_config can be called
+ * to get the configuration filled with the default values. After
+ * this, only the required configuration values can be changed. If
+ * the user does not wish to make any change in the default
+ * parameters, the application can simply call
+ * nameserver_remotenotify_setup with NULL parameters. The default
+ * parameters would get automatically used
  */
-int nameserver_remotenotify_setup(
-				struct nameserver_remotenotify_config *cfg)
+int nameserver_remotenotify_setup(struct nameserver_remotenotify_config *cfg)
 {
 	struct nameserver_remotenotify_config tmp_cfg;
 	s32 retval = 0;
 	struct mutex *lock = NULL;
-	bool user_cfg = true;
 
 	/* This sets the ref_count variable is not initialized, upper 16 bits is
 	* written with module Id to ensure correctness of refCount variable.
@@ -190,7 +193,6 @@ int nameserver_remotenotify_setup(
 	if (cfg == NULL) {
 		nameserver_remotenotify_get_config(&tmp_cfg);
 		cfg = &tmp_cfg;
-		user_cfg = false;
 	}
 
 	/* Create a default gate handle for local module protection */
@@ -199,35 +201,37 @@ int nameserver_remotenotify_setup(
 		retval = -ENOMEM;
 		goto exit;
 	}
-
 	mutex_init(lock);
 	nameserver_remotenotify_state.gate_handle = lock;
-	if (user_cfg)
-		memcpy(&nameserver_remotenotify_state.cfg,  cfg,
-			sizeof(struct nameserver_remotenotify_config));
 
+	memcpy(&nameserver_remotenotify_state.cfg, cfg,
+		sizeof(struct nameserver_remotenotify_config));
+	memset(&nameserver_remotenotify_state.nsr_handles, 0,
+		(sizeof(void *) * MULTIPROC_MAXPROCESSORS));
 	nameserver_remotenotify_state.is_setup = true;
+	return 0;
 
 exit:
+	printk(KERN_ERR "nameserver_remotenotify_setup failed! retval = 0x%x",
+		retval);
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_remotenotify_setup);
 
 /*
- * ======== nameserver_remotenotify_destroy ========
- *  Purpose:
- *  This will destroy the nameserver_remotenotify module.
- *  Once this function is called, other nameserver_remotenotify
- *  module APIs, except for the nameserver_remotenotify_get_config
- *  API  cannot be called anymore.
+ * This will destroy the nameserver_remotenotify module.
+ * Once this function is called, other nameserver_remotenotify
+ * module APIs, except for the nameserver_remotenotify_get_config
+ * API  cannot be called anymore.
  */
 int nameserver_remotenotify_destroy(void)
 {
 	s32 retval = 0;
 
-	if (WARN_ON(atomic_cmpmask_and_lt(
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
 			&(nameserver_remotenotify_state.ref_count),
 			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
-			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true)) {
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
 		retval = -ENODEV;
 		goto exit;
 	}
@@ -238,140 +242,138 @@ int nameserver_remotenotify_destroy(void)
 		goto exit;
 	}
 
-	if (nameserver_remotenotify_state.gate_handle != NULL)
-		kfree(nameserver_remotenotify_state.gate_handle);
+	kfree(nameserver_remotenotify_state.gate_handle);
 
 	nameserver_remotenotify_state.is_setup = false;
 	return 0;
 
 exit:
+	printk(KERN_ERR "nameserver_remotenotify_destroy failed! retval = 0x%x",
+		retval);
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_remotenotify_destroy);
 
-/*
- * ======== ameserver_remotenotify_params_init ========
- *  Purpose:
- *  This will get the current configuration values
- */
-void nameserver_remotenotify_params_init(void *handle,
-			struct nameserver_remotenotify_params *params)
+/* This will get the current configuration values */
+void nameserver_remotenotify_params_init(
+				struct nameserver_remotenotify_params *params)
 {
-	struct nameserver_remotenotify_object *object = NULL;
-	struct nameserver_remotenotify_obj *obj = NULL;
-
-	if (atomic_cmpmask_and_lt(&(nameserver_remotenotify_state.ref_count),
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+			&(nameserver_remotenotify_state.ref_count),
 			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
-			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
 		printk(KERN_ERR "nameserver_remotenotify_params_init failed: "
 			"Module is not initialized!\n");
 		return;
 	}
 
-	if (WARN_ON(params == NULL)) {
+	if (WARN_ON(unlikely(params == NULL))) {
 		printk(KERN_ERR "nameserver_remotenotify_params_init failed: "
 			"Argument of type(nameserver_remotenotify_params *) "
 			"is NULL!\n");
 		return;
 	}
 
-	object = (struct nameserver_remotenotify_object *)handle;
-	if (handle == NULL)
-		memcpy(params,
-			&(nameserver_remotenotify_state.def_inst_params),
-			sizeof(struct nameserver_remotenotify_params));
-	else {
-		obj = (struct nameserver_remotenotify_obj *)object->obj;
-		/* Return updated nameserver_remotenotify instance specific
-		 * parameters.
-		 */
-		 memcpy(params, &(obj->params),
-			 sizeof(struct nameserver_remotenotify_params));
-	}
+	memcpy(params, &(nameserver_remotenotify_state.def_inst_params),
+		sizeof(struct nameserver_remotenotify_params));
+
 }
+EXPORT_SYMBOL(nameserver_remotenotify_params_init);
 
-
-/*
- * ======== nameserver_remotenotify_callback ========
- *  Purpose:
- *  This will be called when a notify event is received
- */
-void nameserver_remotenotify_callback(u16 proc_id, u32 event_no,
-						void *arg, u32 payload)
+/* This will be called when a notify event is received */
+static void _nameserver_remotenotify_callback(u16 proc_id, u16 line_id,
+					u32 event_id, uint *arg, u32 payload)
 {
 	struct nameserver_remotenotify_obj *handle = NULL;
-	u32 proc_count;
 	u16  offset = 0;
 	void *nshandle = NULL;
 	u32 value_len;
-	u32 key;
+	int *key;
 	s32 retval = 0;
-	s32 count = -ENOENT;
 
-	if (atomic_cmpmask_and_lt(&(nameserver_remotenotify_state.ref_count),
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+			&(nameserver_remotenotify_state.ref_count),
 			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
-			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
 		retval = -ENODEV;
 		goto exit;
 	}
-
-	if (WARN_ON(arg == NULL)) {
+	if (WARN_ON(unlikely(arg == NULL))) {
 		retval = -EINVAL;
 		goto exit;
 	}
-
-	proc_count = multiproc_get_max_processors();
-	if (WARN_ON(proc_id >= proc_count)) {
+	if (WARN_ON(unlikely(proc_id >= multiproc_get_num_processors()))) {
 		retval = -EINVAL;
 		goto exit;
 	}
 
 	handle = (struct nameserver_remotenotify_obj *)arg;
-	if ((multiproc_get_id(NULL) > proc_id))
+	if ((multiproc_self() > proc_id))
 		offset = 1;
+
+#if 0
+	if (handle->cache_enable) {
+		/* write back shared memory that was modified */
+		Cache_wbInv(handle->msg[0],
+			sizeof(struct nameserver_remotenotify_message) << 1,
+			Cache_Type_ALL, TRUE);
+	}
+#endif
 
 	if (handle->msg[1 - offset]->request != true)
 		goto signal_response;
 
 	/* This is a request */
 	value_len = handle->msg[1 - offset]->value_len;
-	nshandle = nameserver_get_handle(
+	nshandle = nameserver_get_handle((const char *)
 				handle->msg[1 - offset]->instance_name);
 	if (nshandle != NULL) {
 		/* Search for the NameServer entry */
 		if (value_len == sizeof(u32)) {
-			count = nameserver_get_local(nshandle,
-					handle->msg[1 - offset]->name,
-					&handle->msg[1 - offset]->value,
-					value_len);
+			retval = nameserver_get_local_uint32(nshandle,
+					(const char *) handle->msg[1 - offset]->
+					name, &handle->msg[1 - offset]->value);
 		} else {
-			count = nameserver_get_local(nshandle,
-					handle->msg[1 - offset]->name,
+			retval = nameserver_get_local(nshandle,
+					(const char *) handle->msg[1 - offset]->
+					name,
 					&handle->msg[1 - offset]->value_buf,
-					value_len);
+					&value_len);
 		}
 	}
+	BUG_ON(retval != 0 && retval != -ENOENT);
 
-	key = gatepeterson_enter(handle->params.gate);
-	/* If retval > 0 then an entry found */
-	if (count != -ENOENT)
+	key = gatemp_enter(handle->gatemp);
+	if (retval == 0) {
 		handle->msg[1 - offset]->request_status = true;
-
+		handle->msg[1 - offset]->value_len = value_len;
+	}
 	/* Send a response back */
 	handle->msg[1 - offset]->response = true;
 	handle->msg[1 - offset]->request = false;
+
+#if 0
+	if (handle->cache_enable) {
+		/* write back shared memory that was modified */
+		Cache_wbInv(handle->msg[1 - offset],
+			sizeof(struct nameserver_remotenotify_message),
+			Cache_Type_ALL, TRUE);
+	}
+#endif
 	/* now we can leave the gate */
-	gatepeterson_leave(handle->params.gate, key);
+	gatemp_leave(handle->gatemp, key);
 
 	/*
 	*  The NotifyDriver handle must exists at this point,
 	*  otherwise the notify_sendEvent should have failed
 	*/
-	retval = notify_sendevent(handle->params.notify_driver,
-				proc_id, event_no, 0, true);
+	retval = notify_send_event(handle->remote_proc_id, 0,
+				handle->notify_event_id, 0, true);
 
 signal_response:
 	if (handle->msg[offset]->response == true)
 		up(handle->sem_handle);
+
 exit:
 	if (retval < 0) {
 		printk(KERN_ERR "nameserver_remotenotify_callback failed! "
@@ -380,74 +382,91 @@ exit:
 	return;
 }
 
-/*
- * ======== nameserver_remotenotify_get ========
- *  Purpose:
- *  This will get a remote name value pair
- */
-int nameserver_remotenotify_get(void *rhandle,
-				const char *instance_name, const char *name,
-				void *value, u32 value_len, void *reserved)
+/* This will get a remote name value pair */
+int nameserver_remotenotify_get(void *rhandle, const char *instance_name,
+				const char *name, void *value, u32 *value_len,
+				void *reserved)
 {
 	struct nameserver_remotenotify_object *handle = NULL;
 	struct nameserver_remotenotify_obj *obj = NULL;
 	s32 offset = 0;
 	s32 len;
-	u32 key;
+	int *key;
 	s32 retval = 0;
 
-	BUG_ON(instance_name == NULL);
-	BUG_ON(name == NULL);
-	BUG_ON(value == NULL);
-	BUG_ON((value_len <= 0) || \
-		(value_len > NAMESERVERREMOTENOTIFY_MAXVALUEBUFLEN));
-
-	if (atomic_cmpmask_and_lt(&(nameserver_remotenotify_state.ref_count),
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+			&(nameserver_remotenotify_state.ref_count),
 			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
-			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
 		retval = -ENODEV;
 		goto exit;
 	}
-
-	if (WARN_ON(rhandle == NULL)) {
+	if (WARN_ON(unlikely(rhandle == NULL))) {
 		retval = -EINVAL;
 		goto exit;
 	}
-
-	if ((value_len == 0) || \
-		(value_len > NAMESERVERREMOTENOTIFY_MAXVALUEBUFLEN)) {
+	if (WARN_ON(unlikely(instance_name == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(name == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(value == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(value_len == 0))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely((*value_len == 0) || \
+		(*value_len > NAMESERVERREMOTENOTIFY_MAXVALUEBUFLEN)))) {
 		retval = -EINVAL;
 		goto exit;
 	}
 
 	handle = (struct nameserver_remotenotify_object *)rhandle;
 	obj = (struct nameserver_remotenotify_obj *)handle->obj;
-	if (multiproc_get_id(NULL) > obj->remote_proc_id)
+	if (multiproc_self() > obj->remote_proc_id)
 		offset = 1;
 
-	key = gatepeterson_enter(obj->params.gate);
+#if 0
+	if (obj->cache_enable) {
+		/* write back shared memory that was modified */
+		Cache_wbInv(obj->msg[offset],
+			sizeof(struct nameserver_remotenotify_message),
+			Cache_Type_ALL, TRUE);
+	}
+#endif
+	/* Allow only one request to be processed at a time */
+	retval = mutex_lock_interruptible(obj->local_gate);
+	if (retval)
+		goto exit;
+
+	key = gatemp_enter(obj->gatemp);
 	/* This is a request message */
 	obj->msg[offset]->request = 1;
 	obj->msg[offset]->response = 0;
 	obj->msg[offset]->request_status = 0;
-	obj->msg[offset]->value_len = value_len;
+	obj->msg[offset]->value_len = *value_len;
 	len = strlen(instance_name) + 1; /* Take termination null char */
 	if (len >= 32) {
 		retval = -EINVAL;
 		goto inval_len_error;
 	}
-	strncpy(obj->msg[offset]->instance_name, instance_name, len);
-	len = strlen(name);
+	strncpy((char *)obj->msg[offset]->instance_name, instance_name, len);
+	len = strlen(name) + 1;
 	if (len >= 32) {
 		retval = -EINVAL;
 		goto inval_len_error;
 	}
-	strncpy(obj->msg[offset]->name, name, len);
+	strncpy((char *)obj->msg[offset]->name, name, len);
 
 	/* Send the notification to remote processor */
-	retval = notify_sendevent(obj->params.notify_driver,
-			obj->remote_proc_id,
-			obj->params.notify_event_no,
+	retval = notify_send_event(obj->remote_proc_id, 0,
+			obj->notify_event_id,
 			0, /* Payload */
 			false); /* Not sending a payload */
 	if (retval < 0) {
@@ -456,105 +475,88 @@ int nameserver_remotenotify_get(void *rhandle,
 		obj->msg[offset]->value_len = 0;
 		goto notify_error;
 	}
-
-	gatepeterson_leave(obj->params.gate, key);
+	gatemp_leave(obj->gatemp, key);
 
 	/* Pend on the semaphore */
 	retval = down_interruptible(obj->sem_handle);
-	if (retval) {
+	if (retval)
 		goto exit;
-	}
 
-	key = gatepeterson_enter(obj->params.gate);
+	key = gatemp_enter(obj->gatemp);
+
+	if (obj->cache_enable) {
+#if 0
+		/* write back shared memory that was modified */
+		Cache_wbInv(obj->msg[offset],
+			sizeof(struct nameserver_remotenotify_message),
+			Cache_Type_ALL, TRUE);
+#endif
+	}
 	if (obj->msg[offset]->request_status != true) {
 		retval = -ENOENT;
 		goto request_error;
 	}
 
-	if (!value_len) {
-		retval = -ENOENT;
-		goto request_error;
-	}
-
-	if (value_len == sizeof(u32))
+	if (obj->msg[offset]->value_len == sizeof(u32))
 		memcpy((void *)value, (void *) &(obj->msg[offset]->value),
 			sizeof(u32));
 	else
 		memcpy((void *)value, (void *)&(obj->msg[offset]->value_buf),
-			value_len);
+			obj->msg[offset]->value_len);
+	*value_len = obj->msg[offset]->value_len;
 
 	obj->msg[offset]->request_status = false;
 	obj->msg[offset]->request = 0;
 	obj->msg[offset]->response = 0;
-	retval = value_len;
+	retval = 0;
 
 inval_len_error:
 notify_error:
 request_error:
-	gatepeterson_leave(obj->params.gate, key);
+	gatemp_leave(obj->gatemp, key);
 exit:
+	/* un-block so that subsequent requests can be honored */
+	mutex_unlock(obj->local_gate);
+
+	if (retval < 0)
+		printk(KERN_ERR "nameserver_remotenotify_get failed! "
+			"status = 0x%x", retval);
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_remotenotify_get);
 
-/*
- * ======== nameServer_remote_notify_params_init ========
- *  Purpose:
- *  This will get the current configuration values
- */
-int nameServer_remote_notify_params_init(
-			struct nameserver_remotenotify_params *params)
-{
-	BUG_ON(params == NULL);
-
-	params->notify_event_no = 0;
-	params->notify_driver = NULL;
-	params->shared_addr = NULL;
-	params->shared_addr_size = 0;
-	params->gate = NULL;
-	return 0;
-}
-
-/*
- * ======== nameserver_remotenotify_create ========
- *  Purpose:
- *  This will setup the nameserver remote module
- */
-void *nameserver_remotenotify_create(u16 proc_id,
+/* This will setup the nameserver remote module */
+void *nameserver_remotenotify_create(u16 remote_proc_id,
 			const struct nameserver_remotenotify_params *params)
 {
 	struct nameserver_remotenotify_object *handle = NULL;
 	struct nameserver_remotenotify_obj *obj = NULL;
-	u16 proc_count;
+	u32 offset = 0;
 	s32 retval = 0;
 	s32 retval1 = 0;
-	u32 offset = 0;
 
-	if (atomic_cmpmask_and_lt(&(nameserver_remotenotify_state.ref_count),
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+			&(nameserver_remotenotify_state.ref_count),
 			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
-			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
 		retval = -ENODEV;
 		goto exit;
 	}
-
-	if (WARN_ON(params == NULL)) {
+	if (WARN_ON(unlikely((remote_proc_id == multiproc_self()) &&
+			(remote_proc_id >= multiproc_get_num_processors())))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(params == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(params->shared_addr == NULL))) {
 		retval = -EINVAL;
 		goto exit;
 	}
 
-	if (WARN_ON(params->notify_driver == NULL ||
-		params->shared_addr == NULL ||
-		params->shared_addr_size == 0)) {
-		retval = -EINVAL;
-		goto exit;
-	}
-
-	proc_count = multiproc_get_max_processors();
-	if (proc_id >= proc_count) {
-		retval = -EINVAL;
-		goto exit;
-	}
-
-	obj = kmalloc(sizeof(struct nameserver_remotenotify_obj), GFP_KERNEL);
+	obj = kzalloc(sizeof(struct nameserver_remotenotify_obj), GFP_KERNEL);
 	handle = kmalloc(sizeof(struct nameserver_remotenotify_object),
 								GFP_KERNEL);
 	if (obj == NULL || handle == NULL) {
@@ -562,7 +564,7 @@ void *nameserver_remotenotify_create(u16 proc_id,
 		goto mem_error;
 	}
 
-	handle->get =  nameserver_remotenotify_get;
+	handle->get = (void *)&nameserver_remotenotify_get;
 	handle->obj = (void *)obj;
 	obj->local_gate = kmalloc(sizeof(struct mutex), GFP_KERNEL);
 	if (obj->local_gate == NULL) {
@@ -570,33 +572,54 @@ void *nameserver_remotenotify_create(u16 proc_id,
 		goto mem_error;
 	}
 
-	obj->remote_proc_id = proc_id;
-	if (multiproc_get_id(NULL) > proc_id)
+	obj->remote_proc_id = remote_proc_id;
+	if (multiproc_self() > remote_proc_id)
 		offset = 1;
 
-	obj->attrs = (struct nameserver_remotenotify_attrs *)
-							params->shared_addr;
+	obj->region_id = sharedregion_get_id(params->shared_addr);
+	if (((u32) params->shared_addr % sharedregion_get_cache_line_size(
+		obj->region_id)) != 0) {
+		retval = -EFAULT;
+		goto notify_error;
+	}
+
 	obj->msg[0] = (struct nameserver_remotenotify_message *)
-					((u32)obj->attrs  +
-					NAMESERVERREMOTENOTIFY_CACHESIZE);
+				(params->shared_addr);
 	obj->msg[1] = (struct nameserver_remotenotify_message *)
-					((u32)obj->msg[0] +
-					sizeof(struct
-					nameserver_remotenotify_message));
+				((u32)obj->msg[0] +
+				sizeof(struct nameserver_remotenotify_message));
+	obj->gatemp = params->gatemp;
+	obj->remote_proc_id = remote_proc_id;
+	obj->notify_event_id = \
+			nameserver_remotenotify_state.cfg.notify_event_id;
 	/* Clear out self shared structures */
 	memset(obj->msg[offset], 0,
 			sizeof(struct nameserver_remotenotify_message));
-	memcpy(&obj->params, params,
+	memcpy((void *)&obj->params, (void *)params,
 				sizeof(struct nameserver_remotenotify_params));
-	retval = notify_register_event(params->notify_driver, proc_id,
-					params->notify_event_no,
-					nameserver_remotenotify_callback,
+
+	/* determine cacheability of the object from the regionId */
+	obj->cache_enable = sharedregion_is_cache_enabled(obj->region_id);
+	if (obj->cache_enable) {
+#if 0
+		/* write back shared memory that was modified */
+		Cache_wbInv(obj->msg[offset],
+			sizeof(struct nameserver_remotenotify_message),
+			Cache_Type_ALL, TRUE);
+#endif
+	}
+
+	retval = notify_register_event_single(remote_proc_id,
+					0, /* TBD: Interrupt line id */
+					obj->notify_event_id,
+					_nameserver_remotenotify_callback,
 					(void *)obj);
 	if (retval < 0)
 		goto notify_error;
 
-	retval = nameserver_register_remote_driver((void *)handle, proc_id);
-	obj->sem_handle = kmalloc(sizeof(struct semaphore), GFP_KERNEL);
+	retval = nameserver_register_remote_driver((void *)handle,
+							remote_proc_id);
+	obj->sem_handle = kzalloc(sizeof(struct semaphore), GFP_KERNEL);
 	if (obj->sem_handle == NULL) {
 		retval = -ENOMEM;
 		goto sem_alloc_error;
@@ -608,13 +631,10 @@ void *nameserver_remotenotify_create(u16 proc_id,
 	return (void *)handle;
 
 sem_alloc_error:
-	nameserver_unregister_remote_driver(proc_id);
+	nameserver_unregister_remote_driver(remote_proc_id);
 	/* Do we want to check the staus ? */
-	retval1 = notify_unregister_event(obj->params.notify_driver,
-				obj->remote_proc_id,
-				obj->params.notify_event_no,
-				nameserver_remotenotify_callback,
-				(void *)obj);
+	retval1 = notify_unregister_event_single(obj->remote_proc_id, 0,
+				obj->notify_event_id);
 
 notify_error:
 	kfree(obj->local_gate);
@@ -628,28 +648,25 @@ exit:
 		"status = 0x%x\n", retval);
 	return NULL;
 }
+EXPORT_SYMBOL(nameserver_remotenotify_create);
 
-
-/*
- * ======== nameserver_remotenotify_create ========
- *  Purpose:
- *  This will delete the nameserver remote transport instance
- */
+/* This will delete the nameserver remote transport instance */
 int nameserver_remotenotify_delete(void **rhandle)
 {
 	struct nameserver_remotenotify_object *handle = NULL;
 	struct nameserver_remotenotify_obj *obj = NULL;
 	s32 retval = 0;
+	s32 retval1 = 0;
 	struct mutex *gate = NULL;
 
-	if (atomic_cmpmask_and_lt(&(nameserver_remotenotify_state.ref_count),
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+			&(nameserver_remotenotify_state.ref_count),
 			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
-			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
 		retval = -ENODEV;
 		goto exit;
 	}
-
-	if (WARN_ON((rhandle == NULL) || (*rhandle == NULL))) {
+	if (WARN_ON(unlikely((rhandle == NULL) || (*rhandle == NULL)))) {
 		retval = -EINVAL;
 		goto exit;
 	}
@@ -658,34 +675,34 @@ int nameserver_remotenotify_delete(void **rhandle)
 	obj = (struct nameserver_remotenotify_obj *)handle->obj;
 	if (obj == NULL) {
 		retval = -EINVAL;
-		goto exit;
+		goto free_handle;
 	}
 
-	retval = mutex_lock_interruptible(obj->local_gate);
+	gate = obj->local_gate;
+	retval = mutex_lock_interruptible(gate);
 	if (retval)
-		goto exit;
-
-	retval = nameserver_unregister_remote_driver(obj->remote_proc_id);
-	/* Do we have to bug_on/warn_on oops here intead of exit ?*/
-	if (retval < 0)
-		goto exit;
+		goto free_handle;
 
 	kfree(obj->sem_handle);
 	obj->sem_handle = NULL;
+
+	retval1 = nameserver_unregister_remote_driver(obj->remote_proc_id);
+	/* Do we have to bug_on/warn_on oops here intead of exit ?*/
+	if (retval1 < 0 && retval >= 0)
+		retval = retval1;
+
 	/* Unregister the event from Notify */
-	retval = notify_unregister_event(obj->params.notify_driver,
-				obj->remote_proc_id,
-				obj->params.notify_event_no,
-				nameserver_remotenotify_callback,
-				(void *)obj);
-	if (retval == NOTIFY_SUCCESS)
-		retval = 0;
-	gate = obj->local_gate;
+	retval1 = notify_unregister_event_single(obj->remote_proc_id, 0,
+				obj->notify_event_id);
+	if (retval1 < 0 && retval >= 0)
+		retval = retval1;
 	kfree(obj);
-	kfree(handle);
-	*rhandle = NULL;
 	mutex_unlock(gate);
 	kfree(gate);
+
+free_handle:
+	kfree(handle);
+	*rhandle = NULL;
 
 exit:
 	if (retval < 0) {
@@ -694,28 +711,112 @@ exit:
 	}
 	return retval;
 }
+EXPORT_SYMBOL(nameserver_remotenotify_delete);
 
-
-/*
- * ======== nameserver_remotenotify_create ========
- *  Purpose:
- *  This will give shared memory requirements for the
- *  nameserver remote transport instance
- */
-u32 nameserver_remotenotify_shared_memreq(const
+/* This will give shared memory requirements for the
+ * nameserver remote transport instance */
+uint nameserver_remotenotify_shared_mem_req(const
 			struct nameserver_remotenotify_params *params)
 {
-	u32 total_size;
+	uint total_size;
+
 	/* params is not used- to remove warning. */
 	(void)params;
 
-	BUG_ON(params == NULL);
-	/*
-	 *  The attrs takes a Ipc_cacheSize plus 2 Message structs are required.
-	 *  One for sending request and one for sending response.
-	 */
-	total_size =	NAMESERVERREMOTENOTIFY_CACHESIZE +
+	/* Two Message structs are required. One for sending request and
+	 * another one for sending response. */
+	if (multiproc_get_num_processors() > 1)
+		total_size = \
 			(2 * sizeof(struct nameserver_remotenotify_message));
+
 	return total_size;
 }
+EXPORT_SYMBOL(nameserver_remotenotify_shared_mem_req);
 
+int nameserver_remotenotify_attach(u16 remote_proc_id, void *shared_addr)
+{
+	struct nameserver_remotenotify_params nsr_params;
+	s32 retval = 0;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+			&(nameserver_remotenotify_state.ref_count),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(shared_addr == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(gatemp_get_default_remote() == NULL))) {
+		retval = -1;
+		goto exit;
+	}
+
+	/* Use default GateMP */
+	nameserver_remotenotify_params_init(&nsr_params);
+	nsr_params.gatemp = gatemp_get_default_remote();
+	nsr_params.shared_addr = shared_addr;
+
+	/* create only if notify driver has been created to remote proc */
+	if (!notify_is_registered(remote_proc_id, 0)) {
+		retval = -1;
+		goto exit;
+	}
+
+	nameserver_remotenotify_state.nsr_handles[remote_proc_id] =
+		nameserver_remotenotify_create(remote_proc_id, &nsr_params);
+	if (nameserver_remotenotify_state.nsr_handles[remote_proc_id] == NULL) {
+			retval = -1;
+			goto exit;
+	}
+	return 0;
+
+exit:
+	printk(KERN_ERR "nameserver_remotenotify_attach failed! status = 0x%x",
+		retval);
+	return retval;
+}
+
+void *_nameserver_remotenotify_get_handle(u16 remote_proc_id)
+{
+	void *handle = NULL;
+
+	if (remote_proc_id <= multiproc_get_num_processors()) {
+		handle = \
+		nameserver_remotenotify_state.nsr_handles[remote_proc_id];
+	}
+
+	return handle;
+};
+
+
+int nameserver_remotenotify_detach(u16 remote_proc_id)
+{
+	void *handle = NULL;
+	int retval = 0;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
+			&(nameserver_remotenotify_state.ref_count),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(0),
+			NAMESERVERREMOTENOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
+		retval = -ENODEV;
+		goto exit;
+	}
+
+	handle = _nameserver_remotenotify_get_handle(remote_proc_id);
+	if (handle == NULL) {
+		retval = -1;
+		goto exit;
+	}
+
+	nameserver_remotenotify_delete(&handle);
+	nameserver_remotenotify_state.nsr_handles[remote_proc_id] = NULL;
+	return 0;
+
+exit:
+	printk(KERN_ERR "nameserver_remotenotify_detach failed! status = 0x%x",
+		retval);
+	return retval;
+}
