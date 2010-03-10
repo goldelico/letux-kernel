@@ -475,12 +475,14 @@ void omap_sram_idle(void)
 	} else
 		omap_uart_prepare_idle(2, per_next_state);
 
+	/* Disable smartreflex before entering WFI */
+	if (mpu_next_state <= PWRDM_POWER_RET)
+		disable_smartreflex(SR1);
+	if (core_next_state <= PWRDM_POWER_RET)
+		disable_smartreflex(SR2);
 
 	/* CORE */
 	if (core_next_state < PWRDM_POWER_ON) {
-		/* Disable smartreflex before entering WFI */
-		disable_smartreflex(SR1);
-		disable_smartreflex(SR2);
 		omap_uart_prepare_idle(0, core_next_state & core_logic_state);
 		omap_uart_prepare_idle(1, core_next_state & core_logic_state);
 		if (core_next_state == PWRDM_POWER_OFF) {
@@ -609,15 +611,21 @@ void omap_sram_idle(void)
 			if (prm_setup->setup_times_off != NULL)
 				prm_program_setup_times(prm_setup->setup_times);
 		}
-		/* Enable smartreflex after WFI */
-		enable_smartreflex(SR1);
-		enable_smartreflex(SR2);
 	} else {
 		omap_uart_resume_idle(0);
 		omap_uart_resume_idle(1);
 	}
 	/* Re-enable interrupt controller autoidle */
 	omap3_intc_autoidle(1);
+
+	/*
+	 * Enable smartreflex after WFI. Only needed if we entered
+	 * retention or off
+	 */
+	if (mpu_next_state <= PWRDM_POWER_RET)
+		enable_smartreflex(SR1);
+	if (core_next_state <= PWRDM_POWER_RET)
+		enable_smartreflex(SR2);
 
 	/* PER */
 	if (per_next_state < PWRDM_POWER_ON) {
