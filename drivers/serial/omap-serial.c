@@ -526,23 +526,42 @@ static void serial_omap_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	if (mctrl & TIOCM_LOOP)
 		mcr |= UART_MCR_LOOP;
 
-	lcr = serial_in(up, UART_LCR);
-	/* Set the CONFIG B Mode to read the EFR */
-	serial_out(up, UART_LCR, 0xBF); /* Config B mode */
-	efr = serial_in(up, UART_EFR);
-	/* The EFR[4] bit to enable the MCR write */
-	serial_out(up, UART_EFR, UART_EFR_ECB);
-	serial_out(up, UART_LCR, 0x0); /* Operational mode */
+#if defined(CONFIG_MACH_OMAP_ZOOM3)
+	/* Need to in this manner in case of ZOOM3 Boards
+	 * only since these have the QUART UARTs on the
+	 * debug board. This would fix the issues for
+	 * QUART while exiting the power saving mode. if
+	 * the QUAD uarts change their memory map, which
+	 * can be case in 3630, this code needs to be
+	 * revisited for the UARTx (number) to  which the
+	 * QUART would be mapped to.
+	 */
+	if (up->pdev->id == UART4) {
+		lcr = serial_in(up, UART_LCR);
+		/* Set the CONFIG B Mode to read the EFR */
+		serial_out(up, UART_LCR, 0xBF); /* Config B mode */
+		efr = serial_in(up, UART_EFR);
+		/* The EFR[4] bit to enable the MCR write */
+		serial_out(up, UART_EFR, (efr | UART_EFR_ECB));
+		serial_out(up, UART_LCR, 0x80); /* Config A mode */
+	}
 
 	mcr |= up->mcr;
 	serial_out(up, UART_MCR, mcr);
 
-	/* Set the CONFIG B Mode to read the EFR */
-	serial_out(up, UART_LCR, 0xBF); /* Config B mode */
-	serial_out(up, UART_EFR, efr);
+	if (up->pdev->id == UART4) {
+		/* Set the CONFIG B Mode to read the EFR */
+		serial_out(up, UART_LCR, 0xBF); /* Config B mode */
+		serial_out(up, UART_EFR, efr);
 
-	/* Restore the LCR Value */
-	serial_out(up, UART_LCR, lcr);
+		/* Restore the LCR Value */
+		serial_out(up, UART_LCR, lcr);
+	}
+#else
+	/* This would be for cases other than ZOOM boards */
+	mcr |= up->mcr;
+	serial_out(up, UART_MCR, mcr);
+#endif
 
 	return;
 }
