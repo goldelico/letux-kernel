@@ -552,9 +552,12 @@ static int gpsdrv_ioctl(struct inode *inode, struct file *file,
 		spin_lock(&hgps->lock);
 		if (!skb_queue_empty(&hgps->rx_list)) {
 			skb = skb_dequeue(&hgps->rx_list);
-			*(unsigned int *)arg = skb->len;
-			/* Re-Store the SKB for furtur Read operations */
-			skb_queue_head(&hgps->rx_list, skb);
+			if (skb != NULL) {
+				*(unsigned int *)arg = skb->len;
+				/* Re-Store the SKB for future RD operations */
+				skb_queue_head(&hgps->rx_list, skb);
+			} else
+				*(unsigned int *)arg = 0;
 		} else {
 			*(unsigned int *)arg = 0;
 		}
