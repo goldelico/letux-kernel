@@ -37,6 +37,7 @@
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
 #include <dspbridge/errbase.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
@@ -143,6 +144,10 @@ struct CMM_MNODE {
 
 
 /*  ----------------------------------- Globals */
+#if GT_TRACE
+static struct GT_Mask CMM_debugMask = { NULL, NULL };	/* GT trace variable */
+#endif
+
 static u32 cRefs;		/* module reference count */
 
 /*  ----------------------------------- Function Prototypes */
@@ -522,6 +527,11 @@ bool CMM_Init(void)
 	bool fRetval = true;
 
 	DBC_Require(cRefs >= 0);
+	if (cRefs == 0) {
+		/* Set the Trace mask */
+		/* "CM" for Comm Memory manager */
+		GT_create(&CMM_debugMask, "CM");
+	}
 	if (fRetval)
 		cRefs++;
 
@@ -554,10 +564,11 @@ DSP_STATUS CMM_RegisterGPPSMSeg(struct CMM_OBJECT *hCmmMgr, u32 dwGPPBasePA,
 	DBC_Require(dwGPPBaseVA != 0);
 	DBC_Require((cFactor <= CMM_ADDTODSPPA) &&
 		   (cFactor >= CMM_SUBFROMDSPPA));
-	dev_dbg(bridge, "%s: dwGPPBasePA %x ulSize %x dwDSPAddrOffset %x "
-			"dwDSPBase %x ulDSPSize %x dwGPPBaseVA %x\n", __func__,
-			dwGPPBasePA, ulSize, dwDSPAddrOffset, dwDSPBase,
-			ulDSPSize, dwGPPBaseVA);
+	GT_6trace(CMM_debugMask, GT_ENTER,
+		  "CMM_RegisterGPPSMSeg dwGPPBasePA %x "
+		  "ulSize %x dwDSPAddrOffset %x dwDSPBase %x ulDSPSize %x "
+		  "dwGPPBaseVA %x\n", dwGPPBasePA, ulSize, dwDSPAddrOffset,
+		  dwDSPBase, ulDSPSize, dwGPPBaseVA);
 	if (!MEM_IsValidHandle(hCmmMgr, CMMSIGNATURE)) {
 		status = DSP_EHANDLE;
 		return status;

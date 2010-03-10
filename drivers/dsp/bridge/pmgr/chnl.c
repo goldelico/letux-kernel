@@ -27,6 +27,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
@@ -46,6 +47,11 @@
 
 /*  ----------------------------------- Globals */
 static u32 cRefs;
+#if GT_TRACE
+static struct GT_Mask CHNL_DebugMask = { NULL, NULL };	/* WCD CHNL Mask */
+#endif
+
+
 
 /*
  *  ======== CHNL_Create ========
@@ -160,6 +166,11 @@ bool CHNL_Init(void)
 	bool fRetval = true;
 
 	DBC_Require(cRefs >= 0);
+
+	if (cRefs == 0) {
+		DBC_Assert(!CHNL_DebugMask.flags);
+		GT_create(&CHNL_DebugMask, "CH");   /* "CH" for CHannel */
+	}
 
 	if (fRetval)
 		cRefs++;

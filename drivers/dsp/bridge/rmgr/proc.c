@@ -26,6 +26,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
@@ -79,6 +80,9 @@
 extern char *iva_img;
 
 /*  ----------------------------------- Globals */
+#if GT_TRACE
+static struct GT_Mask PROC_DebugMask = { NULL, NULL };	/* WCD MGR Mask */
+#endif
 
 /* The PROC_OBJECT structure.   */
 struct PROC_OBJECT {
@@ -737,8 +741,10 @@ DSP_STATUS PROC_GetState(void *hProcessor,
 			status = (*pProcObject->pIntfFxns->pfnDehGetInfo)
 				 (hDehMgr, &(pProcStatus->errInfo));
 	}
-	dev_dbg(bridge, "%s, results: status: 0x%x pProcStatus: 0x%x\n",
-					__func__, status, pProcStatus->iState);
+	GT_2trace(PROC_DebugMask, GT_ENTER,
+		 "Exiting PROC_GetState, results:\n\t"
+		 "status:  0x%x\n\tpProcStatus: 0x%x\n", status,
+		 pProcStatus->iState);
 	return status;
 }
 
@@ -772,8 +778,13 @@ bool PROC_Init(void)
 
 	DBC_Require(cRefs >= 0);
 
-	if (cRefs == 0)
+	if (cRefs == 0) {
+		/* Set the Trace mask */
+		DBC_Assert(!PROC_DebugMask.flags);
+		GT_create(&PROC_DebugMask, "PR");  /* "PR" for Processor */
+
 		(void)SYNC_InitializeCS(&hProcLock);
+	}
 
 	if (fRetval)
 		cRefs++;
@@ -808,7 +819,9 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 	struct DMM_OBJECT *hDmmMgr;
 	u32 dwExtEnd;
 	u32 uProcId;
+#ifdef CONFIG_BRIDGE_DEBUG
 	int uBrdState;
+#endif
 
 #ifdef OPT_LOAD_TIME_INSTRUMENTATION
 	struct timeval tv1;
@@ -852,8 +865,8 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 		status = snprintf(szProcID, MAXPROCIDLEN, PROC_ENVPROCID,
 				    nProcID);
 		if (status == -1) {
-			dev_dbg(bridge, "%s: Proc ID string overflow\n",
-								__func__);
+			GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_Load: "
+				 "Proc ID string overflow \n");
 			status = DSP_EFAIL;
 		} else {
 			newEnvp = PrependEnvp(newEnvp, (char **)aEnvp, cEnvp,
@@ -949,8 +962,8 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 				     pProcObject->hDevObject, NULL);
 		if (DSP_FAILED(status)) {
 			if (status == COD_E_OPENFAILED) {
-				dev_dbg(bridge,	"%s: Failure to Load the EXE\n",
-								__func__);
+				GT_0trace(PROC_DebugMask, GT_7CLASS,
+					"PROC_Load:Failure to Load the EXE\n");
 			}
 			if (status == COD_E_SYMBOLNOTFOUND) {
 				pr_err("%s: Couldn't parse the file\n",
@@ -1002,6 +1015,7 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 	/* Restore the original argv[0] */
 	kfree(newEnvp);
 	aArgv[0] = pargv0;
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
 		   (pProcObject->hWmdContext, &uBrdState))) {
@@ -1009,11 +1023,12 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 			DBC_Assert(uBrdState == BRD_LOADED);
 		}
 	}
-
+#endif
 func_end:
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_FAILED(status))
 		pr_err("%s: Processor failed to load\n", __func__);
-
+#endif
 	DBC_Ensure((DSP_SUCCEEDED(status) && pProcObject->sState == PROC_LOADED)
 		   || DSP_FAILED(status));
 #ifdef OPT_LOAD_TIME_INSTRUMENTATION
@@ -1022,7 +1037,8 @@ func_end:
 		tv2.tv_usec += 1000000;
 		tv2.tv_sec--;
 	}
-	dev_dbg(bridge, "%s: time to load %d sec and %d usec\n", __func__,
+	GT_2trace(PROC_DebugMask, GT_1CLASS,
+			"Proc_Load: time to load %d sec and %d usec \n",
 		    tv2.tv_sec - tv1.tv_sec, tv2.tv_usec - tv1.tv_usec);
 #endif
 	return status;
@@ -1045,6 +1061,10 @@ DSP_STATUS PROC_Map(void *hProcessor, void *pMpuAddr, u32 ulSize,
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
 	struct DMM_MAP_OBJECT *map_obj;
 
+	GT_6trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Map, args:\n\t"
+		 "hProcessor %x, pMpuAddr %x, ulSize %x, pReqAddr %x, "
+		 "ulMapAttr %x, ppMapAddr %x\n", hProcessor, pMpuAddr, ulSize,
+		 pReqAddr, ulMapAttr, ppMapAddr);
 
 #ifdef CONFIG_BRIDGE_CACHE_LINE_CHECK
 	if ((ulMapAttr & BUFMODE_MASK) != RBUF) {
@@ -1062,6 +1082,9 @@ DSP_STATUS PROC_Map(void *hProcessor, void *pMpuAddr, u32 ulSize,
 	paAlign = PG_ALIGN_LOW((u32) pMpuAddr, PG_SIZE_4K);
 	sizeAlign = PG_ALIGN_HIGH(ulSize + (u32)pMpuAddr - paAlign,
 				 PG_SIZE_4K);
+
+	GT_3trace(PROC_DebugMask, GT_ENTER, "PROC_Map: vaAlign %x, paAlign %x, "
+		 "sizeAlign %x\n", vaAlign, paAlign, sizeAlign);
 
 	/* Critical section */
 	(void)SYNC_EnterCS(hProcLock);
@@ -1102,12 +1125,7 @@ DSP_STATUS PROC_Map(void *hProcessor, void *pMpuAddr, u32 ulSize,
 	}
 
 func_end:
-	dev_dbg(bridge, "%s: hProcessor %p, pMpuAddr %p, ulSize %x, "
-		"pReqAddr %p, ulMapAttr %x, ppMapAddr %p, vaAlign %x, "
-		"paAlign %x, sizeAlign %x status 0x%x\n", __func__, hProcessor,
-		pMpuAddr, ulSize, pReqAddr, ulMapAttr,  ppMapAddr, vaAlign,
-		paAlign, sizeAlign, status);
-
+	GT_1trace(PROC_DebugMask, GT_ENTER, "Leaving PROC_Map [0x%x]", status);
 	return status;
 }
 
@@ -1191,6 +1209,10 @@ DSP_STATUS PROC_ReserveMemory(void *hProcessor, u32 ulSize,
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
 	struct DMM_RSV_OBJECT *rsv_obj;
 
+	GT_3trace(PROC_DebugMask, GT_ENTER,
+		 "Entered PROC_ReserveMemory, args:\n\t"
+		 "hProcessor: 0x%x ulSize: 0x%x ppRsvAddr: 0x%x\n", hProcessor,
+		 ulSize, ppRsvAddr);
 
 	status = DMM_GetHandle(pProcObject, &hDmmMgr);
 	if (DSP_SUCCEEDED(status))
@@ -1213,9 +1235,8 @@ DSP_STATUS PROC_ReserveMemory(void *hProcessor, u32 ulSize,
 	}
 
 func_end:
-	dev_dbg(bridge, "%s: hProcessor: 0x%p ulSize: 0x%x ppRsvAddr: 0x%p "
-					"status 0x%x\n", __func__, hProcessor,
-					ulSize, ppRsvAddr, status);
+	GT_1trace(PROC_DebugMask, GT_ENTER, "Leaving PROC_ReserveMemory [0x%x]",
+		 status);
 	return status;
 }
 
@@ -1230,8 +1251,9 @@ DSP_STATUS PROC_Start(void *hProcessor)
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
 	struct COD_MANAGER *hCodMgr;	/* Code manager handle    */
 	u32 dwDspAddr;	/* Loaded code's entry point.    */
+#ifdef CONFIG_BRIDGE_DEBUG
 	int uBrdState;
-
+#endif
 	DBC_Require(cRefs > 0);
 
 	/* Call the WMD_BRD_Start */
@@ -1272,6 +1294,7 @@ DSP_STATUS PROC_Start(void *hProcessor)
 		pProcObject->sState = PROC_STOPPED;
 	}
 func_cont:
+#ifdef CONFIG_BRIDGE_DEBUG
 	if (DSP_SUCCEEDED(status)) {
 		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
 		   (pProcObject->hWmdContext, &uBrdState))) {
@@ -1281,7 +1304,7 @@ func_cont:
 	} else {
 		pr_err("%s: Failed to start the dsp\n", __func__);
 	}
-
+#endif
 func_end:
 	DBC_Ensure((DSP_SUCCEEDED(status) && pProcObject->sState ==
 		  PROC_RUNNING)	|| DSP_FAILED(status));
@@ -1328,7 +1351,9 @@ DSP_STATUS PROC_Stop(void *hProcessor)
 	status = (*pProcObject->pIntfFxns->pfnBrdStop)(pProcObject->
 		 hWmdContext);
 	if (DSP_SUCCEEDED(status)) {
-		dev_dbg(bridge, "%s: processor in standby mode\n", __func__);
+		GT_0trace(PROC_DebugMask, GT_1CLASS,
+			 "PROC_Stop: Processor Stopped, "
+			 "i.e in standby mode \n");
 		pProcObject->sState = PROC_STOPPED;
 		/* Destory the Node Manager, MSG Manager */
 		if (DSP_SUCCEEDED(DEV_Destroy2(pProcObject->hDevObject))) {
@@ -1338,10 +1363,12 @@ DSP_STATUS PROC_Stop(void *hProcessor)
 				MSG_Delete(hMsgMgr);
 				DEV_SetMsgMgr(pProcObject->hDevObject, NULL);
 			}
+#ifdef CONFIG_BRIDGE_DEBUG
 			if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->
 			   pfnBrdStatus)(pProcObject->hWmdContext,
 			   &uBrdState)))
 				DBC_Assert(uBrdState == BRD_STOPPED);
+#endif
 		}
 	} else {
 		pr_err("%s: Failed to stop the processor\n", __func__);
@@ -1365,6 +1392,10 @@ DSP_STATUS PROC_UnMap(void *hProcessor, void *pMapAddr,
 	u32 vaAlign;
 	u32 sizeAlign;
 	struct DMM_MAP_OBJECT *map_obj;
+
+	GT_2trace(PROC_DebugMask, GT_ENTER,
+		 "Entered PROC_UnMap, args:\n\thProcessor:"
+		 "0x%x pMapAddr: 0x%x\n", hProcessor, pMapAddr);
 
 	vaAlign = PG_ALIGN_LOW((u32) pMapAddr, PG_SIZE_4K);
 
@@ -1404,8 +1435,8 @@ DSP_STATUS PROC_UnMap(void *hProcessor, void *pMapAddr,
 	spin_unlock(&pr_ctxt->dmm_map_lock);
 
 func_end:
-	dev_dbg(bridge, "%s: hProcessor: 0x%p pMapAddr: 0x%p status: 0x%x\n",
-					__func__, hProcessor, pMapAddr, status);
+	GT_1trace(PROC_DebugMask, GT_ENTER,
+		 "Leaving PROC_UnMap [0x%x]", status);
 	return status;
 }
 
@@ -1422,6 +1453,9 @@ DSP_STATUS PROC_UnReserveMemory(void *hProcessor, void *pRsvAddr,
 	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
 	struct DMM_RSV_OBJECT *rsv_obj;
 
+	GT_2trace(PROC_DebugMask, GT_ENTER,
+		 "Entered PROC_UnReserveMemory, args:\n\t"
+		 "hProcessor: 0x%x pRsvAddr: 0x%x\n", hProcessor, pRsvAddr);
 
 	status = DMM_GetHandle(pProcObject, &hDmmMgr);
 	if (DSP_SUCCEEDED(status))
@@ -1446,8 +1480,9 @@ DSP_STATUS PROC_UnReserveMemory(void *hProcessor, void *pRsvAddr,
 	spin_unlock(&pr_ctxt->dmm_rsv_lock);
 func_end:
 
-	dev_dbg(bridge, "%s: hProcessor: 0x%p pRsvAddr: 0x%p status: 0x%x\n",
-					__func__, hProcessor, pRsvAddr, status);
+	GT_1trace(PROC_DebugMask, GT_ENTER,
+		 "Leaving PROC_UnReserveMemory [0x%x]",
+		 status);
 
 	return status;
 }
@@ -1473,7 +1508,9 @@ static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *pProcObject)
 {
 	DSP_STATUS status = DSP_EFAIL;
 	struct MSG_MGR *hMsgMgr;
+#ifdef CONFIG_BRIDGE_DEBUG
 	int uBrdState;
+#endif
 
 	DBC_Require(cRefs > 0);
 
@@ -1492,13 +1529,17 @@ static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *pProcObject)
 	if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdMonitor)
 	   (pProcObject->hWmdContext))) {
 		status = DSP_SOK;
+#ifdef CONFIG_BRIDGE_DEBUG
 		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
 		   (pProcObject->hWmdContext, &uBrdState)))
 			DBC_Assert(uBrdState == BRD_IDLE);
+#endif
 	}
 
+#ifdef CONFIG_BRIDGE_DEBUG
 	DBC_Ensure((DSP_SUCCEEDED(status) && uBrdState == BRD_IDLE) ||
 		  DSP_FAILED(status));
+#endif
 	return status;
 }
 

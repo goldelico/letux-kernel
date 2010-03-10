@@ -26,6 +26,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
@@ -65,6 +66,11 @@ struct SYNC_DPCCSOBJECT {
 	spinlock_t sync_dpccs_lock;
 	s32 count;
 } ;
+
+/*  ----------------------------------- Globals */
+#if GT_TRACE
+static struct GT_Mask SYNC_debugMask = { NULL, NULL };  /* GT trace variable */
+#endif
 
 static int test_and_set(volatile void *ptr, int val)
 {
@@ -117,6 +123,8 @@ void SYNC_Exit(void)
  */
 bool SYNC_Init(void)
 {
+	GT_create(&SYNC_debugMask, "SY");	/* SY for SYnc */
+
 	return true;
 }
 

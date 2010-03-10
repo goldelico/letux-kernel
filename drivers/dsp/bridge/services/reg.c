@@ -26,6 +26,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
@@ -34,6 +35,10 @@
 /*  ----------------------------------- This */
 #include <dspbridge/reg.h>
 #include <regsup.h>
+
+#if GT_TRACE
+struct GT_Mask REG_debugMask = { NULL, NULL };	/* GT trace var. */
+#endif
 
 struct SYNC_CSOBJECT *reglock;		/* For critical sections */
 
@@ -129,11 +134,15 @@ bool REG_Init(void)
 {
 	bool fInit;
 
+	GT_create(&REG_debugMask, "RG");        /* RG for ReG */
+
 	fInit = regsupInit();
 
 	if (crefs == 0)
 		SYNC_InitializeCS(&reglock);
 	crefs++;
+
+	GT_0trace(REG_debugMask, GT_5CLASS, "REG_Init\n");
 
 	return fInit;
 }

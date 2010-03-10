@@ -26,6 +26,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/dbg.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
@@ -128,6 +129,12 @@ DSP_STATUS WMD_DEH_Create(OUT struct DEH_MGR **phDehMgr,
 	} else {
 		timer = omap_dm_timer_request_specific(
 					GPTIMER_FOR_DSP_MMU_FAULT);
+		if (timer)
+			omap_dm_timer_disable(timer);
+		else {
+			pr_err("%s:GPTimer not available\n", __func__);
+			return -ENODEV;
+		}
 		*phDehMgr = (struct DEH_MGR *)pDehMgr;
 	}
 
@@ -158,7 +165,10 @@ DSP_STATUS WMD_DEH_Destroy(struct DEH_MGR *hDehMgr)
 		/* Deallocate the DEH manager object */
 		MEM_FreeObject(pDehMgr);
 		/* The GPTimer is no longer needed */
-		omap_dm_timer_free(timer);
+		if (timer) {
+			omap_dm_timer_free(timer);
+			timer = NULL;
+		}
 	}
 
 	return status;
@@ -255,14 +265,13 @@ void WMD_DEH_Notify(struct DEH_MGR *hDehMgr, u32 ulEventMask,
 			HW_MMU_TLBAdd(pDevContext->dwDSPMmuBase,
 				memPhysical, faultAddr, HW_PAGE_SIZE_4KB, 1,
 				&mapAttrs, HW_SET, HW_SET);
-
 			/*
 			 * Send a GP Timer interrupt to DSP
 			 * The DSP expects a GP timer interrupt after an
 			 * MMU-Fault Request GPTimer
 			 */
-
 			if (timer) {
+				omap_dm_timer_enable(timer);
 				/* Enable overflow interrupt */
 				omap_dm_timer_set_int_enable(timer,
 						GPTIMER_IRQ_OVERFLOW);
@@ -288,6 +297,7 @@ void WMD_DEH_Notify(struct DEH_MGR *hDehMgr, u32 ulEventMask,
 						break;
 					}
 				}
+				omap_dm_timer_disable(timer);
 			}
 
 			/* Clear MMU interrupt */
@@ -318,8 +328,9 @@ void WMD_DEH_Notify(struct DEH_MGR *hDehMgr, u32 ulEventMask,
 			break;
 #endif
 		default:
-			dev_dbg(bridge, "%s: Unknown Error, errInfo = 0x%x\n",
-							__func__, dwErrInfo);
+			DBG_Trace(DBG_LEVEL6,
+				 "WMD_DEH_Notify: Unknown Error, errInfo = "
+				 "0x%x\n", dwErrInfo);
 			break;
 		}
 

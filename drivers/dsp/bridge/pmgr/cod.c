@@ -32,6 +32,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/ldr.h>
@@ -74,6 +75,10 @@ struct COD_LIBRARYOBJ {
 } ;
 
 static u32 cRefs = 0L;
+
+#if GT_TRACE
+static struct GT_Mask COD_debugMask = { NULL, NULL };
+#endif
 
 static struct DBLL_Fxns dbllFxns = {
 	(DBLL_CloseFxn) DBLL_close,
@@ -444,8 +449,9 @@ DSP_STATUS COD_GetSymValue(struct COD_MANAGER *hMgr, char *pstrSym,
 	DBC_Require(pstrSym != NULL);
 	DBC_Require(pulValue != NULL);
 
-	dev_dbg(bridge, "%s: hMgr: %p pstrSym: %s pulValue: %p\n",
-					__func__, hMgr, pstrSym, pulValue);
+	GT_3trace(COD_debugMask, GT_ENTER, "Entered COD_GetSymValue Args \t\n"
+		  "hMgr: 0x%x\t\npstrSym: 0x%x\t\npulValue: 0x%x\n",
+		  hMgr, pstrSym, pulValue);
 	if (hMgr->baseLib) {
 		if (!hMgr->fxns.getAddrFxn(hMgr->baseLib, pstrSym, &pSym)) {
 			if (!hMgr->fxns.getCAddrFxn(hMgr->baseLib, pstrSym,
@@ -472,6 +478,11 @@ bool COD_Init(void)
 	bool fRetVal = true;
 
 	DBC_Require(cRefs >= 0);
+
+	if (cRefs == 0) {
+		DBC_Assert(!COD_debugMask.flags);
+		GT_create(&COD_debugMask, "CO");
+	}
 
 	if (fRetVal)
 		cRefs++;

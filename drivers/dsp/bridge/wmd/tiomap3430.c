@@ -33,6 +33,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/dbg.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
@@ -133,25 +134,25 @@ static void GetHWRegs(void __iomem *prm_base, void __iomem *cm_base)
 {
 	u32 temp;
 	temp = __raw_readl((cm_base) + 0x00);
-	dev_dbg(bridge, "CM_FCLKEN_IVA2 = 0x%x\n", temp);
+	DBG_Trace(DBG_LEVEL6, "CM_FCLKEN_IVA2 = 0x%x \n", temp);
 	temp = __raw_readl((cm_base) + 0x10);
-	dev_dbg(bridge, "CM_ICLKEN1_IVA2 = 0x%x \n", temp);
+	DBG_Trace(DBG_LEVEL6, "CM_ICLKEN1_IVA2 = 0x%x \n", temp);
 	temp = __raw_readl((cm_base) + 0x20);
-	dev_dbg(bridge, "CM_IDLEST_IVA2 = 0x%x \n", temp);
+	DBG_Trace(DBG_LEVEL6, "CM_IDLEST_IVA2 = 0x%x \n", temp);
 	temp = __raw_readl((cm_base) + 0x48);
-	dev_dbg(bridge, "CM_CLKSTCTRL_IVA2 = 0x%x \n", temp);
+	DBG_Trace(DBG_LEVEL6, "CM_CLKSTCTRL_IVA2 = 0x%x \n", temp);
 	temp = __raw_readl((cm_base) + 0x4c);
-	dev_dbg(bridge, "CM_CLKSTST_IVA2 = 0x%x \n", temp);
+	DBG_Trace(DBG_LEVEL6, "CM_CLKSTST_IVA2 = 0x%x \n", temp);
 	temp = __raw_readl((prm_base) + 0x50);
-	dev_dbg(bridge, "RM_RSTCTRL_IVA2 = 0x%x \n", temp);
+	DBG_Trace(DBG_LEVEL6, "RM_RSTCTRL_IVA2 = 0x%x \n", temp);
 	temp = __raw_readl((prm_base) + 0x58);
-	dev_dbg(bridge, "RM_RSTST_IVA2 = 0x%x \n", temp);
+	DBG_Trace(DBG_LEVEL6, "RM_RSTST_IVA2 = 0x%x \n", temp);
 	temp = __raw_readl((prm_base) + 0xE0);
-	dev_dbg(bridge, "PM_PWSTCTRL_IVA2 = 0x%x \n", temp);
+	DBG_Trace(DBG_LEVEL6, "PM_PWSTCTRL_IVA2 = 0x%x \n", temp);
 	temp = __raw_readl((prm_base) + 0xE4);
-	dev_dbg(bridge, "PM_PWSTST_IVA2 = 0x%x \n", temp);
+	DBG_Trace(DBG_LEVEL6, "PM_PWSTST_IVA2 = 0x%x \n", temp);
 	temp = __raw_readl((cm_base) + 0xA10);
-	dev_dbg(bridge, "CM_ICLKEN1_CORE = 0x%x \n", temp);
+	DBG_Trace(DBG_LEVEL6, "CM_ICLKEN1_CORE = 0x%x \n", temp);
 }
 #else
 static inline void GetHWRegs(void __iomem *prm_base, void __iomem *cm_base)
@@ -306,7 +307,7 @@ void WMD_DRV_Entry(OUT struct WMD_DRV_INTERFACE **ppDrvInterface,
 	if (strcmp(pstrWMDFileName, "UMA") == 0)
 		*ppDrvInterface = &drvInterfaceFxns;
 	else
-		dev_dbg(bridge, "%s Unknown WMD file name", __func__);
+		DBG_Trace(DBG_LEVEL7, "WMD_DRV_Entry Unknown WMD file name");
 
 }
 
@@ -472,14 +473,15 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 		HW_RST_Reset(pDevContext->prmbase, HW_RST1_IVA2);
 		if (dsp_debug) {
 			/* Set the bootmode to self loop  */
-			dev_dbg(bridge, "Set boot mode to self loop"
-					" for IVA2 Device\n");
+			DBG_Trace(DBG_LEVEL7,
+				"Set boot mode to self loop for IVA2 Device\n");
 			HW_DSPSS_BootModeSet(pDevContext->sysctrlbase,
 				HW_DSPSYSC_SELFLOOPBOOT, dwDSPAddr);
 		} else {
 			/* Set the bootmode to '0' - direct boot */
-			dev_dbg(bridge, "Set boot mode to direct boot"
-					" for IVA2 Device\n");
+			DBG_Trace(DBG_LEVEL7,
+					"Set boot mode to direct"
+					" boot for IVA2 Device \n");
 			HW_DSPSS_BootModeSet(pDevContext->sysctrlbase,
 				HW_DSPSYSC_DIRECTBOOT, dwDSPAddr);
 		}
@@ -501,7 +503,7 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 			iEntryNdx++) {
 			if ((pDevContext->aTLBEntry[iEntryNdx].ulGppPa != 0) &&
 			   (pDevContext->aTLBEntry[iEntryNdx].ulDspVa != 0)) {
-				dev_dbg(bridge, "(proc) MMU %d GppPa:"
+				DBG_Trace(DBG_LEVEL4, "** (proc) MMU %d GppPa:"
 				    " 0x%x DspVa 0x%x Size 0x%x\n",
 				    itmpEntryNdx,
 				    pDevContext->aTLBEntry[iEntryNdx].ulGppPa,
@@ -573,7 +575,8 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 			DSPPeripheralClkCtrl(pDevContext, &uClkCmd);
 
 		} else {
-			dev_dbg(bridge, "Not able to get the symbol for Load "
+			DBG_Trace(DBG_LEVEL7,
+				  "Not able to get the symbol for Load "
 				  "Monitor Timer\n");
 		}
 	}
@@ -608,7 +611,8 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 			DSPPeripheralClkCtrl(pDevContext, &uClkCmd);
 
 		} else {
-		dev_dbg(bridge, "Not able to get the symbol for BIOS Timer\n");
+		DBG_Trace(DBG_LEVEL7,
+			       "Not able to get the symbol for BIOS Timer\n");
 		}
 	}
 
@@ -626,8 +630,9 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 			/* Get the clock rate */
 			status = CLK_GetRate(SERVICESCLK_iva2_ck,
 				 &ulDspClkRate);
-			dev_dbg(bridge, "%s: DSP clock rate (KHZ): 0x%x \n",
-							__func__, ulDspClkRate);
+			DBG_Trace(DBG_LEVEL5,
+				 "WMD_BRD_Start: DSP clock rate (KHZ): 0x%x \n",
+				 ulDspClkRate);
 			(void)WMD_BRD_Write(pDevContext, (u8 *)&ulDspClkRate,
 				 ulDspClkAddr, sizeof(u32), 0);
 		}
@@ -665,7 +670,7 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 						(int (*)(void *))io_mbox_msg;
 
 		/* Let DSP go */
-		dev_dbg(bridge, "%s Unreset\n", __func__);
+		DBG_Trace(DBG_LEVEL7, "Unreset, WMD_BRD_Start\n");
 		/* Enable DSP MMU Interrupts */
 		HW_MMU_EventEnable(pDevContext->dwDSPMmuBase,
 				HW_MMU_ALL_INTERRUPTS);
@@ -681,8 +686,10 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 		/* release the RST1, DSP starts executing now .. */
 		HW_RST_UnReset(pDevContext->prmbase, HW_RST1_IVA2);
 
-		dev_dbg(bridge, "Waiting for Sync @ 0x%x\n", dwSyncAddr);
-		dev_dbg(bridge, "DSP c_int00 Address =  0x%x\n", dwDSPAddr);
+		DBG_Trace(DBG_LEVEL7, "Driver waiting for Sync @ 0x%x \n",
+				dwSyncAddr);
+		DBG_Trace(DBG_LEVEL7, "DSP c_int00 Address =  0x%x \n",
+				dwDSPAddr);
 		if (dsp_debug)
 			while (*((volatile u16 *)dwSyncAddr))
 				;
@@ -1011,12 +1018,12 @@ static DSP_STATUS WMD_DEV_Create(OUT struct WMD_DEV_CONTEXT **ppDevContext,
 
 		pPtAttrs->pgInfo = MEM_Calloc(pPtAttrs->L2NumPages *
 				sizeof(struct PageInfo), MEM_NONPAGED);
-		dev_dbg(bridge, "L1 pa %x, va %x, size %x\n L2 pa %x, va "
+		DBG_Trace(DBG_LEVEL1, "L1 pa %x, va %x, size %x\n L2 pa %x, va "
 			 "%x, size %x\n", pPtAttrs->L1BasePa,
 			 pPtAttrs->L1BaseVa, pPtAttrs->L1size,
 			 pPtAttrs->L2BasePa, pPtAttrs->L2BaseVa,
 			 pPtAttrs->L2size);
-		dev_dbg(bridge, "pPtAttrs %p L2 NumPages %x pgInfo %p\n",
+		DBG_Trace(DBG_LEVEL1, "pPtAttrs %x L2 NumPages %x pgInfo %x\n",
 			 pPtAttrs, pPtAttrs->L2NumPages, pPtAttrs->pgInfo);
 	}
 	if ((pPtAttrs != NULL) && (pPtAttrs->L1BaseVa != 0) &&
@@ -1269,9 +1276,9 @@ static DSP_STATUS WMD_BRD_MemMap(struct WMD_DEV_CONTEXT *hDevContext,
 	u32 pgI = 0;
 	u32 mpuAddr, pa;
 
-	dev_dbg(bridge, "%s hDevCtxt %p, pa %x, va %x, size %x, ulMapAttr %x\n",
-				__func__, hDevContext, ulMpuAddr, ulVirtAddr,
-				ulNumBytes, ulMapAttr);
+	DBG_Trace(DBG_ENTER, "> WMD_BRD_MemMap hDevContext %x, pa %x, va %x, "
+		 "size %x, ulMapAttr %x\n", hDevContext, ulMpuAddr, ulVirtAddr,
+		 ulNumBytes, ulMapAttr);
 	if (ulNumBytes == 0)
 		return DSP_EINVALIDARG;
 
@@ -1339,10 +1346,10 @@ static DSP_STATUS WMD_BRD_MemMap(struct WMD_DEV_CONTEXT *hDevContext,
 	down_read(&mm->mmap_sem);
 	vma = find_vma(mm, ulMpuAddr);
 	if (vma)
-		dev_dbg(bridge, "VMAfor UserBuf: ulMpuAddr=%x, ulNumBytes=%x, "
-				"vm_start=%lx, vm_end=%lx, vm_flags=%lx\n",
-				ulMpuAddr, ulNumBytes, vma->vm_start,
-				vma->vm_end, vma->vm_flags);
+		DBG_Trace(DBG_LEVEL6, "VMAfor UserBuf: ulMpuAddr=%x, "
+			"ulNumBytes=%x, vm_start=%x vm_end=%x vm_flags=%x \n",
+			ulMpuAddr, ulNumBytes, vma->vm_start,
+			vma->vm_end, vma->vm_flags);
 
 	/*
 	 * It is observed that under some circumstances, the user buffer is
@@ -1352,10 +1359,10 @@ static DSP_STATUS WMD_BRD_MemMap(struct WMD_DEV_CONTEXT *hDevContext,
 	while ((vma) && (ulMpuAddr + ulNumBytes > vma->vm_end)) {
 		/* jump to the next VMA region */
 		vma = find_vma(mm, vma->vm_end + 1);
-		dev_dbg(bridge, "VMA for UserBuf ulMpuAddr=%x ulNumBytes=%x, "
-				"vm_start=%lx, vm_end=%lx, vm_flags=%lx\n",
-				ulMpuAddr, ulNumBytes, vma->vm_start,
-				vma->vm_end, vma->vm_flags);
+		DBG_Trace(DBG_LEVEL6, "VMAfor UserBuf ulMpuAddr=%x, "
+		       "ulNumBytes=%x, vm_start=%x vm_end=%x vm_flags=%x\n",
+		       ulMpuAddr, ulNumBytes, vma->vm_start,
+		       vma->vm_end, vma->vm_flags);
 	}
 	if (!vma) {
 		pr_err("%s: Failed to get VMA region for 0x%x (%d)\n",
@@ -1456,7 +1463,7 @@ func_cont:
 	 * region
 	 */
 	flush_all(pDevContext);
-	dev_dbg(bridge, "%s status %x\n", __func__, status);
+	DBG_Trace(DBG_ENTER, "< WMD_BRD_MemMap status %x\n", status);
 	return status;
 }
 
@@ -1491,15 +1498,16 @@ static DSP_STATUS WMD_BRD_MemUnMap(struct WMD_DEV_CONTEXT *hDevContext,
 	u32 pAddr;
 	u32 numof4KPages = 0;
 
+	DBG_Trace(DBG_ENTER, "> WMD_BRD_MemUnMap hDevContext %x, va %x, "
+		  "NumBytes %x\n", hDevContext, ulVirtAddr, ulNumBytes);
 	vaCurr = ulVirtAddr;
 	remBytes = ulNumBytes;
 	remBytesL2 = 0;
 	L1BaseVa = pt->L1BaseVa;
 	pteAddrL1 = HW_MMU_PteAddrL1(L1BaseVa, vaCurr);
-	dev_dbg(bridge, "%s hDevContext %p, va %x, NumBytes %x L1BaseVa %x, "
-			"pteAddrL1 %x\n", __func__, hDevContext, ulVirtAddr,
-			ulNumBytes, L1BaseVa, pteAddrL1);
-
+	DBG_Trace(DBG_ENTER, "WMD_BRD_MemUnMap L1BaseVa %x, pteAddrL1 %x "
+		  "vaCurr %x remBytes %x\n", L1BaseVa, pteAddrL1,
+		  vaCurr, remBytes);
 	while (remBytes && (DSP_SUCCEEDED(status))) {
 		u32 vaCurrOrig = vaCurr;
 		/* Find whether the L1 PTE points to a valid L2 PT */
@@ -1653,9 +1661,10 @@ skip_coarse_page:
 	 */
 EXIT_LOOP:
 	flush_all(pDevContext);
-	dev_dbg(bridge, "%s: vaCurr %x, pteAddrL1 %x pteAddrL2 %x remBytes %x,"
-		" remBytesL2 %x status %x\n", __func__, vaCurr, pteAddrL1,
-		pteAddrL2, remBytes, remBytesL2, status);
+	DBG_Trace(DBG_LEVEL1, "WMD_BRD_MemUnMap vaCurr %x, pteAddrL1 %x "
+		  "pteAddrL2 %x\n", vaCurr, pteAddrL1, pteAddrL2);
+	DBG_Trace(DBG_ENTER, "< WMD_BRD_MemUnMap status %x remBytes %x, "
+		  "remBytesL2 %x\n", status, remBytes, remBytesL2);
 	return status;
 }
 
@@ -1803,19 +1812,19 @@ static DSP_STATUS PteSet(struct PgTableAttrs *pt, u32 pa, u32 va,
 				pt->pgInfo[L2PageNum].numEntries += 16;
 			else
 				pt->pgInfo[L2PageNum].numEntries++;
-			dev_dbg(bridge, "PTE: L2 BaseVa %x, BasePa %x, PageNum "
-					"%x, numEntries %x\n", L2BaseVa,
-					L2BasePa, L2PageNum,
-					pt->pgInfo[L2PageNum].numEntries);
+			DBG_Trace(DBG_LEVEL1, "L2 BaseVa %x, BasePa %x, "
+				 "PageNum %x numEntries %x\n", L2BaseVa,
+				 L2BasePa, L2PageNum,
+				 pt->pgInfo[L2PageNum].numEntries);
 		}
 		SYNC_LeaveCS(pt->hCSObj);
 	}
 	if (DSP_SUCCEEDED(status)) {
-		dev_dbg(bridge, "PTE: pgTblVa %x, pa %x, va %x, size %x\n",
-							pgTblVa, pa, va, size);
-		dev_dbg(bridge, "PTE: endianism %x, elementSize %x, "
-					"mixedSize %x\n", attrs->endianism,
-					attrs->elementSize, attrs->mixedSize);
+		DBG_Trace(DBG_LEVEL1, "PTE pgTblVa %x, pa %x, va %x, size %x\n",
+			 pgTblVa, pa, va, size);
+		DBG_Trace(DBG_LEVEL1, "PTE endianism %x, elementSize %x, "
+			  "mixedSize %x\n", attrs->endianism,
+			  attrs->elementSize, attrs->mixedSize);
 		status = HW_MMU_PteSet(pgTblVa, pa, va, size, attrs);
 	}
 
@@ -1886,11 +1895,14 @@ static DSP_STATUS MemMapVmalloc(struct WMD_DEV_CONTEXT *pDevContext,
 		vaCurr += sizeCurr;
 	}
 	/* Don't propogate Linux or HW status to upper layers */
-	if (DSP_SUCCEEDED(status))
+	if (DSP_SUCCEEDED(status)) {
 		status = DSP_SOK;
-	else
+		DBG_Trace(DBG_LEVEL7, "< WMD_BRD_MemMap succeeded %x\n",
+			 status);
+	} else {
+		DBG_Trace(DBG_LEVEL7, "< WMD_BRD_MemMap status %x\n", status);
 		status = DSP_EFAIL;
-
+	}
 	/*
 	 * In any case, flush the TLB
 	 * This is called from here instead from PteUpdate to avoid unnecessary
@@ -1898,7 +1910,6 @@ static DSP_STATUS MemMapVmalloc(struct WMD_DEV_CONTEXT *pDevContext,
 	 * region
 	 */
 	flush_all(pDevContext);
-	dev_dbg(bridge, "%s status %x\n", __func__, status);
 	return status;
 }
 
@@ -1915,10 +1926,12 @@ void configureDspMmu(struct WMD_DEV_CONTEXT *pDevContext, u32 dataBasePhys,
 	struct HW_MMUMapAttrs_t mapAttrs = { endianism, elemSize, mixedSize };
 
 	DBC_Require(sizeInBytes > 0);
-	dev_dbg(bridge, "%s: entry %x pa %x, va %x, bytes %x endianism %x, "
-			"elemSize %x, mixedSize %x", __func__, nEntryStart,
-			dataBasePhys, dspBaseVirt, sizeInBytes, endianism,
-			elemSize, mixedSize);
+	DBG_Trace(DBG_LEVEL1,
+		 "configureDspMmu entry %x pa %x, va %x, bytes %x ",
+		 nEntryStart, dataBasePhys, dspBaseVirt, sizeInBytes);
+
+	DBG_Trace(DBG_LEVEL1, "endianism %x, elemSize %x, mixedSize %x\n",
+		 endianism, elemSize, mixedSize);
 
 	HW_MMU_TLBAdd(pDevContext->dwDSPMmuBase, dataBasePhys,
 				dspBaseVirt, sizeInBytes, nEntryStart,

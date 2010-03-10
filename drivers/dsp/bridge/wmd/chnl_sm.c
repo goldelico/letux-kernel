@@ -52,6 +52,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/dbg.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/mem.h>
@@ -448,8 +449,8 @@ DSP_STATUS WMD_CHNL_Destroy(struct CHNL_MGR *hChnlMgr)
 		for (iChnl = 0; iChnl < pChnlMgr->cChannels; iChnl++) {
 			status = WMD_CHNL_Close(pChnlMgr->apChannel[iChnl]);
 			if (DSP_FAILED(status))
-				dev_dbg(bridge, "%s: Error status 0x%x\n",
-							__func__, status);
+				DBG_Trace(DBG_LEVEL7, "Error in CHNL_Close "
+						"status 0x%x\n", status);
 		}
 		/* release critical section */
 		if (pChnlMgr->hCSObj)

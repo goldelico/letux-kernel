@@ -26,6 +26,7 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
@@ -53,7 +54,10 @@
 
 /*  ----------------------------------- Others */
 #include <dspbridge/gb.h>
+#ifdef CONFIG_BRIDGE_DEBUG
 #include <dspbridge/uuidutil.h>
+#include <dspbridge/dbg.h>
+#endif
 
 /*  ----------------------------------- This */
 #include <dspbridge/nodepriv.h>
@@ -262,6 +266,10 @@ static u32 Ovly(void *pPrivRef, u32 ulDspRunAddr, u32 ulDspLoadAddr,
 static u32 Write(void *pPrivRef, u32 ulDspAddr, void *pBuf,
 			u32 ulNumBytes, u32 nMemSpace);
 
+#if GT_TRACE
+static struct GT_Mask NODE_debugMask = { NULL, NULL };  /* GT trace variable */
+#endif
+
 #ifdef DSP_DMM_DEBUG
 extern u32 DMM_MemMapDump(struct DMM_OBJECT *hDmmMgr);
 #endif
@@ -332,6 +340,11 @@ DSP_STATUS NODE_Allocate(struct PROC_OBJECT *hProcessor,
 	DBC_Require(hProcessor != NULL);
 	DBC_Require(phNode != NULL);
 	DBC_Require(pNodeId != NULL);
+
+	GT_5trace(NODE_debugMask, GT_ENTER, "NODE_Allocate: \thProcessor: "
+		"0x%x\tpNodeId: 0x%x\tpArgs: 0x%x\tpAttrIn: "
+		"0x%x\tphNode: 0x%x\n", hProcessor, pNodeId, pArgs, pAttrIn,
+		phNode);
 
 	*phNode = NULL;
 
@@ -597,9 +610,10 @@ func_cont:
 			ulStackSegVal = (u32)*((REG_UWORD32 *)
 					((u32)(ulStackSegAddr)));
 
-			dev_dbg(bridge, "%s: StackSegVal = 0x%x, StackSegAddr ="
-					" 0x%x\n", __func__, ulStackSegVal,
-					ulStackSegAddr);
+			GT_1trace(NODE_debugMask, GT_5CLASS,
+				 "StackSegVal =0x%x\n", ulStackSegVal);
+			GT_1trace(NODE_debugMask, GT_5CLASS,
+				 "ulStackSegAddr = 0x%x\n", ulStackSegAddr);
 
 			pNode->createArgs.asa.taskArgs.uStackSeg =
 				ulStackSegVal;
@@ -651,9 +665,6 @@ func_cont:
 		  (DSP_SUCCEEDED(status)
 		    && MEM_IsValidHandle((*phNode), NODE_SIGNATURE)));
 func_end:
-	dev_dbg(bridge, "%s: hProcessor: %p pNodeId: %p pArgs: %p pAttrIn: %p "
-			"phNode: %p status: 0x%x\n", __func__, hProcessor,
-			pNodeId, pArgs, pAttrIn, phNode, status);
 	return status;
 }
 
@@ -758,8 +769,8 @@ DSP_STATUS NODE_ChangePriority(struct NODE_OBJECT *hNode, s32 nPriority)
 	DBC_Require(cRefs > 0);
 
 	if (!hNode->hNodeMgr) {
-		dev_dbg(bridge, "%s: Invalid NODE Handle: %p\n",
-							__func__, hNode);
+		GT_1trace(NODE_debugMask, GT_7CLASS,
+			 "Invalid NODE Handle: 0x%x\n", hNode);
 		status = DSP_EHANDLE;
 	} else {
 		hNodeMgr = hNode->hNodeMgr;
@@ -830,6 +841,10 @@ DSP_STATUS NODE_Connect(struct NODE_OBJECT *hNode1, u32 uStream1,
 	u32 dwLength;
 	DSP_STATUS status = DSP_SOK;
 	DBC_Require(cRefs > 0);
+	GT_5trace(NODE_debugMask, GT_ENTER,
+		 "NODE_Connect: hNode1: 0x%x\tuStream1:"
+		 " %d\thNode2: 0x%x\tuStream2: %d\tpAttrs: 0x%x\n", hNode1,
+		 uStream1, hNode2, uStream2, pAttrs);
 
 	if ((hNode1 != (struct NODE_OBJECT *) DSP_HGPPNODE &&
 			!MEM_IsValidHandle(hNode1, NODE_SIGNATURE)) ||
@@ -1101,9 +1116,6 @@ func_cont:
 	/* Exit critical section */
 	(void)SYNC_LeaveCS(hNodeMgr->hSync);
 func_end:
-	dev_dbg(bridge, "%s: hNode1: %p uStream1: %d hNode2: %p uStream2: %d"
-				"pAttrs: %p status: 0x%x\n", __func__, hNode1,
-				uStream1, hNode2, uStream2, pAttrs, status);
 	return status;
 }
 
@@ -1131,6 +1143,8 @@ DSP_STATUS NODE_Create(struct NODE_OBJECT *hNode)
 #endif
 
 	DBC_Require(cRefs > 0);
+	GT_1trace(NODE_debugMask, GT_ENTER, "NODE_Create: hNode: 0x%x\n",
+		 hNode);
 
 	hProcessor = hNode->hProcessor;
 	status = PROC_GetState(hProcessor, &procStatus,
@@ -1257,8 +1271,6 @@ func_end:
 		NTFY_Notify(hNode->hNtfy, DSP_NODESTATECHANGE);
 	}
 
-	dev_dbg(bridge, "%s: hNode: %p status: 0x%x\n", __func__,
-							hNode, status);
 	return status;
 }
 
@@ -1409,7 +1421,8 @@ DSP_STATUS NODE_Delete(struct NODE_OBJECT *hNode,
 
 	struct DSP_PROCESSORSTATE procStatus;
 	DBC_Require(cRefs > 0);
-
+	GT_1trace(NODE_debugMask, GT_ENTER, "NODE_Delete: hNode: 0x%x\n",
+		  hNode);
 	/* create struct DSP_CBDATA struct for PWR call */
 	cbData.cbData = PWR_TIMEOUT;
 	hNodeMgr = hNode->hNodeMgr;
@@ -1523,7 +1536,6 @@ func_cont1:
 	(void)SYNC_LeaveCS(hNodeMgr->hSync);
 	PROC_NotifyClients(hProcessor, DSP_NODESTATECHANGE);
 func_end:
-	dev_dbg(bridge, "%s: hNode: %p status 0x%x\n", __func__, hNode, status);
 	return status;
 }
 
@@ -1746,6 +1758,9 @@ DSP_STATUS NODE_GetMessage(struct NODE_OBJECT *hNode, OUT struct DSP_MSG *pMsg,
 
 	DBC_Require(cRefs > 0);
 	DBC_Require(pMsg != NULL);
+	GT_3trace(NODE_debugMask, GT_ENTER,
+		 "NODE_GetMessage: hNode: 0x%x\tpMsg: "
+		 "0x%x\tuTimeout: 0x%x\n", hNode, pMsg, uTimeout);
 
 	hProcessor = hNode->hProcessor;
 	status = PROC_GetState(hProcessor, &procStatus,
@@ -1795,8 +1810,6 @@ DSP_STATUS NODE_GetMessage(struct NODE_OBJECT *hNode, OUT struct DSP_MSG *pMsg,
 		status = DSP_ETRANSLATE;
 	}
 func_end:
-	dev_dbg(bridge, "%s: hNode: %p pMsg: %p uTimeout: 0x%x\n", __func__,
-							hNode, pMsg, uTimeout);
 	return status;
 }
 
@@ -1886,6 +1899,11 @@ bool NODE_Init(void)
 {
 	DBC_Require(cRefs >= 0);
 
+	if (cRefs == 0) {
+		DBC_Assert(!NODE_debugMask.flags);
+		GT_create(&NODE_debugMask, "NO");	/* "NO" for NOde */
+	}
+
 	cRefs++;
 
 	return true;
@@ -1933,6 +1951,8 @@ DSP_STATUS NODE_Pause(struct NODE_OBJECT *hNode)
 	struct PROC_OBJECT *hProcessor;
 
 	DBC_Require(cRefs > 0);
+
+	GT_1trace(NODE_debugMask, GT_ENTER, "NODE_Pause: hNode: 0x%x\n", hNode);
 
 	nodeType = NODE_GetType(hNode);
 	if (nodeType != NODE_TASK && nodeType != NODE_DAISSOCKET)
@@ -1993,7 +2013,6 @@ func_cont:
 		}
 	}
 func_end:
-	dev_dbg(bridge, "%s: hNode: %p status 0x%x\n", __func__, hNode, status);
 	return status;
 }
 
@@ -2019,6 +2038,9 @@ DSP_STATUS NODE_PutMessage(struct NODE_OBJECT *hNode,
 
 	DBC_Require(cRefs > 0);
 	DBC_Require(pMsg != NULL);
+	GT_3trace(NODE_debugMask, GT_ENTER,
+		 "NODE_PutMessage: hNode: 0x%x\tpMsg: "
+		 "0x%x\tuTimeout: 0x%x\n", hNode, pMsg, uTimeout);
 
 	hProcessor = hNode->hProcessor;
 	status = PROC_GetState(hProcessor, &procStatus,
@@ -2087,8 +2109,6 @@ DSP_STATUS NODE_PutMessage(struct NODE_OBJECT *hNode,
 			 &newMsg, uTimeout);
 	}
 func_end:
-	dev_dbg(bridge, "%s: hNode: %p pMsg: %p uTimeout: 0x%x, "
-		"status 0x%x\n", __func__, hNode, pMsg, uTimeout, status);
 	return status;
 }
 
@@ -2106,6 +2126,11 @@ DSP_STATUS NODE_RegisterNotify(struct NODE_OBJECT *hNode, u32 uEventMask,
 
 	DBC_Require(cRefs > 0);
 	DBC_Require(hNotification != NULL);
+
+	GT_4trace(NODE_debugMask, GT_ENTER,
+		 "NODE_RegisterNotify: hNode: 0x%x\t"
+		 "uEventMask: 0x%x\tuNotifyType: 0x%x\thNotification: 0x%x\n",
+		 hNode, uEventMask, uNotifyType, hNotification);
 
 	/* Check if event mask is a valid node related event */
 	if (uEventMask & ~(DSP_NODESTATECHANGE |
@@ -2136,9 +2161,6 @@ DSP_STATUS NODE_RegisterNotify(struct NODE_OBJECT *hNode, u32 uEventMask,
 		}
 
 	}
-	dev_dbg(bridge, "%s: hNode: %p uEventMask: 0x%x uNotifyType: 0x%x "
-			"hNotification: %p status 0x%x\n", __func__, hNode,
-			uEventMask, uNotifyType, hNotification, status);
 	return status;
 }
 
@@ -2164,6 +2186,7 @@ DSP_STATUS NODE_Run(struct NODE_OBJECT *hNode)
 	struct PROC_OBJECT *hProcessor;
 
 	DBC_Require(cRefs > 0);
+	GT_1trace(NODE_debugMask, GT_ENTER, "NODE_Run: hNode: 0x%x\n", hNode);
 
 	hProcessor = hNode->hProcessor;
 	status = PROC_GetState(hProcessor, &procStatus,
@@ -2256,7 +2279,6 @@ func_cont:
 		NTFY_Notify(hNode->hNtfy, DSP_NODESTATECHANGE);
 	}
 func_end:
-	dev_dbg(bridge, "%s: hNode: %p status 0x%x\n", __func__, hNode, status);
 	return status;
 }
 
@@ -2282,6 +2304,8 @@ DSP_STATUS NODE_Terminate(struct NODE_OBJECT *hNode, OUT DSP_STATUS *pStatus)
 	DBC_Require(cRefs > 0);
 	DBC_Require(pStatus != NULL);
 
+	GT_1trace(NODE_debugMask, GT_ENTER,
+		 "NODE_Terminate: hNode: 0x%x\n", hNode);
 	if (!hNode->hNodeMgr) {
 		status = DSP_EHANDLE;
 		goto func_end;
@@ -2395,8 +2419,9 @@ func_cont:
 			status = DSP_EFAIL;
 		} else {
 			*pStatus = hNode->nExitStatus;
-			dev_dbg(bridge, "%s: hNode: %p env 0x%x status 0x%x\n",
-				__func__, hNode, hNode->nodeEnv, status);
+			GT_1trace(NODE_debugMask, GT_ENTER,
+				 "NODE_Terminate: env = 0x%x "
+				 "succeeded.\n", hNode->nodeEnv);
 		}
 		(void)SYNC_LeaveCS(hNodeMgr->hSync);
 	}		/*End of SYNC_EnterCS */
@@ -2800,7 +2825,9 @@ static DSP_STATUS GetNodeProps(struct DCD_MANAGER *hDcdMgr,
 	enum NODE_TYPE nodeType = NODE_TASK;
 	struct DSP_NDBPROPS *pndbProps = &(pdcdProps->objData.nodeObj.ndbProps);
 	DSP_STATUS status = DSP_SOK;
+#ifdef CONFIG_BRIDGE_DEBUG
 	char szUuid[MAXUUIDLEN];
+#endif
 
 	status = DCD_GetObjectDef(hDcdMgr, (struct DSP_UUID *)pNodeId,
 				 DSP_DCDNODETYPE, pdcdProps);
@@ -2808,10 +2835,12 @@ static DSP_STATUS GetNodeProps(struct DCD_MANAGER *hDcdMgr,
 	if (DSP_SUCCEEDED(status)) {
 		hNode->nType = nodeType = pndbProps->uNodeType;
 
+#ifdef CONFIG_BRIDGE_DEBUG
 		/* Create UUID value to set in registry. */
 		UUID_UuidToString((struct DSP_UUID *)pNodeId, szUuid,
 				 MAXUUIDLEN);
-		dev_dbg(bridge, "(node) UUID: %s\n", szUuid);
+		DBG_Trace(DBG_LEVEL7, "\n** (node) UUID: %s\n", szUuid);
+#endif
 
 		/* Fill in message args that come from NDB */
 		if (nodeType != NODE_DEVICE) {
@@ -2820,8 +2849,11 @@ static DSP_STATUS GetNodeProps(struct DCD_MANAGER *hDcdMgr,
 			pMsgArgs->uNotifyType = pdcdProps->objData.nodeObj.
 						uMsgNotifyType;
 			pMsgArgs->uMaxMessages = pndbProps->uMessageDepth;
-			dev_dbg(bridge, "(node) Max Number of Messages: 0x%x\n",
+#ifdef CONFIG_BRIDGE_DEBUG
+			DBG_Trace(DBG_LEVEL7,
+				 "** (node) Max Number of Messages: 0x%x\n",
 				 pMsgArgs->uMaxMessages);
+#endif
 		} else {
 			/* Copy device name */
 			DBC_Require(pndbProps->acName);
@@ -2844,13 +2876,18 @@ static DSP_STATUS GetNodeProps(struct DCD_MANAGER *hDcdMgr,
 			pTaskArgs->uStackSize = pndbProps->uStackSize;
 			pTaskArgs->uSysStackSize = pndbProps->uSysStackSize;
 			pTaskArgs->uStackSeg = pndbProps->uStackSeg;
-			dev_dbg(bridge, "(node) Priority: 0x%x Stack Size: "
-				"0x%x words System Stack Size: 0x%x words "
-				"Stack Segment: 0x%x profile count : 0x%x\n",
+#ifdef CONFIG_BRIDGE_DEBUG
+			DBG_Trace(DBG_LEVEL7,
+				"** (node) Priority: 0x%x\n" "** (node) Stack"
+				" Size: 0x%x words\n" "** (node) System Stack"
+				" Size: 0x%x words\n" "** (node) Stack"
+				" Segment: 0x%x\n\n",
+				"** (node) profile count : 0x%x \n \n",
 				pTaskArgs->nPriority, pTaskArgs->uStackSize,
 				pTaskArgs->uSysStackSize,
 				pTaskArgs->uStackSeg,
 				pndbProps->uCountProfiles);
+#endif
 		}
 	}
 
@@ -3007,12 +3044,14 @@ static DSP_STATUS GetRMSFxns(struct NODE_MGR *hNodeMgr)
 				 *  May be loaded dynamically (in the future),
 				 *  but return an error for now.
 				 */
-				dev_dbg(bridge, "%s: RMS function: %s currently"
-					 " not loaded\n", __func__, pszFxns[i]);
+				GT_1trace(NODE_debugMask, GT_6CLASS,
+					 "RMS function: %s "
+					 "currently not loaded\n", pszFxns[i]);
 			} else {
-				dev_dbg(bridge, "%s: Symbol not found: %s "
-						"status = 0x%x\n", __func__,
-						pszFxns[i], status);
+				GT_2trace(NODE_debugMask, GT_6CLASS,
+					 "GetRMSFxns: Symbol not "
+					 "found: %s\tstatus = 0x%x\n",
+					 pszFxns[i], status);
 				break;
 			}
 		}

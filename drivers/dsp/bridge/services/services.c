@@ -24,9 +24,11 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
+#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
+#include <dspbridge/dbg.h>
 #include <dspbridge/mem.h>
 #include <dspbridge/ntfy.h>
 #include <dspbridge/reg.h>
@@ -35,6 +37,11 @@
 
 /*  ----------------------------------- This */
 #include <dspbridge/services.h>
+
+/*  ----------------------------------- Globals */
+#if GT_TRACE
+static struct GT_Mask SERVICES_debugMask = { NULL, NULL };  /* GT trace var. */
+#endif
 
 /*
  *  ======== SERVICES_Exit ========
@@ -49,8 +56,11 @@ void SERVICES_Exit(void)
 	SYNC_Exit();
 	CLK_Exit();
 	REG_Exit();
+	DBG_Exit();
 	CFG_Exit();
 	MEM_Exit();
+
+	GT_exit();
 }
 
 /*
@@ -61,18 +71,22 @@ void SERVICES_Exit(void)
 bool SERVICES_Init(void)
 {
 	bool fInit = true;
-	bool fCFG, fMEM;
+	bool fCFG, fDBG, fMEM;
 	bool fREG, fSYNC, fCLK, fNTFY;
+
+	GT_init();
+	GT_create(&SERVICES_debugMask, "OS");	/* OS for OSal */
 
 	/* Perform required initialization of SERVICES modules. */
 	fMEM = MEM_Init();
 	fSYNC = SYNC_Init();
 	fREG = REG_Init();
 	fCFG = CFG_Init();
+	fDBG = DBG_Init();
 	fCLK  = CLK_Init();
 	fNTFY = NTFY_Init();
 
-	fInit = fCFG && fMEM && fREG && fSYNC && fCLK;
+	fInit = fCFG && fDBG && fMEM && fREG && fSYNC && fCLK;
 
 	if (!fInit) {
 		if (fNTFY)
@@ -86,6 +100,9 @@ bool SERVICES_Init(void)
 
 		if (fREG)
 			REG_Exit();
+
+		if (fDBG)
+			DBG_Exit();
 
 		if (fCFG)
 			CFG_Exit();
