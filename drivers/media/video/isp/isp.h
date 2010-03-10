@@ -332,15 +332,19 @@ struct isp_pipeline {
 };
 
 #define CCDC_CAPTURE(isp)					\
-	((isp)->pipeline.modules == OMAP_ISP_CCDC)
+	(!((isp)->pipeline.modules & OMAP_ISP_PREVIEW) && \
+	 !((isp)->pipeline.modules & OMAP_ISP_RESIZER) && \
+	 ((isp)->pipeline.modules & OMAP_ISP_CCDC))
 
 #define CCDC_PREV_CAPTURE(isp)					\
-	((isp)->pipeline.modules == (OMAP_ISP_CCDC | OMAP_ISP_PREVIEW))
+	(((isp)->pipeline.modules & OMAP_ISP_CCDC) && \
+	 ((isp)->pipeline.modules & OMAP_ISP_PREVIEW) && \
+	 !((isp)->pipeline.modules & OMAP_ISP_RESIZER))
 
 #define CCDC_PREV_RESZ_CAPTURE(isp)				\
-	((isp)->pipeline.modules == (OMAP_ISP_CCDC | \
-				     OMAP_ISP_PREVIEW | \
-				     OMAP_ISP_RESIZER))
+	(((isp)->pipeline.modules & OMAP_ISP_CCDC) && \
+	 ((isp)->pipeline.modules & OMAP_ISP_PREVIEW) && \
+	 ((isp)->pipeline.modules & OMAP_ISP_RESIZER))
 
 /**
  * struct isp_device - ISP device structure.

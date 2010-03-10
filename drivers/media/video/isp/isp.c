@@ -341,7 +341,7 @@ static void isp_enable_interrupts(struct device *dev)
 	u32 irq0enable;
 
 	irq0enable = IRQ0ENABLE_CCDC_VD0_IRQ
-		| IRQ0ENABLE_CSIA_IRQ
+		| IRQ0ENABLE_CSIA_IRQ | IRQ0ENABLE_CSIB_LCM_IRQ
 		| IRQ0ENABLE_CSIB_LC0_IRQ | IRQ0ENABLE_HIST_DONE_IRQ
 		| IRQ0ENABLE_H3A_AWB_DONE_IRQ | IRQ0ENABLE_H3A_AF_DONE_IRQ
 		| isp->interrupts;
@@ -372,7 +372,7 @@ static void isp_disable_interrupts(struct device *dev)
 	u32 irq0enable;
 
 	irq0enable = ~(IRQ0ENABLE_CCDC_VD0_IRQ
-		| IRQ0ENABLE_CSIA_IRQ
+		| IRQ0ENABLE_CSIA_IRQ | IRQ0ENABLE_CSIB_LCM_IRQ
 		| IRQ0ENABLE_CSIB_LC0_IRQ | IRQ0ENABLE_HIST_DONE_IRQ
 		| IRQ0ENABLE_H3A_AWB_DONE_IRQ | IRQ0ENABLE_H3A_AF_DONE_IRQ
 		| isp->interrupts);
@@ -765,6 +765,28 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	wait_hs_vs = bufs->wait_hs_vs;
 	if (irqstatus & CCDC_VD0 && bufs->wait_hs_vs)
 		bufs->wait_hs_vs--;
+
+	/* Decrement value also with CSI2 Rx only case*/
+	if ((irqstatus & CSIA) &&
+	    (isp->pipeline.modules == OMAP_ISP_CSIARX) &&
+	    bufs->wait_hs_vs) {
+		u32 csi2_irqstatus = isp_reg_readl(dev,
+						   OMAP3_ISP_IOMEM_CSI2A,
+						   ISPCSI2_IRQSTATUS);
+		isp_reg_writel(dev, csi2_irqstatus,
+			       OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_IRQSTATUS);
+		if (csi2_irqstatus & ISPCSI2_IRQSTATUS_CONTEXT(0)) {
+			u32 ctxirqstatus = isp_reg_readl(dev,
+						OMAP3_ISP_IOMEM_CSI2A,
+						ISPCSI2_CTX_IRQSTATUS(0));
+			isp_reg_writel(dev, ctxirqstatus,
+				       OMAP3_ISP_IOMEM_CSI2A,
+				       ISPCSI2_CTX_IRQSTATUS(0));
+			if (ctxirqstatus & ISPCSI2_CTX_IRQSTATUS_FE_IRQ)
+				bufs->wait_hs_vs--;
+		}
+
+	}
 	/*
 	 * We need to wait for the first HS_VS interrupt from CCDC.
 	 * Otherwise our frame (and everything else) might be bad.
@@ -781,7 +803,6 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 			 * do not check resizer busy now.
 			 */
 			if ((isp->pipeline.modules & OMAP_ISP_RESIZER) &&
-			    (isp->pipeline.rsz_in == RSZ_OTFLY_YUV) &&
 			    !(isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ,
 					    ISPRSZ_PCR) & (ISPRSZ_PCR_ENABLE |
 					    ISPRSZ_PCR_BUSY))) {
@@ -811,21 +832,11 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 		if (irqstatus & CSIA)
 			isp_csi2_isr(&isp->isp_csi2);
 
-		if (irqstatus & IRQ0STATUS_CSIB_LC0_IRQ) {
-			u32 csib;
-
-			csib = isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCP2,
-					     ISPCSI1_LC01_IRQSTATUS);
-			isp_reg_writel(dev, csib, OMAP3_ISP_IOMEM_CCP2,
-				       ISPCSI1_LC01_IRQSTATUS);
-		}
-
 		if (!(irqstatus & RESZ_DONE) || CCDC_PREV_RESZ_CAPTURE(isp))
 			goto out_ignore_buff;
 	case 0:
 		break;
 	}
-
 	buf = ISP_BUF_DONE(bufs);
 
 	if (irqstatus & LSC_PRE_ERR) {
@@ -871,6 +882,13 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 		}
 		if (ispcsi1_lcm_irqstatus & ISPCSI1_LCM_IRQSTATUS_LCM_EOF)
 			dev_err(dev, "CCP2 EOF\n");
+	}
+
+	if (irqstatus & IRQ0STATUS_CSIB_LCM_IRQ) {
+		isp_reg_writel(dev, ISPCSI1_LCM_IRQSTATUS_LCM_OCPERROR |
+				    ISPCSI1_LCM_IRQSTATUS_LCM_EOF,
+				    OMAP3_ISP_IOMEM_CCP2,
+				    ISPCSI1_LCM_IRQSTATUS);
 	}
 
 	if (irqstatus & RESZ_DONE) {
@@ -1673,6 +1691,7 @@ static void isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 	} else {
 		/* Tell ISP not to write any of our buffers. */
 		isp_disable_interrupts(dev);
+		bufs->wait_hs_vs = 1;
 	}
 
 	/* Mark the current buffer as done. */
@@ -1743,7 +1762,6 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 		 * CCDC may trigger interrupts even if it's not
 		 * receiving a frame.
 		 */
-		bufs->wait_hs_vs++;
 		isp_enable_interrupts(dev);
 		isp_set_buf(dev, buf);
 		isp_af_try_enable(&isp->isp_af);
