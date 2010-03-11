@@ -560,9 +560,10 @@ static void _dispc_write_firv_reg(enum omap_plane plane, int reg, u32 value)
 static void _dispc_set_scale_coef(enum omap_plane plane,
 			u16 orig_width, u16 out_width,
 			u16 orig_height, u16 out_height,
-			int five_taps, bool vdma)
+			int five_taps, bool vdma,
+			bool flicker_filter, int flicker_filter_level)
 {
-	unsigned long reg, mval, rem_ratio;
+	unsigned long reg, mval, rem_ratio, default_mval;
 	short int vc_3tap[3][8];
 	short int vc[5][8];
 	short int hc[5][8];
@@ -692,6 +693,9 @@ static void _dispc_set_scale_coef(enum omap_plane plane,
 		{34,	31,	27,	24,	45,	42,	39,	37},
 		{7,	4,	1,	-1,	21,	17,	14,	10} };
 
+	const static short int coeff_mvals[12] =
+		{8, 9, 10, 11, 12, 13, 14, 16, 19, 22, 26, 32};
+
 	/* Select the coefficients based on the ratio - height/vertical */
 	if (out_height != 0 && five_taps) {
 		if ((out_height != orig_height) || vdma) {
@@ -704,6 +708,66 @@ static void _dispc_set_scale_coef(enum omap_plane plane,
 			} else {
 				mval = (8 * orig_height) / out_height;
 			}
+
+			/* if flicker filter is ON then calculate
+			 * the corresponding vertical coeff table
+			*/
+			if (flicker_filter) {
+				switch (mval) {
+				case 8:
+				case 9:
+				case 10:
+				case 11:
+				case 12:
+				case 13:
+				case 14:
+					default_mval = mval;
+					break;
+				case 15:
+				case 16:
+					default_mval = 16;
+					break;
+				case 17:
+				case 18:
+				case 19:
+					default_mval = 19;
+					break;
+				case 20:
+				case 21:
+				case 22:
+					default_mval = 22;
+					break;
+				case 23:
+				case 24:
+				case 25:
+				case 26:
+					default_mval = 26;
+					break;
+				case 27:
+				case 28:
+				case 29:
+				case 30:
+				case 31:
+				case 32:
+					default_mval = 32;
+					break;
+				default:
+					default_mval = 8;
+
+				}
+
+				for (i = 0; i < sizeof(coeff_mvals); i++) {
+					if (coeff_mvals[i] == default_mval)
+						break;
+				}
+				/*get the requested frequency coeff table*/
+				mval = coeff_mvals[i + flicker_filter_level];
+			}
+
+			DSSINFO("<%s> Applying flicker_filter [%d], "
+				"Filter_level [%d], mval [%lu]\n",
+				__func__, flicker_filter,
+				flicker_filter_level, mval);
 
 			switch (mval) {
 			case 8:
@@ -1259,7 +1323,8 @@ static void _dispc_set_scaling(enum omap_plane plane,
 		u16 orig_width, u16 orig_height,
 		u16 out_width, u16 out_height,
 		bool ilace, bool five_taps,
-		bool fieldmode, bool vdma)
+		bool fieldmode, bool vdma,
+		bool flicker_filter, int flicker_filter_level)
 {
 	int fir_hinc;
 	int fir_vinc;
@@ -1275,7 +1340,8 @@ static void _dispc_set_scaling(enum omap_plane plane,
 
 	/* New filter coefficients integration */
 	_dispc_set_scale_coef(plane, orig_width, out_width,
-			orig_height, out_height, five_taps, vdma);
+			orig_height, out_height, five_taps, vdma,
+			flicker_filter, flicker_filter_level);
 
 	if (!orig_width || (!vdma && (orig_width == out_width)))
 		fir_hinc = 0;
@@ -1719,9 +1785,11 @@ static int _dispc_setup_plane(enum omap_plane plane,
 		enum omap_dss_rotation_type rotation_type,
 		u8 rotation, int mirror,
 		u8 global_alpha,
-		u8 pre_alpha_mult)
+		u8 pre_alpha_mult,
+		bool flicker_filter, int flicker_filter_level)
 {
-	const int maxdownscale = cpu_is_omap34xx() ? 4 : 2;
+	const int maxdownscale = (cpu_is_omap34xx() ||
+				  cpu_is_omap3630()) ? 4 : 2;
 	bool five_taps = 1;
 	bool fieldmode = 0;
 	int cconv = 0;
@@ -1734,7 +1802,7 @@ static int _dispc_setup_plane(enum omap_plane plane,
 	if (paddr == 0)
 		return -EINVAL;
 
-	if (ilace && height == out_height)
+	if (ilace && (height == out_height) && !flicker_filter)
 		fieldmode = 1;
 
 	if (ilace) {
@@ -1879,12 +1947,14 @@ static int _dispc_setup_plane(enum omap_plane plane,
 		if (dispc_is_vdma_req(rotation, color_mode)) {
 			_dispc_set_scaling(plane, width, height,
 				out_width, out_height,
-				ilace, five_taps, fieldmode, 1);
+				ilace, five_taps, fieldmode, 1,
+				flicker_filter, flicker_filter_level);
 			_dispc_set_vdma_attrs(plane, 1);
 		} else {
 			_dispc_set_scaling(plane, width, height,
 				out_width, out_height,
-				ilace, five_taps, fieldmode, 0);
+				ilace, five_taps, fieldmode, 0,
+				flicker_filter, flicker_filter_level);
 			_dispc_set_vdma_attrs(plane, 0);
 		}
 		_dispc_set_vid_size(plane, out_width, out_height);
@@ -3508,17 +3578,20 @@ int dispc_setup_plane(enum omap_plane plane,
 		       bool ilace,
 		       enum omap_dss_rotation_type rotation_type,
 		       u8 rotation, bool mirror, u8 global_alpha,
-		       u8 pre_alpha_mult)
+		       u8 pre_alpha_mult,
+		       bool flicker_filter, int flicker_filter_level)
 {
 	int r = 0;
 
 	DSSDBG("dispc_setup_plane %d, pa %x, sw %d, %d,%d, %dx%d -> "
-	       "%dx%d, ilace %d, cmode %x, rot %d, mir %d\n",
+	       "%dx%d, ilace %d, cmode %x, rot %d, mir %d "
+	       "flicker_filter %d flicker_filter_level %d\n",
 	       plane, paddr, screen_width, pos_x, pos_y,
 	       width, height,
 	       out_width, out_height,
 	       ilace, color_mode,
-	       rotation, mirror);
+	       rotation, mirror,
+	       flicker_filter, flicker_filter_level);
 
 	enable_clocks(1);
 
@@ -3531,7 +3604,8 @@ int dispc_setup_plane(enum omap_plane plane,
 			   rotation_type,
 			   rotation, mirror,
 			   global_alpha,
-			   pre_alpha_mult);
+			   pre_alpha_mult,
+			   flicker_filter, flicker_filter_level);
 
 	enable_clocks(0);
 

@@ -283,6 +283,53 @@ static ssize_t overlay_pre_alpha_multiplication_store(struct omap_overlay *ovl,
 	return size;
 }
 
+static ssize_t overlay_flicker_filter_show(struct omap_overlay *ovl, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			ovl->info.flicker_filter_level);
+}
+
+static ssize_t overlay_flicker_filter_store(struct omap_overlay *ovl,
+		const char *buf, size_t size)
+{
+	int r;
+	struct omap_overlay_info info;
+
+	ovl->get_overlay_info(ovl, &info);
+
+	/* This is supported only on VID1 overlay
+	 */
+	if (ovl->id != OMAP_DSS_GFX) {
+		info.flicker_filter = 1;
+		info.flicker_filter_level = simple_strtol(buf, NULL, 10);
+
+		/* turn off the flicker filter for values
+		 * other than -2 to +2 range
+		 */
+		if (info.flicker_filter_level > 2 ||
+		    info.flicker_filter_level < -2) {
+			printk(KERN_ERR "Turning off the flicker filter\n");
+			info.flicker_filter = 0;
+			info.flicker_filter_level = 0;
+		}
+	} else {
+		printk(KERN_ERR "apply this filter only on VID overlay's");
+		return -EINVAL;
+	}
+
+	r = ovl->set_overlay_info(ovl, &info);
+	if (r)
+		return r;
+
+	if (ovl->manager) {
+		r = ovl->manager->apply(ovl->manager);
+		if (r)
+			return r;
+	}
+
+	return size;
+}
+
 struct overlay_attribute {
 	struct attribute attr;
 	ssize_t (*show)(struct omap_overlay *, char *);
@@ -309,6 +356,8 @@ static OVERLAY_ATTR(global_alpha, S_IRUGO|S_IWUSR,
 static OVERLAY_ATTR(pre_alpha_multiplication, S_IRUGO|S_IWUSR,
 		overlay_pre_alpha_multiplication_show,
 		overlay_pre_alpha_multiplication_store);
+static OVERLAY_ATTR(flicker_filter, S_IRUGO|S_IWUSR,
+		overlay_flicker_filter_show, overlay_flicker_filter_store);
 
 static struct attribute *overlay_sysfs_attrs[] = {
 	&overlay_attr_name.attr,
@@ -320,6 +369,7 @@ static struct attribute *overlay_sysfs_attrs[] = {
 	&overlay_attr_enabled.attr,
 	&overlay_attr_global_alpha.attr,
 	&overlay_attr_pre_alpha_multiplication.attr,
+	&overlay_attr_flicker_filter.attr,
 	NULL
 };
 

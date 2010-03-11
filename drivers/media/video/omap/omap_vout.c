@@ -879,6 +879,8 @@ int omapvid_setup_overlay(struct omap_vout_device *vout,
 	info.pos_y = posy;
 	info.out_width = outw;
 	info.out_height = outh;
+	info.flicker_filter = vout->flicker_filter;
+	info.flicker_filter_level = 0;
 	if (!rotation_enabled(vout->rotation)) {
 		info.rotation = 0;
 		info.rotation_type = OMAP_DSS_ROT_DMA;
