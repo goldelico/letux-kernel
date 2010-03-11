@@ -47,8 +47,8 @@
  * legacy rfkill support where-in 3 rfkill
  * devices are created for the 3 gpios
  * that ST has requested
-#define LEGACY_RFKILL_SUPPORT
  */
+#define LEGACY_RFKILL_SUPPORT
 /*
  * header file for ST provided by KIM
  */

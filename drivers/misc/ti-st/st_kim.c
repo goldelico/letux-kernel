@@ -98,6 +98,10 @@ const unsigned char *protocol_names[] = {
 	PROTO_ENTRY(ST_FM, "FM"),
 	PROTO_ENTRY(ST_GPS, "GPS"),
 };
+static int kim_toggle_radio(void*, bool);
+static const struct rfkill_ops kim_rfkill_ops = {
+	.set_block = kim_toggle_radio,
+};
 
 static struct kim_data_s *kim_gdata;
 
@@ -541,29 +545,26 @@ static ssize_t show_list(struct device *dev, struct device_attribute
  * user space would write 0/1 on the sysfs entry
  * /sys/class/rfkill/rfkill0,1,3/state
  */
-static int kim_toggle_radio(void *data, enum rfkill_state state)
+static int kim_toggle_radio(void *data, bool blocked)
 {
-	enum proto_type type = (enum proto_type)data;
-	ST_KIM_DBG(" %s ", __func__);
-	if (type == ST_BT) {
-		/* Configure BT nShutdown to HIGH state */
-		gpio_set_value(kim_gdata->gpios[ST_BT], GPIO_LOW);
-		mdelay(1);	/* FIXME: a proper toggle */
-		gpio_set_value(kim_gdata->gpios[ST_BT], GPIO_HIGH);
+	enum proto_type type = *((enum proto_type*)data);
+	ST_KIM_DBG(" %s: %d ", __func__, type);
 
-		if (state == RFKILL_STATE_SOFT_BLOCKED)
-			gpio_set_value(kim_gdata->gpios[ST_BT], GPIO_LOW);
-	}
-
-	switch (state) {
-	case RFKILL_STATE_UNBLOCKED:
-		st_kim_chip_toggle(type, KIM_GPIO_ACTIVE);
+	switch (type)
+	{
+		case ST_BT:
+			/* do nothing */
 		break;
-	case RFKILL_STATE_SOFT_BLOCKED:
-		st_kim_chip_toggle(type, KIM_GPIO_INACTIVE);
+		case ST_FM:
+		case ST_GPS:
+			if (blocked)
+				st_kim_chip_toggle(type, KIM_GPIO_INACTIVE);
+			else
+				st_kim_chip_toggle(type, KIM_GPIO_ACTIVE);
 		break;
-	default:
-		printk(KERN_ERR "invalid rfkill state %d", state);
+		case ST_MAX:
+			ST_KIM_ERR(" wrong proto type ");
+		break;
 	}
 	return ST_SUCCESS;
 }
@@ -641,25 +642,19 @@ static int kim_probe(struct platform_device *pdev)
 #ifdef LEGACY_RFKILL_SUPPORT
 	for (proto = 0; (proto < ST_MAX) && (gpios[proto] != -1); proto++) {
 		/* TODO: should all types be rfkill_type_bt ? */
-		kim_gdata->rfkill[proto] = rfkill_allocate(&pdev->dev,
-					   RFKILL_TYPE_BLUETOOTH);
+		kim_gdata->rfkill[proto] = rfkill_alloc(protocol_names[proto],
+			&pdev->dev, RFKILL_TYPE_BLUETOOTH,
+			&kim_rfkill_ops, &proto);
 		if (kim_gdata->rfkill[proto] == NULL) {
 			ST_KIM_ERR("cannot create rfkill entry for gpio %ld",
 				   gpios[proto]);
 			continue;
 		}
-		kim_gdata->rfkill[proto]->name = protocol_names[proto];
-		kim_gdata->rfkill[proto]->state = RFKILL_STATE_SOFT_BLOCKED;
-		kim_gdata->rfkill[proto]->user_claim_unsupported = 1;
-		kim_gdata->rfkill[proto]->user_claim = 0;
-		/* sending protocol id instead of gpio */
-		kim_gdata->rfkill[proto]->data = (void *)proto;
-		kim_gdata->rfkill[proto]->toggle_radio = kim_toggle_radio;
 		status = rfkill_register(kim_gdata->rfkill[proto]);
 		if (unlikely(status)) {
 			ST_KIM_ERR("rfkill registration failed for gpio %ld",
 				   gpios[proto]);
-			rfkill_free(kim_gdata->rfkill[proto]);
+			rfkill_unregister(kim_gdata->rfkill[proto]);
 			continue;
 		}
 		ST_KIM_DBG("rfkill entry created for %ld", gpios[proto]);
@@ -682,6 +677,7 @@ static int kim_remove(struct platform_device *pdev)
 		gpio_free(gpios[proto]);
 #ifdef LEGACY_RFKILL_SUPPORT
 		rfkill_unregister(kim_gdata->rfkill[proto]);
+		rfkill_destroy(kim_gdata->rfkill[proto]);
 		kim_gdata->rfkill[proto] = NULL;
 #endif
 	}
