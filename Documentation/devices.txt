@@ -2801,6 +2801,11 @@ Your cooperation is appreciated.
 		 210 = /dev/ttyMAX1		MAX3100 serial port 1
 		 211 = /dev/ttyMAX2		MAX3100 serial port 2
 		 212 = /dev/ttyMAX3		MAX3100 serial port 3
+		 213 = /dev/ttyO0		OMAP serial port 0
+		 214 = /dev/ttyO1		OMAP serial port 1
+		 215 = /dev/ttyO2		OMAP serial port 2
+		 216 = /dev/ttyO3		OMAP serial port 3
+
 
 205 char	Low-density serial ports (alternate device)
 		  0 = /dev/culu0		Callout device for ttyLU0

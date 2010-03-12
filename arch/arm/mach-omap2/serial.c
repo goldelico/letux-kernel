@@ -23,7 +23,6 @@
 #include <linux/serial_reg.h>
 #include <linux/clk.h>
 #include <linux/io.h>
-#include <linux/delay.h>
 
 #include <plat/common.h>
 #include <plat/board.h>
@@ -753,25 +752,26 @@ static void omap_uart_early_port_init(struct omap_uart_state *uart)
 {
 	switch (uart->num) {
 	case 0:
-		uart->irq 	= INT_24XX_UART1_IRQ;
-		uart->mapbase 	= OMAP_UART1_BASE;
+		uart->irq	= INT_24XX_UART1_IRQ;
+		uart->mapbase	= OMAP_UART1_BASE;
 		break;
 	case 1:
-		uart->irq 	= INT_24XX_UART2_IRQ;
-		uart->mapbase 	= OMAP_UART2_BASE;
+		uart->irq	= INT_24XX_UART2_IRQ;
+		uart->mapbase	= OMAP_UART2_BASE;
 		break;
 	case 2:
-		uart->irq 	= INT_24XX_UART3_IRQ;
-		uart->mapbase 	= OMAP_UART3_BASE;
+		uart->irq	= INT_24XX_UART3_IRQ;
+		uart->mapbase	= OMAP_UART3_BASE;
 		break;
 #ifdef CONFIG_ARCH_OMAP4
 	case 3:
-		uart->irq 	= 70;
-		uart->mapbase 	= OMAP_UART4_BASE;
+		uart->irq	= 70;
+		uart->mapbase	= OMAP_UART4_BASE;
 		break;
 #endif
 	}
 	uart->regshift = 2;
+	uart->irqflags = IRQF_SHARED;
 }
 
 void __init omap_serial_early_init(void)
@@ -876,11 +876,12 @@ void __init omap_serial_init_port(int port)
 	 * omap3xxx: Never read empty UART fifo on UARTs
 	 * with IP rev >=0x52
 	 */
-	if (cpu_is_omap44xx())
+	if (cpu_is_omap44xx()) {
 		p->serial_in = serial_in_override;
-	else if ((serial_read_reg(uart, UART_OMAP_MVER) & 0xFF)
-			>= UART_OMAP_NO_EMPTY_FIFO_READ_IP_REV)
+	} else if ((serial_read_reg(uart, UART_OMAP_MVER) & 0xFF)
+			>= UART_OMAP_NO_EMPTY_FIFO_READ_IP_REV) {
 		p->serial_in = serial_in_override;
+	}
 #endif
 
 	if (WARN_ON(platform_device_register(pdev)))

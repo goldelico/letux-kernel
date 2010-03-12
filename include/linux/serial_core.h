@@ -179,8 +179,11 @@
 /* BCM63xx family SoCs */
 #define PORT_BCM63XX	89
 
-/* TI OMAP CONSOLE */
-#define PORT_OMAP	86
+/* Aeroflex Gaisler GRLIB APBUART */
+#define PORT_APBUART    90
+
+/* TI OMAP-UART */
+#define PORT_OMAP	91
 
 #ifdef __KERNEL__
 
