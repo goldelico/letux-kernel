@@ -482,6 +482,12 @@ void omap_sram_idle(void)
 		disable_smartreflex(SR2);
 
 	/* CORE */
+	if (core_next_state <= PWRDM_POWER_RET) {
+		set_dpll3_volt_freq(0);
+		cm_rmw_mod_reg_bits(OMAP3430_AUTO_CORE_DPLL_MASK,
+						0x1, PLL_MOD, CM_AUTOIDLE);
+	}
+
 	if (core_next_state < PWRDM_POWER_ON) {
 		omap_uart_prepare_idle(0, core_next_state & core_logic_state);
 		omap_uart_prepare_idle(1, core_next_state & core_logic_state);
@@ -618,6 +624,11 @@ void omap_sram_idle(void)
 	/* Re-enable interrupt controller autoidle */
 	omap3_intc_autoidle(1);
 
+	if (core_next_state <= PWRDM_POWER_RET) {
+		cm_rmw_mod_reg_bits(OMAP3430_AUTO_CORE_DPLL_MASK,
+						0x0, PLL_MOD, CM_AUTOIDLE);
+		set_dpll3_volt_freq(1);
+	}
 	/*
 	 * Enable smartreflex after WFI. Only needed if we entered
 	 * retention or off
@@ -657,6 +668,7 @@ void omap_sram_idle(void)
 	pwrdm_post_transition();
 
 }
+
 
 int omap3_can_sleep(void)
 {

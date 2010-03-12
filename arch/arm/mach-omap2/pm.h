@@ -68,6 +68,7 @@ extern int omap3_pm_get_suspend_state(struct powerdomain *pwrdm);
 extern int omap3_pm_set_suspend_state(struct powerdomain *pwrdm, int state);
 extern void omap3_set_prm_setup_vc(struct prm_setup_vc *setup_vc);
 extern int omap3_bypass_cmd(u8 slave_addr, u8 reg_addr, u8 cmd);
+extern int set_dpll3_volt_freq(bool dpll3_restore);
 #else
 #define omap3_pm_off_mode_enable(int) do {} while (0);
 #define omap3_pm_get_suspend_state(pwrdm) do {} while (0);
