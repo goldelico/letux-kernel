@@ -469,6 +469,12 @@ if (pwrdm_read_pwrst(cam_pwrdm) == PWRDM_POWER_ON)
 		disable_smartreflex(SR2);
 
 	/* CORE */
+	if (core_next_state <= PWRDM_POWER_RET) {
+		set_dpll3_volt_freq(0);
+		cm_rmw_mod_reg_bits(OMAP3430_AUTO_CORE_DPLL_MASK,
+						0x1, PLL_MOD, CM_AUTOIDLE);
+	}
+
 	if (core_next_state < PWRDM_POWER_ON) {
 		omap_uart_prepare_idle(0);
 		omap_uart_prepare_idle(1);
@@ -568,6 +574,11 @@ if (core_next_state < PWRDM_POWER_ON) {
 	}
 	omap3_intc_resume_idle();
 
+	if (core_next_state <= PWRDM_POWER_RET) {
+		cm_rmw_mod_reg_bits(OMAP3430_AUTO_CORE_DPLL_MASK,
+						0x0, PLL_MOD, CM_AUTOIDLE);
+		set_dpll3_volt_freq(1);
+	}
 	/*
 	 * Enable smartreflex after WFI. Only needed if we entered
 	 * retention or off
@@ -617,6 +628,7 @@ if (core_next_state < PWRDM_POWER_ON) {
 
 	omap2_clkdm_allow_idle(mpu_pwrdm->pwrdm_clkdms[0]);
 }
+
 
 int omap3_can_sleep(void)
 {

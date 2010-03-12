@@ -460,3 +460,83 @@ int validate_freq(struct shared_resource *resp, u32 target_level)
 {
 	return 0;
 }
+
+static u8 vdd2_save_opp;
+int set_dpll3_volt_freq(bool dpll3_restore)
+{
+	struct shared_resource *resp = vdd2_resp;
+	int ret = 0, l3_div;
+	u8 min_opp = 0, max_opp = 0, t_vsel = 0, c_vsel = 0;
+	unsigned long t_opp, c_opp;
+
+	if (cpu_is_omap3430()) {
+		min_opp = omap_pm_get_min_vdd2_opp();
+		max_opp = omap_pm_get_max_vdd2_opp();
+	} else if (cpu_is_omap3630()) {
+		min_opp = omap_pm_get_min_vdd2_opp();
+		max_opp = omap_pm_get_max_vdd2_opp();
+	}
+
+	if (!dpll3_restore) {
+		t_opp = ID_VDD(VDD2_OPP) | ID_OPP_NO(l3_opps[max_opp].opp_id);
+		c_opp = ID_VDD(VDD2_OPP) | ID_OPP_NO(l3_opps[resp->curr_level].opp_id);
+
+		if (cpu_is_omap3430()) {
+			/*
+			 * change the vol to 1.2. As this volt is not in the
+			 * table need to calculate here.
+			 * As per TRM: vsel = (volt - 0.6) / 0.0125
+			 * here Volt=1.2V
+			 */
+			t_vsel = 30;
+			vdd2_save_opp = resp->curr_level;
+		} else if (cpu_is_omap3630()) {
+			t_vsel = l3_opps[max_opp].vsel;
+			vdd2_save_opp = resp->curr_level;
+		}
+
+		c_vsel = l3_opps[resp->curr_level].vsel;
+	} else {
+		/* restore to the saved opp */
+		t_opp = ID_VDD(VDD2_OPP) | ID_OPP_NO(l3_opps[vdd2_save_opp].opp_id);
+		c_opp = ID_VDD(VDD2_OPP) | ID_OPP_NO(l3_opps[min_opp].opp_id);
+		t_vsel = l3_opps[vdd2_save_opp].vsel;
+		c_vsel = l3_opps[vdd2_save_opp].vsel;
+	}
+
+	if (resp->curr_level == min_opp) {
+		/* change the voltage only */
+		omap_scale_voltage(t_opp, c_opp,
+					t_vsel, c_vsel);
+
+	} else {
+		/* step1: change the freq */
+		lock_scratchpad_sem();
+		l3_div = cm_read_mod_reg(CORE_MOD, CM_CLKSEL) &
+			OMAP3430_CLKSEL_L3_MASK;
+		if (!dpll3_restore) {
+
+			ret = clk_set_rate(dpll3_clk,
+					l3_opps[min_opp].rate * l3_div);
+			resp->curr_level = min_opp;
+
+		} else {
+			ret = clk_set_rate(dpll3_clk,
+					l3_opps[vdd2_save_opp].rate * l3_div);
+			resp->curr_level = vdd2_save_opp;
+		}
+
+#ifdef CONFIG_PM
+		omap3_save_scratchpad_contents();
+#endif
+		unlock_scratchpad_sem();
+
+		/* step 2: change the volt to 1.2v for 3430 and retain the same for 3630 */
+		if (cpu_is_omap3430())
+			/* change the voltage to recommended value */
+			omap_scale_voltage(t_opp, c_opp,
+						t_vsel, c_vsel);
+	}
+
+	return ret;
+}
