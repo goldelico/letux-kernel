@@ -93,7 +93,11 @@ ENTRY(omap3_sram_configure_core_dpll)
 	ldr	r5, [sp, #56]		@ load extra args from the stack
 	ldr	r6, [sp, #60]		@ load extra args from the stack
 	ldr	r7, [sp, #64]		@ load extra args from the stack
+	mrc p15, 0, r8, c1, c0, 0	@ read aux ctrl register
+	bic r10, r8, #0x800		@ clear Z-bit, disable branch prediction
+	mcr p15, 0, r10, c1, c0, 0	@ write aux ctrl register
 	dsb				@ flush buffered writes to interconnect
+	isb				@ prevent speculative exec past here
 	cmp	r7, #1			@ if increasing SDRC clk rate,
 	bleq	configure_sdrc		@ program the SDRC regs early (for RFR)
 	cmp	r4, #SDRC_UNLOCK_DLL	@ set the intended DLL state
@@ -111,6 +115,7 @@ ENTRY(omap3_sram_configure_core_dpll)
 	beq	return_to_sdram		@ return to SDRAM code, otherwise,
 	bl	configure_sdrc		@ reprogram SDRC regs now
 return_to_sdram:
+	mcr p15, 0, r8, c1, c0, 0	@ restore aux ctrl register
 	isb				@ prevent speculative exec past here
 	mov 	r0, #0 			@ return value
 	ldmfd	sp!, {r1-r12, pc}	@ restore regs and return
