@@ -1,0 +1,168 @@
+# =====================================================================
+# L27.1 Code Freeze
+# =====================================================================
+
+Author: Vikram Pandita
+Date: March 12th 2010
+Target Release: L27.1
+Destination: rel_l27x_handoff@list.ti.com
+
+# =====================================================================
+# Config Spec
+# ======================================================================
+
+N/A
+
+# =====================================================================
+# Configuration Settings
+# =====================================================================
+
+[KERNEL]
+Repo:   git://git.omapzoom.org/kernel/omap.git
+Branch: p-android-omap-2.6.32
+Tag: android-2.6.32-2.1-omap4.1
+Config: android_4430_defconfig
+
+[U-BOOT]
+Repo:   git://git.omapzoom.org/repo/u-boot.git
+Branch: omap4_dev
+Commit: acc8277454910392254f78b405b247382d3fabe2
+Config: omap4430sdp_config
+
+[X-LOADER]
+Repo:   git://git.omapzoom.org/repo/x-loader.git
+Branch: omap4_dev
+Commit: 72888f33f233f515976352b5027938002e69bc9c
+Config: omap4430sdp_config
+
+OS: Linux 2.6.32
+Platform: OMAP4430 4430SDP board
+Toolchain: Code Sourcery arm-2009q1
+
+# =====================================================================
+# Cloning information
+# =====================================================================
+
+Kernel:
+-------
+git clone git://git.omapzoom.org/kernel/omap.git
+cd omap/
+git checkout --track -b p-android-omap-2.6.32 origin/p-android-omap-2.6.32
+make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi- android_4430_defconfig
+make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi- uImage
+Output: uImage
+
+u-boot:
+-------
+git clone  git://git.omapzoom.org/repo/u-boot.git
+cd u-boot/
+git checkout --track -b omap4 L24.4
+make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi- omap4430sdp_config
+make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi-
+Output: u-boot.bin
+
+x-loader:
+---------
+git clone git://git.omapzoom.org/repo/x-loader.git
+cd x-loader/
+git checkout --track -b omap4 L24.4
+make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi- omap4430sdp_config
+make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi-
+make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabi- ift
+Output: MLO
+
+# =====================================================================
+# Known issues / Important Notes
+# =====================================================================
+
+* Console Change to ttyO: Sample bootargs for mmc boot:
+setenv bootargs 'console=ttyO2,115200n8 root=/dev/mmcblk0p2 rw rootdelay=2 init=/init omapfb.vram="0:4M"'
+setenv bootcmd 'mmcinit;fatload mmc 0 0x80000000 uImage;bootm 80000000'
+run bootcmd
+
+* This Release is intended to be used for Android Eclair 2.1:
+How obtain the Android source code:
+$repo init -u git://git.omapzoom.org/platform/omapmanifest.git -b eclair
+$cp vendor/ti/nextgen/buildspec.mk.default buildspec.mk
+$make
+Output:
+See filesystem in:
+      out/target/product/nextgen/...
+            * root/
+            * system/
+cp .rc file:
+$cp out/target/product/nextgen/root/init.omap4sdp.rc out/target/product/nextgen/root/init.rc
+
+For more information on how to compile the Android Filesystem visit:
+http://omappedia.org/wiki/Android_Getting_Started#Building_Android
+
+* Highlights:
+- Android 2.6.32 with omap4 support added
+- SMP and L2 cache enabled
+- MMC2 has SDIO driver enabled for WLAN
+- omap-serial driver enabled for BT/FM (ttyON where N=0,1,2,3)
+- ethernet driver
+- keypad, touchscreen, dma
+
+* Components that are supported in the release:
+   X-loader, U-Boot, OS Kernel (SMP), Phoenix power IC, UART, GP Timer, GPIO,
+   Watchdog, I2C, MMC/SD(with ADMA support), Ethernet, RTC,
+   SDMA (including descriptor loading), Keypad, Touch screen, McSPI, McBSP,
+   Phoenix General Purpose ADC, Battery Charging,
+   Audio (Phoenix Audio IC, ABE, AESS),
+   Display driver (TAAL based), Basic display (DSS2 migration, FB dev),
+   Tiler memory manager.
+
+# =====================================================================
+# Gerrit IDs List
+# =====================================================================
+I5da66cfc	drivers: misc: TI's ST driver rfkill support
+Ibcd6835b	OMAP4: SDP4430:android defconfig change for ST
+I12d4d6f1	OMAP4: 4430SDP: add wl128x platform device
+Ia15f4d35	serial: TTY: new ldisc for TI BT/FM/GPS chips
+Ib0ae83dd	drivers: misc: sources for FM header file
+Ie36b7320	drivers: misc: sources for ST header file
+I4033d430	drivers: misc: sources for ST HCI LL PM protocol
+Idacd6838	drivers: misc: sources for ST core
+I62c077ac	drivers: misc: sources for ST Init manager
+
+# =====================================================================
+# Open Defects / Known issues
+# =====================================================================
+
+Release does not have:
+L2 cacheflushall() API
+eMMC is disabled
+USB: MUSB: OTG, device, host
+USB: EHCI/OHCI
+Power management
+
+# =====================================================================
+# Changelist
+# =====================================================================
+First release
+
+# =====================================================================
+# Documentation
+# =====================================================================
+Release notes in kernel git:
+Documentation/releasenotes/omap4-android-release-notes.txt
+
+Project docs: Refer to L24.4
+
+# ======================================================================
+# Klocwork Results
+# ======================================================================
+
+N/A
+
+# ======================================================================
+# Benchmarking measurements:
+# ======================================================================
+
+N/A
+
+# ======================================================================
+
+Regards!
+BSP team
