@@ -905,8 +905,6 @@ static void st_tty_close(struct tty_struct *tty)
 static void st_tty_receive(struct tty_struct *tty, const unsigned char *data,
 			   char *tty_flags, int count)
 {
-	unsigned long flags = 0;
-
 #ifdef VERBOSE
 	long i;
 	printk(KERN_ERR "incoming data...\n");
@@ -919,10 +917,7 @@ static void st_tty_receive(struct tty_struct *tty, const unsigned char *data,
 	 * if fw download is in progress then route incoming data
 	 * to KIM for validation
 	 */
-	spin_lock_irqsave(&st_gdata->lock, flags);
 	st_recv(data, count);
-	spin_unlock_irqrestore(&st_gdata->lock, flags);
-
 	ST_DRV_VER("done %s", __func__);
 }
 

@@ -49,7 +49,6 @@
 /* ST LL private information */
 struct ll_struct_s {
 	unsigned long ll_state;	/* ST LL power state */
-	spinlock_t lock;
 };
 
 /* initialize and de-init ST LL */

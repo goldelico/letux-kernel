@@ -53,16 +53,13 @@ static void ll_device_want_to_sleep(void)
 		ST_LL_ERR("ERR hcill: ST_LL_GO_TO_SLEEP_IND"
 			  "in state %ld", ll->ll_state);
 
-	spin_lock(&ll->lock);
 	send_ll_cmd(LL_SLEEP_ACK);
 	/* update state */
 	ll->ll_state = ST_LL_ASLEEP;
-	spin_unlock(&ll->lock);
 }
 
 static void ll_device_want_to_wakeup(void)
 {
-	spin_lock(&ll->lock);
 	/* diff actions in diff states */
 	switch (ll->ll_state) {
 	case ST_LL_ASLEEP:
@@ -83,7 +80,6 @@ static void ll_device_want_to_wakeup(void)
 	}
 	/* update state */
 	ll->ll_state = ST_LL_AWAKE;
-	spin_unlock(&ll->lock);
 }
 
 /**********************************************************************/
@@ -160,7 +156,6 @@ long st_ll_init(void)
 		err = -ENOMEM;
 		return err;
 	}
-	spin_lock_init(&ll->lock);
 	/* set state to invalid */
 	ll->ll_state = ST_LL_INVALID;
 	return err;
