@@ -200,7 +200,7 @@ void omap_pm_dsp_set_min_opp(u8 opp_id)
 	}
 
 	if (cpu_is_omap3630()) {
-		if (opp_id >= VDD1_OPP3) {
+		if (opp_id >= VDD1_OPP3 && !vdd1_opp_lock) {
 			resource_lock_opp(VDD1_OPP);
 			vdd1_opp_lock = 1;
 			resource_set_opp_level(VDD1_OPP, VDD1_OPP3,
