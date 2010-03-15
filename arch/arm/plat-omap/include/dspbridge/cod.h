@@ -26,6 +26,7 @@
 #define COD_MAXPATHLENGTH       255
 #define COD_TRACEBEG            "SYS_PUTCBEG"
 #define COD_TRACEEND            "SYS_PUTCEND"
+#define COD_TRACECURPOS		"BRIDGE_SYS_PUTC_current"
 #define COD_TRACESECT           "trace"
 #define COD_TRACEBEGOLD         "PUTCBEG"
 #define COD_TRACEENDOLD         "PUTCEND"

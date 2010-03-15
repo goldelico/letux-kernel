@@ -1893,11 +1893,13 @@ DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT *hWmdContext)
 	struct COD_MANAGER *hCodMgr;
 	u32 ulTraceEnd;
 	u32 ulTraceBegin;
+	u32 trace_cur_pos;
 	u32 ulNumBytes = 0;
 	u32 ulNumWords = 0;
 	u32 ulWordSize = 2;
 	char *pszBuf;
 	char *str_beg;
+	char *trace_end;
 	char *buf_end;
 	char *new_line;
 
@@ -1910,84 +1912,126 @@ DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT *hWmdContext)
 
 	status = DEV_GetCodMgr(pDevObject, &hCodMgr);
 
-	if (DSP_SUCCEEDED(status)) {
+	if (DSP_SUCCEEDED(status))
 		/* Look for SYS_PUTCBEG/SYS_PUTCEND */
 		status = COD_GetSymValue(hCodMgr, COD_TRACEBEG, &ulTraceBegin);
-	}
+
 	if (DSP_SUCCEEDED(status))
 		status = COD_GetSymValue(hCodMgr, COD_TRACEEND, &ulTraceEnd);
 
-	if (DSP_SUCCEEDED(status)) {
-		ulNumBytes = (ulTraceEnd - ulTraceBegin);
+	if (DSP_SUCCEEDED(status))
+		/* trace_cur_pos will hold the address of a DSP pointer */
+		status = COD_GetSymValue(hCodMgr, COD_TRACECURPOS,
+							&trace_cur_pos);
+	if (DSP_FAILED(status))
+		goto func_end;
 
-		ulNumWords = ulNumBytes * ulWordSize;
-		status = DEV_GetIntfFxns(pDevObject, &pIntfFxns);
-	}
+	ulNumBytes = (ulTraceEnd - ulTraceBegin);
+
+	ulNumWords = ulNumBytes * ulWordSize;
+	status = DEV_GetIntfFxns(pDevObject, &pIntfFxns);
 
 	if (DSP_FAILED(status))
 		goto func_end;
 
 	pszBuf = MEM_Calloc(ulNumBytes+2, MEM_NONPAGED);
 	if (pszBuf != NULL) {
-		/* Read bytes from the DSP trace buffer... */
+		/* Read trace buffer data */
 		status = (*pIntfFxns->pfnBrdRead)(hWmdContext,
 			(u8 *)pszBuf, (u32)ulTraceBegin,
 			ulNumBytes, 0);
 
-		if (DSP_SUCCEEDED(status)) {
-			/* Pack and do newline conversion */
-			pr_info("%s: DSP Trace Buffer Begin:\n"
-				"=======================\n%s\n",
-				__func__, pszBuf);
+		if (DSP_FAILED(status))
+			goto func_end;
 
-			if (ulNumBytes) {
-				/*
-				 * The buffer is not full, find the end of the
-				 * data -- buf_end will be >= pszBuf after
-				 * while.
-				 */
-				buf_end = &pszBuf[ulNumBytes];
-				while (*buf_end == '\0' && buf_end > pszBuf)
-					buf_end--;
-				/* one past last char */
-				buf_end++;
+		/* Read the value at the DSP address in trace_cur_pos. */
+		status = (*pIntfFxns->pfnBrdRead)(hWmdContext,
+				(u8 *)&trace_cur_pos, (u32)trace_cur_pos,
+					 4, 0);
+		if (DSP_FAILED(status))
+			goto func_end;
+		/* Pack and do newline conversion */
+		pr_info("%s: DSP Trace Buffer Begin:\n"
+			 "=======================\n%s\n", __func__, pszBuf);
+		/* convert to offset */
+			trace_cur_pos = trace_cur_pos - ulTraceBegin;
+		if (ulNumBytes) {
+			/*
+			 * The buffer is not full, find the end of the
+			 * data -- buf_end will be >= pszBuf after
+			 * while.
+			 */
+			buf_end = &pszBuf[ulNumBytes+1];
+			/* DSP print position */
+			trace_end = &pszBuf[trace_cur_pos];
+			/*
+			 * Search buffer for a new_line and replace it
+			 * with '\0', then print as string.
+			 * Continue until end of buffer is reached.
+			 */
+			str_beg = trace_end;
+			ulNumBytes = buf_end - str_beg;
 
-				/*
-				 * Search buffer for a new_line and replace it
-				 * with '\0', then print as string.
-				 * Continue until buffer is exhausted.
-				 */
-				str_beg = pszBuf;
-				ulNumBytes = buf_end - str_beg;
-
-				while (str_beg < buf_end) {
-					new_line = strnchr(str_beg, ulNumBytes,
-									'\n');
-					if (new_line && new_line < buf_end) {
-						*new_line = 0;
-						pr_debug("%s\n", str_beg);
-						str_beg = ++new_line;
-						ulNumBytes = buf_end - str_beg;
-					} else {
+			while (str_beg < buf_end) {
+				new_line = strnchr(str_beg, ulNumBytes, '\n');
+				if (new_line && new_line < buf_end) {
+					*new_line = 0;
+					pr_debug("%s\n", str_beg);
+					str_beg = ++new_line;
+					ulNumBytes = buf_end - str_beg;
+				} else {
+					/*
+					 * Assume buffer empty if it contains
+					 * a zero
+					 */
+					if (*str_beg != '\0') {
 						str_beg[ulNumBytes] = 0;
 						pr_debug("%s\n", str_beg);
-						str_beg = buf_end;
-						ulNumBytes = 0;
 					}
+					str_beg = buf_end;
+					ulNumBytes = 0;
 				}
 			}
+			/*
+			 * Search buffer for a nNewLine and replace it
+			 * with '\0', then print as string.
+			 * Continue until buffer is exhausted.
+			 */
+			str_beg = pszBuf;
+			ulNumBytes = trace_end - str_beg;
 
-			pr_info("\n=======================\n"
-				"DSP Trace Buffer End:\n");
+			while (str_beg < trace_end) {
+				new_line = strnchr(str_beg, ulNumBytes, '\n');
+				if (new_line != NULL && new_line < trace_end) {
+					*new_line = 0;
+					pr_debug("%s\n", str_beg);
+					str_beg = ++new_line;
+					ulNumBytes = trace_end - str_beg;
+				} else {
+					/*
+					 * Assume buffer empty if it contains
+					 * a zero
+					 */
+					if (*str_beg != '\0') {
+						str_beg[ulNumBytes] = 0;
+						pr_debug("%s\n", str_beg);
+					}
+				str_beg = trace_end;
+				ulNumbytes = 0;
+				}
+			}
 		}
-		kfree(pszBuf);
-	} else {
-		  status = DSP_EMEMORY;
+			pr_info("\n=======================\n"
+					"DSP Trace Buffer End:\n");
+			kfree(pszBuf);
+} 	else {
+		status = DSP_EMEMORY;
 	}
-
 func_end:
 #endif
-	return status;
+	if (DSP_FAILED(status))
+		pr_err("%s: Failed, status 0x%x\n", __func__, status);
+		return status;
 }
 
 void IO_SM_init(void)
