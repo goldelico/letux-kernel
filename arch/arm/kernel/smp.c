@@ -219,9 +219,6 @@ void __ref cpu_die(void)
 {
 	unsigned int cpu = smp_processor_id();
 
-	/* FIXME: BUG: scheduling while atomic: swapper/0/0x00000002 */
-	preempt_enable();
-
 	local_irq_disable();
 	idle_task_exit();
 
