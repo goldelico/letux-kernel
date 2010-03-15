@@ -27,37 +27,20 @@ static DECLARE_COMPLETION(cpu_killed);
 
 static inline void cpu_enter_lowpower(void)
 {
-	unsigned int v;
-
 	flush_cache_all();
-	/* FIXME: check L2 state and see if the l2 flush is necessary */
-
-	asm volatile(
-		"	mcr	p15, 0, %1, c7, c5, 0\n"
-		"	mcr	p15, 0, %1, c7, c10, 4\n"
-		/* FIXME: Need to use secure API for AUX control */
-
-		"	mrc	p15, 0, %0, c1, c0, 0\n"
-		"	bic	%0, %0, #0x04\n"
-		"	mcr	p15, 0, %0, c1, c0, 0\n"
-		  : "=&r" (v)
-		  : "r" (0)
-		  : "cc");
+	/* FIXME: Code for OFF /RET */
 }
 
 static inline void cpu_leave_lowpower(void)
 {
-	unsigned int v;
+	struct powerdomain *cpu1_pd;
+	u32 scu_pwr_st;
 
-	asm volatile(
-		"mrc	p15, 0, %0, c1, c0, 0\n"
-		"	orr	%0, %0, #0x04\n"
-		"	mcr	p15, 0, %0, c1, c0, 0\n"
-		/* FIXME: Need to use secure API for AUX control */
-
-		  : "=&r" (v)
-		  :
-		  : "cc");
+	scu_pwr_st = omap_readl(0x48240008);
+	scu_pwr_st &= ~0x8;
+	omap_writel(scu_pwr_st, 0x48240008);
+	cpu1_pd = pwrdm_lookup("cpu1_pwrdm");
+	pwrdm_set_next_pwrst(cpu1_pd, PWRDM_POWER_ON);
 }
 
 static inline void omap_do_lowpower(unsigned int cpu)
@@ -65,29 +48,17 @@ static inline void omap_do_lowpower(unsigned int cpu)
 	u32 scu_pwr_st;
 	struct powerdomain *cpu1_pd;
 
-
-	if(omap_modify_auxcoreboot0(0x0, 0x200) != 0x0) {
+	if(omap_modify_auxcoreboot0(0x0, 0x200) != 0x0)
 		printk(KERN_CRIT "Secure clear status failed\n");
-		BUG();
-	}
 
-	/*
-	 * FIXME: Hook up the omap low power here.
-	 */
 	for (;;) {
-		/* Program the possible low power state here */
-
-		/* FIXME: On the ES2.0 silicon SCU power state
-		 * register can be accessed using only secure API
-		 * Also use ioremap instead of omap_read/write here
-		 */
-		/* set SCU power status register to dormant mode */
+		cpu1_pd = pwrdm_lookup("cpu1_pwrdm");
+		pwrdm_set_next_pwrst(cpu1_pd, PWRDM_POWER_RET);
 		scu_pwr_st = omap_readl(0x48240008);
 		scu_pwr_st |= 0x8;
 		omap_writel(scu_pwr_st, 0x48240008);
-		cpu1_pd = pwrdm_lookup("cpu1_pwrdm");
-		pwrdm_set_next_pwrst(cpu1_pd, PWRDM_POWER_RET);
-		dsb();
+		isb();
+		wmb();
 		asm volatile("wfi\n"
 			:
 			:
@@ -97,11 +68,6 @@ static inline void omap_do_lowpower(unsigned int cpu)
 			/*
 			 * OK, proper wakeup, we're done
 			 */
-			pwrdm_set_next_pwrst(cpu1_pd, PWRDM_POWER_ON);
-			scu_pwr_st = omap_readl(0x48240008);
-			scu_pwr_st &= ~0x8;
-			omap_writel(scu_pwr_st, 0x48240008);
-			local_irq_enable();
 			break;
 		}
 #ifdef DEBUG

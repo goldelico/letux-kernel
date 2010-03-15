@@ -29,6 +29,8 @@
 
 #define wfi() \
 	{	\
+		isb(); \
+		wmb(); \
 		__asm__ __volatile__ ("wfi");	\
 	}
 

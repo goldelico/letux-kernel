@@ -111,6 +111,8 @@ static int omap4_pm_suspend(void)
 			if (set_pwrdm_state(pwrst->pwrdm, PWRDM_POWER_RET))
 				goto restore;
 
+	isb();
+	wmb();
 	asm volatile("wfi\n"
 		:
 		:
