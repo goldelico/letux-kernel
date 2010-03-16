@@ -26,6 +26,7 @@
 #include <linux/poll.h>
 #include <linux/semaphore.h>
 #include <linux/workqueue.h>
+#include <linux/sched.h>
 
 /* structure to keep track of gpio, irq, and irq enabled info */
 struct gpioinfo {
