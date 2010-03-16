@@ -226,6 +226,7 @@ void __ref cpu_die(void)
 	 * actual CPU shutdown procedure is at least platform (if not
 	 * CPU) specific
 	 */
+	preempt_enable_no_resched();
 	platform_cpu_die(cpu);
 
 	/*
