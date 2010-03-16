@@ -3194,6 +3194,10 @@ void dispc_irq_handler(void)
 		if (isr_data->mask & irqstatus) {
 			isr_data->isr(isr_data->arg, irqstatus);
 			handledirqs |= isr_data->mask;
+
+			if (isr_data->mask & irqstatus & DISPC_IRQ_VSYNC)
+				if (dispc_go_busy(OMAP_DSS_CHANNEL_LCD))
+					break;
 		}
 	}
 
