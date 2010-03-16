@@ -1728,6 +1728,7 @@ static void _dispc_set_scaling(enum omap_plane plane,
 	_dispc_set_vid_accu1(plane, 0, accu1);
 }
 
+#ifdef CONFIG_ARCH_OMAP4
 static void _dispc_set_scaling_uv(enum omap_plane plane,
 		u16 orig_width, u16 orig_height,
 		u16 out_width, u16 out_height,
@@ -1800,6 +1801,7 @@ static void _dispc_set_scaling_uv(enum omap_plane plane,
 	/* _dispc_set_vid_accu2_0(plane, accuh, accu0);
 	   _dispc_set_vid_accu2_1(plane, accuh, accu1); */
 }
+#endif
 
 static void _dispc_set_rotation_attrs(enum omap_plane plane, u8 rotation,
 		bool mirroring, enum omap_color_mode color_mode)
