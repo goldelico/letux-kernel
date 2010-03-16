@@ -1932,11 +1932,11 @@ static void calc_tiler_row_rotation(u8 rotation,
 	case OMAP_DSS_COLOR_RGBX32:
 		ps = 4;
 		break;
-
+#ifdef CONFIG_ARCH_OMAP4
 	case OMAP_DSS_COLOR_NV12:
 		ps = 1;
 		break;
-
+#endif
 	default:
 		BUG();
 		return;
