@@ -996,7 +996,7 @@ static int rsz_get_params(struct rsz_params *params,
 					& SET_BIT_CBLIN) >> SET_BIT_CBLIN;
 
 	params->inptyp = (rsz_conf_chan->register_config.rsz_cnt
-					& ISPRSZ_CNT_INPTYP_MASK)
+					& ISPRSZ_CNT_INPTYP)
 					>> SET_BIT_INPTYP;
 	params->horz_starting_pixel = ((rsz_conf_chan->register_config.
 					rsz_in_start
@@ -1054,11 +1054,7 @@ static int rsz_get_params(struct rsz_params *params,
 					& ISPRSZ_YENH_SLOP_MASK)
 					>> ISPRSZ_YENH_SLOP_SHIFT;
 
-	params->pix_fmt = ((rsz_conf_chan->register_config.rsz_cnt
-					& ISPRSZ_CNT_PIXFMT_MASK)
-					>> SET_BIT_YCPOS);
-
-	if (params->pix_fmt)
+	if (rsz_conf_chan->register_config.rsz_cnt & ISPRSZ_CNT_YCPOS)
 		params->pix_fmt = RSZ_PIX_FMT_UYVY;
 	else
 		params->pix_fmt = RSZ_PIX_FMT_YUYV;

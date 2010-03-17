@@ -22,49 +22,7 @@
 #ifndef OMAP_ISP_RESIZER_H
 #define OMAP_ISP_RESIZER_H
 
-/*
- * Resizer Constants
- */
-#define MAX_IN_WIDTH_MEMORY_MODE	4095
-
-#define MAX_IN_WIDTH_ONTHEFLY_MODE	1280
-#define MAX_IN_WIDTH_ONTHEFLY_MODE_ES2	4095
-#define MAX_IN_HEIGHT			4095
-#define MINIMUM_RESIZE_VALUE		64
-#define MAXIMUM_RESIZE_VALUE		1024
-#define MID_RESIZE_VALUE		512
-
-#define MAX_7TAP_HRSZ_OUTWIDTH		1280
-#define MAX_7TAP_VRSZ_OUTWIDTH		640
-
-#define MAX_7TAP_HRSZ_OUTWIDTH_ES2	3300
-#define MAX_7TAP_VRSZ_OUTWIDTH_ES2	1650
-
-#define DEFAULTSTPIXEL			0
-#define DEFAULTSTPHASE			1
-#define DEFAULTHSTPIXEL4TAPMODE		3
-#define FOURPHASE			4
-#define EIGHTPHASE			8
-#define RESIZECONSTANT			256
-#define SHIFTER4TAPMODE			0
-#define SHIFTER7TAPMODE			1
-#define DEFAULTOFFSET			7
-#define OFFSETVERT4TAPMODE		4
-#define OPWDALIGNCONSTANT		0xfffffff0
-
-/*
- * The client is supposed to call resizer API in the following sequence:
- * 	- request()
- * 	- config_datatpath()
- * 	- optionally config/enable sub modules
- * 	- try/config size
- * 	- setup callback
- * 	- setup in/out memory offsets and ptrs
- * 	- enable()
- * 	...
- * 	- disable()
- * 	- free()
- */
+#define COEFFS_COUNT	32
 
 enum resizer_input {
 	RSZ_OTFLY_YUV,
@@ -84,10 +42,10 @@ enum resizer_input {
  *			mode (.25x-.5x)
  */
 struct isprsz_coef {
-	u16 h_filter_coef_4tap[32];
-	u16 v_filter_coef_4tap[32];
-	u16 h_filter_coef_7tap[28];
-	u16 v_filter_coef_7tap[28];
+	u16 h_filter_coef_4tap[COEFFS_COUNT];
+	u16 v_filter_coef_4tap[COEFFS_COUNT];
+	u16 h_filter_coef_7tap[COEFFS_COUNT];
+	u16 v_filter_coef_7tap[COEFFS_COUNT];
 };
 
 /**

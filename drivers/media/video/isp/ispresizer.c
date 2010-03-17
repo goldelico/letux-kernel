@@ -26,46 +26,78 @@
 #include "ispreg.h"
 #include "ispresizer.h"
 
+/*
+ * Resizer constants
+ * "OMAP3430 TRM ES3.1"
+ */
+#define MIN_IN_WIDTH			32
+#define MIN_IN_HEIGHT			32
+#define MAX_IN_WIDTH_MEMORY_MODE	4095
+
+#define MAX_IN_WIDTH_ONTHEFLY_MODE	1280
+#define MAX_IN_WIDTH_ONTHEFLY_MODE_ES2	4095
+#define MAX_IN_WIDTH_ONTHEFLY_MODE_ES3	4095
+#define MAX_IN_HEIGHT			4095
+#define MIN_RESIZE_VALUE		64
+#define MAX_RESIZE_VALUE		1024
+#define MID_RESIZE_VALUE		512
+#define MAX_SCALE_FACTOR		4
+
+/*
+ * Resizer Use Constraints
+ * "TRM ES3.1, table 12-46"
+ */
+#define MIN_OUT_WIDTH			16
+#define MAX_4TAP_OUT_WIDTH		1280
+#define MAX_7TAP_OUT_WIDTH		640
+#define MAX_4TAP_OUT_WIDTH_ES2		3312
+#define MAX_7TAP_OUT_WIDTH_ES2		1650
+#define MAX_4TAP_OUT_WIDTH_ES3		4095
+#define MAX_7TAP_OUT_WIDTH_ES3		2048
+#define MIN_OUT_HEIGHT			2
+#define MAX_OUT_HEIGHT			2048
+
+#define DEFAULTSTPHASE			1
+#define RESIZECONSTANT			256
+#define TAP7				7
+#define TAP4				4
+#define OUT_WIDTH_ALIGN			16
+#define OUT_HEIGHT_ALIGN		2
+
+#define PHY_ADDRESS_ALIGN		32
+
 /* Default configuration of resizer,filter coefficients,yenh for camera isp */
 static struct isprsz_coef ispreszdefcoef = {
+	/* For 8-phase 4-tap horizontal filter: */
 	{
-		0x0000, 0x0100, 0x0000, 0x0000,
-		0x03FA, 0x00F6, 0x0010, 0x0000,
-		0x03F9, 0x00DB, 0x002C, 0x0000,
-		0x03FB, 0x00B3, 0x0053, 0x03FF,
-		0x03FD, 0x0082, 0x0084, 0x03FD,
-		0x03FF, 0x0053, 0x00B3, 0x03FB,
-		0x0000, 0x002C, 0x00DB, 0x03F9,
-		0x0000, 0x0010, 0x00F6, 0x03FA
+		0x0000, 0x0100, 0x0000, 0x0000, 0x03FA, 0x00F6, 0x0010, 0x0000,
+		0x03F9, 0x00DB, 0x002C, 0x0000, 0x03FB, 0x00B3, 0x0053, 0x03FF,
+		0x03FD, 0x0082, 0x0084, 0x03FD, 0x03FF, 0x0053, 0x00B3, 0x03FB,
+		0x0000, 0x002C, 0x00DB, 0x03F9, 0x0000, 0x0010, 0x00F6, 0x03FA
 	},
+	/* For 8-phase 4-tap vertical filter: */
 	{
-		0x0000, 0x0100, 0x0000, 0x0000,
-		0x03FA, 0x00F6, 0x0010, 0x0000,
-		0x03F9, 0x00DB, 0x002C, 0x0000,
-		0x03FB, 0x00B3, 0x0053, 0x03FF,
-		0x03FD, 0x0082, 0x0084, 0x03FD,
-		0x03FF, 0x0053, 0x00B3, 0x03FB,
-		0x0000, 0x002C, 0x00DB, 0x03F9,
-		0x0000, 0x0010, 0x00F6, 0x03FA
+		0x0000, 0x0100, 0x0000, 0x0000, 0x03FA, 0x00F6, 0x0010, 0x0000,
+		0x03F9, 0x00DB, 0x002C, 0x0000, 0x03FB, 0x00B3, 0x0053, 0x03FF,
+		0x03FD, 0x0082, 0x0084, 0x03FD, 0x03FF, 0x0053, 0x00B3, 0x03FB,
+		0x0000, 0x002C, 0x00DB, 0x03F9, 0x0000, 0x0010, 0x00F6, 0x03FA
 	},
+	/* For 4-phase 7-tap horizontal filter: */
+	#define UNUSED 0
 	{
-		0x0004, 0x0023, 0x005A, 0x0058,
-		0x0023, 0x0004, 0x0000, 0x0002,
-		0x0018, 0x004d, 0x0060, 0x0031,
-		0x0008, 0x0000, 0x0001, 0x000f,
-		0x003f, 0x0062, 0x003f, 0x000f,
-		0x0001, 0x0000, 0x0008, 0x0031,
-		0x0060, 0x004d, 0x0018, 0x0002
+		0x0004, 0x0023, 0x005A, 0x0058, 0x0023, 0x0004, 0x0000, UNUSED,
+		0x0002, 0x0018, 0x004d, 0x0060, 0x0031, 0x0008, 0x0000, UNUSED,
+		0x0001, 0x000f, 0x003f, 0x0062, 0x003f, 0x000f, 0x0001, UNUSED,
+		0x0000, 0x0008, 0x0031, 0x0060, 0x004d, 0x0018, 0x0002, UNUSED
 	},
+	/* For 4-phase 7-tap vertical filter: */
 	{
-		0x0004, 0x0023, 0x005A, 0x0058,
-		0x0023, 0x0004, 0x0000, 0x0002,
-		0x0018, 0x004d, 0x0060, 0x0031,
-		0x0008, 0x0000, 0x0001, 0x000f,
-		0x003f, 0x0062, 0x003f, 0x000f,
-		0x0001, 0x0000, 0x0008, 0x0031,
-		0x0060, 0x004d, 0x0018, 0x0002
+		0x0004, 0x0023, 0x005A, 0x0058, 0x0023, 0x0004, 0x0000, UNUSED,
+		0x0002, 0x0018, 0x004d, 0x0060, 0x0031, 0x0008, 0x0000, UNUSED,
+		0x0001, 0x000f, 0x003f, 0x0062, 0x003f, 0x000f, 0x0001, UNUSED,
+		0x0000, 0x0008, 0x0031, 0x0060, 0x004d, 0x0018, 0x0002, UNUSED
 	}
+	#undef UNUSED
 };
 
 /* Structure for saving/restoring resizer module registers */
@@ -156,7 +188,6 @@ int ispresizer_config_crop(struct isp_res_device *isp_res,
 		crop->c.top = 0;
 	if (crop->c.height < 0)
 		crop->c.height = 0;
-
 	if (crop->c.left >= isp->pipeline.prv_out_w_img)
 		crop->c.left = isp->pipeline.prv_out_w_img - 1;
 	if (crop->c.top >= isp->pipeline.rsz_out_h)
@@ -166,10 +197,12 @@ int ispresizer_config_crop(struct isp_res_device *isp_res,
 	 * and height divided by 4, since the resizer cannot upscale it
 	 * by more than 4x. */
 
-	if (crop->c.width < (isp->pipeline.rsz_out_w + 3) / 4)
-		crop->c.width = (isp->pipeline.rsz_out_w + 3) / 4;
-	if (crop->c.height < (isp->pipeline.rsz_out_h + 3) / 4)
-		crop->c.height = (isp->pipeline.rsz_out_h + 3) / 4;
+	if (crop->c.width < (isp->pipeline.rsz_out_w + 3) / MAX_SCALE_FACTOR)
+		crop->c.width = (isp->pipeline.rsz_out_w + 3) /
+				MAX_SCALE_FACTOR;
+	if (crop->c.height < (isp->pipeline.rsz_out_h + 3) / MAX_SCALE_FACTOR)
+		crop->c.height = (isp->pipeline.rsz_out_h + 3) /
+				 MAX_SCALE_FACTOR;
 
 	if (crop->c.left + crop->c.width > isp->pipeline.prv_out_w_img)
 		crop->c.width = isp->pipeline.prv_out_w_img - crop->c.left;
@@ -309,7 +342,7 @@ int ispresizer_config_datapath(struct isp_res_device *isp_res,
  *
  * 4-phase 7-tap mode :-
  * inputwidth = (64 * sph + (ow - 1) * hrsz + 32) >> 8 + 7
- * inputheight = (64 * spv + (oh - 1) * vrsz + 32) >> 8 + 7
+ * inputheight = (64 * spv + (oh - 1) * vrsz + 32) >> 8 + 7 [Is it 7 or 4 ?]
  * endpahse for width = ((64 * sph + (ow - 1) * hrsz + 32) >> 6) % 4
  * endphase for height = ((64 * sph + (oh - 1) * hrsz + 32) >> 6) % 4
  *
@@ -328,32 +361,34 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 			    struct isp_pipeline *pipe)
 {
 	struct device *dev = to_device(isp_res);
+
 	u32 rsz, rsz_7, rsz_4;
 	u32 sph;
 	int max_in_otf, max_out_7tap;
 
-	if (pipe->rsz_crop.width < 32 || pipe->rsz_crop.height < 32) {
+	if (pipe->rsz_crop.width < MIN_IN_WIDTH ||
+	    pipe->rsz_crop.height < MIN_IN_HEIGHT) {
 		DPRINTK_ISPCCDC("ISP_ERR: RESIZER cannot handle input width"
-				" less than 32 pixels or height less than"
-				" 32\n");
+				" less than %d pixels or height less than"
+				" %d\n", MIN_IN_WIDTH, MIN_IN_HEIGHT);
 		return -EINVAL;
 	}
 
 	if (pipe->rsz_crop.height > MAX_IN_HEIGHT)
 		return -EINVAL;
 
-	if (pipe->rsz_out_w < 16)
-		pipe->rsz_out_w = 16;
+	if (pipe->rsz_out_w < MIN_OUT_WIDTH)
+		pipe->rsz_out_w = MIN_OUT_WIDTH;
 
-	if (pipe->rsz_out_h < 2)
-		pipe->rsz_out_h = 2;
+	if (pipe->rsz_out_h < MIN_OUT_HEIGHT)
+		pipe->rsz_out_h = MIN_OUT_HEIGHT;
 
 	if (omap_rev() == OMAP3430_REV_ES1_0) {
 		max_in_otf = MAX_IN_WIDTH_ONTHEFLY_MODE;
-		max_out_7tap = MAX_7TAP_VRSZ_OUTWIDTH;
+		max_out_7tap = MAX_7TAP_OUT_WIDTH;
 	} else {
 		max_in_otf = MAX_IN_WIDTH_ONTHEFLY_MODE_ES2;
-		max_out_7tap = MAX_7TAP_VRSZ_OUTWIDTH_ES2;
+		max_out_7tap = MAX_7TAP_OUT_WIDTH_ES2;
 	}
 
 	if (pipe->rsz_in == RSZ_OTFLY_YUV) {
@@ -367,17 +402,19 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 	pipe->rsz_out_h &= 0xfffffffe;
 	sph = DEFAULTSTPHASE;
 
-	rsz_7 = ((pipe->rsz_crop.height - 7) * 256) / (pipe->rsz_out_h - 1);
-	rsz_4 = ((pipe->rsz_crop.height - 4) * 256) / (pipe->rsz_out_h - 1);
+	rsz_7 = ((pipe->rsz_crop.height - TAP7) * RESIZECONSTANT) /
+		(pipe->rsz_out_h - 1);
+	rsz_4 = ((pipe->rsz_crop.height - TAP4) * RESIZECONSTANT) /
+		(pipe->rsz_out_h - 1);
 
-	rsz = (pipe->rsz_crop.height * 256) / pipe->rsz_out_h;
+	rsz = (pipe->rsz_crop.height * RESIZECONSTANT) / pipe->rsz_out_h;
 
 	if (rsz <= MID_RESIZE_VALUE) {
 		rsz = rsz_4;
-		if (rsz < MINIMUM_RESIZE_VALUE) {
-			rsz = MINIMUM_RESIZE_VALUE;
-			pipe->rsz_out_h =
-				(((pipe->rsz_crop.height - 4) * 256) / rsz) + 1;
+		if (rsz < MIN_RESIZE_VALUE) {
+			rsz = MIN_RESIZE_VALUE;
+			pipe->rsz_out_h = (((pipe->rsz_crop.height - TAP4) *
+					  RESIZECONSTANT) / rsz) + 1;
 			dev_dbg(dev,
 				"resizer: %s: using height %d instead\n",
 				__func__, pipe->rsz_out_h);
@@ -386,10 +423,10 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 		rsz = rsz_7;
 		if (pipe->rsz_out_w > max_out_7tap)
 			pipe->rsz_out_w = max_out_7tap;
-		if (rsz > MAXIMUM_RESIZE_VALUE) {
-			rsz = MAXIMUM_RESIZE_VALUE;
-			pipe->rsz_out_h =
-				(((pipe->rsz_crop.height - 7) * 256) / rsz) + 1;
+		if (rsz > MAX_RESIZE_VALUE) {
+			rsz = MAX_RESIZE_VALUE;
+			pipe->rsz_out_h = (((pipe->rsz_crop.height - TAP7) *
+					  RESIZECONSTANT) / rsz) + 1;
 			dev_dbg(dev,
 				"resizer: %s: using height %d instead\n",
 				__func__, pipe->rsz_out_h);
@@ -399,11 +436,11 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 	if (rsz > MID_RESIZE_VALUE) {
 		pipe->rsz_crop.height =
 			(((64 * sph) + ((pipe->rsz_out_h - 1) * rsz) + 32)
-			 / 256) + 7;
+			 / RESIZECONSTANT) + TAP7;
 	} else {
 		pipe->rsz_crop.height =
 			(((32 * sph) + ((pipe->rsz_out_h - 1) * rsz) + 16)
-			 / 256) + 4;
+			 / RESIZECONSTANT) + TAP4;
 	}
 
 	isp_res->v_resz = rsz;
@@ -413,16 +450,18 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 	pipe->rsz_out_w &= 0xfffffff0;
 	sph = DEFAULTSTPHASE;
 
-	rsz_7 = ((pipe->rsz_crop.width - 7) * 256) / (pipe->rsz_out_w - 1);
-	rsz_4 = ((pipe->rsz_crop.width - 4) * 256) / (pipe->rsz_out_w - 1);
+	rsz_7 = ((pipe->rsz_crop.width - TAP7) * RESIZECONSTANT) /
+		(pipe->rsz_out_w - 1);
+	rsz_4 = ((pipe->rsz_crop.width - TAP4) * RESIZECONSTANT) /
+		(pipe->rsz_out_w - 1);
 
-	rsz = (pipe->rsz_crop.width * 256) / pipe->rsz_out_w;
+	rsz = (pipe->rsz_crop.width * RESIZECONSTANT) / pipe->rsz_out_w;
 	if (rsz > MID_RESIZE_VALUE) {
 		rsz = rsz_7;
-		if (rsz > MAXIMUM_RESIZE_VALUE) {
-			rsz = MAXIMUM_RESIZE_VALUE;
-			pipe->rsz_out_w =
-				(((pipe->rsz_crop.width - 7) * 256) / rsz) + 1;
+		if (rsz > MAX_RESIZE_VALUE) {
+			rsz = MAX_RESIZE_VALUE;
+			pipe->rsz_out_w = (((pipe->rsz_crop.width - TAP7) *
+					  RESIZECONSTANT) / rsz) + 1;
 			pipe->rsz_out_w = (pipe->rsz_out_w + 0xf) & 0xfffffff0;
 			dev_dbg(dev,
 				"resizer: %s: using width %d instead\n",
@@ -430,10 +469,10 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 		}
 	} else {
 		rsz = rsz_4;
-		if (rsz < MINIMUM_RESIZE_VALUE) {
-			rsz = MINIMUM_RESIZE_VALUE;
-			pipe->rsz_out_w =
-				(((pipe->rsz_crop.width - 4) * 256) / rsz) + 1;
+		if (rsz < MIN_RESIZE_VALUE) {
+			rsz = MIN_RESIZE_VALUE;
+			pipe->rsz_out_w = (((pipe->rsz_crop.width - TAP4) *
+					  RESIZECONSTANT) / rsz) + 1;
 			pipe->rsz_out_w = (pipe->rsz_out_w + 0xf) & 0xfffffff0;
 			dev_dbg(dev,
 				"resizer: %s: using width %d instead\n",
@@ -445,11 +484,11 @@ int ispresizer_try_pipeline(struct isp_res_device *isp_res,
 	if (rsz > MID_RESIZE_VALUE) {
 		pipe->rsz_crop.width =
 			(((64 * sph) + ((pipe->rsz_out_w - 1) * rsz) + 32)
-			 / 256) + 7;
+			 / RESIZECONSTANT) + TAP7;
 	} else {
 		pipe->rsz_crop.width =
 			(((32 * sph) + ((pipe->rsz_out_w - 1) * rsz) + 16)
-			 / 256) + 7;
+			 / RESIZECONSTANT) + TAP4;
 	}
 
 	isp_res->h_resz = rsz;
@@ -548,9 +587,10 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 		       ((isp_res->v_resz - 1) << ISPRSZ_CNT_VRSZ_SHIFT),
 		       OMAP3_ISP_IOMEM_RESZ,
 		       ISPRSZ_CNT);
+	/* This is excellent code, but anyway will be removed ;) */
 	if (isp_res->h_resz <= MID_RESIZE_VALUE) {
 		j = 0;
-		for (i = 0; i < 16; i++) {
+		for (i = 0; i < COEFFS_COUNT / 2; i++) {
 			isp_reg_writel(dev,
 				(isp_res->coeflist.h_filter_coef_4tap[j]
 				 << ISPRSZ_HFILT10_COEF0_SHIFT) |
@@ -562,7 +602,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 		}
 	} else {
 		j = 0;
-		for (i = 0; i < 16; i++) {
+		for (i = 0; i < COEFFS_COUNT / 2; i++) {
 			if ((i + 1) % 4 == 0) {
 				isp_reg_writel(dev,
 					       (isp_res->coeflist.
@@ -587,7 +627,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 	}
 	if (isp_res->v_resz <= MID_RESIZE_VALUE) {
 		j = 0;
-		for (i = 0; i < 16; i++) {
+		for (i = 0; i < COEFFS_COUNT / 2; i++) {
 			isp_reg_writel(dev, (isp_res->coeflist.
 					v_filter_coef_4tap[j] <<
 					ISPRSZ_VFILT10_COEF0_SHIFT) |
@@ -600,7 +640,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 		}
 	} else {
 		j = 0;
-		for (i = 0; i < 16; i++) {
+		for (i = 0; i < COEFFS_COUNT / 2; i++) {
 			if ((i + 1) % 4 == 0) {
 				isp_reg_writel(dev,
 					       (isp_res->coeflist.
@@ -624,7 +664,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 		}
 	}
 
-	ispresizer_config_outlineoffset(isp_res, pipe->rsz_out_w*2);
+	ispresizer_config_outlineoffset(isp_res, pipe->rsz_out_w * 2);
 
 	if (pipe->in_pix.pixelformat == V4L2_PIX_FMT_UYVY)
 		ispresizer_config_ycpos(isp_res, 0);
@@ -752,13 +792,13 @@ void ispresizer_config_filter_coef(struct isp_res_device *isp_res,
 {
 	int i;
 	DPRINTK_ISPRESZ("ispresizer_config_filter_coef()+\n");
-	for (i = 0; i < 32; i++) {
+	for (i = 0; i < COEFFS_COUNT; i++) {
 		isp_res->coeflist.h_filter_coef_4tap[i] =
 			coef->h_filter_coef_4tap[i];
 		isp_res->coeflist.v_filter_coef_4tap[i] =
 			coef->v_filter_coef_4tap[i];
 	}
-	for (i = 0; i < 28; i++) {
+	for (i = 0; i < COEFFS_COUNT; i++) {
 		isp_res->coeflist.h_filter_coef_7tap[i] =
 			coef->h_filter_coef_7tap[i];
 		isp_res->coeflist.v_filter_coef_7tap[i] =
