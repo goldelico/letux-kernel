@@ -299,11 +299,7 @@ struct isp_irq {
  * @prv_fmt_avg: Preview formatter averager.
  * @prv_in: Preview input source.
  * @prv_out: Preview output destination.
- * @rsz_crop: Resizer crop region.
- * @rsz_out_w: Resizer output width (with extra padding pixels).
- * @rsz_out_h: Resizer output height.
- * @rsz_out_w_img: Resizer output width (valid image region).
- * @rsz_in: Resizer input source.
+ * @rsz: Resizer data path parameters.
  */
 struct isp_pipeline {
 	unsigned int modules;
@@ -331,11 +327,7 @@ struct isp_pipeline {
 	unsigned int prv_fmt_avg;
 	enum preview_input prv_in;
 	enum preview_output prv_out;
-	struct v4l2_rect rsz_crop;
-	unsigned int rsz_out_w;
-	unsigned int rsz_out_h;
-	unsigned int rsz_out_w_img;
-	enum resizer_input rsz_in;
+	struct isp_node rsz;
 };
 
 #define CCDC_CAPTURE(isp) \

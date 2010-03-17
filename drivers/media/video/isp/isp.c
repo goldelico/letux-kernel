@@ -847,9 +847,8 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 			 * do not check resizer busy now.
 			 */
 			if ((isp->pipeline.modules & OMAP_ISP_RESIZER) &&
-			    !(isp_reg_readl(dev, OMAP3_ISP_IOMEM_RESZ,
-					    ISPRSZ_PCR) & (ISPRSZ_PCR_ENABLE |
-					    ISPRSZ_PCR_BUSY))) {
+			     !ispresizer_busy(&isp->isp_res) &&
+			     !ispresizer_is_enabled(&isp->isp_res)) {
 				ispresizer_config_shadow_registers(
 					&isp->isp_res);
 				ispresizer_enable(&isp->isp_res, 1);
@@ -1190,9 +1189,6 @@ static u32 isp_tmp_buf_alloc(struct device *dev, struct isp_pipeline *pipe)
 				 isp->pipeline.prv_out_h *
 				 ISP_BYTES_PER_PIXEL);
 
-	ispresizer_config_inlineoffset(&isp->isp_res,
-			pipe->prv_out_w * ISP_BYTES_PER_PIXEL);
-
 	if (isp->tmp_buf_size >= size)
 		return 0;
 
@@ -1207,7 +1203,7 @@ static u32 isp_tmp_buf_alloc(struct device *dev, struct isp_pipeline *pipe)
 	isp->tmp_buf_size = size;
 
 	isppreview_set_outaddr(&isp->isp_prev, isp->tmp_buf);
-	ispresizer_set_inaddr(&isp->isp_res, isp->tmp_buf, 0);
+	ispresizer_set_inaddr(&isp->isp_res, isp->tmp_buf, NULL);
 
 	return 0;
 }
@@ -1479,10 +1475,10 @@ static int isp_try_pipeline(struct device *dev,
 					OMAP_ISP_CCDC;
 			if (isp->revision <= ISP_REVISION_2_0) {
 				pipe->prv_out = PREVIEW_MEM;
-				pipe->rsz_in = RSZ_MEM_YUV;
+				pipe->rsz.in.path = RSZ_MEM_YUV;
 			} else {
 				pipe->prv_out = PREVIEW_RSZ;
-				pipe->rsz_in = RSZ_OTFLY_YUV;
+				pipe->rsz.in.path = RSZ_OTFLY_YUV;
 			}
 		}
 	} else {
@@ -1569,14 +1565,24 @@ static int isp_try_pipeline(struct device *dev,
 	}
 
 	if (pipe->modules & OMAP_ISP_RESIZER) {
-		pipe->rsz_out_w = wanted_width;
-		pipe->rsz_out_h = wanted_height;
+		pipe->rsz.out.image.width = wanted_width;
+		pipe->rsz.out.image.height = wanted_height;
 
-		pipe->rsz_crop.left = pipe->rsz_crop.top = 0;
-		pipe->rsz_crop.width = pipe->prv_out_w_img;
-		pipe->rsz_crop.height = pipe->prv_out_h_img;
+		if (pipe->rsz.in.path == RSZ_OTFLY_YUV) {
+			pipe->rsz.in.image.width = pipe->prv_out_w_img;
+			pipe->rsz.in.image.height = pipe->prv_out_h_img;
+		} else {
+			pipe->rsz.in.image.width = pipe->prv_out_w;
+			pipe->rsz.in.image.height = pipe->prv_out_h;
+		}
+		pipe->rsz.in.image.pixelformat = pix_output->pixelformat;
+		pipe->rsz.in.image.bytesperline = pix_output->bytesperline;
 
-		rval = ispresizer_try_pipeline(&isp->isp_res, pipe);
+		pipe->rsz.in.crop.left = pipe->rsz.in.crop.top = 0;
+		pipe->rsz.in.crop.width = pipe->prv_out_w_img;
+		pipe->rsz.in.crop.height = pipe->prv_out_h_img;
+
+		rval = ispresizer_try_pipeline(&isp->isp_res, &pipe->rsz);
 		if (rval) {
 			dev_dbg(dev, "The dimensions %dx%d are not"
 				" supported\n", pix_input->width,
@@ -1584,10 +1590,9 @@ static int isp_try_pipeline(struct device *dev,
 			return rval;
 		}
 
-		pix_output->width = pipe->rsz_out_w;
-		pix_output->height = pipe->rsz_out_h;
-		pix_output->bytesperline =
-			pipe->rsz_out_w * ISP_BYTES_PER_PIXEL;
+		pix_output->width = pipe->rsz.out.image.width;
+		pix_output->height = pipe->rsz.out.image.height;
+		pix_output->bytesperline = pipe->rsz.out.image.bytesperline;
 	}
 
 	pix_output->field = V4L2_FIELD_NONE;
@@ -1652,7 +1657,7 @@ static int isp_s_pipeline(struct device *dev,
 
 	if (pipe.modules & OMAP_ISP_RESIZER) {
 		ispresizer_request(&isp->isp_res);
-		ispresizer_s_pipeline(&isp->isp_res, &pipe);
+		ispresizer_s_pipeline(&isp->isp_res, &pipe.rsz);
 	}
 
 	isp->pipeline = pipe;
@@ -2382,7 +2387,7 @@ int isp_g_crop(struct device *dev, struct v4l2_crop *crop)
 	struct isp_device *isp = dev_get_drvdata(dev);
 
 	if (isp->pipeline.modules & OMAP_ISP_RESIZER) {
-		crop->c = isp->pipeline.rsz_crop;
+		crop->c = isp->pipeline.rsz.in.crop;
 	} else {
 		crop->c.left = 0;
 		crop->c.top = 0;
@@ -2407,22 +2412,8 @@ EXPORT_SYMBOL(isp_g_crop);
 int isp_s_crop(struct device *dev, struct v4l2_crop *a)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
-	struct isp_pipeline *pipe = &isp->pipeline;
 
-	/*
-	 * Reset resizer output size.
-	 * FIXME: resizer should not touch the output size in the first place,
-	 * it should always correspond to the size set by S_FMT or S_FMT
-	 * should fail if not possible. If necessary, resizer should adjust
-	 * the source rectangle in ispresizer_try_pipeline instead.
-	 * When the resizer is fixed, its output size does not need to be
-	 * adjusted anymore here.
-	 */
-	pipe->rsz_out_w_img = pipe->out_pix.width;
-	pipe->rsz_out_w = pipe->out_pix.width;
-	pipe->rsz_out_h = pipe->out_pix.height;
-
-	ispresizer_config_crop(&isp->isp_res, a);
+	ispresizer_config_crop(&isp->isp_res, &isp->pipeline.rsz, a);
 
 	return 0;
 }

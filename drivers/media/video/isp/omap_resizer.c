@@ -904,26 +904,26 @@ static void rsz_config_ratio(struct rsz_mult *multipass,
 					rsz_coeff_horz[coeffcounter] =
 					(multipass->tap4filt_coeffs[2
 					* coeffcounter]
-					& ISPRSZ_HFILT10_COEF0_MASK);
+					& ISPRSZ_HFILT_COEF0_MASK);
 			rsz_conf_chan->register_config.
 					rsz_coeff_horz[coeffcounter] |=
 					((multipass->tap4filt_coeffs[2
 					* coeffcounter + 1]
-					<< ISPRSZ_HFILT10_COEF1_SHIFT)
-					& ISPRSZ_HFILT10_COEF1_MASK);
+					<< ISPRSZ_HFILT_COEF1_SHIFT)
+					& ISPRSZ_HFILT_COEF1_MASK);
 		} else {
 			rsz_conf_chan->register_config.
 					rsz_coeff_horz[coeffcounter] =
 					(multipass->tap7filt_coeffs[2
 					* coeffcounter]
-					& ISPRSZ_HFILT10_COEF0_MASK);
+					& ISPRSZ_HFILT_COEF0_MASK);
 
 			rsz_conf_chan->register_config.
 					rsz_coeff_horz[coeffcounter] |=
 					((multipass->tap7filt_coeffs[2
 					* coeffcounter + 1]
-					<< ISPRSZ_HFILT10_COEF1_SHIFT)
-					& ISPRSZ_HFILT10_COEF1_MASK);
+					<< ISPRSZ_HFILT_COEF1_SHIFT)
+					& ISPRSZ_HFILT_COEF1_MASK);
 		}
 
 		if (multipass->num_vtap) {
@@ -931,26 +931,26 @@ static void rsz_config_ratio(struct rsz_mult *multipass,
 					rsz_coeff_vert[coeffcounter] =
 					(multipass->tap4filt_coeffs[2
 					* coeffcounter]
-					& ISPRSZ_VFILT10_COEF0_MASK);
+					& ISPRSZ_VFILT_COEF0_MASK);
 
 			rsz_conf_chan->register_config.
 					rsz_coeff_vert[coeffcounter] |=
 					((multipass->tap4filt_coeffs[2
 					* coeffcounter + 1]
-					<< ISPRSZ_VFILT10_COEF1_SHIFT) &
-					ISPRSZ_VFILT10_COEF1_MASK);
+					<< ISPRSZ_VFILT_COEF1_SHIFT) &
+					ISPRSZ_VFILT_COEF1_MASK);
 		} else {
 			rsz_conf_chan->register_config.
 					rsz_coeff_vert[coeffcounter] =
 					(multipass->tap7filt_coeffs[2
 					* coeffcounter]
-					& ISPRSZ_VFILT10_COEF0_MASK);
+					& ISPRSZ_VFILT_COEF0_MASK);
 			rsz_conf_chan->register_config.
 					rsz_coeff_vert[coeffcounter] |=
 					((multipass->tap7filt_coeffs[2
 					* coeffcounter + 1]
-					<< ISPRSZ_VFILT10_COEF1_SHIFT)
-					& ISPRSZ_VFILT10_COEF1_MASK);
+					<< ISPRSZ_VFILT_COEF1_SHIFT)
+					& ISPRSZ_VFILT_COEF1_MASK);
 		}
 	}
 }
@@ -1018,24 +1018,24 @@ static int rsz_get_params(struct rsz_params *params,
 		params->tap4filt_coeffs[2 * coeffcounter] =
 					rsz_conf_chan->register_config.
 					rsz_coeff_horz[coeffcounter]
-					& ISPRSZ_HFILT10_COEF0_MASK;
+					& ISPRSZ_HFILT_COEF0_MASK;
 
 		params->tap4filt_coeffs[2 * coeffcounter + 1] =
 					(rsz_conf_chan->register_config.
 					rsz_coeff_horz[coeffcounter]
-					& ISPRSZ_HFILT10_COEF1_MASK)
-					>> ISPRSZ_HFILT10_COEF1_SHIFT;
+					& ISPRSZ_HFILT_COEF1_MASK)
+					>> ISPRSZ_HFILT_COEF1_SHIFT;
 
 		params->tap7filt_coeffs[2 * coeffcounter] =
 					rsz_conf_chan->register_config.
 					rsz_coeff_vert[coeffcounter]
-					& ISPRSZ_VFILT10_COEF0_MASK;
+					& ISPRSZ_VFILT_COEF0_MASK;
 
 		params->tap7filt_coeffs[2 * coeffcounter + 1] =
 					(rsz_conf_chan->register_config.
 					rsz_coeff_vert[coeffcounter]
-					& ISPRSZ_VFILT10_COEF1_MASK)
-					>> ISPRSZ_VFILT10_COEF1_SHIFT;
+					& ISPRSZ_VFILT_COEF1_MASK)
+					>> ISPRSZ_VFILT_COEF1_SHIFT;
 
 	}
 

@@ -49,6 +49,16 @@ struct isprsz_coef {
 };
 
 /**
+ * struct isprsz_phase - Structure horizontal and vertical start phase.
+ * @h_phase: horizontal start phase.
+ * @v_phase: vertical start phase.
+ */
+struct isprsz_phase {
+	u8 h_phase;
+	u8 v_phase;
+};
+
+/**
  * struct isprsz_yenh - Structure for resizer luminance enhancer parameters.
  * @algo: Algorithm select.
  * @gain: Maximum gain.
@@ -87,21 +97,18 @@ struct isprsz_yenh {
  */
 struct isp_res_device {
 	u8 res_inuse;
-	u8 h_startphase;
-	u8 v_startphase;
 	u16 h_resz;
 	u16 v_resz;
-	u8 algo;
-	dma_addr_t in_buf_addr;
-	dma_addr_t in_buf_addr_off;
-	struct isprsz_coef coeflist;
+	struct v4l2_rect phy_rect;
 	struct mutex ispres_mutex; /* For checking/modifying res_inuse */
-	struct isprsz_yenh defaultyenh;
 	int applycrop;
+	u32 in_buff_addr;
 };
 
+bool ispresizer_is_upscale(struct isp_node *pipe);
+
 int ispresizer_config_crop(struct isp_res_device *isp_res,
-			   struct v4l2_crop *a);
+			   struct isp_node *pipe, struct v4l2_crop *a);
 void ispresizer_config_shadow_registers(struct isp_res_device *isp_res);
 
 int ispresizer_request(struct isp_res_device *isp_res);
@@ -112,32 +119,34 @@ void ispresizer_enable_cbilin(struct isp_res_device *isp_res, u8 enable);
 
 void ispresizer_config_ycpos(struct isp_res_device *isp_res, u8 yc);
 
-void ispresizer_config_startphase(struct isp_res_device *isp_res,
-				  u8 hstartphase, u8 vstartphase);
+/* Sets the horizontal and vertical start phase */
+void ispresizer_set_start_phase(struct device *dev, struct isprsz_phase *phase);
 
-void ispresizer_config_filter_coef(struct isp_res_device *isp_res,
-				   struct isprsz_coef *coef);
+/* Setup coefficents for polyphase filter*/
+void ispresizer_set_coeffs(struct device *dev, struct isprsz_coef *coeffs,
+			   unsigned h_ratio, unsigned v_ratio);
 
-void ispresizer_config_luma_enhance(struct isp_res_device *isp_res,
-				    struct isprsz_yenh *yenh);
+/* Configures luminance enhancer parameters */
+void ispresizer_set_luma_enhance(struct device *dev, struct isprsz_yenh *yenh);
 
 int ispresizer_try_pipeline(struct isp_res_device *isp_res,
-			    struct isp_pipeline *pipe);
+			    struct isp_node *pipe);
 
 int ispresizer_s_pipeline(struct isp_res_device *isp_res,
-			  struct isp_pipeline *pipe);
+			  struct isp_node *pipe);
 
-int ispresizer_config_inlineoffset(struct isp_res_device *isp_res, u32 offset);
-
-int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr, u32 offset);
-
-int ispresizer_config_outlineoffset(struct isp_res_device *isp_res, u32 offset);
+int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr,
+			  struct isp_node *pipe);
 
 int ispresizer_set_outaddr(struct isp_res_device *isp_res, u32 addr);
+
+int ispresizer_set_out_offset(struct isp_res_device *isp_res, u32 offset);
 
 void ispresizer_enable(struct isp_res_device *isp_res, int enable);
 
 int ispresizer_busy(struct isp_res_device *isp_res);
+
+int ispresizer_is_enabled(struct isp_res_device *isp_res);
 
 void ispresizer_save_context(struct device *dev);
 
