@@ -310,13 +310,8 @@ static inline pte_t pte_mkspecial(pte_t pte) { return pte; }
 /*
  * Mark the prot value as uncacheable and unbufferable.
  */
-#if __LINUX_ARM_ARCH__ >= 7
-#define pgprot_noncached(prot) \
-	__pgprot_modify(prot, L_PTE_MT_MASK, L_PTE_MT_BUFFERABLE)
-#else
 #define pgprot_noncached(prot) \
 	__pgprot_modify(prot, L_PTE_MT_MASK, L_PTE_MT_UNCACHED)
-#endif
 #define pgprot_writecombine(prot) \
 	__pgprot_modify(prot, L_PTE_MT_MASK, L_PTE_MT_BUFFERABLE)
 #if __LINUX_ARM_ARCH__ >= 7
