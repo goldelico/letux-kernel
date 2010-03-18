@@ -1111,6 +1111,7 @@ static int mmc_populate_adma_desc_table(struct omap_hsmmc_host *host,
 
 static void omap_hsmmc_start_adma_transfer(struct omap_hsmmc_host *host)
 {
+	wmb();
 	OMAP_HSMMC_WRITE(host->base, ADMA_SAL, host->phy_adma_table);
 }
 
