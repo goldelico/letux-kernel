@@ -1027,6 +1027,7 @@ int omapfb_apply_changes(struct fb_info *fbi, int init)
 				outh = var->yres;
 				}
 			}
+		    }
 		} else {
 			/*sv it comes here for vid1 on fb */
 			DBG("its vid pipeline so sclaing is enabled, still we will not scale for output size,just maintain the input size");
@@ -1446,6 +1447,11 @@ static int omapfb_alloc_fbmem(struct fb_info *fbi, unsigned long size,
 	void __iomem *vaddr;
 	int r;
 	u16 h = 0, w = 0;
+	unsigned long pstride;
+	size_t psize;
+
+
+	u16 h, w;
 	unsigned long pstride;
 	size_t psize;
 
