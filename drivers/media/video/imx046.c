@@ -385,7 +385,7 @@ imx046_read_reg(struct i2c_client *client, u16 data_length, u16 reg, u32 *val)
 {
 	int err;
 	struct i2c_msg msg[1];
-	unsigned char data[4];
+	unsigned char data[4] = {0};
 
 	if (!client->adapter)
 		return -ENODEV;
