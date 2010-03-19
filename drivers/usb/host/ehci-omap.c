@@ -181,6 +181,7 @@ struct ehci_omap_clock_defs {
 	struct clk	*usbhost1_48m_fck_clk;
 	struct clk	*usbtll_fck_clk;
 	struct clk	*usbtll_ick_clk;
+	unsigned	suspended:1;
 };
 
 /* Clock names as per clock framework: May change so keep as #defs */
@@ -426,8 +427,12 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 		return PTR_ERR(ehci_clocks->usbtll_ick_clk);
 	clk_enable(ehci_clocks->usbtll_ick_clk);
 
+	ehci_clocks->suspended = 0;
+
 	/* Disable Auto Idle of USBTLL */
-	cm_write_mod_reg((0 << OMAP3430ES2_AUTO_USBTLL_SHIFT),
+	/* Changed to enable autoidle so that core can transition
+	 * automatically */
+	cm_write_mod_reg((1 << OMAP3430ES2_AUTO_USBTLL_SHIFT),
 				CORE_MOD, CM_AUTOIDLE3);
 
 	/* Wait for TLL to be Active */
@@ -445,19 +450,20 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 
 	dev_dbg(hcd->self.controller, "TLL RESET DONE\n");
 
-	/* (1<<3) = no idle mode only for initial debugging */
-	omap_writel((1 << OMAP_USBTLL_SYSCONFIG_ENAWAKEUP_SHIFT) |
-			(1 << OMAP_USBTLL_SYSCONFIG_SIDLEMODE_SHIFT) |
-			(1 << OMAP_USBTLL_SYSCONFIG_CACTIVITY_SHIFT),
+	/* Smart Idle mode */
+	omap_writel((1 << OMAP_USBTLL_SYSCONFIG_ENAWAKEUP_SHIFT)     |
+			(2 << OMAP_USBTLL_SYSCONFIG_SIDLEMODE_SHIFT) |
+			(0 << OMAP_USBTLL_SYSCONFIG_CACTIVITY_SHIFT) |
+			(1 << OMAP_USBTLL_SYSCONFIG_AUTOIDLE_SHIFT),
 			OMAP_USBTLL_SYSCONFIG);
 
 
-	/* Put UHH in NoIdle/NoStandby mode */
-	omap_writel((0 << OMAP_UHH_SYSCONFIG_AUTOIDLE_SHIFT) |
+	/* Put UHH in SmartIdle/SmartStandby mode */
+	omap_writel((1 << OMAP_UHH_SYSCONFIG_AUTOIDLE_SHIFT) |
 			(1 << OMAP_UHH_SYSCONFIG_ENAWAKEUP_SHIFT) |
-			(1 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT) |
-			(1 << OMAP_UHH_SYSCONFIG_CACTIVITY_SHIFT) |
-			(1 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT),
+			(2 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT) |
+			(0 << OMAP_UHH_SYSCONFIG_CACTIVITY_SHIFT) |
+			(2 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT),
 			OMAP_UHH_SYSCONFIG);
 
 	omap_usb_setup_ports(hcd);
@@ -470,6 +476,16 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 	}
 	if (reset_delay)
 		udelay(reset_delay);
+
+	/* An undocumented "feature" in the OMAP3 EHCI controller,
+	 * causes the ports to be taken out of suspend when
+	 * the USBCMD.Run/Stop bit is cleared - which is normal
+	 * when we do ehci_bus_suspend().
+	 * This breaks suspend-resume if the root-hub is allowed
+	 * to suspend. Writing 1 to this undocumented bit disables
+	 * this feature and restores normal behavior
+	 */
+	omap_writel(1 << 5, EHCI_INSNREG04_ULPI);
 
 	return 0;
 }
@@ -673,14 +689,72 @@ static int ehci_hcd_omap_drv_remove(struct platform_device *dev)
 
 /*-------------------------------------------------------------------------*/
 #ifdef CONFIG_PM
+#define OHCI_BASE_ADDR 0x48064400
+#define OHCI_HC_CONTROL         (OHCI_BASE_ADDR + 0x4)
+#define OHCI_HC_CTRL_SUSPEND    (3 << 6)
+#define OHCI_HC_CTRL_RESUME     (1 << 6)
+
+DEFINE_SPINLOCK(sus_res_lock);
 static int omap_ehci_bus_suspend(struct usb_hcd *hcd)
 {
-	return ehci_bus_suspend(hcd);
+	unsigned long flags;
+	struct ehci_omap_clock_defs *ehci_clocks;
+	int ret = 0;
+
+	ehci_clocks = (struct ehci_omap_clock_defs *)
+			(((char *)hcd_to_ehci(hcd)) + sizeof(struct ehci_hcd));
+
+	spin_lock_irqsave(&sus_res_lock, flags);
+	ret = ehci_bus_suspend(hcd);
+
+	if (!ehci_clocks->suspended) {
+
+		/* We need to suspend OHCI as well, before the domain
+		 * can transition
+		 */
+		omap_writel(OHCI_HC_CTRL_SUSPEND, OHCI_HC_CONTROL);
+		mdelay(8); /* MSTANDBY assertion is delayed by ~8ms */
+
+		clk_disable(ehci_clocks->usbhost2_120m_fck_clk);
+		clk_disable(ehci_clocks->usbhost1_48m_fck_clk);
+		omap_writel(omap_readl(OMAP_TLL_SHARED_CONF) & ~(1),
+				OMAP_TLL_SHARED_CONF);
+		ehci_clocks->suspended = 1;
+		clk_disable(ehci_clocks->usbtll_fck_clk);
+	}
+	spin_unlock_irqrestore(&sus_res_lock, flags);
+
+	return ret;
 }
 
 static int omap_ehci_bus_resume(struct usb_hcd *hcd)
 {
-	return ehci_bus_resume(hcd);
+	unsigned long flags;
+	struct ehci_omap_clock_defs *ehci_clocks;
+	int ret = 0;
+
+	ehci_clocks = (struct ehci_omap_clock_defs *)
+			(((char *)hcd_to_ehci(hcd)) + sizeof(struct ehci_hcd));
+
+	spin_lock_irqsave(&sus_res_lock, flags);
+	if (ehci_clocks->suspended) {
+
+		clk_enable(ehci_clocks->usbtll_fck_clk);
+		omap_writel(1 | omap_readl(OMAP_TLL_SHARED_CONF),
+				OMAP_TLL_SHARED_CONF);
+		clk_enable(ehci_clocks->usbhost2_120m_fck_clk);
+		clk_enable(ehci_clocks->usbhost1_48m_fck_clk);
+		omap_writel(OHCI_HC_CTRL_RESUME, OHCI_HC_CONTROL);
+		ehci_clocks->suspended = 0;
+		omap_writel(0, OMAP_USBTLL_IRQENABLE);
+	}
+
+	/* Wakeup ports by resume */
+	ret = ehci_bus_resume(hcd);
+	spin_unlock_irqrestore(&sus_res_lock, flags);
+
+	return ret;
+
 }
 #endif
 /*-------------------------------------------------------------------------*/
