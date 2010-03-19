@@ -1130,9 +1130,7 @@ int ispccdc_try_pipeline(struct isp_ccdc_device *isp_ccdc,
 	pipe->ccdc_out_w = pipe->ccdc_in_w;
 	pipe->ccdc_out_h = pipe->ccdc_in_h;
 
-	if (!isp_ccdc->refmt_en
-	    && pipe->ccdc_out != CCDC_OTHERS_MEM
-	    && pipe->ccdc_out != CCDC_OTHERS_VP_MEM)
+	if (!isp_ccdc->refmt_en && pipe->ccdc_out != CCDC_OTHERS_MEM)
 		pipe->ccdc_out_h -= 1;
 
 	if (pipe->ccdc_out == CCDC_OTHERS_VP) {
@@ -1207,13 +1205,13 @@ int ispccdc_s_pipeline(struct isp_ccdc_device *isp_ccdc,
 		pipe->ccdc_in_v_st << ISPCCDC_VERT_START_SLV0_SHIFT,
 		OMAP3_ISP_IOMEM_CCDC,
 		ISPCCDC_VERT_START);
-	isp_reg_writel(dev, (pipe->ccdc_out_h - pipe->ccdc_in_v_st - 1) <<
+	isp_reg_writel(dev, (pipe->ccdc_out_h - 1) <<
 		ISPCCDC_VERT_LINES_NLV_SHIFT,
 		OMAP3_ISP_IOMEM_CCDC,
 		ISPCCDC_VERT_LINES);
 	isp_reg_writel(dev,
 		(pipe->ccdc_in_h_st << ISPCCDC_HORZ_INFO_SPH_SHIFT)
-		| ((pipe->ccdc_out_w - pipe->ccdc_in_h_st)
+		| ((pipe->ccdc_out_w_img - 1)
 		<< ISPCCDC_HORZ_INFO_NPH_SHIFT),
 		OMAP3_ISP_IOMEM_CCDC,
 		ISPCCDC_HORZ_INFO);
@@ -1231,9 +1229,9 @@ int ispccdc_s_pipeline(struct isp_ccdc_device *isp_ccdc,
 			       ISPCCDC_VP_OUT);
         } else {
                 isp_reg_writel(dev,
-			((pipe->ccdc_out_w - pipe->ccdc_in_h_st)
+			(pipe->ccdc_out_w_img
 			<< ISPCCDC_VP_OUT_HORZ_NUM_SHIFT) |
-			((pipe->ccdc_out_h - pipe->ccdc_in_v_st - 1) <<
+			(pipe->ccdc_out_h <<
 			ISPCCDC_VP_OUT_VERT_NUM_SHIFT),
 			OMAP3_ISP_IOMEM_CCDC,
 			ISPCCDC_VP_OUT);

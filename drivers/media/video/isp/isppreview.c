@@ -1652,7 +1652,7 @@ int isppreview_s_pipeline(struct isp_prev_device *isp_prev,
 
 	isp_reg_writel(dev,
 		       (isp_prev->sph << ISPPRV_HORZ_INFO_SPH_SHIFT) |
-		       (pipe->ccdc_out_w - 1),
+		       (pipe->ccdc_out_w_img - 1),
 		       OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO);
 	isp_reg_writel(dev,
 		       (isp_prev->slv << ISPPRV_VERT_INFO_SLV_SHIFT) |
