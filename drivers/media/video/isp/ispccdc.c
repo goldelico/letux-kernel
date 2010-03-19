@@ -1711,6 +1711,11 @@ int __init isp_ccdc_init(struct device *dev)
 	if (IS_ERR_VALUE(isp_ccdc->lsc_table_inuse))
 		return -ENOMEM;
 	p = da_to_va(isp->iommu, isp_ccdc->lsc_table_inuse);
+	if (!p) {
+		WARN(!p, "%s: No va found for iommu da(%x)?",
+		     kobject_name(&dev->kobj), isp_ccdc->lsc_table_inuse);
+		return -ENOMEM;
+	}
 	memset(p, 0x40, LSC_TABLE_INIT_SIZE);
 
 	isp_ccdc->shadow_update = 0;
