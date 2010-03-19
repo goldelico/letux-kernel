@@ -191,6 +191,10 @@ static int omap_pcm_prepare(struct snd_pcm_substream *substream)
 	dma_params.frame_count	= runtime->periods;
 	omap_set_dma_params(prtd->dma_ch, &dma_params);
 
+	/* FIX: raise dma channel priority to reduce pop-noise */
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		omap_dma_set_prio_lch(prtd->dma_ch, 1, 1);
+
 	omap_enable_dma_irq(prtd->dma_ch, OMAP_DMA_FRAME_IRQ);
 
 	if (dma_data->xfer_size) {
@@ -221,7 +225,11 @@ static int omap_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		prtd->period_index = -1;
-		omap_stop_dma(prtd->dma_ch);
+
+		/* Fix: Ensure that the DMA channel is stopped
+		 for self linked audio DMA channel */
+		while (omap_get_dma_active_status(prtd->dma_ch))
+			omap_stop_dma(prtd->dma_ch);
 		break;
 
 	case SNDRV_PCM_TRIGGER_SUSPEND:
