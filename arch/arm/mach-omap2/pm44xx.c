@@ -23,6 +23,9 @@
 #include <plat/powerdomain.h>
 #include "prm.h"
 #include "pm.h"
+#include "cm.h"
+#include "cm-regbits-44xx.h"
+#include "clock.h"
 
 struct power_state {
 	struct powerdomain *pwrdm;
@@ -220,6 +223,84 @@ void omap_push_sram_idle(void)
 }
 #endif
 
+void  __raw_rmw_reg_bits(u32 mask, u32 bits, const volatile void __iomem *addr)
+{
+	u32 v;
+
+	v = __raw_readl(addr);
+	v &= ~mask;
+	v |= bits;
+	__raw_writel(v, addr);
+
+}
+
+static void __init prcm_setup_regs(void)
+{
+	struct clk *dpll_abe_ck, *dpll_core_ck, *dpll_iva_ck;
+	struct clk *dpll_mpu_ck, *dpll_per_ck, *dpll_usb_ck;
+	struct clk *dpll_unipro_ck;
+
+	/*Enable all the DPLL autoidle */
+	dpll_abe_ck = clk_get(NULL, "dpll_abe_ck");
+	omap3_dpll_allow_idle(dpll_abe_ck);
+	dpll_core_ck = clk_get(NULL, "dpll_core_ck");
+	omap3_dpll_allow_idle(dpll_core_ck);
+	dpll_iva_ck = clk_get(NULL, "dpll_iva_ck");
+	omap3_dpll_allow_idle(dpll_iva_ck);
+	dpll_mpu_ck = clk_get(NULL, "dpll_mpu_ck");
+	omap3_dpll_allow_idle(dpll_mpu_ck);
+	dpll_per_ck = clk_get(NULL, "dpll_per_ck");
+	omap3_dpll_allow_idle(dpll_per_ck);
+	dpll_usb_ck = clk_get(NULL, "dpll_usb_ck");
+	omap3_dpll_allow_idle(dpll_usb_ck);
+	dpll_unipro_ck = clk_get(NULL, "dpll_unipro_ck");
+	omap3_dpll_allow_idle(dpll_unipro_ck);
+
+	/* Enable autogating for all DPLL post dividers */
+	__raw_rmw_reg_bits(OMAP4430_DPLL_CLKOUT_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M2_DPLL_MPU);
+	__raw_rmw_reg_bits(OMAP4430_HSDIVIDER_CLKOUT1_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M4_DPLL_IVA);
+	__raw_rmw_reg_bits(OMAP4430_HSDIVIDER_CLKOUT2_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M5_DPLL_IVA);
+	__raw_rmw_reg_bits(OMAP4430_DPLL_CLKOUT_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M2_DPLL_CORE);
+	__raw_rmw_reg_bits(OMAP4430_DPLL_CLKOUTHIF_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M3_DPLL_CORE);
+	__raw_rmw_reg_bits(OMAP4430_HSDIVIDER_CLKOUT1_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M4_DPLL_CORE);
+	__raw_rmw_reg_bits(OMAP4430_HSDIVIDER_CLKOUT2_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M5_DPLL_CORE);
+	__raw_rmw_reg_bits(OMAP4430_HSDIVIDER_CLKOUT3_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M6_DPLL_CORE);
+	__raw_rmw_reg_bits(OMAP4430_HSDIVIDER_CLKOUT4_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M7_DPLL_CORE);
+	__raw_rmw_reg_bits(OMAP4430_DPLL_CLKOUT_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M2_DPLL_PER);
+	__raw_rmw_reg_bits(OMAP4430_DPLL_CLKOUTX2_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M2_DPLL_PER);
+	__raw_rmw_reg_bits(OMAP4430_DPLL_CLKOUTHIF_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M3_DPLL_PER);
+	__raw_rmw_reg_bits(OMAP4430_HSDIVIDER_CLKOUT1_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M4_DPLL_PER);
+	__raw_rmw_reg_bits(OMAP4430_HSDIVIDER_CLKOUT2_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M5_DPLL_PER);
+	__raw_rmw_reg_bits(OMAP4430_HSDIVIDER_CLKOUT3_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M6_DPLL_PER);
+	__raw_rmw_reg_bits(OMAP4430_HSDIVIDER_CLKOUT4_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M7_DPLL_PER);
+	__raw_rmw_reg_bits(OMAP4430_DPLL_CLKOUT_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M2_DPLL_ABE);
+	__raw_rmw_reg_bits(OMAP4430_DPLL_CLKOUTX2_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M2_DPLL_ABE);
+	__raw_rmw_reg_bits(OMAP4430_DPLL_CLKOUTHIF_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M3_DPLL_ABE);
+	__raw_rmw_reg_bits(OMAP4430_DPLL_CLKOUT_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M2_DPLL_USB);
+	__raw_rmw_reg_bits(OMAP4430_DPLL_CLKOUTX2_GATE_CTRL_MASK, 0x0,
+			OMAP4430_CM_DIV_M2_DPLL_UNIPRO);
+}
+
 static int __init omap4_pm_init(void)
 {
 	int ret = 0;
@@ -230,6 +311,8 @@ static int __init omap4_pm_init(void)
 	printk(KERN_INFO "Power Management for TI OMAP4.\n");
 
 #ifdef CONFIG_PM
+	prcm_setup_regs();
+
 	ret = pwrdm_for_each(pwrdms_setup, NULL);
 	if (ret) {
 		printk(KERN_ERR "Failed to setup powerdomains\n");
