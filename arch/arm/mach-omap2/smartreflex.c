@@ -316,10 +316,17 @@ static void sr_set_testing_nvalues(struct omap_sr *sr)
 			sr->senn_mod = 0x1;
 
 			/* calculate nvalues for each opp */
-			sr->opp1_nvalue = cal_test_nvalue(557, 470);
-			sr->opp2_nvalue = cal_test_nvalue(997, 844);
-			sr->opp3_nvalue = cal_test_nvalue(1556, 1330);
-			sr->opp4_nvalue = cal_test_nvalue(1728, 1480);
+			sr->opp1_nvalue = cal_test_nvalue(581, 489);
+			sr->opp2_nvalue = cal_test_nvalue(1072, 910);
+			sr->opp3_nvalue = cal_test_nvalue(1405, 1200);
+			sr->opp4_nvalue = cal_test_nvalue(1842, 1580);
+			/*
+			 * use delta adjustment algorithm to add 80 mV to
+			 * OPP4 test n value.
+			 * It is seen that with 1G volt drops when SR is
+			 * enabled.
+			 */
+			sr->opp4_nvalue = calculate_opp_nvalue(sr->opp4_nvalue, 240, 160);
 		} else {
 		sr->senp_mod = 0x03;	/* SenN-M5 enabled */
 		sr->senn_mod = 0x03;
