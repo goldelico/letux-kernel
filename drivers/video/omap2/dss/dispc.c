@@ -764,7 +764,7 @@ static void _dispc_set_scale_coef(enum omap_plane plane,
 				mval = coeff_mvals[i + flicker_filter_level];
 			}
 
-			DSSINFO("<%s> Applying flicker_filter [%d], "
+			DSSDBG("<%s> Applying flicker_filter [%d], "
 				"Filter_level [%d], mval [%lu]\n",
 				__func__, flicker_filter,
 				flicker_filter_level, mval);
