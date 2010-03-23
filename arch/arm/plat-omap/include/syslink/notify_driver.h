@@ -15,30 +15,31 @@
  */
 
 
-#if !defined NOTIFYDRIVER_H
-#define NOTIFYDRIVER_H
+#if !defined _NOTIFY_DRIVER_H_
+#define _NOTIFY_DRIVER_H_
 
-#include<linux/list.h>
 
-/*  ----------------------------------- Notify */
-#include <syslink/notifyerr.h>
-
-/*  ----------------------------------- Notify driver */
+/* Module includes */
 #include <syslink/notify_driverdefs.h>
+#include <syslink/_notify.h>
+
 
 /* Function to register notify driver */
-int notify_register_driver(char *driver_name,
-		struct notify_interface *fn_table,
-		struct notify_driver_attrs *drv_attrs,
-		struct notify_driver_object **driver_handle);
-
+int notify_register_driver(u16 remote_proc_id,
+			u16 line_id,
+			struct notify_driver_fxn_table *fxn_table,
+			struct notify_driver_object **driver_handle);
 
 /* Function to unregister notify driver */
 int notify_unregister_driver(struct notify_driver_object *drv_handle);
 
+/* Function to set the driver handle */
+int notify_set_driver_handle(u16 remote_proc_id, u16 line_id,
+				struct notify_object *handle);
+
 /* Function to find the driver in the list of drivers */
-int notify_get_driver_handle(char *driver_name,
-				struct notify_driver_object **handle);
+struct notify_driver_object *notify_get_driver_handle(u16 remote_proc_id,
+							u16 line_id);
 
-#endif  /* !defined (NOTIFYDRIVER_H) */
 
+#endif  /* !defined (_NOTIFY_DRIVER_H_) */

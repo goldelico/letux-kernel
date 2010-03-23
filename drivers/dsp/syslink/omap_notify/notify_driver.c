@@ -14,159 +14,173 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <linux/spinlock.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/fs.h>
 #include <linux/mm.h>
 #include <linux/uaccess.h>
-
+#include <linux/spinlock.h>
 #include <linux/io.h>
 #include <asm/pgtable.h>
-#include <syslink/gt.h>
 
+#include <syslink/gt.h>
 #include <syslink/notify.h>
 #include <syslink/notify_driver.h>
+#include <syslink/notifydefs.h>
 #include <syslink/atomic_linux.h>
 
-/*
- *func   notify_register_driver
- *
- *desc   This function registers a Notify driver with the Notify module.
- */
 
-int notify_register_driver(char *driver_name,
-			struct notify_interface *fn_table,
-			struct notify_driver_attrs *drv_attrs,
+/* Function to register driver with the Notify module. */
+int notify_register_driver(u16 remote_proc_id,
+			u16 line_id,
+			struct notify_driver_fxn_table *fxn_table,
 			struct notify_driver_object **driver_handle)
 {
-	int status = NOTIFY_SUCCESS;
+	int status = NOTIFY_S_SUCCESS;
 	struct notify_driver_object *drv_handle = NULL;
-	int i;
 
-	BUG_ON(driver_name == NULL);
-	BUG_ON(fn_table == NULL);
-	BUG_ON(drv_attrs == NULL);
-	BUG_ON(driver_handle == NULL);
-
-	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+	if (WARN_ON(atomic_cmpmask_and_lt(&(notify_state.ref_count),
 			NOTIFY_MAKE_MAGICSTAMP(0),
-			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true)) {
 		status = NOTIFY_E_INVALIDSTATE;
-		goto func_end;
+		goto exit;
+	}
+	if (WARN_ON(fxn_table == NULL)) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(remote_proc_id >= multiproc_get_num_processors())) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(line_id >= NOTIFY_MAX_INTLINES)) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(driver_handle == NULL)) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
 	}
 
-	/*Initialize to status that indicates that an empty slot was not
-	  *found for the driver.
-	 */
+	*driver_handle = NULL;
 	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
 		WARN_ON(1);
-	status = NOTIFY_E_MAXDRIVERS;
-	for (i = 0; i < notify_state.cfg.maxDrivers; i++) {
-		drv_handle = &(notify_state.drivers[i]);
-
-		if (drv_handle->is_init == NOTIFY_DRIVERINITSTATUS_DONE) {
-			if (strncmp(driver_name, drv_handle->name,
-				NOTIFY_MAX_NAMELEN) == 0) {
-				status = NOTIFY_E_ALREADYEXISTS;
-				goto return_existing_handle;
-			}
-		}
-		 if (drv_handle->is_init == NOTIFY_DRIVERINITSTATUS_NOTDONE) {
-			/* Found an empty slot, so block it. */
-			drv_handle->is_init =
-					NOTIFY_DRIVERINITSTATUS_INPROGRESS;
-			status = NOTIFY_SUCCESS;
-			break;
-		}
+	drv_handle = &(notify_state.drivers[remote_proc_id][line_id]);
+	if (drv_handle->is_init == NOTIFY_DRIVERINITSTATUS_DONE) {
+		status = NOTIFY_E_ALREADYEXISTS;
+		mutex_unlock(notify_state.gate_handle);
+		goto exit;
 	}
 	mutex_unlock(notify_state.gate_handle);
 	WARN_ON(status < 0);
-	/*Complete registration of the driver. */
-	strncpy(drv_handle->name,
-			driver_name, NOTIFY_MAX_NAMELEN);
-	memcpy(&(drv_handle->attrs), drv_attrs,
-				sizeof(struct notify_driver_attrs));
-	memcpy(&(drv_handle->fn_table), fn_table,
-				sizeof(struct notify_interface));
-	drv_handle->driver_object = NULL;
 
-return_existing_handle:
-	/*is_setup is set when driverInit is called. */
+	/*Complete registration of the driver. */
+	memcpy(&(drv_handle->fxn_table), fxn_table,
+				sizeof(struct notify_driver_fxn_table));
+	drv_handle->notify_handle = NULL; /* Initialize to NULL. */
+	drv_handle->is_init = NOTIFY_DRIVERINITSTATUS_DONE;
 	*driver_handle = drv_handle;
 
-func_end:
+exit:
 	return status;
 }
 EXPORT_SYMBOL(notify_register_driver);
 
-/*========================================
- *func   notify_unregister_driver
- *
- *desc   This function un-registers a Notify driver with the Notify module.
- */
-int notify_unregister_driver(struct notify_driver_object  *drv_handle)
+/* Function to unregister driver with the Notify module. */
+int notify_unregister_driver(struct notify_driver_object *drv_handle)
 {
-	int status = NOTIFY_SUCCESS;
+	int status = NOTIFY_E_FAIL;
+	s32 key;
 
-	BUG_ON(drv_handle == NULL);
-
-
-	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+	if (WARN_ON(atomic_cmpmask_and_lt(&(notify_state.ref_count),
 			NOTIFY_MAKE_MAGICSTAMP(0),
-			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true)) {
 		status = NOTIFY_E_INVALIDSTATE;
-	} else {
-		/* Unregister the driver. */
-		drv_handle->is_init = NOTIFY_DRIVERINITSTATUS_NOTDONE;
-
+		goto exit;
 	}
+	if (WARN_ON(drv_handle == NULL)) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+
+	key = mutex_lock_interruptible(notify_state.gate_handle);
+	if (key)
+		goto exit;
+
+	/* Unregister the driver. */
+	drv_handle->is_init = NOTIFY_DRIVERINITSTATUS_NOTDONE;
+	mutex_unlock(notify_state.gate_handle);
+	status = NOTIFY_S_SUCCESS;
+
+exit:
 	return status;
 }
 EXPORT_SYMBOL(notify_unregister_driver);
 
-
-/*==================================
- * Function to find and return the driver handle maintained within
- * the Notify module.
- *
- * driver_name       Name of the driver to be searched.
- * handle       Return parameter: Handle to the driver.
- *
- */
-int notify_get_driver_handle(char *driver_name,
-				struct notify_driver_object **handle)
+/* Function to set the Notify object handle maintained within the
+ * Notify module. */
+int notify_set_driver_handle(u16 remote_proc_id, u16 line_id,
+				struct notify_object *handle)
 {
-	int status = NOTIFY_E_NOTFOUND;
-	struct notify_driver_object *drv_handle;
-	int i;
+	s32 status = NOTIFY_S_SUCCESS;
 
-	BUG_ON(handle == NULL);
-
-	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
+	/* Handle can be set to NULL */
+	if (WARN_ON(atomic_cmpmask_and_lt(&(notify_state.ref_count),
 			NOTIFY_MAKE_MAGICSTAMP(0),
-			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true)) {
 		status = NOTIFY_E_INVALIDSTATE;
-	} else if (WARN_ON(driver_name == NULL))
-		status = NOTIFY_E_INVALIDARG;
-	else {
-		if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
-			WARN_ON(1);
-
-		for (i = 0; i < notify_state.cfg.maxDrivers; i++) {
-			drv_handle = &(notify_state.drivers[i]);
-			/* Check whether the driver handle slot is occupied. */
-			if (drv_handle->is_init == true) {
-				if (strncmp(driver_name, drv_handle->name,
-					NOTIFY_MAX_NAMELEN) == 0) {
-					status = NOTIFY_SUCCESS;
-					*handle = drv_handle;
-					break;
-				}
-			}
-		}
-		mutex_unlock(notify_state.gate_handle);
+		goto exit;
 	}
+	if (WARN_ON(remote_proc_id >= multiproc_get_num_processors())) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(line_id >= NOTIFY_MAX_INTLINES)) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+
+	notify_state.drivers[remote_proc_id][line_id].notify_handle = handle;
+
+exit:
 	return status;
+}
+EXPORT_SYMBOL(notify_set_driver_handle);
+
+
+/* Function to find and return the driver handle maintained within
+ * the Notify module. */
+struct notify_driver_object *notify_get_driver_handle(u16 remote_proc_id,
+					u16 line_id)
+{
+	struct notify_driver_object *handle = NULL;
+	s32 status = NOTIFY_S_SUCCESS;
+
+	if (WARN_ON(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+			NOTIFY_MAKE_MAGICSTAMP(0),
+			NOTIFY_MAKE_MAGICSTAMP(1)) == true)) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto exit;
+	}
+	if (WARN_ON(remote_proc_id >= multiproc_get_num_processors())) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(line_id >= NOTIFY_MAX_INTLINES)) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+
+	handle = &(notify_state.drivers[remote_proc_id][line_id]);
+	/* Check whether the driver handle slot is occupied. */
+	if (handle->is_init == NOTIFY_DRIVERINITSTATUS_NOTDONE)
+		handle = NULL;
+
+exit:
+	if (status < 0) {
+		printk(KERN_ERR "notify_get_driver_handle failed! "
+			"status = 0x%x\n", status);
+	}
+	return handle;
 }
 EXPORT_SYMBOL(notify_get_driver_handle);

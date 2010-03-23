@@ -22,43 +22,42 @@
 #include <linux/io.h>
 #include <asm/pgtable.h>
 
-#include <syslink/notify.h>
-#include <syslink/notify_driver.h>
-#include <syslink/GlobalTypes.h>
-#include <syslink/gt.h>
-#include <syslink/multiproc.h>
 #include <syslink/atomic_linux.h>
+#include <syslink/multiproc.h>
+#include <syslink/notify.h>
+#include <syslink/_notify.h>
+#include <syslink/notifydefs.h>
+#include <syslink/notify_driver.h>
+#include <syslink/notify_setup_proxy.h>
 
-/*
- * func   _notify_is_support_proc
- *
- *desc   Check if specified processor ID is supported by the Notify driver.
- *
- */
-static bool _notify_is_support_proc(struct notify_driver_object *drv_handle,
-							int proc_id);
+struct notify_event_listener {
+	struct list_head element;
+	struct notify_event_callback callback;
+};
+
+/* Function registered with notify_exec when multiple registrations are present
+ * for the events. */
+static void _notify_exec_many(u16 proc_id, u16 line_id, u32 event_id, uint *arg,
+			u32 payload);
 
 struct notify_module_object notify_state = {
-	.def_cfg.maxDrivers = 2,
+	.def_cfg.num_events = 32u,
+	.def_cfg.send_event_poll_count = -1u,
+	.def_cfg.num_lines = 1u,
+	.def_cfg.reserved_events = 3u,
+	.gate_handle = NULL,
+	.local_notify_handle = NULL
 };
-EXPORT_SYMBOL(notify_state);
 
-
-/*
- * Get the default configuration for the Notify module.
- *
- *  This function can be called by the application to get their
- *  configuration parameter to Notify_setup filled in by the
- *  Notify module with the default parameters. If the user
- *  does not wish to make any change in the default parameters, this
- *  API is not required to be called.
- *
- * param-cfg  :Pointer to the Notify module configuration
- * structure in which the default config is to be returned.
- */
+/* Get the default configuration for the Notify module. */
 void notify_get_config(struct notify_config *cfg)
 {
-	BUG_ON(cfg == NULL);
+	s32 retval = 0;
+
+	if (WARN_ON(unlikely(cfg == NULL))) {
+		retval = -EINVAL;
+		goto exit;
+	}
 
 	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
 			NOTIFY_MAKE_MAGICSTAMP(0),
@@ -67,482 +66,1074 @@ void notify_get_config(struct notify_config *cfg)
 			sizeof(struct notify_config));
 	else
 		memcpy(cfg, &notify_state.cfg, sizeof(struct notify_config));
+
+exit:
+	if (retval < 0) {
+		printk(KERN_ERR "notify_get_config failed! status = 0x%x",
+			retval);
+	}
+	return;
 }
 EXPORT_SYMBOL(notify_get_config);
 
-/*
- *  Setup the Notify module.
- *
- * This function sets up the Notify module. This function
- * must be called before any other instance-level APIs can be
- * invoked.
- * Module-level configuration needs to be provided to this
- * function. If the user wishes to change some specific config
- * parameters, then Notify_getConfig can be called to get the
- * configuration filled with the default values. After this, only
- * the required configuration values can be changed. If the user
- * does not wish to make any change in the default parameters, the
- * application can simply call Notify_setup with NULL
- * parameters. The default parameters would get automatically used.
- *
- * param -cfg   Optional Notify module configuration. If provided as
- *       NULL, default configuration is used.
- */
+/* This function sets up the Notify module. This function must be called
+ * before any other instance-level APIs can be invoked. */
 int notify_setup(struct notify_config *cfg)
 {
-	int status = NOTIFY_SUCCESS;
-	struct notify_config tmpCfg;
+	int status = NOTIFY_S_SUCCESS;
+	struct notify_config tmp_cfg;
 
 	atomic_cmpmask_and_set(&notify_state.ref_count,
-				    NOTIFY_MAKE_MAGICSTAMP(0),
-				    NOTIFY_MAKE_MAGICSTAMP(0));
-
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(0));
 	if (atomic_inc_return(&notify_state.ref_count)
 				!= NOTIFY_MAKE_MAGICSTAMP(1u)) {
-		status = NOTIFY_S_ALREADYSETUP;
-	} else {
-		if (cfg == NULL) {
-			notify_get_config(&tmpCfg);
-			cfg = &tmpCfg;
-		}
-
-		notify_state.gate_handle = kmalloc(sizeof(struct mutex),
-							GFP_ATOMIC);
-		/*User has not provided any gate handle,
-		so create a default handle.*/
-		mutex_init(notify_state.gate_handle);
-
-		if (WARN_ON(cfg->maxDrivers > NOTIFY_MAX_DRIVERS)) {
-			status = NOTIFY_E_CONFIG;
-			kfree(notify_state.gate_handle);
-			atomic_set(&notify_state.ref_count,
-				NOTIFY_MAKE_MAGICSTAMP(0));
-			goto func_end;
-		}
-		memcpy(&notify_state.cfg, cfg, sizeof(struct notify_config));
-		memset(&notify_state.drivers, 0,
-			(sizeof(struct notify_driver_object) *
-						NOTIFY_MAX_DRIVERS));
-
-		notify_state.disable_depth = 0;
-
+		return NOTIFY_S_ALREADYSETUP;
 	}
-func_end:
+
+	if (cfg == NULL) {
+		notify_get_config(&tmp_cfg);
+		cfg = &tmp_cfg;
+	}
+
+	if (cfg->num_events > NOTIFY_MAXEVENTS) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (cfg->num_lines > NOTIFY_MAX_INTLINES) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (cfg->reserved_events > cfg->num_events) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+
+	notify_state.gate_handle = kmalloc(sizeof(struct mutex), GFP_ATOMIC);
+	if (notify_state.gate_handle == NULL) {
+		status = NOTIFY_E_FAIL;
+		goto exit;
+	}
+	/*User has not provided any gate handle,
+	so create a default handle.*/
+	mutex_init(notify_state.gate_handle);
+
+	memcpy(&notify_state.cfg, cfg, sizeof(struct notify_config));
+	notify_state.local_enable_mask = -1u;
+	notify_state.start_complete = false;
+	memset(&notify_state.drivers, 0, (sizeof(struct notify_driver_object) *
+				NOTIFY_MAX_DRIVERS * NOTIFY_MAX_INTLINES));
+
+	/* tbd: Should return Notify_Handle */
+	notify_state.local_notify_handle = notify_create(NULL, multiproc_self(),
+								0, NULL);
+	if (notify_state.local_notify_handle == NULL) {
+		status = NOTIFY_E_FAIL;
+		goto local_notify_fail;
+	}
+	return 0;
+
+local_notify_fail:
+	kfree(notify_state.gate_handle);
+exit:
+	atomic_set(&notify_state.ref_count, NOTIFY_MAKE_MAGICSTAMP(0));
+	printk(KERN_ERR "notify_setup failed! status = 0x%x", status);
 	return status;
 }
 EXPORT_SYMBOL(notify_setup);
 
-/*
- * Destroy the Notify module.
- *
- * Once this function is called, other Notify module APIs,
- *  except for the Notify_getConfig API cannot be called
- *  anymore.
- */
+/* Once this function is called, other Notify module APIs,
+ * except for the Notify_getConfig API cannot be called anymore. */
 int notify_destroy(void)
 {
 	int i;
-	int status = NOTIFY_SUCCESS;
+	int j;
+	int status = NOTIFY_S_SUCCESS;
 
-	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
-			NOTIFY_MAKE_MAGICSTAMP(0),
-			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
-			status = NOTIFY_E_INVALIDSTATE;
-	} else {
-		if (atomic_dec_return(&(notify_state.ref_count)) ==
-					NOTIFY_MAKE_MAGICSTAMP(0)) {
-
-			/* Check if any Notify driver instances have
-			 * not been deleted so far. If not, assert.
-			 */
-			for (i = 0; i < NOTIFY_MAX_DRIVERS; i++)
-				WARN_ON(notify_state.drivers[i].is_init
-								!= false);
-
-			if (notify_state.gate_handle != NULL)
-				kfree(notify_state.gate_handle);
-
-			atomic_set(&notify_state.ref_count,
-				NOTIFY_MAKE_MAGICSTAMP(0));
-		}
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto exit;
 	}
+	if (!(atomic_dec_return(&notify_state.ref_count)
+			== NOTIFY_MAKE_MAGICSTAMP(0)))
+		return NOTIFY_S_ALREADYSETUP;
+
+	/* Temporarily increment refCount here. */
+	atomic_set(&notify_state.ref_count, NOTIFY_MAKE_MAGICSTAMP(1));
+	if (notify_state.local_notify_handle != NULL)
+		status = notify_delete(&notify_state.local_notify_handle);
+	atomic_set(&notify_state.ref_count, NOTIFY_MAKE_MAGICSTAMP(0));
+
+	/* Check if any Notify driver instances have
+	 * not been deleted so far. If not, assert. */
+	for (i = 0; i < NOTIFY_MAX_DRIVERS; i++)
+		for (j = 0; j < NOTIFY_MAX_INTLINES; j++)
+			WARN_ON(notify_state.drivers[i][j].is_init != false);
+
+	kfree(notify_state.gate_handle);
+
+exit:
+	if (status < 0)
+		printk(KERN_ERR "notify_destroy failed! status = 0x%x", status);
 	return status;
 }
 EXPORT_SYMBOL(notify_destroy);
 
-/*
- * func   notify_register_event
- *
- * desc   This function registers a callback for a specific event with the
- * Notify module.
- */
-int notify_register_event(void *notify_driver_handle, u16 proc_id,
-	u32 event_no, notify_callback_fxn notify_callback_fxn, void *cbck_arg)
+/* Function to create an instance of Notify driver */
+struct notify_object *notify_create(void *driver_handle, u16 remote_proc_id,
+			u16 line_id, const struct notify_params *params)
 {
-	int status = NOTIFY_SUCCESS;
+	int status = NOTIFY_S_SUCCESS;
+	struct notify_object *obj = NULL;
+	uint i;
 
-	struct notify_driver_object *drv_handle =
-		(struct notify_driver_object *)notify_driver_handle;
+	/* driver_handle can be NULL for local create */
+	/* params can be NULL */
 
-	BUG_ON(drv_handle == NULL);
-
-	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
-			NOTIFY_MAKE_MAGICSTAMP(0),
-			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
 		status = NOTIFY_E_INVALIDSTATE;
-		goto func_end;
+		goto exit;
 	}
-	if (WARN_ON(drv_handle->is_init == false)) {
-		status = NOTIFY_E_INVALIDSTATE;
-		goto func_end;
-	}
-	if (WARN_ON(_notify_is_support_proc(drv_handle, proc_id) != true)) {
+	if (WARN_ON(unlikely(remote_proc_id >= \
+					multiproc_get_num_processors()))) {
 		status = NOTIFY_E_INVALIDARG;
-		goto func_end;
+		goto exit;
 	}
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK)
-		>= drv_handle->attrs.proc_info[proc_id].max_events))) {
-		status = NOTIFY_E_INVALIDEVENT;
-		goto func_end;
+	if (WARN_ON(unlikely(line_id >= NOTIFY_MAX_INTLINES))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
 	}
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) <
-		drv_handle->attrs.proc_info[proc_id].reserved_events) &&
-		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof(u16)) !=
-		NOTIFY_SYSTEM_KEY)) {
-		status = NOTIFY_E_RESERVEDEVENT;
-		goto func_end;
+	/* Allocate memory for the Notify object. */
+	obj = kzalloc(sizeof(struct notify_object), GFP_KERNEL);
+	if (obj == NULL) {
+		status = NOTIFY_E_MEMORY;
+		goto exit;
 	}
+
+	obj->remote_proc_id = remote_proc_id;
+	obj->line_id = line_id;
+	obj->nesting = 0;
+
+	for (i = 0; i < notify_state.cfg.num_events; i++)
+		INIT_LIST_HEAD(&obj->event_list[i]);
+
+	/* Used solely for remote driver
+	 * (NULL if remote_proc_id == self) */
+	obj->driver_handle = driver_handle;
+	/* Send this handle to the NotifyDriver */
+	status = notify_set_driver_handle(remote_proc_id, line_id, obj);
+	if (status < 0)
+		goto notify_handle_fail;
+
+	/* For local notify */
+	if (driver_handle == NULL)
+		/* Set driver status to indicate that it is done. */
+		notify_state.drivers[multiproc_self()][line_id].is_init =
+			NOTIFY_DRIVERINITSTATUS_DONE;
+	return obj;
+
+notify_handle_fail:
+	notify_set_driver_handle(remote_proc_id, line_id, NULL);
+	kfree(obj);
+	obj = NULL;
+exit:
+	if (status < 0)
+		printk(KERN_ERR "notify_create failed! status = 0x%x", status);
+	return obj;
+}
+
+
+/* Function to delete an instance of Notify driver */
+int notify_delete(struct notify_object **handle_ptr)
+{
+	int status = NOTIFY_S_SUCCESS;
+	struct notify_object *obj;
+	u16 i;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto exit;
+	}
+	if (WARN_ON(unlikely((handle_ptr == NULL) || (*handle_ptr == NULL)))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+
+	obj = (struct notify_object *)(*handle_ptr);
+
+	if (obj->remote_proc_id == multiproc_self()) {
+		notify_state.drivers[multiproc_self()][obj->line_id].is_init =
+			NOTIFY_DRIVERINITSTATUS_NOTDONE;
+	}
+	notify_set_driver_handle(obj->remote_proc_id, obj->line_id, NULL);
+	for (i = 0; i < notify_state.cfg.num_events; i++)
+		INIT_LIST_HEAD(&obj->event_list[i]);
+
+	kfree(obj);
+	obj = NULL;
+	*handle_ptr = NULL;
+
+exit:
+	if (status < 0)
+		printk(KERN_ERR "notify_delete failed! status = 0x%x", status);
+	return status;
+}
+
+/* This function registers a callback for a specific event with the
+ * Notify module. */
+int notify_register_event(u16 proc_id, u16 line_id, u32 event_id,
+		notify_fn_notify_cbck notify_callback_fxn, void *cbck_arg)
+{
+	int status = NOTIFY_S_SUCCESS;
+	u32 stripped_event_id = (event_id & NOTIFY_EVENT_MASK);
+	struct notify_driver_object *driver_handle;
+	struct list_head *event_list;
+	struct notify_event_listener *listener;
+	bool list_was_empty;
+	struct notify_object *obj;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(proc_id >= multiproc_get_num_processors()))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(line_id >= NOTIFY_MAX_INTLINES))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(notify_callback_fxn == NULL))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely((stripped_event_id >= \
+					notify_state.cfg.num_events)))) {
+		status = NOTIFY_E_EVTNOTREGISTERED;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(!ISRESERVED(event_id,
+				notify_state.cfg.reserved_events)))) {
+		status = NOTIFY_E_EVTRESERVED;
+		goto exit;
+	}
+
 	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
 		WARN_ON(1);
-
-	status = drv_handle->fn_table.register_event(drv_handle, proc_id,
-			(event_no & NOTIFY_EVENT_MASK), notify_callback_fxn,
-			cbck_arg);
-	mutex_unlock(notify_state.gate_handle);
-	if (WARN_ON(status < 0))
+	driver_handle = notify_get_driver_handle(proc_id, line_id);
+	if (WARN_ON(driver_handle == NULL)) {
+		status = NOTIFY_E_DRIVERNOTREGISTERED;
+		goto exit_unlock_mutex;
+	}
+	if (WARN_ON(driver_handle->is_init != NOTIFY_DRIVERINITSTATUS_DONE)) {
 		status = NOTIFY_E_FAIL;
-	else
-		status = NOTIFY_SUCCESS;
-func_end:
+		goto exit_unlock_mutex;
+	}
+
+	obj = (struct notify_object *)driver_handle->notify_handle;
+	if (WARN_ON(obj == NULL)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	listener = kmalloc(sizeof(struct notify_event_listener), GFP_KERNEL);
+	if (listener == NULL) {
+		status = NOTIFY_E_MEMORY;
+		goto exit_unlock_mutex;
+	}
+	listener->callback.fn_notify_cbck = notify_callback_fxn;
+	listener->callback.cbck_arg = cbck_arg;
+
+	event_list = &(obj->event_list[stripped_event_id]);
+	list_was_empty = list_empty(event_list);
+	list_add_tail((struct list_head *) listener, event_list);
+	mutex_unlock(notify_state.gate_handle);
+	if (list_was_empty) {
+		/* Registering this event for the first time. Need to
+		 * register the callback function.
+		 */
+		status = notify_register_event_single(proc_id, line_id,
+					event_id, _notify_exec_many,
+					(uint *) obj);
+	}
+	goto exit;
+
+exit_unlock_mutex:
+	mutex_unlock(notify_state.gate_handle);
+exit:
+	if (status < 0) {
+		printk(KERN_ERR "notify_register_event failed! "
+			"status = 0x%x", status);
+	}
 	return status;
 }
 EXPORT_SYMBOL(notify_register_event);
 
-/*
- * func   notify_unregister_event
- *
- * desc   This function un-registers the callback for the specific event with
- * the Notify module.
- */
-
-int notify_unregister_event(void *notify_driver_handle, u16 proc_id,
-	u32 event_no, notify_callback_fxn notify_callback_fxn, void *cbck_arg)
+/* This function registers a single callback for a specific event with the
+ * Notify module. */
+int notify_register_event_single(u16 proc_id, u16 line_id, u32 event_id,
+		notify_fn_notify_cbck notify_callback_fxn, void *cbck_arg)
 {
-	int status = NOTIFY_SUCCESS;
-	struct notify_driver_object *drv_handle =
-		(struct notify_driver_object *)notify_driver_handle;
-	BUG_ON(drv_handle == NULL);
+	int status = NOTIFY_S_SUCCESS;
+	u32 stripped_event_id = (event_id & NOTIFY_EVENT_MASK);
+	struct notify_driver_object *driver_handle;
+	struct notify_object *obj;
 
-	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
-			NOTIFY_MAKE_MAGICSTAMP(0),
-			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
 		status = NOTIFY_E_INVALIDSTATE;
-		goto func_end;
+		goto exit;
 	}
-	if (WARN_ON(drv_handle->is_init == false)) {
-		status = NOTIFY_E_INVALIDSTATE;
-		goto func_end;
-	}
-	if (WARN_ON(_notify_is_support_proc(drv_handle, proc_id) != true)) {
+	if (WARN_ON(unlikely(proc_id >= multiproc_get_num_processors()))) {
 		status = NOTIFY_E_INVALIDARG;
-		goto func_end;
+		goto exit;
 	}
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK)
-		>= drv_handle->attrs.proc_info[proc_id].max_events))) {
-		status = NOTIFY_E_INVALIDEVENT;
-		goto func_end;
+	if (WARN_ON(unlikely(line_id >= NOTIFY_MAX_INTLINES))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
 	}
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) <
-		drv_handle->attrs.proc_info[proc_id].reserved_events) &&
-		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof(u16)) !=
-		NOTIFY_SYSTEM_KEY)) {
-		status = NOTIFY_E_RESERVEDEVENT;
-		goto func_end;
+	if (WARN_ON(unlikely(notify_callback_fxn == NULL))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
 	}
+	if (WARN_ON(unlikely((stripped_event_id >= \
+					notify_state.cfg.num_events)))) {
+		status = NOTIFY_E_EVTNOTREGISTERED;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(!ISRESERVED(event_id,
+				notify_state.cfg.reserved_events)))) {
+		status = NOTIFY_E_EVTRESERVED;
+		goto exit;
+	}
+
 	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
 		WARN_ON(1);
-	status = drv_handle->fn_table.unregister_event(drv_handle,
-			proc_id, (event_no & NOTIFY_EVENT_MASK),
-			notify_callback_fxn, cbck_arg);
-	mutex_unlock(notify_state.gate_handle);
-	if (WARN_ON(status < 0))
+	driver_handle = notify_get_driver_handle(proc_id, line_id);
+	if (WARN_ON(driver_handle == NULL)) {
+		status = NOTIFY_E_DRIVERNOTREGISTERED;
+		goto exit_unlock_mutex;
+	}
+	if (WARN_ON(driver_handle->is_init != NOTIFY_DRIVERINITSTATUS_DONE)) {
 		status = NOTIFY_E_FAIL;
-	else
-		status = NOTIFY_SUCCESS;
+		goto exit_unlock_mutex;
+	}
 
-func_end:
+	obj = (struct notify_object *)driver_handle->notify_handle;
+	if (WARN_ON(obj == NULL)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	if (obj->callbacks[stripped_event_id].fn_notify_cbck != NULL) {
+		status = NOTIFY_E_ALREADYEXISTS;
+		goto exit_unlock_mutex;
+	}
+
+	obj->callbacks[stripped_event_id].fn_notify_cbck = notify_callback_fxn;
+	obj->callbacks[stripped_event_id].cbck_arg = cbck_arg;
+
+	if (proc_id != multiproc_self()) {
+		status = driver_handle->fxn_table.register_event(driver_handle,
+							stripped_event_id);
+	}
+
+exit_unlock_mutex:
+	mutex_unlock(notify_state.gate_handle);
+exit:
+	if (status < 0) {
+		printk(KERN_ERR "notify_register_event_single failed! "
+			"status = 0x%x", status);
+	}
 	return status;
 }
-EXPORT_SYMBOL(notify_unregister_event);
+EXPORT_SYMBOL(notify_register_event_single);
 
-/*
- * func   notify_sendevent
- *
- * desc   This function sends a notification to the specified event.
- *
- *
- */
-int notify_sendevent(void *notify_driver_handle, u16 proc_id,
-				u32 event_no, u32 payload, bool wait_clear)
+/* This function un-registers the callback for the specific event with
+ * the Notify module. */
+int notify_unregister_event(u16 proc_id, u16 line_id, u32 event_id,
+		notify_fn_notify_cbck notify_callback_fxn, void *cbck_arg)
 {
-	int status = NOTIFY_SUCCESS;
-	struct notify_driver_object *drv_handle =
-		(struct notify_driver_object *)notify_driver_handle;
-	BUG_ON(drv_handle == NULL);
+	int status = NOTIFY_S_SUCCESS;
+	u32 stripped_event_id = (event_id & NOTIFY_EVENT_MASK);
+	struct notify_event_listener *listener;
+	bool found = false;
+	struct notify_driver_object *driver_handle;
+	struct list_head *event_list;
+	struct notify_object *obj;
+	/*int *sys_key;*/
 
-	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
-			NOTIFY_MAKE_MAGICSTAMP(0),
-			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
 		status = NOTIFY_E_INVALIDSTATE;
-		goto func_end;
+		goto exit;
 	}
-	if (WARN_ON(drv_handle->is_init == false)) {
-		status = NOTIFY_E_INVALIDSTATE;
-		goto func_end;
-	}
-	if (WARN_ON(_notify_is_support_proc(drv_handle, proc_id) != true)) {
+	if (WARN_ON(unlikely(proc_id >= multiproc_get_num_processors()))) {
 		status = NOTIFY_E_INVALIDARG;
-		goto func_end;
+		goto exit;
 	}
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK)
-		>= drv_handle->attrs.proc_info[proc_id].max_events))) {
-		status = NOTIFY_E_INVALIDEVENT;
-		goto func_end;
+	if (WARN_ON(unlikely(line_id >= NOTIFY_MAX_INTLINES))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
 	}
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) <
-		drv_handle->attrs.proc_info[proc_id].reserved_events) &&
-		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof(u16)) !=
-		NOTIFY_SYSTEM_KEY)) {
-		status = NOTIFY_E_RESERVEDEVENT;
-		goto func_end;
+	if (WARN_ON(unlikely(notify_callback_fxn == NULL))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
 	}
+	if (WARN_ON(unlikely((stripped_event_id >= \
+					notify_state.cfg.num_events)))) {
+		status = NOTIFY_E_EVTNOTREGISTERED;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(!ISRESERVED(event_id,
+				notify_state.cfg.reserved_events)))) {
+		status = NOTIFY_E_EVTRESERVED;
+		goto exit;
+	}
+
 	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
-			WARN_ON(1);
-	status = drv_handle->fn_table.send_event
-		(drv_handle, proc_id, (event_no & NOTIFY_EVENT_MASK),
-		payload, wait_clear);
-	mutex_unlock(notify_state.gate_handle);
-	if (status < 0)
+		WARN_ON(1);
+	driver_handle = notify_get_driver_handle(proc_id, line_id);
+	if (WARN_ON(driver_handle == NULL)) {
+		status = NOTIFY_E_DRIVERNOTREGISTERED;
+		goto exit_unlock_mutex;
+	}
+	if (WARN_ON(driver_handle->is_init != NOTIFY_DRIVERINITSTATUS_DONE)) {
 		status = NOTIFY_E_FAIL;
-	else
-		status = NOTIFY_SUCCESS;
-func_end:
-	return status;
-}
-EXPORT_SYMBOL(notify_sendevent);
-
-/*
- * func   notify_disable
- *
- * desc   This function disables all events. This is equivalent to global
- *	interrupt disable, however restricted within interrupts handled by
- *	the Notify module. All callbacks registered for all events are
- *	disabled with this API. It is not possible to disable a specific
- *	callback.
- *
- */
-u32 notify_disable(u16 proc_id)
-{
-	struct notify_driver_object *drv_handle;
-	int i;
-
-	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
-			NOTIFY_MAKE_MAGICSTAMP(0),
-			NOTIFY_MAKE_MAGICSTAMP(1)) == true)
-			WARN_ON(1);
-
-
-	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
-		WARN_ON(1);
-
-	for (i = 0; i < notify_state.cfg.maxDrivers; i++) {
-		drv_handle = &(notify_state.drivers[i]);
-		WARN_ON(_notify_is_support_proc(drv_handle, proc_id)
-							== false);
-		if (drv_handle->is_init ==
-			NOTIFY_DRIVERINITSTATUS_NOTDONE) {
-				if (drv_handle->fn_table.disable) {
-					drv_handle->disable_flag[notify_state.
-						disable_depth] =
-						(u32 *)drv_handle->fn_table.
-							disable(drv_handle,
-								proc_id);
-				}
-		}
-	}
-	notify_state.disable_depth++;
-	mutex_unlock(notify_state.gate_handle);
-
-	return notify_state.disable_depth;
-}
-EXPORT_SYMBOL(notify_disable);
-
-/*
- * notify_restore
- *
- * desc   This function restores the Notify module to the state before the
- *	last notify_disable() was called. This is equivalent to global
- *	interrupt restore, however restricted within interrupts handled by
- *	the Notify module. All callbacks registered for all events as
- *	specified in the flags are enabled with this API. It is not possible
- *	to enable a specific callback.
- *
- *
- */
-void notify_restore(u32 key, u16 proc_id)
-{
-	struct notify_driver_object *drv_handle;
-	int  i;
-
-	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
-			NOTIFY_MAKE_MAGICSTAMP(0),
-			NOTIFY_MAKE_MAGICSTAMP(1)) == true)
-			WARN_ON(1);
-
-	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
-		WARN_ON(1);
-	notify_state.disable_depth--;
-	for (i = 0; i < notify_state.cfg.maxDrivers; i++) {
-		drv_handle = &(notify_state.drivers[i]);
-			if (drv_handle->fn_table.restore)
-				drv_handle->fn_table.restore(drv_handle,
-							key, proc_id);
-	}
-	mutex_unlock(notify_state.gate_handle);
-	return;
-}
-EXPORT_SYMBOL(notify_restore);
-
-/*
- *func   notify_disable_event
- *
- * desc   This function disables a specific event. All callbacks registered
- * for the specific event are disabled with this API. It is not
- * possible to disable a specific callback.
- *
- */
-
-void notify_disable_event(void *notify_driver_handle, u16 proc_id, u32 event_no)
-{
-	int status = 0;
-	struct notify_driver_object *drv_handle =
-			(struct notify_driver_object *)notify_driver_handle;
-	BUG_ON(drv_handle == NULL);
-
-	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
-			NOTIFY_MAKE_MAGICSTAMP(0),
-			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
-		status = NOTIFY_E_INVALIDSTATE;
-		goto func_end;
+		goto exit_unlock_mutex;
 	}
 
-	if (WARN_ON(drv_handle->is_init == false)) {
-		status = NOTIFY_E_INVALIDSTATE;
-		goto func_end;
-	}
-	if (WARN_ON(_notify_is_support_proc(drv_handle, proc_id) != true)) {
-		status = NOTIFY_E_INVALIDARG;
-		goto func_end;
-	}
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK)
-		>= drv_handle->attrs.proc_info[proc_id].max_events))) {
-		status = NOTIFY_E_INVALIDEVENT;
-		goto func_end;
-	}
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) <
-		drv_handle->attrs.proc_info[proc_id].reserved_events) &&
-		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof(u16)) !=
-		NOTIFY_SYSTEM_KEY)) {
-		status = NOTIFY_E_RESERVEDEVENT;
-		goto func_end;
-	}
-	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
-		WARN_ON(1);
-	drv_handle->fn_table.disable_event(drv_handle,
-			proc_id, (event_no & NOTIFY_EVENT_MASK));
-	mutex_unlock(notify_state.gate_handle);
-func_end:
-	return;
-}
-EXPORT_SYMBOL(notify_disable_event);
-
-/*
- * notify_enable_event
- *
- * This function enables a specific event. All callbacks registered for
- * this specific event are enabled with this API. It is not possible to
- * enable a specific callback.
- *
- */
-void notify_enable_event(void *notify_driver_handle, u16 proc_id, u32 event_no)
-{
-
-	struct notify_driver_object *drv_handle =
-			(struct notify_driver_object *) notify_driver_handle;
-
-	BUG_ON(drv_handle == NULL);
-
-	if (atomic_cmpmask_and_lt(&(notify_state.ref_count),
-			NOTIFY_MAKE_MAGICSTAMP(0),
-			NOTIFY_MAKE_MAGICSTAMP(1)) == true) {
-		goto func_end;
+	obj = (struct notify_object *)driver_handle->notify_handle;
+	if (WARN_ON(obj == NULL)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
 	}
 
-	if (WARN_ON(drv_handle->is_init == false))
-		goto func_end;
-	if (WARN_ON(_notify_is_support_proc(drv_handle, proc_id) != true))
-		goto func_end;
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK)
-		>= drv_handle->attrs.proc_info[proc_id].max_events)))
-		goto func_end;
-	if (WARN_ON(((event_no & NOTIFY_EVENT_MASK) <
-		drv_handle->attrs.proc_info[proc_id].reserved_events) &&
-		((event_no & NOTIFY_SYSTEM_KEY_MASK) >> sizeof(u16)) !=
-		NOTIFY_SYSTEM_KEY))
-		goto func_end;
+	event_list = &(obj->event_list[stripped_event_id]);
+	if (list_empty(event_list)) {
+		status = NOTIFY_E_NOTFOUND;
+		goto exit_unlock_mutex;
+	}
 
-	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
-		WARN_ON(1);
-		if (drv_handle->fn_table.enable_event) {
-			drv_handle->fn_table.enable_event(drv_handle,
-				proc_id, (event_no & NOTIFY_EVENT_MASK));
-		}
-	mutex_unlock(notify_state.gate_handle);
-func_end:
-	return;
-}
-EXPORT_SYMBOL(notify_enable_event);
-
-/*
- *_notify_is_support_proc
- *
- * Check if specified processor ID is supported by the Notify driver.
- *
- */
-static bool _notify_is_support_proc(struct notify_driver_object *drv_handle,
-							int proc_id)
-{
-	bool  found = false;
-	struct notify_driver_attrs *attrs;
-	int i;
-
-	BUG_ON(drv_handle == NULL);
-	attrs = &(drv_handle->attrs);
-	for (i = 0; i < MULTIPROC_MAXPROCESSORS; i++) {
-		if (attrs->proc_info[i].proc_id == proc_id) {
+	list_for_each_entry(listener, event_list, element) {
+		/* Hash not matches, take next node */
+		if ((listener->callback.fn_notify_cbck == notify_callback_fxn)
+			&& (listener->callback.cbck_arg == cbck_arg)) {
 			found = true;
 			break;
 		}
 	}
-	return found;
+	if (found == false) {
+		status = NOTIFY_E_NOTFOUND;
+		goto exit_unlock_mutex;
+	}
+	/*sys_key = Gate_enterSystem();*/
+	list_del((struct list_head *)listener);
+	/*Gate_leaveSystem(sys_key);*/
+	mutex_unlock(notify_state.gate_handle);
+
+	if (list_empty(event_list)) {
+		status = notify_unregister_event_single(proc_id, line_id,
+								event_id);
+	}
+	kfree(listener);
+	goto exit;
+
+exit_unlock_mutex:
+	mutex_unlock(notify_state.gate_handle);
+exit:
+	if (status < 0) {
+		printk(KERN_ERR "notify_unregister_event failed! "
+			"status = 0x%x", status);
+	}
+	return status;
+}
+EXPORT_SYMBOL(notify_unregister_event);
+
+/* This function un-registers a single callback for the specific event with
+ * the Notify module. */
+int notify_unregister_event_single(u16 proc_id, u16 line_id, u32 event_id)
+{
+	int status = NOTIFY_S_SUCCESS;
+	u32 stripped_event_id = (event_id & NOTIFY_EVENT_MASK);
+	struct notify_driver_object *driver_handle;
+	struct notify_object *obj;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(proc_id >= multiproc_get_num_processors()))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(line_id >= NOTIFY_MAX_INTLINES))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely((stripped_event_id >= \
+					notify_state.cfg.num_events)))) {
+		status = NOTIFY_E_EVTNOTREGISTERED;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(!ISRESERVED(event_id,
+				notify_state.cfg.reserved_events)))) {
+		status = NOTIFY_E_EVTRESERVED;
+		goto exit;
+	}
+
+	status = mutex_lock_interruptible(notify_state.gate_handle);
+	if (status)
+		goto exit;
+	driver_handle = notify_get_driver_handle(proc_id, line_id);
+	if (WARN_ON(driver_handle == NULL)) {
+		status = NOTIFY_E_DRIVERNOTREGISTERED;
+		goto exit_unlock_mutex;
+	}
+	if (WARN_ON(driver_handle->is_init != NOTIFY_DRIVERINITSTATUS_DONE)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	obj = (struct notify_object *)driver_handle->notify_handle;
+	if (WARN_ON(obj == NULL)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	if (obj->callbacks[stripped_event_id].fn_notify_cbck == NULL) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	obj->callbacks[stripped_event_id].fn_notify_cbck = NULL;
+	obj->callbacks[stripped_event_id].cbck_arg = NULL;
+	if (proc_id != multiproc_self()) {
+		status = driver_handle->fxn_table.unregister_event(
+					driver_handle, stripped_event_id);
+	}
+
+exit_unlock_mutex:
+	mutex_unlock(notify_state.gate_handle);
+exit:
+	if (status < 0) {
+		printk(KERN_ERR "notify_unregister_event_single failed! "
+			"status = 0x%x", status);
+	}
+	return status;
+}
+EXPORT_SYMBOL(notify_unregister_event_single);
+
+/* This function sends a notification to the specified event. */
+int notify_send_event(u16 proc_id, u16 line_id, u32 event_id, u32 payload,
+				bool wait_clear)
+{
+	int status = NOTIFY_S_SUCCESS;
+	u32 stripped_event_id = (event_id & NOTIFY_EVENT_MASK);
+	struct notify_driver_object *driver_handle;
+	struct notify_object *obj;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(proc_id >= multiproc_get_num_processors()))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(line_id >= NOTIFY_MAX_INTLINES))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely((stripped_event_id >= \
+					notify_state.cfg.num_events)))) {
+		status = NOTIFY_E_EVTNOTREGISTERED;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(!ISRESERVED(event_id,
+				notify_state.cfg.reserved_events)))) {
+		status = NOTIFY_E_EVTRESERVED;
+		goto exit;
+	}
+
+	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
+			WARN_ON(1);
+	driver_handle = notify_get_driver_handle(proc_id, line_id);
+	if (WARN_ON(driver_handle == NULL)) {
+		status = NOTIFY_E_DRIVERNOTREGISTERED;
+		goto exit_unlock_mutex;
+	}
+	if (WARN_ON(driver_handle->is_init != NOTIFY_DRIVERINITSTATUS_DONE)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	obj = (struct notify_object *)driver_handle->notify_handle;
+	if (WARN_ON(obj == NULL)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	if (proc_id != multiproc_self()) {
+		status = driver_handle->fxn_table.send_event(driver_handle,
+					stripped_event_id, payload, wait_clear);
+	} else {
+		/* If nesting == 0 (the driver is enabled) and the event is
+		 * enabled, send the event */
+		if (obj->callbacks[stripped_event_id].fn_notify_cbck == NULL) {
+			/* No callbacks are registered locally for the event. */
+			status = NOTIFY_E_EVTNOTREGISTERED;
+		} else if (obj->nesting != 0) {
+			/* Driver is disabled */
+			status = NOTIFY_E_FAIL;
+		} else if (!test_bit(stripped_event_id, (unsigned long *)
+				&notify_state.local_enable_mask)) {
+			/* Event is disabled */
+			status = NOTIFY_E_EVTDISABLED;
+		} else {
+			/* Leave critical section protection. */
+			mutex_unlock(notify_state.gate_handle);
+			/* Execute the callback function registered to the
+			 * event */
+			notify_exec(obj, event_id, payload);
+			/* Enter critical section protection. TBD: nesting */
+			if (mutex_lock_interruptible(notify_state.gate_handle))
+				WARN_ON(1);
+		}
+	}
+
+exit_unlock_mutex:
+	mutex_unlock(notify_state.gate_handle);
+exit:
+	if (status < 0) {
+		printk(KERN_ERR "notify_send_event failed! status = 0x%x",
+			status);
+	}
+	return status;
+}
+EXPORT_SYMBOL(notify_send_event);
+
+/* This function disables all events. This is equivalent to global
+ * interrupt disable, however restricted within interrupts handled by
+ * the Notify module. All callbacks registered for all events are
+ * disabled with this API. It is not possible to disable a specific
+ * callback. */
+u32 notify_disable(u16 proc_id, u16 line_id)
+{
+	uint key = 0;
+	int status = NOTIFY_S_SUCCESS;
+	struct notify_driver_object *driver_handle;
+	struct notify_object *obj;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(proc_id >= multiproc_get_num_processors()))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(line_id >= NOTIFY_MAX_INTLINES))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+
+	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
+		WARN_ON(1);
+	driver_handle = notify_get_driver_handle(proc_id, line_id);
+	if (WARN_ON(driver_handle == NULL)) {
+		status = NOTIFY_E_DRIVERNOTREGISTERED;
+		goto exit_unlock_mutex;
+	}
+	if (WARN_ON(driver_handle->is_init != NOTIFY_DRIVERINITSTATUS_DONE)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	obj = (struct notify_object *)driver_handle->notify_handle;
+	if (WARN_ON(obj == NULL)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	obj->nesting++;
+	if (obj->nesting == 1) {
+		/* Disable receiving all events */
+		if (proc_id != multiproc_self())
+			driver_handle->fxn_table.disable(driver_handle);
+	}
+	key = obj->nesting;
+
+exit_unlock_mutex:
+	mutex_unlock(notify_state.gate_handle);
+exit:
+	if (status < 0)
+		printk(KERN_ERR "notify_disable failed! status = 0x%x", status);
+	return key;
+}
+EXPORT_SYMBOL(notify_disable);
+
+/* This function restores the Notify module to the state before the
+ * last notify_disable() was called. This is equivalent to global
+ * interrupt restore, however restricted within interrupts handled by
+ * the Notify module. All callbacks registered for all events as
+ * specified in the flags are enabled with this API. It is not possible
+ * to enable a specific callback. */
+void notify_restore(u16 proc_id, u16 line_id, u32 key)
+{
+	int status = NOTIFY_S_SUCCESS;
+	struct notify_driver_object *driver_handle;
+	struct notify_object *obj;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(proc_id >= multiproc_get_num_processors()))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(line_id >= NOTIFY_MAX_INTLINES))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+
+	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
+		WARN_ON(1);
+	driver_handle = notify_get_driver_handle(proc_id, line_id);
+	if (WARN_ON(driver_handle == NULL)) {
+		status = NOTIFY_E_DRIVERNOTREGISTERED;
+		goto exit_unlock_mutex;
+	}
+	if (WARN_ON(driver_handle->is_init != NOTIFY_DRIVERINITSTATUS_DONE)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	obj = (struct notify_object *)driver_handle->notify_handle;
+	if (WARN_ON(obj == NULL)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	if (key != obj->nesting) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto exit_unlock_mutex;
+	}
+
+	obj->nesting--;
+	if (obj->nesting == 0) {
+		/* Enable receiving events */
+		if (proc_id != multiproc_self())
+			driver_handle->fxn_table.enable(driver_handle);
+	}
+
+exit_unlock_mutex:
+	mutex_unlock(notify_state.gate_handle);
+exit:
+	if (status < 0)
+		printk(KERN_ERR "notify_restore failed! status = 0x%x", status);
+	return;
+}
+EXPORT_SYMBOL(notify_restore);
+
+/* This function disables a specific event. All callbacks registered
+ * for the specific event are disabled with this API. It is not
+ * possible to disable a specific callback. */
+void notify_disable_event(u16 proc_id, u16 line_id, u32 event_id)
+{
+	int status = 0;
+	u32 stripped_event_id = (event_id & NOTIFY_EVENT_MASK);
+	struct notify_driver_object *driver_handle;
+	struct notify_object *obj;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(proc_id >= multiproc_get_num_processors()))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(line_id >= NOTIFY_MAX_INTLINES))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely((stripped_event_id >= \
+					notify_state.cfg.num_events)))) {
+		status = NOTIFY_E_EVTNOTREGISTERED;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(!ISRESERVED(event_id,
+				notify_state.cfg.reserved_events)))) {
+		status = NOTIFY_E_EVTRESERVED;
+		goto exit;
+	}
+
+	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
+		WARN_ON(1);
+	driver_handle = notify_get_driver_handle(proc_id, line_id);
+	if (WARN_ON(driver_handle == NULL)) {
+		status = NOTIFY_E_DRIVERNOTREGISTERED;
+		goto exit_unlock_mutex;
+	}
+	if (WARN_ON(driver_handle->is_init != NOTIFY_DRIVERINITSTATUS_DONE)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	obj = (struct notify_object *)driver_handle->notify_handle;
+	if (WARN_ON(obj == NULL)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	if (proc_id != multiproc_self()) {
+		driver_handle->fxn_table.disable_event(driver_handle,
+							stripped_event_id);
+	} else {
+		clear_bit(stripped_event_id,
+			(unsigned long *) &notify_state.local_enable_mask);
+	}
+
+exit_unlock_mutex:
+	mutex_unlock(notify_state.gate_handle);
+exit:
+	if (status < 0) {
+		printk(KERN_ERR "notify_disable_event failed! status = 0x%x",
+			status);
+	}
+	return;
+}
+EXPORT_SYMBOL(notify_disable_event);
+
+/* This function enables a specific event. All callbacks registered for
+ * this specific event are enabled with this API. It is not possible to
+ * enable a specific callback. */
+void notify_enable_event(u16 proc_id, u16 line_id, u32 event_id)
+{
+	int status = 0;
+	u32 stripped_event_id = (event_id & NOTIFY_EVENT_MASK);
+	struct notify_driver_object *driver_handle;
+	struct notify_object *obj;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(proc_id >= multiproc_get_num_processors()))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(line_id >= NOTIFY_MAX_INTLINES))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely((stripped_event_id >= \
+					notify_state.cfg.num_events)))) {
+		status = NOTIFY_E_EVTNOTREGISTERED;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(!ISRESERVED(event_id,
+				notify_state.cfg.reserved_events)))) {
+		status = NOTIFY_E_EVTRESERVED;
+		goto exit;
+	}
+
+	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
+		WARN_ON(1);
+	driver_handle = notify_get_driver_handle(proc_id, line_id);
+	if (WARN_ON(driver_handle == NULL)) {
+		status = NOTIFY_E_DRIVERNOTREGISTERED;
+		goto exit_unlock_mutex;
+	}
+	if (WARN_ON(driver_handle->is_init != NOTIFY_DRIVERINITSTATUS_DONE)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	obj = (struct notify_object *)driver_handle->notify_handle;
+	if (WARN_ON(obj == NULL)) {
+		status = NOTIFY_E_FAIL;
+		goto exit_unlock_mutex;
+	}
+
+	if (proc_id != multiproc_self()) {
+		driver_handle->fxn_table.enable_event(driver_handle,
+							stripped_event_id);
+	} else {
+		set_bit(stripped_event_id,
+			(unsigned long *)&notify_state.local_enable_mask);
+	}
+
+exit_unlock_mutex:
+	mutex_unlock(notify_state.gate_handle);
+exit:
+	if (status < 0) {
+		printk(KERN_ERR "notify_enable_event failed! status = 0x%x",
+			status);
+	}
+	return;
+}
+EXPORT_SYMBOL(notify_enable_event);
+
+/* Whether notification via interrupt line has been registered. */
+bool notify_is_registered(u16 proc_id, u16 line_id)
+{
+	int status = NOTIFY_S_SUCCESS;
+	bool is_registered = false;
+	struct notify_driver_object *driver_handle;
+
+	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(&(notify_state.ref_count),
+				NOTIFY_MAKE_MAGICSTAMP(0),
+				NOTIFY_MAKE_MAGICSTAMP(1)) == true))) {
+		status = NOTIFY_E_INVALIDSTATE;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(proc_id >= multiproc_get_num_processors()))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+	if (WARN_ON(unlikely(line_id >= NOTIFY_MAX_INTLINES))) {
+		status = NOTIFY_E_INVALIDARG;
+		goto exit;
+	}
+
+	driver_handle = notify_get_driver_handle(proc_id, line_id);
+	if ((driver_handle != NULL) && (driver_handle->notify_handle != NULL))
+		is_registered = true;
+
+exit:
+	if (status < 0) {
+		printk(KERN_ERR "notify_is_registered failed! status = 0x%x",
+			status);
+	}
+	return is_registered;
+}
+EXPORT_SYMBOL(notify_is_registered);
+
+/* Creates notify drivers and registers them with Notify */
+int notify_attach(u16 proc_id, void *shared_addr)
+{
+	int status = NOTIFY_S_SUCCESS;
+
+	/* Use the NotifySetup proxy to setup drivers */
+	status = notify_setup_proxy_attach(proc_id, shared_addr);
+
+	notify_state.start_complete = true;
+
+	return status;
+}
+EXPORT_SYMBOL(notify_attach);
+
+/* Creates notify drivers and registers them with Notify */
+int notify_detach(u16 proc_id)
+{
+	int status = 0;
+
+	/* Use the NotifySetup proxy to destroy drivers */
+	status = notify_setup_proxy_detach(proc_id);
+
+	notify_state.start_complete = false;
+
+	return status;
+}
+EXPORT_SYMBOL(notify_detach);
+
+/* Returns the total amount of shared memory used by the Notify module
+ * and all instances after notify_start has been called. */
+uint notify_shared_mem_req(u16 proc_id, void *shared_addr)
+{
+	uint mem_req = 0x0;
+
+	if (multiproc_get_num_processors() > 1)
+		/* Determine device-specific shared memory requirements */
+		mem_req = notify_setup_proxy_shared_mem_req(proc_id,\
+								shared_addr);
+	else
+		/* Only 1 processor: no shared memory needed */
+		mem_req = 0;
+
+	return mem_req;
+}
+
+/* Indicates whether notify_start is completed. */
+inline bool _notify_start_complete(void)
+{
+	return notify_state.start_complete;
+}
+
+/* Function registered as callback with the Notify driver */
+void notify_exec(struct notify_object *obj, u32 event_id, u32 payload)
+{
+	struct notify_event_callback *callback;
+
+	WARN_ON(obj == NULL);
+	WARN_ON(event_id >= notify_state.cfg.num_events);
+
+	callback = &(obj->callbacks[event_id]);
+	WARN_ON(callback->fn_notify_cbck == NULL);
+
+	/* Execute the callback function with its argument and the payload */
+	callback->fn_notify_cbck(obj->remote_proc_id, obj->line_id, event_id,
+				callback->cbck_arg, payload);
+}
+
+
+/* Function registered with notify_exec when multiple registrations are present
+ * for the events. */
+void _notify_exec_many(u16 proc_id, u16 line_id, u32 event_id, uint *arg,
+			u32 payload)
+{
+	struct notify_object *obj = (struct notify_object *)arg;
+	struct list_head *event_list;
+	struct notify_event_listener *listener;
+
+	WARN_ON(proc_id >= multiproc_get_num_processors());
+	WARN_ON(obj == NULL);
+	WARN_ON(line_id >= NOTIFY_MAX_INTLINES);
+	WARN_ON(event_id >= notify_state.cfg.num_events);
+
+	/* Both loopback and the the event itself are enabled */
+	event_list = &(obj->event_list[event_id]);
+
+	/* Enter critical section protection. */
+	if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
+		WARN_ON(1);
+	/* Use "NULL" to get the first EventListener on the list */
+	list_for_each_entry(listener, event_list, element) {
+		/* Leave critical section protection. */
+		mutex_unlock(notify_state.gate_handle);
+		listener->callback.fn_notify_cbck(proc_id, line_id, event_id,
+				listener->callback.cbck_arg, payload);
+		/* Enter critical section protection. */
+		if (mutex_lock_interruptible(notify_state.gate_handle) != 0)
+			WARN_ON(1);
+	}
+
+	/* Leave critical section protection. */
+	mutex_unlock(notify_state.gate_handle);
 }
