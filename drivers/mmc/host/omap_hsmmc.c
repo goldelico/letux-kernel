@@ -726,7 +726,6 @@ static void mmc_omap_detect(struct work_struct *work)
 	if (host->carddetect) {
 		mmc_detect_change(host->mmc, (HZ * 200) / 1000);
 	} else {
-		mmc_omap_reset_controller_fsm(host, SRD);
 		mmc_detect_change(host->mmc, (HZ * 50) / 1000);
 	}
 }
