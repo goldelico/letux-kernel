@@ -1,9 +1,9 @@
-libomap_notify = notify_driver.o notify.o drv_notify.o
+libomap_notify = notify_driver.o notify.o drv_notify.o plat/omap4_notify_setup.o
 
 
 
 obj-$(CONFIG_MPU_BRIDGE_NOTIFY)        += omap_notify.o
-omap_notify-objs = $(libomap_notify) 
+omap_notify-objs = $(libomap_notify)
 
 
 ccflags-y += -Wno-strict-prototypes
