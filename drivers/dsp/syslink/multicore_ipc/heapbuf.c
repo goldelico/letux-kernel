@@ -716,6 +716,8 @@ int heapbuf_open(void **handle_ptr,
 		if (found == true) {
 			retval = mutex_lock_interruptible(
 						heapbuf_state.local_lock);
+			if (retval)
+				goto error;
 			if (obj->owner.proc_id == myproc_id)
 				obj->owner.open_count++;
 			*handle_ptr = obj->top;

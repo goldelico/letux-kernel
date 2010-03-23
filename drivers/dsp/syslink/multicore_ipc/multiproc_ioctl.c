@@ -150,6 +150,13 @@ int multiproc_ioctl(struct inode *inode, struct file *filp,
 		break;
 	}
 
+	if ((cargs.api_status == -ERESTARTSYS) || (cargs.api_status == -EINTR))
+		status = -ERESTARTSYS;
+
+	if (status < 0)
+		goto exit;
+
+
 	/* Copy the full args to the user-side. */
 	size = copy_to_user(uarg, &cargs, sizeof(struct multiproc_cmd_args));
 	if (size) {

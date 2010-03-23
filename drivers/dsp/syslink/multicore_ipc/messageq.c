@@ -519,7 +519,6 @@ void *messageq_create(char *name, const struct messageq_params *params)
 	u16 count = 0;
 	int  i;
 	u16 start;
-	int key;
 	u16 queueIndex = 0;
 
 	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
@@ -540,7 +539,9 @@ void *messageq_create(char *name, const struct messageq_params *params)
 		goto exit;
 	}
 
-	key = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	if (status)
+		goto exit;
 	start = 0; /* Statically allocated objects not supported */
 	count = messageq_state.num_queues;
 	/* Search the dynamic array for any holes */
@@ -647,7 +648,6 @@ int messageq_delete(void **msg_handleptr)
 {
 	int status = 0;
 	struct messageq_object *handle = NULL;
-	int key;
 
 	if (atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
@@ -667,7 +667,9 @@ int messageq_delete(void **msg_handleptr)
 	handle = (struct messageq_object *) (*msg_handleptr);
 
 	/* Take the local lock */
-	key = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	if (status)
+		goto exit;
 
 	if (handle->name != NULL) {
 		/* remove from the name serve */
@@ -781,7 +783,6 @@ int messageq_get(void *messageq_handle, messageq_msg *msg,
 {
 	int status = 0;
 	struct messageq_object *obj = (struct messageq_object *)messageq_handle;
-	int key;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 					MESSAGEQ_MAKE_MAGICSTAMP(0),
@@ -802,7 +803,9 @@ int messageq_get(void *messageq_handle, messageq_msg *msg,
 
 	/* Keep looping while there is no element in the list */
 	/* Take the local lock */
-	key = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	if (status)
+		goto exit;
 	if (!list_empty(&obj->high_list)) {
 		*msg = (messageq_msg) (obj->high_list.next);
 		list_del_init(obj->high_list.next);
@@ -810,7 +813,9 @@ int messageq_get(void *messageq_handle, messageq_msg *msg,
 	/* Leave the local lock */
 	mutex_unlock(messageq_state.gate_handle);
 	while (*msg == NULL) {
-		key = mutex_lock_interruptible(messageq_state.gate_handle);
+		status = mutex_lock_interruptible(messageq_state.gate_handle);
+		if (status)
+			goto exit;
 		if (!list_empty(&obj->normal_list)) {
 			*msg = (messageq_msg) (obj->normal_list.next);
 			list_del_init(obj->normal_list.next);
@@ -841,8 +846,10 @@ int messageq_get(void *messageq_handle, messageq_msg *msg,
 					break;
 				}
 			}
-			key = mutex_lock_interruptible(
+			status = mutex_lock_interruptible(
 					messageq_state.gate_handle);
+			if (status)
+				goto exit;
 			if (!list_empty(&obj->high_list)) {
 				*msg = (messageq_msg) (obj->high_list.next);
 				list_del_init(obj->high_list.next);
@@ -881,7 +888,10 @@ int messageq_count(void *messageq_handle)
 		goto exit;
 	}
 
-	key = mutex_lock_interruptible(messageq_state.gate_handle) ;
+	key = mutex_lock_interruptible(messageq_state.gate_handle);
+	if (key < 0)
+		return key;
+
 	list_for_each(elem, &obj->high_list) {
 		count++;
 	}
@@ -1026,7 +1036,6 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 	struct messageq_object *obj = NULL;
 	void *transport = NULL;
 	u32 priority;
-	int key;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 					MESSAGEQ_MAKE_MAGICSTAMP(0),
@@ -1068,7 +1077,9 @@ int messageq_put(u32 queue_id, messageq_msg msg)
 		/* It is a local MessageQ */
 		obj = (struct messageq_object *)
 				(messageq_state.queues[(u16)(queue_id)]);
-		key = mutex_lock_interruptible(messageq_state.gate_handle);
+		status = mutex_lock_interruptible(messageq_state.gate_handle);
+		if (status < 0)
+			goto exit;
 		if ((msg->flags & MESSAGEQ_PRIORITYMASK) == \
 			MESSAGEQ_URGENTPRI) {
 			list_add((struct list_head *) msg, &obj->high_list);
@@ -1106,7 +1117,6 @@ EXPORT_SYMBOL(messageq_put);
 int messageq_register_heap(void *heap_handle, u16 heap_id)
 {
 	int  status = 0;
-	int key;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
@@ -1121,7 +1131,9 @@ int messageq_register_heap(void *heap_handle, u16 heap_id)
 		goto exit;
 	}
 
-	key = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	if (status)
+		goto exit;
 	if (messageq_state.heaps[heap_id] == NULL)
 		messageq_state.heaps[heap_id] = heap_handle;
 	else {
@@ -1148,7 +1160,6 @@ EXPORT_SYMBOL(messageq_register_heap);
 int messageq_unregister_heap(u16 heap_id)
 {
 	int  status = 0;
-	int key;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 				MESSAGEQ_MAKE_MAGICSTAMP(0),
@@ -1164,7 +1175,9 @@ int messageq_unregister_heap(u16 heap_id)
 		goto exit;
 	}
 
-	key = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	if (status)
+		goto exit;
 	if (messageq_state.heaps != NULL)
 		messageq_state.heaps[heap_id] = NULL;
 	mutex_unlock(messageq_state.gate_handle);
@@ -1187,7 +1200,6 @@ int messageq_register_transport(void *messageq_transportshm_handle,
 				 u16 proc_id, u32 priority)
 {
 	int  status = 0;
-	int key;
 
 	BUG_ON(messageq_transportshm_handle == NULL);
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
@@ -1204,7 +1216,9 @@ int messageq_register_transport(void *messageq_transportshm_handle,
 		goto exit;
 	}
 
-	key = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	if (status)
+		goto exit;
 	if (messageq_state.transports[proc_id][priority] == NULL) {
 		messageq_state.transports[proc_id][priority] = \
 			messageq_transportshm_handle;
@@ -1232,7 +1246,6 @@ EXPORT_SYMBOL(messageq_register_transport);
 int messageq_unregister_transport(u16 proc_id, u32 priority)
 {
 	int  status = 0;
-	int key;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(&(messageq_state.ref_count),
 					MESSAGEQ_MAKE_MAGICSTAMP(0),
@@ -1248,7 +1261,9 @@ int messageq_unregister_transport(u16 proc_id, u32 priority)
 		goto exit;
 	}
 
-	key = mutex_lock_interruptible(messageq_state.gate_handle);
+	status = mutex_lock_interruptible(messageq_state.gate_handle);
+	if (status)
+		goto exit;
 	if (messageq_state.transports[proc_id][priority] == NULL)
 		messageq_state.transports[proc_id][priority] = NULL;
 	mutex_unlock(messageq_state.gate_handle);

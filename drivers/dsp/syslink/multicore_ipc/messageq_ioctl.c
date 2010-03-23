@@ -77,8 +77,6 @@ static inline int messageq_ioctl_get(struct messageq_cmd_args *cargs)
 	msg_srptr = sharedregion_get_srptr(msg, index);
 
 exit:
-	if (cargs->api_status == -ERESTARTSYS)
-		return -ERESTARTSYS;
 	cargs->args.get.msg_srptr = msg_srptr;
 	return 0;
 }
@@ -90,10 +88,12 @@ exit:
  */
 static inline int messageq_ioctl_count(struct messageq_cmd_args *cargs)
 {
-	cargs->args.count.count = \
-			messageq_count(cargs->args.count.messageq_handle);
+	int result = messageq_count(cargs->args.count.messageq_handle);
+	if (result < 0)
+		cargs->api_status = result;
+	else
+		cargs->args.count.count = result;
 
-	cargs->api_status = 0;
 	return 0;
 }
 
@@ -469,6 +469,10 @@ int messageq_ioctl(struct inode *inode, struct file *filp,
 		os_status = -ENOTTY;
 		break;
 	}
+
+	if ((cargs.api_status == -ERESTARTSYS) || (cargs.api_status == -EINTR))
+		os_status = -ERESTARTSYS;
+
 	if (os_status < 0)
 		goto exit;
 

@@ -678,6 +678,10 @@ int listmp_sharedmemory_ioctl(struct inode *inode, struct file *filp,
 		os_status = -ENOTTY;
 		break;
 	}
+
+	if ((cargs.api_status == -ERESTARTSYS) || (cargs.api_status == -EINTR))
+		os_status = -ERESTARTSYS;
+
 	if (os_status < 0)
 		goto exit;
 
