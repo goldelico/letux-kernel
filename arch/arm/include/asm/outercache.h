@@ -26,6 +26,7 @@ struct outer_cache_fns {
 	void (*clean_range)(unsigned long, unsigned long);
 	void (*flush_range)(unsigned long, unsigned long);
 	void (*sync)(void);
+	void (*flush_all)(void);
 };
 
 #ifdef CONFIG_OUTER_CACHE
@@ -52,6 +53,11 @@ static inline void outer_sync(void)
 	if (outer_cache.sync)
 		outer_cache.sync();
 }
+static inline void outer_flush_all(void)
+{
+	if (outer_cache.flush_all)
+		outer_cache.flush_all();
+}
 
 #else
 
@@ -63,7 +69,8 @@ static inline void outer_flush_range(unsigned long start, unsigned long end)
 { }
 static inline void outer_sync(void)
 { }
-
+static inline void outer_flush_all(void)
+{ }
 #endif
 
 #endif	/* __ASM_OUTERCACHE_H */

@@ -207,6 +207,51 @@ static void l2x0_clean_range(unsigned long start, unsigned long end)
 	l2x0_unlock(&l2x0_lock, flags);
 }
 
+
+
+#ifdef CONFIG_PL310_ERRATA_588369
+static DEFINE_SPINLOCK(l2x0_flush_lock);
+static void l2x0_flush_all(void)
+{
+	void __iomem *base = l2x0_base;
+	unsigned char way;
+	unsigned long flags, value;
+
+	spin_lock_irqsave(&l2x0_flush_lock, flags);
+	debug_writel(0x03);
+	/* Clean all the ways */
+	for (way = 0; way <= 0xf; way++, value = 0) {
+		value = 1 << way;
+		writel(value, base + L2X0_CLEAN_WAY);
+		cache_wait_always(base + L2X0_CLEAN_WAY, value);
+		cache_sync();
+	}
+	/* Invalidate all the ways */
+	for (way = 0; way <= 0xf; way++, value = 0) {
+		value = 1 << way;
+		writel(value, base + L2X0_INV_WAY);
+		cache_wait_always(base +  L2X0_INV_WAY, value);
+		cache_sync();
+	}
+	debug_writel(0x00);
+	spin_unlock_irqrestore(&l2x0_flush_lock, flags);
+}
+
+#else
+
+static inline void l2x0_flush_all(void)
+{
+	unsigned long flags;
+
+	/* invalidate all ways */
+	spin_lock_irqsave(&l2x0_lock, flags);
+	writel(0xff, l2x0_base + L2X0_CLEAN_INV_WAY);
+	cache_wait(l2x0_base + L2X0_CLEAN_INV_WAY, 0xff);
+	cache_sync();
+	spin_unlock_irqrestore(&l2x0_lock, flags);
+}
+#endif
+
 static void l2x0_flush_range(unsigned long start, unsigned long end)
 {
 	void __iomem *base = l2x0_base;
@@ -269,6 +314,7 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 	outer_cache.clean_range = l2x0_clean_range;
 	outer_cache.flush_range = l2x0_flush_range;
 	outer_cache.sync = l2x0_cache_sync;
+	outer_cache.flush_all = l2x0_flush_all;
 
 	pr_info(L2CC_TYPE " cache controller enabled\n");
 }
