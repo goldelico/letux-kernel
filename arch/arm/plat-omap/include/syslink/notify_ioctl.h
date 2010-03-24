@@ -26,7 +26,7 @@
 
 /* Module headers */
 #include <syslink/notify.h>
-#include <syslink/notify_shmdriver.h>
+#include <syslink/notify_ducatidriver.h>
 #include <syslink/notifydefs.h>
 
 
