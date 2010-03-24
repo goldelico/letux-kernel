@@ -1336,7 +1336,7 @@ static DSP_STATUS LoadLib(struct NLDR_NODEOBJECT *hNldrNode,
 			 * the deplib is already included */
 			if (!rootPersistent && persistentDepLibs[i] &&
 			   *hNldrNode->pfPhaseSplit) {
-				if ((hNldrNode->nPersLib) > MAXLIBS) {
+				if ((hNldrNode->nPersLib) >= MAXLIBS) {
 					status = DSP_EDYNLOAD;
 					break;
 				}
