@@ -30,7 +30,7 @@
 #define MAX_VOUT_DEV	2
 #define MAX_OVLS	3
 #endif
-#define MAX_DISPLAYS	3
+#define MAX_DISPLAYS	4
 #define MAX_MANAGERS	3
 
 /* Enum for Rotation
