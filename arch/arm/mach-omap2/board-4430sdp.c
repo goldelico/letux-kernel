@@ -737,6 +737,7 @@ static int __init omap4_i2c_init(void)
 				ARRAY_SIZE(sdp4430_i2c_2_boardinfo));
 	omap_register_i2c_bus(3, 400, sdp4430_i2c_3_boardinfo,
 				ARRAY_SIZE(sdp4430_i2c_3_boardinfo));
+	omap_register_i2c_bus(4, 400, 0, 0);
 
 	return 0;
 }

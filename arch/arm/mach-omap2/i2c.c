@@ -43,8 +43,10 @@ int __init omap2_i2c_nr_ports(void)
 
 	if (cpu_is_omap24xx())
 		ports = 2;
-	else if (cpu_is_omap34xx() || cpu_is_omap44xx())
+	else if (cpu_is_omap34xx())
 		ports = 3;
+	else if (cpu_is_omap44xx())
+		ports = 4;
 
 	return ports;
 }
