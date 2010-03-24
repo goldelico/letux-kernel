@@ -640,6 +640,9 @@ typedef void (*omap_dispc_isr_t) (void *arg, u32 mask);
 int omap_dispc_register_isr(omap_dispc_isr_t isr, void *arg, u32 mask);
 int omap_dispc_unregister_isr(omap_dispc_isr_t isr, void *arg, u32 mask);
 
+bool dispc_go_busy(enum omap_channel channel);
+void dispc_go(enum omap_channel channel);
+
 int omap_dispc_wait_for_irq_timeout(u32 irqmask, unsigned long timeout);
 int omap_dispc_wait_for_irq_interruptible_timeout(u32 irqmask,
 		unsigned long timeout);

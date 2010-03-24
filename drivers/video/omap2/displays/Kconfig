@@ -19,6 +19,12 @@ config PANEL_SHARP_LS037V7DW01
         help
           LCD Panel used in TI's SDP3430 and EVM boards
 
+config PANEL_PICO_DLP
+	tristate "OMAP PICO DLP Panel"
+	depends on OMAP2_DSS
+	help
+	LCD Panel used in TI's SDP4430 and EVM boards
+
 config PANEL_TAAL
         tristate "Taal DSI Panel"
         depends on OMAP2_DSS_DSI

@@ -632,6 +632,10 @@ enum omap24xx_index {
 	/* Touchscreen GPIO */
 	AF19_2430_GPIO_85,
 
+	DLP_4430_GPIO_40,
+	DLP_4430_GPIO_44,
+	DLP_4430_GPIO_45,
+	DLP_4430_GPIO_59,
 };
 
 struct omap_mux_cfg {

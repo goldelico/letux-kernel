@@ -231,6 +231,7 @@ extern void __iomem  *dispc_base;
 void __iomem  *gpio_base;
 void __iomem  *dsi_base;
 void __iomem  *dsi2_base;
+EXPORT_SYMBOL(dsi2_base);
 #endif
 
 enum fifo_size {
@@ -3546,7 +3547,7 @@ static int dsi2_update_thread(void *data)
 					timeout);
 
 			if (timeout == 0) {
-				DSSERR("dsi2 framedone timeout\n"); /*svov3*/
+				/*DSSERR("dsi2 framedone timeout\n");*/ /*svov3*/
 				printk(KERN_DEBUG "DSS_CONTROL = 0x%x",
 					__raw_readl(dss_base + 0x40));
 				/*svov3 DSSERR("failed update %d,%d %dx%d\n",
@@ -3695,7 +3696,7 @@ static int dsi_configure_dsi_clocks(struct omap_dss_device *dssdev)
 
 	if (cpu_is_omap44xx()) {/*TODO: shouldn't be needed once we have corrected dsi_configure_dsi_clocks ? */
 	cinfo.regn = 19;
-	cinfo.regm = 150;
+	cinfo.regm = 102;
 	cinfo.regm3 = 4;
 	cinfo.regm4 = 4;
 	cinfo.use_dss2_fck = true;

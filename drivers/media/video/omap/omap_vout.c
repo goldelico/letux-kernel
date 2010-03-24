@@ -2295,7 +2295,7 @@ static int vidioc_streamon(struct file *file, void *fh,
 
 	mask = DISPC_IRQ_VSYNC | DISPC_IRQ_EVSYNC_EVEN |
 			DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_FRAMEDONE |
-			DISPC_IRQ_FRAMEDONE2;
+			DISPC_IRQ_FRAMEDONE2 | DISPC_IRQ_VSYNC2;
 
 	omap_dispc_register_isr(omap_vout_isr, vout, mask);
 
@@ -2339,7 +2339,7 @@ static int vidioc_streamoff(struct file *file, void *fh,
 	vout->streaming = 0;
 	mask = DISPC_IRQ_VSYNC | DISPC_IRQ_EVSYNC_EVEN |
 			DISPC_IRQ_EVSYNC_ODD | DISPC_IRQ_FRAMEDONE |
-			DISPC_IRQ_FRAMEDONE2;
+			DISPC_IRQ_FRAMEDONE2 | DISPC_IRQ_VSYNC2;
 
 	omap_dispc_unregister_isr(omap_vout_isr, vout, mask);
 
@@ -2971,6 +2971,19 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 				irq = DISPC_IRQ_FRAMEDONE2;
 #endif
 	spin_lock_irqsave(&vout->vbq_lock, flags);
+	if (cur_display->channel == OMAP_DSS_CHANNEL_LCD2)
+	{
+		extern void __iomem  *dispc_base;
+		u32 val=__raw_readl(dispc_base + (0x238));
+		if((val & (1<<11)) == 0)
+		{
+			cur_display->type = OMAP_DISPLAY_TYPE_DPI;
+		}
+		else
+		{
+			cur_display->type == OMAP_DISPLAY_TYPE_DSI;
+		}
+	}
 	do_gettimeofday(&timevalue);
 
 	switch (cur_display->type) {
@@ -2983,7 +2996,8 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 			break;
 
 	case OMAP_DISPLAY_TYPE_DPI:
-			if (!(irqstatus & DISPC_IRQ_VSYNC)) {
+			if (!(irqstatus & (DISPC_IRQ_VSYNC |
+					   DISPC_IRQ_VSYNC2))) {
 				spin_unlock_irqrestore(&vout->vbq_lock, flags);
 			return;
 		}
@@ -3045,6 +3059,12 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 			spin_unlock_irqrestore(&vout->vbq_lock, flags);
 			return;
 		}
+
+	if (dispc_go_busy(OMAP_DSS_CHANNEL_LCD2)) {
+			spin_unlock_irqrestore(&vout->vbq_lock, flags);
+			printk("dpi busy %d !! \n" , cur_display->type);
+			return;
+	}
 
 		if (!vout->first_int && (vout->cur_frm != vout->next_frm)) {
 				vout->cur_frm->ts = timevalue;

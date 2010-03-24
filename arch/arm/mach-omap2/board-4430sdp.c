@@ -151,6 +151,13 @@ static struct platform_device omap_kp_device = {
 
 /* Begin Synaptic Touchscreen TM-01217 */
 
+static struct tm12xx_ts_platform_data picodlp_platform_data[] = {
+	[0] = { /* DLP Controller */
+		.gpio_intr = 40,
+
+	},
+};
+
 static char *tm12xx_idev_names[] = {
 	"Synaptic TM12XX TouchPoint 1",
 	"Synaptic TM12XX TouchPoint 2",
@@ -241,6 +248,25 @@ static struct omap_dss_device sdp4430_lcd_device = {
 	.channel			=	OMAP_DSS_CHANNEL_LCD,
 };
 
+static int sdp4430_panel_enable_pico_DLP(struct omap_dss_device *dssdev)
+{
+	return 0;
+}
+
+static int sdp4430_panel_disable_pico_DLP(struct omap_dss_device *dssdev)
+{
+	return 0;
+}
+
+static struct omap_dss_device sdp4430_picoDLP_device = {
+	.name				= "pico_DLP",
+	.driver_name			= "picoDLP_panel",
+	.type				= OMAP_DISPLAY_TYPE_DPI,
+	.phy.dpi.data_lines		= 24,
+	.platform_enable		= sdp4430_panel_enable_pico_DLP,
+	.platform_disable		= sdp4430_panel_disable_pico_DLP,
+};
+
 static struct omap_dss_device sdp4430_lcd2_device = {
 	.name			= "2lcd",
 	.driver_name		= "panel-taal2",
@@ -296,6 +322,7 @@ static struct omap_dss_device *sdp4430_dss_devices[] = {
 #ifdef CONFIG_OMAP2_DSS_HDMI
 	&sdp4430_hdmi_device,
 #endif
+	&sdp4430_picoDLP_device,
 };
 
 static struct omap_dss_board_info sdp4430_dss_data = {
@@ -713,6 +740,10 @@ static struct i2c_board_info __initdata sdp4430_i2c_2_boardinfo[] = {
 		I2C_BOARD_INFO("tm12xx_ts_primary", 0x4b),
 		.platform_data = &tm12xx_platform_data[0],
 	},
+	{
+		I2C_BOARD_INFO("picoDLP_i2c_driver", 0x1b),
+		.platform_data = &picodlp_platform_data[0],
+	},
 };
 
 static struct i2c_board_info __initdata sdp4430_i2c_3_boardinfo[] = {
@@ -733,6 +764,17 @@ static int __init omap4_i2c_init(void)
 				ARRAY_SIZE(sdp4430_i2c_3_boardinfo));
 
 	return 0;
+}
+
+static void omap_dlp_init(void)
+{
+/* L24.4 -> below mux changes are stub. updated xloader should be used */
+#if 0
+	omap_cfg_reg(DLP_4430_GPIO_40);
+	omap_cfg_reg(DLP_4430_GPIO_44);
+	omap_cfg_reg(DLP_4430_GPIO_45);
+	omap_cfg_reg(DLP_4430_GPIO_59);
+#endif /* if 0 */
 }
 
 static struct spi_board_info sdp4430_spi_board_info[] __initdata = {
@@ -808,6 +850,7 @@ void wlan_1283_config()
 static void __init omap_4430sdp_init(void)
 {
 	omap4_i2c_init();
+	omap_dlp_init();
 	platform_add_devices(sdp4430_devices, ARRAY_SIZE(sdp4430_devices));
 	omap_serial_init();
 	/* OMAP4 SDP uses internal transceiver so register nop transceiver */
