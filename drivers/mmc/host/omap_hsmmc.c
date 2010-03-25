@@ -1774,13 +1774,6 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	int ret = 0, irq;
 	int ctrlr_caps;
 
-	/*
-	 * FIXME OMAP4: Do not register MMC2.
-	 * eMMC seems to be recognized on MMC1 which is incorrect.
-	 */
-	if (cpu_is_omap44xx() && pdev->id == 1)
-		return 0;
-
 	if (pdata == NULL) {
 		dev_err(&pdev->dev, "Platform Data is missing\n");
 		return -ENXIO;
@@ -2015,6 +2008,15 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 	mmc_host_lazy_disable(host->mmc);
 
 	omap_hsmmc_protect_card(host);
+
+	/*
+	 * Delay MMC2 registration with core by 200mS. This is the time spent
+	 * in MMC1 power down/up sequence.
+	 *
+	 * This helps retains the sequence of MMC hosts recognized on OMAP4.
+	 */
+	if (cpu_is_omap44xx() && pdev->id == 1)
+		msleep(200);
 
 	mmc_add_host(mmc);
 
