@@ -25,10 +25,12 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/cpu.h>
 
 #include <mach/hardware.h>
 #include <plat/clock.h>
 #include <asm/system.h>
+#include <asm/cpu.h>
 
 #if defined(CONFIG_ARCH_OMAP3) && !defined(CONFIG_OMAP_PM_NONE)
 #include <plat/omap-pm.h>
@@ -42,13 +44,19 @@ static struct cpufreq_frequency_table *freq_table;
 #define MPU_CLK		"mpu"
 #elif CONFIG_ARCH_OMAP3
 #define MPU_CLK		"arm_fck"
+#elif CONFIG_ARCH_OMAP4
+#define MPU_CLK		"dpll_mpu_ck"
 #else
 #define MPU_CLK		"virt_prcm_set"
 #endif
 
 static struct clk *mpu_clk;
-
+#ifdef CONFIG_SMP
+static cpumask_var_t omap_cpus;
+int cpus_initialized;
+#endif
 /* TODO: Add support for SDRAM timing changes */
+
 
 int omap_verify_speed(struct cpufreq_policy *policy)
 {
@@ -72,7 +80,7 @@ unsigned int omap_getspeed(unsigned int cpu)
 {
 	unsigned long rate;
 
-	if (cpu)
+	if (!cpu_is_omap44xx() && cpu)
 		return 0;
 
 	rate = clk_get_rate(mpu_clk) / 1000;
@@ -83,11 +91,18 @@ static int omap_target(struct cpufreq_policy *policy,
 		       unsigned int target_freq,
 		       unsigned int relation)
 {
-#ifdef CONFIG_ARCH_OMAP1
+#if defined(CONFIG_ARCH_OMAP1) || defined(CONFIG_ARCH_OMAP4)
 	struct cpufreq_freqs freqs;
 #endif
 	int ret = 0;
+#ifdef CONFIG_SMP
+	int i;
+	const struct cpumask  *cpumasks;
 
+	/* Wait untill all CPU's are initialized */
+	if (unlikely(cpus_initialized < num_online_cpus()))
+		return ret;
+#endif
 	/* Ensure desired rate is within allowed range.  Some govenors
 	 * (ondemand) will just pass target_freq=0 to get the minimum. */
 	if (target_freq < policy->min)
@@ -95,20 +110,52 @@ static int omap_target(struct cpufreq_policy *policy,
 	if (target_freq > policy->max)
 		target_freq = policy->max;
 
-#ifdef CONFIG_ARCH_OMAP1
-	freqs.old = omap_getspeed(0);
+#if defined(CONFIG_ARCH_OMAP1) || defined(CONFIG_ARCH_OMAP4)
+	freqs.old = omap_getspeed(policy->cpu);
 	freqs.new = clk_round_rate(mpu_clk, target_freq * 1000) / 1000;
-	freqs.cpu = 0;
+	freqs.cpu = policy->cpu;
 
 	if (freqs.old == freqs.new)
 		return ret;
+#ifdef CONFIG_SMP
+	if (policy->shared_type != CPUFREQ_SHARED_TYPE_ANY)
+		cpumasks = policy->cpus;
+	else
+		cpumasks = cpumask_of(policy->cpu);
+
+	for_each_cpu(i, cpumasks) {
+		freqs.cpu = i;
+		cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
+	}
+#else
 	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
+#endif
+
 #ifdef CONFIG_CPU_FREQ_DEBUG
 	printk(KERN_DEBUG "cpufreq-omap: transition: %u --> %u\n",
 	       freqs.old, freqs.new);
 #endif
+	/* Both CPU's are clocked from same clock source */
 	ret = clk_set_rate(mpu_clk, freqs.new * 1000);
+
+#ifdef CONFIG_SMP
+	/*
+	 * Note that loops_per_jiffy is not updated on SMP systems in
+	 * cpufreq driver. So, update the per-CPU loops_per_jiffy value
+	 * on frequency transition. We need to update all depedant cpus
+	 */
+	for_each_cpu(i, policy->cpus)
+		per_cpu(cpu_data, i).loops_per_jiffy =
+		cpufreq_scale(per_cpu(cpu_data, i).loops_per_jiffy,
+			freqs.old, freqs.new);
+
+	for_each_cpu(i, cpumasks) {
+		freqs.cpu = i;
+		cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
+	}
+#else
 	cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
+#endif
 #elif defined(CONFIG_ARCH_OMAP3) && !defined(CONFIG_OMAP_PM_NONE)
 	if (mpu_opps) {
 		int ind;
@@ -132,10 +179,10 @@ static int __init omap_cpu_init(struct cpufreq_policy *policy)
 	if (IS_ERR(mpu_clk))
 		return PTR_ERR(mpu_clk);
 
-	if (policy->cpu != 0)
+	if (!cpu_is_omap44xx() && policy->cpu != 0)
 		return -EINVAL;
 
-	policy->cur = policy->min = policy->max = omap_getspeed(0);
+	policy->cur = policy->min = policy->max = omap_getspeed(policy->cpu);
 
 	clk_init_cpufreq_table(&freq_table);
 	if (freq_table) {
@@ -157,6 +204,12 @@ static int __init omap_cpu_init(struct cpufreq_policy *policy)
 
 	/* FIXME: what's the actual transition time? */
 	policy->cpuinfo.transition_latency = 300 * 1000;
+#ifdef CONFIG_SMP
+	policy->shared_type = CPUFREQ_SHARED_TYPE_ANY;
+	cpumask_or(omap_cpus, cpumask_of(policy->cpu), omap_cpus);
+	cpumask_copy(policy->cpus, omap_cpus);
+	cpus_initialized++;
+#endif
 	return 0;
 }
 

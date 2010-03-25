@@ -11,6 +11,7 @@
  * Rajendra Nayak <rnayak@ti.com>
  *
  * Some pieces of code Copyright (C) 2005 Texas Instruments, Inc.
+ * Upgraded with OMAP4 support by Abhijit Pagare <abhijitpagare@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -35,6 +36,7 @@
 static void __iomem *prm_base;
 static void __iomem *cm_base;
 static void __iomem *cm2_base;
+static void __iomem *chiron_base;
 
 #define MAX_MODULE_ENABLE_WAIT		100000
 
@@ -121,7 +123,10 @@ struct omap3_prcm_regs prcm_context;
 u32 omap_prcm_get_reset_sources(void)
 {
 	/* XXX This presumably needs modification for 34XX */
-	return prm_read_mod_reg(WKUP_MOD, RM_RSTST) & 0x7f;
+	if (cpu_is_omap24xx() | cpu_is_omap34xx())
+		return prm_read_mod_reg(WKUP_MOD, OMAP2_RM_RSTST) & 0x7f;
+	if (cpu_is_omap44xx())
+		return prm_read_mod_reg(WKUP_MOD, OMAP4_RM_RSTST) & 0x7f;
 }
 EXPORT_SYMBOL(omap_prcm_get_reset_sources);
 
@@ -144,14 +149,21 @@ void omap_prcm_arch_reset(char mode)
 		 * cf. OMAP34xx TRM, Initialization / Software Booting
 		 * Configuration. */
 		omap_writel(l, OMAP343X_SCRATCHPAD + 4);
-	} else
+	} else if (cpu_is_omap44xx())
+		prcm_offs = OMAP4430_PRM_DEVICE_MOD;
+	else
 		WARN_ON(1);
 
+	if (cpu_is_omap24xx() | cpu_is_omap34xx())
 #ifdef CONFIG_MACH_SHOLES
-	prm_set_mod_reg_bits(OMAP_RST_GS, prcm_offs, RM_RSTCTRL);
+		prm_set_mod_reg_bits(OMAP_RST_GS, prcm_offs, RM_RSTCTRL);
 #else
-	prm_set_mod_reg_bits(OMAP_RST_DPLL3, prcm_offs, RM_RSTCTRL);
+		prm_set_mod_reg_bits(OMAP_RST_DPLL3, prcm_offs,
+						 OMAP2_RM_RSTCTRL);
 #endif
+	if (cpu_is_omap44xx())
+		prm_set_mod_reg_bits(OMAP_RST_DPLL3, prcm_offs,
+						 OMAP4_RM_RSTCTRL);
 }
 
 static inline u32 __omap_prcm_read(void __iomem *base, s16 module, u16 reg)
@@ -165,6 +177,18 @@ static inline void __omap_prcm_write(u32 value, void __iomem *base,
 {
 	BUG_ON(!base);
 	__raw_writel(value, base + module + reg);
+}
+
+/* Read a register in a CHIRON module */
+u32 chiron_read_mod_reg(s16 module, u16 idx)
+{
+	return __omap_prcm_read(chiron_base, module, idx);
+}
+
+/* Write into a register in a PRM module */
+void chiron_write_mod_reg(u32 val, s16 module, u16 idx)
+{
+	__omap_prcm_write(val, chiron_base, module, idx);
 }
 
 /* Read a register in a PRM module */
@@ -184,10 +208,21 @@ u32 prm_rmw_mod_reg_bits(u32 mask, u32 bits, s16 module, s16 idx)
 {
 	u32 v;
 
-	v = prm_read_mod_reg(module, idx);
+	/* CHIRON CPU0/1 domains are not part of PRM */
+	if ((module == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
+		(module == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD))
+		v = chiron_read_mod_reg(module, idx);
+	else
+		v = prm_read_mod_reg(module, idx);
+
 	v &= ~mask;
 	v |= bits;
-	prm_write_mod_reg(v, module, idx);
+
+	if ((module == OMAP4430_CHIRONSS_CHIRONSS_CPU0_MOD) ||
+		(module == OMAP4430_CHIRONSS_CHIRONSS_CPU1_MOD))
+		chiron_write_mod_reg(v, module, idx);
+	else
+		prm_write_mod_reg(v, module, idx);
 
 	return v;
 }
@@ -261,6 +296,7 @@ void __init omap2_set_globals_prcm(struct omap_globals *omap2_globals)
 	prm_base = omap2_globals->prm;
 	cm_base = omap2_globals->cm;
 	cm2_base = omap2_globals->cm2;
+	chiron_base = omap2_globals->chiron;
 }
 
 #ifdef CONFIG_ARCH_OMAP3
@@ -284,7 +320,7 @@ void omap3_prcm_save_context(void)
 	prcm_context.emu_cm_clksel =
 			 cm_read_mod_reg(OMAP3430_EMU_MOD, CM_CLKSEL1);
 	prcm_context.emu_cm_clkstctrl =
-			 cm_read_mod_reg(OMAP3430_EMU_MOD, CM_CLKSTCTRL);
+			 cm_read_mod_reg(OMAP3430_EMU_MOD, OMAP2_CM_CLKSTCTRL);
 	prcm_context.pll_cm_autoidle2 =
 			 cm_read_mod_reg(PLL_MOD, CM_AUTOIDLE2);
 	prcm_context.pll_cm_clksel4 =
@@ -337,23 +373,25 @@ void omap3_prcm_save_context(void)
 	prcm_context.mpu_cm_autoidle2 =
 			 cm_read_mod_reg(MPU_MOD, CM_AUTOIDLE2);
 	prcm_context.iva2_cm_clkstctrl =
-			 cm_read_mod_reg(OMAP3430_IVA2_MOD, CM_CLKSTCTRL);
+			 cm_read_mod_reg(OMAP3430_IVA2_MOD, OMAP2_CM_CLKSTCTRL);
 	prcm_context.mpu_cm_clkstctrl =
-			 cm_read_mod_reg(MPU_MOD, CM_CLKSTCTRL);
+			 cm_read_mod_reg(MPU_MOD, OMAP2_CM_CLKSTCTRL);
 	prcm_context.core_cm_clkstctrl =
-			 cm_read_mod_reg(CORE_MOD, CM_CLKSTCTRL);
+			 cm_read_mod_reg(CORE_MOD, OMAP2_CM_CLKSTCTRL);
 	prcm_context.sgx_cm_clkstctrl =
-			 cm_read_mod_reg(OMAP3430ES2_SGX_MOD, CM_CLKSTCTRL);
+			 cm_read_mod_reg(OMAP3430ES2_SGX_MOD,
+						OMAP2_CM_CLKSTCTRL);
 	prcm_context.dss_cm_clkstctrl =
-			 cm_read_mod_reg(OMAP3430_DSS_MOD, CM_CLKSTCTRL);
+			 cm_read_mod_reg(OMAP3430_DSS_MOD, OMAP2_CM_CLKSTCTRL);
 	prcm_context.cam_cm_clkstctrl =
-			 cm_read_mod_reg(OMAP3430_CAM_MOD, CM_CLKSTCTRL);
+			 cm_read_mod_reg(OMAP3430_CAM_MOD, OMAP2_CM_CLKSTCTRL);
 	prcm_context.per_cm_clkstctrl =
-			 cm_read_mod_reg(OMAP3430_PER_MOD, CM_CLKSTCTRL);
+			 cm_read_mod_reg(OMAP3430_PER_MOD, OMAP2_CM_CLKSTCTRL);
 	prcm_context.neon_cm_clkstctrl =
-			 cm_read_mod_reg(OMAP3430_NEON_MOD, CM_CLKSTCTRL);
+			 cm_read_mod_reg(OMAP3430_NEON_MOD, OMAP2_CM_CLKSTCTRL);
 	prcm_context.usbhost_cm_clkstctrl =
-			 cm_read_mod_reg(OMAP3430ES2_USBHOST_MOD, CM_CLKSTCTRL);
+			 cm_read_mod_reg(OMAP3430ES2_USBHOST_MOD,
+						OMAP2_CM_CLKSTCTRL);
 	prcm_context.core_cm_autoidle1 =
 			 cm_read_mod_reg(CORE_MOD, CM_AUTOIDLE1);
 	prcm_context.core_cm_autoidle2 =
@@ -436,7 +474,7 @@ void omap3_prcm_restore_context(void)
 	cm_write_mod_reg(prcm_context.emu_cm_clksel, OMAP3430_EMU_MOD,
 					 CM_CLKSEL1);
 	cm_write_mod_reg(prcm_context.emu_cm_clkstctrl, OMAP3430_EMU_MOD,
-					 CM_CLKSTCTRL);
+					 OMAP2_CM_CLKSTCTRL);
 	cm_write_mod_reg(prcm_context.pll_cm_autoidle2, PLL_MOD,
 					 CM_AUTOIDLE2);
 	cm_write_mod_reg(prcm_context.pll_cm_clksel4, PLL_MOD,
@@ -482,22 +520,23 @@ void omap3_prcm_restore_context(void)
 					CM_AUTOIDLE2);
 	cm_write_mod_reg(prcm_context.mpu_cm_autoidle2, MPU_MOD, CM_AUTOIDLE2);
 	cm_write_mod_reg(prcm_context.iva2_cm_clkstctrl, OMAP3430_IVA2_MOD,
-					CM_CLKSTCTRL);
-	cm_write_mod_reg(prcm_context.mpu_cm_clkstctrl, MPU_MOD, CM_CLKSTCTRL);
+					OMAP2_CM_CLKSTCTRL);
+	cm_write_mod_reg(prcm_context.mpu_cm_clkstctrl, MPU_MOD,
+					OMAP2_CM_CLKSTCTRL);
 	cm_write_mod_reg(prcm_context.core_cm_clkstctrl, CORE_MOD,
-					CM_CLKSTCTRL);
+					OMAP2_CM_CLKSTCTRL);
 	cm_write_mod_reg(prcm_context.sgx_cm_clkstctrl, OMAP3430ES2_SGX_MOD,
-					CM_CLKSTCTRL);
+					OMAP2_CM_CLKSTCTRL);
 	cm_write_mod_reg(prcm_context.dss_cm_clkstctrl, OMAP3430_DSS_MOD,
-					CM_CLKSTCTRL);
+					OMAP2_CM_CLKSTCTRL);
 	cm_write_mod_reg(prcm_context.cam_cm_clkstctrl, OMAP3430_CAM_MOD,
-					CM_CLKSTCTRL);
+					OMAP2_CM_CLKSTCTRL);
 	cm_write_mod_reg(prcm_context.per_cm_clkstctrl, OMAP3430_PER_MOD,
-					CM_CLKSTCTRL);
+					OMAP2_CM_CLKSTCTRL);
 	cm_write_mod_reg(prcm_context.neon_cm_clkstctrl, OMAP3430_NEON_MOD,
-					CM_CLKSTCTRL);
+					OMAP2_CM_CLKSTCTRL);
 	cm_write_mod_reg(prcm_context.usbhost_cm_clkstctrl,
-					OMAP3430ES2_USBHOST_MOD, CM_CLKSTCTRL);
+				OMAP3430ES2_USBHOST_MOD, OMAP2_CM_CLKSTCTRL);
 	cm_write_mod_reg(prcm_context.core_cm_autoidle1, CORE_MOD,
 					CM_AUTOIDLE1);
 	cm_write_mod_reg(prcm_context.core_cm_autoidle2, CORE_MOD,

@@ -20,6 +20,7 @@
 #include <linux/completion.h>
 
 #include <asm/cacheflush.h>
+#include <plat/io.h>
 
 static DECLARE_COMPLETION(cpu_killed);
 
@@ -68,10 +69,15 @@ static inline void omap_do_lowpower(unsigned int cpu)
 	}
 
 	/*
-	 * FIXME: Hooke pu the omap low power here.
+	 * FIXME: Hook up the omap low power here.
 	 */
 	for (;;) {
-		asm volatile("wfe\n"
+		/* Program the possible low power state here */
+
+		/* 1. SCP power status register to dormant mode */
+		omap_writel(0x02, 0x48240008);
+		dsb();
+		asm volatile("wfi\n"
 			:
 			:
 			: "memory", "cc");
@@ -80,9 +86,12 @@ static inline void omap_do_lowpower(unsigned int cpu)
 			/*
 			 * OK, proper wakeup, we're done
 			 */
+			local_irq_enable();
 			break;
 		}
-
+#ifdef DEBUG
+		printk("CPU%u: spurious wakeup call\n", cpu);
+#endif
 	}
 }
 
@@ -99,6 +108,7 @@ int platform_cpu_kill(unsigned int cpu)
  */
 void platform_cpu_die(unsigned int cpu)
 {
+#ifdef DEBUG
 	unsigned int this_cpu = hard_smp_processor_id();
 
 	if (cpu != this_cpu) {
@@ -106,7 +116,7 @@ void platform_cpu_die(unsigned int cpu)
 			   this_cpu, cpu);
 		BUG();
 	}
-
+#endif
 	printk(KERN_NOTICE "CPU%u: shutdown\n", cpu);
 	complete(&cpu_killed);
 

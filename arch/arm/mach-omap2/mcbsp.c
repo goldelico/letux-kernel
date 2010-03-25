@@ -66,7 +66,7 @@ static int omap_mcbsp_clk_enable(struct clk *clk)
 	struct mcbsp_internal_clk *mclk = container_of(clk,
 					struct mcbsp_internal_clk, clk);
 	int i;
-	for (i = 0; i < mclk->n_childs; i)
+	for (i = 0; i < mclk->n_childs; i++)
 		clk_enable(mclk->childs[i]);
 	return 0;
 }

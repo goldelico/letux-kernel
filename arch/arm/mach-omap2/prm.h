@@ -24,6 +24,8 @@
 		OMAP2_L4_IO_ADDRESS(OMAP3430_PRM_BASE + (module) + (reg))
 #define OMAP44XX_PRM_REGADDR(module, reg)				\
 		OMAP2_L4_IO_ADDRESS(OMAP4430_PRM_BASE + (module) + (reg))
+#define OMAP44XX_CHIRONSS_REGADDR(module, reg)				\
+		OMAP2_L4_IO_ADDRESS(OMAP4430_CHIRONSS_BASE + (module) + (reg))
 
 #include "prm44xx.h"
 
@@ -177,9 +179,11 @@
 
 /* Registers appearing on both 24xx and 34xx */
 
-#define RM_RSTCTRL					0x0050
-#define RM_RSTTIME					0x0054
-#define RM_RSTST					0x0058
+#define OMAP2_RM_RSTCTRL				0x0050
+#define OMAP2_RM_RSTTIME				0x0054
+#define OMAP2_RM_RSTST					0x0058
+#define OMAP2_PM_PWSTCTRL				0x00e0
+#define OMAP2_PM_PWSTST					0x00e4
 
 #define PM_WKEN						0x00a0
 #define PM_WKEN1					PM_WKEN
@@ -189,8 +193,6 @@
 #define PM_EVGENCTRL					0x00d4
 #define PM_EVGENONTIM					0x00d8
 #define PM_EVGENOFFTIM					0x00dc
-#define PM_PWSTCTRL					0x00e0
-#define PM_PWSTST					0x00e4
 
 /* Omap2 specific registers */
 #define OMAP24XX_PM_WKEN2				0x00a4
@@ -218,6 +220,13 @@
 #define OMAP3430_PRM_IRQSTATUS_IVA2			0x00f8
 #define OMAP3430_PRM_IRQENABLE_IVA2			0x00fc
 
+/* Omap4 specific registers */
+#define OMAP4_RM_RSTCTRL				0x0000
+#define OMAP4_RM_RSTTIME				0x0004
+#define OMAP4_RM_RSTST					0x0008
+#define OMAP4_PM_PWSTCTRL				0x0000
+#define OMAP4_PM_PWSTST					0x0004
+
 
 #ifndef __ASSEMBLER__
 
@@ -225,6 +234,8 @@
 extern u32 prm_read_mod_reg(s16 module, u16 idx);
 extern void prm_write_mod_reg(u32 val, s16 module, u16 idx);
 extern u32 prm_rmw_mod_reg_bits(u32 mask, u32 bits, s16 module, s16 idx);
+extern u32 chiron_read_mod_reg(s16 module, u16 idx);
+extern void chiron_write_mod_reg(u32 val, s16 module, u16 idx);
 
 /* Read-modify-write bits in a PRM register (by domain) */
 static inline u32 prm_set_mod_reg_bits(u32 bits, s16 module, s16 idx)

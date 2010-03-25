@@ -346,37 +346,37 @@ static struct clk aess_fclk = {
 };
 
 static const struct clksel_rate div31_1to31_rates[] = {
-	{ .div = 1, .val = 0, .flags = RATE_IN_4430 },
-	{ .div = 2, .val = 1, .flags = RATE_IN_4430 },
-	{ .div = 3, .val = 2, .flags = RATE_IN_4430 },
-	{ .div = 4, .val = 3, .flags = RATE_IN_4430 },
-	{ .div = 5, .val = 4, .flags = RATE_IN_4430 },
-	{ .div = 6, .val = 5, .flags = RATE_IN_4430 },
-	{ .div = 7, .val = 6, .flags = RATE_IN_4430 },
-	{ .div = 8, .val = 7, .flags = RATE_IN_4430 },
-	{ .div = 9, .val = 8, .flags = RATE_IN_4430 },
-	{ .div = 10, .val = 9, .flags = RATE_IN_4430 },
-	{ .div = 11, .val = 10, .flags = RATE_IN_4430 },
-	{ .div = 12, .val = 11, .flags = RATE_IN_4430 },
-	{ .div = 13, .val = 12, .flags = RATE_IN_4430 },
-	{ .div = 14, .val = 13, .flags = RATE_IN_4430 },
-	{ .div = 15, .val = 14, .flags = RATE_IN_4430 },
-	{ .div = 16, .val = 15, .flags = RATE_IN_4430 },
-	{ .div = 17, .val = 16, .flags = RATE_IN_4430 },
-	{ .div = 18, .val = 17, .flags = RATE_IN_4430 },
-	{ .div = 19, .val = 18, .flags = RATE_IN_4430 },
-	{ .div = 20, .val = 19, .flags = RATE_IN_4430 },
-	{ .div = 21, .val = 20, .flags = RATE_IN_4430 },
-	{ .div = 22, .val = 21, .flags = RATE_IN_4430 },
-	{ .div = 23, .val = 22, .flags = RATE_IN_4430 },
-	{ .div = 24, .val = 23, .flags = RATE_IN_4430 },
-	{ .div = 25, .val = 24, .flags = RATE_IN_4430 },
-	{ .div = 26, .val = 25, .flags = RATE_IN_4430 },
-	{ .div = 27, .val = 26, .flags = RATE_IN_4430 },
-	{ .div = 28, .val = 27, .flags = RATE_IN_4430 },
-	{ .div = 29, .val = 28, .flags = RATE_IN_4430 },
-	{ .div = 30, .val = 29, .flags = RATE_IN_4430 },
-	{ .div = 31, .val = 30, .flags = RATE_IN_4430 },
+	{ .div = 1, .val = 1, .flags = RATE_IN_4430 },
+	{ .div = 2, .val = 2, .flags = RATE_IN_4430 },
+	{ .div = 3, .val = 3, .flags = RATE_IN_4430 },
+	{ .div = 4, .val = 4, .flags = RATE_IN_4430 },
+	{ .div = 5, .val = 5, .flags = RATE_IN_4430 },
+	{ .div = 6, .val = 6, .flags = RATE_IN_4430 },
+	{ .div = 7, .val = 7, .flags = RATE_IN_4430 },
+	{ .div = 8, .val = 8, .flags = RATE_IN_4430 },
+	{ .div = 9, .val = 9, .flags = RATE_IN_4430 },
+	{ .div = 10, .val = 10, .flags = RATE_IN_4430 },
+	{ .div = 11, .val = 11, .flags = RATE_IN_4430 },
+	{ .div = 12, .val = 12, .flags = RATE_IN_4430 },
+	{ .div = 13, .val = 13, .flags = RATE_IN_4430 },
+	{ .div = 14, .val = 14, .flags = RATE_IN_4430 },
+	{ .div = 15, .val = 15, .flags = RATE_IN_4430 },
+	{ .div = 16, .val = 16, .flags = RATE_IN_4430 },
+	{ .div = 17, .val = 17, .flags = RATE_IN_4430 },
+	{ .div = 18, .val = 18, .flags = RATE_IN_4430 },
+	{ .div = 19, .val = 19, .flags = RATE_IN_4430 },
+	{ .div = 20, .val = 20, .flags = RATE_IN_4430 },
+	{ .div = 21, .val = 21, .flags = RATE_IN_4430 },
+	{ .div = 22, .val = 22, .flags = RATE_IN_4430 },
+	{ .div = 23, .val = 23, .flags = RATE_IN_4430 },
+	{ .div = 24, .val = 24, .flags = RATE_IN_4430 },
+	{ .div = 25, .val = 25, .flags = RATE_IN_4430 },
+	{ .div = 26, .val = 26, .flags = RATE_IN_4430 },
+	{ .div = 27, .val = 27, .flags = RATE_IN_4430 },
+	{ .div = 28, .val = 28, .flags = RATE_IN_4430 },
+	{ .div = 29, .val = 29, .flags = RATE_IN_4430 },
+	{ .div = 30, .val = 30, .flags = RATE_IN_4430 },
+	{ .div = 31, .val = 31, .flags = RATE_IN_4430 },
 	{ .div = 0 },
 };
 
@@ -487,7 +487,7 @@ static struct clk dpll_core_m2_ck = {
 	.ops		= &clkops_null,
 	.recalc		= &omap2_clksel_recalc,
 	.round_rate	= &omap2_clksel_round_rate,
-	.set_rate	= &omap2_clksel_set_rate,
+	.set_rate	= &omap4_core_dpll_m2_set_rate,
 	.flags		= CLOCK_IN_OMAP4430,
 };
 
@@ -2749,9 +2749,7 @@ int __init omap2_clk_init(void)
 		if (c->cpu & cpu_clkflg) {
 			clkdev_add(&c->lk);
 			clk_register(c->lk.clk);
-			/* TODO
 			omap2_init_clk_clkdm(c->lk.clk);
-			*/
 		}
 
 	recalculate_root_clocks();

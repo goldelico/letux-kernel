@@ -1,10 +1,11 @@
 /*
- * OMAP2/3 clockdomain framework functions
+ * OMAP2/3/4 clockdomain framework functions
  *
  * Copyright (C) 2008 Texas Instruments, Inc.
  * Copyright (C) 2008-2009 Nokia Corporation
  *
  * Written by Paul Walmsley and Jouni Högander
+ * Added OMAP4 specific support by Abhijit Pagare <abhijitpagare@ti.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -145,25 +146,29 @@ static void _clkdm_del_autodeps(struct clockdomain *clkdm)
  */
 static void _omap2_clkdm_set_hwsup(struct clockdomain *clkdm, int enable)
 {
-	u32 v;
+	u32 bits, v;
 
 	if (cpu_is_omap24xx()) {
 		if (enable)
-			v = OMAP24XX_CLKSTCTRL_ENABLE_AUTO;
+			bits = OMAP24XX_CLKSTCTRL_ENABLE_AUTO;
 		else
-			v = OMAP24XX_CLKSTCTRL_DISABLE_AUTO;
-	} else if (cpu_is_omap34xx()) {
+			bits = OMAP24XX_CLKSTCTRL_DISABLE_AUTO;
+	} else if (cpu_is_omap34xx() | cpu_is_omap44xx()) {
 		if (enable)
-			v = OMAP34XX_CLKSTCTRL_ENABLE_AUTO;
+			bits = OMAP34XX_CLKSTCTRL_ENABLE_AUTO;
 		else
-			v = OMAP34XX_CLKSTCTRL_DISABLE_AUTO;
+			bits = OMAP34XX_CLKSTCTRL_DISABLE_AUTO;
 	} else {
 		BUG();
 	}
 
-	cm_rmw_mod_reg_bits(clkdm->clktrctrl_mask,
-			    v << __ffs(clkdm->clktrctrl_mask),
-			    clkdm->pwrdm.ptr->prcm_offs, CM_CLKSTCTRL);
+	bits = bits << __ffs(clkdm->clktrctrl_mask);
+
+	v = __raw_readl(clkdm->clkstctrl_reg);
+	v &= ~(clkdm->clktrctrl_mask);
+	v |= bits;
+	__raw_writel(v, clkdm->clkstctrl_reg);
+
 }
 
 static struct clockdomain *_clkdm_lookup(const char *name)
@@ -209,10 +214,12 @@ void clkdm_init(struct clockdomain **clkdms,
 		for (c = clkdms; *c; c++)
 			clkdm_register(*c);
 
-	autodeps = init_autodeps;
-	if (autodeps)
-		for (autodep = autodeps; autodep->pwrdm.ptr; autodep++)
-			_autodep_lookup(autodep);
+	if (!cpu_is_omap44xx()) {
+		autodeps = init_autodeps;
+		if (autodeps)
+			for (autodep = autodeps; autodep->pwrdm.ptr; autodep++)
+				_autodep_lookup(autodep);
+	}
 }
 
 /**
@@ -371,7 +378,7 @@ struct powerdomain *clkdm_get_pwrdm(struct clockdomain *clkdm)
  * @clk: struct clk * of a clockdomain
  *
  * Return the clockdomain's current state transition mode from the
- * corresponding domain CM_CLKSTCTRL register.	Returns -EINVAL if clk
+ * corresponding domain OMAP2_CM_CLKSTCTRL register.	Returns -EINVAL if clk
  * is NULL or the current mode upon success.
  */
 static int omap2_clkdm_clktrctrl_read(struct clockdomain *clkdm)
@@ -381,7 +388,7 @@ static int omap2_clkdm_clktrctrl_read(struct clockdomain *clkdm)
 	if (!clkdm)
 		return -EINVAL;
 
-	v = cm_read_mod_reg(clkdm->pwrdm.ptr->prcm_offs, CM_CLKSTCTRL);
+	v = __raw_readl(clkdm->clkstctrl_reg);
 	v &= clkdm->clktrctrl_mask;
 	v >>= __ffs(clkdm->clktrctrl_mask);
 
@@ -413,15 +420,17 @@ int omap2_clkdm_sleep(struct clockdomain *clkdm)
 	if (cpu_is_omap24xx()) {
 
 		cm_set_mod_reg_bits(OMAP24XX_FORCESTATE,
-				    clkdm->pwrdm.ptr->prcm_offs, PM_PWSTCTRL);
+			    clkdm->pwrdm.ptr->prcm_offs, OMAP2_PM_PWSTCTRL);
 
-	} else if (cpu_is_omap34xx()) {
+	} else if (cpu_is_omap34xx() | cpu_is_omap44xx()) {
 
-		u32 v = (OMAP34XX_CLKSTCTRL_FORCE_SLEEP <<
+		u32 bits = (OMAP34XX_CLKSTCTRL_FORCE_SLEEP <<
 			 __ffs(clkdm->clktrctrl_mask));
 
-		cm_rmw_mod_reg_bits(clkdm->clktrctrl_mask, v,
-				    clkdm->pwrdm.ptr->prcm_offs, CM_CLKSTCTRL);
+		u32 v = __raw_readl(clkdm->clkstctrl_reg);
+		v &= ~(clkdm->clktrctrl_mask);
+		v |= bits;
+		__raw_writel(v, clkdm->clkstctrl_reg);
 
 	} else {
 		BUG();
@@ -455,15 +464,17 @@ int omap2_clkdm_wakeup(struct clockdomain *clkdm)
 	if (cpu_is_omap24xx()) {
 
 		cm_clear_mod_reg_bits(OMAP24XX_FORCESTATE,
-				      clkdm->pwrdm.ptr->prcm_offs, PM_PWSTCTRL);
+			      clkdm->pwrdm.ptr->prcm_offs, OMAP2_PM_PWSTCTRL);
 
-	} else if (cpu_is_omap34xx()) {
+	} else if (cpu_is_omap34xx() | cpu_is_omap44xx()) {
 
-		u32 v = (OMAP34XX_CLKSTCTRL_FORCE_WAKEUP <<
+		u32 bits = (OMAP34XX_CLKSTCTRL_FORCE_WAKEUP <<
 			 __ffs(clkdm->clktrctrl_mask));
 
-		cm_rmw_mod_reg_bits(clkdm->clktrctrl_mask, v,
-				    clkdm->pwrdm.ptr->prcm_offs, CM_CLKSTCTRL);
+		u32 v = __raw_readl(clkdm->clkstctrl_reg);
+		v &= ~(clkdm->clktrctrl_mask);
+		v |= bits;
+		__raw_writel(v, clkdm->clkstctrl_reg);
 
 	} else {
 		BUG();
@@ -496,8 +507,9 @@ void omap2_clkdm_allow_idle(struct clockdomain *clkdm)
 	pr_debug("clockdomain: enabling automatic idle transitions for %s\n",
 		 clkdm->name);
 
-	if (atomic_read(&clkdm->usecount) > 0)
-		_clkdm_add_autodeps(clkdm);
+	if (!cpu_is_omap44xx())
+		if (atomic_read(&clkdm->usecount) > 0)
+			_clkdm_add_autodeps(clkdm);
 
 	_omap2_clkdm_set_hwsup(clkdm, 1);
 
@@ -529,8 +541,9 @@ void omap2_clkdm_deny_idle(struct clockdomain *clkdm)
 
 	_omap2_clkdm_set_hwsup(clkdm, 0);
 
-	if (atomic_read(&clkdm->usecount) > 0)
-		_clkdm_del_autodeps(clkdm);
+	if (!cpu_is_omap44xx())
+		if (atomic_read(&clkdm->usecount) > 0)
+			_clkdm_del_autodeps(clkdm);
 }
 
 
@@ -559,7 +572,7 @@ int omap2_clkdm_clk_enable(struct clockdomain *clkdm, struct clk *clk)
 	 * downstream clocks for debugging purposes?
 	 */
 
-	if (!clkdm || !clk)
+	if (!clkdm || !clk || !clkdm->clkstctrl_reg)
 		return -EINVAL;
 
 	if (atomic_inc_return(&clkdm->usecount) > 1)
@@ -610,7 +623,7 @@ int omap2_clkdm_clk_disable(struct clockdomain *clkdm, struct clk *clk)
 	 * downstream clocks for debugging purposes?
 	 */
 
-	if (!clkdm || !clk)
+	if (!clkdm || !clk || !clkdm->clkstctrl_reg)
 		return -EINVAL;
 
 #ifdef DEBUG
