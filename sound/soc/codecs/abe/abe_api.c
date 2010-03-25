@@ -1099,7 +1099,7 @@ void abe_disable_data_transfer(abe_port_id id)
 	abe_disable_dma_request(id);
 	/* disable ATC transfers */
 	abe_disable_atc(id);
-	//abe_clean_temporary_buffers(id);
+	abe_clean_temporary_buffers(id);
 }
 
 /*
@@ -1121,7 +1121,7 @@ void abe_enable_data_transfer(abe_port_id id)
 	abe_port_protocol_t *protocol;
 	abe_data_format_t format;
 
-	//abe_clean_temporary_buffers(id);
+	abe_clean_temporary_buffers(id);
 
 	if (id == PDM_UL_PORT) {
 		/* initializes the ABE ATC descriptors in DMEM - MCPDM_UL */
