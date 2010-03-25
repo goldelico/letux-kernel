@@ -65,18 +65,16 @@ int sl_heap_free(void *hphandle, void *block, u32 size)
  *  Purpose:
  *  This will get the heap memory statistics
  */
-int sl_heap_get_stats(void *hphandle, struct memory_stats *stats)
+void sl_heap_get_stats(void *hphandle, struct memory_stats *stats)
 {
 	struct heap_object *obj = NULL;
-	s32 retval  = 0;
 
 	BUG_ON(hphandle == NULL);
 	BUG_ON(stats == NULL);
 
 	obj = (struct heap_object *)hphandle;
 	BUG_ON(obj->get_stats == NULL);
-	retval = obj->get_stats(hphandle, stats);
-	return retval;
+	obj->get_stats(hphandle, stats);
 }
 
 /*
@@ -84,18 +82,34 @@ int sl_heap_get_stats(void *hphandle, struct memory_stats *stats)
  *  Purpose:
  *  This will get the heap memory extended statistics
  */
-int sl_heap_get_extended_stats(void *hphandle,
+void sl_heap_get_extended_stats(void *hphandle,
 				struct heap_extended_stats *stats)
 {
 	struct heap_object *obj = NULL;
-	s32 retval  = 0;
 
 	BUG_ON(hphandle == NULL);
 	BUG_ON(stats == NULL);
 
 	obj = (struct heap_object *)hphandle;
 	BUG_ON(obj->get_extended_stats == NULL);
-	retval = obj->get_extended_stats(hphandle, stats);
-	return retval;
+	obj->get_extended_stats(hphandle, stats);
+}
+
+
+/*
+ * ======== sl_heap_is_blocking ========
+ *  Purpose:
+ *  Indicates whether the heap may block during an alloc or free call
+ */
+bool sl_heap_is_blocking(void *hphandle)
+{
+	struct heap_object *obj = NULL;
+
+	BUG_ON(hphandle == NULL);
+
+	obj = (struct heap_object *)hphandle;
+	BUG_ON(obj->is_blocking == NULL);
+
+	return obj->is_blocking(hphandle);
 }
 

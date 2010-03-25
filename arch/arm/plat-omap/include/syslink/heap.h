@@ -25,9 +25,9 @@
  *  Structure defining memory related statistics
  */
 struct memory_stats{
-	u32 *total_size; /* Total memory size */
-	u32 *total_free_size; /* Total free memory size */
-	u32 *largest_free_size; /* Largest free memory size */
+	u32 total_size; /* Total memory size */
+	u32 total_free_size; /* Total free memory size */
+	u32 largest_free_size; /* Largest free memory size */
 };
 
 /*!
@@ -60,9 +60,10 @@ struct heap_config {
 struct heap_object {
 	void* (*alloc) (void *handle, u32 size, u32 align);
 	int (*free) (void *handle, void *block, u32 size);
-	int (*get_stats) (void *handle, struct memory_stats *stats);
-	int (*get_extended_stats) (void *handle,
-				struct heap_extended_stats *stats);
+	void (*get_stats) (void *handle, struct memory_stats *stats);
+	void (*get_extended_stats) (void *handle,
+					struct heap_extended_stats *stats);
+	bool (*is_blocking) (void *handle);
 	void *obj;
 };
 
@@ -79,13 +80,18 @@ int sl_heap_free(void *handle, void *block, u32 size);
 /*
  * Get heap statistics
  */
-int sl_heap_get_stats(void *handle, struct memory_stats *stats);
+void sl_heap_get_stats(void *handle, struct memory_stats *stats);
 
 /*
  * Get heap extended statistics
  */
-int sl_heap_get_extended_stats(void *hphandle,
+void sl_heap_get_extended_stats(void *hphandle,
 				struct heap_extended_stats *stats);
+
+/*
+ * Indicates whether a heap will block on free or alloc
+ */
+bool sl_heap_is_blocking(void *hphandle);
 
 #endif /* _HEAP_H_ */
 
