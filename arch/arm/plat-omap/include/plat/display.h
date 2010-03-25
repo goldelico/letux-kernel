@@ -140,9 +140,11 @@ enum omap_color_mode {
 		OMAP_DSS_COLOR_XRGB12 | OMAP_DSS_COLOR_ARGB16_1555 |
 		OMAP_DSS_COLOR_RGBX24_32_ALGN | OMAP_DSS_COLOR_XRGB15 |
 #endif
-		OMAP_DSS_COLOR_RGB12U | OMAP_DSS_COLOR_RGB16 |
-		OMAP_DSS_COLOR_RGB24U | OMAP_DSS_COLOR_RGB24P |
-		OMAP_DSS_COLOR_YUV2 | OMAP_DSS_COLOR_UYVY,
+		OMAP_DSS_COLOR_RGB12U | OMAP_DSS_COLOR_ARGB16 |
+		OMAP_DSS_COLOR_RGB16 | OMAP_DSS_COLOR_RGB24U |
+		OMAP_DSS_COLOR_RGB24P | OMAP_DSS_COLOR_YUV2 |
+		OMAP_DSS_COLOR_UYVY | OMAP_DSS_COLOR_ARGB32 |
+		OMAP_DSS_COLOR_RGBA32 | OMAP_DSS_COLOR_RGBX32,
 
 	OMAP_DSS_COLOR_VID2_OMAP3 =
 #ifdef CONFIG_ARCH_OMAP4
@@ -637,6 +639,9 @@ struct omap_overlay *omap_dss_get_overlay(int num);
 typedef void (*omap_dispc_isr_t) (void *arg, u32 mask);
 int omap_dispc_register_isr(omap_dispc_isr_t isr, void *arg, u32 mask);
 int omap_dispc_unregister_isr(omap_dispc_isr_t isr, void *arg, u32 mask);
+
+bool dispc_go_busy(enum omap_channel channel);
+void dispc_go(enum omap_channel channel);
 
 int omap_dispc_wait_for_irq_timeout(u32 irqmask, unsigned long timeout);
 int omap_dispc_wait_for_irq_interruptible_timeout(u32 irqmask,

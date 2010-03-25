@@ -89,6 +89,7 @@ static struct {
 
 void __iomem  *dss_base;
 void __iomem  *dispc_base;
+EXPORT_SYMBOL(dispc_base);
 
 #define GPIO_OE		0x134
 #define GPIO_DATAOUT	0x13C

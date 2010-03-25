@@ -32,6 +32,7 @@ Working and tested features include:
 
 Tested boards include:
 - OMAP3 SDP board
+- OMAP4 SDP board
 - Beagle board
 - N810
 
@@ -86,9 +87,10 @@ Some clarification what the different components do:
     - Overlay defines where the pixels are read from and where they go on the
       screen. The overlay may be smaller than framebuffer, thus displaying only
       part of the framebuffer. The position of the overlay may be changed if
-      the overlay is smaller than the display.
+      the overlay is smaller than the display.  In the OMAP DISPC TRM, these
+      are referred to as 'pipelines'.
     - Overlay manager combines the overlays in to one image and feeds them to
-      display.
+      display.  The OMAP DISPC TRM calls these 'overlays'.
     - Display is the actual physical display device.
 
 A framebuffer can be connected to multiple overlays to show the same pixel data
@@ -116,6 +118,8 @@ what would be the best interfaces for these things.
 
 The sysfs interface is divided to two parts: DSS and FB.
 
+/sys/devices/platform/omapfb/graphics:fb?,
+/sys/devices/platform/omapfb/graphics/fb?, or
 /sys/class/graphics/fb? directory:
 mirror		0=off, 1=on
 rotate		Rotation 0-3 for 0, 90, 180, 270 degrees
@@ -175,10 +179,26 @@ mgr1=/sys/devices/platform/omapdss/manager1
 lcd=/sys/devices/platform/omapdss/display0
 dvi=/sys/devices/platform/omapdss/display1
 tv=/sys/devices/platform/omapdss/display2
+pico=/sys/devices/platform/omapdss/display3
 
 fb0=/sys/class/graphics/fb0
 fb1=/sys/class/graphics/fb1
 fb2=/sys/class/graphics/fb2
+
+Since the display and manager order can differ on your setup, a better way
+to configure your managers is by name.  However, this may only work on certain
+shells:
+
+export mgr$(< $mgr0/name)=$mgr0
+export mgr$(< $mgr1/name)=$mgr1
+export mgr$(< $mgr2/name)=$mgr2
+export dis$(< $dis0/name)=$dis0
+export dis$(< $dis1/name)=$dis1
+export dis$(< $dis2/name)=$dis2
+export dis$(< $dis3/name)=$dis3
+
+This gives $mgrlcd, $mgr2lcd, $mgrtv, $dislcd, $dis2lcd, $dishdmi and
+$dispico_DLP variables reliably pointing to the correct path on OMAP4.
 
 Default setup on OMAP3 SDP
 --------------------------
@@ -236,6 +256,42 @@ After this the configuration looks like (only relevant parts shown):
 FB0 +-- GFX  ---- LCD ---- LCD
      \- VID1 ---- TV  ---- TV
 
+Default setup on OMAP4 SDP
+--------------------------
+
+Here's the default setup on OMAP4 SDP board. All planes go to LCD. Secondary
+LCD, pico DLP and HDMI-out are not in use. The columns from left to right are:
+framebuffers/video devices, overlays, overlay managers, displays. Framebuffers
+are handled by omapfb, and the rest by the DSS.  Video devices always follow
+framebuffers.  There may be 0-3 video devices depending on the number of
+framebuffers.
+
+FB0  --- GFX  --+  lcd  ---- lcd
+FB1  --- VID1 -+/  2lcd ---- 2lcd
+VID1 --- VID2 -/   tv  ----- hdmi
+VID2 --- VID3 -/        ---- pico_DLP
+
+Pico DLP support
+----------------
+
+OMAP4 device supports a pico DLP and secondary LCD output on the secondary
+LCD manager (with the name of '2lcd').  The configuration of the display
+happens in a non-conventional way.
+
+To configure output to either pico DLP or secondary LCD, set the overlay's
+manager to the secondary LCD manager:
+
+echo "0" > $ovl0/enabled
+echo "2lcd" > $ovl0/manager
+echo "1" > $ovl0/enabled
+
+Then enable the correct display to chose pico DLP or secondary LCD (default
+is secondary LCD).  Assuming display1 is secondary LCD, and display3 is
+pico DLP:
+
+echo "0" > $dis1/enabled
+echo "1" > $dis3/enabled
+
 Misc notes
 ----------
 
@@ -291,6 +347,10 @@ omapfb.rotate=<angle>
 
 omapfb.mirror=<y|n>
 	- Default mirror for all framebuffers. Only works with DMA rotation.
+
+omapfb.tiler=<y|n>
+	- OMAP4 only: whether to use TILER buffers or regular SDRAM for all
+          framebuffers.
 
 omapdss.def_disp=<display>
 	- Name of default display, to which all overlays will be connected.

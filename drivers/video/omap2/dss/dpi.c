@@ -36,6 +36,7 @@ static struct {
 	int update_enabled;
 } dpi;
 
+#if 0
 /*TODO: OMAP4: check the clock divisor mechanism? */
 #ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
 static int dpi_set_dsi_clk(bool is_tft, unsigned long pck_req,
@@ -95,6 +96,7 @@ static int dpi_set_dispc_clk(bool is_tft, unsigned long pck_req,
 	return 0;
 }
 #endif
+#endif /*if 0*/
 
 static int dpi_set_mode(struct omap_dss_device *dssdev)
 {
@@ -104,13 +106,14 @@ static int dpi_set_mode(struct omap_dss_device *dssdev)
 	unsigned long pck;
 	bool is_tft;
 	int r = 0;
-
+#if 0
 	dss_clk_enable(DSS_CLK_ICK | DSS_CLK_FCK1);
-
+#endif
 	/* TODO: add LCD2 support here*/
-	dispc_set_pol_freq(OMAP_DSS_CHANNEL_LCD, dssdev->panel.config,
+	dispc_set_pol_freq(OMAP_DSS_CHANNEL_LCD2, dssdev->panel.config,
 			dssdev->panel.acbi, dssdev->panel.acb);
 
+#if 0
 	is_tft = (dssdev->panel.config & OMAP_DSS_LCD_TFT) != 0;
 
 #ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
@@ -137,11 +140,13 @@ static int dpi_set_mode(struct omap_dss_device *dssdev)
 		t->pixel_clock = pck;
 	}
 
+#endif
 	/* TODO: OMAP4: add LCD 2 support here*/
-	dispc_set_lcd_timings(OMAP_DSS_CHANNEL_LCD, t);
-
+	dispc_set_lcd_timings(OMAP_DSS_CHANNEL_LCD2, t);
+#if 0
 err0:
 	dss_clk_disable(DSS_CLK_ICK | DSS_CLK_FCK1);
+#endif
 	return r;
 }
 
@@ -151,13 +156,13 @@ static int dpi_basic_init(struct omap_dss_device *dssdev)
 
 	is_tft = (dssdev->panel.config & OMAP_DSS_LCD_TFT) != 0;
 
-	dispc_set_parallel_interface_mode(OMAP_DSS_CHANNEL_LCD,
+	dispc_set_parallel_interface_mode(OMAP_DSS_CHANNEL_LCD2,
 					OMAP_DSS_PARALLELMODE_BYPASS);
 
 	/*TODO: change here for LCD 2 support */
-	dispc_set_lcd_display_type(OMAP_DSS_CHANNEL_LCD,
+	dispc_set_lcd_display_type(OMAP_DSS_CHANNEL_LCD2,
 		is_tft ? OMAP_DSS_LCD_DISPLAY_TFT : OMAP_DSS_LCD_DISPLAY_STN);
-	dispc_set_tft_data_lines(OMAP_DSS_CHANNEL_LCD,
+	dispc_set_tft_data_lines(OMAP_DSS_CHANNEL_LCD2,
 					dssdev->phy.dpi.data_lines);
 
 	return 0;
@@ -179,18 +184,22 @@ static int dpi_display_enable(struct omap_dss_device *dssdev)
 		goto err1;
 	}
 
+#if 0
 	dss_clk_enable(DSS_CLK_ICK | DSS_CLK_FCK1);
+#endif
 
 	r = dpi_basic_init(dssdev);
 	if (r)
 		goto err2;
 
+#if 0
 #ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
 	dss_clk_enable(DSS_CLK_FCK2);
 	r = dsi_pll_init(dssdev, 0, 1);
 	if (r)
 		goto err3;
 #endif
+#endif  /* #if 0 */
 	r = dpi_set_mode(dssdev);
 	if (r)
 		goto err4;
@@ -198,7 +207,7 @@ static int dpi_display_enable(struct omap_dss_device *dssdev)
 	mdelay(2);
 
 	/* TODO: change here if LCD2 support is needed */
-	dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD, 1);
+	dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD2, 1);
 
 	r = dssdev->driver->enable(dssdev);
 	if (r)
@@ -209,15 +218,21 @@ static int dpi_display_enable(struct omap_dss_device *dssdev)
 	return 0;
 
 err5:
-	dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD, 0);
+	dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD2, 0);
 err4:
+#if 0
 #ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
 	dsi_pll_uninit();
+#endif
 err3:
+#if 0
 	dss_clk_disable(DSS_CLK_FCK2);
 #endif
+#endif
 err2:
+#if 0
 	dss_clk_disable(DSS_CLK_ICK | DSS_CLK_FCK1);
+#endif
 err1:
 	omap_dss_stop_device(dssdev);
 err0:
@@ -237,8 +252,9 @@ static void dpi_display_disable(struct omap_dss_device *dssdev)
 	dssdev->driver->disable(dssdev);
 
 	/* TODO: change here if LCD2 support is needed */
-	dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD, 0);
+	dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD2, 0);
 
+#if 0
 #ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
 	dss_select_clk_source(0, 0);
 	dsi_pll_uninit();
@@ -246,7 +262,7 @@ static void dpi_display_disable(struct omap_dss_device *dssdev)
 #endif
 
 	dss_clk_disable(DSS_CLK_ICK | DSS_CLK_FCK1);
-
+#endif
 	dssdev->state = OMAP_DSS_DISPLAY_DISABLED;
 
 	omap_dss_stop_device(dssdev);
@@ -263,10 +279,10 @@ static int dpi_display_suspend(struct omap_dss_device *dssdev)
 		dssdev->driver->suspend(dssdev);
 
 	/* TODO: change here if LCD2 support is needed */
-	dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD, 0);
-
+	dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD2, 0);
+#if 0
 	dss_clk_disable(DSS_CLK_ICK | DSS_CLK_FCK1);
-
+#endif
 	dssdev->state = OMAP_DSS_DISPLAY_SUSPENDED;
 
 	return 0;
@@ -279,10 +295,12 @@ static int dpi_display_resume(struct omap_dss_device *dssdev)
 
 	DSSDBG("dpi_display_resume\n");
 
+#if 0
 	dss_clk_enable(DSS_CLK_ICK | DSS_CLK_FCK1);
+#endif
 
 	/* TODO: change here if LCD2 support is needed */
-	dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD, 1);
+	dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD2, 1);
 
 	if (dssdev->driver->resume)
 		dssdev->driver->resume(dssdev);
@@ -299,7 +317,7 @@ static void dpi_set_timings(struct omap_dss_device *dssdev,
 	dssdev->panel.timings = *timings;
 	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
 		dpi_set_mode(dssdev);
-		dispc_go(OMAP_DSS_CHANNEL_LCD);
+		dispc_go(OMAP_DSS_CHANNEL_LCD2);
 	}
 }
 
@@ -373,11 +391,11 @@ static int dpi_display_set_update_mode(struct omap_dss_device *dssdev,
 
 	if (mode == OMAP_DSS_UPDATE_DISABLED) {
 		/* TODO: change here if LCD2 support is needed */
-		dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD, 0);
+		dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD2, 0);
 		dpi.update_enabled = 0;
 	} else {
 		/* TODO: change here if LCD2 support is needed */
-		dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD, 1);
+		dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD2, 1);
 		dpi.update_enabled = 1;
 	}
 
