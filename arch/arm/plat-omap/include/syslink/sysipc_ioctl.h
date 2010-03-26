@@ -1,5 +1,5 @@
 /*
- *  sysmgr_ioctl.h
+ *  sysipc_ioctl.h
  *
  *  Definitions of sysmgr driver types and structures..
  *
@@ -15,15 +15,15 @@
  *  PURPOSE.
  */
 
-#ifndef _SYSMGR_IOCTL_H_
-#define _SYSMGR_IOCTL_H_
+#ifndef _SYSIPC_IOCTL_H_
+#define _SYSIPC_IOCTL_H_
 
 /* Standard headers */
 #include <linux/types.h>
 
 /* Syslink headers */
 #include <ipc_ioctl.h>
-#include <sysmgr.h>
+#include <ipc.h>
 
 
 /* =============================================================================
@@ -35,41 +35,41 @@
  *  ----------------------------------------------------------------------------
  */
 /* IOC Magic Number for sysmgr */
-#define SYSMGR_IOC_MAGIC		IPC_IOC_MAGIC
+#define SYSIPC_IOC_MAGIC		IPC_IOC_MAGIC
 
-/* IOCTL command numbers for sysmgr */
-enum sysmgr_drv_cmd {
-	SYSMGR_SETUP = SYSMGR_BASE_CMD,
-	SYSMGR_DESTROY,
-	SYSMGR_LOADCALLBACK,
-	SYSMGR_STARTCALLBACK,
-	SYSMGR_STOPCALLBACK
-};
+/* IOCTL command numbers for ipc/sysipc */
+enum sysipc_drv_cmd {
+	IPC_SETUP = IPC_BASE_CMD,
+	IPC_DESTROY,
+	IPC_CONTROL,
+	IPC_READCONFIG,
+	IPC_WRITECONFIG
+ };
 
-/* Command for sysmgr_setup */
-#define CMD_SYSMGR_SETUP \
-			_IOWR(SYSMGR_IOC_MAGIC, SYSMGR_SETUP, \
-			struct sysmgr_cmd_args)
+/* Command for ipc_setup */
+#define CMD_IPC_SETUP \
+			_IOWR(SYSIPC_IOC_MAGIC, IPC_SETUP, \
+			struct sysipc_cmd_args)
 
-/* Command for sysmgr_destroy */
-#define CMD_SYSMGR_DESTROY \
-			_IOWR(SYSMGR_IOC_MAGIC, SYSMGR_DESTROY, \
-			struct sysmgr_cmd_args)
-
-/* Command for load callback */
-#define CMD_SYSMGR_LOADCALLBACK \
-			_IOWR(SYSMGR_IOC_MAGIC, SYSMGR_LOADCALLBACK, \
-			struct sysmgr_cmd_args)
+/* Command for ipc_destroy */
+#define CMD_IPC_DESTROY \
+			_IOWR(SYSIPC_IOC_MAGIC, IPC_DESTROY, \
+			struct sysipc_cmd_args)
 
 /* Command for load callback */
-#define CMD_SYSMGR_STARTCALLBACK \
-			_IOWR(SYSMGR_IOC_MAGIC, SYSMGR_STARTCALLBACK, \
-			struct sysmgr_cmd_args)
+#define CMD_IPC_CONTROL \
+			_IOWR(SYSIPC_IOC_MAGIC, IPC_CONTROL, \
+			struct sysipc_cmd_args)
 
-/* Command for stop callback */
-#define CMD_SYSMGR_STOPCALLBACK \
-			_IOWR(SYSMGR_IOC_MAGIC, SYSMGR_STOPCALLBACK, \
-			struct sysmgr_cmd_args)
+/* Command for ipc_read_config */
+#define CMD_IPC_READCONFIG \
+			_IOWR(SYSIPC_IOC_MAGIC, IPC_READCONFIG, \
+			struct sysipc_cmd_args)
+
+/* Command for ipc_write_config */
+#define CMD_IPC_WRITECONFIG \
+			_IOWR(SYSIPC_IOC_MAGIC, IPC_WRITECONFIG, \
+			struct sysipc_cmd_args)
 
 
 /*  ----------------------------------------------------------------------------
@@ -77,13 +77,31 @@ enum sysmgr_drv_cmd {
  *  ----------------------------------------------------------------------------
  */
 /* Command arguments for sysmgr */
-struct sysmgr_cmd_args {
+struct sysipc_cmd_args {
 	union {
 		struct {
-			struct sysmgr_config *config;
-		} setup;
+			u16 proc_id;
+			s32 cmd_id;
+			void *arg;
+		} control;
 
-		int proc_id;
+		struct {
+			u16 remote_proc_id;
+			u32 tag;
+			void *cfg;
+			u32 size;
+		} read_config;
+
+		struct {
+			u16 remote_proc_id;
+			u32 tag;
+			void *cfg;
+			u32 size;
+		} write_config;
+
+		struct {
+			struct ipc_config *config;
+		} setup;
 	} args;
 
 	s32 api_status;
@@ -94,7 +112,7 @@ struct sysmgr_cmd_args {
  *  ----------------------------------------------------------------------------
  */
 /* ioctl interface function for sysmgr */
-int sysmgr_ioctl(struct inode *inode, struct file *filp,
+int sysipc_ioctl(struct inode *inode, struct file *filp,
 				unsigned int cmd, unsigned long args);
 
-#endif /* _SYSMGR_IOCTL_H_ */
+#endif /* _SYSIPC_IOCTL_H_ */
