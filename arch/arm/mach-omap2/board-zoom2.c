@@ -473,6 +473,7 @@ static void zoom2_panel_disable_hdmi(struct omap_dss_device *dssdev)
 struct hdmi_platform_data zoom2_hdmi_data = {
 #ifdef CONFIG_PM
 	.set_min_bus_tput = omap_pm_set_min_bus_tput,
+	.set_max_mpu_wakeup_lat =  omap_pm_set_max_mpu_wakeup_lat,
 #endif
 };
 

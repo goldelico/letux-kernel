@@ -1109,10 +1109,19 @@ static int hdmi_panel_enable(struct omap_dss_device *dssdev)
 
 #ifdef CONFIG_PM
 	struct hdmi_platform_data *pdata = dssdev->dev.platform_data;
-	if (pdata->set_min_bus_tput)
-		pdata->set_min_bus_tput(&sil9022_client->dev,
-					OCP_INITIATOR_AGENT,
-					166 * 1000 * 4);
+	if (pdata->set_min_bus_tput) {
+		if (cpu_is_omap3630()) {
+			pdata->set_min_bus_tput(&sil9022_client->dev,
+						OCP_INITIATOR_AGENT,
+						200 * 1000 * 4);
+			pdata->set_max_mpu_wakeup_lat(&sil9022_client->dev,
+						      260);
+		} else {
+			pdata->set_min_bus_tput(&sil9022_client->dev,
+						OCP_INITIATOR_AGENT,
+						166 * 1000 * 4);
+		}
+	}
 #endif
 
 	if (dssdev->platform_enable)
@@ -1146,10 +1155,13 @@ static void hdmi_panel_disable(struct omap_dss_device *dssdev)
 	if (dssdev->platform_disable)
 		dssdev->platform_disable(dssdev);
 #ifdef CONFIG_PM
-	if (pdata->set_min_bus_tput)
+	if (pdata->set_min_bus_tput) {
 		pdata->set_min_bus_tput(&sil9022_client->dev,
 					OCP_INITIATOR_AGENT,
 					0);
+		if (cpu_is_omap3630())
+			pdata->set_max_mpu_wakeup_lat(&sil9022_client->dev, -1);
+	}
 #endif
 }
 
