@@ -28,10 +28,13 @@
 #include <mach/resource.h>
 #include <mach/omapdev.h>
 #include <mach/omap34xx.h>
+#include <../mach-omap2/pm.h>
 
 struct omap_opp *dsp_opps;
 struct omap_opp *mpu_opps;
 struct omap_opp *l3_opps;
+
+static int vdd1_opp_lock;
 
 #define LAT_RES_POSTAMBLE "_latency"
 #define MAX_LATENCY_RES_NAME 30
@@ -194,6 +197,19 @@ void omap_pm_dsp_set_min_opp(u8 opp_id)
 	if (opp_id == 0) {
 		WARN_ON(1);
 		return;
+	}
+
+	if (cpu_is_omap3630()) {
+		if (opp_id >= VDD1_OPP3 && !vdd1_opp_lock) {
+			resource_lock_opp(VDD1_OPP);
+			vdd1_opp_lock = 1;
+			resource_set_opp_level(VDD1_OPP, VDD1_OPP3,
+							OPP_IGNORE_LOCK);
+		} else if((opp_id < VDD1_OPP3) && vdd1_opp_lock) {
+			resource_unlock_opp(VDD1_OPP);
+			resource_refresh();
+			vdd1_opp_lock = 0;
+		}
 	}
 
 	pr_debug("OMAP PM: DSP requests minimum VDD1 OPP to be %d\n", opp_id);
