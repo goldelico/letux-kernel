@@ -447,6 +447,7 @@ mmc_omap_xfer_done(struct mmc_omap_host *host, struct mmc_data *data)
 		data->bytes_xfered = 0;
 
 	if (!data->stop) {
+		mod_timer(&host->inact_timer, jiffies + msecs_to_jiffies(1000));
 		host->mrq = NULL;
 		mmc_request_done(host->mmc, data->mrq);
 		return;
@@ -462,8 +463,6 @@ mmc_omap_cmd_done(struct mmc_omap_host *host, struct mmc_command *cmd)
 {
 	host->cmd = NULL;
 
-	mod_timer(&host->inact_timer, jiffies + msecs_to_jiffies(1000));
-
 	if (cmd->flags & MMC_RSP_PRESENT) {
 		if (cmd->flags & MMC_RSP_136) {
 			/* response type 2 */
@@ -477,6 +476,7 @@ mmc_omap_cmd_done(struct mmc_omap_host *host, struct mmc_command *cmd)
 		}
 	}
 	if (host->data == NULL || cmd->error) {
+		mod_timer(&host->inact_timer, jiffies + msecs_to_jiffies(1000));
 		host->mrq = NULL;
 		mmc_request_done(host->mmc, cmd->mrq);
 	}
