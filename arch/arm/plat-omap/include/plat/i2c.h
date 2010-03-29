@@ -20,6 +20,7 @@
  */
 
 #include <linux/i2c.h>
+#include <linux/platform_device.h>
 
 #if defined(CONFIG_I2C_OMAP) || defined(CONFIG_I2C_OMAP_MODULE)
 extern int omap_register_i2c_bus(int bus_id, u32 clkrate,
@@ -50,3 +51,26 @@ struct omap_i2c_dev_attr {
 	u8      fifo_depth;
 	u8      flags;
 };
+
+/**
+ * struct omap_i2c_platform_data - OMAP I2C controller platform data
+ */
+struct omap_i2c_platform_data {
+	u32 rate;
+	struct omap_i2c_dev_attr *dev_attr;
+	void (*set_mpu_wkup_lat)(struct device *dev, int set);
+	int (*device_enable) (struct platform_device *pdev);
+	int (*device_shutdown) (struct platform_device *pdev);
+	int (*device_idle) (struct platform_device *pdev);
+};
+
+/* Prototypes for OMAP platform I2C core initialization code */
+
+struct omap_i2c_platform_data * __init omap_i2c_get_pdata(int bus_id);
+
+int __init omap1_i2c_nr_ports(void);
+int __init omap2_i2c_nr_ports(void);
+
+int __init omap1_i2c_add_bus(int bus_id);
+int __init omap2_i2c_add_bus(int bus_id);
+
