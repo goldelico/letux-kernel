@@ -21,6 +21,7 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/platform_device.h>
 
 #include <mach/hardware.h>
 #include <asm/irq.h>
@@ -29,113 +30,681 @@
 #include <asm/mach/irq.h>
 
 /*
- * omap24xx specific GPIO registers
+ * OMAP242X GPIO1 interface data
  */
-#define OMAP242X_GPIO1_BASE		0x48018000
-#define OMAP242X_GPIO2_BASE		0x4801a000
-#define OMAP242X_GPIO3_BASE		0x4801c000
-#define OMAP242X_GPIO4_BASE		0x4801e000
-
-#define OMAP243X_GPIO1_BASE		0x4900C000
-#define OMAP243X_GPIO2_BASE		0x4900E000
-#define OMAP243X_GPIO3_BASE		0x49010000
-#define OMAP243X_GPIO4_BASE		0x49012000
-#define OMAP243X_GPIO5_BASE		0x480B6000
-
-#define OMAP24XX_GPIO_REVISION		0x0000
-#define OMAP24XX_GPIO_SYSCONFIG		0x0010
-#define OMAP24XX_GPIO_SYSSTATUS		0x0014
-#define OMAP24XX_GPIO_IRQSTATUS1	0x0018
-#define OMAP24XX_GPIO_IRQSTATUS2	0x0028
-#define OMAP24XX_GPIO_IRQENABLE2	0x002c
-#define OMAP24XX_GPIO_IRQENABLE1	0x001c
-#define OMAP24XX_GPIO_WAKE_EN		0x0020
-#define OMAP24XX_GPIO_CTRL		0x0030
-#define OMAP24XX_GPIO_OE		0x0034
-#define OMAP24XX_GPIO_DATAIN		0x0038
-#define OMAP24XX_GPIO_DATAOUT		0x003c
-#define OMAP24XX_GPIO_LEVELDETECT0	0x0040
-#define OMAP24XX_GPIO_LEVELDETECT1	0x0044
-#define OMAP24XX_GPIO_RISINGDETECT	0x0048
-#define OMAP24XX_GPIO_FALLINGDETECT	0x004c
-#define OMAP24XX_GPIO_DEBOUNCE_EN	0x0050
-#define OMAP24XX_GPIO_DEBOUNCE_VAL	0x0054
-#define OMAP24XX_GPIO_CLEARIRQENABLE1	0x0060
-#define OMAP24XX_GPIO_SETIRQENABLE1	0x0064
-#define OMAP24XX_GPIO_CLEARWKUENA	0x0080
-#define OMAP24XX_GPIO_SETWKUENA		0x0084
-#define OMAP24XX_GPIO_CLEARDATAOUT	0x0090
-#define OMAP24XX_GPIO_SETDATAOUT	0x0094
-
-#define OMAP4_GPIO_REVISION		0x0000
-#define OMAP4_GPIO_SYSCONFIG		0x0010
-#define OMAP4_GPIO_EOI			0x0020
-#define OMAP4_GPIO_IRQSTATUSRAW0	0x0024
-#define OMAP4_GPIO_IRQSTATUSRAW1	0x0028
-#define OMAP4_GPIO_IRQSTATUS0		0x002c
-#define OMAP4_GPIO_IRQSTATUS1		0x0030
-#define OMAP4_GPIO_IRQSTATUSSET0	0x0034
-#define OMAP4_GPIO_IRQSTATUSSET1	0x0038
-#define OMAP4_GPIO_IRQSTATUSCLR0	0x003c
-#define OMAP4_GPIO_IRQSTATUSCLR1	0x0040
-#define OMAP4_GPIO_IRQWAKEN0		0x0044
-#define OMAP4_GPIO_IRQWAKEN1		0x0048
-#define OMAP4_GPIO_SYSSTATUS		0x0104
-#define OMAP4_GPIO_CTRL			0x0130
-#define OMAP4_GPIO_OE			0x0134
-#define OMAP4_GPIO_DATAIN		0x0138
-#define OMAP4_GPIO_DATAOUT		0x013c
-#define OMAP4_GPIO_LEVELDETECT0		0x0140
-#define OMAP4_GPIO_LEVELDETECT1		0x0144
-#define OMAP4_GPIO_RISINGDETECT		0x0148
-#define OMAP4_GPIO_FALLINGDETECT	0x014c
-#define OMAP4_GPIO_DEBOUNCENABLE	0x0150
-#define OMAP4_GPIO_DEBOUNCINGTIME	0x0154
-#define OMAP4_GPIO_CLEARDATAOUT		0x0190
-#define OMAP4_GPIO_SETDATAOUT		0x0194
-/*
- * omap34xx specific GPIO registers
- */
-
-#define OMAP34XX_GPIO1_BASE		0x48310000
-#define OMAP34XX_GPIO2_BASE		0x49050000
-#define OMAP34XX_GPIO3_BASE		0x49052000
-#define OMAP34XX_GPIO4_BASE		0x49054000
-#define OMAP34XX_GPIO5_BASE		0x49056000
-#define OMAP34XX_GPIO6_BASE		0x49058000
-
-/*
- * OMAP44XX  specific GPIO registers
- */
-#define OMAP44XX_GPIO1_BASE             0x4a310000
-#define OMAP44XX_GPIO2_BASE             0x48055000
-#define OMAP44XX_GPIO3_BASE             0x48057000
-#define OMAP44XX_GPIO4_BASE             0x48059000
-#define OMAP44XX_GPIO5_BASE             0x4805B000
-#define OMAP44XX_GPIO6_BASE             0x4805D000
-
-static struct __init gpio_bank gpio_bank_242x[4] = {
-	{ OMAP242X_GPIO1_BASE, NULL, INT_24XX_GPIO_BANK1, IH_GPIO_BASE },
-	{ OMAP242X_GPIO2_BASE, NULL, INT_24XX_GPIO_BANK2, IH_GPIO_BASE + 32 },
-	{ OMAP242X_GPIO3_BASE, NULL, INT_24XX_GPIO_BANK3, IH_GPIO_BASE + 64 },
-	{ OMAP242X_GPIO4_BASE, NULL, INT_24XX_GPIO_BANK4, IH_GPIO_BASE + 96 },
+static struct __initdata resource omap242x_gpio1_resources[] = {
+	{
+		.start	= OMAP242X_GPIO1_BASE,
+		.end	= OMAP242X_GPIO1_BASE + OMAP2_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_24XX_GPIO_BANK1,
+		.flags	= IORESOURCE_IRQ,
+	},
 };
 
-static struct __init gpio_bank gpio_bank_243x[5] = {
-	{ OMAP243X_GPIO1_BASE, NULL, INT_24XX_GPIO_BANK1, IH_GPIO_BASE },
-	{ OMAP243X_GPIO2_BASE, NULL, INT_24XX_GPIO_BANK2, IH_GPIO_BASE + 32 },
-	{ OMAP243X_GPIO3_BASE, NULL, INT_24XX_GPIO_BANK3, IH_GPIO_BASE + 64 },
-	{ OMAP243X_GPIO4_BASE, NULL, INT_24XX_GPIO_BANK4, IH_GPIO_BASE + 96 },
-	{ OMAP243X_GPIO5_BASE, NULL, INT_24XX_GPIO_BANK5, IH_GPIO_BASE + 128 },
+static struct __initdata omap_gpio_platform_data omap242x_gpio1_config = {
+	.ick_name = "gpios_ick",
+	.fck_name = "gpios_fck",
+	.virtual_irq_start = IH_GPIO_BASE,
 };
 
-static struct __init gpio_bank gpio_bank_34xx[6] = {
-	{ OMAP34XX_GPIO1_BASE, NULL, INT_34XX_GPIO_BANK1, IH_GPIO_BASE },
-	{ OMAP34XX_GPIO2_BASE, NULL, INT_34XX_GPIO_BANK2, IH_GPIO_BASE + 32 },
-	{ OMAP34XX_GPIO3_BASE, NULL, INT_34XX_GPIO_BANK3, IH_GPIO_BASE + 64 },
-	{ OMAP34XX_GPIO4_BASE, NULL, INT_34XX_GPIO_BANK4, IH_GPIO_BASE + 96 },
-	{ OMAP34XX_GPIO5_BASE, NULL, INT_34XX_GPIO_BANK5, IH_GPIO_BASE + 128 },
-	{ OMAP34XX_GPIO6_BASE, NULL, INT_34XX_GPIO_BANK6, IH_GPIO_BASE + 160 },
+static struct __initdata platform_device omap242x_gpio1 = {
+	.name           = "omap-gpio",
+	.id             = 0,
+	.dev            = {
+		.platform_data = &omap242x_gpio1_config,
+	},
+	.num_resources = ARRAY_SIZE(omap242x_gpio1_resources),
+	.resource = omap242x_gpio1_resources,
+};
+
+/*
+ * OMAP242X GPIO2 interface data
+ */
+static struct __initdata resource omap242x_gpio2_resources[] = {
+	{
+		.start	= OMAP242X_GPIO2_BASE,
+		.end	= OMAP242X_GPIO2_BASE + OMAP2_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_24XX_GPIO_BANK2,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap242x_gpio2_config = {
+	.ick_name = "gpios_ick",
+	.fck_name = "gpios_fck",
+	.virtual_irq_start = IH_GPIO_BASE + 32,
+};
+
+static struct __initdata platform_device omap242x_gpio2 = {
+	.name           = "omap-gpio",
+	.id             = 1,
+	.dev            = {
+		.platform_data = &omap242x_gpio2_config,
+	},
+	.num_resources = ARRAY_SIZE(omap242x_gpio2_resources),
+	.resource = omap242x_gpio2_resources,
+};
+
+/*
+ * OMAP242X GPIO3 interface data
+ */
+static struct __initdata resource omap242x_gpio3_resources[] = {
+	{
+		.start	= OMAP242X_GPIO3_BASE,
+		.end	= OMAP242X_GPIO3_BASE + OMAP2_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_24XX_GPIO_BANK3,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap242x_gpio3_config = {
+	.ick_name = "gpios_ick",
+	.fck_name = "gpios_fck",
+	.virtual_irq_start = IH_GPIO_BASE + 64,
+};
+
+static struct __initdata platform_device omap242x_gpio3 = {
+	.name           = "omap-gpio",
+	.id             = 2,
+	.dev            = {
+		.platform_data = &omap242x_gpio3_config,
+	},
+	.num_resources = ARRAY_SIZE(omap242x_gpio3_resources),
+	.resource = omap242x_gpio3_resources,
+};
+
+/*
+ * OMAP242X GPIO4 interface data
+ */
+static struct __initdata resource omap242x_gpio4_resources[] = {
+	{
+		.start	= OMAP242X_GPIO4_BASE,
+		.end	= OMAP242X_GPIO4_BASE + OMAP2_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_24XX_GPIO_BANK4,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap242x_gpio4_config = {
+	.ick_name = "gpios_ick",
+	.fck_name = "gpios_fck",
+	.virtual_irq_start = IH_GPIO_BASE + 96,
+};
+
+static struct __initdata platform_device omap242x_gpio4 = {
+	.name           = "omap-gpio",
+	.id             = 3,
+	.dev            = {
+		.platform_data = &omap242x_gpio4_config,
+	},
+	.num_resources = ARRAY_SIZE(omap242x_gpio4_resources),
+	.resource = omap242x_gpio4_resources,
+};
+
+/*
+ * OMAP243X GPIO1 interface data
+ */
+static struct __initdata resource omap243x_gpio1_resources[] = {
+	{
+		.start	= OMAP243X_GPIO1_BASE,
+		.end	= OMAP243X_GPIO1_BASE + OMAP2_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_24XX_GPIO_BANK1,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap243x_gpio1_config = {
+	.ick_name = "gpios_ick",
+	.fck_name = "gpios_fck",
+	.virtual_irq_start = IH_GPIO_BASE,
+};
+
+static struct __initdata platform_device omap243x_gpio1 = {
+	.name           = "omap-gpio",
+	.id             = 0,
+	.dev            = {
+		.platform_data = &omap243x_gpio1_config,
+	},
+	.num_resources = ARRAY_SIZE(omap243x_gpio1_resources),
+	.resource = omap243x_gpio1_resources,
+};
+
+/*
+ * OMAP243X GPIO2 interface data
+ */
+static struct __initdata resource omap243x_gpio2_resources[] = {
+	{
+		.start	= OMAP243X_GPIO2_BASE,
+		.end	= OMAP243X_GPIO2_BASE + OMAP2_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_24XX_GPIO_BANK2,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap243x_gpio2_config = {
+	.ick_name = "gpios_ick",
+	.fck_name = "gpios_fck",
+	.virtual_irq_start = IH_GPIO_BASE + 32,
+};
+
+static struct __initdata platform_device omap243x_gpio2 = {
+	.name           = "omap-gpio",
+	.id             = 1,
+	.dev            = {
+		.platform_data = &omap243x_gpio2_config,
+	},
+	.num_resources = ARRAY_SIZE(omap243x_gpio2_resources),
+	.resource = omap243x_gpio2_resources,
+};
+
+/*
+ * OMAP243X GPIO3 interface data
+ */
+static struct __initdata resource omap243x_gpio3_resources[] = {
+	{
+		.start	= OMAP243X_GPIO3_BASE,
+		.end	= OMAP243X_GPIO3_BASE + OMAP2_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_24XX_GPIO_BANK3,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap243x_gpio3_config = {
+	.ick_name = "gpios_ick",
+	.fck_name = "gpios_fck",
+	.virtual_irq_start = IH_GPIO_BASE + 64,
+};
+
+static struct __initdata platform_device omap243x_gpio3 = {
+	.name           = "omap-gpio",
+	.id             = 2,
+	.dev            = {
+		.platform_data = &omap243x_gpio3_config,
+	},
+	.num_resources = ARRAY_SIZE(omap243x_gpio3_resources),
+	.resource = omap243x_gpio3_resources,
+};
+
+/*
+ * OMAP243X GPIO4 interface data
+ */
+static struct __initdata resource omap243x_gpio4_resources[] = {
+	{
+		.start	= OMAP243X_GPIO4_BASE,
+		.end	= OMAP243X_GPIO4_BASE + OMAP2_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_24XX_GPIO_BANK4,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap243x_gpio4_config = {
+	.ick_name = "gpios_ick",
+	.fck_name = "gpios_fck",
+	.virtual_irq_start = IH_GPIO_BASE + 96,
+};
+
+static struct __initdata platform_device omap243x_gpio4 = {
+	.name           = "omap-gpio",
+	.id             = 3,
+	.dev            = {
+		.platform_data = &omap243x_gpio4_config,
+	},
+	.num_resources = ARRAY_SIZE(omap243x_gpio4_resources),
+	.resource = omap243x_gpio4_resources,
+};
+
+/*
+ * OMAP243X GPIO5 interface data
+ */
+static struct __initdata resource omap243x_gpio5_resources[] = {
+	{
+		.start	= OMAP243X_GPIO5_BASE,
+		.end	= OMAP243X_GPIO5_BASE + OMAP2_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_24XX_GPIO_BANK5,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap243x_gpio5_config = {
+	.ick_name = "gpio5_ick",
+	.fck_name = "gpio5_fck",
+	.virtual_irq_start = IH_GPIO_BASE + 128,
+};
+
+static struct __initdata platform_device omap243x_gpio5 = {
+	.name           = "omap-gpio",
+	.id             = 4,
+	.dev            = {
+		.platform_data = &omap243x_gpio5_config,
+	},
+	.num_resources = ARRAY_SIZE(omap243x_gpio5_resources),
+	.resource = omap243x_gpio5_resources,
+};
+
+/*
+ * OMAP3 GPIO1 interface data
+ */
+static struct __initdata resource omap3_gpio1_resources[] = {
+	{
+		.start	= OMAP34XX_GPIO1_BASE,
+		.end	= OMAP34XX_GPIO1_BASE + OMAP3_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_34XX_GPIO_BANK1,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap3_gpio1_config = {
+	.ick_name = "gpio1_ick",
+	.dbck_name = "gpio1_dbck",
+	.virtual_irq_start = IH_GPIO_BASE,
+};
+
+static struct __initdata platform_device omap3_gpio1 = {
+	.name           = "omap-gpio",
+	.id             = 0,
+	.dev            = {
+		.platform_data = &omap3_gpio1_config,
+	},
+	.num_resources = ARRAY_SIZE(omap3_gpio1_resources),
+	.resource = omap3_gpio1_resources,
+};
+
+/*
+ * OMAP3 GPIO2 interface data
+ */
+static struct __initdata resource omap3_gpio2_resources[] = {
+	{
+		.start	= OMAP34XX_GPIO2_BASE,
+		.end	= OMAP34XX_GPIO2_BASE + OMAP3_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_34XX_GPIO_BANK2,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap3_gpio2_config = {
+	.ick_name = "gpio2_ick",
+	.dbck_name = "gpio2_dbck",
+	.virtual_irq_start = IH_GPIO_BASE + 32,
+};
+
+static struct __initdata platform_device omap3_gpio2 = {
+	.name           = "omap-gpio",
+	.id             = 1,
+	.dev            = {
+		.platform_data = &omap3_gpio2_config,
+	},
+	.num_resources = ARRAY_SIZE(omap3_gpio2_resources),
+	.resource = omap3_gpio2_resources,
+};
+
+/*
+ * OMAP3 GPIO3 interface data
+ */
+static struct __initdata resource omap3_gpio3_resources[] = {
+	{
+		.start	= OMAP34XX_GPIO3_BASE,
+		.end	= OMAP34XX_GPIO3_BASE + OMAP3_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_34XX_GPIO_BANK3,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap3_gpio3_config = {
+	.ick_name = "gpio3_ick",
+	.dbck_name = "gpio3_dbck",
+	.virtual_irq_start = IH_GPIO_BASE + 64,
+};
+
+static struct __initdata platform_device omap3_gpio3 = {
+	.name           = "omap-gpio",
+	.id             = 2,
+	.dev            = {
+		.platform_data = &omap3_gpio3_config,
+	},
+	.num_resources = ARRAY_SIZE(omap3_gpio3_resources),
+	.resource = omap3_gpio3_resources,
+};
+
+/*
+ * OMAP3 GPIO4 interface data
+ */
+static struct __initdata resource omap3_gpio4_resources[] = {
+	{
+		.start	= OMAP34XX_GPIO4_BASE,
+		.end	= OMAP34XX_GPIO4_BASE + OMAP3_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_34XX_GPIO_BANK4,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap3_gpio4_config = {
+	.ick_name = "gpio4_ick",
+	.dbck_name = "gpio4_dbck",
+	.virtual_irq_start = IH_GPIO_BASE + 96,
+};
+
+static struct __initdata platform_device omap3_gpio4 = {
+	.name           = "omap-gpio",
+	.id             = 3,
+	.dev            = {
+		.platform_data = &omap3_gpio4_config,
+	},
+	.num_resources = ARRAY_SIZE(omap3_gpio4_resources),
+	.resource = omap3_gpio4_resources,
+};
+
+/*
+ * OMAP3 GPIO5 interface data
+ */
+static struct __initdata resource omap3_gpio5_resources[] = {
+	{
+		.start	= OMAP34XX_GPIO5_BASE,
+		.end	= OMAP34XX_GPIO5_BASE + OMAP3_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_34XX_GPIO_BANK5,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap3_gpio5_config = {
+	.ick_name = "gpio5_ick",
+	.dbck_name = "gpio5_dbck",
+	.virtual_irq_start = IH_GPIO_BASE + 128,
+};
+
+static struct __initdata platform_device omap3_gpio5 = {
+	.name           = "omap-gpio",
+	.id             = 4,
+	.dev            = {
+		.platform_data = &omap3_gpio5_config,
+	},
+	.num_resources = ARRAY_SIZE(omap3_gpio5_resources),
+	.resource = omap3_gpio5_resources,
+};
+
+/*
+ * OMAP3 GPIO6 interface data
+ */
+static struct __initdata resource omap3_gpio6_resources[] = {
+	{
+		.start	= OMAP34XX_GPIO6_BASE,
+		.end	= OMAP34XX_GPIO6_BASE + OMAP3_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_34XX_GPIO_BANK4,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap3_gpio6_config = {
+	.ick_name = "gpio6_ick",
+	.dbck_name = "gpio6_dbck",
+	.virtual_irq_start = IH_GPIO_BASE + 160,
+};
+
+static struct __initdata platform_device omap3_gpio6 = {
+	.name           = "omap-gpio",
+	.id             = 5,
+	.dev            = {
+		.platform_data = &omap3_gpio6_config,
+	},
+	.num_resources = ARRAY_SIZE(omap3_gpio6_resources),
+	.resource = omap3_gpio6_resources,
+};
+
+/*
+ * OMAP44XX GPIO1 interface data
+ */
+static struct __initdata resource omap4_gpio1_resources[] = {
+	{
+		.start	= OMAP44XX_GPIO1_BASE,
+		.end	= OMAP44XX_GPIO1_BASE + OMAP4_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_44XX_GPIO_BANK1,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap4_gpio1_config = {
+	.ick_name = "gpio1_ck",
+	.virtual_irq_start = IH_GPIO_BASE,
+};
+
+static struct __initdata platform_device omap4_gpio1 = {
+	.name           = "omap-gpio",
+	.id             = 0,
+	.dev            = {
+		.platform_data = &omap4_gpio1_config,
+	},
+	.num_resources = ARRAY_SIZE(omap4_gpio1_resources),
+	.resource = omap4_gpio1_resources,
+};
+
+/*
+ * OMAP44XX GPIO2 interface data
+ */
+static struct __initdata resource omap4_gpio2_resources[] = {
+	{
+		.start	= OMAP44XX_GPIO2_BASE,
+		.end	= OMAP44XX_GPIO2_BASE + OMAP4_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_44XX_GPIO_BANK2,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap4_gpio2_config = {
+	.ick_name = "gpio2_ck",
+	.virtual_irq_start = IH_GPIO_BASE + 32,
+};
+
+static struct __initdata platform_device omap4_gpio2 = {
+	.name           = "omap-gpio",
+	.id             = 1,
+	.dev            = {
+		.platform_data = &omap4_gpio2_config,
+	},
+	.num_resources = ARRAY_SIZE(omap4_gpio2_resources),
+	.resource = omap4_gpio2_resources,
+};
+
+/*
+ * OMAP44XX GPIO3 interface data
+ */
+static struct __initdata resource omap4_gpio3_resources[] = {
+	{
+		.start	= OMAP44XX_GPIO3_BASE,
+		.end	= OMAP44XX_GPIO3_BASE + OMAP4_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_44XX_GPIO_BANK3,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap4_gpio3_config = {
+	.ick_name = "gpio3_ck",
+	.virtual_irq_start = IH_GPIO_BASE + 64,
+};
+
+static struct __initdata platform_device omap4_gpio3 = {
+	.name           = "omap-gpio",
+	.id             = 2,
+	.dev            = {
+		.platform_data = &omap4_gpio3_config,
+	},
+	.num_resources = ARRAY_SIZE(omap4_gpio3_resources),
+	.resource = omap4_gpio3_resources,
+};
+
+/*
+ * OMAP44XX GPIO4 interface data
+ */
+static struct __initdata resource omap4_gpio4_resources[] = {
+	{
+		.start	= OMAP44XX_GPIO4_BASE,
+		.end	= OMAP44XX_GPIO4_BASE + OMAP4_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_44XX_GPIO_BANK4,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap4_gpio4_config = {
+	.ick_name = "gpio4_ck",
+	.virtual_irq_start = IH_GPIO_BASE + 96,
+};
+
+static struct __initdata platform_device omap4_gpio4 = {
+	.name           = "omap-gpio",
+	.id             = 3,
+	.dev            = {
+		.platform_data = &omap4_gpio4_config,
+	},
+	.num_resources = ARRAY_SIZE(omap4_gpio4_resources),
+	.resource = omap4_gpio4_resources,
+};
+
+/*
+ * OMAP44XX GPIO5 interface data
+  */
+static struct __initdata resource omap4_gpio5_resources[] = {
+	{
+		.start	= OMAP44XX_GPIO5_BASE,
+		.end	= OMAP44XX_GPIO5_BASE + OMAP4_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_44XX_GPIO_BANK5,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap4_gpio5_config = {
+	.ick_name = "gpio5_ck",
+	.virtual_irq_start = IH_GPIO_BASE + 128,
+};
+
+static struct __initdata platform_device omap4_gpio5 = {
+	.name           = "omap-gpio",
+	.id             = 4,
+	.dev            = {
+		.platform_data = &omap4_gpio5_config,
+	},
+	.num_resources = ARRAY_SIZE(omap4_gpio5_resources),
+	.resource = omap4_gpio5_resources,
+};
+
+/*
+ * OMAP44XX GPIO6 interface data
+  */
+static struct __initdata resource omap4_gpio6_resources[] = {
+	{
+		.start	= OMAP44XX_GPIO6_BASE,
+		.end	= OMAP44XX_GPIO6_BASE + OMAP4_GPIO_AS_LEN - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_44XX_GPIO_BANK6,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct __initdata omap_gpio_platform_data omap4_gpio6_config = {
+	.ick_name = "gpio6_ck",
+	.virtual_irq_start = IH_GPIO_BASE + 160,
+};
+
+static struct __initdata platform_device omap4_gpio6 = {
+	.name           = "omap-gpio",
+	.id             = 5,
+	.dev            = {
+		.platform_data = &omap4_gpio6_config,
+	},
+	.num_resources = ARRAY_SIZE(omap4_gpio6_resources),
+	.resource = omap4_gpio6_resources,
+};
+
+static struct __initdata platform_device * omap242x_gpio_early_dev[] = {
+	&omap242x_gpio1,
+	&omap242x_gpio2,
+	&omap242x_gpio3,
+	&omap242x_gpio4
+};
+
+static struct __initdata platform_device * omap243x_gpio_early_dev[] = {
+	&omap243x_gpio1,
+	&omap243x_gpio2,
+	&omap243x_gpio3,
+	&omap243x_gpio4,
+	&omap243x_gpio5
+};
+
+static struct __initdata platform_device * omap3_gpio_early_dev[] = {
+	&omap3_gpio1,
+	&omap3_gpio2,
+	&omap3_gpio3,
+	&omap3_gpio4,
+	&omap3_gpio5,
+	&omap3_gpio6
+};
+
+static struct __initdata platform_device * omap4_gpio_early_dev[] = {
+	&omap4_gpio1,
+	&omap4_gpio2,
+	&omap4_gpio3,
+	&omap4_gpio4,
+	&omap4_gpio5,
+	&omap4_gpio6
 };
 
 struct omap3_gpio_regs {
@@ -154,20 +723,11 @@ struct omap3_gpio_regs {
 	u32 setdataout;
 };
 
-#ifdef CONFIG_ARCH_OMAP34XX
+#ifdef CONFIG_ARCH_OMAP3
 static struct omap3_gpio_regs gpio_context[OMAP34XX_NR_GPIOS];
 #endif
 
-static struct __init gpio_bank gpio_bank_44xx[6] = {
-	{ OMAP44XX_GPIO1_BASE, NULL, INT_44XX_GPIO_BANK1, IH_GPIO_BASE },
-	{ OMAP44XX_GPIO2_BASE, NULL, INT_44XX_GPIO_BANK2, IH_GPIO_BASE + 32 },
-	{ OMAP44XX_GPIO3_BASE, NULL, INT_44XX_GPIO_BANK3, IH_GPIO_BASE + 64 },
-	{ OMAP44XX_GPIO4_BASE, NULL, INT_44XX_GPIO_BANK4, IH_GPIO_BASE + 96 },
-	{ OMAP44XX_GPIO5_BASE, NULL, INT_44XX_GPIO_BANK5, IH_GPIO_BASE + 128 },
-	{ OMAP44XX_GPIO6_BASE, NULL, INT_44XX_GPIO_BANK6, IH_GPIO_BASE + 160 },
-};
-
-static struct gpio_bank *gpio_bank;
+static struct gpio_bank gpio_bank[OMAP_MAX_NR_GPIOS];
 static int gpio_bank_count;
 
 static inline struct gpio_bank *get_gpio_bank(int gpio)
@@ -861,13 +1421,6 @@ static int gpio_2irq(struct gpio_chip *chip, unsigned offset)
 	return bank->virtual_irq_start + offset;
 }
 
-static int initialized;
-static struct clk *gpio_ick;
-static struct clk *gpio_fck;
-static struct clk *gpio5_ick;
-static struct clk *gpio5_fck;
-static struct clk *gpio_iclks[OMAP34XX_NR_GPIOS];
-
 static void __init omap_gpio_show_rev(void)
 {
 	u32 rev;
@@ -887,165 +1440,6 @@ static void __init omap_gpio_show_rev(void)
  * category than their parents, so it won't report false recursion.
  */
 static struct lock_class_key gpio_lock_class;
-
-static int __init _omap_gpio_init(void)
-{
-	int i;
-	int gpio = 0;
-	struct gpio_bank *bank;
-	int bank_size = SZ_8K;	/* Module 4KB + L4 4KB */
-	char clk_name[11];
-
-	initialized = 1;
-
-	if (cpu_is_omap24xx()) {
-		gpio_ick = clk_get(NULL, "gpios_ick");
-		if (IS_ERR(gpio_ick))
-			printk(KERN_ERR "Could not get gpios_ick\n");
-		else
-			clk_enable(gpio_ick);
-		gpio_fck = clk_get(NULL, "gpios_fck");
-		if (IS_ERR(gpio_fck))
-			printk(KERN_ERR "Could not get gpios_fck\n");
-		else
-			clk_enable(gpio_fck);
-
-		/*
-		 * On 2430 & 3430 GPIO 5 uses CORE L4 ICLK
-		 */
-		if (cpu_is_omap2430()) {
-			gpio5_ick = clk_get(NULL, "gpio5_ick");
-			if (IS_ERR(gpio5_ick))
-				printk(KERN_ERR "Could not get gpio5_ick\n");
-			else
-				clk_enable(gpio5_ick);
-			gpio5_fck = clk_get(NULL, "gpio5_fck");
-			if (IS_ERR(gpio5_fck))
-				printk(KERN_ERR "Could not get gpio5_fck\n");
-			else
-				clk_enable(gpio5_fck);
-		}
-	} else if (cpu_is_omap34xx() || cpu_is_omap44xx()) {
-		for (i = 0; i < OMAP34XX_NR_GPIOS; i++) {
-			if (!cpu_is_omap44xx())
-				sprintf(clk_name, "gpio%d_ick", i + 1);
-			else
-				sprintf(clk_name, "gpio%d_ck", i + 1);
-			gpio_iclks[i] = clk_get(NULL, clk_name);
-			if (IS_ERR(gpio_iclks[i]))
-				printk(KERN_ERR "Could not get %s\n", clk_name);
-			else
-				clk_enable(gpio_iclks[i]);
-		}
-	} else {
-		BUG();
-		return -EINVAL;
-	}
-
-	if (cpu_is_omap242x()) {
-		gpio_bank_count = 4;
-		gpio_bank = gpio_bank_242x;
-	} else if (cpu_is_omap243x()) {
-		gpio_bank_count = 5;
-		gpio_bank = gpio_bank_243x;
-	} else if (cpu_is_omap34xx()) {
-		gpio_bank_count = OMAP34XX_NR_GPIOS;
-		gpio_bank = gpio_bank_34xx;
-	} else if (cpu_is_omap44xx()) {
-		gpio_bank_count = OMAP34XX_NR_GPIOS;
-		gpio_bank = gpio_bank_44xx;
-	}
-
-	for (i = 0; i < gpio_bank_count; i++) {
-		int j, gpio_count = 16;
-
-		bank = &gpio_bank[i];
-		spin_lock_init(&bank->lock);
-
-		/* Static mapping, never released */
-		bank->base = ioremap(bank->pbase, bank_size);
-		if (!bank->base) {
-			printk(KERN_ERR "Could not ioremap gpio bank%i\n", i);
-			continue;
-		}
-		if (cpu_is_omap44xx()) {
-			__raw_writel(0xffffffff, bank->base +
-						OMAP4_GPIO_IRQSTATUSCLR0);
-			__raw_writew(0x0015, bank->base +
-						OMAP4_GPIO_SYSCONFIG);
-			__raw_writel(0x00000000, bank->base +
-						 OMAP4_GPIO_DEBOUNCENABLE);
-			/* Initialize interface clk ungated, module enabled */
-			__raw_writel(0, bank->base + OMAP4_GPIO_CTRL);
-		} else {
-			__raw_writel(0x00000000, bank->base +
-						OMAP24XX_GPIO_IRQENABLE1);
-			__raw_writel(0xffffffff, bank->base +
-						OMAP24XX_GPIO_IRQSTATUS1);
-			__raw_writew(0x0015, bank->base +
-						OMAP24XX_GPIO_SYSCONFIG);
-			__raw_writel(0x00000000, bank->base +
-						OMAP24XX_GPIO_DEBOUNCE_EN);
-
-			/* Initialize interface clk ungated, module enabled */
-			__raw_writel(0, bank->base + OMAP24XX_GPIO_CTRL);
-		}
-		{
-			static const u32 non_wakeup_gpios[] = {
-				0xe203ffc0, 0x08700040
-			};
-			if (i < ARRAY_SIZE(non_wakeup_gpios))
-				bank->non_wakeup_gpios = non_wakeup_gpios[i];
-		}
-		gpio_count = 32;
-
-		bank->mod_usage = 0;
-		/* REVISIT eventually switch from OMAP-specific gpio structs
-		 * over to the generic ones
-		 */
-		bank->chip.request = omap_gpio_request;
-		bank->chip.free = omap_gpio_free;
-		bank->chip.direction_input = gpio_input;
-		bank->chip.get = gpio_get;
-		bank->chip.direction_output = gpio_output;
-		bank->chip.set = gpio_set;
-		bank->chip.to_irq = gpio_2irq;
-		bank->chip.label = "gpio";
-		bank->chip.base = gpio;
-		gpio += gpio_count;
-		bank->chip.ngpio = gpio_count;
-
-		gpiochip_add(&bank->chip);
-
-		for (j = bank->virtual_irq_start;
-		     j < bank->virtual_irq_start + gpio_count; j++) {
-			lockdep_set_class(&irq_desc[j].lock, &gpio_lock_class);
-			set_irq_chip_data(j, bank);
-			set_irq_chip(j, &gpio_irq_chip);
-			set_irq_handler(j, handle_simple_irq);
-			set_irq_flags(j, IRQF_VALID);
-		}
-		set_irq_chained_handler(bank->irq, gpio_irq_handler);
-		set_irq_data(bank->irq, bank);
-
-		if (cpu_is_omap34xx()) {
-			sprintf(clk_name, "gpio%d_dbck", i + 1);
-			bank->dbck = clk_get(NULL, clk_name);
-			if (IS_ERR(bank->dbck))
-				printk(KERN_ERR "Could not get %s\n", clk_name);
-		}
-	}
-
-	/* Enable autoidle for the OCP interface */
-	if (cpu_is_omap24xx())
-		omap_writel(1 << 0, 0x48019010);
-	if (cpu_is_omap34xx())
-		omap_writel(1 << 0, 0x48306814);
-
-	omap_gpio_show_rev();
-
-	return 0;
-}
 
 static int omap_gpio_suspend(struct sys_device *dev, pm_message_t mesg)
 {
@@ -1262,7 +1656,7 @@ void omap2_gpio_resume_after_retention(void)
 	}
 }
 
-#ifdef CONFIG_ARCH_OMAP34XX
+#ifdef CONFIG_ARCH_OMAP3
 /* save the registers of bank 2-6 */
 void omap_gpio_save_context(void)
 {
@@ -1337,26 +1731,261 @@ void omap_gpio_restore_context(void)
 }
 #endif
 
+static int __devexit omap_gpio_remove(struct platform_device *pdev)
+{
+	struct omap_gpio_platform_data *pdata = pdev->dev.platform_data;
+	struct gpio_bank *bank;
+	int id;
+
+	if (!pdev || !pdata)
+		return 0;
+
+	id = pdev->id;
+	if (id > gpio_bank_count)
+		return 0;
+
+	bank = &gpio_bank[id];
+	if (cpu_is_omap24xx()) {
+		clk_disable(bank->fck);
+		clk_put(bank->fck);
+	}
+	clk_disable(bank->ick);
+	clk_put(bank->ick);
+
+	bank->ick = NULL;
+	bank->fck = NULL;
+	bank->initialized = 0;
+	iounmap(bank->base);
+
+	return 0;
+}
+
+static int __devinit omap_gpio_probe(struct platform_device *pdev)
+{
+	static int show_rev_once;
+	struct omap_gpio_platform_data *pdata = pdev->dev.platform_data;
+	struct gpio_bank *bank;
+	struct resource *res;
+	int id, i;
+
+	if (!pdev || !pdata) {
+		printk(KERN_ERR "GPIO device initialize without"
+					"platform data\n");
+		return -EINVAL;
+	}
+
+	if (cpu_is_omap242x())
+		gpio_bank_count = OMAP242X_NR_GPIOS;
+	else if (cpu_is_omap243x())
+		gpio_bank_count = OMAP243X_NR_GPIOS;
+	else if (cpu_is_omap34xx())
+		gpio_bank_count = OMAP34XX_NR_GPIOS;
+	else if (cpu_is_omap44xx())
+		gpio_bank_count = OMAP44XX_NR_GPIOS;
+
+	id = pdev->id;
+	if (id > gpio_bank_count) {
+		printk(KERN_ERR "Invalid GPIO device id (%d)\n", id);
+		return -EINVAL;
+	}
+
+	bank = &gpio_bank[id];
+
+	if (bank->initialized == 1)
+		return 0;
+
+	bank->virtual_irq_start = pdata->virtual_irq_start;
+
+	bank->ick = clk_get(NULL, pdata->ick_name);
+	if (IS_ERR(bank->ick))
+		printk(KERN_ERR "Could not get %s\n", pdata->ick_name);
+	else
+		clk_enable(bank->ick);
+
+	if (cpu_is_omap24xx()) {
+		bank->fck = clk_get(NULL, pdata->fck_name);
+		if (IS_ERR(bank->fck))
+			printk(KERN_ERR "Could not get %s\n", pdata->fck_name);
+		else
+			clk_enable(bank->fck);
+	}
+
+	spin_lock_init(&bank->lock);
+
+	/* Static mapping, never released */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (unlikely(!res)) {
+		printk(KERN_ERR "GPIO Bank %i Invalid mem resource\n", id);
+		return -ENODEV;
+	}
+
+	bank->base = ioremap(res->start, resource_size(res));
+	if (!bank->base) {
+		printk(KERN_ERR "Could not ioremap gpio bank%i\n", id);
+		return -ENOMEM;
+	}
+
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (unlikely(!res)) {
+		printk(KERN_ERR "GPIO Bank %i Invalid irq resource\n", id);
+		return -ENODEV;
+	}
+
+	if (cpu_is_omap44xx()) {
+		__raw_writel(0xffffffff, bank->base +
+					OMAP4_GPIO_IRQSTATUSCLR0);
+		__raw_writew(0x0015, bank->base +
+					OMAP4_GPIO_SYSCONFIG);
+		__raw_writel(0x00000000, bank->base +
+					 OMAP4_GPIO_DEBOUNCENABLE);
+		/* Initialize interface clk ungated, module enabled */
+		__raw_writel(0, bank->base + OMAP4_GPIO_CTRL);
+	} else {
+		__raw_writel(0x00000000, bank->base +
+					OMAP24XX_GPIO_IRQENABLE1);
+		__raw_writel(0xffffffff, bank->base +
+					OMAP24XX_GPIO_IRQSTATUS1);
+		__raw_writew(0x0015, bank->base +
+					OMAP24XX_GPIO_SYSCONFIG);
+		__raw_writel(0x00000000, bank->base +
+					OMAP24XX_GPIO_DEBOUNCE_EN);
+
+		/* Initialize interface clk ungated, module enabled */
+		__raw_writel(0, bank->base + OMAP24XX_GPIO_CTRL);
+	}
+	{
+		static const u32 non_wakeup_gpios[] = {
+			0xe203ffc0, 0x08700040
+		};
+		if (id < ARRAY_SIZE(non_wakeup_gpios))
+			bank->non_wakeup_gpios = non_wakeup_gpios[id];
+	}
+
+	bank->mod_usage = 0;
+	/* REVISIT eventually switch from OMAP-specific gpio structs
+	 * over to the generic ones
+	 */
+	bank->chip.request = omap_gpio_request;
+	bank->chip.free = omap_gpio_free;
+	bank->chip.direction_input = gpio_input;
+	bank->chip.get = gpio_get;
+	bank->chip.direction_output = gpio_output;
+	bank->chip.set = gpio_set;
+	bank->chip.to_irq = gpio_2irq;
+	bank->chip.label = "gpio";
+	bank->chip.base = id * 32;
+	bank->chip.ngpio = 32;
+
+	gpiochip_add(&bank->chip);
+
+	for (i = bank->virtual_irq_start; i < bank->virtual_irq_start + 32;
+			i++) {
+		lockdep_set_class(&irq_desc[i].lock, &gpio_lock_class);
+		set_irq_chip_data(i, bank);
+		set_irq_chip(i, &gpio_irq_chip);
+		set_irq_handler(i, handle_simple_irq);
+		set_irq_flags(i, IRQF_VALID);
+	}
+	set_irq_chained_handler(res->start, gpio_irq_handler);
+	set_irq_data(res->start, bank);
+
+	if (cpu_is_omap34xx()) {
+		bank->dbck = clk_get(NULL, pdata->dbck_name);
+		if (IS_ERR(bank->dbck))
+			printk(KERN_ERR "Could not get %s\n", pdata->dbck_name);
+	}
+
+	/* Enable autoidle for the OCP interface */
+	if (cpu_is_omap24xx())
+		omap_writel(1 << 0, 0x48019010);
+	if (cpu_is_omap34xx())
+		omap_writel(1 << 0, 0x48306814);
+
+	bank->initialized = 1;
+
+	if (!show_rev_once) {
+		omap_gpio_show_rev();
+		show_rev_once = 1;
+	}
+
+	return 0;
+}
+
+void __init omap_gpio_early_init(void)
+{
+	struct platform_device **pdev;
+
+	if (cpu_is_omap242x()) {
+		pdev = omap242x_gpio_early_dev;
+		gpio_bank_count = OMAP242X_NR_GPIOS;
+	} else if (cpu_is_omap243x()) {
+		pdev = omap243x_gpio_early_dev;
+		gpio_bank_count = OMAP243X_NR_GPIOS;
+	} else if (cpu_is_omap34xx()) {
+		pdev = omap3_gpio_early_dev;
+		gpio_bank_count = OMAP34XX_NR_GPIOS;
+	} else if (cpu_is_omap44xx()) {
+		pdev = omap4_gpio_early_dev;
+		gpio_bank_count = OMAP44XX_NR_GPIOS;
+	}
+
+	early_platform_add_devices(pdev, gpio_bank_count);
+	early_platform_driver_register_all("earlygpio");
+	early_platform_driver_probe("earlygpio", gpio_bank_count, 0);
+}
+
+int __init omap_init_gpio(void)
+{
+	if (cpu_is_omap242x()) {
+		platform_device_register(&omap242x_gpio1);
+		platform_device_register(&omap242x_gpio2);
+		platform_device_register(&omap242x_gpio3);
+		platform_device_register(&omap242x_gpio4);
+	} else if (cpu_is_omap243x()) {
+		platform_device_register(&omap243x_gpio1);
+		platform_device_register(&omap243x_gpio2);
+		platform_device_register(&omap243x_gpio3);
+		platform_device_register(&omap243x_gpio4);
+		platform_device_register(&omap243x_gpio5);
+	} else if (cpu_is_omap34xx()) {
+		platform_device_register(&omap3_gpio1);
+		platform_device_register(&omap3_gpio2);
+		platform_device_register(&omap3_gpio3);
+		platform_device_register(&omap3_gpio4);
+		platform_device_register(&omap3_gpio5);
+		platform_device_register(&omap3_gpio6);
+	} else if (cpu_is_omap44xx()) {
+		platform_device_register(&omap4_gpio1);
+		platform_device_register(&omap4_gpio2);
+		platform_device_register(&omap4_gpio3);
+		platform_device_register(&omap4_gpio4);
+		platform_device_register(&omap4_gpio5);
+		platform_device_register(&omap4_gpio6);
+	}
+	return 0;
+}
+
+static struct platform_driver omap_gpio_driver = {
+	.probe		= omap_gpio_probe,
+	.remove		= __devexit_p(omap_gpio_remove),
+	.driver		= {
+		.name	= "omap-gpio",
+	},
+};
+
 /*
- * This may get called early from board specific init
- * for boards that have interrupts routed via FPGA.
  */
 int __init omap_gpio_init(void)
 {
-	if (!initialized)
-		return _omap_gpio_init();
-	else
-		return 0;
+	return platform_driver_register(&omap_gpio_driver);
 }
 
 static int __init omap_gpio_sysinit(void)
 {
 	int ret = 0;
 
-	if (!initialized)
-		ret = _omap_gpio_init();
-
-	if (cpu_class_is_omap2() && (ret == 0)) {
+	ret = omap_gpio_init();
+	if (ret == 0) {
 		ret = sysdev_class_register(&omap_gpio_sysclass);
 		if (ret == 0)
 			ret = sysdev_register(&omap_gpio_device);
@@ -1365,7 +1994,14 @@ static int __init omap_gpio_sysinit(void)
 	return ret;
 }
 
-arch_initcall(omap_gpio_sysinit);
+static void __exit omap_gpio_exit(void)
+{
+	platform_driver_unregister(&omap_gpio_driver);
+}
+early_platform_init("earlygpio", &omap_gpio_driver);
+arch_initcall(omap_init_gpio);
+module_init(omap_gpio_sysinit);
+module_exit(omap_gpio_exit);
 
 #ifdef	CONFIG_DEBUG_FS
 
@@ -1457,3 +2093,8 @@ static int __init omap_gpio_debuginit(void)
 }
 late_initcall(omap_gpio_debuginit);
 #endif
+
+MODULE_DESCRIPTION("OMAP GPIO DRIVER");
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:" DRIVER_NAME);
+MODULE_AUTHOR("Texas Instruments Inc");
