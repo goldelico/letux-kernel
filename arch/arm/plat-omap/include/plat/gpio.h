@@ -27,6 +27,7 @@
 #define __ASM_ARCH_OMAP_GPIO_H
 
 #include <linux/io.h>
+#include <linux/sysdev.h>
 #include <mach/irqs.h>
 
 #define OMAP1_MPUIO_BASE			0xfffb5000
@@ -89,6 +90,32 @@ extern void omap3_gpio_restore_pad_context(int restore_oe);
 
 #include <linux/errno.h>
 #include <asm-generic/gpio.h>
+
+struct gpio_bank {
+	unsigned long pbase;
+	void __iomem *base;
+	u16 irq;
+	u16 virtual_irq_start;
+#if defined(CONFIG_ARCH_OMAP15XX) || defined(CONFIG_ARCH_OMAP16XX) || \
+		defined(CONFIG_ARCH_OMAP730) || defined(CONFIG_ARCH_OMAP850)
+	int method;
+#endif
+	u32 suspend_wakeup;
+	u32 saved_wakeup;
+#if defined(CONFIG_ARCH_OMAP24XX) || defined(CONFIG_ARCH_OMAP34XX) || \
+			defined(CONFIG_ARCH_OMAP4)
+	u32 non_wakeup_gpios;
+	u32 enabled_non_wakeup_gpios;
+	u32 saved_datain;
+	u32 saved_fallingdetect;
+	u32 saved_risingdetect;
+	u32 mod_usage;
+#endif
+	u32 level_mask;
+	spinlock_t lock; /* for locking in GPIO operations */
+	struct gpio_chip chip;
+	struct clk *dbck;
+};
 
 static inline int gpio_get_value(unsigned gpio)
 {
