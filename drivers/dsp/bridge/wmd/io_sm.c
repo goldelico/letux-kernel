@@ -2017,7 +2017,7 @@ DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT *hWmdContext)
 						pr_debug("%s\n", str_beg);
 					}
 				str_beg = trace_end;
-				ulNumbytes = 0;
+				ulNumBytes = 0;
 				}
 			}
 		}
