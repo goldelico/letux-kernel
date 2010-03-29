@@ -853,6 +853,7 @@ void __init omap_serial_init_port(int port)
 #endif
 
 	BUG_ON(port < 0);
+#if 1
 	BUG_ON(port >= ARRAY_SIZE(omap_uart));
 
 	uart = &omap_uart[port];
@@ -882,6 +883,85 @@ void __init omap_serial_init_port(int port)
 			>= UART_OMAP_NO_EMPTY_FIFO_READ_IP_REV) {
 		p->serial_in = serial_in_override;
 	}
+#else
+	BUG_ON(port >= num_uarts);
+
+	list_for_each_entry(uart, &uart_list, node)
+		if (port == uart->num)
+			break;
+	{
+
+		struct omap_hwmod *oh = uart->oh;
+		struct omap_device *od;
+		void *pdata = NULL;
+		u32 pdata_size = 0;
+
+		struct plat_serial8250_port ports[2] = {
+			{},
+			{.flags = 0},
+		};
+		struct plat_serial8250_port *p = &ports[0];
+
+		name = "serial8250";
+		uart->dma_enabled = 0;
+
+		/*
+		 * !! 8250 driver does not use standard IORESOURCE* It
+		 * has it's own custom pdata that can be taken from
+		 * the hwmod resource data.  But, this needs to be
+		 * done after the build.
+		 *
+		 * ?? does it have to be done before the register ??
+		 * YES, because platform_device_data_add() copies
+		 * pdata, it does not use a pointer.
+		 */
+		p->flags = UPF_BOOT_AUTOCONF;
+		p->iotype = UPIO_MEM;
+		p->regshift = 2;
+		p->uartclk = OMAP24XX_BASE_BAUD * 16;
+		p->irq = oh->mpu_irqs[0].irq;
+		p->mapbase = oh->slaves[0]->addr->pa_start;
+		p->membase = oh->_rt_va;
+		p->irqflags = IRQF_SHARED;
+		p->private_data = uart;
+
+		/* omap44xx: Never read empty UART fifo
+		 * omap3xxx: Never read empty UART fifo on UARTs
+		 * with IP rev >=0x52
+		 */
+		if (cpu_is_omap44xx()) {
+			p->serial_in = serial_in_override;
+			p->serial_out = serial_out_override;
+		}
+
+		pdata = &ports[0];
+		pdata_size = 2 * sizeof(struct plat_serial8250_port);
+
+		if (WARN_ON(!oh))
+			return;
+
+		od = omap_device_build(name, uart->num, oh, pdata, pdata_size,
+				       omap_uart_latency,
+				       ARRAY_SIZE(omap_uart_latency), 0);
+		WARN(IS_ERR(od), "Could not build omap_device for %s: %s.\n",
+		     name, oh->name);
+
+		uart->irq = oh->mpu_irqs[0].irq;
+		uart->regshift = 2;
+		uart->mapbase = oh->slaves[0]->addr->pa_start;
+		uart->membase = oh->_rt_va;
+		uart->pdev = &od->pdev;
+
+		oh->dev_attr = uart;
+
+#ifdef CONFIG_DEBUG_LL
+		/*
+		 * Because of earlyprintk output, UART did not get idled
+		 * on init.  Now that omap_device is ready, ensure full idle
+		 * before doing omap_device_enable().
+		 */
+		omap_hwmod_idle(uart->oh);
+#endif
 #endif
 
 	if (WARN_ON(platform_device_register(pdev)))
