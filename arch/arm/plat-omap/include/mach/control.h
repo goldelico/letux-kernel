@@ -202,6 +202,7 @@
 
 /* 36xx-only GENERAL_WKUP register offsets */
 #define OMAP36XX_CONTROL_PROG_IO_WKUP1 (OMAP343X_CONTROL_GENERAL_WKUP + 0x020)
+#define OMAP36XX_CONTROL_VBBLDO_EFUSE_CTRL (OMAP343X_CONTROL_GENERAL_WKUP + 0X02C)
 
 /*
  * REVISIT: This list of registers is not comprehensive - there are more
