@@ -156,9 +156,9 @@ struct omap_vout_device {
 	struct videobuf_buffer *cur_frm, *next_frm;
 	struct list_head dma_queue;
 	u8 *queued_buf_addr[VIDEO_MAX_FRAME];
-	u32 cropped_offset;
+	u32 cropped_offset[VIDEO_MAX_FRAME];
 #ifdef CONFIG_ARCH_OMAP4
-	u32 cropped_uv_offset;
+	u32 cropped_uv_offset[VIDEO_MAX_FRAME];
 #endif
 	s32 tv_field1_offset;
 	void *isr_handle;

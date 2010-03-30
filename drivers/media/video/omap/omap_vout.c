@@ -686,7 +686,7 @@ static int v4l2_rot_to_dss_rot(int v4l2_rotation, enum dss_rotation *rotation,
  * start.  This offset calculation is mainly required because of
  * the VRFB 32 pixels alignment with rotation.
  */
-static int omap_vout_calculate_offset(struct omap_vout_device *vout)
+static int omap_vout_calculate_offset(struct omap_vout_device *vout, int idx)
 {
 	struct v4l2_pix_format *pix = &vout->pix;
 	struct v4l2_rect *crop = &vout->crop;
@@ -700,9 +700,9 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout)
 	struct omapvideo_info *ovid;
 	struct omap_overlay *ovl;
 	struct omap_dss_device *cur_display;
-	int *cropped_offset = &vout->cropped_offset;
+	int *cropped_offset = vout->cropped_offset + idx;
 #ifdef CONFIG_ARCH_OMAP4
-	int *cropped_uv_offset = &(vout->cropped_uv_offset);
+	int *cropped_uv_offset = vout->cropped_uv_offset + idx;
 	unsigned long addr = 0, uv_addr = 0;
 #endif
 
@@ -806,12 +806,12 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout)
 	}
 #else
 	/* :TODO: change v4l2 to send TSPtr as tiled addresses to DSS2 */
-	addr = tiler_get_natural_addr(vout->queued_buf_addr[vout->cur_frm->i]);
+	addr = tiler_get_natural_addr(vout->queued_buf_addr[idx]);
 
 	if (OMAP_DSS_COLOR_NV12 == vout->dss_mode) {
 		*cropped_offset = tiler_stride(addr) * crop->top + crop->left;
 		uv_addr = tiler_get_natural_addr(
-			vout->queued_buf_uv_addr[vout->cur_frm->i]);
+			vout->queued_buf_uv_addr[idx]);
 		/* :TODO: only allow even crops for NV12 */
 		*cropped_uv_offset = tiler_stride(uv_addr) * (crop->top >> 1)
 			+ (crop->left & ~1);
@@ -1944,7 +1944,11 @@ static int vidioc_s_crop(struct file *file, void *fh,
 	struct omap_overlay *ovl;
 	struct omap_video_timings *timing;
 
-	if (vout->streaming)
+	/* Currently we only allow changing the crop position while
+	   streaming.  */
+	if (vout->streaming &&
+	    (crop->c.height != vout->crop.height ||
+	     crop->c.width != vout->crop.width))
 		return -EBUSY;
 
 	mutex_lock(&vout->lock);
@@ -2285,6 +2289,11 @@ static int vidioc_qbuf(struct file *file, void *fh,
 #endif
 
 	ret = videobuf_qbuf(q, buffer);
+	/* record buffer offset from crop window */
+	if (omap_vout_calculate_offset(vout, buffer->index)) {
+		printk(KERN_ERR "Could not calculate buffer offset\n");
+		return -EINVAL;
+	}
 	return ret;
 }
 
@@ -2356,15 +2365,11 @@ static int vidioc_streamon(struct file *file, void *fh,
 
 	vout->first_int = 1;
 
-	if (omap_vout_calculate_offset(vout)) {
-		mutex_unlock(&vout->lock);
-		return -EINVAL;
-	}
 	addr = (unsigned long) vout->queued_buf_addr[vout->cur_frm->i]
-		+ vout->cropped_offset;
+		+ vout->cropped_offset[vout->cur_frm->i];
 #ifdef CONFIG_ARCH_OMAP4
-	uv_addr = (unsigned long) vout->queued_buf_uv_addr[vout->cur_frm->i] +
-		vout->cropped_uv_offset;
+	uv_addr = (unsigned long) vout->queued_buf_uv_addr[vout->cur_frm->i]
+		+ vout->cropped_uv_offset[vout->cur_frm->i];
 #else
 	count = vout->buffer_allocated;
 	omap_vout_vrfb_buffer_setup(vout, &count, 0);
@@ -2720,6 +2725,10 @@ static int __init omap_vout_setup_video_bufs(struct platform_device *pdev,
 			r = -ENOMEM;
 			goto free_buffers;
 		}
+		vout->cropped_offset[i] = 0;
+#ifdef CONFIG_ARCH_OMAP4
+		vout->cropped_uv_offset[i] = 0;
+#endif
 	}
 
 #ifndef CONFIG_ARCH_OMAP4
@@ -2737,8 +2746,6 @@ static int __init omap_vout_setup_video_bufs(struct platform_device *pdev,
 
 		goto free_buffers;
 	}
-
-	vout->cropped_offset = 0;
 
 	/* Calculate VRFB memory size */
 	/* allocate for worst case size */
@@ -3153,57 +3160,55 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 #endif
 
 	default:
-			spin_unlock_irqrestore(&vout->vbq_lock, flags);
-			return;
-		}
+		spin_unlock_irqrestore(&vout->vbq_lock, flags);
+		return;
+	}
+	if (!vout->first_int && (vout->cur_frm != vout->next_frm)) {
+		vout->cur_frm->ts = timevalue;
+		vout->cur_frm->state = VIDEOBUF_DONE;
+		wake_up_interruptible(&vout->cur_frm->done);
+		vout->cur_frm = vout->next_frm;
+	}
 
-		if (!vout->first_int && (vout->cur_frm != vout->next_frm)) {
-				vout->cur_frm->ts = timevalue;
-				vout->cur_frm->state = VIDEOBUF_DONE;
-				wake_up_interruptible(&vout->cur_frm->done);
-				vout->cur_frm = vout->next_frm;
-				}
-
-				vout->first_int = 0;
-				if (list_empty(&vout->dma_queue)) {
-					spin_unlock_irqrestore(&vout->vbq_lock, flags);
-					return;
-				}
-
+	vout->first_int = 0;
+	if (list_empty(&vout->dma_queue)) {
+		spin_unlock_irqrestore(&vout->vbq_lock, flags);
+		return;
+	}
 #ifndef CONFIG_OMAP2_DSS_HDMI
 venc:
 #endif
-			vout->next_frm = list_entry(vout->dma_queue.next,
-					   struct videobuf_buffer, queue);
-			list_del(&vout->next_frm->queue);
+	vout->next_frm = list_entry(vout->dma_queue.next,
+		struct videobuf_buffer, queue);
+	list_del(&vout->next_frm->queue);
 
-			vout->next_frm->state = VIDEOBUF_ACTIVE;
+	vout->next_frm->state = VIDEOBUF_ACTIVE;
 
-			addr = (unsigned long)
-			    vout->queued_buf_addr[vout->next_frm->i] +
-			    vout->cropped_offset;
+	addr = (unsigned long)
+		vout->queued_buf_addr[vout->next_frm->i]
+		+ vout->cropped_offset[vout->next_frm->i];
 #ifdef CONFIG_ARCH_OMAP4
-			uv_addr = (unsigned long)vout->queued_buf_uv_addr[
-				vout->next_frm->i] + vout->cropped_uv_offset;
+	uv_addr = (unsigned long)vout->queued_buf_uv_addr[
+		vout->next_frm->i]
+		+ vout->cropped_uv_offset[vout->next_frm->i];
 #endif
 
-		if (vout->linked) {
-			if (omapvid_link_en_ovl(1, addr, uv_addr)) {
-				spin_unlock(&vout->vbq_lock);
-				return;
-			}
-		} else {
-			/* First save the configuration in ovelray structure */
-			r = omapvid_init(vout, addr, uv_addr);
-			if (r)
-				printk(KERN_ERR VOUT_NAME
-					"failed to set overlay info\n");
+	if (vout->linked) {
+		if (omapvid_link_en_ovl(1, addr, uv_addr)) {
+			spin_unlock(&vout->vbq_lock);
+			return;
 		}
-			/* Enable the pipeline and set the Go bit */
-			r = omapvid_apply_changes(vout);
-			if (r)
-				printk(KERN_ERR VOUT_NAME
-						"failed to change mode\n");
+	} else {
+		/* First save the configuration in ovelray structure */
+		r = omapvid_init(vout, addr, uv_addr);
+		if (r)
+			printk(KERN_ERR VOUT_NAME
+					"failed to set overlay info\n");
+	}
+	/* Enable the pipeline and set the Go bit */
+	r = omapvid_apply_changes(vout);
+	if (r)
+		printk(KERN_ERR VOUT_NAME "failed to change mode\n");
 
 #ifndef CONFIG_OMAP2_DSS_HDMI
 end:

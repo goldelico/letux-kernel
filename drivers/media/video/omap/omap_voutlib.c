@@ -197,15 +197,13 @@ int omap_vout_new_crop(struct v4l2_pix_format *pix,
 	if (try_crop.width <= 0 || try_crop.height <= 0)
 		return -EINVAL;
 
-	if (cpu_is_omap24xx()) {
-		if (crop->height != win->w.height) {
-			/* If we're resizing vertically, we can't support a
-			 * crop width wider than 768 pixels.
-			 */
-			if (try_crop.width > 768)
-				try_crop.width = 768;
-		}
-    }
+	if (cpu_is_omap24xx() && crop->height != win->w.height) {
+		/* If we're resizing vertically, we can't support a crop width
+		 * wider than 768 pixels on OMAP2.
+		 */
+		if (try_crop.width > 768)
+			try_crop.width = 768;
+	}
 
 	/* vertical resizing */
 	vresize = (1024 * crop->height) / win->w.height;
