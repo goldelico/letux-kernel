@@ -773,8 +773,8 @@ static int venc_get_tv_connected(struct omap_dss_device *dssdev)
 	if (tv_detect_enabled) {
 		venc_enable_display(dssdev);
 		venc_configure_tv_detect(1);
-		/* Wait for 2 vsyncs before checking status*/
-		mdelay(50);
+		/* Wait for 3 vsyncs before checking status*/
+		mdelay(60);
 		tv_status = gpio_get_value(TV_INT_GPIO);
 		venc_configure_tv_detect(0);
 
