@@ -350,22 +350,16 @@ static irqreturn_t prcm_interrupt_handler (int irq, void *dev_id)
 			 */
 			WARN(c == 0, "prcm: WARNING: PRCM indicated MPU wakeup "
 			     "but no wakeup sources are marked\n");
-		 } else if (irqstatus_mpu & (OMAP3430_VP1_ST | OMAP3430_VP2_ST |
-				OMAP3430_VC_ST)) {
-			/* Clear all the VP1/2 and VC status flag here */
-			prm_write_mod_reg((irqstatus_mpu &
-					(OMAP3430_VP1_ST |
-					 OMAP3430_VP2_ST |
-					 OMAP3430_VC_ST)), OCP_MOD,
-					 OMAP2_PRM_IRQSTATUS_MPU_OFFSET);
-
-		} else {
-
-			/* XXX we need to expand our PRCM interrupt handler */
-			WARN(1, "prcm: WARNING: PRCM interrupt received, but "
-			     "no code to handle it (%08x)\n", irqstatus_mpu);
 		}
 
+		/*
+		 * Status bits in PRM_IRQSTATUS_MPU register will be set even
+		 * if the corresponding IRQ enable bit in PRM_IRQENABLE_MPU
+		 * register is not.  Previous code would WARN() on any high
+		 * status bits since they were not "handled", but this led to
+		 * many false positives for which there was no IRQ at all.
+		 * Instead just clear the status register and move on.
+		 */
 		prm_write_mod_reg(irqstatus_mpu, OCP_MOD,
 					OMAP2_PRM_IRQSTATUS_MPU_OFFSET);
 
