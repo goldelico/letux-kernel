@@ -77,7 +77,7 @@ static int omap4_enter_idle(struct cpuidle_device *dev,
 {
 	struct omap4_processor_cx *cx = cpuidle_get_statedata(state);
 	struct timespec ts_preidle, ts_postidle, ts_idle;
-	u32 scu_pwr_st;
+	u32 scu_pwr_st, cpu1_state;
 
 	/* Used to keep track of the total time in idle */
 	getnstimeofday(&ts_preidle);
@@ -88,8 +88,10 @@ static int omap4_enter_idle(struct cpuidle_device *dev,
 		goto return_sleep_time;
 	}
 
-	/* Do only a wfi as long as any other core is active */
-	if (num_online_cpus() > 1) {
+	/* Make sure cpu1 is offlined before cpu0 idle's */
+	cpu1_state = pwrdm_read_pwrst(cpu1_pd);
+	/* Do only a wfi as long as CPU1 is not in RET/OFF */
+	if (cpu1_state > PWRDM_POWER_RET) {
 		wfi();
 		goto return_sleep_time;
 	}
