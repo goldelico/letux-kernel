@@ -324,6 +324,11 @@ void cpuidle_unregister_device(struct cpuidle_device *dev)
 {
 	struct sys_device *sys_dev = get_cpu_sysdev((unsigned long)dev->cpu);
 
+	if (!sys_dev) {
+		pr_err(" ERR get_cpu_sysdev returned NULL\n");
+		return;
+	}
+
 	if (dev->registered == 0)
 		return;
 
