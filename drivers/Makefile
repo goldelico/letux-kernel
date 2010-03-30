@@ -116,7 +116,6 @@ obj-$(CONFIG_DMM_OMAP)		+= media/
 obj-$(CONFIG_TILER_OMAP)	+= media/
 obj-$(CONFIG_MPU_SYSLINK_IPC)   += dsp/syslink/multicore_ipc/
 obj-$(CONFIG_MPU_BRIDGE_NOTIFY) += dsp/syslink/omap_notify/
-obj-$(CONFIG_NOTIFY_DISPATCHER) += dsp/syslink/notify_dispatcher/
 obj-$(CONFIG_NOTIFY_DUCATI)     += dsp/syslink/notify_ducatidriver/
 obj-$(CONFIG_SYSLINK_PROC)      += dsp/syslink/procmgr/
 obj-$(CONFIG_SYSLINK_PROC4430)  += dsp/syslink/procmgr/proc4430/
