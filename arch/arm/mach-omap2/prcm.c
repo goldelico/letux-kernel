@@ -123,7 +123,7 @@ struct omap3_prcm_regs prcm_context;
 u32 omap_prcm_get_reset_sources(void)
 {
 	/* XXX This presumably needs modification for 34XX */
-	if (cpu_is_omap24xx() | cpu_is_omap34xx())
+	if (cpu_is_omap24xx() || cpu_is_omap34xx())
 		return prm_read_mod_reg(WKUP_MOD, OMAP2_RM_RSTST) & 0x7f;
 	if (cpu_is_omap44xx())
 		return prm_read_mod_reg(WKUP_MOD, OMAP4_RM_RSTST) & 0x7f;
@@ -156,7 +156,7 @@ void omap_prcm_arch_reset(char mode)
 		return;
 	}
 
-	if (cpu_is_omap24xx() | cpu_is_omap34xx())
+	if (cpu_is_omap24xx() || cpu_is_omap34xx())
 #ifdef CONFIG_MACH_SHOLES
 		prm_set_mod_reg_bits(OMAP_RST_GS, prcm_offs, RM_RSTCTRL);
 #else
