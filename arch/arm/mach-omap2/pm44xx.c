@@ -18,7 +18,6 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <plat/control.h>
-#include <plat/sram.h>
 #include <plat/clockdomain.h>
 #include <plat/powerdomain.h>
 #include "prm.h"
@@ -37,8 +36,6 @@ struct power_state {
 };
 
 static LIST_HEAD(pwrst_list);
-
-int (*_omap_sram_idle)(void);
 
 static struct powerdomain *cpu0_pwrdm, *cpu1_pwrdm, *mpu_pwrdm;
 
@@ -114,13 +111,10 @@ static int omap4_pm_suspend(void)
 			if (set_pwrdm_state(pwrst->pwrdm, PWRDM_POWER_RET))
 				goto restore;
 
-	if (_omap_sram_idle)
-		_omap_sram_idle();
-	else
-		asm volatile("wfi\n"
-			:
-			:
-			: "memory", "cc");
+	asm volatile("wfi\n"
+		:
+		:
+		: "memory", "cc");
 restore:
 	/* Restore next_pwrsts */
 	list_for_each_entry(pwrst, &pwrst_list, node) {
@@ -214,14 +208,6 @@ static int __attribute__ ((unused)) __init
 		omap2_clkdm_sleep(clkdm);
 	return 0;
 }
-
-#ifdef CONFIG_PM
-void omap_push_sram_idle(void)
-{
-	_omap_sram_idle = omap_sram_push(omap44xx_cpu_suspend,
-						omap44xx_cpu_suspend_sz);
-}
-#endif
 
 void  __raw_rmw_reg_bits(u32 mask, u32 bits, const volatile void __iomem *addr)
 {
