@@ -83,6 +83,8 @@ const struct omap_video_timings cea861d36 = \
 	{2880, 480, 108000, 248, 64, 240, 6, 9, 30};
 const struct omap_video_timings vesad10 = \
 	{1024, 768, 65000, 136, 24, 160, 6, 3, 29};
+const struct omap_video_timings vesadmti39  = \
+	{1680, 1050, 119000, 32, 48, 80, 6, 3, 21};
 
 static struct {
 	void __iomem *base_phy;
@@ -413,6 +415,9 @@ static int hdmi_panel_probe(struct omap_dss_device *dssdev)
 	case 30:
 		dssdev->panel.timings = cea861d30;
 		break;
+	case 39:
+		dssdev->panel.timings = vesadmti39;
+		break;
 	case 16:
 	default:
 		dssdev->panel.timings = cea861d16;
@@ -527,6 +532,9 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 		break;
 	case 30:
 		dssdev->panel.timings = cea861d30;
+		break;
+	case 39:
+		dssdev->panel.timings = vesadmti39;
 		break;
 	case 16:
 	default:
