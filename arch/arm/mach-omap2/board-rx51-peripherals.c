@@ -75,6 +75,10 @@ static struct tsc2005_platform_data tsc2005_config = {
 static struct omap2_mcspi_device_config tsc2005_mcspi_config = {
 	.turbo_mode	= 0,
 	.single_channel = 1,
+	.mode		= OMAP2_MCSPI_MASTER,
+	.dma_mode	= 0,
+	.force_cs_mode	= 0,
+	.fifo_depth	= 0,
 };
 
 static struct spi_board_info rx51_peripherals_spi_board_info[] = {

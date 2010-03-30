@@ -75,6 +75,11 @@
 static struct omap2_mcspi_device_config ads7846_mcspi_config = {
 	.turbo_mode	= 0,
 	.single_channel	= 1,	/* 0: slave, 1: master */
+	.mode		= OMAP2_MCSPI_MASTER,
+	.dma_mode	= 0,
+	.force_cs_mode	= 0,
+	.fifo_depth	= 0,
+
 };
 
 static int ads7846_get_pendown_state(void)

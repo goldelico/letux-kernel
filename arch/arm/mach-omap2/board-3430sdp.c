@@ -225,6 +225,10 @@ static struct ads7846_platform_data tsc2046_config __initdata = {
 static struct omap2_mcspi_device_config tsc2046_mcspi_config = {
 	.turbo_mode	= 0,
 	.single_channel	= 1,	/* 0: slave, 1: master */
+	.mode		= OMAP2_MCSPI_MASTER,
+	.dma_mode	= 0,
+	.force_cs_mode	= 0,
+	.fifo_depth	= 0,
 };
 
 static struct spi_board_info sdp3430_spi_board_info[] __initdata = {
