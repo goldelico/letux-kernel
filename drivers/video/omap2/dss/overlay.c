@@ -789,7 +789,8 @@ void dss_recheck_connections(struct omap_dss_device *dssdev, bool force)
 	lcd2_mgr = omap_dss_get_overlay_manager(OMAP_DSS_OVL_MGR_LCD2);
 
 	if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2) {
-		if (!lcd2_mgr->device || force) {
+		if (!lcd2_mgr->device || force ||
+		    sysfs_streq(dssdev->name, "2lcd")) {
 			if (lcd2_mgr->device)
 				lcd2_mgr->unset_device(lcd2_mgr);
 			lcd2_mgr->set_device(lcd2_mgr, dssdev);
