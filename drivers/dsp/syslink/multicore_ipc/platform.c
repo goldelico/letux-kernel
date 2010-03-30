@@ -100,6 +100,8 @@
 #define SHAREDMEMORY_SWDMM_SLV_VRT_BASEADDR	0x81300000
 #define SHAREDMEMORY_SWDMM_SLV_VRT_BASESIZE	0x00C00000
 
+#define USE_NEW_PROCMGR		0
+
 /** ============================================================================
  *  Struct & Enums.
  *  ============================================================================
@@ -1320,27 +1322,17 @@ int platform_load_callback(u16 proc_id, void *arg)
 	u32 start;
 	u32 num_bytes;
 	struct sharedregion_entry entry;
-	u32 m_addr;
 	struct proc_mgr_addr_info ai;
 	struct ipc_params ipc_params;
 	int i;
-	u32 file_id;
 	void *pm_handle;
 
 	handle = &platform_objects[multiproc_self()];
-
 	pm_handle = handle->pm_handle;
-	file_id = proc_mgr_get_loaded_file_id(pm_handle);
 
-	/* read the symbol from slave binary */
-	status = proc_mgr_get_symbol_address(pm_handle,
-					     file_id,
-					     RESETVECTOR_SYMBOL,
-					     &start);
-	if (status < 0) {
-		status = PLATFORM_E_FAIL;
-		goto exit;
-	}
+	/* TODO: hack */
+	start = (u32)arg;	/* start address passed in as argument */
+
 
 	/* Read the slave config */
 	num_bytes = sizeof(struct platform_slave_config);
@@ -1414,27 +1406,13 @@ int platform_load_callback(u16 proc_id, void *arg)
 		if (entry.is_valid == false) {
 
 			/* Translate the slave address to master */
-			status = proc_mgr_translate_addr(
-				pm_handle,
-				(void **)&m_addr,
-				PROC_MGR_ADDRTYPE_MASTERPHYS,
-				(void *)handle->slave_sr_config[i].entry_base,
-				PROC_MGR_ADDRTYPE_SLAVEVIRT);
-			if (status < 0) {
-				status = PLATFORM_E_FAIL;
-				goto alloced_slave_sr_config_exit;
-			}
-
-			ai.addr[PROC_MGR_ADDRTYPE_MASTERPHYS] = m_addr;
-			ai.addr[PROC_MGR_ADDRTYPE_SLAVEVIRT]  =
-				handle->slave_sr_config[i].entry_base;
-			ai.size = handle->slave_sr_config[i].entry_len;
-			ai.is_cached = false;
+			/* TODO: backwards compatibility with old procmgr */
 			status = proc_mgr_map(pm_handle,
-					(PROC_MGR_MAPTYPE_SLAVE
-					| PROC_MGR_MAPTYPE_VIRT),
-					&ai,
-					PROC_MGR_ADDRTYPE_MASTERPHYS);
+				handle->slave_sr_config[i].entry_base,
+				handle->slave_sr_config[i].entry_len,
+				&ai.addr[PROC_MGR_ADDRTYPE_MASTERKNLVIRT],
+				&handle->slave_sr_config[i].entry_len,
+				PROC_MGR_MAPTYPE_VIRT);
 			if (status < 0) {
 				status = PLATFORM_E_FAIL;
 				goto alloced_slave_sr_config_exit;
@@ -1528,13 +1506,11 @@ int platform_stop_callback(u16 proc_id, void *arg)
 	int status = PLATFORM_S_SUCCESS;
 	u32 i;
 	u32 m_addr;
-	struct proc_mgr_addr_info ai;
 	struct platform_object *handle;
 	void *pm_handle;
 
 	handle = (struct platform_object *)&platform_objects[proc_id];
 	pm_handle = handle->pm_handle;
-
 	/* delete the System manager instance here */
 	for (i = 0;
 		((handle->slave_sr_config != NULL) &&
@@ -1543,30 +1519,22 @@ int platform_stop_callback(u16 proc_id, void *arg)
 			platform_host_sr_config[i].ref_count--;
 			if (platform_host_sr_config[i].ref_count == 0) {
 				platform_num_srs_unmapped++;
-
 			/* Translate the slave address to master */
+			/* TODO: backwards compatibility with old procmgr */
 			status = proc_mgr_translate_addr(pm_handle,
 				(void **)&m_addr,
-				PROC_MGR_ADDRTYPE_MASTERPHYS,
-				(void *)handle->slave_sr_config[i].entry_base,
+				PROC_MGR_ADDRTYPE_MASTERKNLVIRT,
+				(void *)m_addr,
 				PROC_MGR_ADDRTYPE_SLAVEVIRT);
 			if (status < 0) {
 				status = PLATFORM_E_FAIL;
 				continue;
 			}
-			ai.addr[PROC_MGR_ADDRTYPE_MASTERPHYS] = m_addr;
-			ai.addr[PROC_MGR_ADDRTYPE_SLAVEVIRT] =
-					handle->slave_sr_config[i].entry_base;
-			ai.size = handle->slave_sr_config[i].entry_len;
-			ai.is_cached = false;
-			status = proc_mgr_unmap(pm_handle,
-					(PROC_MGR_MAPTYPE_SLAVE
-					| PROC_MGR_MAPTYPE_VIRT),
-					&ai,
-					PROC_MGR_ADDRTYPE_MASTERPHYS);
-		}
-	}
 
+			status = proc_mgr_unmap(pm_handle, m_addr);
+		}
+
+	}
 	if (platform_num_srs_unmapped == handle->slave_config.num_srs) {
 		if (handle->slave_sr_config != NULL) {
 			kfree(handle->slave_sr_config);
@@ -1601,7 +1569,6 @@ _platform_read_slave_memory(u16 proc_id,
 	int status = 0;
 	bool done = false;
 	struct platform_object *handle;
-	struct proc_mgr_addr_info a_info;
 	u32 m_addr;
 	void *pm_handle;
 
@@ -1619,39 +1586,29 @@ _platform_read_slave_memory(u16 proc_id,
 		goto exit;
 	}
 
-	/* Translate the slave address to master address */
+	/* TODO: backwards compatibility with old procmgr */
 	status = proc_mgr_translate_addr(pm_handle,
 					(void **)&m_addr,
-					PROC_MGR_ADDRTYPE_MASTERPHYS,
+					PROC_MGR_ADDRTYPE_MASTERKNLVIRT,
 					(void *)addr,
 					PROC_MGR_ADDRTYPE_SLAVEVIRT);
-
 	if (status >= 0) {
-		status = proc_mgr_translate_addr(pm_handle,
-						(void **)&m_addr,
-						PROC_MGR_ADDRTYPE_MASTERKNLVIRT,
-						(void *)m_addr,
-						PROC_MGR_ADDRTYPE_MASTERPHYS);
-		if (status >= 0) {
-			memcpy(value, &m_addr, *num_bytes);
-			done = true;
-		} else {
-			status = PLATFORM_E_FAIL;
-			goto exit;
-		}
+		memcpy(value, &m_addr, *num_bytes);
+		done = true;
+	} else {
+		status = PLATFORM_E_FAIL;
+		goto exit;
 	}
 
 	if (done == false) {
 		/* Map the address */
-		a_info.addr[PROC_MGR_ADDRTYPE_MASTERPHYS] = m_addr;
-		a_info.addr[PROC_MGR_ADDRTYPE_SLAVEVIRT] = addr;
-		a_info.size = *num_bytes;
-		a_info.is_cached = false;
+		/* TODO: backwards compatibility with old procmgr */
 		status = proc_mgr_map(pm_handle,
-				     (PROC_MGR_MAPTYPE_VIRT
-				     | PROC_MGR_MAPTYPE_SLAVE),
-				     &a_info,
-				     PROC_MGR_ADDRTYPE_MASTERPHYS);
+			addr,
+			*num_bytes,
+			&m_addr,
+			num_bytes,
+			PROC_MGR_MAPTYPE_VIRT);
 		if (status < 0) {
 			status = PLATFORM_E_FAIL;
 			goto exit;
@@ -1670,12 +1627,9 @@ _platform_read_slave_memory(u16 proc_id,
 	}
 
 	if (done == false) {
-		/* Map the address */
-		status = proc_mgr_unmap(pm_handle,
-				       (PROC_MGR_MAPTYPE_VIRT
-				       | PROC_MGR_MAPTYPE_SLAVE),
-				       &a_info,
-				       PROC_MGR_ADDRTYPE_MASTERPHYS);
+		/* Unmap the address */
+		/* TODO: backwards compatibility with old procmgr */
+		status = proc_mgr_unmap(pm_handle, m_addr);
 		if (status < 0) {
 			status = PLATFORM_E_FAIL;
 			goto exit;
@@ -1696,7 +1650,6 @@ _platform_write_slave_memory(u16 proc_id,
 	int status = 0;
 	bool done = false;
 	struct platform_object *handle;
-	struct proc_mgr_addr_info a_info;
 	u32 m_addr;
 	void *pm_handle = NULL;
 
@@ -1715,35 +1668,29 @@ _platform_write_slave_memory(u16 proc_id,
 	}
 
 	/* Translate the slave address to master address */
+	/* TODO: backwards compatibility with old procmgr */
 	status = proc_mgr_translate_addr(pm_handle,
 					(void **)&m_addr,
-					PROC_MGR_ADDRTYPE_MASTERPHYS,
+					PROC_MGR_ADDRTYPE_MASTERKNLVIRT,
 					(void *)addr,
 					PROC_MGR_ADDRTYPE_SLAVEVIRT);
-
-	if (status < 0) {
-		status = proc_mgr_translate_addr(pm_handle,
-					(void **)&m_addr,
-					PROC_MGR_ADDRTYPE_MASTERKNLVIRT,
-					(void *)m_addr,
-					PROC_MGR_ADDRTYPE_MASTERPHYS);
-		if (status >= 0) {
-			memcpy(&m_addr, value, *num_bytes);
-			done = true;
-		}
+	if (status >= 0) {
+		memcpy(value, &m_addr, *num_bytes);
+		done = true;
+	} else {
+		status = PLATFORM_E_FAIL;
+		goto exit;
 	}
 
 	if (done == false) {
 		/* Map the address */
-		a_info.addr[PROC_MGR_ADDRTYPE_MASTERPHYS] = m_addr;
-		a_info.addr[PROC_MGR_ADDRTYPE_SLAVEVIRT] = addr;
-		a_info.size = *num_bytes;
-		a_info.is_cached = false;
+		/* TODO: backwards compatibility with old procmgr */
 		status = proc_mgr_map(pm_handle,
-				     (PROC_MGR_MAPTYPE_VIRT
-				     | PROC_MGR_MAPTYPE_SLAVE),
-				     &a_info,
-				     PROC_MGR_ADDRTYPE_MASTERPHYS);
+			addr,
+			*num_bytes,
+			&m_addr,
+			num_bytes,
+			PROC_MGR_MAPTYPE_VIRT);
 		if (status < 0) {
 			status = PLATFORM_E_FAIL;
 			goto exit;
@@ -1763,11 +1710,8 @@ _platform_write_slave_memory(u16 proc_id,
 
 	if (done == false) {
 		/* Map the address */
-		status = proc_mgr_map(pm_handle,
-				     (PROC_MGR_MAPTYPE_VIRT
-				     | PROC_MGR_MAPTYPE_SLAVE),
-				     &a_info,
-				     PROC_MGR_ADDRTYPE_MASTERPHYS);
+		/* TODO: backwards compatibility with old procmgr */
+		status = proc_mgr_unmap(pm_handle, m_addr);
 		if (status < 0) {
 			status = PLATFORM_E_FAIL;
 			goto exit;
