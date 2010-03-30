@@ -1909,7 +1909,13 @@ mult:
 
 	ispresizer_enable(&isp->isp_res, 1);
 	/* Wait for resizing complete event */
-	wait_for_completion_interruptible(&device_config->compl_isr);
+	/* Added time out based call so that
+	 * the execution never blocks here.
+	 * This solves the quick lock-unlock
+	 * preview freeze problem.
+	 */
+	wait_for_completion_interruptible_timeout(&device_config->compl_isr,
+							msecs_to_jiffies(4));
 
 	if (device_config->multipass->active) {
 		multipass_active = 1;
