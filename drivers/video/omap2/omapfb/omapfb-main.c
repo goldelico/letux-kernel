@@ -2387,6 +2387,11 @@ static int omapfb_probe(struct platform_device *pdev)
 	/* gfx overlay should be the default one. find a display
 	 * connected to that, and use it as default display */
 	ovl = omap_dss_get_overlay(0);
+	if (!ovl) {
+		dev_warn(&pdev->dev, "could not find overlay ");
+		goto err0;
+	}
+
 	if (ovl->manager && ovl->manager->device) {
 		def_display = ovl->manager->device;
 	} else {
