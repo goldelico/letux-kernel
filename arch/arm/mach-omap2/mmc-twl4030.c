@@ -45,11 +45,6 @@ static u16 control_mmc1;
 
 /* Hack :  Phoenix registers*/
 #define PHOENIX_CFG_INPUT_PUPD3	0xF2
-#define MMC_GRP			0x68
-#define MMC_TRANS		0x69
-#define MMC_STATE		0x6a
-#define MMC_VOLTAGE		0x6b
-
 
 static struct twl_mmc_controller {
 	struct omap_mmc_platform_data	*mmc;
@@ -67,39 +62,36 @@ static struct twl_mmc_controller {
 static int twl_mmc_card_detect(int irq)
 {
 	unsigned i;
-	if (!cpu_is_omap44xx()) {
-		for (i = 0; i < ARRAY_SIZE(hsmmc); i++) {
-			struct omap_mmc_platform_data *mmc;
+	u8 read_reg;
+	unsigned res;
 
-			mmc = hsmmc[i].mmc;
-			if (!mmc)
-				continue;
-			if (irq != mmc->slots[0].card_detect_irq)
-				continue;
+	for (i = 0; i < ARRAY_SIZE(hsmmc); i++) {
+		struct omap_mmc_platform_data *mmc;
 
-			/* NOTE: assumes card detect signal is active-low */
+		mmc = hsmmc[i].mmc;
+		if (!mmc)
+			continue;
+		if (irq != mmc->slots[0].card_detect_irq)
+			continue;
+
+		/* NOTE: assumes card detect signal is active-low */
+		if (!cpu_is_omap44xx()) {
 			return !gpio_get_value_cansleep
-						(mmc->slots[0].switch_pin);
-		}
-		return -ENOSYS;
-	} else {
-		/* BIT0 of REG_SIMCTRL
-		 * 0 - Card not present
-		 * 1 - Card present
-		 */
-		u8 read_reg;
-		unsigned res;
-
-		res = twl_i2c_read_u8(TWL4030_MODULE_INTBR,
-					&read_reg, PHOENIX_MMC_CTRL);
-		if (res < 0) {
-			printk(KERN_ERR"%s: i2c_read fail at %x \n",
-						__func__, PHOENIX_MMC_CTRL);
-			return -1;
+					(mmc->slots[0].switch_pin);
 		} else {
-			return read_reg & 0x1;
+			/* BIT0 of REG_MMC_CTRL
+			 * 0 - Card not present
+			 * 1 - Card present
+			 */
+			if (mmc->slots[0].nonremovable)
+				return 1;
+			res = twl_i2c_read_u8(TWL4030_MODULE_INTBR,
+					&read_reg, PHOENIX_MMC_CTRL);
+			if (res >= 0)
+				return read_reg & 0x1;
 		}
 	}
+	return -ENOSYS;
 }
 
 static int twl_mmc_get_ro(struct device *dev, int slot)
@@ -126,7 +118,6 @@ static int twl_mmc_late_init(struct device *dev)
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
 	int ret = 0;
 	int i;
-	u8 regs;
 
 	/* MMC/SD/SDIO doesn't require a card detect switch */
 	if (!cpu_is_omap44xx()) {
@@ -194,19 +185,6 @@ static int twl_mmc_late_init(struct device *dev)
 				}
 				/* Configure Phoenix for MMC1 Card detect */
 				if (i == 0) {
-					regs = 0x01;
-					twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-								regs, MMC_GRP);
-					regs = 0x03;
-					twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-							regs, MMC_TRANS);
-					regs = 0x21;
-					twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-							regs, MMC_STATE);
-					regs = 0x15;
-					twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-							regs, MMC_VOLTAGE);
-					msleep(200);
 					twl_i2c_write_u8(TWL4030_MODULE_INTBR,
 							0x04, PHOENIX_MMC_CTRL);
 					twl_i2c_write_u8(TWL4030_MODULE_INTBR,
@@ -283,7 +261,6 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 	int ret = 0;
 	struct twl_mmc_controller *c = &hsmmc[0];
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
-	u8 regs;
 
 	/*
 	 * Assume we power both OMAP VMMC1 (for CMD, CLK, DAT0..3) and the
@@ -329,40 +306,7 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 						OMAP4_MMC1_PWRDWNZ);
 		}
 		omap_ctrl_writel(reg, control_pbias_offset);
-
-		/* Hack need to fix it */
-		if ((vdd == 0x12) || (vdd == 0x7)) {
-			regs = 0x01;
-			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-						regs, MMC_GRP);
-			regs = 0x03;
-			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-					regs, MMC_TRANS);
-			regs = 0x21;
-			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-					regs, MMC_STATE);
-			regs = 0x15;
-			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-					regs, MMC_VOLTAGE);
-		} else {
-			regs = 0x01;
-			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-						regs, MMC_GRP);
-			regs = 0x03;
-			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-					regs, MMC_TRANS);
-			regs = 0x00;
-			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-					regs, MMC_STATE);
-			regs = 0x09;
-			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-					regs, MMC_STATE);
-			regs = 0x15;
-			twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER,
-					regs, MMC_VOLTAGE);
-		}
-		if (!cpu_is_omap44xx())
-			ret = mmc_regulator_set_ocr(c->vcc, vdd);
+		ret = mmc_regulator_set_ocr(c->vcc, vdd);
 
 		/* 100ms delay required for PBIAS configuration */
 		msleep(100);
@@ -396,9 +340,7 @@ static int twl_mmc1_set_power(struct device *dev, int slot, int power_on,
 						OMAP4_MMC1_PWRDWNZ);
 		}
 		omap_ctrl_writel(reg, control_pbias_offset);
-
-		if (!cpu_is_omap44xx())
-			ret = mmc_regulator_set_ocr(c->vcc, 0);
+		ret = mmc_regulator_set_ocr(c->vcc, 0);
 
 		/* 100ms delay required for PBIAS configuration */
 		msleep(100);
@@ -425,8 +367,6 @@ static int twl_mmc23_set_power(struct device *dev, int slot, int power_on, int v
 	struct omap_mmc_platform_data *mmc = dev->platform_data;
 	int i;
 
-	if (cpu_is_omap44xx())
-		return 0;
 
 	for (i = 1; i < ARRAY_SIZE(hsmmc); i++) {
 		if (mmc == hsmmc[i].mmc) {
@@ -458,13 +398,15 @@ static int twl_mmc23_set_power(struct device *dev, int slot, int power_on, int v
 	 * chips/cards need an interface voltage rail too.
 	 */
 	if (power_on) {
-		/* only MMC2 supports a CLKIN */
-		if (mmc->slots[0].internal_clock) {
-			u32 reg;
+		if (!cpu_is_omap44xx()) {
+			/* only MMC2 supports a CLKIN */
+			if (mmc->slots[0].internal_clock) {
+				u32 reg;
 
-			reg = omap_ctrl_readl(control_devconf1_offset);
-			reg |= OMAP2_MMCSDIO2ADPCLKISEL;
-			omap_ctrl_writel(reg, control_devconf1_offset);
+				reg = omap_ctrl_readl(control_devconf1_offset);
+				reg |= OMAP2_MMCSDIO2ADPCLKISEL;
+				omap_ctrl_writel(reg, control_devconf1_offset);
+			}
 		}
 		ret = mmc_regulator_set_ocr(c->vcc, vdd);
 		/* enable interface voltage rail, if needed */
@@ -669,6 +611,12 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 				mmc->slots[0].card_detect_irq = 384;
 			else
 				mmc->slots[0].card_detect_irq = 0;
+			if (c->cover_only)
+				mmc->slots[0].get_cover_state =
+						twl_mmc_get_cover_state;
+			else
+				mmc->slots[0].card_detect =
+						twl_mmc_card_detect;
 		}
 
 		mmc->get_context_loss_count =
