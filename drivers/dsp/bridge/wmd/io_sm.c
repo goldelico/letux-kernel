@@ -2088,7 +2088,7 @@ void dsp_wdt_enable(bool enable)
 	u32 tmp;
 	struct WMD_DEV_CONTEXT *dev_ctxt;
 	struct IO_MGR *io_mgr;
-	static bool already_enabled = true;
+	static bool already_enabled;
 
 	if (!wdt3_enable || already_enabled == enable)
 		return;
