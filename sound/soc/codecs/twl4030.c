@@ -2224,7 +2224,7 @@ static int twl4030_hw_free(struct snd_pcm_substream *substream,
 
 	list_for_each_entry(item, &twl4030->config_list, configured) {
 		if (item->substream == substream) {
-			list_del (&item->configured);
+			list_del(&item->configured);
 			break;
 		}
 	}
