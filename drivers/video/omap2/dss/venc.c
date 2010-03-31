@@ -518,6 +518,7 @@ static void venc_power_on(struct omap_dss_device *dssdev)
 	u32 l;
 
 	venc_enable_clocks(1);
+	dss_configure_venc(1);
 
 	venc_reset();
 	venc_write_config(venc_timings_to_config(&dssdev->panel.timings));
@@ -560,6 +561,7 @@ static void venc_power_off(struct omap_dss_device *dssdev)
 
 	regulator_disable(venc.vdda_dac_reg);
 
+	dss_configure_venc(0);
 	venc_enable_clocks(0);
 }
 

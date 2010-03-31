@@ -572,6 +572,13 @@ void dss_switch_tv_hdmi(int hdmi)
 		REG_FLD_MOD(DSS_CONTROL, 0, 9, 8);
 }
 
+void dss_configure_venc(bool enable)
+{
+	REG_FLD_MOD(DSS_CONTROL, enable, 4, 4);	/* venc dac demen */
+	REG_FLD_MOD(DSS_CONTROL, enable, 3, 3);	/* venc clock 4x enable */
+	REG_FLD_MOD(DSS_CONTROL, 0, 2, 2);	/* venc clock mode = normal */
+}
+
 int dss_init(bool skip_init)
 {
 	int r, ret;
@@ -616,11 +623,6 @@ int dss_init(bool skip_init)
 	/* Select DPLL */
 	REG_FLD_MOD(DSS_CONTROL, 0, 0, 0);
 
-#ifdef CONFIG_OMAP2_DSS_VENC
-	REG_FLD_MOD(DSS_CONTROL, 1, 4, 4);	/* venc dac demen */
-	REG_FLD_MOD(DSS_CONTROL, 1, 3, 3);	/* venc clock 4x enable */
-	REG_FLD_MOD(DSS_CONTROL, 0, 2, 2);	/* venc clock mode = normal */
-#endif
 if (!cpu_is_omap44xx()) {
 
 	r = request_irq(INT_24XX_DSS_IRQ,
