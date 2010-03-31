@@ -215,6 +215,7 @@ int dss_get_dsi_clk_source(void);
 int dss_get_dispc_clk_source(void);
 void dss_set_venc_output(enum omap_dss_venc_type type);
 void dss_set_dac_pwrdn_bgz(bool enable);
+void dss_configure_venc(bool enable);
 
 /* SDI */
 int sdi_init(bool skip_init);
