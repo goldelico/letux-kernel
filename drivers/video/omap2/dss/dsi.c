@@ -2379,7 +2379,7 @@ int send_short_packet(enum dsi lcd_ix, u8 data_type, u8 vc, u8 data0,
 
 
 static int dsi_vc_send_short(enum dsi lcd_ix, int channel, u8 data_type,
-	u16 data, u8 ecc)
+		u16 data, u8 ecc)
 {
 	u32 r;
 	u8 data_id;
@@ -3226,8 +3226,8 @@ static void dsi2_framedone_irq_callback(void *data, u32 mask)
 }
 
 static void dsi_set_update_region(enum dsi lcd_ix,
-	struct omap_dss_device *dssdev, u16 x, u16 y,
-	u16 w, u16 h)
+		struct omap_dss_device *dssdev, u16 x, u16 y,
+		u16 w, u16 h)
 {
 	struct dsi_struct *p_dsi;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
@@ -3265,13 +3265,14 @@ static int dsi_set_update_mode(enum dsi lcd_ix, struct omap_dss_device *dssdev,
 	if (p_dsi->update_mode != mode) {
 		p_dsi->update_mode = mode;
 
-	/*sv HS mode set the GFX threshold there properly before apply*/
-		/* Mark the overlays dirty, and do apply(), so that we get the
-		 * overlays configured properly after update mode change. */
+	/* sv HS mode set the GFX threshold there properly before apply
+	*  Mark the overlays dirty, and do apply(), so that we get the
+	* overlays configured properly after update mode change.
+	*/
 		for (i = 0; i < omap_dss_get_num_overlays(); ++i) {
 			struct omap_overlay *ovl;
 			ovl = omap_dss_get_overlay(i);
-			if (ovl->manager == dssdev->manager)
+			if (ovl != NULL && ovl->manager == dssdev->manager)
 				ovl->info_dirty = true;
 		}
 
@@ -3887,8 +3888,8 @@ static int dsi_display_enable(struct omap_dss_device *dssdev)
 	dsi_core_init(lcd_ix);
 
 	if (cpu_is_omap44xx())
-		omap_writel(0x00030007  , 0x4A307100);  /*DSS_PWR_DSS_DSS_CTRL*/
-
+		/* DSS_PWR_DSS_DSS_CTRL */
+		omap_writel(0x00030007, 0x4A307100);
 
 	r = _dsi_reset(lcd_ix);
 	if (r)
@@ -4065,7 +4066,7 @@ err0:
 }
 
 static int dsi_display_update(struct omap_dss_device *dssdev,
-			u16 x, u16 y, u16 w, u16 h)
+		u16 x, u16 y, u16 w, u16 h)
 {
 	int r = 0;
 	u16 dw, dh;
@@ -4363,7 +4364,7 @@ void dsi_get_overlay_fifo_thresholds(enum omap_plane plane,
 		burst_size_bytes = 2 * 128 / 8;
 		*fifo_high = 1020; /* check SV comment*/
 		*fifo_low = 956;
-			}
+	}
 }
 
 int dsi_init_display(struct omap_dss_device *dssdev)

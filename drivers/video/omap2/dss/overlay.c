@@ -777,9 +777,8 @@ void dss_recheck_connections(struct omap_dss_device *dssdev, bool force)
 	int i;
 	struct omap_overlay_manager *lcd_mgr;
 	struct omap_overlay_manager *tv_mgr;
-#ifdef CONFIG_ARCH_OMAP4
-	struct omap_overlay_manager *lcd2_mgr;
-#endif
+	struct omap_overlay_manager *lcd2_mgr = NULL;
+
 	struct omap_overlay_manager *mgr = NULL;
 
 	lcd_mgr = omap_dss_get_overlay_manager(OMAP_DSS_OVL_MGR_LCD);
@@ -787,39 +786,35 @@ void dss_recheck_connections(struct omap_dss_device *dssdev, bool force)
 
 #ifdef CONFIG_ARCH_OMAP4
 	lcd2_mgr = omap_dss_get_overlay_manager(OMAP_DSS_OVL_MGR_LCD2);
-
-	if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2) {
-		if (!lcd2_mgr->device || force ||
-		    sysfs_streq(dssdev->name, "2lcd")) {
-			if (lcd2_mgr->device)
-				lcd2_mgr->unset_device(lcd2_mgr);
-			lcd2_mgr->set_device(lcd2_mgr, dssdev);
-			mgr = lcd2_mgr;
-		}
-	} else
 #endif
 
-	if (dssdev->type != OMAP_DISPLAY_TYPE_VENC
-		&& dssdev->type != OMAP_DISPLAY_TYPE_HDMI) {
-		if (!lcd_mgr->device || force) {
-			if (lcd_mgr->device)
-				lcd_mgr->unset_device(lcd_mgr);
-			lcd_mgr->set_device(lcd_mgr, dssdev);
-			mgr = lcd_mgr;
-		}
-	}
 
+	/* check TV/HDMI out */
 	if (dssdev->type == OMAP_DISPLAY_TYPE_VENC
 		|| dssdev->type == OMAP_DISPLAY_TYPE_HDMI) {
-		if (!tv_mgr->device || force) {
-			if (tv_mgr->device)
-				tv_mgr->unset_device(tv_mgr);
-			tv_mgr->set_device(tv_mgr, dssdev);
+		if (tv_mgr && (!tv_mgr->device || force))
 			mgr = tv_mgr;
+	} else {
+		/* LCD */
+
+		/* connect 2lcd always to 2lcd manager */
+		if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2) {
+			if (lcd2_mgr && (!lcd2_mgr->device || force ||
+					 sysfs_streq(dssdev->name, "2lcd")))
+				mgr = lcd2_mgr;
+		} else {
+			if (lcd_mgr && (!lcd_mgr->device || force))
+				mgr = lcd_mgr;
 		}
 	}
 
 	if (mgr) {
+		/* replace device */
+		if (mgr->device)
+			mgr->unset_device(mgr);
+		mgr->set_device(mgr, dssdev);
+
+
 		for (i = 0; i < MAX_DSS_OVERLAYS; i++) {
 			struct omap_overlay *ovl;
 			ovl = omap_dss_get_overlay(i);
