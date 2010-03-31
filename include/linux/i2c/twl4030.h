@@ -302,7 +302,7 @@ int twl4030_i2c_read(u8 mod_no, u8 *value, u8 reg, unsigned num_bytes);
  */
 
 #define MSG_BROADCAST(devgrp, grp, type, type2, state) \
-	( (devgrp) << 13 | 1 << 12 | (grp) << 9 | (type2) << 7 \
+	((devgrp) << 13 | 1 << 12 | (grp) << 9 | (type2) << 7 \
 	| (type) << 4 | (state))
 
 #define MSG_SINGULAR(devgrp, id, state) \
