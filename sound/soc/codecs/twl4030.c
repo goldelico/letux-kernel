@@ -1087,6 +1087,154 @@ static const struct soc_enum twl4030_vibradir_enum =
 			ARRAY_SIZE(twl4030_vibradir_texts),
 			twl4030_vibradir_texts);
 
+#ifdef CONFIG_OMAP3_MODEM_AUDIO
+/*
+ * Voice to Audio digital mixing GAIN volume control:
+ * from -25 to 0 dB in 1 dB steps (mute instead of -25 dB)
+ */
+static DECLARE_TLV_DB_SCALE(digital_voice_to_audio_downlink_tlv, -2500, 100, 1);
+
+/*
+ * BT RX Downlink GAIN volume control:
+ * from -30 to 15 dB in 3 dB steps
+ */
+static DECLARE_TLV_DB_SCALE(digital_BTRX_downlink_tlv, -3000, 300, 0);
+
+/*
+ * BT TX Downlink GAIN volume control:
+ * from -15 to 30 dB in 3 dB steps
+ */
+static DECLARE_TLV_DB_SCALE(digital_BTTX_uplink_tlv, -1500, 300, 0);
+
+/*
+ * BT Side Tone GAIN volume control:
+ * from -50 to -10 dB in 1 dB steps
+ */
+static DECLARE_TLV_DB_SCALE(digital_BTST_tlv, -5000, 100, 1);
+
+/* Voice sample rate */
+static const char *twl4030_voice_sample_rate_texts[] = {
+	"8 kHz", "16 kHz"
+};
+
+static const struct soc_enum twl4030_voice_sample_rate_enum =
+	SOC_ENUM_SINGLE(TWL4030_REG_CODEC_MODE, 3,
+			ARRAY_SIZE(twl4030_voice_sample_rate_texts),
+			twl4030_voice_sample_rate_texts);
+
+/* Voice Clock Mode */
+static const char *twl4030_voice_clock_mode_texts[] = {
+	"Master Mode", "Slave Mode"
+};
+
+static const struct soc_enum twl4030_voice_clock_mode_enum =
+	SOC_ENUM_SINGLE(TWL4030_REG_VOICE_IF, 7,
+			ARRAY_SIZE(twl4030_voice_clock_mode_texts),
+			twl4030_voice_clock_mode_texts);
+
+/* Voice I/O Swap */
+static const char *twl4030_voice_io_swap_texts[] = {
+	"VDX/VDR not swapped", "VDX/VDR swapped"
+};
+
+static const struct soc_enum twl4030_voice_io_swap_enum =
+	SOC_ENUM_SINGLE(TWL4030_REG_VOICE_IF, 4,
+			ARRAY_SIZE(twl4030_voice_io_swap_texts),
+			twl4030_voice_io_swap_texts);
+
+/* Voice Interface Mode */
+static const char *twl4030_voice_interface_mode_texts[] = {
+	"Mode 1 (writing on PCM_VCK rising edge)",
+	"Mode 2 (writing on PCM_VCK falling edge)"
+};
+
+static const struct soc_enum twl4030_voice_interface_mode_enum =
+	SOC_ENUM_SINGLE(TWL4030_REG_VOICE_IF, 3,
+			ARRAY_SIZE(twl4030_voice_interface_mode_texts),
+			twl4030_voice_interface_mode_texts);
+
+/* Voice Microphone Mode */
+static const char *twl4030_microphone_mode_texts[] = {
+	"Mono Microphone", "Dual Microphone"
+};
+
+static const struct soc_enum twl4030_voice_microphone_mode_enum =
+	SOC_ENUM_SINGLE(TWL4030_REG_VOICE_IF, 1,
+			ARRAY_SIZE(twl4030_microphone_mode_texts),
+			twl4030_microphone_mode_texts);
+
+/* APLL MODE */
+static const char *twl4030_apll_mode_texts[] = {
+	"Reserved", "Reserved", "Reserved", "Reserved", "Reserved",
+	"19.2 MHz", "26 MKz", "Reserved", "38.4 MHz"
+};
+
+static const struct soc_enum twl4030_voice_apll_mode_enum =
+	SOC_ENUM_SINGLE(TWL4030_REG_APLL_CTL, 0,
+			ARRAY_SIZE(twl4030_apll_mode_texts),
+			twl4030_apll_mode_texts);
+
+/* Microphone Offset Cancellation Mode */
+static const char *twl4030_mic_offset_cancellation_mode_texts[] = {
+	"Audio left-right 1", "Audio left-right 2", "Voice", "All"
+};
+
+static const struct soc_enum twl4030_mic_offset_cancellation_mode_enum =
+	SOC_ENUM_SINGLE(TWL4030_REG_ANAMICL, 5,
+			ARRAY_SIZE(twl4030_mic_offset_cancellation_mode_texts),
+			twl4030_mic_offset_cancellation_mode_texts);
+
+/* VRX to ARX2 digital mixing */
+static const char *twl4030_vrx_arx2_digital_mixing_texts[] = {
+	"Off", "VRX to ARXL2", "VRX to ARXR2", "VRX to ARXL2/ARXR2"
+};
+
+static const struct soc_enum twl4030_vrx_arx2_digital_mixing_enum =
+	SOC_ENUM_SINGLE(TWL4030_REG_DIGMIXING, 4,
+			ARRAY_SIZE(twl4030_vrx_arx2_digital_mixing_texts),
+			twl4030_vrx_arx2_digital_mixing_texts);
+
+/* BT I/O Swap */
+static const char *twl4030_BT_io_swap_texts[] = {
+	"BTVDX/BTVDR not swapped", "BTVDX/BTVDR swapped"
+};
+
+static const struct soc_enum twl4030_BT_io_swap_enum =
+	SOC_ENUM_SINGLE(TWL4030_REG_BT_IF, 4,
+			ARRAY_SIZE(twl4030_BT_io_swap_texts),
+			twl4030_BT_io_swap_texts);
+
+/* BT data out mux select (MUXRX_BT)*/
+static const char *twl4030_BT_dout_playback_texts[] = {
+	"VTx data", "VDR data"
+};
+
+static const struct soc_enum twl4030_BT_dout_playback_enum =
+	SOC_ENUM_SINGLE(TWL4030_REG_PCMBTMUX, 5,
+			ARRAY_SIZE(twl4030_BT_dout_playback_texts),
+			twl4030_BT_dout_playback_texts);
+
+/* Voice RX input mux select (MUXRX_PCM)*/
+static const char *twl4030_Voice_RX_input_capture_texts[] = {
+	"VDR data", "BT data"
+};
+
+static const struct soc_enum twl4030_Voice_RX_input_capture_enum =
+	SOC_ENUM_SINGLE(TWL4030_REG_PCMBTMUX, 6,
+			ARRAY_SIZE(twl4030_Voice_RX_input_capture_texts),
+			twl4030_Voice_RX_input_capture_texts);
+
+/* Voice data out (VDX main) mux select (MUXTX_PCM) */
+static const char *twl4030_Voice_data_out_capture_texts[] = {
+	"VTx data", "BT data"
+};
+
+static const struct soc_enum twl4030_Voice_data_out_capture_enum =
+	SOC_ENUM_SINGLE(TWL4030_REG_PCMBTMUX, 7,
+			ARRAY_SIZE(twl4030_Voice_data_out_capture_texts),
+			twl4030_Voice_data_out_capture_texts);
+#endif
+
 static const struct snd_kcontrol_new twl4030_snd_controls[] = {
 	/* Codec operation mode control */
 	SOC_ENUM_EXT("Codec Operation Mode", twl4030_op_modes_enum,
@@ -1163,6 +1311,146 @@ static const struct snd_kcontrol_new twl4030_snd_controls[] = {
 
 	SOC_ENUM("Vibra H-bridge mode", twl4030_vibradirmode_enum),
 	SOC_ENUM("Vibra H-bridge direction", twl4030_vibradir_enum),
+
+#ifdef CONFIG_OMAP3_MODEM_AUDIO
+	SOC_ENUM("Voice Sample Rate", twl4030_voice_sample_rate_enum),
+
+	SOC_ENUM("Voice Clock Mode", twl4030_voice_clock_mode_enum),
+
+	SOC_SINGLE("Voice Input Switch",
+				TWL4030_REG_VOICE_IF, 6, 1, 0),
+
+	SOC_SINGLE("Voice Ouput Switch",
+				TWL4030_REG_VOICE_IF, 5, 1, 0),
+
+	SOC_ENUM("Voice I/O Swap", twl4030_voice_io_swap_enum),
+
+	SOC_ENUM("Voice Interface Mode", twl4030_voice_interface_mode_enum),
+
+	SOC_SINGLE("Voice Tristate Switch",
+				TWL4030_REG_VOICE_IF, 2, 1, 0),
+
+	SOC_ENUM("Voice Microphone Mode", twl4030_voice_microphone_mode_enum),
+
+	SOC_SINGLE("Voice Switch",
+				TWL4030_REG_VOICE_IF, 0, 1, 0),
+
+	SOC_ENUM("APLL Mode", twl4030_voice_apll_mode_enum),
+
+	SOC_SINGLE("APLL Switch",
+				TWL4030_REG_APLL_CTL, 4, 1, 0),
+
+	SOC_SINGLE("Codec Switch",
+				TWL4030_REG_CODEC_MODE, 1, 1, 0),
+
+	SOC_SINGLE("Main Microphone Bias Switch",
+				TWL4030_REG_MICBIAS_CTL, 0, 1, 0),
+
+	SOC_SINGLE("Sub Microphone Bias Switch",
+				TWL4030_REG_MICBIAS_CTL, 1, 1, 0),
+
+	SOC_SINGLE("Headset Microphone Bias Switch",
+				TWL4030_REG_MICBIAS_CTL, 2, 1, 0),
+
+	SOC_SINGLE("Analog Capture Left Switch",
+				TWL4030_REG_ANAMICL, 4, 1, 0),
+
+	SOC_SINGLE("Analog Capture Main Mic Switch",
+				TWL4030_REG_ANAMICL, 0, 1, 0),
+
+	SOC_SINGLE("Analog Capture Headset Mic Switch",
+				TWL4030_REG_ANAMICL, 1, 1, 0),
+
+	SOC_SINGLE("Analog Capture Right Switch",
+				TWL4030_REG_ANAMICR, 4, 1, 0),
+
+	SOC_SINGLE("Analog Capture Sub Mic Switch",
+				TWL4030_REG_ANAMICR, 0, 1, 0),
+
+	SOC_SINGLE("Voice Digital Playback Filter Switch",
+				TWL4030_REG_OPTION, 4, 1, 0),
+
+	SOC_SINGLE("Voice Digital Capture Right Filter Switch",
+				TWL4030_REG_OPTION, 3, 1, 0),
+
+	SOC_SINGLE("Voice Digital Capture Left Filter Switch",
+				TWL4030_REG_OPTION, 2, 1, 0),
+
+	SOC_ENUM("Microphone Offset Cancellation Mode",
+				twl4030_mic_offset_cancellation_mode_enum),
+
+	SOC_SINGLE("HandsfreeL Ref Enable",
+				TWL4030_REG_HFL_CTL, 5, 1, 0),
+
+	SOC_SINGLE("HandsfreeL Ramp Enable",
+				TWL4030_REG_HFL_CTL, 4, 1, 0),
+
+	SOC_DOUBLE("HandsfreeL Loop&HB Enable",
+				TWL4030_REG_HFL_CTL, 2, 3, 1, 0),
+
+	SOC_SINGLE("HandsfreeR Ref Enable",
+				TWL4030_REG_HFR_CTL, 5, 1, 0),
+
+	SOC_SINGLE("HandsfreeR Ramp Enable",
+				TWL4030_REG_HFR_CTL, 4, 1, 0),
+
+	SOC_DOUBLE("HandsfreeR Loop&HB Enable",
+				TWL4030_REG_HFR_CTL, 2, 3, 1, 0),
+
+	SOC_SINGLE("DAC Voice Analog Downlink Power",
+				TWL4030_REG_AVDAC_CTL, 4, 1, 0),
+
+	SOC_SINGLE("ADC Voice Analog Left Capture Power",
+				TWL4030_REG_AVADC_CTL, 3, 1, 0),
+
+	SOC_SINGLE("ADC Voice Analog Right Capture Power",
+				TWL4030_REG_AVADC_CTL, 1, 1, 0),
+
+	SOC_SINGLE("Voice Playback Analog PGA Power",
+				TWL4030_REG_VDL_APGA_CTL, 0, 1, 0),
+
+	SOC_ENUM("VRX to ARX2 digital mixing",
+				twl4030_vrx_arx2_digital_mixing_enum),
+
+	SOC_SINGLE_TLV("VRX to ARX Digital Downlink Volume",
+			TWL4030_REG_VRX2ARXPGA, 0, 0x19, 0,
+			digital_voice_to_audio_downlink_tlv),
+
+	/* add controls for BT (add widget for Bluetooth connection) */
+	SOC_SINGLE("Enable BT input",
+				TWL4030_REG_BT_IF, 6, 1, 0),
+
+	SOC_SINGLE("Enable BT output",
+				TWL4030_REG_BT_IF, 5, 1, 0),
+
+	SOC_ENUM("BT I/O Swap", twl4030_BT_io_swap_enum),
+
+	SOC_SINGLE("BT Tristate Switch",
+				TWL4030_REG_BT_IF, 2, 1, 0),
+
+	SOC_SINGLE("BT Interface Switch",
+				TWL4030_REG_BT_IF, 0, 1, 0),
+
+	/* BT MUX paths control */
+	SOC_ENUM("BT data out playback MUX", twl4030_BT_dout_playback_enum),
+
+	SOC_ENUM("Voice input BT Capture MUX",
+		 twl4030_Voice_RX_input_capture_enum),
+
+	SOC_ENUM("Voice data out MUX", twl4030_Voice_data_out_capture_enum),
+
+	/* Common BT downlink gain controls */
+	SOC_SINGLE_TLV("BT Digital Playback Volume",
+		TWL4030_REG_BTPGA, 0, 0x0f, 0, digital_BTRX_downlink_tlv),
+
+	/* Common BT uplink gain controls */
+	SOC_SINGLE_TLV("BT Digital Capture Volume",
+			TWL4030_REG_BTPGA, 4, 0x0f, 0, digital_BTTX_uplink_tlv),
+
+	/* Common BT Side Tone gain controls */
+	SOC_SINGLE_TLV("BT Sidetone Volume",
+			TWL4030_REG_BTSTPGA, 0, 0x29, 0, digital_BTST_tlv),
+#endif
 };
 
 /* add non dapm controls */

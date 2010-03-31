@@ -420,6 +420,12 @@ config VOLTSCALE_VPFORCE
 
 	 If not enabled and if OMAP_SMARTREFLEX is enabled
 	 vcbypass method will be used for voltage scaling.
+
+config OMAP3_MODEM_AUDIO
+	bool "OMAP3 Audio modem"
+	depends on ARCH_OMAP34XX && TWL4030_CORE
+	help
+	   Enable this to support the audio of a modem integrated with OMAP3/TWL5030
 endmenu
 
 endif
