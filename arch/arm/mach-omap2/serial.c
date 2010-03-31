@@ -931,10 +931,8 @@ void __init omap_serial_init_port(int port)
 		 * omap3xxx: Never read empty UART fifo on UARTs
 		 * with IP rev >=0x52
 		 */
-		if (cpu_is_omap44xx()) {
+		if (cpu_is_omap44xx())
 			p->serial_in = serial_in_override;
-			p->serial_out = serial_out_override;
-		}
 
 		pdata = &ports[0];
 		pdata_size = 2 * sizeof(struct plat_serial8250_port);
