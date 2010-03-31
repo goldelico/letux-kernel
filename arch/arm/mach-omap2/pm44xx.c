@@ -122,7 +122,8 @@ restore:
 	/* Restore next_pwrsts */
 	list_for_each_entry(pwrst, &pwrst_list, node) {
 		state = pwrdm_read_pwrst(pwrst->pwrdm);
-		printk("Powerdomain (%s) entered state %d\n", pwrst->pwrdm->name, state);
+		printk(KERN_INFO "Powerdomain (%s) entered state %d\n",
+			pwrst->pwrdm->name, state);
 		if (strcmp(pwrst->pwrdm->name, "cpu1_pwrdm"))
 			set_pwrdm_state(pwrst->pwrdm, pwrst->saved_state);
 	}
@@ -174,7 +175,8 @@ static struct platform_suspend_ops omap_pm_ops = {
 };
 #endif /* CONFIG_SUSPEND */
 
-static int __init pwrdms_setup(struct powerdomain *pwrdm, void *unused)
+static int __attribute__ ((unused)) __init
+		pwrdms_setup(struct powerdomain *pwrdm, void *unused)
 {
 	struct power_state *pwrst;
 
@@ -199,7 +201,8 @@ static int __init pwrdms_setup(struct powerdomain *pwrdm, void *unused)
  * supported. Initiate sleep transition for other clockdomains, if
  * they are not used
  */
-static int __init clkdms_setup(struct clockdomain *clkdm, void *unused)
+static int __attribute__ ((unused)) __init
+		clkdms_setup(struct clockdomain *clkdm, void *unused)
 {
 	if (clkdm->flags & CLKDM_CAN_ENABLE_AUTO)
 		omap2_clkdm_allow_idle(clkdm);
@@ -224,7 +227,7 @@ static int __init omap4_pm_init(void)
 	if (!cpu_is_omap44xx())
 		return -ENODEV;
 
-	printk(KERN_ERR "Power Management for TI OMAP4.\n");
+	printk(KERN_INFO "Power Management for TI OMAP4.\n");
 
 #ifdef CONFIG_PM
 	ret = pwrdm_for_each(pwrdms_setup, NULL);

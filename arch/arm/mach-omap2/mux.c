@@ -48,7 +48,7 @@ struct omap_mux_entry {
 	struct list_head	node;
 };
 
-static unsigned long mux_phys;
+static unsigned long __attribute__ ((unused)) mux_phys;
 static void __iomem *mux_base;
 
 static inline u16 omap_mux_read(u16 reg)

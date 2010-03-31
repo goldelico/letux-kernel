@@ -374,7 +374,8 @@ static int _disable_wakeup(struct omap_hwmod *oh)
  * mode.  Returns -EINVAL upon error or passes along
  * pwrdm_add_sleepdep() value upon success.
  */
-static int _add_initiator_dep(struct omap_hwmod *oh, struct omap_hwmod *init_oh)
+static int __attribute__ ((unused)) _add_initiator_dep(struct omap_hwmod *oh,
+		struct omap_hwmod *init_oh)
 {
 	if (!oh->_clk)
 		return -EINVAL;
@@ -538,7 +539,7 @@ static int _disable_clocks(struct omap_hwmod *oh)
 
 	pr_debug("omap_hwmod: %s: disabling clocks\n", oh->name);
 
-	if (oh->_clk && !IS_ERR(oh->_clk))
+	if (oh->_clk && !IS_ERR(oh->_clk)) {
 #ifdef CONFIG_PM
 		if (!strcmp(oh->_clk->name, "emif1_ck") ||
 				!strcmp(oh->_clk->name, "emif2_ck") ||
@@ -551,6 +552,7 @@ static int _disable_clocks(struct omap_hwmod *oh)
 		else
 #endif
 			clk_disable(oh->_clk);
+	}
 
 	if (oh->slaves_cnt > 0) {
 		for (i = 0, os = *oh->slaves; i < oh->slaves_cnt; i++, os++) {

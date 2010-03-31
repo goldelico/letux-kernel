@@ -43,8 +43,6 @@
 #include <linux/regulator/machine.h>
 #include "mmc-twl4030.h"
 
-static int ts_gpio;
-
 #define OMAP4_KBDOCP_BASE               0x4A31C000
 
 static int omap_keymap[] = {
@@ -194,12 +192,14 @@ static struct tm12xx_ts_platform_data tm12xx_platform_data[] = {
 
 /* End Synaptic Touchscreen TM-01217 */
 
-static struct omap2_mcspi_device_config tsc2046_mcspi_config = {
+static __attribute__ ((unused)) struct
+		omap2_mcspi_device_config tsc2046_mcspi_config = {
 	.turbo_mode     = 0,
 	.single_channel = 1,  /* 0: slave, 1: master */
 };
 
-static struct omap2_mcspi_device_config dummy1_mcspi_config = {
+static __attribute__ ((unused)) struct
+		omap2_mcspi_device_config dummy1_mcspi_config = {
 	.turbo_mode     = 0,
 	.single_channel = 1,  /* 0: slave, 1: master */
 };
@@ -360,7 +360,8 @@ static struct platform_device *sdp4430_devices[] __initdata = {
 	&wl128x_device,
 };
 
-static struct omap_uart_config sdp4430_uart_config __initdata = {
+static __attribute__ ((unused)) struct
+		omap_uart_config sdp4430_uart_config __initdata = {
 	.enabled_uarts	= (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3),
 };
 
@@ -552,7 +553,7 @@ static struct regulator_init_data sdp4430_vmmc = {
 					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies  = 5,
-	.consumer_supplies      = &sdp4430_vmmc_supply,
+	.consumer_supplies      = sdp4430_vmmc_supply,
 };
 
 static struct regulator_init_data sdp4430_vpp = {

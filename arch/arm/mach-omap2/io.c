@@ -283,7 +283,7 @@ void __init omap2_map_common_io(void)
  * -EINVAL if the dpll3_m2_ck cannot be found, 0 if called on OMAP2,
  * or passes along the return value of clk_set_rate().
  */
-static int __init _omap2_init_reprogram_sdrc(void)
+static int __attribute__ ((unused)) __init _omap2_init_reprogram_sdrc(void)
 {
 	struct clk *dpll3_m2_ck;
 	int v = -EINVAL;
