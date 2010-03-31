@@ -190,10 +190,10 @@ static struct resource zoom2_smsc911x_resources[] = {
 };
 
 static struct smsc911x_platform_config zoom_smsc911x_config = {
-        .irq_polarity   = SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
-        .irq_type       = SMSC911X_IRQ_TYPE_OPEN_DRAIN,
-        .flags          = SMSC911X_USE_32BIT,
-        .phy_interface  = PHY_INTERFACE_MODE_MII,
+	.irq_polarity   = SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
+	.irq_type       = SMSC911X_IRQ_TYPE_OPEN_DRAIN,
+	.flags          = SMSC911X_USE_32BIT,
+	.phy_interface  = PHY_INTERFACE_MODE_MII,
 };
 
 static struct platform_device zoom2_smsc911x_device = {
@@ -398,8 +398,8 @@ static void zoom2_lcd_tv_panel_init(void)
 	gpio_request(lcd_panel_reset_gpio, "lcd reset");
 	gpio_request(LCD_PANEL_QVGA_GPIO, "lcd qvga");
 	gpio_request(LCD_PANEL_BACKLIGHT_GPIO, "lcd backlight");
-	
-	gpio_request( TV_PANEL_ENABLE_GPIO, "tv panel");
+
+	gpio_request(TV_PANEL_ENABLE_GPIO, "tv panel");
 
 	gpio_direction_output(LCD_PANEL_QVGA_GPIO, 0);
 	gpio_direction_output(lcd_panel_reset_gpio, 0);
@@ -848,7 +848,7 @@ static int zoom2_twl_gpio_setup(struct device *dev,
 }
 
 static struct omap_lcd_config zoom2_lcd_config __initdata = {
-        .ctrl_name      = "internal",
+	.ctrl_name      = "internal",
 };
 
 static struct omap_uart_config zoom2_uart_config __initdata = {
@@ -857,7 +857,7 @@ static struct omap_uart_config zoom2_uart_config __initdata = {
 
 static struct omap_board_config_kernel zoom2_config[] __initdata = {
 	{ OMAP_TAG_UART,	&zoom2_uart_config },
-        { OMAP_TAG_LCD,         &zoom2_lcd_config },
+	{ OMAP_TAG_LCD,		&zoom2_lcd_config },
 };
 
 static int zoom2_batt_table[] = {
