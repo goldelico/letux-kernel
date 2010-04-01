@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Thu Mar 25 17:41:16 2010
+# Thu Apr  1 14:40:29 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -564,7 +564,7 @@ CONFIG_APANIC_PLABEL="kpanic"
 #
 CONFIG_TI_ST=m
 CONFIG_TI_ST_BT=m
-# CONFIG_TI_ST_FM is not set
+CONFIG_TI_ST_FM=m
 # CONFIG_TI_ST_GPS is not set
 CONFIG_HAVE_IDE=y
 # CONFIG_IDE is not set
