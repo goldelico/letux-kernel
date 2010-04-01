@@ -1980,9 +1980,11 @@ static int vidioc_g_ctrl(struct file *file, void *fh, struct v4l2_control *ctrl)
 		ctrl->value = info.default_color;
 		return 0;
 	}
-
 	case V4L2_CID_VFLIP:
 		ctrl->value = vout->control[2].value;
+		return 0;
+	case V4L2_CID_TI_DISPC_OVERLAY:
+		ctrl->value = vout->vid_info.overlays[0]->id;
 		return 0;
 	default:
 		return -EINVAL;

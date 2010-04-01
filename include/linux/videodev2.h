@@ -917,6 +917,7 @@ enum v4l2_colorfx {
 
 #define V4L2_CID_ROTATE                     	(V4L2_CID_BASE+32)
 #define V4L2_CID_BG_COLOR                       (V4L2_CID_BASE+33)
+#define V4L2_CID_TI_DISPC_OVERLAY		(V4L2_CID_PRIVATE_BASE+0)
 /* last CID + 1 */
 #define V4L2_CID_LASTP1                         (V4L2_CID_BASE+34)
 
