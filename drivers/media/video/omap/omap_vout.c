@@ -943,6 +943,25 @@ static enum omap_color_mode video_mode_to_dss_mode(struct omap_vout_device
 	return -EINVAL;
 }
 
+static int omapvid_link_en_ovl(int enable, u32 addr)
+{
+	int t;
+
+	for (t = 0; t < NUM_OF_VIDEO_CHANNELS; t++) {
+		struct omap_overlay *ovl = omap_dss_get_overlay(t+1);
+		if (ovl->manager && ovl->manager->device) {
+			struct omap_overlay_info info;
+			ovl->get_overlay_info(ovl, &info);
+			info.enabled = enable;
+			info.paddr = addr;
+			if (ovl->set_overlay_info(ovl, &info))
+				return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 /* Video buffer call backs */
 
 /* Buffer setup function is called by videobuf layer when REQBUF ioctl is
@@ -2179,21 +2198,10 @@ static int vidioc_streamon(struct file *file, void *fh,
 #endif
 	omap_dispc_register_isr(omap_vout_isr, vout, OMAP_VOUT_IRQ_MASK);
 
-	if (vout->linked)
-		for (t = 0; t < NUM_OF_VIDEO_CHANNELS; t++) {
-			struct omap_overlay *ovl = omap_dss_get_overlay(t+1);
-			if (ovl->manager && ovl->manager->device) {
-				struct omap_overlay_info info;
-				ovl->get_overlay_info(ovl, &info);
-				info.enabled = 1;
-				info.paddr = addr;
-				if (ovl->set_overlay_info(ovl, &info)) {
-					mutex_unlock(&vout->lock);
-					return -EINVAL;
-				}
-			}
-		}
-	else
+	if (vout->linked) {
+		if (omapvid_link_en_ovl(1, addr))
+			return -EINVAL;
+	} else {
 		for (t = 0; t < ovid->num_overlays; t++) {
 			struct omap_overlay *ovl = ovid->overlays[t];
 			if (ovl->manager && ovl->manager->device) {
@@ -2207,6 +2215,7 @@ static int vidioc_streamon(struct file *file, void *fh,
 				}
 			}
 		}
+	}
 
 	/* First save the configuration in ovelray structure */
 	r = omapvid_init(vout, addr);
@@ -2247,20 +2256,11 @@ static int vidioc_streamoff(struct file *file, void *fh,
 		if (pdata->set_vdd1_opp)
 			pdata->set_vdd1_opp(vout->dev, VDD1_OPP1_FREQ);
 #endif
-		if (vout->linked)
-			for (t = 0; t < NUM_OF_VIDEO_CHANNELS; t++) {
-				struct omap_overlay *ovl =
-						omap_dss_get_overlay(t+1);
-				if (ovl->manager && ovl->manager->device) {
-					struct omap_overlay_info info;
-					ovl->get_overlay_info(ovl, &info);
-					info.enabled = 0;
-					info.paddr = 0;
-					if (ovl->set_overlay_info(ovl, &info))
-						return -EINVAL;
-				}
-			}
-		else
+
+	if (vout->linked) {
+		if (omapvid_link_en_ovl(0, 0))
+			return -EINVAL;
+	} else {
 			for (t = 0; t < ovid->num_overlays; t++) {
 				struct omap_overlay *ovl = ovid->overlays[t];
 				if (ovl->manager && ovl->manager->device) {
@@ -2271,7 +2271,7 @@ static int vidioc_streamoff(struct file *file, void *fh,
 						return -EINVAL;
 				}
 			}
-
+	}
 		/* Turn of the pipeline */
 		r = omapvid_apply_changes(vout);
 		if (r) {
@@ -2872,14 +2872,24 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 		vout->next_frm->state = VIDEOBUF_ACTIVE;
 		addr = (unsigned long) vout->queued_buf_addr[vout->next_frm->i]
 			+ vout->cropped_offset;
-		/* First save the configuration in ovelray structure */
-		r = omapvid_init(vout, addr);
-		if (r)
-			printk(KERN_ERR VOUT_NAME "failed to set overlay info\n");
+
+		if (vout->linked) {
+			if (omapvid_link_en_ovl(1, addr)) {
+				spin_unlock(&vout->vbq_lock);
+				return;
+			}
+		} else {
+			/* First save the configuration in ovelray structure */
+			r = omapvid_init(vout, addr);
+			if (r)
+				printk(KERN_ERR VOUT_NAME
+					"failed to set overlay info\n");
+		}
 		/* Enable the pipeline and set the Go bit */
 		r = omapvid_apply_changes(vout);
 		if (r)
 			printk(KERN_ERR VOUT_NAME "failed to change mode\n");
+
 	} else {
 
 		if (vout->first_int) {
@@ -2926,10 +2936,21 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 			addr = (unsigned long)
 			    vout->queued_buf_addr[vout->next_frm->i] +
 			    vout->cropped_offset;
-			/* First save the configuration in ovelray structure */
-			r = omapvid_init(vout, addr);
-			if (r)
-				printk(KERN_ERR VOUT_NAME "failed to set overlay info\n");
+
+			if (vout->linked) {
+				if (omapvid_link_en_ovl(1, addr)) {
+					spin_unlock(&vout->vbq_lock);
+					return;
+				}
+			} else {
+				/* First save the configuration */
+				/* in ovelray structure */
+				r = omapvid_init(vout, addr);
+				if (r)
+					printk(KERN_ERR VOUT_NAME
+						"failed to set overlay info\n");
+			}
+
 			/* Enable the pipeline and set the Go bit */
 			r = omapvid_apply_changes(vout);
 			if (r)
