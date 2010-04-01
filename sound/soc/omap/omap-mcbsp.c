@@ -48,6 +48,8 @@ struct omap_mcbsp_data {
 	 * another substream
 	 */
 	int				configured;
+	int				tx_active;
+	int 				rx_active;
 };
 
 #define to_mcbsp(priv)	container_of((priv), struct omap_mcbsp_data, bus_id)
@@ -196,11 +198,19 @@ static int omap_mcbsp_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 	case SNDRV_PCM_TRIGGER_RESUME:
 		omap_mcbsp_start(mcbsp_data->bus_id, play, !play);
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			mcbsp_data->tx_active = 1;
+		else
+			mcbsp_data->rx_active = 1;
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		omap_mcbsp_stop(mcbsp_data->bus_id, play, !play);
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			mcbsp_data->tx_active = 0;
+		else
+			mcbsp_data->rx_active = 0;
 		break;
 	default:
 		err = -EINVAL;
@@ -337,6 +347,28 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 	mcbsp_data->configured = 1;
 
 	return 0;
+}
+
+static int omap_mcbsp_dai_prepare(struct snd_pcm_substream *substream,
+						struct snd_soc_dai *dai)
+{
+		struct snd_soc_pcm_runtime *rtd = substream->private_data;
+		struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
+		struct omap_mcbsp_data *mcbsp_data =
+				to_mcbsp(cpu_dai->private_data);
+		int bus_id = mcbsp_data->bus_id, id = cpu_dai->id;
+		int     xfer_size;
+
+		xfer_size =
+		omap_mcbsp_dai_dma_params[id][substream->stream].xfer_size;
+
+		if (!(mcbsp_data->tx_active || mcbsp_data->rx_active)) {
+			omap_mcbsp_config(bus_id, &mcbsp_data->regs);
+
+		if ((bus_id == 1) && (xfer_size > 0))
+			omap_mcbsp_set_tx_threshold(bus_id, xfer_size);
+		}
+		return 0;
 }
 
 /*
@@ -578,6 +610,7 @@ int omap_mcbsp_dai_resume(struct snd_soc_dai *cpu_dai)
 		.shutdown = omap_mcbsp_dai_shutdown,		\
 		.trigger = omap_mcbsp_dai_trigger,		\
 		.hw_params = omap_mcbsp_dai_hw_params,		\
+		.prepare = omap_mcbsp_dai_prepare,		\
 		.set_fmt = omap_mcbsp_dai_set_dai_fmt,		\
 		.set_clkdiv = omap_mcbsp_dai_set_clkdiv,	\
 		.set_sysclk = omap_mcbsp_dai_set_dai_sysclk,	\
