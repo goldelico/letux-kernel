@@ -66,10 +66,7 @@ static int dpi_set_dsi_clk(int lcd_channel_ix, bool is_tft,
 		dsi_cinfo.regm4 = 4;
 		dsi_cinfo.use_dss2_fck = true;
 		dsi_cinfo.highfreq = 0;
-#ifdef CONFIG_ARCH_OMAP4
-		/* :TODO: doubt it compiles even on OMAP4 */
 		dsi_calc_clock_rates(&dsi_cinfo);
-#endif
 	}
 	r = dsi_pll_set_clock_div(lcd_channel_ix, &dsi_cinfo);
 	if (r)

@@ -264,6 +264,7 @@ void dsi_pll_uninit(enum dsi lcd_ix);
 void dsi_get_overlay_fifo_thresholds(enum omap_plane plane,
 		u32 fifo_size, enum omap_burst_size *burst_size,
 		u32 *fifo_low, u32 *fifo_high);
+int dsi_calc_clock_rates(struct dsi_clock_info *cinfo);
 /* DSI2 */
 int dsi2_init(struct platform_device *pdev);
 void dsi2_exit(void);
