@@ -282,10 +282,10 @@ static void dss_clk_enable_no_ctx(enum dss_clock clks)
 
 void dss_clk_enable(enum dss_clock clks)
 {
+	dss_clk_enable_no_ctx(clks);
+
 	if (cpu_is_omap34xx() && dss_need_ctx_restore())
 		restore_all_ctx();
-
-	dss_clk_enable_no_ctx(clks);
 }
 
 static void dss_clk_disable_no_ctx(enum dss_clock clks)
