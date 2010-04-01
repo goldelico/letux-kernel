@@ -159,8 +159,12 @@ static void omap_wdt_set_timeout(struct omap_wdt_dev *wdev)
 		cpu_relax();
 }
 
-static void omap_wdt_startclocks(struct omap_wdt_dev *wdev)
+/*
+ *	Allow only one task to hold it open
+ */
+static int omap_wdt_open(struct inode *inode, struct file *file)
 {
+	struct omap_wdt_dev *wdev = platform_get_drvdata(omap_wdt_dev);
 	void __iomem *base = wdev->base;
 
 	if (test_and_set_bit(1, (unsigned long *)&(wdev->omap_wdt_users)))
@@ -177,19 +181,6 @@ static void omap_wdt_startclocks(struct omap_wdt_dev *wdev)
 	__raw_writel((1 << 5) | (PTV << 2), base + OMAP_WATCHDOG_CNTRL);
 	while (__raw_readl(base + OMAP_WATCHDOG_WPS) & 0x01)
 		cpu_relax();
-}
-
-/*
- *	Allow only one task to hold it open
- */
-static int omap_wdt_open(struct inode *inode, struct file *file)
-{
-	struct omap_wdt_dev *wdev = platform_get_drvdata(omap_wdt_dev);
-
-	if (test_and_set_bit(1, (unsigned long *)&(wdev->omap_wdt_users)))
-		return -EBUSY;
-
-	omap_wdt_startclocks(wdev);
 
 	file->private_data = (void *) wdev;
 
@@ -330,8 +321,7 @@ static int __devinit omap_wdt_probe(struct platform_device *pdev)
 		goto err_busy;
 	}
 
-	mem = request_mem_region(res->start, res->end - res->start + 1,
-				 pdev->name);
+	mem = request_mem_region(res->start, resource_size(res), pdev->name);
 	if (!mem) {
 		ret = -EBUSY;
 		goto err_busy;
@@ -361,7 +351,7 @@ static int __devinit omap_wdt_probe(struct platform_device *pdev)
 		goto err_clk;
 	}
 
-	wdev->base = ioremap(res->start, res->end - res->start + 1);
+	wdev->base = ioremap(res->start, resource_size(res));
 	if (!wdev->base) {
 		ret = -ENOMEM;
 		goto err_ioremap;
@@ -429,7 +419,7 @@ err_clk:
 	kfree(wdev);
 
 err_kzalloc:
-	release_mem_region(res->start, res->end - res->start + 1);
+	release_mem_region(res->start, resource_size(res));
 
 err_busy:
 err_get_resource:
@@ -454,7 +444,7 @@ static int __devexit omap_wdt_remove(struct platform_device *pdev)
 		return -ENOENT;
 
 	misc_deregister(&(wdev->omap_wdt_miscdev));
-	release_mem_region(res->start, res->end - res->start + 1);
+	release_mem_region(res->start, resource_size(res));
 	platform_set_drvdata(pdev, NULL);
 
 	if (!cpu_is_omap44xx())
@@ -500,6 +490,7 @@ static int omap_wdt_resume(struct platform_device *pdev)
 		mod_timer(&wdev->autopet_timer, jiffies + wdev->jiffies_exp);
 #endif
 		omap_wdt_enable(wdev);
+		omap_wdt_ping(wdev);
 	}
 
 	return 0;
@@ -542,7 +533,7 @@ module_exit(omap_wdt_exit);
 
 static int __init omap_wdt_panic_init(void)
 {
-	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
+	return atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 }
 
 arch_initcall(omap_wdt_panic_init);
