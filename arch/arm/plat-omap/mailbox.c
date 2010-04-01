@@ -154,25 +154,21 @@ int omap_mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg, void* arg)
 	rq->data = (void *)msg;
 	blk_insert_request(q, rq, 0, arg);
 
-	schedule_work(&mbox->txq->work);
+	tasklet_schedule(&mbox->txq->tasklet);
  fail:
 	return ret;
 }
 EXPORT_SYMBOL(omap_mbox_msg_send);
 
-static void mbox_tx_work(struct work_struct *work)
+static void mbox_tx_tasklet(unsigned long tx_data)
 {
 	int ret;
 	struct request *rq;
-	struct omap_mbox_queue *mq = container_of(work,
-				struct omap_mbox_queue, work);
-	struct omap_mbox *mbox = mq->queue->queuedata;
+	struct omap_mbox *mbox = (struct omap_mbox *)tx_data;
 	struct request_queue *q = mbox->txq->queue;
 
 	while (1) {
-		spin_lock(q->queue_lock);
 		rq = elv_next_request(q);
-		spin_unlock(q->queue_lock);
 
 		if (!rq)
 			break;
@@ -183,10 +179,8 @@ static void mbox_tx_work(struct work_struct *work)
 			return;
 		}
 
-		spin_lock(q->queue_lock);
 		if (__blk_end_request(rq, 0, 0))
 			BUG();
-		spin_unlock(q->queue_lock);
 	}
 }
 
@@ -240,7 +234,7 @@ static void __mbox_tx_interrupt(struct omap_mbox *mbox)
 {
 	omap_mbox_disable_irq(mbox, IRQ_TX);
 	ack_mbox_irq(mbox, IRQ_TX);
-	schedule_work(&mbox->txq->work);
+	tasklet_schedule(&mbox->txq->tasklet);
 }
 
 static void __mbox_rx_interrupt(struct omap_mbox *mbox)
@@ -360,7 +354,8 @@ static struct class omap_mbox_class = {
 
 static struct omap_mbox_queue *mbox_queue_alloc(struct omap_mbox *mbox,
 					request_fn_proc * proc,
-					void (*work) (struct work_struct *))
+					void (*work) (struct work_struct *),
+					void (*tasklet)(unsigned long))
 {
 	struct request_queue *q;
 	struct omap_mbox_queue *mq;
@@ -377,7 +372,11 @@ static struct omap_mbox_queue *mbox_queue_alloc(struct omap_mbox *mbox,
 	q->queuedata = mbox;
 	mq->queue = q;
 
-	INIT_WORK(&mq->work, work);
+	if (work)
+		INIT_WORK(&mq->work, work);
+
+	if (tasklet)
+		tasklet_init(&mq->tasklet, tasklet, (unsigned long)mbox);
 
 	return mq;
 error:
@@ -410,14 +409,14 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 		goto fail_request_irq;
 	}
 
-	mq = mbox_queue_alloc(mbox, mbox_txq_fn, mbox_tx_work);
+	mq = mbox_queue_alloc(mbox, mbox_txq_fn, NULL, mbox_tx_tasklet);
 	if (!mq) {
 		ret = -ENOMEM;
 		goto fail_alloc_txq;
 	}
 	mbox->txq = mq;
 
-	mq = mbox_queue_alloc(mbox, mbox_rxq_fn, mbox_rx_work);
+	mq = mbox_queue_alloc(mbox, mbox_rxq_fn, mbox_rx_work, NULL);
 	if (!mq) {
 		ret = -ENOMEM;
 		goto fail_alloc_rxq;
@@ -440,8 +439,8 @@ static int omap_mbox_init(struct omap_mbox *mbox)
 static void omap_mbox_fini(struct omap_mbox *mbox)
 {
 	free_irq(mbox->irq, mbox);
+	tasklet_kill(&mbox->txq->tasklet);
 	flush_work(&mbox->rxq->work);
-	flush_work(&mbox->txq->work);
 	mbox_queue_free(mbox->txq);
 	mbox_queue_free(mbox->rxq);
 
