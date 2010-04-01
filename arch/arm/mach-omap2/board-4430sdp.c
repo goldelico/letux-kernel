@@ -55,7 +55,7 @@ static int omap_keymap[] = {
 	KEY(0, 4, KEY_W),
 	KEY(0, 5, KEY_S),
 	KEY(0, 6, KEY_Q),
-	KEY(0, 7, KEY_UNKNOWN),
+	KEY(0, 7, KEY_PROG1),
 
 	KEY(1, 0, KEY_R),
 	KEY(1, 1, KEY_F),
@@ -64,7 +64,7 @@ static int omap_keymap[] = {
 	KEY(1, 4, KEY_Y),
 	KEY(1, 5, KEY_H),
 	KEY(1, 6, KEY_A),
-	KEY(1, 7, KEY_UNKNOWN),
+	KEY(1, 7, KEY_PROG2),
 
 	KEY(2, 0, KEY_T),
 	KEY(2, 1, KEY_G),
@@ -73,34 +73,34 @@ static int omap_keymap[] = {
 	KEY(2, 4, KEY_U),
 	KEY(2, 5, KEY_J),
 	KEY(2, 6, KEY_N),
-	KEY(2, 7, KEY_UNKNOWN),
+	KEY(2, 7, KEY_PROG3),
 
 	KEY(3, 0, KEY_HOME),
 	KEY(3, 1, KEY_SEND),
 	KEY(3, 2, KEY_END),
 	KEY(3, 3, KEY_F1),
-	KEY(3, 4, KEY_LEFTSHIFT),
+	KEY(3, 4, KEY_F2),
 	KEY(3, 5, KEY_F3),
 	KEY(3, 6, KEY_BACK),
-	KEY(3, 7, KEY_UNKNOWN),
+	KEY(3, 7, KEY_PROG4),
 
-	KEY(4, 0, KEY_UNKNOWN),
-	KEY(4, 1, KEY_UNKNOWN),
-	KEY(4, 2, KEY_UNKNOWN),
-	KEY(4, 3, KEY_UNKNOWN),
+	KEY(4, 0, KEY_F5), /* Userspace definable MACRO 5 */
+	KEY(4, 1, KEY_F6), /* Userspace definable MACRO 6 */
+	KEY(4, 2, KEY_F7), /* Userspace definable MACRO 7 */
+	KEY(4, 3, KEY_F8), /* Userspace definable MACRO 8 */
 	KEY(4, 4, KEY_VOLUMEUP),
-	KEY(4, 5, KEY_UNKNOWN),
+	KEY(4, 5, KEY_F9), /* Userspace definable KEY DLP */
 	KEY(4, 6, KEY_BACKSPACE),
 	KEY(4, 7, KEY_F4),
 
-	KEY(5, 0, KEY_UNKNOWN),
-	KEY(5, 1, KEY_UNKNOWN),
-	KEY(5, 2, KEY_UNKNOWN),
-	KEY(5, 3, KEY_UNKNOWN),
-	KEY(5, 4, KEY_UNKNOWN),
+	KEY(5, 0, KEY_UNKNOWN), /* n/c dummy key */
+	KEY(5, 1, KEY_UNKNOWN), /* n/c dummy key */
+	KEY(5, 2, KEY_UNKNOWN), /* n/c dummy key */
+	KEY(5, 3, KEY_UNKNOWN), /* n/c dummy key */
+	KEY(5, 4, KEY_UNKNOWN), /* n/c dummy key */
 	KEY(5, 5, KEY_VOLUMEDOWN),
-	KEY(5, 6, KEY_UNKNOWN),
-	KEY(5, 7, KEY_UNKNOWN),
+	KEY(5, 6, KEY_UNKNOWN), /* n/c dummy key */
+	KEY(5, 7, KEY_UNKNOWN), /* n/c dummy key */
 
 	KEY(6, 0, KEY_I),
 	KEY(6, 1, KEY_K),
@@ -109,9 +109,9 @@ static int omap_keymap[] = {
 	KEY(6, 4, KEY_L),
 	KEY(6, 5, KEY_M),
 	KEY(6, 6, KEY_P),
-	KEY(6, 7, KEY_OK),
+	KEY(6, 7, KEY_OK), /* Key Navigation Select */
 
-	KEY(7, 0, KEY_UNKNOWN),
+	KEY(7, 0, KEY_LEFTSHIFT),
 	KEY(7, 1, KEY_ENTER),
 	KEY(7, 2, KEY_CAPSLOCK),
 	KEY(7, 3, KEY_SPACE),
