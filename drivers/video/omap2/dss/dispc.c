@@ -41,18 +41,22 @@
 #include <mach/tiler.h>
 
 #ifndef CONFIG_ARCH_OMAP4
-       	/* DSS */
-       	#define DSS_BASE                0x48050000
-       	/* DISPLAY CONTROLLER */
-       	#define DISPC_BASE              0x48050400
-#else
-       	/* DSS */
-	#define DSS_BASE                0x58000000
-       	/* DISPLAY CONTROLLER */
-	#define DISPC_BASE              0x58001000
-#endif
 
-#define DISPC_SZ_REGS			SZ_1K
+/* DSS */
+#define DSS_BASE		0x48050000
+/* DISPLAY CONTROLLER */
+#define DISPC_BASE		0x48050400
+#define DISPC_SZ_REGS		SZ_1K
+
+#else
+
+/* DSS */
+#define DSS_BASE		0x58000000
+/* DISPLAY CONTROLLER */
+#define DISPC_BASE		0x58001000
+#define DISPC_SZ_REGS		0x814
+
+#endif
 
 struct dispc_reg { u16 idx; };
 
@@ -693,7 +697,7 @@ static void _dispc_go(struct dispc_reg ctrl, int bit_en, int bit_go,
 		goto end;
 
 	if (REG_GET(ctrl, bit_go, bit_go) == 1) {
-		DSSERR("GO bit not down for %s\n", channel);
+		DSSDBG("GO bit not down for %s\n", channel);
 		goto end;
 	}
 
@@ -3815,7 +3819,7 @@ static void dispc_error_worker(struct work_struct *work)
 	spin_unlock_irqrestore(&dispc.irq_lock, flags);
 
 	if (errors & DISPC_IRQ_GFX_FIFO_UNDERFLOW) {
-/*SV //HS mode just report the error dont close the pipeline */		
+/*SV //HS mode just report the error dont close the pipeline */
 		DSSERR("GFX_FIFO_UNDERFLOW, but dont disable GFX\n");
 #if 0
 		for (i = 0; i < omap_dss_get_num_overlays(); ++i) {

@@ -3210,6 +3210,9 @@ venc:
 	if (r)
 		printk(KERN_ERR VOUT_NAME "failed to change mode\n");
 
+	if (sysfs_streq(cur_display->name, "pico_DLP"))
+		dispc_go(OMAP_DSS_CHANNEL_LCD2);
+
 #ifndef CONFIG_OMAP2_DSS_HDMI
 end:
 #endif
