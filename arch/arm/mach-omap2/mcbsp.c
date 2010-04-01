@@ -773,9 +773,6 @@ int omap2_mcbsp_receive_data(unsigned int id, void *cbdata,
 		return -EINVAL;
 	}
 	if (mcbsp->rx_dma_chain_state == 0) {
-		if (mcbsp->interface_mode == OMAP_MCBSP_MASTER)
-			omap2_mcbsp_set_srg_fsg(id, OMAP_MCBSP_ENABLE_FSG_SRG);
-
 		if (omap_start_dma_chain_transfers(mcbsp->dma_rx_lch) < 0)
 			return -EINVAL;
 		mcbsp->rx_dma_chain_state = 1;
@@ -856,9 +853,6 @@ int omap2_mcbsp_send_data(unsigned int id, void *cbdata,
 			return -EINVAL;
 
 	if (mcbsp->tx_dma_chain_state == 0) {
-		if (mcbsp->interface_mode == OMAP_MCBSP_MASTER)
-			omap2_mcbsp_set_srg_fsg(id, OMAP_MCBSP_ENABLE_FSG_SRG);
-
 		if (omap_start_dma_chain_transfers(mcbsp->dma_tx_lch) < 0)
 			return -EINVAL;
 		mcbsp->tx_dma_chain_state = 1;
