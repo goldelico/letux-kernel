@@ -187,7 +187,7 @@ static inline u16 twl4030_col_xlate(struct twl4030_keypad *kp, u8 col)
 
 static int twl4030_read_kp_matrix_state(struct twl4030_keypad *kp, u16 *state)
 {
-	u8 new_state[MAX_ROWS];
+	u8 new_state[MAX_ROWS] = { 0 };
 	int row;
 	int ret = twl4030_kpread(kp,
 				 new_state, KEYP_FULL_CODE_7_0, kp->n_rows);
