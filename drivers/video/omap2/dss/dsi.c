@@ -1234,8 +1234,8 @@ if (!cpu_is_omap44xx()) {
 		r = -EIO;
 		goto err;
 	}
-	printk(KERN_INFO "\n PLL is locked ");
-	printk(KERN_INFO "\n DSI_PLL_STATUS = 0x%X ", dsi_read_reg(lcd_ix, DSI_PLL_STATUS));
+	printk(KERN_DEBUG "\n PLL is locked ");
+	printk(KERN_DEBUG "\n DSI_PLL_STATUS = 0x%X ", dsi_read_reg(lcd_ix, DSI_PLL_STATUS));
 	p_dsi->pll_locked = 1;
 
 	l = dsi_read_reg(lcd_ix, DSI_PLL_CONFIGURATION2);

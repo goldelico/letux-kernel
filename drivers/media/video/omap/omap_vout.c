@@ -2875,7 +2875,10 @@ static int __init omap_vout_probe(struct platform_device *pdev)
 			def_display = NULL;
 		}
 		if (def_display) {
-			r = def_display->enable(def_display);
+			r = 0;
+			if (def_display->state == OMAP_DSS_DISPLAY_DISABLED) {
+				r = def_display->enable(def_display);
+			}
 			if (r) {
 				/* Here we are not considering a error
 				 *  as display may be enabled by frame

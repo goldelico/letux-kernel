@@ -105,12 +105,12 @@ static int dlp_write_block(int reg , const u8 *data , int len)
 	mutex_unlock(&sd->xfer_lock);
 
 
-		if (r == 1) {
-			for (i = 0; i < len; i++)
-				dev_info(&sd->client->dev ,
-					 "addr %x bw 0x%02x[%d]: 0x%02x\n" ,
-					 sd->client->addr , reg + i , i , data[i]);
-		}
+	if (r == 1) {
+		for (i = 0; i < len; i++)
+			dev_dbg(&sd->client->dev ,
+				"addr %x bw 0x%02x[%d]: 0x%02x\n" ,
+				sd->client->addr , reg + i , i , data[i]);
+	}
 
 
 	if (r == 1)

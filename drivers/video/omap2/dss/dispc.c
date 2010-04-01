@@ -3045,7 +3045,7 @@ void dispc_set_parallel_interface_mode(enum omap_channel channel,
 	if (OMAP_DSS_CHANNEL_LCD2 == channel) {
 		l = dispc_read_reg(DISPC_CONTROL2);
 
-		printk(KERN_INFO "OMAP DISPCONTROL read (stallmode)%d\n",
+		printk(KERN_DEBUG "OMAP DISPCONTROL read (stallmode)%d\n",
 		FLD_GET(l, 11, 11));
 
 		l = FLD_MOD(l, stallmode, 11, 11);
@@ -3057,11 +3057,11 @@ void dispc_set_parallel_interface_mode(enum omap_channel channel,
 	{
 		l = dispc_read_reg(DISPC_CONTROL);
 
-		printk(KERN_INFO "OMAP DISPCONTROL read (stallmode)%d\n",
+		printk(KERN_DEBUG "OMAP DISPCONTROL read (stallmode)%d\n",
 			FLD_GET(l, 11, 11));
-		printk(KERN_INFO "OMAP DISPCONTROL read (gpout)%d\n",
+		printk(KERN_DEBUG "OMAP DISPCONTROL read (gpout)%d\n",
 			FLD_GET(l, 15, 15));
-		printk(KERN_INFO "OMAP DISPCONTROL read (stallmode)%d\n",
+		printk(KERN_DEBUG "OMAP DISPCONTROL read (stallmode)%d\n",
 			FLD_GET(l, 16, 16));
 
 
