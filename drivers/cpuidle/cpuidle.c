@@ -327,6 +327,9 @@ void cpuidle_unregister_device(struct cpuidle_device *dev)
 	if (dev->registered == 0)
 		return;
 
+	if (!sys_dev)
+		return;
+
 	cpuidle_pause_and_lock();
 
 	cpuidle_disable_device(dev);
