@@ -34,6 +34,7 @@ MODULE_PARM_DESC(enable_seq_bit, "Enable sequence bit checking.");
 
 static struct omap_mbox *mboxes;
 static DEFINE_RWLOCK(mboxes_lock);
+static bool rq_full;
 
 /*
  * Mailbox sequence bit API
@@ -205,6 +206,10 @@ static void mbox_rx_work(struct work_struct *work)
 	while (1) {
 		spin_lock_irqsave(q->queue_lock, flags);
 		rq = elv_next_request(q);
+		if (rq_full) {
+			omap_mbox_enable_irq(mbox, IRQ_RX);
+			rq_full = false;
+		}
 		spin_unlock_irqrestore(q->queue_lock, flags);
 		if (!rq)
 			break;
@@ -243,12 +248,13 @@ static void __mbox_rx_interrupt(struct omap_mbox *mbox)
 	mbox_msg_t msg;
 	struct request_queue *q = mbox->rxq->queue;
 
-	omap_mbox_disable_irq(mbox, IRQ_RX);
-
 	while (!mbox_fifo_empty(mbox)) {
 		rq = blk_get_request(q, WRITE, GFP_ATOMIC);
-		if (unlikely(!rq))
+		if (unlikely(!rq)) {
+			omap_mbox_disable_irq(mbox, IRQ_RX);
+			rq_full = true;
 			goto nomem;
+		}
 
 		msg = mbox_fifo_read(mbox);
 		rq->data = (void *)msg;
@@ -266,7 +272,6 @@ static void __mbox_rx_interrupt(struct omap_mbox *mbox)
 
 	/* no more messages in the fifo. clear IRQ source. */
 	ack_mbox_irq(mbox, IRQ_RX);
-	omap_mbox_enable_irq(mbox, IRQ_RX);
 nomem:
 	schedule_work(&mbox->rxq->work);
 }
