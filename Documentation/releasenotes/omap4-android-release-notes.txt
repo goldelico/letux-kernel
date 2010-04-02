@@ -1,17 +1,11 @@
 # =====================================================================
-# L27.1 Code Freeze
+# L27.2 Eclair Hand-off
 # =====================================================================
 
-Author: Vikram Pandita
-Date: March 12th 2010
-Target Release: L27.1
+Author: Leed Aguilar
+Date: April 1st 2010
+Target Release: L27.2
 Destination: rel_l27x_handoff@list.ti.com
-
-# =====================================================================
-# Config Spec
-# ======================================================================
-
-N/A
 
 # =====================================================================
 # Configuration Settings
@@ -20,7 +14,7 @@ N/A
 [KERNEL]
 Repo:   git://git.omapzoom.org/kernel/omap.git
 Branch: p-android-omap-2.6.32
-Tag: android-2.6.32-2.1-omap4.1
+Tag: android-2.6.32-2.1-omap4.2
 Config: android_4430_defconfig
 
 [U-BOOT]
@@ -96,35 +90,24 @@ $cp out/target/product/nextgen/root/init.omap4sdp.rc out/target/product/nextgen/
 For more information on how to compile the Android Filesystem visit:
 http://omappedia.org/wiki/Android_Getting_Started#Building_Android
 
+In this release we are providing the following information:
+
+- Release Notes
+- Unit Test Results
+- TestCase Specs
+- TestDesign Specs
+- Klocwork Report
+- UnixBench Report
+- LMbench Report
+- Config Specs for ClearCase
+- Compilation warnings List
+
 * Highlights:
-- Android 2.6.32 with omap4 support added
-- SMP and L2 cache enabled
-- MMC2 has SDIO driver enabled for WLAN
-- omap-serial driver enabled for BT/FM (ttyON where N=0,1,2,3)
-- ethernet driver
-- keypad, touchscreen, dma
-
-* Components that are supported in the release:
-   X-loader, U-Boot, OS Kernel (SMP), Phoenix power IC, UART, GP Timer, GPIO,
-   Watchdog, I2C, MMC/SD(with ADMA support), Ethernet, RTC,
-   SDMA (including descriptor loading), Keypad, Touch screen, McSPI, McBSP,
-   Phoenix General Purpose ADC, Battery Charging,
-   Audio (Phoenix Audio IC, ABE, AESS),
-   Display driver (TAAL based), Basic display (DSS2 migration, FB dev),
-   Tiler memory manager.
-
-# =====================================================================
-# Gerrit IDs List
-# =====================================================================
-I5da66cfc	drivers: misc: TI's ST driver rfkill support
-Ibcd6835b	OMAP4: SDP4430:android defconfig change for ST
-I12d4d6f1	OMAP4: 4430SDP: add wl128x platform device
-Ia15f4d35	serial: TTY: new ldisc for TI BT/FM/GPS chips
-Ib0ae83dd	drivers: misc: sources for FM header file
-Ie36b7320	drivers: misc: sources for ST header file
-I4033d430	drivers: misc: sources for ST HCI LL PM protocol
-Idacd6838	drivers: misc: sources for ST core
-I62c077ac	drivers: misc: sources for ST Init manager
+- MUSB gadget support
+- eMMC support
+- Pico DLP support
+- FM driver support
+- Bluetooth AVRCP
 
 # =====================================================================
 # Open Defects / Known issues
@@ -132,35 +115,28 @@ I62c077ac	drivers: misc: sources for ST Init manager
 
 Release does not have:
 L2 cacheflushall() API
-eMMC is disabled
-USB: MUSB: OTG, device, host
+USB: Android Gadget
 USB: EHCI/OHCI
 Power management
 
 # =====================================================================
-# Changelist
+# Gerrit IDs List and Changelist
 # =====================================================================
-First release
 
-# =====================================================================
-# Documentation
-# =====================================================================
-Release notes in kernel git:
-Documentation/releasenotes/omap4-android-release-notes.txt
+2552 - drivers: misc: ST causes kernel lock up again
+2577 - omap4: sdp4430: defconfig update for BT avrcp
+2645 - drivers: misc: Adding FM driver sources
+2701 - OMAP4: 4430SDP: defconfig change for FM
+2711 - USB: ANDROID: setting android gadget as tristate
+2732 - keypad: map keys for blaze board
 
-Project docs: Refer to L24.4
+90 files changed, 12902 insertions(+), 1264 deletions(-)
 
 # ======================================================================
 # Klocwork Results
 # ======================================================================
 
-N/A
-
-# ======================================================================
-# Benchmarking measurements:
-# ======================================================================
-
-N/A
+https://klocwork.dal.design.ti.com:8096/klocwork/insight-review.html#permalink-G0FF77L4HUCXIFJE6W2A
 
 # ======================================================================
 
