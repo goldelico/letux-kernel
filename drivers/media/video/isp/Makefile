@@ -11,5 +11,8 @@ obj-$(CONFIG_VIDEO_OMAP34XX_ISP_PREVIEWER) += \
 obj-$(CONFIG_VIDEO_OMAP34XX_ISP_RESIZER) += \
 	omap_resizer.o
 
+obj-$(CONFIG_VIDEO_OMAP34XX_ISP_PREV2RESZ) += \
+	omap_prev2resz.o
+
 obj-$(CONFIG_VIDEO_OMAP3) += isp-mod.o
 

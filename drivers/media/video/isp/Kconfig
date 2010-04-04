@@ -7,3 +7,7 @@ config VIDEO_OMAP34XX_ISP_PREVIEWER
 config VIDEO_OMAP34XX_ISP_RESIZER
 	tristate "OMAP ISP Resizer"
 	depends on !ARCH_OMAP3410 && VIDEO_OMAP3
+
+config VIDEO_OMAP34XX_ISP_PREV2RESZ
+	tristate "OMAP ISP Preview and Resizer"
+	depends on !ARCH_OMAP3410 && VIDEO_OMAP3
