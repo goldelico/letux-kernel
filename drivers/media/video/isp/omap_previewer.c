@@ -32,9 +32,12 @@
 #include <asm/cacheflush.h>
 
 #include "isp.h"
-#include "omap_previewer.h"
+#include <linux/omap_previewer.h>
 
 #define OMAP_PREV_NAME		"omap-previewer"
+
+#define PREV_32BYTES_ALIGN_MASK		0xFFFFFFE0
+#define PREV_16PIX_ALIGN_MASK		0xFFFFFFF0
 
 #define BIT_SET(var, shift, mask, val)		\
 	do {					\
@@ -45,6 +48,70 @@
 #define ISP_CTRL_SBL_SHARED_RPORTB	(1 << 28)
 #define ISP_CTRL_SBL_SHARED_RPORTA	(1 << 27)
 #define SBL_RD_RAM_EN				18
+
+/**
+ * struct prev_chroma_spr - Structure for Chroma Suppression.
+ * @hpfy: High passed version of Y or normal Y.
+ * @threshold: Threshold for chroma suppress.
+ * @gain: Chroma suppression gain
+ */
+struct prev_chroma_spr {
+	unsigned char hpfy;
+	char threshold;
+	unsigned char gain;
+};
+
+/**
+ * struct prev_status - Structure to know status of the hardware
+ * @hw_busy: Flag to indicate if Hardware is Busy.
+ */
+struct prev_status {
+	char hw_busy;
+};
+
+/**
+ * struct prev_device - Global device information structure.
+ * @params: Pointer to structure containing preview parameters.
+ * @opened: State of the device.
+ * @wfc: Wait for completion. Used for locking operations.
+ * @prevwrap_mutex: Mutex for preview wrapper use.
+ * @inout_vbq_lock: Spinlock for in/out videobuf queues.
+ * @lsc_vbq_lock: Spinlock for LSC videobuf queues.
+ * @vbq_ops: Videobuf queue operations
+ * @isp_addr_read: Input/Output address
+ * @isp_addr_read: LSC address
+ */
+struct prev_device {
+	struct prev_params *params;
+	unsigned char opened;
+	unsigned char configured;
+	struct completion wfc;
+	struct mutex prevwrap_mutex;
+	spinlock_t inout_vbq_lock; /* Spinlock for in/out videobuf queues. */
+	spinlock_t lsc_vbq_lock; /* Spinlock for LSC videobuf queues. */
+	struct videobuf_queue_ops vbq_ops;
+	dma_addr_t isp_addr_read;
+	dma_addr_t isp_addr_lsc;
+	u32 out_hsize;
+	u32 out_vsize;
+	struct device *isp;
+};
+
+/**
+ * struct prev_fh - Per-filehandle data structure
+ * @inout_type: Used buffer type for I/O.
+ * @inout_vbq: I/O Videobuffer queue.
+ * @lsc_type: Used buffer type for LSC.
+ * @lsc_vbq: LSC Videobuffer queue.
+ * @device: Pointer to device information structure.
+ */
+struct prev_fh {
+	enum v4l2_buf_type inout_type;
+	struct videobuf_queue inout_vbq;
+	enum v4l2_buf_type lsc_type;
+	struct videobuf_queue lsc_vbq;
+	struct prev_device *device;
+};
 
 static struct isp_interface_config prevwrap_config = {
 	.ccdc_par_ser = ISP_NONE,
@@ -76,7 +143,7 @@ static struct prev_params isppreview_tmp;
  * the features enabled by the application.
  **/
 static int prev_calculate_crop(struct prev_device *device,
-						struct prev_cropsize *crop)
+			       struct v4l2_rect *crop)
 {
 	int ret = 0;
 
@@ -85,13 +152,13 @@ static int prev_calculate_crop(struct prev_device *device,
 		return -EINVAL;
 	}
 
-	crop->hcrop = device->out_hsize;
-	crop->vcrop = device->out_vsize;
+	crop->width = device->out_hsize;
+	crop->height = device->out_vsize;
 
 	dev_dbg(prev_dev, "%s: Exit (%dx%d -> %dx%d)\n", __func__,
 		device->params->size_params.hsize,
 		device->params->size_params.vsize,
-		crop->hcrop, crop->vcrop);
+		crop->width, crop->height);
 
 	return ret;
 }
@@ -126,6 +193,19 @@ static int prev_get_status(struct prev_status *status)
  **/
 static int prev_validate_params(struct prev_params *params)
 {
+	int max_out;
+
+	switch (omap_rev()) {
+	case OMAP3430_REV_ES1_0:
+		max_out = ISPPRV_MAXOUTPUT_WIDTH;
+		break;
+	case OMAP3630_REV_ES1_0:
+		max_out = ISPPRV_MAXOUTPUT_WIDTH_ES3;
+		break;
+	default:
+		max_out = ISPPRV_MAXOUTPUT_WIDTH_ES2;
+	}
+
 	if (!params) {
 		dev_err(prev_dev, "%s: invalid argument\n", __func__);
 		goto err_einval;
@@ -157,7 +237,7 @@ static int prev_validate_params(struct prev_params *params)
 		goto err_einval;
 	}
 
-	if (params->size_params.hsize > MAX_IMAGE_WIDTH
+	if (params->size_params.hsize > max_out
 					|| params->size_params.hsize < 0) {
 		dev_err(prev_dev, "%s: wrong hsize\n", __func__);
 		goto err_einval;
@@ -798,9 +878,16 @@ static int previewer_mmap(struct file *file, struct vm_area_struct *vma)
  *
  * Returns 0 if successful, or negative on fail
  **/
-static int prev_copy_params(struct prev_params *usr_params,
+static int prev_copy_params(struct prev_params __user *usr_params,
 				struct prev_params *isp_params)
 {
+	if (usr_params == NULL || isp_params == NULL) {
+		dev_warn(prev_dev, "%s: invalid source or destination pointer"
+			 " (usr: %p, krn: %p)\n", __func__,
+			usr_params, isp_params);
+		return -EFAULT;
+	}
+
 	isp_params->features = usr_params->features;
 	isp_params->pix_fmt = usr_params->pix_fmt;
 	isp_params->cfa.cfafmt = usr_params->cfa.cfafmt;
@@ -809,28 +896,26 @@ static int prev_copy_params(struct prev_params *usr_params,
 
 	if (usr_params->cfa.cfa_table && isp_params->cfa.cfa_table) {
 		if (copy_from_user(isp_params->cfa.cfa_table,
-				usr_params->cfa.cfa_table,
-				ISPPRV_CFA_TBL_SIZE * 4))
+				   usr_params->cfa.cfa_table,
+				   sizeof(isp_params->cfa.cfa_table)))
 			return -EFAULT;
 	} else {
-		dev_warn(prev_dev,
-			"%s: invalid cfa table pointer (usr: %08x,"
-			" krn: %08x)\n", __func__,
-			(int)usr_params->cfa.cfa_table,
-			(int)isp_params->cfa.cfa_table);
+		dev_warn(prev_dev, "%s: invalid cfa table pointer"
+			 " (usr: %p, krn: %p)\n", __func__,
+			usr_params->cfa.cfa_table, isp_params->cfa.cfa_table);
 	}
 
 	isp_params->csup = usr_params->csup;
 
 	if (usr_params->ytable && isp_params->ytable) {
 		if (copy_from_user(isp_params->ytable,
-				usr_params->ytable, ISPPRV_YENH_TBL_SIZE * 4))
+				   usr_params->ytable,
+				   sizeof(isp_params->ytable)))
 			return -EFAULT;
 	} else {
-		dev_warn(prev_dev,
-			"%s: invalid ytable pointer (usr: %08x, krn: %08x)\n",
-			__func__,
-			(int)usr_params->ytable, (int)isp_params->ytable);
+		dev_warn(prev_dev, "%s: invalid ytable pointer"
+			 " (usr: %p, krn: %p)\n", __func__,
+			usr_params->ytable, isp_params->ytable);
 	}
 
 	isp_params->nf = usr_params->nf;
@@ -838,41 +923,38 @@ static int prev_copy_params(struct prev_params *usr_params,
 
 	if (usr_params->gtable.redtable && isp_params->gtable.redtable) {
 		if (copy_from_user(isp_params->gtable.redtable,
-				usr_params->gtable.redtable,
-				ISPPRV_GAMMA_TBL_SIZE * 4))
+				   usr_params->gtable.redtable,
+				   sizeof(isp_params->gtable.redtable)))
 			return -EFAULT;
 	} else {
-		dev_warn(prev_dev,
-			"%s: invalid gtable red pointer (usr: %08x, "
-			"krn: %08x)\n", __func__,
-			(int)usr_params->gtable.redtable,
-			(int)isp_params->gtable.redtable);
+		dev_warn(prev_dev, "%s: invalid gtable red pointer"
+			 " (usr: %p, krn: %p)\n", __func__,
+			usr_params->gtable.redtable,
+			isp_params->gtable.redtable);
 	}
 
 	if (usr_params->gtable.greentable && isp_params->gtable.greentable) {
 		if (copy_from_user(isp_params->gtable.greentable,
-				usr_params->gtable.greentable,
-				ISPPRV_GAMMA_TBL_SIZE * 4))
+				   usr_params->gtable.greentable,
+				   sizeof(isp_params->gtable.greentable)))
 			return -EFAULT;
 	} else {
-		dev_warn(prev_dev,
-			"%s: invalid gtable green pointer (usr: %08x,"
-			"krn: %08x)\n", __func__,
-			(int)usr_params->gtable.greentable,
-			(int)isp_params->gtable.greentable);
+		dev_warn(prev_dev, "%s: invalid gtable green pointer"
+			 " (usr: %p, krn: %p)\n", __func__,
+			usr_params->gtable.greentable,
+			isp_params->gtable.greentable);
 	}
 
 	if (usr_params->gtable.bluetable && isp_params->gtable.bluetable) {
 		if (copy_from_user(isp_params->gtable.bluetable,
 				usr_params->gtable.bluetable,
-				ISPPRV_GAMMA_TBL_SIZE * 4))
+				sizeof(isp_params->gtable.bluetable)))
 			return -EFAULT;
 	} else {
-		dev_warn(prev_dev,
-			"%s: invalid gtable blue pointer (usr: %08x,"
-			" krn: %08x)\n", __func__,
-			(int)usr_params->gtable.bluetable,
-			(int)isp_params->gtable.bluetable);
+		dev_warn(prev_dev, "%s: invalid gtable blue pointer"
+			 " (usr: %p, krn: %p)\n", __func__,
+			usr_params->gtable.bluetable,
+			isp_params->gtable.bluetable);
 	}
 
 	isp_params->wbal = usr_params->wbal;
@@ -949,10 +1031,15 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 
 	dev_dbg(prev_dev, "%s: Enter\n", __func__);
 
-	if ((_IOC_TYPE(cmd) != PREV_IOC_BASE)
-					|| (_IOC_NR(cmd) > PREV_IOC_MAXNR)) {
-		dev_err(prev_dev, "%s: bad command value\n", __func__);
-		goto err_minusone;
+	if ((_IOC_TYPE(cmd) != PREV_IOC_BASE) && (_IOC_TYPE(cmd) != 'V')) {
+		dev_err(prev_dev, "Bad command value.\n");
+		return -EFAULT;
+	}
+
+	if ((_IOC_TYPE(cmd) == PREV_IOC_BASE) &&
+	    (_IOC_NR(cmd) > PREV_IOC_MAXNR)) {
+		dev_err(prev_dev, "Command out of range.\n");
+		return -EFAULT;
 	}
 
 	if (_IOC_DIR(cmd) & _IOC_READ)
@@ -1102,7 +1189,7 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 
 	case PREV_GET_CROPSIZE:
 	{
-		struct prev_cropsize outputsize;
+		struct v4l2_rect outputsize;
 
 		if (device->configured == false) {
 			ret = -EPERM;
@@ -1115,9 +1202,27 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 		if (ret)
 			break;
 
-		if (copy_to_user((struct prev_cropsize *)arg, &outputsize,
-					sizeof(struct prev_cropsize)))
+		if (copy_to_user((struct v4l2_rect *)arg, &outputsize,
+					sizeof(struct v4l2_rect)))
 			ret = -EFAULT;
+		break;
+	}
+	case VIDIOC_QUERYCAP:
+	{
+		struct v4l2_capability v4l2_cap;
+		if (copy_from_user(&v4l2_cap, (void *)arg,
+				   sizeof(struct v4l2_capability)))
+			return -EIO;
+
+		strcpy(v4l2_cap.driver, "omap3wrapper");
+		strcpy(v4l2_cap.card, "omap3wrapper/previewer");
+		v4l2_cap.version	= 1.0;;
+		v4l2_cap.capabilities	= V4L2_CAP_VIDEO_CAPTURE |
+					  V4L2_CAP_READWRITE;
+
+		if (copy_to_user((void *)arg, &v4l2_cap,
+				 sizeof(struct v4l2_capability)))
+			return -EIO;
 		break;
 	}
 
