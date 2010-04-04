@@ -317,8 +317,8 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 				.min_uV = 2000000,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
-				.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
-				.always_on = 1,
+				.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE | 
+						REGULATOR_CHANGE_STATUS,
 			},
 		},
 		[PCF50633_REGULATOR_LDO1] = {
@@ -326,6 +326,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 				.min_uV = 3300000,
 				.max_uV = 3300000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.valid_ops_mask = REGULATOR_CHANGE_STATUS,
 				.apply_uV = 1,
 				.state_mem = {
 					.enabled = 0,
@@ -353,6 +354,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 				.min_uV = 3200000,
 				.max_uV = 3200000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.valid_ops_mask = REGULATOR_CHANGE_STATUS,
 				.apply_uV = 1,
 			},
 		},
@@ -361,6 +363,7 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 				.min_uV = 3000000,
 				.max_uV = 3000000,
 				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.valid_ops_mask = REGULATOR_CHANGE_STATUS,
 				.apply_uV = 1,
 				.state_mem = {
 					.enabled = 1,
