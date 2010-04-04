@@ -38,6 +38,7 @@
 #include <linux/platform_device.h>
 #include <linux/serial_core.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/spi_gpio.h>
 
 #include <linux/mmc/host.h>
 
@@ -97,6 +98,9 @@
 
 #include <mach/gta02-pm-gps.h>
 #include <mach/gta02-pm-wlan.h>
+
+#include <linux/glamofb.h>
+#include <linux/mfd/glamo.h>
 
 static struct pcf50633 *gta02_pcf;
 
@@ -205,6 +209,123 @@ static struct platform_device gta02_gsm_supply_device = {
 	.id = 1,
 	.dev = {
 		.platform_data = &gsm_supply_config,
+	},
+};
+
+/*
+ * we crank down SD Card clock dynamically when GPS is powered
+ */
+
+static int gta02_glamo_mci_use_slow(void)
+{
+	return gta02_pm_gps_is_on();
+}
+
+static void gta02_glamo_external_reset(int level)
+{
+	s3c2410_gpio_setpin(GTA02_GPIO_3D_RESET, level);
+	s3c2410_gpio_cfgpin(GTA02_GPIO_3D_RESET, S3C2410_GPIO_OUTPUT);
+}
+
+struct spi_gpio_platform_data spigpio_platform_data = {
+	.sck = GTA02_GPIO_GLAMO(10),
+	.mosi = GTA02_GPIO_GLAMO(11),
+	.miso = GTA02_GPIO_GLAMO(5),
+	.num_chipselect = 1,
+};
+
+static struct platform_device spigpio_device = {
+	.name = "spi_gpio",
+	.id   = 2,
+	.dev = {
+		.platform_data = &spigpio_platform_data,
+	},
+};
+
+static void gta02_glamo_registered(struct device *dev)
+{
+	spigpio_device.dev.parent = dev;
+	platform_device_register(&spigpio_device);
+}
+
+static struct fb_videomode gta02_glamo_modes[] = {
+	{
+		.name = "480x640",
+		.xres = 480,
+		.yres = 640,
+		.pixclock	= 40816,
+		.left_margin	= 8,
+		.right_margin	= 16,
+		.upper_margin	= 2,
+		.lower_margin	= 16,
+		.hsync_len	= 8,
+		.vsync_len	= 2,
+		.vmode = FB_VMODE_NONINTERLACED,
+	}, {
+		.name = "240x320",
+		.xres = 240,
+		.yres = 320,
+		.pixclock	= 40816,
+		.left_margin	= 8,
+		.right_margin	= 16,
+		.upper_margin	= 2,
+		.lower_margin	= 16,
+		.hsync_len	= 8,
+		.vsync_len	= 2,
+		.vmode = FB_VMODE_NONINTERLACED,
+	}
+};
+
+static struct glamo_fb_platform_data gta02_glamo_fb_pdata = {
+	.width  = 43,
+	.height = 58,
+
+	.num_modes = ARRAY_SIZE(gta02_glamo_modes),
+	.modes = gta02_glamo_modes,
+};
+
+static struct glamo_mmc_platform_data gta02_glamo_mmc_pdata = {
+	.glamo_mmc_use_slow = gta02_glamo_mci_use_slow,
+};
+
+static struct glamo_gpio_platform_data gta02_glamo_gpio_pdata = {
+	.base = GTA02_GPIO_GLAMO_BASE,
+	.registered = gta02_glamo_registered,
+};
+
+static struct glamo_platform_data gta02_glamo_pdata = {
+	.fb_data    = &gta02_glamo_fb_pdata,
+	.mmc_data   = &gta02_glamo_mmc_pdata,
+	.gpio_data  = &gta02_glamo_gpio_pdata,
+
+	.osci_clock_rate = 32768,
+
+	.glamo_external_reset = gta02_glamo_external_reset,
+};
+
+static struct resource gta02_glamo_resources[] = {
+	[0] = {
+		.start	= S3C2410_CS1,
+		.end	= S3C2410_CS1 + 0x1000000 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= GTA02_IRQ_3D,
+		.end	= GTA02_IRQ_3D,
+		.flags	= IORESOURCE_IRQ,
+	},
+	[2] = {
+		.start	= IRQ_BOARD_START,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device gta02_glamo_dev = {
+	.name		= "glamo3362",
+	.num_resources	= ARRAY_SIZE(gta02_glamo_resources),
+	.resource	= gta02_glamo_resources,
+	.dev		= {
+		.platform_data	= &gta02_glamo_pdata,
 	},
 };
 
@@ -328,6 +449,13 @@ static struct regulator_consumer_supply ldo5_consumers[] = {
 	},
 };
 
+static struct regulator_consumer_supply hcldo_consumers[] = {
+	{
+		.dev = &gta02_glamo_dev.dev,
+		.supply = "SD_3V3",
+	},
+};
+
 struct pcf50633_platform_data gta02_pcf_pdata = {
 	.resumers = {
 		[0] =	PCF50633_INT1_USBINS |
@@ -389,6 +517,8 @@ struct pcf50633_platform_data gta02_pcf_pdata = {
 				.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE | 
 						REGULATOR_CHANGE_STATUS,
 			},
+			.num_consumer_supplies = ARRAY_SIZE(hcldo_consumers),
+			.consumer_supplies = hcldo_consumers,
 		},
 		[PCF50633_REGULATOR_LDO1] = {
 			.constraints = {
@@ -790,6 +920,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&gta02_pm_gps_dev,
 	&gta02_pm_bt_dev,
 	&gta02_pm_wlan_dev,
+	&gta02_glamo_dev,
 };
 
 /* These guys DO need to be children of PMU. */
@@ -1004,7 +1135,9 @@ static void __init gta02_machine_init(void)
 	s3c_i2c0_set_platdata(NULL);
 
 	i2c_register_board_info(0, gta02_i2c_devs, ARRAY_SIZE(gta02_i2c_devs));
-
+	spi_register_board_info(gta02_spi_board_info,
+				ARRAY_SIZE(gta02_spi_board_info));
+ 
 	platform_add_devices(gta02_devices, ARRAY_SIZE(gta02_devices));
 
 	pm_power_off = gta02_poweroff;
