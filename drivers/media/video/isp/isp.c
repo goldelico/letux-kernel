@@ -853,10 +853,9 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 					&isp->isp_res);
 				ispresizer_enable(&isp->isp_res, 1);
 			}
-			if (((isp)->pipeline.modules & OMAP_ISP_PREVIEW) &&
-			    !(isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
-					    ISPPRV_PCR) & (ISPPRV_PCR_BUSY |
-					    ISPPRV_PCR_EN))) {
+			if ((isp->pipeline.modules & OMAP_ISP_PREVIEW) &&
+			     !isppreview_busy(&isp->isp_prev) &&
+			     !isppreview_is_enabled(&isp->isp_prev)) {
 				isppreview_config_shadow_registers(
 					&isp->isp_prev);
 				isppreview_enable(&isp->isp_prev, 1);
@@ -1185,8 +1184,8 @@ static u32 isp_tmp_buf_alloc(struct device *dev, struct isp_pipeline *pipe)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	u32 da;
-	size_t size = PAGE_ALIGN(isp->pipeline.prv_out_w *
-				 isp->pipeline.prv_out_h *
+	size_t size = PAGE_ALIGN(isp->pipeline.prv.out.image.width *
+				 isp->pipeline.prv.out.image.height *
 				 ISP_BYTES_PER_PIXEL);
 
 	if (isp->tmp_buf_size >= size)
@@ -1472,21 +1471,21 @@ static int isp_try_pipeline(struct device *dev,
 		if (pix_input->pixelformat == V4L2_PIX_FMT_SGBRG10)
 			pipe->ccdc_in = CCDC_RAW_GBRG;
 		pipe->ccdc_out = CCDC_OTHERS_VP;
-		pipe->prv_in = PRV_RAW_CCDC;
+		pipe->prv.in.path = PRV_RAW_CCDC;
 		if ((pix_output->width == 1280) &&
 		    (pix_output->height == 720)) {
 			pipe->modules = OMAP_ISP_PREVIEW |
 					OMAP_ISP_CCDC;
-			pipe->prv_out = PREVIEW_MEM;
+			pipe->prv.out.path = PREVIEW_MEM;
 		} else {
 			pipe->modules = OMAP_ISP_PREVIEW |
 					OMAP_ISP_RESIZER |
 					OMAP_ISP_CCDC;
 			if (isp->revision <= ISP_REVISION_2_0) {
-				pipe->prv_out = PREVIEW_MEM;
+				pipe->prv.out.path = PREVIEW_MEM;
 				pipe->rsz.in.path = RSZ_MEM_YUV;
 			} else {
-				pipe->prv_out = PREVIEW_RSZ;
+				pipe->prv.out.path = PREVIEW_RSZ;
 				pipe->rsz.in.path = RSZ_OTFLY_YUV;
 			}
 		}
@@ -1558,19 +1557,32 @@ static int isp_try_pipeline(struct device *dev,
 	}
 
 	if (pipe->modules & OMAP_ISP_PREVIEW) {
-		pipe->prv_out_w = wanted_width;
-		pipe->prv_out_h = wanted_height;
-		rval = isppreview_try_pipeline(&isp->isp_prev, pipe);
+		if (pipe->prv.in.path == PRV_RAW_MEM)
+			pipe->prv.in.image.width = pipe->ccdc_out_w;
+		else
+			pipe->prv.in.image.width = pipe->ccdc_out_w_img;
+		pipe->prv.in.image.height = pipe->ccdc_out_h;
+		pipe->prv.in.image.pixelformat = pix_input->pixelformat;
+
+		pipe->prv.in.crop.width = pipe->ccdc_out_w_img;
+		pipe->prv.in.crop.height = pipe->ccdc_out_h;
+
+		pipe->prv.out.image.width = wanted_width;
+		pipe->prv.out.image.height = wanted_height;
+		pipe->prv.out.image.pixelformat = pix_output->pixelformat;
+		pipe->prv.out.crop = pipe->prv.in.crop;
+
+		rval = isppreview_try_pipeline(&isp->isp_prev, &pipe->prv);
 		if (rval) {
 			dev_dbg(dev, "the dimensions %dx%d are not"
 				" supported\n", pix_input->width,
 				pix_input->height);
 			return rval;
 		}
-		pix_output->width = pipe->prv_out_w;
-		pix_output->height = pipe->prv_out_h;
+		pix_output->width = pipe->prv.out.crop.width;
+		pix_output->height = pipe->prv.out.crop.height;
 		pix_output->bytesperline =
-			pipe->prv_out_w * ISP_BYTES_PER_PIXEL;
+			pipe->prv.out.image.width * ISP_BYTES_PER_PIXEL;
 	}
 
 	if (pipe->modules & OMAP_ISP_RESIZER) {
@@ -1578,18 +1590,20 @@ static int isp_try_pipeline(struct device *dev,
 		pipe->rsz.out.image.height = wanted_height;
 
 		if (pipe->rsz.in.path == RSZ_OTFLY_YUV) {
-			pipe->rsz.in.image.width = pipe->prv_out_w_img;
-			pipe->rsz.in.image.height = pipe->prv_out_h_img;
+			pipe->rsz.in.image.width =
+				pipe->prv.out.crop.width;
+			pipe->rsz.in.image.height =
+				pipe->prv.out.crop.height;
 		} else {
-			pipe->rsz.in.image.width = pipe->prv_out_w;
-			pipe->rsz.in.image.height = pipe->prv_out_h;
+			pipe->rsz.in.image.width = pipe->prv.out.image.width;
+			pipe->rsz.in.image.height = pipe->prv.out.image.height;
 		}
 		pipe->rsz.in.image.pixelformat = pix_output->pixelformat;
 		pipe->rsz.in.image.bytesperline = pix_output->bytesperline;
 
 		pipe->rsz.in.crop.left = pipe->rsz.in.crop.top = 0;
-		pipe->rsz.in.crop.width = pipe->prv_out_w_img;
-		pipe->rsz.in.crop.height = pipe->prv_out_h_img;
+		pipe->rsz.in.crop.width = pipe->prv.out.crop.width;
+		pipe->rsz.in.crop.height = pipe->prv.out.crop.height;
 
 		rval = ispresizer_try_pipeline(&isp->isp_res, &pipe->rsz);
 		if (rval) {
@@ -1661,7 +1675,7 @@ static int isp_s_pipeline(struct device *dev,
 
 	if (pipe.modules & OMAP_ISP_PREVIEW) {
 		isppreview_request(&isp->isp_prev);
-		isppreview_s_pipeline(&isp->isp_prev, &pipe);
+		isppreview_s_pipeline(&isp->isp_prev, &pipe.prv);
 	}
 
 	if (pipe.modules & OMAP_ISP_RESIZER) {

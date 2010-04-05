@@ -521,8 +521,7 @@
 
 #define ISPPRV_MAXOUTPUT_WIDTH		1280
 #define ISPPRV_MAXOUTPUT_WIDTH_ES2	3300
-#define ISPRSZ_MIN_OUTPUT		64
-#define ISPRSZ_MAX_OUTPUT		3312
+#define ISPPRV_MAXOUTPUT_WIDTH_ES3	4096
 
 /* Resizer module register offset */
 #define ISPRSZ_PID			(0x000)

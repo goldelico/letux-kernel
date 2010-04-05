@@ -513,6 +513,35 @@ struct ispccdc_update_config {
 };
 
 /* Preview configuration */
+#define NO_AVE				0x0
+#define AVE_2_PIX			0x1
+#define AVE_4_PIX			0x2
+#define AVE_8_PIX			0x3
+
+#define AVE_ODD_PIXEL_DIST		(1 << 4) /* For Bayer Sensors */
+#define AVE_EVEN_PIXEL_DIST		(1 << 2)
+
+#define WB_GAIN_MAX			4
+
+#define ISPPRV_NF_TBL_SIZE		64
+#define ISPPRV_CFA_TBL_SIZE		576
+#define ISPPRV_GAMMA_TBL_SIZE		1024
+#define ISPPRV_YENH_TBL_SIZE		128
+
+#define ISPPRV_BRIGHT_STEP		0x1
+#define ISPPRV_BRIGHT_DEF		0x1
+#define ISPPRV_BRIGHT_LOW		0x0
+#define ISPPRV_BRIGHT_HIGH		0xFF
+#define ISPPRV_BRIGHT_UNITS		0x1
+
+#define ISPPRV_CONTRAST_STEP		0x1
+#define ISPPRV_CONTRAST_DEF		0x10
+#define ISPPRV_CONTRAST_LOW		0x0
+#define ISPPRV_CONTRAST_HIGH		0xFF
+#define ISPPRV_CONTRAST_UNITS		0x1
+
+#define PREV_INWIDTH_8BIT		0	/* pixel width of 8 bits */
+#define PREV_INWIDTH_10BIT		1	/* pixel width of 10 bits */
 
 /*Abstraction layer preview configurations*/
 #define ISP_ABS_PREV_LUMAENH		(1 << 0)
@@ -532,10 +561,99 @@ struct ispccdc_update_config {
 #define ISP_ABS_TBL_GREENGAMMA		(1 << 14)
 #define ISP_ABS_TBL_BLUEGAMMA		(1 << 15)
 
-#define ISPPRV_NF_TBL_SIZE		64
-#define ISPPRV_CFA_TBL_SIZE		576
-#define ISPPRV_GAMMA_TBL_SIZE		1024
-#define ISPPRV_YENH_TBL_SIZE		128
+/* Features list */
+#define PREV_AVERAGER			(1 << 0)
+#define PREV_INVERSE_ALAW 		(1 << 1)
+#define PREV_HORZ_MEDIAN_FILTER		(1 << 2)
+#define PREV_NOISE_FILTER 		(1 << 3)
+#define PREV_CFA			(1 << 4)
+#define PREV_GAMMA_BYPASS		(1 << 5)
+#define PREV_LUMA_ENHANCE		(1 << 6)
+#define PREV_CHROMA_SUPPRESS		(1 << 7)
+#define PREV_DARK_FRAME_SUBTRACT	(1 << 8)
+#define PREV_LENS_SHADING		(1 << 9)
+#define PREV_DARK_FRAME_CAPTURE		(1 << 10)
+#define PREV_DEFECT_COR			(1 << 11)
+
+/*
+ *Enumeration Constants for input and output format
+ */
+enum preview_input {
+	PRV_RAW_CCDC,
+	PRV_RAW_MEM,
+	PRV_RGBBAYERCFA,
+	PRV_COMPCFA,
+	PRV_CCDC_DRKF,
+	PRV_OTHERS
+};
+enum preview_output {
+	PREVIEW_RSZ,
+	PREVIEW_MEM
+};
+
+/**
+ * struct ispprev_gtable - Structure for Gamma Correction.
+ * @redtable: Pointer to the red gamma table.
+ * @greentable: Pointer to the green gamma table.
+ * @bluetable: Pointer to the blue gamma table.
+ */
+struct ispprev_gtable {
+	__u32 *redtable;
+	__u32 *greentable;
+	__u32 *bluetable;
+};
+
+/**
+ * struct prev_white_balance - Structure for White Balance 2.
+ * @wb_dgain: White balance common gain.
+ * @wb_gain: Individual color gains.
+ * @wb_coefmatrix: Coefficient matrix
+ */
+struct prev_white_balance {
+	__u16 wb_dgain; /* white balance common gain */
+	__u8 wb_gain[WB_GAIN_MAX]; /* individual color gains */
+	__u8 wb_coefmatrix[WB_GAIN_MAX][WB_GAIN_MAX];
+};
+
+/**
+ * struct prev_size_params - Structure for size parameters.
+ * @hstart: Starting pixel.
+ * @vstart: Starting line.
+ * @hsize: Width of input image.
+ * @vsize: Height of input image.
+ * @pixsize: Pixel size of the image in terms of bits.
+ * @in_pitch: Line offset of input image.
+ * @out_pitch: Line offset of output image.
+ */
+struct prev_size_params {
+	unsigned int hstart;
+	unsigned int vstart;
+	unsigned int hsize;
+	unsigned int vsize;
+	unsigned char pixsize;
+	unsigned short in_pitch;
+	unsigned short out_pitch;
+};
+
+/**
+ * struct prev_rgb2ycbcr_coeffs - Structure RGB2YCbCr parameters.
+ * @coeff: Color conversion gains in 3x3 matrix.
+ * @offset: Color conversion offsets.
+ */
+struct prev_rgb2ycbcr_coeffs {
+	short coeff[RGB_MAX][RGB_MAX];
+	short offset[RGB_MAX];
+};
+
+/**
+ * struct prev_darkfrm_params - Structure for Dark frame suppression.
+ * @addr: Memory start address.
+ * @offset: Line offset.
+ */
+struct prev_darkfrm_params {
+	__u32 addr;
+	__u32 offset;
+};
 
 /**
  * struct ispprev_hmed - Structure for Horizontal Median Filter.
@@ -624,8 +742,8 @@ struct ispprev_blkadj {
  * @offset: Blending offset value for R,G,B in 2's complement integer format.
  */
 struct ispprev_rgbtorgb {
-	__u16 matrix[3][3];
-	__u16 offset[3];
+	__u16 matrix[RGB_MAX][RGB_MAX];
+	__u16 offset[RGB_MAX];
 };
 
 /**
@@ -673,6 +791,83 @@ struct ispprev_dcor {
 struct ispprev_nf {
 	__u8 spread;
 	__u32 table[ISPPRV_NF_TBL_SIZE];
+};
+
+/*
+ * Configure byte layout of YUV image
+ */
+enum preview_ycpos_mode {
+	YCPOS_YCrYCb = 0,
+	YCPOS_YCbYCr = 1,
+	YCPOS_CbYCrY = 2,
+	YCPOS_CrYCbY = 3
+};
+
+/**
+ * struct prev_params - Structure for all configuration
+ * @features: Set of features enabled.
+ * @cfa: CFA coefficients.
+ * @csup: Chroma suppression coefficients.
+ * @ytable: Pointer to Luma enhancement coefficients.
+ * @nf: Noise filter coefficients.
+ * @dcor: Noise filter coefficients.
+ * @gtable: Gamma coefficients.
+ * @wbal: White Balance parameters.
+ * @blk_adj: Black adjustment parameters.
+ * @rgb2rgb: RGB blending parameters.
+ * @rgb2ycbcr: RGB to ycbcr parameters.
+ * @hmf_params: Horizontal median filter.
+ * @size_params: Size parameters.
+ * @drkf_params: Darkframe parameters.
+ * @lens_shading_shift:
+ * @average: Downsampling rate for averager.
+ * @contrast: Contrast.
+ * @brightness: Brightness.
+ */
+struct prev_params {
+	__u16 features;
+	enum preview_ycpos_mode pix_fmt;
+	struct ispprev_cfa cfa;
+	struct ispprev_csup csup;
+	__u32 *ytable;
+	struct ispprev_nf nf;
+	struct ispprev_dcor dcor;
+	struct ispprev_gtable gtable;
+	struct ispprev_wbal wbal;
+	struct ispprev_blkadj blk_adj;
+	struct ispprev_rgbtorgb rgb2rgb;
+	struct ispprev_csc rgb2ycbcr;
+	struct ispprev_hmed hmf_params;
+	struct prev_size_params size_params;
+	struct prev_darkfrm_params drkf_params;
+	__u8 lens_shading_shift;
+	__u8 average;
+	__u8 contrast;
+	__u8 brightness;
+};
+
+/**
+ * struct isptables_update - Structure for Table Configuration.
+ * @update: Specifies which tables should be updated.
+ * @flag: Specifies which tables should be enabled.
+ * @prev_nf: Pointer to structure for Noise Filter
+ * @lsc: Pointer to LSC gain table. (currently not used)
+ * @red_gamma: Pointer to red gamma correction table.
+ * @green_gamma: Pointer to green gamma correction table.
+ * @blue_gamma: Pointer to blue gamma correction table.
+ * @prev_cfa: Pointer to color filter array configuration.
+ * @prev_wbal: Pointer to colour and digital gain configuration.
+ */
+struct isptables_update {
+	__u16 update;
+	__u16 flag;
+	struct ispprev_nf *prev_nf;
+	__u32 *lsc;
+	__u32 *red_gamma;
+	__u32 *green_gamma;
+	__u32 *blue_gamma;
+	struct ispprev_cfa *prev_cfa;
+	struct ispprev_wbal *prev_wbal;
 };
 
 /**

@@ -27,6 +27,7 @@
 #define OMAP_ISP_TOP_H
 #include <plat/cpu.h>
 #include <media/videobuf-dma-sg.h>
+#include <linux/device.h>
 #include <linux/videodev2.h>
 
 #include <asm/io.h>
@@ -292,13 +293,7 @@ struct isp_irq {
  * @ccdc_out_w_img: CCDC output width.
  * @ccdc_in: CCDC input source.
  * @ccdc_out: CCDC output destination.
- * @prv_out_w: Preview output width (with extra padding pixels).
- * @prv_out_h: Preview output height (with extra padding pixels).
- * @prv_out_w_img: Preview output width.
- * @prv_out_h_img: Preview output height.
- * @prv_fmt_avg: Preview formatter averager.
- * @prv_in: Preview input source.
- * @prv_out: Preview output destination.
+ * @prv: Preview data path parameters.
  * @rsz: Resizer data path parameters.
  */
 struct isp_pipeline {
@@ -320,13 +315,7 @@ struct isp_pipeline {
 	unsigned int ccdc_out_w_img;	/* ccdc output visible image width */
 	enum ccdc_input ccdc_in;
 	enum ccdc_output ccdc_out;
-	unsigned int prv_out_w;
-	unsigned int prv_out_h;
-	unsigned int prv_out_w_img;
-	unsigned int prv_out_h_img;
-	unsigned int prv_fmt_avg;
-	enum preview_input prv_in;
-	enum preview_output prv_out;
+	struct isp_node prv;
 	struct isp_node rsz;
 };
 
@@ -526,6 +515,8 @@ void isp_print_status(struct device *dev);
 void isp_set_hs_vs(struct device *dev, int hs_vs);
 
 unsigned long isp_get_buf_offset(struct device *dev);
+
+int isp_get_used_modules(struct isp_device *dev);
 
 int __init isp_ccdc_init(struct device *dev);
 int __init isp_hist_init(struct device *dev);

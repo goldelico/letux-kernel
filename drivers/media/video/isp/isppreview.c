@@ -28,6 +28,15 @@
 #include "ispreg.h"
 #include "isppreview.h"
 
+/* Table addresses */
+#define ISPPRV_TBL_ADDR_RED_G_START	0x00
+#define ISPPRV_TBL_ADDR_BLUE_G_START	0x800
+#define ISPPRV_TBL_ADDR_GREEN_G_START	0x400
+
+/* Features list */
+#define ISP_NF_TABLE_SIZE 		(1 << 10)
+#define ISP_GAMMA_TABLE_SIZE 		(1 << 10)
+
 /* Structure for saving/restoring preview module registers */
 static struct isp_reg ispprev_reg_list[] = {
 	{OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR, 0x0000}, /* See context saving. */
@@ -362,6 +371,53 @@ err_copy_from_user:
 EXPORT_SYMBOL_GPL(isppreview_config);
 
 /**
+ * isppreview_set_features - Stores the desired features into HW registers
+ * @config: Structure containing the desired configuration for ISP preview
+ *          module.
+ *
+ * Reads the structure sent, and modifies the desired registers.
+ *
+ * Always returns 0.
+ **/
+int isppreview_config_features(struct isp_prev_device *isp_prev,
+			       struct prev_params *config)
+{
+	if (config->features & PREV_AVERAGER)
+		isppreview_config_averager(isp_prev, config->average);
+	else
+		isppreview_config_averager(isp_prev, 0);
+
+	if (config->features & PREV_INVERSE_ALAW)
+		isppreview_enable_invalaw(isp_prev, 1);
+	else
+		isppreview_enable_invalaw(isp_prev, 0);
+
+	if (config->features & PREV_HORZ_MEDIAN_FILTER) {
+		isppreview_config_hmed(isp_prev, config->hmf_params);
+		isppreview_enable_hmed(isp_prev, 1);
+	} else
+		isppreview_enable_hmed(isp_prev, 0);
+
+	if (config->features & PREV_DARK_FRAME_SUBTRACT) {
+		isppreview_set_darkaddr(isp_prev, config->drkf_params.addr);
+		isppreview_config_darklineoffset(isp_prev,
+						 config->drkf_params.offset);
+		isppreview_enable_drkframe(isp_prev, 1);
+	} else
+		isppreview_enable_drkframe(isp_prev, 0);
+
+	if (config->features & PREV_LENS_SHADING) {
+		isppreview_config_drkf_shadcomp(isp_prev,
+						config->lens_shading_shift);
+		isppreview_enable_shadcomp(isp_prev, 1);
+	} else
+		isppreview_enable_shadcomp(isp_prev, 0);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(isppreview_config_features);
+
+/**
  * isppreview_tables_update - Abstraction layer Tables update.
  * @isptables_struct: Pointer from Userspace to structure with flags and table
  *                 data to update.
@@ -629,7 +685,7 @@ EXPORT_SYMBOL_GPL(isppreview_free);
  * specified.
  **/
 int isppreview_config_datapath(struct isp_prev_device *isp_prev,
-			       struct isp_pipeline *pipe)
+			       struct isp_node *pipe)
 {
 	struct device *dev = to_device(isp_prev);
 	u32 pcr = 0;
@@ -639,7 +695,7 @@ int isppreview_config_datapath(struct isp_prev_device *isp_prev,
 
 	pcr = isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR);
 
-	switch (pipe->prv_in) {
+	switch (pipe->in.path) {
 	case PRV_RAW_CCDC:
 		pcr &= ~ISPPRV_PCR_SOURCE;
 		break;
@@ -660,7 +716,7 @@ int isppreview_config_datapath(struct isp_prev_device *isp_prev,
 		return -EINVAL;
 	};
 
-	switch (pipe->prv_out) {
+	switch (pipe->out.path) {
 	case PREVIEW_RSZ:
 		pcr |= ISPPRV_PCR_RSZPORT;
 		pcr &= ~ISPPRV_PCR_SDRPORT;
@@ -1472,6 +1528,31 @@ void isppreview_get_brightness_range(u8 *min_brightness, u8 *max_brightness)
 EXPORT_SYMBOL_GPL(isppreview_get_brightness_range);
 
 /**
+ * isppreview_set_size - Set input width and height in previewer registers
+ * @input_w: input width
+ * @inout_h: input height
+ **/
+void isppreview_set_size(struct isp_prev_device *isp_prev, u32 input_w,
+			 u32 input_h)
+{
+	struct device *dev = to_device(isp_prev);
+
+	isp_reg_writel(dev,
+		       (0 << ISPPRV_HORZ_INFO_SPH_SHIFT) | (input_w - 1),
+		       OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO);
+
+	isp_reg_writel(dev,
+		       (0 << ISPPRV_VERT_INFO_SLV_SHIFT) | (input_h - 1),
+		       OMAP3_ISP_IOMEM_PREV, ISPPRV_VERT_INFO);
+
+	isp_reg_writel(dev,
+		       (ISPPRV_AVE_EVENDIST_2 << ISPPRV_AVE_EVENDIST_SHIFT) |
+		       (ISPPRV_AVE_ODDDIST_2 << ISPPRV_AVE_ODDDIST_SHIFT),
+		       OMAP3_ISP_IOMEM_PREV, ISPPRV_AVE);
+}
+EXPORT_SYMBOL_GPL(isppreview_set_size);
+
+/**
  * isppreview_set_color - Sets the color effect.
  * @mode: Indicates the required color effect.
  **/
@@ -1521,9 +1602,10 @@ EXPORT_SYMBOL_GPL(isppreview_config_yc_range);
  * Fills up the output width height variables in the isp_prev structure.
  **/
 int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
-			    struct isp_pipeline *pipe)
+			    struct isp_node *pipe)
 {
 	struct device *dev = to_device(isp_prev);
+	struct isp_device *isp = to_isp_device(isp_prev);
 	u32 div = 0;
 	int max_out;
 	unsigned int wanted_width;
@@ -1531,86 +1613,89 @@ int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
 	unsigned int left_boundary;
 	unsigned int right_boundary;
 
-	if (pipe->ccdc_out_w_img < 32 || pipe->ccdc_out_h < 32) {
+	if (pipe->in.image.width < 32 || pipe->in.image.height < 32) {
 		dev_err(dev, "preview does not support "
 		       "width < 16 or height < 32 \n");
 		return -EINVAL;
 	}
-	if (omap_rev() == OMAP3430_REV_ES1_0)
-		max_out = ISPPRV_MAXOUTPUT_WIDTH;
-	else
-		max_out = ISPPRV_MAXOUTPUT_WIDTH_ES2;
 
-	wanted_width = pipe->prv_out_w;
-	wanted_height = pipe->prv_out_h;
-	pipe->prv_out_w = pipe->ccdc_out_w;
-	pipe->prv_out_h = pipe->ccdc_out_h;
-	pipe->prv_out_w_img = pipe->ccdc_out_w_img;
-	pipe->prv_out_h_img = pipe->ccdc_out_h;
+	switch (omap_rev()) {
+	case OMAP3430_REV_ES1_0:
+		max_out = ISPPRV_MAXOUTPUT_WIDTH;
+		break;
+	case OMAP3630_REV_ES1_0:
+		max_out = ISPPRV_MAXOUTPUT_WIDTH_ES3;
+		break;
+	default:
+		max_out = ISPPRV_MAXOUTPUT_WIDTH_ES2;
+	}
+
+	wanted_width = pipe->out.image.width;
+	wanted_height = pipe->out.image.height;
+	pipe->out.image.width = pipe->in.image.width;
+	pipe->out.image.height = pipe->in.image.height;
 
 /* 	if (isp_prev->hmed_en) */
-	pipe->prv_out_w_img -= 4;
+	pipe->out.crop.width -= 4;
 /* 	if (isp_prev->nf_en) */
-	pipe->prv_out_w_img -= 4;
-	pipe->prv_out_h_img -= 4;
+	pipe->out.crop.width -= 4;
+	pipe->out.crop.height -= 4;
 /* 	if (isp_prev->cfa_en) */
 	switch (isp_prev->cfafmt) {
 	case CFAFMT_BAYER:
 	case CFAFMT_SONYVGA:
-		pipe->prv_out_w_img -= 4;
-		pipe->prv_out_h_img -= 4;
+		pipe->out.crop.width -= 4;
+		pipe->out.crop.height -= 4;
 		break;
 	case CFAFMT_RGBFOVEON:
 	case CFAFMT_RRGGBBFOVEON:
 	case CFAFMT_DNSPL:
 	case CFAFMT_HONEYCOMB:
-		pipe->prv_out_h_img -= 2;
+		pipe->out.crop.height -= 2;
 		break;
 	};
 /* 	if (isp_prev->yenh_en || isp_prev->csup_en) */
-	pipe->prv_out_w_img -= 2;
+	pipe->out.crop.width -= 2;
 
 	/* Start at the correct row/column by skipping
 	 * a Sensor specific amount.
 	 */
-	pipe->prv_out_w_img -= isp_prev->sph;
-	pipe->prv_out_h_img -= isp_prev->slv;
+	pipe->out.crop.width -= isp_prev->sph;
+	pipe->out.crop.height -= isp_prev->slv;
 
-	div = DIV_ROUND_UP(pipe->ccdc_out_w_img, max_out);
+	div = DIV_ROUND_UP(pipe->in.image.width, max_out);
 	if (div == 1) {
-		pipe->prv_fmt_avg = 0;
+		isp_prev->fmt_avg = 0;
 	} else if (div <= 2) {
-		pipe->prv_fmt_avg = 1;
-		pipe->prv_out_w_img /= 2;
+		isp_prev->fmt_avg = 1;
+		pipe->out.crop.width /= 2;
 	} else if (div <= 4) {
-		pipe->prv_fmt_avg = 2;
-		pipe->prv_out_w_img /= 4;
+		isp_prev->fmt_avg = 2;
+		pipe->out.crop.width /= 4;
 	} else if (div <= 8) {
-		pipe->prv_fmt_avg = 3;
-		pipe->prv_out_w_img /= 8;
+		isp_prev->fmt_avg = 3;
+		pipe->out.crop.width /= 8;
 	} else {
 		return -EINVAL;
 	}
 
 	/* output width must be even */
-	pipe->prv_out_w_img &= ~1;
+	pipe->out.crop.width &= ~1;
 
-	if (pipe->modules == (OMAP_ISP_CCDC | OMAP_ISP_PREVIEW)) {
-		left_boundary = ALIGN(pipe->prv_out_w_img - 0x20, 0x20);
-		right_boundary = ALIGN(pipe->prv_out_w_img, 0x20);
+	if (isp_get_used_modules(isp) == (OMAP_ISP_CCDC | OMAP_ISP_PREVIEW)) {
+		left_boundary = ALIGN(pipe->out.crop.width - 0x20, 0x20);
+		right_boundary = ALIGN(pipe->out.crop.width, 0x20);
 		if (wanted_width >= left_boundary &&
 				wanted_width <= right_boundary){
-			pipe->prv_out_w = ALIGN(wanted_width, 0x20);
-			pipe->prv_out_h = wanted_height;
+			pipe->out.image.width = ALIGN(wanted_width, 0x20);
+			pipe->out.image.height = wanted_height;
 		} else {
-			pipe->prv_out_w = right_boundary;
-			pipe->prv_out_h = pipe->prv_out_h_img;
+			pipe->out.image.width = right_boundary;
+			pipe->out.image.height = pipe->out.crop.height;
 		}
 	} else {
-		/* FIXME: This doesn't apply for prv -> rsz. */
-		pipe->prv_out_w = ALIGN(pipe->prv_out_w, 0x20);
+		pipe->out.image.width &= ~0x1f;
 	}
-
 	return 0;
 }
 EXPORT_SYMBOL_GPL(isppreview_try_pipeline);
@@ -1627,7 +1712,7 @@ EXPORT_SYMBOL_GPL(isppreview_try_pipeline);
  * in trysize.
  **/
 int isppreview_s_pipeline(struct isp_prev_device *isp_prev,
-			  struct isp_pipeline *pipe)
+			  struct isp_node *pipe)
 {
 	struct device *dev = to_device(isp_prev);
 	u32 prevsdroff;
@@ -1639,11 +1724,11 @@ int isppreview_s_pipeline(struct isp_prev_device *isp_prev,
 
 	isp_reg_writel(dev,
 		       (isp_prev->sph << ISPPRV_HORZ_INFO_SPH_SHIFT) |
-		       (pipe->ccdc_out_w_img - 1),
+		       (pipe->out.crop.width - 1),
 		       OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO);
 	isp_reg_writel(dev,
 		       (isp_prev->slv << ISPPRV_VERT_INFO_SLV_SHIFT) |
-		       (pipe->ccdc_out_h - 1),
+		       (pipe->out.crop.height - 1),
 		       OMAP3_ISP_IOMEM_PREV, ISPPRV_VERT_INFO);
 
 	if (isp_prev->cfafmt == CFAFMT_BAYER)
@@ -1652,11 +1737,11 @@ int isppreview_s_pipeline(struct isp_prev_device *isp_prev,
 			       ISPPRV_AVE_EVENDIST_SHIFT |
 			       ISPPRV_AVE_ODDDIST_2 <<
 			       ISPPRV_AVE_ODDDIST_SHIFT |
-			       pipe->prv_fmt_avg,
+			       isp_prev->fmt_avg,
 			       OMAP3_ISP_IOMEM_PREV, ISPPRV_AVE);
 
-	if (pipe->prv_out == PREVIEW_MEM) {
-		prevsdroff = pipe->prv_out_w * ISP_BYTES_PER_PIXEL;
+	if (pipe->out.path == PREVIEW_MEM) {
+		prevsdroff = pipe->out.image.width * ISP_BYTES_PER_PIXEL;
 		if ((prevsdroff & ISP_32B_BOUNDARY_OFFSET) != prevsdroff) {
 			DPRINTK_ISPPREV("ISP_WARN: Preview output buffer line"
 					" size is truncated"
@@ -1666,7 +1751,7 @@ int isppreview_s_pipeline(struct isp_prev_device *isp_prev,
 		isppreview_config_outlineoffset(isp_prev, prevsdroff);
 	}
 
-	if (pipe->out_pix.pixelformat == V4L2_PIX_FMT_UYVY)
+	if (pipe->out.image.pixelformat == V4L2_PIX_FMT_UYVY)
 		isppreview_config_ycpos(isp_prev, YCPOS_YCrYCb);
 	else
 		isppreview_config_ycpos(isp_prev, YCPOS_CrYCbY);
@@ -1829,6 +1914,18 @@ int isppreview_busy(struct isp_prev_device *isp_prev)
 EXPORT_SYMBOL_GPL(isppreview_busy);
 
 /**
+ * isppreview_is_enabled - Gets busy state of preview module.
+ **/
+int isppreview_is_enabled(struct isp_prev_device *isp_prev)
+{
+	struct device *dev = to_device(isp_prev);
+
+	return isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR)
+		& ISPPRV_PCR_EN;
+}
+EXPORT_SYMBOL_GPL(isppreview_is_enabled);
+
+/**
  * isppreview_save_context - Saves the values of the preview module registers.
  **/
 void isppreview_save_context(struct device *dev)
@@ -1856,20 +1953,19 @@ EXPORT_SYMBOL_GPL(isppreview_restore_context);
  * Also prints other debug information stored in the preview moduel.
  **/
 void isppreview_print_status(struct isp_prev_device *isp_prev,
-			     struct isp_pipeline *pipe)
+			     struct isp_node *pipe)
 {
 #ifdef OMAP_ISPPREV_DEBUG
 	struct device *dev = to_device(isp_prev);
 #endif
 
 	DPRINTK_ISPPREV("Preview Input format =%d, Output Format =%d\n",
-			pipe->prv_in, pipe->prv_out);
+			pipe->in.image.pixelformat,
+			pipe->out.image.pixelformat);
 	DPRINTK_ISPPREV("Accepted CCDC Output (width = %d,Height = %d)\n",
-			pipe->ccdc_out_w,
-			pipe->ccdc_out_h);
+			pipe->in.image.width, pipe->in.image.height);
 	DPRINTK_ISPPREV("Accepted Preview Output (width = %d,Height = %d)\n",
-			pipe->prv_out_w,
-			pipe->prv_out_h);
+			pipe->out.image.width, pipe->out.image.height);
 	DPRINTK_ISPPREV("###ISP_CTRL in preview =0x%x\n",
 			isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN,
 				      ISP_CTRL));
@@ -1888,6 +1984,12 @@ void isppreview_print_status(struct isp_prev_device *isp_prev,
 	DPRINTK_ISPPREV("###PRV VERT_INFO =0x%x\n",
 			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
 				      ISPPRV_VERT_INFO));
+	DPRINTK_ISPPREV("###PRV RSDR_ADDR =0x%x\n",
+			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
+				      ISPPRV_RSDR_ADDR));
+	DPRINTK_ISPPREV("###PRV RADR_OFFSET =0x%x\n",
+			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
+				      ISPPRV_RADR_OFFSET));
 	DPRINTK_ISPPREV("###PRV WSDR_ADDR =0x%x\n",
 			isp_reg_readl(dev, OMAP3_ISP_IOMEM_PREV,
 				      ISPPRV_WSDR_ADDR));

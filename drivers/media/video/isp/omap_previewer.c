@@ -117,61 +117,6 @@ static int prev_get_status(struct prev_status *status)
 }
 
 /**
- * prev_hw_setup - Stores the desired configuration in the proper HW registers
- * @config: Structure containing the desired configuration for ISP preview
- *          module.
- *
- * Reads the structure sent, and modifies the desired registers.
- *
- * Always returns 0.
- **/
-static int prev_hw_setup(struct prev_params *config)
-{
-	struct isp_device *isp = dev_get_drvdata(prevdevice->isp);
-
-	dev_dbg(prev_dev, "%s: Enter\n", __func__);
-
-	if (config->features & PREV_AVERAGER)
-		isppreview_config_averager(&isp->isp_prev, config->average);
-	else
-		isppreview_config_averager(&isp->isp_prev, 0);
-
-	if (config->features & PREV_INVERSE_ALAW)
-		isppreview_enable_invalaw(&isp->isp_prev, 1);
-	else
-		isppreview_enable_invalaw(&isp->isp_prev, 0);
-
-	if (config->features & PREV_HORZ_MEDIAN_FILTER) {
-		isppreview_config_hmed(&isp->isp_prev, config->hmf_params);
-		isppreview_enable_hmed(&isp->isp_prev, 1);
-	} else
-		isppreview_enable_hmed(&isp->isp_prev, 0);
-
-	if (config->features & PREV_DARK_FRAME_SUBTRACT) {
-		dev_dbg(prev_dev, "%s: darkaddr %08x, darklineoffset %d\n",
-			__func__,
-			config->drkf_params.addr,
-			config->drkf_params.offset);
-		isppreview_set_darkaddr(&isp->isp_prev,
-					config->drkf_params.addr);
-		isppreview_config_darklineoffset(&isp->isp_prev,
-						 config->drkf_params.offset);
-		isppreview_enable_drkframe(&isp->isp_prev, 1);
-	} else
-		isppreview_enable_drkframe(&isp->isp_prev, 0);
-
-	if (config->features & PREV_LENS_SHADING) {
-		isppreview_config_drkf_shadcomp(&isp->isp_prev,
-						config->lens_shading_shift);
-		isppreview_enable_shadcomp(&isp->isp_prev, 1);
-	} else
-		isppreview_enable_shadcomp(&isp->isp_prev, 0);
-
-	dev_dbg(prev_dev, "%s: Exit\n", __func__);
-	return 0;
-}
-
-/**
  * prev_validate_params - Validate configuration parameters for Preview Wrapper
  * @params: Structure containing configuration parameters
  *
@@ -332,29 +277,6 @@ static void prev_unset_isp_ctrl(void)
 }
 
 /**
- * prev_config_size - Set input width and height in previewer registers
- * @input_w: input width
- * @inout_h: input height
- *
- * Returns 0 if successful, or -EINVAL if the sent parameters are invalid.
- **/
-static void prev_config_size(u32 input_w, u32 input_h)
-{
-	isp_reg_writel(prevdevice->isp,
-		       (0 << ISPPRV_HORZ_INFO_SPH_SHIFT) | (input_w - 1),
-		       OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO);
-
-	isp_reg_writel(prevdevice->isp,
-		       (0 << ISPPRV_VERT_INFO_SLV_SHIFT) | (input_h - 1),
-		       OMAP3_ISP_IOMEM_PREV, ISPPRV_VERT_INFO);
-
-	isp_reg_writel(prevdevice->isp,
-		       (ISPPRV_AVE_EVENDIST_2 << ISPPRV_AVE_EVENDIST_SHIFT) |
-		       (ISPPRV_AVE_ODDDIST_2 << ISPPRV_AVE_ODDDIST_SHIFT),
-		       OMAP3_ISP_IOMEM_PREV, ISPPRV_AVE);
-}
-
-/**
  * prev_negotiate_output_size - Calculate previewer engine output size
  * @device: Structure containing ISP preview wrapper global information
  * @out_hsize: Return horizontal size
@@ -374,20 +296,30 @@ static int prev_negotiate_output_size(struct prev_device *prvdev,
 	else
 		bpp = 2;
 
-	pipe.prv_in = PRV_RAW_MEM;
-	pipe.prv_out = PREVIEW_MEM;
-	pipe.ccdc_out_w = prvdev->params->size_params.hsize;
-	pipe.ccdc_out_w_img = prvdev->params->size_params.hsize;
-	pipe.ccdc_out_h = prvdev->params->size_params.vsize;
+	pipe.prv.in.path = PRV_RAW_MEM;
+	pipe.prv.in.image.width = prvdev->params->size_params.hsize;
+	pipe.prv.in.image.height = prvdev->params->size_params.vsize;
+	pipe.prv.in.crop.left = prvdev->params->size_params.hstart;
+	pipe.prv.in.crop.width = pipe.prv.in.image.width;
+	pipe.prv.in.crop.top = prvdev->params->size_params.vstart;
+	pipe.prv.in.crop.height = pipe.prv.in.image.height;
+	pipe.prv.in.image.bytesperline = prvdev->params->size_params.in_pitch;
+	pipe.prv.out = pipe.prv.in;
+	pipe.prv.out.path = PREVIEW_MEM;
+	pipe.prv.out.crop.left = 0;
+	pipe.prv.out.crop.width = pipe.prv.out.image.width;
+	pipe.prv.out.crop.top = 0;
+	pipe.prv.out.crop.height = pipe.prv.out.image.height;
+	pipe.prv.out.image.bytesperline = prvdev->params->size_params.out_pitch;
 
-	ret = isppreview_config_datapath(&isp->isp_prev, &pipe);
+	ret = isppreview_config_datapath(&isp->isp_prev, &pipe.prv);
 	if (ret) {
 		dev_err(prev_dev, "%s: ERROR while configure isp "
 			"preview datapath!\n", __func__);
 		return ret;
 	}
 
-	ret = isppreview_try_pipeline(&isp->isp_prev, &pipe);
+	ret = isppreview_try_pipeline(&isp->isp_prev, &pipe.prv);
 	if (ret) {
 		dev_err(prev_dev, "%s: ERROR while try isp preview size!\n",
 			__func__);
@@ -396,10 +328,10 @@ static int prev_negotiate_output_size(struct prev_device *prvdev,
 
 	dev_dbg(prev_dev, "%s: try size %dx%d -> %dx%d\n", __func__,
 		pipe.ccdc_out_w_img, pipe.ccdc_out_h,
-		pipe.prv_out_w, pipe.prv_out_h);
+		pipe.prv.out.image.width, pipe.prv.out.image.height);
 
-	*out_hsize = pipe.prv_out_w_img;
-	*out_vsize = pipe.prv_out_h_img;
+	*out_hsize = pipe.prv.out.crop.width;
+	*out_vsize = pipe.prv.out.crop.height;
 	return 0;
 }
 
@@ -451,12 +383,12 @@ static int prev_do_preview(struct prev_device *device)
 	if (ret)
 		goto out;
 
-	prev_config_size(device->params->size_params.hsize,
-					device->params->size_params.vsize);
+	isppreview_set_size(&isp->isp_prev, device->params->size_params.hsize,
+			    device->params->size_params.vsize);
 
 	device->params->drkf_params.addr = device->isp_addr_lsc;
 
-	prev_hw_setup(device->params);
+	isppreview_config_features(&isp->isp_prev, device->params);
 
 	ret = isppreview_set_inaddr(&isp->isp_prev, device->isp_addr_read);
 	if (ret)
