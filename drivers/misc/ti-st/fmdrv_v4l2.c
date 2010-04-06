@@ -265,7 +265,7 @@ static int fm_v4l2_vidioc_queryctrl(struct file *file, void *priv,
 		return ret;
 	}
 	/* Search control ID and copy its properties */
-	for (index = 0; index < ARRAY_SIZE(fmdrv_v4l2_queryctrl); index++) {
+	for (index = 0; index < NO_OF_ENTRIES_IN_ARRAY(fmdrv_v4l2_queryctrl); index++) {
 		if (qc->id && qc->id == fmdrv_v4l2_queryctrl[index].id) {
 			memcpy(qc, &(fmdrv_v4l2_queryctrl[index]), sizeof(*qc));
 			ret = 0;

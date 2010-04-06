@@ -429,7 +429,7 @@ static int __fm_core_send_cmd(unsigned char fmreg_index, void *payload,
 		cmd_hdr->rd_wr = fm_reg_info[fmreg_index].type;
 		cmd_hdr->dlen = payload_len;
 		fm_cb(skb)->fm_opcode = fm_reg_info[fmreg_index].opcode;
-	} else {
+	} else if (payload !=NULL) {
 		fm_cb(skb)->fm_opcode = *((char *)payload + 2);
 	}
 	/* Fill payload data */

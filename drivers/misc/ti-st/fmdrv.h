@@ -84,6 +84,9 @@
 /* Seek operation timeout */
 #define FM_DRV_RX_SEEK_TIMEOUT (20*HZ)	/* 20 seconds */
 
+/* To know the number of entries in array */
+#define NO_OF_ENTRIES_IN_ARRAY(array) (sizeof(array) / sizeof(array[0]))
+
 /* Firmware download option */
 enum {
 	FM_MODE_OFF,
