@@ -41,7 +41,6 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/io.h>
-#include <linux/i2c-omap.h>
 
 #include <plat/i2c.h>
 
@@ -177,9 +176,6 @@ struct omap_i2c_dev {
 	int			irq;
 	struct completion	cmd_complete;
 	struct resource		*ioarea;
-	u32			latency;	/* maximum mpu wkup latency */
-	void			(*set_mpu_wkup_lat)(struct device *dev,
-						    int latency);
 	u32			speed;		/* Speed of bus in Khz */
 	u16			cmd_err;
 	u8			*buf;
@@ -200,6 +196,9 @@ struct omap_i2c_dev {
 	u16			bufstate;
 	u16			syscstate;
 	u16			westate;
+	u32			latency;	/* maximum mpu wkup latency */
+	void			(*set_mpu_wkup_lat)(struct device *dev,
+								int latency);
 };
 
 const static u8 reg_map[] = {
@@ -917,7 +916,6 @@ omap_i2c_probe(struct platform_device *pdev)
 	struct omap_i2c_dev	*dev;
 	struct i2c_adapter	*adap;
 	struct resource		*mem, *irq, *ioarea;
-	struct omap_i2c_bus_platform_data *pdata = pdev->dev.platform_data;
 	irq_handler_t isr;
 	struct omap_i2c_platform_data *pdata;
 	int r;
@@ -949,13 +947,11 @@ omap_i2c_probe(struct platform_device *pdev)
 	}
 
 	pdata = pdev->dev.platform_data;
-	if (pdata != NULL) {
+	if (pdata->rate)
 		speed = pdata->rate;
-		dev->set_mpu_wkup_lat = pdata->set_mpu_wkup_lat;
-	} else {
-		speed = 100;	/* Default speed */
-		dev->set_mpu_wkup_lat = NULL;
-	}
+	else
+		speed = 100;	/* Defualt speed */
+	dev->set_mpu_wkup_lat = pdata->set_mpu_wkup_lat;
 
 	dev->speed = speed;
 	dev->idle = 1;
