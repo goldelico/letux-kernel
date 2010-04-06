@@ -23,23 +23,31 @@
 #include <linux/serial_reg.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/delay.h>
+#include <linux/platform_device.h>
+#include <linux/serial_8250.h>
+
+#include <plat/omap-serial.h>
 
 #include <plat/common.h>
 #include <plat/board.h>
 #include <plat/clock.h>
 #include <plat/control.h>
-
 #include <plat/dma.h>
-#include <plat/omap-serial.h>
+#include <plat/omap_hwmod.h>
+#include <plat/omap_device.h>
 
 #include "prm.h"
 #include "pm.h"
+#include "cm.h"
 #include "prm-regbits-34xx.h"
 
 #define UART_OMAP_NO_EMPTY_FIFO_READ_IP_REV	0x52
 #define UART_OMAP_WER		0x17	/* Wake-up enable register */
 
 #define DEFAULT_TIMEOUT (5 * HZ)
+
+#define MAX_UART_HWMOD_NAME_LEN		16
 
 struct omap_uart_state {
 	int num;
@@ -51,6 +59,7 @@ struct omap_uart_state {
 	void __iomem *wk_en;
 	u32 wk_mask;
 	u32 padconf;
+	u32 dma_enabled;
 
 	struct clk *ick;
 	struct clk *fck;
@@ -63,7 +72,8 @@ struct omap_uart_state {
 	resource_size_t mapbase;
 
 	struct list_head node;
-	struct platform_device pdev;
+	struct omap_hwmod *oh;
+	struct platform_device *pdev;
 
 #if defined(CONFIG_ARCH_OMAP3) && defined(CONFIG_PM)
 	int context_valid;
@@ -80,252 +90,29 @@ struct omap_uart_state {
 
 static LIST_HEAD(uart_list);
 
-#ifndef CONFIG_SERIAL_OMAP
-static struct plat_serial8250_port serial_platform_data0[] = {
-	{
-		.mapbase	= OMAP_UART1_BASE,
-		.irq		= 72,
-		.flags		= UPF_BOOT_AUTOCONF,
-		.iotype		= UPIO_MEM,
-		.regshift	= 2,
-		.uartclk	= OMAP24XX_BASE_BAUD * 16,
-	}, {
-		.flags		= 0
-	}
-};
+static u8 num_uarts;
 
-static struct plat_serial8250_port serial_platform_data1[] = {
+static struct omap_device_pm_latency omap_uart_latency[] = {
 	{
-		.mapbase	= OMAP_UART2_BASE,
-		.irq		= 73,
-		.flags		= UPF_BOOT_AUTOCONF,
-		.iotype		= UPIO_MEM,
-		.regshift	= 2,
-		.uartclk	= OMAP24XX_BASE_BAUD * 16,
-	}, {
-		.flags		= 0
-	}
-};
-
-static struct plat_serial8250_port serial_platform_data2[] = {
-	{
-		.mapbase	= OMAP_UART3_BASE,
-		.irq		= 74,
-		.flags		= UPF_BOOT_AUTOCONF,
-		.iotype		= UPIO_MEM,
-		.regshift	= 2,
-		.uartclk	= OMAP24XX_BASE_BAUD * 16,
-	}, {
-		.flags		= 0
-	}
-};
-
-#ifdef CONFIG_ARCH_OMAP4
-static struct plat_serial8250_port serial_platform_data3[] = {
-	{
-		.mapbase	= OMAP_UART4_BASE,
-		.irq		= 70,
-		.flags		= UPF_BOOT_AUTOCONF,
-		.iotype		= UPIO_MEM,
-		.regshift	= 2,
-		.uartclk	= OMAP24XX_BASE_BAUD * 16,
-	}, {
-		.flags		= 0
-	}
-};
-#endif
-
-static struct omap_uart_state omap_uart[] = {
-	{
-		.pdev = {
-			.name			= "serial8250",
-			.id			= PLAT8250_DEV_PLATFORM,
-			.dev			= {
-				.platform_data	= serial_platform_data0,
-			},
-		},
-	}, {
-		.pdev = {
-			.name			= "serial8250",
-			.id			= PLAT8250_DEV_PLATFORM1,
-			.dev			= {
-				.platform_data	= serial_platform_data1,
-			},
-		},
-	}, {
-		.pdev = {
-			.name			= "serial8250",
-			.id			= PLAT8250_DEV_PLATFORM2,
-			.dev			= {
-				.platform_data	= serial_platform_data2,
-			},
-		},
+		.deactivate_func = omap_device_idle_hwmods,
+		.activate_func   = omap_device_enable_hwmods,
+		.flags = OMAP_DEVICE_LATENCY_AUTO_ADJUST,
 	},
-#ifdef CONFIG_ARCH_OMAP4
-	{
-		.pdev = {
-			.name			= "serial8250",
-			.id			= 3,
-			.dev			= {
-				.platform_data	= serial_platform_data3,
-			},
-		},
-	},
-#endif
 };
 
-#else
-static struct uart_port_info uart1_port_info = {
-		.dma_enabled	= 0,
-		.uartclk	= OMAP24XX_BASE_BAUD * 16
-};
+static inline unsigned int __serial_read_reg(struct uart_port *up,
+					int offset)
+{
+	offset <<= up->regshift;
+	return (unsigned int)__raw_readb(up->membase + offset);
+}
 
-static struct uart_port_info uart2_port_info = {
-		.dma_enabled	= 0,
-		.uartclk	= OMAP24XX_BASE_BAUD * 16
-};
-
-static struct uart_port_info uart3_port_info = {
-		.dma_enabled	= 0,
-		.uartclk	= OMAP24XX_BASE_BAUD * 16
-};
-
-#ifdef CONFIG_ARCH_OMAP4
-static struct uart_port_info uart4_port_info = {
-		.dma_enabled	= 0,
-		.uartclk	= OMAP24XX_BASE_BAUD * 16
-};
-#endif
-
-static struct resource omap_uart1_resources[] = {
-	{
-		.start          = OMAP_UART1_BASE,
-		.end            = OMAP_UART1_BASE + 0x3ff,
-		.flags          = IORESOURCE_MEM,
-	}, {
-		/* UART1 IRQ - 72*/
-		.start          = INT_24XX_UART1_IRQ,
-		.flags          = IORESOURCE_IRQ,
-	}, {
-		/* UART1 TX DMA CHANNEL -S_DMA_48- */
-		.start		= OMAP24XX_DMA_UART1_TX,
-		.flags		= IORESOURCE_DMA,
-	}, {
-		/* UART1 RX DMA CHANNEL -S_DMA_49- */
-		.start		= OMAP24XX_DMA_UART1_RX,
-		.flags		= IORESOURCE_DMA,
-	}
-};
-
-static struct resource omap_uart2_resources[] = {
-	{
-		.start          = OMAP_UART2_BASE,
-		.end            = OMAP_UART2_BASE + 0x3ff,
-		.flags          = IORESOURCE_MEM,
-	}, {
-		/* UART2 IRQ - 73*/
-		.start          = INT_24XX_UART2_IRQ,
-		.flags          = IORESOURCE_IRQ,
-	}, {
-		/* UART2 TX DMA CHANNEL -S_DMA_50- */
-		.start		= OMAP24XX_DMA_UART2_TX,
-		.flags		= IORESOURCE_DMA,
-	}, {
-		/* UART2 RX DMA CHANNEL -S_DMA_51- */
-		.start		= OMAP24XX_DMA_UART2_RX,
-		.flags		= IORESOURCE_DMA,
-	}
-};
-
-static struct resource omap_uart3_resources[] = {
-	{
-		.start          = OMAP_UART3_BASE,
-		.end            = OMAP_UART3_BASE + 0x3ff,
-		.flags          = IORESOURCE_MEM,
-	}, {
-		/* UART3 IRQ - 74*/
-		.start          = INT_24XX_UART3_IRQ,
-		.flags          = IORESOURCE_IRQ,
-	}, {
-		/* UART3 TX DMA CHANNEL -S_DMA_52- */
-		.start		= OMAP24XX_DMA_UART3_TX,
-		.flags		= IORESOURCE_DMA,
-	}, {
-		/* UART3 RX DMA CHANNEL -S_DMA_53- */
-		.start		= OMAP24XX_DMA_UART3_RX,
-		.flags		= IORESOURCE_DMA,
-	}
-};
-
-#ifdef CONFIG_ARCH_OMAP4
-static struct resource omap_uart4_resources[] = {
-	{
-		.start          = OMAP_UART4_BASE,
-		.end            = OMAP_UART4_BASE + 0x3ff,
-		.flags          = IORESOURCE_MEM,
-	}, {
-		/* UART4 IRQ - 70*/
-		.start          = 70,
-		.flags          = IORESOURCE_IRQ,
-	}, {
-		/* UART3 TX DMA CHANNEL -S_DMA_54- */
-		.start		= OMAP44XX_DMA_UART4_TX,
-		.flags		= IORESOURCE_DMA,
-	}, {
-		/* UART3 RX DMA CHANNEL -S_DMA_55- */
-		.start		= OMAP44XX_DMA_UART4_RX,
-		.flags		= IORESOURCE_DMA,
-	}
-};
-#endif
-
-static struct omap_uart_state omap_uart[] = {
-	{
-		.pdev = {
-			.name		= DRIVER_NAME,
-			.id		= 0,
-			.num_resources	= ARRAY_SIZE(omap_uart1_resources),
-			.resource	= omap_uart1_resources,
-			.dev		= {
-				.platform_data  = &uart1_port_info
-			},
-		}
-	}, {
-		.pdev = {
-			.name		= DRIVER_NAME,
-			.id		= 1,
-			.num_resources	= ARRAY_SIZE(omap_uart2_resources),
-			.resource	= omap_uart2_resources,
-			.dev		= {
-				.platform_data  = &uart2_port_info,
-			},
-		}
-	}, {
-		.pdev = {
-			.name		= DRIVER_NAME,
-			.id		= 2,
-			.num_resources	= ARRAY_SIZE(omap_uart3_resources),
-			.resource	= omap_uart3_resources,
-			.dev		= {
-				.platform_data  = &uart3_port_info,
-			},
-		}
-	},
-#ifdef CONFIG_ARCH_OMAP4
-	{
-		.pdev = {
-			.name		= DRIVER_NAME,
-			.id		= 3,
-			.num_resources	= ARRAY_SIZE(omap_uart4_resources),
-			.resource	= omap_uart4_resources,
-			.dev		= {
-				.platform_data  = &uart4_port_info,
-			},
-		}
-	},
-#endif
-};
-#endif
+static inline void __serial_write_reg(struct uart_port *up, int offset,
+					int value)
+{
+	offset <<= up->regshift;
+	__raw_writeb(value, up->membase + offset);
+}
 
 static inline unsigned int serial_read_reg(struct omap_uart_state *up,
 					   int offset)
@@ -346,12 +133,12 @@ static inline void serial_write_reg(struct omap_uart_state *up, int offset,
  * properly. Note that the TX watermark initialization may not be needed
  * once the 8250.c watermark handling code is merged.
  */
+
 static inline void __init omap_uart_reset(struct omap_uart_state *p)
 {
 	serial_write_reg(p, UART_OMAP_MDR1, 0x07);
 	serial_write_reg(p, UART_OMAP_SCR, 0x08);
 	serial_write_reg(p, UART_OMAP_MDR1, 0x00);
-	serial_write_reg(p, UART_OMAP_SYSC, (0x02 << 3) | (1 << 2) | (1 << 0));
 }
 
 #if defined(CONFIG_PM) && defined(CONFIG_ARCH_OMAP3)
@@ -379,6 +166,9 @@ static void omap_uart_save_context(struct omap_uart_state *uart)
 static void omap_uart_restore_context(struct omap_uart_state *uart)
 {
 	u16 efr = 0;
+
+	if (!enable_off_mode)
+		return;
 
 	if (!uart->context_valid)
 		return;
@@ -415,9 +205,7 @@ static inline void omap_uart_enable_clocks(struct omap_uart_state *uart)
 	if (uart->clocked)
 		return;
 
-	clk_enable(uart->ick);
-	if (!cpu_is_omap44xx())
-		clk_enable(uart->fck);
+	omap_device_enable(uart->pdev);
 	uart->clocked = 1;
 	omap_uart_restore_context(uart);
 }
@@ -431,9 +219,7 @@ static inline void omap_uart_disable_clocks(struct omap_uart_state *uart)
 
 	omap_uart_save_context(uart);
 	uart->clocked = 0;
-	clk_disable(uart->ick);
-	if (!cpu_is_omap44xx())
-		clk_disable(uart->fck);
+	omap_device_idle(uart->pdev);
 }
 
 static void omap_uart_enable_wakeup(struct omap_uart_state *uart)
@@ -470,18 +256,40 @@ static void omap_uart_disable_wakeup(struct omap_uart_state *uart)
 	}
 }
 
-static void omap_uart_smart_idle_enable(struct omap_uart_state *p,
-					  int enable)
+static inline int omap_uart_smart_idle_enable(struct omap_uart_state *p,
+					       int enable)
 {
-	u16 sysc;
+	u32 sysc;
+	u32 sidle_mask;
+	u8 sidle_shift;
 
-	sysc = serial_read_reg(p, UART_OMAP_SYSC) & 0x7;
-	if (enable)
-		sysc |= 0x2 << 3;
-	else
-		sysc |= 0x1 << 3;
+	if (!p->oh->sysconfig->sysc_fields) {
+		WARN(!p->oh->sysconfig->sysc_fields, "offset struct for "
+				"sysconfig not provided!\n");
+		return -EINVAL;
+	}
 
-	serial_write_reg(p, UART_OMAP_SYSC, sysc);
+	sidle_shift = p->oh->sysconfig->sysc_fields->sidle_shift;
+	sidle_mask = (0x3 << sidle_shift);
+
+	sysc = omap_hwmod_read_sysc(p->oh);
+	sysc &= ~sidle_mask;
+
+	if (enable) {
+		/**
+		 * Errata 2.15: [UART]:Cannot Acknowledge Idle Requests
+		 * in Smartidle Mode When Configured for DMA Operations.
+		 */
+		if (p->dma_enabled)
+			sysc |= 0x0 << sidle_shift;
+		else
+			sysc |= 0x2 << sidle_shift;
+	} else {
+		sysc |= 0x1 << sidle_shift;
+	}
+	omap_hwmod_write_sysc(sysc, p->oh);
+
+	return 0;
 }
 
 static void omap_uart_block_sleep(struct omap_uart_state *uart)
@@ -498,7 +306,7 @@ static void omap_uart_block_sleep(struct omap_uart_state *uart)
 
 static void omap_uart_allow_sleep(struct omap_uart_state *uart)
 {
-	if (device_may_wakeup(&uart->pdev.dev))
+	if (device_may_wakeup(&uart->pdev->dev))
 		omap_uart_enable_wakeup(uart);
 	else
 		omap_uart_disable_wakeup(uart);
@@ -594,6 +402,7 @@ int omap_uart_can_sleep(void)
  * UART will not idle or sleep for its timeout period.
  *
  **/
+/* static int first_interrupt; */
 static irqreturn_t omap_uart_interrupt(int irq, void *dev_id)
 {
 	struct omap_uart_state *uart = dev_id;
@@ -668,8 +477,8 @@ static void omap_uart_idle_init(struct omap_uart_state *uart)
 	}
 
 	uart->irqflags |= IRQF_SHARED;
-	ret = request_irq(uart->irq, omap_uart_interrupt, IRQF_SHARED,
-			  "serial idle", (void *)uart);
+	ret = request_threaded_irq(uart->irq, NULL, omap_uart_interrupt,
+				   IRQF_SHARED, "serial idle", (void *)uart);
 	WARN_ON(ret);
 }
 
@@ -680,8 +489,11 @@ void omap_uart_enable_irqs(int enable)
 
 	list_for_each_entry(uart, &uart_list, node) {
 		if (enable)
-			ret = request_irq(uart->irq, omap_uart_interrupt,
-				IRQF_SHARED, "serial idle", (void *)uart);
+			ret = request_threaded_irq(uart->irq, NULL,
+						   omap_uart_interrupt,
+						   IRQF_SHARED,
+						   "serial idle",
+						   (void *)uart);
 		else
 			free_irq(uart->irq, (void *)uart);
 	}
@@ -691,10 +503,9 @@ static ssize_t sleep_timeout_show(struct device *dev,
 				  struct device_attribute *attr,
 				  char *buf)
 {
-	struct platform_device *pdev = container_of(dev,
-					struct platform_device, dev);
-	struct omap_uart_state *uart = container_of(pdev,
-					struct omap_uart_state, pdev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_device *odev = to_omap_device(pdev);
+	struct omap_uart_state *uart = odev->hwmods[0]->dev_attr;
 
 	return sprintf(buf, "%u\n", uart->timeout / HZ);
 }
@@ -703,10 +514,9 @@ static ssize_t sleep_timeout_store(struct device *dev,
 				   struct device_attribute *attr,
 				   const char *buf, size_t n)
 {
-	struct platform_device *pdev = container_of(dev,
-					struct platform_device, dev);
-	struct omap_uart_state *uart = container_of(pdev,
-					struct omap_uart_state, pdev);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_device *odev = to_omap_device(pdev);
+	struct omap_uart_state *uart = odev->hwmods[0]->dev_attr;
 	unsigned int value;
 
 	if (sscanf(buf, "%u", &value) != 1) {
@@ -727,11 +537,16 @@ static ssize_t sleep_timeout_store(struct device *dev,
 DEVICE_ATTR(sleep_timeout, 0644, sleep_timeout_show, sleep_timeout_store);
 #define DEV_CREATE_FILE(dev, attr) WARN_ON(device_create_file(dev, attr))
 #else
-static inline void omap_uart_idle_init(struct omap_uart_state *uart) {}
+static inline void omap_uart_idle_init(struct omap_uart_state *uart)
+{
+}
+static void omap_uart_block_sleep(struct omap_uart_state *uart)
+{
+}
 #define DEV_CREATE_FILE(dev, attr)
 #endif /* CONFIG_PM */
 
-#ifndef CONFIG_SERIAL_OMAP
+#ifdef CONFIG_SERIAL_8250
 /*
  * Override the default 8250 read handler: mem_serial_in()
  * Empty RX fifo read causes an abort on omap3630 and omap4
@@ -742,96 +557,47 @@ static unsigned int serial_in_override(struct uart_port *up, int offset)
 {
 	if (UART_RX == offset) {
 		unsigned int lsr;
-		lsr = serial_read_reg(&omap_uart[up->line], UART_LSR);
+		lsr = __serial_read_reg(up, UART_LSR);
 		if (!(lsr & UART_LSR_DR))
 			return -EPERM;
 	}
-	return serial_read_reg(&omap_uart[up->line], offset);
+	return __serial_read_reg(up, offset);
 }
 #endif
-
-static void omap_uart_early_port_init(struct omap_uart_state *uart)
-{
-	switch (uart->num) {
-	case 0:
-		uart->irq	= INT_24XX_UART1_IRQ;
-		uart->mapbase	= OMAP_UART1_BASE;
-		break;
-	case 1:
-		uart->irq	= INT_24XX_UART2_IRQ;
-		uart->mapbase	= OMAP_UART2_BASE;
-		break;
-	case 2:
-		uart->irq	= INT_24XX_UART3_IRQ;
-		uart->mapbase	= OMAP_UART3_BASE;
-		break;
-#ifdef CONFIG_ARCH_OMAP4
-	case 3:
-		uart->irq	= 70;
-		uart->mapbase	= OMAP_UART4_BASE;
-		break;
-#endif
-	}
-	uart->regshift = 2;
-	uart->irqflags = IRQF_SHARED;
-}
 
 void __init omap_serial_early_init(void)
 {
-	int i;
-	char name[16];
+	int i = 0;
 
-	/*
-	 * Make sure the serial ports are muxed on at this point.
-	 * You have to mux them off in device drivers later on
-	 * if not needed.
-	 */
+	do {
+		char oh_name[MAX_UART_HWMOD_NAME_LEN];
+		struct omap_hwmod *oh;
+		struct omap_uart_state *uart;
 
-	for (i = 0; i < ARRAY_SIZE(omap_uart); i++) {
-		struct omap_uart_state *uart = &omap_uart[i];
+		snprintf(oh_name, MAX_UART_HWMOD_NAME_LEN,
+			 "uart%d", i + 1);
+		oh = omap_hwmod_lookup(oh_name);
+		if (!oh)
+			break;
 
-		uart->num = i;
-		omap_uart_early_port_init(uart);
+		uart = kzalloc(sizeof(struct omap_uart_state), GFP_KERNEL);
+		if (WARN_ON(!uart))
+			return;
 
-		/*
-		 * Module 4KB + L4 interconnect 4KB
-		 * Static mapping, never released
-		 */
-		uart->membase = ioremap(uart->mapbase, SZ_8K);
-		if (!uart->membase) {
-			printk(KERN_ERR "ioremap failed for uart%i\n", i + 1);
-			continue;
-		}
+		uart->oh = oh;
+		uart->num = i++;
+		list_add_tail(&uart->node, &uart_list);
+		num_uarts++;
 
-		if (!cpu_is_omap44xx())
-			sprintf(name, "uart%d_ick", i+1);
-		else
-			sprintf(name, "uart%d_ck", i+1);
-		uart->ick = clk_get(NULL, name);
-		if (IS_ERR(uart->ick)) {
-			printk(KERN_ERR "Could not get uart%d_ick\n", i+1);
-			uart->ick = NULL;
-		}
+		/* NOTE: omap_hwmod_init() has not yet been called,
+		 *       so no hwmod functions will work yet. */
+#ifdef CONFIG_DEBUG_LL
+		/* For DEBUG_LL, don't reset/idle the UARTs otherwise
+		 * early UART access will fault. */
+		uart->oh->flags |= HWMOD_INIT_NO_IDLE;
+#endif
+	} while(1);
 
-		if (!cpu_is_omap44xx()) {
-			sprintf(name, "uart%d_fck", i+1);
-			uart->fck = clk_get(NULL, name);
-			if (IS_ERR(uart->fck)) {
-				printk(KERN_ERR "Could not get uart%d_fck\n",
-									 i+1);
-				uart->fck = NULL;
-			}
-		}
-
-		/* FIXME: Remove this once the clkdev is ready */
-		if (!cpu_is_omap44xx()) {
-			if (!uart->ick || !uart->fck)
-				continue;
-		}
-
-		if (cpu_is_omap44xx())
-			uart->irq += 32;
-	}
 }
 
 /**
@@ -848,64 +614,33 @@ void __init omap_serial_early_init(void)
 void __init omap_serial_init_port(int port)
 {
 	struct omap_uart_state *uart;
-	struct platform_device *pdev;
-	struct device *dev;
-#ifndef CONFIG_SERIAL_OMAP
-	struct plat_serial8250_port *p;
+	struct omap_hwmod *oh;
+	struct omap_device *od;
+	void *pdata = NULL;
+	u32 pdata_size = 0;
+	char *name;
+#ifdef CONFIG_SERIAL_8250
+	struct plat_serial8250_port ports[2] = {
+		{},
+		{.flags = 0},
+	};
+	struct plat_serial8250_port *p = &ports[0];
+#endif
+#ifdef CONFIG_SERIAL_OMAP
+	struct omap_uart_port_info omap_up;
 #endif
 
 	BUG_ON(port < 0);
-#if 1
-	BUG_ON(port >= ARRAY_SIZE(omap_uart));
-
-	uart = &omap_uart[port];
-	pdev = &uart->pdev;
-	dev = &pdev->dev;
-
-#ifndef CONFIG_SERIAL_OMAP
-	p = dev->platform_data;
-	p->membase = uart->membase;
-	p->private_data = uart;
-	if (cpu_is_omap44xx())
-		p->irq += 32;
-#endif
-	omap_uart_enable_clocks(uart);
-	omap_uart_reset(uart);
-	omap_uart_idle_init(uart);
-	list_add_tail(&uart->node, &uart_list);
-
-#ifndef CONFIG_SERIAL_OMAP
-	/* omap44xx: Never read empty UART fifo
-	 * omap3xxx: Never read empty UART fifo on UARTs
-	 * with IP rev >=0x52
-	 */
-	if (cpu_is_omap44xx()) {
-		p->serial_in = serial_in_override;
-	} else if ((serial_read_reg(uart, UART_OMAP_MVER) & 0xFF)
-			>= UART_OMAP_NO_EMPTY_FIFO_READ_IP_REV) {
-		p->serial_in = serial_in_override;
-	}
-#else
 	BUG_ON(port >= num_uarts);
 
 	list_for_each_entry(uart, &uart_list, node)
 		if (port == uart->num)
 			break;
 	{
-
-		struct omap_hwmod *oh = uart->oh;
-		struct omap_device *od;
-		void *pdata = NULL;
-		u32 pdata_size = 0;
-
-		struct plat_serial8250_port ports[2] = {
-			{},
-			{.flags = 0},
-		};
-		struct plat_serial8250_port *p = &ports[0];
-
-		name = "serial8250";
+		oh = uart->oh;
 		uart->dma_enabled = 0;
+#ifdef CONFIG_SERIAL_8250
+		name = "serial8250";
 
 		/*
 		 * !! 8250 driver does not use standard IORESOURCE* It
@@ -936,6 +671,20 @@ void __init omap_serial_init_port(int port)
 
 		pdata = &ports[0];
 		pdata_size = 2 * sizeof(struct plat_serial8250_port);
+#endif
+#ifdef CONFIG_SERIAL_OMAP
+		name = DRIVER_NAME;
+
+		omap_up.dma_enabled = uart->dma_enabled;
+		omap_up.uartclk = OMAP24XX_BASE_BAUD * 16;
+		omap_up.mapbase = oh->slaves[0]->addr->pa_start;
+		omap_up.membase = oh->_rt_va;
+		omap_up.irqflags = IRQF_SHARED;
+		omap_up.flags = UPF_BOOT_AUTOCONF | UPF_SHARE_IRQ;
+
+		pdata = &omap_up;
+		pdata_size = sizeof(struct omap_uart_port_info);
+#endif
 
 		if (WARN_ON(!oh))
 			return;
@@ -962,15 +711,27 @@ void __init omap_serial_init_port(int port)
 		 */
 		omap_hwmod_idle(uart->oh);
 #endif
-#endif
+		omap_device_enable(uart->pdev);
+		omap_uart_idle_init(uart);
+		omap_uart_reset(uart);
+		omap_hwmod_enable_wakeup(uart->oh);
+		omap_device_idle(uart->pdev);
 
-	if (WARN_ON(platform_device_register(pdev)))
-		return;
+		/*
+		 * Need to block sleep long enough for interrupt driven
+		 * driver to start.  Console driver is in polling mode
+		 * so device needs to be kept enabled while polling driver
+		 * is in use.
+		 */
+		uart->timeout = (30 * HZ);
+		omap_uart_block_sleep(uart);
+		uart->timeout = DEFAULT_TIMEOUT;
 
-	if ((cpu_is_omap34xx() && uart->padconf) ||
-	    (uart->wk_en && uart->wk_mask)) {
-		device_init_wakeup(dev, true);
-		DEV_CREATE_FILE(dev, &dev_attr_sleep_timeout);
+		if ((cpu_is_omap34xx() && uart->padconf) ||
+		    (uart->wk_en && uart->wk_mask)) {
+			device_init_wakeup(&od->pdev.dev, true);
+			DEV_CREATE_FILE(&od->pdev.dev, &dev_attr_sleep_timeout);
+		}
 	}
 }
 
@@ -983,8 +744,8 @@ void __init omap_serial_init_port(int port)
  */
 void __init omap_serial_init(void)
 {
-	int i;
+	struct omap_uart_state *uart;
 
-	for (i = 0; i < ARRAY_SIZE(omap_uart); i++)
-		omap_serial_init_port(i);
+	list_for_each_entry(uart, &uart_list, node)
+		omap_serial_init_port(uart->num);
 }
