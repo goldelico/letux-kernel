@@ -717,4 +717,26 @@ struct ispprv_update_config {
 	__u32 *blue_gamma;
 };
 
+/**
+ * struct struct isp_pad - Structure for ISP engines input/output config.
+ * @pad   : Identifier of data path.
+ * @image : Format of image and sizes with padding.
+ * @crop  : Image crop.
+ */
+struct isp_pad {
+	char path;
+	struct v4l2_pix_format image;
+	struct v4l2_rect crop;
+};
+
+/**
+ * struct isp_node - Structure for configuration of one "ISP" engine.
+ * @in  : Engine input parameters.
+ * @out : Engine output parameters.
+ */
+struct isp_node {
+	struct isp_pad in;
+	struct isp_pad out;
+};
+
 #endif /* OMAP_ISP_USER_H */
