@@ -1371,6 +1371,7 @@ static int omap_vout_release(struct file *file)
 	    ((flg_720 == VIDEO_720_RESIZER_N_STREAMING || use_isp_resizer) &&
 	     (rsz_configured != -1))) {
 		rsz_put_resource();
+		rsz_configured = 0;
 		flg_720 = VIDEO_720_DISABLE;
 		use_isp_resizer = 0;
 	}
