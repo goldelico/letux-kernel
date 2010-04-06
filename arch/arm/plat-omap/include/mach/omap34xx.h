@@ -122,7 +122,14 @@
 #define MAX_VDD1_OPP	(omap_pm_get_max_vdd1_opp())
 #define MIN_VDD2_OPP	(omap_pm_get_min_vdd2_opp())
 #define MAX_VDD2_OPP	(omap_pm_get_max_vdd2_opp())
-#define VDD1_THRESHOLD  MAX_VDD2_OPP
+/*
+ * scale VDD2 OPP when VDD1 is above OPP3
+ * REVISIT: Need to check with h/w; for what VDD1 freq
+ * the L3 bandwith needs to be bumped to 2. Power
+ * measurement results shows scaling VDD2 to OPP2 when
+ * VDD1 is above 3 is optimal.
+ */
+#define VDD1_THRESHOLD	VDD1_OPP3
 
 /* MPU speeds */
 #define S1000M  1000000000
