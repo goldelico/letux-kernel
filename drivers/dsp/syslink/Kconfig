@@ -18,7 +18,8 @@ config  SYSLINK_PROC4430
 
 config MPU_BRIDGE_NOTIFY
 	tristate "OMAP Notify Module"
-	default y 
+	default y
+	select OMAP_MBOX_FWK
 	help
           Notify Module
 
