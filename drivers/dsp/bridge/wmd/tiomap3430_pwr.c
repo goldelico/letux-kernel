@@ -325,9 +325,6 @@ DSP_STATUS WakeDSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 	HW_PWR_IVA2StateGet(pDevContext->prmbase, HW_PWR_DOMAIN_DSP,
 			&pwrState);
 #endif /* CONFIG_BRIDGE_DEBUG */
-
-	/* Set the device state to RUNNIG */
-	pDevContext->dwBrdState = BRD_RUNNING;
 #endif /* CONFIG_PM */
 	return DSP_SOK;
 }

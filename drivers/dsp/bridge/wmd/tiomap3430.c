@@ -666,8 +666,21 @@ static DSP_STATUS WMD_BRD_Start(struct WMD_DEV_CONTEXT *hDevContext,
 		/* Enable Mailbox events and also drain any pending
 		 * stale messages */
 		hDevContext->mbox = omap_mbox_get("dsp");
+
+		if (IS_ERR(hDevContext->mbox)) {
+			hDevContext->mbox = NULL;
+			pr_err("%s: Failed to get dsp mailbox handle\n",
+								__func__);
+			status = DSP_EFAIL;
+		}
+	}
+
+	if (DSP_SUCCEEDED(status)) {
+
 		hDevContext->mbox->rxq->callback =
 						(int (*)(void *))io_mbox_msg;
+		hDevContext->mbox->txq->callback =
+					(int (*)(void *))send_mbox_callback;
 
 		/* Let DSP go */
 		DBG_Trace(DBG_LEVEL7, "Unreset, WMD_BRD_Start\n");
