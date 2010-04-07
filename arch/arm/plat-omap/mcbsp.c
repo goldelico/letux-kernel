@@ -179,6 +179,33 @@ void omap_mcbsp_config(unsigned int id, const struct omap_mcbsp_reg_cfg *config)
 	dev_dbg(mcbsp->dev, "Configuring McBSP%d  phys_base: 0x%08lx\n",
 			mcbsp->id, mcbsp->phys_base);
 
+	/*
+	 * Re-do SYSC settings here. Today McBSP doesn't have OFF mode handling
+	 * It expects client's to take care of this, which is not the right way
+	 * to do. SYSC reg's are generic reg and client needn't know about the
+	 * underlying power settings done by McBSP.
+	 * Audio HAL used to re-start the whole process after suspend/resume
+	 * which used to work as McBSP where getting set again in request() call.
+	 * However, the new Audio HAL doesn't trigger the whole process if
+	 * suspend/resume has hit.  However, it does call config() whenever
+	 * a new streaming is started. And setting the SYSC regtrs here helps.
+	 *
+	 * Other client's of McBSP should as well use config to set the registers
+	 * else they might hit the same issue of sysc context lost over OFF.
+	 *
+	 * REVISIT: The right way to fix; let the McBSP handle context save/restore
+	 * of the common regesters like SYSC based on CORE context id and with LDM
+	 * suspend/resume hooks.
+	 */
+	if (cpu_is_omap34xx()) {
+		u16 w;
+
+		w = OMAP_MCBSP_READ(mcbsp->io_base, SYSCON);
+		w &= ~(ENAWAKEUP | SIDLEMODE(0x03) | CLOCKACTIVITY(0x03));
+		w |= (ENAWAKEUP | SIDLEMODE(0x02) | CLOCKACTIVITY(0x02));
+		OMAP_MCBSP_WRITE(mcbsp->io_base, SYSCON, w);
+	}
+
 	/* We write the given config */
 	OMAP_MCBSP_WRITE(io_base, SPCR2, config->spcr2);
 	OMAP_MCBSP_WRITE(io_base, SPCR1, config->spcr1);
