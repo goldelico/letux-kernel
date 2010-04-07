@@ -813,11 +813,12 @@ static int hdmi_read_edid(struct omap_video_timings *dp)
 	memset(edid, 0, HDMI_EDID_MAX_LENGTH);
 	tp = dp;
 
-	if (HDMI_CORE_DDC_READEDID(HDMI_CORE_SYS, edid) != 0) {
-		printk(KERN_WARNING "HDMI failed to read E-EDID\n");
-		r = -EIO;
+	r = HDMI_CORE_DDC_READEDID(HDMI_CORE_SYS, edid);
+
+	if (r && r != -EINVAL) {
+		printk(KERN_ERR "HDMI failed to read E-EDID\n");
 		goto err;
-	} else {
+	} else if (r == 0) {
 		edid_timings.pixel_clock = dp->pixel_clock;
 		edid_timings.x_res = dp->x_res;
 		edid_timings.y_res = dp->y_res;

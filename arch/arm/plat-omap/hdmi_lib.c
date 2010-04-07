@@ -284,12 +284,12 @@ int hdmi_core_ddc_edid(u8 *pEDID)
 	/* HDMI_CORE_DDC_STATUS__BUS_LOW */
 	if (FLD_GET(l, 6, 6) == 1) {
 		printk("I2C Bus Low?\n\r");
-		return -1;
+		return -EIO;
 	}
 	/* HDMI_CORE_DDC_STATUS__NO_ACK */
 	if (FLD_GET(l, 5, 5) == 1) {
 		printk("I2C No Ack\n\r");
-		return -1;
+		return -EIO;
 	}
 
 	j = 100;
@@ -368,9 +368,10 @@ int hdmi_core_ddc_edid(u8 *pEDID)
 		DBG("%02x\n", pEDID[i]);
 #endif
 	if (checksum != 0) {
-		printk(KERN_ERR "E-EDID checksum failed!!");
-		return -1;
+		printk(KERN_WARNING "E-EDID checksum failed!!");
+		return -EINVAL;
 	}
+
 	return 0;
 }
 
