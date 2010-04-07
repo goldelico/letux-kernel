@@ -377,45 +377,12 @@ DSP_STATUS sm_interrupt_dsp(struct WMD_DEV_CONTEXT *pDevContext,
 				u16 wMbVal)
 {
 	DSP_STATUS status = DSP_SOK;
-	u32 temp;
 
 	if (!pDevContext->mbox)
 		return DSP_SOK;
 
-	if (pDevContext->dwBrdState == BRD_DSP_HIBERNATION ||
-	    pDevContext->dwBrdState == BRD_HIBERNATION) {
-		/* Restart the peripheral clocks */
-		DSP_PeripheralClocks_Enable(pDevContext, NULL);
-
-#ifdef CONFIG_BRIDGE_WDT3
-		dsp_wdt_enable(true);
-#endif
-
-		/* Restore mailbox settings */
-		/* Enabling Dpll in lock mode*/
-		temp = (u32) *((REG_UWORD32 *)
-				((u32) (pDevContext->cmbase) + 0x34));
-		temp = (temp & 0xFFFFFFFE) | 0x1;
-		*((REG_UWORD32 *) ((u32) (pDevContext->cmbase) + 0x34)) =
-			(u32) temp;
-		temp = (u32) *((REG_UWORD32 *)
-				((u32) (pDevContext->cmbase) + 0x4));
-		temp = (temp & 0xFFFFFC8) | 0x37;
-
-		*((REG_UWORD32 *) ((u32) (pDevContext->cmbase) + 0x4)) =
-			(u32) temp;
-		omap_mbox_restore_ctx(pDevContext->mbox);
-
-		/*  Access MMU SYS CONFIG register to generate a short wakeup */
-		temp = (u32) *((REG_UWORD32 *) ((u32)
-					(pDevContext->dwDSPMmuBase) + 0x10));
-
-		pDevContext->dwBrdState = BRD_RUNNING;
-	} else if (pDevContext->dwBrdState == BRD_RETENTION)
-		/* Restart the peripheral clocks */
-		DSP_PeripheralClocks_Enable(pDevContext, NULL);
-
-	status = omap_mbox_msg_send(pDevContext->mbox, wMbVal, NULL);
+	status = omap_mbox_msg_send(pDevContext->mbox, wMbVal,
+							(void *)pDevContext);
 
 	if (status) {
 		pr_err("omap_mbox_msg_send Fail and status = %d\n", status);
@@ -423,5 +390,51 @@ DSP_STATUS sm_interrupt_dsp(struct WMD_DEV_CONTEXT *pDevContext,
 	}
 	DBG_Trace(DBG_LEVEL3, "writing %x to Mailbox\n", wMbVal);
 
-	return DSP_SOK;
+	return status;
 }
+
+int send_mbox_callback(void *arg)
+{
+	struct WMD_DEV_CONTEXT *dev_ctxt = (struct WMD_DEV_CONTEXT *)arg;
+	u32 temp;
+
+	if (!dev_ctxt)
+		return -EFAULT;
+
+	if (dev_ctxt->dwBrdState == BRD_DSP_HIBERNATION ||
+	    dev_ctxt->dwBrdState == BRD_HIBERNATION) {
+		/* Restart the peripheral clocks */
+		DSP_PeripheralClocks_Enable(dev_ctxt, NULL);
+
+#ifdef CONFIG_BRIDGE_WDT3
+		dsp_wdt_enable(true);
+#endif
+
+		/* Enabling Dpll in lock mode*/
+		temp = (u32) *((REG_UWORD32 *)
+				((u32) (dev_ctxt->cmbase) + 0x34));
+		temp = (temp & 0xFFFFFFFE) | 0x1;
+		*((REG_UWORD32 *) ((u32) (dev_ctxt->cmbase) + 0x34)) =
+			(u32) temp;
+		temp = (u32) *((REG_UWORD32 *)
+				((u32) (dev_ctxt->cmbase) + 0x4));
+		temp = (temp & 0xFFFFFC8) | 0x37;
+
+		*((REG_UWORD32 *) ((u32) (dev_ctxt->cmbase) + 0x4)) =
+			(u32) temp;
+		/* Restore mailbox settings */
+		omap_mbox_restore_ctx(dev_ctxt->mbox);
+
+		/*  Access MMU SYS CONFIG register to generate a short wakeup */
+		temp = (u32) *((REG_UWORD32 *) ((u32)
+					(dev_ctxt->dwDSPMmuBase) + 0x10));
+
+	} else if (dev_ctxt->dwBrdState == BRD_RETENTION)
+		/* Restart the peripheral clocks */
+		DSP_PeripheralClocks_Enable(dev_ctxt, NULL);
+
+	dev_ctxt->dwBrdState = BRD_RUNNING;
+	return 0;
+}
+
+

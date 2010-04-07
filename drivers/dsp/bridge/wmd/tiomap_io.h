@@ -98,5 +98,6 @@ extern inline u32 ReadExt32BitDspData(IN const struct WMD_DEV_CONTEXT
 	return retVal;
 }
 
-#endif				/* _TIOMAP_IO_ */
+int send_mbox_callback(void *arg);
 
+#endif				/* _TIOMAP_IO_ */

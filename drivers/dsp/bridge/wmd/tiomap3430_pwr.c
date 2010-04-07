@@ -137,6 +137,10 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 #endif /* #ifdef BRIDGE_NTFY_PWRERR */
 		status = WMD_E_TIMEOUT;
 	} else {
+		/* disable bh to void concurrency with mbox tasklet */
+		local_bh_disable();
+		/* Update the Bridger Driver state */
+		pDevContext->dwBrdState = BRD_DSP_HIBERNATION;
 		/* Save mailbox settings */
 		omap_mbox_save_ctx(pDevContext->mbox);
 
@@ -150,10 +154,8 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 		dsp_wdt_enable(false);
 
 #endif
-
+		local_bh_enable();
 		if (DSP_SUCCEEDED(status)) {
-			/* Update the Bridger Driver state */
-			pDevContext->dwBrdState = BRD_DSP_HIBERNATION;
 #ifdef CONFIG_BRIDGE_DVFS
 			status = DEV_GetIOMgr(pDevContext->hDevObject, &hIOMgr);
 			if (DSP_FAILED(status))
@@ -196,8 +198,10 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 	if ((dwCmd != PWR_DEEPSLEEP) && (dwCmd != PWR_EMERGENCYDEEPSLEEP))
 		return DSP_EINVALIDARG;
 
+	prev_state = pDevContext->dwBrdState;
 	switch (pDevContext->dwBrdState) {
 	case BRD_RUNNING:
+		pDevContext->dwBrdState = BRD_SLEEP_TRANSITION;
 		omap_mbox_save_ctx(pDevContext->mbox);
 		if (enable_off_mode) {
 			sm_interrupt_dsp(pDevContext,
@@ -211,9 +215,9 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 					     MBX_PM_DSPRETENTION);
 			targetPwrState = HW_PWR_STATE_RET;
 		}
-		prev_state = BRD_RUNNING;
 		break;
 	case BRD_RETENTION:
+		pDevContext->dwBrdState = BRD_SLEEP_TRANSITION;
 		omap_mbox_save_ctx(pDevContext->mbox);
 		if (enable_off_mode) {
 			sm_interrupt_dsp(pDevContext,
@@ -221,8 +225,6 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 			targetPwrState = HW_PWR_STATE_OFF;
 		} else
 			return DSP_SOK;
-
-		prev_state = BRD_RETENTION;
 		break;
 	case BRD_HIBERNATION:
 	case BRD_DSP_HIBERNATION:
@@ -239,7 +241,6 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 			 "SleepDSP- Bridge in Illegal state\n");
 			return DSP_EFAIL;
 	}
-	pDevContext->dwBrdState = BRD_SLEEP_TRANSITION;
 	/* Get the PRCM DSP power domain status */
 	HW_PWR_IVA2StateGet(pDevContext->prmbase, HW_PWR_DOMAIN_DSP,
 			&pwrState);
@@ -263,6 +264,8 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 #endif /* CONFIG_BRIDGE_NTFY_PWRERR */
 		return WMD_E_TIMEOUT;
 	} else {
+		/* disable bh to void concurrency with mbox tasklet */
+		local_bh_disable();
 		/* Update the Bridger Driver state */
 		if (enable_off_mode)
 			pDevContext->dwBrdState = BRD_HIBERNATION;
@@ -279,6 +282,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 		dsp_wdt_enable(false);
 
 #endif
+		local_bh_enable();
 		if (DSP_FAILED(status)) {
 			return status;
 		}
@@ -325,9 +329,6 @@ DSP_STATUS WakeDSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs)
 	HW_PWR_IVA2StateGet(pDevContext->prmbase, HW_PWR_DOMAIN_DSP,
 			&pwrState);
 #endif /* CONFIG_BRIDGE_DEBUG */
-
-	/* Set the device state to RUNNIG */
-	pDevContext->dwBrdState = BRD_RUNNING;
 #endif /* CONFIG_PM */
 	return DSP_SOK;
 }
