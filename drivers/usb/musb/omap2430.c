@@ -276,7 +276,7 @@ int __init musb_platform_init(struct musb *musb)
 	 * MUSB AUTOIDLE don't work in 3430.
 	 * Workaround by Richard Woodruff/TI
 	 */
-	if (!(cpu_is_omap3430() || cpu_is_omap3630()))
+	if (!cpu_is_omap3430())
 		l |= AUTOIDLE;		/* enable auto idle */
 	omap_writel(l, OTG_SYSCONFIG);
 
