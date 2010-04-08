@@ -941,7 +941,10 @@ int omapvid_setup_overlay(struct omap_vout_device *vout,
 	info.pos_y = posy;
 	info.out_width = outw;
 	info.out_height = outh;
-	info.global_alpha = vout->win.global_alpha;
+	/* info.global_alpha = vout->win.global_alpha; */
+	/* FIXME figure out why old logic failed */
+	info.global_alpha =
+		vout->vid_info.overlays[0]->info.global_alpha;
 #ifdef CONFIG_ARCH_OMAP4
 	info.rotation_type = OMAP_DSS_ROT_TILER;
 	info.screen_width = pixwidth;
