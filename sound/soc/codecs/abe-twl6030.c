@@ -484,20 +484,6 @@ static const struct snd_kcontrol_new hfdacl_switch_controls =
 static const struct snd_kcontrol_new hfdacr_switch_controls =
 	SOC_DAPM_SINGLE("Switch", TWL6030_REG_HFRCTL, 2, 1, 0);
 
-/* Headset driver switches */
-static const struct snd_kcontrol_new hsl_driver_switch_controls =
-	SOC_DAPM_SINGLE("Switch", TWL6030_REG_HSLCTL, 2, 1, 0);
-
-static const struct snd_kcontrol_new hsr_driver_switch_controls =
-	SOC_DAPM_SINGLE("Switch", TWL6030_REG_HSRCTL, 2, 1, 0);
-
-/* Handsfree driver switches */
-static const struct snd_kcontrol_new hfl_driver_switch_controls =
-	SOC_DAPM_SINGLE("Switch", TWL6030_REG_HFLCTL, 4, 1, 0);
-
-static const struct snd_kcontrol_new hfr_driver_switch_controls =
-	SOC_DAPM_SINGLE("Switch", TWL6030_REG_HFRCTL, 4, 1, 0);
-
 static const struct snd_kcontrol_new twl6030_snd_controls[] = {
 	/* Capture gains */
 	SOC_DOUBLE_TLV("Capture Preamplifier Volume",
@@ -579,18 +565,19 @@ static const struct snd_soc_dapm_widget twl6030_dapm_widgets[] = {
 	SND_SOC_DAPM_SWITCH("HFDAC Right Playback",
 			SND_SOC_NOPM, 0, 0, &hfdacr_switch_controls),
 
-	SND_SOC_DAPM_SWITCH("Headset Left Driver",
-			SND_SOC_NOPM, 0, 0, &hsl_driver_switch_controls),
-	SND_SOC_DAPM_SWITCH("Headset Right Driver",
-			SND_SOC_NOPM, 0, 0, &hsr_driver_switch_controls),
-	SND_SOC_DAPM_SWITCH_E("Handsfree Left Driver",
-			SND_SOC_NOPM, 0, 0, &hfl_driver_switch_controls,
+	/* Analog playback drivers */
+	SND_SOC_DAPM_PGA_E("Handsfree Left Driver",
+			TWL6030_REG_HFLCTL, 4, 0, NULL, 0,
 			twl6030_power_mode_event,
 			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_SWITCH_E("Handsfree Right Driver",
-			SND_SOC_NOPM, 0, 0, &hfr_driver_switch_controls,
+	SND_SOC_DAPM_PGA_E("Handsfree Right Driver",
+			TWL6030_REG_HFRCTL, 4, 0, NULL, 0,
 			twl6030_power_mode_event,
 			SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA("Headset Left Driver",
+			TWL6030_REG_HSLCTL, 2, 0, NULL, 0),
+	SND_SOC_DAPM_PGA("Headset Right Driver",
+			TWL6030_REG_HSRCTL, 2, 0, NULL, 0),
 
 	/* Analog playback PGAs */
 	SND_SOC_DAPM_PGA("HFDAC Left PGA",
@@ -620,8 +607,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"HSDAC Left Playback", "Switch", "HSDAC Left"},
 	{"HSDAC Right Playback", "Switch", "HSDAC Right"},
 
-	{"Headset Left Driver", "Switch", "HSDAC Left Playback"},
-	{"Headset Right Driver", "Switch", "HSDAC Right Playback"},
+	{"Headset Left Driver", NULL, "HSDAC Left Playback"},
+	{"Headset Right Driver", NULL, "HSDAC Right Playback"},
 
 	{"HSOL", NULL, "Headset Left Driver"},
 	{"HSOR", NULL, "Headset Right Driver"},
@@ -1019,7 +1006,6 @@ static int abe_mm_trigger(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-
 static void abe_mm_shutdown(struct snd_pcm_substream *substream,
 			struct snd_soc_dai *dai)
 {
@@ -1310,6 +1296,7 @@ static int __devinit abe_twl6030_codec_probe(struct platform_device *pdev)
 	priv->naudint = naudint;
 
 	codec = &priv->codec;
+	codec->pop_time = 1;
 	codec->dev = &pdev->dev;
 	codec->name = "twl6030";
 	codec->owner = THIS_MODULE;
