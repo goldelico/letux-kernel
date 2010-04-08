@@ -48,6 +48,11 @@ void *videobuf_alloc(struct videobuf_queue *q)
 {
 	struct videobuf_buffer *vb;
 
+	if (q == NULL) {
+		pr_err("Null video queue pointer!\n");
+		BUG();
+	}
+
 	BUG_ON(q->msize < sizeof(*vb));
 
 	if (!q->int_ops || !q->int_ops->alloc) {
