@@ -540,7 +540,8 @@ static int _disable_clocks(struct omap_hwmod *oh)
 	pr_debug("omap_hwmod: %s: disabling clocks\n", oh->name);
 
 	if (oh->_clk && !IS_ERR(oh->_clk)) {
-#ifdef CONFIG_PM
+/* #ifdef CONFIG_PM */
+#if 0
 		if (!strcmp(oh->_clk->name, "emif1_ck") ||
 				!strcmp(oh->_clk->name, "emif2_ck") ||
 				!strcmp(oh->_clk->name, "gpmc_ck"))
