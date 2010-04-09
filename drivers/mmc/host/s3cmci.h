@@ -8,6 +8,8 @@
  * published by the Free Software Foundation.
  */
 
+#include <mach/regs-sdi.h>
+
 enum s3cmci_waitfor {
 	COMPLETION_NONE,
 	COMPLETION_FINALIZE,
@@ -27,6 +29,12 @@ struct s3cmci_host {
 	int			irq;
 	int			irq_cd;
 	int			dma;
+       /*
+        * Here's where we save the registers during suspend. Note that we skip
+        * SDIDATA, which is at different positions on 2410 and 2440, so
+        * there's no "+1" in the array size.
+        */
+	u32                     saved[(S3C2410_SDIIMSK-S3C2410_SDICON)/4];
 
 	unsigned long		clk_rate;
 	unsigned long		clk_div;

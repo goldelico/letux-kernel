@@ -1878,19 +1878,61 @@ MODULE_DEVICE_TABLE(platform, s3cmci_driver_ids);
 
 #ifdef CONFIG_PM
 
+static int save_regs(struct mmc_host *mmc)
+{
+	struct s3cmci_host *host = mmc_priv(mmc);
+	unsigned long flags;
+	unsigned from;
+	u32 *to = host->saved;
+
+	mmc_flush_scheduled_work();
+
+	local_irq_save(flags);
+	for (from = S3C2410_SDICON; from != S3C2410_SDIIMSK+4; from += 4)
+		if (from != host->sdidata)
+			*to++ = readl(host->base + from);
+	BUG_ON(to-host->saved != ARRAY_SIZE(host->saved));
+	local_irq_restore(flags);
+
+	return 0;
+}
+
+static int restore_regs(struct mmc_host *mmc)
+{
+	struct s3cmci_host *host = mmc_priv(mmc);
+	unsigned long flags;
+	unsigned to;
+	u32 *from = host->saved;
+
+	/*
+	 * Before we begin with the necromancy, make sure we don't
+	 * inadvertently start something we'll regret microseconds later.
+	 */
+	from[S3C2410_SDICMDCON - S3C2410_SDICON] = 0;
+
+	local_irq_save(flags);
+	for (to = S3C2410_SDICON; to != S3C2410_SDIIMSK+4; to += 4)
+		if (to != host->sdidata)
+			writel(*from++, host->base + to);
+	BUG_ON(from-host->saved != ARRAY_SIZE(host->saved));
+	local_irq_restore(flags);
+
+	return 0;
+}
+
 static int s3cmci_suspend(struct device *dev)
 {
 	struct mmc_host *mmc = platform_get_drvdata(to_platform_device(dev));
 	struct pm_message event = { PM_EVENT_SUSPEND };
 
-	return mmc_suspend_host(mmc, event);
+	return save_regs(mmc);
 }
 
 static int s3cmci_resume(struct device *dev)
 {
 	struct mmc_host *mmc = platform_get_drvdata(to_platform_device(dev));
 
-	return mmc_resume_host(mmc);
+	return restore_regs(mmc);
 }
 
 static const struct dev_pm_ops s3cmci_pm = {

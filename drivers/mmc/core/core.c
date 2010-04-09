@@ -75,10 +75,11 @@ static int mmc_schedule_delayed_work(struct delayed_work *work,
 /*
  * Internal function. Flush all scheduled work from the MMC work queue.
  */
-static void mmc_flush_scheduled_work(void)
+void mmc_flush_scheduled_work(void)
 {
 	flush_workqueue(workqueue);
 }
+EXPORT_SYMBOL_GPL(mmc_flush_scheduled_work);
 
 /**
  *	mmc_request_done - finish processing an MMC request
