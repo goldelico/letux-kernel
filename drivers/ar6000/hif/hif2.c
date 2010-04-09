@@ -517,6 +517,8 @@ static int ar6000_do_activate(struct hif_device *hif)
 		goto out_func_ready;
 	}
 
+	mdelay (10);
+
 	ret = htcCallbacks.deviceInsertedHandler(hif);
 	if (ret == A_OK)
 		return 0;
