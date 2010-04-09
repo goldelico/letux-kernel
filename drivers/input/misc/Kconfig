@@ -340,4 +340,13 @@ config INPUT_PCAP
 	  To compile this driver as a module, choose M here: the
 	  module will be called pcap_keys.
 
+config INPUT_LIS302DL
+	tristate "STmicro LIS302DL 3-axis accelerometer"
+	depends on SPI_MASTER
+	help
+	  SPI driver for the STmicro LIS302DL 3-axis accelerometer.
+
+	  The userspece interface is a 3-axis (X/Y/Z) relative movement
+	  Linux input device, reporting REL_[XYZ] events.
+
 endif

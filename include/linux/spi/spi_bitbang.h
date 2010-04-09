@@ -31,6 +31,9 @@ struct spi_bitbang {
 	u8			use_dma;
 	u8			flags;		/* extra spi->mode support */
 
+	/* Support for synchronous non blocking transfers */
+	int 			non_blocking_transfer;
+
 	struct spi_master	*master;
 
 	/* setup_transfer() changes clock and/or wordsize to match settings
@@ -62,6 +65,8 @@ extern void spi_bitbang_cleanup(struct spi_device *spi);
 extern int spi_bitbang_transfer(struct spi_device *spi, struct spi_message *m);
 extern int spi_bitbang_setup_transfer(struct spi_device *spi,
 				      struct spi_transfer *t);
+extern int spi_bitbang_transfer_sync(struct spi_device *spi,
+				      struct spi_message *m);
 
 /* start or stop queue processing */
 extern int spi_bitbang_start(struct spi_bitbang *spi);

@@ -254,134 +254,139 @@ static int spi_bitbang_bufs(struct spi_device *spi, struct spi_transfer *t)
  * Drivers can provide word-at-a-time i/o primitives, or provide
  * transfer-at-a-time ones to leverage dma or fifo hardware.
  */
+/* Synchronous non blocking transfer */
+int
+spi_bitbang_transfer_sync(struct spi_device *spi, struct spi_message *m)
+{
+	struct spi_bitbang *bitbang = spi_master_get_devdata(spi->master);
+	struct spi_transfer *t;
+	unsigned long flags;
+	int cs_change = 1;
+	int status;
+	int nsecs;
+	int (*setup_transfer)(struct spi_device *, struct spi_transfer *);
+
+	/* FIXME this is made-up ... the correct value is known to
+	 * word-at-a-time bitbang code, and presumably chipselect()
+	 * should enforce these requirements too?
+	 */
+	nsecs = 100;
+	cs_change = 1;
+	status = 0;
+	setup_transfer = NULL;
+
+	local_irq_save(flags);
+	list_for_each_entry (t, &m->transfers, transfer_list) {
+		/* override or restore speed and wordsize */
+		if (t->speed_hz || t->bits_per_word) {
+			setup_transfer = bitbang->setup_transfer;
+			if (!setup_transfer) {
+				status = -ENOPROTOOPT;
+				break;
+			}
+		}
+		if (setup_transfer) {
+			status = setup_transfer(spi, t);
+			if (status < 0)
+				break;
+		}
+
+		/* set up default clock polarity, and activate chip;
+		 * this implicitly updates clock and spi modes as
+		 * previously recorded for this device via setup().
+		 * (and also deselects any other chip that might be
+		 * selected ...)
+		 */
+
+		if (cs_change) {
+			bitbang->chipselect(spi, BITBANG_CS_ACTIVE);
+			ndelay(nsecs);
+		}
+
+		cs_change = t->cs_change;
+		if (!t->tx_buf && !t->rx_buf && t->len) {
+			status = -EINVAL;
+			break;
+		}
+
+		/* transfer data.  the lower level code handles any
+		 * new dma mappings it needs. our caller always gave
+		 * us dma-safe buffers.
+		 */
+		if (t->len) {
+			/* REVISIT dma API still needs a designated
+			 * DMA_ADDR_INVALID; ~0 might be better.
+			 */
+			if (!m->is_dma_mapped)
+				t->rx_dma = t->tx_dma = 0;
+			status = bitbang->txrx_bufs(spi, t);
+		}
+
+		if (status > 0)
+			m->actual_length += status;
+		if (status != t->len) {
+			/* always report some kind of error */
+			if (status >= 0)
+				status = -EREMOTEIO;
+			break;
+		}
+		status = 0;
+			/* protocol tweaks before next transfer */
+		if (t->delay_usecs)
+			udelay(t->delay_usecs);
+			if (!cs_change)
+			continue;
+		if (t->transfer_list.next == &m->transfers)
+			break;
+			/* sometimes a short mid-message deselect of the chip
+		 * may be needed to terminate a mode or command
+		 */
+		ndelay(nsecs);
+		bitbang->chipselect(spi, BITBANG_CS_INACTIVE);
+		ndelay(nsecs);
+	}
+
+	m->status = status;
+	if (m->complete)
+		m->complete(m->context);
+
+	/* restore speed and wordsize */
+	if (setup_transfer)
+		setup_transfer(spi, NULL);
+
+	/* normally deactivate chipselect ... unless no error and
+	 * cs_change has hinted that the next message will probably
+	 * be for this chip too.
+	 */
+	if (!(status == 0 && cs_change)) {
+		ndelay(nsecs);
+		bitbang->chipselect(spi, BITBANG_CS_INACTIVE);
+		ndelay(nsecs);
+	}
+
+	local_irq_restore(flags);
+
+	return status;
+}
+EXPORT_SYMBOL_GPL(spi_bitbang_transfer_sync);
+
 static void bitbang_work(struct work_struct *work)
 {
 	struct spi_bitbang	*bitbang =
 		container_of(work, struct spi_bitbang, work);
 	unsigned long		flags;
-	int			do_setup = -1;
-	int			(*setup_transfer)(struct spi_device *,
-					struct spi_transfer *);
-
-	setup_transfer = bitbang->setup_transfer;
 
 	spin_lock_irqsave(&bitbang->lock, flags);
 	bitbang->busy = 1;
 	while (!list_empty(&bitbang->queue)) {
 		struct spi_message	*m;
-		struct spi_device	*spi;
-		unsigned		nsecs;
-		struct spi_transfer	*t = NULL;
-		unsigned		tmp;
-		unsigned		cs_change;
-		int			status;
 
 		m = container_of(bitbang->queue.next, struct spi_message,
 				queue);
 		list_del_init(&m->queue);
+
 		spin_unlock_irqrestore(&bitbang->lock, flags);
-
-		/* FIXME this is made-up ... the correct value is known to
-		 * word-at-a-time bitbang code, and presumably chipselect()
-		 * should enforce these requirements too?
-		 */
-		nsecs = 100;
-
-		spi = m->spi;
-		tmp = 0;
-		cs_change = 1;
-		status = 0;
-
-		list_for_each_entry (t, &m->transfers, transfer_list) {
-
-			/* override speed or wordsize? */
-			if (t->speed_hz || t->bits_per_word)
-				do_setup = 1;
-
-			/* init (-1) or override (1) transfer params */
-			if (do_setup != 0) {
-				if (!setup_transfer) {
-					status = -ENOPROTOOPT;
-					break;
-				}
-				status = setup_transfer(spi, t);
-				if (status < 0)
-					break;
-			}
-
-			/* set up default clock polarity, and activate chip;
-			 * this implicitly updates clock and spi modes as
-			 * previously recorded for this device via setup().
-			 * (and also deselects any other chip that might be
-			 * selected ...)
-			 */
-			if (cs_change) {
-				bitbang->chipselect(spi, BITBANG_CS_ACTIVE);
-				ndelay(nsecs);
-			}
-			cs_change = t->cs_change;
-			if (!t->tx_buf && !t->rx_buf && t->len) {
-				status = -EINVAL;
-				break;
-			}
-
-			/* transfer data.  the lower level code handles any
-			 * new dma mappings it needs. our caller always gave
-			 * us dma-safe buffers.
-			 */
-			if (t->len) {
-				/* REVISIT dma API still needs a designated
-				 * DMA_ADDR_INVALID; ~0 might be better.
-				 */
-				if (!m->is_dma_mapped)
-					t->rx_dma = t->tx_dma = 0;
-				status = bitbang->txrx_bufs(spi, t);
-			}
-			if (status > 0)
-				m->actual_length += status;
-			if (status != t->len) {
-				/* always report some kind of error */
-				if (status >= 0)
-					status = -EREMOTEIO;
-				break;
-			}
-			status = 0;
-
-			/* protocol tweaks before next transfer */
-			if (t->delay_usecs)
-				udelay(t->delay_usecs);
-
-			if (!cs_change)
-				continue;
-			if (t->transfer_list.next == &m->transfers)
-				break;
-
-			/* sometimes a short mid-message deselect of the chip
-			 * may be needed to terminate a mode or command
-			 */
-			ndelay(nsecs);
-			bitbang->chipselect(spi, BITBANG_CS_INACTIVE);
-			ndelay(nsecs);
-		}
-
-		m->status = status;
-		m->complete(m->context);
-
-		/* restore speed and wordsize if it was overridden */
-		if (do_setup == 1)
-			setup_transfer(spi, NULL);
-		do_setup = 0;
-
-		/* normally deactivate chipselect ... unless no error and
-		 * cs_change has hinted that the next message will probably
-		 * be for this chip too.
-		 */
-		if (!(status == 0 && cs_change)) {
-			ndelay(nsecs);
-			bitbang->chipselect(spi, BITBANG_CS_INACTIVE);
-			ndelay(nsecs);
-		}
-
+		spi_bitbang_transfer_sync(m->spi, m);
 		spin_lock_irqsave(&bitbang->lock, flags);
 	}
 	bitbang->busy = 0;
@@ -456,6 +461,10 @@ int spi_bitbang_start(struct spi_bitbang *bitbang)
 
 	if (!bitbang->master->transfer)
 		bitbang->master->transfer = spi_bitbang_transfer;
+
+	if (!bitbang->master->transfer_sync && bitbang->non_blocking_transfer)
+		bitbang->master->transfer_sync = spi_bitbang_transfer_sync;
+
 	if (!bitbang->txrx_bufs) {
 		bitbang->use_dma = 0;
 		bitbang->txrx_bufs = spi_bitbang_bufs;

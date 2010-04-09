@@ -21,7 +21,8 @@ struct s3c2410_spigpio_info {
 	int			 num_chipselect;
 	int			 bus_num;
 
-	void (*chip_select)(struct s3c2410_spigpio_info *spi, int cs);
+	int			 non_blocking_transfer;
+	void (*chip_select)(struct s3c2410_spigpio_info *spi, int csid, int cs);
 };
 
 

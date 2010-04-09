@@ -292,6 +292,13 @@ struct spi_master {
 	int			(*transfer)(struct spi_device *spi,
 						struct spi_message *mesg);
 
+	/*
+	 * Synchronous non blocking transfer function. Should guarantee
+	 * data availability when it returns
+	 */
+	int			(*transfer_sync)(struct spi_device *spi,
+						struct spi_message *mesg);
+
 	/* called on release() to free memory provided by spi_master */
 	void			(*cleanup)(struct spi_device *spi);
 };
@@ -542,6 +549,29 @@ static inline void spi_message_free(struct spi_message *m)
 
 extern int spi_setup(struct spi_device *spi);
 extern int spi_async(struct spi_device *spi, struct spi_message *message);
+
+/**
+ * spi_non_blocking_transfer - Synchronous, non blocking transfer
+ * @spi: device with which data will be exchanged
+ * @message: describes the data transfers with optional completion handlers
+ * Context: any (irqs may be blocked, etc)
+ *
+ * Data is guaranteed to be written or read when this function returns.
+ *
+ * Note : This may not be supported by all spi masters.
+ */
+
+static inline int
+spi_non_blocking_transfer(struct spi_device *spi, struct spi_message *message)
+{
+	if (unlikely(!spi->master->transfer_sync)) {
+		dev_err(&spi->master->dev,
+				"non-blocking transfers not supported\n");
+		return -EIO;
+	}
+
+	return spi->master->transfer_sync(spi, message);
+}
 
 /*---------------------------------------------------------------------------*/
 

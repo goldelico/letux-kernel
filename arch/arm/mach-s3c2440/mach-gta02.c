@@ -62,6 +62,7 @@
 
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
+#include <linux/lis302dl.h>
 
 #include <linux/leds.h>
 #include <linux/leds_pwm.h>
@@ -110,6 +111,22 @@
 #include <linux/jbt6k74.h>
 #include <linux/glamofb.h>
 #include <linux/mfd/glamo.h>
+
+#define S3C2410_GPIONO(bank,offset) ((bank) + (offset))
+
+#define S3C2410_GPIO_BANKD   (32*3)
+#define S3C2410_GPIO_BANKG   (32*6)
+
+#define S3C2410_GPG5          S3C2410_GPIONO(S3C2410_GPIO_BANKG, 5)
+#define S3C2410_GPG6          S3C2410_GPIONO(S3C2410_GPIO_BANKG, 6)
+#define S3C2410_GPG7          S3C2410_GPIONO(S3C2410_GPIO_BANKG, 7)
+#define S3C2410_GPD12         S3C2410_GPIONO(S3C2410_GPIO_BANKD, 12)
+#define S3C2410_GPD13         S3C2410_GPIONO(S3C2410_GPIO_BANKD, 13)
+
+#define        BITBANG_CS_ACTIVE       1       /* normally nCS, active low */
+#define        BITBANG_CS_INACTIVE     0
+
+#define S3C_SYSTEM_REV_ATAG GTA02v6_SYSTEM_REV
 
 static struct pcf50633 *gta02_pcf;
 
@@ -322,6 +339,60 @@ const static struct jbt6k74_platform_data jbt6k74_pdata = {
 	.gpio_reset = GTA02_GPIO_GLAMO(4),
 };
 
+/*----------- SPI: Accelerometers attached to SPI of s3c244x ----------------- */
+
+void gta02_lis302dl_suspend_io(struct lis302dl_info *lis, int resume)
+{
+	struct lis302dl_platform_data *pdata = lis->pdata;
+
+	if (!resume) {
+		 /*
+		 * we don't want to power them with a high level
+		 * because GSENSOR_3V3 is not up during suspend
+		 */
+		s3c2410_gpio_setpin(pdata->pin_chip_select, 0);
+		s3c2410_gpio_setpin(pdata->pin_clk, 0);
+		s3c2410_gpio_setpin(pdata->pin_mosi, 0);
+		/* misnomer: it is a pullDOWN in 2442 */
+		s3c2410_gpio_pullup(pdata->pin_miso, 1);
+		return;
+	}
+
+	/* back to normal */
+	s3c2410_gpio_setpin(pdata->pin_chip_select, 1);
+	s3c2410_gpio_setpin(pdata->pin_clk, 1);
+	/* misnomer: it is a pullDOWN in 2442 */
+	s3c2410_gpio_pullup(pdata->pin_miso, 0);
+
+	s3c2410_gpio_cfgpin(pdata->pin_chip_select, S3C2410_GPIO_OUTPUT);
+	s3c2410_gpio_cfgpin(pdata->pin_clk, S3C2410_GPIO_OUTPUT);
+	s3c2410_gpio_cfgpin(pdata->pin_mosi, S3C2410_GPIO_OUTPUT);
+	s3c2410_gpio_cfgpin(pdata->pin_miso, S3C2410_GPIO_INPUT);
+
+}
+
+struct lis302dl_platform_data lis302_pdata_top = {
+		.name		= "lis302-1 (top)",
+		.pin_chip_select= S3C2410_GPD12,
+		.pin_clk	= S3C2410_GPG7,
+		.pin_mosi	= S3C2410_GPG6,
+		.pin_miso	= S3C2410_GPG5,
+		.interrupt	= GTA02_IRQ_GSENSOR_1,
+		.open_drain	= 1, /* altered at runtime by PCB rev */
+		.lis302dl_suspend_io = gta02_lis302dl_suspend_io,
+};
+
+struct lis302dl_platform_data lis302_pdata_bottom = {
+		.name		= "lis302-2 (bottom)",
+		.pin_chip_select= S3C2410_GPD13,
+		.pin_clk	= S3C2410_GPG7,
+		.pin_mosi	= S3C2410_GPG6,
+		.pin_miso	= S3C2410_GPG5,
+		.interrupt	= GTA02_IRQ_GSENSOR_2,
+		.open_drain	= 1, /* altered at runtime by PCB rev */
+		.lis302dl_suspend_io = gta02_lis302dl_suspend_io,
+};
+
 static struct spi_board_info gta02_spi_board_info[] = {
 	{
 		.modalias	= "jbt6k74",
@@ -331,6 +402,81 @@ static struct spi_board_info gta02_spi_board_info[] = {
 		.max_speed_hz	= 100 * 1000,
 		.bus_num	= 2,
 		.chip_select = 0
+	},
+	{
+		.modalias	= "lis302dl",
+		/* platform_data */
+		.platform_data	= &lis302_pdata_top,
+		/* controller_data */
+		/* irq */
+		.max_speed_hz	= 100 * 1000,
+		.bus_num	= 3,
+		.chip_select	= 0,
+	},
+	{
+		.modalias	= "lis302dl",
+		/* platform_data */
+		.platform_data	= &lis302_pdata_bottom,
+		/* controller_data */
+		/* irq */
+		.max_speed_hz	= 100 * 1000,
+		.bus_num	= 3,
+		.chip_select	= 1,
+	},
+};
+
+static void gta02_lis302_chip_select(struct s3c2410_spigpio_info *info, int csid, int cs)
+{
+
+	/*
+	 * Huh... "quirk"... CS on this device is not really "CS" like you can
+	 * expect.
+	 *
+	 * When it is 0 it selects SPI interface mode.
+	 * When it is 1 it selects I2C interface mode.
+	 *
+	 * Because we have 2 devices on one interface we have to make sure
+	 * that the "disabled" device (actually in I2C mode) don't think we're
+	 * talking to it.
+	 *
+	 * When we talk to the "enabled" device, the "disabled" device sees
+	 * the clocks as I2C clocks, creating havoc.
+	 *
+	 * I2C sees MOSI going LOW while CLK HIGH as a START action, thus we
+	 * must ensure this is never issued.
+	 */
+
+	int cs_gpio, other_cs_gpio;
+
+	cs_gpio = csid ? S3C2410_GPD13 : S3C2410_GPD12;
+	other_cs_gpio = (1 - csid) ? S3C2410_GPD13 : S3C2410_GPD12;
+
+
+	if (cs == BITBANG_CS_ACTIVE) {
+		s3c2410_gpio_setpin(other_cs_gpio, 1);
+		s3c2410_gpio_setpin(cs_gpio, 1);
+		s3c2410_gpio_setpin(info->pin_clk, 1);
+		s3c2410_gpio_setpin(cs_gpio, 0);
+	} else {
+		s3c2410_gpio_setpin(cs_gpio, 1);
+		s3c2410_gpio_setpin(other_cs_gpio, 1);
+	}
+}
+
+static struct s3c2410_spigpio_info gta02_spigpio_cfg = {
+	.pin_clk	= S3C2410_GPG7,
+	.pin_mosi	= S3C2410_GPG6,
+	.pin_miso	= S3C2410_GPG5,
+	.bus_num	= 3,
+	.num_chipselect	= 2,
+	.chip_select	= gta02_lis302_chip_select,
+	.non_blocking_transfer = 1,
+};
+
+static struct platform_device gta02_spi_gpio_dev = {
+	.name		= "spi_s3c24xx_gpio",
+	.dev = {
+		.platform_data = &gta02_spigpio_cfg,
 	},
 };
  
@@ -1091,6 +1237,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&gta02_pm_bt_dev,
 	&gta02_pm_wlan_dev,
 	&gta02_glamo_dev,
+	&gta02_spi_gpio_dev,
 	&s3c_device_adc,
 	&s3c_device_ts,
 };
@@ -1301,6 +1448,16 @@ static void __init gta02_machine_init(void)
 {
 	/* Set the panic callback to make AUX LED blink at ~5Hz. */
 	panic_blink = gta02_panic_blink;
+
+	switch (S3C_SYSTEM_REV_ATAG) {
+		case GTA02v6_SYSTEM_REV:
+		/* we need push-pull interrupt from motion sensors */
+		lis302_pdata_top.open_drain = 0;
+		lis302_pdata_bottom.open_drain = 0;
+		break;
+	default:
+		break;
+	}
 
 	bus_register_notifier(&platform_bus_type, &gta02_device_register_notifier);
 	bus_register_notifier(&spi_bus_type, &gta02_device_register_notifier);
