@@ -21,6 +21,7 @@
 #include <linux/clk.h>
 #ifdef CONFIG_SERIAL_OMAP
 #include <linux/platform_device.h>
+#include <linux/delay.h>
 #include <mach/omap-serial.h>
 #endif
 #include <linux/io.h>
@@ -288,6 +289,7 @@ static void omap_uart_restore_context(struct omap_uart_state *uart)
 {
 	u16 efr = 0;
 	struct plat_serial8250_port *p = uart->p;
+	int retries = 0xA;
 
 	if (!uart->context_valid)
 		return;
@@ -295,6 +297,28 @@ static void omap_uart_restore_context(struct omap_uart_state *uart)
 	uart->context_valid = 0;
 
 	serial_write_reg(p, UART_OMAP_MDR1, 0x7);
+	/*
+	 * Work Around for Errata i202 (3430 - 1.12, 3630 - 1.6)
+	 * The access to uart register after MDR1 Access
+	 * causes UART to corrupt data.
+	 *
+	 * Need a delay =
+	 * 5 L4 clock cycles + 5 UART functional clock cycle (@48MHz = ~0.2uS)
+	 * give 10 times as much
+	 */
+	udelay(10);
+	/* Set the FCR Register, with TX and RX FIFO Clear */
+	if (uart->use_dma)
+		serial_write_reg(p, UART_FCR, (0x59 | 0x06));
+	else
+		serial_write_reg(p, UART_FCR, (0x51 | 0x06));
+
+	while (0x20 != (serial_read_reg(p, UART_LSR) & 0x21)) {
+		retries--;
+		if (0 == retries)
+			break;
+	}
+
 	serial_write_reg(p, UART_LCR, 0xBF); /* Config B mode */
 	efr = serial_read_reg(p, UART_EFR);
 	serial_write_reg(p, UART_EFR, UART_EFR_ECB);
@@ -305,10 +329,6 @@ static void omap_uart_restore_context(struct omap_uart_state *uart)
 	serial_write_reg(p, UART_DLM, uart->dlh);
 	serial_write_reg(p, UART_LCR, 0x0); /* Operational mode */
 	serial_write_reg(p, UART_IER, uart->ier);
-	if (uart->use_dma)
-		serial_write_reg(p, UART_FCR, 0x59);
-	else
-		serial_write_reg(p, UART_FCR, 0x51);
 
 	serial_write_reg(p, UART_LCR, 0x80);
 	serial_write_reg(p, UART_MCR, uart->mcr);
@@ -320,6 +340,28 @@ static void omap_uart_restore_context(struct omap_uart_state *uart)
 	serial_write_reg(p, UART_OMAP_WER, uart->wer);
 	serial_write_reg(p, UART_OMAP_SYSC, uart->sysc);
 	serial_write_reg(p, UART_OMAP_MDR1, 0x00); /* UART 16x mode */
+	/*
+	 * Work Around for Errata i202 (3430 - 1.12, 3630 - 1.6)
+	 * The access to uart register after MDR1 Access
+	 * causes UART to corrupt data.
+	 *
+	 * Need a delay =
+	 * 5 L4 clock cycles + 5 UART functional clock cycle (@48MHz = ~0.2uS)
+	 * give 10 times as much
+	 */
+	udelay(10);
+	/* Set the FCR Register, with TX and RX FIFO Clear */
+	if (uart->use_dma)
+		serial_write_reg(p, UART_FCR, (0x59 | 0x06));
+	else
+		serial_write_reg(p, UART_FCR, (0x51 | 0x06));
+
+	retries = 0xA;
+	while (0x20 != (serial_read_reg(p, UART_LSR) & 0x21)) {
+		retries--;
+		if (0 == retries)
+			break;
+	}
 }
 #else
 static inline void omap_uart_save_context(struct omap_uart_state *uart) {}
@@ -499,6 +541,9 @@ int omap_uart_can_sleep(void)
 	int can_sleep = 1;
 
 	list_for_each_entry(uart, &uart_list, node) {
+		if (uart->num == 3)
+			continue;
+
 		if (!uart->clocked)
 			continue;
 
