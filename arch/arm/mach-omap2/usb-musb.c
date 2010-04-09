@@ -24,6 +24,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/io.h>
 
+#include <linux/usb/android_composite.h>
 #include <linux/usb/musb.h>
 
 #include <asm/sizes.h>
@@ -88,6 +89,101 @@ static void __init usb_musb_pm_init(void)
 	if (otg_clk)
 		clk_disable(otg_clk);
 }
+
+#ifdef CONFIG_ANDROID
+
+#ifdef CONFIG_ARCH_OMAP4
+#define DIE_ID_REG_BASE 		(L4_44XX_PHYS + 0x2000)
+#define DIE_ID_REG_OFFSET		0x200
+#else
+#define DIE_ID_REG_BASE 		(L4_WK_34XX_PHYS + 0xA000)
+#define DIE_ID_REG_OFFSET		0x218
+#endif /* CONFIG_ARCH_OMAP4 */
+
+#define MAX_USB_SERIAL_NUM		33
+#define OMAP_VENDOR_ID  		0x0451
+#define OMAP_PRODUCT_ID 		0xffff
+
+static char device_serial[MAX_USB_SERIAL_NUM];
+
+static char *usb_functions_all[] = {
+#ifdef CONFIG_USB_ANDROID_MASS_STORAGE
+	"usb_mass_storage",
+#endif
+#ifdef CONFIG_USB_ANDROID_ADB
+	"adb",
+#endif
+#ifdef CONFIG_USB_ANDROID_ACM
+	"acm",
+#endif
+#ifdef CONFIG_USB_ANDROID_RNDIS
+	"rndis"
+#endif
+};
+
+static struct android_usb_product usb_products[] = {
+	{
+		.product_id     = OMAP_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_all),
+		.functions      = usb_functions_all,
+	},
+};
+
+/* standard android USB platform data */
+static struct android_usb_platform_data andusb_plat = {
+	.vendor_id                      = OMAP_VENDOR_ID,
+	.product_id                     = OMAP_PRODUCT_ID,
+	.manufacturer_name      = "Texas Instruments Inc.",
+#ifdef CONFIG_ARCH_OMAP4
+	.product_name           = "OMAP4",
+#else
+	.product_name           = "OMAP3",
+#endif /* CONFIG_ARCH_OMAP4 */
+	.serial_number          = device_serial,
+	.num_products = ARRAY_SIZE(usb_products),
+	.products = usb_products,
+	.num_functions = ARRAY_SIZE(usb_functions_all),
+	.functions = usb_functions_all,
+};
+
+static struct platform_device androidusb_device = {
+	.name   = "android_usb",
+	.id     = -1,
+	.dev    = {
+		.platform_data  = &andusb_plat,
+	},
+};
+
+static void usb_gadget_init(void)
+{
+	unsigned int val[4];
+	unsigned int reg;
+	reg = DIE_ID_REG_BASE + DIE_ID_REG_OFFSET;
+
+	if (cpu_is_omap44xx()) {
+		val[0] = omap_readl(reg);
+		val[1] = omap_readl(reg + 0x8);
+		val[2] = omap_readl(reg + 0xC);
+		val[3] = omap_readl(reg + 0x10);
+	} else if (cpu_is_omap34xx()) {
+		val[0] = omap_readl(reg);
+		val[1] = omap_readl(reg + 0x4);
+		val[2] = omap_readl(reg + 0x8);
+		val[3] = omap_readl(reg + 0xC);
+	}
+
+	snprintf(device_serial, MAX_USB_SERIAL_NUM, "%08X%08X%08X%08X", val[3], val[2], val[1], val[0]);
+
+	platform_device_register(&androidusb_device);
+}
+
+#else
+
+static void usb_gadget_init(void)
+{
+}
+
+#endif /* CONFIG_ANDROID */
 
 void usb_musb_disable_autoidle(void)
 {
@@ -260,6 +356,7 @@ void __init usb_musb_init(struct omap_musb_board_data *board_data)
 	}
 
 	usb_musb_pm_init();
+	usb_gadget_init();
 }
 
 #else
