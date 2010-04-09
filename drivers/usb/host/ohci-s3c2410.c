@@ -22,6 +22,10 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <plat/usb-control.h>
+#include <mach/hardware.h>
+#include <mach/gpio-fns.h>
+#include <mach/regs-gpio.h>
+#include <mach/gta02.h>
 
 #define valid_port(idx) ((idx) == 1 || (idx) == 2)
 
@@ -306,6 +310,42 @@ static void s3c2410_hcd_oc(struct s3c2410_hcd_info *info, int port_oc)
 	local_irq_restore(flags);
 }
 
+/* switching of USB pads */
+static ssize_t show_usb_mode(struct device *dev, struct device_attribute *attr,
+			     char *buf)
+{
+	if (__raw_readl(S3C24XX_MISCCR) & S3C2410_MISCCR_USBHOST)
+		return sprintf(buf, "host\n");
+
+	return sprintf(buf, "device\n");
+}
+
+static ssize_t set_usb_mode(struct device *dev, struct device_attribute *attr,
+			    const char *buf, size_t count)
+{
+	if (!strncmp(buf, "host", 4)) {
+		printk("s3c2410: changing usb to host\n");
+		s3c2410_modify_misccr(S3C2410_MISCCR_USBHOST,
+				      S3C2410_MISCCR_USBHOST);
+		/* FIXME:
+		 * - call machine-specific disable-pullup function i
+		 * - enable +Vbus (if hardware supports it)
+		 */
+		s3c2410_gpio_setpin(GTA02_GPIO_USB_PULLUP, 0);
+	} else if (!strncmp(buf, "device", 6)) {
+		printk("s3c2410: changing usb to device\n");
+		s3c2410_modify_misccr(S3C2410_MISCCR_USBHOST, 0);
+		s3c2410_gpio_setpin(GTA02_GPIO_USB_PULLUP, 1);
+	} else {
+		printk("s3c2410: unknown mode\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(usb_mode, S_IRUGO | S_IWUSR, show_usb_mode, set_usb_mode);
+
 /* may be called without controller electrically present */
 /* may be called with controller, bus, and devices active */
 
@@ -323,6 +363,7 @@ static void s3c2410_hcd_oc(struct s3c2410_hcd_info *info, int port_oc)
 static void
 usb_hcd_s3c2410_remove (struct usb_hcd *hcd, struct platform_device *dev)
 {
+	device_remove_file(&dev->dev, &dev_attr_usb_mode);
 	usb_remove_hcd(hcd);
 	s3c2410_stop_hc(dev);
 	iounmap(hcd->regs);
@@ -390,7 +431,14 @@ static int usb_hcd_s3c2410_probe (const struct hc_driver *driver,
 	if (retval != 0)
 		goto err_ioremap;
 
+	retval = device_create_file(&dev->dev, &dev_attr_usb_mode);
+	if (retval != 0)
+		goto err_hcd;
+
 	return 0;
+
+ err_hcd:
+	usb_remove_hcd(hcd);
 
  err_ioremap:
 	s3c2410_stop_hc(dev);

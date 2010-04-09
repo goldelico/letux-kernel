@@ -202,6 +202,10 @@ static struct platform_device gta02_pm_gsm_dev = {
 	.name = "gta02-pm-gsm",
 };
 
+static struct platform_device gta02_pm_usbhost_dev = {
+	.name = "gta02-pm-usbhost",
+};
+
 static struct platform_device gta02_pm_wlan_dev = {
 	.name = "gta02-pm-wlan",
 };
@@ -209,6 +213,11 @@ static struct platform_device gta02_pm_wlan_dev = {
 static struct regulator_consumer_supply gsm_supply_consumer = {
 	.dev = &gta02_pm_gsm_dev.dev,
 	.supply = "GSM",
+};
+
+static struct regulator_consumer_supply usbhost_supply_consumer = {
+	.dev = &gta02_pm_usbhost_dev.dev,
+	.supply = "USBHOST",
 };
 
 static struct regulator_init_data gsm_supply_init_data = {
@@ -222,6 +231,17 @@ static struct regulator_init_data gsm_supply_init_data = {
 	.consumer_supplies = &gsm_supply_consumer,
 };
 
+static struct regulator_init_data usbhost_supply_init_data = {
+	.constraints = {
+		.min_uV = 3700000,
+		.max_uV = 3700000,
+		.valid_modes_mask = REGULATOR_MODE_NORMAL,
+		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies = 1,
+	.consumer_supplies = &usbhost_supply_consumer,
+};
+
 static struct fixed_voltage_config gsm_supply_config = {
 	.supply_name = "GSM",
 	.microvolts = 3700000,
@@ -230,11 +250,27 @@ static struct fixed_voltage_config gsm_supply_config = {
 	.init_data = &gsm_supply_init_data,
 };
 
+static struct fixed_voltage_config usbhost_supply_config = {
+	.supply_name = "USBHOST",
+	.microvolts = 3700000,
+	.gpio = GTA02_GPIO_PCF(PCF50633_GPO),
+	.enable_high = 1,
+	.init_data = &usbhost_supply_init_data,
+};
+
 static struct platform_device gta02_gsm_supply_device = {
 	.name = "reg-fixed-voltage",
 	.id = 1,
 	.dev = {
 		.platform_data = &gsm_supply_config,
+	},
+};
+
+static struct platform_device gta02_usbhost_supply_device = {
+	.name = "reg-fixed-voltage",
+	.id = 2,
+	.dev = {
+		.platform_data = &usbhost_supply_config,
 	},
 };
 
@@ -1287,10 +1323,15 @@ struct gta02_device_children {
 
 static struct platform_device* gta02_pcf50633_gpio_children[] = {
 	&gta02_gsm_supply_device,
+	&gta02_usbhost_supply_device,
 };
 
 static struct platform_device* gta02_gsm_supply_children[] = {
 	&gta02_pm_gsm_dev,
+};
+
+static struct platform_device* gta02_usbhost_supply_children[] = {
+	&gta02_pm_usbhost_dev,
 };
 
 static struct platform_device* gta02_hdq_children[] = {
@@ -1301,13 +1342,18 @@ static struct platform_device* gta02_hdq_children[] = {
 static struct gta02_device_children gta02_device_children[] = {
 	{
 		.dev_name = "pcf50633-gpio",
-		.num_children = 1,
+		.num_children = 2,
 		.children = gta02_pcf50633_gpio_children,
 	},
 	{
 		.dev_name = "reg-fixed-voltage.1",
 		.num_children = 1,
 		.children = gta02_gsm_supply_children,
+	},
+	{
+		.dev_name = "reg-fixed-voltage.2",
+		.num_children = 1,
+		.children = gta02_usbhost_supply_children,
 	},
 	{
 		.dev_name = "spi2.0",
