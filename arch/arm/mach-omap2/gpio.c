@@ -941,7 +941,7 @@ static struct sys_device omap_gpio_device = {
 
 static int workaround_enabled;
 
-void omap2_gpio_prepare_for_retention(void)
+void omap2_gpio_prepare_for_idle(int power_state)
 {
 	int i, c = 0;
 
@@ -991,7 +991,7 @@ void omap2_gpio_prepare_for_retention(void)
 	workaround_enabled = 1;
 }
 
-void omap2_gpio_resume_after_retention(void)
+void omap2_gpio_resume_after_idle(void)
 {
 	int i;
 
