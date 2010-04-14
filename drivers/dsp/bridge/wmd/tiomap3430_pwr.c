@@ -159,9 +159,9 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 		local_bh_enable();
 		if (DSP_SUCCEEDED(status)) {
 #ifdef CONFIG_BRIDGE_DVFS
-			status = DEV_GetIOMgr(pDevContext->hDevObject, &hIOMgr);
-			if (DSP_FAILED(status))
-				return status;
+			DEV_GetIOMgr(pDevContext->hDevObject, &hIOMgr);
+			if (!hIOMgr)
+				return DSP_EHANDLE;
 			IO_SHMsetting(hIOMgr, SHM_GETOPP, &opplevel);
 
 			/*

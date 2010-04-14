@@ -678,10 +678,10 @@ static ssize_t drv_state_show(struct device *dev,
 		hDevObject != NULL;
 		hDevObject = (struct DEV_OBJECT *)DRV_GetNextDevObject
 							((u32)hDevObject)) {
-		if (DSP_FAILED(DEV_GetWMDContext(hDevObject,
-		   (struct WMD_DEV_CONTEXT **)&dwContext))) {
+		DEV_GetWMDContext(hDevObject, &dwContext);
+		if (!dwContext)
 			continue;
-		}
+
 		drv_state = dwContext->dwBrdState;
 	}
 
@@ -703,6 +703,8 @@ static ssize_t mpu_address_show(struct device *dev,
 	u32 armPhyMemOffUncached = 0;
 	hDevObject = (struct DEV_OBJECT *)DRV_GetFirstDevObject();
 	DEV_GetWMDContext(hDevObject, &dwContext);
+	if (!dwContext)
+		return 0;
 	GppPa = dwContext->aTLBEntry[0].ulGppPa;
 	DspVa = dwContext->aTLBEntry[0].ulDspVa;
 

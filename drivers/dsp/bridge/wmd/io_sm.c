@@ -371,8 +371,10 @@ DSP_STATUS WMD_IO_OnLoaded(struct IO_MGR *hIOMgr)
 			   HW_PAGE_SIZE_64KB, HW_PAGE_SIZE_4KB };
 
 	status = DEV_GetCodMgr(hIOMgr->hDevObject, &hCodMan);
-	if (DSP_FAILED(status))
+	if (!hCodMan) {
+		status = DSP_EHANDLE;
 		goto func_end;
+	}
 	hChnlMgr = hIOMgr->hChnlMgr;
 	/* The message manager is destroyed when the board is stopped. */
 	DEV_GetMsgMgr(hIOMgr->hDevObject, &hIOMgr->hMsgMgr);
@@ -1884,6 +1886,8 @@ DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT *hWmdContext)
 					    pWmdContext->hDevObject;
 
 	status = DEV_GetCodMgr(pDevObject, &hCodMgr);
+	if (!hCodMgr)
+		status = DSP_EHANDLE;
 
 	if (DSP_SUCCEEDED(status))
 		/* Look for SYS_PUTCBEG/SYS_PUTCEND */
@@ -2143,14 +2147,18 @@ DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context)
 	struct DEV_OBJECT *dev_object = wmd_context->hDevObject;
 
 	status = DEV_GetCodMgr(dev_object, &code_mgr);
-	if (DSP_FAILED(status))
+	if (!code_mgr) {
 		pr_debug("%s: Failed on DEV_GetCodMgr.\n", __func__);
+		status = DSP_EHANDLE;
+	}
 
 	if (DSP_SUCCEEDED(status)) {
 		status = DEV_GetNodeManager(dev_object, &node_mgr);
-		if (DSP_FAILED(status))
+		if (!node_mgr) {
 			pr_debug("%s: Failed on DEV_GetNodeManager.\n",
 								__func__);
+			status = DSP_EHANDLE;
+		}
 	}
 
 	if (DSP_SUCCEEDED(status)) {
@@ -2326,8 +2334,9 @@ void dump_dl_modules(struct WMD_DEV_CONTEXT *wmd_context)
 	}
 
 	status = DEV_GetCodMgr(dev_object, &code_mgr);
-	if (DSP_FAILED(status)) {
+	if (!code_mgr) {
 		pr_debug("%s: Failed on DEV_GetCodMgr.\n", __func__);
+		status = DSP_EHANDLE;
 		goto func_end;
 	}
 

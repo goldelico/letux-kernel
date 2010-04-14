@@ -304,7 +304,8 @@ void WMD_DEH_Notify(struct DEH_MGR *hDehMgr, u32 ulEventMask,
 					 HW_MMU_TRANSLATION_FAULT);
 
 			dump_dsp_stack(hDehMgr->hWmdContext);
-			omap_dm_timer_disable(timer);
+			if (timer)
+				omap_dm_timer_disable(timer);
 			break;
 #ifdef CONFIG_BRIDGE_NTFY_PWRERR
 		case DSP_PWRERROR:
