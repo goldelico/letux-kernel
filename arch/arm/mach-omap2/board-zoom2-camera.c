@@ -183,10 +183,13 @@ static int imx046_sensor_power_set(struct v4l2_int_device *s, enum v4l2_power po
 		/* Power Up Sequence */
 		printk(KERN_DEBUG "imx046_sensor_power_set(ON)\n");
 
-		/* Through-put requirement:
-		 * 3280 x 2464 x 2Bpp x 7.5fps x 3 memory ops = 355163 KByte/s
+		/*
+		 * Through-put requirement:
+		 * Set max OCP freq for 3630 is 200 MHz through-put
+		 * is in KByte/s so 200000 KHz * 4 = 800000 KByte/s
 		 */
-		omap_pm_set_min_bus_tput(vdev->cam->isp, OCP_INITIATOR_AGENT, 355163);
+		omap_pm_set_min_bus_tput(vdev->cam->isp,
+					 OCP_INITIATOR_AGENT, 800000);
 
 		/* Hold a constraint to keep MPU in C1 */
 		omap_pm_set_max_mpu_wakeup_lat(vdev->cam->isp, 12);
