@@ -247,8 +247,24 @@ static int omap_mcbsp_dai_hw_params(struct snd_pcm_substream *substream,
 	} else if (cpu_is_omap343x()) {
 		dma = omap24xx_dma_reqs[bus_id][substream->stream];
 		port = omap34xx_mcbsp_port[bus_id][substream->stream];
-		/* FIX: force transfer size */
-		xfer_size = 1024;
+		xfer_size = omap34xx_mcbsp_thresholds[bus_id]
+					[substream->stream];
+		/* reset the xfer_size to the integral multiple of
+		the buffer size. This is for DMA packet mode transfer */
+		if (xfer_size) {
+			int buffer_size = params_buffer_size(params);
+			if (xfer_size > buffer_size) {
+				printk(KERN_DEBUG "buffer_size is %d \n",
+						buffer_size);
+				xfer_size = 0;
+			} else {
+				int temp =  buffer_size / xfer_size;
+				while (buffer_size % xfer_size) {
+					temp++;
+					xfer_size = buffer_size / (temp);
+				}
+			}
+		}
 	} else {
 		return -ENODEV;
 	}
