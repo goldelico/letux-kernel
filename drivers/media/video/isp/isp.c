@@ -2206,9 +2206,7 @@ int isp_handle_private(struct device *dev, struct mutex *vdev_mutex, int cmd,
 	case VIDIOC_PRIVATE_ISP_HIST_REQ: {
 		struct isp_hist_data *data;
 		data = (struct isp_hist_data *)arg;
-		mutex_lock(vdev_mutex);
 		rval = isp_hist_request_statistics(&isp->isp_hist, data);
-		mutex_unlock(vdev_mutex);
 	}
 		break;
 	case VIDIOC_PRIVATE_ISP_AF_CFG: {
