@@ -411,7 +411,8 @@ struct isp_device {
 #define mmio_resz_main mmio_base[OMAP3_ISP_IOMEM_RESZ]
 #define mmio_sbl_main mmio_base[OMAP3_ISP_IOMEM_SBL]
 #define mmio_csi2_main mmio_base[OMAP3_ISP_IOMEM_CSI2A]
-#define mmio_csi2phy_main mmio_base[OMAP3_ISP_IOMEM_CSI2PHY2]
+#define mmio_csi2phy_main mmio_base[OMAP3_ISP_IOMEM_CSI2PHY]
+#define mmio_csi2phy2_main mmio_base[OMAP3_ISP_IOMEM_CSI2PHY2]
 	unsigned long mmio_base[OMAP3_ISP_IOMEM_CSI2PHY2 + 1];
 	unsigned long mmio_base_phys[OMAP3_ISP_IOMEM_CSI2PHY2 + 1];
 	unsigned long mmio_size[OMAP3_ISP_IOMEM_CSI2PHY2 + 1];

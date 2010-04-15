@@ -2919,7 +2919,7 @@ out_clk_get_dpll4_m5_ck:
 out_clk_get_mclk:
 	clk_put(isp->cam_ick);
 out_free_mmio:
-	for (i = 0; i <= OMAP3_ISP_IOMEM_CSI2PHY; i++) {
+	for (i = 0; i <= OMAP3_ISP_IOMEM_CSI2PHY2; i++) {
 		if (isp->mmio_base[i]) {
 			iounmap((void *)isp->mmio_base[i]);
 			isp->mmio_base[i] = 0;
