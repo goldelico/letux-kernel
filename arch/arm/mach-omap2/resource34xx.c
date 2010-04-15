@@ -460,7 +460,17 @@ int set_freq(struct shared_resource *resp, u32 target_level)
 		return 0;
 
 	if (strcmp(resp->name, "mpu_freq") == 0) {
-		vdd1_opp = get_opp(mpu_opps + MAX_VDD1_OPP, target_level);
+		/*
+		 * For 3630 OPP3 and OPP4 has same ARM MHz but different
+		 * DSP MHz. So whenever
+		 * ARM side request is for OPP3/4 give OPP3.
+		 */
+		if (cpu_is_omap3630() && (target_level
+					== mpu_opps[VDD1_OPP3].rate))
+			vdd1_opp = VDD1_OPP3;
+		else
+			vdd1_opp = get_opp(mpu_opps + MAX_VDD1_OPP, target_level);
+
 		resource_request("vdd1_opp", &dummy_mpu_dev, vdd1_opp);
 	} else if (strcmp(resp->name, "dsp_freq") == 0) {
 		vdd1_opp = get_opp(dsp_opps + MAX_VDD1_OPP, target_level);
