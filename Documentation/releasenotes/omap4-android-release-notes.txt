@@ -3,9 +3,9 @@
 # =====================================================================
 
 Author: Leed Aguilar
-Date: April 1st 2010
+Date: April 16st 2010
 Target Release: L27.2
-Destination: rel_l27x_handoff@list.ti.com
+
 
 # =====================================================================
 # Configuration Settings
@@ -92,6 +92,9 @@ http://omappedia.org/wiki/Android_Getting_Started#Building_Android
 
 In this release we are providing the following information:
 
+
+[RELEASE CONTENT]
+
 - Release Notes
 - Unit Test Results
 - TestCase Specs
@@ -102,12 +105,36 @@ In this release we are providing the following information:
 - Config Specs for ClearCase
 - Compilation warnings List
 
-* Highlights:
+[HIGHLIGHTS]
+
 - MUSB gadget support
+- USB Android Gadget support
+  * ADB (Android Debug Bridge)
+  * Mass Storage support
+  * CDC Serial support
+  * RNDIS ethernet support
+- SYSLINK fixes
+- GPS character driver support
 - eMMC support
 - Pico DLP support
 - FM driver support
+- FM Klocwork fixes
 - Bluetooth AVRCP
+
+[ADB SUPPORT]
+
+To make ADB working on a linux PC you need to do the following:
+
+1. As a root user on your linux shell, create the following file:
+
+# su
+  <psswd>
+# mkdir ~/.android
+# vi ~/.android/adb_usb.ini
+# echo "TI USB VID 0x0451" > ~/.android/adb_usb.ini
+# cat /root/.android/adb_usb.ini
+  TI USB VID 0x0451
+
 
 # =====================================================================
 # Open Defects / Known issues
@@ -115,7 +142,6 @@ In this release we are providing the following information:
 
 Release does not have:
 L2 cacheflushall() API
-USB: Android Gadget
 USB: EHCI/OHCI
 Power management
 
@@ -129,8 +155,12 @@ Power management
 2701 - OMAP4: 4430SDP: defconfig change for FM
 2711 - USB: ANDROID: setting android gadget as tristate
 2732 - keypad: map keys for blaze board
-
-90 files changed, 12902 insertions(+), 1264 deletions(-)
+2815 - USB: ANDROID: Register android composite gadget driver
+2882 - SYSLINK Messageq transport remove waiting for Ducati
+2883 - SYSLINK: notify-remove redunant check in notify send
+2761 - drivers: misc: FM: KlocWork fixes
+2769 - OMAP4: 4430SDP: defconfig change for GPS
+2737 - GPS: Add support for gps character driver
 
 # ======================================================================
 # Klocwork Results
