@@ -65,20 +65,20 @@ static int board_keymap[] = {
 	KEY(5, 3, KEY_F3),
 	KEY(5, 5, KEY_VOLUMEDOWN),
 	KEY(5, 6, KEY_M),
-	KEY(5, 7, KEY_ENTER),
+	KEY(5, 4, KEY_ENTER),
+	KEY(5, 7, KEY_RIGHT),
 	KEY(6, 0, KEY_Q),
 	KEY(6, 1, KEY_A),
 	KEY(6, 2, KEY_N),
 	KEY(6, 3, KEY_BACKSPACE),
 	KEY(6, 6, KEY_P),
-	KEY(6, 7, KEY_SELECT),
-	KEY(7, 0, KEY_PROG1),	/*MACRO 1 <User defined> */
-	KEY(7, 1, KEY_PROG2),	/*MACRO 2 <User defined> */
-	KEY(7, 2, KEY_PROG3),	/*MACRO 3 <User defined> */
-	KEY(7, 3, KEY_PROG4),	/*MACRO 4 <User defined> */
-	KEY(7, 5, KEY_RIGHT),
-	KEY(7, 6, KEY_UP),
-	KEY(7, 7, KEY_DOWN)
+	KEY(6, 7, KEY_UP),
+	KEY(7, 6, KEY_SELECT),
+	KEY(7, 7, KEY_DOWN),
+	KEY(7, 0, KEY_PROG1),
+	KEY(7, 1, KEY_PROG2),
+	KEY(7, 2, KEY_PROG3),
+	KEY(7, 3, KEY_PROG4),
 };
 
 static struct matrix_keymap_data board_map_data = {
