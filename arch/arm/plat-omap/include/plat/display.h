@@ -90,6 +90,12 @@ enum omap_channel {
 #endif
 };
 
+#ifdef CONFIG_ARCH_OMAP4
+#define DEFALUT_CHANNEL OMAP_DSS_CHANNEL_LCD2
+#else
+#define DEFALUT_CHANNEL OMAP_DSS_CHANNEL_LCD
+#endif
+
 enum omap_color_mode {
 	OMAP_DSS_COLOR_CLUT1	= 1 << 0,  /* BITMAP 1 */
 	OMAP_DSS_COLOR_CLUT2	= 1 << 1,  /* BITMAP 2 */
