@@ -227,7 +227,6 @@ static irqreturn_t twl4030charger_interrupt(int irq, void *_di)
 #endif
 
 	twl4030charger_presence_evt();
-	power_supply_changed(&di->bat);
 
 	return IRQ_HANDLED;
 }
@@ -894,6 +893,7 @@ static void
 twl4030_bci_battery_update_status(struct twl4030_bci_device_info *di)
 {
 	int old_charge_source = di->charge_rsoc;
+	int old_charge_status = di->charge_status;
 
 	twl4030_bci_battery_read_status(di);
 	di->charge_status = POWER_SUPPLY_STATUS_UNKNOWN;
@@ -902,6 +902,8 @@ twl4030_bci_battery_update_status(struct twl4030_bci_device_info *di)
 	else
 		di->charge_status = POWER_SUPPLY_STATUS_DISCHARGING;
 
+	if (old_charge_status != di->charge_status)
+		power_supply_changed(&di->bat);
 	/*
 	 * Since Charger interrupt only happens for AC plug-in
 	 * and not for usb plug-in, we use the next update
