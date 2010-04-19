@@ -330,6 +330,7 @@ static void sr_set_testing_nvalues(struct omap_sr *sr)
 			 * enabled.
 			 */
 			sr->opp4_nvalue = calculate_opp_nvalue(sr->opp4_nvalue, 240, 160);
+			sr->opp5_nvalue = cal_test_nvalue(1842, 1580);
 		} else {
 		sr->senp_mod = 0x03;	/* SenN-M5 enabled */
 		sr->senn_mod = 0x03;
