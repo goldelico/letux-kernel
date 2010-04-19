@@ -24,8 +24,13 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-void tiler_alloc_packed(s32 *count, enum tiler_fmt fmt, u32 width, u32 height,
-			void **sysptr, void **allocptr, s32 aligned)
+void tiler_packed_alloc_buf(int *count,
+			    enum tiler_fmt fmt,
+			    unsigned long width,
+			    unsigned long height,
+			    void **sysptr,
+			    void **allocptr,
+			    int aligned)
 {
 	int til_width, bpp, bpt, buf_width, alloc_width, map_width;
 	int buf_map_width, n_per_m, m_per_a, i = 0, m, n;
@@ -103,7 +108,7 @@ void tiler_alloc_packed(s32 *count, enum tiler_fmt fmt, u32 width, u32 height,
 	/* mark how many buffers we allocated */
 	*count = i;
 }
-EXPORT_SYMBOL(tiler_alloc_packed);
+EXPORT_SYMBOL(tiler_packed_alloc_buf);
 
 static int layout_packed_nv12(char *offsets, int y_width, int uv_width,
 			      void **buf, int blocks, int i,
@@ -132,9 +137,14 @@ static int layout_packed_nv12(char *offsets, int y_width, int uv_width,
 	return i;
 }
 
-void tiler_alloc_packed_nv12(s32 *count, u32 width, u32 height, void **y_sysptr,
-				void **uv_sysptr, void **y_allocptr,
-				void **uv_allocptr, s32 aligned)
+void tiler_packed_alloc_nv12_buf(int *count,
+				 unsigned long width,
+				 unsigned long height,
+				 void **y_sysptr,
+				 void **uv_sysptr,
+				 void **y_allocptr,
+				 void **uv_allocptr,
+				 int aligned)
 {
 	/* optimized packing table */
 	/* we read this table from beginning to end, and determine whether
@@ -270,4 +280,4 @@ void tiler_alloc_packed_nv12(s32 *count, u32 width, u32 height, void **y_sysptr,
 	/* mark how many buffers we allocated */
 	*count = i;
 }
-EXPORT_SYMBOL(tiler_alloc_packed_nv12);
+EXPORT_SYMBOL(tiler_packed_alloc_nv12_buf);
