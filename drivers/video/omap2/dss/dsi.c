@@ -1735,6 +1735,9 @@ static int dsi_complexio_init(enum dsi lcd_ix, struct omap_dss_device *dssdev)
 
 		/* CIO_CLK_ICG, enable L3 clk to CIO */
 		REG_FLD_MOD(lcd_ix, DSI_CLK_CTRL, 1, 14, 14);
+
+		/* DDR_CLK_ALWAYS_ON */
+		REG_FLD_MOD(lcd_ix, DSI_CLK_CTRL, 1, 13, 13);
 	}
 
 	/* A dummy read using the SCP interface to any DSIPHY register is
