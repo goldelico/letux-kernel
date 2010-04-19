@@ -569,7 +569,8 @@ int dss_init(bool skip_init)
 		r = -ENOMEM;
 		goto fail0;
 	}
-	test();
+	if (cpu_is_omap44xx())
+		test();
 
 	if (!skip_init) {
 		/* disable LCD and DIGIT output. This seems to fix the synclost
