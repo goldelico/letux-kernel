@@ -23,6 +23,7 @@
 
 #include <plat/common.h>
 #include <plat/usb.h>
+#include <plat/control.h>
 
 #include "mmc-twl4030.h"
 
@@ -256,9 +257,37 @@ static struct i2c_board_info __initdata zoom_i2c_boardinfo[] = {
 
 static int __init omap_i2c_init(void)
 {
+/* Disable OMAP 3630 internal pull-ups for I2Ci */
+	if (cpu_is_omap3630()) {
+
+		u32 prog_io;
+
+		prog_io = omap_ctrl_readl(OMAP343X_CONTROL_PROG_IO1);
+		/* Program (bit 19)=1 to disable internal pull-up on I2C1 */
+		prog_io |= OMAP3630_PRG_I2C1_PULLUPRESX;
+		/* Program (bit 0)=1 to disable internal pull-up on I2C2 */
+		prog_io |= OMAP3630_PRG_I2C2_PULLUPRESX;
+		omap_ctrl_writel(prog_io, OMAP343X_CONTROL_PROG_IO1);
+
+		prog_io = omap_ctrl_readl(OMAP36XX_CONTROL_PROG_IO2);
+		/* Program (bit 7)=1 to disable internal pull-up on I2C3 */
+		prog_io |= OMAP3630_PRG_I2C3_PULLUPRESX;
+		omap_ctrl_writel(prog_io, OMAP36XX_CONTROL_PROG_IO2);
+
+		prog_io = omap_ctrl_readl(OMAP36XX_CONTROL_PROG_IO_WKUP1);
+		/* Program (bit 5)=1 to disable internal pull-up on I2C4(SR) */
+		prog_io |= OMAP3630_PRG_SR_PULLUPRESX;
+		omap_ctrl_writel(prog_io, OMAP36XX_CONTROL_PROG_IO_WKUP1);
+	}
+/*
 	omap_register_i2c_bus(1, 2400, zoom_i2c_boardinfo,
 			ARRAY_SIZE(zoom_i2c_boardinfo));
 	omap_register_i2c_bus(2, 400, NULL, 0);
+	omap_register_i2c_bus(3, 400, NULL, 0);
+*/
+	omap_register_i2c_bus(1, 100, zoom_i2c_boardinfo,
+			ARRAY_SIZE(zoom_i2c_boardinfo));
+	omap_register_i2c_bus(2, 100, NULL, 0);
 	omap_register_i2c_bus(3, 400, NULL, 0);
 	return 0;
 }
