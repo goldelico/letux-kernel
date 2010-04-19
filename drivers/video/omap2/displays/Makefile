@@ -8,3 +8,4 @@ obj-$(CONFIG_LCD_4430SDP) += lcd_4430sdp.o
 obj-$(CONFIG_PANEL_4430SDP_TAAL) += panel-taal.o
 obj-$(CONFIG_PANEL_ZOOM2) += panel-zoom2.o
 obj-$(CONFIG_PANEL_SHOLES) += panel-sholes.o
+obj-$(CONFIG_PANEL_NEC) += panel-nec.o
