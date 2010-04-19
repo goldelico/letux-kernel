@@ -649,13 +649,16 @@ void set_fb_fix(struct fb_info *fbi)
 	}
 #ifdef CONFIG_ARCH_OMAP4
 	 else if (ofbi->rotation_type != OMAP_DSS_ROT_TILER) {
+#else
+	else {
+#endif
 		fix->line_length =
 			(var->xres_virtual * var->bits_per_pixel) >> 3;
 
 		/* tiler line length is set during allocation, and cannot
 		   be changed */		
 	}
-#endif
+
 	fix->smem_start = omapfb_get_region_paddr(ofbi);
 	fix->smem_len = rg->size;
 
