@@ -3562,8 +3562,13 @@ int dispc_set_clock_div(struct dispc_clock_info *cinfo)
 	DSSDBG("pck = %lu (%u)\n", cinfo->pck, cinfo->pck_div);
 
 	/* TODO: update here for LCD2 support */
+#ifdef CONFIG_ARCH_OMAP4
 	dispc_set_lcd_divisor(OMAP_DSS_CHANNEL_LCD, 1,
 							6);
+#else
+	dispc_set_lcd_divisor(OMAP_DSS_CHANNEL_LCD, cinfo->lck_div,
+							cinfo->pck_div);
+#endif
 
 	return 0;
 }

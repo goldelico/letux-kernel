@@ -225,11 +225,12 @@ extern void __iomem  *dss_base;
 #define TOGGLE3		0x92
 #define PWDNSTATUS2	0x4
 
-#ifdef CONFIG_ARCH_OMAP4
+
 extern void __iomem  *dss_base;
 extern void __iomem  *dispc_base;
 void __iomem  *gpio_base;
 void __iomem  *dsi_base;
+#ifdef CONFIG_ARCH_OMAP4
 void __iomem  *dsi2_base;
 EXPORT_SYMBOL(dsi2_base);
 #endif
@@ -1265,7 +1266,6 @@ int dsi_pll_init(enum dsi lcd_ix, struct omap_dss_device *dssdev,
 {
 	int r = 0;
 	enum dsi_pll_power_state pwstate;
-	struct dispc_clock_info cinfo;
 	struct dsi_struct *p_dsi;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
 	DSSDBG("PLL init\n");
@@ -2779,7 +2779,6 @@ static int dsi_proto_config(struct omap_dss_device *dssdev)
 	u32 r;
 	int buswidth = 0;
 	int div;
-	unsigned int val;
 	enum dsi lcd_ix;
 	struct dsi_struct *p_dsi;
 
@@ -3095,7 +3094,6 @@ static void dsi_update_screen_dispc(enum dsi lcd_ix,
 	u16 w, u16 h)
 {
 	unsigned bytespp;
-	int len;
 	unsigned bytespl;
 	unsigned bytespf;
 	unsigned total_len;
@@ -3196,6 +3194,7 @@ static void dsi_framedone_irq_callback(void *data, u32 mask)
 	wake_up(&dsi_1.waitqueue);
 }
 
+#ifdef CONFIG_ARCH_OMAP4
 static void dsi2_framedone_irq_callback(void *data, u32 mask)
 {
 	/* Note: We get FRAMEDONE when DISPC has finished sending pixels and
@@ -3208,6 +3207,7 @@ static void dsi2_framedone_irq_callback(void *data, u32 mask)
 	dsi_2.framedone_received = true;
 	wake_up(&dsi_2.waitqueue);
 }
+#endif
 
 static void dsi_set_update_region(enum dsi lcd_ix,
 	struct omap_dss_device *dssdev, u16 x, u16 y,
@@ -3293,7 +3293,6 @@ static int dsi_set_te(struct omap_dss_device *dssdev, bool enable)
 
 static void dsi_handle_framedone(enum dsi lcd_ix)
 {
-	int r;
 	const int channel = 0;
 	bool use_te_trigger;
 	struct dsi_struct *p_dsi;
@@ -3515,7 +3514,7 @@ static int dsi2_update_thread(void *data)
 
 		}
 
-			dispc_set_lcd_size(OMAP_DSS_CHANNEL_LCD2, w, h);
+			dispc_set_lcd_size(DEFAULT_CHANNEL, w, h);
 			/* TODO: Correct this while adding support for LCD2 */
 		}
 
@@ -3555,7 +3554,7 @@ static int dsi2_update_thread(void *data)
 
 				dispc_enable_sidle();
 				/* TODO: update for LCD2 support */
-				dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD2, 0);
+				dispc_enable_lcd_out(DEFAULT_CHANNEL, 0);
 			} else {
 				dsi_handle_framedone(lcd_ix);
 				dsi_perf_show(lcd_ix, "DISPC");
@@ -3587,7 +3586,7 @@ static int dsi2_update_thread(void *data)
 
 static int dsi_display_init_dispc(struct omap_dss_device *dssdev)
 {
-	int r;
+	int r = 0;
 	enum dsi lcd_ix;
 	struct omap_video_timings timings = {
 		.hsw		= 4+1,
@@ -3604,9 +3603,11 @@ static int dsi_display_init_dispc(struct omap_dss_device *dssdev)
 	if (lcd_ix == dsi1)
 	r = omap_dispc_register_isr(dsi_framedone_irq_callback, NULL,
 			DISPC_IRQ_FRAMEDONE);
+#ifdef CONFIG_ARCH_OMAP4
 	else
 		r = omap_dispc_register_isr(dsi2_framedone_irq_callback, NULL,
 	DISPC_IRQ_FRAMEDONE2);
+#endif
 	if (r) {
 		DSSERR("can't get FRAMEDONE irq\n");
 		return r;
@@ -3622,12 +3623,12 @@ static int dsi_display_init_dispc(struct omap_dss_device *dssdev)
 		dispc_set_tft_data_lines(OMAP_DSS_CHANNEL_LCD,
 			dssdev->ctrl.pixel_size);
 	} else {
-		dispc_set_lcd_display_type(OMAP_DSS_CHANNEL_LCD2,
+		dispc_set_lcd_display_type(DEFAULT_CHANNEL,
 			OMAP_DSS_LCD_DISPLAY_TFT);
 
-		dispc_set_parallel_interface_mode(OMAP_DSS_CHANNEL_LCD2,
+		dispc_set_parallel_interface_mode(DEFAULT_CHANNEL,
 					OMAP_DSS_PARALLELMODE_DSI);
-		dispc_set_tft_data_lines(OMAP_DSS_CHANNEL_LCD2,
+		dispc_set_tft_data_lines(DEFAULT_CHANNEL,
 			dssdev->ctrl.pixel_size);
 		}
 
@@ -3635,7 +3636,7 @@ static int dsi_display_init_dispc(struct omap_dss_device *dssdev)
 	if (lcd_ix == dsi1)
 		dispc_set_lcd_timings(OMAP_DSS_CHANNEL_LCD, &timings);
 	else
-		dispc_set_lcd_timings(OMAP_DSS_CHANNEL_LCD2, &timings);
+		dispc_set_lcd_timings(DEFAULT_CHANNEL, &timings);
 
 
 	if (lcd_ix == dsi1) {
@@ -3645,11 +3646,11 @@ static int dsi_display_init_dispc(struct omap_dss_device *dssdev)
 		dispc_set_lcd_divisor(OMAP_DSS_CHANNEL_LCD, 1/*lck_div*/,
 							0x6/*pck_div*/);
 		} else {
-			dispc_set_pol_freq(OMAP_DSS_CHANNEL_LCD2,
+			dispc_set_pol_freq(DEFAULT_CHANNEL,
 				dssdev->panel.config, dssdev->panel.acbi,
 				dssdev->panel.acb);
 
-			dispc_set_lcd_divisor(OMAP_DSS_CHANNEL_LCD2,
+			dispc_set_lcd_divisor(DEFAULT_CHANNEL,
 				1/*lck_div*/, 0x6/*pck_div*/);
 		}
 
@@ -3665,11 +3666,14 @@ static void dsi_display_uninit_dispc(struct omap_dss_device *dssdev)
 		i = 0;
 		omap_dispc_unregister_isr(dsi_framedone_irq_callback, NULL,
 			DISPC_IRQ_FRAMEDONE);
+#ifdef CONFIG_ARCH_OMAP4
 	} else {
 		i = 1;
 		omap_dispc_unregister_isr(dsi2_framedone_irq_callback, NULL,
 			DISPC_IRQ_FRAMEDONE2);
+#endif
 	}
+
 }
 
 static int dsi_configure_dsi_clocks(struct omap_dss_device *dssdev)
@@ -3739,10 +3743,8 @@ static int dsi_configure_dispc_clocks(struct omap_dss_device *dssdev)
 
 static int dsi_display_init_dsi(struct omap_dss_device *dssdev)
 {
-	struct dsi_clock_info cinfo;
 	int r;
 	int val;
-	int u;
 	enum dsi lcd_ix;
 	struct dsi_struct *p_dsi;
 	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
@@ -3824,26 +3826,28 @@ if (cpu_is_omap44xx()) {
 	dsi_if_enable(lcd_ix, 1);
 	dsi_force_tx_stop_mode_io(lcd_ix);
 
+#ifdef CONFIG_ARCH_OMAP4
 	val = 0;
 
-		/* Register 12*/
-		val = val | (0x58 << 0);
-		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG12, val);
+	/* Register 12*/
+	val = val | (0x58 << 0);
+	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG12, val);
 
-		/* Register 14*/
-		val = 0;
-		val = val | (1 << 31) | 1<<11 | (0x54 << 23) |
-				1<<19 | 1<<18 | (0x7 << 14);
-		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG14, val);
+	/* Register 14*/
+	val = 0;
+	val = val | (1 << 31) | 1<<11 | (0x54 << 23) |
+			1<<19 | 1<<18 | (0x7 << 14);
+	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG14, val);
 
-		/* Register 8*/
-		val = 0;
-		val = val | (1 << 11) | (16 << 6) | 1<<5 | (0xE << 0);
-		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG8, val);
+	/* Register 8*/
+	val = 0;
+	val = val | (1 << 11) | (16 << 6) | 1<<5 | (0xE << 0);
+	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG8, val);
+#endif
 
-		/* Around 100ms delay for TAAL to stabilize*/
+	/* Around 100ms delay for TAAL to stabilize*/
 
-		mdelay(200);
+	mdelay(200);
 
 	if (dssdev->driver->enable) {
 		r = dssdev->driver->enable(dssdev);
@@ -3870,6 +3874,7 @@ err0:
 static void dsi_display_uninit_dsi(struct omap_dss_device *dssdev)
 {
 	enum dsi lcd_ix;
+
 	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
 	if (dssdev->driver->disable)
 		dssdev->driver->disable(dssdev);
@@ -3902,11 +3907,15 @@ static int dsi_core_init(enum dsi lcd_ix)
 
 static int dsi_display_enable(struct omap_dss_device *dssdev)
 {
-	int r = 0, val = 0;
+	int r = 0;
 	enum dsi lcd_ix;
 	struct dsi_struct *p_dsi;
+#ifdef CONFIG_ARCH_OMAP4
+	int val = 0;
+#endif
 	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
+
 	DSSDBG("dsi_display_enable\n");
 
 	mutex_lock(&(p_dsi->lock));
@@ -3937,7 +3946,7 @@ if (cpu_is_omap44xx())
 	if (r)
 		goto err2;
 
-
+#ifdef CONFIG_ARCH_OMAP4
 	if (cpu_is_omap44xx() && (lcd_ix == dsi1)) {
 
 		gpio_base=ioremap(0x48059000,0x1000);
@@ -3964,7 +3973,7 @@ if (cpu_is_omap44xx())
 		mdelay(120);
 		printk(KERN_DEBUG "GPIO reset done ");
 	}
-
+#endif
 	r = dsi_display_init_dispc(dssdev);
 	if (r)
 		goto err2;
@@ -4519,6 +4528,7 @@ int dsi_init(struct platform_device *pdev)
 	dsi_1.user_update_mode = OMAP_DSS_UPDATE_DISABLED;
 
 	dsi_base = dsi_1.base = ioremap(DSI_BASE, 2000);
+
 	if (!dsi_1.base) {
 		DSSERR("can't ioremap DSI\n");
 		r = -ENOMEM;
@@ -4573,7 +4583,6 @@ void dsi_exit(void)
 
 int dsi2_init(struct platform_device *pdev)
 {
-	int ret;
 	u32 rev;
 	int r;
 	enum dsi lcd_ix = dsi2;
@@ -4611,14 +4620,16 @@ int dsi2_init(struct platform_device *pdev)
 	dsi_2.update_mode = OMAP_DSS_UPDATE_DISABLED;
 	dsi_2.user_update_mode = OMAP_DSS_UPDATE_DISABLED;
 
+#ifdef CONFIG_ARCH_OMAP4
 	dsi2_base = dsi_2.base = ioremap(DSI2_BASE, 2000);
 	if (!dsi_2.base) {
 		DSSERR("can't ioremap DSI\n");
 		r = -ENOMEM;
 		goto err1;
 	}
+#endif
 
-#ifndef CONFIG_ARCH_OMAP4
+#ifdef CONFIG_ARCH_OMAP4
 	dsi_2.vdds_dsi_reg = regulator_get(&pdev->dev, "vdds_dsi");
 	if (IS_ERR(dsi_2.vdds_dsi_reg)) {
 		DSSERR("can't get VDDS_DSI regulator\n");
@@ -4638,10 +4649,12 @@ int dsi2_init(struct platform_device *pdev)
 	wake_up_process(dsi_2.thread);
 
 	return 0;
+#ifdef CONFIG_ARCH_OMAP4
 err2:
 	iounmap(dsi_2.base);
 err1:
 	kthread_stop(dsi_2.thread);
+#endif
 err0:
 	return r;
 }
