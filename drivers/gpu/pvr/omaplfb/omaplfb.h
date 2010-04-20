@@ -29,44 +29,7 @@
 
 extern IMG_BOOL PVRGetDisplayClassJTable(PVRSRV_DC_DISP2SRV_KMJTABLE *psJTable);
 
-#define OMAPLCD_IRQ			25
-
-#define OMAPLCD_SYSCONFIG           0x0410
-#define OMAPLCD_CONFIG              0x0444
-#define OMAPLCD_DEFAULT_COLOR0      0x044C
-#define OMAPLCD_TIMING_H            0x0464
-#define OMAPLCD_TIMING_V            0x0468
-#define OMAPLCD_POL_FREQ            0x046C
-#define OMAPLCD_DIVISOR             0x0470
-#define OMAPLCD_SIZE_DIG            0x0478
-#define OMAPLCD_SIZE_LCD            0x047C
-#define OMAPLCD_GFX_POSITION        0x0488
-#define OMAPLCD_GFX_SIZE            0x048C
-#define OMAPLCD_GFX_ATTRIBUTES      0x04a0
-#define OMAPLCD_GFX_FIFO_THRESHOLD  0x04a4
-#define OMAPLCD_GFX_WINDOW_SKIP     0x04b4
-
-#define OMAPLCD_IRQSTATUS       0x0418
-#define OMAPLCD_IRQENABLE       0x041c
-#define OMAPLCD_CONTROL         0x0440
-#define OMAPLCD_GFX_BA0         0x0480
-#define OMAPLCD_GFX_BA1         0x0484
-#define OMAPLCD_GFX_ROW_INC     0x04ac
-#define OMAPLCD_GFX_PIX_INC     0x04b0
-#define OMAPLCD_VID1_BA0        0x04bc
-#define OMAPLCD_VID1_BA1        0x04c0
-#define OMAPLCD_VID1_ROW_INC    0x04d8
-#define OMAPLCD_VID1_PIX_INC    0x04dc
-
-#define	OMAP_CONTROL_GODIGITAL      (1 << 6)
-#define	OMAP_CONTROL_GOLCD          (1 << 5)
-#define	OMAP_CONTROL_DIGITALENABLE  (1 << 1)
-#define	OMAP_CONTROL_LCDENABLE      (1 << 0)
-
-#define OMAPLCD_INTMASK_VSYNC       (1 << 1)
-#define OMAPLCD_INTMASK_OFF		0
-
-typedef void *       OMAP_HANDLE;
+typedef void * OMAP_HANDLE;
 
 typedef enum tag_omap_bool
 {
@@ -76,76 +39,39 @@ typedef enum tag_omap_bool
 
 typedef struct OMAPLFB_BUFFER_TAG
 {
-	struct list_head		list;
-
 	unsigned long                ulBufferSize;
-
-	
-	
-
 	IMG_SYS_PHYADDR              sSysAddr;
 	IMG_CPU_VIRTADDR             sCPUVAddr;
-	PVRSRV_SYNC_DATA            *psSyncData;
+	PVRSRV_SYNC_DATA*            psSyncData;
+	struct OMAPLFB_BUFFER_TAG*   psNext;
 
-	struct OMAPLFB_BUFFER_TAG	*psNext;
-
-	OMAP_HANDLE			hCmdCookie;
 } OMAPLFB_BUFFER;
 
-typedef struct OMAPLFB_VSYNC_FLIP_ITEM_TAG
+typedef struct OMAPLFB_FLIP_ITEM_TAG
 {
-	
-
-
 	OMAP_HANDLE      hCmdComplete;
-	
 	unsigned long    ulSwapInterval;
-	
 	OMAP_BOOL        bValid;
-	
 	OMAP_BOOL        bFlipped;
-	
 	OMAP_BOOL        bCmdCompleted;
-
-	
-	
-
-	
 	IMG_SYS_PHYADDR* sSysAddr;
-} OMAPLFB_VSYNC_FLIP_ITEM;
+
+} OMAPLFB_FLIP_ITEM;
 
 typedef struct PVRPDP_SWAPCHAIN_TAG
 {
-	
-	unsigned long       ulBufferCount;
-	
-	OMAPLFB_BUFFER     *psBuffer;
-	
-	OMAPLFB_VSYNC_FLIP_ITEM	*psVSyncFlips;
+	unsigned long                   ulBufferCount;
+	OMAPLFB_BUFFER*                 psBuffer;
+	OMAPLFB_FLIP_ITEM*              psFlipItems;
+	unsigned long                   ulInsertIndex;
+	unsigned long                   ulRemoveIndex;
+	PVRSRV_DC_DISP2SRV_KMJTABLE*	psPVRJTable;
+	OMAP_BOOL                       bFlushCommands;
+	unsigned long                   ulSetFlushStateRefCount;
+	OMAP_BOOL                       bBlanked;
+	spinlock_t*                     psSwapChainLock;
+	void*                           pvDevInfo;
 
-	
-	unsigned long       ulInsertIndex;
-	
-	
-	unsigned long       ulRemoveIndex;
-
-	
-	void *pvRegs;
-
-	
-	PVRSRV_DC_DISP2SRV_KMJTABLE	*psPVRJTable;
-
-	
-	OMAP_BOOL           bFlushCommands;
-
-	
-	unsigned long       ulSetFlushStateRefCount;
-
-	
-	OMAP_BOOL           bBlanked;
-
-	
-	spinlock_t         *psSwapChainLock;
 } OMAPLFB_SWAPCHAIN;
 
 typedef struct OMAPLFB_FBINFO_TAG
@@ -156,89 +82,33 @@ typedef struct OMAPLFB_FBINFO_TAG
 	unsigned long       ulWidth;
 	unsigned long       ulHeight;
 	unsigned long       ulByteStride;
-
-	
-	
 	IMG_SYS_PHYADDR     sSysAddr;
 	IMG_CPU_VIRTADDR    sCPUVAddr;
-
-	
 	PVRSRV_PIXEL_FORMAT ePixelFormat;
+
 }OMAPLFB_FBINFO;
 
 typedef struct OMAPLFB_DEVINFO_TAG
 {
-	unsigned long           ulDeviceID;
-
-	
-	OMAPLFB_BUFFER          sSystemBuffer;
-
-	
+	unsigned long                   ulDeviceID;
+	OMAPLFB_BUFFER                  sSystemBuffer;
 	PVRSRV_DC_DISP2SRV_KMJTABLE	sPVRJTable;
-	
-	
 	PVRSRV_DC_SRV2DISP_KMJTABLE	sDCJTable;
+	OMAPLFB_FBINFO                  sFBInfo;
+	OMAPLFB_SWAPCHAIN*              psSwapChain;
+	OMAP_BOOL                       bFlushCommands;
+	struct fb_info*                 psLINFBInfo;
+	struct notifier_block           sLINNotifBlock;
+	OMAP_BOOL                       bDeviceSuspended;
+	struct mutex                    sSwapChainLockMutex;
+	IMG_DEV_VIRTADDR	        sDisplayDevVAddr;
+	DISPLAY_INFO                    sDisplayInfo;
+	DISPLAY_FORMAT                  sDisplayFormat;
+	DISPLAY_DIMS                    sDisplayDim;
+	struct workqueue_struct*        sync_display_wq;
+	struct work_struct	        sync_display_work;
 
-	
-	OMAPLFB_FBINFO          sFBInfo;
-
-	
-	unsigned long           ulRefCount;
-
-	
-	OMAPLFB_SWAPCHAIN      *psSwapChain;
-
-	
-	OMAP_BOOL               bFlushCommands;
-
-	
-	struct fb_info         *psLINFBInfo;
-
-	
-	struct notifier_block   sLINNotifBlock;
-
-	
-	OMAP_BOOL               bDeviceSuspended;
-
-	
-	spinlock_t             sSwapChainLock;
-
-	
-	
-
-	
-	IMG_DEV_VIRTADDR		sDisplayDevVAddr;
-
-	DISPLAY_INFO            sDisplayInfo;
-
-	
-	DISPLAY_FORMAT          sDisplayFormat;
-	
-	
-	DISPLAY_DIMS            sDisplayDim;
-
-	struct list_head	active_list;
-	struct mutex		active_list_lock;
-	struct work_struct	active_work;
-	struct workqueue_struct *workq;
 }  OMAPLFB_DEVINFO;
-
-#define	OMAPLFB_PAGE_SIZE 4096
-#define	OMAPLFB_PAGE_MASK (OMAPLFB_PAGE_SIZE - 1)
-#define	OMAPLFB_PAGE_TRUNC (~OMAPLFB_PAGE_MASK)
-
-#define	OMAPLFB_PAGE_ROUNDUP(x) (((x) + OMAPLFB_PAGE_MASK) & OMAPLFB_PAGE_TRUNC)
-
-#ifdef	DEBUG
-#define	DEBUG_PRINTK(x) printk x
-#else
-#define	DEBUG_PRINTK(x)
-#endif
-
-#define DISPLAY_DEVICE_NAME "PowerVR OMAP Linux Display Driver"
-#define	DRVNAME	"omaplfb"
-#define	DEVNAME	DRVNAME
-#define	DRIVER_PREFIX DRVNAME
 
 typedef enum _OMAP_ERROR_
 {
@@ -251,30 +121,46 @@ typedef enum _OMAP_ERROR_
 	OMAP_ERROR_CANT_REGISTER_CALLBACK   =  6,
 	OMAP_ERROR_INVALID_DEVICE           =  7,
 	OMAP_ERROR_DEVICE_REGISTER_FAILED   =  8
+
 } OMAP_ERROR;
 
+#define	OMAPLFB_PAGE_SIZE 4096
+#define	OMAPLFB_PAGE_MASK (OMAPLFB_PAGE_SIZE - 1)
+#define	OMAPLFB_PAGE_TRUNC (~OMAPLFB_PAGE_MASK)
 
-#ifndef UNREFERENCED_PARAMETER
-#define	UNREFERENCED_PARAMETER(param) (param) = (param)
+#define	OMAPLFB_PAGE_ROUNDUP(x) (((x)+OMAPLFB_PAGE_MASK) & OMAPLFB_PAGE_TRUNC)
+
+#define DISPLAY_DEVICE_NAME "PowerVR OMAP Linux Display Driver"
+#define	DRVNAME	"omaplfb"
+#define	DEVNAME	DRVNAME
+#define	DRIVER_PREFIX DRVNAME
+
+#define FRAMEBUFFER_COUNT		1 /*num_registered_fb */
+
+#ifdef	DEBUG
+#define	DEBUG_PRINTK(format, ...) printk("DEBUG " DRIVER_PREFIX \
+	" (%s %i): " format "\n", __func__, __LINE__, ## __VA_ARGS__)
+#else
+#define	DEBUG_PRINTK(format,...)
 #endif
+
+#define	WARNING_PRINTK(format, ...) printk("WARNING " DRIVER_PREFIX \
+	" (%s %i): " format "\n", __func__, __LINE__, ## __VA_ARGS__)
+#define	ERROR_PRINTK(format, ...) printk("ERROR " DRIVER_PREFIX \
+	" (%s %i): " format "\n", __func__, __LINE__, ## __VA_ARGS__)
 
 OMAP_ERROR OMAPLFBInit(void);
 OMAP_ERROR OMAPLFBDeinit(void);
-
 void *OMAPLFBAllocKernelMem(unsigned long ulSize);
 void OMAPLFBFreeKernelMem(void *pvMem);
-OMAP_ERROR OMAPLFBGetLibFuncAddr(char *szFunctionName, PFN_DC_GET_PVRJTABLE *ppfnFuncTable);
-OMAP_ERROR OMAPLFBInstallVSyncISR (OMAPLFB_SWAPCHAIN *psSwapChain);
-OMAP_ERROR OMAPLFBUninstallVSyncISR(OMAPLFB_SWAPCHAIN *psSwapChain);
-OMAP_BOOL OMAPLFBVSyncIHandler(OMAPLFB_SWAPCHAIN *psSwapChain);
-void OMAPLFBEnableVSyncInterrupt(OMAPLFB_SWAPCHAIN *psSwapChain);
-void OMAPLFBDisableVSyncInterrupt(OMAPLFB_SWAPCHAIN *psSwapChain);
-void OMAPLFBEnableDisplayRegisterAccess(void);
-void OMAPLFBDisableDisplayRegisterAccess(void);
-void OMAPLFBSync(void);
-void OMAPLFBFlip(OMAPLFB_SWAPCHAIN *psSwapChain, unsigned long paddr);
-void OMAPLFBDisplayInit(void);
+void OMAPLFBWaitForSync(OMAPLFB_DEVINFO *psDevInfo);
+OMAP_ERROR OMAPLFBGetLibFuncAddr(char *szFunctionName,
+	PFN_DC_GET_PVRJTABLE *ppfnFuncTable);
+void OMAPLFBFlip(OMAPLFB_SWAPCHAIN *psSwapChain, unsigned long aPhyAddr);
+#ifdef LDM_PLATFORM
 void OMAPLFBDriverSuspend(void);
 void OMAPLFBDriverResume(void);
+#endif
 
 #endif
+

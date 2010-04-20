@@ -24,20 +24,42 @@
  *
  ******************************************************************************/
 
-#include <asm/io.h>
-#include <asm/uaccess.h>
+#ifndef AUTOCONF_INCLUDED
+#include <linux/config.h>
+#endif
 
 #include <linux/version.h>
 #include <linux/module.h>
-#include <linux/pci.h>
-#include <linux/slab.h>
-#include <linux/errno.h>
-#include <linux/interrupt.h>
-#include <linux/delay.h>
 #include <linux/fb.h>
-#include <linux/platform_device.h>
+#include <asm/io.h>
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32))
+#include <plat/vrfb.h>
 #include <plat/display.h>
+#else
+#include <mach/vrfb.h>
+#include <mach/display.h>
+#endif
+
+#ifdef CONFIG_FB_OMAP2_DEBUG_SUPPORT
+#undef DEBUG
+#endif
+#include <../drivers/video/omap2/omapfb/omapfb.h>
+
+#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
+#include <asm/cacheflush.h>
+#define HOST_PAGESIZE			(4096)
+#define HOST_PAGEMASK			(~(HOST_PAGESIZE-1))
+#define HOST_PAGEALIGN(addr)	(((addr)+HOST_PAGESIZE-1)&HOST_PAGEMASK)
+#endif
+
+#if defined(LDM_PLATFORM)
+#include <linux/platform_device.h>
+#if defined(SGX_EARLYSUSPEND)
+#include <linux/earlysuspend.h>
+#endif
+#endif
+
 
 #include "img_defs.h"
 #include "servicesext.h"
@@ -47,208 +69,352 @@
 
 MODULE_SUPPORTED_DEVICE(DEVNAME);
 
-#define unref__ __attribute__ ((unused))
-
-void *OMAPLFBAllocKernelMem(unsigned long ulSize)
+/*
+ * Kernel malloc
+ * in: ui32ByteSize
+ */
+void *OMAPLFBAllocKernelMem(unsigned long ui32ByteSize)
 {
-	return kmalloc(ulSize, GFP_KERNEL);
+	void *p;
+
+#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
+	IMG_VOID *pvPageAlignedCPUPAddr;
+	IMG_VOID *pvPageAlignedCPUVAddr;
+	IMG_UINT32 ui32PageOffset;
+	IMG_UINT32 ui32PageCount;
+#endif
+	p = kmalloc(ui32ByteSize, GFP_KERNEL);
+
+	if(!p)
+		return 0;
+
+#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
+	/* TODO: Workaround for cache silicon issue, must be removed when solved */
+	flush_cache_all();
+	ui32PageOffset = (IMG_UINT32) p & (HOST_PAGESIZE - 1);
+	ui32PageCount = HOST_PAGEALIGN(ui32ByteSize + ui32PageOffset) / HOST_PAGESIZE;
+
+	pvPageAlignedCPUVAddr = (IMG_VOID *)((IMG_UINT8 *)p - ui32PageOffset);
+	pvPageAlignedCPUPAddr = (IMG_VOID*) __pa(pvPageAlignedCPUVAddr);
+
+	outer_cache.flush_range((unsigned long) pvPageAlignedCPUPAddr, (unsigned long) ((pvPageAlignedCPUPAddr + HOST_PAGESIZE*ui32PageCount) - 1));
+#endif
+	return p;
 }
 
+/*
+ * Kernel free
+ * in: pvMem
+ */
 void OMAPLFBFreeKernelMem(void *pvMem)
 {
 	kfree(pvMem);
 }
 
-
-OMAP_ERROR OMAPLFBGetLibFuncAddr (char *szFunctionName, PFN_DC_GET_PVRJTABLE *ppfnFuncTable)
+/*
+ * Here we get the function pointer to get jump table from
+ * services using an external function.
+ * in: szFunctionName
+ * out: ppfnFuncTable
+ */
+OMAP_ERROR OMAPLFBGetLibFuncAddr (char *szFunctionName,
+	PFN_DC_GET_PVRJTABLE *ppfnFuncTable)
 {
 	if(strcmp("PVRGetDisplayClassJTable", szFunctionName) != 0)
 	{
-		return (OMAP_ERROR_INVALID_PARAMS);
+		ERROR_PRINTK("Unable to get function pointer for %s"
+			" from services", szFunctionName);
+		return OMAP_ERROR_INVALID_PARAMS;
 	}
-
-	
 	*ppfnFuncTable = PVRGetDisplayClassJTable;
 
-	return (OMAP_OK);
+	return OMAP_OK;
 }
 
-static struct omap_overlay_manager* lcd_mgr = 0;
-static struct omap_overlay*         omap_gfxoverlay = 0;
-static struct omap_overlay_info     gfxoverlayinfo;
-struct fb_info *fb_info;
 
-void OMAPLFBDisplayInit(void)
+#if defined(FLIP_TECHNIQUE_FRAMEBUFFER)
+/*
+ * Presents the flip in the display with the framebuffer API
+ * in: psSwapChain, aPhyAddr
+ */
+void OMAPLFBFlip(OMAPLFB_SWAPCHAIN *psSwapChain, unsigned long aPhyAddr)
 {
-    struct omap_overlay*         overlayptr = 0;
-    unsigned int                 i = 0;
-    unsigned int                 numoverlays = 0;
+	OMAPLFB_DEVINFO	*psDevInfo = (OMAPLFB_DEVINFO *)psSwapChain->pvDevInfo;
+	struct fb_info * framebuffer = psDevInfo->psLINFBInfo;
+	struct omapfb_info *ofbi = FB2OFB(framebuffer);
+	struct omapfb2_device *fbdev = ofbi->fbdev;
+	/* Get the framebuffer physical address base */
+	unsigned long fb_base_phyaddr =
+		psDevInfo->sSystemBuffer.sSysAddr.uiAddr;
 
-    // there is tv and lcd managers... we only care about lcd at this time.
-    lcd_mgr = omap_dss_get_overlay_manager(OMAP_DSS_OVL_MGR_LCD);
-    if(!lcd_mgr)
-    {
-        DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": OMAPLFBSetDisplayInfo couldn't find lcd overlay manager\n"));
-        return;
-    }
+	omapfb_lock(fbdev);
 
-    numoverlays = omap_dss_get_num_overlays();
-    if( numoverlays == 0)
-    {
-        DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": OMAPLFBSetDisplayInfo couldn't find any overlays\n"));
-        return;
-    }
+	/* Calculate the virtual Y to move in the framebuffer */
+	framebuffer->var.yoffset =
+		(aPhyAddr - fb_base_phyaddr) / framebuffer->fix.line_length;
+	framebuffer->var.activate = FB_ACTIVATE_FORCE;
+	fb_set_var(framebuffer, &framebuffer->var);
 
-    for( i = 0; i < numoverlays; i++ )
-    {
-        overlayptr = omap_dss_get_overlay(i);
-        if( strncmp( overlayptr->name, "gfx", 3 ) == 0)
-        {
-            DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": OMAPLFBSetDisplayInfo found GFX overlay\n"));
-            omap_gfxoverlay = overlayptr;
-            break;
-        }
-    }
-    if( omap_gfxoverlay == 0 )
-    {
-        DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": OMAPLFBSetDisplayInfo GFX overlay no found\n"));
-        return;
-    }
-
-    omap_gfxoverlay->get_overlay_info( omap_gfxoverlay, &gfxoverlayinfo );
-    fb_info =  registered_fb[0];
-
+	omapfb_unlock(fbdev);
 }
 
-void OMAPLFBSync(void)
+#elif defined(FLIP_TECHNIQUE_OVERLAY)
+/*
+ * Presents the flip in the display with the DSS2 overlay API
+ * in: psSwapChain, aPhyAddr
+ */
+void OMAPLFBFlip(OMAPLFB_SWAPCHAIN *psSwapChain, unsigned long aPhyAddr)
 {
-	if (lcd_mgr && lcd_mgr->device && omap_gfxoverlay)
-		lcd_mgr->device->sync(lcd_mgr->device);
+	OMAPLFB_DEVINFO	*psDevInfo = (OMAPLFB_DEVINFO *)psSwapChain->pvDevInfo;
+	struct fb_info * framebuffer = psDevInfo->psLINFBInfo;
+	struct omapfb_info *ofbi = FB2OFB(framebuffer);
+	struct omapfb2_device *fbdev = ofbi->fbdev;
+	unsigned long fb_offset =
+		aPhyAddr - psDevInfo->sSystemBuffer.sSysAddr.uiAddr;
+	struct omap_overlay* overlay;
+	struct omap_overlay_info overlay_info;
+	int i;
+
+	fb_offset = aPhyAddr - psDevInfo->sSystemBuffer.sSysAddr.uiAddr;
+
+	omapfb_lock(fbdev);
+
+	for(i = 0; i < ofbi->num_overlays ; i++)
+	{
+		overlay = ofbi->overlays[i];
+		overlay->get_overlay_info( overlay, &overlay_info );
+
+		/* If the overlay is not enabled don't update it */
+		if(!overlay_info.enabled)
+			continue;
+
+		overlay_info.paddr = framebuffer->fix.smem_start + fb_offset;
+		overlay_info.vaddr = framebuffer->screen_base + fb_offset;
+		overlay->set_overlay_info(overlay, &overlay_info);
+		overlay->manager->apply(overlay->manager);
+
+		if(overlay->manager->device->update)
+		{
+			overlay->manager->device->update(
+				overlay->manager->device, 0, 0,
+				overlay_info.width,
+				overlay_info.height);
+		}
+
+	}
+
+	omapfb_unlock(fbdev);
 }
 
-void OMAPLFBFlip(OMAPLFB_SWAPCHAIN *psSwapChain, unsigned long paddr)
+#else
+#error No flipping technique selected, please define \
+	FLIP_TECHNIQUE_FRAMEBUFFER or FLIP_TECHNIQUE_OVERLAY
+#endif
+
+/*
+ * Synchronize with the display to prevent tearing
+ * On DSI panels the display->sync function is used to handle FRAMEDONE IRQ
+ * On DPI panels the display->wait_vsync is used to handle VSYNC IRQ
+ * in: psDevInfo
+ */
+void OMAPLFBWaitForSync(OMAPLFB_DEVINFO *psDevInfo)
 {
-	u32 pixels;
-
-	if (lcd_mgr && lcd_mgr->device && omap_gfxoverlay) {
-		omap_gfxoverlay->get_overlay_info(omap_gfxoverlay,
-						  &gfxoverlayinfo);
-		gfxoverlayinfo.paddr = paddr;
-		/* TODO: plumb vaddr in to this function */
-		gfxoverlayinfo.vaddr = (void *)(paddr - 0x81314000 + 0xd2800000);
-
-		omap_gfxoverlay->set_overlay_info(omap_gfxoverlay,
-						  &gfxoverlayinfo);
-		lcd_mgr->apply(lcd_mgr);
-
-		lcd_mgr->device->update(lcd_mgr->device, 0, 0,
-					gfxoverlayinfo.width,
-					gfxoverlayinfo.height);
-
-		pixels = (paddr - fb_info->fix.smem_start) /
-			(fb_info->var.bits_per_pixel / 8);
-		fb_info->var.yoffset = pixels / fb_info->var.xres;
-		fb_info->var.xoffset = pixels % fb_info->var.xres;
+	struct fb_info * framebuffer = psDevInfo->psLINFBInfo;
+	struct omap_dss_device *display = fb2display(framebuffer);
+	if (display)
+	{
+		if(display->sync)
+			display->sync(display);
+		else if (display->wait_vsync)
+			display->wait_vsync(display);
 	}
 }
 
-static OMAP_BOOL bDeviceSuspended;
+#if defined(LDM_PLATFORM)
 
+static volatile OMAP_BOOL bDeviceSuspended;
+
+/*
+ * Common suspend driver function
+ * in: psSwapChain, aPhyAddr
+ */
 static void OMAPLFBCommonSuspend(void)
 {
 	if (bDeviceSuspended)
 	{
+		DEBUG_PRINTK("Driver is already suspended");
 		return;
 	}
 
 	OMAPLFBDriverSuspend();
-
 	bDeviceSuspended = OMAP_TRUE;
 }
 
-static int OMAPLFBDriverProbe_Entry(struct platform_device *pdev)
+#if 0
+/*
+ * Function called when the driver is requested to release
+ * in: pDevice
+ */
+static void OMAPLFBDeviceRelease_Entry(struct device unref__ *pDevice)
 {
-	dev_dbg(&pdev->dev, "probe\n");
-	if(OMAPLFBInit() != OMAP_OK)
-	{
-		printk(KERN_WARNING DRIVER_PREFIX ": OMAPLFB_Init: OMAPLFBInit failed\n");
-		return -ENODEV;
-	}
-
-	return 0;
-}
-
-static int OMAPLFBDriverSuspend_Entry(struct platform_device unref__ *pDevice, pm_message_t unref__ state)
-{
-	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": OMAPLFBDriverSuspend_Entry\n"));
-
+	DEBUG_PRINTK("Requested driver release");
 	OMAPLFBCommonSuspend();
-
-	return 0;
 }
 
-static int OMAPLFBDriverResume_Entry(struct platform_device unref__ *pDevice)
-{
-	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": OMAPLFBDriverResume_Entry\n"));
+static struct platform_device omaplfb_device = {
+	.name = DEVNAME,
+	.id = -1,
+	.dev = {
+		.release = OMAPLFBDeviceRelease_Entry
+	}
+};
+#endif
 
+#if defined(SGX_EARLYSUSPEND)
+
+static struct early_suspend omaplfb_early_suspend;
+
+/*
+ * Android specific, driver is requested to be suspended
+ * in: ea_event
+ */
+static void OMAPLFBDriverSuspend_Entry(struct early_suspend *ea_event)
+{
+	DEBUG_PRINTK("Requested driver suspend");
+	OMAPLFBCommonSuspend();
+}
+
+/*
+ * Android specific, driver is requested to be suspended
+ * in: ea_event
+ */
+static void OMAPLFBDriverResume_Entry(struct early_suspend *ea_event)
+{
+	DEBUG_PRINTK("Requested driver resume");
 	OMAPLFBDriverResume();
-
 	bDeviceSuspended = OMAP_FALSE;
-
-	return 0;
-}
-
-static IMG_VOID OMAPLFBDriverShutdown_Entry(struct platform_device unref__ *pDevice)
-{
-	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": OMAPLFBDriverShutdown_Entry\n"));
-
-	OMAPLFBCommonSuspend();
-}
-
-static int __exit OMAPLFBDriverRemove_Entry(struct platform_device *pdev)
-{
-	if(OMAPLFBDeinit() != OMAP_OK)
-	{
-		printk(KERN_WARNING DRIVER_PREFIX ": OMAPLFB_Init: OMAPLFBDeinit failed\n");
-	}
-	return 0;
 }
 
 static struct platform_driver omaplfb_driver = {
 	.driver = {
-		.name		= DRVNAME,
-	},
-	.probe		= OMAPLFBDriverProbe_Entry,
- 	.suspend	= OMAPLFBDriverSuspend_Entry,
-	.resume		= OMAPLFBDriverResume_Entry,
-	.shutdown	= OMAPLFBDriverShutdown_Entry,
-	.remove		= __exit_p(OMAPLFBDriverRemove_Entry),
-
+		.name = DRVNAME,
+	}
 };
 
-static int __init OMAPLFB_Init(void)
+#else /* defined(SGX_EARLYSUSPEND) */
+
+/*
+ * Function called when the driver is requested to be suspended
+ * in: pDevice, state
+ */
+static int OMAPLFBDriverSuspend_Entry(struct platform_device unref__ *pDevice,
+	pm_message_t unref__ state)
 {
-	int error;
-
-	if ((error = platform_driver_register(&omaplfb_driver)) != 0)
-	{
-		printk(KERN_WARNING DRIVER_PREFIX ": OMAPLFB_Init: Unable to register platform driver (%d)\n", error);
-
-		return -ENODEV;
-	}
-
+	DEBUG_PRINTK("Requested driver suspend");
+	OMAPLFBCommonSuspend();
 	return 0;
 }
 
+/*
+ * Function called when the driver is requested to resume
+ * in: pDevice
+ */
+static int OMAPLFBDriverResume_Entry(struct platform_device unref__ *pDevice)
+{
+	DEBUG_PRINTK("Requested driver resume");
+	OMAPLFBDriverResume();
+	bDeviceSuspended = OMAP_FALSE;
+	return 0;
+}
+
+/*
+ * Function called when the driver is requested to shutdown
+ * in: pDevice
+ */
+static IMG_VOID OMAPLFBDriverShutdown_Entry(
+	struct platform_device unref__ *pDevice)
+{
+	DEBUG_PRINTK("Requested driver shutdown");
+	OMAPLFBCommonSuspend();
+}
+
+static struct platform_driver omaplfb_driver = {
+	.driver = {
+		.name = DRVNAME,
+	},
+	.suspend = OMAPLFBDriverSuspend_Entry,
+	.resume	= OMAPLFBDriverResume_Entry,
+	.shutdown = OMAPLFBDriverShutdown_Entry,
+};
+
+#endif /* defined(SGX_EARLYSUSPEND) */
+
+#endif /* defined(LDM_PLATFORM) */
+
+/*
+ * Driver init function
+ */
+static int __init OMAPLFB_Init(void)
+{
+	if(OMAPLFBInit() != OMAP_OK)
+	{
+		WARNING_PRINTK("Driver init failed");
+		return -ENODEV;
+	}
+
+#if defined(LDM_PLATFORM)
+	DEBUG_PRINTK("Registering platform driver");
+	if (platform_driver_register(&omaplfb_driver))
+	{
+		WARNING_PRINTK("Unable to register platform driver");
+		if(OMAPLFBDeinit() != OMAP_OK)
+			WARNING_PRINTK("Driver cleanup failed\n");
+		return -ENODEV;
+	}
+#if 0
+	DEBUG_PRINTK("Registering device driver");
+	if (platform_device_register(&omaplfb_device))
+	{
+		WARNING_PRINTK("Unable to register platform device");
+		platform_driver_unregister(&omaplfb_driver);
+		if(OMAPLFBDeinit() != OMAP_OK)
+			WARNING_PRINTK("Driver cleanup failed\n");
+		return -ENODEV;
+	}
+#endif
+
+#if defined(SGX_EARLYSUSPEND)
+	omaplfb_early_suspend.suspend = OMAPLFBDriverSuspend_Entry;
+        omaplfb_early_suspend.resume = OMAPLFBDriverResume_Entry;
+        omaplfb_early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+        register_early_suspend(&omaplfb_early_suspend);
+	DEBUG_PRINTK("Registered early suspend support");
+#endif
+
+#endif
+	return 0;
+}
+
+/*
+ * Driver exit function
+ */
 static IMG_VOID __exit OMAPLFB_Cleanup(IMG_VOID)
 {    
+#if defined(LDM_PLATFORM)
+#if 0
+	DEBUG_PRINTK(format,...)("Removing platform device");
+	platform_device_unregister(&omaplfb_device);
+#endif
+	DEBUG_PRINTK("Removing platform driver");
 	platform_driver_unregister(&omaplfb_driver);
-
+#if defined(SGX_EARLYSUSPEND)
+        unregister_early_suspend(&omaplfb_early_suspend);
+#endif
+#endif
 	if(OMAPLFBDeinit() != OMAP_OK)
-	{
-		printk(KERN_WARNING DRIVER_PREFIX ": OMAPLFB_Cleanup: OMAPLFBDeinit failed\n");
-	}
+		WARNING_PRINTK("Driver cleanup failed");
 }
 
 late_initcall(OMAPLFB_Init);
 module_exit(OMAPLFB_Cleanup);
+

@@ -79,8 +79,25 @@ IMG_BOOL OSUnMapPhysToLin(IMG_VOID *pvLinAddr, IMG_SIZE_T ui32Bytes, IMG_UINT32 
 PVRSRV_ERROR OSReservePhys(IMG_CPU_PHYADDR BasePAddr, IMG_SIZE_T ui32Bytes, IMG_UINT32 ui32Flags, IMG_VOID **ppvCpuVAddr, IMG_HANDLE *phOSMemHandle);
 PVRSRV_ERROR OSUnReservePhys(IMG_VOID *pvCpuVAddr, IMG_SIZE_T ui32Bytes, IMG_UINT32 ui32Flags, IMG_HANDLE hOSMemHandle);
 
-#if defined(SUPPORT_CPU_CACHED_BUFFERS)
-IMG_VOID OSFlushCPUCache(IMG_VOID);
+#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
+typedef enum {
+    MEM_ALLOC_TYPE_KMALLOC,
+    MEM_ALLOC_TYPE_VMALLOC,
+    MEM_ALLOC_TYPE_ALLOC_PAGES,
+    MEM_ALLOC_TYPE_IOREMAP,
+    MEM_ALLOC_TYPE_IO,
+    MEM_ALLOC_TYPE_KMEM_CACHE,
+    MEM_ALLOC_TYPE_COUNT
+} MEM_ALLOC_TYPE;
+
+IMG_VOID OSFlushOuterCache(IMG_VOID *p, IMG_UINT32 ui32ByteSize, MEM_ALLOC_TYPE eAllocType);
+IMG_VOID OSFlushMemAreas(IMG_VOID);
+#endif
+
+#if defined(SUPPORT_CPU_CACHED_BUFFERS) || defined(SUPPORT_CACHEFLUSH_ON_ALLOC)
+IMG_VOID OSFlushCPUCacheKM(IMG_VOID);
+IMG_VOID OSFlushCPUCacheRangeKM(IMG_VOID *pvRangeAddrStart,
+						 	IMG_VOID *pvRangeAddrEnd);
 #endif
 
 #if defined(__linux__)
@@ -439,7 +456,8 @@ PVRSRV_ERROR OSCopyFromUser(IMG_PVOID pvProcess, IMG_VOID *pvDest, IMG_VOID *pvS
 PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID* pvCPUVAddr, 
 									IMG_SIZE_T ui32Bytes, 
 									IMG_SYS_PHYADDR *psSysPAddr,
-									IMG_HANDLE *phOSWrapMem);
+									IMG_HANDLE *phOSWrapMem,
+									IMG_BOOL bWrapWorkaround);
 PVRSRV_ERROR OSReleasePhysPageAddr(IMG_HANDLE hOSWrapMem);
 #else
 #ifdef INLINE_IS_PRAGMA
@@ -448,12 +466,14 @@ PVRSRV_ERROR OSReleasePhysPageAddr(IMG_HANDLE hOSWrapMem);
 static INLINE PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID* pvCPUVAddr, 
 												IMG_SIZE_T ui32Bytes, 
 												IMG_SYS_PHYADDR *psSysPAddr,
-												IMG_HANDLE *phOSWrapMem)
+												IMG_HANDLE *phOSWrapMem,
+												IMG_BOOL bWrapWorkaround)
 {
 	PVR_UNREFERENCED_PARAMETER(pvCPUVAddr);
 	PVR_UNREFERENCED_PARAMETER(ui32Bytes);
 	PVR_UNREFERENCED_PARAMETER(psSysPAddr);
 	PVR_UNREFERENCED_PARAMETER(phOSWrapMem);
+	PVR_UNREFERENCED_PARAMETER(bWrapWorkaround);
 	return PVRSRV_OK;	
 }
 #ifdef INLINE_IS_PRAGMA

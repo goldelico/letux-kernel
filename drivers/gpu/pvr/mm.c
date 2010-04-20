@@ -372,6 +372,13 @@ _KMallocWrapper(IMG_UINT32 ui32ByteSize, IMG_CHAR *pszFileName, IMG_UINT32 ui32L
 {
     IMG_VOID *pvRet;
     pvRet = kmalloc(ui32ByteSize, GFP_KERNEL);
+#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
+    flush_cache_all();
+
+    if(pvRet)
+	OSFlushOuterCache(pvRet, ui32ByteSize, MEM_ALLOC_TYPE_KMALLOC);
+#endif
+
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
     if(pvRet)
     {
@@ -573,6 +580,13 @@ _VMallocWrapper(IMG_UINT32 ui32Bytes,
 	
     pvRet = __vmalloc(ui32Bytes, GFP_KERNEL | __GFP_HIGHMEM, PGProtFlags);
     
+#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
+	flush_cache_all();
+    if(pvRet)
+	OSFlushOuterCache(pvRet, ui32Bytes, MEM_ALLOC_TYPE_VMALLOC);
+
+#endif
+
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
     if(pvRet)
     {
@@ -736,6 +750,12 @@ _IORemapWrapper(IMG_CPU_PHYADDR BasePAddr,
             PVR_DPF((PVR_DBG_ERROR, "IORemapWrapper: unknown mapping flags"));
             return NULL;
     }
+#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
+	flush_cache_all();
+
+/* Is this really needed? Doesn't hurt */
+	OSFlushOuterCache((IMG_VOID *) BasePAddr.uiAddr, ui32Bytes, MEM_ALLOC_TYPE_IOREMAP);
+#endif
     
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
     if(pvIORemapCookie)
@@ -825,19 +845,37 @@ FreeIORemapLinuxMemArea(LinuxMemArea *psLinuxMemArea)
 
 
 static IMG_BOOL
-PagesAreContiguous(IMG_SYS_PHYADDR *psSysPhysAddr, IMG_UINT32 ui32Bytes)
+TreatExternalPagesAsContiguous(IMG_SYS_PHYADDR *psSysPhysAddr, IMG_UINT32 ui32Bytes, IMG_BOOL bPhysContig)
 {
 	IMG_UINT32 ui32;
 	IMG_UINT32 ui32AddrChk;
 	IMG_UINT32 ui32NumPages = RANGE_TO_PAGES(ui32Bytes);
 
+
 	for (ui32 = 0, ui32AddrChk = psSysPhysAddr[0].uiAddr;
 		ui32 < ui32NumPages;
-		ui32++, ui32AddrChk += PAGE_SIZE)
+		ui32++, ui32AddrChk = (bPhysContig) ? (ui32AddrChk + PAGE_SIZE) : psSysPhysAddr[ui32].uiAddr)
 	{
-		if (psSysPhysAddr[ui32].uiAddr != ui32AddrChk)
+		if (!pfn_valid(PHYS_TO_PFN(ui32AddrChk)))
 		{
-			return IMG_FALSE;
+			break;
+		}
+	}
+	if (ui32 == ui32NumPages)
+	{
+		return IMG_FALSE;
+	}
+
+	if (!bPhysContig)
+	{
+		for (ui32 = 0, ui32AddrChk = psSysPhysAddr[0].uiAddr;
+			ui32 < ui32NumPages;
+			ui32++, ui32AddrChk += PAGE_SIZE)
+		{
+			if (psSysPhysAddr[ui32].uiAddr != ui32AddrChk)
+			{
+				return IMG_FALSE;
+			}
 		}
 	}
 
@@ -856,7 +894,7 @@ LinuxMemArea *NewExternalKVLinuxMemArea(IMG_SYS_PHYADDR *pBasePAddr, IMG_VOID *p
 
     psLinuxMemArea->eAreaType = LINUX_MEM_AREA_EXTERNAL_KV;
     psLinuxMemArea->uData.sExternalKV.pvExternalKV = pvCPUVAddr;
-    psLinuxMemArea->uData.sExternalKV.bPhysContig = (IMG_BOOL)(bPhysContig || PagesAreContiguous(pBasePAddr, ui32Bytes));
+    psLinuxMemArea->uData.sExternalKV.bPhysContig = (IMG_BOOL)(bPhysContig || TreatExternalPagesAsContiguous(pBasePAddr, ui32Bytes, bPhysContig));
 
     if (psLinuxMemArea->uData.sExternalKV.bPhysContig)
     {
@@ -982,6 +1020,11 @@ NewAllocPagesLinuxMemArea(IMG_UINT32 ui32Bytes, IMG_UINT32 ui32AreaFlags)
         {
             goto failed_alloc_pages;
         }
+#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
+	else
+		/* OSAllocMem above would've made a flush_cache_all */
+		OSFlushOuterCache(pvPageList[i], 0, MEM_ALLOC_TYPE_ALLOC_PAGES);
+#endif
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,15))
     	
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0))		
@@ -1103,7 +1146,7 @@ LinuxMemAreaOffsetToPage(LinuxMemArea *psLinuxMemArea,
         default:
             PVR_DPF((PVR_DBG_ERROR,
                     "%s: Unsupported request for struct page from LinuxMemArea with type=%s",
-                    LinuxMemAreaTypeToString(psLinuxMemArea->eAreaType)));
+                    __FUNCTION__, LinuxMemAreaTypeToString(psLinuxMemArea->eAreaType)));
             return NULL;
     }
 }
@@ -1146,6 +1189,13 @@ _KMemCacheAllocWrapper(LinuxKMemCache *psCache,
     IMG_VOID *pvRet;
     
     pvRet = kmem_cache_alloc(psCache, Flags);
+
+#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
+    flush_cache_all();
+
+    if(pvRet)
+	OSFlushOuterCache(pvRet, kmem_cache_size(psCache), MEM_ALLOC_TYPE_KMEM_CACHE);
+#endif
 
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
     DebugMemAllocRecordAdd(DEBUG_MEM_ALLOC_TYPE_KMEM_CACHE,

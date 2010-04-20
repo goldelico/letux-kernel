@@ -152,7 +152,7 @@ IMG_VOID PVRSRVEnumerateDCKM_ForEachVaCb(PVRSRV_DEVICE_NODE *psDeviceNode, va_li
 		(*pui32DevCount)++;
 		if(*ppui32DevID)
 		{
-			*(*ppui32DevID++) = psDeviceNode->sDevId.ui32DeviceIndex;	 
+			*(*ppui32DevID)++ = psDeviceNode->sDevId.ui32DeviceIndex;
 		}
 	}
 }
@@ -197,27 +197,7 @@ PVRSRV_ERROR PVRSRVRegisterDCDeviceKM (PVRSRV_DC_SRV2DISP_KMJTABLE *psFuncTable,
 	PVRSRV_DEVICE_NODE			*psDeviceNode;
 	SYS_DATA					*psSysData;
 
-	
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	SysAcquireData(&psSysData);
-
-	
-
-
-	
+      SysAcquireData(&psSysData);
 	
 	if(OSAllocMem( PVRSRV_OS_PAGEABLE_HEAP,
 					 sizeof(*psDCInfo),

@@ -1,26 +1,26 @@
 /**********************************************************************
  *
  * Copyright(c) 2008 Imagination Technologies Ltd. All rights reserved.
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
- * 
- * This program is distributed in the hope it will be useful but, except 
- * as otherwise stated in writing, without any warranty; without even the 
- * implied warranty of merchantability or fitness for a particular purpose. 
+ *
+ * This program is distributed in the hope it will be useful but, except
+ * as otherwise stated in writing, without any warranty; without even the
+ * implied warranty of merchantability or fitness for a particular purpose.
  * See the GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License along with
  * this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- * 
+ *
  * The full GNU General Public License is included in this distribution in
  * the file called "COPYING".
  *
  * Contact Information:
  * Imagination Technologies Ltd. <gpl-support@imgtec.com>
- * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
+ * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK
  *
  ******************************************************************************/
 
@@ -32,27 +32,26 @@
 #include <linux/version.h>
 #include <linux/clk.h>
 #include <linux/spinlock.h>
-#include <linux/mutex.h>
 #include <asm/atomic.h>
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,26))
 #include <linux/semaphore.h>
 #include <linux/resource.h>
-#else 
+#else
 #include <asm/semaphore.h>
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22))
 #include <asm/arch/resource.h>
-#endif 
-#endif 
+#endif
+#endif
 
-#endif 
+#endif
 
 #if defined (__cplusplus)
 extern "C" {
 #endif
 
- 
- 
+
+
 IMG_CHAR *SysCreateVersionString(IMG_CPU_PHYADDR sRegRegion);
 
 IMG_VOID DisableSystemClocks(SYS_DATA *psSysData);
@@ -79,7 +78,7 @@ PVRSRV_ERROR EnableSGXClocks(SYS_DATA *psSysData);
 #define	SYS_SPECIFIC_DATA_CLEAR(psSysSpecData, flag) ((IMG_VOID)((psSysSpecData)->ui32SysSpecificData &= ~(flag)))
 
 #define	SYS_SPECIFIC_DATA_TEST(psSysSpecData, flag) (((psSysSpecData)->ui32SysSpecificData & (flag)) != 0)
- 
+
 typedef struct _SYS_SPECIFIC_DATA_TAG_
 {
 	IMG_UINT32	ui32SysSpecificData;
@@ -93,7 +92,7 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 	IMG_BOOL	bSysClocksOneTimeInit;
 	IMG_BOOL	bConstraintNotificationsEnabled;
 	atomic_t	sSGXClocksEnabled;
-	struct mutex sPowerLock;
+	spinlock_t	sPowerLock;
 	atomic_t	sPowerLockCPU;
 	spinlock_t	sNotifyLock;
 	atomic_t	sNotifyLockCPU;
@@ -103,14 +102,16 @@ typedef struct _SYS_SPECIFIC_DATA_TAG_
 	struct clk	*psSGX_FCK;
 	struct clk	*psSGX_ICK;
 	struct clk	*psMPU_CK;
+#if !defined(NO_OMAP_TIMER)
 #if defined(DEBUG) || defined(TIMING)
 	struct clk	*psGPT11_FCK;
 	struct clk	*psGPT11_ICK;
 #endif
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22))		
+#endif
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,22))
 	struct constraint_handle *pVdd2Handle;
-#endif	
-#endif	
+#endif
+#endif
 } SYS_SPECIFIC_DATA;
 
 extern SYS_SPECIFIC_DATA *gpsSysSpecificData;
@@ -124,6 +125,6 @@ IMG_VOID UnwrapSystemPowerChange(SYS_SPECIFIC_DATA *psSysSpecData);
 }
 #endif
 
-#endif	
+#endif
 
 

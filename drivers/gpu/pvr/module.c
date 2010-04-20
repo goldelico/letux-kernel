@@ -29,7 +29,6 @@
 #endif
 
 #if !defined(SUPPORT_DRI_DRM)
-	
 	#if defined(LDM_PLATFORM)
 		#define	PVR_LDM_PLATFORM_MODULE
 		#define	PVR_LDM_MODULE
@@ -496,9 +495,9 @@ static IMG_INT __init PVRCore_Init(IMG_VOID)
 #endif
 
 #if !defined(SUPPORT_DRI_DRM)
-	
 	PVRDPFInit();
 #endif
+
 	PVR_TRACE(("PVRCore_Init"));
 
 	LinuxInitMutex(&gPVRSRVLock);
@@ -557,7 +556,6 @@ static IMG_INT __init PVRCore_Init(IMG_VOID)
 #endif 
 
 #else 
-	
 	if ((eError = SysInitialise()) != PVRSRV_OK)
 	{
 		error = -ENODEV;

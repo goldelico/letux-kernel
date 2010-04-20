@@ -219,7 +219,7 @@ OSAllocPages_Impl(IMG_UINT32 ui32AllocFlags,
     
     if(ui32AllocFlags & (PVRSRV_HAP_WRITECOMBINE | PVRSRV_HAP_UNCACHED))
     {
-        OSFlushCPUCache();
+        OSFlushCPUCacheKM();
     }
 #endif 
 
@@ -1378,6 +1378,14 @@ IMG_VOID OSWriteHWReg(IMG_PVOID pvLinRegBaseAddr, IMG_UINT32 ui32Offset, IMG_UIN
 {
 #if !defined(NO_HARDWARE)
     writel(ui32Value, (IMG_PBYTE)pvLinRegBaseAddr+ui32Offset);
+#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
+	/*Cemil: being very conservative here....  dsb() is to make sure the bytes
+	leave the ARM. Readback is to make sure, the bytes don't get held up
+	between the ARM boundary and the actual register (basically the
+	interconnect) */
+	dsb();
+	OSReadHWReg(pvLinRegBaseAddr, ui32Offset);
+#endif
 #else
     *(IMG_UINT32 *)((IMG_PBYTE)pvLinRegBaseAddr+ui32Offset) = ui32Value;
 #endif
@@ -1699,32 +1707,24 @@ typedef struct TIMER_CALLBACK_DATA_TAG
     struct timer_list	sTimer;
     IMG_UINT32		ui32Delay;
     IMG_BOOL		bActive;
-	struct work_struct work;
 }TIMER_CALLBACK_DATA;
 
 static TIMER_CALLBACK_DATA sTimers[OS_MAX_TIMERS];
 
 static spinlock_t sTimerStructLock = SPIN_LOCK_UNLOCKED;
 
-static void timer_worker(struct work_struct *work)
-{
-	TIMER_CALLBACK_DATA *psTimerCBData =
-		container_of(work, TIMER_CALLBACK_DATA, work);
-
-	if (psTimerCBData->bActive)
-	{
-		/* call timer callback */
-		psTimerCBData->pfnTimerFunc(psTimerCBData->pvData);
-
-		/* reset timer */
-		mod_timer(&psTimerCBData->sTimer, psTimerCBData->ui32Delay + jiffies);
-	}
-}
-
 static IMG_VOID OSTimerCallbackWrapper(IMG_UINT32 ui32Data)
 {
     TIMER_CALLBACK_DATA	*psTimerCBData = (TIMER_CALLBACK_DATA*)ui32Data;
-	schedule_work(&psTimerCBData->work);
+
+    if (!psTimerCBData->bActive)
+        return;
+
+
+    psTimerCBData->pfnTimerFunc(psTimerCBData->pvData);
+
+
+    mod_timer(&psTimerCBData->sTimer, psTimerCBData->ui32Delay + jiffies);
 }
 
 
@@ -1764,7 +1764,6 @@ IMG_HANDLE OSAddTimer(PFN_TIMER_FUNC pfnTimerFunc, IMG_VOID *pvData, IMG_UINT32 
     psTimerCBData->pvData = pvData;
     psTimerCBData->bActive = IMG_FALSE;
     
-    INIT_WORK(&psTimerCBData->work, timer_worker);
 
 
 
@@ -1809,7 +1808,6 @@ PVRSRV_ERROR OSRemoveTimer (IMG_HANDLE hTimer)
 PVRSRV_ERROR OSEnableTimer (IMG_HANDLE hTimer)
 {
     TIMER_CALLBACK_DATA *psTimerCBData = GetTimerStructure(hTimer);
-	int ret;
 
     PVR_ASSERT(psTimerCBData->bInUse);
     PVR_ASSERT(!psTimerCBData->bActive);
@@ -1821,9 +1819,7 @@ PVRSRV_ERROR OSEnableTimer (IMG_HANDLE hTimer)
     psTimerCBData->sTimer.expires = psTimerCBData->ui32Delay + jiffies;
 
     
-    ret = mod_timer(&psTimerCBData->sTimer, psTimerCBData->ui32Delay + jiffies);
-	if(ret == 1)
-		PVR_DPF((PVR_DBG_WARNING, "OSEnableTimer: enabling active timer"));
+    add_timer(&psTimerCBData->sTimer);
 
     return PVRSRV_OK;
 }
@@ -1840,7 +1836,6 @@ PVRSRV_ERROR OSDisableTimer (IMG_HANDLE hTimer)
     psTimerCBData->bActive = IMG_FALSE;
 
 
-    cancel_work_sync(&psTimerCBData->work);
     del_timer_sync(&psTimerCBData->sTimer);	
     
     return PVRSRV_OK;
@@ -2058,6 +2053,7 @@ typedef struct _sWrapMemInfo_
     IMG_UINT32 ulBeyondEndAddr;
     struct vm_area_struct *psVMArea;
 #endif
+	IMG_BOOL bWrapWorkaround;
 } sWrapMemInfo;
 
 static IMG_VOID CheckPagesContiguous(sWrapMemInfo *psInfo)
@@ -2159,7 +2155,10 @@ PVRSRV_ERROR OSReleasePhysPageAddr(IMG_HANDLE hOSWrapMem)
         {
             for (i = 0; i < psInfo->iNumPages; i++)
             {
-                put_page_testzero(psInfo->ppsPages[i]);
+                if(psInfo->bWrapWorkaround)
+                    put_page(psInfo->ppsPages[i]);
+                else
+                    put_page_testzero(psInfo->ppsPages[i]);
             }
             break;
         }
@@ -2189,7 +2188,8 @@ PVRSRV_ERROR OSReleasePhysPageAddr(IMG_HANDLE hOSWrapMem)
 PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID* pvCPUVAddr, 
                                     IMG_UINT32 ui32Bytes, 
                                     IMG_SYS_PHYADDR *psSysPAddr,
-                                    IMG_HANDLE *phOSWrapMem)
+                                    IMG_HANDLE *phOSWrapMem,
+                                    IMG_BOOL bWrapWorkaround)
 {
     IMG_UINT32 ulStartAddrOrig = (IMG_UINT32) pvCPUVAddr;
     IMG_UINT32 ulAddrRangeOrig = (IMG_UINT32) ui32Bytes;
@@ -2217,6 +2217,7 @@ PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID* pvCPUVAddr,
         return PVRSRV_ERROR_OUT_OF_MEMORY;
     }
     memset(psInfo, 0, sizeof(*psInfo));
+    psInfo->bWrapWorkaround = bWrapWorkaround;
 
 #if defined(DEBUG)
     psInfo->ulStartAddr = ulStartAddrOrig;
@@ -2281,7 +2282,7 @@ PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID* pvCPUVAddr,
         goto exit_check;
     }
 
-    PVR_TRACE(("OSAcquirePhysPageAddr: get_user_pages failed (%d), trying something else", iNumPagesMapped));
+    PVR_DPF((PVR_DBG_MESSAGE, "OSAcquirePhysPageAddr: get_user_pages failed (%d), trying something else", iNumPagesMapped));
     
     
     down_read(&current->mm->mmap_sem);
@@ -2347,7 +2348,10 @@ PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID* pvCPUVAddr,
             
             for (j = 0; j < i; j++)
             {
-                put_page_testzero(psInfo->ppsPages[j]);
+                if(psInfo->bWrapWorkaround)
+                    put_page(psInfo->ppsPages[j]);
+                else
+                    put_page_testzero(psInfo->ppsPages[j]);
             }
             break;
         }
@@ -2428,7 +2432,93 @@ error_free:
     return PVRSRV_ERROR_GENERIC;
 }
 
-#if defined(SUPPORT_CPU_CACHED_BUFFERS)
+#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
+
+
+IMG_VOID OSFlushOuterCache(IMG_VOID *p, IMG_UINT32 ui32ByteSize, MEM_ALLOC_TYPE eAllocType)
+{
+	IMG_VOID *pvPageAlignedCPUPAddr;
+
+	switch (eAllocType)
+	{
+	case MEM_ALLOC_TYPE_KMALLOC:
+	case MEM_ALLOC_TYPE_KMEM_CACHE:
+		{
+			IMG_VOID *pvPageAlignedCPUVAddr;
+			IMG_UINT32 ui32PageOffset;
+			IMG_UINT32 ui32PageCount;
+
+			ui32PageOffset = (IMG_UINT32) p & (HOST_PAGESIZE() - 1);
+			ui32PageCount = HOST_PAGEALIGN(ui32ByteSize + ui32PageOffset) / HOST_PAGESIZE();
+
+			pvPageAlignedCPUVAddr = (IMG_VOID *)((IMG_UINT8 *)p - ui32PageOffset);
+			pvPageAlignedCPUPAddr = (IMG_VOID*) __pa(pvPageAlignedCPUVAddr);
+
+#if 0
+			outer_cache.inv_range(pvPageAlignedCPUPAddr, ((pvPageAlignedCPUPAddr + HOST_PAGESIZE()*ui32PageCount) - 1));
+#else
+			outer_cache.flush_range((unsigned long) pvPageAlignedCPUPAddr, (unsigned long) ((pvPageAlignedCPUPAddr + HOST_PAGESIZE()*ui32PageCount) - 1));
+#endif
+	    	}
+		break;
+	case MEM_ALLOC_TYPE_VMALLOC:
+		{
+			unsigned long pages, i, j;
+
+			pages = (ui32ByteSize + HOST_PAGESIZE() - 1) / HOST_PAGESIZE();
+
+			for (i = (unsigned long)p, j = 0; j < pages; i += HOST_PAGESIZE(), j++)
+			{
+				pvPageAlignedCPUPAddr = (IMG_VOID *) (vmalloc_to_pfn((void *) i) << PAGE_SHIFT);
+
+#if 0
+				outer_cache.inv_range(pvPageAlignedCPUPAddr,
+				pvPageAlignedCPUPAddr + PAGE_SIZE - 1);
+#else
+				outer_cache.flush_range((unsigned long) pvPageAlignedCPUPAddr, (unsigned long) (pvPageAlignedCPUPAddr + HOST_PAGESIZE() - 1));
+#endif
+			}
+    		}
+		break;
+	case MEM_ALLOC_TYPE_ALLOC_PAGES:
+		{
+			pvPageAlignedCPUPAddr = (IMG_VOID *) page_to_phys((struct page *)p);
+			outer_cache.flush_range((unsigned long) pvPageAlignedCPUPAddr, (unsigned long) (pvPageAlignedCPUPAddr + HOST_PAGESIZE() - 1));
+		}
+		break;
+	case MEM_ALLOC_TYPE_IOREMAP:
+		{
+			IMG_UINT32 ui32PageOffset;
+			IMG_UINT32 ui32PageCount;
+
+			ui32PageOffset = (IMG_UINT32)p & (HOST_PAGESIZE() - 1);
+			ui32PageCount = HOST_PAGEALIGN(ui32ByteSize + ui32PageOffset) / HOST_PAGESIZE();
+
+			pvPageAlignedCPUPAddr = (IMG_VOID *)((IMG_UINT8 *)p - ui32PageOffset);
+
+			outer_cache.flush_range((unsigned long) pvPageAlignedCPUPAddr, (unsigned long) ((pvPageAlignedCPUPAddr + HOST_PAGESIZE()*ui32PageCount) - 1));
+		}
+		break;
+	case MEM_ALLOC_TYPE_IO:
+		break;
+		default:
+		break;
+	}
+}
+
+IMG_VOID OSFlushMemAreas(IMG_VOID)
+{
+/*		dsb();*/
+
+		/* intentionally not flushing the whole 65536-byte SGX register bank - only 4096, as
+		OCP_REGS, which are at the top of the bank, don't get changed */
+		/* need to be put under linux directory, with proper #define values */
+		/* Not sure why we need to do this but it doesn't work otherwise */
+		outer_cache.flush_range(0x56000000, 0x56000FFF);
+}
+#endif
+
+#if defined(SUPPORT_CPU_CACHED_BUFFERS) || defined(SUPPORT_CACHEFLUSH_ON_ALLOC)
 
 #if defined(__i386__)
 static void per_cpu_cache_flush(void *arg)
@@ -2438,10 +2528,18 @@ static void per_cpu_cache_flush(void *arg)
 }
 #endif 
 
-IMG_VOID OSFlushCPUCache(IMG_VOID)
+
+IMG_VOID OSFlushCPUCacheKM()
 {
 #if defined(__arm__)
     flush_cache_all();
+
+#if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
+#if 0
+	outer_cache.flush_all();
+#endif
+#endif
+
 #elif defined(__i386__)
     
     on_each_cpu(per_cpu_cache_flush, NULL, 1);
@@ -2450,4 +2548,28 @@ IMG_VOID OSFlushCPUCache(IMG_VOID)
 #endif
 }
 
+
+IMG_VOID OSFlushCPUCacheRangeKM(IMG_VOID *pvRangeAddrStart,
+						 IMG_VOID *pvRangeAddrEnd)
+{
+	PVR_UNREFERENCED_PARAMETER(pvRangeAddrStart);
+	PVR_UNREFERENCED_PARAMETER(pvRangeAddrEnd);
+
+
+
+#if defined(__arm__)
+    flush_cache_all();
+
+    PVR_DPF((PVR_DBG_ERROR, "Talk to me if you see this.... cemil"));
+
+#elif defined(__i386__)
+
+    on_each_cpu(per_cpu_cache_flush, NULL, 1);
+#else
+#error "Implement full CPU cache flush for this CPU!"
+#endif
+}
+
+
 #endif 
+
