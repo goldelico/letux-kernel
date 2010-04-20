@@ -120,15 +120,6 @@ obj-$(CONFIG_VIDEO_CAFE_CCIC) += cafe_ccic.o
 
 obj-$(CONFIG_VIDEO_OMAP3_OUT) += omap/
 
-obj-$(CONFIG_VIDEO_OMAP3) += omap34xxcam.o
-
-obj-$(CONFIG_VIDEO_TCM825X) += tcm825x.o
-obj-$(CONFIG_VIDEO_MT9P012)     += mt9p012.o
-obj-$(CONFIG_VIDEO_OMAP3_HP3A) += hp3a/
-obj-$(CONFIG_VIDEO_OMAP3_HPLENS) += hplens.o
-
-obj-$(CONFIG_VIDEO_IMX046)      += imx046.o
-obj-$(CONFIG_VIDEO_LV8093)      += lv8093.o
 obj-$(CONFIG_USB_DABUSB)        += dabusb.o
 obj-$(CONFIG_USB_OV511)         += ov511.o
 obj-$(CONFIG_USB_SE401)         += se401.o
@@ -159,8 +150,6 @@ obj-$(CONFIG_VIDEO_CX23885) += cx23885/
 
 obj-$(CONFIG_VIDEO_OMAP2)		+= omap2cam.o
 obj-$(CONFIG_SOC_CAMERA)		+= soc_camera.o
-obj-$(CONFIG_VIDEO_OMAP3)		+= isp/
-obj-$(CONFIG_VIDEO_OLDOMAP3) += oldomap34xxcam.o oldisp/
 obj-$(CONFIG_VIDEO_OMAP_VIDEOOUT) += omap-vout/
 obj-$(CONFIG_SOC_CAMERA)	+= soc_camera.o
 obj-$(CONFIG_SOC_CAMERA_MT9M001)	+= mt9m001.o
@@ -191,6 +180,3 @@ EXTRA_CFLAGS += -Idrivers/media/dvb/dvb-core
 EXTRA_CFLAGS += -Idrivers/media/dvb/frontends
 EXTRA_CFLAGS += -Idrivers/media/common/tuners
 
-ifdef CONFIG_VIDEO_OMAP3_HP3A
-EXTRA_CFLAGS += -Idrivers/media/video/hp3a
-endif
