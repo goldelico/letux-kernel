@@ -813,6 +813,26 @@ struct platform_device omap_hdq_device = {
 
 /*-------------------------------------------------------------------------*/
 
+#if defined(CONFIG_SGX530) || defined(CONFIG_SGX540)
+static struct platform_device omap_sgx_device = {
+	.name           = "pvrsrvkm",
+	.id             = -1,
+};
+
+static struct platform_device omap_omaplfb_device = {
+	.name		= "omaplfb",
+	.id		= -1,
+};
+
+static inline void omap_sgx_init(void)
+{
+	platform_device_register(&omap_sgx_device);
+	platform_device_register(&omap_omaplfb_device);
+}
+#else
+static inline void omap_sgx_init(void) { }
+#endif
+
 static int __init omap2_init_devices(void)
 {
 	/* please keep these calls, and their implementations above,
@@ -824,6 +844,7 @@ static int __init omap2_init_devices(void)
 	omap_init_mcspi();
 	omap_init_sti();
 	omap_init_sha1_md5();
+	omap_sgx_init();
 
 	return 0;
 }
