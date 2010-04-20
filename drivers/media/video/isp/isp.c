@@ -1356,6 +1356,15 @@ static void isp_resume_modules(struct device *dev)
 	}
 }
 
+int isp_get_used_modules(struct isp_device *dev)
+{
+	if (dev)
+		return dev->pipeline.modules;
+	else
+		return 0;
+}
+EXPORT_SYMBOL(isp_get_used_modules);
+
 /**
  * isp_reset - Reset ISP with a timeout wait for idle.
  * @dev: Device pointer specific to the OMAP3 ISP.
