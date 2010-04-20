@@ -266,6 +266,167 @@ int __init musb_platform_init(struct musb *musb, void *board_data)
 	return 0;
 }
 
+#ifdef	CONFIG_PM
+
+struct musb_csr_regs {
+	/* FIFO registers */
+	u16 txmaxp, txcsr, rxmaxp, rxcsr, rxcount;
+	u16 rxfifoadd, txfifoadd;
+	u8 txtype, txinterval, rxtype, rxinterval;
+	u8 rxfifosz, txfifosz;
+};
+
+static struct musb_context_registers {
+
+	u32 otg_sysconfig, otg_forcestandby;
+
+	u8 faddr, power;
+	u16 intrtx, intrrx, intrtxe, intrrxe;
+	u8 intrusb, intrusbe;
+	u16 frame;
+	u8 index, testmode;
+
+	u8 devctl, misc;
+
+	struct musb_csr_regs index_regs[MUSB_C_NUM_EPS];
+
+} musb_context;
+
+void musb_platform_save_context(struct musb *musb)
+{
+	int i;
+
+	DBG(4, "Saving musb_registers\n");
+
+	musb_context.otg_sysconfig = omap_readl(OTG_SYSCONFIG);
+	musb_context.otg_forcestandby = omap_readl(OTG_FORCESTDBY);
+
+	musb_context.faddr = musb_readb(musb->mregs, MUSB_FADDR);
+	musb_context.power = musb_readb(musb->mregs, MUSB_POWER);
+	musb_context.intrtx = musb_readw(musb->mregs, MUSB_INTRTX);
+	musb_context.intrrx = musb_readw(musb->mregs, MUSB_INTRRX);
+	musb_context.intrtxe = musb_readw(musb->mregs, MUSB_INTRTXE);
+	musb_context.intrrxe = musb_readw(musb->mregs, MUSB_INTRRXE);
+	musb_context.intrusb = musb_readb(musb->mregs, MUSB_INTRUSB);
+	musb_context.intrusbe = musb_readb(musb->mregs, MUSB_INTRUSBE);
+	musb_context.frame = musb_readw(musb->mregs, MUSB_FRAME);
+	musb_context.index = musb_readb(musb->mregs, MUSB_INDEX);
+	musb_context.testmode = musb_readb(musb->mregs, MUSB_TESTMODE);
+
+	musb_context.devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+
+	for (i = 0; i < MUSB_C_NUM_EPS; ++i) {
+		musb_writeb(musb->mregs, MUSB_INDEX, i);
+		musb_context.index_regs[i].txmaxp =
+			musb_readw(musb->mregs, 0x10 + MUSB_TXMAXP);
+		musb_context.index_regs[i].txcsr =
+			musb_readw(musb->mregs, 0x10 + MUSB_TXCSR);
+		musb_context.index_regs[i].rxmaxp =
+			musb_readw(musb->mregs, 0x10 + MUSB_RXMAXP);
+		musb_context.index_regs[i].rxcsr =
+			musb_readw(musb->mregs, 0x10 + MUSB_RXCSR);
+		musb_context.index_regs[i].rxcount =
+			musb_readw(musb->mregs, 0x10 + MUSB_RXCOUNT);
+		musb_context.index_regs[i].txtype =
+			musb_readb(musb->mregs, 0x10 + MUSB_TXTYPE);
+		musb_context.index_regs[i].txinterval =
+			musb_readb(musb->mregs, 0x10 + MUSB_TXINTERVAL);
+		musb_context.index_regs[i].rxtype =
+			musb_readb(musb->mregs, 0x10 + MUSB_RXTYPE);
+		musb_context.index_regs[i].rxinterval =
+			musb_readb(musb->mregs, 0x10 + MUSB_RXINTERVAL);
+
+		musb_context.index_regs[i].txfifoadd =
+			musb_readw(musb->mregs, MUSB_TXFIFOADD);
+		musb_context.index_regs[i].rxfifoadd =
+			musb_readw(musb->mregs, MUSB_RXFIFOADD);
+		musb_context.index_regs[i].txfifosz =
+			musb_readw(musb->mregs, MUSB_TXFIFOSZ);
+		musb_context.index_regs[i].rxfifosz =
+			musb_readw(musb->mregs, MUSB_RXFIFOSZ);
+	}
+
+	musb_writeb(musb->mregs, MUSB_INDEX,
+				musb_context.index);
+
+}
+
+void musb_platform_restore_context(struct musb *musb)
+{
+	int i;
+
+	DBG(4, "Restoring musb_registers\n");
+
+	musb_writeb(musb->mregs, MUSB_FADDR,
+				musb_context.faddr);
+	musb_writeb(musb->mregs, MUSB_POWER,
+				musb_context.power);
+	musb_writew(musb->mregs, MUSB_INTRTX,
+				musb_context.intrtx);
+	musb_writew(musb->mregs, MUSB_INTRRX,
+				musb_context.intrrx);
+	musb_writew(musb->mregs, MUSB_INTRTXE,
+				musb_context.intrtxe);
+	musb_writew(musb->mregs, MUSB_INTRRXE,
+				musb_context.intrrxe);
+	musb_writeb(musb->mregs, MUSB_INTRUSB,
+				musb_context.intrusb);
+	musb_writeb(musb->mregs, MUSB_INTRUSBE,
+				musb_context.intrusbe);
+	musb_writew(musb->mregs, MUSB_FRAME,
+				musb_context.frame);
+	musb_writeb(musb->mregs, MUSB_TESTMODE,
+				musb_context.testmode);
+	musb_writeb(musb->mregs, MUSB_DEVCTL,
+				musb_context.devctl);
+
+
+	for (i = 0; i < MUSB_C_NUM_EPS; ++i) {
+		musb_writeb(musb->mregs, MUSB_INDEX, i);
+		musb_writew(musb->mregs, 0x10 + MUSB_TXMAXP,
+			musb_context.index_regs[i].txmaxp);
+		musb_writew(musb->mregs, 0x10 + MUSB_TXCSR,
+			musb_context.index_regs[i].txcsr);
+		musb_writew(musb->mregs, 0x10 + MUSB_RXMAXP,
+			musb_context.index_regs[i].rxmaxp);
+		musb_writew(musb->mregs, 0x10 + MUSB_RXCSR,
+			musb_context.index_regs[i].rxcsr);
+		musb_writew(musb->mregs, 0x10 + MUSB_RXCOUNT,
+			musb_context.index_regs[i].rxcount);
+		musb_writeb(musb->mregs, 0x10 + MUSB_TXTYPE,
+			musb_context.index_regs[i].txtype);
+		musb_writeb(musb->mregs, 0x10 + MUSB_TXINTERVAL,
+			musb_context.index_regs[i].txinterval);
+		musb_writeb(musb->mregs, 0x10 + MUSB_RXTYPE,
+			musb_context.index_regs[i].rxtype);
+		musb_writeb(musb->mregs, 0x10 + MUSB_RXINTERVAL,
+			musb_context.index_regs[i].rxinterval);
+
+		musb_writew(musb->mregs, MUSB_TXFIFOSZ,
+			musb_context.index_regs[i].txfifosz);
+		musb_writew(musb->mregs, MUSB_RXFIFOSZ,
+			musb_context.index_regs[i].rxfifosz);
+		musb_writew(musb->mregs, MUSB_TXFIFOADD,
+			musb_context.index_regs[i].txfifoadd);
+		musb_writew(musb->mregs, MUSB_RXFIFOADD,
+			musb_context.index_regs[i].rxfifoadd);
+	}
+
+	musb_writeb(musb->mregs, MUSB_INDEX,
+				musb_context.index);
+
+	omap_writel(musb_context.otg_sysconfig, OTG_SYSCONFIG);
+	omap_writel(musb_context.otg_forcestandby, OTG_FORCESTDBY);
+
+}
+
+#else
+
+#define musb_platform_save_context	do {} while (0)
+#define musb_platform_restore_context	do {} while (0)
+
+#endif
+
 int musb_platform_suspend(struct musb *musb)
 {
 	u32 l;
