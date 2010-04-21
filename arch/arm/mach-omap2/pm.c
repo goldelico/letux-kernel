@@ -42,6 +42,8 @@
 unsigned short enable_dyn_sleep;
 unsigned short enable_off_mode;
 EXPORT_SYMBOL(enable_off_mode);
+unsigned short enable_off_idle_path;
+EXPORT_SYMBOL(enable_off_idle_path);
 unsigned short enable_oswr_ret;
 EXPORT_SYMBOL(enable_oswr_ret);
 unsigned short voltage_off_while_idle;
@@ -60,6 +62,9 @@ static struct kobj_attribute sleep_while_idle_attr =
 
 static struct kobj_attribute enable_off_mode_attr =
 	__ATTR(enable_off_mode, 0644, idle_show, idle_store);
+
+static struct kobj_attribute enable_off_idle_attr =
+	__ATTR(enable_off_idle_path, 0644, idle_show, idle_store);
 
 static struct kobj_attribute enable_oswr_ret_attr =
 	__ATTR(enable_oswr_ret, 0644, idle_show, idle_store);
@@ -97,6 +102,8 @@ static ssize_t idle_show(struct kobject *kobj, struct kobj_attribute *attr,
 		return sprintf(buf, "%hu\n", enable_dyn_sleep);
 	else if (attr == &enable_off_mode_attr)
 		return sprintf(buf, "%hu\n", enable_off_mode);
+	else if (attr == &enable_off_idle_attr)
+		return sprintf(buf, "%hu\n", enable_off_idle_path);
 	else if (attr == &enable_oswr_ret_attr)
 		return sprintf(buf, "%hu\n", enable_oswr_ret);
 	else if (attr == &voltage_off_while_idle_attr)
@@ -119,6 +126,8 @@ static ssize_t idle_store(struct kobject *kobj, struct kobj_attribute *attr,
 
 	if (attr == &sleep_while_idle_attr) {
 		enable_dyn_sleep = value;
+	} else if (attr == &enable_off_idle_attr) {
+		enable_off_idle_path = value;
 	} else if (attr == &enable_off_mode_attr) {
 		enable_off_mode = value;
 		omap3_pm_off_mode_enable(enable_off_mode);
@@ -309,6 +318,13 @@ static int __init omap_pm_init(void)
 		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
 	error = sysfs_create_file(power_kobj,
 				  &enable_off_mode_attr.attr);
+	if (error) {
+		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
+		return error;
+	}
+
+	error = sysfs_create_file(power_kobj,
+				  &enable_off_idle_attr.attr);
 	if (error) {
 		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
 		return error;

@@ -207,6 +207,14 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 			goto select_state;
 		}
 		cx = cpuidle_get_statedata(state);
+
+		if (!enable_off_idle_path) {
+			if (cx->core_state == PWRDM_POWER_OFF) {
+				state--;
+				cx = cpuidle_get_statedata(state);
+			}
+		}
+
 		new_core_state = cx->core_state;
 
 		/* Check if CORE is active, if yes, fallback to inactive */

@@ -25,6 +25,7 @@ static inline int omap3_idle_init(void) { return 0; }
 
 extern unsigned short enable_dyn_sleep;
 extern unsigned short enable_off_mode;
+extern unsigned short enable_off_idle_path;
 extern unsigned short enable_oswr_ret;
 extern unsigned short voltage_off_while_idle;
 extern atomic_t sleep_block;
