@@ -485,6 +485,9 @@ static void twl4030_phy_suspend(struct twl4030_usb *twl, int controller_off)
 	if (twl->asleep)
 		return;
 
+	if (twl->otg.link_save_context)
+		twl->otg.link_save_context(&twl->otg);
+
 	twl4030_phy_power(twl, 0);
 	twl->asleep = 1;
 }
@@ -500,6 +503,9 @@ static void twl4030_phy_resume(struct twl4030_usb *twl)
 	if (twl->usb_mode == T2_USB_MODE_ULPI)
 		twl4030_i2c_access(twl, 0);
 	twl->asleep = 0;
+
+	if (twl->otg.link_restore_context)
+			twl->otg.link_restore_context(&twl->otg);
 }
 
 static int twl4030_usb_ldo_init(struct twl4030_usb *twl)
