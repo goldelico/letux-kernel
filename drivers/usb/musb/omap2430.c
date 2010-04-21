@@ -36,6 +36,7 @@
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
 #include <plat/mux.h>
+#include <plat/omap-pm.h>
 
 #include "musb_core.h"
 #include "omap2430.h"
@@ -439,7 +440,18 @@ void musb_platform_restore_context(struct musb *musb)
 
 void musb_link_save_context(struct otg_transceiver *xceiv)
 {
-	musb_platform_save_context(xceiv->link);
+
+	struct musb	*musb = xceiv->link;
+
+	musb_platform_save_context(musb);
+
+	/* On cable detach remove restriction on CORE domain:
+	 * Now core domain can go to off
+	 * REVISIT this logic for OMAP4
+	 */
+	if (cpu_is_omap3630() || cpu_is_omap3430())
+		omap_pm_set_max_mpu_wakeup_lat(musb->controller, -1);
+
 }
 
 void musb_link_restore_context(struct otg_transceiver *xceiv)
@@ -447,6 +459,14 @@ void musb_link_restore_context(struct otg_transceiver *xceiv)
 	struct musb	*musb = xceiv->link;
 	struct musb_hdrc_platform_data *plat =
 			musb->controller->platform_data;
+
+	/* MUSB has no h/w SAR: So restrict CORE domain
+	 * from going to OFF mode
+	 * So prevent CPUIdle going to C7, restrict to C6
+	 * REVISIT this logic for OMAP4
+	 */
+	if (cpu_is_omap3630() || cpu_is_omap3430())
+		omap_pm_set_max_mpu_wakeup_lat(musb->controller, 6250);
 
 	/* No context restore needed in case
 	 * OFF transition has not happened
