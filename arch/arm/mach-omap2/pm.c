@@ -11,9 +11,12 @@
 
 #include <linux/kernel.h>
 #include <linux/device.h>
+#include <linux/platform_device.h>
 
 #include <plat/resource.h>
 #include <plat/omap34xx.h>
+#include <plat/powerdomain.h>
+#include <plat/omap_device.h>
 
 #include "pm.h"
 
@@ -109,6 +112,21 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 	return n;
 }
 #endif
+
+unsigned get_last_off_on_transaction_id(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct omap_device *odev = to_omap_device(pdev);
+	struct powerdomain *pwrdm;
+
+	if (odev) {
+		pwrdm = omap_device_get_pwrdm(odev);
+		if (pwrdm)
+			return pwrdm->state_counter[0];
+	}
+
+	return 0;
+}
 
 static int __init omap_pm_init(void)
 {
