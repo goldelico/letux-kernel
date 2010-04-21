@@ -811,7 +811,6 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned char efr = 0;
 	unsigned long flags;
 	unsigned int baud, quot;
-	int retries = 0x0a;
 
 	switch (termios->c_cflag & CSIZE) {
 	case CS5:
@@ -937,26 +936,7 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 
 	/*-----Protocol, Baud Rate, and Interrupt Settings -- */
 
-	serial_out(up, UART_LCR, 0x0);			/* Access FCR */
 	serial_out(up, UART_OMAP_MDR1, OMAP_MDR1_DISABLE);
-	/*
-	 * Work Around for Errata i202 (3430 - 1.12, 3630 - 1.6)
-	 * The access to uart register after MDR1 Access
-	 * causes UART to corrupt data.
-	 *
-	 * Need a delay =
-	 * 5 L4 clock cycles + 5 UART functional clock cycle (@48MHz = ~0.2uS)
-	 * give 10 times as much
-	 */
-	udelay(10);
-	/* Update the FCR Value, with TX and RX FIFO Clear */
-	serial_out(up, UART_FCR, (fcr[up->pdev->id - 1] | 0x06));
-
-	while (0x20 != (serial_in(up, UART_LSR) & 0x21)) {
-		retries--;
-			if (0 == retries)
-				break;
-	}
 
 	serial_out(up, UART_LCR, 0xbf); /* Access EFR */
 
@@ -981,25 +961,6 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 		serial_out(up, UART_OMAP_MDR1, OMAP_MDR1_MODE13X);
 	else
 		serial_out(up, UART_OMAP_MDR1, OMAP_MDR1_MODE16X);
-	/*
-	 * Work Around for Errata i202 (3430 - 1.12, 3630 - 1.6)
-	 * The access to uart register after MDR1 Access
-	 * causes UART to corrupt data.
-	 *
-	 * Need a delay =
-	 * 5 L4 clock cycles + 5 UART functional clock cycle (@48MHz = ~0.2uS)
-	 * give 10 times as much
-	 */
-	udelay(10);
-	/* Update the FCR Value, with TX and RX FIFO Clear */
-	serial_out(up, UART_FCR, (fcr[up->pdev->id - 1] | 0x06));
-
-	retries = 0x0a;
-	while (0x20 != (serial_in(up, UART_LSR) & 0x21)) {
-		retries--;
-			if (0 == retries)
-				break;
-	}
 
 	/* Hardware Flow Control Configuration */
 
@@ -1697,6 +1658,17 @@ int omap_uart_active(int num)
 	struct circ_buf *xmit;
 	unsigned int status;
 
+	/* for DMA mode status of DMA channel
+	 * will decide whether uart port can enter sleep
+	 * or should we block sleep state.
+	 */
+	if (up->use_dma &&
+		(up->uart_dma.tx_dma_channel != 0xFF ||
+		up->uart_dma.rx_dma_channel != 0xFF))
+		return 1;
+	else
+		return 0;
+
 	/* check for recent driver activity */
 	/* if from now to last activty < 5 second keep clocks on */
 	if ((jiffies_to_msecs(jiffies - isr8250_activity) < 5000))
@@ -1719,18 +1691,6 @@ int omap_uart_active(int num)
 	status = serial_in(up, UART_MSR);
 	if (!((status & UART_MSR_ANY_DELTA) == 0))
 		return 1;
-
-	/* for DMA mode status of DMA channel
-	 * will decide whether uart port can enter sleep
-	 * or should we block sleep state.
-	 */
-	if (up->use_dma &&
-		(up->uart_dma.tx_dma_channel != 0xFF ||
-		up->uart_dma.rx_dma_channel != 0xFF))
-		return 1;
-	else
-		return 0;
-
 
 	return 0;
 }
