@@ -116,8 +116,8 @@ static int zoom_panel_power_enable(int enable)
 
 static int zoom_panel_enable_lcd(struct omap_dss_device *dssdev)
 {
-
 	zoom_panel_power_enable(1);
+	gpio_request(LCD_PANEL_BACKLIGHT_GPIO, "lcd backlight");
 	gpio_direction_output(LCD_PANEL_BACKLIGHT_GPIO, 1);
 
 	return 0;
@@ -173,7 +173,6 @@ void zoom_lcd_tv_panel_init(void)
 
 	gpio_request(lcd_panel_reset_gpio, "lcd reset");
 	gpio_request(LCD_PANEL_QVGA_GPIO, "lcd qvga");
-	gpio_request(LCD_PANEL_BACKLIGHT_GPIO, "lcd backlight");
 	gpio_request(TV_PANEL_ENABLE_GPIO, "tv enable");
 
 	gpio_direction_output(LCD_PANEL_QVGA_GPIO, 0);
