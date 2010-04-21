@@ -29,6 +29,7 @@
 #include <plat/mux.h>
 
 #include "mmc-twl4030.h"
+#include "mux.h"
 
 #define OMAP_SYNAPTICS_GPIO	163
 
@@ -263,7 +264,7 @@ static struct i2c_board_info __initdata zoom_i2c_boardinfo[] = {
 static void synaptics_dev_init(void)
 {
 	/* Set the ts_gpio pin mux */
-	omap_cfg_reg(H18_34XX_GPIO163);
+	omap_mux_init_signal("gpio_163", OMAP_PIN_INPUT_PULLUP);
 
 	if (gpio_request(OMAP_SYNAPTICS_GPIO, "touch") < 0) {
 		printk(KERN_ERR "can't get synaptics pen down GPIO\n");
