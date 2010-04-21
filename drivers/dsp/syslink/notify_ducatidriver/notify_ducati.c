@@ -1176,7 +1176,6 @@ static void notify_ducatidrv_isr_callback(void *ref_data, void* ntfy_msg)
 						payload;
 			dsb();
 			/* Acknowledge the event. */
-			payload = (int)ntfy_msg;
 			self_event_chart[event_no].flag = DOWN;
 			dsb();
 			/*Call the callbacks associated with the event*/
