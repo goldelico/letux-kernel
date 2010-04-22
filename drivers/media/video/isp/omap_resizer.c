@@ -31,7 +31,7 @@
 #include <linux/uaccess.h>
 #include <media/v4l2-dev.h>
 #include <asm/cacheflush.h>
-#include <mach/iovmm.h>
+#include <plat/iovmm.h>
 
 #include "isp.h"
 #include "ispreg.h"
