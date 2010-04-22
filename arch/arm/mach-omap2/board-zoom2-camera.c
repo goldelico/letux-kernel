@@ -19,7 +19,7 @@
 
 #if defined(CONFIG_TWL4030_CORE) && defined(CONFIG_VIDEO_OMAP3)
 
-#include <linux/i2c/twl4030.h>
+#include <linux/i2c/twl.h>
 
 #include <asm/io.h>
 
@@ -232,14 +232,14 @@ static int imx046_sensor_power_set(struct v4l2_int_device *s, enum v4l2_power po
 		gpio_direction_output(IMX046_RESET_GPIO, true);
 
 		/* turn on analog power */
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+		twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 				VAUX_2_8_V, TWL4030_VAUX2_DEDICATED);
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+		twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 				VAUX_DEV_GRP_P1, TWL4030_VAUX2_DEV_GRP);
 
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+		twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 				VAUX_1_8_V, TWL4030_VAUX4_DEDICATED);
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+		twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 				VAUX_DEV_GRP_P1, TWL4030_VAUX4_DEV_GRP);
 		udelay(100);
 
@@ -258,9 +258,9 @@ static int imx046_sensor_power_set(struct v4l2_int_device *s, enum v4l2_power po
 		/* Power Down Sequence */
 		isp_csi2_complexio_power(&isp->isp_csi2, ISP_CSI2_POWER_OFF);
 
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+		twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 				VAUX_DEV_GRP_NONE, TWL4030_VAUX4_DEV_GRP);
-		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+		twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 				VAUX_DEV_GRP_NONE, TWL4030_VAUX2_DEV_GRP);
 		gpio_free(IMX046_RESET_GPIO);
 
