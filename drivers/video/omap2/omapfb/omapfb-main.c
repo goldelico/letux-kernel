@@ -1847,8 +1847,10 @@ void suspend(struct early_suspend *h)
 	struct omapfb2_device *fbdev = ofbi->fbdev;
 	struct omap_dss_device *display = fb2display(fbi);
 
+#if 0
 	if (display->suspend)
 		display->suspend(display);
+#endif
 
 	/* TODO: Fix PM later */
 	/* omapfb_vrfb_suspend_all(fbdev);*/
@@ -1866,8 +1868,10 @@ void resume(struct early_suspend *h)
 	/* TODO: Fix PM later */
 	/* omapfb_vrfb_resume_all(fbdev);*/
 
+#if 0
 	if (display->resume)
 		display->resume(display);
+#endif
 }
 
 struct suspend_info suspend_info = {
