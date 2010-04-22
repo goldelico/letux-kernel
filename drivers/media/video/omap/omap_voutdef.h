@@ -26,12 +26,14 @@
 #ifdef CONFIG_ARCH_OMAP4 /* TODO: OMAP4 update displays and managers */
 #define MAX_VOUT_DEV   3
 #define MAX_OVLS       4
+#define MAX_DISPLAYS	4
+#define MAX_MANAGERS	3
 #else
 #define MAX_VOUT_DEV	2
 #define MAX_OVLS	3
+#define MAX_DISPLAYS	3
+#define MAX_MANAGERS	2
 #endif
-#define MAX_DISPLAYS	4
-#define MAX_MANAGERS	3
 
 /* Enum for Rotation
  * DSS understands rotation in 0, 1, 2, 3 context

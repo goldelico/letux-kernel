@@ -418,22 +418,22 @@ static void omap_init_vout(void)
 
 #else /* CONFIG_ARCH_OMAP4 */
 #ifdef CONFIG_FB_OMAP2
-static struct resource omap3evm_vout_resource[3 - CONFIG_FB_OMAP2_NUM_FBS] = {
+static struct resource zoom3_vout_resource[3 - CONFIG_FB_OMAP2_NUM_FBS] = {
 };
 #else
-static struct resource omap3evm_vout_resource[2] = {
+static struct resource zoom3_vout_resource[2] = {
 };
 #endif
 
-static struct platform_device omap3evm_vout_device = {
+static struct platform_device zoom3_vout_device = {
 	.name			= "omap_vout",
-	.num_resources	= ARRAY_SIZE(omap3evm_vout_resource),
-	.resource 		= &omap3evm_vout_resource[0],
+	.num_resources	= ARRAY_SIZE(zoom3_vout_resource),
+	.resource		= &zoom3_vout_resource[0],
 	.id		= -1,
 };
 static void omap_init_vout(void)
 {
-	(void) platform_device_register(&omap3evm_vout_device);
+	(void) platform_device_register(&zoom3_vout_device);
 }
 #endif /* CONFIG_ARCH_OMAP4 */
 #else
