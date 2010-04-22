@@ -331,8 +331,6 @@ void isppreview_config_chroma_suppression(struct isp_prev_device *isp_prev,
 
 void isppreview_enable_cfa(struct isp_prev_device *isp_prev, u8 enable);
 
-void isppreview_set_luma_enhancement(u32 *ytable);
-
 void isppreview_config_luma_enhancement(struct isp_prev_device *isp_prev,
 					u32 *ytable);
 

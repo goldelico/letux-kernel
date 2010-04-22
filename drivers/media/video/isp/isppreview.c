@@ -1019,20 +1019,7 @@ void isppreview_config_gammacorrn(struct isp_prev_device *isp_prev,
 EXPORT_SYMBOL_GPL(isppreview_config_gammacorrn);
 
 /**
- * isppreview_set_luma_enhancement - Stores the Luminance Enhancement table.
- * @ytable: Structure containing the table for Luminance Enhancement table.
- **/
-void isppreview_set_luma_enhancement(u32 *ytable)
-{
-	int i;
-
-	for (i = 0; i < ISPPRV_YENH_TBL_SIZE; i++)
-		params->ytable[i] = ytable[i];
-}
-EXPORT_SYMBOL_GPL(isppreview_set_luma_enhancement);
-
-/**
- * isppreview_config_luma_enhancement - Writes the Luminance Enhancement table.
+ * isppreview_config_luma_enhancement - Sets the Luminance Enhancement table.
  * @ytable: Structure containing the table for Luminance Enhancement table.
  **/
 void isppreview_config_luma_enhancement(struct isp_prev_device *isp_prev,
@@ -2006,7 +1993,7 @@ int __init isp_preview_init(struct device *dev)
 	params->csup.gain = FLR_CSUP_GAIN;
 	params->csup.thres = FLR_CSUP_THRES;
 	params->csup.hypf_en = 0;
-	isppreview_set_luma_enhancement(luma_enhance_table);
+	params->ytable = luma_enhance_table;
 	params->nf.spread = FLR_NF_STRGTH;
 	memcpy(params->nf.table, noise_filter_table, sizeof(params->nf.table));
 	params->dcor.couplet_mode_en = 1;

@@ -65,7 +65,6 @@ static struct prev_device *prevdevice;
 static struct platform_driver omap_previewer_driver;
 static u32 prev_bufsize;
 static u32 lsc_bufsize;
-static u32 ytable[ISPPRV_YENH_TBL_SIZE];
 static struct prev_params isppreview_tmp;
 
 /**
@@ -167,9 +166,6 @@ static int prev_hw_setup(struct prev_params *config)
 		isppreview_enable_shadcomp(&isp->isp_prev, 1);
 	} else
 		isppreview_enable_shadcomp(&isp->isp_prev, 0);
-
-	if (config->ytable)
-		isppreview_set_luma_enhancement(config->ytable);
 
 	dev_dbg(prev_dev, "%s: Exit\n", __func__);
 	return 0;
@@ -1105,12 +1101,6 @@ static int previewer_ioctl(struct inode *inode, struct file *file,
 
 		if (copy_from_user(&params, (struct prev_params *)arg,
 						sizeof(struct prev_params))) {
-			mutex_unlock(&device->prevwrap_mutex);
-			return -EFAULT;
-		}
-
-		if (params.ytable && copy_from_user(ytable, params.ytable,
-				ISPPRV_YENH_TBL_SIZE*sizeof(u32))) {
 			mutex_unlock(&device->prevwrap_mutex);
 			return -EFAULT;
 		}
