@@ -24,7 +24,7 @@
 #include <asm/io.h>
 
 #include <mach/gpio.h>
-#include <mach/omap-pm.h>
+#include <plat/omap-pm.h>
 
 static int cam_inited;
 #include <media/v4l2-int-device.h>
