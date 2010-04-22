@@ -702,7 +702,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *_fh,
 		return -EINVAL;
 
 	mutex_lock(&vdev->mutex);
-	if (vdev->streaming) {
+	if (vdev->cam->streaming) {
 		rval = -EBUSY;
 		goto out;
 	}
@@ -775,7 +775,7 @@ static int vidioc_reqbufs(struct file *file, void *_fh,
 		return -EINVAL;
 
 	mutex_lock(&vdev->mutex);
-	if (vdev->streaming) {
+	if (vdev->cam->streaming) {
 		mutex_unlock(&vdev->mutex);
 		return -EBUSY;
 	}
@@ -901,7 +901,7 @@ static int vidioc_streamon(struct file *file, void *_fh, enum v4l2_buf_type i)
 		return -EINVAL;
 
 	mutex_lock(&vdev->mutex);
-	if (vdev->streaming) {
+	if (vdev->cam->streaming) {
 		rval = -EBUSY;
 		goto out;
 	}
@@ -925,7 +925,7 @@ static int vidioc_streamon(struct file *file, void *_fh, enum v4l2_buf_type i)
 			vdev, V4L2_POWER_STANDBY,
 			OMAP34XXCAM_SLAVE_POWER_ALL);
 	} else
-		vdev->streaming = file;
+		vdev->cam->streaming = file;
 
 out:
 	mutex_unlock(&vdev->mutex);
@@ -955,13 +955,13 @@ static int vidioc_streamoff(struct file *file, void *_fh, enum v4l2_buf_type i)
 
 	mutex_lock(&vdev->mutex);
 
-	if (vdev->streaming == file)
+	if (vdev->cam->streaming == file)
 		isp_stop(isp);
 
 	rval = videobuf_streamoff(q);
 	if (!rval) {
 		isp_unset_callback(isp, CBK_CATCHALL);
-		vdev->streaming = NULL;
+		vdev->cam->streaming = NULL;
 
 		omap34xxcam_slave_power_set(vdev, V4L2_POWER_STANDBY,
 					    OMAP34XXCAM_SLAVE_POWER_ALL);
@@ -1261,7 +1261,7 @@ static int vidioc_s_parm(struct file *file, void *_fh,
 		return -EINVAL;
 
 	mutex_lock(&vdev->mutex);
-	if (vdev->streaming) {
+	if (vdev->cam->streaming) {
 		rval = -EBUSY;
 		goto out;
 	}
@@ -1788,8 +1788,7 @@ static int omap34xxcam_open(struct file *file)
 	int i;
 
 	for (i = 0; i < OMAP34XXCAM_VIDEODEVS; i++) {
-		if (cam->vdevs[i].vfd
-		    && cam->vdevs[i].vfd->minor ==
+		if (cam->vdevs[i].vfd && cam->vdevs[i].vfd->minor ==
 		    iminor(file->f_dentry->d_inode)) {
 			vdev = &cam->vdevs[i];
 			break;
@@ -1853,19 +1852,6 @@ static int omap34xxcam_open(struct file *file)
 	if (!vdev->pix.width)
 		vdev->pix = sensor_format.fmt.pix;
 
-	if (!vdev->vdev_sensor_config.sensor_isp) {
-		struct v4l2_pix_format pix;
-		struct v4l2_fract timeperframe =
-			vdev->want_timeperframe;
-
-		rval = s_pix_parm(vdev, &pix, &vdev->pix, &timeperframe);
-		if (rval) {
-			dev_err(&vdev->vfd->dev,
-				"isp doesn't like the sensor!\n");
-			goto out_isp_s_fmt_cap;
-		}
-	}
-
 out_no_pix:
 	mutex_unlock(&vdev->mutex);
 
@@ -1882,7 +1868,6 @@ out_no_pix:
 
 	return 0;
 
-out_isp_s_fmt_cap:
 out_vidioc_int_g_fmt_cap:
 	omap34xxcam_slave_power_set(vdev, V4L2_POWER_OFF,
 				    OMAP34XXCAM_SLAVE_POWER_ALL);
@@ -1928,13 +1913,13 @@ static int omap34xxcam_release(struct file *file)
 	int i;
 
 	mutex_lock(&vdev->mutex);
-	if (vdev->streaming == file) {
+	if (vdev->cam->streaming == file) {
 		isp_stop(isp);
 		videobuf_streamoff(&ofh->vbq);
 		isp_unset_callback(isp, CBK_CATCHALL);
 		omap34xxcam_slave_power_set(vdev, V4L2_POWER_STANDBY,
 					    OMAP34XXCAM_SLAVE_POWER_ALL);
-		vdev->streaming = NULL;
+		vdev->cam->streaming = NULL;
 	}
 
 	if (atomic_dec_return(&vdev->users) == 0) {

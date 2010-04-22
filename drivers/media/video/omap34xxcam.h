@@ -147,8 +147,6 @@ struct omap34xxcam_videodev {
 
 	wait_queue_head_t poll_event;
 
-	/*** capture data ***/
-	struct file *streaming;
 	struct v4l2_fract want_timeperframe;
 	struct v4l2_pix_format want_pix;
 	struct v4l2_pix_format pix;
@@ -161,6 +159,8 @@ struct omap34xxcam_videodev {
 struct omap34xxcam_device {
 	struct omap34xxcam_videodev vdevs[OMAP34XXCAM_VIDEODEVS];
 	struct device *isp;
+	/*** capture data ***/
+	struct file *streaming;
 };
 
 /**
