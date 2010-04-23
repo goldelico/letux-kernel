@@ -261,16 +261,15 @@ static void abe_init_chip(struct snd_soc_codec *codec)
 
 	abe_init_mem();
 
-	/* Config OPP 100 FOR NOW */
-	abe_set_opp_processing(OPP);
-	/* "tick" of the audio engine */
-	abe_write_event_generator(EVENT_TIMER);
-
 	/* aess_clk has to be enabled to access hal registers.
 	 * Disable the clk after it has been used.
 	 */
 	clk_enable(priv->clk);
 	abe_reset_hal();
+	/* Config OPP 100 FOR NOW */
+	abe_set_opp_processing(OPP);
+	/* "tick" of the audio engine */
+	abe_write_event_generator(EVENT_TIMER);
 	clk_disable(priv->clk);
 }
 
