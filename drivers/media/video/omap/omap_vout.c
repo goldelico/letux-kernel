@@ -749,7 +749,7 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout)
 #ifndef CONFIG_ARCH_OMAP4
 	switch (rotation) {
 	case dss_rotation_90_degree:
-		offset = vout->vrfb_context[0].yoffset *
+		offset = MAX_PIXELS_PER_LINE * vout->vrfb_context[0].yoffset *
 			vout->vrfb_context[0].bytespp;
 		temp_ps = ps / vr_ps;
 		if (mirroring == 0) {
@@ -777,7 +777,7 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout)
 		}
 		break;
 	case dss_rotation_270_degree:
-		offset = MAX_PIXELS_PER_LINE * vout->vrfb_context[0].xoffset *
+		offset = vout->vrfb_context[0].xoffset *
 			vout->vrfb_context[0].bytespp;
 		temp_ps = ps / vr_ps;
 		if (mirroring == 0) {
