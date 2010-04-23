@@ -51,6 +51,7 @@
 #include <media/v4l2-device.h>
 
 #include <asm/processor.h>
+#include <asm/cacheflush.h>
 #include <plat/dma.h>
 #include <plat/vram.h>
 #include <plat/vrfb.h>
@@ -111,6 +112,9 @@ MODULE_LICENSE("GPL");
 #else
 #define OMAP_VOUT_MAX_BUF_SIZE (VID_MAX_WIDTH*VID_MAX_HEIGHT*2)
 #endif
+
+int cacheable_buffers;
+int flushable_buffers;
 
 static struct videobuf_queue_ops video_vbq_ops;
 
@@ -1277,14 +1281,20 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 			(dma_addr_t) omap_vout_uservirt_to_phys(vb->baddr);
 	}
 
-	if (!rotation_enabled(vout)) {
-		dmabuf = videobuf_to_dma(q->bufs[vb->i]);
+	dmabuf = videobuf_to_dma(q->bufs[vb->i]);
+	 /* Flush only cacheable memory region */
+	 if (cacheable_buffers == 1 && flushable_buffers == 1) {
+		dmac_clean_range(dmabuf->vmalloc,
+		dmabuf->vmalloc + vout->buffer_size);
+		outer_clean_range(dmabuf->bus_addr,
+		dmabuf->bus_addr + vout->buffer_size);
+	}
 
+	if (!rotation_enabled(vout)) {
 		vout->queued_buf_addr[vb->i] = (u8 *) dmabuf->bus_addr;
 		return 0;
 	}
 #ifndef CONFIG_ARCH_OMAP4
-	dmabuf = videobuf_to_dma(q->bufs[vb->i]);
 	/* If rotation is enabled, copy input buffer into VRFB
 	 * memory space using DMA. We are copying input buffer
 	 * into VRFB memory space of desired angle and DSS will
@@ -1440,7 +1450,11 @@ static int omap_vout_mmap(struct file *file, struct vm_area_struct *vma)
 	q->bufs[i]->baddr = vma->vm_start;
 
 	vma->vm_flags |= VM_RESERVED;
-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+	if (cacheable_buffers == 0) {
+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+		printk(KERN_DEBUG "Requested uncached buffers\n");
+	 }
+
 	vma->vm_ops = &omap_vout_vm_ops;
 	vma->vm_private_data = (void *) vout;
 	dmabuf = videobuf_to_dma(q->bufs[i]);
@@ -2114,6 +2128,14 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		mutex_unlock(&vout->lock);
 		return -EBUSY;
 	}
+
+	/*
+	* struct v4l2_requestbuffers reserved field used to define
+	* cacheable/non-cacheable and flushable/non-flushable buffers
+	* from user space
+	*/
+	cacheable_buffers = (req->reserved[0] == 1) ? 1 : 0;
+	flushable_buffers = (req->reserved[1] == 1) ? 1 : 0;
 
 	/* If buffers are already allocated free them */
 	if (q->bufs[0] && (V4L2_MEMORY_MMAP == q->bufs[0]->memory)) {
