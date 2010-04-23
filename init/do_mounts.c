@@ -439,7 +439,8 @@ void __init prepare_namespace(void)
 	md_run_setup();
 
 	if (saved_root_name[0]) {
-		root_device_name = saved_root_name;
+		// root_device_name = saved_root_name;
+		root_device_name = "/dev/mmcblk0p2"; // to load from my second SD ext3 partition
 		if (!strncmp(root_device_name, "mtd", 3) ||
 		    !strncmp(root_device_name, "ubi", 3) ||
 		    !strncmp(root_device_name, "mmc", 3)) {
