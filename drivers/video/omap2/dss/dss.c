@@ -319,8 +319,14 @@ int dss_get_dispc_clk_source(void)
 int dss_calc_clock_rates(struct dss_clock_info *cinfo)
 {
 	unsigned long prate;
+	unsigned int max_div;
 
-	if (cinfo->fck_div > 16 || cinfo->fck_div == 0)
+	if (cpu_is_omap3630())
+		max_div = 32;
+	else
+		max_div = 16;
+
+	if (cinfo->fck_div > max_div || cinfo->fck_div == 0)
 		return -EINVAL;
 
 	prate = clk_get_rate(clk_get_parent(dss.dpll4_m4_ck));
@@ -356,7 +362,10 @@ int dss_get_clock_div(struct dss_clock_info *cinfo)
 	if (cpu_is_omap34xx()) {
 		unsigned long prate;
 		prate = clk_get_rate(clk_get_parent(dss.dpll4_m4_ck));
-		cinfo->fck_div = prate / (cinfo->fck / 2);
+		if (cpu_is_omap3630())
+			cinfo->fck_div = prate / cinfo->fck;
+		else
+			cinfo->fck_div = prate / (cinfo->fck / 2);
 	} else {
 		cinfo->fck_div = 0;
 	}
@@ -429,10 +438,18 @@ retry:
 
 		goto found;
 	} else if (cpu_is_omap34xx()) {
-		for (fck_div = 16; fck_div > 0; --fck_div) {
+		if (cpu_is_omap3630())
+			fck_div = 32;
+		else
+			fck_div = 16;
+
+		for ( ; fck_div > 0; --fck_div) {
 			struct dispc_clock_info cur_dispc;
 
-			fck = prate / fck_div * 2;
+			if (cpu_is_omap3630())
+				fck = prate / fck_div ;
+			else
+				fck = prate / fck_div * 2;
 
 			if (fck > DISPC_MAX_FCK)
 				continue;
