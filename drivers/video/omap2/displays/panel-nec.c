@@ -72,9 +72,12 @@ static int nec_panel_probe(struct omap_dss_device *dssdev)
 			OMAP_DSS_LCD_IHS | OMAP_DSS_LCD_RF |
 			OMAP_DSS_LCD_ONOFF;
 	dssdev->panel.timings = nec_panel_timings;
-	dssdev->panel.recommended_bpp = 16;
 	dssdev->get_resolution = nec_get_resolution;
-
+#ifdef CONFIG_FB_OMAP2_32_BPP
+	dssdev->panel.recommended_bpp = 24;
+#else
+	dssdev->panel.recommended_bpp = 16;
+#endif
 	return 0;
 }
 
