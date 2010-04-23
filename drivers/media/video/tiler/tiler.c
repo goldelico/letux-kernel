@@ -455,7 +455,7 @@ s32 tiler_find_buf(u32 sys_addr, struct tiler_block_info *blk)
 	u16 x_page = 0, y_page = 0;
 	s32 mode = -1;
 
-	if (get_area(sys_addr & 0x0FFFF1000, &x_area, &y_area))
+	if (get_area(sys_addr, &x_area, &y_area))
 		return -EFAULT;
 
 	memset(&area, 0, sizeof(area));
