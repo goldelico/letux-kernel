@@ -571,6 +571,14 @@ void sync_inodes_sb(struct super_block *sb, int wait)
 	spin_unlock(&inode_lock);
 }
 
+void writeback_inodes_sb(struct super_block *sb, struct writeback_control *wbc)
+{
+	spin_lock(&inode_lock);
+	sync_sb_inodes(sb, wbc);
+	spin_unlock(&inode_lock);
+}
+EXPORT_SYMBOL_GPL(writeback_inodes_sb);
+
 /*
  * Rather lame livelock avoidance.
  */

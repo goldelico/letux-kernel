@@ -1,0 +1,132 @@
+2008.05.30
+
+* Added JZ4720 virgo board support. <zyliu@ingenic.cn>
+
+2008.05.29
+
+* Added definition of CONFIG_SOC_JZ4725 and CONFIG_SOC_JZ4720. <zyliu@ingenic.cn>
+* Added selection of 4-bit/1-bit data bus for MMC/SD card driver. <zyliu@ingenic.cn>
+* Added dipper_defconfig for JZ4725 DIPPER board. <zyliu@ingenic.cn>
+
+2008.05.29:
+
+* Modified sound/oss/jz_i2s.c to increase the sound buffer.
+* Modified pavo_defconfig to select the oss sound driver by default.
+* Fixed jzlcd.h for jz4730 pmp.
+* Modified jzcs8900a.c to not test the chip ID.
+
+2008.05.22:
+
+* jzcs8900a.c: fixed the bug of "No network devices available". <jlwei@ingenic.cn>
+
+2008.05.13:
+
+* Rewrote all of the UBI and UBIFS codes. <yrtan@ingenic.cn>
+
+2008.05.07:
+* Add GPIO group E group F irq, DMAC1 irq. Add SSI1 macros.
+	<lgwang@ingenic.cn>
+
+2008.05.06:
+
+* Modified MMC/SD driver jz_mmc.c to support PM callback. <cwjia@ingenic.cn>
+
+2008.05.04:
+
+* Fixed a bug of mtdblock-jz.uu of using the badblock_table. <yrtan@ingenic.cn>
+
+2008.04.26:
+
+* Patch jz4740_nand.c to optimize the RS correction algorithm. <zengzhaoxiu>
+
+2008.04.24
+* Jzlcd driver add Framebuffer Rotate support.
+  Update files:
+	drivers/video/Kconfig
+	drivers/video/jzlcd.h
+	drivers/video/jzlcd.c
+	<lgwang@ingenic.cn>
+
+2008.04.21:
+* Modified LCD_CFG_MODE_INTER_CCIR656 define
+	#define LCD_CFG_MODE_INTER_CCIR656	(5 << LCD_CFG_MODE_BIT)
+	should be ==>>
+	#define LCD_CFG_MODE_INTER_CCIR656	(6 << LCD_CFG_MODE_BIT)
+  Update files:
+	include/asm-mips/mach-jz4730/regs.h
+	include/asm-mips/mach-jz4740/regs.h
+	include/asm-mips/mach-jz4750/regs.h
+
+2008.04.14:
+
+* Modify drivers/video/jzslcd.c to suport Smart LCD switches between
+  always refresh and event-driven refresh .  <zyliu@ingenic.cn>
+
+2008.04.01:
+
+* Support multi-framebuffers, update files:
+	drivers/video/Kconfig, add: CONFIG_JZLCD_FRAMEBUFFER_MAX=1
+	drivers/video/jzlcd.h
+	drivers/video/jzlcd.c
+	arch/mips/configs/pavo_defconfig, add: CONFIG_JZLCD_FRAMEBUFFER_MAX=1
+  <lgwang@ingenic.cn>
+
+2008.03.29:
+
+* Modified sound/soc/jz4740/jz4740-i2s.c to support 32KHz PCM sample. <cjfeng@ingenic.cn>
+
+2008.03.28
+
+* Ported new mtd-utils and mkfs.ubifs. <yrtan@ingenic.cn>
+
+2008.03.27
+
+* board_fuwa.h, change GPIO_DISP_OFF_N to GPD25. <lgwang@ingenic.cn>
+* Added lyra_defconfig for JZ4740 LYRA (MP4) board. <zyliu@ingenic.cn>
+
+2008.03.24:
+
+* Added jzslcd.c for Smart LCD framebuffer driver.  <zyliu@ingenic.cn>
+* Modified rtc_jz.c to use some functions in rtc library instead of our function. 
+  <cjfeng@ingenic.cn>
+* Added jz_keypad.c and gpio_keys.c for scan keypad drivers. <cjfeng@ingenic.cn>
+
+2008.03.19:
+
+* Added block-jz.c to support block device layer on top of ubi.
+  <yrtan@ingenic.cn>
+
+2008.03.17:
+
+* Modified jz4740_udc.c to enable the suspend irq when host unloads us.
+  <jlwei@ingenic.cn>
+* pavo_defconfig: select CONFIG_WIRELESS_EXT, CONFIG_PNP and CONFIG_SERIAL_8250_PNP.
+  <lgwang@ingenic.cn>
+
+2008.03.14:
+
+* Modified jz_ts.c jz_ts.h and sadc.c to release CPU by interrupt mode instead of pio mode. 
+  <cjfeng@ingenic.cn>
+
+2008.03.13:
+
+* Fixed a bug in jz4740_udc.c and jz4730_udc.c during rmmod the driver. 
+  <cjfeng@ingenic.cn>
+
+2008.03.10:
+
+* Modified jz_i2s.c to fix the jz_audio_release(). <cjfeng@ingenic.cn>
+
+2008.03.08:
+
+* Fixed udc_hotplug.c to avoid the "unexpected IRQ". <jlwei@ingenic.cn>
+* Fixed jz4740/cpufreq.c of calculating the new_mclk. <lhhuang@ingenic.cn>
+
+2008.03.05:
+
+* Modified drivers/video/console/fbcon.c by adding fb_flashcursor selection.
+  <lgwang@ingenic.cn>
+
+2008.03.04:
+
+* Initial release.

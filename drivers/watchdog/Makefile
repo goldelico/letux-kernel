@@ -10,6 +10,9 @@
 # that also fails then you can fall back to the software watchdog
 # to give you some cover.
 
+# JZ-watchdog timer
+obj-$(CONFIG_JZ_WDT) += jz_wdt.o
+
 # ISA-based Watchdog Cards
 obj-$(CONFIG_PCWATCHDOG) += pcwd.o
 obj-$(CONFIG_MIXCOMWD) += mixcomwd.o

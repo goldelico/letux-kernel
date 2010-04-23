@@ -70,6 +70,7 @@ struct writeback_control {
 void writeback_inodes(struct writeback_control *wbc);
 int inode_wait(void *);
 void sync_inodes_sb(struct super_block *, int wait);
+void writeback_inodes_sb(struct super_block *sb, struct writeback_control *wbc);
 void sync_inodes(int wait);
 
 /* writeback.h requires fs.h; it, too, is not included from here. */

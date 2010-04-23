@@ -210,6 +210,24 @@ config MII
 	  or internal device.  It is safe to say Y or M here even if your
 	  ethernet card lack MII.
 
+config JZ_ETH
+	tristate "JZ4730/JZ5730 On-Chip Ethernet support"
+	depends on NET_ETHERNET && (SOC_JZ4730 || SOC_JZ5730 || JZ_FPGA)
+	help
+	  Say Y for support of JZ4730/JZ5730 On-Chip Ethernet interface.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called jz_eth.
+
+config JZCS8900
+	tristate "JZ CS8900A Ethernet support"
+	depends on NET_ETHERNET && SOC_JZ4740 
+	help
+	  Say Y for support of JZ CS8900A Ethernet interface.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called jzcs8900a.
+
 config MACB
 	tristate "Atmel MACB support"
 	depends on AVR32 || ARCH_AT91SAM9260 || ARCH_AT91SAM9263

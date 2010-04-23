@@ -1385,6 +1385,9 @@ config JFFS2_CMODE_FAVOURLZO
 
 endchoice
 
+# UBIFS File system configuration
+source "fs/ubifs/Kconfig"
+
 config CRAMFS
 	tristate "Compressed ROM file system support (cramfs)"
 	depends on BLOCK
@@ -2128,6 +2131,7 @@ endif
 
 source "fs/nls/Kconfig"
 source "fs/dlm/Kconfig"
+source "fs/yaffs2/Kconfig"
 
 endmenu
 

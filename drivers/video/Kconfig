@@ -201,6 +201,152 @@ config FB_TILEBLITTING
 comment "Frame buffer hardware drivers"
 	depends on FB
 
+config FB_JZ_SLCD
+	tristate "JZSOC Smart LCD controller support"
+	depends on FB && JZSOC
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	default n
+	---help---
+	  This is the frame buffer device driver for the JZSOC Smart LCD controller. 
+	  If select this, please set <JZSOC LCD controller support> to <n>.
+
+choice
+	depends on FB_JZ_SLCD
+	prompt "SLCD Panel"
+	default JZ_SLCD_LGDP4551_8BUS
+
+config JZ_SLCD_LGDP4551
+	bool "LG LGDP4551 Smart LCD panel"
+	---help---
+	Driver for Smart LCD LGDP4551, 8-bit sytem interface, 16BPP.
+
+config JZ_SLCD_SPFD5420A
+	bool "SPFD5420A Smart LCD panel"
+	---help---
+	Driver for Smart LCD SPFD5420A 18-bit sytem interface, 18BPP.
+	
+config JZ_SLCD_TRULY
+	bool "TRULY Smart LCD panel (MAX Pixels 400x240)"
+	---help---
+
+endchoice
+
+config FB_JZ
+	tristate "JZSOC LCD controller support"
+	depends on FB && JZSOC
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+	  This is the frame buffer device driver for the JZSOC LCD controller.
+config JZLCD_FRAMEBUFFER_MAX
+	int "Default FrameBuffer num"
+	depends on FB_JZ
+	default "1"
+       	---help---
+	  JZ LCD driver support multi-framebuffers for video applications.
+config JZLCD_FRAMEBUFFER_ROTATE_SUPPORT
+	bool "JZLCD FrameBuffer Rotate Support(TEST)"
+	depends on FB_JZ
+	default n
+       	---help---
+	  JZ LCD driver framebuffer rotate support. Rotate angle can be 0,90,180,270.
+	  Note, this fearture is impleted by software, and will cost a lot of cpu capcity.
+	  That is to say, if you select this function, you system will become slowly.
+	  Rotate cost cpu about:
+	  ratate angle 0'C:    0%
+	  ratate angle 90'C:  40%
+	  ratate angle 180'C: 20%
+	  ratate angle 270'C: 40%
+config JZLCD_FRAMEBUFFER_DEFAULT_ROTATE_ANGLE
+	int "FrameBuffer default rotate angle"
+	depends on JZLCD_FRAMEBUFFER_ROTATE_SUPPORT
+	default 0
+       	---help---
+	  JZ LCD driver framebuffer angle value can be:
+	  	0:	0'C
+	  	1:	90'C
+	  	2:	180'C
+	  	3:	270'C
+config JZLCD_FRAMEBUFFER_BPP
+	int "FrameBuffer bit per pixel"
+	depends on JZLCD_FRAMEBUFFER_ROTATE_SUPPORT
+	default 32
+       	---help---
+	  JZ LCD driver framebuffer support 8bpp, 16bpp, 32bpp
+choice
+	depends on FB_JZ
+	prompt "LCD Panel"
+	default JZLCD_SAMSUNG_LTP400WQF01
+
+config JZLCD_SHARP_LQ035Q7
+	bool "SHARP LQ035Q7 TFT panel (240x320)"
+
+config JZLCD_SAMSUNG_LTS350Q1
+	bool "SAMSUNG LTS350Q1 TFT panel (240x320)"
+
+config JZLCD_SAMSUNG_LTV350QVF04
+	bool "SAMSUNG LTV350QV_F04 TFT panel (320x240)"
+
+config JZLCD_SAMSUNG_LTP400WQF01
+	bool "SAMSUNG LTP400WQF01 TFT panel (480x272)(16bits)"
+
+config JZLCD_SAMSUNG_LTP400WQF02
+	bool "SAMSUNG LTP400WQF02 TFT panel (480x272)(18bits)"
+
+config JZLCD_AUO_A030FL01_V1
+	bool "AUO A030FL01_V1 TFT panel (480x272)"
+
+config JZLCD_TRULY_TFTG320240DTSW
+	bool "TRULY TFTG320240DTSW TFT panel (320x240)"
+
+config JZLCD_TRULY_TFTG320240DTSW_SERIAL
+	bool "TRULY TFTG320240DTSW TFT panel (320x240)(8bit-serial mode)"
+
+config JZLCD_TRULY_TFTG240320UTSW_63W_E
+      	bool "TRULY TFTG240320UTSW-63W-E TFT panel (240x320,2.5in)"
+
+config JZLCD_FOXCONN_PT035TN01
+	bool "FOXCONN PT035TN01 TFT panel (320x240)"
+
+config JZLCD_INNOLUX_PT035TN01_SERIAL
+     	bool "INNOLUX PT035TN01 TFT panel (320x240,3.5in)(8bit-serial mode)"
+
+config JZLCD_TOSHIBA_LTM084P363
+	bool "Toshiba LTM084P363 TFT panel (800x600)"
+
+config JZLCD_HYNIX_HT10X21
+	bool "Hynix HT10X21_300 TFT panel (1024x768)"
+
+config JZLCD_INNOLUX_AT080TN42
+      	bool "INNOLUX AT080TN42 TFT panel (800x600)"
+
+config JZLCD_CSTN_800x600
+	bool "800x600 colorDSTN panel"
+
+config JZLCD_CSTN_320x240
+	bool "320x240 colorSTN panel"
+
+config JZLCD_MSTN_480x320
+	bool "480x320 monoSTN panel"
+
+config JZLCD_MSTN_320x240
+	bool "320x240 monoSTN panel"
+
+config JZLCD_MSTN_240x128
+	bool "240x128 monoSTN panel"
+
+config JZLCD_MSTN_INVERSE
+	bool "Use an inverse color display."
+	depends on (JZLCD_MSTN_480x320 || JZLCD_MSTN_240x128)
+
+config JZLCD_CHUNGHWA_CLAA070VC01
+	bool "CHUNGHWA CLAA070VC01 TFT panel (800x480)"
+
+endchoice
+
 config FB_CIRRUS
 	tristate "Cirrus Logic support"
 	depends on FB && (ZORRO || PCI)

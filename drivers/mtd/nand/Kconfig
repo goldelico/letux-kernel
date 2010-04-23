@@ -1,5 +1,5 @@
 # drivers/mtd/nand/Kconfig
-# $Id: Kconfig,v 1.35 2005/11/07 11:14:30 gleixner Exp $
+# $Id: Kconfig,v 1.2 2008/05/27 04:39:22 jlwei Exp $
 
 menuconfig MTD_NAND
 	tristate "NAND Device Support"
@@ -305,5 +305,66 @@ config MTD_ALAUDA
 	help
 	  These two (and possibly other) Alauda-based cardreaders for
 	  SmartMedia and xD allow raw flash access.
+
+config MTD_NAND_JZ4730
+	tristate "Support NAND Flash device on Jz4730 board"
+	depends on SOC_JZ4730
+	help
+	Support NAND Flash device on Jz4730 board
+
+config MTD_NAND_JZ4740
+	tristate "Support NAND Flash device on Jz4740 board"
+	depends on SOC_JZ4740
+	help
+	Support NAND Flash device on Jz4740 board
+
+choice
+	prompt "ECC type"
+	depends on MTD_NAND_JZ4740 || MTD_NAND_JZ4730
+	default CONFIG_MTD_SW_HM_ECC
+	
+config 	MTD_HW_HM_ECC
+	bool 'Select hardware HM ECC'
+	 
+config  MTD_SW_HM_ECC
+	bool 'Select software HM ECC'
+
+config  MTD_HW_RS_ECC
+	depends on MTD_NAND_JZ4740
+	bool 'Select hardware RS ECC'
+
+endchoice
+
+config  MTD_MTDBLOCK_WRITE_VERIFY_ENABLE
+	bool "MTDBLOCK write verify enable"
+	default n
+	help
+	    This will enable the write verification, which will read back data to check
+            after doing a write opetaion.
+
+            It will be used by the JZ mtdblock driver (mtdblock-jz.c).
+
+config  MTD_OOB_COPIES
+	int "how many copies of the fs info in the oob area"
+	default 3
+	range 0 128
+	depends on MTD
+	help
+	    This defines the copies of the fs info in the oob area inside a block.
+	    Value ranges from 0 to (pages_per_block - 1).
+
+	    It will be used by the JZ mtdblock driver (mtdblock-jz.c).
+
+config  MTD_BADBLOCK_FLAG_PAGE
+	int "which page inside a block will store the badblock mark"
+	default 0
+	range 0 127
+	depends on MTD
+	help
+            This defines which page of a block will store the badblock mark.
+	    Value ranges from 0 to (pages_per_block - 1).
+
+	    Old SLC NANDs store the badblock mark in the first page of a block, but
+            most modern MLC NANDs store it in the last page of a block.
 
 endif # MTD_NAND

@@ -833,6 +833,7 @@ static __init void __maybe_unused build_tlb_probe_entry(u32 **p)
 	case CPU_R5000:
 	case CPU_R5000A:
 	case CPU_NEVADA:
+	case CPU_JZRISC:
 		i_nop(p);
 		i_tlbp(p);
 		break;
@@ -979,6 +980,15 @@ static __init void build_tlb_write_entry(u32 **p, struct label **l,
 		i_nop(p);
 		i_nop(p);
 		tlbw(p);
+		break;
+
+	case CPU_JZRISC:
+		i_nop(p);
+		i_nop(p);
+		i_nop(p);
+		i_nop(p);
+		tlbw(p);
+		i_nop(p);
 		break;
 
 	default:

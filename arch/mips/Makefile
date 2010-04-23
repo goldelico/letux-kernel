@@ -159,6 +159,29 @@ libs-$(CONFIG_SIBYTE_CFE)	+= arch/mips/sibyte/cfe/
 #
 
 #
+# Commond Ingenic JZ4730 series
+#
+core-$(CONFIG_SOC_JZ4730)	+= arch/mips/jz4730/
+cflags-$(CONFIG_SOC_JZ4730)	+= -Iinclude/asm-mips/mach-jz4730
+load-$(CONFIG_SOC_JZ4730)	+= 0xffffffff80010000
+
+#
+# Commond Ingenic JZ4740 series
+#
+
+core-$(CONFIG_SOC_JZ4740)	+= arch/mips/jz4740/
+cflags-$(CONFIG_SOC_JZ4740)	+= -Iinclude/asm-mips/mach-jz4740
+load-$(CONFIG_SOC_JZ4740)	+= 0xffffffff80010000
+
+#
+# Commond Ingenic JZ4750 series
+#
+
+core-$(CONFIG_SOC_JZ4750)	+= arch/mips/jz4750/
+cflags-$(CONFIG_SOC_JZ4750)	+= -Iinclude/asm-mips/mach-jz4750
+load-$(CONFIG_SOC_JZ4750)	+= 0xffffffff80010000
+
+#
 # Acer PICA 61, Mips Magnum 4000 and Olivetti M700.
 #
 core-$(CONFIG_MACH_JAZZ)	+= arch/mips/jazz/
@@ -670,6 +693,12 @@ makeboot =$(Q)$(MAKE) $(build)=arch/mips/boot VMLINUX=$(vmlinux-32) $(1)
 
 all:	$(all-y)
 
+uImage: $(vmlinux-32)
+	+@$(call makeboot,$@)
+
+zImage: $(vmlinux-32)
+	+@$(call makeboot,$@)
+
 vmlinux.bin: $(vmlinux-32)
 	+@$(call makeboot,$@)
 
@@ -694,12 +723,13 @@ endif
 
 archclean:
 	@$(MAKE) $(clean)=arch/mips/boot
+	@$(MAKE) $(clean)=arch/mips/boot/compressed
 	@$(MAKE) $(clean)=arch/mips/lasat
 
 define archhelp
-	echo '  vmlinux.ecoff        - ECOFF boot image'
-	echo '  vmlinux.bin          - Raw binary boot image'
-	echo '  vmlinux.srec         - SREC boot image'
+	echo  '  uImage	- u-boot format image (arch/$(ARCH)/boot/uImage)'
+	echo  '  zImage	- Compressed binary image (arch/$(ARCH)/boot/compressed/zImage)'
+	echo  '  vmlinux.bin	- Uncompressed binary image (arch/$(ARCH)/boot/vmlinux.bin)'
 	echo
 	echo '  These will be default as apropriate for a configured platform.'
 endef

@@ -731,6 +731,16 @@ config RTC
 	  To compile this driver as a module, choose M here: the
 	  module will be called rtc.
 
+config RTC_PCF8563
+	bool 'Philips PCF8563 Real Time Clock (I2C Bus)'
+	help
+	  Philips PCF8563 Real Time Clock (I2C Bus)
+
+config RTC_JZ
+	bool 'Jz4740 On-Chip Real Time Clock'
+	help
+	  Jz4740 On-Chip Real Time Clock
+
 config JS_RTC
 	tristate "Enhanced Real Time Clock Support"
 	depends on SPARC32 && PCI
@@ -1039,6 +1049,7 @@ config DEVPORT
 	default y
 
 source "drivers/s390/char/Kconfig"
+source "drivers/char/jzchar/Kconfig"
 
 endmenu
 

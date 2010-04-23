@@ -129,8 +129,7 @@ static int gluebi_read(struct mtd_info *mtd, loff_t from, size_t len,
 		if (to_read > total_read)
 			to_read = total_read;
 
-		err = ubi_eba_read_leb(ubi, vol->vol_id, lnum, buf, offs,
-				       to_read, 0);
+		err = ubi_eba_read_leb(ubi, vol, lnum, buf, offs, to_read, 0);
 		if (err)
 			break;
 
@@ -187,8 +186,8 @@ static int gluebi_write(struct mtd_info *mtd, loff_t to, size_t len,
 		if (to_write > total_written)
 			to_write = total_written;
 
-		err = ubi_eba_write_leb(ubi, vol->vol_id, lnum, buf, offs,
-					to_write, UBI_UNKNOWN);
+		err = ubi_eba_write_leb(ubi, vol, lnum, buf, offs, to_write,
+					UBI_UNKNOWN);
 		if (err)
 			break;
 
@@ -237,7 +236,7 @@ static int gluebi_erase(struct mtd_info *mtd, struct erase_info *instr)
 		return -EROFS;
 
 	for (i = 0; i < count; i++) {
-		err = ubi_eba_unmap_leb(ubi, vol->vol_id, lnum + i);
+		err = ubi_eba_unmap_leb(ubi, vol, lnum + i);
 		if (err)
 			goto out_err;
 	}
@@ -292,11 +291,12 @@ int ubi_create_gluebi(struct ubi_device *ubi, struct ubi_volume *vol)
 	/*
 	 * In case of dynamic volume, MTD device size is just volume size. In
 	 * case of a static volume the size is equivalent to the amount of data
-	 * bytes, which is zero at this moment and will be changed after volume
-	 * update.
+	 * bytes.
 	 */
 	if (vol->vol_type == UBI_DYNAMIC_VOLUME)
 		mtd->size = vol->usable_leb_size * vol->reserved_pebs;
+	else
+		mtd->size = vol->used_bytes;
 
 	if (add_mtd_device(mtd)) {
 		ubi_err("cannot not add MTD device\n");

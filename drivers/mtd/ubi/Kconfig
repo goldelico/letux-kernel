@@ -55,4 +55,18 @@ config MTD_UBI_GLUEBI
 	   this if no legacy software will be used.
 
 source "drivers/mtd/ubi/Kconfig.debug"
+
+config MTD_UBI_BLKDEVS
+	tristate "Common interface to block layer for UBI 'translation layers'"
+	depends on BLOCK
+	default n
+
+config MTD_UBI_BLOCK
+	tristate "Emulate block devices"
+	default n
+	depends on MTD_UBI_BLKDEVS
+	help
+	   This option enables Block layer emulation on top of UBI volumes: for
+	   each UBI volumes an block device is created. This is handy to make
+	   traditional filesystem (like ext2, VFAT) work on top of UBI.
 endmenu

@@ -93,6 +93,33 @@ choice
 	   Many controller drivers are platform-specific; these
 	   often need board-specific hooks.
 
+config USB_GADGET_JZ4740
+	boolean "JZ4740 UDC"
+	depends on SOC_JZ4740
+	select USB_GADGET_DUALSPEED
+	help
+    	   Select this to support the Ingenic JZ4740 processor 
+           high speed USB device controller.
+
+config USB_JZ4740
+	tristate
+	depends on USB_GADGET_JZ4740
+	default USB_GADGET
+	select USB_GADGET_SELECTED
+
+config USB_GADGET_JZ4730
+	boolean "JZ4730 UDC"
+	depends on SOC_JZ4730
+	help
+    	   Select this to support the Ingenic JZ4730 processor 
+           full speed USB device controller.
+
+config USB_JZ4730
+	tristate
+	depends on USB_GADGET_JZ4730
+	default USB_GADGET
+	select USB_GADGET_SELECTED
+
 config USB_GADGET_AMD5536UDC
 	boolean "AMD5536 UDC"
 	depends on PCI

@@ -74,6 +74,8 @@ int pnp_register_protocol(struct pnp_protocol *protocol)
 	return device_register(&protocol->dev);
 }
 
+EXPORT_SYMBOL(pnp_register_protocol);
+
 /**
  * pnp_protocol_unregister - removes a pnp protocol from the pnp layer
  * @protocol: pointer to the corresponding pnp_protocol structure
@@ -85,6 +87,8 @@ void pnp_unregister_protocol(struct pnp_protocol *protocol)
 	spin_unlock(&pnp_lock);
 	device_unregister(&protocol->dev);
 }
+
+EXPORT_SYMBOL(pnp_unregister_protocol);
 
 static void pnp_free_ids(struct pnp_dev *dev)
 {
@@ -166,6 +170,8 @@ int pnp_add_device(struct pnp_dev *dev)
 	return 0;
 }
 
+EXPORT_SYMBOL(pnp_add_device);
+
 void __pnp_remove_device(struct pnp_dev *dev)
 {
 	spin_lock(&pnp_lock);
@@ -174,6 +180,21 @@ void __pnp_remove_device(struct pnp_dev *dev)
 	spin_unlock(&pnp_lock);
 	device_unregister(&dev->dev);
 }
+
+/**
+ * pnp_remove_device - removes a pnp device from the pnp layer
+ * @dev: pointer to dev to add
+ *
+ * this function will free all mem used by dev
+ */
+void pnp_remove_device(struct pnp_dev *dev)
+{
+	if (!dev || dev->card)
+		return;
+	__pnp_remove_device(dev);
+}
+
+EXPORT_SYMBOL(pnp_remove_device);
 
 static int __init pnp_init(void)
 {

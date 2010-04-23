@@ -404,6 +404,10 @@ int pnp_check_irq(struct pnp_dev *dev, int idx)
 
 int pnp_check_dma(struct pnp_dev *dev, int idx)
 {
+	printk("*********** %s, %s, line[%d]: Fix me, this should update in the future *********\n",
+		   __FILE__, __FUNCTION__, __LINE__);
+	return 0;		/* should be update in the future. Wolfgang ???*/
+
 #ifndef CONFIG_IA64
 	int tmp;
 	struct pnp_dev *tdev;

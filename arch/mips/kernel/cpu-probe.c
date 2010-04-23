@@ -160,6 +160,7 @@ static inline void check_wait(void)
 	case CPU_25KF:
 	case CPU_PR4450:
 	case CPU_BCM3302:
+	case CPU_JZRISC:
 		cpu_wait = r4k_wait;
 		break;
 
@@ -802,6 +803,22 @@ static inline void cpu_probe_broadcom(struct cpuinfo_mips *c)
 	}
 }
 
+static inline void cpu_probe_ingenic(struct cpuinfo_mips *c)
+{
+	decode_configs(c);
+	c->options &= ~MIPS_CPU_COUNTER; /* JZRISC does not implement the CP0 counter. */
+	switch (c->processor_id & 0xff00) {
+	case PRID_IMP_JZRISC:
+		c->cputype = CPU_JZRISC;
+		c->isa_level = MIPS_CPU_ISA_M32R1;
+		c->tlbsize = 32;
+		break;
+	default:
+		panic("Unknown Ingenic Processor ID!");
+		break;
+	}
+}
+
 const char *__cpu_name[NR_CPUS];
 
 /*
@@ -880,6 +897,7 @@ static __init const char *cpu_to_name(struct cpuinfo_mips *c)
 	case CPU_BCM4710:	name = "Broadcom BCM4710"; break;
 	case CPU_PR4450:	name = "Philips PR4450"; break;
 	case CPU_LOONGSON2:	name = "ICT Loongson-2"; break;
+	case CPU_JZRISC:	name = "Ingenic JZRISC"; break;
 	default:
 		BUG();
 	}
@@ -918,6 +936,9 @@ __init void cpu_probe(void)
 		break;
  	case PRID_COMP_PHILIPS:
 		cpu_probe_philips(c);
+		break;
+ 	case PRID_COMP_INGENIC:
+		cpu_probe_ingenic(c);
 		break;
 	default:
 		c->cputype = CPU_UNKNOWN;

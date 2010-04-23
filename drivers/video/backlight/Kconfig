@@ -90,3 +90,11 @@ config BACKLIGHT_CARILLO_RANCH
 	help
 	  If you have a Intel LE80578 (Carillo Ranch) say Y to enable the
 	  backlight driver.
+
+config BACKLIGHT_JZ4730_MINIPC
+	tristate "Backlight control for JZ4730 based MiniPC"
+	depends on BACKLIGHT_CLASS_DEVICE && JZ4730_MINIPC
+	default y
+	help
+	  Using this driver display backlight brightness and on/off can
+	  be controlled.

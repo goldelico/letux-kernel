@@ -16,6 +16,73 @@ choice
 	prompt "System type"
 	default SGI_IP22
 
+config JZ4730_PMP
+	bool "Ingenic JZ4730 PMP board"
+	select DMA_NONCOHERENT
+	select SYS_HAS_CPU_MIPS32_R1
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SOC_JZ4730
+
+config JZ4730_MINIPC
+	bool "Ingenic JZ4730 based MINIPC"
+	select DMA_NONCOHERENT
+	select SYS_HAS_CPU_MIPS32_R1
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SOC_JZ4730
+
+config JZ4740_PAVO
+	bool "Ingenic JZ4740 PAVO board"
+	select DMA_NONCOHERENT
+	select SYS_HAS_CPU_MIPS32_R1
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SOC_JZ4740
+
+config JZ4740_LEO
+	bool "Ingenic JZ4740 LEO board"
+	select DMA_NONCOHERENT
+	select SYS_HAS_CPU_MIPS32_R1
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SOC_JZ4740
+
+config JZ4740_LYRA
+	bool "Ingenic JZ4740 LYRA board"
+	select DMA_NONCOHERENT
+	select SYS_HAS_CPU_MIPS32_R1
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SOC_JZ4740
+
+config JZ4725_DIPPER
+	bool "Ingenic JZ4725 DIPPER board"
+	select DMA_NONCOHERENT
+	select SYS_HAS_CPU_MIPS32_R1
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SOC_JZ4740
+	select SOC_JZ4725
+
+config JZ4720_VIRGO
+	bool "Ingenic JZ4720 VIRGO board"
+	select DMA_NONCOHERENT
+	select SYS_HAS_CPU_MIPS32_R1
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SOC_JZ4740
+	select SOC_JZ4720
+
+config JZ4750_FUWA
+	bool "Ingenic JZ4750 FUWA board"
+	select DMA_NONCOHERENT
+	select SYS_HAS_CPU_MIPS32_R1
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SOC_JZ4750
+	select JZ_FPGA
+
 config MACH_ALCHEMY
 	bool "Alchemy processor based machines"
 
@@ -700,6 +767,44 @@ source "arch/mips/tx4938/Kconfig"
 source "arch/mips/vr41xx/Kconfig"
 
 endmenu
+
+#####################################################
+# Ingenic SOC series
+#####################################################
+
+config SOC_JZ4730
+	bool
+	select JZSOC
+
+config SOC_JZ4740
+	bool
+	select JZSOC
+
+config SOC_JZ4725
+	bool
+	select JZSOC
+
+config SOC_JZ4720
+	bool
+	select JZSOC
+
+config SOC_JZ4750
+	bool
+	select JZSOC
+
+config JZ_FPGA
+	bool
+
+config JZSOC
+	bool
+	select JZRISC
+	select SYS_HAS_CPU_MIPS32_R1
+	select SYS_SUPPORTS_32BIT_KERNEL
+
+config JZRISC
+	bool
+
+####################################################
 
 config RWSEM_GENERIC_SPINLOCK
 	bool
@@ -2043,6 +2148,23 @@ config MIPS32_N32
 config BINFMT_ELF32
 	bool
 	default y if MIPS32_O32 || MIPS32_N32
+
+endmenu
+
+menu "CPU Frequency scaling"
+
+config CPU_FREQ_JZ
+	tristate "CPUfreq driver for JZ CPUs"
+	depends on JZSOC
+	default n
+	help
+	  This enables the CPUfreq driver for JZ CPUs.
+
+	  If in doubt, say N.
+
+if (CPU_FREQ_JZ)
+source "drivers/cpufreq/Kconfig"
+endif
 
 endmenu
 

@@ -269,9 +269,11 @@ static int mmc_switch_hs(struct mmc_card *card)
 		goto out;
 
 	if ((status[16] & 0xF) != 1) {
+#if 0
 		printk(KERN_WARNING "%s: Problem switching card "
 			"into high-speed mode!\n",
 			mmc_hostname(card->host));
+#endif
 	} else {
 		mmc_card_set_highspeed(card);
 		mmc_set_timing(card->host, MMC_TIMING_SD_HS);
@@ -386,6 +388,9 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 			goto free_card;
 
 		mmc_decode_cid(card);
+
+		/* set 24MHz clock again, why?? */
+		mmc_set_clock(host, 24000000);
 	}
 
 	/*

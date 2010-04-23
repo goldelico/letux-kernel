@@ -626,12 +626,20 @@ static void local_r4k_flush_cache_sigtramp(void * arg)
 	unsigned long addr = (unsigned long) arg;
 
 	R4600_HIT_CACHEOP_WAR_IMPL;
-	if (dc_lsize)
+	if (dc_lsize) {
 		protected_writeback_dcache_line(addr & ~(dc_lsize - 1));
+#ifdef CONFIG_JZRISC
+		protected_writeback_dcache_line((addr & ~(dc_lsize - 1)) + 32);
+#endif
+	}
 	if (!cpu_icache_snoops_remote_store && scache_size)
 		protected_writeback_scache_line(addr & ~(sc_lsize - 1));
-	if (ic_lsize)
+	if (ic_lsize) {
 		protected_flush_icache_line(addr & ~(ic_lsize - 1));
+#ifdef CONFIG_JZRISC
+		protected_flush_icache_line((addr & ~(ic_lsize - 1)) + 32);
+#endif
+	}
 	if (MIPS4K_ICACHE_REFILL_WAR) {
 		__asm__ __volatile__ (
 			".set push\n\t"
@@ -706,7 +714,7 @@ static void __init probe_pcache(void)
 	struct cpuinfo_mips *c = &current_cpu_data;
 	unsigned int config = read_c0_config();
 	unsigned int prid = read_c0_prid();
-	unsigned long config1;
+	unsigned int config1;
 	unsigned int lsize;
 
 	switch (c->cputype) {
@@ -872,6 +880,37 @@ static void __init probe_pcache(void)
 		else
 			c->dcache.ways = 2;
 		c->dcache.waybit = 0;
+		break;
+
+	case CPU_JZRISC:
+		config1 = read_c0_config1();
+		/* printk (KERN_ERR "c-r4k: config = 0x%08x config1 = 0x%08x\n", config, config1); */
+		config1 = (config1 >> 22) & 0x07;
+		if (config1 == 0x07)
+			config1 = 10;
+		else
+			config1 = config1 + 11;
+		config1 += 2;
+		icache_size = (1 << config1);
+		c->icache.linesz = 32;
+		c->icache.ways = 4;
+		c->icache.waybit = __ffs(icache_size / c->icache.ways);
+
+		config1 = read_c0_config1();
+		config1 = (config1 >> 13) & 0x07;
+		if (config1 == 0x07)
+			config1 = 10;
+		else
+			config1 = config1 + 11;
+		config1 += 2;
+		dcache_size = (1 << config1);
+		c->dcache.linesz = 32;
+		c->dcache.ways = 4;
+		c->dcache.waybit = __ffs(dcache_size / c->dcache.ways);
+
+		c->dcache.flags = 0;
+		c->options |= MIPS_CPU_PREFETCH;
+
 		break;
 
 	default:

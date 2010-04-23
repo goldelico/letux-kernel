@@ -52,3 +52,5 @@ cscope.*
 
 *.orig
 *.rej
+
+.DS_Store

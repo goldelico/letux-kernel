@@ -259,9 +259,18 @@ config KEYBOARD_AAED2000
 	  To compile this driver as a module, choose M here: the
 	  module will be called aaed2000_kbd.
 
+config KEYBOARD_JZ
+	tristate "JZ keypad support"
+	depends on JZSOC
+	help
+	  Enable Y here to support JZ keypad.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called jz-keypad.
+
 config KEYBOARD_GPIO
-	tristate "GPIO Buttons"
-	depends on GENERIC_GPIO
+	tristate "JZ GPIO Buttons support"
+#	depends on GENERIC_GPIO
 	help
 	  This driver implements support for buttons connected
 	  to GPIO pins of various CPUs (and some other chips).
@@ -272,7 +281,7 @@ config KEYBOARD_GPIO
 	  with configuration data saying which GPIOs are used.
 
 	  To compile this driver as a module, choose M here: the
-	  module will be called gpio-keys.
+	  module will be called gpio_keys.
 
 config KEYBOARD_MAPLE
 	tristate "Maple bus keyboard"

@@ -1,7 +1,7 @@
 #
 # linux/drivers/nand/Makefile
 #
-# $Id: Makefile.common,v 1.15 2004/11/26 12:28:22 dedekind Exp $
+# $Id: Makefile,v 1.1.1.1 2008/03/28 04:29:21 jlwei Exp $
 
 obj-$(CONFIG_MTD_NAND)			+= nand.o nand_ecc.o
 obj-$(CONFIG_MTD_NAND_IDS)		+= nand_ids.o
@@ -29,5 +29,7 @@ obj-$(CONFIG_MTD_NAND_CM_X270)		+= cmx270_nand.o
 obj-$(CONFIG_MTD_NAND_BASLER_EXCITE)	+= excite_nandflash.o
 obj-$(CONFIG_MTD_NAND_PLATFORM)		+= plat_nand.o
 obj-$(CONFIG_MTD_ALAUDA)		+= alauda.o
+obj-$(CONFIG_MTD_NAND_JZ4730)		+= jz4730_nand.o
+obj-$(CONFIG_MTD_NAND_JZ4740)		+= jz4740_nand.o
 
 nand-objs := nand_base.o nand_bbt.o

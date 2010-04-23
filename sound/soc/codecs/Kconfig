@@ -37,3 +37,8 @@ config SND_SOC_CS4270_VD33_ERRATA
 	bool
 	depends on SND_SOC_CS4270
 
+config SND_SOC_ICODEC
+	tristate "Jz4740 internal codec"
+	depends on SND_SOC && SND_JZ4740_SOC_PAVO && SND_JZ4740_SOC_I2S
+	help
+	  Say Y if you want to use internal codec on Ingenic Jz4740 PAVO board.

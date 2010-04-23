@@ -977,6 +977,11 @@ MODULE_LICENSE ("GPL");
 #define PCI_DRIVER		ohci_pci_driver
 #endif
 
+#ifdef CONFIG_JZSOC
+#include "ohci-jz.c"
+#define PLATFORM_DRIVER		ohci_hcd_jz_driver
+#endif
+
 #ifdef CONFIG_SA1111
 #include "ohci-sa1111.c"
 #define SA1111_DRIVER		ohci_hcd_sa1111_driver

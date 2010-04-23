@@ -42,6 +42,7 @@
 
 #include <linux/err.h>
 #include <linux/crc32.h>
+#include <asm/div64.h>
 #include "ubi.h"
 
 #ifdef CONFIG_MTD_UBI_DEBUG_PARANOID
@@ -89,27 +90,6 @@ static int add_to_list(struct ubi_scan_info *si, int pnum, int ec,
 	seb->ec = ec;
 	list_add_tail(&seb->u.list, list);
 	return 0;
-}
-
-/**
- * commit_to_mean_value - commit intermediate results to the final mean erase
- * counter value.
- * @si: scanning information
- *
- * This is a helper function which calculates partial mean erase counter mean
- * value and adds it to the resulting mean value. As we can work only in
- * integer arithmetic and we want to calculate the mean value of erase counter
- * accurately, we first sum erase counter values in @si->ec_sum variable and
- * count these components in @si->ec_count. If this temporary @si->ec_sum is
- * going to overflow, we calculate the partial mean value
- * (@si->ec_sum/@si->ec_count) and add it to @si->mean_ec.
- */
-static void commit_to_mean_value(struct ubi_scan_info *si)
-{
-	si->ec_sum /= si->ec_count;
-	if (si->ec_sum % si->ec_count >= si->ec_count / 2)
-		si->mean_ec += 1;
-	si->mean_ec += si->ec_sum;
 }
 
 /**
@@ -286,8 +266,13 @@ static int compare_lebs(struct ubi_device *ubi, const struct ubi_scan_leb *seb,
 		 * FIXME: but this is anyway obsolete and will be removed at
 		 * some point.
 		 */
-
 		dbg_bld("using old crappy leb_ver stuff");
+
+		if (v1 == v2) {
+			ubi_err("PEB %d and PEB %d have the same version %lld",
+				seb->pnum, pnum, v1);
+			return -EINVAL;
+		}
 
 		abs = v1 - v2;
 		if (abs < 0)
@@ -390,7 +375,6 @@ out_free_buf:
 	vfree(buf);
 out_free_vidh:
 	ubi_free_vid_hdr(ubi, vh);
-	ubi_assert(err < 0);
 	return err;
 }
 
@@ -769,7 +753,7 @@ struct ubi_scan_leb *ubi_scan_get_free_peb(struct ubi_device *ubi,
  */
 static int process_eb(struct ubi_device *ubi, struct ubi_scan_info *si, int pnum)
 {
-	long long ec;
+	long long uninitialized_var(ec);
 	int err, bitflips = 0, vol_id, ec_corr = 0;
 
 	dbg_bld("scan PEB %d", pnum);
@@ -854,7 +838,7 @@ static int process_eb(struct ubi_device *ubi, struct ubi_scan_info *si, int pnum
 	}
 
 	vol_id = be32_to_cpu(vidh->vol_id);
-	if (vol_id > UBI_MAX_VOLUMES && vol_id != UBI_LAYOUT_VOL_ID) {
+	if (vol_id > UBI_MAX_VOLUMES && vol_id != UBI_LAYOUT_VOLUME_ID) {
 		int lnum = be32_to_cpu(vidh->lnum);
 
 		/* Unsupported internal volume */
@@ -897,15 +881,8 @@ static int process_eb(struct ubi_device *ubi, struct ubi_scan_info *si, int pnum
 
 adjust_mean_ec:
 	if (!ec_corr) {
-		if (si->ec_sum + ec < ec) {
-			commit_to_mean_value(si);
-			si->ec_sum = 0;
-			si->ec_count = 0;
-		} else {
-			si->ec_sum += ec;
-			si->ec_count += 1;
-		}
-
+		si->ec_sum += ec;
+		si->ec_count += 1;
 		if (ec > si->max_ec)
 			si->max_ec = ec;
 		if (ec < si->min_ec)
@@ -961,9 +938,11 @@ struct ubi_scan_info *ubi_scan(struct ubi_device *ubi)
 
 	dbg_msg("scanning is finished");
 
-	/* Finish mean erase counter calculations */
-	if (si->ec_count)
-		commit_to_mean_value(si);
+	/* Calculate mean erase counter */
+	if (si->ec_count) {
+		do_div(si->ec_sum, si->ec_count);
+		si->mean_ec = si->ec_sum;
+	}
 
 	if (si->is_empty)
 		ubi_msg("empty MTD device detected");

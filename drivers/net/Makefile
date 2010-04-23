@@ -84,6 +84,8 @@ obj-$(CONFIG_RIONET) += rionet.o
 obj-$(CONFIG_MII) += mii.o
 obj-$(CONFIG_PHYLIB) += phy/
 
+obj-$(CONFIG_JZ_ETH) += jz_eth.o
+obj-$(CONFIG_JZCS8900) += jzcs8900a.o
 obj-$(CONFIG_SUNDANCE) += sundance.o
 obj-$(CONFIG_HAMACHI) += hamachi.o
 obj-$(CONFIG_NET) += Space.o loopback.o

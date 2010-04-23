@@ -9,7 +9,6 @@
 #ifdef __KERNEL__
 #include <linux/string.h>
 #include <linux/fs.h>
-#include <asm/dma.h>
 #include <asm/io.h>
 #include <asm/param.h>
 #include <linux/sched.h>
