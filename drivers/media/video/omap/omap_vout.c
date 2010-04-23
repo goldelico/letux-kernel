@@ -106,13 +106,16 @@ MODULE_LICENSE("GPL");
 #define MAX_PIXELS_PER_LINE     2048
 #define VRFB_TX_TIMEOUT         1000
 
-/* IRQ Bits mask of DSS */
+#ifdef CONFIG_ARCH_OMAP4
+#define OMAP_VOUT_MAX_BUF_SIZE (VID_MAX_WIDTH*VID_MAX_HEIGHT*4)
+#else
 #define OMAP_VOUT_MAX_BUF_SIZE (VID_MAX_WIDTH*VID_MAX_HEIGHT*2)
+#endif
 
 static struct videobuf_queue_ops video_vbq_ops;
 
-static u32 video1_numbuffers = 3;
-static u32 video2_numbuffers = 3;
+static u32 video1_numbuffers = OMAP_VOUT_MAX_BUFFERS;
+static u32 video2_numbuffers = OMAP_VOUT_MAX_BUFFERS;
 static u32 video1_bufsize = OMAP_VOUT_MAX_BUF_SIZE;
 static u32 video2_bufsize = OMAP_VOUT_MAX_BUF_SIZE;
 #ifdef CONFIG_ARCH_OMAP4
@@ -177,7 +180,7 @@ static void omap_vout_cleanup_device(struct omap_vout_device *vout);
  * Maximum amount of memory to use for rendering buffers.
  * Default is enough to four (RGB24) DVI 720P buffers.
  */
-#define MAX_ALLOWED_VIDBUFFERS            4
+#define MAX_ALLOWED_VIDBUFFERS            6
 
 /* list of image formats supported by OMAP2 video pipelines */
 const static struct v4l2_fmtdesc omap_formats[] = {
@@ -431,7 +434,7 @@ static void omap_vout_release_vrfb(struct omap_vout_device *vout)
    corrected for future
 */
 	int i;
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < OMAP_VOUT_MAX_VBUF_CTXT; i++)
 		omap_vrfb_release_ctx(&vout->vrfb_context[i]);
 #endif
 	if (vout->vrfb_dma_tx.req_status == DMA_CHAN_ALLOTED) {
@@ -509,7 +512,7 @@ static void omap_vout_free_vrfb_buffers(struct omap_vout_device *vout)
 {
 	int j;
 
-	for (j = 0; j < 4; j++) {
+	for (j = 0; j < OMAP_VOUT_MAX_BUFFERS; j++) {
 		omap_vout_free_buffer(vout->smsshado_virt_addr[j],
 				vout->smsshado_phy_addr[j],
 				vout->smsshado_size);
@@ -1103,13 +1106,10 @@ static int omap_vout_buffer_setup(struct videobuf_queue *q, unsigned int *count,
 	startindex = (vout->vid == OMAP_VIDEO1) ?
 		video1_numbuffers : video2_numbuffers;
 
-	if (V4L2_MEMORY_MMAP == vout->memory && *count < startindex)
-		*count = startindex;
-
 #ifndef CONFIG_ARCH_OMAP4
 	if ((rotation_enabled(vout))
-			&& *count > 4)
-		*count = 4;
+			&& *count > OMAP_VOUT_MAX_BUFFERS)
+		*count = OMAP_VOUT_MAX_BUFFERS;
 
 	/* If rotation is enabled, allocate memory for VRFB space also */
 	if (rotation_enabled(vout)) {
@@ -1152,7 +1152,11 @@ static int omap_vout_buffer_setup(struct videobuf_queue *q, unsigned int *count,
 		vout->buf_virt_addr[i] = virt_addr;
 		vout->buf_phy_addr[i] = phy_addr;
 	}
-	*count = vout->buffer_allocated = i;
+
+	if (startindex < *count)
+		*count = vout->buffer_allocated = i;
+	else
+		*count = vout->buffer_allocated = *count;
 
 #else /* TILER_ALLOCATE_V4L2 */
 
@@ -1211,7 +1215,7 @@ static void omap_vout_free_allbuffers(struct omap_vout_device *vout)
 	 * during reqbufs.  Don't free if init time allocated
 	 */
 	if (!vout->vrfb_static_allocation) {
-		for (i = 0; i < 4; i++) {
+		for (i = 0; i < OMAP_VOUT_MAX_BUFFERS; i++) {
 			if (vout->smsshado_virt_addr[i]) {
 				omap_vout_free_buffer(
 						vout->smsshado_virt_addr[i],
@@ -2653,7 +2657,7 @@ static int __init omap_vout_setup_video_bufs(struct platform_device *pdev,
 	}
 
 #ifndef CONFIG_ARCH_OMAP4
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < OMAP_VOUT_MAX_VBUF_CTXT; i++) {
 		if (omap_vrfb_request_ctx(&vout->vrfb_context[i])) {
 			printk(KERN_INFO VOUT_NAME ": VRFB Region allocation "
 					"for rotation failed\n");

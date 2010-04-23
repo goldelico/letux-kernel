@@ -35,6 +35,13 @@
 #define MAX_MANAGERS	2
 #endif
 
+#define OMAP_VOUT_MAX_BUFFERS  6
+
+/*
+ * Currently VBUF context and Data Buffers are mapped 1:1
+ */
+#define OMAP_VOUT_MAX_VBUF_CTXT        OMAP_VOUT_MAX_BUFFERS
+
 /* Enum for Rotation
  * DSS understands rotation in 0, 1, 2, 3 context
  * while V4L2 driver understands it as 0, 90, 180, 270
@@ -137,9 +144,9 @@ struct omap_vout_device {
 	int bpp; /* bytes per pixel */
 	int vrfb_bpp; /* bytes per pixel with respect to VRFB */
 	struct vid_vrfb_dma vrfb_dma_tx;
-	unsigned int smsshado_phy_addr[MAC_VRFB_CTXS];
-	unsigned int smsshado_virt_addr[MAC_VRFB_CTXS];
-	struct vrfb vrfb_context[MAC_VRFB_CTXS];
+	unsigned int smsshado_phy_addr[OMAP_VOUT_MAX_BUFFERS];
+	unsigned int smsshado_virt_addr[OMAP_VOUT_MAX_BUFFERS];
+	struct vrfb vrfb_context[OMAP_VOUT_MAX_VBUF_CTXT];
 	bool vrfb_static_allocation;
 	unsigned int smsshado_size;
 	unsigned char pos;
