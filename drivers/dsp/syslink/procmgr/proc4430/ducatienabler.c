@@ -76,16 +76,6 @@
 
 #define base_ducati_l2_mmuPhys			0x55082000
 
-/*
- * Macro to define the physical memory address for the
- * Ducati Base image. The 74Mb memory is preallocated
- * during the make menuconfig.
- *
- */
-/* #define DUCATI_BASEIMAGE_PHYSICAL_ADDRESS	0x87200000 */
-#define DUCATI_BASEIMAGE_PHYSICAL_ADDRESS	0x9CF00000
-
-
 /* Attributes of L2 page tables for DSP MMU.*/
 struct page_info {
 	/* Number of valid PTEs in the L2 PT*/
@@ -822,7 +812,7 @@ int ducati_setup(void)
 		pr_err("Error iommu_get\n");
 		return -EFAULT;
 	}
-	ret_val = ducati_mmu_init(DUCATI_BASEIMAGE_PHYSICAL_ADDRESS);
+	ret_val = ducati_mmu_init(CONFIG_DUCATI_BASEIMAGE_PHYS_ADDR);
 	if (WARN_ON(ret_val < 0))
 		goto error_exit;
 	return 0;

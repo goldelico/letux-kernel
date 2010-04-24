@@ -17,6 +17,14 @@ config  SYSLINK_PROC4430
         help
            Ducati Proc implementation
 
+config  DUCATI_BASEIMAGE_PHYS_ADDR
+	hex "Physical Address where the Ducati is loaded"
+	depends on SYSLINK_PROC4430
+	default 0x9CF00000
+	help
+	  Specify the physical address where the Ducati image will be
+	  loaded.
+
 config MPU_BRIDGE_NOTIFY
 	tristate "OMAP Notify Module"
 	default y
