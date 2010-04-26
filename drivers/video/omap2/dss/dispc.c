@@ -1001,6 +1001,11 @@ static void _dispc_set_vid_size(enum omap_plane plane, int width, int height)
 	dispc_write_reg(vsi_reg[plane-1], val);
 }
 
+static void _dispc_set_alpha_blend_attrs(enum omap_plane plane, bool enable)
+{
+       REG_FLD_MOD(dispc_reg_att[plane], enable ? 1 : 0, 28, 28);
+}
+
 static void _dispc_setup_global_alpha(enum omap_plane plane, u8 global_alpha)
 {
 
@@ -2279,7 +2284,8 @@ static int _dispc_setup_plane(enum omap_plane plane,
 		bool ilace,
 		enum omap_dss_rotation_type rotation_type,
 		u8 rotation, int mirror,
-		u8 global_alpha, enum omap_channel channel
+		u8 global_alpha, enum omap_channel channel,
+		u8 pre_alpha_mult
 #ifdef CONFIG_ARCH_OMAP4
 		, u32 puv_addr
 #endif
@@ -2590,6 +2596,9 @@ static int _dispc_setup_plane(enum omap_plane plane,
 	}
 
 	_dispc_set_rotation_attrs(plane, rotation, mirror, color_mode);
+
+	if (cpu_is_omap3630() && (plane != OMAP_DSS_VIDEO1))
+		_dispc_set_alpha_blend_attrs(plane, pre_alpha_mult);
 
 #ifndef CONFIG_ARCH_OMAP4
 	if (plane != OMAP_DSS_VIDEO1)
@@ -4230,7 +4239,8 @@ int dispc_setup_plane(enum omap_plane plane,
 		       bool ilace,
 		       enum omap_dss_rotation_type rotation_type,
 		       u8 rotation, bool mirror, u8 global_alpha,
-		       enum omap_channel channel
+		       enum omap_channel channel,
+			u8 pre_alpha_mult
 #ifdef CONFIG_ARCH_OMAP4
 			, u32 puv_addr
 #endif
@@ -4256,7 +4266,8 @@ int dispc_setup_plane(enum omap_plane plane,
 			   color_mode, ilace,
 			   rotation_type,
 			   rotation, mirror,
-			   global_alpha, channel
+			   global_alpha, channel,
+			   pre_alpha_mult
 #ifdef CONFIG_ARCH_OMAP4
 				, puv_addr
 #endif

@@ -328,7 +328,8 @@ int dispc_setup_plane(enum omap_plane plane,
 		      bool ilace,
 		      enum omap_dss_rotation_type rotation_type,
 		      u8 rotation, bool mirror,
-			u8 global_alpha, enum omap_channel channel
+			u8 global_alpha, enum omap_channel channel,
+			u8 pre_alpha_mult
 #ifdef CONFIG_ARCH_OMAP4
 			, u32 p_uv_addr
 #endif

@@ -263,6 +263,37 @@ static ssize_t overlay_global_alpha_store(struct omap_overlay *ovl,
 	return size;
 }
 
+static ssize_t overlay_pre_alpha_multiplication_show(struct omap_overlay *ovl,
+							 char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			ovl->info.pre_alpha_mult);
+}
+
+static ssize_t overlay_pre_alpha_multiplication_store(struct omap_overlay *ovl,
+						const char *buf, size_t size)
+{
+	int r;
+	struct omap_overlay_info info;
+
+	ovl->get_overlay_info(ovl, &info);
+
+	/* only GFX and Video2 plane support pre alpha multiplication */
+	info.pre_alpha_mult = simple_strtoul(buf, NULL, 10);
+
+	r = ovl->set_overlay_info(ovl, &info);
+	if (r)
+		return r;
+
+	if (ovl->manager) {
+		r = ovl->manager->apply(ovl->manager);
+		if (r)
+			return r;
+	}
+
+	return size;
+}
+
 #ifdef CONFIG_ARCH_OMAP4
 static ssize_t overlay_zorder_show(struct omap_overlay *ovl, char *buf)
 {
@@ -318,6 +349,10 @@ static OVERLAY_ATTR(enabled, S_IRUGO|S_IWUSR,
 		overlay_enabled_show, overlay_enabled_store);
 static OVERLAY_ATTR(global_alpha, S_IRUGO|S_IWUSR,
 		overlay_global_alpha_show, overlay_global_alpha_store);
+static OVERLAY_ATTR(pre_alpha_multiplication, S_IRUGO|S_IWUSR,
+		overlay_pre_alpha_multiplication_show,
+		overlay_pre_alpha_multiplication_store);
+
 
 #ifdef CONFIG_ARCH_OMAP4
 static OVERLAY_ATTR(zorder, S_IRUGO|S_IWUSR,
@@ -333,6 +368,8 @@ static struct attribute *overlay_sysfs_attrs[] = {
 	&overlay_attr_output_size.attr,
 	&overlay_attr_enabled.attr,
 	&overlay_attr_global_alpha.attr,
+	&overlay_attr_pre_alpha_multiplication.attr,
+
 #ifdef CONFIG_ARCH_OMAP4
 	&overlay_attr_zorder.attr,
 #endif
