@@ -6,6 +6,7 @@ if Sys_Link
 config  SYSLINK_PROC
         tristate "Syslink ProcMgr"
         default y
+	select OMAP_IOMMU
         help
            Syslink Proc manager
 
@@ -44,12 +45,6 @@ config SYSLINK_USE_SYSMGR
         default y
         help
           This is the experimental option to enable SYS manager setup
-
-config OMAP_IOMMU
-	tristate "IOMMU"
-	default y
-	help
-	  Select IOMMU module for managing ducati mmu
 
 config OMAP_IOMMU_DEBUG_MODULE
 	bool "IOMMU debugging"
