@@ -28,12 +28,14 @@
 #include <linux/sched.h>
 #include <linux/errno.h>
 #include <linux/mutex.h>
+#include <linux/dma-mapping.h>
 #include <linux/pagemap.h>         /* page_cache_release() */
 
 #include "tiler.h"
 #include "tiler_def.h"
-#include "dmm_2d_alloc.h"
 #include "../dmm/dmm.h"
+
+#include "tcm/tcm_sita.h"	/* Algo Specific header */
 
 struct tiler_dev {
 	struct cdev cdev;
@@ -57,13 +59,11 @@ struct __buf_info {
 struct mem_info {
 	struct list_head list;
 	u32 sys_addr;          /* system space (L3) tiler addr */
-	u32 *page;             /* virt addr to page-list */
-	dma_addr_t page_pa;    /* phys addr to page-list */
-	u32 size;              /* size of page-list */
-	u32 num_pgs;           /* number of pages in page-list */
-	s8 mapped;             /* flag to indicate user mapped mem */
+	u32 num_pg;            /* number of pages in page-list */
 	u32 usr;               /* user space address */
-	u32 *pg_ptr;           /* list of struct page pointers */
+	u32 *pg_ptr;           /* list of mapped struct page pointers */
+	struct tcm_area area;
+	u32 *mem;              /* list of alloced phys addresses */
 };
 
 static s32 tiler_major;
@@ -74,15 +74,13 @@ static u32 id;
 static struct __buf_info buf_list;
 static struct mem_info mem_list;
 static struct mutex mtx;
+static struct tcm *tcm;
 
-/* required by container manager */
-static struct dmmTILERContCtxT *tilctx;
-
-static s32 __set_area(enum tiler_fmt fmt, u32 width, u32 height, u32 *x_area,
-		u32 *y_area)
+static s32 __adjust_area(enum tiler_fmt fmt, u32 width, u32 height, u16 *x_area,
+		u16 *y_area)
 {
-	s32 x_pagedim = 0, y_pagedim = 0;
-	u16 tiled_pages_per_ss_page = 0;
+	u32 x_pagedim = 0, y_pagedim = 0;
+	u16 tiled_pages_per_ss_page = 1;
 
 	switch (fmt) {
 	case TILFMT_8BIT:
@@ -101,36 +99,21 @@ static s32 __set_area(enum tiler_fmt fmt, u32 width, u32 height, u32 *x_area,
 		tiled_pages_per_ss_page = TILER_PAGE / x_pagedim / 4;
 		break;
 	case TILFMT_PAGE:
-		x_pagedim = DMM_PAGE_DIMM_X_MODE_8;
-		y_pagedim = DMM_PAGE_DIMM_Y_MODE_8;
-		width = ((width + TILER_PAGE - 1)/TILER_PAGE);
-		tiled_pages_per_ss_page = 1;
+		/* for 1D area keep the height (1), width is in tiler slots */
+		*x_area = DIV_ROUND_UP(width, TILER_PAGE);
+		*y_area = 1;
 
-		/*
-		 * For 1D blocks larger than the container width,
-		 * we need to allocate multiple rows.
-		 */
-		if (width > TILER_WIDTH) {
-			height = (width + TILER_WIDTH - 1) / TILER_WIDTH;
-			width = TILER_WIDTH;
-		} else {
-			height = 1;
-		}
-
-		height *= x_pagedim;
-		width  *= y_pagedim;
-		break;
+		if (*x_area * *y_area > TILER_WIDTH * TILER_HEIGHT)
+			return -1;
+		return 0;
 	default:
 		return -1;
-		break;
 	}
 
-	*x_area = (width + x_pagedim - 1) / x_pagedim - 1;
-	*y_area = (height + y_pagedim - 1) / y_pagedim - 1;
-
-	tiled_pages_per_ss_page = 64;
-	*x_area = ((*x_area + tiled_pages_per_ss_page) &
-					~(tiled_pages_per_ss_page - 1)) - 1;
+	/* adjust and check 2D areas */
+	*x_area = DIV_ROUND_UP(width, x_pagedim);
+	*y_area = DIV_ROUND_UP(height, y_pagedim);
+	*x_area = ALIGN(*x_area, tiled_pages_per_ss_page);
 
 	if (*x_area > TILER_WIDTH || *y_area > TILER_HEIGHT)
 		return -1;
@@ -197,7 +180,6 @@ static u32 __get_alias_addr(enum tiler_fmt fmt, u16 x, u16 y)
 		return (u32)TIL_ALIAS_ADDR(x << x_shft | y << y_shft, acc_mode);
 }
 
-
 static s32 tiler_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	struct __buf_info *_b = NULL;
@@ -225,8 +207,7 @@ static s32 tiler_mmap(struct file *filp, struct vm_area_struct *vma)
 			/* get line width */
 			bpp = (b->blocks[i].fmt == TILFMT_8BIT ? 1 :
 			       b->blocks[i].fmt == TILFMT_16BIT ? 2 : 4);
-			p = (b->blocks[i].dim.area.width * bpp +
-				TILER_PAGE - 1) & ~(TILER_PAGE - 1);
+			p = PAGE_ALIGN(b->blocks[i].dim.area.width * bpp);
 
 			for (j = 0; j < b->blocks[i].dim.area.height; j++) {
 				/* map each page of the line */
@@ -245,8 +226,7 @@ static s32 tiler_mmap(struct file *filp, struct vm_area_struct *vma)
 			m = 0;
 		} else if (b->blocks[i].fmt == TILFMT_PAGE) {
 			vma->vm_pgoff = (b->blocks[i].ssptr) >> PAGE_SHIFT;
-			p = (b->blocks[i].dim.len + TILER_PAGE - 1) &
-							~(TILER_PAGE - 1);
+			p = PAGE_ALIGN(b->blocks[i].dim.len);
 			if (remap_pfn_range(vma, vma->vm_start + k,
 				(b->blocks[i].ssptr) >> PAGE_SHIFT, p,
 				vma->vm_page_prot))
@@ -257,13 +237,56 @@ static s32 tiler_mmap(struct file *filp, struct vm_area_struct *vma)
 	return 0;
 }
 
+static s32 tiler_pat_refill(struct tcm_area *area, u32 *ptr)
+{
+	s32 res = 0;
+	s32 size = tcm_sizeof(*area) * sizeof(*ptr);
+	u32 *page;
+	dma_addr_t page_pa;
+	struct pat pat_desc = {0};
+	struct tcm_area slice, area_s;
+
+	page = dma_alloc_coherent(NULL, size, &page_pa, GFP_ATOMIC);
+	if (!page)
+		return -ENOMEM;
+
+	/* send pat descriptor to dmm driver */
+	pat_desc.ctrl.dir = 0;
+	pat_desc.ctrl.ini = 0;
+	pat_desc.ctrl.lut_id = 0;
+	pat_desc.ctrl.start = 1;
+	pat_desc.ctrl.sync = 0;
+	pat_desc.next = NULL;
+
+	/* must be a 16-byte aligned physical address */
+	pat_desc.data = page_pa;
+
+	tcm_for_each_slice(slice, *area, area_s) {
+		pat_desc.area.x0 = slice.p0.x;
+		pat_desc.area.y0 = slice.p0.y;
+		pat_desc.area.x1 = slice.p1.x;
+		pat_desc.area.y1 = slice.p1.y;
+
+		memcpy(page, ptr, sizeof(*ptr) * tcm_sizeof(slice));
+		ptr += tcm_sizeof(slice);
+
+		if (dmm_pat_refill(&pat_desc, MANUAL)) {
+			res = -EFAULT;
+			break;
+		}
+	}
+
+	dma_free_coherent(NULL, size, page, page_pa);
+
+	return res;
+}
+
 static s32 map_buffer(enum tiler_fmt fmt, u32 width, u32 height, u32 *sys_addr,
 								u32 usr_addr)
 {
-	u32 num_pages = -1, x_area = -1, y_area = -1, tmp = -1, write = 0;
-	s32 i = -1;
-	struct dmmTILERContPageAreaT *area_desc = NULL, __area_desc = {0};
-	struct pat pat_desc = {0};
+	u16 x_area = 0, y_area = 0;
+	u32 i = 0, tmp = -1;
+	u8 write = 0;
 	struct mem_info *mi = NULL;
 	struct page *page = NULL;
 	struct task_struct *curr_task = current;
@@ -275,32 +298,34 @@ static s32 map_buffer(enum tiler_fmt fmt, u32 width, u32 height, u32 *sys_addr,
 		return -EFAULT;
 
 	/* reserve area in tiler container */
-	if (__set_area(fmt, width, height, &x_area, &y_area))
+	if (__adjust_area(fmt, width, height, &x_area, &y_area))
 		return -EFAULT;
 
-	__area_desc.x1 = (u16)x_area;
-	__area_desc.y1 = (u16)y_area;
-
-	area_desc = alloc_2d_area(tilctx, &__area_desc);
-	if (!area_desc)
-		return -ENOMEM;
-
-	/* formulate system space address */
-	*sys_addr = __get_alias_addr(fmt, area_desc->x0, area_desc->y0);
-
-	/* get user pages */
-	area_desc->patCustomPages = 1;
-	area_desc->xPageCount = area_desc->x1 - area_desc->x0 + 1;
-	area_desc->yPageCount = area_desc->y1 - area_desc->y0 + 1;
-	num_pages = area_desc->xPageCount * area_desc->yPageCount;
-
-	mi = kmalloc(sizeof(struct mem_info), GFP_KERNEL);
+	mi = kmalloc(sizeof(*mi), GFP_KERNEL);
 	if (!mi)
 		return -ENOMEM;
-	memset(mi, 0x0, sizeof(struct mem_info));
+	memset(mi, 0x0, sizeof(*mi));
 
+	if (tcm_reserve_1d(tcm, x_area * y_area, &mi->area)) {
+		kfree(mi);
+		return -ENOMEM;
+	}
+
+	/* formulate system space address */
+	*sys_addr = __get_alias_addr(fmt, mi->area.p0.x, mi->area.p0.y);
+
+	/* allocate pages */
+	mi->num_pg = tcm_sizeof(mi->area);
 	mi->sys_addr = *sys_addr;
 	mi->usr = usr_addr;
+
+	mi->mem = kmalloc(mi->num_pg * sizeof(*mi->mem), GFP_KERNEL);
+	if (!mi->mem)
+		goto free;
+
+	mi->pg_ptr = kmalloc(mi->num_pg * sizeof(*mi->pg_ptr), GFP_KERNEL);
+	if (!mi->pg_ptr)
+		goto free;
 
 	/*
 	 * Important Note: usr_addr is mapped from user
@@ -308,7 +333,6 @@ static s32 map_buffer(enum tiler_fmt fmt, u32 width, u32 height, u32 *sys_addr,
 	 * completely within the current virtual memory address
 	 * space in order to be of use to us here.
 	 */
-
 	down_read(&mm->mmap_sem);
 	vma = find_vma(mm, mi->usr);
 
@@ -317,143 +341,95 @@ static s32 map_buffer(enum tiler_fmt fmt, u32 width, u32 height, u32 *sys_addr,
 	 * buffer is spread across several vmas, so loop through
 	 * and check if the entire user buffer is covered.
 	 */
-
 	while ((vma) && (mi->usr + width > vma->vm_end)) {
 		/* jump to the next VMA region */
 		vma = find_vma(mm, vma->vm_end + 1);
 	}
 	if (!vma) {
-		printk(KERN_ERR "Failed to get the vma region for \
-			user buffer.\n");
-		up_read(&mm->mmap_sem);
-		kfree(mi);
-		return -EFAULT;
+		printk(KERN_ERR "Failed to get the vma region for "
+			"user buffer.\n");
+		goto fault;
 	}
-
-	mi->num_pgs = width / TILER_PAGE;
-	tmp = (mi->num_pgs + 63) & ~63;
-
-	/*
-	 * Check that the number of user pages match what
-	 * the container manager calculates.
-	 */
-	if (num_pages != tmp)
-		goto free;
-	mi->size =  tmp * 4;
-
-	mi->page = dma_alloc_coherent(NULL, mi->size, &mi->page_pa, GFP_ATOMIC);
-	if (!mi->page) {
-		up_read(&mm->mmap_sem);
-		goto free;
-	}
-	memset(mi->page, 0x0, mi->size);
-
-	mi->pg_ptr = kmalloc(mi->size, GFP_KERNEL);
-	if (!mi->pg_ptr) {
-		up_read(&mm->mmap_sem);
-		goto free;
-	}
-	memset(mi->pg_ptr, 0x0, mi->size);
 
 	if (vma->vm_flags & (VM_WRITE | VM_MAYWRITE))
 		write = 1;
 
 	tmp = mi->usr;
-	for (i = 0; i < mi->num_pgs; i++) {
+	for (i = 0; i < mi->num_pg; i++) {
 		if (get_user_pages(curr_task, mm, tmp, 1, write, 1, &page,
 									NULL)) {
 			if (page_count(page) < 1) {
-				printk(KERN_ERR "Bad page count from\
-							get_user_pages()\n");
+				printk(KERN_ERR "Bad page count from"
+							"get_user_pages()\n");
 			}
 			mi->pg_ptr[i] = (u32)page;
-			mi->page[i] = page_to_phys(page);
-			tmp += TILER_PAGE;
+			mi->mem[i] = page_to_phys(page);
+			tmp += PAGE_SIZE;
 		} else {
 			printk(KERN_ERR "get_user_pages() failed\n");
-			up_read(&mm->mmap_sem);
-			goto free;
+			goto fault;
 		}
 	}
 	up_read(&mm->mmap_sem);
 
-	mi->mapped = 1;
 	mutex_lock(&mtx);
 	list_add(&mi->list, &mem_list.list);
 	mutex_unlock(&mtx);
 
-	/* send pat descriptor to dmm driver */
-	pat_desc.area.x0 = area_desc->x0 + area_desc->xPageOfst;
-	pat_desc.area.y0 = area_desc->y0 + area_desc->yPageOfst;
-	pat_desc.area.x1 = area_desc->x0 + area_desc->xPageOfst +
-			   area_desc->xPageCount - 1;
-	pat_desc.area.y1 = area_desc->y0 + area_desc->yPageOfst +
-			   area_desc->yPageCount - 1;
-	pat_desc.ctrl.dir = 0;
-	pat_desc.ctrl.ini = 0;
-	pat_desc.ctrl.lut_id = 0;
-	pat_desc.ctrl.start = 1;
-	pat_desc.ctrl.sync = 0;
-	pat_desc.next = NULL;
-
-	/* must be a 16-byte aligned physical address */
-	pat_desc.data = mi->page_pa;
-
-	if (dmm_pat_refill(&pat_desc, MANUAL))
+	if (tiler_pat_refill(&mi->area, mi->mem))
 		goto release;
+
+	/* for safety */
+	kfree(mi->mem);
+	mi->mem = NULL;
 	return 0;
+
 release:
-	for (i = 0; i < mi->num_pgs; i++) {
+	for (i = 0; i < mi->num_pg; i++) {
 		page = (struct page *)mi->pg_ptr[i];
 		if (!PageReserved(page))
 			SetPageDirty(page);
 		page_cache_release(page);
 	}
-free:
+fault:
+	up_read(&mm->mmap_sem);
+	kfree(mi->mem);
 	kfree(mi->pg_ptr);
-	if (mi->page && mi->page_pa)
-		dma_free_coherent(NULL, mi->size, mi->page, mi->page_pa);
+	kfree(mi);
+	return -EFAULT;
+free:
+	kfree(mi->mem);
+	kfree(mi->pg_ptr);
 	kfree(mi);
 	return -ENOMEM;
 }
 
 s32 tiler_free(u32 sys_addr)
 {
-	u32 x_area = -1, y_area = -1, i = -1;
-	struct dmmTILERContPageAreaT *area_desc =  NULL;
+	u32 i = 0;
 	struct list_head *pos = NULL, *q = NULL;
 	struct mem_info *mi = NULL;
 	struct page *page = NULL;
-
-	if (get_area(sys_addr, &x_area, &y_area))
-		return -EFAULT;
-
-	area_desc = search_2d_area(tilctx, x_area, y_area, 0, 0);
-	if (!area_desc)
-		return -EFAULT;
-
-	/* freeing of physical pages should *not* happen in this next API */
-	if (!(dealloc_2d_area(tilctx, area_desc)))
-		return -EFAULT;
 
 	mutex_lock(&mtx);
 	list_for_each_safe(pos, q, &mem_list.list) {
 		mi = list_entry(pos, struct mem_info, list);
 		if (mi->sys_addr == sys_addr) {
-			if (!mi->mapped) {
-				for (i = 0; i < mi->num_pgs; i++)
-					dmm_free_page(mi->page[i]);
-			} else {
-				for (i = 0; i < mi->num_pgs; i++) {
+
+			if (tcm_free(&mi->area))
+				printk(KERN_NOTICE "warning: failed to "
+						"unreserve tiler area.\n");
+			if (mi->pg_ptr) {
+				for (i = 0; i < mi->num_pg; i++) {
 					page = (struct page *)mi->pg_ptr[i];
 					if (!PageReserved(page))
 						SetPageDirty(page);
 					page_cache_release(page);
 				}
 				kfree(mi->pg_ptr);
+			} else {
+				dmm_free_pages(mi->mem);
 			}
-			dma_free_coherent(NULL, mi->size, mi->page,
-								mi->page_pa);
 			list_del(pos);
 			kfree(mi);
 		}
@@ -473,56 +449,59 @@ EXPORT_SYMBOL(tiler_free);
    which is the real reason for this ioctl */
 s32 tiler_find_buf(u32 sys_addr, struct tiler_block_info *blk)
 {
-	struct dmmTILERContPageAreaT *area_desc = NULL;
+	struct tcm_area area;
+	struct tcm_pt pt;
 	u32 x_area = -1, y_area = -1;
+	u16 x_page = 0, y_page = 0;
+	s32 mode = -1;
 
 	if (get_area(sys_addr, &x_area, &y_area))
 		return -EFAULT;
 
-	area_desc = search_2d_area(tilctx, x_area, y_area, 0, 0);
-	if (!area_desc)
+	memset(&area, 0, sizeof(area));
+	pt.x = x_area;
+	pt.y = y_area;
+	if (tcm_get_parent(tcm, &pt, &area))
 		return -EFAULT;
-
+	x_page = area.p1.x - area.p0.x + 1;
+	y_page = area.p1.y - area.p0.y + 1;
 	blk->ptr = NULL;
-	if (area_desc != NULL) {
-		s32 mode = TILER_GET_ACC_MODE(sys_addr);
-		blk->fmt = (mode + 1);
-		if (blk->fmt == TILFMT_PAGE) {
-			blk->dim.len = area_desc->xPageCount *
-					area_desc->yPageCount * TILER_PAGE;
-			blk->stride = 0;
-			blk->ssptr = (u32)TIL_ALIAS_ADDR(((area_desc->x0 |
-					(area_desc->y0 << 8)) << 12), mode);
-		} else {
-			blk->stride = blk->dim.area.width =
-				area_desc->xPageCount * TILER_BLOCK_WIDTH;
-			blk->dim.area.height =
-				area_desc->yPageCount * TILER_BLOCK_HEIGHT;
-			if (blk->fmt == TILFMT_8BIT) {
-				blk->ssptr = (u32)TIL_ALIAS_ADDR(
-							((area_desc->x0 << 6) |
-							(area_desc->y0 << 20)),
-							mode);
-			} else {
-				blk->ssptr = (u32)TIL_ALIAS_ADDR(
-							((area_desc->x0 << 7) |
-							(area_desc->y0 << 20)),
-							mode);
-				blk->stride <<= 1;
-				blk->dim.area.height >>= 1;
-				if (blk->fmt == TILFMT_32BIT)
-					blk->dim.area.width >>= 1;
-			}
-			blk->stride = (blk->stride + TILER_PAGE - 1) &
-							~(TILER_PAGE - 1);
-		}
-	} else {
-		blk->fmt = TILFMT_INVALID;
-		blk->dim.len = blk->stride = blk->ssptr = 0;
-		return -EFAULT;
-	}
 
+	mode = TILER_GET_ACC_MODE(sys_addr);
+	blk->fmt = (mode + 1);
+	if (blk->fmt == TILFMT_PAGE) {
+		blk->dim.len = x_page * y_page * TILER_PAGE;
+		if (blk->dim.len == 0)
+			goto error;
+		blk->stride = 0;
+		blk->ssptr = (u32)TIL_ALIAS_ADDR(((area.p0.x |
+						(area.p0.y << 8)) << 12), mode);
+	} else {
+		blk->stride = blk->dim.area.width = x_page * TILER_BLOCK_WIDTH;
+		blk->dim.area.height = y_page * TILER_BLOCK_HEIGHT;
+		if (blk->dim.area.width == 0 || blk->dim.area.height == 0)
+			goto error;
+		if (blk->fmt == TILFMT_8BIT) {
+
+			blk->ssptr = (u32)TIL_ALIAS_ADDR(((area.p0.x << 6) |
+						(area.p0.y << 20)), mode);
+		} else {
+			blk->ssptr = (u32)TIL_ALIAS_ADDR(((area.p0.x << 7) |
+						(area.p0.y << 20)), mode);
+
+			blk->stride <<= 1;
+			blk->dim.area.height >>= 1;
+			if (blk->fmt == TILFMT_32BIT)
+				blk->dim.area.width >>= 1;
+		}
+		blk->stride = PAGE_ALIGN(blk->stride);
+	}
 	return 0;
+
+error:
+	blk->fmt = TILFMT_INVALID;
+	blk->dim.len = blk->stride = blk->ssptr = 0;
+	return -EFAULT;
 }
 
 static s32 tiler_ioctl(struct inode *ip, struct file *filp, u32 cmd,
@@ -542,7 +521,7 @@ static s32 tiler_ioctl(struct inode *ip, struct file *filp, u32 cmd,
 	switch (cmd) {
 	case TILIOC_GBUF:
 		if (copy_from_user(&block_info, (void __user *)arg,
-					sizeof(struct tiler_block_info)))
+					sizeof(block_info)))
 			return -EFAULT;
 
 		switch (block_info.fmt) {
@@ -567,13 +546,13 @@ static s32 tiler_ioctl(struct inode *ip, struct file *filp, u32 cmd,
 
 		block_info.ssptr = til_addr;
 		if (copy_to_user((void __user *)arg, &block_info,
-					sizeof(struct tiler_block_info)))
+					sizeof(block_info)))
 			return -EFAULT;
 		break;
 	case TILIOC_FBUF:
 	case TILIOC_UMBUF:
 		if (copy_from_user(&block_info, (void __user *)arg,
-					sizeof(struct tiler_block_info)))
+					sizeof(block_info)))
 			return -EFAULT;
 
 		if (tiler_free(block_info.ssptr))
@@ -598,7 +577,7 @@ static s32 tiler_ioctl(struct inode *ip, struct file *filp, u32 cmd,
 		break;
 	case TILIOC_MBUF:
 		if (copy_from_user(&block_info, (void __user *)arg,
-					sizeof(struct tiler_block_info)))
+					sizeof(block_info)))
 			return -EFAULT;
 
 		if (!block_info.ptr)
@@ -609,12 +588,12 @@ static s32 tiler_ioctl(struct inode *ip, struct file *filp, u32 cmd,
 			return -ENOMEM;
 
 		if (copy_to_user((void __user *)arg, &block_info,
-					sizeof(struct tiler_block_info)))
+					sizeof(block_info)))
 			return -EFAULT;
 		break;
 	case TILIOC_QBUF:
 		if (copy_from_user(&buf_info, (void __user *)arg,
-					sizeof(struct tiler_buf_info)))
+					sizeof(buf_info)))
 			return -EFAULT;
 
 		mutex_lock(&mtx);
@@ -623,7 +602,7 @@ static s32 tiler_ioctl(struct inode *ip, struct file *filp, u32 cmd,
 			if (buf_info.offset == _b->buf_info.offset) {
 				if (copy_to_user((void __user *)arg,
 					&_b->buf_info,
-					sizeof(struct tiler_buf_info))) {
+					sizeof(_b->buf_info))) {
 					mutex_unlock(&mtx);
 					return -EFAULT;
 				} else {
@@ -636,14 +615,15 @@ static s32 tiler_ioctl(struct inode *ip, struct file *filp, u32 cmd,
 		return -EFAULT;
 		break;
 	case TILIOC_RBUF:
-		_b = kmalloc(sizeof(struct __buf_info), GFP_KERNEL);
+		_b = kmalloc(sizeof(*_b), GFP_KERNEL);
 		if (!_b)
 			return -ENOMEM;
-		memset(_b, 0x0, sizeof(struct __buf_info));
+		memset(_b, 0x0, sizeof(*_b));
 
 		if (copy_from_user(&_b->buf_info, (void __user *)arg,
-					sizeof(struct tiler_buf_info)))
-			return -EFAULT;
+					sizeof(_b->buf_info))) {
+			kfree(_b); return -EFAULT;
+		}
 
 		_b->buf_info.offset = id;
 		id += 0x1000;
@@ -653,12 +633,13 @@ static s32 tiler_ioctl(struct inode *ip, struct file *filp, u32 cmd,
 		mutex_unlock(&mtx);
 
 		if (copy_to_user((void __user *)arg, &_b->buf_info,
-					sizeof(struct tiler_buf_info)))
-			return -EFAULT;
+					sizeof(_b->buf_info))) {
+			kfree(_b); return -EFAULT;
+		}
 		break;
 	case TILIOC_URBUF:
 		if (copy_from_user(&buf_info, (void __user *)arg,
-					sizeof(struct tiler_buf_info)))
+					sizeof(buf_info)))
 			return -EFAULT;
 
 		mutex_lock(&mtx);
@@ -676,14 +657,14 @@ static s32 tiler_ioctl(struct inode *ip, struct file *filp, u32 cmd,
 		break;
 	case TILIOC_QUERY_BLK:
 		if (copy_from_user(&block_info, (void __user *)arg,
-					sizeof(struct tiler_block_info)))
+					sizeof(block_info)))
 			return -EFAULT;
 
 		if (tiler_find_buf(block_info.ssptr, &block_info))
 			return -EFAULT;
 
 		if (copy_to_user((void __user *)arg, &block_info,
-			sizeof(struct tiler_block_info)))
+			sizeof(block_info)))
 			return -EFAULT;
 		break;
 	default:
@@ -694,78 +675,62 @@ static s32 tiler_ioctl(struct inode *ip, struct file *filp, u32 cmd,
 
 s32 tiler_alloc(enum tiler_fmt fmt, u32 width, u32 height, u32 *sys_addr)
 {
-	u32 num_pages = -1, i = -1, x_area = -1, y_area = -1;
-	struct dmmTILERContPageAreaT *area_desc = NULL, __area_desc = {0};
-	struct pat pat_desc = {0};
+	u16 x_area = 0, y_area = 0, band;
+
 	struct mem_info *mi = NULL;
 
 	/* reserve area in tiler container */
-	if (__set_area(fmt, width, height, &x_area, &y_area))
+	if (__adjust_area(fmt, width, height, &x_area, &y_area))
 		return -EFAULT;
 
-	__area_desc.x1 = (u16)x_area;
-	__area_desc.y1 = (u16)y_area;
-
-	area_desc = alloc_2d_area(tilctx, &__area_desc);
-	if (!area_desc)
-		return -ENOMEM;
-
-	/* formulate system space address */
-	*sys_addr = __get_alias_addr(fmt, area_desc->x0, area_desc->y0);
-
-	/* allocate pages */
-	area_desc->xPageCount = area_desc->x1 - area_desc->x0 + 1;
-	area_desc->yPageCount = area_desc->y1 - area_desc->y0 + 1;
-	num_pages = area_desc->xPageCount * area_desc->yPageCount;
-
-	mi = kmalloc(sizeof(struct mem_info), GFP_KERNEL);
+	mi = kmalloc(sizeof(*mi), GFP_KERNEL);
 	if (!mi)
 		return -ENOMEM;
-	memset(mi, 0x0, sizeof(struct mem_info));
+	memset(mi, 0x0, sizeof(*mi));
 
-	mi->size =  num_pages * 4 + 16;
-	mi->page = dma_alloc_coherent(NULL, mi->size, &mi->page_pa, GFP_ATOMIC);
-	if (!mi->page) {
-		kfree(mi); return -ENOMEM;
+	switch (fmt) {
+	case TILFMT_8BIT:
+	case TILFMT_16BIT:
+	case TILFMT_32BIT:
+		band = fmt == TILFMT_8BIT ? ALIGN_64 : ALIGN_32;
+		if (tcm_reserve_2d(tcm, x_area, y_area, band, &mi->area)) {
+			kfree(mi);
+			return -ENOMEM;
+		}
+		break;
+	case TILFMT_PAGE:
+		if (tcm_reserve_1d(tcm, x_area * y_area, &mi->area)) {
+			kfree(mi);
+			return -ENOMEM;
+		}
+		break;
+	default:
+		kfree(mi);
+		return -ENOMEM;
 	}
-	memset(mi->page, 0x0, mi->size);
 
-	for (i = 0; i < num_pages; i++) {
-		mi->page[i] = dmm_get_page();
-		if (mi->page[i] == 0x0)
-			goto cleanup;
-	}
-	mi->num_pgs = num_pages;
+	/* formulate system space address */
+	*sys_addr = __get_alias_addr(fmt, mi->area.p0.x, mi->area.p0.y);
+
+	/* allocate pages */
+	mi->num_pg = tcm_sizeof(mi->area);
+
+	mi->mem = dmm_get_pages(mi->num_pg);
+	if (!mi->mem)
+		goto cleanup;
+
 	mi->sys_addr = *sys_addr;
 
 	mutex_lock(&mtx);
 	list_add(&(mi->list), &mem_list.list);
 	mutex_unlock(&mtx);
 
-	/* send pat descriptor to dmm driver */
-	pat_desc.area.x0 = area_desc->x0 + area_desc->xPageOfst;
-	pat_desc.area.y0 = area_desc->y0 + area_desc->yPageOfst;
-	pat_desc.area.x1 = area_desc->x0 + area_desc->xPageOfst +
-			   area_desc->xPageCount - 1;
-	pat_desc.area.y1 = area_desc->y0 + area_desc->yPageOfst +
-			   area_desc->yPageCount - 1;
+	/* program PAT */
+	if (0 == tiler_pat_refill(&mi->area, mi->mem))
+		return 0x0;
 
-	pat_desc.ctrl.dir = 0;
-	pat_desc.ctrl.ini = 0;
-	pat_desc.ctrl.lut_id = 0;
-	pat_desc.ctrl.start = 1;
-	pat_desc.ctrl.sync = 0;
-	pat_desc.next = NULL;
-
-	/* must be a 16-byte aligned physical address */
-	pat_desc.data = mi->page_pa;
-
-	if (dmm_pat_refill(&pat_desc, MANUAL))
-		goto cleanup;
-
-	return 0x0;
 cleanup:
-	dma_free_coherent(NULL, mi->size, mi->page, mi->page_pa);
+	kfree(mi->mem);
 	kfree(mi);
 	return -ENOMEM;
 }
@@ -776,13 +741,8 @@ static void __exit tiler_exit(void)
 	struct __buf_info *_b = NULL;
 	struct mem_info *mi = NULL;
 	struct list_head *pos = NULL, *q = NULL;
-	u32 i = -1;
 
-	/* TODO: remove when replacing container algorithm */
-	mutex_destroy(&tilctx->mtx);
-	kfree(tilctx);
-	/* ------------ */
-
+	tcm_deinit(tcm);
 	/* remove any leftover info structs that haven't been unregistered */
 	mutex_lock(&mtx);
 	pos = NULL, q = NULL;
@@ -798,9 +758,8 @@ static void __exit tiler_exit(void)
 	pos = NULL, q = NULL;
 	list_for_each_safe(pos, q, &mem_list.list) {
 		mi = list_entry(pos, struct mem_info, list);
-		for (i = 0; i < mi->num_pgs; i++)
-			dmm_free_page(mi->page[i]);
-		dma_free_coherent(NULL, mi->size, mi->page, mi->page_pa);
+		if (!mi->pg_ptr)
+			dmm_free_pages(mi->mem);
 		list_del(pos);
 		kfree(mi);
 	}
@@ -836,6 +795,7 @@ static s32 __init tiler_init(void)
 	dev_t dev  = 0;
 	s32 r = -1;
 	struct device *device = NULL;
+	struct tcm_pt div_pt;
 
 	if (tiler_major) {
 		dev = MKDEV(tiler_major, tiler_minor);
@@ -845,12 +805,12 @@ static s32 __init tiler_init(void)
 		tiler_major = MAJOR(dev);
 	}
 
-	tiler_device = kmalloc(sizeof(struct tiler_dev), GFP_KERNEL);
+	tiler_device = kmalloc(sizeof(*tiler_device), GFP_KERNEL);
 	if (!tiler_device) {
 		unregister_chrdev_region(dev, 1);
 		return -ENOMEM;
 	}
-	memset(tiler_device, 0x0, sizeof(struct tiler_dev));
+	memset(tiler_device, 0x0, sizeof(*tiler_device));
 
 	cdev_init(&tiler_device->cdev, &tiler_fops);
 	tiler_device->cdev.owner = THIS_MODULE;
@@ -873,20 +833,16 @@ static s32 __init tiler_init(void)
 
 	r = platform_driver_register(&tiler_driver_ldm);
 
-	/* tiler context structure required by container algorithm */
-	tilctx = kmalloc(sizeof(struct dmmTILERContCtxT), GFP_KERNEL);
-	if (!tilctx)
-		return -ENOMEM;
-	memset(tilctx, 0x0, sizeof(struct dmmTILERContCtxT));
-	tilctx->contSizeX = TILER_WIDTH;
-	tilctx->contSizeY = TILER_HEIGHT;
-	mutex_init(&tilctx->mtx);
-	/* ------------------------------------------------------- */
-
 	mutex_init(&mtx);
 	INIT_LIST_HEAD(&buf_list.list);
 	INIT_LIST_HEAD(&mem_list.list);
 	id = 0xda7a000;
+
+	/* Hardcoded for testing */
+	div_pt.x = 192;
+	div_pt.y = 96;
+	tcm = sita_init(256, 128, (void *)&div_pt);
+	/*To Do: Error Checking */
 
 EXIT:
 	return r;

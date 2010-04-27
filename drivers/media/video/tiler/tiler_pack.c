@@ -17,12 +17,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include "tiler.h"
-
-#define ROUND_UP_2P(a, b) (((a) + (b) - 1) & ~((b) - 1))
-#define DIVIDE_UP(a, b) (((a) + (b) - 1) / (b))
-#define ROUND_UP(a, b) (DIVIDE_UP(a, b) * (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#include "tiler_def.h"
 
 void tiler_alloc_packed(s32 *count, enum tiler_fmt fmt, u32 width, u32 height,
 			void **sysptr, void **allocptr, s32 aligned)
@@ -212,6 +207,7 @@ void tiler_alloc_packed_nv12(s32 *count, u32 width, u32 height, void **y_sysptr,
 	    !uv_sysptr || !uv_allocptr || *count <= 0) {
 		if (count)
 			*count = 0;
+		return;
 	}
 
 	y_width = DIVIDE_UP(width, 64);
