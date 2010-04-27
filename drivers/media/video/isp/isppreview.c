@@ -1666,7 +1666,7 @@ int isppreview_s_pipeline(struct isp_prev_device *isp_prev,
 		isppreview_config_outlineoffset(isp_prev, prevsdroff);
 	}
 
-	if (pipe->pix.pixelformat == V4L2_PIX_FMT_UYVY)
+	if (pipe->out_pix.pixelformat == V4L2_PIX_FMT_UYVY)
 		isppreview_config_ycpos(isp_prev, YCPOS_YCrYCb);
 	else
 		isppreview_config_ycpos(isp_prev, YCPOS_CrYCbY);

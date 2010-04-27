@@ -125,7 +125,19 @@ static struct vcontrol {
 			.default_value = V4L2_COLORFX_NONE,
 		},
 		.current_value = V4L2_COLORFX_NONE,
-	}
+	},
+	{
+		{
+			.id = V4L2_CID_PRIVATE_OMAP3ISP_CSI2MEM,
+			.type = V4L2_CTRL_TYPE_BOOLEAN,
+			.name = "omap3isp: Force CSI2->MEM path",
+			.minimum = 0,
+			.maximum = 1,
+			.step = 1,
+			.default_value = 0,
+		},
+		.current_value = 0,
+	},
 };
 
 static struct v4l2_querymenu video_menu[] = {
@@ -352,11 +364,9 @@ static void isp_enable_interrupts(struct device *dev)
 	if (CCDC_PREV_RESZ_CAPTURE(isp))
 		irq0enable |= IRQ0ENABLE_PRV_DONE_IRQ | IRQ0ENABLE_RSZ_DONE_IRQ;
 
-	if (isp_complete_reset) {
-		isp_reg_writel(dev, -1, OMAP3_ISP_IOMEM_MAIN,
-			       ISP_IRQ0STATUS);
-		isp_complete_reset = 0;
-	}
+	isp_reg_writel(dev, -1, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+	isp_complete_reset = 0;
+
 	isp_reg_or(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE, irq0enable);
 
 	return;
@@ -635,19 +645,40 @@ int isp_configure_interface(struct device *dev,
 
 		isp_csi2_ctrl_config_vp_out_ctrl(&isp->isp_csi2,
 						 config->u.csi.vpclk);
-		isp_csi2_ctrl_config_vp_only_enable(&isp->isp_csi2, true);
-		isp_csi2_ctrl_config_vp_clk_enable(&isp->isp_csi2, true);
+		switch (isp->pipeline.csia_out) {
+		case CSI2_MEM:
+			isp_csi2_ctrl_config_vp_only_enable(&isp->isp_csi2,
+							    false);
+			isp_csi2_ctrl_config_vp_clk_enable(&isp->isp_csi2,
+							   false);
+			break;
+		case CSI2_VP:
+			isp_csi2_ctrl_config_vp_only_enable(&isp->isp_csi2,
+							    true);
+			isp_csi2_ctrl_config_vp_clk_enable(&isp->isp_csi2,
+							   true);
+			break;
+		case CSI2_MEM_VP:
+			isp_csi2_ctrl_config_vp_only_enable(&isp->isp_csi2,
+							    false);
+			isp_csi2_ctrl_config_vp_clk_enable(&isp->isp_csi2,
+							   true);
+			break;
+		default:
+			return -EINVAL;
+		}
 		isp_csi2_ctrl_update(&isp->isp_csi2, false);
 
 		isp_csi2_ctx_config_format(&isp->isp_csi2, 0,
-					   config->u.csi.format);
+					   isp->pipeline.in_pix.pixelformat);
 		isp_csi2_ctx_update(&isp->isp_csi2, 0, false);
 
 		isp_csi2_irq_complexio1_set(&isp->isp_csi2, 1);
 		isp_csi2_irq_status_set(&isp->isp_csi2, 1);
 
 		isp_csi2_enable(&isp->isp_csi2, 1);
-		mdelay(3);
+		if (isp->pipeline.csia_out != CSI2_MEM)
+			isp_csi2_ctx_config_enabled(&isp->isp_csi2, 0, true);
 		break;
 	case ISP_CSIB:
 		ispctrl_val |= ISPCTRL_PAR_SER_CLK_SEL_CSIB;
@@ -768,13 +799,22 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 
 	/* Decrement value also with CSI2 Rx only case*/
 	if ((irqstatus & CSIA) &&
-	    (isp->pipeline.modules == OMAP_ISP_CSIARX) &&
-	    bufs->wait_hs_vs) {
+	    (isp->pipeline.modules == OMAP_ISP_CSIARX) && bufs->wait_hs_vs) {
 		u32 csi2_irqstatus = isp_reg_readl(dev,
 						   OMAP3_ISP_IOMEM_CSI2A,
 						   ISPCSI2_IRQSTATUS);
 		isp_reg_writel(dev, csi2_irqstatus,
 			       OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_IRQSTATUS);
+
+		if (csi2_irqstatus & ISPCSI2_IRQSTATUS_COMPLEXIO1_ERR_IRQ) {
+			u32 cpxio1_irqstatus = isp_reg_readl(dev,
+						OMAP3_ISP_IOMEM_CSI2A,
+						ISPCSI2_COMPLEXIO1_IRQSTATUS);
+		isp_reg_writel(dev, cpxio1_irqstatus,
+			       OMAP3_ISP_IOMEM_CSI2A,
+			       ISPCSI2_COMPLEXIO1_IRQSTATUS);
+		}
+
 		if (csi2_irqstatus & ISPCSI2_IRQSTATUS_CONTEXT(0)) {
 			u32 ctxirqstatus = isp_reg_readl(dev,
 						OMAP3_ISP_IOMEM_CSI2A,
@@ -785,7 +825,7 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 			if (ctxirqstatus & ISPCSI2_CTX_IRQSTATUS_FE_IRQ)
 				bufs->wait_hs_vs--;
 		}
-
+		goto out_ignore_buff;
 	}
 	/*
 	 * We need to wait for the first HS_VS interrupt from CCDC.
@@ -908,7 +948,7 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 		 * If CCDC is writing to memory stop CCDC here
 		 * preventig to write to any of our buffers.
 		 */
-		if (CCDC_CAPTURE(isp))
+		if (CCDC_CAPTURE(isp) || isp->config->u.csi.use_mem_read)
 			ispccdc_enable(&isp->isp_ccdc, 0);
 	}
 
@@ -1364,7 +1404,12 @@ static void isp_set_buf(struct device *dev, struct isp_buf *buf)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 
-	if (CCDC_PREV_RESZ_CAPTURE(isp))
+	if (isp->pipeline.modules == OMAP_ISP_CSIARX) {
+		isp_csi2_ctx_config_data_offset(&isp->isp_csi2, 0, 0);
+		isp_csi2_ctx_config_ping_addr(&isp->isp_csi2, 0, buf->isp_addr);
+		isp_csi2_ctx_config_pong_addr(&isp->isp_csi2, 0, buf->isp_addr);
+		isp_csi2_ctx_update(&isp->isp_csi2, 0, false);
+	} else if (CCDC_PREV_RESZ_CAPTURE(isp))
 		ispresizer_set_outaddr(&isp->isp_res, buf->isp_addr);
 	else if (CCDC_PREV_CAPTURE(isp))
 		isppreview_set_outaddr(&isp->isp_prev, buf->isp_addr);
@@ -1376,7 +1421,6 @@ static void isp_set_buf(struct device *dev, struct isp_buf *buf)
 /**
  * isp_try_pipeline - Retrieve and simulate resulting internal ISP pipeline.
  * @dev: Device pointer specific to the OMAP3 ISP.
- * @pix_input: Pointer to pixel format to use as input in the ISP.
  * @pipe: Pointer to ISP pipeline structure to fill back.
  *
  * Returns the closest possible output size based on silicon limitations
@@ -1385,11 +1429,12 @@ static void isp_set_buf(struct device *dev, struct isp_buf *buf)
  * If the input can't be read, it'll return -EINVAL. Returns 0 on success.
  **/
 static int isp_try_pipeline(struct device *dev,
-			    struct v4l2_pix_format *pix_input,
-			    struct isp_pipeline *pipe)
+			    struct isp_pipeline *pipe,
+			    enum isp_interface_type sensor_isp_if)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
-	struct v4l2_pix_format *pix_output = &pipe->pix;
+	struct v4l2_pix_format *pix_input = &pipe->in_pix;
+	struct v4l2_pix_format *pix_output = &pipe->out_pix;
 	unsigned int wanted_width = pix_output->width;
 	unsigned int wanted_height = pix_output->height;
 	int ifmt;
@@ -1455,9 +1500,35 @@ static int isp_try_pipeline(struct device *dev,
 			return -EINVAL;
 	}
 
+
+
+	if (sensor_isp_if == ISP_CSIA)
+		pipe->modules |= OMAP_ISP_CSIARX;
+
+	if (pipe->modules & OMAP_ISP_CSIARX) {
+		pipe->csia_in_w = pix_input->width;
+		pipe->csia_in_h = pix_input->height;
+		rval = isp_csi2_try_pipeline(&isp->isp_csi2, pipe);
+		if (rval) {
+			dev_dbg(dev, "the dimensions %dx%d are not"
+				" supported\n", pix_input->width,
+				pix_input->height);
+			return rval;
+		}
+		pix_output->width = pipe->csia_out_w_img;
+		pix_output->height = pipe->csia_out_h;
+		pix_output->bytesperline =
+			pipe->csia_out_w * ISP_BYTES_PER_PIXEL;
+	}
+
 	if (pipe->modules & OMAP_ISP_CCDC) {
-		pipe->ccdc_in_w = pix_input->width;
-		pipe->ccdc_in_h = pix_input->height;
+		if (pipe->modules & OMAP_ISP_CSIARX) {
+			pipe->ccdc_in_w = pipe->csia_out_w_img;
+			pipe->ccdc_in_h = pipe->csia_out_h;
+		} else {
+			pipe->ccdc_in_w = pix_input->width;
+			pipe->ccdc_in_h = pix_input->height;
+		}
 		rval = ispccdc_try_pipeline(&isp->isp_ccdc, pipe);
 		if (rval) {
 			dev_dbg(dev, "the dimensions %dx%d are not"
@@ -1545,7 +1616,8 @@ static int isp_try_pipeline(struct device *dev,
  **/
 static int isp_s_pipeline(struct device *dev,
 			  struct v4l2_pix_format *pix_input,
-			  struct v4l2_pix_format *pix_output)
+			  struct v4l2_pix_format *pix_output,
+			  enum isp_interface_type sensor_isp_if)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 	struct isp_pipeline pipe;
@@ -1553,9 +1625,10 @@ static int isp_s_pipeline(struct device *dev,
 
 	isp_release_resources(dev);
 
-	pipe.pix = *pix_output;
+	pipe.in_pix = *pix_input;
+	pipe.out_pix = *pix_output;
 
-	rval = isp_try_pipeline(dev, pix_input, &pipe);
+	rval = isp_try_pipeline(dev, &pipe, sensor_isp_if);
 	if (rval)
 		return rval;
 
@@ -1573,7 +1646,8 @@ static int isp_s_pipeline(struct device *dev,
 	}
 
 	isp->pipeline = pipe;
-	*pix_output = isp->pipeline.pix;
+	*pix_input = isp->pipeline.in_pix;
+	*pix_output = isp->pipeline.out_pix;
 
 	return 0;
 }
@@ -1627,6 +1701,19 @@ static int isp_vbq_sync(struct videobuf_buffer *vb)
 	}
 
 	return 0;
+}
+
+/**
+ * isp_csi2_eof - End-of-Frame handler for CSI2.
+ *
+ * Code taken from isp_vbq_done():RESZ_DONE [ISP.C]
+ */
+void isp_csi2_eof_done(struct device *dev)
+{
+	struct isp_device *isp = dev_get_drvdata(dev);
+	struct isp_bufs *bufs = &isp->bufs;
+
+	isp_buf_process(dev, bufs);
 }
 
 /**
@@ -1690,8 +1777,13 @@ static void isp_buf_process(struct device *dev, struct isp_bufs *bufs)
 			ispccdc_enable(&isp->isp_ccdc, 1);
 	} else {
 		/* Tell ISP not to write any of our buffers. */
-		isp_disable_interrupts(dev);
-		bufs->wait_hs_vs = 1;
+		if (CCDC_CAPTURE(isp))
+			isp_disable_interrupts(dev);
+		if (isp->pipeline.modules == OMAP_ISP_CSIARX) {
+			isp_csi2_ctx_config_enabled(&isp->isp_csi2, 0, false);
+			isp_csi2_ctx_update(&isp->isp_csi2, 0, false);
+			isp_csi2_irq_ctx_set(&isp->isp_csi2, false);
+		}
 	}
 
 	/* Mark the current buffer as done. */
@@ -1762,23 +1854,31 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 		 * CCDC may trigger interrupts even if it's not
 		 * receiving a frame.
 		 */
+		bufs->wait_hs_vs++;
 		isp_enable_interrupts(dev);
 		isp_set_buf(dev, buf);
 		isp_af_try_enable(&isp->isp_af);
 		isph3a_aewb_try_enable(&isp->isp_h3a);
 		isp_hist_try_enable(&isp->isp_hist);
 		/* We not wait HS_VS, when source is a virtual sensor */
-		if (!bufs->wait_hs_vs) {
+		if (isp->config->u.csi.use_mem_read) {
+			bufs->wait_hs_vs = 0;
 			/*
 			 * In case of pipeline with temporary buffer, "Resizer"
 			 * will be enabled when "Preview" is done.
 			 */
 			if (isp->revision > ISP_REVISION_2_0) {
-				if (isp->pipeline.modules & OMAP_ISP_RESIZER)
+				if (isp->pipeline.modules & OMAP_ISP_RESIZER) {
+					ispresizer_config_shadow_registers(
+						&isp->isp_res);
 					ispresizer_enable(&isp->isp_res, 1);
+				}
 			}
-			if (isp->pipeline.modules & OMAP_ISP_PREVIEW)
+			if (isp->pipeline.modules & OMAP_ISP_PREVIEW) {
+				isppreview_config_shadow_registers(
+					&isp->isp_prev);
 				isppreview_enable(&isp->isp_prev, 1);
+			}
 		}
 		if (isp->pipeline.modules & OMAP_ISP_CCDC)
 			ispccdc_enable(&isp->isp_ccdc, 1);
@@ -2012,6 +2112,9 @@ int isp_g_ctrl(struct device *dev, struct v4l2_control *a)
 		isppreview_get_color(&isp->isp_prev, &current_value);
 		a->value = current_value;
 		break;
+	case V4L2_CID_PRIVATE_OMAP3ISP_CSI2MEM:
+		a->value = isp->isp_csi2.force_mem_out ? 1 : 0;
+		break;
 	default:
 		rval = -EINVAL;
 		break;
@@ -2059,6 +2162,11 @@ int isp_s_ctrl(struct device *dev, struct v4l2_control *a)
 			rval = -EINVAL;
 		else
 			isppreview_set_color(&isp->isp_prev, &new_value);
+		break;
+	case V4L2_CID_PRIVATE_OMAP3ISP_CSI2MEM:
+		/* NOTE: User must call again VIDIOC_S_FMT to make this
+			 effective */
+		isp->isp_csi2.force_mem_out = new_value ? true : false;
 		break;
 	default:
 		rval = -EINVAL;
@@ -2196,7 +2304,7 @@ void isp_g_fmt_cap(struct device *dev, struct v4l2_pix_format *pix)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 
-	*pix = isp->pipeline.pix;
+	*pix = isp->pipeline.out_pix;
 	return;
 }
 EXPORT_SYMBOL(isp_g_fmt_cap);
@@ -2211,15 +2319,15 @@ EXPORT_SYMBOL(isp_g_fmt_cap);
  * value of isp_s_pipeline if there is an error.
  **/
 int isp_s_fmt_cap(struct device *dev, struct v4l2_pix_format *pix_input,
-		  struct v4l2_pix_format *pix_output)
+		  struct v4l2_pix_format *pix_output,
+		  enum isp_interface_type sensor_isp_if)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
-
 
 	if (!isp->ref_count)
 		return -EINVAL;
 
-	return isp_s_pipeline(dev, pix_input, pix_output);
+	return isp_s_pipeline(dev, pix_input, pix_output, sensor_isp_if);
 }
 EXPORT_SYMBOL(isp_s_fmt_cap);
 
@@ -2284,9 +2392,9 @@ int isp_s_crop(struct device *dev, struct v4l2_crop *a)
 	 * When the resizer is fixed, its output size does not need to be
 	 * adjusted anymore here.
 	 */
-	pipe->rsz_out_w_img = pipe->pix.width;
-	pipe->rsz_out_w = pipe->pix.width;
-	pipe->rsz_out_h = pipe->pix.height;
+	pipe->rsz_out_w_img = pipe->out_pix.width;
+	pipe->rsz_out_w = pipe->out_pix.width;
+	pipe->rsz_out_h = pipe->out_pix.height;
 
 	ispresizer_config_crop(&isp->isp_res, a);
 
@@ -2304,18 +2412,21 @@ EXPORT_SYMBOL(isp_s_crop);
  * isp_try_fmt if there is an error.
  **/
 int isp_try_fmt_cap(struct device *dev, struct v4l2_pix_format *pix_input,
-		    struct v4l2_pix_format *pix_output)
+		    struct v4l2_pix_format *pix_output,
+		    enum isp_interface_type sensor_isp_if)
 {
 	struct isp_pipeline pipe;
 	int rval;
 
-	pipe.pix = *pix_output;
+	pipe.in_pix = *pix_input;
+	pipe.out_pix = *pix_output;
 
-	rval = isp_try_pipeline(dev, pix_input, &pipe);
+	rval = isp_try_pipeline(dev, &pipe, sensor_isp_if);
 	if (rval)
 		return rval;
 
-	*pix_output = pipe.pix;
+	*pix_input = pipe.in_pix;
+	*pix_output = pipe.out_pix;
 
 	return 0;
 }

@@ -626,7 +626,7 @@ int ispresizer_s_pipeline(struct isp_res_device *isp_res,
 
 	ispresizer_config_outlineoffset(isp_res, pipe->rsz_out_w*2);
 
-	if (pipe->pix.pixelformat == V4L2_PIX_FMT_UYVY)
+	if (pipe->in_pix.pixelformat == V4L2_PIX_FMT_UYVY)
 		ispresizer_config_ycpos(isp_res, 0);
 	else
 		ispresizer_config_ycpos(isp_res, 1);

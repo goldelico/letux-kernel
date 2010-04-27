@@ -488,7 +488,8 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 			pix_tmp_in.width = frms.discrete.width;
 			pix_tmp_in.height = frms.discrete.height;
 			pix_tmp_out = *wanted_pix_out;
-			rval = isp_try_fmt_cap(isp, &pix_tmp_in, &pix_tmp_out);
+			rval = isp_try_fmt_cap(isp, &pix_tmp_in, &pix_tmp_out,
+					       vdev->vdev_sensor_config.isp_if);
 			if (rval)
 				return rval;
 
@@ -650,7 +651,8 @@ static int s_pix_parm(struct omap34xxcam_videodev *vdev,
 	if (rval)
 		return rval;
 
-	rval = isp_s_fmt_cap(isp, best_pix, pix);
+	rval = isp_s_fmt_cap(isp, best_pix, pix,
+			     vdev->vdev_sensor_config.isp_if);
 	if (rval)
 		return rval;
 

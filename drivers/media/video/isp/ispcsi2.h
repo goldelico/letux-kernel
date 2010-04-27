@@ -23,6 +23,12 @@
 #define ISP_CSI2_LANE_OFF 	0
 #define ISP_CSI2_LANE_ON 	1
 
+enum isp_csi2_output {
+	CSI2_MEM,
+	CSI2_VP,
+	CSI2_MEM_VP, /* UNTESTED! */
+};
+
 enum isp_csi2_irqevents {
 	OCP_ERR_IRQ = 0x4000,
 	SHORT_PACKET_IRQ = 0x2000,
@@ -190,6 +196,7 @@ struct isp_csi2_device {
 	bool update_timing;
 	bool update_ctrl;
 	bool uses_videoport;
+	bool force_mem_out;
 };
 
 int isp_csi2_complexio_lanes_config(struct isp_csi2_device *isp_csi2,
@@ -275,6 +282,9 @@ void isp_csi2_irq_complexio1_set(struct isp_csi2_device *isp_csi2, int enable);
 void isp_csi2_irq_ctx_set(struct isp_csi2_device *isp_csi2, int enable);
 void isp_csi2_irq_status_set(struct isp_csi2_device *isp_csi2, int enable);
 void isp_csi2_irq_all_set(struct isp_csi2_device *isp_csi2, int enable);
+
+int isp_csi2_try_pipeline(struct isp_csi2_device *isp_csi2,
+			  struct isp_pipeline *pipe);
 
 int isp_csi2_isr(struct isp_csi2_device *isp_csi2);
 int isp_csi2_reset(struct isp_csi2_device *isp_csi2);

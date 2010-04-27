@@ -130,6 +130,7 @@ static struct omap34xxcam_sensor_config imx046_hwc = {
 	.sensor_isp  = 0,
 	.capture_mem = IMX046_BIGGEST_FRAME_BYTE_SIZE * 2,
 	.ival_default	= { 1, 10 },
+	.isp_if = ISP_CSIA,
 };
 
 static int imx046_sensor_set_prv_data(struct v4l2_int_device *s, void *priv)
@@ -152,7 +153,7 @@ static struct isp_interface_config imx046_if_config = {
 	.prestrobe 		= 0x0,
 	.shutter 		= 0x0,
 	.wenlog 		= ISPCCDC_CFG_WENLOG_AND,
-	.wait_hs_vs		= 1,
+	.wait_hs_vs		= 0,
 	.cam_mclk		= ISP_IMX046_MCLK,
 	.raw_fmt_in		= ISPCCDC_INPUT_FMT_RG_GB,
 	.u.csi.crc 		= 0x0,

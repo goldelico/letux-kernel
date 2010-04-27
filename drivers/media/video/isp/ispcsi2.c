@@ -843,6 +843,9 @@ int isp_csi2_ctx_config_format(struct isp_csi2_device *isp_csi2, u8 ctxnum,
 	case V4L2_PIX_FMT_RGB555:
 	case V4L2_PIX_FMT_RGB555X:
 	case V4L2_PIX_FMT_SGRBG10:
+	case V4L2_PIX_FMT_SRGGB10:
+	case V4L2_PIX_FMT_SBGGR10:
+	case V4L2_PIX_FMT_SGBRG10:
 		break;
 	default:
 		printk(KERN_ERR "Context config pixel format unsupported\n");
@@ -1183,6 +1186,9 @@ int isp_csi2_ctx_update(struct isp_csi2_device *isp_csi2,
 				new_format = 0xA1;
 				break;
 			case V4L2_PIX_FMT_SGRBG10:
+			case V4L2_PIX_FMT_SRGGB10:
+			case V4L2_PIX_FMT_SBGGR10:
+			case V4L2_PIX_FMT_SGBRG10:
 				if (isp_csi2->uses_videoport)
 					new_format = 0x12F;
 				else
@@ -1898,6 +1904,8 @@ int isp_csi2_isr(struct isp_csi2_device *isp_csi2)
 		isp_reg_writel(isp_csi2->dev, ctxirqstatus,
 			       OMAP3_ISP_IOMEM_CSI2A,
 			       ISPCSI2_CTX_IRQSTATUS(0));
+		if (ctxirqstatus & ISPCSI2_CTX_IRQSTATUS_FE_IRQ)
+			isp_csi2_eof_done(isp_csi2->dev);
 	}
 
 	if (csi2_irqstatus & ISPCSI2_IRQSTATUS_ECC_CORRECTION_IRQ)
@@ -2132,7 +2140,6 @@ int isp_csi2_reset(struct isp_csi2_device *isp_csi2)
 void isp_csi2_enable(struct isp_csi2_device *isp_csi2, int enable)
 {
 	if (enable) {
-		isp_csi2_ctx_config_enabled(isp_csi2, 0, true);
 		isp_csi2_ctx_config_eof_enabled(isp_csi2, 0, true);
 		isp_csi2_ctx_config_checksum_enabled(isp_csi2, 0, true);
 		isp_csi2_ctx_update(isp_csi2, 0, false);
@@ -2141,7 +2148,6 @@ void isp_csi2_enable(struct isp_csi2_device *isp_csi2, int enable)
 		isp_csi2_ctrl_config_if_enable(isp_csi2, true);
 		isp_csi2_ctrl_update(isp_csi2, false);
 	} else {
-		isp_csi2_ctx_config_enabled(isp_csi2, 0, false);
 		isp_csi2_ctx_config_eof_enabled(isp_csi2, 0, false);
 		isp_csi2_ctx_config_checksum_enabled(isp_csi2, 0, false);
 		isp_csi2_ctx_update(isp_csi2, 0, false);
@@ -2152,6 +2158,67 @@ void isp_csi2_enable(struct isp_csi2_device *isp_csi2, int enable)
 	}
 }
 EXPORT_SYMBOL(isp_csi2_enable);
+
+/**
+ * isp_csi2_try_pipeline - Tries out requested pipeline on CSI2 module
+ * @isp_csi2: Pointer to CSI2 device structure
+ * @pipe: Pointer to ISP pipeline structure.
+ * @force_mem_out: Force CSI2->MEM output
+ *
+ * This should modify pipeline accordingly depending on intended pipeline
+ **/
+int isp_csi2_try_pipeline(struct isp_csi2_device *isp_csi2,
+			  struct isp_pipeline *pipe)
+{
+	struct device *dev = to_device(isp_csi2);
+
+	/* Don't allow frame conversion if only CSI2 RX is in the pipe */
+	if (((pipe->in_pix.pixelformat != pipe->out_pix.pixelformat) ||
+	     (pipe->csia_in_w != pipe->out_pix.width) ||
+	     (pipe->csia_in_h != pipe->out_pix.height)) &&
+	    pipe->modules == OMAP_ISP_CSIARX) {
+		dev_err(dev, "csi2: Receiver alone can't convert/resize"
+			     " image.");
+		return -EINVAL;
+	}
+
+	pipe->csia_out_w_img = pipe->csia_in_w;
+	pipe->csia_out_h = pipe->csia_in_h;
+
+	switch (pipe->in_pix.pixelformat) {
+	case V4L2_PIX_FMT_YUYV:
+	case V4L2_PIX_FMT_UYVY:
+	case V4L2_PIX_FMT_SGRBG10:
+	case V4L2_PIX_FMT_SRGGB10:
+	case V4L2_PIX_FMT_SBGGR10:
+	case V4L2_PIX_FMT_SGBRG10:
+		if (!isp_csi2->force_mem_out) {
+			/* CCDC will be used here, therefore we won't alter
+			   the pipe */
+			pipe->csia_out = CSI2_VP;
+			break;
+		}
+		/* Falling through... */
+	case V4L2_PIX_FMT_RGB565:
+	case V4L2_PIX_FMT_RGB565X:
+	case V4L2_PIX_FMT_RGB555:
+	case V4L2_PIX_FMT_RGB555X:
+		/* CCDC can't recieve this, so leave CSI2 Rx alone
+		   in the pipe, as it's the only way */
+		pipe->modules = OMAP_ISP_CSIARX;
+		pipe->csia_out = CSI2_MEM;
+		break;
+	default:
+		dev_err(dev, "Context config pixel format unsupported\n");
+		return -EINVAL;
+	}
+
+	/* Align to 16 pixel width if outputting to mem. */
+	if ((pipe->csia_out == CSI2_MEM) || (pipe->csia_out == CSI2_MEM_VP))
+		pipe->csia_out_w = ALIGN(pipe->csia_out_w_img, 0x10);
+
+	return 0;
+}
 
 /**
  * isp_csi2_regdump - Prints CSI2 debug information.

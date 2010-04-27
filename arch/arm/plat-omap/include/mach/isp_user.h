@@ -62,6 +62,11 @@ struct omap34xxcam_sensor_info {
 	struct v4l2_rect pixel_size;
 };
 
+/* OMAP3ISP Private V4L2 controls */
+
+/* Boolean control used to force CSI2->MEM datapath on pipeline calculation */
+#define V4L2_CID_PRIVATE_OMAP3ISP_CSI2MEM	(V4L2_CID_PRIVATE_BASE + 0)
+
 /* AE/AWB related structures and flags*/
 
 /* Flags for update field */

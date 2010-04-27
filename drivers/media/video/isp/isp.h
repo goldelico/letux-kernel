@@ -306,8 +306,15 @@ struct isp_irq {
  * @rsz_in: Resizer input source.
  */
 struct isp_pipeline {
-	unsigned int modules;		/* modules in use */
-	struct v4l2_pix_format pix;	/* output pix */
+	unsigned int modules;
+	struct v4l2_pix_format in_pix;
+	struct v4l2_pix_format out_pix;
+	unsigned int csia_in_w;
+	unsigned int csia_in_h;
+	unsigned int csia_out_w;
+	unsigned int csia_out_h;
+	unsigned int csia_out_w_img;
+	enum isp_csi2_output csia_out;
 	unsigned int ccdc_in_v_st;
 	unsigned int ccdc_in_h_st;
 	unsigned int ccdc_in_w;
@@ -331,17 +338,17 @@ struct isp_pipeline {
 	enum resizer_input rsz_in;
 };
 
-#define CCDC_CAPTURE(isp)					\
+#define CCDC_CAPTURE(isp) \
 	(!((isp)->pipeline.modules & OMAP_ISP_PREVIEW) && \
 	 !((isp)->pipeline.modules & OMAP_ISP_RESIZER) && \
 	 ((isp)->pipeline.modules & OMAP_ISP_CCDC))
 
-#define CCDC_PREV_CAPTURE(isp)					\
+#define CCDC_PREV_CAPTURE(isp) \
 	(((isp)->pipeline.modules & OMAP_ISP_CCDC) && \
 	 ((isp)->pipeline.modules & OMAP_ISP_PREVIEW) && \
 	 !((isp)->pipeline.modules & OMAP_ISP_RESIZER))
 
-#define CCDC_PREV_RESZ_CAPTURE(isp)				\
+#define CCDC_PREV_RESZ_CAPTURE(isp) \
 	(((isp)->pipeline.modules & OMAP_ISP_CCDC) && \
 	 ((isp)->pipeline.modules & OMAP_ISP_PREVIEW) && \
 	 ((isp)->pipeline.modules & OMAP_ISP_RESIZER))
@@ -455,6 +462,8 @@ void isp_start(struct device *dev);
 
 void isp_stop(struct device *dev);
 
+void isp_csi2_eof_done(struct device *dev);
+
 int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 		  void (*complete)(struct videobuf_buffer *vb, void *priv),
 		  void *priv);
@@ -498,12 +507,14 @@ int isp_s_ctrl(struct device *dev, struct v4l2_control *a);
 int isp_enum_fmt_cap(struct v4l2_fmtdesc *f);
 
 int isp_try_fmt_cap(struct device *dev, struct v4l2_pix_format *pix_input,
-		    struct v4l2_pix_format *pix_output);
+		    struct v4l2_pix_format *pix_output,
+		    enum isp_interface_type sensor_isp_if);
 
 void isp_g_fmt_cap(struct device *dev, struct v4l2_pix_format *pix);
 
 int isp_s_fmt_cap(struct device *dev, struct v4l2_pix_format *pix_input,
-		  struct v4l2_pix_format *pix_output);
+		  struct v4l2_pix_format *pix_output,
+		  enum isp_interface_type sensor_isp_if);
 
 int isp_g_crop(struct device *dev, struct v4l2_crop *a);
 

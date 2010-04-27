@@ -68,11 +68,13 @@ struct omap34xxcam_videodev;
  * @sensor_isp: Is sensor smart/SOC or raw
  * @capture_mem: Size limit to mmap buffers.
  * @ival_default: Default frame interval for sensor.
+ * @isp_if: Defines the type of interface between sensor and OMAP3ISP
  */
 struct omap34xxcam_sensor_config {
 	int sensor_isp;
 	u32 capture_mem;
 	struct v4l2_fract ival_default;
+	enum isp_interface_type isp_if;
 };
 
 struct omap34xxcam_lens_config {
