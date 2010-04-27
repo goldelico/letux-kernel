@@ -257,7 +257,17 @@ static void twl6030_init_vdd_regs(struct snd_soc_codec *codec)
 static void abe_init_chip(struct snd_soc_codec *codec)
 {
 	struct twl6030_data *priv = codec->private_data;
-	abe_opp_t OPP;
+	abe_opp_t OPP = ABE_OPP100;
+	abe_equ_t dl2_eq;
+	const abe_int32 DL2_COEF[25] =	{
+		-7554223, 708210, -708206, 7554225,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 6802833, -682266, 731554
+	};
+	dl2_eq.equ_length = 25;
+
+	/* build the coefficient parameter for the equalizer api */
+	memcpy(dl2_eq.coef.type1, DL2_COEF, sizeof(DL2_COEF));
 
 	abe_init_mem();
 
@@ -280,6 +290,11 @@ static void abe_init_chip(struct snd_soc_codec *codec)
 	abe_write_mixer(MIXDL2, MUTE_GAIN, RAMP_0MS, MIX_DL2_INPUT_VX_DL);
 	abe_write_mixer(MIXDL2, GAIN_M6dB, RAMP_0MS, MIX_DL2_INPUT_MM_DL);
 	abe_write_mixer(MIXDL2, MUTE_GAIN, RAMP_0MS, MIX_DL2_INPUT_MM_UL2);
+
+	/* load the high-pass coefficient of IHF-Right */
+	abe_write_equalizer(EQ2L, &dl2_eq);
+	/* load the high-pass coefficient of IHF-Left */
+	abe_write_equalizer(EQ2R, &dl2_eq);
 
 	clk_disable(priv->clk);
 }
