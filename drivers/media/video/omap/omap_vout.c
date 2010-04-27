@@ -116,6 +116,8 @@ MODULE_LICENSE("GPL");
 int cacheable_buffers;
 int flushable_buffers;
 
+static int vrfb_configured;
+
 static struct videobuf_queue_ops video_vbq_ops;
 
 static u32 video1_numbuffers = OMAP_VOUT_MAX_BUFFERS;
@@ -1583,8 +1585,9 @@ static int omap_vout_release(struct file *file)
 	if (r)
 		printk(KERN_WARNING VOUT_NAME "Unable to apply changes\n");
 
-	/* Free all buffers */
+	vrfb_configured = 0;
 
+	/* Free all buffers */
 #ifndef TILER_ALLOCATE_V4L2
 	omap_vout_free_allbuffers(vout);
 #else
@@ -2230,6 +2233,7 @@ static int vidioc_qbuf(struct file *file, void *fh,
 	struct omap_vout_device *vout = fh;
 	struct videobuf_queue *q = &vout->vbq;
 	int ret = 0;
+	unsigned int count;
 
 	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev,
 		"entered qbuf: buffer address: %x \n", (unsigned int) buffer);
@@ -2255,6 +2259,16 @@ static int vidioc_qbuf(struct file *file, void *fh,
 		return -EINVAL;
 	}
 #endif
+
+	/* setup the vrfb so that the first frames are also setup
+	* correctly in the vrfb
+	*/
+	if (vrfb_configured == 0) {
+		count = vout->buffer_allocated;
+		omap_vout_vrfb_buffer_setup(vout, &count, 0);
+		vrfb_configured = 1;
+	}
+
 	ret = videobuf_qbuf(q, buffer);
 	return ret;
 }
@@ -2418,6 +2432,7 @@ static int vidioc_streamoff(struct file *file, void *fh,
 		return r;
 	}
 	INIT_LIST_HEAD(&vout->dma_queue);
+	vrfb_configured = 0;
 	videobuf_streamoff(&vout->vbq);
 	videobuf_queue_cancel(&vout->vbq);
 	return 0;
