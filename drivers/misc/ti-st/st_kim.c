@@ -442,11 +442,13 @@ long st_kim_start(void)
 	ST_KIM_DBG(" %s", __func__);
 
 	do {
-		/* Configure BT nShutdown to HIGH state */
-		gpio_set_value(kim_gdata->gpios[ST_BT], GPIO_LOW);
-		mdelay(5);	/* FIXME: a proper toggle */
-		gpio_set_value(kim_gdata->gpios[ST_BT], GPIO_HIGH);
-		mdelay(100);
+		if (kim_gdata->gpios[ST_BT] != -1) {
+			/* Configure BT nShutdown to HIGH state */
+			gpio_set_value(kim_gdata->gpios[ST_BT], GPIO_LOW);
+			mdelay(5);	/* FIXME: a proper toggle */
+			gpio_set_value(kim_gdata->gpios[ST_BT], GPIO_HIGH);
+			mdelay(100);
+		}
 
 		/* re-initialize the completion */
 		INIT_COMPLETION(kim_gdata->ldisc_installed);
@@ -501,12 +503,14 @@ long st_kim_stop(void)
 		return ST_ERR_FAILURE;
 	}
 
-	/* By default configure BT nShutdown to LOW state */
-	gpio_set_value(kim_gdata->gpios[ST_BT], GPIO_LOW);
-	mdelay(1);
-	gpio_set_value(kim_gdata->gpios[ST_BT], GPIO_HIGH);
-	mdelay(1);
-	gpio_set_value(kim_gdata->gpios[ST_BT], GPIO_LOW);
+	if (kim_gdata->gpios[ST_BT] != -1) {
+		/* By default configure BT nShutdown to LOW state */
+		gpio_set_value(kim_gdata->gpios[ST_BT], GPIO_LOW);
+		mdelay(1);
+		gpio_set_value(kim_gdata->gpios[ST_BT], GPIO_HIGH);
+		mdelay(1);
+		gpio_set_value(kim_gdata->gpios[ST_BT], GPIO_LOW);
+	}
 	return err;
 }
 
