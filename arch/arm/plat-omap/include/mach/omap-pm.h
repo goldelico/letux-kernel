@@ -226,6 +226,7 @@ const struct omap_opp *omap_pm_dsp_get_opp_table(void);
 
 /**
  * omap_pm_dsp_set_min_opp - receive desired OPP target ID from DSP Bridge
+ * @dev: device struct
  * @opp_id: target DSP OPP ID
  *
  * Set a minimum OPP ID for the DSP.  This is intended to be called
@@ -233,7 +234,7 @@ const struct omap_opp *omap_pm_dsp_get_opp_table(void);
  * information that code receives from the DSP/BIOS load estimator is the
  * target OPP ID; hence, this interface.  No return value.
  */
-void omap_pm_dsp_set_min_opp(u8 opp_id);
+void omap_pm_dsp_set_min_opp(struct device *dev, u8 opp_id);
 
 /**
  * omap_pm_dsp_get_opp - report the current DSP OPP ID
