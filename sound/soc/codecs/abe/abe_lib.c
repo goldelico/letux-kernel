@@ -213,7 +213,7 @@ typedef struct {
 	w0 = 2*pi*f0/Fs
 	alpha = sin(w0) / (2*Q);
 
-	%PeakingEQ ==========================================
+    %PeakingEQ ==========================================
 	b_peak = print_ABE_data ([1+alpha*A -2*cos(w0) 1-alpha*A],3);
 	a_peak = print_ABE_data ([1+alpha/A -2*cos(w0) 1-alpha/A],3);
 
@@ -337,33 +337,26 @@ void abe_write_fifo(abe_uint32 x)
 void abe_block_copy(abe_int32 direction, abe_int32 memory_bank, abe_int32 address, abe_uint32 *data, abe_uint32 nb_bytes)
 {
 #if PC_SIMULATION
-	abe_uint32 *smem_tmp, smem_offset, smem_base, nb_words48;
+	nb_bytes = (nb_bytes + 3) & (-4L);	/* copy is done on 32bits boundaries */
+	if (address & (3L))			/* error ifstart address is not 32bits aligned */
+		abe_dbg_error_log(ABE_BLOCK_COPY_ERR);
 
 	if (direction == COPY_FROM_HOST_TO_ABE) {
 		switch (memory_bank) {
 		case ABE_PMEM:
-			target_server_write_pmem(address/4, data, nb_bytes/4);
+			target_server_write_pmem(address, data, nb_bytes);
 			break;
 		case ABE_CMEM:
-			target_server_write_cmem(address/4, data, nb_bytes/4);
-			break;
-		case ABE_ATC:
-			target_server_write_atc(address/4, data, nb_bytes/4);
+			target_server_write_cmem(address, data, nb_bytes);
 			break;
 		case ABE_SMEM:
-			nb_words48 = (nb_bytes +7)>>3;
-			/* temporary buffer manages the OCP access to 32bits boundaries */
-			smem_tmp = malloc(nb_bytes + 64);
-			/* address is on SMEM 48bits lines boundary */
-			smem_base = address - (address & 7);
-			target_server_read_smem(smem_base/8, smem_tmp, 2 + nb_words48);
-			smem_offset = address & 7;
-			memcpy(&(smem_tmp[smem_offset>>2]), data, nb_bytes);
-			target_server_write_smem(smem_base/8, smem_tmp, 2 + nb_words48);
-			free(smem_tmp);
+			target_server_write_smem(address, data, nb_bytes);
 			break;
 		case ABE_DMEM:
 			target_server_write_dmem(address, data, nb_bytes);
+			break;
+		case ABE_ATC:
+			target_server_write_atc(address / 4, data, nb_bytes);
 			break;
 		default:
 			abe_dbg_param |= ERR_LIB;
@@ -373,27 +366,19 @@ void abe_block_copy(abe_int32 direction, abe_int32 memory_bank, abe_int32 addres
 	} else {
 		switch (memory_bank) {
 		case ABE_PMEM:
-			target_server_read_pmem(address/4, data, nb_bytes/4);
+			target_server_read_pmem(address, data, nb_bytes);
 			break;
 		case ABE_CMEM:
-			target_server_read_cmem(address/4, data, nb_bytes/4);
-			break;
-		case ABE_ATC:
-			target_server_read_atc(address/4, data, nb_bytes/4);
+			target_server_read_cmem(address, data, nb_bytes);
 			break;
 		case ABE_SMEM:
-			nb_words48 = (nb_bytes +7)>>3;
-			/* temporary buffer manages the OCP access to 32bits boundaries */
-			smem_tmp = malloc(nb_bytes + 64);
-			/* address is on SMEM 48bits lines boundary */
-			smem_base = address - (address & 7);
-			target_server_read_smem(smem_base/8, smem_tmp, 2 + nb_words48);
-			smem_offset = address & 7;
-			memcpy(data, &(smem_tmp[smem_offset>>2]), nb_bytes);
-			free(smem_tmp);
+			target_server_read_smem(address, data, nb_bytes);
 			break;
 		case ABE_DMEM:
 			target_server_read_dmem(address, data, nb_bytes);
+			break;
+		case ABE_ATC:
+			target_server_read_atc(address/4, data, nb_bytes);
 			break;
 		default:
 			abe_dbg_param |= ERR_LIB;
@@ -404,6 +389,10 @@ void abe_block_copy(abe_int32 direction, abe_int32 memory_bank, abe_int32 addres
 #else
 	abe_uint32 i;
 	abe_uint32 base_address = 0, *src_ptr, *dst_ptr, n;
+
+	nb_bytes = (nb_bytes + 3) & (-4L);	/* copy is done on 32bits boundaries */
+	if (address & (3L))			/* error ifstart address is not 32bits aligned */
+		abe_dbg_error_log(ABE_BLOCK_COPY_ERR);
 
 	switch (memory_bank) {
 	case ABE_PMEM:
@@ -443,77 +432,6 @@ void abe_block_copy(abe_int32 direction, abe_int32 memory_bank, abe_int32 addres
 
 #endif
 }
-/*
- *	ABE_RESET_MEM
- *
- *	Parameter  :
- *	memory bank among DMEM, SMEM
- *	address of the memory copy (byte addressing)
- *	number of data to move
- *
- *	Operations :
- *	reset memory
- *
- *	Return value :
- *	none
- */
-
-void  abe_reset_mem(abe_int32 memory_bank, abe_int32 address, abe_uint32 nb_bytes)
-{
-#if PC_SIMULATION
-	extern void target_server_write_smem(abe_uint32 address_48bits, abe_uint32 *data, abe_uint32 nb_words_48bits);
-	extern void target_server_write_dmem(abe_uint32 address_byte, abe_uint32 *data, abe_uint32 nb_byte);
-
-	abe_uint32 *smem_tmp, *data, smem_offset, smem_base, nb_words48;
-
-	data = calloc(nb_bytes, 1);
-
-	switch (memory_bank) {
-	case ABE_SMEM:
-		nb_words48 = (nb_bytes +7)>>3;
-		/* temporary buffer manages the OCP access to 32bits boundaries */
-		smem_tmp = malloc (nb_bytes + 64);
-		/* address is on SMEM 48bits lines boundary */
-		smem_base = address - (address & 7);
-		target_server_read_smem (smem_base/8, smem_tmp, 2 + nb_words48);
-		smem_offset = address & 7;
-		memcpy (&(smem_tmp[smem_offset>>2]), data, nb_bytes);
-		target_server_write_smem (smem_base/8, smem_tmp, 2 + nb_words48);
-		free (smem_tmp);
-		break;
-	case ABE_DMEM:
-		target_server_write_dmem(address, data, nb_bytes);
-		break;
-	default:
-		abe_dbg_param |= ERR_LIB;
-		abe_dbg_error_log(ABE_BLOCK_COPY_ERR);
-	}
-	free(data);
-#else
-	abe_uint32 i;
-	abe_uint32 *dst_ptr, n;
-	abe_uint32 base_address = 0;
-
-	switch (memory_bank) {
-        case ABE_SMEM:
-                base_address = (abe_uint32) io_base + ABE_SMEM_BASE_OFFSET_MPU;
-                break;
-        case ABE_DMEM:
-                base_address = (abe_uint32) io_base + ABE_DMEM_BASE_OFFSET_MPU;
-                break;
-        }
-
-	if (memory_bank == ABE_SMEM)
-		dst_ptr = (abe_uint32 *) (base_address + address);
-	else
-		dst_ptr = (abe_uint32 *) (base_address + address);
-
-	n = (nb_bytes/4);
-
-	for (i = 0; i < n; i++)
-		*dst_ptr++ = 0;
-#endif
-}
 
 /*
  *  ABE_MONITORING
@@ -545,54 +463,71 @@ void abe_monitoring(void)
  */
 void abe_format_switch(abe_data_format_t *f, abe_uint32 *iter, abe_uint32 *mulfac)
 {
-	abe_uint32 n_freq;
+	abe_uint32 n_freq, n_samp;
 
-	/* scheduler loop ratio :
-	 * 2  samples at  8kHz
-	 * 4  samples at 16kHz
-	 * 6  samples at 24kHz
-	 * 12 samples at 48kHz
-	 * 24 samples at 96kHz
-	 */
-	n_freq = (f->f)/FW_SCHED_LOOP_FREQ;
+	/* scheduler loop ratio : 12 samples at 48kHz */
+	n_freq = (f->f) / FW_SCHED_LOOP_FREQ;
 
 	switch (f->samp_format) {
+	case MONO_16_LSB:
+		*mulfac = 1;
+		n_samp = 2;
+		break;
 	case MONO_MSB:
 		*mulfac = 1;
+		n_samp = 2;
+		break;
+	case TWO_MONO_MSB:
+		*mulfac = 1;
+		n_samp = 1;
 		break;
 	case STEREO_16_16:
 		*mulfac = 1;
+		n_samp = 2;
 		break;
 	case STEREO_MSB:
 		*mulfac = 2;
+		n_samp = 4;
 		break;
 	case THREE_MSB:
 		*mulfac = 3;
+		n_samp = 6;
 		break;
 	case FOUR_MSB:
 		*mulfac = 4;
+		n_samp = 8;
 		break;
 	case FIVE_MSB:
 		*mulfac = 5;
+		n_samp = 10;
 		break;
 	case SIX_MSB:
 		*mulfac = 6;
+		n_samp = 12;
 		break;
 	case SEVEN_MSB:
 		*mulfac = 7;
+		n_samp = 14;
 		break;
 	case EIGHT_MSB:
 		*mulfac = 8;
+		n_samp = 16;
 		break;
 	case NINE_MSB:
 		*mulfac = 9;
+		n_samp = 16;
+		break;
+	case TEN_MSB:
+		*mulfac = 10;
+		n_samp = 16;
 		break;
 	default:
 		*mulfac = 1;
+		n_samp = 2;
 		break;
 	}
 
-	*iter = (n_freq * (*mulfac));
+	*iter = (n_freq * n_samp) / 2;
 }
 
 /*
@@ -646,67 +581,61 @@ abe_uint32 abe_dma_port_iter_factor(abe_data_format_t *f)
  *  Return value :
  *      Call Backs on Errors
  */
-abe_uint32 abe_dma_port_copy_subroutine_id(abe_port_id port_id)
+abe_uint32 abe_dma_port_copy_subroutine_id(abe_data_format_t *f, abe_uint32 direction)
 {
-	abe_uint32 sub_id;
+	abe_uint32 id;
 
-	if (abe_port[port_id].protocol.direction == ABE_ATC_DIRECTION_IN) {
-		switch (abe_port[port_id].format.samp_format){
-		case MONO_MSB:
-			sub_id = sub_copy_d2s_mono;
-			break;	// VX_DL
-		case STEREO_16_16:
-			sub_id = sub_copy_d2s_1616;
-			break;	// MM_DL
-		case STEREO_MSB:
-			sub_id = sub_copy_d2s;
-			break; // AMIC, MM_DL, VIB ..
-		case SIX_MSB:
-			if (port_id == DMIC_PORT) {
-				sub_id = sub_copy_dmic;
-				break;
-			}
+	if (direction == ABE_ATC_DIRECTION_IN) {
+		switch (f->samp_format) {
 		case THREE_MSB:
 		case FOUR_MSB:
 		case FIVE_MSB:
+		case SIX_MSB:
 		case SEVEN_MSB:
 		case EIGHT_MSB:
 		case NINE_MSB:
+		case TEN_MSB:
+		case TWO_MONO_MSB:	/* non-supported data format */
+		case MONO_16_LSB:
+			id = ERR_DEFAULT_DATA_READ;
+			break;
+		case MONO_MSB:
+			id = sub_copy_d2s_mono;
+			break;
+		case STEREO_16_16:
+			id = sub_copy_d2s_1616;
+			break;
+		case STEREO_MSB:
 		default:
-			sub_id = sub_null_copy;
+			id = sub_copy_d2s;
 			break;
 		}
 	} else {
-		switch (abe_port[port_id].format.samp_format) {
-		case MONO_MSB:
-			sub_id = sub_copy_s2d_mono;
-			break; // VX_UL
-		case STEREO_MSB:
-			sub_id = sub_copy_s2d;
-			break; // MM_UL2
-		case SIX_MSB:
-			if (port_id == PDM_DL_PORT) {
-				sub_id = sub_copy_mcpdm_dl;
-				break;
-			}
-			if (port_id == MM_UL_PORT) {
-				sub_id = sub_copy_mm_ul;
-				break;
-			}
-		case THREE_MSB:
+		switch (f->samp_format) {
+		case THREE_MSB:		/* formats directly managed in MM_UL2 router */
 		case FOUR_MSB:
 		case FIVE_MSB:
+		case SIX_MSB:
 		case SEVEN_MSB:
 		case EIGHT_MSB:
 		case NINE_MSB:
-			sub_id = sub_copy_mm_ul;
-			break;
+		case TEN_MSB:
+		case TWO_MONO_MSB:	/* non-supported data format */
 		case STEREO_16_16:
+		case MONO_16_LSB:
+			id = ERR_DEFAULT_DATA_WRITE;
+			break;
+		case MONO_MSB:
+			id = sub_copy_s2d_mono;
+			break;
+			id = ERR_DEFAULT_DATA_WRITE;
+			break;
+		case STEREO_MSB:
 		default:
-			sub_id = sub_null_copy;
+			id = sub_copy_s2d;
 			break;
 		}
 	}
 
-	return sub_id;
+	return id;
 }

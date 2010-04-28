@@ -19,7 +19,6 @@ void abe_check_opp(void);
 void abe_check_dma(void);
 void abe_debug_and_non_regression(void);
 void abe_check_mixers_gain_update(void);
-void abe_test_scenario(abe_int32 scenario_id);
 
 /*
  * HAL test DATA

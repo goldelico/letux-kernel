@@ -19,21 +19,32 @@ extern "C" {
  * External API
  */
 #if PC_SIMULATION
-extern void target_server_read_pmem(abe_uint32 address,	 abe_uint32 *data, abe_uint32 nb_words_32bits);
-extern void target_server_write_pmem(abe_uint32 address,	 abe_uint32 *data, abe_uint32 nb_words_32bits);
-extern void target_server_read_cmem(abe_uint32 address,	 abe_uint32 *data, abe_uint32 nb_words_32bits);
-extern void target_server_write_cmem(abe_uint32 address,	 abe_uint32 *data, abe_uint32 nb_words_32bits);
-extern void target_server_read_atc(abe_uint32 address,	 abe_uint32 *data, abe_uint32 nb_words_32bits);
-extern void target_server_write_atc(abe_uint32 address,        abe_uint32 *data, abe_uint32 nb_words_32bits);
-extern void target_server_read_smem(abe_uint32 address_48bits, abe_uint32 *data, abe_uint32 nb_words_48bits);
-extern void target_server_write_smem(abe_uint32 address_48bits, abe_uint32 *data, abe_uint32 nb_words_48bits);
-extern void target_server_read_dmem(abe_uint32 address_byte,   abe_uint32 *data, abe_uint32 nb_byte);
-extern void target_server_write_dmem(abe_uint32 address_byte,   abe_uint32 *data, abe_uint32 nb_byte);
+extern void target_server_read_pmem(abe_uint32 address, abe_uint32 *data,
+						   abe_uint32 nb_words_32bits);
+extern void target_server_write_pmem(abe_uint32 address, abe_uint32 *data,
+						   abe_uint32 nb_words_32bits);
+extern void target_server_read_cmem(abe_uint32 address, abe_uint32 *data,
+						   abe_uint32 nb_words_32bits);
+extern void target_server_write_cmem(abe_uint32 address, abe_uint32 *data,
+						   abe_uint32 nb_words_32bits);
+extern void target_server_read_atc(abe_uint32 address, abe_uint32 *data,
+						   abe_uint32 nb_words_32bits);
+extern void target_server_write_atc(abe_uint32 address, abe_uint32 *data,
+						   abe_uint32 nb_words_32bits);
+extern void target_server_read_smem(abe_uint32 address_48bits, abe_uint32 *data,
+						   abe_uint32 nb_words_48bits);
+extern void target_server_write_smem(abe_uint32 address_48bits,
+				abe_uint32 *data, abe_uint32 nb_words_48bits);
+extern void target_server_read_dmem(abe_uint32 address_byte, abe_uint32 *data,
+							abe_uint32 nb_byte);
+extern void target_server_write_dmem(abe_uint32 address_byte, abe_uint32 *data,
+							abe_uint32 nb_byte);
 
 extern void target_server_activate_mcpdm_ul(void);
 extern void target_server_activate_mcpdm_dl(void);
 extern void target_server_activate_dmic(void);
-extern void target_server_set_voice_sampling(int dVirtAudioVoiceMode, int dVirtAudioVoiceSampleFrequency);
+extern void target_server_set_voice_sampling(int dVirtAudioVoiceMode,
+					int dVirtAudioVoiceSampleFrequency);
 extern void target_server_set_dVirtAudioMultimediaMode(int dVirtAudioMultimediaMode);
 #endif
 
@@ -592,7 +603,7 @@ void abe_read_remaining_data(abe_port_id port, abe_uint32 *n);
  *  Return value :
  *      None.
  */
-void abe_disable_data_transfer (abe_port_id p);
+void abe_disable_data_transfer(abe_port_id p);
 
 /*
  *  ABE_ENABLE_DATA_TRANSFER
@@ -709,7 +720,7 @@ void abe_connect_dmareq_ping_pong_port(abe_port_id id, abe_data_format_t *f, abe
 *
 * @see	ABE_API.h
 */
-void abe_connect_serial_port(abe_port_id id, abe_data_format_t *f, abe_mcbsp_id i);
+void abe_connect_serial_port(abe_port_id id, abe_data_format_t *f, abe_uint32 i);
 
 /*
  *  ABE_WRITE_PORT_DESCRIPTOR
@@ -778,8 +789,7 @@ void abe_read_aps_energy(abe_port_id *p, abe_gain_t *a);
  *      error code in case the gain_id is not compatible with the current OPP value.
  */
 
-void abe_write_port_gain(abe_port_id port, abe_gain_t g, abe_ramp_t ramp);
-void abe_write_gain(abe_gain_id id, abe_gain_t f_g, abe_ramp_t f_ramp, abe_port_id p);
+void abe_write_port_gain (abe_port_id port, abe_gain_t g, abe_ramp_t ramp);
 
 /*
  *  ABE_READ_GAIN
@@ -846,8 +856,7 @@ void abe_write_equalizer(abe_equ_id id, abe_equ_t *param);
  *  Return value :
  *      None.
  */
-void abe_write_asrc(abe_asrc_id id, abe_drift_t param);
-void abe_set_asrc_drift_control(abe_asrc_id id, abe_uint32 f);
+void abe_write_asrc(abe_asrc_id id, abe_drift_t *param);
 
 /*
  *  ABE_WRITE_APS

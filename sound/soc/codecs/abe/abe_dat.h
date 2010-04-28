@@ -31,10 +31,10 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 	/* DMIC1 */
 	{
 		IDLE_P,
-		{96000, SIX_MSB},
+		{96000, STEREO_MSB},
 		NODRIFT,
 		NOCALLBACK,
-		0,
+		smem_dmic1,
 		0,
 		{
 			SNK_P,
@@ -46,8 +46,50 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 			}},
 		},
 		{0, 0},
-		{EQDMIC1, EQDMIC3, EQDMIC3, 0},
-		"DMIC",
+		{EQDMIC1, 0},
+		"DMIC_UL",
+	},
+	/* DMIC2 */
+	{
+		IDLE_P,
+		{96000, STEREO_MSB},
+		NODRIFT,
+		NOCALLBACK,
+		smem_dmic2,
+		0,
+		{
+			SNK_P,
+			DMIC_PORT_PROT,
+			{{
+				dmem_dmic,
+				dmem_dmic_size,
+				DMIC_ITER
+			}},
+		},
+		{0, 0},
+		{EQDMIC2, 0},
+		"DMIC_UL",
+	},
+	/* DMIC3 */
+	{
+		IDLE_P,
+		{96000, STEREO_MSB},
+		NODRIFT,
+		NOCALLBACK,
+		smem_dmic3,
+		0,
+		{
+			SNK_P,
+			DMIC_PORT_PROT,
+			{{
+				dmem_dmic,
+				dmem_dmic_size,
+				DMIC_ITER
+			}},
+		},
+		{0, 0},
+		{EQDMIC3, 0},
+		"DMIC_UL",
 	},
 	/* PDM_UL */
 	{
@@ -68,7 +110,7 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 		},
 		{0, 0},
 		{EQAMIC, 0},
-		"PDM_UL",
+		"AMIC_UL",
 	},
 	/* BT_VX_UL */
 	{
@@ -86,6 +128,7 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 				dmem_bt_vx_ul,
 				dmem_bt_vx_ul_size,
 				1 * SCHED_LOOP_8kHz,
+				DEFAULT_THR_WRITE,
 			}},
 		},
 		{0, 0},
@@ -108,6 +151,7 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 				dmem_mm_ul,
 				dmem_mm_ul_size,
 				10 * SCHED_LOOP_48kHz,
+				DEFAULT_THR_WRITE,
 				ABE_DMASTATUS_RAW,
 				1 << 3,
 			}},
@@ -132,6 +176,7 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 				dmem_mm_ul2,
 				dmem_mm_ul2_size,
 				2 * SCHED_LOOP_48kHz,
+				DEFAULT_THR_WRITE,
 				ABE_DMASTATUS_RAW,
 				1 << 4,
 			}},
@@ -156,6 +201,7 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 				dmem_vx_ul,
 				dmem_vx_ul_size / 2,
 				1 * SCHED_LOOP_8kHz,
+				DEFAULT_THR_WRITE,
 				ABE_DMASTATUS_RAW,
 				1 << 2,
 			}},
@@ -170,7 +216,7 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 		{48000, STEREO_MSB},
 		NODRIFT,
 		NOCALLBACK,
-		smem_mm_dl_opp100,
+		smem_mm_dl,
 		0,
 		{
 			SNK_P,
@@ -180,6 +226,7 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 				dmem_mm_dl,
 				dmem_mm_dl_size,
 				2 * SCHED_LOOP_48kHz,
+				DEFAULT_THR_READ,
 				ABE_DMASTATUS_RAW,
 				1 << 0,
 			}},
@@ -204,6 +251,7 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 				dmem_vx_dl,
 				dmem_vx_dl_size,
 				1 * SCHED_LOOP_8kHz,
+				DEFAULT_THR_READ,
 				ABE_DMASTATUS_RAW,
 				1 << 1,
 			}},
@@ -228,6 +276,7 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 				dmem_tones_dl,
 				dmem_tones_dl_size,
 				2 * SCHED_LOOP_48kHz,
+				DEFAULT_THR_READ,
 				ABE_DMASTATUS_RAW,
 				1 << 5,
 			}},
@@ -252,6 +301,7 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 				dmem_vib_dl,
 				dmem_vib_dl_size,
 				2 * SCHED_LOOP_24kHz,
+				DEFAULT_THR_READ,
 				ABE_DMASTATUS_RAW,
 				1 << 6,
 			}},
@@ -276,6 +326,7 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 				dmem_bt_vx_dl,
 				dmem_bt_vx_dl_size,
 				1 * SCHED_LOOP_8kHz,
+				DEFAULT_THR_WRITE,
 			}},
 		},
 		{0, 0},
@@ -285,7 +336,7 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 	/* PDM_DL1 */
 	{
 		IDLE_P,
-		{96000, SIX_MSB},
+		{96000, STEREO_MSB},
 		NODRIFT,
 		NOCALLBACK,
 		0,
@@ -299,8 +350,8 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 			}},
 		},
 		{0, 0},
-		{MIXDL1, EQ1, APS1, MIXDL2, EQ2L, EQ2R, APS2L, APS2R, 0},
-		"PDM_DL",
+		{MIXDL1, EQ1, APS1, 0},
+		"PDM_DL1",
 	},
 	/* MM_EXT_OUT */
 	{
@@ -314,39 +365,51 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 			SRC_P,
 			SERIAL_PORT_PROT,
 			{{
-				MCBSP1_DMA_TX * ATC_SIZE,
+				MCBSP1_DMA_RX * ATC_SIZE,
 				dmem_mm_ext_out,
 				dmem_mm_ext_out_size,
 				2 * SCHED_LOOP_48kHz,
+				DEFAULT_THR_WRITE,
 			}},
 		},
 		{0, 0},
 		{0},
 		"MM_EXT_OUT",
 	},
-	/* MM_EXT_IN */
+	/* PDM_DL2 */
 	{
 		IDLE_P,
-		{48000, STEREO_MSB},
+		{96000, STEREO_MSB},
 		NODRIFT,
 		NOCALLBACK,
-		smem_mm_ext_in,
+		0,
 		0,
 		{
 			SRC_P,
-			SERIAL_PORT_PROT,
-			{{
-				MCBSP1_DMA_RX * ATC_SIZE,
-				dmem_mm_ext_in,
-				dmem_mm_ext_in_size,
-				2 * SCHED_LOOP_48kHz,
-			}},
+			MCPDMDL_PORT_PROT,
+			{{0, 0, 0, 0, 0, 0, 0}},
+		},
+		{0, 0},
+		{MIXDL2, EQ2L, APS2L, EQ2R, APS2R, 0},
+		"PDM_DL2",
+	},
+	/* PDM_VIB */
+	{
+		IDLE_P,
+		{24000, STEREO_MSB},
+		NODRIFT,
+		NOCALLBACK,
+		0,
+		0,
+		{
+			SRC_P,
+			MCPDMDL_PORT_PROT,
+			{{0, 0, 0, 0, 0, 0, 0}},
 		},
 		{0, 0},
 		{0},
-		"MM_EXT_IN",
+		"PDM_VIB",
 	},
-#if 0
 	/* SCHD_DBG_PORT */
 	{
 		IDLE_P,
@@ -372,102 +435,117 @@ const abe_port_t abe_port_init[MAXNBABEPORTS] = {
 		{SEQUENCE, CONTROL, GAINS, 0},
 		"SCHD_DBG",
 	},
-#endif
 };
 
-const	abe_port_info_t abe_port_info[MAXNBABEPORTS] = {
-	/* DMIC */
+const abe_port_info_t abe_port_info[MAXNBABEPORTS] = {
+	/* DMIC1 */
 	{
 		ABE_OPP50,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
+	},
+	/* DMIC2 */
+	{
+		ABE_OPP50,
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT2, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
+	},
+	/* DMIC3 */
+	{
+		ABE_OPP50,
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT3, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
 	/* PDM_UL */
 	{
 		ABE_OPP50,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
 	/* BT_VX_UL */
 	{
 		ABE_OPP50,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
 	/* MM_UL */
 	{
 		ABE_OPP50,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
 	/* MM_UL2 */
 	{
 		ABE_OPP50,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
 	/* VX_UL */
 	{
 		ABE_OPP50,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
 	/* MM_DL */
 	{
 		ABE_OPP50,
 		{SUB_WRITE_MIXER, {MM_DL_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{0, {0, 0, 0, 0}},
 	},
 	/* VX_DL */
 	{
 		ABE_OPP50,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
 	/* TONES_DL */
 	{
 		ABE_OPP50,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
 	/* VIB_DL */
 	{
 		ABE_OPP50,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
 	/* BT_VX_DL */
 	{
 		ABE_OPP50,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
-	/* PDM_DL */
+	/* PDM_DL1 */
 	{
 		ABE_OPP50,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
 	/* MM_EXT_OUT */
 	{
 		ABE_OPP50,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
-	/* MM_EXT_IN */
+	/* PDM_DL2 */
 	{
 		ABE_OPP50,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
-	/*
-	SCHD_DBG_PORT
+	/* PDM_VIB */
+	{
+		ABE_OPP50,
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
+	},
+	/* SCHD_DBG_PORT */
 	{
 		ABE_OPP25,
-		{SUB_WRITE_PORT_GAIN, {DMIC_PORT, MUTE_GAIN, 0, 0}},
-		{0, {0, 0, 0, 0}}
+		{SUB_WRITE_PORT_GAIN, {DMIC_PORT1, MUTE_GAIN, 0, 0}},
+		{0, {0, 0, 0, 0}},
 	},
-	*/
 };
 
 /*
@@ -844,6 +922,41 @@ const abe_feature_t all_feature_init[] = {
 };
 
 /*
+ * Table indexed by the PORT_ID and returning the index
+ * to the D_IODescr table of structures
+ */
+const abe_uint32 sio_task_index[LAST_PORT_ID] =
+{
+	/* AE sink ports - Uplink */
+	7,	/* DMIC_PORT  - specific protocol */
+	7,	/* DMIC_PORT  - specific protocol */
+	7,	/* DMIC_PORT  - specific protocol */
+	8,	/* PDM_UL_PORT - specific protocol */
+	14,	/* BT_VX_UL_PORT BT uplink */
+
+	/* AE source ports - Uplink */
+	3,	/* MM_UL_PORT up to 5 stereo channels */
+	4,	/* MM_UL2_PORT stereo FM record path */
+	2,	/* VX_UL_PORT stereo FM record path */
+
+	/* AE sink ports - Downlink */
+	0,	/* MM_DL_PORT multimedia player audio path */
+	1,	/* VX_DL_PORT */
+	5,	/* TONES_DL_PORT */
+	6,	/* VIB_DL_PORT */
+
+	/* AE source ports - Downlink */
+	13,	/* BT_VX_DL_PORT */
+	9,	/* PDM_DL1_PORT */
+	12,	/* MM_EXT_OUT_PORT */
+	10,	/* PDM_DL2_PORT */
+	11,	/* PDM_VIB_PORT */
+
+	/* dummy port used to declare the other tasks of the scheduler */
+	SCHD_DBG_PORT,
+};
+
+/*
  * Memory mapping of DMEM FIFOs
  */
 abe_uint32 abe_map_dmem[LAST_PORT_ID];			/* DMEM port map */
@@ -855,52 +968,53 @@ abe_uint32 abe_map_dmem_size[LAST_PORT_ID];		/* DMEM port buffer sizes */
  * (except McASPs) from the original 64bits words address
  */
 const abe_uint32 abe_atc_dstid[ABE_ATC_DESC_SIZE >> 3] = {
-	/* DMA_0 DMIC  PDM_DL  PDM_UL  McB1TX  McB1RX  McB2TX  McB2RX  0-7 */
+     /* DMA_0   DMIC    PDM_DL  PDM_UL  McB1TX  McB1RX  McB2TX  McB2RX	 0-7 */
 	0,      0,      12,     0,      1,      0,      2,      0,
-	/* McB3TX  McB3RX  SLIMT0  SLIMT1  SLIMT2  SLIMT3  SLIMT4  SLIMT5	 8-15 */
+     /* McB3TX  McB3RX  SLIMT0  SLIMT1  SLIMT2  SLIMT3  SLIMT4  SLIMT5	 8-15 */
 	3,      0,      4,      5,      6,      7,      8,      9,
-	/* SLIMT6  SLIMT7  SLIMR0  SLIMR1  SLIMR2  SLIMR3  SLIMR4  SLIMR5	16-23 */
+     /* SLIMT6  SLIMT7  SLIMR0  SLIMR1  SLIMR2  SLIMR3  SLIMR4  SLIMR5	16-23 */
 	10,     11,     0,      0,      0,      0,      0,      0,
-	/* SLIMR6  SLIMR7  McASP1X ------  ------  McASP1R -----   ------  24-31 */
+     /* SLIMR6  SLIMR7  McASP1X ------  ------  McASP1R -----   ------  24-31 */
 	0,      0,      14,     0,      0,      0,      0,      0,
-	/* CBPrT0  CBPrT1  CBPrT2  CBPrT3  CBPrT4  CBPrT5  CBPrT6  CBPrT7  32-39 */
+     /* CBPrT0  CBPrT1  CBPrT2  CBPrT3  CBPrT4  CBPrT5  CBPrT6  CBPrT7  32-39 */
 	63,     63,     63,     63,     63,     63,     63,     63,
-	/* CBP_T0  CBP_T1  CBP_T2  CBP_T3  CBP_T4  CBP_T5  CBP_T6  CBP_T7	40-47 */
+     /* CBP_T0  CBP_T1  CBP_T2  CBP_T3  CBP_T4  CBP_T5  CBP_T6  CBP_T7	40-47 */
 	0,      0,      0,      0,      0,      0,      0,      0,
-	/* CBP_T8  CBP_T9  CBP_T10 CBP_T11 CBP_T12 CBP_T13 CBP_T14 CBP_T15	48-63 */
+     /* CBP_T8  CBP_T9  CBP_T10 CBP_T11 CBP_T12 CBP_T13 CBP_T14 CBP_T15	48-63 */
 	0,      0,      0,      0,      0,      0,      0,      0,
 };
 
 const abe_uint32 abe_atc_srcid[ABE_ATC_DESC_SIZE >> 3] = {
-	/* DMA_0   DMIC    PDM_DL  PDM_UL  McB1TX  McB1RX  McB2TX  McB2RX   0-7 */
+     /* DMA_0   DMIC    PDM_DL  PDM_UL  McB1TX  McB1RX  McB2TX  McB2RX   0-7 */
 	0,      12,     0,      13,     0,      1,      0,      2,
-	/* McB3TX  McB3RX  SLIMT0  SLIMT1  SLIMT2  SLIMT3  SLIMT4  SLIMT5   8-15 */
+     /* McB3TX  McB3RX  SLIMT0  SLIMT1  SLIMT2  SLIMT3  SLIMT4  SLIMT5   8-15 */
 	0,      3,      0,      0,      0,      0,      0,      0,
-	/* SLIMT6  SLIMT7  SLIMR0  SLIMR1  SLIMR2  SLIMR3  SLIMR4  SLIMR5  16-23 */
+     /* SLIMT6  SLIMT7  SLIMR0  SLIMR1  SLIMR2  SLIMR3  SLIMR4  SLIMR5  16-23 */
 	0,      0,      4,      5,      6,      7,      8,      9,
-	/* SLIMR6  SLIMR7  McASP1X ------  ------  McASP1R ------  ------  24-31 */
+     /* SLIMR6  SLIMR7  McASP1X ------  ------  McASP1R ------  ------  24-31 */
 	10,     11,     0,      0,      0,      14,     0,      0,
-	/* CBPrT0  CBPrT1  CBPrT2  CBPrT3  CBPrT4  CBPrT5  CBPrT6  CBPrT7  32-39 */
+     /* CBPrT0  CBPrT1  CBPrT2  CBPrT3  CBPrT4  CBPrT5  CBPrT6  CBPrT7  32-39 */
 	63,     63,     63,     63,     63,     63,     63,     63,
-	/* CBP_T0  CBP_T1  CBP_T2  CBP_T3  CBP_T4  CBP_T5  CBP_T6  CBP_T7  40-47 */
+     /* CBP_T0  CBP_T1  CBP_T2  CBP_T3  CBP_T4  CBP_T5  CBP_T6  CBP_T7  40-47 */
 	0,      0,      0,      0,      0,      0,      0,      0,
-	/* CBP_T8  CBP_T9  CBP_T10 CBP_T11 CBP_T12 CBP_T13 CBP_T14 CBP_T15 48-63 */
+     /* CBP_T8  CBP_T9  CBP_T10 CBP_T11 CBP_T12 CBP_T13 CBP_T14 CBP_T15 48-63 */
 	0,      0,      0,      0,      0,      0,      0,      0,
 };
 
 /*
  * Router tables
  */
+/* preset routing configurations */
 const abe_router_t abe_router_ul_table_preset[NBROUTE_CONFIG][NBROUTE_UL] = {
-	/* Voice uplink with Phoenix microphones - Uproute config_dmic1 */
+	/* Voice uplink with Phoenix microphones */
 	{
 		/* 0  .. 9   = MM_UL */
-		DMIC1_L_labelID,
-		DMIC1_R_labelID,
-		DMIC2_L_labelID,
-		DMIC2_R_labelID,
-		DMIC3_L_labelID,
-		DMIC3_R_labelID,
+		ZERO_labelID,
+		ZERO_labelID,
+		ZERO_labelID,
+		ZERO_labelID,
+		ZERO_labelID,
+		ZERO_labelID,
 		ZERO_labelID,
 		ZERO_labelID,
 		ZERO_labelID,
@@ -915,15 +1029,15 @@ const abe_router_t abe_router_ul_table_preset[NBROUTE_CONFIG][NBROUTE_UL] = {
 		ZERO_labelID,
 		ZERO_labelID,
 	},
-	/* Voice uplink with the first DMIC pair - Uproute config_dmic2 */
+	/* Voice uplink with the first DMIC pair */
 	{
 		/* 0  .. 9   = MM_UL */
+		DMIC1_L_labelID,
+		DMIC1_R_labelID,
 		DMIC2_L_labelID,
 		DMIC2_R_labelID,
 		DMIC3_L_labelID,
 		DMIC3_R_labelID,
-		DMIC1_L_labelID,
-		DMIC1_R_labelID,
 		ZERO_labelID,
 		ZERO_labelID,
 		ZERO_labelID,
@@ -938,15 +1052,15 @@ const abe_router_t abe_router_ul_table_preset[NBROUTE_CONFIG][NBROUTE_UL] = {
 		ZERO_labelID,
 		ZERO_labelID,
 	},
-	/* Voice uplink with the second DMIC pair - Uproute config_dmic3 */
+	/* Voice uplink with the second DMIC pair */
 	{
 		/* 0  .. 9   = MM_UL */
-		DMIC3_L_labelID,
-		DMIC3_R_labelID,
 		DMIC1_L_labelID,
 		DMIC1_R_labelID,
 		DMIC2_L_labelID,
 		DMIC2_R_labelID,
+		DMIC3_L_labelID,
+		DMIC3_R_labelID,
 		ZERO_labelID,
 		ZERO_labelID,
 		ZERO_labelID,
@@ -961,10 +1075,11 @@ const abe_router_t abe_router_ul_table_preset[NBROUTE_CONFIG][NBROUTE_UL] = {
 		ZERO_labelID,
 		ZERO_labelID,
 	},
-	/* VOICE UPLINK WITH THE LAST DMIC PAIR - UPROUTE_CONFIG_DMIC3 */
+	/* Voice uplink with the last DMIC pair */
 	{
-		AMIC_L_labelID,	/* 0  .. 9 = MM_UL */
-		AMIC_R_labelID,
+		/* 0  .. 9   = MM_UL */
+		DMIC1_L_labelID,
+		DMIC1_R_labelID,
 		DMIC2_L_labelID,
 		DMIC2_R_labelID,
 		DMIC3_L_labelID,
@@ -973,31 +1088,15 @@ const abe_router_t abe_router_ul_table_preset[NBROUTE_CONFIG][NBROUTE_UL] = {
 		ZERO_labelID,
 		ZERO_labelID,
 		ZERO_labelID,
-		DMIC3_L_labelID,
-		DMIC3_R_labelID,	/* 10 .. 11  = MM_UL2 */
-		DMIC3_L_labelID,
-		DMIC3_R_labelID,	/* 12 .. 13  = VX_UL */
-		ZERO_labelID,
-		ZERO_labelID,		/* 14 .. 15  = RESERVED */
-	},
-	/* VOICE UPLINK WITH THE BT - UPROUTE_CONFIG_BT */
-	{
-		BT_UL_L_labelID,
-		BT_UL_R_labelID,
-		DMIC2_L_labelID,
-		DMIC2_R_labelID,	/* 0  .. 9	 = MM_UL */
+		/* 10 .. 11  = MM_UL2 */
 		DMIC3_L_labelID,
 		DMIC3_R_labelID,
-		DMIC1_L_labelID,
-		DMIC1_R_labelID,
+		/* 12 .. 13  = VX_UL */
+		DMIC3_L_labelID,
+		DMIC3_R_labelID,
+		/* 14 .. 15  = RESERVED */
 		ZERO_labelID,
 		ZERO_labelID,
-		AMIC_L_labelID,
-		AMIC_R_labelID,		/* 10 .. 11  = MM_UL2 */
-		BT_UL_L_labelID,
-		BT_UL_R_labelID,	/* 12 .. 13  = VX_UL */
-		ZERO_labelID,
-		ZERO_labelID,		/* 14 .. 15  = RESERVED */
 	},
 };
 
@@ -1048,12 +1147,9 @@ const abe_sequence_t seq_null =	{
 	},
 };
 
-/* table of new subroutines called in the sequence */
-abe_subroutine2 abe_all_subsubroutine[MAXNBSUBROUTINE];
-/* number of parameters per calls */
-abe_uint32 abe_all_subsubroutine_nparam[MAXNBSUBROUTINE];
-/* index of the subroutine */
-abe_uint32 abe_subroutine_id[MAXNBSUBROUTINE];
+abe_subroutine2 abe_all_subsubroutine[MAXNBSUBROUTINE];	/* table of new subroutines called in the sequence */
+abe_uint32 abe_all_subsubroutine_nparam[MAXNBSUBROUTINE]; /* number of parameters per calls */
+abe_uint32 abe_subroutine_id[MAXNBSUBROUTINE];		/* index of the subroutine */
 abe_uint32* abe_all_subroutine_params[MAXNBSUBROUTINE];
 abe_uint32 abe_subroutine_write_pointer;
 
@@ -1076,8 +1172,6 @@ abe_seq_t abe_active_sequence[MAXACTIVESEQUENCE][MAXSEQUENCESTEPS];
 
 /* index of the plugged subroutine doing ping-pong cache-flush DMEM accesses */
 abe_uint32 abe_irq_pingpong_player_id;
-/* index of the plugged subroutine doing acoustics protection adaptation */
-abe_uint32 abe_irq_aps_adaptation_id;
 
 /* base addresses of the ping pong buffers in bytes addresses */
 abe_uint32 abe_base_address_pingpong[MAX_PINGPONG_BUFFERS];
@@ -1092,170 +1186,165 @@ abe_uint32 abe_nb_pingpong;
  * ABE CONST AREA FOR PARAMETERS TRANSLATION
  */
 const abe_uint32 abe_db2lin_table [sizeof_db2lin_table] = {
-	0x00000000,	/* SMEM coding of -120 dB */
-	0x00000000,	/* SMEM coding of -119 dB */
-	0x00000000,	/* SMEM coding of -118 dB */
-	0x00000000,	/* SMEM coding of -117 dB */
-	0x00000000,	/* SMEM coding of -116 dB */
-	0x00000000,	/* SMEM coding of -115 dB */
-	0x00000000,	/* SMEM coding of -114 dB */
-	0x00000000,	/* SMEM coding of -113 dB */
-	0x00000000,	/* SMEM coding of -112 dB */
-	0x00000000,	/* SMEM coding of -111 dB */
-	0x00000000,	/* SMEM coding of -110 dB */
-	0x00000000,	/* SMEM coding of -109 dB */
-	0x00000001,	/* SMEM coding of -108 dB */
-	0x00000001,	/* SMEM coding of -107 dB */
-	0x00000001,	/* SMEM coding of -106 dB */
-	0x00000001,	/* SMEM coding of -105 dB */
-	0x00000001,	/* SMEM coding of -104 dB */
-	0x00000001,	/* SMEM coding of -103 dB */
-	0x00000002,	/* SMEM coding of -102 dB */
-	0x00000002,	/* SMEM coding of -101 dB */
-	0x00000002,	/* SMEM coding of -100 dB */
-	0x00000002,	/* SMEM coding of  -99 dB */
-	0x00000003,	/* SMEM coding of  -98 dB */
-	0x00000003,	/* SMEM coding of  -97 dB */
-	0x00000004,	/* SMEM coding of  -96 dB */
-	0x00000004,	/* SMEM coding of  -95 dB */
-	0x00000005,	/* SMEM coding of  -94 dB */
-	0x00000005,	/* SMEM coding of  -93 dB */
-	0x00000006,	/* SMEM coding of  -92 dB */
-	0x00000007,	/* SMEM coding of  -91 dB */
-	0x00000008,	/* SMEM coding of  -90 dB */
-	0x00000009,	/* SMEM coding of  -89 dB */
-	0x0000000A,	/* SMEM coding of  -88 dB */
-	0x0000000B,	/* SMEM coding of  -87 dB */
-	0x0000000D,	/* SMEM coding of  -86 dB */
-	0x0000000E,	/* SMEM coding of  -85 dB */
-	0x00000010,	/* SMEM coding of  -84 dB */
-	0x00000012,	/* SMEM coding of  -83 dB */
-	0x00000014,	/* SMEM coding of  -82 dB */
-	0x00000017,	/* SMEM coding of  -81 dB */
-	0x0000001A,	/* SMEM coding of  -80 dB */
-	0x0000001D,	/* SMEM coding of  -79 dB */
-	0x00000021,	/* SMEM coding of  -78 dB */
-	0x00000025,	/* SMEM coding of  -77 dB */
-	0x00000029,	/* SMEM coding of  -76 dB */
-	0x0000002E,	/* SMEM coding of  -75 dB */
-	0x00000034,	/* SMEM coding of  -74 dB */
-	0x0000003A,	/* SMEM coding of  -73 dB */
-	0x00000041,	/* SMEM coding of  -72 dB */
-	0x00000049,	/* SMEM coding of  -71 dB */
-	0x00000052,	/* SMEM coding of  -70 dB */
-	0x0000005D,	/* SMEM coding of  -69 dB */
-	0x00000068,	/* SMEM coding of  -68 dB */
-	0x00000075,	/* SMEM coding of  -67 dB */
-	0x00000083,	/* SMEM coding of  -66 dB */
-	0x00000093,	/* SMEM coding of  -65 dB */
-	0x000000A5,	/* SMEM coding of  -64 dB */
-	0x000000B9,	/* SMEM coding of  -63 dB */
-	0x000000D0,	/* SMEM coding of  -62 dB */
-	0x000000E9,	/* SMEM coding of  -61 dB */
-	0x00000106,	/* SMEM coding of  -60 dB */
-	0x00000126,	/* SMEM coding of  -59 dB */
-	0x0000014A,	/* SMEM coding of  -58 dB */
-	0x00000172,	/* SMEM coding of  -57 dB */
-	0x0000019F,	/* SMEM coding of  -56 dB */
-	0x000001D2,	/* SMEM coding of  -55 dB */
-	0x0000020B,	/* SMEM coding of  -54 dB */
-	0x0000024A,	/* SMEM coding of  -53 dB */
-	0x00000292,	/* SMEM coding of  -52 dB */
-	0x000002E2,	/* SMEM coding of  -51 dB */
-	0x0000033C,	/* SMEM coding of  -50 dB */
-	0x000003A2,	/* SMEM coding of  -49 dB */
-	0x00000413,	/* SMEM coding of  -48 dB */
-	0x00000492,	/* SMEM coding of  -47 dB */
-	0x00000521,	/* SMEM coding of  -46 dB */
-	0x000005C2,	/* SMEM coding of  -45 dB */
-	0x00000676,	/* SMEM coding of  -44 dB */
-	0x0000073F,	/* SMEM coding of  -43 dB */
-	0x00000822,	/* SMEM coding of  -42 dB */
-	0x00000920,	/* SMEM coding of  -41 dB */
-	0x00000A3D,	/* SMEM coding of  -40 dB */
-	0x00000B7D,	/* SMEM coding of  -39 dB */
-	0x00000CE4,	/* SMEM coding of  -38 dB */
-	0x00000E76,	/* SMEM coding of  -37 dB */
-	0x0000103A,	/* SMEM coding of  -36 dB */
-	0x00001235,	/* SMEM coding of  -35 dB */
-	0x0000146E,	/* SMEM coding of  -34 dB */
-	0x000016EC,	/* SMEM coding of  -33 dB */
-	0x000019B8,	/* SMEM coding of  -32 dB */
-	0x00001CDC,	/* SMEM coding of  -31 dB */
-	0x00002061,	/* SMEM coding of  -30 dB */
-	0x00002455,	/* SMEM coding of  -29 dB */
-	0x000028C4,	/* SMEM coding of  -28 dB */
-	0x00002DBD,	/* SMEM coding of  -27 dB */
-	0x00003352,	/* SMEM coding of  -26 dB */
-	0x00003995,	/* SMEM coding of  -25 dB */
-	0x0000409C,	/* SMEM coding of  -24 dB */
-	0x0000487E,	/* SMEM coding of  -23 dB */
-	0x00005156,	/* SMEM coding of  -22 dB */
-	0x00005B43,	/* SMEM coding of  -21 dB */
-	0x00006666,	/* SMEM coding of  -20 dB */
-	0x000072E5,	/* SMEM coding of  -19 dB */
-	0x000080E9,	/* SMEM coding of  -18 dB */
-	0x000090A4,	/* SMEM coding of  -17 dB */
-	0x0000A24B,	/* SMEM coding of  -16 dB */
-	0x0000B618,	/* SMEM coding of  -15 dB */
-	0x0000CC50,	/* SMEM coding of  -14 dB */
-	0x0000E53E,	/* SMEM coding of  -13 dB */
-	0x00010137,	/* SMEM coding of  -12 dB */
-	0x0001209A,	/* SMEM coding of  -11 dB */
-	0x000143D1,	/* SMEM coding of  -10 dB */
-	0x00016B54,	/* SMEM coding of   -9 dB */
-	0x000197A9,	/* SMEM coding of   -8 dB */
-	0x0001C967,	/* SMEM coding of   -7 dB */
-	0x00020137,	/* SMEM coding of   -6 dB */
-	0x00023FD6,	/* SMEM coding of   -5 dB */
-	0x00028619,	/* SMEM coding of   -4 dB */
-	0x0002D4EF,	/* SMEM coding of   -3 dB */
-	0x00032D64,	/* SMEM coding of   -2 dB */
-	0x000390A4,	/* SMEM coding of   -1 dB */
-	0x00040000,	/* SMEM coding of    0 dB */
-	0x00047CF2,	/* SMEM coding of    1 dB */
-	0x00050923,	/* SMEM coding of    2 dB */
-	0x0005A670,	/* SMEM coding of    3 dB */
-	0x000656EE,	/* SMEM coding of    4 dB */
-	0x00071CF5,	/* SMEM coding of    5 dB */
-	0x0007FB26,	/* SMEM coding of    6 dB */
-	0x0008F473,	/* SMEM coding of    7 dB */
-	0x000A0C2B,	/* SMEM coding of    8 dB */
-	0x000B4606,	/* SMEM coding of    9 dB */
-	0x000CA62C,	/* SMEM coding of   10 dB */
-	0x000E314A,	/* SMEM coding of   11 dB */
-	0x000FEC9E,	/* SMEM coding of   12 dB */
-	0x0011DE0A,	/* SMEM coding of   13 dB */
-	0x00140C28,	/* SMEM coding of   14 dB */
-	0x00167E60,	/* SMEM coding of   15 dB */
-	0x00193D00,	/* SMEM coding of   16 dB */
-	0x001C515D,	/* SMEM coding of   17 dB */
-	0x001FC5EB,	/* SMEM coding of   18 dB */
-	0x0023A668,	/* SMEM coding of   19 dB */
-	0x00280000,	/* SMEM coding of   20 dB */
-	0x002CE178,	/* SMEM coding of   21 dB */
-	0x00325B65,	/* SMEM coding of   22 dB */
-	0x00388062,	/* SMEM coding of   23 dB */
-	0x003F654E,	/* SMEM coding of   24 dB */
-	0x00472194,	/* SMEM coding of   25 dB */
-	0x004FCF7C,	/* SMEM coding of   26 dB */
-	0x00598C81,	/* SMEM coding of   27 dB */
-	0x006479B7,	/* SMEM coding of   28 dB */
-	0x0070BC3D,	/* SMEM coding of   29 dB */
-	0x007E7DB9,	/* SMEM coding of   30 dB */
-};
+
+	 0x00000433,  /* CMEM coding of -120 dB */
+	 0x000004B7,  /* CMEM coding of -119 dB */
+	 0x00000547,  /* CMEM coding of -118 dB */
+	 0x000005EF,  /* CMEM coding of -117 dB */
+	 0x000006A7,  /* CMEM coding of -116 dB */
+	 0x00000777,  /* CMEM coding of -115 dB */
+	 0x0000085F,  /* CMEM coding of -114 dB */
+	 0x00000963,  /* CMEM coding of -113 dB */
+	 0x00000A8B,  /* CMEM coding of -112 dB */
+	 0x00000BD3,  /* CMEM coding of -111 dB */
+	 0x00000D43,  /* CMEM coding of -110 dB */
+	 0x00000EE3,  /* CMEM coding of -109 dB */
+	 0x000010B3,  /* CMEM coding of -108 dB */
+	 0x000012BF,  /* CMEM coding of -107 dB */
+	 0x00001507,  /* CMEM coding of -106 dB */
+	 0x00001797,  /* CMEM coding of -105 dB */
+	 0x00001A77,  /* CMEM coding of -104 dB */
+	 0x00001DB3,  /* CMEM coding of -103 dB */
+	 0x00002153,  /* CMEM coding of -102 dB */
+	 0x00002563,  /* CMEM coding of -101 dB */
+	 0x000029F3,  /* CMEM coding of -100 dB */
+	 0x00002F0F,  /* CMEM coding of  -99 dB */
+	 0x000034CF,  /* CMEM coding of  -98 dB */
+	 0x00003B3F,  /* CMEM coding of  -97 dB */
+	 0x0000427B,  /* CMEM coding of  -96 dB */
+	 0x00004A97,  /* CMEM coding of  -95 dB */
+	 0x000053AF,  /* CMEM coding of  -94 dB */
+	 0x00005DE7,  /* CMEM coding of  -93 dB */
+	 0x0000695B,  /* CMEM coding of  -92 dB */
+	 0x00007637,  /* CMEM coding of  -91 dB */
+	 0x000084A3,  /* CMEM coding of  -90 dB */
+	 0x000094D3,  /* CMEM coding of  -89 dB */
+	 0x0000A6FB,  /* CMEM coding of  -88 dB */
+	 0x0000BB5B,  /* CMEM coding of  -87 dB */
+	 0x0000D237,  /* CMEM coding of  -86 dB */
+	 0x0000EBDF,  /* CMEM coding of  -85 dB */
+	 0x000108A7,  /* CMEM coding of  -84 dB */
+	 0x000128EF,  /* CMEM coding of  -83 dB */
+	 0x00014D2B,  /* CMEM coding of  -82 dB */
+	 0x000175D3,  /* CMEM coding of  -81 dB */
+	 0x0001A36F,  /* CMEM coding of  -80 dB */
+	 0x0001D69B,  /* CMEM coding of  -79 dB */
+	 0x0002100B,  /* CMEM coding of  -78 dB */
+	 0x00025077,  /* CMEM coding of  -77 dB */
+	 0x000298C3,  /* CMEM coding of  -76 dB */
+	 0x0002E9DF,  /* CMEM coding of  -75 dB */
+	 0x000344DF,  /* CMEM coding of  -74 dB */
+	 0x0003AAFF,  /* CMEM coding of  -73 dB */
+	 0x00041D8F,  /* CMEM coding of  -72 dB */
+	 0x00049E1F,  /* CMEM coding of  -71 dB */
+	 0x00052E5B,  /* CMEM coding of  -70 dB */
+	 0x0005D033,  /* CMEM coding of  -69 dB */
+	 0x000685CB,  /* CMEM coding of  -68 dB */
+	 0x00075187,  /* CMEM coding of  -67 dB */
+	 0x00083623,  /* CMEM coding of  -66 dB */
+	 0x000936A3,  /* CMEM coding of  -65 dB */
+	 0x000A566F,  /* CMEM coding of  -64 dB */
+	 0x000B9957,  /* CMEM coding of  -63 dB */
+	 0x000D03A7,  /* CMEM coding of  -62 dB */
+	 0x000E9A2F,  /* CMEM coding of  -61 dB */
+	 0x0010624F,  /* CMEM coding of  -60 dB */
+	 0x00126217,  /* CMEM coding of  -59 dB */
+	 0x0014A053,  /* CMEM coding of  -58 dB */
+	 0x0017249F,  /* CMEM coding of  -57 dB */
+	 0x0019F787,  /* CMEM coding of  -56 dB */
+	 0x001D22A7,  /* CMEM coding of  -55 dB */
+	 0x0020B0BF,  /* CMEM coding of  -54 dB */
+	 0x0024ADE3,  /* CMEM coding of  -53 dB */
+	 0x0029279F,  /* CMEM coding of  -52 dB */
+	 0x002E2D27,  /* CMEM coding of  -51 dB */
+	 0x0033CF8F,  /* CMEM coding of  -50 dB */
+	 0x003A21F3,  /* CMEM coding of  -49 dB */
+	 0x004139D7,  /* CMEM coding of  -48 dB */
+	 0x00492F43,  /* CMEM coding of  -47 dB */
+	 0x00521D53,  /* CMEM coding of  -46 dB */
+	 0x005C224F,  /* CMEM coding of  -45 dB */
+	 0x00676043,  /* CMEM coding of  -44 dB */
+	 0x0073FD63,  /* CMEM coding of  -43 dB */
+	 0x0082248F,  /* CMEM coding of  -42 dB */
+	 0x009205C3,  /* CMEM coding of  -41 dB */
+	 0x00A3D70F,  /* CMEM coding of  -40 dB */
+	 0x00B7D4DF,  /* CMEM coding of  -39 dB */
+	 0x00CE4327,  /* CMEM coding of  -38 dB */
+	 0x00E76E1F,  /* CMEM coding of  -37 dB */
+	 0x0103AB47,  /* CMEM coding of  -36 dB */
+	 0x01235A6F,  /* CMEM coding of  -35 dB */
+	 0x0146E763,  /* CMEM coding of  -34 dB */
+	 0x016ECAC7,  /* CMEM coding of  -33 dB */
+	 0x019B8C27,  /* CMEM coding of  -32 dB */
+	 0x01CDC387,  /* CMEM coding of  -31 dB */
+	 0x02061BA3,  /* CMEM coding of  -30 dB */
+	 0x0245537B,  /* CMEM coding of  -29 dB */
+	 0x028C4247,  /* CMEM coding of  -28 dB */
+	 0x02DBD8B7,  /* CMEM coding of  -27 dB */
+	 0x0335251F,  /* CMEM coding of  -26 dB */
+	 0x03995707,  /* CMEM coding of  -25 dB */
+	 0x0409C2DB,  /* CMEM coding of  -24 dB */
+	 0x0487E5E3,  /* CMEM coding of  -23 dB */
+	 0x05156D83,  /* CMEM coding of  -22 dB */
+	 0x05B439D3,  /* CMEM coding of  -21 dB */
+	 0x06666663,  /* CMEM coding of  -20 dB */
+	 0x072E508B,  /* CMEM coding of  -19 dB */
+	 0x080E9FF3,  /* CMEM coding of  -18 dB */
+	 0x090A4D03,  /* CMEM coding of  -17 dB */
+	 0x0A24B093,  /* CMEM coding of  -16 dB */
+	 0x0B6188A3,  /* CMEM coding of  -15 dB */
+	 0x0CC50983,  /* CMEM coding of  -14 dB */
+	 0x0E53EB73,  /* CMEM coding of  -13 dB */
+	 0x00404DE8,  /* CMEM coding of  -12 dB */
+	 0x0048268C,  /* CMEM coding of  -11 dB */
+	 0x0050F44C,  /* CMEM coding of  -10 dB */
+	 0x005AD50C,  /* CMEM coding of   -9 dB */
+	 0x0065EA58,  /* CMEM coding of   -8 dB */
+	 0x007259D8,  /* CMEM coding of   -7 dB */
+	 0x004026E9,  /* CMEM coding of   -6 dB */
+	 0x0047FAC9,  /* CMEM coding of   -5 dB */
+	 0x0050C335,  /* CMEM coding of   -4 dB */
+	 0x005A9DF9,  /* CMEM coding of   -3 dB */
+	 0x0065AC89,  /* CMEM coding of   -2 dB */
+	 0x00721481,  /* CMEM coding of   -1 dB */
+	 0x00040002,  /* CMEM coding of    0 dB */
+	 0x00047CF2,  /* CMEM coding of    1 dB */
+	 0x00050922,  /* CMEM coding of    2 dB */
+	 0x0005A672,  /* CMEM coding of    3 dB */
+	 0x000656EE,  /* CMEM coding of    4 dB */
+	 0x00071CF6,  /* CMEM coding of    5 dB */
+	 0x0007FB26,  /* CMEM coding of    6 dB */
+	 0x0008F472,  /* CMEM coding of    7 dB */
+	 0x000A0C2E,  /* CMEM coding of    8 dB */
+	 0x000B4606,  /* CMEM coding of    9 dB */
+	 0x000CA62E,  /* CMEM coding of   10 dB */
+	 0x000E314A,  /* CMEM coding of   11 dB */
+	 0x000FEC9E,  /* CMEM coding of   12 dB */
+	 0x0011DE0A,  /* CMEM coding of   13 dB */
+	 0x00140C2A,  /* CMEM coding of   14 dB */
+	 0x00167E5E,  /* CMEM coding of   15 dB */
+	 0x00193D02,  /* CMEM coding of   16 dB */
+	 0x001C515E,  /* CMEM coding of   17 dB */
+	 0x001FC5EA,  /* CMEM coding of   18 dB */
+	 0x0023A66A,  /* CMEM coding of   19 dB */
+	 0x00280002,  /* CMEM coding of   20 dB */
+	 0x002CE176,  /* CMEM coding of   21 dB */
+	 0x00325B66,  /* CMEM coding of   22 dB */
+	 0x00388062,  /* CMEM coding of   23 dB */
+	 0x003F654E,  /* CMEM coding of   24 dB */
+	 0x00472196,  /* CMEM coding of   25 dB */
+	 0x004FCF7E,  /* CMEM coding of   26 dB */
+	 0x00598C82,  /* CMEM coding of   27 dB */
+	 0x006479BA,  /* CMEM coding of   28 dB */
+	 0x0070BC3E,  /* CMEM coding of   29 dB */
+	 0x007E7DB6,  /* CMEM coding of   30 dB */
+ };
 
 
 const abe_uint32 abe_sin_table [] = { 0 };
 /*
  * ABE_DEBUG DATA
  */
-
-/*
- * IRQ and trace pointer in DMEM:
- * FW updates a write pointer at "MCU_IRQ_FIFO_ptr_labelID", the read pointer is in HAL
- */
-abe_uint32 abe_irq_dbg_read_ptr;
 
 /* General circular buffer used to trace APIs calls and AE activity */
 abe_uint32 abe_dbg_activity_log[DBG_LOG_SIZE];
@@ -1277,21 +1366,21 @@ abe_uint32 param3[SIZE_PARAM];
 abe_uint32 param4[SIZE_PARAM];
 abe_uint32 param5[SIZE_PARAM];
 
-volatile abe_uint32 just_to_avoid_the_many_warnings;
-volatile abe_gain_t just_to_avoid_the_many_warnings_abe_gain_t;
-volatile abe_ramp_t just_to_avoid_the_many_warnings_abe_ramp_t;
-volatile abe_dma_t just_to_avoid_the_many_warnings_abe_dma_t;
-volatile abe_port_id just_to_avoid_the_many_warnings_abe_port_id;
-volatile abe_millis_t just_to_avoid_the_many_warnings_abe_millis_t;
-volatile abe_micros_t just_to_avoid_the_many_warnings_abe_micros_t;
-volatile abe_patch_rev just_to_avoid_the_many_warnings_abe_patch_rev;
-volatile abe_sequence_t just_to_avoid_the_many_warnings_abe_sequence_t;
-volatile abe_ana_port_id just_to_avoid_the_many_warnings_abe_ana_port_id;
-volatile abe_time_stamp_t just_to_avoid_the_many_warnings_abe_time_stamp_t;
-volatile abe_data_format_t just_to_avoid_the_many_warnings_abe_data_format_t;
-volatile abe_port_protocol_t just_to_avoid_the_many_warnings_abe_port_protocol_t;
-volatile abe_router_t just_to_avoid_the_many_warnings_abe_router_t;
-volatile abe_router_id just_to_avoid_the_many_warnings_abe_router_id;
+volatile abe_uint32		just_to_avoid_the_many_warnings;
+volatile abe_gain_t		just_to_avoid_the_many_warnings_abe_gain_t;
+volatile abe_ramp_t		just_to_avoid_the_many_warnings_abe_ramp_t;
+volatile abe_dma_t		just_to_avoid_the_many_warnings_abe_dma_t;
+volatile abe_port_id		just_to_avoid_the_many_warnings_abe_port_id;
+volatile abe_millis_t		just_to_avoid_the_many_warnings_abe_millis_t;
+volatile abe_micros_t		just_to_avoid_the_many_warnings_abe_micros_t;
+volatile abe_patch_rev		just_to_avoid_the_many_warnings_abe_patch_rev;
+volatile abe_sequence_t	just_to_avoid_the_many_warnings_abe_sequence_t;
+volatile abe_ana_port_id	just_to_avoid_the_many_warnings_abe_ana_port_id;
+volatile abe_time_stamp_t	just_to_avoid_the_many_warnings_abe_time_stamp_t;
+volatile abe_data_format_t	just_to_avoid_the_many_warnings_abe_data_format_t;
+volatile abe_port_protocol_t	just_to_avoid_the_many_warnings_abe_port_protocol_t;
+volatile abe_router_t		just_to_avoid_the_many_warnings_abe_router_t;
+volatile abe_router_id		just_to_avoid_the_many_warnings_abe_router_id;
 
 #ifdef __cplusplus
 }

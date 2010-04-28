@@ -20,19 +20,16 @@
  */
 
 /*
- * ABE_IRQ_PING_PONG
- * Parameter  :
- * No parameter
+ *	ABE_IRQ_PING_PONG
  *
- * Operations :
- * Call the respective subroutine depending on the IRQ FIFO content:
- * APS interrupts : IRQtag_APS to [31:28], APS_IRQs to [27:16], loopCounter to [15:0]
- * SEQ interrupts : IRQtag_COUNT to [31:28], Count_IRQs to [27:16], loopCounter to [15:0]
- * Ping-Pong Interrupts : IRQtag_PP to [31:28], PP_MCU_IRQ to [27:16], loopCounter to [15:0]
- * Check for ping-pong subroutines (low-power players)
+ *	Parameter  :
+ *		No parameter
  *
- * Return value :
- * None.
+ *	Operations :
+ *      Check for ping-pong subroutines (low-power players)
+ *
+ *	Return value :
+ *		None.
  */
 void abe_irq_ping_pong(void)
 {
@@ -40,32 +37,17 @@ void abe_irq_ping_pong(void)
 }
 
 /*
- * ABE_IRQ_CHECK_FOR_SEQUENCES
- * Parameter  :
- * No parameter
+ *	ABE_IRQ_CHECK_FOR_SEQUENCES
  *
- * Operations :
- * check the active sequence list
+ *	Parameter  :
+ *		No parameter
  *
- * Return value :
- * None.
+ *	Operations :
+ *      check the active sequence list
+ *
+ *	Return value :
+ *		None.
  */
-void abe_irq_check_for_sequences(abe_uint32 i)
+void abe_irq_check_for_sequences(void)
 {
-}
-
-/*
- * ABE_IRQ_APS
- * Parameter  :
- * No parameter
- *
- * Operations :
- * call the application subroutines that updates the acoustics protection filters
- *
- * Return value :
- * None.
- */
-void abe_irq_aps(abe_uint32 aps_info)
-{
-	abe_call_subroutine(abe_irq_aps_adaptation_id, NOPARAMETER, NOPARAMETER, NOPARAMETER, NOPARAMETER);
 }

@@ -8,50 +8,79 @@
  * ==========================================================================
  */
 
-#include "abe_cm_addr.h"
-#include "abe_sm_addr.h"
-#include "abe_dm_addr.h"
-#include "abe_typedef.h"
+//#include "ABE_CM_ADDR.h"
+//#include "ABE_SM_ADDR.h"
+//#include "ABE_DM_ADDR.h"
+//#include "ABE_typedef.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * GLOBAL DEFINITION
  */
 #define FW_SCHED_LOOP_FREQ		4000	/* one scheduler loop = 4kHz = 12 samples at 48kHz */
-#define EVENT_FREQUENCY			96000
-#define SLOTS_IN_SCHED_LOOP		(96000/FW_SCHED_LOOP_FREQ)
 
 #define SCHED_LOOP_8kHz			( 8000/FW_SCHED_LOOP_FREQ)
 #define SCHED_LOOP_16kHz		(16000/FW_SCHED_LOOP_FREQ)
 #define SCHED_LOOP_24kHz		(24000/FW_SCHED_LOOP_FREQ)
 #define SCHED_LOOP_48kHz		(48000/FW_SCHED_LOOP_FREQ)
 
-#define TASKS_IN_SLOT			8
+#define TASKS_IN_SLOT			4
+#define TASKS_IN_SLOT_OPP_25		1	/* Step = 4 <> 1 task per slot  */
+#define TASKS_IN_SLOT_OPP_50		2
+#define TASKS_IN_SLOT_OPP_100		4
+
+#define SCHED_TASK_STEP_OPP_25		4
+#define SCHED_TASK_STEP_OPP_50		2
+#define SCHED_TASK_STEP_OPP_100		1
 /*
  * DMEM AREA - SCHEDULER
  */
 #define smem_mm_trace			0
-#define dmem_mm_trace			D_debugATCptrs_ADDR
-#define dmem_mm_trace_size		((D_debugATCptrs_ADDR_END-D_debugATCptrs_ADDR+1)/4)
+#define dmem_mm_trace			0
+#define dmem_mm_trace_size		0
 
+/* ATC descriptors not using the AESS naming convention
+typedef struct abeatcdescTag {
+    unsigned readPointer:7;	// Desc0
+    unsigned reserved0:1;
+    unsigned bufSize:7;
+    unsigned IRQdest:1;
+    unsigned error:1;
+    unsigned reserved1:5;
+    unsigned direction:1;
+    unsigned empty:1;
+    unsigned writePointer:7;
+    unsigned reserved2:1;
+    unsigned baseAddr:12;	// Desc1
+    unsigned iteration_lower4:4; // iteration field overlaps the 16 bits boundary
+    unsigned iteration_upper3:3;
+    unsigned source:6;
+    unsigned dest:6;
+    unsigned DescrAct:1;
+} ABE_SAtcDescriptor;
+*/
 
 #define ATC_SIZE			8   /* 8 bytes per descriptors */
 
 typedef struct {
-	unsigned rdpt:7;	/* first 32bits word of the descriptor */
-	unsigned reserved0:1;
-	unsigned cbsize:7;
-	unsigned irqdest:1;
-	unsigned cberr:1;
-	unsigned reserved1:5;
-	unsigned cbdir:1;
-	unsigned nw:1;
-	unsigned wrpt:7;
-	unsigned reserved2:1;
-	unsigned badd:12;	/* second 32bits word of the descriptor */
-	unsigned iter:7;	/*  iteration field overlaps the 16 bits boundary */
-	unsigned srcid:6;
-	unsigned destid:6;
-	unsigned desen:1;
+    unsigned rdpt:7;	/* first 32bits word of the descriptor */
+    unsigned reserved0:1;
+    unsigned cbsize:7;
+    unsigned irqdest:1;
+    unsigned cberr:1;
+    unsigned reserved1:5;
+    unsigned cbdir:1;
+    unsigned nw:1;
+    unsigned wrpt:7;
+    unsigned reserved2:1;
+    unsigned badd:12;	/* second 32bits word of the descriptor */
+    unsigned iter:7;	/*  iteration field overlaps the 16 bits boundary  */
+    unsigned srcid:6;
+    unsigned destid:6;
+    unsigned desen:1;
 } abe_satcdescriptor_aess;
 
 /*
@@ -115,7 +144,7 @@ typedef struct {
 /*
  *  I/O DESCRIPTORS
  */
-#define dmem_port_descriptors		D_IOdescr_ADDR
+#define dmem_port_descriptors		D_IODescr_ADDR
 
 /* ping_pong_t descriptors table
  *   structure of 8 bytes:
@@ -244,18 +273,26 @@ typedef struct {
 /*
  *  ATC BUFFERS + IO TASKS SMEM buffers
  */
-#define dmem_dmic			D_DMIC_UL_FIFO_ADDR
-#define dmem_dmic_size			((D_DMIC_UL_FIFO_ADDR_END-D_DMIC_UL_FIFO_ADDR+1)/4)
+#define dmem_dmic			D_DMIC_UL_Fifo_ADDR
+#define dmem_dmic_size			((D_DMIC_UL_Fifo_ADDR_END-D_DMIC_UL_Fifo_ADDR+1)/4)
 #define smem_dmic1			DMIC0_96_labelID
 #define smem_dmic2			DMIC1_96_labelID
 #define smem_dmic3			DMIC2_96_labelID
 
-#define dmem_amic			D_McPDM_UL_FIFO_ADDR
-#define dmem_amic_size			((D_McPDM_UL_FIFO_ADDR_END-D_McPDM_UL_FIFO_ADDR+1)/4)
+#define dmem_amic			D_McPDM_UL_Fifo_ADDR
+#define dmem_amic_size			((D_McPDM_UL_Fifo_ADDR_END-D_McPDM_UL_Fifo_ADDR+1)/4)
 #define smem_amic			AMIC_96_labelID
 
-#define dmem_mcpdm			D_McPDM_DL_FIFO_ADDR
-#define dmem_mcpdm_size			((D_McPDM_DL_FIFO_ADDR_END-D_McPDM_DL_FIFO_ADDR+1)/4)
+#define dmem_mcpdm			D_McPDM_DL_Fifo_ADDR
+#define dmem_mcpdm_size			((D_McPDM_DL_Fifo_ADDR_END-D_McPDM_DL_Fifo_ADDR+1)/4)
+
+#define dmem_bt_vx_dl			0
+#define dmem_bt_vx_dl_size		0
+#define smem_bt_vx_ul			0
+
+#define dmem_bt_vx_ul			0
+#define dmem_bt_vx_ul_size		0
+#define smem_bt_vx_dl			0	/* @@@ TBD IN FIRMWARE */
 
 #define dmem_mm_ul			D_MM_UL_FIFO_ADDR
 #define dmem_mm_ul_size			((D_MM_UL_FIFO_ADDR_END-D_MM_UL_FIFO_ADDR+1)/4)
@@ -265,42 +302,29 @@ typedef struct {
 #define dmem_mm_ul2_size		((D_MM_UL2_FIFO_ADDR_END-D_MM_UL2_FIFO_ADDR+1)/4)
 #define smem_mm_ul2			MM_UL2_labelID /* managed directly by the router */
 
-#define dmem_mm_dl			D_MM_DL_FIFO_ADDR
-#define dmem_mm_dl_size			((D_MM_DL_FIFO_ADDR_END-D_MM_DL_FIFO_ADDR+1)/4)
-#define smem_mm_dl_opp100		MM_DL_labelID
-#define smem_mm_dl_opp25			MM_DL_labelID		/* @@@ at OPP 25/50 or without ASRC */
+#define dmem_mm_dl			D_MM_DL_ADDR
+#define dmem_mm_dl_size			((D_MM_DL_ADDR_END-D_MM_DL_ADDR+1)/4)
+#define smem_mm_dl			MM_DL_labelID		/* @@@ at OPP 25/50 or without ASRC */
 
-#define dmem_vx_dl			D_VX_DL_FIFO_ADDR
-#define dmem_vx_dl_size			((D_VX_DL_FIFO_ADDR_END-D_VX_DL_FIFO_ADDR+1)/4)
-#define smem_vx_dl			Voice_16k_DL_labelID	/* ASRC input buffer, size 40 */
+#define dmem_vx_dl			D_VX_DL_ADDR
+#define dmem_vx_dl_size			((D_VX_DL_ADDR_END-D_VX_DL_ADDR+1)/4)
+#define smem_vx_dl			Voice_8k_DL_labelID	/* ASRC input buffer, size 40 */
 
-#define dmem_vx_ul			D_VX_UL_FIFO_ADDR
-#define dmem_vx_ul_size			((D_VX_UL_FIFO_ADDR_END-D_VX_UL_FIFO_ADDR+1)/4)
-#define smem_vx_ul			Voice_16k_UL_labelID
+#define dmem_vx_ul			D_VX_UL_ADDR
+#define dmem_vx_ul_size			((D_VX_UL_ADDR_END-D_VX_UL_ADDR+1)/4)
+#define smem_vx_ul			Voice_8k_UL_labelID
 
-#define dmem_tones_dl			D_TONES_DL_FIFO_ADDR
-#define dmem_tones_dl_size		((D_TONES_DL_FIFO_ADDR_END-D_TONES_DL_FIFO_ADDR+1)/4)
+#define dmem_tones_dl			D_TONES_DL_ADDR
+#define dmem_tones_dl_size		((D_TONES_DL_ADDR_END-D_TONES_DL_ADDR+1)/4)
 #define smem_tones_dl			Tones_labelID
 
-#define dmem_vib_dl			D_VIB_DL_FIFO_ADDR
-#define dmem_vib_dl_size		((D_VIB_DL_FIFO_ADDR_END-D_VIB_DL_FIFO_ADDR+1)/4)
+#define dmem_vib_dl			D_VIBRA_DL_ADDR
+#define dmem_vib_dl_size		((D_VIBRA_DL_ADDR_END-D_VIBRA_DL_ADDR+1)/4)
 #define smem_vib			IO_VIBRA_DL_labelID
 
-#define dmem_mm_ext_out			D_MM_EXT_OUT_FIFO_ADDR
-#define dmem_mm_ext_out_size		((D_MM_EXT_OUT_FIFO_ADDR_END-D_MM_EXT_OUT_FIFO_ADDR+1)/4)
-#define smem_mm_ext_out			DL1_M_labelID
-
-#define dmem_mm_ext_in			D_MM_EXT_IN_FIFO_ADDR
-#define dmem_mm_ext_in_size		((D_MM_EXT_IN_FIFO_ADDR_END-D_MM_EXT_IN_FIFO_ADDR+1)/4)
-#define smem_mm_ext_in			AMIC_labelID
-
-#define dmem_bt_vx_dl			D_BT_DL_FIFO_ADDR
-#define dmem_bt_vx_dl_size		((D_BT_DL_FIFO_ADDR_END-D_BT_DL_FIFO_ADDR+1)/4)
-#define smem_bt_vx_dl			AMIC_labelID
-
-#define dmem_bt_vx_ul			D_BT_UL_FIFO_ADDR
-#define dmem_bt_vx_ul_size		((D_BT_UL_FIFO_ADDR_END-D_BT_UL_FIFO_ADDR+1)/4)
-#define smem_bt_vx_ul			DL1_M_labelID
+#define dmem_mm_ext_out			0
+#define dmem_mm_ext_out_size		0
+#define smem_mm_ext_out			0
 
 /*
  * INITPTR / INITREG AREA
@@ -358,8 +382,8 @@ typedef struct {
  * ---------------
  * 18 = TOTAL
  */
-//#define smem_g0			S_GTarget_ADDR	/* [9] 2 gains in 1 SM address */
-//#define smem_g1			S_GCurrent_ADDR	/* [9] 2 gains in 1 SM address */
+#define smem_g0			S_GTarget_ADDR	/* [9] 2 gains in 1 SM address */
+#define smem_g1			S_GCurrent_ADDR	/* [9] 2 gains in 1 SM address */
 
 /*
  * COEFFICIENTS AREA
@@ -381,31 +405,20 @@ typedef struct {
 #define cmem_gain_1_alpha	C_1_Alpha_ADDR
 
 /*
- * gain controls
+ *  true gain values in the multiplier format (shift +6), left and right
+ *  int24 cmem_gains [18]
  */
-#define GAIN_LEFT_OFFSET	(abe_port_id)0
-#define GAIN_RIGHT_OFFSET	(abe_port_id)1
+#define cmem_gain_ramp		C_GainsWRamp_ADDR	/* [18] */
+#define cmem_ramp_1_M_alpha	C_1_Alpha_ADDR
+#define cmem_ramp_alpha		C_Alpha_ADDR
 
-#define cmem_gains_base		C_GainsWRamp_ADDR
-#define smem_target_gain_base	S_GTarget1_ADDR
-#define cmem_1_Alpha_base	C_1_Alpha_ADDR
-#define cmem_Alpha_base		C_Alpha_ADDR
-
-#define dmic1_gains_offset	0	/* stereo gains */
-#define dmic2_gains_offset	2	/* stereo gains */
-#define dmic3_gains_offset	4	/* stereo gains */
-#define amic_gains_offset	6	/* stereo gains */
-#define dl1_gains_offset	8	/* stereo gains */
-#define dl2_gains_offset	10	/* stereo gains */
-#define splitters_gains_offset	12	/* stereo gains */
-
-#define mixer_dl1_offset	14
-#define mixer_dl2_offset	18
-#define mixer_echo_offset	22
-#define mixer_sdt_offset	24
-#define mixer_vxrec_offset	26
-#define mixer_audul_offset	30
-#define gain_unused_offset	34
+#define cmem_mixers_offset	30
+#define cmem_mixer_dl1		(cmem_gain_ramp + cmem_mixers_offset +  0)
+#define cmem_mixer_dl2		(cmem_gain_ramp + cmem_mixers_offset +  4)
+#define cmem_mixer_echo		(cmem_gain_ramp + cmem_mixers_offset +  8)
+#define cmem_mixer_sdt		(cmem_gain_ramp + cmem_mixers_offset + 10)
+#define cmem_mixer_vxrec	(cmem_gain_ramp + cmem_mixers_offset + 12)
+#define cmem_mixer_audul	(cmem_gain_ramp + cmem_mixers_offset + 16)
 
 /*
  *  DMIC SRC 96->48
@@ -452,10 +465,7 @@ typedef struct {
 /*
  * PMEM AREA
  */
-#define sub_null_copy		NULL_COPY_CFPID
-#define sub_copy_dmic		COPY_DMIC_CFPID
-#define sub_copy_mm_ul		COPY_MM_UL_CFPID
-#define sub_copy_mcpdm_dl	COPY_MCPDM_DL_CFPID
+
 #define sub_copy_d2s_1616	COPY_D2S_LR_CFPID	/* data move in IO tasks */
 #define sub_copy_d2s		COPY_D2S_2_CFPID
 #define sub_copy_d2s_mono	COPY_D2S_MONO_CFPID
@@ -463,6 +473,9 @@ typedef struct {
 #define sub_copy_s2d_mono	COPY_S2D_MONO_CFPID
 #define sub_copy_s2d		COPY_S2D_2_CFPID
 
-//#ifdef __cplusplus
-//}
-//#endif
+#define ERR_DEFAULT_DATA_READ	sub_copy_d2s
+#define ERR_DEFAULT_DATA_WRITE	sub_copy_s2d
+
+#ifdef __cplusplus
+}
+#endif

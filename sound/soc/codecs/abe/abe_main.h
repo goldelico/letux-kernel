@@ -11,7 +11,6 @@
 #ifndef _ABE_MAIN_H_
 #define _ABE_MAIN_H_
 
-#include "abe_dm_addr.h"
 #include "abe_def.h"
 #include "abe_typ.h"
 #include "abe_dbg.h"

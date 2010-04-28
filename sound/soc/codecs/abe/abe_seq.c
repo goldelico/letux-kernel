@@ -39,15 +39,15 @@ void abe_null_subroutine_4 (abe_uint32 a, abe_uint32 b, abe_uint32 c, abe_uint32
 	just_to_avoid_the_many_warnings = d;
 }
 /*
- *  abe_init_subroutine_table
+ *  ABE_INIT_SUBROUTINE_TABLE
  *
- *  parameter  :
+ *  Parameter  :
  *      none
  *
- *  operations :
+ *  Operations :
  *      initializes the default table of pointers to subroutines
  *
- *  return value :
+ *  Return value :
  *
  */
 void abe_init_subroutine_table(void)
@@ -57,11 +57,15 @@ void abe_init_subroutine_table(void)
 	/* reset the table's pointers */
 	abe_subroutine_write_pointer = 0;
 	/* the first index is the NULL task */
-	abe_add_subroutine(&id,(abe_subroutine2) abe_null_subroutine_2, SUB_0_PARAM, (abe_uint32*)0);
+	abe_add_subroutine(&id,(abe_subroutine2) abe_null_subroutine_2,
+						SUB_0_PARAM, (abe_uint32*)0);
 	/* write mixer has 3 parameters  @@@ TBD*/
-	abe_add_subroutine(&(abe_subroutine_id[SUB_WRITE_MIXER]), (abe_subroutine2) abe_write_mixer, SUB_4_PARAM, (abe_uint32*)0);
+	abe_add_subroutine(&(abe_subroutine_id[SUB_WRITE_MIXER]),
+		(abe_subroutine2) abe_write_mixer, SUB_4_PARAM, (abe_uint32*)0);
 	/* ping-pong player IRQ */
-	abe_add_subroutine(&abe_irq_pingpong_player_id,(abe_subroutine2) abe_null_subroutine_0, SUB_0_PARAM, (abe_uint32*)0);
+	abe_add_subroutine(&abe_irq_pingpong_player_id,
+			(abe_subroutine2) abe_null_subroutine_0, SUB_0_PARAM,
+								(abe_uint32*)0);
 }
 
 /*
@@ -234,20 +238,20 @@ void abe_call_subroutine(abe_uint32 idx, abe_uint32 p1, abe_uint32 p2, abe_uint3
 #endif
 	/* call the subroutines defined at execution time (dynamic sequences) */
 	default :
-		switch(abe_all_subsubroutine_nparam[idx]) {
+		switch (abe_all_subsubroutine_nparam [idx]) {
 		case SUB_0_PARAM:
 			f0 = (abe_subroutine0)abe_all_subsubroutine[idx];
 			(*f0)();
 			break;
 		case SUB_1_PARAM:
-			f1 = (abe_subroutine1) abe_all_subsubroutine[idx];
+			f1 = (abe_subroutine1) abe_all_subsubroutine [idx];
 			params = abe_all_subroutine_params[abe_irq_pingpong_player_id];
 			if (params != (abe_uint32*)0)
 				p1 = params[0];
 			(*f1) (p1);
 			break;
 		case SUB_2_PARAM:
-			f2 = abe_all_subsubroutine[idx];
+			f2 = abe_all_subsubroutine [idx];
 			params = abe_all_subroutine_params[abe_irq_pingpong_player_id];
 			if (params != (abe_uint32*)0) {
 				p1 = params[0];
@@ -256,7 +260,7 @@ void abe_call_subroutine(abe_uint32 idx, abe_uint32 p1, abe_uint32 p2, abe_uint3
 			(*f2) (p1, p2);
 			break;
 		case SUB_3_PARAM:
-			f3 = (abe_subroutine3) abe_all_subsubroutine[idx];
+			f3 = (abe_subroutine3) abe_all_subsubroutine [idx];
 			params = abe_all_subroutine_params[abe_irq_pingpong_player_id];
 			if (params != (abe_uint32*)0) {
 				p1 = params[0];
@@ -266,7 +270,7 @@ void abe_call_subroutine(abe_uint32 idx, abe_uint32 p1, abe_uint32 p2, abe_uint3
 			(*f3) (p1, p2, p3);
 			break;
 		case SUB_4_PARAM:
-			f4 = (abe_subroutine4) abe_all_subsubroutine[idx];
+			f4 = (abe_subroutine4) abe_all_subsubroutine [idx];
 			params = abe_all_subroutine_params[abe_irq_pingpong_player_id];
 			if (params != (abe_uint32*)0) {
 				p1 = params[0];
@@ -275,8 +279,6 @@ void abe_call_subroutine(abe_uint32 idx, abe_uint32 p1, abe_uint32 p2, abe_uint3
 				p4 = params[3];
 			}
 			(*f4) (p1, p2, p3, p4);
-			break;
-		default:
 			break;
 		}
 	}

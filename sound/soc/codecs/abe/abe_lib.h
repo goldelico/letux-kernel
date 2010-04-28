@@ -103,22 +103,6 @@ void abe_write_fifo(abe_uint32 x);
  */
 void abe_block_copy(abe_int32 direction, abe_int32 memory_bank, abe_int32 address, abe_uint32 *data, abe_uint32 nb);
 
-/*
- * ABE_RESET_MEM
- *
- *Parameter:
- * memory bank among DMEM, SMEM
- * address of the memory copy (byte addressing)
- * number of data to move
- *
- * Operations:
- * reset memory
- *
- * Return value:
- * none
- */
-void abe_reset_mem(abe_int32 memory_bank, abe_int32 address, abe_uint32 nb_bytes);
-
 #ifdef __cplusplus
 }
 #endif

@@ -9,7 +9,6 @@
  */
 
 #include "abe_def.h"
-#include "abe_ext.h"
 #ifndef _ABE_TYP_H_
 #define _ABE_TYP_H_
 
@@ -145,7 +144,9 @@ typedef enum {
  *	Eight channels defined with six MSB aligned samples (MIC)
  */
 typedef enum {
-	MONO_MSB = 1,
+	MONO_16_LSB = 1,
+	MONO_MSB,
+	TWO_MONO_MSB,
 	STEREO_16_16,
 	STEREO_MSB, THREE_MSB, FOUR_MSB, FIVE_MSB, SIX_MSB, SEVEN_MSB, EIGHT_MSB, NINE_MSB, TEN_MSB,
 } abe_samp_t;
@@ -162,45 +163,64 @@ typedef enum {
 	PINGPONG_PORT_PROT,
 	DMAREQ_PORT_PROT,
 	FIFO_PORT_PROT,
+	CIRCULAR_PORT_PROT,
 } abe_port_protocol_switch_id;
 
 /*
- * PORT IDs, this list is aligned with the FW data mapping
+ *      PORT IDs
  */
 typedef enum {
-	DMIC_PORT = 0,
+	/* AE sink ports - Uplink */
+	DMIC_PORT1,	     /* digital microphones pairs */
+	DMIC_PORT2,
+	DMIC_PORT3,
 	PDM_UL_PORT,	    /* analog MICs */
-	BT_VX_UL_PORT,	  /* BT uplink (8/16 kHz)*/
+	BT_VX_UL_PORT,	  /* BT uplink */
 
 	/* AE source ports - Uplink */
 	MM_UL_PORT,	     /* up to 5 stereo channels */
-	MM_UL2_PORT,	    /* stereo FM record path (4) */
+	MM_UL2_PORT,	    /* stereo FM record path */
 	VX_UL_PORT,	     /* stereo FM record path */
 
 	/* AE sink ports - Downlink */
 	MM_DL_PORT,	     /* multimedia player audio path */
 	VX_DL_PORT,
-	TONES_DL_PORT, /* 8 */
+	TONES_DL_PORT,
 	VIB_DL_PORT,
 
 	/* AE source ports - Downlink */
 	BT_VX_DL_PORT,
-	PDM_DL_PORT,	/* ABE --> BT (8/16kHz) */
-	MM_EXT_OUT_PORT, /* 12 */
-	MM_EXT_IN_PORT,
+	PDM_DL1_PORT,
+	MM_EXT_OUT_PORT,
+	PDM_DL2_PORT,
+	PDM_VIB_PORT,
 
-	LAST_PORT_ID /* dummy port used to declare the other tasks of the scheduler */
+	SCHD_DBG_PORT,	  /* dummy port used to declare the other tasks of the scheduler */
+
+	LAST_PORT_ID
 } abe_port_id;
 
 /*
- * Definition for the compatibility with HAL05xx
+ *      GAIN IDs
  */
-#define PDM_DL1_PORT PDM_DL_PORT
-#define PDM_DL2_PORT PDM_DL_PORT
-#define PDM_VIB_PORT PDM_DL_PORT
-#define DMIC_PORT1 DMIC_PORT
-#define DMIC_PORT2 DMIC_PORT
-#define DMIC_PORT3 DMIC_PORT
+typedef enum {
+	VX_DL_IN_GAIN = 1,			     // mixer's gain
+	MM_DL_IN_GAIN,
+	TONES_DL_IN_GAIN,
+	MM_VX_DL_IN_GAIN,
+	MM_IHF_DL_IN_GAIN,			      // mixer's gain
+	MM_HS_DL_OUT_GAIN,			      // Output Left gain
+	MM_IHF_L_DL_OUT_GAIN,			   // Output Left gain
+	MM_IHF_R_DL_OUT_GAIN,			   // Output Right gain
+	MM_VIB1_DL_GAIN,	   MM_VIB2_DL_GAIN,     // no gain in fact ...
+	DMIC_UL_IN_GAIN_0,	 DMIC_UL_IN_GAIN_1,   // today = same GAIN on DMIC pairs
+	DMIC_UL_IN_GAIN_2,	 DMIC_UL_IN_GAIN_3,
+	DMIC_UL_IN_GAIN_4,	 DMIC_UL_IN_GAIN_5,
+	AMIC_UL_IN_GAIN_L,	 AMIC_UL_IN_GAIN_R,   // today = same gain on AMIC pair
+	ECHO_REF_GAIN,
+	BT_VX_DL_OUT_GAIN,
+	BT_VX_UL_IN_GAIN,
+} abe_gain_id;
 
 /*
  *      ANA_PORT_ID     Analog companion audio port
@@ -231,7 +251,7 @@ typedef abe_int32 headset_offset_t;   /* Calibration data from the analog compan
 #define FEAT_APS2	FEAT_APS1+1	/* acoustic protection high-pass filter for handsfree "Left" */
 #define FEAT_APS3	FEAT_APS2+1	/* acoustic protection high-pass filter for handsfree "Right" */
 #define FEAT_ASRC1	FEAT_APS3+1	/* asynchronous sample-rate-converter for the downlink voice path */
-#define FEAT_ASRC2	FEAT_ASRC1+1	/* asynchronous sample-rate-converter for the uplink voice path */
+#define FEAT_ASRC2      FEAT_ASRC1+1	/* asynchronous sample-rate-converter for the uplink voice path */
 #define FEAT_ASRC3	FEAT_ASRC2+1	/* asynchronous sample-rate-converter for the multimedia player */
 #define FEAT_ASRC4	FEAT_ASRC3+1	/* asynchronous sample-rate-converter for the echo reference */
 #define FEAT_MIXDL1	FEAT_ASRC4+1	/* mixer of the headset and earphone path */
@@ -242,15 +262,8 @@ typedef abe_int32 headset_offset_t;   /* Calibration data from the analog compan
 #define FEAT_MIXECHO	FEAT_MIXSDT+1	/* mixer for echo reference */
 #define FEAT_UPROUTE	FEAT_MIXECHO+1	/* router of the uplink path */
 #define FEAT_GAINS	FEAT_UPROUTE+1	/* all gains */
-#define FEAT_GAINS_DMIC1 FEAT_GAINS+1
-#define FEAT_GAINS_DMIC2 FEAT_GAINS_DMIC1+1
-#define FEAT_GAINS_DMIC3 FEAT_GAINS_DMIC2+1
-#define FEAT_GAINS_AMIC FEAT_GAINS_DMIC3+1
-#define FEAT_GAINS_SPLIT	FEAT_GAINS_AMIC+1
-#define FEAT_GAINS_DL1	FEAT_GAINS_SPLIT+1
-#define FEAT_GAINS_DL2	FEAT_GAINS_DL1+1
-#define FEAT_GAIN_EANC	FEAT_GAINS_DL2+1 /* active noise canceller */
-#define FEAT_SEQ	FEAT_GAIN_EANC+1	/* sequencing queue of micro tasks */
+#define FEAT_EANC	FEAT_GAINS+1	/* active noise canceller */
+#define FEAT_SEQ	FEAT_EANC+1	/* sequencing queue of micro tasks */
 #define FEAT_CTL	FEAT_SEQ+1	/* Phoenix control queue through McPDM */
 
 #define MAXNBFEATURE	FEAT_CTL	/* list of features of the firmware */
@@ -284,7 +297,7 @@ typedef enum {
 	MIXDL2 = FEAT_MIXDL2,
 	MIXSDT = FEAT_MIXSDT,
 	MIXECHO = FEAT_MIXECHO,
-	MIXEANC = FEAT_GAIN_EANC,
+	MIXEANC = FEAT_EANC,
 	MIXAUDUL = FEAT_MIXAUDUL,
 	MIXVXREC = FEAT_MIXVXREC,
 } abe_mixer_id;
@@ -300,66 +313,13 @@ typedef enum {
 } abe_schd_id;
 
 /*
- * GAIN IDs
- */
-typedef enum {
-	GAINS_DMIC1 = FEAT_GAINS_DMIC1,
-	GAINS_DMIC2 = FEAT_GAINS_DMIC2,
-	GAINS_DMIC3 = FEAT_GAINS_DMIC3,
-	GAINS_AMIC = FEAT_GAINS_AMIC,
-	GAINS_SPLIT = FEAT_GAINS_SPLIT,
-	GAINS_DL1 = FEAT_GAINS_DL1,
-	GAINS_DL2 = FEAT_GAINS_DL2,
-	GAINS_EANC = FEAT_GAIN_EANC,
-} abe_gain_id;
-
-#if 0
-typedef enum {
-	VX_DL_IN_GAIN = 1,	/* mixer's gain */
-	MM_DL_IN_GAIN,
-	TONES_DL_IN_GAIN,
-	MM_VX_DL_IN_GAIN,
-	MM_IHF_DL_IN_GAIN,	/* mixer's gain */
-	MM_HS_DL_OUT_GAIN,	/* Output Left gain */
-	MM_IHF_L_DL_OUT_GAIN,	/* Output Left gain */
-	MM_IHF_R_DL_OUT_GAIN,	/* Output Right gain */
-	MM_VIB1_DL_GAIN,
-	MM_VIB2_DL_GAIN,	/* no gain in fact */
-	DMIC_UL_IN_GAIN_0,
-	DMIC_UL_IN_GAIN_1,	/* today = same GAIN on DMIC pairs */
-	DMIC_UL_IN_GAIN_2,
-	DMIC_UL_IN_GAIN_3,
-	DMIC_UL_IN_GAIN_4,
-	DMIC_UL_IN_GAIN_5,
-	AMIC_UL_IN_GAIN_L,
-	AMIC_UL_IN_GAIN_R,	/* today = same gain on AMIC pair */
-	ECHO_REF_GAIN,
-	BT_VX_DL_OUT_GAIN,
-	BT_VX_UL_IN_GAIN,
-} abe_gain_id;
-#endif
-
-/*
  * EVENT GENERATORS
  */
 typedef enum {
 	EVENT_MCPDM = 1,
 	EVENT_DMIC, EVENT_TIMER,
-	EVENT_McBSP, EVENT_McASP, EVENT_SLIMBUS, EVENT_44100, EVENT_DEFAULT,
+	EVENT_McBSP, EVENT_McASP, EVENT_SLIMBUS, EVENT_DEFAULT,
 } abe_event_id;
-
-/*
- * SERIAL PORTS IDs
- */
-typedef enum {
-	MCBSP1_TX = MCBSP1_DMA_TX,
-	MCBSP1_RX = MCBSP1_DMA_RX,
-	MCBSP2_TX = MCBSP2_DMA_TX,
-	MCBSP2_RX = MCBSP2_DMA_RX,
-	MCBSP3_TX = MCBSP3_DMA_TX,
-	MCBSP3_RX = MCBSP3_DMA_RX,
-} abe_mcbsp_id;
-
 
 /*
  * TYPES USED FOR APIS
@@ -398,6 +358,7 @@ typedef struct {
 	abe_uint32 MCBSP_SPCR1_REG__RJUST;      /* 1:MSB  2:LSB aligned */
 	abe_uint32 MCBSP_THRSH2_REG_REG__XTHRESHOLD;
 	abe_uint32 MCBSP_THRSH1_REG_REG__RTHRESHOLD;
+
 } abe_hw_config_init_t;
 
 /*
@@ -480,6 +441,7 @@ typedef struct {
 			abe_uint32 buf_addr2;	/* DMEM address 2 in bytes */
 			abe_uint32 buf_size;	/* DMEM buffer size size in bytes */
 			abe_uint32 iter;	/* ITERation on each DMAreq signals */
+			abe_uint32 thr_flow;	/* Data threshold for flow management */
 		} prot_slimbus;
 
 		struct {
@@ -487,6 +449,7 @@ typedef struct {
 			abe_uint32 buf_addr;	/* Address of ATC McBSP/McASP descriptor's in bytes */
 			abe_uint32 buf_size;	/* DMEM address in bytes */
 			abe_uint32 iter;	/* ITERation on each DMAreq signals */
+			abe_uint32 thr_flow;	/* Data threshold for flow management */
 		} prot_serial;
 
 		struct {			/* DMIC peripheral connected to ATC */
@@ -507,7 +470,6 @@ typedef struct {
 		} prot_mcpdmul;
 
 		struct {			/* Ping-Pong interface to the Host using cache-flush */
-			abe_uint32 desc_addr;	/* Address of ATC descriptor's */
 			abe_uint32 buf_addr;	/* DMEM buffer base address in bytes */
 			abe_uint32 buf_size;	/* DMEM size in bytes for each ping and pong buffers */
 			abe_uint32 irq_addr;	/* IRQ address (either DMA (0) MCU (1) or DSP(2)) */
@@ -520,6 +482,7 @@ typedef struct {
 			abe_uint32 buf_addr;	/* DMEM buffer address in bytes */
 			abe_uint32 buf_size;	/* DMEM buffer size size in bytes */
 			abe_uint32 iter;	/* ITERation on each DMAreq signals */
+			abe_uint32 thr_flow;	/* Data threshold for flow management */
 			abe_uint32 dma_addr;	/* DMAreq address */
 			abe_uint32 dma_data;	/* DMA/AESS = 1 << #DMA */
 		} prot_dmareq;
@@ -534,15 +497,34 @@ typedef struct {
 } abe_port_protocol_t;
 
 /*
+ * IO_task_descriptor
+ *
+ */
+typedef struct {
+	char type;		/* (0 = disabled, R/W, ATC,PingPong,DMAreq,Slimbus) */
+	char format;		/* data formats */
+	char smem_buffer;
+	char cmem_gain;
+	char atc1;
+	char atc2;
+	char n;
+	char IRQ;
+	char thr1;
+	char thr2;
+	char dma_address;
+	char dma_data;
+	char irq_route;
+	char asrc;
+} abe_io_task_descriptor_t;
+
+/*
  * DMA_T
  *
  * dma structure for easing programming
  */
 typedef struct {
-	void *data;		/* OCP L3 pointer to the first address of the */
+	void *data;		/* Pointer to the first address of the */
 				/* destination buffer (either DMA or Ping-Pong read/write pointers). */
-	void *l3_dmem;		/* address L3 when addressing the DMEM buffer instead of CBPr */
-	void *l4_dmem;		/* address L3 translated to L4 the ARM memory space */
 	abe_uint32 iter;	/* number of iterations for the DMA data moves. */
 } abe_dma_t;
 
@@ -585,23 +567,6 @@ typedef abe_int32 abe_drift_t;
 /*
  * INTERNAL DATA TYPES
  */
-
-/*
- * ABE_IRQ_DATA_T
- *
- * IRQ FIFO content declaration
- * APS interrupts:
- * 	IRQtag_APS to [31:28], APS_IRQs to [27:16], loopCounter to [15:0]
- * SEQ interrupts:
- * 	 IRQtag_COUNT to [31:28], Count_IRQs to [27:16], loopCounter to [15:0]
- * Ping-Pong Interrupts:
- * 	 IRQtag_PP to [31:28], PP_MCU_IRQ to [27:16], loopCounter to [15:0]
- */
-typedef struct {
-	unsigned int counter: 16;
-	unsigned int data: 12;
-	unsigned int tag: 4;
-} abe_irq_data_t;
 
 /*
  * ABE_PORT_T status / format / sampling / protocol(call_back) / features / gain / name ..

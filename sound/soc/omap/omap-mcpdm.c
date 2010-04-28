@@ -105,6 +105,36 @@ static void omap_mcpdm_dai_shutdown(struct snd_pcm_substream *substream,
 		omap_mcpdm_free();
 }
 
+static int omap_mcpdm_dai_trigger(struct snd_pcm_substream *substream, int cmd,
+				  struct snd_soc_dai *dai)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
+	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
+	int stream = substream->stream;
+	int err = 0;
+
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		if (!mcpdm_priv->active++)
+			omap_mcpdm_start(stream);
+		break;
+
+	case SNDRV_PCM_TRIGGER_STOP:
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		if (!--mcpdm_priv->active)
+			omap_mcpdm_stop(stream);
+		break;
+	default:
+		err = -EINVAL;
+	}
+
+	return err;
+}
+
 static int omap_mcpdm_dai_hw_params(struct snd_pcm_substream *substream,
 				    struct snd_pcm_hw_params *params,
 				    struct snd_soc_dai *dai)
@@ -148,8 +178,6 @@ static int omap_mcpdm_dai_hw_params(struct snd_pcm_substream *substream,
 		err = omap_mcpdm_set_downlink(&mcpdm_links[stream]);
 	}
 
-	omap_mcpdm_start(stream);
-
 	return err;
 }
 
@@ -167,14 +195,13 @@ static int omap_mcpdm_dai_hw_free(struct snd_pcm_substream *substream,
 	else
 		err = omap_mcpdm_clr_downlink(&mcpdm_links[substream->stream]);
 
-	omap_mcpdm_stop(stream);
-
 	return err;
 }
 
 static struct snd_soc_dai_ops omap_mcpdm_dai_ops = {
 	.startup	= omap_mcpdm_dai_startup,
 	.shutdown	= omap_mcpdm_dai_shutdown,
+	.trigger	= omap_mcpdm_dai_trigger,
 	.hw_params	= omap_mcpdm_dai_hw_params,
 	.hw_free	= omap_mcpdm_dai_hw_free,
 };

@@ -15,7 +15,7 @@
  *
  *
  *  Operations :
- *      generates data for the cache-flush buffer MODE 16+16
+ *      generates data for the cache-flush buffer
  *
  *  Return value :
  *      None.
@@ -28,8 +28,7 @@ void abe_default_irq_pingpong_player(void)
 	static abe_int32 idx;
 	abe_uint32 i, dst, n_samples;
 	abe_int32 temp [N_SAMPLES_MAX], audio_sample;
-	const abe_int32 audio_pattern [8] = {0, 11585, 16384, 11585, 0, -11586, -16384, -11586 };
-	//const abe_int32 audio_pattern [8] = {16383,16383,16383,16383,-16384,-16384,-16384,-16384};
+	const abe_int32 audio_pattern[8] = {16383,16383,16383,16383,-16384,-16384,-16384,-16384};
 
 	/* read the address of the Pong buffer */
 	abe_read_next_ping_pong_buffer (MM_DL_PORT, &dst, &n_samples);
@@ -44,62 +43,20 @@ void abe_default_irq_pingpong_player(void)
 	/* copy the pattern (flush it) to DMEM pointer update
 	 * not necessary here because the buffer size do not
 	 * change from one ping to the other pong
-	 */
-	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, dst, (abe_uint32 *)&(temp[0]), n_samples * 4);
+	*/
+	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, dst,
+				(abe_uint32 *)&(temp[0]), n_samples * 4);
 	abe_set_ping_pong_buffer(MM_DL_PORT, n_samples * 4);
 }
 
 /*
- * ABE_DEFAULT_IRQ_PINGPONG_PLAYER_32BITS
- *
- * Operations:
- * generates data for the cache-flush buffer  MODE 32 BITS
- * Return value:
- * None.
+ *  initialize the default values for call-backs to subroutines
+ *      - FIFO IRQ call-backs for sequenced tasks
+ *      - FIFO IRQ call-backs for audio player/recorders (ping-pong protocols)
+ *      - Remote debugger interface
+ *      - Error monitoring
+ *      - Activity Tracing
  */
-void abe_default_irq_pingpong_player_32bits(void)
-{
-/* ping-pong access to MM_DL at 48kHz Mono with 20ms packet sizes */
-#define N_SAMPLES_MAX ((int)(1024))
-	static abe_int32 idx;
-	abe_uint32 i, dst, n_samples;
-	abe_int32 temp[N_SAMPLES_MAX], audio_sample;
-	const abe_int32 audio_pattern[8] = {0, 11585, 16384, 11585, 0, -11586, -16384, -11586 };
-	//const abe_int32 audio_pattern[8] = {16383,16383,16383,16383,-16384,-16384,-16384,-16384};
-
-	/* read the address of the Pong buffer */
-	abe_read_next_ping_pong_buffer(MM_DL_PORT, &dst, &n_samples);
-
-	/* generate a test pattern */
-	for (i = 0; i < n_samples; i++) {
-		/* circular addressing */
-		idx = (idx +1) & 7;
-		audio_sample = audio_pattern[idx];
-		temp[i*2 +0] = (audio_sample << 16);
-		temp[i*2 +1] = (audio_sample << 16);
-	}
-
-	/* copy the pattern (flush it) to DMEM pointer update
-	 * not necessary here because the buffer size do not
-	 * change from one ping to the other pong
-	 */
-	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM, dst,
-			(abe_uint32 *)&(temp[0]), n_samples * 4 *2);
-
-	abe_set_ping_pong_buffer(MM_DL_PORT, n_samples * 4 *2);
-}
-/*
- * ABE_DEFAULT_IRQ_APS_ADAPTATION
- *
- * Operations :
- * updates the APS filter and gain
- *
- * Return value :
- * None.
- */
-void abe_default_irq_aps_adaptation(void)
-{
-}
 
 /*
  *  ABE_READ_SYS_CLOCK
