@@ -24,6 +24,12 @@ config  DUCATI_BASEIMAGE_PHYS_ADDR
 	help
 	  Specify the physical address where the Ducati image will be
 	  loaded.
+config  SYSLINK_DUCATI_PM
+        tristate "DUCATI POWER MANAGEMENT"
+        depends on SYSLINK_PROC && MPU_BRIDGE_NOTIFY && SYSLINK_PROC4430
+        default y
+        help
+           Ducati Power Management Implementation
 
 config MPU_BRIDGE_NOTIFY
 	tristate "OMAP Notify Module"
