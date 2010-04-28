@@ -67,6 +67,9 @@
 extern struct imx046_platform_data zoom2_imx046_platform_data;
 #endif
 
+/* Added for FlexST */
+#include "board-connectivity.h"
+
 #ifdef CONFIG_VIDEO_OMAP3
 extern void zoom2_cam_init(void);
 #else
@@ -218,15 +221,6 @@ static struct platform_device zoom2_wl127x_device = {
 	.dev.platform_data = &wl127x_plat_data,
 };
 #endif
-
-/* GPIOS need to be in order of BT, FM and GPS
- * provide -1 is Not applicable for chip */
-static int gpios[] = {109, 161, -1};
-static struct platform_device zoom_btfmgps_device = {
-       .name           = "kim", /* named after init manager for ST */
-       .id             = -1,
-       .dev.platform_data = &gpios,
-};
 
 /* Zoom2 has Qwerty keyboard*/
 static int zoom2_twl4030_keymap[] = {
@@ -614,8 +608,7 @@ static struct platform_device *zoom2_devices[] __initdata = {
 	&omap_hdq_device,
 #endif
 	&zoom2_vout_device,
-	&headset_switch_device,
-	&zoom_btfmgps_device,
+	&headset_switch_device
 };
 
 static inline void __init zoom2_init_smc911x(void)
@@ -1111,12 +1104,6 @@ static void config_wlan_gpio(void)
 	omap_cfg_reg(W21_34XX_GPIO162);
 }
 
-static void config_bt_mux_gpio(void)
-{
-	/* configure BT_EN gpio */
-	omap_cfg_reg(B25_34XX_GPIO109);
-}
-
 static void enable_board_wakeup_source(void)
 {
 	omap_cfg_reg(AF26_34XX_SYS_NIRQ);
@@ -1128,38 +1115,18 @@ static void config_hdmi_gpio(void)
 	omap_cfg_reg(C27_34XX_CAM_PCLK);
 }
 
-static void config_mux_mcbsp3(void)
-{
-	/*Mux setting for GPIO164 McBSP3*/
-	omap_cfg_reg(H19_34XX_GPIO164_OUT);
-}
-static int __init wl127x_vio_leakage_fix(void)
-{
-	int ret = 0;
-
-	ret = gpio_request(WL127X_BTEN_GPIO, "wl127x_bten");
-	if (ret < 0) {
-		printk(KERN_ERR "wl127x_bten gpio_%d request fail",
-						WL127X_BTEN_GPIO);
-		goto fail;
-	}
-
-	gpio_direction_output(WL127X_BTEN_GPIO, 1);
-	mdelay(10);
-	gpio_direction_output(WL127X_BTEN_GPIO, 0);
-	udelay(64);
-
-	gpio_free(WL127X_BTEN_GPIO);
-fail:
-	return ret;
-}
-
 static void __init omap_zoom2_init(void)
 {
 	omap_i2c_init();
-	/* Fix to prevent VIO leakage on wl127x */
-	wl127x_vio_leakage_fix();
+
+	/* Added for FlexST */
+	conn_board_init();
+
 	platform_add_devices(zoom2_devices, ARRAY_SIZE(zoom2_devices));
+
+	/* Added for FlexST */
+	conn_add_plat_device();
+
 	omap_board_config = zoom2_config;
 	omap_board_config_size = ARRAY_SIZE(zoom2_config);
 	spi_register_board_info(zoom2_spi_board_info,
@@ -1171,10 +1138,12 @@ static void __init omap_zoom2_init(void)
 	omap_serial_init();
 	usb_musb_init();
 	config_wlan_gpio();
-	config_bt_mux_gpio();
 	zoom2_cam_init();
 	zoom2_lcd_tv_panel_init();
-	config_mux_mcbsp3();
+
+	/* Added for FlexST */
+	conn_config_gpios();
+
 #ifdef CONFIG_SIL9022
 	config_hdmi_gpio();
 	zoom2_hdmi_reset_enable(1);

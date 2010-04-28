@@ -73,11 +73,13 @@ obj-$(CONFIG_MACH_OMAP_ZOOM2)		+= board-zoom2.o \
 					   mmc-twl4030.o \
 					   board-ldp-flash.o \
 					   board-zoom2-camera.o \
+					   board-connectivity.o \
 					   board-zoom2-wifi.o
 obj-$(CONFIG_MACH_OMAP_ZOOM3)		+= board-zoom2.o \
 					   mmc-twl4030.o \
 					   board-ldp-flash.o \
 					   board-zoom2-camera.o \
+					   board-connectivity.o \
 					   board-zoom2-wifi.o
 obj-$(CONFIG_MACH_OMAP_3630SDP)		+= board-3630sdp.o \
 					   mmc-twl4030.o
