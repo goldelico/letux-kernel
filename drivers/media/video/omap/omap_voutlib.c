@@ -172,6 +172,7 @@ int omap_vout_new_crop(struct v4l2_pix_format *pix,
 	if (try_crop.width <= 0 || try_crop.height <= 0)
 		return -EINVAL;
 
+#ifndef CONFIG_ARCH_OMAP4
 	if (crop->height != win->w.height) {
 		/* If we're resizing vertically, we can't support a crop width
 		 * wider than 768 pixels.
@@ -179,6 +180,7 @@ int omap_vout_new_crop(struct v4l2_pix_format *pix,
 		if (try_crop.width > 768)
 			try_crop.width = 768;
 	}
+#endif
 	/* vertical resizing */
 	vresize = (1024 * crop->height) / win->w.height;
 	if (vresize > 4096)
