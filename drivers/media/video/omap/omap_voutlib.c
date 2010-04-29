@@ -34,7 +34,6 @@
 #include <linux/semaphore.h>
 #include <mach/cpu.h>
 
-int use_isp_resizer;
 
 /* Return the default overlay cropping rectangle in crop given the image
  * size in pix and the video display size in fbuf.  The default
@@ -174,7 +173,8 @@ EXPORT_SYMBOL_GPL(omap_vout_new_window);
  */
 int omap_vout_new_crop(struct v4l2_pix_format *pix,
 	      struct v4l2_rect *crop, struct v4l2_window *win,
-	      struct v4l2_framebuffer *fbuf, const struct v4l2_rect *new_crop)
+	      struct v4l2_framebuffer *fbuf, const struct v4l2_rect *new_crop,
+		       int *use_isp_rsz_for_downscale)
 {
 	struct v4l2_rect try_crop;
 	unsigned long vresize, hresize;
@@ -220,7 +220,7 @@ int omap_vout_new_crop(struct v4l2_pix_format *pix,
 			vresize = 2048;
 	} else {
 		if (vresize > 4096) {
-			use_isp_resizer = 1;
+			*use_isp_rsz_for_downscale = 1;
 			printk(KERN_ERR "\n<%s> Using ISP resizer vresize "
 					"= %lu\n\n",
 			       __func__, vresize);
@@ -252,7 +252,7 @@ int omap_vout_new_crop(struct v4l2_pix_format *pix,
 		 */
 		if (hresize > 4096 ||
 		    (hresize > 2048 && try_crop.width > 1024)) {
-			use_isp_resizer = 1;
+			*use_isp_rsz_for_downscale = 1;
 			printk(KERN_ERR "\n<%s> Using ISP resizer "
 					"hresize = %lu, width = %u\n\n",
 			       __func__, hresize, try_crop.width);

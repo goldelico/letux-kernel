@@ -77,6 +77,10 @@ struct omap_vout_device {
 	int vid;
 	int opened;
 
+	u32 flg_720;
+	u32 use_isp_rsz_for_downscale; /* used for downscaling below 4x to 8x */
+	u32 rsz_configured;
+
 	/* we don't allow to change image fmt/size once buffer has
 	 * been allocated
 	 */
@@ -151,6 +155,5 @@ struct vout_platform_data {
 	void (*set_cpu_freq)(unsigned long f);
 };
 
-extern int use_isp_resizer;
 
 #endif	/* ifndef OMAP_VOUTDEF_H */
