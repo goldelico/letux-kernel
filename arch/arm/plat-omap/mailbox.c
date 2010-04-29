@@ -273,16 +273,16 @@ static int omap_mbox_startup(struct omap_mbox *mbox)
 	struct omap_mbox_queue *mq;
 
 	if (likely(mbox->ops->startup)) {
-		mutex_lock(&mbox_configured_lock);
+		spin_lock(&mboxes_lock);
 		if (!mbox_configured)
 			ret = mbox->ops->startup(mbox);
 
 		if (unlikely(ret)) {
-			mutex_unlock(&mbox_configured_lock);
+			spin_unlock(&mboxes_lock);
 			return ret;
 		}
 		mbox_configured++;
-		mutex_unlock(&mbox_configured_lock);
+		spin_unlock(&mboxes_lock);
 	}
 
 	ret = request_irq(mbox->irq, mbox_interrupt, IRQF_SHARED,
@@ -329,12 +329,12 @@ static void omap_mbox_fini(struct omap_mbox *mbox)
 	mbox_queue_free(mbox->rxq);
 
 	if (likely(mbox->ops->shutdown)) {
-		mutex_lock(&mbox_configured_lock);
+		spin_lock(&mboxes_lock);
 		if (mbox_configured > 0)
 			mbox_configured--;
 		if (!mbox_configured)
 			mbox->ops->shutdown(mbox);
-		mutex_unlock(&mbox_configured_lock);
+		spin_unlock(&mboxes_lock);
 	}
 }
 
