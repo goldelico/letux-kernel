@@ -42,6 +42,9 @@
 #define HDMI_PLLCTRL		0x58006200
 #define HDMI_PHY		0x58006300
 
+static u8  edid[HDMI_EDID_MAX_LENGTH] = {0};
+static u8  edid_set;
+
 /* PLL */
 #define PLLCTRL_PLL_CONTROL				0x0ul
 #define PLLCTRL_PLL_STATUS				0x4ul
@@ -60,39 +63,93 @@
 static int hdmi_read_edid(struct omap_video_timings *);
 static int get_edid_timing_data(u8 *edid, u16 *pixel_clk, u16 *horizontal_res,
 			  u16 *vertical_res);
-/* CEA-861-D Codes */
-const struct omap_video_timings cea861d1 = \
-	{640, 480, 25200, 96, 16, 48, 2, 10, 33};
-const struct omap_video_timings cea861d4 = \
-	{1280, 720, 74250, 40, 110, 220, 5, 5, 20};
-const struct omap_video_timings cea861d16 = \
-	{1920, 1080, 148500, 44, 88, 148, 5, 4, 36};
-const struct omap_video_timings cea861d17 = \
-	{720, 576, 27000, 64, 12, 68, 5, 5, 39};
-const struct omap_video_timings cea861d18 = \
-	{720, 576, 27000, 64, 12, 68, 5, 5, 39};
-const struct omap_video_timings cea861d29 = \
-	{1440, 576, 54000, 128, 24, 136, 5, 5, 39};
-const struct omap_video_timings cea861d30 = \
-	{1440, 576, 54000, 128, 24, 136, 5, 5, 39};
-const struct omap_video_timings cea861d31 = \
-	{1920, 1080, 148500, 44, 528, 148, 5, 4, 36};
-const struct omap_video_timings cea861d35 = \
-	{2880, 480, 108000, 248, 64, 240, 6, 9, 30};
-const struct omap_video_timings cea861d36 = \
-	{2880, 480, 108000, 248, 64, 240, 6, 9, 30};
-const struct omap_video_timings vesad10 = \
-	{1024, 768, 65000, 136, 24, 160, 6, 3, 29};
-const struct omap_video_timings vesadmti39  = \
-	{1680, 1050, 119000, 32, 48, 80, 6, 3, 21};
+static void show_horz_vert_timing_info(u8 *edid, u8 *ptr);
+
+#define FALLBACK_CEA_CODE 4		/* CEA code 4 = 720p */
+#define DEFAULT_CEA_CODE  16		/* CEA code 16 = 1080p */
+#define VESA_MODE 0
+#define CEA_MODE 1
+
+/* All supported timing values by OMAP4 HDMI block */
+static struct omap_video_timings all_timings_direct[31] = {
+	{640, 480, 25200, 96, 16, 48, 2, 10, 33},
+	{1280, 720, 74250, 40, 440, 220, 5, 5, 20},
+	{1280, 720, 74250, 40, 110, 220, 5, 5, 20},
+	{720, 480, 27000, 62, 16, 60, 6, 9, 30},
+	{2880, 576, 108000, 256, 48, 272, 5, 5, 39},
+	{1440, 480, 27000, 124, 38, 114, 3, 4, 15},
+	{1440, 576, 27000, 126, 24, 138, 3, 2, 19},
+	{1920, 1080, 74250, 44, 528, 148, 2, 5, 15},
+	{1920, 1080, 74250, 44, 88, 148, 2, 5, 15},
+	{1920, 1080, 148500, 44, 88, 148, 5, 4, 36},
+	{720, 576, 27000, 64, 12, 68, 5, 5, 39},
+	{1440, 576, 54000, 128, 24, 136, 5, 5, 39},
+	{1920, 1080, 148500, 44, 528, 148, 5, 4, 36},
+	{2880, 480, 108000, 248, 64, 240, 6, 9, 30},
+	/*Vesa frome here*/
+	{640, 480, 25175, 96, 16, 48, 2 , 11, 31},
+	{800, 600, 40000, 128, 40, 88, 4 , 1, 23},
+	{848, 480, 33750, 112, 16, 112, 8 , 6, 23},
+	{1280, 768, 71000, 128, 64, 192, 7 , 3, 20},
+	{1280, 800, 83500, 128, 72, 200, 6 , 3, 22},
+	{1360, 768, 85500, 112, 64, 256, 6 , 3, 18},
+	{1280, 960, 108000, 112, 96, 312, 3 , 1, 36},
+	{1280, 1024, 108000, 112, 48, 248, 3 , 1, 38},
+	{1024, 768, 65000, 136, 24, 160, 6, 3, 29},
+	{1400, 1050, 121750, 144, 88, 232, 4, 3, 32},
+	{1400, 900, 106500, 152, 80, 232, 6, 3, 25},
+	{1680, 1050, 146250, 176 , 104, 280, 6, 3, 30},
+	{1366, 768, 85500, 143, 70, 213, 3, 3, 24},
+	{1920, 1080, 148500, 44, 88, 80, 5, 4, 36},
+	{1280, 768, 68250, 32, 48, 80, 7, 3, 12},
+	{1400, 1050, 101000, 32, 48, 80, 4, 3, 23},
+	{1680, 1050, 119000, 32, 48, 80, 6, 3, 21}
+};
+
+/*
+ * This is a static mapping array that maps the timing values to their
+ * corresponding CEA / VESA codes
+ */
+static int code_index[31] = {
+	1, 19, 4, 2, 37, 6, 21, 20, 5, 16, 17, 29, 31, 35,
+	/* <--14 CEA 17--> vesa*/
+	4, 9, 0xE, 0x17, 0x1C, 0x27, 0x20, 0x23, 0x10, 0x2A,
+	0X2F, 0x3A, 0X51, 0X52, 0x16, 0x29, 0x39
+};
+
+/*
+ * This is a revere static mapping array that maps the CEA / VESA codes to
+ * the corresponding timing values
+ */
+static int code_cea[39] = {
+	-1, 0, 3, 3, 2, 8, 5, 5, -1, -1, -1, -1, -1, -1, -1, -1, 9,
+	10, 10, 1, 7, 6, 6 , -1, -1, -1, -1, -1, -1, 11, 11,
+	12, -1, -1, -1, 13, 13, 4, 4
+};
+
+static int code_vesa[83] = {
+	-1, -1, -1, -1, 14, -1, -1, -1, -1, 15, -1, -1, -1, -1, 16,
+	-1, 22, -1, -1, -1, -1, -1, 28, 17, -1, -1, -1, -1, 18,
+	-1, -1, -1, 20, -1, -1, 21, -1, -1, -1, 19, -1, 29, 23,
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+	30, 25, -1, -1, -1, -1, -1, -1, -1 , -1, -1, -1, -1, -1,
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 26, 27
+};
 
 static struct {
 	void __iomem *base_phy;
 	void __iomem *base_pll;
 	struct mutex lock;
 	int code;
+	int mode;
 	HDMI_Timing_t ti;
 } hdmi;
+
+struct hdmi_cm {
+	int code;
+	int mode;
+};
+
 struct omap_video_timings edid_timings;
 
 static inline void hdmi_write_reg(u32 base, u16 idx, u32 val)
@@ -397,31 +454,26 @@ static int hdmi_phy_off(u32 name)
 /* driver */
 static int hdmi_panel_probe(struct omap_dss_device *dssdev)
 {
+	int code;
 	DSSDBG("ENTER hdmi_panel_probe()\n");
 
 	dssdev->panel.config = OMAP_DSS_LCD_TFT |
 			OMAP_DSS_LCD_IVS | OMAP_DSS_LCD_IHS;
-	switch (hdmi.code) {
-	case 1:
-	case 11:
-		dssdev->panel.timings = cea861d1;
-		break;
-	case 4:
-		dssdev->panel.timings = cea861d4;
-		break;
-	case 10:
-		dssdev->panel.timings = vesad10;
-		break;
-	case 30:
-		dssdev->panel.timings = cea861d30;
-		break;
-	case 39:
-		dssdev->panel.timings = vesadmti39;
-		break;
-	case 16:
-	default:
-		dssdev->panel.timings = cea861d16;
+
+	if (hdmi.mode == VESA_MODE)
+		code = code_vesa[hdmi.code];
+	else
+		code = code_cea[hdmi.code];
+
+	if (code == -1)	{
+		hdmi.code = DEFAULT_CEA_CODE;
+		hdmi.mode = CEA_MODE;
+		code = code_cea[hdmi.code];
 	}
+
+	dssdev->panel.timings = all_timings_direct[code];
+	DSSDBG("hdmi_panel_probe x_res= %d y_res = %d",
+		dssdev->panel.timings.x_res, dssdev->panel.timings.y_res);
 
 	return 0;
 }
@@ -475,7 +527,7 @@ static struct omap_dss_driver hdmi_driver = {
 };
 /* driver end */
 
-int hdmi_init(struct platform_device *pdev, int code)
+int hdmi_init(struct platform_device *pdev, int code, int mode)
 {
 	DSSDBG("Enter hdmi_init()\n");
 
@@ -493,6 +545,8 @@ int hdmi_init(struct platform_device *pdev, int code)
 		return -ENOMEM;
 	}
 	hdmi.code = code;
+	hdmi.mode = mode;
+	DSSDBG("%d code %d mode", hdmi.code, hdmi.mode);
 	hdmi_enable_clocks(1);
 
 	hdmi_lib_init();
@@ -566,36 +620,26 @@ static void hdmi_gpio_config(int enable)
 static int hdmi_power_on(struct omap_dss_device *dssdev)
 {
 	int r = 0;
-	int mode = 1;
+	int code = 0;
 	struct omap_video_timings *p;
 	struct hdmi_pll_info pll_data;
 
 	int clkin, n, phy;
 
-	switch (hdmi.code) {
-	case 1:
-	case 11:
-		dssdev->panel.timings = cea861d1;
-		break;
-	case 4:
-		dssdev->panel.timings = cea861d4;
-		break;
-	case 10:
-		dssdev->panel.timings = vesad10;
-		break;
-	case 30:
-		dssdev->panel.timings = cea861d30;
-		break;
-	case 39:
-		dssdev->panel.timings = vesadmti39;
-		break;
-	case 16:
-	default:
-		dssdev->panel.timings = cea861d16;
+	if (hdmi.mode == VESA_MODE)
+		code = code_vesa[hdmi.code];
+	else
+		code = code_cea[hdmi.code];
+
+	if (code == -1)	{
+		hdmi.code = DEFAULT_CEA_CODE;
+		hdmi.mode = CEA_MODE;
+		code = code_cea[hdmi.code];
 	}
 
-	if (hdmi.code == 1 || hdmi.code == 10)
-		mode = 0; /* DVI mode */
+	dssdev->panel.timings = all_timings_direct[code];
+	DSSDBG("hdmi_panel_probe x_res= %d y_res = %d",
+		dssdev->panel.timings.x_res, dssdev->panel.timings.y_res);
 
 	hdmi_enable_clocks(1);
 
@@ -638,7 +682,7 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 		goto err;
 	}
 
-	DSS_HDMI_CONFIG(hdmi.ti, hdmi.code, mode);
+	DSS_HDMI_CONFIG(hdmi.ti, hdmi.code, hdmi.mode);
 
 	/* these settings are independent of overlays */
 	dss_switch_tv_hdmi(1);
@@ -678,10 +722,12 @@ static void hdmi_power_off(struct omap_dss_device *dssdev)
 	/*if (dssdev->platform_disable)
 		dssdev->platform_disable(dssdev);*/
 
+	edid_set = 0;
 	hdmi_enable_clocks(0);
 
 	/* reset to default */
-	hdmi.code = 16;
+	hdmi.code = DEFAULT_CEA_CODE;
+	hdmi.mode = CEA_MODE;
 }
 
 static int hdmi_enable_display(struct omap_dss_device *dssdev)
@@ -734,6 +780,10 @@ static void hdmi_disable_display(struct omap_dss_device *dssdev)
 	omap_dss_stop_device(dssdev);
 
 	hdmi_power_off(dssdev);
+
+	/* setting to default only in case of disable and not suspend*/
+	hdmi.code = DEFAULT_CEA_CODE;
+	hdmi.mode = CEA_MODE;
 end:
 	mutex_unlock(&hdmi.lock);
 }
@@ -775,6 +825,130 @@ static void hdmi_set_timings(struct omap_dss_device *dssdev,
 	}
 }
 
+static void hdmi_set_custom_edid_timing_code(struct omap_dss_device *dssdev,
+							int code, int mode)
+{
+	if (dssdev->state == OMAP_DSS_DISPLAY_ACTIVE) {
+		/* turn the hdmi off and on to get new timings to use */
+		hdmi_disable_display(dssdev);
+		hdmi.code = code;
+		hdmi.mode = mode;
+		hdmi_enable_display(dssdev);
+	}
+}
+
+static struct hdmi_cm hdmi_get_code(struct omap_video_timings *timing)
+{
+	int i = 0, code = -1;
+	struct omap_video_timings temp;
+	struct hdmi_cm cm = {-1, 0};
+	DSSDBG("hdmi_get_code");
+
+	for (i = 0; i < 31; i++) {
+		temp = all_timings_direct[i];
+
+		/* find matching timing set */
+		if (!memcmp(&temp, timing, sizeof(*timing))) {
+			code = i;
+			cm.code = code_index[i];
+			cm.mode = (code < 14) ? 1 : 0;
+
+			printk(KERN_INFO "Hdmi_code = %d mode = %d\n"
+				"Timing Info\n"
+				"pixel_clk 		= %d\n"
+				"Xresolution		= %d\n"
+				"yresolution		= %d\n"
+				"hfp			= %d\n"
+				"hsw			= %d\n"
+				"hbp			= %d\n"
+				"vfp			= %d\n"
+				"vsw			= %d\n"
+				"vbp			= %d\n",
+				cm.code, cm.mode,
+				temp.pixel_clock, temp.x_res, temp.y_res,
+				temp.hfp, temp.hsw, temp.hbp,
+				temp.vfp, temp.vsw, temp.vbp);
+			break;
+		 }
+	}
+	return cm;
+}
+
+static int hdmi_get_edid(struct omap_dss_device *dssdev)
+{
+	u8 i = 0, *ptr;
+	int count, offset;
+	if (edid_set != 1) {
+		printk(KERN_WARNING "Invalid read: display may be disabled\n");
+		return -ENXIO;
+	}
+
+	printk(KERN_INFO "\nHeader:\n");
+	for (i = 0x00; i < 0x08; i++)
+		printk(KERN_INFO "%02x	", edid[i]);
+	printk(KERN_INFO "\nVendor & Product:\n");
+	for (i = 0x08; i < 0x12; i++)
+		printk(KERN_INFO "%02x	", edid[i]);
+	printk(KERN_INFO "\nEDID Structure:\n");
+	for (i = 0x12; i < 0x14; i++)
+		printk(KERN_INFO "%02x	", edid[i]);
+	printk(KERN_INFO "\nBasic Display Parameter:\n");
+	for (i = 0x14; i < 0x19; i++)
+		printk(KERN_INFO "%02x	", edid[i]);
+	printk(KERN_INFO "\nColor Characteristics:\n");
+	for (i = 0x19; i < 0x23; i++)
+		printk(KERN_INFO "%02x	", edid[i]);
+	printk(KERN_INFO "\nEstablished timings:\n");
+	for (i = 0x23; i < 0x26; i++)
+		printk(KERN_INFO "%02x	", edid[i]);
+	printk(KERN_INFO "\nStandard timings:\n");
+	for (i = 0x26; i < 0x36; i++)
+		printk(KERN_INFO "%02x	", edid[i]);
+
+	ptr = edid + EDID_DESCRIPTOR_BLOCK0_ADDRESS;
+	for (count = 0; count < EDID_SIZE_BLOCK0_TIMING_DESCRIPTOR;
+	      count++, ptr += EDID_TIMING_DESCRIPTOR_SIZE)
+		show_horz_vert_timing_info(edid, ptr);
+
+	if (edid[0x7e] != 0x00) {
+		offset = edid[EDID_DESCRIPTOR_BLOCK1_ADDRESS + 2];
+		printk(KERN_INFO "\n offset %x\n", offset);
+		if (offset != 0) {
+			ptr = edid + EDID_DESCRIPTOR_BLOCK1_ADDRESS + offset;
+			/*to determine the number of descriptor blocks */
+			for (count = 0;
+			      count < EDID_SIZE_BLOCK1_TIMING_DESCRIPTOR;
+			      count++, ptr += EDID_TIMING_DESCRIPTOR_SIZE)
+				show_horz_vert_timing_info(edid, ptr);
+		}
+	}
+
+	return 0;
+}
+
+void show_horz_vert_timing_info(u8 *edid, u8 *ptr)
+{
+	struct omap_video_timings timings;
+
+	printk(KERN_INFO "EDID DTD block address	= 0x%x\n", ptr - edid);
+
+	/* X and Y resolution */
+	timings.x_res = (((ptr[4] & 0xF0) << 4) | ptr[2]);
+	timings.y_res = (((ptr[7] & 0xF0) << 4) | ptr[5]);
+	timings.pixel_clock = 10 * ((ptr[1] << 8) | ptr[0]);
+
+	timings.hfp = ptr[8];
+	timings.hsw = ptr[9];
+	timings.hbp = (((ptr[4] & 0x0F) << 8) | ptr[3]) -
+		(timings.hfp + timings.hsw);
+	timings.vfp = (ptr[10] & 0xF0) >> 4;
+	timings.vsw = (ptr[10] & 0x0F);
+	timings.vbp = (((ptr[7] & 0x0F) << 8) | ptr[6]) -
+		(timings.vfp + timings.vsw);
+
+	hdmi_get_code(&timings);
+}
+
 static int hdmi_check_timings(struct omap_dss_device *dssdev,
 			struct omap_video_timings *timings)
 {
@@ -797,6 +971,8 @@ int hdmi_init_display(struct omap_dss_device *dssdev)
 	dssdev->get_timings = hdmi_get_timings;
 	dssdev->set_timings = hdmi_set_timings;
 	dssdev->check_timings = hdmi_check_timings;
+	dssdev->get_edid = hdmi_get_edid;
+	dssdev->set_custom_edid_timing_code = hdmi_set_custom_edid_timing_code;
 
 	return 0;
 }
@@ -808,9 +984,10 @@ static int hdmi_read_edid(struct omap_video_timings *dp)
 	u16		horizontal_res;
 	u16		vertical_res;
 	u16		pixel_clk;
-	struct omap_video_timings *tp;
+	struct hdmi_cm cm;
+	struct omap_video_timings *tp, *fallback;
 
-	memset(edid, 0, HDMI_EDID_MAX_LENGTH);
+	memset(edid, 0, sizeof(edid));
 	tp = dp;
 
 	r = HDMI_CORE_DDC_READEDID(HDMI_CORE_SYS, edid);
@@ -822,43 +999,34 @@ static int hdmi_read_edid(struct omap_video_timings *dp)
 		edid_timings.pixel_clock = dp->pixel_clock;
 		edid_timings.x_res = dp->x_res;
 		edid_timings.y_res = dp->y_res;
-		/* search for timings of default resolution */
+
+		/* see if current resolution & timing is supported */
 		if (get_edid_timing_data(edid, &pixel_clk,
 				&horizontal_res, &vertical_res)) {
 			dp->pixel_clock = pixel_clk * 10; /* be careful */
 			tp = &edid_timings;
 		} else {
-				edid_timings.pixel_clock =
-							cea861d4.pixel_clock;
-				edid_timings.x_res = cea861d4.x_res;
-				edid_timings.y_res = cea861d4.y_res;
-				if (get_edid_timing_data(edid,
-					&pixel_clk, &horizontal_res,
-							&vertical_res)) {
-					dp->pixel_clock = pixel_clk * 10;
-					dp->x_res = horizontal_res;
-					dp->y_res = vertical_res;
-					tp = &edid_timings;
-					if (tp->hfp == 440)
-						hdmi.code = 19; /*720p 50hZ*/
-					else /* 720p 60hZ */
-						hdmi.code = 4;
+			/* if not, see if fallback mode is supported */
+			fallback = all_timings_direct +
+				code_cea[FALLBACK_CEA_CODE];
+			edid_timings.pixel_clock = fallback->pixel_clock;
+			edid_timings.x_res = fallback->x_res;
+			edid_timings.y_res = fallback->y_res;
+			if (get_edid_timing_data(edid,
+						 &pixel_clk, &horizontal_res,
+						 &vertical_res)) {
+				dp->pixel_clock = pixel_clk * 10;
+				dp->x_res = horizontal_res;
+				dp->y_res = vertical_res;
+				tp = &edid_timings;
+			}
 		}
 	}
+	edid_set = 1;
 
-	if (tp->x_res == cea861d16.x_res)
-		switch (tp->hfp) {
-		case 628: /* 1080p 24Hz */
-			hdmi.code = 32;
-			break;
-		case 528: /* 1080p 50Hz */
-			hdmi.code = 31;
-			break;
-		case 88: /* 1080p 60Hz */
-		default:
-			hdmi.code = 16;
-		}
-	}
+	cm = hdmi_get_code(tp);
+	hdmi.code = cm.code;
+	hdmi.mode = cm.mode;
 	hdmi.ti.pixelPerLine = tp->x_res;
 	hdmi.ti.linePerPanel = tp->y_res;
 	hdmi.ti.horizontalBackPorch = tp->hbp;
@@ -872,44 +1040,27 @@ err:
 	return r;
 }
 
-u16 current_descriptor_addrs;
+u16 edid_ptr;
 
-void get_horz_vert_timing_info(u8 *edid)
+void get_horz_vert_timing_info(u8 *ptr)
 {
-	/*HORIZONTAL FRONT PORCH */
-	edid_timings.hfp = edid[current_descriptor_addrs + 8];
-	/*HORIZONTAL SYNC WIDTH */
-	edid_timings.hsw = edid[current_descriptor_addrs + 9];
-	/*HORIZONTAL BACK PORCH */
-	edid_timings.hbp = (((edid[current_descriptor_addrs + 4]
-					  & 0x0F) << 8) |
-					edid[current_descriptor_addrs + 3]) -
+	edid_timings.hfp = ptr[8];
+	edid_timings.hsw = ptr[9];
+	edid_timings.hbp = (((ptr[4] & 0x0F) << 8) | ptr[3]) -
 		(edid_timings.hfp + edid_timings.hsw);
-	/*VERTICAL FRONT PORCH */
-	edid_timings.vfp = ((edid[current_descriptor_addrs + 10] &
-				       0xF0) >> 4);
-	/*VERTICAL SYNC WIDTH */
-	edid_timings.vsw = (edid[current_descriptor_addrs + 10] &
-				      0x0F);
-	/*VERTICAL BACK PORCH */
-	edid_timings.vbp = (((edid[current_descriptor_addrs + 7] &
-					0x0F) << 8) |
-				      edid[current_descriptor_addrs + 6]) -
+	edid_timings.vfp = (ptr[10] & 0xF0) >> 4;
+	edid_timings.vsw = (ptr[10] & 0x0F);
+	edid_timings.vbp = (((ptr[7] & 0x0F) << 8) | ptr[6]) -
 		(edid_timings.vfp + edid_timings.vsw);
 
-	printk(KERN_INFO "hfp			= %d\n"
-			"hsw			= %d\n"
-			"hbp			= %d\n"
-			"vfp			= %d\n"
-			"vsw			= %d\n"
-			"vbp			= %d\n",
-		 edid_timings.hfp,
-		 edid_timings.hsw,
-		 edid_timings.hbp,
-		 edid_timings.vfp,
-		 edid_timings.vsw,
-		 edid_timings.vbp);
-
+	DSSDBG(KERN_INFO "hfp			= %d\n"
+		"hsw			= %d\n"
+		"hbp			= %d\n"
+		"vfp			= %d\n"
+		"vsw			= %d\n"
+		"vbp			= %d\n",
+		edid_timings.hfp, edid_timings.hsw, edid_timings.hbp,
+		edid_timings.vfp, edid_timings.vsw, edid_timings.vbp);
 }
 
 /*------------------------------------------------------------------------------
@@ -924,39 +1075,27 @@ void get_horz_vert_timing_info(u8 *edid)
 static int get_edid_timing_data(u8 *edid, u16 *pixel_clk, u16 *horizontal_res,
 			  u16 *vertical_res)
 {
-	u8 offset, effective_addrs;
+	u8 offset, *ptr;
+#ifdef EDID_DEBUG
+	u8 *i;
+#endif
 	u8 count;
 	u8 flag = false;
 	/* Seach block 0, there are 4 DTDs arranged in priority order */
-	for (count = 0; count < EDID_SIZE_BLOCK0_TIMING_DESCRIPTOR; count++) {
-		current_descriptor_addrs =
-			EDID_DESCRIPTOR_BLOCK0_ADDRESS +
-			count * EDID_TIMING_DESCRIPTOR_SIZE;
-		*horizontal_res =
-			(((edid[EDID_DESCRIPTOR_BLOCK0_ADDRESS + 4 +
-			   count * EDID_TIMING_DESCRIPTOR_SIZE] & 0xF0) << 4) |
-			 edid[EDID_DESCRIPTOR_BLOCK0_ADDRESS + 2 +
-			 count * EDID_TIMING_DESCRIPTOR_SIZE]);
-		*vertical_res =
-			(((edid[EDID_DESCRIPTOR_BLOCK0_ADDRESS + 7 +
-			   count * EDID_TIMING_DESCRIPTOR_SIZE] & 0xF0) << 4) |
-			 edid[EDID_DESCRIPTOR_BLOCK0_ADDRESS + 5 +
-			 count * EDID_TIMING_DESCRIPTOR_SIZE]);
+	ptr = edid + EDID_DESCRIPTOR_BLOCK0_ADDRESS;
+	for (count = 0; count < EDID_SIZE_BLOCK0_TIMING_DESCRIPTOR;
+		count++, ptr += EDID_TIMING_DESCRIPTOR_SIZE) {
+		*horizontal_res = ((ptr[4] & 0xF0) << 4) | ptr[2];
+		*vertical_res   = ((ptr[7] & 0xF0) << 4) | ptr[5];
 		DSSDBG("***Block-0-Timing-descriptor[%d]***\n", count);
 #ifdef EDID_DEBUG
-		for (i = current_descriptor_addrs;
-		      i <
-		      (current_descriptor_addrs+EDID_TIMING_DESCRIPTOR_SIZE);
-		      i++)
-			DSSDBG("%d ==>		%x\n", i, edid[i]);
+		for (i = ptr; i < ptr + EDID_TIMING_DESCRIPTOR_SIZE; i++)
+			DSSDBG("%d ==>		%x\n", i - edid, *i);
 
-			DSSDBG("E-EDID Buffer Index	= 0x%x\n"
-				 "horizontal_res       	= %d\n"
-				 "vertical_res		= %d\n",
-				 current_descriptor_addrs,
-				 *horizontal_res,
-				 *vertical_res
-				 );
+		DSSDBG("E-EDID Buffer Index	= 0x%x\n"
+			"horizontal_res       	= %d\n"
+			"vertical_res		= %d\n",
+			ptr - edid, *horizontal_res, *vertical_res);
 #endif
 		if (*horizontal_res == edid_timings.x_res &&
 		    *vertical_res == edid_timings.y_res) {
@@ -964,93 +1103,65 @@ static int get_edid_timing_data(u8 *edid, u16 *pixel_clk, u16 *horizontal_res,
 					*horizontal_res, *vertical_res);
 			flag = true;
 			break;
-			}
+		}
 	}
 
 	/*check for the 1080p in extended block CEA DTDs*/
-	if (flag != true) {
-		offset = edid[EDID_DESCRIPTOR_BLOCK1_ADDRESS + 2];
-		if (offset != 0) {
-			effective_addrs = EDID_DESCRIPTOR_BLOCK1_ADDRESS
-				+ offset;
-			/*to determine the number of descriptor blocks */
-			for (count = 0;
-			      count < EDID_SIZE_BLOCK1_TIMING_DESCRIPTOR;
-			      count++) {
-				current_descriptor_addrs = effective_addrs +
-					count * EDID_TIMING_DESCRIPTOR_SIZE;
-				*horizontal_res =
-					(((edid[effective_addrs + 4 +
-					   count*EDID_TIMING_DESCRIPTOR_SIZE] &
-					   0xF0) << 4) |
-					 edid[effective_addrs + 2 +
-					 count * EDID_TIMING_DESCRIPTOR_SIZE]);
-				*vertical_res =
-					(((edid[effective_addrs + 7 +
-					   count*EDID_TIMING_DESCRIPTOR_SIZE] &
-					   0xF0) << 4) |
-					 edid[effective_addrs + 5 +
-					 count * EDID_TIMING_DESCRIPTOR_SIZE]);
+	offset = edid[EDID_DESCRIPTOR_BLOCK1_ADDRESS + 2];
+	if (!flag && offset != 0) {
+		ptr = edid + EDID_DESCRIPTOR_BLOCK1_ADDRESS + offset;
+		/*to determine the number of descriptor blocks */
+		for (count = 0;
+		      count < EDID_SIZE_BLOCK1_TIMING_DESCRIPTOR;
+		      count++, ptr += EDID_TIMING_DESCRIPTOR_SIZE) {
+			*horizontal_res = ((ptr[4] & 0xF0) << 4) | ptr[2];
+			*vertical_res   = ((ptr[7] & 0xF0) << 4) | ptr[5];
 
-				DSSDBG("Block1-Timing-descriptor[%d]\n", count);
+			DSSDBG("Block1-Timing-descriptor[%d]\n", count);
 #ifdef EDID_DEBUG
-				for (i = current_descriptor_addrs;
-				      i < (current_descriptor_addrs+
-					   EDID_TIMING_DESCRIPTOR_SIZE); i++)
-					DSSDBG("%x ==> 	%x\n",
-						   i, edid[i]);
+			for (i = ptr; i < ptr + EDID_TIMING_DESCRIPTOR_SIZE;
+			      i++)
+				DSSDBG("%x ==> 	%x\n", i - edid, *i);
 
-				DSSDBG("current_descriptor	= 0x%x\n"
-						"horizontal_res		= %d\n"
-						"vertical_res 		= %d\n",
-					 current_descriptor_addrs,
-					 *horizontal_res, *vertical_res);
+			DSSDBG("current_descriptor	= 0x%x\n"
+				"horizontal_res		= %d\n"
+				"vertical_res 		= %d\n",
+				ptr - edid,  *horizontal_res, *vertical_res);
 #endif
-				if (*horizontal_res == edid_timings.x_res &&
-				    *vertical_res == edid_timings.y_res) {
-					DSSDBG("Found EDID Data for "
-						 "%d x %dp\n",
-						 *horizontal_res,
-						 *vertical_res
-						 );
-					flag = true;
-					break;
-					}
+			if (*horizontal_res == edid_timings.x_res &&
+			    *vertical_res == edid_timings.y_res) {
+				DSSDBG("Found EDID Data for  %d x %dp\n",
+					*horizontal_res, *vertical_res);
+				flag = true;
+				break;
 			}
 		}
 	}
 
 	if (flag == true) {
-		*pixel_clk = ((edid[current_descriptor_addrs + 1] << 8) |
-					edid[current_descriptor_addrs]);
+		*pixel_clk = (ptr[1] << 8) | ptr[0];
 
 		edid_timings.x_res = *horizontal_res;
 		edid_timings.y_res = *vertical_res;
 		edid_timings.pixel_clock = *pixel_clk*10;
-		printk(KERN_INFO "EDID TIMING DATA FOUND\n"
-			 "EDID DTD block address	= 0x%x\n"
+		printk(KERN_INFO "EDID TIMING DATA FOUND\n");
+		DSSDBG("EDID DTD block address	= 0x%x\n"
 			 "pixel_clk 			= %d\n"
 			 "horizontal res		= %d\n"
 			 "vertical res			= %d\n",
-			 current_descriptor_addrs,
-			 edid_timings.pixel_clock,
-			 edid_timings.x_res,
-			 edid_timings.y_res
-			 );
+			 ptr - edid, edid_timings.pixel_clock,
+			 edid_timings.x_res, edid_timings.y_res);
 
-		get_horz_vert_timing_info(edid);
+		get_horz_vert_timing_info(ptr);
 	} else {
 
-		printk(
-			 "EDID TIMING DATA supported NOT FOUND\n"
-			 "setting default timing values\n"
+		printk(KERN_INFO "EDID TIMING DATA supported NOT FOUND\n");
+		DSSDBG("setting default timing values\n"
 			 "pixel_clk 		= %d\n"
 			 "horizontal res	= %d\n"
 			 "vertical res		= %d\n",
 			 edid_timings.pixel_clock,
-			 edid_timings.x_res,
-			 edid_timings.y_res
-			 );
+			 edid_timings.x_res, edid_timings.y_res);
 
 		*pixel_clk = edid_timings.pixel_clock;
 		*horizontal_res = edid_timings.x_res;

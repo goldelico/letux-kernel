@@ -418,7 +418,7 @@ int hdmi_w1_wrapper_disable(u32);
 int hdmi_w1_wrapper_enable(u32);
 int hdmi_w1_stop_audio_transfer(u32);
 int hdmi_w1_start_audio_transfer(u32);
-int HDMI_CORE_DDC_READEDID(u32 Core, u8 *data);
+int HDMI_CORE_DDC_READEDID(u32 Core, u8 data[256]);
 int DSS_HDMI_CONFIG(HDMI_Timing_t timings, u32 video_format, u32 mode);
 
 int hdmi_lib_init(void);

@@ -279,6 +279,36 @@ static ssize_t display_wss_store(struct device *dev,
 	return size;
 }
 
+static ssize_t display_edid_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct omap_dss_device *dssdev = to_dss_device(dev);
+
+	if (!dssdev->get_edid)
+		return -ENOENT;
+	dssdev->get_edid(dssdev);
+
+	return snprintf(buf, PAGE_SIZE, "EDID-information");
+}
+
+static ssize_t display_custom_edid_timing_store(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct omap_dss_device *dssdev = to_dss_device(dev);
+	int val, code, mode;
+
+	val = simple_strtoul(buf, NULL, 0);
+	code = val / 10;
+	mode = val % 10;
+
+	if (!dssdev->set_custom_edid_timing_code)
+		return -ENOENT;
+	dssdev->set_custom_edid_timing_code(dssdev, code, mode);
+
+	return snprintf(buf, PAGE_SIZE, "EDID-Information %d mode % d code",
+			mode, code);
+}
+
 static ssize_t display_device_detect_enabled_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
@@ -345,6 +375,8 @@ static DEVICE_ATTR(mirror, S_IRUGO|S_IWUSR,
 		display_mirror_show, display_mirror_store);
 static DEVICE_ATTR(wss, S_IRUGO|S_IWUSR,
 		display_wss_show, display_wss_store);
+static DEVICE_ATTR(custom_edid_timing, S_IRUGO|S_IWUSR,
+		display_edid_show, display_custom_edid_timing_store);
 static DEVICE_ATTR(device_detect_enabled, S_IRUGO|S_IWUSR,
 		display_device_detect_enabled_show,
 		display_device_detect_enabled_store);
@@ -360,6 +392,7 @@ static struct device_attribute *display_sysfs_attrs[] = {
 	&dev_attr_rotate,
 	&dev_attr_mirror,
 	&dev_attr_wss,
+	&dev_attr_custom_edid_timing,
 	&dev_attr_device_detect_enabled,
 	&dev_attr_device_connected,
 	NULL

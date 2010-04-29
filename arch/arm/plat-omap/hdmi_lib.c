@@ -31,6 +31,7 @@
 #include <linux/string.h>
 #include <plat/hdmi_lib.h>
 #include <linux/delay.h>
+#include <linux/module.h>
 
 /* HDMI PHY */
 #define HDMI_TXPHY_TX_CTRL						0x0ul
@@ -240,7 +241,72 @@ static inline u32 hdmi_read_reg(u32 base, u16 idx)
 #define RD_REG_32(COMP, REG)            hdmi_read_reg(COMP, REG)
 #define WR_REG_32(COMP, REG, VAL)       hdmi_write_reg(COMP, REG, (u32)(VAL))
 
-int hdmi_core_ddc_edid(u8 *pEDID)
+static int hdmi_core_ddc_edid(u8 *pEDID);
+
+int hdmi_print_video_format(u8 edid[256])
+{
+	int offset = 0x4, i, c, length;
+
+	/* check for extension block */
+	if (edid[0x7e] == 0x00) {
+		printk(KERN_INFO "TV does not have Extension Block\n");
+		return 0;
+	}
+
+	printk(KERN_INFO "Extension block present");
+
+	offset = edid[0x80 + 2];
+	for (i = 0x80 + 4; i < 0x80 + offset; i += length) {
+		c = edid[i++];
+		length = c & 0x1F;
+		if ((c >> 5) == 2) {
+			while (length--)
+				printk(KERN_INFO
+					"Image format supported is %d\n",
+						edid[i++] & 0x7F);
+			return 0;
+		}
+	}
+	printk(KERN_INFO "Video Information Data Not found");
+	return 0;
+}
+EXPORT_SYMBOL(hdmi_print_video_format);
+
+int hdmi_print_audio_format(u8 edid[256])
+{
+	int offset = 0x4, i, c, length, j;
+
+	/* check for extension block */
+	if (edid[0x7e] == 0x00) {
+		printk(KERN_INFO "TV does not have Extension Block");
+		return 0;
+	}
+
+	printk(KERN_INFO"Extension block present");
+
+	offset = edid[(0x80) + 2];
+	for (i = 0x80 + 4; i < 0x80 + offset; i += length) {
+		c = edid[i++];
+		length = c & 0x1F;
+		if ((c >> 5) == 1) {
+			j = i + length;
+			while (i < j) {
+				c = edid[i];
+				printk(KERN_INFO
+				"Audio format supported is %d, channels=%d\n",
+						c & 0x78, (c & 0x07) + 1);
+				i += 3;
+			}
+			return 0;
+		}
+	}
+	printk(KERN_INFO "Audio Information Data Not found");
+
+	return 0;
+}
+EXPORT_SYMBOL(hdmi_print_audio_format);
+
+static int hdmi_core_ddc_edid(u8 pEDID[256])
 {
 	u32 i, j, l;
 	char checksum = 0;
@@ -332,6 +398,8 @@ int hdmi_core_ddc_edid(u8 *pEDID)
 
 	DBG("EDID Content %d\n", i);
 
+	hdmi_print_video_format(pEDID);
+	hdmi_print_audio_format(pEDID);
 #ifdef DEBUG_EDID
 	DBG("Header:\n");
 	for (i = 0x00; i < 0x08; i++)
@@ -1199,7 +1267,7 @@ void dump_regs(void){
 
 
 /* wrapper functions to be used until L24.5 release*/
-int HDMI_CORE_DDC_READEDID(u32 name, u8 *p)
+int HDMI_CORE_DDC_READEDID(u32 name, u8 p[256])
 {
 	int r = hdmi_core_ddc_edid(p);
 	return r;

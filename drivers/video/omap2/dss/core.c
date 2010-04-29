@@ -64,7 +64,9 @@ module_param_named(debug, dss_debug, bool, 0644);
 #endif
 
 static int hdmi_code = 16;
+static int hdmi_mode = 1;
 module_param_named(hdmicode, hdmi_code, int, 0644);
+module_param_named(hdmimode, hdmi_mode, int, 0644);
 
 /* CONTEXT */
 static int dss_get_ctx_id(void)
@@ -536,7 +538,7 @@ static int omap_dss_probe(struct platform_device *pdev)
 #endif
 
 #ifdef CONFIG_OMAP2_DSS_HDMI
-	r = hdmi_init(pdev, hdmi_code);
+	r = hdmi_init(pdev, hdmi_code, hdmi_mode);
 	if (r) {
 		DSSERR("Failed to initialize hdmi\n");
 		goto fail0;
