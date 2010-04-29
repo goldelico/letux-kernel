@@ -1623,9 +1623,7 @@ int __init omap3_pm_init(void)
 		local_irq_disable();
 		local_fiq_disable();
 
-		omap_dma_global_context_save();
 		omap3_save_secure_ram_context(PWRDM_POWER_ON);
-		omap_dma_global_context_restore();
 
 		local_irq_enable();
 		local_fiq_enable();
