@@ -49,6 +49,8 @@ enum { DMA_CHAIN_STARTED, DMA_CHAIN_NOTSTARTED };
 
 #define OMAP_FUNC_MUX_ARM_BASE		(0xfffe1000 + 0xec)
 
+#define OMAP_DMA_RW_ACTIVE	 (0x03 << 9)
+
 static int enable_1510_mode;
 
 static struct omap_dma_global_context_registers {
@@ -1149,6 +1151,15 @@ int omap_get_dma_active_status(int lch)
 	return (dma_read(CCR(lch)) & OMAP_DMA_CCR_EN) != 0;
 }
 EXPORT_SYMBOL(omap_get_dma_active_status);
+
+int omap_get_dma_rd_wr_active_status(int lch)
+{
+	u32		ccr;
+
+	ccr = dma_read(CCR(lch));
+	return (ccr & OMAP_DMA_RW_ACTIVE);
+}
+EXPORT_SYMBOL(omap_get_dma_rd_wr_active_status);
 
 int omap_dma_running(void)
 {
