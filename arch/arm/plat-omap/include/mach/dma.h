@@ -537,6 +537,7 @@ extern dma_addr_t omap_get_dma_src_pos(int lch);
 extern dma_addr_t omap_get_dma_dst_pos(int lch);
 extern void omap_clear_dma(int lch);
 extern int omap_get_dma_active_status(int lch);
+extern int omap_get_dma_rd_wr_active_status(int lch);
 extern int omap_dma_running(void);
 extern void omap_dma_set_global_params(int arb_rate, int max_fifo_depth,
 				       int tparams);
