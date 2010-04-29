@@ -1010,11 +1010,15 @@ int notify_ducatidrv_sendevent(struct notify_driver_object *handle,
 				other_event_chart[event_no].flag = UP;
 				/* Send an interrupt with the event
 				information to theremote processor */
+				mutex_unlock(notify_ducatidriver_state.
+							gate_handle);
 				status = omap_mbox_msg_send(ducati_mbox,
 								payload);
+			} else {
+				/* Leave critical section protection. */
+				mutex_unlock(notify_ducatidriver_state.
+							gate_handle);
 			}
-			/* Leave critical section protection. */
-			mutex_unlock(notify_ducatidriver_state.gate_handle);
 		}
 	}
 
