@@ -777,6 +777,19 @@ int proc4430_control(void *handle, int cmd, void *arg)
 	int retval = 0;
 
 	/*FIXME: Remove handle,etc if not used */
+#ifdef CONFIG_SYSLINK_DUCATI_PM
+	/* For purpose testing */
+	switch (cmd) {
+	case PM_SUSPEND:
+	case PM_RESUME:
+		retval = proc4430_drv_pm_notifications(cmd);
+		break;
+	default:
+		printk(KERN_ERR "Invalid notification\n");
+	}
+	if (retval != PM_SUCCESS)
+		printk(KERN_ERR "Error in notifications\n");
+#endif
 
 	if (atomic_cmpmask_and_lt(&proc4430_state.ref_count,
 					OMAP4430PROC_MAKE_MAGICSTAMP(0),
