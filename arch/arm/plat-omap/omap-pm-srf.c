@@ -189,14 +189,18 @@ const struct omap_opp *omap_pm_dsp_get_opp_table(void)
 }
 EXPORT_SYMBOL(omap_pm_dsp_get_opp_table);
 
-void omap_pm_dsp_set_min_opp(struct device *dev, u8 opp_id)
+void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f)
 {
-	if (!dev || opp_id == 0) {
+	u8 opp_id;
+
+	if (!dev) {
 		WARN_ON(1);
 		return;
 	};
 
 	pr_debug("OMAP PM: DSP requests minimum VDD1 OPP to be %d\n", opp_id);
+
+	opp_id = get_opp_id(dsp_opps + MAX_VDD1_OPP, f);
 
 	/*
 	 * For now pass a dummy_dev struct for SRF to identify the caller.
