@@ -111,7 +111,7 @@ static int sr_clk_enable(struct omap_sr *sr)
 	}
 
 	if (cpu_is_omap3630())
-		sr_modify_reg(sr, ERRCONFIG, SR_IDLEMODE_MASK,
+		sr_modify_reg(sr, ERRCONFIG_36XX, SR_IDLEMODE_MASK,
 				SR_SMART_IDLE);
 	else
 	/* set fclk- active , iclk- idle */
@@ -124,7 +124,7 @@ static int sr_clk_enable(struct omap_sr *sr)
 static void sr_clk_disable(struct omap_sr *sr)
 {
 	if (cpu_is_omap3630())
-		sr_modify_reg(sr, ERRCONFIG, SR_IDLEMODE_MASK,
+		sr_modify_reg(sr, ERRCONFIG_36XX, SR_IDLEMODE_MASK,
 		SR_FORCE_IDLE);
 	else
 	/* set fclk, iclk- idle */
