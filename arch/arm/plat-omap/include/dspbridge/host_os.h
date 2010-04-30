@@ -55,7 +55,7 @@
 #define INT_DSP_MMU_IRQ        28
 
 struct dspbridge_platform_data {
-	void 	(*dsp_set_min_opp)(struct device *dev, u8 opp_id);
+	void 	(*dsp_set_min_opp)(struct device *dev, unsigned long f);
 	u8 	(*dsp_get_opp)(void);
 	void 	(*cpu_set_freq)(unsigned long f);
 	unsigned long (*cpu_get_freq)(void);
