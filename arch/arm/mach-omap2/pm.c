@@ -84,6 +84,9 @@ static ssize_t vdd_opp_lock_store(struct kobject *k, struct kobj_attribute *,
 static struct kobj_attribute vdd1_opp_attr =
 	__ATTR(vdd1_opp, 0644, vdd_opp_show, vdd_opp_store);
 
+static struct kobj_attribute vdd1_max_attr =
+	__ATTR(vdd1_max, 0644, vdd_opp_show, vdd_opp_store);
+
 static struct kobj_attribute vdd2_opp_attr =
 	__ATTR(vdd2_opp, 0644, vdd_opp_show, vdd_opp_store);
 static struct kobj_attribute vdd1_lock_attr =
@@ -92,6 +95,8 @@ static struct kobj_attribute vdd2_lock_attr =
 	__ATTR(vdd2_lock, 0644, vdd_opp_show, vdd_opp_lock_store);
 static struct kobj_attribute dsp_opp_attr =
 	__ATTR(dsp_opp, 0644, vdd_opp_show, vdd_opp_store);
+
+static int vdd1_max_level;
 #endif
 
 static struct kobj_attribute wakeup_timer_seconds_attr =
@@ -162,6 +167,8 @@ static struct device sysfs_dsp_dev;
 static ssize_t vdd_opp_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buf)
 {
+	if (attr == &vdd1_max_attr)
+		return sprintf(buf, "%u\n", vdd1_max_level);
 	if (attr == &vdd1_opp_attr)
 		return sprintf(buf, "%u\n", resource_get_level("vdd1_opp"));
 	else if (attr == &vdd2_opp_attr)
@@ -220,6 +227,9 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 						OCP_INITIATOR_AGENT, 200*1000*4);
 		}
 
+	} else if (attr == &vdd1_max_attr) {
+		omap_pm_vdd1_set_max_opp(value);
+		vdd1_max_level = value;
 	} else {
 		return -EINVAL;
 	}
@@ -375,6 +385,12 @@ static int __init omap_pm_init(void)
 
 	error = sysfs_create_file(power_kobj,
 				  &vdd1_opp_attr.attr);
+	if (error) {
+		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
+		return error;
+	}
+	error = sysfs_create_file(power_kobj,
+				  &vdd1_max_attr.attr);
 	if (error) {
 		printk(KERN_ERR "sysfs_create_file failed: %d\n", error);
 		return error;
