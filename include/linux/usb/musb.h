@@ -85,6 +85,9 @@ struct musb_hdrc_platform_data {
 	/* MUSB configuration-specific details */
 	struct musb_hdrc_config	*config;
 
+	/* MUSB power domain context lost counter */
+	unsigned (*context_loss_counter) (struct device *dev);
+
 	/* Architecture specific board data	*/
 	void		*board_data;
 };

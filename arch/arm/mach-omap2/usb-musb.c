@@ -295,6 +295,8 @@ static struct musb_hdrc_config musb_config = {
 	.eps_bits	= musb_eps,
 };
 
+extern unsigned get_last_off_on_transaction_id(struct device *dev);
+
 static struct musb_hdrc_platform_data musb_plat = {
 #ifdef CONFIG_USB_MUSB_OTG
 	.mode		= MUSB_OTG,
@@ -312,6 +314,11 @@ static struct musb_hdrc_platform_data musb_plat = {
 	 * "mode", and should be passed to usb_musb_init().
 	 */
 	.power		= 50,			/* up to 100 mA */
+#ifndef CONFIG_ARCH_OMAP4
+	.context_loss_counter = get_last_off_on_transaction_id,
+#else
+	.context_loss_counter = NULL,
+#endif
 };
 
 static u64 musb_dmamask = DMA_BIT_MASK(32);
