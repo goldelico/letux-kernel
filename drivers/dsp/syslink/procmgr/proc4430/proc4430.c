@@ -920,8 +920,6 @@ int proc4430_map(void *handle, u32 proc_addr,
 	if ((map_attribs & DSP_MAPTILERADDR)) {
 		da_align = user_va2pa(current->mm, proc_addr);
 		*mapped_addr = (da_align | (proc_addr & (PAGE_SIZE - 1)));
-		printk(KERN_INFO "proc4430_map -tiler: user_va2pa: mapped_addr"
-			"= 0x%x\n", *mapped_addr);
 		return 0;
 	}
 
