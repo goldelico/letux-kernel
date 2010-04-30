@@ -19,6 +19,8 @@
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <mach/resource.h>
+#include <mach/omap34xx.h>
+#include <mach/omap-pm.h>
 #include <linux/slab.h>
 
 /*
@@ -87,7 +89,7 @@ static struct shared_resource *resource_lookup(const char *name)
 
 	return res;
 }
-
+static int max_constraint;
 /**
  * update_resource_level - Regenerates and updates the curr_level of the res
  * @resp: Pointer to the resource
@@ -104,13 +106,32 @@ static int update_resource_level(struct shared_resource *resp)
 	struct users_list *user;
 	unsigned long target_level;
 	int ret;
+	int max_level;
 
 	/* Regenerate the target_value for the resource */
-	if (resp->flags & RES_TYPE_PERFORMANCE) {
+	if (resp->flags == RES_TYPE_VDD1_MAX) {
+		max_level = max_constraint = MAX_VDD1_OPP;
+		list_for_each_entry(user, &resp->users_list, node)
+			if (user->level < max_level)
+				max_constraint = user->level;
+
+		resp = resource_lookup("vdd1_opp");
+		ret = update_resource_level(resp);
+
+		return ret;
+
+	 } else if (resp->flags == RES_TYPE_PERFORMANCE) {
 		target_level = RES_PERFORMANCE_DEFAULTLEVEL;
 		list_for_each_entry(user, &resp->users_list, node)
 			if (user->level > target_level)
 				target_level = user->level;
+
+		if (strcmp(resp->name, "vdd1_opp") == 0) {
+			if ((max_constraint != 0) &&
+					(target_level > max_constraint))
+				target_level = max_constraint;
+		}
+
 	} else if (resp->flags & RES_TYPE_LATENCY) {
 		target_level = RES_LATENCY_DEFAULTLEVEL;
 		list_for_each_entry(user, &resp->users_list, node)

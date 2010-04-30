@@ -31,6 +31,7 @@
 /* Types of resources */
 #define RES_TYPE_PERFORMANCE	0x1
 #define RES_TYPE_LATENCY	0x2
+#define RES_TYPE_VDD1_MAX	0x3
 
 struct shared_resource_ops; /* forward declaration */
 

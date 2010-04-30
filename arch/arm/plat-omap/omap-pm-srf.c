@@ -189,6 +189,19 @@ const struct omap_opp *omap_pm_dsp_get_opp_table(void)
 }
 EXPORT_SYMBOL(omap_pm_dsp_get_opp_table);
 
+static struct device dummy_vdd1_dev;
+void omap_pm_vdd1_set_max_opp(u8 opp_id)
+{
+	pr_debug("OMAP PM: requests constraint for max OPP ID\n");
+
+	if (opp_id != 0)
+		resource_request("vdd1_max", &dummy_vdd1_dev, opp_id);
+	 else
+		resource_request("vdd1_max", &dummy_vdd1_dev, MAX_VDD1_OPP);
+}
+EXPORT_SYMBOL(omap_pm_vdd1_set_max_opp);
+
+static bool vdd1_max_opp;
 void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f)
 {
 	u8 opp_id;
@@ -200,7 +213,29 @@ void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f)
 
 	pr_debug("OMAP PM: DSP requests minimum VDD1 OPP to be %d\n", opp_id);
 
+	/*
+	 * for 3630, if DSP request for 400 MHz than give 520MHz
+	 * as per recommendation. We don't want to run ARM
+	 * at 1 G when dsp load is only 400 MHz.
+	 */
+	if (f == S400M/1000 && cpu_is_omap3630())
+		f = S520M/1000;
+
 	opp_id = get_opp_id(dsp_opps + MAX_VDD1_OPP, f);
+
+	if (cpu_is_omap3630()) {
+		/*
+		 * check if OPP requested is 520 or above if yes set
+		 * max opp to 4
+		 */
+		if ((opp_id >= VDD1_OPP2) && !vdd1_max_opp) {
+			vdd1_max_opp = 1;
+			omap_pm_vdd1_set_max_opp(MAX_VDD1_OPP - 1);
+		} else if ((opp_id < VDD1_OPP2) && vdd1_max_opp) {
+			omap_pm_vdd1_set_max_opp(0);
+			vdd1_max_opp = 0;
+		}
+	}
 
 	/*
 	 * For now pass a dummy_dev struct for SRF to identify the caller.
@@ -380,7 +415,7 @@ u8 omap_pm_get_max_vdd1_opp()
 		switch (omap_rev_id()) {
 		case OMAP_3630:
 		default:
-			return VDD1_OPP4;
+			return VDD1_OPP5;
 		case OMAP_3630_800:
 			return VDD1_OPP4;
 		case OMAP_3630_1000:
