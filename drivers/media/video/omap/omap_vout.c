@@ -595,8 +595,6 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout)
 
 	if (vout->flg_720 == VIDEO_720_ENABLE ||
 	    vout->use_isp_rsz_for_downscale) {
-		pix->height = win->w.height;
-		pix->width = win->w.width;
 		crop->height = win->w.height;
 		crop->width = win->w.width;
 	}
@@ -643,8 +641,13 @@ static int omap_vout_calculate_offset(struct omap_vout_device *vout)
 	vout->vr_ps = vr_ps;
 	if (rotation_enabled(vout->rotation)) {
 		line_length = MAX_PIXELS_PER_LINE;
-		ctop = (pix->height - crop->height) - crop->top;
-		cleft = (pix->width - crop->width) - crop->left;
+		if (vout->flg_720 == VIDEO_720_ENABLE) {
+			ctop = crop->top;
+			cleft = crop->left;
+		} else {
+			ctop = (pix->height - crop->height) - crop->top;
+			cleft = (pix->width - crop->width) - crop->left;
+		}
 	} else {
 		line_length = pix->width;
 	}
