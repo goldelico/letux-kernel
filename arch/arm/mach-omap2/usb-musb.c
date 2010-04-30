@@ -33,6 +33,7 @@
 #include <mach/irqs.h>
 #include <plat/mux.h>
 #include <plat/usb.h>
+#include <plat/omap-pm.h>
 
 #define OTG_SYSCONFIG	   0x404
 #define OTG_SYSC_SOFTRESET BIT(1)
@@ -314,9 +315,10 @@ static struct musb_hdrc_platform_data musb_plat = {
 	 * "mode", and should be passed to usb_musb_init().
 	 */
 	.power		= 50,			/* up to 100 mA */
-#ifndef CONFIG_ARCH_OMAP4
+#ifdef CONFIG_ARCH_OMAP3
 	.context_loss_counter = get_last_off_on_transaction_id,
-#else
+	.set_vdd1_opp	= omap_pm_set_min_mpu_freq,
+#elif defined(CONFIG_ARCH_OMAP4)	/* REVISIT later for OMAP4 */
 	.context_loss_counter = NULL,
 #endif
 };
@@ -346,6 +348,19 @@ void __init usb_musb_init(struct omap_musb_board_data *board_data)
 		musb_resources[1].start = INT_44XX_HS_USB_MC;
 		musb_resources[2].start = INT_44XX_HS_USB_DMA;
 	}
+
+	if (cpu_is_omap3630()) {
+		musb_plat.max_vdd1_opp = S600M;
+		musb_plat.min_vdd1_opp = S300M;
+	} else if (cpu_is_omap3430()) {
+		musb_plat.max_vdd1_opp = S500M;
+		musb_plat.min_vdd1_opp = S125M;
+	} else if (cpu_is_omap44xx()) {
+		/* REVISIT later for OMAP4 */
+		musb_plat.set_vdd1_opp = NULL;
+	} else
+		musb_plat.set_vdd1_opp = NULL;
+
 	musb_resources[0].end = musb_resources[0].start + SZ_8K - 1;
 
 	/*

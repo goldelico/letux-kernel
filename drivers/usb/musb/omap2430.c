@@ -443,6 +443,9 @@ void musb_link_save_context(struct otg_transceiver *xceiv)
 
 	struct musb	*musb = xceiv->link;
 
+	struct musb_hdrc_platform_data *plat =
+			musb->controller->platform_data;
+
 	musb_platform_save_context(musb);
 
 	/* On cable detach remove restriction on CORE domain:
@@ -451,6 +454,10 @@ void musb_link_save_context(struct otg_transceiver *xceiv)
 	 */
 	if (cpu_is_omap3630() || cpu_is_omap3430())
 		omap_pm_set_max_mpu_wakeup_lat(musb->controller, -1);
+
+	/* Initialize vdd1 to min opp1 constraint  */
+	if (plat->set_vdd1_opp)
+		plat->set_vdd1_opp(musb->controller, plat->min_vdd1_opp);
 
 }
 
@@ -467,6 +474,10 @@ void musb_link_restore_context(struct otg_transceiver *xceiv)
 	 */
 	if (cpu_is_omap3630() || cpu_is_omap3430())
 		omap_pm_set_max_mpu_wakeup_lat(musb->controller, 6250);
+
+	/* Initialize vdd1 to max opp1 constraint  */
+	if (plat->set_vdd1_opp)
+		plat->set_vdd1_opp(musb->controller, plat->max_vdd1_opp);
 
 	/* No context restore needed in case
 	 * OFF transition has not happened
