@@ -204,12 +204,21 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 			printk(KERN_ERR "vdd_opp_store: Invalid value\n");
 			return -EINVAL;
 		}
-		if (value == VDD2_OPP2)
-			omap_pm_set_min_bus_tput(&sysfs_cpufreq_dev,
-					OCP_INITIATOR_AGENT, 83*1000*4);
-		else if (value == VDD2_OPP3)
-			omap_pm_set_min_bus_tput(&sysfs_cpufreq_dev,
-					OCP_INITIATOR_AGENT, 166*1000*4);
+		if (cpu_is_omap3430()) {
+			if (value == VDD2_OPP2)
+				omap_pm_set_min_bus_tput(&sysfs_cpufreq_dev,
+						OCP_INITIATOR_AGENT, 83*1000*4);
+			else if (value == VDD2_OPP2)
+				omap_pm_set_min_bus_tput(&sysfs_cpufreq_dev,
+						OCP_INITIATOR_AGENT, 166*1000*4);
+		} else if (cpu_is_omap3630()) {
+			if (value == VDD2_OPP1)
+				omap_pm_set_min_bus_tput(&sysfs_cpufreq_dev,
+						OCP_INITIATOR_AGENT, 100*1000*4);
+			else if (value == VDD2_OPP2)
+				omap_pm_set_min_bus_tput(&sysfs_cpufreq_dev,
+						OCP_INITIATOR_AGENT, 200*1000*4);
+		}
 
 	} else {
 		return -EINVAL;
