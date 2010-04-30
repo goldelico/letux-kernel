@@ -23,6 +23,7 @@
 
 #include "mux.h"
 #include "sdram-hynix-h8mbx00u0mer-0em.h"
+#include "omap3-opp.h"
 
 static void __init omap_zoom_map_io(void)
 {
@@ -40,7 +41,9 @@ static void __init omap_zoom_init_irq(void)
 	omap_init_irq();
 	omap2_init_common_hw(h8mbx00u0mer0em_sdrc_params,
 			     h8mbx00u0mer0em_sdrc_params,
-			     NULL, NULL, NULL);
+			     omap3630_mpu_rate_table,
+			     omap3630_dsp_rate_table,
+			     omap3630_l3_rate_table);
 }
 
 #ifdef CONFIG_OMAP_MUX
