@@ -288,6 +288,7 @@ struct musb_csr_regs {
 
 static struct musb_context_registers {
 
+	u32 off_counter;
 	u32 otg_sysconfig, otg_forcestandby;
 
 	u8 faddr, power;
@@ -305,8 +306,14 @@ static struct musb_context_registers {
 void musb_platform_save_context(struct musb *musb)
 {
 	int i;
+	struct musb_hdrc_platform_data *plat = musb->controller->platform_data;
 
 	DBG(4, "Saving musb_registers\n");
+
+	if (plat->context_loss_counter) {
+		musb_context.off_counter =
+			plat->context_loss_counter(musb->controller);
+	}
 
 	musb_context.otg_sysconfig = omap_readl(OTG_SYSCONFIG);
 	musb_context.otg_forcestandby = omap_readl(OTG_FORCESTDBY);
@@ -437,7 +444,22 @@ void musb_link_save_context(struct otg_transceiver *xceiv)
 
 void musb_link_restore_context(struct otg_transceiver *xceiv)
 {
-	musb_platform_restore_context(xceiv->link);
+	struct musb	*musb = xceiv->link;
+	struct musb_hdrc_platform_data *plat =
+			musb->controller->platform_data;
+
+	/* No context restore needed in case
+	 * OFF transition has not happened
+	 */
+	if (plat->context_loss_counter) {
+		if (musb_context.off_counter ==
+			plat->context_loss_counter(musb->controller)) {
+				DBG(4, "No context was lost. Not restoring.\n");
+				return;
+		}
+	}
+
+	musb_platform_restore_context(musb);
 }
 
 #else
