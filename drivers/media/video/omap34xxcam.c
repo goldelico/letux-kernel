@@ -34,7 +34,7 @@
 
 #include <linux/videodev2.h>
 #include <linux/version.h>
-#include <linux/ktime.h>
+#include <linux/syscalls.h>
 #include <asm/pgalloc.h>
 
 #include <media/v4l2-common.h>
@@ -130,8 +130,13 @@ void omap34xxcam_vbq_complete(struct videobuf_buffer *vb, void *priv)
 {
 	struct v4l2_fh *vfh = priv;
 	struct omap34xxcam_fh *ofh = to_omap34xxcam_fh(vfh);
+	struct timespec temp_tp;
+	s64 temp_nsec;
 
-	do_gettimeofday(&vb->ts);
+	/* Get system time, and adapt to timeval (less granular) */
+	sys_clock_gettime(CLOCK_MONOTONIC, &temp_tp);
+	temp_nsec = timespec_to_ns(&temp_tp);
+	vb->ts = ns_to_timeval(temp_nsec);
 	vb->field_count = atomic_add_return(2, &ofh->field_count);
 	vb->state = VIDEOBUF_DONE;
 
