@@ -528,6 +528,7 @@ int set_dpll3_volt_freq(bool dpll3_restore)
 		c_opp = ID_VDD(VDD2_OPP) | ID_OPP_NO(l3_opps[min_opp].opp_id);
 		t_vsel = l3_opps[vdd2_save_opp].vsel;
 		c_vsel = l3_opps[vdd2_save_opp].vsel;
+		resp->curr_level = vdd2_save_opp;
 	}
 
 	if (resp->curr_level == min_opp) {
