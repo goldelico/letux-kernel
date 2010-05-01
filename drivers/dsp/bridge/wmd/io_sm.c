@@ -1709,9 +1709,7 @@ void IO_IntrDSP2(IN struct IO_MGR *pIOMgr, IN u16 wMbVal)
 DSP_STATUS IO_SHMsetting(struct IO_MGR *hIOMgr, u8 desc, void *pArgs)
 {
 #ifdef CONFIG_BRIDGE_DVFS
-	struct omap_opp *dsp_opp_table;
-	u32 i, val;
-	u8 vdd1_max_opps, dsp_max_opps = 0;
+	u32 i;
 	struct dspbridge_platform_data *pdata =
 				omap_dspbridge_dev->dev.platform_data;
 
@@ -1728,56 +1726,31 @@ DSP_STATUS IO_SHMsetting(struct IO_MGR *hIOMgr, u8 desc, void *pArgs)
 		/*
 		 * Update the shared memory with the voltage, frequency,
 		 * min and max frequency values for an OPP.
-		*/
-		if (!pdata || !pdata->dsp_get_rate_table)
-			break;
-
-		vdd1_max_opps = omap_pm_get_max_vdd1_opp();
-		dsp_opp_table = (*pdata->dsp_get_rate_table)();
-
-		for (i = 0; i <= vdd1_max_opps; i++) {
+		 */
+		for (i = 0; i <= pdata->dsp_num_speeds; i++) {
 			hIOMgr->pSharedMem->oppTableStruct.oppPoint[i].voltage =
-				dsp_opp_table[i].vsel;
+				pdata->dsp_freq_table[i].u_volts;
 			DBG_Trace(DBG_LEVEL5, "OPP shared memory -voltage: "
 				 "%d\n", hIOMgr->pSharedMem->oppTableStruct.
 				 oppPoint[i].voltage);
 			hIOMgr->pSharedMem->oppTableStruct.oppPoint[i].
-				frequency = dsp_opp_table[i].rate / 1000;
+				frequency = pdata->dsp_freq_table[i].dsp_freq;
 			DBG_Trace(DBG_LEVEL5, "OPP shared memory -frequency: "
 				 "%d\n", hIOMgr->pSharedMem->oppTableStruct.
 				 oppPoint[i].frequency);
-			if (!i)
-				val = 0;
-			else if (dsp_opp_table[i].rate ==
-					dsp_opp_table[i - 1].rate) {
-				val = hIOMgr->pSharedMem->oppTableStruct.
-					oppPoint[i - 1].minFreq;
-			} else{
-				val = dsp_opp_table[i - 1].rate / 100000 * 88;
-				val -= val % 1000;
-			}
-			hIOMgr->pSharedMem->oppTableStruct.oppPoint[i].
-					minFreq = val;
+			hIOMgr->pSharedMem->oppTableStruct.oppPoint[i].minFreq =
+				pdata->dsp_freq_table[i].thresh_min_freq;
 			DBG_Trace(DBG_LEVEL5, "OPP shared memory -min value: "
 				 "%d\n", hIOMgr->pSharedMem->oppTableStruct.
 				  oppPoint[i].minFreq);
-			val = dsp_opp_table[i].rate;
-			if (val != dsp_opp_table[vdd1_max_opps].rate) {
-				val = (val / 100) * 95;
-				val -= val % 1000;
-			}
-
-			hIOMgr->pSharedMem->oppTableStruct.oppPoint[i].
-				maxFreq = val / 1000;
+			hIOMgr->pSharedMem->oppTableStruct.oppPoint[i].maxFreq =
+				pdata->dsp_freq_table[i].thresh_max_freq;
 			DBG_Trace(DBG_LEVEL5, "OPP shared memory -max value: "
 				 "%d\n", hIOMgr->pSharedMem->oppTableStruct.
 				 oppPoint[i].maxFreq);
-			if (!dsp_max_opps && dsp_opp_table[i].rate ==
-					dsp_opp_table[vdd1_max_opps].rate)
-				dsp_max_opps = i;
 		}
-
-		hIOMgr->pSharedMem->oppTableStruct.numOppPts = dsp_max_opps;
+		hIOMgr->pSharedMem->oppTableStruct.numOppPts =
+			pdata->dsp_num_speeds;
 		DBG_Trace(DBG_LEVEL5, "OPP shared memory - max OPP number: "
 			 "%d\n", hIOMgr->pSharedMem->oppTableStruct.numOppPts);
 		/* Update the current OPP number */

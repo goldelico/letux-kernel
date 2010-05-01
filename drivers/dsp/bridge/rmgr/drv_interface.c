@@ -368,15 +368,6 @@ static int __devinit omap34xx_bridge_probe(struct platform_device *pdev)
 	}
 	if (DSP_SUCCEEDED(initStatus)) {
 #ifdef CONFIG_BRIDGE_DVFS
-		if (pdata->mpu_get_rate_table)
-			pdata->mpu_rate_table = (*pdata->mpu_get_rate_table)();
-		else {
-			GT_0trace(driverTrace, GT_7CLASS, "dspbridge failed to"
-				"get mpu opp table\n");
-			return -EFAULT;
-			goto err2;
-		}
-
 		clk_handle = clk_get(NULL, "iva2_ck");
 		if (!clk_handle)
 			pr_err("%s: clk_get failed to get iva2_ck\n", __func__);

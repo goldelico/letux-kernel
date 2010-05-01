@@ -54,14 +54,23 @@
 /* TODO -- Remove, once BP defines them */
 #define INT_DSP_MMU_IRQ        28
 
+struct dsp_shm_freq_table {
+	unsigned long u_volts;
+	unsigned long dsp_freq;
+	unsigned long thresh_min_freq;
+	unsigned long thresh_max_freq;
+};
+
 struct dspbridge_platform_data {
-	void 	(*dsp_set_min_opp)(struct device *dev, u8 opp_id);
+	void 	(*dsp_set_min_opp)(struct device *dev, unsigned long f);
 	u8 	(*dsp_get_opp)(void);
 	void 	(*cpu_set_freq)(unsigned long f);
 	unsigned long (*cpu_get_freq)(void);
 	struct omap_opp *(*dsp_get_rate_table)(void);
-	struct omap_opp *(*mpu_get_rate_table)(void);
-	struct omap_opp *mpu_rate_table;
+	unsigned long mpu_min_speed;
+	unsigned long mpu_max_speed;
+	struct dsp_shm_freq_table *dsp_freq_table;
+	u8 dsp_num_speeds;
 
 	u32 phys_mempool_base;
 	u32 phys_mempool_size;
