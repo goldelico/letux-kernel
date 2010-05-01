@@ -205,7 +205,8 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 			printk(KERN_ERR "vdd_opp_store: Invalid value\n");
 			return -EINVAL;
 		}
-		omap_pm_dsp_set_min_opp(&sysfs_dsp_dev, value);
+		opp_table = omap_get_dsp_rate_table();
+		omap_pm_dsp_set_min_opp(&sysfs_dsp_dev, opp_table[value].rate);
 	} else if (attr == &vdd2_opp_attr) {
 		if (value < MIN_VDD2_OPP || (value > MAX_VDD2_OPP)) {
 			printk(KERN_ERR "vdd_opp_store: Invalid value\n");
