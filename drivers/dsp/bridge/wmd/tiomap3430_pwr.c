@@ -170,7 +170,7 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 			 */
 			if (pdata->dsp_set_min_opp)
 				(*pdata->dsp_set_min_opp)
-					(&omap_dspbridge_dev->dev, VDD1_OPP1);
+					(&omap_dspbridge_dev->dev, min_dsp_freq);
 			status = DSP_SOK;
 #endif /* CONFIG_BRIDGE_DVFS */
 		} else {
@@ -298,7 +298,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 			 */
 			if (pdata->dsp_set_min_opp)
 				(*pdata->dsp_set_min_opp)
-					(&omap_dspbridge_dev->dev, VDD1_OPP1);
+					(&omap_dspbridge_dev->dev, min_dsp_freq);
 		}
 #endif /* CONFIG_BRIDGE_DVFS */
 	}
