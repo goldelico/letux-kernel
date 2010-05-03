@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Mon May  3 14:49:03 2010
+# Mon May  3 14:53:37 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -210,7 +210,7 @@ CONFIG_OMAP_MUX=y
 CONFIG_OMAP_MUX_DEBUG=y
 CONFIG_OMAP_MUX_WARNINGS=y
 CONFIG_OMAP_MCBSP=y
-# CONFIG_OMAP_MBOX_FWK is not set
+CONFIG_OMAP_MBOX_FWK=y
 # CONFIG_OMAP_IOMMU is not set
 # CONFIG_OMAP_MPU_TIMER is not set
 CONFIG_OMAP_32K_TIMER=y
