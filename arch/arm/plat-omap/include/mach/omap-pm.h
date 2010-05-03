@@ -254,7 +254,7 @@ void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f);
  * NOTE: This has to be used cautiously else you will end up restraining the
  * system max limit and hence the performance/speed.
  */
-void omap_pm_vdd1_set_max_opp(u8 opp_id);
+void omap_pm_vdd1_set_max_opp(struct device *dev, u8 opp_id);
 
 /**
  * omap_pm_dsp_get_opp - report the current DSP OPP ID

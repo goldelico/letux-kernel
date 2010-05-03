@@ -190,18 +190,17 @@ const struct omap_opp *omap_pm_dsp_get_opp_table(void)
 EXPORT_SYMBOL(omap_pm_dsp_get_opp_table);
 
 static struct device dummy_vdd1_dev;
-void omap_pm_vdd1_set_max_opp(u8 opp_id)
+void omap_pm_vdd1_set_max_opp(struct device *dev, u8 opp_id)
 {
 	pr_debug("OMAP PM: requests constraint for max OPP ID\n");
 
 	if (opp_id != 0)
-		resource_request("vdd1_max", &dummy_vdd1_dev, opp_id);
+		resource_request("vdd1_max", dev, opp_id);
 	 else
-		resource_request("vdd1_max", &dummy_vdd1_dev, MAX_VDD1_OPP);
+		resource_request("vdd1_max", dev, MAX_VDD1_OPP);
 }
 EXPORT_SYMBOL(omap_pm_vdd1_set_max_opp);
 
-static bool vdd1_max_opp;
 void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f)
 {
 	u8 opp_id;
@@ -228,13 +227,10 @@ void omap_pm_dsp_set_min_opp(struct device *dev, unsigned long f)
 		 * check if OPP requested is 520 or above if yes set
 		 * max opp to 4
 		 */
-		if ((opp_id >= VDD1_OPP2) && !vdd1_max_opp) {
-			vdd1_max_opp = 1;
-			omap_pm_vdd1_set_max_opp(MAX_VDD1_OPP - 1);
-		} else if ((opp_id < VDD1_OPP2) && vdd1_max_opp) {
-			omap_pm_vdd1_set_max_opp(0);
-			vdd1_max_opp = 0;
-		}
+		if (opp_id >= VDD1_OPP2)
+			omap_pm_vdd1_set_max_opp(dev, MAX_VDD1_OPP - 1);
+		else if (opp_id < VDD1_OPP2)
+			omap_pm_vdd1_set_max_opp(dev, 0);
 	}
 
 	/*

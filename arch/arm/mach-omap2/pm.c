@@ -163,6 +163,7 @@ static int vdd1_locked;
 static int vdd2_locked;
 static struct device sysfs_cpufreq_dev;
 static struct device sysfs_dsp_dev;
+static struct device vdd1_max_dummy;
 
 static ssize_t vdd_opp_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buf)
@@ -229,7 +230,7 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 		}
 
 	} else if (attr == &vdd1_max_attr) {
-		omap_pm_vdd1_set_max_opp(value);
+		omap_pm_vdd1_set_max_opp(&vdd1_max_dummy, value);
 		vdd1_max_level = value;
 	} else {
 		return -EINVAL;
