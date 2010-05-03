@@ -30,6 +30,9 @@
 #include <asm/mach/irq.h>
 #include <plat/omap_hwmod.h>
 #include <plat/omap_device.h>
+#include <plat/control.h>
+#include <plat/powerdomain.h>
+#include <plat/mux.h>
 
 struct omap_device_pm_latency omap_gpio_latency[] = {
 	[0] = {
@@ -38,6 +41,10 @@ struct omap_device_pm_latency omap_gpio_latency[] = {
 		.flags		 = OMAP_DEVICE_LATENCY_AUTO_ADJUST,
 	},
 };
+
+#define OMAP34XX_PAD_SAFE_MODE 0x7
+#define OMAP34XX_PAD_IN_PU_GPIO 0x11c
+#define OMAP34XX_PAD_IN_PD_GPIO 0x10c
 
 struct omap3_gpio_regs {
 	u32 sysconfig;
@@ -57,6 +64,54 @@ struct omap3_gpio_regs {
 
 #ifdef CONFIG_ARCH_OMAP3
 static struct omap3_gpio_regs gpio_context[OMAP_NR_GPIOS];
+
+/* GPIO -> PAD init configuration struct */
+struct gpio_pad_range {
+	/* Range start GPIO # */
+	u16 min;
+	/* Range end GPIO # */
+	u16 max;
+	/* Start pad config offset */
+	u16 offset;
+};
+
+/*
+ * Defines GPIO to padconfig mapping. For example first definition tells
+ * us that there is a range of GPIOs 34...43 which have their padconfigs
+ * starting from offset 0x7a, i.e. gpio 34->0x7a, 35->0x7c, 36->0x7e ... etc.
+ */
+static const struct gpio_pad_range gpio_pads_config[] = {
+	{ 34, 43, 0x7a },
+	{ 44, 51, 0x9e },
+	{ 52, 59, 0xb0 },
+	{ 60, 62, 0xc6 },
+	{ 63, 111, 0xce },
+	{ 167, 167, 0x130 },
+	{ 126, 126, 0x132 },
+	{ 112, 166, 0x134 },
+	{ 120, 122, 0x1a2 },
+	{ 124, 125, 0x1a8 },
+	{ 130, 131, 0x1ac },
+	{ 169, 169, 0x1b0 },
+	{ 188, 191, 0x1b2 },
+	{ 168, 168, 0x1be },
+	{ 183, 185, 0x1c0 },
+	{ 170, 182, 0x1c6 },
+	{ 0, 0, 0x1e0 },
+	{ 186, 186, 0x1e2 },
+	{ 12, 29, 0x5d8 },
+};
+
+/* GPIO -> PAD config mapping for OMAP3 */
+struct gpio_pad {
+	s16 gpio;
+	u16 offset;
+	u16 save;
+};
+
+#define OMAP34XX_GPIO_AMT	(32 * OMAP_NR_GPIOS)
+
+struct gpio_pad *gpio_pads;
 #endif
 
 static struct gpio_bank gpio_bank[OMAP_NR_GPIOS];
@@ -1027,10 +1082,16 @@ void omap2_gpio_resume_after_retention(void)
 void omap_gpio_save_context(void)
 {
 	int i;
+	struct gpio_bank *bank;
+	int n;
+	u16 offset, conf;
+	u32 out, pin;
+	struct gpio_pad *pad;
+	u32 tmp_oe[OMAP_NR_GPIOS];
 
 	/* saving banks from 2-6 only since GPIO1 is in WKUP */
 	for (i = 1; i < gpio_bank_count; i++) {
-		struct gpio_bank *bank = &gpio_bank[i];
+		bank = &gpio_bank[i];
 		gpio_context[i].sysconfig =
 			__raw_readl(bank->base + OMAP24XX_GPIO_SYSCONFIG);
 		gpio_context[i].irqenable1 =
@@ -1043,6 +1104,7 @@ void omap_gpio_save_context(void)
 			__raw_readl(bank->base + OMAP24XX_GPIO_CTRL);
 		gpio_context[i].oe =
 			__raw_readl(bank->base + OMAP24XX_GPIO_OE);
+		tmp_oe[i] = gpio_context[i].oe;
 		gpio_context[i].leveldetect0 =
 			__raw_readl(bank->base + OMAP24XX_GPIO_LEVELDETECT0);
 		gpio_context[i].leveldetect1 =
@@ -1057,6 +1119,45 @@ void omap_gpio_save_context(void)
 			__raw_readl(bank->base + OMAP24XX_GPIO_SETWKUENA);
 		gpio_context[i].setdataout =
 			__raw_readl(bank->base + OMAP24XX_GPIO_SETDATAOUT);
+	}
+	pad = gpio_pads;
+
+	if (pad == NULL)
+		return;
+
+	while (pad->gpio >= 0) {
+		/* n = gpio number, 0..191 */
+		n = pad->gpio;
+		/* i = gpio bank, 0..5 */
+		i = n >> 5;
+		/* offset of padconf register */
+		offset = pad->offset;
+		bank = &gpio_bank[i];
+		/* bit position of gpio in the bank 0..31 */
+		pin = 1 << (n & 0x1f);
+
+		/* check if gpio is configured as output => need hack */
+		if (!(tmp_oe[i] & pin)) {
+			/* save current padconf setting */
+			pad->save = omap_ctrl_readw(offset);
+			out = gpio_context[i].dataout;
+			if (out & pin)
+				/* High: PU + input */
+				conf = OMAP34XX_PAD_IN_PU_GPIO;
+			else
+				/* Low: PD + input */
+				conf = OMAP34XX_PAD_IN_PD_GPIO;
+			/* Set PAD to GPIO + input */
+			omap_ctrl_writew(conf, offset);
+			/* Set GPIO to input */
+			tmp_oe[i] |= pin;
+			__raw_writel(tmp_oe[i],
+					bank->base + OMAP24XX_GPIO_OE);
+			/* Set PAD to safe mode */
+			omap_ctrl_writew(conf | OMAP34XX_PAD_SAFE_MODE, offset);
+		} else
+			pad->save = 0;
+		pad++;
 	}
 }
 
@@ -1077,8 +1178,6 @@ void omap_gpio_restore_context(void)
 				bank->base + OMAP24XX_GPIO_WAKE_EN);
 		__raw_writel(gpio_context[i].ctrl,
 				bank->base + OMAP24XX_GPIO_CTRL);
-		__raw_writel(gpio_context[i].oe,
-				bank->base + OMAP24XX_GPIO_OE);
 		__raw_writel(gpio_context[i].leveldetect0,
 				bank->base + OMAP24XX_GPIO_LEVELDETECT0);
 		__raw_writel(gpio_context[i].leveldetect1,
@@ -1093,6 +1192,33 @@ void omap_gpio_restore_context(void)
 				bank->base + OMAP24XX_GPIO_SETWKUENA);
 		__raw_writel(gpio_context[i].setdataout,
 				bank->base + OMAP24XX_GPIO_SETDATAOUT);
+		__raw_writel(gpio_context[i].oe,
+				bank->base + OMAP24XX_GPIO_OE);
+	}
+}
+
+void omap3_gpio_restore_pad_context(int restore_oe)
+{
+	struct gpio_pad *pad;
+	int i;
+
+	pad = gpio_pads;
+
+	if (restore_oe) {
+		for (i = 1; i < gpio_bank_count; i++) {
+			struct gpio_bank *bank = &gpio_bank[i];
+			__raw_writel(gpio_context[i].oe,
+				     bank->base + OMAP24XX_GPIO_OE);
+		}
+	}
+
+	if (pad == NULL)
+		return;
+
+	while (pad->gpio >= 0) {
+		if (pad->save)
+			omap_ctrl_writew(pad->save, pad->offset);
+		pad++;
 	}
 }
 #endif
