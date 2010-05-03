@@ -193,6 +193,9 @@
 #define DSP_MMU_34XX_VIRT	0xe2000000
 #define DSP_MMU_34XX_SIZE	SZ_4K
 
+#define ZOOM2_QUART_PHYS	0x10000000
+#define ZOOM2_QUART_VIRT	0xfa000000
+#define ZOOM2_QUART_SIZE	SZ_1M
 /*
  * ----------------------------------------------------------------------------
  * Omap4 specific IO mapping

@@ -94,14 +94,27 @@ static struct plat_serial8250_port serial_platform_data[] = {
 	}
 };
 
+static struct resource omap_quart_resources[] = {
+	{
+		.start          = ZOOM2_QUART_PHYS,
+		.end            = ZOOM2_QUART_PHYS + (0x16 << 1),
+		.flags          = IORESOURCE_MEM,
+	}, {
+		/* QUART IRQ - 102*/
+		.start          = OMAP_GPIO_IRQ(102),
+		.flags          = IORESOURCE_IRQ,
+	}
+};
+
 static struct platform_device zoom_debugboard_serial_device = {
-	.name			= "serial8250",
+	.name			= "omap-hsuart",
 	.id			= 3,
+	.num_resources	= ARRAY_SIZE(omap_quart_resources),
+	.resource	= omap_quart_resources,
 	.dev			= {
 		.platform_data	= serial_platform_data,
 	},
 };
-
 static inline void __init zoom_init_quaduart(void)
 {
 	int quart_cs;
