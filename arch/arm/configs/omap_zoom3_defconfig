@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
-# Mon May  3 14:41:09 2010
+# Mon May  3 14:49:03 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -219,8 +219,8 @@ CONFIG_OMAP_32K_TIMER_HZ=128
 CONFIG_OMAP_DM_TIMER=y
 # CONFIG_OMAP_LL_DEBUG_UART1 is not set
 # CONFIG_OMAP_LL_DEBUG_UART2 is not set
-# CONFIG_OMAP_LL_DEBUG_UART3 is not set
-CONFIG_OMAP_LL_DEBUG_NONE=y
+CONFIG_OMAP_LL_DEBUG_UART3=y
+# CONFIG_OMAP_LL_DEBUG_NONE is not set
 # CONFIG_OMAP_PM_NONE is not set
 CONFIG_OMAP_PM_NOOP=y
 # CONFIG_OMAP_PM_SRF is not set
@@ -1568,7 +1568,9 @@ CONFIG_ARM_UNWIND=y
 # CONFIG_DEBUG_USER is not set
 # CONFIG_DEBUG_ERRORS is not set
 # CONFIG_DEBUG_STACK_USAGE is not set
-# CONFIG_DEBUG_LL is not set
+CONFIG_DEBUG_LL=y
+# CONFIG_EARLY_PRINTK is not set
+# CONFIG_DEBUG_ICEDCC is not set
 
 #
 # Security options
