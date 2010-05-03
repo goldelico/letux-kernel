@@ -899,8 +899,7 @@ static void IO_DispatchPM(struct IO_MGR *pIOMgr)
 			pr_err("%s: hibernate cmd failed 0x%x\n",
 						__func__, status);
 	} else if (pArg[0] == MBX_PM_OPP_REQ) {
-		pArg[1] = pIOMgr->pSharedMem->oppRequest.rqstDspFreq;
-
+		pArg[1] = pIOMgr->pSharedMem->oppRequest.rqstOppPt;
 		DBG_Trace(DBG_LEVEL7, "IO_DispatchPM : Value of OPP "
 			 "value =0x%x \n", pArg[1]);
 		status = pIOMgr->pIntfFxns->pfnDevCntrl(pIOMgr->
@@ -1710,9 +1709,8 @@ void IO_IntrDSP2(IN struct IO_MGR *pIOMgr, IN u16 wMbVal)
 DSP_STATUS IO_SHMsetting(struct IO_MGR *hIOMgr, u8 desc, void *pArgs)
 {
 #ifdef CONFIG_BRIDGE_DVFS
-	struct omap_opp *dsp_opp_table, *temp;
-	int i, j;
-	u32 val;
+	struct omap_opp *dsp_opp_table;
+	u32 i, val;
 	u8 vdd1_max_opps, dsp_max_opps = 0;
 	struct dspbridge_platform_data *pdata =
 				omap_dspbridge_dev->dev.platform_data;
@@ -1736,22 +1734,7 @@ DSP_STATUS IO_SHMsetting(struct IO_MGR *hIOMgr, u8 desc, void *pArgs)
 
 		vdd1_max_opps = omap_pm_get_max_vdd1_opp();
 		dsp_opp_table = (*pdata->dsp_get_rate_table)();
-		temp = kzalloc(sizeof(struct omap_opp) * vdd1_max_opps ,
-								GFP_KERNEL);
-		if (!temp) {
-			pr_err("IO_SHMSetting:memory allocation failed\n");
-			return -ENOMEM;
-		}
 
-		for (i = 1; i <= vdd1_max_opps; i++) {
-			*temp = dsp_opp_table[i];
-			for (j = i - 1; j  >= 0 &&  dsp_opp_table[j].rate >
-						(*temp).rate; j--) {
-				dsp_opp_table[j+1] = dsp_opp_table[j];
-				}
-			dsp_opp_table[j+1] = *temp;
-			temp++;
-		}
 		for (i = 0; i <= vdd1_max_opps; i++) {
 			hIOMgr->pSharedMem->oppTableStruct.oppPoint[i].voltage =
 				dsp_opp_table[i].vsel;
@@ -1786,9 +1769,8 @@ DSP_STATUS IO_SHMsetting(struct IO_MGR *hIOMgr, u8 desc, void *pArgs)
 
 			hIOMgr->pSharedMem->oppTableStruct.oppPoint[i].
 				maxFreq = val / 1000;
-			DBG_Trace(DBG_LEVEL5, "OPP shared memory min value %d-max value: "
+			DBG_Trace(DBG_LEVEL5, "OPP shared memory -max value: "
 				 "%d\n", hIOMgr->pSharedMem->oppTableStruct.
-				  oppPoint[i].minFreq, hIOMgr->pSharedMem->oppTableStruct.
 				 oppPoint[i].maxFreq);
 			if (!dsp_max_opps && dsp_opp_table[i].rate ==
 					dsp_opp_table[vdd1_max_opps].rate)
@@ -1807,7 +1789,7 @@ DSP_STATUS IO_SHMsetting(struct IO_MGR *hIOMgr, u8 desc, void *pArgs)
 		break;
 	case SHM_GETOPP:
 		/* Get the OPP that DSP has requested */
-		*(u32 *)pArgs = hIOMgr->pSharedMem->oppRequest.rqstDspFreq;
+		*(u32 *)pArgs = hIOMgr->pSharedMem->oppRequest.rqstOppPt;
 		break;
 	default:
 		break;

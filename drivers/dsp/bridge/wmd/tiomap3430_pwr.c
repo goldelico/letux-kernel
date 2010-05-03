@@ -58,7 +58,7 @@
 extern struct MAILBOX_CONTEXT mboxsetting;
 extern unsigned short enable_off_mode;
 
-extern unsigned long min_active_opp_freq;
+extern unsigned short min_active_opp;
 /*
  *  ======== handle_constraints_set ========
  *  	Sets new DSP constraint
@@ -82,11 +82,11 @@ DSP_STATUS handle_constraints_set(struct WMD_DEV_CONTEXT *pDevContext,
 		 * When Smartreflex is ON, DSP requires at least OPP level 3
 		 * to operate reliably. So boost lower OPP levels to OPP3.
 		 */
-		if (pConstraintVal < min_active_opp_freq) {
+		if (pConstraintVal < min_active_opp) {
 			pr_debug("DSPBRIDGE: VDD1 OPP%x elevated to OPP%x\n",
-					pConstraintVal, min_active_opp_freq);
+					pConstraintVal, min_active_opp);
 			(*pdata->dsp_set_min_opp)(&omap_dspbridge_dev->dev,
-							 min_active_opp_freq);
+							 min_active_opp);
 		} else
 			(*pdata->dsp_set_min_opp)(&omap_dspbridge_dev->dev,
 							 pConstraintVal);
