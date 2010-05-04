@@ -259,7 +259,12 @@ static const struct rtc_class_ops pcf8563_rtc_ops = {
 
 static int pcf8563_attach(struct i2c_adapter *adapter)
 {
+#if 1
+	// OVERRIDE probing 
+	return pcf8563_probe(adapter, 0x51, 0); 
+#else
 	return i2c_probe(adapter, &addr_data, pcf8563_probe);
+#endif
 }
 
 static struct i2c_driver pcf8563_driver = {
