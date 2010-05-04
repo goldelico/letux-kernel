@@ -1928,8 +1928,8 @@ DSP_STATUS PrintDspTraceBuffer(struct WMD_DEV_CONTEXT *hWmdContext)
 		if (DSP_FAILED(status))
 			goto func_end;
 		/* Pack and do newline conversion */
-		pr_info("%s: DSP Trace Buffer Begin:\n"
-			 "=======================\n%s\n", __func__, pszBuf);
+		pr_info("DSP Trace Buffer Begin:\n"
+			 "=======================\n%s\n", pszBuf);
 		/* convert to offset */
 			trace_cur_pos = trace_cur_pos - ulTraceBegin;
 		if (ulNumBytes) {
@@ -2133,6 +2133,7 @@ DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context)
 		u32 size;
 	} mmu_fault_dbg_info;
 	u32 *buffer;
+	u32 *buffer_beg;
 	u32 *buffer_end;
 	u32 exc_type;
 	u32 i;
@@ -2142,6 +2143,7 @@ DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context)
 	const char *dsp_regs[] = {"EFR", "IERR", "ITSR", "NTSR",
 				"IRP", "NRP", "AMR", "SSR",
 				"ILC", "RILC", "IER", "CSR"};
+	const char *exec_ctxt[] = {"Task", "SWI", "HWI", "Unknown"};
 
 	struct WMD_DRV_INTERFACE *intf_fxns;
 	struct DEV_OBJECT *dev_object = wmd_context->hDevObject;
@@ -2209,6 +2211,7 @@ DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context)
 			total_size = MAX_MMU_DBGBUFF;
 
 		buffer = MEM_Calloc(total_size, MEM_NONPAGED);
+		buffer_beg = buffer;
 		buffer_end =  buffer + total_size / 4;
 
 		if (!buffer) {
@@ -2228,7 +2231,7 @@ DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context)
 			goto func_end;
 		}
 
-		pr_err("Aproximate Crash Position:\n");
+		pr_err("\nAproximate Crash Position:\n");
 		pr_err("--------------------------\n");
 
 		exc_type = buffer[3];
@@ -2245,7 +2248,27 @@ DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context)
 			pr_err("0x%-8x [Unable to match to a symbol.]\n", i);
 
 
-		pr_err("Execution Info:\n");
+		buffer += 4;
+
+		pr_err("\nExecution Info:\n");
+		pr_err("---------------\n");
+
+		if (*buffer < ARRAY_SIZE(exec_ctxt)) {
+			pr_err("Execution context \t%s\n",
+				exec_ctxt[*buffer++]);
+		} else {
+			pr_err("Execution context corrupt\n");
+			kfree(buffer_beg);
+			return -EFAULT;
+		}
+		pr_err("Task Handle\t\t0x%x\n", *buffer++);
+		pr_err("Stack Pointer\t\t0x%x\n", *buffer++);
+		pr_err("Stack Top\t\t0x%x\n", *buffer++);
+		pr_err("Stack Bottom\t\t0x%x\n", *buffer++);
+		pr_err("Stack Size\t\t0x%x\n", *buffer++);
+		pr_err("Stack Size In Use\t0x%x\n", *buffer++);
+
+		pr_err("\nCPU Registers\n");
 		pr_err("---------------\n");
 
 		for (i = 0; i < 32; i++) {
@@ -2279,7 +2302,7 @@ DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context)
 			if (i == 4 || i == 6 || i == 8)
 				pr_err("B%d 0x%-8x [Function Argument %d]\n",
 						i, *buffer++, i-2);
-			else if (i == 15)
+			else if (i == 14)
 				pr_err("B14 0x%-8x [Data Page Pointer]\n",
 							*buffer++);
 			else
@@ -2287,8 +2310,13 @@ DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context)
 
 		}
 
+		pr_err("\n");
+
 		for (i = 0; i < ARRAY_SIZE(dsp_regs); i++)
 			pr_err("%s 0x%x\n", dsp_regs[i], *buffer++);
+
+		pr_err("\nStack:\n");
+		pr_err("------\n");
 
 		for (i = 0; buffer < buffer_end; i++, buffer++) {
 			if ((*buffer > 0x01000000) && (node_find_addr(node_mgr,
@@ -2301,7 +2329,7 @@ DSP_STATUS dump_dsp_stack(struct WMD_DEV_CONTEXT *wmd_context)
 				pr_err("[%d] 0x%x\n", i, *buffer);
 		}
 
-		kfree(buffer - total_size / 4);
+		kfree(buffer_beg);
 	}
 func_end:
 	return status;
@@ -2366,8 +2394,8 @@ void dump_dl_modules(struct WMD_DEV_CONTEXT *wmd_context)
 	pr_debug("%s: dll_module_header 0x%x %d\n", __func__, module_dsp_addr,
 								module_size);
 
-	pr_err("%s: \nDynamically Loaded Modules:\n"
-		"---------------------------\n", __func__);
+	pr_err("\nDynamically Loaded Modules:\n"
+		"---------------------------\n");
 
 	/* For each dll_module structure in the list... */
 	while (module_size) {
