@@ -182,6 +182,13 @@ static int dma_channel_program(struct dma_channel *channel,
 	BUG_ON(channel->status == MUSB_DMA_STATUS_UNKNOWN ||
 		channel->status == MUSB_DMA_STATUS_BUSY);
 
+	/*
+	 * make sure the DMA address is 4 byte aligned, if not
+	 * we use the PIO mode for OMAP 3630 and beyond
+	 */
+	if ((dma_addr % 4) && (musb->hwvers >= MUSB_HWVERS_1800))
+		return false;
+
 	/* In version 1.4, if two DMA channels are simultaneously
 	 * enabled in opposite directions, there is a chance that
 	 * the DMA controller will hang. However, it is safe to
