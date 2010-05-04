@@ -116,11 +116,13 @@ static int xfer_read(unsigned char device, unsigned char *buf, int length)
 	int cnt = length;
 	int timeout = 5;
 	
+#ifndef CONFIG_SOC_JZ4730
 	/*eeprom device address transfer*/
 	if(EEPROM_DEVICE_NUMBER == (device & 0xf0)){
 		device = device | ((sub_addr & 0x0700) >> 8);
 		sub_addr = sub_addr & 0xff;
 	}
+#endif
 	
 L_try_again:
 	
@@ -187,11 +189,13 @@ static int xfer_write(unsigned char device, unsigned char *buf, int length)
 	int timeout = 5;
 	unsigned char *tmpbuf;
 	
+#ifndef CONFIG_SOC_JZ4730
 	/*eeprom device address transfer*/
 	if(EEPROM_DEVICE_NUMBER == (device & 0xf0)){
 		device = device | ((sub_addr & 0x0700) >> 8);
 		sub_addr = sub_addr & 0xff; 
 	}
+#endif
 	__i2c_send_nack();	/* Master does not send ACK, slave sends it */
 	
 W_try_again:
@@ -260,8 +264,8 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *pmsg, int num)
 				
 				ret = xfer_write(pmsg->addr,  pmsg->buf, pmsg->len);
 			}
-			if (ret)
-				return ret;
+			if (ret != pmsg->len)
+				return -1;
 			/* Wait until transfer is finished */
 		}
 		dev_dbg(&adap->dev, "transfer complete\n");
@@ -287,17 +291,6 @@ static int i2c_jz_probe(struct platform_device *dev)
 	struct i2c_jz_platform_data *plat = dev->dev.platform_data;
 	int ret;
 #ifdef CONFIG_SOC_JZ4730
-	printk(KERN_EMERG "i2c_jz_probe()\n");
-	/*
-	 * I2C_SCK, I2C_SDA
-	 */
-/*#define __gpio_as_i2c()				\
-do {						\
-REG_GPIO_PXFUNS(3) = 0x01800000;	\
-REG_GPIO_PXSELS(3) = 0x01800000;	\
-REG_GPIO_PXPES(3) = 0x01800000;		\
-} while (0)
-*/	
 	__i2c_set_clk(jz_clocks.devclk, 10000); /* default 10 KHz */
 #else
 	__gpio_as_i2c(); // open i2c 20091027
