@@ -50,8 +50,8 @@
 /* I2C controller revisions present on specific hardware */
 #define OMAP_I2C_REV_ON_2430		0x36
 #define OMAP_I2C_REV_ON_3430		0x3C
-
 #define OMAP_I2C_REV_ON_4430		0x40
+
 /* timeout waiting for the controller to respond */
 #define OMAP_I2C_TIMEOUT (msecs_to_jiffies(1000))
 
@@ -304,7 +304,8 @@ static void omap_i2c_idle(struct omap_i2c_dev *dev)
 	pdata = pdev->dev.platform_data;
 
 	dev->iestate = omap_i2c_read_reg(dev, OMAP_I2C_IE_REG);
-	if (dev->rev >= OMAP_I2C_REV_ON_4430)
+
+	if (dev->rev > OMAP_I2C_REV_ON_4430)
 		omap_i2c_write_reg(dev, OMAP_I2C_IRQENABLE_CLR, 1);
 	else
 		omap_i2c_write_reg(dev, OMAP_I2C_IE_REG, 0);
@@ -986,7 +987,7 @@ omap_i2c_probe(struct platform_device *pdev)
 		 * size. This is to ensure that we can handle the status on int
 		 * call back latencies.
 		 */
-		if (dev->rev >= OMAP_I2C_REV_ON_4430) {
+		if (dev->rev > OMAP_I2C_REV_ON_4430) {
 			dev->fifo_size = 0;
 			dev->b_hw = 0; /* Enable hardware fixes */
 		} else {
