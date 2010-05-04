@@ -969,8 +969,10 @@ static int _idle(struct omap_hwmod *oh)
 	 */
 	if ((oh->_state != _HWMOD_STATE_ENABLED) &&
 	    !(oh->flags & HWMOD_INIT_NO_IDLE)) {
-		WARN(1, "omap_hwmod: %s: idle state can only be entered from "
-		     "enabled state\n", oh->name);
+		if (cpu_is_omap44xx()) {
+			WARN(1, "omap_hwmod: %s: idle state can only be "
+			     "entered from enabled state\n", oh->name);
+		}
 		return -EINVAL;
 	}
 
