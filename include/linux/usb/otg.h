@@ -81,6 +81,9 @@ struct otg_transceiver {
 	/* ask the link to restore internal context */
 	void    (*link_restore_context)(struct otg_transceiver *otg);
 
+	/* ask the link to always be in an active state */
+	void    (*link_force_active)(int enable);
+
 	/* pointer to the link driver */
 	void    *link;
 

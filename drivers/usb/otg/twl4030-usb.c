@@ -580,6 +580,7 @@ static DEVICE_ATTR(vbus, 0444, twl4030_usb_vbus_show, NULL);
 static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 {
 	struct twl4030_usb *twl = _twl;
+	struct otg_transceiver x = twl->otg;
 	int status;
 
 #ifdef CONFIG_LOCKDEP
@@ -606,10 +607,15 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 		 */
 		twl4030charger_usb_en(status == USB_LINK_VBUS);
 
-		if (status == USB_LINK_NONE)
+		if (status == USB_LINK_NONE) {
+			if (x.link_force_active)
+				x.link_force_active(0);
 			twl4030_phy_suspend(twl, 0);
-		else
+		} else {
+			if (x.link_force_active)
+				x.link_force_active(1);
 			twl4030_phy_resume(twl);
+		}
 	}
 	sysfs_notify(&twl->dev->kobj, NULL, "vbus");
 

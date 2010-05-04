@@ -50,6 +50,7 @@ static struct timer_list musb_idle_timer;
 
 void musb_link_save_context(struct otg_transceiver *xceiv);
 void musb_link_restore_context(struct otg_transceiver *xceiv);
+void musb_link_force_active(int on);
 
 static void musb_do_idle(unsigned long _musb)
 {
@@ -268,6 +269,7 @@ int __init musb_platform_init(struct musb *musb, void *board_data)
 
 	x->link_save_context = musb_link_save_context;
 	x->link_restore_context = musb_link_restore_context;
+	x->link_force_active = musb_link_force_active;
 	x->link = musb;
 
 	otg_put_transceiver(x);
@@ -493,12 +495,43 @@ void musb_link_restore_context(struct otg_transceiver *xceiv)
 	musb_platform_restore_context(musb);
 }
 
+void musb_link_force_active(int enable)
+{
+	u32 l;
+
+	l = omap_readl(OTG_SYSCONFIG);
+
+	/*
+	 * We have encountered enumeration problems on the omap3
+	 * when power management has been enabled and the device
+	 * is transitioning in and out of CORE retention. To
+	 * workaround this problem, we force the musb controller
+	 * to be always active (no idle/standby) when the usb
+	 * cable is attached and inactive (smart idle/standby)
+	 * when the cable is removed.
+	 */
+	if (enable) {
+		l &= ~SMARTSTDBY;       /* disable smart standby */
+		l |= NOSTDBY;           /* enable nostdby */
+		l &= ~SMARTIDLE;        /* disable smart idle */
+		l |= NOIDLE;            /* enable noidle */
+	} else {
+		l |= SMARTSTDBY;        /* enable smart standby */
+		l &= ~NOSTDBY;          /* disable nostdby */
+		l |= SMARTIDLE;         /* enable smart idle */
+		l &= ~NOIDLE;           /* disable noidle */
+	}
+
+	omap_writel(l, OTG_SYSCONFIG);
+}
+
 #else
 
 #define musb_platform_save_context	do {} while (0)
 #define musb_platform_restore_context	do {} while (0)
 #define musb_link_save_context	do {} while (0)
 #define musb_link_restore_context	do {} while (0)
+#define musb_link_force_active do {} while (0)
 
 #endif
 
