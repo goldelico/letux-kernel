@@ -297,8 +297,13 @@ static ssize_t vdd_max_dsp_show(struct kobject *kobj,
 	struct omap_opp *dsp_rate;
 	if (attr == &max_dsp_frequency_attr) {
 		dsp_rate = omap_get_dsp_rate_table();
-	return sprintf(buf, "%ld\n", dsp_rate[MAX_VDD1_OPP].rate);
-		}
+		if (!cpu_is_omap3630())
+			return sprintf(buf, "%ld\n",
+					dsp_rate[MAX_VDD1_OPP].rate);
+		else
+			return sprintf(buf, "%ld\n",
+					dsp_rate[VDD1_OPP4].rate);
+	}
 }
 #endif
 
