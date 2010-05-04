@@ -4,7 +4,7 @@ menuconfig FB_OMAP2
 
 	default y
 	select OMAP2_VRAM
-	select OMAP2_VRFB
+	select OMAP2_VRFB if !ARCH_OMAP4
         select FB_CFB_FILLRECT
         select FB_CFB_COPYAREA
         select FB_CFB_IMAGEBLIT
