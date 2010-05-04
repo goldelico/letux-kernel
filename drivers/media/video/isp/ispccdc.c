@@ -1166,6 +1166,8 @@ int ispccdc_try_pipeline(struct isp_ccdc_device *isp_ccdc,
 	/* Round up to nearest 32 pixels. */
 	pipe->ccdc_out_w = ALIGN(pipe->ccdc_out_w, 0x20);
 
+	isp_ccdc->lsc_request_enable = isp_ccdc->lsc_request_user;
+
 	return 0;
 }
 
@@ -1299,10 +1301,13 @@ void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable)
 		ispccdc_enable_lsc(isp_ccdc, 0);
 		isp_reg_and(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE,
 			    ~IRQ0ENABLE_CCDC_VD1_IRQ);
-		isp_ccdc->lsc_request_enable = isp_ccdc->lsc_enable;
+		isp_ccdc->lsc_request_enable = isp_ccdc->lsc_request_user;
+		isp_ccdc->lsc_enable = isp_ccdc->lsc_request_user;
 	}
 	isp_reg_and_or(dev, OMAP3_ISP_IOMEM_CCDC, ISPCCDC_PCR,
 		       ~ISPCCDC_PCR_EN, enable ? ISPCCDC_PCR_EN : 0);
+
+	return;
 }
 
 /**
@@ -1345,6 +1350,17 @@ int ispccdc_busy(struct isp_ccdc_device *isp_ccdc)
 		ISPCCDC_PCR_BUSY;
 }
 
+/**
+ * ispccdc_is_enabled - Get busy state of the CCDC.
+ * @isp_ccdc: Pointer to ISP CCDC device.
+ **/
+int ispccdc_is_enabled(struct isp_ccdc_device *isp_ccdc)
+{
+	struct device *dev = to_device(isp_ccdc);
+
+	return isp_reg_readl(dev, OMAP3_ISP_IOMEM_CCDC,
+			     ISPCCDC_PCR) & ISPCCDC_PCR_EN;
+}
 /**
  * ispccdc_lsc_can_stop - Indicate if ccdc lsc module can be stopped corectly.
  * @isp_ccdc: Pointer to ISP CCDC device.
@@ -1544,6 +1560,7 @@ int ispccdc_config(struct isp_ccdc_device *isp_ccdc,
 		} else {
 			isp_ccdc->lsc_request_enable = 0;
 		}
+		isp_ccdc->lsc_request_user = isp_ccdc->lsc_request_enable;
 		isp_ccdc->update_lsc_config = 1;
 	}
 

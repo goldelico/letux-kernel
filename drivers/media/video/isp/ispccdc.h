@@ -192,6 +192,7 @@ struct isp_ccdc_device {
 	u8 lsc_enable;
 	u8 update_lsc_config;
 	u8 lsc_request_enable;
+	u8 lsc_request_user;
 	u8 lsc_defer_setup;
 	struct ispccdc_lsc_config lsc_config;
 	u8 update_lsc_table;
@@ -213,9 +214,11 @@ void ispccdc_set_raw_offset(struct isp_ccdc_device *isp_ccdc,
 void ispccdc_enable(struct isp_ccdc_device *isp_ccdc, u8 enable);
 int ispccdc_sbl_busy(void *_isp_ccdc);
 int ispccdc_busy(struct isp_ccdc_device *isp_ccdc);
+int ispccdc_is_enabled(struct isp_ccdc_device *isp_ccdc);
 void ispccdc_config_shadow_registers(struct isp_ccdc_device *isp_ccdc);
 int ispccdc_config(struct isp_ccdc_device *isp_ccdc,
 			     void *userspace_add);
+int ispccdc_config_vp_freq(struct isp_ccdc_device *isp_ccdc, u8 divider);
 int ispccdc_request(struct isp_ccdc_device *isp_ccdc);
 int ispccdc_free(struct isp_ccdc_device *isp_ccdc);
 void ispccdc_save_context(struct device *dev);

@@ -782,6 +782,10 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 	irqenable = isp_reg_readl(dev, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0ENABLE);
 	irqstatus &= irqenable;
 
+	if (irqstatus & CCDC_VD1)
+		isp->isp_ccdc.lsc_request_enable =
+					isp->isp_ccdc.lsc_request_user;
+
 	/* Handle first LSC states */
 	if ((irqstatus & LSC_PRE_ERR) || (irqstatus & LSC_DONE) ||
 	    (irqstatus & CCDC_VD1))
@@ -1086,8 +1090,11 @@ static irqreturn_t isp_isr(int irq, void *_pdev)
 out_ignore_buff:
 	spin_unlock_irqrestore(&isp->lock, flags);
 
-	if (irqstatus & LSC_PRE_COMP)
+	if (irqstatus & LSC_PRE_COMP) {
 		ispccdc_lsc_pref_comp_handler(&isp->isp_ccdc);
+		if (isp->config->u.csi.use_mem_read)
+			isp_csi_lcm_readport_enable(&isp->isp_csi, 1);
+	}
 
 out_stopping_isp:
 	isp_flush(dev);
@@ -1342,9 +1349,12 @@ static void isp_resume_modules(struct device *dev)
 	isp_af_resume(&isp->isp_af);
 
 	if (isp->running == ISP_RUNNING) {
-		ispccdc_enable(&isp->isp_ccdc, 1);
-		ispresizer_enable(&isp->isp_res, 1);
-		isppreview_enable(&isp->isp_prev, 1);
+		if (isp->pipeline.modules & OMAP_ISP_CCDC)
+			ispccdc_enable(&isp->isp_ccdc, 1);
+		if (isp->pipeline.modules & OMAP_ISP_RESIZER)
+			ispresizer_enable(&isp->isp_res, 1);
+		if (isp->pipeline.modules & OMAP_ISP_PREVIEW)
+			isppreview_enable(&isp->isp_prev, 1);
 		isp_csi_if_enable(&isp->isp_csi, 1);
 		isp_csi2_enable(&isp->isp_csi2, 1);
 	}
@@ -1860,7 +1870,10 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 		isp_af_try_enable(&isp->isp_af);
 		isph3a_aewb_try_enable(&isp->isp_h3a);
 		isp_hist_try_enable(&isp->isp_hist);
-		/* We not wait HS_VS, when source is a virtual sensor */
+		/*
+		 * We use memory Read chanel we need to start engines in
+		 * different way
+		 */
 		if (isp->config->u.csi.use_mem_read) {
 			bufs->wait_hs_vs = 0;
 			/*
@@ -1879,11 +1892,24 @@ int isp_buf_queue(struct device *dev, struct videobuf_buffer *vb,
 					&isp->isp_prev);
 				isppreview_enable(&isp->isp_prev, 1);
 			}
+
+			if (isp->pipeline.modules & OMAP_ISP_CCDC)
+					ispccdc_enable(&isp->isp_ccdc, 1);
+
+			if (ispccdc_is_enabled(&isp->isp_ccdc))
+				isp_csi_lcm_readport_enable(&isp->isp_csi, 1);
+
+		} else {
+			if (isp->pipeline.modules & OMAP_ISP_CCDC)
+				ispccdc_enable(&isp->isp_ccdc, 1);
+
+		if (isp->pipeline.modules == OMAP_ISP_CSIARX) {
+			isp_csi2_irq_ctx_set(&isp->isp_csi2, 1);
+				isp_csi2_ctx_config_enabled(&isp->isp_csi2, 0,
+							    true);
+			isp_csi2_ctx_update(&isp->isp_csi2, 0, false);
+			}
 		}
-		if (isp->pipeline.modules & OMAP_ISP_CCDC)
-			ispccdc_enable(&isp->isp_ccdc, 1);
-		if (isp->config->u.csi.use_mem_read)
-			isp_csi_lcm_readport_enable(&isp->isp_csi, 1);
 	}
 
 	ISP_BUF_MARK_QUEUED(bufs);
