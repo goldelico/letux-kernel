@@ -98,7 +98,7 @@ dsp_status handle_hibernation_from_dsp(struct wmd_dev_context *dev_context)
 	    omap_dspbridge_dev->dev.platform_data;
 	DEFINE_SPINLOCK(lock);
 
-	pwr_state = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD, PM_PWSTST) &
+	pwr_state = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD, OMAP2_PM_PWSTST) &
 						OMAP_POWERSTATEST_MASK;
 	/* Wait for DSP to move into OFF state */
 	while ((pwr_state != PWRDM_POWER_OFF) && --timeout) {
@@ -107,7 +107,7 @@ dsp_status handle_hibernation_from_dsp(struct wmd_dev_context *dev_context)
 			return -EPERM;
 		}
 		pwr_state = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD,
-					PM_PWSTST) & OMAP_POWERSTATEST_MASK;
+					OMAP2_PM_PWSTST) & OMAP_POWERSTATEST_MASK;
 	}
 	if (timeout == 0) {
 		pr_err("%s: Timed out waiting for DSP off mode\n", __func__);
@@ -117,7 +117,7 @@ dsp_status handle_hibernation_from_dsp(struct wmd_dev_context *dev_context)
 		/* disable bh to void concurrency with mbox tasklet */
 		spin_lock_bh(&lock);
 		pwr_state = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD,
-					PM_PWSTST) & OMAP_POWERSTATEST_MASK;
+					OMAP2_PM_PWSTST) & OMAP_POWERSTATEST_MASK;
 		if (pwr_state != PWRDM_POWER_OFF) {
 			pr_info("%s: message received while DSP trying to"
 							" sleep\n", __func__);
@@ -222,7 +222,7 @@ dsp_status sleep_dsp(struct wmd_dev_context *dev_context, IN u32 dw_cmd,
 	}
 
 	/* Get the PRCM DSP power domain status */
-	pwr_state = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD, PM_PWSTST) &
+	pwr_state = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD, OMAP2_PM_PWSTST) &
 						OMAP_POWERSTATEST_MASK;
 
 	/* Wait for DSP to move into target power state */
@@ -232,7 +232,7 @@ dsp_status sleep_dsp(struct wmd_dev_context *dev_context, IN u32 dw_cmd,
 			return -EPERM;
 		}
 		pwr_state = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD,
-					PM_PWSTST) & OMAP_POWERSTATEST_MASK;
+					OMAP2_PM_PWSTST) & OMAP_POWERSTATEST_MASK;
 	}
 
 	if (!timeout) {
@@ -247,7 +247,7 @@ dsp_status sleep_dsp(struct wmd_dev_context *dev_context, IN u32 dw_cmd,
 		/* disable bh to void concurrency with mbox tasklet */
 		spin_lock_bh(&lock);
 		pwr_state = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD,
-					PM_PWSTST) & OMAP_POWERSTATEST_MASK;
+					OMAP2_PM_PWSTST) & OMAP_POWERSTATEST_MASK;
 		if (pwr_state != target_pwr_state) {
 			pr_err("%s: message received while DSP trying to"
 							" sleep\n", __func__);

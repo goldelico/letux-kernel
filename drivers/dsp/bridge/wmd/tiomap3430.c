@@ -282,27 +282,27 @@ static dsp_status bridge_brd_monitor(struct wmd_dev_context *hDevContext)
 	struct dspbridge_platform_data *pdata =
 				    omap_dspbridge_dev->dev.platform_data;
 
-	temp = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD, PM_PWSTST) &
+	temp = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD, OMAP2_PM_PWSTST) &
 					OMAP_POWERSTATEST_MASK;
 	if (!(temp & 0x02)) {
 		/* IVA2 is not in ON state */
 		/* Read and set PM_PWSTCTRL_IVA2  to ON */
 		(*pdata->dsp_prm_rmw_bits)(OMAP_POWERSTATEST_MASK,
-			PWRDM_POWER_ON, OMAP3430_IVA2_MOD, PM_PWSTCTRL);
+			PWRDM_POWER_ON, OMAP3430_IVA2_MOD, OMAP2_PM_PWSTCTRL);
 		/* Set the SW supervised state transition */
 		(*pdata->dsp_cm_write)(OMAP34XX_CLKSTCTRL_FORCE_WAKEUP,
-					OMAP3430_IVA2_MOD, CM_CLKSTCTRL);
+					OMAP3430_IVA2_MOD, OMAP2_CM_CLKSTCTRL);
 
 		/* Wait until the state has moved to ON */
-		while ((*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD, PM_PWSTST) &
+		while ((*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD, OMAP2_PM_PWSTST) &
 						OMAP_INTRANSITION)
 			;
 		/* Disable Automatic transition */
 		(*pdata->dsp_cm_write)(OMAP34XX_CLKSTCTRL_DISABLE_AUTO,
-					OMAP3430_IVA2_MOD, CM_CLKSTCTRL);
+					OMAP3430_IVA2_MOD, OMAP2_CM_CLKSTCTRL);
 	}
 	(*pdata->dsp_prm_rmw_bits)(OMAP3430_RST2_IVA2, 0,
-					OMAP3430_IVA2_MOD, RM_RSTCTRL);
+					OMAP3430_IVA2_MOD, OMAP2_RM_RSTCTRL);
 	services_clk_enable(SERVICESCLK_IVA2_CK);
 
 	if (DSP_SUCCEEDED(status)) {
@@ -432,7 +432,7 @@ static dsp_status bridge_brd_start(struct wmd_dev_context *hDevContext,
 		if (DSP_SUCCEEDED(status)) {
 			(*pdata->dsp_prm_rmw_bits)(OMAP3430_RST1_IVA2,
 					OMAP3430_RST1_IVA2, OMAP3430_IVA2_MOD,
-					RM_RSTCTRL);
+					OMAP2_RM_RSTCTRL);
 			/* Mask address with 1K for compatibility */
 			__raw_writel(dwDSPAddr & OMAP3_IVA2_BOOTADDR_MASK,
 					OMAP343X_CTRL_REGADDR(
@@ -449,10 +449,10 @@ static dsp_status bridge_brd_start(struct wmd_dev_context *hDevContext,
 		/* Reset and Unreset the RST2, so that BOOTADDR is copied to
 		 * IVA2 SYSC register */
 		(*pdata->dsp_prm_rmw_bits)(OMAP3430_RST2_IVA2,
-			OMAP3430_RST1_IVA2, OMAP3430_IVA2_MOD, RM_RSTCTRL);
+			OMAP3430_RST1_IVA2, OMAP3430_IVA2_MOD, OMAP2_RM_RSTCTRL);
 		udelay(100);
 		(*pdata->dsp_prm_rmw_bits)(OMAP3430_RST2_IVA2, 0,
-					OMAP3430_IVA2_MOD, RM_RSTCTRL);
+					OMAP3430_IVA2_MOD, OMAP2_RM_RSTCTRL);
 		udelay(100);
 
 		/* Disbale the DSP MMU */
@@ -655,7 +655,7 @@ static dsp_status bridge_brd_start(struct wmd_dev_context *hDevContext,
 
 /*CM_CLKSTCTRL_IVA2 = 0x00000003 -To Allow automatic transitions */
 		(*pdata->dsp_cm_write)(OMAP34XX_CLKSTCTRL_ENABLE_AUTO,
-					OMAP3430_IVA2_MOD, CM_CLKSTCTRL);
+					OMAP3430_IVA2_MOD, OMAP2_CM_CLKSTCTRL);
 
 		/* Let DSP go */
 		dev_dbg(bridge, "%s Unreset\n", __func__);
@@ -664,7 +664,7 @@ static dsp_status bridge_brd_start(struct wmd_dev_context *hDevContext,
 				    HW_MMU_ALL_INTERRUPTS);
 		/* release the RST1, DSP starts executing now .. */
 		(*pdata->dsp_prm_rmw_bits)(OMAP3430_RST1_IVA2, 0,
-					OMAP3430_IVA2_MOD, RM_RSTCTRL);
+					OMAP3430_IVA2_MOD, OMAP2_RM_RSTCTRL);
 
 		dev_dbg(bridge, "Waiting for Sync @ 0x%x\n", dw_sync_addr);
 		dev_dbg(bridge, "DSP c_int00 Address =  0x%x\n", dwDSPAddr);
@@ -725,7 +725,7 @@ static dsp_status bridge_brd_stop(struct wmd_dev_context *hDevContext)
 	 * before turning off the clocks.. This is to ensure that there are no
 	 * pending L3 or other transactons from IVA2 */
 
-	dsp_pwr_state = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD, PM_PWSTST) &
+	dsp_pwr_state = (*pdata->dsp_prm_read)(OMAP3430_IVA2_MOD, OMAP2_PM_PWSTST) &
 					OMAP_POWERSTATEST_MASK;
 	if (dsp_pwr_state != PWRDM_POWER_OFF) {
 		sm_interrupt_dsp(dev_context, MBX_PM_DSPIDLE);
@@ -736,10 +736,10 @@ static dsp_status bridge_brd_stop(struct wmd_dev_context *hDevContext)
 		/* IVA2 is not in OFF state */
 		/* Set PM_PWSTCTRL_IVA2  to OFF */
 		(*pdata->dsp_prm_rmw_bits)(OMAP_POWERSTATEST_MASK,
-			PWRDM_POWER_OFF, OMAP3430_IVA2_MOD, PM_PWSTCTRL);
+			PWRDM_POWER_OFF, OMAP3430_IVA2_MOD, OMAP2_PM_PWSTCTRL);
 		/* Set the SW supervised state transition for Sleep */
 		(*pdata->dsp_cm_write)(OMAP34XX_CLKSTCTRL_FORCE_SLEEP,
-					OMAP3430_IVA2_MOD, CM_CLKSTCTRL);
+					OMAP3430_IVA2_MOD, OMAP2_CM_CLKSTCTRL);
 	} else {
 		clk_status = services_clk_disable(SERVICESCLK_IVA2_CK);
 	}
@@ -771,7 +771,7 @@ static dsp_status bridge_brd_stop(struct wmd_dev_context *hDevContext)
 	}
 	/* Reset IVA2 clocks*/
 	(*pdata->dsp_prm_write)(OMAP3430_RST1_IVA2 | OMAP3430_RST2_IVA2 |
-			OMAP3430_RST3_IVA2, OMAP3430_IVA2_MOD, RM_RSTCTRL);
+			OMAP3430_RST3_IVA2, OMAP3430_IVA2_MOD, OMAP2_RM_RSTCTRL);
 
 	return status;
 }
@@ -827,7 +827,7 @@ static dsp_status wmd_brd_delete(struct wmd_dev_context *hDevContext)
 	}
 	/* Reset IVA2 clocks*/
 	(*pdata->dsp_prm_write)(OMAP3430_RST1_IVA2 | OMAP3430_RST2_IVA2 |
-			OMAP3430_RST3_IVA2, OMAP3430_IVA2_MOD, RM_RSTCTRL);
+			OMAP3430_RST3_IVA2, OMAP3430_IVA2_MOD, OMAP2_RM_RSTCTRL);
 
 	return status;
 }
