@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Generic bitmap manager.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,72 +16,64 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/*
- *  ======== gb.h ========
- *  Generic bitmap manager.
- *
- *! Revision History
- *! ================
- */
-
 #ifndef GB_
 #define GB_
 
 #define GB_NOBITS (~0)
 #include <dspbridge/host_os.h>
-typedef s32 GB_BitNum;
-struct GB_TMap;
+typedef s32 gb_bit_num;
+struct gb_t_map;
 
 /*
- *  ======== GB_clear ========
+ *  ======== gb_clear ========
  *  Clear the bit in position bitn in the bitmap map.  Bit positions are
  *  zero based.
  */
 
-extern void GB_clear(struct GB_TMap *map, GB_BitNum bitn);
+extern void gb_clear(struct gb_t_map *map, gb_bit_num bitn);
 
 /*
- *  ======== GB_create ========
+ *  ======== gb_create ========
  *  Create a bit map with len bits.  Initially all bits are cleared.
  */
 
-extern struct GB_TMap *GB_create(GB_BitNum len);
+extern struct gb_t_map *gb_create(gb_bit_num len);
 
 /*
- *  ======== GB_delete ========
+ *  ======== gb_delete ========
  *  Delete previously created bit map
  */
 
-extern void GB_delete(struct GB_TMap *map);
+extern void gb_delete(struct gb_t_map *map);
 
 /*
- *  ======== GB_findandset ========
+ *  ======== gb_findandset ========
  *  Finds a clear bit, sets it, and returns the position
  */
 
-extern GB_BitNum GB_findandset(struct GB_TMap *map);
+extern gb_bit_num gb_findandset(struct gb_t_map *map);
 
 /*
- *  ======== GB_minclear ========
- *  GB_minclear returns the minimum clear bit position.  If no bit is
- *  clear, GB_minclear returns -1.
+ *  ======== gb_minclear ========
+ *  gb_minclear returns the minimum clear bit position.  If no bit is
+ *  clear, gb_minclear returns -1.
  */
-extern GB_BitNum GB_minclear(struct GB_TMap *map);
+extern gb_bit_num gb_minclear(struct gb_t_map *map);
 
 /*
- *  ======== GB_set ========
+ *  ======== gb_set ========
  *  Set the bit in position bitn in the bitmap map.  Bit positions are
  *  zero based.
  */
 
-extern void GB_set(struct GB_TMap *map, GB_BitNum bitn);
+extern void gb_set(struct gb_t_map *map, gb_bit_num bitn);
 
 /*
- *  ======== GB_test ========
+ *  ======== gb_test ========
  *  Returns TRUE if the bit in position bitn is set in map; otherwise
- *  GB_test returns FALSE.  Bit positions are zero based.
+ *  gb_test returns FALSE.  Bit positions are zero based.
  */
 
-extern bool GB_test(struct GB_TMap *map, GB_BitNum bitn);
+extern bool gb_test(struct gb_t_map *map, gb_bit_num bitn);
 
-#endif				/*GB_ */
+#endif /*GB_ */

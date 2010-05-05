@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge msg_ctrl Module.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,28 +16,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== msg.h ========
- *  Description:
- *      DSP/BIOS Bridge MSG Module.
- *
- *  Public Functions:
- *      MSG_Create
- *      MSG_Delete
- *      MSG_Exit
- *      MSG_Init
- *
- *  Notes:
- *
- *! Revision History:
- *! =================
- *! 17-Nov-2000 jeh     Removed MSG_Get, MSG_Put, MSG_CreateQueue,
- *!                     MSG_DeleteQueue, and MSG_RegisterNotify, since these
- *!                     are now part of mini-driver.
- *! 12-Sep-2000 jeh     Created.
- */
-
 #ifndef MSG_
 #define MSG_
 
@@ -43,64 +23,64 @@
 #include <dspbridge/msgdefs.h>
 
 /*
- *  ======== MSG_Create ========
+ *  ======== msg_create ========
  *  Purpose:
  *      Create an object to manage message queues. Only one of these objects
- *      can exist per device object. The MSG manager must be created before
+ *      can exist per device object. The msg_ctrl manager must be created before
  *      the IO Manager.
  *  Parameters:
- *      phMsgMgr:           Location to store MSG manager handle on output.
- *      hDevObject:         The device object.
+ *      phMsgMgr:           Location to store msg_ctrl manager handle on output.
+ *      hdev_obj:         The device object.
  *      msgCallback:        Called whenever an RMS_EXIT message is received.
  *  Returns:
  *  Requires:
- *      MSG_Init(void) called.
+ *      msg_mod_init(void) called.
  *      phMsgMgr != NULL.
- *      hDevObject != NULL.
+ *      hdev_obj != NULL.
  *      msgCallback != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS MSG_Create(OUT struct MSG_MGR **phMsgMgr,
-				     struct DEV_OBJECT *hDevObject,
-				     MSG_ONEXIT msgCallback);
+extern dsp_status msg_create(OUT struct msg_mgr **phMsgMgr,
+			     struct dev_object *hdev_obj,
+			     msg_onexit msgCallback);
 
 /*
- *  ======== MSG_Delete ========
+ *  ======== msg_delete ========
  *  Purpose:
- *      Delete a MSG manager allocated in MSG_Create().
+ *      Delete a msg_ctrl manager allocated in msg_create().
  *  Parameters:
- *      hMsgMgr:            Handle returned from MSG_Create().
+ *      hmsg_mgr:            Handle returned from msg_create().
  *  Returns:
  *  Requires:
- *      MSG_Init(void) called.
- *      Valid hMsgMgr.
+ *      msg_mod_init(void) called.
+ *      Valid hmsg_mgr.
  *  Ensures:
  */
-	extern void MSG_Delete(struct MSG_MGR *hMsgMgr);
+extern void msg_delete(struct msg_mgr *hmsg_mgr);
 
 /*
- *  ======== MSG_Exit ========
+ *  ======== msg_exit ========
  *  Purpose:
- *      Discontinue usage of MSG module.
+ *      Discontinue usage of msg_ctrl module.
  *  Parameters:
  *  Returns:
  *  Requires:
- *      MSG_Init(void) successfully called before.
+ *      msg_mod_init(void) successfully called before.
  *  Ensures:
- *      Any resources acquired in MSG_Init(void) will be freed when last MSG
- *      client calls MSG_Exit(void).
+ *      Any resources acquired in msg_mod_init(void) will be freed when last
+ *      msg_ctrl client calls msg_exit(void).
  */
-	extern void MSG_Exit(void);
+extern void msg_exit(void);
 
 /*
- *  ======== MSG_Init ========
+ *  ======== msg_mod_init ========
  *  Purpose:
- *      Initialize the MSG module.
+ *      Initialize the msg_ctrl module.
  *  Parameters:
  *  Returns:
  *      TRUE if initialization succeeded, FALSE otherwise.
  *  Ensures:
  */
-	extern bool MSG_Init(void);
+extern bool msg_mod_init(void);
 
-#endif				/* MSG_ */
+#endif /* MSG_ */

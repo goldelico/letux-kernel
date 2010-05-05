@@ -14,8 +14,8 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef __EASIGLOBAL_H
-#define __EASIGLOBAL_H
+#ifndef _EASIGLOBAL_H
+#define _EASIGLOBAL_H
 #include <linux/types.h>
 
 /*
@@ -29,14 +29,13 @@
 #define READ_WRITE   3
 
 /*
- * MACRO:        _DEBUG_LEVEL_1_EASI
+ * MACRO:        _DEBUG_LEVEL1_EASI
  *
  * DESCRIPTION:  A MACRO which can be used to indicate that a particular beach
  *               register access function was called.
  *
  * NOTE:         We currently dont use this functionality.
  */
-#define _DEBUG_LEVEL_1_EASI(easiNum)     ((void)0)
+#define _DEBUG_LEVEL1_EASI(easiNum)     ((void)0)
 
-#endif	/* __EASIGLOBAL_H */
-
+#endif /* _EASIGLOBAL_H */

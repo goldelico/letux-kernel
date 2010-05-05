@@ -3,6 +3,12 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This module implements DSP code management for the DSP/BIOS Bridge
+ * environment. It is mostly a thin wrapper.
+ *
+ * This module provides an interface for loading both static and
+ * dynamic code objects onto DSP systems.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,47 +18,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== cod.c ========
- *  This module implements DSP code management for the DSP/BIOS Bridge
- *  environment. It is mostly a thin wrapper.
- *
- *  This module provides an interface for loading both static and
- *  dynamic code objects onto DSP systems.
- *
- *! Revision History
- *! ================
- *! 08-Apr-2003 map: Consolidated DBL to DBLL loader name
- *! 24-Feb-2003 swa: PMGR Code review comments incorporated.
- *! 18-Apr-2002 jeh: Added DBL function tables.
- *! 20-Nov-2001 jeh: Removed call to ZL_loadArgs function.
- *! 19-Oct-2001 jeh: Access DBL as a static library. Added COD_GetBaseLib,
- *!		  COD_GetLoader, removed COD_LoadSection, COD_UnloadSection.
- *! 07-Sep-2001 jeh: Added COD_LoadSection(), COD_UnloadSection().
- *! 07-Aug-2001 rr:  hMgr->baseLib is updated after zlopen in COD_LoadBase.
- *! 18-Apr-2001 jeh: Check for fLoaded flag before ZL_unload, to allow
- *!		  COD_OpenBase to be used.
- *! 11-Jan-2001 jeh: Added COD_OpenBase (not used yet, since there is an
- *!		  occasional crash).
- *! 02-Aug-2000 kc:  Added COD_ReadSection to COD module. Incorporates use
- *!		  of ZL_readSect (new function in ZL module).
- *! 28-Feb-2000 rr:  New GT Usage Implementation
- *! 08-Dec-1999 ag:  Removed x86 specific __asm int 3.
- *! 02-Oct-1999 ag:  Added #ifdef DEBUGINT3COD for debug.
- *! 20-Sep-1999 ag:  Removed call to GT_set().
- *! 04-Jun-1997 cr:  Added validation of argc/argv pair in COD_LoadBase, as it
- *!		     is a requirement to ZL_loadArgs.
- *! 31-May-1997 cr:  Changed COD_LoadBase argc value from u32 to int, added
- *!	       DSP_ENOTIMPL return value to COD_Create when attrs != NULL.
- *! 29-May-1997 cr:  Added debugging support.
- *! 24-Oct-1996 gp:  Added COD_GetSection().
- *! 18-Jun-1996 gp:  Updated GetSymValue() to check for lib; updated E_ codes.
- *! 12-Jun-1996 gp:  Imported CSL_ services for strcpyn(); Added ref counting.
- *! 20-May-1996 mg:  Adapted for new MEM and LDR modules.
- *! 08-May-1996 mg:  Created.
  */
 
 /*  ----------------------------------- Host OS */
@@ -67,11 +32,9 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/ldr.h>
-#include <dspbridge/mem.h>
 
 /*  ----------------------------------- Platform Manager */
 /* Include appropriate loader header file */
@@ -84,172 +47,168 @@
 #define MAGIC	 0xc001beef
 
 /* macro to validate COD manager handles */
-#define IsValid(h)    ((h) != NULL && (h)->ulMagic == MAGIC)
+#define IS_VALID(h)    ((h) != NULL && (h)->ul_magic == MAGIC)
 
 /*
- *  ======== COD_MANAGER ========
+ *  ======== cod_manager ========
  */
-struct COD_MANAGER {
-	struct DBLL_TarObj *target;
-	struct DBLL_LibraryObj *baseLib;
-	bool fLoaded;		/* Base library loaded? */
-	u32 ulEntry;
-	struct LDR_MODULE *hDll;
-	struct DBLL_Fxns fxns;
-	struct DBLL_Attrs attrs;
-	char szZLFile[COD_MAXPATHLENGTH];
-	u32 ulMagic;
-} ;
-
-/*
- *  ======== COD_LIBRARYOBJ ========
- */
-struct COD_LIBRARYOBJ {
-	struct DBLL_LibraryObj *dbllLib;
-	struct COD_MANAGER *hCodMgr;
-} ;
-
-static u32 cRefs = 0L;
-
-#if GT_TRACE
-static struct GT_Mask COD_debugMask = { NULL, NULL };
-#endif
-
-static struct DBLL_Fxns dbllFxns = {
-	(DBLL_CloseFxn) DBLL_close,
-	(DBLL_CreateFxn) DBLL_create,
-	(DBLL_DeleteFxn) DBLL_delete,
-	(DBLL_ExitFxn) DBLL_exit,
-	(DBLL_GetAttrsFxn) DBLL_getAttrs,
-	(DBLL_GetAddrFxn) DBLL_getAddr,
-	(DBLL_GetCAddrFxn) DBLL_getCAddr,
-	(DBLL_GetSectFxn) DBLL_getSect,
-	(DBLL_InitFxn) DBLL_init,
-	(DBLL_LoadFxn) DBLL_load,
-	(DBLL_LoadSectFxn) DBLL_loadSect,
-	(DBLL_OpenFxn) DBLL_open,
-	(DBLL_ReadSectFxn) DBLL_readSect,
-	(DBLL_SetAttrsFxn) DBLL_setAttrs,
-	(DBLL_UnloadFxn) DBLL_unload,
-	(DBLL_UnloadSectFxn) DBLL_unloadSect,
+struct cod_manager {
+	struct dbll_tar_obj *target;
+	struct dbll_library_obj *base_lib;
+	bool loaded;		/* Base library loaded? */
+	u32 ul_entry;
+	struct ldr_module *dll_obj;
+	struct dbll_fxns fxns;
+	struct dbll_attrs attrs;
+	char sz_zl_file[COD_MAXPATHLENGTH];
+	u32 ul_magic;
 };
 
-static bool NoOp(void);
+/*
+ *  ======== cod_libraryobj ========
+ */
+struct cod_libraryobj {
+	struct dbll_library_obj *dbll_lib;
+	struct cod_manager *cod_mgr;
+};
+
+static u32 refs = 0L;
+
+static struct dbll_fxns ldr_fxns = {
+	(dbll_close_fxn) dbll_close,
+	(dbll_create_fxn) dbll_create,
+	(dbll_delete_fxn) dbll_delete,
+	(dbll_exit_fxn) dbll_exit,
+	(dbll_get_attrs_fxn) dbll_get_attrs,
+	(dbll_get_addr_fxn) dbll_get_addr,
+	(dbll_get_c_addr_fxn) dbll_get_c_addr,
+	(dbll_get_sect_fxn) dbll_get_sect,
+	(dbll_init_fxn) dbll_init,
+	(dbll_load_fxn) dbll_load,
+	(dbll_load_sect_fxn) dbll_load_sect,
+	(dbll_open_fxn) dbll_open,
+	(dbll_read_sect_fxn) dbll_read_sect,
+	(dbll_set_attrs_fxn) dbll_set_attrs,
+	(dbll_unload_fxn) dbll_unload,
+	(dbll_unload_sect_fxn) dbll_unload_sect,
+};
+
+static bool no_op(void);
 
 /*
  * File operations (originally were under kfile.c)
  */
-static s32 COD_fClose(struct file *hFile)
+static s32 cod_f_close(struct file *filp)
 {
 	/* Check for valid handle */
-	if (!hFile)
-		return DSP_EHANDLE;
+	if (!filp)
+		return -EFAULT;
 
-	filp_close(hFile, NULL);
+	filp_close(filp, NULL);
 
 	/* we can't use DSP_SOK here */
 	return 0;
 }
 
-static struct file *COD_fOpen(CONST char *pszFileName, CONST char *pszMode)
+static struct file *cod_f_open(CONST char *psz_file_name, CONST char *pszMode)
 {
 	mm_segment_t fs;
-	struct file *hFile;
+	struct file *filp;
 
 	fs = get_fs();
 	set_fs(get_ds());
 
 	/* ignore given mode and open file as read-only */
-	hFile = filp_open(pszFileName, O_RDONLY, 0);
+	filp = filp_open(psz_file_name, O_RDONLY, 0);
 
-	if (IS_ERR(hFile))
-		hFile = NULL;
+	if (IS_ERR(filp))
+		filp = NULL;
 
 	set_fs(fs);
 
-	return hFile;
+	return filp;
 }
 
-static s32 COD_fRead(void __user *pBuffer, s32 cSize, s32 cCount,
-		     struct file *hFile)
+static s32 cod_f_read(void __user *pbuffer, s32 size, s32 cCount,
+		      struct file *filp)
 {
 	/* check for valid file handle */
-	if (!hFile)
-		return DSP_EHANDLE;
+	if (!filp)
+		return -EFAULT;
 
-	if ((cSize > 0) && (cCount > 0) && pBuffer) {
-		u32 dwBytesRead;
+	if ((size > 0) && (cCount > 0) && pbuffer) {
+		u32 dw_bytes_read;
 		mm_segment_t fs;
 
 		/* read from file */
 		fs = get_fs();
 		set_fs(get_ds());
-		dwBytesRead = hFile->f_op->read(hFile, pBuffer, cSize * cCount,
-						&(hFile->f_pos));
+		dw_bytes_read = filp->f_op->read(filp, pbuffer, size * cCount,
+						 &(filp->f_pos));
 		set_fs(fs);
 
-		if (!dwBytesRead)
-			return DSP_EFREAD;
+		if (!dw_bytes_read)
+			return -EBADF;
 
-		return dwBytesRead / cSize;
+		return dw_bytes_read / size;
 	}
 
-	return DSP_EINVALIDARG;
+	return -EINVAL;
 }
 
-static s32 COD_fSeek(struct file *hFile, s32 lOffset, s32 cOrigin)
+static s32 cod_f_seek(struct file *filp, s32 lOffset, s32 cOrigin)
 {
-	u32 dwCurPos;
+	loff_t dw_cur_pos;
 
 	/* check for valid file handle */
-	if (!hFile)
-		return DSP_EHANDLE;
+	if (!filp)
+		return -EFAULT;
 
 	/* based on the origin flag, move the internal pointer */
-	dwCurPos = hFile->f_op->llseek(hFile, lOffset, cOrigin);
+	dw_cur_pos = filp->f_op->llseek(filp, lOffset, cOrigin);
 
-	if ((s32)dwCurPos < 0)
-		return DSP_EFAIL;
+	if ((s32) dw_cur_pos < 0)
+		return -EPERM;
 
 	/* we can't use DSP_SOK here */
 	return 0;
 }
 
-static s32 COD_fTell(struct file *hFile)
+static s32 cod_f_tell(struct file *filp)
 {
-	u32 dwCurPos;
+	loff_t dw_cur_pos;
 
-	if (!hFile)
-		return DSP_EHANDLE;
+	if (!filp)
+		return -EFAULT;
 
 	/* Get current position */
-	dwCurPos = hFile->f_op->llseek(hFile, 0, SEEK_CUR);
+	dw_cur_pos = filp->f_op->llseek(filp, 0, SEEK_CUR);
 
-	if ((s32)dwCurPos < 0)
-		return DSP_EFAIL;
+	if ((s32) dw_cur_pos < 0)
+		return -EPERM;
 
-	return dwCurPos;
+	return dw_cur_pos;
 }
 
 /*
- *  ======== COD_Close ========
+ *  ======== cod_close ========
  */
-void COD_Close(struct COD_LIBRARYOBJ *lib)
+void cod_close(struct cod_libraryobj *lib)
 {
-	struct COD_MANAGER *hMgr;
+	struct cod_manager *hmgr;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(lib != NULL);
-	DBC_Require(IsValid(((struct COD_LIBRARYOBJ *)lib)->hCodMgr));
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(lib != NULL);
+	DBC_REQUIRE(IS_VALID(((struct cod_libraryobj *)lib)->cod_mgr));
 
-	hMgr = lib->hCodMgr;
-	hMgr->fxns.closeFxn(lib->dbllLib);
+	hmgr = lib->cod_mgr;
+	hmgr->fxns.close_fxn(lib->dbll_lib);
 
-	MEM_Free(lib);
+	kfree(lib);
 }
 
 /*
- *  ======== COD_Create ========
+ *  ======== cod_create ========
  *  Purpose:
  *      Create an object to manage code on a DSP system.
  *      This object can be used to load an initial program image with
@@ -257,314 +216,272 @@ void COD_Close(struct COD_LIBRARYOBJ *lib)
  *      dynamically loaded object files.
  *
  */
-DSP_STATUS COD_Create(OUT struct COD_MANAGER **phMgr, char *pstrDummyFile,
-		     IN OPTIONAL CONST struct COD_ATTRS *attrs)
+dsp_status cod_create(OUT struct cod_manager **phMgr, char *pstrDummyFile,
+		      IN OPTIONAL CONST struct cod_attrs *attrs)
 {
-	struct COD_MANAGER *hMgrNew;
-	struct DBLL_Attrs zlAttrs;
-	DSP_STATUS status = DSP_SOK;
+	struct cod_manager *mgr_new;
+	struct dbll_attrs zl_attrs;
+	dsp_status status = DSP_SOK;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(phMgr != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(phMgr != NULL);
 
-	GT_3trace(COD_debugMask, GT_ENTER,
-		  "Entered COD_Create, Args: \t\nphMgr: "
-		  "0x%x\t\npstrDummyFile: 0x%x\t\nattr: 0x%x\n",
-		  phMgr, pstrDummyFile, attrs);
 	/* assume failure */
 	*phMgr = NULL;
 
 	/* we don't support non-default attrs yet */
 	if (attrs != NULL)
-		return DSP_ENOTIMPL;
+		return -ENOSYS;
 
-	hMgrNew = MEM_Calloc(sizeof(struct COD_MANAGER), MEM_NONPAGED);
-	if (hMgrNew == NULL) {
-		GT_0trace(COD_debugMask, GT_7CLASS,
-			  "COD_Create: Out Of Memory\n");
-		return DSP_EMEMORY;
-	}
+	mgr_new = kzalloc(sizeof(struct cod_manager), GFP_KERNEL);
+	if (mgr_new == NULL)
+		return -ENOMEM;
 
-	hMgrNew->ulMagic = MAGIC;
+	mgr_new->ul_magic = MAGIC;
 
 	/* Set up loader functions */
-	hMgrNew->fxns = dbllFxns;
+	mgr_new->fxns = ldr_fxns;
 
 	/* initialize the ZL module */
-	hMgrNew->fxns.initFxn();
+	mgr_new->fxns.init_fxn();
 
-	zlAttrs.alloc = (DBLL_AllocFxn)NoOp;
-	zlAttrs.free = (DBLL_FreeFxn)NoOp;
-	zlAttrs.fread = (DBLL_ReadFxn)COD_fRead;
-	zlAttrs.fseek = (DBLL_SeekFxn)COD_fSeek;
-	zlAttrs.ftell = (DBLL_TellFxn)COD_fTell;
-	zlAttrs.fclose = (DBLL_FCloseFxn)COD_fClose;
-	zlAttrs.fopen = (DBLL_FOpenFxn)COD_fOpen;
-	zlAttrs.symLookup = NULL;
-	zlAttrs.baseImage = true;
-	zlAttrs.logWrite = NULL;
-	zlAttrs.logWriteHandle = NULL;
-	zlAttrs.write = NULL;
-	zlAttrs.rmmHandle = NULL;
-	zlAttrs.wHandle = NULL;
-	zlAttrs.symHandle = NULL;
-	zlAttrs.symArg = NULL;
+	zl_attrs.alloc = (dbll_alloc_fxn) no_op;
+	zl_attrs.free = (dbll_free_fxn) no_op;
+	zl_attrs.fread = (dbll_read_fxn) cod_f_read;
+	zl_attrs.fseek = (dbll_seek_fxn) cod_f_seek;
+	zl_attrs.ftell = (dbll_tell_fxn) cod_f_tell;
+	zl_attrs.fclose = (dbll_f_close_fxn) cod_f_close;
+	zl_attrs.fopen = (dbll_f_open_fxn) cod_f_open;
+	zl_attrs.sym_lookup = NULL;
+	zl_attrs.base_image = true;
+	zl_attrs.log_write = NULL;
+	zl_attrs.log_write_handle = NULL;
+	zl_attrs.write = NULL;
+	zl_attrs.rmm_handle = NULL;
+	zl_attrs.input_params = NULL;
+	zl_attrs.sym_handle = NULL;
+	zl_attrs.sym_arg = NULL;
 
-	hMgrNew->attrs = zlAttrs;
+	mgr_new->attrs = zl_attrs;
 
-	status = hMgrNew->fxns.createFxn(&hMgrNew->target, &zlAttrs);
+	status = mgr_new->fxns.create_fxn(&mgr_new->target, &zl_attrs);
 
 	if (DSP_FAILED(status)) {
-		COD_Delete(hMgrNew);
-		GT_1trace(COD_debugMask, GT_7CLASS,
-			  "COD_Create:ZL Create Failed: 0x%x\n", status);
+		cod_delete(mgr_new);
 		return COD_E_ZLCREATEFAILED;
 	}
 
 	/* return the new manager */
-	*phMgr = hMgrNew;
-	GT_1trace(COD_debugMask, GT_1CLASS,
-		  "COD_Create: Success CodMgr: 0x%x\n",	*phMgr);
+	*phMgr = mgr_new;
+
 	return DSP_SOK;
 }
 
 /*
- *  ======== COD_Delete ========
+ *  ======== cod_delete ========
  *  Purpose:
  *      Delete a code manager object.
  */
-void COD_Delete(struct COD_MANAGER *hMgr)
+void cod_delete(struct cod_manager *hmgr)
 {
-	DBC_Require(cRefs > 0);
-	DBC_Require(IsValid(hMgr));
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(IS_VALID(hmgr));
 
-	GT_1trace(COD_debugMask, GT_ENTER, "COD_Delete:hMgr 0x%x\n", hMgr);
-	if (hMgr->baseLib) {
-		if (hMgr->fLoaded)
-			hMgr->fxns.unloadFxn(hMgr->baseLib, &hMgr->attrs);
+	if (hmgr->base_lib) {
+		if (hmgr->loaded)
+			hmgr->fxns.unload_fxn(hmgr->base_lib, &hmgr->attrs);
 
-		hMgr->fxns.closeFxn(hMgr->baseLib);
+		hmgr->fxns.close_fxn(hmgr->base_lib);
 	}
-	if (hMgr->target) {
-		hMgr->fxns.deleteFxn(hMgr->target);
-		hMgr->fxns.exitFxn();
+	if (hmgr->target) {
+		hmgr->fxns.delete_fxn(hmgr->target);
+		hmgr->fxns.exit_fxn();
 	}
-	hMgr->ulMagic = ~MAGIC;
-	MEM_Free(hMgr);
+	hmgr->ul_magic = ~MAGIC;
+	kfree(hmgr);
 }
 
 /*
- *  ======== COD_Exit ========
+ *  ======== cod_exit ========
  *  Purpose:
  *      Discontinue usage of the COD module.
  *
  */
-void COD_Exit(void)
+void cod_exit(void)
 {
-	DBC_Require(cRefs > 0);
+	DBC_REQUIRE(refs > 0);
 
-	cRefs--;
+	refs--;
 
-	GT_1trace(COD_debugMask, GT_ENTER,
-		  "Entered COD_Exit, ref count:  0x%x\n", cRefs);
-
-	DBC_Ensure(cRefs >= 0);
+	DBC_ENSURE(refs >= 0);
 }
 
 /*
- *  ======== COD_GetBaseLib ========
+ *  ======== cod_get_base_lib ========
  *  Purpose:
  *      Get handle to the base image DBL library.
  */
-DSP_STATUS COD_GetBaseLib(struct COD_MANAGER *hManager,
-				struct DBLL_LibraryObj **plib)
+dsp_status cod_get_base_lib(struct cod_manager *cod_mgr_obj,
+			    struct dbll_library_obj **plib)
 {
-	DSP_STATUS status = DSP_SOK;
+	dsp_status status = DSP_SOK;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(IsValid(hManager));
-	DBC_Require(plib != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(IS_VALID(cod_mgr_obj));
+	DBC_REQUIRE(plib != NULL);
 
-	*plib = (struct DBLL_LibraryObj *) hManager->baseLib;
+	*plib = (struct dbll_library_obj *)cod_mgr_obj->base_lib;
 
 	return status;
 }
 
 /*
- *  ======== COD_GetBaseName ========
+ *  ======== cod_get_base_name ========
  */
-DSP_STATUS COD_GetBaseName(struct COD_MANAGER *hManager, char *pszName,
-				u32 uSize)
+dsp_status cod_get_base_name(struct cod_manager *cod_mgr_obj, char *pszName,
+			     u32 usize)
 {
-	DSP_STATUS status = DSP_SOK;
+	dsp_status status = DSP_SOK;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(IsValid(hManager));
-	DBC_Require(pszName != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(IS_VALID(cod_mgr_obj));
+	DBC_REQUIRE(pszName != NULL);
 
-	if (uSize <= COD_MAXPATHLENGTH)
-               strncpy(pszName, hManager->szZLFile, uSize);
+	if (usize <= COD_MAXPATHLENGTH)
+		strncpy(pszName, cod_mgr_obj->sz_zl_file, usize);
 	else
-		status = DSP_EFAIL;
+		status = -EPERM;
 
 	return status;
 }
 
 /*
- *  ======== COD_GetEntry ========
+ *  ======== cod_get_entry ========
  *  Purpose:
  *      Retrieve the entry point of a loaded DSP program image
  *
  */
-DSP_STATUS COD_GetEntry(struct COD_MANAGER *hManager, u32 *pulEntry)
+dsp_status cod_get_entry(struct cod_manager *cod_mgr_obj, u32 *pulEntry)
 {
-	DBC_Require(cRefs > 0);
-	DBC_Require(IsValid(hManager));
-	DBC_Require(pulEntry != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(IS_VALID(cod_mgr_obj));
+	DBC_REQUIRE(pulEntry != NULL);
 
-	*pulEntry = hManager->ulEntry;
-
-	GT_1trace(COD_debugMask, GT_ENTER, "COD_GetEntry:ulEntr 0x%x\n",
-		  *pulEntry);
+	*pulEntry = cod_mgr_obj->ul_entry;
 
 	return DSP_SOK;
 }
 
 /*
- *  ======== COD_GetLoader ========
+ *  ======== cod_get_loader ========
  *  Purpose:
  *      Get handle to the DBLL loader.
  */
-DSP_STATUS COD_GetLoader(struct COD_MANAGER *hManager,
-			       struct DBLL_TarObj **phLoader)
+dsp_status cod_get_loader(struct cod_manager *cod_mgr_obj,
+			  struct dbll_tar_obj **phLoader)
 {
-	DSP_STATUS status = DSP_SOK;
+	dsp_status status = DSP_SOK;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(IsValid(hManager));
-	DBC_Require(phLoader != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(IS_VALID(cod_mgr_obj));
+	DBC_REQUIRE(phLoader != NULL);
 
-	*phLoader = (struct DBLL_TarObj *)hManager->target;
+	*phLoader = (struct dbll_tar_obj *)cod_mgr_obj->target;
 
 	return status;
 }
 
 /*
- *  ======== COD_GetSection ========
+ *  ======== cod_get_section ========
  *  Purpose:
  *      Retrieve the starting address and length of a section in the COFF file
  *      given the section name.
  */
-DSP_STATUS COD_GetSection(struct COD_LIBRARYOBJ *lib, IN char *pstrSect,
-			  OUT u32 *puAddr, OUT u32 *puLen)
+dsp_status cod_get_section(struct cod_libraryobj *lib, IN char *pstrSect,
+			   OUT u32 *puAddr, OUT u32 *puLen)
 {
-	struct COD_MANAGER *hManager;
-	DSP_STATUS status = DSP_SOK;
+	struct cod_manager *cod_mgr_obj;
+	dsp_status status = DSP_SOK;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(lib != NULL);
-	DBC_Require(IsValid(lib->hCodMgr));
-	DBC_Require(pstrSect != NULL);
-	DBC_Require(puAddr != NULL);
-	DBC_Require(puLen != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(lib != NULL);
+	DBC_REQUIRE(IS_VALID(lib->cod_mgr));
+	DBC_REQUIRE(pstrSect != NULL);
+	DBC_REQUIRE(puAddr != NULL);
+	DBC_REQUIRE(puLen != NULL);
 
-	GT_4trace(COD_debugMask, GT_ENTER,
-		  "Entered COD_GetSection Args \t\n lib: "
-		  "0x%x\t\npstrsect: 0x%x\t\npuAddr: 0x%x\t\npuLen: 0x%x\n",
-		  lib, pstrSect, puAddr, puLen);
 	*puAddr = 0;
 	*puLen = 0;
 	if (lib != NULL) {
-		hManager = lib->hCodMgr;
-		status = hManager->fxns.getSectFxn(lib->dbllLib, pstrSect,
-						   puAddr, puLen);
-		if (DSP_FAILED(status)) {
-			GT_1trace(COD_debugMask, GT_7CLASS,
-				 "COD_GetSection: Section %s not"
-				 "found\n", pstrSect);
-		}
+		cod_mgr_obj = lib->cod_mgr;
+		status = cod_mgr_obj->fxns.get_sect_fxn(lib->dbll_lib, pstrSect,
+							puAddr, puLen);
 	} else {
 		status = COD_E_NOSYMBOLSLOADED;
-		GT_0trace(COD_debugMask, GT_7CLASS,
-			  "COD_GetSection:No Symbols loaded\n");
 	}
 
-	DBC_Ensure(DSP_SUCCEEDED(status) || ((*puAddr == 0) && (*puLen == 0)));
+	DBC_ENSURE(DSP_SUCCEEDED(status) || ((*puAddr == 0) && (*puLen == 0)));
 
 	return status;
 }
 
 /*
- *  ======== COD_GetSymValue ========
+ *  ======== cod_get_sym_value ========
  *  Purpose:
  *      Retrieve the value for the specified symbol. The symbol is first
  *      searched for literally and then, if not found, searched for as a
  *      C symbol.
  *
  */
-DSP_STATUS COD_GetSymValue(struct COD_MANAGER *hMgr, char *pstrSym,
-			   u32 *pulValue)
+dsp_status cod_get_sym_value(struct cod_manager *hmgr, char *pstrSym,
+			     u32 *pul_value)
 {
-	struct DBLL_Symbol *pSym;
+	struct dbll_sym_val *dbll_sym;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(IsValid(hMgr));
-	DBC_Require(pstrSym != NULL);
-	DBC_Require(pulValue != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(IS_VALID(hmgr));
+	DBC_REQUIRE(pstrSym != NULL);
+	DBC_REQUIRE(pul_value != NULL);
 
-	GT_3trace(COD_debugMask, GT_ENTER, "Entered COD_GetSymValue Args \t\n"
-		  "hMgr: 0x%x\t\npstrSym: 0x%x\t\npulValue: 0x%x\n",
-		  hMgr, pstrSym, pulValue);
-	if (hMgr->baseLib) {
-		if (!hMgr->fxns.getAddrFxn(hMgr->baseLib, pstrSym, &pSym)) {
-			if (!hMgr->fxns.getCAddrFxn(hMgr->baseLib, pstrSym,
-			    &pSym)) {
-				GT_0trace(COD_debugMask, GT_7CLASS,
-					  "COD_GetSymValue: "
-					  "Symbols not found\n");
+	dev_dbg(bridge, "%s: hmgr: %p pstrSym: %s pul_value: %p\n",
+		__func__, hmgr, pstrSym, pul_value);
+	if (hmgr->base_lib) {
+		if (!hmgr->fxns.
+		    get_addr_fxn(hmgr->base_lib, pstrSym, &dbll_sym)) {
+			if (!hmgr->fxns.
+			    get_c_addr_fxn(hmgr->base_lib, pstrSym, &dbll_sym))
 				return COD_E_SYMBOLNOTFOUND;
-			}
 		}
 	} else {
-		GT_0trace(COD_debugMask, GT_7CLASS, "COD_GetSymValue: "
-			 "No Symbols loaded\n");
 		return COD_E_NOSYMBOLSLOADED;
 	}
 
-	*pulValue = pSym->value;
+	*pul_value = dbll_sym->value;
 
 	return DSP_SOK;
 }
 
 /*
- *  ======== COD_Init ========
+ *  ======== cod_init ========
  *  Purpose:
  *      Initialize the COD module's private state.
  *
  */
-bool COD_Init(void)
+bool cod_init(void)
 {
-	bool fRetVal = true;
+	bool ret = true;
 
-	DBC_Require(cRefs >= 0);
+	DBC_REQUIRE(refs >= 0);
 
-	if (cRefs == 0) {
-		DBC_Assert(!COD_debugMask.flags);
-		GT_create(&COD_debugMask, "CO");
-	}
+	if (ret)
+		refs++;
 
-	if (fRetVal)
-		cRefs++;
-
-
-	GT_1trace(COD_debugMask, GT_1CLASS,
-		  "Entered COD_Init, ref count: 0x%x\n", cRefs);
-	DBC_Ensure((fRetVal && cRefs > 0) || (!fRetVal && cRefs >= 0));
-	return fRetVal;
+	DBC_ENSURE((ret && refs > 0) || (!ret && refs >= 0));
+	return ret;
 }
 
 /*
- *  ======== COD_LoadBase ========
+ *  ======== cod_load_base ========
  *  Purpose:
  *      Load the initial program image, optionally with command-line arguments,
  *      on the DSP system managed by the supplied handle. The program to be
@@ -576,28 +493,23 @@ bool COD_Init(void)
  *      recalculated to reflect this.  In this way, we can support NULL
  *      terminating aArgs arrays, if nArgc is very large.
  */
-DSP_STATUS COD_LoadBase(struct COD_MANAGER *hMgr, u32 nArgc, char *aArgs[],
-			COD_WRITEFXN pfnWrite, void *pArb, char *envp[])
+dsp_status cod_load_base(struct cod_manager *hmgr, u32 nArgc, char *aArgs[],
+			 cod_writefxn pfn_write, void *pArb, char *envp[])
 {
-	DBLL_Flags flags;
-	struct DBLL_Attrs saveAttrs;
-	struct DBLL_Attrs newAttrs;
-	DSP_STATUS status;
+	dbll_flags flags;
+	struct dbll_attrs save_attrs;
+	struct dbll_attrs new_attrs;
+	dsp_status status;
 	u32 i;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(IsValid(hMgr));
-	DBC_Require(nArgc > 0);
-	DBC_Require(aArgs != NULL);
-	DBC_Require(aArgs[0] != NULL);
-	DBC_Require(pfnWrite != NULL);
-	DBC_Require(hMgr->baseLib != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(IS_VALID(hmgr));
+	DBC_REQUIRE(nArgc > 0);
+	DBC_REQUIRE(aArgs != NULL);
+	DBC_REQUIRE(aArgs[0] != NULL);
+	DBC_REQUIRE(pfn_write != NULL);
+	DBC_REQUIRE(hmgr->base_lib != NULL);
 
-	GT_6trace(COD_debugMask, GT_ENTER,
-		 "Entered COD_LoadBase, hMgr:  0x%x\n \t"
-		 "nArgc:  0x%x\n\taArgs:  0x%x\n\tpfnWrite:  0x%x\n\tpArb:"
-		 " 0x%x\n \tenvp:  0x%x\n", hMgr, nArgc, aArgs, pfnWrite,
-		 pArb, envp);
 	/*
 	 *  Make sure every argv[] stated in argc has a value, or change argc to
 	 *  reflect true number in NULL terminated argv array.
@@ -610,170 +522,138 @@ DSP_STATUS COD_LoadBase(struct COD_MANAGER *hMgr, u32 nArgc, char *aArgs[],
 	}
 
 	/* set the write function for this operation */
-	hMgr->fxns.getAttrsFxn(hMgr->target, &saveAttrs);
+	hmgr->fxns.get_attrs_fxn(hmgr->target, &save_attrs);
 
-	newAttrs = saveAttrs;
-	newAttrs.write = (DBLL_WriteFxn)pfnWrite;
-	newAttrs.wHandle = pArb;
-	newAttrs.alloc = (DBLL_AllocFxn)NoOp;
-	newAttrs.free = (DBLL_FreeFxn)NoOp;
-	newAttrs.logWrite = NULL;
-	newAttrs.logWriteHandle = NULL;
+	new_attrs = save_attrs;
+	new_attrs.write = (dbll_write_fxn) pfn_write;
+	new_attrs.input_params = pArb;
+	new_attrs.alloc = (dbll_alloc_fxn) no_op;
+	new_attrs.free = (dbll_free_fxn) no_op;
+	new_attrs.log_write = NULL;
+	new_attrs.log_write_handle = NULL;
 
 	/* Load the image */
 	flags = DBLL_CODE | DBLL_DATA | DBLL_SYMB;
-	status = hMgr->fxns.loadFxn(hMgr->baseLib, flags, &newAttrs,
-		 &hMgr->ulEntry);
-	if (DSP_FAILED(status)) {
-		hMgr->fxns.closeFxn(hMgr->baseLib);
-		GT_1trace(COD_debugMask, GT_7CLASS,
-			  "COD_LoadBase: COD Load failed: "
-			  "0x%x\n", status);
-	}
+	status = hmgr->fxns.load_fxn(hmgr->base_lib, flags, &new_attrs,
+				     &hmgr->ul_entry);
+	if (DSP_FAILED(status))
+		hmgr->fxns.close_fxn(hmgr->base_lib);
+
 	if (DSP_SUCCEEDED(status))
-		hMgr->fLoaded = true;
+		hmgr->loaded = true;
 	else
-		hMgr->baseLib = NULL;
+		hmgr->base_lib = NULL;
 
 	return status;
 }
 
 /*
- *  ======== COD_Open ========
+ *  ======== cod_open ========
  *      Open library for reading sections.
  */
-DSP_STATUS COD_Open(struct COD_MANAGER *hMgr, IN char *pszCoffPath,
-		    COD_FLAGS flags, struct COD_LIBRARYOBJ **pLib)
+dsp_status cod_open(struct cod_manager *hmgr, IN char *pszCoffPath,
+		    cod_flags flags, struct cod_libraryobj **pLib)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct COD_LIBRARYOBJ *lib = NULL;
+	dsp_status status = DSP_SOK;
+	struct cod_libraryobj *lib = NULL;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(IsValid(hMgr));
-	DBC_Require(pszCoffPath != NULL);
-	DBC_Require(flags == COD_NOLOAD || flags == COD_SYMB);
-	DBC_Require(pLib != NULL);
-
-	GT_4trace(COD_debugMask, GT_ENTER, "Entered COD_Open, hMgr: 0x%x\n\t "
-		  "pszCoffPath:  0x%x\tflags: 0x%x\tlib: 0x%x\n", hMgr,
-		  pszCoffPath, flags, pLib);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(IS_VALID(hmgr));
+	DBC_REQUIRE(pszCoffPath != NULL);
+	DBC_REQUIRE(flags == COD_NOLOAD || flags == COD_SYMB);
+	DBC_REQUIRE(pLib != NULL);
 
 	*pLib = NULL;
 
-	lib = MEM_Calloc(sizeof(struct COD_LIBRARYOBJ), MEM_NONPAGED);
-	if (lib == NULL) {
-		GT_0trace(COD_debugMask, GT_7CLASS,
-			 "COD_Open: Out Of Memory\n");
-		status = DSP_EMEMORY;
-	}
+	lib = kzalloc(sizeof(struct cod_libraryobj), GFP_KERNEL);
+	if (lib == NULL)
+		status = -ENOMEM;
 
 	if (DSP_SUCCEEDED(status)) {
-		lib->hCodMgr = hMgr;
-		status = hMgr->fxns.openFxn(hMgr->target, pszCoffPath, flags,
-					   &lib->dbllLib);
-		if (DSP_FAILED(status)) {
-			GT_1trace(COD_debugMask, GT_7CLASS,
-				 "COD_Open failed: 0x%x\n", status);
-		} else {
+		lib->cod_mgr = hmgr;
+		status = hmgr->fxns.open_fxn(hmgr->target, pszCoffPath, flags,
+					     &lib->dbll_lib);
+		if (DSP_SUCCEEDED(status))
 			*pLib = lib;
-		}
 	}
 
+	if (DSP_FAILED(status))
+		pr_err("%s: error status 0x%x, pszCoffPath: %s flags: 0x%x\n",
+		       __func__, status, pszCoffPath, flags);
 	return status;
 }
 
 /*
- *  ======== COD_OpenBase ========
+ *  ======== cod_open_base ========
  *  Purpose:
  *      Open base image for reading sections.
  */
-DSP_STATUS COD_OpenBase(struct COD_MANAGER *hMgr, IN char *pszCoffPath,
-			DBLL_Flags flags)
+dsp_status cod_open_base(struct cod_manager *hmgr, IN char *pszCoffPath,
+			 dbll_flags flags)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct DBLL_LibraryObj *lib;
+	dsp_status status = DSP_SOK;
+	struct dbll_library_obj *lib;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(IsValid(hMgr));
-	DBC_Require(pszCoffPath != NULL);
-
-	GT_2trace(COD_debugMask, GT_ENTER,
-		  "Entered COD_OpenBase, hMgr:  0x%x\n\t"
-		  "pszCoffPath:  0x%x\n", hMgr, pszCoffPath);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(IS_VALID(hmgr));
+	DBC_REQUIRE(pszCoffPath != NULL);
 
 	/* if we previously opened a base image, close it now */
-	if (hMgr->baseLib) {
-		if (hMgr->fLoaded) {
-			GT_0trace(COD_debugMask, GT_7CLASS,
-				 "Base Image is already loaded. "
-				 "Unloading it...\n");
-			hMgr->fxns.unloadFxn(hMgr->baseLib, &hMgr->attrs);
-			hMgr->fLoaded = false;
+	if (hmgr->base_lib) {
+		if (hmgr->loaded) {
+			hmgr->fxns.unload_fxn(hmgr->base_lib, &hmgr->attrs);
+			hmgr->loaded = false;
 		}
-		hMgr->fxns.closeFxn(hMgr->baseLib);
-		hMgr->baseLib = NULL;
-	} else {
-		GT_0trace(COD_debugMask, GT_1CLASS,
-			 "COD_OpenBase: Opening the base image ...\n");
+		hmgr->fxns.close_fxn(hmgr->base_lib);
+		hmgr->base_lib = NULL;
 	}
-	status = hMgr->fxns.openFxn(hMgr->target, pszCoffPath, flags, &lib);
-	if (DSP_FAILED(status)) {
-		GT_0trace(COD_debugMask, GT_7CLASS,
-			 "COD_OpenBase: COD Open failed\n");
-	} else {
+	status = hmgr->fxns.open_fxn(hmgr->target, pszCoffPath, flags, &lib);
+	if (DSP_SUCCEEDED(status)) {
 		/* hang onto the library for subsequent sym table usage */
-		hMgr->baseLib = lib;
-		strncpy(hMgr->szZLFile, pszCoffPath, COD_MAXPATHLENGTH - 1);
-		hMgr->szZLFile[COD_MAXPATHLENGTH - 1] = '\0';
+		hmgr->base_lib = lib;
+		strncpy(hmgr->sz_zl_file, pszCoffPath, COD_MAXPATHLENGTH - 1);
+		hmgr->sz_zl_file[COD_MAXPATHLENGTH - 1] = '\0';
 	}
 
+	if (DSP_FAILED(status))
+		pr_err("%s: error status 0x%x pszCoffPath: %s\n", __func__,
+		       status, pszCoffPath);
 	return status;
 }
 
 /*
- *  ======== COD_ReadSection ========
+ *  ======== cod_read_section ========
  *  Purpose:
  *      Retrieve the content of a code section given the section name.
  */
-DSP_STATUS COD_ReadSection(struct COD_LIBRARYOBJ *lib, IN char *pstrSect,
-			   OUT char *pstrContent, IN u32 cContentSize)
+dsp_status cod_read_section(struct cod_libraryobj *lib, IN char *pstrSect,
+			    OUT char *pstrContent, IN u32 cContentSize)
 {
-	DSP_STATUS status = DSP_SOK;
+	dsp_status status = DSP_SOK;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(lib != NULL);
-	DBC_Require(IsValid(lib->hCodMgr));
-	DBC_Require(pstrSect != NULL);
-	DBC_Require(pstrContent != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(lib != NULL);
+	DBC_REQUIRE(IS_VALID(lib->cod_mgr));
+	DBC_REQUIRE(pstrSect != NULL);
+	DBC_REQUIRE(pstrContent != NULL);
 
-	GT_4trace(COD_debugMask, GT_ENTER, "Entered COD_ReadSection Args: 0x%x,"
-		 " 0x%x, 0x%x, 0x%x\n", lib, pstrSect, pstrContent,
-		 cContentSize);
-
-	if (lib != NULL) {
-		status = lib->hCodMgr->fxns.readSectFxn(lib->dbllLib, pstrSect,
-							pstrContent,
-							cContentSize);
-		if (DSP_FAILED(status)) {
-			GT_1trace(COD_debugMask, GT_7CLASS,
-				 "COD_ReadSection failed: 0x%lx\n", status);
-		}
-	} else {
+	if (lib != NULL)
+		status =
+		    lib->cod_mgr->fxns.read_sect_fxn(lib->dbll_lib, pstrSect,
+						     pstrContent, cContentSize);
+	else
 		status = COD_E_NOSYMBOLSLOADED;
-		GT_0trace(COD_debugMask, GT_7CLASS,
-			  "COD_ReadSection: No Symbols loaded\n");
-	}
+
 	return status;
 }
 
 /*
- *  ======== NoOp ========
+ *  ======== no_op ========
  *  Purpose:
  *      No Operation.
  *
  */
-static bool NoOp(void)
+static bool no_op(void)
 {
 	return true;
 }
-

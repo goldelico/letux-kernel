@@ -18,7 +18,7 @@
 
 #if TMS32060
 /* the magic symbol for the start of BSS */
-static const char BSSSYMBOL[] = {".bss"};
+static const char bsssymbol[] = { ".bss" };
 #endif
 
 #if TMS32060
@@ -27,9 +27,9 @@ static const char BSSSYMBOL[] = {".bss"};
 
 #if TMS32060
 /* From coff.h - ignore these relocation operations */
-#define R_C60ALIGN     0x76       /* C60: Alignment info for compressor   */
-#define R_C60FPHEAD    0x77       /* C60: Explicit assembly directive     */
-#define R_C60NOCMP    0x100       /* C60: Don't compress this code scn    */
+#define R_C60ALIGN     0x76	/* C60: Alignment info for compressor */
+#define R_C60FPHEAD    0x77	/* C60: Explicit assembly directive */
+#define R_C60NOCMP    0x100	/* C60: Don't compress this code scn */
 #endif
 
 /**************************************************************************
@@ -38,21 +38,21 @@ static const char BSSSYMBOL[] = {".bss"};
  * Parameters:
  *	data	pointer to storage unit containing lowest host address of
  *		image data
- *	fieldsz	Size of bit field, 0 < fieldsz <= sizeof(RVALUE)*BITS_PER_AU
+ *	fieldsz	Size of bit field, 0 < fieldsz <= sizeof(rvalue)*BITS_PER_AU
  *	offset	Offset from LSB, 0 <= offset < BITS_PER_AU
  *	sgn	Signedness of the field (ROP_SGN, ROP_UNS, ROP_MAX, ROP_ANY)
  *
  * Effect:
  *	Extracts the specified field and returns it.
- **************************************************************************/
-RVALUE dload_unpack(struct dload_state *dlthis, TgtAU_t *data, int fieldsz,
+ ************************************************************************* */
+rvalue dload_unpack(struct dload_state *dlthis, tgt_au_t * data, int fieldsz,
 		    int offset, unsigned sgn)
 {
-	register RVALUE objval;
+	register rvalue objval;
 	register int shift, direction;
-	register TgtAU_t *dp = data;
+	register tgt_au_t *dp = data;
 
-	fieldsz -= 1;	/* avoid nastiness with 32-bit shift of 32-bit value*/
+	fieldsz -= 1;	/* avoid nastiness with 32-bit shift of 32-bit value */
 	/* * collect up enough bits to contain the desired field */
 	if (TARGET_BIG_ENDIAN) {
 		dp += (fieldsz + offset) >> LOG_TGTAU_BITS;
@@ -63,7 +63,7 @@ RVALUE dload_unpack(struct dload_state *dlthis, TgtAU_t *data, int fieldsz,
 	shift = TGTAU_BITS - offset;
 	while (shift <= fieldsz) {
 		dp += direction;
-		objval += (RVALUE)*dp << shift;
+		objval += (rvalue) *dp << shift;
 		shift += TGTAU_BITS;
 	}
 
@@ -71,14 +71,13 @@ RVALUE dload_unpack(struct dload_state *dlthis, TgtAU_t *data, int fieldsz,
 	if (sgn == ROP_UNS)
 		objval &= (2 << fieldsz) - 1;
 	else {
-		shift = sizeof(RVALUE) * BITS_PER_AU-1 - fieldsz;
+		shift = sizeof(rvalue) * BITS_PER_AU - 1 - fieldsz;
 		objval = (objval << shift) >> shift;
 	}
 
 	return objval;
 
-} /* dload_unpack */
-
+}				/* dload_unpack */
 
 /**************************************************************************
  * Procedure dload_repack
@@ -87,7 +86,7 @@ RVALUE dload_unpack(struct dload_state *dlthis, TgtAU_t *data, int fieldsz,
  *	val		Value to insert
  *	data	Pointer to storage unit containing lowest host address of
  * 		image data
- *	fieldsz	Size of bit field, 0 < fieldsz <= sizeof(RVALUE)*BITS_PER_AU
+ *	fieldsz	Size of bit field, 0 < fieldsz <= sizeof(rvalue)*BITS_PER_AU
  *	offset	Offset from LSB, 0 <= offset < BITS_PER_AU
  *	sgn	Signedness of the field (ROP_SGN, ROP_UNS, ROP_MAX, ROP_ANY)
  *
@@ -96,15 +95,15 @@ RVALUE dload_unpack(struct dload_state *dlthis, TgtAU_t *data, int fieldsz,
  *	success
  * or 1 if the value will not fit in the specified field according to the
  * specified signedness rule.
- **************************************************************************/
-static const unsigned char ovf_limit[] = {1, 2, 2};
-int dload_repack(struct dload_state *dlthis, RVALUE val, TgtAU_t *data,
+ ************************************************************************* */
+static const unsigned char ovf_limit[] = { 1, 2, 2 };
+
+int dload_repack(struct dload_state *dlthis, rvalue val, tgt_au_t * data,
 		 int fieldsz, int offset, unsigned sgn)
 {
-	register URVALUE objval, mask;
+	register urvalue objval, mask;
 	register int shift, direction;
-	register TgtAU_t *dp = data;
-
+	register tgt_au_t *dp = data;
 
 	fieldsz -= 1;	/* avoid nastiness with 32-bit shift of 32-bit value */
 	/* clip the bits */
@@ -119,7 +118,7 @@ int dload_repack(struct dload_state *dlthis, RVALUE val, TgtAU_t *data,
 
 	/* insert LSBs */
 	*dp = (*dp & ~(mask << offset)) + (objval << offset);
-	shift = TGTAU_BITS-offset;
+	shift = TGTAU_BITS - offset;
 	/* align mask and objval with AU boundary */
 	objval >>= shift;
 	mask >>= shift;
@@ -136,18 +135,18 @@ int dload_repack(struct dload_state *dlthis, RVALUE val, TgtAU_t *data,
 	 */
 	if (sgn) {
 		unsigned tmp = (val >> fieldsz) + (sgn & 0x1);
-		if (tmp > ovf_limit[sgn-1])
+		if (tmp > ovf_limit[sgn - 1])
 			return 1;
 	}
 	return 0;
 
-} /* dload_repack */
+}				/* dload_repack */
 
 /* lookup table for the scaling amount in a C6x instruction */
 #if TMS32060
 #define SCALE_BITS 4		/* there are 4 bits in the scale field */
 #define SCALE_MASK 0x7		/* we really only use the bottom 3 bits */
-static const u8 C60_Scale[SCALE_MASK+1] = {
+static const u8 c60_scale[SCALE_MASK + 1] = {
 	1, 0, 0, 0, 1, 1, 2, 2
 };
 #endif
@@ -161,84 +160,88 @@ static const u8 C60_Scale[SCALE_MASK+1] = {
  *
  * Effect:
  *	Performs the specified relocation operation
- **************************************************************************/
-void dload_relocate(struct dload_state *dlthis, TgtAU_t *data,
-			struct reloc_record_t *rp, bool *tramps_genereted,
-			bool second_pass)
+ ************************************************************************* */
+void dload_relocate(struct dload_state *dlthis, tgt_au_t * data,
+		    struct reloc_record_t *rp, bool * tramps_genereted,
+		    bool second_pass)
 {
-	RVALUE val, reloc_amt, orig_val = 0;
+	rvalue val, reloc_amt, orig_val = 0;
 	unsigned int fieldsz = 0;
 	unsigned int offset = 0;
 	unsigned int reloc_info = 0;
 	unsigned int reloc_action = 0;
 	register int rx = 0;
-	RVALUE    *stackp = NULL;
+	rvalue *stackp = NULL;
 	int top;
-	struct Local_Symbol *svp = NULL;
+	struct local_symbol *svp = NULL;
 #ifdef RFV_SCALE
 	unsigned int scale = 0;
 #endif
 	struct image_packet_t *img_pkt = NULL;
 
 	/* The image packet data struct is only used during first pass
-	  * relocation in the event that a trampoline is needed.  2nd pass
-	  * relocation doesn't guarantee that data is coming from an
-	  * image_packet_t structure. See cload.c, dload_data for how i_bits is
-	  * set. If that changes this needs to be updated!!!  */
+	 * relocation in the event that a trampoline is needed.  2nd pass
+	 * relocation doesn't guarantee that data is coming from an
+	 * image_packet_t structure. See cload.c, dload_data for how img_data is
+	 * set. If that changes this needs to be updated!!! */
 	if (second_pass == false)
-		img_pkt = (struct image_packet_t *)((u8 *)data -
-				sizeof(struct image_packet_t));
+		img_pkt = (struct image_packet_t *)((u8 *) data -
+						    sizeof(struct
+							   image_packet_t));
 
-
-	rx = HASH_FUNC(rp->r_type);
-	while (rop_map1[rx] != rp->r_type) {
+	rx = HASH_FUNC(rp->TYPE);
+	while (rop_map1[rx] != rp->TYPE) {
 		rx = HASH_L(rop_map2[rx]);
 		if (rx < 0) {
 #if TMS32060
-		switch (rp->r_type) {
-		case R_C60ALIGN:
-		case R_C60NOCMP:
-		case R_C60FPHEAD:
-		    /* Ignore these reloc types and return */
-		    break;
-		default:
-		    /* Unknown reloc type, print error and return */
-		    dload_error(dlthis, "Bad coff operator 0x%x", rp->r_type);
-	    }
+			switch (rp->TYPE) {
+			case R_C60ALIGN:
+			case R_C60NOCMP:
+			case R_C60FPHEAD:
+				/* Ignore these reloc types and return */
+				break;
+			default:
+				/* Unknown reloc type, print error and return */
+				dload_error(dlthis, "Bad coff operator 0x%x",
+					    rp->TYPE);
+			}
 #else
-	    dload_error(dlthis, "Bad coff operator 0x%x", rp->r_type);
+			dload_error(dlthis, "Bad coff operator 0x%x", rp->TYPE);
 #endif
-	    return;
+			return;
 		}
 	}
 	rx = HASH_I(rop_map2[rx]);
-	if ((rx < (sizeof(rop_action)/sizeof(uint_least16_t)))
-	   && (rx < (sizeof(rop_info)/sizeof(uint_least16_t))) && (rx > 0)) {
-		reloc_action = rop_action[rx]; reloc_info = rop_info[rx];
+	if ((rx < (sizeof(rop_action) / sizeof(uint_least16_t)))
+	    && (rx < (sizeof(rop_info) / sizeof(uint_least16_t))) && (rx > 0)) {
+		reloc_action = rop_action[rx];
+		reloc_info = rop_info[rx];
 	} else {
-	    dload_error(dlthis, "Buffer Overflow - Array Index Out of Bounds");
+		dload_error(dlthis, "Buffer Overflow - Array Index Out "
+			    "of Bounds");
 	}
 
 	/* Compute the relocation amount for the referenced symbol, if any */
-	reloc_amt = rp->r_uval;
+	reloc_amt = rp->UVAL;
 	if (RFV_SYM(reloc_info)) {	/* relocation uses a symbol reference */
 		/* If this is first pass, use the module local symbol table,
-		  * else use the trampoline symbol table.  */
-	       if (second_pass == false) {
-			if ((u32)rp->r_symndx < dlthis->dfile_hdr.df_no_syms) {
+		 * else use the trampoline symbol table. */
+		if (second_pass == false) {
+			if ((u32) rp->SYMNDX < dlthis->dfile_hdr.df_no_syms) {
 				/* real symbol reference */
-				svp = &dlthis->local_symtab[rp->r_symndx];
+				svp = &dlthis->local_symtab[rp->SYMNDX];
 				reloc_amt = (RFV_SYM(reloc_info) == ROP_SYMD) ?
-					    svp->delta : svp->value;
+				    svp->delta : svp->value;
 			}
 			/* reloc references current section */
-			else if (rp->r_symndx == -1) {
+			else if (rp->SYMNDX == -1) {
 				reloc_amt = (RFV_SYM(reloc_info) == ROP_SYMD) ?
-				dlthis->delta_runaddr :
-				dlthis->image_secn->run_addr;
+				    dlthis->delta_runaddr :
+				    dlthis->image_secn->run_addr;
 			}
 		}
-	}	/* relocation uses a symbol reference */
+	}
+	/* relocation uses a symbol reference */
 	/* Handle stack adjustment */
 	val = 0;
 	top = RFV_STK(reloc_info);
@@ -246,9 +249,9 @@ void dload_relocate(struct dload_state *dlthis, TgtAU_t *data,
 		top += dlthis->relstkidx - RSTK_UOP;
 		if (top >= STATIC_EXPR_STK_SIZE) {
 			dload_error(dlthis,
-			"Expression stack overflow in %s at offset "
-			FMT_UI32, dlthis->image_secn->name,
-			rp->r_vaddr + dlthis->image_offset);
+				    "Expression stack overflow in %s at offset "
+				    FMT_UI32, dlthis->image_secn->name,
+				    rp->vaddr + dlthis->image_offset);
 			return;
 		}
 		val = dlthis->relstk[dlthis->relstkidx];
@@ -261,29 +264,30 @@ void dload_relocate(struct dload_state *dlthis, TgtAU_t *data,
 		if (fieldsz) {	/* field info from table */
 			offset = RFV_POSN(reloc_action);
 			if (TARGET_BIG_ENDIAN)
-				/* make sure r_vaddr is the lowest target
+				/* make sure vaddr is the lowest target
 				 * address containing bits */
-				rp->r_vaddr += RFV_BIGOFF(reloc_info);
+				rp->vaddr += RFV_BIGOFF(reloc_info);
 		} else {	/* field info from relocation op */
-			fieldsz = rp->r_fieldsz; offset = rp->r_offset;
+			fieldsz = rp->FIELDSZ;
+			offset = rp->OFFSET;
 			if (TARGET_BIG_ENDIAN)
-				/* make sure r_vaddr is the lowest target
+				/* make sure vaddr is the lowest target
 				   address containing bits */
-				rp->r_vaddr += (rp->r_wordsz - offset - fieldsz)
-						>> LOG_TARGET_AU_BITS;
+				rp->vaddr += (rp->WORDSZ - offset - fieldsz)
+				    >> LOG_TARGET_AU_BITS;
 		}
-		data = (TgtAU_t *)((char *)data + TADDR_TO_HOST(rp->r_vaddr));
+		data = (tgt_au_t *) ((char *)data + TADDR_TO_HOST(rp->vaddr));
 		/* compute lowest host location of referenced data */
 #if BITS_PER_AU > TARGET_AU_BITS
 		/* conversion from target address to host address may lose
 		   address bits; add loss to offset */
 		if (TARGET_BIG_ENDIAN) {
-			offset += -((rp->r_vaddr << LOG_TARGET_AU_BITS) +
-				  offset + fieldsz) &
-				  (BITS_PER_AU-TARGET_AU_BITS);
+			offset += -((rp->vaddr << LOG_TARGET_AU_BITS) +
+				    offset + fieldsz) &
+			    (BITS_PER_AU - TARGET_AU_BITS);
 		} else {
-			offset += (rp->r_vaddr << LOG_TARGET_AU_BITS) &
-				  (BITS_PER_AU-1);
+			offset += (rp->vaddr << LOG_TARGET_AU_BITS) &
+			    (BITS_PER_AU - 1);
 		}
 #endif
 #ifdef RFV_SCALE
@@ -291,12 +295,13 @@ void dload_relocate(struct dload_state *dlthis, TgtAU_t *data,
 #endif
 	}
 	/* read the object value from the current image, if so ordered */
-	if (reloc_info & ROP_R) {    /* relocation reads current image value */
+	if (reloc_info & ROP_R) {
+		/* relocation reads current image value */
 		val = dload_unpack(dlthis, data, fieldsz, offset,
-		      RFV_SIGN(reloc_info));
-	/* Save off the original value in case the relo overflows and
-	  * we can trampoline it.  */
-	orig_val = val;
+				   RFV_SIGN(reloc_info));
+		/* Save off the original value in case the relo overflows and
+		 * we can trampoline it. */
+		orig_val = val;
 
 #ifdef RFV_SCALE
 		val <<= scale;
@@ -318,13 +323,13 @@ void dload_relocate(struct dload_state *dlthis, TgtAU_t *data,
 		 * (special reloc type) or to absolute destination
 		 * (symndx == -1).  In either case, set the appropriate
 		 * relocation amount to 0.
-		 *-----------------------------------------------------------*/
-		if (rp->r_symndx == -1)
+		 *----------------------------------------------------------- */
+		if (rp->SYMNDX == -1)
 			reloc_amt = 0;
 		val += reloc_amt - dlthis->delta_runaddr;
 		break;
 	case RACT_ADDISP:
-		val += rp->r_disp + reloc_amt;
+		val += rp->R_DISP + reloc_amt;
 		break;
 	case RACT_ASGPC:
 		val = dlthis->image_secn->run_addr + reloc_amt;
@@ -353,19 +358,19 @@ void dload_relocate(struct dload_state *dlthis, TgtAU_t *data,
 			val = *stackp % val;
 		break;
 	case RACT_SR:
-		if (val >= sizeof(RVALUE) * BITS_PER_AU)
+		if (val >= sizeof(rvalue) * BITS_PER_AU)
 			val = 0;
 		else if (stackp != NULL)
-			val = (URVALUE)*stackp >> val;
+			val = (urvalue) *stackp >> val;
 		break;
 	case RACT_ASR:
-		if (val >= sizeof(RVALUE)*BITS_PER_AU)
-			val = sizeof(RVALUE)*BITS_PER_AU - 1;
+		if (val >= sizeof(rvalue) * BITS_PER_AU)
+			val = sizeof(rvalue) * BITS_PER_AU - 1;
 		else if (stackp != NULL)
 			val = *stackp >> val;
 		break;
 	case RACT_SL:
-		if (val >= sizeof(RVALUE)*BITS_PER_AU)
+		if (val >= sizeof(rvalue) * BITS_PER_AU)
 			val = 0;
 		else if (stackp != NULL)
 			val = *stackp << val;
@@ -389,86 +394,91 @@ void dload_relocate(struct dload_state *dlthis, TgtAU_t *data,
 	case RACT_C6SECT:
 		/* actually needed address of secn containing symbol */
 		if (svp != NULL) {
-			if (rp->r_symndx >= 0)
+			if (rp->SYMNDX >= 0)
 				if (svp->secnn > 0)
 					reloc_amt = dlthis->ldr_sections
-						[svp->secnn-1].run_addr;
+					    [svp->secnn - 1].run_addr;
 		}
-	/* !!! FALL THRU !!! */
+		/* !!! FALL THRU !!! */
 	case RACT_C6BASE:
 		if (dlthis->bss_run_base == 0) {
 			struct dynload_symbol *symp;
-			symp = dlthis->mysym->Find_Matching_Symbol
-				(dlthis->mysym, BSSSYMBOL);
+			symp = dlthis->mysym->find_matching_symbol
+			    (dlthis->mysym, bsssymbol);
 			/* lookup value of global BSS base */
 			if (symp)
 				dlthis->bss_run_base = symp->value;
 			else
 				dload_error(dlthis,
-				     "Global BSS base referenced in %s offset"\
-				     FMT_UI32 " but not defined",
-				     dlthis->image_secn->name,
-				     rp->r_vaddr + dlthis->image_offset);
+					    "Global BSS base referenced in %s "
+					    "offset" FMT_UI32 " but not "
+					    "defined",
+					    dlthis->image_secn->name,
+					    rp->vaddr + dlthis->image_offset);
 		}
 		reloc_amt -= dlthis->bss_run_base;
 		/* !!! FALL THRU !!! */
 	case RACT_C6DSPL:
 		/* scale factor determined by 3 LSBs of field */
-		scale = C60_Scale[val & SCALE_MASK];
+		scale = c60_scale[val & SCALE_MASK];
 		offset += SCALE_BITS;
 		fieldsz -= SCALE_BITS;
 		val >>= SCALE_BITS;	/* ignore the scale field hereafter */
 		val <<= scale;
-		val += reloc_amt;		/* do the usual relocation */
-		if (((1 << scale)-1) & val)
+		val += reloc_amt;	/* do the usual relocation */
+		if (((1 << scale) - 1) & val)
 			dload_error(dlthis,
-				"Unaligned reference in %s offset " FMT_UI32,
-				dlthis->image_secn->name,
-				rp->r_vaddr + dlthis->image_offset);
+				    "Unaligned reference in %s offset "
+				    FMT_UI32, dlthis->image_secn->name,
+				    rp->vaddr + dlthis->image_offset);
 		break;
 #endif
-	}	/* relocation actions */
+	}			/* relocation actions */
 	/* * Put back result as required */
 	if (reloc_info & ROP_W) {	/* relocation writes image value */
 #ifdef RFV_SCALE
 		val >>= scale;
 #endif
 		if (dload_repack(dlthis, val, data, fieldsz, offset,
-		   RFV_SIGN(reloc_info))) {
+				 RFV_SIGN(reloc_info))) {
 			/* Check to see if this relo can be trampolined,
-			  * but only in first phase relocation.  2nd phase
-			  * relocation cannot trampoline.  */
+			 * but only in first phase relocation.  2nd phase
+			 * relocation cannot trampoline. */
 			if ((second_pass == false) &&
-				(dload_tramp_avail(dlthis, rp) == true)) {
+			    (dload_tramp_avail(dlthis, rp) == true)) {
 
 				/* Before generating the trampoline, restore
-				  * the value to its original so the 2nd pass
-				  *  relo will work.  */
+				 * the value to its original so the 2nd pass
+				 *  relo will work. */
 				dload_repack(dlthis, orig_val, data, fieldsz,
-					offset, RFV_SIGN(reloc_info));
+					     offset, RFV_SIGN(reloc_info));
 				if (!dload_tramp_generate(dlthis,
-					(dlthis->image_secn - dlthis->
-					ldr_sections), dlthis->image_offset,
-					img_pkt, rp)) {
-					dload_error(dlthis, "Failed to "
-					     "generate trampoline for bit "
-					     "overflow");
-					dload_error(dlthis, "Relocation value "
-					   FMT_UI32 " overflows %d bits in %s "
-					   "offset " FMT_UI32, val, fieldsz,
-					   dlthis->image_secn->name,
-					   dlthis->image_offset + rp->r_vaddr);
+							(dlthis->image_secn -
+							 dlthis->ldr_sections),
+							 dlthis->image_offset,
+							 img_pkt, rp)) {
+					dload_error(dlthis,
+						    "Failed to "
+						    "generate trampoline for "
+						    "bit overflow");
+					dload_error(dlthis,
+						    "Relocation val " FMT_UI32
+						    " overflows %d bits in %s "
+						    "offset " FMT_UI32, val,
+						    fieldsz,
+						    dlthis->image_secn->name,
+						    dlthis->image_offset +
+						    rp->vaddr);
 				} else
 					*tramps_genereted = true;
 			} else {
 				dload_error(dlthis, "Relocation value "
-					FMT_UI32 " overflows %d bits in %s"
-					" offset " FMT_UI32, val, fieldsz,
-					dlthis->image_secn->name,
-					dlthis->image_offset + rp->r_vaddr);
+					    FMT_UI32 " overflows %d bits in %s"
+					    " offset " FMT_UI32, val, fieldsz,
+					    dlthis->image_secn->name,
+					    dlthis->image_offset + rp->vaddr);
 			}
 		}
 	} else if (top)
 		*stackp = val;
-} /* reloc_value */
-
+}				/* reloc_value */

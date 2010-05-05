@@ -14,16 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== windows.h ========
- *
- *! Revision History
- *! ================
- *! 08-Mar-2004 sb Added cacheflush.h to support Dynamic Memory Mapping feature
- *! 16-Feb-2004 sb Added headers required for consistent_alloc
- */
-
 #ifndef _HOST_OS_H_
 #define _HOST_OS_H_
 
@@ -56,22 +46,39 @@
 #include <dspbridge/dbtype.h>
 #include <plat/clock.h>
 #include <linux/clk.h>
+#include <plat/mailbox.h>
 #include <linux/pagemap.h>
 #include <asm/cacheflush.h>
 #include <linux/dma-mapping.h>
 
 /* TODO -- Remove, once BP defines them */
-#define INT_MAIL_MPU_IRQ        26
 #define INT_DSP_MMU_IRQ        28
 
+struct dsp_shm_freq_table {
+	unsigned long u_volts;
+	unsigned long dsp_freq;
+	unsigned long thresh_min_freq;
+	unsigned long thresh_max_freq;
+};
 struct dspbridge_platform_data {
-	void 	(*dsp_set_min_opp)(u8 opp_id);
-	u8 	(*dsp_get_opp)(void);
-	void 	(*cpu_set_freq)(unsigned long f);
-	unsigned long (*cpu_get_freq)(void);
-	struct omap_opp *(*dsp_get_rate_table)(void);
-	struct omap_opp *(*mpu_get_rate_table)(void);
-	struct omap_opp *mpu_rate_table;
+	void (*dsp_set_min_opp) (u8 opp_id);
+	 u8(*dsp_get_opp) (void);
+	void (*cpu_set_freq) (unsigned long f);
+	unsigned long (*cpu_get_freq) (void);
+	unsigned long *mpu_speeds;
+	u8 mpu_num_speeds;
+	unsigned long mpu_min_speed;
+	unsigned long mpu_max_speed;
+	struct dsp_shm_freq_table *dsp_freq_table;
+	u8 dsp_num_speeds;
+
+	/* functions to write and read PRCM registers */
+	void (*dsp_prm_write)(u32, s16 , u16);
+	u32 (*dsp_prm_read)(s16 , u16);
+	u32 (*dsp_prm_rmw_bits)(u32, u32, s16, s16);
+	void (*dsp_cm_write)(u32, s16 , u16);
+	u32 (*dsp_cm_read)(s16 , u16);
+	u32 (*dsp_cm_rmw_bits)(u32, u32, s16, s16);
 
 	u32 phys_mempool_base;
 	u32 phys_mempool_size;
@@ -80,13 +87,15 @@ struct dspbridge_platform_data {
 #define PRCM_VDD1 1
 
 extern struct platform_device *omap_dspbridge_dev;
+extern struct device *bridge;
 
 #if defined(CONFIG_MPU_BRIDGE) || defined(CONFIG_MPU_BRIDGE_MODULE)
 extern void dspbridge_reserve_sdram(void);
 #else
-static inline void dspbridge_reserve_sdram(void) {}
+static inline void dspbridge_reserve_sdram(void)
+{
+}
 #endif
 
 extern unsigned long dspbridge_get_mempool_base(void);
 #endif
-

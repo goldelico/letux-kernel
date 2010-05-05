@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This file contains the implementation of UUID helper functions.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,25 +16,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== uuidutil.c ========
- *  Description:
- *  This file contains the implementation of UUID helper functions.
- *
- *! Revision History
- *! ================
- *! 23-Feb-2003 vp: Code review updates.
- *! 18-Oct-2003 vp: Ported to Linux platform.
- *! 31-Aug-2000 rr: UUID_UuidFromString bug fixed.
- *! 29-Aug-2000 rr: Modified UUID_UuidFromString.
- *! 09-Nov-2000 kc: Modified UUID_UuidFromString to simplify implementation.
- *! 30-Oct-2000 kc: Modified UUID utility module function prefix.
- *! 10-Aug-2000 kc: Created.
- *!
- */
-
-/*  ----------------------------------- Host OS  */
+/*  ----------------------------------- Host OS */
 #include <dspbridge/host_os.h>
 
 /*  ----------------------------------- DSP/BIOS Bridge */
@@ -46,27 +30,28 @@
 #include <dspbridge/uuidutil.h>
 
 /*
- *  ======== UUID_UuidToString ========
+ *  ======== uuid_uuid_to_string ========
  *  Purpose:
- *      Converts a struct DSP_UUID to a string.
+ *      Converts a struct dsp_uuid to a string.
  *      Note: snprintf format specifier is:
  *      %[flags] [width] [.precision] [{h | l | I64 | L}]type
  */
-void UUID_UuidToString(IN struct DSP_UUID *pUuid, OUT char *pszUuid,
-		       IN s32 size)
+void uuid_uuid_to_string(IN struct dsp_uuid *uuid_obj, OUT char *pszUuid,
+			 IN s32 size)
 {
 	s32 i;			/* return result from snprintf. */
 
-	DBC_Require(pUuid && pszUuid);
+	DBC_REQUIRE(uuid_obj && pszUuid);
 
 	i = snprintf(pszUuid, size,
 		     "%.8X_%.4X_%.4X_%.2X%.2X_%.2X%.2X%.2X%.2X%.2X%.2X",
-		     pUuid->ulData1, pUuid->usData2, pUuid->usData3,
-		     pUuid->ucData4, pUuid->ucData5, pUuid->ucData6[0],
-		     pUuid->ucData6[1], pUuid->ucData6[2], pUuid->ucData6[3],
-		     pUuid->ucData6[4], pUuid->ucData6[5]);
+		     uuid_obj->ul_data1, uuid_obj->us_data2, uuid_obj->us_data3,
+		     uuid_obj->uc_data4, uuid_obj->uc_data5,
+		     uuid_obj->uc_data6[0], uuid_obj->uc_data6[1],
+		     uuid_obj->uc_data6[2], uuid_obj->uc_data6[3],
+		     uuid_obj->uc_data6[4], uuid_obj->uc_data6[5]);
 
-	DBC_Ensure(i != -1);
+	DBC_ENSURE(i != -1);
 }
 
 /*
@@ -127,11 +112,11 @@ static int htoi(char c)
 }
 
 /*
- *  ======== UUID_UuidFromString ========
+ *  ======== uuid_uuid_from_string ========
  *  Purpose:
- *      Converts a string to a struct DSP_UUID.
+ *      Converts a string to a struct dsp_uuid.
  */
-void UUID_UuidFromString(IN char *pszUuid, OUT struct DSP_UUID *pUuid)
+void uuid_uuid_from_string(IN char *pszUuid, OUT struct dsp_uuid *uuid_obj)
 {
 	char c;
 	s32 i, j;
@@ -150,7 +135,7 @@ void UUID_UuidFromString(IN char *pszUuid, OUT struct DSP_UUID *pUuid)
 		/* Go to next character in string */
 		temp++;
 	}
-	pUuid->ulData1 = result;
+	uuid_obj->ul_data1 = result;
 
 	/* Step over underscore */
 	temp++;
@@ -167,7 +152,7 @@ void UUID_UuidFromString(IN char *pszUuid, OUT struct DSP_UUID *pUuid)
 		/* Go to next character in string */
 		temp++;
 	}
-	pUuid->usData2 = (u16)result;
+	uuid_obj->us_data2 = (u16) result;
 
 	/* Step over underscore */
 	temp++;
@@ -184,7 +169,7 @@ void UUID_UuidFromString(IN char *pszUuid, OUT struct DSP_UUID *pUuid)
 		/* Go to next character in string */
 		temp++;
 	}
-	pUuid->usData3 = (u16)result;
+	uuid_obj->us_data3 = (u16) result;
 
 	/* Step over underscore */
 	temp++;
@@ -201,7 +186,7 @@ void UUID_UuidFromString(IN char *pszUuid, OUT struct DSP_UUID *pUuid)
 		/* Go to next character in string */
 		temp++;
 	}
-	pUuid->ucData4 = (u8)result;
+	uuid_obj->uc_data4 = (u8) result;
 
 	result = 0;
 	for (i = 0; i < 2; i++) {
@@ -215,7 +200,7 @@ void UUID_UuidFromString(IN char *pszUuid, OUT struct DSP_UUID *pUuid)
 		/* Go to next character in string */
 		temp++;
 	}
-	pUuid->ucData5 = (u8)result;
+	uuid_obj->uc_data5 = (u8) result;
 
 	/* Step over underscore */
 	temp++;
@@ -233,6 +218,6 @@ void UUID_UuidFromString(IN char *pszUuid, OUT struct DSP_UUID *pUuid)
 			/* Go to next character in string */
 			temp++;
 		}
-		pUuid->ucData6[j] = (u8)result;
+		uuid_obj->uc_data6[j] = (u8) result;
 	}
 }

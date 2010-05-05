@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge Node Dispatcher.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,35 +16,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== disp.h ========
- *
- *  Description:
- *      DSP/BIOS Bridge Node Dispatcher.
- *
- *  Public Functions:
- *      DISP_Create
- *      DISP_Delete
- *      DISP_Exit
- *      DISP_Init
- *      DISP_NodeChangePriority
- *      DISP_NodeCreate
- *      DISP_NodeDelete
- *      DISP_NodeRun
- *
- *! Revision History:
- *! =================
- *! 28-Jan-2003 map     Removed DISP_DoCinit().
- *! 15-May-2002 jeh     Added DISP_DoCinit().
- *! 24-Apr-2002 jeh     Added DISP_MemWrite().
- *! 07-Sep-2001 jeh     Added DISP_MemCopy().
- *! 10-May-2001 jeh     Code review cleanup.
- *! 08-Aug-2000 jeh     Removed DISP_NodeTerminate since it no longer uses RMS.
- *! 17-Jul-2000 jeh     Updates to function headers.
- *! 19-Jun-2000 jeh     Created.
- */
-
 #ifndef DISP_
 #define DISP_
 
@@ -52,7 +25,7 @@
 #include <dspbridge/dispdefs.h>
 
 /*
- *  ======== DISP_Create ========
+ *  ======== disp_create ========
  *  Create a NODE Dispatcher object. This object handles the creation,
  *  deletion, and execution of nodes on the DSP target, through communication
  *  with the Resource Manager Server running on the target. Each NODE
@@ -60,56 +33,56 @@
  *
  *  Parameters:
  *      phDispObject:   Location to store node dispatcher object on output.
- *      hDevObject:     Device for this processor.
+ *      hdev_obj:     Device for this processor.
  *      pDispAttrs:     Node dispatcher attributes.
  *  Returns:
  *      DSP_SOK:                Success;
- *      DSP_EMEMORY:            Insufficient memory for requested resources.
- *      DSP_EFAIL:              Unable to create dispatcher.
+ *      -ENOMEM:            Insufficient memory for requested resources.
+ *      -EPERM:              Unable to create dispatcher.
  *  Requires:
- *      DISP_Init(void) called.
+ *      disp_init(void) called.
  *      pDispAttrs != NULL.
- *      hDevObject != NULL.
+ *      hdev_obj != NULL.
  *      phDispObject != NULL.
  *  Ensures:
- *      DSP_SOK:        IsValid(*phDispObject).
+ *      DSP_SOK:        IS_VALID(*phDispObject).
  *      error:          *phDispObject == NULL.
  */
-	extern DSP_STATUS DISP_Create(OUT struct DISP_OBJECT **phDispObject,
-				      struct DEV_OBJECT *hDevObject,
-				      IN CONST struct DISP_ATTRS *pDispAttrs);
+extern dsp_status disp_create(OUT struct disp_object **phDispObject,
+			      struct dev_object *hdev_obj,
+			      IN CONST struct disp_attr *pDispAttrs);
 
 /*
- *  ======== DISP_Delete ========
+ *  ======== disp_delete ========
  *  Delete the NODE Dispatcher.
  *
  *  Parameters:
  *      hDispObject:  Node Dispatcher object.
  *  Returns:
  *  Requires:
- *      DISP_Init(void) called.
+ *      disp_init(void) called.
  *      Valid hDispObject.
  *  Ensures:
  *      hDispObject is invalid.
  */
-	extern void DISP_Delete(struct DISP_OBJECT *hDispObject);
+extern void disp_delete(struct disp_object *hDispObject);
 
 /*
- *  ======== DISP_Exit ========
+ *  ======== disp_exit ========
  *  Discontinue usage of DISP module.
  *
  *  Parameters:
  *  Returns:
  *  Requires:
- *      DISP_Init(void) previously called.
+ *      disp_init(void) previously called.
  *  Ensures:
- *      Any resources acquired in DISP_Init(void) will be freed when last DISP
- *      client calls DISP_Exit(void).
+ *      Any resources acquired in disp_init(void) will be freed when last DISP
+ *      client calls disp_exit(void).
  */
-	extern void DISP_Exit(void);
+extern void disp_exit(void);
 
 /*
- *  ======== DISP_Init ========
+ *  ======== disp_init ========
  *  Initialize the DISP module.
  *
  *  Parameters:
@@ -117,120 +90,118 @@
  *      TRUE if initialization succeeded, FALSE otherwise.
  *  Ensures:
  */
-	extern bool DISP_Init(void);
+extern bool disp_init(void);
 
 /*
- *  ======== DISP_NodeChangePriority ========
+ *  ======== disp_node_change_priority ========
  *  Change the priority of a node currently running on the target.
  *
  *  Parameters:
  *      hDispObject:            Node Dispatcher object.
- *      hNode:                  Node object representing a node currently
+ *      hnode:                  Node object representing a node currently
  *                              allocated or running on the DSP.
  *      ulFxnAddress:           Address of RMS function for changing priority.
- *      nodeEnv:                Address of node's environment structure.
- *      nPriority:              New priority level to set node's priority to.
+ *      node_env:                Address of node's environment structure.
+ *      prio:              New priority level to set node's priority to.
  *  Returns:
  *      DSP_SOK:                Success.
- *      DSP_ETIMEOUT:           A timeout occurred before the DSP responded.
+ *      -ETIME:           A timeout occurred before the DSP responded.
  *  Requires:
- *      DISP_Init(void) called.
+ *      disp_init(void) called.
  *      Valid hDispObject.
- *      hNode != NULL.
+ *      hnode != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS DISP_NodeChangePriority(struct DISP_OBJECT
-						  *hDispObject,
-						  struct NODE_OBJECT *hNode,
-						  u32 ulFxnAddr,
-						  NODE_ENV nodeEnv,
-						  s32 nPriority);
+extern dsp_status disp_node_change_priority(struct disp_object
+					    *hDispObject,
+					    struct node_object *hnode,
+					    u32 ul_fxn_addr,
+					    nodeenv node_env, s32 prio);
 
 /*
- *  ======== DISP_NodeCreate ========
+ *  ======== disp_node_create ========
  *  Create a node on the DSP by remotely calling the node's create function.
  *
  *  Parameters:
  *      hDispObject:    Node Dispatcher object.
- *      hNode:          Node handle obtained from NODE_Allocate().
- *      ulFxnAddr:      Address or RMS create node function.
- *      ulCreateFxn:    Address of node's create function.
- *      pArgs:          Arguments to pass to RMS node create function.
+ *      hnode:          Node handle obtained from node_allocate().
+ *      ul_fxn_addr:      Address or RMS create node function.
+ *      ul_create_fxn:    Address of node's create function.
+ *      pargs:          Arguments to pass to RMS node create function.
  *      pNodeEnv:       Location to store node environment pointer on
  *                      output.
  *  Returns:
  *      DSP_SOK:        Success.
  *      DSP_ETASK:      Unable to create the node's task or process on the DSP.
  *      DSP_ESTREAM:    Stream creation failure on the DSP.
- *      DSP_ETIMEOUT:   A timeout occurred before the DSP responded.
+ *      -ETIME:   A timeout occurred before the DSP responded.
  *      DSP_EUSER:      A user-defined failure occurred.
- *      DSP_EFAIL:      A failure occurred, unable to create node.
+ *      -EPERM:      A failure occurred, unable to create node.
  *  Requires:
- *      DISP_Init(void) called.
+ *      disp_init(void) called.
  *      Valid hDispObject.
- *      pArgs != NULL.
- *      hNode != NULL.
+ *      pargs != NULL.
+ *      hnode != NULL.
  *      pNodeEnv != NULL.
- *      NODE_GetType(hNode) != NODE_DEVICE.
+ *      node_get_type(hnode) != NODE_DEVICE.
  *  Ensures:
  */
-	extern DSP_STATUS DISP_NodeCreate(struct DISP_OBJECT *hDispObject,
-					  struct NODE_OBJECT *hNode,
-					  u32 ulFxnAddr,
-					  u32 ulCreateFxn,
-					  IN CONST struct NODE_CREATEARGS
-					  *pArgs,
-					  OUT NODE_ENV *pNodeEnv);
+extern dsp_status disp_node_create(struct disp_object *hDispObject,
+				   struct node_object *hnode,
+				   u32 ul_fxn_addr,
+				   u32 ul_create_fxn,
+				   IN CONST struct node_createargs
+				   *pargs, OUT nodeenv *pNodeEnv);
 
 /*
- *  ======== DISP_NodeDelete ========
+ *  ======== disp_node_delete ========
  *  Delete a node on the DSP by remotely calling the node's delete function.
  *
  *  Parameters:
  *      hDispObject:    Node Dispatcher object.
- *      hNode:          Node object representing a node currently
+ *      hnode:          Node object representing a node currently
  *                      loaded on the DSP.
- *      ulFxnAddr:      Address or RMS delete node function.
- *      ulDeleteFxn:    Address of node's delete function.
- *      nodeEnv:        Address of node's environment structure.
+ *      ul_fxn_addr:      Address or RMS delete node function.
+ *      ul_delete_fxn:    Address of node's delete function.
+ *      node_env:        Address of node's environment structure.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_ETIMEOUT:   A timeout occurred before the DSP responded.
+ *      -ETIME:   A timeout occurred before the DSP responded.
  *  Requires:
- *      DISP_Init(void) called.
+ *      disp_init(void) called.
  *      Valid hDispObject.
- *      hNode != NULL.
+ *      hnode != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS DISP_NodeDelete(struct DISP_OBJECT *hDispObject,
-					  struct NODE_OBJECT *hNode,
-					  u32 ulFxnAddr,
-					  u32 ulDeleteFxn, NODE_ENV nodeEnv);
+extern dsp_status disp_node_delete(struct disp_object *hDispObject,
+				   struct node_object *hnode,
+				   u32 ul_fxn_addr,
+				   u32 ul_delete_fxn, nodeenv node_env);
 
 /*
- *  ======== DISP_NodeRun ========
+ *  ======== disp_node_run ========
  *  Start execution of a node's execute phase, or resume execution of a node
  *  that has been suspended (via DISP_NodePause()) on the DSP.
  *
  *  Parameters:
  *      hDispObject:    Node Dispatcher object.
- *      hNode:          Node object representing a node to be executed
+ *      hnode:          Node object representing a node to be executed
  *                      on the DSP.
- *      ulFxnAddr:      Address or RMS node execute function.
- *      ulExecuteFxn:   Address of node's execute function.
- *      nodeEnv:        Address of node's environment structure.
+ *      ul_fxn_addr:      Address or RMS node execute function.
+ *      ul_execute_fxn:   Address of node's execute function.
+ *      node_env:        Address of node's environment structure.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_ETIMEOUT:   A timeout occurred before the DSP responded.
+ *      -ETIME:   A timeout occurred before the DSP responded.
  *  Requires:
- *      DISP_Init(void) called.
+ *      disp_init(void) called.
  *      Valid hDispObject.
- *      hNode != NULL.
+ *      hnode != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS DISP_NodeRun(struct DISP_OBJECT *hDispObject,
-				       struct NODE_OBJECT *hNode,
-				       u32 ulFxnAddr,
-				       u32 ulExecuteFxn, NODE_ENV nodeEnv);
+extern dsp_status disp_node_run(struct disp_object *hDispObject,
+				struct node_object *hnode,
+				u32 ul_fxn_addr,
+				u32 ul_execute_fxn, nodeenv node_env);
 
-#endif				/* DISP_ */
+#endif /* DISP_ */

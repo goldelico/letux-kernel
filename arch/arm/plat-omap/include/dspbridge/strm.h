@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSPBridge Stream Manager.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,45 +16,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== strm.h ========
- *  Description:
- *      DSPBridge Stream Manager.
- *
- *  Public Functions:
- *      STRM_AllocateBuffer
- *      STRM_Close
- *      STRM_Create
- *      STRM_Delete
- *      STRM_Exit
- *      STRM_FreeBuffer
- *      STRM_GetEventHandle
- *      STRM_GetInfo
- *      STRM_Idle
- *      STRM_Init
- *      STRM_Issue
- *      STRM_Open
- *      STRM_PrepareBuffer
- *      STRM_Reclaim
- *      STRM_RegisterNotify
- *      STRM_Select
- *      STRM_UnprepareBuffer
- *
- *  Notes:
- *
- *! Revision History:
- *! =================
- *! 15-Nov-2001 ag  Changed DSP_STREAMINFO to STRM_INFO in STRM_GetInfo().
- *!                 Added DSP_ESIZE error to STRM_AllocateBuffer().
- *! 07-Jun-2001 sg  Made DSPStream_AllocateBuffer fxn name plural.
- *! 10-May-2001 jeh Code review cleanup.
- *! 13-Feb-2001 kc  DSP/BIOS Bridge name updates.
- *! 06-Feb-2001 kc  Updated DBC_Ensure for STRM_Select().
- *! 23-Oct-2000 jeh Allow NULL STRM_ATTRS passed to STRM_Open().
- *! 25-Sep-2000 jeh Created.
- */
-
 #ifndef STRM_
 #define STRM_
 
@@ -62,166 +25,166 @@
 #include <dspbridge/proc.h>
 
 /*
- *  ======== STRM_AllocateBuffer ========
+ *  ======== strm_allocate_buffer ========
  *  Purpose:
  *      Allocate data buffer(s) for use with a stream.
  *  Parameter:
- *      hStrm:          Stream handle returned from STRM_Open().
- *      uSize:          Size (GPP bytes) of the buffer(s).
- *      uNumBufs:       Number of buffers to allocate.
- *      apBuffer:       Array to hold buffer addresses.
+ *      hStrm:          Stream handle returned from strm_open().
+ *      usize:          Size (GPP bytes) of the buffer(s).
+ *      num_bufs:       Number of buffers to allocate.
+ *      ap_buffer:       Array to hold buffer addresses.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid hStrm.
- *      DSP_EMEMORY:    Insufficient memory.
- *      DSP_EFAIL:      Failure occurred, unable to allocate buffers.
- *      DSP_ESIZE:      uSize must be > 0 bytes.
+ *      -EFAULT:    Invalid hStrm.
+ *      -ENOMEM:    Insufficient memory.
+ *      -EPERM:      Failure occurred, unable to allocate buffers.
+ *      -EINVAL:      usize must be > 0 bytes.
  *  Requires:
- *      STRM_Init(void) called.
- *      apBuffer != NULL.
+ *      strm_init(void) called.
+ *      ap_buffer != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS STRM_AllocateBuffer(struct STRM_OBJECT *hStrm,
-					      u32 uSize,
-					      OUT u8 **apBuffer,
-					      u32 uNumBufs,
-					      struct PROCESS_CONTEXT *pr_ctxt);
+extern dsp_status strm_allocate_buffer(struct strm_res_object *strmres,
+				       u32 usize,
+				       OUT u8 **ap_buffer,
+				       u32 num_bufs,
+				       struct process_context *pr_ctxt);
 
 /*
- *  ======== STRM_Close ========
+ *  ======== strm_close ========
  *  Purpose:
- *      Close a stream opened with STRM_Open().
+ *      Close a stream opened with strm_open().
  *  Parameter:
- *      hStrm:          Stream handle returned from STRM_Open().
+ *      hStrm:          Stream handle returned from strm_open().
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid hStrm.
+ *      -EFAULT:    Invalid hStrm.
  *      DSP_EPENDING:   Some data buffers issued to the stream have not
  *                      been reclaimed.
- *      DSP_EFAIL:      Failure to close stream.
+ *      -EPERM:      Failure to close stream.
  *  Requires:
- *      STRM_Init(void) called.
+ *      strm_init(void) called.
  *  Ensures:
  */
-	extern DSP_STATUS STRM_Close(struct STRM_OBJECT *hStrm,
-				struct PROCESS_CONTEXT *pr_ctxt);
+extern dsp_status strm_close(struct strm_res_object *strmres,
+			     struct process_context *pr_ctxt);
 
 /*
- *  ======== STRM_Create ========
+ *  ======== strm_create ========
  *  Purpose:
  *      Create a STRM manager object. This object holds information about the
  *      device needed to open streams.
  *  Parameters:
  *      phStrmMgr:      Location to store handle to STRM manager object on
  *                      output.
- *      hDev:           Device for this processor.
+ *      dev_obj:           Device for this processor.
  *  Returns:
  *      DSP_SOK:        Success;
- *      DSP_EMEMORY:    Insufficient memory for requested resources.
- *      DSP_EFAIL:      General failure.
+ *      -ENOMEM:    Insufficient memory for requested resources.
+ *      -EPERM:      General failure.
  *  Requires:
- *      STRM_Init(void) called.
+ *      strm_init(void) called.
  *      phStrmMgr != NULL.
- *      hDev != NULL.
+ *      dev_obj != NULL.
  *  Ensures:
  *      DSP_SOK:        Valid *phStrmMgr.
  *      error:          *phStrmMgr == NULL.
  */
-	extern DSP_STATUS STRM_Create(OUT struct STRM_MGR **phStrmMgr,
-				      struct DEV_OBJECT *hDev);
+extern dsp_status strm_create(OUT struct strm_mgr **phStrmMgr,
+			      struct dev_object *dev_obj);
 
 /*
- *  ======== STRM_Delete ========
+ *  ======== strm_delete ========
  *  Purpose:
  *      Delete the STRM Object.
  *  Parameters:
- *      hStrmMgr:       Handle to STRM manager object from STRM_Create.
+ *      strm_mgr_obj:       Handle to STRM manager object from strm_create.
  *  Returns:
  *  Requires:
- *      STRM_Init(void) called.
- *      Valid hStrmMgr.
+ *      strm_init(void) called.
+ *      Valid strm_mgr_obj.
  *  Ensures:
- *      hStrmMgr is not valid.
+ *      strm_mgr_obj is not valid.
  */
-	extern void STRM_Delete(struct STRM_MGR *hStrmMgr);
+extern void strm_delete(struct strm_mgr *strm_mgr_obj);
 
 /*
- *  ======== STRM_Exit ========
+ *  ======== strm_exit ========
  *  Purpose:
  *      Discontinue usage of STRM module.
  *  Parameters:
  *  Returns:
  *  Requires:
- *      STRM_Init(void) successfully called before.
+ *      strm_init(void) successfully called before.
  *  Ensures:
  */
-	extern void STRM_Exit(void);
+extern void strm_exit(void);
 
 /*
- *  ======== STRM_FreeBuffer ========
+ *  ======== strm_free_buffer ========
  *  Purpose:
- *      Free buffer(s) allocated with STRM_AllocateBuffer.
+ *      Free buffer(s) allocated with strm_allocate_buffer.
  *  Parameter:
- *      hStrm:          Stream handle returned from STRM_Open().
- *      apBuffer:       Array containing buffer addresses.
- *      uNumBufs:       Number of buffers to be freed.
+ *      hStrm:          Stream handle returned from strm_open().
+ *      ap_buffer:       Array containing buffer addresses.
+ *      num_bufs:       Number of buffers to be freed.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid stream handle.
- *      DSP_EFAIL:      Failure occurred, unable to free buffers.
+ *      -EFAULT:    Invalid stream handle.
+ *      -EPERM:      Failure occurred, unable to free buffers.
  *  Requires:
- *      STRM_Init(void) called.
- *      apBuffer != NULL.
+ *      strm_init(void) called.
+ *      ap_buffer != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS STRM_FreeBuffer(struct STRM_OBJECT *hStrm,
-					  u8 **apBuffer, u32 uNumBufs,
-					  struct PROCESS_CONTEXT *pr_ctxt);
+extern dsp_status strm_free_buffer(struct strm_res_object *strmres,
+				   u8 **ap_buffer, u32 num_bufs,
+				   struct process_context *pr_ctxt);
 
 /*
- *  ======== STRM_GetEventHandle ========
+ *  ======== strm_get_event_handle ========
  *  Purpose:
  *      Get stream's user event handle. This function is used when closing
  *      a stream, so the event can be closed.
  *  Parameter:
- *      hStrm:          Stream handle returned from STRM_Open().
- *      phEvent:        Location to store event handle on output.
+ *      hStrm:          Stream handle returned from strm_open().
+ *      ph_event:        Location to store event handle on output.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid hStrm.
+ *      -EFAULT:    Invalid hStrm.
  *  Requires:
- *      STRM_Init(void) called.
- *      phEvent != NULL.
+ *      strm_init(void) called.
+ *      ph_event != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS STRM_GetEventHandle(struct STRM_OBJECT *hStrm,
-					      OUT HANDLE *phEvent);
+extern dsp_status strm_get_event_handle(struct strm_object *hStrm,
+					OUT bhandle *ph_event);
 
 /*
- *  ======== STRM_GetInfo ========
+ *  ======== strm_get_info ========
  *  Purpose:
- *      Get information about a stream. User's DSP_STREAMINFO is contained
- *      in STRM_INFO struct. STRM_INFO also contains Bridge private info.
+ *      Get information about a stream. User's dsp_streaminfo is contained
+ *      in stream_info struct. stream_info also contains Bridge private info.
  *  Parameters:
- *      hStrm:              Stream handle returned from STRM_Open().
- *      pStreamInfo:        Location to store stream info on output.
- *      uSteamInfoSize:     Size of user's DSP_STREAMINFO structure.
+ *      hStrm:              Stream handle returned from strm_open().
+ *      stream_info:        Location to store stream info on output.
+ *      uSteamInfoSize:     Size of user's dsp_streaminfo structure.
  *  Returns:
  *      DSP_SOK:            Success.
- *      DSP_EHANDLE:        Invalid hStrm.
- *      DSP_ESIZE:          uStreamInfoSize < sizeof(DSP_STREAMINFO).
- *      DSP_EFAIL:          Unable to get stream info.
+ *      -EFAULT:        Invalid hStrm.
+ *      -EINVAL:          stream_info_size < sizeof(dsp_streaminfo).
+ *      -EPERM:          Unable to get stream info.
  *  Requires:
- *      STRM_Init(void) called.
- *      pStreamInfo != NULL.
+ *      strm_init(void) called.
+ *      stream_info != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS STRM_GetInfo(struct STRM_OBJECT *hStrm,
-				       OUT struct STRM_INFO *pStreamInfo,
-				       u32 uStreamInfoSize);
+extern dsp_status strm_get_info(struct strm_object *hStrm,
+				OUT struct stream_info *stream_info,
+				u32 stream_info_size);
 
 /*
- *  ======== STRM_Idle ========
+ *  ======== strm_idle ========
  *  Purpose:
  *      Idle a stream and optionally flush output data buffers.
  *      If this is an output stream and fFlush is TRUE, all data currently
@@ -229,25 +192,25 @@
  *      If this is an output stream and fFlush is FALSE, this function
  *      will block until all currently buffered data is output, or the timeout
  *      specified has been reached.
- *      After a successful call to STRM_Idle(), all buffers can immediately
+ *      After a successful call to strm_idle(), all buffers can immediately
  *      be reclaimed.
  *  Parameters:
- *      hStrm:          Stream handle returned from STRM_Open().
+ *      hStrm:          Stream handle returned from strm_open().
  *      fFlush:         If TRUE, discard output buffers.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid hStrm.
- *      DSP_ETIMEOUT:   A timeout occurred before the stream could be idled.
+ *      -EFAULT:    Invalid hStrm.
+ *      -ETIME:   A timeout occurred before the stream could be idled.
  *      DSP_ERESTART:   A critical error occurred, DSP is being restarted.
- *      DSP_EFAIL:      Unable to idle stream.
+ *      -EPERM:      Unable to idle stream.
  *  Requires:
- *      STRM_Init(void) called.
+ *      strm_init(void) called.
  *  Ensures:
  */
-	extern DSP_STATUS STRM_Idle(struct STRM_OBJECT *hStrm, bool fFlush);
+extern dsp_status strm_idle(struct strm_object *hStrm, bool fFlush);
 
 /*
- *  ======== STRM_Init ========
+ *  ======== strm_init ========
  *  Purpose:
  *      Initialize the STRM module.
  *  Parameters:
@@ -256,191 +219,187 @@
  *  Requires:
  *  Ensures:
  */
-	extern bool STRM_Init(void);
+extern bool strm_init(void);
 
 /*
- *  ======== STRM_Issue ========
+ *  ======== strm_issue ========
  *  Purpose:
  *      Send a buffer of data to a stream.
  *  Parameters:
- *      hStrm:              Stream handle returned from STRM_Open().
- *      pBuf:               Pointer to buffer of data to be sent to the stream.
- *      ulBytes:            Number of bytes of data in the buffer.
- *      ulBufSize:          Actual buffer size in bytes.
- *      dwArg:              A user argument that travels with the buffer.
+ *      hStrm:              Stream handle returned from strm_open().
+ *      pbuf:               Pointer to buffer of data to be sent to the stream.
+ *      ul_bytes:            Number of bytes of data in the buffer.
+ *      ul_buf_size:          Actual buffer size in bytes.
+ *      dw_arg:              A user argument that travels with the buffer.
  *  Returns:
  *      DSP_SOK:            Success.
- *      DSP_EHANDLE:        Invalid hStrm.
- *      DSP_ESTREAMFULL:    The stream is full.
- *      DSP_EFAIL:          Failure occurred, unable to issue buffer.
+ *      -EFAULT:        Invalid hStrm.
+ *      -ENOSR:    The stream is full.
+ *      -EPERM:          Failure occurred, unable to issue buffer.
  *  Requires:
- *      STRM_Init(void) called.
- *      pBuf != NULL.
+ *      strm_init(void) called.
+ *      pbuf != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS STRM_Issue(struct STRM_OBJECT *hStrm, IN u8 *pBuf,
-				     u32 ulBytes, u32 ulBufSize,
-				     IN u32 dwArg);
+extern dsp_status strm_issue(struct strm_object *hStrm, IN u8 * pbuf,
+			     u32 ul_bytes, u32 ul_buf_size, IN u32 dw_arg);
 
 /*
- *  ======== STRM_Open ========
+ *  ======== strm_open ========
  *  Purpose:
  *      Open a stream for sending/receiving data buffers to/from a task of
  *      DAIS socket node on the DSP.
  *  Parameters:
- *      hNode:          Node handle returned from NODE_Allocate().
- *      uDir:           DSP_TONODE or DSP_FROMNODE.
- *      uIndex:         Stream index.
- *      pAttr:          Pointer to structure containing attributes to be
+ *      hnode:          Node handle returned from node_allocate().
+ *      dir:           DSP_TONODE or DSP_FROMNODE.
+ *      index:         Stream index.
+ *      pattr:          Pointer to structure containing attributes to be
  *                      applied to stream. Cannot be NULL.
  *      phStrm:         Location to store stream handle on output.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid hNode.
- *      DSP_EDIRECTION: Invalid uDir.
- *      DSP_EVALUE:     Invalid uIndex.
- *      DSP_ENODETYPE:  hNode is not a task or DAIS socket node.
- *      DSP_EFAIL:      Unable to open stream.
+ *      -EFAULT:    Invalid hnode.
+ *      -EPERM: Invalid dir.
+ *      -EINVAL:     Invalid index.
+ *      -EPERM:  hnode is not a task or DAIS socket node.
+ *      -EPERM:      Unable to open stream.
  *  Requires:
- *      STRM_Init(void) called.
+ *      strm_init(void) called.
  *      phStrm != NULL.
- *      pAttr != NULL.
+ *      pattr != NULL.
  *  Ensures:
  *      DSP_SOK:        *phStrm is valid.
  *      error:          *phStrm == NULL.
  */
-	extern DSP_STATUS STRM_Open(struct NODE_OBJECT *hNode, u32 uDir,
-				    u32 uIndex, IN struct STRM_ATTR *pAttr,
-				    OUT struct STRM_OBJECT **phStrm,
-				    struct PROCESS_CONTEXT *pr_ctxt);
+extern dsp_status strm_open(struct node_object *hnode, u32 dir,
+			    u32 index, IN struct strm_attr *pattr,
+			    OUT struct strm_res_object **strmres,
+			    struct process_context *pr_ctxt);
 
 /*
- *  ======== STRM_PrepareBuffer ========
+ *  ======== strm_prepare_buffer ========
  *  Purpose:
  *      Prepare a data buffer not allocated by DSPStream_AllocateBuffers()
  *      for use with a stream.
  *  Parameter:
- *      hStrm:          Stream handle returned from STRM_Open().
- *      uSize:          Size (GPP bytes) of the buffer.
- *      pBuffer:        Buffer address.
+ *      hStrm:          Stream handle returned from strm_open().
+ *      usize:          Size (GPP bytes) of the buffer.
+ *      pbuffer:        Buffer address.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid hStrm.
- *      DSP_EFAIL:      Failure occurred, unable to prepare buffer.
+ *      -EFAULT:    Invalid hStrm.
+ *      -EPERM:      Failure occurred, unable to prepare buffer.
  *  Requires:
- *      STRM_Init(void) called.
- *      pBuffer != NULL.
+ *      strm_init(void) called.
+ *      pbuffer != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS STRM_PrepareBuffer(struct STRM_OBJECT *hStrm,
-					     u32 uSize,
-					     u8 *pBuffer);
+extern dsp_status strm_prepare_buffer(struct strm_object *hStrm,
+				      u32 usize, u8 *pbuffer);
 
 /*
- *  ======== STRM_Reclaim ========
+ *  ======== strm_reclaim ========
  *  Purpose:
  *      Request a buffer back from a stream.
  *  Parameters:
- *      hStrm:          Stream handle returned from STRM_Open().
- *      pBufPtr:        Location to store pointer to reclaimed buffer.
+ *      hStrm:          Stream handle returned from strm_open().
+ *      buf_ptr:        Location to store pointer to reclaimed buffer.
  *      pulBytes:       Location where number of bytes of data in the
  *                      buffer will be written.
  *      pulBufSize:     Location where actual buffer size will be written.
- *      pdwArg:         Location where user argument that travels with
+ *      pdw_arg:         Location where user argument that travels with
  *                      the buffer will be written.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid hStrm.
- *      DSP_ETIMEOUT:   A timeout occurred before a buffer could be
+ *      -EFAULT:    Invalid hStrm.
+ *      -ETIME:   A timeout occurred before a buffer could be
  *                      retrieved.
- *      DSP_EFAIL:      Failure occurred, unable to reclaim buffer.
+ *      -EPERM:      Failure occurred, unable to reclaim buffer.
  *  Requires:
- *      STRM_Init(void) called.
- *      pBufPtr != NULL.
+ *      strm_init(void) called.
+ *      buf_ptr != NULL.
  *      pulBytes != NULL.
- *      pdwArg != NULL.
+ *      pdw_arg != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS STRM_Reclaim(struct STRM_OBJECT *hStrm,
-				       OUT u8 **pBufPtr, u32 *pulBytes,
-				       u32 *pulBufSize, u32 *pdwArg);
+extern dsp_status strm_reclaim(struct strm_object *hStrm,
+			       OUT u8 **buf_ptr, u32 * pulBytes,
+			       u32 *pulBufSize, u32 *pdw_arg);
 
 /*
- *  ======== STRM_RegisterNotify ========
+ *  ======== strm_register_notify ========
  *  Purpose:
  *      Register to be notified on specific events for this stream.
  *  Parameters:
- *      hStrm:          Stream handle returned by STRM_Open().
- *      uEventMask:     Mask of types of events to be notified about.
- *      uNotifyType:    Type of notification to be sent.
- *      hNotification:  Handle to be used for notification.
+ *      hStrm:          Stream handle returned by strm_open().
+ *      event_mask:     Mask of types of events to be notified about.
+ *      notify_type:    Type of notification to be sent.
+ *      hnotification:  Handle to be used for notification.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid hStrm.
- *      DSP_EMEMORY:    Insufficient memory on GPP.
- *      DSP_EVALUE:     uEventMask is invalid.
- *      DSP_ENOTIMPL:   Notification type specified by uNotifyType is not
+ *      -EFAULT:    Invalid hStrm.
+ *      -ENOMEM:    Insufficient memory on GPP.
+ *      -EINVAL:     event_mask is invalid.
+ *      -ENOSYS:   Notification type specified by notify_type is not
  *                      supported.
  *  Requires:
- *      STRM_Init(void) called.
- *      hNotification != NULL.
+ *      strm_init(void) called.
+ *      hnotification != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS STRM_RegisterNotify(struct STRM_OBJECT *hStrm,
-					      u32 uEventMask, u32 uNotifyType,
-					      struct DSP_NOTIFICATION
-					      *hNotification);
+extern dsp_status strm_register_notify(struct strm_object *hStrm,
+				       u32 event_mask, u32 notify_type,
+				       struct dsp_notification
+				       *hnotification);
 
 /*
- *  ======== STRM_Select ========
+ *  ======== strm_select ========
  *  Purpose:
  *      Select a ready stream.
  *  Parameters:
- *      aStrmTab:       Array of stream handles returned from STRM_Open().
+ *      strm_tab:       Array of stream handles returned from strm_open().
  *      nStrms:         Number of stream handles in array.
- *      pMask:          Location to store mask of ready streams on output.
- *      uTimeout:       Timeout value (milliseconds).
+ *      pmask:          Location to store mask of ready streams on output.
+ *      utimeout:       Timeout value (milliseconds).
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_ERANGE:     nStrms out of range.
+ *      -EDOM:     nStrms out of range.
 
- *      DSP_EHANDLE:    Invalid stream handle in array.
- *      DSP_ETIMEOUT:   A timeout occurred before a stream became ready.
- *      DSP_EFAIL:      Failure occurred, unable to select a stream.
+ *      -EFAULT:    Invalid stream handle in array.
+ *      -ETIME:   A timeout occurred before a stream became ready.
+ *      -EPERM:      Failure occurred, unable to select a stream.
  *  Requires:
- *      STRM_Init(void) called.
- *      aStrmTab != NULL.
+ *      strm_init(void) called.
+ *      strm_tab != NULL.
  *      nStrms > 0.
- *      pMask != NULL.
+ *      pmask != NULL.
  *  Ensures:
- *      DSP_SOK:        *pMask != 0 || uTimeout == 0.
- *      Error:          *pMask == 0.
+ *      DSP_SOK:        *pmask != 0 || utimeout == 0.
+ *      Error:          *pmask == 0.
  */
-	extern DSP_STATUS STRM_Select(IN struct STRM_OBJECT **aStrmTab,
-				      u32 nStrms,
-				      OUT u32 *pMask, u32 uTimeout);
+extern dsp_status strm_select(IN struct strm_object **strm_tab,
+			      u32 nStrms, OUT u32 *pmask, u32 utimeout);
 
 /*
- *  ======== STRM_UnprepareBuffer ========
+ *  ======== strm_unprepare_buffer ========
  *  Purpose:
  *      Unprepare a data buffer that was previously prepared for a stream
  *      with DSPStream_PrepareBuffer(), and that will no longer be used with
  *      the stream.
  *  Parameter:
- *      hStrm:          Stream handle returned from STRM_Open().
- *      uSize:          Size (GPP bytes) of the buffer.
- *      pBuffer:        Buffer address.
+ *      hStrm:          Stream handle returned from strm_open().
+ *      usize:          Size (GPP bytes) of the buffer.
+ *      pbuffer:        Buffer address.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid hStrm.
- *      DSP_EFAIL:      Failure occurred, unable to unprepare buffer.
+ *      -EFAULT:    Invalid hStrm.
+ *      -EPERM:      Failure occurred, unable to unprepare buffer.
  *  Requires:
- *      STRM_Init(void) called.
- *      pBuffer != NULL.
+ *      strm_init(void) called.
+ *      pbuffer != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS STRM_UnprepareBuffer(struct STRM_OBJECT *hStrm,
-					       u32 uSize,
-					       u8 *pBuffer);
+extern dsp_status strm_unprepare_buffer(struct strm_object *hStrm,
+					u32 usize, u8 *pbuffer);
 
-#endif				/* STRM_ */
+#endif /* STRM_ */

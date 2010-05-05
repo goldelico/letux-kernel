@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Private node header shared by NODE and DISP.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,27 +16,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/*
- *  ======== nodepriv.h ========
- *  Description:
- *      Private node header shared by NODE and DISP.
- *
- *  Public Functions:
- *      NODE_GetChannelId
- *      NODE_GetStrmMgr
- *      NODE_GetTimeout
- *      NODE_GetType
- *      NODE_GetLoadType
- *
- *! Revision History
- *! ================
- *! 19-Nov-2002 map     Added NODE_GetLoadType
- *! 13-Feb-2002 jeh     Added uSysStackSize to NODE_TASKARGS.
- *! 23-Apr-2001 jeh     Removed unused typedefs, defines.
- *! 10-Oct-2000 jeh     Added alignment to NODE_STRMDEF.
- *! 20-Jun-2000 jeh     Created.
- */
-
 #ifndef NODEPRIV_
 #define NODEPRIV_
 
@@ -43,160 +24,159 @@
 #include <dspbridge/nldrdefs.h>
 
 /* DSP address of node environment structure */
-	typedef u32 NODE_ENV;
+typedef u32 nodeenv;
 
 /*
  *  Node create structures
  */
 
 /* Message node */
-	struct NODE_MSGARGS {
-		u32 uMaxMessages; /* Max # of simultaneous messages for node */
-		u32 uSegid;	/* Segment for allocating message buffers */
-		u32 uNotifyType;  /* Notify type (SEM_post, SWI_post, etc.) */
-		u32 uArgLength;  /* Length in 32-bit words of arg data block */
-		u8 *pData;	/* Argument data for node */
-	} ;
+struct node_msgargs {
+	u32 max_msgs;		/* Max # of simultaneous messages for node */
+	u32 seg_id;		/* Segment for allocating message buffers */
+	u32 notify_type;	/* Notify type (SEM_post, SWI_post, etc.) */
+	u32 arg_length;		/* Length in 32-bit words of arg data block */
+	u8 *pdata;		/* Argument data for node */
+};
 
-	struct NODE_STRMDEF {
-		u32 uBufsize;	/* Size of buffers for SIO stream */
-		u32 uNumBufs;	/* max # of buffers in SIO stream at once */
-		u32 uSegid;	/* Memory segment id to allocate buffers */
-		u32 uTimeout;	/* Timeout for blocking SIO calls */
-		u32 uAlignment;	/* Buffer alignment */
-		char *szDevice;	/* Device name for stream */
-	} ;
+struct node_strmdef {
+	u32 buf_size;		/* Size of buffers for SIO stream */
+	u32 num_bufs;		/* max # of buffers in SIO stream at once */
+	u32 seg_id;		/* Memory segment id to allocate buffers */
+	u32 utimeout;		/* Timeout for blocking SIO calls */
+	u32 buf_alignment;	/* Buffer alignment */
+	char *sz_device;	/* Device name for stream */
+};
 
 /* Task node */
-	struct NODE_TASKARGS {
-		struct NODE_MSGARGS msgArgs;
-		s32 nPriority;
-		u32 uStackSize;
-		u32 uSysStackSize;
-		u32 uStackSeg;
-		u32 uDSPHeapResAddr;	/* DSP virtual heap address */
-		u32 uDSPHeapAddr;	/* DSP virtual heap address */
-		u32 uHeapSize;	/* Heap size */
-		u32 uGPPHeapAddr;	/* GPP virtual heap address */
-		u32 uProfileID;	/* Profile ID */
-		u32 uNumInputs;
-		u32 uNumOutputs;
-		u32 ulDaisArg;	/* Address of iAlg object */
-		struct NODE_STRMDEF *strmInDef;
-		struct NODE_STRMDEF *strmOutDef;
-	} ;
+struct node_taskargs {
+	struct node_msgargs node_msg_args;
+	s32 prio;
+	u32 stack_size;
+	u32 sys_stack_size;
+	u32 stack_seg;
+	u32 udsp_heap_res_addr;	/* DSP virtual heap address */
+	u32 udsp_heap_addr;	/* DSP virtual heap address */
+	u32 heap_size;		/* Heap size */
+	u32 ugpp_heap_addr;	/* GPP virtual heap address */
+	u32 profile_id;		/* Profile ID */
+	u32 num_inputs;
+	u32 num_outputs;
+	u32 ul_dais_arg;	/* Address of iAlg object */
+	struct node_strmdef *strm_in_def;
+	struct node_strmdef *strm_out_def;
+};
 
 /*
- *  ======== NODE_CREATEARGS ========
+ *  ======== node_createargs ========
  */
-	struct NODE_CREATEARGS {
-		union {
-			struct NODE_MSGARGS msgArgs;
-			struct NODE_TASKARGS taskArgs;
-		} asa;
-	} ;
+struct node_createargs {
+	union {
+		struct node_msgargs node_msg_args;
+		struct node_taskargs task_arg_obj;
+	} asa;
+};
 
 /*
- *  ======== NODE_GetChannelId ========
+ *  ======== node_get_channel_id ========
  *  Purpose:
  *      Get the channel index reserved for a stream connection between the
- *      host and a node. This index is reserved when NODE_Connect() is called
+ *      host and a node. This index is reserved when node_connect() is called
  *      to connect the node with the host. This index should be passed to
  *      the CHNL_Open function when the stream is actually opened.
  *  Parameters:
- *      hNode:          Node object allocated from NODE_Allocate().
- *      uDir:           Input (DSP_TONODE) or output (DSP_FROMNODE).
- *      uIndex:         Stream index.
+ *      hnode:          Node object allocated from node_allocate().
+ *      dir:           Input (DSP_TONODE) or output (DSP_FROMNODE).
+ *      index:         Stream index.
  *      pulId:          Location to store channel index.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid hNode.
- *      DSP_ENODETYPE:  Not a task or DAIS socket node.
- *      DSP_EVALUE:     The node's stream corresponding to uIndex and uDir
+ *      -EFAULT:    Invalid hnode.
+ *      -EPERM:  Not a task or DAIS socket node.
+ *      -EINVAL:     The node's stream corresponding to index and dir
  *                      is not a stream to or from the host.
  *  Requires:
- *      NODE_Init(void) called.
- *      Valid uDir.
+ *      node_init(void) called.
+ *      Valid dir.
  *      pulId != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS NODE_GetChannelId(struct NODE_OBJECT *hNode,
-					    u32 uDir,
-					    u32 uIndex, OUT u32 *pulId);
+extern dsp_status node_get_channel_id(struct node_object *hnode,
+				      u32 dir, u32 index, OUT u32 *pulId);
 
 /*
- *  ======== NODE_GetStrmMgr ========
+ *  ======== node_get_strm_mgr ========
  *  Purpose:
  *      Get the STRM manager for a node.
  *  Parameters:
- *      hNode:          Node allocated with NODE_Allocate().
+ *      hnode:          Node allocated with node_allocate().
  *      phStrmMgr:      Location to store STRM manager on output.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid hNode.
+ *      -EFAULT:    Invalid hnode.
  *  Requires:
  *      phStrmMgr != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS NODE_GetStrmMgr(struct NODE_OBJECT *hNode,
-					  struct STRM_MGR **phStrmMgr);
+extern dsp_status node_get_strm_mgr(struct node_object *hnode,
+				    struct strm_mgr **phStrmMgr);
 
 /*
- *  ======== NODE_GetTimeout ========
+ *  ======== node_get_timeout ========
  *  Purpose:
  *      Get the timeout value of a node.
  *  Parameters:
- *      hNode:      Node allocated with NODE_Allocate(), or DSP_HGPPNODE.
+ *      hnode:      Node allocated with node_allocate(), or DSP_HGPPNODE.
  *  Returns:
  *      Node's timeout value.
  *  Requires:
- *      Valid hNode.
+ *      Valid hnode.
  *  Ensures:
  */
-	extern u32 NODE_GetTimeout(struct NODE_OBJECT *hNode);
+extern u32 node_get_timeout(struct node_object *hnode);
 
 /*
- *  ======== NODE_GetType ========
+ *  ======== node_get_type ========
  *  Purpose:
  *      Get the type (device, message, task, or XDAIS socket) of a node.
  *  Parameters:
- *      hNode:      Node allocated with NODE_Allocate(), or DSP_HGPPNODE.
+ *      hnode:      Node allocated with node_allocate(), or DSP_HGPPNODE.
  *  Returns:
  *      Node type:  NODE_DEVICE, NODE_TASK, NODE_XDAIS, or NODE_GPP.
  *  Requires:
- *      Valid hNode.
+ *      Valid hnode.
  *  Ensures:
  */
-	extern enum NODE_TYPE NODE_GetType(struct NODE_OBJECT *hNode);
+extern enum node_type node_get_type(struct node_object *hnode);
 
 /*
- *  ======== GetNodeInfo ========
+ *  ======== get_node_info ========
  *  Purpose:
  *      Get node information without holding semaphore.
  *  Parameters:
- *      hNode:      Node allocated with NODE_Allocate(), or DSP_HGPPNODE.
+ *      hnode:      Node allocated with node_allocate(), or DSP_HGPPNODE.
  *  Returns:
  *      Node info:  priority, device owner, no. of streams, execution state
  *                  NDB properties.
  *  Requires:
- *      Valid hNode.
+ *      Valid hnode.
  *  Ensures:
  */
-	extern void GetNodeInfo(struct NODE_OBJECT *hNode,
-				struct DSP_NODEINFO *pNodeInfo);
+extern void get_node_info(struct node_object *hnode,
+			  struct dsp_nodeinfo *pNodeInfo);
 
 /*
- *  ======== NODE_GetLoadType ========
+ *  ======== node_get_load_type ========
  *  Purpose:
  *      Get the load type (dynamic, overlay, static) of a node.
  *  Parameters:
- *      hNode:      Node allocated with NODE_Allocate(), or DSP_HGPPNODE.
+ *      hnode:      Node allocated with node_allocate(), or DSP_HGPPNODE.
  *  Returns:
  *      Node type:  NLDR_DYNAMICLOAD, NLDR_OVLYLOAD, NLDR_STATICLOAD
  *  Requires:
- *      Valid hNode.
+ *      Valid hnode.
  *  Ensures:
  */
-	extern enum NLDR_LOADTYPE NODE_GetLoadType(struct NODE_OBJECT *hNode);
+extern enum nldr_loadtype node_get_load_type(struct node_object *hnode);
 
-#endif				/* NODEPRIV_ */
+#endif /* NODEPRIV_ */

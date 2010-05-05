@@ -14,7 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
 /* Tables generated for c6000 */
 
 #define HASH_FUNC(zz) (((((zz) + 1) * UINT32_C(1845)) >> 11) & 63)

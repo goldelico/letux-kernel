@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Definition for mini-driver module DEH.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,29 +16,17 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/*
- *  ======== dehdefs.h ========
- *  Purpose:
- *      Definition for mini-driver module DEH.
- *
- *! Revision History:
- *! ================
- *! 17-Dec-2001 ag: added #include <dspbridge/mbx_sh.h> for shared mailbox codes.
- *! 10-Dec-2001 kc: added DEH error base value and error max value.
- *! 11-Sep-2001 kc: created.
- */
-
 #ifndef DEHDEFS_
 #define DEHDEFS_
 
-#include <dspbridge/mbx_sh.h>		/* shared mailbox codes */
+#include <dspbridge/mbx_sh.h>	/* shared mailbox codes */
 
 /* DEH object manager */
-	struct DEH_MGR;
+struct deh_mgr;
 
 /* Magic code used to determine if DSP signaled exception. */
 #define DEH_BASE        MBX_DEH_BASE
 #define DEH_USERS_BASE  MBX_DEH_USERS_BASE
 #define DEH_LIMIT       MBX_DEH_LIMIT
 
-#endif				/* _DEHDEFS_H */
+#endif /* _DEHDEFS_H */

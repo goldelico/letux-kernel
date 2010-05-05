@@ -1,4 +1,4 @@
-#
+
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32
 # Tue May  4 19:17:44 2010
@@ -1925,7 +1925,7 @@ CONFIG_TILER_OMAP=y
 #
 # CONFIG_CBUS is not set
 CONFIG_MPU_BRIDGE=y
-CONFIG_BRIDGE_DVFS=y
+# CONFIG_BRIDGE_DVFS is not set
 CONFIG_BRIDGE_MEMPOOL_SIZE=0x600000
 # CONFIG_BRIDGE_DEBUG is not set
 CONFIG_BRIDGE_RECOVERY=y

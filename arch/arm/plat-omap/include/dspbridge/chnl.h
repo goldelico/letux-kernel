@@ -3,6 +3,11 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * WCD channel interface: multiplexes data streams through the single
+ * physical link managed by a mini-driver.
+ *
+ * See DSP API chnl.h for more details.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,146 +19,104 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== chnl.h ========
- *  Description:
- *      WCD channel interface: multiplexes data streams through the single
- *      physical link managed by a mini-driver.
- *
- *  Public Functions:
- *      CHNL_AddIOReq
- *      CHNL_AllocBuffer
- *      CHNL_CancelIO
- *      CHNL_Close
- *      CHNL_CloseOrphans
- *      CHNL_Create
- *      CHNL_Destroy
- *      CHNL_Exit
- *      CHNL_FlushIO
- *      CHNL_FreeBuffer
- *      CHNL_GetEventHandle
- *      CHNL_GetHandle
- *      CHNL_GetIOCompletion
- *      CHNL_GetId
- *      CHNL_GetMgr
- *      CHNL_GetMode
- *      CHNL_GetPosition
- *      CHNL_GetProcessHandle
- *      CHNL_Init
- *      CHNL_Open
- *
- *  Notes:
- *      See DSP API chnl.h for more details.
- *
- *! Revision History:
- *! ================
- *! 14-Jan-1997 gp: Updated based on code review feedback.
- *! 24-Oct-1996 gp: Move CloseOrphans into here from dspsys.
- *! 09-Sep-1996 gp: Added CHNL_GetProcessID() and CHNL_GetHandle().
- *! 10-Jul-1996 gp: Created.
- */
-
 #ifndef CHNL_
 #define CHNL_
 
 #include <dspbridge/chnlpriv.h>
 
 /*
- *  ======== CHNL_Close ========
+ *  ======== chnl_close ========
  *  Purpose:
  *      Ensures all pending I/O on this channel is cancelled, discards all
  *      queued I/O completion notifications, then frees the resources allocated
  *      for this channel, and makes the corresponding logical channel id
  *      available for subsequent use.
  *  Parameters:
- *      hChnl:          Channel object handle.
+ *      chnl_obj:          Channel object handle.
  *  Returns:
  *      DSP_SOK:        Success;
- *      DSP_EHANDLE:    Invalid hChnl.
+ *      -EFAULT:    Invalid chnl_obj.
  *  Requires:
- *      CHNL_Init(void) called.
+ *      chnl_init(void) called.
  *      No thread must be blocked on this channel's I/O completion event.
  *  Ensures:
  *      DSP_SOK:        The I/O completion event for this channel is freed.
- *                      hChnl is no longer valid.
+ *                      chnl_obj is no longer valid.
  */
-	extern DSP_STATUS CHNL_Close(struct CHNL_OBJECT *hChnl);
-
+extern dsp_status chnl_close(struct chnl_object *chnl_obj);
 
 /*
- *  ======== CHNL_Create ========
+ *  ======== chnl_create ========
  *  Purpose:
  *      Create a channel manager object, responsible for opening new channels
  *      and closing old ones for a given board.
  *  Parameters:
  *      phChnlMgr:      Location to store a channel manager object on output.
- *      hDevObject:     Handle to a device object.
+ *      hdev_obj:     Handle to a device object.
  *      pMgrAttrs:      Channel manager attributes.
- *      pMgrAttrs->cChannels:   Max channels
- *      pMgrAttrs->bIRQ:        Channel's I/O IRQ number.
- *      pMgrAttrs->fShared:     TRUE if the IRQ is shareable.
- *      pMgrAttrs->uWordSize:   DSP Word size in equivalent PC bytes..
+ *      pMgrAttrs->max_channels:   Max channels
+ *      pMgrAttrs->birq:        Channel's I/O IRQ number.
+ *      pMgrAttrs->irq_shared:     TRUE if the IRQ is shareable.
+ *      pMgrAttrs->word_size:   DSP Word size in equivalent PC bytes..
  *  Returns:
  *      DSP_SOK:                Success;
- *      DSP_EHANDLE:            hDevObject is invalid.
- *      DSP_EINVALIDARG:        cChannels is 0.
- *      DSP_EMEMORY:            Insufficient memory for requested resources.
+ *      -EFAULT:            hdev_obj is invalid.
+ *      -EINVAL:        max_channels is 0.
+ *      -ENOMEM:            Insufficient memory for requested resources.
  *      CHNL_E_ISR:             Unable to plug channel ISR for configured IRQ.
  *      CHNL_E_MAXCHANNELS:     This manager cannot handle this many channels.
- *      CHNL_E_INVALIDIRQ:      Invalid IRQ number. Must be 0 <= bIRQ <= 15.
+ *      CHNL_E_INVALIDIRQ:      Invalid IRQ number. Must be 0 <= birq <= 15.
  *      CHNL_E_INVALIDWORDSIZE: Invalid DSP word size.  Must be > 0.
  *      CHNL_E_INVALIDMEMBASE:  Invalid base address for DSP communications.
  *      CHNL_E_MGREXISTS:       Channel manager already exists for this device.
  *  Requires:
- *      CHNL_Init(void) called.
+ *      chnl_init(void) called.
  *      phChnlMgr != NULL.
  *      pMgrAttrs != NULL.
  *  Ensures:
- *      DSP_SOK:                Subsequent calls to CHNL_Create() for the same
+ *      DSP_SOK:                Subsequent calls to chnl_create() for the same
  *                              board without an intervening call to
- *                              CHNL_Destroy() will fail.
+ *                              chnl_destroy() will fail.
  */
-	extern DSP_STATUS CHNL_Create(OUT struct CHNL_MGR **phChnlMgr,
-				      struct DEV_OBJECT *hDevObject,
-				      IN CONST struct CHNL_MGRATTRS *pMgrAttrs);
+extern dsp_status chnl_create(OUT struct chnl_mgr **phChnlMgr,
+			      struct dev_object *hdev_obj,
+			      IN CONST struct chnl_mgrattrs *pMgrAttrs);
 
 /*
- *  ======== CHNL_Destroy ========
+ *  ======== chnl_destroy ========
  *  Purpose:
  *      Close all open channels, and destroy the channel manager.
  *  Parameters:
- *      hChnlMgr:           Channel manager object.
+ *      hchnl_mgr:           Channel manager object.
  *  Returns:
  *      DSP_SOK:            Success.
- *      DSP_EHANDLE:        hChnlMgr was invalid.
+ *      -EFAULT:        hchnl_mgr was invalid.
  *  Requires:
- *      CHNL_Init(void) called.
+ *      chnl_init(void) called.
  *  Ensures:
  *      DSP_SOK:            Cancels I/O on each open channel.
  *                          Closes each open channel.
- *                          CHNL_Create may subsequently be called for the
+ *                          chnl_create may subsequently be called for the
  *                          same board.
  */
-	extern DSP_STATUS CHNL_Destroy(struct CHNL_MGR *hChnlMgr);
+extern dsp_status chnl_destroy(struct chnl_mgr *hchnl_mgr);
 
 /*
- *  ======== CHNL_Exit ========
+ *  ======== chnl_exit ========
  *  Purpose:
  *      Discontinue usage of the CHNL module.
  *  Parameters:
  *  Returns:
  *  Requires:
- *      CHNL_Init(void) previously called.
+ *      chnl_init(void) previously called.
  *  Ensures:
- *      Resources, if any acquired in CHNL_Init(void), are freed when the last
- *      client of CHNL calls CHNL_Exit(void).
+ *      Resources, if any acquired in chnl_init(void), are freed when the last
+ *      client of CHNL calls chnl_exit(void).
  */
-	extern void CHNL_Exit(void);
-
+extern void chnl_exit(void);
 
 /*
- *  ======== CHNL_Init ========
+ *  ======== chnl_init ========
  *  Purpose:
  *      Initialize the CHNL module's private state.
  *  Parameters:
@@ -163,8 +126,6 @@
  *  Ensures:
  *      A requirement for each of the other public CHNL functions.
  */
-	extern bool CHNL_Init(void);
+extern bool chnl_init(void);
 
-
-
-#endif				/* CHNL_ */
+#endif /* CHNL_ */
