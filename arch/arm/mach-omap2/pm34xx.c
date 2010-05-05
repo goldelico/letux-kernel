@@ -496,6 +496,12 @@ void omap_sram_idle(void)
 					     OMAP3_PRM_VOLTCTRL_OFFSET);
 			omap3_core_save_context(PWRDM_POWER_OFF);
 			omap3_prcm_save_context();
+			/*
+			 * Errata 1.164 fix : OTG autoidle can prevent
+			 * sleep. enable/disable iclk over OFF.
+			 */
+			cm_rmw_mod_reg_bits(OMAP3430_EN_HSOTGUSB, 0x0,
+						CORE_MOD, CM_ICLKEN1);
 			if (core_off_notification != NULL)
 				core_off_notification(PRCM_ENTER_OFF);
 		} else if ((core_next_state == PWRDM_POWER_RET) &&
@@ -609,6 +615,13 @@ void omap_sram_idle(void)
 					       OMAP3_PRM_VOLTCTRL_OFFSET);
 			if (prm_setup->setup_times_off != NULL)
 				prm_program_setup_times(prm_setup->setup_times);
+
+			/*
+			 * Errata 1.164 fix : OTG autoidle can prevent
+			 * sleep
+			 */
+			cm_rmw_mod_reg_bits(OMAP3430_EN_HSOTGUSB, 0x1,
+						CORE_MOD, CM_ICLKEN1);
 		}
 	} else {
 		omap_uart_resume_idle(0);
