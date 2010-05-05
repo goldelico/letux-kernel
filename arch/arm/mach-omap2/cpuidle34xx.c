@@ -116,6 +116,7 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 	u32 core_logic_state = cx->core_logic_state;
 	u32 core_mem1_ret_state = cx->core_mem1_ret_state;
 	u32 core_mem2_ret_state = cx->core_mem2_ret_state;
+	u32 saved_mpu_state;
 	current_cx_state = *cx;
 
 	/* Used to keep track of the total time in idle */
@@ -153,11 +154,12 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 	if (core_mem2_ret_state != 0xFF)
 		pwrdm_set_mem_retst(core_pd, 1, core_mem2_ret_state);
 
-	pwrdm_set_next_pwrst(mpu_pd, mpu_state);
-	pwrdm_set_next_pwrst(core_pd, core_state);
-
 	if (omap_irq_pending() || need_resched())
 		goto return_sleep_time;
+
+	saved_mpu_state = pwrdm_read_next_pwrst(mpu_pd);
+	pwrdm_set_next_pwrst(mpu_pd, mpu_state);
+	pwrdm_set_next_pwrst(core_pd, core_state);
 
 	if (cx->type == OMAP3_STATE_C1) {
 		pwrdm_for_each_clkdm(mpu_pd, _cpuidle_deny_idle);
@@ -171,6 +173,8 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 		pwrdm_for_each_clkdm(mpu_pd, _cpuidle_allow_idle);
 		pwrdm_for_each_clkdm(core_pd, _cpuidle_allow_idle);
 	}
+
+	pwrdm_set_next_pwrst(mpu_pd, saved_mpu_state);
 
 return_sleep_time:
 	getnstimeofday(&ts_postidle);
