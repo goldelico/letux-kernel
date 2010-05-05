@@ -26,12 +26,21 @@
 #ifdef CONFIG_ARCH_OMAP4 /* TODO: OMAP4 update displays and managers */
 #define MAX_VOUT_DEV   3
 #define MAX_OVLS       4
+#define MAX_DISPLAYS	4
+#define MAX_MANAGERS	3
 #else
 #define MAX_VOUT_DEV	2
 #define MAX_OVLS	3
+#define MAX_DISPLAYS	3
+#define MAX_MANAGERS	2
 #endif
-#define MAX_DISPLAYS	4
-#define MAX_MANAGERS	3
+
+#define OMAP_VOUT_MAX_BUFFERS  6
+
+/*
+ * Currently VBUF context and Data Buffers are mapped 1:1
+ */
+#define OMAP_VOUT_MAX_VBUF_CTXT        OMAP_VOUT_MAX_BUFFERS
 
 /* Enum for Rotation
  * DSS understands rotation in 0, 1, 2, 3 context
@@ -135,9 +144,9 @@ struct omap_vout_device {
 	int bpp; /* bytes per pixel */
 	int vrfb_bpp; /* bytes per pixel with respect to VRFB */
 	struct vid_vrfb_dma vrfb_dma_tx;
-	unsigned int smsshado_phy_addr[MAC_VRFB_CTXS];
-	unsigned int smsshado_virt_addr[MAC_VRFB_CTXS];
-	struct vrfb vrfb_context[MAC_VRFB_CTXS];
+	unsigned int smsshado_phy_addr[OMAP_VOUT_MAX_BUFFERS];
+	unsigned int smsshado_virt_addr[OMAP_VOUT_MAX_BUFFERS];
+	struct vrfb vrfb_context[OMAP_VOUT_MAX_VBUF_CTXT];
 	bool vrfb_static_allocation;
 	unsigned int smsshado_size;
 	unsigned char pos;

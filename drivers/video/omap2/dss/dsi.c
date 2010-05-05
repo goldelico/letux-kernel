@@ -4361,9 +4361,10 @@ static bool dsi_display_get_mirror(struct omap_dss_device *dssdev)
 
 static int dsi_display_run_test(struct omap_dss_device *dssdev, int test_num)
 {
-	int r;
+	int r = 0;
 	enum dsi lcd_ix;
 	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
+
 	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
 		return -EIO;
 

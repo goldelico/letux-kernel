@@ -370,6 +370,7 @@ struct omap_overlay_info {
 	u16 out_width;	/* if 0, out_width == width */
 	u16 out_height;	/* if 0, out_height == height */
 	u8 global_alpha;
+	u8 pre_alpha_mult;
 #ifdef CONFIG_ARCH_OMAP4
 	u32 p_uv_addr; /* relevant for NV12 format only */
 	enum omap_overlay_zorder zorder;
@@ -583,6 +584,10 @@ struct omap_dss_device {
 
 	int (*set_wss)(struct omap_dss_device *dssdev, u32 wss);
 	u32 (*get_wss)(struct omap_dss_device *dssdev);
+
+	void (*enable_device_detect)(struct omap_dss_device *dssdev, u8 enable);
+	bool (*get_device_detect)(struct omap_dss_device *dssdev);
+	int (*get_device_connected)(struct omap_dss_device *dssdev);
 
 	/* platform specific  */
 	int (*platform_enable)(struct omap_dss_device *dssdev);

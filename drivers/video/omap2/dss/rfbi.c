@@ -123,6 +123,7 @@ static struct {
 	struct kfifo      *cmd_fifo;
 	spinlock_t        cmd_lock;
 	struct completion cmd_done;
+	struct completion update_done;
 	atomic_t          cmd_fifo_full;
 	atomic_t          cmd_pending;
 #ifdef MEASURE_PERF
@@ -419,6 +420,8 @@ static void framedone_callback(void *data, u32 mask)
 	rfbi.framedone_callback = NULL;
 
 	/*callback(rfbi.framedone_callback_data);*/
+
+	complete(&rfbi.update_done);
 
 	atomic_set(&rfbi.cmd_pending, 0);
 
@@ -1165,6 +1168,7 @@ int rfbi_init(void)
 		return -ENOMEM;
 
 	init_completion(&rfbi.cmd_done);
+	init_completion(&rfbi.update_done);
 	atomic_set(&rfbi.cmd_fifo_full, 0);
 	atomic_set(&rfbi.cmd_pending, 0);
 
@@ -1209,6 +1213,9 @@ static int rfbi_display_update(struct omap_dss_device *dssdev,
 {
 	int rfbi_module;
 
+	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
+		return 0;
+
 	if (w == 0 || h == 0)
 		return 0;
 
@@ -1234,6 +1241,18 @@ static int rfbi_display_sync(struct omap_dss_device *dssdev)
 	return 0;
 }
 
+static enum omap_dss_update_mode rfbi_display_get_update_mode(
+	struct omap_dss_device *dssdev)
+{
+	return OMAP_DSS_UPDATE_MANUAL;
+}
+
+static int rfbi_display_set_update_mode(struct omap_dss_device *dssdev,
+		enum omap_dss_update_mode mode)
+{
+	return 0;
+}
+
 static int rfbi_display_enable_te(struct omap_dss_device *dssdev, bool enable)
 {
 	dssdev->driver->enable_te(dssdev, enable);
@@ -1243,6 +1262,8 @@ static int rfbi_display_enable_te(struct omap_dss_device *dssdev, bool enable)
 static int rfbi_display_enable(struct omap_dss_device *dssdev)
 {
 	int r;
+
+	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 
 	r = omap_dss_start_device(dssdev);
 	if (r) {
@@ -1298,6 +1319,51 @@ static void rfbi_display_disable(struct omap_dss_device *dssdev)
 	omap_dss_stop_device(dssdev);
 }
 
+static int rfbi_display_suspend(struct omap_dss_device *dssdev)
+{
+	DSSDBG("rfbi_display_suspend\n");
+
+	if (dssdev->state != OMAP_DSS_DISPLAY_ACTIVE)
+		return -EINVAL;
+
+	dssdev->state = OMAP_DSS_DISPLAY_SUSPENDED;
+
+	wait_for_completion(&rfbi.update_done);
+
+	rfbi_enable_clocks(1);
+
+	/* Bypass mode must be enabled to allow the RFBI module to idle */
+	REG_FLD_MOD(RFBI_CONTROL, 1, 1, 1);
+
+	rfbi_display_disable(dssdev);
+	rfbi_exit();
+
+	rfbi_enable_clocks(0);
+
+	return 0;
+}
+
+static int rfbi_display_resume(struct omap_dss_device *dssdev)
+{
+
+	DSSDBG("rfbi_display_resume\n");
+
+	if (dssdev->state != OMAP_DSS_DISPLAY_SUSPENDED)
+		return -EINVAL;
+
+	rfbi_enable_clocks(1);
+
+	/* Disable Bypass mode again */
+	REG_FLD_MOD(RFBI_CONTROL, 0, 1, 1);
+
+	rfbi_init();
+	rfbi_display_enable(dssdev);
+
+	rfbi_enable_clocks(0);
+
+	return 0;
+}
+
 int rfbi_init_display(struct omap_dss_device *dssdev)
 {
 	dssdev->enable = rfbi_display_enable;
@@ -1305,6 +1371,10 @@ int rfbi_init_display(struct omap_dss_device *dssdev)
 	dssdev->update = rfbi_display_update;
 	dssdev->sync = rfbi_display_sync;
 	dssdev->enable_te = rfbi_display_enable_te;
+	dssdev->get_update_mode = rfbi_display_get_update_mode;
+	dssdev->set_update_mode = rfbi_display_set_update_mode;
+	dssdev->suspend = rfbi_display_suspend;
+	dssdev->resume = rfbi_display_resume;
 
 	rfbi.dssdev[dssdev->phy.rfbi.channel] = dssdev;
 

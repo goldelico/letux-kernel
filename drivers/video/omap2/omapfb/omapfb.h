@@ -38,6 +38,16 @@ extern unsigned int omapfb_debug;
 #define DBG(format, ...)
 #endif
 
+#ifndef CONFIG_ARCH_OMAP4
+/* DSS */
+#define DSS_BASE                        0x48050000
+#else
+/* DSS */
+#define DSS_BASE                        0x58000000
+#endif
+
+#define DSS_SZ_REGS	SZ_512
+
 #define FB2OFB(fb_info) ((struct omapfb_info *)(fb_info->par))
 
 /* max number of overlays to which a framebuffer data can be direct */

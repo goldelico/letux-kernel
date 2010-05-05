@@ -226,6 +226,7 @@ int dss_get_dsi_clk_source(void);
 int dss_get_dispc_clk_source(void);
 void dss_set_venc_output(enum omap_dss_venc_type type);
 void dss_set_dac_pwrdn_bgz(bool enable);
+void dss_configure_venc(bool enable);
 
 unsigned long dss_get_dpll4_rate(void);
 int dss_calc_clock_rates(struct dss_clock_info *cinfo);
@@ -328,7 +329,8 @@ int dispc_setup_plane(enum omap_plane plane,
 		      bool ilace,
 		      enum omap_dss_rotation_type rotation_type,
 		      u8 rotation, bool mirror,
-			u8 global_alpha, enum omap_channel channel
+			u8 global_alpha, enum omap_channel channel,
+			u8 pre_alpha_mult
 #ifdef CONFIG_ARCH_OMAP4
 			, u32 p_uv_addr
 #endif

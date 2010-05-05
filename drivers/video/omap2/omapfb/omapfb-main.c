@@ -571,7 +571,7 @@ static int setup_vrfb_rotation(struct fb_info *fbi)
 	omap_vrfb_setup(&rg->vrfb, rg->paddr,
 			var->xres_virtual,
 			var->yres_virtual,
-			bytespp, yuv_mode);
+			bytespp, yuv_mode, 0);
 
 	/* Now one can ioremap the 0 angle view */
 	r = omap_vrfb_map_angle(vrfb, var->yres_virtual, 0);
@@ -661,6 +661,9 @@ void set_fb_fix(struct fb_info *fbi)
 
 	fix->smem_start = omapfb_get_region_paddr(ofbi);
 	fix->smem_len = rg->size;
+
+	fix->mmio_start = DSS_BASE;
+	fix->mmio_len = DSS_SZ_REGS;
 
 	fix->type = FB_TYPE_PACKED_PIXELS;
 
@@ -1206,7 +1209,7 @@ static int omapfb_mmap(struct fb_info *fbi, struct vm_area_struct *vma)
 #endif
 		vma->vm_pgoff = off >> PAGE_SHIFT;
 	vma->vm_flags |= VM_IO | VM_RESERVED;
-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 	vma->vm_ops = &mmap_user_ops;
 	vma->vm_private_data = ofbi;
 	if (io_remap_pfn_range(vma, vma->vm_start, off >> PAGE_SHIFT,
@@ -1569,6 +1572,9 @@ static int omapfb_alloc_fbmem_display(struct fb_info *fbi, unsigned long size,
 		bytespp = 2;
 		break;
 	case 24:
+#ifdef CONFIG_FB_OMAP2_32_BPP
+	case 32:
+#endif
 		bytespp = 4;
 		break;
 	default:
@@ -1992,6 +1998,10 @@ static int omapfb_fb_init(struct omapfb2_device *fbdev, struct fb_info *fbi)
 				var->bits_per_pixel = 16;
 				break;
 			case 24:
+#ifdef CONFIG_FB_OMAP2_32_BPP
+			 case 32:
+#endif
+
 				var->bits_per_pixel = 32;
 				break;
 			default:

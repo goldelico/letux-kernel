@@ -1001,6 +1001,11 @@ static void _dispc_set_vid_size(enum omap_plane plane, int width, int height)
 	dispc_write_reg(vsi_reg[plane-1], val);
 }
 
+static void _dispc_set_alpha_blend_attrs(enum omap_plane plane, bool enable)
+{
+       REG_FLD_MOD(dispc_reg_att[plane], enable ? 1 : 0, 28, 28);
+}
+
 static void _dispc_setup_global_alpha(enum omap_plane plane, u8 global_alpha)
 {
 
@@ -1817,13 +1822,13 @@ static void _dispc_set_rotation_attrs(enum omap_plane plane, u8 rotation,
 				vidrot = 2;
 				break;
 			case OMAP_DSS_ROT_90:
-				vidrot = 1;
+				vidrot = 3;
 				break;
 			case OMAP_DSS_ROT_180:
 				vidrot = 0;
 				break;
 			case OMAP_DSS_ROT_270:
-				vidrot = 3;
+				vidrot = 1;
 				break;
 			}
 		} else {
@@ -1832,13 +1837,13 @@ static void _dispc_set_rotation_attrs(enum omap_plane plane, u8 rotation,
 				vidrot = 0;
 				break;
 			case OMAP_DSS_ROT_90:
-				vidrot = 1;
+				vidrot = 3;
 				break;
 			case OMAP_DSS_ROT_180:
 				vidrot = 2;
 				break;
 			case OMAP_DSS_ROT_270:
-				vidrot = 3;
+				vidrot = 1;
 				break;
 			}
 		}
@@ -2279,7 +2284,8 @@ static int _dispc_setup_plane(enum omap_plane plane,
 		bool ilace,
 		enum omap_dss_rotation_type rotation_type,
 		u8 rotation, int mirror,
-		u8 global_alpha, enum omap_channel channel
+		u8 global_alpha, enum omap_channel channel,
+		u8 pre_alpha_mult
 #ifdef CONFIG_ARCH_OMAP4
 		, u32 puv_addr
 #endif
@@ -2590,6 +2596,9 @@ static int _dispc_setup_plane(enum omap_plane plane,
 	}
 
 	_dispc_set_rotation_attrs(plane, rotation, mirror, color_mode);
+
+	if (cpu_is_omap3630() && (plane != OMAP_DSS_VIDEO1))
+		_dispc_set_alpha_blend_attrs(plane, pre_alpha_mult);
 
 #ifndef CONFIG_ARCH_OMAP4
 	if (plane != OMAP_DSS_VIDEO1)
@@ -3465,14 +3474,19 @@ static void _dispc_set_pol_freq(enum omap_channel channel, bool onoff,
 	DSSDBG("onoff %d rf %d ieo %d ipc %d ihs %d ivs %d acbi %d acb %d\n",
 			onoff, rf, ieo, ipc, ihs, ivs, acbi, acb);
 
-	l |= FLD_VAL(onoff, 17, 17);
-	l |= FLD_VAL(rf, 16, 16);
-	l |= FLD_VAL(ieo, 15, 15);
-	l |= FLD_VAL(ipc, 14, 14);
-	l |= FLD_VAL(ihs, 13, 13);
-	l |= FLD_VAL(ivs, 12, 12);
-	l |= FLD_VAL(acbi, 11, 8);
-	l |= FLD_VAL(acb, 7, 0);
+	if (cpu_is_omap3630()) {
+		l = 0x00033028;
+	} else {
+		l |= FLD_VAL(onoff, 17, 17);
+		l |= FLD_VAL(rf, 16, 16);
+		l |= FLD_VAL(ieo, 15, 15);
+		l |= FLD_VAL(ipc, 14, 14);
+		l |= FLD_VAL(ihs, 13, 13);
+		l |= FLD_VAL(ivs, 12, 12);
+		l |= FLD_VAL(acbi, 11, 8);
+		l |= FLD_VAL(acb, 7, 0);
+	}
+
 
 	enable_clocks(1);
 #ifdef CONFIG_ARCH_OMAP4
@@ -3757,6 +3771,9 @@ void dispc_irq_handler(void)
 	/* flush posted write */
 	dispc_read_reg(DISPC_IRQSTATUS);
 
+	/* flushed posted write */
+	dispc_read_reg(DISPC_IRQSTATUS);
+
 	/* make a copy and unlock, so that isrs can unregister
 	 * themselves */
 	memcpy(registered_isr, dispc.registered_isr,
@@ -3773,6 +3790,10 @@ void dispc_irq_handler(void)
 		if (isr_data->mask & irqstatus) {
 			isr_data->isr(isr_data->arg, irqstatus);
 			handledirqs |= isr_data->mask;
+
+			if (isr_data->mask & irqstatus & DISPC_IRQ_VSYNC)
+				if (dispc_go_busy(OMAP_DSS_CHANNEL_LCD))
+					break;
 		}
 	}
 
@@ -3888,6 +3909,8 @@ static void dispc_error_worker(struct work_struct *work)
 			struct omap_overlay_manager *mgr;
 			mgr = omap_dss_get_overlay_manager(i);
 #ifdef CONFIG_ARCH_OMAP4
+			if (mgr == NULL)
+				break;
 			if (mgr->id == OMAP_DSS_CHANNEL_LCD2) {
 				manager = mgr;
 				enable = mgr->device->state ==
@@ -3928,6 +3951,9 @@ static void dispc_error_worker(struct work_struct *work)
 		for (i = 0; i < omap_dss_get_num_overlay_managers(); ++i) {
 			struct omap_overlay_manager *mgr;
 			mgr = omap_dss_get_overlay_manager(i);
+
+			if (mgr == NULL)
+				break;
 
 			if (mgr->id == OMAP_DSS_CHANNEL_LCD) {
 				manager = mgr;
@@ -3970,6 +3996,8 @@ static void dispc_error_worker(struct work_struct *work)
 		for (i = 0; i < omap_dss_get_num_overlay_managers(); ++i) {
 			struct omap_overlay_manager *mgr;
 			mgr = omap_dss_get_overlay_manager(i);
+			if (mgr == NULL)
+				break;
 
 			if (mgr->id == OMAP_DSS_CHANNEL_DIGIT) {
 				manager = mgr;
@@ -4225,7 +4253,8 @@ int dispc_setup_plane(enum omap_plane plane,
 		       bool ilace,
 		       enum omap_dss_rotation_type rotation_type,
 		       u8 rotation, bool mirror, u8 global_alpha,
-		       enum omap_channel channel
+		       enum omap_channel channel,
+			u8 pre_alpha_mult
 #ifdef CONFIG_ARCH_OMAP4
 			, u32 puv_addr
 #endif
@@ -4251,7 +4280,8 @@ int dispc_setup_plane(enum omap_plane plane,
 			   color_mode, ilace,
 			   rotation_type,
 			   rotation, mirror,
-			   global_alpha, channel
+			   global_alpha, channel,
+			   pre_alpha_mult
 #ifdef CONFIG_ARCH_OMAP4
 				, puv_addr
 #endif
