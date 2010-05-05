@@ -305,7 +305,7 @@ static void omap_i2c_idle(struct omap_i2c_dev *dev)
 
 	dev->iestate = omap_i2c_read_reg(dev, OMAP_I2C_IE_REG);
 
-	if (dev->rev > OMAP_I2C_REV_ON_4430)
+	if (!cpu_is_omap3630() && (dev->rev >= OMAP_I2C_REV_ON_4430))
 		omap_i2c_write_reg(dev, OMAP_I2C_IRQENABLE_CLR, 1);
 	else
 		omap_i2c_write_reg(dev, OMAP_I2C_IE_REG, 0);
@@ -987,7 +987,7 @@ omap_i2c_probe(struct platform_device *pdev)
 		 * size. This is to ensure that we can handle the status on int
 		 * call back latencies.
 		 */
-		if (dev->rev > OMAP_I2C_REV_ON_4430) {
+		if (!cpu_is_omap3630() && (dev->rev >= OMAP_I2C_REV_ON_4430)) {
 			dev->fifo_size = 0;
 			dev->b_hw = 0; /* Enable hardware fixes */
 		} else {
