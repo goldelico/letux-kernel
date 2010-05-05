@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.24.3
-# Tue May  4 13:57:35 2010
+# Wed May  5 10:48:39 2010
 #
 CONFIG_MIPS=y
 
@@ -724,10 +724,10 @@ CONFIG_I2C_JZ47XX=y
 # CONFIG_SENSORS_PCF8591 is not set
 # CONFIG_SENSORS_MAX6875 is not set
 # CONFIG_SENSORS_TSL2550 is not set
-CONFIG_I2C_DEBUG_CORE=y
-CONFIG_I2C_DEBUG_ALGO=y
-CONFIG_I2C_DEBUG_BUS=y
-CONFIG_I2C_DEBUG_CHIP=y
+# CONFIG_I2C_DEBUG_CORE is not set
+# CONFIG_I2C_DEBUG_ALGO is not set
+# CONFIG_I2C_DEBUG_BUS is not set
+# CONFIG_I2C_DEBUG_CHIP is not set
 
 #
 # SPI support
@@ -1039,10 +1039,11 @@ CONFIG_USB_JZ4730=m
 # CONFIG_USB_GADGET_DUMMY_HCD is not set
 # CONFIG_USB_GADGET_DUALSPEED is not set
 # CONFIG_USB_ZERO is not set
-# CONFIG_USB_ETH is not set
+CONFIG_USB_ETH=m
+CONFIG_USB_ETH_RNDIS=y
 # CONFIG_USB_GADGETFS is not set
 # CONFIG_USB_FILE_STORAGE is not set
-# CONFIG_USB_G_SERIAL is not set
+CONFIG_USB_G_SERIAL=m
 # CONFIG_USB_MIDI_GADGET is not set
 CONFIG_MMC=y
 # CONFIG_MMC_DEBUG is not set

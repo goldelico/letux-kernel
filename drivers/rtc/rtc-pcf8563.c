@@ -263,6 +263,7 @@ static int pcf8563_attach(struct i2c_adapter *adapter)
 	// OVERRIDE probing 
 	return pcf8563_probe(adapter, 0x51, 0); 
 #else
+	// does not work. Please add a 	i2c_register_board_info(0, pcf8563_rtc_board_info, 1);  to your platform.c file
 	return i2c_probe(adapter, &addr_data, pcf8563_probe);
 #endif
 }

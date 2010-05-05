@@ -4,7 +4,8 @@
  * Copyright (C) 2006 - 2009 Ingenic Semiconductor Inc.
  * Author: <cwjia@ingenic.cn>
  * The first Modified :<zhzhao@ingenic.cn>
- * Date:20091027 
+ * fixed to really work: hns@goldelico.com
+ * Date:20100504
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -30,16 +31,16 @@
 #include <asm/jzsoc.h>
 #include "i2c-jz47xx.h"
 
-#ifndef EEPROM_DEVICE_NUMBER
-#define EEPROM_DEVICE_NUMBER   0x50   /*eeprom device number.20091027*/
-#endif
+// #ifndef EEPROM_DEVICE_NUMBER
+// #define EEPROM_DEVICE_NUMBER   0x50   /*eeprom device number.20091027*/
+// #endif
 
 /* I2C protocol */
 #define I2C_READ	1
 #define I2C_WRITE	0
 
 #define TIMEOUT         1000
-unsigned long sub_addr = 0;
+// unsigned long sub_addr = 0;
 
 struct jz_i2c {
 	spinlock_t		lock;
@@ -54,22 +55,31 @@ struct jz_i2c {
 /*
  * I2C bus protocol basic routines
  */
+
 static int i2c_put_data(unsigned char data)
 {
 	unsigned int timeout = TIMEOUT*10;
+//	printk(KERN_EMERG "i2c_put_data(%02x)\n", data);
+	__i2c_send_nack();	/* Master does not send ACK, slave sends it */
 	__i2c_write(data);
 	__i2c_set_drf();
 	while (__i2c_check_drf() != 0 && timeout)
 		timeout--;
-	while (!__i2c_transmit_ended());
-	
+	if(!timeout) {
+		timeout = TIMEOUT*10;	
+		while (!__i2c_transmit_ended() && timeout)
+			timeout--;
+	}
 	timeout = TIMEOUT*10;	
-	while (!__i2c_received_ack() && timeout)
-		timeout--;
+	if(!timeout) {
+		while (!__i2c_received_ack() && timeout)
+			timeout--;
+	}
 	if (timeout){
 		return 0;
 	}
 	else{
+//		printk(KERN_EMERG "i2c_put_data(): timeout\n");
 		return -ETIMEDOUT;
 	}
 }
@@ -90,9 +100,10 @@ static int i2c_get_data(unsigned char *data, int ack)
 			__i2c_send_stop();
 		*data = __i2c_read();
 		__i2c_clear_drf();
+//		printk(KERN_EMERG "i2c_get_data(%02x, ack=%d)\n", *data, ack);
 		return 0;
 	} else{
-		
+//		printk(KERN_EMERG "i2c_get_data(): timeout\n");		
 		return -ETIMEDOUT;
 	}
 }
@@ -103,7 +114,7 @@ static int i2c_get_data(unsigned char *data, int ack)
 void i2c_jz_setclk(unsigned int i2cclk)
 {
 #ifdef CONFIG_SOC_JZ4730
-	printk(KERN_EMERG "i2c_jz_setclk()\n");
+//	printk(KERN_EMERG "i2c_jz_setclk()\n");
 	__i2c_set_clk(jz_clocks.devclk, i2cclk);
 #else
 	__i2c_set_clk(jz_clocks.extalclk, i2cclk);
@@ -118,10 +129,10 @@ static int xfer_read(unsigned char device, unsigned char *buf, int length)
 	
 #ifndef CONFIG_SOC_JZ4730
 	/*eeprom device address transfer*/
-	if(EEPROM_DEVICE_NUMBER == (device & 0xf0)){
-		device = device | ((sub_addr & 0x0700) >> 8);
-		sub_addr = sub_addr & 0xff;
-	}
+//	if(EEPROM_DEVICE_NUMBER == (device & 0xf0)){
+//		device = device | ((sub_addr & 0x0700) >> 8);
+//		sub_addr = sub_addr & 0xff;
+//	}
 #endif
 	
 L_try_again:
@@ -131,14 +142,16 @@ L_try_again:
 	
 	__i2c_send_nack();	/* Master does not send ACK, slave sends it */
 	
-	__i2c_send_start();
+//	__i2c_send_start();
+		
+//	if (i2c_put_data( (device << 1) | I2C_WRITE ) < 0)
+//		goto device_werr;
 	
+//	if (i2c_put_data(sub_addr) < 0)
+//		goto address_err;
 	
-	if (i2c_put_data( (device << 1) | I2C_WRITE ) < 0)
-		goto device_werr;
-	
-	if (i2c_put_data(sub_addr) < 0)
-		goto address_err;
+	// should skip this if I2C_M_NOSTART so that we can follow a read on a write (which sets the subaddress)
+	// but we should then send a repeated-start condition
 	
 	__i2c_send_start();
 	
@@ -148,6 +161,7 @@ L_try_again:
 	
 	__i2c_send_ack();	/* Master sends ACK for continue reading */
 	
+//	printk(KERN_EMERG "xfer_read: read %d bytes\n", cnt);
 	
 	while (cnt) {
 		
@@ -157,13 +171,13 @@ L_try_again:
 				break;
 		} else {
 			
-			if (i2c_get_data(buf, 1) < 0){
+			if (i2c_get_data(buf, 1) < 0)
 				break;
-			}
 		}
 		cnt--;
 		buf++;
 	}
+//	printk(KERN_EMERG "xfer_read: cnt is %d\n", cnt);
 	__i2c_send_stop();
 	
 	return length - cnt;
@@ -185,18 +199,17 @@ L_timeout:
 static int xfer_write(unsigned char device, unsigned char *buf, int length)
 {
 	int cnt = length;
-	int cnt_in_pg;
+//	int cnt_in_pg;
 	int timeout = 5;
 	unsigned char *tmpbuf;
 	
 #ifndef CONFIG_SOC_JZ4730
 	/*eeprom device address transfer*/
-	if(EEPROM_DEVICE_NUMBER == (device & 0xf0)){
-		device = device | ((sub_addr & 0x0700) >> 8);
-		sub_addr = sub_addr & 0xff; 
-	}
+//	if(EEPROM_DEVICE_NUMBER == (device & 0xf0)){
+//		device = device | ((sub_addr & 0x0700) >> 8);
+//		sub_addr = sub_addr & 0xff; 
+//	}
 #endif
-	__i2c_send_nack();	/* Master does not send ACK, slave sends it */
 	
 W_try_again:
 	if (timeout < 0)
@@ -205,30 +218,29 @@ W_try_again:
 	cnt = length;
 	tmpbuf = (unsigned char *)buf;
 	
-start_write_page:
-	cnt_in_pg = 0;
+// start_write_page:
+//	cnt_in_pg = 0;
 	__i2c_send_start();
 	if (i2c_put_data( (device << 1) | I2C_WRITE ) < 0)
 		goto device_err;
 	
-	if (i2c_put_data(sub_addr) < 0)
-		goto address_err;
+//	if (i2c_put_data(sub_addr) < 0)
+//		goto address_err;
 	
 	
 	
 	while (cnt) {
-		if (++cnt_in_pg > 8) {
-			__i2c_send_stop();
-			mdelay(1);
-			sub_addr += 8;
-			mdelay(2);// add 20091027
-			goto start_write_page;
+//		if (++cnt_in_pg > 8) {
+//			__i2c_send_stop();
+//			mdelay(1);
+//			sub_addr += 8;
+//			mdelay(2);// add 20091027
+//			goto start_write_page;
 			
-		}
-		
+//		}
 		
 		if (i2c_put_data(*tmpbuf) < 0) 
-			break;
+			break;	// NAK before all sent
 		cnt--;
 		tmpbuf++;
 	}
@@ -250,13 +262,19 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *pmsg, int num)
 {
 	int ret, i;
 	
+	__i2c_enable();
+	
 	dev_dbg(&adap->dev, "jz47xx_xfer: processing %d messages:\n", num);
 	for (i = 0; i < num; i++) {
 		dev_dbg(&adap->dev, " #%d: %sing %d byte%s %s 0x%02x\n", i,
 				pmsg->flags & I2C_M_RD ? "read" : "writ",
 				pmsg->len, pmsg->len > 1 ? "s" : "",
 				pmsg->flags & I2C_M_RD ? "from" : "to",	pmsg->addr);
-		if (pmsg->len && pmsg->buf) {	/* sanity check */
+		if (pmsg->flags & (I2C_M_TEN|I2C_M_NOSTART|I2C_M_REV_DIR_ADDR|I2C_M_IGNORE_NAK|I2C_M_NO_RD_ACK|I2C_M_RECV_LEN)) {
+			dev_dbg(&adap->dev, "jz47xx_xfer: flags=%04x not supported\n", pmsg->flags);
+			return -EIO;
+		}
+		if (/*pmsg->len &&*/ pmsg->buf) {	/* sanity check */
 			if (pmsg->flags & I2C_M_RD){
 				
 				ret = xfer_read(pmsg->addr,  pmsg->buf, pmsg->len);
@@ -264,8 +282,9 @@ static int i2c_jz_xfer(struct i2c_adapter *adap, struct i2c_msg *pmsg, int num)
 				
 				ret = xfer_write(pmsg->addr,  pmsg->buf, pmsg->len);
 			}
+			dev_dbg(&adap->dev, "jz47xx_xfer: ret=%d\n", ret);
 			if (ret != pmsg->len)
-				return -1;
+				return ret < 0 ? ret : -EIO;
 			/* Wait until transfer is finished */
 		}
 		dev_dbg(&adap->dev, "transfer complete\n");
@@ -290,12 +309,8 @@ static int i2c_jz_probe(struct platform_device *dev)
 	struct jz_i2c *i2c;
 	struct i2c_jz_platform_data *plat = dev->dev.platform_data;
 	int ret;
-#ifdef CONFIG_SOC_JZ4730
-	__i2c_set_clk(jz_clocks.devclk, 10000); /* default 10 KHz */
-#else
-	__gpio_as_i2c(); // open i2c 20091027
-	__i2c_set_clk(jz_clocks.extalclk, 10000); /* default 10 KHz */
-#endif
+	i2c_jz_setclk(10000); /* default 10 KHz */
+
 	__i2c_enable();
 	
 	i2c = kzalloc(sizeof(struct jz_i2c), GFP_KERNEL);
