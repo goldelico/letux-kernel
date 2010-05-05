@@ -14,28 +14,17 @@
  *
  */
 
-#define __NO_VERSION__
-
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/pm.h>
-#include <linux/sched.h>
-#include <linux/delay.h>
-#include <linux/interrupt.h>
+#include <linux/platform_device.h>
 #include <linux/sound.h>
-#include <linux/slab.h>
 #include <linux/proc_fs.h>
-#include <linux/soundcard.h>
 #include <linux/ac97_codec.h>
-#include <asm/hardirq.h>
 #include <asm/jzsoc.h>
-//#include <asm/mach-jz4730/dma.h>
 #include "sound_config.h"
 
-#define DMA_ID_AC97_TX	DMA_ID_AIC_TX
-#define DMA_ID_AC97_RX	DMA_ID_AIC_RX
-
-/* maxinum number of AC97 codecs connected, AC97 2.0 defined 4 */
+/* maximum number of AC97 codecs connected, AC97 2.0 defined 4 */
 #define NR_AC97		2
 
 #define STANDARD_SPEED  48000
@@ -139,8 +128,6 @@ static unsigned int	*f_scale_array;
 static unsigned int	*f_scale_reload;
 static unsigned int	f_scale_idx;
 
-static void (*old_mksound)(unsigned int hz, unsigned int ticks);
-extern void (*kd_mksound)(unsigned int hz, unsigned int ticks);
 extern void jz_set_dma_block_size(int dmanr, int nbyte);
 extern void jz_set_dma_dest_width(int dmanr, int nbit);
 extern void jz_set_dma_src_width(int dmanr, int nbit);
@@ -221,13 +208,11 @@ static int jz_writeAC97Reg(struct ac97_codec *dev, u8 reg, u16 data);
 static u16 ac97_codec_read(struct ac97_codec *codec, u8 reg);
 static void ac97_codec_write(struct ac97_codec *codec, u8 reg, u16 data);
 
-#define QUEUE_MAX 2
-
-typedef struct buffer_queue_s {
+struct buffer_queue {
 	int count;
 	int *id;
 	spinlock_t lock;
-} buffer_queue_t;
+};
 
 static unsigned long *out_dma_buf = NULL;
 static unsigned long *out_dma_pbuf = NULL;
@@ -236,17 +221,17 @@ static unsigned long *in_dma_buf = NULL;
 static unsigned long *in_dma_pbuf = NULL;
 static unsigned long *in_dma_buf_data_count = NULL;
 
-static buffer_queue_t out_empty_queue;
-static buffer_queue_t out_full_queue;
-static buffer_queue_t out_busy_queue;
+static struct buffer_queue out_empty_queue;
+static struct buffer_queue out_full_queue;
+static struct buffer_queue out_busy_queue;
 
-static buffer_queue_t in_empty_queue;
-static buffer_queue_t in_full_queue;
-static buffer_queue_t in_busy_queue;
+static struct buffer_queue in_empty_queue;
+static struct buffer_queue in_full_queue;
+static struct buffer_queue in_busy_queue;
 
 static int first_record_call = 0;
 
-static inline int get_buffer_id(struct buffer_queue_s *q)
+static inline int get_buffer_id(struct buffer_queue *q)
 {
 	int r, i;
 	unsigned long flags;
@@ -255,24 +240,24 @@ static inline int get_buffer_id(struct buffer_queue_s *q)
 		spin_unlock_irqrestore(&q->lock, flags);
 		return -1;
 	}
-	r = *(q->id + 0);
-	for (i=0;i < q->count-1;i++)
-		*(q->id + i) = *(q->id + (i+1));
-	q->count --;
+	r = q->id[0];
+	for (i=0; i<q->count-1; i++)
+		q->id[i] = q->id[i+1];
+	q->count--;
 	spin_unlock_irqrestore(&q->lock, flags);
 	return r;
 }
 
-static inline void put_buffer_id(struct buffer_queue_s *q, int id)
+static inline void put_buffer_id(struct buffer_queue *q, int id)
 {
 	unsigned long flags;
 	spin_lock_irqsave(&q->lock, flags);
-	*(q->id + q->count) = id;
-	q->count ++;
+	q->id[q->count] = id;
+	q->count++;
 	spin_unlock_irqrestore(&q->lock, flags);
 }
 
-static inline int elements_in_queue(struct buffer_queue_s *q)
+static inline int elements_in_queue(struct buffer_queue *q)
 {
 	int r;
 	unsigned long flags;
@@ -341,10 +326,10 @@ jz_ac97_record_dma_irq (int irq, void *dev_id)
 		if ((id2 = get_buffer_id(&in_empty_queue)) >= 0) {
 			put_buffer_id(&in_busy_queue, id2);
 
-			*(in_dma_buf_data_count + id2) = *(in_dma_buf_data_count + id1);
+			in_dma_buf_data_count[id2] = in_dma_buf_data_count[id1];
 			audio_start_dma(dma,dev_id,
-					*(in_dma_pbuf + id2),
-					*(in_dma_buf_data_count + id2),
+					in_dma_pbuf[id2],
+					in_dma_buf_data_count[id2],
 					DMA_MODE_READ);
 		} else {
 			in_busy_queue.count = 0;
@@ -380,9 +365,9 @@ jz_ac97_replay_dma_irq (int irq, void *dev_id)
 		put_buffer_id(&out_empty_queue, id);
 		if ((id = get_buffer_id(&out_full_queue)) >= 0) {
 			put_buffer_id(&out_busy_queue, id);
-			if(*(out_dma_buf_data_count + id) > 0)	{
-			audio_start_dma(dma, dev_id, *(out_dma_pbuf + id),
-					*(out_dma_buf_data_count + id),
+			if(out_dma_buf_data_count[id] > 0) {
+				audio_start_dma(dma, dev_id, out_dma_pbuf[id],
+					out_dma_buf_data_count[id],
 					DMA_MODE_WRITE);
 			}
 		} else {
@@ -441,172 +426,188 @@ static void jz_ac97_initHw(struct jz_ac97_controller_info *controller)
 static void Init_In_Out_queue(int fragstotal,int fragsize)
 {
 	int i;
+
 	if(out_dma_buf || in_dma_buf)
 		return;
+
 	in_empty_queue.count = fragstotal;
 	out_empty_queue.count = fragstotal;
 
-	out_dma_buf = (unsigned long *)kmalloc(sizeof(unsigned long) * fragstotal, GFP_KERNEL);
+	out_dma_buf = kmalloc(sizeof(unsigned long) * fragstotal, GFP_KERNEL);
 	if (!out_dma_buf)
 		goto all_mem_err;
-        out_dma_pbuf = (unsigned long *)kmalloc(sizeof(unsigned long) * fragstotal, GFP_KERNEL);
+
+        out_dma_pbuf = kmalloc(sizeof(unsigned long) * fragstotal, GFP_KERNEL);
 	if (!out_dma_pbuf)
 		goto all_mem_err;
-	out_dma_buf_data_count = (unsigned long *)kmalloc(sizeof(unsigned long) * fragstotal, GFP_KERNEL);
+
+	out_dma_buf_data_count = kmalloc(sizeof(unsigned long) * fragstotal, GFP_KERNEL);
 	if (!out_dma_buf_data_count)
 		goto all_mem_err;
-	in_dma_buf = (unsigned long *)kmalloc(sizeof(unsigned long) * fragstotal, GFP_KERNEL);
+
+	in_dma_buf = kmalloc(sizeof(unsigned long) * fragstotal, GFP_KERNEL);
 	if (!in_dma_buf)
 		goto all_mem_err;
-        in_dma_pbuf = (unsigned long *)kmalloc(sizeof(unsigned long) * fragstotal, GFP_KERNEL);
+
+        in_dma_pbuf = kmalloc(sizeof(unsigned long) * fragstotal, GFP_KERNEL);
 	if (!in_dma_pbuf)
 		goto all_mem_err;
-	in_dma_buf_data_count = (unsigned long *)kmalloc(sizeof(unsigned long) * fragstotal, GFP_KERNEL);
+
+	in_dma_buf_data_count = kmalloc(sizeof(unsigned long) * fragstotal, GFP_KERNEL);
 	if (!in_dma_buf_data_count)
 		goto all_mem_err;
-	in_empty_queue.id = (int *)kmalloc(sizeof(int) * fragstotal, GFP_KERNEL);
+
+	in_empty_queue.id = kmalloc(sizeof(int) * fragstotal, GFP_KERNEL);
 	if (!in_empty_queue.id)
 		goto all_mem_err;
-        in_full_queue.id = (int *)kmalloc(sizeof(int) * fragstotal, GFP_KERNEL);
+
+        in_full_queue.id = kmalloc(sizeof(int) * fragstotal, GFP_KERNEL);
 	if (!in_full_queue.id)
 		goto all_mem_err;
-	in_busy_queue.id = (int *)kmalloc(sizeof(int) * fragstotal, GFP_KERNEL);
+
+	in_busy_queue.id = kmalloc(sizeof(int) * fragstotal, GFP_KERNEL);
 	if (!in_busy_queue.id)
 		goto all_mem_err;
-	out_empty_queue.id = (int *)kmalloc(sizeof(int) * fragstotal, GFP_KERNEL);
+
+	out_empty_queue.id = kmalloc(sizeof(int) * fragstotal, GFP_KERNEL);
 	if (!out_empty_queue.id)
 		goto all_mem_err;
-	out_full_queue.id = (int *)kmalloc(sizeof(int) * fragstotal, GFP_KERNEL);
+
+	out_full_queue.id = kmalloc(sizeof(int) * fragstotal, GFP_KERNEL);
 	if (!out_full_queue.id)
 		goto all_mem_err;
-	out_busy_queue.id = (int *)kmalloc(sizeof(int) * fragstotal, GFP_KERNEL);
+
+	out_busy_queue.id = kmalloc(sizeof(int) * fragstotal, GFP_KERNEL);
 	if (!out_busy_queue.id)
 		goto all_mem_err;
 
 	for (i=0;i < fragstotal;i++) {
-		*(in_empty_queue.id + i) = i;
-		*(out_empty_queue.id + i) = i;
+		in_empty_queue.id[i] = i;
+		out_empty_queue.id[i] = i;
 	}
 
 	in_full_queue.count = 0;
 	in_busy_queue.count = 0;
 	out_busy_queue.count = 0;
 	out_full_queue.count = 0;
+
 	/*alloc DMA buffer*/
 	for (i = 0; i < jz_audio_fragstotal; i++) {
-		*(out_dma_buf + i) = __get_free_pages(GFP_KERNEL | GFP_DMA, get_order(fragsize));
-		if (*(out_dma_buf + i) == 0) {
+		out_dma_buf[i] = __get_free_pages(GFP_KERNEL | GFP_DMA, get_order(fragsize));
+		if (out_dma_buf[i] == 0) {
 			printk(" can't allocate required DMA(OUT) buffers.\n");
 			goto mem_failed_out;
 		}
-		*(out_dma_pbuf + i) = virt_to_phys((void *)(*(out_dma_buf + i)));
+		out_dma_pbuf[i] = virt_to_phys((void *)(out_dma_buf[i]));
+		out_dma_buf[i] = KSEG1ADDR(out_dma_buf[i]);
 	}
      
 	for (i = 0; i < jz_audio_fragstotal; i++) {
-		*(in_dma_buf + i) = __get_free_pages(GFP_KERNEL | GFP_DMA, get_order(fragsize));
-		if (*(in_dma_buf + i) == 0) {
+		in_dma_buf[i] = __get_free_pages(GFP_KERNEL | GFP_DMA, get_order(fragsize));
+		if (in_dma_buf[i] == 0) {
 			printk(" can't allocate required DMA(IN) buffers.\n");
 			goto mem_failed_in;
 		}
-                *(in_dma_pbuf + i) = virt_to_phys((void *)(*(in_dma_buf + i)));
-		dma_cache_wback_inv(*(in_dma_buf + i), 4096*8);//fragsize
-		*(in_dma_buf + i) = KSEG1ADDR(*(in_dma_buf + i));
+                in_dma_pbuf[i] = virt_to_phys((void *)(in_dma_buf[i]));
+		dma_cache_wback_inv(in_dma_buf[i], 4096*8);//fragsize
+		in_dma_buf[i] = KSEG1ADDR(in_dma_buf[i]);
 	}
-	return ;
+
+	return;
        
-        all_mem_err:
-	printk("error:allocate memory occur error!\n");
-	return ;
+all_mem_err:
+	printk(KERN_ERR "%s: kmalloc failed!\n", __FUNCTION__);
+	return;
 
 mem_failed_out:
-	
+
 	for (i = 0; i < jz_audio_fragstotal; i++) {
-		if(*(out_dma_buf + i))
-			free_pages(*(out_dma_buf + i), get_order(fragsize));
+		if(out_dma_buf[i])
+			free_pages(out_dma_buf[i], get_order(fragsize));
 	}
-	return ;
+	return;
 
 mem_failed_in:
 	
 	for (i = 0; i < jz_audio_fragstotal; i++) {
-		if(*(in_dma_buf + i))
-			free_pages(*(in_dma_buf + i), get_order(fragsize));
+		if(in_dma_buf[i])
+			free_pages(in_dma_buf[i], get_order(fragsize));
 	}
-	return ;
-
+	return;
 }
+
 static void Free_In_Out_queue(int fragstotal,int fragsize)
 {
 	int i;        	
-	if(out_dma_buf != NULL)
-	{
-                for (i = 0; i < jz_audio_fragstotal; i++)
-                {                
-                    if(*(out_dma_buf + i))
-                        free_pages(*(out_dma_buf + i), get_order(fragsize));
-		    *(out_dma_buf + i) = 0;
-                }
+
+	if (out_dma_buf != NULL) {
+		for (i = 0; i < jz_audio_fragstotal; i++) {                
+			if(out_dma_buf[i]) {
+				free_pages(out_dma_buf[i], get_order(fragsize));
+				out_dma_buf[i] = 0;
+			}
+		}
 		kfree(out_dma_buf);
 		out_dma_buf = NULL;
 	}
-        if(out_dma_pbuf)
-	{
+
+	if (out_dma_pbuf) {
 		kfree(out_dma_pbuf);
 		out_dma_pbuf = NULL;
 	}
-	if(out_dma_buf_data_count)
-	{
+
+	if (out_dma_buf_data_count) {
 		kfree(out_dma_buf_data_count);
 		out_dma_buf_data_count = NULL;
 	}
-	if(in_dma_buf)
-	{
-                for (i = 0; i < jz_audio_fragstotal; i++)
-                {                
-                    if(*(in_dma_buf + i))
-                        free_pages(*(in_dma_buf + i), get_order(fragsize));
-		    *(in_dma_buf + i) = 0;
-                }
+
+	if (in_dma_buf) {
+		for (i = 0; i < jz_audio_fragstotal; i++) {                
+			if (in_dma_buf[i]) {
+				free_pages(in_dma_buf[i], get_order(fragsize));
+				in_dma_buf[i] = 0;
+			}
+		}
 		kfree(in_dma_buf);
 		in_dma_buf = NULL;
 	}
-	if(in_dma_pbuf)
-	{
+
+	if (in_dma_pbuf) {
 		kfree(in_dma_pbuf);
 		in_dma_pbuf = NULL;
 	}
-        if(in_dma_buf_data_count)
-	{
+
+        if (in_dma_buf_data_count) {
 		kfree(in_dma_buf_data_count);
 		in_dma_buf_data_count = NULL;
 	}
-	if(in_empty_queue.id)
-	{
+
+	if (in_empty_queue.id) {
 		kfree(in_empty_queue.id);
 		in_empty_queue.id = NULL;
 	}
-	if(in_full_queue.id)
-	{
+
+	if (in_full_queue.id) {
 		kfree(in_full_queue.id);
 		in_full_queue.id = NULL;
 	}
-	if(in_busy_queue.id)
-	{
+
+	if (in_busy_queue.id) {
 		kfree(in_busy_queue.id);
 		in_busy_queue.id = NULL;
 	}
-	if(out_empty_queue.id)
-	{
+
+	if (out_empty_queue.id) {
 		kfree(out_empty_queue.id);
 		out_empty_queue.id = NULL;
 	}
-	if(out_full_queue.id)
-	{
+
+	if (out_full_queue.id) {
 		kfree(out_full_queue.id);
 		out_full_queue.id = NULL;
 	}
-	if(out_busy_queue.id)
-	{
+
+	if (out_busy_queue.id) {
 		kfree(out_busy_queue.id);
 		out_busy_queue.id = NULL;
 	}
@@ -617,7 +618,6 @@ static void Free_In_Out_queue(int fragstotal,int fragsize)
 	in_busy_queue.count = 0;
 	out_busy_queue.count = 0;
 	out_full_queue.count = 0;
-	return ;
 }
 
 /*
@@ -629,18 +629,11 @@ jz_ac97_full_reset(struct jz_ac97_controller_info *controller)
 	jz_ac97_initHw(controller);
 }
 
-
-static void
-jz_ac97_mksound(unsigned int hz, unsigned int ticks)
-{
-//	printk("BEEP - %d %d!\n", hz, ticks);
-}
-
 static int jz_audio_set_speed(int dev, int rate)
 {
 	/* 8000, 11025, 16000, 22050, 24000, 32000, 44100, 48000, 99999999 ? */
+	struct ac97_codec *codec = ac97_controller->ac97_codec[0];
 	u32 dacp;
-	struct ac97_codec *codec=ac97_controller->ac97_codec[0];
 
 	if (rate > 48000)
 		rate = 48000;
@@ -649,7 +642,7 @@ static int jz_audio_set_speed(int dev, int rate)
 
 
 	/* Power down the DAC */
-	dacp=ac97_codec_read(codec, AC97_POWER_CONTROL);
+	dacp = ac97_codec_read(codec, AC97_POWER_CONTROL);
 	ac97_codec_write(codec, AC97_POWER_CONTROL, dacp|0x0200);
 	/* Load the rate; only 48Khz playback available, read always zero */
 	if ((ac97_controller->patched) && (ac97_controller->ac97_features & 1))
@@ -709,7 +702,7 @@ static int jz_audio_set_speed(int dev, int rate)
 		f_scale_reload	= reload_48000;
 		break;
 	}
-	f_scale_idx	= 0;
+	f_scale_idx = 0;
 
 	return jz_audio_rate;
 }
@@ -718,7 +711,7 @@ static int record_fill_1x8_u(unsigned long dst_start, int count, int id)
 {
 	int cnt = 0;
 	unsigned char data;
-	volatile unsigned char *s = (unsigned char *)(*(in_dma_buf + id));
+	volatile unsigned char *s = (unsigned char *)in_dma_buf[id];
 	volatile unsigned char *dp = (unsigned char *)dst_start;
 
 	while (count > 0) {
@@ -745,7 +738,7 @@ static int record_fill_2x8_u(unsigned long dst_start, int count, int id)
 {
 	int cnt = 0;
 	unsigned char d1, d2;
-	volatile unsigned char *s = (unsigned char *)(*(in_dma_buf + id));
+	volatile unsigned char *s = (unsigned char *)in_dma_buf[id];
 	volatile unsigned char *dp = (unsigned char *)dst_start;
 
 	while (count > 0) {
@@ -773,7 +766,7 @@ static int record_fill_1x16_s(unsigned long dst_start, int count, int id)
 {
 	int cnt = 0;
 	unsigned short d1;
-	unsigned short *s = (unsigned short *)(*(in_dma_buf + id));
+	unsigned short *s = (unsigned short *)in_dma_buf[id];
 	unsigned short *dp = (unsigned short *)dst_start;
 
 	while (count > 0) {
@@ -800,7 +793,7 @@ static int record_fill_2x16_s(unsigned long dst_start, int count, int id)
 {
 	int cnt = 0;
 	unsigned short d1, d2;
-	unsigned short *s = (unsigned short *)(*(in_dma_buf + id));
+	unsigned short *s = (unsigned short *)in_dma_buf[id];
 	unsigned short *dp = (unsigned short *)dst_start;
 
 	while (count > 0) {
@@ -830,7 +823,7 @@ static void replay_fill_1x8_u(unsigned long src_start, int count, int id)
 	int i, cnt = 0;
 	unsigned char data;
 	unsigned char *s = (unsigned char *)src_start;
-	unsigned char *dp = (unsigned char *)(*(out_dma_buf + id));
+	unsigned char *dp = (unsigned char *)out_dma_buf[id];
 
 	while (count > 0) {
 		count--;
@@ -843,7 +836,7 @@ static void replay_fill_1x8_u(unsigned long src_start, int count, int id)
 		}
 	}
 	cnt = cnt * 2;
-	*(out_dma_buf_data_count + id) = cnt;
+	out_dma_buf_data_count[id] = cnt;
 }
 
 static void replay_fill_2x8_u(unsigned long src_start, int count, int id)
@@ -851,7 +844,7 @@ static void replay_fill_2x8_u(unsigned long src_start, int count, int id)
 	int i, cnt = 0;
 	unsigned char d1, d2;
 	unsigned char *s = (unsigned char *)src_start;
-	unsigned char *dp = (unsigned char*)(*(out_dma_buf + id));
+	unsigned char *dp = (unsigned char*)out_dma_buf[id];
 
 	while (count > 0) {
 		count -= 2;
@@ -872,7 +865,7 @@ static void replay_fill_2x8_u(unsigned long src_start, int count, int id)
 			}
 		}
 	}
-	*(out_dma_buf_data_count + id) = cnt;
+	out_dma_buf_data_count[id] = cnt;
 }
 
 static void replay_fill_1x16_s(unsigned long src_start, int count, int id)
@@ -880,7 +873,7 @@ static void replay_fill_1x16_s(unsigned long src_start, int count, int id)
 	int cnt = 0;
 	static short d1, d2, d;
 	short *s = (short *)src_start;
-	short *dp = (short *)(*(out_dma_buf + id));
+	short *dp = (short *)out_dma_buf[id];
 
 	d2 = *s++;
 	count -= 2;
@@ -900,7 +893,7 @@ static void replay_fill_1x16_s(unsigned long src_start, int count, int id)
 		if (f_scale_idx >= f_scale_count)
 			f_scale_idx = 0;
 	}
-	*(out_dma_buf_data_count + id) = cnt;
+	out_dma_buf_data_count[id] = cnt;
 }
 
 static void replay_fill_2x16_s(unsigned long src_start, int count, int id)
@@ -908,7 +901,7 @@ static void replay_fill_2x16_s(unsigned long src_start, int count, int id)
 	int cnt = 0;
 	static short d11, d12, d21, d22, d1, d2;
 	short *s = (short *)src_start;
-	short *dp = (short *)(*(out_dma_buf + id));
+	short *dp = (short *)out_dma_buf[id];
 
 	d12 = *s++;
 	d22 = *s++;
@@ -934,7 +927,7 @@ static void replay_fill_2x16_s(unsigned long src_start, int count, int id)
 		if (f_scale_idx >= f_scale_count)
 			f_scale_idx = 0;
 	}
-	*(out_dma_buf_data_count + id) = cnt;
+	out_dma_buf_data_count[id] = cnt;
 }
 
 static unsigned int jz_audio_set_format(int dev, unsigned int fmt)
@@ -1089,10 +1082,10 @@ static u16 ac97_codec_read(struct ac97_codec *codec, u8 reg)
 
 static int jz_writeAC97Reg (struct ac97_codec *dev, u8 reg, u16 value)
 {
-	//unsigned long flags;
+//	unsigned long flags;
 	int done = 0;
 
-	//save_and_cli(flags);
+//	local_irq_save(flags);
 
 	__ac97_out_wcmd_addr(reg);
 	__ac97_out_data(value);
@@ -1100,7 +1093,7 @@ static int jz_writeAC97Reg (struct ac97_codec *dev, u8 reg, u16 value)
 		done = 1;
 	else
 		printk (KERN_DEBUG "Tiemout AC97 codec write (0x%X<==0x%X)\n", reg, value);
-	//restore_flags(flags);
+//	local_irq_restore(flags);
 	return done;
 }
 static void ac97_codec_write(struct ac97_codec *codec, u8 reg, u16 data)
@@ -1190,10 +1183,8 @@ static int __init jz_ac97_codec_init(struct jz_ac97_controller_info *controller)
 
 	/* Reset the mixer. */
 	for (num_ac97 = 0; num_ac97 < NR_AC97; num_ac97++) {
-		if ((codec = kmalloc(sizeof(struct ac97_codec),
-				     GFP_KERNEL)) == NULL)
+		if ((codec = ac97_alloc_codec()) == NULL)
 			return -ENOMEM;
-		memset(codec, 0, sizeof(struct ac97_codec));
 
 		/* initialize some basic codec information,
 		   other fields will be filled
@@ -1204,13 +1195,15 @@ static int __init jz_ac97_codec_init(struct jz_ac97_controller_info *controller)
 		codec->codec_read = ac97_codec_read;
 		codec->codec_write = ac97_codec_write;
 
-		if (ac97_probe_codec(codec) == 0)
+		if (ac97_probe_codec(codec) == 0) {
+			ac97_release_codec(codec);
 			break;
+		}
 
 		eid = ac97_codec_read(codec, AC97_EXTENDED_ID);
 		if (eid == 0xFFFF) {
 			printk(KERN_WARNING "Jz AC97: no codec attached?\n");
-			kfree(codec);
+			ac97_release_codec(codec);
 			break;
 		}
 
@@ -1249,7 +1242,7 @@ static int __init jz_ac97_codec_init(struct jz_ac97_controller_info *controller)
 		if ((codec->dev_mixer =
 		     register_sound_mixer(&jz_ac97_mixer_fops, -1)) < 0) {
 			printk(KERN_ERR "Jz AC97: couldn't register mixer!\n");
-			kfree(codec);
+			ac97_release_codec(codec);
 			break;
 		}
 
@@ -1408,13 +1401,13 @@ static void __init attach_jz_ac97(struct jz_ac97_controller_info *controller)
 		goto tmp2_failed;
 	}
 
-	if ((controller->dma1 = jz_request_dma(DMA_ID_AC97_TX, "audio dac",
+	if ((controller->dma1 = jz_request_dma(DMA_ID_AIC_TX, "audio dac",
 						 jz_ac97_replay_dma_irq,
 						 IRQF_DISABLED, controller)) < 0) {
 		printk(KERN_ERR "%s: can't reqeust DMA DAC channel.\n", name);
 		goto dma1_failed;
 	}
-	if ((controller->dma2 = jz_request_dma(DMA_ID_AC97_RX, "audio adc",
+	if ((controller->dma2 = jz_request_dma(DMA_ID_AIC_RX, "audio adc",
 						 jz_ac97_record_dma_irq,
 						 IRQF_DISABLED, controller)) < 0) {
 		printk(KERN_ERR "%s: can't reqeust DMA ADC channel.\n", name);
@@ -1425,8 +1418,6 @@ static void __init attach_jz_ac97(struct jz_ac97_controller_info *controller)
 	       controller->dma1, get_dma_done_irq(controller->dma1),
 	       controller->dma2, get_dma_done_irq(controller->dma2));
 
-	old_mksound = kd_mksound;   /* see vt.c */
-	kd_mksound = jz_ac97_mksound;
 	controller->dev_audio = adev;
 	return;
 
@@ -1448,7 +1439,7 @@ static void __init attach_jz_ac97(struct jz_ac97_controller_info *controller)
 	return;
 }
 	
-static int __init probe_jz_ac97(struct jz_ac97_controller_info **controller)
+static int probe_jz_ac97(struct jz_ac97_controller_info **controller)
 {
 	if ((*controller = kmalloc(sizeof(struct jz_ac97_controller_info),
 				   GFP_KERNEL)) == NULL) {
@@ -1469,16 +1460,13 @@ static int __init probe_jz_ac97(struct jz_ac97_controller_info **controller)
 	return 0;
 }
 
-static void __exit unload_jz_ac97(struct jz_ac97_controller_info *controller)
+static void unload_jz_ac97(struct jz_ac97_controller_info *controller)
 {
 	int adev = controller->dev_audio;
 
 	jz_ac97_full_reset (controller);
 
 	controller->dev_audio = -1;
-
-	if (old_mksound)
-		kd_mksound = old_mksound;     /* Our driver support bell for kb, see vt.c */
 
 #ifdef CONFIG_PROC_FS
 	jz_ac97_cleanup_proc(controller);
@@ -1503,8 +1491,9 @@ static int reserve_power1, reserve_power2;
 static int reserve_power3, reserve_power4;
 static int reserve_power5, reserve_power6;
 
-static int jz_ac97_suspend(struct jz_ac97_controller_info *controller, int state)
-{       
+static int jz_ac97_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct jz_ac97_controller_info *controller = platform_get_drvdata(pdev);
 	struct ac97_codec *codec = controller->ac97_codec[0];
 
 	/* save codec states */
@@ -1527,19 +1516,20 @@ static int jz_ac97_suspend(struct jz_ac97_controller_info *controller, int state
 	ac97_codec_write(codec, 0x6c, 0x0030);
 	ac97_codec_write(codec, 0x26, 0x3b00);
 
-	ac97_save_state(codec);
+	//ac97_save_state(codec);
 	__ac97_disable();
 
 	return 0;
 }
 
-static int jz_ac97_resume(struct jz_ac97_controller_info *controller)
+static int jz_ac97_resume(struct platform_device *pdev)
 {
+	struct jz_ac97_controller_info *controller = platform_get_drvdata(pdev);
 	struct ac97_codec *codec = controller->ac97_codec[0];
 
 	jz_ac97_full_reset(controller);
 	ac97_probe_codec(codec);
-	ac97_restore_state(codec);
+	//ac97_restore_state(codec);
 
 	ac97_codec_write(codec, 0x0026, reserve_power1);
 	ac97_codec_write(codec, 0x006c, reserve_power2);
@@ -1559,37 +1549,17 @@ static int jz_ac97_resume(struct jz_ac97_controller_info *controller)
 
 	return 0;
 }
-
-static int jz_ac97_pm_callback(struct pm_dev *pm_dev, pm_request_t req, void *data)
-{
-	int ret;
-	struct jz_ac97_controller_info *controller = pm_dev->data;
-
-	if (!controller) return -EINVAL;
-
-	switch (req) {
-	case PM_SUSPEND:
-		ret = jz_ac97_suspend(controller, (int)data);
-		break;
-
-	case PM_RESUME:
-		ret = jz_ac97_resume(controller);
-		break;
-	default:
-		ret = -EINVAL;
-		break;
-	}
-	return ret;
-}
 #endif /* CONFIG_PM */
 	
-static int __init init_jz_ac97(void)
+static int jz_ac97_probe(struct platform_device *pdev)
 {
 	int errno;
 
 	if ((errno = probe_jz_ac97(&ac97_controller)) < 0)
 		return errno;
 	attach_jz_ac97(ac97_controller);
+
+	platform_set_drvdata(pdev, ac97_controller);
 
 	out_empty_queue.id = NULL;
 	out_full_queue.id = NULL;
@@ -1599,23 +1569,40 @@ static int __init init_jz_ac97(void)
 	in_full_queue.id = NULL;
 	in_busy_queue.id = NULL;
 
-#ifdef CONFIG_PM
-	ac97_controller->pm = pm_register(PM_SYS_DEV, PM_SYS_UNKNOWN, 
-					  jz_ac97_pm_callback);
-	if (ac97_controller->pm)
-		ac97_controller->pm->data = ac97_controller;
-#endif
-
 	return 0;
 }
 
-static void __exit cleanup_jz_ac97(void)
+static int jz_ac97_remove(struct platform_device *pdev)
 {
-	unload_jz_ac97(ac97_controller);
+	struct jz_ac97_controller_info *controller = platform_get_drvdata(pdev);
+	unload_jz_ac97(controller);
+	return 0;
 }
 
-module_init(init_jz_ac97);
-module_exit(cleanup_jz_ac97);
+static struct platform_driver jz_ac97_driver = {
+	.driver = {
+		.name = "jz-ac97",
+	},
+	.probe = jz_ac97_probe,
+	.remove = jz_ac97_remove,
+#ifdef CONFIG_PM
+	.suspend = jz_ac97_suspend,
+	.resume = jz_ac97_resume,
+#endif
+};
+
+static int __init jz_ac97_init(void)
+{
+	return platform_driver_register(&jz_ac97_driver);
+}
+
+static void __exit jz_ac97_exit(void)
+{
+	platform_driver_unregister(&jz_ac97_driver);
+}
+
+module_init(jz_ac97_init);
+module_exit(jz_ac97_exit);
 
 
 static int drain_adc(struct jz_ac97_controller_info *ctrl, int nonblock)
@@ -1731,6 +1718,12 @@ static int jz_audio_release(struct inode *inode, struct file *file)
 
 	}
 	Free_In_Out_queue(jz_audio_fragstotal,jz_audio_fragsize);
+
+#ifdef GPIO_SPK_EN
+	/* disable amp */
+	__gpio_set_pin(GPIO_SPK_EN);
+#endif
+
 	return 0;
 }
 
@@ -1740,6 +1733,11 @@ static int jz_audio_open(struct inode *inode, struct file *file)
 
 	if (controller == NULL)
 		return -ENODEV;
+
+#ifdef GPIO_SPK_EN
+	/* enable amp */
+	__gpio_clear_pin(GPIO_SPK_EN);
+#endif
 
 	if (file->f_mode & FMODE_WRITE) {
 		if (controller->opened1 == 1)
@@ -1995,12 +1993,12 @@ static int jz_audio_ioctl(struct inode *inode, struct file *file,
     
 		for(i = 0;i < fullc ;i ++)
 		{
-			id = *(out_full_queue.id + i);
-			unfinish += *(out_dma_buf_data_count + id); 
+			id = out_full_queue.id[i];
+			unfinish += out_dma_buf_data_count[id];
 		}
 		for(i = 0;i < busyc ;i ++)
 		{
-			id = *(out_busy_queue.id + i);
+			id = out_busy_queue.id[i];
 			unfinish += get_dma_residue(controller->dma1);
 		}
 		spin_unlock_irqrestore(&controller->ioctllock, flags);
@@ -2080,12 +2078,12 @@ static ssize_t jz_audio_read(struct file *file, char *buffer,
 		first_record_call = 0;
 		if ((id = get_buffer_id(&in_empty_queue)) >= 0) {
 			put_buffer_id(&in_busy_queue, id);
-			*(in_dma_buf_data_count + id) = copy_count * (jz_audio_format/8);
+			in_dma_buf_data_count[id] = copy_count * (jz_audio_format/8);
 			__ac97_enable_receive_dma();
 			__ac97_enable_record();
 			audio_start_dma(controller->dma2,file->private_data,
-					*(in_dma_pbuf + id),
-					*(in_dma_buf_data_count + id),
+					in_dma_pbuf[id],
+					in_dma_buf_data_count[id],
 					DMA_MODE_READ);
 			interruptible_sleep_on(&rx_wait_queue);
 		} else
@@ -2111,12 +2109,12 @@ static ssize_t jz_audio_read(struct file *file, char *buffer,
 		if (elements_in_queue(&in_busy_queue) == 0) {
 			if ((id=get_buffer_id(&in_empty_queue)) >= 0) {
 				put_buffer_id(&in_busy_queue, id);
-				*(in_dma_buf_data_count + id) = copy_count * (jz_audio_format/8);
+				in_dma_buf_data_count[id] = copy_count * (jz_audio_format/8);
 				__ac97_enable_receive_dma();
 				__ac97_enable_record();
 				audio_start_dma(controller->dma2,file->private_data,
-						*(in_dma_pbuf + id),
-						*(in_dma_buf_data_count + id),
+						in_dma_pbuf[id],
+						in_dma_buf_data_count[id],
 						DMA_MODE_READ);
 			}
 		}
@@ -2194,19 +2192,19 @@ static ssize_t jz_audio_write(struct file *file, const char *buffer,
 		if ((id = get_buffer_id(&out_empty_queue)) >= 0) {
 			if ((ac97_controller->patched) &&
 			    (ac97_controller->ac97_features & 1)) {
-				if (copy_from_user((char *)(*(out_dma_buf + id)), buffer+ret, copy_count)) {
+				if (copy_from_user((char *)(out_dma_buf[id]), buffer+ret, copy_count)) {
 					printk(KERN_DEBUG "%s: copy_from_user failed.\n", __FUNCTION__);
 					return ret ? ret : -EFAULT;
 				}
-				*(out_dma_buf_data_count + id) = copy_count;
+				out_dma_buf_data_count[id] = copy_count;
 			} else
 				replay_filler(
 					(unsigned long)controller->tmp1 + ret,
 					copy_count, id);
 			//when 0,kernel will panic
-			if(*(out_dma_buf_data_count + id) > 0) {
+			if(out_dma_buf_data_count[id] > 0) {
 				put_buffer_id(&out_full_queue, id);
-				dma_cache_wback_inv(*(out_dma_buf + id), *(out_dma_buf_data_count + id));
+				dma_cache_wback_inv(out_dma_buf[id], out_dma_buf_data_count[id]);
 			} else {//when 0,i need refill in empty queue
 				put_buffer_id(&out_empty_queue, id);
 			}
@@ -2225,10 +2223,10 @@ static ssize_t jz_audio_write(struct file *file, const char *buffer,
 
 				__ac97_enable_transmit_dma();
 				__ac97_enable_replay();
-			        if(*(out_dma_buf_data_count + id) > 0) {
-				audio_start_dma(controller->dma1,file->private_data,
-						*(out_dma_pbuf + id),
-						*(out_dma_buf_data_count + id),
+			        if(out_dma_buf_data_count[id] > 0) {
+					audio_start_dma(controller->dma1,file->private_data,
+						out_dma_pbuf[id],
+						out_dma_buf_data_count[id],
 						DMA_MODE_WRITE);
 				}
 			}
@@ -2247,6 +2245,6 @@ struct ac97_codec * find_ac97_codec(void)
 	if ( ac97_controller )
 		return ac97_controller->ac97_codec[0];
 	return 0;
-		
 }
 
+EXPORT_SYMBOL(find_ac97_codec);
