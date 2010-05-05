@@ -32,8 +32,6 @@
 #include <asm/cacheflush.h>
 
 #include "isp.h"
-#include "ispmmu.h"
-#include "ispreg.h"
 #include "omap_previewer.h"
 
 #define OMAP_PREV_NAME		"omap-previewer"
@@ -47,6 +45,16 @@
 #define ISP_CTRL_SBL_SHARED_RPORTB	(1 << 28)
 #define ISP_CTRL_SBL_SHARED_RPORTA	(1 << 27)
 #define SBL_RD_RAM_EN				18
+
+static struct isp_interface_config prevwrap_config = {
+	.ccdc_par_ser = ISP_NONE,
+	.dataline_shift = 0,
+	.hsvs_syncdetect = ISPCTRL_SYNC_DETECT_VSRISE,
+	.strobe = 0,
+	.prestrobe = 0,
+	.shutter = 0,
+	.wait_hs_vs = 0,
+};
 
 static u32 isp_ctrl;
 static u32 prv_wsdr_addr;
@@ -98,11 +106,13 @@ static int prev_calculate_crop(struct prev_device *device,
  **/
 static int prev_get_status(struct prev_status *status)
 {
+	struct isp_device *isp = dev_get_drvdata(prevdevice->isp);
+
 	if (!status) {
 		dev_err(prev_dev, "%s: invalid argument\n", __func__);
 		return -EINVAL;
 	}
-	status->hw_busy = (char)isppreview_busy();
+	status->hw_busy = (char)isppreview_busy(&isp->isp_prev);
 	return 0;
 }
 
@@ -117,40 +127,45 @@ static int prev_get_status(struct prev_status *status)
  **/
 static int prev_hw_setup(struct prev_params *config)
 {
+	struct isp_device *isp = dev_get_drvdata(prevdevice->isp);
+
 	dev_dbg(prev_dev, "%s: Enter\n", __func__);
 
 	if (config->features & PREV_AVERAGER)
-		isppreview_config_averager(config->average);
+		isppreview_config_averager(&isp->isp_prev, config->average);
 	else
-		isppreview_config_averager(0);
+		isppreview_config_averager(&isp->isp_prev, 0);
 
 	if (config->features & PREV_INVERSE_ALAW)
-		isppreview_enable_invalaw(1);
+		isppreview_enable_invalaw(&isp->isp_prev, 1);
 	else
-		isppreview_enable_invalaw(0);
+		isppreview_enable_invalaw(&isp->isp_prev, 0);
 
 	if (config->features & PREV_HORZ_MEDIAN_FILTER) {
-		isppreview_config_hmed(config->hmf_params);
-		isppreview_enable_hmed(1);
+		isppreview_config_hmed(&isp->isp_prev, config->hmf_params);
+		isppreview_enable_hmed(&isp->isp_prev, 1);
 	} else
-		isppreview_enable_hmed(0);
+		isppreview_enable_hmed(&isp->isp_prev, 0);
 
 	if (config->features & PREV_DARK_FRAME_SUBTRACT) {
 		dev_dbg(prev_dev, "%s: darkaddr %08x, darklineoffset %d\n",
 			__func__,
 			config->drkf_params.addr,
 			config->drkf_params.offset);
-		isppreview_set_darkaddr(config->drkf_params.addr);
-		isppreview_config_darklineoffset(config->drkf_params.offset);
-		isppreview_enable_drkframe(1);
+		isppreview_set_darkaddr(&isp->isp_prev,
+					config->drkf_params.addr);
+		isppreview_config_darklineoffset(&isp->isp_prev,
+						 config->drkf_params.offset);
+		isppreview_enable_drkframe(&isp->isp_prev, 1);
 	} else
-		isppreview_enable_drkframe(0);
+		isppreview_enable_drkframe(&isp->isp_prev, 0);
 
 	if (config->features & PREV_LENS_SHADING) {
-		isppreview_config_drkf_shadcomp(config->lens_shading_shift);
-		isppreview_enable_shadcomp(1);
+		isppreview_config_drkf_shadcomp(&isp->isp_prev,
+						config->lens_shading_shift);
+		isppreview_enable_shadcomp(&isp->isp_prev, 1);
 	} else
-		isppreview_enable_shadcomp(0);
+		isppreview_enable_shadcomp(&isp->isp_prev, 0);
 
 	dev_dbg(prev_dev, "%s: Exit\n", __func__);
 	return 0;
@@ -204,8 +219,8 @@ static int prev_validate_params(struct prev_params *params)
 	}
 
 	if (params->size_params.hsize % 32) {
-		dev_err(prev_dev, "%s: width must be multiple of"
-			" 64 bytes\n", __func__);
+		dev_err(prev_dev, "validate_params: width must be multiple of"
+			" 64 bytes\n");
 		goto err_einval;
 	}
 
@@ -266,7 +281,7 @@ static void prev_set_isp_ctrl(u16 mode)
 {
 	u32 val;
 
-	val = isp_reg_readl(OMAP3_ISP_IOMEM_MAIN, ISP_CTRL);
+	val = isp_reg_readl(prevdevice->isp, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL);
 
 	isp_ctrl = val;
 
@@ -280,9 +295,10 @@ static void prev_set_isp_ctrl(u16 mode)
 	BIT_SET(val, SBL_RD_RAM_EN, 0x1, 0x1);
 
 	/* write ISP CTRL register */
-	isp_reg_writel(val, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL);
+	isp_reg_writel(prevdevice->isp, val, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL);
 
-	prv_wsdr_addr = isp_reg_readl(OMAP3_ISP_IOMEM_PREV, ISPPRV_WSDR_ADDR);
+	prv_wsdr_addr = isp_reg_readl(prevdevice->isp, OMAP3_ISP_IOMEM_PREV,
+				      ISPPRV_WSDR_ADDR);
 }
 
 /*
@@ -290,9 +306,10 @@ static void prev_set_isp_ctrl(u16 mode)
  */
 static void prev_unset_isp_ctrl(void)
 {
+	struct isp_device *isp = dev_get_drvdata(prevdevice->isp);
 	u32 val;
 
-	val = isp_reg_readl(OMAP3_ISP_IOMEM_MAIN, ISP_CTRL);
+	val = isp_reg_readl(prevdevice->isp, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL);
 
 	if (isp_ctrl & ISP_CTRL_SBL_SHARED_RPORTB)
 		val |= ISP_CTRL_SBL_SHARED_RPORTB;
@@ -304,14 +321,14 @@ static void prev_unset_isp_ctrl(void)
 		val &= ~(1 << SBL_RD_RAM_EN);
 
 	/* write ISP CTRL register */
-	isp_reg_writel(val, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL);
+	isp_reg_writel(prevdevice->isp, val, OMAP3_ISP_IOMEM_MAIN, ISP_CTRL);
 
 	/* disable dark frame and shading compensation */
-	isppreview_enable_drkframe(0);
-	isppreview_enable_shadcomp(0);
+	isppreview_enable_drkframe(&isp->isp_prev, 0);
+	isppreview_enable_shadcomp(&isp->isp_prev, 0);
 
 	/* Set output and input adresses to 0 */
-	isppreview_set_outaddr(prv_wsdr_addr);
+	isppreview_set_outaddr(&isp->isp_prev, prv_wsdr_addr);
 }
 
 /**
@@ -323,15 +340,18 @@ static void prev_unset_isp_ctrl(void)
  **/
 static void prev_config_size(u32 input_w, u32 input_h)
 {
-	isp_reg_writel((0 << ISPPRV_HORZ_INFO_SPH_SHIFT) | (input_w - 1),
-		OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO);
+	isp_reg_writel(prevdevice->isp,
+		       (0 << ISPPRV_HORZ_INFO_SPH_SHIFT) | (input_w - 1),
+		       OMAP3_ISP_IOMEM_PREV, ISPPRV_HORZ_INFO);
 
-	isp_reg_writel((0 << ISPPRV_VERT_INFO_SLV_SHIFT) | (input_h - 1),
-		OMAP3_ISP_IOMEM_PREV, ISPPRV_VERT_INFO);
+	isp_reg_writel(prevdevice->isp,
+		       (0 << ISPPRV_VERT_INFO_SLV_SHIFT) | (input_h - 1),
+		       OMAP3_ISP_IOMEM_PREV, ISPPRV_VERT_INFO);
 
-	isp_reg_writel((ISPPRV_AVE_EVENDIST_2 << ISPPRV_AVE_EVENDIST_SHIFT) |
-		(ISPPRV_AVE_ODDDIST_2 << ISPPRV_AVE_ODDDIST_SHIFT),
-		OMAP3_ISP_IOMEM_PREV, ISPPRV_AVE);
+	isp_reg_writel(prevdevice->isp,
+		       (ISPPRV_AVE_EVENDIST_2 << ISPPRV_AVE_EVENDIST_SHIFT) |
+		       (ISPPRV_AVE_ODDDIST_2 << ISPPRV_AVE_ODDDIST_SHIFT),
+		       OMAP3_ISP_IOMEM_PREV, ISPPRV_AVE);
 }
 
 /**
@@ -345,22 +365,29 @@ static void prev_config_size(u32 input_w, u32 input_h)
 static int prev_negotiate_output_size(struct prev_device *prvdev,
 				u32 *out_hsize, u32 *out_vsize)
 {
-	int bpp, ret, outh, outv;
+	struct isp_device *isp = dev_get_drvdata(prvdev->isp);
+	int bpp, ret;
+	struct isp_pipeline pipe;
 
 	if (prvdev->params->size_params.pixsize == PREV_INWIDTH_8BIT)
 		bpp = 1;
 	else
 		bpp = 2;
 
-	ret = isppreview_config_datapath(PRV_RAW_MEM, PREVIEW_MEM);
+	pipe.prv_in = PRV_RAW_MEM;
+	pipe.prv_out = PREVIEW_MEM;
+	pipe.ccdc_out_w = prvdev->params->size_params.hsize;
+	pipe.ccdc_out_w_img = prvdev->params->size_params.hsize;
+	pipe.ccdc_out_h = prvdev->params->size_params.vsize;
+
+	ret = isppreview_config_datapath(&isp->isp_prev, &pipe);
 	if (ret) {
 		dev_err(prev_dev, "%s: ERROR while configure isp "
 			"preview datapath!\n", __func__);
 		return ret;
 	}
 
-	ret = isppreview_try_size(prvdev->params->size_params.hsize,
-			prvdev->params->size_params.vsize, &outh, &outv);
+	ret = isppreview_try_pipeline(&isp->isp_prev, &pipe);
 	if (ret) {
 		dev_err(prev_dev, "%s: ERROR while try isp preview size!\n",
 			__func__);
@@ -368,18 +395,11 @@ static int prev_negotiate_output_size(struct prev_device *prvdev,
 	}
 
 	dev_dbg(prev_dev, "%s: try size %dx%d -> %dx%d\n", __func__,
-		prvdev->params->size_params.hsize,
-		prvdev->params->size_params.vsize, outh, outv);
+		pipe.ccdc_out_w_img, pipe.ccdc_out_h,
+		pipe.prv_out_w, pipe.prv_out_h);
 
-	dev_dbg(prev_dev, "%s: out_pitch %d, output width %d, out_hsize %d\n",
-		__func__, prvdev->params->size_params.out_pitch,
-		prvdev->params->size_params.out_pitch / bpp, outh);
-
-	if (outh > (prvdev->params->size_params.out_pitch / bpp))
-		outh = prvdev->params->size_params.out_pitch / bpp;
-
-	*out_hsize = outh;
-	*out_vsize = outv;
+	*out_hsize = pipe.prv_out_w_img;
+	*out_vsize = pipe.prv_out_h_img;
 	return 0;
 }
 
@@ -391,6 +411,7 @@ static int prev_negotiate_output_size(struct prev_device *prvdev,
  **/
 static int prev_do_preview(struct prev_device *device)
 {
+	struct isp_device *isp;
 	u32 out_hsize, out_vsize, out_line_offset, in_line_offset;
 	int ret = 0, bpp;
 
@@ -400,6 +421,7 @@ static int prev_do_preview(struct prev_device *device)
 		dev_err(prev_dev, "%s: invalid argument\n", __func__);
 		return -EINVAL;
 	}
+	isp = dev_get_drvdata(device->isp);
 
 	prev_set_isp_ctrl(device->params->features);
 
@@ -413,7 +435,7 @@ static int prev_do_preview(struct prev_device *device)
 
 	in_line_offset = device->params->size_params.hsize * bpp;
 
-	ret = isppreview_config_inlineoffset(in_line_offset);
+	ret = isppreview_config_inlineoffset(&isp->isp_prev, in_line_offset);
 	if (ret)
 		goto out;
 
@@ -425,7 +447,7 @@ static int prev_do_preview(struct prev_device *device)
 
 	out_line_offset = (out_hsize * bpp) & PREV_32BYTES_ALIGN_MASK;
 
-	ret = isppreview_config_outlineoffset(out_line_offset);
+	ret = isppreview_config_outlineoffset(&isp->isp_prev, out_line_offset);
 	if (ret)
 		goto out;
 
@@ -436,16 +458,16 @@ static int prev_do_preview(struct prev_device *device)
 
 	prev_hw_setup(device->params);
 
-	ret = isppreview_set_inaddr(device->isp_addr_read);
+	ret = isppreview_set_inaddr(&isp->isp_prev, device->isp_addr_read);
 	if (ret)
 		goto out;
 
-	ret = isppreview_set_outaddr(device->isp_addr_read);
+	ret = isppreview_set_outaddr(&isp->isp_prev, device->isp_addr_read);
 	if (ret)
 		goto out;
 
-	ret = isp_set_callback(CBK_PREV_DONE, prev_isr, (void *) device,
-							(void *) NULL);
+	ret = isp_set_callback(device->isp, CBK_PREV_DONE, prev_isr,
+			       (void *) device, (void *) NULL);
 	if (ret) {
 		dev_err(prev_dev,
 			"%s: setting previewer callback failed\n", __func__);
@@ -453,15 +475,19 @@ static int prev_do_preview(struct prev_device *device)
 	}
 
 	/* Make sure we don't wait for any HS_VS interrupts */
-	isp_set_hs_vs(0);
+	isp_set_hs_vs(device->isp, 0);
 
-	isppreview_enable(1);
+	isp_configure_interface(device->isp, &prevwrap_config);
+
+	isp_start(device->isp);
+
+	isppreview_enable(&isp->isp_prev, 1);
 
 	wait_for_completion_interruptible(&device->wfc);
 
-	isppreview_enable(0);
+	isppreview_enable(&isp->isp_prev, 0);
 
-	ret = isp_unset_callback(CBK_PREV_DONE);
+	ret = isp_unset_callback(device->isp, CBK_PREV_DONE);
 
 	prev_unset_isp_ctrl();
 
@@ -484,13 +510,13 @@ static void previewer_vbq_release(struct videobuf_queue *q,
 	dev_dbg(prev_dev, "%s: Enter\n", __func__);
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE) {
-		ispmmu_vunmap(device->isp_addr_read);
+		ispmmu_vunmap(device->isp, device->isp_addr_read);
 		device->isp_addr_read = 0;
 		spin_lock(&device->inout_vbq_lock);
 		vb->state = VIDEOBUF_NEEDS_INIT;
 		spin_unlock(&device->inout_vbq_lock);
 	} else if (q->type == V4L2_BUF_TYPE_PRIVATE) {
-		ispmmu_vunmap(device->isp_addr_lsc);
+		ispmmu_vunmap(device->isp, device->isp_addr_lsc);
 		device->isp_addr_lsc = 0;
 		spin_lock(&device->lsc_vbq_lock);
 		vb->state = VIDEOBUF_NEEDS_INIT;
@@ -622,8 +648,9 @@ static int previewer_vbq_prepare(struct videobuf_queue *q,
 				__func__, (int)vb->baddr);
 			err = videobuf_iolock(q, vb, NULL);
 			if (!err) {
-				isp_addr = ispmmu_vmap(dma->sglist,
-						dma->sglen);
+				isp_addr = ispmmu_vmap(device->isp,
+						       dma->sglist,
+						       dma->sglen);
 
 				if (!isp_addr) {
 					err = -EIO;
@@ -670,8 +697,9 @@ static int previewer_vbq_prepare(struct videobuf_queue *q,
 				__func__, (int)vb->baddr);
 			err = videobuf_iolock(q, vb, NULL);
 			if (!err) {
-				isp_addr = ispmmu_vmap(dma->sglist,
-								dma->sglen);
+				isp_addr = ispmmu_vmap(device->isp,
+						       dma->sglist,
+						       dma->sglen);
 				if (!isp_addr) {
 					err = -EIO;
 				} else {
@@ -718,15 +746,10 @@ static void previewer_vbq_queue(struct videobuf_queue *q,
 static int previewer_open(struct inode *inode, struct file *filp)
 {
 	struct prev_device *device = prevdevice;
-	struct prev_params *config = isppreview_get_config();
 	struct prev_fh *fh;
 	int ret = 0;
-
-	if (config == NULL) {
-		dev_err(prev_dev, "%s: Unable to get default config "
-			"from isp preview\n", __func__);
-		return -EACCES;
-	}
+	struct device *isp;
+	struct isp_device *isp_dev;
 
 	if (mutex_lock_interruptible(&device->prevwrap_mutex))
 		return -EINTR;
@@ -743,19 +766,22 @@ static int previewer_open(struct inode *inode, struct file *filp)
 		goto err_open_fh;
 	}
 
-	ret = isp_get();
-	if (ret < 0) {
+	isp = isp_get();
+	if (!isp) {
 		dev_err(prev_dev, "%s: Can't acquire isp core\n", __func__);
+		ret = -EACCES;
 		goto err_isp;
 	}
+	device->isp = isp;
+	isp_dev = dev_get_drvdata(isp);
+	device->params = &isp_dev->isp_prev.params;
 
-	ret = isppreview_request();
+	ret = isppreview_request(&isp_dev->isp_prev);
 	if (ret < 0) {
 		dev_err(prev_dev, "%s: Can't acquire isp preview\n", __func__);
 		goto err_prev;
 	}
 
-	device->params = config;
 	device->opened = true;
 
 	filp->private_data = fh;
@@ -798,18 +824,18 @@ static int previewer_release(struct inode *inode, struct file *filp)
 {
 	struct prev_fh *fh = filp->private_data;
 	struct prev_device *device = fh->device;
+	struct isp_device *isp = dev_get_drvdata(device->isp);
 	struct videobuf_queue *q1 = &fh->inout_vbq;
 	struct videobuf_queue *q2 = &fh->lsc_vbq;
 
 	if (mutex_lock_interruptible(&device->prevwrap_mutex))
 		return -EINTR;
 	device->opened = false;
-	device->params = NULL;
 	videobuf_mmap_free(q1);
 	videobuf_mmap_free(q2);
 	videobuf_queue_cancel(q1);
 	videobuf_queue_cancel(q2);
-	isppreview_free();
+	isppreview_free(&isp->isp_prev);
 	isp_put();
 	prev_bufsize = 0;
 	lsc_bufsize = 0;
@@ -851,7 +877,8 @@ static int prev_copy_params(struct prev_params *usr_params,
 
 	if (usr_params->cfa.cfa_table && isp_params->cfa.cfa_table) {
 		if (copy_from_user(isp_params->cfa.cfa_table,
-				usr_params->cfa.cfa_table, ISPPRV_CFA_TBL_SIZE))
+				usr_params->cfa.cfa_table,
+				ISPPRV_CFA_TBL_SIZE * 4))
 			return -EFAULT;
 	} else {
 		dev_warn(prev_dev,
@@ -865,7 +892,7 @@ static int prev_copy_params(struct prev_params *usr_params,
 
 	if (usr_params->ytable && isp_params->ytable) {
 		if (copy_from_user(isp_params->ytable,
-				usr_params->ytable, ISPPRV_YENH_TBL_SIZE))
+				usr_params->ytable, ISPPRV_YENH_TBL_SIZE * 4))
 			return -EFAULT;
 	} else {
 		dev_warn(prev_dev,
@@ -880,7 +907,7 @@ static int prev_copy_params(struct prev_params *usr_params,
 	if (usr_params->gtable.redtable && isp_params->gtable.redtable) {
 		if (copy_from_user(isp_params->gtable.redtable,
 				usr_params->gtable.redtable,
-				ISPPRV_GAMMA_TBL_SIZE))
+				ISPPRV_GAMMA_TBL_SIZE * 4))
 			return -EFAULT;
 	} else {
 		dev_warn(prev_dev,
@@ -893,7 +920,7 @@ static int prev_copy_params(struct prev_params *usr_params,
 	if (usr_params->gtable.greentable && isp_params->gtable.greentable) {
 		if (copy_from_user(isp_params->gtable.greentable,
 				usr_params->gtable.greentable,
-				ISPPRV_GAMMA_TBL_SIZE))
+				ISPPRV_GAMMA_TBL_SIZE * 4))
 			return -EFAULT;
 	} else {
 		dev_warn(prev_dev,
@@ -906,7 +933,7 @@ static int prev_copy_params(struct prev_params *usr_params,
 	if (usr_params->gtable.bluetable && isp_params->gtable.bluetable) {
 		if (copy_from_user(isp_params->gtable.bluetable,
 				usr_params->gtable.bluetable,
-				ISPPRV_GAMMA_TBL_SIZE))
+				ISPPRV_GAMMA_TBL_SIZE * 4))
 			return -EFAULT;
 	} else {
 		dev_warn(prev_dev,

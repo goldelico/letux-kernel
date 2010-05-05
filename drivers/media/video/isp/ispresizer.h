@@ -66,7 +66,7 @@
  * 	- free()
  */
 
-enum ispresizer_input {
+enum resizer_input {
 	RSZ_OTFLY_YUV,
 	RSZ_MEM_YUV,
 	RSZ_MEM_COL8
@@ -104,59 +104,87 @@ struct isprsz_yenh {
 	u8 coreoffset;
 };
 
-void ispresizer_config_shadow_registers(void);
+/**
+ * struct isp_res_device - Structure for the resizer module to store its
+ * 			   information.
+ * @res_inuse: Indicates if resizer module has been reserved. 1 - Reserved,
+ *             0 - Freed.
+ * @h_startphase: Horizontal starting phase.
+ * @v_startphase: Vertical starting phase.
+ * @h_resz: Horizontal resizing value.
+ * @v_resz: Vertical resizing value.
+ * @outputwidth: Output Image Width in pixels.
+ * @outputheight: Output Image Height in pixels.
+ * @inputwidth: Input Image Width in pixels.
+ * @inputheight: Input Image Height in pixels.
+ * @algo: Algorithm select. 0 - Disable, 1 - [-1 2 -1]/2 high-pass filter,
+ *        2 - [-1 -2 6 -2 -1]/4 high-pass filter.
+ * @ipht_crop: Vertical start line for cropping.
+ * @ipwd_crop: Horizontal start pixel for cropping.
+ * @cropwidth: Crop Width.
+ * @cropheight: Crop Height.
+ * @resinput: Resizer input.
+ * @coeflist: Register configuration for Resizer.
+ * @ispres_mutex: Mutex for isp resizer.
+ */
+struct isp_res_device {
+	u8 res_inuse;
+	u8 h_startphase;
+	u8 v_startphase;
+	u16 h_resz;
+	u16 v_resz;
+	u8 algo;
+	dma_addr_t in_buf_addr;
+	dma_addr_t in_buf_addr_off;
+	struct isprsz_coef coeflist;
+	struct mutex ispres_mutex; /* For checking/modifying res_inuse */
+	struct isprsz_yenh defaultyenh;
+	int applycrop;
+};
 
-int ispresizer_request(void);
+int ispresizer_config_crop(struct isp_res_device *isp_res,
+			   struct v4l2_crop *a);
+void ispresizer_config_shadow_registers(struct isp_res_device *isp_res);
 
-int ispresizer_free(void);
+int ispresizer_request(struct isp_res_device *isp_res);
 
-int ispresizer_config_datapath(enum ispresizer_input input);
+int ispresizer_free(struct isp_res_device *isp_res);
 
-void ispresizer_enable_cbilin(u8 enable);
+void ispresizer_enable_cbilin(struct isp_res_device *isp_res, u8 enable);
 
-void ispresizer_config_ycpos(u8 yc);
+void ispresizer_config_ycpos(struct isp_res_device *isp_res, u8 yc);
 
-void ispresizer_config_startphase(u8 hstartphase, u8 vstartphase);
+void ispresizer_config_startphase(struct isp_res_device *isp_res,
+				  u8 hstartphase, u8 vstartphase);
 
-void ispresizer_config_filter_coef(struct isprsz_coef *coef);
+void ispresizer_config_filter_coef(struct isp_res_device *isp_res,
+				   struct isprsz_coef *coef);
 
-void ispresizer_get_filter_coef(struct isprsz_coef *coef);
+void ispresizer_config_luma_enhance(struct isp_res_device *isp_res,
+				    struct isprsz_yenh *yenh);
 
-void ispresizer_write_filter_coef(void);
+int ispresizer_try_pipeline(struct isp_res_device *isp_res,
+			    struct isp_pipeline *pipe);
 
-void ispresizer_config_luma_enhance(struct isprsz_yenh *yenh);
+int ispresizer_s_pipeline(struct isp_res_device *isp_res,
+			  struct isp_pipeline *pipe);
 
-int ispresizer_try_size(u32 *input_w, u32 *input_h, u32 *output_w,
-			u32 *output_h);
+int ispresizer_config_inlineoffset(struct isp_res_device *isp_res, u32 offset);
 
-void ispresizer_applycrop(void);
+int ispresizer_set_inaddr(struct isp_res_device *isp_res, u32 addr, u32 offset);
 
-void ispresizer_trycrop(u32 left, u32 top, u32 width, u32 height, u32 ow,
-			u32 oh);
+int ispresizer_config_outlineoffset(struct isp_res_device *isp_res, u32 offset);
 
-int ispresizer_config_size(u32 input_w, u32 input_h, u32 output_w,
-			   u32 output_h);
+int ispresizer_set_outaddr(struct isp_res_device *isp_res, u32 addr);
 
-int ispresizer_config_inlineoffset(u32 offset);
+void ispresizer_enable(struct isp_res_device *isp_res, int enable);
 
-int ispresizer_set_inaddr(u32 addr);
+int ispresizer_busy(struct isp_res_device *isp_res);
 
-int ispresizer_config_outlineoffset(u32 offset);
+void ispresizer_save_context(struct device *dev);
 
-int ispresizer_set_outaddr(u32 addr);
+void ispresizer_restore_context(struct device *dev);
 
-void ispresizer_enable(int enable);
-
-void ispresizer_suspend(void);
-
-void ispresizer_resume(void);
-
-int ispresizer_busy(void);
-
-void ispresizer_save_context(void);
-
-void ispresizer_restore_context(void);
-
-void ispresizer_print_status(void);
+void ispresizer_print_status(struct isp_res_device *isp_res);
 
 #endif		/* OMAP_ISP_RESIZER_H */
