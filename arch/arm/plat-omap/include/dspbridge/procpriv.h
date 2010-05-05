@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Global PROC constants and types, shared by PROC, MGR and WCD.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,22 +16,10 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== procpriv.h ========
- *  Description:
- *      Global PROC constants and types, shared by PROC, MGR, and WCD.
- *
- *! Revision History:
- *! ================
- *! 05-July-2000 rr: Created
- */
-
 #ifndef PROCPRIV_
 #define PROCPRIV_
 
 /* RM PROC Object */
-	struct PROC_OBJECT;
+struct proc_object;
 
-#endif				/* PROCPRIV_ */
-
+#endif /* PROCPRIV_ */

@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Definitions, types and function prototypes for the io (r/w external mem).
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,18 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== _tiomap_io.h ========
- *  Description:
- *      Definitions, types and function prototypes for the io
- *      (r/w external mem).
- *
- *! Revision History
- *! ================
- *! 08-Oct-2002 rr:  Created.
  */
 
 #ifndef _TIOMAP_IO_
@@ -43,70 +33,74 @@
 #define IVAEXTMEMBASE   "_IVAEXTMEM_BEG"
 #define IVAEXTMEMEND   "_IVAEXTMEM_END"
 
-
 #define DSP_TRACESEC_BEG  "_BRIDGE_TRACE_BEG"
 #define DSP_TRACESEC_END  "_BRIDGE_TRACE_END"
 
 #define SYS_PUTCBEG               "_SYS_PUTCBEG"
 #define SYS_PUTCEND               "_SYS_PUTCEND"
-#define BRIDGE_SYS_PUTC_current   "_BRIDGE_SYS_PUTC_current"
-
+#define BRIDGE_SYS_PUTC_CURRENT   "_BRIDGE_SYS_PUTC_current"
 
 #define WORDSWAP_ENABLE 0x3	/* Enable word swap */
 
 /*
- *  ======== ReadExtDspData ========
+ *  ======== read_ext_dsp_data ========
  *  Reads it from DSP External memory. The external memory for the DSP
- * is configured by the combination of DSP MMU and SHM Memory manager in the CDB
+ * is configured by the combination of DSP MMU and shm Memory manager in the CDB
  */
-extern DSP_STATUS ReadExtDspData(struct WMD_DEV_CONTEXT *pDevContext,
-				OUT u8 *pbHostBuf, u32 dwDSPAddr,
-				u32 ulNumBytes, u32 ulMemType);
+extern dsp_status read_ext_dsp_data(struct wmd_dev_context *dev_context,
+				    OUT u8 *pbHostBuf, u32 dwDSPAddr,
+				    u32 ul_num_bytes, u32 ulMemType);
 
 /*
- *  ======== WriteDspData ========
+ *  ======== write_dsp_data ========
  */
-extern DSP_STATUS WriteDspData(struct WMD_DEV_CONTEXT *pDevContext,
-			       OUT u8 *pbHostBuf, u32 dwDSPAddr,
-			       u32 ulNumBytes, u32 ulMemType);
+extern dsp_status write_dsp_data(struct wmd_dev_context *dev_context,
+				 OUT u8 *pbHostBuf, u32 dwDSPAddr,
+				 u32 ul_num_bytes, u32 ulMemType);
 
 /*
- *  ======== WriteExtDspData ========
+ *  ======== write_ext_dsp_data ========
  *  Writes to the DSP External memory for external program.
  *  The ext mem for progra is configured by the combination of DSP MMU and
- *  SHM Memory manager in the CDB
+ *  shm Memory manager in the CDB
  */
-extern DSP_STATUS WriteExtDspData(struct WMD_DEV_CONTEXT *pDevContext,
-				 IN u8 *pbHostBuf, u32 dwDSPAddr,
-				 u32 ulNumBytes, u32 ulMemType,
-				 bool bDynamicLoad);
+extern dsp_status write_ext_dsp_data(struct wmd_dev_context *dev_context,
+				     IN u8 *pbHostBuf, u32 dwDSPAddr,
+				     u32 ul_num_bytes, u32 ulMemType,
+				     bool bDynamicLoad);
 
 /*
- * ======== WriteExt32BitDspData ========
+ * ======== write_ext32_bit_dsp_data ========
  * Writes 32 bit data to the external memory
  */
-extern inline void WriteExt32BitDspData(IN const
-		struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwDSPAddr,
-		IN u32 val)
+extern inline void write_ext32_bit_dsp_data(IN const
+					    struct wmd_dev_context *dev_context,
+					    IN u32 dwDSPAddr, IN u32 val)
 {
-	*(u32 *)dwDSPAddr = ((pDevContext->tcWordSwapOn) ? (((val << 16) &
-			      0xFFFF0000) | ((val >> 16) & 0x0000FFFF)) : val);
+	*(u32 *) dwDSPAddr = ((dev_context->tc_word_swap_on) ? (((val << 16) &
+								 0xFFFF0000) |
+								((val >> 16) &
+								 0x0000FFFF)) :
+			      val);
 }
 
 /*
- * ======== ReadExt32BitDspData ========
+ * ======== read_ext32_bit_dsp_data ========
  * Reads 32 bit data from the external memory
  */
-extern inline u32 ReadExt32BitDspData(IN const struct WMD_DEV_CONTEXT
-				       *pDevContext, IN u32 dwDSPAddr)
+extern inline u32 read_ext32_bit_dsp_data(IN const struct wmd_dev_context
+					  *dev_context, IN u32 dwDSPAddr)
 {
-	u32 retVal;
-	retVal = *(u32 *)dwDSPAddr;
+	u32 ret;
+	ret = *(u32 *) dwDSPAddr;
 
-	retVal = ((pDevContext->tcWordSwapOn) ? (((retVal << 16)
-		 & 0xFFFF0000) | ((retVal >> 16) & 0x0000FFFF)) : retVal);
-	return retVal;
+	ret = ((dev_context->tc_word_swap_on) ? (((ret << 16)
+						  & 0xFFFF0000) | ((ret >> 16) &
+								   0x0000FFFF))
+	       : ret);
+	return ret;
 }
 
-#endif				/* _TIOMAP_IO_ */
+int send_mbox_callback(void *arg);
 
+#endif /* _TIOMAP_IO_ */

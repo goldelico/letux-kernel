@@ -14,10 +14,8 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-
-#ifndef __RELOC_TABLE_H__
-#define __RELOC_TABLE_H__
+#ifndef _RELOC_TABLE_H_
+#define _RELOC_TABLE_H_
 /*
  * Table of relocation operator properties
  */
@@ -34,11 +32,11 @@
 #define ROP_ANY	0		/* no overflow ever, just truncate the value */
 #define ROP_SGN	1		/* signed field */
 #define ROP_UNS	2		/* unsigned field */
-#define ROP_MAX 3	  /* allow maximum range of either signed or unsigned */
+#define ROP_MAX 3	/* allow maximum range of either signed or unsigned */
 
 /* How does the relocation operation use the symbol reference */
 #define ROP_IGN	0		/* no symbol is referenced */
-#define ROP_LIT 0		/* use rp->r_uval literal field */
+#define ROP_LIT 0		/* use rp->UVAL literal field */
 #define ROP_SYM	1		/* symbol value is used in relocation */
 #define ROP_SYMD 2		/* delta value vs last link is used */
 
@@ -51,13 +49,15 @@
 /*
  * Computational actions performed by the dynamic loader
  */
-enum Dload_Actions {
-	RACT_VAL,    /* don't alter the current val (from stack or mem fetch) */
-	RACT_ASGN,   /* set value to reference amount (from symbol reference) */
+enum dload_actions {
+	/* don't alter the current val (from stack or mem fetch) */
+	RACT_VAL,
+	/* set value to reference amount (from symbol reference) */
+	RACT_ASGN,
 	RACT_ADD,		/* add reference to value */
 	RACT_PCR,		/* add reference minus PC delta to value */
-	RACT_ADDISP,		/* add reference plus r_disp */
-	RACT_ASGPC,	/* set value to section address plus reference */
+	RACT_ADDISP,		/* add reference plus R_DISP */
+	RACT_ASGPC,		/* set value to section addr plus reference */
 
 	RACT_PLUS,		/* stack + */
 	RACT_SUB,		/* stack - */
@@ -99,4 +99,4 @@ enum Dload_Actions {
 #define RFV_BIGOFF(iii) ((iii) >> 8)
 #endif
 
-#endif				/* __RELOC_TABLE_H__ */
+#endif /* _RELOC_TABLE_H_ */

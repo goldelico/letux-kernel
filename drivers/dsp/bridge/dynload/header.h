@@ -14,8 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-
 #define TRUE 1
 #define FALSE 0
 #ifndef NULL
@@ -29,8 +27,8 @@
 #define STATIC_EXPR_STK_SIZE 10
 
 #include <linux/types.h>
-typedef unsigned int            uint_least32_t;
-typedef unsigned short int	uint_least16_t;
+typedef unsigned int uint_least32_t;
+typedef unsigned short int uint_least16_t;
 
 #include "doff.h"
 #include <dspbridge/dynamic_loader.h>

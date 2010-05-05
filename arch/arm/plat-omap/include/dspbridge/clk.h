@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Provides Clock functions.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,52 +16,42 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/*
- *  ======== clk.h ========
- *  Purpose: Provides Clock functions.
- *
- *! Revision History:
- *! ================
- *! 08-May-2007 rg: Moved all clock functions from sync module.
- */
-
 #ifndef _CLK_H
 #define _CLK_H
 
 	/* Generic TIMER object: */
-	struct TIMER_OBJECT;
-	enum SERVICES_ClkId {
-		SERVICESCLK_iva2_ck = 0,
-		SERVICESCLK_mailbox_ick,
-		SERVICESCLK_gpt5_fck,
-		SERVICESCLK_gpt5_ick,
-		SERVICESCLK_gpt6_fck,
-		SERVICESCLK_gpt6_ick,
-		SERVICESCLK_gpt7_fck,
-		SERVICESCLK_gpt7_ick,
-		SERVICESCLK_gpt8_fck,
-		SERVICESCLK_gpt8_ick,
-		SERVICESCLK_wdt3_fck,
-		SERVICESCLK_wdt3_ick,
-		SERVICESCLK_mcbsp1_fck,
-		SERVICESCLK_mcbsp1_ick,
-		SERVICESCLK_mcbsp2_fck,
-		SERVICESCLK_mcbsp2_ick,
-		SERVICESCLK_mcbsp3_fck,
-		SERVICESCLK_mcbsp3_ick,
-		SERVICESCLK_mcbsp4_fck,
-		SERVICESCLK_mcbsp4_ick,
-		SERVICESCLK_mcbsp5_fck,
-		SERVICESCLK_mcbsp5_ick,
-		SERVICESCLK_ssi_fck,
-		SERVICESCLK_ssi_ick,
-		SERVICESCLK_sys_32k_ck,
-		SERVICESCLK_sys_ck,
-		SERVICESCLK_NOT_DEFINED
-	} ;
+struct timer_object;
+enum services_clk_id {
+	SERVICESCLK_IVA2_CK,
+	SERVICESCLK_GPT5_FCK,
+	SERVICESCLK_GPT5_ICK,
+	SERVICESCLK_GPT6_FCK,
+	SERVICESCLK_GPT6_ICK,
+	SERVICESCLK_GPT7_FCK,
+	SERVICESCLK_GPT7_ICK,
+	SERVICESCLK_GPT8_FCK,
+	SERVICESCLK_GPT8_ICK,
+	SERVICESCLK_WDT3_FCK,
+	SERVICESCLK_WDT3_ICK,
+	SERVICESCLK_MCBSP1_FCK,
+	SERVICESCLK_MCBSP1_ICK,
+	SERVICESCLK_MCBSP2_FCK,
+	SERVICESCLK_MCBSP2_ICK,
+	SERVICESCLK_MCBSP3_FCK,
+	SERVICESCLK_MCBSP3_ICK,
+	SERVICESCLK_MCBSP4_FCK,
+	SERVICESCLK_MCBSP4_ICK,
+	SERVICESCLK_MCBSP5_FCK,
+	SERVICESCLK_MCBSP5_ICK,
+	SERVICESCLK_SSI_FCK,
+	SERVICESCLK_SSI_ICK,
+	SERVICESCLK_SYS32K_CK,
+	SERVICESCLK_SYS_CK,
+	SERVICESCLK_NOT_DEFINED
+};
 
 /*
- *  ======== CLK_Exit ========
+ *  ======== clk_exit ========
  *  Purpose:
  *      Discontinue usage of module; free resources when reference count
  *      reaches 0.
@@ -70,10 +62,10 @@
  *  Ensures:
  *      Resources used by module are freed when cRef reaches zero.
  */
-	extern void CLK_Exit(void);
+extern void clk_exit(void);
 
 /*
- *  ======== CLK_Init ========
+ *  ======== services_clk_init ========
  *  Purpose:
  *      Initializes private state of CLK module.
  *  Parameters:
@@ -83,61 +75,60 @@
  *  Ensures:
  *      CLK initialized.
  */
-	extern bool CLK_Init(void);
-
+extern bool services_clk_init(void);
 
 /*
- *  ======== CLK_Enable ========
+ *  ======== services_clk_enable ========
  *  Purpose:
  *      Enables the clock requested.
  *  Parameters:
  *  Returns:
  *      DSP_SOK:	Success.
- *	DSP_EFAIL:	Error occured while enabling the clock.
+ *	-EPERM:	Error occured while enabling the clock.
  *  Requires:
  *  Ensures:
  */
-	extern DSP_STATUS CLK_Enable(IN enum SERVICES_ClkId clk_id);
+extern dsp_status services_clk_enable(IN enum services_clk_id clk_id);
 
 /*
- *  ======== CLK_Disable ========
+ *  ======== services_clk_disable ========
  *  Purpose:
  *      Disables the clock requested.
  *  Parameters:
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EFAIL:      Error occured while disabling the clock.
+ *      -EPERM:      Error occured while disabling the clock.
  *  Requires:
  *  Ensures:
  */
-	extern DSP_STATUS CLK_Disable(IN enum SERVICES_ClkId clk_id);
+extern dsp_status services_clk_disable(IN enum services_clk_id clk_id);
 
 /*
- *  ======== CLK_GetRate ========
+ *  ======== services_clk_get_rate ========
  *  Purpose:
  *      Get the clock rate of requested clock.
  *  Parameters:
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EFAIL:      Error occured while Getting the clock rate.
+ *      -EPERM:      Error occured while Getting the clock rate.
  *  Requires:
  *  Ensures:
  */
-	extern DSP_STATUS CLK_GetRate(IN enum SERVICES_ClkId clk_id,
-				     u32 *speedMhz);
+extern dsp_status services_clk_get_rate(IN enum services_clk_id clk_id,
+					u32 *speedMhz);
 /*
- *  ======== CLK_Set_32KHz ========
+ *  ======== clk_set32k_hz ========
  *  Purpose:
  *      Set the requested clock to 32KHz.
  *  Parameters:
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EFAIL:      Error occured while setting the clock parent to 32KHz.
+ *      -EPERM:      Error occured while setting the clock parent to 32KHz.
  *  Requires:
  *  Ensures:
  */
-	extern DSP_STATUS CLK_Set_32KHz(IN enum SERVICES_ClkId clk_id);
-	extern void SSI_Clk_Prepare(bool FLAG);
+extern dsp_status clk_set32k_hz(IN enum services_clk_id clk_id);
+extern void ssi_clk_prepare(bool FLAG);
 
 /*
  *  ======== CLK_Get_RefCnt ========
@@ -146,10 +137,10 @@
  *  Parameters:
  *  Returns:
  *      s32:        Reference Count for the clock.
- *      DSP_EFAIL:  Error occured while getting the reference count of a clock.
+ *      -EPERM:  Error occured while getting the reference count of a clock.
  *  Requires:
  *  Ensures:
  */
-	extern s32 CLK_Get_UseCnt(IN enum SERVICES_ClkId clk_id);
+extern s32 clk_get_use_cnt(IN enum services_clk_id clk_id);
 
-#endif				/* _SYNC_H */
+#endif /* _SYNC_H */

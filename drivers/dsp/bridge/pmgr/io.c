@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * IO manager interface: Manages IO between CHNL and msg_ctrl.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,29 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== io.c ========
- *  Description:
- *      IO manager interface: Manages IO between CHNL and MSG.
- *
- *  Public Functions:
- *      IO_Create
- *      IO_Destroy
- *      IO_Exit
- *      IO_Init
- *      IO_OnLoaded
- *
- *  Notes:
- *      This interface is basically a pass through to the WMD IO functions.
- *
- *! Revision History:
- *! ================
- *! 24-Feb-2003 swa 	PMGR Code review comments incorporated.
- *! 04-Apr-2001 rr      WSX_STATUS initialized in IO_Create.
- *! 07-Nov-2000 jeh     Created.
  */
 
 /*  ----------------------------------- Host OS */
@@ -47,11 +26,9 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
-#include <dspbridge/mem.h>
 
 /*  ----------------------------------- Platform Manager */
 #include <dspbridge/dev.h>
@@ -62,144 +39,107 @@
 #include <dspbridge/io.h>
 
 /*  ----------------------------------- Globals */
-static u32 cRefs;
-
-#if GT_TRACE
-static struct GT_Mask IO_DebugMask = { NULL, NULL };	/* WCD IO Mask */
-#endif
+static u32 refs;
 
 /*
- *  ======== IO_Create ========
+ *  ======== io_create ========
  *  Purpose:
  *      Create an IO manager object, responsible for managing IO between
- *      CHNL and MSG
+ *      CHNL and msg_ctrl
  */
-DSP_STATUS IO_Create(OUT struct IO_MGR **phIOMgr, struct DEV_OBJECT *hDevObject,
-		    IN CONST struct IO_ATTRS *pMgrAttrs)
+dsp_status io_create(OUT struct io_mgr **phIOMgr, struct dev_object *hdev_obj,
+		     IN CONST struct io_attrs *pMgrAttrs)
 {
-	struct WMD_DRV_INTERFACE *pIntfFxns;
-	struct IO_MGR *hIOMgr = NULL;
-	struct IO_MGR_ *pIOMgr = NULL;
-	DSP_STATUS status = DSP_SOK;
+	struct bridge_drv_interface *intf_fxns;
+	struct io_mgr *hio_mgr = NULL;
+	struct io_mgr_ *pio_mgr = NULL;
+	dsp_status status = DSP_SOK;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(phIOMgr != NULL);
-	DBC_Require(pMgrAttrs != NULL);
-
-	GT_3trace(IO_DebugMask, GT_ENTER, "Entered IO_Create: phIOMgr: 0x%x\t "
-		 "hDevObject: 0x%x\tpMgrAttrs: 0x%x\n",
-		 phIOMgr, hDevObject, pMgrAttrs);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(phIOMgr != NULL);
+	DBC_REQUIRE(pMgrAttrs != NULL);
 
 	*phIOMgr = NULL;
 
-	/* A memory base of 0 implies no memory base:  */
-	if ((pMgrAttrs->dwSMBase != 0) && (pMgrAttrs->uSMLength == 0)) {
+	/* A memory base of 0 implies no memory base: */
+	if ((pMgrAttrs->shm_base != 0) && (pMgrAttrs->usm_length == 0))
 		status = CHNL_E_INVALIDMEMBASE;
-		GT_0trace(IO_DebugMask, GT_7CLASS,
-			 "IO_Create:Invalid Mem Base\n");
-	}
 
-	if (pMgrAttrs->uWordSize == 0) {
+	if (pMgrAttrs->word_size == 0)
 		status = CHNL_E_INVALIDWORDSIZE;
-		GT_0trace(IO_DebugMask, GT_7CLASS,
-			 "IO_Create:Invalid Word size\n");
-	}
 
 	if (DSP_SUCCEEDED(status)) {
-		DEV_GetIntfFxns(hDevObject, &pIntfFxns);
+		status = dev_get_intf_fxns(hdev_obj, &intf_fxns);
 
-		/* Let WMD channel module finish the create: */
-		status = (*pIntfFxns->pfnIOCreate)(&hIOMgr, hDevObject,
-			 pMgrAttrs);
+		if (intf_fxns) {
+			/* Let WMD channel module finish the create */
+			status = (*intf_fxns->pfn_io_create)(&hio_mgr, hdev_obj,
+					pMgrAttrs);
+		}
 
 		if (DSP_SUCCEEDED(status)) {
-			pIOMgr = (struct IO_MGR_ *) hIOMgr;
-			pIOMgr->pIntfFxns = pIntfFxns;
-			pIOMgr->hDevObject = hDevObject;
+			pio_mgr = (struct io_mgr_ *)hio_mgr;
+			pio_mgr->intf_fxns = intf_fxns;
+			pio_mgr->hdev_obj = hdev_obj;
 
 			/* Return the new channel manager handle: */
-			*phIOMgr = hIOMgr;
-			GT_1trace(IO_DebugMask, GT_1CLASS,
-				 "IO_Create: Success hIOMgr: 0x%x\n",
-				 hIOMgr);
+			*phIOMgr = hio_mgr;
 		}
 	}
 
-	GT_2trace(IO_DebugMask, GT_ENTER,
-		 "Exiting IO_Create: hIOMgr: 0x%x, status:"
-		 " 0x%x\n", hIOMgr, status);
-
 	return status;
 }
 
 /*
- *  ======== IO_Destroy ========
+ *  ======== io_destroy ========
  *  Purpose:
  *      Delete IO manager.
  */
-DSP_STATUS IO_Destroy(struct IO_MGR *hIOMgr)
+dsp_status io_destroy(struct io_mgr *hio_mgr)
 {
-	struct WMD_DRV_INTERFACE *pIntfFxns;
-	struct IO_MGR_ *pIOMgr = (struct IO_MGR_ *)hIOMgr;
-	DSP_STATUS status;
+	struct bridge_drv_interface *intf_fxns;
+	struct io_mgr_ *pio_mgr = (struct io_mgr_ *)hio_mgr;
+	dsp_status status;
 
-	DBC_Require(cRefs > 0);
+	DBC_REQUIRE(refs > 0);
 
-	GT_1trace(IO_DebugMask, GT_ENTER, "Entered IO_Destroy: hIOMgr: 0x%x\n",
-		  hIOMgr);
+	intf_fxns = pio_mgr->intf_fxns;
 
-	pIntfFxns = pIOMgr->pIntfFxns;
+	/* Let WMD channel module destroy the io_mgr: */
+	status = (*intf_fxns->pfn_io_destroy) (hio_mgr);
 
-	/* Let WMD channel module destroy the IO_MGR: */
-	status = (*pIntfFxns->pfnIODestroy) (hIOMgr);
-
-	GT_2trace(IO_DebugMask, GT_ENTER,
-		 "Exiting IO_Destroy: pIOMgr: 0x%x, status:"
-		 " 0x%x\n", pIOMgr, status);
 	return status;
 }
 
 /*
- *  ======== IO_Exit ========
+ *  ======== io_exit ========
  *  Purpose:
  *      Discontinue usage of the IO module.
  */
-void IO_Exit(void)
+void io_exit(void)
 {
-	DBC_Require(cRefs > 0);
+	DBC_REQUIRE(refs > 0);
 
-	cRefs--;
+	refs--;
 
-	GT_1trace(IO_DebugMask, GT_5CLASS,
-		 "Entered IO_Exit, ref count: 0x%x\n", cRefs);
-
-	DBC_Ensure(cRefs >= 0);
+	DBC_ENSURE(refs >= 0);
 }
 
 /*
- *  ======== IO_Init ========
+ *  ======== io_init ========
  *  Purpose:
  *      Initialize the IO module's private state.
  */
-bool IO_Init(void)
+bool io_init(void)
 {
-	bool fRetval = true;
+	bool ret = true;
 
-	DBC_Require(cRefs >= 0);
+	DBC_REQUIRE(refs >= 0);
 
-	if (cRefs == 0) {
-		DBC_Assert(!IO_DebugMask.flags);
-		GT_create(&IO_DebugMask, "IO");	/* "IO" for IO */
-	}
+	if (ret)
+		refs++;
 
-	if (fRetval)
-		cRefs++;
+	DBC_ENSURE((ret && (refs > 0)) || (!ret && (refs >= 0)));
 
-
-	GT_1trace(IO_DebugMask, GT_5CLASS,
-		 "Entered IO_Init, ref count: 0x%x\n", cRefs);
-
-	DBC_Ensure((fRetval && (cRefs > 0)) || (!fRetval && (cRefs >= 0)));
-
-	return fRetval;
+	return ret;
 }

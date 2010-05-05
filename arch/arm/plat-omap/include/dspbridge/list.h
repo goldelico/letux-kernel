@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Declarations of list management control structures and definitions
+ * of inline list management functions.
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,118 +17,20 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== list.h ========
- *  Purpose:
- *      Declarations of list management control structures and definitions
- *      of inline list management functions.
- *
- *  Public Functions:
- *      LST_Create
- *      LST_Delete
- *      LST_Exit
- *      LST_First
- *      LST_GetHead
- *      LST_InitElem
- *      LST_Init
- *      LST_InsertBefore
- *      LST_IsEmpty
- *      LST_Next
- *      LST_PutTail
- *      LST_RemoveElem
- *
- *  Notes:
- *
- *! Revision History
- *! ================
- *! 10-Aug-2000 ag:  Added LST_InsertBefore().
- *! 29-Oct-1999 kc:  Cleaned up for code review.
- *! 16-Aug-1997 cr:  added explicit identifiers.
- *! 10-Aug-1996 gp:  Acquired from SMM for WinSPOX v.1.1; renamed identifiers.
- *! 21-Oct-1994 dh4: Cleaned / commented for code review.
- *! 08-Jun-1994 dh4: Converted to SPM (added extern "C").
- */
-
 #ifndef LIST_
 #define LIST_
 
 #include <dspbridge/host_os.h>
+#include <linux/list.h>
 
-#define LST_IsEmpty(l)      (((l)->head.next == &(l)->head))
+#define LST_IS_EMPTY(l)      list_empty(&(l)->head)
 
-	struct LST_ELEM {
-		struct LST_ELEM *next;
-		struct LST_ELEM *prev;
-		struct LST_ELEM *self;
-	} ;
-
-	struct LST_LIST {
-		struct LST_ELEM head;
-	} ;
+struct lst_list {
+	struct list_head head;
+};
 
 /*
- *  ======== LST_Create ========
- *  Purpose:
- *      Allocates and initializes a circular list.
- *  Details:
- *      Uses portable MEM_Calloc() function to allocate a list containing
- *      a single element and initializes that element to indicate that it
- *      is the "end of the list" (i.e., the list is empty).
- *      An empty list is indicated by the "next" pointer in the element
- *      at the head of the list pointing to the head of the list, itself.
- *  Parameters:
- *  Returns:
- *      Pointer to beginning of created list (success)
- *      NULL --> Allocation failed
- *  Requires:
- *      LST initialized.
- *  Ensures:
- *  Notes:
- *      The created list contains a single element.  This element is the
- *      "empty" element, because its "next" and "prev" pointers point at
- *      the same location (the element itself).
- */
-	extern struct LST_LIST *LST_Create(void);
-
-/*
- *  ======== LST_Delete ========
- *  Purpose:
- *      Removes a list by freeing its control structure's memory space.
- *  Details:
- *      Uses portable MEM_Free() function to deallocate the memory
- *      block pointed at by the input parameter.
- *  Parameters:
- *      pList:  Pointer to list control structure of list to be deleted
- *  Returns:
- *      Void
- *  Requires:
- *      - LST initialized.
- *      - pList != NULL.
- *  Ensures:
- *  Notes:
- *      Must ONLY be used for empty lists, because it does not walk the
- *      chain of list elements.  Calling this function on a non-empty list
- *      will cause a memory leak.
- */
-	extern void LST_Delete(IN struct LST_LIST *pList);
-
-/*
- *  ======== LST_Exit ========
- *  Purpose:
- *      Discontinue usage of module; free resources when reference count
- *      reaches 0.
- *  Parameters:
- *  Returns:
- *  Requires:
- *      LST initialized.
- *  Ensures:
- *      Resources used by module are freed when cRef reaches zero.
- */
-	extern void LST_Exit(void);
-
-/*
- *  ======== LST_First ========
+ *  ======== lst_first ========
  *  Purpose:
  *      Returns a pointer to the first element of the list, or NULL if the list
  *      is empty.
@@ -138,10 +43,15 @@
  *      - pList != NULL.
  *  Ensures:
  */
-	extern struct LST_ELEM *LST_First(IN struct LST_LIST *pList);
+static inline struct list_head *lst_first(struct lst_list *pList)
+{
+	if (pList && !list_empty(&pList->head))
+		return pList->head.next;
+	return NULL;
+}
 
 /*
- *  ======== LST_GetHead ========
+ *  ======== lst_get_head ========
  *  Purpose:
  *      Pops the head off the list and returns a pointer to it.
  *  Details:
@@ -160,7 +70,6 @@
  *      Pointer to element that was at the head of the list (success)
  *      NULL          No elements in list
  *  Requires:
- *      - head.self must be correctly set to &head.
  *      - LST initialized.
  *      - pList != NULL.
  *  Ensures:
@@ -169,28 +78,27 @@
  *      the head of the list, and the head of the list points backward (its
  *      "prev" pointer) to the tail of the list, this list is circular.
  */
-	extern struct LST_ELEM *LST_GetHead(IN struct LST_LIST *pList);
+static inline struct list_head *lst_get_head(struct lst_list *pList)
+{
+	struct list_head *elem_list;
+
+	if (!pList || list_empty(&pList->head))
+		return NULL;
+
+	elem_list = pList->head.next;
+	pList->head.next = elem_list->next;
+	elem_list->next->prev = &pList->head;
+
+	return elem_list;
+}
 
 /*
- *  ======== LST_Init ========
- *  Purpose:
- *      Initializes private state of LST module.
- *  Parameters:
- *  Returns:
- *      TRUE if initialized; FALSE otherwise.
- *  Requires:
- *  Ensures:
- *      LST initialized.
- */
-	extern bool LST_Init(void);
-
-/*
- *  ======== LST_InitElem ========
+ *  ======== lst_init_elem ========
  *  Purpose:
  *      Initializes a list element to default (cleared) values
  *  Details:
  *  Parameters:
- *      pElem:  Pointer to list element to be reset
+ *      elem_list:  Pointer to list element to be reset
  *  Returns:
  *  Requires:
  *      LST initialized.
@@ -200,49 +108,65 @@
  *      of a list chain -- that would break the chain.
  *
  */
-	extern void LST_InitElem(IN struct LST_ELEM *pListElem);
+static inline void lst_init_elem(struct list_head *elem_list)
+{
+	if (elem_list) {
+		elem_list->next = NULL;
+		elem_list->prev = NULL;
+	}
+}
 
 /*
- *  ======== LST_InsertBefore ========
+ *  ======== lst_insert_before ========
  *  Purpose:
  *     Insert the element before the existing element.
  *  Parameters:
  *      pList:          Pointer to list control structure.
- *      pElem:          Pointer to element in list to insert.
+ *      elem_list:          Pointer to element in list to insert.
  *      pElemExisting:  Pointer to existing list element.
  *  Returns:
  *  Requires:
  *      - LST initialized.
  *      - pList != NULL.
- *      - pElem != NULL.
+ *      - elem_list != NULL.
  *      - pElemExisting != NULL.
  *  Ensures:
  */
-	extern void LST_InsertBefore(IN struct LST_LIST *pList,
-				     IN struct LST_ELEM *pElem,
-				     IN struct LST_ELEM *pElemExisting);
+static inline void lst_insert_before(struct lst_list *pList,
+				     struct list_head *elem_list,
+				     struct list_head *pElemExisting)
+{
+	if (pList && elem_list && pElemExisting)
+		list_add_tail(elem_list, pElemExisting);
+}
 
 /*
- *  ======== LST_Next ========
+ *  ======== lst_next ========
  *  Purpose:
  *      Returns a pointer to the next element of the list, or NULL if the next
  *      element is the head of the list or the list is empty.
  *  Parameters:
  *      pList:      Pointer to list control structure.
- *      pCurElem:   Pointer to element in list to remove.
+ *      cur_elem:   Pointer to element in list to remove.
  *  Returns:
  *      Pointer to list element, or NULL.
  *  Requires:
  *      - LST initialized.
  *      - pList != NULL.
- *      - pCurElem != NULL.
+ *      - cur_elem != NULL.
  *  Ensures:
  */
-	extern struct LST_ELEM *LST_Next(IN struct LST_LIST *pList,
-					 IN struct LST_ELEM *pCurElem);
+static inline struct list_head *lst_next(struct lst_list *pList,
+					 struct list_head *cur_elem)
+{
+	if (pList && !list_empty(&pList->head) && cur_elem &&
+	    (cur_elem->next != &pList->head))
+		return cur_elem->next;
+	return NULL;
+}
 
 /*
- *  ======== LST_PutTail ========
+ *  ======== lst_put_tail ========
  *  Purpose:
  *      Adds the specified element to the tail of the list
  *  Details:
@@ -255,42 +179,47 @@
  *      Sets new element's next pointer to the address of the head element.
  *      Sets head's prev pointer to the address of the new element.
  *  Parameters:
- *      pList:  Pointer to list control structure to which *pElem will be
+ *      pList:  Pointer to list control structure to which *elem_list will be
  *              added
- *      pElem:  Pointer to list element to be added
+ *      elem_list:  Pointer to list element to be added
  *  Returns:
  *      Void
  *  Requires:
- *      *pElem and *pList must both exist.
- *      pElem->self = pElem before pElem is passed to this function.
+ *      *elem_list and *pList must both exist.
  *      LST initialized.
  *  Ensures:
  *  Notes:
  *      Because the tail is always "just before" the head of the list (the
  *      tail's "next" pointer points at the head of the list, and the head's
  *      "prev" pointer points at the tail of the list), the list is circular.
- *  Warning: if pElem->self is not set beforehand, LST_GetHead() will
- *      return an erroneous pointer when it is called for this element.
  */
-	extern void LST_PutTail(IN struct LST_LIST *pList,
-				IN struct LST_ELEM *pListElem);
+static inline void lst_put_tail(struct lst_list *pList,
+				struct list_head *elem_list)
+{
+	if (pList && elem_list)
+		list_add_tail(elem_list, &pList->head);
+}
 
 /*
- *  ======== LST_RemoveElem ========
+ *  ======== lst_remove_elem ========
  *  Purpose:
  *      Removes (unlinks) the given element from the list, if the list is not
  *      empty.  Does not free the list element.
  *  Parameters:
  *      pList:      Pointer to list control structure.
- *      pCurElem:   Pointer to element in list to remove.
+ *      cur_elem:   Pointer to element in list to remove.
  *  Returns:
  *  Requires:
  *      - LST initialized.
  *      - pList != NULL.
- *      - pCurElem != NULL.
+ *      - cur_elem != NULL.
  *  Ensures:
  */
-extern void LST_RemoveElem(IN struct LST_LIST *pList,
-			   IN struct LST_ELEM *pCurElem);
+static inline void lst_remove_elem(struct lst_list *pList,
+				   struct list_head *cur_elem)
+{
+	if (pList && !list_empty(&pList->head) && cur_elem)
+		list_del_init(cur_elem);
+}
 
-#endif				/* LIST_ */
+#endif /* LIST_ */

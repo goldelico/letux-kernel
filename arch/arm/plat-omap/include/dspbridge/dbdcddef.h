@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DCD (DSP/BIOS Bridge Configuration Database) constants and types.
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,36 +16,11 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== dbdcddef.h ========
- *  Description:
- *      DCD (DSP/BIOS Bridge Configuration Database) constants and types.
- *
- *! Revision History:
- *! ================
- *! 03-Dec-2003 map Moved and renamed DCD_OBJTYPE to DSP_DCDOBJTYPE in dbdefs.h
- *! 05-Dec-2002 map Added DCD_CREATELIBTYPE, DCD_EXECUTELIBTYPE,
- *                        DCD_DELETELIBTYPE
- *! 24-Feb-2003 kc  Updated REG entry names to DspBridge.
- *! 22-Nov-2002 gp  Cleaned up comments, formatting.
- *! 05-Aug-2002 jeh Added DCD_REGISTERFXN.
- *! 19-Apr-2002 jeh Added DCD_LIBRARYTYPE to DCD_OBJTYPE, dynamic load
- *!                 properties to DCD_NODEPROPS.
- *! 29-Jul-2001 ag  Added extended procObj.
- *! 13-Feb-2001 kc: Named changed from dcdbsdef.h dbdcddef.h.
- *! 12-Dec-2000 jeh Added DAIS iAlg name to DCD_NODEPROPS.
- *! 30-Oct-2000 kc: Added #defines for DCD_AutoRegister function.
- *! 05-Sep-2000 jeh Added DCD_NODEPROPS.
- *! 12-Aug-2000 kc: Incoroporated the use of types defined in <dspdefs.h>.
- *! 29-Jul-2000 kc: Created.
- */
-
 #ifndef DBDCDDEF_
 #define DBDCDDEF_
 
 #include <dspbridge/dbdefs.h>
-#include <dspbridge/mgrpriv.h>		/* for MGR_PROCESSOREXTINFO */
+#include <dspbridge/mgrpriv.h>	/* for mgr_processorextinfo */
 
 /*
  *  The following defines are critical elements for the DCD module:
@@ -55,40 +32,47 @@
 #define DCD_REGKEY              "Software\\TexasInstruments\\DspBridge\\DCD"
 #define DCD_REGISTER_SECTION    ".dcd_register"
 
+#define DCD_MAXPATHLENGTH    255
+
 /* DCD Manager Object */
-	struct DCD_MANAGER;
+struct dcd_manager;
+
+struct dcd_key_elem {
+	struct list_head link;	/* Make it linked to a list */
+	char name[DCD_MAXPATHLENGTH];	/*  Name of a given value entry */
+	char *path;		/*  Pointer to the actual data */
+};
 
 /* DCD Node Properties */
-	struct DCD_NODEPROPS {
-		struct DSP_NDBPROPS ndbProps;
-		u32 uMsgSegid;
-		u32 uMsgNotifyType;
-		char *pstrCreatePhaseFxn;
-		char *pstrDeletePhaseFxn;
-		char *pstrExecutePhaseFxn;
-		char *pstrIAlgName;
+struct dcd_nodeprops {
+	struct dsp_ndbprops ndb_props;
+	u32 msg_segid;
+	u32 msg_notify_type;
+	char *pstr_create_phase_fxn;
+	char *pstr_delete_phase_fxn;
+	char *pstr_execute_phase_fxn;
+	char *pstr_i_alg_name;
 
-		/* Dynamic load properties */
-		u16 usLoadType;	/* Static, dynamic, overlay */
-		u32 ulDataMemSegMask;	/* Data memory requirements */
-		u32 ulCodeMemSegMask;	/* Code memory requirements */
-	} ;
+	/* Dynamic load properties */
+	u16 us_load_type;	/* Static, dynamic, overlay */
+	u32 ul_data_mem_seg_mask;	/* Data memory requirements */
+	u32 ul_code_mem_seg_mask;	/* Code memory requirements */
+};
 
 /* DCD Generic Object Type */
-	struct DCD_GENERICOBJ {
-		union dcdObjUnion {
-			struct DCD_NODEPROPS nodeObj;	/* node object. */
-			/* processor object. */
-			struct DSP_PROCESSORINFO procObj;
-			/* extended proc object (private) */
-			struct MGR_PROCESSOREXTINFO extProcObj;
-		} objData;
-	} ;
+struct dcd_genericobj {
+	union dcdObjUnion {
+		struct dcd_nodeprops node_obj;	/* node object. */
+		/* processor object. */
+		struct dsp_processorinfo proc_info;
+		/* extended proc object (private) */
+		struct mgr_processorextinfo ext_proc_obj;
+	} obj_data;
+};
 
 /* DCD Internal Callback Type */
-       typedef DSP_STATUS(*DCD_REGISTERFXN) (IN struct DSP_UUID *pUuid,
-						IN enum DSP_DCDOBJTYPE objType,
-						IN void *handle);
+typedef dsp_status(*dcd_registerfxn) (IN struct dsp_uuid *uuid_obj,
+				      IN enum dsp_dcdobjtype obj_type,
+				      IN void *handle);
 
-#endif				/* DBDCDDEF_ */
-
+#endif /* DBDCDDEF_ */

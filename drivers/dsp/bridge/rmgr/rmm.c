@@ -14,11 +14,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
 /*
- *  ======== rmm.c ========
- *  Description:
- *
  *  This memory manager provides general heap management and arbitrary
  *  alignment for any number of memory segments.
  *
@@ -35,20 +31,10 @@
  *  and the start of the allocated block - the memory manager must free
  *  this memory to prevent a memory leak.
  *
- *  Overlay memory is managed by reserving through RMM_alloc, and freeing
- *  it through RMM_free. The memory manager prevents DSP code/data that is
+ *  Overlay memory is managed by reserving through rmm_alloc, and freeing
+ *  it through rmm_free. The memory manager prevents DSP code/data that is
  *  overlayed from being overwritten as long as the memory it runs at has
  *  been allocated, and not yet freed.
- *
- *! Revision History
- *! ================
- *! 18-Feb-2003 vp  Code review updates.
- *! 18-Oct-2002 vp  Ported to Linux Platform.
- *! 24-Sep-2002 map Updated from Code Review
- *! 25-Jun-2002 jeh     Free from segid passed to RMM_free().
- *! 24-Apr-2002 jeh     Determine segid based on address in RMM_free(). (No way
- *!                     to keep track of segid with dynamic loader library.)
- *! 16-Oct-2001 jeh     Based on gen tree rm.c. Added support for overlays.
  */
 
 /*  ----------------------------------- DSP/BIOS Bridge */
@@ -58,130 +44,120 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/list.h>
-#include <dspbridge/mem.h>
 
 /*  ----------------------------------- This */
 #include <dspbridge/rmm.h>
 
-#define RMM_TARGSIGNATURE   0x544d4d52	/* "TMMR" */
-
 /*
- *  ======== RMM_Header ========
+ *  ======== rmm_header ========
  *  This header is used to maintain a list of free memory blocks.
  */
-struct RMM_Header {
-	struct RMM_Header *next;	/* form a free memory link list */
+struct rmm_header {
+	struct rmm_header *next;	/* form a free memory link list */
 	u32 size;		/* size of the free memory */
 	u32 addr;		/* DSP address of memory block */
-} ;
+};
 
 /*
- *  ======== RMM_OvlySect ========
+ *  ======== rmm_ovly_sect ========
  *  Keeps track of memory occupied by overlay section.
  */
-struct RMM_OvlySect {
-	struct LST_ELEM listElem;
+struct rmm_ovly_sect {
+	struct list_head list_elem;
 	u32 addr;		/* Start of memory section */
 	u32 size;		/* Length (target MAUs) of section */
 	s32 page;		/* Memory page */
 };
 
 /*
- *  ======== RMM_TargetObj ========
+ *  ======== rmm_target_obj ========
  */
-struct RMM_TargetObj {
-	u32 dwSignature;
-	struct RMM_Segment *segTab;
-	struct RMM_Header **freeList;
-	u32 numSegs;
-	struct LST_LIST *ovlyList;	/* List of overlay memory in use */
+struct rmm_target_obj {
+	struct rmm_segment *seg_tab;
+	struct rmm_header **free_list;
+	u32 num_segs;
+	struct lst_list *ovly_list;	/* List of overlay memory in use */
 };
 
-#if GT_TRACE
-static struct GT_Mask RMM_debugMask = { NULL, NULL };	/* GT trace variable */
-#endif
+static u32 refs;		/* module reference count */
 
-static u32 cRefs;		/* module reference count */
-
-static bool allocBlock(struct RMM_TargetObj *target, u32 segid, u32 size,
-		      u32 align, u32 *dspAddr);
-static bool freeBlock(struct RMM_TargetObj *target, u32 segid, u32 addr,
-		     u32 size);
+static bool alloc_block(struct rmm_target_obj *target, u32 segid, u32 size,
+			u32 align, u32 *dspAddr);
+static bool free_block(struct rmm_target_obj *target, u32 segid, u32 addr,
+		       u32 size);
 
 /*
- *  ======== RMM_alloc ========
+ *  ======== rmm_alloc ========
  */
-DSP_STATUS RMM_alloc(struct RMM_TargetObj *target, u32 segid, u32 size,
-		    u32 align, u32 *dspAddr, bool reserve)
+dsp_status rmm_alloc(struct rmm_target_obj *target, u32 segid, u32 size,
+		     u32 align, u32 *dspAddr, bool reserve)
 {
-	struct RMM_OvlySect *sect;
-	struct RMM_OvlySect *prevSect = NULL;
-	struct RMM_OvlySect *newSect;
+	struct rmm_ovly_sect *sect;
+	struct rmm_ovly_sect *prev_sect = NULL;
+	struct rmm_ovly_sect *new_sect;
 	u32 addr;
-	DSP_STATUS status = DSP_SOK;
+	dsp_status status = DSP_SOK;
 
-	DBC_Require(MEM_IsValidHandle(target, RMM_TARGSIGNATURE));
-	DBC_Require(dspAddr != NULL);
-	DBC_Require(size > 0);
-	DBC_Require(reserve || (target->numSegs > 0));
-	DBC_Require(cRefs > 0);
+	DBC_REQUIRE(target);
+	DBC_REQUIRE(dspAddr != NULL);
+	DBC_REQUIRE(size > 0);
+	DBC_REQUIRE(reserve || (target->num_segs > 0));
+	DBC_REQUIRE(refs > 0);
 
-	GT_6trace(RMM_debugMask, GT_ENTER,
-		 "RMM_alloc(0x%lx, 0x%lx, 0x%lx, 0x%lx, "
-		 "0x%lx, 0x%lx)\n", target, segid, size, align, dspAddr,
-		 reserve);
 	if (!reserve) {
-		if (!allocBlock(target, segid, size, align, dspAddr)) {
-			status = DSP_EMEMORY;
+		if (!alloc_block(target, segid, size, align, dspAddr)) {
+			status = -ENOMEM;
 		} else {
 			/* Increment the number of allocated blocks in this
 			 * segment */
-			target->segTab[segid].number++;
+			target->seg_tab[segid].number++;
 		}
 		goto func_end;
 	}
 	/* An overlay section - See if block is already in use. If not,
-	 * insert into the list in ascending address size.  */
+	 * insert into the list in ascending address size. */
 	addr = *dspAddr;
-	sect = (struct RMM_OvlySect *)LST_First(target->ovlyList);
+	sect = (struct rmm_ovly_sect *)lst_first(target->ovly_list);
 	/*  Find place to insert new list element. List is sorted from
 	 *  smallest to largest address. */
 	while (sect != NULL) {
 		if (addr <= sect->addr) {
 			/* Check for overlap with sect */
-			if ((addr + size > sect->addr) || (prevSect &&
-			   (prevSect->addr + prevSect->size > addr))) {
+			if ((addr + size > sect->addr) || (prev_sect &&
+							   (prev_sect->addr +
+							    prev_sect->size >
+							    addr))) {
 				status = DSP_EOVERLAYMEMORY;
 			}
 			break;
 		}
-		prevSect = sect;
-		sect = (struct RMM_OvlySect *)LST_Next(target->ovlyList,
-			(struct LST_ELEM *)sect);
+		prev_sect = sect;
+		sect = (struct rmm_ovly_sect *)lst_next(target->ovly_list,
+							(struct list_head *)
+							sect);
 	}
 	if (DSP_SUCCEEDED(status)) {
 		/* No overlap - allocate list element for new section. */
-		newSect = MEM_Calloc(sizeof(struct RMM_OvlySect), MEM_PAGED);
-		if (newSect == NULL) {
-			status = DSP_EMEMORY;
+		new_sect = kzalloc(sizeof(struct rmm_ovly_sect), GFP_KERNEL);
+		if (new_sect == NULL) {
+			status = -ENOMEM;
 		} else {
-			LST_InitElem((struct LST_ELEM *)newSect);
-			newSect->addr = addr;
-			newSect->size = size;
-			newSect->page = segid;
+			lst_init_elem((struct list_head *)new_sect);
+			new_sect->addr = addr;
+			new_sect->size = size;
+			new_sect->page = segid;
 			if (sect == NULL) {
 				/* Put new section at the end of the list */
-				LST_PutTail(target->ovlyList,
-					   (struct LST_ELEM *)newSect);
+				lst_put_tail(target->ovly_list,
+					     (struct list_head *)new_sect);
 			} else {
 				/* Put new section just before sect */
-				LST_InsertBefore(target->ovlyList,
-						(struct LST_ELEM *)newSect,
-						(struct LST_ELEM *)sect);
+				lst_insert_before(target->ovly_list,
+						  (struct list_head *)new_sect,
+						  (struct list_head *)sect);
 			}
 		}
 	}
@@ -190,73 +166,60 @@ func_end:
 }
 
 /*
- *  ======== RMM_create ========
+ *  ======== rmm_create ========
  */
-DSP_STATUS RMM_create(struct RMM_TargetObj **pTarget,
-		     struct RMM_Segment segTab[], u32 numSegs)
+dsp_status rmm_create(struct rmm_target_obj **target_obj,
+		      struct rmm_segment seg_tab[], u32 num_segs)
 {
-	struct RMM_Header *hptr;
-	struct RMM_Segment *sptr, *tmp;
-	struct RMM_TargetObj *target;
+	struct rmm_header *hptr;
+	struct rmm_segment *sptr, *tmp;
+	struct rmm_target_obj *target;
 	s32 i;
-	DSP_STATUS status = DSP_SOK;
+	dsp_status status = DSP_SOK;
 
-	DBC_Require(pTarget != NULL);
-	DBC_Require(numSegs == 0 || segTab != NULL);
-
-	GT_3trace(RMM_debugMask, GT_ENTER,
-		 "RMM_create(0x%lx, 0x%lx, 0x%lx)\n",
-		 pTarget, segTab, numSegs);
+	DBC_REQUIRE(target_obj != NULL);
+	DBC_REQUIRE(num_segs == 0 || seg_tab != NULL);
 
 	/* Allocate DBL target object */
-	MEM_AllocObject(target, struct RMM_TargetObj, RMM_TARGSIGNATURE);
+	target = kzalloc(sizeof(struct rmm_target_obj), GFP_KERNEL);
 
-	if (target == NULL) {
-		GT_0trace(RMM_debugMask, GT_6CLASS,
-			 "RMM_create: Memory allocation failed\n");
-		status = DSP_EMEMORY;
-	}
+	if (target == NULL)
+		status = -ENOMEM;
+
 	if (DSP_FAILED(status))
 		goto func_cont;
 
-	target->numSegs = numSegs;
-	if (!(numSegs > 0))
+	target->num_segs = num_segs;
+	if (!(num_segs > 0))
 		goto func_cont;
 
 	/* Allocate the memory for freelist from host's memory */
-	target->freeList = MEM_Calloc(numSegs * sizeof(struct RMM_Header *),
-				     MEM_PAGED);
-	if (target->freeList == NULL) {
-		GT_0trace(RMM_debugMask, GT_6CLASS,
-			 "RMM_create: Memory allocation failed\n");
-		status = DSP_EMEMORY;
+	target->free_list = kzalloc(num_segs * sizeof(struct rmm_header *),
+							GFP_KERNEL);
+	if (target->free_list == NULL) {
+		status = -ENOMEM;
 	} else {
 		/* Allocate headers for each element on the free list */
-		for (i = 0; i < (s32) numSegs; i++) {
-			target->freeList[i] =
-					MEM_Calloc(sizeof(struct RMM_Header),
-					MEM_PAGED);
-			if (target->freeList[i] == NULL) {
-				GT_0trace(RMM_debugMask, GT_6CLASS,
-					 "RMM_create: Memory "
-					 "allocation failed\n");
-				status = DSP_EMEMORY;
+		for (i = 0; i < (s32) num_segs; i++) {
+			target->free_list[i] =
+				kzalloc(sizeof(struct rmm_header), GFP_KERNEL);
+			if (target->free_list[i] == NULL) {
+				status = -ENOMEM;
 				break;
 			}
 		}
 		/* Allocate memory for initial segment table */
-		target->segTab = MEM_Calloc(numSegs *
-				 sizeof(struct RMM_Segment), MEM_PAGED);
-		if (target->segTab == NULL) {
-			GT_0trace(RMM_debugMask, GT_6CLASS,
-				 "RMM_create: Memory allocation failed\n");
-			status = DSP_EMEMORY;
+		target->seg_tab = kzalloc(num_segs * sizeof(struct rmm_segment),
+								GFP_KERNEL);
+		if (target->seg_tab == NULL) {
+			status = -ENOMEM;
 		} else {
 			/* Initialize segment table and free list */
-			sptr = target->segTab;
-			for (i = 0, tmp = segTab; numSegs > 0; numSegs--, i++) {
+			sptr = target->seg_tab;
+			for (i = 0, tmp = seg_tab; num_segs > 0;
+			     num_segs--, i++) {
 				*sptr = *tmp;
-				hptr = target->freeList[i];
+				hptr = target->free_list[i];
 				hptr->addr = tmp->base;
 				hptr->size = tmp->length;
 				hptr->next = NULL;
@@ -268,217 +231,188 @@ DSP_STATUS RMM_create(struct RMM_TargetObj **pTarget,
 func_cont:
 	/* Initialize overlay memory list */
 	if (DSP_SUCCEEDED(status)) {
-		target->ovlyList = LST_Create();
-		if (target->ovlyList == NULL) {
-			GT_0trace(RMM_debugMask, GT_6CLASS,
-				 "RMM_create: Memory allocation failed\n");
-			status = DSP_EMEMORY;
+		target->ovly_list = kzalloc(sizeof(struct lst_list),
+							GFP_KERNEL);
+		if (target->ovly_list == NULL) {
+			status = -ENOMEM;
+		} else {
+			INIT_LIST_HEAD(&target->ovly_list->head);
 		}
 	}
 
 	if (DSP_SUCCEEDED(status)) {
-		*pTarget = target;
+		*target_obj = target;
 	} else {
-		*pTarget = NULL;
+		*target_obj = NULL;
 		if (target)
-			RMM_delete(target);
+			rmm_delete(target);
 
 	}
 
-	DBC_Ensure((DSP_SUCCEEDED(status) && MEM_IsValidHandle((*pTarget),
-		  RMM_TARGSIGNATURE)) || (DSP_FAILED(status) && *pTarget ==
-		  NULL));
+	DBC_ENSURE((DSP_SUCCEEDED(status) && *target_obj)
+		   || (DSP_FAILED(status) && *target_obj == NULL));
 
 	return status;
 }
 
 /*
- *  ======== RMM_delete ========
+ *  ======== rmm_delete ========
  */
-void RMM_delete(struct RMM_TargetObj *target)
+void rmm_delete(struct rmm_target_obj *target)
 {
-	struct RMM_OvlySect *pSect;
-	struct RMM_Header *hptr;
-	struct RMM_Header *next;
+	struct rmm_ovly_sect *ovly_section;
+	struct rmm_header *hptr;
+	struct rmm_header *next;
 	u32 i;
 
-	DBC_Require(MEM_IsValidHandle(target, RMM_TARGSIGNATURE));
+	DBC_REQUIRE(target);
 
-	GT_1trace(RMM_debugMask, GT_ENTER, "RMM_delete(0x%lx)\n", target);
+	kfree(target->seg_tab);
 
-	if (target->segTab != NULL)
-		MEM_Free(target->segTab);
-
-	if (target->ovlyList) {
-		while ((pSect = (struct RMM_OvlySect *)LST_GetHead
-		      (target->ovlyList))) {
-			MEM_Free(pSect);
+	if (target->ovly_list) {
+		while ((ovly_section = (struct rmm_ovly_sect *)lst_get_head
+			(target->ovly_list))) {
+			kfree(ovly_section);
 		}
-		DBC_Assert(LST_IsEmpty(target->ovlyList));
-		LST_Delete(target->ovlyList);
+		DBC_ASSERT(LST_IS_EMPTY(target->ovly_list));
+		kfree(target->ovly_list);
 	}
 
-	if (target->freeList != NULL) {
+	if (target->free_list != NULL) {
 		/* Free elements on freelist */
-		for (i = 0; i < target->numSegs; i++) {
-			hptr = next = target->freeList[i];
+		for (i = 0; i < target->num_segs; i++) {
+			hptr = next = target->free_list[i];
 			while (next) {
 				hptr = next;
 				next = hptr->next;
-				MEM_Free(hptr);
+				kfree(hptr);
 			}
 		}
-		MEM_Free(target->freeList);
+		kfree(target->free_list);
 	}
 
-	MEM_FreeObject(target);
+	kfree(target);
 }
 
 /*
- *  ======== RMM_exit ========
+ *  ======== rmm_exit ========
  */
-void RMM_exit(void)
+void rmm_exit(void)
 {
-	DBC_Require(cRefs > 0);
+	DBC_REQUIRE(refs > 0);
 
-	cRefs--;
+	refs--;
 
-	GT_1trace(RMM_debugMask, GT_5CLASS, "RMM_exit() ref count: 0x%x\n",
-		 cRefs);
-
-	if (cRefs == 0)
-		MEM_Exit();
-
-	DBC_Ensure(cRefs >= 0);
+	DBC_ENSURE(refs >= 0);
 }
 
 /*
- *  ======== RMM_free ========
+ *  ======== rmm_free ========
  */
-bool RMM_free(struct RMM_TargetObj *target, u32 segid, u32 addr, u32 size,
-	bool reserved)
-
+bool rmm_free(struct rmm_target_obj *target, u32 segid, u32 addr, u32 size,
+	      bool reserved)
 {
-	struct RMM_OvlySect *sect;
-	bool retVal = true;
+	struct rmm_ovly_sect *sect;
+	bool ret = true;
 
-	DBC_Require(MEM_IsValidHandle(target, RMM_TARGSIGNATURE));
+	DBC_REQUIRE(target);
 
-	DBC_Require(reserved || segid < target->numSegs);
-	DBC_Require(reserved || (addr >= target->segTab[segid].base &&
-		   (addr + size) <= (target->segTab[segid].base +
-		   target->segTab[segid].length)));
+	DBC_REQUIRE(reserved || segid < target->num_segs);
+	DBC_REQUIRE(reserved || (addr >= target->seg_tab[segid].base &&
+				 (addr + size) <= (target->seg_tab[segid].base +
+						   target->seg_tab[segid].
+						   length)));
 
-	GT_5trace(RMM_debugMask, GT_ENTER,
-		 "RMM_free(0x%lx, 0x%lx, 0x%lx, 0x%lx, "
-		 "0x%lx)\n", target, segid, addr, size, reserved);
 	/*
 	 *  Free or unreserve memory.
 	 */
 	if (!reserved) {
-		retVal = freeBlock(target, segid, addr, size);
-		if (retVal)
-			target->segTab[segid].number--;
+		ret = free_block(target, segid, addr, size);
+		if (ret)
+			target->seg_tab[segid].number--;
 
 	} else {
 		/* Unreserve memory */
-		sect = (struct RMM_OvlySect *)LST_First(target->ovlyList);
+		sect = (struct rmm_ovly_sect *)lst_first(target->ovly_list);
 		while (sect != NULL) {
 			if (addr == sect->addr) {
-				DBC_Assert(size == sect->size);
+				DBC_ASSERT(size == sect->size);
 				/* Remove from list */
-				LST_RemoveElem(target->ovlyList,
-					      (struct LST_ELEM *)sect);
-				MEM_Free(sect);
+				lst_remove_elem(target->ovly_list,
+						(struct list_head *)sect);
+				kfree(sect);
 				break;
 			}
-			sect = (struct RMM_OvlySect *)LST_Next(target->ovlyList,
-			       (struct LST_ELEM *)sect);
+			sect =
+			    (struct rmm_ovly_sect *)lst_next(target->ovly_list,
+							     (struct list_head
+							      *)sect);
 		}
 		if (sect == NULL)
-			retVal = false;
+			ret = false;
 
 	}
-	return retVal;
+	return ret;
 }
 
 /*
- *  ======== RMM_init ========
+ *  ======== rmm_init ========
  */
-bool RMM_init(void)
+bool rmm_init(void)
 {
-	bool retVal = true;
+	DBC_REQUIRE(refs >= 0);
 
-	DBC_Require(cRefs >= 0);
+	refs++;
 
-	if (cRefs == 0) {
-		DBC_Assert(!RMM_debugMask.flags);
-		GT_create(&RMM_debugMask, "RM");	/* "RM" for RMm */
-
-		retVal = MEM_Init();
-
-		if (!retVal)
-			MEM_Exit();
-
-	}
-
-	if (retVal)
-		cRefs++;
-
-	GT_1trace(RMM_debugMask, GT_5CLASS,
-		 "RMM_init(), ref count:  0x%x\n",
-		 cRefs);
-
-	DBC_Ensure((retVal && (cRefs > 0)) || (!retVal && (cRefs >= 0)));
-
-	return retVal;
+	return true;
 }
 
 /*
- *  ======== RMM_stat ========
+ *  ======== rmm_stat ========
  */
-bool RMM_stat(struct RMM_TargetObj *target, enum DSP_MEMTYPE segid,
-	     struct DSP_MEMSTAT *pMemStatBuf)
+bool rmm_stat(struct rmm_target_obj *target, enum dsp_memtype segid,
+	      struct dsp_memstat *pMemStatBuf)
 {
-	struct RMM_Header *head;
-	bool retVal = false;
-	u32 maxFreeSize = 0;
-	u32 totalFreeSize = 0;
-	u32 freeBlocks = 0;
+	struct rmm_header *head;
+	bool ret = false;
+	u32 max_free_size = 0;
+	u32 total_free_size = 0;
+	u32 free_blocks = 0;
 
-	DBC_Require(pMemStatBuf != NULL);
-	DBC_Assert(target != NULL);
+	DBC_REQUIRE(pMemStatBuf != NULL);
+	DBC_ASSERT(target != NULL);
 
-	if ((u32) segid < target->numSegs) {
-		head = target->freeList[segid];
+	if ((u32) segid < target->num_segs) {
+		head = target->free_list[segid];
 
-		/* Collect data from freeList */
+		/* Collect data from free_list */
 		while (head != NULL) {
-			maxFreeSize = max(maxFreeSize, head->size);
-			totalFreeSize += head->size;
-			freeBlocks++;
+			max_free_size = max(max_free_size, head->size);
+			total_free_size += head->size;
+			free_blocks++;
 			head = head->next;
 		}
 
-		/* ulSize */
-		pMemStatBuf->ulSize = target->segTab[segid].length;
+		/* ul_size */
+		pMemStatBuf->ul_size = target->seg_tab[segid].length;
 
-		/* ulNumFreeBlocks */
-		pMemStatBuf->ulNumFreeBlocks = freeBlocks;
+		/* ul_num_free_blocks */
+		pMemStatBuf->ul_num_free_blocks = free_blocks;
 
-		/* ulTotalFreeSize */
-		pMemStatBuf->ulTotalFreeSize = totalFreeSize;
+		/* ul_total_free_size */
+		pMemStatBuf->ul_total_free_size = total_free_size;
 
-		/* ulLenMaxFreeBlock */
-		pMemStatBuf->ulLenMaxFreeBlock = maxFreeSize;
+		/* ul_len_max_free_block */
+		pMemStatBuf->ul_len_max_free_block = max_free_size;
 
-		/* ulNumAllocBlocks */
-		pMemStatBuf->ulNumAllocBlocks = target->segTab[segid].number;
+		/* ul_num_alloc_blocks */
+		pMemStatBuf->ul_num_alloc_blocks =
+		    target->seg_tab[segid].number;
 
-		retVal = true;
+		ret = true;
 	}
 
-	return retVal;
+	return ret;
 }
 
 /*
@@ -486,12 +420,12 @@ bool RMM_stat(struct RMM_TargetObj *target, enum DSP_MEMTYPE segid,
  *  This allocation function allocates memory from the lowest addresses
  *  first.
  */
-static bool allocBlock(struct RMM_TargetObj *target, u32 segid, u32 size,
-		      u32 align, u32 *dspAddr)
+static bool alloc_block(struct rmm_target_obj *target, u32 segid, u32 size,
+			u32 align, u32 *dspAddr)
 {
-	struct RMM_Header *head;
-	struct RMM_Header *prevhead = NULL;
-	struct RMM_Header *next;
+	struct rmm_header *head;
+	struct rmm_header *prevhead = NULL;
+	struct rmm_header *next;
 	u32 tmpalign;
 	u32 alignbytes;
 	u32 hsize;
@@ -500,7 +434,7 @@ static bool allocBlock(struct RMM_TargetObj *target, u32 segid, u32 size,
 
 	alignbytes = (align == 0) ? 1 : align;
 	prevhead = NULL;
-	head = target->freeList[segid];
+	head = target->free_list[segid];
 
 	do {
 		hsize = head->size;
@@ -518,7 +452,7 @@ static bool allocBlock(struct RMM_TargetObj *target, u32 segid, u32 size,
 		if (hsize >= allocsize) {	/* big enough */
 			if (hsize == allocsize && prevhead != NULL) {
 				prevhead->next = next;
-				MEM_Free(head);
+				kfree(head);
 			} else {
 				head->size = hsize - allocsize;
 				head->addr += allocsize;
@@ -526,7 +460,7 @@ static bool allocBlock(struct RMM_TargetObj *target, u32 segid, u32 size,
 
 			/* free up any hole created by alignment */
 			if (tmpalign)
-				freeBlock(target, segid, addr, tmpalign);
+				free_block(target, segid, addr, tmpalign);
 
 			*dspAddr = addr + tmpalign;
 			return true;
@@ -541,27 +475,27 @@ static bool allocBlock(struct RMM_TargetObj *target, u32 segid, u32 size,
 }
 
 /*
- *  ======== freeBlock ========
- *  TO DO: freeBlock() allocates memory, which could result in failure.
- *  Could allocate an RMM_Header in RMM_alloc(), to be kept in a pool.
- *  freeBlock() could use an RMM_Header from the pool, freeing as blocks
+ *  ======== free_block ========
+ *  TO DO: free_block() allocates memory, which could result in failure.
+ *  Could allocate an rmm_header in rmm_alloc(), to be kept in a pool.
+ *  free_block() could use an rmm_header from the pool, freeing as blocks
  *  are coalesced.
  */
-static bool freeBlock(struct RMM_TargetObj *target, u32 segid, u32 addr,
-		     u32 size)
+static bool free_block(struct rmm_target_obj *target, u32 segid, u32 addr,
+		       u32 size)
 {
-	struct RMM_Header *head;
-	struct RMM_Header *thead;
-	struct RMM_Header *rhead;
-	bool retVal = true;
+	struct rmm_header *head;
+	struct rmm_header *thead;
+	struct rmm_header *rhead;
+	bool ret = true;
 
 	/* Create a memory header to hold the newly free'd block. */
-	rhead = MEM_Calloc(sizeof(struct RMM_Header), MEM_PAGED);
+	rhead = kzalloc(sizeof(struct rmm_header), GFP_KERNEL);
 	if (rhead == NULL) {
-		retVal = false;
+		ret = false;
 	} else {
 		/* search down the free list to find the right place for addr */
-		head = target->freeList[segid];
+		head = target->free_list[segid];
 
 		if (addr >= head->addr) {
 			while (head->next != NULL && addr > head->next->addr)
@@ -583,11 +517,11 @@ static bool freeBlock(struct RMM_TargetObj *target, u32 segid, u32 addr,
 
 		/* join with upper block, if possible */
 		if (thead != NULL && (rhead->addr + rhead->size) ==
-		   thead->addr) {
+		    thead->addr) {
 			head->next = rhead->next;
 			thead->size = size + thead->size;
 			thead->addr = addr;
-			MEM_Free(rhead);
+			kfree(rhead);
 			rhead = thead;
 		}
 
@@ -595,10 +529,9 @@ static bool freeBlock(struct RMM_TargetObj *target, u32 segid, u32 addr,
 		if ((head->addr + head->size) == rhead->addr) {
 			head->next = rhead->next;
 			head->size = head->size + rhead->size;
-			MEM_Free(rhead);
+			kfree(rhead);
 		}
 	}
 
-	return retVal;
+	return ret;
 }
-

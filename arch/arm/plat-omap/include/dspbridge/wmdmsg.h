@@ -3,6 +3,13 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Declares the upper edge message class library functions required by
+ * all WMD / WCD driver interface tables.  These functions are
+ * implemented by every class of WMD channel library.
+ *
+ * Notes:
+ *   Function comment headers reside in wmd.h.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,57 +21,35 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== wmdmsg.h ========
- *  Description:
- *      Declares the upper edge message class library functions required by
- *      all WMD / WCD driver interface tables.  These functions are
- *      implemented by every class of WMD channel library.
- *
- *  Public Functions:
- *
- *  Notes:
- *      Function comment headers reside with the function typedefs in wmd.h.
- *
- *! Revision History:
- *! ================
- *! 06-Dec-2000 jeh     Added uEventMask to WMD_MSG_RegisterNotify(). Added
- *!                     WMD_MSG_SetQueueId().
- *! 17-Nov-2000 jeh     Created.
- */
-
 #ifndef WMDMSG_
 #define WMDMSG_
 
 #include <dspbridge/msgdefs.h>
 
-	extern DSP_STATUS WMD_MSG_Create(OUT struct MSG_MGR **phMsgMgr,
-					 struct DEV_OBJECT *hDevObject,
-					 MSG_ONEXIT msgCallback);
+extern dsp_status bridge_msg_create(OUT struct msg_mgr **phMsgMgr,
+				    struct dev_object *hdev_obj,
+				    msg_onexit msgCallback);
 
-	extern DSP_STATUS WMD_MSG_CreateQueue(struct MSG_MGR *hMsgMgr,
-					      OUT struct MSG_QUEUE **phMsgQueue,
-					      u32 dwId, u32 uMaxMsgs,
-					      HANDLE h);
+extern dsp_status bridge_msg_create_queue(struct msg_mgr *hmsg_mgr,
+				       OUT struct msg_queue **phMsgQueue,
+				       u32 msgq_id, u32 max_msgs, bhandle h);
 
-	extern void WMD_MSG_Delete(struct MSG_MGR *hMsgMgr);
+extern void bridge_msg_delete(struct msg_mgr *hmsg_mgr);
 
-	extern void WMD_MSG_DeleteQueue(struct MSG_QUEUE *hMsgQueue);
+extern void bridge_msg_delete_queue(struct msg_queue *msg_queue_obj);
 
-	extern DSP_STATUS WMD_MSG_Get(struct MSG_QUEUE *hMsgQueue,
-				      struct DSP_MSG *pMsg, u32 uTimeout);
+extern dsp_status bridge_msg_get(struct msg_queue *msg_queue_obj,
+				 struct dsp_msg *pmsg, u32 utimeout);
 
-	extern DSP_STATUS WMD_MSG_Put(struct MSG_QUEUE *hMsgQueue,
-				      IN CONST struct DSP_MSG *pMsg,
-				      u32 uTimeout);
+extern dsp_status bridge_msg_put(struct msg_queue *msg_queue_obj,
+				 IN CONST struct dsp_msg *pmsg, u32 utimeout);
 
-	extern DSP_STATUS WMD_MSG_RegisterNotify(struct MSG_QUEUE *hMsgQueue,
-						 u32 uEventMask,
-						 u32 uNotifyType,
-						 struct DSP_NOTIFICATION
-						 *hNotification);
+extern dsp_status bridge_msg_register_notify(struct msg_queue *msg_queue_obj,
+					  u32 event_mask,
+					  u32 notify_type,
+					  struct dsp_notification
+					  *hnotification);
 
-	extern void WMD_MSG_SetQueueId(struct MSG_QUEUE *hMsgQueue, u32 dwId);
+extern void bridge_msg_set_queue_id(struct msg_queue *msg_queue_obj, u32 msgq_id);
 
-#endif				/* WMDMSG_ */
+#endif /* WMDMSG_ */

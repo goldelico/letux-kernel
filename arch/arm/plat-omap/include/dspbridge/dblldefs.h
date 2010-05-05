@@ -14,22 +14,11 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== dblldefs.h ========
- *
- *! Revision History
- *! ================
- *! 08-Apr-2003 map	    Consolidated DBL into DBLL name
- *! 19-Mar-2002 jeh     Added DBL_Fxns type (to make it easier to switch
- *!                     between different loaders).
- *! 28-Sep-2001 jeh     Created from zl.h.
- */
 #ifndef DBLLDEFS_
 #define DBLLDEFS_
 
 /*
- *  Bit masks for DBL_Flags.
+ *  Bit masks for dbl_flags.
  */
 #define DBLL_NOLOAD   0x0	/* Don't load symbols, code, or data */
 #define DBLL_SYMB     0x1	/* load symbols */
@@ -40,99 +29,99 @@
 
 #define DBLL_MAXPATHLENGTH       255
 
-
 /*
  *  ======== DBLL_Target ========
  *
  */
-struct DBLL_TarObj;
+struct dbll_tar_obj;
 
 /*
- *  ======== DBLL_Flags ========
+ *  ======== dbll_flags ========
  *  Specifies whether to load code, data, or symbols
  */
-typedef s32 DBLL_Flags;
+typedef s32 dbll_flags;
 
 /*
  *  ======== DBLL_Library ========
  *
  */
-struct DBLL_LibraryObj;
+struct dbll_library_obj;
 
 /*
- *  ======== DBLL_SectInfo ========
+ *  ======== dbll_sect_info ========
  *  For collecting info on overlay sections
  */
-struct DBLL_SectInfo {
+struct dbll_sect_info {
 	const char *name;	/* name of section */
-	u32 runAddr;		/* run address of section */
-	u32 loadAddr;		/* load address of section */
+	u32 sect_run_addr;	/* run address of section */
+	u32 sect_load_addr;	/* load address of section */
 	u32 size;		/* size of section (target MAUs) */
-	DBLL_Flags type;	/* Code, data, or BSS */
-} ;
+	dbll_flags type;	/* Code, data, or BSS */
+};
 
 /*
- *  ======== DBLL_Symbol ========
+ *  ======== dbll_sym_val ========
  *  (Needed for dynamic load library)
  */
-struct DBLL_Symbol {
+struct dbll_sym_val {
 	u32 value;
 };
 
 /*
- *  ======== DBLL_AllocFxn ========
+ *  ======== dbll_alloc_fxn ========
  *  Allocate memory function.  Allocate or reserve (if reserved == TRUE)
  *  "size" bytes of memory from segment "space" and return the address in
  *  *dspAddr (or starting at *dspAddr if reserve == TRUE). Returns 0 on
  *  success, or an error code on failure.
  */
-typedef s32(*DBLL_AllocFxn) (void *hdl, s32 space, u32 size, u32 align,
-			     u32 *dspAddr, s32 segId, s32 req,
-			     bool reserved);
+typedef s32(*dbll_alloc_fxn) (void *hdl, s32 space, u32 size, u32 align,
+			      u32 *dspAddr, s32 seg_id, s32 req,
+			      bool reserved);
 
 /*
- *  ======== DBLL_CloseFxn ========
+ *  ======== dbll_close_fxn ========
  */
-typedef s32(*DBLL_FCloseFxn) (void *);
+typedef s32(*dbll_f_close_fxn) (void *);
 
 /*
- *  ======== DBLL_FreeFxn ========
+ *  ======== dbll_free_fxn ========
  *  Free memory function.  Free, or unreserve (if reserved == TRUE) "size"
  *  bytes of memory from segment "space"
  */
-typedef bool(*DBLL_FreeFxn) (void *hdl, u32 addr, s32 space, u32 size,
-			     bool reserved);
+typedef bool(*dbll_free_fxn) (void *hdl, u32 addr, s32 space, u32 size,
+			      bool reserved);
 
 /*
- *  ======== DBLL_FOpenFxn ========
+ *  ======== dbll_f_open_fxn ========
  */
-typedef void *(*DBLL_FOpenFxn) (const char *, const char *);
+typedef void *(*dbll_f_open_fxn) (const char *, const char *);
 
 /*
- *  ======== DBLL_LogWriteFxn ========
+ *  ======== dbll_log_write_fxn ========
  *  Function to call when writing data from a section, to log the info.
  *  Can be NULL if no logging is required.
  */
-typedef DSP_STATUS(*DBLL_LogWriteFxn)(void *handle, struct DBLL_SectInfo *sect,
-				       u32 addr, u32 nBytes);
+typedef dsp_status(*dbll_log_write_fxn) (void *handle,
+					 struct dbll_sect_info *sect, u32 addr,
+					 u32 bytes);
 
 /*
- *  ======== DBLL_ReadFxn ========
+ *  ======== dbll_read_fxn ========
  */
-typedef s32(*DBLL_ReadFxn) (void *, size_t, size_t, void *);
+typedef s32(*dbll_read_fxn) (void *, size_t, size_t, void *);
 
 /*
- *  ======== DBLL_SeekFxn ========
+ *  ======== dbll_seek_fxn ========
  */
-typedef s32(*DBLL_SeekFxn) (void *, long, int);
+typedef s32(*dbll_seek_fxn) (void *, long, int);
 
 /*
- *  ======== DBLL_SymLookup ========
+ *  ======== dbll_sym_lookup ========
  *  Symbol lookup function - Find the symbol name and return its value.
  *
  *  Parameters:
  *      handle          - Opaque handle
- *      pArg            - Opaque argument.
+ *      parg            - Opaque argument.
  *      name            - Name of symbol to lookup.
  *      sym             - Location to store address of symbol structure.
  *
@@ -140,40 +129,40 @@ typedef s32(*DBLL_SeekFxn) (void *, long, int);
  *      TRUE:           Success (symbol was found).
  *      FALSE:          Failed to find symbol.
  */
-typedef bool(*DBLL_SymLookup) (void *handle, void *pArg, void *rmmHandle,
-			       const char *name, struct DBLL_Symbol **sym);
+typedef bool(*dbll_sym_lookup) (void *handle, void *parg, void *rmm_handle,
+				const char *name, struct dbll_sym_val ** sym);
 
 /*
- *  ======== DBLL_TellFxn ========
+ *  ======== dbll_tell_fxn ========
  */
-typedef s32(*DBLL_TellFxn) (void *);
+typedef s32(*dbll_tell_fxn) (void *);
 
 /*
- *  ======== DBLL_WriteFxn ========
+ *  ======== dbll_write_fxn ========
  *  Write memory function.  Write "n" HOST bytes of memory to segment "mtype"
  *  starting at address "dspAddr" from the buffer "buf".  The buffer is
  *  formatted as an array of words appropriate for the DSP.
  */
-typedef s32(*DBLL_WriteFxn) (void *hdl, u32 dspAddr, void *buf,
-			     u32 n, s32 mtype);
+typedef s32(*dbll_write_fxn) (void *hdl, u32 dspAddr, void *buf,
+			      u32 n, s32 mtype);
 
 /*
- *  ======== DBLL_Attrs ========
+ *  ======== dbll_attrs ========
  */
-struct DBLL_Attrs {
-	DBLL_AllocFxn alloc;
-	DBLL_FreeFxn free;
-	void *rmmHandle;	/* Handle to pass to alloc, free functions */
-	DBLL_WriteFxn write;
-	void *wHandle;		/* Handle to pass to write, cinit function */
-	bool baseImage;
-	DBLL_LogWriteFxn logWrite;
-	void *logWriteHandle;
+struct dbll_attrs {
+	dbll_alloc_fxn alloc;
+	dbll_free_fxn free;
+	void *rmm_handle;	/* Handle to pass to alloc, free functions */
+	dbll_write_fxn write;
+	void *input_params;	/* Handle to pass to write, cinit function */
+	bool base_image;
+	dbll_log_write_fxn log_write;
+	void *log_write_handle;
 
 	/* Symbol matching function and handle to pass to it */
-	DBLL_SymLookup symLookup;
-	void *symHandle;
-	void *symArg;
+	dbll_sym_lookup sym_lookup;
+	void *sym_handle;
+	void *sym_arg;
 
 	/*
 	 *  These file manipulation functions should be compatible with the
@@ -184,43 +173,43 @@ struct DBLL_Attrs {
 	 s32(*ftell) (void *);
 	 s32(*fclose) (void *);
 	void *(*fopen) (const char *, const char *);
-} ;
+};
 
 /*
- *  ======== DBLL_close ========
- *  Close library opened with DBLL_open.
+ *  ======== dbll_close ========
+ *  Close library opened with dbll_open.
  *  Parameters:
- *      lib             - Handle returned from DBLL_open().
+ *      lib             - Handle returned from dbll_open().
  *  Returns:
  *  Requires:
  *      DBL initialized.
  *      Valid lib.
  *  Ensures:
  */
-typedef void(*DBLL_CloseFxn) (struct DBLL_LibraryObj *library);
+typedef void (*dbll_close_fxn) (struct dbll_library_obj *library);
 
 /*
- *  ======== DBLL_create ========
+ *  ======== dbll_create ========
  *  Create a target object, specifying the alloc, free, and write functions.
  *  Parameters:
- *      pTarget         - Location to store target handle on output.
- *      pAttrs          - Attributes.
+ *      target_obj         - Location to store target handle on output.
+ *      pattrs          - Attributes.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EMEMORY:    Memory allocation failed.
+ *      -ENOMEM:    Memory allocation failed.
  *  Requires:
  *      DBL initialized.
- *      pAttrs != NULL.
- *      pTarget != NULL;
+ *      pattrs != NULL.
+ *      target_obj != NULL;
  *  Ensures:
- *      Success:        *pTarget != NULL.
- *      Failure:        *pTarget == NULL.
+ *      Success:        *target_obj != NULL.
+ *      Failure:        *target_obj == NULL.
  */
-typedef DSP_STATUS(*DBLL_CreateFxn)(struct DBLL_TarObj **pTarget,
-				    struct DBLL_Attrs *attrs);
+typedef dsp_status(*dbll_create_fxn) (struct dbll_tar_obj **target_obj,
+				      struct dbll_attrs *attrs);
 
 /*
- *  ======== DBLL_delete ========
+ *  ======== dbll_delete ========
  *  Delete target object and free resources for any loaded libraries.
  *  Parameters:
  *      target          - Handle returned from DBLL_Create().
@@ -230,25 +219,25 @@ typedef DSP_STATUS(*DBLL_CreateFxn)(struct DBLL_TarObj **pTarget,
  *      Valid target.
  *  Ensures:
  */
-typedef void(*DBLL_DeleteFxn) (struct DBLL_TarObj *target);
+typedef void (*dbll_delete_fxn) (struct dbll_tar_obj *target);
 
 /*
- *  ======== DBLL_exit ========
+ *  ======== dbll_exit ========
  *  Discontinue use of DBL module.
  *  Parameters:
  *  Returns:
  *  Requires:
- *      cRefs > 0.
+ *      refs > 0.
  *  Ensures:
- *      cRefs >= 0.
+ *      refs >= 0.
  */
-typedef void(*DBLL_ExitFxn) (void);
+typedef void (*dbll_exit_fxn) (void);
 
 /*
- *  ======== DBLL_getAddr ========
+ *  ======== dbll_get_addr ========
  *  Get address of name in the specified library.
  *  Parameters:
- *      lib             - Handle returned from DBLL_open().
+ *      lib             - Handle returned from dbll_open().
  *      name            - Name of symbol
  *      ppSym           - Location to store symbol address on output.
  *  Returns:
@@ -261,30 +250,30 @@ typedef void(*DBLL_ExitFxn) (void);
  *      ppSym != NULL.
  *  Ensures:
  */
-typedef bool(*DBLL_GetAddrFxn) (struct DBLL_LibraryObj *lib, char *name,
-				struct DBLL_Symbol **ppSym);
+typedef bool(*dbll_get_addr_fxn) (struct dbll_library_obj *lib, char *name,
+				  struct dbll_sym_val **ppSym);
 
 /*
- *  ======== DBLL_getAttrs ========
+ *  ======== dbll_get_attrs ========
  *  Retrieve the attributes of the target.
  *  Parameters:
  *      target          - Handle returned from DBLL_Create().
- *      pAttrs          - Location to store attributes on output.
+ *      pattrs          - Location to store attributes on output.
  *  Returns:
  *  Requires:
  *      DBL initialized.
  *      Valid target.
- *      pAttrs != NULL.
+ *      pattrs != NULL.
  *  Ensures:
  */
-typedef void(*DBLL_GetAttrsFxn) (struct DBLL_TarObj *target,
-				 struct DBLL_Attrs *attrs);
+typedef void (*dbll_get_attrs_fxn) (struct dbll_tar_obj *target,
+				    struct dbll_attrs *attrs);
 
 /*
- *  ======== DBLL_getCAddr ========
+ *  ======== dbll_get_c_addr ========
  *  Get address of "C" name on the specified library.
  *  Parameters:
- *      lib             - Handle returned from DBLL_open().
+ *      lib             - Handle returned from dbll_open().
  *      name            - Name of symbol
  *      ppSym           - Location to store symbol address on output.
  *  Returns:
@@ -297,17 +286,17 @@ typedef void(*DBLL_GetAttrsFxn) (struct DBLL_TarObj *target,
  *      ppSym != NULL.
  *  Ensures:
  */
-typedef bool(*DBLL_GetCAddrFxn) (struct DBLL_LibraryObj *lib, char *name,
-				 struct DBLL_Symbol **ppSym);
+typedef bool(*dbll_get_c_addr_fxn) (struct dbll_library_obj *lib, char *name,
+				    struct dbll_sym_val **ppSym);
 
 /*
- *  ======== DBLL_getSect ========
+ *  ======== dbll_get_sect ========
  *  Get address and size of a named section.
  *  Parameters:
- *      lib             - Library handle returned from DBLL_open().
+ *      lib             - Library handle returned from dbll_open().
  *      name            - Name of section.
- *      pAddr           - Location to store section address on output.
- *      pSize           - Location to store section size on output.
+ *      paddr           - Location to store section address on output.
+ *      psize           - Location to store section size on output.
  *  Returns:
  *      DSP_SOK:        Success.
  *      DSP_ENOSECT:    Section not found.
@@ -315,40 +304,40 @@ typedef bool(*DBLL_GetCAddrFxn) (struct DBLL_LibraryObj *lib, char *name,
  *      DBL initialized.
  *      Valid lib.
  *      name != NULL.
- *      pAddr != NULL;
- *      pSize != NULL.
+ *      paddr != NULL;
+ *      psize != NULL.
  *  Ensures:
  */
-typedef DSP_STATUS(*DBLL_GetSectFxn) (struct DBLL_LibraryObj *lib, char *name,
-				      u32 *addr, u32 *size);
+typedef dsp_status(*dbll_get_sect_fxn) (struct dbll_library_obj *lib,
+					char *name, u32 * addr, u32 * size);
 
 /*
- *  ======== DBLL_init ========
+ *  ======== dbll_init ========
  *  Initialize DBL module.
  *  Parameters:
  *  Returns:
  *      TRUE:           Success.
  *      FALSE:          Failure.
  *  Requires:
- *      cRefs >= 0.
+ *      refs >= 0.
  *  Ensures:
- *      Success:        cRefs > 0.
- *      Failure:        cRefs >= 0.
+ *      Success:        refs > 0.
+ *      Failure:        refs >= 0.
  */
-typedef bool(*DBLL_InitFxn) (void);
+typedef bool(*dbll_init_fxn) (void);
 
 /*
- *  ======== DBLL_load ========
+ *  ======== dbll_load ========
  *  Load library onto the target.
  *
  *  Parameters:
- *      lib             - Library handle returned from DBLL_open().
+ *      lib             - Library handle returned from dbll_open().
  *      flags           - Load code, data and/or symbols.
  *      attrs           - May contain alloc, free, and write function.
  *      pulEntry        - Location to store program entry on output.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EFREAD:     File read failed.
+ *      -EBADF:     File read failed.
  *      DSP_EFWRITE:    Write to target failed.
  *      DSP_EDYNLOAD:   Failure in dynamic loader library.
  *  Requires:
@@ -357,22 +346,22 @@ typedef bool(*DBLL_InitFxn) (void);
  *      pEntry != NULL.
  *  Ensures:
  */
-typedef DSP_STATUS(*DBLL_LoadFxn) (struct DBLL_LibraryObj *lib,
-				   DBLL_Flags flags,
-				   struct DBLL_Attrs *attrs, u32 *entry);
+typedef dsp_status(*dbll_load_fxn) (struct dbll_library_obj *lib,
+				    dbll_flags flags,
+				    struct dbll_attrs *attrs, u32 *entry);
 
 /*
- *  ======== DBLL_loadSect ========
+ *  ======== dbll_load_sect ========
  *  Load a named section from an library (for overlay support).
  *  Parameters:
- *      lib             - Handle returned from DBLL_open().
+ *      lib             - Handle returned from dbll_open().
  *      sectName        - Name of section to load.
  *      attrs           - Contains write function and handle to pass to it.
  *  Returns:
  *      DSP_SOK:        Success.
  *      DSP_ENOSECT:    Section not found.
  *      DSP_EFWRITE:    Write function failed.
- *      DSP_ENOTIMPL:   Function not implemented.
+ *      -ENOSYS:   Function not implemented.
  *  Requires:
  *      Valid lib.
  *      sectName != NULL.
@@ -380,46 +369,46 @@ typedef DSP_STATUS(*DBLL_LoadFxn) (struct DBLL_LibraryObj *lib,
  *      attrs->write != NULL.
  *  Ensures:
  */
-typedef DSP_STATUS(*DBLL_LoadSectFxn) (struct DBLL_LibraryObj *lib,
-				       char *pszSectName,
-				       struct DBLL_Attrs *attrs);
+typedef dsp_status(*dbll_load_sect_fxn) (struct dbll_library_obj *lib,
+					 char *pszSectName,
+					 struct dbll_attrs *attrs);
 
 /*
- *  ======== DBLL_open ========
- *  DBLL_open() returns a library handle that can be used to load/unload
- *  the symbols/code/data via DBLL_load()/DBLL_unload().
+ *  ======== dbll_open ========
+ *  dbll_open() returns a library handle that can be used to load/unload
+ *  the symbols/code/data via dbll_load()/dbll_unload().
  *  Parameters:
- *      target          - Handle returned from DBLL_create().
+ *      target          - Handle returned from dbll_create().
  *      file            - Name of file to open.
  *      flags           - If flags & DBLL_SYMB, load symbols.
  *      pLib            - Location to store library handle on output.
  *  Returns:
  *      DSP_SOK:            Success.
- *      DSP_EMEMORY:        Memory allocation failure.
- *      DSP_EFOPEN:         File open failure.
- *      DSP_EFREAD:         File read failure.
- *      DSP_ECORRUPTFILE:   Unable to determine target type.
+ *      -ENOMEM:        Memory allocation failure.
+ *      -EBADF:         File open failure.
+ *      -EBADF:         File read failure.
+ *      -EBADF:   Unable to determine target type.
  *  Requires:
  *      DBL initialized.
  *      Valid target.
  *      file != NULL.
  *      pLib != NULL.
- *      DBLL_Attrs fopen function non-NULL.
+ *      dbll_attrs fopen function non-NULL.
  *  Ensures:
  *      Success:        Valid *pLib.
  *      Failure:        *pLib == NULL.
  */
-typedef DSP_STATUS(*DBLL_OpenFxn) (struct DBLL_TarObj *target, char *file,
-				   DBLL_Flags flags,
-				   struct DBLL_LibraryObj **pLib);
+typedef dsp_status(*dbll_open_fxn) (struct dbll_tar_obj *target, char *file,
+				    dbll_flags flags,
+				    struct dbll_library_obj **pLib);
 
 /*
- *  ======== DBLL_readSect ========
+ *  ======== dbll_read_sect ========
  *  Read COFF section into a character buffer.
  *  Parameters:
- *      lib             - Library handle returned from DBLL_open().
+ *      lib             - Library handle returned from dbll_open().
  *      name            - Name of section.
- *      pBuf            - Buffer to write section contents into.
+ *      pbuf            - Buffer to write section contents into.
  *      size            - Buffer size
  *  Returns:
  *      DSP_SOK:        Success.
@@ -428,34 +417,35 @@ typedef DSP_STATUS(*DBLL_OpenFxn) (struct DBLL_TarObj *target, char *file,
  *      DBL initialized.
  *      Valid lib.
  *      name != NULL.
- *      pBuf != NULL.
+ *      pbuf != NULL.
  *      size != 0.
  *  Ensures:
  */
-typedef DSP_STATUS(*DBLL_ReadSectFxn) (struct DBLL_LibraryObj *lib, char *name,
-				       char *content, u32 uContentSize);
+typedef dsp_status(*dbll_read_sect_fxn) (struct dbll_library_obj *lib,
+					 char *name, char *content,
+					 u32 uContentSize);
 
 /*
- *  ======== DBLL_setAttrs ========
+ *  ======== dbll_set_attrs ========
  *  Set the attributes of the target.
  *  Parameters:
- *      target          - Handle returned from DBLL_create().
- *      pAttrs          - New attributes.
+ *      target          - Handle returned from dbll_create().
+ *      pattrs          - New attributes.
  *  Returns:
  *  Requires:
  *      DBL initialized.
  *      Valid target.
- *      pAttrs != NULL.
+ *      pattrs != NULL.
  *  Ensures:
  */
-typedef void(*DBLL_SetAttrsFxn)(struct DBLL_TarObj *target,
-				struct DBLL_Attrs *attrs);
+typedef void (*dbll_set_attrs_fxn) (struct dbll_tar_obj *target,
+				    struct dbll_attrs *attrs);
 
 /*
- *  ======== DBLL_unload ========
- *  Unload library loaded with DBLL_load().
+ *  ======== dbll_unload ========
+ *  Unload library loaded with dbll_load().
  *  Parameters:
- *      lib             - Handle returned from DBLL_open().
+ *      lib             - Handle returned from dbll_open().
  *      attrs           - Contains free() function and handle to pass to it.
  *  Returns:
  *  Requires:
@@ -463,47 +453,47 @@ typedef void(*DBLL_SetAttrsFxn)(struct DBLL_TarObj *target,
  *      Valid lib.
  *  Ensures:
  */
-typedef void(*DBLL_UnloadFxn) (struct DBLL_LibraryObj *library,
-			       struct DBLL_Attrs *attrs);
+typedef void (*dbll_unload_fxn) (struct dbll_library_obj *library,
+				 struct dbll_attrs *attrs);
 
 /*
- *  ======== DBLL_unloadSect ========
+ *  ======== dbll_unload_sect ========
  *  Unload a named section from an library (for overlay support).
  *  Parameters:
- *      lib             - Handle returned from DBLL_open().
+ *      lib             - Handle returned from dbll_open().
  *      sectName        - Name of section to load.
  *      attrs           - Contains free() function and handle to pass to it.
  *  Returns:
  *      DSP_SOK:        Success.
  *      DSP_ENOSECT:    Named section not found.
- *      DSP_ENOTIMPL
+ *      -ENOSYS
  *  Requires:
  *      DBL initialized.
  *      Valid lib.
  *      sectName != NULL.
  *  Ensures:
  */
-typedef DSP_STATUS(*DBLL_UnloadSectFxn) (struct DBLL_LibraryObj *lib,
-					 char *pszSectName,
-					 struct DBLL_Attrs *attrs);
+typedef dsp_status(*dbll_unload_sect_fxn) (struct dbll_library_obj *lib,
+					   char *pszSectName,
+					   struct dbll_attrs *attrs);
 
-struct DBLL_Fxns {
-	DBLL_CloseFxn closeFxn;
-	DBLL_CreateFxn createFxn;
-	DBLL_DeleteFxn deleteFxn;
-	DBLL_ExitFxn exitFxn;
-	DBLL_GetAttrsFxn getAttrsFxn;
-	DBLL_GetAddrFxn getAddrFxn;
-	DBLL_GetCAddrFxn getCAddrFxn;
-	DBLL_GetSectFxn getSectFxn;
-	DBLL_InitFxn initFxn;
-	DBLL_LoadFxn loadFxn;
-	DBLL_LoadSectFxn loadSectFxn;
-	DBLL_OpenFxn openFxn;
-	DBLL_ReadSectFxn readSectFxn;
-	DBLL_SetAttrsFxn setAttrsFxn;
-	DBLL_UnloadFxn unloadFxn;
-	DBLL_UnloadSectFxn unloadSectFxn;
-} ;
+struct dbll_fxns {
+	dbll_close_fxn close_fxn;
+	dbll_create_fxn create_fxn;
+	dbll_delete_fxn delete_fxn;
+	dbll_exit_fxn exit_fxn;
+	dbll_get_attrs_fxn get_attrs_fxn;
+	dbll_get_addr_fxn get_addr_fxn;
+	dbll_get_c_addr_fxn get_c_addr_fxn;
+	dbll_get_sect_fxn get_sect_fxn;
+	dbll_init_fxn init_fxn;
+	dbll_load_fxn load_fxn;
+	dbll_load_sect_fxn load_sect_fxn;
+	dbll_open_fxn open_fxn;
+	dbll_read_sect_fxn read_sect_fxn;
+	dbll_set_attrs_fxn set_attrs_fxn;
+	dbll_unload_fxn unload_fxn;
+	dbll_unload_sect_fxn unload_sect_fxn;
+};
 
-#endif				/* DBLDEFS_ */
+#endif /* DBLDEFS_ */

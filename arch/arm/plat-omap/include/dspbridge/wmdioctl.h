@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * BRIDGE Minidriver BRD_IOCtl reserved command definitions.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,30 +16,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== wmdioctl.h ========
- *  Description:
- *    BRIDGE Minidriver BRD_IOCtl reserved command definitions.
- *
- *! Revision History
- *! ================
- *! 19-Apr-2004 sb   Updated HW typedefs
- *! 16-Feb-2004 vp   Added MMU endianness attributes to WMDIOCTL_EXTPROC
- *! 21-Mar-2003 sb   Changed WMDIOCTL_NUMOFMMUTLB from 7 to 32
- *! 14-May-2001 sg   Added codes for PWR.
- *! 10-Aug-2001 ag   Added _SETMMUCONFIG ioctl used for DSP-MMU init.
- *! 16-Nov-1999 rajesh ?
- *! 18-Jun-1998 ag   Moved EMIF, SDRAM_C, & CE space init to ENBLEXTMEM ioctl.
- *!                  Added ENBLEXTMEM, RESETDSP, UNRESETDSP & ASSERTSIG ioctls.
- *! 07-Jun-1998 ag   Added JTAG_SELECT, MAP_TBC, GET_CONFIGURATION ioctls.
- *! 26-Jan-1998 jeh: Added START, RECV, and SEND ioctls.
- *! 07-Nov-1997 nn:  Added command to interrupt DSP for interrupt test.
- *! 20-Oct-1997 nn:  Added commands for getting and resetting interrupt count.
- *! 17-Oct-1997 gp:  Moved to src/wmd. Standardized prefix.
- *! 08-Oct-1997 nn:  Created.
- */
-
 #ifndef WMDIOCTL_
 #define WMDIOCTL_
 
@@ -45,7 +23,10 @@
 #include <hw_defs.h>
 #include <hw_mmu.h>
 
-/* Any IOCTLS at or above this value are reserved for standard WMD interfaces.*/
+/*
+ * Any IOCTLS at or above this value are reserved for standard WMD
+ * interfaces.
+ */
 #define WMDIOCTL_RESERVEDBASE       0x8000
 
 #define WMDIOCTL_CHNLREAD           (WMDIOCTL_RESERVEDBASE + 0x10)
@@ -53,8 +34,10 @@
 #define WMDIOCTL_GETINTRCOUNT       (WMDIOCTL_RESERVEDBASE + 0x30)
 #define WMDIOCTL_RESETINTRCOUNT     (WMDIOCTL_RESERVEDBASE + 0x40)
 #define WMDIOCTL_INTERRUPTDSP       (WMDIOCTL_RESERVEDBASE + 0x50)
-#define WMDIOCTL_SETMMUCONFIG       (WMDIOCTL_RESERVEDBASE + 0x60)   /* DMMU */
-#define WMDIOCTL_PWRCONTROL         (WMDIOCTL_RESERVEDBASE + 0x70)   /* PWR */
+/* DMMU */
+#define WMDIOCTL_SETMMUCONFIG       (WMDIOCTL_RESERVEDBASE + 0x60)
+/* PWR */
+#define WMDIOCTL_PWRCONTROL         (WMDIOCTL_RESERVEDBASE + 0x70)
 
 /* attention, modifiers:
  * Some of these control enumerations are made visible to user for power
@@ -67,8 +50,8 @@
 #define WMDIOCTL_PWRENABLE          (WMDIOCTL_PWRCONTROL + 0x3)
 #define WMDIOCTL_PWRDISABLE         (WMDIOCTL_PWRCONTROL + 0x4)
 #define WMDIOCTL_CLK_CTRL		    (WMDIOCTL_PWRCONTROL + 0x7)
-#define WMDIOCTL_PWR_HIBERNATE (WMDIOCTL_PWRCONTROL + 0x8) /*DSP Initiated
-							    * Hibernate*/
+/* DSP Initiated Hibernate */
+#define WMDIOCTL_PWR_HIBERNATE	(WMDIOCTL_PWRCONTROL + 0x8)
 #define WMDIOCTL_PRESCALE_NOTIFY (WMDIOCTL_PWRCONTROL + 0x9)
 #define WMDIOCTL_POSTSCALE_NOTIFY (WMDIOCTL_PWRCONTROL + 0xA)
 #define WMDIOCTL_CONSTRAINT_REQUEST (WMDIOCTL_PWRCONTROL + 0xB)
@@ -76,16 +59,15 @@
 /* Number of actual DSP-MMU TLB entrries */
 #define WMDIOCTL_NUMOFMMUTLB        32
 
-struct WMDIOCTL_EXTPROC {
-	u32 ulDspVa;		/* DSP virtual address */
-	u32 ulGppPa;		/* GPP physical address */
+struct wmdioctl_extproc {
+	u32 ul_dsp_va;		/* DSP virtual address */
+	u32 ul_gpp_pa;		/* GPP physical address */
 	/* GPP virtual address. __va does not work for ioremapped addresses */
-	u32 ulGppVa;
-	u32 ulSize;		/* Size of the mapped memory in bytes */
-	enum HW_Endianism_t endianism;
-	enum HW_MMUMixedSize_t mixedMode;
-	enum HW_ElementSize_t elemSize;
+	u32 ul_gpp_va;
+	u32 ul_size;		/* Size of the mapped memory in bytes */
+	enum hw_endianism_t endianism;
+	enum hw_mmu_mixed_size_t mixed_mode;
+	enum hw_element_size_t elem_size;
 };
 
-#endif				/* WMDIOCTL_ */
-
+#endif /* WMDIOCTL_ */

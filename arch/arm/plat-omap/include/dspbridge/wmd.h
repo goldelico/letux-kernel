@@ -3,6 +3,18 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Bridge mini driver entry point and interface function declarations.
+ *
+ * Notes:
+ *   The Bridge class driver obtains it's function interface to
+ *   the Bridge mini driver via a call to bridge_drv_entry().
+ *
+ *   Bridge Class Driver services exported to WMD's are initialized by the
+ *   WCD on behalf of the WMD.
+ *
+ *   WMD function DBC Requires and Ensures are also made by the WCD on
+ *   behalf of the WMD, to simplify the WMD code.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,51 +24,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== wmd.h ========
- *  Purpose:
- *      'Bridge mini driver entry point and interface function declarations.
- *
- *  Public Functions:
- *      WMD_DRV_Entry
- *
- *  Notes:
- *      The 'Bridge class driver obtains it's function interface to
- *      the 'Bridge mini driver via a call to WMD_DRV_Entry().
- *
- *      'Bridge Class Driver services exported to WMD's are initialized by the
- *      WCD on behalf of the WMD.
- *
- *      WMD function DBC Requires and Ensures are also made by the WCD on
- *      behalf of the WMD, to simplify the WMD code.
- *
- *! Revision History:
- *! ================
- *! 19-Apr-2004 sb  Aligned DMM definitions with Symbian
- *! 08-Mar-2004 sb  Added the Dynamic Memory Mapping APIs - WMD_BRD_MemMap/UnMap
- *! 01-Mar-2004 vp  Added filename argument to WMD_DRV_Entry function.
- *! 29-Aug-2002 map Added WMD_BRD_MemWrite()
- *! 26-Aug-2002 map Added WMD_BRD_MemCopy()
- *! 07-Jan-2002 ag  Added cBufSize to WMD_CHNL_AddIOReq().
- *! 05-Nov-2001 kc: Added error handling DEH functions.
- *! 06-Dec-2000 jeh Added uEventMask to WMD_MSG_RegisterNotify().
- *! 17-Nov-2000 jeh Added WMD_MSG and WMD_IO definitions.
- *! 01-Nov-2000 jeh Added more error codes to WMD_CHNL_RegisterNotify().
- *! 13-Oct-2000 jeh Added dwArg to WMD_CHNL_AddIOReq(), added WMD_CHNL_IDLE
- *!                 and WMD_CHNL_RegisterNotify for DSPStream support.
- *! 17-Jan-2000 rr: WMD_BRD_SETSTATE Added.
- *! 30-Jul-1997 gp: Split wmd IOCTL space into reserved and private.
- *! 07-Nov-1996 gp: Updated for code review.
- *! 18-Oct-1996 gp: Added WMD_E_HARDWARE return code from WMD_BRD_Monitor.
- *! 09-Sep-1996 gp: Subtly altered the semantics of WMD_CHNL_GetInfo().
- *! 02-Aug-1996 gp: Ensured on BRD_Start that interrupts to the PC are enabled.
- *! 11-Jul-1996 gp: Added CHNL interface. Note stronger DBC_Require conditions.
- *! 29-May-1996 gp: Removed WCD_ prefix from functions imported from WCD.LIB.
- *! 29-May-1996 gp: Made OUT param first in WMD_DEV_Create().
- *! 09-May-1996 gp: Created.
  */
 
 #ifndef WMD_
@@ -76,15 +43,15 @@
  */
 #define WMD_RESERVEDIOCTLBASE   0x8000
 
-/* Handle to mini-driver's private device context.  */
-	struct WMD_DEV_CONTEXT;
+/* Handle to mini-driver's private device context. */
+struct wmd_dev_context;
 
-/*---------------------------------------------------------------------------*/
-/* 'Bridge MINI DRIVER FUNCTION TYPES                                        */
-/*---------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------- */
+/* 'Bridge MINI DRIVER FUNCTION TYPES */
+/*--------------------------------------------------------------------------- */
 
 /*
- *  ======== WMD_BRD_Monitor ========
+ *  ======== bridge_brd_monitor ========
  *  Purpose:
  *      Bring the board to the BRD_IDLE (monitor) state.
  *  Parameters:
@@ -92,20 +59,18 @@
  *  Returns:
  *      DSP_SOK:        Success.
  *      WMD_E_HARDWARE: A test of hardware assumptions/integrity failed.
- *      WMD_E_TIMEOUT:  Timeout occured waiting for a response from hardware.
- *      DSP_EFAIL:      Other, unspecified error.
+ *      -ETIMEDOUT:  Timeout occured waiting for a response from hardware.
+ *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL
  *  Ensures:
  *      DSP_SOK:        Board is in BRD_IDLE state;
  *      else:           Board state is indeterminate.
  */
-       typedef DSP_STATUS(
-			   *WMD_BRD_MONITOR) (struct WMD_DEV_CONTEXT
-			   *hDevContext);
+typedef dsp_status(*fxn_brd_monitor) (struct wmd_dev_context *hDevContext);
 
 /*
- *  ======== WMD_BRD_SETSTATE ========
+ *  ======== fxn_brd_setstate ========
  *  Purpose:
  *      Sets the Mini driver state
  *  Parameters:
@@ -113,7 +78,7 @@
  *      ulBrdState:     Board state
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EFAIL:      Other, unspecified error.
+ *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL;
  *      ulBrdState  <= BRD_LASTSTATE.
@@ -121,12 +86,11 @@
  *      ulBrdState  <= BRD_LASTSTATE.
  *  Update the Board state to the specified state.
  */
-       typedef DSP_STATUS(
-			   *WMD_BRD_SETSTATE) (struct WMD_DEV_CONTEXT
-			   *hDevContext, u32 ulBrdState);
+typedef dsp_status(*fxn_brd_setstate) (struct wmd_dev_context
+				       * hDevContext, u32 ulBrdState);
 
 /*
- *  ======== WMD_BRD_Start ========
+ *  ======== bridge_brd_start ========
  *  Purpose:
  *      Bring board to the BRD_RUNNING (start) state.
  *  Parameters:
@@ -134,8 +98,8 @@
  *      dwDSPAddr:      DSP address at which to start execution.
  *  Returns:
  *      DSP_SOK:        Success.
- *      WMD_E_TIMEOUT:  Timeout occured waiting for a response from hardware.
- *      DSP_EFAIL:      Other, unspecified error.
+ *      -ETIMEDOUT:  Timeout occured waiting for a response from hardware.
+ *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL
  *      Board is in monitor (BRD_IDLE) state.
@@ -144,112 +108,111 @@
  *                      Interrupts to the PC are enabled.
  *      else:           Board state is indeterminate.
  */
-       typedef DSP_STATUS(*WMD_BRD_START) (struct WMD_DEV_CONTEXT
-						*hDevContext, u32 dwDSPAddr);
+typedef dsp_status(*fxn_brd_start) (struct wmd_dev_context
+				    * hDevContext, u32 dwDSPAddr);
 
 /*
- *  ======== WMD_BRD_MemCopy ========
+ *  ======== bridge_brd_mem_copy ========
  *  Purpose:
  *  Copy memory from one DSP address to another
  *  Parameters:
- *      pDevContext:    Pointer to context handle
+ *      dev_context:    Pointer to context handle
  *  ulDspDestAddr:  DSP address to copy to
  *  ulDspSrcAddr:   DSP address to copy from
- *  ulNumBytes: Number of bytes to copy
+ *  ul_num_bytes: Number of bytes to copy
  *  ulMemType:  What section of memory to copy to
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EFAIL:      Other, unspecified error.
+ *      -EPERM:      Other, unspecified error.
  *  Requires:
- *      pDevContext != NULL
+ *      dev_context != NULL
  *  Ensures:
  *      DSP_SOK:        Board is in BRD_RUNNING state.
  *                      Interrupts to the PC are enabled.
  *      else:           Board state is indeterminate.
  */
-       typedef DSP_STATUS(*WMD_BRD_MEMCOPY) (struct WMD_DEV_CONTEXT
-					     *hDevContext,
-					     u32 ulDspDestAddr,
-					     u32 ulDspSrcAddr,
-					     u32 ulNumBytes, u32 ulMemType);
+typedef dsp_status(*fxn_brd_memcopy) (struct wmd_dev_context
+				      * hDevContext,
+				      u32 ulDspDestAddr,
+				      u32 ulDspSrcAddr,
+				      u32 ul_num_bytes, u32 ulMemType);
 /*
- *  ======== WMD_BRD_MemWrite ========
+ *  ======== bridge_brd_mem_write ========
  *  Purpose:
  *      Write a block of host memory into a DSP address, into a given memory
- *      space.  Unlike WMD_BRD_Write, this API does reset the DSP
+ *      space.  Unlike bridge_brd_write, this API does reset the DSP
  *  Parameters:
  *      hDevContext:    Handle to mini-driver defined device info.
  *      dwDSPAddr:      Address on DSP board (Destination).
  *      pHostBuf:       Pointer to host buffer (Source).
- *      ulNumBytes:     Number of bytes to transfer.
+ *      ul_num_bytes:     Number of bytes to transfer.
  *      ulMemType:      Memory space on DSP to which to transfer.
  *  Returns:
  *      DSP_SOK:        Success.
- *      WMD_E_TIMEOUT:  Timeout occured waiting for a response from hardware.
- *      DSP_EFAIL:      Other, unspecified error.
+ *      -ETIMEDOUT:  Timeout occured waiting for a response from hardware.
+ *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL;
  *      pHostBuf != NULL.
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_BRD_MEMWRITE) (struct WMD_DEV_CONTEXT
-					*hDevContext,
-					IN u8 *pHostBuf,
-					u32 dwDSPAddr, u32 ulNumBytes,
-					u32 ulMemType);
+typedef dsp_status(*fxn_brd_memwrite) (struct wmd_dev_context
+				       * hDevContext,
+				       IN u8 *pHostBuf,
+				       u32 dwDSPAddr, u32 ul_num_bytes,
+				       u32 ulMemType);
 
 /*
- *  ======== WMD_BRD_MemMap ========
+ *  ======== bridge_brd_mem_map ========
  *  Purpose:
  *      Map a MPU memory region to a DSP/IVA memory space
  *  Parameters:
  *      hDevContext:    Handle to mini-driver defined device info.
- *      ulMpuAddr:      MPU memory region start address.
+ *      ul_mpu_addr:      MPU memory region start address.
  *      ulVirtAddr:     DSP/IVA memory region u8 address.
- *      ulNumBytes:     Number of bytes to map.
- *      mapAttrs:       Mapping attributes (e.g. endianness).
+ *      ul_num_bytes:     Number of bytes to map.
+ *      map_attrs:       Mapping attributes (e.g. endianness).
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EFAIL:      Other, unspecified error.
+ *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL;
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_BRD_MEMMAP) (struct WMD_DEV_CONTEXT
-					*hDevContext, u32 ulMpuAddr,
-					u32 ulVirtAddr, u32 ulNumBytes,
-					u32 ulMapAttrs);
+typedef dsp_status(*fxn_brd_memmap) (struct wmd_dev_context
+				     * hDevContext, u32 ul_mpu_addr,
+				     u32 ulVirtAddr, u32 ul_num_bytes,
+				     u32 ulMapAttrs);
 
 /*
- *  ======== WMD_BRD_MemUnMap ========
+ *  ======== bridge_brd_mem_un_map ========
  *  Purpose:
  *      UnMap an MPU memory region from DSP/IVA memory space
  *  Parameters:
  *      hDevContext:    Handle to mini-driver defined device info.
  *      ulVirtAddr:     DSP/IVA memory region u8 address.
- *      ulNumBytes:     Number of bytes to unmap.
+ *      ul_num_bytes:     Number of bytes to unmap.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EFAIL:      Other, unspecified error.
+ *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL;
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_BRD_MEMUNMAP) (struct WMD_DEV_CONTEXT
-					*hDevContext,
-					u32 ulVirtAddr,
-					u32 ulNumBytes);
+typedef dsp_status(*fxn_brd_memunmap) (struct wmd_dev_context
+				       * hDevContext,
+				       u32 ulVirtAddr, u32 ul_num_bytes);
 
 /*
- *  ======== WMD_BRD_Stop ========
+ *  ======== bridge_brd_stop ========
  *  Purpose:
  *      Bring board to the BRD_STOPPED state.
  *  Parameters:
  *      hDevContext:    Handle to mini-driver defined device context.
  *  Returns:
  *      DSP_SOK:        Success.
- *      WMD_E_TIMEOUT:  Timeout occured waiting for a response from hardware.
- *      DSP_EFAIL:      Other, unspecified error.
+ *      -ETIMEDOUT:  Timeout occured waiting for a response from hardware.
+ *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL
  *  Ensures:
@@ -257,11 +220,10 @@
  *                      Interrupts to the PC are disabled.
  *      else:           Board state is indeterminate.
  */
-       typedef DSP_STATUS(*WMD_BRD_STOP) (struct WMD_DEV_CONTEXT
-					*hDevContext);
+typedef dsp_status(*fxn_brd_stop) (struct wmd_dev_context *hDevContext);
 
 /*
- *  ======== WMD_BRD_Status ========
+ *  ======== bridge_brd_status ========
  *  Purpose:
  *      Report the current state of the board.
  *  Parameters:
@@ -275,12 +237,11 @@
  *  Ensures:
  *      *pdwState is one of {BRD_STOPPED, BRD_IDLE, BRD_RUNNING, BRD_UNKNOWN};
  */
-       typedef DSP_STATUS(*
-			   WMD_BRD_STATUS) (struct WMD_DEV_CONTEXT *hDevContext,
-					    OUT BRD_STATUS * pdwState);
+typedef dsp_status(*fxn_brd_status) (struct wmd_dev_context *hDevContext,
+				     int *pdwState);
 
 /*
- *  ======== WMD_BRD_Read ========
+ *  ======== bridge_brd_read ========
  *  Purpose:
  *      Read a block of DSP memory, from a given memory space, into a host
  *      buffer.
@@ -288,26 +249,25 @@
  *      hDevContext:    Handle to mini-driver defined device info.
  *      pHostBuf:       Pointer to host buffer (Destination).
  *      dwDSPAddr:      Address on DSP board (Source).
- *      ulNumBytes:     Number of bytes to transfer.
+ *      ul_num_bytes:     Number of bytes to transfer.
  *      ulMemType:      Memory space on DSP from which to transfer.
  *  Returns:
  *      DSP_SOK:        Success.
- *      WMD_E_TIMEOUT:  Timeout occured waiting for a response from hardware.
- *      DSP_EFAIL:      Other, unspecified error.
+ *      -ETIMEDOUT:  Timeout occured waiting for a response from hardware.
+ *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL;
  *      pHostBuf != NULL.
  *  Ensures:
- *  Will not write more than ulNumBytes bytes into pHostBuf.
+ *  Will not write more than ul_num_bytes bytes into pHostBuf.
  */
-typedef DSP_STATUS(*WMD_BRD_READ) (struct WMD_DEV_CONTEXT *hDevContext,
-						  OUT u8 *pHostBuf,
-						  u32 dwDSPAddr,
-						  u32 ulNumBytes,
-						  u32 ulMemType);
+typedef dsp_status(*fxn_brd_read) (struct wmd_dev_context *hDevContext,
+				   OUT u8 *pHostBuf,
+				   u32 dwDSPAddr,
+				   u32 ul_num_bytes, u32 ulMemType);
 
 /*
- *  ======== WMD_BRD_Write ========
+ *  ======== bridge_brd_write ========
  *  Purpose:
  *      Write a block of host memory into a DSP address, into a given memory
  *      space.
@@ -315,187 +275,185 @@ typedef DSP_STATUS(*WMD_BRD_READ) (struct WMD_DEV_CONTEXT *hDevContext,
  *      hDevContext:    Handle to mini-driver defined device info.
  *      dwDSPAddr:      Address on DSP board (Destination).
  *      pHostBuf:       Pointer to host buffer (Source).
- *      ulNumBytes:     Number of bytes to transfer.
+ *      ul_num_bytes:     Number of bytes to transfer.
  *      ulMemType:      Memory space on DSP to which to transfer.
  *  Returns:
  *      DSP_SOK:        Success.
- *      WMD_E_TIMEOUT:  Timeout occured waiting for a response from hardware.
- *      DSP_EFAIL:      Other, unspecified error.
+ *      -ETIMEDOUT:  Timeout occured waiting for a response from hardware.
+ *      -EPERM:      Other, unspecified error.
  *  Requires:
  *      hDevContext != NULL;
  *      pHostBuf != NULL.
  *  Ensures:
  */
-typedef DSP_STATUS(*WMD_BRD_WRITE)(struct WMD_DEV_CONTEXT *hDevContext,
-						   IN u8 *pHostBuf,
-						   u32 dwDSPAddr,
-						   u32 ulNumBytes,
-						   u32 ulMemType);
+typedef dsp_status(*fxn_brd_write) (struct wmd_dev_context *hDevContext,
+				    IN u8 *pHostBuf,
+				    u32 dwDSPAddr,
+				    u32 ul_num_bytes, u32 ulMemType);
 
 /*
- *  ======== WMD_CHNL_Create ========
+ *  ======== bridge_chnl_create ========
  *  Purpose:
  *      Create a channel manager object, responsible for opening new channels
  *      and closing old ones for a given 'Bridge board.
  *  Parameters:
  *      phChnlMgr:      Location to store a channel manager object on output.
- *      hDevObject:     Handle to a device object.
+ *      hdev_obj:     Handle to a device object.
  *      pMgrAttrs:      Channel manager attributes.
- *      pMgrAttrs->cChannels: Max channels
- *      pMgrAttrs->bIRQ:      Channel's I/O IRQ number.
- *      pMgrAttrs->fShared:   TRUE if the IRQ is shareable.
- *      pMgrAttrs->uWordSize: DSP Word size in equivalent PC bytes..
- *      pMgrAttrs->dwSMBase:  Base physical address of shared memory, if any.
- *      pMgrAttrs->uSMLength: Bytes of shared memory block.
+ *      pMgrAttrs->max_channels: Max channels
+ *      pMgrAttrs->birq:      Channel's I/O IRQ number.
+ *      pMgrAttrs->irq_shared:   TRUE if the IRQ is shareable.
+ *      pMgrAttrs->word_size: DSP Word size in equivalent PC bytes..
+ *      pMgrAttrs->shm_base:  Base physical address of shared memory, if any.
+ *      pMgrAttrs->usm_length: Bytes of shared memory block.
  *  Returns:
  *      DSP_SOK:            Success;
- *      DSP_EMEMORY:        Insufficient memory for requested resources.
+ *      -ENOMEM:        Insufficient memory for requested resources.
  *      CHNL_E_ISR:         Unable to plug ISR for given IRQ.
  *      CHNL_E_NOMEMMAP:    Couldn't map physical address to a virtual one.
  *  Requires:
  *      phChnlMgr != NULL.
  *      pMgrAttrs != NULL
  *      pMgrAttrs field are all valid:
- *          0 < cChannels <= CHNL_MAXCHANNELS.
- *          bIRQ <= 15.
- *          uWordSize > 0.
- *      IsValidHandle(hDevObject)
+ *          0 < max_channels <= CHNL_MAXCHANNELS.
+ *          birq <= 15.
+ *          word_size > 0.
+ *      hdev_obj != NULL
  *      No channel manager exists for this board.
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_CHNL_CREATE)(OUT struct CHNL_MGR
-						    **phChnlMgr,
-						    struct DEV_OBJECT
-						    *hDevObject,
-						    IN CONST struct
-						    CHNL_MGRATTRS *pMgrAttrs);
+typedef dsp_status(*fxn_chnl_create) (OUT struct chnl_mgr
+				      **phChnlMgr,
+				      struct dev_object
+				      * hdev_obj,
+				      IN CONST struct
+				      chnl_mgrattrs * pMgrAttrs);
 
 /*
- *  ======== WMD_CHNL_Destroy ========
+ *  ======== bridge_chnl_destroy ========
  *  Purpose:
  *      Close all open channels, and destroy the channel manager.
  *  Parameters:
- *      hChnlMgr:       Channel manager object.
+ *      hchnl_mgr:       Channel manager object.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    hChnlMgr was invalid.
+ *      -EFAULT:    hchnl_mgr was invalid.
  *  Requires:
  *  Ensures:
  *      DSP_SOK: Cancels I/O on each open channel. Closes each open channel.
- *          CHNL_Create may subsequently be called for the same device.
+ *          chnl_create may subsequently be called for the same device.
  */
-       typedef DSP_STATUS(*WMD_CHNL_DESTROY) (struct CHNL_MGR
-						      *hChnlMgr);
+typedef dsp_status(*fxn_chnl_destroy) (struct chnl_mgr *hchnl_mgr);
 /*
- *  ======== WMD_DEH_Notify ========
+ *  ======== bridge_deh_notify ========
  *  Purpose:
  *      When notified of DSP error, take appropriate action.
  *  Parameters:
- *      hDehMgr:        Handle to DEH manager object.
+ *      hdeh_mgr:        Handle to DEH manager object.
  *      ulEventMask:  Indicate the type of exception
  *      dwErrInfo:     Error information
  *  Returns:
  *
  *  Requires:
- *      hDehMgr != NULL;
+ *      hdeh_mgr != NULL;
  *     ulEventMask with a valid exception
  *  Ensures:
  */
-       typedef void (*WMD_DEH_NOTIFY)(struct DEH_MGR *hDehMgr,
-					u32 ulEventMask, u32 dwErrInfo);
-
+typedef void (*fxn_deh_notify) (struct deh_mgr *hdeh_mgr,
+				u32 ulEventMask, u32 dwErrInfo);
 
 /*
- *  ======== WMD_CHNL_Open ========
+ *  ======== bridge_chnl_open ========
  *  Purpose:
  *      Open a new half-duplex channel to the DSP board.
  *  Parameters:
  *      phChnl:         Location to store a channel object handle.
- *      hChnlMgr:       Handle to channel manager, as returned by CHNL_GetMgr().
- *      uMode:          One of {CHNL_MODETODSP, CHNL_MODEFROMDSP} specifies
+ *      hchnl_mgr:	Handle to channel manager, as returned by
+ *      		CHNL_GetMgr().
+ *      chnl_mode:          One of {CHNL_MODETODSP, CHNL_MODEFROMDSP} specifies
  *                      direction of data transfer.
  *      uChnlId:        If CHNL_PICKFREE is specified, the channel manager will
  *                      select a free channel id (default);
  *                      otherwise this field specifies the id of the channel.
- *      pAttrs:         Channel attributes.  Attribute fields are as follows:
- *      pAttrs->uIOReqs: Specifies the maximum number of I/O requests which can
+ *      pattrs:         Channel attributes.  Attribute fields are as follows:
+ *      pattrs->uio_reqs: Specifies the maximum number of I/O requests which can
  *                      be pending at any given time. All request packets are
  *                      preallocated when the channel is opened.
- *      pAttrs->hEvent: This field allows the user to supply an auto reset
+ *      pattrs->event_obj: This field allows the user to supply an auto reset
  *                      event object for channel I/O completion notifications.
  *                      It is the responsibility of the user to destroy this
  *                      object AFTER closing the channel.
  *                      This channel event object can be retrieved using
  *                      CHNL_GetEventHandle().
- *      pAttrs->hReserved: The kernel mode handle of this event object.
+ *      pattrs->hReserved: The kernel mode handle of this event object.
  *
  *  Returns:
  *      DSP_SOK:                Success.
- *      DSP_EHANDLE:            hChnlMgr is invalid.
- *      DSP_EMEMORY:            Insufficient memory for requested resources.
- *      DSP_EINVALIDARG:        Invalid number of IOReqs.
+ *      -EFAULT:            hchnl_mgr is invalid.
+ *      -ENOMEM:            Insufficient memory for requested resources.
+ *      -EINVAL:        Invalid number of IOReqs.
  *      CHNL_E_OUTOFSTREAMS:    No free channels available.
  *      CHNL_E_BADCHANID:       Channel ID is out of range.
- *      CHNL_E_CHANBUSY:        Channel is in use.
+ *      -EALREADY:        Channel is in use.
  *      CHNL_E_NOIORPS:         No free IO request packets available for
  *                              queuing.
  *  Requires:
  *      phChnl != NULL.
- *      pAttrs != NULL.
- *      pAttrs->hEvent is a valid event handle.
- *      pAttrs->hReserved is the kernel mode handle for pAttrs->hEvent.
+ *      pattrs != NULL.
+ *      pattrs->event_obj is a valid event handle.
+ *      pattrs->hReserved is the kernel mode handle for pattrs->event_obj.
  *  Ensures:
  *      DSP_SOK:                *phChnl is a valid channel.
  *      else:                   *phChnl is set to NULL if (phChnl != NULL);
  */
-       typedef DSP_STATUS(*WMD_CHNL_OPEN) (OUT struct CHNL_OBJECT
-						   **phChnl,
-						   struct CHNL_MGR *hChnlMgr,
-						   CHNL_MODE uMode,
-						   u32 uChnlId,
-						   CONST IN OPTIONAL struct
-						   CHNL_ATTRS *pAttrs);
+typedef dsp_status(*fxn_chnl_open) (OUT struct chnl_object
+				    **phChnl,
+				    struct chnl_mgr *hchnl_mgr,
+				    s8 chnl_mode,
+				    u32 uChnlId,
+				    CONST IN OPTIONAL struct
+				    chnl_attr * pattrs);
 
 /*
- *  ======== WMD_CHNL_Close ========
+ *  ======== bridge_chnl_close ========
  *  Purpose:
  *      Ensures all pending I/O on this channel is cancelled, discards all
  *      queued I/O completion notifications, then frees the resources allocated
  *      for this channel, and makes the corresponding logical channel id
  *      available for subsequent use.
  *  Parameters:
- *      hChnl:          Handle to a channel object.
+ *      chnl_obj:          Handle to a channel object.
  *  Returns:
  *      DSP_SOK:        Success;
- *      DSP_EHANDLE:    Invalid hChnl.
+ *      -EFAULT:    Invalid chnl_obj.
  *  Requires:
  *      No thread must be blocked on this channel's I/O completion event.
  *  Ensures:
- *      DSP_SOK:        hChnl is no longer valid.
+ *      DSP_SOK:        chnl_obj is no longer valid.
  */
-       typedef DSP_STATUS(*WMD_CHNL_CLOSE) (struct CHNL_OBJECT *hChnl);
+typedef dsp_status(*fxn_chnl_close) (struct chnl_object *chnl_obj);
 
 /*
- *  ======== WMD_CHNL_AddIOReq ========
+ *  ======== bridge_chnl_add_io_req ========
  *  Purpose:
  *      Enqueue an I/O request for data transfer on a channel to the DSP.
  *      The direction (mode) is specified in the channel object. Note the DSP
  *      address is specified for channels opened in direct I/O mode.
  *  Parameters:
- *      hChnl:          Channel object handle.
+ *      chnl_obj:          Channel object handle.
  *      pHostBuf:       Host buffer address source.
- *      cBytes:         Number of PC bytes to transfer. A zero value indicates
+ *      byte_size:	Number of PC bytes to transfer. A zero value indicates
  *                      that this buffer is the last in the output channel.
  *                      A zero value is invalid for an input channel.
- *!     cBufSize:       Actual buffer size in host bytes.
- *      dwDspAddr:      DSP address for transfer.  (Currently ignored).
- *      dwArg:          A user argument that travels with the buffer.
+ *!     buf_size:       Actual buffer size in host bytes.
+ *      dw_dsp_addr:      DSP address for transfer.  (Currently ignored).
+ *      dw_arg:          A user argument that travels with the buffer.
  *  Returns:
  *      DSP_SOK:        Success;
- *      DSP_EHANDLE:    Invalid hChnl.
- *      DSP_EPOINTER:   pHostBuf is invalid.
+ *      -EFAULT:    Invalid chnl_obj.
+ *      -EFAULT:   pHostBuf is invalid.
  *      CHNL_E_NOEOS:   User cannot mark EOS on an input channel.
- *      CHNL_E_CANCELLED: I/O has been cancelled on this channel.  No further
+ *      -ECANCELED: I/O has been cancelled on this channel.  No further
  *                      I/O is allowed.
  *      CHNL_E_EOS:     End of stream was already marked on a previous
  *                      IORequest on this channel.  No further I/O is expected.
@@ -507,26 +465,25 @@ typedef DSP_STATUS(*WMD_BRD_WRITE)(struct WMD_DEV_CONTEXT *hDevContext,
  *          otherwise, will be queued for transfer when the channel becomes
  *          ready.  In any case, notifications of I/O completion are
  *          asynchronous.
- *          If cBytes is 0 for an output channel, subsequent CHNL_AddIOReq's
+ *          If byte_size is 0 for an output channel, subsequent CHNL_AddIOReq's
  *          on this channel will fail with error code CHNL_E_EOS.  The
  *          corresponding IOC for this I/O request will have its status flag
  *          set to CHNL_IOCSTATEOS.
  */
-       typedef DSP_STATUS(*WMD_CHNL_ADDIOREQ) (struct CHNL_OBJECT
-						       *hChnl,
-						       void *pHostBuf,
-						       u32 cBytes,
-						       u32 cBufSize,
-						       OPTIONAL u32 dwDspAddr,
-						       u32 dwArg);
+typedef dsp_status(*fxn_chnl_addioreq) (struct chnl_object
+					* chnl_obj,
+					void *pHostBuf,
+					u32 byte_size,
+					u32 buf_size,
+					OPTIONAL u32 dw_dsp_addr, u32 dw_arg);
 
 /*
- *  ======== WMD_CHNL_GetIOC ========
+ *  ======== bridge_chnl_get_ioc ========
  *  Purpose:
  *      Dequeue an I/O completion record, which contains information about the
  *      completed I/O request.
  *  Parameters:
- *      hChnl:          Channel object handle.
+ *      chnl_obj:          Channel object handle.
  *      dwTimeOut:      A value of CHNL_IOCNOWAIT will simply dequeue the
  *                      first available IOC.
  *      pIOC:           On output, contains host buffer address, bytes
@@ -534,8 +491,8 @@ typedef DSP_STATUS(*WMD_BRD_WRITE)(struct WMD_DEV_CONTEXT *hDevContext,
  *      pIOC->status:   See chnldefs.h.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    Invalid hChnl.
- *      DSP_EPOINTER:   pIOC is invalid.
+ *      -EFAULT:    Invalid chnl_obj.
+ *      -EFAULT:   pIOC is invalid.
  *      CHNL_E_NOIOC:   CHNL_IOCNOWAIT was specified as the dwTimeOut parameter
  *                      yet no I/O completions were queued.
  *  Requires:
@@ -545,97 +502,94 @@ typedef DSP_STATUS(*WMD_BRD_WRITE)(struct WMD_DEV_CONTEXT *hDevContext,
  *          returns, the channel event object will be left in a signalled
  *          state.
  */
-       typedef DSP_STATUS(*WMD_CHNL_GETIOC) (struct CHNL_OBJECT *hChnl,
-						     u32 dwTimeOut,
-						     OUT struct CHNL_IOC *pIOC);
+typedef dsp_status(*fxn_chnl_getioc) (struct chnl_object *chnl_obj,
+				      u32 dwTimeOut,
+				      OUT struct chnl_ioc *pIOC);
 
 /*
- *  ======== WMD_CHNL_CancelIO ========
+ *  ======== bridge_chnl_cancel_io ========
  *  Purpose:
  *      Return all I/O requests to the client which have not yet been
  *      transferred.  The channel's I/O completion object is
  *      signalled, and all the I/O requests are queued as IOC's, with the
  *      status field set to CHNL_IOCSTATCANCEL.
  *      This call is typically used in abort situations, and is a prelude to
- *      CHNL_Close();
+ *      chnl_close();
  *  Parameters:
- *      hChnl:          Channel object handle.
+ *      chnl_obj:          Channel object handle.
  *  Returns:
  *      DSP_SOK:        Success;
- *      DSP_EHANDLE:    Invalid hChnl.
+ *      -EFAULT:    Invalid chnl_obj.
  *  Requires:
  *  Ensures:
  *      Subsequent I/O requests to this channel will not be accepted.
  */
-       typedef DSP_STATUS(*WMD_CHNL_CANCELIO) (struct CHNL_OBJECT
-						       *hChnl);
+typedef dsp_status(*fxn_chnl_cancelio) (struct chnl_object *chnl_obj);
 
 /*
- *  ======== WMD_CHNL_FlushIO ========
+ *  ======== bridge_chnl_flush_io ========
  *  Purpose:
  *      For an output stream (to the DSP), indicates if any IO requests are in
  *      the output request queue.  For input streams (from the DSP), will
  *      cancel all pending IO requests.
  *  Parameters:
- *      hChnl:              Channel object handle.
+ *      chnl_obj:              Channel object handle.
  *      dwTimeOut:          Timeout value for flush operation.
  *  Returns:
  *      DSP_SOK:            Success;
  *      S_CHNLIOREQUEST:    Returned if any IORequests are in the output queue.
- *      DSP_EHANDLE:        Invalid hChnl.
+ *      -EFAULT:        Invalid chnl_obj.
  *  Requires:
  *  Ensures:
  *      DSP_SOK:            No I/O requests will be pending on this channel.
  */
-       typedef DSP_STATUS(*WMD_CHNL_FLUSHIO) (struct CHNL_OBJECT *hChnl,
-						      u32 dwTimeOut);
+typedef dsp_status(*fxn_chnl_flushio) (struct chnl_object *chnl_obj,
+				       u32 dwTimeOut);
 
 /*
- *  ======== WMD_CHNL_GetInfo ========
+ *  ======== bridge_chnl_get_info ========
  *  Purpose:
  *      Retrieve information related to a channel.
  *  Parameters:
- *      hChnl:          Handle to a valid channel object, or NULL.
+ *      chnl_obj:          Handle to a valid channel object, or NULL.
  *      pInfo:          Location to store channel info.
  *  Returns:
  *      DSP_SOK:        Success;
- *      DSP_EHANDLE:    Invalid hChnl.
- *      DSP_EPOINTER:   pInfo == NULL.
+ *      -EFAULT:    Invalid chnl_obj.
+ *      -EFAULT:   pInfo == NULL.
  *  Requires:
  *  Ensures:
- *      DSP_SOK:        pInfo points to a filled in CHNL_INFO struct,
+ *      DSP_SOK:        pInfo points to a filled in chnl_info struct,
  *                      if (pInfo != NULL).
  */
-       typedef DSP_STATUS(*WMD_CHNL_GETINFO) (struct CHNL_OBJECT *hChnl,
-						      OUT struct CHNL_INFO
-						      *pChnlInfo);
+typedef dsp_status(*fxn_chnl_getinfo) (struct chnl_object *chnl_obj,
+				       OUT struct chnl_info *pChnlInfo);
 
 /*
- *  ======== WMD_CHNL_GetMgrInfo ========
+ *  ======== bridge_chnl_get_mgr_info ========
  *  Purpose:
  *      Retrieve information related to the channel manager.
  *  Parameters:
- *      hChnlMgr:           Handle to a valid channel manager, or NULL.
+ *      hchnl_mgr:           Handle to a valid channel manager, or NULL.
  *      uChnlID:            Channel ID.
  *      pMgrInfo:           Location to store channel manager info.
  *  Returns:
  *      DSP_SOK:            Success;
- *      DSP_EHANDLE:        Invalid hChnlMgr.
- *      DSP_EPOINTER:       pMgrInfo == NULL.
+ *      -EFAULT:        Invalid hchnl_mgr.
+ *      -EFAULT:       pMgrInfo == NULL.
  *      CHNL_E_BADCHANID:   Invalid channel ID.
  *  Requires:
  *  Ensures:
- *      DSP_SOK:            pMgrInfo points to a filled in CHNL_MGRINFO
+ *      DSP_SOK:            pMgrInfo points to a filled in chnl_mgrinfo
  *                          struct, if (pMgrInfo != NULL).
  */
-       typedef DSP_STATUS(*WMD_CHNL_GETMGRINFO) (struct CHNL_MGR
-							 *hChnlMgr,
-							 u32 uChnlID,
-							 OUT struct CHNL_MGRINFO
-							 *pMgrInfo);
+typedef dsp_status(*fxn_chnl_getmgrinfo) (struct chnl_mgr
+					  * hchnl_mgr,
+					  u32 uChnlID,
+					  OUT struct chnl_mgrinfo *pMgrInfo);
 
 /*
- *  ======== WMD_CHNL_Idle ========
+ *  ======== bridge_chnl_idle ========
  *  Purpose:
  *      Idle a channel. If this is an input channel, or if this is an output
  *      channel and fFlush is TRUE, all currently enqueued buffers will be
@@ -645,7 +599,7 @@ typedef DSP_STATUS(*WMD_BRD_WRITE)(struct WMD_DEV_CONTEXT *hDevContext,
  *      specified has been reached.
  *
  *  Parameters:
- *      hChnl:          Channel object handle.
+ *      chnl_obj:          Channel object handle.
  *      dwTimeOut:      If output channel and fFlush is FALSE, timeout value
  *                      to wait for buffers to be output. (Not used for
  *                      input channel).
@@ -655,75 +609,73 @@ typedef DSP_STATUS(*WMD_BRD_WRITE)(struct WMD_DEV_CONTEXT *hDevContext,
  *                      occurs first. fFlush is ignored for input channel.
  *  Returns:
  *      DSP_SOK:            Success;
- *      DSP_EHANDLE:        Invalid hChnl.
+ *      -EFAULT:        Invalid chnl_obj.
  *      CHNL_E_WAITTIMEOUT: Timeout occured before channel could be idled.
  *  Requires:
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_CHNL_IDLE) (struct CHNL_OBJECT *hChnl,
-						   u32 dwTimeOut,
-						   bool fFlush);
+typedef dsp_status(*fxn_chnl_idle) (struct chnl_object *chnl_obj,
+				    u32 dwTimeOut, bool fFlush);
 
 /*
- *  ======== WMD_CHNL_RegisterNotify ========
+ *  ======== bridge_chnl_register_notify ========
  *  Purpose:
  *      Register for notification of events on a channel.
  *  Parameters:
- *      hChnl:          Channel object handle.
- *      uEventMask:     Type of events to be notified about: IO completion
+ *      chnl_obj:          Channel object handle.
+ *      event_mask:     Type of events to be notified about: IO completion
  *                      (DSP_STREAMIOCOMPLETION) or end of stream
  *                      (DSP_STREAMDONE).
- *      uNotifyType:    DSP_SIGNALEVENT.
- *      hNotification:  Handle of a DSP_NOTIFICATION object.
+ *      notify_type:    DSP_SIGNALEVENT.
+ *      hnotification:  Handle of a dsp_notification object.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EMEMORY:    Insufficient memory.
- *      DSP_EVALUE:     uEventMask is 0 and hNotification was not
+ *      -ENOMEM:    Insufficient memory.
+ *      -EINVAL:     event_mask is 0 and hnotification was not
  *                      previously registered.
- *      DSP_EHANDLE:    NULL hNotification, hNotification event name
- *                      too long, or hNotification event name NULL.
+ *      -EFAULT:    NULL hnotification, hnotification event name
+ *                      too long, or hnotification event name NULL.
  *  Requires:
- *      Valid hChnl.
- *      hNotification != NULL.
- *      (uEventMask & ~(DSP_STREAMIOCOMPLETION | DSP_STREAMDONE)) == 0.
- *      uNotifyType == DSP_SIGNALEVENT.
+ *      Valid chnl_obj.
+ *      hnotification != NULL.
+ *      (event_mask & ~(DSP_STREAMIOCOMPLETION | DSP_STREAMDONE)) == 0.
+ *      notify_type == DSP_SIGNALEVENT.
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_CHNL_REGISTERNOTIFY)
-				(struct CHNL_OBJECT *hChnl,
-				u32 uEventMask,
-				u32 uNotifyType,
-				struct DSP_NOTIFICATION *hNotification);
+typedef dsp_status(*fxn_chnl_registernotify)
+ (struct chnl_object *chnl_obj,
+  u32 event_mask, u32 notify_type, struct dsp_notification *hnotification);
 
 /*
- *  ======== WMD_DEV_Create ========
+ *  ======== bridge_dev_create ========
  *  Purpose:
  *      Complete creation of the device object for this board.
  *  Parameters:
  *      phDevContext:   Ptr to location to store a WMD device context.
- *      hDevObject:     Handle to a Device Object, created and managed by WCD.
+ *      hdev_obj:     Handle to a Device Object, created and managed by WCD.
  *      pConfig:        Ptr to configuration parameters provided by the Windows
  *                      Configuration Manager during device loading.
  *      pDspConfig:     DSP resources, as specified in the registry key for this
  *                      device.
  *  Returns:
  *      DSP_SOK:            Success.
- *      DSP_EMEMORY:        Unable to allocate memory for device context.
+ *      -ENOMEM:        Unable to allocate memory for device context.
  *      WMD_E_BADCONFIG:    One or more of the host or DSP configuration
  *                          parameters did not satisfy hardware assumptions
  *                          made by this WMD.
  *  Requires:
  *      phDevContext != NULL;
- *      hDevObject != NULL;
+ *      hdev_obj != NULL;
  *      pConfig != NULL;
  *      pDspConfig != NULL;
  *      Fields in pConfig and pDspConfig contain valid values.
  *  Ensures:
  *      DSP_SOK:        All mini-driver specific DSP resource and other
  *                      board context has been allocated.
- *      DSP_EMEMORY:    WMD failed to allocate resources.
+ *      -ENOMEM:    WMD failed to allocate resources.
  *                      Any acquired resources have been freed.  The WCD will
- *                      not call WMD_DEV_Destroy() if WMD_DEV_Create() fails.
+ *                      not call bridge_dev_destroy() if bridge_dev_create()
+ *                      fails.
  *  Details:
  *      Called during the CONFIGMG's Device_Init phase. Based on host and
  *      DSP configuration information, create a board context, a handle to
@@ -733,111 +685,104 @@ typedef DSP_STATUS(*WMD_BRD_WRITE)(struct WMD_DEV_CONTEXT *hDevContext,
  *      function returns, they must not be stored into the device context
  *      structure.
  */
-       typedef DSP_STATUS(*WMD_DEV_CREATE) (OUT struct WMD_DEV_CONTEXT
-						    **phDevContext,
-						    struct DEV_OBJECT
-						    *hDevObject,
-						    IN CONST struct CFG_HOSTRES
-						    *pConfig,
-						    IN CONST struct CFG_DSPRES
-						    *pDspConfig);
+typedef dsp_status(*fxn_dev_create) (OUT struct wmd_dev_context
+				     **phDevContext,
+				     struct dev_object
+				     * hdev_obj,
+				     IN struct cfg_hostres
+				     * pConfig);
 
 /*
- *  ======== WMD_DEV_Ctrl ========
+ *  ======== bridge_dev_ctrl ========
  *  Purpose:
  *      Mini-driver specific interface.
  *  Parameters:
  *      hDevContext:    Handle to mini-driver defined device info.
- *      dwCmd:          WMD defined command code.
- *      pArgs:          Pointer to an arbitrary argument structure.
+ *      dw_cmd:          WMD defined command code.
+ *      pargs:          Pointer to an arbitrary argument structure.
  *  Returns:
- *      DSP_SOK or DSP_EFAIL. Actual command error codes should be passed back
- *      in the pArgs structure, and are defined by the WMD implementor.
+ *      DSP_SOK or -EPERM. Actual command error codes should be passed back
+ *      in the pargs structure, and are defined by the WMD implementor.
  *  Requires:
  *      All calls are currently assumed to be synchronous.  There are no
  *      IOCTL completion routines provided.
  *  Ensures:
  */
-typedef DSP_STATUS(*WMD_DEV_CTRL)(struct WMD_DEV_CONTEXT *hDevContext,
-					u32 dwCmd,
-					IN OUT void *pArgs);
+typedef dsp_status(*fxn_dev_ctrl) (struct wmd_dev_context *hDevContext,
+				   u32 dw_cmd, IN OUT void *pargs);
 
 /*
- *  ======== WMD_DEV_Destroy ========
+ *  ======== bridge_dev_destroy ========
  *  Purpose:
  *      Deallocate WMD device extension structures and all other resources
  *      acquired by the mini-driver.
  *      No calls to other mini driver functions may subsequently
- *      occur, except for WMD_DEV_Create().
+ *      occur, except for bridge_dev_create().
  *  Parameters:
  *      hDevContext:    Handle to mini-driver defined device information.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EFAIL:      Failed to release a resource previously acquired.
+ *      -EPERM:      Failed to release a resource previously acquired.
  *  Requires:
  *      hDevContext != NULL;
  *  Ensures:
  *      DSP_SOK: Device context is freed.
  */
-       typedef DSP_STATUS(*WMD_DEV_DESTROY) (struct WMD_DEV_CONTEXT
-					     *hDevContext);
+typedef dsp_status(*fxn_dev_destroy) (struct wmd_dev_context *hDevContext);
 
 /*
- *  ======== WMD_DEH_Create ========
+ *  ======== bridge_deh_create ========
  *  Purpose:
  *      Create an object that manages DSP exceptions from the GPP.
  *  Parameters:
  *      phDehMgr:       Location to store DEH manager on output.
- *      hDevObject:     Handle to DEV object.
+ *      hdev_obj:     Handle to DEV object.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EMEMORY:    Memory allocation failure.
- *      DSP_EFAIL:      Creation failed.
+ *      -ENOMEM:    Memory allocation failure.
+ *      -EPERM:      Creation failed.
  *  Requires:
- *      hDevObject != NULL;
+ *      hdev_obj != NULL;
  *      phDehMgr != NULL;
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_DEH_CREATE) (OUT struct DEH_MGR
-						    **phDehMgr,
-						    struct DEV_OBJECT
-						    *hDevObject);
+typedef dsp_status(*fxn_deh_create) (OUT struct deh_mgr
+				     **phDehMgr, struct dev_object *hdev_obj);
 
 /*
- *  ======== WMD_DEH_Destroy ========
+ *  ======== bridge_deh_destroy ========
  *  Purpose:
  *      Destroy the DEH object.
  *  Parameters:
- *      hDehMgr:        Handle to DEH manager object.
+ *      hdeh_mgr:        Handle to DEH manager object.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EFAIL:      Destroy failed.
+ *      -EPERM:      Destroy failed.
  *  Requires:
- *      hDehMgr != NULL;
+ *      hdeh_mgr != NULL;
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_DEH_DESTROY) (struct DEH_MGR *hDehMgr);
+typedef dsp_status(*fxn_deh_destroy) (struct deh_mgr *hdeh_mgr);
 
 /*
- *  ======== WMD_DEH_RegisterNotify ========
+ *  ======== bridge_deh_register_notify ========
  *  Purpose:
  *      Register for DEH event notification.
  *  Parameters:
- *      hDehMgr:        Handle to DEH manager object.
+ *      hdeh_mgr:        Handle to DEH manager object.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EFAIL:      Destroy failed.
+ *      -EPERM:      Destroy failed.
  *  Requires:
- *      hDehMgr != NULL;
+ *      hdeh_mgr != NULL;
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_DEH_REGISTERNOTIFY)
-				(struct DEH_MGR *hDehMgr,
-				u32 uEventMask, u32 uNotifyType,
-				struct DSP_NOTIFICATION *hNotification);
+typedef dsp_status(*fxn_deh_registernotify)
+ (struct deh_mgr *hdeh_mgr,
+  u32 event_mask, u32 notify_type, struct dsp_notification *hnotification);
 
 /*
- *  ======== WMD_DEH_GetInfo ========
+ *  ======== bridge_deh_get_info ========
  *  Purpose:
  *      Get DSP exception info.
  *  Parameters:
@@ -845,255 +790,251 @@ typedef DSP_STATUS(*WMD_DEV_CTRL)(struct WMD_DEV_CONTEXT *hDevContext,
  *      pErrInfo:       Ptr to error info structure.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EFAIL:      Creation failed.
+ *      -EPERM:      Creation failed.
  *  Requires:
  *      phDehMgr != NULL;
  *      pErrorInfo != NULL;
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_DEH_GETINFO) (struct DEH_MGR *phDehMgr,
-					struct DSP_ERRORINFO *pErrInfo);
+typedef dsp_status(*fxn_deh_getinfo) (struct deh_mgr *phDehMgr,
+				      struct dsp_errorinfo *pErrInfo);
 
 /*
- *  ======== WMD_IO_Create ========
+ *  ======== bridge_io_create ========
  *  Purpose:
- *      Create an object that manages I/O between CHNL and MSG.
+ *      Create an object that manages I/O between CHNL and msg_ctrl.
  *  Parameters:
  *      phIOMgr:        Location to store IO manager on output.
- *      hChnlMgr:       Handle to channel manager.
- *      hMsgMgr:        Handle to message manager.
+ *      hchnl_mgr:       Handle to channel manager.
+ *      hmsg_mgr:        Handle to message manager.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EMEMORY:    Memory allocation failure.
- *      DSP_EFAIL:      Creation failed.
+ *      -ENOMEM:    Memory allocation failure.
+ *      -EPERM:      Creation failed.
  *  Requires:
- *      hDevObject != NULL;
+ *      hdev_obj != NULL;
  *      Channel manager already created;
  *      Message manager already created;
  *      pMgrAttrs != NULL;
  *      phIOMgr != NULL;
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_IO_CREATE) (OUT struct IO_MGR **phIOMgr,
-					struct DEV_OBJECT *hDevObject,
-					IN CONST struct IO_ATTRS *pMgrAttrs);
+typedef dsp_status(*fxn_io_create) (OUT struct io_mgr **phIOMgr,
+				    struct dev_object *hdev_obj,
+				    IN CONST struct io_attrs *pMgrAttrs);
 
 /*
- *  ======== WMD_IO_Destroy ========
+ *  ======== bridge_io_destroy ========
  *  Purpose:
- *      Destroy object created in WMD_IO_Create.
+ *      Destroy object created in bridge_io_create.
  *  Parameters:
- *      hIOMgr:         IO Manager.
+ *      hio_mgr:         IO Manager.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EMEMORY:    Memory allocation failure.
- *      DSP_EFAIL:      Creation failed.
+ *      -ENOMEM:    Memory allocation failure.
+ *      -EPERM:      Creation failed.
  *  Requires:
- *      Valid hIOMgr;
+ *      Valid hio_mgr;
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_IO_DESTROY) (struct IO_MGR *hIOMgr);
+typedef dsp_status(*fxn_io_destroy) (struct io_mgr *hio_mgr);
 
 /*
- *  ======== WMD_IO_OnLoaded ========
+ *  ======== bridge_io_on_loaded ========
  *  Purpose:
  *      Called whenever a program is loaded to update internal data. For
  *      example, if shared memory is used, this function would update the
  *      shared memory location and address.
  *  Parameters:
- *      hIOMgr:     IO Manager.
+ *      hio_mgr:     IO Manager.
  *  Returns:
  *      DSP_SOK:    Success.
- *      DSP_EFAIL:  Internal failure occurred.
+ *      -EPERM:  Internal failure occurred.
  *  Requires:
- *      Valid hIOMgr;
+ *      Valid hio_mgr;
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_IO_ONLOADED) (struct IO_MGR *hIOMgr);
+typedef dsp_status(*fxn_io_onloaded) (struct io_mgr *hio_mgr);
 
 /*
- *  ======== WMD_IO_GETPROCLOAD ========
+ *  ======== fxn_io_getprocload ========
  *  Purpose:
  *      Called to get the Processor's current and predicted load
  *  Parameters:
- *      hIOMgr:     IO Manager.
+ *      hio_mgr:     IO Manager.
  *      pProcLoadStat   Processor Load statistics
  *  Returns:
  *      DSP_SOK:    Success.
- *      DSP_EFAIL:  Internal failure occurred.
+ *      -EPERM:  Internal failure occurred.
  *  Requires:
- *      Valid hIOMgr;
+ *      Valid hio_mgr;
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_IO_GETPROCLOAD)(struct IO_MGR *hIOMgr,
-			   struct DSP_PROCLOADSTAT *pProcLoadStat);
+typedef dsp_status(*fxn_io_getprocload) (struct io_mgr *hio_mgr,
+					 struct dsp_procloadstat *
+					 pProcLoadStat);
 
 /*
- *  ======== WMD_MSG_Create ========
+ *  ======== bridge_msg_create ========
  *  Purpose:
  *      Create an object to manage message queues. Only one of these objects
  *      can exist per device object.
  *  Parameters:
- *      phMsgMgr:           Location to store MSG manager on output.
- *      hDevObject:         Handle to a device object.
+ *      phMsgMgr:           Location to store msg_ctrl manager on output.
+ *      hdev_obj:         Handle to a device object.
  *      msgCallback:        Called whenever an RMS_EXIT message is received.
  *  Returns:
  *      DSP_SOK:            Success.
- *      DSP_EMEMORY:        Insufficient memory.
+ *      -ENOMEM:        Insufficient memory.
  *  Requires:
  *      phMsgMgr != NULL.
  *      msgCallback != NULL.
- *      hDevObject != NULL.
+ *      hdev_obj != NULL.
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_MSG_CREATE)
-				(OUT struct MSG_MGR **phMsgMgr,
-				struct DEV_OBJECT *hDevObject,
-				MSG_ONEXIT msgCallback);
+typedef dsp_status(*fxn_msg_create)
+ (OUT struct msg_mgr **phMsgMgr,
+  struct dev_object *hdev_obj, msg_onexit msgCallback);
 
 /*
- *  ======== WMD_MSG_CreateQueue ========
+ *  ======== bridge_msg_create_queue ========
  *  Purpose:
- *      Create a MSG queue for sending or receiving messages from a Message
+ *      Create a msg_ctrl queue for sending or receiving messages from a Message
  *      node on the DSP.
  *  Parameters:
- *      hMsgMgr:            MSG queue manager handle returned from
- *                          WMD_MSG_Create.
- *      phMsgQueue:         Location to store MSG queue on output.
- *      dwId:               Identifier for messages (node environment pointer).
- *      uMaxMsgs:           Max number of simultaneous messages for the node.
- *      h:                  Handle passed to hMsgMgr->msgCallback().
+ *      hmsg_mgr:            msg_ctrl queue manager handle returned from
+ *                          bridge_msg_create.
+ *      phMsgQueue:         Location to store msg_ctrl queue on output.
+ *      msgq_id:	    Identifier for messages (node environment pointer).
+ *      max_msgs:           Max number of simultaneous messages for the node.
+ *      h:                  Handle passed to hmsg_mgr->msgCallback().
  *  Returns:
  *      DSP_SOK:            Success.
- *      DSP_EMEMORY:        Insufficient memory.
+ *      -ENOMEM:        Insufficient memory.
  *  Requires:
  *      phMsgQueue != NULL.
  *      h != NULL.
- *      uMaxMsgs > 0.
+ *      max_msgs > 0.
  *  Ensures:
  *      phMsgQueue !=NULL <==> DSP_SOK.
  */
-       typedef DSP_STATUS(*WMD_MSG_CREATEQUEUE)
-				(struct MSG_MGR *hMsgMgr,
-				OUT struct MSG_QUEUE **phMsgQueue,
-				u32 dwId, u32 uMaxMsgs, HANDLE h);
+typedef dsp_status(*fxn_msg_createqueue)
+ (struct msg_mgr *hmsg_mgr,
+  OUT struct msg_queue **phMsgQueue, u32 msgq_id, u32 max_msgs, bhandle h);
 
 /*
- *  ======== WMD_MSG_Delete ========
+ *  ======== bridge_msg_delete ========
  *  Purpose:
- *      Delete a MSG manager allocated in WMD_MSG_Create().
+ *      Delete a msg_ctrl manager allocated in bridge_msg_create().
  *  Parameters:
- *      hMsgMgr:    Handle returned from WMD_MSG_Create().
+ *      hmsg_mgr:    Handle returned from bridge_msg_create().
  *  Returns:
  *  Requires:
- *      Valid hMsgMgr.
+ *      Valid hmsg_mgr.
  *  Ensures:
  */
-       typedef void(*WMD_MSG_DELETE) (struct MSG_MGR *hMsgMgr);
+typedef void (*fxn_msg_delete) (struct msg_mgr *hmsg_mgr);
 
 /*
- *  ======== WMD_MSG_DeleteQueue ========
+ *  ======== bridge_msg_delete_queue ========
  *  Purpose:
- *      Delete a MSG queue allocated in WMD_MSG_CreateQueue.
+ *      Delete a msg_ctrl queue allocated in bridge_msg_create_queue.
  *  Parameters:
- *      hMsgQueue:  Handle to MSG queue returned from
- *                  WMD_MSG_CreateQueue.
+ *      msg_queue_obj:  Handle to msg_ctrl queue returned from
+ *                  bridge_msg_create_queue.
  *  Returns:
  *  Requires:
- *      Valid hMsgQueue.
+ *      Valid msg_queue_obj.
  *  Ensures:
  */
-       typedef void(*WMD_MSG_DELETEQUEUE) (struct MSG_QUEUE *hMsgQueue);
+typedef void (*fxn_msg_deletequeue) (struct msg_queue *msg_queue_obj);
 
 /*
- *  ======== WMD_MSG_Get ========
+ *  ======== bridge_msg_get ========
  *  Purpose:
- *      Get a message from a MSG queue.
+ *      Get a message from a msg_ctrl queue.
  *  Parameters:
- *      hMsgQueue:     Handle to MSG queue returned from
- *                     WMD_MSG_CreateQueue.
- *      pMsg:          Location to copy message into.
- *      uTimeout:      Timeout to wait for a message.
+ *      msg_queue_obj:     Handle to msg_ctrl queue returned from
+ *                     bridge_msg_create_queue.
+ *      pmsg:          Location to copy message into.
+ *      utimeout:      Timeout to wait for a message.
  *  Returns:
  *      DSP_SOK:       Success.
- *      DSP_ETIMEOUT:  Timeout occurred.
- *      DSP_EFAIL:     No frames available for message (uMaxMessages too
+ *      -ETIME:  Timeout occurred.
+ *      -EPERM:     No frames available for message (max_msgs too
  *                     small).
  *  Requires:
- *      Valid hMsgQueue.
- *      pMsg != NULL.
+ *      Valid msg_queue_obj.
+ *      pmsg != NULL.
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_MSG_GET) (struct MSG_QUEUE *hMsgQueue,
-						 struct DSP_MSG *pMsg,
-						 u32 uTimeout);
+typedef dsp_status(*fxn_msg_get) (struct msg_queue *msg_queue_obj,
+				  struct dsp_msg *pmsg, u32 utimeout);
 
 /*
- *  ======== WMD_MSG_Put ========
+ *  ======== bridge_msg_put ========
  *  Purpose:
- *      Put a message onto a MSG queue.
+ *      Put a message onto a msg_ctrl queue.
  *  Parameters:
- *      hMsgQueue:      Handle to MSG queue returned from
- *                      WMD_MSG_CreateQueue.
- *      pMsg:           Pointer to message.
- *      uTimeout:       Timeout to wait for a message.
+ *      msg_queue_obj:      Handle to msg_ctrl queue returned from
+ *                      bridge_msg_create_queue.
+ *      pmsg:           Pointer to message.
+ *      utimeout:       Timeout to wait for a message.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_ETIMEOUT:   Timeout occurred.
- *      DSP_EFAIL:      No frames available for message (uMaxMessages too
+ *      -ETIME:   Timeout occurred.
+ *      -EPERM:      No frames available for message (max_msgs too
  *                      small).
  *  Requires:
- *      Valid hMsgQueue.
- *      pMsg != NULL.
+ *      Valid msg_queue_obj.
+ *      pmsg != NULL.
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_MSG_PUT) (struct MSG_QUEUE *hMsgQueue,
-						 IN CONST struct DSP_MSG *pMsg,
-						 u32 uTimeout);
+typedef dsp_status(*fxn_msg_put) (struct msg_queue *msg_queue_obj,
+				  IN CONST struct dsp_msg *pmsg, u32 utimeout);
 
 /*
- *  ======== WMD_MSG_RegisterNotify ========
+ *  ======== bridge_msg_register_notify ========
  *  Purpose:
  *      Register notification for when a message is ready.
  *  Parameters:
- *      hMsgQueue:      Handle to MSG queue returned from
- *                      WMD_MSG_CreateQueue.
- *      uEventMask:     Type of events to be notified about: Must be
+ *      msg_queue_obj:      Handle to msg_ctrl queue returned from
+ *                      bridge_msg_create_queue.
+ *      event_mask:     Type of events to be notified about: Must be
  *                      DSP_NODEMESSAGEREADY, or 0 to unregister.
- *      uNotifyType:    DSP_SIGNALEVENT.
- *      hNotification:  Handle of notification object.
+ *      notify_type:    DSP_SIGNALEVENT.
+ *      hnotification:  Handle of notification object.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EMEMORY:    Insufficient memory.
+ *      -ENOMEM:    Insufficient memory.
  *  Requires:
- *      Valid hMsgQueue.
- *      hNotification != NULL.
- *      uNotifyType == DSP_SIGNALEVENT.
- *      uEventMask == DSP_NODEMESSAGEREADY || uEventMask == 0.
+ *      Valid msg_queue_obj.
+ *      hnotification != NULL.
+ *      notify_type == DSP_SIGNALEVENT.
+ *      event_mask == DSP_NODEMESSAGEREADY || event_mask == 0.
  *  Ensures:
  */
-       typedef DSP_STATUS(*WMD_MSG_REGISTERNOTIFY)
-				(struct MSG_QUEUE *hMsgQueue,
-				u32 uEventMask, u32 uNotifyType,
-				struct DSP_NOTIFICATION *hNotification);
+typedef dsp_status(*fxn_msg_registernotify)
+ (struct msg_queue *msg_queue_obj,
+  u32 event_mask, u32 notify_type, struct dsp_notification *hnotification);
 
 /*
- *  ======== WMD_MSG_SetQueueId ========
+ *  ======== bridge_msg_set_queue_id ========
  *  Purpose:
- *      Set message queue id to node environment. Allows WMD_MSG_CreateQueue
- *      to be called in NODE_Allocate, before the node environment is known.
+ *      Set message queue id to node environment. Allows bridge_msg_create_queue
+ *      to be called in node_allocate, before the node environment is known.
  *  Parameters:
- *      hMsgQueue:  Handle to MSG queue returned from
- *                  WMD_MSG_CreateQueue.
- *      dwId:       Node environment pointer.
+ *      msg_queue_obj:  Handle to msg_ctrl queue returned from
+ *                  bridge_msg_create_queue.
+ *      msgq_id:       Node environment pointer.
  *  Returns:
  *  Requires:
- *      Valid hMsgQueue.
- *      dwId != 0.
+ *      Valid msg_queue_obj.
+ *      msgq_id != 0.
  *  Ensures:
  */
-       typedef void(*WMD_MSG_SETQUEUEID) (struct MSG_QUEUE *hMsgQueue,
-						  u32 dwId);
+typedef void (*fxn_msg_setqueueid) (struct msg_queue *msg_queue_obj,
+				    u32 msgq_id);
 
 /*
  *  'Bridge Mini Driver (WMD) interface function table.
@@ -1102,7 +1043,7 @@ typedef DSP_STATUS(*WMD_DEV_CTRL)(struct WMD_DEV_CONTEXT *hDevContext,
  *  and copied into the 'Bridge class driver's own space.  If any interface
  *  function field is set to a value of NULL, then the class driver will
  *  consider that function not implemented, and return the error code
- *  DSP_ENOTIMPL when a WMD client attempts to call that function.
+ *  -ENOSYS when a WMD client attempts to call that function.
  *
  *  This function table contains WCD version numbers, which are used by the
  *  WMD loader to help ensure backwards compatility between older WMD's and a
@@ -1112,64 +1053,64 @@ typedef DSP_STATUS(*WMD_DEV_CTRL)(struct WMD_DEV_CONTEXT *hDevContext,
  *  A mini-driver need not export a CHNL interface.  In this case, *all* of
  *  the WMD_CHNL_* entries must be set to NULL.
  */
-	struct WMD_DRV_INTERFACE {
-		u32 dwWCDMajorVersion;	/* Set to WCD_MAJOR_VERSION. */
-		u32 dwWCDMinorVersion;	/* Set to WCD_MINOR_VERSION. */
-		WMD_DEV_CREATE pfnDevCreate;	/* Create device context     */
-		WMD_DEV_DESTROY pfnDevDestroy;	/* Destroy device context    */
-		WMD_DEV_CTRL pfnDevCntrl;	/* Optional vendor interface */
-		WMD_BRD_MONITOR pfnBrdMonitor;	/* Load and/or start monitor */
-		WMD_BRD_START pfnBrdStart;	/* Start DSP program.        */
-		WMD_BRD_STOP pfnBrdStop;	/* Stop/reset board.         */
-		WMD_BRD_STATUS pfnBrdStatus;	/* Get current board status. */
-		WMD_BRD_READ pfnBrdRead;	/* Read board memory         */
-		WMD_BRD_WRITE pfnBrdWrite;	/* Write board memory.       */
-		WMD_BRD_SETSTATE pfnBrdSetState;  /* Sets the Board State */
-		WMD_BRD_MEMCOPY pfnBrdMemCopy;	 /* Copies DSP Memory         */
-		WMD_BRD_MEMWRITE pfnBrdMemWrite; /* Write DSP Memory w/o halt */
-		WMD_BRD_MEMMAP pfnBrdMemMap;	 /* Maps MPU mem to DSP mem   */
-		WMD_BRD_MEMUNMAP pfnBrdMemUnMap; /* Unmaps MPU mem to DSP mem */
-		WMD_CHNL_CREATE pfnChnlCreate;	 /* Create channel manager.   */
-		WMD_CHNL_DESTROY pfnChnlDestroy; /* Destroy channel manager.  */
-		WMD_CHNL_OPEN pfnChnlOpen;	 /* Create a new channel.     */
-		WMD_CHNL_CLOSE pfnChnlClose;	 /* Close a channel.          */
-		WMD_CHNL_ADDIOREQ pfnChnlAddIOReq; /* Req I/O on a channel. */
-		WMD_CHNL_GETIOC pfnChnlGetIOC;	 /* Wait for I/O completion.  */
-		WMD_CHNL_CANCELIO pfnChnlCancelIO; /* Cancl I/O on a channel. */
-		WMD_CHNL_FLUSHIO pfnChnlFlushIO;	/* Flush I/O.         */
-		WMD_CHNL_GETINFO pfnChnlGetInfo; /* Get channel specific info */
-		/* Get channel manager info. */
-		WMD_CHNL_GETMGRINFO pfnChnlGetMgrInfo;
-		WMD_CHNL_IDLE pfnChnlIdle;	/* Idle the channel */
-		/* Register for notif. */
-		WMD_CHNL_REGISTERNOTIFY pfnChnlRegisterNotify;
-		WMD_DEH_CREATE pfnDehCreate;	/* Create DEH manager */
-		WMD_DEH_DESTROY pfnDehDestroy;	/* Destroy DEH manager */
-		WMD_DEH_NOTIFY pfnDehNotify;    /* Notify of DSP error */
-		/* register for deh notif. */
-		WMD_DEH_REGISTERNOTIFY pfnDehRegisterNotify;
-		WMD_DEH_GETINFO pfnDehGetInfo;	/* register for deh notif. */
-		WMD_IO_CREATE pfnIOCreate;	/* Create IO manager */
-		WMD_IO_DESTROY pfnIODestroy;	/* Destroy IO manager */
-		WMD_IO_ONLOADED pfnIOOnLoaded;	/* Notify of program loaded */
-		/* Get Processor's current and predicted load */
-		WMD_IO_GETPROCLOAD pfnIOGetProcLoad;
-		WMD_MSG_CREATE pfnMsgCreate;	/* Create message manager */
-		/* Create message queue */
-		WMD_MSG_CREATEQUEUE pfnMsgCreateQueue;
-		WMD_MSG_DELETE pfnMsgDelete;	/* Delete message manager */
-		/* Delete message queue */
-		WMD_MSG_DELETEQUEUE pfnMsgDeleteQueue;
-		WMD_MSG_GET pfnMsgGet;	/* Get a message */
-		WMD_MSG_PUT pfnMsgPut;	/* Send a message */
-		/* Register for notif. */
-		WMD_MSG_REGISTERNOTIFY pfnMsgRegisterNotify;
-		/* Set message queue id */
-		WMD_MSG_SETQUEUEID pfnMsgSetQueueId;
-	} ;
+struct bridge_drv_interface {
+	u32 dw_wcd_major_version;	/* Set to WCD_MAJOR_VERSION. */
+	u32 dw_wcd_minor_version;	/* Set to WCD_MINOR_VERSION. */
+	fxn_dev_create pfn_dev_create;	/* Create device context */
+	fxn_dev_destroy pfn_dev_destroy;	/* Destroy device context */
+	fxn_dev_ctrl pfn_dev_cntrl;	/* Optional vendor interface */
+	fxn_brd_monitor pfn_brd_monitor;	/* Load and/or start monitor */
+	fxn_brd_start pfn_brd_start;	/* Start DSP program. */
+	fxn_brd_stop pfn_brd_stop;	/* Stop/reset board. */
+	fxn_brd_status pfn_brd_status;	/* Get current board status. */
+	fxn_brd_read pfn_brd_read;	/* Read board memory */
+	fxn_brd_write pfn_brd_write;	/* Write board memory. */
+	fxn_brd_setstate pfn_brd_set_state;	/* Sets the Board State */
+	fxn_brd_memcopy pfn_brd_mem_copy;	/* Copies DSP Memory */
+	fxn_brd_memwrite pfn_brd_mem_write;	/* Write DSP Memory w/o halt */
+	fxn_brd_memmap pfn_brd_mem_map;	/* Maps MPU mem to DSP mem */
+	fxn_brd_memunmap pfn_brd_mem_un_map;	/* Unmaps MPU mem to DSP mem */
+	fxn_chnl_create pfn_chnl_create;	/* Create channel manager. */
+	fxn_chnl_destroy pfn_chnl_destroy;	/* Destroy channel manager. */
+	fxn_chnl_open pfn_chnl_open;	/* Create a new channel. */
+	fxn_chnl_close pfn_chnl_close;	/* Close a channel. */
+	fxn_chnl_addioreq pfn_chnl_add_io_req;	/* Req I/O on a channel. */
+	fxn_chnl_getioc pfn_chnl_get_ioc;	/* Wait for I/O completion. */
+	fxn_chnl_cancelio pfn_chnl_cancel_io;	/* Cancl I/O on a channel. */
+	fxn_chnl_flushio pfn_chnl_flush_io;	/* Flush I/O. */
+	fxn_chnl_getinfo pfn_chnl_get_info;	/* Get channel specific info */
+	/* Get channel manager info. */
+	fxn_chnl_getmgrinfo pfn_chnl_get_mgr_info;
+	fxn_chnl_idle pfn_chnl_idle;	/* Idle the channel */
+	/* Register for notif. */
+	fxn_chnl_registernotify pfn_chnl_register_notify;
+	fxn_deh_create pfn_deh_create;	/* Create DEH manager */
+	fxn_deh_destroy pfn_deh_destroy;	/* Destroy DEH manager */
+	fxn_deh_notify pfn_deh_notify;	/* Notify of DSP error */
+	/* register for deh notif. */
+	fxn_deh_registernotify pfn_deh_register_notify;
+	fxn_deh_getinfo pfn_deh_get_info;	/* register for deh notif. */
+	fxn_io_create pfn_io_create;	/* Create IO manager */
+	fxn_io_destroy pfn_io_destroy;	/* Destroy IO manager */
+	fxn_io_onloaded pfn_io_on_loaded;	/* Notify of program loaded */
+	/* Get Processor's current and predicted load */
+	fxn_io_getprocload pfn_io_get_proc_load;
+	fxn_msg_create pfn_msg_create;	/* Create message manager */
+	/* Create message queue */
+	fxn_msg_createqueue pfn_msg_create_queue;
+	fxn_msg_delete pfn_msg_delete;	/* Delete message manager */
+	/* Delete message queue */
+	fxn_msg_deletequeue pfn_msg_delete_queue;
+	fxn_msg_get pfn_msg_get;	/* Get a message */
+	fxn_msg_put pfn_msg_put;	/* Send a message */
+	/* Register for notif. */
+	fxn_msg_registernotify pfn_msg_register_notify;
+	/* Set message queue id */
+	fxn_msg_setqueueid pfn_msg_set_queue_id;
+};
 
 /*
- *  ======== WMD_DRV_Entry ========
+ *  ======== bridge_drv_entry ========
  *  Purpose:
  *      Registers WMD functions with the class driver. Called only once
  *      by the WCD.  The caller will first check WCD version compatibility, and
@@ -1187,7 +1128,7 @@ typedef DSP_STATUS(*WMD_DEV_CTRL)(struct WMD_DEV_CONTEXT *hDevContext,
  *  Details:
  *      Win95: Called during the Device_Init phase.
  */
-       void WMD_DRV_Entry(OUT struct WMD_DRV_INTERFACE **ppDrvInterface,
-				 IN CONST char *pstrWMDFileName);
+void bridge_drv_entry(OUT struct bridge_drv_interface **ppDrvInterface,
+		   IN CONST char *pstrWMDFileName);
 
-#endif				/* WMD_ */
+#endif /* WMD_ */

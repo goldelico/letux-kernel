@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * WCD channel interface: multiplexes data streams through the single
+ * physical link managed by a Bridge mini-driver.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,54 +15,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== chnl.c ========
- *  Description:
- *      WCD channel interface: multiplexes data streams through the single
- *      physical link managed by a 'Bridge mini-driver.
- *
- *  Public Functions:
- *      CHNL_Close
- *      CHNL_CloseOrphans
- *      CHNL_Create
- *      CHNL_Destroy
- *      CHNL_Exit
- *      CHNL_GetHandle
- *      CHNL_GetProcessHandle
- *      CHNL_Init
- *      CHNL_Open
- *
- *  Notes:
- *      This interface is basically a pass through to the WMD CHNL functions,
- *      except for the CHNL_Get() accessor functions which call
- *      WMD_CHNL_GetInfo().
- *
- *! Revision History:
- *! ================
- *! 24-Feb-2003 swa PMGR Code review comments incorporated.
- *! 07-Jan-2002 ag  CHNL_CloseOrphans() now closes supported # of channels.
- *! 17-Nov-2000 jeh Removed IRQ, shared memory stuff from CHNL_Create.
- *! 28-Feb-2000 rr: New GT USage Implementation
- *! 03-Feb-2000 rr: GT and Module init/exit Changes.(Done up front from
- *!		    SERVICES)
- *! 21-Jan-2000 ag: Added code review comments.
- *! 13-Jan-2000 rr: CFG_Get/SetPrivateDword renamed to CFG_Get/SetDevObject.
- *! 08-Dec-1999 ag: CHNL_[Alloc|Free]Buffer bufs taken from client process heap.
- *! 02-Dec-1999 ag: Implemented CHNL_GetEventHandle().
- *! 17-Nov-1999 ag: CHNL_AllocBuffer() allocs extra word for process mapping.
- *! 28-Oct-1999 ag: WinCE port. Search for "WinCE" for changes(TBR).
- *! 07-Jan-1998 gp: CHNL_[Alloc|Free]Buffer now call MEM_UMB functions.
- *! 22-Oct-1997 gp: Removed requirement in CHNL_Open that hReserved1 != NULL.
- *! 30-Aug-1997 cr: Renamed cfg.h wbwcd.h b/c of WINNT file name collision.
- *! 10-Mar-1997 gp: Added GT trace.
- *! 14-Jan-1997 gp: Updated based on code review feedback.
- *! 03-Jan-1997 gp: Moved CHNL_AllocBuffer/CHNL_FreeBuffer code from udspsys.
- *! 14-Dec-1996 gp: Added uChnlId parameter to CHNL_Open().
- *! 09-Sep-1996 gp: Added CHNL_GetProcessHandle().
- *! 15-Jul-1996 gp: Created.
  */
 
 /*  ----------------------------------- Host OS */
@@ -72,13 +27,9 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
-#include <dspbridge/dpc.h>
-#include <dspbridge/list.h>
-#include <dspbridge/mem.h>
 #include <dspbridge/sync.h>
 
 /*  ----------------------------------- Platform Manager */
@@ -93,167 +44,125 @@
 #include <dspbridge/chnl.h>
 
 /*  ----------------------------------- Globals */
-static u32 cRefs;
-#if GT_TRACE
-static struct GT_Mask CHNL_DebugMask = { NULL, NULL };	/* WCD CHNL Mask */
-#endif
-
-
+static u32 refs;
 
 /*
- *  ======== CHNL_Create ========
+ *  ======== chnl_create ========
  *  Purpose:
  *      Create a channel manager object, responsible for opening new channels
  *      and closing old ones for a given 'Bridge board.
  */
-DSP_STATUS CHNL_Create(OUT struct CHNL_MGR **phChnlMgr,
-		       struct DEV_OBJECT *hDevObject,
-		       IN CONST struct CHNL_MGRATTRS *pMgrAttrs)
+dsp_status chnl_create(OUT struct chnl_mgr **phChnlMgr,
+		       struct dev_object *hdev_obj,
+		       IN CONST struct chnl_mgrattrs *pMgrAttrs)
 {
-	DSP_STATUS status;
-	struct CHNL_MGR *hChnlMgr;
-	struct CHNL_MGR_ *pChnlMgr = NULL;
+	dsp_status status;
+	struct chnl_mgr *hchnl_mgr;
+	struct chnl_mgr_ *chnl_mgr_obj = NULL;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(phChnlMgr != NULL);
-	DBC_Require(pMgrAttrs != NULL);
-
-	GT_3trace(CHNL_DebugMask, GT_ENTER,
-		  "Entered CHNL_Create: phChnlMgr: 0x%x\t"
-		  "hDevObject: 0x%x\tpMgrAttrs:0x%x\n",
-		  phChnlMgr, hDevObject, pMgrAttrs);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(phChnlMgr != NULL);
+	DBC_REQUIRE(pMgrAttrs != NULL);
 
 	*phChnlMgr = NULL;
 
 	/* Validate args: */
-	if ((0 < pMgrAttrs->cChannels) &&
-	   (pMgrAttrs->cChannels <= CHNL_MAXCHANNELS)) {
+	if ((0 < pMgrAttrs->max_channels) &&
+	    (pMgrAttrs->max_channels <= CHNL_MAXCHANNELS))
 		status = DSP_SOK;
-	} else if (pMgrAttrs->cChannels == 0) {
-		status = DSP_EINVALIDARG;
-		GT_0trace(CHNL_DebugMask, GT_7CLASS,
-			  "CHNL_Create:Invalid Args\n");
-	} else {
+	else if (pMgrAttrs->max_channels == 0)
+		status = -EINVAL;
+	else
 		status = CHNL_E_MAXCHANNELS;
-		GT_0trace(CHNL_DebugMask, GT_7CLASS,
-			  "CHNL_Create:Error Max Channels\n");
-	}
-	if (pMgrAttrs->uWordSize == 0) {
+
+	if (pMgrAttrs->word_size == 0)
 		status = CHNL_E_INVALIDWORDSIZE;
-		GT_0trace(CHNL_DebugMask, GT_7CLASS,
-			  "CHNL_Create:Invalid Word size\n");
-	}
+
 	if (DSP_SUCCEEDED(status)) {
-		status = DEV_GetChnlMgr(hDevObject, &hChnlMgr);
-		if (DSP_SUCCEEDED(status) && hChnlMgr != NULL)
+		status = dev_get_chnl_mgr(hdev_obj, &hchnl_mgr);
+		if (DSP_SUCCEEDED(status) && hchnl_mgr != NULL)
 			status = CHNL_E_MGREXISTS;
 
 	}
 
 	if (DSP_SUCCEEDED(status)) {
-		struct WMD_DRV_INTERFACE *pIntfFxns;
-		DEV_GetIntfFxns(hDevObject, &pIntfFxns);
-		/* Let WMD channel module finish the create: */
-		status = (*pIntfFxns->pfnChnlCreate)(&hChnlMgr, hDevObject,
-			  pMgrAttrs);
+		struct bridge_drv_interface *intf_fxns;
+		dev_get_intf_fxns(hdev_obj, &intf_fxns);
+		if (intf_fxns) {
+			/* Let WMD channel module finish the create */
+			status = (*intf_fxns->pfn_chnl_create)(&hchnl_mgr,
+						hdev_obj, pMgrAttrs);
+		}
 		if (DSP_SUCCEEDED(status)) {
 			/* Fill in WCD channel module's fields of the
-			 * CHNL_MGR structure */
-			pChnlMgr = (struct CHNL_MGR_ *)hChnlMgr;
-			pChnlMgr->pIntfFxns = pIntfFxns;
+			 * chnl_mgr structure */
+			chnl_mgr_obj = (struct chnl_mgr_ *)hchnl_mgr;
+			chnl_mgr_obj->intf_fxns = intf_fxns;
 			/* Finally, return the new channel manager handle: */
-			*phChnlMgr = hChnlMgr;
-			GT_1trace(CHNL_DebugMask, GT_1CLASS,
-				  "CHNL_Create: Success pChnlMgr:"
-				  "0x%x\n", pChnlMgr);
+			*phChnlMgr = hchnl_mgr;
 		}
 	}
 
-	GT_2trace(CHNL_DebugMask, GT_ENTER,
-		  "Exiting CHNL_Create: pChnlMgr: 0x%x,"
-		  "status: 0x%x\n", pChnlMgr, status);
-	DBC_Ensure(DSP_FAILED(status) || CHNL_IsValidMgr(pChnlMgr));
+	DBC_ENSURE(DSP_FAILED(status) || chnl_mgr_obj);
 
 	return status;
 }
 
 /*
- *  ======== CHNL_Destroy ========
+ *  ======== chnl_destroy ========
  *  Purpose:
  *      Close all open channels, and destroy the channel manager.
  */
-DSP_STATUS CHNL_Destroy(struct CHNL_MGR *hChnlMgr)
+dsp_status chnl_destroy(struct chnl_mgr *hchnl_mgr)
 {
-	struct CHNL_MGR_ *pChnlMgr = (struct CHNL_MGR_ *)hChnlMgr;
-	struct WMD_DRV_INTERFACE *pIntfFxns;
-	DSP_STATUS status;
+	struct chnl_mgr_ *chnl_mgr_obj = (struct chnl_mgr_ *)hchnl_mgr;
+	struct bridge_drv_interface *intf_fxns;
+	dsp_status status;
 
-	DBC_Require(cRefs > 0);
+	DBC_REQUIRE(refs > 0);
 
-	GT_1trace(CHNL_DebugMask, GT_ENTER,
-		  "Entered CHNL_Destroy: hChnlMgr: 0x%x\n", hChnlMgr);
-	if (CHNL_IsValidMgr(pChnlMgr)) {
-		pIntfFxns = pChnlMgr->pIntfFxns;
-		/* Let WMD channel module destroy the CHNL_MGR: */
-		status = (*pIntfFxns->pfnChnlDestroy)(hChnlMgr);
+	if (chnl_mgr_obj) {
+		intf_fxns = chnl_mgr_obj->intf_fxns;
+		/* Let WMD channel module destroy the chnl_mgr: */
+		status = (*intf_fxns->pfn_chnl_destroy) (hchnl_mgr);
 	} else {
-		GT_0trace(CHNL_DebugMask, GT_7CLASS,
-			  "CHNL_Destroy:Invalid Handle\n");
-		status = DSP_EHANDLE;
+		status = -EFAULT;
 	}
 
-	GT_2trace(CHNL_DebugMask, GT_ENTER,
-		  "Exiting CHNL_Destroy: pChnlMgr: 0x%x,"
-		  " status:0x%x\n", pChnlMgr, status);
-	DBC_Ensure(DSP_FAILED(status) || !CHNL_IsValidMgr(pChnlMgr));
+	DBC_ENSURE(DSP_FAILED(status) || !chnl_mgr_obj);
 
 	return status;
 }
 
 /*
- *  ======== CHNL_Exit ========
+ *  ======== chnl_exit ========
  *  Purpose:
  *      Discontinue usage of the CHNL module.
  */
-void CHNL_Exit(void)
+void chnl_exit(void)
 {
-	DBC_Require(cRefs > 0);
+	DBC_REQUIRE(refs > 0);
 
-	cRefs--;
+	refs--;
 
-	GT_1trace(CHNL_DebugMask, GT_5CLASS,
-		  "Entered CHNL_Exit, ref count: 0x%x\n", cRefs);
-
-	DBC_Ensure(cRefs >= 0);
+	DBC_ENSURE(refs >= 0);
 }
 
-
 /*
- *  ======== CHNL_Init ========
+ *  ======== chnl_init ========
  *  Purpose:
  *      Initialize the CHNL module's private state.
  */
-bool CHNL_Init(void)
+bool chnl_init(void)
 {
-	bool fRetval = true;
+	bool ret = true;
 
-	DBC_Require(cRefs >= 0);
+	DBC_REQUIRE(refs >= 0);
 
-	if (cRefs == 0) {
-		DBC_Assert(!CHNL_DebugMask.flags);
-		GT_create(&CHNL_DebugMask, "CH");   /* "CH" for CHannel */
-	}
+	if (ret)
+		refs++;
 
-	if (fRetval)
-		cRefs++;
+	DBC_ENSURE((ret && (refs > 0)) || (!ret && (refs >= 0)));
 
-	GT_1trace(CHNL_DebugMask, GT_5CLASS,
-		  "Entered CHNL_Init, ref count: 0x%x\n",
-		  cRefs);
-
-	DBC_Ensure((fRetval && (cRefs > 0)) || (!fRetval && (cRefs >= 0)));
-
-	return fRetval;
+	return ret;
 }
-
-

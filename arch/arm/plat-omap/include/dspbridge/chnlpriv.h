@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Private channel header shared between DSPSYS, WCD and WMD modules.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,35 +16,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== chnlpriv.h ========
- *  Description:
- *      Private channel header shared between DSPSYS, WCD and WMD modules.
- *
- *  Public Functions:
- *      None.
- *
- *  Notes:
- *
- *! Revision History:
- *! ================
- *! 05-Jan-2002 ag  Added cChannels(total # of chnls) to CHNL_MGRINFO struct.
- *!                 Added private CHNL_[PCPY][ZCPY][DDMA].
- *! 17-Nov-2000 jeh Removed IRQ, shared memory from CHNL_MGRATTRS, since these
- *!                 now belong to IO_ATTRS.
- *! 21-Jan-2000 ag: Code review comments added.
- *! 05-Jan-2000 ag: Text format cleanup.
- *! 11-Dec-1999 ag: Added CHNL_MAXLOCKPAGES for CHNL_PrepareBuffer().
- *! 04-Dec-1999 ag: Added CHNL_MAXEVTNAMELEN for i/o compl named event support.
- *! 01-Nov-1999 ag: CHNL_MAXCHANNELS set to 16 for 16-bit DSPs.
- *! 27-Oct-1997 cr: Expanded CHNL_MAXIRQ from 0x0f to 0xff.
- *! 16-Jan-1997 gp: Moved symbols into here from chnldefs.h.
- *! 03-Jan-1997 gp: Added CHNL_MAXIRQ define.
- *! 09-Dec-1996 gp: Removed CHNL_STATEIDLE.
- *! 15-Jul-1996 gp: Created.
- */
-
 #ifndef CHNLPRIV_
 #define CHNLPRIV_
 
@@ -50,13 +23,8 @@
 #include <dspbridge/devdefs.h>
 #include <dspbridge/sync.h>
 
-/* CHNL Object validation signatures: */
-#define CHNL_MGRSIGNATURE   0x52474D43	/* "CMGR" (in reverse). */
-#define CHNL_SIGNATURE      0x4C4E4843	/* "CHNL" (in reverse). */
-
 /* Channel manager limits: */
 #define CHNL_MAXCHANNELS    32	/* Max channels available per transport */
-
 
 /*
  *  Trans port channel Id definitions:(must match dsp-side).
@@ -77,16 +45,16 @@
 #define CHNL_MODEMASK       0x1001
 
 /* Higher level channel states: */
-#define CHNL_STATEREADY     0x0000	/* Channel ready for I/O.    */
-#define CHNL_STATECANCEL    0x0001	/* I/O was cancelled.        */
-#define CHNL_STATEEOS       0x0002	/* End Of Stream reached.    */
+#define CHNL_STATEREADY		0	/* Channel ready for I/O. */
+#define CHNL_STATECANCEL	1	/* I/O was cancelled. */
+#define CHNL_STATEEOS		2	/* End Of Stream reached. */
 
-/* Determine if user supplied an event for this channel:  */
-#define CHNL_IsUserEvent(mode)  (mode & CHNL_MODEUSEREVENT)
+/* Determine if user supplied an event for this channel: */
+#define CHNL_IS_USER_EVENT(mode)  (mode & CHNL_MODEUSEREVENT)
 
 /* Macros for checking mode: */
-#define CHNL_IsInput(mode)      (mode & CHNL_MODEFROMDSP)
-#define CHNL_IsOutput(mode)     (!CHNL_IsInput(mode))
+#define CHNL_IS_INPUT(mode)      (mode & CHNL_MODEFROMDSP)
+#define CHNL_IS_OUTPUT(mode)     (!CHNL_IS_INPUT(mode))
 
 /* Types of channel class libraries: */
 #define CHNL_TYPESM         1	/* Shared memory driver. */
@@ -98,39 +66,35 @@
 /* Max memory pages lockable in CHNL_PrepareBuffer() - change if needed */
 #define CHNL_MAXLOCKPAGES   64
 
-/* Channel info.  */
-	 struct CHNL_INFO {
-		struct CHNL_MGR *hChnlMgr;	/* Owning channel manager.   */
-		u32 dwID;	/* Channel ID.                            */
-		HANDLE hEvent;	/* Channel I/O completion event.          */
-		/*Abstraction of I/O completion event.*/
-		struct SYNC_OBJECT *hSyncEvent;
-		u32 dwMode;	/* Channel mode.                          */
-		u32 dwState;	/* Current channel state.                 */
-		u32 cPosition;	/* Total bytes transferred.        */
-		u32 cIOCs;	/* Number of IOCs in queue.               */
-		u32 cIOReqs;	/* Number of IO Requests in queue.        */
-               u32 hProcess;   /* Process owning this channel.     */
-		/*
-		 * Name of channel I/O completion event. Not required in Linux
-		 */
-		char szEventName[CHNL_MAXEVTNAMELEN + 1];
-	} ;
+/* Channel info. */
+struct chnl_info {
+	struct chnl_mgr *hchnl_mgr;	/* Owning channel manager. */
+	u32 cnhl_id;		/* Channel ID. */
+	bhandle event_obj;	/* Channel I/O completion event. */
+	/*Abstraction of I/O completion event. */
+	struct sync_object *sync_event;
+	s8 dw_mode;		/* Channel mode. */
+	u8 dw_state;		/* Current channel state. */
+	u32 bytes_tx;		/* Total bytes transferred. */
+	u32 cio_cs;		/* Number of IOCs in queue. */
+	u32 cio_reqs;		/* Number of IO Requests in queue. */
+	u32 process;		/* Process owning this channel. */
+};
 
 /* Channel manager info: */
-	struct CHNL_MGRINFO {
-		u32 dwType;	/* Type of channel class library.         */
-		/* Channel handle, given the channel id. */
-		struct CHNL_OBJECT *hChnl;
-		u32 cOpenChannels;	/* Number of open channels.     */
-		u32 cChannels;	/* total # of chnls supported */
-	} ;
+struct chnl_mgrinfo {
+	u8 dw_type;		/* Type of channel class library. */
+	/* Channel handle, given the channel id. */
+	struct chnl_object *chnl_obj;
+	u8 open_channels;	/* Number of open channels. */
+	u8 max_channels;	/* total # of chnls supported */
+};
 
 /* Channel Manager Attrs: */
-	struct CHNL_MGRATTRS {
-		/* Max number of channels this manager can use. */
-		u32 cChannels;
-		u32 uWordSize;	/* DSP Word size.                       */
-	} ;
+struct chnl_mgrattrs {
+	/* Max number of channels this manager can use. */
+	u8 max_channels;
+	u32 word_size;		/* DSP Word size. */
+};
 
-#endif				/* CHNLPRIV_ */
+#endif /* CHNLPRIV_ */

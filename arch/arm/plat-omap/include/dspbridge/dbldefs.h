@@ -14,21 +14,11 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== dbldefs.h ========
- *
- *! Revision History
- *! ================
- *! 19-Mar-2002 jeh     Added DBL_Fxns type (to make it easier to switch
- *!                     between different loaders).
- *! 28-Sep-2001 jeh     Created from zl.h.
- */
 #ifndef DBLDEFS_
 #define DBLDEFS_
 
 /*
- *  Bit masks for DBL_Flags.
+ *  Bit masks for dbl_flags.
  */
 #define DBL_NOLOAD   0x0	/* Don't load symbols, code, or data */
 #define DBL_SYMB     0x1	/* load symbols */
@@ -39,70 +29,66 @@
 
 #define DBL_MAXPATHLENGTH       255
 
-
-
 /*
- *  ======== DBL_Flags ========
+ *  ======== dbl_flags ========
  *  Specifies whether to load code, data, or symbols
  */
-typedef s32 DBL_Flags;
+typedef s32 dbl_flags;
 
 /*
- *  ======== DBL_SectInfo ========
+ *  ======== dbl_sect_info ========
  *  For collecting info on overlay sections
  */
-struct DBL_SectInfo {
+struct dbl_sect_info {
 	const char *name;	/* name of section */
-	u32 runAddr;		/* run address of section */
-	u32 loadAddr;		/* load address of section */
+	u32 sect_run_addr;	/* run address of section */
+	u32 sect_load_addr;	/* load address of section */
 	u32 size;		/* size of section (target MAUs) */
-	DBL_Flags type;		/* Code, data, or BSS */
-} ;
+	dbl_flags type;		/* Code, data, or BSS */
+};
 
 /*
- *  ======== DBL_Symbol ========
+ *  ======== dbl_symbol ========
  *  (Needed for dynamic load library)
  */
-struct DBL_Symbol {
+struct dbl_symbol {
 	u32 value;
 };
 
 /*
- *  ======== DBL_AllocFxn ========
+ *  ======== dbl_alloc_fxn ========
  *  Allocate memory function.  Allocate or reserve (if reserved == TRUE)
  *  "size" bytes of memory from segment "space" and return the address in
  *  *dspAddr (or starting at *dspAddr if reserve == TRUE). Returns 0 on
  *  success, or an error code on failure.
  */
-typedef s32(*DBL_AllocFxn) (void *hdl, s32 space, u32 size, u32 align,
-			u32 *dspAddr, s32 segId, s32 req, bool reserved);
-
-
+typedef s32(*dbl_alloc_fxn) (void *hdl, s32 space, u32 size, u32 align,
+			     u32 *dspAddr, s32 seg_id, s32 req, bool reserved);
 
 /*
- *  ======== DBL_FreeFxn ========
+ *  ======== dbl_free_fxn ========
  *  Free memory function.  Free, or unreserve (if reserved == TRUE) "size"
  *  bytes of memory from segment "space"
  */
-typedef bool(*DBL_FreeFxn) (void *hdl, u32 addr, s32 space, u32 size,
-			    bool reserved);
+typedef bool(*dbl_free_fxn) (void *hdl, u32 addr, s32 space, u32 size,
+			     bool reserved);
 
 /*
- *  ======== DBL_LogWriteFxn ========
+ *  ======== dbl_log_write_fxn ========
  *  Function to call when writing data from a section, to log the info.
  *  Can be NULL if no logging is required.
  */
-typedef DSP_STATUS(*DBL_LogWriteFxn) (void *handle, struct DBL_SectInfo *sect,
-				      u32 addr, u32 nBytes);
-
+typedef dsp_status(*dbl_log_write_fxn) (void *handle,
+					struct dbl_sect_info *sect, u32 addr,
+					u32 bytes);
 
 /*
- *  ======== DBL_SymLookup ========
+ *  ======== dbl_sym_lookup ========
  *  Symbol lookup function - Find the symbol name and return its value.
  *
  *  Parameters:
  *      handle          - Opaque handle
- *      pArg            - Opaque argument.
+ *      parg            - Opaque argument.
  *      name            - Name of symbol to lookup.
  *      sym             - Location to store address of symbol structure.
  *
@@ -110,46 +96,45 @@ typedef DSP_STATUS(*DBL_LogWriteFxn) (void *handle, struct DBL_SectInfo *sect,
  *      TRUE:           Success (symbol was found).
  *      FALSE:          Failed to find symbol.
  */
-typedef bool(*DBL_SymLookup) (void *handle, void *pArg, void *rmmHandle,
-			      const char *name, struct DBL_Symbol **sym);
-
+typedef bool(*dbl_sym_lookup) (void *handle, void *parg, void *rmm_handle,
+			       const char *name, struct dbl_symbol ** sym);
 
 /*
- *  ======== DBL_WriteFxn ========
+ *  ======== dbl_write_fxn ========
  *  Write memory function.  Write "n" HOST bytes of memory to segment "mtype"
  *  starting at address "dspAddr" from the buffer "buf".  The buffer is
  *  formatted as an array of words appropriate for the DSP.
  */
-typedef s32(*DBL_WriteFxn) (void *hdl, u32 dspAddr, void *buf,
-			    u32 n, s32 mtype);
+typedef s32(*dbl_write_fxn) (void *hdl, u32 dspAddr, void *buf,
+			     u32 n, s32 mtype);
 
 /*
- *  ======== DBL_Attrs ========
+ *  ======== dbl_attrs ========
  */
-struct DBL_Attrs {
-	DBL_AllocFxn alloc;
-	DBL_FreeFxn free;
-	void *rmmHandle;	/* Handle to pass to alloc, free functions */
-	DBL_WriteFxn write;
-	void *wHandle;		/* Handle to pass to write, cinit function */
+struct dbl_attrs {
+	dbl_alloc_fxn alloc;
+	dbl_free_fxn free;
+	void *rmm_handle;	/* Handle to pass to alloc, free functions */
+	dbl_write_fxn write;
+	void *input_params;	/* Handle to pass to write, cinit function */
 
-	DBL_LogWriteFxn logWrite;
-	void *logWriteHandle;
+	dbl_log_write_fxn log_write;
+	void *log_write_handle;
 
 	/* Symbol matching function and handle to pass to it */
-	DBL_SymLookup symLookup;
-	void *symHandle;
-	void *symArg;
+	dbl_sym_lookup sym_lookup;
+	void *sym_handle;
+	void *sym_arg;
 
 	/*
 	 *  These file manipulation functions should be compatible with the
 	 *  "C" run time library functions of the same name.
 	 */
-	s32(*fread) (void *, size_t, size_t, void *);
-	s32(*fseek) (void *, long, int);
-	s32(*ftell) (void *);
-	s32(*fclose) (void *);
+	 s32(*fread) (void *, size_t, size_t, void *);
+	 s32(*fseek) (void *, long, int);
+	 s32(*ftell) (void *);
+	 s32(*fclose) (void *);
 	void *(*fopen) (const char *, const char *);
-} ;
+};
 
-#endif				/* DBLDEFS_ */
+#endif /* DBLDEFS_ */
