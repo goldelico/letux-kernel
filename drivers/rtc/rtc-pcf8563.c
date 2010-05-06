@@ -98,7 +98,7 @@ static int pcf8563_get_datetime(struct i2c_client *client, struct rtc_time *tm)
 	if (buf[PCF8563_REG_SC] & PCF8563_SC_LV)
 		dev_info(&client->dev,
 			"low voltage detected, date/time is not reliable.\n");
-
+#if 0	// is somehow enabled and flooding dmesg
 	dev_dbg(&client->dev,
 		"%s: raw data is st1=%02x, st2=%02x, sec=%02x, min=%02x, hr=%02x, "
 		"mday=%02x, wday=%02x, mon=%02x, year=%02x\n",
@@ -106,7 +106,7 @@ static int pcf8563_get_datetime(struct i2c_client *client, struct rtc_time *tm)
 		buf[0], buf[1], buf[2], buf[3],
 		buf[4], buf[5], buf[6], buf[7],
 		buf[8]);
-
+#endif
 
 	tm->tm_sec = BCD2BIN(buf[PCF8563_REG_SC] & 0x7F);
 	tm->tm_min = BCD2BIN(buf[PCF8563_REG_MN] & 0x7F);
@@ -120,13 +120,13 @@ static int pcf8563_get_datetime(struct i2c_client *client, struct rtc_time *tm)
 	/* detect the polarity heuristically. see note above. */
 	pcf8563->c_polarity = (buf[PCF8563_REG_MO] & PCF8563_MO_C) ?
 		(tm->tm_year >= 100) : (tm->tm_year < 100);
-
+#if 0	// is somehow enabled and flooding dmesg
 	dev_dbg(&client->dev, "%s: tm is secs=%d, mins=%d, hours=%d, "
 		"mday=%d, mon=%d, year=%d, wday=%d\n",
 		__FUNCTION__,
 		tm->tm_sec, tm->tm_min, tm->tm_hour,
 		tm->tm_mday, tm->tm_mon, tm->tm_year, tm->tm_wday);
-
+#endif
 	/* the clock can give out invalid datetime, but we cannot return
 	 * -EINVAL otherwise hwclock will refuse to set the time on bootup.
 	 */
