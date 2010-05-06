@@ -24,7 +24,7 @@
 #include <linux/clk.h>
 #include <linux/sysfs.h>
 #include <linux/kobject.h>
-#include <linux/i2c/twl4030.h>
+#include <linux/i2c/twl.h>
 #include <linux/io.h>
 
 #include <plat/omap34xx.h>
@@ -993,11 +993,11 @@ static int __init omap3_sr_init(void)
 
 #ifdef CONFIG_TWL4030_CORE
 	/* Enable SR on T2 */
-	ret = twl4030_i2c_read_u8(TWL4030_MODULE_PM_RECEIVER, &RdReg,
+	ret = twl_i2c_read_u8(TWL4030_MODULE_PM_RECEIVER, &RdReg,
 					R_DCDC_GLOBAL_CFG);
 
 	RdReg |= DCDC_GLOBAL_CFG_ENABLE_SRFLX;
-	ret |= twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, RdReg,
+	ret |= twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, RdReg,
 					R_DCDC_GLOBAL_CFG);
 #endif
 

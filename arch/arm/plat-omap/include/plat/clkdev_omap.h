@@ -35,7 +35,8 @@ struct omap_clk {
 #define CK_343X		(1 << 6)
 #define CK_3430ES1	(1 << 7)
 #define CK_3430ES2	(1 << 8)
-#define CK_443X		(1 << 9)
+#define CK_36XX		(1 << 9)
+#define CK_443X		(1 << 10)
 
 #endif
 
