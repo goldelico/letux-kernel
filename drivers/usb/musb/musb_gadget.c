@@ -394,6 +394,19 @@ static void txstate(struct musb *musb, struct musb_request *req)
 #endif
 
 	if (!use_dma) {
+		if (req->mapped) {
+			/* Unmap the buffer to use PIO */
+			dma_unmap_single(musb->controller,
+				req->request.dma,
+				req->request.length,
+				req->tx
+				? DMA_TO_DEVICE
+				: DMA_FROM_DEVICE);
+
+			req->request.dma = DMA_ADDR_INVALID;
+			req->mapped = 0;
+		}
+
 		musb_write_fifo(musb_ep->hw_ep, fifo_count,
 				(u8 *) (request->buf + request->actual));
 		request->actual += fifo_count;
