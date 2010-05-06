@@ -429,7 +429,7 @@ static int __fm_core_send_cmd(unsigned char fmreg_index, void *payload,
 		cmd_hdr->rd_wr = fm_reg_info[fmreg_index].type;
 		cmd_hdr->dlen = payload_len;
 		fm_cb(skb)->fm_opcode = fm_reg_info[fmreg_index].opcode;
-	} else if (payload !=NULL) {
+	} else if (payload != NULL) {
 		fm_cb(skb)->fm_opcode = *((char *)payload + 2);
 	}
 	/* Fill payload data */
@@ -1996,7 +1996,7 @@ int fm_core_transfer_rds_from_internal_buff(struct file *file,
 		buf += FM_RDS_BLOCK_SIZE;
 		ret += FM_RDS_BLOCK_SIZE;
 	}
-//	spin_unlock_irqrestore(&fmdev->rds_buff_lock, flags);
+	spin_unlock_irqrestore(&fmdev->rds_buff_lock, flags);
 	return ret;
 }
 
