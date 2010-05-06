@@ -523,7 +523,7 @@ static inline void fm_core_rx_reset_rds_cache(void)
 	if (fmdev->rx.af_mode == FM_RX_RDS_AF_SWITCH_MODE_ON)
 		fmdev->irq_info.mask |= FM_LEV_EVENT;
 
-	FMDRV_API_EXIT(0)
+	FMDRV_API_EXIT(0);
 }
 
 /* Resets current station info */
