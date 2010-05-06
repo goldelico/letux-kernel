@@ -71,7 +71,9 @@ struct gatepeterson_attrs {
 /*
  *  Structure defining internal object for the Gate Peterson
  */
-struct gatepeterson_obj {
+struct gatepeterson_object {
+	IGATEPROVIDER_SUPEROBJECT; /* For inheritance from IGateProvider */
+	IOBJECT_SUPEROBJECT;       /* For inheritance for IObject */
 	struct list_head elem;
 	VOLATILE struct gatepeterson_attrs *attrs; /* Instance attr */
 	VOLATILE u16 *flag[2]; /* Flags for processors */
@@ -83,20 +85,11 @@ struct gatepeterson_obj {
 	enum igatempsupport_local_protect local_protect; /* Type of local
 						protection to be used */
 	struct gatepeterson_params params;
-	void *top;  /* Pointer to the top Object */
 	u32 ref_count; /* Local reference count */
 	u32 cache_line_size; /* Cache Line Size */
 	bool cache_enabled; /* Is cache enabled? */
 };
 
-/*
- *  Structure defining object for the Gate Peterson
- */
-struct gatepeterson_object {
-	IGATEPROVIDER_SUPEROBJECT; /* For inheritance from IGateProvider */
-	IOBJECT_SUPEROBJECT;       /* For inheritance for IObject */
-	struct gatepeterson_obj *obj; /* Pointer to GP internal object */
-};
 
 /*
  *  Variable for holding state of the gatepeterson module
@@ -117,15 +110,19 @@ static struct gatepeterson_module_object *gatepeterson_module =
  * Internal functions
  * =============================================================================
  */
+#if 0
 static void *_gatepeterson_create(enum igatempsupport_local_protect
 							local_protect,
 				const struct gatepeterson_params *params,
 				bool create_flag);
+#endif
 
-static void gatepeterson_post_init(struct gatepeterson_obj *obj);
+static void gatepeterson_post_init(struct gatepeterson_object *obj);
 
+#if 0
 static bool gatepeterson_inc_refcount(const struct gatepeterson_params *params,
 					void **handle);
+#endif
 
 /* TODO: figure these out */
 #define gate_enter_system() 0
@@ -225,7 +222,7 @@ EXPORT_SYMBOL(gatepeterson_setup);
  */
 int gatepeterson_destroy(void)
 {
-	struct gatepeterson_obj *obj = NULL;
+	struct gatepeterson_object *obj = NULL;
 	struct mutex *lock = NULL;
 	s32 retval = 0;
 	int *key = 0;
@@ -251,11 +248,7 @@ int gatepeterson_destroy(void)
 	*  ideleted/closed so far, if there any, delete or close them
 	*/
 	list_for_each_entry(obj, &gatepeterson_module->obj_list, elem) {
-		if (obj->attrs->creator_proc_id ==
-					multiproc_get_id(NULL))
-			gatepeterson_delete(&obj->top);
-		else
-			gatepeterson_close(&obj->top);
+		gatepeterson_delete((void **)&obj);
 
 		if (list_empty(&gatepeterson_module->obj_list))
 			break;
@@ -338,6 +331,114 @@ exit:
 }
 EXPORT_SYMBOL(gatepeterson_params_init);
 
+
+int gatepeterson_instance_init(struct gatepeterson_object *obj,
+		enum igatempsupport_local_protect local_protect,
+		const struct gatepeterson_params *params)
+{
+	s32 retval = 0;
+
+	IGATEPROVIDER_OBJECTINITIALIZER(obj, gatepeterson);
+
+	if (params->shared_addr == NULL) {
+		retval = 1;
+		goto exit;
+	}
+
+	/* Create the local gate */
+	obj->local_gate = gatemp_create_local(local_protect);
+	obj->cache_enabled  = sharedregion_is_cache_enabled(params->region_id);
+	obj->cache_line_size =
+		sharedregion_get_cache_line_size(params->region_id);
+
+	/* Settings for both the creator and opener */
+	if (obj->cache_line_size > sizeof(struct gatepeterson_attrs)) {
+		obj->attrs   = params->shared_addr;
+		obj->flag[0] = (u16 *)((u32)(obj->attrs) +
+							obj->cache_line_size);
+		obj->flag[1] = (u16 *)((u32)(obj->flag[0]) +
+							obj->cache_line_size);
+		obj->turn = (u16 *)((u32)(obj->flag[1]) +
+							obj->cache_line_size);
+	} else {
+		obj->attrs   = params->shared_addr;
+		obj->flag[0] = (u16 *)((u32)(obj->attrs) +
+					sizeof(struct gatepeterson_attrs));
+		obj->flag[1] = (u16 *)((u32)(obj->flag[0]) + sizeof(u16));
+		obj->turn	= (u16 *)((u32)(obj->flag[1]) + sizeof(u16));
+	}
+	obj->nested  = 0;
+
+	if (!params->open_flag) {
+		/* Creating. */
+		obj->self_id = 0;
+		obj->other_id = 1;
+		gatepeterson_post_init(obj);
+	} else {
+#if 0
+		Cache_inv((Ptr)obj->attrs, sizeof(struct gatepeterson_attrs),
+				Cache_Type_ALL, TRUE);
+#endif
+		if (obj->attrs->creator_proc_id == multiproc_self()) {
+			/* Opening locally */
+			obj->self_id	= 0;
+			obj->other_id	= 1;
+		} else {
+			/* Trying to open a gate remotely */
+			obj->self_id	= 1;
+			obj->other_id	= 0;
+			if (obj->attrs->opener_proc_id == MULTIPROC_INVALIDID) {
+				/* Opening remotely for the first time */
+				obj->attrs->opener_proc_id = multiproc_self();
+			} else if (obj->attrs->opener_proc_id !=
+							multiproc_self()) {
+				retval = -EACCES;
+				goto exit;
+			}
+#if 0
+			if (obj->cache_enabled) {
+				Cache_wbInv((Ptr)obj->attrs,
+					sizeof(struct gatepeterson_attrs),
+					Cache_Type_ALL, TRUE);
+			}
+#endif
+		}
+	}
+
+exit:
+	if (retval < 0) {
+		printk(KERN_ERR "gatemp_instance_init failed! status = 0x%x",
+			retval);
+	}
+	return retval;
+}
+
+void gatepeterson_instance_finalize(struct gatepeterson_object *obj, int status)
+{
+	switch (status) {
+	/* No break here. Fall through to the next. */
+	case 0:
+		{
+			/* Modify shared memory */
+			obj->attrs->opener_proc_id = MULTIPROC_INVALIDID;
+#if 0
+			Cache_wbInv((Ptr)obj->attrs, sizeof(GatePeterson_Attrs),
+				Cache_Type_ALL, TRUE);
+#endif
+		}
+		/* No break here. Fall through to the next. */
+
+	case 1:
+		{
+			/* Nothing to be done. */
+		}
+	}
+	return;
+}
+
+
+
+#if 0
 /*
  * ======== gatepeterson_create ========
  *  Purpose:
@@ -378,8 +479,7 @@ EXPORT_SYMBOL(gatepeterson_create);
 int gatepeterson_delete(void **gphandle)
 
 {
-	struct gatepeterson_object *handle = NULL;
-	struct gatepeterson_obj *obj = NULL;
+	struct gatepeterson_object *obj = NULL;
 	s32 retval;
 
 	BUG_ON(gphandle == NULL);
@@ -391,8 +491,7 @@ int gatepeterson_delete(void **gphandle)
 		goto exit;
 	}
 
-	handle = (struct gatepeterson_object *)(*gphandle);
-	obj = (struct gatepeterson_obj *)handle->obj;
+	obj = (struct gatepeterson_object *)(*gphandle);
 	if (unlikely(obj == NULL)) {
 		retval = -EINVAL;
 		goto exit;
@@ -404,7 +503,8 @@ int gatepeterson_delete(void **gphandle)
 	}
 
 	/* Check if we have created the GP or not */
-	if (unlikely(obj->attrs->creator_proc_id != multiproc_get_id(NULL))) {
+	if (WARN_ON(unlikely(obj->attrs->creator_proc_id !=
+						multiproc_get_id(NULL)))) {
 		retval = -EACCES;
 		goto exit;
 	}
@@ -428,7 +528,6 @@ int gatepeterson_delete(void **gphandle)
 #endif
 
 	kfree(obj);
-	kfree(handle);
 	*gphandle = NULL;
 	return 0;
 
@@ -439,7 +538,14 @@ exit:
 }
 EXPORT_SYMBOL(gatepeterson_delete);
 
+#else
 
+/* Override the IObject interface to define create and delete APIs */
+IOBJECT_CREATE1(gatepeterson, enum igatempsupport_local_protect);
+
+#endif
+
+#if 0
 /*
  * ======== gatepeterson_open ========
  *  Purpose:
@@ -498,11 +604,9 @@ EXPORT_SYMBOL(gatepeterson_open_by_addr);
  */
 int gatepeterson_close(void **gphandle)
 {
-	struct gatepeterson_object *handle = NULL;
-	struct gatepeterson_obj *obj = NULL;
+	struct gatepeterson_object *obj = NULL;
 	struct gatepeterson_params *params = NULL;
 	s32 retval = 0;
-	int *key = 0;
 
 	BUG_ON(gphandle == NULL);
 	if (atomic_cmpmask_and_lt(&(gatepeterson_module->ref_count),
@@ -517,8 +621,7 @@ int gatepeterson_close(void **gphandle)
 		goto exit;
 	}
 
-	handle = (struct gatepeterson_object *)(*gphandle);
-	obj = (struct gatepeterson_obj *) handle->obj;
+	obj = (struct gatepeterson_object *) (*gphandle);
 	if (unlikely(obj == NULL)) {
 		retval = -EINVAL;
 		goto exit;
@@ -545,7 +648,6 @@ int gatepeterson_close(void **gphandle)
 	gatemp_delete(obj->local_gate);
 
 	kfree(obj);
-	kfree(handle);
 	*gphandle = NULL;
 	return 0;
 
@@ -557,6 +659,7 @@ exit:
 	return retval;
 }
 EXPORT_SYMBOL(gatepeterson_close);
+#endif
 
 /*
  * ======== gatepeterson_enter ========
@@ -565,8 +668,7 @@ EXPORT_SYMBOL(gatepeterson_close);
  */
 int *gatepeterson_enter(void *gphandle)
 {
-	struct gatepeterson_object *handle = NULL;
-	struct gatepeterson_obj *obj = NULL;
+	struct gatepeterson_object *obj = NULL;
 	s32 retval = 0;
 	int *key = 0;
 
@@ -581,8 +683,7 @@ int *gatepeterson_enter(void *gphandle)
 		goto exit;
 	}
 
-	handle = (struct gatepeterson_object *)gphandle;
-	obj = (struct gatepeterson_obj *) handle->obj;
+	obj = (struct gatepeterson_object *) gphandle;
 
 	/* Enter local gate */
 	if (obj->local_gate != NULL) {
@@ -647,8 +748,7 @@ EXPORT_SYMBOL(gatepeterson_enter);
  */
 void gatepeterson_leave(void *gphandle, int *key)
 {
-	struct gatepeterson_object *handle = NULL;
-	struct gatepeterson_obj *obj	= NULL;
+	struct gatepeterson_object *obj	= NULL;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(&(gatepeterson_module->ref_count),
 				GATEPETERSON_MAKE_MAGICSTAMP(0),
@@ -657,8 +757,7 @@ void gatepeterson_leave(void *gphandle, int *key)
 
 	BUG_ON(gphandle == NULL);
 
-	handle = (struct gatepeterson_object *)gphandle;
-	obj = (struct gatepeterson_obj *)handle->obj;
+	obj = (struct gatepeterson_object *)gphandle;
 
 	/* Release the resource and leave system gate. */
 	obj->nested--;
@@ -706,7 +805,7 @@ EXPORT_SYMBOL(gatepeterson_shared_mem_req);
  *                       Internal functions
  *************************************************************************
  */
-
+#if 0
 /*
  * ======== gatepeterson_create ========
  *  Purpose:
@@ -777,7 +876,7 @@ static void *_gatepeterson_create(enum igatempsupport_local_protect
 	} else {
 #if 0
 		Cache_inv((Ptr)obj->attrs, sizeof(struct gatepeterson_attrs),
-				  Cache_Type_ALL, true);
+				Cache_Type_ALL, true);
 #endif
 		obj->ref_count = 1;
 		if (obj->attrs->creator_proc_id == multiproc_self()) {
@@ -836,6 +935,8 @@ exit:
 	return NULL;
 }
 
+#endif
+
 /*
  * ======== gatepeterson_post_init ========
  *  Purpose:
@@ -845,7 +946,7 @@ exit:
  *
  *  Main purpose is to set up shared memory
  */
-static void gatepeterson_post_init(struct gatepeterson_obj *obj)
+static void gatepeterson_post_init(struct gatepeterson_object *obj)
 {
 	/* Set up shared memory */
 	*(obj->turn)       = 0;
@@ -867,6 +968,7 @@ static void gatepeterson_post_init(struct gatepeterson_obj *obj)
 #endif
 }
 
+#if 0
 /*
  * ======== gatepeterson_inc_refcount ========
  *  Purpose:
@@ -876,7 +978,7 @@ static void gatepeterson_post_init(struct gatepeterson_obj *obj)
 static bool gatepeterson_inc_refcount(const struct gatepeterson_params *params,
 					void **handle)
 {
-	struct gatepeterson_obj *obj = NULL;
+	struct gatepeterson_object *obj = NULL;
 	s32 retval  = 0;
 	bool done = false;
 
@@ -889,7 +991,7 @@ static bool gatepeterson_inc_refcount(const struct gatepeterson_params *params,
 					break;
 
 				obj->ref_count++;
-				*handle = obj->top;
+				*handle = obj;
 				mutex_unlock(gatepeterson_module->mod_lock);
 				done = true;
 				break;
@@ -899,3 +1001,4 @@ static bool gatepeterson_inc_refcount(const struct gatepeterson_params *params,
 
 	return done;
 }
+#endif
