@@ -400,6 +400,10 @@ int ducati_mem_map(u32 mpu_addr, u32 ul_virt_addr,
 			DPRINTK("WMD_BRD_MemMap: MMU element size is zero\n");
 			return -EINVAL;
 		}
+	} else {
+		/* If mixedSize set to 1, no conversion is
+		 * required. for element size */
+		hw_attrs.element_size = HW_ELEM_SIZE_64BIT;
 	}
 	/*
 	 * Do OS-specific user-va to pa translation.
