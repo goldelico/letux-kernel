@@ -486,6 +486,11 @@ int listmp_sharedmemory_delete(listmp_sharedmemory_handle *listmp_handleptr)
 
 	handle = (listmp_sharedmemory_object *) (*listmp_handleptr);
 	obj = (struct listmp_sharedmemory_obj *) handle->obj;
+	if (WARN_ON(obj == NULL)) {
+		status = -EINVAL;
+		goto exit;
+	}
+
 	params = (listmp_sharedmemory_params *) &obj->params;
 
 	if (obj->owner->proc_id != multiproc_get_id(NULL)) {
