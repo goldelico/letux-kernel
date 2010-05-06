@@ -40,6 +40,8 @@
 #define GPIO_CHARG_STAT   125
 #define GPIO_TS_PENIRQ    98
 #define GPIO_UDC_HOTPLUG  86
+#define GPIO_TS_LEFT_BUTTON	16
+#define GPIO_TS_RIGHT_BUTTON	13
 
 /*====================================================================== 
  * MMC/SD

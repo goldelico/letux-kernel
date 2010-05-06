@@ -125,10 +125,6 @@ static struct platform_device jz_mmc_device = {
 	.resource       = jz_mmc_resources,
 };
 
-#ifdef CONFIG_JZ4730_MINIPC
-extern struct platform_device minipc_bl_device;
-#endif
-
 /** I2C controller **/
 static struct resource jz_i2c_resources[] = {
         [0] = {
@@ -156,14 +152,13 @@ struct platform_device jz_i2c_device = {
         .resource       = jz_i2c_resources,
 };
 
-static struct i2c_board_info pcf8563_rtc_board_info[] = {
-		[0] = {
-			.type = "pcf8563",
-			.addr = 0x51,
-		}
-};
-
 /* All */
+
+#ifdef CONFIG_JZ4730_MINIPC
+extern struct platform_device minipc_bl_device;
+extern struct platform_device touchpad_buttons_device;
+#endif
+
 static struct platform_device *jz_platform_devices[] __initdata = {
 	&jz_usb_ohci_device,
 	&jz_lcd_device,
@@ -171,14 +166,13 @@ static struct platform_device *jz_platform_devices[] __initdata = {
 	&jz_mmc_device,
 #ifdef CONFIG_JZ4730_MINIPC
 	&minipc_bl_device,
+	&touchpad_buttons_device,
 #endif
 	&jz_i2c_device,
 };
 
 static int __init jz_platform_init(void)
 {
-	// this is how it *should* better work than the probing workaround in pcf8563_attach()
-//	i2c_register_board_info(0, pcf8563_rtc_board_info, 1);	// before registering adapters
 	return platform_add_devices(jz_platform_devices, ARRAY_SIZE(jz_platform_devices));
 }
 

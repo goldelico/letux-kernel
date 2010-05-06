@@ -24,6 +24,8 @@
 #include <linux/console.h>
 #include <linux/delay.h>
 #include <linux/backlight.h>
+#include <linux/gpio_mouse.h>
+#include <linux/i2c.h>
 
 #include <asm/cpu.h>
 #include <asm/bootinfo.h>
@@ -144,6 +146,62 @@ struct platform_device minipc_bl_device = {
 	.id		= -1,
 };
 
+static struct i2c_board_info pcf8563_rtc_board_info[] = {
+	[0] = {
+		.type = "pcf8563",
+		.addr = 0x51,
+		}
+};
+
+/* touch pad buttons */
+
+int gpio_get_value(int pin)
+{ // poll this gpio
+	return __gpio_get_pin(pin);
+}
+
+int gpio_free(int pin)
+{ // release
+	return 0;	// ignored
+}
+
+int gpio_request(int pin, char *name)
+{ // request
+	return 0;	// ignored
+}
+
+int gpio_direction_input(int pin)
+{
+	__gpio_as_input(pin);
+	return 0;	// ignored, we assume to only have inputs...
+}
+
+static struct gpio_mouse_platform_data touchpad_buttons_board_info[] = {
+	[0] = {
+		.scan_ms = 20,
+		.polarity = GPIO_MOUSE_POLARITY_ACT_HIGH,
+{ {
+			.up = GPIO_TS_LEFT_BUTTON,
+			.down = GPIO_TS_LEFT_BUTTON,	// should result in 0 unless the low probability event that the gpio value changes within some fraction of a us. Anyway. will only report +/-1. 
+			.left = GPIO_TS_LEFT_BUTTON,
+			.right = GPIO_TS_LEFT_BUTTON,
+			.bleft = GPIO_TS_LEFT_BUTTON,
+			.bmiddle = -1,	// n/a
+			.bright = GPIO_TS_RIGHT_BUTTON,
+} }
+	}
+};
+
+struct platform_device touchpad_buttons_device = {
+	.name		= "gpio_mouse",
+	.dev		= {
+//		.num_resources	= ARRAY_SIZE(touchpad_buttons_board_info),
+		.platform_data  = touchpad_buttons_board_info,
+	},
+	.id		= -1,
+};
+
+/* initialization */
 
 void __init jz_board_setup(void)
 {
@@ -157,4 +215,8 @@ void __init jz_board_setup(void)
  *  We don't have pmp timer ack led stuff
 	jz_timer_callback = pmp_timer_ack;
  */
+	
+	// this is how it *should* better work than the probing workaround in pcf8563_attach()
+	//	i2c_register_board_info(0, pcf8563_rtc_board_info, 1);	// before registering adapters
+	
 }

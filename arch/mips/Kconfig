@@ -31,6 +31,7 @@ config JZ4730_MINIPC
 	select SYS_SUPPORTS_32BIT_KERNEL
 	select SYS_SUPPORTS_LITTLE_ENDIAN
 	select SOC_JZ4730
+	select GENERIC_GPIO
 
 config JZ4740_PAVO
 	bool "Ingenic JZ4740 PAVO board"

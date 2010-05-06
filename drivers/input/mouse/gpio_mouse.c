@@ -26,7 +26,9 @@ static void gpio_mouse_scan(struct input_polled_dev *dev)
 	struct gpio_mouse_platform_data *gpio = dev->private;
 	struct input_dev *input = dev->input;
 	int x, y;
-
+	
+//	printk(KERN_EMERG "gpio_mouse_scan: left %d right %d()\n", gpio_get_value(gpio->bleft), gpio_get_value(gpio->bright));
+	
 	if (gpio->bleft >= 0)
 		input_report_key(input, BTN_LEFT,
 				gpio_get_value(gpio->bleft) ^ gpio->polarity);
