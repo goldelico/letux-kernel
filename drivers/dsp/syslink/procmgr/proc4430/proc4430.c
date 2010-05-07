@@ -215,11 +215,17 @@ int proc4430_destroy(void)
 	 * deleted so far. If not,delete them.
 	 */
 
+	/* Temporarily increment the ref_count. */
+	atomic_inc_return(&proc4430_state.ref_count);
+
 	for (i = 0; i < MULTIPROC_MAXPROCESSORS; i++) {
 		if (proc4430_state.proc_handles[i] == NULL)
 			continue;
 		proc4430_delete(&(proc4430_state.proc_handles[i]));
 	}
+
+	/* Decrement the ref_count. */
+	atomic_dec_return(&proc4430_state.ref_count);
 
 	/* Check if the gate_handle was created internally. */
 	if (proc4430_state.gate_handle != NULL) {

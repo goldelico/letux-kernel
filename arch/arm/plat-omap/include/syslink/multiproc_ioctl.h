@@ -24,11 +24,14 @@
 #include <ipc_ioctl.h>
 #include <multiproc.h>
 
+#define MULTIPROC_BASE_CMD		(100)
+
 enum CMD_MULTIPROC {
 	MULTIPROC_SETUP = MULTIPROC_BASE_CMD,
 	MULTIPROC_DESTROY,
 	MULTIPROC_GETCONFIG,
-	MULTIPROC_SETLOCALID
+	MULTIPROC_SETLOCALID,
+	MULTIPROC_END_CMD
 };
 
 /*  ----------------------------------------------------------------------------

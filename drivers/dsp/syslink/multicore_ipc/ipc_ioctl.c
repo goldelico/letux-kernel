@@ -19,7 +19,6 @@
 #include <linux/uaccess.h>
 
 #include <ipc_ioctl.h>
-#include <multiproc_ioctl.h>
 #include <nameserver_ioctl.h>
 #include <heapbuf_ioctl.h>
 #include <sharedregion_ioctl.h>
@@ -42,9 +41,7 @@ int ipc_ioc_router(u32 cmd, ulong arg)
 	s32 retval = 0;
 	u32 ioc_nr = _IOC_NR(cmd);
 
-	if (ioc_nr >= MULTIPROC_BASE_CMD && ioc_nr <= MULTIPROC_END_CMD)
-		retval = multiproc_ioctl(NULL, NULL, cmd, arg);
-	else if (ioc_nr >= NAMESERVER_BASE_CMD &&
+	if (ioc_nr >= NAMESERVER_BASE_CMD &&
 					ioc_nr <= NAMESERVER_END_CMD)
 		retval = nameserver_ioctl(NULL, NULL, cmd, arg);
 	else if (ioc_nr >= HEAPBUF_BASE_CMD && ioc_nr <= HEAPBUF_END_CMD)
