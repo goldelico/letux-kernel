@@ -54,7 +54,8 @@ obj-$(CONFIG_PMIC_DA903X)	+= da903x.o
 max8925-objs			:= max8925-core.o max8925-i2c.o
 obj-$(CONFIG_MFD_MAX8925)	+= max8925.o
 
-obj-$(CONFIG_MFD_PCF50633)	+= pcf50633-core.o pcf50633-irq.o
+pcf50633-objs			:= pcf50633-core.o pcf50633-irq.o
+obj-$(CONFIG_MFD_PCF50633)	+= pcf50633.o
 obj-$(CONFIG_PCF50633_ADC)	+= pcf50633-adc.o
 obj-$(CONFIG_AB3100_CORE)	+= ab3100-core.o
 obj-$(CONFIG_AB3100_OTP)	+= ab3100-otp.o
