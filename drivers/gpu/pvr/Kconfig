@@ -36,7 +36,7 @@ endchoice
 choice
 	prompt "PowerVR build type"
 	depends on SGX540 || SGX530
-	default SGX_BUILD_DEBUG
+	default SGX_BUILD_RELEASE
 
 config SGX_BUILD_RELEASE
        bool "RELEASE"
