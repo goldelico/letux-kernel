@@ -116,7 +116,7 @@ static struct nameserver_remotenotify_module_object
 				nameserver_remotenotify_state = {
 	.is_setup = false,
 	.gate_handle = NULL,
-	.def_cfg.notify_event_id = 7u,
+	.def_cfg.notify_event_id = 1u,
 	.def_inst_params.gatemp = NULL,
 	.def_inst_params.shared_addr = 0x0,
 };
@@ -368,7 +368,8 @@ static void _nameserver_remotenotify_callback(u16 proc_id, u16 line_id,
 	*  otherwise the notify_sendEvent should have failed
 	*/
 	retval = notify_send_event(handle->remote_proc_id, 0,
-				handle->notify_event_id, 0, true);
+			(handle->notify_event_id  | (NOTIFY_SYSTEMKEY << 16)),
+			0, true);
 
 signal_response:
 	if (handle->msg[offset]->response == true)
@@ -466,7 +467,7 @@ int nameserver_remotenotify_get(void *rhandle, const char *instance_name,
 
 	/* Send the notification to remote processor */
 	retval = notify_send_event(obj->remote_proc_id, 0,
-			obj->notify_event_id,
+			(obj->notify_event_id  | (NOTIFY_SYSTEMKEY << 16)),
 			0, /* Payload */
 			false); /* Not sending a payload */
 	if (retval < 0) {
@@ -611,7 +612,8 @@ void *nameserver_remotenotify_create(u16 remote_proc_id,
 
 	retval = notify_register_event_single(remote_proc_id,
 					0, /* TBD: Interrupt line id */
-					obj->notify_event_id,
+					(obj->notify_event_id | \
+						(NOTIFY_SYSTEMKEY << 16)),
 					_nameserver_remotenotify_callback,
 					(void *)obj);
 	if (retval < 0)
@@ -634,7 +636,7 @@ sem_alloc_error:
 	nameserver_unregister_remote_driver(remote_proc_id);
 	/* Do we want to check the staus ? */
 	retval1 = notify_unregister_event_single(obj->remote_proc_id, 0,
-				obj->notify_event_id);
+			(obj->notify_event_id | (NOTIFY_SYSTEMKEY << 16)));
 
 notify_error:
 	kfree(obj->local_gate);
@@ -693,7 +695,7 @@ int nameserver_remotenotify_delete(void **rhandle)
 
 	/* Unregister the event from Notify */
 	retval1 = notify_unregister_event_single(obj->remote_proc_id, 0,
-				obj->notify_event_id);
+			(obj->notify_event_id | (NOTIFY_SYSTEMKEY << 16)));
 	if (retval1 < 0 && retval >= 0)
 		retval = retval1;
 	kfree(obj);
