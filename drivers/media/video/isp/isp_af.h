@@ -134,4 +134,7 @@ int isp_af_request_statistics(struct isp_af_device *,
 			      struct isp_af_data *afdata);
 int isp_af_config(struct isp_af_device *, struct af_configuration *afconfig);
 
+int isp_af_validate_errata_i421(struct isp_af_device *isp_af,
+				struct af_configuration *afconfig);
+
 #endif	/* OMAP_ISP_AF_H */
