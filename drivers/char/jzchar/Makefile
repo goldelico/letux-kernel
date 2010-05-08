@@ -10,6 +10,7 @@ obj-$(CONFIG_JZ_CAMERA_SENSOR)	+= sensor.o
 obj-$(CONFIG_JZ_I2C_EEPROM)	+= eeprom.o
 obj-$(CONFIG_JZ_EJTAG)		+= ejtag.o
 obj-$(CONFIG_JZ_POWEROFF)	+= poweroff.o
+obj-$(CONFIG_JZ_MINIPC_MISC)	+= minipc-misc.o
 
 obj-$(CONFIG_JZ_TPANEL)		+= jz_ts.o
 obj-$(CONFIG_JZ_TPANEL_UCB1400)	+= ucb1400.o

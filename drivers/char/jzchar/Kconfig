@@ -50,9 +50,13 @@ config JZ_UDC_HOTPLUG
 	tristate 'JZ UDC hotplug driver support'
 	depends on JZCHAR
 
+config JZ_MINIPC_MISC
+	tristate 'Minipc poweroff and power-button support (using PIC)' 
+	depends on JZCHAR
+
 config JZ_POWEROFF
 	tristate 'JZ board poweroff support' 
-	depends on JZCHAR
+	depends on JZCHAR && !JZ_MINIPC_MISC
 
 config JZ_OW
 	tristate 'JZ One-wire bus support' 
