@@ -46,8 +46,41 @@ static struct omap_dss_device zoom_lcd_device = {
 	.platform_disable = zoom_panel_disable_lcd,
 };
 
+
+static int zoom_panel_enable_tv(struct omap_dss_device *dssdev)
+{
+#define ENABLE_VDAC_DEDICATED           0x03
+#define ENABLE_VDAC_DEV_GRP             0x20
+
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+			ENABLE_VDAC_DEDICATED,
+			TWL4030_VDAC_DEDICATED);
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+			ENABLE_VDAC_DEV_GRP, TWL4030_VDAC_DEV_GRP);
+
+	return 0;
+}
+
+static void zoom_panel_disable_tv(struct omap_dss_device *dssdev)
+{
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+			TWL4030_VDAC_DEDICATED);
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+			TWL4030_VDAC_DEV_GRP);
+}
+static struct omap_dss_device zoom_tv_device = {
+	.name = "tv",
+	.driver_name = "venc",
+	.type = OMAP_DISPLAY_TYPE_VENC,
+	.phy.venc.type = OMAP_DSS_VENC_TYPE_COMPOSITE,
+	.platform_enable = zoom_panel_enable_tv,
+	.platform_disable = zoom_panel_disable_tv,
+};
+
+
 static struct omap_dss_device *zoom_dss_devices[] = {
 	&zoom_lcd_device,
+	&zoom_tv_device,
 };
 
 static struct omap_dss_board_info zoom_dss_data = {
