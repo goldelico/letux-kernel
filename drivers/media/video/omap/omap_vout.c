@@ -60,12 +60,10 @@
 #include "omap_voutlib.h"
 #include "omap_voutdef.h"
 
-#ifdef CONFIG_ARCH_OMAP4 /* TODO: correct this!*/
+#ifdef CONFIG_TILER_OMAP
 #include <mach/tiler.h>
 #define TILER_ALLOCATE_V4L2
 #endif
-
-
 
 MODULE_AUTHOR("Texas Instruments.");
 MODULE_DESCRIPTION("OMAP Video for Linux Video out driver");
@@ -73,10 +71,7 @@ MODULE_LICENSE("GPL");
 
 #define OMAP_VIDEO1 0
 #define OMAP_VIDEO2 1
-#ifdef CONFIG_ARCH_OMAP4
-#define OMAP_VIDEO3	2
-#define OMAP4_MAX_OVERLAYS	4
-#endif
+#define OMAP_VIDEO3 2
 
 /* configuration macros */
 #define VOUT_NAME		"omap_vout"
@@ -85,17 +80,16 @@ MODULE_LICENSE("GPL");
 #define QQVGA_HEIGHT		120
 
 #ifdef CONFIG_ARCH_OMAP4
+#define OMAP4_MAX_OVERLAYS	4
 #define NUM_OF_VIDEO_CHANNELS	3
-#else
-#define NUM_OF_VIDEO_CHANNELS	2
-#endif
-
-#ifdef CONFIG_ARCH_OMAP4
 #define VID_MAX_WIDTH		2048 /* Largest width */
 #define VID_MAX_HEIGHT		2048 /* Largest height */
+#define OMAP_VOUT_MAX_BUF_SIZE (VID_MAX_WIDTH*VID_MAX_HEIGHT*4)
 #else
+#define NUM_OF_VIDEO_CHANNELS	2
 #define VID_MAX_WIDTH		1280 /* Largest width */
-#define VID_MAX_HEIGHT		720 /* Largest height */
+#define VID_MAX_HEIGHT		720  /* Largest height */
+#define OMAP_VOUT_MAX_BUF_SIZE (VID_MAX_WIDTH*VID_MAX_HEIGHT*2)
 #endif
 /* Mimimum requirement is 2x2 for DSS */
 #define VID_MIN_WIDTH		2
@@ -107,12 +101,6 @@ MODULE_LICENSE("GPL");
 #define MAX_PIXELS_PER_LINE     2048
 #define VRFB_TX_TIMEOUT         1000
 
-#ifdef CONFIG_ARCH_OMAP4
-#define OMAP_VOUT_MAX_BUF_SIZE (VID_MAX_WIDTH*VID_MAX_HEIGHT*4)
-#else
-#define OMAP_VOUT_MAX_BUF_SIZE (VID_MAX_WIDTH*VID_MAX_HEIGHT*2)
-#endif
-
 int cacheable_buffers;
 int flushable_buffers;
 
@@ -122,12 +110,10 @@ static struct videobuf_queue_ops video_vbq_ops;
 
 static u32 video1_numbuffers = OMAP_VOUT_MAX_BUFFERS;
 static u32 video2_numbuffers = OMAP_VOUT_MAX_BUFFERS;
+static u32 video3_numbuffers = 3;
 static u32 video1_bufsize = OMAP_VOUT_MAX_BUF_SIZE;
 static u32 video2_bufsize = OMAP_VOUT_MAX_BUF_SIZE;
-#ifdef CONFIG_ARCH_OMAP4
-static u32 video3_numbuffers = 3;
 static u32 video3_bufsize = OMAP_VOUT_MAX_BUF_SIZE;
-#endif
 static u32 vid1_static_vrfb_alloc;
 static u32 vid2_static_vrfb_alloc;
 static int debug;
@@ -160,6 +146,7 @@ MODULE_PARM_DESC(video1_bufsize, "Size of the buffer to be allocated for \
 		video3 device");
 #endif
 
+#ifdef CONFIG_OMAP2_VRFB
 module_param(vid1_static_vrfb_alloc, bool, S_IRUGO);
 MODULE_PARM_DESC(vid1_static_vrfb_alloc,
 	"Static allocation of the VRFB buffer for video1 device");
@@ -167,6 +154,7 @@ MODULE_PARM_DESC(vid1_static_vrfb_alloc,
 module_param(vid2_static_vrfb_alloc, bool, S_IRUGO);
 MODULE_PARM_DESC(vid2_static_vrfb_alloc,
 	"Static allocation of the VRFB buffer for video2 device");
+#endif
 
 module_param(debug, bool, S_IRUGO);
 MODULE_PARM_DESC(debug, "Debug level (0-1)");
@@ -562,11 +550,12 @@ static int omap_vout_vrfb_buffer_setup(struct omap_vout_device *vout,
 	return 0;
 }
 #endif
-#ifdef CONFIG_ARCH_OMAP4
+
 static void omap_vout_tiler_buffer_free(struct omap_vout_device *vout,
 					unsigned int count,
 					unsigned int startindex)
 {
+#ifdef CONFIG_TILER_OMAP
 	int i;
 
 	if (startindex < 0)
@@ -584,16 +573,17 @@ static void omap_vout_tiler_buffer_free(struct omap_vout_device *vout,
 		vout->buf_phy_uv_addr[i] = 0;
 		vout->buf_phy_uv_addr_alloced[i] = 0;
 	}
-}
 #endif
+}
+
 /* Allocate the buffers for  TILER space.  Ideally, the buffers will be ONLY
  in tiler space, with different rotated views available by just a convert.
  */
-#ifdef TILER_ALLOCATE_V4L2
 static int omap_vout_tiler_buffer_setup(struct omap_vout_device *vout,
 					unsigned int *count, unsigned int startindex,
 					struct v4l2_pix_format *pix)
 {
+#ifdef CONFIG_TILER_OMAP
 	int i, aligned = 1;
 	enum tiler_fmt fmt;
 
@@ -653,6 +643,9 @@ static int omap_vout_tiler_buffer_setup(struct omap_vout_device *vout,
 	}
 
 	*count = n_alloc;
+#else
+	*count = 0;
+#endif
 
 	return 0;
 }
@@ -663,7 +656,6 @@ static void omap_vout_free_tiler_buffers(struct omap_vout_device *vout)
 	omap_vout_tiler_buffer_free(vout, vout->buffer_allocated, 0);
 	vout->buffer_allocated = 0;
 }
-#endif
 
 /* Convert V4L2 rotation to DSS rotation
  * V4L2 understand 0, 90, 180, 270.
@@ -1103,18 +1095,14 @@ static int omap_vout_buffer_setup(struct videobuf_queue *q, unsigned int *count,
 	if (V4L2_BUF_TYPE_VIDEO_OUTPUT != q->type)
 		return -EINVAL;
 
-#ifndef TILER_ALLOCATE_V4L2
-#ifdef CONFIG_ARCH_OMAP4
-	if (OMAP_VIDEO3 == vout->vid)
-		startindex = video3_numbuffers;
-	else
-#endif
-	startindex = (vout->vid == OMAP_VIDEO1) ?
-		video1_numbuffers : video2_numbuffers;
+#ifndef CONFIG_TILER_OMAP
+	/* :TODO: ??? */
+	startindex = (vout->vid == OMAP_VIDEO1 ? video1_numbuffers :
+		      vout->vid == OMAP_VIDEO2 ? video2_numbuffers :
+		      video3_numbuffers);
 
 #ifndef CONFIG_ARCH_OMAP4
-	if ((rotation_enabled(vout))
-			&& *count > OMAP_VOUT_MAX_BUFFERS)
+	if (rotation_enabled(vout) && *count > OMAP_VOUT_MAX_BUFFERS)
 		*count = OMAP_VOUT_MAX_BUFFERS;
 
 	/* If rotation is enabled, allocate memory for VRFB space also */
@@ -1125,17 +1113,8 @@ static int omap_vout_buffer_setup(struct videobuf_queue *q, unsigned int *count,
 #endif /* CONFIG_ARCH_OMAP4 */
 
 	/* Now allocated the V4L2 buffers */
-
 	*size = vout->pix.width * vout->pix.height * vout->bpp;
 	*size = PAGE_ALIGN(*size);
-
-#ifdef CONFIG_ARCH_OMAP4
-	if (OMAP_VIDEO3 == vout->vid)
-		startindex = video3_numbuffers;
-	else
-#endif
-	startindex = (vout->vid == OMAP_VIDEO1) ?
-		video1_numbuffers : video2_numbuffers;
 
 	for (i = startindex; i < *count; i++) {
 		vout->buffer_size = *size;
@@ -1172,8 +1151,7 @@ static int omap_vout_buffer_setup(struct videobuf_queue *q, unsigned int *count,
 	*/
 	/* Now allocated the V4L2 buffers */
 	/* i is the block-width - either 4K or 8K, depending upon input width*/
-	i = (vout->pix.width * vout->bpp +
-		TILER_PAGE - 1) & ~(TILER_PAGE - 1);
+	i = PAGE_ALIGN(vout->pix.width * vout->bpp);
 
 	/* for NV12 format, buffer is height + height / 2*/
 	if (OMAP_DSS_COLOR_NV12 == vout->dss_mode)
@@ -1201,13 +1179,11 @@ static void omap_vout_free_allbuffers(struct omap_vout_device *vout)
 {
 	int num_buffers = 0, i;
 
-#ifdef CONFIG_ARCH_OMAP4
-	if (OMAP_VIDEO3 == vout->vid)
-		num_buffers = video3_numbuffers;
-	else
-#endif
-	num_buffers = (vout->vid == OMAP_VIDEO1) ?
-			video1_numbuffers : video2_numbuffers;
+	/* :TODO: ??? */
+	num_buffers = (vout->vid == OMAP_VIDEO1 ? video1_numbuffers :
+		       vout->vid == OMAP_VIDEO2 ? video2_numbuffers :
+		       video3_numbuffers);
+
 	for (i = num_buffers; i < vout->buffer_allocated; i++) {
 		if (vout->buf_virt_addr[i]) {
 			omap_vout_free_buffer(vout->buf_virt_addr[i],
@@ -1296,7 +1272,7 @@ static int omap_vout_buffer_prepare(struct videobuf_queue *q,
 		vout->queued_buf_addr[vb->i] = (u8 *) dmabuf->bus_addr;
 		return 0;
 	}
-#ifndef CONFIG_ARCH_OMAP4
+#ifndef CONFIG_TILER_OMAP
 	/* If rotation is enabled, copy input buffer into VRFB
 	 * memory space using DMA. We are copying input buffer
 	 * into VRFB memory space of desired angle and DSS will

@@ -1712,7 +1712,7 @@ if (cpu_is_omap44xx()) {
 			/* enable complexio interrupt events*/
 		dsi_write_reg(lcd_ix, DSI_COMPLEXIO_IRQ_ENABLE, 0x0);
 	}
-	
+
 	r = dsi_complexio_power(lcd_ix, DSI_COMPLEXIO_POWER_ON);
 
 	if (r)
@@ -2288,46 +2288,47 @@ static int dsi_vc_send_long(enum dsi lcd_ix,
 
 int send_short_packet(enum dsi lcd_ix, u8 data_type, u8 vc, u8 data0,
  u8 data1, bool mode, bool ecc)
-{	u32 val,header=0,count=10000;	
+{
+	u32 val, header = 0, count = 10000;
 
-	/* Configure the Virtual Channel */	
+	/* Configure the Virtual Channel */
 	dsi_vc_enable(lcd_ix, vc, 0);
-	/* speed selection (HS or LPS) */	
+	/* speed selection (HS or LPS) */
 	val = dsi_read_reg(lcd_ix, DSI_VC_CTRL(vc));
 	if (mode == 1) {/*HS MODE*/
 		val = val | (1<<9);
 		}
 	else if (mode == 0) {/*LP MODE*/
-		val = val & ~(1<<9);	
-		}	
+		val = val & ~(1<<9);
+		}
 	dsi_write_reg(lcd_ix, DSI_VC_CTRL(vc), val);
 	/*TODO: can be do the below step before itself, do we need to disable
 	the DSI interface before configuring the 	 * VCs */
 	/*	enable_omap_dsi_interface();	*/
 	dsi_vc_enable(lcd_ix, vc, 1);
-	/* Send Short packet */	
+	/* Send Short packet */
 	header = (0<<24)|
-			(data1<<16)|		 
-			(data0<<8)|		 
-			(0<<6) |		 
-			(data_type<<0);	
+			(data1<<16)|
+			(data0<<8)|
+			(0<<6) |
+			(data_type<<0);
 	dsi_write_reg(lcd_ix, DSI_VC_SHORT_PACKET_HEADER(0), header);
 
 	printk(KERN_DEBUG "Header = 0x%x", header);
 
-	do	{		
+	do {
 		val = dsi_read_reg(lcd_ix, DSI_VC_IRQSTATUS(vc));
-		}while ( (!(val & 0x00000004)) && (--count));	
-	if(count)	{		
+	} while ((!(val & 0x00000004)) && --count);
+	if (count) {
 		printk(KERN_DEBUG "Short packet  success!!! \n\r");
 		/*TODO: this need to be cross check,
 		whether we need to reset the bit */
 		dsi_write_reg(lcd_ix, DSI_VC_IRQSTATUS(vc), 0x00000004);
-		return 0;	
-		}	
-	else	{		
+		return 0;
+		}
+	else	{
 		printk(KERN_ERR "Failed to send Short packet !!! \n\r");
-		return -1;	
+		return -1;
 		}
 }
 
@@ -2356,7 +2357,7 @@ static int dsi_vc_send_short(enum dsi lcd_ix, int channel, u8 data_type,
 	r = (data_id << 0) | (data << 8) | (0 << 16) | (ecc << 24);
 
 	mdelay(2);
-	
+
 	dsi_write_reg(lcd_ix, DSI_VC_SHORT_PACKET_HEADER(channel), r);
 
 	count = 10000;
@@ -2375,7 +2376,7 @@ static int dsi_vc_send_short(enum dsi lcd_ix, int channel, u8 data_type,
 	} else {
 		printk("short Packet sent fail");
 	}
-	
+
 
 	return 0;
 }
@@ -3886,7 +3887,7 @@ static void dsi_display_uninit_dsi(struct omap_dss_device *dssdev)
 
 static int dsi_core_init(enum dsi lcd_ix)
 {
-	
+
 	REG_FLD_MOD(lcd_ix, DSI_SYSCONFIG, 0, 0, 0);
 
 	/* ENWAKEUP */
@@ -3910,9 +3911,8 @@ static int dsi_display_enable(struct omap_dss_device *dssdev)
 	int r = 0;
 	enum dsi lcd_ix;
 	struct dsi_struct *p_dsi;
-#ifdef CONFIG_ARCH_OMAP4
 	int val = 0;
-#endif
+
 	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
 
@@ -3946,7 +3946,6 @@ if (cpu_is_omap44xx())
 	if (r)
 		goto err2;
 
-#ifdef CONFIG_ARCH_OMAP4
 	if (cpu_is_omap44xx() && (lcd_ix == dsi1)) {
 
 		gpio_base=ioremap(0x48059000,0x1000);
@@ -3973,7 +3972,6 @@ if (cpu_is_omap44xx())
 		mdelay(120);
 		printk(KERN_DEBUG "GPIO reset done ");
 	}
-#endif
 	r = dsi_display_init_dispc(dssdev);
 	if (r)
 		goto err2;
@@ -3990,10 +3988,10 @@ if (cpu_is_omap44xx())
 	if (r)
 		goto err4;
 
-if (cpu_is_omap44xx()) {
+	if (cpu_is_omap44xx()) {
 		if (lcd_ix == dsi2)
 			p_dsi->update_mode = OMAP_DSS_UPDATE_AUTO;
-		}
+	}
 	p_dsi->update_mode = OMAP_DSS_UPDATE_DISABLED;
 	p_dsi->user_update_mode = OMAP_DSS_UPDATE_AUTO;
 
@@ -4631,12 +4629,14 @@ int dsi2_init(struct platform_device *pdev)
 #endif
 
 #ifdef CONFIG_ARCH_OMAP4
+#if 0
 	dsi_2.vdds_dsi_reg = regulator_get(&pdev->dev, "vdds_dsi");
 	if (IS_ERR(dsi_2.vdds_dsi_reg)) {
 		DSSERR("can't get VDDS_DSI regulator\n");
 		r = PTR_ERR(dsi_2.vdds_dsi_reg);
 		goto err2;
 	}
+#endif
 #endif
 
 	enable_clocks(1);

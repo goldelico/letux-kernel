@@ -3898,7 +3898,9 @@ static void dispc_error_worker(struct work_struct *work)
 			}
 		}
 	}
+#endif
 
+#ifdef CONFIG_ARCH_OMAP4
 	if (errors & DISPC_IRQ_SYNC_LOST_2) {
 		struct omap_overlay_manager *manager = NULL;
 		bool enable = false;
@@ -3908,7 +3910,6 @@ static void dispc_error_worker(struct work_struct *work)
 		for (i = 0; i < omap_dss_get_num_overlay_managers(); ++i) {
 			struct omap_overlay_manager *mgr;
 			mgr = omap_dss_get_overlay_manager(i);
-#ifdef CONFIG_ARCH_OMAP4
 			if (mgr == NULL)
 				break;
 			if (mgr->id == OMAP_DSS_CHANNEL_LCD2) {
@@ -3918,7 +3919,6 @@ static void dispc_error_worker(struct work_struct *work)
 				mgr->device->disable(mgr->device);
 				break;
 			}
-#endif
 		}
 
 		if (manager) {
@@ -3939,7 +3939,6 @@ static void dispc_error_worker(struct work_struct *work)
 				manager->device->enable(manager->device);
 		}
 	}
-
 #endif
 
 	if (errors & DISPC_IRQ_SYNC_LOST) {

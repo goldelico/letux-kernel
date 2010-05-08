@@ -623,18 +623,18 @@ int dss_init(bool skip_init)
 	/* Select DPLL */
 	REG_FLD_MOD(DSS_CONTROL, 0, 0, 0);
 
-if (!cpu_is_omap44xx()) {
+	if (!cpu_is_omap44xx()) {
 
-	r = request_irq(INT_24XX_DSS_IRQ,
-			cpu_is_omap24xx()
-			? dss_irq_handler_omap2
-			: dss_irq_handler_omap3,
-			0, "OMAP DSS", NULL);
+		r = request_irq(INT_24XX_DSS_IRQ,
+				cpu_is_omap24xx()
+				? dss_irq_handler_omap2
+				: dss_irq_handler_omap3,
+				0, "OMAP DSS", NULL);
 	} else {
-	r = request_irq(INT_44XX_DSS_IRQ,
-			dss_irq_handler_omap3,
-			0, "OMAP DSS", (void *)1);
-		}
+		r = request_irq(INT_44XX_DSS_IRQ,
+				dss_irq_handler_omap3,
+				0, "OMAP DSS", (void *)1);
+	}
 
 	if (r < 0) {
 		DSSERR("omap2 dss: request_irq failed\n");
@@ -759,7 +759,7 @@ if (!cpu_is_omap44xx()) {
 		rev |= (1<<27);
 		__raw_writel(rev, gpio1_base+OMAP24XX_GPIO_SETDATAOUT);
 		mdelay(120);
-		}
+	}
 
 	return 0;
 
@@ -784,9 +784,6 @@ void dss_exit(void)
 	iounmap(dss.base);
 }
 
-
-
-
 void test(void)
 {
 	u32 b, c;
@@ -804,7 +801,4 @@ void test(void)
 	printk(KERN_INFO "PM DSS wrst 0x%x 0x%x\n", __raw_readl(c+0x4), (c+0x4));
 
 }
-
-
-
 

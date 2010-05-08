@@ -132,7 +132,7 @@ static int dpi_set_mode(struct omap_dss_device *dssdev)
 #ifndef CONFIG_ARCH_OMAP4
 	pck = fck / lck_div / pck_div / 1000;
 #else
-       	pck = 0;
+	pck = 0;
 #endif
 
 	if (pck != t->pixel_clock) {
@@ -194,8 +194,6 @@ static int dpi_display_enable(struct omap_dss_device *dssdev)
 	r = dpi_basic_init(dssdev);
 	if (r)
 		goto err2;
-
-
 #ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
 	dss_clk_enable(DSS_CLK_FCK2);
 
@@ -205,7 +203,8 @@ static int dpi_display_enable(struct omap_dss_device *dssdev)
 		r = dsi_pll_init(dsi1, dssdev, 0, 1);
 	if (r)
 		goto err3;
-
+#elif defined(CONFIG_ARCH_OMAP4)
+	BUG();
 #endif  /* #if 0 */
 	r = dpi_set_mode(dssdev);
 	if (r)
