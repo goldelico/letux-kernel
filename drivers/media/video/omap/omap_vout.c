@@ -2258,7 +2258,6 @@ static int vidioc_qbuf(struct file *file, void *fh,
 				"DMA Channel not allocated for Rotation\n");
 		return -EINVAL;
 	}
-#endif
 
 	/* setup the vrfb so that the first frames are also setup
 	* correctly in the vrfb
@@ -2268,6 +2267,7 @@ static int vidioc_qbuf(struct file *file, void *fh,
 		omap_vout_vrfb_buffer_setup(vout, &count, 0);
 		vrfb_configured = 1;
 	}
+#endif
 
 	ret = videobuf_qbuf(q, buffer);
 	return ret;
