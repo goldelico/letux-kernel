@@ -125,7 +125,7 @@ static void __init board_gpio_setup(void)
 
 void minipc_bl_set_intensity(int intensity)
 {
-	printk(KERN_ERR "MiniPC BL, set intensity to %d\n", intensity);
+	printk(KERN_INFO "MiniPC BL, set intensity to %d\n", intensity);
 	__pwm_set_duty(0, intensity);
 }
 
