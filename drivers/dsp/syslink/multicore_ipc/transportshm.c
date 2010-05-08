@@ -583,7 +583,8 @@ transportshm_open_by_addr(void *shared_addr, void **handle_ptr)
 	transportshm_params_init(&params);
 	/* set params field */
 	params.shared_addr = shared_addr;
-	params.notify_event_id = attrs->notify_event_id;
+	params.notify_event_id = attrs->notify_event_id | \
+						(NOTIFY_SYSTEMKEY << 16);
 	params.priority = attrs->priority;
 
 	if (unlikely(attrs->flag != TRANSPORTSHM_UP)) {
@@ -596,7 +597,6 @@ transportshm_open_by_addr(void *shared_addr, void **handle_ptr)
 	status = _transportshm_create((struct transportshm_object **)
 					handle_ptr,
 					attrs->creator_proc_id, &params, false);
-
 	if (status < 0)
 		goto exit;
 
@@ -685,9 +685,9 @@ transportshm_close(void **handle_ptr)
 
 	messageq_unregister_transport(obj->remote_proc_id,
 					obj->params.priority);
-	tmp_status = notify_unregister_event_single(obj->remote_proc_id, 0,
-						obj->notify_event_id);
 
+	tmp_status = notify_unregister_event_single(obj->remote_proc_id, 0,
+			(obj->notify_event_id | (NOTIFY_SYSTEMKEY << 16)));
 	if ((tmp_status < 0) && (status >= 0))
 		status = TRANSPORTSHM_E_FAIL;
 
@@ -710,7 +710,7 @@ int transportshm_put(void *handle, void *msg)
 {
 	int status = 0;
 	struct transportshm_object *obj = NULL;
-	int *key;
+	/*int *key;*/
 
 	if (WARN_ON(atomic_cmpmask_and_lt(
 			&(transportshm_module->ref_count),
@@ -739,7 +739,7 @@ int transportshm_put(void *handle, void *msg)
 	}
 #endif
 	/* make sure ListMP_put and sendEvent are done before remote executes */
-	key = gatemp_enter(obj->gate);
+	/*key = gatemp_enter(obj->gate);*/
 	status = listmp_put_tail(obj->remote_list, (struct listmp_elem *) msg);
 	if (status < 0) {
 		printk(KERN_ERR "transportshm_put: Failed to put "
@@ -763,7 +763,7 @@ notify_send_fail:
 	listmp_remove(obj->remote_list, (struct listmp_elem *) msg);
 
 exit_with_gate:
-	gatemp_leave(obj->gate, key);
+	/*gatemp_leave(obj->gate, key);*/
 exit:
 	if (status < 0)
 		printk(KERN_ERR "transportshm_put failed: "
@@ -1074,7 +1074,6 @@ int _transportshm_create(struct transportshm_object **handle_ptr, u16 proc_id,
 						params->notify_event_id,
 						_transportshm_notify_fxn,
 						handle);
-
 	if (status < 0) {
 		status = -EFAULT;
 		goto exit;
