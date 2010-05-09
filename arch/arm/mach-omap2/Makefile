@@ -150,7 +150,9 @@ obj-$(CONFIG_MACH_OMAP3517EVM)     += board-am3517evm.o
 # Platform specific device init code
 obj-y					+= usb-musb.o
 obj-$(CONFIG_MACH_OMAP2_TUSB6010)	+= usb-tusb6010.o
-obj-y					+= usb-ehci.o
+ifneq ($(CONFIG_USB_EHCI_HCD),)
+	obj-y				+= usb-ehci.o
+endif
 
 onenand-$(CONFIG_MTD_ONENAND_OMAP2)	:= gpmc-onenand.o
 obj-y					+= $(onenand-m) $(onenand-y)
