@@ -1273,7 +1273,9 @@ static int map_urb_for_dma(struct usb_hcd *hcd, struct urb *urb,
 	if (is_root_hub(urb->dev))
 		return 0;
 
-	if (usb_endpoint_xfer_control(&urb->ep->desc))
+
+	if (usb_endpoint_xfer_control(&urb->ep->desc)
+		&& !strcmp(hcd->driver->description, "musb-hcd"))
 		urb->transfer_flags = URB_NO_SETUP_DMA_MAP |
 					URB_NO_TRANSFER_DMA_MAP;
 
