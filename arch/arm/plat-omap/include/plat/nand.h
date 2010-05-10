@@ -19,6 +19,17 @@ struct omap_nand_platform_data {
 	int			(*nand_setup)(void __iomem *);
 	int			(*dev_ready)(struct omap_nand_platform_data *);
 	int			dma_channel;
+	int			gpmc_irq;
 	void __iomem		*gpmc_cs_baseaddr;
 	void __iomem		*gpmc_baseaddr;
+	int			devsize;
+	int			ecc_opt;/* 0x0 - sw ecc
+					 * 0x1 - hw ecc default ecc layout
+					 * 0x2 - hw ecc in romcode layout
+					 */
 };
+
+/* size (4 KiB) for IO mapping */
+#define NAND_IO_SIZE    SZ_4K
+
+extern int gpmc_nand_init(struct omap_nand_platform_data *d);
