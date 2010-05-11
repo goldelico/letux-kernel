@@ -83,7 +83,7 @@ DSP_STATUS handle_constraints_set(struct WMD_DEV_CONTEXT *pDevContext,
 		 * to operate reliably. So boost lower OPP levels to OPP3.
 		 */
 		if (pConstraintVal < min_dsp_freq) {
-			pr_debug("DSPBRIDGE: VDD1 OPP%x elevated to OPP%x\n",
+			pr_debug("dspbridge req freq %u set min freq to %lu\n",
 					pConstraintVal, min_dsp_freq);
 			(*pdata->dsp_set_min_opp)(&omap_dspbridge_dev->dev,
 							 min_dsp_freq);
