@@ -21,6 +21,7 @@
 #include <linux/clk.h>
 #ifdef CONFIG_SERIAL_OMAP
 #include <linux/platform_device.h>
+#include <linux/delay.h>
 #include <mach/omap-serial.h>
 #endif
 #include <linux/io.h>
@@ -294,7 +295,19 @@ static void omap_uart_restore_context(struct omap_uart_state *uart)
 
 	uart->context_valid = 0;
 
-	serial_write_reg(p, UART_OMAP_MDR1, 0x7);
+	/* Disable the UART first, then configure */
+	if (uart->use_dma)
+		/* This enables the DMA Mode, the FIFO,the Rx and
+		 * Tx FIFO levels. Keeping the UARt disabled in
+		 * MDR1 Register.
+		 */
+		omap_uart_mdr1_errataset(uart->num, 0x07, 0x59);
+	else
+		/* This enables the FIFO, the Rx and Tx FIFO levels.
+		 * Keeping the UARt Disabled in MDR1 Register.
+		 */
+		omap_uart_mdr1_errataset(uart->num, 0x07, 0x51);
+
 	serial_write_reg(p, UART_LCR, 0xBF); /* Config B mode */
 	efr = serial_read_reg(p, UART_EFR);
 	serial_write_reg(p, UART_EFR, UART_EFR_ECB);
@@ -305,10 +318,6 @@ static void omap_uart_restore_context(struct omap_uart_state *uart)
 	serial_write_reg(p, UART_DLM, uart->dlh);
 	serial_write_reg(p, UART_LCR, 0x0); /* Operational mode */
 	serial_write_reg(p, UART_IER, uart->ier);
-	if (uart->use_dma)
-		serial_write_reg(p, UART_FCR, 0x59);
-	else
-		serial_write_reg(p, UART_FCR, 0x51);
 
 	serial_write_reg(p, UART_LCR, 0x80);
 	serial_write_reg(p, UART_MCR, uart->mcr);
@@ -319,7 +328,18 @@ static void omap_uart_restore_context(struct omap_uart_state *uart)
 	serial_write_reg(p, UART_OMAP_SCR, uart->scr);
 	serial_write_reg(p, UART_OMAP_WER, uart->wer);
 	serial_write_reg(p, UART_OMAP_SYSC, uart->sysc);
-	serial_write_reg(p, UART_OMAP_MDR1, 0x00); /* UART 16x mode */
+	/* Enable the UART finally */
+	if (uart->use_dma)
+		/* This enables the DMA Mode, the FIFO,the Rx and
+		 * Tx FIFO levels. Keeping the UARt Enabled in
+		 * MDR1 Register.
+		 */
+		omap_uart_mdr1_errataset(uart->num, 0x00, 0x59);
+	else
+		/* This enables the FIFO, the Rx and Tx FIFO levels.
+		 * Keeping the UARt Enabled in MDR1 Register.
+		 */
+		omap_uart_mdr1_errataset(uart->num, 0x00, 0x51);
 }
 #else
 static inline void omap_uart_save_context(struct omap_uart_state *uart) {}
