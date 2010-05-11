@@ -617,28 +617,33 @@ DSP_STATUS PROC_GetResourceInfo(void *hProcessor, u32 uResourceType,
 	case DSP_RESOURCE_DYNSRAM:
 		status = DEV_GetNodeManager(pProcObject->hDevObject,
 								&hNodeMgr);
-		if (DSP_FAILED(status))
+		if (!hNodeMgr) {
+			status = DSP_EHANDLE;
 			goto func_end;
+		}
 
 		status = NODE_GetNldrObj(hNodeMgr, &hNldr);
 		if (DSP_SUCCEEDED(status)) {
 			status = NLDR_GetRmmManager(hNldr, &rmm);
-			if (DSP_SUCCEEDED(status)) {
-				DBC_Assert(rmm != NULL);
+			if (rmm) {
 				if (!RMM_stat(rmm,
 				   (enum DSP_MEMTYPE)uResourceType,
 				   (struct DSP_MEMSTAT *)&(pResourceInfo->
 				   result.memStat)))
 					status = DSP_EVALUE;
+			} else {
+				status = DSP_EHANDLE;
 			}
 		}
 		break;
 	case DSP_RESOURCE_PROCLOAD:
 		status = DEV_GetIOMgr(pProcObject->hDevObject, &hIOMgr);
-		if (DSP_SUCCEEDED(status))
+		if (hIOMgr)
 			status = pProcObject->pIntfFxns->pfnIOGetProcLoad(
 				hIOMgr, (struct DSP_PROCLOADSTAT *)&
 				(pResourceInfo->result.procLoadStat));
+		else
+			status = DSP_EHANDLE;
 		break;
 	default:
 		status = DSP_EFAIL;
@@ -840,9 +845,9 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 #ifdef OPT_LOAD_TIME_INSTRUMENTATION
 	do_gettimeofday(&tv1);
 #endif
-	/* Call the WMD_BRD_Load Fxn */
 
-	if (DSP_FAILED(DEV_GetCodMgr(pProcObject->hDevObject, &hCodMgr))) {
+	DEV_GetCodMgr(pProcObject->hDevObject, &hCodMgr);
+	if (!hCodMgr) {
 		status = DSP_EFAIL;
 		goto func_end;
 	}
@@ -945,8 +950,11 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 	if (DSP_SUCCEEDED(status)) {
 		/* Set the Device object's message manager */
 		status = DEV_GetIOMgr(pProcObject->hDevObject, &hIOMgr);
-		DBC_Assert(DSP_SUCCEEDED(status));
-		status = (*pProcObject->pIntfFxns->pfnIOOnLoaded)(hIOMgr);
+		if (hIOMgr)
+			status = (*pProcObject->pIntfFxns->pfnIOOnLoaded)
+								(hIOMgr);
+		else
+			status = DSP_EHANDLE;
 	}
 	if (DSP_SUCCEEDED(status)) {
 		/* Now, attempt to load an exec: */
@@ -1000,13 +1008,15 @@ DSP_STATUS PROC_Load(void *hProcessor, IN CONST s32 iArgc,
 			if (DSP_SUCCEEDED(status)) {
 				status = DEV_GetDmmMgr(pProcObject->hDevObject,
 						      &hDmmMgr);
-				if (DSP_SUCCEEDED(status)) {
+				if (hDmmMgr) {
 					/* Set dwExtEnd to DMM START u8
 					  * address */
 					dwExtEnd = (dwExtEnd + 1) * DSPWORDSIZE;
 					 /* DMM memory is from EXT_END */
 					status = DMM_CreateTables(hDmmMgr,
 						dwExtEnd, DMMPOOLSIZE);
+				} else {
+					status = DSP_EHANDLE;
 				}
 			}
 		}
@@ -1088,8 +1098,10 @@ DSP_STATUS PROC_Map(void *hProcessor, void *pMpuAddr, u32 ulSize,
 	/* Critical section */
 	(void)SYNC_EnterCS(hProcLock);
 	status = DMM_GetHandle(pProcObject, &hDmmMgr);
-	if (DSP_SUCCEEDED(status))
+	if (hDmmMgr)
 		status = DMM_MapMemory(hDmmMgr, vaAlign, sizeAlign);
+	else
+		status = DSP_EHANDLE;
 
 	/* Add mapping to the page tables. */
 	if (DSP_SUCCEEDED(status)) {
@@ -1214,8 +1226,10 @@ DSP_STATUS PROC_ReserveMemory(void *hProcessor, u32 ulSize,
 		 ulSize, ppRsvAddr);
 
 	status = DMM_GetHandle(pProcObject, &hDmmMgr);
-	if (DSP_SUCCEEDED(status))
+	if (hDmmMgr)
 		status = DMM_ReserveMemory(hDmmMgr, ulSize, (u32 *)ppRsvAddr);
+	else
+		status = DSP_EHANDLE;
 
 	if (status != DSP_SOK)
 		goto func_end;
@@ -1261,8 +1275,10 @@ DSP_STATUS PROC_Start(void *hProcessor)
 		goto func_end;
 	}
 	status = DEV_GetCodMgr(pProcObject->hDevObject, &hCodMgr);
-	if (DSP_FAILED(status))
+	if (!hCodMgr) {
+		status = DSP_EHANDLE;
 		goto func_cont;
+	}
 
 	status = COD_GetEntry(hCodMgr, &dwDspAddr);
 	if (DSP_FAILED(status))
@@ -1399,8 +1415,10 @@ DSP_STATUS PROC_UnMap(void *hProcessor, void *pMapAddr,
 	vaAlign = PG_ALIGN_LOW((u32) pMapAddr, PG_SIZE_4K);
 
 	status = DMM_GetHandle(hProcessor, &hDmmMgr);
-	if (DSP_FAILED(status))
+	if (!hDmmMgr) {
+		status = DSP_EHANDLE;
 		goto func_end;
+	}
 
 	/* Critical section */
 	(void)SYNC_EnterCS(hProcLock);
@@ -1457,8 +1475,10 @@ DSP_STATUS PROC_UnReserveMemory(void *hProcessor, void *pRsvAddr,
 		 "hProcessor: 0x%x pRsvAddr: 0x%x\n", hProcessor, pRsvAddr);
 
 	status = DMM_GetHandle(pProcObject, &hDmmMgr);
-	if (DSP_SUCCEEDED(status))
+	if (hDmmMgr)
 		status = DMM_UnReserveMemory(hDmmMgr, (u32) pRsvAddr);
+	else
+		status = DSP_EHANDLE;
 
 	if (status != DSP_SOK)
 		goto func_end;

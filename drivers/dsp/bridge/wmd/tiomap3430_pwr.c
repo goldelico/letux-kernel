@@ -83,7 +83,7 @@ DSP_STATUS handle_constraints_set(struct WMD_DEV_CONTEXT *pDevContext,
 		 * to operate reliably. So boost lower OPP levels to OPP3.
 		 */
 		if (pConstraintVal < min_dsp_freq) {
-			pr_debug("DSPBRIDGE: VDD1 OPP%x elevated to OPP%x\n",
+			pr_debug("dspbridge req freq %u set min freq to %lu\n",
 					pConstraintVal, min_dsp_freq);
 			(*pdata->dsp_set_min_opp)(&omap_dspbridge_dev->dev,
 							 min_dsp_freq);
@@ -115,6 +115,7 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 	struct dspbridge_platform_data *pdata =
 				omap_dspbridge_dev->dev.platform_data;
 #endif
+	DEFINE_SPINLOCK(lock);
 
 	prev_state = pDevContext->dwBrdState;
 	pDevContext->dwBrdState = BRD_SLEEP_TRANSITION;
@@ -140,7 +141,15 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 		status = WMD_E_TIMEOUT;
 	} else {
 		/* disable bh to void concurrency with mbox tasklet */
-		local_bh_disable();
+		spin_lock_bh(&lock);
+		HW_PWR_IVA2StateGet(pDevContext->prmbase, HW_PWR_DOMAIN_DSP,
+			&pwrState);
+		if (pwrState != HW_PWR_STATE_OFF) {
+			pr_info("%s: message received while DSP trying to"
+					" sleep\n", __func__);
+			status = DSP_EFAIL;
+			goto func_cont;
+		}
 		/* Update the Bridger Driver state */
 		pDevContext->dwBrdState = BRD_DSP_HIBERNATION;
 		/* Save mailbox settings */
@@ -154,14 +163,14 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 		 * hibernation.
 		 */
 		dsp_wdt_enable(false);
-
 #endif
-		local_bh_enable();
-		if (DSP_SUCCEEDED(status)) {
+func_cont:
+		spin_unlock_bh(&lock);
 #ifdef CONFIG_BRIDGE_DVFS
-			status = DEV_GetIOMgr(pDevContext->hDevObject, &hIOMgr);
-			if (DSP_FAILED(status))
-				return status;
+		if (DSP_SUCCEEDED(status)) {
+			DEV_GetIOMgr(pDevContext->hDevObject, &hIOMgr);
+			if (!hIOMgr)
+				return DSP_EHANDLE;
 			IO_SHMsetting(hIOMgr, SHM_GETOPP, &opplevel);
 
 			/*
@@ -172,11 +181,11 @@ DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext)
 				(*pdata->dsp_set_min_opp)
 					(&omap_dspbridge_dev->dev, min_dsp_freq);
 			status = DSP_SOK;
+		}
 #endif /* CONFIG_BRIDGE_DVFS */
-		} else {
+		else
 			pDevContext->dwBrdState = prev_state;
 		}
-	}
 #endif
 	return status;
 }
@@ -196,6 +205,7 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 	u16 timeout = PWRSTST_TIMEOUT / 10;
 	u32 prev_state;
 	enum HW_PwrState_t pwrState, targetPwrState;
+	DEFINE_SPINLOCK(lock);
 
 	/* Check if sleep code is valid */
 	if ((dwCmd != PWR_DEEPSLEEP) && (dwCmd != PWR_EMERGENCYDEEPSLEEP))
@@ -268,7 +278,15 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 		return WMD_E_TIMEOUT;
 	} else {
 		/* disable bh to void concurrency with mbox tasklet */
-		local_bh_disable();
+		spin_lock_bh(&lock);
+		HW_PWR_IVA2StateGet(pDevContext->prmbase, HW_PWR_DOMAIN_DSP,
+				&pwrState);
+		if (pwrState != HW_PWR_STATE_OFF) {
+			pr_err("%s: message received while DSP trying to"
+				" sleep\n", __func__);
+			status = DSP_EFAIL;
+			goto func_cont;
+		}
 		/* Update the Bridger Driver state */
 		if (enable_off_mode)
 			pDevContext->dwBrdState = BRD_HIBERNATION;
@@ -285,7 +303,8 @@ DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u32 dwCmd,
 		dsp_wdt_enable(false);
 
 #endif
-		local_bh_enable();
+func_cont:
+		spin_unlock_bh(&lock);
 		if (DSP_FAILED(status)) {
 			return status;
 		}

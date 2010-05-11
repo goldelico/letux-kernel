@@ -89,6 +89,8 @@ struct TIMER_OBJECT {
 	struct timer_list timer;
 };
 
+spinlock_t clk_lock;
+
 /*  ----------------------------------- Globals */
 #if GT_TRACE
 static struct GT_Mask CLK_debugMask = { NULL, NULL };	/* GT trace variable */
@@ -126,6 +128,8 @@ bool CLK_Init(void)
 	int i = 0;
 	GT_create(&CLK_debugMask, "CK");	/* CK for CLK */
 
+	spin_lock_init(&clk_lock);
+
 	dspbridge_device.dev.bus = &platform_bus_type;
 
 	/* Get the clock handles from base port and store locally */
@@ -159,11 +163,31 @@ DSP_STATUS CLK_Enable(IN enum SERVICES_ClkId clk_id)
 {
 	DSP_STATUS status = DSP_SOK;
 	struct clk *pClk;
+	s32 clk_use_cnt;
 
 	DBC_Require(clk_id < SERVICESCLK_NOT_DEFINED);
 
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 	if (pClk) {
+		spin_lock_bh(&clk_lock);
+
+		clk_use_cnt = CLK_Get_UseCnt(clk_id);
+
+		if (clk_use_cnt == -1) {
+			pr_err("%s: failed to get CLK Use count for CLK %s,"
+				"CLK dev id = %d\n", __func__,
+				SERVICES_Clks[clk_id].clk_name,
+				SERVICES_Clks[clk_id].id);
+		} else if (clk_use_cnt >= 1) {
+			pr_debug("%s: CLK %s,"
+				"CLK dev id= %d is already enabled\n",
+				__func__,
+				SERVICES_Clks[clk_id].clk_name,
+				SERVICES_Clks[clk_id].id);
+			spin_unlock_bh(&clk_lock);
+			return status;
+		}
+
 		if (clk_enable(pClk)) {
 			pr_err("CLK_Enable: failed to Enable CLK %s, "
 					"CLK dev id = %d\n",
@@ -171,6 +195,7 @@ DSP_STATUS CLK_Enable(IN enum SERVICES_ClkId clk_id)
 					SERVICES_Clks[clk_id].id);
 			status = DSP_EFAIL;
 		}
+		spin_unlock_bh(&clk_lock);
 	} else {
 		pr_err("CLK_Enable: failed to get CLK %s, CLK dev id = %d\n",
 					SERVICES_Clks[clk_id].clk_name,
@@ -230,6 +255,7 @@ DSP_STATUS CLK_Disable(IN enum SERVICES_ClkId clk_id)
 
 	pClk = SERVICES_Clks[clk_id].clk_handle;
 
+	spin_lock_bh(&clk_lock);
 	clkUseCnt = CLK_Get_UseCnt(clk_id);
 	if (clkUseCnt == -1) {
 		pr_err("CLK_Disable: failed to get CLK Use count for CLK %s,"
@@ -237,6 +263,7 @@ DSP_STATUS CLK_Disable(IN enum SERVICES_ClkId clk_id)
 				SERVICES_Clks[clk_id].clk_name,
 				SERVICES_Clks[clk_id].id);
 	} else if (clkUseCnt == 0) {
+		spin_unlock_bh(&clk_lock);
 		return status;
 	}
 	if (clk_id == SERVICESCLK_ssi_ick)
@@ -251,6 +278,8 @@ DSP_STATUS CLK_Disable(IN enum SERVICES_ClkId clk_id)
 					SERVICES_Clks[clk_id].id);
 			status = DSP_EFAIL;
 		}
+
+	spin_unlock_bh(&clk_lock);
 	return status;
 }
 

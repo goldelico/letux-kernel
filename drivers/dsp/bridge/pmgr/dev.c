@@ -703,16 +703,12 @@ DSP_STATUS DEV_GetSymbol(struct DEV_OBJECT *hDevObject,
 	DBC_Require(cRefs > 0);
 	DBC_Require(pstrSym != NULL && pulValue != NULL);
 
-	if (IsValidHandle(hDevObject)) {
-		status = DEV_GetCodMgr(hDevObject, &hCodMgr);
-		if (DSP_SUCCEEDED(status)) {
-			DBC_Assert(hCodMgr != NULL);
-			status = COD_GetSymValue(hCodMgr, (char *)pstrSym,
-				 pulValue);
-		}
-	} else {
+	status = DEV_GetCodMgr(hDevObject, &hCodMgr);
+	if (hCodMgr)
+		status = COD_GetSymValue(hCodMgr, (char *)pstrSym,
+			 pulValue);
+	else
 		status = DSP_EHANDLE;
-	}
 
 	return status;
 }
