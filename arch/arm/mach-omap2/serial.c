@@ -473,8 +473,10 @@ void omap_uart_resume_idle(int num)
 			}
 
 			/* Check for normal UART wakeup */
-			if (__raw_readl(uart->wk_st) & uart->wk_mask)
+			if (__raw_readl(uart->wk_st) & uart->wk_mask) {
+				__raw_writel(uart->wk_mask, uart->wk_st);
 				omap_uart_block_sleep(uart);
+			}
 
 			return;
 		}
@@ -615,11 +617,19 @@ static void omap_uart_idle_init(struct omap_uart_state *uart)
 		switch (uart->num) {
 		case 0:
 			wk_mask = OMAP3430_ST_UART1_MASK;
+#if defined(CONFIG_MACH_OMAP_ZOOM2)
 			padconf = 0x182;
+#elif defined(CONFIG_MACH_OMAP_ZOOM3)
+			padconf = 0x180;
+#endif
 			break;
 		case 1:
 			wk_mask = OMAP3430_ST_UART2_MASK;
+#if defined(CONFIG_MACH_OMAP_ZOOM2)
 			padconf = 0x17a;
+#elif defined(CONFIG_MACH_OMAP_ZOOM3)
+			padconf = 0x174;
+#endif
 			break;
 		case 2:
 			wk_mask = OMAP3430_ST_UART3_MASK;
@@ -737,6 +747,27 @@ static ssize_t sleep_timeout_store(struct kobject *kobj,
 	}
 	return n;
 }
+
+/*
+ * This function enabled clock. This is exported function
+ * hence call be called by other module to enable the UART
+ * clocks.
+ */
+void omap_uart_enable_clock_from_irq(int uart_num)
+{
+	struct omap_uart_state *uart;
+
+	list_for_each_entry(uart, &uart_list, node) {
+		if (uart_num == uart->num) {
+			if (uart->clocked)
+				break;
+			omap_uart_block_sleep(uart);
+			break;
+		}
+	}
+	return;
+}
+EXPORT_SYMBOL(omap_uart_enable_clock_from_irq);
 
 static struct kobj_attribute sleep_timeout_attr =
 	__ATTR(sleep_timeout, 0644, sleep_timeout_show, sleep_timeout_store);

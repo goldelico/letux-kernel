@@ -35,6 +35,7 @@ extern unsigned int fcr[MAX_UARTS];
 
 int omap_uart_active(int num);
 int omap_uart_cts_wakeup(int uart_no, int state);
+void omap_uart_enable_clock_from_irq(int uart_num);
 void omap_uart_mdr1_errataset(int uart_no, u8 mdr1_val,
 		u8 fcr_val);
 #endif /* __OMAP_SERIAL_H__ */

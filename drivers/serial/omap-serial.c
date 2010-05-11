@@ -454,6 +454,14 @@ static inline irqreturn_t serial_omap_irq(int irq, void *dev_id)
 	struct uart_omap_port *up = dev_id;
 	unsigned int iir, lsr;
 
+	/*
+	 * This will enable the clock for some reason if the
+	 * clocks get disabled. This would enable the ICK also
+	 * in case if the Idle state is set and the PRCM modul
+	 * just shutdown the ICK because of inactivity.
+	 */
+	omap_uart_enable_clock_from_irq(up->pdev->id-1);
+
 	iir = serial_in(up, UART_IIR);
 	if (iir & UART_IIR_NO_INT)
 		return IRQ_NONE;
@@ -462,6 +470,7 @@ static inline irqreturn_t serial_omap_irq(int irq, void *dev_id)
 		up->ier &= ~UART_IER_RDI;
 		serial_out(up, UART_IER, up->ier);
 		serial_omap_start_rxdma(up);
+		wake_lock_timeout(&omap_serial_wakelock, 1*HZ);
 	} else if (lsr & UART_LSR_DR) {
 		receive_chars(up, &lsr);
 	}
@@ -1377,7 +1386,17 @@ static void uart_tx_dma_callback(int lch, u16 ch_status, void *data)
 		serial_omap_stop_tx(&up->port);
 		up->uart_dma.tx_dma_state = 0;
 		spin_unlock(&(up->uart_dma.tx_lock));
+		wake_lock_timeout(&omap_serial_wakelock, 1*HZ);
 	} else {
+
+		/*
+		 * This will enable the clock for some reason if the
+		 * clocks get disabled. This would enable the ICK also
+		 * in case if the Idle state is set and the PRCM modul
+		 * just shutdown the ICK because of inactivity.
+		 */
+		omap_uart_enable_clock_from_irq(up->pdev->id-1);
+
 		omap_stop_dma(up->uart_dma.tx_dma_channel);
 		serial_omap_continue_tx(up);
 	}
@@ -1703,17 +1722,6 @@ int omap_uart_active(int num)
 	struct circ_buf *xmit;
 	unsigned int status;
 
-	/* for DMA mode status of DMA channel
-	 * will decide whether uart port can enter sleep
-	 * or should we block sleep state.
-	 */
-	if (up->use_dma &&
-		(up->uart_dma.tx_dma_channel != 0xFF ||
-		up->uart_dma.rx_dma_channel != 0xFF))
-		return 1;
-	else
-		return 0;
-
 	/* check for recent driver activity */
 	/* if from now to last activty < 5 second keep clocks on */
 	if ((jiffies_to_msecs(jiffies - isr8250_activity) < 5000))
@@ -1736,6 +1744,18 @@ int omap_uart_active(int num)
 	status = serial_in(up, UART_MSR);
 	if (!((status & UART_MSR_ANY_DELTA) == 0))
 		return 1;
+
+	/* for DMA mode status of DMA channel
+	 * will decide whether uart port can enter sleep
+	 * or should we block sleep state.
+	 */
+	if (up->use_dma &&
+		(up->uart_dma.tx_dma_channel != 0xFF ||
+		up->uart_dma.rx_dma_channel != 0xFF))
+		return 1;
+	else
+		return 0;
+
 
 	return 0;
 }
