@@ -265,18 +265,11 @@ static inline void tlb_flush_all(const void __iomem *base)
 
 static inline void flush_all(struct WMD_DEV_CONTEXT *pDevContext)
 {
-	u32 temp = 0;
-
-	HW_PWRST_IVA2RegGet(pDevContext->prmbase, &temp);
-
-	if ((temp & HW_PWR_STATE_ON) == HW_PWR_STATE_OFF ||
-	    (temp & HW_PWR_STATE_ON) == HW_PWR_STATE_RET) {
-		CLK_Enable(SERVICESCLK_iva2_ck);
+	if (pDevContext->dwBrdState == BRD_DSP_HIBERNATION ||
+			pDevContext->dwBrdState == BRD_HIBERNATION)
 		WakeDSP(pDevContext, NULL);
-		tlb_flush_all(pDevContext->dwDSPMmuBase);
-		CLK_Disable(SERVICESCLK_iva2_ck);
-	} else
-		tlb_flush_all(pDevContext->dwDSPMmuBase);
+
+	tlb_flush_all(pDevContext->dwDSPMmuBase);
 }
 
 static void bad_page_dump(u32 pa, struct page *pg)
