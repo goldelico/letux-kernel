@@ -141,11 +141,11 @@ choice
 
 config MACH_OMAP_FST_OMAP3_127x
 	bool "Enable FlexST for OMAP3+WL127x hardware setup"
-	depends on MACH_OMAP_ZOOM3
+	depends on MACH_OMAP_ZOOM2 || MACH_OMAP_ZOOM3
 
 config MACH_OMAP_FST_OMAP3_128x
 	bool "Enable FlexST for OMAP3+WL128x hardware setup"
-	depends on MACH_OMAP_ZOOM3
+	depends on MACH_OMAP_ZOOM2 || MACH_OMAP_ZOOM3
 
 endchoice
 
