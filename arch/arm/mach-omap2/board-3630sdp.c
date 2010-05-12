@@ -109,9 +109,9 @@ static struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 	.port_data[1].mode = EHCI_HCD_OMAP_MODE_ULPI_PHY,
 	.port_data[2].mode = -EINVAL,
 
-	.port_data[0].reset_delay = 10,
-	.port_data[1].reset_delay = 10,
-	.port_data[2].reset_delay = 10,
+	.port_data[0].reset_delay = 100,
+	.port_data[1].reset_delay = 100,
+	.port_data[2].reset_delay = 100,
 
 	.port_data[0].shutdown = &default_usb_port_shutdown,
 	.port_data[1].shutdown = &default_usb_port_shutdown,
