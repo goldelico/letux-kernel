@@ -56,7 +56,7 @@
 #include <mach/dmtimer.h>
 
 /* GP Timer number to trigger interrupt for MMU-fault ISR on DSP */
-#define GPTIMER_FOR_DSP_MMU_FAULT	8
+#define GPTIMER_FOR_DSP_MMU_FAULT	7
 /* Bit mask to enable overflow interrupt */
 #define GPTIMER_IRQ_OVERFLOW		2
 /* Max time to check for GP Timer IRQ */
