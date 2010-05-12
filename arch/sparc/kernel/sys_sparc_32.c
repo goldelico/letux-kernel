@@ -80,15 +80,6 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsi
 	}
 }
 
-asmlinkage unsigned long sparc_brk(unsigned long brk)
-{
-	if(ARCH_SUN4C) {
-		if ((brk & 0xe0000000) != (current->mm->brk & 0xe0000000))
-			return current->mm->brk;
-	}
-	return sys_brk(brk);
-}
-
 /*
  * sys_pipe() is the normal C calling standard for creating
  * a pipe. It's not the way unix traditionally does this, though.
@@ -263,27 +254,6 @@ long sparc_remap_file_pages(unsigned long start, unsigned long size,
 	 */
 	return sys_remap_file_pages(start, size, prot,
 				    (pgoff >> (PAGE_SHIFT - 12)), flags);
-}
-
-extern unsigned long do_mremap(unsigned long addr,
-	unsigned long old_len, unsigned long new_len,
-	unsigned long flags, unsigned long new_addr);
-                
-asmlinkage unsigned long sparc_mremap(unsigned long addr,
-	unsigned long old_len, unsigned long new_len,
-	unsigned long flags, unsigned long new_addr)
-{
-	unsigned long ret = -EINVAL;
-
-	if (unlikely(sparc_mmap_check(addr, old_len)))
-		goto out;
-	if (unlikely(sparc_mmap_check(new_addr, new_len)))
-		goto out;
-	down_write(&current->mm->mmap_sem);
-	ret = do_mremap(addr, old_len, new_len, flags, new_addr);
-	up_write(&current->mm->mmap_sem);
-out:
-	return ret;       
 }
 
 /* we come to here via sys_nis_syscall so it can setup the regs argument */
