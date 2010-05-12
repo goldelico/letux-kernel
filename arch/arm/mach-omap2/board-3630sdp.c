@@ -54,17 +54,79 @@ static void enable_board_wakeup_source(void)
 		OMAP_WAKEUP_EN | OMAP_PIN_INPUT_PULLUP);
 }
 
+/*-------------------------------------------------------------*/
+/*  EHCI FUNCTIONS */
+
+#define EXT_PHY_RESET_GPIO_PORT1 126
+#define EXT_PHY_RESET_GPIO_PORT2 61
+static int default_usb_port_startup(struct platform_device *dev, int port)
+{
+	int r;
+	int gpio;
+	const char *name;
+
+	if (port == 0) {
+		gpio = EXT_PHY_RESET_GPIO_PORT1;
+		name = "ehci port 1 reset";
+	} else if (port == 1) {
+		gpio = EXT_PHY_RESET_GPIO_PORT2;
+		name = "ehci port 2 reset";
+	} else {
+		return -EINVAL;
+	}
+
+	r = gpio_request(gpio, name);
+	if (r < 0) {
+		printk(KERN_WARNING "Could not request GPIO %d"
+		       " for port %d reset\n",
+		       gpio, port);
+		return r;
+	}
+	gpio_direction_output(gpio, 1);
+	return 0;
+}
+
+static void default_usb_port_shutdown(struct platform_device *dev, int port)
+{
+	if (port == 0)
+		gpio_free(EXT_PHY_RESET_GPIO_PORT1);
+	else if (port == 1)
+		gpio_free(EXT_PHY_RESET_GPIO_PORT2);
+}
+
+static void default_usb_port_reset(struct platform_device *dev,
+				   int port, int reset)
+{
+	if (port == 0)
+		gpio_set_value(EXT_PHY_RESET_GPIO_PORT1, !reset);
+	else if (port == 1)
+		gpio_set_value(EXT_PHY_RESET_GPIO_PORT2, !reset);
+}
+
 static struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 
 	.port_data[0].mode = EHCI_HCD_OMAP_MODE_ULPI_PHY,
 	.port_data[1].mode = EHCI_HCD_OMAP_MODE_ULPI_PHY,
-	.port_data[2].mode = 0,
+	.port_data[2].mode = -EINVAL,
 
 	.port_data[0].reset_delay = 10,
 	.port_data[1].reset_delay = 10,
 	.port_data[2].reset_delay = 10,
 
+	.port_data[0].shutdown = &default_usb_port_shutdown,
+	.port_data[1].shutdown = &default_usb_port_shutdown,
+	.port_data[2].shutdown = NULL,
+
+	.port_data[0].reset = &default_usb_port_reset,
+	.port_data[1].reset = &default_usb_port_reset,
+	.port_data[2].reset = NULL,
+
+	.port_data[0].startup = &default_usb_port_startup,
+	.port_data[1].startup = &default_usb_port_startup,
+	.port_data[2].startup = NULL,
+
 };
+/*-------------------------------------------------------------*/
 
 static void __init omap_sdp_map_io(void)
 {
@@ -99,6 +161,9 @@ static void __init omap_sdp_init(void)
 	zoom_peripherals_init();
 	board_smc91x_init();
 	enable_board_wakeup_source();
+
+	omap_mux_init_signal("gpio_126", OMAP_PIN_OUTPUT);
+	omap_mux_init_signal("gpio_61", OMAP_PIN_OUTPUT);
 	usb_ehci_init(&ehci_pdata);
 }
 
