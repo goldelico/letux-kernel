@@ -15,6 +15,7 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <mach/gpio.h>
+#include <mach/mux.h>
 
 #if defined (CONFIG_MACH_OMAP_FST_OMAP3_127x)\
            || defined (CONFIG_MACH_OMAP_FST_OMAP3_128x)
@@ -23,9 +24,6 @@
 #include <mach/board.h>
 #include <mach/common.h>
 #include <mach/gpmc.h>
-#include <mach/mux.h>
-#else
-#include "mux.h"
 #endif
 
 #include <asm/io.h>
