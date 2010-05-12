@@ -36,13 +36,12 @@
 #define OMAP34XXCAM_H
 
 #include <media/v4l2-int-device.h>
+#include <media/v4l2-fh.h>
 #include "isp/isp.h"
 
 #define CAM_NAME			"omap34xxcam"
 #define CAM_SHORT_NAME			"omap3"
 
-#define OMAP_ISP_AF     	(1 << 4)
-#define OMAP_ISP_HIST   	(1 << 5)
 #define OMAP34XXCAM_XCLK_NONE	-1
 #define OMAP34XXCAM_XCLK_A	0
 #define OMAP34XXCAM_XCLK_B	1
@@ -61,13 +60,16 @@
 
 #define OMAP34XXCAM_VIDEODEVS		4
 
-/* #define OMAP34XXCAM_POWEROFF_DELAY (2 * HZ) */
-
 struct omap34xxcam_device;
 struct omap34xxcam_videodev;
 
+/**
+ * struct omap34xxcam_sensor_config - struct for vidioc_int_g_priv ioctl
+ * @sensor_isp: Is sensor smart/SOC or raw
+ * @capture_mem: Size limit to mmap buffers.
+ * @ival_default: Default frame interval for sensor.
+ */
 struct omap34xxcam_sensor_config {
-	int xclk;
 	int sensor_isp;
 	u32 capture_mem;
 	struct v4l2_fract ival_default;
@@ -79,13 +81,6 @@ struct omap34xxcam_lens_config {
 struct omap34xxcam_flash_config {
 };
 
-/**
- * struct omap34xxcam_hw_config - struct for vidioc_int_g_priv ioctl
- * @xclk: OMAP34XXCAM_XCLK_A or OMAP34XXCAM_XCLK_B
- * @sensor_isp: Is sensor smart/SOC or raw
- * @s_pix_sparm: Access function to set pix and sparm.
- * Pix will override sparm
- */
 struct omap34xxcam_hw_config {
 	int dev_index; /* Index in omap34xxcam_sensors */
 	int dev_minor; /* Video device minor number */
@@ -107,8 +102,6 @@ struct omap34xxcam_hw_config {
  * @flash: flash device
  * @slaves: how many slaves we have at the moment
  * @vfd: our video device
- * @capture_mem: maximum kernel-allocated capture memory
- * @if_u: sensor interface stuff
  * @index: index of this structure in cam->vdevs
  * @users: how many users we have
  * @power_state: Current power state
@@ -119,10 +112,10 @@ struct omap34xxcam_hw_config {
  * @sensor_config: ISP-speicific sensor configuration
  * @lens_config: ISP-speicific lens configuration
  * @flash_config: ISP-speicific flash configuration
+ * @streaming: streaming file handle, if streaming is enabled
  * @want_timeperframe: Desired timeperframe
  * @want_pix: Desired pix
  * @pix: Current pix
- * @streaming: streaming file handle, if streaming is enabled
  */
 struct omap34xxcam_videodev {
 	struct mutex mutex; /* serialises access to this structure */
@@ -140,54 +133,32 @@ struct omap34xxcam_videodev {
 
 	/*** video device parameters ***/
 	struct video_device *vfd;
-	int capture_mem;
 
 	/*** general driver state information ***/
 	int index;
 	atomic_t users;
 	enum v4l2_power power_state[OMAP34XXCAM_SLAVE_FLASH + 1];
-#ifdef OMAP34XXCAM_POWEROFF_DELAY
-	enum v4l2_power power_state_wish;
-	int power_state_mask;
-	struct timer_list poweroff_timer;
-	struct work_struct poweroff_work;
-#endif /* OMAP34XXCAM_POWEROFF_DELAY */
-
 #define vdev_sensor_config slave_config[OMAP34XXCAM_SLAVE_SENSOR].u.sensor
 #define vdev_lens_config slave_config[OMAP34XXCAM_SLAVE_LENS].u.lens
 #define vdev_flash_config slave_config[OMAP34XXCAM_SLAVE_FLASH].u.flash
 	struct omap34xxcam_hw_config slave_config[OMAP34XXCAM_SLAVE_FLASH + 1];
 
+	wait_queue_head_t poll_event;
+
 	/*** capture data ***/
 	struct file *streaming;
 	struct v4l2_fract want_timeperframe;
 	struct v4l2_pix_format want_pix;
-	spinlock_t pix_lock;
 	struct v4l2_pix_format pix;
 };
 
 /**
  * struct omap34xxcam_device - per-device data structure
- * @mutex: mutex serialises access to this structure
- * @sgdma_in_queue: Number or sgdma requests in scatter-gather queue,
- * protected by the lock above.
- * @sgdma: ISP sgdma subsystem information structure
- * @dma_notify: DMA notify flag
- * @dev: device structure
  * @vdevs: /dev/video specific structures
- * @fck: camera module fck clock information
- * @ick: camera module ick clock information
  */
 struct omap34xxcam_device {
-	struct mutex mutex; /* serialises access to this structure */
-
-	/*** interfaces and device ***/
 	struct omap34xxcam_videodev vdevs[OMAP34XXCAM_VIDEODEVS];
-
-	/*** camera module clocks ***/
-	struct clk *fck;
-	struct clk *ick;
-	bool sensor_if_enabled;
+	struct device *isp;
 };
 
 /**
@@ -199,56 +170,11 @@ struct omap34xxcam_device {
  */
 struct omap34xxcam_fh {
 	spinlock_t vbq_lock; /* spinlock for the videobuf queue */
+	struct v4l2_fh vfh;
 	struct videobuf_queue vbq;
 	atomic_t field_count;
 	struct omap34xxcam_videodev *vdev;
+	wait_queue_head_t poll_vb;
 };
-
-#ifdef CONFIG_VIDEO_OMAP3_HP3A
-/**
- * struct cam_reg - per sensor register read/write
- * @len: length of register
- * @reg: address of register
- * @val: value of the register
- */
-struct cam_reg{
-	u16 len;
-	u32 reg;
-	u32 val;
-};
-
-/**
- * struct cam_sensor_settings - per sensor register read/write
- * @flags: length of register
- * @exposure: exposure value to be set
- * @gain: analog gain value tobe set
- * @regs: number of registers
- * @reg_data: pointer to a array of struct cam_reg
- */
-struct cam_sensor_settings{
-	u32 flags;
-	u32 exposure;
-	u16 gain;
-	u16 fps;
-	u16 regs;
-	void *reg_data;
-};
-
-#define	OMAP34XXCAM_SET_EXPOSURE         0x1
-#define	OMAP34XXCAM_SET_GAIN                 0x2
-#define	OMAP34XXCAM_READ_REGS              0x4
-#define	OMAP34XXCAM_WRITE_REGS             0x8
-#define	OMAP34XXCAM_SET_FPS                   0x10
-
-#define	OMAP34XXCAM_REG_8BIT                  0x1
-#define	OMAP34XXCAM_REG_16BIT                0x2
-#define	OMAP34XXCAM_REG_32BIT                0x4
-#define	OMAP34XXCAM_REG_END                  0xFF
-
-#define V4L2_CID_PRIVATE_SENSOR_READ_REG	(V4L2_CID_PRIVATE_BASE + 20)
-#define V4L2_CID_PRIVATE_SENSOR_WRITE_REG	(V4L2_CID_PRIVATE_BASE + 21)
-
-int omap34xxcam_sensor_settings(int dev, struct cam_sensor_settings *settings);
-#endif
 
 #endif /* ifndef OMAP34XXCAM_H */

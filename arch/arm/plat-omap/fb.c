@@ -107,6 +107,10 @@ static int get_fbmem_region(int region_idx, struct omapfb_mem_region *rg)
 	 * address.
 	 */
 	memset(rg, 0, sizeof(*rg));
+#ifdef CONFIG_FB_OMAP2_32_BPP
+       rg->format = OMAPFB_COLOR_ARGB32;
+       rg->format_used = 1;
+#endif
 	rg->type = paddr & ~PAGE_MASK;
 	rg->paddr = paddr & PAGE_MASK;
 	rg->size = PAGE_ALIGN(conf->size);
@@ -350,6 +354,14 @@ void omapfb_set_platform_data(struct omapfb_platform_data *data)
 
 static inline int omap_init_fb(void)
 {
+#ifdef CONFIG_FB_OMAP2_32_BPP
+	/*  add support for RGB32*/
+	int i;
+	for (i = 0; i < OMAPFB_PLANE_NUM; i++) {
+		omapfb_config.mem_desc.region[0].format_used = 1;
+		omapfb_config.mem_desc.region[0].format = OMAPFB_COLOR_ARGB32;
+	}
+#endif
 	return platform_device_register(&omap_fb_device);
 }
 

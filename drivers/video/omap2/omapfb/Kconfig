@@ -4,7 +4,7 @@ menuconfig FB_OMAP2
 
 	default y
 	select OMAP2_VRAM
-	select OMAP2_VRFB
+	select OMAP2_VRFB if !ARCH_OMAP4
         select FB_CFB_FILLRECT
         select FB_CFB_COPYAREA
         select FB_CFB_IMAGEBLIT
@@ -36,3 +36,10 @@ config FB_OMAP2_NUM_FBS
 	help
 	  Select the number of framebuffers created. OMAP2/3 has 3 overlays
 	  so normally this would be 3.
+
+config FB_OMAP2_32_BPP
+	bool "Support 32 bpp"
+	default n
+	depends on FB_OMAP2
+	help
+		Supports 32 bpp for zoom2 panel.

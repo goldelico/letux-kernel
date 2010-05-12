@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * DSP/BIOS Bridge msg_ctrl Module.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,27 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== msg.c ========
- *  Description:
- *      DSP/BIOS Bridge MSG Module.
- *
- *  Public Functions:
- *      MSG_Create
- *      MSG_Delete
- *      MSG_Exit
- *      MSG_Init
- *
- *! Revision History:
- *! =================
- *! 24-Feb-2003 swa 	PMGR Code review comments incorporated.
- *! 15-May-2001 ag      Changed SUCCEEDED to DSP_SUCCEEDED.
- *! 16-Feb-2001 jeh     Fixed some comments.
- *! 15-Dec-2000 rr      MSG_Create returns DSP_EFAIL if pfnMsgCreate fails.
- *! 12-Sep-2000 jeh     Created.
  */
 
 /*  ----------------------------------- Host OS */
@@ -45,11 +26,6 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
-
-/*  ----------------------------------- OS Adaptation Layer */
-#include <dspbridge/list.h>
-#include <dspbridge/mem.h>
 
 /*  ----------------------------------- Mini Driver */
 #include <dspbridge/wmd.h>
@@ -62,114 +38,95 @@
 #include <dspbridge/msg.h>
 
 /*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask MSG_debugMask = { NULL, NULL };	/* GT trace variable */
-#endif
-static u32 cRefs;		/* module reference count */
+static u32 refs;		/* module reference count */
 
 /*
- *  ======== MSG_Create ========
+ *  ======== msg_create ========
  *  Purpose:
  *      Create an object to manage message queues. Only one of these objects
  *      can exist per device object.
  */
-DSP_STATUS MSG_Create(OUT struct MSG_MGR **phMsgMgr,
-		      struct DEV_OBJECT *hDevObject, MSG_ONEXIT msgCallback)
+dsp_status msg_create(OUT struct msg_mgr **phMsgMgr,
+		      struct dev_object *hdev_obj, msg_onexit msgCallback)
 {
-	struct WMD_DRV_INTERFACE *pIntfFxns;
-	struct MSG_MGR_ *pMsgMgr;
-	struct MSG_MGR *hMsgMgr;
-	DSP_STATUS status = DSP_SOK;
+	struct bridge_drv_interface *intf_fxns;
+	struct msg_mgr_ *msg_mgr_obj;
+	struct msg_mgr *hmsg_mgr;
+	dsp_status status = DSP_SOK;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(phMsgMgr != NULL);
-	DBC_Require(msgCallback != NULL);
-	DBC_Require(hDevObject != NULL);
-
-	GT_3trace(MSG_debugMask, GT_ENTER, "MSG_Create: phMsgMgr: 0x%x\t"
-		 "hDevObject: 0x%x\tmsgCallback: 0x%x\n",
-		 phMsgMgr, hDevObject, msgCallback);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(phMsgMgr != NULL);
+	DBC_REQUIRE(msgCallback != NULL);
+	DBC_REQUIRE(hdev_obj != NULL);
 
 	*phMsgMgr = NULL;
 
-	DEV_GetIntfFxns(hDevObject, &pIntfFxns);
+	status = dev_get_intf_fxns(hdev_obj, &intf_fxns);
 
-	/* Let WMD message module finish the create: */
-	status = (*pIntfFxns->pfnMsgCreate)(&hMsgMgr, hDevObject, msgCallback);
+	if (intf_fxns) {
+		/* Let WMD message module finish the create */
+		status = (*intf_fxns->pfn_msg_create)(&hmsg_mgr,
+				hdev_obj, msgCallback);
+	}
 
 	if (DSP_SUCCEEDED(status)) {
-		/* Fill in WCD message module's fields of the MSG_MGR
+		/* Fill in WCD message module's fields of the msg_mgr
 		 * structure */
-		pMsgMgr = (struct MSG_MGR_ *)hMsgMgr;
-		pMsgMgr->pIntfFxns = pIntfFxns;
+		msg_mgr_obj = (struct msg_mgr_ *)hmsg_mgr;
+		msg_mgr_obj->intf_fxns = intf_fxns;
 
 		/* Finally, return the new message manager handle: */
-		*phMsgMgr = hMsgMgr;
-		GT_1trace(MSG_debugMask, GT_1CLASS,
-			 "MSG_Create: Success pMsgMgr: 0x%x\n",	pMsgMgr);
+		*phMsgMgr = hmsg_mgr;
 	} else {
-		status = DSP_EFAIL;
+		status = -EPERM;
 	}
 	return status;
 }
 
 /*
- *  ======== MSG_Delete ========
+ *  ======== msg_delete ========
  *  Purpose:
- *      Delete a MSG manager allocated in MSG_Create().
+ *      Delete a msg_ctrl manager allocated in msg_create().
  */
-void MSG_Delete(struct MSG_MGR *hMsgMgr)
+void msg_delete(struct msg_mgr *hmsg_mgr)
 {
-	struct MSG_MGR_ *pMsgMgr = (struct MSG_MGR_ *)hMsgMgr;
-	struct WMD_DRV_INTERFACE *pIntfFxns;
+	struct msg_mgr_ *msg_mgr_obj = (struct msg_mgr_ *)hmsg_mgr;
+	struct bridge_drv_interface *intf_fxns;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(MEM_IsValidHandle(pMsgMgr, MSGMGR_SIGNATURE));
+	DBC_REQUIRE(refs > 0);
 
-	GT_1trace(MSG_debugMask, GT_ENTER, "MSG_Delete: hMsgMgr: 0x%x\n",
-		 hMsgMgr);
+	if (msg_mgr_obj) {
+		intf_fxns = msg_mgr_obj->intf_fxns;
 
-	pIntfFxns = pMsgMgr->pIntfFxns;
-
-	/* Let WMD message module destroy the MSG_MGR: */
-	(*pIntfFxns->pfnMsgDelete)(hMsgMgr);
-
-	if (MEM_IsValidHandle(pMsgMgr, MSGMGR_SIGNATURE))
-		GT_1trace(MSG_debugMask, GT_7CLASS, "MSG_Delete: Error hMsgMgr "
-					"Valid Handle: 0x%x\n", hMsgMgr);
-}
-
-/*
- *  ======== MSG_Exit ========
- */
-void MSG_Exit(void)
-{
-	DBC_Require(cRefs > 0);
-	cRefs--;
-	GT_1trace(MSG_debugMask, GT_5CLASS,
-		 "Entered MSG_Exit, ref count: 0x%x\n",	cRefs);
-	DBC_Ensure(cRefs >= 0);
-}
-
-/*
- *  ======== MSG_Init ========
- */
-bool MSG_Init(void)
-{
-	DBC_Require(cRefs >= 0);
-
-	if (cRefs == 0) {
-		DBC_Assert(!MSG_debugMask.flags);
-		GT_create(&MSG_debugMask, "MS");	/* "MS" for MSg */
+		/* Let WMD message module destroy the msg_mgr: */
+		(*intf_fxns->pfn_msg_delete) (hmsg_mgr);
+	} else {
+		dev_dbg(bridge, "%s: Error hmsg_mgr handle: %p\n",
+			__func__, hmsg_mgr);
 	}
+}
 
-	cRefs++;
+/*
+ *  ======== msg_exit ========
+ */
+void msg_exit(void)
+{
+	DBC_REQUIRE(refs > 0);
+	refs--;
 
-	GT_1trace(MSG_debugMask, GT_5CLASS, "MSG_Init(), ref count:  0x%x\n",
-		 cRefs);
+	DBC_ENSURE(refs >= 0);
+}
 
-	DBC_Ensure(cRefs >= 0);
+/*
+ *  ======== msg_mod_init ========
+ */
+bool msg_mod_init(void)
+{
+	DBC_REQUIRE(refs >= 0);
+
+	refs++;
+
+	DBC_ENSURE(refs >= 0);
 
 	return true;
 }
-

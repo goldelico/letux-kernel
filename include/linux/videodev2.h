@@ -330,6 +330,10 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_SGBRG8  v4l2_fourcc('G', 'B', 'R', 'G') /*  8  GBGB.. RGRG.. */
 #define V4L2_PIX_FMT_SGRBG8  v4l2_fourcc('G', 'R', 'B', 'G') /*  8  GRGR.. BGBG.. */
 #define V4L2_PIX_FMT_SGRBG10 v4l2_fourcc('B', 'A', '1', '0') /* 10bit raw bayer */
+#define V4L2_PIX_FMT_SRGGB10 v4l2_fourcc('R', 'G', '1', '0')
+#define V4L2_PIX_FMT_SBGGR10 v4l2_fourcc('B', 'G', '1', '0')
+#define V4L2_PIX_FMT_SGBRG10 v4l2_fourcc('G', 'B', '1', '0')
+
 	/* 10bit raw bayer DPCM compressed to 8 bits */
 #define V4L2_PIX_FMT_SGRBG10DPCM8 v4l2_fourcc('B', 'D', '1', '0')
 	/*
@@ -1165,6 +1169,13 @@ enum  v4l2_exposure_auto_type {
 
 #define V4L2_CID_PRIVACY			(V4L2_CID_CAMERA_CLASS_BASE+16)
 
+/* Flash and privacy (indicator) light controls */
+#define V4L2_CID_FLASH_STROBE			(V4L2_CID_CAMERA_CLASS_BASE+17)
+#define V4L2_CID_FLASH_TIMEOUT			(V4L2_CID_CAMERA_CLASS_BASE+18)
+#define V4L2_CID_FLASH_INTENSITY		(V4L2_CID_CAMERA_CLASS_BASE+19)
+#define V4L2_CID_TORCH_INTENSITY		(V4L2_CID_CAMERA_CLASS_BASE+20)
+#define V4L2_CID_INDICATOR_INTENSITY		(V4L2_CID_CAMERA_CLASS_BASE+21)
+
 /* FM Modulator class control IDs */
 #define V4L2_CID_FM_TX_CLASS_BASE		(V4L2_CTRL_CLASS_FM_TX | 0x900)
 #define V4L2_CID_FM_TX_CLASS			(V4L2_CTRL_CLASS_FM_TX | 1)
@@ -1197,6 +1208,15 @@ enum v4l2_preemphasis {
 };
 #define V4L2_CID_TUNE_POWER_LEVEL		(V4L2_CID_FM_TX_CLASS_BASE + 113)
 #define V4L2_CID_TUNE_ANTENNA_CAPACITOR		(V4L2_CID_FM_TX_CLASS_BASE + 114)
+
+#define V4L2_CID_TEST_PATTERN			(V4L2_CTRL_CLASS_CAMERA | 0x107e)
+
+/*  Control IDs specific to the ADP1653 flash driver as defined by V4L2 */
+#define V4L2_CID_FLASH_ADP1653_BASE 		(V4L2_CTRL_CLASS_CAMERA | 0x10f1)
+#define V4L2_CID_FLASH_ADP1653_FAULT_SCP	(V4L2_CID_FLASH_ADP1653_BASE+0)
+#define V4L2_CID_FLASH_ADP1653_FAULT_OT		(V4L2_CID_FLASH_ADP1653_BASE+1)
+#define V4L2_CID_FLASH_ADP1653_FAULT_TMR	(V4L2_CID_FLASH_ADP1653_BASE+2)
+#define V4L2_CID_FLASH_ADP1653_FAULT_OV		(V4L2_CID_FLASH_ADP1653_BASE+3)
 
 /*
  *	T U N I N G
@@ -1522,6 +1542,27 @@ struct v4l2_streamparm {
 };
 
 /*
+ *	E V E N T S
+ */
+
+struct v4l2_event {
+	__u32		count;
+	__u32		type;
+	__u32		sequence;
+	struct timespec	timestamp;
+	__u32		reserved[9];
+	__u8		data[64];
+};
+
+struct v4l2_event_subscription {
+	__u32		type;
+	__u32		reserved[7];
+};
+
+#define V4L2_EVENT_ALL				0
+#define V4L2_EVENT_PRIVATE_START		0x08000000
+
+/*
  *	A D V A N C E D   D E B U G G I N G
  *
  *	NOTE: EXPERIMENTAL API, NEVER RELY ON THIS IN APPLICATIONS!
@@ -1637,6 +1678,9 @@ struct v4l2_dbg_chip_ident {
 #endif
 
 #define VIDIOC_S_HW_FREQ_SEEK	 _IOW('V', 82, struct v4l2_hw_freq_seek)
+#define VIDIOC_DQEVENT		 _IOR('V', 83, struct v4l2_event)
+#define VIDIOC_SUBSCRIBE_EVENT	 _IOW('V', 84, struct v4l2_event_subscription)
+#define VIDIOC_UNSUBSCRIBE_EVENT _IOW('V', 85, struct v4l2_event_subscription)
 /* Reminder: when adding new ioctls please add support for them to
    drivers/media/video/v4l2-compat-ioctl32.c as well! */
 

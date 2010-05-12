@@ -22,19 +22,19 @@
 #ifndef OMAP_ISP_PREVIEW_H
 #define OMAP_ISP_PREVIEW_H
 
-#include <plat/isp_user.h>
+#include <mach/isp_user.h>
 /* Isp query control structure */
 
 #define ISPPRV_BRIGHT_STEP		0x1
-#define ISPPRV_BRIGHT_DEF		0x0
+#define ISPPRV_BRIGHT_DEF		0x1
 #define ISPPRV_BRIGHT_LOW		0x0
-#define ISPPRV_BRIGHT_HIGH		0xF
-#define ISPPRV_BRIGHT_UNITS		0x7
+#define ISPPRV_BRIGHT_HIGH		0xFF
+#define ISPPRV_BRIGHT_UNITS		0x1
 
 #define ISPPRV_CONTRAST_STEP		0x1
 #define ISPPRV_CONTRAST_DEF		0x10
 #define ISPPRV_CONTRAST_LOW		0x0
-#define ISPPRV_CONTRAST_HIGH		0x10
+#define ISPPRV_CONTRAST_HIGH		0xFF
 #define ISPPRV_CONTRAST_UNITS		0x1
 
 #define NO_AVE				0x0
@@ -162,7 +162,6 @@ struct prev_darkfrm_params {
 /**
  * struct prev_params - Structure for all configuration
  * @features: Set of features enabled.
- * @pix_fmt: Output pixel format.
  * @cfa: CFA coefficients.
  * @csup: Chroma suppression coefficients.
  * @ytable: Pointer to Luma enhancement coefficients.
@@ -226,125 +225,193 @@ struct isptables_update {
 	struct ispprev_cfa *prev_cfa;
 	struct ispprev_wbal *prev_wbal;
 };
+/**
+ * struct isp_prev_device - Structure for storing ISP Preview module information
+ * @prevout_w: Preview output width.
+ * @prevout_h: Preview output height.
+ * @previn_w: Preview input width.
+ * @previn_h: Preview input height.
+ * @prev_inpfmt: Preview input format.
+ * @prev_outfmt: Preview output format.
+ * @hmed_en: Horizontal median filter enable.
+ * @nf_en: Noise filter enable.
+ * @dcor_en: Defect correction enable.
+ * @cfa_en: Color Filter Array (CFA) interpolation enable.
+ * @csup_en: Chrominance suppression enable.
+ * @yenh_en: Luma enhancement enable.
+ * @fmtavg: Number of horizontal pixels to average in input formatter. The
+ *          input width should be a multiple of this number.
+ * @brightness: Brightness in preview module.
+ * @contrast: Contrast in preview module.
+ * @color: Color effect in preview module.
+ * @cfafmt: Color Filter Array (CFA) Format.
+ * @wbal_update: Update digital and colour gains in Previewer
+ *
+ * This structure is used to store the OMAP ISP Preview module Information.
+ */
+struct isp_prev_device {
+	int update_color_matrix;
+	u8 update_rgb_blending;
+	u8 update_rgb_to_ycbcr;
+	u8 hmed_en;
+	u8 nf_en;
+	u8 dcor_en;
+	u8 cfa_en;
+	u8 csup_en;
+	u8 yenh_en;
+	u8 rg_update;
+	u8 gg_update;
+	u8 bg_update;
+	u8 cfa_update;
+	u8 nf_enable;
+	u8 nf_update;
+	u8 wbal_update;
+	u8 fmtavg;
+	u8 brightness;
+	u8 contrast;
+	enum v4l2_colorfx color;
+	enum cfa_fmt cfafmt;
+	struct ispprev_nf prev_nf_t;
+	struct prev_params params;
+	int shadow_update;
+	u32 sph;
+	u32 slv;
+	spinlock_t lock;
+};
 
-void isppreview_config_shadow_registers(void);
+void isppreview_config_shadow_registers(struct isp_prev_device *isp_prev);
 
-int isppreview_request(void);
+int isppreview_request(struct isp_prev_device *isp_prev);
 
-int isppreview_free(void);
+void isppreview_free(struct isp_prev_device *isp_prev);
 
-int isppreview_config_datapath(enum preview_input input,
-			       enum preview_output output);
+int isppreview_config_datapath(struct isp_prev_device *isp_prev,
+			       struct isp_pipeline *pipe);
 
-void isppreview_config_ycpos(enum preview_ycpos_mode mode);
+void isppreview_config_ycpos(struct isp_prev_device *isp_prev,
+			     enum preview_ycpos_mode mode);
 
-void isppreview_config_averager(u8 average);
+void isppreview_config_averager(struct isp_prev_device *isp_prev, u8 average);
 
-void isppreview_enable_invalaw(u8 enable);
+void isppreview_enable_invalaw(struct isp_prev_device *isp_prev, u8 enable);
 
-void isppreview_enable_drkframe(u8 enable);
+void isppreview_enable_drkframe(struct isp_prev_device *isp_prev, u8 enable);
 
-void isppreview_enable_shadcomp(u8 enable);
+void isppreview_enable_shadcomp(struct isp_prev_device *isp_prev, u8 enable);
 
-void isppreview_config_drkf_shadcomp(u8 scomp_shtval);
+void isppreview_config_drkf_shadcomp(struct isp_prev_device *isp_prev,
+				     u8 scomp_shtval);
 
-void isppreview_enable_gammabypass(u8 enable);
+void isppreview_enable_gammabypass(struct isp_prev_device *isp_prev, u8 enable);
 
-void isppreview_enable_hmed(u8 enable);
+void isppreview_enable_hmed(struct isp_prev_device *isp_prev, u8 enable);
 
-void isppreview_config_hmed(struct ispprev_hmed);
+void isppreview_config_hmed(struct isp_prev_device *isp_prev,
+			    struct ispprev_hmed);
 
-void isppreview_enable_noisefilter(u8 enable);
+void isppreview_enable_noisefilter(struct isp_prev_device *isp_prev, u8 enable);
 
-void isppreview_config_noisefilter(struct ispprev_nf prev_nf);
+void isppreview_config_noisefilter(struct isp_prev_device *isp_prev,
+				   struct ispprev_nf prev_nf);
 
-void isppreview_enable_dcor(u8 enable);
+void isppreview_enable_dcor(struct isp_prev_device *isp_prev, u8 enable);
 
-void isppreview_config_dcor(struct ispprev_dcor prev_dcor);
+void isppreview_config_dcor(struct isp_prev_device *isp_prev,
+			    struct ispprev_dcor prev_dcor);
 
 
-void isppreview_config_cfa(struct ispprev_cfa);
+void isppreview_config_cfa(struct isp_prev_device *isp_prev,
+			   struct ispprev_cfa);
 
-void isppreview_config_gammacorrn(struct ispprev_gtable);
+void isppreview_config_gammacorrn(struct isp_prev_device *isp_prev,
+				  struct ispprev_gtable);
 
-void isppreview_config_chroma_suppression(struct ispprev_csup csup);
+void isppreview_config_chroma_suppression(struct isp_prev_device *isp_prev,
+					  struct ispprev_csup csup);
 
-void isppreview_enable_cfa(u8 enable);
+void isppreview_enable_cfa(struct isp_prev_device *isp_prev, u8 enable);
 
-void isppreview_config_luma_enhancement(u32 *ytable);
+void isppreview_config_luma_enhancement(struct isp_prev_device *isp_prev,
+					u32 *ytable);
 
-void isppreview_enable_luma_enhancement(u8 enable);
+void isppreview_enable_luma_enhancement(struct isp_prev_device *isp_prev,
+					u8 enable);
 
-void isppreview_enable_chroma_suppression(u8 enable);
+void isppreview_enable_chroma_suppression(struct isp_prev_device *isp_prev,
+					  u8 enable);
 
-void isppreview_config_whitebalance(struct ispprev_wbal);
+void isppreview_config_whitebalance(struct isp_prev_device *isp_prev,
+				    struct ispprev_wbal);
 
-void isppreview_config_blkadj(struct ispprev_blkadj);
+void isppreview_config_blkadj(struct isp_prev_device *isp_prev,
+			      struct ispprev_blkadj);
 
-void isppreview_config_rgb_blending(struct ispprev_rgbtorgb);
+void isppreview_config_rgb_blending(struct isp_prev_device *isp_prev,
+				    struct ispprev_rgbtorgb);
 
-void isppreview_config_rgb_to_ycbcr(struct ispprev_csc);
+void isppreview_config_rgb_to_ycbcr(struct isp_prev_device *isp_prev,
+				    struct ispprev_csc);
 
-void isppreview_update_contrast(u8 *contrast);
+void isppreview_update_contrast(struct isp_prev_device *isp_prev, u8 *contrast);
 
-void isppreview_query_contrast(u8 *contrast);
+void isppreview_query_contrast(struct isp_prev_device *isp_prev, u8 *contrast);
 
-void isppreview_config_contrast(u8 contrast);
+void isppreview_config_contrast(struct isp_prev_device *isp_prev, u8 contrast);
 
 void isppreview_get_contrast_range(u8 *min_contrast, u8 *max_contrast);
 
-void isppreview_update_brightness(u8 *brightness);
+void isppreview_update_brightness(struct isp_prev_device *isp_prev,
+				  u8 *brightness);
 
-void isppreview_config_brightness(u8 brightness);
+void isppreview_config_brightness(struct isp_prev_device *isp_prev,
+				  u8 brightness);
 
 void isppreview_get_brightness_range(u8 *min_brightness, u8 *max_brightness);
 
-void isppreview_set_color(u8 *mode);
+void isppreview_set_color(struct isp_prev_device *isp_prev, u8 *mode);
 
-void isppreview_get_color(u8 *mode);
+void isppreview_get_color(struct isp_prev_device *isp_prev, u8 *mode);
 
-void isppreview_query_brightness(u8 *brightness);
+void isppreview_query_brightness(struct isp_prev_device *isp_prev,
+				 u8 *brightness);
 
-void isppreview_config_yc_range(struct ispprev_yclimit yclimit);
+void isppreview_config_yc_range(struct isp_prev_device *isp_prev,
+				struct ispprev_yclimit yclimit);
 
-int isppreview_try_size(u32 input_w, u32 input_h, u32 *output_w,
-			u32 *output_h);
+int isppreview_try_pipeline(struct isp_prev_device *isp_prev,
+			    struct isp_pipeline *pipe);
 
-int isppreview_config_size(u32 input_w, u32 input_h, u32 output_w,
-			   u32 output_h);
+int isppreview_s_pipeline(struct isp_prev_device *isp_prev,
+			  struct isp_pipeline *pipe);
 
-int isppreview_config_inlineoffset(u32 offset);
+int isppreview_config_inlineoffset(struct isp_prev_device *isp_prev,
+				   u32 offset);
 
-int isppreview_set_inaddr(u32 addr);
+int isppreview_set_inaddr(struct isp_prev_device *isp_prev, u32 addr);
 
-int isppreview_config_outlineoffset(u32 offset);
+int isppreview_config_outlineoffset(struct isp_prev_device *isp_prev,
+				    u32 offset);
 
-int isppreview_set_outaddr(u32 addr);
+int isppreview_set_outaddr(struct isp_prev_device *isp_prev, u32 addr);
 
-int isppreview_config_darklineoffset(u32 offset);
+int isppreview_config_darklineoffset(struct isp_prev_device *isp_prev,
+				     u32 offset);
 
-int isppreview_set_darkaddr(u32 addr);
+int isppreview_set_darkaddr(struct isp_prev_device *isp_prev, u32 addr);
 
-void isppreview_enable(int enable);
+void isppreview_enable(struct isp_prev_device *isp_prev, int enable);
 
-void isppreview_suspend(void);
+int isppreview_busy(struct isp_prev_device *isp_prev);
 
-void isppreview_resume(void);
+void isppreview_print_status(struct isp_prev_device *isp_prev,
+			     struct isp_pipeline *pipe);
 
-int isppreview_busy(void);
+void isppreview_save_context(struct device *dev);
 
-struct prev_params *isppreview_get_config(void);
+void isppreview_restore_context(struct device *dev);
 
-void isppreview_print_status(void);
+int isppreview_config(struct isp_prev_device *isp_prev, void *userspace_add);
 
-void isppreview_save_context(void);
-
-void isppreview_restore_context(void);
-
-int omap34xx_isp_preview_config(void *userspace_add);
-
-int omap34xx_isp_tables_update(struct isptables_update *isptables_struct);
-
-void isppreview_set_skip(u32 h, u32 v);
+void isppreview_set_skip(struct isp_prev_device *isp_prev, u32 h, u32 v);
 
 #endif/* OMAP_ISP_PREVIEW_H */

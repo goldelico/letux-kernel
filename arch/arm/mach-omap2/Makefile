@@ -31,6 +31,9 @@ obj-$(CONFIG_ARCH_OMAP2420)		+= sram242x.o
 obj-$(CONFIG_ARCH_OMAP2430)		+= sram243x.o
 obj-$(CONFIG_ARCH_OMAP3)		+= sram34xx.o
 
+# Pin multiplexing
+obj-$(CONFIG_ARCH_OMAP3)		+= mux34xx.o
+
 # SMS/SDRC
 obj-$(CONFIG_ARCH_OMAP2)		+= sdrc2xxx.o
 # obj-$(CONFIG_ARCH_OMAP3)		+= sdrc3xxx.o
@@ -99,7 +102,6 @@ obj-$(CONFIG_MACH_NOKIA_N8X0)		+= board-n8x0.o
 obj-$(CONFIG_MACH_OMAP_ZOOM2)		+= board-zoom2.o \
 					   mmc-twl4030.o \
 					   board-ldp-flash.o \
-					   board-zoom2-camera.o \
 					   board-zoom2-wifi.o
 obj-$(CONFIG_MACH_SHOLES)		+= board-sholes.o \
 					   board-sholes-camera.o \
@@ -121,14 +123,19 @@ obj-$(CONFIG_MACH_NOKIA_RX51)		+= board-rx51.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP_ZOOM2)		+= board-zoom2.o \
 					   board-zoom-peripherals.o \
+					   board-zoom2-camera.o \
 					   mmc-twl4030.o \
 					   board-zoom-debugboard.o
 obj-$(CONFIG_MACH_OMAP_ZOOM3)		+= board-zoom3.o \
+					   board-zoom-flash.o \
 					   board-zoom-peripherals.o \
+					   board-zoom2-camera.o \
+					   board-zoom-panel.o \
 					   mmc-twl4030.o \
 					   board-zoom-debugboard.o
 obj-$(CONFIG_MACH_OMAP_3630SDP)		+= board-3630sdp.o \
 					   board-zoom-peripherals.o \
+					   board-zoom2-camera.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_CM_T35)		+= board-cm-t35.o \
 					   mmc-twl4030.o
@@ -144,10 +151,15 @@ obj-$(CONFIG_MACH_OMAP3517EVM)     += board-am3517evm.o
 # Platform specific device init code
 obj-y					+= usb-musb.o
 obj-$(CONFIG_MACH_OMAP2_TUSB6010)	+= usb-tusb6010.o
-obj-y					+= usb-ehci.o
+ifneq ($(CONFIG_USB_EHCI_HCD),)
+	obj-y				+= usb-ehci.o
+endif
 
 onenand-$(CONFIG_MTD_ONENAND_OMAP2)	:= gpmc-onenand.o
 obj-y					+= $(onenand-m) $(onenand-y)
+
+nand-$(CONFIG_MTD_NAND_OMAP2)		:= gpmc-nand.o
+obj-y					+= $(nand-m) $(nand-y)
 
 smc91x-$(CONFIG_SMC91X)			:= gpmc-smc91x.o
 obj-y					+= $(smc91x-m) $(smc91x-y)

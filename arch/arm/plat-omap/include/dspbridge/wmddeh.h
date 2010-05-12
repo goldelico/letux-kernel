@@ -3,6 +3,12 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Defines upper edge DEH functions required by all WMD/WCD driver
+ * interface tables.
+ *
+ * Notes:
+ *   Function comment headers reside with the function typedefs in wmd.h.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,30 +20,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== wmddeh.h ========
- *  Description:
- *      Defines upper edge DEH functions required by all WMD/WCD driver
- *      interface tables.
- *
- *  Public Functions:
- *      WMD_DEH_Create
- *      IVA_DEH_Create
- *      WMD_DEH_Destroy
- *      WMD_DEH_GetInfo
- *      WMD_DEH_RegisterNotify
- *      WMD_DEH_Notify
- *
- *  Notes:
- *      Function comment headers reside with the function typedefs in wmd.h.
- *
- *! Revision History:
- *! ================
- *! 26-Dec-2004 hn: added IVA_DEH_Create.
- *! 13-Sep-2001 kc: created.
- */
-
 #ifndef WMDDEH_
 #define WMDDEH_
 
@@ -45,22 +27,22 @@
 
 #include <dspbridge/dehdefs.h>
 
-	extern DSP_STATUS WMD_DEH_Create(OUT struct DEH_MGR **phDehMgr,
-					 struct DEV_OBJECT *hDevObject);
+extern dsp_status bridge_deh_create(OUT struct deh_mgr **phDehMgr,
+				    struct dev_object *hdev_obj);
 
-	extern DSP_STATUS WMD_DEH_Destroy(struct DEH_MGR *hDehMgr);
+extern dsp_status bridge_deh_destroy(struct deh_mgr *hdeh_mgr);
 
-	extern DSP_STATUS WMD_DEH_GetInfo(struct DEH_MGR *hDehMgr,
-					  struct DSP_ERRORINFO *pErrInfo);
+extern dsp_status bridge_deh_get_info(struct deh_mgr *hdeh_mgr,
+				   struct dsp_errorinfo *pErrInfo);
 
-	extern DSP_STATUS WMD_DEH_RegisterNotify(struct DEH_MGR *hDehMgr,
-						 u32 uEventMask,
-						 u32 uNotifyType,
-						 struct DSP_NOTIFICATION
-						 *hNotification);
+extern dsp_status bridge_deh_register_notify(struct deh_mgr *hdeh_mgr,
+					  u32 event_mask,
+					  u32 notify_type,
+					  struct dsp_notification
+					  *hnotification);
 
-	extern void WMD_DEH_Notify(struct DEH_MGR *hDehMgr,
-				   u32 ulEventMask, u32 dwErrInfo);
+extern void bridge_deh_notify(struct deh_mgr *hdeh_mgr,
+			      u32 ulEventMask, u32 dwErrInfo);
 
-	extern void WMD_DEH_ReleaseDummyMem(void);
-#endif				/* WMDDEH_ */
+extern void bridge_deh_release_dummy_mem(void);
+#endif /* WMDDEH_ */

@@ -13,7 +13,7 @@ menuconfig MPU_BRIDGE
 
 config BRIDGE_DVFS
 	bool "Enable Bridge Dynamic Voltage and Frequency Scaling (DVFS)"
-	depends on MPU_BRIDGE && OMAP_PM_SRF
+	depends on MPU_BRIDGE && OMAP_PM_SRF && CPU_FREQ
 	default n
 	help
 	  DVFS allows DSP Bridge to initiate the operating point change to
@@ -35,17 +35,31 @@ config BRIDGE_DEBUG
 	help
 	  Say Y to enable Bridge debugging capabilities
 
+config BRIDGE_WDT3
+	bool "Enable WDT3 interruptions"
+	depends on MPU_BRIDGE
+	default n
+	help
+	  WTD3 is managed by DSP and once it is enabled, DSP side bridge is in
+	  charge of refreshing the timer before overflow, if the DSP hangs MPU
+	  will caught the interrupt and try to recover DSP.
+
+config WDT_TIMEOUT
+	int "DSP watchdog timer timeout (in secs)"
+	depends on BRIDGE_WDT3
+	default 5
+	help
+	   Watchdog timer timeout value, after that time if the watchdog timer
+	   counter is not reset the wdt overflow interrupt will be triggered
+
 config BRIDGE_RECOVERY
-	bool "Recover from errors by reloading the dsp firmware from the kernel"
+	bool "DSP Recovery Support"
 	depends on MPU_BRIDGE
 	help
-	  Allows the bridge driver to reload the bridge firmware on error.  The
-	  alternative is to use the TI bridge daemon.
+	  In case of DSP fatal error, BRIDGE driver will try to
+	  recover itself.
 
-menu "Bridge Hacking"
-	depends on MPU_BRIDGE
-
-config BRIDGE_CHECK_ALIGN_128
+config BRIDGE_CACHE_LINE_CHECK
 	bool "Check buffers to be 128 byte aligned"
 	depends on MPU_BRIDGE
 	default n
@@ -69,4 +83,3 @@ config BRIDGE_NTFY_PWRERR
 	  Enable notifications to registered clients on the event of power errror
 	  trying to suspend bridge driver. Say Y, to signal this event as a fatal
 	  error, this will require a bridge restart to recover.
-endmenu

@@ -14,11 +14,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== gh.c ========
- */
-
 #include <dspbridge/std.h>
 
 #include <dspbridge/host_os.h>
@@ -27,107 +22,110 @@
 
 #include <dspbridge/gh.h>
 
-struct Elem {
-	struct Elem *next;
+struct element {
+	struct element *next;
 	u8 data[1];
 };
 
-struct GH_THashTab {
-	u16 maxBucket;
-	u16 valSize;
-	struct Elem **buckets;
+struct gh_t_hash_tab {
+	u16 max_bucket;
+	u16 val_size;
+	struct element **buckets;
 	 u16(*hash) (void *, u16);
 	 bool(*match) (void *, void *);
-	 void(*delete) (void *);
+	void (*delete) (void *);
 };
 
-static void Nop(void *p);
-static s32 curInit;
+static void noop(void *p);
+static s32 cur_init;
 static void myfree(void *ptr, s32 size);
 
 /*
- *  ======== GH_create ========
+ *  ======== gh_create ========
  */
 
-struct GH_THashTab *GH_create(u16 maxBucket, u16 valSize,
-		u16(*hash)(void *, u16), bool(*match)(void *, void *),
-		void(*delete)(void *))
+struct gh_t_hash_tab *gh_create(u16 max_bucket, u16 val_size,
+				u16(*hash) (void *, u16), bool(*match) (void *,
+									void *),
+				void (*delete) (void *))
 {
-	struct GH_THashTab *hashTab;
+	struct gh_t_hash_tab *hash_tab;
 	u16 i;
-	hashTab = (struct GH_THashTab *)GS_alloc(sizeof(struct GH_THashTab));
-	if (hashTab == NULL)
+	hash_tab =
+	    (struct gh_t_hash_tab *)gs_alloc(sizeof(struct gh_t_hash_tab));
+	if (hash_tab == NULL)
 		return NULL;
-	hashTab->maxBucket = maxBucket;
-	hashTab->valSize = valSize;
-	hashTab->hash = hash;
-	hashTab->match = match;
-	hashTab->delete = delete == NULL ? Nop : delete;
+	hash_tab->max_bucket = max_bucket;
+	hash_tab->val_size = val_size;
+	hash_tab->hash = hash;
+	hash_tab->match = match;
+	hash_tab->delete = delete == NULL ? noop : delete;
 
-	hashTab->buckets = (struct Elem **)
-			   GS_alloc(sizeof(struct Elem *) * maxBucket);
-	if (hashTab->buckets == NULL) {
-		GH_delete(hashTab);
+	hash_tab->buckets = (struct element **)
+	    gs_alloc(sizeof(struct element *) * max_bucket);
+	if (hash_tab->buckets == NULL) {
+		gh_delete(hash_tab);
 		return NULL;
 	}
 
-	for (i = 0; i < maxBucket; i++)
-		hashTab->buckets[i] = NULL;
+	for (i = 0; i < max_bucket; i++)
+		hash_tab->buckets[i] = NULL;
 
-	return hashTab;
+	return hash_tab;
 }
 
 /*
- *  ======== GH_delete ========
+ *  ======== gh_delete ========
  */
-void GH_delete(struct GH_THashTab *hashTab)
+void gh_delete(struct gh_t_hash_tab *hash_tab)
 {
-	struct Elem *elem, *next;
+	struct element *elem, *next;
 	u16 i;
 
-	if (hashTab != NULL) {
-		if (hashTab->buckets != NULL) {
-			for (i = 0; i < hashTab->maxBucket; i++) {
-				for (elem = hashTab->buckets[i]; elem != NULL;
-				    elem = next) {
+	if (hash_tab != NULL) {
+		if (hash_tab->buckets != NULL) {
+			for (i = 0; i < hash_tab->max_bucket; i++) {
+				for (elem = hash_tab->buckets[i]; elem != NULL;
+				     elem = next) {
 					next = elem->next;
-					(*hashTab->delete) (elem->data);
-					myfree(elem, sizeof(struct Elem) - 1 +
-					      hashTab->valSize);
+					(*hash_tab->delete) (elem->data);
+					myfree(elem,
+					       sizeof(struct element) - 1 +
+					       hash_tab->val_size);
 				}
 			}
 
-			myfree(hashTab->buckets, sizeof(struct Elem *)
-			      * hashTab->maxBucket);
+			myfree(hash_tab->buckets, sizeof(struct element *)
+			       * hash_tab->max_bucket);
 		}
 
-		myfree(hashTab, sizeof(struct GH_THashTab));
+		myfree(hash_tab, sizeof(struct gh_t_hash_tab));
 	}
 }
 
 /*
- *  ======== GH_exit ========
+ *  ======== gh_exit ========
  */
 
-void GH_exit(void)
+void gh_exit(void)
 {
-	if (curInit-- == 1)
-		GS_exit();
+	if (cur_init-- == 1)
+		gs_exit();
 
 }
 
 /*
- *  ======== GH_find ========
+ *  ======== gh_find ========
  */
 
-void *GH_find(struct GH_THashTab *hashTab, void *key)
+void *gh_find(struct gh_t_hash_tab *hash_tab, void *key)
 {
-	struct Elem *elem;
+	struct element *elem;
 
-	elem = hashTab->buckets[(*hashTab->hash)(key, hashTab->maxBucket)];
+	elem = hash_tab->buckets[(*hash_tab->hash) (key, hash_tab->max_bucket)];
 
 	for (; elem; elem = elem->next) {
-		if ((*hashTab->match)(key, elem->data))
+		if ((*hash_tab->match) (key, elem->data))
 			return elem->data;
 	}
 
@@ -135,37 +133,37 @@ void *GH_find(struct GH_THashTab *hashTab, void *key)
 }
 
 /*
- *  ======== GH_init ========
+ *  ======== gh_init ========
  */
 
-void GH_init(void)
+void gh_init(void)
 {
-	if (curInit++ == 0)
-		GS_init();
+	if (cur_init++ == 0)
+		gs_init();
 }
 
 /*
- *  ======== GH_insert ========
+ *  ======== gh_insert ========
  */
 
-void *GH_insert(struct GH_THashTab *hashTab, void *key, void *value)
+void *gh_insert(struct gh_t_hash_tab *hash_tab, void *key, void *value)
 {
-	struct Elem *elem;
+	struct element *elem;
 	u16 i;
 	char *src, *dst;
 
-	elem = (struct Elem *)GS_alloc(sizeof(struct Elem) - 1 +
-		hashTab->valSize);
+	elem = (struct element *)gs_alloc(sizeof(struct element) - 1 +
+					  hash_tab->val_size);
 	if (elem != NULL) {
 
 		dst = (char *)elem->data;
 		src = (char *)value;
-		for (i = 0; i < hashTab->valSize; i++)
+		for (i = 0; i < hash_tab->val_size; i++)
 			*dst++ = *src++;
 
-		i = (*hashTab->hash)(key, hashTab->maxBucket);
-		elem->next = hashTab->buckets[i];
-		hashTab->buckets[i] = elem;
+		i = (*hash_tab->hash) (key, hash_tab->max_bucket);
+		elem->next = hash_tab->buckets[i];
+		hash_tab->buckets[i] = elem;
 
 		return elem->data;
 	}
@@ -174,10 +172,10 @@ void *GH_insert(struct GH_THashTab *hashTab, void *key, void *value)
 }
 
 /*
- *  ======== Nop ========
+ *  ======== noop ========
  */
 /* ARGSUSED */
-static void Nop(void *p)
+static void noop(void *p)
 {
 	p = p;			/* stifle compiler warning */
 }
@@ -187,5 +185,29 @@ static void Nop(void *p)
  */
 static void myfree(void *ptr, s32 size)
 {
-	GS_free(ptr);
+	gs_free(ptr);
+}
+
+/**
+ * gh_iterate() - This function goes through all the elements in the hash table
+ *		looking for the dsp symbols.
+ * @hash_tab:	Hash table
+ * @callback:	pointer to callback function
+ * @user_data:	User data, contains the find_symbol_context pointer
+ *
+ */
+void gh_iterate(struct gh_t_hash_tab *hash_tab,
+		void (*callback)(void *, void *), void *user_data)
+{
+	struct element *elem;
+	u32 i;
+
+	if (hash_tab && hash_tab->buckets)
+		for (i = 0; i < hash_tab->max_bucket; i++) {
+			elem = hash_tab->buckets[i];
+			while (elem) {
+				callback(&elem->data, user_data);
+				elem = elem->next;
+			}
+		}
 }

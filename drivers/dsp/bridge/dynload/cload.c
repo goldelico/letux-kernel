@@ -21,10 +21,10 @@
 
 /*
  * we use the fact that DOFF section records are shaped just like
- * LDR_SECTION_INFO to reduce our section storage usage.  This macro marks
+ * ldr_section_info to reduce our section storage usage.  This macro marks
  * the places where that assumption is made
  */
-#define DOFFSEC_IS_LDRSEC(pdoffsec) ((struct LDR_SECTION_INFO *)(pdoffsec))
+#define DOFFSEC_IS_LDRSEC(pdoffsec) ((struct ldr_section_info *)(pdoffsec))
 
 /*
  * forward references
@@ -40,20 +40,20 @@ static void init_module_handle(struct dload_state *dlthis);
 static char *unpack_name(struct dload_state *dlthis, u32 soffset);
 #endif
 
-static const char CINITNAME[] = { ".cinit" };
-static const char LOADER_DLLVIEW_ROOT[] = { "?DLModules?" };
+static const char cinitname[] = { ".cinit" };
+static const char loader_dllview_root[] = { "?DLModules?" };
 
 /*
  * Error strings
  */
-static const char E_READSTRM[] = { "Error reading %s from input stream" };
-static const char E_ALLOC[] = { "Syms->Allocate( %d ) failed" };
-static const char E_TGTALLOC[] =
+static const char readstrm[] = { "Error reading %s from input stream" };
+static const char err_alloc[] = { "Syms->dload_allocate( %d ) failed" };
+static const char tgtalloc[] =
     { "Target memory allocate failed, section %s size " FMT_UI32 };
-static const char E_INITFAIL[] = { "%s to target address " FMT_UI32 " failed" };
-static const char E_DLVWRITE[] = { "Write to DLLview list failed" };
-static const char E_ICONNECT[] = { "Connect call to init interface failed" };
-static const char E_CHECKSUM[] = { "Checksum failed on %s" };
+static const char initfail[] = { "%s to target address " FMT_UI32 " failed" };
+static const char dlvwrite[] = { "Write to DLLview list failed" };
+static const char iconnect[] = { "Connect call to init interface failed" };
+static const char err_checksum[] = { "Checksum failed on %s" };
 
 /*************************************************************************
  * Procedure dload_error
@@ -64,13 +64,13 @@ static const char E_CHECKSUM[] = { "Checksum failed on %s" };
  *
  * Effect:
  *	Reports or records the error as appropriate.
- ************************************************************************/
+ *********************************************************************** */
 void dload_error(struct dload_state *dlthis, const char *errtxt, ...)
 {
 	va_list args;
 
 	va_start(args, errtxt);
-	dlthis->mysym->Error_Report(dlthis->mysym, errtxt, args);
+	dlthis->mysym->error_report(dlthis->mysym, errtxt, args);
 	va_end(args);
 	dlthis->dload_errcount += 1;
 
@@ -87,18 +87,18 @@ void dload_error(struct dload_state *dlthis, const char *errtxt, ...)
  *
  * Effect:
  *	Reports or records the error as appropriate.
- ************************************************************************/
-void dload_syms_error(struct Dynamic_Loader_Sym *syms, const char *errtxt, ...)
+ *********************************************************************** */
+void dload_syms_error(struct dynamic_loader_sym *syms, const char *errtxt, ...)
 {
 	va_list args;
 
 	va_start(args, errtxt);
-	syms->Error_Report(syms, errtxt, args);
+	syms->error_report(syms, errtxt, args);
 	va_end(args);
 }
 
 /*************************************************************************
- * Procedure Dynamic_Load_Module
+ * Procedure dynamic_load_module
  *
  * Parameters:
  *	module	The input stream that supplies the module image
@@ -120,13 +120,13 @@ void dload_syms_error(struct Dynamic_Loader_Sym *syms, const char *errtxt, ...)
  *	On a successful load, a module handle is placed in *mhandle,
  *	and zero is returned.  On error, the number of errors detected is
  *	returned.  Individual errors are reported during the load process
- *	using syms->Error_Report().
- ***********************************************************************/
-int Dynamic_Load_Module(struct Dynamic_Loader_Stream *module,
-			struct Dynamic_Loader_Sym *syms ,
-			struct Dynamic_Loader_Allocate *alloc,
-			struct Dynamic_Loader_Initialize *init,
-			unsigned options, DLOAD_mhandle *mhandle)
+ *	using syms->error_report().
+ ********************************************************************** */
+int dynamic_load_module(struct dynamic_loader_stream *module,
+			struct dynamic_loader_sym *syms,
+			struct dynamic_loader_allocate *alloc,
+			struct dynamic_loader_initialize *init,
+			unsigned options, dload_mhandle *mhandle)
 {
 	register unsigned *dp, sz;
 	struct dload_state dl_state;	/* internal state for this call */
@@ -159,7 +159,7 @@ int Dynamic_Load_Module(struct Dynamic_Loader_Stream *module,
 				/* do now, before reducing symbols */
 				allocate_sections(&dl_state);
 			} else
-				dload_error(&dl_state, E_ICONNECT);
+				dload_error(&dl_state, iconnect);
 		}
 
 		if (!dl_state.dload_errcount) {
@@ -183,8 +183,7 @@ int Dynamic_Load_Module(struct Dynamic_Loader_Stream *module,
 			    (dl_state.dfile_hdr.df_entry_secn != DN_UNDEF) &&
 			    (!init->execute(init,
 					    dl_state.dfile_hdr.df_entrypt)))
-				dload_error(&dl_state,
-					    "Init->Execute Failed");
+				dload_error(&dl_state, "Init->Execute Failed");
 			init->release(init);
 		}
 
@@ -193,10 +192,9 @@ int Dynamic_Load_Module(struct Dynamic_Loader_Stream *module,
 		string_table_free(&dl_state);
 		dload_tramp_cleanup(&dl_state);
 
-
 		if (dl_state.dload_errcount) {
-			Dynamic_Unload_Module(dl_state.myhandle, syms, alloc,
-					     init);
+			dynamic_unload_module(dl_state.myhandle, syms, alloc,
+					      init);
 			dl_state.myhandle = NULL;
 		}
 	}
@@ -208,7 +206,7 @@ int Dynamic_Load_Module(struct Dynamic_Loader_Stream *module,
 }				/* DLOAD_File */
 
 /*************************************************************************
- * Procedure Dynamic_Open_Module
+ * Procedure dynamic_open_module
  *
  * Parameters:
  *      module  The input stream that supplies the module image
@@ -230,17 +228,17 @@ int Dynamic_Load_Module(struct Dynamic_Loader_Stream *module,
  *      On a successful load, a module handle is placed in *mhandle,
  *      and zero is returned.  On error, the number of errors detected is
  *      returned.  Individual errors are reported during the load process
- *      using syms->Error_Report().
- ***********************************************************************/
+ *      using syms->error_report().
+ ********************************************************************** */
 int
-Dynamic_Open_Module(struct Dynamic_Loader_Stream *module,
-		    struct Dynamic_Loader_Sym *syms,
-		    struct Dynamic_Loader_Allocate *alloc,
-		    struct Dynamic_Loader_Initialize *init,
-		    unsigned options, DLOAD_mhandle *mhandle)
+dynamic_open_module(struct dynamic_loader_stream *module,
+		    struct dynamic_loader_sym *syms,
+		    struct dynamic_loader_allocate *alloc,
+		    struct dynamic_loader_initialize *init,
+		    unsigned options, dload_mhandle *mhandle)
 {
 	register unsigned *dp, sz;
-	struct dload_state dl_state;   /* internal state for this call */
+	struct dload_state dl_state;	/* internal state for this call */
 
 	/* blast our internal state */
 	dp = (unsigned *)&dl_state;
@@ -270,7 +268,7 @@ Dynamic_Open_Module(struct Dynamic_Loader_Stream *module,
 				/* do now, before reducing symbols */
 				allocate_sections(&dl_state);
 			} else
-				dload_error(&dl_state, E_ICONNECT);
+				dload_error(&dl_state, iconnect);
 		}
 
 		if (!dl_state.dload_errcount) {
@@ -291,8 +289,7 @@ Dynamic_Open_Module(struct Dynamic_Loader_Stream *module,
 			    (dl_state.dfile_hdr.df_entry_secn != DN_UNDEF) &&
 			    (!init->execute(init,
 					    dl_state.dfile_hdr.df_entrypt)))
-				dload_error(&dl_state,
-					    "Init->Execute Failed");
+				dload_error(&dl_state, "Init->Execute Failed");
 			init->release(init);
 		}
 
@@ -301,17 +298,17 @@ Dynamic_Open_Module(struct Dynamic_Loader_Stream *module,
 		string_table_free(&dl_state);
 
 		if (dl_state.dload_errcount) {
-			Dynamic_Unload_Module(dl_state.myhandle, syms, alloc,
+			dynamic_unload_module(dl_state.myhandle, syms, alloc,
 					      init);
 			dl_state.myhandle = NULL;
 		}
 	}
 
 	if (mhandle)
-		*mhandle = dl_state.myhandle;   /* give back the handle */
+		*mhandle = dl_state.myhandle;	/* give back the handle */
 
 	return dl_state.dload_errcount;
-}			       /* DLOAD_File */
+}				/* DLOAD_File */
 
 /*************************************************************************
  * Procedure dload_headers
@@ -322,7 +319,7 @@ Dynamic_Open_Module(struct Dynamic_Loader_Stream *module,
  * Effect:
  *	Loads the DOFF header and verify record.  Deals with any byte-order
  * issues and checks them for validity.
- ************************************************************************/
+ *********************************************************************** */
 #define COMBINED_HEADER_SIZE (sizeof(struct doff_filehdr_t)+ \
 			     sizeof(struct doff_verify_rec_t))
 
@@ -333,8 +330,9 @@ void dload_headers(struct dload_state *dlthis)
 	/* Read the header and the verify record as one.  If we don't get it
 	   all, we're done */
 	if (dlthis->strm->read_buffer(dlthis->strm, &dlthis->dfile_hdr,
-	    COMBINED_HEADER_SIZE) != COMBINED_HEADER_SIZE) {
-		DL_ERROR(E_READSTRM, "File Headers");
+				      COMBINED_HEADER_SIZE) !=
+	    COMBINED_HEADER_SIZE) {
+		DL_ERROR(readstrm, "File Headers");
 		return;
 	}
 	/*
@@ -363,10 +361,10 @@ void dload_headers(struct dload_state *dlthis)
 	 * Verify checksum of header and verify record
 	 */
 	if (~dload_checksum(&dlthis->dfile_hdr,
-	    sizeof(struct doff_filehdr_t)) ||
+			    sizeof(struct doff_filehdr_t)) ||
 	    ~dload_checksum(&dlthis->verify,
-	    sizeof(struct doff_verify_rec_t))) {
-		DL_ERROR(E_CHECKSUM, "header or verify record");
+			    sizeof(struct doff_verify_rec_t))) {
+		DL_ERROR(err_checksum, "header or verify record");
 		return;
 	}
 #if HOST_ENDIANNESS
@@ -375,7 +373,7 @@ void dload_headers(struct dload_state *dlthis)
 
 	/* Check for valid target ID */
 	if ((dlthis->dfile_hdr.df_target_id != TARGET_ID) &&
-	  -(dlthis->dfile_hdr.df_target_id != TMS470_ID)) {
+	    -(dlthis->dfile_hdr.df_target_id != TMS470_ID)) {
 		dload_error(dlthis, "Bad target ID 0x%x and TARGET_ID 0x%x",
 			    dlthis->dfile_hdr.df_target_id, TARGET_ID);
 		return;
@@ -419,9 +417,9 @@ void dload_headers(struct dload_state *dlthis)
  *
  *	COFF sections are read in and retained intact.  Each record is embedded
  * 	in a new structure that records the updated load and
- * 	run addresses of the section  */
+ * 	run addresses of the section */
 
-static const char SECN_ERRID[] = { "section" };
+static const char secn_errid[] = { "section" };
 
 /*************************************************************************
  * Procedure dload_sections
@@ -431,9 +429,8 @@ static const char SECN_ERRID[] = { "section" };
  *
  * Effect:
  *	Loads the section records into an internal table.
- ************************************************************************/
-void
-dload_sections(struct dload_state *dlthis)
+ *********************************************************************** */
+void dload_sections(struct dload_state *dlthis)
 {
 	s16 siz;
 	struct doff_scnhdr_t *shp;
@@ -441,17 +438,18 @@ dload_sections(struct dload_state *dlthis)
 
 	/* allocate space for the DOFF section records */
 	siz = nsecs * sizeof(struct doff_scnhdr_t);
-	shp = (struct doff_scnhdr_t *)dlthis->mysym->Allocate(dlthis->mysym,
-	       siz);
+	shp =
+	    (struct doff_scnhdr_t *)dlthis->mysym->dload_allocate(dlthis->mysym,
+								  siz);
 	if (!shp) {		/* not enough storage */
-		DL_ERROR(E_ALLOC, siz);
+		DL_ERROR(err_alloc, siz);
 		return;
 	}
 	dlthis->sect_hdrs = shp;
 
 	/* read in the section records */
 	if (dlthis->strm->read_buffer(dlthis->strm, shp, siz) != siz) {
-		DL_ERROR(E_READSTRM, SECN_ERRID);
+		DL_ERROR(readstrm, secn_errid);
 		return;
 	}
 
@@ -462,7 +460,7 @@ dload_sections(struct dload_state *dlthis)
 	/* check for validity */
 	if (~dload_checksum(dlthis->sect_hdrs, siz) !=
 	    dlthis->verify.dv_scn_rec_checksum) {
-		DL_ERROR(E_CHECKSUM, SECN_ERRID);
+		DL_ERROR(err_checksum, secn_errid);
 		return;
 	}
 
@@ -476,18 +474,18 @@ dload_sections(struct dload_state *dlthis)
  *
  * Effect:
  *	Assigns new (target) addresses for sections
- *****************************************************************************/
+ **************************************************************************** */
 static void allocate_sections(struct dload_state *dlthis)
 {
 	u16 curr_sect, nsecs, siz;
 	struct doff_scnhdr_t *shp;
-	struct LDR_SECTION_INFO *asecs;
+	struct ldr_section_info *asecs;
 	struct my_handle *hndl;
 	nsecs = dlthis->dfile_hdr.df_no_scns;
 	if (!nsecs)
 		return;
 	if ((dlthis->myalloc == NULL) &&
-	   (dlthis->dfile_hdr.df_target_scns > 0)) {
+	    (dlthis->dfile_hdr.df_target_scns > 0)) {
 		DL_ERROR("Arg 3 (alloc) required but NULL", 0);
 		return;
 	}
@@ -497,11 +495,13 @@ static void allocate_sections(struct dload_state *dlthis)
 	 * trampoline section in case we need it.
 	 */
 	siz = (dlthis->dfile_hdr.df_target_scns + 1) *
-		sizeof(struct LDR_SECTION_INFO) + MY_HANDLE_SIZE;
+	    sizeof(struct ldr_section_info) + MY_HANDLE_SIZE;
 
-	hndl = (struct my_handle *)dlthis->mysym->Allocate(dlthis->mysym, siz);
+	hndl =
+	    (struct my_handle *)dlthis->mysym->dload_allocate(dlthis->mysym,
+							      siz);
 	if (!hndl) {		/* not enough storage */
-		DL_ERROR(E_ALLOC, siz);
+		DL_ERROR(err_alloc, siz);
 		return;
 	}
 	/* initialize the handle header */
@@ -520,7 +520,7 @@ static void allocate_sections(struct dload_state *dlthis)
 		/* attempt to insert the name of this section */
 		if (soffset < dlthis->dfile_hdr.df_strtab_size)
 			DOFFSEC_IS_LDRSEC(shp)->name = dlthis->str_head +
-							       soffset;
+			    soffset;
 		else {
 			dload_error(dlthis, "Bad name offset in section %d",
 				    curr_sect);
@@ -537,13 +537,14 @@ static void allocate_sections(struct dload_state *dlthis)
 #else
 			dlthis->debug_string_size = soffset;
 #endif
-		if (dlthis->myalloc != NULL) {
-			if (!dlthis->myalloc->Allocate(dlthis->myalloc, asecs,
-				     DS_ALIGNMENT(asecs->type))) {
-				dload_error(dlthis, E_TGTALLOC, asecs->name,
-					    asecs->size);
-				return;
-			}
+			if (dlthis->myalloc != NULL) {
+				if (!dlthis->myalloc->
+				    dload_allocate(dlthis->myalloc, asecs,
+						   DS_ALIGNMENT(asecs->type))) {
+					dload_error(dlthis, tgtalloc,
+						    asecs->name, asecs->size);
+					return;
+				}
 			}
 			/* keep address deltas in original section table */
 			shp->ds_vaddr = asecs->load_addr - shp->ds_vaddr;
@@ -570,14 +571,14 @@ static void allocate_sections(struct dload_state *dlthis)
  *
  * WARNING:
  *	This routine is not allowed to declare errors!
- ************************************************************************/
+ *********************************************************************** */
 static void section_table_free(struct dload_state *dlthis)
 {
 	struct doff_scnhdr_t *shp;
 
 	shp = dlthis->sect_hdrs;
 	if (shp)
-		dlthis->mysym->Deallocate(dlthis->mysym, shp);
+		dlthis->mysym->dload_deallocate(dlthis->mysym, shp);
 
 }				/* section_table_free */
 
@@ -591,8 +592,9 @@ static void section_table_free(struct dload_state *dlthis)
  * Effect:
  *	Loads the DOFF string table into memory. DOFF keeps all strings in a
  * big unsorted array.  We just read that array into memory in bulk.
- ************************************************************************/
-static const char S_STRINGTBL[] = { "string table" };
+ *********************************************************************** */
+static const char stringtbl[] = { "string table" };
+
 void dload_strings(struct dload_state *dlthis, bool sec_names_only)
 {
 	u32 ssiz;
@@ -600,23 +602,24 @@ void dload_strings(struct dload_state *dlthis, bool sec_names_only)
 
 	if (sec_names_only) {
 		ssiz = BYTE_TO_HOST(DOFF_ALIGN
-				   (dlthis->dfile_hdr.df_scn_name_size));
+				    (dlthis->dfile_hdr.df_scn_name_size));
 	} else {
 		ssiz = BYTE_TO_HOST(DOFF_ALIGN
-				   (dlthis->dfile_hdr.df_strtab_size));
+				    (dlthis->dfile_hdr.df_strtab_size));
 	}
 	if (ssiz == 0)
 		return;
 
 	/* get some memory for the string table */
 #if BITS_PER_AU > BITS_PER_BYTE
-	strbuf = (char *)dlthis->mysym->Allocate(dlthis->mysym, ssiz +
-					     dlthis->dfile_hdr.df_max_str_len);
+	strbuf = (char *)dlthis->mysym->dload_allocate(dlthis->mysym, ssiz +
+						       dlthis->dfile_hdr.
+						       df_max_str_len);
 #else
-	strbuf = (char *)dlthis->mysym->Allocate(dlthis->mysym, ssiz);
+	strbuf = (char *)dlthis->mysym->dload_allocate(dlthis->mysym, ssiz);
 #endif
 	if (strbuf == NULL) {
-		DL_ERROR(E_ALLOC, ssiz);
+		DL_ERROR(err_alloc, ssiz);
 		return;
 	}
 	dlthis->str_head = strbuf;
@@ -625,8 +628,8 @@ void dload_strings(struct dload_state *dlthis, bool sec_names_only)
 #endif
 	/* read in the strings and verify them */
 	if ((unsigned)(dlthis->strm->read_buffer(dlthis->strm, strbuf,
-	    ssiz)) != ssiz) {
-		DL_ERROR(E_READSTRM, S_STRINGTBL);
+						 ssiz)) != ssiz) {
+		DL_ERROR(readstrm, stringtbl);
 	}
 	/* if we need to fix up byte order, do it now */
 #ifndef _BIG_ENDIAN
@@ -634,19 +637,20 @@ void dload_strings(struct dload_state *dlthis, bool sec_names_only)
 		dload_reorder(strbuf, ssiz, dlthis->reorder_map);
 
 	if ((!sec_names_only) && (~dload_checksum(strbuf, ssiz) !=
-	     dlthis->verify.dv_str_tab_checksum)) {
-		DL_ERROR(E_CHECKSUM, S_STRINGTBL);
+				  dlthis->verify.dv_str_tab_checksum)) {
+		DL_ERROR(err_checksum, stringtbl);
 	}
 #else
 	if (dlthis->dfile_hdr.df_byte_reshuffle !=
 	    HOST_BYTE_ORDER(REORDER_MAP(BYTE_RESHUFFLE_VALUE))) {
 		/* put strings in big-endian order, not in PC order */
-		dload_reorder(strbuf, ssiz, HOST_BYTE_ORDER(dlthis->dfile_hdr.
-					      df_byte_reshuffle));
+		dload_reorder(strbuf, ssiz,
+			      HOST_BYTE_ORDER(dlthis->
+					      dfile_hdr.df_byte_reshuffle));
 	}
 	if ((!sec_names_only) && (~dload_reverse_checksum(strbuf, ssiz) !=
-	     dlthis->verify.dv_str_tab_checksum)) {
-		DL_ERROR(E_CHECKSUM, S_STRINGTBL);
+				  dlthis->verify.dv_str_tab_checksum)) {
+		DL_ERROR(err_checksum, stringtbl);
 	}
 #endif
 }				/* dload_strings */
@@ -662,11 +666,12 @@ void dload_strings(struct dload_state *dlthis, bool sec_names_only)
  *
  * WARNING:
  *	This routine is not allowed to declare errors!
- *************************************************************************/
+ ************************************************************************ */
 static void string_table_free(struct dload_state *dlthis)
 {
 	if (dlthis->str_head)
-		dlthis->mysym->Deallocate(dlthis->mysym, dlthis->str_head);
+		dlthis->mysym->dload_deallocate(dlthis->mysym,
+						dlthis->str_head);
 
 }				/* string_table_free */
 
@@ -676,7 +681,7 @@ static void string_table_free(struct dload_state *dlthis)
  * COFF symbols are read by dload_symbols(), which is called after
  * sections have been allocated.  Symbols which might be used in
  * relocation (ie, not debug info) are retained in an internal temporary
- * compressed table (type Local_Symbol). A particular symbol is recovered
+ * compressed table (type local_symbol). A particular symbol is recovered
  * by index by calling dload_find_symbol().  dload_find_symbol
  * reconstructs a more explicit representation (type SLOTVEC) which is
  * used by reloc.c
@@ -684,7 +689,7 @@ static void string_table_free(struct dload_state *dlthis)
 /* real size of debug header */
 #define DBG_HDR_SIZE (sizeof(struct dll_module) - sizeof(struct dll_sect))
 
-static const char SYM_ERRID[] = { "symbol" };
+static const char sym_errid[] = { "symbol" };
 
 /**************************************************************************
  * Procedure dload_symbols
@@ -695,22 +700,22 @@ static const char SYM_ERRID[] = { "symbol" };
  * Effect:
  *	Reads in symbols and retains ones that might be needed for relocation
  * purposes.
- ************************************************************************/
+ *********************************************************************** */
 /* size of symbol buffer no bigger than target data buffer, to limit stack
- * usage*/
+ * usage */
 #define MY_SYM_BUF_SIZ (BYTE_TO_HOST(IMAGE_PACKET_SIZE)/\
 			sizeof(struct doff_syment_t))
 
 static void dload_symbols(struct dload_state *dlthis)
 {
-	u32 s_count, siz, dsiz, symbols_left;
+	u32 sym_count, siz, dsiz, symbols_left;
 	u32 checks;
-	struct Local_Symbol *sp;
+	struct local_symbol *sp;
 	struct dynload_symbol *symp;
 	struct dynload_symbol *newsym;
 
-	s_count = dlthis->dfile_hdr.df_no_syms;
-	if (s_count == 0)
+	sym_count = dlthis->dfile_hdr.df_no_syms;
+	if (sym_count == 0)
 		return;
 
 	/*
@@ -723,23 +728,24 @@ static void dload_symbols(struct dload_state *dlthis)
 	 * size of the trampoline section name so DLLView doens't get lost.
 	 */
 
-	siz = s_count * sizeof(struct Local_Symbol);
+	siz = sym_count * sizeof(struct local_symbol);
 	dsiz = DBG_HDR_SIZE +
-		(sizeof(struct dll_sect) * dlthis->allocated_secn_count) +
+	    (sizeof(struct dll_sect) * dlthis->allocated_secn_count) +
 	    BYTE_TO_HOST_ROUND(dlthis->debug_string_size + 1);
 	if (dsiz > siz)
 		siz = dsiz;	/* larger of symbols and .dllview temp */
-	sp = (struct Local_Symbol *)dlthis->mysym->Allocate(dlthis->mysym, siz);
+	sp = (struct local_symbol *)dlthis->mysym->dload_allocate(dlthis->mysym,
+								  siz);
 	if (!sp) {
-		DL_ERROR(E_ALLOC, siz);
+		DL_ERROR(err_alloc, siz);
 		return;
 	}
 	dlthis->local_symtab = sp;
 	/* Read the symbols in the input, store them in the table, and post any
 	 * globals to the global symbol table.  In the process, externals
-	   become defined from the global symbol table */
+	 become defined from the global symbol table */
 	checks = dlthis->verify.dv_sym_tab_checksum;
-	symbols_left = s_count;
+	symbols_left = sym_count;
 	do {			/* read all symbols */
 		char *sname;
 		u32 val;
@@ -749,11 +755,11 @@ static void dload_symbols(struct dload_state *dlthis)
 		struct doff_syment_t my_sym_buf[MY_SYM_BUF_SIZ];
 		input_sym = my_sym_buf;
 		syms_in_buf = symbols_left > MY_SYM_BUF_SIZ ?
-					     MY_SYM_BUF_SIZ : symbols_left;
+		    MY_SYM_BUF_SIZ : symbols_left;
 		siz = syms_in_buf * sizeof(struct doff_syment_t);
 		if (dlthis->strm->read_buffer(dlthis->strm, input_sym, siz) !=
-					      siz) {
-			DL_ERROR(E_READSTRM, SYM_ERRID);
+		    siz) {
+			DL_ERROR(readstrm, sym_errid);
 			return;
 		}
 		if (dlthis->reorder_map)
@@ -769,14 +775,14 @@ static void dload_symbols(struct dload_state *dlthis)
 				if ((u32) input_sym->dn_offset <
 				    dlthis->dfile_hdr.df_strtab_size)
 					sname = dlthis->str_head +
-					     BYTE_TO_HOST(input_sym->dn_offset);
+					    BYTE_TO_HOST(input_sym->dn_offset);
 				else
 					dload_error(dlthis,
-						 "Bad name offset in symbol %d",
-						 symbols_left);
+						    "Bad name offset in symbol "
+						    " %d", symbols_left);
 #else
 				sname = unpack_name(dlthis,
-						   input_sym->dn_offset);
+						    input_sym->dn_offset);
 #endif
 			}
 			val = input_sym->dn_value;
@@ -784,43 +790,43 @@ static void dload_symbols(struct dload_state *dlthis)
 			sp->sclass = input_sym->dn_sclass;
 			sp->secnn = input_sym->dn_scnum;
 			/* if this is an undefined symbol,
-			 * define it (or fail) now	  */
+			 * define it (or fail) now */
 			if (sp->secnn == DN_UNDEF) {
-					/* pointless for static undefined */
+				/* pointless for static undefined */
 				if (input_sym->dn_sclass != DN_EXT)
 					goto loop_cont;
 
 				/* try to define symbol from previously
-				 * loaded images			  */
-				symp = dlthis->mysym->Find_Matching_Symbol
-						      (dlthis->mysym, sname);
+				 * loaded images */
+				symp = dlthis->mysym->find_matching_symbol
+				    (dlthis->mysym, sname);
 				if (!symp) {
 					DL_ERROR
-						("Undefined external symbol %s",
-						 sname);
+					    ("Undefined external symbol %s",
+					     sname);
 					goto loop_cont;
 				}
 				val = delta = symp->value;
 #ifdef ENABLE_TRAMP_DEBUG
 				dload_syms_error(dlthis->mysym,
-						"===> ext sym [%s] at %x",
-						sname, val);
+						 "===> ext sym [%s] at %x",
+						 sname, val);
 #endif
 
 				goto loop_cont;
 			}
 			/* symbol defined by this module */
-			if (sp->secnn > 0) {   /* symbol references a section */
+			if (sp->secnn > 0) {
+				/* symbol references a section */
 				if ((unsigned)sp->secnn <=
 				    dlthis->allocated_secn_count) {
 					/* section was allocated */
 					struct doff_scnhdr_t *srefp =
-							     &dlthis->sect_hdrs
-							     [sp->secnn - 1];
+					    &dlthis->sect_hdrs[sp->secnn - 1];
 
 					if (input_sym->dn_sclass ==
 					    DN_STATLAB ||
-					    input_sym->dn_sclass == DN_EXTLAB){
+					    input_sym->dn_sclass == DN_EXTLAB) {
 						/* load */
 						delta = srefp->ds_vaddr;
 					} else {
@@ -833,16 +839,19 @@ static void dload_symbols(struct dload_state *dlthis)
 			}
 			/* This symbol is an absolute symbol */
 			if (sp->secnn == DN_ABS && ((sp->sclass == DN_EXT) ||
-						   (sp->sclass == DN_EXTLAB))) {
-				symp = dlthis->mysym->Find_Matching_Symbol
-						      (dlthis->mysym, sname);
+						    (sp->sclass ==
+						     DN_EXTLAB))) {
+				symp =
+				    dlthis->mysym->find_matching_symbol(dlthis->
+									mysym,
+									sname);
 				if (!symp)
 					goto loop_itr;
-				/* This absolute symbol is already defined.  */
+				/* This absolute symbol is already defined. */
 				if (symp->value == input_sym->dn_value) {
 					/* If symbol values are equal, continue
 					 * but don't add to the global symbol
-					 * table			     */
+					 * table */
 					sp->value = val;
 					sp->delta = delta;
 					sp += 1;
@@ -852,14 +861,14 @@ static void dload_symbols(struct dload_state *dlthis)
 					/* If symbol values are not equal,
 					 * return with redefinition error */
 					DL_ERROR("Absolute symbol %s is "
-					   "defined multiple times with "
-					   "different values", sname);
+						 "defined multiple times with "
+						 "different values", sname);
 					return;
 				}
 			}
 loop_itr:
 			/* if this is a global symbol, post it to the
-			 * global table			       */
+			 * global table */
 			if (input_sym->dn_sclass == DN_EXT ||
 			    input_sym->dn_sclass == DN_EXTLAB) {
 				/* Keep this global symbol for subsequent
@@ -868,9 +877,9 @@ loop_itr:
 				if (!sname)
 					goto loop_cont;
 
-				newsym = dlthis->mysym->Add_To_Symbol_Table
-						    (dlthis->mysym, sname,
-						    (unsigned)dlthis->myhandle);
+				newsym = dlthis->mysym->add_to_symbol_table
+				    (dlthis->mysym, sname,
+				     (unsigned)dlthis->myhandle);
 				if (newsym)
 					newsym->value = val;
 
@@ -880,7 +889,7 @@ loop_cont:
 			sp->delta = delta;
 			sp += 1;
 			input_sym += 1;
-		} while ((syms_in_buf -= 1) > 0); /* process sym in buffer */
+		} while ((syms_in_buf -= 1) > 0);	/* process sym in buf */
 	} while (symbols_left > 0);	/* read all symbols */
 	if (~checks)
 		dload_error(dlthis, "Checksum of symbols failed");
@@ -898,15 +907,17 @@ loop_cont:
  *
  * WARNING:
  *	This routine is not allowed to declare errors!
- *****************************************************************************/
+ **************************************************************************** */
 static void symbol_table_free(struct dload_state *dlthis)
 {
 	if (dlthis->local_symtab) {
 		if (dlthis->dload_errcount) {	/* blow off our symbols */
-			dlthis->mysym->Purge_Symbol_Table(dlthis->mysym,
-						   (unsigned)dlthis->myhandle);
+			dlthis->mysym->purge_symbol_table(dlthis->mysym,
+							  (unsigned)
+							  dlthis->myhandle);
 		}
-		dlthis->mysym->Deallocate(dlthis->mysym, dlthis->local_symtab);
+		dlthis->mysym->dload_deallocate(dlthis->mysym,
+						dlthis->local_symtab);
 	}
 }				/* symbol_table_free */
 
@@ -922,8 +933,9 @@ static void symbol_table_free(struct dload_state *dlthis)
  */
 
 /* The following are only for use by reloc.c and things it calls */
-static const struct LDR_SECTION_INFO CINIT_INFO_INIT = { CINITNAME, 0, 0,
-					(LDR_ADDR) -1, 0, DLOAD_BSS, 0 };
+static const struct ldr_section_info cinit_info_init = { cinitname, 0, 0,
+	(ldr_addr) - 1, 0, DLOAD_BSS, 0
+};
 
 /*************************************************************************
  * Procedure cload_cinit
@@ -934,7 +946,7 @@ static const struct LDR_SECTION_INFO CINIT_INFO_INIT = { CINITNAME, 0, 0,
  * Effect:
  *	Interprets the data in the buffer as .cinit data, and performs the
  * appropriate initializations.
- ************************************************************************/
+ *********************************************************************** */
 static void cload_cinit(struct dload_state *dlthis,
 			struct image_packet_t *ipacket)
 {
@@ -943,92 +955,93 @@ static void cload_cinit(struct dload_state *dlthis,
 #else
 	s16 init_count, left;
 #endif
-	unsigned char *pktp = ipacket->i_bits;
-	unsigned char *pktend =	pktp +
-				BYTE_TO_HOST_ROUND(ipacket->i_packet_size);
+	unsigned char *pktp = ipacket->img_data;
+	unsigned char *pktend = pktp + BYTE_TO_HOST_ROUND(ipacket->packet_size);
 	int temp;
-	LDR_ADDR atmp;
-	struct LDR_SECTION_INFO cinit_info;
+	ldr_addr atmp;
+	struct ldr_section_info cinit_info;
 
-	/*  PROCESS ALL THE INITIALIZATION RECORDS IN THE BUFFER.  */
+	/*  PROCESS ALL THE INITIALIZATION RECORDS IN THE BUFFER. */
 	while (true) {
 		left = pktend - pktp;
 		switch (dlthis->cinit_state) {
-		case CI_count:	/* count field */
+		case CI_COUNT:	/* count field */
 			if (left < TDATA_TO_HOST(CINIT_COUNT))
 				goto loopexit;
-			temp = dload_unpack(dlthis, (TgtAU_t *)pktp,
-					CINIT_COUNT * TDATA_AU_BITS, 0,
-					ROP_SGN);
+			temp = dload_unpack(dlthis, (tgt_au_t *) pktp,
+					    CINIT_COUNT * TDATA_AU_BITS, 0,
+					    ROP_SGN);
 			pktp += TDATA_TO_HOST(CINIT_COUNT);
 			/* negative signifies BSS table, zero means done */
 			if (temp <= 0) {
-				dlthis->cinit_state = CI_done;
+				dlthis->cinit_state = CI_DONE;
 				break;
 			}
 			dlthis->cinit_count = temp;
-			dlthis->cinit_state = CI_address;
+			dlthis->cinit_state = CI_ADDRESS;
 			break;
 #if CINIT_ALIGN < CINIT_ADDRESS
-		case CI_partaddress:
+		case CI_PARTADDRESS:
 			pktp -= TDATA_TO_HOST(CINIT_ALIGN);
 			/* back up pointer into space courtesy of caller */
-			*(uint16_t *)pktp = dlthis->cinit_addr;
+			*(uint16_t *) pktp = dlthis->cinit_addr;
 			/* stuff in saved bits  !! FALL THRU !! */
 #endif
-		case CI_address:	/* Address field for a copy packet */
+		case CI_ADDRESS:	/* Address field for a copy packet */
 			if (left < TDATA_TO_HOST(CINIT_ADDRESS)) {
 #if CINIT_ALIGN < CINIT_ADDRESS
 				if (left == TDATA_TO_HOST(CINIT_ALIGN)) {
 					/* address broken into halves */
-					dlthis->cinit_addr = *(uint16_t *)pktp;
+					dlthis->cinit_addr = *(uint16_t *) pktp;
 					/* remember 1st half */
-					dlthis->cinit_state = CI_partaddress;
+					dlthis->cinit_state = CI_PARTADDRESS;
 					left = 0;
 				}
 #endif
 				goto loopexit;
 			}
-			atmp = dload_unpack(dlthis, (TgtAU_t *)pktp,
-					CINIT_ADDRESS * TDATA_AU_BITS, 0,
-					ROP_UNS);
+			atmp = dload_unpack(dlthis, (tgt_au_t *) pktp,
+					    CINIT_ADDRESS * TDATA_AU_BITS, 0,
+					    ROP_UNS);
 			pktp += TDATA_TO_HOST(CINIT_ADDRESS);
 #if CINIT_PAGE_BITS > 0
 			dlthis->cinit_page = atmp &
-					     ((1 << CINIT_PAGE_BITS) - 1);
+			    ((1 << CINIT_PAGE_BITS) - 1);
 			atmp >>= CINIT_PAGE_BITS;
 #else
 			dlthis->cinit_page = CINIT_DEFAULT_PAGE;
 #endif
 			dlthis->cinit_addr = atmp;
-			dlthis->cinit_state = CI_copy;
+			dlthis->cinit_state = CI_COPY;
 			break;
-		case CI_copy:	/* copy bits to the target */
+		case CI_COPY:	/* copy bits to the target */
 			init_count = HOST_TO_TDATA(left);
 			if (init_count > dlthis->cinit_count)
 				init_count = dlthis->cinit_count;
 			if (init_count == 0)
 				goto loopexit;	/* get more bits */
-			cinit_info = CINIT_INFO_INIT;
+			cinit_info = cinit_info_init;
 			cinit_info.page = dlthis->cinit_page;
 			if (!dlthis->myio->writemem(dlthis->myio, pktp,
-					TDATA_TO_TADDR(dlthis->cinit_addr),
-					&cinit_info,
-					TDATA_TO_HOST(init_count))) {
-				dload_error(dlthis, E_INITFAIL, "write",
+						    TDATA_TO_TADDR
+						    (dlthis->cinit_addr),
+						    &cinit_info,
+						    TDATA_TO_HOST(init_count)))
+			{
+				dload_error(dlthis, initfail, "write",
 					    dlthis->cinit_addr);
 			}
 			dlthis->cinit_count -= init_count;
-			if (dlthis->cinit_count  <= 0) {
-				dlthis->cinit_state = CI_count;
+			if (dlthis->cinit_count <= 0) {
+				dlthis->cinit_state = CI_COUNT;
 				init_count = (init_count + CINIT_ALIGN - 1) &
-					     -CINIT_ALIGN;
+				    -CINIT_ALIGN;
 				/* align to next init */
 			}
 			pktp += TDATA_TO_HOST(init_count);
 			dlthis->cinit_addr += init_count;
 			break;
-		case CI_done:	/* no more .cinit to do */
+		case CI_DONE:	/* no more .cinit to do */
 			return;
 		}		/* switch (cinit_state) */
 	}			/* while */
@@ -1036,7 +1049,7 @@ static void cload_cinit(struct dload_state *dlthis,
 loopexit:
 	if (left > 0) {
 		dload_error(dlthis, "%d bytes left over in cinit packet", left);
-		dlthis->cinit_state = CI_done;	/* left over bytes are bad */
+		dlthis->cinit_state = CI_DONE;	/* left over bytes are bad */
 	}
 }				/* cload_cinit */
 
@@ -1058,17 +1071,17 @@ loopexit:
  * Effect:
  *	Performs the required relocations on the packet.  Returns a checksum
  * of the relocation operations.
- ************************************************************************/
+ *********************************************************************** */
 #define MY_RELOC_BUF_SIZ 8
-/* careful! exists at the same time as the image buffer*/
+/* careful! exists at the same time as the image buffer */
 static int relocate_packet(struct dload_state *dlthis,
-				struct image_packet_t *ipacket,
-				u32 *checks, bool *tramps_generated)
+			   struct image_packet_t *ipacket,
+			   u32 *checks, bool *tramps_generated)
 {
 	u32 rnum;
 	*tramps_generated = false;
 
-	rnum = ipacket->i_num_relocs;
+	rnum = ipacket->num_relocs;
 	do {			/* all relocs */
 		unsigned rinbuf;
 		int siz;
@@ -1077,7 +1090,7 @@ static int relocate_packet(struct dload_state *dlthis,
 		rinbuf = rnum > MY_RELOC_BUF_SIZ ? MY_RELOC_BUF_SIZ : rnum;
 		siz = rinbuf * sizeof(struct reloc_record_t);
 		if (dlthis->strm->read_buffer(dlthis->strm, rp, siz) != siz) {
-			DL_ERROR(E_READSTRM, "relocation");
+			DL_ERROR(readstrm, "relocation");
 			return 0;
 		}
 		/* reorder the bytes if need be */
@@ -1087,19 +1100,20 @@ static int relocate_packet(struct dload_state *dlthis,
 		*checks += dload_checksum(rp, siz);
 		do {
 			/* perform the relocation operation */
-			dload_relocate(dlthis, (TgtAU_t *) ipacket->i_bits, rp,
-					tramps_generated, false);
+			dload_relocate(dlthis, (tgt_au_t *) ipacket->img_data,
+				       rp, tramps_generated, false);
 			rp += 1;
 			rnum -= 1;
 		} while ((rinbuf -= 1) > 0);
 	} while (rnum > 0);	/* all relocs */
 	/* If trampoline(s) were generated, we need to do an update of the
 	 * trampoline copy of the packet since a 2nd phase relo will be done
-	 * later.  */
+	 * later. */
 	if (*tramps_generated == true) {
 		dload_tramp_pkt_udpate(dlthis,
-				(dlthis->image_secn - dlthis->ldr_sections),
-				dlthis->image_offset, ipacket);
+				       (dlthis->image_secn -
+					dlthis->ldr_sections),
+				       dlthis->image_offset, ipacket);
 	}
 
 	return 1;
@@ -1108,7 +1122,7 @@ static int relocate_packet(struct dload_state *dlthis,
 #define IPH_SIZE (sizeof(struct image_packet_t) - sizeof(u32))
 
 /* VERY dangerous */
-static const char IMAGEPAK[] = { "image packet" };
+static const char imagepak[] = { "image packet" };
 
 /*************************************************************************
  * Procedure dload_data
@@ -1119,16 +1133,16 @@ static const char IMAGEPAK[] = { "image packet" };
  * Effect:
  *	Read image data from input file, relocate it, and download it to the
  *	target.
- ************************************************************************/
+ *********************************************************************** */
 static void dload_data(struct dload_state *dlthis)
 {
 	u16 curr_sect;
 	struct doff_scnhdr_t *sptr = dlthis->sect_hdrs;
-	struct LDR_SECTION_INFO *lptr = dlthis->ldr_sections;
+	struct ldr_section_info *lptr = dlthis->ldr_sections;
 #ifdef OPT_ZERO_COPY_LOADER
-	bool bZeroCopy = false;
+	bool zero_copy = false;
 #endif
-	u8 *pDest;
+	u8 *dest;
 
 	struct {
 		struct image_packet_t ipacket;
@@ -1144,7 +1158,7 @@ static void dload_data(struct dload_state *dlthis)
 	     curr_sect += 1) {
 		if (DS_NEEDS_DOWNLOAD(sptr)) {
 			s32 nip;
-			LDR_ADDR image_offset = 0;
+			ldr_addr image_offset = 0;
 			/* set relocation info for this section */
 			if (curr_sect < dlthis->allocated_secn_count)
 				dlthis->delta_runaddr = sptr->ds_paddr;
@@ -1161,12 +1175,14 @@ static void dload_data(struct dload_state *dlthis)
 
 				s32 ipsize;
 				u32 checks;
-				bool  tramp_generated = false;
+				bool tramp_generated = false;
 
 				/* get the fixed header bits */
 				if (dlthis->strm->read_buffer(dlthis->strm,
-				    &ibuf.ipacket, IPH_SIZE) != IPH_SIZE) {
-					DL_ERROR(E_READSTRM, IMAGEPAK);
+							      &ibuf.ipacket,
+							      IPH_SIZE) !=
+				    IPH_SIZE) {
+					DL_ERROR(readstrm, imagepak);
 					return;
 				}
 				/* reorder the header if need be */
@@ -1177,72 +1193,76 @@ static void dload_data(struct dload_state *dlthis)
 				/* now read the rest of the packet */
 				ipsize =
 				    BYTE_TO_HOST(DOFF_ALIGN
-						(ibuf.ipacket.i_packet_size));
+						 (ibuf.ipacket.packet_size));
 				if (ipsize > BYTE_TO_HOST(IMAGE_PACKET_SIZE)) {
 					DL_ERROR("Bad image packet size %d",
-						ipsize);
+						 ipsize);
 					return;
 				}
-				pDest = ibuf.bufr;
+				dest = ibuf.bufr;
 #ifdef OPT_ZERO_COPY_LOADER
-				bZeroCopy = false;
+				zero_copy = false;
 				if (DLOAD_SECT_TYPE(sptr) != DLOAD_CINIT) {
 					dlthis->myio->writemem(dlthis->myio,
-						&pDest, lptr->load_addr +
-						image_offset, lptr, 0);
-				bZeroCopy = (pDest != ibuf.bufr);
+							       &dest,
+							       lptr->load_addr +
+							       image_offset,
+							       lptr, 0);
+					zero_copy = (dest != ibuf.bufr);
 				}
 #endif
-		/* End of determination */
+				/* End of determination */
 
 				if (dlthis->strm->read_buffer(dlthis->strm,
-				    ibuf.bufr, ipsize) != ipsize) {
-					DL_ERROR(E_READSTRM, IMAGEPAK);
+							      ibuf.bufr,
+							      ipsize) !=
+				    ipsize) {
+					DL_ERROR(readstrm, imagepak);
 					return;
 				}
-				ibuf.ipacket.i_bits = pDest;
+				ibuf.ipacket.img_data = dest;
 
 				/* reorder the bytes if need be */
 #if !defined(_BIG_ENDIAN) || (TARGET_AU_BITS > 16)
 				if (dlthis->reorder_map) {
-					dload_reorder(pDest, ipsize,
-						     dlthis->reorder_map);
+					dload_reorder(dest, ipsize,
+						      dlthis->reorder_map);
 				}
-				checks = dload_checksum(pDest, ipsize);
+				checks = dload_checksum(dest, ipsize);
 #else
 				if (dlthis->dfile_hdr.df_byte_reshuffle !=
 				    TARGET_ORDER(REORDER_MAP
-				    (BYTE_RESHUFFLE_VALUE))) {
+						 (BYTE_RESHUFFLE_VALUE))) {
 					/* put image bytes in big-endian order,
 					 * not PC order */
-					dload_reorder(pDest, ipsize,
-					TARGET_ORDER
-					(dlthis->dfile_hdr.df_byte_reshuffle));
+					dload_reorder(dest, ipsize,
+						      TARGET_ORDER
+						      (dlthis->dfile_hdr.
+						       df_byte_reshuffle));
 				}
 #if TARGET_AU_BITS > 8
-				checks = dload_reverse_checksum_16(pDest,
-								   ipsize);
+				checks = dload_reverse_checksum16(dest, ipsize);
 #else
-				checks = dload_reverse_checksum(pDest,
-								ipsize);
+				checks = dload_reverse_checksum(dest, ipsize);
 #endif
 #endif
 
 				checks += dload_checksum(&ibuf.ipacket,
-							IPH_SIZE);
+							 IPH_SIZE);
 				/* relocate the image bits as needed */
-				if (ibuf.ipacket.i_num_relocs) {
+				if (ibuf.ipacket.num_relocs) {
 					dlthis->image_offset = image_offset;
 					if (!relocate_packet(dlthis,
-					    &ibuf.ipacket, &checks,
-					    &tramp_generated))
+							     &ibuf.ipacket,
+							     &checks,
+							     &tramp_generated))
 						return;	/* serious error */
 				}
 				if (~checks)
-					DL_ERROR(E_CHECKSUM, IMAGEPAK);
+					DL_ERROR(err_checksum, imagepak);
 				/* Only write the result to the target if no
-				  * trampoline was generated.  Otherwise it
-				  *will be done during trampoline finalize.  */
+				 * trampoline was generated.  Otherwise it
+				 *will be done during trampoline finalize. */
 
 				if (tramp_generated == false) {
 
@@ -1251,30 +1271,40 @@ static void dload_data(struct dload_state *dlthis)
 					if (DLOAD_SECT_TYPE(sptr) ==
 					    DLOAD_CINIT) {
 						cload_cinit(dlthis,
-							&ibuf.ipacket);
+							    &ibuf.ipacket);
 						cinit_processed = true;
 					} else {
 #ifdef OPT_ZERO_COPY_LOADER
-						if (!bZeroCopy) {
+						if (!zero_copy) {
 #endif
-						if (!dlthis->myio->writemem
-						(dlthis->myio, ibuf.bufr,
-						lptr->load_addr + image_offset,
-						lptr, BYTE_TO_HOST
-						(ibuf.ipacket.i_packet_size))) {
-							DL_ERROR(
-							"Write to " FMT_UI32
-							" failed",
-							lptr->load_addr +
-							image_offset);
-						}
+							/* FIXME */
+							if (!dlthis->myio->
+							    writemem(dlthis->
+								myio,
+								ibuf.bufr,
+								lptr->
+								load_addr +
+								image_offset,
+								lptr,
+								BYTE_TO_HOST
+								(ibuf.
+								ipacket.
+								packet_size))) {
+								DL_ERROR
+								  ("Write to "
+								  FMT_UI32
+								  " failed",
+								  lptr->
+								  load_addr +
+								  image_offset);
+							}
 #ifdef OPT_ZERO_COPY_LOADER
-					}
+						}
 #endif
 					}
 				}
 				image_offset +=
-				      BYTE_TO_TADDR(ibuf.ipacket.i_packet_size);
+				    BYTE_TO_TADDR(ibuf.ipacket.packet_size);
 			}	/* process packets */
 			/* if this is a BSS section, we may want to fill it */
 			if (DLOAD_SECT_TYPE(sptr) != DLOAD_BSS)
@@ -1287,17 +1317,19 @@ static void dload_data(struct dload_state *dlthis)
 				/* Don't clear BSS after load-time
 				 * initialization */
 				DL_ERROR
-				  ("Zero-initialization at " FMT_UI32 " after "
-				  "load-time initialization!", lptr->load_addr);
+				    ("Zero-initialization at " FMT_UI32
+				     " after " "load-time initialization!",
+				     lptr->load_addr);
 				goto loop_cont;
 			}
 			/* fill the .bss area */
 			dlthis->myio->fillmem(dlthis->myio,
 					      TADDR_TO_HOST(lptr->load_addr),
 					      lptr, TADDR_TO_HOST(lptr->size),
-					      dload_fill_bss);
+					      DLOAD_FILL_BSS);
 			goto loop_cont;
-		} /* if DS_DOWNLOAD_MASK */
+		}
+		/* if DS_DOWNLOAD_MASK */
 		/* If not loading, but BSS, zero initialize */
 		if (DLOAD_SECT_TYPE(sptr) != DLOAD_BSS)
 			goto loop_cont;
@@ -1310,25 +1342,26 @@ static void dload_data(struct dload_state *dlthis)
 
 		if (cinit_processed) {
 			/*Don't clear BSS after load-time initialization */
-			DL_ERROR(
-			 "Zero-initialization at " FMT_UI32 " attempted after "
-			 "load-time initialization!", lptr->load_addr);
+			DL_ERROR("Zero-initialization at " FMT_UI32
+				 " attempted after "
+				 "load-time initialization!", lptr->load_addr);
 			goto loop_cont;
 		}
 		/* fill the .bss area */
 		dlthis->myio->fillmem(dlthis->myio,
-				     TADDR_TO_HOST(lptr->load_addr), lptr,
-				     TADDR_TO_HOST(lptr->size), dload_fill_bss);
+				      TADDR_TO_HOST(lptr->load_addr), lptr,
+				      TADDR_TO_HOST(lptr->size),
+				      DLOAD_FILL_BSS);
 loop_cont:
 		sptr += 1;
 		lptr += 1;
 	}			/* load sections */
 
-	/*  Finalize any trampolines that were created during the load  */
+	/*  Finalize any trampolines that were created during the load */
 	if (dload_tramp_finalize(dlthis) == 0) {
 		DL_ERROR("Finalization of auto-trampolines (size = " FMT_UI32
-			") failed", dlthis->tramp.tramp_sect_next_addr);
-    }
+			 ") failed", dlthis->tramp.tramp_sect_next_addr);
+	}
 }				/* dload_data */
 
 /*************************************************************************
@@ -1344,14 +1377,14 @@ loop_cont:
  * Effect:
  *	Re-arranges the bytes in each word according to the map specified.
  *
- ************************************************************************/
+ *********************************************************************** */
 /* mask for byte shift count */
 #define SHIFT_COUNT_MASK (3 << LOG_BITS_PER_BYTE)
 
 void dload_reorder(void *data, int dsiz, unsigned int map)
 {
 	register u32 tmp, tmap, datv;
-	u32 *dp = (u32 *)data;
+	u32 *dp = (u32 *) data;
 
 	map <<= LOG_BITS_PER_BYTE;	/* align map with SHIFT_COUNT_MASK */
 	do {
@@ -1376,7 +1409,7 @@ void dload_reorder(void *data, int dsiz, unsigned int map)
  * Effect:
  *	Returns a checksum of the specified block
  *
- ************************************************************************/
+ *********************************************************************** */
 u32 dload_checksum(void *data, unsigned siz)
 {
 	u32 sum;
@@ -1384,7 +1417,7 @@ u32 dload_checksum(void *data, unsigned siz)
 	int left;
 
 	sum = 0;
-	dp = (u32 *)data;
+	dp = (u32 *) data;
 	for (left = siz; left > 0; left -= sizeof(u32))
 		sum += *dp++;
 	return sum;
@@ -1407,7 +1440,7 @@ u32 dload_checksum(void *data, unsigned siz)
  * in host order. But dllcreate always checksums in little-endian order.
  * It is most efficient to just handle the difference a word at a time.
  *
- ***********************************************************************/
+ ********************************************************************** */
 u32 dload_reverse_checksum(void *data, unsigned siz)
 {
 	u32 sum, temp;
@@ -1415,7 +1448,7 @@ u32 dload_reverse_checksum(void *data, unsigned siz)
 	int left;
 
 	sum = 0;
-	dp = (u32 *)data;
+	dp = (u32 *) data;
 
 	for (left = siz; left > 0; left -= sizeof(u32)) {
 		temp = *dp++;
@@ -1429,14 +1462,14 @@ u32 dload_reverse_checksum(void *data, unsigned siz)
 }				/* dload_reverse_checksum */
 
 #if (TARGET_AU_BITS > 8) && (TARGET_AU_BITS < 32)
-u32 dload_reverse_checksum_16(void *data, unsigned siz)
+u32 dload_reverse_checksum16(void *data, unsigned siz)
 {
 	uint_fast32_t sum, temp;
 	u32 *dp;
 	int left;
 
 	sum = 0;
-	dp = (u32 *)data;
+	dp = (u32 *) data;
 
 	for (left = siz; left > 0; left -= sizeof(u32)) {
 		temp = *dp++;
@@ -1445,7 +1478,7 @@ u32 dload_reverse_checksum_16(void *data, unsigned siz)
 	}
 
 	return sum;
-}				/* dload_reverse_checksum_16 */
+}				/* dload_reverse_checksum16 */
 #endif
 #endif
 
@@ -1461,7 +1494,7 @@ u32 dload_reverse_checksum_16(void *data, unsigned siz)
  * Effect:
  *	Swaps the specified data according to the specified map
  *
- ************************************************************************/
+ *********************************************************************** */
 static void swap_words(void *data, unsigned siz, unsigned bitmap)
 {
 	register int i;
@@ -1513,11 +1546,11 @@ static void swap_words(void *data, unsigned siz, unsigned bitmap)
  * target addressable unit order).  Makes sure the last string in the
  * buffer is NULL terminated (for safety).
  * Returns the first unused destination address.
- ************************************************************************/
+ *********************************************************************** */
 static char *copy_tgt_strings(void *dstp, void *srcp, unsigned charcount)
 {
-	register TgtAU_t *src = (TgtAU_t *)srcp;
-	register TgtAU_t *dst = (TgtAU_t *)dstp;
+	register tgt_au_t *src = (tgt_au_t *) srcp;
+	register tgt_au_t *dst = (tgt_au_t *) dstp;
 	register int cnt = charcount;
 	do {
 #if TARGET_AU_BITS <= BITS_PER_AU
@@ -1526,12 +1559,13 @@ static char *copy_tgt_strings(void *dstp, void *srcp, unsigned charcount)
 #else
 		*dst++ = *src++;
 #endif
-	} while ((cnt -= (sizeof(TgtAU_t) * BITS_PER_AU / BITS_PER_BYTE)) > 0);
+	} while ((cnt -= (sizeof(tgt_au_t) * BITS_PER_AU / BITS_PER_BYTE)) > 0);
 	/*apply force to make sure that the string table has null terminator */
 #if (BITS_PER_AU == BITS_PER_BYTE) && (TARGET_AU_BITS == BITS_PER_BYTE)
 	dst[-1] = 0;
 #else
-	dst[-1] &= (1 << (BITS_PER_AU - BITS_PER_BYTE)) - 1; /* little endian */
+	/* little endian */
+	dst[-1] &= (1 << (BITS_PER_AU - BITS_PER_BYTE)) - 1;
 #endif
 	return (char *)dst;
 }				/* copy_tgt_strings */
@@ -1547,38 +1581,40 @@ static char *copy_tgt_strings(void *dstp, void *srcp, unsigned charcount)
  * the debug information required by the target.
  *
  * Notes:
- * The handle returned from Dynamic_Load_Module needs to encapsulate all the
+ * The handle returned from dynamic_load_module needs to encapsulate all the
  * allocations done for the module, and enable them plus the modules symbols to
  * be deallocated.
  *
- ************************************************************************/
+ *********************************************************************** */
 #ifndef _BIG_ENDIAN
-static const struct LDR_SECTION_INFO DLLVIEW_INFO_INIT = { ".dllview", 0, 0,
-				(LDR_ADDR) -1, DBG_LIST_PAGE, DLOAD_DATA, 0 };
+static const struct ldr_section_info dllview_info_init = { ".dllview", 0, 0,
+	(ldr_addr) - 1, DBG_LIST_PAGE, DLOAD_DATA, 0
+};
 #else
-static const struct LDR_SECTION_INFO DLLVIEW_INFO_INIT = { ".dllview", 0, 0,
-				(LDR_ADDR) -1, DLOAD_DATA, DBG_LIST_PAGE, 0 };
+static const struct ldr_section_info dllview_info_init = { ".dllview", 0, 0,
+	(ldr_addr) - 1, DLOAD_DATA, DBG_LIST_PAGE, 0
+};
 #endif
 static void init_module_handle(struct dload_state *dlthis)
 {
 	struct my_handle *hndl;
 	u16 curr_sect;
-	struct LDR_SECTION_INFO *asecs;
+	struct ldr_section_info *asecs;
 	struct dll_module *dbmod;
 	struct dll_sect *dbsec;
 	struct dbg_mirror_root *mlist;
 	register char *cp;
 	struct modules_header mhdr;
-	struct LDR_SECTION_INFO dllview_info;
+	struct ldr_section_info dllview_info;
 	struct dynload_symbol *debug_mirror_sym;
 	hndl = dlthis->myhandle;
 	if (!hndl)
 		return;		/* must be errors detected, so forget it */
 
-	/*  Store the section count  */
+	/*  Store the section count */
 	hndl->secn_count = dlthis->allocated_secn_count;
 
-	/*  If a trampoline section was created, add it in  */
+	/*  If a trampoline section was created, add it in */
 	if (dlthis->tramp.tramp_sect_next_addr != 0)
 		hndl->secn_count += 1;
 
@@ -1591,30 +1627,31 @@ static void init_module_handle(struct dload_state *dlthis)
 #endif
 	if (dlthis->dload_errcount)
 		return;		/* abandon if errors detected */
-	 /* Locate the symbol that names the header for the CCS debug list
-	 of modules. If not found, we just don't generate the debug record.
-	 If found, we create our modules list.  We make sure to create the
-	 LOADER_DLLVIEW_ROOT even if there is no relocation info to record,
-	 just to try to put both symbols in the same symbol table and
-	 module.*/
-	debug_mirror_sym = dlthis->mysym->Find_Matching_Symbol(dlthis->mysym,
-						LOADER_DLLVIEW_ROOT);
+	/* Locate the symbol that names the header for the CCS debug list
+	   of modules. If not found, we just don't generate the debug record.
+	   If found, we create our modules list.  We make sure to create the
+	   loader_dllview_root even if there is no relocation info to record,
+	   just to try to put both symbols in the same symbol table and
+	   module. */
+	debug_mirror_sym = dlthis->mysym->find_matching_symbol(dlthis->mysym,
+							loader_dllview_root);
 	if (!debug_mirror_sym) {
 		struct dynload_symbol *dlmodsym;
 		struct dbg_mirror_root *mlst;
 
 		/* our root symbol is not yet present;
 		   check if we have DLModules defined */
-		dlmodsym = dlthis->mysym->Find_Matching_Symbol(dlthis->mysym,
+		dlmodsym = dlthis->mysym->find_matching_symbol(dlthis->mysym,
 							LINKER_MODULES_HEADER);
 		if (!dlmodsym)
 			return;	/* no DLModules list so no debug info */
 		/* if we have DLModules defined, construct our header */
 		mlst = (struct dbg_mirror_root *)
-			dlthis->mysym->Allocate(dlthis->mysym,
-			sizeof(struct dbg_mirror_root));
+		    dlthis->mysym->dload_allocate(dlthis->mysym,
+						  sizeof(struct
+							 dbg_mirror_root));
 		if (!mlst) {
-			DL_ERROR(E_ALLOC, sizeof(struct dbg_mirror_root));
+			DL_ERROR(err_alloc, sizeof(struct dbg_mirror_root));
 			return;
 		}
 		mlst->hnext = NULL;
@@ -1622,19 +1659,19 @@ static void init_module_handle(struct dload_state *dlthis)
 		mlst->refcount = 0;
 		mlst->dbthis = TDATA_TO_TADDR(dlmodsym->value);
 		/* add our root symbol */
-		debug_mirror_sym = dlthis->mysym->Add_To_Symbol_Table
-			(dlthis->mysym, LOADER_DLLVIEW_ROOT,
-			(unsigned)dlthis->myhandle);
+		debug_mirror_sym = dlthis->mysym->add_to_symbol_table
+		    (dlthis->mysym, loader_dllview_root,
+		     (unsigned)dlthis->myhandle);
 		if (!debug_mirror_sym) {
 			/* failed, recover memory */
-			dlthis->mysym->Deallocate(dlthis->mysym, mlst);
+			dlthis->mysym->dload_deallocate(dlthis->mysym, mlst);
 			return;
 		}
-		debug_mirror_sym->value = (u32)mlst;
+		debug_mirror_sym->value = (u32) mlst;
 	}
-	 /* First create the DLLview record and stuff it into the buffer.
-	 Then write it to the DSP.  Record pertinent locations in our hndl,
-	  and add it to the per-processor list of handles with debug info.*/
+	/* First create the DLLview record and stuff it into the buffer.
+	   Then write it to the DSP.  Record pertinent locations in our hndl,
+	   and add it to the per-processor list of handles with debug info. */
 #ifndef DEBUG_HEADER_IN_LOADER
 	mlist = (struct dbg_mirror_root *)debug_mirror_sym->value;
 	if (!mlist)
@@ -1646,8 +1683,8 @@ static void init_module_handle(struct dload_state *dlthis)
 	if (!dlthis->allocated_secn_count)
 		return;		/* no load addresses to be recorded */
 	/* reuse temporary symbol storage */
-	dbmod = (struct dll_module *) dlthis->local_symtab;
-	 /* Create the DLLview record in the memory we retain for our handle*/
+	dbmod = (struct dll_module *)dlthis->local_symtab;
+	/* Create the DLLview record in the memory we retain for our handle */
 	dbmod->num_sects = dlthis->allocated_secn_count;
 	dbmod->timestamp = dlthis->verify.dv_timdat;
 	dbmod->version = INIT_VERSION;
@@ -1662,7 +1699,7 @@ static void init_module_handle(struct dload_state *dlthis)
 		asecs += 1;
 	}
 
-	/*  If a trampoline section was created go ahead and add its info  */
+	/*  If a trampoline section was created go ahead and add its info */
 	if (dlthis->tramp.tramp_sect_next_addr != 0) {
 		dbmod->num_sects++;
 		dbsec->sect_load_adr = asecs->load_addr;
@@ -1675,20 +1712,19 @@ static void init_module_handle(struct dload_state *dlthis)
 	cp = copy_tgt_strings(dbsec, dlthis->str_head,
 			      dlthis->debug_string_size);
 
-
 	/* If a trampoline section was created, add its name so DLLView
-	 * can show the user the section info.  */
+	 * can show the user the section info. */
 	if (dlthis->tramp.tramp_sect_next_addr != 0) {
 		cp = copy_tgt_strings(cp,
-			dlthis->tramp.final_string_table,
-			strlen(dlthis->tramp.final_string_table) + 1);
+				      dlthis->tramp.final_string_table,
+				      strlen(dlthis->tramp.final_string_table) +
+				      1);
 	}
-
 
 	/* round off the size of the debug record, and remember same */
 	hndl->dm.dbsiz = HOST_TO_TDATA_ROUND(cp - (char *)dbmod);
 	*cp = 0;		/* strictly to make our test harness happy */
-	dllview_info = DLLVIEW_INFO_INIT;
+	dllview_info = dllview_info_init;
 	dllview_info.size = TDATA_TO_TADDR(hndl->dm.dbsiz);
 	/* Initialize memory context to default heap */
 	dllview_info.context = 0;
@@ -1704,8 +1740,8 @@ static void init_module_handle(struct dload_state *dlthis)
 	/* allocate memory for on-DSP DLLview debug record */
 	if (!dlthis->myalloc)
 		return;
-	if (!dlthis->myalloc->Allocate(dlthis->myalloc, &dllview_info,
-		     HOST_TO_TADDR(sizeof(u32)))) {
+	if (!dlthis->myalloc->dload_allocate(dlthis->myalloc, &dllview_info,
+					     HOST_TO_TADDR(sizeof(u32)))) {
 		return;
 	}
 	/* Store load address of .dllview section */
@@ -1719,10 +1755,10 @@ static void init_module_handle(struct dload_state *dlthis)
 		swap_words(dbmod, (char *)dbsec - (char *)dbmod,
 			   DLL_MODULE_BITMAP);
 	}
-	 /* Update the DLLview list on the DSP write new record */
+	/* Update the DLLview list on the DSP write new record */
 	if (!dlthis->myio->writemem(dlthis->myio, dbmod,
-		dllview_info.load_addr, &dllview_info,
-		TADDR_TO_HOST(dllview_info.size))) {
+				    dllview_info.load_addr, &dllview_info,
+				    TADDR_TO_HOST(dllview_info.size))) {
 		return;
 	}
 	/* write new header */
@@ -1733,26 +1769,27 @@ static void init_module_handle(struct dload_state *dlthis)
 		swap_words(&mhdr, sizeof(struct modules_header) - sizeof(u16),
 			   MODULES_HEADER_BITMAP);
 	}
-	dllview_info = DLLVIEW_INFO_INIT;
+	dllview_info = dllview_info_init;
 	if (!dlthis->myio->writemem(dlthis->myio, &mhdr, mlist->dbthis,
-			&dllview_info, sizeof(struct modules_header) -
-				       sizeof(u16))) {
+				    &dllview_info,
+				    sizeof(struct modules_header) -
+				    sizeof(u16))) {
 		return;
 	}
-	 /* Add the module handle to this processor's list
-		of handles with debug info */
+	/* Add the module handle to this processor's list
+	   of handles with debug info */
 	hndl->dm.hnext = mlist->hnext;
 	if (hndl->dm.hnext)
 		hndl->dm.hnext->dm.hprev = hndl;
-	hndl->dm.hprev = (struct my_handle *) mlist;
-	mlist->hnext = hndl;	/* insert after root*/
+	hndl->dm.hprev = (struct my_handle *)mlist;
+	mlist->hnext = hndl;	/* insert after root */
 }				/* init_module_handle */
 
 /*************************************************************************
- * Procedure Dynamic_Unload_Module
+ * Procedure dynamic_unload_module
  *
  * Parameters:
- *	mhandle	A module handle from Dynamic_Load_Module
+ *	mhandle	A module handle from dynamic_load_module
  *	syms	Host-side symbol table and malloc/free functions
  *	alloc	Target-side memory allocation
  *
@@ -1764,42 +1801,42 @@ static void init_module_handle(struct dload_state *dlthis)
  *
  * Returns:
  *	Zero for success. On error, the number of errors detected is returned.
- * Individual errors are reported using syms->Error_Report().
- ************************************************************************/
-int Dynamic_Unload_Module(DLOAD_mhandle mhandle,
-		struct Dynamic_Loader_Sym *syms,
-		struct Dynamic_Loader_Allocate *alloc,
-		struct Dynamic_Loader_Initialize *init)
+ * Individual errors are reported using syms->error_report().
+ *********************************************************************** */
+int dynamic_unload_module(dload_mhandle mhandle,
+			  struct dynamic_loader_sym *syms,
+			  struct dynamic_loader_allocate *alloc,
+			  struct dynamic_loader_initialize *init)
 {
 	s16 curr_sect;
-	struct LDR_SECTION_INFO *asecs;
+	struct ldr_section_info *asecs;
 	struct my_handle *hndl;
 	struct dbg_mirror_root *root;
 	unsigned errcount = 0;
-	struct LDR_SECTION_INFO dllview_info = DLLVIEW_INFO_INIT;
+	struct ldr_section_info dllview_info = dllview_info_init;
 	struct modules_header mhdr;
 
 	hndl = (struct my_handle *)mhandle;
 	if (!hndl)
 		return 0;	/* if handle is null, nothing to do */
-	 /* Clear out the module symbols
+	/* Clear out the module symbols
 	 * Note that if this is the module that defined MODULES_HEADER
-	  (the head of the target debug list)
+	 (the head of the target debug list)
 	 * then this operation will blow away that symbol.
 	 It will therefore be impossible for subsequent
-	 * operations to add entries to this un-referenceable list.*/
+	 * operations to add entries to this un-referenceable list. */
 	if (!syms)
 		return 1;
-	syms->Purge_Symbol_Table(syms, (unsigned) hndl);
-	 /* Deallocate target memory for sections
-	  * NOTE: The trampoline section, if created, gets deleted here, too */
+	syms->purge_symbol_table(syms, (unsigned)hndl);
+	/* Deallocate target memory for sections
+	 * NOTE: The trampoline section, if created, gets deleted here, too */
 
 	asecs = hndl->secns;
 	if (alloc)
 		for (curr_sect = (hndl->secn_count >> 1); curr_sect > 0;
 		     curr_sect -= 1) {
 			asecs->name = NULL;
-			alloc->Deallocate(alloc, asecs++);
+			alloc->dload_deallocate(alloc, asecs++);
 		}
 	root = hndl->dm.hroot;
 	if (!root) {
@@ -1819,9 +1856,9 @@ int Dynamic_Unload_Module(DLOAD_mhandle mhandle,
 	hndl->dm.hprev->dm.hnext = hndl->dm.hnext;
 	if (hndl->dm.hnext)
 		hndl->dm.hnext->dm.hprev = hndl->dm.hprev;
-	 /* Update next_module of previous entry in target list
+	/* Update next_module of previous entry in target list
 	 * We are using mhdr here as a surrogate for either a
-	 struct modules_header or a dll_module	 */
+	 struct modules_header or a dll_module */
 	if (hndl->dm.hnext) {
 		mhdr.first_module = TADDR_TO_TDATA(hndl->dm.hnext->dm.dbthis);
 		mhdr.first_module_size = hndl->dm.hnext->dm.dbsiz;
@@ -1833,7 +1870,7 @@ int Dynamic_Unload_Module(DLOAD_mhandle mhandle,
 		goto exitunltgt;
 
 	if (!init->connect(init)) {
-		dload_syms_error(syms, E_ICONNECT);
+		dload_syms_error(syms, iconnect);
 		errcount += 1;
 		goto exitunltgt;
 	}
@@ -1845,18 +1882,17 @@ int Dynamic_Unload_Module(DLOAD_mhandle mhandle,
 	if (!init->writemem(init, &mhdr, hndl->dm.hprev->dm.dbthis,
 			    &dllview_info, sizeof(struct modules_header) -
 			    sizeof(mhdr.update_flag))) {
-		dload_syms_error(syms, E_DLVWRITE);
+		dload_syms_error(syms, dlvwrite);
 		errcount += 1;
 	}
 	/* update change counter */
 	root->changes += 1;
 	if (!init->writemem(init, &(root->changes),
-				root->dbthis + HOST_TO_TADDR
-				      (sizeof(mhdr.first_module) +
-				      sizeof(mhdr.first_module_size)),
-				      &dllview_info,
-				      sizeof(mhdr.update_flag))) {
-		dload_syms_error(syms, E_DLVWRITE);
+			    root->dbthis + HOST_TO_TADDR
+			    (sizeof(mhdr.first_module) +
+			     sizeof(mhdr.first_module_size)),
+			    &dllview_info, sizeof(mhdr.update_flag))) {
+		dload_syms_error(syms, dlvwrite);
 		errcount += 1;
 	}
 	init->release(init);
@@ -1865,7 +1901,7 @@ exitunltgt:
 	dllview_info.size = TDATA_TO_TADDR(hndl->dm.dbsiz);
 	dllview_info.load_addr = hndl->dm.dbthis;
 	if (alloc)
-		alloc->Deallocate(alloc, &dllview_info);
+		alloc->dload_deallocate(alloc, &dllview_info);
 	root->refcount -= 1;
 	/* target-side dllview record exists */
 loop_end:
@@ -1874,16 +1910,16 @@ loop_end:
 		/* if all references gone, blow off the header */
 		/* our root symbol may be gone due to the Purge above,
 		   but if not, do not destroy the root */
-		if (syms->Find_Matching_Symbol
-			(syms, LOADER_DLLVIEW_ROOT) == NULL)
-			syms->Deallocate(syms, root);
+		if (syms->find_matching_symbol
+		    (syms, loader_dllview_root) == NULL)
+			syms->dload_deallocate(syms, root);
 	}
 #endif
 func_end:
 	/* there is a debug list containing this module */
-	syms->Deallocate(syms, mhandle);	/* release our storage */
+	syms->dload_deallocate(syms, mhandle);	/* release our storage */
 	return errcount;
-}				/* Dynamic_Unload_Module */
+}				/* dynamic_unload_module */
 
 #if BITS_PER_AU > BITS_PER_BYTE
 /*************************************************************************
@@ -1896,7 +1932,7 @@ func_end:
  *	Returns a pointer to the string specified by the offset supplied, or
  * NULL for error.
  *
- ************************************************************************/
+ *********************************************************************** */
 static char *unpack_name(struct dload_state *dlthis, u32 soffset)
 {
 	u8 tmp, *src;
@@ -1907,7 +1943,7 @@ static char *unpack_name(struct dload_state *dlthis, u32 soffset)
 			    soffset);
 		return NULL;
 	}
-	src = (uint_least8_t *)dlthis->str_head +
+	src = (uint_least8_t *) dlthis->str_head +
 	    (soffset >> (LOG_BITS_PER_AU - LOG_BITS_PER_BYTE));
 	dst = dlthis->str_temp;
 	if (soffset & 1)

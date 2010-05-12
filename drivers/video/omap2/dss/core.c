@@ -378,7 +378,9 @@ static void dss_debug_dump_clocks(struct seq_file *s)
 	dispc_dump_clocks(s);
 #ifdef CONFIG_OMAP2_DSS_DSI
 	dsi_dump_clocks(dsi1, s);
+#ifdef CONFIG_ARCH_OMAP4
 	dsi_dump_clocks(dsi2, s);
+#endif
 #endif
 }
 

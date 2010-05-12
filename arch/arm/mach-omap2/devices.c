@@ -114,6 +114,11 @@ static struct resource omap3isp_resources[] = {
 		.flags		= IORESOURCE_MEM,
 	},
 	{
+		.start 		= OMAP3430_ISP_CSI2PHY2_BASE,
+		.end 		= OMAP3430_ISP_CSI2PHY2_END,
+		.flags 		= IORESOURCE_MEM,
+	},
+	{
 		.start		= INT_34XX_CAM_IRQ,
 		.flags		= IORESOURCE_IRQ,
 	}
@@ -223,7 +228,8 @@ static struct platform_device mbox_device = {
 
 static inline void omap_init_mbox(void)
 {
-	if (cpu_is_omap2420() || cpu_is_omap3430() || cpu_is_omap44xx()) {
+	if (cpu_is_omap2420() || cpu_is_omap3430() || cpu_is_omap3630() ||
+							cpu_is_omap44xx()) {
 		mbox_device.num_resources = ARRAY_SIZE(omap_mbox_resources);
 		mbox_device.resource = omap_mbox_resources;
 	} else {

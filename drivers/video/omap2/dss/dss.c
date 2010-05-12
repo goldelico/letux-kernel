@@ -287,7 +287,6 @@ void dss_select_clk_source(bool dsi, bool dispc)
 	dss_write_reg(DSS_CONTROL, r);
 }
 
-#ifdef CONFIG_ARCH_OMAP4
 void dss_select_clk_source_dsi(enum dsi lcd_ix, bool dsi, bool dispc)
 {
 	u32 r;
@@ -295,13 +294,16 @@ void dss_select_clk_source_dsi(enum dsi lcd_ix, bool dsi, bool dispc)
 	if (lcd_ix == dsi1) {
 		r = FLD_MOD(r, dsi, 1, 1);	/* DSI_CLK_SWITCH */
 		r = FLD_MOD(r, dispc, 0, 0);	/* LCD1_CLK_SWITCH */
+#ifdef CONFIG_ARCH_OMAP4
 	} else {
 		r = FLD_MOD(r, dsi, 10, 10);	/* DSI2_CLK_SWITCH */
 		r = FLD_MOD(r, dispc, 12, 12);	/* LCD2_CLK_SWITCH */
-		}
+#endif
+	}
+
 	dss_write_reg(DSS_CONTROL, r);
 }
-#endif
+
 
 int dss_get_dsi_clk_source(void)
 {
@@ -317,8 +319,14 @@ int dss_get_dispc_clk_source(void)
 int dss_calc_clock_rates(struct dss_clock_info *cinfo)
 {
 	unsigned long prate;
+	unsigned int max_div;
 
-	if (cinfo->fck_div > 16 || cinfo->fck_div == 0)
+	if (cpu_is_omap3630())
+		max_div = 32;
+	else
+		max_div = 16;
+
+	if (cinfo->fck_div > max_div || cinfo->fck_div == 0)
 		return -EINVAL;
 
 	prate = clk_get_rate(clk_get_parent(dss.dpll4_m4_ck));
@@ -354,7 +362,10 @@ int dss_get_clock_div(struct dss_clock_info *cinfo)
 	if (cpu_is_omap34xx()) {
 		unsigned long prate;
 		prate = clk_get_rate(clk_get_parent(dss.dpll4_m4_ck));
-		cinfo->fck_div = prate / (cinfo->fck / 2);
+		if (cpu_is_omap3630())
+			cinfo->fck_div = prate / cinfo->fck;
+		else
+			cinfo->fck_div = prate / (cinfo->fck / 2);
 	} else {
 		cinfo->fck_div = 0;
 	}
@@ -427,10 +438,18 @@ retry:
 
 		goto found;
 	} else if (cpu_is_omap34xx()) {
-		for (fck_div = 16; fck_div > 0; --fck_div) {
+		if (cpu_is_omap3630())
+			fck_div = 32;
+		else
+			fck_div = 16;
+
+		for ( ; fck_div > 0; --fck_div) {
 			struct dispc_clock_info cur_dispc;
 
-			fck = prate / fck_div * 2;
+			if (cpu_is_omap3630())
+				fck = prate / fck_div ;
+			else
+				fck = prate / fck_div * 2;
 
 			if (fck > DISPC_MAX_FCK)
 				continue;
@@ -553,6 +572,13 @@ void dss_switch_tv_hdmi(int hdmi)
 		REG_FLD_MOD(DSS_CONTROL, 0, 9, 8);
 }
 
+void dss_configure_venc(bool enable)
+{
+	REG_FLD_MOD(DSS_CONTROL, enable, 4, 4);	/* venc dac demen */
+	REG_FLD_MOD(DSS_CONTROL, enable, 3, 3);	/* venc clock 4x enable */
+	REG_FLD_MOD(DSS_CONTROL, 0, 2, 2);	/* venc clock mode = normal */
+}
+
 int dss_init(bool skip_init)
 {
 	int r, ret;
@@ -569,7 +595,8 @@ int dss_init(bool skip_init)
 		r = -ENOMEM;
 		goto fail0;
 	}
-	test();
+	if (cpu_is_omap44xx())
+		test();
 
 	if (!skip_init) {
 		/* disable LCD and DIGIT output. This seems to fix the synclost
@@ -596,23 +623,18 @@ int dss_init(bool skip_init)
 	/* Select DPLL */
 	REG_FLD_MOD(DSS_CONTROL, 0, 0, 0);
 
-#ifdef CONFIG_OMAP2_DSS_VENC
-	REG_FLD_MOD(DSS_CONTROL, 1, 4, 4);	/* venc dac demen */
-	REG_FLD_MOD(DSS_CONTROL, 1, 3, 3);	/* venc clock 4x enable */
-	REG_FLD_MOD(DSS_CONTROL, 0, 2, 2);	/* venc clock mode = normal */
-#endif
-if (!cpu_is_omap44xx()) {
+	if (!cpu_is_omap44xx()) {
 
-	r = request_irq(INT_24XX_DSS_IRQ,
-			cpu_is_omap24xx()
-			? dss_irq_handler_omap2
-			: dss_irq_handler_omap3,
-			0, "OMAP DSS", NULL);
+		r = request_irq(INT_24XX_DSS_IRQ,
+				cpu_is_omap24xx()
+				? dss_irq_handler_omap2
+				: dss_irq_handler_omap3,
+				0, "OMAP DSS", NULL);
 	} else {
-	r = request_irq(INT_44XX_DSS_IRQ,
-			dss_irq_handler_omap3,
-			0, "OMAP DSS", (void *)1);
-		}
+		r = request_irq(INT_44XX_DSS_IRQ,
+				dss_irq_handler_omap3,
+				0, "OMAP DSS", (void *)1);
+	}
 
 	if (r < 0) {
 		DSSERR("omap2 dss: request_irq failed\n");
@@ -737,7 +759,7 @@ if (!cpu_is_omap44xx()) {
 		rev |= (1<<27);
 		__raw_writel(rev, gpio1_base+OMAP24XX_GPIO_SETDATAOUT);
 		mdelay(120);
-		}
+	}
 
 	return 0;
 
@@ -762,9 +784,6 @@ void dss_exit(void)
 	iounmap(dss.base);
 }
 
-
-
-
 void test(void)
 {
 	u32 b, c;
@@ -782,7 +801,4 @@ void test(void)
 	printk(KERN_INFO "PM DSS wrst 0x%x 0x%x\n", __raw_readl(c+0x4), (c+0x4));
 
 }
-
-
-
 

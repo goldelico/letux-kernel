@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Definitions and types private to this WMD.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,27 +16,23 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/*
- *  ======== _tiomap.h ========
- *  Description:
- *      Definitions and types private to this WMD.
- *
- */
-
 #ifndef _TIOMAP_
 #define _TIOMAP_
 
+#include <plat/powerdomain.h>
+#include <plat/clockdomain.h>
+#include <mach-omap2/prm-regbits-34xx.h>
+#include <mach-omap2/cm-regbits-34xx.h>
 #include <dspbridge/devdefs.h>
 #include <hw_defs.h>
-#include <hw_mbox.h>
-#include <dspbridge/wmdioctl.h>		/* for WMDIOCTL_EXTPROC defn */
+#include <dspbridge/wmdioctl.h>	/* for wmdioctl_extproc defn */
 #include <dspbridge/sync.h>
 #include <dspbridge/clk.h>
 
-struct MAP_L4PERIPHERAL {
-	u32 physAddr;
-	u32 dspVirtAddr;
-} ;
+struct map_l4_peripheral {
+	u32 phys_addr;
+	u32 dsp_virt_addr;
+};
 
 #define ARM_MAILBOX_START               0xfffcf000
 #define ARM_MAILBOX_LENGTH              0x800
@@ -51,22 +49,22 @@ struct MAP_L4PERIPHERAL {
 #define API_CLKM_DPLL_DMA               0xfffec000
 #define ARM_INTERRUPT_OFFSET            0xb00
 
-#define BIOS_24XX
+#define BIOS24XX
 
 #define L4_PERIPHERAL_NULL          0x0
 #define DSPVA_PERIPHERAL_NULL       0x0
 
 #define MAX_LOCK_TLB_ENTRIES 15
 
-#define L4_PERIPHERAL_PRM        0x48306000  /*PRM L4 Peripheral */
+#define L4_PERIPHERAL_PRM        0x48306000	/*PRM L4 Peripheral */
 #define DSPVA_PERIPHERAL_PRM     0x1181e000
-#define L4_PERIPHERAL_SCM        0x48002000  /*SCM L4 Peripheral */
+#define L4_PERIPHERAL_SCM        0x48002000	/*SCM L4 Peripheral */
 #define DSPVA_PERIPHERAL_SCM     0x1181f000
-#define L4_PERIPHERAL_MMU        0x5D000000  /*MMU L4 Peripheral */
+#define L4_PERIPHERAL_MMU        0x5D000000	/*MMU L4 Peripheral */
 #define DSPVA_PERIPHERAL_MMU     0x11820000
-#define L4_PERIPHERAL_CM        0x48004000       /* Core L4, Clock Management */
+#define L4_PERIPHERAL_CM        0x48004000	/* Core L4, Clock Management */
 #define DSPVA_PERIPHERAL_CM     0x1181c000
-#define L4_PERIPHERAL_PER        0x48005000       /*  PER */
+#define L4_PERIPHERAL_PER        0x48005000	/*  PER */
 #define DSPVA_PERIPHERAL_PER     0x1181d000
 
 #define L4_PERIPHERAL_GPIO1       0x48310000
@@ -99,7 +97,7 @@ struct MAP_L4PERIPHERAL {
 #define DSPVA_PERIPHERAL_CAMERA   0x11819000
 
 #define L4_PERIPHERAL_SDMA        0x48056000
-#define DSPVA_PERIPHERAL_SDMA     0x11810000 /*0x1181d000 conflicts with PER */
+#define DSPVA_PERIPHERAL_SDMA     0x11810000	/* 0x1181d000 conflict w/ PER */
 
 #define L4_PERIPHERAL_UART1             0x4806a000
 #define DSPVA_PERIPHERAL_UART1          0x11811000
@@ -145,7 +143,7 @@ struct MAP_L4PERIPHERAL {
 #define DSPVA_PERIPHERAL_SIDETONE_MCBSP3 0x11825000
 
 /* define a static array with L4 mappings */
-static const struct MAP_L4PERIPHERAL L4PeripheralTable[] = {
+static const struct map_l4_peripheral l4_peripheral_table[] = {
 	{L4_PERIPHERAL_MBOX, DSPVA_PERIPHERAL_MBOX},
 	{L4_PERIPHERAL_SCM, DSPVA_PERIPHERAL_SCM},
 	{L4_PERIPHERAL_MMU, DSPVA_PERIPHERAL_MMU},
@@ -214,34 +212,30 @@ static const struct MAP_L4PERIPHERAL L4PeripheralTable[] = {
 #define MBX_PM_MAX_RESOURCES 11
 
 /*  Power Management Commands */
-enum BPWR_ExtClockCmd {
-	BPWR_DisableClock = 0,
-	BPWR_EnableClock,
-	BPWR_DisableAutoIdle,
-	BPWR_EnableAutoIdle
-} ;
+#define BPWR_DISABLE_CLOCK	0
+#define BPWR_ENABLE_CLOCK	1
 
 /* OMAP242x specific resources */
-enum BPWR_ExtClockId {
-	BPWR_GPTimer5 = 0x10,
-	BPWR_GPTimer6,
-	BPWR_GPTimer7,
-	BPWR_GPTimer8,
-	BPWR_WDTimer3,
+enum bpwr_ext_clock_id {
+	BPWR_GP_TIMER5 = 0x10,
+	BPWR_GP_TIMER6,
+	BPWR_GP_TIMER7,
+	BPWR_GP_TIMER8,
+	BPWR_WD_TIMER3,
 	BPWR_MCBSP1,
 	BPWR_MCBSP2,
 	BPWR_MCBSP3,
 	BPWR_MCBSP4,
 	BPWR_MCBSP5,
 	BPWR_SSI = 0x20
-} ;
+};
 
-static const u32 BPWR_CLKID[] = {
-	(u32) BPWR_GPTimer5,
-	(u32) BPWR_GPTimer6,
-	(u32) BPWR_GPTimer7,
-	(u32) BPWR_GPTimer8,
-	(u32) BPWR_WDTimer3,
+static const u32 bpwr_clkid[] = {
+	(u32) BPWR_GP_TIMER5,
+	(u32) BPWR_GP_TIMER6,
+	(u32) BPWR_GP_TIMER7,
+	(u32) BPWR_GP_TIMER8,
+	(u32) BPWR_WD_TIMER3,
 	(u32) BPWR_MCBSP1,
 	(u32) BPWR_MCBSP2,
 	(u32) BPWR_MCBSP3,
@@ -250,46 +244,31 @@ static const u32 BPWR_CLKID[] = {
 	(u32) BPWR_SSI
 };
 
-struct BPWR_Clk_t {
-	u32 clkId;
-	enum SERVICES_ClkId funClk;
-	enum SERVICES_ClkId intClk;
-} ;
+struct bpwr_clk_t {
+	u32 clk_id;
+	enum services_clk_id fun_clk;
+	enum services_clk_id int_clk;
+};
 
-static const struct BPWR_Clk_t BPWR_Clks[] = {
-	{(u32) BPWR_GPTimer5, SERVICESCLK_gpt5_fck, SERVICESCLK_gpt5_ick},
-	{(u32) BPWR_GPTimer6, SERVICESCLK_gpt6_fck, SERVICESCLK_gpt6_ick},
-	{(u32) BPWR_GPTimer7, SERVICESCLK_gpt7_fck, SERVICESCLK_gpt7_ick},
-	{(u32) BPWR_GPTimer8, SERVICESCLK_gpt8_fck, SERVICESCLK_gpt8_ick},
-	{(u32) BPWR_WDTimer3, SERVICESCLK_wdt3_fck, SERVICESCLK_wdt3_ick},
-	{(u32) BPWR_MCBSP1, SERVICESCLK_mcbsp1_fck, SERVICESCLK_mcbsp1_ick},
-	{(u32) BPWR_MCBSP2, SERVICESCLK_mcbsp2_fck, SERVICESCLK_mcbsp2_ick},
-	{(u32) BPWR_MCBSP3, SERVICESCLK_mcbsp3_fck, SERVICESCLK_mcbsp3_ick},
-	{(u32) BPWR_MCBSP4, SERVICESCLK_mcbsp4_fck, SERVICESCLK_mcbsp4_ick},
-	{(u32) BPWR_MCBSP5, SERVICESCLK_mcbsp5_fck, SERVICESCLK_mcbsp5_ick},
-	{(u32) BPWR_SSI, SERVICESCLK_ssi_fck, SERVICESCLK_ssi_ick}
+static const struct bpwr_clk_t bpwr_clks[] = {
+	{(u32) BPWR_GP_TIMER5, SERVICESCLK_GPT5_FCK, SERVICESCLK_GPT5_ICK},
+	{(u32) BPWR_GP_TIMER6, SERVICESCLK_GPT6_FCK, SERVICESCLK_GPT6_ICK},
+	{(u32) BPWR_GP_TIMER7, SERVICESCLK_GPT7_FCK, SERVICESCLK_GPT7_ICK},
+	{(u32) BPWR_GP_TIMER8, SERVICESCLK_GPT8_FCK, SERVICESCLK_GPT8_ICK},
+	{(u32) BPWR_WD_TIMER3, SERVICESCLK_WDT3_FCK, SERVICESCLK_WDT3_ICK},
+	{(u32) BPWR_MCBSP1, SERVICESCLK_MCBSP1_FCK, SERVICESCLK_MCBSP1_ICK},
+	{(u32) BPWR_MCBSP2, SERVICESCLK_MCBSP2_FCK, SERVICESCLK_MCBSP2_ICK},
+	{(u32) BPWR_MCBSP3, SERVICESCLK_MCBSP3_FCK, SERVICESCLK_MCBSP3_ICK},
+	{(u32) BPWR_MCBSP4, SERVICESCLK_MCBSP4_FCK, SERVICESCLK_MCBSP4_ICK},
+	{(u32) BPWR_MCBSP5, SERVICESCLK_MCBSP5_FCK, SERVICESCLK_MCBSP5_ICK},
+	{(u32) BPWR_SSI, SERVICESCLK_SSI_FCK, SERVICESCLK_SSI_ICK}
 };
 
 /* Interrupt Register Offsets */
-#define INTH_IT_REG_OFFSET              0x00	/* Interrupt register offset  */
-#define INTH_MASK_IT_REG_OFFSET         0x04	/* Mask Interrupt reg offset  */
+#define INTH_IT_REG_OFFSET              0x00	/* Interrupt register offset */
+#define INTH_MASK_IT_REG_OFFSET         0x04	/* Mask Interrupt reg offset */
 
 #define   DSP_MAILBOX1_INT              10
-
-/*
- *  INTH_InterruptKind_t
- *  Identify the kind of interrupt: either FIQ/IRQ
- */
-enum INTH_InterruptKind_t {
-	INTH_IRQ = 0,
-	INTH_FIQ = 1
-} ;
-
-enum INTH_SensitiveEdge_t {
-	FALLING_EDGE_SENSITIVE = 0,
-	LOW_LEVEL_SENSITIVE = 1
-} ;
-
 /*
  *  Bit definition of  Interrupt  Level  Registers
  */
@@ -305,10 +284,15 @@ enum INTH_SensitiveEdge_t {
 
 #define MB_ARM2DSP_FLAG                 0x0001
 
-#define MBOX_ARM2DSP HW_MBOX_ID_0
-#define MBOX_DSP2ARM HW_MBOX_ID_1
+#define MBOX_ARM2DSP HW_MBOX_ID0
+#define MBOX_DSP2ARM HW_MBOX_ID1
 #define MBOX_ARM HW_MBOX_U0_ARM
 #define MBOX_DSP HW_MBOX_U1_DSP1
+
+/* WDT defines */
+#define WDT_SYSCONFIG_OFFSET	0x10
+#define WDT_ISR_OFFSET		0x18
+#define WDT_IER_OFFSET		0x1C
 
 #define ENABLE                          true
 #define DISABLE                         false
@@ -317,72 +301,88 @@ enum INTH_SensitiveEdge_t {
 #define LOW_LEVEL                       false
 
 /* Macro's */
-#define REG16(A)    (*(REG_UWORD16 *)(A))
+#define REG16(A)    (*(reg_uword16 *)(A))
 
-#define ClearBit(reg, mask)             (reg &= ~mask)
-#define SetBit(reg, mask)               (reg |= mask)
+#define CLEAR_BIT(reg, mask)             (reg &= ~mask)
+#define SET_BIT(reg, mask)               (reg |= mask)
 
-#define SetGroupBits16(reg, position, width, value) \
-	do {\
-		reg &= ~((0xFFFF >> (16 - (width))) << (position)) ; \
+#define SET_GROUP_BITS16(reg, position, width, value)			     \
+	do {								     \
+		reg &= ~((0xFFFF >> (16 - (width))) << (position));	     \
 		reg |= ((value & (0xFFFF >> (16 - (width)))) << (position)); \
 	} while (0);
 
-#define ClearBitIndex(reg, index)   (reg &= ~(1 << (index)))
+#define CLEAR_BIT_INDEX(reg, index)   (reg &= ~(1 << (index)))
 
 /* This mini driver's device context: */
-struct WMD_DEV_CONTEXT {
-	struct DEV_OBJECT *hDevObject;	/* Handle to WCD device object. */
-	u32 dwDspBaseAddr;	/* Arm's API to DSP virtual base addr */
+struct wmd_dev_context {
+	struct dev_object *hdev_obj;	/* Handle to WCD device object. */
+	u32 dw_dsp_base_addr;	/* Arm's API to DSP virt base addr */
 	/*
 	 * DSP External memory prog address as seen virtually by the OS on
 	 * the host side.
 	 */
-	u32 dwDspExtBaseAddr;	/* See the comment above        */
-	u32 dwAPIRegBase;	/* API memory mapped registers  */
-	void __iomem *dwDSPMmuBase;	/* DSP MMU Mapped registers	*/
-	void __iomem *dwMailBoxBase;	/* Mail box mapped registers	*/
-	void __iomem *cmbase;			/* CM mapped registers		*/
-	void __iomem *sysctrlbase;		/* SysCtrl mapped registers		*/
-	void __iomem *prmbase;			/* PRM mapped registers		*/
-	void __iomem *perbase;			/* PER mapped registers		*/
-	u32 dwAPIClkBase;	/* CLK Registers                */
-	u32 dwDSPClkM2Base;	/* DSP Clock Module m2          */
-	u32 dwPublicRhea;	/* Pub Rhea                     */
-	u32 dwIntAddr;	/* MB INTR reg                  */
-	u32 dwTCEndianism;	/* TC Endianism register        */
-	u32 dwTestBase;	/* DSP MMU Mapped registers     */
-	u32 dwSelfLoop;	/* Pointer to the selfloop      */
-	u32 dwDSPStartAdd;	/* API Boot vector              */
-	u32 dwInternalSize;	/* Internal memory size         */
+	u32 dw_dsp_ext_base_addr;	/* See the comment above */
+	u32 dw_api_reg_base;	/* API mem map'd registers */
+	void __iomem *dw_dsp_mmu_base;	/* DSP MMU Mapped registers */
+	void __iomem *wdt3_base;	/* WDT3 mapped registers */
+	u32 dw_api_clk_base;	/* CLK Registers */
+	u32 dw_dsp_clk_m2_base;	/* DSP Clock Module m2 */
+	u32 dw_public_rhea;	/* Pub Rhea */
+	u32 dw_int_addr;	/* MB INTR reg */
+	u32 dw_tc_endianism;	/* TC Endianism register */
+	u32 dw_test_base;	/* DSP MMU Mapped registers */
+	u32 dw_self_loop;	/* Pointer to the selfloop */
+	u32 dw_dsp_start_add;	/* API Boot vector */
+	u32 dw_internal_size;	/* Internal memory size */
+
+	struct omap_mbox *mbox;	/* Mail box handle */
+	struct cfg_hostres *resources;	/* Host Resources */
 
 	/*
 	 * Processor specific info is set when prog loaded and read from DCD.
 	 * [See WMD_BRD_Ctrl()]  PROC info contains DSP-MMU TLB entries.
 	 */
 	/* DMMU TLB entries */
-	struct WMDIOCTL_EXTPROC aTLBEntry[WMDIOCTL_NUMOFMMUTLB];
-	u32 dwBrdState;	/* Last known board state.      */
-	u32 ulIntMask;	/* int mask                     */
-	u16 ioBase;	/* Board I/O base               */
-	u32 numTLBEntries;	/* DSP MMU TLB entry counter    */
-	u32 fixedTLBEntries;	/* Fixed DSPMMU TLB entry count */
+	struct wmdioctl_extproc atlb_entry[WMDIOCTL_NUMOFMMUTLB];
+	u32 dw_brd_state;	/* Last known board state. */
+	u32 ul_int_mask;	/* int mask */
+	u16 io_base;		/* Board I/O base */
+	u32 num_tlb_entries;	/* DSP MMU TLB entry counter */
+	u32 fixed_tlb_entries;	/* Fixed DSPMMU TLB entry count */
 
 	/* TC Settings */
-	bool tcWordSwapOn;	/* Traffic Controller Word Swap */
-	struct PgTableAttrs *pPtAttrs;
-	u32 uDspPerClks;
-} ;
+	bool tc_word_swap_on;	/* Traffic Controller Word Swap */
+	struct pg_table_attrs *pt_attrs;
+	u32 dsp_per_clks;
+};
 
 	/*
-	 * ======== WMD_TLB_DspVAToMpuPA ========
+	 * ======== wmd_tlb_dsp_va_to_mpu_pa ========
 	 *     Given a DSP virtual address, traverse the page table and return
 	 *     a corresponding MPU physical address and size.
 	 */
-extern DSP_STATUS WMD_TLB_DspVAToMpuPA(struct WMD_DEV_CONTEXT *pDevContext,
-				       IN u32 ulVirtAddr,
-				       OUT u32 *ulPhysAddr,
-				       OUT u32 *sizeTlb);
+extern dsp_status wmd_tlb_dsp_va_to_mpu_pa(struct wmd_dev_context *dev_context,
+					   IN u32 ulVirtAddr,
+					   OUT u32 *ulPhysAddr,
+					   OUT u32 *sizeTlb);
 
-#endif				/* _TIOMAP_ */
+/*
+ *  ======== sm_interrupt_dsp ========
+ *  Purpose:
+ *      Set interrupt value & send an interrupt to the DSP processor(s).
+ *      This is typicaly used when mailbox interrupt mechanisms allow data
+ *      to be associated with interrupt such as for OMAP's CMD/DATA regs.
+ *  Parameters:
+ *      hDevContext:    Handle to mini-driver defined device info.
+ *      mb_val:         Value associated with interrupt(e.g. mailbox value).
+ *  Returns:
+ *      DSP_SOK:        Interrupt sent;
+ *      else:           Unable to send interrupt.
+ *  Requires:
+ *  Ensures:
+ */
+extern dsp_status sm_interrupt_dsp(struct wmd_dev_context *hDevContext,
+				   u16 mb_val);
 
+#endif /* _TIOMAP_ */

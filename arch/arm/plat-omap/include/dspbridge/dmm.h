@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * The Dynamic Memory Mapping(DMM) module manages the DSP Virtual address
+ * space that can be directly mapped to any MPU buffer or memory region.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,71 +17,54 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== dmm.h ========
- *  Purpose:
- *      The Dynamic Memory Mapping(DMM) module manages the DSP Virtual address
- *      space that can be directly mapped to any MPU buffer or memory region
- *
- *  Public Functions:
- *
- *! Revision History:
- *! ================
- *! 20-Feb-2004 sb: Created.
- *!
- */
-
 #ifndef DMM_
 #define DMM_
 
 #include <dspbridge/dbdefs.h>
 
-	struct DMM_OBJECT;
+struct dmm_object;
 
-/* DMM attributes used in DMM_Create() */
-	struct DMM_MGRATTRS {
-		u32 reserved;
-	} ;
+/* DMM attributes used in dmm_create() */
+struct dmm_mgrattrs {
+	u32 reserved;
+};
 
 #define DMMPOOLSIZE      0x10000000
 
 /*
- *  ======== DMM_GetHandle ========
+ *  ======== dmm_get_handle ========
  *  Purpose:
  *      Return the dynamic memory manager object for this device.
  *      This is typically called from the client process.
  */
 
-	extern DSP_STATUS DMM_GetHandle(DSP_HPROCESSOR hProcessor,
-					OUT struct DMM_OBJECT **phDmmMgr);
+extern dsp_status dmm_get_handle(void *hprocessor,
+				 OUT struct dmm_object **phDmmMgr);
 
-	extern DSP_STATUS DMM_ReserveMemory(struct DMM_OBJECT *hDmmMgr,
-					    u32 size,
-					    u32 *pRsvAddr);
+extern dsp_status dmm_reserve_memory(struct dmm_object *dmm_mgr,
+				     u32 size, u32 *prsv_addr);
 
-	extern DSP_STATUS DMM_UnReserveMemory(struct DMM_OBJECT *hDmmMgr,
-					      u32 rsvAddr);
+extern dsp_status dmm_un_reserve_memory(struct dmm_object *dmm_mgr,
+					u32 rsv_addr);
 
-	extern DSP_STATUS DMM_MapMemory(struct DMM_OBJECT *hDmmMgr, u32 addr,
-					u32 size);
+extern dsp_status dmm_map_memory(struct dmm_object *dmm_mgr, u32 addr,
+				 u32 size);
 
-	extern DSP_STATUS DMM_UnMapMemory(struct DMM_OBJECT *hDmmMgr,
-					  u32 addr,
-					  u32 *pSize);
+extern dsp_status dmm_un_map_memory(struct dmm_object *dmm_mgr,
+				    u32 addr, u32 *psize);
 
-	extern DSP_STATUS DMM_Destroy(struct DMM_OBJECT *hDmmMgr);
+extern dsp_status dmm_destroy(struct dmm_object *dmm_mgr);
 
-	extern DSP_STATUS DMM_DeleteTables(struct DMM_OBJECT *hDmmMgr);
+extern dsp_status dmm_delete_tables(struct dmm_object *dmm_mgr);
 
-	extern DSP_STATUS DMM_Create(OUT struct DMM_OBJECT **phDmmMgr,
-				     struct DEV_OBJECT *hDevObject,
-				     IN CONST struct DMM_MGRATTRS *pMgrAttrs);
+extern dsp_status dmm_create(OUT struct dmm_object **phDmmMgr,
+			     struct dev_object *hdev_obj,
+			     IN CONST struct dmm_mgrattrs *pMgrAttrs);
 
-	extern bool DMM_Init(void);
+extern bool dmm_init(void);
 
-	extern void DMM_Exit(void);
+extern void dmm_exit(void);
 
-	extern DSP_STATUS DMM_CreateTables(struct DMM_OBJECT *hDmmMgr,
-						u32 addr, u32 size);
-#endif				/* DMM_ */
+extern dsp_status dmm_create_tables(struct dmm_object *dmm_mgr,
+				    u32 addr, u32 size);
+#endif /* DMM_ */

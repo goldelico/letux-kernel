@@ -14,10 +14,8 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-
-#ifndef __DLOAD_INTERNAL__
-#define __DLOAD_INTERNAL__
+#ifndef _DLOAD_INTERNAL_
+#define _DLOAD_INTERNAL_
 
 #include <linux/types.h>
 
@@ -29,12 +27,11 @@
 #define FALSE 0
 typedef int boolean;
 
-
 /* type used for relocation intermediate results */
-typedef s32 RVALUE;
+typedef s32 rvalue;
 
 /* unsigned version of same; must have at least as many bits */
-typedef u32 URVALUE;
+typedef u32 urvalue;
 
 /*
  * Dynamic loader configuration constants
@@ -43,7 +40,7 @@ typedef u32 URVALUE;
 #define REASONABLE_SECTION_LIMIT 100
 
 /* (Addressable unit) value used to clear BSS section */
-#define dload_fill_bss 0
+#define DLOAD_FILL_BSS 0
 
 /*
  * Reorder maps explained (?)
@@ -86,9 +83,9 @@ struct dbg_mirror_root {
 	/* must be same as dbg_mirror_list; __DLModules address on target */
 	u32 dbthis;
 	struct my_handle *hnext;	/* must be same as dbg_mirror_list */
-	u16 changes;	/* change counter */
-	u16 refcount;	/* number of modules referencing this root */
-} ;
+	u16 changes;		/* change counter */
+	u16 refcount;		/* number of modules referencing this root */
+};
 
 struct dbg_mirror_list {
 	u32 dbthis;
@@ -96,7 +93,7 @@ struct dbg_mirror_list {
 	struct dbg_mirror_root *hroot;
 	u16 dbsiz;
 	u32 context;	/* Save context for .dllview memory allocation */
-} ;
+};
 
 #define VARIABLE_SIZE 1
 /*
@@ -106,22 +103,21 @@ struct my_handle {
 	struct dbg_mirror_list dm;	/* !!! must be first !!! */
 	/* sections following << 1, LSB is set for big-endian target */
 	u16 secn_count;
-	struct LDR_SECTION_INFO secns[VARIABLE_SIZE];
-} ;
+	struct ldr_section_info secns[VARIABLE_SIZE];
+};
 #define MY_HANDLE_SIZE (sizeof(struct my_handle) -\
-			sizeof(struct LDR_SECTION_INFO))
+			sizeof(struct ldr_section_info))
 /* real size of my_handle */
 
 /*
  * reduced symbol structure used for symbols during relocation
  */
-struct Local_Symbol {
-	s32 value;	/* Relocated symbol value */
-	s32 delta;	/* Original value in input file */
+struct local_symbol {
+	s32 value;		/* Relocated symbol value */
+	s32 delta;		/* Original value in input file */
 	s16 secnn;		/* section number */
 	s16 sclass;		/* symbol class */
 };
-
 
 /*
  * Trampoline data structures
@@ -129,15 +125,16 @@ struct Local_Symbol {
 #define TRAMP_NO_GEN_AVAIL              65535
 #define TRAMP_SYM_PREFIX                "__$dbTR__"
 #define TRAMP_SECT_NAME                 ".dbTR"
-#define TRAMP_SYM_PREFIX_LEN            9  /*  MUST MATCH THE LENGTH ABOVE!! */
-#define TRAMP_SYM_HEX_ASCII_LEN         9  /*  Includes NULL termination  */
+/* MUST MATCH THE LENGTH ABOVE!! */
+#define TRAMP_SYM_PREFIX_LEN            9
+/* Includes NULL termination */
+#define TRAMP_SYM_HEX_ASCII_LEN         9
 
 #define GET_CONTAINER(ptr, type, field) ((type *)((unsigned long)ptr -\
 				(unsigned long)(&((type *)0)->field)))
 #ifndef FIELD_OFFSET
 #define FIELD_OFFSET(type, field)       ((unsigned long)(&((type *)0)->field))
 #endif
-
 
 /*
     The trampoline code for the target is located in a table called
@@ -157,78 +154,78 @@ struct Local_Symbol {
 
     This is very similar to how image data is laid out in the DOFF file
     itself.
-*/
+ */
 struct tramp_gen_code_hdr {
-	u32		tramp_code_size;    /*  in BYTES  */
-	u32		num_relos;
-	u32		relo_offset;   /*  in BYTES  */
+	u32 tramp_code_size;	/*  in BYTES */
+	u32 num_relos;
+	u32 relo_offset;	/*  in BYTES */
 };
 
 struct tramp_img_pkt {
-	struct tramp_img_pkt	*next;    /*  MUST BE FIRST  */
-	u32		base;
-	struct tramp_gen_code_hdr	hdr;
-	u8		payload[VARIABLE_SIZE];
+	struct tramp_img_pkt *next;	/*  MUST BE FIRST */
+	u32 base;
+	struct tramp_gen_code_hdr hdr;
+	u8 payload[VARIABLE_SIZE];
 };
 
 struct tramp_img_dup_relo {
-	struct tramp_img_dup_relo	*next;
-	struct reloc_record_t	relo;
+	struct tramp_img_dup_relo *next;
+	struct reloc_record_t relo;
 };
 
 struct tramp_img_dup_pkt {
-	struct tramp_img_dup_pkt  *next;    /*  MUST BE FIRST  */
-	s16		secnn;
-	u32		offset;
-	struct image_packet_t                img_pkt;
-	struct tramp_img_dup_relo            *relo_chain;
+	struct tramp_img_dup_pkt *next;	/*  MUST BE FIRST */
+	s16 secnn;
+	u32 offset;
+	struct image_packet_t img_pkt;
+	struct tramp_img_dup_relo *relo_chain;
 
-	/*  PAYLOAD OF IMG PKT FOLLOWS  */
+	/*  PAYLOAD OF IMG PKT FOLLOWS */
 };
 
 struct tramp_sym {
-	struct tramp_sym	*next;    /*  MUST BE FIRST  */
-	u32		index;
-	u32		str_index;
-	struct Local_Symbol sym_info;
+	struct tramp_sym *next;	/*  MUST BE FIRST */
+	u32 index;
+	u32 str_index;
+	struct local_symbol sym_info;
 };
 
 struct tramp_string {
-	struct tramp_string	*next;    /*  MUST BE FIRST  */
-	u32	index;
-	char    str[VARIABLE_SIZE];    /*  NULL terminated  */
+	struct tramp_string *next;	/*  MUST BE FIRST */
+	u32 index;
+	char str[VARIABLE_SIZE];	/*  NULL terminated */
 };
 
 struct tramp_info {
-	u32		tramp_sect_next_addr;
-	struct LDR_SECTION_INFO	sect_info;
+	u32 tramp_sect_next_addr;
+	struct ldr_section_info sect_info;
 
-	struct tramp_sym		*symbol_head;
-	struct tramp_sym		*symbol_tail;
-	u32		tramp_sym_next_index;
-	struct	Local_Symbol		*final_sym_table;
+	struct tramp_sym *symbol_head;
+	struct tramp_sym *symbol_tail;
+	u32 tramp_sym_next_index;
+	struct local_symbol *final_sym_table;
 
-	struct tramp_string                *string_head;
-	struct tramp_string                *string_tail;
-	u32		tramp_string_next_index;
-	u32		tramp_string_size;
-	char		*final_string_table;
+	struct tramp_string *string_head;
+	struct tramp_string *string_tail;
+	u32 tramp_string_next_index;
+	u32 tramp_string_size;
+	char *final_string_table;
 
-	struct tramp_img_pkt		*tramp_pkts;
-	struct tramp_img_dup_pkt	*dup_pkts;
+	struct tramp_img_pkt *tramp_pkts;
+	struct tramp_img_dup_pkt *dup_pkts;
 };
 
 /*
  * States of the .cinit state machine
  */
 enum cinit_mode {
-	CI_count = 0,		/* expecting a count */
-	CI_address,		/* expecting an address */
+	CI_COUNT = 0,		/* expecting a count */
+	CI_ADDRESS,		/* expecting an address */
 #if CINIT_ALIGN < CINIT_ADDRESS	/* handle case of partial address field */
-	CI_partaddress,		/* have only part of the address */
+	CI_PARTADDRESS,		/* have only part of the address */
 #endif
-	CI_copy,		/* in the middle of copying data */
-	CI_done			/* end of .cinit table */
+	CI_COPY,		/* in the middle of copying data */
+	CI_DONE			/* end of .cinit table */
 };
 
 /*
@@ -236,11 +233,12 @@ enum cinit_mode {
  * an object
  */
 struct dload_state {
-	struct Dynamic_Loader_Stream *strm;	/* The module input stream */
-	struct Dynamic_Loader_Sym *mysym;	/* Symbols for this session */
-	struct Dynamic_Loader_Allocate *myalloc; /* target memory allocator */
-	struct Dynamic_Loader_Initialize *myio;	/* target memory initializer */
-	unsigned myoptions;	/* Options parameter Dynamic_Load_Module */
+	struct dynamic_loader_stream *strm;	/* The module input stream */
+	struct dynamic_loader_sym *mysym;	/* Symbols for this session */
+	/* target memory allocator */
+	struct dynamic_loader_allocate *myalloc;
+	struct dynamic_loader_initialize *myio;	/* target memory initializer */
+	unsigned myoptions;	/* Options parameter dynamic_load_module */
 
 	char *str_head;		/* Pointer to string table */
 #if BITS_PER_AU > BITS_PER_BYTE
@@ -254,23 +252,23 @@ struct dload_state {
 	unsigned debug_string_size;
 	/* Pointer to parallel section info for allocated sections only */
 	struct doff_scnhdr_t *sect_hdrs;	/* Pointer to section table */
-	struct LDR_SECTION_INFO *ldr_sections;
+	struct ldr_section_info *ldr_sections;
 #if TMS32060
 	/* The address of the start of the .bss section */
-	LDR_ADDR bss_run_base;
+	ldr_addr bss_run_base;
 #endif
-	struct Local_Symbol *local_symtab;	/* Relocation symbol table */
+	struct local_symbol *local_symtab;	/* Relocation symbol table */
 
 	/* pointer to DL section info for the section being relocated */
-	struct LDR_SECTION_INFO *image_secn;
+	struct ldr_section_info *image_secn;
 	/* change in run address for current section during relocation */
-	LDR_ADDR delta_runaddr;
-	LDR_ADDR image_offset;	/* offset of current packet in section */
+	ldr_addr delta_runaddr;
+	ldr_addr image_offset;	/* offset of current packet in section */
 	enum cinit_mode cinit_state;	/* current state of cload_cinit() */
 	int cinit_count;	/* the current count */
-	LDR_ADDR cinit_addr;	/* the current address */
-	s16 cinit_page;	/* the current page */
-	/* Handle to be returned by Dynamic_Load_Module */
+	ldr_addr cinit_addr;	/* the current address */
+	s16 cinit_page;		/* the current page */
+	/* Handle to be returned by dynamic_load_module */
 	struct my_handle *myhandle;
 	unsigned dload_errcount;	/* Total # of errors reported so far */
 	/* Number of target sections that require allocation and relocation */
@@ -283,13 +281,13 @@ struct dload_state {
 	struct doff_filehdr_t dfile_hdr;	/* DOFF file header structure */
 	struct doff_verify_rec_t verify;	/* Verify record */
 
-	struct tramp_info tramp;	/* Trampoline data, if needed  */
+	struct tramp_info tramp;	/* Trampoline data, if needed */
 
 	int relstkidx;		/* index into relocation value stack */
 	/* relocation value stack used in relexp.c */
-	RVALUE relstk[STATIC_EXPR_STK_SIZE];
+	rvalue relstk[STATIC_EXPR_STK_SIZE];
 
-} ;
+};
 
 #ifdef TARGET_ENDIANNESS
 #define TARGET_BIG_ENDIAN TARGET_ENDIANNESS
@@ -301,7 +299,7 @@ struct dload_state {
  * Exports from cload.c to rest of the world
  */
 extern void dload_error(struct dload_state *dlthis, const char *errtxt, ...);
-extern void dload_syms_error(struct Dynamic_Loader_Sym *syms,
+extern void dload_syms_error(struct dynamic_loader_sym *syms,
 			     const char *errtxt, ...);
 extern void dload_headers(struct dload_state *dlthis);
 extern void dload_strings(struct dload_state *dlthis, bool sec_names_only);
@@ -312,45 +310,43 @@ extern u32 dload_checksum(void *data, unsigned siz);
 #if HOST_ENDIANNESS
 extern uint32_t dload_reverse_checksum(void *data, unsigned siz);
 #if (TARGET_AU_BITS > 8) && (TARGET_AU_BITS < 32)
-extern uint32_t dload_reverse_checksum_16(void *data, unsigned siz);
+extern uint32_t dload_reverse_checksum16(void *data, unsigned siz);
 #endif
 #endif
 
-#define is_data_scn(zzz) (DLOAD_SECTION_TYPE((zzz)->type) != DLOAD_TEXT)
-#define is_data_scn_num(zzz) \
+#define IS_DATA_SCN(zzz) (DLOAD_SECTION_TYPE((zzz)->type) != DLOAD_TEXT)
+#define IS_DATA_SCN_NUM(zzz) \
 		(DLOAD_SECT_TYPE(&dlthis->sect_hdrs[(zzz)-1]) != DLOAD_TEXT)
 
 /*
  * exported by reloc.c
  */
-extern void dload_relocate(struct dload_state *dlthis, TgtAU_t *data,
-			struct reloc_record_t *rp, bool *tramps_generated,
-			bool second_pass);
+extern void dload_relocate(struct dload_state *dlthis, tgt_au_t * data,
+			   struct reloc_record_t *rp, bool * tramps_generated,
+			   bool second_pass);
 
-extern RVALUE dload_unpack(struct dload_state *dlthis, TgtAU_t *data,
+extern rvalue dload_unpack(struct dload_state *dlthis, tgt_au_t * data,
 			   int fieldsz, int offset, unsigned sgn);
 
-extern int dload_repack(struct dload_state *dlthis, RVALUE val, TgtAU_t *data,
+extern int dload_repack(struct dload_state *dlthis, rvalue val, tgt_au_t * data,
 			int fieldsz, int offset, unsigned sgn);
-
 
 /*
  * exported by tramp.c
  */
 extern bool dload_tramp_avail(struct dload_state *dlthis,
-			struct reloc_record_t *rp);
+			      struct reloc_record_t *rp);
 
 int dload_tramp_generate(struct dload_state *dlthis, s16 secnn,
-			u32 image_offset, struct image_packet_t *ipacket,
-			struct reloc_record_t *rp);
+			 u32 image_offset, struct image_packet_t *ipacket,
+			 struct reloc_record_t *rp);
 
 extern int dload_tramp_pkt_udpate(struct dload_state *dlthis,
-			s16 secnn, u32 image_offset,
-			struct image_packet_t *ipacket);
+				  s16 secnn, u32 image_offset,
+				  struct image_packet_t *ipacket);
 
 extern int dload_tramp_finalize(struct dload_state *dlthis);
 
 extern void dload_tramp_cleanup(struct dload_state *dlthis);
 
-
-#endif				/* __DLOAD_INTERNAL__ */
+#endif /* _DLOAD_INTERNAL_ */

@@ -123,6 +123,36 @@ static ssize_t overlay_input_size_show(struct omap_overlay *ovl, char *buf)
 			ovl->info.width, ovl->info.height);
 }
 
+static ssize_t overlay_input_size_store(struct omap_overlay *ovl,
+		const char *buf, size_t size)
+{
+	int r;
+	char *last;
+	struct omap_overlay_info info;
+
+	ovl->get_overlay_info(ovl, &info);
+
+	info.width = simple_strtoul(buf, &last, 10);
+	++last;
+	if (last - buf >= size)
+		return -EINVAL;
+
+	info.height = simple_strtoul(last, &last, 10);
+
+	r = ovl->set_overlay_info(ovl, &info);
+	if (r)
+		return r;
+
+	if (ovl->manager) {
+		r = ovl->manager->apply(ovl->manager);
+		if (r)
+			return r;
+	}
+
+	return size;
+}
+
+
 static ssize_t overlay_screen_width_show(struct omap_overlay *ovl, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%d\n", ovl->info.screen_width);
@@ -263,6 +293,37 @@ static ssize_t overlay_global_alpha_store(struct omap_overlay *ovl,
 	return size;
 }
 
+static ssize_t overlay_pre_alpha_multiplication_show(struct omap_overlay *ovl,
+							 char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			ovl->info.pre_alpha_mult);
+}
+
+static ssize_t overlay_pre_alpha_multiplication_store(struct omap_overlay *ovl,
+						const char *buf, size_t size)
+{
+	int r;
+	struct omap_overlay_info info;
+
+	ovl->get_overlay_info(ovl, &info);
+
+	/* only GFX and Video2 plane support pre alpha multiplication */
+	info.pre_alpha_mult = simple_strtoul(buf, NULL, 10);
+
+	r = ovl->set_overlay_info(ovl, &info);
+	if (r)
+		return r;
+
+	if (ovl->manager) {
+		r = ovl->manager->apply(ovl->manager);
+		if (r)
+			return r;
+	}
+
+	return size;
+}
+
 #ifdef CONFIG_ARCH_OMAP4
 static ssize_t overlay_zorder_show(struct omap_overlay *ovl, char *buf)
 {
@@ -308,7 +369,8 @@ struct overlay_attribute {
 static OVERLAY_ATTR(name, S_IRUGO, overlay_name_show, NULL);
 static OVERLAY_ATTR(manager, S_IRUGO|S_IWUSR,
 		overlay_manager_show, overlay_manager_store);
-static OVERLAY_ATTR(input_size, S_IRUGO, overlay_input_size_show, NULL);
+static OVERLAY_ATTR(input_size, S_IRUGO|S_IWUSR,
+		overlay_input_size_show, overlay_input_size_store);
 static OVERLAY_ATTR(screen_width, S_IRUGO, overlay_screen_width_show, NULL);
 static OVERLAY_ATTR(position, S_IRUGO|S_IWUSR,
 		overlay_position_show, overlay_position_store);
@@ -318,6 +380,10 @@ static OVERLAY_ATTR(enabled, S_IRUGO|S_IWUSR,
 		overlay_enabled_show, overlay_enabled_store);
 static OVERLAY_ATTR(global_alpha, S_IRUGO|S_IWUSR,
 		overlay_global_alpha_show, overlay_global_alpha_store);
+static OVERLAY_ATTR(pre_alpha_multiplication, S_IRUGO|S_IWUSR,
+		overlay_pre_alpha_multiplication_show,
+		overlay_pre_alpha_multiplication_store);
+
 
 #ifdef CONFIG_ARCH_OMAP4
 static OVERLAY_ATTR(zorder, S_IRUGO|S_IWUSR,
@@ -333,6 +399,8 @@ static struct attribute *overlay_sysfs_attrs[] = {
 	&overlay_attr_output_size.attr,
 	&overlay_attr_enabled.attr,
 	&overlay_attr_global_alpha.attr,
+	&overlay_attr_pre_alpha_multiplication.attr,
+
 #ifdef CONFIG_ARCH_OMAP4
 	&overlay_attr_zorder.attr,
 #endif

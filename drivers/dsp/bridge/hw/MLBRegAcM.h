@@ -24,178 +24,157 @@
 
 #if defined(USE_LEVEL_1_MACROS)
 
-#define MLBMAILBOX_SYSCONFIGReadRegister32(baseAddress)\
-    (_DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_SYSCONFIGReadRegister32),\
-      __raw_readl(((baseAddress))+ \
-      MLB_MAILBOX_SYSCONFIG_OFFSET))
+#define MLBMAILBOX_SYSCONFIG_READ_REGISTER32(baseAddress)			 \
+	(_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_SYSCONFIG_READ_REGISTER32), \
+	__raw_readl(((baseAddress)) + MLB_MAILBOX_SYSCONFIG_OFFSET))
 
+#define MLBMAILBOX_SYSCONFIG_WRITE_REGISTER32(baseAddress, value)		\
+do {									\
+	const u32 offset = MLB_MAILBOX_SYSCONFIG_OFFSET;		\
+	register u32 newValue = ((u32)(value));				\
+	_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_SYSCONFIG_WRITE_REGISTER32);\
+	__raw_writel(newValue, ((baseAddress)) + offset);		\
+} while (0)
 
-#define MLBMAILBOX_SYSCONFIGWriteRegister32(baseAddress, value)\
-{\
-    const u32 offset = MLB_MAILBOX_SYSCONFIG_OFFSET;\
-    register u32 newValue = ((u32)(value));\
-    _DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_SYSCONFIGWriteRegister32);\
-    __raw_writel(newValue, ((baseAddress))+offset);\
-}
+#define MLBMAILBOX_SYSCONFIGS_IDLE_MODE_READ32(baseAddress)		  \
+	(_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_SYSCONFIGS_IDLE_MODE_READ32), \
+	(((__raw_readl((((u32)(baseAddress)) +				  \
+	(MLB_MAILBOX_SYSCONFIG_OFFSET)))) &				  \
+	MLB_MAILBOX_SYSCONFIG_S_IDLE_MODE_MASK) >>			  \
+	MLB_MAILBOX_SYSCONFIG_S_IDLE_MODE_OFFSET))
 
+#define MLBMAILBOX_SYSCONFIGS_IDLE_MODE_WRITE32(baseAddress, value)	  \
+do {									  \
+	const u32 offset = MLB_MAILBOX_SYSCONFIG_OFFSET;		  \
+	register u32 data = __raw_readl(((u32)(baseAddress)) + offset);	  \
+	register u32 newValue = ((u32)(value));				  \
+	_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_SYSCONFIGS_IDLE_MODE_WRITE32); \
+	data &= ~(MLB_MAILBOX_SYSCONFIG_S_IDLE_MODE_MASK);		  \
+	newValue <<= MLB_MAILBOX_SYSCONFIG_S_IDLE_MODE_OFFSET;		  \
+	newValue &= MLB_MAILBOX_SYSCONFIG_S_IDLE_MODE_MASK;		  \
+	newValue |= data;						  \
+	__raw_writel(newValue, (u32)(baseAddress) + offset);		  \
+} while (0)
 
-#define MLBMAILBOX_SYSCONFIGSIdleModeRead32(baseAddress)\
-    (_DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_SYSCONFIGSIdleModeRead32),\
-      (((__raw_readl((((u32)(baseAddress))+\
-      (MLB_MAILBOX_SYSCONFIG_OFFSET)))) &\
-      MLB_MAILBOX_SYSCONFIG_SIdleMode_MASK) >>\
-      MLB_MAILBOX_SYSCONFIG_SIdleMode_OFFSET))
+#define MLBMAILBOX_SYSCONFIG_SOFT_RESET_WRITE32(baseAddress, value)	    \
+do {									    \
+	const u32 offset = MLB_MAILBOX_SYSCONFIG_OFFSET;		    \
+	register u32 data = __raw_readl(((u32)(baseAddress)) + offset);	    \
+	register u32 newValue = ((u32)(value));				    \
+	_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_SYSCONFIG_SOFT_RESET_WRITE32);   \
+	data &= ~(MLB_MAILBOX_SYSCONFIG_SOFT_RESET_MASK);		    \
+	newValue <<= MLB_MAILBOX_SYSCONFIG_SOFT_RESET_OFFSET;		    \
+	newValue &= MLB_MAILBOX_SYSCONFIG_SOFT_RESET_MASK;		    \
+	newValue |= data;						    \
+	__raw_writel(newValue, (u32)(baseAddress) + offset);		    \
+} while (0)
 
+#define MLBMAILBOX_SYSCONFIG_AUTO_IDLE_READ32(baseAddress)			 \
+	(_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_SYSCONFIG_AUTO_IDLE_READ32), \
+	(((__raw_readl((((u32)(baseAddress)) +				 \
+	(MLB_MAILBOX_SYSCONFIG_OFFSET)))) &				 \
+	MLB_MAILBOX_SYSCONFIG_AUTO_IDLE_MASK) >>				 \
+	MLB_MAILBOX_SYSCONFIG_AUTO_IDLE_OFFSET))
 
-#define MLBMAILBOX_SYSCONFIGSIdleModeWrite32(baseAddress, value)\
-{\
-    const u32 offset = MLB_MAILBOX_SYSCONFIG_OFFSET;\
-    register u32 data = __raw_readl(((u32)(baseAddress)) +\
-			    offset);\
-    register u32 newValue = ((u32)(value));\
-    _DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_SYSCONFIGSIdleModeWrite32);\
-    data &= ~(MLB_MAILBOX_SYSCONFIG_SIdleMode_MASK);\
-    newValue <<= MLB_MAILBOX_SYSCONFIG_SIdleMode_OFFSET;\
-    newValue &= MLB_MAILBOX_SYSCONFIG_SIdleMode_MASK;\
-    newValue |= data;\
-    __raw_writel(newValue, (u32)(baseAddress)+offset);\
-}
+#define MLBMAILBOX_SYSCONFIG_AUTO_IDLE_WRITE32(baseAddress, value)		 \
+do {									 \
+	const u32 offset = MLB_MAILBOX_SYSCONFIG_OFFSET;		 \
+	register u32 data = __raw_readl(((u32)(baseAddress)) + offset);	 \
+	register u32 newValue = ((u32)(value));				 \
+	_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_SYSCONFIG_AUTO_IDLE_WRITE32); \
+	data &= ~(MLB_MAILBOX_SYSCONFIG_AUTO_IDLE_MASK);			 \
+	newValue <<= MLB_MAILBOX_SYSCONFIG_AUTO_IDLE_OFFSET;		 \
+	newValue &= MLB_MAILBOX_SYSCONFIG_AUTO_IDLE_MASK;		 \
+	newValue |= data;						 \
+	__raw_writel(newValue, (u32)(baseAddress)+offset);		 \
+} while (0)
 
+#define MLBMAILBOX_SYSSTATUS_RESET_DONE_READ32(baseAddress)\
+	(_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_SYSSTATUS_RESET_DONE_READ32), \
+	(((__raw_readl((((u32)(baseAddress)) +				  \
+	(MLB_MAILBOX_SYSSTATUS_OFFSET)))) &				  \
+	MLB_MAILBOX_SYSSTATUS_RESET_DONE_MASK) >>			  \
+	MLB_MAILBOX_SYSSTATUS_RESET_DONE_OFFSET))
 
-#define MLBMAILBOX_SYSCONFIGSoftResetWrite32(baseAddress, value)\
-{\
-    const u32 offset = MLB_MAILBOX_SYSCONFIG_OFFSET;\
-    register u32 data =\
-    __raw_readl(((u32)(baseAddress))+offset);\
-    register u32 newValue = ((u32)(value));\
-    _DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_SYSCONFIGSoftResetWrite32);\
-    data &= ~(MLB_MAILBOX_SYSCONFIG_SoftReset_MASK);\
-    newValue <<= MLB_MAILBOX_SYSCONFIG_SoftReset_OFFSET;\
-    newValue &= MLB_MAILBOX_SYSCONFIG_SoftReset_MASK;\
-    newValue |= data;\
-    __raw_writel(newValue, (u32)(baseAddress)+offset);\
-}
+#define MLBMAILBOX_MESSAGE015_READ_REGISTER32(baseAddress, bank)	      \
+	(_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_MESSAGE015_READ_REGISTER32), \
+	__raw_readl(((baseAddress)) +					      \
+	(MLB_MAILBOX_MESSAGE_REGSET015_OFFSET +			      \
+	MLB_MAILBOX_MESSAGE015_OFFSET +				      \
+	((bank) * MLB_MAILBOX_MESSAGE_REGSET015_STEP))))
 
+#define MLBMAILBOX_MESSAGE015_WRITE_REGISTER32(baseAddress, bank, value)    \
+do {									      \
+	const u32 offset = MLB_MAILBOX_MESSAGE_REGSET015_OFFSET +	      \
+	MLB_MAILBOX_MESSAGE015_OFFSET +				      \
+	((bank) * MLB_MAILBOX_MESSAGE_REGSET015_STEP);		      \
+	register u32 newValue = ((u32)(value));				      \
+	_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_MESSAGE015_WRITE_REGISTER32); \
+	__raw_writel(newValue, ((baseAddress)) + offset);		      \
+} while (0)
 
-#define MLBMAILBOX_SYSCONFIGAutoIdleRead32(baseAddress)\
-    (_DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_SYSCONFIGAutoIdleRead32),\
-      (((__raw_readl((((u32)(baseAddress))+\
-      (MLB_MAILBOX_SYSCONFIG_OFFSET)))) &\
-      MLB_MAILBOX_SYSCONFIG_AutoIdle_MASK) >>\
-      MLB_MAILBOX_SYSCONFIG_AutoIdle_OFFSET))
+#define MLBMAILBOX_FIFOSTATUS015_READ_REGISTER32(baseAddress, bank)	\
+	(_DEBUG_LEVEL1_EASI						\
+	(EASIL1_MLBMAILBOX_FIFOSTATUS015_READ_REGISTER32),		\
+	__raw_readl(((u32)(baseAddress)) +				\
+	(MLB_MAILBOX_FIFOSTATUS_REGSET015_OFFSET +			\
+	MLB_MAILBOX_FIFOSTATUS015_OFFSET +				\
+	((bank) * MLB_MAILBOX_FIFOSTATUS_REGSET015_STEP))))
 
+#define MLBMAILBOX_FIFOSTATUS015_FIFO_FULL_M_BM_READ32(baseAddress, bank) \
+	(_DEBUG_LEVEL1_EASI(						 \
+	EASIL1_MLBMAILBOX_FIFOSTATUS015_FIFO_FULL_M_BM_READ32),		 \
+	(((__raw_readl(((baseAddress)) +				 \
+	(MLB_MAILBOX_FIFOSTATUS_REGSET015_OFFSET +			 \
+	MLB_MAILBOX_FIFOSTATUS015_OFFSET +				 \
+	((bank) * MLB_MAILBOX_FIFOSTATUS_REGSET015_STEP)))) &	 \
+	MLB_MAILBOX_FIFOSTATUS015_FIFO_FULL_M_BM_MASK) >>		 \
+	MLB_MAILBOX_FIFOSTATUS015_FIFO_FULL_M_BM_OFFSET))
 
-#define MLBMAILBOX_SYSCONFIGAutoIdleWrite32(baseAddress, value)\
-{\
-    const u32 offset = MLB_MAILBOX_SYSCONFIG_OFFSET;\
-    register u32 data =\
-    __raw_readl(((u32)(baseAddress))+offset);\
-    register u32 newValue = ((u32)(value));\
-    _DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_SYSCONFIGAutoIdleWrite32);\
-    data &= ~(MLB_MAILBOX_SYSCONFIG_AutoIdle_MASK);\
-    newValue <<= MLB_MAILBOX_SYSCONFIG_AutoIdle_OFFSET;\
-    newValue &= MLB_MAILBOX_SYSCONFIG_AutoIdle_MASK;\
-    newValue |= data;\
-    __raw_writel(newValue, (u32)(baseAddress)+offset);\
-}
+#define MLBMAILBOX_MSGSTATUS015_NB_OF_MSG_M_BM_READ32(baseAddress, bank)	\
+	(_DEBUG_LEVEL1_EASI(						\
+	EASIL1_MLBMAILBOX_MSGSTATUS015_NB_OF_MSG_M_BM_READ32),		\
+	(((__raw_readl(((baseAddress)) +				\
+	(MLB_MAILBOX_MSGSTATUS_REGSET015_OFFSET +			\
+	MLB_MAILBOX_MSGSTATUS015_OFFSET +				\
+	((bank) * MLB_MAILBOX_MSGSTATUS_REGSET015_STEP)))) &	\
+	MLB_MAILBOX_MSGSTATUS015_NB_OF_MSG_M_BM_MASK) >>		\
+	MLB_MAILBOX_MSGSTATUS015_NB_OF_MSG_M_BM_OFFSET))
 
+#define MLBMAILBOX_IRQSTATUS03_READ_REGISTER32(baseAddress, bank)	       \
+	(_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_IRQSTATUS03_READ_REGISTER32), \
+	__raw_readl(((baseAddress)) +					       \
+	(MLB_MAILBOX_IRQSTATUS_REGSET03_OFFSET +			       \
+	MLB_MAILBOX_IRQSTATUS03_OFFSET +				       \
+	((bank) * MLB_MAILBOX_IRQSTATUS_REGSET03_STEP))))
 
-#define MLBMAILBOX_SYSSTATUSResetDoneRead32(baseAddress)\
-    (_DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_SYSSTATUSResetDoneRead32),\
-      (((__raw_readl((((u32)(baseAddress))+\
-      (MLB_MAILBOX_SYSSTATUS_OFFSET)))) &\
-      MLB_MAILBOX_SYSSTATUS_ResetDone_MASK) >>\
-      MLB_MAILBOX_SYSSTATUS_ResetDone_OFFSET))
+#define MLBMAILBOX_IRQSTATUS03_WRITE_REGISTER32(baseAddress, bank, value)    \
+do {									       \
+	const u32 offset = MLB_MAILBOX_IRQSTATUS_REGSET03_OFFSET +	       \
+	MLB_MAILBOX_IRQSTATUS03_OFFSET +				       \
+	((bank) * MLB_MAILBOX_IRQSTATUS_REGSET03_STEP);		       \
+	register u32 newValue = ((u32)(value));				       \
+	_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_IRQSTATUS03_WRITE_REGISTER32); \
+	__raw_writel(newValue, ((baseAddress)) + offset);		       \
+} while (0)
 
+#define MLBMAILBOX_IRQENABLE03_READ_REGISTER32(baseAddress, bank)	       \
+	(_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_IRQENABLE03_READ_REGISTER32), \
+	__raw_readl(((baseAddress)) +					       \
+	(MLB_MAILBOX_IRQENABLE_REGSET03_OFFSET +			       \
+	MLB_MAILBOX_IRQENABLE03_OFFSET +				       \
+	((bank) * MLB_MAILBOX_IRQENABLE_REGSET03_STEP))))
 
-#define MLBMAILBOX_MESSAGE___0_15ReadRegister32(baseAddress, bank)\
-    (_DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_MESSAGE___0_15ReadRegister32),\
-      __raw_readl(((baseAddress))+\
-      (MLB_MAILBOX_MESSAGE___REGSET_0_15_OFFSET +\
-      MLB_MAILBOX_MESSAGE___0_15_OFFSET+(\
-      (bank)*MLB_MAILBOX_MESSAGE___REGSET_0_15_STEP))))
+#define MLBMAILBOX_IRQENABLE03_WRITE_REGISTER32(baseAddress, bank, value)    \
+do {									       \
+	const u32 offset = MLB_MAILBOX_IRQENABLE_REGSET03_OFFSET +	       \
+	MLB_MAILBOX_IRQENABLE03_OFFSET +				       \
+	((bank)*MLB_MAILBOX_IRQENABLE_REGSET03_STEP);		       \
+	register u32 newValue = ((u32)(value));				       \
+	_DEBUG_LEVEL1_EASI(EASIL1_MLBMAILBOX_IRQENABLE03_WRITE_REGISTER32); \
+	__raw_writel(newValue, ((baseAddress)) + offset);		       \
+} while (0)
 
-
-#define MLBMAILBOX_MESSAGE___0_15WriteRegister32(baseAddress, bank, value)\
-{\
-    const u32 offset = MLB_MAILBOX_MESSAGE___REGSET_0_15_OFFSET +\
-    MLB_MAILBOX_MESSAGE___0_15_OFFSET +\
-    ((bank)*MLB_MAILBOX_MESSAGE___REGSET_0_15_STEP);\
-    register u32 newValue = ((u32)(value));\
-    _DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_MESSAGE___0_15WriteRegister32);\
-    __raw_writel(newValue, ((baseAddress))+offset);\
-}
-
-
-#define MLBMAILBOX_FIFOSTATUS___0_15ReadRegister32(baseAddress, bank)\
-    (_DEBUG_LEVEL_1_EASI(\
-      EASIL1_MLBMAILBOX_FIFOSTATUS___0_15ReadRegister32),\
-      __raw_readl(((u32)(baseAddress))+\
-      (MLB_MAILBOX_FIFOSTATUS___REGSET_0_15_OFFSET +\
-      MLB_MAILBOX_FIFOSTATUS___0_15_OFFSET+\
-      ((bank)*MLB_MAILBOX_FIFOSTATUS___REGSET_0_15_STEP))))
-
-
-#define MLBMAILBOX_FIFOSTATUS___0_15FifoFullMBmRead32(baseAddress, bank)\
-    (_DEBUG_LEVEL_1_EASI(\
-      EASIL1_MLBMAILBOX_FIFOSTATUS___0_15FifoFullMBmRead32),\
-      (((__raw_readl(((baseAddress))+\
-      (MLB_MAILBOX_FIFOSTATUS___REGSET_0_15_OFFSET +\
-      MLB_MAILBOX_FIFOSTATUS___0_15_OFFSET+\
-      ((bank)*MLB_MAILBOX_FIFOSTATUS___REGSET_0_15_STEP)))) &\
-      MLB_MAILBOX_FIFOSTATUS___0_15_FifoFullMBm_MASK) >>\
-      MLB_MAILBOX_FIFOSTATUS___0_15_FifoFullMBm_OFFSET))
-
-
-#define MLBMAILBOX_MSGSTATUS___0_15NbOfMsgMBmRead32(baseAddress, bank)\
-    (_DEBUG_LEVEL_1_EASI(\
-      EASIL1_MLBMAILBOX_MSGSTATUS___0_15NbOfMsgMBmRead32),\
-      (((__raw_readl(((baseAddress))+\
-      (MLB_MAILBOX_MSGSTATUS___REGSET_0_15_OFFSET +\
-      MLB_MAILBOX_MSGSTATUS___0_15_OFFSET+\
-      ((bank)*MLB_MAILBOX_MSGSTATUS___REGSET_0_15_STEP)))) &\
-      MLB_MAILBOX_MSGSTATUS___0_15_NbOfMsgMBm_MASK) >>\
-      MLB_MAILBOX_MSGSTATUS___0_15_NbOfMsgMBm_OFFSET))
-
-
-#define MLBMAILBOX_IRQSTATUS___0_3ReadRegister32(baseAddress, bank)\
-    (_DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_IRQSTATUS___0_3ReadRegister32),\
-      __raw_readl(((baseAddress))+\
-      (MLB_MAILBOX_IRQSTATUS___REGSET_0_3_OFFSET +\
-      MLB_MAILBOX_IRQSTATUS___0_3_OFFSET+\
-      ((bank)*MLB_MAILBOX_IRQSTATUS___REGSET_0_3_STEP))))
-
-
-#define MLBMAILBOX_IRQSTATUS___0_3WriteRegister32(baseAddress, bank, value)\
-{\
-    const u32 offset = MLB_MAILBOX_IRQSTATUS___REGSET_0_3_OFFSET +\
-    MLB_MAILBOX_IRQSTATUS___0_3_OFFSET +\
-    ((bank)*MLB_MAILBOX_IRQSTATUS___REGSET_0_3_STEP);\
-    register u32 newValue = ((u32)(value));\
-    _DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_IRQSTATUS___0_3WriteRegister32);\
-    __raw_writel(newValue, ((baseAddress))+offset);\
-}
-
-
-#define MLBMAILBOX_IRQENABLE___0_3ReadRegister32(baseAddress, bank)\
-    (_DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_IRQENABLE___0_3ReadRegister32),\
-      __raw_readl(((baseAddress))+\
-      (MLB_MAILBOX_IRQENABLE___REGSET_0_3_OFFSET +\
-      MLB_MAILBOX_IRQENABLE___0_3_OFFSET+\
-       ((bank)*MLB_MAILBOX_IRQENABLE___REGSET_0_3_STEP))))
-
-
-#define MLBMAILBOX_IRQENABLE___0_3WriteRegister32(baseAddress, bank, value)\
-{\
-    const u32 offset = MLB_MAILBOX_IRQENABLE___REGSET_0_3_OFFSET +\
-      MLB_MAILBOX_IRQENABLE___0_3_OFFSET +\
-      ((bank)*MLB_MAILBOX_IRQENABLE___REGSET_0_3_STEP);\
-    register u32 newValue = ((u32)(value));\
-    _DEBUG_LEVEL_1_EASI(EASIL1_MLBMAILBOX_IRQENABLE___0_3WriteRegister32);\
-    __raw_writel(newValue, ((baseAddress))+offset);\
-}
-
-
-#endif	/* USE_LEVEL_1_MACROS */
+#endif /* USE_LEVEL_1_MACROS */
 
 #endif /* _MLB_REG_ACM_H */

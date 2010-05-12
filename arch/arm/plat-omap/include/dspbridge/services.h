@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Provide loading and unloading of SERVICES modules.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,27 +16,12 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== services.h ========
- *  Purpose:
- *      Provide loading and unloading of SERVICES modules.
- *
- *  Public Functions:
- *      SERVICES_Exit(void)
- *      SERVICES_Init(void)
- *
- *! Revision History:
- *! ================
- *! 01-Feb-2000 kc: Created.
- */
-
 #ifndef SERVICES_
 #define SERVICES_
 
 #include <dspbridge/host_os.h>
 /*
- *  ======== SERVICES_Exit ========
+ *  ======== services_exit ========
  *  Purpose:
  *      Discontinue usage of module; free resources when reference count
  *      reaches 0.
@@ -45,10 +32,10 @@
  *  Ensures:
  *      Resources used by module are freed when cRef reaches zero.
  */
-	extern void SERVICES_Exit(void);
+extern void services_exit(void);
 
 /*
- *  ======== SERVICES_Init ========
+ *  ======== services_init ========
  *  Purpose:
  *      Initializes SERVICES modules.
  *  Parameters:
@@ -58,6 +45,6 @@
  *  Ensures:
  *      SERVICES modules initialized.
  */
-	extern bool SERVICES_Init(void);
+extern bool services_init(void);
 
-#endif				/* SERVICES_ */
+#endif /* SERVICES_ */

@@ -3,6 +3,14 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * This file provides an API add-on to the dynamic loader that allows the user
+ * to query section information and extract section data from dynamic load
+ * modules.
+ *
+ * Notes:
+ *   Functions in this API assume that the supplied dynamic_loader_stream
+ *   object supports the set_file_posn method.
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,30 +22,16 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
 #ifndef _GETSECTION_H_
 #define _GETSECTION_H_
 
-
 #include "dynamic_loader.h"
 
-/*
- * Get Section Information
- *
- * This file provides an API add-on to the dynamic loader that allows the user
- * to query section information and extract section data from dynamic load
- * modules.
- *
- * NOTE:
- * Functions in this API assume that the supplied Dynamic_Loader_Stream object
- * supports the set_file_posn method.
- */
-
 	/* opaque handle for module information */
-	typedef void *DLOAD_module_info;
+typedef void *dload_module_info;
 
 /*
- * Procedure DLOAD_module_open
+ * Procedure dload_module_open
  *
  * Parameters:
  *  module  The input stream that supplies the module image
@@ -54,36 +48,35 @@
  *  NULL if an error is encountered, otherwise a module handle for use
  * in subsequent operations.
  */
-	extern DLOAD_module_info DLOAD_module_open(struct Dynamic_Loader_Stream
-						   *module,
-						   struct Dynamic_Loader_Sym
-						   *syms);
+extern dload_module_info dload_module_open(struct dynamic_loader_stream
+					   *module, struct dynamic_loader_sym
+					   *syms);
 
 /*
- * Procedure DLOAD_GetSectionInfo
+ * Procedure dload_get_section_info
  *
  * Parameters:
- *  minfo       Handle from DLOAD_module_open for this module
+ *  minfo       Handle from dload_module_open for this module
  *  sectionName Pointer to the string name of the section desired
  *  sectionInfo Address of a section info structure pointer to be initialized
  *
  * Effect:
  *  Finds the specified section in the module information, and fills in
- * the provided LDR_SECTION_INFO structure.
+ * the provided ldr_section_info structure.
  *
  * Returns:
  *  TRUE for success, FALSE for section not found
  */
-	extern int DLOAD_GetSectionInfo(DLOAD_module_info minfo,
-					const char *sectionName,
-					const struct LDR_SECTION_INFO
-					** const sectionInfo);
+extern int dload_get_section_info(dload_module_info minfo,
+				  const char *sectionName,
+				  const struct ldr_section_info
+				  **const sectionInfo);
 
 /*
- * Procedure DLOAD_GetSection
+ * Procedure dload_get_section
  *
  * Parameters:
- *  minfo       Handle from DLOAD_module_open for this module
+ *  minfo       Handle from dload_module_open for this module
  *  sectionInfo Pointer to a section info structure for the desired section
  *  sectionData Buffer to contain the section initialized data
  *
@@ -94,15 +87,15 @@
  * Returns:
  *  TRUE for success, FALSE for section not found
  */
-	extern int DLOAD_GetSection(DLOAD_module_info minfo,
-				    const struct LDR_SECTION_INFO *sectionInfo,
-				    void *sectionData);
+extern int dload_get_section(dload_module_info minfo,
+			     const struct ldr_section_info *sectionInfo,
+			     void *sectionData);
 
 /*
- * Procedure DLOAD_module_close
+ * Procedure dload_module_close
  *
  * Parameters:
- *  minfo       Handle from DLOAD_module_open for this module
+ *  minfo       Handle from dload_module_open for this module
  *
  * Effect:
  *  Releases any storage associated with the module handle.  On return,
@@ -110,9 +103,9 @@
  *
  * Returns:
  *  Zero for success. On error, the number of errors detected is returned.
- * Individual errors are reported using syms->Error_Report(), where syms was
- * an argument to DLOAD_module_open
+ * Individual errors are reported using syms->error_report(), where syms was
+ * an argument to dload_module_open
  */
-	extern void DLOAD_module_close(DLOAD_module_info minfo);
+extern void dload_module_close(dload_module_info minfo);
 
-#endif				/* _GETSECTION_H_ */
+#endif /* _GETSECTION_H_ */

@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Node Dispatcher interface. Communicates with Resource Manager Server
+ * (RMS) on DSP. Access to RMS is synchronized in NODE.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software;  you can redistribute it and/or modify
@@ -14,38 +17,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== disp.c ========
- *
- *  Description:
- *      Node Dispatcher interface. Communicates with Resource Manager Server
- *      (RMS) on DSP. Access to RMS is synchronized in NODE.
- *
- *  Public Functions:
- *      DISP_Create
- *      DISP_Delete
- *      DISP_Exit
- *      DISP_Init
- *      DISP_NodeChangePriority
- *      DISP_NodeCreate
- *      DISP_NodeDelete
- *      DISP_NodePause
- *      DISP_NodeRun
- *
- *! Revision History:
- *! =================
- *! 18-Feb-2003 vp      Code review updates
- *! 18-Oct-2002 vp      Ported to Linux platform
- *! 16-May-2002 jeh     Added DISP_DoCinit().
- *! 24-Apr-2002 jeh     Added DISP_MemWrite().
- *! 13-Feb-2002 jeh     Pass system stack size to RMS.
- *! 16-Jan-2002  ag     Added bufsize param to _ChnlAddIOReq() fxn
- *! 10-May-2001 jeh     Code Review cleanup.
- *! 26-Sep-2000 jeh     Fixed status values in SendMessage().
- *! 19-Jun-2000 jeh     Created.
- */
-
 /*  ----------------------------------- Host OS */
 #include <dspbridge/host_os.h>
 
@@ -55,11 +26,9 @@
 #include <dspbridge/errbase.h>
 
 /*  ----------------------------------- Trace & Debug */
-#include <dspbridge/gt.h>
 #include <dspbridge/dbc.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
-#include <dspbridge/mem.h>
 #include <dspbridge/sync.h>
 
 /*  ----------------------------------- Link Driver */
@@ -77,10 +46,8 @@
 /*  ----------------------------------- This */
 #include <dspbridge/disp.h>
 
-#define DISP_SIGNATURE       0x50534944	/* "PSID" */
-
 /* Size of a reply from RMS */
-#define REPLYSIZE (3 * sizeof(RMS_WORD))
+#define REPLYSIZE (3 * sizeof(rms_word))
 
 /* Reserved channel offsets for communication with RMS */
 #define CHNLTORMSOFFSET       0
@@ -88,86 +55,69 @@
 
 #define CHNLIOREQS      1
 
-#define SwapWord(x)     (((u32)(x) >> 16) | ((u32)(x) << 16))
+#define SWAP_WORD(x)     (((u32)(x) >> 16) | ((u32)(x) << 16))
 
 /*
- *  ======== DISP_OBJECT ========
+ *  ======== disp_object ========
  */
-struct DISP_OBJECT {
-	u32 dwSignature; 	/* Used for object validation */
-	struct DEV_OBJECT *hDevObject; 	/* Device for this processor */
-	struct WMD_DRV_INTERFACE *pIntfFxns; 	/* Function interface to WMD */
-	struct CHNL_MGR *hChnlMgr; 	/* Channel manager */
-	struct CHNL_OBJECT *hChnlToDsp;   /* Channel for commands to RMS */
-	struct CHNL_OBJECT *hChnlFromDsp;   /* Channel for replies from RMS */
-	u8 *pBuf; 		/* Buffer for commands, replies */
-	u32 ulBufsize; 	/* pBuf size in bytes */
-	u32 ulBufsizeRMS; 	/* pBuf size in RMS words */
-	u32 uCharSize; 		/* Size of DSP character */
-	u32 uWordSize; 		/* Size of DSP word */
-	u32 uDataMauSize; 	/* Size of DSP Data MAU */
+struct disp_object {
+	struct dev_object *hdev_obj;	/* Device for this processor */
+	struct bridge_drv_interface *intf_fxns;	/* Function interface to WMD */
+	struct chnl_mgr *hchnl_mgr;	/* Channel manager */
+	struct chnl_object *chnl_to_dsp;	/* Chnl for commands to RMS */
+	struct chnl_object *chnl_from_dsp;	/* Chnl for replies from RMS */
+	u8 *pbuf;		/* Buffer for commands, replies */
+	u32 ul_bufsize;		/* pbuf size in bytes */
+	u32 ul_bufsize_rms;	/* pbuf size in RMS words */
+	u32 char_size;		/* Size of DSP character */
+	u32 word_size;		/* Size of DSP word */
+	u32 data_mau_size;	/* Size of DSP Data MAU */
 };
 
-static u32 cRefs;
+static u32 refs;
 
-/* Debug msgs: */
-#if GT_TRACE
-static struct GT_Mask DISP_DebugMask = { NULL, NULL };
-#endif
-
-static void DeleteDisp(struct DISP_OBJECT *hDisp);
-static DSP_STATUS FillStreamDef(RMS_WORD *pdwBuf, u32 *ptotal, u32 offset,
-				struct NODE_STRMDEF strmDef, u32 max,
-				u32 uCharsInRMSWord);
-static DSP_STATUS SendMessage(struct DISP_OBJECT *hDisp, u32 dwTimeout,
-			     u32 ulBytes, OUT u32 *pdwArg);
+static void delete_disp(struct disp_object *disp_obj);
+static dsp_status fill_stream_def(rms_word *pdw_buf, u32 *ptotal, u32 offset,
+				  struct node_strmdef strm_def, u32 max,
+				  u32 chars_in_rms_word);
+static dsp_status send_message(struct disp_object *disp_obj, u32 dwTimeout,
+			       u32 ul_bytes, OUT u32 *pdw_arg);
 
 /*
- *  ======== DISP_Create ========
+ *  ======== disp_create ========
  *  Create a NODE Dispatcher object.
  */
-DSP_STATUS DISP_Create(OUT struct DISP_OBJECT **phDispObject,
-		      struct DEV_OBJECT *hDevObject,
-		      IN CONST struct DISP_ATTRS *pDispAttrs)
+dsp_status disp_create(OUT struct disp_object **phDispObject,
+		       struct dev_object *hdev_obj,
+		       IN CONST struct disp_attr *pDispAttrs)
 {
-	struct DISP_OBJECT *pDisp;
-	struct WMD_DRV_INTERFACE *pIntfFxns;
-	u32 ulChnlId;
-	struct CHNL_ATTRS chnlAttrs;
-	DSP_STATUS status = DSP_SOK;
-	u32 devType;
+	struct disp_object *disp_obj;
+	struct bridge_drv_interface *intf_fxns;
+	u32 ul_chnl_id;
+	struct chnl_attr chnl_attr_obj;
+	dsp_status status = DSP_SOK;
+	u8 dev_type;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(phDispObject != NULL);
-	DBC_Require(pDispAttrs != NULL);
-	DBC_Require(hDevObject != NULL);
-
-	GT_3trace(DISP_DebugMask, GT_ENTER, "DISP_Create: phDispObject: 0x%x\t"
-		 "hDevObject: 0x%x\tpDispAttrs: 0x%x\n", phDispObject,
-		 hDevObject, pDispAttrs);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(phDispObject != NULL);
+	DBC_REQUIRE(pDispAttrs != NULL);
+	DBC_REQUIRE(hdev_obj != NULL);
 
 	*phDispObject = NULL;
 
 	/* Allocate Node Dispatcher object */
-	MEM_AllocObject(pDisp, struct DISP_OBJECT, DISP_SIGNATURE);
-	if (pDisp == NULL) {
-		status = DSP_EMEMORY;
-		GT_0trace(DISP_DebugMask, GT_6CLASS,
-			 "DISP_Create: MEM_AllocObject() failed!\n");
-	} else {
-		pDisp->hDevObject = hDevObject;
-	}
+	disp_obj = kzalloc(sizeof(struct disp_object), GFP_KERNEL);
+	if (disp_obj == NULL)
+		status = -ENOMEM;
+	else
+		disp_obj->hdev_obj = hdev_obj;
 
 	/* Get Channel manager and WMD function interface */
 	if (DSP_SUCCEEDED(status)) {
-		status = DEV_GetChnlMgr(hDevObject, &(pDisp->hChnlMgr));
+		status = dev_get_chnl_mgr(hdev_obj, &(disp_obj->hchnl_mgr));
 		if (DSP_SUCCEEDED(status)) {
-			(void) DEV_GetIntfFxns(hDevObject, &pIntfFxns);
-			pDisp->pIntfFxns = pIntfFxns;
-		} else {
-			GT_1trace(DISP_DebugMask, GT_6CLASS,
-				 "DISP_Create: Failed to get "
-				 "channel manager! status = 0x%x\n", status);
+			status = dev_get_intf_fxns(hdev_obj, &intf_fxns);
+			disp_obj->intf_fxns = intf_fxns;
 		}
 	}
 
@@ -176,242 +126,194 @@ DSP_STATUS DISP_Create(OUT struct DISP_OBJECT **phDispObject,
 	if (DSP_FAILED(status))
 		goto func_cont;
 
-	status = DEV_GetDevType(hDevObject, &devType);
-	GT_1trace(DISP_DebugMask, GT_6CLASS, "DISP_Create: Creating DISP for "
-		 "device = 0x%x\n", devType);
+	status = dev_get_dev_type(hdev_obj, &dev_type);
+
 	if (DSP_FAILED(status))
 		goto func_cont;
 
-	if (devType != DSP_UNIT) {
-		GT_0trace(DISP_DebugMask, GT_6CLASS,
-			 "DISP_Create: Unkown device "
-			 "type in Device object !! \n");
-		status = DSP_EFAIL;
+	if (dev_type != DSP_UNIT) {
+		status = -EPERM;
 		goto func_cont;
 	}
+
+	disp_obj->char_size = DSPWORDSIZE;
+	disp_obj->word_size = DSPWORDSIZE;
+	disp_obj->data_mau_size = DSPWORDSIZE;
+	/* Open channels for communicating with the RMS */
+	chnl_attr_obj.uio_reqs = CHNLIOREQS;
+	chnl_attr_obj.event_obj = NULL;
+	ul_chnl_id = pDispAttrs->ul_chnl_offset + CHNLTORMSOFFSET;
+	status = (*intf_fxns->pfn_chnl_open) (&(disp_obj->chnl_to_dsp),
+					      disp_obj->hchnl_mgr,
+					      CHNL_MODETODSP, ul_chnl_id,
+					      &chnl_attr_obj);
+
 	if (DSP_SUCCEEDED(status)) {
-		pDisp->uCharSize = DSPWORDSIZE;
-		pDisp->uWordSize = DSPWORDSIZE;
-		pDisp->uDataMauSize = DSPWORDSIZE;
-		/* Open channels for communicating with the RMS */
-		chnlAttrs.uIOReqs = CHNLIOREQS;
-		chnlAttrs.hEvent = NULL;
-		ulChnlId = pDispAttrs->ulChnlOffset + CHNLTORMSOFFSET;
-		status = (*pIntfFxns->pfnChnlOpen)(&(pDisp->hChnlToDsp),
-			 pDisp->hChnlMgr, CHNL_MODETODSP, ulChnlId, &chnlAttrs);
-		if (DSP_FAILED(status)) {
-			GT_2trace(DISP_DebugMask, GT_6CLASS,
-				 "DISP_Create:  Channel to RMS "
-				 "open failed, chnl id = %d, status = 0x%x\n",
-				 ulChnlId, status);
-		}
-	}
-	if (DSP_SUCCEEDED(status)) {
-		ulChnlId = pDispAttrs->ulChnlOffset + CHNLFROMRMSOFFSET;
-		status = (*pIntfFxns->pfnChnlOpen)(&(pDisp->hChnlFromDsp),
-			 pDisp->hChnlMgr, CHNL_MODEFROMDSP, ulChnlId,
-			 &chnlAttrs);
-		if (DSP_FAILED(status)) {
-			GT_2trace(DISP_DebugMask, GT_6CLASS,
-				 "DISP_Create: Channel from RMS "
-				 "open failed, chnl id = %d, status = 0x%x\n",
-				 ulChnlId, status);
-		}
+		ul_chnl_id = pDispAttrs->ul_chnl_offset + CHNLFROMRMSOFFSET;
+		status =
+		    (*intf_fxns->pfn_chnl_open) (&(disp_obj->chnl_from_dsp),
+						 disp_obj->hchnl_mgr,
+						 CHNL_MODEFROMDSP, ul_chnl_id,
+						 &chnl_attr_obj);
 	}
 	if (DSP_SUCCEEDED(status)) {
 		/* Allocate buffer for commands, replies */
-		pDisp->ulBufsize = pDispAttrs->ulChnlBufSize;
-		pDisp->ulBufsizeRMS = RMS_COMMANDBUFSIZE;
-		pDisp->pBuf = MEM_Calloc(pDisp->ulBufsize, MEM_PAGED);
-		if (pDisp->pBuf == NULL) {
-			status = DSP_EMEMORY;
-			GT_0trace(DISP_DebugMask, GT_6CLASS,
-				 "DISP_Create: Failed "
-				 "to allocate channel buffer!\n");
-		}
+		disp_obj->ul_bufsize = pDispAttrs->ul_chnl_buf_size;
+		disp_obj->ul_bufsize_rms = RMS_COMMANDBUFSIZE;
+		disp_obj->pbuf = kzalloc(disp_obj->ul_bufsize, GFP_KERNEL);
+		if (disp_obj->pbuf == NULL)
+			status = -ENOMEM;
 	}
 func_cont:
 	if (DSP_SUCCEEDED(status))
-		*phDispObject = pDisp;
+		*phDispObject = disp_obj;
 	else
-		DeleteDisp(pDisp);
+		delete_disp(disp_obj);
 
-	DBC_Ensure(((DSP_FAILED(status)) && ((*phDispObject == NULL))) ||
-		  ((DSP_SUCCEEDED(status)) &&
-		  (MEM_IsValidHandle((*phDispObject), DISP_SIGNATURE))));
+	DBC_ENSURE(((DSP_FAILED(status)) && ((*phDispObject == NULL))) ||
+				((DSP_SUCCEEDED(status)) && *phDispObject));
 	return status;
 }
 
 /*
- *  ======== DISP_Delete ========
+ *  ======== disp_delete ========
  *  Delete the NODE Dispatcher.
  */
-void DISP_Delete(struct DISP_OBJECT *hDisp)
+void disp_delete(struct disp_object *disp_obj)
 {
-	DBC_Require(cRefs > 0);
-	DBC_Require(MEM_IsValidHandle(hDisp, DISP_SIGNATURE));
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(disp_obj);
 
-	GT_1trace(DISP_DebugMask, GT_ENTER,
-		 "DISP_Delete: hDisp: 0x%x\n", hDisp);
+	delete_disp(disp_obj);
 
-	DeleteDisp(hDisp);
-
-	DBC_Ensure(!MEM_IsValidHandle(hDisp, DISP_SIGNATURE));
+	DBC_ENSURE(!disp_obj);
 }
 
 /*
- *  ======== DISP_Exit ========
+ *  ======== disp_exit ========
  *  Discontinue usage of DISP module.
  */
-void DISP_Exit(void)
+void disp_exit(void)
 {
-	DBC_Require(cRefs > 0);
+	DBC_REQUIRE(refs > 0);
 
-	cRefs--;
+	refs--;
 
-	GT_1trace(DISP_DebugMask, GT_5CLASS,
-		 "Entered DISP_Exit, ref count:  0x%x\n", cRefs);
-
-	DBC_Ensure(cRefs >= 0);
+	DBC_ENSURE(refs >= 0);
 }
 
 /*
- *  ======== DISP_Init ========
+ *  ======== disp_init ========
  *  Initialize the DISP module.
  */
-bool DISP_Init(void)
+bool disp_init(void)
 {
-	bool fRetVal = true;
+	bool ret = true;
 
-	DBC_Require(cRefs >= 0);
+	DBC_REQUIRE(refs >= 0);
 
-	if (cRefs == 0) {
-		DBC_Assert(!DISP_DebugMask.flags);
-		GT_create(&DISP_DebugMask, "DI");  /* "DI" for DIspatcher */
-	}
+	if (ret)
+		refs++;
 
-	if (fRetVal)
-		cRefs++;
-
-	GT_1trace(DISP_DebugMask, GT_5CLASS,
-		 "DISP_Init(), ref count:  0x%x\n", cRefs);
-
-	DBC_Ensure((fRetVal && (cRefs > 0)) || (!fRetVal && (cRefs >= 0)));
-	return fRetVal;
+	DBC_ENSURE((ret && (refs > 0)) || (!ret && (refs >= 0)));
+	return ret;
 }
 
 /*
- *  ======== DISP_NodeChangePriority ========
+ *  ======== disp_node_change_priority ========
  *  Change the priority of a node currently running on the target.
  */
-DSP_STATUS DISP_NodeChangePriority(struct DISP_OBJECT *hDisp,
-				  struct NODE_OBJECT *hNode,
-				  u32 ulRMSFxn, NODE_ENV nodeEnv,
-				  s32 nPriority)
+dsp_status disp_node_change_priority(struct disp_object *disp_obj,
+				     struct node_object *hnode,
+				     u32 ulRMSFxn, nodeenv node_env, s32 prio)
 {
-	u32 dwArg;
-	struct RMS_Command *pCommand;
-	DSP_STATUS status = DSP_SOK;
+	u32 dw_arg;
+	struct rms_command *rms_cmd;
+	dsp_status status = DSP_SOK;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(MEM_IsValidHandle(hDisp, DISP_SIGNATURE));
-	DBC_Require(hNode != NULL);
-
-	GT_5trace(DISP_DebugMask, GT_ENTER, "DISP_NodeChangePriority: hDisp: "
-		"0x%x\thNode: 0x%x\tulRMSFxn: 0x%x\tnodeEnv: 0x%x\tnPriority\n",
-		hDisp, hNode, ulRMSFxn, nodeEnv, nPriority);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(disp_obj);
+	DBC_REQUIRE(hnode != NULL);
 
 	/* Send message to RMS to change priority */
-	pCommand = (struct RMS_Command *)(hDisp->pBuf);
-	pCommand->fxn = (RMS_WORD)(ulRMSFxn);
-	pCommand->arg1 = (RMS_WORD)nodeEnv;
-	pCommand->arg2 = nPriority;
-	status = SendMessage(hDisp, NODE_GetTimeout(hNode),
-		 sizeof(struct RMS_Command), &dwArg);
-	if (DSP_FAILED(status)) {
-		GT_1trace(DISP_DebugMask, GT_6CLASS,
-			 "DISP_NodeChangePriority failed! "
-			 "status = 0x%x\n", status);
-	}
+	rms_cmd = (struct rms_command *)(disp_obj->pbuf);
+	rms_cmd->fxn = (rms_word) (ulRMSFxn);
+	rms_cmd->arg1 = (rms_word) node_env;
+	rms_cmd->arg2 = prio;
+	status = send_message(disp_obj, node_get_timeout(hnode),
+			      sizeof(struct rms_command), &dw_arg);
+
 	return status;
 }
 
 /*
- *  ======== DISP_NodeCreate ========
+ *  ======== disp_node_create ========
  *  Create a node on the DSP by remotely calling the node's create function.
  */
-DSP_STATUS DISP_NodeCreate(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
-			  u32 ulRMSFxn, u32 ulCreateFxn,
-			  IN CONST struct NODE_CREATEARGS *pArgs,
-			  OUT NODE_ENV *pNodeEnv)
+dsp_status disp_node_create(struct disp_object *disp_obj,
+			    struct node_object *hnode, u32 ulRMSFxn,
+			    u32 ul_create_fxn,
+			    IN CONST struct node_createargs *pargs,
+			    OUT nodeenv *pNodeEnv)
 {
-	struct NODE_MSGARGS msgArgs;
-	struct NODE_TASKARGS taskArgs;
-	struct RMS_Command *pCommand;
-	struct RMS_MsgArgs *pMsgArgs;
-	struct RMS_MoreTaskArgs *pMoreTaskArgs;
-	enum NODE_TYPE nodeType;
-	u32 dwLength;
-	RMS_WORD *pdwBuf = NULL;
-	u32 ulBytes;
+	struct node_msgargs node_msg_args;
+	struct node_taskargs task_arg_obj;
+	struct rms_command *rms_cmd;
+	struct rms_msg_args *pmsg_args;
+	struct rms_more_task_args *more_task_args;
+	enum node_type node_type;
+	u32 dw_length;
+	rms_word *pdw_buf = NULL;
+	u32 ul_bytes;
 	u32 i;
 	u32 total;
-	u32 uCharsInRMSWord;
-	s32 taskArgsOffset;
-	s32 sioInDefOffset;
-	s32 sioOutDefOffset;
-	s32 sioDefsOffset;
-	s32 argsOffset = -1;
+	u32 chars_in_rms_word;
+	s32 task_args_offset;
+	s32 sio_in_def_offset;
+	s32 sio_out_def_offset;
+	s32 sio_defs_offset;
+	s32 args_offset = -1;
 	s32 offset;
-	struct NODE_STRMDEF strmDef;
+	struct node_strmdef strm_def;
 	u32 max;
-	DSP_STATUS status = DSP_SOK;
-	struct DSP_NODEINFO nodeInfo;
-	u32 devType;
+	dsp_status status = DSP_SOK;
+	struct dsp_nodeinfo node_info;
+	u8 dev_type;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(MEM_IsValidHandle(hDisp, DISP_SIGNATURE));
-	DBC_Require(hNode != NULL);
-	DBC_Require(NODE_GetType(hNode) != NODE_DEVICE);
-	DBC_Require(pNodeEnv != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(disp_obj);
+	DBC_REQUIRE(hnode != NULL);
+	DBC_REQUIRE(node_get_type(hnode) != NODE_DEVICE);
+	DBC_REQUIRE(pNodeEnv != NULL);
 
-	GT_6trace(DISP_DebugMask, GT_ENTER,
-	     "DISP_NodeCreate: hDisp: 0x%x\thNode:"
-	     " 0x%x\tulRMSFxn: 0x%x\tulCreateFxn: 0x%x\tpArgs: 0x%x\tpNodeEnv:"
-	     " 0x%x\n", hDisp, hNode, ulRMSFxn, ulCreateFxn, pArgs, pNodeEnv);
-
-	status = DEV_GetDevType(hDisp->hDevObject, &devType);
-
-	GT_1trace(DISP_DebugMask, GT_6CLASS, "DISP_Create: Creating DISP "
-		 "for device = 0x%x\n", devType);
+	status = dev_get_dev_type(disp_obj->hdev_obj, &dev_type);
 
 	if (DSP_FAILED(status))
 		goto func_end;
 
-	if (devType != DSP_UNIT) {
-		GT_1trace(DISP_DebugMask, GT_7CLASS,
-			 "DISP_NodeCreate unknown device "
-			 "type = 0x%x\n", devType);
+	if (dev_type != DSP_UNIT) {
+		dev_dbg(bridge, "%s: unknown device type = 0x%x\n",
+			__func__, dev_type);
 		goto func_end;
 	}
-	DBC_Require(pArgs != NULL);
-	nodeType = NODE_GetType(hNode);
-	msgArgs = pArgs->asa.msgArgs;
-	max = hDisp->ulBufsizeRMS;    /*Max # of RMS words that can be sent */
-	DBC_Assert(max == RMS_COMMANDBUFSIZE);
-	uCharsInRMSWord = sizeof(RMS_WORD) / hDisp->uCharSize;
+	DBC_REQUIRE(pargs != NULL);
+	node_type = node_get_type(hnode);
+	node_msg_args = pargs->asa.node_msg_args;
+	max = disp_obj->ul_bufsize_rms;	/*Max # of RMS words that can be sent */
+	DBC_ASSERT(max == RMS_COMMANDBUFSIZE);
+	chars_in_rms_word = sizeof(rms_word) / disp_obj->char_size;
 	/* Number of RMS words needed to hold arg data */
-	dwLength = (msgArgs.uArgLength + uCharsInRMSWord - 1) / uCharsInRMSWord;
+	dw_length =
+	    (node_msg_args.arg_length + chars_in_rms_word -
+	     1) / chars_in_rms_word;
 	/* Make sure msg args and command fit in buffer */
-	total = sizeof(struct RMS_Command) / sizeof(RMS_WORD) +
-		sizeof(struct RMS_MsgArgs)
-		/ sizeof(RMS_WORD)  - 1 + dwLength;
+	total = sizeof(struct rms_command) / sizeof(rms_word) +
+	    sizeof(struct rms_msg_args)
+	    / sizeof(rms_word) - 1 + dw_length;
 	if (total >= max) {
-		status = DSP_EFAIL;
-		GT_2trace(DISP_DebugMask, GT_6CLASS,
-			"DISP_NodeCreate: Message args too"
-			" large for buffer! Message args size = %d, max = %d\n",
-			total, max);
+		status = -EPERM;
+		dev_dbg(bridge, "%s: Message args too large for buffer! size "
+			"= %d, max = %d\n", __func__, total, max);
 	}
 	/*
 	 *  Fill in buffer to send to RMS.
@@ -448,145 +350,130 @@ DSP_STATUS DISP_NodeCreate(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 	 *
 	 */
 	if (DSP_SUCCEEDED(status)) {
-		total = 0; 	/* Total number of words in buffer so far */
-		pdwBuf = (RMS_WORD *)hDisp->pBuf;
-		pCommand = (struct RMS_Command *)pdwBuf;
-		pCommand->fxn = (RMS_WORD)(ulRMSFxn);
-		pCommand->arg1 = (RMS_WORD)(ulCreateFxn);
-		if (NODE_GetLoadType(hNode) == NLDR_DYNAMICLOAD) {
+		total = 0;	/* Total number of words in buffer so far */
+		pdw_buf = (rms_word *) disp_obj->pbuf;
+		rms_cmd = (struct rms_command *)pdw_buf;
+		rms_cmd->fxn = (rms_word) (ulRMSFxn);
+		rms_cmd->arg1 = (rms_word) (ul_create_fxn);
+		if (node_get_load_type(hnode) == NLDR_DYNAMICLOAD) {
 			/* Flush ICACHE on Load */
-			pCommand->arg2 = 1; 	/* dummy argument */
+			rms_cmd->arg2 = 1;	/* dummy argument */
 		} else {
 			/* Do not flush ICACHE */
-			pCommand->arg2 = 0; 	/* dummy argument */
+			rms_cmd->arg2 = 0;	/* dummy argument */
 		}
-		pCommand->data = NODE_GetType(hNode);
+		rms_cmd->data = node_get_type(hnode);
 		/*
-		 *  argsOffset is the offset of the data field in struct
-		 *  RMS_Command structure. We need this to calculate stream
+		 *  args_offset is the offset of the data field in struct
+		 *  rms_command structure. We need this to calculate stream
 		 *  definition offsets.
 		 */
-		argsOffset = 3;
-		total += sizeof(struct RMS_Command) / sizeof(RMS_WORD);
+		args_offset = 3;
+		total += sizeof(struct rms_command) / sizeof(rms_word);
 		/* Message args */
-		pMsgArgs = (struct RMS_MsgArgs *) (pdwBuf + total);
-		pMsgArgs->maxMessages = msgArgs.uMaxMessages;
-		pMsgArgs->segid = msgArgs.uSegid;
-		pMsgArgs->notifyType = msgArgs.uNotifyType;
-		pMsgArgs->argLength = msgArgs.uArgLength;
-		total += sizeof(struct RMS_MsgArgs) / sizeof(RMS_WORD) - 1;
-		memcpy(pdwBuf + total, msgArgs.pData, msgArgs.uArgLength);
-		total += dwLength;
+		pmsg_args = (struct rms_msg_args *)(pdw_buf + total);
+		pmsg_args->max_msgs = node_msg_args.max_msgs;
+		pmsg_args->segid = node_msg_args.seg_id;
+		pmsg_args->notify_type = node_msg_args.notify_type;
+		pmsg_args->arg_length = node_msg_args.arg_length;
+		total += sizeof(struct rms_msg_args) / sizeof(rms_word) - 1;
+		memcpy(pdw_buf + total, node_msg_args.pdata,
+		       node_msg_args.arg_length);
+		total += dw_length;
 	}
 	if (DSP_FAILED(status))
 		goto func_end;
 
 	/* If node is a task node, copy task create arguments into  buffer */
-	if (nodeType == NODE_TASK || nodeType == NODE_DAISSOCKET) {
-		taskArgs = pArgs->asa.taskArgs;
-		taskArgsOffset = total;
-		total += sizeof(struct RMS_MoreTaskArgs) / sizeof(RMS_WORD) +
-			1 + taskArgs.uNumInputs + taskArgs.uNumOutputs;
+	if (node_type == NODE_TASK || node_type == NODE_DAISSOCKET) {
+		task_arg_obj = pargs->asa.task_arg_obj;
+		task_args_offset = total;
+		total += sizeof(struct rms_more_task_args) / sizeof(rms_word) +
+		    1 + task_arg_obj.num_inputs + task_arg_obj.num_outputs;
 		/* Copy task arguments */
 		if (total < max) {
-			total = taskArgsOffset;
-			pMoreTaskArgs = (struct RMS_MoreTaskArgs *)(pdwBuf +
-					total);
+			total = task_args_offset;
+			more_task_args = (struct rms_more_task_args *)(pdw_buf +
+								       total);
 			/*
 			 * Get some important info about the node. Note that we
-			 * don't just reach into the hNode struct because
+			 * don't just reach into the hnode struct because
 			 * that would break the node object's abstraction.
 			 */
-			GetNodeInfo(hNode, &nodeInfo);
-			GT_2trace(DISP_DebugMask, GT_ENTER,
-				 "uExecutionPriority %x, nPriority %x\n",
-				 nodeInfo.uExecutionPriority,
-				 taskArgs.nPriority);
-			pMoreTaskArgs->priority = nodeInfo.uExecutionPriority;
-			pMoreTaskArgs->stackSize = taskArgs.uStackSize;
-			pMoreTaskArgs->sysstackSize = taskArgs.uSysStackSize;
-			pMoreTaskArgs->stackSeg = taskArgs.uStackSeg;
-			pMoreTaskArgs->heapAddr = taskArgs.uDSPHeapAddr;
-			pMoreTaskArgs->heapSize = taskArgs.uHeapSize;
-			pMoreTaskArgs->misc = taskArgs.ulDaisArg;
-			pMoreTaskArgs->numInputStreams = taskArgs.uNumInputs;
+			get_node_info(hnode, &node_info);
+			more_task_args->priority = node_info.execution_priority;
+			more_task_args->stack_size = task_arg_obj.stack_size;
+			more_task_args->sysstack_size =
+			    task_arg_obj.sys_stack_size;
+			more_task_args->stack_seg = task_arg_obj.stack_seg;
+			more_task_args->heap_addr = task_arg_obj.udsp_heap_addr;
+			more_task_args->heap_size = task_arg_obj.heap_size;
+			more_task_args->misc = task_arg_obj.ul_dais_arg;
+			more_task_args->num_input_streams =
+			    task_arg_obj.num_inputs;
 			total +=
-			    sizeof(struct RMS_MoreTaskArgs) / sizeof(RMS_WORD);
-			GT_2trace(DISP_DebugMask, GT_7CLASS,
-				 "DISP::::uDSPHeapAddr %x, "
-				 "uHeapSize %x\n", taskArgs.uDSPHeapAddr,
-				 taskArgs.uHeapSize);
+			    sizeof(struct rms_more_task_args) /
+			    sizeof(rms_word);
+			dev_dbg(bridge, "%s: udsp_heap_addr %x, heap_size %x\n",
+				__func__, task_arg_obj.udsp_heap_addr,
+				task_arg_obj.heap_size);
 			/* Keep track of pSIOInDef[] and pSIOOutDef[]
 			 * positions in the buffer, since this needs to be
-			 * filled in later.  */
-			sioInDefOffset = total;
-			total += taskArgs.uNumInputs;
-			pdwBuf[total++] = taskArgs.uNumOutputs;
-			sioOutDefOffset = total;
-			total += taskArgs.uNumOutputs;
-			sioDefsOffset = total;
+			 * filled in later. */
+			sio_in_def_offset = total;
+			total += task_arg_obj.num_inputs;
+			pdw_buf[total++] = task_arg_obj.num_outputs;
+			sio_out_def_offset = total;
+			total += task_arg_obj.num_outputs;
+			sio_defs_offset = total;
 			/* Fill SIO defs and offsets */
-			offset = sioDefsOffset;
-			for (i = 0; i < taskArgs.uNumInputs; i++) {
+			offset = sio_defs_offset;
+			for (i = 0; i < task_arg_obj.num_inputs; i++) {
 				if (DSP_FAILED(status))
 					break;
 
-				pdwBuf[sioInDefOffset + i] =
-					(offset - argsOffset)
-					* (sizeof(RMS_WORD) / DSPWORDSIZE);
-				strmDef = taskArgs.strmInDef[i];
-				status = FillStreamDef(pdwBuf, &total, offset,
-					 strmDef, max, uCharsInRMSWord);
+				pdw_buf[sio_in_def_offset + i] =
+				    (offset - args_offset)
+				    * (sizeof(rms_word) / DSPWORDSIZE);
+				strm_def = task_arg_obj.strm_in_def[i];
+				status =
+				    fill_stream_def(pdw_buf, &total, offset,
+						    strm_def, max,
+						    chars_in_rms_word);
 				offset = total;
 			}
-			for (i = 0;  (i < taskArgs.uNumOutputs) &&
-			    (DSP_SUCCEEDED(status)); i++) {
-				pdwBuf[sioOutDefOffset + i] =
-					(offset - argsOffset)
-					* (sizeof(RMS_WORD) / DSPWORDSIZE);
-				strmDef = taskArgs.strmOutDef[i];
-				status = FillStreamDef(pdwBuf, &total, offset,
-					 strmDef, max, uCharsInRMSWord);
+			for (i = 0; (i < task_arg_obj.num_outputs) &&
+			     (DSP_SUCCEEDED(status)); i++) {
+				pdw_buf[sio_out_def_offset + i] =
+				    (offset - args_offset)
+				    * (sizeof(rms_word) / DSPWORDSIZE);
+				strm_def = task_arg_obj.strm_out_def[i];
+				status =
+				    fill_stream_def(pdw_buf, &total, offset,
+						    strm_def, max,
+						    chars_in_rms_word);
 				offset = total;
-			}
-			if (DSP_FAILED(status)) {
-				GT_2trace(DISP_DebugMask, GT_6CLASS,
-				      "DISP_NodeCreate: Message"
-				      " args to large for buffer! Message args"
-				      " size = %d, max = %d\n", total, max);
 			}
 		} else {
 			/* Args won't fit */
-			status = DSP_EFAIL;
-			GT_2trace(DISP_DebugMask, GT_6CLASS,
-				 "DISP_NodeCreate: Message args "
-				 " too large for buffer! Message args size = %d"
-				 ", max = %d\n", total, max);
+			status = -EPERM;
 		}
 	}
 	if (DSP_SUCCEEDED(status)) {
-		ulBytes = total * sizeof(RMS_WORD);
-		DBC_Assert(ulBytes < (RMS_COMMANDBUFSIZE * sizeof(RMS_WORD)));
-		status = SendMessage(hDisp, NODE_GetTimeout(hNode),
-			 ulBytes, pNodeEnv);
-		if (DSP_FAILED(status)) {
-			GT_1trace(DISP_DebugMask, GT_6CLASS,
-				  "DISP_NodeCreate  failed! "
-				  "status = 0x%x\n", status);
-		} else {
+		ul_bytes = total * sizeof(rms_word);
+		DBC_ASSERT(ul_bytes < (RMS_COMMANDBUFSIZE * sizeof(rms_word)));
+		status = send_message(disp_obj, node_get_timeout(hnode),
+				      ul_bytes, pNodeEnv);
+		if (DSP_SUCCEEDED(status)) {
 			/*
 			 * Message successfully received from RMS.
 			 * Return the status of the Node's create function
 			 * on the DSP-side
 			 */
-			status = (((RMS_WORD *)(hDisp->pBuf))[0]);
-			if (DSP_FAILED(status)) {
-				GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "DISP_NodeCreate, "
-					 "DSP-side Node Create failed: 0x%x\n",
-					 status);
-			}
-
+			status = (((rms_word *) (disp_obj->pbuf))[0]);
+			if (DSP_FAILED(status))
+				dev_dbg(bridge, "%s: DSP-side failed: 0x%x\n",
+					__func__, status);
 		}
 	}
 func_end:
@@ -594,64 +481,53 @@ func_end:
 }
 
 /*
- *  ======== DISP_NodeDelete ========
+ *  ======== disp_node_delete ========
  *  purpose:
  *      Delete a node on the DSP by remotely calling the node's delete function.
  *
  */
-DSP_STATUS DISP_NodeDelete(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
-			  u32 ulRMSFxn, u32 ulDeleteFxn, NODE_ENV nodeEnv)
+dsp_status disp_node_delete(struct disp_object *disp_obj,
+			    struct node_object *hnode, u32 ulRMSFxn,
+			    u32 ul_delete_fxn, nodeenv node_env)
 {
-	u32 dwArg;
-	struct RMS_Command *pCommand;
-	DSP_STATUS status = DSP_SOK;
-	u32 devType;
+	u32 dw_arg;
+	struct rms_command *rms_cmd;
+	dsp_status status = DSP_SOK;
+	u8 dev_type;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(MEM_IsValidHandle(hDisp, DISP_SIGNATURE));
-	DBC_Require(hNode != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(disp_obj);
+	DBC_REQUIRE(hnode != NULL);
 
-	GT_5trace(DISP_DebugMask, GT_ENTER,
-		 "DISP_NodeDelete: hDisp: 0x%xthNode: "
-		 "0x%x\tulRMSFxn: 0x%x\tulDeleteFxn: 0x%x\tnodeEnv: 0x%x\n",
-		 hDisp, hNode, ulRMSFxn, ulDeleteFxn, nodeEnv);
-
-	status = DEV_GetDevType(hDisp->hDevObject, &devType);
+	status = dev_get_dev_type(disp_obj->hdev_obj, &dev_type);
 
 	if (DSP_SUCCEEDED(status)) {
 
-		if (devType == DSP_UNIT) {
+		if (dev_type == DSP_UNIT) {
 
 			/*
 			 *  Fill in buffer to send to RMS
 			 */
-			pCommand = (struct RMS_Command *)hDisp->pBuf;
-			pCommand->fxn = (RMS_WORD)(ulRMSFxn);
-			pCommand->arg1 = (RMS_WORD)nodeEnv;
-			pCommand->arg2 = (RMS_WORD)(ulDeleteFxn);
-			pCommand->data = NODE_GetType(hNode);
+			rms_cmd = (struct rms_command *)disp_obj->pbuf;
+			rms_cmd->fxn = (rms_word) (ulRMSFxn);
+			rms_cmd->arg1 = (rms_word) node_env;
+			rms_cmd->arg2 = (rms_word) (ul_delete_fxn);
+			rms_cmd->data = node_get_type(hnode);
 
-			status = SendMessage(hDisp, NODE_GetTimeout(hNode),
-					    sizeof(struct RMS_Command), &dwArg);
-			if (DSP_FAILED(status)) {
-				GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "DISP_NodeDelete failed!"
-					 "status = 0x%x\n", status);
-			} else {
+			status = send_message(disp_obj, node_get_timeout(hnode),
+					      sizeof(struct rms_command),
+					      &dw_arg);
+			if (DSP_SUCCEEDED(status)) {
 				/*
 				 * Message successfully received from RMS.
 				 * Return the status of the Node's delete
 				 * function on the DSP-side
 				 */
-				status = (((RMS_WORD *)(hDisp->pBuf))[0]);
-				if (DSP_FAILED(status)) {
-					GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "DISP_NodeDelete, "
-					 "DSP-side Node Delete failed: 0x%x\n",
-					 status);
-				}
+				status = (((rms_word *) (disp_obj->pbuf))[0]);
+				if (DSP_FAILED(status))
+					dev_dbg(bridge, "%s: DSP-side failed: "
+						"0x%x\n", __func__, status);
 			}
-
 
 		}
 	}
@@ -659,134 +535,122 @@ DSP_STATUS DISP_NodeDelete(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
 }
 
 /*
- *  ======== DISP_NodeRun ========
+ *  ======== disp_node_run ========
  *  purpose:
  *      Start execution of a node's execute phase, or resume execution of a node
  *      that has been suspended (via DISP_NodePause()) on the DSP.
  */
-DSP_STATUS DISP_NodeRun(struct DISP_OBJECT *hDisp, struct NODE_OBJECT *hNode,
-			u32 ulRMSFxn, u32 ulExecuteFxn, NODE_ENV nodeEnv)
+dsp_status disp_node_run(struct disp_object *disp_obj,
+			 struct node_object *hnode, u32 ulRMSFxn,
+			 u32 ul_execute_fxn, nodeenv node_env)
 {
-	u32 dwArg;
-	struct RMS_Command *pCommand;
-	DSP_STATUS status = DSP_SOK;
-	u32 devType;
-	DBC_Require(cRefs > 0);
-	DBC_Require(MEM_IsValidHandle(hDisp, DISP_SIGNATURE));
-	DBC_Require(hNode != NULL);
+	u32 dw_arg;
+	struct rms_command *rms_cmd;
+	dsp_status status = DSP_SOK;
+	u8 dev_type;
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(disp_obj);
+	DBC_REQUIRE(hnode != NULL);
 
-	GT_5trace(DISP_DebugMask, GT_ENTER, "DISP_NodeRun: hDisp: 0x%xthNode: \
-		 0x%x\tulRMSFxn: 0x%x\tulExecuteFxn: 0x%x\tnodeEnv: 0x%x\n", \
-		 hDisp, hNode, ulRMSFxn, ulExecuteFxn, nodeEnv);
-
-	status = DEV_GetDevType(hDisp->hDevObject, &devType);
+	status = dev_get_dev_type(disp_obj->hdev_obj, &dev_type);
 
 	if (DSP_SUCCEEDED(status)) {
 
-		if (devType == DSP_UNIT) {
+		if (dev_type == DSP_UNIT) {
 
 			/*
 			 *  Fill in buffer to send to RMS.
 			 */
-			pCommand = (struct RMS_Command *) hDisp->pBuf;
-			pCommand->fxn = (RMS_WORD) (ulRMSFxn);
-			pCommand->arg1 = (RMS_WORD) nodeEnv;
-			pCommand->arg2 = (RMS_WORD) (ulExecuteFxn);
-			pCommand->data = NODE_GetType(hNode);
+			rms_cmd = (struct rms_command *)disp_obj->pbuf;
+			rms_cmd->fxn = (rms_word) (ulRMSFxn);
+			rms_cmd->arg1 = (rms_word) node_env;
+			rms_cmd->arg2 = (rms_word) (ul_execute_fxn);
+			rms_cmd->data = node_get_type(hnode);
 
-			status = SendMessage(hDisp, NODE_GetTimeout(hNode),
-				 sizeof(struct RMS_Command), &dwArg);
-			if (DSP_FAILED(status)) {
-				GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "DISP_NodeRun failed!"
-					 "status = 0x%x\n", status);
-			} else {
+			status = send_message(disp_obj, node_get_timeout(hnode),
+					      sizeof(struct rms_command),
+					      &dw_arg);
+			if (DSP_SUCCEEDED(status)) {
 				/*
 				 * Message successfully received from RMS.
 				 * Return the status of the Node's execute
 				 * function on the DSP-side
 				 */
-				status = (((RMS_WORD *)(hDisp->pBuf))[0]);
-				if (DSP_FAILED(status)) {
-					GT_1trace(DISP_DebugMask, GT_6CLASS,
-						"DISP_NodeRun, DSP-side Node "
-						"Execute failed: 0x%x\n",
-						status);
-		}
-		}
+				status = (((rms_word *) (disp_obj->pbuf))[0]);
+				if (DSP_FAILED(status))
+					dev_dbg(bridge, "%s: DSP-side failed: "
+						"0x%x\n", __func__, status);
+			}
 
-	}
+		}
 	}
 
 	return status;
 }
 
 /*
- *  ======== DeleteDisp ========
+ *  ======== delete_disp ========
  *  purpose:
  *      Frees the resources allocated for the dispatcher.
  */
-static void DeleteDisp(struct DISP_OBJECT *hDisp)
+static void delete_disp(struct disp_object *disp_obj)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct WMD_DRV_INTERFACE *pIntfFxns;
+	dsp_status status = DSP_SOK;
+	struct bridge_drv_interface *intf_fxns;
 
-	if (MEM_IsValidHandle(hDisp, DISP_SIGNATURE)) {
-		pIntfFxns = hDisp->pIntfFxns;
+	if (disp_obj) {
+		intf_fxns = disp_obj->intf_fxns;
 
 		/* Free Node Dispatcher resources */
-		if (hDisp->hChnlFromDsp) {
+		if (disp_obj->chnl_from_dsp) {
 			/* Channel close can fail only if the channel handle
 			 * is invalid. */
-			status = (*pIntfFxns->pfnChnlClose)
-				 (hDisp->hChnlFromDsp);
+			status = (*intf_fxns->pfn_chnl_close)
+			    (disp_obj->chnl_from_dsp);
 			if (DSP_FAILED(status)) {
-				GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "DISP_Delete: Failed to "
-					 "close channel from RMS: 0x%x\n",
-					 status);
+				dev_dbg(bridge, "%s: Failed to close channel "
+					"from RMS: 0x%x\n", __func__, status);
 			}
 		}
-		if (hDisp->hChnlToDsp) {
-			status = (*pIntfFxns->pfnChnlClose)(hDisp->hChnlToDsp);
+		if (disp_obj->chnl_to_dsp) {
+			status =
+			    (*intf_fxns->pfn_chnl_close) (disp_obj->
+							  chnl_to_dsp);
 			if (DSP_FAILED(status)) {
-				GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "DISP_Delete: Failed to "
-					 "close channel to RMS: 0x%x\n",
-					 status);
+				dev_dbg(bridge, "%s: Failed to close channel to"
+					" RMS: 0x%x\n", __func__, status);
 			}
 		}
-		if (hDisp->pBuf)
-			MEM_Free(hDisp->pBuf);
+		kfree(disp_obj->pbuf);
 
-		MEM_FreeObject(hDisp);
+		kfree(disp_obj);
 	}
 }
 
 /*
- *  ======== FillStreamDef ========
+ *  ======== fill_stream_def ========
  *  purpose:
  *      Fills stream definitions.
  */
-static DSP_STATUS FillStreamDef(RMS_WORD *pdwBuf, u32 *ptotal, u32 offset,
-				struct NODE_STRMDEF strmDef, u32 max,
-				u32 uCharsInRMSWord)
+static dsp_status fill_stream_def(rms_word *pdw_buf, u32 *ptotal, u32 offset,
+				  struct node_strmdef strm_def, u32 max,
+				  u32 chars_in_rms_word)
 {
-	struct RMS_StrmDef *pStrmDef;
+	struct rms_strm_def *strm_def_obj;
 	u32 total = *ptotal;
-	u32 uNameLen;
-	u32 dwLength;
-	DSP_STATUS status = DSP_SOK;
+	u32 name_len;
+	u32 dw_length;
+	dsp_status status = DSP_SOK;
 
-	if (total + sizeof(struct RMS_StrmDef) / sizeof(RMS_WORD) >= max) {
-		status = DSP_EFAIL;
+	if (total + sizeof(struct rms_strm_def) / sizeof(rms_word) >= max) {
+		status = -EPERM;
 	} else {
-		pStrmDef = (struct RMS_StrmDef *)(pdwBuf + total);
-		pStrmDef->bufsize = strmDef.uBufsize;
-		pStrmDef->nbufs = strmDef.uNumBufs;
-		pStrmDef->segid = strmDef.uSegid;
-		pStrmDef->align = strmDef.uAlignment;
-		pStrmDef->timeout = strmDef.uTimeout;
+		strm_def_obj = (struct rms_strm_def *)(pdw_buf + total);
+		strm_def_obj->bufsize = strm_def.buf_size;
+		strm_def_obj->nbufs = strm_def.num_bufs;
+		strm_def_obj->segid = strm_def.seg_id;
+		strm_def_obj->align = strm_def.buf_alignment;
+		strm_def_obj->timeout = strm_def.utimeout;
 	}
 
 	if (DSP_SUCCEEDED(status)) {
@@ -794,24 +658,25 @@ static DSP_STATUS FillStreamDef(RMS_WORD *pdwBuf, u32 *ptotal, u32 offset,
 		 *  Since we haven't added the device name yet, subtract
 		 *  1 from total.
 		 */
-		total += sizeof(struct RMS_StrmDef) / sizeof(RMS_WORD) - 1;
-               DBC_Require(strmDef.szDevice);
-               dwLength = strlen(strmDef.szDevice) + 1;
+		total += sizeof(struct rms_strm_def) / sizeof(rms_word) - 1;
+		DBC_REQUIRE(strm_def.sz_device);
+		dw_length = strlen(strm_def.sz_device) + 1;
 
 		/* Number of RMS_WORDS needed to hold device name */
-		uNameLen = (dwLength + uCharsInRMSWord - 1) / uCharsInRMSWord;
+		name_len =
+		    (dw_length + chars_in_rms_word - 1) / chars_in_rms_word;
 
-		if (total + uNameLen >= max) {
-			status = DSP_EFAIL;
+		if (total + name_len >= max) {
+			status = -EPERM;
 		} else {
 			/*
 			 *  Zero out last word, since the device name may not
 			 *  extend to completely fill this word.
 			 */
-			pdwBuf[total + uNameLen - 1] = 0;
-			/** TODO USE SERVICES **/
-			memcpy(pdwBuf + total, strmDef.szDevice, dwLength);
-			total += uNameLen;
+			pdw_buf[total + name_len - 1] = 0;
+			/** TODO USE SERVICES * */
+			memcpy(pdw_buf + total, strm_def.sz_device, dw_length);
+			total += name_len;
 			*ptotal = total;
 		}
 	}
@@ -820,94 +685,71 @@ static DSP_STATUS FillStreamDef(RMS_WORD *pdwBuf, u32 *ptotal, u32 offset,
 }
 
 /*
- *  ======== SendMessage ======
+ *  ======== send_message ======
  *  Send command message to RMS, get reply from RMS.
  */
-static DSP_STATUS SendMessage(struct DISP_OBJECT *hDisp, u32 dwTimeout,
-			     u32 ulBytes, u32 *pdwArg)
+static dsp_status send_message(struct disp_object *disp_obj, u32 dwTimeout,
+			       u32 ul_bytes, u32 *pdw_arg)
 {
-	struct WMD_DRV_INTERFACE *pIntfFxns;
-	struct CHNL_OBJECT *hChnl;
-	u32 dwArg = 0;
-	u8 *pBuf;
-	struct CHNL_IOC chnlIOC;
-	DSP_STATUS status = DSP_SOK;
+	struct bridge_drv_interface *intf_fxns;
+	struct chnl_object *chnl_obj;
+	u32 dw_arg = 0;
+	u8 *pbuf;
+	struct chnl_ioc chnl_ioc_obj;
+	dsp_status status = DSP_SOK;
 
-	DBC_Require(pdwArg != NULL);
+	DBC_REQUIRE(pdw_arg != NULL);
 
-	*pdwArg = (u32) NULL;
-	pIntfFxns = hDisp->pIntfFxns;
-	hChnl = hDisp->hChnlToDsp;
-	pBuf = hDisp->pBuf;
+	*pdw_arg = (u32) NULL;
+	intf_fxns = disp_obj->intf_fxns;
+	chnl_obj = disp_obj->chnl_to_dsp;
+	pbuf = disp_obj->pbuf;
 
 	/* Send the command */
-	status = (*pIntfFxns->pfnChnlAddIOReq) (hChnl, pBuf, ulBytes, 0,
-		 0L, dwArg);
+	status = (*intf_fxns->pfn_chnl_add_io_req) (chnl_obj, pbuf, ul_bytes, 0,
+						    0L, dw_arg);
+	if (DSP_FAILED(status))
+		goto func_end;
 
-	if (DSP_FAILED(status)) {
-		GT_1trace(DISP_DebugMask, GT_6CLASS,
-			 "SendMessage: Channel AddIOReq to"
-			 " RMS failed! Status = 0x%x\n", status);
-		goto func_cont;
-	}
-	status = (*pIntfFxns->pfnChnlGetIOC) (hChnl, dwTimeout, &chnlIOC);
+	status =
+	    (*intf_fxns->pfn_chnl_get_ioc) (chnl_obj, dwTimeout, &chnl_ioc_obj);
 	if (DSP_SUCCEEDED(status)) {
-		if (!CHNL_IsIOComplete(chnlIOC)) {
-			if (CHNL_IsTimedOut(chnlIOC)) {
-				status = DSP_ETIMEOUT;
-			} else {
-				GT_1trace(DISP_DebugMask, GT_6CLASS,
-					 "SendMessage failed! "
-					 "Channel IOC status = 0x%x\n",
-					 chnlIOC.status);
-				status = DSP_EFAIL;
-			}
+		if (!CHNL_IS_IO_COMPLETE(chnl_ioc_obj)) {
+			if (CHNL_IS_TIMED_OUT(chnl_ioc_obj))
+				status = -ETIME;
+			else
+				status = -EPERM;
 		}
-	} else {
-		GT_1trace(DISP_DebugMask, GT_6CLASS,
-			 "SendMessage: Channel GetIOC to"
-			 " RMS failed! Status = 0x%x\n", status);
 	}
-func_cont:
 	/* Get the reply */
 	if (DSP_FAILED(status))
 		goto func_end;
 
-	hChnl = hDisp->hChnlFromDsp;
-	ulBytes = REPLYSIZE;
-	status = (*pIntfFxns->pfnChnlAddIOReq)(hChnl, pBuf, ulBytes,
-		 0, 0L, dwArg);
-	if (DSP_FAILED(status)) {
-		GT_1trace(DISP_DebugMask, GT_6CLASS,
-			 "SendMessage: Channel AddIOReq "
-			 "from RMS failed! Status = 0x%x\n", status);
+	chnl_obj = disp_obj->chnl_from_dsp;
+	ul_bytes = REPLYSIZE;
+	status = (*intf_fxns->pfn_chnl_add_io_req) (chnl_obj, pbuf, ul_bytes,
+						    0, 0L, dw_arg);
+	if (DSP_FAILED(status))
 		goto func_end;
-	}
-	status = (*pIntfFxns->pfnChnlGetIOC) (hChnl, dwTimeout, &chnlIOC);
+
+	status =
+	    (*intf_fxns->pfn_chnl_get_ioc) (chnl_obj, dwTimeout, &chnl_ioc_obj);
 	if (DSP_SUCCEEDED(status)) {
-		if (CHNL_IsTimedOut(chnlIOC)) {
-			status = DSP_ETIMEOUT;
-		} else if (chnlIOC.cBytes < ulBytes) {
+		if (CHNL_IS_TIMED_OUT(chnl_ioc_obj)) {
+			status = -ETIME;
+		} else if (chnl_ioc_obj.byte_size < ul_bytes) {
 			/* Did not get all of the reply from the RMS */
-			GT_1trace(DISP_DebugMask, GT_6CLASS,
-				 "SendMessage: Did not get all"
-				 "of reply from RMS! Bytes received: %d\n",
-				 chnlIOC.cBytes);
-			status = DSP_EFAIL;
+			status = -EPERM;
 		} else {
-			if (CHNL_IsIOComplete(chnlIOC)) {
-				DBC_Assert(chnlIOC.pBuf == pBuf);
-				status = (*((RMS_WORD *)chnlIOC.pBuf));
-				*pdwArg = (((RMS_WORD *)(chnlIOC.pBuf))[1]);
+			if (CHNL_IS_IO_COMPLETE(chnl_ioc_obj)) {
+				DBC_ASSERT(chnl_ioc_obj.pbuf == pbuf);
+				status = (*((rms_word *) chnl_ioc_obj.pbuf));
+				*pdw_arg =
+				    (((rms_word *) (chnl_ioc_obj.pbuf))[1]);
 			} else {
-				status = DSP_EFAIL;
+				status = -EPERM;
 			}
 		}
-	} else {
-		/* GetIOC failed */
-		GT_1trace(DISP_DebugMask, GT_6CLASS,
-			 "SendMessage: Failed to get "
-			 "reply from RMS! Status = 0x%x\n", status);
 	}
 func_end:
 	return status;

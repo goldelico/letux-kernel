@@ -557,7 +557,6 @@ static int omap_verify_buf(struct mtd_info *mtd, const u_char * buf, int len)
 	return 0;
 }
 
-#ifdef CONFIG_MTD_NAND_OMAP_HWECC
 /**
  * omap_hwecc_init - Initialize the HW ECC for NAND flash in GPMC controller
  * @mtd: MTD device structure
@@ -838,7 +837,6 @@ static void omap_enable_hwecc(struct mtd_info *mtd, int mode)
 
 	__raw_writel(val, info->gpmc_baseaddr + GPMC_ECC_CONFIG);
 }
-#endif
 
 /**
  * omap_wait - wait until the command is done
@@ -1037,19 +1035,19 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 	}
 	info->nand.verify_buf = omap_verify_buf;
 
-#ifdef CONFIG_MTD_NAND_OMAP_HWECC
-	info->nand.ecc.bytes		= 3;
-	info->nand.ecc.size		= 512;
-	info->nand.ecc.calculate	= omap_calculate_ecc;
-	info->nand.ecc.hwctl		= omap_enable_hwecc;
-	info->nand.ecc.correct		= omap_correct_data;
-	info->nand.ecc.mode		= NAND_ECC_HW;
+	if (pdata->ecc_opt & 0x3) {
+		info->nand.ecc.bytes            = 3;
+		info->nand.ecc.size             = 512;
+		info->nand.ecc.calculate        = omap_calculate_ecc;
+		info->nand.ecc.hwctl            = omap_enable_hwecc;
+		info->nand.ecc.correct          = omap_correct_data;
+		info->nand.ecc.mode             = NAND_ECC_HW;
+		/* init HW ECC */
+		omap_hwecc_init(&info->mtd);
+	} else {
+		info->nand.ecc.mode = NAND_ECC_SOFT;
+	}
 
-	/* init HW ECC */
-	omap_hwecc_init(&info->mtd);
-#else
-	info->nand.ecc.mode = NAND_ECC_SOFT;
-#endif
 
 	/* DIP switches on some boards change between 8 and 16 bit
 	 * bus widths for flash.  Try the other width if the first try fails.

@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Definitions and types for the DSP wake/sleep routines.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,95 +16,77 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== _tiomap_pwr.h ========
- *  Description:
- *      Definitions and types for the DSP wake/sleep routines.
- *
- *! Revision History
- *! ================
- *! 08-Oct-2002 rr:  Created.
- */
-
 #ifndef _TIOMAP_PWR_
 #define _TIOMAP_PWR_
 
 /*
- * ======== WakeDSP =========
+ * ======== wake_dsp =========
  * Wakes up the DSP from DeepSleep
  */
-extern DSP_STATUS WakeDSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs);
+extern dsp_status wake_dsp(struct wmd_dev_context *dev_context, IN void *pargs);
 
 /*
- * ======== SleepDSP =========
+ * ======== sleep_dsp =========
  * Places the DSP in DeepSleep.
  */
-extern DSP_STATUS SleepDSP(struct WMD_DEV_CONTEXT *pDevContext,
-			   IN u32 dwCmd, IN void *pArgs);
+extern dsp_status sleep_dsp(struct wmd_dev_context *dev_context,
+			    IN u32 dw_cmd, IN void *pargs);
 /*
- *  ========InterruptDSP========
+ *  ========interrupt_dsp========
  *  	  Sends an interrupt to DSP unconditionally.
  */
-extern void InterruptDSP(struct WMD_DEV_CONTEXT *pDevContext, IN u16 wMbVal);
+extern void interrupt_dsp(struct wmd_dev_context *dev_context, IN u16 mb_val);
 
 /*
- * ======== WakeDSP =========
+ * ======== wake_dsp =========
  * Wakes up the DSP from DeepSleep
  */
-extern DSP_STATUS DSPPeripheralClkCtrl(struct WMD_DEV_CONTEXT *pDevContext,
-				       IN void *pArgs);
+extern dsp_status dsp_peripheral_clk_ctrl(struct wmd_dev_context *dev_context,
+					  IN void *pargs);
 /*
- *  ======== handle_hibernation_fromDSP ========
+ *  ======== handle_hibernation_from_dsp ========
  *  	Handle Hibernation requested from DSP
  */
-DSP_STATUS handle_hibernation_fromDSP(struct WMD_DEV_CONTEXT *pDevContext);
+dsp_status handle_hibernation_from_dsp(struct wmd_dev_context *dev_context);
 /*
- *  ======== PostScale_DSP ========
+ *  ======== post_scale_dsp ========
  *  	Handle Post Scale notification to DSP
  */
-DSP_STATUS PostScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs);
+dsp_status post_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs);
 /*
- *  ======== PreScale_DSP ========
+ *  ======== pre_scale_dsp ========
  *  	Handle Pre Scale notification to DSP
  */
-DSP_STATUS PreScale_DSP(struct WMD_DEV_CONTEXT *pDevContext, IN void *pArgs);
+dsp_status pre_scale_dsp(struct wmd_dev_context *dev_context, IN void *pargs);
 /*
  *  ======== handle_constraints_set ========
  *  	Handle constraints request from DSP
  */
-DSP_STATUS handle_constraints_set(struct WMD_DEV_CONTEXT *pDevContext,
-				 IN void *pArgs);
+dsp_status handle_constraints_set(struct wmd_dev_context *dev_context,
+				  IN void *pargs);
 /*
- *  ======== DSP_PeripheralClocks_Disable ========
+ *  ======== dsp_peripheral_clocks_disable ========
  *  	This function disables all the peripheral clocks that
  *	were enabled by DSP. Call this function only when
  *	DSP is entering Hibernation or when DSP is in
  *	Error state
  */
-DSP_STATUS DSP_PeripheralClocks_Disable(struct WMD_DEV_CONTEXT *pDevContext,
-					IN void *pArgs);
+dsp_status dsp_peripheral_clocks_disable(struct wmd_dev_context *dev_context,
+					 IN void *pargs);
 
 /*
- *  ======== DSP_PeripheralClocks_Enable ========
+ *  ======== dsp_peripheral_clocks_enable ========
  *  	This function enables all the peripheral clocks that
  *	were requested by DSP.
  */
-DSP_STATUS DSP_PeripheralClocks_Enable(struct WMD_DEV_CONTEXT *pDevContext,
-				       IN void *pArgs);
+dsp_status dsp_peripheral_clocks_enable(struct wmd_dev_context *dev_context,
+					IN void *pargs);
 
 /*
- *  ======== DSPClkWakeupEventCtrl ========
+ *  ======== dsp_clk_wakeup_event_ctrl ========
  *     This function sets the group selction bits for while
  *     enabling/disabling.
  */
-void DSPClkWakeupEventCtrl(u32 ClkId, bool enable);
+void dsp_clk_wakeup_event_ctrl(u32 ClkId, bool enable);
 
-/*
- *  ======== tiomap3430_bump_dsp_opp_level ========
- *  	This function bumps DSP OPP level if it is OPP1
- */
-DSP_STATUS tiomap3430_bump_dsp_opp_level(void);
-
-#endif				/* _TIOMAP_PWR_ */
-
+#endif /* _TIOMAP_PWR_ */

@@ -3,6 +3,13 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * The Dynamic Memory Manager (DMM) module manages the DSP Virtual address
+ * space that can be directly mapped to any MPU buffer or memory region
+ *
+ * Notes:
+ *   Region: Generic memory entitiy having a start address and a size
+ *   Chunk:  Reserved region
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,46 +19,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-/*
- *  ======== dmm.c ========
- *  Purpose:
- *      The Dynamic Memory Manager (DMM) module manages the DSP Virtual address
- *      space that can be directly mapped to any MPU buffer or memory region
- *
- *  Public Functions:
- *      DMM_CreateTables
- *      DMM_Create
- *      DMM_Destroy
- *      DMM_Exit
- *      DMM_Init
- *      DMM_MapMemory
- *      DMM_Reset
- *      DMM_ReserveMemory
- *      DMM_UnMapMemory
- *      DMM_UnReserveMemory
- *
- *  Private Functions:
- *      AddRegion
- *      CreateRegion
- *      GetRegion
- *	GetFreeRegion
- *	GetMappedRegion
- *
- *  Notes:
- *      Region: Generic memory entitiy having a start address and a size
- *      Chunk:  Reserved region
- *
- *
- *! Revision History:
- *! ================
- *! 04-Jun-2008 Hari K : Optimized DMM implementation. Removed linked list
- *!                                and instead used Table approach.
- *! 19-Apr-2004 sb: Integrated Alan's code review updates.
- *! 17-Mar-2004 ap: Fixed GetRegion for size=0 using tighter bound.
- *! 20-Feb-2004 sb: Created.
- *!
  */
 
 /*  ----------------------------------- Host OS */
@@ -64,11 +31,8 @@
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
 #include <dspbridge/errbase.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
-#include <dspbridge/list.h>
-#include <dspbridge/mem.h>
 #include <dspbridge/sync.h>
 
 /*  ----------------------------------- Platform Manager */
@@ -79,578 +43,496 @@
 #include <dspbridge/dmm.h>
 
 /*  ----------------------------------- Defines, Data Structures, Typedefs */
-/* Object signatures */
-#define DMMSIGNATURE       0x004d4d44	/* "DMM"   (in reverse) */
-
 #define DMM_ADDR_VIRTUAL(a) \
-	(((struct MapPage *)(a) - pVirtualMappingTable) * PG_SIZE_4K +\
-	dynMemMapBeg)
-#define DMM_ADDR_TO_INDEX(a) (((a) - dynMemMapBeg) / PG_SIZE_4K)
+	(((struct map_page *)(a) - virtual_mapping_table) * PG_SIZE4K +\
+	dyn_mem_map_beg)
+#define DMM_ADDR_TO_INDEX(a) (((a) - dyn_mem_map_beg) / PG_SIZE4K)
 
 /* DMM Mgr */
-struct DMM_OBJECT {
-	u32 dwSignature;	/* Used for object validation */
+struct dmm_object {
 	/* Dmm Lock is used to serialize access mem manager for
 	 * multi-threads. */
-	struct SYNC_CSOBJECT *hDmmLock;	/* Lock to access dmm mgr */
+	spinlock_t dmm_lock;	/* Lock to access dmm mgr */
 };
 
-
 /*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask DMM_debugMask = { NULL, NULL };	/* GT trace variable */
-#endif
-
-static u32 cRefs;		/* module reference count */
-struct MapPage {
-	u64   RegionSize:31;
-	u64   MappedSize:31;
-	u64   bReserved:1;
-	u64   bMapped:1;
+static u32 refs;		/* module reference count */
+struct map_page {
+	u32 region_size:31;
+	u32 reserved:1;
+	u32 mapped_size:31;
+	u32 mapped:1;
 };
 
 /*  Create the free list */
-static struct MapPage *pVirtualMappingTable;
-static u32  iFreeRegion;	/* The index of free region */
-static u32  iFreeSize;
-static u32  dynMemMapBeg;	/* The Beginning of dynamic memory mapping */
-static u32  TableSize;/* The size of virtual and physical pages tables */
+static struct map_page *virtual_mapping_table;
+static u32 free_region;		/* The index of free region */
+static u32 free_size;
+static u32 dyn_mem_map_beg;	/* The Beginning of dynamic memory mapping */
+static u32 table_size;		/* The size of virt and phys pages tables */
 
 /*  ----------------------------------- Function Prototypes */
-static struct MapPage *GetRegion(u32 addr);
-static struct MapPage *GetFreeRegion(u32 aSize);
-static struct MapPage *GetMappedRegion(u32 aAddr);
+static struct map_page *get_region(u32 addr);
+static struct map_page *get_free_region(u32 aSize);
+static struct map_page *get_mapped_region(u32 aAddr);
 #ifdef DSP_DMM_DEBUG
-u32 DMM_MemMapDump(struct DMM_OBJECT *hDmmMgr);
+u32 dmm_mem_map_dump(struct dmm_object *dmm_mgr);
 #endif
 
-/*  ======== DMM_CreateTables ========
+/*  ======== dmm_create_tables ========
  *  Purpose:
  *      Create table to hold the information of physical address
  *      the buffer pages that is passed by the user, and the table
  *      to hold the information of the virtual memory that is reserved
  *      for DSP.
  */
-DSP_STATUS DMM_CreateTables(struct DMM_OBJECT *hDmmMgr, u32 addr, u32 size)
+dsp_status dmm_create_tables(struct dmm_object *dmm_mgr, u32 addr, u32 size)
 {
-	struct DMM_OBJECT *pDmmObj = (struct DMM_OBJECT *)hDmmMgr;
-	DSP_STATUS status = DSP_SOK;
+	struct dmm_object *dmm_obj = (struct dmm_object *)dmm_mgr;
+	dsp_status status = DSP_SOK;
 
-	GT_3trace(DMM_debugMask, GT_ENTER,
-		 "Entered DMM_CreateTables () hDmmMgr %x, addr"
-		 " %x, size %x\n", hDmmMgr, addr, size);
-	status = DMM_DeleteTables(pDmmObj);
+	status = dmm_delete_tables(dmm_obj);
 	if (DSP_SUCCEEDED(status)) {
-		SYNC_EnterCS(pDmmObj->hDmmLock);
-		dynMemMapBeg = addr;
-		TableSize = PG_ALIGN_HIGH(size, PG_SIZE_4K)/PG_SIZE_4K;
+		dyn_mem_map_beg = addr;
+		table_size = PG_ALIGN_HIGH(size, PG_SIZE4K) / PG_SIZE4K;
 		/*  Create the free list */
-		pVirtualMappingTable = (struct MapPage *) MEM_Calloc
-			(TableSize * sizeof(struct MapPage), MEM_LARGEVIRTMEM);
-		if (pVirtualMappingTable == NULL)
-			status = DSP_EMEMORY;
+		virtual_mapping_table = __vmalloc(table_size *
+				sizeof(struct map_page), GFP_KERNEL |
+				__GFP_HIGHMEM | __GFP_ZERO, PAGE_KERNEL);
+		if (virtual_mapping_table == NULL)
+			status = -ENOMEM;
 		else {
 			/* On successful allocation,
-			* all entries are zero ('free') */
-			iFreeRegion = 0;
-			iFreeSize = TableSize*PG_SIZE_4K;
-			pVirtualMappingTable[0].RegionSize = TableSize;
+			 * all entries are zero ('free') */
+			free_region = 0;
+			free_size = table_size * PG_SIZE4K;
+			virtual_mapping_table[0].region_size = table_size;
 		}
-		SYNC_LeaveCS(pDmmObj->hDmmLock);
-	} else
-		GT_0trace(DMM_debugMask, GT_7CLASS,
-			 "DMM_CreateTables: DMM_DeleteTables"
-			 "Failure\n");
+	}
 
-	GT_1trace(DMM_debugMask, GT_4CLASS, "Leaving DMM_CreateTables status"
-							"0x%x\n", status);
+	if (DSP_FAILED(status))
+		pr_err("%s: failure, status 0x%x\n", __func__, status);
+
 	return status;
 }
 
 /*
- *  ======== DMM_Create ========
+ *  ======== dmm_create ========
  *  Purpose:
  *      Create a dynamic memory manager object.
  */
-DSP_STATUS DMM_Create(OUT struct DMM_OBJECT **phDmmMgr,
-		     struct DEV_OBJECT *hDevObject,
-		     IN CONST struct DMM_MGRATTRS *pMgrAttrs)
+dsp_status dmm_create(OUT struct dmm_object **phDmmMgr,
+		      struct dev_object *hdev_obj,
+		      IN CONST struct dmm_mgrattrs *pMgrAttrs)
 {
-	struct DMM_OBJECT *pDmmObject = NULL;
-	DSP_STATUS status = DSP_SOK;
-	DBC_Require(cRefs > 0);
-	DBC_Require(phDmmMgr != NULL);
+	struct dmm_object *dmm_obj = NULL;
+	dsp_status status = DSP_SOK;
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(phDmmMgr != NULL);
 
-	GT_3trace(DMM_debugMask, GT_ENTER,
-		 "DMM_Create: phDmmMgr: 0x%x hDevObject: "
-		 "0x%x pMgrAttrs: 0x%x\n", phDmmMgr, hDevObject, pMgrAttrs);
 	*phDmmMgr = NULL;
 	/* create, zero, and tag a cmm mgr object */
-	MEM_AllocObject(pDmmObject, struct DMM_OBJECT, DMMSIGNATURE);
-	if (pDmmObject != NULL) {
-		status = SYNC_InitializeCS(&pDmmObject->hDmmLock);
-		if (DSP_SUCCEEDED(status))
-			*phDmmMgr = pDmmObject;
-		else
-			DMM_Destroy(pDmmObject);
+	dmm_obj = kzalloc(sizeof(struct dmm_object), GFP_KERNEL);
+	if (dmm_obj != NULL) {
+		spin_lock_init(&dmm_obj->dmm_lock);
+		*phDmmMgr = dmm_obj;
 	} else {
-		GT_0trace(DMM_debugMask, GT_7CLASS,
-			 "DMM_Create: Object Allocation "
-			 "Failure(DMM Object)\n");
-		status = DSP_EMEMORY;
+		status = -ENOMEM;
 	}
-	GT_2trace(DMM_debugMask, GT_4CLASS,
-			"Leaving DMM_Create status %x pDmmObject %x\n",
-			status, pDmmObject);
 
 	return status;
 }
 
 /*
- *  ======== DMM_Destroy ========
+ *  ======== dmm_destroy ========
  *  Purpose:
  *      Release the communication memory manager resources.
  */
-DSP_STATUS DMM_Destroy(struct DMM_OBJECT *hDmmMgr)
+dsp_status dmm_destroy(struct dmm_object *dmm_mgr)
 {
-	struct DMM_OBJECT *pDmmObj = (struct DMM_OBJECT *)hDmmMgr;
-	DSP_STATUS status = DSP_SOK;
+	struct dmm_object *dmm_obj = (struct dmm_object *)dmm_mgr;
+	dsp_status status = DSP_SOK;
 
-	GT_1trace(DMM_debugMask, GT_ENTER,
-		"Entered DMM_Destroy () hDmmMgr %x\n", hDmmMgr);
-	DBC_Require(cRefs > 0);
-	if (MEM_IsValidHandle(hDmmMgr, DMMSIGNATURE)) {
-		status = DMM_DeleteTables(pDmmObj);
-		if (DSP_SUCCEEDED(status)) {
-			/* Delete CS & dmm mgr object */
-			SYNC_DeleteCS(pDmmObj->hDmmLock);
-			MEM_FreeObject(pDmmObj);
-		} else
-			GT_0trace(DMM_debugMask, GT_7CLASS,
-			 "DMM_Destroy: DMM_DeleteTables "
-			 "Failure\n");
+	DBC_REQUIRE(refs > 0);
+	if (dmm_mgr) {
+		status = dmm_delete_tables(dmm_obj);
+		if (DSP_SUCCEEDED(status))
+			kfree(dmm_obj);
 	} else
-		status = DSP_EHANDLE;
-	GT_1trace(DMM_debugMask, GT_4CLASS, "Leaving DMM_Destroy status %x\n",
-								status);
+		status = -EFAULT;
+
 	return status;
 }
 
-
 /*
- *  ======== DMM_DeleteTables ========
+ *  ======== dmm_delete_tables ========
  *  Purpose:
  *      Delete DMM Tables.
  */
-DSP_STATUS DMM_DeleteTables(struct DMM_OBJECT *hDmmMgr)
+dsp_status dmm_delete_tables(struct dmm_object *dmm_mgr)
 {
-	struct DMM_OBJECT *pDmmObj = (struct DMM_OBJECT *)hDmmMgr;
-	DSP_STATUS status = DSP_SOK;
+	dsp_status status = DSP_SOK;
 
-	GT_1trace(DMM_debugMask, GT_ENTER,
-		"Entered DMM_DeleteTables () hDmmMgr %x\n", hDmmMgr);
-	DBC_Require(cRefs > 0);
-	if (MEM_IsValidHandle(hDmmMgr, DMMSIGNATURE)) {
-		/* Delete all DMM tables */
-		SYNC_EnterCS(pDmmObj->hDmmLock);
-
-		if (pVirtualMappingTable != NULL)
-			MEM_VFree(pVirtualMappingTable);
-
-		SYNC_LeaveCS(pDmmObj->hDmmLock);
-	} else
-		status = DSP_EHANDLE;
-	GT_1trace(DMM_debugMask, GT_4CLASS,
-		"Leaving DMM_DeleteTables status %x\n", status);
+	DBC_REQUIRE(refs > 0);
+	/* Delete all DMM tables */
+	if (dmm_mgr)
+		vfree(virtual_mapping_table);
+	else
+		status = -EFAULT;
 	return status;
 }
 
-
-
-
 /*
- *  ======== DMM_Exit ========
+ *  ======== dmm_exit ========
  *  Purpose:
  *      Discontinue usage of module; free resources when reference count
  *      reaches 0.
  */
-void DMM_Exit(void)
+void dmm_exit(void)
 {
-	DBC_Require(cRefs > 0);
+	DBC_REQUIRE(refs > 0);
 
-	cRefs--;
-
-	GT_1trace(DMM_debugMask, GT_ENTER,
-		 "exiting DMM_Exit, ref count:0x%x\n", cRefs);
+	refs--;
 }
 
 /*
- *  ======== DMM_GetHandle ========
+ *  ======== dmm_get_handle ========
  *  Purpose:
  *      Return the dynamic memory manager object for this device.
  *      This is typically called from the client process.
  */
-DSP_STATUS DMM_GetHandle(DSP_HPROCESSOR hProcessor,
-			OUT struct DMM_OBJECT **phDmmMgr)
+dsp_status dmm_get_handle(void *hprocessor, OUT struct dmm_object **phDmmMgr)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct DEV_OBJECT *hDevObject;
+	dsp_status status = DSP_SOK;
+	struct dev_object *hdev_obj;
 
-	GT_2trace(DMM_debugMask, GT_ENTER,
-		 "DMM_GetHandle: hProcessor %x, phDmmMgr"
-		 "%x\n", hProcessor, phDmmMgr);
-	DBC_Require(cRefs > 0);
-	DBC_Require(phDmmMgr != NULL);
-	if (hProcessor != NULL)
-		status = PROC_GetDevObject(hProcessor, &hDevObject);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(phDmmMgr != NULL);
+	if (hprocessor != NULL)
+		status = proc_get_dev_object(hprocessor, &hdev_obj);
 	else
-		hDevObject = DEV_GetFirst();	/* default */
+		hdev_obj = dev_get_first();	/* default */
 
 	if (DSP_SUCCEEDED(status))
-		status = DEV_GetDmmMgr(hDevObject, phDmmMgr);
+		status = dev_get_dmm_mgr(hdev_obj, phDmmMgr);
+	else
+		*phDmmMgr = NULL;
 
-	GT_2trace(DMM_debugMask, GT_4CLASS, "Leaving DMM_GetHandle status %x, "
-		 "*phDmmMgr %x\n", status, phDmmMgr ? *phDmmMgr : NULL);
 	return status;
 }
 
 /*
- *  ======== DMM_Init ========
+ *  ======== dmm_init ========
  *  Purpose:
  *      Initializes private state of DMM module.
  */
-bool DMM_Init(void)
+bool dmm_init(void)
 {
-	bool fRetval = true;
+	bool ret = true;
 
-	DBC_Require(cRefs >= 0);
+	DBC_REQUIRE(refs >= 0);
 
-	if (cRefs == 0) {
-		/* Set the Trace mask */
-		/*"DM" for Dymanic Memory Manager */
-		GT_create(&DMM_debugMask, "DM");
-	}
+	if (ret)
+		refs++;
 
-	if (fRetval)
-		cRefs++;
+	DBC_ENSURE((ret && (refs > 0)) || (!ret && (refs >= 0)));
 
-	GT_1trace(DMM_debugMask, GT_ENTER,
-		 "Entered DMM_Init, ref count:0x%x\n", cRefs);
+	virtual_mapping_table = NULL;
+	table_size = 0;
 
-	DBC_Ensure((fRetval && (cRefs > 0)) || (!fRetval && (cRefs >= 0)));
-
-	pVirtualMappingTable = NULL ;
-	TableSize = 0;
-
-	return fRetval;
+	return ret;
 }
 
 /*
- *  ======== DMM_MapMemory ========
+ *  ======== dmm_map_memory ========
  *  Purpose:
  *      Add a mapping block to the reserved chunk. DMM assumes that this block
  *  will be mapped in the DSP/IVA's address space. DMM returns an error if a
  *  mapping overlaps another one. This function stores the info that will be
  *  required later while unmapping the block.
  */
-DSP_STATUS DMM_MapMemory(struct DMM_OBJECT *hDmmMgr, u32 addr, u32 size)
+dsp_status dmm_map_memory(struct dmm_object *dmm_mgr, u32 addr, u32 size)
 {
-	struct DMM_OBJECT *pDmmObj = (struct DMM_OBJECT *)hDmmMgr;
-	struct MapPage *chunk;
-	DSP_STATUS status = DSP_SOK;
+	struct dmm_object *dmm_obj = (struct dmm_object *)dmm_mgr;
+	struct map_page *chunk;
+	dsp_status status = DSP_SOK;
 
-	GT_3trace(DMM_debugMask, GT_ENTER,
-		 "Entered DMM_MapMemory () hDmmMgr %x, "
-		 "addr %x, size %x\n", hDmmMgr, addr, size);
-	SYNC_EnterCS(pDmmObj->hDmmLock);
+	spin_lock(&dmm_obj->dmm_lock);
 	/* Find the Reserved memory chunk containing the DSP block to
 	 * be mapped */
-	chunk = (struct MapPage *)GetRegion(addr);
+	chunk = (struct map_page *)get_region(addr);
 	if (chunk != NULL) {
 		/* Mark the region 'mapped', leave the 'reserved' info as-is */
-		chunk->bMapped = true;
-		chunk->MappedSize = (size/PG_SIZE_4K);
+		chunk->mapped = true;
+		chunk->mapped_size = (size / PG_SIZE4K);
 	} else
 		status = DSP_ENOTFOUND;
-	SYNC_LeaveCS(pDmmObj->hDmmLock);
-	GT_2trace(DMM_debugMask, GT_4CLASS,
-		 "Leaving DMM_MapMemory status %x, chunk %x\n",
-		status, chunk);
+	spin_unlock(&dmm_obj->dmm_lock);
+
+	dev_dbg(bridge, "%s dmm_mgr %p, addr %x, size %x\n\tstatus %x, "
+		"chunk %p", __func__, dmm_mgr, addr, size, status, chunk);
+
 	return status;
 }
 
 /*
- *  ======== DMM_ReserveMemory ========
+ *  ======== dmm_reserve_memory ========
  *  Purpose:
  *      Reserve a chunk of virtually contiguous DSP/IVA address space.
  */
-DSP_STATUS DMM_ReserveMemory(struct DMM_OBJECT *hDmmMgr, u32 size,
-							u32 *pRsvAddr)
+dsp_status dmm_reserve_memory(struct dmm_object *dmm_mgr, u32 size,
+			      u32 *prsv_addr)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct DMM_OBJECT *pDmmObj = (struct DMM_OBJECT *)hDmmMgr;
-	struct MapPage *node;
-	u32 rsvAddr = 0;
-	u32 rsvSize = 0;
+	dsp_status status = DSP_SOK;
+	struct dmm_object *dmm_obj = (struct dmm_object *)dmm_mgr;
+	struct map_page *node;
+	u32 rsv_addr = 0;
+	u32 rsv_size = 0;
 
-	GT_3trace(DMM_debugMask, GT_ENTER,
-		 "Entered DMM_ReserveMemory () hDmmMgr %x, "
-		 "size %x, pRsvAddr %x\n", hDmmMgr, size, pRsvAddr);
-	SYNC_EnterCS(pDmmObj->hDmmLock);
+	spin_lock(&dmm_obj->dmm_lock);
 
 	/* Try to get a DSP chunk from the free list */
-	node = GetFreeRegion(size);
+	node = get_free_region(size);
 	if (node != NULL) {
 		/*  DSP chunk of given size is available. */
-		rsvAddr = DMM_ADDR_VIRTUAL(node);
+		rsv_addr = DMM_ADDR_VIRTUAL(node);
 		/* Calculate the number entries to use */
-		rsvSize = size/PG_SIZE_4K;
-		if (rsvSize < node->RegionSize) {
+		rsv_size = size / PG_SIZE4K;
+		if (rsv_size < node->region_size) {
 			/* Mark remainder of free region */
-			node[rsvSize].bMapped = false;
-			node[rsvSize].bReserved = false;
-			node[rsvSize].RegionSize = node->RegionSize - rsvSize;
-			node[rsvSize].MappedSize = 0;
+			node[rsv_size].mapped = false;
+			node[rsv_size].reserved = false;
+			node[rsv_size].region_size =
+			    node->region_size - rsv_size;
+			node[rsv_size].mapped_size = 0;
 		}
-		/*  GetRegion will return first fit chunk. But we only use what
-			is requested. */
-		node->bMapped = false;
-		node->bReserved = true;
-		node->RegionSize = rsvSize;
-		node->MappedSize = 0;
+		/*  get_region will return first fit chunk. But we only use what
+		   is requested. */
+		node->mapped = false;
+		node->reserved = true;
+		node->region_size = rsv_size;
+		node->mapped_size = 0;
 		/* Return the chunk's starting address */
-		*pRsvAddr = rsvAddr;
+		*prsv_addr = rsv_addr;
 	} else
 		/*dSP chunk of given size is not available */
-		status = DSP_EMEMORY;
+		status = -ENOMEM;
 
-	SYNC_LeaveCS(pDmmObj->hDmmLock);
-	GT_3trace(DMM_debugMask, GT_4CLASS,
-		 "Leaving ReserveMemory status %x, rsvAddr"
-		 " %x, rsvSize %x\n", status, rsvAddr, rsvSize);
+	spin_unlock(&dmm_obj->dmm_lock);
+
+	dev_dbg(bridge, "%s dmm_mgr %p, size %x, prsv_addr %p\n\tstatus %x, "
+		"rsv_addr %x, rsv_size %x\n", __func__, dmm_mgr, size,
+		prsv_addr, status, rsv_addr, rsv_size);
+
 	return status;
 }
 
-
 /*
- *  ======== DMM_UnMapMemory ========
+ *  ======== dmm_un_map_memory ========
  *  Purpose:
  *      Remove the mapped block from the reserved chunk.
  */
-DSP_STATUS DMM_UnMapMemory(struct DMM_OBJECT *hDmmMgr, u32 addr, u32 *pSize)
+dsp_status dmm_un_map_memory(struct dmm_object *dmm_mgr, u32 addr, u32 *psize)
 {
-	struct DMM_OBJECT *pDmmObj = (struct DMM_OBJECT *)hDmmMgr;
-	struct MapPage *chunk;
-	DSP_STATUS status = DSP_SOK;
+	struct dmm_object *dmm_obj = (struct dmm_object *)dmm_mgr;
+	struct map_page *chunk;
+	dsp_status status = DSP_SOK;
 
-	GT_3trace(DMM_debugMask, GT_ENTER,
-		 "Entered DMM_UnMapMemory () hDmmMgr %x, "
-		 "addr %x, pSize %x\n", hDmmMgr, addr, pSize);
-	SYNC_EnterCS(pDmmObj->hDmmLock);
-	chunk = GetMappedRegion(addr) ;
+	spin_lock(&dmm_obj->dmm_lock);
+	chunk = get_mapped_region(addr);
 	if (chunk == NULL)
-		status = DSP_ENOTFOUND ;
+		status = DSP_ENOTFOUND;
 
 	if (DSP_SUCCEEDED(status)) {
 		/* Unmap the region */
-		*pSize = chunk->MappedSize * PG_SIZE_4K;
-		chunk->bMapped = false;
-		chunk->MappedSize = 0;
+		*psize = chunk->mapped_size * PG_SIZE4K;
+		chunk->mapped = false;
+		chunk->mapped_size = 0;
 	}
-	SYNC_LeaveCS(pDmmObj->hDmmLock);
-	GT_3trace(DMM_debugMask, GT_ENTER,
-		 "Leaving DMM_UnMapMemory status %x, chunk"
-		 " %x,  *pSize %x\n", status, chunk, *pSize);
+	spin_unlock(&dmm_obj->dmm_lock);
+
+	dev_dbg(bridge, "%s: dmm_mgr %p, addr %x, psize %p\n\tstatus %x, "
+		"chunk %p\n", __func__, dmm_mgr, addr, psize, status, chunk);
 
 	return status;
 }
 
 /*
- *  ======== DMM_UnReserveMemory ========
+ *  ======== dmm_un_reserve_memory ========
  *  Purpose:
  *      Free a chunk of reserved DSP/IVA address space.
  */
-DSP_STATUS DMM_UnReserveMemory(struct DMM_OBJECT *hDmmMgr, u32 rsvAddr)
+dsp_status dmm_un_reserve_memory(struct dmm_object *dmm_mgr, u32 rsv_addr)
 {
-	struct DMM_OBJECT *pDmmObj = (struct DMM_OBJECT *)hDmmMgr;
-	struct MapPage *chunk;
+	struct dmm_object *dmm_obj = (struct dmm_object *)dmm_mgr;
+	struct map_page *chunk;
 	u32 i;
-	DSP_STATUS status = DSP_SOK;
-	u32 chunkSize;
+	dsp_status status = DSP_SOK;
+	u32 chunk_size;
 
-	GT_2trace(DMM_debugMask, GT_ENTER,
-		 "Entered DMM_UnReserveMemory () hDmmMgr "
-		 "%x, rsvAddr %x\n", hDmmMgr, rsvAddr);
-
-	SYNC_EnterCS(pDmmObj->hDmmLock);
+	spin_lock(&dmm_obj->dmm_lock);
 
 	/* Find the chunk containing the reserved address */
-	chunk = GetMappedRegion(rsvAddr);
+	chunk = get_mapped_region(rsv_addr);
 	if (chunk == NULL)
 		status = DSP_ENOTFOUND;
 
 	if (DSP_SUCCEEDED(status)) {
 		/* Free all the mapped pages for this reserved region */
 		i = 0;
-		while (i < chunk->RegionSize) {
-			if (chunk[i].bMapped) {
+		while (i < chunk->region_size) {
+			if (chunk[i].mapped) {
 				/* Remove mapping from the page tables. */
-				chunkSize = chunk[i].MappedSize;
+				chunk_size = chunk[i].mapped_size;
 				/* Clear the mapping flags */
-				chunk[i].bMapped = false;
-				chunk[i].MappedSize = 0;
-				i += chunkSize;
+				chunk[i].mapped = false;
+				chunk[i].mapped_size = 0;
+				i += chunk_size;
 			} else
 				i++;
 		}
 		/* Clear the flags (mark the region 'free') */
-		chunk->bReserved = false;
+		chunk->reserved = false;
 		/* NOTE: We do NOT coalesce free regions here.
-		 * Free regions are coalesced in GetRegion(), as it traverses
+		 * Free regions are coalesced in get_region(), as it traverses
 		 *the whole mapping table
 		 */
 	}
-	SYNC_LeaveCS(pDmmObj->hDmmLock);
-	GT_2trace(DMM_debugMask, GT_ENTER,
-		 "Leaving DMM_UnReserveMemory status %x"
-		 " chunk %x\n", status, chunk);
+	spin_unlock(&dmm_obj->dmm_lock);
+
+	dev_dbg(bridge, "%s: dmm_mgr %p, rsv_addr %x\n\tstatus %x chunk %p",
+		__func__, dmm_mgr, rsv_addr, status, chunk);
+
 	return status;
 }
 
-
 /*
- *  ======== GetRegion ========
+ *  ======== get_region ========
  *  Purpose:
  *      Returns a region containing the specified memory region
  */
-static struct MapPage *GetRegion(u32 aAddr)
+static struct map_page *get_region(u32 aAddr)
 {
-	struct MapPage *currRegion = NULL;
-	u32   i = 0;
+	struct map_page *curr_region = NULL;
+	u32 i = 0;
 
-	GT_1trace(DMM_debugMask, GT_ENTER, "Entered GetRegion () "
-		" aAddr %x\n", aAddr);
-
-	if (pVirtualMappingTable != NULL) {
+	if (virtual_mapping_table != NULL) {
 		/* find page mapped by this address */
 		i = DMM_ADDR_TO_INDEX(aAddr);
-		if (i < TableSize)
-			currRegion = pVirtualMappingTable + i;
+		if (i < table_size)
+			curr_region = virtual_mapping_table + i;
 	}
-	GT_3trace(DMM_debugMask, GT_4CLASS,
-	       "Leaving GetRegion currRegion %x, iFreeRegion %d\n,"
-	       "iFreeSize %d\n", currRegion, iFreeRegion, iFreeSize) ;
-	return currRegion;
+
+	dev_dbg(bridge, "%s: curr_region %p, free_region %d, free_size %d\n",
+		__func__, curr_region, free_region, free_size);
+	return curr_region;
 }
 
 /*
- *  ======== GetFreeRegion ========
+ *  ======== get_free_region ========
  *  Purpose:
  *  Returns the requested free region
  */
-static struct MapPage *GetFreeRegion(u32 aSize)
+static struct map_page *get_free_region(u32 aSize)
 {
-	struct MapPage *currRegion = NULL;
-	u32   i = 0;
-	u32   RegionSize = 0;
-	u32   nextI = 0;
-	GT_1trace(DMM_debugMask, GT_ENTER, "Entered GetFreeRegion () "
-		"aSize 0x%x\n", aSize);
+	struct map_page *curr_region = NULL;
+	u32 i = 0;
+	u32 region_size = 0;
+	u32 next_i = 0;
 
-	if (pVirtualMappingTable == NULL)
-		return currRegion;
-	if (aSize > iFreeSize) {
+	if (virtual_mapping_table == NULL)
+		return curr_region;
+	if (aSize > free_size) {
 		/* Find the largest free region
-		* (coalesce during the traversal) */
-		while (i < TableSize) {
-			RegionSize = pVirtualMappingTable[i].RegionSize;
-			nextI = i+RegionSize;
-			if (pVirtualMappingTable[i].bReserved == false) {
+		 * (coalesce during the traversal) */
+		while (i < table_size) {
+			region_size = virtual_mapping_table[i].region_size;
+			next_i = i + region_size;
+			if (virtual_mapping_table[i].reserved == false) {
 				/* Coalesce, if possible */
-				if (nextI < TableSize &&
-				pVirtualMappingTable[nextI].bReserved
-							== false) {
-					pVirtualMappingTable[i].RegionSize +=
-					pVirtualMappingTable[nextI].RegionSize;
+				if (next_i < table_size &&
+				    virtual_mapping_table[next_i].reserved
+				    == false) {
+					virtual_mapping_table[i].region_size +=
+					    virtual_mapping_table
+					    [next_i].region_size;
 					continue;
 				}
-				RegionSize *= PG_SIZE_4K;
-				if (RegionSize > iFreeSize) 	{
-					iFreeRegion = i;
-					iFreeSize = RegionSize;
+				region_size *= PG_SIZE4K;
+				if (region_size > free_size) {
+					free_region = i;
+					free_size = region_size;
 				}
 			}
-			i = nextI;
+			i = next_i;
 		}
 	}
-	if (aSize <= iFreeSize) {
-		currRegion = pVirtualMappingTable + iFreeRegion;
-		iFreeRegion += (aSize / PG_SIZE_4K);
-		iFreeSize -= aSize;
+	if (aSize <= free_size) {
+		curr_region = virtual_mapping_table + free_region;
+		free_region += (aSize / PG_SIZE4K);
+		free_size -= aSize;
 	}
-	return currRegion;
+	return curr_region;
 }
 
 /*
- *  ======== GetMappedRegion ========
+ *  ======== get_mapped_region ========
  *  Purpose:
  *  Returns the requestedmapped region
  */
-static struct MapPage *GetMappedRegion(u32 aAddr)
+static struct map_page *get_mapped_region(u32 aAddr)
 {
-	u32   i = 0;
-	struct MapPage *currRegion = NULL;
-	GT_1trace(DMM_debugMask, GT_ENTER, "Entered GetMappedRegion () "
-						"aAddr 0x%x\n", aAddr);
+	u32 i = 0;
+	struct map_page *curr_region = NULL;
 
-	if (pVirtualMappingTable == NULL)
-		return currRegion;
+	if (virtual_mapping_table == NULL)
+		return curr_region;
 
 	i = DMM_ADDR_TO_INDEX(aAddr);
-	if (i < TableSize && (pVirtualMappingTable[i].bMapped ||
-			pVirtualMappingTable[i].bReserved))
-		currRegion = pVirtualMappingTable + i;
-	return currRegion;
+	if (i < table_size && (virtual_mapping_table[i].mapped ||
+			       virtual_mapping_table[i].reserved))
+		curr_region = virtual_mapping_table + i;
+	return curr_region;
 }
 
 #ifdef DSP_DMM_DEBUG
-u32 DMM_MemMapDump(struct DMM_OBJECT *hDmmMgr)
+u32 dmm_mem_map_dump(struct dmm_object *dmm_mgr)
 {
-	struct MapPage *curNode = NULL;
+	struct map_page *curr_node = NULL;
 	u32 i;
 	u32 freemem = 0;
 	u32 bigsize = 0;
 
-	SYNC_EnterCS(hDmmMgr->hDmmLock);
+	spin_lock(&dmm_mgr->dmm_lock);
 
-	if (pVirtualMappingTable != NULL) {
-		for (i = 0; i < TableSize; i +=
-				pVirtualMappingTable[i].RegionSize) {
-			curNode = pVirtualMappingTable + i;
-			if (curNode->bReserved == TRUE)	{
+	if (virtual_mapping_table != NULL) {
+		for (i = 0; i < table_size; i +=
+		     virtual_mapping_table[i].region_size) {
+			curr_node = virtual_mapping_table + i;
+			if (curr_node->reserved == TRUE) {
 				/*printk("RESERVED size = 0x%x, "
-					"Map size = 0x%x\n",
-					(curNode->RegionSize * PG_SIZE_4K),
-					(curNode->bMapped == false) ? 0 :
-					(curNode->MappedSize * PG_SIZE_4K));
-*/
+				   "Map size = 0x%x\n",
+				   (curr_node->region_size * PG_SIZE4K),
+				   (curr_node->mapped == false) ? 0 :
+				   (curr_node->mapped_size * PG_SIZE4K));
+				 */
 			} else {
 /*				printk("UNRESERVED size = 0x%x\n",
-					(curNode->RegionSize * PG_SIZE_4K));
-*/
-				freemem += (curNode->RegionSize * PG_SIZE_4K);
-				if (curNode->RegionSize > bigsize)
-					bigsize = curNode->RegionSize;
+					(curr_node->region_size * PG_SIZE4K));
+ */
+				freemem += (curr_node->region_size * PG_SIZE4K);
+				if (curr_node->region_size > bigsize)
+					bigsize = curr_node->region_size;
 			}
 		}
 	}
+	spin_unlock(&dmm_mgr->dmm_lock);
 	printk(KERN_INFO "Total DSP VA FREE memory = %d Mbytes\n",
-			freemem/(1024*1024));
+	       freemem / (1024 * 1024));
 	printk(KERN_INFO "Total DSP VA USED memory= %d Mbytes \n",
-			(((TableSize * PG_SIZE_4K)-freemem))/(1024*1024));
+	       (((table_size * PG_SIZE4K) - freemem)) / (1024 * 1024));
 	printk(KERN_INFO "DSP VA - Biggest FREE block = %d Mbytes \n\n",
-			(bigsize*PG_SIZE_4K/(1024*1024)));
-	SYNC_LeaveCS(hDmmMgr->hDmmLock);
+	       (bigsize * PG_SIZE4K / (1024 * 1024)));
 
 	return 0;
 }

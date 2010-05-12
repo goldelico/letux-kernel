@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * The io module manages IO between CHNL and msg_ctrl.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,25 +16,6 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== io.h ========
- *  Description:
- *      The io module manages IO between CHNL and MSG.
- *
- *  Public Functions:
- *      IO_Create
- *      IO_Destroy
- *      IO_Exit
- *      IO_Init
- *      IO_OnLoaded
- *
- *
- *! Revision History:
- *! ================
- *! 07-Nov-2000 jeh     Created.
- */
-
 #ifndef IO_
 #define IO_
 
@@ -42,66 +25,66 @@
 #include <dspbridge/iodefs.h>
 
 /*
- *  ======== IO_Create ========
+ *  ======== io_create ========
  *  Purpose:
  *      Create an IO manager object, responsible for managing IO between
- *      CHNL and MSG.
+ *      CHNL and msg_ctrl.
  *  Parameters:
  *      phChnlMgr:              Location to store a channel manager object on
  *                              output.
- *      hDevObject:             Handle to a device object.
+ *      hdev_obj:             Handle to a device object.
  *      pMgrAttrs:              IO manager attributes.
- *      pMgrAttrs->bIRQ:        I/O IRQ number.
- *      pMgrAttrs->fShared:     TRUE if the IRQ is shareable.
- *      pMgrAttrs->uWordSize:   DSP Word size in equivalent PC bytes..
+ *      pMgrAttrs->birq:        I/O IRQ number.
+ *      pMgrAttrs->irq_shared:     TRUE if the IRQ is shareable.
+ *      pMgrAttrs->word_size:   DSP Word size in equivalent PC bytes..
  *  Returns:
  *      DSP_SOK:                Success;
- *      DSP_EMEMORY:            Insufficient memory for requested resources.
+ *      -ENOMEM:            Insufficient memory for requested resources.
  *      CHNL_E_ISR:             Unable to plug channel ISR for configured IRQ.
- *      CHNL_E_INVALIDIRQ:      Invalid IRQ number. Must be 0 <= bIRQ <= 15.
+ *      CHNL_E_INVALIDIRQ:      Invalid IRQ number. Must be 0 <= birq <= 15.
  *      CHNL_E_INVALIDWORDSIZE: Invalid DSP word size.  Must be > 0.
  *      CHNL_E_INVALIDMEMBASE:  Invalid base address for DSP communications.
  *  Requires:
- *      IO_Init(void) called.
+ *      io_init(void) called.
  *      phIOMgr != NULL.
  *      pMgrAttrs != NULL.
  *  Ensures:
  */
-	extern DSP_STATUS IO_Create(OUT struct IO_MGR **phIOMgr,
-				    struct DEV_OBJECT *hDevObject,
-				    IN CONST struct IO_ATTRS *pMgrAttrs);
+extern dsp_status io_create(OUT struct io_mgr **phIOMgr,
+			    struct dev_object *hdev_obj,
+			    IN CONST struct io_attrs *pMgrAttrs);
 
 /*
- *  ======== IO_Destroy ========
+ *  ======== io_destroy ========
  *  Purpose:
  *      Destroy the IO manager.
  *  Parameters:
- *      hIOMgr:         IOmanager object.
+ *      hio_mgr:         IOmanager object.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    hIOMgr was invalid.
+ *      -EFAULT:    hio_mgr was invalid.
  *  Requires:
- *      IO_Init(void) called.
+ *      io_init(void) called.
  *  Ensures:
  */
-	extern DSP_STATUS IO_Destroy(struct IO_MGR *hIOMgr);
+extern dsp_status io_destroy(struct io_mgr *hio_mgr);
 
 /*
- *  ======== IO_Exit ========
+ *  ======== io_exit ========
  *  Purpose:
  *      Discontinue usage of the IO module.
  *  Parameters:
  *  Returns:
  *  Requires:
- *      IO_Init(void) previously called.
+ *      io_init(void) previously called.
  *  Ensures:
- *      Resources, if any acquired in IO_Init(void), are freed when the last
- *      client of IO calls IO_Exit(void).
+ *      Resources, if any acquired in io_init(void), are freed when the last
+ *      client of IO calls io_exit(void).
  */
-	extern void IO_Exit(void);
+extern void io_exit(void);
 
 /*
- *  ======== IO_Init ========
+ *  ======== io_init ========
  *  Purpose:
  *      Initialize the IO module's private state.
  *  Parameters:
@@ -111,22 +94,22 @@
  *  Ensures:
  *      A requirement for each of the other public CHNL functions.
  */
-	extern bool IO_Init(void);
+extern bool io_init(void);
 
 /*
- *  ======== IO_OnLoaded ========
+ *  ======== io_on_loaded ========
  *  Purpose:
  *      Called when a program is loaded so IO manager can update its
  *      internal state.
  *  Parameters:
- *      hIOMgr:         IOmanager object.
+ *      hio_mgr:         IOmanager object.
  *  Returns:
  *      DSP_SOK:        Success.
- *      DSP_EHANDLE:    hIOMgr was invalid.
+ *      -EFAULT:    hio_mgr was invalid.
  *  Requires:
- *      IO_Init(void) called.
+ *      io_init(void) called.
  *  Ensures:
  */
-	extern DSP_STATUS IO_OnLoaded(struct IO_MGR *hIOMgr);
+extern dsp_status io_on_loaded(struct io_mgr *hio_mgr);
 
-#endif				/* CHNL_ */
+#endif /* CHNL_ */

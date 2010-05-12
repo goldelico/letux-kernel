@@ -38,6 +38,9 @@
 #include <linux/clk.h>
 #include <linux/gpio.h>
 #include <plat/usb.h>
+#include "../../../arch/arm/mach-omap2/cm.h"
+#include "../../../arch/arm/mach-omap2/cm-regbits-34xx.h"
+
 
 /*
  * OMAP USBHOST Register addresses: VIRTUAL ADDRESSES
@@ -125,6 +128,12 @@
 #define	EHCI_INSNREG05_ULPI_EXTREGADD_SHIFT		8
 #define	EHCI_INSNREG05_ULPI_WRDATA_SHIFT		0
 
+
+#define OMAP_USBHOST_BASE       (L4_34XX_BASE + 0x60000)
+#define OMAP_USBHOST_EHCI_BASE  (OMAP_USBHOST_BASE + 0x4800)
+#define EHCI_INSNREG04_ULPI     (OMAP_USBHOST_EHCI_BASE + 0xA0)
+
+
 /*-------------------------------------------------------------------------*/
 
 static inline void ehci_omap_writel(void __iomem *base, u32 reg, u32 val)
@@ -158,7 +167,7 @@ struct ehci_hcd_omap {
 	struct clk		*usbhost1_48m_fck;
 	struct clk		*usbtll_fck;
 	struct clk		*usbtll_ick;
-
+	unsigned	suspended:1;
 	struct ehci_hcd_omap_port_data	port_data[OMAP3_HS_USB_PORTS];
 
 	void __iomem		*uhh_base;
@@ -377,6 +386,17 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 	}
 	clk_enable(omap->usbtll_ick);
 
+	omap->suspended = 0;
+
+	/* Disable Auto Idle of USBTLL */
+	cm_write_mod_reg((0 << OMAP3430ES2_AUTO_USBTLL_SHIFT),
+				CORE_MOD, CM_AUTOIDLE3);
+
+	/* Wait for TLL to be Active */
+	while ((cm_read_mod_reg(CORE_MOD, OMAP2430_CM_IDLEST3)
+			& (1 << OMAP3430ES2_ST_USBTLL_SHIFT)))
+		cpu_relax();
+
 	/* perform TLL soft reset, and wait until reset is complete */
 	ehci_omap_writel(omap->tll_base, OMAP_USBTLL_SYSCONFIG,
 			OMAP_USBTLL_SYSCONFIG_SOFTRESET);
@@ -467,6 +487,16 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 		if (omap->port_data[i].reset)
 			omap->port_data[i].reset(omap->dev, i, 1);
 	}
+
+	/* An undocumented "feature" in the OMAP3 EHCI controller,
+	 * causes the ports to be taken out of suspend when
+	 * the USBCMD.Run/Stop bit is cleared - which is normal
+	 * when we do ehci_bus_suspend().
+	 * This breaks suspend-resume if the root-hub is allowed
+	 * to suspend. Writing 1 to this undocumented bit disables
+	 * this feature and restores normal behavior
+	 */
+	omap_writel(1 << 5, EHCI_INSNREG04_ULPI);
 	return 0;
 
 err_sys_status:
@@ -748,60 +778,75 @@ static struct platform_driver ehci_hcd_omap_driver = {
 
 /*-------------------------------------------------------------------------*/
 #ifdef CONFIG_PM
+#define OHCI_BASE_ADDR 0x48064400
+#define OHCI_HC_CONTROL         (OHCI_BASE_ADDR + 0x4)
+#define OHCI_HC_CTRL_SUSPEND    (3 << 6)
+#define OHCI_HC_CTRL_RESUME     (1 << 6)
+DEFINE_SPINLOCK(sus_res_lock);
 static int ehci_omap_bus_suspend(struct usb_hcd *hcd)
 {
+	unsigned long flags;
+	int ret = 0;
 	struct ehci_hcd_omap *omap = dev_get_drvdata(hcd->self.controller);
-	int ret;
-
-	dev_dbg(hcd->self.controller, "%s %ld %lu\n", __func__,
-		in_interrupt(), jiffies);
+	spin_lock_irqsave(&sus_res_lock, flags);
 	ret = ehci_bus_suspend(hcd);
+	if (!omap->suspended) {
+		/* We need to suspend OHCI as well, before the domain
+		 * can transition
+		 */
+		omap_writel(OHCI_HC_CTRL_SUSPEND, OHCI_HC_CONTROL);
+		mdelay(8); /* MSTANDBY assertion is delayed by ~8ms */
 
-	if (ret)
-		return ret;
-
-	if (omap->usbtll_fck)
-		clk_disable(omap->usbtll_fck);
-	if (omap->usbhost2_120m_fck)
 		clk_disable(omap->usbhost2_120m_fck);
-	if (omap->usbhost1_48m_fck)
 		clk_disable(omap->usbhost1_48m_fck);
 
-	/* the omap usb host auto-idle is not fully functional,
-	 * manually enable/disable usbtll_ick during
-	 * the suspend/resume time.
-	 */
-	if (omap->usbtll_ick)
-		clk_disable(omap->usbtll_ick);
+		ehci_omap_writel(omap->tll_base,
+			OMAP_TLL_SHARED_CONF,
+			ehci_omap_readl(omap->tll_base, OMAP_TLL_SHARED_CONF) & ~(1));
 
-	clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+		omap->suspended = 1;
+
+		clk_disable(omap->usbtll_fck);
+
+		clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+	}
+	spin_unlock_irqrestore(&sus_res_lock, flags);
 
 	return 0;
 }
 
 static int ehci_omap_bus_resume(struct usb_hcd *hcd)
 {
+	unsigned long flags;
+	int ret = 0;
 	struct ehci_hcd_omap *omap = dev_get_drvdata(hcd->self.controller);
 
-	dev_dbg(hcd->self.controller, "%s %ld %lu\n", __func__,
-	in_interrupt(), jiffies);
+	spin_lock_irqsave(&sus_res_lock, flags);
 
-	/* the omap usb host auto-idle is not fully functional,
-	 * manually enable/disable usbtll_ick during
-	 * the suspend/resume time.
-	 */
-	if (omap->usbtll_ick)
-		clk_enable(omap->usbtll_ick);
-	if (omap->usbtll_fck)
+	if (omap->suspended) {
+
 		clk_enable(omap->usbtll_fck);
-	if (omap->usbhost2_120m_fck)
+		mdelay(1);
+		ehci_omap_writel(omap->tll_base,
+			OMAP_TLL_SHARED_CONF,
+			ehci_omap_readl(omap->tll_base, OMAP_TLL_SHARED_CONF) | 1);
+
 		clk_enable(omap->usbhost2_120m_fck);
-	if (omap->usbhost1_48m_fck)
 		clk_enable(omap->usbhost1_48m_fck);
 
-	set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+		omap_writel(OHCI_HC_CTRL_RESUME, OHCI_HC_CONTROL);
 
-	return ehci_bus_resume(hcd);
+		omap->suspended = 0;
+
+		ehci_omap_writel(omap->tll_base,
+			OMAP_USBTLL_IRQENABLE, 0);
+		set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+	}
+
+	/* Wakeup ports by resume */
+	ret = ehci_bus_resume(hcd);
+	spin_unlock_irqrestore(&sus_res_lock, flags);
+	return ret;
 }
 
 static void ehci_omap_shutdown(struct usb_hcd *hcd)

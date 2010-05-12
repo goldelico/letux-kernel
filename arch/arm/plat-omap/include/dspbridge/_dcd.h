@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Includes the wrapper functions called directly by the
+ * DeviceIOControl interface.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,50 +17,13 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== _dcd.h ========
- *  Description:
- *      Includes the wrapper functions called directly by the
- *      DeviceIOControl interface.
- *
- *  Public Functions:
- *      WCD_CallDevIOCtl
- *      WCD_Init
- *      WCD_InitComplete2
- *      WCD_Exit
- *      <MOD>WRAP_*
- *
- *  Notes:
- *      Compiled with CDECL calling convention.
- *
- *! Revision History:
- *! ================
- *! 19-Apr-2004 sb  Aligned DMM definitions with Symbian
- *! 08-Mar-2004 sb  Added the Dynamic Memory Mapping feature
- *! 30-Jan-2002 ag  Renamed CMMWRAP_AllocBuf to CMMWRAP_CallocBuf.
- *! 22-Nov-2000 kc: Added MGRWRAP_GetPerf_Data to acquire PERF stats.
- *! 27-Oct-2000 jeh Added NODEWRAP_AllocMsgBuf, NODEWRAP_FreeMsgBuf. Removed
- *!                 NODEWRAP_GetMessageStream.
- *! 10-Oct-2000 ag: Added user CMM wrappers.
- *! 04-Aug-2000 rr: MEMWRAP and UTIL_Wrap added.
- *! 27-Jul-2000 rr: NODEWRAP, STRMWRAP added.
- *! 27-Jun-2000 rr: MGRWRAP fxns added.IFDEF to build for PM or DSP/BIOS Bridge
- *! 03-Dec-1999 rr: WCD_InitComplete2 enabled for BRD_AutoStart.
- *! 09-Nov-1999 kc: Added MEMRY.
- *! 02-Nov-1999 ag: Added CHNL.
- *! 08-Oct-1999 rr: Utilwrap_Testdll fxn added
- *! 24-Sep-1999 rr: header changed from _wcd.h to _dcd.h
- *! 09-Sep-1997 gp: Created.
- */
-
 #ifndef _WCD_
 #define _WCD_
 
 #include <dspbridge/wcdioctl.h>
 
 /*
- *  ======== WCD_CallDevIOCtl ========
+ *  ======== wcd_call_dev_io_ctl ========
  *  Purpose:
  *      Call the (wrapper) function for the corresponding WCD IOCTL.
  *  Parameters:
@@ -65,17 +31,17 @@
  *      args:       Argument structure.
  *      pResult:
  *  Returns:
- *      DSP_SOK if command called; DSP_EINVALIDARG if command not in IOCTL
+ *      DSP_SOK if command called; -EINVAL if command not in IOCTL
  *      table.
  *  Requires:
  *  Ensures:
  */
-	extern DSP_STATUS WCD_CallDevIOCtl(unsigned int cmd,
-					   union Trapped_Args *args,
-					   u32 *pResult, void *pr_ctxt);
+extern dsp_status wcd_call_dev_io_ctl(unsigned int cmd,
+				      union Trapped_Args *args,
+				      u32 *pResult, void *pr_ctxt);
 
 /*
- *  ======== WCD_Init ========
+ *  ======== wcd_init ========
  *  Purpose:
  *      Initialize WCD modules, and export WCD services to WMD's.
  *      This procedure is called when the class driver is loaded.
@@ -85,128 +51,102 @@
  *  Requires:
  *  Ensures:
  */
-	extern bool WCD_Init(void);
+extern bool wcd_init(void);
 
 /*
- *  ======== WCD_InitComplete2 ========
+ *  ======== wcd_init_complete2 ========
  *  Purpose:
  *      Perform any required WCD, and WMD initialization which
- *      cannot not be performed in WCD_Init(void) or DEV_StartDevice() due
+ *      cannot not be performed in wcd_init(void) or dev_start_device() due
  *      to the fact that some services are not yet
  *      completely initialized.
  *  Parameters:
  *  Returns:
  *      DSP_SOK:        Allow this device to load
- *      DSP_EFAIL:      Failure.
+ *      -EPERM:      Failure.
  *  Requires:
  *      WCD initialized.
  *  Ensures:
  */
-	extern DSP_STATUS WCD_InitComplete2(void);
+extern dsp_status wcd_init_complete2(void);
 
 /*
- *  ======== WCD_Exit ========
+ *  ======== wcd_exit ========
  *  Purpose:
- *      Exit all modules initialized in WCD_Init(void).
+ *      Exit all modules initialized in wcd_init(void).
  *      This procedure is called when the class driver is unloaded.
  *  Parameters:
  *  Returns:
  *  Requires:
- *      WCD_Init(void) was previously called.
+ *      wcd_init(void) was previously called.
  *  Ensures:
- *      Resources acquired in WCD_Init(void) are freed.
+ *      Resources acquired in wcd_init(void) are freed.
  */
-	extern void WCD_Exit(void);
+extern void wcd_exit(void);
 
 /* MGR wrapper functions */
-	extern u32 MGRWRAP_EnumNode_Info(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 MGRWRAP_EnumProc_Info(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 MGRWRAP_RegisterObject(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 MGRWRAP_UnregisterObject(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 MGRWRAP_WaitForBridgeEvents(union Trapped_Args *args,
-			void *pr_ctxt);
+extern u32 mgrwrap_enum_node_info(union Trapped_Args *args, void *pr_ctxt);
+extern u32 mgrwrap_enum_proc_info(union Trapped_Args *args, void *pr_ctxt);
+extern u32 mgrwrap_register_object(union Trapped_Args *args, void *pr_ctxt);
+extern u32 mgrwrap_unregister_object(union Trapped_Args *args, void *pr_ctxt);
+extern u32 mgrwrap_wait_for_bridge_events(union Trapped_Args *args,
+					  void *pr_ctxt);
 
-#ifndef RES_CLEANUP_DISABLE
-	extern u32 MGRWRAP_GetProcessResourcesInfo(union Trapped_Args *args,
-			void *pr_ctxt);
-#endif
-
+extern u32 mgrwrap_get_process_resources_info(union Trapped_Args *args,
+					      void *pr_ctxt);
 
 /* CPRC (Processor) wrapper Functions */
-	extern u32 PROCWRAP_Attach(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 PROCWRAP_Ctrl(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 PROCWRAP_Detach(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 PROCWRAP_EnumNode_Info(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 PROCWRAP_EnumResources(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 PROCWRAP_GetState(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 PROCWRAP_GetTrace(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 PROCWRAP_Load(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 PROCWRAP_RegisterNotify(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 PROCWRAP_Start(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 PROCWRAP_ReserveMemory(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 PROCWRAP_UnReserveMemory(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 PROCWRAP_Map(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 PROCWRAP_UnMap(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 PROCWRAP_FlushMemory(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 PROCWRAP_Stop(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 PROCWRAP_InvalidateMemory(union Trapped_Args *args,
-			void *pr_ctxt);
+extern u32 procwrap_attach(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_ctrl(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_detach(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_enum_node_info(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_enum_resources(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_get_state(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_get_trace(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_load(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_register_notify(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_start(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_reserve_memory(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_un_reserve_memory(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_map(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_un_map(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_flush_memory(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_stop(union Trapped_Args *args, void *pr_ctxt);
+extern u32 procwrap_invalidate_memory(union Trapped_Args *args, void *pr_ctxt);
 
 /* NODE wrapper functions */
-	extern u32 NODEWRAP_Allocate(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 NODEWRAP_AllocMsgBuf(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 NODEWRAP_ChangePriority(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 NODEWRAP_Connect(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 NODEWRAP_Create(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 NODEWRAP_Delete(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 NODEWRAP_FreeMsgBuf(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 NODEWRAP_GetAttr(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 NODEWRAP_GetMessage(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 NODEWRAP_Pause(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 NODEWRAP_PutMessage(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 NODEWRAP_RegisterNotify(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 NODEWRAP_Run(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 NODEWRAP_Terminate(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 NODEWRAP_GetUUIDProps(union Trapped_Args *args,
-			void *pr_ctxt);
+extern u32 nodewrap_allocate(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_alloc_msg_buf(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_change_priority(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_connect(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_create(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_delete(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_free_msg_buf(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_get_attr(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_get_message(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_pause(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_put_message(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_register_notify(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_run(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_terminate(union Trapped_Args *args, void *pr_ctxt);
+extern u32 nodewrap_get_uuid_props(union Trapped_Args *args, void *pr_ctxt);
 
 /* STRM wrapper functions */
-	extern u32 STRMWRAP_AllocateBuffer(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 STRMWRAP_Close(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 STRMWRAP_FreeBuffer(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 STRMWRAP_GetEventHandle(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 STRMWRAP_GetInfo(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 STRMWRAP_Idle(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 STRMWRAP_Issue(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 STRMWRAP_Open(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 STRMWRAP_Reclaim(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 STRMWRAP_RegisterNotify(union Trapped_Args *args,
-			void *pr_ctxt);
-	extern u32 STRMWRAP_Select(union Trapped_Args *args, void *pr_ctxt);
+extern u32 strmwrap_allocate_buffer(union Trapped_Args *args, void *pr_ctxt);
+extern u32 strmwrap_close(union Trapped_Args *args, void *pr_ctxt);
+extern u32 strmwrap_free_buffer(union Trapped_Args *args, void *pr_ctxt);
+extern u32 strmwrap_get_event_handle(union Trapped_Args *args, void *pr_ctxt);
+extern u32 strmwrap_get_info(union Trapped_Args *args, void *pr_ctxt);
+extern u32 strmwrap_idle(union Trapped_Args *args, void *pr_ctxt);
+extern u32 strmwrap_issue(union Trapped_Args *args, void *pr_ctxt);
+extern u32 strmwrap_open(union Trapped_Args *args, void *pr_ctxt);
+extern u32 strmwrap_reclaim(union Trapped_Args *args, void *pr_ctxt);
+extern u32 strmwrap_register_notify(union Trapped_Args *args, void *pr_ctxt);
+extern u32 strmwrap_select(union Trapped_Args *args, void *pr_ctxt);
 
-	extern u32 CMMWRAP_CallocBuf(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 CMMWRAP_FreeBuf(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 CMMWRAP_GetHandle(union Trapped_Args *args, void *pr_ctxt);
-	extern u32 CMMWRAP_GetInfo(union Trapped_Args *args, void *pr_ctxt);
+extern u32 cmmwrap_calloc_buf(union Trapped_Args *args, void *pr_ctxt);
+extern u32 cmmwrap_free_buf(union Trapped_Args *args, void *pr_ctxt);
+extern u32 cmmwrap_get_handle(union Trapped_Args *args, void *pr_ctxt);
+extern u32 cmmwrap_get_info(union Trapped_Args *args, void *pr_ctxt);
 
-#endif				/* _WCD_ */
+#endif /* _WCD_ */

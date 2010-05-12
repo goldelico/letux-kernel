@@ -46,4 +46,9 @@ config PANEL_4430SDP_TAAL
 	help
 		DSI LCD Panel used in OMAP4
 
+config PANEL_NEC
+	tristate "NEC Panel"
+	help
+		LCD Panel used in the Zoom board
+
 endmenu

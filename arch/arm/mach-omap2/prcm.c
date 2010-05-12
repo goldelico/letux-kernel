@@ -237,12 +237,14 @@ u32 cm_read_mod_reg(s16 module, u16 idx)
 {
 	return __omap_prcm_read(cm_base, module, idx);
 }
+EXPORT_SYMBOL(cm_read_mod_reg);
 
 /* Write into a register in a CM module */
 void cm_write_mod_reg(u32 val, s16 module, u16 idx)
 {
 	__omap_prcm_write(val, cm_base, module, idx);
 }
+EXPORT_SYMBOL(cm_write_mod_reg);
 
 /* Read-modify-write a register in a CM module. Caller must lock */
 u32 cm_rmw_mod_reg_bits(u32 mask, u32 bits, s16 module, s16 idx)

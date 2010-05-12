@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * General storage memory allocator services.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,44 +16,29 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== gs.c ========
- *  Description:
- *      General storage memory allocator services.
- *
- *! Revision History
- *! ================
- *! 29-Sep-1999 ag:  Un-commented MEM_Init in GS_init().
- *! 14-May-1997 mg:  Modified to use new GS API for GS_free() and GS_frees().
- *! 06-Nov-1996 gp:  Re-commented MEM_Init in GS_init(). GS needs GS_Exit().
- *! 21-Oct-1996 db:  Un-commented MEM_Init in GS_init().
- *! 21-May-1996 mg:  Created from original stdlib implementation.
- */
-
 /*  ----------------------------------- DSP/BIOS Bridge */
 #include <dspbridge/std.h>
 #include <dspbridge/dbdefs.h>
 #include <linux/types.h>
-/*  ----------------------------------- OS Adaptation Layer */
-#include <dspbridge/mem.h>
 
 /*  ----------------------------------- This */
 #include <dspbridge/gs.h>
+
+#include <linux/slab.h>
 
 /*  ----------------------------------- Globals */
 static u32 cumsize;
 
 /*
- *  ======== GS_alloc ========
+ *  ======== gs_alloc ========
  *  purpose:
  *      Allocates memory of the specified size.
  */
-void *GS_alloc(u32 size)
+void *gs_alloc(u32 size)
 {
 	void *p;
 
-	p = MEM_Calloc(size, MEM_PAGED);
+	p = kzalloc(size, GFP_KERNEL);
 	if (p == NULL)
 		return NULL;
 	cumsize += size;
@@ -59,48 +46,44 @@ void *GS_alloc(u32 size)
 }
 
 /*
- *  ======== GS_exit ========
+ *  ======== gs_exit ========
  *  purpose:
  *      Discontinue the usage of the GS module.
  */
-void GS_exit(void)
+void gs_exit(void)
 {
-	MEM_Exit();
+	/* Do nothing */
 }
 
 /*
- *  ======== GS_free ========
+ *  ======== gs_free ========
  *  purpose:
  *      Frees the memory.
  */
-void GS_free(void *ptr)
+void gs_free(void *ptr)
 {
-	MEM_Free(ptr);
+	kfree(ptr);
 	/* ack! no size info */
 	/* cumsize -= size; */
 }
 
 /*
- *  ======== GS_frees ========
+ *  ======== gs_frees ========
  *  purpose:
  *      Frees the memory.
  */
-void GS_frees(void *ptr, u32 size)
+void gs_frees(void *ptr, u32 size)
 {
-	MEM_Free(ptr);
+	kfree(ptr);
 	cumsize -= size;
 }
 
 /*
- *  ======== GS_init ========
+ *  ======== gs_init ========
  *  purpose:
  *      Initializes the GS module.
  */
-void GS_init(void)
+void gs_init(void)
 {
-	static bool curInit;
-
-	if (curInit == false) {
-		curInit = MEM_Init(); /* which can't fail currently. */
-	}
+	/* Do nothing */
 }

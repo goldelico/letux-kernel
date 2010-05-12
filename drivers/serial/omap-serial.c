@@ -445,12 +445,22 @@ static int serial_omap_startup(struct uart_port *port)
 {
 	struct uart_omap_port *up = (struct uart_omap_port *)port;
 	unsigned long flags = 0;
+	int irq_flags = port->flags & UPF_SHARE_IRQ ? IRQF_SHARED : 0;
 	int retval;
 
+	/* Zoom2 has GPIO_102 connected to Serial device:
+	* Active High
+	*/
+
+	if (up->port.flags & UPF_TRIGGER_HIGH)
+		irq_flags |= IRQF_TRIGGER_HIGH;
+
+	if (up->port.flags & UPF_SHARE_IRQ)
+		irq_flags |= IRQF_SHARED;
 	/*
 	 * Allocate the IRQ
 	 */
-	retval = request_irq(up->port.irq, serial_omap_irq, up->port.irqflags,
+	retval = request_irq(up->port.irq, serial_omap_irq, irq_flags,
 				up->name, up);
 	if (retval)
 		return retval;
@@ -1208,16 +1218,23 @@ static int serial_omap_probe(struct platform_device *pdev)
 		return -EBUSY;
 	}
 
-	dma_rx = platform_get_resource(pdev, IORESOURCE_DMA, 0);
-	if (!dma_rx) {
-		ret = -EINVAL;
-		goto err;
-	}
 
-	dma_tx = platform_get_resource(pdev, IORESOURCE_DMA, 1);
-	if (!dma_tx) {
-		ret = -EINVAL;
-		goto err;
+	/* External Quart does not have a DMA resource in zoom boards.
+	 * Port id 3 is quart in zoom boards, but the fourth
+	 * uart on omap 4430.
+	 */
+	if ((cpu_is_omap44xx()) || ((pdev->id < 3) && (cpu_is_omap34xx()))) {
+		dma_tx = platform_get_resource(pdev, IORESOURCE_DMA, 0);
+		if (!dma_tx) {
+			ret = -EINVAL;
+			goto err;
+		}
+
+		dma_rx = platform_get_resource(pdev, IORESOURCE_DMA, 1);
+		if (!dma_rx) {
+			ret = -EINVAL;
+			goto err;
+		}
 	}
 
 	up = kzalloc(sizeof(*up), GFP_KERNEL);
@@ -1243,6 +1260,17 @@ static int serial_omap_probe(struct platform_device *pdev)
 	up->port.irqflags = omap_up_info->irqflags;
 	up->port.uartclk = omap_up_info->uartclk;
 	up->uart_dma.uart_base = mem->start;
+
+#define QUART_CLK (1843200)
+	/*Zoom external uart specific parameters*/
+	if ((pdev->id == 3) && !cpu_is_omap44xx()) {
+		up->port.membase = ioremap_nocache(mem->start, 0x16 << 1);
+		up->port.flags = UPF_BOOT_AUTOCONF | UPF_IOREMAP |
+					UPF_SHARE_IRQ | UPF_TRIGGER_HIGH;
+		up->port.regshift = 1;
+		up->port.uartclk = QUART_CLK;
+	}
+
 
 	if (omap_up_info->dma_enabled) {
 		up->uart_dma.uart_dma_tx = dma_tx->start;

@@ -316,7 +316,7 @@ struct omap3_gpio_regs {
 	u32 setdataout;
 };
 
-static struct omap3_gpio_regs gpio_context[OMAP34XX_NR_GPIOS];
+static struct omap3_gpio_regs gpio_context[OMAP_NR_GPIOS];
 #endif
 
 #ifdef CONFIG_ARCH_OMAP4
@@ -1624,7 +1624,7 @@ static struct clk * gpio5_fck;
 #endif
 
 #if defined(CONFIG_ARCH_OMAP3) || defined(CONFIG_ARCH_OMAP4)
-static struct clk *gpio_iclks[OMAP34XX_NR_GPIOS];
+static struct clk *gpio_iclks[OMAP_NR_GPIOS];
 
 #if defined(CONFIG_ARCH_OMAP3)
 /*
@@ -1758,7 +1758,7 @@ static int __init _omap_gpio_init(void)
 
 #if defined(CONFIG_ARCH_OMAP3) || defined(CONFIG_ARCH_OMAP4)
 	if (cpu_is_omap34xx() || cpu_is_omap44xx()) {
-		for (i = 0; i < OMAP34XX_NR_GPIOS; i++) {
+		for (i = 0; i < OMAP_NR_GPIOS; i++) {
 			sprintf(clk_name, "gpio%d_ick", i + 1);
 			gpio_iclks[i] = clk_get(NULL, clk_name);
 			if (IS_ERR(gpio_iclks[i]))
@@ -1803,13 +1803,13 @@ static int __init _omap_gpio_init(void)
 #endif
 #ifdef CONFIG_ARCH_OMAP34XX
 	if (cpu_is_omap34xx()) {
-		gpio_bank_count = OMAP34XX_NR_GPIOS;
+		gpio_bank_count = OMAP_NR_GPIOS;
 		gpio_bank = gpio_bank_34xx;
 	}
 #endif
 #ifdef CONFIG_ARCH_OMAP4
 	if (cpu_is_omap44xx()) {
-		gpio_bank_count = OMAP34XX_NR_GPIOS;
+		gpio_bank_count = OMAP_NR_GPIOS;
 		gpio_bank = gpio_bank_44xx;
 	}
 #endif

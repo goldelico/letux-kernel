@@ -3,6 +3,9 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Definitions for shared mailbox cmd/data values.(used on both
+ * the GPP and DSP sides).
+ *
  * Copyright (C) 2008 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,15 +17,10 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
 /*
- *  ======== mbx_sh.h ========
- *  Definitions for shared mailbox cmd/data values.(used on both
- *     the GPP and DSP sides).
- *
  *  Bridge usage of OMAP mailbox 1 is determined by the "class" of the
- *     mailbox interrupt's cmd value received. The class value are defined
- *     as a bit (10 thru 15) being set.
+ *  mailbox interrupt's cmd value received. The class value are defined
+ *  as a bit (10 thru 15) being set.
  *
  *  Note: Only 16 bits of each  is used. Other 16 bit data reg available.
  *
@@ -37,7 +35,6 @@
  *   |  (class)  | (module specific) |
  *
  *
- *
  * B: DSP-DMA link driver channels (DDMA) : class = 1.
  *
  *    15         10                  0
@@ -48,8 +45,6 @@
  *
  *   where b -> buffer index  (32 DDMA buffers/chnl max)
  *         c -> channel Id    (32 DDMA chnls max)
- *
- *
  *
  *
  * C: Proc-copy link driver channels (PCPY) : class = 2.
@@ -110,16 +105,6 @@
  *   where x -> not used
  *         c -> Power management command
  *
- *
- *
- *! Revision History:
- *! ================
- *! 19-Sep-2002 mr  Added DEH reset const
- *! 24-Apr-2002 sg  Added more PM commands.
- *! 04-Mar-2002 gv  Added MBX_PM_CLASS
- *! 22-Jan-2002 ag  Bug fix in MBX_SETZCPYVAL(x) macro.
- *! 21-Dec-2001 ag  Added bit masks defns.
- *! 17-Dec-2001 ag: created.
  */
 
 #ifndef _MBX_SH_H
@@ -143,7 +128,7 @@
 #define MBX_DEH_USERS_BASE  0x100	/* 256 */
 #define MBX_DEH_LIMIT       0x3FF	/* 1023 */
 #define MBX_DEH_RESET       0x101	/* DSP RESET (DEH) */
-#define MBX_DEH_EMMU        0X103 /*DSP MMU FAULT RECOVERY*/
+#define MBX_DEH_EMMU        0X103	/*DSP MMU FAULT RECOVERY */
 
 /*
  *  Link driver command/status codes.
@@ -188,10 +173,10 @@
 #define MBX_PM_OPP_CHNG(OPP) (MBX_PM_CLASS | MBX_PM_TYPE_OPP_PRECHNG | (OPP))
 #define MBX_PM_RET (MBX_PM_CLASS | MBX_PM_TYPE_PWR_CHNG | 0x0006)
 #define MBX_PM_HIB (MBX_PM_CLASS | MBX_PM_TYPE_PWR_CHNG | 0x0002)
-#define MBX_PM_OPP_1 0
-#define MBX_PM_OPP_2 1
-#define MBX_PM_OPP_3 2
-#define MBX_PM_OPP_4 3
+#define MBX_PM_OPP1 0
+#define MBX_PM_OPP2 1
+#define MBX_PM_OPP3 2
+#define MBX_PM_OPP4 3
 #define MBX_OLDOPP_EXTRACT(OPPMSG) ((0x00F0 & (OPPMSG)) >> 4)
 #define MBX_NEWOPP_EXTRACT(OPPMSG) (0x000F & (OPPMSG))
 #define MBX_PREVOPP_EXTRACT(OPPMSG) ((0x00F0 & (OPPMSG)) >> 4)
@@ -210,4 +195,4 @@
 /* Zero-Copy channel */
 #define MBX_SETZCPYVAL(x)  (MBX_ZCPY_CLASS | (x << MBX_ZCPY_CHNLSHIFT))
 
-#endif				/* _MBX_SH_H */
+#endif /* _MBX_SH_H */

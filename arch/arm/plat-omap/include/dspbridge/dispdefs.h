@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Global DISP constants and types, shared by PROCESSOR, NODE, and DISP.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,32 +16,20 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== dispdefs.h ========
- *  Description:
- *      Global DISP constants and types, shared by PROCESSOR, NODE, and DISP.
- *
- *! Revision History
- *! ================
- *! 08-Aug-2000 jeh     Added fields to DISP_ATTRS.
- *! 06-Jul-2000 jeh     Created.
- */
-
 #ifndef DISPDEFS_
 #define DISPDEFS_
 
-	struct DISP_OBJECT;
+struct disp_object;
 
 /* Node Dispatcher attributes */
-	struct DISP_ATTRS {
-		u32 ulChnlOffset; /* Offset of channel ids reserved for RMS */
-		/* Size of buffer for sending data to RMS */
-		u32 ulChnlBufSize;
-		DSP_PROCFAMILY procFamily;	/* eg, 5000 */
-		DSP_PROCTYPE procType;	/* eg, 5510 */
-		HANDLE hReserved1;	/* Reserved for future use. */
-		u32 hReserved2;	/* Reserved for future use. */
-	} ;
+struct disp_attr {
+	u32 ul_chnl_offset;	/* Offset of channel ids reserved for RMS */
+	/* Size of buffer for sending data to RMS */
+	u32 ul_chnl_buf_size;
+	int proc_family;	/* eg, 5000 */
+	int proc_type;		/* eg, 5510 */
+	bhandle reserved1;	/* Reserved for future use. */
+	u32 reserved2;		/* Reserved for future use. */
+};
 
-#endif				/* DISPDEFS_ */
+#endif /* DISPDEFS_ */

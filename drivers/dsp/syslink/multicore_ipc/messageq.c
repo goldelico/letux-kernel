@@ -103,6 +103,7 @@
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/semaphore.h>
+#include <linux/jiffies.h>
 
 /* Syslink headers */
 #include <syslink/atomic_linux.h>

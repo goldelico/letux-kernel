@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Processor interface at the driver level.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -12,92 +14,6 @@
  * THIS PACKAGE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
- */
-
-
-/*
- *  ======== proc.c ========
- *  Description:
- *      Processor interface at the driver level.
- *
- *  Public Functions:
- *      PROC_Attach
- *      PROC_Ctrl
- *      PROC_Detach
- *      PROC_EnumNodes
- *      PROC_GetResourceInfo
- *      PROC_Exit
- *      PROC_FlushMemory
- *      PROC_GetState
- *      PROC_GetProcessorId
- *      PROC_GetTrace
- *      PROC_Init
- *      PROC_Load
- *      PROC_Map
- *      PROC_NotifyClients
- *      PROC_RegisterNotify
- *      PROC_ReserveMemory
- *      PROC_Start
- *      PROC_UnMap
- *      PROC_UnReserveMemory
- *      PROC_InvalidateMemory
-
- *! Revision History
- *! ======== ========
- *! 04-Apr-2007 sh  Added PROC_InvalidateMemory API
- *! 19-Apr-2004 sb  Aligned DMM definitions with Symbian
- *!		 Used MEM_FlushCache instead of OS specific API
- *!		 Integrated Alan's code review updates
- *! 08-Mar-2004 sb  Added the Dynamic Memory Mapping feature
- *! 08-Mar-2004 vp  Added g_pszLastCoff member to PROC_OBJECT.
- *!		 This is required for multiprocessor environment.
- *! 09-Feb-2004 vp  Added PROC_GetProcessorID function
- *! 22-Apr-2003 vp  Fixed issue with the string that stores coff file name
- *! 03-Apr-2003 sb  Fix DEH deregistering bug
- *! 26-Mar-2003 vp  Commented the call to DSP deep sleep in PROC_Start function.
- *! 18-Feb-2003 vp  Code review updates.
- *! 18-Oct-2002 vp  Ported to Linux platform.
- *! 22-May-2002 sg  Do IOCTL-to-PWR translation before calling PWR_SleepDSP.
- *! 14-May-2002 sg  Use CSL_Atoi() instead of atoi().
- *! 13-May-2002 sg  Propagate PWR return codes upwards.
- *! 07-May-2002 sg  Added check for, and call to PWR functions in PROC_Ctrl.
- *! 02-May-2002 sg  Added "nap" mode: put DSP to sleep once booted.
- *! 01-Apr-2002 jeh Assume word addresses in PROC_GetTrace().
- *! 29-Nov-2001 jeh Don't call DEH function if hDehMgr == NULL.
- *! 05-Nov-2001 kc: Updated PROC_RegisterNotify and PROC_GetState to support
- *!		 DEH module.
- *! 09-Oct-2001 jeh Fix number of bytes calculated in PROC_GetTrace().
- *! 11-Sep-2001 jeh Delete MSG manager in PROC_Monitor() to fix memory leak.
- *! 29-Aug-2001 rr: DCD_AutoRegister and IOOnLoaded moved before COD_LoadBase
- *!		 to facilitate the external loading.
- *! 14-Aug-2001 ag  DCD_AutoRegister() now called before IOOnLoaded() fxn.
- *! 21-Jun-2001 rr: MSG_Create is done only the first time.
- *! 02-May-2001 jeh Return failure in PROC_Load if IOOnLoaded function returns
- *!		 error other than E_NOTIMPL.
- *! 03-Apr-2001 sg: Changed DSP_DCD_ENOAUTOREGISTER to DSP_EDCDNOAUTOREGISTER.
- *! 13-Feb-2001 kc: DSP/BIOS Bridge name updates.
- *! 05-Jan-2001 rr: PROC_LOAD MSG_Create error is checked.
- *! 15-Dec-2000 rr: IoOnLoaded is checked for WSX_STATUS. We fail to load
- *!		 if DEV_Create2 fails; ie, no non-RMS targets can be
- *!		 loaded.
- *! 12-Dec-2000 rr: PROC_Start's DEV_Create2 is checked for WSX_STATUS.
- *! 28-Nov-2000 jeh Added call to IO OnLoaded function to PROC_Load().
- *! 29-Nov-2000 rr: Incorporated code review changes.
- *! 03-Nov-2000 rr: Auto_Register happens after PROC_Load.
- *! 06-Oct-2000 rr: Updated to ver 0.9. PROC_Start calls DEV_Create2 and
- *!		 WMD_BRD_STOP is always followed by DEV_Destroy2.
- *! 05-Sep-2000 rr: PROC_GetTrace calculates the Trace symbol for 55 in a
- *!		 different way.
- *! 10-Aug-2000 rr: PROC_NotifyClients, PROC_GetProcessorHandle Added
- *! 07-Aug-2000 rr: PROC_IDLE/SYNCINIT/UNKNOWN state removed.
- *!		 WMD fxns are checked for WSX_STATUS.
- *!		 PROC_Attach does not alter the state of the BRD.
- *!		 PROC_Run removed.
- *! 04-Aug-2000 rr: All the functions return DSP_EHANDLE if proc handle is
- *!		 invalid
- *! 27-Jul-2000 rr: PROC_GetTrace and PROC_Load implemented. Updated to
- *!		 ver 0.8 API.
- *! 06-Jul-2000 rr: Created.
  */
 
 /* ------------------------------------ Host OS */
@@ -110,12 +26,10 @@
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/gt.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
 #include <dspbridge/cfg.h>
 #include <dspbridge/list.h>
-#include <dspbridge/mem.h>
 #include <dspbridge/ntfy.h>
 #include <dspbridge/sync.h>
 /*  ----------------------------------- Mini Driver */
@@ -142,525 +56,443 @@
 /*  ----------------------------------- This */
 #include <dspbridge/proc.h>
 #include <dspbridge/pwr.h>
-#include <mach-omap2/omap3-opp.h>
 
-#ifndef RES_CLEANUP_DISABLE
 #include <dspbridge/resourcecleanup.h>
-#endif
 /*  ----------------------------------- Defines, Data Structures, Typedefs */
-#define PROC_SIGNATURE	   0x434F5250	/* "PROC" (in reverse). */
 #define MAXCMDLINELEN       255
 #define PROC_ENVPROCID      "PROC_ID=%d"
 #define MAXPROCIDLEN	(8 + 5)
-#define PROC_DFLT_TIMEOUT   10000	/* Time out in milliseconds  */
+#define PROC_DFLT_TIMEOUT   10000	/* Time out in milliseconds */
 #define PWR_TIMEOUT	 500	/* Sleep/wake timout in msec */
 #define EXTEND	      "_EXT_END"	/* Extmem end addr in DSP binary */
 
-#define DSP_CACHE_SIZE 128 /* DSP cacheline size */
+#define DSP_CACHE_LINE 128
+
+#define BUFMODE_MASK	(3 << 14)
+
+/* Buffer modes from DSP perspective */
+#define RBUF		0x4000	/* Input buffer */
+#define WBUF		0x8000	/* Output Buffer */
 
 extern char *iva_img;
 
 /*  ----------------------------------- Globals */
-#if GT_TRACE
-static struct GT_Mask PROC_DebugMask = { NULL, NULL };	/* WCD MGR Mask */
-#endif
 
-/* The PROC_OBJECT structure.   */
-struct PROC_OBJECT {
-	struct LST_ELEM link;		/* Link to next PROC_OBJECT */
-	u32 dwSignature;		/* Used for object validation */
-	struct DEV_OBJECT *hDevObject;	/* Device this PROC represents */
-	u32 hProcess;			/* Process owning this Processor */
-	struct MGR_OBJECT *hMgrObject;	/* Manager Object Handle */
-	u32 uAttachCount;		/* Processor attach count */
-	u32 uProcessor;			/* Processor number */
-	u32 uTimeout;			/* Time out count */
-	enum DSP_PROCSTATE sState;	/* Processor state */
-	u32 ulUnit;			/* DDSP unit number */
-	bool bIsAlreadyAttached;	/*
+/* The proc_object structure. */
+struct proc_object {
+	struct list_head link;	/* Link to next proc_object */
+	struct dev_object *hdev_obj;	/* Device this PROC represents */
+	u32 process;		/* Process owning this Processor */
+	struct mgr_object *hmgr_obj;	/* Manager Object Handle */
+	u32 attach_count;	/* Processor attach count */
+	u32 processor_id;	/* Processor number */
+	u32 utimeout;		/* Time out count */
+	enum dsp_procstate proc_state;	/* Processor state */
+	u32 ul_unit;		/* DDSP unit number */
+	bool is_already_attached;	/*
 					 * True if the Device below has
 					 * GPP Client attached
 					 */
-	struct NTFY_OBJECT *hNtfy;	/* Manages  notifications */
-	struct WMD_DEV_CONTEXT *hWmdContext;	/* WMD Context Handle */
-	struct WMD_DRV_INTERFACE *pIntfFxns;	/* Function interface to WMD */
-	char *g_pszLastCoff;
-	struct list_head proc_object;
+	struct ntfy_object *ntfy_obj;	/* Manages  notifications */
+	struct wmd_dev_context *hwmd_context;	/* WMD Context Handle */
+	struct bridge_drv_interface *intf_fxns;	/* Function interface to WMD */
+	char *psz_last_coff;
+	struct list_head proc_list;
 };
 
-static u32 cRefs;
+static u32 refs;
 
-struct SYNC_CSOBJECT *hProcLock;	/* For critical sections */
+DEFINE_MUTEX(proc_lock);	/* For critical sections */
 
 /*  ----------------------------------- Function Prototypes */
-static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *hProcessor);
-static s32 GetEnvpCount(char **envp);
-static char **PrependEnvp(char **newEnvp, char **envp, s32 cEnvp, s32 cNewEnvp,
-			 char *szVar);
+static dsp_status proc_monitor(struct proc_object *hprocessor);
+static s32 get_envp_count(char **envp);
+static char **prepend_envp(char **new_envp, char **envp, s32 envp_elems,
+			   s32 cnew_envp, char *szVar);
 
 /*
- *  ======== PROC_Attach ========
+ *  ======== proc_attach ========
  *  Purpose:
  *      Prepare for communication with a particular DSP processor, and return
  *      a handle to the processor object.
  */
-DSP_STATUS
-PROC_Attach(u32 uProcessor, OPTIONAL CONST struct DSP_PROCESSORATTRIN *pAttrIn,
-       OUT DSP_HPROCESSOR *phProcessor, struct PROCESS_CONTEXT *pr_ctxt)
+dsp_status
+proc_attach(u32 processor_id,
+	    OPTIONAL CONST struct dsp_processorattrin *attr_in,
+	    void **ph_processor, struct process_context *pr_ctxt)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct DEV_OBJECT *hDevObject;
-	struct PROC_OBJECT *pProcObject = NULL;
-	struct MGR_OBJECT *hMgrObject = NULL;
-	struct DRV_OBJECT *hDrvObject = NULL;
-	u32 devType;
+	dsp_status status = DSP_SOK;
+	struct dev_object *hdev_obj;
+	struct proc_object *p_proc_object = NULL;
+	struct mgr_object *hmgr_obj = NULL;
+	struct drv_object *hdrv_obj = NULL;
+	u8 dev_type;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(phProcessor != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(ph_processor != NULL);
 
-	GT_3trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Attach, args:\n\t"
-		 "uProcessor:  0x%x\n\tpAttrIn:  0x%x\n\tphProcessor:"
-		 "0x%x\n", uProcessor, pAttrIn, phProcessor);
-
-	if (pr_ctxt && pr_ctxt->hProcessor) {
-		*phProcessor = pr_ctxt->hProcessor;
+	if (pr_ctxt->hprocessor) {
+		*ph_processor = pr_ctxt->hprocessor;
 		return status;
 	}
 
 	/* Get the Driver and Manager Object Handles */
-	status = CFG_GetObject((u32 *)&hDrvObject, REG_DRV_OBJECT);
-	if (DSP_SUCCEEDED(status)) {
-		status = CFG_GetObject((u32 *)&hMgrObject, REG_MGR_OBJECT);
-		if (DSP_FAILED(status)) {
-			/* don't propogate CFG errors from this PROC function */
-			GT_1trace(PROC_DebugMask, GT_7CLASS,
-				 "PROC_Attach: DSP_FAILED to get"
-				 "the Manager Object.\n", status);
-		}
-	} else {
-		/* don't propogate CFG errors from this PROC function */
-		GT_1trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Attach: failed to get the"
-			 " DriverObject, 0x%x!\n", status);
-	}
+	status = cfg_get_object((u32 *) &hdrv_obj, REG_DRV_OBJECT);
+	if (DSP_SUCCEEDED(status))
+		status = cfg_get_object((u32 *) &hmgr_obj, REG_MGR_OBJECT);
+
 	if (DSP_SUCCEEDED(status)) {
 		/* Get the Device Object */
-		status = DRV_GetDevObject(uProcessor, hDrvObject, &hDevObject);
-		if (DSP_FAILED(status)) {
-			GT_1trace(PROC_DebugMask, GT_7CLASS,
-				 "PROC_Attach: failed to get"
-				 " DevObject, 0x%x!\n", status);
-		}
+		status = drv_get_dev_object(processor_id, hdrv_obj, &hdev_obj);
 	}
-	if (DSP_SUCCEEDED(status)) {
-		status = DEV_GetDevType(hDevObject, &devType);
-		if (DSP_FAILED(status)) {
-			GT_1trace(PROC_DebugMask, GT_7CLASS,
-				 "PROC_Attach: failed to get"
-				 " DevType, 0x%x!\n", status);
-		}
-	}
+	if (DSP_SUCCEEDED(status))
+		status = dev_get_dev_type(hdev_obj, &dev_type);
+
 	if (DSP_FAILED(status))
 		goto func_end;
 
 	/* If we made it this far, create the Proceesor object: */
-	MEM_AllocObject(pProcObject, struct PROC_OBJECT, PROC_SIGNATURE);
+	p_proc_object = kzalloc(sizeof(struct proc_object), GFP_KERNEL);
 	/* Fill out the Processor Object: */
-	if (pProcObject == NULL) {
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Attach:Out of memeory \n");
-		status = DSP_EFAIL;
+	if (p_proc_object == NULL) {
+		status = -ENOMEM;
 		goto func_end;
 	}
-	pProcObject->hDevObject = hDevObject;
-	pProcObject->hMgrObject = hMgrObject;
-	pProcObject->uProcessor = devType;
-	/* Store TGID of Caller Process */
-	pProcObject->hProcess = current->tgid;
+	p_proc_object->hdev_obj = hdev_obj;
+	p_proc_object->hmgr_obj = hmgr_obj;
+	p_proc_object->processor_id = dev_type;
+	/* Store TGID instead of process handle */
+	p_proc_object->process = current->tgid;
 
-	INIT_LIST_HEAD(&pProcObject->proc_object);
+	INIT_LIST_HEAD(&p_proc_object->proc_list);
 
-	if (pAttrIn)
-		pProcObject->uTimeout = pAttrIn->uTimeout;
+	if (attr_in)
+		p_proc_object->utimeout = attr_in->utimeout;
 	else
-		pProcObject->uTimeout = PROC_DFLT_TIMEOUT;
+		p_proc_object->utimeout = PROC_DFLT_TIMEOUT;
 
-	status = DEV_GetIntfFxns(hDevObject, &pProcObject->pIntfFxns);
+	status = dev_get_intf_fxns(hdev_obj, &p_proc_object->intf_fxns);
 	if (DSP_SUCCEEDED(status)) {
-		status = DEV_GetWMDContext(hDevObject,
-					 &pProcObject->hWmdContext);
-		if (DSP_FAILED(status)) {
-			GT_1trace(PROC_DebugMask, GT_7CLASS,
-				 "PROC_Attach Could not"
-				 " get the WMD Context.\n", status);
-			MEM_FreeObject(pProcObject);
-		}
-	} else {
-		GT_1trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Attach Could not get"
-			 " the DEV_ Interface fxns.\n", status);
-		MEM_FreeObject(pProcObject);
-	}
+		status = dev_get_wmd_context(hdev_obj,
+					     &p_proc_object->hwmd_context);
+		if (DSP_FAILED(status))
+			kfree(p_proc_object);
+	} else
+		kfree(p_proc_object);
+
 	if (DSP_FAILED(status))
 		goto func_end;
 
 	/* Create the Notification Object */
 	/* This is created with no event mask, no notify mask
 	 * and no valid handle to the notification. They all get
-	 * filled up when PROC_RegisterNotify is called */
-	status = NTFY_Create(&pProcObject->hNtfy);
+	 * filled up when proc_register_notify is called */
+	p_proc_object->ntfy_obj = kmalloc(sizeof(struct ntfy_object),
+							GFP_KERNEL);
+	if (p_proc_object->ntfy_obj)
+		ntfy_init(p_proc_object->ntfy_obj);
+	else
+		status = -ENOMEM;
+
 	if (DSP_SUCCEEDED(status)) {
 		/* Insert the Processor Object into the DEV List.
 		 * Return handle to this Processor Object:
 		 * Find out if the Device is already attached to a
 		 * Processor. If so, return AlreadyAttached status */
-		LST_InitElem(&pProcObject->link);
-		status = DEV_InsertProcObject(pProcObject->hDevObject,
-					     (u32)pProcObject,
-					     &pProcObject->bIsAlreadyAttached);
+		lst_init_elem(&p_proc_object->link);
+		status = dev_insert_proc_object(p_proc_object->hdev_obj,
+						(u32) p_proc_object,
+						&p_proc_object->
+						is_already_attached);
 		if (DSP_SUCCEEDED(status)) {
-			if (pProcObject->bIsAlreadyAttached) {
+			if (p_proc_object->is_already_attached)
 				status = DSP_SALREADYATTACHED;
-				GT_0trace(PROC_DebugMask, GT_1CLASS,
-					 "PROC_Attach: Processor "
-					 "Already Attached!\n");
-			}
 		} else {
-			if (pProcObject->hNtfy)
-				NTFY_Delete(pProcObject->hNtfy);
+			if (p_proc_object->ntfy_obj) {
+				ntfy_delete(p_proc_object->ntfy_obj);
+				kfree(p_proc_object->ntfy_obj);
+			}
 
-			MEM_FreeObject(pProcObject);
-			GT_1trace(PROC_DebugMask, GT_7CLASS,
-				 "PROC_Attach: failed to insert "
-				 "Proc Object into DEV, 0x%x!\n", status);
+			kfree(p_proc_object);
 		}
 		if (DSP_SUCCEEDED(status)) {
-			*phProcessor = (DSP_HPROCESSOR)pProcObject;
-			pr_ctxt->hProcessor = *phProcessor;
-			(void)PROC_NotifyClients(pProcObject,
-						 DSP_PROCESSORATTACH);
-			GT_0trace(PROC_DebugMask, GT_1CLASS,
-				 "PROC_Attach: Processor "
-				 "Attach Success!\n");
+			*ph_processor = (void *)p_proc_object;
+			pr_ctxt->hprocessor = *ph_processor;
+			(void)proc_notify_clients(p_proc_object,
+						  DSP_PROCESSORATTACH);
 		}
 	} else {
 		/* Don't leak memory if DSP_FAILED */
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Attach: Could not allocate "
-			 "storage for notification \n");
-		MEM_FreeObject(pProcObject);
-		goto func_end;
+		kfree(p_proc_object);
 	}
 func_end:
-	DBC_Ensure((status == DSP_EFAIL && *phProcessor == NULL) ||
-		  (DSP_SUCCEEDED(status) &&
-		  MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) ||
-		  (status == DSP_SALREADYATTACHED &&
-		  MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)));
-	GT_2trace(PROC_DebugMask, GT_ENTER, "Exiting PROC_Attach, results:\n\t"
-		 "status: 0x%x\n\thProcessor: 0x%x\n", status, *phProcessor);
+	DBC_ENSURE((status == -EPERM && *ph_processor == NULL) ||
+			(DSP_SUCCEEDED(status) && p_proc_object));
 
 	return status;
 }
 
-static DSP_STATUS GetExecFile(struct CFG_DEVNODE *hDevNode,
-			     struct DEV_OBJECT *hDevObject,
-			     u32 size, char *execFile)
+static dsp_status get_exec_file(struct cfg_devnode *dev_node_obj,
+				struct dev_object *hdev_obj,
+				u32 size, char *execFile)
 {
-	s32 devType;
+	u8 dev_type;
 	s32 len;
 
-	DEV_GetDevType(hDevObject, (u32 *) &devType);
-	if (devType == DSP_UNIT) {
-		return CFG_GetExecFile(hDevNode, size, execFile);
-	} else if (devType == IVA_UNIT) {
+	dev_get_dev_type(hdev_obj, (u8 *) &dev_type);
+	if (dev_type == DSP_UNIT) {
+		return cfg_get_exec_file(dev_node_obj, size, execFile);
+	} else if (dev_type == IVA_UNIT) {
 		if (iva_img) {
-                       len = strlen(iva_img);
-                       strncpy(execFile, iva_img, len + 1);
+			len = strlen(iva_img);
+			strncpy(execFile, iva_img, len + 1);
 			return DSP_SOK;
 		}
 	}
-	return DSP_EFILE;
+	return -ENOENT;
 }
 
 /*
- *  ======== PROC_AutoStart ======== =
+ *  ======== proc_auto_start ======== =
  *  Purpose:
  *      A Particular device gets loaded with the default image
  *      if the AutoStart flag is set.
  *  Parameters:
- *      hDevObject:     Handle to the Device
+ *      hdev_obj:     Handle to the Device
  *  Returns:
  *      DSP_SOK:   On Successful Loading
- *      DSP_EFAIL  General Failure
+ *      -EPERM  General Failure
  *  Requires:
- *      hDevObject != NULL
+ *      hdev_obj != NULL
  *  Ensures:
  */
-DSP_STATUS PROC_AutoStart(struct CFG_DEVNODE *hDevNode,
-			 struct DEV_OBJECT *hDevObject)
+dsp_status proc_auto_start(struct cfg_devnode *dev_node_obj,
+			   struct dev_object *hdev_obj)
 {
-	DSP_STATUS status = DSP_EFAIL;
-	u32 dwAutoStart = 0;	/* autostart flag */
-	struct PROC_OBJECT *pProcObject;
-	struct PROC_OBJECT *hProcObject;
-	char szExecFile[MAXCMDLINELEN];
+	dsp_status status = -EPERM;
+	struct proc_object *p_proc_object;
+	char sz_exec_file[MAXCMDLINELEN];
 	char *argv[2];
-	struct MGR_OBJECT *hMgrObject = NULL;
-	s32 devType;
+	struct mgr_object *hmgr_obj = NULL;
+	u8 dev_type;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(hDevNode != NULL);
-	DBC_Require(hDevObject != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(dev_node_obj != NULL);
+	DBC_REQUIRE(hdev_obj != NULL);
 
-	GT_2trace(PROC_DebugMask, GT_ENTER,
-		 "Entered PROC_AutoStart, args:\n\t"
-		 "hDevNode: 0x%x\thDevObject: 0x%x\n", hDevNode, hDevObject);
 	/* Create a Dummy PROC Object */
-	if (DSP_FAILED(CFG_GetObject((u32 *)&hMgrObject,
-	   REG_MGR_OBJECT))) {
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_AutoStart: DSP_FAILED to "
-			 "Get MGR Object\n");
-		goto func_end;
-	}
-	MEM_AllocObject(pProcObject, struct PROC_OBJECT, PROC_SIGNATURE);
-	if (pProcObject == NULL) {
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_AutoStart: DSP_FAILED "
-			 "to Create a dummy Processor\n");
-		goto func_end;
-	}
-	GT_0trace(PROC_DebugMask, GT_1CLASS, "NTFY Created \n");
-	pProcObject->hDevObject = hDevObject;
-	pProcObject->hMgrObject = hMgrObject;
-	hProcObject = pProcObject;
-	if (DSP_SUCCEEDED(DEV_GetIntfFxns(hDevObject,
-	   &pProcObject->pIntfFxns))) {
-		if (DSP_SUCCEEDED(DEV_GetWMDContext(hDevObject,
-				 &pProcObject->hWmdContext))) {
-			status = DSP_SOK;
-		} else {
-			MEM_FreeObject(hProcObject);
-			GT_0trace(PROC_DebugMask, GT_7CLASS,
-				 "PROC_AutoStart: Failed "
-				 "to get WMD Context \n");
-		}
-	} else {
-		MEM_FreeObject(hProcObject);
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_AutoStart: Failed to "
-			 "get IntFxns \n");
-	}
+	status = cfg_get_object((u32 *) &hmgr_obj, REG_MGR_OBJECT);
 	if (DSP_FAILED(status))
 		goto func_end;
 
-	/* Stop the Device, put it into standby mode */
-	status = PROC_Stop(hProcObject);
-	if (DSP_FAILED(CFG_GetAutoStart(hDevNode, &dwAutoStart)) ||
-			   !dwAutoStart) {
-		status = DSP_EFAIL;
-		/* DSP_FAILED to Get s32 Fxn or Wmd Context */
-		GT_0trace(PROC_DebugMask, GT_1CLASS, "PROC_AutoStart: "
-			 "CFG_GetAutoStart DSP_FAILED \n");
-		goto func_cont;
+	p_proc_object = kzalloc(sizeof(struct proc_object), GFP_KERNEL);
+	if (p_proc_object == NULL) {
+		status = -ENOMEM;
+		goto func_end;
 	}
+	p_proc_object->hdev_obj = hdev_obj;
+	p_proc_object->hmgr_obj = hmgr_obj;
+	status = dev_get_intf_fxns(hdev_obj, &p_proc_object->intf_fxns);
+	if (DSP_SUCCEEDED(status))
+		status = dev_get_wmd_context(hdev_obj,
+					     &p_proc_object->hwmd_context);
+	if (DSP_FAILED(status))
+		goto func_cont;
+
+	/* Stop the Device, put it into standby mode */
+	status = proc_stop(p_proc_object);
+
+	if (DSP_FAILED(status))
+		goto func_cont;
+
 	/* Get the default executable for this board... */
-	DEV_GetDevType(hDevObject, (u32 *)&devType);
-	pProcObject->uProcessor = devType;
-	if (DSP_SUCCEEDED(GetExecFile(hDevNode, hDevObject,
-			 sizeof(szExecFile), szExecFile))) {
-		argv[0] = szExecFile;
+	dev_get_dev_type(hdev_obj, (u8 *) &dev_type);
+	p_proc_object->processor_id = dev_type;
+	status = get_exec_file(dev_node_obj, hdev_obj, sizeof(sz_exec_file),
+			       sz_exec_file);
+	if (DSP_SUCCEEDED(status)) {
+		argv[0] = sz_exec_file;
 		argv[1] = NULL;
 		/* ...and try to load it: */
-		status = PROC_Load(hProcObject, 1, (CONST char **)argv, NULL);
-		if (DSP_SUCCEEDED(status)) {
-			status = PROC_Start(hProcObject);
-			if (DSP_SUCCEEDED(status)) {
-				GT_0trace(PROC_DebugMask, GT_1CLASS,
-					  "PROC_AutoStart: Processor started "
-					  "running\n");
-			} else {
-				GT_0trace(PROC_DebugMask, GT_7CLASS,
-					  "PROC_AutoStart: DSP_FAILED To "
-					  "Start \n");
-			}
-		} else {
-			GT_0trace(PROC_DebugMask, GT_7CLASS,
-				  "PROC_AutoStart: DSP_FAILED to Load\n");
-		}
-	} else {
-		status = DSP_EFILE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_AutoStart: "
-			 "No Exec file found \n");
+		status = proc_load(p_proc_object, 1, (CONST char **)argv, NULL);
+		if (DSP_SUCCEEDED(status))
+			status = proc_start(p_proc_object);
 	}
+	kfree(p_proc_object->psz_last_coff);
+	p_proc_object->psz_last_coff = NULL;
 func_cont:
-	MEM_FreeObject(hProcObject);
+	kfree(p_proc_object);
 func_end:
-	GT_1trace(PROC_DebugMask, GT_ENTER,
-		 "Exiting PROC_AutoStart, status:0x%x\n", status);
 	return status;
 }
 
 /*
- *  ======== PROC_Ctrl ========
+ *  ======== proc_ctrl ========
  *  Purpose:
  *      Pass control information to the GPP device driver managing the
  *      DSP processor.
  *
  *      This will be an OEM-only function, and not part of the DSP/BIOS Bridge
  *      application developer's API.
- *      Call the WMD_ICOTL Fxn with the Argument This is a Synchronous
+ *      Call the WMD_ICOTL fxn with the Argument This is a Synchronous
  *      Operation. arg can be null.
  */
-DSP_STATUS PROC_Ctrl(DSP_HPROCESSOR hProcessor, u32 dwCmd,
-		    IN struct DSP_CBDATA *arg)
+dsp_status proc_ctrl(void *hprocessor, u32 dw_cmd, IN struct dsp_cbdata * arg)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = hProcessor;
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = hprocessor;
 	u32 timeout = 0;
 
-	DBC_Require(cRefs > 0);
-	GT_3trace(PROC_DebugMask, GT_ENTER,
-		 "Entered PROC_Ctrl, args:\n\thProcessor:"
-		 " 0x%x\n\tdwCmd: 0x%x\n\targ: 0x%x\n", hProcessor, dwCmd, arg);
+	DBC_REQUIRE(refs > 0);
 
-	if (MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
+	if (p_proc_object) {
 		/* intercept PWR deep sleep command */
-		if (dwCmd == WMDIOCTL_DEEPSLEEP) {
-			timeout = arg->cbData;
-			status = PWR_SleepDSP(PWR_DEEPSLEEP, timeout);
+		if (dw_cmd == WMDIOCTL_DEEPSLEEP) {
+			timeout = arg->cb_data;
+			status = pwr_sleep_dsp(PWR_DEEPSLEEP, timeout);
 		}
 		/* intercept PWR emergency sleep command */
-		else if (dwCmd == WMDIOCTL_EMERGENCYSLEEP) {
-			timeout = arg->cbData;
-			status = PWR_SleepDSP(PWR_EMERGENCYDEEPSLEEP, timeout);
-		} else if (dwCmd == PWR_DEEPSLEEP) {
-			/* timeout = arg->cbData; */
-			status = PWR_SleepDSP(PWR_DEEPSLEEP, timeout);
+		else if (dw_cmd == WMDIOCTL_EMERGENCYSLEEP) {
+			timeout = arg->cb_data;
+			status = pwr_sleep_dsp(PWR_EMERGENCYDEEPSLEEP, timeout);
+		} else if (dw_cmd == PWR_DEEPSLEEP) {
+			/* timeout = arg->cb_data; */
+			status = pwr_sleep_dsp(PWR_DEEPSLEEP, timeout);
 		}
 		/* intercept PWR wake commands */
-		else if (dwCmd == WMDIOCTL_WAKEUP) {
-			timeout = arg->cbData;
-			status = PWR_WakeDSP(timeout);
-		} else if (dwCmd == PWR_WAKEUP) {
-			/* timeout = arg->cbData; */
-			status = PWR_WakeDSP(timeout);
+		else if (dw_cmd == WMDIOCTL_WAKEUP) {
+			timeout = arg->cb_data;
+			status = pwr_wake_dsp(timeout);
+		} else if (dw_cmd == PWR_WAKEUP) {
+			/* timeout = arg->cb_data; */
+			status = pwr_wake_dsp(timeout);
 		} else
-		    if (DSP_SUCCEEDED
-			((*pProcObject->pIntfFxns->pfnDevCntrl)
-				(pProcObject->hWmdContext, dwCmd, arg))) {
+		    if (DSP_SUCCEEDED((*p_proc_object->intf_fxns->pfn_dev_cntrl)
+				      (p_proc_object->hwmd_context, dw_cmd,
+				       arg))) {
 			status = DSP_SOK;
 		} else {
-			status = DSP_EFAIL;
-			GT_0trace(PROC_DebugMask, GT_7CLASS,
-				 "PROC_Ctrl: Failed \n");
+			status = -EPERM;
 		}
 	} else {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Ctrl: InValid Processor Handle \n");
+		status = -EFAULT;
 	}
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Exiting PROC_Ctrl, 0x%x\n",
-		 status);
+
 	return status;
 }
 
 /*
- *  ======== PROC_Detach ========
+ *  ======== proc_detach ========
  *  Purpose:
  *      Destroys the  Processor Object. Removes the notification from the Dev
  *      List.
  */
-DSP_STATUS PROC_Detach(struct PROCESS_CONTEXT *pr_ctxt)
+dsp_status proc_detach(struct process_context *pr_ctxt)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = NULL;
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = NULL;
 
-	if (pr_ctxt && pr_ctxt->hProcessor)
-		pProcObject = (struct PROC_OBJECT *)pr_ctxt->hProcessor;
+	DBC_REQUIRE(refs > 0);
 
-	DBC_Require(cRefs > 0);
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Detach, args:\n\t"
-		"pr_ctxt->phProcessor:  0x%x\n", *pProcObject);
+	p_proc_object = (struct proc_object *)pr_ctxt->hprocessor;
 
-	if (MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		/* Notify the Client */
-		NTFY_Notify(pProcObject->hNtfy, DSP_PROCESSORDETACH);
-		/* Remove the notification memory */
-		if (pProcObject->hNtfy)
-			NTFY_Delete(pProcObject->hNtfy);
-
-		if (pProcObject->g_pszLastCoff) {
-			MEM_Free(pProcObject->g_pszLastCoff);
-			pProcObject->g_pszLastCoff = NULL;
+	if (p_proc_object) {
+		if (p_proc_object->ntfy_obj) {
+			/* Notify the Client */
+			ntfy_notify(p_proc_object->ntfy_obj,
+				    DSP_PROCESSORDETACH);
+			/* Remove the notification memory */
+			ntfy_delete(p_proc_object->ntfy_obj);
+			kfree(p_proc_object->ntfy_obj);
 		}
+		kfree(p_proc_object->psz_last_coff);
+		p_proc_object->psz_last_coff = NULL;
 		/* Remove the Proc from the DEV List */
-		(void)DEV_RemoveProcObject(pProcObject->hDevObject,
-			(u32)pProcObject);
+		(void)dev_remove_proc_object(p_proc_object->hdev_obj,
+					     (u32) p_proc_object);
 		/* Free the Processor Object */
-		MEM_FreeObject(pProcObject);
-		pr_ctxt->hProcessor = NULL;
+		kfree(p_proc_object);
+		pr_ctxt->hprocessor = NULL;
 	} else {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Detach: InValid Processor Handle \n");
+		status = -EFAULT;
 	}
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Exiting PROC_Detach, 0x%x\n",
-		 status);
+
 	return status;
 }
 
 /*
- *  ======== PROC_EnumNodes ========
+ *  ======== proc_enum_nodes ========
  *  Purpose:
  *      Enumerate and get configuration information about nodes allocated
  *      on a DSP processor.
  */
-DSP_STATUS PROC_EnumNodes(DSP_HPROCESSOR hProcessor, OUT DSP_HNODE *aNodeTab,
-               IN u32 uNodeTabSize, OUT u32 *puNumNodes,
-               OUT u32 *puAllocated)
+dsp_status proc_enum_nodes(void *hprocessor, void **node_tab,
+			   IN u32 node_tab_size, OUT u32 *pu_num_nodes,
+			   OUT u32 *pu_allocated)
 {
-	DSP_STATUS status = DSP_EFAIL;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
-	struct NODE_MGR *hNodeMgr = NULL;
+	dsp_status status = -EPERM;
+	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
+	struct node_mgr *hnode_mgr = NULL;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(aNodeTab != NULL || uNodeTabSize == 0);
-	DBC_Require(puNumNodes != NULL);
-	DBC_Require(puAllocated != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(node_tab != NULL || node_tab_size == 0);
+	DBC_REQUIRE(pu_num_nodes != NULL);
+	DBC_REQUIRE(pu_allocated != NULL);
 
-	GT_5trace(PROC_DebugMask, GT_ENTER, "Entered PROC_EnumNodes, args:\n\t"
-			"hProcessor:  0x%x\n\taNodeTab:  0x%x\n\tuNodeTabSize: "
-			" 0x%x\n\t puNumNodes 0x%x\n\t puAllocated: 0x%x\n",
-			hProcessor, aNodeTab, uNodeTabSize, puNumNodes,
-			puAllocated);
-	if (MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		if (DSP_SUCCEEDED(DEV_GetNodeManager(pProcObject->hDevObject,
-				 &hNodeMgr))) {
-			if (hNodeMgr) {
-				status = NODE_EnumNodes(hNodeMgr, aNodeTab,
-							uNodeTabSize,
-							puNumNodes,
-							puAllocated);
+	if (p_proc_object) {
+		if (DSP_SUCCEEDED(dev_get_node_manager(p_proc_object->hdev_obj,
+						       &hnode_mgr))) {
+			if (hnode_mgr) {
+				status = node_enum_nodes(hnode_mgr, node_tab,
+							 node_tab_size,
+							 pu_num_nodes,
+							 pu_allocated);
 			}
 		}
 	} else {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_EnumNodes: "
-			 "InValid Processor Handle \n");
+		status = -EFAULT;
 	}
-	GT_6trace(PROC_DebugMask, GT_ENTER, "Exit PROC_EnumNodes, args:\n\t"
-			"hProcessor:  0x%x\n\taNodeTab:  0x%x\n\tuNodeTabSize: "
-			" 0x%x\n\t puNumNodes 0x%x\n\t puAllocated: 0x%x\n\t "
-			"status: 0x%x \n", hProcessor, aNodeTab, uNodeTabSize,
-			puNumNodes, puAllocated, status);
 
 	return status;
 }
 
+/* Cache operation against kernel address instead of users */
+static int memory_sync_page(struct vm_area_struct *vma, unsigned long start,
+			    ssize_t len, enum dsp_flushtype ftype)
+{
+	struct page *page;
+	void *kaddr;
+	unsigned long offset;
+	ssize_t rest;
+
+	while (len) {
+		page = follow_page(vma, start, FOLL_GET);
+		if (!page) {
+			pr_err("%s: no page for %08lx\n", __func__, start);
+			return -EINVAL;
+		} else if (IS_ERR(page)) {
+			pr_err("%s: err page for %08lx(%lu)\n", __func__, start,
+			       IS_ERR(page));
+			return IS_ERR(page);
+		}
+
+		offset = start & ~PAGE_MASK;
+		kaddr = kmap(page) + offset;
+		rest = min_t(ssize_t, PAGE_SIZE - offset, len);
+		mem_flush_cache(kaddr, rest, ftype);
+
+		kunmap(page);
+		put_page(page);
+		len -= rest;
+		start += rest;
+	}
+
+	return 0;
+}
+
 /* Check if the given area blongs to process virtul memory address space */
-static int memory_check_vma(unsigned long start, u32 len)
+static int memory_sync_vma(unsigned long start, u32 len,
+			   enum dsp_flushtype ftype)
 {
 	int err = 0;
 	unsigned long end;
@@ -670,14 +502,19 @@ static int memory_check_vma(unsigned long start, u32 len)
 	if (end <= start)
 		return -EINVAL;
 
-	down_read(&current->mm->mmap_sem);
-
 	while ((vma = find_vma(current->mm, start)) != NULL) {
+		ssize_t size;
 
-		if (vma->vm_start > start) {
-			err = -EINVAL;
+		if (vma->vm_flags & (VM_IO | VM_PFNMAP))
+			return -EINVAL;
+
+		if (vma->vm_start > start)
+			return -EINVAL;
+
+		size = min_t(ssize_t, vma->vm_end - start, len);
+		err = memory_sync_page(vma, start, size, ftype);
+		if (err)
 			break;
-		}
 
 		if (end <= vma->vm_end)
 			break;
@@ -688,285 +525,232 @@ static int memory_check_vma(unsigned long start, u32 len)
 	if (!vma)
 		err = -EINVAL;
 
-	up_read(&current->mm->mmap_sem);
-
 	return err;
 }
 
-static DSP_STATUS proc_memory_sync(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
-				   u32 ulSize, u32 ulFlags)
+static dsp_status proc_memory_sync(void *hprocessor, void *pmpu_addr,
+				   u32 ul_size, u32 ul_flags)
 {
 	/* Keep STATUS here for future additions to this function */
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
 
-	DBC_Require(cRefs > 0);
-	GT_5trace(PROC_DebugMask, GT_ENTER,
-		  "Entered %s, args:\n\t"
-		  "hProcessor: 0x%x pMpuAddr: 0x%x ulSize 0x%x, ulFlags 0x%x\n",
-		  __func__, hProcessor, pMpuAddr, ulSize, ulFlags);
+	DBC_REQUIRE(refs > 0);
 
-#ifdef CONFIG_BRIDGE_CHECK_ALIGN_128
-	if (!IS_ALIGNED((u32)pMpuAddr, DSP_CACHE_SIZE) ||
-	    !IS_ALIGNED(ulSize, DSP_CACHE_SIZE)) {
-		pr_err("%s: Invalid alignment %p %x\n",
-			__func__, pMpuAddr, ulSize);
-		return DSP_EALIGNMENT;
-	}
-#endif /* CONFIG_BRIDGE_CHECK_ALIGN_128 */
-
-	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		GT_1trace(PROC_DebugMask, GT_7CLASS,
-			  "%s: InValid Processor Handle\n", __func__);
-		status = DSP_EHANDLE;
+	if (!p_proc_object) {
+		status = -EFAULT;
 		goto err_out;
 	}
 
-	if (memory_check_vma((u32)pMpuAddr, ulSize)) {
-		GT_3trace(PROC_DebugMask, GT_7CLASS,
-			  "%s: InValid address parameters\n",
-			  __func__, pMpuAddr, ulSize);
-		status = DSP_EHANDLE;
-		goto err_out;
+	if (ul_flags == 3) {
+		__cpuc_flush_kern_all();
+	} else {
+		down_read(&current->mm->mmap_sem);
+		if (memory_sync_vma((u32) pmpu_addr, ul_size, ul_flags)) {
+			pr_err("%s: InValid address parameters %p %x\n",
+			       __func__, pmpu_addr, ul_size);
+			status = -EFAULT;
+		}
+		up_read(&current->mm->mmap_sem);
 	}
-
-	(void)SYNC_EnterCS(hProcLock);
-	MEM_FlushCache(pMpuAddr, ulSize, ulFlags);
-	(void)SYNC_LeaveCS(hProcLock);
 
 err_out:
-	GT_2trace(PROC_DebugMask, GT_ENTER,
-		  "Leaving %s [0x%x]", __func__, status);
-
 	return status;
 }
 
 /*
- *  ======== PROC_FlushMemory ========
+ *  ======== proc_flush_memory ========
  *  Purpose:
  *     Flush cache
  */
-DSP_STATUS PROC_FlushMemory(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
-			    u32 ulSize, u32 ulFlags)
+dsp_status proc_flush_memory(void *hprocessor, void *pmpu_addr,
+			     u32 ul_size, u32 ul_flags)
 {
-	return proc_memory_sync(hProcessor, pMpuAddr, ulSize, ulFlags);
+	return proc_memory_sync(hprocessor, pmpu_addr, ul_size, ul_flags);
 }
 
 /*
- *  ======== PROC_InvalidateMemory ========
+ *  ======== proc_invalidate_memory ========
  *  Purpose:
  *     Invalidates the memory specified
  */
-DSP_STATUS PROC_InvalidateMemory(DSP_HPROCESSOR hProcessor, void *pMpuAddr,
-				 u32 ulSize)
+dsp_status proc_invalidate_memory(void *hprocessor, void *pmpu_addr,
+				  u32 ul_size)
 {
-	enum DSP_FLUSHTYPE mtype = PROC_INVALIDATE_MEM;
-
-	return proc_memory_sync(hProcessor, pMpuAddr, ulSize, mtype);
+	return proc_memory_sync(hprocessor, pmpu_addr, ul_size, 0);
 }
 
 /*
- *  ======== PROC_GetResourceInfo ========
+ *  ======== proc_get_resource_info ========
  *  Purpose:
  *      Enumerate the resources currently available on a processor.
  */
-DSP_STATUS PROC_GetResourceInfo(DSP_HPROCESSOR hProcessor, u32 uResourceType,
-				OUT struct DSP_RESOURCEINFO *pResourceInfo,
-				u32 uResourceInfoSize)
+dsp_status proc_get_resource_info(void *hprocessor, u32 resource_type,
+				  OUT struct dsp_resourceinfo *resource_info,
+				  u32 resource_info_size)
 {
-	DSP_STATUS status = DSP_EFAIL;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
-	struct NODE_MGR *hNodeMgr = NULL;
-	struct NLDR_OBJECT *hNldr = NULL;
-	struct RMM_TargetObj *rmm = NULL;
-	struct IO_MGR *hIOMgr = NULL;		/* IO manager handle */
+	dsp_status status = -EPERM;
+	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
+	struct node_mgr *hnode_mgr = NULL;
+	struct nldr_object *nldr_obj = NULL;
+	struct rmm_target_obj *rmm = NULL;
+	struct io_mgr *hio_mgr = NULL;	/* IO manager handle */
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(pResourceInfo != NULL);
-	DBC_Require(uResourceInfoSize >= sizeof(struct DSP_RESOURCEINFO));
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(resource_info != NULL);
+	DBC_REQUIRE(resource_info_size >= sizeof(struct dsp_resourceinfo));
 
-	GT_4trace(PROC_DebugMask, GT_ENTER, "Entered PROC_GetResourceInfo,\n\t"
-		 "hProcessor:  0x%x\n\tuResourceType:  0x%x\n\tpResourceInfo:"
-		 " 0x%x\n\t uResourceInfoSize 0x%x\n", hProcessor,
-		 uResourceType, pResourceInfo, uResourceInfoSize);
-	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_GetResourceInfo: InValid "
-			 "Processor Handle \n");
+	if (!p_proc_object) {
+		status = -EFAULT;
 		goto func_end;
 	}
-	switch (uResourceType) {
+	switch (resource_type) {
 	case DSP_RESOURCE_DYNDARAM:
 	case DSP_RESOURCE_DYNSARAM:
 	case DSP_RESOURCE_DYNEXTERNAL:
 	case DSP_RESOURCE_DYNSRAM:
-		if (DSP_FAILED(DEV_GetNodeManager(pProcObject->hDevObject,
-		   &hNodeMgr)))
+		status = dev_get_node_manager(p_proc_object->hdev_obj,
+					      &hnode_mgr);
+		if (DSP_FAILED(status))
 			goto func_end;
 
-		if (DSP_SUCCEEDED(NODE_GetNldrObj(hNodeMgr, &hNldr))) {
-			if (DSP_SUCCEEDED(NLDR_GetRmmManager(hNldr, &rmm))) {
-				DBC_Assert(rmm != NULL);
-				status = DSP_EVALUE;
-				if (RMM_stat(rmm,
-				   (enum DSP_MEMTYPE)uResourceType,
-				   (struct DSP_MEMSTAT *)&(pResourceInfo->
-				   result.memStat)))
-					status = DSP_SOK;
+		status = node_get_nldr_obj(hnode_mgr, &nldr_obj);
+		if (DSP_SUCCEEDED(status)) {
+			nldr_get_rmm_manager(nldr_obj, &rmm);
+			if (rmm) {
+				if (!rmm_stat(rmm,
+					      (enum dsp_memtype)resource_type,
+					      (struct dsp_memstat *)
+					      &(resource_info->result.
+						mem_stat)))
+					status = -EINVAL;
+			} else {
+				status = -EFAULT;
 			}
 		}
 		break;
 	case DSP_RESOURCE_PROCLOAD:
-		status = DEV_GetIOMgr(pProcObject->hDevObject, &hIOMgr);
-		status = pProcObject->pIntfFxns->pfnIOGetProcLoad(hIOMgr,
-			 (struct DSP_PROCLOADSTAT *)&(pResourceInfo->
-			 result.procLoadStat));
-		if (DSP_FAILED(status)) {
-			GT_1trace(PROC_DebugMask, GT_7CLASS,
-			"Error in procLoadStat function 0x%x\n", status);
-		}
+		status = dev_get_io_mgr(p_proc_object->hdev_obj, &hio_mgr);
+		if (DSP_SUCCEEDED(status))
+			status =
+			    p_proc_object->intf_fxns->
+			    pfn_io_get_proc_load(hio_mgr,
+						 (struct dsp_procloadstat *)
+						 &(resource_info->result.
+						   proc_load_stat));
 		break;
 	default:
-		status = DSP_EFAIL;
+		status = -EPERM;
 		break;
 	}
 func_end:
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Exiting PROC_GetResourceInfo, "
-		 "status 0x%x\n", status);
 	return status;
 }
 
 /*
- *  ======== PROC_Exit ========
+ *  ======== proc_exit ========
  *  Purpose:
  *      Decrement reference count, and free resources when reference count is
  *      0.
  */
-void PROC_Exit(void)
+void proc_exit(void)
 {
-	DBC_Require(cRefs > 0);
+	DBC_REQUIRE(refs > 0);
 
-	if (hProcLock)
-		(void)SYNC_DeleteCS(hProcLock);
+	refs--;
 
-	cRefs--;
-
-	GT_1trace(PROC_DebugMask, GT_5CLASS,
-		 "Entered PROC_Exit, ref count:0x%x\n",	cRefs);
-	DBC_Ensure(cRefs >= 0);
+	DBC_ENSURE(refs >= 0);
 }
 
 /*
- *  ======== PROC_GetDevObject ========
+ *  ======== proc_get_dev_object ========
  *  Purpose:
  *      Return the Dev Object handle for a given Processor.
  *
  */
-DSP_STATUS PROC_GetDevObject(DSP_HPROCESSOR hProcessor,
-			     struct DEV_OBJECT **phDevObject)
+dsp_status proc_get_dev_object(void *hprocessor,
+			       struct dev_object **phDevObject)
 {
-	DSP_STATUS status = DSP_EFAIL;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
+	dsp_status status = -EPERM;
+	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(phDevObject != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(phDevObject != NULL);
 
-	if (MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		*phDevObject = pProcObject->hDevObject;
+	if (p_proc_object) {
+		*phDevObject = p_proc_object->hdev_obj;
 		status = DSP_SOK;
 	} else {
 		*phDevObject = NULL;
-		status = DSP_EHANDLE;
+		status = -EFAULT;
 	}
 
-	DBC_Ensure((DSP_SUCCEEDED(status) && *phDevObject != NULL) ||
+	DBC_ENSURE((DSP_SUCCEEDED(status) && *phDevObject != NULL) ||
 		   (DSP_FAILED(status) && *phDevObject == NULL));
 
 	return status;
 }
 
 /*
- *  ======== PROC_GetState ========
+ *  ======== proc_get_state ========
  *  Purpose:
  *      Report the state of the specified DSP processor.
  */
-DSP_STATUS PROC_GetState(DSP_HPROCESSOR hProcessor,
-			OUT struct DSP_PROCESSORSTATE *pProcStatus,
-			u32 uStateInfoSize)
+dsp_status proc_get_state(void *hprocessor,
+			  OUT struct dsp_processorstate *proc_state_obj,
+			  u32 state_info_size)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
-	BRD_STATUS brdStatus;
-	struct DEH_MGR *hDehMgr;
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
+	int brd_status;
+	struct deh_mgr *hdeh_mgr;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(pProcStatus != NULL);
-	DBC_Require(uStateInfoSize >= sizeof(struct DSP_PROCESSORSTATE));
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(proc_state_obj != NULL);
+	DBC_REQUIRE(state_info_size >= sizeof(struct dsp_processorstate));
 
-	GT_3trace(PROC_DebugMask, GT_ENTER, "Entering PROC_GetState, args:\n\t"
-		 "pProcStatus: 0x%x\n\thProcessor: 0x%x\n\t uStateInfoSize"
-		 " 0x%x\n", pProcStatus, hProcessor, uStateInfoSize);
-	if (MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
+	if (p_proc_object) {
 		/* First, retrieve BRD state information */
-		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
-		   (pProcObject->hWmdContext, &brdStatus))) {
-			switch (brdStatus) {
+		status = (*p_proc_object->intf_fxns->pfn_brd_status)
+		    (p_proc_object->hwmd_context, &brd_status);
+		if (DSP_SUCCEEDED(status)) {
+			switch (brd_status) {
 			case BRD_STOPPED:
-				pProcStatus->iState = PROC_STOPPED;
+				proc_state_obj->proc_state = PROC_STOPPED;
 				break;
+			case BRD_SLEEP_TRANSITION:
 			case BRD_DSP_HIBERNATION:
 				/* Fall through */
 			case BRD_RUNNING:
-				pProcStatus->iState = PROC_RUNNING;
+				proc_state_obj->proc_state = PROC_RUNNING;
 				break;
 			case BRD_LOADED:
-				pProcStatus->iState = PROC_LOADED;
+				proc_state_obj->proc_state = PROC_LOADED;
 				break;
 			case BRD_ERROR:
-				pProcStatus->iState = PROC_ERROR;
+				proc_state_obj->proc_state = PROC_ERROR;
 				break;
 			default:
-				pProcStatus->iState = 0xFF;
-				status = DSP_EFAIL;
+				proc_state_obj->proc_state = 0xFF;
+				status = -EPERM;
 				break;
 			}
-		} else {
-			status = DSP_EFAIL;
-			GT_0trace(PROC_DebugMask, GT_7CLASS,
-				 "PROC_GetState: General Failure"
-				 " to read the PROC Status \n");
 		}
 		/* Next, retrieve error information, if any */
-		status = DEV_GetDehMgr(pProcObject->hDevObject, &hDehMgr);
-		if (DSP_SUCCEEDED(status) && hDehMgr) {
-			status = (*pProcObject->pIntfFxns->pfnDehGetInfo)
-				 (hDehMgr, &(pProcStatus->errInfo));
-			if (DSP_FAILED(status)) {
-				GT_0trace(PROC_DebugMask, GT_7CLASS,
-					 "PROC_GetState: Failed "
-					 "retrieve exception info.\n");
-			}
-		} else {
-			status = DSP_EFAIL;
-			GT_0trace(PROC_DebugMask, GT_7CLASS,
-				 "PROC_GetState: Failed to "
-				 "retrieve DEH handle.\n");
-		}
+		status = dev_get_deh_mgr(p_proc_object->hdev_obj, &hdeh_mgr);
+		if (DSP_SUCCEEDED(status) && hdeh_mgr)
+			status = (*p_proc_object->intf_fxns->pfn_deh_get_info)
+			    (hdeh_mgr, &(proc_state_obj->err_info));
 	} else {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_GetState:InValid Processor Handle \n");
+		status = -EFAULT;
 	}
-	GT_2trace(PROC_DebugMask, GT_ENTER,
-		 "Exiting PROC_GetState, results:\n\t"
-		 "status:  0x%x\n\tpProcStatus: 0x%x\n", status,
-		 pProcStatus->iState);
+	dev_dbg(bridge, "%s, results: status: 0x%x proc_state_obj: 0x%x\n",
+		__func__, status, proc_state_obj->proc_state);
 	return status;
 }
 
 /*
- *  ======== PROC_GetTrace ========
+ *  ======== proc_get_trace ========
  *  Purpose:
  *      Retrieve the current contents of the trace buffer, located on the
  *      Processor.  Predefined symbols for the trace buffer must have been
@@ -977,70 +761,59 @@ DSP_STATUS PROC_GetState(DSP_HPROCESSOR hProcessor,
  *      This call is destructive, meaning the processor is placed in the monitor
  *      state as a result of this function.
  */
-DSP_STATUS PROC_GetTrace(DSP_HPROCESSOR hProcessor, u8 *pBuf, u32 uMaxSize)
+dsp_status proc_get_trace(void *hprocessor, u8 * pbuf, u32 max_size)
 {
-	DSP_STATUS status;
-	status = DSP_ENOTIMPL;
+	dsp_status status;
+	status = -ENOSYS;
 	return status;
 }
 
 /*
- *  ======== PROC_Init ========
+ *  ======== proc_init ========
  *  Purpose:
  *      Initialize PROC's private state, keeping a reference count on each call
  */
-bool PROC_Init(void)
+bool proc_init(void)
 {
-	bool fRetval = true;
+	bool ret = true;
 
-	DBC_Require(cRefs >= 0);
+	DBC_REQUIRE(refs >= 0);
 
-	if (cRefs == 0) {
-		/* Set the Trace mask */
-		DBC_Assert(!PROC_DebugMask.flags);
-		GT_create(&PROC_DebugMask, "PR");  /* "PR" for Processor */
+	if (ret)
+		refs++;
 
-		(void)SYNC_InitializeCS(&hProcLock);
-	}
+	DBC_ENSURE((ret && (refs > 0)) || (!ret && (refs >= 0)));
 
-	if (fRetval)
-		cRefs++;
-
-	GT_1trace(PROC_DebugMask, GT_5CLASS,
-		 "Entered PROC_Init, ref count:0x%x\n",	cRefs);
-	DBC_Ensure((fRetval && (cRefs > 0)) || (!fRetval && (cRefs >= 0)));
-
-	return fRetval;
+	return ret;
 }
 
 /*
- *  ======== PROC_Load ========
+ *  ======== proc_load ========
  *  Purpose:
  *      Reset a processor and load a new base program image.
  *      This will be an OEM-only function, and not part of the DSP/BIOS Bridge
  *      application developer's API.
  */
-DSP_STATUS PROC_Load(DSP_HPROCESSOR hProcessor, IN CONST s32 iArgc,
-		    IN CONST char **aArgv, IN CONST char **aEnvp)
+dsp_status proc_load(void *hprocessor, IN CONST s32 argc_index,
+		     IN CONST char **user_args, IN CONST char **user_envp)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
-	struct IO_MGR *hIOMgr;		/* IO manager handle */
-	struct MSG_MGR *hMsgMgr;
-	struct COD_MANAGER *hCodMgr;	/* Code manager handle */
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
+	struct io_mgr *hio_mgr;	/* IO manager handle */
+	struct msg_mgr *hmsg_mgr;
+	struct cod_manager *cod_mgr;	/* Code manager handle */
 	char *pargv0;		/* temp argv[0] ptr */
-	char **newEnvp;		/* Updated envp[] array. */
-	char szProcID[MAXPROCIDLEN];	/* Size of "PROC_ID=<n>" */
-	s32 cEnvp;		/* Num elements in envp[]. */
-	s32 cNewEnvp;		/* "  " in newEnvp[]     */
-	s32 nProcID = 0;	/* Anticipate MP version. */
-	struct DCD_MANAGER *hDCDHandle;
-	struct DMM_OBJECT *hDmmMgr;
-	u32 dwExtEnd;
-	u32 uProcId;
-#ifdef DEBUG
-	BRD_STATUS uBrdState;
-#endif
+	char **new_envp;	/* Updated envp[] array. */
+	char sz_proc_id[MAXPROCIDLEN];	/* Size of "PROC_ID=<n>" */
+	s32 envp_elems;		/* Num elements in envp[]. */
+	s32 cnew_envp;		/* "  " in new_envp[] */
+	s32 nproc_id = 0;	/* Anticipate MP version. */
+	struct dcd_manager *hdcd_handle;
+	struct dmm_object *dmm_mgr;
+	u32 dw_ext_end;
+	u32 proc_id;
+	int brd_state;
+	struct drv_data *drv_datap = dev_get_drvdata(bridge);
 
 #ifdef OPT_LOAD_TIME_INSTRUMENTATION
 	struct timeval tv1;
@@ -1049,137 +822,113 @@ DSP_STATUS PROC_Load(DSP_HPROCESSOR hProcessor, IN CONST s32 iArgc,
 
 #if defined(CONFIG_BRIDGE_DVFS) && !defined(CONFIG_CPU_FREQ)
 	struct dspbridge_platform_data *pdata =
-				omap_dspbridge_dev->dev.platform_data;
+	    omap_dspbridge_dev->dev.platform_data;
 #endif
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(iArgc > 0);
-	DBC_Require(aArgv != NULL);
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(argc_index > 0);
+	DBC_REQUIRE(user_args != NULL);
 
 #ifdef OPT_LOAD_TIME_INSTRUMENTATION
 	do_gettimeofday(&tv1);
 #endif
-	GT_2trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Load, args:\n\t"
-		 "hProcessor:  0x%x\taArgv: 0x%x\n", hProcessor, aArgv[0]);
-	/* Call the WMD_BRD_Load Fxn */
-	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_1CLASS,
-			 "PROC_Load: Invalid Processor Handle..\n");
+	/* Call the WMD_BRD_Load fxn */
+	if (!p_proc_object) {
+		status = -EFAULT;
 		goto func_end;
 	}
-	if (pProcObject->bIsAlreadyAttached) {
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Load GPP "
-			 "Client is already attached status  \n");
-	}
-	if (DSP_FAILED(DEV_GetCodMgr(pProcObject->hDevObject, &hCodMgr))) {
-		status = DSP_EFAIL;
-		GT_1trace(PROC_DebugMask, GT_7CLASS, "PROC_Load: DSP_FAILED in "
-			 "DEV_GetCodMgr status 0x%x \n", status);
+	dev_get_cod_mgr(p_proc_object->hdev_obj, &cod_mgr);
+	if (!cod_mgr) {
+		status = -EPERM;
 		goto func_end;
 	}
-	status = PROC_Stop(hProcessor);
-	if (DSP_FAILED(status)) {
-		GT_1trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Load: DSP_FAILED to Place the"
-			 " Processor in Stop Mode(PROC_STOP) status 0x%x \n",
-			 status);
+	status = proc_stop(hprocessor);
+	if (DSP_FAILED(status))
 		goto func_end;
-	}
+
 	/* Place the board in the monitor state. */
-	status = PROC_Monitor(hProcessor);
-	if (DSP_FAILED(status)) {
-		GT_1trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Load: DSP_FAILED to Place the"
-			 " Processor in Monitor Mode(PROC_IDLE) status 0x%x\n",
-			 status);
+	status = proc_monitor(hprocessor);
+	if (DSP_FAILED(status))
 		goto func_end;
-	}
+
 	/* Save ptr to  original argv[0]. */
-	pargv0 = (char *)aArgv[0];
-	/*Prepend "PROC_ID=<nProcID>"to envp array for target.*/
-	cEnvp = GetEnvpCount((char **)aEnvp);
-	cNewEnvp = (cEnvp ? (cEnvp + 1) : (cEnvp + 2));
-	newEnvp = MEM_Calloc(cNewEnvp * sizeof(char **), MEM_PAGED);
-	if (newEnvp) {
-		status = snprintf(szProcID, MAXPROCIDLEN, PROC_ENVPROCID,
-				    nProcID);
+	pargv0 = (char *)user_args[0];
+	/*Prepend "PROC_ID=<nproc_id>"to envp array for target. */
+	envp_elems = get_envp_count((char **)user_envp);
+	cnew_envp = (envp_elems ? (envp_elems + 1) : (envp_elems + 2));
+	new_envp = kzalloc(cnew_envp * sizeof(char **), GFP_KERNEL);
+	if (new_envp) {
+		status = snprintf(sz_proc_id, MAXPROCIDLEN, PROC_ENVPROCID,
+				  nproc_id);
 		if (status == -1) {
-			GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_Load: "
-				 "Proc ID string overflow \n");
-			status = DSP_EFAIL;
+			dev_dbg(bridge, "%s: Proc ID string overflow\n",
+				__func__);
+			status = -EPERM;
 		} else {
-			newEnvp = PrependEnvp(newEnvp, (char **)aEnvp, cEnvp,
-					     cNewEnvp, szProcID);
+			new_envp =
+			    prepend_envp(new_envp, (char **)user_envp,
+					 envp_elems, cnew_envp, sz_proc_id);
 			/* Get the DCD Handle */
-			status = MGR_GetDCDHandle(pProcObject->hMgrObject,
-						 (u32 *)&hDCDHandle);
+			status = mgr_get_dcd_handle(p_proc_object->hmgr_obj,
+						    (u32 *) &hdcd_handle);
 			if (DSP_SUCCEEDED(status)) {
 				/*  Before proceeding with new load,
 				 *  check if a previously registered COFF
 				 *  exists.
 				 *  If yes, unregister nodes in previously
 				 *  registered COFF.  If any error occurred,
-				 *  set previously registered COFF to NULL.  */
-				if (pProcObject->g_pszLastCoff != NULL) {
-					status = DCD_AutoUnregister(hDCDHandle,
-						 pProcObject->g_pszLastCoff);
+				 *  set previously registered COFF to NULL. */
+				if (p_proc_object->psz_last_coff != NULL) {
+					status =
+					    dcd_auto_unregister(hdcd_handle,
+								p_proc_object->
+								psz_last_coff);
 					/* Regardless of auto unregister status,
 					 *  free previously allocated
-					 *  memory.  */
-					MEM_Free(pProcObject->g_pszLastCoff);
-					pProcObject->g_pszLastCoff = NULL;
+					 *  memory. */
+					kfree(p_proc_object->psz_last_coff);
+					p_proc_object->psz_last_coff = NULL;
 				}
 			}
-			/* On success, do COD_OpenBase() */
-			status = COD_OpenBase(hCodMgr, (char *)aArgv[0],
-					     COD_SYMB);
-			if (DSP_FAILED(status)) {
-				GT_1trace(PROC_DebugMask, GT_7CLASS,
-					 "PROC_Load: COD_OpenBase "
-					 "failed (0x%x)\n", status);
-			}
+			/* On success, do cod_open_base() */
+			status = cod_open_base(cod_mgr, (char *)user_args[0],
+					       COD_SYMB);
 		}
 	} else {
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 " PROC_Load:Out of Memory \n");
-		status = DSP_EMEMORY;
+		status = -ENOMEM;
 	}
 	if (DSP_SUCCEEDED(status)) {
 		/* Auto-register data base */
 		/* Get the DCD Handle */
-		status = MGR_GetDCDHandle(pProcObject->hMgrObject,
-					 (u32 *)&hDCDHandle);
+		status = mgr_get_dcd_handle(p_proc_object->hmgr_obj,
+					    (u32 *) &hdcd_handle);
 		if (DSP_SUCCEEDED(status)) {
 			/*  Auto register nodes in specified COFF
 			 *  file.  If registration did not fail,
 			 *  (status = DSP_SOK or DSP_EDCDNOAUTOREGISTER)
 			 *  save the name of the COFF file for
-			 *  de-registration in the future.  */
-			status = DCD_AutoRegister(hDCDHandle, (char *)aArgv[0]);
-			if (status == DSP_EDCDNOAUTOREGISTER) {
-				GT_0trace(PROC_DebugMask, GT_7CLASS,
-					  "PROC_Load: No Auto "
-					  "Register section.  Proceeding..\n");
+			 *  de-registration in the future. */
+			status =
+			    dcd_auto_register(hdcd_handle,
+					      (char *)user_args[0]);
+			if (status == DSP_EDCDNOAUTOREGISTER)
 				status = DSP_SOK;
-			}
+
 			if (DSP_FAILED(status)) {
-				status = DSP_EFAIL;
-				GT_0trace(PROC_DebugMask, GT_7CLASS,
-					  "PROC_Load: Failed to "
-					  "Auto Register..\n");
+				status = -EPERM;
 			} else {
-				DBC_Assert(pProcObject->g_pszLastCoff == NULL);
+				DBC_ASSERT(p_proc_object->psz_last_coff ==
+					   NULL);
 				/* Allocate memory for pszLastCoff */
-				pProcObject->g_pszLastCoff = MEM_Calloc(
-                                       (strlen((char *)aArgv[0]) + 1),
-					MEM_PAGED);
-				/* If memory allocated, save COFF file name*/
-				if (pProcObject->g_pszLastCoff) {
-                                       strncpy(pProcObject->g_pszLastCoff,
-						(char *)aArgv[0],
-                                       (strlen((char *)aArgv[0]) + 1));
+				p_proc_object->psz_last_coff =
+						kzalloc((strlen(user_args[0]) +
+						1), GFP_KERNEL);
+				/* If memory allocated, save COFF file name */
+				if (p_proc_object->psz_last_coff) {
+					strncpy(p_proc_object->psz_last_coff,
+						(char *)user_args[0],
+						(strlen((char *)user_args[0]) +
+						 1));
 				}
 			}
 		}
@@ -1187,146 +936,113 @@ DSP_STATUS PROC_Load(DSP_HPROCESSOR hProcessor, IN CONST s32 iArgc,
 	/* Update shared memory address and size */
 	if (DSP_SUCCEEDED(status)) {
 		/*  Create the message manager. This must be done
-		 *  before calling the IOOnLoaded function.  */
-		DEV_GetMsgMgr(pProcObject->hDevObject, &hMsgMgr);
-		if (!hMsgMgr) {
-			status = MSG_Create(&hMsgMgr, pProcObject->hDevObject,
-					   (MSG_ONEXIT)NODE_OnExit);
-			DBC_Assert(DSP_SUCCEEDED(status));
-			DEV_SetMsgMgr(pProcObject->hDevObject, hMsgMgr);
-		}
-		if (status == DSP_ENOTIMPL) {
-			/* It's OK not to have a message manager */
-			status = DSP_SOK;
+		 *  before calling the IOOnLoaded function. */
+		dev_get_msg_mgr(p_proc_object->hdev_obj, &hmsg_mgr);
+		if (!hmsg_mgr) {
+			status = msg_create(&hmsg_mgr, p_proc_object->hdev_obj,
+					    (msg_onexit) node_on_exit);
+			DBC_ASSERT(DSP_SUCCEEDED(status));
+			dev_set_msg_mgr(p_proc_object->hdev_obj, hmsg_mgr);
 		}
 	}
 	if (DSP_SUCCEEDED(status)) {
 		/* Set the Device object's message manager */
-		status = DEV_GetIOMgr(pProcObject->hDevObject, &hIOMgr);
-		DBC_Assert(DSP_SUCCEEDED(status));
-		status = (*pProcObject->pIntfFxns->pfnIOOnLoaded)(hIOMgr);
-		if (status == DSP_ENOTIMPL) {
-			/* Ok not to implement this function */
-			status = DSP_SOK;
-		} else {
-			if (DSP_FAILED(status)) {
-				GT_1trace(PROC_DebugMask, GT_7CLASS,
-					  "PROC_Load: Failed to get shared "
-					  "memory or message buffer address "
-					  "from COFF status 0x%x\n", status);
-				status = DSP_EFAIL;
-			}
-		}
-	} else {
-		status = DSP_EFAIL;
-		GT_1trace(PROC_DebugMask, GT_7CLASS,
-			  "PROC_Load: DSP_FAILED in "
-			  "MSG_Create status 0x%x\n", status);
+		status = dev_get_io_mgr(p_proc_object->hdev_obj, &hio_mgr);
+		DBC_ASSERT(DSP_SUCCEEDED(status));
+		status =
+		    (*p_proc_object->intf_fxns->pfn_io_on_loaded) (hio_mgr);
 	}
 	if (DSP_SUCCEEDED(status)) {
 		/* Now, attempt to load an exec: */
 
-	/* Boost the OPP level to Maximum level supported by baseport*/
+		/* Boost the OPP level to Maximum level supported by baseport */
 #if defined(CONFIG_BRIDGE_DVFS) && !defined(CONFIG_CPU_FREQ)
-	if (pdata->cpu_set_freq)
-		(*pdata->cpu_set_freq)(pdata->
-			mpu_rate_table[omap_pm_get_max_vdd1_opp()].rate);
+		if (pdata->cpu_set_freq)
+			(*pdata->cpu_set_freq) (pdata->mpu_max_speed);
 #endif
-		status = COD_LoadBase(hCodMgr, iArgc, (char **)aArgv,
-				     DEV_BrdWriteFxn,
-				     pProcObject->hDevObject, NULL);
+		status = cod_load_base(cod_mgr, argc_index, (char **)user_args,
+				       dev_brd_write_fxn,
+				       p_proc_object->hdev_obj, NULL);
 		if (DSP_FAILED(status)) {
-			if (status == COD_E_OPENFAILED) {
-				GT_0trace(PROC_DebugMask, GT_7CLASS,
-					"PROC_Load:Failure to Load the EXE\n");
+			if (status == -EBADF) {
+				dev_dbg(bridge, "%s: Failure to Load the EXE\n",
+					__func__);
 			}
 			if (status == COD_E_SYMBOLNOTFOUND) {
-				GT_0trace(PROC_DebugMask, GT_7CLASS,
-					"PROC_Load:Could not parse the file\n");
-			} else {
-				GT_1trace(PROC_DebugMask, GT_7CLASS,
-					 "PROC_Load: DSP_FAILED in "
-					 "COD_Load  status 0x%x \n", status);
+				pr_err("%s: Couldn't parse the file\n",
+				       __func__);
 			}
 		}
-	/* Requesting the lowest opp supported*/
+		/* Requesting the lowest opp supported */
 #if defined(CONFIG_BRIDGE_DVFS) && !defined(CONFIG_CPU_FREQ)
-	if (pdata->cpu_set_freq)
-		(*pdata->cpu_set_freq)(pdata->mpu_rate_table[VDD1_OPP1].rate);
+		if (pdata->cpu_set_freq)
+			(*pdata->cpu_set_freq) (pdata->mpu_min_speed);
 #endif
 
 	}
 	if (DSP_SUCCEEDED(status)) {
 		/* Update the Processor status to loaded */
-		status = (*pProcObject->pIntfFxns->pfnBrdSetState)
-			 (pProcObject->hWmdContext, BRD_LOADED);
+		status = (*p_proc_object->intf_fxns->pfn_brd_set_state)
+		    (p_proc_object->hwmd_context, BRD_LOADED);
 		if (DSP_SUCCEEDED(status)) {
-			pProcObject->sState = PROC_LOADED;
-			if (pProcObject->hNtfy) {
-				PROC_NotifyClients(pProcObject,
-						 DSP_PROCESSORSTATECHANGE);
-			}
-		} else {
-			GT_1trace(PROC_DebugMask, GT_7CLASS,
-				 "PROC_Load, pfnBrdSetState "
-				 "failed: 0x%x\n", status);
-			status = DSP_EFAIL;
+			p_proc_object->proc_state = PROC_LOADED;
+			if (p_proc_object->ntfy_obj)
+				proc_notify_clients(p_proc_object,
+						    DSP_PROCESSORSTATECHANGE);
 		}
 	}
 	if (DSP_SUCCEEDED(status)) {
-		status = PROC_GetProcessorId(hProcessor, &uProcId);
-		if (uProcId == DSP_UNIT) {
+		status = proc_get_processor_id(hprocessor, &proc_id);
+		if (proc_id == DSP_UNIT) {
 			/* Use all available DSP address space after EXTMEM
 			 * for DMM */
+			if (DSP_SUCCEEDED(status))
+				status = cod_get_sym_value(cod_mgr, EXTEND,
+							   &dw_ext_end);
+
+			/* Reset DMM structs and add an initial free chunk */
 			if (DSP_SUCCEEDED(status)) {
-				status = COD_GetSymValue(hCodMgr, EXTEND,
-								&dwExtEnd);
-				if (DSP_FAILED(status)) {
-					GT_1trace(PROC_DebugMask, GT_7CLASS,
-						 "PROC_Load: Failed on "
-						 "COD_GetSymValue %s.\n",
-						 EXTEND);
-				}
-			}
-			/* Reset DMM structs and add an initial free chunk*/
-			if (DSP_SUCCEEDED(status)) {
-				status = DEV_GetDmmMgr(pProcObject->hDevObject,
-						      &hDmmMgr);
-				if (DSP_SUCCEEDED(status)) {
-					/* Set dwExtEnd to DMM START u8
-					  * address */
-					dwExtEnd = (dwExtEnd + 1) * DSPWORDSIZE;
-					 /* DMM memory is from EXT_END */
-					status = DMM_CreateTables(hDmmMgr,
-						dwExtEnd, DMMPOOLSIZE);
+				dev_get_dmm_mgr(p_proc_object->hdev_obj,
+						&dmm_mgr);
+				if (dmm_mgr) {
+					/* Set dw_ext_end to DMM START u8
+					 * address */
+					dw_ext_end =
+					    (dw_ext_end + 1) * DSPWORDSIZE;
+					/* DMM memory is from EXT_END */
+					status = dmm_create_tables(dmm_mgr,
+								   dw_ext_end,
+								   DMMPOOLSIZE);
+				} else {
+					status = -EFAULT;
 				}
 			}
 		}
 	}
 	/* Restore the original argv[0] */
-	MEM_Free(newEnvp);
-	aArgv[0] = pargv0;
-#ifdef DEBUG
+	kfree(new_envp);
+	user_args[0] = pargv0;
 	if (DSP_SUCCEEDED(status)) {
-		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
-		   (pProcObject->hWmdContext, &uBrdState))) {
-			GT_0trace(PROC_DebugMask, GT_1CLASS,
-				 "PROC_Load: Processor Loaded\n");
-			DBC_Assert(uBrdState == BRD_LOADED);
+		if (DSP_SUCCEEDED((*p_proc_object->intf_fxns->pfn_brd_status)
+				  (p_proc_object->hwmd_context, &brd_state))) {
+			pr_info("%s: Processor Loaded %s\n", __func__, pargv0);
+			kfree(drv_datap->base_img);
+			drv_datap->base_img = kmalloc(strlen(pargv0) + 1,
+								GFP_KERNEL);
+			if (drv_datap->base_img)
+				strncpy(drv_datap->base_img, pargv0,
+							strlen(pargv0) + 1);
+			else
+				status = -ENOMEM;
+			DBC_ASSERT(brd_state == BRD_LOADED);
 		}
 	}
-#endif
-func_end:
-#ifdef DEBUG
-	if (DSP_FAILED(status)) {
-		GT_0trace(PROC_DebugMask, GT_1CLASS, "PROC_Load: "
-			 "Processor Load Failed.\n");
 
-	}
-#endif
-	GT_1trace(PROC_DebugMask, GT_ENTER,
-		 "Exiting PROC_Load, status:  0x%x\n", status);
-	DBC_Ensure((DSP_SUCCEEDED(status) && pProcObject->sState == PROC_LOADED)
+func_end:
+	if (DSP_FAILED(status))
+		pr_err("%s: Processor failed to load\n", __func__);
+	DBC_ENSURE((DSP_SUCCEEDED(status)
+		    && p_proc_object->proc_state == PROC_LOADED)
 		   || DSP_FAILED(status));
 #ifdef OPT_LOAD_TIME_INSTRUMENTATION
 	do_gettimeofday(&tv2);
@@ -1334,176 +1050,170 @@ func_end:
 		tv2.tv_usec += 1000000;
 		tv2.tv_sec--;
 	}
-	GT_2trace(PROC_DebugMask, GT_1CLASS,
-			"Proc_Load: time to load %d sec and %d usec \n",
-		    tv2.tv_sec - tv1.tv_sec, tv2.tv_usec - tv1.tv_usec);
+	dev_dbg(bridge, "%s: time to load %d sec and %d usec\n", __func__,
+		tv2.tv_sec - tv1.tv_sec, tv2.tv_usec - tv1.tv_usec);
 #endif
 	return status;
 }
 
 /*
- *  ======== PROC_Map ========
+ *  ======== proc_map ========
  *  Purpose:
  *      Maps a MPU buffer to DSP address space.
  */
-DSP_STATUS PROC_Map(DSP_HPROCESSOR hProcessor, void *pMpuAddr, u32 ulSize,
-		   void *pReqAddr, void **ppMapAddr, u32 ulMapAttr,
-		   struct PROCESS_CONTEXT *pr_ctxt)
+dsp_status proc_map(void *hprocessor, void *pmpu_addr, u32 ul_size,
+		    void *req_addr, void **pp_map_addr, u32 ul_map_attr,
+		    struct process_context *pr_ctxt)
 {
-	u32 vaAlign;
-	u32 paAlign;
-	struct DMM_OBJECT *hDmmMgr;
-	u32 sizeAlign;
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
+	u32 va_align;
+	u32 pa_align;
+	struct dmm_object *dmm_mgr;
+	u32 size_align;
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
+	struct dmm_map_object *map_obj;
 
-#ifndef RES_CLEANUP_DISABLE
-       HANDLE        dmmRes;
+#ifdef CONFIG_BRIDGE_CACHE_LINE_CHECK
+	if ((ul_map_attr & BUFMODE_MASK) != RBUF) {
+		if (!IS_ALIGNED((u32) pmpu_addr, DSP_CACHE_LINE) ||
+		    !IS_ALIGNED(ul_size, DSP_CACHE_LINE)) {
+			pr_err("%s: not aligned: 0x%x (%d)\n", __func__,
+			       (u32) pmpu_addr, ul_size);
+			return -EFAULT;
+		}
+	}
 #endif
 
-	GT_6trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Map, args:\n\t"
-		 "hProcessor %x, pMpuAddr %x, ulSize %x, pReqAddr %x, "
-		 "ulMapAttr %x, ppMapAddr %x\n", hProcessor, pMpuAddr, ulSize,
-		 pReqAddr, ulMapAttr, ppMapAddr);
-
-#ifdef CONFIG_BRIDGE_CHECK_ALIGN_128
-	if (!IS_ALIGNED((u32)pMpuAddr, DSP_CACHE_SIZE) ||
-	    !IS_ALIGNED(ulSize, DSP_CACHE_SIZE)) {
-		pr_err("%s: Invalid alignment %p %x\n",
-			__func__, pMpuAddr, ulSize);
-		return DSP_EALIGNMENT;
-	}
-#endif /* CONFIG_BRIDGE_CHECK_ALIGN_128 */
-
 	/* Calculate the page-aligned PA, VA and size */
-	vaAlign = PG_ALIGN_LOW((u32) pReqAddr, PG_SIZE_4K);
-	paAlign = PG_ALIGN_LOW((u32) pMpuAddr, PG_SIZE_4K);
-	sizeAlign = PG_ALIGN_HIGH(ulSize + (u32)pMpuAddr - paAlign,
-				 PG_SIZE_4K);
+	va_align = PG_ALIGN_LOW((u32) req_addr, PG_SIZE4K);
+	pa_align = PG_ALIGN_LOW((u32) pmpu_addr, PG_SIZE4K);
+	size_align = PG_ALIGN_HIGH(ul_size + (u32) pmpu_addr - pa_align,
+				   PG_SIZE4K);
 
-	GT_3trace(PROC_DebugMask, GT_ENTER, "PROC_Map: vaAlign %x, paAlign %x, "
-		 "sizeAlign %x\n", vaAlign, paAlign, sizeAlign);
-
-	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_Map: "
-			 "InValid Processor Handle \n");
+	if (!p_proc_object) {
+		status = -EFAULT;
 		goto func_end;
 	}
 	/* Critical section */
-	(void)SYNC_EnterCS(hProcLock);
-	status = DMM_GetHandle(pProcObject, &hDmmMgr);
-	if (DSP_FAILED(status)) {
-		GT_1trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Map: Failed to get DMM Mgr "
-			 "handle: 0x%x\n", status);
-	} else {
-		status = DMM_MapMemory(hDmmMgr, vaAlign, sizeAlign);
-	}
+	mutex_lock(&proc_lock);
+	dmm_get_handle(p_proc_object, &dmm_mgr);
+	if (dmm_mgr)
+		status = dmm_map_memory(dmm_mgr, va_align, size_align);
+	else
+		status = -EFAULT;
+
 	/* Add mapping to the page tables. */
 	if (DSP_SUCCEEDED(status)) {
 
-		status = (*pProcObject->pIntfFxns->pfnBrdMemMap)
-			(pProcObject->hWmdContext, paAlign, vaAlign, sizeAlign,
-			ulMapAttr);
+		status = (*p_proc_object->intf_fxns->pfn_brd_mem_map)
+		    (p_proc_object->hwmd_context, pa_align, va_align,
+		     size_align, ul_map_attr);
 	}
 	if (DSP_SUCCEEDED(status)) {
 		/* Mapped address = MSB of VA | LSB of PA */
-		*ppMapAddr = (void *) (vaAlign | ((u32) pMpuAddr &
-			     (PG_SIZE_4K - 1)));
+		*pp_map_addr = (void *)(va_align | ((u32) pmpu_addr &
+						    (PG_SIZE4K - 1)));
 	} else {
-		DMM_UnMapMemory(hDmmMgr, vaAlign, &sizeAlign);
+		dmm_un_map_memory(dmm_mgr, va_align, &size_align);
 	}
-	(void)SYNC_LeaveCS(hProcLock);
+	mutex_unlock(&proc_lock);
 
-#ifndef RES_CLEANUP_DISABLE
-	if (DSP_SUCCEEDED(status)) {
-		DRV_InsertDMMResElement(&dmmRes, pr_ctxt);
-		DRV_UpdateDMMResElement(dmmRes, (u32)pMpuAddr, ulSize,
-				(u32)pReqAddr, (u32)*ppMapAddr, hProcessor);
+	if (DSP_FAILED(status))
+		goto func_end;
+
+	/*
+	 * A successful map should be followed by insertion of map_obj
+	 * into dmm_map_list, so that mapped memory resource tracking
+	 * remains uptodate
+	 */
+	map_obj = kmalloc(sizeof(struct dmm_map_object), GFP_KERNEL);
+	if (map_obj) {
+		map_obj->dsp_addr = (u32) *pp_map_addr;
+		spin_lock(&pr_ctxt->dmm_map_lock);
+		list_add(&map_obj->link, &pr_ctxt->dmm_map_list);
+		spin_unlock(&pr_ctxt->dmm_map_lock);
 	}
-#endif
+
 func_end:
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Leaving PROC_Map [0x%x]", status);
+	dev_dbg(bridge, "%s: hprocessor %p, pmpu_addr %p, ul_size %x, "
+		"req_addr %p, ul_map_attr %x, pp_map_addr %p, va_align %x, "
+		"pa_align %x, size_align %x status 0x%x\n", __func__,
+		hprocessor, pmpu_addr, ul_size, req_addr, ul_map_attr,
+		pp_map_addr, va_align, pa_align, size_align, status);
+
 	return status;
 }
 
 /*
- *  ======== PROC_RegisterNotify ========
+ *  ======== proc_register_notify ========
  *  Purpose:
  *      Register to be notified of specific processor events.
  */
-DSP_STATUS PROC_RegisterNotify(DSP_HPROCESSOR hProcessor, u32 uEventMask,
-			      u32 uNotifyType, struct DSP_NOTIFICATION
-			      *hNotification)
+dsp_status proc_register_notify(void *hprocessor, u32 event_mask,
+				u32 notify_type, struct dsp_notification
+				* hnotification)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
-	struct DEH_MGR *hDehMgr;
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
+	struct deh_mgr *hdeh_mgr;
 
-	DBC_Require(hNotification != NULL);
-	DBC_Require(cRefs > 0);
-
-	GT_4trace(PROC_DebugMask, GT_ENTER,
-		 "Entered PROC_RegisterNotify, args:\n\t"
-		 "hProcessor:  0x%x\n\tuEventMask:  0x%x\n\tuNotifyMask:"
-		 " 0x%x\n\t hNotification 0x%x\n", hProcessor, uEventMask,
-		 uNotifyType, hNotification);
+	DBC_REQUIRE(hnotification != NULL);
+	DBC_REQUIRE(refs > 0);
 
 	/* Check processor handle */
-	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		status = DSP_EHANDLE;
-		GT_1trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_RegsiterNotify Invalid "
-			 "ProcessorHandle 0x%x\n", hProcessor);
+	if (!p_proc_object) {
+		status = -EFAULT;
 		goto func_end;
 	}
 	/* Check if event mask is a valid processor related event */
-	if (uEventMask & ~(DSP_PROCESSORSTATECHANGE | DSP_PROCESSORATTACH |
-	   DSP_PROCESSORDETACH | DSP_PROCESSORRESTART | DSP_MMUFAULT |
-	   DSP_SYSERROR | DSP_PWRERROR))
-		status = DSP_EVALUE;
+	if (event_mask & ~(DSP_PROCESSORSTATECHANGE | DSP_PROCESSORATTACH |
+			   DSP_PROCESSORDETACH | DSP_PROCESSORRESTART |
+			   DSP_MMUFAULT | DSP_SYSERROR | DSP_PWRERROR |
+			   DSP_WDTOVERFLOW))
+		status = -EINVAL;
 
 	/* Check if notify type is valid */
-	if (uNotifyType != DSP_SIGNALEVENT)
-		status = DSP_EVALUE;
+	if (notify_type != DSP_SIGNALEVENT)
+		status = -EINVAL;
 
 	if (DSP_SUCCEEDED(status)) {
 		/* If event mask is not DSP_SYSERROR, DSP_MMUFAULT,
 		 * or DSP_PWRERROR then register event immediately. */
-		if (uEventMask &
-		    ~(DSP_SYSERROR | DSP_MMUFAULT | DSP_PWRERROR)) {
-			status = NTFY_Register(pProcObject->hNtfy,
-				 hNotification,	uEventMask, uNotifyType);
+		if (event_mask &
+		    ~(DSP_SYSERROR | DSP_MMUFAULT | DSP_PWRERROR |
+		      DSP_WDTOVERFLOW)) {
+			status = ntfy_register(p_proc_object->ntfy_obj,
+					       hnotification, event_mask,
+					       notify_type);
 			/* Special case alert, special case alert!
-			 * If we're trying to *deregister* (i.e. uEventMask
+			 * If we're trying to *deregister* (i.e. event_mask
 			 * is 0), a DSP_SYSERROR or DSP_MMUFAULT notification,
 			 * we have to deregister with the DEH manager.
-			 * There's no way to know, based on uEventMask which
+			 * There's no way to know, based on event_mask which
 			 * manager the notification event was registered with,
-			 * so if we're trying to deregister and NTFY_Register
+			 * so if we're trying to deregister and ntfy_register
 			 * failed, we'll give the deh manager a shot.
 			 */
-			if ((uEventMask == 0) && DSP_FAILED(status)) {
-				status = DEV_GetDehMgr(pProcObject->hDevObject,
-					 &hDehMgr);
-				DBC_Assert(pProcObject->pIntfFxns->
-					   pfnDehRegisterNotify);
-				status = (*pProcObject->pIntfFxns->
-					 pfnDehRegisterNotify)
-					 (hDehMgr, uEventMask, uNotifyType,
-					 hNotification);
+			if ((event_mask == 0) && DSP_FAILED(status)) {
+				status =
+				    dev_get_deh_mgr(p_proc_object->hdev_obj,
+						    &hdeh_mgr);
+				DBC_ASSERT(p_proc_object->
+					   intf_fxns->pfn_deh_register_notify);
+				status =
+				    (*p_proc_object->
+				     intf_fxns->pfn_deh_register_notify)
+				    (hdeh_mgr, event_mask, notify_type,
+				     hnotification);
 			}
 		} else {
-			status = DEV_GetDehMgr(pProcObject->hDevObject,
-					      &hDehMgr);
-			DBC_Assert(pProcObject->pIntfFxns->
-				  pfnDehRegisterNotify);
-			status = (*pProcObject->pIntfFxns->pfnDehRegisterNotify)
-				 (hDehMgr, uEventMask, uNotifyType,
-				 hNotification);
-			if (DSP_FAILED(status))
-				status = DSP_EFAIL;
+			status = dev_get_deh_mgr(p_proc_object->hdev_obj,
+						 &hdeh_mgr);
+			DBC_ASSERT(p_proc_object->
+				   intf_fxns->pfn_deh_register_notify);
+			status =
+			    (*p_proc_object->intf_fxns->pfn_deh_register_notify)
+			    (hdeh_mgr, event_mask, notify_type, hnotification);
 
 		}
 	}
@@ -1512,330 +1222,319 @@ func_end:
 }
 
 /*
- *  ======== PROC_ReserveMemory ========
+ *  ======== proc_reserve_memory ========
  *  Purpose:
  *      Reserve a virtually contiguous region of DSP address space.
  */
-DSP_STATUS PROC_ReserveMemory(DSP_HPROCESSOR hProcessor, u32 ulSize,
-			     void **ppRsvAddr)
+dsp_status proc_reserve_memory(void *hprocessor, u32 ul_size,
+			       void **pp_rsv_addr,
+			       struct process_context *pr_ctxt)
 {
-	struct DMM_OBJECT *hDmmMgr;
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
+	struct dmm_object *dmm_mgr;
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
+	struct dmm_rsv_object *rsv_obj;
 
-	GT_3trace(PROC_DebugMask, GT_ENTER,
-		 "Entered PROC_ReserveMemory, args:\n\t"
-		 "hProcessor: 0x%x ulSize: 0x%x ppRsvAddr: 0x%x\n", hProcessor,
-		 ulSize, ppRsvAddr);
-	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_Map: "
-			 "InValid Processor Handle \n");
+	if (!p_proc_object) {
+		status = -EFAULT;
 		goto func_end;
 	}
-	status = DMM_GetHandle(pProcObject, &hDmmMgr);
-	if (DSP_FAILED(status)) {
-		GT_1trace(PROC_DebugMask, GT_7CLASS, "PROC_ReserveMemory: "
-			 "Failed to get DMM Mgr handle: 0x%x\n", status);
-	} else
-		status = DMM_ReserveMemory(hDmmMgr, ulSize, (u32 *)ppRsvAddr);
 
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Leaving PROC_ReserveMemory [0x%x]",
-		 status);
+	dmm_get_handle(p_proc_object, &dmm_mgr);
+	if (!dmm_mgr) {
+		status = -EFAULT;
+		goto func_end;
+	}
+
+	status = dmm_reserve_memory(dmm_mgr, ul_size, (u32 *) pp_rsv_addr);
+	if (status != DSP_SOK)
+		goto func_end;
+
+	/*
+	 * A successful reserve should be followed by insertion of rsv_obj
+	 * into dmm_rsv_list, so that reserved memory resource tracking
+	 * remains uptodate
+	 */
+	rsv_obj = kmalloc(sizeof(struct dmm_rsv_object), GFP_KERNEL);
+	if (rsv_obj) {
+		rsv_obj->dsp_reserved_addr = (u32) *pp_rsv_addr;
+		spin_lock(&pr_ctxt->dmm_rsv_lock);
+		list_add(&rsv_obj->link, &pr_ctxt->dmm_rsv_list);
+		spin_unlock(&pr_ctxt->dmm_rsv_lock);
+	}
+
 func_end:
+	dev_dbg(bridge, "%s: hprocessor: 0x%p ul_size: 0x%x pp_rsv_addr: 0x%p "
+		"status 0x%x\n", __func__, hprocessor,
+		ul_size, pp_rsv_addr, status);
 	return status;
 }
 
 /*
- *  ======== PROC_Start ========
+ *  ======== proc_start ========
  *  Purpose:
  *      Start a processor running.
  */
-DSP_STATUS PROC_Start(DSP_HPROCESSOR hProcessor)
+dsp_status proc_start(void *hprocessor)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
-	struct COD_MANAGER *hCodMgr;	/* Code manager handle    */
-	u32 dwDspAddr;	/* Loaded code's entry point.    */
-#ifdef DEBUG
-	BRD_STATUS uBrdState;
-#endif
-	DBC_Require(cRefs > 0);
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Start, args:\n\t"
-		 "hProcessor:  0x%x\n", hProcessor);
-	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Start :InValid Handle \n");
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
+	struct cod_manager *cod_mgr;	/* Code manager handle */
+	u32 dw_dsp_addr;	/* Loaded code's entry point. */
+	int brd_state;
+
+	DBC_REQUIRE(refs > 0);
+	if (!p_proc_object) {
+		status = -EFAULT;
 		goto func_end;
 	}
-	/* Call the WMD_BRD_Start */
-	if (pProcObject->sState != PROC_LOADED) {
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Start :Wrong state \n");
+	/* Call the bridge_brd_start */
+	if (p_proc_object->proc_state != PROC_LOADED) {
 		status = DSP_EWRONGSTATE;
 		goto func_end;
 	}
-	status = DEV_GetCodMgr(pProcObject->hDevObject, &hCodMgr);
-	if (DSP_FAILED(status)) {
-		status = DSP_EFAIL;
-		GT_1trace(PROC_DebugMask, GT_7CLASS,
-			 "Processor Start DSP_FAILED "
-			 "in Getting DEV_GetCodMgr status 0x%x\n", status);
+	dev_get_cod_mgr(p_proc_object->hdev_obj, &cod_mgr);
+	if (!cod_mgr) {
+		status = -EFAULT;
 		goto func_cont;
 	}
-	status = COD_GetEntry(hCodMgr, &dwDspAddr);
-	if (DSP_FAILED(status)) {
-		status = DSP_EFAIL;
-		GT_1trace(PROC_DebugMask, GT_7CLASS,
-			 "Processor Start  DSP_FAILED in "
-			 "Getting COD_GetEntry status 0x%x\n", status);
+
+	status = cod_get_entry(cod_mgr, &dw_dsp_addr);
+	if (DSP_FAILED(status))
 		goto func_cont;
-	}
-	status = (*pProcObject->pIntfFxns->pfnBrdStart)
-		 (pProcObject->hWmdContext, dwDspAddr);
-	if (DSP_FAILED(status)) {
-		status = DSP_EFAIL;
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Start Failed to Start the board\n");
+
+	status = (*p_proc_object->intf_fxns->pfn_brd_start)
+	    (p_proc_object->hwmd_context, dw_dsp_addr);
+	if (DSP_FAILED(status))
 		goto func_cont;
-	}
-	/* Call DEV_Create2 */
-	status = DEV_Create2(pProcObject->hDevObject);
+
+	/* Call dev_create2 */
+	status = dev_create2(p_proc_object->hdev_obj);
 	if (DSP_SUCCEEDED(status)) {
-		pProcObject->sState = PROC_RUNNING;
+		p_proc_object->proc_state = PROC_RUNNING;
 		/* Deep sleep switces off the peripheral clocks.
 		 * we just put the DSP CPU in idle in the idle loop.
 		 * so there is no need to send a command to DSP */
 
-		if (pProcObject->hNtfy) {
-			PROC_NotifyClients(pProcObject,
-					  DSP_PROCESSORSTATECHANGE);
+		if (p_proc_object->ntfy_obj) {
+			proc_notify_clients(p_proc_object,
+					    DSP_PROCESSORSTATECHANGE);
 		}
-		GT_0trace(PROC_DebugMask, GT_1CLASS, "PROC_Start: Processor "
-			 "Started and running \n");
 	} else {
 		/* Failed to Create Node Manager and DISP Object
 		 * Stop the Processor from running. Put it in STOPPED State */
-		(void)(*pProcObject->pIntfFxns->pfnBrdStop)(pProcObject->
-			hWmdContext);
-		status = DSP_EFAIL;
-		pProcObject->sState = PROC_STOPPED;
-		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_Start "
-			 "Failed to Create the Node Manager\n");
+		(void)(*p_proc_object->intf_fxns->
+		       pfn_brd_stop) (p_proc_object->hwmd_context);
+		p_proc_object->proc_state = PROC_STOPPED;
 	}
 func_cont:
-#ifdef DEBUG
 	if (DSP_SUCCEEDED(status)) {
-		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
-		   (pProcObject->hWmdContext, &uBrdState))) {
-			GT_0trace(PROC_DebugMask, GT_1CLASS,
-				 "PROC_Start: Processor State is RUNNING \n");
-			DBC_Assert(uBrdState != BRD_HIBERNATION);
+		if (DSP_SUCCEEDED((*p_proc_object->intf_fxns->pfn_brd_status)
+				  (p_proc_object->hwmd_context, &brd_state))) {
+			pr_info("%s: dsp in running state\n", __func__);
+			DBC_ASSERT(brd_state != BRD_HIBERNATION);
 		}
+	} else {
+		pr_err("%s: Failed to start the dsp\n", __func__);
 	}
-#endif
+
 func_end:
-	GT_1trace(PROC_DebugMask, GT_ENTER,
-		 "Exiting PROC_Start, status  0x%x\n", status);
-	DBC_Ensure((DSP_SUCCEEDED(status) && pProcObject->sState ==
-		  PROC_RUNNING)	|| DSP_FAILED(status));
+	DBC_ENSURE((DSP_SUCCEEDED(status) && p_proc_object->proc_state ==
+		    PROC_RUNNING) || DSP_FAILED(status));
 	return status;
 }
 
 /*
- *  ======== PROC_Stop ========
+ *  ======== proc_stop ========
  *  Purpose:
  *      Stop a processor running.
  */
-DSP_STATUS PROC_Stop(DSP_HPROCESSOR hProcessor)
+dsp_status proc_stop(void *hprocessor)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
-	struct MSG_MGR *hMsgMgr;
-	struct NODE_MGR *hNodeMgr;
-	DSP_HNODE hNode;
-	u32 uNodeTabSize = 1;
-	u32 uNumNodes = 0;
-	u32 uNodesAllocated = 0;
-	BRD_STATUS uBrdState;
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
+	struct msg_mgr *hmsg_mgr;
+	struct node_mgr *hnode_mgr;
+	void *hnode;
+	u32 node_tab_size = 1;
+	u32 num_nodes = 0;
+	u32 nodes_allocated = 0;
+	int brd_state;
 
-	DBC_Require(cRefs > 0);
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Stop, args:\n\t"
-		 "hProcessor:  0x%x\n", hProcessor);
-	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Stop :InValid Handle \n");
+	DBC_REQUIRE(refs > 0);
+	if (!p_proc_object) {
+		status = -EFAULT;
 		goto func_end;
 	}
-	if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
-	   (pProcObject->hWmdContext, &uBrdState))) {
-		if (uBrdState == BRD_ERROR)
-			WMD_DEH_ReleaseDummyMem();
+	if (DSP_SUCCEEDED((*p_proc_object->intf_fxns->pfn_brd_status)
+			  (p_proc_object->hwmd_context, &brd_state))) {
+		if (brd_state == BRD_ERROR)
+			bridge_deh_release_dummy_mem();
 	}
 	/* check if there are any running nodes */
-	status = DEV_GetNodeManager(pProcObject->hDevObject, &hNodeMgr);
-	if (DSP_SUCCEEDED(status) && hNodeMgr) {
-		status = NODE_EnumNodes(hNodeMgr, &hNode, uNodeTabSize,
-					&uNumNodes, &uNodesAllocated);
-		if ((status == DSP_ESIZE) || (uNodesAllocated > 0)) {
-			GT_1trace(PROC_DebugMask, GT_7CLASS,
-				 "Can't stop device, Active "
-				 "nodes = 0x%x \n", uNodesAllocated);
+	status = dev_get_node_manager(p_proc_object->hdev_obj, &hnode_mgr);
+	if (DSP_SUCCEEDED(status) && hnode_mgr) {
+		status = node_enum_nodes(hnode_mgr, &hnode, node_tab_size,
+					 &num_nodes, &nodes_allocated);
+		if ((status == -EINVAL) || (nodes_allocated > 0)) {
+			pr_err("%s: Can't stop device, active nodes = %d \n",
+			       __func__, nodes_allocated);
 			return DSP_EWRONGSTATE;
 		}
 	}
-	/* Call the WMD_BRD_Stop */
+	/* Call the bridge_brd_stop */
 	/* It is OK to stop a device that does n't have nodes OR not started */
-	status = (*pProcObject->pIntfFxns->pfnBrdStop)(pProcObject->
-		 hWmdContext);
+	status =
+	    (*p_proc_object->intf_fxns->
+	     pfn_brd_stop) (p_proc_object->hwmd_context);
 	if (DSP_SUCCEEDED(status)) {
-		GT_0trace(PROC_DebugMask, GT_1CLASS,
-			 "PROC_Stop: Processor Stopped, "
-			 "i.e in standby mode \n");
-		pProcObject->sState = PROC_STOPPED;
-		/* Destory the Node Manager, MSG Manager */
-		if (DSP_SUCCEEDED(DEV_Destroy2(pProcObject->hDevObject))) {
-			/* Destroy the MSG by calling MSG_Delete */
-			DEV_GetMsgMgr(pProcObject->hDevObject, &hMsgMgr);
-			if (hMsgMgr) {
-				MSG_Delete(hMsgMgr);
-				DEV_SetMsgMgr(pProcObject->hDevObject, NULL);
+		dev_dbg(bridge, "%s: processor in standby mode\n", __func__);
+		p_proc_object->proc_state = PROC_STOPPED;
+		/* Destory the Node Manager, msg_ctrl Manager */
+		if (DSP_SUCCEEDED(dev_destroy2(p_proc_object->hdev_obj))) {
+			/* Destroy the msg_ctrl by calling msg_delete */
+			dev_get_msg_mgr(p_proc_object->hdev_obj, &hmsg_mgr);
+			if (hmsg_mgr) {
+				msg_delete(hmsg_mgr);
+				dev_set_msg_mgr(p_proc_object->hdev_obj, NULL);
 			}
-#ifdef DEBUG
-			if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->
-			   pfnBrdStatus)(pProcObject->hWmdContext,
-			   &uBrdState))) {
-				GT_0trace(PROC_DebugMask, GT_1CLASS,
-					 "PROC_Monitor:Processor Stopped \n");
-				DBC_Assert(uBrdState == BRD_STOPPED);
-			}
-#endif
-		} else {
-			GT_0trace(PROC_DebugMask, GT_7CLASS,
-				 "PROC_Stop Couldn't delete node manager \n");
+			if (DSP_SUCCEEDED
+			    ((*p_proc_object->
+			      intf_fxns->pfn_brd_status) (p_proc_object->
+							  hwmd_context,
+							  &brd_state)))
+				DBC_ASSERT(brd_state == BRD_STOPPED);
 		}
 	} else {
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Stop Failed to Stop the processor/device \n");
+		pr_err("%s: Failed to stop the processor\n", __func__);
 	}
 func_end:
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Exiting PROC_Stop, status  0x%x\n",
-		 status);
 
 	return status;
 }
 
 /*
- *  ======== PROC_UnMap ========
+ *  ======== proc_un_map ========
  *  Purpose:
  *      Removes a MPU buffer mapping from the DSP address space.
  */
-DSP_STATUS PROC_UnMap(DSP_HPROCESSOR hProcessor, void *pMapAddr,
-		struct PROCESS_CONTEXT *pr_ctxt)
+dsp_status proc_un_map(void *hprocessor, void *map_addr,
+		       struct process_context *pr_ctxt)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
-	struct DMM_OBJECT *hDmmMgr;
-	u32 vaAlign;
-	u32 sizeAlign;
-#ifndef RES_CLEANUP_DISABLE
-	HANDLE	      dmmRes;
-#endif
-	GT_2trace(PROC_DebugMask, GT_ENTER,
-		 "Entered PROC_UnMap, args:\n\thProcessor:"
-		 "0x%x pMapAddr: 0x%x\n", hProcessor, pMapAddr);
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
+	struct dmm_object *dmm_mgr;
+	u32 va_align;
+	u32 size_align;
+	struct dmm_map_object *map_obj;
 
-	vaAlign = PG_ALIGN_LOW((u32) pMapAddr, PG_SIZE_4K);
-	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_UnMap: "
-			 "InValid Processor Handle \n");
+	va_align = PG_ALIGN_LOW((u32) map_addr, PG_SIZE4K);
+	if (!p_proc_object) {
+		status = -EFAULT;
 		goto func_end;
 	}
 
-	status = DMM_GetHandle(hProcessor, &hDmmMgr);
-	if (DSP_FAILED(status)) {
-		GT_1trace(PROC_DebugMask, GT_7CLASS, "PROC_UnMap: "
-			"Failed to get DMM Mgr handle: 0x%x\n", status);
+	dmm_get_handle(hprocessor, &dmm_mgr);
+	if (!dmm_mgr) {
+		status = -EFAULT;
 		goto func_end;
 	}
 
 	/* Critical section */
-	(void)SYNC_EnterCS(hProcLock);
+	mutex_lock(&proc_lock);
 	/*
 	 * Update DMM structures. Get the size to unmap.
 	 * This function returns error if the VA is not mapped
 	 */
-	status = DMM_UnMapMemory(hDmmMgr, (u32) vaAlign, &sizeAlign);
+	status = dmm_un_map_memory(dmm_mgr, (u32) va_align, &size_align);
 	/* Remove mapping from the page tables. */
 	if (DSP_SUCCEEDED(status)) {
-		status = (*pProcObject->pIntfFxns->pfnBrdMemUnMap)
-			 (pProcObject->hWmdContext, vaAlign, sizeAlign);
+		status = (*p_proc_object->intf_fxns->pfn_brd_mem_un_map)
+		    (p_proc_object->hwmd_context, va_align, size_align);
 	}
-	(void)SYNC_LeaveCS(hProcLock);
-#ifndef RES_CLEANUP_DISABLE
-	GT_1trace(PROC_DebugMask, GT_ENTER,
-		   "PROC_UnMap DRV_GetDMMResElement "
-		   "pMapAddr:[0x%x]", pMapAddr);
+	mutex_unlock(&proc_lock);
 	if (DSP_FAILED(status))
 		goto func_end;
 
-	if (pr_ctxt && DRV_GetDMMResElement((u32)pMapAddr, &dmmRes, pr_ctxt)
-							!= DSP_ENOTFOUND)
-		DRV_RemoveDMMResElement(dmmRes, pr_ctxt);
-#endif
+	/*
+	 * A successful unmap should be followed by removal of map_obj
+	 * from dmm_map_list, so that mapped memory resource tracking
+	 * remains uptodate
+	 */
+	spin_lock(&pr_ctxt->dmm_map_lock);
+	list_for_each_entry(map_obj, &pr_ctxt->dmm_map_list, link) {
+		if (map_obj->dsp_addr == (u32) map_addr) {
+			list_del(&map_obj->link);
+			kfree(map_obj);
+			break;
+		}
+	}
+	spin_unlock(&pr_ctxt->dmm_map_lock);
+
 func_end:
-	GT_1trace(PROC_DebugMask, GT_ENTER,
-		 "Leaving PROC_UnMap [0x%x]", status);
+	dev_dbg(bridge, "%s: hprocessor: 0x%p map_addr: 0x%p status: 0x%x\n",
+		__func__, hprocessor, map_addr, status);
 	return status;
 }
 
 /*
- *  ======== PROC_UnReserveMemory ========
+ *  ======== proc_un_reserve_memory ========
  *  Purpose:
  *      Frees a previously reserved region of DSP address space.
  */
-DSP_STATUS PROC_UnReserveMemory(DSP_HPROCESSOR hProcessor, void *pRsvAddr)
+dsp_status proc_un_reserve_memory(void *hprocessor, void *prsv_addr,
+				  struct process_context *pr_ctxt)
 {
-	struct DMM_OBJECT *hDmmMgr;
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcessor;
+	struct dmm_object *dmm_mgr;
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = (struct proc_object *)hprocessor;
+	struct dmm_rsv_object *rsv_obj;
 
-	GT_2trace(PROC_DebugMask, GT_ENTER,
-		 "Entered PROC_UnReserveMemory, args:\n\t"
-		 "hProcessor: 0x%x pRsvAddr: 0x%x\n", hProcessor, pRsvAddr);
-	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_UnMap: "
-			 "InValid Processor Handle \n");
+	if (!p_proc_object) {
+		status = -EFAULT;
 		goto func_end;
 	}
-	status = DMM_GetHandle(pProcObject, &hDmmMgr);
-	if (DSP_FAILED(status))
-		GT_1trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_UnReserveMemory: Failed to get DMM Mgr "
-			 "handle: 0x%x\n", status);
-	else
-		status = DMM_UnReserveMemory(hDmmMgr, (u32) pRsvAddr);
 
-	GT_1trace(PROC_DebugMask, GT_ENTER,
-		 "Leaving PROC_UnReserveMemory [0x%x]",
-		 status);
+	dmm_get_handle(p_proc_object, &dmm_mgr);
+	if (!dmm_mgr) {
+		status = -EFAULT;
+		goto func_end;
+	}
+
+	status = dmm_un_reserve_memory(dmm_mgr, (u32) prsv_addr);
+	if (status != DSP_SOK)
+		goto func_end;
+
+	/*
+	 * A successful unreserve should be followed by removal of rsv_obj
+	 * from dmm_rsv_list, so that reserved memory resource tracking
+	 * remains uptodate
+	 */
+	spin_lock(&pr_ctxt->dmm_rsv_lock);
+	list_for_each_entry(rsv_obj, &pr_ctxt->dmm_rsv_list, link) {
+		if (rsv_obj->dsp_reserved_addr == (u32) prsv_addr) {
+			list_del(&rsv_obj->link);
+			kfree(rsv_obj);
+			break;
+		}
+	}
+	spin_unlock(&pr_ctxt->dmm_rsv_lock);
+
 func_end:
+	dev_dbg(bridge, "%s: hprocessor: 0x%p prsv_addr: 0x%p status: 0x%x\n",
+		__func__, hprocessor, prsv_addr, status);
 	return status;
 }
 
 /*
- *  ======== = PROC_Monitor ======== ==
+ *  ======== = proc_monitor ======== ==
  *  Purpose:
  *      Place the Processor in Monitor State. This is an internal
  *      function and a requirement before Processor is loaded.
- *      This does a WMD_BRD_Stop, DEV_Destroy2 and WMD_BRD_Monitor.
- *      In DEV_Destroy2 we delete the node manager.
+ *      This does a bridge_brd_stop, dev_destroy2 and bridge_brd_monitor.
+ *      In dev_destroy2 we delete the node manager.
  *  Parameters:
- *      hProcObject:    Handle to Processor Object
+ *      p_proc_object:    Pointer to Processor Object
  *  Returns:
  *      DSP_SOK:	Processor placed in monitor mode.
  *      !DSP_SOK:       Failed to place processor in monitor mode.
@@ -1844,179 +1543,148 @@ func_end:
  *  Ensures:
  *      Success:	ProcObject state is PROC_IDLE
  */
-static DSP_STATUS PROC_Monitor(struct PROC_OBJECT *hProcObject)
+static dsp_status proc_monitor(struct proc_object *p_proc_object)
 {
-	DSP_STATUS status = DSP_EFAIL;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProcObject;
-	struct MSG_MGR *hMsgMgr;
-#ifdef DEBUG
-	BRD_STATUS uBrdState;
-#endif
+	dsp_status status = -EPERM;
+	struct msg_mgr *hmsg_mgr;
+	int brd_state;
 
-	DBC_Require(cRefs > 0);
-	DBC_Require(MEM_IsValidHandle(pProcObject, PROC_SIGNATURE));
+	DBC_REQUIRE(refs > 0);
+	DBC_REQUIRE(p_proc_object);
 
-	GT_1trace(PROC_DebugMask, GT_ENTER, "Entered PROC_Monitor, args:\n\t"
-		 "hProcessor: 0x%x\n", hProcObject);
 	/* This is needed only when Device is loaded when it is
 	 * already 'ACTIVE' */
-	/* Destory the Node Manager, MSG Manager */
-	if (DSP_SUCCEEDED(DEV_Destroy2(pProcObject->hDevObject))) {
-		/* Destroy the MSG by calling MSG_Delete */
-		DEV_GetMsgMgr(pProcObject->hDevObject, &hMsgMgr);
-		if (hMsgMgr) {
-			MSG_Delete(hMsgMgr);
-			DEV_SetMsgMgr(pProcObject->hDevObject, NULL);
+	/* Destory the Node Manager, msg_ctrl Manager */
+	if (DSP_SUCCEEDED(dev_destroy2(p_proc_object->hdev_obj))) {
+		/* Destroy the msg_ctrl by calling msg_delete */
+		dev_get_msg_mgr(p_proc_object->hdev_obj, &hmsg_mgr);
+		if (hmsg_mgr) {
+			msg_delete(hmsg_mgr);
+			dev_set_msg_mgr(p_proc_object->hdev_obj, NULL);
 		}
 	}
 	/* Place the Board in the Monitor State */
-	if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdMonitor)
-	   (pProcObject->hWmdContext))) {
+	if (DSP_SUCCEEDED((*p_proc_object->intf_fxns->pfn_brd_monitor)
+			  (p_proc_object->hwmd_context))) {
 		status = DSP_SOK;
-#ifdef DEBUG
-		if (DSP_SUCCEEDED((*pProcObject->pIntfFxns->pfnBrdStatus)
-		   (pProcObject->hWmdContext, &uBrdState))) {
-			GT_0trace(PROC_DebugMask, GT_1CLASS,
-				 "PROC_Monitor:Processor in "
-				 "Monitor State\n");
-			DBC_Assert(uBrdState == BRD_IDLE);
-		}
-#endif
-	} else {
-		/* Monitor Failure */
-		GT_0trace(PROC_DebugMask, GT_7CLASS,
-			 "PROC_Monitor: Processor Could not"
-			 "be put in Monitor mode \n");
+		if (DSP_SUCCEEDED((*p_proc_object->intf_fxns->pfn_brd_status)
+				  (p_proc_object->hwmd_context, &brd_state)))
+			DBC_ASSERT(brd_state == BRD_IDLE);
 	}
-	GT_1trace(PROC_DebugMask, GT_ENTER,
-		 "Exiting PROC_Monitor, status  0x%x\n",
-		 status);
-#ifdef DEBUG
-	DBC_Ensure((DSP_SUCCEEDED(status) && uBrdState == BRD_IDLE) ||
-		  DSP_FAILED(status));
-#endif
+
+	DBC_ENSURE((DSP_SUCCEEDED(status) && brd_state == BRD_IDLE) ||
+		   DSP_FAILED(status));
 	return status;
 }
 
 /*
- *  ======== GetEnvpCount ========
+ *  ======== get_envp_count ========
  *  Purpose:
  *      Return the number of elements in the envp array, including the
  *      terminating NULL element.
  */
-static s32 GetEnvpCount(char **envp)
+static s32 get_envp_count(char **envp)
 {
-	s32 cRetval = 0;
+	s32 ret = 0;
 	if (envp) {
 		while (*envp++)
-			cRetval++;
+			ret++;
 
-		cRetval += 1;	/* Include the terminating NULL in the count. */
+		ret += 1;	/* Include the terminating NULL in the count. */
 	}
 
-	return cRetval;
+	return ret;
 }
 
 /*
- *  ======== PrependEnvp ========
+ *  ======== prepend_envp ========
  *  Purpose:
  *      Prepend an environment variable=value pair to the new envp array, and
  *      copy in the existing var=value pairs in the old envp array.
  */
-static char **PrependEnvp(char **newEnvp, char **envp, s32 cEnvp, s32 cNewEnvp,
-			 char *szVar)
+static char **prepend_envp(char **new_envp, char **envp, s32 envp_elems,
+			   s32 cnew_envp, char *szVar)
 {
-	char **ppEnvp = newEnvp;
+	char **pp_envp = new_envp;
 
-	DBC_Require(newEnvp);
+	DBC_REQUIRE(new_envp);
 
 	/* Prepend new environ var=value string */
-	*newEnvp++ = szVar;
+	*new_envp++ = szVar;
 
 	/* Copy user's environment into our own. */
-	while (cEnvp--)
-		*newEnvp++ = *envp++;
+	while (envp_elems--)
+		*new_envp++ = *envp++;
 
 	/* Ensure NULL terminates the new environment strings array. */
-	if (cEnvp == 0)
-		*newEnvp = NULL;
+	if (envp_elems == 0)
+		*new_envp = NULL;
 
-	return ppEnvp;
+	return pp_envp;
 }
 
 /*
- *  ======== PROC_NotifyClients ========
+ *  ======== proc_notify_clients ========
  *  Purpose:
  *      Notify the processor the events.
  */
-DSP_STATUS PROC_NotifyClients(DSP_HPROCESSOR hProc, u32 uEvents)
+dsp_status proc_notify_clients(void *hProc, u32 uEvents)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProc;
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = (struct proc_object *)hProc;
 
-	DBC_Require(MEM_IsValidHandle(pProcObject, PROC_SIGNATURE));
-	DBC_Require(IsValidProcEvent(uEvents));
-	DBC_Require(cRefs > 0);
-	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_NotifyClients: "
-			 "InValid Processor Handle \n");
+	DBC_REQUIRE(p_proc_object);
+	DBC_REQUIRE(IS_VALID_PROC_EVENT(uEvents));
+	DBC_REQUIRE(refs > 0);
+	if (!p_proc_object) {
+		status = -EFAULT;
 		goto func_end;
 	}
 
-	NTFY_Notify(pProcObject->hNtfy, uEvents);
-	GT_0trace(PROC_DebugMask, GT_1CLASS,
-		 "PROC_NotifyClients :Signaled. \n");
+	ntfy_notify(p_proc_object->ntfy_obj, uEvents);
 func_end:
 	return status;
 }
 
 /*
- *  ======== PROC_NotifyAllClients ========
+ *  ======== proc_notify_all_clients ========
  *  Purpose:
  *      Notify the processor the events. This includes notifying all clients
  *      attached to a particulat DSP.
  */
-DSP_STATUS PROC_NotifyAllClients(DSP_HPROCESSOR hProc, u32 uEvents)
+dsp_status proc_notify_all_clients(void *hProc, u32 uEvents)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProc;
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = (struct proc_object *)hProc;
 
-	DBC_Require(IsValidProcEvent(uEvents));
-	DBC_Require(cRefs > 0);
+	DBC_REQUIRE(IS_VALID_PROC_EVENT(uEvents));
+	DBC_REQUIRE(refs > 0);
 
-	if (!MEM_IsValidHandle(pProcObject, PROC_SIGNATURE)) {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_NotifyAllClients: "
-			 "InValid Processor Handle \n");
+	if (!p_proc_object) {
+		status = -EFAULT;
 		goto func_end;
 	}
 
-	DEV_NotifyClients(pProcObject->hDevObject, uEvents);
+	dev_notify_clients(p_proc_object->hdev_obj, uEvents);
 
-	GT_0trace(PROC_DebugMask, GT_1CLASS,
-		 "PROC_NotifyAllClients :Signaled. \n");
 func_end:
 	return status;
 }
 
 /*
- *  ======== PROC_GetProcessorId ========
+ *  ======== proc_get_processor_id ========
  *  Purpose:
  *      Retrieves the processor ID.
  */
-DSP_STATUS PROC_GetProcessorId(DSP_HPROCESSOR hProc, u32 *procID)
+dsp_status proc_get_processor_id(void *hProc, u32 * procID)
 {
-	DSP_STATUS status = DSP_SOK;
-	struct PROC_OBJECT *pProcObject = (struct PROC_OBJECT *)hProc;
+	dsp_status status = DSP_SOK;
+	struct proc_object *p_proc_object = (struct proc_object *)hProc;
 
-	if (MEM_IsValidHandle(pProcObject, PROC_SIGNATURE))
-		*procID = pProcObject->uProcessor;
-	else {
-		status = DSP_EHANDLE;
-		GT_0trace(PROC_DebugMask, GT_7CLASS, "PROC_GetProcessorId: "
-			 "InValid Processor Handle \n");
-	}
+	if (p_proc_object)
+		*procID = p_proc_object->processor_id;
+	else
+		status = -EFAULT;
+
 	return status;
 }
-

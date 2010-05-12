@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Definitions and types for the utility routines.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,21 +16,10 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== _tiomap_util.h ========
- *  Description:
- *      Definitions and types for the utility routines.
- *
- *! Revision History
- *! ================
- *! 08-Oct-2002 rr:  Created.
- */
-
 #ifndef _TIOMAP_UTIL_
 #define _TIOMAP_UTIL_
 
-/* Time out Values in uSeconds*/
+/* Time out Values in uSeconds */
 #define TIHELEN_ACKTIMEOUT  10000
 
 /*
@@ -41,12 +32,12 @@
 #define  WAIT_SAM   1000000	/* in usec (1000 millisec) */
 
 /*
- *  ======== WaitForStart ========
+ *  ======== wait_for_start ========
  *  Wait for the singal from DSP that it has started, or time out.
- *  The argument dwSyncAddr is set to 1 before releasing the DSP.
+ *  The argument dw_sync_addr is set to 1 before releasing the DSP.
  *  If the DSP starts running, it will clear this location.
  */
-extern bool WaitForStart(struct WMD_DEV_CONTEXT *pDevContext, u32 dwSyncAddr);
+extern bool wait_for_start(struct wmd_dev_context *dev_context,
+			   u32 dw_sync_addr);
 
-#endif				/* _TIOMAP_UTIL_ */
-
+#endif /* _TIOMAP_UTIL_ */

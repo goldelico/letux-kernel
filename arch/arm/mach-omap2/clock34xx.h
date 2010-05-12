@@ -21,4 +21,7 @@ extern const struct clkops clkops_omap3430es2_hsotgusb_wait;
 extern const struct clkops clkops_omap3430es2_dss_usbhost_wait;
 extern const struct clkops clkops_noncore_dpll_ops;
 
+/* OMAP36xx-specific clkops */
+extern const struct clkops clkops_omap36xx_pwrdn_with_hsdiv_wait_restore;
+
 #endif

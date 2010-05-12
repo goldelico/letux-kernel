@@ -47,8 +47,8 @@
 #define DISPC_IRQ_SYNC_LOST_DIGIT	(1 << 15)
 #define DISPC_IRQ_WAKEUP		(1 << 16)
 
-#ifdef CONFIG_ARCH_OMAP4
-#define DISPC_IRQ_SYNC_LOST_2	(1 << 17)
+/* OMAP4 */
+#define DISPC_IRQ_SYNC_LOST_2		(1 << 17)
 #define DISPC_IRQ_VSYNC2		(1 << 18)
 #define DISPC_IRQ_VID3_END_WIN		(1 << 19)
 #define DISPC_IRQ_VID3_FIFO_UNDERFLOW	(1 << 20)
@@ -58,7 +58,6 @@
 #define DISPC_IRQ_FRAMEDONE_WB		(1 << 23)
 #define DISPC_IRQ_FRAMEDONE_DIG		(1 << 24) /* FRAMEDONE_TV*/
 #define DISPC_IRQ_WB_BUF_OVERFLOW	(1 << 25)
-#endif
 
 struct omap_dss_device;
 struct omap_overlay_manager;
@@ -76,19 +75,21 @@ enum omap_display_type {
 enum omap_plane {
 	OMAP_DSS_GFX	= 0,
 	OMAP_DSS_VIDEO1	= 1,
-	OMAP_DSS_VIDEO2	= 2
-#ifdef CONFIG_ARCH_OMAP4
-	, OMAP_DSS_VIDEO3 = 3
-#endif
+	OMAP_DSS_VIDEO2	= 2,
+	OMAP_DSS_VIDEO3 = 3		/* OMAP4 */
 };
 
 enum omap_channel {
 	OMAP_DSS_CHANNEL_LCD	= 0,
 	OMAP_DSS_CHANNEL_DIGIT	= 1,
-#ifdef CONFIG_ARCH_OMAP4
-	OMAP_DSS_CHANNEL_LCD2	= 2,
-#endif
+	OMAP_DSS_CHANNEL_LCD2	= 2,	/* OMAP4 */
 };
+
+#ifdef CONFIG_ARCH_OMAP4
+#define DEFAULT_CHANNEL OMAP_DSS_CHANNEL_LCD2
+#else
+#define DEFAULT_CHANNEL OMAP_DSS_CHANNEL_LCD
+#endif
 
 enum omap_color_mode {
 	OMAP_DSS_COLOR_CLUT1	= 1 << 0,  /* BITMAP 1 */
@@ -220,17 +221,13 @@ enum omap_dss_display_state {
 enum omap_dss_overlay_managers {
 	OMAP_DSS_OVL_MGR_LCD,
 	OMAP_DSS_OVL_MGR_TV,
-#ifdef CONFIG_ARCH_OMAP4
-	OMAP_DSS_OVL_MGR_LCD2,
-#endif
+	OMAP_DSS_OVL_MGR_LCD2,	/* OMAP4 */
 };
 
 enum omap_dss_rotation_type {
 	OMAP_DSS_ROT_DMA = 0,
 	OMAP_DSS_ROT_VRFB = 1,
-#ifdef CONFIG_ARCH_OMAP4
-	OMAP_DSS_ROT_TILER = 2,
-#endif
+	OMAP_DSS_ROT_TILER = 2,	/* OMAP4 */
 };
 
 /* clockwise rotation angle */
@@ -250,14 +247,13 @@ enum omap_overlay_manager_caps {
 	OMAP_DSS_OVL_MGR_CAP_DISPC = 1 << 0,
 };
 
-#ifdef CONFIG_ARCH_OMAP4
+/* OMAP4 */
 enum omap_overlay_zorder {
 	OMAP_DSS_OVL_ZORDER_0	= 0x0,
 	OMAP_DSS_OVL_ZORDER_1	= 0x1,
 	OMAP_DSS_OVL_ZORDER_2	= 0x2,
 	OMAP_DSS_OVL_ZORDER_3	= 0x3,
 };
-#endif
 
 /* RFBI */
 
@@ -364,6 +360,7 @@ struct omap_overlay_info {
 	u16 out_width;	/* if 0, out_width == width */
 	u16 out_height;	/* if 0, out_height == height */
 	u8 global_alpha;
+	u8 pre_alpha_mult;
 #ifdef CONFIG_ARCH_OMAP4
 	u32 p_uv_addr; /* relevant for NV12 format only */
 	enum omap_overlay_zorder zorder;
@@ -577,6 +574,10 @@ struct omap_dss_device {
 
 	int (*set_wss)(struct omap_dss_device *dssdev, u32 wss);
 	u32 (*get_wss)(struct omap_dss_device *dssdev);
+
+	void (*enable_device_detect)(struct omap_dss_device *dssdev, u8 enable);
+	bool (*get_device_detect)(struct omap_dss_device *dssdev);
+	int (*get_device_connected)(struct omap_dss_device *dssdev);
 
 	/* platform specific  */
 	int (*platform_enable)(struct omap_dss_device *dssdev);

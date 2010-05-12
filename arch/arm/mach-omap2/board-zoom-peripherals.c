@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2009 Texas Instruments Inc.
  *
@@ -16,6 +17,8 @@
 #include <linux/gpio.h>
 #include <linux/i2c/twl.h>
 #include <linux/regulator/machine.h>
+#include <linux/synaptics_i2c_rmi.h>
+#include <linux/interrupt.h>
 
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -23,8 +26,42 @@
 
 #include <plat/common.h>
 #include <plat/usb.h>
+#include <plat/control.h>
+#include <plat/mux.h>
 
 #include "mmc-twl4030.h"
+#include "mux.h"
+
+#define OMAP_SYNAPTICS_GPIO	163
+
+#include <media/v4l2-int-device.h>
+
+#if (defined(CONFIG_VIDEO_IMX046) || defined(CONFIG_VIDEO_IMX046_MODULE)) && \
+    defined(CONFIG_VIDEO_OMAP3)
+#include <media/imx046.h>
+extern struct imx046_platform_data zoom2_imx046_platform_data;
+#endif
+
+#ifdef CONFIG_VIDEO_OMAP3
+extern void zoom2_cam_init(void);
+#else
+#define zoom2_cam_init()	NULL
+#endif
+
+#if defined(CONFIG_VIDEO_LV8093) && defined(CONFIG_VIDEO_OMAP3)
+#include <media/lv8093.h>
+extern struct imx046_platform_data zoom2_lv8093_platform_data;
+#define LV8093_PS_GPIO			7
+/* GPIO7 is connected to lens PS pin through inverter */
+#define LV8093_PWR_OFF			1
+#define LV8093_PWR_ON			(!LV8093_PWR_OFF)
+#endif
+
+#if defined(CONFIG_MACH_OMAP_ZOOM3) || defined(CONFIG_MACH_OMAP_ZOOM2)
+extern struct regulator_init_data zoom_vdac;
+extern struct regulator_init_data zoom2_vdsi;
+extern void zoom_lcd_tv_panel_init(void);
+#endif
 
 /* Zoom2 has Qwerty keyboard*/
 static int board_keymap[] = {
@@ -65,20 +102,20 @@ static int board_keymap[] = {
 	KEY(5, 3, KEY_F3),
 	KEY(5, 5, KEY_VOLUMEDOWN),
 	KEY(5, 6, KEY_M),
-	KEY(5, 7, KEY_ENTER),
+	KEY(5, 4, KEY_ENTER),
+	KEY(5, 7, KEY_RIGHT),
 	KEY(6, 0, KEY_Q),
 	KEY(6, 1, KEY_A),
 	KEY(6, 2, KEY_N),
 	KEY(6, 3, KEY_BACKSPACE),
 	KEY(6, 6, KEY_P),
-	KEY(6, 7, KEY_SELECT),
-	KEY(7, 0, KEY_PROG1),	/*MACRO 1 <User defined> */
-	KEY(7, 1, KEY_PROG2),	/*MACRO 2 <User defined> */
-	KEY(7, 2, KEY_PROG3),	/*MACRO 3 <User defined> */
-	KEY(7, 3, KEY_PROG4),	/*MACRO 4 <User defined> */
-	KEY(7, 5, KEY_RIGHT),
-	KEY(7, 6, KEY_UP),
-	KEY(7, 7, KEY_DOWN)
+	KEY(6, 7, KEY_UP),
+	KEY(7, 6, KEY_SELECT),
+	KEY(7, 7, KEY_DOWN),
+	KEY(7, 0, KEY_PROG1),
+	KEY(7, 1, KEY_PROG2),
+	KEY(7, 2, KEY_PROG3),
+	KEY(7, 3, KEY_PROG4),
 };
 
 static struct matrix_keymap_data board_map_data = {
@@ -239,10 +276,13 @@ static struct twl4030_platform_data zoom_twldata = {
 	.gpio		= &zoom_gpio_data,
 	.keypad		= &zoom_kp_twl4030_data,
 	.codec		= &zoom_codec_data,
-	.vmmc1          = &zoom_vmmc1,
-	.vmmc2          = &zoom_vmmc2,
-	.vsim           = &zoom_vsim,
-
+	.vmmc1		= &zoom_vmmc1,
+	.vmmc2		= &zoom_vmmc2,
+	.vsim		= &zoom_vsim,
+#if defined(CONFIG_MACH_OMAP_ZOOM3) || defined(CONFIG_MACH_OMAP_ZOOM2)
+	.vdac		= &zoom_vdac,
+	.vpll2		= &zoom2_vdsi,
+#endif
 };
 
 static struct i2c_board_info __initdata zoom_i2c_boardinfo[] = {
@@ -254,11 +294,90 @@ static struct i2c_board_info __initdata zoom_i2c_boardinfo[] = {
 	},
 };
 
+static void synaptics_dev_init(void)
+{
+	/* Set the ts_gpio pin mux */
+	omap_mux_init_signal("gpio_163", OMAP_PIN_INPUT_PULLUP);
+
+	if (gpio_request(OMAP_SYNAPTICS_GPIO, "touch") < 0) {
+		printk(KERN_ERR "can't get synaptics pen down GPIO\n");
+		return;
+	}
+	gpio_direction_input(OMAP_SYNAPTICS_GPIO);
+	omap_set_gpio_debounce(OMAP_SYNAPTICS_GPIO, 1);
+	omap_set_gpio_debounce_time(OMAP_SYNAPTICS_GPIO, 0xa);
+}
+
+static int synaptics_power(int power_state)
+{
+	/* TODO: synaptics is powered by vbatt */
+	return 0;
+}
+
+static struct synaptics_i2c_rmi_platform_data synaptics_platform_data[] = {
+	{
+		.version	= 0x0,
+		.power		= &synaptics_power,
+		.flags		= SYNAPTICS_SWAP_XY,
+		.irqflags	= IRQF_TRIGGER_LOW,
+	}
+};
+
+static struct i2c_board_info __initdata zoom2_i2c_bus2_info[] = {
+	{
+		I2C_BOARD_INFO(SYNAPTICS_I2C_RMI_NAME,  0x20),
+		.platform_data = &synaptics_platform_data,
+		.irq = OMAP_GPIO_IRQ(OMAP_SYNAPTICS_GPIO),
+	},
+#if (defined(CONFIG_VIDEO_IMX046) || defined(CONFIG_VIDEO_IMX046_MODULE)) && \
+    defined(CONFIG_VIDEO_OMAP3)
+	{
+		I2C_BOARD_INFO("imx046", IMX046_I2C_ADDR),
+		.platform_data = &zoom2_imx046_platform_data,
+	},
+#endif
+#if defined(CONFIG_VIDEO_LV8093) && defined(CONFIG_VIDEO_OMAP3)
+	{
+		I2C_BOARD_INFO(LV8093_NAME,  LV8093_AF_I2C_ADDR),
+		.platform_data = &zoom2_lv8093_platform_data,
+	},
+#endif
+};
+
 static int __init omap_i2c_init(void)
 {
+/* Disable OMAP 3630 internal pull-ups for I2Ci */
+	if (cpu_is_omap3630()) {
+
+		u32 prog_io;
+
+		prog_io = omap_ctrl_readl(OMAP343X_CONTROL_PROG_IO1);
+		/* Program (bit 19)=1 to disable internal pull-up on I2C1 */
+		prog_io |= OMAP3630_PRG_I2C1_PULLUPRESX;
+		/* Program (bit 0)=1 to disable internal pull-up on I2C2 */
+		prog_io |= OMAP3630_PRG_I2C2_PULLUPRESX;
+		omap_ctrl_writel(prog_io, OMAP343X_CONTROL_PROG_IO1);
+
+		prog_io = omap_ctrl_readl(OMAP36XX_CONTROL_PROG_IO2);
+		/* Program (bit 7)=1 to disable internal pull-up on I2C3 */
+		prog_io |= OMAP3630_PRG_I2C3_PULLUPRESX;
+		omap_ctrl_writel(prog_io, OMAP36XX_CONTROL_PROG_IO2);
+
+		prog_io = omap_ctrl_readl(OMAP36XX_CONTROL_PROG_IO_WKUP1);
+		/* Program (bit 5)=1 to disable internal pull-up on I2C4(SR) */
+		prog_io |= OMAP3630_PRG_SR_PULLUPRESX;
+		omap_ctrl_writel(prog_io, OMAP36XX_CONTROL_PROG_IO_WKUP1);
+	}
+/*
 	omap_register_i2c_bus(1, 2400, zoom_i2c_boardinfo,
 			ARRAY_SIZE(zoom_i2c_boardinfo));
 	omap_register_i2c_bus(2, 400, NULL, 0);
+	omap_register_i2c_bus(3, 400, NULL, 0);
+*/
+	omap_register_i2c_bus(1, 100, zoom_i2c_boardinfo,
+			ARRAY_SIZE(zoom_i2c_boardinfo));
+	omap_register_i2c_bus(2, 100, zoom2_i2c_bus2_info,
+			ARRAY_SIZE(zoom2_i2c_bus2_info));
 	omap_register_i2c_bus(3, 400, NULL, 0);
 	return 0;
 }
@@ -272,6 +391,11 @@ static struct omap_musb_board_data musb_board_data = {
 void __init zoom_peripherals_init(void)
 {
 	omap_i2c_init();
+	synaptics_dev_init();
 	omap_serial_init();
+#if defined(CONFIG_MACH_OMAP_ZOOM3) || defined(CONFIG_MACH_OMAP_ZOOM2)
+	zoom_lcd_tv_panel_init();
+#endif
 	usb_musb_init(&musb_board_data);
+	zoom2_cam_init();
 }

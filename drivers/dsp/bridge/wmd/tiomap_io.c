@@ -3,6 +3,8 @@
  *
  * DSP-BIOS Bridge driver support functions for TI OMAP processors.
  *
+ * Implementation for the io read/write routines.
+ *
  * Copyright (C) 2005-2006 Texas Instruments, Inc.
  *
  * This package is free software; you can redistribute it and/or modify
@@ -14,413 +16,448 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-
-/*
- *  ======== _tiomap_io.c ========
- *  Description:
- *      Implementation for the io read/write routines.
- *
- *! Revision History
- *! ================
- *! 16-Feb-2004 vp:  Fixed warning in WriteDspData function.
- *! 16-Apr-2003 vp:  Added support for TC word swap
- *! 26-Feb-2003 vp:  Fixed issue with EXT_BEG and EXT_END address.
- *! 24-Feb-2003 vp:  Ported to Linux platform
- *! 08-Oct-2002 rr:  Created.
- */
-
 /*  ----------------------------------- DSP/BIOS Bridge */
 #include <dspbridge/dbdefs.h>
 #include <dspbridge/errbase.h>
 
 /*  ----------------------------------- Trace & Debug */
 #include <dspbridge/dbc.h>
-#include <dspbridge/dbg.h>
 
 /*  ----------------------------------- Platform Manager */
 #include <dspbridge/dev.h>
 #include <dspbridge/drv.h>
 
 /*  ----------------------------------- OS Adaptation Layer */
-#include <dspbridge/mem.h>
 #include <dspbridge/cfg.h>
 
 /*  ----------------------------------- specific to this file */
+#include <dspbridge/io_sm.h>
 #include "_tiomap.h"
 #include "_tiomap_pwr.h"
 #include "tiomap_io.h"
 
-static u32 ulExtBase;
-static u32 ulExtEnd;
+static u32 ul_ext_base;
+static u32 ul_ext_end;
 
-static u32 ulShm0End;
-static u32 ulDynExtBase;
-static u32 ulTraceSecBeg;
-static u32 ulTraceSecEnd;
-static u32 ulShmBaseVirt;
+static u32 shm0_end;
+static u32 ul_dyn_ext_base;
+static u32 ul_trace_sec_beg;
+static u32 ul_trace_sec_end;
+static u32 ul_shm_base_virt;
 
-bool bSymbolsReloaded = true;
+bool symbols_reloaded = true;
 
 /*
- *  ======== ReadExtDspData ========
+ *  ======== read_ext_dsp_data ========
  *      Copies DSP external memory buffers to the host side buffers.
  */
-DSP_STATUS ReadExtDspData(struct WMD_DEV_CONTEXT *hDevContext,
-			 OUT u8 *pbHostBuf, u32 dwDSPAddr,
-			 u32 ulNumBytes, u32 ulMemType)
+dsp_status read_ext_dsp_data(struct wmd_dev_context *hDevContext,
+			     OUT u8 *pbHostBuf, u32 dwDSPAddr,
+			     u32 ul_num_bytes, u32 ulMemType)
 {
-	DSP_STATUS	status = DSP_SOK;
-	struct WMD_DEV_CONTEXT *pDevContext = hDevContext;
-	u32	offset;
-	u32	ulTLBBaseVirt = 0;
-	u32	ulShmOffsetVirt = 0;
-	u32	dwExtProgVirtMem;
-	u32	dwBaseAddr = pDevContext->dwDspExtBaseAddr;
-	bool	bTraceRead = false;
+	dsp_status status = DSP_SOK;
+	struct wmd_dev_context *dev_context = hDevContext;
+	u32 offset;
+	u32 ul_tlb_base_virt = 0;
+	u32 ul_shm_offset_virt = 0;
+	u32 dw_ext_prog_virt_mem;
+	u32 dw_base_addr = dev_context->dw_dsp_ext_base_addr;
+	bool trace_read = false;
 
-	DBG_Trace(DBG_ENTER, "ReadExtDspData,"
-	"hDevContext: 0x%x\n\t\tpbHostBuf: 0x%x"
-	"\n\t\tdwDSPAddr:  0x%x\n\t\tulNumBytes:  0x%x\n\t\t"
-	"ulMemType:  0x%x\n", pDevContext, pbHostBuf, dwDSPAddr,
-	ulNumBytes, ulMemType);
-
-	if (!ulShmBaseVirt) {
-		status = DEV_GetSymbol(pDevContext->hDevObject,
-		SHMBASENAME, &ulShmBaseVirt);
+	if (!ul_shm_base_virt) {
+		status = dev_get_symbol(dev_context->hdev_obj,
+					SHMBASENAME, &ul_shm_base_virt);
 	}
-	DBC_Assert(ulShmBaseVirt != 0);
+	DBC_ASSERT(ul_shm_base_virt != 0);
 
 	/* Check if it is a read of Trace section */
-	if (!ulTraceSecBeg) {
-		status = DEV_GetSymbol(pDevContext->hDevObject,
-		DSP_TRACESEC_BEG, &ulTraceSecBeg);
+	if (DSP_SUCCEEDED(status) && !ul_trace_sec_beg) {
+		status = dev_get_symbol(dev_context->hdev_obj,
+					DSP_TRACESEC_BEG, &ul_trace_sec_beg);
 	}
-	DBC_Assert(ulTraceSecBeg != 0);
+	DBC_ASSERT(ul_trace_sec_beg != 0);
 
-	if (DSP_SUCCEEDED(status) && !ulTraceSecEnd) {
-		status = DEV_GetSymbol(pDevContext->hDevObject,
-		DSP_TRACESEC_END, &ulTraceSecEnd);
+	if (DSP_SUCCEEDED(status) && !ul_trace_sec_end) {
+		status = dev_get_symbol(dev_context->hdev_obj,
+					DSP_TRACESEC_END, &ul_trace_sec_end);
 	}
-	DBC_Assert(ulTraceSecEnd != 0);
+	DBC_ASSERT(ul_trace_sec_end != 0);
 
 	if (DSP_SUCCEEDED(status)) {
-		if ((dwDSPAddr <= ulTraceSecEnd) &&
-			(dwDSPAddr >= ulTraceSecBeg)) {
-			DBG_Trace(DBG_LEVEL5, "Reading from DSP Trace"
-				 "section 0x%x \n", dwDSPAddr);
-			bTraceRead = true;
-		}
+		if ((dwDSPAddr <= ul_trace_sec_end) &&
+		    (dwDSPAddr >= ul_trace_sec_beg))
+			trace_read = true;
 	}
 
 	/* If reading from TRACE, force remap/unmap */
-	if ((bTraceRead) && dwBaseAddr) {
-		dwBaseAddr = 0;
-		pDevContext->dwDspExtBaseAddr = 0;
+	if (trace_read && dw_base_addr) {
+		dw_base_addr = 0;
+		dev_context->dw_dsp_ext_base_addr = 0;
 	}
 
-	if (!dwBaseAddr) {
-		/* Initialize ulExtBase and ulExtEnd */
-		ulExtBase = 0;
-		ulExtEnd = 0;
+	if (!dw_base_addr) {
+		/* Initialize ul_ext_base and ul_ext_end */
+		ul_ext_base = 0;
+		ul_ext_end = 0;
 
-		/* Get DYNEXT_BEG, EXT_BEG and EXT_END.*/
-		if (DSP_SUCCEEDED(status) && !ulDynExtBase) {
-			status = DEV_GetSymbol(pDevContext->hDevObject,
-					DYNEXTBASE, &ulDynExtBase);
+		/* Get DYNEXT_BEG, EXT_BEG and EXT_END. */
+		if (DSP_SUCCEEDED(status) && !ul_dyn_ext_base) {
+			status = dev_get_symbol(dev_context->hdev_obj,
+						DYNEXTBASE, &ul_dyn_ext_base);
 		}
-		DBC_Assert(ulDynExtBase != 0);
+		DBC_ASSERT(ul_dyn_ext_base != 0);
 
 		if (DSP_SUCCEEDED(status)) {
-			status = DEV_GetSymbol(pDevContext->hDevObject,
-				 EXTBASE, &ulExtBase);
+			status = dev_get_symbol(dev_context->hdev_obj,
+						EXTBASE, &ul_ext_base);
 		}
-		DBC_Assert(ulExtBase != 0);
+		DBC_ASSERT(ul_ext_base != 0);
 
 		if (DSP_SUCCEEDED(status)) {
-			status = DEV_GetSymbol(pDevContext->hDevObject,
-					EXTEND,	&ulExtEnd);
+			status = dev_get_symbol(dev_context->hdev_obj,
+						EXTEND, &ul_ext_end);
 		}
-		DBC_Assert(ulExtEnd != 0);
+		DBC_ASSERT(ul_ext_end != 0);
 
-	/* Trace buffer is right after the SHM SEG0,
-	*  so set the base address to SHMBASE */
-		if (bTraceRead) {
-			ulExtBase = ulShmBaseVirt;
-			ulExtEnd = ulTraceSecEnd;
+		/* Trace buffer is right after the shm SEG0,
+		 *  so set the base address to SHMBASE */
+		if (trace_read) {
+			ul_ext_base = ul_shm_base_virt;
+			ul_ext_end = ul_trace_sec_end;
 		}
 
-		DBC_Assert(ulExtEnd != 0);
-		DBC_Assert(ulExtEnd > ulExtBase);
+		DBC_ASSERT(ul_ext_end != 0);
+		DBC_ASSERT(ul_ext_end > ul_ext_base);
 
-		if (ulExtEnd < ulExtBase)
-			status = DSP_EFAIL;
+		if (ul_ext_end < ul_ext_base)
+			status = -EPERM;
 
 		if (DSP_SUCCEEDED(status)) {
-			ulTLBBaseVirt =
-			pDevContext->aTLBEntry[0].ulDspVa * DSPWORDSIZE;
-			DBC_Assert(ulTLBBaseVirt <= ulShmBaseVirt);
-			dwExtProgVirtMem = pDevContext->aTLBEntry[0].ulGppVa;
+			ul_tlb_base_virt =
+			    dev_context->atlb_entry[0].ul_dsp_va * DSPWORDSIZE;
+			DBC_ASSERT(ul_tlb_base_virt <= ul_shm_base_virt);
+			dw_ext_prog_virt_mem =
+			    dev_context->atlb_entry[0].ul_gpp_va;
 
-			if (bTraceRead) {
-				DBG_Trace(DBG_LEVEL7, "ReadExtDspData: "
-				"GPP VA pointing to SHMMEMBASE 0x%x \n",
-				 dwExtProgVirtMem);
-			} else {
-				ulShmOffsetVirt = ulShmBaseVirt - ulTLBBaseVirt;
-				ulShmOffsetVirt += PG_ALIGN_HIGH(ulExtEnd -
-						ulDynExtBase + 1,
-						HW_PAGE_SIZE_64KB);
-				dwExtProgVirtMem -= ulShmOffsetVirt;
-				dwExtProgVirtMem += (ulExtBase - ulDynExtBase);
-				DBG_Trace(DBG_LEVEL7, "ReadExtDspData: "
-				"GPP VA pointing to EXTMEMBASE 0x%x \n",
-				dwExtProgVirtMem);
-				pDevContext->dwDspExtBaseAddr =
-						dwExtProgVirtMem;
+			if (!trace_read) {
+				ul_shm_offset_virt =
+				    ul_shm_base_virt - ul_tlb_base_virt;
+				ul_shm_offset_virt +=
+				    PG_ALIGN_HIGH(ul_ext_end - ul_dyn_ext_base +
+						  1, HW_PAGE_SIZE64KB);
+				dw_ext_prog_virt_mem -= ul_shm_offset_virt;
+				dw_ext_prog_virt_mem +=
+				    (ul_ext_base - ul_dyn_ext_base);
+				dev_context->dw_dsp_ext_base_addr =
+				    dw_ext_prog_virt_mem;
 
-	/* This dwDspExtBaseAddr will get cleared only when the board is
-	* stopped. */
-				if (!pDevContext->dwDspExtBaseAddr) {
-					status = DSP_EFAIL;
-					DBG_Trace(DBG_LEVEL7, "ReadExtDspData: "
-					"failed to Map the program memory\n");
-				}
+				/*
+				 * This dw_dsp_ext_base_addr will get cleared
+				 * only when the board is stopped.
+				*/
+				if (!dev_context->dw_dsp_ext_base_addr)
+					status = -EPERM;
 			}
 
-			dwBaseAddr = dwExtProgVirtMem;
+			dw_base_addr = dw_ext_prog_virt_mem;
 		}
 	}
 
-	if (!dwBaseAddr || !ulExtBase || !ulExtEnd) {
-		DBG_Trace(DBG_LEVEL7,
-		"Symbols missing for Ext Prog reading \n");
-		status = DSP_EFAIL;
-	}
+	if (!dw_base_addr || !ul_ext_base || !ul_ext_end)
+		status = -EPERM;
 
-	offset = dwDSPAddr - ulExtBase;
+	offset = dwDSPAddr - ul_ext_base;
 
 	if (DSP_SUCCEEDED(status))
-		memcpy(pbHostBuf, (u8 *)dwBaseAddr+offset, ulNumBytes);
+		memcpy(pbHostBuf, (u8 *) dw_base_addr + offset, ul_num_bytes);
 
 	return status;
 }
+
 /*
- *  ======== WriteDspData ========
+ *  ======== write_dsp_data ========
  *  purpose:
  *      Copies buffers to the DSP internal/external memory.
  */
-DSP_STATUS WriteDspData(struct WMD_DEV_CONTEXT *hDevContext, IN u8 *pbHostBuf,
-			u32 dwDSPAddr, u32 ulNumBytes, u32 ulMemType)
+dsp_status write_dsp_data(struct wmd_dev_context *hDevContext,
+			  IN u8 *pbHostBuf, u32 dwDSPAddr, u32 ul_num_bytes,
+			  u32 ulMemType)
 {
 	u32 offset;
-	u32 dwBaseAddr = hDevContext->dwDspBaseAddr;
-	struct CFG_HOSTRES resources;
-	DSP_STATUS status;
+	u32 dw_base_addr = hDevContext->dw_dsp_base_addr;
+	struct cfg_hostres *resources = hDevContext->resources;
+	dsp_status status = DSP_SOK;
 	u32 base1, base2, base3;
 	base1 = OMAP_DSP_MEM1_SIZE;
 	base2 = OMAP_DSP_MEM2_BASE - OMAP_DSP_MEM1_BASE;
 	base3 = OMAP_DSP_MEM3_BASE - OMAP_DSP_MEM1_BASE;
-	DBG_Trace(DBG_ENTER, "Entered WriteDspData \n");
 
-	status =  CFG_GetHostResources(
-		 (struct CFG_DEVNODE *)DRV_GetFirstDevExtension(), &resources);
+	if (!resources)
+		return -EPERM;
 
-	offset = dwDSPAddr - hDevContext->dwDSPStartAdd;
+	offset = dwDSPAddr - hDevContext->dw_dsp_start_add;
 	if (offset < base1) {
-		dwBaseAddr = MEM_LinearAddress(resources.dwMemBase[2],
-						resources.dwMemLength[2]);
-	} else if (offset > base1 && offset < base2+OMAP_DSP_MEM2_SIZE) {
-		dwBaseAddr = MEM_LinearAddress(resources.dwMemBase[3],
-						resources.dwMemLength[3]);
+		dw_base_addr = MEM_LINEAR_ADDRESS(resources->dw_mem_base[2],
+						  resources->dw_mem_length[2]);
+	} else if (offset > base1 && offset < base2 + OMAP_DSP_MEM2_SIZE) {
+		dw_base_addr = MEM_LINEAR_ADDRESS(resources->dw_mem_base[3],
+						  resources->dw_mem_length[3]);
 		offset = offset - base2;
-	} else if (offset >= base2+OMAP_DSP_MEM2_SIZE &&
-		offset < base3 + OMAP_DSP_MEM3_SIZE) {
-		dwBaseAddr = MEM_LinearAddress(resources.dwMemBase[4],
-						resources.dwMemLength[4]);
+	} else if (offset >= base2 + OMAP_DSP_MEM2_SIZE &&
+		   offset < base3 + OMAP_DSP_MEM3_SIZE) {
+		dw_base_addr = MEM_LINEAR_ADDRESS(resources->dw_mem_base[4],
+						  resources->dw_mem_length[4]);
 		offset = offset - base3;
-	} else{
-		status = DSP_EFAIL;
-		return status;
+	} else {
+		return -EPERM;
 	}
-	if (ulNumBytes)
-		memcpy((u8 *) (dwBaseAddr+offset), pbHostBuf, ulNumBytes);
+	if (ul_num_bytes)
+		memcpy((u8 *) (dw_base_addr + offset), pbHostBuf, ul_num_bytes);
 	else
-		*((u32 *) pbHostBuf) = dwBaseAddr+offset;
+		*((u32 *) pbHostBuf) = dw_base_addr + offset;
 
 	return status;
 }
 
 /*
- *  ======== WriteExtDspData ========
+ *  ======== write_ext_dsp_data ========
  *  purpose:
  *      Copies buffers to the external memory.
  *
  */
-DSP_STATUS WriteExtDspData(struct WMD_DEV_CONTEXT *pDevContext,
-			  IN u8 *pbHostBuf, u32 dwDSPAddr, u32 ulNumBytes,
-			  u32 ulMemType, bool bDynamicLoad)
+dsp_status write_ext_dsp_data(struct wmd_dev_context *dev_context,
+			      IN u8 *pbHostBuf, u32 dwDSPAddr,
+			      u32 ul_num_bytes, u32 ulMemType,
+			      bool bDynamicLoad)
 {
-	u32 dwBaseAddr = pDevContext->dwDspExtBaseAddr;
-	u32 dwOffset = 0;
-	u8 bTempByte1, bTempByte2;
-	u8 remainByte[4];
+	u32 dw_base_addr = dev_context->dw_dsp_ext_base_addr;
+	u32 dw_offset = 0;
+	u8 temp_byte1, temp_byte2;
+	u8 remain_byte[4];
 	s32 i;
-	DSP_STATUS retVal = DSP_SOK;
-	u32 dwExtProgVirtMem;
-	u32 ulTLBBaseVirt = 0;
-	u32 ulShmOffsetVirt = 0;
-	struct CFG_HOSTRES hostRes;
-	bool bTraceLoad = false;
-	bTempByte1 = 0x0;
-	bTempByte2 = 0x0;
+	dsp_status ret = DSP_SOK;
+	u32 dw_ext_prog_virt_mem;
+	u32 ul_tlb_base_virt = 0;
+	u32 ul_shm_offset_virt = 0;
+	struct cfg_hostres *host_res = dev_context->resources;
+	bool trace_load = false;
+	temp_byte1 = 0x0;
+	temp_byte2 = 0x0;
 
-	DBG_Trace(DBG_ENTER, "Entered WriteExtDspData dwDSPAddr 0x%x "
-		 "ulNumBytes 0x%x \n", dwDSPAddr, ulNumBytes);
-	  if (bSymbolsReloaded) {
+	if (symbols_reloaded) {
 		/* Check if it is a load to Trace section */
-		retVal = DEV_GetSymbol(pDevContext->hDevObject,
-					DSP_TRACESEC_BEG, &ulTraceSecBeg);
-		if (DSP_SUCCEEDED(retVal))
-			retVal = DEV_GetSymbol(pDevContext->hDevObject,
-				 DSP_TRACESEC_END, &ulTraceSecEnd);
+		ret = dev_get_symbol(dev_context->hdev_obj,
+				     DSP_TRACESEC_BEG, &ul_trace_sec_beg);
+		if (DSP_SUCCEEDED(ret))
+			ret = dev_get_symbol(dev_context->hdev_obj,
+					     DSP_TRACESEC_END,
+					     &ul_trace_sec_end);
 	}
-	if (DSP_SUCCEEDED(retVal)) {
-		if ((dwDSPAddr <= ulTraceSecEnd) &&
-		   (dwDSPAddr >= ulTraceSecBeg)) {
-			DBG_Trace(DBG_LEVEL5, "Writing to DSP Trace "
-				 "section 0x%x \n", dwDSPAddr);
-			bTraceLoad = true;
-		}
+	if (DSP_SUCCEEDED(ret)) {
+		if ((dwDSPAddr <= ul_trace_sec_end) &&
+		    (dwDSPAddr >= ul_trace_sec_beg))
+			trace_load = true;
 	}
 
 	/* If dynamic, force remap/unmap */
-	if ((bDynamicLoad || bTraceLoad) && dwBaseAddr) {
-		dwBaseAddr = 0;
-		MEM_UnmapLinearAddress((void *)pDevContext->dwDspExtBaseAddr);
-		pDevContext->dwDspExtBaseAddr = 0x0;
+	if ((bDynamicLoad || trace_load) && dw_base_addr) {
+		dw_base_addr = 0;
+		MEM_UNMAP_LINEAR_ADDRESS((void *)
+					 dev_context->dw_dsp_ext_base_addr);
+		dev_context->dw_dsp_ext_base_addr = 0x0;
 	}
-	if (!dwBaseAddr) {
-		if (bSymbolsReloaded)
+	if (!dw_base_addr) {
+		if (symbols_reloaded)
 			/* Get SHM_BEG  EXT_BEG and EXT_END. */
-			retVal = DEV_GetSymbol(pDevContext->hDevObject,
-						SHMBASENAME, &ulShmBaseVirt);
-		DBC_Assert(ulShmBaseVirt != 0);
+			ret = dev_get_symbol(dev_context->hdev_obj,
+					     SHMBASENAME, &ul_shm_base_virt);
+		DBC_ASSERT(ul_shm_base_virt != 0);
 		if (bDynamicLoad) {
-			if (DSP_SUCCEEDED(retVal)) {
-				if (bSymbolsReloaded)
-					retVal = DEV_GetSymbol(pDevContext->
-						hDevObject, DYNEXTBASE,
-						&ulExtBase);
+			if (DSP_SUCCEEDED(ret)) {
+				if (symbols_reloaded)
+					ret =
+					    dev_get_symbol
+					    (dev_context->hdev_obj, DYNEXTBASE,
+					     &ul_ext_base);
 			}
-			DBC_Assert(ulExtBase != 0);
-			if (DSP_SUCCEEDED(retVal)) {
+			DBC_ASSERT(ul_ext_base != 0);
+			if (DSP_SUCCEEDED(ret)) {
 				/* DR  OMAPS00013235 : DLModules array may be
 				 * in EXTMEM. It is expected that DYNEXTMEM and
 				 * EXTMEM are contiguous, so checking for the
 				 * upper bound at EXTEND should be Ok. */
-				if (bSymbolsReloaded)
-					retVal = DEV_GetSymbol(pDevContext->
-						hDevObject, EXTEND, &ulExtEnd);
+				if (symbols_reloaded)
+					ret =
+					    dev_get_symbol
+					    (dev_context->hdev_obj, EXTEND,
+					     &ul_ext_end);
 			}
 		} else {
-			if (bSymbolsReloaded) {
-				if (DSP_SUCCEEDED(retVal))
-					retVal = DEV_GetSymbol(pDevContext->
-						hDevObject, EXTBASE,
-						&ulExtBase);
-				DBC_Assert(ulExtBase != 0);
-				if (DSP_SUCCEEDED(retVal))
-					retVal = DEV_GetSymbol(pDevContext->
-						hDevObject, EXTEND, &ulExtEnd);
+			if (symbols_reloaded) {
+				if (DSP_SUCCEEDED(ret))
+					ret =
+					    dev_get_symbol
+					    (dev_context->hdev_obj, EXTBASE,
+					     &ul_ext_base);
+				DBC_ASSERT(ul_ext_base != 0);
+				if (DSP_SUCCEEDED(ret))
+					ret =
+					    dev_get_symbol
+					    (dev_context->hdev_obj, EXTEND,
+					     &ul_ext_end);
 			}
 		}
-		/* Trace buffer it right after the SHM SEG0, so set the
-		 * 	base address to SHMBASE */
-		if (bTraceLoad)
-			ulExtBase = ulShmBaseVirt;
+		/* Trace buffer it right after the shm SEG0, so set the
+		 *      base address to SHMBASE */
+		if (trace_load)
+			ul_ext_base = ul_shm_base_virt;
 
-		DBC_Assert(ulExtEnd != 0);
-		DBC_Assert(ulExtEnd > ulExtBase);
-		if (ulExtEnd < ulExtBase)
-			retVal = DSP_EFAIL;
+		DBC_ASSERT(ul_ext_end != 0);
+		DBC_ASSERT(ul_ext_end > ul_ext_base);
+		if (ul_ext_end < ul_ext_base)
+			ret = -EPERM;
 
-		if (DSP_SUCCEEDED(retVal)) {
-			ulTLBBaseVirt = pDevContext->aTLBEntry[0].ulDspVa *
-					DSPWORDSIZE;
-			DBC_Assert(ulTLBBaseVirt <= ulShmBaseVirt);
+		if (DSP_SUCCEEDED(ret)) {
+			ul_tlb_base_virt =
+			    dev_context->atlb_entry[0].ul_dsp_va * DSPWORDSIZE;
+			DBC_ASSERT(ul_tlb_base_virt <= ul_shm_base_virt);
 
-			if (bSymbolsReloaded) {
-				if (DSP_SUCCEEDED(retVal)) {
-					retVal = DEV_GetSymbol(pDevContext->
-						 hDevObject, DSP_TRACESEC_END,
-						 &ulShm0End);
+			if (symbols_reloaded) {
+				if (DSP_SUCCEEDED(ret)) {
+					ret =
+					    dev_get_symbol
+					    (dev_context->hdev_obj,
+					     DSP_TRACESEC_END, &shm0_end);
 				}
-				if (DSP_SUCCEEDED(retVal)) {
-					retVal = DEV_GetSymbol(pDevContext->
-						 hDevObject, DYNEXTBASE,
-						 &ulDynExtBase);
+				if (DSP_SUCCEEDED(ret)) {
+					ret =
+					    dev_get_symbol
+					    (dev_context->hdev_obj, DYNEXTBASE,
+					     &ul_dyn_ext_base);
 				}
 			}
-			ulShmOffsetVirt = ulShmBaseVirt - ulTLBBaseVirt;
-			if (bTraceLoad) {
-				dwExtProgVirtMem = pDevContext->aTLBEntry[0].
-						   ulGppVa;
+			ul_shm_offset_virt =
+			    ul_shm_base_virt - ul_tlb_base_virt;
+			if (trace_load) {
+				dw_ext_prog_virt_mem =
+				    dev_context->atlb_entry[0].ul_gpp_va;
 			} else {
-				CFG_GetHostResources(
-					(struct CFG_DEVNODE *)
-					DRV_GetFirstDevExtension(), &hostRes);
-				dwExtProgVirtMem = hostRes.dwMemBase[1];
-				dwExtProgVirtMem += (ulExtBase - ulDynExtBase);
+				dw_ext_prog_virt_mem = host_res->dw_mem_base[1];
+				dw_ext_prog_virt_mem +=
+				    (ul_ext_base - ul_dyn_ext_base);
 			}
-			DBG_Trace(DBG_LEVEL7, "WriteExtDspData: GPP VA "
-				 "pointing to EXTMEMBASE 0x%x \n",
-				 dwExtProgVirtMem);
 
-			pDevContext->dwDspExtBaseAddr =
-				(u32)MEM_LinearAddress((void *)
-				TO_VIRTUAL_UNCACHED(dwExtProgVirtMem), ulExtEnd
-				- ulExtBase);
-			dwBaseAddr += pDevContext->dwDspExtBaseAddr;
-			/* This dwDspExtBaseAddr will get cleared only when
-			 * the board is stopped.  */
-			if (!pDevContext->dwDspExtBaseAddr) {
-				retVal = DSP_EFAIL;
-				DBG_Trace(DBG_LEVEL7, "WriteExtDspData: failed "
-					 "to Map the program memory\n");
-			}
+			dev_context->dw_dsp_ext_base_addr =
+			    (u32) MEM_LINEAR_ADDRESS((void *)
+						     dw_ext_prog_virt_mem,
+						     ul_ext_end - ul_ext_base);
+			dw_base_addr += dev_context->dw_dsp_ext_base_addr;
+			/* This dw_dsp_ext_base_addr will get cleared only when
+			 * the board is stopped. */
+			if (!dev_context->dw_dsp_ext_base_addr)
+				ret = -EPERM;
 		}
 	}
-	if (!dwBaseAddr || !ulExtBase || !ulExtEnd) {
-		DBG_Trace(DBG_LEVEL7, "Symbols missing for Ext Prog loading\n");
-		retVal = DSP_EFAIL;
-	}
-	if (DSP_SUCCEEDED(retVal)) {
+	if (!dw_base_addr || !ul_ext_base || !ul_ext_end)
+		ret = -EPERM;
+
+	if (DSP_SUCCEEDED(ret)) {
 		for (i = 0; i < 4; i++)
-			remainByte[i] = 0x0;
+			remain_byte[i] = 0x0;
 
-		dwOffset = dwDSPAddr - ulExtBase;
-		/* Also make sure the dwDSPAddr is < ulExtEnd */
-		if (dwDSPAddr > ulExtEnd || dwOffset > dwDSPAddr) {
-			DBG_Trace(DBG_LEVEL7, "We can not load at this address "
-				 "dwDSPAddr=0x%x, ulExt/DynBase=0x%x, "
-				 "ulExtEnd=0x%x\n", dwDSPAddr, ulExtBase,
-				 ulExtEnd);
-			retVal = DSP_EFAIL;
-		}
+		dw_offset = dwDSPAddr - ul_ext_base;
+		/* Also make sure the dwDSPAddr is < ul_ext_end */
+		if (dwDSPAddr > ul_ext_end || dw_offset > dwDSPAddr)
+			ret = -EPERM;
 	}
-	if (DSP_SUCCEEDED(retVal)) {
-		if (ulNumBytes)
-			memcpy((u8 *) dwBaseAddr + dwOffset, pbHostBuf,
-				ulNumBytes);
+	if (DSP_SUCCEEDED(ret)) {
+		if (ul_num_bytes)
+			memcpy((u8 *) dw_base_addr + dw_offset, pbHostBuf,
+			       ul_num_bytes);
 		else
-			*((u32 *) pbHostBuf) = dwBaseAddr+dwOffset;
+			*((u32 *) pbHostBuf) = dw_base_addr + dw_offset;
 	}
 	/* Unmap here to force remap for other Ext loads */
-	if ((bDynamicLoad || bTraceLoad) && pDevContext->dwDspExtBaseAddr) {
-		MEM_UnmapLinearAddress((void *) pDevContext->dwDspExtBaseAddr);
-		pDevContext->dwDspExtBaseAddr = 0x0;
+	if ((bDynamicLoad || trace_load) && dev_context->dw_dsp_ext_base_addr) {
+		MEM_UNMAP_LINEAR_ADDRESS((void *)
+					 dev_context->dw_dsp_ext_base_addr);
+		dev_context->dw_dsp_ext_base_addr = 0x0;
 	}
-	bSymbolsReloaded = false;
-	return retVal;
+	symbols_reloaded = false;
+	return ret;
 }
 
+dsp_status sm_interrupt_dsp(struct wmd_dev_context * dev_context, u16 mb_val)
+{
+	dsp_status status = DSP_SOK;
+
+	if (!dev_context->mbox)
+		return status;
+
+	status = omap_mbox_msg_send(dev_context->mbox, mb_val);
+
+	if (status) {
+		pr_err("omap_mbox_msg_send Fail and status = %d\n", status);
+		status = -EPERM;
+	}
+
+	dev_dbg(bridge, "MBX: writing %x to Mailbox\n", mb_val);
+	return status;
+}
+
+int send_mbox_callback(void *arg)
+{
+	struct wmd_dev_context *dev_context;
+	struct cfg_hostres *resources;
+	u32 temp;
+	struct dspbridge_platform_data *pdata =
+		omap_dspbridge_dev->dev.platform_data;
+
+	dev_get_wmd_context(dev_get_first(), &dev_context);
+
+	if (!dev_context || !dev_context->resources)
+		return -EFAULT;
+
+	resources = dev_context->resources;
+	if (dev_context->dw_brd_state == BRD_DSP_HIBERNATION ||
+	    dev_context->dw_brd_state == BRD_HIBERNATION) {
+		/* Restart the peripheral clocks */
+		dsp_peripheral_clocks_enable(dev_context, NULL);
+
+#ifdef CONFIG_BRIDGE_WDT3
+		dsp_wdt_enable(true);
+#endif
+
+		/*
+		 * 2:0 AUTO_IVA2_DPLL - Enabling IVA2 DPLL auto control
+		 *     in CM_AUTOIDLE_PLL_IVA2 register
+		 */
+		(*pdata->dsp_cm_write)(1 << OMAP3430_AUTO_IVA2_DPLL_SHIFT,
+				OMAP3430_IVA2_MOD, OMAP3430_CM_AUTOIDLE_PLL);
+
+		/*
+		 * 7:4 IVA2_DPLL_FREQSEL - IVA2 internal frq set to
+		 *     0.75 MHz - 1.0 MHz
+		 * 2:0 EN_IVA2_DPLL - Enable IVA2 DPLL in lock mode
+		 */
+		(*pdata->dsp_cm_rmw_bits)(OMAP3430_IVA2_DPLL_FREQSEL_MASK |
+				OMAP3430_EN_IVA2_DPLL_MASK,
+				0x3 << OMAP3430_IVA2_DPLL_FREQSEL_SHIFT |
+				0x7 << OMAP3430_EN_IVA2_DPLL_SHIFT,
+				OMAP3430_IVA2_MOD, OMAP3430_CM_CLKEN_PLL);
+
+		/* Restore mailbox settings */
+		omap_mbox_restore_ctx(dev_context->mbox);
+
+		/* Access MMU SYS CONFIG register to generate a short wakeup */
+		temp = *(reg_uword32 *) (resources->dw_dmmu_base + 0x10);
+
+		dev_context->dw_brd_state = BRD_RUNNING;
+	} else if (dev_context->dw_brd_state == BRD_RETENTION) {
+		/* Restart the peripheral clocks */
+		dsp_peripheral_clocks_enable(dev_context, NULL);
+	}
+
+	dev_context->dw_brd_state = BRD_RUNNING;
+	return 0;
+}
