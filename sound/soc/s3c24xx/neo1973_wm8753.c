@@ -39,17 +39,6 @@
 #include "s3c-dma.h"
 #include "s3c24xx-i2s.h"
 
-/* define the scenarios */
-#define NEO_AUDIO_OFF			0
-#define NEO_GSM_CALL_AUDIO_HANDSET	1
-#define NEO_GSM_CALL_AUDIO_HEADSET	2
-#define NEO_GSM_CALL_AUDIO_BLUETOOTH	3
-#define NEO_STEREO_TO_SPEAKERS		4
-#define NEO_STEREO_TO_HEADPHONES	5
-#define NEO_CAPTURE_HANDSET		6
-#define NEO_CAPTURE_HEADSET		7
-#define NEO_CAPTURE_BLUETOOTH		8
-
 static struct snd_soc_card neo1973;
 static struct i2c_client *i2c;
 
@@ -226,111 +215,6 @@ static struct snd_soc_ops neo1973_voice_ops = {
 	.hw_free = neo1973_voice_hw_free,
 };
 
-static int neo1973_scenario;
-
-static int neo1973_get_scenario(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	ucontrol->value.integer.value[0] = neo1973_scenario;
-	return 0;
-}
-
-static int set_scenario_endpoints(struct snd_soc_codec *codec, int scenario)
-{
-	pr_debug("Entered %s\n", __func__);
-
-	switch (neo1973_scenario) {
-	case NEO_AUDIO_OFF:
-		snd_soc_dapm_disable_pin(codec, "Audio Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line In");
-		snd_soc_dapm_disable_pin(codec, "Headset Mic");
-		snd_soc_dapm_disable_pin(codec, "Call Mic");
-		break;
-	case NEO_GSM_CALL_AUDIO_HANDSET:
-		snd_soc_dapm_enable_pin(codec, "Audio Out");
-		snd_soc_dapm_enable_pin(codec, "GSM Line Out");
-		snd_soc_dapm_enable_pin(codec, "GSM Line In");
-		snd_soc_dapm_disable_pin(codec, "Headset Mic");
-		snd_soc_dapm_enable_pin(codec, "Call Mic");
-		break;
-	case NEO_GSM_CALL_AUDIO_HEADSET:
-		snd_soc_dapm_enable_pin(codec, "Audio Out");
-		snd_soc_dapm_enable_pin(codec, "GSM Line Out");
-		snd_soc_dapm_enable_pin(codec, "GSM Line In");
-		snd_soc_dapm_enable_pin(codec, "Headset Mic");
-		snd_soc_dapm_disable_pin(codec, "Call Mic");
-		break;
-	case NEO_GSM_CALL_AUDIO_BLUETOOTH:
-		snd_soc_dapm_disable_pin(codec, "Audio Out");
-		snd_soc_dapm_enable_pin(codec, "GSM Line Out");
-		snd_soc_dapm_enable_pin(codec, "GSM Line In");
-		snd_soc_dapm_disable_pin(codec, "Headset Mic");
-		snd_soc_dapm_disable_pin(codec, "Call Mic");
-		break;
-	case NEO_STEREO_TO_SPEAKERS:
-		snd_soc_dapm_enable_pin(codec, "Audio Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line In");
-		snd_soc_dapm_disable_pin(codec, "Headset Mic");
-		snd_soc_dapm_disable_pin(codec, "Call Mic");
-		break;
-	case NEO_STEREO_TO_HEADPHONES:
-		snd_soc_dapm_enable_pin(codec, "Audio Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line In");
-		snd_soc_dapm_disable_pin(codec, "Headset Mic");
-		snd_soc_dapm_disable_pin(codec, "Call Mic");
-		break;
-	case NEO_CAPTURE_HANDSET:
-		snd_soc_dapm_disable_pin(codec, "Audio Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line In");
-		snd_soc_dapm_disable_pin(codec, "Headset Mic");
-		snd_soc_dapm_enable_pin(codec, "Call Mic");
-		break;
-	case NEO_CAPTURE_HEADSET:
-		snd_soc_dapm_disable_pin(codec, "Audio Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line In");
-		snd_soc_dapm_enable_pin(codec, "Headset Mic");
-		snd_soc_dapm_disable_pin(codec, "Call Mic");
-		break;
-	case NEO_CAPTURE_BLUETOOTH:
-		snd_soc_dapm_disable_pin(codec, "Audio Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line In");
-		snd_soc_dapm_disable_pin(codec, "Headset Mic");
-		snd_soc_dapm_disable_pin(codec, "Call Mic");
-		break;
-	default:
-		snd_soc_dapm_disable_pin(codec, "Audio Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line Out");
-		snd_soc_dapm_disable_pin(codec, "GSM Line In");
-		snd_soc_dapm_disable_pin(codec, "Headset Mic");
-		snd_soc_dapm_disable_pin(codec, "Call Mic");
-	}
-
-	snd_soc_dapm_sync(codec);
-
-	return 0;
-}
-
-static int neo1973_set_scenario(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-
-	pr_debug("Entered %s\n", __func__);
-
-	if (neo1973_scenario == ucontrol->value.integer.value[0])
-		return 0;
-
-	neo1973_scenario = ucontrol->value.integer.value[0];
-	set_scenario_endpoints(codec, neo1973_scenario);
-	return 1;
-}
-
 static u8 lm4857_regs[4] = {0x00, 0x40, 0x80, 0xC0};
 
 static void lm4857_write_regs(void)
@@ -416,7 +300,6 @@ static const struct snd_soc_dapm_widget wm8753_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Call Mic", NULL),
 };
 
-
 static const struct snd_soc_dapm_route dapm_routes[] = {
 
 	/* Connections to the lm4857 amp */
@@ -454,22 +337,6 @@ static const struct soc_enum lm4857_mode_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(lm4857_mode), lm4857_mode),
 };
 
-static const char *neo_scenarios[] = {
-	"Off",
-	"GSM Handset",
-	"GSM Headset",
-	"GSM Bluetooth",
-	"Speakers",
-	"Headphones",
-	"Capture Handset",
-	"Capture Headset",
-	"Capture Bluetooth"
-};
-
-static const struct soc_enum neo_scenario_enum[] = {
-	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(neo_scenarios), neo_scenarios),
-};
-
 static const DECLARE_TLV_DB_SCALE(stereo_tlv, -4050, 150, 0);
 static const DECLARE_TLV_DB_SCALE(mono_tlv, -3450, 150, 0);
 
@@ -482,8 +349,6 @@ static const struct snd_kcontrol_new wm8753_neo1973_controls[] = {
 		lm4857_get_reg, lm4857_set_reg, mono_tlv),
 	SOC_ENUM_EXT("Amp Mode", lm4857_mode_enum[0],
 		lm4857_get_mode, lm4857_set_mode),
-	SOC_ENUM_EXT("Neo Mode", neo_scenario_enum[0],
-		neo1973_get_scenario, neo1973_set_scenario),
 	SOC_SINGLE_EXT("Amp Spk 3D Playback Switch", LM4857_LVOL, 5, 1, 0,
 		lm4857_get_reg, lm4857_set_reg),
 	SOC_SINGLE_EXT("Amp HP 3d Playback Switch", LM4857_RVOL, 5, 1, 0,
@@ -518,7 +383,11 @@ static int neo1973_wm8753_init(struct snd_soc_codec *codec)
 				  ARRAY_SIZE(wm8753_dapm_widgets));
 
 	/* set endpoints to default mode */
-	set_scenario_endpoints(codec, NEO_AUDIO_OFF);
+	snd_soc_dapm_disable_pin(codec, "Audio Out");
+	snd_soc_dapm_disable_pin(codec, "GSM Line Out");
+	snd_soc_dapm_disable_pin(codec, "GSM Line In");
+	snd_soc_dapm_disable_pin(codec, "Headset Mic");
+	snd_soc_dapm_disable_pin(codec, "Call Mic");
 
 	/* add neo1973 specific controls */
 	err = snd_soc_add_controls(codec, wm8753_neo1973_controls,
