@@ -560,6 +560,11 @@ struct twl4030_codec_data {
 	/* twl6030 */
 	int audpwron_gpio;      /* audio power-on gpio */
 	int naudint_irq;        /* audio interrupt */
+
+	/* aess */
+	int (*device_enable) (struct platform_device *pdev);
+	int (*device_shutdown) (struct platform_device *pdev);
+	int (*device_idle) (struct platform_device *pdev);
 };
 
 struct twl4030_platform_data {

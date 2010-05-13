@@ -31,6 +31,7 @@
 #include <sound/soc.h>
 
 #include <plat/control.h>
+#include <plat/dma-44xx.h>
 #include <plat/dma.h>
 #include "mcpdm.h"
 #include "omap-pcm.h"
@@ -48,14 +49,14 @@ struct omap_mcpdm_data {
 static struct omap_mcpdm_link omap_mcpdm_links[] = {
 	/* downlink */
 	{
-		.irq_mask = DN_IRQ_EMTPY | DN_IRQ_FULL,
+		.irq_mask = MCPDM_DN_IRQ_EMPTY | MCPDM_DN_IRQ_FULL,
 		.threshold = 1,
 		.format = PDMOUTFORMAT_LJUST,
 		.channels = PDM_DN_MASK | PDM_CMD_MASK,
 	},
 	/* uplink */
 	{
-		.irq_mask = UP_IRQ_EMPTY | UP_IRQ_FULL,
+		.irq_mask = MCPDM_UP_IRQ_EMPTY | MCPDM_UP_IRQ_FULL,
 		.threshold = 1,
 		.format = PDMOUTFORMAT_LJUST,
 		.channels = PDM_UP1_EN | PDM_UP2_EN |
@@ -74,12 +75,14 @@ static struct omap_mcpdm_data mcpdm_data = {
  */
 static struct omap_pcm_dma_data omap_abe_dai_dma_params[] = {
 	{
-		.name = "Audio downlink",
+		.name = "Audio playback",
+		.dma_req = OMAP44XX_DMA_ABE_REQ_0,
 		.data_type = OMAP_DMA_DATA_TYPE_S32,
 		.sync_mode = OMAP_DMA_SYNC_PACKET,
 	},
 	{
-		.name = "Audio uplink",
+		.name = "Audio capture",
+		.dma_req = OMAP44XX_DMA_ABE_REQ_2,
 		.data_type = OMAP_DMA_DATA_TYPE_S32,
 		.sync_mode = OMAP_DMA_SYNC_PACKET,
 	},
@@ -110,36 +113,6 @@ static void omap_abe_dai_shutdown(struct snd_pcm_substream *substream,
 		omap_mcpdm_free();
 }
 
-static int omap_abe_dai_trigger(struct snd_pcm_substream *substream, int cmd,
-				  struct snd_soc_dai *dai)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
-	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
-	int stream = substream->stream;
-	int err = 0;
-
-	switch (cmd) {
-	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_RESUME:
-	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		if (!mcpdm_priv->active[stream]++)
-			omap_mcpdm_start(stream);
-		break;
-
-	case SNDRV_PCM_TRIGGER_STOP:
-	case SNDRV_PCM_TRIGGER_SUSPEND:
-	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		if (!--mcpdm_priv->active[stream])
-			omap_mcpdm_stop(stream);
-		break;
-	default:
-		err = -EINVAL;
-	}
-
-	return err;
-}
-
 static int omap_abe_dai_hw_params(struct snd_pcm_substream *substream,
 				    struct snd_pcm_hw_params *params,
 				    struct snd_soc_dai *dai)
@@ -154,45 +127,46 @@ static int omap_abe_dai_hw_params(struct snd_pcm_substream *substream,
 	/* get abe dma data */
 	switch (cpu_dai->id) {
 	case OMAP_ABE_MM_DAI:
-		if (stream) {
+		if (stream == SNDRV_PCM_STREAM_CAPTURE) {
 			abe_read_port_address(MM_UL2_PORT, &dma_params);
-			dma_req = OMAP44XX_DMA_ABE_REQ4;
+			dma_req = OMAP44XX_DMA_ABE_REQ_4;
 		} else {
 			abe_read_port_address(MM_DL_PORT, &dma_params);
-			dma_req = OMAP44XX_DMA_ABE_REQ0;
+			dma_req = OMAP44XX_DMA_ABE_REQ_0;
 		}
 		break;
 	case OMAP_ABE_TONES_DL_DAI:
-		if (stream)
+		if (stream == SNDRV_PCM_STREAM_CAPTURE) {
 			return -EINVAL;
-		else {
+		} else {
 			abe_read_port_address(TONES_DL_PORT, &dma_params);
-			dma_req = OMAP44XX_DMA_ABE_REQ5;
+			dma_req = OMAP44XX_DMA_ABE_REQ_5;
 		}
 		break;
 	case OMAP_ABE_VOICE_DAI:
-		if (stream) {
+		if (stream == SNDRV_PCM_STREAM_CAPTURE) {
 			abe_read_port_address(VX_UL_PORT, &dma_params);
-			dma_req = OMAP44XX_DMA_ABE_REQ2;
+			dma_req = OMAP44XX_DMA_ABE_REQ_2;
 		} else {
 			abe_read_port_address(VX_DL_PORT, &dma_params);
-			dma_req = OMAP44XX_DMA_ABE_REQ1;
+			dma_req = OMAP44XX_DMA_ABE_REQ_1;
 		}
 		break;
 	case OMAP_ABE_DIG_UPLINK_DAI:
-		if (stream) {
+		if (stream == SNDRV_PCM_STREAM_CAPTURE) {
 			abe_read_port_address(MM_UL_PORT, &dma_params);
-			dma_req = OMAP44XX_DMA_ABE_REQ3;
+			dma_req = OMAP44XX_DMA_ABE_REQ_3;
 
-		} else
+		} else {
 			return -EINVAL;
+		}
 		break;
 	case OMAP_ABE_VIB_DAI:
-		if (stream)
+		if (stream == SNDRV_PCM_STREAM_CAPTURE) {
 			return -EINVAL;
-		else {
+		} else {
 			abe_read_port_address(VIB_DL_PORT, &dma_params);
-                        dma_req = OMAP44XX_DMA_ABE_REQ6;
+			dma_req = OMAP44XX_DMA_ABE_REQ_6;
 		}
 		break;
 	default:
@@ -205,10 +179,12 @@ static int omap_abe_dai_hw_params(struct snd_pcm_substream *substream,
 	omap_abe_dai_dma_params[stream].packet_size = dma_params.iter;
 	cpu_dai->dma_data = &omap_abe_dai_dma_params[stream];
 
-	if (stream)
-		err = omap_mcpdm_set_uplink(&mcpdm_links[stream]);
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
+		err = omap_mcpdm_playback_open(&mcpdm_links[stream]);
 	else
-		err = omap_mcpdm_set_downlink(&mcpdm_links[stream]);
+		err = omap_mcpdm_capture_open(&mcpdm_links[stream]);
+
+	omap_mcpdm_start(stream);
 
 	return err;
 }
@@ -220,12 +196,15 @@ static int omap_abe_dai_hw_free(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
 	struct omap_mcpdm_data *mcpdm_priv = cpu_dai->private_data;
 	struct omap_mcpdm_link *mcpdm_links = mcpdm_priv->links;
+	int stream = substream->stream;
 	int err;
 
-	if (substream->stream)
-		err = omap_mcpdm_clr_uplink(&mcpdm_links[substream->stream]);
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
+		err = omap_mcpdm_playback_close(&mcpdm_links[stream]);
 	else
-		err = omap_mcpdm_clr_downlink(&mcpdm_links[substream->stream]);
+		err = omap_mcpdm_capture_close(&mcpdm_links[stream]);
+
+	omap_mcpdm_stop(stream);
 
 	return err;
 }
@@ -233,9 +212,15 @@ static int omap_abe_dai_hw_free(struct snd_pcm_substream *substream,
 static struct snd_soc_dai_ops omap_abe_dai_ops = {
 	.startup	= omap_abe_dai_startup,
 	.shutdown	= omap_abe_dai_shutdown,
-	.trigger	= omap_abe_dai_trigger,
 	.hw_params	= omap_abe_dai_hw_params,
 	.hw_free	= omap_abe_dai_hw_free,
+};
+
+static struct snd_soc_dai_ops omap_abe_vx_dai_ops = {
+	.startup        = omap_abe_dai_startup,
+	.shutdown       = omap_abe_dai_shutdown,
+	.hw_params      = omap_abe_dai_hw_params,
+	.hw_free        = omap_abe_dai_hw_free,
 };
 
 struct snd_soc_dai omap_abe_dai[] = {
@@ -243,13 +228,13 @@ struct snd_soc_dai omap_abe_dai[] = {
 		.name = "omap-abe-mm",
 		.id = OMAP_ABE_MM_DAI,
 		.playback = {
-			.channels_min = 2,
+			.channels_min = 1,
 			.channels_max = 2,
-			.rates = SNDRV_PCM_RATE_48000,
+			.rates = SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000,
 			.formats = OMAP_ABE_FORMATS,
 		},
 		.capture = {
-			.channels_min = 2,
+			.channels_min = 1,
 			.channels_max = 2,
 			.rates = SNDRV_PCM_RATE_48000,
 			.formats = OMAP_ABE_FORMATS,
@@ -261,9 +246,9 @@ struct snd_soc_dai omap_abe_dai[] = {
 		.name = "omap-abe-tone-dl",
 		.id = OMAP_ABE_TONES_DL_DAI,
 		.playback = {
-			.channels_min = 2,
+			.channels_min = 1,
 			.channels_max = 2,
-			.rates = SNDRV_PCM_RATE_48000,
+			.rates = SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000,
 			.formats = OMAP_ABE_FORMATS,
 		},
 		.ops = &omap_abe_dai_ops,
@@ -273,18 +258,18 @@ struct snd_soc_dai omap_abe_dai[] = {
 		.name = "omap-abe-voice",
 		.id = OMAP_ABE_VOICE_DAI,
 		.playback = {
-			.channels_min = 2,
+			.channels_min = 1,
 			.channels_max = 2,
-			.rates = SNDRV_PCM_RATE_8000,
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
 			.formats = OMAP_ABE_FORMATS,
 		},
 		.capture = {
 			.channels_min = 2,
 			.channels_max = 2,
-			.rates = SNDRV_PCM_RATE_8000,
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
 			.formats = OMAP_ABE_FORMATS,
 		},
-		.ops = &omap_abe_dai_ops,
+		.ops = &omap_abe_vx_dai_ops,
 		.private_data = &mcpdm_data,
 	},
 	{

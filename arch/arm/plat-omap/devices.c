@@ -28,7 +28,11 @@
 #include <mach/gpio.h>
 #include <plat/menelaus.h>
 #include <plat/mcbsp.h>
+#include <plat/mcpdm.h>
 #include <plat/dsp_common.h>
+#include <plat/omap44xx.h>
+#include <plat/omap_hwmod.h>
+#include <plat/omap_device.h>
 
 #if	defined(CONFIG_OMAP_DSP) || defined(CONFIG_OMAP_DSP_MODULE)
 
@@ -220,6 +224,45 @@ void omap_mcbsp_register_board_cfg(struct omap_mcbsp_platform_data *config,
 
 /*-------------------------------------------------------------------------*/
 
+#if defined(CONFIG_OMAP_MCPDM) || defined(CONFIG_OMAP_MCPDM_MODULE)
+
+static struct omap_device_pm_latency omap_mcpdm_latency[] = {
+	{
+		.deactivate_func = omap_device_idle_hwmods,
+		.activate_func = omap_device_enable_hwmods,
+		.flags = OMAP_DEVICE_LATENCY_AUTO_ADJUST,
+	},
+};
+
+static void omap_init_mcpdm(void)
+{
+	struct omap_hwmod *oh;
+	struct omap_device *od;
+	struct omap_mcpdm_platform_data *pdata;
+
+	oh = omap_hwmod_lookup("pdm");
+	if (!oh)
+		printk(KERN_ERR "Could not look up pdm hw_mod\n");
+
+	pdata = kzalloc(sizeof(struct omap_mcpdm_platform_data), GFP_KERNEL);
+	if (!pdata)
+		printk(KERN_ERR "Could not allocate platform data\n");
+
+	od = omap_device_build("omap-mcpdm", -1, oh, pdata,
+				sizeof(struct omap_mcpdm_platform_data),
+				omap_mcpdm_latency,
+				ARRAY_SIZE(omap_mcpdm_latency), 0);
+
+	pdata->device_enable = omap_device_enable;
+	pdata->device_idle = omap_device_idle;
+	pdata->device_shutdown = omap_device_shutdown;
+
+	if (od <= 0)
+		printk(KERN_ERR "Could not build omap_device for omap-mcpdm\n");
+}
+#else
+static inline void omap_init_mcpdm(void) {}
+#endif
 #if defined(CONFIG_MMC_OMAP) || defined(CONFIG_MMC_OMAP_MODULE) || \
 	defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE)
 
@@ -470,6 +513,7 @@ static int __init omap_init_devices(void)
 	omap_init_dsp();
 	omap_init_kp();
 	omap_init_rng();
+	omap_init_mcpdm();
 	omap_init_uwire();
 	omap_init_vout();
 	omap_init_wdt();

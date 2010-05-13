@@ -19,9 +19,6 @@
  *
  */
 
-#define OMAP44XX_MCPDM_BASE	0x40132000
-#define OMAP44XX_MCPDM_L3_BASE	0x49032000
-
 /* McPDM registers */
 
 #define MCPDM_REVISION		0x00
@@ -46,18 +43,18 @@
  * IRQSTATUS_RAW, IRQSTATUS, IRQENABLE_SET, IRQENABLE_CLR
  */
 
-#define DN_IRQ			(1 << 0)
-#define DN_IRQ_EMTPY		(1 << 1)
-#define DN_IRQ_ALMST_EMPTY	(1 << 2)
-#define DN_IRQ_FULL		(1 << 3)
+#define MCPDM_DN_IRQ			(1 << 0)
+#define MCPDM_DN_IRQ_EMPTY		(1 << 1)
+#define MCPDM_DN_IRQ_ALMST_EMPTY	(1 << 2)
+#define MCPDM_DN_IRQ_FULL		(1 << 3)
 
-#define UP_IRQ			(1 << 8)
-#define UP_IRQ_EMPTY		(1 << 9)
-#define UP_IRQ_ALMST_FULL	(1 << 10)
-#define UP_IRQ_FULL		(1 << 11)
+#define MCPDM_UP_IRQ			(1 << 8)
+#define MCPDM_UP_IRQ_EMPTY		(1 << 9)
+#define MCPDM_UP_IRQ_ALMST_FULL		(1 << 10)
+#define MCPDM_UP_IRQ_FULL		(1 << 11)
 
-#define DOWNLINK_IRQ_MASK	0x00F
-#define UPLINK_IRQ_MASK		0xF00
+#define MCPDM_DOWNLINK_IRQ_MASK		0x00F
+#define MCPDM_UPLINK_IRQ_MASK		0xF00
 
 /*
  * MCPDM_DMAENABLE bit fields
@@ -123,6 +120,11 @@ struct omap_mcpdm_link {
 struct omap_mcpdm_platform_data {
 	unsigned long phys_base;
 	u16 irq;
+
+	int (*device_enable) (struct platform_device *pdev);
+	int (*device_shutdown) (struct platform_device *pdev);
+	int (*device_idle) (struct platform_device *pdev);
+	int (*device_disable) (struct platform_device *pdev);
 };
 
 struct omap_mcpdm {
@@ -143,14 +145,12 @@ struct omap_mcpdm {
 	int up_channels;
 };
 
-void omap_mcpdm_reg_dump(void);
-void omap_mcpdm_reset(int links, int reset);
-void omap_mcpdm_start(int stream);
-void omap_mcpdm_stop(int stream);
-int omap_mcpdm_set_uplink(struct omap_mcpdm_link *uplink);
-int omap_mcpdm_set_downlink(struct omap_mcpdm_link *downlink);
-int omap_mcpdm_clr_uplink(struct omap_mcpdm_link *uplink);
-int omap_mcpdm_clr_downlink(struct omap_mcpdm_link *downlink);
-int omap_mcpdm_request(void);
-void omap_mcpdm_free(void);
-int omap_mcpdm_set_offset(int offset1, int offset2);
+extern void omap_mcpdm_start(int stream);
+extern void omap_mcpdm_stop(int stream);
+extern int omap_mcpdm_capture_open(struct omap_mcpdm_link *uplink);
+extern int omap_mcpdm_playback_open(struct omap_mcpdm_link *downlink);
+extern int omap_mcpdm_capture_close(struct omap_mcpdm_link *uplink);
+extern int omap_mcpdm_playback_close(struct omap_mcpdm_link *downlink);
+extern int omap_mcpdm_request(void);
+extern void omap_mcpdm_free(void);
+extern int omap_mcpdm_set_offset(int offset1, int offset2);
