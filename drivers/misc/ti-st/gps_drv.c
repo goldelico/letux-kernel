@@ -133,7 +133,7 @@ long gpsdrv_st_recv(struct sk_buff *skb)
  *  @data   Status update of GPS registration
  *  Returns: NULL
  */
-void gpsdrv_st_cb(u8 data)
+void gpsdrv_st_cb(char data)
 {
 	GPSDRV_DBG(" Inside %s", __func__);
 	hgps->streg_cbdata = data;	/* ST registration callback  status */
@@ -659,7 +659,7 @@ static int __init gpsdrv_init(void)
 	if (0 > hgps->gpsdrv_major) {
 		GPSDRV_ERR("Error when registering to char dev");
 		kfree(hgps);
-		return hgps->gpsdrv_major;
+		return GPS_ERR_FAILURE;
 	}
 	GPSDRV_VER(" %d: allocated %d, %d", err, hgps->gpsdrv_major, 0);
 
@@ -667,8 +667,8 @@ static int __init gpsdrv_init(void)
 	hgps->gpsdrv_class = class_create(THIS_MODULE, DEVICE_NAME);
 	if (IS_ERR(hgps->gpsdrv_class)) {
 		GPSDRV_ERR(" Something went wrong in class_create");
-		kfree(hgps);
 		unregister_chrdev(hgps->gpsdrv_major, DEVICE_NAME);
+		kfree(hgps);
 		return GPS_ERR_CLASS;
 	}
 
@@ -677,10 +677,10 @@ static int __init gpsdrv_init(void)
 			  NULL, DEVICE_NAME);
 	if (IS_ERR(hgps->gpsdrv_dev)) {
 		GPSDRV_ERR(" Error in class_create");
-		kfree(hgps);
 		unregister_chrdev(hgps->gpsdrv_major, DEVICE_NAME);
 		class_unregister(hgps->gpsdrv_class);
 		class_destroy(hgps->gpsdrv_class);
+		kfree(hgps);
 		return GPS_ERR_CLASS;
 	}
 
