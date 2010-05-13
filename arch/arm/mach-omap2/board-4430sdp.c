@@ -659,7 +659,7 @@ static struct regulator_init_data sdp4430_vusb = {
 	},
 };
 
-static struct twl4030_codec_data twl6030_codec = {
+static struct twl4030_codec_data twl6040_codec = {
 #ifdef CONFIG_OMAP4_AUDIO_PWRON
         .audpwron_gpio  = 127,
         .naudint_irq    = INT_44XX_SYS_NIRQ2,
@@ -698,7 +698,7 @@ static struct twl4030_platform_data sdp4430_twldata = {
 	.bci            = &sdp4430_bci_data,
 
 	/* children */
-	.codec		= &twl6030_codec,
+	.codec		= &twl6040_codec,
 };
 
 static struct i2c_board_info __initdata sdp4430_i2c_boardinfo[] = {

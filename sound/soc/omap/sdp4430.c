@@ -33,8 +33,8 @@
 #include "mcpdm.h"
 #include "omap-abe.h"
 #include "omap-pcm.h"
-#include "../codecs/abe-twl6030.h"
-#include "../codecs/twl6030.h"
+#include "../codecs/twl6040.h"
+#include "../codecs/abe-twl6040.h"
 
 #ifdef CONFIG_SND_OMAP_SOC_HDMI
 #include "omap-hdmi.h"
@@ -42,12 +42,13 @@
 
 static struct snd_soc_dai_link sdp4430_dai[];
 static struct snd_soc_card snd_soc_sdp4430;
-static int twl6030_power_mode;
+static int twl6040_power_mode;
+
 
 static int sdp4430_get_power_mode(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	ucontrol->value.integer.value[0] = twl6030_power_mode;
+	ucontrol->value.integer.value[0] = twl6040_power_mode;
 	return 0;
 }
 
@@ -57,14 +58,14 @@ static int sdp4430_set_power_mode(struct snd_kcontrol *kcontrol,
 	int clk_id, freq;
 	int ret;
 
-	if (twl6030_power_mode == ucontrol->value.integer.value[0])
+	if (twl6040_power_mode == ucontrol->value.integer.value[0])
 		return 0;
 
 	if (ucontrol->value.integer.value[0]) {
-		clk_id = TWL6030_SYSCLK_SEL_HPPLL;
+		clk_id = TWL6040_SYSCLK_SEL_HPPLL;
 		freq = 38400000;
 	} else {
-		clk_id = TWL6030_SYSCLK_SEL_LPPLL;
+		clk_id = TWL6040_SYSCLK_SEL_LPPLL;
 		freq = 32768;
 	}
 
@@ -76,7 +77,7 @@ static int sdp4430_set_power_mode(struct snd_kcontrol *kcontrol,
 		return ret;
 	}
 
-	twl6030_power_mode = ucontrol->value.integer.value[0];
+	twl6040_power_mode = ucontrol->value.integer.value[0];
 
 	return 1;
 }
@@ -88,16 +89,17 @@ static const struct soc_enum sdp4430_enum[] = {
 };
 
 static const struct snd_kcontrol_new sdp4430_controls[] = {
-	SOC_ENUM_EXT("TWL6030 Power Mode", sdp4430_enum[0],
+	SOC_ENUM_EXT("TWL6040 Power Mode", sdp4430_enum[0],
 		sdp4430_get_power_mode, sdp4430_set_power_mode),
 };
 
 /* SDP4430 machine DAPM */
-static const struct snd_soc_dapm_widget sdp4430_twl6030_dapm_widgets[] = {
+static const struct snd_soc_dapm_widget sdp4430_twl6040_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Ext Mic", NULL),
 	SND_SOC_DAPM_SPK("Ext Spk", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_HP("Headset Stereophone", NULL),
+	SND_SOC_DAPM_SPK("Earphone Spk", NULL),
 };
 
 static const struct snd_soc_dapm_route audio_map[] = {
@@ -117,9 +119,13 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	/* Headset Stereophone (Headphone): HSOL, HSOR */
 	{"Headset Stereophone", NULL, "HSOL"},
 	{"Headset Stereophone", NULL, "HSOR"},
+
+	/* Earphone speaker */
+	{"Earphone Spk", NULL, "EP"},
+
 };
 
-static int sdp4430_twl6030_init(struct snd_soc_codec *codec)
+static int sdp4430_twl6040_init(struct snd_soc_codec *codec)
 {
 	int ret;
 
@@ -130,8 +136,8 @@ static int sdp4430_twl6030_init(struct snd_soc_codec *codec)
 		return ret;
 
 	/* Add SDP4430 specific widgets */
-	ret = snd_soc_dapm_new_controls(codec, sdp4430_twl6030_dapm_widgets,
-				ARRAY_SIZE(sdp4430_twl6030_dapm_widgets));
+	ret = snd_soc_dapm_new_controls(codec, sdp4430_twl6040_dapm_widgets,
+				ARRAY_SIZE(sdp4430_twl6040_dapm_widgets));
 	if (ret)
 		return ret;
 
@@ -144,7 +150,7 @@ static int sdp4430_twl6030_init(struct snd_soc_codec *codec)
 	snd_soc_dapm_enable_pin(codec, "Headset Mic");
 	snd_soc_dapm_enable_pin(codec, "Headset Stereophone");
 
-	/* TWL6030 not connected pins */
+	/* TWL6040 not connected pins */
 	snd_soc_dapm_nc_pin(codec, "AFML");
 	snd_soc_dapm_nc_pin(codec, "AFMR");
 
@@ -169,32 +175,32 @@ struct snd_soc_dai null_dai = {
 /* Digital audio interface glue - connects codec <--> CPU */
 static struct snd_soc_dai_link sdp4430_dai[] = {
 	{
-		.name = "abe-twl6030",
+		.name = "abe-twl6040",
 		.stream_name = "Multimedia",
 		.cpu_dai = &omap_abe_dai[OMAP_ABE_MM_DAI],
 		.codec_dai = &abe_dai[0],
-		.init = sdp4430_twl6030_init,
+		.init = sdp4430_twl6040_init,
 	},
 	{
-		.name = "abe-twl6030",
+		.name = "abe-twl6040",
 		.stream_name = "Tones DL",
 		.cpu_dai = &omap_abe_dai[OMAP_ABE_TONES_DL_DAI],
 		.codec_dai = &abe_dai[1],
 	},
 	{
-		.name = "abe-twl6030",
+		.name = "abe-twl6040",
 		.stream_name = "Voice",
 		.cpu_dai = &omap_abe_dai[OMAP_ABE_VOICE_DAI],
 		.codec_dai = &abe_dai[2],
 	},
 	{
-		.name = "abe-twl6030",
+		.name = "abe-twl6040",
 		.stream_name = "Digital Uplink",
 		.cpu_dai = &omap_abe_dai[OMAP_ABE_DIG_UPLINK_DAI],
 		.codec_dai = &abe_dai[3],
 	},
 	{
-		.name = "abe-twl6030",
+		.name = "abe-twl6040",
 		.stream_name = "Vibrator",
 		.cpu_dai = &omap_abe_dai[OMAP_ABE_VIB_DAI],
 		.codec_dai = &abe_dai[4],
@@ -220,7 +226,7 @@ static struct snd_soc_card snd_soc_sdp4430 = {
 /* Audio subsystem */
 static struct snd_soc_device sdp4430_snd_devdata = {
 	.card = &snd_soc_sdp4430,
-	.codec_dev = &soc_codec_dev_abe_twl6030,
+	.codec_dev = &soc_codec_dev_abe_twl6040,
 };
 
 static struct platform_device *sdp4430_snd_device;
@@ -233,7 +239,7 @@ static int __init sdp4430_soc_init(void)
 		pr_debug("Not SDP4430!\n");
 		return -ENODEV;
 	}
-	printk(KERN_INFO "SDP4430 SoC init\n");
+	pr_info("SDP4430 SoC init\n");
 
 #ifdef CONFIG_SND_OMAP_SOC_HDMI
 	snd_soc_register_dais(&null_dai, 1);
@@ -253,13 +259,17 @@ static int __init sdp4430_soc_init(void)
 		goto err;
 
 	ret = snd_soc_dai_set_sysclk(sdp4430_dai[0].codec_dai,
-				TWL6030_SYSCLK_SEL_HPPLL, 38400000,
+				TWL6040_SYSCLK_SEL_HPPLL, 38400000,
 				SND_SOC_CLOCK_IN);
 	if (ret) {
 		printk(KERN_ERR "can't set codec system clock\n");
 		goto err;
 	}
 
+	/* Codec starts in HP mode */
+	twl6040_power_mode = 1;
+
+	pr_info("SDP4430 SoC init\n");
 	return 0;
 
 err:

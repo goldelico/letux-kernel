@@ -19,14 +19,14 @@
  *
  */
 
-#ifndef __ABE_TWL6030_H__
-#define __ABE_TWL6030_H__
+#ifndef __ABE_TWL6040_H__
+#define __ABE_TWL6040_H__
 
 extern struct snd_soc_dai abe_dai[];
-extern struct snd_soc_codec_device soc_codec_dev_abe_twl6030;
+extern struct snd_soc_codec_device soc_codec_dev_abe_twl6040;
 
 struct twl6030_setup_data {
 	void (*codec_enable)(int enable);
 };
 
-#endif /* End of __ABE_TWL6030_H__ */
+#endif /* End of __ABE_TWL6040_H__ */

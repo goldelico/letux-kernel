@@ -118,8 +118,10 @@
 #define twl_has_watchdog()        false
 #endif
 
-#if defined(CONFIG_TWL4030_CODEC) || defined(CONFIG_TWL4030_CODEC_MODULE) ||\
-	defined(CONFIG_SND_SOC_ABE_TWL6030) || defined(CONFIG_SND_SOC_TWL6030_MODULE)
+#if defined(CONFIG_TWL4030_CODEC) ||\
+		defined(CONFIG_SND_SOC_TWL6040_MODULE) ||\
+		defined(CONFIG_TWL4030_CODEC_MODULE) ||\
+		defined(CONFIG_SND_SOC_ABE_TWL6040)
 #define twl_has_codec()	true
 #else
 #define twl_has_codec()	false
@@ -748,7 +750,7 @@ add_children(struct twl4030_platform_data *pdata, unsigned long features)
 	/* Phoenix*/
 	if (twl_has_codec() && pdata->codec && twl_class_is_6030()) {
 		sub_chip_id = twl_map[TWL_MODULE_AUDIO_VOICE].sid;
-		child = add_child(sub_chip_id, "twl6030_codec",
+		child = add_child(sub_chip_id, "twl6040_codec",
 				pdata->codec, sizeof(*pdata->codec),
 				false, 0, 0);
 		if (IS_ERR(child))

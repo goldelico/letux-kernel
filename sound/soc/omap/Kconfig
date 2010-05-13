@@ -6,8 +6,11 @@ config SND_OMAP_SOC_MCBSP
 	tristate
 	select OMAP_MCBSP
 
+config OMAP_MCPDM
+	tristate
 config SND_OMAP_SOC_ABE
 	tristate
+	select OMAP_MCPDM
 
 config SND_OMAP_SOC_N810
 	tristate "SoC Audio support for Nokia N810"
@@ -82,14 +85,14 @@ config SND_OMAP_SOC_SDP4430
 	tristate "SoC Audio support for Texas Instruments SDP4430"
 	depends on TWL4030_CORE && SND_OMAP_SOC && MACH_OMAP_4430SDP
 	select SND_OMAP_SOC_ABE
-	select SND_SOC_ABE_TWL6030
+	select SND_SOC_ABE_TWL6040
 	help
 	  Say Y if you want to add support for SoC audio on Texas Instruments
 	  SDP4430.
 
 config SND_OMAP_SOC_HDMI
 	tristate "SoC Audio support for HDMI interface on SDP4430"
-	depends on SND_OMAP_SOC_SDP4430
+	depends on SND_OMAP_SOC_SDP4430 && OMAP2_DSS_HDMI
 	help
 	  Say Y if you want to add support for HDMI interface on SDP4430
 
