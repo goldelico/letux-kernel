@@ -1017,8 +1017,8 @@ serial_omap_pm(struct uart_port *port, unsigned int state,
 	unsigned char efr;
 	DPRINTK("serial_omap_pm+%d\n", up->pdev->id);
 	DPRINTK(" PM STATE = %d \n", state);
-	efr = serial_in(up, UART_EFR);
 	serial_out(up, UART_LCR, 0xBF);
+	efr = serial_in(up, UART_EFR);
 	serial_out(up, UART_EFR, efr | UART_EFR_ECB);
 	serial_out(up, UART_LCR, 0);
 
