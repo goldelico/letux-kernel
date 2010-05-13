@@ -1,7 +1,7 @@
 /*
  * ==========================================================================
- *               Texas Instruments OMAP(TM) Platform Firmware
- * (c) Copyright 2009, Texas Instruments Incorporated.  All Rights Reserved.
+ *		 Texas Instruments OMAP(TM) Platform Firmware
+ * (c) Copyright 2009, Texas Instruments Incorporated.	All Rights Reserved.
  *
  *  Use of this firmware is controlled by the terms and conditions found
  *  in the license agreement under which this firmware has been supplied.
@@ -14,9 +14,6 @@
 /*
  * HARDWARE AND PERIPHERAL DEFINITIONS
  */
-
-#define ABE_ABE_REVISION	0x00	/* revision number */
-#define ABE_DUMMY_ADDRESS	ABE_ABE_REVISION /* used as dummy register for generic IO tasks */
 
 #define ABE_DMAREQ_REGISTER(desc)	(abe_uint32 *)((desc/8) + CIRCULAR_BUFFER_PERIPHERAL_R__0)
 
@@ -44,7 +41,7 @@
  * cache-flush mechanism
  */
 #define NB_BYTES_CACHELINE_SHFT	4
-#define NB_BYTES_IN_CACHE_LINE	(1<<NB_BYTES_CACHELINE_SHFT) /* there are 16 bytes in each cache lines  */
+#define NB_BYTES_IN_CACHE_LINE	(1<<NB_BYTES_CACHELINE_SHFT) /* there are 16 bytes in each cache lines	*/
 
 /*
  * DEFINITIONS SHARED WITH VIRTAUDIO
@@ -52,83 +49,35 @@
 
 #define UC1_LP			1	/* MP3 low-power player use-case */
 #define UC2_VOICE_CALL_AND_IHF_MMDL 2	/* enables voice ul/dl on earpiece + MM_DL on IHF */
-#define UC3_VOICE_CALL		3	/* basic voice-call use-case */
-#define UC4_EANC		4	/* EANC test */
 #define UC5_PINGPONG_MMDL	5	/* Test MM_DL with Ping-Pong */
 #define UC6_PINGPONG_MMDL_WITH_IRQ 6	/* ping-pong with IRQ instead of sDMA */
-#define UC7_STOP_ALL		7	/* stop all activities */
+
+#define UC31_VOICE_CALL_8KMONO		31
+#define UC32_VOICE_CALL_8KSTEREO	32
+#define UC33_VOICE_CALL_16KMONO		33
+#define UC34_VOICE_CALL_16KSTEREO	34
+#define UC35_MMDL_MONO			35
+#define UC36_MMDL_STEREO		36
+#define UC37_MMUL2_MONO			37
+#define UC38_MMUL2_STEREO		38
+
+#define UC41_____		40
+#define UC71_STOP_ALL		71	/* stop all activities */
+#define UC72_ENABLE_ALL		72	/* stop all activities */
 #define UC81_ROUTE_AMIC		81
 #define UC82_ROUTE_DMIC01	82
 #define UC83_ROUTE_DMIC23	83
 #define UC84_ROUTE_DMIC45	84
 
+#define UC91_ASRC_DRIFT1	91
+#define UC92_ASRC_DRIFT2	92
+#define UC93_EANC		93
 
 #define PING_PONG_WITH_MCU_IRQ	1
 #define PING_PONG_WITH_DSP_IRQ	2
 
 #define HAL_RESET_HAL		10	/* abe_reset_hal () */
 #define HAL_WRITE_MIXER		11	/* abe_write_mixer () */
-
-#if 0
-#define HAL_WRITE_MIXER		12	/* void abe_irq_processing (void) */
-#define HAL_WRITE_MIXER		13	/* void abe_event_generator_switch (abe_event_id e) */
-#define HAL_WRITE_MIXER		14	/* abe_read_use_case_opp (abe_use_case_id *u, abe_opp_t *o) */
-#define HAL_WRITE_MIXER		15	/* abe_write_mixer () */
-#define HAL_WRITE_MIXER		17	/* abe_read_sys_clock (abe_micros_t *time); */
-#define HAL_WRITE_MIXER		18	/* abe_fprintf (char *line); */
-#define HAL_WRITE_MIXER		11	/* abe_reset_hal (void); */
-#define HAL_WRITE_MIXER		11	/* abe_read_use_case_opp (abe_use_case_id *u, abe_opp_t *o); */
-#define HAL_WRITE_MIXER		11	/* abe_load_fw (void); */
-#define HAL_WRITE_MIXER		11	/* abe_read_port_address (abe_port_id port, abe_dma_t *dma); */
-#define HAL_WRITE_MIXER		11	/* abe_default_configuration (abe_uint32 use_case, abe_uint32 param1, abe_uint32 param2, abe_uint32 param3, abe_uint32 param4); */
-#define HAL_WRITE_MIXER		11	/* abe_irq_processing (void); */
-#define HAL_WRITE_MIXER		11	/* abe_event_generator_switch (abe_event_id e); */
-#define HAL_WRITE_MIXER		11	/* abe_read_lowest_opp (abe_opp_t *o); */
-#define HAL_WRITE_MIXER		11	/* abe_set_opp_processing (abe_opp_t opp); */
-#define HAL_WRITE_MIXER		11	/* abe_set_ping_pong_buffer (abe_port_id port, abe_uint32 n); */
-#define HAL_WRITE_MIXER		11	/* abe_connect_irq_ping_pong_port (MM_DL, abe_data_format_t *f, abe_uint32 d, abe_uint32 s, abe_uint32 *p); */
-#define HAL_WRITE_MIXER		11	/* abe_plug_subroutine (abe_uint32 *id, abe_subroutine2 f, abe_uint32 n); */
-#define HAL_WRITE_MIXER		11	/* abe_plug_sequence (abe_uint32 *id, abe_sequence_t *s); */
-#define HAL_WRITE_MIXER		11	/* abe_launch_sequence (abe_patch_rev patch, abe_uint32 n); */
-#define HAL_WRITE_MIXER		11	/* abe_launch_sequence_param (abe_patch_rev patch, abe_uint32 n, abe_int32 *param1, abe_int32 *param2, abe_int32 *param3, abe_int32 *param4); */; */
-#define HAL_WRITE_MIXER		11	/* abe_read_analog_gain_dl (abe_gain_t *a); */
-#define HAL_WRITE_MIXER		11	/* abe_read_analog_gain_ul (abe_gain_t *a); */
-#define HAL_WRITE_MIXER		11	/* abe_enable_dyn_ul_gain (void); */
-#define HAL_WRITE_MIXER		11	/* abe_disable_dyn_ul_gain (void); */
-#define HAL_WRITE_MIXER		11	/* abe_enable_dyn_extension (void); */
-#define HAL_WRITE_MIXER		11	/* abe_disable_dyn_extension (void); */
-#define HAL_WRITE_MIXER		11	/* abe_notify_analog_gain_changed (abe_ana_port_id Id, abe_gain_t *G); */
-#define HAL_WRITE_MIXER		11	/* abe_reset_port (abe_port_id id); */
-#define HAL_WRITE_MIXER		11	/* abe_read_remaining_data (abe_port_id port, abe_uint32 *n); */
-#define HAL_WRITE_MIXER		11	/* abe_disable_data_transfer (abe_port_id *p); */
-#define HAL_WRITE_MIXER		11	/* abe_enable_data_transfer (abe_port_id p); */
-#define HAL_WRITE_MIXER		11	/* abe_read_global_counter (abe_time_stamp_t *t, abe_millis_t *m); */
-#define HAL_WRITE_MIXER		11	/* abe_set_dmic_filter (abe_dmic_ratio_t d); */
-#define HAL_WRITE_MIXER		11	/* abe_connect_cbpr_dmareq_port (abe_port_id id, abe_data_format_t *f, abe_uint32 d, abe_dma_t *a); */
-#define HAL_WRITE_MIXER		11	/* abe_connect_dmareq_port (abe_port_id id, abe_data_format_t *f, abe_uint32 d, abe_dma_t *a); */
-#define HAL_WRITE_MIXER		11	/* abe_connect_dmareq_ping_pong_port (abe_port_id id, abe_data_format_t *f, abe_uint32 d, abe_uint32 s, abe_dma_t *a); */
-#define HAL_WRITE_MIXER		11	/* abe_connect_serial_port (abe_port_id id, abe_data_format_t *f, abe_uint32 i); */
-#define HAL_WRITE_MIXER		11	/* abe_write_port_descriptor (abe_port_id id, abe_data_format_t *f, abe_port_protocol_t *p, abe_dma_t *dma); */
-#define HAL_WRITE_MIXER		11	/* abe_read_port_descriptor (abe_port_id id, abe_data_format_t *f, abe_port_protocol_t *p); */
-#define HAL_WRITE_MIXER		11	/* abe_read_aps_energy (abe_port_id *p, abe_gain_t *a); */
-#define HAL_WRITE_MIXER		11	/* abe_write_port_gain (abe_port_id port, abe_gain_t gain, abe_micros_t ramp); */
-#define HAL_WRITE_MIXER		11	/* abe_read_port_gain (abe_port_id port, abe_gain_t *gain, abe_micros_t *ramp); */
-#define HAL_WRITE_MIXER		11	/* abe_read_gain_range (abe_port_id id, abe_gain_t *min, abe_gain_t *max, abe_gain_t *step); */
-#define HAL_WRITE_MIXER		11	/* abe_write_equalizer (abe_equ_id id, abe_equ_t *param); */
-#define HAL_WRITE_MIXER		11	/* abe_write_asrc (abe_asrc_id id, abe_drift_t *param); */
-#define HAL_WRITE_MIXER		11	/* abe_write_aps (abe_aps_id id, abe_aps_t *param); */
-#define HAL_WRITE_MIXER		11	/* abe_write_mixer (abe_mixer_id id, abe_gain_t g, abe_micros_t ramp, abe_port_id p); */
-#define HAL_WRITE_MIXER		11	/* abe_write_eanc (abe_eanc_t *param); */
-#define HAL_WRITE_MIXER		11	/* abe_write_router (abe_router_id id, abe_router_t *param); */
-#define HAL_WRITE_MIXER		11	/* abe_read_asrc (abe_asrc_id id, abe_drift_t *param); */
-#define HAL_WRITE_MIXER		11	/* abe_read_aps (abe_aps_id id, abe_aps_t *param); */
-#define HAL_WRITE_MIXER		11	/* abe_read_mixer (abe_mixer_id id, abe_gain_t *gain, abe_micros_t *ramp, abe_port_id p); */
-#define HAL_WRITE_MIXER		11	/* abe_read_eanc  (abe_eanc_t *param); */
-#define HAL_WRITE_MIXER		11	/* abe_read_router (abe_router_id id, abe_router_t *param); */
-#define HAL_WRITE_MIXER		11	/* abe_read_debug_trace (abe_uint32 *data, abe_uint32 *n); */
-#define HAL_WRITE_MIXER		11	/* abe_set_debug_trace (abe_dbg_t debug); */
-#define HAL_WRITE_MIXER		11	/* abe_set_debug_pins (abe_uint32 debug_pins); */
-#endif
 
 #define COPY_FROM_ABE_TO_HOST	1	/* ID used for LIB memory copy subroutines */
 #define COPY_FROM_HOST_TO_ABE	2
@@ -141,14 +90,14 @@
 #define CS_M1			0xFFFF	/* unsigned version of (-1) */
 #define CL_M1			0xFFFFFFFFL /* unsigned version of (-1) */
 
-#define NBEANC1			20	/* 20 Q6.26 coef for the FIR    */
-#define NBEANC2			16	/* 16 Q6.26 coef for the IIR    */
+#define NBEANC1			20	/* 20 Q6.26 coef for the FIR	*/
+#define NBEANC2			16	/* 16 Q6.26 coef for the IIR	*/
 
 #define NBEQ1			25	/* 24 Q6.26 coefficients	*/
-#define NBEQ2			13	/* 2x12 Q6.26 coefficients       */
+#define NBEQ2			13	/* 2x12 Q6.26 coefficients	 */
 
-#define NBAPS1			10	/* TBD APS first set of parameters      */
-#define NBAPS2			10	/* TBD APS second set of parameters      */
+#define NBAPS1			10	/* TBD APS first set of parameters	*/
+#define NBAPS2			10	/* TBD APS second set of parameters	 */
 
 #define NBMIX_AUDIO_UL		2	/* Mixer used for sending tones to the uplink voice path */
 #define NBMIX_DL1		4	/* Main downlink mixer */
@@ -156,33 +105,28 @@
 #define NBMIX_SDT		2	/* Side-tone mixer */
 #define NBMIX_ECHO		2	/* Echo reference mixer */
 #define NBMIX_VXREC		4	/* Voice record mixer */
-	    /*
-	    Mixer ID		Input port ID	    Comments
-	    DL1_MIXER		0		   MMDL path
-				1		   MMUL2 path
-				2		   VXDL path
-				3		   TONES path
+	/*
+	Mixer ID		Input port ID	Comments
+	DL1_MIXER		0		MMDL path
+				1		MMUL2 path
+				2		VXDL path
+				3		TONES path
 
-	    DL2_MIXER		0		   TONES_DL path
-				1		   VX_DL path
-				2		   MM_DL path
-				3		   MM_UL2 path
+	SDT_MIXER		0		Uplink path
+				1		Downlink path
 
-	    SDT_MIXER		0		   Uplink path
-				1		   Downlink path
+	ECHO_MIXER		0		DL1_MIXER  path
+				1		DL2_MIXER path
 
-	    ECHO_MIXER		0		   DL1_MIXER  path
-				1		   DL2_MIXER path
+	AUDUL_MIXER		0		TONES_DL path
+				1		Uplink path
+				2		MM_DL path
 
-	    AUDUL_MIXER		0		   TONES_DL path
-				1		   Uplink path
-				2		   MM_DL path
-
-	    VXREC_MIXER		0		   TONES_DL path
-				1		   VX_DL path
-				2		   MM_DL path
-				3		   VX_UL path
-	    */
+	VXREC_MIXER		0		TONES_DL path
+				1		VX_DL path
+				2		MM_DL path
+				3		VX_UL path
+	*/
 #define MIX_VXUL_INPUT_MM_DL	(abe_port_id)0
 #define MIX_VXUL_INPUT_TONES	(abe_port_id)1
 #define MIX_VXUL_INPUT_VX_UL	(abe_port_id)2
@@ -201,23 +145,25 @@
 #define MIX_SDT_INPUT_UP_MIXER	(abe_port_id)0
 #define MIX_SDT_INPUT_DL1_MIXER (abe_port_id)1
 
-#define MIX_AUDUL_INPUT_TONES	(abe_port_id)0
-#define MIX_AUDUL_INPUT_UPLINK	(abe_port_id)1
-#define MIX_AUDUL_INPUT_MM_DL	(abe_port_id)2
+#define MIX_AUDUL_INPUT_MM_DL	(abe_port_id)0
+#define MIX_AUDUL_INPUT_TONES	(abe_port_id)1
+#define MIX_AUDUL_INPUT_UPLINK	(abe_port_id)2
+#define MIX_AUDUL_INPUT_VX_DL	(abe_port_id)3
 
-#define MIX_VXREC_INPUT_TONES	(abe_port_id)0
-#define MIX_VXREC_INPUT_VX_DL	(abe_port_id)1
-#define MIX_VXREC_INPUT_MM_DL	(abe_port_id)2
-#define MIX_VXREC_INPUT_VX_UL	(abe_port_id)3
+#define MIX_VXREC_INPUT_MM_DL	(abe_port_id)0
+#define MIX_VXREC_INPUT_TONES	(abe_port_id)1
+#define MIX_VXREC_INPUT_VX_UL	(abe_port_id)2
+#define MIX_VXREC_INPUT_VX_DL	(abe_port_id)3
 
 #define NBROUTE_UL		16	/* nb of samples to route */
 #define NBROUTE_CONFIG_MAX	10	/* 10 routing tables max */
 
-#define NBROUTE_CONFIG		4	/* 4 pre-computed routing tables */
+#define NBROUTE_CONFIG		5	/* 5 pre-computed routing tables */
 #define UPROUTE_CONFIG_AMIC	0	/* AMIC on VX_UL */
 #define UPROUTE_CONFIG_DMIC1	1	/* DMIC first pair on VX_UL */
 #define UPROUTE_CONFIG_DMIC2	2	/* DMIC second pair on VX_UL */
 #define UPROUTE_CONFIG_DMIC3	3	/* DMIC last pair on VX_UL */
+#define UPROUTE_CONFIG_BT	4	/* BT_UL on VX_UL */
 
 #define ABE_PMEM		1
 #define ABE_CMEM		2
@@ -231,7 +177,7 @@
 #define MAXNBSEQUENCE		20	/* time controlled sequenced */
 #define MAXACTIVESEQUENCE	20	/* maximum simultaneous active sequences */
 #define MAXSEQUENCESTEPS	2	/* max number of steps in the sequences */
-#define MAXFEATUREPORT		8	/* max number of feature associated to a port */
+#define MAXFEATUREPORT		12	/* max number of feature associated to a port */
 #define SUB_0_PARAM		0
 #define SUB_1_PARAM		1	/* number of parameters per sequence calls */
 #define SUB_2_PARAM		2
@@ -245,13 +191,19 @@
 
 #define NBCHARFEATURENAME	16	/* explicit name of the feature */
 #define NBCHARPORTNAME		16	/* explicit name of the port */
-#define MAXNBABEPORTS		LAST_PORT_ID /* number  of sink+source ports of the ABE */
+#define MAXNBABEPORTS		LAST_PORT_ID /* number	of sink+source ports of the ABE */
 #define MAX_MAP_DMEM		LAST_PORT_ID
 
-#define SNK_P			ABE_ATC_DIRECTION_IN	/* sink / input port */
+#define SNK_P			ABE_ATC_DIRECTION_IN	/* sink / input port from Host point of view (or AESS for DMIC/McPDM/.. */
 #define SRC_P			ABE_ATC_DIRECTION_OUT	/* source / ouptut port */
 
 #define NODRIFT			0	/* no ASRC applied */
+#define FORCED_DRIFT_CONTROL	1	/* for abe_set_asrc_drift_control */
+#define ADPATIVE_DRIFT_CONTROL	2	/* for abe_set_asrc_drift_control */
+
+#define DOPPMODE32_OPP100	(0x00000010 | (0x00000000<<16))
+#define DOPPMODE32_OPP50	(0x0000000C | (0x0000004<<16))
+#define DOPPMODE32_OPP25	(0x0000004 | (0x0000000C<<16))
 
 /*
  * ABE CONST AREA FOR PARAMETERS TRANSLATION
@@ -262,18 +214,18 @@
 
 #define GAIN_MAXIMUM	(abe_gain_t)3000L
 #define GAIN_24dB	(abe_gain_t)2400L
-#define GAIN_18dB	(abe_gain_t)1800L
-#define GAIN_12dB	(abe_gain_t)1200L
-#define GAIN_6dB	(abe_gain_t)600L
-#define GAIN_0dB	(abe_gain_t)0L	    /* default gain = 1 */
-#define GAIN_M6dB	(abe_gain_t)-600L
-#define GAIN_M12dB	(abe_gain_t)-1200L
-#define GAIN_M18dB	(abe_gain_t)-1800L
-#define GAIN_M24dB	(abe_gain_t)-2400L
-#define GAIN_M30dB	(abe_gain_t)-3000L
-#define GAIN_M40dB	(abe_gain_t)-4000L
-#define GAIN_M50dB	(abe_gain_t)-5000L
-#define MUTE_GAIN	(abe_gain_t)-12000L
+#define GAIN_18dB		   (abe_gain_t)1800L
+#define GAIN_12dB		   (abe_gain_t)1200L
+#define GAIN_6dB		    (abe_gain_t)600L
+#define GAIN_0dB		     (abe_gain_t) 0L	    /* default gain = 1 */
+#define GAIN_M6dB		   (abe_gain_t)-600L
+#define GAIN_M12dB		  (abe_gain_t)-1200L
+#define GAIN_M18dB		  (abe_gain_t)-1800L
+#define GAIN_M24dB		  (abe_gain_t)-2400L
+#define GAIN_M30dB		  (abe_gain_t)-3000L
+#define GAIN_M40dB		  (abe_gain_t)-4000L
+#define GAIN_M50dB		  (abe_gain_t)-5000L
+#define MUTE_GAIN		 (abe_gain_t)-12000L
 
 #define RAMP_0MS	(abe_ramp_t)0L           /* ramp_t is in milli- seconds */
 #define RAMP_1MS	(abe_ramp_t)1L
@@ -297,7 +249,7 @@
 #define RUN_P			2	/* port running */
 #define NOCALLBACK		0
 #define NOPARAMETER		0
-
+					/* HAL 06: those numbers may be x4 */
 #define MCPDM_UL_ITER		2	/* number of ATC access upon AMIC DMArequests, all the FIFOs are enabled */
 #define MCPDM_DL_ITER		6	/* All the McPDM FIFOs are enabled simultaneously */
 #define DMIC_ITER		6	/* All the DMIC FIFOs are enabled simultaneously */
@@ -335,10 +287,17 @@
 #define absolute(a)		( ((a)>0) ? (a):((-1)*(a)) )
 
 // Gives 1% errors
-//#define abe_power_of_two(x) (abe_float)(1 + x*(0.69315 + x*(0.24022 + x*(0.056614 + x*(0.00975 )))))   /* for x = [-1..+1] */
-//#define abe_log_of_two(i)   (abe_float)(-2.4983 + i*(4.0321 + i*(-2.0843 + i*(0.63 + i*(-0.0793)))))   /* for i = [+1..+2[ */
+//#define abe_power_of_two(x) (abe_float)(1 + x*(0.69315 + x*(0.24022 + x*(0.056614 + x*(0.00975 )))))	 /* for x = [-1..+1] */
+//#define abe_log_of_two(i)   (abe_float)(-2.4983 + i*(4.0321 + i*(-2.0843 + i*(0.63 + i*(-0.0793)))))	 /* for i = [+1..+2[ */
 // Gives 0.1% errors
-//#define abe_power_of_two(xx) (abe_float)(1 + xx*(0.69314718055995 + xx*(0.24022650695909 + xx*(0.05661419083812 + xx*(0.0096258236109 )))))   /* for x = [-1..+1] */
+//#define abe_power_of_two(xx) (abe_float)(1 + xx*(0.69314718055995 + xx*(0.24022650695909 + xx*(0.05661419083812 + xx*(0.0096258236109 )))))	/* for x = [-1..+1] */
 //#define abe_log_of_two(i)   (abe_float)(-3.02985297173966 + i*(6.07170945221999 + i*(-5.27332161514862 + i*(3.22638187067771 + i*(-1.23767101624897 + i*(0.26766043958616 + i*(-0.02490211314987)))))))   /* for i = [+1..+2[ */
+
+#if 0
+#define abe_power_of_two(xx) (abe_float)(0.9999999924494 + xx*(0.69314847688495 + xx*(0.24022677604481 + xx*(0.05549256818679 + xx*(0.00961666477618 + xx*(0.0013584351075 + xx*(0.00015654359307)))))))	/* for x = [-1..+1] */
+#define abe_log_of_two(xx)   (abe_float)(-3.02985297175803 + xx*(6.07170945229365 + xx*(-5.27332161527062 + xx*(3.22638187078450 + xx*(-1.23767101630110 + xx*(0.26766043959961 + xx*(-0.02490211315130)))))))	/* for x = [+1..+2] */
+#define abe_sine(xx)	 (abe_float)(-0.000000389441 + xx*(6.283360925789 + xx*(-0.011140658372 + xx*(-41.073653348384 + xx*(-3.121196875959 + xx*(100.619954580736 + xx*( -59.133359355846)))))))	  /* for x = [0 .. pi/2] */
+#define abe_sqrt(xx)	 (abe_float)(0.32298238417665 + xx*(0.93621865220393 + xx*(-0.36276443369703 + xx*(0.13008602653101+ xx*(-0.03017833169073 + xx*(0.00393731964847 + xx*-0.00021858629159 ))))))     /* for x = [1 .. 4] */
+#endif
 
 #endif	/* _ABE_DEF_H_ */
