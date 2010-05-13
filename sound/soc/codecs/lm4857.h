@@ -17,6 +17,8 @@
 #ifndef LM4857_H_
 #define LM4857_H_
 
+int lm4857_add_controls(struct snd_soc_codec *codec);
+
 /* The register offsets in the cache array */
 #define LM4857_MVOL 0
 #define LM4857_LVOL 1
