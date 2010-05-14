@@ -159,9 +159,9 @@ struct dispc_reg { u16 idx; };
 
 #define DISPC_VID_PRELOAD(n)		DISPC_REG(0x230 + (n)*0x04)
 
-#ifdef CONFIG_ARCH_OMAP4
+#define DISPC_CONTROL2			DISPC_REG(0x0238)
 
-#define DISPC_CONTROL2				DISPC_REG(0x0238)
+#ifdef CONFIG_ARCH_OMAP4
 
 /******** registers related to VID3 and WB pipelines ****/
 /* DISPC Video plane, n = 0 for VID3, n = 1 for WB _VID_V3_WB_ */
@@ -684,71 +684,33 @@ bool dispc_go_busy(enum omap_channel channel)
 		return REG_GET(DISPC_CONTROL, bit, bit) == 1;
 }
 
-void dispc_go(enum omap_channel channel)
+static void _dispc_go(struct dispc_reg ctrl, int bit_en, int bit_go,
+		      char *channel)
 {
-	int bit;
-
 	enable_clocks(1);
-#ifdef CONFIG_ARCH_OMAP4
-	if (channel != OMAP_DSS_CHANNEL_DIGIT)
-#else
-	if (channel == OMAP_DSS_CHANNEL_LCD)
-#endif
-		bit = 0; /* LCDENABLE */
-	else
-		bit = 1; /* DIGITALENABLE */
-
-#ifdef CONFIG_ARCH_OMAP4
-	if (channel == OMAP_DSS_CHANNEL_LCD2)
-		REG_FLD_MOD(DISPC_CONTROL2, 1, 0, 0);
-	else
-		 REG_FLD_MOD(DISPC_CONTROL, 1, 0, 0);
-
-#endif
-	if (REG_GET(DISPC_CONTROL, bit, bit) == 0)
+	if (REG_GET(ctrl, bit_en, bit_en) == 0)
 		goto end;
 
-#ifdef CONFIG_ARCH_OMAP4
-	if (channel != OMAP_DSS_CHANNEL_DIGIT)
-#else
-	if (channel == OMAP_DSS_CHANNEL_LCD)
-#endif
-		bit = 5; /* GOLCD */
-	else
-		bit = 6; /* GODIGIT */
-
-#ifndef CONFIG_ARCH_OMAP4
-	if (REG_GET(DISPC_CONTROL, bit, bit) == 1) {
-		DSSERR("GO bit not down for channel %d\n", channel);
+	if (REG_GET(ctrl, bit_go, bit_go) == 1) {
+		DSSERR("GO bit not down for %s\n", channel);
 		goto end;
 	}
 
-	DSSDBG("GO %s\n", channel == OMAP_DSS_CHANNEL_LCD ? "LCD" : "DIGIT");
+	DSSDBG("GO %s\n", channel);
 
-	REG_FLD_MOD(DISPC_CONTROL, 1, bit, bit);
-#else
-	if (channel == OMAP_DSS_CHANNEL_LCD2) {
-		if (REG_GET(DISPC_CONTROL2, bit, bit) == 1) {
-			DSSERR("GO bit not down for channel %d\n", channel);
-			goto end;
-		}
-		DSSDBG("GO LCD2\n");
-		REG_FLD_MOD(DISPC_CONTROL2, 1, bit, bit);
-	} else {
-		if (REG_GET(DISPC_CONTROL, bit, bit) == 1) {
-			DSSERR("GO bit not down for channel %d\n", channel);
-			goto end;
-		}
-
-		DSSDBG("GO %s\n", channel == OMAP_DSS_CHANNEL_LCD ?
-							"LCD" : "DIGIT");
-
-		REG_FLD_MOD(DISPC_CONTROL, 1, bit, bit);
-	}
-#endif
-
+	REG_FLD_MOD(ctrl, 1, bit_go, bit_go);
 end:
 	enable_clocks(0);
+}
+
+void dispc_go(enum omap_channel channel)
+{
+	if (channel == OMAP_DSS_CHANNEL_LCD2)
+		_dispc_go(DISPC_CONTROL2, 0, 5, "LCD2");
+	else if (channel == OMAP_DSS_CHANNEL_LCD)
+		_dispc_go(DISPC_CONTROL, 0, 5, "LCD");
+	else if (channel == OMAP_DSS_CHANNEL_DIGIT)
+		_dispc_go(DISPC_CONTROL, 1, 6, "DIGIT");
 }
 
 static void _dispc_write_firh_reg(enum omap_plane plane, int reg, u32 value)
