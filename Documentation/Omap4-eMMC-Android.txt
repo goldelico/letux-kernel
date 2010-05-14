@@ -1,0 +1,62 @@
+How to flash eMMC for booting Android on OMAP4 platform
+========================================================
+
+A 32GB eMMC device is connected to MMC2 controller on OMAP4 platform.This README
+document describes the procedure to flash eMMC for booting android on OMAP4.
+
+On Omap4 SDP MMC1 is connected to a card cage on the board and MMC2 is connected
+to a eMMC device.This procedure assumes that an external SD card capable of booting
+android on omap4 is used to boot for the first time and then the below procedure is
+fallowed to flash eMMC.
+
+In order to make this procedure simpler a copy of eMMC boot image is provided.This can
+be downloaded from the below link.Please copy this to the first partition of the
+external SD card which will be later copied to the eMMC.
+
+Link:
+https://gforge.ti.com/gf/download/frsrelease/271/3438/Omap4_eMMC_Bootimg
+
+To start with boot the omap4 using the external SD card.At the android kernel prompt
+execute the below command to tranfer the eMMC image(that was downloaded from the above
+link and kept in the SD card first partition) to eMMC device.
+
+dd if=/sdcard/Omap4_eMMC_Bootimg of=/dev/block/mmcblk1
+
+This would flash the x-loader and u-boot to eMMC(raw space at the begining of the card)
+and also create two partitions on the eMMC device.The first partition begins after the
+raw space.The first partition is used to flash a linux kernel image and the second
+partition is used for the file system.
+
+Further,the usb based android gadget is used to mount the eMMC device onto the host PC
+in order to transfer the kernel and the android file system. In order to do that execute
+the below line from the command prompt.
+
+echo /dev/block/mmcblk1  >/sys/devices/platform/musb_hdrc/gadget/lun0/file
+
+Connect a linux host PC to OMAP4 using a USB cable.
+
+The eMMC will be recognized as /dev/<sd*> on the host PC.
+
+Use the mkfs.vfat and mkfs.ext3 to format the first and second partitions.
+
+For e.g run the below from host PC.
+
+mkfs.vfat /dev/sd<b1>
+mkfs.ext3 /dev/sd<b2>
+
+Now unplug-plug the usb cable to omap4.This should auto mount the partitions on PC.
+
+Copy kernel Image to first partition.
+cp uImage /media/disk-1/ <assuming that eMMC first partition is mounted as disk-1 on PC>
+
+Copy the android FS to the second partition.
+cp my-android/* /media/disk-2/ <assuming that eMMC second partition is mounted as disk-2 on PC>
+
+Set up the sysboot switch settings on the SDP to boot from MMC2 and reset the power to the board.
+The bootloader should boot up from eMMC and load the kernel from the FAT partition of the
+eMMC device and boot the same.The env is set by default to load the FS from the eMMC second partition.
+
+Limitation:
+The external MMC/SD card should be maintained in the cage during kernel boot in
+order for the kernel to recognize MMC1 and MMC2 in the order.The external SD card
+can then be unpluged after kernel boot to load media content.
