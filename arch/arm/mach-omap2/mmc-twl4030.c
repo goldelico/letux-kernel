@@ -483,6 +483,21 @@ static int twl_mmc23_set_sleep(struct device *dev, int slot, int sleep, int vdd,
 	return regulator_set_mode(c->vcc_aux, mode);
 }
 
+/* TODO: Regulator Settings for MMC5 */
+static int twl_mmc5_set_power(struct device *dev, int slot, int power_on,
+				int vdd)
+{
+   return 0;
+}
+
+/* TODO: Needs to Update for MMC5 */
+static int twl_mmc5_set_sleep(struct device *dev, int slot, int sleep, int vdd,
+				int cardsleep)
+{
+   return 0;
+}
+
+
 static struct omap_mmc_platform_data *hsmmc_data[OMAP44XX_NR_MMC] __initdata;
 
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
@@ -666,11 +681,15 @@ void __init twl4030_mmc_init(struct twl4030_hsmmc_info *controllers)
 				c->wires = 4;
 			/* FALLTHROUGH */
 		case 3:
-		case 4:
-		case 5:
 			/* off-chip level shifting, or none */
 			mmc->slots[0].set_power = twl_mmc23_set_power;
 			mmc->slots[0].set_sleep = twl_mmc23_set_sleep;
+			break;
+		case 4:
+		case 5:
+			/* FIXME :Adding dummy functions */
+			mmc->slots[0].set_power = twl_mmc5_set_power;
+			mmc->slots[0].set_sleep = twl_mmc5_set_sleep;
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
 			mmc->slots[0].ocr_mask  = MMC_VDD_165_195;
 #endif
