@@ -128,6 +128,12 @@ static struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 };
 /*-------------------------------------------------------------*/
 
+static const struct ohci_hcd_omap_platform_data ohci_pdata = {
+	.port_mode[0] = OMAP_OHCI_PORT_MODE_UNUSED,
+	.port_mode[1] = OMAP_OHCI_PORT_MODE_UNUSED,
+	.port_mode[2] = OMAP_OHCI_PORT_MODE_PHY_3PIN_DATSE0,
+};
+
 static void __init omap_sdp_map_io(void)
 {
 	omap2_set_globals_343x();
@@ -165,6 +171,7 @@ static void __init omap_sdp_init(void)
 	omap_mux_init_signal("gpio_126", OMAP_PIN_OUTPUT);
 	omap_mux_init_signal("gpio_61", OMAP_PIN_OUTPUT);
 	usb_ehci_init(&ehci_pdata);
+	usb_ohci_init(&ohci_pdata);
 }
 
 MACHINE_START(OMAP_3630SDP, "OMAP 3630SDP board")

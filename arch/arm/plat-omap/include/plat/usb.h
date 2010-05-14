@@ -47,8 +47,29 @@ struct ehci_hcd_omap_port_data {
 	void	(*suspend)(struct platform_device *dev, int port, int suspend);
 };
 
+enum ohci_omap3_port_mode {
+	OMAP_OHCI_PORT_MODE_UNUSED,
+	OMAP_OHCI_PORT_MODE_PHY_6PIN_DATSE0,
+	OMAP_OHCI_PORT_MODE_PHY_6PIN_DPDM,
+	OMAP_OHCI_PORT_MODE_PHY_3PIN_DATSE0,
+	OMAP_OHCI_PORT_MODE_PHY_4PIN_DPDM,
+	OMAP_OHCI_PORT_MODE_TLL_6PIN_DATSE0,
+	OMAP_OHCI_PORT_MODE_TLL_6PIN_DPDM,
+	OMAP_OHCI_PORT_MODE_TLL_3PIN_DATSE0,
+	OMAP_OHCI_PORT_MODE_TLL_4PIN_DPDM,
+	OMAP_OHCI_PORT_MODE_TLL_2PIN_DATSE0,
+	OMAP_OHCI_PORT_MODE_TLL_2PIN_DPDM,
+};
+
 struct ehci_hcd_omap_platform_data {
 	struct ehci_hcd_omap_port_data	port_data[OMAP3_HS_USB_PORTS];
+};
+
+struct ohci_hcd_omap_platform_data {
+	enum ohci_omap3_port_mode	port_mode[OMAP3_HS_USB_PORTS];
+
+	/* Set this to true for ES2.x silicon */
+	unsigned			es2_compatibility:1;
 };
 
 /*-------------------------------------------------------------------------*/
@@ -87,6 +108,8 @@ extern void usb_ehci_init(struct ehci_hcd_omap_platform_data *pdata);
 
 /* This is needed for OMAP3 errata 1.164: enabled autoidle can prevent sleep */
 extern void usb_musb_disable_autoidle(void);
+
+extern void usb_ohci_init(const struct ohci_hcd_omap_platform_data *pdata);
 
 #endif
 
