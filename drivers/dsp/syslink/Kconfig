@@ -46,6 +46,12 @@ config  NOTIFY_DUCATI
 	help
  	   Notify Ducati Module 
 
+config MPU_SYSLINK_PLATFORM
+        tristate "Syslink Platform Module"
+        default y
+        help
+          Syslink Platform Module
+
 config MPU_SYSLINK_IPC
         tristate "Syslink IPC Module"
         depends on MPU_BRIDGE_NOTIFY && NOTIFY_DUCATI
