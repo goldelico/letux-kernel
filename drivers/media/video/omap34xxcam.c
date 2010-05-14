@@ -485,9 +485,17 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 				break;
 
 			pix_tmp_in.pixelformat = frms.pixel_format;
+
 			pix_tmp_in.width = frms.discrete.width;
 			pix_tmp_in.height = frms.discrete.height;
 			pix_tmp_out = *wanted_pix_out;
+#ifdef CONFIG_VIDEO_OMAP3_SIZENEG_NOUPSCALE
+			/* Don't do upscaling. */
+			if (pix_tmp_out.width > pix_tmp_in.width)
+				pix_tmp_out.width = pix_tmp_in.width;
+			if (pix_tmp_out.height > pix_tmp_in.height)
+				pix_tmp_out.height = pix_tmp_in.height;
+#endif
 			rval = isp_try_fmt_cap(isp, &pix_tmp_in, &pix_tmp_out,
 					       vdev->vdev_sensor_config.isp_if);
 			if (rval)
@@ -587,6 +595,7 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 				 * Select bigger resolution if it's available
 				 * at same fps.
 				 */
+#ifdef CONFIG_VIDEO_OMAP3_SIZENEG_TRYBIGGER
 				if (frmi.width + frmi.height
 				    > best_pix_in->width + best_pix_in->height
 				    && FPS_ABS_DIFF(fps, frmi.discrete)
@@ -599,7 +608,7 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 						best_pix_in->height);
 					goto do_it_now;
 				}
-
+#endif
 				dev_dbg(&vdev->vfd->dev, "falling through\n");
 
 				continue;

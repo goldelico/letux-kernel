@@ -840,6 +840,27 @@ config VIDEO_OMAP3
 	---help---
 	  Driver for an OMAP 3 camera controller.
 
+menu "OMAP 3 Camera Policies"
+	depends on VIDEO_OMAP3
+
+config VIDEO_OMAP3_SIZENEG_NOUPSCALE
+	bool "Don't do upscaling"
+	default y
+	---help---
+	  If selected, makes main camera driver don't consider using OMAP3 ISP
+	  for upscaling.
+
+config VIDEO_OMAP3_SIZENEG_TRYBIGGER
+	bool "Try bigger sizes that has the same closest FPS as desired"
+	default y
+	---help---
+	  If selected, during size negotiation between sensor and ISP, try to
+	  match closest framerate, and use biggest possible framesize that
+	  still matches the framerate. If unselected, sensor output size will
+	  be closer to desired size, even if that doesn't give the closest
+	  framerate.
+endmenu
+
 source "drivers/media/video/isp/Kconfig"
 
 config SOC_CAMERA
