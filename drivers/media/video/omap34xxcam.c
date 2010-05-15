@@ -1261,19 +1261,17 @@ static int vidioc_s_parm(struct file *file, void *_fh,
 		return -EINVAL;
 
 	mutex_lock(&vdev->mutex);
-	if (vdev->cam->streaming) {
-		rval = -EBUSY;
-		goto out;
-	}
 
 	vdev->want_timeperframe = a->parm.capture.timeperframe;
 
-	pix_tmp = vdev->want_pix;
+	if (vdev->cam->streaming) {
+		rval = vidioc_int_s_parm(vdev->vdev_sensor, a);
+	} else {
+		pix_tmp = vdev->want_pix;
+		rval = s_pix_parm(vdev, &pix_tmp_sensor, &pix_tmp,
+				  &a->parm.capture.timeperframe);
+	}
 
-	rval = s_pix_parm(vdev, &pix_tmp_sensor, &pix_tmp,
-			  &a->parm.capture.timeperframe);
-
-out:
 	mutex_unlock(&vdev->mutex);
 
 	return rval;
