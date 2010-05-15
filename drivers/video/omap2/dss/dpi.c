@@ -217,7 +217,8 @@ static void dpi_start_auto_update(struct omap_dss_device *dssdev)
 			printk(KERN_ERR "ovl[%d]->manager = %s", i,
 				ovl->manager->name);
 	}
-	dssdev->manager->apply(dssdev->manager);
+	if (dssdev->manager)
+		dssdev->manager->apply(dssdev->manager);
 }
 
 static int dpi_display_enable(struct omap_dss_device *dssdev)
