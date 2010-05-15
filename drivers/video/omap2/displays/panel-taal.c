@@ -831,11 +831,6 @@ static int taal_wait_te(struct omap_dss_device *dssdev)
 		return -ETIME;
 	}
 
-	/* Tearing interrupt comes slightly early, we wait
-	* for 725us after the rising edge
-	*/
-	if (cpu_is_omap44xx())
-		udelay(725);
 	return 0;
 }
 

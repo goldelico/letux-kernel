@@ -322,6 +322,10 @@ static unsigned int dsi_perf;
 module_param_named(dsi_perf, dsi_perf, bool, 0644);
 #endif
 
+static bool dsi_te_sync = 1;
+module_param_named(dsi_te_sync, dsi_te_sync, bool, 0644);
+MODULE_PARM_DESC(dsi_te_sync, "enable/disable tearing");
+
 
 static inline void dsi_write_reg(enum dsi lcd_ix,
 	const struct dsi_reg idx, u32 val)
@@ -1021,7 +1025,7 @@ static int dsi_calc_clock_rates(struct dsi_clock_info *cinfo)
 	if (cinfo->use_dss2_sys_clk) {
 		/* We have hardcoded the value of SYS_CLK
 		* till the time HWMOD framework isnt available*/
-		cinfo->clkin = 26000000;
+		cinfo->clkin = 38400000;
 		cinfo->highfreq = 0;
 	} else if (cinfo->use_dss2_fck) {
 		cinfo->clkin = dss_clk_get_rate(DSS_CLK_FCK2);
@@ -3199,6 +3203,8 @@ static void dsi_framedone_irq_callback(void *data, u32 mask)
 	if (!cpu_is_omap44xx())
 		udelay(100);
 	dsi_1.framedone_received = true;
+	if (!dsi_te_sync)
+		udelay(100);
 	wake_up(&dsi_1.waitqueue);
 }
 
@@ -3211,6 +3217,8 @@ static void dsi2_framedone_irq_callback(void *data, u32 mask)
 	/* SIDLEMODE back to smart-idle */
 	dispc_enable_sidle();
 	dsi_2.framedone_received = true;
+	if (!dsi_te_sync)
+		udelay(100);
 	wake_up(&dsi_2.waitqueue);
 }
 
@@ -3407,7 +3415,8 @@ static int dsi_update_thread(void *data)
 			if (!cpu_is_omap44xx())
 				dsi_vc_config_vp(lcd_ix, 0);
 
-			if (dsi_1.te_enabled && dsi_1.use_ext_te)
+			if (dsi_te_sync && dsi_1.te_enabled
+					&& dsi_1.use_ext_te)
 				device->driver->wait_for_te(device);
 
 			dsi_1.framedone_received = false;
@@ -3535,7 +3544,8 @@ static int dsi2_update_thread(void *data)
 		dsi_perf_mark_start(lcd_ix);
 
 		if (device->manager->caps & OMAP_DSS_OVL_MGR_CAP_DISPC) {
-			if (dsi_2.te_enabled && dsi_2.use_ext_te)
+			if (dsi_te_sync && dsi_2.te_enabled
+					&& dsi_2.use_ext_te)
 				device->driver->wait_for_te(device);
 
 			dsi_2.framedone_received = false;
