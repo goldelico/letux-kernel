@@ -142,5 +142,11 @@ config HDQ_GPIO_BITBANG
 	  Say Y to enable supoort for generic gpio based HDQ bitbang driver.
 	  This can not be built as a module.
 
+config BATTERY_PLATFORM
+	tristate "Platform battery driver"
+	help
+	  Say Y here to include support for battery driver that gets all
+	  information from platform functions.
+
 endif # POWER_SUPPLY
 
