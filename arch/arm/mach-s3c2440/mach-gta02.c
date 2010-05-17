@@ -96,6 +96,7 @@
 #include <plat/iic.h>
 
 #include <mach/gta02-pm-gps.h>
+#include <mach/gta02-pm-wlan.h>
 
 static struct pcf50633 *gta02_pcf;
 
@@ -169,6 +170,10 @@ static struct platform_device gta02_pm_gps_dev = {
 
 static struct platform_device gta02_pm_gsm_dev = {
 	.name = "gta02-pm-gsm",
+};
+
+static struct platform_device gta02_pm_wlan_dev = {
+	.name = "gta02-pm-wlan",
 };
 
 static struct regulator_consumer_supply gsm_supply_consumer = {
@@ -784,6 +789,7 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&gta02_pwm_leds_device,
 	&gta02_pm_gps_dev,
 	&gta02_pm_bt_dev,
+	&gta02_pm_wlan_dev,
 };
 
 /* These guys DO need to be children of PMU. */
