@@ -51,6 +51,7 @@
 #include <linux/i2c.h>
 #include <linux/backlight.h>
 #include <linux/regulator/machine.h>
+#include <linux/regulator/fixed.h>
 
 #include <linux/mfd/pcf50633/core.h>
 #include <linux/mfd/pcf50633/mbc.h>
@@ -165,6 +166,43 @@ static struct platform_device gta02_pm_bt_dev = {
 static struct platform_device gta02_pm_gps_dev = {
 	.name = "gta02-pm-gps",
 };
+
+static struct platform_device gta02_pm_gsm_dev = {
+	.name = "gta02-pm-gsm",
+};
+
+static struct regulator_consumer_supply gsm_supply_consumer = {
+	.dev = &gta02_pm_gsm_dev.dev,
+	.supply = "GSM",
+};
+
+static struct regulator_init_data gsm_supply_init_data = {
+	.constraints = {
+		.min_uV = 3700000,
+		.max_uV = 3700000,
+		.valid_modes_mask = REGULATOR_MODE_NORMAL,
+		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies = 1,
+	.consumer_supplies = &gsm_supply_consumer,
+};
+
+static struct fixed_voltage_config gsm_supply_config = {
+	.supply_name = "GSM",
+	.microvolts = 3700000,
+	.gpio = GTA02_GPIO_PCF(PCF50633_GPIO2),
+	.enable_high = 1,
+	.init_data = &gsm_supply_init_data,
+};
+
+static struct platform_device gta02_gsm_supply_device = {
+	.name = "reg-fixed-voltage",
+	.id = 1,
+	.dev = {
+		.platform_data = &gsm_supply_config,
+	},
+};
+
 
 #ifdef CONFIG_CHARGER_PCF50633
 /*
@@ -791,7 +829,25 @@ struct gta02_device_children {
 	void (*probed_callback)(struct device *dev);
 };
 
+static struct platform_device* gta02_pcf50633_gpio_children[] = {
+	&gta02_gsm_supply_device,
+};
+
+static struct platform_device* gta02_gsm_supply_children[] = {
+	&gta02_pm_gsm_dev,
+};
+
 static struct gta02_device_children gta02_device_children[] = {
+	{
+		.dev_name = "pcf50633-gpio",
+		.num_children = 1,
+		.children = gta02_pcf50633_gpio_children,
+	},
+	{
+		.dev_name = "reg-fixed-voltage.1",
+		.num_children = 1,
+		.children = gta02_gsm_supply_children,
+	}
 };
 
 static int gta02_add_child_devices(struct device *parent,
