@@ -131,4 +131,16 @@ config CHARGER_PCF50633
 	help
 	 Say Y to include support for NXP PCF50633 Main Battery Charger.
 
+config BATTERY_BQ27000_HDQ
+	tristate "BQ27000 HDQ battery monitor driver"
+	help
+	  Say Y to enable support for the battery on the Neo Freerunner
+
+config HDQ_GPIO_BITBANG
+	bool "Generic gpio based HDQ bitbang"
+	help
+	  Say Y to enable supoort for generic gpio based HDQ bitbang driver.
+	  This can not be built as a module.
+
 endif # POWER_SUPPLY
+
