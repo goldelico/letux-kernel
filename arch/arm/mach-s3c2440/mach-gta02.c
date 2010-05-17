@@ -84,6 +84,8 @@
 #include <mach/regs-mem.h>
 #include <mach/hardware.h>
 
+#include <mach/ts.h>
+
 #include <mach/gta02.h>
 
 #include <plat/regs-serial.h>
@@ -727,6 +729,13 @@ static struct s3c2410_hcd_info gta02_usb_info __initdata = {
 	},
 };
 
+/* Touchscreen */
+static struct s3c2410_ts_mach_info gta02_ts_info = {
+       .delay = 10000,
+       .presc = 0xff, /* slow as we can go */
+	   .oversampling_shift = 2,
+};
+
 /* Buttons */
 static struct gpio_keys_button gta02_buttons[] = {
 	{
@@ -887,6 +896,8 @@ static struct platform_device *gta02_devices[] __initdata = {
 	&gta02_pm_bt_dev,
 	&gta02_pm_wlan_dev,
 	&gta02_glamo_dev,
+	&s3c_device_adc,
+	&s3c_device_ts,
 };
 
 /* These guys DO need to be children of PMU. */
@@ -1098,6 +1109,7 @@ static void __init gta02_machine_init(void)
 #endif
 
 	s3c24xx_udc_set_platdata(&gta02_udc_cfg);
+	s3c24xx_ts_set_platdata(&gta02_ts_info);
 	s3c_ohci_set_platdata(&gta02_usb_info);
 	s3c_nand_set_platdata(&gta02_nand_info);
 	s3c_i2c0_set_platdata(NULL);
@@ -1105,7 +1117,7 @@ static void __init gta02_machine_init(void)
 				ARRAY_SIZE(gta02_spi_board_info));
 
 	i2c_register_board_info(0, gta02_i2c_devs, ARRAY_SIZE(gta02_i2c_devs));
- 
+
 	platform_add_devices(gta02_devices, ARRAY_SIZE(gta02_devices));
 
 	pm_power_off = gta02_poweroff;
