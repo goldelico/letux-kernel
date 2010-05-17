@@ -39,7 +39,6 @@
 
 #include "dss.h"
 #include <mach/tiler.h>
-#include"../../../media/video/tiler/tiler.h"
 
 #ifndef CONFIG_ARCH_OMAP4
        	/* DSS */
