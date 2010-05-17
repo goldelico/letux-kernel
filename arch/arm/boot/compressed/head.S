@@ -66,7 +66,7 @@ wait:		mrc	p14, 0, pc, c0, c1, 0
 		add	\rb, \rb, #0x00010000	@ Ser1
 #endif
 		.endm
-#elif defined(CONFIG_ARCH_S3C2410)
+#elif defined(CONFIG_ARCH_S3C2410) && CONFIG_S3C_LOWLEVEL_UART_PORT >= 0
 		.macro loadsp, rb, tmp
 		mov	\rb, #0x50000000
 		add	\rb, \rb, #0x4000 * CONFIG_S3C_LOWLEVEL_UART_PORT

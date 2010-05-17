@@ -153,9 +153,9 @@
 #define IRQ_S3C2443_AC97	S3C2410_IRQSUB(28)
 
 #ifdef CONFIG_CPU_S3C2443
-#define NR_IRQS (IRQ_S3C2443_AC97+1)
+#define S3C2410_NR_INTERNAL_IRQS (IRQ_S3C2443_AC97+1)
 #else
-#define NR_IRQS (IRQ_S3C2440_AC97+1)
+#define S3C2410_NR_INTERNAL_IRQS (IRQ_S3C2440_AC97+1)
 #endif
 
 /* compatibility define. */
@@ -172,5 +172,23 @@
 
 /* Our FIQs are routable from IRQ_EINT0 to IRQ_ADCPARENT */
 #define FIQ_START		IRQ_EINT0
+
+/* Board specific IRQs
+ * If your board needs a extra set of IRQ numbers add it to the list here.
+ * Make sure that the numbers are kept in descending order, so if support for
+ * multiple boards is compiled in the maximum will be used and there are enough
+ * IRQ numbers available for each board.
+ */
+
+#if defined(CONFIG_MACH_NEO1973_GTA02)
+#define IRQ_BOARD_NR (9 + 40)
+#else
+#define IRQ_BOARD_NR 0
+#endif
+
+#define IRQ_BOARD_START S3C2410_NR_INTERNAL_IRQS
+#define IRQ_BOARD_END	(IRQ_BOARD_START + IRQ_BOARD_NR)
+
+#define NR_IRQS			IRQ_BOARD_END
 
 #endif /* __ASM_ARCH_IRQ_H */

@@ -28,6 +28,8 @@
 #include <asm/mach/irq.h>
 
 #include <plat/regs-irqtype.h>
+#include <mach/regs-irq.h>
+#include <mach/regs-gpio.h>
 
 #include <plat/cpu.h>
 #include <plat/pm.h>
@@ -37,12 +39,20 @@ static void
 s3c_irq_mask(unsigned int irqno)
 {
 	unsigned long mask;
-
+#ifdef CONFIG_S3C2440_C_FIQ
+	unsigned long flags;
+#endif
 	irqno -= IRQ_EINT0;
-
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_save_flags(flags);
+	local_fiq_disable();
+#endif
 	mask = __raw_readl(S3C2410_INTMSK);
 	mask |= 1UL << irqno;
 	__raw_writel(mask, S3C2410_INTMSK);
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_irq_restore(flags);
+#endif
 }
 
 static inline void
@@ -59,9 +69,19 @@ s3c_irq_maskack(unsigned int irqno)
 {
 	unsigned long bitval = 1UL << (irqno - IRQ_EINT0);
 	unsigned long mask;
+#ifdef CONFIG_S3C2440_C_FIQ
+	unsigned long flags;
+#endif
 
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_save_flags(flags);
+	local_fiq_disable();
+#endif
 	mask = __raw_readl(S3C2410_INTMSK);
 	__raw_writel(mask|bitval, S3C2410_INTMSK);
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_irq_restore(flags);
+#endif
 
 	__raw_writel(bitval, S3C2410_SRCPND);
 	__raw_writel(bitval, S3C2410_INTPND);
@@ -72,15 +92,25 @@ static void
 s3c_irq_unmask(unsigned int irqno)
 {
 	unsigned long mask;
+#ifdef CONFIG_S3C2440_C_FIQ
+	unsigned long flags;
+#endif
 
 	if (irqno != IRQ_TIMER4 && irqno != IRQ_EINT8t23)
 		irqdbf2("s3c_irq_unmask %d\n", irqno);
 
 	irqno -= IRQ_EINT0;
 
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_save_flags(flags);
+	local_fiq_disable();
+#endif
 	mask = __raw_readl(S3C2410_INTMSK);
 	mask &= ~(1UL << irqno);
 	__raw_writel(mask, S3C2410_INTMSK);
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_irq_restore(flags);
+#endif
 }
 
 struct irq_chip s3c_irq_level_chip = {
@@ -561,6 +591,18 @@ void __init s3c24xx_init_irq(void)
 
 	last = 0;
 	for (i = 0; i < 4; i++) {
+		pend = __raw_readl(S3C2410_SUBSRCPND);
+
+		if (pend == 0 || pend == last)
+			break;
+
+		printk("irq: clearing subpending status %08x\n", (int)pend);
+		__raw_writel(pend, S3C2410_SUBSRCPND);
+		last = pend;
+	}
+
+	last = 0;
+	for (i = 0; i < 4; i++) {
 		pend = __raw_readl(S3C2410_INTPND);
 
 		if (pend == 0 || pend == last)
@@ -569,18 +611,6 @@ void __init s3c24xx_init_irq(void)
 		__raw_writel(pend, S3C2410_SRCPND);
 		__raw_writel(pend, S3C2410_INTPND);
 		printk("irq: clearing pending status %08x\n", (int)pend);
-		last = pend;
-	}
-
-	last = 0;
-	for (i = 0; i < 4; i++) {
-		pend = __raw_readl(S3C2410_SUBSRCPND);
-
-		if (pend == 0 || pend == last)
-			break;
-
-		printk("irq: clearing subpending status %08x\n", (int)pend);
-		__raw_writel(pend, S3C2410_SUBSRCPND);
 		last = pend;
 	}
 
@@ -631,15 +661,13 @@ void __init s3c24xx_init_irq(void)
 
 	for (irqno = IRQ_EINT0; irqno <= IRQ_EINT3; irqno++) {
 		irqdbf("registering irq %d (ext int)\n", irqno);
-		set_irq_chip(irqno, &s3c_irq_eint0t4);
-		set_irq_handler(irqno, handle_edge_irq);
+		set_irq_chip_and_handler(irqno, &s3c_irq_eint0t4, handle_level_irq);
 		set_irq_flags(irqno, IRQF_VALID);
 	}
 
 	for (irqno = IRQ_EINT4; irqno <= IRQ_EINT23; irqno++) {
 		irqdbf("registering irq %d (extended s3c irq)\n", irqno);
-		set_irq_chip(irqno, &s3c_irqext_chip);
-		set_irq_handler(irqno, handle_edge_irq);
+		set_irq_chip_and_handler(irqno, &s3c_irqext_chip, handle_level_irq);
 		set_irq_flags(irqno, IRQF_VALID);
 	}
 

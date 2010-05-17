@@ -134,6 +134,7 @@ struct dentry;
 #define FB_ACCEL_NEOMAGIC_NM2360 97	/* NeoMagic NM2360              */
 #define FB_ACCEL_NEOMAGIC_NM2380 98	/* NeoMagic NM2380              */
 #define FB_ACCEL_PXA3XX		 99	/* PXA3xx			*/
+#define FB_ACCEL_GLAMO		100	/* Smedia Glamo 3362            */
 
 #define FB_ACCEL_SAVAGE4        0x80	/* S3 Savage4                   */
 #define FB_ACCEL_SAVAGE3D       0x81	/* S3 Savage3D                  */

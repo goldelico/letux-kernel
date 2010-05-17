@@ -37,6 +37,8 @@ static void arch_detect_cpu(void);
 /* how many bytes we allow into the FIFO at a time in FIFO mode */
 #define FIFO_MAX	 (14)
 
+#if  CONFIG_S3C_LOWLEVEL_UART_PORT >= 0
+
 #define uart_base S3C_PA_UART + (S3C_UART_OFFSET * CONFIG_S3C_LOWLEVEL_UART_PORT)
 
 static __inline__ void
@@ -84,10 +86,6 @@ static void putc(int ch)
 
 	/* write byte to transmission register */
 	uart_wr(S3C2410_UTXH, ch);
-}
-
-static inline void flush(void)
-{
 }
 
 #define __raw_writel(d, ad)			\
@@ -161,6 +159,19 @@ static inline void arch_enable_uart_fifo(void)
 #define arch_enable_uart_fifo() do { } while(0)
 #endif
 
+#else
+static inline void putc(int ch)
+{
+}
+
+#define arch_enable_uart_fifo() do { } while(0)
+#define arch_decomp_wdog_start()
+#define arch_decomp_wdog()
+#endif
+
+static inline void flush(void)
+{
+}
 
 static void
 arch_decomp_setup(void)

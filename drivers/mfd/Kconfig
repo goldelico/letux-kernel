@@ -334,13 +334,6 @@ config PCF50633_ADC
 	 Say yes here if you want to include support for ADC in the
 	 NXP PCF50633 chip.
 
-config PCF50633_GPIO
-	tristate "Support for NXP PCF50633 GPIO"
-	depends on MFD_PCF50633
-	help
-	 Say yes here if you want to include support GPIO for pins on
-	 the PCF50633 chip.
-
 config AB3100_CORE
 	bool "ST-Ericsson AB3100 Mixed Signal Circuit core functions"
 	depends on I2C=y
@@ -398,6 +391,7 @@ config LPC_SCH
 	help
 	  LPC bridge function of the Intel SCH provides support for
 	  System Management Bus and General Purpose I/O.
+source "drivers/mfd/glamo/Kconfig"
 
 endmenu
 

@@ -235,6 +235,13 @@ config GPIO_ADP5588
 	  To compile this driver as a module, choose M here: the module will be
 	  called adp5588-gpio.
 
+config GPIO_PCF50633
+	tristate "GPIO support for NXP PCF50633"
+	depends on MFD_PCF50633
+	help
+	 Say yes here if you want to include support GPIO for pins on
+	 the PCF50633 chip.
+
 comment "PCI GPIO expanders:"
 
 config GPIO_CS5535

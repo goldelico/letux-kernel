@@ -12,6 +12,7 @@
 
 #include <linux/io.h>
 
+#include <mach/irqs.h>
 #include <mach/hardware.h>
 #include <mach/regs-irq.h>
 #include <mach/regs-gpio.h>
@@ -31,8 +32,15 @@ s3c_irqsub_mask(unsigned int irqno, unsigned int parentbit,
 {
 	unsigned long mask;
 	unsigned long submask;
+#ifdef CONFIG_S3C2440_C_FIQ
+	unsigned long flags;
+#endif
 
 	submask = __raw_readl(S3C2410_INTSUBMSK);
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_save_flags(flags);
+	local_fiq_disable();
+#endif
 	mask = __raw_readl(S3C2410_INTMSK);
 
 	submask |= (1UL << (irqno - IRQ_S3CUART_RX0));
@@ -45,6 +53,9 @@ s3c_irqsub_mask(unsigned int irqno, unsigned int parentbit,
 
 	/* write back masks */
 	__raw_writel(submask, S3C2410_INTSUBMSK);
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_irq_restore(flags);
+#endif
 
 }
 
@@ -53,8 +64,15 @@ s3c_irqsub_unmask(unsigned int irqno, unsigned int parentbit)
 {
 	unsigned long mask;
 	unsigned long submask;
+#ifdef CONFIG_S3C2440_C_FIQ
+	unsigned long flags;
+#endif
 
 	submask = __raw_readl(S3C2410_INTSUBMSK);
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_save_flags(flags);
+	local_fiq_disable();
+#endif
 	mask = __raw_readl(S3C2410_INTMSK);
 
 	submask &= ~(1UL << (irqno - IRQ_S3CUART_RX0));
@@ -63,6 +81,9 @@ s3c_irqsub_unmask(unsigned int irqno, unsigned int parentbit)
 	/* write back masks */
 	__raw_writel(submask, S3C2410_INTSUBMSK);
 	__raw_writel(mask, S3C2410_INTMSK);
+#ifdef CONFIG_S3C2440_C_FIQ
+	local_irq_restore(flags);
+#endif
 }
 
 
