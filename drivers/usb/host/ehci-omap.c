@@ -458,12 +458,12 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 			OMAP_USBTLL_SYSCONFIG);
 
 
-	/* Put UHH in SmartIdle/SmartStandby mode */
+	/* Put UHH in NoIdle/NoStandby mode */
 	omap_writel((1 << OMAP_UHH_SYSCONFIG_AUTOIDLE_SHIFT) |
 			(1 << OMAP_UHH_SYSCONFIG_ENAWAKEUP_SHIFT) |
-			(2 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT) |
+			(1 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT) |
 			(0 << OMAP_UHH_SYSCONFIG_CACTIVITY_SHIFT) |
-			(2 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT),
+			(1 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT),
 			OMAP_UHH_SYSCONFIG);
 
 	omap_usb_setup_ports(hcd);
@@ -700,6 +700,7 @@ static int omap_ehci_bus_suspend(struct usb_hcd *hcd)
 	unsigned long flags;
 	struct ehci_omap_clock_defs *ehci_clocks;
 	int ret = 0;
+	u32 uhh_sysconfig;
 
 	ehci_clocks = (struct ehci_omap_clock_defs *)
 			(((char *)hcd_to_ehci(hcd)) + sizeof(struct ehci_hcd));
@@ -714,6 +715,15 @@ static int omap_ehci_bus_suspend(struct usb_hcd *hcd)
 		 */
 		omap_writel(OHCI_HC_CTRL_SUSPEND, OHCI_HC_CONTROL);
 		mdelay(8); /* MSTANDBY assertion is delayed by ~8ms */
+
+		/* Need to set ForceStandby,ForceIdle here
+		* else the domain may not be able to transition
+		* back during clk_enable if there was a pending event.
+		*/
+		uhh_sysconfig = omap_readl(OMAP_UHH_SYSCONFIG);
+		uhh_sysconfig &= ~(3 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT);
+		uhh_sysconfig &= ~(3 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT);
+		omap_writel(uhh_sysconfig, OMAP_UHH_SYSCONFIG);
 
 		clk_disable(ehci_clocks->usbhost2_120m_fck_clk);
 		clk_disable(ehci_clocks->usbhost1_48m_fck_clk);
@@ -732,6 +742,7 @@ static int omap_ehci_bus_resume(struct usb_hcd *hcd)
 	unsigned long flags;
 	struct ehci_omap_clock_defs *ehci_clocks;
 	int ret = 0;
+	u32 uhh_sysconfig;
 
 	ehci_clocks = (struct ehci_omap_clock_defs *)
 			(((char *)hcd_to_ehci(hcd)) + sizeof(struct ehci_hcd));
@@ -747,6 +758,17 @@ static int omap_ehci_bus_resume(struct usb_hcd *hcd)
 		omap_writel(OHCI_HC_CTRL_RESUME, OHCI_HC_CONTROL);
 		ehci_clocks->suspended = 0;
 		omap_writel(0, OMAP_USBTLL_IRQENABLE);
+
+		/* Need to set back to NoStandby,Noidle
+		* FIXME: Maybe SmartIdle, SmartStandby will also work
+		*/
+
+		uhh_sysconfig = omap_readl(OMAP_UHH_SYSCONFIG);
+		uhh_sysconfig &= ~(3 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT);
+		uhh_sysconfig &= ~(3 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT);
+		uhh_sysconfig |= (1 << OMAP_UHH_SYSCONFIG_MIDLEMODE_SHIFT);
+		uhh_sysconfig |= (1 << OMAP_UHH_SYSCONFIG_SIDLEMODE_SHIFT);
+		omap_writel(uhh_sysconfig, OMAP_UHH_SYSCONFIG);
 	}
 
 	/* Wakeup ports by resume */
