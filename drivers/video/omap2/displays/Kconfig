@@ -37,4 +37,10 @@ config PANEL_TAAL
         help
           Taal DSI command mode panel from TPO.
 
+config PANEL_TPO_TD028TTEC1
+        tristate "Toppoly TD028TTEC1 Panel"
+        depends on OMAP2_DSS_DSI
+        help
+          TPO panel used by Openmoko.
+
 endmenu

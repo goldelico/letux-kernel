@@ -240,6 +240,29 @@ static struct omap_dss_device beagle_dvi_device = {
 	.platform_disable = beagle_disable_dvi,
 };
 
+static int beagle_enable_lcd(struct omap_dss_device *dssdev)
+{
+	gpio_set_value(170, 0);	// DVI off
+//	gpio_set_value(145, 1);
+	printk("beagle_enable_lcd()\n");
+	// whatever we need, e.g. enable power
+	return 0;
+}
+
+static void beagle_disable_lcd(struct omap_dss_device *dssdev)
+{
+//	gpio_set_value(145, 0);
+}
+
+static struct omap_dss_device beagle_lcd_device = {
+	.type = OMAP_DISPLAY_TYPE_DPI,
+	.name = "lcd",
+	.driver_name = "td028ttec1_panel",
+	.phy.dpi.data_lines = 24,
+	.platform_enable = beagle_enable_lcd,
+	.platform_disable = beagle_disable_lcd,
+};
+
 static int beagle_panel_enable_tv(struct omap_dss_device *dssdev)
 {
 #define ENABLE_VDAC_DEDICATED           0x03
@@ -274,6 +297,7 @@ static struct omap_dss_device beagle_tv_device = {
 static struct omap_dss_device *beagle_dss_devices[] = {
 	&beagle_dvi_device,
 	&beagle_tv_device,
+	&beagle_lcd_device,
 };
 
 static struct omap_dss_board_info beagle_dss_data = {
@@ -306,11 +330,12 @@ static void __init beagle_display_init(void)
 
 	r = gpio_request(beagle_dvi_device.reset_gpio, "DVI reset");
 	if (r < 0) {
-		printk(KERN_ERR "Unable to get DVI reset GPIO\n");
+		printk(KERN_ERR "Unable to get DVI reset GPIO %d\n", beagle_dvi_device.reset_gpio);
 		return;
 	}
 
 	gpio_direction_output(beagle_dvi_device.reset_gpio, 0);
+	gpio_set_value(beagle_dvi_device.reset_gpio, 0);
 }
 
 #include "sdram-micron-mt46h32m32lf-6.h"
@@ -387,6 +412,14 @@ static int beagle_twl_gpio_setup(struct device *dev,
 	/* TWL4030_GPIO_MAX + 1 == ledB, PMU_STAT (out, active low LED) */
 	gpio_leds[2].gpio = gpio + TWL4030_GPIO_MAX + 1;
 
+#if 1	// for Openmoko Beagle Hybrid - should have been done by u-boot
+	omap_mux_init_gpio(158, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(159, OMAP_PIN_INPUT);	// neither PUP nor PDN
+	omap_mux_init_gpio(161, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(162, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(145, OMAP_PIN_OUTPUT);	// backlight
+#endif
+		
 	return 0;
 }
 
@@ -716,10 +749,14 @@ static void __init omap3_beagle_init(void)
 	omap_serial_init();
 
 	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
+	omap_mux_init_gpio(170, OMAP_PIN_OUTPUT);
 	gpio_request(170, "DVI_nPD");
 	/* REVISIT leave DVI powered down until it's needed ... */
+	gpio_set_value(170, 0);
 	gpio_direction_output(170, true);
-
+//	gpio_request(145, "LCD_BACKLIGHT");
+//	gpio_direction_output(145, true);
+	
 	if(!strcmp(expansionboard_name, "zippy")) 
 	{
 		printk(KERN_INFO "Beagle expansionboard: initializing enc28j60\n");
