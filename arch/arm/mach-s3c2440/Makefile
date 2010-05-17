@@ -35,6 +35,7 @@ obj-$(CONFIG_MACH_AT2440EVB) += mach-at2440evb.o
 obj-$(CONFIG_MACH_MINI2440) += mach-mini2440.o
 obj-$(CONFIG_MACH_NEO1973_GTA02) += mach-gta02.o \
 	gta02-pm-bt.o \
+	gta02-pm-gps.o \
 
 # extra machine support
 
