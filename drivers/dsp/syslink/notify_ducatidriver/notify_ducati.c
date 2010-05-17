@@ -101,6 +101,8 @@ struct notify_ducatidrv_module {
 	struct notify_ducatidrv_object *driver_handles
 				[MULTIPROC_MAXPROCESSORS][NOTIFY_MAX_INTLINES];
 	/* Loader handle array. */
+	atomic_t mbox_ref_count;
+	/* Reference count for enabling/disabling mailbox interrupt */
 };
 
 /* Notify ducati driver instance object. */
@@ -193,6 +195,7 @@ int notify_ducatidrv_setup(struct notify_ducatidrv_config *cfg)
 		NOTIFYDUCATIDRIVER_MAKE_MAGICSTAMP(1u)) {
 		return NOTIFY_S_ALREADYSETUP;
 	}
+	atomic_set(&(notify_ducatidriver_state.mbox_ref_count), 0);
 
 	if (cfg == NULL) {
 		notify_ducatidrv_get_config(&tmp_cfg);
@@ -252,7 +255,6 @@ int notify_ducatidrv_destroy(void)
 		status = NOTIFY_E_INVALIDSTATE;
 		goto exit;
 	}
-
 	if (!(atomic_dec_return(&notify_ducatidriver_state.ref_count) == \
 				NOTIFYDUCATIDRIVER_MAKE_MAGICSTAMP(0)))
 		return NOTIFY_S_ALREADYSETUP;
@@ -336,7 +338,6 @@ struct notify_ducatidrv_object *notify_ducatidrv_create(
 	struct notify_ducatidrv_event_entry *event_entry;
 	u32 proc_ctrl_size;
 	u32 shm_va;
-	u16 proc_id;
 
 	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
 			&(notify_ducatidriver_state.ref_count),
@@ -369,9 +370,6 @@ struct notify_ducatidrv_object *notify_ducatidrv_create(
 	if (status)
 		goto exit;
 
-	/* TODO: Check if this hard-coded value needs to be passed into the
-	 * notify_get_driver_handle */
-	proc_id = PROC_DUCATI;
 	/* Check if driver already exists. */
 	drv_handle = notify_get_driver_handle(params->remote_proc_id,
 						params->line_id);
@@ -493,7 +491,8 @@ struct notify_ducatidrv_object *notify_ducatidrv_create(
 
 
 	/*Set up the ISR on the MPU-Ducati FIFO */
-	omap_mbox_enable_irq(ducati_mbox, IRQ_RX);
+	if (atomic_inc_return(&(notify_ducatidriver_state.mbox_ref_count)) == 1)
+		omap_mbox_enable_irq(ducati_mbox, IRQ_RX);
 	obj->self_proc_ctrl->recv_init_status = NOTIFYDUCATIDRIVER_INIT_STAMP;
 	obj->self_proc_ctrl->send_init_status = NOTIFYDUCATIDRIVER_INIT_STAMP;
 
@@ -552,7 +551,6 @@ int notify_ducatidrv_delete(struct notify_ducatidrv_object **handle_ptr)
 	int status = NOTIFY_S_SUCCESS;
 	int tmp_status = NOTIFY_S_SUCCESS;
 	struct notify_ducatidrv_object *obj = NULL;
-	u16 proc_id;
 
 	if (WARN_ON(unlikely(atomic_cmpmask_and_lt(
 			&(notify_ducatidriver_state.ref_count),
@@ -574,8 +572,9 @@ int notify_ducatidrv_delete(struct notify_ducatidrv_object **handle_ptr)
 	obj = (struct notify_ducatidrv_object *)(*handle_ptr);
 	if (obj != NULL) {
 		/* Uninstall the ISRs & Disable the Mailbox interrupt.*/
-		proc_id = PROC_DUCATI;
-		omap_mbox_disable_irq(ducati_mbox, IRQ_RX);
+		if (atomic_dec_and_test(
+			&(notify_ducatidriver_state.mbox_ref_count)))
+			omap_mbox_disable_irq(ducati_mbox, IRQ_RX);
 
 		if (obj->self_proc_ctrl != NULL) {
 			/* Clear initialization status in shared memory. */
@@ -808,6 +807,7 @@ int notify_ducatidrv_send_event(struct notify_driver_object *handle,
 	VOLATILE struct notify_ducatidrv_event_entry *event_entry;
 	int max_poll_count;
 	int i = 0;
+	mbox_msg_t msg;
 
 	if (WARN_ON(unlikely(handle == NULL))) {
 		status = NOTIFY_E_INVALIDARG;
@@ -929,7 +929,8 @@ int notify_ducatidrv_send_event(struct notify_driver_object *handle,
 
 		/* Send an interrupt with the event information to the
 		 * remote processor */
-		status = omap_mbox_msg_send(ducati_mbox, event_id);
+		msg = ((obj->remote_proc_id << 16) | event_id);
+		status = omap_mbox_msg_send(ducati_mbox, msg);
 
 		/* Leave critical section protection. */
 		mutex_unlock(notify_ducatidriver_state.gate_handle);
@@ -1252,8 +1253,13 @@ exit:
  * received from the Ducati processor. */
 static int notify_ducatidrv_isr(void *ntfy_msg)
 {
+	/* Decode the msg to identify the processor that has sent the message */
+	u32 proc_id = (u32)ntfy_msg;
+
+	/* Call the corresponding prpc_id callback */
 	notify_ducatidrv_isr_callback(notify_ducatidriver_state.driver_handles
-		[PROCSYSM3][0], ntfy_msg);
+		[proc_id][0], ntfy_msg);
+
 	return 0;
 }
 EXPORT_SYMBOL(notify_ducatidrv_isr);
