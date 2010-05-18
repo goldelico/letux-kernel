@@ -189,15 +189,18 @@ struct twl6030_bci_device_info {
 
 	struct power_supply	bat;
 	struct power_supply	bk_bat;
+	struct power_supply	usb_bat;
 	struct delayed_work	twl6030_bci_monitor_work;
 	struct delayed_work	twl6030_bk_bci_monitor_work;
 };
 
 static int charge_state;
+static int usb_connected;
 
 static void twl6030_start_usb_charger(void)
 {
 	charger_source = 2;
+	usb_connected = 1;
 	pr_debug("USB charger detected\n");
 	twl_i2c_write_u8(TWL6030_MODULE_CHARGER, CHARGERUSB_VICHRG_1500,
 					CHARGERUSB_VICHRG);
@@ -280,6 +283,7 @@ static irqreturn_t twl6030charger_ctrl_interrupt(int irq, void *_di)
 
 	if (stat_reset & VBUS_DET) {
 		pr_debug("usb removed\n");
+		usb_connected = 0;
 		if (present_charge_state & VAC_DET)
 			twl6030_start_ac_charger();
 
@@ -461,6 +465,25 @@ static enum power_supply_property twl6030_bci_battery_props[] = {
 static enum power_supply_property twl6030_bk_bci_battery_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 };
+
+static enum power_supply_property twl6030_usb_battery_props[] = {
+	POWER_SUPPLY_PROP_ONLINE,
+};
+
+static int twl6030_usb_battery_get_property(struct power_supply *psy,
+					enum power_supply_property psp,
+					union power_supply_propval *val)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = usb_connected;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
 
 static void
 twl6030_bk_bci_battery_read_status(struct twl6030_bci_device_info *di)
@@ -651,6 +674,20 @@ static int __init twl6030_bci_battery_probe(struct platform_device *pdev)
 	di->bk_bat.get_property = twl6030_bk_bci_battery_get_property;
 	di->bk_bat.external_power_changed = NULL;
 
+	/*
+	 * Android expects a battery type POWER_SUPPLY_TYPE_USB
+	 * as a usb charger battery. This battery
+	 * and its "online" property are used to determine if the
+	 * usb cable is plugged in or not.
+	 */
+	di->usb_bat.name = "twl6030_bci_usb_battery";
+	di->usb_bat.supplied_to = twl6030_bci_supplied_to;
+	di->usb_bat.type = POWER_SUPPLY_TYPE_USB;
+	di->usb_bat.properties = twl6030_usb_battery_props;
+	di->usb_bat.num_properties = ARRAY_SIZE(twl6030_usb_battery_props);
+	di->usb_bat.get_property = twl6030_usb_battery_get_property;
+	di->usb_bat.external_power_changed = NULL;
+
 	di->vac_priority = 1;
 	platform_set_drvdata(pdev, di);
 
@@ -703,6 +740,12 @@ static int __init twl6030_bci_battery_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_dbg(&pdev->dev, "failed to register backup battery\n");
 		goto bk_batt_failed;
+	}
+
+	ret = power_supply_register(&pdev->dev, &di->usb_bat);
+	if (ret) {
+		dev_dbg(&pdev->dev, "failed to register usb source\n");
+		goto usb_batt_failed;
 	}
 
 	INIT_DELAYED_WORK_DEFERRABLE(&di->twl6030_bk_bci_monitor_work,
@@ -758,6 +801,8 @@ static int __init twl6030_bci_battery_probe(struct platform_device *pdev)
 
 	return 0;
 
+usb_batt_failed:
+	power_supply_unregister(&di->bk_bat);
 bk_batt_failed:
 	power_supply_unregister(&di->bat);
 batt_failed:
