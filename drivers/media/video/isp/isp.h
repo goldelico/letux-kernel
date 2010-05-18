@@ -497,6 +497,8 @@ int isp_s_fmt_cap(struct device *dev, struct v4l2_pix_format *pix_input,
 		  struct v4l2_pix_format *pix_output,
 		  enum isp_interface_type sensor_isp_if);
 
+int isp_g_bounds(struct device *dev, struct v4l2_rect *bounds);
+
 int isp_g_crop(struct device *dev, struct v4l2_crop *a);
 
 int isp_s_crop(struct device *dev, struct v4l2_crop *a);

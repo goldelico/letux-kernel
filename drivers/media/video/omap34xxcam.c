@@ -1292,6 +1292,7 @@ static int vidioc_cropcap(struct file *file, void *_fh, struct v4l2_cropcap *a)
 	struct omap34xxcam_fh *ofh = to_omap34xxcam_fh(vfh);
 	struct omap34xxcam_videodev *vdev = ofh->vdev;
 	struct v4l2_cropcap *cropcap = a;
+	struct device *isp = vdev->cam->isp;
 	int rval;
 
 	if (vdev->vdev_sensor == v4l2_int_device_dummy())
@@ -1308,10 +1309,7 @@ static int vidioc_cropcap(struct file *file, void *_fh, struct v4l2_cropcap *a)
 		/* cropcap failed, try to do this via g_fmt_cap */
 		rval = vidioc_int_g_fmt_cap(vdev->vdev_sensor, &f);
 		if (!rval) {
-			cropcap->bounds.top = 0;
-			cropcap->bounds.left = 0;
-			cropcap->bounds.width = f.fmt.pix.width;
-			cropcap->bounds.height = f.fmt.pix.height;
+			isp_g_bounds(isp, &cropcap->bounds);
 			cropcap->defrect = cropcap->bounds;
 		}
 

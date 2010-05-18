@@ -1564,6 +1564,8 @@ static int isp_try_pipeline(struct device *dev,
 		pipe->prv.in.image.height = pipe->ccdc_out_h;
 		pipe->prv.in.image.pixelformat = pix_input->pixelformat;
 
+		pipe->prv.in.crop.left = pipe->ccdc_in_h_st;
+		pipe->prv.in.crop.top = pipe->ccdc_in_v_st;
 		pipe->prv.in.crop.width = pipe->ccdc_out_w_img;
 		pipe->prv.in.crop.height = pipe->ccdc_out_h;
 
@@ -2400,6 +2402,31 @@ unsigned long isp_get_buf_offset(struct device *dev)
 EXPORT_SYMBOL(isp_get_buf_offset);
 
 /**
+ * isp_g_bounds - Get bounds of resizer source engine.
+ * @dev: Device pointer specific to the OMAP3 ISP.
+ * @bounds: Pointer to V4L2 rect structure to be filled.
+ *
+ * Always returns 0.
+ **/
+int isp_g_bounds(struct device *dev, struct v4l2_rect *bounds)
+{
+	struct isp_device *isp = dev_get_drvdata(dev);
+
+	if (isp->pipeline.modules & OMAP_ISP_CCDC) {
+		bounds->left = 0;
+		bounds->top = 0;
+		bounds->width = isp->pipeline.ccdc_out_w_img;
+		bounds->height = isp->pipeline.ccdc_out_h;
+	}
+
+	if (isp->pipeline.modules & OMAP_ISP_PREVIEW)
+		*bounds = isp->pipeline.prv.out.crop;
+
+	return 0;
+}
+EXPORT_SYMBOL(isp_g_bounds);
+
+/**
  * isp_g_crop - Get crop rectangle size and position.
  * @dev: Device pointer specific to the OMAP3 ISP.
  * @crop: Pointer to V4L2 crop structure to be filled.
@@ -2410,14 +2437,20 @@ int isp_g_crop(struct device *dev, struct v4l2_crop *crop)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 
-	if (isp->pipeline.modules & OMAP_ISP_RESIZER) {
-		crop->c = isp->pipeline.rsz.in.crop;
-	} else {
+	memset(&crop->c, 0, sizeof(struct v4l2_rect));
+
+	if (isp->pipeline.modules & OMAP_ISP_CCDC) {
 		crop->c.left = 0;
 		crop->c.top = 0;
 		crop->c.width = isp->pipeline.ccdc_out_w_img;
 		crop->c.height = isp->pipeline.ccdc_out_h;
 	}
+
+	if (isp->pipeline.modules & OMAP_ISP_PREVIEW)
+		crop->c = isp->pipeline.prv.out.crop;
+
+	if (isp->pipeline.modules & OMAP_ISP_RESIZER)
+		crop->c = isp->pipeline.rsz.in.crop;
 
 	return 0;
 }
@@ -2437,7 +2470,10 @@ int isp_s_crop(struct device *dev, struct v4l2_crop *a)
 {
 	struct isp_device *isp = dev_get_drvdata(dev);
 
-	ispresizer_config_crop(&isp->isp_res, &isp->pipeline.rsz, a);
+	if (isp->pipeline.modules & OMAP_ISP_RESIZER)
+		ispresizer_config_crop(&isp->isp_res, &isp->pipeline.rsz, a);
+	else
+		isp_g_crop(dev, a);
 
 	return 0;
 }
