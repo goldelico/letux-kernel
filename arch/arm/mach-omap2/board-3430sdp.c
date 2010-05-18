@@ -42,6 +42,7 @@
 #include <plat/control.h>
 #include <plat/gpmc-smc91x.h>
 #include <plat/omap-pm.h>
+#include <mach/hsi.h>
 
 #include "mux.h"
 #include "sdram-qimonda-hyb18m512160af-6.h"
@@ -787,6 +788,13 @@ static struct omap_musb_board_data musb_board_data = {
 	.power			= 100,
 };
 
+#ifdef CONFIG_OMAP_SSI_DEVICE
+static struct omap_ssi_board_config ssi_board_config = {
+	.num_ports = 1,
+	.cawake_gpio = { 151 },
+};
+#endif
+
 static void __init omap_3430sdp_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
@@ -806,6 +814,9 @@ static void __init omap_3430sdp_init(void)
 	sdp3430_display_init();
 	enable_board_wakeup_source();
 	usb_ehci_init(&ehci_pdata);
+#ifdef CONFIG_OMAP_SSI_DEVICE
+	omap_ssi_config(&ssi_board_config);
+#endif
 }
 
 static void __init omap_3430sdp_map_io(void)
