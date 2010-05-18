@@ -803,6 +803,7 @@ CONFIG_SPI_OMAP24XX=y
 #
 # CONFIG_SPI_SPIDEV is not set
 # CONFIG_SPI_TLE62X0 is not set
+# CONFIG_OMAP_HSI is not set
 
 #
 # PPS support
