@@ -254,7 +254,7 @@ static int td028ttec1_panel_probe(struct omap_dss_device *dssdev)
 	rc = jbt_reg_init();
 	
 	return 0;
-	return rc ? -EIO : 0;
+	return rc ? -ENODEV : 0;
 }
 
 static void td028ttec1_panel_remove(struct omap_dss_device *dssdev)

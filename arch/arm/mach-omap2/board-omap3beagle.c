@@ -31,6 +31,7 @@
 
 #include <linux/regulator/machine.h>
 #include <linux/i2c/twl.h>
+#include <linux/i2c/tsc2007.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -535,6 +536,71 @@ static struct i2c_board_info __initdata beagle_i2c1_boardinfo[] = {
 };
 
 	
+#ifdef CONFIG_TOUCHSCREEN_TSC2007
+
+// TODO: see also http://e2e.ti.com/support/arm174_microprocessors/omap_applications_processors/f/42/t/33262.aspx for an example...
+// and http://www.embedded-bits.co.uk/?tag=struct-i2c_board_info for a description of how struct i2c_board_info works
+
+/* TouchScreen */
+
+#define TS_PENIRQ_GPIO		157	// GPIO pin
+
+static int ts_get_pendown_state(void)
+{
+#if 1
+	int val = 0;
+	//	gpio_free(GPIO_FN_INTC_IRQ0);	// what does this change or not change on the board we have copied the code from?
+//	gpio_request(TS_PENIRQ_GPIO, "tsc2007_pen_down");
+//	gpio_direction_input(TS_PENIRQ_GPIO);
+	
+	val = gpio_get_value(TS_PENIRQ_GPIO);
+	
+//	gpio_free(TS_PENIRQ_GPIO);
+	//	gpio_request(GPIO_FN_INTC_IRQ0, NULL);
+//	printk("ts_get_pendown_state() -> %d\n", val);
+	return val ? 0 : 1;
+#else
+	return 0;
+#endif
+}
+
+static int __init tsc2007_init(void)
+{
+	printk("tsc2007_init()\n");
+	omap_mux_init_gpio(TS_PENIRQ_GPIO, OMAP_PIN_INPUT_PULLUP);
+	if (gpio_request(TS_PENIRQ_GPIO, "tsc2007_pen_down")) {
+		printk(KERN_ERR "Failed to request GPIO %d for "
+			   "TSC2007 pen down IRQ\n", TS_PENIRQ_GPIO);
+		return  -ENODEV;
+	}
+	
+	if (gpio_direction_input(TS_PENIRQ_GPIO)) {
+		printk(KERN_WARNING "GPIO#%d cannot be configured as "
+			   "input\n", TS_PENIRQ_GPIO);
+		return -ENXIO;
+	}
+	gpio_export(TS_PENIRQ_GPIO, 0);
+	omap_set_gpio_debounce(TS_PENIRQ_GPIO, 1);
+	omap_set_gpio_debounce_time(TS_PENIRQ_GPIO, 0xa);
+	set_irq_type(OMAP_GPIO_IRQ(TS_PENIRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
+	return 0;
+}
+
+static void tsc2007_exit(void)
+{
+	gpio_free(TS_PENIRQ_GPIO);
+}
+
+struct tsc2007_platform_data tsc2007_info = {
+	.model			= 2007,
+	.x_plate_ohms		= 600,	// range: 250 .. 900 
+	.get_pendown_state	= ts_get_pendown_state,
+	.init_platform_hw	= tsc2007_init,
+	.exit_platform_hw	= tsc2007_exit,
+};
+
+#endif
+
 #if defined(CONFIG_EEPROM_AT24) || defined(CONFIG_EEPROM_AT24_MODULE)
 #include <linux/i2c/at24.h>
 
@@ -567,7 +633,38 @@ static struct i2c_board_info __initdata beagle_zippy_i2c2_boardinfo[] = {
 static struct i2c_board_info __initdata beagle_zippy_i2c2_boardinfo[] = {};
 #endif
 
-static struct i2c_board_info __initdata beagle_i2c2_boardinfo[] = {};
+static struct i2c_board_info __initdata beagle_i2c2_boardinfo[] = {
+#ifdef CONFIG_TOUCHSCREEN_TSC2007
+{
+	I2C_BOARD_INFO("tsc2007", 0x48),
+	.type		= "tsc2007",
+	.platform_data	= &tsc2007_info,
+	.irq		=  OMAP_GPIO_IRQ(TS_PENIRQ_GPIO),
+},
+#endif
+#ifdef CONFIG_BMP085
+{
+	I2C_BOARD_INFO("bmp085", 0x77),
+	.type		= "bmp085",
+	.platform_data	= &bmp085_info,
+	.irq		=  -EINVAL,
+},
+#endif
+#ifdef CONFIG_LIS302
+{
+	I2C_BOARD_INFO("lis302top", 0x1c),
+	.type		= "lis302",
+	.platform_data	= &lis302_info,
+	.irq		=  -EINVAL,
+},
+{
+	I2C_BOARD_INFO("lis302bottom", 0x1d),
+	.type		= "lis302",
+	.platform_data	= &lis302_info,
+	.irq		=  -EINVAL,
+},
+#endif
+};
 
 static int __init omap3_beagle_i2c_init(void)
 {
