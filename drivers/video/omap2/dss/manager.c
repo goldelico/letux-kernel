@@ -1151,12 +1151,9 @@ static void dss_apply_irq_handler(void *data, u32 mask)
 		goto end;
 
 	/* re-read busy flags */
-	mgr_busy[0] = dispc_go_busy(0);
-	mgr_busy[1] = dispc_go_busy(1);
-#ifdef CONFIG_ARCH_OMAP4
-	mgr_busy[2] = dispc_go_busy(2);
+	for (i = 0; i < num_mgrs; ++i)
+		mgr_busy[i] = dispc_go_busy(i);
 
-#endif
 	/* keep running as long as there are busy managers, so that
 	 * we can collect overlay-applied information */
 	for (i = 0; i < num_mgrs; ++i)

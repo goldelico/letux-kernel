@@ -91,15 +91,6 @@ void __iomem  *dss_base;
 void __iomem  *dispc_base;
 EXPORT_SYMBOL(dispc_base);
 
-#define GPIO_OE		0x134
-#define GPIO_DATAOUT	0x13C
-#define OMAP24XX_GPIO_CLEARDATAOUT	0x190
-#define OMAP24XX_GPIO_SETDATAOUT	0x194
-
-#define PWM2ON		0x03
-#define PWM2OFF		0x04
-#define TOGGLE3		0x92
-
 static int _omap_dss_wait_reset(void);
 
 static inline void dss_write_reg(const struct dss_reg idx, u32 val)
@@ -287,18 +278,16 @@ void dss_select_clk_source(bool dsi, bool dispc)
 	dss_write_reg(DSS_CONTROL, r);
 }
 
-void dss_select_clk_source_dsi(enum dsi lcd_ix, bool dsi, bool dispc)
+void dss_select_clk_source_dsi(enum dsi lcd_ix, bool dsi, bool lcd)
 {
 	u32 r;
 	r = dss_read_reg(DSS_CONTROL);
 	if (lcd_ix == dsi1) {
 		r = FLD_MOD(r, dsi, 1, 1);	/* DSI_CLK_SWITCH */
-		r = FLD_MOD(r, dispc, 0, 0);	/* LCD1_CLK_SWITCH */
-#ifdef CONFIG_ARCH_OMAP4
+		r = FLD_MOD(r, lcd, 0, 0);	/* LCD1_CLK_SWITCH */
 	} else {
 		r = FLD_MOD(r, dsi, 10, 10);	/* DSI2_CLK_SWITCH */
-		r = FLD_MOD(r, dispc, 12, 12);	/* LCD2_CLK_SWITCH */
-#endif
+		r = FLD_MOD(r, lcd, 12, 12);	/* LCD2_CLK_SWITCH */
 	}
 
 	dss_write_reg(DSS_CONTROL, r);
@@ -585,8 +574,6 @@ int dss_init(bool skip_init)
 	u32 rev;
 	u32 val;
 	u32 mmcdata2;
-	void __iomem  *gpio1_base, *gpio2_base;
-	void __iomem *mux_sec;
 
 	dss_base = dss.base = ioremap(DSS_BASE, DSS_SZ_REGS);
 
@@ -656,110 +643,6 @@ int dss_init(bool skip_init)
 	printk(KERN_INFO "OMAP DSS rev %d.%d\n",
 			FLD_GET(rev, 7, 4), FLD_GET(rev, 3, 0));
 
-	if (cpu_is_omap44xx()) {
-
-		gpio2_base=ioremap(0x48059000,0x1000);
-		if (!gpio2_base) {
-			DSSERR("Failed to ioremap gpio2 base");
-			return;
-		}
-
-		mux_sec = ioremap(0x4A100000,0x1000);
-		if (!mux_sec) {
-			DSSERR("Failed to ioremap mux sec ");
-			return;
-		}
-		val = __raw_readl(mux_sec + 0x1CC); /*mux for gpio 27 or 52 dont know*/
-		val &= ~(0xFfff);
-		val |=	0x03;
-		__raw_writel(val,mux_sec + 0x1CC);
-	
-		val = __raw_readl(mux_sec + 0x086); /*mux for gpio 59*/
-		val &= ~(0xFfff);
-		val |=	0x03;
-		__raw_writel(val,mux_sec + 0x086);
-
-		/* mux for GPio 104*/
-		val = mmcdata2 = __raw_readl(mux_sec + 0x0EA);
-		val &= ~(0xFfff);
-		val |=	0x03;
-		__raw_writel(val,mux_sec + 0x0EA);
-
-		val = __raw_readl(gpio2_base+GPIO_OE);
-		val &= ~0x100;
-		__raw_writel(val, gpio2_base+GPIO_OE);
-	
-		mdelay(120);
-
-		/* To output signal high */
-		val = __raw_readl(gpio2_base+OMAP24XX_GPIO_SETDATAOUT);
-		val |= 0x100;
-		__raw_writel(val, gpio2_base+OMAP24XX_GPIO_SETDATAOUT);
-		mdelay(100);
-	
-		val = __raw_readl(gpio2_base+OMAP24XX_GPIO_CLEARDATAOUT);
-		val |= 0x100;
-		__raw_writel(val, gpio2_base+OMAP24XX_GPIO_CLEARDATAOUT);
-		mdelay(120);
-
-		val = __raw_readl(gpio2_base+OMAP24XX_GPIO_SETDATAOUT);
-		val |= 0x100;
-		__raw_writel(val, gpio2_base+OMAP24XX_GPIO_SETDATAOUT);
-
-		mdelay(120);
-		printk("GPIO 104 reset done ");
-
-		/* Restore mmc pad */
-		__raw_writel(mmcdata2, mux_sec + 0x0EA);
-
-		ret = twl_i2c_write_u8(TWL_MODULE_PWM, 0xFF, PWM2ON); /*0xBD = 0xFF*/
-		ret = twl_i2c_write_u8(TWL_MODULE_PWM, 0x7F, PWM2OFF); /*0xBE = 0x7F*/
-		ret = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x30, TOGGLE3);
-
-		gpio2_base=ioremap(0x4a310000,0x1000);
-		gpio1_base=ioremap(0x48055000,0x1000);
-
-		if (!gpio2_base) {
-			DSSERR("Failed to ioremap gpio2 base");
-			return;
-		}
-		if (!gpio1_base) {
-			DSSERR("Failed to ioremap gpio1 base");
-			return;
-		}
-		/* To output signal low */
-		rev = __raw_readl(gpio2_base+OMAP24XX_GPIO_CLEARDATAOUT);
-		rev |= (1<<27);
-		__raw_writel(rev, gpio2_base+OMAP24XX_GPIO_CLEARDATAOUT);
-		mdelay(120);
-
-		rev = __raw_readl(gpio2_base+GPIO_OE);
-		rev &= ~(1<<27);
-		__raw_writel(rev, gpio2_base+GPIO_OE);
-
-		/* To output signal low */
-		rev = __raw_readl(gpio2_base+OMAP24XX_GPIO_CLEARDATAOUT);
-		rev |= (1<<27);
-		__raw_writel(rev, gpio2_base+OMAP24XX_GPIO_CLEARDATAOUT);
-		mdelay(120);
-
-		/* To output signal high */
-		rev = __raw_readl(gpio1_base+OMAP24XX_GPIO_SETDATAOUT);
-		rev |= (1<<27);
-		__raw_writel(rev, gpio1_base+OMAP24XX_GPIO_SETDATAOUT);
-		mdelay(120);
-
-		rev = __raw_readl(gpio1_base+GPIO_OE);
-		rev &= ~(1<<27);
-		__raw_writel(rev, gpio1_base+GPIO_OE);
-		mdelay(120);
-
-		/* To output signal high */
-		rev = __raw_readl(gpio1_base+OMAP24XX_GPIO_SETDATAOUT);
-		rev |= (1<<27);
-		__raw_writel(rev, gpio1_base+OMAP24XX_GPIO_SETDATAOUT);
-		mdelay(120);
-	}
 
 	return 0;
 

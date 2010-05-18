@@ -157,6 +157,7 @@ struct dsi_clock_info {
 
 	u8 highfreq;
 	bool use_dss2_fck;
+	bool use_dss2_sys_clk;
 };
 
 struct seq_file;
@@ -220,7 +221,7 @@ int dss_sdi_enable(void);
 void dss_sdi_disable(void);
 
 void dss_select_clk_source(bool dsi, bool dispc);
-void dss_select_clk_source_dsi(enum dsi lcd_ix, bool dsi, bool dispc);
+void dss_select_clk_source_dsi(enum dsi lcd_ix, bool dsi, bool lcd);
 
 int dss_get_dsi_clk_source(void);
 int dss_get_dispc_clk_source(void);
@@ -252,8 +253,7 @@ void dsi_save_context(void);
 void dsi_restore_context(void);
 
 int dsi_init_display(struct omap_dss_device *display);
-void dsi_irq_handler(enum dsi lcd_ix);
-unsigned long dsi_get_dsi1_pll_rate(void);
+unsigned long dsi_get_dsi1_pll_rate(enum dsi lcd_ix);
 int dsi_pll_set_clock_div(enum dsi lcd_ix, struct dsi_clock_info *cinfo);
 int dsi_pll_calc_clock_div_pck(enum dsi lcd_ix, bool is_tft,
 		unsigned long req_pck, struct dsi_clock_info *cinfo,
@@ -375,7 +375,8 @@ void dispc_find_clk_divs(bool is_tft, unsigned long req_pck, unsigned long fck,
 		struct dispc_clock_info *cinfo);
 int dispc_calc_clock_rates(unsigned long dispc_fclk_rate,
 		struct dispc_clock_info *cinfo);
-int dispc_set_clock_div(struct dispc_clock_info *cinfo);
+int dispc_set_clock_div(enum omap_channel channel,
+		struct dispc_clock_info *cinfo);
 int dispc_get_clock_div(struct dispc_clock_info *cinfo);
 
 

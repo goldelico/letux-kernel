@@ -1452,7 +1452,7 @@ static int omap_vout_mmap(struct file *file, struct vm_area_struct *vma)
 		size -= PAGE_SIZE;
 	}
 #else /* Tiler remapping */
-	pos = dmabuf->bus_addr;
+	pos = (void *) dmabuf->bus_addr;
 	/* get line width */
 	/* for NV12, Y buffer is 1bpp*/
 	if (OMAP_DSS_COLOR_NV12 == vout->dss_mode) {
@@ -2209,7 +2209,9 @@ static int vidioc_qbuf(struct file *file, void *fh,
 	struct omap_vout_device *vout = fh;
 	struct videobuf_queue *q = &vout->vbq;
 	int ret = 0;
+#ifndef CONFIG_ARCH_OMAP4
 	unsigned int count;
+#endif
 
 	v4l2_dbg(1, debug, &vout->vid_dev->v4l2_dev,
 		"entered qbuf: buffer address: %x \n", (unsigned int) buffer);
@@ -3022,54 +3024,40 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 		irq = DISPC_IRQ_FRAMEDONE2;
 #endif
 	spin_lock_irqsave(&vout->vbq_lock, flags);
-
-#ifdef CONFIG_ARCH_OMAP4
-	if (cur_display->channel == OMAP_DSS_CHANNEL_LCD2)
-	{
-		extern void __iomem  *dispc_base;
-		u32 val=__raw_readl(dispc_base + (0x238));
-		if((val & (1<<11)) == 0)
-		{
-			cur_display->type = OMAP_DISPLAY_TYPE_DPI;
-		}
-		else
-		{
-			cur_display->type == OMAP_DISPLAY_TYPE_DSI;
-		}
-	}
-#endif
-
 	do_gettimeofday(&timevalue);
 
 	switch (cur_display->type) {
 
 	case OMAP_DISPLAY_TYPE_DSI:
-			if (!(irqstatus & irq)) {
-				spin_unlock_irqrestore(&vout->vbq_lock, flags);
-				return;
-		}
-			break;
-
-	case OMAP_DISPLAY_TYPE_DPI:
-			if (!(irqstatus &
-#ifdef CONFIG_ARCH_OMAP4
-				(DISPC_IRQ_VSYNC |	DISPC_IRQ_VSYNC2))) {
-#else
-				DISPC_IRQ_VSYNC)) {
-#endif
-				spin_unlock_irqrestore(&vout->vbq_lock, flags);
+		if (!(irqstatus & irq)) {
+			spin_unlock_irqrestore(&vout->vbq_lock, flags);
 			return;
 		}
-			break;
+		break;
+
+	case OMAP_DISPLAY_TYPE_DPI:
+		if (!(irqstatus & (DISPC_IRQ_VSYNC | DISPC_IRQ_VSYNC2))) {
+			spin_unlock_irqrestore(&vout->vbq_lock, flags);
+			return;
+		}
+#ifdef CONFIG_PANEL_PICO_DLP
+		if (dispc_go_busy(OMAP_DSS_CHANNEL_LCD2)) {
+			spin_unlock(&vout->vbq_lock);
+			printk(KERN_WARNING "dpi busy %d !! \n",
+				cur_display->type);
+			return;
+		}
+#endif
+		break;
 
 #ifdef CONFIG_OMAP2_DSS_HDMI
 
 	case OMAP_DISPLAY_TYPE_HDMI:
-			if (!(irqstatus & DISPC_IRQ_EVSYNC_EVEN)) {
-				spin_unlock_irqrestore(&vout->vbq_lock, flags);
-				return;
+		if (!(irqstatus & DISPC_IRQ_EVSYNC_EVEN)) {
+			spin_unlock_irqrestore(&vout->vbq_lock, flags);
+			return;
 		}
-			break;
+		break;
 #else
 	case OMAP_DISPLAY_TYPE_VENC:
 		if (vout->first_int) {
@@ -3119,13 +3107,6 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 			return;
 		}
 
-#ifdef CONFIG_ARCH_OMAP4
-	if (dispc_go_busy(OMAP_DSS_CHANNEL_LCD2)) {
-			spin_unlock_irqrestore(&vout->vbq_lock, flags);
-			printk("dpi busy %d !! \n" , cur_display->type);
-			return;
-	}
-#endif
 		if (!vout->first_int && (vout->cur_frm != vout->next_frm)) {
 				vout->cur_frm->ts = timevalue;
 				vout->cur_frm->state = VIDEOBUF_DONE;

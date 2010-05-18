@@ -1938,11 +1938,9 @@ static void calc_tiler_row_rotation(u8 rotation,
 	case OMAP_DSS_COLOR_RGBX32:
 		ps = 4;
 		break;
-#ifdef CONFIG_ARCH_OMAP4
 	case OMAP_DSS_COLOR_NV12:
 		ps = 1;
 		break;
-#endif
 	default:
 		BUG();
 		return;
@@ -3055,7 +3053,7 @@ void dispc_set_parallel_interface_mode(enum omap_channel channel,
 	if (OMAP_DSS_CHANNEL_LCD2 == channel) {
 		l = dispc_read_reg(DISPC_CONTROL2);
 
-		printk(KERN_DEBUG "OMAP DISPCONTROL read (stallmode)%d\n",
+		printk(KERN_INFO "OMAP DISPCONTROL read (stallmode)%d\n",
 		FLD_GET(l, 11, 11));
 
 		l = FLD_MOD(l, stallmode, 11, 11);
@@ -3067,11 +3065,11 @@ void dispc_set_parallel_interface_mode(enum omap_channel channel,
 	{
 		l = dispc_read_reg(DISPC_CONTROL);
 
-		printk(KERN_DEBUG "OMAP DISPCONTROL read (stallmode)%d\n",
+		printk(KERN_INFO "OMAP DISPCONTROL read (stallmode)%d\n",
 			FLD_GET(l, 11, 11));
-		printk(KERN_DEBUG "OMAP DISPCONTROL read (gpout)%d\n",
+		printk(KERN_INFO "OMAP DISPCONTROL read (gpout)%d\n",
 			FLD_GET(l, 15, 15));
-		printk(KERN_DEBUG "OMAP DISPCONTROL read (stallmode)%d\n",
+		printk(KERN_INFO "OMAP DISPCONTROL read (stallmode)%d\n",
 			FLD_GET(l, 16, 16));
 
 
@@ -3230,7 +3228,7 @@ unsigned long dispc_fclk_rate(void)
 		r = dss_clk_get_rate(DSS_CLK_FCK1);
 	else
 #ifdef CONFIG_OMAP2_DSS_DSI
-		r = dsi_get_dsi1_pll_rate();
+		r = dsi_get_dsi1_pll_rate(0);
 #else
 	BUG();
 #endif
@@ -3569,19 +3567,14 @@ int dispc_calc_clock_rates(unsigned long dispc_fclk_rate,
 	return 0;
 }
 
-int dispc_set_clock_div(struct dispc_clock_info *cinfo)
+int dispc_set_clock_div(enum omap_channel channel,
+		struct dispc_clock_info *cinfo)
 {
 	DSSDBG("lck = %lu (%u)\n", cinfo->lck, cinfo->lck_div);
 	DSSDBG("pck = %lu (%u)\n", cinfo->pck, cinfo->pck_div);
 
-	/* TODO: update here for LCD2 support */
-#ifdef CONFIG_ARCH_OMAP4
-	dispc_set_lcd_divisor(OMAP_DSS_CHANNEL_LCD, 1,
-							6);
-#else
-	dispc_set_lcd_divisor(OMAP_DSS_CHANNEL_LCD, cinfo->lck_div,
+	dispc_set_lcd_divisor(channel, cinfo->lck_div,
 							cinfo->pck_div);
-#endif
 
 	return 0;
 }
@@ -3790,7 +3783,8 @@ void dispc_irq_handler(void)
 			isr_data->isr(isr_data->arg, irqstatus);
 			handledirqs |= isr_data->mask;
 
-			if (isr_data->mask & irqstatus & DISPC_IRQ_VSYNC)
+			if (!cpu_is_omap44xx() &&
+			    (isr_data->mask & irqstatus & DISPC_IRQ_VSYNC))
 				if (dispc_go_busy(OMAP_DSS_CHANNEL_LCD))
 					break;
 		}
@@ -4252,7 +4246,7 @@ int dispc_setup_plane(enum omap_plane plane,
 		       enum omap_dss_rotation_type rotation_type,
 		       u8 rotation, bool mirror, u8 global_alpha,
 		       enum omap_channel channel,
-			u8 pre_alpha_mult
+		       u8 pre_alpha_mult
 #ifdef CONFIG_ARCH_OMAP4
 			, u32 puv_addr
 #endif

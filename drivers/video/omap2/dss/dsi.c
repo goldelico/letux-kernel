@@ -41,6 +41,7 @@
 
 /*#define VERBOSE_IRQ*/
 #define DSI_CATCH_MISSING_TE
+#undef DEBUG
 
 #ifndef CONFIG_ARCH_OMAP4
 #define DSI_BASE		0x4804FC00
@@ -51,7 +52,6 @@
 
 struct dsi_reg { u16 idx; };
 struct dss_reg { u16 idx; };
-extern void __iomem  *dss_base;
 
 #define DSI_REG(idx)		((const struct dsi_reg) { idx })
 #define DSS_REG(idx)		((const struct dss_reg) { idx })
@@ -66,7 +66,7 @@ extern void __iomem  *dss_base;
 #define DSI_IRQSTATUS			DSI_REG(0x0018)
 #define DSI_IRQENABLE			DSI_REG(0x001C)
 #define DSI_CTRL			DSI_REG(0x0040)
-#define DSI_GNQ					DSI_REG(0x0044)
+#define DSI_GNQ				DSI_REG(0x0044)
 #define DSI_COMPLEXIO_CFG1		DSI_REG(0x0048)
 #define DSI_COMPLEXIO_IRQ_STATUS	DSI_REG(0x004C)
 #define DSI_COMPLEXIO_IRQ_ENABLE	DSI_REG(0x0050)
@@ -88,13 +88,11 @@ extern void __iomem  *dss_base;
 #define DSI_VM_TIMING7			DSI_REG(0x0090)
 #define DSI_STOPCLK_TIMING		DSI_REG(0x0094)
 #ifdef CONFIG_ARCH_OMAP4
-#define DSI_CTRL2						DSI_REG(0x0098)
-#define DSI_VM_TIMING8					DSI_REG(0x009C)
-
-#define DSI_TE_HSYNC_WIDTH(n)			DSI_REG(0x00A0 + (n *0xC))
-#define DSI_TE_VSYNC_WIDTH(n)			DSI_REG(0x00A4 + (n *0xC))
-
-#define DSI_TE_HSYNC_NUMBER(n)			DSI_REG(0x00A8 + (n *0xC))
+#define DSI_CTRL2			DSI_REG(0x0098)
+#define DSI_VM_TIMING8			DSI_REG(0x009C)
+#define DSI_TE_HSYNC_WIDTH(n)		DSI_REG(0x00A0 + (n * 0xC))
+#define DSI_TE_VSYNC_WIDTH(n)		DSI_REG(0x00A4 + (n * 0xC))
+#define DSI_TE_HSYNC_NUMBER(n)		DSI_REG(0x00A8 + (n * 0xC))
 #endif
 #define DSI_VC_CTRL(n)			DSI_REG(0x0100 + (n * 0x20))
 #define DSI_VC_TE(n)			DSI_REG(0x0104 + (n * 0x20))
@@ -112,8 +110,8 @@ extern void __iomem  *dss_base;
 #define DSI_DSIPHY_CFG5			DSI_REG(0x200 + 0x0014)
 
 #ifdef CONFIG_ARCH_OMAP4
-#define DSI_DSIPHY_CFG12			DSI_REG(0x200 + 0x0030)
-#define DSI_DSIPHY_CFG14			DSI_REG(0x200 + 0x0038)
+#define DSI_DSIPHY_CFG12		DSI_REG(0x200 + 0x0030)
+#define DSI_DSIPHY_CFG14		DSI_REG(0x200 + 0x0038)
 #define DSI_DSIPHY_CFG8			DSI_REG(0x200 + 0x0020)
 #define DSI_DSIPHY_CFG9			DSI_REG(0x200 + 0x0024)
 #endif
@@ -213,18 +211,27 @@ extern void __iomem  *dss_base;
 #define DSI_DT_RX_SHORT_READ_1		0x21
 #define DSI_DT_RX_SHORT_READ_2		0x22
 
+#if CONFIG_ARCH_OMAP4
 #define FINT_MAX 2100000
 #define FINT_MIN 750000
-#define REGN_MAX (1 << 7)
-#define REGM_MAX ((1 << 11) - 1)
-#define REGM3_MAX (1 << 4)
-#define REGM4_MAX (1 << 4)
-#define LP_DIV_MAX ((1 << 13) - 1)
-#define PWM2ON		0x3
-#define PWM2OFF		0x4
-#define TOGGLE3		0x92
-#define PWDNSTATUS2	0x4
+#define REGN 8
+#define REGM 12
+#define REGM3 5
+#else
+/* :TODO: 3630 code has 2100000 and 750000 */
+#define FINT_MAX 2500000
+#define FINT_MIN 500000
+#define REGN 7
+#define REGM 11
+#define REGM3 4
+#endif
+#define REGN_MAX (1 << REGN)
+#define REGM_MAX ((1 << REGM) - 1)
+#define REGM3_MAX (1 << REGM3)
+#define REGM4 REGM3
+#define REGM4_MAX (1 << REGM4)
 
+#define LP_DIV_MAX ((1 << 13) - 1)
 
 extern void __iomem  *dss_base;
 extern void __iomem  *dispc_base;
@@ -310,7 +317,7 @@ static struct dsi_struct
 	int debug_write;
 } dsi_1, dsi_2;
 
-#if 0
+#ifdef DEBUG
 static unsigned int dsi_perf;
 module_param_named(dsi_perf, dsi_perf, bool, 0644);
 #endif
@@ -402,32 +409,30 @@ static inline int wait_for_bit_change(enum dsi lcd_ix,
 	return value;
 }
 
-#if 0
+#ifdef DEBUG
 static void dsi_perf_mark_setup(enum dsi lcd_ix)
 {
-	if (lcd_ix == dsi1)
-		dsi_1.perf_setup_time = ktime_get();
-	else
-		dsi_2.perf_setup_time = ktime_get();
+	struct dsi_struct *p_dsi;
+
+	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
+	p_dsi->perf_setup_time = ktime_get();
 }
 
 static void dsi_perf_mark_start(enum dsi lcd_ix)
 {
-	if (lcd_ix == dsi1)
-		dsi_1.perf_start_time = ktime_get();
-	else
-		dsi_2.perf_start_time = ktime_get();
+	struct dsi_struct *p_dsi;
+
+	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
+	p_dsi->perf_start_time = ktime_get();
 }
 
 static void dsi_perf_mark_start_auto(enum dsi lcd_ix)
 {
-if (lcd_ix == dsi1) {
-	dsi_1.perf_measure_frames = 0;
-	dsi_1.perf_start_time_auto = ktime_get();
-	} else {
-		dsi_2.perf_measure_frames = 0;
-		dsi_2.perf_start_time_auto = ktime_get();
-	}
+	struct dsi_struct *p_dsi;
+
+	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
+	p_dsi->perf_measure_frames = 0;
+	p_dsi->perf_start_time_auto = ktime_get();
 }
 static void dsi_perf_show(enum dsi lcd_ix, const char *name)
 {
@@ -625,13 +630,14 @@ static void print_irq_status_cio(u32 status)
 
 static int debug_irq;
 
-/*dsi irq line needs to be activated on omap4*/
-void dsi_irq_handler(enum dsi lcd_ix)
+static irqreturn_t dsi_irq_handler(int irq, void *arg)
 {
 	u32 irqstatus, vcstatus, ciostatus;
 	int i;
 	struct dsi_struct *p_dsi;
-	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
+	enum dsi lcd_ix = dsi1;
+
+	p_dsi = &dsi_1;
 	irqstatus = dsi_read_reg(lcd_ix, DSI_IRQSTATUS);
 
 	if (irqstatus & DSI_IRQ_ERROR_MASK) {
@@ -685,8 +691,74 @@ void dsi_irq_handler(enum dsi lcd_ix)
 	dsi_write_reg(lcd_ix, DSI_IRQSTATUS, irqstatus & ~DSI_IRQ_CHANNEL_MASK);
 	/* flush posted write */
 	dsi_read_reg(lcd_ix, DSI_IRQSTATUS);
+
+	return IRQ_HANDLED;
 }
 
+static irqreturn_t dsi2_irq_handler(int irq, void *arg)
+{
+	u32 irqstatus, vcstatus, ciostatus;
+	int i;
+	struct dsi_struct *p_dsi;
+	enum dsi lcd_ix = dsi2;
+
+	p_dsi = &dsi_2;
+	irqstatus = dsi_read_reg(lcd_ix, DSI_IRQSTATUS);
+
+	if (irqstatus & DSI_IRQ_ERROR_MASK) {
+		DSSERR("DSI error, irqstatus %x\n", irqstatus);
+		print_irq_status(irqstatus);
+		spin_lock(&(p_dsi->errors_lock));
+		p_dsi->errors |= irqstatus & DSI_IRQ_ERROR_MASK;
+		spin_unlock(&(p_dsi->errors_lock));
+	} else if (debug_irq) {
+		print_irq_status(irqstatus);
+	}
+
+#ifdef DSI_CATCH_MISSING_TE
+	if (irqstatus & DSI_IRQ_TE_TRIGGER)
+		del_timer(&(p_dsi->te_timer));
+#endif
+
+	for (i = 0; i < 4; ++i) {
+		if ((irqstatus & (1<<i)) == 0)
+			continue;
+
+		vcstatus = dsi_read_reg(lcd_ix, DSI_VC_IRQSTATUS(i));
+
+		if (vcstatus & DSI_VC_IRQ_BTA)
+			complete(&(p_dsi->bta_completion));
+
+		if (vcstatus & DSI_VC_IRQ_ERROR_MASK) {
+			DSSERR("DSI VC(%d) error, vc irqstatus %x\n",
+				       i, vcstatus);
+			print_irq_status_vc(i, vcstatus);
+		} else if (debug_irq) {
+			print_irq_status_vc(i, vcstatus);
+}
+
+		dsi_write_reg(lcd_ix, DSI_VC_IRQSTATUS(i), vcstatus);
+		/* flush posted write */
+		dsi_read_reg(lcd_ix, DSI_VC_IRQSTATUS(i));
+	}
+
+	if (irqstatus & DSI_IRQ_COMPLEXIO_ERR) {
+		ciostatus = dsi_read_reg(lcd_ix, DSI_COMPLEXIO_IRQ_STATUS);
+
+		dsi_write_reg(lcd_ix, DSI_COMPLEXIO_IRQ_STATUS, ciostatus);
+		/* flush posted write */
+		dsi_read_reg(lcd_ix, DSI_COMPLEXIO_IRQ_STATUS);
+
+		DSSERR("DSI CIO error, cio irqstatus %x\n", ciostatus);
+		print_irq_status_cio(ciostatus);
+	}
+
+	dsi_write_reg(lcd_ix, DSI_IRQSTATUS, irqstatus & ~DSI_IRQ_CHANNEL_MASK);
+	/* flush posted write */
+	dsi_read_reg(lcd_ix, DSI_IRQSTATUS);
+
+	return IRQ_HANDLED;
+}
 
 static void _dsi_initialize_irq(enum dsi lcd_ix)
 {
@@ -725,9 +797,8 @@ static void _dsi_initialize_irq(enum dsi lcd_ix)
 	/* XXX zonda responds incorrectly, causing control error:
 	   Exit from LP-ESC mode to LP11 uses wrong transition states on the
 	   data lines LP0 and LN0. */
-	   if (!cpu_is_omap44xx())
-		dsi_write_reg(lcd_ix, DSI_COMPLEXIO_IRQ_ENABLE,
-			-1 & (~DSI_CIO_IRQ_ERRCONTROL2));
+	dsi_write_reg(lcd_ix, DSI_COMPLEXIO_IRQ_ENABLE,
+		-1 & (~DSI_CIO_IRQ_ERRCONTROL2));
 }
 
 static u32 dsi_get_errors(enum dsi lcd_ix)
@@ -789,7 +860,7 @@ static inline void dsi_enable_pll_clock(enum dsi lcd_ix, bool enable)
 	}
 }
 
-#if 0
+#ifdef DEBUG
 static void _dsi_print_reset_status(enum dsi lcd_ix)
 {
 	u32 l;
@@ -837,14 +908,18 @@ static inline int dsi_if_enable(enum dsi lcd_ix, bool enable)
 	return 0;
 }
 
-unsigned long dsi_get_dsi1_pll_rate(void)
+unsigned long dsi_get_dsi1_pll_rate(enum dsi lcd_ix)
 {
-	return dsi_1.current_cinfo.dsi1_pll_fclk;
+	struct dsi_struct *p_dsi;
+	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
+	return p_dsi->current_cinfo.dsi1_pll_fclk;
 }
 
-static unsigned long dsi_get_dsi2_pll_rate(void)
+static unsigned long dsi_get_dsi2_pll_rate(enum dsi lcd_ix)
 {
-	return dsi_2.current_cinfo.dsi2_pll_fclk;
+	struct dsi_struct *p_dsi;
+	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
+	return p_dsi->current_cinfo.dsi2_pll_fclk;
 }
 
 static unsigned long dsi_get_txbyteclkhs(enum dsi lcd_ix)
@@ -854,7 +929,7 @@ static unsigned long dsi_get_txbyteclkhs(enum dsi lcd_ix)
 	return p_dsi->current_cinfo.clkin4ddr / 16;
 }
 
-static unsigned long dsi_fclk_rate(void)
+static unsigned long dsi_fclk_rate(enum dsi lcd_ix)
 {
 	unsigned long r;
 
@@ -863,7 +938,7 @@ static unsigned long dsi_fclk_rate(void)
 		r = dss_clk_get_rate(DSS_CLK_FCK1);
 	} else {
 		/* DSI FCLK source is DSI2_PLL_FCLK */
-		r = dsi_get_dsi2_pll_rate();
+		r = dsi_get_dsi2_pll_rate(lcd_ix);
 	}
 
 	return r;
@@ -884,7 +959,7 @@ static int dsi_set_lp_clk_divisor(struct omap_dss_device *dssdev)
 	if (lp_clk_div == 0 || lp_clk_div > LP_DIV_MAX)
 		return -EINVAL;
 
-	dsi_fclk = dsi_fclk_rate();
+	dsi_fclk = dsi_fclk_rate(lcd_ix);
 
 	lp_clk = dsi_fclk / 2 / lp_clk_div;
 
@@ -892,9 +967,8 @@ static int dsi_set_lp_clk_divisor(struct omap_dss_device *dssdev)
 	p_dsi->current_cinfo.lp_clk = lp_clk;
 	p_dsi->current_cinfo.lp_clk_div = lp_clk_div;
 
-	/* TODO: chnage the values in board file to get n=6 here */
-	REG_FLD_MOD(lcd_ix, DSI_CLK_CTRL,
-	(cpu_is_omap44xx()) ? 6 : lp_clk_div, 12, 0);	/* LP_CLK_DIVISOR */
+	REG_FLD_MOD(lcd_ix, DSI_CLK_CTRL, lp_clk_div,
+			12, 0);			/* LP_CLK_DIVISOR */
 
 	REG_FLD_MOD(lcd_ix, DSI_CLK_CTRL, 1,
 			21, 21);		/* LP_RX_SYNCHRO_ENABLE */
@@ -944,13 +1018,17 @@ static int dsi_calc_clock_rates(struct dsi_clock_info *cinfo)
 	if (cinfo->regm4 > REGM4_MAX)
 		return -EINVAL;
 
-	if (cinfo->use_dss2_fck) {
+	if (cinfo->use_dss2_sys_clk) {
+		/* We have hardcoded the value of SYS_CLK
+		* till the time HWMOD framework isnt available*/
+		cinfo->clkin = 26000000;
+		cinfo->highfreq = 0;
+	} else if (cinfo->use_dss2_fck) {
 		cinfo->clkin = dss_clk_get_rate(DSS_CLK_FCK2);
 		/* XXX it is unclear if highfreq should be used
 		 * with DSS2_FCK source also */
 		cinfo->highfreq = 0;
 	} else {
-		/* TODO: Add support for LCD2 */
 		cinfo->clkin = dispc_pclk_rate(OMAP_DSS_CHANNEL_LCD);
 
 		if (cinfo->clkin < 32000000)
@@ -982,8 +1060,8 @@ static int dsi_calc_clock_rates(struct dsi_clock_info *cinfo)
 	return 0;
 }
 
-int dsi_pll_calc_clock_div_pck(enum dsi lcd_ix, bool is_tft, unsigned long req_pck,
-		struct dsi_clock_info *dsi_cinfo,
+int dsi_pll_calc_clock_div_pck(enum dsi lcd_ix, bool is_tft,
+		unsigned long req_pck,	struct dsi_clock_info *dsi_cinfo,
 		struct dispc_clock_info *dispc_cinfo)
 {
 	struct dsi_clock_info cur, best;
@@ -1125,10 +1203,12 @@ int dsi_pll_set_clock_div(enum dsi lcd_ix, struct dsi_clock_info *cinfo)
 {
 	int r = 0;
 	u32 l;
-	int f;
+	int f = 0;
 	struct dsi_struct *p_dsi;
-	DSSDBGF();
+
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
+
+	DSSDBGF();
 
 	p_dsi->current_cinfo.fint = cinfo->fint;
 	p_dsi->current_cinfo.clkin4ddr = cinfo->clkin4ddr;
@@ -1165,33 +1245,37 @@ int dsi_pll_set_clock_div(enum dsi lcd_ix, struct dsi_clock_info *cinfo)
 	DSSDBG("regm4 = %d, dsi2_pll_fclk = %lu\n",
 			cinfo->regm4, cinfo->dsi2_pll_fclk);
 
-	REG_FLD_MOD(lcd_ix, DSI_PLL_CONTROL, 0, 0, 0); /* DSI_PLL_AUTOMODE = manual */
+	REG_FLD_MOD(lcd_ix, DSI_PLL_CONTROL, 0, 0,
+			0); /* DSI_PLL_AUTOMODE = manual */
 
-if (!cpu_is_omap44xx()) {
 	l = dsi_read_reg(lcd_ix, DSI_PLL_CONFIGURATION1);
 	l = FLD_MOD(l, 1, 0, 0);		/* DSI_PLL_STOPMODE */
-	l = FLD_MOD(l, cinfo->regn - 1, 7, 1);	/* DSI_PLL_REGN */
-	l = FLD_MOD(l, cinfo->regm, 18, 8);	/* DSI_PLL_REGM */
+	l = FLD_MOD(l, cinfo->regn - 1, REGN, 1);	/* DSI_PLL_REGN */
+	/* DSI_PLL_REGM */
+	l = FLD_MOD(l, cinfo->regm, REGN + REGM, REGN + 1);
 	l = FLD_MOD(l, cinfo->regm3 > 0 ? cinfo->regm3 - 1 : 0,
-			22, 19);		/* DSI_CLOCK_DIV */
+		REGN + REGM + REGM3, REGN + REGM + 1);	/* DSI_CLOCK_DIV */
+	/* DSIPROTO_CLOCK_DIV */
 	l = FLD_MOD(l, cinfo->regm4 > 0 ? cinfo->regm4 - 1 : 0,
-			26, 23);		/* DSIPROTO_CLOCK_DIV */
+		REGN + REGM + REGM3 + REGM4, REGN + REGM + REGM3 + 1);
 	dsi_write_reg(lcd_ix, DSI_PLL_CONFIGURATION1, l);
 
-	BUG_ON(cinfo->fint < 750000 || cinfo->fint > 2100000);
-	if (cinfo->fint < 1000000)
-		f = 0x3;
-	else if (cinfo->fint < 1250000)
-		f = 0x4;
-	else if (cinfo->fint < 1500000)
-		f = 0x5;
-	else if (cinfo->fint < 1750000)
-		f = 0x6;
-	else
-		f = 0x7;
+	BUG_ON(cinfo->fint < FINT_MIN || cinfo->fint > FINT_MAX);
 
 	l = dsi_read_reg(lcd_ix, DSI_PLL_CONFIGURATION2);
-	l = FLD_MOD(l, f, 4, 1);		/* DSI_PLL_FREQSEL */
+	if (!cpu_is_omap44xx()) {
+		if (cinfo->fint < 1000000)
+			f = 0x3;
+		else if (cinfo->fint < 1250000)
+			f = 0x4;
+		else if (cinfo->fint < 1500000)
+			f = 0x5;
+		else if (cinfo->fint < 1750000)
+			f = 0x6;
+		else
+			f = 0x7;
+		l = FLD_MOD(l, f, 4, 1);	/* DSI_PLL_FREQSEL */
+	}
 	l = FLD_MOD(l, cinfo->use_dss2_fck ? 0 : 1,
 			11, 11);		/* DSI_PLL_CLKSEL */
 	l = FLD_MOD(l, cinfo->highfreq,
@@ -1199,28 +1283,9 @@ if (!cpu_is_omap44xx()) {
 	l = FLD_MOD(l, 1, 13, 13);		/* DSI_PLL_REFEN */
 	l = FLD_MOD(l, 0, 14, 14);		/* DSIPHY_CLKINEN */
 	l = FLD_MOD(l, 1, 20, 20);		/* DSI_HSDIVBYPASS */
+	if (cpu_is_omap44xx())
+		l = FLD_MOD(l, 3, 22, 21);	/* DSI_REF_SEL */
 	dsi_write_reg(lcd_ix, DSI_PLL_CONFIGURATION2, l);
-
-	} else {
-
-	l = dsi_read_reg(lcd_ix, DSI_PLL_CONFIGURATION1);
-	l = FLD_MOD(l, 1, 0, 0);					/* DSI_PLL_STOPMODE */
-	l = FLD_MOD(l, cinfo->regn - 1, 8, 1);		/* DSI_PLL_REGN */
-	l = FLD_MOD(l, cinfo->regm, 20, 9);			/* DSI_PLL_REGM */
-	l = FLD_MOD(l, cinfo->regm3 - 1, 25, 21);	/* DSI_CLOCK_DIV */
-	l = FLD_MOD(l, cinfo->regm4 - 1, 30, 26);/* DSIPROTO_CLOCK_DIV */
-	dsi_write_reg(lcd_ix, DSI_PLL_CONFIGURATION1, l);
-
-	l = dsi_read_reg(lcd_ix, DSI_PLL_CONFIGURATION2);
-	l = FLD_MOD(l, cinfo->use_dss2_fck ? 0 : 1, 11, 11);/* DSI_PLL_CLKSEL */
-	l = FLD_MOD(l, cinfo->highfreq, 12, 12);	/* DSI_PLL_HIGHFREQ */
-	l = FLD_MOD(l, 1, 13, 13);		/* DSI_PLL_REFEN */
-	l = FLD_MOD(l, 0, 14, 14);		/* DSIPHY_CLKINEN */
-	l = FLD_MOD(l, 1, 20, 20);		/* DSI_HSDIVBYPASS */
-	l = FLD_MOD(l, 3, 22, 21);		/*DSI_REF_SEL*/
-	dsi_write_reg(lcd_ix, DSI_PLL_CONFIGURATION2, l);
-
-	}
 
 	REG_FLD_MOD(lcd_ix, DSI_PLL_GO, 1, 0, 0); /* DSI_PLL_GO */
 
@@ -1235,25 +1300,29 @@ if (!cpu_is_omap44xx()) {
 		r = -EIO;
 		goto err;
 	}
-	printk(KERN_DEBUG "\n PLL is locked ");
-	printk(KERN_DEBUG "\n DSI_PLL_STATUS = 0x%X ", dsi_read_reg(lcd_ix, DSI_PLL_STATUS));
+
 	p_dsi->pll_locked = 1;
 
 	l = dsi_read_reg(lcd_ix, DSI_PLL_CONFIGURATION2);
 	l = FLD_MOD(l, 0, 0, 0);	/* DSI_PLL_IDLE */
 	l = FLD_MOD(l, 0, 5, 5);	/* DSI_PLL_PLLLPMODE */
 	l = FLD_MOD(l, 0, 6, 6);	/* DSI_PLL_LOWCURRSTBY */
-	l = FLD_MOD(l, 0, 7, 7);	/* DSI_PLL_TIGHTPHASELOCK */
+	if (cpu_is_omap34xx())
+		l = FLD_MOD(l, 0, 7, 7);/* DSI_PLL_TIGHTPHASELOCK */
 	l = FLD_MOD(l, 0, 8, 8);	/* DSI_PLL_DRIFTGUARDEN */
 	l = FLD_MOD(l, 0, 10, 9);	/* DSI_PLL_LOCKSEL */
 	l = FLD_MOD(l, 1, 13, 13);	/* DSI_PLL_REFEN */
 	l = FLD_MOD(l, 1, 14, 14);	/* DSIPHY_CLKINEN */
 	l = FLD_MOD(l, 0, 15, 15);	/* DSI_BYPASSEN */
-	l = FLD_MOD(l, 1, 16, 16);	/* DSS_CLOCK_EN */
-	l = FLD_MOD(l, 0, 17, 17);	/* DSS_CLOCK_PWDN */
-	l = FLD_MOD(l, 1, 18, 18);	/* DSI_PROTO_CLOCK_EN */
-	l = FLD_MOD(l, 0, 19, 19);	/* DSI_PROTO_CLOCK_PWDN */
+	l = FLD_MOD(l, 1, 16, 16);	/* DSS_CLOCK_EN / M4_CLK_EN */
+	l = FLD_MOD(l, 0, 17, 17);	/* DSS_CLOCK_PWDN / M4_CLK_PWDN */
+	l = FLD_MOD(l, 1, 18, 18);	/* DSI_PROTO_CLOCK_EN / M5_CLK_EN */
+	l = FLD_MOD(l, 0, 19, 19);	/* DSI_PROTO_CLOCK_PWDN / M5_CLK_PWDN */
 	l = FLD_MOD(l, 0, 20, 20);	/* DSI_HSDIVBYPASS */
+	if (cpu_is_omap44xx()) {
+		l = FLD_MOD(l, 0, 25, 25);	/* M7_CLOCK_EN */
+		l = FLD_MOD(l, 0, 26, 26);	/* M7_CLOCK_PWDN */
+	}
 	dsi_write_reg(lcd_ix, DSI_PLL_CONFIGURATION2, l);
 
 	DSSDBG("PLL config done\n");
@@ -1270,15 +1339,15 @@ int dsi_pll_init(enum dsi lcd_ix, struct omap_dss_device *dssdev,
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
 	DSSDBG("PLL init\n");
 
+		REG_FLD_MOD(lcd_ix, DSI_CLK_CTRL, 1, 14, 14);
 	enable_clocks(1);
 	dsi_enable_pll_clock(lcd_ix, 1);
 
-if (!cpu_is_omap44xx()) {
-
-	r = regulator_enable(p_dsi->vdds_dsi_reg);
-	if (r)
-		goto err0;
-}
+	if (!cpu_is_omap44xx()) {
+		r = regulator_enable(p_dsi->vdds_dsi_reg);
+		if (r)
+			goto err0;
+	}
 
 	/* XXX PLL does not come out of reset without this... */
 
@@ -1295,20 +1364,19 @@ if (!cpu_is_omap44xx()) {
 	/* XXX ... but if left on, we get problems when planes do not
 	 * fill the whole display. No idea about this */
 	if (!cpu_is_omap44xx()) {
+		dispc_pck_free_enable(0);
 
-	dispc_pck_free_enable(0);
-
-	if (enable_hsclk && enable_hsdiv)
+		if (enable_hsclk && enable_hsdiv)
+			pwstate = DSI_PLL_POWER_ON_ALL;
+		else if (enable_hsclk)
+			pwstate = DSI_PLL_POWER_ON_HSCLK;
+		else if (enable_hsdiv)
+			pwstate = DSI_PLL_POWER_ON_DIV;
+		else
+			pwstate = DSI_PLL_POWER_OFF;
+	} else {
 		pwstate = DSI_PLL_POWER_ON_ALL;
-	else if (enable_hsclk)
-		pwstate = DSI_PLL_POWER_ON_HSCLK;
-	else if (enable_hsdiv)
-		pwstate = DSI_PLL_POWER_ON_DIV;
-	else
-		pwstate = DSI_PLL_POWER_OFF;
-
-	} else
-		pwstate = DSI_PLL_POWER_ON_ALL;
+	}
 
 	r = dsi_pll_power(lcd_ix, pwstate);
 
@@ -1321,8 +1389,8 @@ if (!cpu_is_omap44xx()) {
 
 err1:
 
-if (!cpu_is_omap44xx())
-	regulator_disable(p_dsi->vdds_dsi_reg);
+	if (!cpu_is_omap44xx())
+		regulator_disable(p_dsi->vdds_dsi_reg);
 
 err0:
 	enable_clocks(0);
@@ -1340,8 +1408,8 @@ void dsi_pll_uninit(enum dsi lcd_ix)
 	p_dsi->pll_locked = 0;
 	dsi_pll_power(lcd_ix, DSI_PLL_POWER_OFF);
 
-if (!cpu_is_omap44xx())
-	regulator_disable(p_dsi->vdds_dsi_reg);
+	if (!cpu_is_omap44xx())
+		regulator_disable(p_dsi->vdds_dsi_reg);
 
 	DSSDBG("PLL uninit done\n");
 }
@@ -1385,7 +1453,7 @@ void dsi_dump_clocks(enum dsi lcd_ix, struct seq_file *s)
 			dss_get_dsi_clk_source() == 0 ?
 			"dss1_alwon_fclk" : "dsi2_pll_fclk");
 
-	seq_printf(s,	"DSI_FCLK\t%lu\n", dsi_fclk_rate());
+	seq_printf(s,	"DSI_FCLK\t%lu\n", dsi_fclk_rate(lcd_ix));
 
 	seq_printf(s,	"DDR_CLK\t\t%lu\n",
 			cinfo->clkin4ddr / 4);
@@ -1489,7 +1557,8 @@ enum dsi_complexio_power_state {
 	DSI_COMPLEXIO_POWER_ULPS	= 0x2,
 };
 
-static int dsi_complexio_power(enum dsi lcd_ix, enum dsi_complexio_power_state state)
+static int dsi_complexio_power(enum dsi lcd_ix,
+		enum dsi_complexio_power_state state)
 {
 	int t = 0;
 
@@ -1501,7 +1570,8 @@ if (cpu_is_omap44xx())
 	REG_FLD_MOD(lcd_ix, DSI_COMPLEXIO_CFG1, 1, 30, 30);
 
 	/* PWR_STATUS */
-	while (FLD_GET(dsi_read_reg(lcd_ix, DSI_COMPLEXIO_CFG1), 26, 25) != state) {
+	while (FLD_GET(dsi_read_reg(lcd_ix, DSI_COMPLEXIO_CFG1),
+			26, 25) != state) {
 		udelay(1);
 		if (t++ > 10000) {
 			DSSERR("failed to set complexio power state to "
@@ -1625,47 +1695,47 @@ static void dsi_complexio_timings(enum dsi lcd_ix)
 
 	/* program timings */
 	if (!cpu_is_omap44xx()) {
-	r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG0);
-	r = FLD_MOD(r, ths_prepare, 31, 24);
-	r = FLD_MOD(r, ths_prepare_ths_zero, 23, 16);
-	r = FLD_MOD(r, ths_trail, 15, 8);
-	r = FLD_MOD(r, ths_exit, 7, 0);
-	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG0, r);
+		r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG0);
+		r = FLD_MOD(r, ths_prepare, 31, 24);
+		r = FLD_MOD(r, ths_prepare_ths_zero, 23, 16);
+		r = FLD_MOD(r, ths_trail, 15, 8);
+		r = FLD_MOD(r, ths_exit, 7, 0);
+		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG0, r);
 
-	r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG1);
-	r = FLD_MOD(r, tlpx_half, 22, 16);
-	r = FLD_MOD(r, tclk_trail, 15, 8);
-	r = FLD_MOD(r, tclk_zero, 7, 0);
-	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG1, r);
+		r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG1);
+		r = FLD_MOD(r, tlpx_half, 22, 16);
+		r = FLD_MOD(r, tclk_trail, 15, 8);
+		r = FLD_MOD(r, tclk_zero, 7, 0);
+		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG1, r);
 
-	r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG2);
-	r = FLD_MOD(r, tclk_prepare, 7, 0);
-	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG2, r);
-		} else {
-	/*Timing Configurations
-	 Configure the DSI PHY timing parameters*/
-	val = ((9<<24)|
-		   (20<<16)|
-		   (6<<8)|
-		   (15<<0));
-	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG0,val);
+		r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG2);
+		r = FLD_MOD(r, tclk_prepare, 7, 0);
+		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG2, r);
+	} else {
+		/*Timing Configurations
+		 Configure the DSI PHY timing parameters*/
+		val = ((9<<24)|
+			(20<<16)|
+			(6<<8)|
+			(15<<0));
+		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG0, val);
 
-	val = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG1);
-	val = val & ~(0x007FFFFF);
-	val = ((2<<29)|
-	       (0<<27)|
-	       (2<<24)|
-	       (3<<16)|
-	       (6<<8)|
-	       (26<<0) );
-	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG1,val);
+		val = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG1);
+		val = val & ~(0x007FFFFF);
+		val = ((2<<29)|
+			(0<<27)|
+			(2<<24)|
+			(3<<16)|
+			(6<<8)|
+			(26<<0));
+		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG1, val);
 
-	val = dsi_read_reg(lcd_ix,DSI_DSIPHY_CFG2);
-	/* this is required to preserve the reset data */
-	val = val & ~(0x000000FF);
-	val = val | (7 << 0);
-	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG2,val);
-			}
+		val = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG2);
+		/* this is required to preserve the reset data */
+		val = val & ~(0x000000FF);
+		val = val | (7 << 0);
+		dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG2, val);
+	}
 }
 
 
@@ -1680,58 +1750,51 @@ static int dsi_complexio_init(enum dsi lcd_ix, struct omap_dss_device *dssdev)
 	DSSDBG("dsi_complexio_init\n");
 
 	if (cpu_is_omap44xx()) {
-	phymux_base = ioremap(0x4A100000, 0x1000);
+		phymux_base = ioremap(0x4A100000, 0x1000);
+		/* Turning on DSI PHY Mux*/
+		__raw_writel(dsimux, phymux_base+0x618);
+		dsimux = __raw_readl(phymux_base+0x618);
 
-	/* CIO_CLK_ICG, enable L3 clk to CIO */
-	REG_FLD_MOD(lcd_ix, DSI_CLK_CTRL, 1, 14, 14);
+		/* CIO_CLK_ICG, enable L3 clk to CIO */
+		REG_FLD_MOD(lcd_ix, DSI_CLK_CTRL, 1, 14, 14);
+	}
 
-	/* Turning on DSI PHY Mux*/
-	__raw_writel(dsimux, phymux_base+0x618);
-	dsimux = __raw_readl(phymux_base+0x618);
 	/* A dummy read using the SCP interface to any DSIPHY register is
 	 * required after DSIPHY reset to complete the reset of the DSI complex
 	 * I/O. */
-	}
-	if (!cpu_is_omap44xx()) {
+	dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG5);
 
-		dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG5);
-
-	if (wait_for_bit_change(lcd_ix, DSI_DSIPHY_CFG5, 30, 1) != 1) {
+	if (wait_for_bit_change(lcd_ix, DSI_DSIPHY_CFG5,
+			30, 1) != 1) {
 		DSSERR("ComplexIO PHY not coming out of reset.\n");
 		r = -ENODEV;
 		goto err;
-		}
 	}
 
 
 	dsi_complexio_config(dssdev);
-
-if (cpu_is_omap44xx()) {
-			/* clear the events*/
-		dsi_write_reg(lcd_ix, DSI_COMPLEXIO_IRQ_STATUS, 0xFFFFFFFF);
-			/* enable complexio interrupt events*/
-		dsi_write_reg(lcd_ix, DSI_COMPLEXIO_IRQ_ENABLE, 0x0);
-	}
 
 	r = dsi_complexio_power(lcd_ix, DSI_COMPLEXIO_POWER_ON);
 
 	if (r)
 		goto err;
 
-	if (wait_for_bit_change(lcd_ix, DSI_COMPLEXIO_CFG1, 29, 1) != 1) {
+	if (wait_for_bit_change(lcd_ix, DSI_COMPLEXIO_CFG1,
+			29, 1) != 1) {
 		DSSERR("ComplexIO not coming out of reset.\n");
 		r = -ENODEV;
 		goto err;
 	}
 
-if (!cpu_is_omap44xx()) {
+	if (!cpu_is_omap44xx()) {
 		/*unknown issue with omap4*/
-	if (wait_for_bit_change(lcd_ix, DSI_COMPLEXIO_CFG1, 21, 1) != 1) {
-		DSSERR("ComplexIO LDO power down.\n");
-		r = -ENODEV;
-		goto err;
-	}
+		if (wait_for_bit_change(lcd_ix, DSI_COMPLEXIO_CFG1,
+				21, 1) != 1) {
+			DSSERR("ComplexIO LDO power down.\n");
+			r = -ENODEV;
+			goto err;
 		}
+	}
 
 	dsi_complexio_timings(lcd_ix);
 
@@ -1751,7 +1814,8 @@ if (!cpu_is_omap44xx()) {
 
 	dsi_if_enable(lcd_ix, 1);
 	dsi_if_enable(lcd_ix, 0);
-	REG_FLD_MOD(lcd_ix, DSI_CLK_CTRL, 1, 20, 20); /* LP_CLK_ENABLE done before now*/
+	REG_FLD_MOD(lcd_ix, DSI_CLK_CTRL, 1,
+			20, 20); /* LP_CLK_ENABLE done before now*/
 	dsi_if_enable(lcd_ix, 1);
 	dsi_if_enable(lcd_ix, 0);
 
@@ -1801,13 +1865,13 @@ static void dsi_reset_tx_fifo(enum dsi lcd_ix, int channel)
 	dsi_write_reg(lcd_ix, DSI_TX_FIFO_VC_SIZE, l);
 }
 
-static void dsi_config_tx_fifo(enum dsi lcd_ix, enum fifo_size size1, enum fifo_size size2,
-		enum fifo_size size3, enum fifo_size size4)
+static void dsi_config_tx_fifo(enum dsi lcd_ix, enum fifo_size size1,
+		enum fifo_size size2, enum fifo_size size3,
+		enum fifo_size size4)
 {
 	u32 r = 0;
 	int add = 0;
 	int i;
-	unsigned int val;
 	struct dsi_struct *p_dsi;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
 
@@ -1815,8 +1879,6 @@ static void dsi_config_tx_fifo(enum dsi lcd_ix, enum fifo_size size1, enum fifo_
 	p_dsi->vc[1].fifo_size = size2;
 	p_dsi->vc[2].fifo_size = size3;
 	p_dsi->vc[3].fifo_size = size4;
-
-if (!cpu_is_omap44xx()) {
 
 	for (i = 0; i < 4; i++) {
 		u8 v;
@@ -1834,27 +1896,15 @@ if (!cpu_is_omap44xx()) {
 	}
 
 	dsi_write_reg(lcd_ix, DSI_TX_FIFO_VC_SIZE, r);
-		} else {
-			val = (0<<28) | 			/* VC3 Not used*/
-				(0<<24) | 			/* VC3 Not used*/
-				(0<<20) |			/* VC2 Not used*/
-				(0<<16) | 			/* VC2 Not used*/
-				(4<<12) | 			/* VC1 FIFO length*/
-				(0<<8) | 				/* VC1 FIFO start address*/
-				(4<<4) | 				/* VC0 FIFO length*/
-				(0<<0); 				/* VC0 FIFO start address*/
-				dsi_write_reg(lcd_ix, DSI_TX_FIFO_VC_SIZE, val);
-
-		}
 }
 
-static void dsi_config_rx_fifo(enum dsi lcd_ix, enum fifo_size size1, enum fifo_size size2,
-		enum fifo_size size3, enum fifo_size size4)
+static void dsi_config_rx_fifo(enum dsi lcd_ix, enum fifo_size size1,
+		enum fifo_size size2, enum fifo_size size3,
+		enum fifo_size size4)
 {
 	u32 r = 0;
 	int add = 0;
 	int i;
-	unsigned int val;
 	struct dsi_struct *p_dsi;
 
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
@@ -1862,8 +1912,6 @@ static void dsi_config_rx_fifo(enum dsi lcd_ix, enum fifo_size size1, enum fifo_
 	p_dsi->vc[1].fifo_size = size2;
 	p_dsi->vc[2].fifo_size = size3;
 	p_dsi->vc[3].fifo_size = size4;
-
-if (!cpu_is_omap44xx()) {
 
 	for (i = 0; i < 4; i++) {
 		u8 v;
@@ -1881,19 +1929,6 @@ if (!cpu_is_omap44xx()) {
 	}
 
 		dsi_write_reg(lcd_ix, DSI_RX_FIFO_VC_SIZE, r);
-	} else {
-
-		val = (0<<28) | 			/* VC3 Not used*/
-			(0<<24) | 			/* VC3 Not used*/
-			(0<<20) | 			/* VC2 Not used*/
-			(0<<16) | 			/* VC2 Not used*/
-			(1<<12) | 			/* VC1 FIFO length*/
-			(0<<8) | 				/* VC1 FIFO start address*/
-			(1<<4) | 				/* VC0 Not used for BTA*/
-			(0<<0);				/* VC0 Not used for BTA*/
-			dsi_write_reg(lcd_ix, DSI_RX_FIFO_VC_SIZE, val);
-
-	}
 }
 
 static int dsi_force_tx_stop_mode_io(enum dsi lcd_ix)
@@ -1932,16 +1967,19 @@ static void dsi_vc_print_status(enum dsi lcd_ix, int channel)
 
 static int dsi_vc_enable(enum dsi lcd_ix, int channel, bool enable)
 {
+	struct dsi_struct *p_dsi;
+	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
 
-/*	if (dsi.update_mode != OMAP_DSS_UPDATE_AUTO)
-	DSSDBG("dsi_vc_enable channel %d, enable %d\n",
-			channel, enable);*/
+	if (p_dsi->update_mode != OMAP_DSS_UPDATE_AUTO)
+		DSSDBG("dsi_vc_enable channel %d, enable %d\n",
+				channel, enable);
 
 	enable = enable ? 1 : 0;
 
 	REG_FLD_MOD(lcd_ix, DSI_VC_CTRL(channel), enable, 0, 0);
 
-	if (wait_for_bit_change(lcd_ix, DSI_VC_CTRL(channel), 0, enable) != enable) {
+	if (wait_for_bit_change(lcd_ix, DSI_VC_CTRL(channel),
+			0, enable) != enable) {
 			DSSERR("Failed to set dsi_vc_enable to %d\n", enable);
 			return -EIO;
 	}
@@ -1981,6 +2019,31 @@ static void dsi_vc_initial_config(enum dsi lcd_ix, int channel)
 	p_dsi->vc[channel].mode = DSI_VC_MODE_L4;
 }
 
+static void dsi_vc_initial_config_vp(enum dsi lcd_ix, int channel)
+{
+	u32 r;
+	struct dsi_struct *p_dsi;
+
+	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
+
+	DSSDBGF("%d", channel);
+
+	r = dsi_read_reg(lcd_ix, DSI_VC_CTRL(channel));
+	r = FLD_MOD(r, 1, 1, 1); /* SOURCE, 1 = video port */
+	r = FLD_MOD(r, 0, 2, 2); /* BTA_SHORT_EN */
+	r = FLD_MOD(r, 0, 3, 3); /* BTA_LONG_EN */
+	r = FLD_MOD(r, 0, 4, 4); /* MODE, 0 = command */
+	r = FLD_MOD(r, 1, 7, 7); /* CS_TX_EN */
+	r = FLD_MOD(r, 1, 8, 8); /* ECC_TX_EN */
+	r = FLD_MOD(r, 1, 9, 9); /* MODE_SPEED, high speed on/off */
+	r = FLD_MOD(r, 1, 12, 12);	/*RGB565_ORDER*/
+	r = FLD_MOD(r, 4, 29, 27); /* DMA_RX_REQ_NB = no dma */
+	r = FLD_MOD(r, 4, 23, 21); /* DMA_TX_REQ_NB = no dma */
+	r = FLD_MOD(r, 1, 30, 30);	/* DCS_CMD_ENABLE*/
+	r = FLD_MOD(r, 0, 31, 31);	/* DCS_CMD_CODE*/
+	dsi_write_reg(lcd_ix, DSI_VC_CTRL(channel), r);
+}
+
 static void dsi_vc_config_l4(enum dsi lcd_ix, int channel)
 {
 	struct dsi_struct *p_dsi;
@@ -2005,30 +2068,30 @@ static void dsi_vc_config_l4(enum dsi lcd_ix, int channel)
 
 static void dsi_vc_config_vp(enum dsi lcd_ix, int channel)
 {
-	u32 r;
+	/* :TODO: does this apply for OMAP3? */
+#ifdef CONFIG_ARCH_OMAP4
+	struct dsi_struct *p_dsi;
 
-	DSSDBG("dsi_vc_config_vp\n");
+	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
 
-	r = dsi_read_reg(lcd_ix, DSI_VC_CTRL(channel));
+	if (p_dsi->vc[channel].mode == DSI_VC_MODE_VP)
+			return;
 
-	r = FLD_MOD(r, 1, 1, 1); /* SOURCE, 1 = video port */
-	r = FLD_MOD(r, 0, 2, 2); /* BTA_SHORT_EN */
-	r = FLD_MOD(r, 0, 3, 3); /* BTA_LONG_EN */
-	r = FLD_MOD(r, 0, 4, 4); /* MODE, 0 = command */
-	r = FLD_MOD(r, 1, 7, 7); /* CS_TX_EN */
-	r = FLD_MOD(r, 1, 8, 8); /* ECC_TX_EN */
-	r = FLD_MOD(r, 1, 9, 9); /* MODE_SPEED, high speed on/off */
+	DSSDBGF("%d", channel);
 
-	r = FLD_MOD(r, 4, 29, 27); /* DMA_RX_REQ_NB = no dma */
-	r = FLD_MOD(r, 4, 23, 21); /* DMA_TX_REQ_NB = no dma */
+	dsi_vc_enable(lcd_ix, channel, 0);
 
-if (cpu_is_omap44xx()) {
-	r = FLD_MOD(r, 1, 12, 12);	/*RGB565_ORDER*/
-	r = FLD_MOD(r, 1, 30, 30);	/* DCS_CMD_ENABLE*/
-	r = FLD_MOD(r, 0, 31, 31);	/* DCS_CMD_CODE*/
-	}
+	if (REG_GET(lcd_ix, DSI_VC_CTRL(channel), 15, 15)) /* VC_BUSY */
+			DSSERR("vc(%d) busy when trying to config for VP\n",
+			channel);
 
-	dsi_write_reg(lcd_ix, DSI_VC_CTRL(channel), r);
+	REG_FLD_MOD(lcd_ix, DSI_VC_CTRL(channel), 1,
+			1, 1); /* SOURCE, 1 = video port */
+
+	dsi_vc_enable(lcd_ix, channel, 1);
+
+	p_dsi->vc[channel].mode = DSI_VC_MODE_VP;
+#endif
 }
 
 
@@ -2108,7 +2171,8 @@ static u16 dsi_vc_flush_receive_data(enum dsi lcd_ix, int channel)
 		dt = FLD_GET(val, 5, 0);
 		if (dt == DSI_DT_RX_ACK_WITH_ERR) {
 			u16 err = FLD_GET(val, 23, 8);
-			dsi_show_rx_ack_with_err(err);
+			if (!cpu_is_omap44xx())
+				dsi_show_rx_ack_with_err(err);
 		} else if (dt == DSI_DT_RX_SHORT_READ_1) {
 			DSSDBG("\tDCS short response, 1 byte: %#x\n",
 					FLD_GET(val, 23, 8));
@@ -2138,7 +2202,7 @@ static int dsi_vc_send_bta(enum dsi lcd_ix, int channel)
 	WARN_ON(!mutex_is_locked(&(p_dsi->bus_lock)));
 	/* RX_FIFO_NOT_EMPTY */
 	if (REG_GET(lcd_ix, DSI_VC_CTRL(channel), 20, 20)) {
-		DSSERR("rx fifo not empty when sending BTA, dumping data:\n");
+		/* DSSERR("rx fifo not empty when sending BTA, dumping data:\n"); */
 		dsi_vc_flush_receive_data(lcd_ix, channel);
 	}
 
@@ -2219,14 +2283,10 @@ static int dsi_vc_send_long(enum dsi lcd_ix,
 	u8 b1, b2, b3, b4;
 	struct dsi_struct *p_dsi;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
-	ecc = 0; /*sv5*/
 
 	if (p_dsi->debug_write)
 		DSSDBG("dsi_vc_send_long, %d bytes\n", len);
 
-
-/*sv HS mode*/
-	printk(KERN_DEBUG "we need not come here for send long");
 	/* len + header */
 	if (p_dsi->vc[channel].fifo_size * 32 * 4 < len + 4) {
 		DSSERR("unable to send long packet: packet too long.\n");
@@ -2235,10 +2295,12 @@ static int dsi_vc_send_long(enum dsi lcd_ix,
 
 	dsi_vc_config_l4(lcd_ix, channel);
 
-	mdelay(2+1);
+	/* :TODO: does this matter for OMAP2/3? */
+	if (!cpu_is_omap44xx())
+		mdelay(2+1);
 	dsi_vc_write_long_header(lcd_ix, channel, data_type, len, ecc);
 
-
+	/*dsi_vc_print_status(0); */
 
 	p = data;
 	for (i = 0; i < len >> 2; i++) {
@@ -2277,7 +2339,9 @@ static int dsi_vc_send_long(enum dsi lcd_ix,
 			break;
 		}
 
-		mdelay(2+1);
+		/* :TODO: does this matter for OMAP2/3? */
+		if (!cpu_is_omap44xx())
+			mdelay(2+1);
 		dsi_vc_write_long_payload(lcd_ix, channel, b1, b2, b3, 0);
 	}
 
@@ -2341,7 +2405,6 @@ static int dsi_vc_send_short(enum dsi lcd_ix, int channel, u8 data_type,
 	u32 val, u, count;
 	struct dsi_struct *p_dsi;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
-	ecc = 0; /*sv5*/
 
 	WARN_ON(!mutex_is_locked(&(p_dsi->bus_lock)));
 
@@ -2352,31 +2415,43 @@ static int dsi_vc_send_short(enum dsi lcd_ix, int channel, u8 data_type,
 
 	dsi_vc_config_l4(lcd_ix, channel);
 
-	data_id = data_type | 0 << 6;
+	if (cpu_is_omap44xx()) {
+		if (FLD_GET(dsi_read_reg(lcd_ix, DSI_VC_CTRL(channel)),
+			16, 16)) {
+			DSSERR("ERROR FIFO FULL, aborting transfer\n");
+			return -EINVAL;
+		}
+
+		data_id = data_type | p_dsi->vc[channel].dest_per << 6;
+	} else {
+		data_id = data_type | 0 << 6;
+	}
 
 	r = (data_id << 0) | (data << 8) | (0 << 16) | (ecc << 24);
 
-	mdelay(2);
+	/* :TODO: does this matter for OMAP2/3? */
+	if (!cpu_is_omap44xx())
+		mdelay(2);
 
 	dsi_write_reg(lcd_ix, DSI_VC_SHORT_PACKET_HEADER(channel), r);
 
-	count = 10000;
+	/* :TODO: does this matter for OMAP2/3? */
+	if (!cpu_is_omap44xx()) {
+		count = 10000;
 
-	do {
-		val = dsi_read_reg(lcd_ix, DSI_VC_IRQSTATUS(channel));
-		for (u = 0; u < 100000; u++)
-			;
-	} while ((!(val & 0x4)) && (--count))
-		;
+		do {
+			val = dsi_read_reg(lcd_ix, DSI_VC_IRQSTATUS(channel));
+			for (u = 0; u < 100000; u++)
+				;
+		} while ((!(val & 0x4)) && (--count));
 
-	if (count) {
-		dsi_write_reg(lcd_ix, DSI_VC_IRQSTATUS(channel), val);
-		printk(KERN_DEBUG "short Packet  success");
-		return 0;
-	} else {
-		printk("short Packet sent fail");
+		if (count) {
+			dsi_write_reg(lcd_ix, DSI_VC_IRQSTATUS(channel), val);
+			printk(KERN_DEBUG "short Packet  success");
+		} else {
+			printk("short Packet sent fail");
+		}
 	}
-
 
 	return 0;
 }
@@ -2545,9 +2620,7 @@ static void dsi_set_lp_rx_timeout(enum dsi lcd_ix, unsigned long ns)
 	unsigned long ticks = 0;
 
 	/* ticks in DSI_FCK */
-	if (!cpu_is_omap44xx()) {
-
-	fck = dsi_fclk_rate();
+	fck = dsi_fclk_rate(lcd_ix);
 	ticks = (fck / 1000 / 1000) * ns / 1000;
 	x4 = 0;
 	x16 = 0;
@@ -2576,25 +2649,18 @@ static void dsi_set_lp_rx_timeout(enum dsi lcd_ix, unsigned long ns)
 		x4 = 1;
 		x16 = 1;
 	}
-		}
 
 	r = dsi_read_reg(lcd_ix, DSI_TIMING2);
-
-	if (!cpu_is_omap44xx()) {
-		r = FLD_MOD(r, 1, 15, 15);	/* LP_RX_TO */
-		r = FLD_MOD(r, x16, 14, 14);	/* LP_RX_TO_X16 */
-		r = FLD_MOD(r, x4, 13, 13);	/* LP_RX_TO_X4 */
-		r = FLD_MOD(r, ticks, 12, 0);	/* LP_RX_COUNTER */
-		} else
-			r = FLD_MOD(r, 0, 15, 15);	/* LP_RX_TO */
-
+	r = FLD_MOD(r, 1, 15, 15);	/* LP_RX_TO */
+	r = FLD_MOD(r, x16, 14, 14);	/* LP_RX_TO_X16 */
+	r = FLD_MOD(r, x4, 13, 13);	/* LP_RX_TO_X4 */
+	r = FLD_MOD(r, ticks, 12, 0);	/* LP_RX_COUNTER */
 	dsi_write_reg(lcd_ix, DSI_TIMING2, r);
 
-	if (!cpu_is_omap44xx())	/*will be removed after proper clock calculations*/
-		DSSDBG("LP_RX_TO %lu ns (%#lx ticks%s%s)\n",
-			(ticks * (x16 ? 16 : 1) * (x4 ? 4 : 1) * 1000) /
-			(fck / 1000 / 1000),
-			ticks, x4 ? " x4" : "", x16 ? " x16" : "");
+	DSSDBG("LP_RX_TO %lu ns (%#lx ticks%s%s)\n",
+		(ticks * (x16 ? 16 : 1) * (x4 ? 4 : 1) * 1000) /
+		(fck / 1000 / 1000),
+		ticks, x4 ? " x4" : "", x16 ? " x16" : "");
 }
 
 static void dsi_set_ta_timeout(enum dsi lcd_ix, unsigned long ns)
@@ -2605,8 +2671,7 @@ static void dsi_set_ta_timeout(enum dsi lcd_ix, unsigned long ns)
 	unsigned long ticks = 0;
 
 	/* ticks in DSI_FCK */
-	if (!cpu_is_omap44xx()) {
-	fck = dsi_fclk_rate();
+	fck = dsi_fclk_rate(lcd_ix);
 	ticks = (fck / 1000 / 1000) * ns / 1000;
 	x8 = 0;
 	x16 = 0;
@@ -2635,27 +2700,20 @@ static void dsi_set_ta_timeout(enum dsi lcd_ix, unsigned long ns)
 		x8 = 1;
 		x16 = 1;
 	}
-		}
 
 	r = dsi_read_reg(lcd_ix, DSI_TIMING1);
 
-	r = FLD_MOD(r, (cpu_is_omap44xx()) ? 0 : 1,
-		31, 31);/* TA_TO : 0x0 turn around is off*/
-	r = FLD_MOD(r, (cpu_is_omap44xx()) ? 0 : x16,
-		30, 30);	/* TA_TO_X16 */
-	r = FLD_MOD(r, (cpu_is_omap44xx()) ? 0 : x8,
-		29, 29);	/* TA_TO_X8 */
-	r = FLD_MOD(r, (cpu_is_omap44xx()) ? 0 : ticks,
-		28, 16);	/* TA_TO_COUNTER */
+	r = FLD_MOD(r, 1, 31, 31);		/* TA_TO */
+	r = FLD_MOD(r, x16, 30, 30);	/* TA_TO_X16 */
+	r = FLD_MOD(r, x8, 29, 29);		/* TA_TO_X8 */
+	r = FLD_MOD(r, ticks, 28, 16);	/* TA_TO_COUNTER */
 
 	dsi_write_reg(lcd_ix, DSI_TIMING1, r);
 
-
-	if (!cpu_is_omap44xx())	/*will be removed after proper clock calculations*/
-		DSSDBG("TA_TO %lu ns (%#lx ticks%s%s)\n",
-			(ticks * (x16 ? 16 : 1) * (x8 ? 8 : 1) * 1000) /
-			(fck / 1000 / 1000),
-			ticks, x8 ? " x8" : "", x16 ? " x16" : "");
+	DSSDBG("TA_TO %lu ns (%#lx ticks%s%s)\n",
+		(ticks * (x16 ? 16 : 1) * (x8 ? 8 : 1) * 1000) /
+		(fck / 1000 / 1000),
+		ticks, x8 ? " x8" : "", x16 ? " x16" : "");
 }
 
 static void dsi_set_stop_state_counter(enum dsi lcd_ix, unsigned long ns)
@@ -2666,8 +2724,7 @@ static void dsi_set_stop_state_counter(enum dsi lcd_ix, unsigned long ns)
 	unsigned long ticks = 0;
 
 	/* ticks in DSI_FCK */
-	if (!cpu_is_omap44xx()) {
-	fck = dsi_fclk_rate();
+	fck = dsi_fclk_rate(lcd_ix);
 	ticks = (fck / 1000 / 1000) * ns / 1000;
 	x4 = 0;
 	x16 = 0;
@@ -2697,23 +2754,18 @@ static void dsi_set_stop_state_counter(enum dsi lcd_ix, unsigned long ns)
 		x4 = 1;
 		x16 = 1;
 	}
-		}
 
 	r = dsi_read_reg(lcd_ix, DSI_TIMING1);
-	r = FLD_MOD(r, 1, 15, 15);	/* FORCE_TX_STOP_MODE_IO */
-	r = FLD_MOD(r, (cpu_is_omap44xx()) ? 1 : x16,
-		14, 14);	/* STOP_STATE_X16_IO */
-	r = FLD_MOD(r, (cpu_is_omap44xx()) ? 0 : x4,
-		13, 13);	/* STOP_STATE_X4_IO */
-	r = FLD_MOD(r, (cpu_is_omap44xx()) ? 0x999 : ticks,
-		12, 0);/* STOP_STATE_COUNTER_IO */
+	r = FLD_MOD(r, 1, 15, 15);		/* FORCE_TX_STOP_MODE_IO */
+	r = FLD_MOD(r, x16, 14, 14);	/* STOP_STATE_X16_IO */
+	r = FLD_MOD(r, x4, 13, 13);		/* STOP_STATE_X4_IO */
+	r = FLD_MOD(r, ticks, 12, 0);	/* STOP_STATE_COUNTER_IO */
 	dsi_write_reg(lcd_ix, DSI_TIMING1, r);
 
-	if (!cpu_is_omap44xx())	/*will be removed after proper clock calculations*/
-		DSSDBG("STOP_STATE_COUNTER %lu ns (%#lx ticks%s%s)\n",
-			(ticks * (x16 ? 16 : 1) * (x4 ? 4 : 1) * 1000) /
-			(fck / 1000 / 1000),
-			ticks, x4 ? " x4" : "", x16 ? " x16" : "");
+	DSSDBG("STOP_STATE_COUNTER %lu ns (%#lx ticks%s%s)\n",
+		(ticks * (x16 ? 16 : 1) * (x4 ? 4 : 1) * 1000) /
+		(fck / 1000 / 1000),
+		ticks, x4 ? " x4" : "", x16 ? " x16" : "");
 }
 
 static void dsi_set_hs_tx_timeout(enum dsi lcd_ix, unsigned long ns)
@@ -2722,9 +2774,6 @@ static void dsi_set_hs_tx_timeout(enum dsi lcd_ix, unsigned long ns)
 	unsigned x4 = 0, x16 = 0;
 	unsigned long fck = 0;
 	unsigned long ticks = 0;
-
-	/* ticks in TxByteClkHS */
-if (!cpu_is_omap44xx()) {
 
 	fck = dsi_get_txbyteclkhs(lcd_ix);
 	ticks = (fck / 1000 / 1000) * ns / 1000;
@@ -2755,46 +2804,50 @@ if (!cpu_is_omap44xx()) {
 		x4 = 1;
 		x16 = 1;
 	}
-		}
 
 	r = dsi_read_reg(lcd_ix, DSI_TIMING2);
-
-	if (!cpu_is_omap44xx()) {
-		r = FLD_MOD(r, 1, 31, 31);	/* HS_TX_TO */
-		r = FLD_MOD(r, x16, 30, 30);	/* HS_TX_TO_X16 */
-		r = FLD_MOD(r, x4, 29, 29);	/* HS_TX_TO_X8 (4 really) */
-		r = FLD_MOD(r, ticks, 28, 16);	/* HS_TX_TO_COUNTER */
-	} else
-		r = FLD_MOD(r, 0, 31, 31);	/* HS_TX_TO */
-
+	r = FLD_MOD(r, 1, 31, 31);	/* HS_TX_TO */
+	r = FLD_MOD(r, x16, 30, 30);	/* HS_TX_TO_X16 */
+	r = FLD_MOD(r, x4, 29, 29);	/* HS_TX_TO_X8 (4 really) */
+	r = FLD_MOD(r, ticks, 28, 16);	/* HS_TX_TO_COUNTER */
 	dsi_write_reg(lcd_ix, DSI_TIMING2, r);
 
-	if (!cpu_is_omap44xx())
-		DSSDBG("HS_TX_TO %lu ns (%#lx ticks%s%s)\n",
-			(ticks * (x16 ? 16 : 1) * (x4 ? 4 : 1) * 1000) /
-			(fck / 1000 / 1000),
-			ticks, x4 ? " x4" : "", x16 ? " x16" : "");
+	DSSDBG("HS_TX_TO %lu ns (%#lx ticks%s%s)\n",
+		(ticks * (x16 ? 16 : 1) * (x4 ? 4 : 1) * 1000) /
+		(fck / 1000 / 1000),
+		ticks, x4 ? " x4" : "", x16 ? " x16" : "");
 }
 static int dsi_proto_config(struct omap_dss_device *dssdev)
 {
 	u32 r;
 	int buswidth = 0;
-	int div;
 	enum dsi lcd_ix;
 	struct dsi_struct *p_dsi;
 
 	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
 
-	dsi_config_tx_fifo(lcd_ix, DSI_FIFO_SIZE_128,
+	if (cpu_is_omap44xx()) {
+		dsi_config_tx_fifo(lcd_ix, DSI_FIFO_SIZE_64,
+			DSI_FIFO_SIZE_64,
+			DSI_FIFO_SIZE_0,
+			DSI_FIFO_SIZE_0);
+
+		dsi_config_rx_fifo(lcd_ix, DSI_FIFO_SIZE_64,
+			DSI_FIFO_SIZE_64,
+			DSI_FIFO_SIZE_0,
+			DSI_FIFO_SIZE_0);
+	} else {
+		dsi_config_tx_fifo(lcd_ix, DSI_FIFO_SIZE_128,
 			DSI_FIFO_SIZE_0,
 			DSI_FIFO_SIZE_0,
 			DSI_FIFO_SIZE_0);
 
-	dsi_config_rx_fifo(lcd_ix, DSI_FIFO_SIZE_128,
+		dsi_config_rx_fifo(lcd_ix, DSI_FIFO_SIZE_128,
 			DSI_FIFO_SIZE_0,
 			DSI_FIFO_SIZE_0,
 			DSI_FIFO_SIZE_0);
+	}
 
 	/* XXX what values for the timeouts? */
 	dsi_set_stop_state_counter(lcd_ix, 1000);
@@ -2816,50 +2869,36 @@ static int dsi_proto_config(struct omap_dss_device *dssdev)
 		BUG();
 	}
 
-if (!cpu_is_omap44xx()) {
-
 	r = dsi_read_reg(lcd_ix, DSI_CTRL);
-	r = FLD_MOD(r, 1, 1, 1);	/* CS_RX_EN */
-	r = FLD_MOD(r, 1, 2, 2);	/* ECC_RX_EN */
+	r = FLD_MOD(r, (cpu_is_omap44xx()) ? 0 : 1,
+			1, 1);				/* CS_RX_EN */
+	r = FLD_MOD(r, (cpu_is_omap44xx()) ? 0 : 1,
+			2, 2);				/* ECC_RX_EN */
 	r = FLD_MOD(r, 1, 3, 3);	/* TX_FIFO_ARBITRATION */
 	r = FLD_MOD(r, 1, 4, 4);	/* VP_CLK_RATIO, always 1, see errata*/
 	r = FLD_MOD(r, buswidth, 7, 6); /* VP_DATA_BUS_WIDTH */
 	r = FLD_MOD(r, 0, 8, 8);	/* VP_CLK_POL */
+	r = FLD_MOD(r, (cpu_is_omap44xx()) ? 1 : 0,
+			9, 9); 				/*VP_DE_POL */
+	r = FLD_MOD(r, (cpu_is_omap44xx()) ? 1 : 0,
+			11, 11);			/*VP_VSYNC_POL */
 	r = FLD_MOD(r, 2, 13, 12);	/* LINE_BUFFER, 2 lines */
 	r = FLD_MOD(r, 1, 14, 14);	/* TRIGGER_RESET_MODE */
-	r = FLD_MOD(r, 1, 19, 19);	/* EOT_ENABLE */
-	r = FLD_MOD(r, 1, 24, 24);	/* DCS_CMD_ENABLE */
-	r = FLD_MOD(r, 0, 25, 25);	/* DCS_CMD_CODE, 1=start, 0=continue */
-
+	r = FLD_MOD(r, (cpu_is_omap44xx()) ? 0 : 1,
+			19, 19);	/* EOT_ENABLE */
+	if (!cpu_is_omap44xx()) {
+		r = FLD_MOD(r, 1, 24, 24);	/* DCS_CMD_ENABLE */
+		/* DCS_CMD_CODE, 1=start, 0=continue */
+		r = FLD_MOD(r, 0, 25, 25);
+	}
 	dsi_write_reg(lcd_ix, DSI_CTRL, r);
 
-} else {
-
-	dsi_write_reg(lcd_ix, DSI_VM_TIMING1, 0x02004006);
-	dsi_write_reg(lcd_ix, DSI_VM_TIMING2, 0x04010001);
-	dsi_write_reg(lcd_ix, DSI_VM_TIMING3, 0x036F01E0);
-	dsi_write_reg(lcd_ix, DSI_VM_TIMING4, 0x00487296);
-	dsi_write_reg(lcd_ix, DSI_VM_TIMING5, 0x0082DF3B);
-	dsi_write_reg(lcd_ix, DSI_VM_TIMING6, 0x7A6731D1);
-
-	div = 1; /*sv3*/
-	r = dsi_read_reg(lcd_ix, DSI_CTRL);
-	r = FLD_MOD(r, 0, 1, 1);	/* CS_RX_EN */
-	r = FLD_MOD(r, 0, 2, 2);	/* ECC_RX_EN */
-	r = FLD_MOD(r, 1, 3, 3);	/* TX_FIFO_ARBITRATION */
-	r = FLD_MOD(r, 1, 11, 11); 	/*VP_VSYNC_POL */
-	r = FLD_MOD(r, 1, 9, 9); 	/*VP_DE_POL */
-	r = FLD_MOD(r, div == 2 ? 0 : 1, 4, 4);	/* VP_CLK_RATIO */
-	r = FLD_MOD(r, buswidth, 7, 6); /* VP_DATA_BUS_WIDTH */
-	r = FLD_MOD(r, 0, 8, 8);	/* VP_CLK_POL */
-	r = FLD_MOD(r, 2, 13, 12);	/* LINE_BUFFER, 2 lines */
-	r = FLD_MOD(r, 1, 14, 14);	/* TRIGGER_RESET_MODE */
-	dsi_write_reg(lcd_ix, DSI_CTRL,r);
-
-		}
-
+	/*We use 2 Virtual Channels in OMAP4, one for
+	* all LS operations and one for all HS operations
+	*/
 	dsi_vc_initial_config(lcd_ix, 0);
-	dsi_vc_config_vp(lcd_ix, 1);
+	if (cpu_is_omap44xx())
+		dsi_vc_initial_config_vp(lcd_ix, 1);
 
 	/* set all vc targets to peripheral 0 */
 	p_dsi->vc[0].dest_per = 0;
@@ -2880,14 +2919,11 @@ static void dsi_proto_timings(struct omap_dss_device *dssdev)
 	unsigned enter_hs_mode_lat, exit_hs_mode_lat;
 	unsigned ths_eot;
 	u32 r;
-	unsigned int val;
 	enum dsi lcd_ix;
 	struct dsi_struct *p_dsi;
 
 	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
-
-if (!cpu_is_omap44xx()) {
 
 	r = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG0);
 	ths_prepare = FLD_GET(r, 31, 24);
@@ -2923,8 +2959,11 @@ if (!cpu_is_omap44xx()) {
 	BUG_ON(ddr_clk_pre == 0 || ddr_clk_pre > 255);
 	BUG_ON(ddr_clk_post == 0 || ddr_clk_post > 255);
 
-	ddr_clk_pre = 0xA; 	/*sv3*/
-	ddr_clk_post = 0x9;	/*sv3*/
+	/* :TODO: this was different on OMAP2/3 !!! */
+	if (!cpu_is_omap44xx()) {
+		ddr_clk_pre = 0xA; 	/*sv3*/
+		ddr_clk_post = 0x9;	/*sv3*/
+	}
 	r = dsi_read_reg(lcd_ix, DSI_CLK_TIMING);
 	r = FLD_MOD(r, ddr_clk_pre, 15, 8);
 	r = FLD_MOD(r, ddr_clk_post, 7, 0);
@@ -2939,23 +2978,17 @@ if (!cpu_is_omap44xx()) {
 		DIV_ROUND_UP(ths_zero + 3, 4);
 
 	exit_hs_mode_lat = DIV_ROUND_UP(ths_trail + ths_exit, 4) + 1 + ths_eot;
-	enter_hs_mode_lat = 7; /*sv3*/
-	exit_hs_mode_lat = 9; /*sv3*/
+	/* :TODO: this was different on OMAP2/3 !!! */
+	if (!cpu_is_omap44xx()) {
+		enter_hs_mode_lat = 7; /*sv3*/
+		exit_hs_mode_lat = 9; /*sv3*/
+	}
 	r = FLD_VAL(enter_hs_mode_lat, 31, 16) |
 		FLD_VAL(exit_hs_mode_lat, 15, 0);
 	dsi_write_reg(lcd_ix, DSI_VM_TIMING7, r);
 
 	DSSDBG("enter_hs_mode_lat %u, exit_hs_mode_lat %u\n",
 			enter_hs_mode_lat, exit_hs_mode_lat);
-} else {
-	dsi_write_reg(lcd_ix, DSI_VM_TIMING7, 0x00090007);
-
-	/* config DDR CLK timer*/
-	val = dsi_read_reg(lcd_ix, DSI_CLK_TIMING);
-	val = (10 << 8) |
-		  (9 << 0);
-	dsi_write_reg(lcd_ix, DSI_CLK_TIMING, val);
-	}
 }
 
 
@@ -3102,7 +3135,7 @@ static void dsi_update_screen_dispc(enum dsi lcd_ix,
 	unsigned packet_len;
 	u32 l;
 	bool use_te_trigger;
-	const unsigned channel = 0+1;  /*HS mode sv*/
+	const unsigned channel = 1;
 	/* line buffer is 1024 x 24bits */
 	/* XXX: for some reason using full buffer size causes considerable TX
 	 * slowdown with update sizes that fill the whole buffer */
@@ -3111,8 +3144,6 @@ static void dsi_update_screen_dispc(enum dsi lcd_ix,
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
 
 	use_te_trigger = p_dsi->te_enabled && !p_dsi->use_ext_te;
-	if (use_te_trigger)
-		use_te_trigger = 0; /*sv HS mode*/
 
 	if (p_dsi->update_mode != OMAP_DSS_UPDATE_AUTO)
 		DSSDBG("dsi_update_screen_dispc(%d,%d %dx%d)\n",
@@ -3166,7 +3197,7 @@ static void dsi_update_screen_dispc(enum dsi lcd_ix,
 		 * for TE is longer than the timer allows */
 		REG_FLD_MOD(lcd_ix, DSI_TIMING2, 0, 15, 15); /* LP_RX_TO */
 
-		dsi_vc_send_bta(lcd_ix, channel);
+		dsi_vc_send_bta(lcd_ix, 0);
 
 #ifdef DSI_CATCH_MISSING_TE
 		mod_timer(&(p_dsi->te_timer), jiffies + msecs_to_jiffies(250));
@@ -3190,12 +3221,13 @@ static void dsi_framedone_irq_callback(void *data, u32 mask)
 
 	/* SIDLEMODE back to smart-idle */
 	dispc_enable_sidle();
-	udelay(100);
+	/* :TODO: does OMAP2/3 need this? */
+	if (!cpu_is_omap44xx())
+		udelay(100);
 	dsi_1.framedone_received = true;
 	wake_up(&dsi_1.waitqueue);
 }
 
-#ifdef CONFIG_ARCH_OMAP4
 static void dsi2_framedone_irq_callback(void *data, u32 mask)
 {
 	/* Note: We get FRAMEDONE when DISPC has finished sending pixels and
@@ -3204,11 +3236,9 @@ static void dsi2_framedone_irq_callback(void *data, u32 mask)
 	 */
 	/* SIDLEMODE back to smart-idle */
 	dispc_enable_sidle();
-	udelay(100);
 	dsi_2.framedone_received = true;
 	wake_up(&dsi_2.waitqueue);
 }
-#endif
 
 static void dsi_set_update_region(enum dsi lcd_ix,
 	struct omap_dss_device *dssdev, u16 x, u16 y,
@@ -3294,14 +3324,13 @@ static int dsi_set_te(struct omap_dss_device *dssdev, bool enable)
 
 static void dsi_handle_framedone(enum dsi lcd_ix)
 {
+	int r = 0;
 	const int channel = 0;
 	bool use_te_trigger;
 	struct dsi_struct *p_dsi;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
 
 	use_te_trigger = p_dsi->te_enabled && !p_dsi->use_ext_te;
-	if(use_te_trigger)
-		use_te_trigger = 0; /*sv HS mode*/
 
 	if (p_dsi->update_mode != OMAP_DSS_UPDATE_AUTO)
 		DSSDBG("FRAMEDONE\n");
@@ -3320,14 +3349,14 @@ static void dsi_handle_framedone(enum dsi lcd_ix)
 	 * make sure that the transfer has been completed. It would be more
 	 * optimal, but more complex, to wait only just before starting next
 	 * transfer. */
-#if 0
-	r = dsi_vc_send_bta_sync(channel);
+	if (cpu_is_omap44xx())
+		r = dsi_vc_send_bta_sync(lcd_ix, channel);
 	if (r)
 		DSSERR("BTA after framedone failed\n");
-#endif
+
 	/* RX_FIFO_NOT_EMPTY */
 	if (REG_GET(lcd_ix, DSI_VC_CTRL(channel), 20, 20)) {
-		DSSERR("Received error during frame transfer:\n");
+		/*DSSERR("Received error during frame transfer:\n");*/
 		dsi_vc_flush_receive_data(lcd_ix, 0);
 	}
 
@@ -3398,9 +3427,11 @@ static int dsi_update_thread(void *data)
 		dsi_perf_mark_start(lcd_ix);
 
 		if (device->manager->caps & OMAP_DSS_OVL_MGR_CAP_DISPC) {
-			/*HS mode dsi_vc_config_vp(1);Video mode use channel1
-			Since we have already configured the VC Ctrl
-			of Video channel */
+			/* OMAP4 need not configure the channel to have
+			  * source as VP since it is already configure to VP
+			  */
+			if (!cpu_is_omap44xx())
+				dsi_vc_config_vp(lcd_ix, 0);
 
 			if (dsi_1.te_enabled && dsi_1.use_ext_te)
 				device->driver->wait_for_te(device);
@@ -3421,7 +3452,7 @@ static int dsi_update_thread(void *data)
 						x, y, w, h);
 
 				dispc_enable_sidle();
-				/* TODO: update for LCD2 support */
+
 				dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD, 0);
 
 				dsi_reset_tx_fifo(lcd_ix, 0);
@@ -3515,7 +3546,7 @@ static int dsi2_update_thread(void *data)
 
 		}
 
-			dispc_set_lcd_size(DEFAULT_CHANNEL, w, h);
+			dispc_set_lcd_size(OMAP_DSS_CHANNEL_LCD2, w, h);
 			/* TODO: Correct this while adding support for LCD2 */
 		}
 
@@ -3530,10 +3561,6 @@ static int dsi2_update_thread(void *data)
 		dsi_perf_mark_start(lcd_ix);
 
 		if (device->manager->caps & OMAP_DSS_OVL_MGR_CAP_DISPC) {
-			/*sv HS mode dsi2_vc_config_vp(0+1);Video mode
-			use channel1.Since we already configured VC Ctrl of
-			Video channel */
-
 			if (dsi_2.te_enabled && dsi_2.use_ext_te)
 				device->driver->wait_for_te(device);
 
@@ -3547,15 +3574,12 @@ static int dsi2_update_thread(void *data)
 					timeout);
 
 			if (timeout == 0) {
-				/*DSSERR("dsi2 framedone timeout\n");*/ /*svov3*/
-				printk(KERN_DEBUG "DSS_CONTROL = 0x%x",
-					__raw_readl(dss_base + 0x40));
-				/*svov3 DSSERR("failed update %d,%d %dx%d\n",
-						svov3 x, y, w, h);*/
-
+				DSSERR("framedone2 timeout\n");
+				DSSERR("failed update %d,%d %dx%d\n",
+						x, y, w, h);
 				dispc_enable_sidle();
-				/* TODO: update for LCD2 support */
-				dispc_enable_lcd_out(DEFAULT_CHANNEL, 0);
+
+				dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD2, 0);
 			} else {
 				dsi_handle_framedone(lcd_ix);
 				dsi_perf_show(lcd_ix, "DISPC");
@@ -3587,8 +3611,8 @@ static int dsi2_update_thread(void *data)
 
 static int dsi_display_init_dispc(struct omap_dss_device *dssdev)
 {
-	int r = 0;
-	enum dsi lcd_ix;
+	int r;
+	u32 irq;
 	struct omap_video_timings timings = {
 		.hsw		= 4+1,
 		.hfp		= 4+1,
@@ -3600,60 +3624,36 @@ static int dsi_display_init_dispc(struct omap_dss_device *dssdev)
 		.y_res	= 480,
 	};
 
-	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
-	if (lcd_ix == dsi1)
-	r = omap_dispc_register_isr(dsi_framedone_irq_callback, NULL,
-			DISPC_IRQ_FRAMEDONE);
-#ifdef CONFIG_ARCH_OMAP4
-	else
-		r = omap_dispc_register_isr(dsi2_framedone_irq_callback, NULL,
-	DISPC_IRQ_FRAMEDONE2);
-#endif
+	irq = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ?
+			DISPC_IRQ_FRAMEDONE :
+			DISPC_IRQ_FRAMEDONE2;
+
+	r = omap_dispc_register_isr((dssdev->channel == OMAP_DSS_CHANNEL_LCD) ?
+		dsi_framedone_irq_callback : dsi2_framedone_irq_callback,
+		NULL, irq);
+
 	if (r) {
 		DSSERR("can't get FRAMEDONE irq\n");
 		return r;
 	}
 
-	if (lcd_ix == dsi1) {
-		dispc_set_lcd_display_type(OMAP_DSS_CHANNEL_LCD,
-		OMAP_DSS_LCD_DISPLAY_TFT);
+	dispc_set_lcd_display_type(dssdev->channel, OMAP_DSS_LCD_DISPLAY_TFT);
 
-		dispc_set_parallel_interface_mode(OMAP_DSS_CHANNEL_LCD,
-					OMAP_DSS_PARALLELMODE_DSI);
+	dispc_set_parallel_interface_mode(dssdev->channel,
+		OMAP_DSS_PARALLELMODE_DSI);
 
-		dispc_set_tft_data_lines(OMAP_DSS_CHANNEL_LCD,
-			dssdev->ctrl.pixel_size);
-	} else {
-		dispc_set_lcd_display_type(DEFAULT_CHANNEL,
-			OMAP_DSS_LCD_DISPLAY_TFT);
+	if (cpu_is_omap44xx())
+		dispc_enable_fifohandcheck(1);
 
-		dispc_set_parallel_interface_mode(DEFAULT_CHANNEL,
-					OMAP_DSS_PARALLELMODE_DSI);
-		dispc_set_tft_data_lines(DEFAULT_CHANNEL,
-			dssdev->ctrl.pixel_size);
-		}
+	dispc_set_tft_data_lines(dssdev->channel, dssdev->ctrl.pixel_size);
+	dispc_set_lcd_timings(dssdev->channel, &timings);
 
-
-	if (lcd_ix == dsi1)
-		dispc_set_lcd_timings(OMAP_DSS_CHANNEL_LCD, &timings);
-	else
-		dispc_set_lcd_timings(DEFAULT_CHANNEL, &timings);
-
-
-	if (lcd_ix == dsi1) {
-		dispc_set_pol_freq(OMAP_DSS_CHANNEL_LCD, dssdev->panel.config,
+	dispc_set_pol_freq(dssdev->channel, dssdev->panel.config,
 		dssdev->panel.acbi, dssdev->panel.acb);
 
-		dispc_set_lcd_divisor(OMAP_DSS_CHANNEL_LCD, 1/*lck_div*/,
-							0x6/*pck_div*/);
-		} else {
-			dispc_set_pol_freq(DEFAULT_CHANNEL,
-				dssdev->panel.config, dssdev->panel.acbi,
-				dssdev->panel.acb);
-
-			dispc_set_lcd_divisor(DEFAULT_CHANNEL,
-				1/*lck_div*/, 0x6/*pck_div*/);
-		}
+	if (!cpu_is_omap44xx())
+		dispc_set_lcd_divisor(dssdev->channel,
+			1/*lck_div*/, 0x6/*pck_div*/);
 
 	return 0;
 }
@@ -3674,7 +3674,6 @@ static void dsi_display_uninit_dispc(struct omap_dss_device *dssdev)
 			DISPC_IRQ_FRAMEDONE2);
 #endif
 	}
-
 }
 
 static int dsi_configure_dsi_clocks(struct omap_dss_device *dssdev)
@@ -3686,27 +3685,23 @@ static int dsi_configure_dsi_clocks(struct omap_dss_device *dssdev)
 	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
 
-	/* we always use DSS2_FCK as input clock */
-	cinfo.use_dss2_fck = true;
+	/* We use DSS2_FCK as input clock for OMAP3
+	  * and DSS_ALWON_SYS_CLK for OMAP4*/
+
+	if (cpu_is_omap44xx())
+		cinfo.use_dss2_sys_clk = true;
+	else
+		cinfo.use_dss2_fck = true;
+
 	cinfo.regn  = dssdev->phy.dsi.div.regn;
 	cinfo.regm  = dssdev->phy.dsi.div.regm;
 	cinfo.regm3 = dssdev->phy.dsi.div.regm3;
 	cinfo.regm4 = dssdev->phy.dsi.div.regm4;
 
-	if (!cpu_is_omap44xx()) {
 	r = dsi_calc_clock_rates(&cinfo);
 	if (r)
 		return r;
-		}
 
-	if (cpu_is_omap44xx()) {/*TODO: shouldn't be needed once we have corrected dsi_configure_dsi_clocks ? */
-	cinfo.regn = 19;
-	cinfo.regm = 102;
-	cinfo.regm3 = 4;
-	cinfo.regm4 = 4;
-	cinfo.use_dss2_fck = true;
-	cinfo.highfreq = 0;
-	}
 	r = dsi_pll_set_clock_div(lcd_ix, &cinfo);
 	if (r) {
 		DSSERR("Failed to set dsi clocks\n");
@@ -3721,19 +3716,21 @@ static int dsi_configure_dispc_clocks(struct omap_dss_device *dssdev)
 	struct dispc_clock_info dispc_cinfo;
 	int r;
 	unsigned long long fck;
+	enum dsi lcd_ix;
 
-	fck = dsi_get_dsi1_pll_rate();
+	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
+	fck = dsi_get_dsi1_pll_rate(lcd_ix);
 
 	dispc_cinfo.lck_div = dssdev->phy.dsi.div.lck_div;
 	dispc_cinfo.pck_div = dssdev->phy.dsi.div.pck_div;
-	if (!cpu_is_omap44xx()) {
+
 	r = dispc_calc_clock_rates(fck, &dispc_cinfo);
 	if (r) {
 		DSSERR("Failed to calc dispc clocks\n");
 		return r;
 	}
-		}
-	r = dispc_set_clock_div(&dispc_cinfo);
+
+	r = dispc_set_clock_div(dssdev->channel, &dispc_cinfo);
 	if (r) {
 		DSSERR("Failed to set dispc clocks\n");
 		return r;
@@ -3744,8 +3741,7 @@ static int dsi_configure_dispc_clocks(struct omap_dss_device *dssdev)
 
 static int dsi_display_init_dsi(struct omap_dss_device *dssdev)
 {
-	int r;
-	int val;
+	int r, l = 0;
 	enum dsi lcd_ix;
 	struct dsi_struct *p_dsi;
 	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
@@ -3753,38 +3749,11 @@ static int dsi_display_init_dsi(struct omap_dss_device *dssdev)
 
 	_dsi_print_reset_status(lcd_ix);
 
-if (cpu_is_omap44xx()) {
-
-	/*Make sure the Virtual channels are disabled before
-		configuration*/
-	val = dsi_read_reg(lcd_ix, DSI_VC_CTRL(0));
-	val = val & ~(1<<0);
-	dsi_write_reg(lcd_ix, DSI_VC_CTRL(0), val);
-
-	val = dsi_read_reg(lcd_ix, DSI_VC_CTRL(0+1));
-	val = val & ~(1<<0);
-	dsi_write_reg(lcd_ix, DSI_VC_CTRL(0+1), val);
-
-	/*Setup the clock control*/
-	val = dsi_read_reg(lcd_ix, DSI_CLK_CTRL);
-	val = val & ~(DSICLKCTRLLPCLKDIVISOR);
-
-	val = val |
-	    (1<<18) |
-	    (0<<16) |
-	    (0<<15) |  /* 0 -> NULL packet generation disabled */
-	    (1<<14) |
-	    (1<<13) |
-	    (6<<0); /* 50/7 => 7MHz */
-
-	dsi_write_reg(lcd_ix, DSI_CLK_CTRL, val);
-}
-
 	r = dsi_pll_init(lcd_ix, dssdev, true, true);
 	if (r)
 		goto err0;
 
-	r = dsi_configure_dsi_clocks(dssdev); /* TODO: should be dependent on clocks? */
+	r = dsi_configure_dsi_clocks(dssdev);
 	if (r)
 		goto err1;
 
@@ -3795,15 +3764,6 @@ if (cpu_is_omap44xx()) {
 	r = dsi_configure_dispc_clocks(dssdev);
 	if (r)
 		goto err2;
-
-	if (cpu_is_omap44xx()) {
-
-	if (lcd_ix == 0)
-		modify_dss_register(DSS_CONTROL, 0x00000000, 0x003);
-	else
-		modify_dss_register(DSS_CONTROL, 0x00000000, (1<<12 | 1<<10));
-
-	}
 
 	r = dsi_complexio_init(lcd_ix, dssdev);
 	if (r)
@@ -3828,27 +3788,29 @@ if (cpu_is_omap44xx()) {
 	dsi_force_tx_stop_mode_io(lcd_ix);
 
 #ifdef CONFIG_ARCH_OMAP4
-	val = 0;
+	/* magic OMAP4 registers */
+	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG12, 0x58);
 
-	/* Register 12*/
-	val = val | (0x58 << 0);
-	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG12, val);
+	l = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG14);
+	l = FLD_MOD(l, 1, 31, 31);
+	l = FLD_MOD(l, 0x54, 30, 23);
+	l = FLD_MOD(l, 1, 19, 19);
+	l = FLD_MOD(l, 1, 18, 18);
+	l = FLD_MOD(l, 7, 17, 14);
+	l = FLD_MOD(l, 1, 11, 11);
+	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG14, l);
 
-	/* Register 14*/
-	val = 0;
-	val = val | (1 << 31) | 1<<11 | (0x54 << 23) |
-			1<<19 | 1<<18 | (0x7 << 14);
-	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG14, val);
-
-	/* Register 8*/
-	val = 0;
-	val = val | (1 << 11) | (16 << 6) | 1<<5 | (0xE << 0);
-	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG8, val);
+	l = dsi_read_reg(lcd_ix, DSI_DSIPHY_CFG8);
+	l = FLD_MOD(l, 1, 11, 11);
+	l = FLD_MOD(l, 0x10, 10, 6);
+	l = FLD_MOD(l, 1, 5, 5);
+	l = FLD_MOD(l, 0xE, 3, 0);
+	dsi_write_reg(lcd_ix, DSI_DSIPHY_CFG8, l);
 #endif
 
 	/* Around 100ms delay for TAAL to stabilize*/
-
-	mdelay(200);
+	/* :TODO: is this needed for OMAP3? */
+	/* mdelay(200); */
 
 	if (dssdev->driver->enable) {
 		r = dssdev->driver->enable(dssdev);
@@ -3911,7 +3873,6 @@ static int dsi_display_enable(struct omap_dss_device *dssdev)
 	int r = 0;
 	enum dsi lcd_ix;
 	struct dsi_struct *p_dsi;
-	int val = 0;
 
 	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
 	p_dsi = (lcd_ix == dsi1) ? &dsi_1 : &dsi_2;
@@ -3938,40 +3899,14 @@ static int dsi_display_enable(struct omap_dss_device *dssdev)
 
 	dsi_core_init(lcd_ix);
 
-if (cpu_is_omap44xx())
-	omap_writel(0x00030007  , 0x4A307100);  /*DSS_PWR_DSS_DSS_CTRL*/
+	if (cpu_is_omap44xx())
+		omap_writel(0x00030007  , 0x4A307100);  /*DSS_PWR_DSS_DSS_CTRL*/
 
 
 	r = _dsi_reset(lcd_ix);
 	if (r)
 		goto err2;
 
-	if (cpu_is_omap44xx() && (lcd_ix == dsi1)) {
-
-		gpio_base=ioremap(0x48059000,0x1000);
-		val = __raw_readl(gpio_base+GPIO_OE);
-		val &= ~0x140;
-		__raw_writel(val, gpio_base+GPIO_OE);
-		mdelay(120);
-
-		/* To output signal high */
-		val = __raw_readl(gpio_base+OMAP24XX_GPIO_SETDATAOUT);
-		val |= 0x140;
-		__raw_writel(val, gpio_base+OMAP24XX_GPIO_SETDATAOUT);
-		mdelay(120);
-
-		val = __raw_readl(gpio_base+OMAP24XX_GPIO_CLEARDATAOUT);
-		val |= 0x140;
-		__raw_writel(val, gpio_base+OMAP24XX_GPIO_CLEARDATAOUT);
-		mdelay(120);
-
-		val = __raw_readl(gpio_base+OMAP24XX_GPIO_SETDATAOUT);
-		val |= 0x140;
-		__raw_writel(val, gpio_base+OMAP24XX_GPIO_SETDATAOUT);
-
-		mdelay(120);
-		printk(KERN_DEBUG "GPIO reset done ");
-	}
 	r = dsi_display_init_dispc(dssdev);
 	if (r)
 		goto err2;
@@ -3988,10 +3923,9 @@ if (cpu_is_omap44xx())
 	if (r)
 		goto err4;
 
-	if (cpu_is_omap44xx()) {
-		if (lcd_ix == dsi2)
-			p_dsi->update_mode = OMAP_DSS_UPDATE_AUTO;
-	}
+	if (cpu_is_omap44xx() && lcd_ix == dsi2)
+		p_dsi->update_mode = OMAP_DSS_UPDATE_AUTO;
+
 	p_dsi->update_mode = OMAP_DSS_UPDATE_DISABLED;
 	p_dsi->user_update_mode = OMAP_DSS_UPDATE_AUTO;
 
@@ -4526,27 +4460,28 @@ int dsi_init(struct platform_device *pdev)
 	dsi_1.update_mode = OMAP_DSS_UPDATE_DISABLED;
 	dsi_1.user_update_mode = OMAP_DSS_UPDATE_DISABLED;
 
-	dsi_base = dsi_1.base = ioremap(DSI_BASE, 2000);
-
+	dsi_1.base = ioremap(DSI_BASE, 2000);
 	if (!dsi_1.base) {
 		DSSERR("can't ioremap DSI\n");
 		r = -ENOMEM;
 		goto err1;
 	}
 
-if (!cpu_is_omap44xx()) {
-
-	dsi_1.vdds_dsi_reg = regulator_get(&pdev->dev, "vdds_dsi");
-	if (IS_ERR(dsi_1.vdds_dsi_reg)) {
-		DSSERR("can't get VDDS_DSI regulator\n");
-		r = PTR_ERR(dsi_1.vdds_dsi_reg);
-		goto err2;
-	}
-		} else {
-	ret = twl_i2c_write_u8(TWL_MODULE_PWM, 0xFF, PWM2ON);
-	ret = twl_i2c_write_u8(TWL_MODULE_PWM, 0x7F, PWM2OFF);
-	ret = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x30, TOGGLE3);
+	if (!cpu_is_omap44xx()) {
+		dsi_1.vdds_dsi_reg = regulator_get(&pdev->dev, "vdds_dsi");
+		if (IS_ERR(dsi_1.vdds_dsi_reg)) {
+			DSSERR("can't get VDDS_DSI regulator\n");
+			r = PTR_ERR(dsi_1.vdds_dsi_reg);
+			goto err2;
 		}
+	} else {
+		r = request_irq(INT_44XX_DSS_DSI1_IRQ, dsi_irq_handler,
+			0, "OMAP DSI", (void *)0);
+
+		ret = twl_i2c_write_u8(TWL_MODULE_PWM, 0xFF, PWM2ON);
+		ret = twl_i2c_write_u8(TWL_MODULE_PWM, 0x7F, PWM2OFF);
+		ret = twl_i2c_write_u8(TWL6030_MODULE_ID1, 0x30, TOGGLE3);
+	}
 
 	enable_clocks(1);
 
@@ -4571,9 +4506,8 @@ void dsi_exit(void)
 {
 	kthread_stop(dsi_1.thread);
 
-#ifndef CONFIG_ARCH_OMAP4
-	regulator_put(dsi_1.vdds_dsi_reg);
-#endif
+	if (!cpu_is_omap44xx())
+		regulator_put(dsi_1.vdds_dsi_reg);
 
 	iounmap(dsi_1.base);
 
@@ -4615,28 +4549,20 @@ int dsi2_init(struct platform_device *pdev)
 	dsi_2.te_timer.function = dsi_te_timeout;
 	dsi_2.te_timer.data = 0;
 #endif
-
+	dsi_2.te_enabled = true;
 	dsi_2.update_mode = OMAP_DSS_UPDATE_DISABLED;
 	dsi_2.user_update_mode = OMAP_DSS_UPDATE_DISABLED;
 
 #ifdef CONFIG_ARCH_OMAP4
-	dsi2_base = dsi_2.base = ioremap(DSI2_BASE, 2000);
+	dsi_2.base = ioremap(DSI2_BASE, 2000);
 	if (!dsi_2.base) {
 		DSSERR("can't ioremap DSI\n");
 		r = -ENOMEM;
 		goto err1;
 	}
-#endif
 
-#ifdef CONFIG_ARCH_OMAP4
-#if 0
-	dsi_2.vdds_dsi_reg = regulator_get(&pdev->dev, "vdds_dsi");
-	if (IS_ERR(dsi_2.vdds_dsi_reg)) {
-		DSSERR("can't get VDDS_DSI regulator\n");
-		r = PTR_ERR(dsi_2.vdds_dsi_reg);
-		goto err2;
-	}
-#endif
+	r = request_irq(INT_44XX_DSS_DSI2_IRQ, dsi2_irq_handler,
+			0, "OMAP DSI2", (void *)0);
 #endif
 
 	enable_clocks(1);
@@ -4663,8 +4589,6 @@ err0:
 void dsi2_exit(void)
 {
 	kthread_stop(dsi_2.thread);
-
-	/*regulator_put(dsi.vdds_dsi_reg);*/
 
 	iounmap(dsi_2.base);
 

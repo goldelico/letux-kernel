@@ -256,7 +256,7 @@ static int taal_set_update_window(enum dsi lcd_ix, u16 x, u16 y, u16 w, u16 h)
 	u16 x2 = x + w - 1;
 	u16 y1 = y;
 	u16 y2 = y + h - 1;
-if (!cpu_is_omap44xx()) { /* sv no need of column addr */
+
 	u8 buf[5];
 	buf[0] = DCS_COLUMN_ADDR;
 	buf[1] = (x1 >> 8) & 0xff;
@@ -279,8 +279,6 @@ if (!cpu_is_omap44xx()) { /* sv no need of column addr */
 		return r;
 
 	dsi_vc_send_bta_sync(lcd_ix, TCH);
-	} else
-		printk(KERN_DEBUG "set update window called but no need to tell the panel");
 
 	return r;
 }
@@ -360,7 +358,15 @@ static irqreturn_t taal_te_isr(int irq, void *data)
 {
 	struct omap_dss_device *dssdev = data;
 	struct taal_data *td = dev_get_drvdata(&dssdev->dev);
+	complete_all(&td->te_completion);
 
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t taal_te_isr2(int irq, void *data)
+{
+	struct omap_dss_device *dssdev = data;
+	struct taal_data *td = dev_get_drvdata(&dssdev->dev);
 	complete_all(&td->te_completion);
 
 	return IRQ_HANDLED;
@@ -511,6 +517,8 @@ static int taal_probe(struct omap_dss_device *dssdev)
 	struct taal_data *td;
 	struct backlight_device *bldev;
 	int r;
+	enum dsi lcd_ix;
+	lcd_ix = (dssdev->channel == OMAP_DSS_CHANNEL_LCD) ? dsi1 : dsi2;
 
 	const struct omap_video_timings taal_panel_timings = {
 		.x_res		= 864,
@@ -574,6 +582,22 @@ static int taal_probe(struct omap_dss_device *dssdev)
 
 	if (dssdev->phy.dsi.ext_te) {
 		int gpio = dssdev->phy.dsi.ext_te_gpio;
+		void __iomem *phymux_base = NULL;
+		int val;
+
+		phymux_base = ioremap(0x4A100000, 0x1000);
+
+		if (lcd_ix == dsi1) {
+			val = __raw_readl(phymux_base + 0x90);
+			val = val & 0xFFFFFFE0;
+			val = val | 0x11B;
+			__raw_writel(val, phymux_base + 0x90);
+		} else {
+			val = __raw_readl(phymux_base + 0x94);
+			val = val & 0xFFFFFFE0;
+			val = val | 0x11B;
+			__raw_writel(val, phymux_base + 0x94);
+		}
 
 		r = gpio_request(gpio, "taal irq");
 		if (r) {
@@ -583,9 +607,15 @@ static int taal_probe(struct omap_dss_device *dssdev)
 
 		gpio_direction_input(gpio);
 
-		r = request_irq(gpio_to_irq(gpio), taal_te_isr,
+		if (lcd_ix == dsi1) {
+			r = request_irq(gpio_to_irq(gpio), taal_te_isr,
 				IRQF_DISABLED | IRQF_TRIGGER_RISING,
 				"taal vsync", dssdev);
+		} else {
+			r = request_irq(gpio_to_irq(gpio), taal_te_isr2,
+				IRQF_DISABLED | IRQF_TRIGGER_RISING,
+				"taal vsync2", dssdev);
+		}
 
 		if (r) {
 			dev_err(&dssdev->dev, "IRQ request failed\n");
@@ -672,7 +702,7 @@ static int taal_enable(struct omap_dss_device *dssdev)
 	r = taal_sleep_out(lcd_ix, td);
 	if (r)
 		goto err;
-	if (!cpu_is_omap44xx()) {/*will be removed once bta works*/
+
 	r = taal_get_id(lcd_ix, &id1, &id2, &id3);
 	if (r)
 		goto err;
@@ -680,17 +710,17 @@ static int taal_enable(struct omap_dss_device *dssdev)
 	/* on early revisions CABC is broken */
 	if (id2 == 0x00 || id2 == 0xff || id2 == 0x81)
 		td->cabc_broken = true;
-		}
+
 	taal_dcs_write_1(lcd_ix, DCS_BRIGHTNESS, 0xff);
 	taal_dcs_write_1(lcd_ix, DCS_CTRL_DISPLAY, (1<<2) | (1<<5)); /* BL | BCTRL */
 
 	taal_dcs_write_1(lcd_ix, DCS_PIXEL_FORMAT, 0x7); /* 24bit/pixel */
 
-	if (!cpu_is_omap44xx()) {/*will be removed once bta works*/
+
 		taal_set_addr_mode(lcd_ix, td->rotate, td->mirror);
 		if (!td->cabc_broken)
 		taal_dcs_write_1(lcd_ix, DCS_WRITE_CABC, td->cabc_mode);
-		}
+
 	taal_dcs_write_0(lcd_ix, DCS_DISPLAY_ON);
 
 #ifdef TAAL_USE_ESD_CHECK
@@ -801,6 +831,11 @@ static int taal_wait_te(struct omap_dss_device *dssdev)
 		return -ETIME;
 	}
 
+	/* Tearing interrupt comes slightly early, we wait
+	* for 725us after the rising edge
+	*/
+	if (cpu_is_omap44xx())
+		udelay(725);
 	return 0;
 }
 
@@ -1060,7 +1095,8 @@ static struct omap_dss_driver taal_driver2 = {
 static int __init taal_init(void)
 {
 	omap_dss_register_driver(&taal_driver);
-	omap_dss_register_driver(&taal_driver2);
+	if (cpu_is_omap44xx())
+		omap_dss_register_driver(&taal_driver2);
 	printk(KERN_INFO "\n omap_dss_register_driver DONE ");
 	return 0;
 }
@@ -1068,7 +1104,8 @@ static int __init taal_init(void)
 static void __exit taal_exit(void)
 {
 	omap_dss_unregister_driver(&taal_driver);
-	omap_dss_unregister_driver(&taal_driver2);
+	if (cpu_is_omap44xx())
+		omap_dss_unregister_driver(&taal_driver2);
 }
 
 module_init(taal_init);
