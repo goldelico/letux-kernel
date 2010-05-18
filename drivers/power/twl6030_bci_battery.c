@@ -321,9 +321,7 @@ static irqreturn_t twl6030charger_ctrl_interrupt(int irq, void *_di)
 	if (stat_reset & CONTROLLER_STAT1_BAT_TEMP_OVRANGE)
 		pr_debug("Battery temperature within range\n");
 
-#if 0
 	power_supply_changed(&di->bat);
-#endif
 
 	return IRQ_HANDLED;
 }
