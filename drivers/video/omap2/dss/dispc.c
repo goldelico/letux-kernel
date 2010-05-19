@@ -3291,6 +3291,8 @@ static void dispc_error_worker(struct work_struct *work)
 		for (i = 0; i < omap_dss_get_num_overlay_managers(); ++i) {
 			struct omap_overlay_manager *mgr;
 			mgr = omap_dss_get_overlay_manager(i);
+			if (mgr == NULL)
+				break;
 
 			if (mgr->id == OMAP_DSS_CHANNEL_LCD) {
 				manager = mgr;
