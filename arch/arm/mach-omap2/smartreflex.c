@@ -501,16 +501,13 @@ static void sr_configure(struct omap_sr *sr, u32 target_opp)
 	senn_en = sr->senn_mod;
 	if (sr->srid == SR1) {
 		if (cpu_is_omap3630()) {
-			sr_config = SR1_SRCONFIG_ACCUMDATA |
+			sr_config =
 			(sr->clk_length << SRCONFIG_SRCLKLENGTH_SHIFT) |
 			SRCONFIG_SENENABLE | SRCONFIG_ERRGEN_EN |
 			(senn_en << SRCONFIG_SENNENABLE_SHIFT_36XX) |
 			(senp_en << SRCONFIG_SENPENABLE_SHIFT_36XX);
 
 			sr_write_reg(sr, SRCONFIG, sr_config);
-			sr_write_reg(sr, AVGWEIGHT,
-				SR1_AVGWEIGHT_SENPAVGWEIGHT |
-				SR1_AVGWEIGHT_SENNAVGWEIGHT);
 
 			sr_modify_reg(sr, ERRCONFIG_36XX, (SR_ERRWEIGHT_MASK |
 			SR_ERRMAXLIMIT_MASK | SR_ERRMINLIMIT_MASK),
@@ -518,7 +515,7 @@ static void sr_configure(struct omap_sr *sr, u32 target_opp)
 			((target_opp < VDD1_OPP3) ? SR1_ERRMINLIMIT_OPPLOW
 			: SR1_ERRMINLIMIT_OPPHIGH)));
 		} else {
-			sr_config = SR1_SRCONFIG_ACCUMDATA |
+			sr_config =
 			(sr->clk_length << SRCONFIG_SRCLKLENGTH_SHIFT) |
 			SRCONFIG_SENENABLE | SRCONFIG_ERRGEN_EN |
 			(senn_en << SRCONFIG_SENNENABLE_SHIFT) |
@@ -526,9 +523,6 @@ static void sr_configure(struct omap_sr *sr, u32 target_opp)
 			SRCONFIG_DELAYCTRL;
 
 			sr_write_reg(sr, SRCONFIG, sr_config);
-			sr_write_reg(sr, AVGWEIGHT,
-					SR1_AVGWEIGHT_SENPAVGWEIGHT |
-					SR1_AVGWEIGHT_SENNAVGWEIGHT);
 
 			sr_modify_reg(sr, ERRCONFIG, (SR_ERRWEIGHT_MASK |
 			SR_ERRMAXLIMIT_MASK | SR_ERRMINLIMIT_MASK),
@@ -538,16 +532,14 @@ static void sr_configure(struct omap_sr *sr, u32 target_opp)
 		}
 	} else if (sr->srid == SR2) {
 		if (cpu_is_omap3630()) {
-			sr_config = SR2_SRCONFIG_ACCUMDATA |
+			sr_config =
 			(sr->clk_length << SRCONFIG_SRCLKLENGTH_SHIFT) |
 			SRCONFIG_SENENABLE | SRCONFIG_ERRGEN_EN |
 			(senn_en << SRCONFIG_SENNENABLE_SHIFT_36XX) |
 			(senp_en << SRCONFIG_SENPENABLE_SHIFT_36XX);
 
 			sr_write_reg(sr, SRCONFIG, sr_config);
-			sr_write_reg(sr, AVGWEIGHT,
-					SR2_AVGWEIGHT_SENPAVGWEIGHT |
-					SR2_AVGWEIGHT_SENNAVGWEIGHT);
+
 			sr_modify_reg(sr, ERRCONFIG_36XX, (SR_ERRWEIGHT_MASK |
 			SR_ERRMAXLIMIT_MASK | SR_ERRMINLIMIT_MASK),
 			(SR2_ERRWEIGHT | SR2_ERRMAXLIMIT |
@@ -555,7 +547,7 @@ static void sr_configure(struct omap_sr *sr, u32 target_opp)
 			: SR2_ERRMINLIMIT_OPPHIGH)));
 
 		} else {
-			sr_config = SR2_SRCONFIG_ACCUMDATA |
+			sr_config =
 			(sr->clk_length << SRCONFIG_SRCLKLENGTH_SHIFT) |
 			SRCONFIG_SENENABLE | SRCONFIG_ERRGEN_EN |
 			(senn_en << SRCONFIG_SENNENABLE_SHIFT) |
@@ -563,9 +555,7 @@ static void sr_configure(struct omap_sr *sr, u32 target_opp)
 			SRCONFIG_DELAYCTRL;
 
 			sr_write_reg(sr, SRCONFIG, sr_config);
-			sr_write_reg(sr, AVGWEIGHT,
-					SR2_AVGWEIGHT_SENPAVGWEIGHT |
-					SR2_AVGWEIGHT_SENNAVGWEIGHT);
+
 			sr_modify_reg(sr, ERRCONFIG, (SR_ERRWEIGHT_MASK |
 			SR_ERRMAXLIMIT_MASK | SR_ERRMINLIMIT_MASK),
 			(SR2_ERRWEIGHT | SR2_ERRMAXLIMIT |
