@@ -812,6 +812,8 @@ int ducati_setup(void)
 	int ret_val = 0;
 
 	ducati_iommu_ptr = iommu_get("ducati");
+	/* Disable TWL in iommu */
+	iommu_set_twl(ducati_iommu_ptr, false);
 	if (IS_ERR(ducati_iommu_ptr)) {
 		pr_err("Error iommu_get\n");
 		return -EFAULT;
