@@ -46,6 +46,9 @@
 
 static int ts_gpio;
 
+/* Added for FlexST */
+#include "board-connectivity.h"
+
 #define OMAP4_KBDOCP_BASE               0x4A31C000
 
 static int omap_keymap[] = {
@@ -451,18 +454,9 @@ static struct regulator_consumer_supply sdp4430_vdda_dac_supply = {
 	.dev		= &sdp4430_dss_device.dev,
 };
 
-/* wl128x BT, FM, GPS connectivity chip */
-static int gpios[] = {55, -1, -1};
-static struct platform_device wl128x_device = {
-	.name           = "kim",
-	.id             = -1,
-	.dev.platform_data = &gpios,
-};
-
 static struct platform_device *sdp4430_devices[] __initdata = {
 	&sdp4430_dss_device,
 	&omap_kp_device,
-	&wl128x_device,
 };
 
 static __attribute__ ((unused)) struct
@@ -926,7 +920,9 @@ void wlan_1283_config()
 static void __init omap_4430sdp_init(void)
 {
 	omap4_i2c_init();
+	conn_board_init(); /* Added for FlexST */
 	platform_add_devices(sdp4430_devices, ARRAY_SIZE(sdp4430_devices));
+	conn_add_plat_device(); /* Added for FlexST */
 	omap_serial_init();
 	/* OMAP4 SDP uses internal transceiver so register nop transceiver */
 	sdp4430_mmc_init();
@@ -940,6 +936,8 @@ static void __init omap_4430sdp_init(void)
 	sdp4430_spi_board_info[0].irq = gpio_to_irq(34);
 	spi_register_board_info(sdp4430_spi_board_info,
 			ARRAY_SIZE(sdp4430_spi_board_info));
+	/* Added for FlexST */
+	conn_config_gpios();
 	sdp4430_display_init();
 }
 
