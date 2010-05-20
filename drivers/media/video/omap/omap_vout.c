@@ -598,7 +598,7 @@ static int omap_vout_tiler_buffer_setup(struct omap_vout_device *vout,
 
 	/* special allocation scheme for NV12 format */
 	if (OMAP_DSS_COLOR_NV12 == video_mode_to_dss_mode(pix)) {
-		tiler_alloc_packed_nv12(&n_alloc, pix->width,
+		tiler_alloc_packed_nv12(&n_alloc, ALIGN(pix->width, 128),
 			pix->height,
 			(void **) vout->buf_phy_addr + start,
 			(void **) vout->buf_phy_uv_addr + start,
@@ -613,7 +613,7 @@ static int omap_vout_tiler_buffer_setup(struct omap_vout_device *vout,
 		if (fmt == TILFMT_INVALID)
 			return -ENOMEM;
 
-		tiler_alloc_packed(&n_alloc, fmt, pix->width,
+		tiler_alloc_packed(&n_alloc, fmt, ALIGN(pix->width, 128 / bpp),
 			pix->height,
 			(void **) vout->buf_phy_addr + start,
 			(void **) vout->buf_phy_addr_alloced + start,
