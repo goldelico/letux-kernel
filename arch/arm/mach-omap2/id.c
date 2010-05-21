@@ -217,15 +217,20 @@ void __init omap34xx_check_revision(void)
 		switch (rev) {
 		case 0:
 			omap_revision = OMAP3630_REV_ES1_0;
+			rev_name = "ES1.0";
+			break;
+		case 1:
+			omap_revision = OMAP3630_REV_ES1_1;
+			rev_name = "ES1.1";
 			break;
 		default:
 			/* Use the latest known revision as default */
-			omap_revision = OMAP3630_REV_ES1_0;
+			omap_revision = OMAP3630_REV_ES1_1;
 		}
 		break;
 	default:
 		/* Unknown default to latest silicon rev as default*/
-		omap_revision = OMAP3630_REV_ES1_0;
+		omap_revision = OMAP3630_REV_ES1_1;
 	}
 
 out:
@@ -271,6 +276,9 @@ void __init omap2_check_revision(void)
 			omap_chip.oc |= CHIP_IS_OMAP3430ES3_1;
 		else if (omap_rev() == OMAP3630_REV_ES1_0)
 				omap_chip.oc |= CHIP_IS_OMAP3630ES1;
+		else if (omap_rev() == OMAP3630_REV_ES1_1)
+				omap_chip.oc |= CHIP_IS_OMAP3630ES1 |
+						CHIP_IS_OMAP3630ES1_1;
 	} else {
 		pr_err("Uninitialized omap_chip, please fix!\n");
 	}
