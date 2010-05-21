@@ -43,6 +43,8 @@
 #include "omap34xxcam.h"
 #include "isp/isp.h"
 
+#include <linux/ktime.h>
+
 #define OMAP34XXCAM_VERSION KERNEL_VERSION(0, 0, 0)
 
 #define to_omap34xxcam_fh(vfh)				\
@@ -133,8 +135,8 @@ void omap34xxcam_vbq_complete(struct videobuf_buffer *vb, void *priv)
 	struct timespec temp_tp;
 	s64 temp_nsec;
 
-	/* Get system time, and adapt to timeval (less granular) */
-	sys_clock_gettime(CLOCK_MONOTONIC, &temp_tp);
+	/* Get system time, and adapt to timeval (less granular)*/
+	ktime_get_ts(&temp_tp);
 	temp_nsec = timespec_to_ns(&temp_tp);
 	vb->ts = ns_to_timeval(temp_nsec);
 	vb->field_count = atomic_add_return(2, &ofh->field_count);
