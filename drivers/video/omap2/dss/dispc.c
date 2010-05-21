@@ -2363,7 +2363,10 @@ static int _dispc_setup_plane(enum omap_plane plane,
 		}
 
 		/* Must use 3-tap filter */
-		three_taps = width > 1280;
+		if (cpu_is_omap44xx())
+			three_taps = width > 1280;
+		else
+			three_taps = width > 1024;
 
 		/* Should use 3-tap filter for upscaling, but HDMI gets
 		   out of sync if using 3-tap */
