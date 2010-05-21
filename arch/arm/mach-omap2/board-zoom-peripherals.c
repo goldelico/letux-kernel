@@ -20,6 +20,10 @@
 #include <linux/synaptics_i2c_rmi.h>
 #include <linux/interrupt.h>
 
+#ifdef CONFIG_PANEL_SIL9022
+#include <mach/sil9022.h>
+#endif
+
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -371,6 +375,14 @@ static struct i2c_board_info __initdata zoom2_i2c_bus2_info[] = {
 	},
 };
 
+static struct i2c_board_info __initdata zoom2_i2c_bus3_info[] = {
+#ifdef CONFIG_PANEL_SIL9022
+	{
+		I2C_BOARD_INFO(SIL9022_DRV_NAME, SI9022_I2CSLAVEADDRESS),
+	},
+#endif
+};
+
 static int __init omap_i2c_init(void)
 {
 /* Disable OMAP 3630 internal pull-ups for I2Ci */
@@ -405,7 +417,8 @@ static int __init omap_i2c_init(void)
 			ARRAY_SIZE(zoom_i2c_boardinfo));
 	omap_register_i2c_bus(2, 100, zoom2_i2c_bus2_info,
 			ARRAY_SIZE(zoom2_i2c_bus2_info));
-	omap_register_i2c_bus(3, 400, NULL, 0);
+	omap_register_i2c_bus(3, 400, zoom2_i2c_bus3_info,
+			ARRAY_SIZE(zoom2_i2c_bus3_info));
 	return 0;
 }
 
@@ -425,4 +438,8 @@ void __init zoom_peripherals_init(void)
 #endif
 	usb_musb_init(&musb_board_data);
 	zoom2_cam_init();
+#ifdef CONFIG_PANEL_SIL9022
+	config_hdmi_gpio();
+	zoom_hdmi_reset_enable(1);
+#endif
 }

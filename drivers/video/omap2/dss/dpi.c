@@ -26,6 +26,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
+#include <linux/i2c/twl.h>
 
 #include <linux/io.h>
 #include <plat/board.h>
@@ -33,6 +34,12 @@
 #include <plat/cpu.h>
 
 #include "dss.h"
+
+/* for enabling VPLL2*/
+#define ENABLE_VPLL2_DEDICATED		0x05
+#define ENABLE_VPLL2_DEV_GRP		0xE0
+#define TWL4030_VPLL2_DEV_GRP		0x33
+#define TWL4030_VPLL2_DEDICATED		0x36
 
 #define DPI2_BASE		0x58005000
 void __iomem  *dpi2_base;
@@ -42,8 +49,22 @@ static struct {
 	int update_enabled;
 } dpi;
 
+static void dpi_set_timings(struct omap_dss_device *dssdev,
+			    struct omap_video_timings *timings);
+
 /*TODO: OMAP4: check the clock divisor mechanism? */
 #ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
+static int enable_vpll2_power(int enable)
+{
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+			 (enable) ? ENABLE_VPLL2_DEDICATED : 0,
+			 TWL4030_VPLL2_DEDICATED);
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+			 (enable) ? ENABLE_VPLL2_DEV_GRP : 0,
+			 TWL4030_VPLL2_DEV_GRP);
+	return 0;
+}
+
 static int dpi_set_dsi_clk(int lcd_channel_ix, bool is_tft,
 		unsigned long pck_req,
 		unsigned long *fck, int *lck_div, int *pck_div)
@@ -221,10 +242,10 @@ static void dpi_start_auto_update(struct omap_dss_device *dssdev)
 static int dpi_display_enable(struct omap_dss_device *dssdev)
 {
 	int r;
-	int val, lcd_channel_ix = 1;
+	int lcd_channel_ix = 1;
 
 	if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2) {
-		printk("Lcd channel index 1");
+		DSSINFO("Lcd channel index 1");
 		dpi2_base = ioremap(DPI2_BASE, 2000);
 		lcd_channel_ix = 1;
 	} else
@@ -249,6 +270,7 @@ static int dpi_display_enable(struct omap_dss_device *dssdev)
 		goto err2;
 #ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
 	dss_clk_enable(DSS_CLK_FCK2);
+	enable_vpll2_power(1);
 
 	if (cpu_is_omap3630())
 		r = dsi_pll_init(lcd_channel_ix, dssdev, 1, 1);
@@ -279,6 +301,13 @@ static int dpi_display_enable(struct omap_dss_device *dssdev)
 
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 
+	/* This is done specifically for HDMI panel
+	 * Default HDMI panel timings may not work for all monitors
+	 * Reset HDMI panel timings after enabling HDMI.
+	 */
+	if (strncmp("hdmi", dssdev->name, 4) == 0)
+		dpi_set_timings(dssdev, &dssdev->panel.timings);
+
 	return 0;
 
 err5:
@@ -289,6 +318,7 @@ err5:
 err4:
 #ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
 	dsi_pll_uninit(lcd_channel_ix);
+	enable_vpll2_power(0);
 err3:
 	dss_clk_disable(DSS_CLK_FCK2);
 #endif
@@ -317,16 +347,21 @@ static void dpi_display_disable(struct omap_dss_device *dssdev)
 
 	dssdev->driver->disable(dssdev);
 
+#ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
+	dss_select_clk_source(0, 0);
+
+	dispc_go(OMAP_DSS_CHANNEL_LCD);
+	while (dispc_go_busy(OMAP_DSS_CHANNEL_LCD))
+		;
+	dsi_pll_uninit(lcd_channel_ix);
+	enable_vpll2_power(0);
+	dss_clk_disable(DSS_CLK_FCK2);
+#endif
+
 	if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2)
 		dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD2, 0);
 	else
 		dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD, 0);
-
-#ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
-	dss_select_clk_source_dsi(lcd_channel_ix, 0, 0);
-	dsi_pll_uninit(lcd_channel_ix);
-	dss_clk_disable(DSS_CLK_FCK2);
-#endif
 
 	dss_clk_disable(DSS_CLK_ICK | DSS_CLK_FCK1);
 
@@ -345,6 +380,17 @@ static int dpi_display_suspend(struct omap_dss_device *dssdev)
 	if (dssdev->driver->suspend)
 		dssdev->driver->suspend(dssdev);
 
+#ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
+	dss_select_clk_source(0, 0);
+
+	dispc_go(OMAP_DSS_CHANNEL_LCD);
+	while (dispc_go_busy(OMAP_DSS_CHANNEL_LCD))
+		;
+
+	dsi_pll_uninit(dsi1);
+	enable_vpll2_power(0);
+	dss_clk_disable(DSS_CLK_FCK2);
+#endif
 	if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2)
 		dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD2, 0);
 	else
@@ -359,6 +405,16 @@ static int dpi_display_suspend(struct omap_dss_device *dssdev)
 
 static int dpi_display_resume(struct omap_dss_device *dssdev)
 {
+	int r = 0;
+	int lcd_channel_ix = 1;
+
+	if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2) {
+		DSSINFO("Lcd channel index 1");
+		dpi2_base = ioremap(DPI2_BASE, 2000);
+		lcd_channel_ix = 1;
+	} else
+		lcd_channel_ix = 0;
+
 	if (dssdev->state != OMAP_DSS_DISPLAY_SUSPENDED)
 		return -EINVAL;
 
@@ -366,18 +422,66 @@ static int dpi_display_resume(struct omap_dss_device *dssdev)
 
 	dss_clk_enable(DSS_CLK_ICK | DSS_CLK_FCK1);
 
+#ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
+	dss_clk_enable(DSS_CLK_FCK2);
+	enable_vpll2_power(1);
+
+	if (cpu_is_omap3630())
+		r = dsi_pll_init(lcd_channel_ix, dssdev, 1, 1);
+	else
+		r = dsi_pll_init(lcd_channel_ix, dssdev, 0, 1);
+	if (r)
+		goto err0;
+
+	r = dpi_set_mode(dssdev);
+	if (r)
+		goto err1;
+#endif
 
 	if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2)
 		dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD2, 1);
 	else
 		dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD, 1);
 
-	if (dssdev->driver->resume)
-		dssdev->driver->resume(dssdev);
+	if (dssdev->driver->resume) {
+		r = dssdev->driver->resume(dssdev);
+		if (r)
+			goto err2;
+	}
 
 	dssdev->state = OMAP_DSS_DISPLAY_ACTIVE;
 
+	/* This is done specifically for HDMI panel
+	 * Default HDMI panel timings may not work for all monitors
+	 * Reset HDMI panel timings after enabling HDMI.
+	 */
+	if (strncmp("hdmi", dssdev->name, 4) == 0)
+		dpi_set_timings(dssdev, &dssdev->panel.timings);
+
 	return 0;
+err2:
+	if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2)
+		dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD2, 0);
+	else
+		dispc_enable_lcd_out(OMAP_DSS_CHANNEL_LCD, 0);
+
+#ifdef CONFIG_OMAP2_DSS_USE_DSI_PLL
+err1:
+	DSSERR("<%s!!> err0: failed to init DSI_PLL = %d\n", __func__, r);
+	dss_select_clk_source(0, 0);
+
+	dispc_go(OMAP_DSS_CHANNEL_LCD);
+	while (dispc_go_busy(OMAP_DSS_CHANNEL_LCD))
+		;
+
+	dsi_pll_uninit(dsi1);
+	enable_vpll2_power(0);
+err0:
+	dss_clk_disable(DSS_CLK_FCK2);
+#endif
+
+	dss_clk_disable(DSS_CLK_ICK | DSS_CLK_FCK1);
+	return r;
 }
 
 static void dpi_set_timings(struct omap_dss_device *dssdev,
@@ -389,8 +493,12 @@ static void dpi_set_timings(struct omap_dss_device *dssdev,
 		dpi_set_mode(dssdev);
 		if (dssdev->channel == OMAP_DSS_CHANNEL_LCD2)
 			dispc_go(OMAP_DSS_CHANNEL_LCD2);
-		else
+		else {
 			dispc_go(OMAP_DSS_CHANNEL_LCD);
+			while (dispc_go_busy(OMAP_DSS_CHANNEL_LCD))
+				;
+		}
+
 	}
 }
 
