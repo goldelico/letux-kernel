@@ -35,6 +35,9 @@
 #define ISP_CSI_MEMVS_BIGGEST_FRAME_BYTE_SIZE \
 		PAGE_ALIGN(VSENSOR_OUT_WIDTH * VSENSOR_OUT_HEIGHT * 2)
 
+#define to_omap34xxcam_fh(vfh)				\
+	container_of(vfh, struct omap34xxcam_fh, vfh)
+
 struct isp_csi_memvs_buf {
 	dma_addr_t isp_addr;
 	struct videobuf_buffer *vb;
@@ -208,15 +211,17 @@ static int ioctl_priv_g_pixclk(struct v4l2_int_device *s, u32 *pixclk)
 /**
  * ioctl_g_activesize - V4L2 sensor interface handler for ioctl_g_activesize
  * @s: pointer to standard V4L2 device structure
- * @pix: pointer to standard V4L2 v4l2_pix_format structure
+ * @pix: pointer to standard V4L2 v4l2_rect structure
  *
  * Returns the sensor's current active image basesize.
  */
 static int ioctl_priv_g_activesize(struct v4l2_int_device *s,
-			      struct v4l2_pix_format *pix)
+			      struct v4l2_rect *pix)
 {
 	struct isp_csi_memvs_sensor *sensor = s->priv;
 
+	pix->top = 0;
+	pix->left = 0;
 	pix->width = sensor->out_pix.width;
 	pix->height = sensor->out_pix.height;
 
@@ -226,15 +231,17 @@ static int ioctl_priv_g_activesize(struct v4l2_int_device *s,
 /**
  * ioctl_g_fullsize - V4L2 sensor interface handler for ioctl_g_fullsize
  * @s: pointer to standard V4L2 device structure
- * @pix: pointer to standard V4L2 v4l2_pix_format structure
+ * @pix: pointer to standard V4L2 v4l2_rect structure
  *
  * Returns the sensor's biggest image basesize.
  */
 static int ioctl_priv_g_fullsize(struct v4l2_int_device *s,
-			    struct v4l2_pix_format *pix)
+			    struct v4l2_rect *pix)
 {
 	struct isp_csi_memvs_sensor *sensor = s->priv;
 
+	pix->top = 0;
+	pix->left = 0;
 	pix->width = sensor->out_pix.width;
 	pix->height = sensor->out_pix.height;
 
@@ -668,6 +675,62 @@ static int vidioc_streamoff(struct file *file, void *fh, enum v4l2_buf_type i)
 	return videobuf_streamoff(&ofh->vbq);
 }
 
+/**
+ * vidioc_default - private IOCTL handler
+ * @file: ptr. to system file structure
+ * @fh: ptr to hold address of omap34xxcam_fh struct (per-filehandle data)
+ * @cmd: ioctl cmd value
+ * @arg: ioctl arg value
+ *
+ */
+static long vidioc_default(struct file *file, void *_fh, int cmd, void *arg)
+{
+	struct isp_csi_memvs_sensor *sensor = video_drvdata(file);
+	struct v4l2_int_device *vdev = sensor->v4l2_int_device;
+	int rval = -EINVAL;
+
+	if (cmd == VIDIOC_PRIVATE_OMAP34XXCAM_SENSOR_INFO) {
+		u32 pixclk;
+		struct v4l2_rect active_size, full_size, pixel_size;
+		struct omap34xxcam_sensor_info *ret_sensor_info;
+
+		ret_sensor_info = (struct omap34xxcam_sensor_info *)arg;
+		mutex_lock(&sensor->mutex);
+		rval = ioctl_priv_g_pixclk(vdev, &pixclk);
+		mutex_unlock(&sensor->mutex);
+		if (rval)
+			goto out;
+		mutex_lock(&sensor->mutex);
+		rval = ioctl_priv_g_activesize(vdev, &active_size);
+		mutex_unlock(&sensor->mutex);
+		if (rval)
+			goto out;
+		mutex_lock(&sensor->mutex);
+		rval = ioctl_priv_g_fullsize(vdev, &full_size);
+		mutex_unlock(&sensor->mutex);
+		if (rval)
+			goto out;
+		mutex_lock(&sensor->mutex);
+		rval = ioctl_priv_g_pixelsize(vdev, &pixel_size);
+		mutex_unlock(&sensor->mutex);
+		if (rval)
+			goto out;
+		ret_sensor_info->current_xclk = pixclk;
+		memcpy(&ret_sensor_info->active_size, &active_size,
+			sizeof(struct v4l2_rect));
+		memcpy(&ret_sensor_info->full_size, &full_size,
+			sizeof(struct v4l2_rect));
+		memcpy(&ret_sensor_info->pixel_size, &pixel_size,
+			sizeof(struct v4l2_rect));
+		rval = 0;
+		goto out;
+	}
+
+out:
+	return rval;
+}
+
+
 static const struct v4l2_ioctl_ops isp_csi_memvs_vout_ioctl_ops = {
 	.vidioc_querycap      			= vidioc_querycap,
 	.vidioc_enum_fmt_vid_out 		= vidioc_enum_fmt_vid_out,
@@ -680,6 +743,7 @@ static const struct v4l2_ioctl_ops isp_csi_memvs_vout_ioctl_ops = {
 	.vidioc_dqbuf				= vidioc_dqbuf,
 	.vidioc_streamon			= vidioc_streamon,
 	.vidioc_streamoff			= vidioc_streamoff,
+	.vidioc_default				= vidioc_default,
 };
 
 static int isp_csi_memvs_vout_buf_setup(struct videobuf_queue *q,
