@@ -104,7 +104,7 @@
 #include <mach/gta02-fiq.h>
 
 #include <linux/hdq.h>
-#include <linux/bq27000_battery.h>
+#include <linux/bq27x00_battery.h>
 #include <linux/platform_battery.h>
 
 #include <linux/jbt6k74.h>
@@ -891,14 +891,13 @@ static struct platform_device gta02_pwm_leds_device = {
 
 /* BQ27000 Battery */
 
+static int gta02_hdq_read(struct device *dev, unsigned int reg)
+{
+	return hdq_read(reg);
+}
+
 struct bq27000_platform_data bq27000_pdata = {
-	.name = "battery",
-	.rsense_mohms = 20,
-	.hdq_read = hdq_read,
-	.hdq_write = hdq_write,
-	.hdq_initialized = hdq_initialized,
-	.get_charger_online_status = gta02_get_charger_online_status,
-	.get_charger_active_status = gta02_get_charger_active_status
+	.read = gta02_hdq_read,
 };
 
 struct platform_device bq27000_battery_device = {
