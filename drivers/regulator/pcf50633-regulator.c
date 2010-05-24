@@ -313,11 +313,10 @@ static int __devinit pcf50633_regulator_probe(struct platform_device *pdev)
 	struct regulator_dev *rdev;
 	struct pcf50633 *pcf;
 
-	/* Already set by core driver */
 	pcf = dev_to_pcf50633(pdev->dev.parent);
 
 	rdev = regulator_register(&regulators[pdev->id], &pdev->dev,
-				  pdev->dev.platform_data, pcf);
+				  &pcf->pdata->reg_init_data[pdev->id], pcf);
 	if (IS_ERR(rdev))
 		return PTR_ERR(rdev);
 

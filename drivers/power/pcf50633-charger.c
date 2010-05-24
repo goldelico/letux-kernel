@@ -40,7 +40,7 @@ struct pcf50633_mbc {
 
 int pcf50633_mbc_usb_curlim_set(struct pcf50633 *pcf, int ma)
 {
-	struct pcf50633_mbc *mbc = platform_get_drvdata(pcf->mbc_pdev);
+	struct pcf50633_mbc *mbc = pcf->mbc;
 	int ret = 0;
 	u8 bits;
 	int charging_start = 1;
@@ -112,7 +112,7 @@ EXPORT_SYMBOL_GPL(pcf50633_mbc_usb_curlim_set);
 
 int pcf50633_mbc_get_status(struct pcf50633 *pcf)
 {
-	struct pcf50633_mbc *mbc  = platform_get_drvdata(pcf->mbc_pdev);
+	struct pcf50633_mbc *mbc = pcf->mbc;
 	int status = 0;
 	u8 chgmod;
 
@@ -143,7 +143,7 @@ EXPORT_SYMBOL_GPL(pcf50633_mbc_get_status);
 
 int pcf50633_mbc_get_usb_online_status(struct pcf50633 *pcf)
 {
-	struct pcf50633_mbc *mbc  = platform_get_drvdata(pcf->mbc_pdev);
+	struct pcf50633_mbc *mbc = pcf->mbc;
 
 	if (!mbc)
 		return 0;
@@ -368,6 +368,7 @@ static const u8 mbc_irq_handlers[] = {
 
 static int __devinit pcf50633_mbc_probe(struct platform_device *pdev)
 {
+	struct pcf50633 *pcf = dev_to_pcf50633(pdev->dev.parent);
 	struct pcf50633_mbc *mbc;
 	int ret;
 	int i;
@@ -378,7 +379,7 @@ static int __devinit pcf50633_mbc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, mbc);
-	mbc->pcf = dev_to_pcf50633(pdev->dev.parent);
+	mbc->pcf = pcf;
 
 	/* Set up IRQ handlers */
 	for (i = 0; i < ARRAY_SIZE(mbc_irq_handlers); i++)
@@ -444,6 +445,8 @@ static int __devinit pcf50633_mbc_probe(struct platform_device *pdev)
 	if (mbcs1 & PCF50633_MBCS1_ADAPTPRES)
 		pcf50633_mbc_irq_handler(PCF50633_IRQ_ADPINS, mbc);
 
+	pcf->mbc = mbc;
+
 	return 0;
 }
 
@@ -451,6 +454,8 @@ static int __devexit pcf50633_mbc_remove(struct platform_device *pdev)
 {
 	struct pcf50633_mbc *mbc = platform_get_drvdata(pdev);
 	int i;
+
+	mbc->pcf->mbc = NULL;
 
 	/* Remove IRQ handlers */
 	for (i = 0; i < ARRAY_SIZE(mbc_irq_handlers); i++)

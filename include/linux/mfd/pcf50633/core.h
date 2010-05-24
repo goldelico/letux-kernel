@@ -154,13 +154,9 @@ struct pcf50633 {
 
 	int onkey1s_held;
 
-	struct platform_device *gpio_pdev;
-	struct platform_device *rtc_pdev;
-	struct platform_device *mbc_pdev;
-	struct platform_device *adc_pdev;
-	struct platform_device *input_pdev;
-	struct platform_device *bl_pdev;
-	struct platform_device *regulator_pdev[PCF50633_NUM_REGULATORS];
+	struct pcf50633_mbc *mbc;
+	struct pcf50633_adc *adc;
+	struct pcf50633_bl *bl;
 };
 
 enum pcf50633_reg_int1 {
