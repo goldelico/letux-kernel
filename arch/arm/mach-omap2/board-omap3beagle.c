@@ -867,19 +867,19 @@ static void __init omap3_beagle_init(void)
 			ARRAY_SIZE(omap3_beagle_devices));
 	omap_serial_init();
 
-	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
+//	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
 	omap_mux_init_gpio(170, OMAP_PIN_OUTPUT);
 	gpio_request(170, "DVI_nPD");
-	/* REVISIT leave DVI powered down until it's needed ... */
-	gpio_set_value(170, 0);
 	gpio_direction_output(170, true);
+	gpio_set_value(170, 0);	/* leave DVI powered down until it's needed ... */
 	gpio_export(170, 0);	// no direction change
 
 #if 1	// Openmoko Beagle Hybrid
 	printk(KERN_INFO "Beagle expansionboard: Openmoko Beagle Hybrid\n");
+//	omap_mux_init_gpio(156, OMAP_PIN_OUTPUT);	// inherit from U-Boot...
 	gpio_request(156, "GPS_ON");
-	gpio_set_value(156, 0);	// off
 	gpio_direction_output(156, true);
+	gpio_set_value(156, 0);	// off
 	gpio_export(156, 0);	// no direction change
 	
 	// should be a backlight driver using PWM
@@ -896,21 +896,36 @@ static void __init omap3_beagle_init(void)
 	gpio_direction_input(137);
 	gpio_export(137, 0);	// no direction change
 	
+	gpio_request(138, "EXT_ANT");
+	gpio_direction_input(138);
+	gpio_export(138, 0);	// no direction change
+	
 	gpio_request(70, "AUX_RED");
 	gpio_direction_output(70, true);
+	gpio_set_value(70, 0);
 	gpio_export(70, 0);	// no direction change
 	
 	gpio_request(71, "AUX_GREEN");
 	gpio_direction_output(71, true);
+	gpio_set_value(71, 0);
 	gpio_export(71, 0);	// no direction change
 	
 	gpio_request(78, "POWER_RED");
 	gpio_direction_output(78, true);
+	gpio_set_value(78, 0);
 	gpio_export(78, 0);	// no direction change
 	
 	gpio_request(79, "POWER_GREEN");
 	gpio_direction_output(79, true);
+	gpio_set_value(79, 0);
 	gpio_export(79, 0);	// no direction change
+	
+	// for a definition of the mux names see arch/arm/mach-omap2/mux34xx.c
+	// the syntax of the first paramter to omap_mux_init_signal() is "muxname" or "m0name.muxname" (for ambiguous modes)
+	// note: calling omap_mux_init_signal() overwrites the parameter string...
+	
+	omap_mux_init_signal("mcbsp3_clkx.uart2_tx", OMAP_PIN_OUTPUT);	// gpio 142
+	omap_mux_init_signal("mcbsp3_fsx.uart2_rx", OMAP_PIN_INPUT);	// gpio 143
 	
 #else
 
