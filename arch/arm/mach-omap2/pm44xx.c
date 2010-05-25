@@ -299,8 +299,13 @@ static int __init omap4_pm_init(void)
 	printk(KERN_INFO "Power Management for TI OMAP4.\n");
 
 #ifdef CONFIG_PM
+#if 0
+	/* HACK:
+	 * This Breaks the Ducati Camera use case
+	 * In anycase PM is not enabled on ES1.0 so disable setup
+	 */
 	prcm_setup_regs();
-
+#endif
 	ret = pwrdm_for_each(pwrdms_setup, NULL);
 	if (ret) {
 		printk(KERN_ERR "Failed to setup powerdomains\n");
