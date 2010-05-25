@@ -25,6 +25,7 @@
 #include <linux/interrupt.h>
 #include <linux/device.h>
 #include <linux/delay.h>
+#include <linux/kfifo.h>
 
 #include <plat/mailbox.h>
 
@@ -68,7 +69,7 @@ static inline int is_mbox_irq(struct omap_mbox *mbox, omap_mbox_irq_t irq)
 /*
  * message sender
  */
-static int __mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg)
+static int __mbox_poll_for_space(struct omap_mbox *mbox)
 {
 	int ret = 0, i = 1000;
 
@@ -80,11 +81,7 @@ static int __mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg)
 		udelay(1);
 	}
 
-	if (mbox->txq->callback)
-		ret = mbox->txq->callback(NULL);
 
-	if (!ret)
-		mbox_fifo_write(mbox, msg);
 
 	return ret;
 }
@@ -92,49 +89,49 @@ static int __mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg)
 
 int omap_mbox_msg_send(struct omap_mbox *mbox, mbox_msg_t msg)
 {
-	/* Directly calling __mbox_msg_send since Tesla is already running
-	in a tasklet */
-	return __mbox_msg_send(mbox, msg);
+	struct omap_mbox_queue *mq = mbox->txq;
+	int ret = 0, len;
+	spin_lock(&mq->lock);
 
-	/* FIXME Work queue is not used to send mailbox messages.
-	 Directly calling __mbox_msg_send().*/
-#if 0
-	struct request *rq;
-	struct request_queue *q = mbox->txq->queue;
+	if ((FIFO_SIZE - (__kfifo_len(mq->fifo))) < sizeof(msg)) {
+		ret = -ENOMEM;
+		goto out;
+	}
 
-	rq = blk_get_request(q, WRITE, GFP_ATOMIC);
-	if (unlikely(!rq))
-		return -ENOMEM;
-
-	blk_insert_request(q, rq, 0, (void *) msg);
+	len = __kfifo_put(mq->fifo, (unsigned char *)&msg, sizeof(msg));
+	if (unlikely(len != sizeof(msg))) {
+		pr_err("%s: __kfifo_put anomaly detected\n", __func__);
+		ret = -ENOMEM;
+	}
 	tasklet_schedule(&mbox->txq->tasklet);
 
-	return 0;
-#endif
+out:
+	spin_unlock(&mq->lock);
+	return ret;
 }
 EXPORT_SYMBOL(omap_mbox_msg_send);
 
 static void mbox_tx_tasklet(unsigned long tx_data)
 {
-	int ret;
-	struct request *rq;
 	struct omap_mbox *mbox = (struct omap_mbox *)tx_data;
-	struct request_queue *q = mbox->txq->queue;
+	struct omap_mbox_queue *mq = mbox->txq;
+	mbox_msg_t msg;
+	int ret;
 
-	while (1) {
+	while (__kfifo_len(mq->fifo)) {
 
-		rq = blk_fetch_request(q);
-
-		if (!rq)
-			break;
-
-		ret = __mbox_msg_send(mbox, (mbox_msg_t)rq->special);
-		if (ret) {
+		if (__mbox_poll_for_space(mbox)) {
 			omap_mbox_enable_irq(mbox, IRQ_TX);
-			blk_requeue_request(q, rq);
-			return;
+			break;
 		}
-		blk_end_request_all(rq, 0);
+
+		ret = __kfifo_get(mq->fifo, (unsigned char *)&msg,
+							sizeof(msg));
+		if (unlikely(ret != sizeof(msg)))
+			pr_err("%s: __kfifo_get anomaly\n", __func__);
+		if (mbox->txq->callback)
+			ret = mbox->txq->callback(NULL);
+		mbox_fifo_write(mbox, msg);
 	}
 }
 
@@ -145,41 +142,29 @@ static void mbox_rx_work(struct work_struct *work)
 {
 	struct omap_mbox_queue *mq =
 			container_of(work, struct omap_mbox_queue, work);
-	struct omap_mbox *mbox = mq->queue->queuedata;
-	struct request_queue *q = mbox->rxq->queue;
-	struct request *rq;
 	mbox_msg_t msg;
-	unsigned long flags;
 
+	int len = 0;
+	struct omap_mbox *mbox = mq->mbox;
 
-	while (1) {
-		spin_lock_irqsave(q->queue_lock, flags);
-		rq = blk_fetch_request(q);
-		if (rq_full) {
-			omap_mbox_enable_irq(mbox, IRQ_RX);
-			rq_full = false;
-		}
-		spin_unlock_irqrestore(q->queue_lock, flags);
-		if (!rq)
-			break;
+	while (__kfifo_len(mq->fifo) >= sizeof(msg)) {
+		len = __kfifo_get(mq->fifo, (unsigned char *)&msg,
+					sizeof(msg));
+		if (unlikely(len != sizeof(msg)))
+			pr_err("%s: __kfifo_get anomaly detected\n", __func__);
 
-		msg = (mbox_msg_t)rq->special;
-		blk_end_request_all(rq, 0);
-		if (mbox->rxq->callback)
-			mbox->rxq->callback((void *)msg);
+		if (mq->callback)
+			mq->callback((void *)msg);
 	}
 
-}
-
+	if ((rq_full) && (len == sizeof(msg))) {
+		omap_mbox_enable_irq(mbox, IRQ_RX);
 /*
  * Mailbox interrupt handler
  */
-static void mbox_txq_fn(struct request_queue *q)
-{
+		rq_full = false;
 }
 
-static void mbox_rxq_fn(struct request_queue *q)
-{
 }
 
 static void __mbox_tx_interrupt(struct omap_mbox *mbox)
@@ -191,13 +176,13 @@ static void __mbox_tx_interrupt(struct omap_mbox *mbox)
 
 static void __mbox_rx_interrupt(struct omap_mbox *mbox)
 {
-	struct request *rq;
+	struct omap_mbox_queue *mq = mbox->rxq;
 	mbox_msg_t msg;
-	struct request_queue *q = mbox->rxq->queue;
+	int len;
 
 	while (!mbox_fifo_empty(mbox)) {
-		rq = blk_get_request(q, WRITE, GFP_ATOMIC);
-		if (unlikely(!rq)) {
+		if (unlikely(__kfifo_len(mq->fifo) >=
+				FIFO_SIZE - sizeof(msg))) {
 			omap_mbox_disable_irq(mbox, IRQ_RX);
 			rq_full = true;
 			goto nomem;
@@ -205,8 +190,9 @@ static void __mbox_rx_interrupt(struct omap_mbox *mbox)
 
 		msg = mbox_fifo_read(mbox);
 
-		rq->special = (void *)msg;
-		blk_insert_request(q, rq, 0, (void *)msg);
+		len = __kfifo_put(mq->fifo, (unsigned char *)&msg, sizeof(msg));
+		if (unlikely(len != sizeof(msg)))
+			pr_err("%s: __kfifo_put anomaly detected\n", __func__);
 		if (mbox->ops->type == OMAP_MBOX_TYPE1)
 			break;
 	}
@@ -231,11 +217,9 @@ static irqreturn_t mbox_interrupt(int irq, void *p)
 }
 
 static struct omap_mbox_queue *mbox_queue_alloc(struct omap_mbox *mbox,
-					request_fn_proc *proc,
 					void (*work) (struct work_struct *),
 					void (*tasklet)(unsigned long))
 {
-	struct request_queue *q;
 	struct omap_mbox_queue *mq;
 
 	mq = kzalloc(sizeof(struct omap_mbox_queue), GFP_KERNEL);
@@ -244,17 +228,16 @@ static struct omap_mbox_queue *mbox_queue_alloc(struct omap_mbox *mbox,
 
 	spin_lock_init(&mq->lock);
 
-	q = blk_init_queue(proc, &mq->lock);
-	if (!q)
+	mq->fifo = kfifo_alloc(FIFO_SIZE, GFP_KERNEL, &mq->lock);
+	if (IS_ERR(mq->fifo))
 		goto error;
-	q->queuedata = mbox;
-	mq->queue = q;
 
 	if (work)
 		INIT_WORK(&mq->work, work);
 
 	if (tasklet)
 		tasklet_init(&mq->tasklet, tasklet, (unsigned long)mbox);
+	mq->mbox = mbox;
 	return mq;
 error:
 	kfree(mq);
@@ -263,7 +246,7 @@ error:
 
 static void mbox_queue_free(struct omap_mbox_queue *q)
 {
-	blk_cleanup_queue(q->queue);
+	kfifo_free(q->fifo);
 	kfree(q);
 }
 
@@ -293,14 +276,14 @@ static int omap_mbox_startup(struct omap_mbox *mbox)
 		goto fail_request_irq;
 	}
 
-	mq = mbox_queue_alloc(mbox, mbox_txq_fn, NULL, mbox_tx_tasklet);
+	mq = mbox_queue_alloc(mbox, NULL, mbox_tx_tasklet);
 	if (!mq) {
 		ret = -ENOMEM;
 		goto fail_alloc_txq;
 	}
 	mbox->txq = mq;
 
-	mq = mbox_queue_alloc(mbox, mbox_rxq_fn, mbox_rx_work, NULL);
+	mq = mbox_queue_alloc(mbox, mbox_rx_work, NULL);
 	if (!mq) {
 		ret = -ENOMEM;
 		goto fail_alloc_rxq;
