@@ -736,11 +736,19 @@ void _messageq_transportshm_notify_fxn(u16 proc_id, u32 event_no,
 	obj = (struct messageq_transportshm_object *)arg;
 	/*  While there is are messages, get them out and send them to
 	 *  their final destination. */
-	while ((msg = (messageq_msg) listmp_get_head(obj->my_listmp_handle))
-		!= NULL) {
+	if (obj->my_listmp_handle)
+		msg = (messageq_msg) listmp_get_head(obj->my_listmp_handle);
+	else
+		goto exit;
+	while (msg != NULL) {
 		/* Get the destination message queue Id */
 		queue_id = messageq_get_dst_queue(msg);
 		messageq_put(queue_id, msg);
+		if (obj->my_listmp_handle)
+			msg = (messageq_msg)
+				listmp_get_head(obj->my_listmp_handle);
+		else
+			msg = NULL;
 	}
 	return;
 
