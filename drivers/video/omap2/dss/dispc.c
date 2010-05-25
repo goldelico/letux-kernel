@@ -325,6 +325,7 @@ static struct {
 extern void __iomem  *dispc_base;
 
 static void _omap_dispc_set_irqs(void);
+static int dispc_is_vdma_req(u8 rotation, enum omap_color_mode color_mode);
 
 static inline void dispc_write_reg(const struct dispc_reg idx, u32 val)
 {
@@ -1622,11 +1623,17 @@ static const s8 *get_scaling_coef(int orig_size, int out_size,
 		fir5_m32;
 }
 
+static void _dispc_set_vdma_attrs(enum omap_plane plane, bool enable)
+{
+	REG_FLD_MOD(dispc_reg_att[plane], enable ? 1 : 0, 20, 20);
+}
+
 static void _dispc_set_scaling(enum omap_plane plane,
 		u16 orig_width, u16 orig_height,
 		u16 out_width, u16 out_height,
 		bool ilace, bool three_taps,
-		bool fieldmode, int scale_x, int scale_y)
+		bool fieldmode, int scale_x, int scale_y,
+		bool vdma)
 {
 	int fir_hinc;
 	int fir_vinc;
@@ -1637,7 +1644,7 @@ static void _dispc_set_scaling(enum omap_plane plane,
 
 	BUG_ON(plane == OMAP_DSS_GFX);
 
-	if (scale_x) {
+	if (scale_x || vdma) {
 		fir_hinc = 1024 * (orig_width - 1) / (out_width - 1);
 		if (fir_hinc > 4095)
 			fir_hinc = 4095;
@@ -1647,7 +1654,7 @@ static void _dispc_set_scaling(enum omap_plane plane,
 		hfir = fir5_zero;
 	}
 
-	if (scale_y) {
+	if (scale_y || vdma) {
 		fir_vinc = 1024 * (orig_height - 1) / (out_height - 1);
 		if (fir_vinc > 4095)
 			fir_vinc = 4095;
@@ -1674,6 +1681,8 @@ static void _dispc_set_scaling(enum omap_plane plane,
 	l |= fir_vinc ? (1 << 6) : 0;
 
 	l |= three_taps ? 0 : (1 << 21);
+
+	l |= vdma ? (1 << 22) : 0;
 
 	dispc_write_reg(dispc_reg_att[plane], l);
 
@@ -1770,7 +1779,7 @@ static void _dispc_set_scaling_uv(enum omap_plane plane,
 #endif
 
 static void _dispc_set_rotation_attrs(enum omap_plane plane, u8 rotation,
-		bool mirroring, enum omap_color_mode color_mode)
+		bool mirroring, enum omap_color_mode color_mode, bool vdma)
 {
 #ifndef CONFIG_ARCH_OMAP4
 	if (color_mode == OMAP_DSS_COLOR_YUV2 ||
@@ -1811,7 +1820,9 @@ static void _dispc_set_rotation_attrs(enum omap_plane plane, u8 rotation,
 
 		REG_FLD_MOD(dispc_reg_att[plane], vidrot, 13, 12);
 
-		if (rotation == OMAP_DSS_ROT_90 || rotation == OMAP_DSS_ROT_270)
+		if (!vdma &&
+			(rotation == OMAP_DSS_ROT_90 ||
+				rotation == OMAP_DSS_ROT_270))
 			REG_FLD_MOD(dispc_reg_att[plane], 0x1, 18, 18);
 		else
 			REG_FLD_MOD(dispc_reg_att[plane], 0x0, 18, 18);
@@ -2225,14 +2236,24 @@ static unsigned long calc_fclk(enum omap_channel channel, u16 width,
 	return dispc_pclk_rate(channel) * vf * hf;
 }
 
+static int dispc_is_vdma_req(u8 rotation, enum omap_color_mode color_mode)
+{
+	/* TODO: VDMA support for RGB16 mode */
+	if (cpu_is_omap3630())
+		if ((color_mode == OMAP_DSS_COLOR_YUV2) ||
+			(color_mode == OMAP_DSS_COLOR_UYVY))
+			if ((rotation == OMAP_DSS_ROT_90 ||
+				rotation == OMAP_DSS_ROT_270))
+				return true;
+	return false;
+}
+
 void dispc_set_channel_out(enum omap_plane plane, enum omap_channel channel_out)
 {
 	enable_clocks(1);
 	_dispc_set_channel_out(plane, channel_out);
 	enable_clocks(0);
 }
-
-
 
 static int _dispc_setup_plane(enum omap_plane plane,
 		u32 paddr, u16 screen_width,
@@ -2264,6 +2285,7 @@ static int _dispc_setup_plane(enum omap_plane plane,
 	s32 pix_inc;
 	u16 frame_height = height;
 	unsigned int field_offset = 0;
+	bool vdma;
 
 	u8 orientation = 0;
 	struct tiler_view_orient orient;
@@ -2362,6 +2384,11 @@ static int _dispc_setup_plane(enum omap_plane plane,
 			return -EINVAL;
 		}
 
+		vdma = dispc_is_vdma_req(rotation, color_mode);
+
+		if (vdma)
+			three_taps = false;
+
 		/* Must use 3-tap filter */
 		if (cpu_is_omap44xx())
 			three_taps = width > 1280;
@@ -2383,6 +2410,7 @@ static int _dispc_setup_plane(enum omap_plane plane,
 				printk(KERN_ERR
 					"Should use 5 tap but cannot\n");
 			}
+
 		} else {
 			fclk = calc_fclk_five_taps(channel, width, height,
 				out_width, out_height, color_mode);
@@ -2549,15 +2577,18 @@ static int _dispc_setup_plane(enum omap_plane plane,
 			/* :TRICKY: set chroma resampling for RGB formats */
 			REG_FLD_MOD(DISPC_VID_ATTRIBUTES2(plane - 1), 0, 8, 8);
 #endif
+
 		_dispc_set_scaling(plane, width, height,
-				   out_width, out_height,
-				   ilace, three_taps, fieldmode,
-				   scale_x, scale_y);
+					out_width, out_height,
+					ilace, three_taps, fieldmode,
+					scale_x, scale_y, vdma);
+		_dispc_set_vdma_attrs(plane, vdma);
+
 		_dispc_set_vid_size(plane, out_width, out_height);
 		_dispc_set_vid_color_conv(plane, cconv);
 	}
 
-	_dispc_set_rotation_attrs(plane, rotation, mirror, color_mode);
+	_dispc_set_rotation_attrs(plane, rotation, mirror, color_mode, vdma);
 
 	if (cpu_is_omap3630() && (plane != OMAP_DSS_VIDEO1))
 		_dispc_set_alpha_blend_attrs(plane, pre_alpha_mult);
@@ -2579,6 +2610,7 @@ static void _dispc_enable_plane(enum omap_plane plane, bool enable)
 	if (!enable) { /* clear out resizer related bits */
 		REG_FLD_MOD(dispc_reg_att[plane], 0x00, 6, 5);
 		REG_FLD_MOD(dispc_reg_att[plane], 0x00, 21, 21);
+		REG_FLD_MOD(dispc_reg_att[plane], 0x00, 22, 22);
 	}
 }
 

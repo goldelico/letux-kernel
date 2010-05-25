@@ -31,6 +31,8 @@
 #include <plat/vrfb.h>
 #include <plat/sdrc.h>
 
+#include <plat/display.h>
+
 #ifdef DEBUG
 #define DBG(format, ...) pr_debug("VRFB: " format, ## __VA_ARGS__)
 #else
@@ -190,6 +192,14 @@ void omap_vrfb_setup(struct vrfb *vrfb, unsigned long paddr,
 		pixel_size_exp = 1;
 	else
 		BUG();
+
+	/* VDMA Optimization */
+	/* TODO: VDMA support for RGB16 mode */
+	if (cpu_is_omap3630() && yuv_mode)
+		if (rotation == OMAP_DSS_ROT_90 ||
+			rotation == OMAP_DSS_ROT_270){
+				pixel_size_exp = 2;
+		}
 
 	vrfb_width = ALIGN(width * bytespp, VRFB_PAGE_WIDTH) / bytespp;
 	vrfb_height = ALIGN(height, VRFB_PAGE_HEIGHT);
