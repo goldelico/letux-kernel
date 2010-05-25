@@ -59,7 +59,7 @@ static int omap_hdmi_dai_startup(struct snd_pcm_substream *substream,
 {
 	int err = 0;
 #ifdef CONFIG_HDMI_NO_IP_MODULE
-	err = HDMI_W1_WrapperEnable(HDMI_WP);
+	err = hdmi_w1_wrapper_enable(HDMI_WP);
 #else
 	if (hdmi_audio_core.module_loaded)
 		err = hdmi_audio_core.wrapper_enable(HDMI_WP);
@@ -74,7 +74,7 @@ static void omap_hdmi_dai_shutdown(struct snd_pcm_substream *substream,
 {
 	int err = 0;
 #ifdef CONFIG_HDMI_NO_IP_MODULE
-	err = HDMI_W1_WrapperDisable(HDMI_WP);
+	err = hdmi_w1_wrapper_disable(HDMI_WP);
 #else
 	if (hdmi_audio_core.module_loaded)
 		err = hdmi_audio_core.wrapper_disable(HDMI_WP);
@@ -94,7 +94,7 @@ static int omap_hdmi_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 #ifdef CONFIG_HDMI_NO_IP_MODULE
-		err = HDMI_W1_StartAudioTransfer(HDMI_WP);
+		err = hdmi_w1_start_audio_transfer(HDMI_WP);
 #else
 		if (hdmi_audio_core.module_loaded)
 			err = hdmi_audio_core.start_audio(HDMI_WP);
@@ -108,7 +108,7 @@ static int omap_hdmi_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 #ifdef CONFIG_HDMI_NO_IP_MODULE
-		err = HDMI_W1_StopAudioTransfer(HDMI_WP);
+		err = hdmi_w1_stop_audio_transfer(HDMI_WP);
 #else
 		if (hdmi_audio_core.module_loaded)
 			err = hdmi_audio_core.stop_audio(HDMI_WP);
