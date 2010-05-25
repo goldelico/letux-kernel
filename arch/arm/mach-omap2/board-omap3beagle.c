@@ -24,7 +24,6 @@
 #include <linux/irq.h>
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
-#include <linux/spi/spi.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
@@ -581,7 +580,7 @@ static int __init tsc2007_init(void)
 			   "input\n", TS_PENIRQ_GPIO);
 		return -ENXIO;
 	}
-	gpio_export(TS_PENIRQ_GPIO, 0);
+//	gpio_export(TS_PENIRQ_GPIO, 0);
 	omap_set_gpio_debounce(TS_PENIRQ_GPIO, 1);
 	omap_set_gpio_debounce_time(TS_PENIRQ_GPIO, 0xa);
 	set_irq_type(OMAP_GPIO_IRQ(TS_PENIRQ_GPIO), IRQ_TYPE_EDGE_FALLING);
@@ -688,6 +687,27 @@ static int __init omap3_beagle_i2c_init(void)
 	return 0;
 }
 
+#if 0
+
+static struct spi_board_info beaglefpga_mcspi_board_info[] = {
+	// spi 4.0
+	{
+		.modalias	= "spidev",
+		.max_speed_hz	= 48000000, //48 Mbps
+		.bus_num	= 4,
+		.chip_select	= 0,	
+		.mode = SPI_MODE_1,
+	},
+};
+
+static void __init beaglefpga_init_spi(void)
+{
+		/* hook the spi ports to the spidev driver */
+		spi_register_board_info(beaglefpga_mcspi_board_info,
+			ARRAY_SIZE(beaglefpga_mcspi_board_info));
+}
+#endif
+
 static struct gpio_led gpio_leds[] = {
 	{
 		.name			= "beagleboard::usr0",
@@ -740,24 +760,6 @@ static struct platform_device keys_gpio = {
 		.platform_data	= &gpio_key_info,
 	},
 };
-
-static struct spi_board_info beaglefpga_mcspi_board_info[] = {
-	// spi 4.0
-	{
-		.modalias	= "spidev",
-		.max_speed_hz	= 48000000, //48 Mbps
-		.bus_num	= 4,
-		.chip_select	= 0,	
-		.mode = SPI_MODE_1,
-	},
-};
-
-static void __init beaglefpga_init_spi(void)
-{
-	/* hook the spi ports to the spidev driver */
-	spi_register_board_info(beaglefpga_mcspi_board_info,
-		ARRAY_SIZE(beaglefpga_mcspi_board_info));
-}
 
 static void __init omap3_beagle_init_irq(void)
 {
@@ -871,9 +873,47 @@ static void __init omap3_beagle_init(void)
 	/* REVISIT leave DVI powered down until it's needed ... */
 	gpio_set_value(170, 0);
 	gpio_direction_output(170, true);
-//	gpio_request(145, "LCD_BACKLIGHT");
-//	gpio_direction_output(145, true);
+	gpio_export(170, 0);	// no direction change
+
+#if 1	// Openmoko Beagle Hybrid
+	printk(KERN_INFO "Beagle expansionboard: Openmoko Beagle Hybrid\n");
+	gpio_request(156, "GPS_ON");
+	gpio_set_value(156, 0);	// off
+	gpio_direction_output(156, true);
+	gpio_export(156, 0);	// no direction change
 	
+	// should be a backlight driver using PWM
+	gpio_request(145, "LCD_BACKLIGHT");
+//	gpio_set_value(145, 1);	// on
+	gpio_direction_output(145, true);
+	gpio_export(145, 0);	// no direction change
+
+	gpio_request(136, "AUX_BUTTON");
+	gpio_direction_input(136);
+	gpio_export(136, 0);	// no direction change
+	
+	gpio_request(137, "POWER_BUTTON");
+	gpio_direction_input(137);
+	gpio_export(137, 0);	// no direction change
+	
+	gpio_request(70, "AUX_RED");
+	gpio_direction_output(70, true);
+	gpio_export(70, 0);	// no direction change
+	
+	gpio_request(71, "AUX_GREEN");
+	gpio_direction_output(71, true);
+	gpio_export(71, 0);	// no direction change
+	
+	gpio_request(78, "POWER_RED");
+	gpio_direction_output(78, true);
+	gpio_export(78, 0);	// no direction change
+	
+	gpio_request(79, "POWER_GREEN");
+	gpio_direction_output(79, true);
+	gpio_export(79, 0);	// no direction change
+	
+#else
+
 	if(!strcmp(expansionboard_name, "zippy")) 
 	{
 		printk(KERN_INFO "Beagle expansionboard: initializing enc28j60\n");
@@ -922,13 +962,8 @@ static void __init omap3_beagle_init(void)
 		gpio_request(162, "sysfs");
 		gpio_export(162, 1);
 	}
-
-	if(!strcmp(expansionboard_name, "beaglefpga"))
-	{  
-		printk(KERN_INFO "Beagle expansionboard: Using McSPI for SPI\n");
-		beaglefpga_init_spi();
-	}
-
+#endif
+	
 	usb_musb_init();
 	usb_ehci_init(&ehci_pdata);
 	omap3beagle_flash_init();
