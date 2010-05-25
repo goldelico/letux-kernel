@@ -281,7 +281,7 @@ int ipc_attach(u16 remote_proc_id)
 					sharedregion_get_heap(0),
 					notify_mem_req,
 					sharedregion_get_cache_line_size(0));
-
+			memset(notify_shared_addr, 0, notify_mem_req);
 			slave->notify_sr_ptr = sharedregion_get_srptr(
 							notify_shared_addr, 0);
 			if (slave->notify_sr_ptr ==
@@ -892,16 +892,21 @@ int ipc_proc_sync_finish(u16 remote_proc_id, void *shared_addr)
 	bool cache_enabled = sharedregion_is_cache_enabled(0);
 #endif
 	VOLATILE struct ipc_reserved *self;
+	VOLATILE struct ipc_reserved *remote;
 
 	/* don't do any synchronization if proc_sync is NONE */
 	if (ipc_module->proc_sync != IPC_PROCSYNC_NONE) {
 		/* determine self pointer */
-		if (ipc_module->proc_entry[remote_proc_id].slave)
+		if (ipc_module->proc_entry[remote_proc_id].slave) {
 			self = ipc_get_slave_addr(remote_proc_id, shared_addr);
-		else
+			remote = ipc_get_master_addr(remote_proc_id,
+					shared_addr);
+		} else {
 			self = ipc_get_master_addr(remote_proc_id,
 								shared_addr);
-
+			remote = ipc_get_slave_addr(remote_proc_id,
+								shared_addr);
+		}
 		/* set my processor's reserved key to finish */
 		self->started_key = IPC_PROCSYNCFINISH;
 #if 0
@@ -910,6 +915,18 @@ int ipc_proc_sync_finish(u16 remote_proc_id, void *shared_addr)
 			Cache_wbInv((void *)self, reserved_size,
 						Cache_Type_ALL, true);
 #endif
+		/* if slave processor, wait for remote to finish sync */
+		if (ipc_module->proc_entry[remote_proc_id].slave) {
+			/* wait for remote processor to finish */
+			do {
+#if 0
+				if (cacheEnabled) {
+					Cache_inv((Ptr)remote, reservedSize,
+						Cache_Type_ALL, TRUE);
+				}
+#endif
+			} while (remote->started_key != IPC_PROCSYNCFINISH);
+		}
 	}
 
 	return IPC_S_SUCCESS;
