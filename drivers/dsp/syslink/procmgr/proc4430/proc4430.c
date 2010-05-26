@@ -694,6 +694,7 @@ int proc4430_start(void *handle, u32 entry_pt,
 int
 proc4430_stop(void *handle, struct processor_stop_params *stop_params)
 {
+	u32 reg;
 	if (atomic_cmpmask_and_lt(&proc4430_state.ref_count,
 					OMAP4430PROC_MAKE_MAGICSTAMP(0),
 					OMAP4430PROC_MAKE_MAGICSTAMP(1))
@@ -704,6 +705,9 @@ proc4430_stop(void *handle, struct processor_stop_params *stop_params)
 	}
 	switch (stop_params->params->proc_id) {
 	case SYS_M3:
+		printk(KERN_INFO "Assert RST1 and RST2\n");
+		__raw_writel(0x3, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
+		reg = __raw_readl(CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
 		ducati_destroy();
 		printk(KERN_INFO "Assert RST1 and RST2 and RST3\n");
 		__raw_writel(0x7, CORE_PRM_BASE + RM_MPU_M3_RSTCTRL_OFFSET);
