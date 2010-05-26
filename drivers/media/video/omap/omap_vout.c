@@ -3073,7 +3073,6 @@ void omap_vout_isr(void *arg, unsigned int irqstatus)
 			spin_unlock_irqrestore(&vout->vbq_lock, flags);
 			return;
 		}
-		fid = 1;
 		vout->field_id ^= 1;
 		if (fid != vout->field_id) {
 			if (0 == fid)
