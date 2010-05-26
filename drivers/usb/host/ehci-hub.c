@@ -196,7 +196,9 @@ static int ehci_bus_suspend (struct usb_hcd *hcd)
 			if (hostpc_reg) {
 				u32	t3;
 
+				spin_unlock_irq(&ehci->lock);
 				msleep(5);/* 5ms for HCD enter low pwr mode */
+				spin_lock_irq(&ehci->lock);
 				t3 = ehci_readl(ehci, hostpc_reg);
 				ehci_writel(ehci, t3 | HOSTPC_PHCD, hostpc_reg);
 				t3 = ehci_readl(ehci, hostpc_reg);
@@ -254,7 +256,7 @@ static int ehci_bus_resume (struct usb_hcd *hcd)
 	}
 
 	if (unlikely(ehci->debug)) {
-		if (ehci->debug && !dbgp_reset_prep())
+		if (!dbgp_reset_prep())
 			ehci->debug = NULL;
 		else
 			dbgp_external_startup();
@@ -624,7 +626,6 @@ static int ehci_hub_control (
 	unsigned long	flags;
 	int		retval = 0;
 	unsigned	selector;
-	u32		runstop;
 
 	/*
 	 * FIXME:  support SetPortFeatures USB_PORT_FEAT_INDICATOR.
@@ -769,19 +770,6 @@ static int ehci_hub_control (
 				set_bit(wIndex, &ehci->port_c_suspend);
 				ehci->reset_done[wIndex] = 0;
 
-				/* Workaround for OMAP errata:
-				 * The errata affects suspend-resume and
-				 * remote-wakeup. We need to halt the
-				 * controller before clearing the resume bit
-				 */
-				runstop = ehci_readl(ehci,
-							&ehci->regs->command);
-				ehci_writel(ehci, (runstop & ~1),
-							&ehci->regs->command);
-				(void) ehci_readl(ehci, &ehci->regs->command);
-				handshake(ehci, &ehci->regs->status,
-						STS_HALT, STS_HALT, 2000);
-
 				/* stop resume signaling */
 				temp = ehci_readl(ehci, status_reg);
 				ehci_writel(ehci,
@@ -789,11 +777,6 @@ static int ehci_hub_control (
 					status_reg);
 				retval = handshake(ehci, status_reg,
 					   PORT_RESUME, 0, 2000 /* 2msec */);
-
-				ehci_writel(ehci, runstop,
-							&ehci->regs->command);
-				(void) ehci_readl(ehci, &ehci->regs->command);
-
 				if (retval != 0) {
 					ehci_err(ehci,
 						"port %d resume error %d\n",
@@ -818,7 +801,7 @@ static int ehci_hub_control (
 			 * this bit; seems too long to spin routinely...
 			 */
 			retval = handshake(ehci, status_reg,
-					PORT_RESET, 0, 750);
+					PORT_RESET, 0, 1000);
 			if (retval != 0) {
 				ehci_err (ehci, "port %d reset error %d\n",
 					wIndex + 1, retval);
@@ -923,17 +906,18 @@ static int ehci_hub_control (
 			if ((temp & PORT_PE) == 0
 					|| (temp & PORT_RESET) != 0)
 				goto error;
-			ehci_writel(ehci, temp | PORT_SUSPEND, status_reg);
+
 			/* After above check the port must be connected.
 			 * Set appropriate bit thus could put phy into low power
 			 * mode if we have hostpc feature
 			 */
+			temp &= ~PORT_WKCONN_E;
+			temp |= PORT_WKDISC_E | PORT_WKOC_E;
+			ehci_writel(ehci, temp | PORT_SUSPEND, status_reg);
 			if (hostpc_reg) {
-				temp &= ~PORT_WKCONN_E;
-				temp |= (PORT_WKDISC_E | PORT_WKOC_E);
-				ehci_writel(ehci, temp | PORT_SUSPEND,
-							status_reg);
+				spin_unlock_irqrestore(&ehci->lock, flags);
 				msleep(5);/* 5ms for HCD enter low pwr mode */
+				spin_lock_irqsave(&ehci->lock, flags);
 				temp1 = ehci_readl(ehci, hostpc_reg);
 				ehci_writel(ehci, temp1 | HOSTPC_PHCD,
 					hostpc_reg);

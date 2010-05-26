@@ -3,48 +3,14 @@
 #ifndef	__ASM_ARCH_OMAP_USB_H
 #define	__ASM_ARCH_OMAP_USB_H
 
-#include <linux/platform_device.h>
 #include <linux/usb/musb.h>
 #include <plat/board.h>
 
 #define OMAP3_HS_USB_PORTS	3
-
 enum ehci_hcd_omap_mode {
-	/* ULPI_BYPASS = 0 */
-	EHCI_HCD_OMAP_MODE_ULPI_PHY,
-
-	/* ULPI_BYPASS = 1, CHANMODE = 1 */
-	EHCI_HCD_OMAP_MODE_UTMI_PHY_6PIN,       /* FSLSMODE = 0x0 */
-	EHCI_HCD_OMAP_MODE_UTMI_PHY_6PIN_ALT,   /* FSLSMODE = 0x1 */
-	EHCI_HCD_OMAP_MODE_UTMI_PHY_3PIN,       /* FSLSMODE = 0x2 */
-	EHCI_HCD_OMAP_MODE_UTMI_PHY_4PIN,       /* FSLSMODE = 0x3 */
-	EHCI_HCD_OMAP_MODE_UTMI_TLL_6PIN,       /* FSLSMODE = 0x4 */
-	EHCI_HCD_OMAP_MODE_UTMI_TLL_6PIN_ALT,   /* FSLSMODE = 0x5 */
-	EHCI_HCD_OMAP_MODE_UTMI_TLL_3PIN,       /* FSLSMODE = 0x6 */
-	EHCI_HCD_OMAP_MODE_UTMI_TLL_4PIN,       /* FSLSMODE = 0x7 */
-	EHCI_HCD_OMAP_MODE_UTMI_TLL_2PIN,       /* FSLSMODE = 0xA */
-	EHCI_HCD_OMAP_MODE_UTMI_TLL_2PIN_ALT,   /* FSLbSMODE = 0xB */
-
-	/* ULPI_BYPASS = 1, CHANMODE = 0 */
-	EHCI_HCD_OMAP_MODE_ULPI_TLL_SDR,        /* ULPIDDRMODE = 0 */
-	EHCI_HCD_OMAP_MODE_ULPI_TLL_DDR,        /* ULPIDDRMODE = 1 */
-};
-
-#define EHCI_HCD_OMAP_FLAG_ENABLED	(1<<0)
-#define EHCI_HCD_OMAP_FLAG_NOBITSTUFF	(1<<1)
-#define EHCI_HCD_OMAP_FLAG_AUTOIDLE	(1<<2)
-
-struct ehci_hcd_omap_port_data {
-	enum ehci_hcd_omap_mode		mode;
-
-	u32				flags;
-
-	int				reset_delay;
-
-	int	(*startup)(struct platform_device *dev, int port);
-	void	(*shutdown)(struct platform_device *dev, int port);
-	void	(*reset)(struct platform_device *dev, int port, int reset);
-	void	(*suspend)(struct platform_device *dev, int port, int suspend);
+	EHCI_HCD_OMAP_MODE_UNKNOWN,
+	EHCI_HCD_OMAP_MODE_PHY,
+	EHCI_HCD_OMAP_MODE_TLL,
 };
 
 enum ohci_omap3_port_mode {
@@ -62,7 +28,11 @@ enum ohci_omap3_port_mode {
 };
 
 struct ehci_hcd_omap_platform_data {
-	struct ehci_hcd_omap_port_data	port_data[OMAP3_HS_USB_PORTS];
+	enum ehci_hcd_omap_mode		port_mode[OMAP3_HS_USB_PORTS];
+	unsigned			phy_reset:1;
+
+	/* have to be valid if phy_reset is true and portx is in phy mode */
+	int	reset_gpio_port[OMAP3_HS_USB_PORTS];
 };
 
 struct ohci_hcd_omap_platform_data {
@@ -95,16 +65,16 @@ struct ohci_hcd_omap_platform_data {
 #define OMAP_OHCI_BASE			OMAP2_OHCI_BASE
 
 struct omap_musb_board_data {
-	u8      interface_type;
-	u8      mode;
-	u8      power;
+	u8	interface_type;
+	u8	mode;
+	u8	power;
 };
 
 enum musb_interface    {MUSB_INTERFACE_ULPI, MUSB_INTERFACE_UTMI};
 
 extern void usb_musb_init(struct omap_musb_board_data *board_data);
 
-extern void usb_ehci_init(struct ehci_hcd_omap_platform_data *pdata);
+extern void usb_ehci_init(const struct ehci_hcd_omap_platform_data *pdata);
 
 /* This is needed for OMAP3 errata 1.164: enabled autoidle can prevent sleep */
 extern void usb_musb_disable_autoidle(void);

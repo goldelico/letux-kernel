@@ -70,10 +70,10 @@ static struct platform_device ehci_device = {
 /*
  * setup_ehci_io_mux - initialize IO pad mux for USBHOST
  */
-static void setup_ehci_io_mux(struct ehci_hcd_omap_port_data *port_data)
+static void setup_ehci_io_mux(const enum ehci_hcd_omap_mode *port_mode)
 {
-	switch (port_data[0].mode) {
-	case EHCI_HCD_OMAP_MODE_ULPI_PHY:
+	switch (port_mode[0]) {
+	case EHCI_HCD_OMAP_MODE_PHY:
 		omap_mux_init_signal("hsusb1_stp", OMAP_PIN_OUTPUT);
 		omap_mux_init_signal("hsusb1_clk", OMAP_PIN_OUTPUT);
 		omap_mux_init_signal("hsusb1_dir", OMAP_PIN_INPUT_PULLDOWN);
@@ -87,7 +87,7 @@ static void setup_ehci_io_mux(struct ehci_hcd_omap_port_data *port_data)
 		omap_mux_init_signal("hsusb1_data6", OMAP_PIN_INPUT_PULLDOWN);
 		omap_mux_init_signal("hsusb1_data7", OMAP_PIN_INPUT_PULLDOWN);
 		break;
-	case EHCI_HCD_OMAP_MODE_UTMI_TLL_6PIN:
+	case EHCI_HCD_OMAP_MODE_TLL:
 		omap_mux_init_signal("hsusb1_tll_stp",
 			OMAP_PIN_INPUT_PULLUP);
 		omap_mux_init_signal("hsusb1_tll_clk",
@@ -113,12 +113,14 @@ static void setup_ehci_io_mux(struct ehci_hcd_omap_port_data *port_data)
 		omap_mux_init_signal("hsusb1_tll_data7",
 			OMAP_PIN_INPUT_PULLDOWN);
 		break;
+	case EHCI_HCD_OMAP_MODE_UNKNOWN:
+		/* FALLTHROUGH */
 	default:
 		break;
 	}
 
-	switch (port_data[1].mode) {
-	case EHCI_HCD_OMAP_MODE_ULPI_PHY:
+	switch (port_mode[1]) {
+	case EHCI_HCD_OMAP_MODE_PHY:
 		omap_mux_init_signal("hsusb2_stp", OMAP_PIN_OUTPUT);
 		omap_mux_init_signal("hsusb2_clk", OMAP_PIN_OUTPUT);
 		omap_mux_init_signal("hsusb2_dir", OMAP_PIN_INPUT_PULLDOWN);
@@ -140,7 +142,7 @@ static void setup_ehci_io_mux(struct ehci_hcd_omap_port_data *port_data)
 		omap_mux_init_signal("hsusb2_data7",
 			OMAP_PIN_INPUT_PULLDOWN);
 		break;
-	case EHCI_HCD_OMAP_MODE_UTMI_TLL_6PIN:
+	case EHCI_HCD_OMAP_MODE_TLL:
 		omap_mux_init_signal("hsusb2_tll_stp",
 			OMAP_PIN_INPUT_PULLUP);
 		omap_mux_init_signal("hsusb2_tll_clk",
@@ -166,15 +168,17 @@ static void setup_ehci_io_mux(struct ehci_hcd_omap_port_data *port_data)
 		omap_mux_init_signal("hsusb2_tll_data7",
 			OMAP_PIN_INPUT_PULLDOWN);
 		break;
+	case EHCI_HCD_OMAP_MODE_UNKNOWN:
+		/* FALLTHROUGH */
 	default:
 		break;
 	}
 
-	switch (port_data[2].mode) {
-	case EHCI_HCD_OMAP_MODE_ULPI_PHY:
+	switch (port_mode[2]) {
+	case EHCI_HCD_OMAP_MODE_PHY:
 		printk(KERN_WARNING "Port3 can't be used in PHY mode\n");
 		break;
-	case EHCI_HCD_OMAP_MODE_UTMI_TLL_6PIN:
+	case EHCI_HCD_OMAP_MODE_TLL:
 		omap_mux_init_signal("hsusb3_tll_stp",
 			OMAP_PIN_INPUT_PULLUP);
 		omap_mux_init_signal("hsusb3_tll_clk",
@@ -200,6 +204,8 @@ static void setup_ehci_io_mux(struct ehci_hcd_omap_port_data *port_data)
 		omap_mux_init_signal("hsusb3_tll_data7",
 			OMAP_PIN_INPUT_PULLDOWN);
 		break;
+	case EHCI_HCD_OMAP_MODE_UNKNOWN:
+		/* FALLTHROUGH */
 	default:
 		break;
 	}
@@ -207,13 +213,13 @@ static void setup_ehci_io_mux(struct ehci_hcd_omap_port_data *port_data)
 	return;
 }
 
-void __init usb_ehci_init(struct ehci_hcd_omap_platform_data *pdata)
+void __init usb_ehci_init(const struct ehci_hcd_omap_platform_data *pdata)
 {
 	platform_device_add_data(&ehci_device, pdata, sizeof(*pdata));
 
 	/* Setup Pin IO MUX for EHCI */
 	if (cpu_is_omap34xx())
-		setup_ehci_io_mux(pdata->port_data);
+		setup_ehci_io_mux(pdata->port_mode);
 
 	if (platform_device_register(&ehci_device) < 0) {
 		printk(KERN_ERR "Unable to register HS-USB (EHCI) device\n");
@@ -223,7 +229,7 @@ void __init usb_ehci_init(struct ehci_hcd_omap_platform_data *pdata)
 
 #else
 
-void __init usb_ehci_init(struct ehci_hcd_omap_platform_data *pdata)
+void __init usb_ehci_init(const struct ehci_hcd_omap_platform_data *pdata)
 
 {
 }
