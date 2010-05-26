@@ -158,6 +158,7 @@ struct ehci_hcd {			/* one per controller */
 	struct dentry		*debug_periodic;
 	struct dentry		*debug_registers;
 #endif
+	struct ehci_hcd_omap *omap_p;
 };
 
 /* convert between an HCD pointer and the corresponding EHCI_HCD */

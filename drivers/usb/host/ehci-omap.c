@@ -184,6 +184,9 @@ struct ehci_hcd_omap {
 	 * Each PHY can have a seperate regulator.
 	 */
 	struct regulator        *regulator[OMAP3_HS_USB_PORTS];
+
+	/* */
+	int suspended;
 };
 
 /*-------------------------------------------------------------------------*/
@@ -268,6 +271,7 @@ static int omap_start_ehc(struct ehci_hcd_omap *omap, struct usb_hcd *hcd)
 	}
 	clk_enable(omap->usbhost1_48m_fck);
 
+	omap->suspended = 0;
 	if (omap->phy_reset) {
 		/* Refer: ISSUE1 */
 		if (gpio_is_valid(omap->reset_gpio_port[0])) {
@@ -666,6 +670,8 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 	/* root ports should always stay powered */
 	ehci_port_power(omap->ehci, 1);
 
+	((struct  ehci_hcd *)
+	((char *)hcd_to_ehci(hcd)))->omap_p = omap;
 	return 0;
 
 err_add_hcd:
@@ -753,6 +759,88 @@ static struct platform_driver ehci_hcd_omap_driver = {
 
 /*-------------------------------------------------------------------------*/
 
+#define OHCI_BASE_ADDR 0x48064400
+#define OHCI_HC_CONTROL         (OHCI_BASE_ADDR + 0x4)
+#define OHCI_HC_CTRL_SUSPEND    (3 << 6)
+#define OHCI_HC_CTRL_RESUME     (1 << 6)
+DEFINE_SPINLOCK(sus_res_lock);
+static int omap_ehci_bus_suspend(struct usb_hcd *hcd)
+{
+	struct ehci_hcd_omap *omap;
+	unsigned long flags;
+	int ret = 0;
+	u32 reg;
+
+	omap = ((struct  ehci_hcd *)
+		((char *)hcd_to_ehci(hcd)))->omap_p;
+	spin_lock_irqsave(&sus_res_lock, flags);
+	ret = ehci_bus_suspend(hcd);
+
+	if(!omap->suspended){
+		omap_writel(OHCI_HC_CTRL_SUSPEND, OHCI_HC_CONTROL);
+		mdelay(8); /* MSTANDBY assertion is delayed by ~8ms */
+
+		reg = ehci_omap_readl(omap->uhh_base, OMAP_UHH_SYSCONFIG);
+		reg &= ~(3 << 12);
+		reg &= ~(3 << 3);
+		ehci_omap_writel(omap->uhh_base, OMAP_UHH_SYSCONFIG, reg);
+
+		clk_disable(omap->usbhost2_120m_fck);
+		clk_disable(omap->usbhost1_48m_fck);
+
+		reg = ehci_omap_readl(omap->tll_base, OMAP_TLL_SHARED_CONF);
+		reg &=~(1);
+		ehci_omap_writel(omap->tll_base, OMAP_TLL_SHARED_CONF, reg);
+
+		omap->suspended = 1;
+
+		clk_disable(omap->usbtll_fck);
+	}
+
+	spin_unlock_irqrestore(&sus_res_lock, flags);
+	return 0;
+}
+static int omap_ehci_bus_resume(struct usb_hcd *hcd)
+{
+	struct ehci_hcd_omap *omap;
+	unsigned long flags;
+	int ret = 0;
+	u32 reg;
+
+	omap = ((struct  ehci_hcd *)
+		((char *)hcd_to_ehci(hcd)))->omap_p;
+
+	spin_lock_irqsave(&sus_res_lock, flags);
+	if(omap->suspended){
+		clk_enable(omap->usbtll_fck);
+
+		reg = ehci_omap_readl(omap->tll_base, OMAP_TLL_SHARED_CONF);
+		reg |=1;
+		ehci_omap_writel(omap->tll_base, OMAP_TLL_SHARED_CONF, reg);
+
+		clk_enable(omap->usbhost2_120m_fck);
+		clk_enable(omap->usbhost1_48m_fck);
+
+		omap_writel(OHCI_HC_CTRL_RESUME, OHCI_HC_CONTROL);
+
+		reg = ehci_omap_readl(omap->uhh_base, OMAP_UHH_SYSCONFIG);
+		reg &= ~(3 << 12);
+		reg &= ~(3 << 3);
+		reg |= (1 << 12);
+		reg |= (1 << 3);
+		ehci_omap_writel(omap->uhh_base, OMAP_UHH_SYSCONFIG, reg);
+
+		omap->suspended = 0;
+		ehci_omap_writel(omap->tll_base, OMAP_USBTLL_IRQENABLE, 0);
+	}
+
+	ret = ehci_bus_resume(hcd);
+	spin_unlock_irqrestore(&sus_res_lock, flags);
+	return 0;
+}
+
+/*-------------------------------------------------------------------------*/
+
 static const struct hc_driver ehci_omap_hc_driver = {
 	.description		= hcd_name,
 	.product_desc		= "OMAP-EHCI Host Controller",
@@ -790,9 +878,8 @@ static const struct hc_driver ehci_omap_hc_driver = {
 	 */
 	.hub_status_data	= ehci_hub_status_data,
 	.hub_control		= ehci_hub_control,
-	.bus_suspend		= ehci_bus_suspend,
-	.bus_resume		= ehci_bus_resume,
-
+	.bus_suspend		= omap_ehci_bus_suspend,
+	.bus_resume		= omap_ehci_bus_resume,
 	.clear_tt_buffer_complete = ehci_clear_tt_buffer_complete,
 };
 
