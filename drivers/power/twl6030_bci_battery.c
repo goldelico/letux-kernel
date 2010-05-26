@@ -617,15 +617,15 @@ static int twl6030_bci_battery_get_property(struct power_supply *psy,
 		 * need to get the correct percentage value per the
 		 * battery characteristics. Approx values for now.
 		 */
-		if (di->voltage_uV < 3594)
+		if (di->voltage_uV < 3250)
 			val->intval = 5;
-		else if (di->voltage_uV < 3651 && di->voltage_uV > 3594)
+		else if (di->voltage_uV > 3250 && di->voltage_uV < 3400)
 			val->intval = 20;
-		else if (di->voltage_uV < 3702 && di->voltage_uV > 3651)
+		else if (di->voltage_uV > 3400 && di->voltage_uV < 3700)
 			val->intval = 50;
-		else if (di->voltage_uV < 3900 && di->voltage_uV > 3702)
+		else if (di->voltage_uV > 3700 && di->voltage_uV < 3950)
 			val->intval = 75;
-		else if (di->voltage_uV > 3900)
+		else if (di->voltage_uV > 3950)
 			val->intval = 90;
 		break;
 	default:
