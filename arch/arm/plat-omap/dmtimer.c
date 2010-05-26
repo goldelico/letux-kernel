@@ -739,3 +739,19 @@ int __init omap_dm_timer_init(void)
 
 	return 0;
 }
+
+
+
+
+unsigned int omap_dm_timer_get_base_addr(struct omap_dm_timer *timer)
+{
+	return timer->phys_base;
+}
+EXPORT_SYMBOL_GPL(omap_dm_timer_get_base_addr);
+
+struct clk *omap_dm_timer_get_iclk(struct omap_dm_timer *timer)
+{
+	return timer->iclk;
+}
+EXPORT_SYMBOL_GPL(omap_dm_timer_get_iclk);
+

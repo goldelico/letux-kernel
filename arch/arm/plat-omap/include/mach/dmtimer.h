@@ -80,5 +80,7 @@ void omap_dm_timer_write_counter(struct omap_dm_timer *timer, unsigned int value
 
 int omap_dm_timers_active(void);
 
+unsigned int omap_dm_timer_get_base_addr(struct omap_dm_timer *timer);
+struct clk *omap_dm_timer_get_iclk(struct omap_dm_timer *timer);
 
 #endif /* __ASM_ARCH_DMTIMER_H */
