@@ -524,6 +524,12 @@ int messageq_transportshm_delete(void **mqtshm_handleptr)
 	int status = 0;
 	int tmpstatus = 0;
 	struct messageq_transportshm_object *obj;
+	u32 key;
+
+	key = mutex_lock_interruptible(messageq_transportshm_state.gate_handle);
+
+	if (key < 0)
+		goto mutex_fail;
 
 	if (WARN_ON(atomic_cmpmask_and_lt(
 			&(messageq_transportshm_state.ref_count),
@@ -588,6 +594,8 @@ int messageq_transportshm_delete(void **mqtshm_handleptr)
 	*mqtshm_handleptr = NULL;
 
 exit:
+	mutex_unlock(messageq_transportshm_state.gate_handle);
+mutex_fail:
 	if (status < 0)
 		printk(KERN_ERR "messageq_transportshm_delete failed: "
 			"status = 0x%x\n", status);
@@ -729,6 +737,12 @@ void _messageq_transportshm_notify_fxn(u16 proc_id, u32 event_no,
 	struct messageq_transportshm_object *obj = NULL;
 	messageq_msg msg = NULL;
 	u32 queue_id;
+	u32 key;
+
+	key = mutex_lock_interruptible(messageq_transportshm_state.gate_handle);
+
+	if (key < 0)
+		goto mutex_fail;
 
 	if (WARN_ON(arg == NULL))
 		goto exit;
@@ -750,11 +764,15 @@ void _messageq_transportshm_notify_fxn(u16 proc_id, u32 event_no,
 		else
 			msg = NULL;
 	}
+	mutex_unlock(messageq_transportshm_state.gate_handle);
 	return;
 
 exit:
+	mutex_unlock(messageq_transportshm_state.gate_handle);
+mutex_fail:
 	printk(KERN_ERR "messageq_transportshm_notify_fxn: argument passed is "
 		"NULL!\n");
+    return;
 }
 
 
