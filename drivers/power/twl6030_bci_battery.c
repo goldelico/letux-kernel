@@ -197,6 +197,9 @@ struct twl6030_bci_device_info {
 static int charge_state;
 static int usb_connected;
 
+static void
+twl6030_bci_battery_update_status(struct twl6030_bci_device_info *di);
+
 static void twl6030_start_usb_charger(void)
 {
 	charger_source = 2;
@@ -321,6 +324,7 @@ static irqreturn_t twl6030charger_ctrl_interrupt(int irq, void *_di)
 	if (stat_reset & CONTROLLER_STAT1_BAT_TEMP_OVRANGE)
 		pr_debug("Battery temperature within range\n");
 
+	twl6030_bci_battery_update_status(di);
 	power_supply_changed(&di->bat);
 
 	return IRQ_HANDLED;
