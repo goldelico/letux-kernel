@@ -772,7 +772,7 @@ config CACHE_L2X0
 config CACHE_PL310
 	bool
 	depends on CACHE_L2X0
-	default y if CPU_V7
+	default n if CPU_V7
 	help
 	  This option enables support for the PL310 cache controller.
 

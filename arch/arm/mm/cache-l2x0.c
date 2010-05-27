@@ -210,14 +210,13 @@ static void l2x0_clean_range(unsigned long start, unsigned long end)
 
 
 #ifdef CONFIG_PL310_ERRATA_588369
-static DEFINE_SPINLOCK(l2x0_flush_lock);
 static void l2x0_flush_all(void)
 {
 	void __iomem *base = l2x0_base;
 	unsigned char way;
 	unsigned long flags, value;
 
-	spin_lock_irqsave(&l2x0_flush_lock, flags);
+	l2x0_lock(&l2x0_lock, flags);
 	debug_writel(0x03);
 	/* Clean all the ways */
 	for (way = 0; way <= 0xf; way++, value = 0) {
@@ -234,7 +233,7 @@ static void l2x0_flush_all(void)
 		cache_sync();
 	}
 	debug_writel(0x00);
-	spin_unlock_irqrestore(&l2x0_flush_lock, flags);
+	l2x0_unlock(&l2x0_lock, flags);
 }
 
 #else
@@ -254,14 +253,13 @@ static inline void l2x0_flush_all(void)
 
 
 #ifdef CONFIG_PL310_ERRATA_588369
-static DEFINE_SPINLOCK(l2x0_clean_lock);
 static void l2x0_clean_all(void)
 {
 	void __iomem *base = l2x0_base;
 	unsigned char way;
 	unsigned long flags, value;
 
-	spin_lock_irqsave(&l2x0_clean_lock, flags);
+	l2x0_lock(&l2x0_lock, flags);
 	debug_writel(0x03);
 	/* Clean all the ways */
 	for (way = 0; way <= 0xf; way++, value = 0) {
@@ -271,7 +269,7 @@ static void l2x0_clean_all(void)
 		cache_sync();
 	}
 	debug_writel(0x00);
-	spin_unlock_irqrestore(&l2x0_clean_lock, flags);
+	l2x0_unlock(&l2x0_lock, flags);
 }
 
 #else
