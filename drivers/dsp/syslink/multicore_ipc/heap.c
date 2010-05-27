@@ -23,12 +23,12 @@
 
 
 /*
- * ======== heap_alloc ========
+ * ======== sl_heap_alloc ========
  *  Purpose:
  *  This will allocate a block of memory of specified
  *  size
  */
-void *heap_alloc(void *hphandle, u32 size, u32 align)
+void *sl_heap_alloc(void *hphandle, u32 size, u32 align)
 {
 	char *block = NULL;
 	struct heap_object *obj = NULL;
@@ -42,12 +42,12 @@ void *heap_alloc(void *hphandle, u32 size, u32 align)
 }
 
 /*
- * ======== heap_free ========
+ * ======== sl_heap_free ========
  *  Purpose:
  *  This will frees a block of memory allocated
  *  rom heap
  */
-int heap_free(void *hphandle, void *block, u32 size)
+int sl_heap_free(void *hphandle, void *block, u32 size)
 {
 	struct heap_object *obj = NULL;
 	s32 retval  = 0;
@@ -61,11 +61,11 @@ int heap_free(void *hphandle, void *block, u32 size)
 }
 
 /*
- * ======== heap_get_stats ========
+ * ======== sl_heap_get_stats ========
  *  Purpose:
  *  This will get the heap memory statistics
  */
-int heap_get_stats(void *hphandle, struct memory_stats *stats)
+int sl_heap_get_stats(void *hphandle, struct memory_stats *stats)
 {
 	struct heap_object *obj = NULL;
 	s32 retval  = 0;
@@ -80,11 +80,11 @@ int heap_get_stats(void *hphandle, struct memory_stats *stats)
 }
 
 /*
- * ======== heap_get_extended_stats ========
+ * ======== sl_heap_get_extended_stats ========
  *  Purpose:
  *  This will get the heap memory extended statistics
  */
-int heap_get_extended_stats(void *hphandle,
+int sl_heap_get_extended_stats(void *hphandle,
 				struct heap_extended_stats *stats)
 {
 	struct heap_object *obj = NULL;

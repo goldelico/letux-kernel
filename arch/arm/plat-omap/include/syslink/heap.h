@@ -69,22 +69,22 @@ struct heap_object {
 /*
  *  Allocate a block
  */
-void *heap_alloc(void *handle, u32 size, u32 align);
+void *sl_heap_alloc(void *handle, u32 size, u32 align);
 
 /*
  *  Frees the block to this Heap
  */
-int heap_free(void *handle, void *block, u32 size);
+int sl_heap_free(void *handle, void *block, u32 size);
 
 /*
  * Get heap statistics
  */
-int heap_get_stats(void *handle, struct memory_stats *stats);
+int sl_heap_get_stats(void *handle, struct memory_stats *stats);
 
 /*
  * Get heap extended statistics
  */
-int heap_get_extended_stats(void *hphandle,
+int sl_heap_get_extended_stats(void *hphandle,
 				struct heap_extended_stats *stats);
 
 #endif /* _HEAP_H_ */

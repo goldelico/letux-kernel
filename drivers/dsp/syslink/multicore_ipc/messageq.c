@@ -958,7 +958,7 @@ messageq_msg messageq_alloc(u16 heap_id, u32 size)
 
 	if (messageq_state.heaps[heap_id] != NULL) {
 		/* Allocate the message. No alignment requested */
-		msg = heap_alloc(messageq_state.heaps[heap_id], size, 0);
+		msg = sl_heap_alloc(messageq_state.heaps[heap_id], size, 0);
 		if (msg == NULL) {
 			printk(KERN_ERR "messageq_alloc: message allocation "
 				"failed!\n");
@@ -1013,7 +1013,7 @@ int messageq_free(messageq_msg msg)
 	}
 
 	heap = messageq_state.heaps[msg->heap_id];
-	heap_free(heap, msg, msg->msg_size);
+	sl_heap_free(heap, msg, msg->msg_size);
 
 exit:
 	if (status < 0) {
