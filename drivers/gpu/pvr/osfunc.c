@@ -2526,18 +2526,22 @@ static void per_cpu_cache_flush(void *arg)
     PVR_UNREFERENCED_PARAMETER(arg);
     wbinvd();
 }
-#endif 
+#endif
 
+#if defined(__arm__)
+static void per_cpu_cache_flush_arm(void *arg)
+{
+    flush_cache_all();
+}
+#endif
 
 IMG_VOID OSFlushCPUCacheKM()
 {
 #if defined(__arm__)
-    flush_cache_all();
+    on_each_cpu(per_cpu_cache_flush_arm, NULL, 1);
 
 #if defined(CONFIG_OUTER_CACHE)  /* Kernel config option */
-#if 0
-	outer_cache.flush_all();
-#endif
+    outer_cache.clean_all();
 #endif
 
 #elif defined(__i386__)
