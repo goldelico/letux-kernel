@@ -1232,7 +1232,7 @@ static void omap_vout_buffer_queue(struct videobuf_queue *q,
 	 * queue */
 	list_add_tail(&vb->queue, &vout->dma_queue);
 
-	vb->state = VIDEOBUF_PREPARED;
+	vb->state = VIDEOBUF_QUEUED;
 }
 
 /* Buffer release function is called from videobuf layer to release buffer
