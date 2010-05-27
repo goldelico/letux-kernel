@@ -1073,6 +1073,29 @@ int omapvid_apply_changes(struct omap_vout_device *vout)
 
 }
 
+static int omapvid_link_en_ovl(int enable, u32 addr, u32 uv_addr)
+{
+	int t;
+
+	for (t = 0; t < NUM_OF_VIDEO_CHANNELS; t++) {
+		struct omap_overlay *ovl = omap_dss_get_overlay(t+1);
+		if (ovl->manager && ovl->manager->device) {
+			struct omap_overlay_info info;
+			ovl->get_overlay_info(ovl, &info);
+			info.enabled = enable;
+			info.paddr = addr;
+
+			if (cpu_is_omap44xx())
+				info.p_uv_addr = uv_addr;
+
+			if (ovl->set_overlay_info(ovl, &info))
+				return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 /* Video buffer call backs */
 
 /* Buffer setup function is called by videobuf layer when REQBUF ioctl is
@@ -1997,6 +2020,9 @@ static int vidioc_g_ctrl(struct file *file, void *fh, struct v4l2_control *ctrl)
 	case V4L2_CID_TI_DISPC_OVERLAY:
 		ctrl->value = vout->vid_info.overlays[0]->id;
 		return 0;
+	case V4L2_CID_LINK:
+		ctrl->value = vout->control[3].value;
+		return 0;
 	default:
 		return -EINVAL;
 	}
@@ -2072,7 +2098,15 @@ static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *a)
 		mutex_unlock(&vout->lock);
 		return 0;
 	}
-
+	case V4L2_CID_LINK:
+	{
+		unsigned int linked = a->value;
+		mutex_lock(&vout->lock);
+		vout->linked = linked;
+		vout->control[3].value = linked;
+		mutex_unlock(&vout->lock);
+		return 0;
+	}
 	default:
 		return -EINVAL;
 	}
@@ -2340,21 +2374,28 @@ static int vidioc_streamon(struct file *file, void *fh,
 #endif
 	omap_dispc_register_isr(omap_vout_isr, vout, mask);
 
-	for (t = 0; t < ovid->num_overlays; t++) {
-		struct omap_overlay *ovl = ovid->overlays[t];
-		if (ovl->manager && ovl->manager->device) {
-			struct omap_overlay_info info;
-			ovl->get_overlay_info(ovl, &info);
-			info.enabled = 1;
-			info.paddr = addr;
-#ifdef CONFIG_ARCH_OMAP4
-			info.p_uv_addr = uv_addr;
-#endif
-			if (ovl->set_overlay_info(ovl, &info))
-				return -EINVAL;
+	if (vout->linked) {
+		if (omapvid_link_en_ovl(1, addr, uv_addr))
+			return -EINVAL;
+	} else {
+		for (t = 0; t < ovid->num_overlays; t++) {
+			struct omap_overlay *ovl = ovid->overlays[t];
+			if (ovl->manager && ovl->manager->device) {
+				struct omap_overlay_info info;
+				ovl->get_overlay_info(ovl, &info);
+				info.enabled = 1;
+				info.paddr = addr;
+
+				if (cpu_is_omap44xx())
+					info.p_uv_addr = uv_addr;
+
+				if (ovl->set_overlay_info(ovl, &info)) {
+					mutex_unlock(&vout->lock);
+					return -EINVAL;
+				}
+			}
 		}
 	}
-
 	/* First save the configuration in ovelray structure */
 	r = omapvid_init(vout, addr, uv_addr);
 	if (r)
@@ -2387,18 +2428,21 @@ static int vidioc_streamoff(struct file *file, void *fh,
 #endif
 	omap_dispc_unregister_isr(omap_vout_isr, vout, mask);
 
-	for (t = 0; t < ovid->num_overlays; t++) {
-		struct omap_overlay *ovl = ovid->overlays[t];
-		if (ovl->manager && ovl->manager->device) {
-			struct omap_overlay_info info;
-
-			ovl->get_overlay_info(ovl, &info);
-			info.enabled = 0;
-			r = ovl->set_overlay_info(ovl, &info);
-			if (r) {
-				printk(KERN_ERR VOUT_NAME "failed to \
-					update overlay info\n");
-				return r;
+	if (vout->linked) {
+		if (omapvid_link_en_ovl(0, 0, 0))
+			return -EINVAL;
+	} else {
+		for (t = 0; t < ovid->num_overlays; t++) {
+			struct omap_overlay *ovl = ovid->overlays[t];
+			if (ovl->manager && ovl->manager->device) {
+				struct omap_overlay_info info;
+				ovl->get_overlay_info(ovl, &info);
+				info.enabled = 0;
+				if (ovl->set_overlay_info(ovl, &info)) {
+					printk(KERN_ERR VOUT_NAME "failed to \
+						update overlay info\n");
+					return -EINVAL;
+				}
 			}
 		}
 	}
@@ -2599,9 +2643,13 @@ static int __init omap_vout_setup_video_data(struct omap_vout_device *vout)
 	vout->control[2].id = V4L2_CID_HFLIP;
 	vout->control[2].value = 0;
 	vout->vrfb_bpp = 2;
+	vout->linked = 0;
 
 	control[1].id = V4L2_CID_BG_COLOR;
 	control[1].value = 0;
+
+	control[3].id = V4L2_CID_LINK;
+	control[3].value = 0;
 
 	/* initialize the video_device struct */
 	vfd = vout->vfd = video_device_alloc();
@@ -3136,11 +3184,18 @@ venc:
 				vout->next_frm->i] + vout->cropped_uv_offset;
 #endif
 
+		if (vout->linked) {
+			if (omapvid_link_en_ovl(1, addr, uv_addr)) {
+				spin_unlock(&vout->vbq_lock);
+				return;
+			}
+		} else {
 			/* First save the configuration in ovelray structure */
 			r = omapvid_init(vout, addr, uv_addr);
 			if (r)
 				printk(KERN_ERR VOUT_NAME
-						"failed to set overlay info\n");
+					"failed to set overlay info\n");
+		}
 			/* Enable the pipeline and set the Go bit */
 			r = omapvid_apply_changes(vout);
 			if (r)

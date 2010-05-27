@@ -20,7 +20,7 @@
 #define TILE_SIZE       32
 #define YUYV_VRFB_BPP   2
 #define RGB_VRFB_BPP    1
-#define MAX_CID		3
+#define MAX_CID		4
 #define MAC_VRFB_CTXS	4
 
 #ifdef CONFIG_ARCH_OMAP4 /* TODO: OMAP4 update displays and managers */
@@ -168,6 +168,6 @@ struct omap_vout_device {
 	enum v4l2_buf_type type;
 	struct videobuf_queue vbq;
 	int io_allowed;
-
+	int linked;
 };
 #endif	/* ifndef OMAP_VOUTDEF_H */
