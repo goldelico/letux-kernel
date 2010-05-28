@@ -1173,6 +1173,16 @@ platform_destroy(void)
 		}
 	}
 
+	/* Finalize PlatformMem module */
+	if (platform_module->platform_mem_init_flag == true) {
+		status = platform_mem_destroy();
+		if (status < 0) {
+			printk(KERN_ERR "platform_destroy : "
+				"platform_mem_destroy failed [0x%x]\n", status);
+		} else {
+			platform_module->platform_mem_init_flag = false;
+		}
+	}
 
 
 	if (status >= 0)

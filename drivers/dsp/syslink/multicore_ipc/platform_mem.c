@@ -105,6 +105,7 @@ EXPORT_SYMBOL(platform_mem_setup);
 int platform_mem_destroy(void)
 {
 	s32 retval = 0;
+	struct platform_mem_map_table_info *info = NULL, *temp = NULL;
 
 	if (atomic_cmpmask_and_lt(&(platform_mem_state.ref_count),
 				  PLATFORM_MEM_MAKE_MAGICSTAMP(0),
@@ -115,6 +116,14 @@ int platform_mem_destroy(void)
 
 	if (atomic_dec_return(&platform_mem_state.ref_count)
 			== PLATFORM_MEM_MAKE_MAGICSTAMP(0)) {
+		/* Delete the node in the map table */
+		list_for_each_entry_safe(info, temp,
+						&platform_mem_state.map_table,
+						mem_entry) {
+			iounmap((unsigned int *) info->knl_virtual_address);
+			list_del(&info->mem_entry);
+			kfree(info);
+		}
 		list_del(&platform_mem_state.map_table);
 		/* Delete the gate handle */
 		kfree(platform_mem_state.gate);
@@ -244,7 +253,7 @@ exit:
 EXPORT_SYMBOL(platform_mem_unmap);
 
 /*
- * ======== platform_mem_map ========
+ * ======== platform_mem_translate ========
  *  Purpose:
  *  This will translate an address.
  */
