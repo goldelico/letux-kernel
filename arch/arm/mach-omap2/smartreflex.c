@@ -335,6 +335,7 @@ static void sr_set_efuse_nvalues(struct omap_sr *sr)
 		}
 	} else if (sr->srid == SR2) {
 		if (cpu_is_omap3630()) {
+			sr->senn_mod = sr->senp_mod = 0x1;
 			sr->opp1_nvalue =
 			   omap_ctrl_readl(OMAP36XX_CONTROL_FUSE_OPP1_VDD2);
 			if (sr->opp1_nvalue != 0)
