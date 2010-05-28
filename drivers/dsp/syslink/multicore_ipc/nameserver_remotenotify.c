@@ -369,7 +369,7 @@ static void _nameserver_remotenotify_callback(u16 proc_id, u16 line_id,
 	*/
 	retval = notify_send_event(handle->remote_proc_id, 0,
 			(handle->notify_event_id  | (NOTIFY_SYSTEMKEY << 16)),
-			0, true);
+			0xCBC7, false);
 
 signal_response:
 	if (handle->msg[offset]->response == true)
@@ -468,7 +468,7 @@ int nameserver_remotenotify_get(void *rhandle, const char *instance_name,
 	/* Send the notification to remote processor */
 	retval = notify_send_event(obj->remote_proc_id, 0,
 			(obj->notify_event_id  | (NOTIFY_SYSTEMKEY << 16)),
-			0, /* Payload */
+			0x8307, /* Payload */
 			false); /* Not sending a payload */
 	if (retval < 0) {
 		/* Undo previous operations */
