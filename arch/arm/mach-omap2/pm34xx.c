@@ -1636,8 +1636,9 @@ int __init omap3_pm_init(void)
 	 * GPIO pad spurious transition (glitch/spike) upon wakeup
 	 * from SYSTEM OFF mode. The remaining fix is in:
 	 * omap3_gpio_save_context, omap3_gpio_restore_context.
+	 * Errata impacted for ES3.1.x as well
 	 */
-	if (omap_rev() <= OMAP3430_REV_ES3_1)
+	if (omap_rev() <= OMAP3430_REV_ES3_1_1)
 		pwrdm_add_wkdep(per_pwrdm, wkup_pwrdm);
 
 	if (omap_type() != OMAP2_DEVICE_TYPE_GP) {
